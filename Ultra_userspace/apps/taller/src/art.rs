@@ -5,8 +5,9 @@
 //!    arte/titan.bin    the logo as palette + PackBits (TLG1), made ONCE by
 //!                      docs/arte/titan_a_logo.py from docs/arte/titan.jpg
 //!    decode            into a borrowed block: one byte per pixel
-//!    backdrop          the sky, built ONCE: night gradient, stars, and the
-//!                      planet and the centaur, dim, behind the graph
+//!    backdrop          the sky, built ONCE: night gradient, two soft
+//!                      nebulas (blue, violet) and coloured stars -- the
+//!                      logo's colours, and nothing drawn behind the graph
 //!    splash            the whole logo, fading in and out over the workshop
 //! ```
 //!
@@ -35,8 +36,6 @@ const HEADER: usize = 12;
 pub struct Logo<'a> {
     pub w: i32,
     pub h: i32,
-    /// Rows that are the DRAWING; the lettering is below.
-    pub art_h: i32,
     pal: [Color; 256],
     idx: &'a [u8],
 }
@@ -58,7 +57,8 @@ pub fn size(src: &[u8]) -> Option<(usize, usize)> {
 /// that is not what the format says.
 pub fn decode<'a>(src: &[u8], out: &'a mut [u8]) -> Option<Logo<'a>> {
     let (w, h) = size(src)?;
-    let art_h = u16_at(src, 8)?.min(h);
+    // Offset 8 (`dibujo`, the rows above the lettering) is not read: the
+    // sky stopped drawing the logo on 30-09. The generator still writes it.
     let n = u16_at(src, 10)?;
     if n == 0 || n > 256 {
         return None;
@@ -89,22 +89,13 @@ pub fn decode<'a>(src: &[u8], out: &'a mut [u8]) -> Option<Logo<'a>> {
     if out.iter().any(|&i| i as usize >= n) {
         return None;
     }
-    Some(Logo { w: w as i32, h: h as i32, art_h: art_h as i32, pal, idx: out })
+    Some(Logo { w: w as i32, h: h as i32, pal, idx: out })
 }
 
 impl Logo<'_> {
     fn at(&self, x: i32, y: i32) -> Color {
         let (x, y) = (x.clamp(0, self.w - 1), y.clamp(0, self.h - 1));
         self.pal[self.idx[(y * self.w + x) as usize] as usize]
-    }
-
-    /// The colour at (fx, fy) in 1/256 of a pixel, between its four
-    /// neighbours: what makes a glow scaled up stay a glow and not squares.
-    fn sample(&self, fx: i32, fy: i32) -> Color {
-        let (x, y, ax, ay) = (fx >> 8, fy >> 8, (fx & 255) as u32, (fy & 255) as u32);
-        let top = mezclar(self.at(x + 1, y), self.at(x, y), ax, 256);
-        let bottom = mezclar(self.at(x + 1, y + 1), self.at(x, y + 1), ax, 256);
-        mezclar(bottom, top, ay, 256)
     }
 }
 
@@ -132,18 +123,37 @@ impl Stars {
     }
 }
 
-/// Where the canvas is and how much of the logo's drawing goes behind it.
+/// Where the canvas is: the part of the window that is not EXPLORER, title
+/// or panel.
 pub struct Sky {
     pub w: i32,
     pub h: i32,
-    /// The canvas: the part of the window that is not EXPLORER, title or panel.
     pub area: (i32, i32, i32, i32),
 }
 
-/// The night of TITAN++, into `px` (w*h): a gradient, the stars, and the
-/// drawing of the logo -- planet, ring, centaur -- dim and centered behind the
-/// graph. Built once; `Canvas::blit` puts it back every frame.
-pub fn backdrop(px: &mut [u32], sky: &Sky, logo: Option<&Logo>) {
+/// A soft cloud of light: `c` at the center fading to nothing at radius `r`
+/// (the square of a falloff, so it has no edge), `k` thousandths strong.
+fn nebula(px: &mut [u32], w: i32, h: i32, (cx, cy, r): (i32, i32, i32), c: Color, k: u32) {
+    let r2 = (r * r) as u64;
+    for y in (cy - r).max(0)..(cy + r).min(h) {
+        for x in (cx - r).max(0)..(cx + r).min(w) {
+            let d2 = ((x - cx) * (x - cx) + (y - cy) * (y - cy)) as u64;
+            if d2 < r2 {
+                let t = r2 - d2;
+                let fall = (t * t * 1000 / (r2 * r2)) as u32;
+                let at = (y * w + x) as usize;
+                px[at] = add(px[at], dim(c, fall * k / 1000));
+            }
+        }
+    }
+}
+
+/// The night of TITAN++, into `px` (w*h): a gradient, two nebulas in the
+/// logo's blue and violet, and stars of three colours. SIMPLE on purpose (the
+/// owner, 30-09): the logo is the ENTRANCE; behind the graph there is only
+/// sky, so nothing competes with the nodes. Built once; `Canvas::blit` puts
+/// it back every frame.
+pub fn backdrop(px: &mut [u32], sky: &Sky) {
     let (w, h) = (sky.w, sky.h);
     if px.len() < (w * h) as usize {
         return;
@@ -153,12 +163,21 @@ pub fn backdrop(px: &mut [u32], sky: &Sky, logo: Option<&Logo>) {
         let c = mezclar(0x0002_030A, 0x0006_0A20, y as u32, h as u32);
         px[(y * w) as usize..((y + 1) * w) as usize].fill(c);
     }
+    let (ax, ay, aw, ah) = sky.area;
+    // Blue low on the left, violet high on the right: the ring of the logo,
+    // spread across the canvas.
+    nebula(px, w, h, (ax + aw / 4, ay + ah * 3 / 4, ah * 3 / 5), 0x001A_2F8C, 420);
+    nebula(px, w, h, (ax + aw * 4 / 5, ay + ah / 4, ah / 2), 0x0042_1F8A, 380);
     let mut r = Stars(0x7171_2929);
-    for _ in 0..460 {
+    for _ in 0..520 {
         let (x, y) = ((r.next() % w as u32) as i32, (r.next() % h as u32) as i32);
         let b = 40 + r.next() % 170;
-        // Cold white: a touch more blue than red.
-        let star = (b * 200 / 255) << 16 | (b * 220 / 255) << 8 | b;
+        // Most are cold white; some blue, a few violet -- the logo's three.
+        let star = match r.next() % 10 {
+            0..=6 => (b * 200 / 255) << 16 | (b * 220 / 255) << 8 | b,
+            7 | 8 => (b * 110 / 255) << 16 | (b * 160 / 255) << 8 | b,
+            _ => (b * 180 / 255) << 16 | (b * 130 / 255) << 8 | b,
+        };
         let at = (y * w + x) as usize;
         px[at] = add(px[at], star);
         if r.next() % 11 == 0 {
@@ -169,31 +188,6 @@ pub fn backdrop(px: &mut [u32], sky: &Sky, logo: Option<&Logo>) {
                     let at = (sy * w + sx) as usize;
                     px[at] = add(px[at], dim(star, 450));
                 }
-            }
-        }
-    }
-    let Some(logo) = logo else { return };
-    // The drawing fills the canvas's height; the lettering stays out.
-    let (ax, ay, aw, ah) = sky.area;
-    let tall = ah - 8;
-    let wide = logo.w * tall / logo.art_h.max(1);
-    let (x0, y0) = (ax + (aw - wide) / 2, ay + (ah - tall) / 2);
-    let step = logo.art_h * 256 / tall.max(1);
-    for dy in 0..tall {
-        let y = y0 + dy;
-        if y < 0 || y >= h {
-            continue;
-        }
-        for dx in 0..wide {
-            let x = x0 + dx;
-            if x < 0 || x >= w {
-                continue;
-            }
-            let c = logo.sample(dx * step, dy * step);
-            if c != 0 {
-                let at = (y * w + x) as usize;
-                // Dim: it is the room, not the subject.
-                px[at] = add(px[at], dim(c, 300));
             }
         }
     }

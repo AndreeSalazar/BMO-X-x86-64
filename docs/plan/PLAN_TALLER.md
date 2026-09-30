@@ -699,11 +699,16 @@ degradados (medido), asi que el trabajo caro se hace en el PC, una vez:
 - **La presentacion** al abrir: el logo entero sube, se sostiene y se funde
   dejando ver el taller (350 + 1.100 + 500 ms). Un clic o una tecla la cortan,
   y ese primer toque SOLO la corta: no selecciona un nodo que aun no se vio.
-- **El cielo**: degradado de noche, 460 estrellas (siempre las mismas) y el
-  DIBUJO del logo -- planeta, anillo, centauro -- al 30 % detras del grafo. Las
-  letras se quedan fuera: el generador MIDE donde acaba el dibujo (la primera
-  banda vacia) y lo escribe en la cabecera. Se pinta UNA vez en su propio bloque;
-  cada fotograma es una copia, los mismos bytes que antes escribia `clear`.
+- **El cielo** (SIMPLIFICADO el 30-09, a pedido del propietario: *"la entrada
+  mantener asi nada mas"*, y de fondo *"azul estrella y colores, pero
+  simplificado"*): degradado de noche, dos nebulosas suaves con los colores
+  del anillo -- azul abajo a la izquierda, violeta arriba a la derecha -- y 520
+  estrellas (siempre las mismas) blancas, azules y alguna violeta. El logo es
+  la ENTRADA; detras del grafo solo hay cielo, y nada compite con los nodos. La
+  primera version ponia el dibujo del logo al 30 % detras (29-09): se quito, y
+  con el el muestreo bilineal que solo servia para eso. Se pinta UNA vez en su
+  propio bloque; cada fotograma es una copia, los mismos bytes que antes
+  escribia `clear`.
 - **La paleta** sale del logo: noche azul, azul electrico -> violeta (el
   anillo). Nodos con cabecera en degradado y HALO de su color (rojo mientras
   son el que falla), cables con halo y nucleo, el elegido con un halo mas
@@ -718,7 +723,7 @@ degradados (medido), asi que el trabajo caro se hace en el PC, una vez:
   liso. `decode` probado con bytes HOSTILES: el recurso cortado en 42 puntos y
   3.000 mutaciones de 4 bytes -- 0 panicos, tambien en debug (desbordes
   comprobados); un bufer chico se rechaza.
-- **La pila**: 55.568 B de 65.536 (`pila.py --ring3`, que ya mide `taller`).
+- **La pila**: 55.552 B de 65.536 (`pila.py --ring3`, que ya mide `taller`).
   La paleta del logo (1 KiB) es lo que crecio.
 - **Lo que cuesta**: `taller.bex` pasa de 157.528 a 272.216 B (tope 1 MiB), y dos
   bloques mas a la vez (el logo, 256 KiB; el cielo, 3,9 MiB) de los 8 por
@@ -734,7 +739,7 @@ por eso es de 512.
 |---|---|---|
 | F1 | fondo negro, el logo sube en ~1/3 s, se queda, y se funde en el taller | sale el taller sin logo: la consola no dice nada, pero no hubo memoria o los bytes no pasaron `decode` |
 | clic durante el logo | el logo se va al instante y NO se selecciona nada | se selecciona un nodo: el primer toque no se trago |
-| el lienzo | estrellas, y detras de los nodos el planeta con su anillo y el centauro, tenues | negro liso: no hubo bloque para el cielo |
+| el lienzo | estrellas de colores y dos nebulosas suaves (azul abajo a la izquierda, violeta arriba a la derecha); ningun dibujo detras de los nodos | negro liso: no hubo bloque para el cielo |
 | arrastrar el lienzo | los nodos se mueven sobre el cielo, que se queda quieto | el cielo tiembla o se rompe: la copia no cubre la ventana |
 
 ---

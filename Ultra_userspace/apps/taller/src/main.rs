@@ -21,8 +21,8 @@
 //!        anywhere -- a `renombra` in F12, a `vuelve` -- is on screen in a beat
 //!    L2  drag a file of the EXPLORER onto another file (or its node): it
 //!        hangs there. Two headers are rewritten; the file does not move
-//!    L3  the look of TITAN++ (`art.rs`): the logo opens the workshop and
-//!        stays behind the graph as its night sky
+//!    L3  the look of TITAN++ (`art.rs`): the logo opens the workshop, and
+//!        the graph lives in a starry sky of the logo's colours
 //! ```
 //!
 //! The checker's events still come from `bmo-titan-contrato::sample`, and only
@@ -150,7 +150,7 @@ pub extern "C" fn _start() -> ! {
         // SAFETY: as above, `pixels` u32 of our own block, for all of `_start`.
         let px = unsafe { core::slice::from_raw_parts_mut(block.base() as *mut u32, pixels) };
         let area = (view::LEFT, view::TOP, WIDTH as i32 - view::LEFT, HEIGHT as i32 - view::TOP - view::PANEL);
-        art::backdrop(px, &art::Sky { w: WIDTH as i32, h: HEIGHT as i32, area }, logo.as_ref());
+        art::backdrop(px, &art::Sky { w: WIDTH as i32, h: HEIGHT as i32, area });
         &*px
     });
     let mut store = Store::open();
