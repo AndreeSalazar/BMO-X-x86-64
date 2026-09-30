@@ -71,7 +71,10 @@ pide y en que orden.
     recurso de version del fichero) y la seguridad (GetFileSecurityW,
     ImpersonateSelf, AccessCheck, RevertToSelf): tanda 14b, HECHA el 30-09
     (`version_y_seguridad.rs`; `tanda14b.exe`, 12 bien en el banco).
-  - [ ] P0.2c -- COM lo justo (ole32 y OLEAUT32 por ordinal): tanda 15.
+  - [x] P0.2c -- COM lo justo (ole32 y OLEAUT32 por ordinal): tanda 15,
+    HECHA el 30-09 (`com_basico.rs`; `tanda15.exe`, 11 bien en el banco).
+    Sin clases de COM: CoCreateInstance dice REGDB_E_CLASSNOTREG y el CLSID
+    por la consola.
   - [ ] P0.2d -- Aparatos que no hay (HID, SETUPAPI, CFGMGR32) y WLDAP32 por
     ordinal: tanda 16.
   - [ ] P0.2e -- RTTI (__RTDynamicCast, __RTtypeid, __unDName): tanda 17.

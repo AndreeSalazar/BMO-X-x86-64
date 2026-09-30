@@ -73,6 +73,7 @@ const DIARIO: &[u8] = include_bytes!("../../proton-x/prueba/diario.exe");
 const TANDA14: &[u8] = include_bytes!("../../proton-x/prueba/tanda14.exe");
 const TANDA4M: &[u8] = include_bytes!("../../proton-x/prueba/tanda4m.exe");
 const TANDA14B: &[u8] = include_bytes!("../../proton-x/prueba/tanda14b.exe");
+const TANDA15: &[u8] = include_bytes!("../../proton-x/prueba/tanda15.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -1384,4 +1385,19 @@ fn tanda4m_exe_tiene_las_excepciones_de_cpp_de_fh4() {
 fn tanda14b_exe_tiene_version_y_seguridad() {
     std::fs::write(volumen().join("window").join("tanda14b.exe"), TANDA14B).unwrap();
     tanda(TANDA14B, Some("window/tanda14b.exe"), 12, "tanda14b.exe: VERSION y la seguridad dicen lo de Windows");
+}
+
+/// **La tanda 15 de Cyberpunk** (30-09): `tanda15.exe` -- COM lo justo
+/// (ole32, y OLEAUT32 por ordinal). Su CoCreateInstance de una clase que no
+/// hay se dice por la consola: es el UNICO aviso que se espera.
+#[test]
+fn tanda15_exe_tiene_com_lo_justo() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, TANDA15, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert_eq!(texto.matches("PROTON-X:").count(), 1, "{texto}");
+    assert!(texto.contains("PROTON-X: CoCreateInstance {584F4D42-1515-1515-B00B-5A1E15151515}: la casa no tiene esa clase"), "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 11, "{texto}");
+    assert!(texto.ends_with("tanda15.exe: COM lo justo dice lo de Windows\r\n[salio 0x0]"), "{texto}");
 }

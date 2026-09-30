@@ -1,0 +1,9 @@
+LIBRARY ole32.dll
+EXPORTS
+CoInitializeEx
+CoUninitialize
+CoInitializeSecurity
+CoCreateInstance
+PropVariantClear
+CoTaskMemAlloc
+ReleaseStgMedium

@@ -855,3 +855,23 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 Dice `bien` doce veces y sale con 0. Deja tanda14b.txt en su carpeta. En
 Windows dice lo mismo.
+
+tanda15.exe -- la TANDA 15 de Cyberpunk (30-09): COM lo justo
+
+ole32 (CoInitializeEx, CoInitializeSecurity, CoCreateInstance,
+PropVariantClear, ReleaseStgMedium, CoUninitialize) y OLEAUT32 importada
+por ORDINAL, como la importa el juego (tanda15_oleaut32.def: `@2 NONAME`...):
+
+   llvm-dlltool -m i386:x86-64 -d tanda15_kernel32.def -l tanda15_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda15_ole32.def -l tanda15_ole32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda15_oleaut32.def -l tanda15_oleaut32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda15.c -o tanda15.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda15.obj tanda15_kernel32.lib tanda15_ole32.lib tanda15_oleaut32.lib /out:tanda15.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   5ea8ed735681055dfb3ed782f39252286eeb82856d848bcf8e5b9e1f6cc2a723
+
+Dice `bien` once veces y sale con 0. En la casa dice ademas, por la
+consola, que CoCreateInstance pidio una clase que no tiene (es lo que un
+juego tiene que contar). En Windows dice lo mismo, sin esa linea.

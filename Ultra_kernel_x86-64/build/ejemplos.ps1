@@ -206,7 +206,7 @@ try {
     # Y `usadll.exe` con su `saludo.dll` (P5a, 28-09): una DLL propia, como las de un juego.
     # Y `cubo12.exe` (P3c4, 28-09): el cubo por el camino de BMOX-12 (Factory6, SwapChain3, profundidad, SM5).
     # Y `bmox12.exe` (P3c, 28-09): el BMOX-12 de EPICX sin tocar, compilado en el Windows del propietario.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll', 'cubo12.exe', 'seh.exe', 'bmox12.exe', 'tanda1.exe', 'tanda2.exe', 'tanda3.exe', 'tanda3b.exe', 'tanda3c.exe', 'tanda4.exe', 'tanda5.exe', 'tanda6.exe', 'tanda7.exe', 'tanda8.exe', 'tanda9.exe', 'tanda10.exe', 'tanda11.exe', 'tanda12.exe', 'tanda13.exe', 'diario.exe', 'tanda14.exe', 'tanda4m.exe', 'tanda14b.exe')) {
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll', 'cubo12.exe', 'seh.exe', 'bmox12.exe', 'tanda1.exe', 'tanda2.exe', 'tanda3.exe', 'tanda3b.exe', 'tanda3c.exe', 'tanda4.exe', 'tanda5.exe', 'tanda6.exe', 'tanda7.exe', 'tanda8.exe', 'tanda9.exe', 'tanda10.exe', 'tanda11.exe', 'tanda12.exe', 'tanda13.exe', 'diario.exe', 'tanda14.exe', 'tanda4m.exe', 'tanda14b.exe', 'tanda15.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
     $leemeWin = @(

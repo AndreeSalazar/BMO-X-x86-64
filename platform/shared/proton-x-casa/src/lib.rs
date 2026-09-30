@@ -51,6 +51,7 @@ extern crate alloc;
 
 pub mod carpetas;
 pub mod com;
+pub mod com_basico;
 pub mod compilador;
 pub mod crt;
 pub mod crt_cadenas;
@@ -266,6 +267,7 @@ pub unsafe fn empezar(p: Plataforma) {
     user32_entrada::reiniciar();
     user32_portapapeles::reiniciar();
     version_y_seguridad::reiniciar();
+    com_basico::reiniciar();
     user32_dialogos::reiniciar();
 }
 
@@ -308,6 +310,8 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         Funcion::Nombre(n) => n,
         // Tanda 12: ws2_32 se importa por ordinal.
         Funcion::Ordinal(o) if dll.eq_ignore_ascii_case("ws2_32.dll") => return red::por_ordinal(*o),
+        // Tanda 15: OLEAUT32 tambien (SysAllocString es el 2...).
+        Funcion::Ordinal(o) if dll.eq_ignore_ascii_case("oleaut32.dll") => return tabla_casa(dll, &Funcion::Nombre(com_basico::por_ordinal(*o)?.into())),
         _ => return None,
     };
     // P4f2: los "API set" de Windows (`api-ms-win-core-synch-l1-2-0.dll`,
@@ -329,7 +333,7 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("d3dcompiler_47.dll") {
         compilador::buscar(n)
     } else if dll.eq_ignore_ascii_case("oleaut32.dll") {
-        sistema::buscar_oleaut32(n)
+        sistema::buscar_oleaut32(n).or_else(|| com_basico::buscar(n))
     } else if dll.eq_ignore_ascii_case("ws2_32.dll") {
         red::buscar(n)
     } else if dll.eq_ignore_ascii_case("bcryptprimitives.dll") || dll.eq_ignore_ascii_case("userenv.dll") {
@@ -348,7 +352,7 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         gdi32::buscar(n).or_else(|| dll_chicas::buscar(n))
     } else if CHICAS.iter().any(|c| dll.eq_ignore_ascii_case(c)) {
         // Tanda 14a: las DLL de las que el juego pide una, dos o cuatro.
-        dll_chicas::buscar(n).or_else(|| version_y_seguridad::buscar(n))
+        dll_chicas::buscar(n).or_else(|| version_y_seguridad::buscar(n)).or_else(|| com_basico::buscar(n))
     } else if dll.eq_ignore_ascii_case("d3d12.dll") {
         d3d12::buscar(n).or_else(|| tuberia::buscar(n))
     } else if dll.eq_ignore_ascii_case("dxgi.dll") {
