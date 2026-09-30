@@ -888,9 +888,9 @@ Windows, y los 18 ordinales de WLDAP32 del juego, cargados sin llamarlos
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   13a87bb03546f4e6bbabb50079c2a371372349afefcd688fec1aaba613d45980
+   bf72bf25fd22e090c5a2fd6cc4b4178214032132fd4b2f5ae7f0aae2915d9d33
 
-Dice `bien` ocho veces y sale con 0. En Windows dice lo mismo.
+Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.
 
 tanda17.exe -- la TANDA 17 de Cyberpunk (30-09): el RTTI de C++
 
@@ -906,6 +906,6 @@ multiple, fallido, y a una referencia, que lanza bad_cast), typeid
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   8b337bce9efac755c8fdf037468c86ca9761a24b4c200b9609bc59dba870a0ce
+   41b426d917430d78594deb895df439bdad2871e235f4f1e2725ab70114ac70da
 
 Dice `bien` once veces y sale con 0. En Windows dice lo mismo.

@@ -97,9 +97,16 @@ static Base *volatile p_otra;
 static A *volatile p_a;
 static Base *volatile p_nulo = nullptr;
 
-static char reservado[256];
+// Como malloc, de un monton propio que solo crece (__unDName pide aqui
+// tambien su monton de trabajo: en Windows, sin esta funcion no hace nada).
+static char monton[1 << 16];
+static U64 gastado;
 static void *reservar(U64 n) {
-    return n <= sizeof reservado ? reservado : nullptr;
+    n = (n + 15) & ~(U64)15;
+    if (gastado + n > sizeof monton)
+        return nullptr;
+    gastado += n;
+    return monton + gastado - n;
 }
 static void soltar(void *) {}
 
@@ -149,11 +156,11 @@ extern "C" void inicio() {
     // -- __unDName
     {
         char b[128];
-        mira(igual(__unDName(b, "?AVHija@@", 128, nullptr, nullptr, 0x2800), "class Hija") && igual(__unDName(b, "?AUBase@@", 128, nullptr, nullptr, 0x2800), "struct Base"), "__unDName de un tipo: class Hija, struct Base");
-        mira(igual(__unDName(b, "?AV?$vector@HV?$allocator@H@std@@@std@@", 128, nullptr, nullptr, 0x2800), "class std::vector<int,class std::allocator<int> >"), "__unDName con plantillas y espacios de nombres");
-        mira(igual(__unDName(b, "?que@Hija@@UEBAHXZ", 128, nullptr, nullptr, 0x1000), "Hija::que") && igual(__unDName(b, "??0Hija@@QEAA@XZ", 128, nullptr, nullptr, 0x1000), "Hija::Hija"), "__unDName, solo el nombre: un metodo y un constructor");
+        mira(igual(__unDName(b, "?AVHija@@", 128, reservar, soltar, 0x2800), "class Hija") && igual(__unDName(b, "?AUBase@@", 128, reservar, soltar, 0x2800), "struct Base"), "__unDName de un tipo: class Hija, struct Base");
+        mira(igual(__unDName(b, "?AV?$vector@HV?$allocator@H@std@@@std@@", 128, reservar, soltar, 0x2800), "class std::vector<int,class std::allocator<int> >"), "__unDName con plantillas y espacios de nombres");
+        mira(igual(__unDName(b, "?que@Hija@@UEBAHXZ", 128, reservar, soltar, 0x1000), "Hija::que") && igual(__unDName(b, "??0Hija@@QEAA@XZ", 128, reservar, soltar, 0x1000), "Hija::Hija"), "__unDName, solo el nombre: un metodo y un constructor");
         char *r = __unDName(nullptr, "?AVHija@@", 0, reservar, soltar, 0x2800);
-        mira(r == reservado && igual(r, "class Hija"), "__unDName sin bufer: lo pide a la funcion de reservar");
+        mira(r >= monton && r < monton + sizeof monton && igual(r, "class Hija") && !__unDName(b, "?AVHija@@", 128, nullptr, nullptr, 0x2800), "__unDName sin bufer: lo pide a la funcion de reservar; sin ella, NULL");
     }
     di("tanda17.exe: el RTTI de C++ es el de Windows\r\n");
     ExitProcess(fallos);

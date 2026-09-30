@@ -94,7 +94,7 @@ fn tanda15_exe_tiene_com_lo_justo() {
 /// juego, cargados.
 #[test]
 fn tanda16_exe_tiene_los_aparatos_que_no_hay() {
-    tanda(TANDA16, None, 8, "tanda16.exe: los aparatos que no hay dicen lo de Windows");
+    tanda(TANDA16, None, 9, "tanda16.exe: los aparatos que no hay dicen lo de Windows");
 }
 
 /// **La tanda 17 de Cyberpunk** (30-09): `tanda17.exe` -- el RTTI de C++:

@@ -369,15 +369,15 @@ pub(crate) fn des_decorar(s: &[u8]) -> Option<String> {
 /// nombre en `salida` (o en un bloque de `reservar`, si no la dan). NULL si
 /// no se entiende.
 extern "win64" fn un_d_name(salida: *mut u8, decorado: *const u8, largo: i32, reservar: u64, _soltar: u64, _banderas: u16) -> u64 {
-    if decorado.is_null() {
+    // Sin funcion de reservar no hace nada, aunque haya bufer: la de
+    // Windows la pide siempre (su monton de trabajo sale de ahi; metal del
+    // propietario 30-09, tanda17.exe).
+    if decorado.is_null() || reservar == 0 {
         return 0;
     }
     let s = crate::crt::cadena_c(decorado as u64);
     let Some(t) = des_decorar(&s) else { return 0 };
     let (d, cabe) = if salida.is_null() {
-        if reservar == 0 {
-            return 0;
-        }
         // SAFETY: la funcion de reservar del `.exe` (como malloc).
         let p = unsafe { crate::hilos::llamar_win64(reservar, t.len() as u64 + 1, 0, 0) };
         (p as *mut u8, t.len() + 1)

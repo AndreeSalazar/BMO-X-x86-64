@@ -64,6 +64,16 @@ static void mira(int bien, const char *que) {
     di("\r\n");
 }
 
+/* Un numero en hexadecimal (lo que dijo Windows, cuando no es lo esperado). */
+static void hex(unsigned long v) {
+    char t[11] = "0x";
+    int k;
+    for (k = 0; k < 8; k++)
+        t[2 + k] = "0123456789ABCDEF"[(v >> (28 - 4 * k)) & 15];
+    t[10] = 0;
+    di(t);
+}
+
 static const unsigned char HID[16] = {0xB2, 0x55, 0x1E, 0x4D, 0x6F, 0xF1, 0xCF, 0x11, 0x88, 0xCB, 0x00, 0x11, 0x11, 0x00, 0x00, 0x30};
 static const unsigned char NO_EXISTE[16] = {0x42, 0x4D, 0x4F, 0x58, 0x16, 0x16, 0x16, 0x16, 0xB0, 0x0B, 0x5A, 0x1E, 0x16, 0x16, 0x16, 0x16};
 /* Una clave de propiedad (DEVPROPKEY: GUID y pid) que no existe. */
@@ -84,7 +94,15 @@ void inicio(void) {
     {
         unsigned char a[12];
         static unsigned char pp[256], caps[64];
-        mira(!HidD_GetAttributes((HANDLE)(long long)-1, a) && HidP_GetCaps(pp, caps) == (long)0xC0110001, "HidD_GetAttributes sin aparato: FALSE; HidP_GetCaps de algo que no es: HIDP_STATUS_INVALID_PREPARSED_DATA");
+        int r = HidD_GetAttributes((HANDLE)(long long)-1, a);
+        long c = HidP_GetCaps(pp, caps);
+        mira(!r, "HidD_GetAttributes sin aparato: FALSE");
+        mira(c == (long)0xC0110001, "HidP_GetCaps de algo que no es: HIDP_STATUS_INVALID_PREPARSED_DATA (0xC0110001)");
+        if (c != (long)0xC0110001) {
+            di("        HidP_GetCaps dijo ");
+            hex((unsigned long)c);
+            di("\r\n");
+        }
     }
     {
         HANDLE h = SetupDiGetClassDevsW(NO_EXISTE, 0, 0, 0x12);
