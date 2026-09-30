@@ -58,8 +58,13 @@ fn leer_fichero(_: &[u8]) -> Option<Vec<u8>> {
 fn escribir_fichero(_: &[u8], _: &[u8]) -> bool {
     false
 }
-fn memoria(_: usize) -> Option<u64> {
-    None
+/// Bloques a cero de la plataforma: desde la tanda 19, `empezar` crea
+/// `cerr` y el locale, y piden memoria (sin ella, la casa lo dice).
+fn memoria(n: usize) -> Option<u64> {
+    let forma = std::alloc::Layout::from_size_align(n.max(1), 4096).ok()?;
+    // SAFETY: una forma que no mide cero; el bloque vive lo que la prueba.
+    let p = unsafe { std::alloc::alloc_zeroed(forma) };
+    (!p.is_null()).then_some(p as u64)
 }
 fn fecha() -> Option<u64> {
     None

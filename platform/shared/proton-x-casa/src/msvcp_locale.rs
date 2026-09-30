@@ -449,6 +449,11 @@ pub(crate) fn ctype_de(loc: *const Locale) -> *const Faceta {
     if c.is_null() {
         let mut f: *mut Faceta = core::ptr::null_mut();
         ctype_getcat(&mut f, 0);
+        // Sin memoria (una plataforma que no da): sin faceta, y ensanchar y
+        // estrechar son los del locale "C" (ver `ensanchar`). Se reintenta.
+        if f.is_null() {
+            return core::ptr::null();
+        }
         incref(f);
         *c = f as *mut Locimp;
     }
@@ -458,6 +463,9 @@ pub(crate) fn ctype_de(loc: *const Locale) -> *const Faceta {
 /// `ctype<char>::widen` y `narrow` de una faceta, por su vtabla (huecos 8
 /// y 10).
 pub(crate) fn ensanchar(f: *const Faceta, c: u8) -> u8 {
+    if f.is_null() {
+        return c;
+    }
     // SAFETY: una ctype<char>.
     unsafe {
         let g: extern "win64" fn(*const Faceta, u8) -> u8 = core::mem::transmute(virtual_de(f, 8));
@@ -466,6 +474,9 @@ pub(crate) fn ensanchar(f: *const Faceta, c: u8) -> u8 {
 }
 
 pub(crate) fn estrechar(f: *const Faceta, c: u8, defecto: u8) -> u8 {
+    if f.is_null() {
+        return c;
+    }
     // SAFETY: una ctype<char>.
     unsafe {
         let g: extern "win64" fn(*const Faceta, u8, u8) -> u8 = core::mem::transmute(virtual_de(f, 10));
