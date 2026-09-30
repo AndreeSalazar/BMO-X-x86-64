@@ -588,6 +588,12 @@ En la "x64 Native Tools Command Prompt" de Visual Studio, en esta carpeta:
 Tiene que decir `bien` once veces y salir con 0 en Windows. Si `dumpbin
 /imports tanda4m.exe` muestra __CxxFrameHandler4, es el que hace falta.
 
+(30-09: el primer intento en el Windows del propietario, con MSVC 19.44,
+no enlazo: el vftable de type_info y el operator delete con medida no estan
+en vcruntime.lib sino en msvcrt.lib, que tira de todo el CRT. Ahora
+tanda4.cpp los pone con los dos compiladores; con cl, el nombre del vftable
+por /alternatename. Lo de clang sale igual, byte a byte.)
+
 tanda5.exe -- la TANDA 5 de Cyberpunk (29-09): user32, grupo 1
 
 Los rectangulos (exactos), las medidas del sistema, el DPI, los monitores
