@@ -56,3 +56,10 @@ void poner(int v) { por_hilo = v; }
 int en_main(void) { return visto_en_main; }
 int antes_de_main(void) { return callbacks_antes_de_main; }
 int callbacks_hilo(void) { return cb_hilo; }
+/* Para el diagnostico: su indice y su bloque del hilo que llama. */
+unsigned indice(void) { return (unsigned)_tls_index; }
+U64 su_bloque(void) {
+    U64 t;
+    __asm__("movq %%gs:0x58, %0" : "=r"(t));
+    return t ? ((U64 *)t)[_tls_index] : 0;
+}

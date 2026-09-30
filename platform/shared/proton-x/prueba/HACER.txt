@@ -1036,6 +1036,13 @@ inicial en el DllMain, cada modulo lo suyo, y un hilo nuevo con bloques
 nuevos y su THREAD_ATTACH. Sin CRT: _tls_used va escrito en cada .c. La DLL
 va en la misma carpeta que el .exe.
 
+EN WINDOWS (30-09, la primera version): 7 MAL. El TLS del .exe va, pero el
+de la DLL NO: ni un callback, y la DLL escribe en el bloque del .exe (su
+indice sin poner). Los binarios parecen correctos (directorio de TLS,
+_tls_index, callbacks, relocalizaciones): no se sabe por que. Esta version
+dice los indices y lo que se vio en lineas `dato`, para que Windows diga
+por que. Mientras, la casa hace lo del cargador de Windows documentado.
+
    llvm-dlltool -m i386:x86-64 -d tanda22_kernel32.def -l tanda22_kernel32.lib
    clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda22d.c -o tanda22d.obj
    lld-link /dll /nodefaultlib /entry:entrada /dynamicbase /brepro /def:tanda22d.def /implib:tanda22d.lib tanda22d.obj /out:tanda22d.dll
@@ -1044,7 +1051,7 @@ va en la misma carpeta que el .exe.
 
 sha256 de los que estan aqui (reproducibles, comprobado dos veces):
 
-   d3bf29f0e5a18bb5463028955507c05e8116bbf6e0da09c89b0c48cfdabb885d  tanda22d.dll
-   00949b704c9205536a3c5c61dd97551549c3ccc047ccc68df2e614f1f923bfe4  tanda22.exe
+   ce662a55e2a343656d2a017b2aeeffdc3bc11b151cd2933ec6f8451e4e058206  tanda22d.dll
+   0183b62efbf7634bd5f6e9660795663421d2e7b23a7766761f747247f2ab2864  tanda22.exe
 
 Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.
