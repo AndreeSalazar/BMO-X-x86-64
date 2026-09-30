@@ -151,7 +151,7 @@ pide y en que orden.
     falta de TODAS las DLL antes de decir NO (un viaje, la lista entera).
   - [x] P0.4b.8 -- EL JUEGO CORRIO (30-09): 4793 funciones resueltas, los 24
     DllMain, y el `.exe` hizo 59 llamadas (el diario) antes de un #PF en 0+0x8.
-    Lo que el metal enseno: `LoadLibrary` de un API set es su anfitrion
+    Lo que el metal mostro: `LoadLibrary` de un API set es su anfitrion
     (kernelbase, ucrtbase) y `VirtualProtect` sobre la imagen contesta como
     Windows sin romper W^X (tanda 21). Y un MAPA de modulos con el diario,
     para leer el `rip` de la autopsia como modulo + RVA.
