@@ -32,7 +32,7 @@ use crate::{aviso, dir, kernel32};
 /// userenv, bcryptprimitives -- que pide por GetModuleHandle + GetProcAddress;
 /// y advapi32, desde la tanda 11; crypt32 y bcrypt, desde la 12; y las
 /// chicas del censo, desde la 14a, al final: los HANDLE de antes no cambian.)
-const DLL: [&str; 29] = [
+const DLL: [&str; 30] = [
     "kernel32.dll",
     "user32.dll",
     "gdi32.dll",
@@ -62,6 +62,7 @@ const DLL: [&str; 29] = [
     "xinput1_4.dll",
     "rpcrt4.dll",
     "ole32.dll",
+    "version.dll",
 ];
 
 const ERROR_MOD_NOT_FOUND: u32 = 126;

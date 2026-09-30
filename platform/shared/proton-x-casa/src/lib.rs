@@ -98,6 +98,7 @@ pub mod user32_mensajes;
 pub mod user32_portapapeles;
 pub mod user32_dialogos;
 pub mod user32_ventanas;
+pub mod version_y_seguridad;
 
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
@@ -264,6 +265,7 @@ pub unsafe fn empezar(p: Plataforma) {
     user32_mensajes::reiniciar();
     user32_entrada::reiniciar();
     user32_portapapeles::reiniciar();
+    version_y_seguridad::reiniciar();
     user32_dialogos::reiniciar();
 }
 
@@ -341,12 +343,12 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("advapi32.dll") || es_api_set_de(dll, &["api-ms-win-security-", "api-ms-win-eventing-"]) {
         // Tanda 11: lo suyo, y el registro y los tokens (de kernelbase).
         // Tanda 14a: sus API set (seguridad, ETW) y lo de ETW.
-        advapi32::buscar(n).or_else(|| de_kernel32(n)).or_else(|| dll_chicas::buscar(n))
+        advapi32::buscar(n).or_else(|| version_y_seguridad::buscar(n)).or_else(|| de_kernel32(n)).or_else(|| dll_chicas::buscar(n))
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {
         gdi32::buscar(n).or_else(|| dll_chicas::buscar(n))
     } else if CHICAS.iter().any(|c| dll.eq_ignore_ascii_case(c)) {
         // Tanda 14a: las DLL de las que el juego pide una, dos o cuatro.
-        dll_chicas::buscar(n)
+        dll_chicas::buscar(n).or_else(|| version_y_seguridad::buscar(n))
     } else if dll.eq_ignore_ascii_case("d3d12.dll") {
         d3d12::buscar(n).or_else(|| tuberia::buscar(n))
     } else if dll.eq_ignore_ascii_case("dxgi.dll") {
@@ -373,6 +375,7 @@ const CHICAS: &[&str] = &[
     "xinput1_4.dll",
     "rpcrt4.dll",
     "ole32.dll",
+    "version.dll",
 ];
 
 /// Si `dll` es un API set que empieza por alguno de `prefijos`.

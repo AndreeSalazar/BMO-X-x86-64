@@ -1,0 +1,7 @@
+LIBRARY advapi32.dll
+EXPORTS
+GetFileSecurityW
+ImpersonateSelf
+RevertToSelf
+OpenThreadToken
+AccessCheck

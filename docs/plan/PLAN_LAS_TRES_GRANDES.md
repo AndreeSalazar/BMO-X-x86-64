@@ -67,9 +67,10 @@ pide y en que orden.
     `tanda14.exe` dice `bien` 27 veces en el banco. (Y las 5 RETRASADAS:
     el ETW y UuidCreate. Y, de las 15 de COM, las cinco faciles:
     CoTaskMem* y CoCreateGuid, StringFromGUID2.)
-  - [ ] P0.2b -- VERSION (GetFileVersionInfo* y VerQueryValueA, leyendo el
+  - [x] P0.2b -- VERSION (GetFileVersionInfo* y VerQueryValueA, leyendo el
     recurso de version del fichero) y la seguridad (GetFileSecurityW,
-    ImpersonateSelf, AccessCheck, RevertToSelf): tanda 14b.
+    ImpersonateSelf, AccessCheck, RevertToSelf): tanda 14b, HECHA el 30-09
+    (`version_y_seguridad.rs`; `tanda14b.exe`, 12 bien en el banco).
   - [ ] P0.2c -- COM lo justo (ole32 y OLEAUT32 por ordinal): tanda 15.
   - [ ] P0.2d -- Aparatos que no hay (HID, SETUPAPI, CFGMGR32) y WLDAP32 por
     ordinal: tanda 16.

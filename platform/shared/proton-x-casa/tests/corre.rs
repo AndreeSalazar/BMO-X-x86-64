@@ -72,6 +72,7 @@ const TANDA13: &[u8] = include_bytes!("../../proton-x/prueba/tanda13.exe");
 const DIARIO: &[u8] = include_bytes!("../../proton-x/prueba/diario.exe");
 const TANDA14: &[u8] = include_bytes!("../../proton-x/prueba/tanda14.exe");
 const TANDA4M: &[u8] = include_bytes!("../../proton-x/prueba/tanda4m.exe");
+const TANDA14B: &[u8] = include_bytes!("../../proton-x/prueba/tanda14b.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -1374,4 +1375,13 @@ fn tanda14_exe_tiene_las_dll_chicas_del_censo() {
 #[test]
 fn tanda4m_exe_tiene_las_excepciones_de_cpp_de_fh4() {
     tanda(TANDA4M, None, 11, "tanda4.exe: las excepciones de C++ son las de Windows");
+}
+
+/// **La tanda 14b de Cyberpunk** (30-09): `tanda14b.exe` -- VERSION (lee
+/// su PROPIO recurso de version: el `.exe` tiene que estar en el volumen,
+/// con su nombre) y la seguridad de los ficheros.
+#[test]
+fn tanda14b_exe_tiene_version_y_seguridad() {
+    std::fs::write(volumen().join("window").join("tanda14b.exe"), TANDA14B).unwrap();
+    tanda(TANDA14B, Some("window/tanda14b.exe"), 12, "tanda14b.exe: VERSION y la seguridad dicen lo de Windows");
 }

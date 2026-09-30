@@ -835,3 +835,23 @@ carpeta. Tus carpetas no son las de la casa: se miran las relaciones
 (SHGetFolderPathW da lo del entorno; las carpetas conocidas, lo de las
 CSIDL). Si tienes CUATRO mandos de Xbox enchufados, el del XInput dira MAL
 (mira el cuarto). En Windows dice lo mismo.
+
+tanda14b.exe -- la TANDA 14b de Cyberpunk (30-09): VERSION y la seguridad
+
+Lee SU PROPIO recurso de version (tanda14b.rc, compilado con llvm-rc) y la
+seguridad de un fichero que crea (tanda14b_kernel32.def, tanda14b_version.def
+y tanda14b_advapi32.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda14b_kernel32.def -l tanda14b_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda14b_version.def -l tanda14b_version.lib
+   llvm-dlltool -m i386:x86-64 -d tanda14b_advapi32.def -l tanda14b_advapi32.lib
+   llvm-rc /nologo /fo tanda14b.res tanda14b.rc
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda14b.c -o tanda14b.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda14b.obj tanda14b.res tanda14b_kernel32.lib tanda14b_version.lib tanda14b_advapi32.lib /out:tanda14b.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   e756ab1f087b3ba5d5a91ed09a775d460658d52a183da131d228281f193eb759
+
+Dice `bien` doce veces y sale con 0. Deja tanda14b.txt en su carpeta. En
+Windows dice lo mismo.
