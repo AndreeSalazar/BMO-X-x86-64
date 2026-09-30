@@ -17,12 +17,18 @@
 //! de P4e, con alineacion de 64 KiB), y poner a cero tambien: cada pagina que
 //! se hace se pasa a `a_cero`.
 //!
-//! Lo que no es Windows, dicho: RESERVAR aqui ya gasta la memoria (el kernel
-//! de BMO-X da bloques hechos, no direcciones sin paginas), asi que un
-//! programa que reserve 1 GiB "por si acaso" no cabe. Y reservar en una
-//! direccion FIJA no se sabe: la dice quien tiene la memoria, no el `.exe`.
+//! **La cuenta va por TIRADAS** (30-09): cada region guarda sus trozos
+//! hechos `(primera pagina, ultima + 1, proteccion)`, ordenados; lo que no
+//! esta en ninguno esta solo reservado. Antes era un u32 POR PAGINA, y en el
+//! metal Cyberpunk reservo 64 GiB de golpe: 16 M paginas, 64 MiB de cuenta,
+//! y el monton del cargador dijo que no. Ahora la cuenta crece con lo que
+//! se HACE, no con lo que se reserva.
+//!
+//! Lo que no es Windows, dicho: sin la reserva del kernel (P0.4c), RESERVAR
+//! ya gasta la memoria (bloques hechos, no direcciones sin paginas). Y
+//! reservar en una direccion FIJA no se sabe: la dice quien tiene la
+//! memoria, no el `.exe`.
 
-use alloc::vec;
 use alloc::vec::Vec;
 
 pub const PAGINA: u64 = 4096;
@@ -61,8 +67,71 @@ struct Region {
     base: u64,
     tam: u64,
     prot_inicial: u32,
-    /// Por pagina: 0 si solo esta reservada; si no, su proteccion.
-    paginas: Vec<u32>,
+    /// Las tiradas HECHAS, en paginas desde `base`: `(desde, hasta, prot)`,
+    /// ordenadas, sin solaparse, y dos seguidas con la misma proteccion van
+    /// juntas. Lo demas, solo reservado.
+    hechas: Vec<(u64, u64, u32)>,
+}
+
+impl Region {
+    fn paginas(&self) -> u64 {
+        self.tam / PAGINA
+    }
+
+    /// Las tiradas hechas que caen en `[a, b)` (recortadas).
+    fn hechas_en(&self, a: u64, b: u64) -> Vec<(u64, u64, u32)> {
+        self.hechas.iter().filter(|t| t.0 < b && t.1 > a).map(|t| (t.0.max(a), t.1.min(b), t.2)).collect()
+    }
+
+    /// Los huecos (solo reservados) de `[a, b)`.
+    fn huecos_en(&self, a: u64, b: u64) -> Vec<(u64, u64)> {
+        let mut v = Vec::new();
+        let mut k = a;
+        for t in self.hechas.iter().filter(|t| t.0 < b && t.1 > a) {
+            if t.0 > k {
+                v.push((k, t.0));
+            }
+            k = k.max(t.1);
+        }
+        if k < b {
+            v.push((k, b));
+        }
+        v
+    }
+
+    /// Quitar `[a, b)` de las hechas (partiendo las que lo crucen).
+    fn quitar(&mut self, a: u64, b: u64) {
+        let mut v = Vec::with_capacity(self.hechas.len() + 1);
+        for &(x, y, p) in &self.hechas {
+            if y <= a || x >= b {
+                v.push((x, y, p));
+                continue;
+            }
+            if x < a {
+                v.push((x, a, p));
+            }
+            if y > b {
+                v.push((b, y, p));
+            }
+        }
+        self.hechas = v;
+    }
+
+    /// Poner `[a, b)` hecha con `prot` (lo que hubiera ahi se reemplaza), y
+    /// juntar las vecinas iguales.
+    fn poner(&mut self, a: u64, b: u64, prot: u32) {
+        self.quitar(a, b);
+        let i = self.hechas.iter().position(|t| t.0 >= b).unwrap_or(self.hechas.len());
+        self.hechas.insert(i, (a, b, prot));
+        let mut v: Vec<(u64, u64, u32)> = Vec::with_capacity(self.hechas.len());
+        for &t in &self.hechas {
+            match v.last_mut() {
+                Some(u) if u.1 == t.0 && u.2 == t.2 => u.1 = t.1,
+                _ => v.push(t),
+            }
+        }
+        self.hechas = v;
+    }
 }
 
 /// Lo que `VirtualQuery` escribe en su `MEMORY_BASIC_INFORMATION`.
@@ -95,8 +164,9 @@ impl Regiones {
     /// entera con `prot`, o solo reservada. Quien la da ya la puso a cero si
     /// va hecha.
     pub fn nueva(&mut self, base: u64, tam: u64, prot: u32, hecha: bool) {
-        let n = (tam / PAGINA) as usize;
-        self.v.push(Region { base, tam, prot_inicial: prot, paginas: vec![if hecha { prot } else { 0 }; n] });
+        let n = tam / PAGINA;
+        let hechas = if hecha && n > 0 { alloc::vec![(0, n, prot)] } else { Vec::new() };
+        self.v.push(Region { base, tam, prot_inicial: prot, hechas });
     }
 
     /// La region donde cae `[ini, fin)` entero.
@@ -126,21 +196,12 @@ impl Regiones {
         let (ini, fin) = paginas(dir, tam);
         let i = self.donde(ini, fin).ok_or(NoVirtual::Direccion)?;
         let r = &mut self.v[i];
-        let (a, b) = (((ini - r.base) / PAGINA) as usize, ((fin - r.base) / PAGINA) as usize);
-        let mut k = a;
-        while k < b {
-            if r.paginas[k] != 0 {
-                k += 1;
-                continue;
-            }
-            let desde = k;
-            while k < b && r.paginas[k] == 0 {
-                k += 1;
-            }
-            if !dar(r.base + desde as u64 * PAGINA, (k - desde) as u64 * PAGINA) {
+        let (a, b) = ((ini - r.base) / PAGINA, (fin - r.base) / PAGINA);
+        for (x, y) in r.huecos_en(a, b) {
+            if !dar(r.base + x * PAGINA, (y - x) * PAGINA) {
                 return Err(NoVirtual::SinMemoria);
             }
-            r.paginas[desde..k].fill(prot);
+            r.poner(x, y, prot);
         }
         Ok(ini)
     }
@@ -161,20 +222,19 @@ impl Regiones {
         };
         let i = self.donde(ini, fin).ok_or(NoVirtual::Direccion)?;
         let r = &mut self.v[i];
-        let (a, b) = (((ini - r.base) / PAGINA) as usize, ((fin - r.base) / PAGINA) as usize);
-        let mut k = a;
-        while k < b {
-            if r.paginas[k] == 0 {
-                k += 1;
-                continue;
+        let (a, b) = ((ini - r.base) / PAGINA, (fin - r.base) / PAGINA);
+        // Tiradas seguidas aunque cambie la proteccion: devolver no la mira.
+        let mut juntas: Vec<(u64, u64)> = Vec::new();
+        for (x, y, _) in r.hechas_en(a, b) {
+            match juntas.last_mut() {
+                Some(u) if u.1 == x => u.1 = y,
+                _ => juntas.push((x, y)),
             }
-            let desde = k;
-            while k < b && r.paginas[k] != 0 {
-                k += 1;
-            }
-            devolver(r.base + desde as u64 * PAGINA, (k - desde) as u64 * PAGINA);
         }
-        r.paginas[a..b].fill(0);
+        for (x, y) in juntas {
+            devolver(r.base + x * PAGINA, (y - x) * PAGINA);
+        }
+        r.quitar(a, b);
         Ok(())
     }
 
@@ -193,17 +253,12 @@ impl Regiones {
     /// ninguna region.
     pub fn consultar(&self, dir: u64) -> Option<Consulta> {
         let r = self.v.iter().find(|r| dir >= r.base && dir < r.base + r.tam)?;
-        let a = ((dir - r.base) / PAGINA) as usize;
-        let p = r.paginas[a];
-        let b = r.paginas[a..].iter().position(|&x| x != p).map_or(r.paginas.len(), |n| a + n);
-        Some(Consulta {
-            base: r.base + a as u64 * PAGINA,
-            base_region: r.base,
-            prot_inicial: r.prot_inicial,
-            tam: (b - a) as u64 * PAGINA,
-            estado: if p == 0 { MEM_RESERVE } else { MEM_COMMIT },
-            prot: p,
-        })
+        let a = (dir - r.base) / PAGINA;
+        let (hasta, estado, prot) = match r.hechas.iter().find(|t| t.0 <= a && a < t.1) {
+            Some(t) => (t.1, MEM_COMMIT, t.2),
+            None => (r.hechas.iter().find(|t| t.0 > a).map_or(r.paginas(), |t| t.0), MEM_RESERVE, 0),
+        };
+        Some(Consulta { base: r.base + a * PAGINA, base_region: r.base, prot_inicial: r.prot_inicial, tam: (hasta - a) * PAGINA, estado, prot })
     }
 
     /// **`VirtualProtect`**: todas las paginas de `[dir, dir + tam)` hechas
@@ -216,12 +271,12 @@ impl Regiones {
         let (ini, fin) = paginas(dir, tam);
         let i = self.donde(ini, fin).ok_or(NoVirtual::Direccion)?;
         let r = &mut self.v[i];
-        let (a, b) = (((ini - r.base) / PAGINA) as usize, ((fin - r.base) / PAGINA) as usize);
-        if r.paginas[a..b].contains(&0) {
+        let (a, b) = ((ini - r.base) / PAGINA, (fin - r.base) / PAGINA);
+        if !r.huecos_en(a, b).is_empty() {
             return Err(NoVirtual::Direccion);
         }
-        let antes = r.paginas[a];
-        r.paginas[a..b].fill(prot);
+        let antes = r.hechas_en(a, a + 1)[0].2;
+        r.poner(a, b, prot);
         Ok(antes)
     }
 }
