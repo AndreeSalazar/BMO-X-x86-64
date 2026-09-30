@@ -1067,15 +1067,21 @@ casa escribe el de cada modulo en su _tls_index y cada uno lee el suyo.
 tanda22.exe (clang sin CRT) queda como prueba del ANFITRION: Windows no le
 da TLS a su DLL, la casa si (mas permisiva: dicho).
 
+LA HIPOTESIS (30-09, sin comprobar): la de MSVC IMPORTA (kernel32,
+vcruntime) y tanda22d.dll no importaba NADA. Desde esta version, su DllMain
+llama a GetCurrentThreadId de kernel32 (tanda22d_kernel32.def). Si Windows
+ahora dice 9 bien (y la DLL con indice 1), era eso; si sigue igual, no.
+
    llvm-dlltool -m i386:x86-64 -d tanda22_kernel32.def -l tanda22_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda22d_kernel32.def -l tanda22d_kernel32.lib
    clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda22d.c -o tanda22d.obj
-   lld-link /dll /nodefaultlib /entry:entrada /dynamicbase /brepro /def:tanda22d.def /implib:tanda22d.lib tanda22d.obj /out:tanda22d.dll
+   lld-link /dll /nodefaultlib /entry:entrada /dynamicbase /brepro /def:tanda22d.def /implib:tanda22d.lib tanda22d.obj tanda22d_kernel32.lib /out:tanda22d.dll
    clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda22.c -o tanda22.obj
    lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda22.obj tanda22_kernel32.lib tanda22d.lib /out:tanda22.exe
 
 sha256 de los que estan aqui (reproducibles, comprobado dos veces):
 
-   ce662a55e2a343656d2a017b2aeeffdc3bc11b151cd2933ec6f8451e4e058206  tanda22d.dll
+   0b011538f50bbdb049dfd27030d6a732e4f9fb56b2b9270d3ecca88fc0beeb36  tanda22d.dll
    0183b62efbf7634bd5f6e9660795663421d2e7b23a7766761f747247f2ab2864  tanda22.exe
 
 Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.
