@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 53 planes
+# LO QUE FALTA -- las casillas abiertas de los 54 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   382 casillas ABIERTAS en 43 planes
+   460 casillas ABIERTAS en 44 planes
    332 hechas
      1 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -31,6 +31,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 ---
 
 # Los planes VIVOS, el que mas debe primero
+
+## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 78 abiertas, 0 hechas
+
+*PLAN LAS TRES GRANDES -- D3D12 de juego, el sonido del juego y varios nucleos*
+
+- [ ] P0.1 -- personal censo en el metal con el censo maduro: cuantas DURAS
+- [ ] P0.2 -- Las DURAS que falten, a CERO (una tanda mas, si hace falta).
+- [ ] P0.3 -- El DIARIO de la casa: cada funcion de Windows llamada por
+- ... y 75 mas
 
 ## [`PLAN_CLOUD_LOCAL.md`](PLAN_CLOUD_LOCAL.md) -- 46 abiertas, 16 hechas
 
