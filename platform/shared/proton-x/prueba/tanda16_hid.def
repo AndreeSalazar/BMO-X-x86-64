@@ -1,0 +1,5 @@
+LIBRARY hid.dll
+EXPORTS
+HidD_GetHidGuid
+HidD_GetAttributes
+HidP_GetCaps

@@ -77,6 +77,7 @@ pub mod kernel32_locale;
 pub mod kernel32_mapeo;
 pub mod kernel32_procesos;
 pub mod advapi32;
+pub mod aparatos;
 pub mod advapi32_registro;
 pub mod kernel32_pool;
 pub mod kernel32_sistema;
@@ -311,6 +312,8 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         // Tanda 12: ws2_32 se importa por ordinal.
         Funcion::Ordinal(o) if dll.eq_ignore_ascii_case("ws2_32.dll") => return red::por_ordinal(*o),
         // Tanda 15: OLEAUT32 tambien (SysAllocString es el 2...).
+        // Tanda 16: WLDAP32 tambien, y la casa no tiene LDAP.
+        Funcion::Ordinal(o) if dll.eq_ignore_ascii_case("wldap32.dll") => return aparatos::ldap_por_ordinal(*o),
         Funcion::Ordinal(o) if dll.eq_ignore_ascii_case("oleaut32.dll") => return tabla_casa(dll, &Funcion::Nombre(com_basico::por_ordinal(*o)?.into())),
         _ => return None,
     };
@@ -352,7 +355,7 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         gdi32::buscar(n).or_else(|| dll_chicas::buscar(n))
     } else if CHICAS.iter().any(|c| dll.eq_ignore_ascii_case(c)) {
         // Tanda 14a: las DLL de las que el juego pide una, dos o cuatro.
-        dll_chicas::buscar(n).or_else(|| version_y_seguridad::buscar(n)).or_else(|| com_basico::buscar(n))
+        dll_chicas::buscar(n).or_else(|| version_y_seguridad::buscar(n)).or_else(|| com_basico::buscar(n)).or_else(|| aparatos::buscar(n))
     } else if dll.eq_ignore_ascii_case("d3d12.dll") {
         d3d12::buscar(n).or_else(|| tuberia::buscar(n))
     } else if dll.eq_ignore_ascii_case("dxgi.dll") {
@@ -380,6 +383,10 @@ const CHICAS: &[&str] = &[
     "rpcrt4.dll",
     "ole32.dll",
     "version.dll",
+    "hid.dll",
+    "setupapi.dll",
+    "cfgmgr32.dll",
+    "wldap32.dll",
 ];
 
 /// Si `dll` es un API set que empieza por alguno de `prefijos`.

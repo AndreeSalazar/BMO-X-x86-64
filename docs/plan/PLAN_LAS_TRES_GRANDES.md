@@ -75,8 +75,11 @@ pide y en que orden.
     HECHA el 30-09 (`com_basico.rs`; `tanda15.exe`, 11 bien en el banco).
     Sin clases de COM: CoCreateInstance dice REGDB_E_CLASSNOTREG y el CLSID
     por la consola.
-  - [ ] P0.2d -- Aparatos que no hay (HID, SETUPAPI, CFGMGR32) y WLDAP32 por
-    ordinal: tanda 16.
+  - [x] P0.2d -- Aparatos que no hay (HID, SETUPAPI, CFGMGR32) y WLDAP32 por
+    ordinal: tanda 16, HECHA el 30-09 (`aparatos.rs`; `tanda16.exe`, 8 bien
+    en el banco). WLDAP32: sus ordinales no se adivinan; todos van a una
+    funcion que dice "la casa no tiene LDAP" (libcurl solo la usa con
+    ldap://).
   - [ ] P0.2e -- RTTI (__RTDynamicCast, __RTtypeid, __unDName): tanda 17.
   - [x] P0.2i -- `__CxxFrameHandler4` (30-09): `cxx4.rs` lee las tablas
     comprimidas (medidas en `tanda4m.exe`, hecho con `cl` 19.44 en el

@@ -74,6 +74,7 @@ const TANDA14: &[u8] = include_bytes!("../../proton-x/prueba/tanda14.exe");
 const TANDA4M: &[u8] = include_bytes!("../../proton-x/prueba/tanda4m.exe");
 const TANDA14B: &[u8] = include_bytes!("../../proton-x/prueba/tanda14b.exe");
 const TANDA15: &[u8] = include_bytes!("../../proton-x/prueba/tanda15.exe");
+const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -1400,4 +1401,12 @@ fn tanda15_exe_tiene_com_lo_justo() {
     assert!(texto.contains("PROTON-X: CoCreateInstance {584F4D42-1515-1515-B00B-5A1E15151515}: la casa no tiene esa clase"), "{texto}");
     assert_eq!(texto.matches("  bien  ").count(), 11, "{texto}");
     assert!(texto.ends_with("tanda15.exe: COM lo justo dice lo de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **La tanda 16 de Cyberpunk** (30-09): `tanda16.exe` -- los aparatos que
+/// no hay (HID, SETUPAPI, CFGMGR32) y los 18 ordinales de WLDAP32 del
+/// juego, cargados.
+#[test]
+fn tanda16_exe_tiene_los_aparatos_que_no_hay() {
+    tanda(TANDA16, None, 8, "tanda16.exe: los aparatos que no hay dicen lo de Windows");
 }

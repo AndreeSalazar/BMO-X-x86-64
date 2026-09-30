@@ -875,3 +875,19 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` once veces y sale con 0. En la casa dice ademas, por la
 consola, que CoCreateInstance pidio una clase que no tiene (es lo que un
 juego tiene que contar). En Windows dice lo mismo, sin esa linea.
+
+tanda16.exe -- la TANDA 16 de Cyberpunk (30-09): los aparatos que no hay
+
+HID, SETUPAPI y CFGMGR32 sobre una clase de aparatos que no existe en ningun
+Windows, y los 18 ordinales de WLDAP32 del juego, cargados sin llamarlos
+(tanda16_*.def, uno por DLL; los de WLDAP32 con `@n NONAME`):
+
+   for %f in (tanda16_*.def) do llvm-dlltool -m i386:x86-64 -d %f -l %~nf.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda16.c -o tanda16.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda16.obj tanda16_*.lib /out:tanda16.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   13a87bb03546f4e6bbabb50079c2a371372349afefcd688fec1aaba613d45980
+
+Dice `bien` ocho veces y sale con 0. En Windows dice lo mismo.
