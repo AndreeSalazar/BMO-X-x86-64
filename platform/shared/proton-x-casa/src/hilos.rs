@@ -75,8 +75,9 @@ struct Hilo {
 struct Casa {
     plan: Planificador,
     hilos: Vec<Hilo>,
-    tls: Option<Tls>,
-    base: u64,
+    /// Los modulos con TLS, en el orden de su indice (P0.4b.9: el `.exe`, si
+    /// tiene, el 0; luego las DLL del juego que lo tienen), y su base.
+    tls: Vec<(Tls, u64)>,
     ranuras: u64,
 }
 
@@ -93,8 +94,7 @@ fn casa() -> &'static mut Casa {
     c.get_or_insert_with(|| Casa {
         plan: Planificador::nuevo(),
         hilos: vec![Hilo { teb: 0, rsp: 0, fondo: 0, funcion: 0, arg: 0 }],
-        tls: None,
-        base: 0,
+        tls: Vec::new(),
         ranuras: 0,
     })
 }
@@ -281,40 +281,67 @@ pub(crate) fn ceder() -> bool {
 
 /// Un bloque de TLS estatico para un hilo, y su tabla de un modulo; lo que va
 /// en `TEB+0x58`.
-fn bloque_tls(t: &Tls) -> u64 {
-    let bloque = Box::leak(t.bloque().into_boxed_slice());
-    let tabla = Box::leak(Box::new([bloque.as_mut_ptr() as u64]));
-    tabla.as_ptr() as u64
+/// La tabla de TLS de un hilo: un bloque por modulo, en el orden del indice.
+fn bloque_tls(ts: &[(Tls, u64)]) -> u64 {
+    let tabla: Vec<u64> = ts.iter().map(|(t, _)| Box::leak(t.bloque().into_boxed_slice()).as_mut_ptr() as u64).collect();
+    Box::leak(tabla.into_boxed_slice()).as_ptr() as u64
 }
 
-fn llamar_callbacks(motivo: u32) {
-    let (cbs, base) = {
-        let c = casa();
-        (c.tls.as_ref().map(|t| t.callbacks.clone()).unwrap_or_default(), c.base)
-    };
-    for f in cbs {
-        // SAFETY: los callbacks del directorio de TLS del `.exe`, que caen en su
-        // imagen (`tls::leer` lo comprueba), con la firma de Windows.
+/// Los callbacks de TLS de los modulos (todos, o solo el de `base`).
+fn llamar_callbacks_de(motivo: u32, solo: Option<u64>) {
+    let cbs: Vec<(u64, u64)> = casa().tls.iter().filter(|(_, b)| solo.is_none_or(|s| s == *b)).flat_map(|(t, b)| t.callbacks.iter().map(move |f| (*f, *b))).collect();
+    for (f, base) in cbs {
+        // SAFETY: los callbacks del directorio de TLS de un modulo cargado,
+        // que caen en su imagen (`tls::leer` lo comprueba), con la firma de
+        // Windows.
         unsafe { llamar_win64(f, base, motivo as u64, 0) };
     }
 }
 
+fn llamar_callbacks(motivo: u32) {
+    llamar_callbacks_de(motivo, None);
+}
+
+/// **El TLS de una DLL del juego** (P0.4b.9, 30-09): `libxess_fg.dll` de
+/// Cyberpunk lo tiene, y su DllMain leyo `0+0x8` porque la tabla del hilo
+/// solo tenia el bloque del `.exe`. Como el cargador de Windows con las DLL
+/// de arranque: cada una su indice (detras del `.exe`), su bloque en cada
+/// hilo, y sus callbacks justo antes de su DllMain ([`tls_de_dll_attach`]).
+/// Se registran ANTES de [`preparar_tls`].
+pub fn registrar_tls_dll(t: Tls, base: u64) {
+    casa().tls.push((t, base));
+}
+
+/// Los callbacks de TLS de la DLL de `base`, con PROCESS_ATTACH.
+pub(crate) fn tls_de_dll_attach(base: u64) {
+    llamar_callbacks_de(DLL_PROCESS_ATTACH, Some(base));
+}
+
 /// **El TLS del proceso, antes de saltar a la entrada**: el bloque del hilo
-/// principal en `TEB+0x58`, el indice (0: el `.exe` es el unico modulo) en su
-/// sitio, y los callbacks con PROCESS_ATTACH, como hace el cargador de Windows.
+/// principal en `TEB+0x58` (un bloque por modulo con TLS: el `.exe` el 0, y
+/// las DLL registradas con [`registrar_tls_dll`] detras), el indice de cada
+/// uno en su sitio, y los callbacks del `.exe` con PROCESS_ATTACH.
 ///
 /// # Safety
 /// Con el GS ya en el TEB del hilo principal, `empezar` hecho y la imagen
 /// colocada en `base`, antes de saltar.
 pub unsafe fn preparar_tls(t: Option<Tls>, base: u64) {
-    let Some(t) = t else { return };
-    ((base + t.indice_rva as u64) as *mut u32).write(0);
-    let teb = kernel32::teb();
-    ((teb + tls::TEB_TLS_POINTER as u64) as *mut u64).write(bloque_tls(&t));
     let c = casa();
-    c.tls = Some(t);
-    c.base = base;
-    llamar_callbacks(DLL_PROCESS_ATTACH);
+    if let Some(t) = t {
+        c.tls.insert(0, (t, base));
+    }
+    if c.tls.is_empty() {
+        return;
+    }
+    for (i, (t, b)) in c.tls.iter().enumerate() {
+        ((b + t.indice_rva as u64) as *mut u32).write(i as u32);
+    }
+    let teb = kernel32::teb();
+    ((teb + tls::TEB_TLS_POINTER as u64) as *mut u64).write(bloque_tls(&c.tls));
+    // Los del `.exe` ahora; los de cada DLL, antes de su DllMain.
+    if c.tls[0].1 == base {
+        llamar_callbacks_de(DLL_PROCESS_ATTACH, Some(base));
+    }
 }
 
 // -- Los objetos ----------------------------------------------------------------------
@@ -540,9 +567,9 @@ pub(crate) extern "win64" fn create_thread(_attr: u64, pila: usize, funcion: u64
     let h = teb::Hilo { teb: t as u64, peb, pila_tope: tope, pila_fondo: fondo + CANARIO as u64, proceso, hilo: tid, base_imagen };
     // SAFETY: TEB_BYTES recien pedidos.
     teb::escribir_teb(unsafe { core::slice::from_raw_parts_mut(t, teb::TEB_BYTES) }, &h);
-    if let Some(tl) = &c.tls {
+    if !c.tls.is_empty() {
         // SAFETY: el TEB nuevo, R+W.
-        unsafe { ((t as u64 + tls::TEB_TLS_POINTER as u64) as *mut u64).write(bloque_tls(tl)) };
+        unsafe { ((t as u64 + tls::TEB_TLS_POINTER as u64) as *mut u64).write(bloque_tls(&c.tls)) };
     }
     // Su marco de nacimiento (ver MARCO): lo que `proton_x_cambiar` desapila.
     let rsp = tope - MARCO as u64;

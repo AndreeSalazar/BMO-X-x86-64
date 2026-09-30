@@ -178,3 +178,20 @@ fn tanda21_exe_carga_los_api_set() {
     assert_eq!(texto.matches("  bien  ").count(), 17, "{texto}");
     assert!(texto.ends_with("tanda21.exe: LoadLibrary de un API set es lo de Windows\r\n"), "{texto}");
 }
+
+/// **La tanda 22 de Cyberpunk** (30-09): `tanda22.exe` y `tanda22d.dll` --
+/// el TLS de una DLL. `libxess_fg.dll` del juego tiene `__declspec(thread)`
+/// y su DllMain leyo `0+0x8` en el metal: la casa solo daba TLS al `.exe`.
+#[test]
+fn tanda22_exe_el_tls_de_una_dll() {
+    let uno = uno_a_la_vez();
+    std::fs::write(volumen().join("window/tanda22d.dll"), TANDA22D).unwrap();
+    *NOMBRE.lock().unwrap() = ("window/tanda22.exe", "");
+    let (salio, dicho, _) = correr_exe(&uno, TANDA22, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 9, "{texto}");
+    assert!(texto.ends_with("tanda22.exe: el TLS de una DLL es el de Windows\r\n[salio 0x0]"), "{texto}");
+}

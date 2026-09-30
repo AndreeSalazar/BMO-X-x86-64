@@ -1024,3 +1024,27 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    3a1dd22bc90a3ae92125ed29f258f38c28348c9174ac95cd2aab29e2a0824cd4
 
 Dice `bien` diecisiete veces y sale con 0. En Windows dice lo mismo.
+
+tanda22.exe y tanda22d.dll -- la TANDA 22 de Cyberpunk (30-09): el TLS de una DLL
+
+libxess_fg.dll del juego tiene __declspec(thread) y un callback de TLS; en
+el metal su DllMain leyo 0+0x8 (el mapa de PROTON-X la sito en su RVA
+0x22bad9): la casa solo le daba TLS al .exe. tanda22d.dll tiene su TLS y un
+callback; tanda22.exe tambien tiene TLS (asi la DLL es el indice 1, como en
+el juego) y la importa. Mira: el callback antes del DllMain, el valor
+inicial en el DllMain, cada modulo lo suyo, y un hilo nuevo con bloques
+nuevos y su THREAD_ATTACH. Sin CRT: _tls_used va escrito en cada .c. La DLL
+va en la misma carpeta que el .exe.
+
+   llvm-dlltool -m i386:x86-64 -d tanda22_kernel32.def -l tanda22_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda22d.c -o tanda22d.obj
+   lld-link /dll /nodefaultlib /entry:entrada /dynamicbase /brepro /def:tanda22d.def /implib:tanda22d.lib tanda22d.obj /out:tanda22d.dll
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda22.c -o tanda22.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda22.obj tanda22_kernel32.lib tanda22d.lib /out:tanda22.exe
+
+sha256 de los que estan aqui (reproducibles, comprobado dos veces):
+
+   d3bf29f0e5a18bb5463028955507c05e8116bbf6e0da09c89b0c48cfdabb885d  tanda22d.dll
+   00949b704c9205536a3c5c61dd97551549c3ccc047ccc68df2e614f1f923bfe4  tanda22.exe
+
+Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.
