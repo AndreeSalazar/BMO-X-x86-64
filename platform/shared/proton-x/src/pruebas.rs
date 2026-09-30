@@ -648,6 +648,33 @@ fn un_evento_despierta_al_que_espera_y_el_automatico_se_apaga() {
 }
 
 #[test]
+fn suspender_un_hilo_que_corre_y_uno_que_espera() {
+    let mut p = Planificador::nuevo();
+    let (h1, _) = p.crear(false);
+    let ev = p.nuevo_objeto(Objeto::Evento { manual: true, encendido: false });
+    // El 1, listo, se suspende dos veces: no le toca a nadie mas que al 0.
+    assert_eq!(p.suspender(h1), Some(0));
+    assert_eq!(p.suspender(h1), Some(1));
+    assert_eq!(p.siguiente(0), Turno::Hilo(0));
+    assert_eq!(p.reanudar(h1), Some(2));
+    assert_eq!(p.siguiente(0), Turno::Hilo(0), "todavia suspendido una vez");
+    assert_eq!(p.reanudar(h1), Some(1));
+    assert_eq!(p.siguiente(0), Turno::Hilo(h1));
+    // El principal espera el evento; suspendido, aunque se encienda no sigue.
+    assert_eq!(p.esperar(&[ev], false, None, 0), None);
+    assert_eq!(p.suspender(0), Some(0));
+    p.encender(ev, true);
+    p.actual = h1;
+    assert_eq!(p.siguiente(0), Turno::Hilo(h1));
+    assert_eq!(p.reanudar(0), Some(1));
+    assert_eq!(p.siguiente(0), Turno::Hilo(0), "reanudado, su espera se cumple");
+    assert_eq!(p.resultado(0), WAIT_OBJECT_0);
+    // Uno que ya acabo no se suspende.
+    p.terminar(h1, 7);
+    assert_eq!(p.suspender(h1), None);
+}
+
+#[test]
 fn esperar_todos_o_cualquiera_y_los_plazos() {
     let mut p = Planificador::nuevo();
     let a = p.nuevo_objeto(Objeto::Evento { manual: true, encendido: false });

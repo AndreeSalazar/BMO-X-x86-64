@@ -64,6 +64,7 @@ const TANDA5: &[u8] = include_bytes!("../../proton-x/prueba/tanda5.exe");
 const TANDA6: &[u8] = include_bytes!("../../proton-x/prueba/tanda6.exe");
 const TANDA7: &[u8] = include_bytes!("../../proton-x/prueba/tanda7.exe");
 const TANDA8: &[u8] = include_bytes!("../../proton-x/prueba/tanda8.exe");
+const TANDA9: &[u8] = include_bytes!("../../proton-x/prueba/tanda9.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -1315,4 +1316,19 @@ fn bmox12_exe_fotograma_30_guarda_el_png_de_la_3060() {
     // Y lo que presento (el mismo dibujo) es el fotograma 30 de la 3060.
     let vistas = VISTAS.lock().unwrap().clone();
     assert_eq!(vistas.first().copied(), bmo_cubo::referencia::de_la_3060(30));
+}
+
+/// **La tanda 9 de Cyberpunk** (30-09): `tanda9.exe` -- lo que quedaba de
+/// kernel32: fibras, SuspendThread, APC, TerminateThread, Toolhelp, psapi,
+/// el procesador, la pila, discos y tokens (solo relaciones: cualquier
+/// Windows lo dice).
+#[test]
+fn tanda9_exe_tiene_lo_que_quedaba_de_kernel32() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, TANDA9, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 30, "{texto}");
+    assert!(texto.ends_with("tanda9.exe: lo que quedaba de kernel32 es lo de Windows\r\n[salio 0x0]"), "{texto}");
 }

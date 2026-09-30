@@ -664,3 +664,26 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    94ecdd366c1d06e6ff38540a18ae58669954aad3250537d157228ccb5faa7bd6
 
 Dice `bien` veinticinco veces y sale con 0. En Windows dice lo mismo.
+
+tanda9.exe -- la TANDA 9 de Cyberpunk (30-09): lo que quedaba de kernel32
+
+Fibras (ConvertThreadToFiber, CreateFiber, SwitchToFiber ida y vuelta con el
+TEB al dia), SuspendThread/ResumeThread, TerminateThread, QueueUserAPC con
+SleepEx alertable, Toolhelp (el hilo, el proceso y el .exe propios), psapi
+(K32EnumProcessModules, K32GetModuleInformation), el procesador
+(GetLogicalProcessorInformation y su Ex), la pila (RtlCaptureStackBackTrace,
+RtlPcToFileHeader), discos (GetDriveTypeW, GetDiskFreeSpaceExW),
+HeapQueryInformation, CancelSynchronousIo y los tokens. Solo RELACIONES,
+nada de esta maquina: cualquier Windows dice lo mismo. Los tokens vienen de
+api-ms-win-core-processthreads-l1-1-0 (tanda9_hilos.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda9_kernel32.def -l tanda9_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda9_hilos.def -l tanda9_hilos.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda9.c -o tanda9.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda9.obj tanda9_kernel32.lib tanda9_hilos.lib /out:tanda9.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   9f8af83ce66d9fd96d1d51a833eea1850f528602567e11350705208823b5b5eb
+
+Dice `bien` treinta veces y sale con 0. En Windows dice lo mismo.

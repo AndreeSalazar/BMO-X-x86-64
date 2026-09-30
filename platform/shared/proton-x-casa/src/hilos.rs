@@ -31,7 +31,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 
-use bmo_proton_x::hilos::{Objeto, Planificador, Turno, WAIT_OBJECT_0};
+use bmo_proton_x::hilos::{Objeto, Planificador, Turno, WAIT_OBJECT_0, WAIT_TIMEOUT};
 use bmo_proton_x::teb;
 use bmo_proton_x::tls::{self, Tls, DLL_PROCESS_ATTACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH};
 
@@ -43,6 +43,8 @@ const WAIT_FAILED: u32 = 0xFFFF_FFFF;
 const INFINITE: u32 = 0xFFFF_FFFF;
 const STILL_ACTIVE: u32 = 259;
 const CREATE_SUSPENDED: u32 = 4;
+const ERROR_INVALID_HANDLE: u32 = 6;
+const ERROR_ACCESS_DENIED: u32 = 5;
 const ERROR_INVALID_PARAMETER: u32 = 87;
 const ERROR_TOO_MANY_POSTS: u32 = 298;
 const ERROR_TIMEOUT: u32 = 1460;
@@ -412,6 +414,9 @@ pub(crate) extern "win64" fn close_handle(h: u64) -> i32 {
         return crate::ficheros::cerrar(h);
     }
     // Tanda 3, paso 4b: los mapeos y los puertos de finalizacion.
+    if crate::kernel32_procesos::es_suyo(h) {
+        return crate::kernel32_procesos::cerrar(h);
+    }
     if crate::kernel32_mapeo::es_suyo(h) {
         return crate::kernel32_mapeo::cerrar(h);
     }
@@ -452,8 +457,13 @@ pub(crate) extern "win64" fn wait_for_single_object(h: u64, ms: u32) -> u32 {
     esperar(&[h], false, ms)
 }
 
-extern "win64" fn wait_for_single_object_ex(h: u64, ms: u32, _alertable: i32) -> u32 {
-    esperar(&[h], false, ms)
+/// Alertable (30-09): corre las APC de este hilo (QueueUserAPC) y lo dice
+/// con WAIT_IO_COMPLETION.
+extern "win64" fn wait_for_single_object_ex(h: u64, ms: u32, alertable: i32) -> u32 {
+    if alertable == 0 {
+        return esperar(&[h], false, ms);
+    }
+    crate::kernel32_procesos::espera_alertable(ms, |t| esperar(&[h], false, t))
 }
 
 pub(crate) extern "win64" fn wait_for_multiple_objects(n: u32, hs: *const u64, todos: i32, ms: u32) -> u32 {
@@ -476,9 +486,18 @@ pub(crate) extern "win64" fn sleep(ms: u32) {
     bloquear();
 }
 
-extern "win64" fn sleep_ex(ms: u32, _alertable: i32) -> u32 {
-    sleep(ms);
-    0
+extern "win64" fn sleep_ex(ms: u32, alertable: i32) -> u32 {
+    if alertable == 0 {
+        sleep(ms);
+        return 0;
+    }
+    match crate::kernel32_procesos::espera_alertable(ms, |t| {
+        sleep(t);
+        WAIT_TIMEOUT
+    }) {
+        WAIT_TIMEOUT => 0,
+        r => r,
+    }
 }
 
 pub(crate) extern "win64" fn switch_to_thread() -> i32 {
@@ -604,6 +623,83 @@ extern "win64" fn resume_thread(h: u64) -> u32 {
 
 extern "win64" fn get_current_thread() -> u64 {
     u64::MAX - 1
+}
+
+/// `SuspendThread` (30-09): la cuenta de antes, o u32::MAX. Suspenderse a si
+/// mismo cede el turno ya (y se sigue cuando otro lo reanude).
+pub(crate) fn suspender(h: u64) -> u32 {
+    let Some(n) = hilo_de(h) else {
+        kernel32::poner_error(ERROR_INVALID_HANDLE);
+        return u32::MAX;
+    };
+    let (r, yo) = {
+        let c = casa();
+        (c.plan.suspender(n), c.plan.actual == n)
+    };
+    let Some(r) = r else {
+        kernel32::poner_error(ERROR_ACCESS_DENIED);
+        return u32::MAX;
+    };
+    if yo {
+        bloquear();
+    }
+    r
+}
+
+/// `TerminateThread` (30-09): el hilo acaba YA, sin sus callbacks (como en
+/// Windows); a si mismo, no vuelve.
+pub(crate) fn terminar(h: u64, codigo: u32) -> bool {
+    let Some(n) = hilo_de(h) else {
+        kernel32::poner_error(ERROR_INVALID_HANDLE);
+        return false;
+    };
+    let (yo, vivos) = {
+        let c = casa();
+        c.plan.terminar(n, codigo);
+        (c.plan.actual == n, c.plan.vivos())
+    };
+    if vivos == 0 {
+        (plataforma().salir)(codigo);
+    }
+    if yo {
+        bloquear();
+    }
+    true
+}
+
+/// El id (de Windows) del hilo de un handle.
+pub(crate) fn id_de(h: u64) -> Option<u32> {
+    let n = hilo_de(h)?;
+    let yo = kernel32::get_current_thread_id();
+    let c = casa();
+    match c.hilos.get(n) {
+        // SAFETY: el TEB de un hilo de la casa, vivo.
+        Some(x) if x.teb != 0 => Some(unsafe { ((x.teb + teb::TEB_THREAD_ID as u64) as *const u64).read() as u32 }),
+        _ if n == c.plan.actual => Some(yo),
+        _ => None,
+    }
+}
+
+/// Los ids (de Windows) de los hilos vivos, del principal al ultimo.
+pub(crate) fn ids_vivos() -> Vec<u32> {
+    let yo = kernel32::get_current_thread_id();
+    let c = casa();
+    let mut v = Vec::new();
+    for (n, h) in c.hilos.iter().enumerate() {
+        if matches!(c.plan.estado(n), Some(bmo_proton_x::hilos::Estado::Terminado(_)) | None) {
+            continue;
+        }
+        let id = if h.teb != 0 {
+            // SAFETY: el TEB de un hilo de la casa, vivo.
+            unsafe { ((h.teb + teb::TEB_THREAD_ID as u64) as *const u64).read() as u32 }
+        } else if n == c.plan.actual {
+            yo
+        } else {
+            continue;
+        };
+        v.push(id);
+    }
+    v
 }
 
 // -- TLS dinamico ------------------------------------------------------------------------
