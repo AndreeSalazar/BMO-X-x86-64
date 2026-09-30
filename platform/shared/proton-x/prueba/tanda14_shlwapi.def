@@ -1,0 +1,4 @@
+LIBRARY shlwapi.dll
+EXPORTS
+PathFileExistsW
+PathRemoveFileSpecW

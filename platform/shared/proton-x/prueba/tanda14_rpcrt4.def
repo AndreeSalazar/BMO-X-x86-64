@@ -1,0 +1,3 @@
+LIBRARY rpcrt4.dll
+EXPORTS
+UuidCreate

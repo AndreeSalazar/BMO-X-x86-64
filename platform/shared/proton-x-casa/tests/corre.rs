@@ -70,6 +70,7 @@ const TANDA11: &[u8] = include_bytes!("../../proton-x/prueba/tanda11.exe");
 const TANDA12: &[u8] = include_bytes!("../../proton-x/prueba/tanda12.exe");
 const TANDA13: &[u8] = include_bytes!("../../proton-x/prueba/tanda13.exe");
 const DIARIO: &[u8] = include_bytes!("../../proton-x/prueba/diario.exe");
+const TANDA14: &[u8] = include_bytes!("../../proton-x/prueba/tanda14.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -1355,4 +1356,12 @@ fn diario_exe_con_diario_apunta_cada_funcion_una_vez_y_en_orden() {
     );
     let numeros: Vec<&str> = texto.lines().filter(|l| !l.starts_with('#')).map(|l| l.split_whitespace().next().unwrap()).collect();
     assert_eq!(numeros, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], "{texto}");
+}
+
+/// **La tanda 14a de Cyberpunk** (30-09): `tanda14.exe` -- las DLL chicas
+/// del censo (DURAS): winmm, shlwapi, shell32, ntdll, gdi32, powrprof,
+/// normaliz, ole32, rpcrt4, el ETW de advapi32 y XInput.
+#[test]
+fn tanda14_exe_tiene_las_dll_chicas_del_censo() {
+    tanda(TANDA14, None, 27, "tanda14.exe: las DLL chicas del censo dicen lo de Windows");
 }

@@ -806,3 +806,24 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` cuatro veces y sale con 0, en Windows y en la casa, con el
 diario y sin el. En el metal: run sys/proton-x.bex --diario window/diario.exe
 y luego mirar informe/diario.txt (diez funciones, una vez cada una).
+
+tanda14.exe -- la TANDA 14a de Cyberpunk (30-09): las DLL chicas del censo
+
+Las DURAS de las DLL de las que el juego pide una, dos o cuatro: winmm,
+shlwapi, shell32 (las carpetas), ntdll, gdi32, powrprof, normaliz
+(Punycode), ole32 y rpcrt4 (memoria de COM y GUID), el ETW de advapi32 y
+XInput (tanda14_*.def, uno por DLL):
+
+   for %f in (tanda14_*.def) do llvm-dlltool -m i386:x86-64 -d %f -l %~nf.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda14.c -o tanda14.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda14.obj tanda14_*.lib /out:tanda14.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   a8ae0a0686e1ebb5afd597c3fd0df2381bd552946117993208d6426a1a8d13a3
+
+Dice `bien` veintisiete veces y sale con 0. Deja tanda14.txt en su
+carpeta. Tus carpetas no son las de la casa: se miran las relaciones
+(SHGetFolderPathW da lo del entorno; las carpetas conocidas, lo de las
+CSIDL). Si tienes CUATRO mandos de Xbox enchufados, el del XInput dira MAL
+(mira el cuarto). En Windows dice lo mismo.

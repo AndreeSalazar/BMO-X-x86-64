@@ -1,0 +1,3 @@
+LIBRARY xinput9_1_0.dll
+EXPORTS
+XInputGetState
