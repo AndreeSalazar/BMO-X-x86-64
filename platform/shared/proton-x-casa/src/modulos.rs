@@ -325,8 +325,10 @@ extern "win64" fn get_module_handle_ex_w(banderas: u32, n: *const u16, h: *mut u
         return 0;
     }
     let r = if banderas & GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS != 0 {
-        aviso("GetModuleHandleExW desde una direccion: la casa no sabe que modulo la tiene");
-        None
+        // Tanda 26: el modulo cuya imagen tiene esa direccion (el juego la
+        // pide con una de sus funciones, para saber quien es). Una direccion
+        // de la casa no es de ninguna imagen: ERROR_MOD_NOT_FOUND.
+        crate::kernel32_procesos::imagen_con(n as u64)
     } else if n.is_null() {
         Some(kernel32::base_imagen())
     } else {

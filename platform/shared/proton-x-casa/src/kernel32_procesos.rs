@@ -848,8 +848,15 @@ extern "C" {
 }
 
 /// `RtlPcToFileHeader(pc, *base)`: la imagen que tiene `pc`, o NULL.
+/// **El modulo que tiene la direccion `pc`**: su base, si cae dentro de la
+/// imagen del `.exe` o de una DLL del juego (RtlPcToFileHeader,
+/// GetModuleHandleExW con FROM_ADDRESS).
+pub(crate) fn imagen_con(pc: u64) -> Option<u64> {
+    imagenes().into_iter().find(|&b| pc >= b && pc < b + medida_imagen(b) as u64)
+}
+
 extern "win64" fn rtl_pc_to_file_header(pc: u64, base: *mut u64) -> u64 {
-    let b = imagenes().into_iter().find(|&b| pc >= b && pc < b + medida_imagen(b) as u64).unwrap_or(0);
+    let b = imagen_con(pc).unwrap_or(0);
     if !base.is_null() {
         // SAFETY: el PVOID del `.exe`.
         unsafe { *base = b };

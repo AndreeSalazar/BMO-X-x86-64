@@ -1141,3 +1141,22 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    91726561ea9700b29231c0a8d57fa186ad8377783c5ecb28e66238c85d13717d
 
 Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.
+
+tanda26.exe -- la TANDA 26 de Cyberpunk (30-09): GetModuleHandleExW desde
+una direccion
+
+En el metal, pasada la memoria (la ventana de 384 GiB), el juego pidio dos
+veces GetModuleHandleExW con GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS justo
+antes de crear su primer hilo, y la casa decia que no sabia que modulo
+tenia la direccion. Aqui se pregunta por el codigo, los datos, la cabecera
+y el ultimo byte del propio .exe, y por 0x10, que no es de nadie.
+
+   llvm-dlltool -m i386:x86-64 -d tanda26_kernel32.def -l tanda26_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda26.c -o tanda26.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda26.obj tanda26_kernel32.lib /out:tanda26.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   16571e8f7efc1ea75730cfc785ad153d82bc9e0b3e9dcf34672ee56bebbc8866
+
+Dice `bien` seis veces y sale con 0. En Windows dice lo mismo.
