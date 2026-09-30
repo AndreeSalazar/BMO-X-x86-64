@@ -1311,5 +1311,5 @@ fn tanda12_exe_tiene_la_red_y_la_cripto_sin_red() {
 /// su clase; exception_ptr, uncaught_exceptions y _Lockit.
 #[test]
 fn tanda13_exe_tiene_lo_que_lanza_msvcp140() {
-    tanda(TANDA13, None, 13, "tanda13.exe: lo que lanza msvcp140 es lo de Windows");
+    tanda(TANDA13, None, 16, "tanda13.exe: lo que lanza msvcp140 es lo de Windows");
 }
