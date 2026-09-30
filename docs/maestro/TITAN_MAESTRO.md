@@ -681,6 +681,144 @@ lo protege ANTES: el programa que lo romperia no llega a compilarse.
 
 ---
 
+## 6b. LOS DOS JUECES: el compilador y el kernel COOPERAN (29-09)
+
+> *"mi Kernel con su burocracia y el borrow checker es que los 2 se cooperan
+> para facilitar por completo"* -- el propietario, 29-09.
+
+> *"BMO-X por algo es que es las 4 patas y TITAN++ es el torso"*
+
+### 6b.1 La pregunta, y por que la respuesta es NO
+
+El propietario pregunto si TITAN++ necesita compilador, si el kernel -- el
+orquestador soberano -- ya dice si algo esta validado o no. **Si lo necesita**,
+y por dos motivos que no dependen de gustos:
+
+1. **Alguien tiene que convertir el texto en instrucciones.** Un `.titan` es
+   texto y la CPU solo ejecuta codigo maquina. Sin compilador, alguien lo
+   interpreta mientras corre. Si ese interprete vive en el kernel, es justo lo
+   que BMO-X ya prohibio: *AML nunca en Ring 0* ("un interprete de bytecode en
+   Ring 0 es lo que paga un generalista") y Ring 0 cerrado. Si vive en Ring 3,
+   sigue siendo un compilador, solo que mas lento.
+2. **El kernel no ve dentro del programa.** Dos `mut` al mismo valor, un
+   prestamo que dura mas que su propietario, un `take` que se reusa: todo eso
+   pasa en la memoria de la app **sin una sola llamada al sistema**. El kernel
+   ve las PUERTAS (INVOKE y WAIT), no las habitaciones. No puede validar lo que
+   no ve.
+
+Asi que la idea buena no es "sin compilador": es **dos jueces, cada uno donde
+ve**.
+
+### 6b.2 Lo que juzga cada uno
+
+```text
+   EL COMPILADOR (antes de correr)          EL KERNEL SOBERANO (mientras corre)
+   DENTRO del programa                      ENTRE programas, y con la maquina
+
+   dos `mut` a la vez                       de quien es cada bloque (capabilities)
+   un prestamo que se escapa                un prestamo entre procesos que vuelve
+   un `take` que se reusa                   (MEM_OP_OFRECER, `request` con Drop)
+   un permiso que no se pidio (U2)          que permisos se conceden DE VERDAD
+   el prestamo a la 3060 antes del `wait`   W^X (sellar), la firma, la puerta BEF2
+   (U1, en la IR)                           la RAM, la pila, el foco, los vatios
+```
+
+Ninguno sustituye al otro. El compilador **promete** lo de dentro; el kernel
+**hace cumplir** lo de fuera, y lo hace igual para un `.bex` de TITAN++ que
+para uno de C: su burocracia -- cada puerta pide sus papeles -- no se relaja
+porque el programa diga que es bueno.
+
+[!] Y esto no es futuro: **ya pasa**.
+Cuando F1 ofrece su ventana al DIRECTOR, el kernel es un borrow checker ENTRE
+procesos: presta el bloque, sabe quien lo tiene y avisa cuando vuelve. La U1
+era exactamente esto -- que el comprobador de TITAN++ conozca los prestamos del
+kernel, para que los dos jueces hablen el mismo idioma.
+
+### 6b.3 Como cooperan: el CERTIFICADO que viaja en el `.bex`
+
+El compilador deja en el `.bex` (un anexo de BEF2, como el del sombreador) un
+**certificado corto**: por cada modulo, que permisos usa (U2), que prestamos
+del kernel hace (U1: ofrecer, tomar, lanzar a la 3060) y en que LINEA. Nada del
+cuerpo del programa: nombres, puertas y lineas.
+
+Y la puerta de carga -- que ya valida el perfil que viaja DENTRO del `.bex`
+(P1) -- compara tres cosas que cuestan una resta cada una:
+
+```text
+   lo que el certificado dice que usa
+   lo que el Titan.toml pidio            ->  si no cuadran: NO, y dice cual
+   lo que el proceso recibe de verdad
+```
+
+Es la idea del **codigo con su prueba** (proof-carrying code, Necula, 1996):
+**compilar es caro, comprobar es barato**. El compilador hace el trabajo caro
+una vez, en el PC o en F1; la puerta hace el barato cada vez que carga.
+
+*** LO QUE EL KERNEL NUNCA HACE CON EL CERTIFICADO: creerselo para CONCEDER.
+Un permiso lo da SIEMPRE la capability, como hoy; un `.bex` de C, que no trae
+certificado, corre exactamente igual. El certificado sirve para **NOMBRAR**:
+cuando el kernel dice NO en una puerta, el certificado dice que modulo y que
+linea la abrio. Si un certificado miente, lo unico que se rompe es la
+explicacion -- nunca la seguridad. Y el kernel tampoco vuelve a correr el
+borrow checker: eso seria un comprobador de tipos en Ring 0, lo mismo que el
+punto 1 de 6b.1 prohibe.
+
+### 6b.4 El camino de un NO hasta el nodo: F1 y CABINA
+
+Los dos jueces dicen NO, y en los dos casos el NO **acaba en un nodo**. El
+taller no hace buscar: lleva la camara al nodo que fallo, lo pinta en rojo y
+pone el mensaje de cuatro partes, para que nadie pierda el tiempo:
+
+```text
+   NO del COMPILADOR                         NO del KERNEL
+   el comprobador -> diag de 4 partes        una puerta dice NO
+          |                                  -> evento en CABINA (Process /
+          |                                     Syscall, con su valor)
+          |                                  -> F1 lo lee (TASK_OP_CABINA_*)
+          |                                  -> el CERTIFICADO dice que modulo
+          |                                     y que linea abrio esa puerta
+          v                                         v
+                     F1: la camara va AL NODO, rojo, y abajo
+                     QUE / DONDE / POR QUE / COMO
+                     (el QUE del kernel, el DONDE del certificado)
+
+   y CABINA (F11) expone la MISMA linea para quien mire la maquina entera
+```
+
+F1 ya sabe hacer la mitad de la izquierda: B3 anima el `Conflict` y el
+`Denied` del ejemplo con su mensaje (PLAN_TALLER 8.5), y L2 ya centra la
+camara en un nodo al pulsar su fichero (8.7). CABINA ya graba los NO del
+kernel y Ring 3 ya puede leer su anillo. Lo que no existe es el puente.
+
+### 6b.5 Lo que falta, en orden
+
+```text
+   J0  HOY: F1 anima los NO del ejemplo; CABINA graba los del kernel; Ring 3
+       lee el anillo; el `.bex` llevara sus [permissions] en T3 (U2)
+   J1  el CERTIFICADO: su forma en un anexo de BEF2 (va con T3, cuando
+       `titan build` escriba el primer `.bex`)
+   J2  la puerta de carga lo COMPARA con el Titan.toml y con lo concedido;
+       si no cuadra, NO con el nombre de lo que sobra (Ring 0, y chico)
+   J3  el NO del kernel lleva, como DATO y no solo como prosa, QUE puerta y
+       QUE proceso -- mirar primero si el evento de CABINA ya basta
+   J4  F1 lee ese NO, busca en el certificado, y lleva la camara al nodo
+```
+
+Sin fechas (LEY 24). Y el orden importa: J2 antes que J4, porque un NO que
+llega a un nodo sin que la puerta lo haya comprobado seria una explicacion sin
+juicio detras.
+
+### 6b.6 El centauro
+
+Las PATAS (BMO-X) deciden donde se puede pisar: que memoria es de quien, que
+puertas se abren, cuanta energia se gasta. Nadie cruza a terreno ajeno, y eso
+no se negocia. El TORSO (TITAN++) decide que hacen las manos: que valor se
+presta, a quien, hasta cuando. Las patas no ven lo que llevan las manos, y el
+torso no decide el terreno. Por eso ninguno sustituye al otro, y por eso
+corren juntos.
+
+---
+
 ## 7. A quien llama TITAN++, y como
 
 TITAN++ **no toca hardware**:
@@ -784,6 +922,9 @@ El asistente de IA dentro de BMO-X sigue **APARCADO** (METAS cat. 2).
 
 Sin fechas a proposito: una estimacion de un lenguaje que no existe es una
 estimacion de otro proyecto (LEY 24).
+
+Los DOS JUECES (6b) van cosidos a estos escalones: el certificado (J1) nace con
+T3, la puerta que lo compara (J2) y el NO que llega al nodo (J3-J4) con T6.
 
 ---
 
