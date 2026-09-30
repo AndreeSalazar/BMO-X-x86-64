@@ -34,7 +34,7 @@ use bmo_userland as bmo;
 const RANURAS: u64 = 64;
 
 pub fn de_bmo() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: super::la3060::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: super::la3060::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, reserva: Some(RESERVA) }
 }
 
 /// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el
@@ -128,6 +128,40 @@ fn memoria(bytes: usize) -> Option<u64> {
     let base = m.base() as u64;
     core::mem::forget(m);
     Some(base)
+}
+
+/// **La RESERVA del kernel** (P0.4c): la ventana de `TASK_OP_RESERVA_*`.
+const RESERVA: bmo_proton_x_casa::Reserva = bmo_proton_x_casa::Reserva { base: bmo::reserva::VENTANA_BASE, bytes: bmo::reserva::VENTANA_BYTES, hacer: reserva_hacer, deshacer: reserva_deshacer, ram };
+
+/// Hacer `[va, va + bytes)`, en trozos de lo mas que el kernel hace de una
+/// vez. Si dice que no, se dice por que (una vez por NO, con sus numeros) y
+/// `false`: lo hecho hasta ahi se queda hecho (y vuelve al deshacer).
+fn reserva_hacer(va: u64, bytes: u64) -> bool {
+    let mut hecho = 0u64;
+    while hecho < bytes {
+        let k = bmo::reserva::MAX_POR_VEZ.min(bytes - hecho);
+        if let Err(no) = bmo::reserva::hacer(va + hecho, k) {
+            let v = no.valor;
+            escribir(alloc::format!("PROTON-X: la RESERVA dice NO a {} MiB en {:#x}: {} [valor {:#x}: pide {} MiB, hay {} MiB]\n", bytes >> 20, va, no.frase(), v, v >> 32, v & 0xFFFF_FFFF).as_bytes());
+            return false;
+        }
+        hecho += k;
+    }
+    true
+}
+
+fn reserva_deshacer(va: u64, bytes: u64) {
+    let mut hecho = 0u64;
+    while hecho < bytes {
+        let k = bmo::reserva::MAX_POR_VEZ.min(bytes - hecho);
+        let _ = bmo::reserva::deshacer(va + hecho, k);
+        hecho += k;
+    }
+}
+
+/// La RAM de la maquina: total y libre AHORA (para GlobalMemoryStatus).
+fn ram() -> (u64, u64) {
+    (bmo::info(bmo::INFO_RAM_TOTAL), bmo::info(bmo::INFO_RAM_LIBRE))
 }
 
 /// La fecha de la placa (el RTC, `INFO_FECHA`), en segundos desde 1970

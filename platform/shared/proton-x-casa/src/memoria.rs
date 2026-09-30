@@ -15,8 +15,15 @@
 //! DEVUELVE: un CRT que hace `malloc`/`free` un millon de veces no se come
 //! nada (el monton del cargador, el que solo avanza, no se toca).
 //!
-//! Lo que no es Windows, dicho: una region reservada ya gasta su memoria (ver
-//! `regiones`); reservar en una direccion fija, ejecutar lo pedido
+//! **Con la RESERVA** (P0.4c, 30-09: `Plataforma::reserva`, en BMO-X la
+//! ventana de 128 GiB de `TASK_OP_RESERVA_*`) es como Windows: `VirtualAlloc`
+//! RESERVA direcciones de la ventana sin gastar nada, y cada MEM_COMMIT pide
+//! al kernel solo esas paginas (a cero), juzgadas contra la RAM libre; cada
+//! DECOMMIT o RELEASE las devuelve. Las arenas del monton tambien salen de
+//! ahi, y de la medida que haga falta (un HeapAlloc de 100 MiB cabe).
+//!
+//! Lo que no es Windows, dicho: sin reserva, una region reservada ya gasta su
+//! memoria (ver `regiones`); reservar en una direccion fija, ejecutar lo pedido
 //! (`PAGE_EXECUTE_*`, `HEAP_CREATE_ENABLE_EXECUTE`: el W^X de la casa solo
 //! sella codigo al cargar) y `PAGE_READONLY`/`PAGE_NOACCESS` que de verdad
 //! protejan (se apuntan y `VirtualQuery` las dice, pero la pagina sigue RW):
@@ -49,6 +56,10 @@ const ERROR_INVALID_PARAMETER: u32 = 87;
 struct Estado {
     monton: Monton,
     regiones: Regiones,
+    /// Los huecos de la ventana de reserva (`(base, bytes)`, a 64 KiB), y si
+    /// ya se tomo la ventana de la plataforma.
+    huecos: Vec<(u64, u64)>,
+    ventana: bool,
     /// Los montones de `HeapCreate` vivos (el del proceso no esta: siempre vive).
     creados: Vec<u16>,
     siguiente: u16,
@@ -58,7 +69,7 @@ struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y ninguna funcion
 // de aqui cede el turno.
 unsafe impl Sync for Global {}
-static ESTADO: Global = Global(UnsafeCell::new(Estado { monton: Monton::nuevo(), regiones: Regiones::nuevas(), creados: Vec::new(), siguiente: 2 }));
+static ESTADO: Global = Global(UnsafeCell::new(Estado { monton: Monton::nuevo(), regiones: Regiones::nuevas(), huecos: Vec::new(), ventana: false, creados: Vec::new(), siguiente: 2 }));
 
 fn estado() -> &'static mut Estado {
     // SAFETY: ver `Global`; nadie guarda la referencia.
@@ -70,6 +81,8 @@ pub(crate) fn reiniciar() {
     e.monton = Monton::nuevo();
     e.regiones = Regiones::nuevas();
     e.creados.clear();
+    e.huecos.clear();
+    e.ventana = false;
     tramos().clear();
     e.siguiente = 2;
 }
@@ -88,6 +101,76 @@ impl Palabras for Real {
     }
 }
 
+// -- La RESERVA (P0.4c) --------------------------------------------------
+
+fn reserva() -> Option<crate::Reserva> {
+    plataforma().reserva
+}
+
+/// **Tomar direcciones** de la ventana: `bytes` (a 64 KiB), el primer hueco
+/// que quepa. No gasta RAM.
+fn tomar_va(bytes: u64) -> Option<u64> {
+    let r = reserva()?;
+    let e = estado();
+    if !e.ventana {
+        e.huecos.push((r.base, r.bytes));
+        e.ventana = true;
+    }
+    let bytes = bytes.checked_add(GRANO - 1)? & !(GRANO - 1);
+    let i = e.huecos.iter().position(|h| h.1 >= bytes)?;
+    let (b, n) = e.huecos[i];
+    if n == bytes {
+        e.huecos.remove(i);
+    } else {
+        e.huecos[i] = (b + bytes, n - bytes);
+    }
+    Some(b)
+}
+
+/// Devolver direcciones a la ventana, juntando con los huecos de al lado.
+fn soltar_va(base: u64, bytes: u64) {
+    let bytes = (bytes + GRANO - 1) & !(GRANO - 1);
+    let h = &mut estado().huecos;
+    let i = h.iter().position(|x| x.0 > base).unwrap_or(h.len());
+    h.insert(i, (base, bytes));
+    if i + 1 < h.len() && h[i].0 + h[i].1 == h[i + 1].0 {
+        h[i].1 += h[i + 1].1;
+        h.remove(i + 1);
+    }
+    if i > 0 && h[i - 1].0 + h[i - 1].1 == h[i].0 {
+        h[i - 1].1 += h[i].1;
+        h.remove(i);
+    }
+}
+
+fn en_ventana(d: u64) -> bool {
+    reserva().is_some_and(|r| d >= r.base && d - r.base < r.bytes)
+}
+
+/// Las paginas de una tirada que se HACE: en la ventana, del kernel (ya a
+/// cero); fuera, del monton, a cero aqui.
+fn dar(d: u64, n: u64) -> bool {
+    match reserva() {
+        Some(r) if en_ventana(d) => (r.hacer)(d, n),
+        _ => {
+            a_cero(d, n);
+            true
+        }
+    }
+}
+
+/// Las de una tirada que se DESHACE: las de la ventana vuelven al kernel.
+fn devolver(d: u64, n: u64) {
+    if let Some(r) = reserva().filter(|_| en_ventana(d)) {
+        (r.deshacer)(d, n);
+    }
+}
+
+/// La RAM de la maquina (total, libre), si la plataforma la sabe.
+pub(crate) fn ram() -> Option<(u64, u64)> {
+    reserva().map(|r| (r.ram)())
+}
+
 /// **Pedir** al monton; si no cabe, una arena mas y otra vez.
 fn pedir(tam: u64, alin: u64, propietario: u16) -> Option<u64> {
     let e = estado();
@@ -95,6 +178,23 @@ fn pedir(tam: u64, alin: u64, propietario: u16) -> Option<u64> {
         return Some(p);
     }
     let hace_falta = tam.checked_add(alin + 256)?;
+    // Con la reserva, la arena sale de la ventana y mide lo que haga falta.
+    if let Some(r) = reserva() {
+        let n = hace_falta.max(ARENA).checked_add(GRANO - 1)? & !(GRANO - 1);
+        let base = tomar_va(n)?;
+        if !(r.hacer)(base, n) {
+            soltar_va(base, n);
+            aviso(&alloc::format!("el monton de Windows pide una arena de {} MiB y el kernel dice que no hay RAM", n >> 20));
+            return None;
+        }
+        if !e.monton.agregar(&mut Real, base, n) {
+            (r.deshacer)(base, n);
+            soltar_va(base, n);
+            aviso("el monton de Windows no tiene sitio para otra arena");
+            return None;
+        }
+        return e.monton.pedir(&mut Real, tam, alin, propietario);
+    }
     if hace_falta > ARENA {
         aviso(&alloc::format!("una pedida de {} MiB de una vez: el kernel de BMO-X da bloques de hasta 64 MiB (P0.4c)", tam.div_ceil(1 << 20)));
         return None;
@@ -311,6 +411,19 @@ extern "win64" fn virtual_alloc(dir: u64, n: usize, tipo: u32, prot: u32) -> u64
             if tipo & (MEM_COMMIT | MEM_RESERVE) == 0 {
                 return Err(ERROR_INVALID_PARAMETER);
             }
+            // P0.4c: con la reserva, reservar son solo direcciones.
+            if reserva().is_some() {
+                let (_, tam) = regiones::paginas(0, n as u64);
+                let p = tomar_va(tam).ok_or(ERROR_NOT_ENOUGH_MEMORY)?;
+                estado().regiones.nueva(p, tam, prot, false);
+                if tipo & MEM_COMMIT != 0 && estado().regiones.hacer_con(p, tam, prot, dar).is_err() {
+                    let _ = estado().regiones.deshacer_con(p, 0, devolver);
+                    let _ = estado().regiones.soltar(p, 0);
+                    soltar_va(p, tam);
+                    return Err(ERROR_NOT_ENOUGH_MEMORY);
+                }
+                return Ok(p);
+            }
             // Sin direccion, MEM_COMMIT solo tambien reserva (como Windows).
             let (_, tam) = regiones::paginas(0, n as u64);
             let p = pedir(tam, GRANO, PROPIETARIO_VIRTUAL).ok_or(ERROR_NOT_ENOUGH_MEMORY)?;
@@ -328,7 +441,7 @@ extern "win64" fn virtual_alloc(dir: u64, n: usize, tipo: u32, prot: u32) -> u64
         if tipo & MEM_COMMIT == 0 {
             return Err(ERROR_INVALID_PARAMETER);
         }
-        estado().regiones.hacer(dir, n as u64, prot, a_cero).map_err(|x| x.error())
+        estado().regiones.hacer_con(dir, n as u64, prot, dar).map_err(|x| x.error())
     })();
     r.unwrap_or_else(|err| {
         kernel32::poner_error(err);
@@ -339,10 +452,18 @@ extern "win64" fn virtual_alloc(dir: u64, n: usize, tipo: u32, prot: u32) -> u64
 extern "win64" fn virtual_free(dir: u64, n: usize, tipo: u32) -> i32 {
     let e = estado();
     let r = match tipo {
+        // P0.4c: una region de la ventana devuelve sus paginas y sus direcciones.
+        MEM_RELEASE if en_ventana(dir) => {
+            if n != 0 {
+                Err(regiones::NoVirtual::Parametro)
+            } else {
+                e.regiones.deshacer_con(dir, 0, devolver).and_then(|_| e.regiones.soltar(dir, 0)).map(|tam| soltar_va(dir, tam))
+            }
+        }
         MEM_RELEASE => e.regiones.soltar(dir, n as u64).map(|_| {
             e.monton.soltar(&mut Real, dir);
         }),
-        MEM_DECOMMIT => e.regiones.deshacer(dir, n as u64),
+        MEM_DECOMMIT => e.regiones.deshacer_con(dir, n as u64, devolver),
         _ => Err(regiones::NoVirtual::Parametro),
     };
     match r {

@@ -273,6 +273,19 @@ struct Global(UnsafeCell<*mut Locimp>);
 // SAFETY: ver `Vtablas`.
 unsafe impl Sync for Global {}
 static GLOBAL: Global = Global(UnsafeCell::new(core::ptr::null_mut()));
+/// La ctype<char> de la casa (la de `ctype_de` cuando el locale no la trae).
+static CTYPE_CASA: Global = Global(UnsafeCell::new(core::ptr::null_mut()));
+
+/// Al empezar un `.exe`: ni el locale global ni la ctype de la casa pasan al
+/// siguiente. Apuntan a su monton, que `memoria::reiniciar` acaba de vaciar
+/// (P0.4c: con la reserva, esas direcciones se reusan).
+pub(crate) fn reiniciar() {
+    // SAFETY: ver `Vtablas`; antes de saltar al `.exe`.
+    unsafe {
+        *GLOBAL.0.get() = core::ptr::null_mut();
+        *CTYPE_CASA.0.get() = core::ptr::null_mut();
+    }
+}
 
 fn locimp_nuevo(nombre: *const u8) -> *mut Locimp {
     let p = pedir::<Locimp>();
@@ -443,9 +456,8 @@ pub(crate) fn ctype_de(loc: *const Locale) -> *const Faceta {
             }
         }
     }
-    static CASA: Global = Global(UnsafeCell::new(core::ptr::null_mut()));
     // SAFETY: ver `Vtablas`.
-    let c = unsafe { &mut *CASA.0.get() };
+    let c = unsafe { &mut *CTYPE_CASA.0.get() };
     if c.is_null() {
         let mut f: *mut Faceta = core::ptr::null_mut();
         ctype_getcat(&mut f, 0);

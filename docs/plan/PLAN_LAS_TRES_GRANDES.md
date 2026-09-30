@@ -163,10 +163,25 @@ pide y en que orden.
   - [ ] P0.4b.5 -- En el metal: los DllMain de las 26 corren y el `.exe`
     llega a su entrada (o el diario dice donde se paro).
 - [ ] P0.4c -- **LA MEMORIA DEL JUEGO `[RING 0]`**: lo que el juego pide EN
-  MARCHA (VirtualAlloc, HeapAlloc: varios GiB). Hoy la casa tiene UN monton
-  de un bloque de 64 MiB. Misma idea que P0.4b (dinamica, declarada y
-  juzgada, devuelta al morir); se traza cuando P0.4b corra y el diario diga
-  cuanto pide de verdad.
+  MARCHA (VirtualAlloc, HeapAlloc: varios GiB). El metal lo dijo (30-09):
+  recien saltado a su entrada, `GlobalMemoryStatus` + `VirtualAlloc` de mas
+  de 64 MiB, y la casa solo daba bloques de 64 MiB (8 por proceso).
+  - [x] P0.4c.1 -- El juez puro: `bmo-imagen-juicio::reserva` (rango y RAM).
+  - [x] P0.4c.2 -- El kernel: `TASK_OP_RESERVA_HACER/DESHACER` (0x3A, 0x3B),
+    una ventana de 128 GiB en `0x20_0000_0000`, paginas a cero R+W sin X,
+    juzgadas contra la RAM libre de ahora; al morir las devuelve el espacio
+    (`PTE_NUESTRA`). Userland: `bmo::reserva`.
+  - [x] P0.4c.3 -- `Regiones` piden y devuelven las paginas por tiradas.
+  - [x] P0.4c.4 -- La casa: con `Plataforma::reserva`, VirtualAlloc RESERVA
+    solo direcciones y cada COMMIT pide sus paginas; las arenas del monton
+    salen de ahi y de la medida que haga falta (hasta 64 arenas);
+    GlobalMemoryStatus dice la RAM del kernel. tanda23 (16 bien); PROTON-X
+    la usa en BMO-X.
+  - [ ] P0.4c.5 -- En el metal: el juego pasa de su primer VirtualAlloc.
+  - Anotado para exprimir: `Regiones` lleva un u32 POR PAGINA (una reserva
+    de 8 GiB son 8 MiB de cuenta): a tiradas cuando el juego reserve mucho;
+    y el monton hace cada arena entera al pedirla (64 MiB de RAM de golpe),
+    podria hacerla a medida que crece.
 
 ### P0.4b -- el esquema
 
