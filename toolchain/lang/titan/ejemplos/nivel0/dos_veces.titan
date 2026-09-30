@@ -1,0 +1,9 @@
+# espera: T0052
+# la misma fn definida dos veces
+mod main "saluda"
+
+fn main()
+    print("hola")
+
+fn main()
+    print("otra")

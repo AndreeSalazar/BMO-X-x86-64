@@ -682,6 +682,10 @@ name = "bmo-titan-contrato"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-titan-front"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-titan-lector"
 version = "0.1.0"
 dependencies = [

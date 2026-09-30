@@ -1,0 +1,11 @@
+# espera: BIEN
+# una fn propia, llamada desde main; varios textos en un print; comentarios
+mod main "saluda dos veces"
+
+# la de verdad
+fn main()
+    saluda()
+    print("hola", " otra vez")   # dos textos, uno detras de otro
+
+fn saluda()
+    print("hola desde saluda")

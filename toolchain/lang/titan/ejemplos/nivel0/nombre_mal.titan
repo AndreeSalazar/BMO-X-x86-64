@@ -1,0 +1,6 @@
+# espera: T0051
+# pritn no existe: el mensaje propone print
+mod main "saluda"
+
+fn main()
+    pritn("hola")

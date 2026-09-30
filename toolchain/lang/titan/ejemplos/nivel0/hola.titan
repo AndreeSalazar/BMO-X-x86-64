@@ -1,0 +1,6 @@
+# espera: BIEN
+# el primer programa: un modulo que dice que hace, y main que saluda
+mod main "saluda"
+
+fn main()
+    print("hola")

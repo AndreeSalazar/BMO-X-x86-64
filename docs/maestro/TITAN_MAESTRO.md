@@ -1012,9 +1012,9 @@ T3, la puerta que lo compara (J2) y el NO que llega al nodo (J3-J4) con T6.
    en la 3060? Decide que se construye primero en T3.
 5. ~~El editor de nodos: donde van las posiciones~~ -> **en `[layout]`
    dentro de `Titan.toml`**, hecho en L1 (PLAN_TALLER 8.6, 29-09).
-6. **Los simbolos** (14.2): la propuesta minima de abajo, o cual. Y **llaves
-   o sangria** (14.12): los bocetos de 6.4 van con sangria, los de 14.12 con
-   llaves, y las dos no pueden convivir.
+6. **Los simbolos** (14.2): la propuesta minima de abajo, o cual.
+7. ~~Llaves o sangria~~ -> **SANGRIA, como INTI**, decidido el 30-09 (y el
+   primer `hola` sale en la CONSOLA). Ver `toolchain/lang/titan/GRAMATICA.md`.
 
 ---
 
@@ -1051,8 +1051,10 @@ Si. Esa es la decision desde el 29-09, y se sostiene con numeros:
 cualquier lenguaje necesita, para que el propietario diga si, no o cual:
 
 ```text
-   agrupar       ( )  { }  [ ]
+   agrupar       ( )  [ ]
    separar       ,  :  .
+   registro      { }   solo para ESCRIBIR uno: Ship { x: 0.0 } (los bloques
+                       van por sangria, 30-09)
    asignar       =
    comparar      ==  !=  <  <=  >  >=
    calcular      +  -  *  /  %
@@ -1100,7 +1102,8 @@ problema dicho). El resto espera al compilador.
 ```text
    lector de cabeceras   titan-lector: Titan.toml + mod/use         EXISTE
    el contrato           titan-contrato: grafo, eventos, 4 partes   EXISTE
-   T1  texto -> arbol    `titan check`, mensajes de 4 partes        FALTA
+   T1  texto -> arbol    `titan check`, mensajes de 4 partes        NIVEL 0 HECHO
+                         (toolchain/lang/titan, 30-09)
    T2  tipos             `dec`, tablas, "ya lo entregaste"          FALTA
    T3  IR + emisor       un .bo por emisor-x86_64, bmo-enlazar      FALTA
                          (la casa ya enlaza C, C++ e INTI asi)
@@ -1166,42 +1169,36 @@ problema dicho). El resto espera al compilador.
 
 ### 14.12 BOCETOS: como quedaria (30-09) -- NO es gramatica
 
-Cuatro programas con SOLO las 25 palabras y los simbolos propuestos en 14.2,
-para ver el lenguaje entero de un vistazo. La gramatica es del propietario (T0);
+Cuatro programas con SOLO las 25 palabras y los simbolos de 14.2, para ver el
+lenguaje entero de un vistazo. Los bloques van por **SANGRIA, como INTI**
+(decidido el 30-09); la gramatica de cada nivel se escribe en
+`toolchain/lang/titan/GRAMATICA.md` el dia que su banco pasa, y hasta entonces
 esto es un punto de partida, no una decision.
-
-[!] **Llaves o sangria, que decidir en T0**: el boceto de 6.4 va con sangria (al
-estilo Python); estos, con llaves (al estilo JavaScript). Las dos no pueden
-convivir: una sola forma de hacer cada cosa (4.4).
 
 **1. Prestar (`mut`) y entregar (`take`), y el error que no deja compilar**
 
 ```text
-type Ship {
+type Ship
     x: f32
     fuel: dec
-}
 
-fn push(mut s: Ship, dx: f32) {     # se presta para cambiarlo
+fn push(mut s: Ship, dx: f32)       # se presta para cambiarlo
     s.x = s.x + dx
-}
 
-fn scrap(take s: Ship) -> dec {     # se lo queda: el que llama ya no lo tiene
+fn scrap(take s: Ship) -> dec       # se lo queda: el que llama ya no lo tiene
     return s.fuel
-}
 
-fn main() {
+fn main()
     let mut ship = Ship { x: 0.0, fuel: 12.50 }
     push(mut ship, 3.0)
     let left = scrap(take ship)
     print(ship.x)                   # NO compila
-}
 ```
 
 ```text
 QUE      `ship` se usa despues de entregarlo
-DONDE    main, linea 16
-POR QUE  `scrap(take ship)` en la linea 15 se lo quedo
+DONDE    main, linea 14
+POR QUE  `scrap(take ship)` en la linea 13 se lo quedo
 COMO     usa `left`, o presta con `mut` en vez de entregar con `take`
 ```
 
@@ -1210,47 +1207,42 @@ Y en F1, el nodo `main` en rojo con su ERROR (PLAN_TALLER 8.9).
 **2. Un JSON con `enum` y `match`**
 
 ```text
-enum Json {
+enum Json
     Null
     Bool(bool)
     Num(dec)
     Text(text)
     List([Json])
-}
 
-fn show(v: Json) -> text {
-    match v {
+fn show(v: Json) -> text
+    match v
         Null -> "null"
-        Bool(b) -> if b { "true" } else { "false" }
+        Bool(b) -> if b then "true" else "false"
         Num(n) -> n.to_text()
         Text(t) -> "\"" + t + "\""
         List(items) -> "[" + join(items, ",") + "]"
-    }
-}
 ```
 
 `match` obliga a cubrir TODOS los casos: un caso nuevo en `Json` sin su rama
-aqui no compila.
+aqui no compila. (`then` no es una de las 25: como se escribe un `if` en una
+linea es de T0.)
 
 **3. La 3060, con permiso y prestamo (U1 y U2)**
 
 ```text
 # Titan.toml ->  [permissions]  gpu = "compute"
 
-gpu fn add(a: [f32; 1024], mut out: [f32; 1024]) {
-    for i in range(1024) {
+gpu fn add(a: [f32; 1024], mut out: [f32; 1024])
+    for i in range(1024)
         out[i] = out[i] + a[i]
-    }
-}
 
-fn main() {
+fn main()
     let a = [1.0; 1024]
     let mut b = [0.0; 1024]
     let job = gpu.launch(add, a, mut b)
     print(b[0])          # NO compila: la 3060 todavia tiene `b`
     wait(job)
     print(b[0])          # bien: ya volvio
-}
 ```
 
 Sin `gpu = "compute"` en el `Titan.toml`, ni siquiera `gpu fn` compila (U2).
@@ -1258,17 +1250,14 @@ Sin `gpu = "compute"` en el `Titan.toml`, ni siquiera `gpu fn` compila (U2).
 **4. Un bucle de juego**
 
 ```text
-fn main() {
+fn main()
     let mut ship = Ship { x: 100.0, fuel: 50.00 }
-    while true {
+    while true
         let keys = input.read()
-        if keys.left and ship.fuel > 0.00 {
+        if keys.left and ship.fuel > 0.00
             push(mut ship, -2.0)
-        }
         draw(ship)
         wait(frame)          # duerme hasta el siguiente fotograma: no gira
-    }
-}
 ```
 
 ### 14.13 LA LISTA MAESTRA DEL FRONTEND: lo que se toma y lo que NO (30-09)
@@ -1287,6 +1276,7 @@ lo que no, en ROJO y de TODAS las inspiraciones. Se lee asi:
 **Python -- la SUPERFICIE: que se lea de corrido**
 
 ```diff
++ los bloques por SANGRIA (decidido el 30-09), como INTI
 + pocas palabras, en ingles, que se leen como frases
 + and / or / not con palabras
 + # para comentar, hasta el final de la linea
@@ -1299,13 +1289,14 @@ lo que no, en ROJO y de TODAS las inspiraciones. Se lee asi:
 - correr sin compilar: los errores saldrian en casa del usuario, no del autor
 ```
 
-**JavaScript -- la FORMA: bloques y literales que ya conoce todo el mundo**
+**JavaScript -- la FORMA: literales que ya conoce todo el mundo**
 
 ```diff
-+ bloques con { } (si T0 elige llaves y no sangria)
 + literales de registro: Ship { x: 0.0, fuel: 12.50 }
 + la flecha -> (el tipo que sale de una fn, las ramas de match)
 + texto que se suma: "a" + b
+- bloques con { }: T0 eligio SANGRIA el 30-09, como INTI (las llaves quedan
+-   solo para escribir un registro)
 - == que convierte tipos ("1" == 1 es true): la fuente de fallos mas famosa
 - null Y undefined: dos formas de "no hay nada"
 - this, prototipos y clases que cambian en marcha
@@ -1435,7 +1426,23 @@ nivel salen unos 30-40 ejemplos para todo el lenguaje.
    T5  la 3060             nivel 11
 ```
 
-El primer paso de verdad, cuando la gramatica exista, es el nivel 0: que
-`fn main() { print("hola") }` se lea, se compile y salga en una ventana del
-Ryzen. Todo lo demas se sube desde ahi.
+**NIVEL 0 -- T1 HECHO el 30-09** (`toolchain/lang/titan`, `bmo-titan-front`):
+
+```text
+mod main "saluda"
+
+fn main()
+    print("hola")
+```
+
+se lee y sale su arbol (`titan check`, `titan arbol`); lo que no, sale con su
+mensaje de 4 partes y un codigo estable (T0001-T0052, `GRAMATICA.md`). El banco
+(`ejemplos/nivel0/`) son 2 programas BIEN y 12 NO, UNO POR CODIGO: una prueba
+exige que cada codigo lo provoque algun ejemplo. Una palabra de un nivel que no
+existe dice cual la trae (`let` -> T0040, nivel 1). Y **el TITAN guardian**: la
+prueba de `words.rs` exige las 25 palabras, el techo de 30 y que cada nivel
+sume lo que dice la tabla de arriba.
+
+Lo siguiente del nivel 0 es T3: que ese `hola` salga en la CONSOLA del Ryzen
+(decidido el 30-09; la ventana, despues). Todo lo demas se sube desde ahi.
 

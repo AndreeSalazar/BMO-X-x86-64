@@ -1,0 +1,4 @@
+# espera: T0001
+# la primera linea no dice quien es ni que hace (U3)
+fn main()
+    print("hola")

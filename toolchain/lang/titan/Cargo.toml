@@ -1,0 +1,22 @@
+[package]
+name = "bmo-titan-front"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "TITAN++ -- el lenguaje para construir sobre BMO-X. Frontend: de texto a arbol."
+
+# -- Lo que enlaza, y lo que NO ------------------------------------
+#
+# Nada. Como INTI: cada lenguaje es un pipeline individual y completo (regla 2
+# del proyecto -- "contratos y formatos, NUNCA cerebros"), y en su primer paso
+# NO emite bytes: entra texto y sale un arbol. Atar el frontend a la forma del
+# emisor antes de tener nada que emitir es el orden que este proyecto evita.
+[dependencies]
+
+[lib]
+name = "bmo_titan_front"
+path = "src/lib.rs"
+
+[[bin]]
+name = "titan"
+path = "src/bin/titan.rs"

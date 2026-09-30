@@ -1,0 +1,6 @@
+# espera: T0030
+# print "hola" era de Python 2: aqui una llamada lleva parentesis
+mod main "saluda"
+
+fn main()
+    print "hola"

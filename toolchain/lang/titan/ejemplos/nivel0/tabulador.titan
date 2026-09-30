@@ -1,0 +1,6 @@
+# espera: T0010
+# un tabulador en la sangria
+mod main "saluda"
+
+fn main()
+	print("hola")

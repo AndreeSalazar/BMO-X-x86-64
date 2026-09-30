@@ -1,0 +1,5 @@
+# espera: T0031
+# una fn sin nada debajo
+mod main "saluda"
+
+fn main()

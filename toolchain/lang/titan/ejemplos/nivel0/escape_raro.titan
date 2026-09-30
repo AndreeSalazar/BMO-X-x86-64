@@ -1,0 +1,6 @@
+# espera: T0022
+# una barra que no va antes de una comilla, de otra barra o de n
+mod main "saluda"
+
+fn main()
+    print("C:\bmo")

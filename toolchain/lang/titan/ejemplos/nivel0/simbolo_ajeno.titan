@@ -1,0 +1,6 @@
+# espera: T0021
+# && es de C y de JavaScript: en TITAN++ es `and` (y llega en el nivel 3)
+mod main "saluda"
+
+fn main()
+    print("hola") && print("adios")

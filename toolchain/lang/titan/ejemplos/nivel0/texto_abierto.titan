@@ -1,0 +1,6 @@
+# espera: T0020
+# el texto no se cierra en su linea
+mod main "saluda"
+
+fn main()
+    print("hola)

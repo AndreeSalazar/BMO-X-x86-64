@@ -160,3 +160,6 @@ spirv            (0)
 # 2026-09-29: el TALLER de F1 (`Ultra_userspace/apps/taller`) y
 # su contrato con TITAN++ (`platform/shared/titan-contrato`). Nace aqui.
 taller           (5) 
+# 2026-09-30: el frontend de TITAN++ (`toolchain/lang/titan`), el lenguaje
+# para CONSTRUIR. Nace aqui, con el nivel 0 de su escalera.
+titan            (0) 

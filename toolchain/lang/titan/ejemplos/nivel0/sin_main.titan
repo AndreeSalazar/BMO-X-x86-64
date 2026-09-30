@@ -1,0 +1,6 @@
+# espera: T0050
+# hay funciones, pero ninguna es main
+mod main "saluda"
+
+fn saluda()
+    print("hola")

@@ -1,0 +1,6 @@
+# espera: T0012
+# tres espacios no son un nivel
+mod main "saluda"
+
+fn main()
+   print("hola")
