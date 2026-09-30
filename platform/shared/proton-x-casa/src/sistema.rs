@@ -483,8 +483,51 @@ const PF_NX_ENABLED: u32 = 12;
 /// `int 0x29`, y el kernel de BMO-X no la sirve; con NO, el CRT termina por
 /// su otro camino (TerminateProcess). Decir NO a lo demas solo le hace tomar
 /// caminos mas lentos, nunca uno roto.
+/// `IsProcessorFeaturePresent`: lo que ESTE procesador tiene y el sistema
+/// deja usar, preguntado con CPUID (y XGETBV para AVX: el estado tiene que
+/// estar habilitado en XCR0, como mira Windows). Antes solo decia SSE, SSE2
+/// y NX, y un juego que pregunta por AVX o SSE4 se creia en un Pentium 4.
+///
+/// Lo que no es Windows, dicho: PF_FASTFAIL_AVAILABLE (23) dice 0 -- con 1,
+/// `__fastfail` hace `int 0x29` y se pierde el registro de la excepcion, que
+/// por `UnhandledExceptionFilter` si llega a la casa (y lo dice).
 extern "win64" fn is_processor_feature_present(que: u32) -> i32 {
-    matches!(que, PF_XMMI_INSTRUCTIONS_AVAILABLE | PF_XMMI64_INSTRUCTIONS_AVAILABLE | PF_NX_ENABLED) as i32
+    use core::arch::x86_64::{__cpuid, __cpuid_count};
+    let (h1, h7, e1) = (__cpuid(1), __cpuid_count(7, 0), __cpuid(0x8000_0001));
+    let bit = |r: u32, b: u32| r >> b & 1 != 0;
+    let osxsave = bit(h1.ecx, 27);
+    let xcr0 = if osxsave {
+        let (lo, hi): (u32, u32);
+        // SAFETY: XGETBV(0) con CR4.OSXSAVE puesto (lo dice CPUID.1:ECX.27).
+        unsafe { core::arch::asm!("xgetbv", in("ecx") 0u32, out("eax") lo, out("edx") hi, options(nomem, nostack)) };
+        (hi as u64) << 32 | lo as u64
+    } else {
+        0
+    };
+    let avx = bit(h1.ecx, 28) && xcr0 & 0x6 == 0x6;
+    (match que {
+        2 => bit(h1.edx, 8),                                 // CMPXCHG8B
+        3 => bit(h1.edx, 23),                                // MMX
+        PF_XMMI_INSTRUCTIONS_AVAILABLE => bit(h1.edx, 25),   // SSE
+        8 => bit(h1.edx, 4),                                 // RDTSC
+        9 => true,                                           // PAE (x86-64)
+        PF_XMMI64_INSTRUCTIONS_AVAILABLE => bit(h1.edx, 26), // SSE2
+        PF_NX_ENABLED => true,
+        13 => bit(h1.ecx, 0),                                // SSE3
+        14 => bit(h1.ecx, 13),                               // CMPXCHG16B
+        17 => osxsave,                                       // XSAVE
+        28 => bit(h1.ecx, 30),                               // RDRAND
+        32 => bit(e1.edx, 27),                               // RDTSCP
+        33 => bit(h7.ecx, 22),                               // RDPID
+        36 => bit(h1.ecx, 9),                                // SSSE3
+        37 => bit(h1.ecx, 19),                               // SSE4.1
+        38 => bit(h1.ecx, 20),                               // SSE4.2
+        39 => avx,                                           // AVX
+        40 => avx && bit(h7.ebx, 5),                         // AVX2
+        41 => bit(h7.ebx, 16) && xcr0 & 0xE6 == 0xE6,        // AVX-512F
+        42 => bit(h7.ebx, 9),                                // ERMS
+        _ => false,
+    }) as i32
 }
 
 const EXCEPTION_EXECUTE_HANDLER: i32 = 1;
@@ -494,8 +537,32 @@ const EXCEPTION_EXECUTE_HANDLER: i32 = 1;
 /// Se dice, y EXECUTE_HANDLER: quien llama termina el proceso. Lo que no es
 /// Windows, dicho: no llama al filtro de SetUnhandledExceptionFilter ni
 /// ofrece depurar.
-extern "win64" fn unhandled_exception_filter(_punteros: u64) -> i32 {
-    aviso("UnhandledExceptionFilter: una excepcion sin arreglo, el proceso termina");
+extern "win64" fn unhandled_exception_filter(punteros: u64) -> i32 {
+    // El REGISTRO de la excepcion: el codigo, donde, y sus parametros (en
+    // __report_gsfailure, 0xC0000409 y el codigo de FAST_FAIL; en un abort
+    // o un terminate del CRT, el suyo). Antes se tiraba: el metal (30-09)
+    // dijo "una excepcion sin arreglo" y nada mas.
+    // EXCEPTION_POINTERS { ExceptionRecord*, ContextRecord* }; EXCEPTION_RECORD
+    // { Code u32, Flags u32, Record*, Address*, NumberParameters u32, pad,
+    // Information[15] en +0x20 }; CONTEXT.Rip en +0xF8.
+    let leer = |d: u64| -> Option<u64> { (d >= 0x1_0000).then(|| unsafe { (d as *const u64).read_unaligned() }) };
+    let reg = leer(punteros);
+    let ctx = leer(punteros + 8);
+    match reg.filter(|&r| r >= 0x1_0000) {
+        Some(r) => {
+            // SAFETY: el EXCEPTION_RECORD que el CRT del `.exe` preparo.
+            let (codigo, dir, n) = unsafe { ((r as *const u32).read_unaligned(), ((r + 0x10) as *const u64).read_unaligned(), ((r + 0x18) as *const u32).read_unaligned()) };
+            let p = |k: u64| if (k as u32) < n.min(15) { leer(r + 0x20 + 8 * k).unwrap_or(0) } else { 0 };
+            let rip = ctx.filter(|&c| c >= 0x1_0000).and_then(|c| leer(c + 0xF8)).unwrap_or(0);
+            aviso(&alloc::format!(
+                "UnhandledExceptionFilter: el .exe se rinde: codigo {codigo:#010x}, en {dir:#x} (rip del contexto {rip:#x}), {n} parametro(s): {:#x} {:#x} {:#x}; el proceso termina",
+                p(0),
+                p(1),
+                p(2)
+            ));
+        }
+        None => aviso("UnhandledExceptionFilter: una excepcion sin arreglo (sin registro legible), el proceso termina"),
+    }
     EXCEPTION_EXECUTE_HANDLER
 }
 

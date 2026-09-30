@@ -1104,3 +1104,20 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    e77c8b6bcd55ff3dd31829567f9e4ad8ccf02b200c4f6d3229ac223aa88b73df
 
 Dice `bien` dieciseis veces y sale con 0. En Windows dice lo mismo.
+
+tanda24.exe -- la TANDA 24 de Cyberpunk (30-09): IsProcessorFeaturePresent
+
+En el metal el juego lo pregunto justo antes de rendirse
+(UnhandledExceptionFilter), y la casa solo decia SSE, SSE2 y NX. Cada
+respuesta se compara con el propio CPUID (y XGETBV para AVX: el estado
+tiene que estar habilitado en XCR0, como mira Windows).
+
+   llvm-dlltool -m i386:x86-64 -d tanda24_kernel32.def -l tanda24_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda24.c -o tanda24.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda24.obj tanda24_kernel32.lib /out:tanda24.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   cad80a916dc8a3d8c1ecc1857762edaaacaa356aa1d89e89c9de0c4b7c178f3a
+
+Dice `bien` doce veces y sale con 0. En Windows dice lo mismo.

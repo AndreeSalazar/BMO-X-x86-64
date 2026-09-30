@@ -244,3 +244,11 @@ fn tanda23_exe_la_memoria_en_marcha() {
     assert!(h >= 200 << 20, "se hicieron los 200 MiB por la reserva: {h}");
     assert!(d >= 200 << 20, "y volvieron: {d}");
 }
+
+/// **La tanda 24 de Cyberpunk** (30-09): `tanda24.exe` --
+/// IsProcessorFeaturePresent contra el CPUID (y XGETBV). El juego lo
+/// pregunto justo antes de rendirse y la casa solo decia SSE, SSE2 y NX.
+#[test]
+fn tanda24_exe_las_capacidades_del_procesador() {
+    tanda(TANDA24, None, 12, "tanda24.exe: IsProcessorFeaturePresent es el de Windows");
+}
