@@ -1121,3 +1121,23 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    cad80a916dc8a3d8c1ecc1857762edaaacaa356aa1d89e89c9de0c4b7c178f3a
 
 Dice `bien` doce veces y sale con 0. En Windows dice lo mismo.
+
+tanda25.exe -- la TANDA 25 de Cyberpunk (30-09): SystemFunction036
+
+En el metal el juego se rindio con abort() nada mas saltar a su entrada.
+La pila, leida en el .exe: __scrt_common_main_seh -> _initterm -> un
+constructor global -> un thread_local -> std::random_device -> rand_s ->
+__acrt_RtlGenRandom, que busca SystemFunction036 con LoadLibraryExW del
+API set "api-ms-win-security-systemfunctions-l1-1-0" (o "advapi32") y
+GetProcAddress; la casa no la tenia, y sin ella: abort(). Aqui se busca
+igual, por los dos nombres, y se mira que da azar de verdad.
+
+   llvm-dlltool -m i386:x86-64 -d tanda25_kernel32.def -l tanda25_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda25.c -o tanda25.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda25.obj tanda25_kernel32.lib /out:tanda25.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   91726561ea9700b29231c0a8d57fa186ad8377783c5ecb28e66238c85d13717d
+
+Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.

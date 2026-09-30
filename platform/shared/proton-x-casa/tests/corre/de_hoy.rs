@@ -252,3 +252,11 @@ fn tanda23_exe_la_memoria_en_marcha() {
 fn tanda24_exe_las_capacidades_del_procesador() {
     tanda(TANDA24, None, 12, "tanda24.exe: IsProcessorFeaturePresent es el de Windows");
 }
+
+/// **La tanda 25 de Cyberpunk** (30-09): `tanda25.exe` -- SystemFunction036
+/// (RtlGenRandom) por su API set y por ADVAPI32. El juego se rendia con
+/// abort() en un constructor global: std::random_device -> rand_s -> ella.
+#[test]
+fn tanda25_exe_el_azar_de_rand_s() {
+    tanda(TANDA25, None, 9, "tanda25.exe: SystemFunction036 (el azar de rand_s) es el de Windows");
+}

@@ -7,6 +7,7 @@
 //!    el usuario  GetUserNameW/A (el USERNAME del entorno)
 //!    CryptoAPI   CryptAcquireContextW/A CryptReleaseContext CryptGetProvParam
 //!                CryptEnumProvidersW CryptGenRandom (RDRAND)
+//!    el azar     SystemFunction036 (RtlGenRandom, de rand_s): RDRAND
 //!                CryptCreateHash CryptHashData CryptGetHashParam
 //!                CryptSetHashParam CryptDestroyHash: MD5, SHA-1 y SHA-256
 //!                de verdad (bmo_proton_x::resumen)
@@ -296,6 +297,20 @@ extern "win64" fn crypt_gen_random(h: u64, n: u32, p: *mut u8) -> i32 {
     1
 }
 
+/// `SystemFunction036` (RtlGenRandom): `n` bytes al azar, TRUE. La UCRT la
+/// busca con `LoadLibraryExW` + `GetProcAddress` (por su API set o por
+/// ADVAPI32) para `rand_s`, y `std::random_device` usa `rand_s`: si no esta,
+/// `abort()`. Cyberpunk, en el metal, se rendia aqui (tanda 25).
+extern "win64" fn system_function_036(p: *mut u8, n: u32) -> u8 {
+    if n > 0 {
+        if p.is_null() {
+            return 0;
+        }
+        crate::sistema::process_prng(p, n as usize);
+    }
+    1
+}
+
 // -- CryptoAPI: los resumenes -------------------------------------------------------------------
 
 const CALG_MD5: u32 = 0x8003;
@@ -546,6 +561,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "CryptGetProvParam" => dir!(crypt_get_prov_param),
         "CryptEnumProvidersW" => dir!(crypt_enum_providers_w),
         "CryptGenRandom" => dir!(crypt_gen_random),
+        "SystemFunction036" => dir!(system_function_036),
         "CryptCreateHash" => dir!(crypt_create_hash),
         "CryptHashData" => dir!(crypt_hash_data),
         "CryptGetHashParam" => dir!(crypt_get_hash_param),
