@@ -694,12 +694,14 @@ pub extern "C" fn _start() -> ! {
     // ** EL DIARIO (P0.3, 30-09): `--diario <ruta>` ejecuta como siempre, y
     // cada funcion de Windows que el `.exe` llama por primera vez va, en
     // orden, a `informe/diario.txt` (ver `bmo_proton_x_casa::diario`).
-    let todo = match todo.strip_prefix(b"--diario ") {
-        Some(r) => {
-            bmo_proton_x_casa::diario::diario(Some(RUTA_DIARIO));
-            r
-        }
-        None => todo,
+    // [!] Se ENCIENDE mas abajo, con el monton ya puesto: el diario guarda su
+    // ruta en memoria dinamica, y encenderlo aqui era un panico de 18 bytes
+    // (`informe/diario.txt`) con el monton a 0 -- el primer contacto del
+    // metal (30-09) no paso de aqui. El banco no lo veia: alli el monton
+    // existe siempre.
+    let (todo, con_diario) = match todo.strip_prefix(b"--diario ") {
+        Some(r) => (r, true),
+        None => (todo, false),
     };
     // P4e: `window/x.exe lo de detras` -- la ruta hasta el primer espacio; lo
     // demas es la linea de ordenes del `.exe` (GetCommandLineW). N2: o entre
@@ -734,6 +736,9 @@ pub extern "C" fn _start() -> ! {
     // SAFETY: el bloque es de este proceso y no se suelta nunca (forget).
     unsafe { MONTON.poner(bloque.base() as usize, PARA_MONTON as usize) };
     core::mem::forget(bloque);
+    if con_diario {
+        bmo_proton_x_casa::diario::diario(Some(RUTA_DIARIO));
+    }
 
     // -- 2 y 3. El veredicto, la forma, y como se parte: de las cabeceras.
     let n = CABECERAS.min(mide);
