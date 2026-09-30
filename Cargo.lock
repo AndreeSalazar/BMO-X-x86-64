@@ -408,6 +408,7 @@ dependencies = [
  "bmo-gpu-ga10x",
  "bmo-hash",
  "bmo-identify",
+ "bmo-imagen-juicio",
  "bmo-input",
  "bmo-iommu-amdvi",
  "bmo-mmio-juicio",

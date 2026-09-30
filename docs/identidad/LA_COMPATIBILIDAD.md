@@ -153,6 +153,35 @@ que cuesta cuando si cambia es un `wrmsr`, y la operacion devuelve sus ciclos:
 PROTON-X los dice en el metal al arrancar cada `.exe`: en el Ryzen 5 5600X,
 **148 y 185 ciclos** (27-09), y 0 al pedir el mismo otra vez.
 
+
+## 4.3 -- La tercera: la DECLARACION DE IMAGEN, para Cyberpunk (30-09)
+
+Un proceso tenia, como mucho, ocho bloques de 64 MiB en 512 MiB de VA
+(`obj/memory.rs`). Cyberpunk son unas 55 partes --el `.exe` y sus 26 DLL,
+codigo y datos de cada una--, una de ellas de 70 MiB. Los topes no se suben
+para todos: la app que SABE lo que necesita lo DECLARA entero, y se juzga una
+vez (P0.4b de `docs/plan/PLAN_LAS_TRES_GRANDES.md`; permiso del propietario:
+"si al kernel").
+
+| peaje | como se pago |
+|---|---|
+| 1. cabe en su campo | `0x37`, `0x38` y `0x39`, las siguientes libres de `TASK_OP_*` |
+| 2. libre en las dos | libres en `syscall/ops.rs` y en `surface/tarea.rs` |
+| 3. un NO con nombre | **quince** `IMAGEN_*`; el de RAM lleva lo que pide y lo que hay, en MiB |
+| 4. se suelta al morir | `imagen::process_died` en `revoke_all`, con el espacio DEL QUE MUERE: cada pagina desmapeada, a cero y de vuelta |
+| 5. una prueba que ve el fallo | `bmo-imagen-juicio`, 8 pruebas: la de Cyberpunk entra, y sin RAM, desordenada, vacia o absurda, no |
+| 6. las tres tablas | `TASK_OP_IMAGEN_*` en kernel y ABI, `OP_IMAGEN_*` en userland |
+
+**La concesion, dicha entera:** una ventana de VA propia (16 GiB desde
+`0x10_0000_0000`) y paginas sin fisica contigua para quien declara. El juez no
+tiene ni un tope escrito: el techo es la RAM libre de ESE momento menos el
+margen del kernel (64 MiB, el mismo de la admision).
+
+**La compensacion:** la burocracia se paga una vez, al declarar; despues el
+proceso escribe y ejecuta en lo suyo sin volver a la puerta. W^X no cambia
+(el codigo se sella igual) y DOOM, el escritorio y toda app que no declara
+siguen con sus ocho bloques.
+
 ---
 
 # 5. ⚠ LO QUE PASA CUANDO EL PEAJE NO SE PAGA -- dos casos REALES de hoy

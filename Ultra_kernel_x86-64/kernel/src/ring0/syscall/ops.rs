@@ -299,6 +299,17 @@ pub(crate) const TASK_OP_IOMMU: u64 = 0x35;
 /// los ciclos del `wrmsr` (0 si ya estaba). Espejo de
 /// `bmo_abi::...::TASK_OP_PON_GS`. Ver `task/percpu.rs::poner_gs_usuario`.
 pub(crate) const TASK_OP_PON_GS: u64 = 0x36;
+/// **LA DECLARACION DE IMAGEN** (P0.4b, 30-09): `arg0` = la VA de la tabla de
+/// partes (en un bloque propio, 16 bytes por parte), `arg1` = cuantas.
+/// Contesta la base de la ventana de imagenes, o el NO con su motivo
+/// (`IMAGEN_*`). Espejo de `bmo_abi::...::TASK_OP_IMAGEN_DECLARAR`. Ver
+/// `obj/imagen.rs`.
+pub(crate) const TASK_OP_IMAGEN_DECLARAR: u64 = 0x37;
+/// Donde quedo la parte `arg0`. Espejo de `bmo_abi::...::TASK_OP_IMAGEN_PARTE`.
+pub(crate) const TASK_OP_IMAGEN_PARTE: u64 = 0x38;
+/// Sellar la parte de codigo `arg0` (W^X). Espejo de
+/// `bmo_abi::...::TASK_OP_IMAGEN_SELLAR`.
+pub(crate) const TASK_OP_IMAGEN_SELLAR: u64 = 0x39;
 pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su entrada, bloqueada.

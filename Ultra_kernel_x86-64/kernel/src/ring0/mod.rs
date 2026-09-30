@@ -54,6 +54,10 @@ pub mod obj {
     /// `KIND_LATIDO`: el derecho a que `WAIT` despierte cuando LATE el
     /// hardware. Pieza S3 del suelo -- ver `docs/plan/terminado/PLAN_SUELO_RING3.md`.
     pub mod latido;
+    /// La DECLARACION DE IMAGEN (P0.4b, 30-09): un `.exe` de Windows y sus DLL
+    /// declaran todas sus partes de una vez y se juzgan UNA vez contra la RAM
+    /// libre de ahora. Ver la cabecera del modulo.
+    pub mod imagen;
     /// `KIND_PRESTADO`: un proceso cede un trozo de SU memoria a otro. El
     /// kernel mueve paginas y **no sabe para que** -- el lienzo, el audio y los
     /// bloques grandes entre procesos salen todos de aqui.

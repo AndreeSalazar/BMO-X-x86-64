@@ -628,6 +628,46 @@ pub const TASK_OP_IOMMU: u64 = 0x35;
 /// piden no pagan nada. Contesta los ciclos del `wrmsr` (0 si ya estaba), que
 /// es lo que cuesta un relevo entre dos hilos con distinto GS.
 pub const TASK_OP_PON_GS: u64 = 0x36;
+
+/// **LA DECLARACION DE IMAGEN** (PROTON-X P0.4b, 2026-09-30). `arg0` = la VA
+/// de la tabla de partes, dentro de un bloque PROPIO (`TASK_OP_MEMORIA_PEDIR`):
+/// por la puerta no viajan punteros, el kernel la lee por la fisica del
+/// bloque. `arg1` = cuantas partes (hasta [`IMAGEN_MAX_PARTES`]).
+///
+/// Cada parte son [`IMAGEN_PARTE_BYTES`]: sus bytes en memoria (u64), de que
+/// PE es (u16: 0, 1, 2... en orden) y si es su codigo (u8, 1 o 0), el resto a
+/// cero. De cada PE, el codigo antes que los datos.
+///
+/// Se juzga UNA vez contra la RAM libre de ese momento menos el margen del
+/// kernel: dinamico, no un tope escrito. `Ok` lleva la base de la ventana de
+/// imagenes; el NO, `ERROR_NEGADO` con el motivo (`IMAGEN_*`) en las banderas
+/// y su valor. Una declaracion por proceso; al morir, todo vuelve a cero.
+pub const TASK_OP_IMAGEN_DECLARAR: u64 = 0x37;
+/// Donde quedo la parte `arg0` (su VA).
+pub const TASK_OP_IMAGEN_PARTE: u64 = 0x38;
+/// Sellar la parte de CODIGO `arg0`: R+X sin W, irreversible (W^X).
+pub const TASK_OP_IMAGEN_SELLAR: u64 = 0x39;
+/// Lo que mide una parte en la tabla.
+pub const IMAGEN_PARTE_BYTES: u64 = 16;
+/// Cuantas partes caben en una declaracion.
+pub const IMAGEN_MAX_PARTES: u64 = 128;
+/// Los NO de la imagen. Espejo de `ring0::obj::imagen`.
+pub const IMAGEN_YA_DECLARADA: u32 = 1;
+pub const IMAGEN_SIN_TABLA: u32 = 2;
+pub const IMAGEN_DE_MAS: u32 = 3;
+pub const IMAGEN_PARTE_VACIA: u32 = 4;
+pub const IMAGEN_DESORDENADA: u32 = 5;
+/// El valor lleva lo que pide y lo que hay, en MiB: `pide << 32 | hay`.
+pub const IMAGEN_SIN_RAM: u32 = 6;
+pub const IMAGEN_SIN_VENTANA: u32 = 7;
+pub const IMAGEN_SIN_RANURA: u32 = 8;
+pub const IMAGEN_SIN_MARCOS: u32 = 9;
+pub const IMAGEN_NO_MAPEA: u32 = 10;
+pub const IMAGEN_NO_HAY_PARTE: u32 = 11;
+pub const IMAGEN_NO_ES_CODIGO: u32 = 12;
+pub const IMAGEN_YA_SELLADA: u32 = 13;
+pub const IMAGEN_SIN_NX: u32 = 14;
+pub const IMAGEN_NO_REMAPEA: u32 = 15;
 pub const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su DMA no alcanza la RAM; sus interrupciones si pasan.

@@ -447,6 +447,9 @@ pub fn revoke_all(pid: u32) {
     crate::ring0::obj::loan::process_died(pid, aspace);
     crate::ring0::core::desmontaje::entra(10, pid);
     crate::ring0::obj::memory::process_died(pid);
+    // Y su IMAGEN declarada (P0.4b): con SU espacio, que todavia existe --
+    // cada pagina se desmapea, se pone a cero y vuelve al asignador.
+    crate::ring0::obj::imagen::process_died(pid, aspace);
     // Si era el LECTOR de una consola, se libera; si solo escribia en ella, su
     // salida vuelve al panel del kernel. Ver `ring0/consola.rs`.
     crate::ring0::core::desmontaje::entra(11, pid);
