@@ -60,6 +60,7 @@ pub mod crt_mates;
 pub mod crt_numeros;
 pub mod cxx;
 pub mod d3d12;
+pub mod diario;
 pub mod dxgi;
 pub mod esperas;
 pub mod excepciones;
@@ -280,8 +281,21 @@ pub fn aviso(texto: &str) {
     }
 }
 
-/// **LA TABLA DE LA CASA**: la direccion de cada funcion que existe.
+/// **LA TABLA DE LA CASA**: la direccion de cada funcion que existe, tal
+/// como la ve el `.exe` (el cargador y `GetProcAddress`): con el diario
+/// encendido, su trampolin (`diario::envolver`).
 pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
+    let d = tabla_casa(dll, f)?;
+    // Lo que exporta una DLL propia puede ser un DATO: nunca se envuelve.
+    if modulos::exportada(dll, f).is_some() {
+        return Some(d);
+    }
+    Some(diario::envolver(dll, &alloc::format!("{f}"), d))
+}
+
+/// **La tabla, para la casa misma**: la funcion de verdad, sin trampolin
+/// (lo que la casa se llama a si misma no va al diario).
+pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
     // P5a: lo que exporta una DLL PROPIA ya cargada (tambien por ordinal).
     if let Some(d) = modulos::exportada(dll, f) {
         return Some(d);

@@ -636,7 +636,7 @@ extern "win64" fn message_box_indirect_a(p: *const u8) -> i32 {
     }
     // SAFETY: el MSGBOXPARAMSA del `.exe` (80 bytes).
     let (h, texto, titulo, estilo) = unsafe { ((p.add(8) as *const u64).read_unaligned(), (p.add(24) as *const u64).read_unaligned(), (p.add(32) as *const u64).read_unaligned(), (p.add(40) as *const u32).read_unaligned()) };
-    let Some(f) = crate::tabla("user32.dll", &bmo_proton_x::Funcion::Nombre("MessageBoxA".into())) else { return 0 };
+    let Some(f) = crate::tabla_casa("user32.dll", &bmo_proton_x::Funcion::Nombre("MessageBoxA".into())) else { return 0 };
     // SAFETY: la MessageBoxA de la casa.
     let f: extern "win64" fn(u64, u64, u64, u32) -> i32 = unsafe { core::mem::transmute::<u64, _>(f) };
     f(h, texto, titulo, estilo)

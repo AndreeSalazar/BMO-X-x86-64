@@ -32,6 +32,10 @@
 //! escritorio, `personal censo <ruta>`. El censo es COMPLETO: sigue tambien
 //! las DLL del juego junto al `.exe` y lista las que se cargan en vivo.
 //!
+//! **El DIARIO** (30-09): `--diario <ruta>` ejecuta como siempre y deja en
+//! `informe/diario.txt` cada funcion de Windows que el `.exe` llama por
+//! primera vez, en orden: `run sys/proton-x.bex --diario window/hola.exe`.
+//!
 //! **El GS de Windows** (P1d, 27-09): antes de saltar, un TEB y un PEB en el
 //! monton y el GS del hilo apuntando al TEB (`TASK_OP_PON_GS`). Un `.exe`
 //! encuentra ahi su pila, su base, su LastError y sus ids, como en Windows
@@ -109,6 +113,8 @@ fn partir_ruta(todo: &[u8]) -> (&[u8], &[u8]) {
 const TOPE_SECCION: u64 = 64 << 20;
 /// Donde queda la lista entera.
 const RUTA_CENSO: &[u8] = b"informe/censo.txt";
+/// Donde queda el diario (`--diario`).
+const RUTA_DIARIO: &[u8] = b"informe/diario.txt";
 /// Lo que se lee de D: entre dos cesiones del turno.
 const TROZO: u64 = 2 << 20;
 
@@ -607,6 +613,16 @@ pub extern "C" fn _start() -> ! {
     if let Some(r) = todo.strip_prefix(b"--censo ") {
         censo(partir_ruta(r).0);
     }
+    // ** EL DIARIO (P0.3, 30-09): `--diario <ruta>` ejecuta como siempre, y
+    // cada funcion de Windows que el `.exe` llama por primera vez va, en
+    // orden, a `informe/diario.txt` (ver `bmo_proton_x_casa::diario`).
+    let todo = match todo.strip_prefix(b"--diario ") {
+        Some(r) => {
+            bmo_proton_x_casa::diario::diario(Some(RUTA_DIARIO));
+            r
+        }
+        None => todo,
+    };
     // P4e: `window/x.exe lo de detras` -- la ruta hasta el primer espacio; lo
     // demas es la linea de ordenes del `.exe` (GetCommandLineW). N2: o entre
     // comillas, que las rutas de D: llevan espacios (`"d:Cyberpunk 2077/..."`).
