@@ -30,8 +30,8 @@
 
 use crate::canvas::Canvas;
 use crate::store::{Origin, Store};
-use crate::view::{self, Buf, Camera, ACCENT, BAD, BAR, BG, DIM, EDGE, GOOD, INK, LEFT, TITLE, TOP};
-use bmo_dibujo::{Color, Lienzo};
+use crate::view::{self, picked_row, ring_line, Buf, Camera, ACCENT, BAD, BAR, BG, BLUE, DIM, EDGE, GOOD, INK, LEFT, TITLE, TOP, VIOLET};
+use bmo_dibujo::{mezclar, Color, Lienzo};
 use bmo_titan_contrato::NodeId;
 use bmo_titan_lector::hang::{self, HangError};
 
@@ -144,7 +144,11 @@ fn indent(depth: u8) -> i32 {
 
 pub fn draw(c: &mut Canvas, store: &Store, selected: Option<NodeId>) {
     c.rect(0, TOP, LEFT, c.h - TOP, BAR);
-    c.rect(LEFT - 1, TOP, 1, c.h - TOP, EDGE);
+    // Its edge is the logo's ring, top to bottom: blue into violet.
+    let tall = (c.h - TOP) as u32;
+    for y in TOP..c.h {
+        c.put(LEFT - 1, y, mezclar(VIOLET, BLUE, (y - TOP) as u32, tall));
+    }
     let files = store.loaded.files();
     rows(store, |y, _h, row| match row {
         Row::Heading("EXPLORER") => {
@@ -162,7 +166,7 @@ pub fn draw(c: &mut Canvas, store: &Store, selected: Option<NodeId>) {
         Row::Package(i) => {
             let chosen = i == store.chosen;
             if chosen {
-                c.rect(0, y - 1, LEFT - 1, ROW, EDGE);
+                picked_row(c, 0, y - 1, LEFT - 1, ROW);
             }
             let mut t = Buf::new();
             t.s(if chosen { "> " } else { "  " }).b(store.packages()[i].0.as_bytes());
@@ -172,7 +176,7 @@ pub fn draw(c: &mut Canvas, store: &Store, selected: Option<NodeId>) {
             let f = &files[i];
             let lit = selected == Some(f.node);
             if lit {
-                c.rect(0, y - 1, LEFT - 1, ROW, EDGE);
+                picked_row(c, 0, y - 1, LEFT - 1, ROW);
             }
             // The guides of the tree: one thin line per level above it.
             for level in 1..=f.depth as i32 {
@@ -218,7 +222,7 @@ fn footer(c: &mut Canvas, store: &Store, selected: Option<NodeId>) {
     // As tall as what it says: counted first, so nothing falls off the bottom.
     let mut y = c.h - 8 - (note_lines + disk_lines) as i32 * ROW;
     c.rect(0, y - 8, LEFT - 1, c.h - y + 8, BG);
-    c.rect(0, y - 8, LEFT - 1, 1, EDGE);
+    ring_line(c, 0, y - 8, LEFT - 1);
     if let Some((note, done)) = &store.note {
         let ok = *done;
         for line in pieces(note.as_bytes()).take(2) {

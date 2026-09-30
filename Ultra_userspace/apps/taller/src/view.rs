@@ -11,10 +11,15 @@
 //! ```
 //!
 //! Nothing here judges: the graph and the script come already checked.
+//!
+//! ** THE LOOK is the logo's (`docs/arte/titan.jpg`, `PLAN_TALLER` 8.8): a
+//! blue night, electric blue going to violet, light that GLOWS instead of
+//! lines that border. F1 is TITAN++'s workshop and wears TITAN++'s colours;
+//! the desktop keeps the cat's (`Los colores del gato`).
 
 use crate::canvas::Canvas;
 use crate::player::{duration, Player, TRAVEL_MS};
-use bmo_dibujo::{Color, Lienzo, Vertice};
+use bmo_dibujo::{mezclar, Color, Lienzo, Vertice};
 use bmo_titan_contrato::{EventKind, Graph, Lang, Mode, Node, NodeId, NodeKind, Permission, Script, MAX_NODES};
 
 /// A node, in world pixels.
@@ -27,21 +32,39 @@ pub const PANEL: i32 = 132;
 /// Zoom levels, in thousandths.
 pub const LEVELS: [i32; 6] = [500, 750, 1000, 1250, 1500, 2000];
 
-// The house colours of the workshop, shared with the EXPLORER.
-pub(crate) const BG: Color = 0x0010_0C14;
-const DOT: Color = 0x0030_2640;
-const BODY: Color = 0x001A_1422;
-pub(crate) const EDGE: Color = 0x0044_2E60;
-pub(crate) const BAR: Color = 0x0020_1630;
-pub(crate) const TITLE: Color = 0x00C0_7FD8;
-pub(crate) const INK: Color = 0x00E8_E0F0;
-pub(crate) const DIM: Color = 0x0090_88A0;
-const CABLE: Color = 0x0050_4866;
-pub(crate) const ACCENT: Color = 0x005E_F2E6;
-const MUT: Color = 0x00F2_B84B;
-pub(crate) const BAD: Color = 0x00E0_4848;
-pub(crate) const GOOD: Color = 0x0056_C46A;
-const GREY: Color = 0x0060_5A6A;
+// The colours of TITAN++, taken from its logo; shared with the EXPLORER.
+pub(crate) const BG: Color = 0x0003_0510;
+const DOT: Color = 0x0012_1A3C;
+const BODY: Color = 0x0009_0E26;
+pub(crate) const EDGE: Color = 0x0022_2E6A;
+pub(crate) const BAR: Color = 0x0006_091A;
+pub(crate) const TITLE: Color = 0x00AF_C3FF;
+pub(crate) const INK: Color = 0x00E9_EEFF;
+pub(crate) const DIM: Color = 0x0078_84B4;
+const CABLE: Color = 0x0035_4C9A;
+const CABLE_CORE: Color = 0x005A_7CDA;
+pub(crate) const ACCENT: Color = 0x0070_D6FF;
+/// The two ends of every gradient: the logo's ring.
+pub(crate) const BLUE: Color = 0x003D_6BFF;
+pub(crate) const VIOLET: Color = 0x008C_52FF;
+/// The row picked in the EXPLORER.
+pub(crate) const SEL: Color = 0x0010_1A46;
+const MUT: Color = 0x00FF_B84B;
+pub(crate) const BAD: Color = 0x00FF_4D6A;
+pub(crate) const GOOD: Color = 0x0052_E0A0;
+const GREY: Color = 0x0050_5878;
+
+/// A thin line of the ring's gradient: blue to violet and back to blue.
+pub(crate) fn ring_line(c: &mut Canvas, x: i32, y: i32, w: i32) {
+    c.gradient(x, y, w / 2, 1, BLUE, VIOLET);
+    c.gradient(x + w / 2, y, w - w / 2, 1, VIOLET, BLUE);
+}
+
+/// A picked row of a list: a dark blue band with a bar of light on its left.
+pub(crate) fn picked_row(c: &mut Canvas, x: i32, y: i32, w: i32, h: i32) {
+    c.rect(x, y, w, h, SEL);
+    c.rect(x, y, 2, h, ACCENT);
+}
 
 /// World -> screen: `(world - cam) * zoom / 1000`, right of the EXPLORER and
 /// below the title bar.
@@ -179,18 +202,19 @@ fn along(k: &[Vertice; 4], u: u32) -> Vertice {
     (x as i32, y as i32)
 }
 
-fn header_of(n: &Node) -> (Color, &'static str) {
+/// A node's header: its gradient (left, right) and its label.
+fn header_of(n: &Node) -> (Color, Color, &'static str) {
     match n.kind {
-        NodeKind::Root => (0x006A_3FA0, "TITAN.TOML"),
-        NodeKind::Gpu => (0x002E_7D32, "GPU"),
-        NodeKind::Director => (0x002A_4E8C, "SISTEMA"),
-        NodeKind::Dependency => (0x0055_4A70, "DEPENDENCIA"),
+        NodeKind::Root => (0x005A_2BD0, 0x00B0_4DE8, "TITAN.TOML"),
+        NodeKind::Gpu => (0x0015_7A4E, 0x002B_B38F, "GPU"),
+        NodeKind::Director => (0x0023_407E, 0x003A_66B8, "SISTEMA"),
+        NodeKind::Dependency => (0x003A_3F66, 0x005A_5F8A, "DEPENDENCIA"),
         NodeKind::Module => match n.lang {
-            Lang::Titan => (0x0016_6A66, "TITAN"),
-            Lang::Inti => (0x008A_6418, "INTI"),
-            Lang::C => (0x0028_4A8A, "C"),
-            Lang::Rust => (0x008B_2A2A, "RUST"),
-            Lang::None => (0x0044_2E60, ""),
+            Lang::Titan => (0x002A_4BE0, 0x007A_3DF0, "TITAN"),
+            Lang::Inti => (0x008A_5A12, 0x00C9_8A24, "INTI"),
+            Lang::C => (0x0023_4A8C, 0x0035_70C0, "C"),
+            Lang::Rust => (0x008B_2A2A, 0x00C0_442E, "RUST"),
+            Lang::None => (EDGE, EDGE, ""),
         },
     }
 }
@@ -230,6 +254,8 @@ pub struct Scene<'a> {
     pub selected: Option<NodeId>,
     /// Where the package came from, for the title bar.
     pub origin: &'a [u8],
+    /// The sky, built once (`art::backdrop`); `None`: a plain night colour.
+    pub sky: Option<&'a [u32]>,
 }
 
 /// One whole frame of the canvas. The EXPLORER is drawn after, on its own.
@@ -237,17 +263,21 @@ pub fn draw(c: &mut Canvas, sc: &Scene) {
     let none = Script::new();
     let (g, p, cam) = (sc.graph, sc.player, sc.cam);
     let s = sc.script.unwrap_or(&none);
-    c.clear(BG);
+    match sc.sky {
+        Some(px) => c.blit(px),
+        None => c.clear(BG),
+    }
     grid(c, cam);
     let current = s.events().get(p.index).map(|e| e.kind);
     cables(c, g, p, cam, current);
     for (i, n) in g.nodes().iter().enumerate() {
         let id = NodeId(i as u8);
-        node(c, g, cam, id, n, current, sc.now_ms);
         if sc.selected == Some(id) {
+            // Picked: a brighter, wider halo, drawn under the node.
             let (x, y, w, h) = node_rect(cam, n);
-            c.frame(x - 3, y - 3, w + 6, h + 6, 2, ACCENT);
+            c.glow(x, y, w, h, ACCENT, 9, 55);
         }
+        node(c, g, cam, id, n, current, sc.now_ms);
     }
     chips(c, g, p, cam);
     overlay(c, g, s, p, cam, sc.now_ms);
@@ -290,9 +320,11 @@ fn cables(c: &mut Canvas, g: &Graph, p: &Player, cam: &Camera, current: Option<E
             Some(l) if l.mode == Mode::Mut => (MUT, 3),
             Some(_) => (ACCENT, 3),
             None if travelling => (INK, 2),
-            None => (CABLE, 2),
+            None => (CABLE_CORE, 1),
         };
-        c.curve(k[0], k[1], k[2], k[3], color, thick);
+        // Every cable shines a little; a busy one shines in its own colour.
+        let halo = if lent.is_some() || travelling { color } else { CABLE };
+        c.curve_glow(k, halo, color, thick, 3);
         // The arrow head: the used node is below.
         c.disc(k[3].0, k[3].1, 3, color);
     }
@@ -308,11 +340,15 @@ fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: 
         Some(EventKind::Denied { node, .. }) => node == id,
         _ => false,
     } && blink(now_ms);
+    let (left, right, label) = header_of(n);
+    // The node glows in its own colour (red while it is the one in trouble).
+    c.glow(x, y, w, h, if alarm { BAD } else { mezclar(left, right, 1, 2) }, 6, if alarm { 60 } else { 28 });
     c.rect(x, y, w, h, BODY);
-    let (head, label) = header_of(n);
     let head_h = (22 * cam.zoom / 1000).max(8);
-    c.rect(x, y, w, head_h, head);
-    c.frame(x, y, w, h, 2, if alarm { BAD } else { EDGE });
+    c.gradient(x, y, w, head_h, left, right);
+    // A line of light under the header, and a thin border of the header's hue.
+    c.rect(x, y + head_h, w, 1, mezclar(INK, right, 1, 3));
+    c.frame(x, y, w, h, 1, if alarm { BAD } else { mezclar(left, EDGE, 1, 2) });
     if cam.zoom < 750 {
         // Too small for text: only the name, if it fits.
         c.text_fit(x + 4, y + head_h + 2, n.name.as_bytes(), INK, w - 8);
@@ -475,11 +511,18 @@ fn overlay(c: &mut Canvas, g: &Graph, s: &Script, p: &Player, cam: &Camera, now_
 
 fn title_bar(c: &mut Canvas, s: &Script, p: &Player, has_script: bool, origin: &[u8]) {
     let w = c.w;
-    c.rect(0, 0, w, TOP, BAR);
-    c.rect(0, TOP - 1, w, 1, EDGE);
-    let mut t = Buf::new();
-    t.s("F1  TALLER  --  TITAN++  --  ").b(origin);
-    let used = c.text_fit(10, 6, t.get(), TITLE, w / 2);
+    c.gradient(0, 0, w, TOP, 0x0005_0716, 0x000C_0A24);
+    ring_line(c, 0, TOP - 1, w);
+    // The name as the logo writes it: TITAN in white light, `++` from blue
+    // to violet.
+    let mut x = 10;
+    x += c.text(x, 6, b"F1  ", DIM, 1);
+    x += c.text(x, 6, b"TITAN", INK, 1);
+    x += c.text(x, 6, b"+", BLUE, 1);
+    x += c.text(x, 6, b"+", VIOLET, 1);
+    x += c.text(x, 6, b"  TALLER  ", TITLE, 1);
+    let used = x + c.text_fit(x, 6, origin, ACCENT, w / 3);
+    tagline(c, w / 2, 6);
     let mut t = Buf::new();
     let total = s.events().len() as u32;
     if !has_script {
@@ -494,11 +537,29 @@ fn title_bar(c: &mut Canvas, s: &Script, p: &Player, has_script: bool, origin: &
     c.text_fit((w - tw - 10).max(used + 20), 6, t.get(), DIM, tw);
 }
 
+/// CODE . NODES . BEYOND, centered at `cx`: the logo's line, with its dots
+/// drawn as light and not as a glyph the font does not have.
+fn tagline(c: &mut Canvas, cx: i32, y: i32) {
+    let words: [&[u8]; 3] = [b"CODE", b"NODES", b"BEYOND"];
+    let gap = 28;
+    let width: i32 = words.iter().map(|w| w.len() as i32 * 8).sum::<i32>() + 2 * gap;
+    let mut x = cx - width / 2;
+    for (i, word) in words.iter().enumerate() {
+        x += c.text(x, y, word, DIM, 1);
+        if i < 2 {
+            let (dx, dy) = (x + gap / 2 - 1, y + 7);
+            c.rect(dx, dy, 2, 2, if i == 0 { BLUE } else { VIOLET });
+            c.glow(dx, dy, 2, 2, BLUE, 2, 40);
+            x += gap;
+        }
+    }
+}
+
 /// The bottom panel's box: right of the EXPLORER.
 fn panel_box(c: &mut Canvas) -> (i32, i32, i32) {
     let (x, top, w) = (LEFT, c.h - PANEL, c.w - LEFT);
     c.rect(x, top, w, PANEL, BAR);
-    c.rect(x, top, w, 1, EDGE);
+    ring_line(c, x, top, w);
     (x + 12, top, w - 24)
 }
 

@@ -21,6 +21,8 @@
 //!        anywhere -- a `renombra` in F12, a `vuelve` -- is on screen in a beat
 //!    L2  drag a file of the EXPLORER onto another file (or its node): it
 //!        hangs there. Two headers are rewritten; the file does not move
+//!    L3  the look of TITAN++ (`art.rs`): the logo opens the workshop and
+//!        stays behind the graph as its night sky
 //! ```
 //!
 //! The checker's events still come from `bmo-titan-contrato::sample`, and only
@@ -31,6 +33,7 @@
 #![no_std]
 #![no_main]
 
+mod art;
 mod canvas;
 mod explorer;
 mod player;
@@ -131,6 +134,25 @@ pub extern "C" fn _start() -> ! {
         say("TALLER: NO -- sin ventana (no hay memoria, o nadie me lanzo)\n");
         bmo::salir();
     };
+    // The art, made once: the logo decoded into a borrowed block, and the sky
+    // built into another. Without the memory for either, F1 is the same
+    // workshop in a plain night colour -- decoration never stops it.
+    let logo_block = art::size(art::TITAN).and_then(|(w, h)| Some((bmo::Memoria::request((w * h) as u64)?, w * h)));
+    let logo = logo_block.as_ref().and_then(|(block, n)| {
+        // SAFETY: the block is ours, mapped and `n` bytes long, and it lives
+        // as long as `_start` (it is never dropped: `_start` does not return).
+        let out = unsafe { core::slice::from_raw_parts_mut(block.base(), *n) };
+        art::decode(art::TITAN, out)
+    });
+    let pixels = (WIDTH * HEIGHT) as usize;
+    let sky_block = bmo::Memoria::request(pixels as u64 * 4);
+    let sky: Option<&[u32]> = sky_block.as_ref().map(|block| {
+        // SAFETY: as above, `pixels` u32 of our own block, for all of `_start`.
+        let px = unsafe { core::slice::from_raw_parts_mut(block.base() as *mut u32, pixels) };
+        let area = (view::LEFT, view::TOP, WIDTH as i32 - view::LEFT, HEIGHT as i32 - view::TOP - view::PANEL);
+        art::backdrop(px, &art::Sky { w: WIDTH as i32, h: HEIGHT as i32, area }, logo.as_ref());
+        &*px
+    });
     let mut store = Store::open();
     let mut shown = Shown::of(&store.loaded.graph);
     let mut canvas = Canvas::new(win.px, win.w, win.h);
@@ -138,6 +160,9 @@ pub extern "C" fn _start() -> ! {
     let mut drag = Drag::None;
     let clock = Clock { hz: bmo::info(bmo::INFO_TSC_HZ) };
     let mut last = clock.now_ms();
+    let opened = last;
+    // The splash runs until its time is up or the owner touches anything.
+    let mut splash = logo.is_some();
     let mut dirty = true;
     let mut last_view = u8::MAX;
     say(match store.origin {
@@ -161,7 +186,18 @@ pub extern "C" fn _start() -> ! {
             dirty = true;
         }
 
+        let veil = if splash { art::splash_at(now.wrapping_sub(opened)) } else { None };
+        splash = veil.is_some();
+        dirty |= splash;
+
         while let Some(input) = win.next() {
+            if splash {
+                // The first touch only ends the splash: it must not also pick
+                // a node the owner has not seen yet.
+                splash = false;
+                dirty = true;
+                continue;
+            }
             match input {
                 Input::Mouse { x, y, buttons, down: true } if buttons & BUTTON != 0 => {
                     if x < view::LEFT {
@@ -256,18 +292,25 @@ pub extern "C" fn _start() -> ! {
                 now_ms: now,
                 selected: shown.selected,
                 origin: name.unwrap_or(b"ejemplo en memoria"),
+                sky,
             };
-            view::draw(&mut canvas, &scene);
-            explorer::draw(&mut canvas, &store, shown.selected);
-            if let Drag::File(id, x0, y0) = drag {
-                if ptr.inside && dragged(x0, y0, ptr.x, ptr.y) {
-                    explorer::draw_drag(&mut canvas, &store, &cam, id, ptr.x, ptr.y);
+            let covered = splash && veil == Some(1000);
+            if !covered {
+                view::draw(&mut canvas, &scene);
+                explorer::draw(&mut canvas, &store, shown.selected);
+                if let Drag::File(id, x0, y0) = drag {
+                    if ptr.inside && dragged(x0, y0, ptr.x, ptr.y) {
+                        explorer::draw_drag(&mut canvas, &store, &cam, id, ptr.x, ptr.y);
+                    }
                 }
+            }
+            if let (true, Some(a), Some(l)) = (splash, veil, logo.as_ref()) {
+                art::splash(&mut canvas, l, a);
             }
             win.present();
             dirty = false;
         }
-        let moving = shown.player.playing || !matches!(drag, Drag::None);
+        let moving = splash || shown.player.playing || !matches!(drag, Drag::None);
         let nap_ms: u64 = if moving && seen { 16 } else { 100 };
         bmo::wait(0, 0, nap_ms * 1_000_000);
     }

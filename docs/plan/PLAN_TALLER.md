@@ -651,6 +651,68 @@ principio de la linea siguiente.
 | F12: `vuelve 2` | `rock` vuelve bajo `main` (las dos escrituras eran dos versiones) | solo una vuelve: `vuelve 1` deshizo media operacion |
 | un clic sin mover sobre un fichero | lo selecciona y centra su nodo; el disco no cambia | la generacion sube con un clic |
 
+### 8.8 L3: el aspecto de TITAN++ (29-09)
+
+El propietario puso el logo en `docs/arte/` (*"hacer epico... que mi TITAN++
+asi, todo en mi F1"*). F1 es el taller de TITAN++ y se viste con SUS colores; el
+escritorio sigue con los del gato (`Los colores del gato`), y no chocan: cada
+uno lleva la identidad de lo que es.
+
+**El logo DENTRO de F1, sin decodificador JPEG.** El gato eran tres colores
+planos y bastaron dos mascaras de 1 bit. Este es 68 % negro y el resto halos y
+degradados (medido), asi que el trabajo caro se hace en el PC, una vez:
+
+```text
+   docs/arte/titan.jpg                    la fuente (1254x1254)
+   docs/arte/titan_a_logo.py              512x512, lo casi negro a negro EXACTO,
+                                          128 colores, PackBits; comprueba que
+                                          descomprime igual antes de escribir
+   Ultra_userspace/apps/taller/arte/      TLG1: 106.089 B, commiteado -- el
+   titan.bin                              build no depende de Python
+   taller/src/art.rs                      15 lineas de PackBits + la paleta
+```
+
+- **La presentacion** al abrir: el logo entero sube, se sostiene y se funde
+  dejando ver el taller (350 + 1.100 + 500 ms). Un clic o una tecla la cortan,
+  y ese primer toque SOLO la corta: no selecciona un nodo que aun no se vio.
+- **El cielo**: degradado de noche, 460 estrellas (siempre las mismas) y el
+  DIBUJO del logo -- planeta, anillo, centauro -- al 30 % detras del grafo. Las
+  letras se quedan fuera: el generador MIDE donde acaba el dibujo (la primera
+  banda vacia) y lo escribe en la cabecera. Se pinta UNA vez en su propio bloque;
+  cada fotograma es una copia, los mismos bytes que antes escribia `clear`.
+- **La paleta** sale del logo: noche azul, azul electrico -> violeta (el
+  anillo). Nodos con cabecera en degradado y HALO de su color (rojo mientras
+  son el que falla), cables con halo y nucleo, el elegido con un halo mas
+  ancho, la columna con su borde en degradado, `TITAN++` en la barra con los
+  `++` de azul a violeta y el lema *CODE . NODES . BEYOND* con sus puntos de
+  luz.
+
+**Lo que se defendio:**
+
+- **La decoracion nunca para el taller.** Si falta memoria para el logo o el
+  cielo, o los bytes no son lo que dice el formato, F1 es el mismo en un color
+  liso. `decode` probado con bytes HOSTILES: el recurso cortado en 42 puntos y
+  3.000 mutaciones de 4 bytes -- 0 panicos, tambien en debug (desbordes
+  comprobados); un bufer chico se rechaza.
+- **La pila**: 55.568 B de 65.536 (`pila.py --ring3`, que ya mide `taller`).
+  La paleta del logo (1 KiB) es lo que crecio.
+- **Lo que cuesta**: `taller.bex` pasa de 157.528 a 272.216 B (tope 1 MiB), y dos
+  bloques mas a la vez (el logo, 256 KiB; el cielo, 3,9 MiB) de los 8 por
+  proceso.
+
+**Visto con la CAMARA** (el mismo codigo de dibujo en el PC): a 384 px el logo
+se quedaba chico en una ventana de 760 de alto y sus letras se emborronaban;
+por eso es de 512.
+
+**Como se mira en el Ryzen:**
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1 | fondo negro, el logo sube en ~1/3 s, se queda, y se funde en el taller | sale el taller sin logo: la consola no dice nada, pero no hubo memoria o los bytes no pasaron `decode` |
+| clic durante el logo | el logo se va al instante y NO se selecciona nada | se selecciona un nodo: el primer toque no se trago |
+| el lienzo | estrellas, y detras de los nodos el planeta con su anillo y el centauro, tenues | negro liso: no hubo bloque para el cielo |
+| arrastrar el lienzo | los nodos se mueven sobre el cielo, que se queda quieto | el cielo tiembla o se rompe: la copia no cubre la ventana |
+
 ---
 
 Ver [`PLAN_AUTOHOSPEDAJE.md`](en_pausa/PLAN_AUTOHOSPEDAJE.md) (el mismo trabajo desde el

@@ -78,6 +78,77 @@ impl Canvas {
         }
     }
 
+    /// The whole surface from `src` (w*h pixels): the sky built once, put back
+    /// every frame for the same bytes `clear` used to write.
+    pub fn blit(&mut self, src: &[u32]) {
+        let n = (self.w * self.h) as usize;
+        if src.len() >= n {
+            // SAFETY: `px` points to `w * h` pixels of our own block, and
+            // `src` was just checked to hold at least that many.
+            unsafe { core::ptr::copy_nonoverlapping(src.as_ptr(), self.px, n) };
+        }
+    }
+
+    /// Everything toward `c`, `part` out of `total`: the veil of the splash.
+    pub fn veil(&mut self, c: Color, part: u32, total: u32) {
+        let n = (self.w * self.h) as usize;
+        for i in 0..n {
+            // SAFETY: i < w * h, the pixels of our own block.
+            unsafe {
+                let p = self.px.add(i);
+                *p = mezclar(c, *p, part, total);
+            }
+        }
+    }
+
+    /// Light added to what is there, per channel and saturating: a glow over
+    /// a dark background never darkens it.
+    pub fn light(&mut self, x: i32, y: i32, c: Color) {
+        if x >= 0 && y >= 0 && x < self.w && y < self.h {
+            let under = self.get(x, y);
+            let ch = |s: u32| ((under >> s & 255) + (c >> s & 255)).min(255) << s;
+            self.put(x, y, ch(16) | ch(8) | ch(0));
+        }
+    }
+
+    /// A box that goes from `left` to `right`, column by column.
+    pub fn gradient(&mut self, x: i32, y: i32, w: i32, h: i32, left: Color, right: Color) {
+        let span = (w - 1).max(1) as u32;
+        for i in 0..w.max(0) {
+            self.rect(x + i, y, 1, h, mezclar(right, left, i as u32, span));
+        }
+    }
+
+    /// A halo around a box: `r` rings outside it, fading out, `strength`
+    /// percent at the one that touches it.
+    pub fn glow(&mut self, x: i32, y: i32, w: i32, h: i32, c: Color, r: i32, strength: u32) {
+        for k in 1..=r {
+            let part = strength * (r + 1 - k) as u32 / (r + 1) as u32;
+            let (x0, y0, x1, y1) = (x - k, y - k, x + w + k - 1, y + h + k - 1);
+            for i in x0..=x1 {
+                self.blend(i, y0, c, part, 100);
+                self.blend(i, y1, c, part, 100);
+            }
+            for j in y0 + 1..y1 {
+                self.blend(x0, j, c, part, 100);
+                self.blend(x1, j, c, part, 100);
+            }
+        }
+    }
+
+    /// A cable that shines: a soft halo `2 * r` pixels wide, and a bright
+    /// core of `thick` pixels on top.
+    pub fn curve_glow(&mut self, k: [Vertice; 4], halo: Color, core: Color, thick: i32, r: i32) {
+        let clip = self.recorte();
+        for o in -r..=r {
+            let part = 45 * (r + 1 - o.abs()) as u32 / (r + 1) as u32;
+            curva(&clip, (k[0].0 + o, k[0].1), (k[1].0 + o, k[1].1), (k[2].0 + o, k[2].1), (k[3].0 + o, k[3].1), |x, y| {
+                self.blend(x, y, halo, part, 100)
+            });
+        }
+        self.curve(k[0], k[1], k[2], k[3], core, thick);
+    }
+
     /// Text, from the desktop's font, `scale` times bigger. Returns the width.
     /// Bytes the font does not have leave a gap, never garbage.
     pub fn text(&mut self, x: i32, y: i32, s: &[u8], c: Color, scale: i32) -> i32 {
