@@ -309,29 +309,36 @@ static void hex64(unsigned long long v) {
     di(t);
 }
 
-// Un locale que vuelve por valor, en un sitio con una marca: si quien lo
-// devuelve no lo escribe, se ve (y no se destruye basura).
-union Sitio {
-    locale l;
-    unsigned long long crudo;
-    Sitio() : crudo(0x4242424242424242ull) {}
-    ~Sitio() {}
-};
+// getloc devuelve un locale POR VALOR. Se llama en crudo (this y un bufer
+// con marca) y se mira donde queda: en el bufer (y rax lo apunta) o en rax.
+extern "C" unsigned long long __cdecl crudo_sb_getloc(const void *, void *) __asm__("?getloc@?$basic_streambuf@DU?$char_traits@D@std@@@std@@QEBA?AVlocale@2@XZ");
+extern "C" unsigned long long __cdecl crudo_ios_getloc(const void *, void *) __asm__("?getloc@ios_base@std@@QEBA?AVlocale@2@XZ");
 
-static bool es_global(const char *que, Sitio &s) {
+static bool mirar_getloc(const char *que, unsigned long long (*f)(const void *, void *), const void *este) {
+    unsigned long long marca = 0x4242424242424242ull;
+    unsigned long long rax = f(este, &marca);
     unsigned long long g = (unsigned long long)Amiga::global();
-    if (s.crudo == g) {
-        s.l.~locale();
-        return true;
+    bool ok = rax == (unsigned long long)&marca && marca == g;
+    if (!ok) {
+        di("        ");
+        di(que);
+        di(": rax ");
+        hex64(rax);
+        di(", bufer ");
+        hex64(marca);
+        di(" (en ");
+        hex64((unsigned long long)&marca);
+        di("), global ");
+        hex64(g);
+        di("\r\n");
     }
-    di("        ");
+    return ok;
+}
+
+static void paso(const char *que) {
+    di("  (paso) ");
     di(que);
-    di(" dio ");
-    hex64(s.crudo);
-    di("; el global es ");
-    hex64(g);
     di("\r\n");
-    return false;
 }
 
 static ios_base &hex_(ios_base &b) {
@@ -369,9 +376,8 @@ static void con_streambuf() {
     c._Unlock();
     c.base_imbue(l);
     mira(c.base_showmanyc() == 0 && c.base_setbuf() == &c && c.base_sync() == 0, "showmanyc, setbuf, sync, imbue y _Lock de la base");
-    Sitio s;
-    new (&s.l) locale(c.getloc());
-    mira(es_global("basic_streambuf::getloc", s), "basic_streambuf::getloc: el locale global, por valor");
+    mira(mirar_getloc("basic_streambuf::getloc", crudo_sb_getloc, &c), "basic_streambuf::getloc: el locale global, por valor");
+    paso("fin del cuerpo de con_streambuf");
 }
 
 static void con_ostream() {
@@ -428,19 +434,24 @@ static void con_ostream() {
     o << 5;
     o.clear();
     mira(fallo && o.rdstate() == 0 && igual(c.texto(), ""), "setstate(failbit): no escribe; clear() lo quita");
-    ostream nada(nullptr);
-    nada.clear();
-    mira(nada.rdstate() == 4, "sin streambuf, badbit (y clear no lo quita)");
+    {
+        ostream nada(nullptr);
+        nada.clear();
+        mira(nada.rdstate() == 4, "sin streambuf, badbit (y clear no lo quita)");
+    }
+    paso("un ostream sin streambuf, destruido");
     mira(o.widen('z') == 'z', "basic_ios::widen");
-    Sitio s;
-    new (&s.l) locale(o.getloc());
-    mira(es_global("ios_base::getloc", s), "ios_base::getloc: el locale global, por valor");
+    mira(mirar_getloc("ios_base::getloc", crudo_ios_getloc, static_cast<ios_base *>(&o)), "ios_base::getloc: el locale global, por valor");
+    paso("fin del cuerpo de con_ostream");
 }
 
 static void con_istream() {
     Cuerda c;
-    istream i(&c);
-    mira(i.gcount() == 0 && i.rdbuf() == &c && i.good() && i.flags() == 0x201, "basic_istream(sb): _Chcount y su ios por el vbptr");
+    {
+        istream i(&c);
+        mira(i.gcount() == 0 && i.rdbuf() == &c && i.good() && i.flags() == 0x201, "basic_istream(sb): _Chcount y su ios por el vbptr");
+    }
+    paso("un istream, destruido");
     iostream io(&c);
     istream &ie = io;
     ostream &os = io;
@@ -490,8 +501,11 @@ static void con_time_put() {
 
 extern "C" void inicio() {
     con_streambuf();
+    paso("con_streambuf acabo");
     con_ostream();
+    paso("con_ostream acabo");
     con_istream();
+    paso("con_istream acabo");
     con_cerr();
     con_fiopen();
     con_time_put();
