@@ -187,12 +187,14 @@ extern "win64" fn fiopen_w(ruta: *const u16, modo: i32, prot: i32) -> u64 {
     msvcp_flujos::fiopen(b.as_ptr(), modo, prot)
 }
 
-/// `task_continuation_context()` (privado): la captura del contexto,
-/// DIFERIDA (`_S_captureDeferred`, 1), y sin correr en linea.
+/// `task_continuation_context()` (privado): `_ContextCallback(false)`, o sea
+/// CAPTURA ya (`_Capture`), y en un programa de escritorio no hay contexto
+/// que capturar: 0 (con 1, "diferida", el Windows del propietario dijo MAL
+/// en tanda20.exe). Y sin correr en linea.
 extern "win64" fn task_continuation_context(this: *mut u64) -> *mut u64 {
     // SAFETY: los 16 bytes del `.exe`.
     unsafe {
-        this.write(1);
+        this.write(0);
         *(this.add(1) as *mut u8) = 0;
     }
     this

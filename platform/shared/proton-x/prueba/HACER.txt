@@ -989,7 +989,7 @@ tanda19.cpp, con lo nuevo (tanda20_*.def):
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   3ec976bb36832fced94aa2054c71ecb97e8da68d5d43aa50a174c5bfbd829bfd
+   9e1344ec0993b93eb4583d07876fe5fc590036131d1fd5f4738a4b2696a10dc7
 
 Dice `bien` quince veces y sale con 0. En Windows dice lo mismo.
 
