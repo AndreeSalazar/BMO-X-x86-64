@@ -82,8 +82,8 @@ pub const IMAGEN_SIN_TABLA: u32 = 2;
 pub const IMAGEN_DE_MAS: u32 = 3;
 /// Una parte de 0 bytes (el valor dice cual).
 pub const IMAGEN_PARTE_VACIA: u32 = 4;
-/// Partes fuera de orden: PE 0, 1, 2... y de cada uno su codigo antes que
-/// sus datos (el valor dice cual).
+/// Partes fuera de orden: PE 0, 1, 2... y de cada uno sus tramos alternando
+/// codigo y datos (el valor dice cual).
 pub const IMAGEN_DESORDENADA: u32 = 5;
 /// No hay RAM: el valor lleva lo que pide y lo que hay, en MiB
 /// (`pide << 32 | hay`).

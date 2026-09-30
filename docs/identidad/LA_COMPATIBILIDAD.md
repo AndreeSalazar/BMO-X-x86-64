@@ -142,6 +142,14 @@ reescribir los `gs:` del `.exe` es tocar el binario, y el binario no se toca.
 | 5. una prueba que ve el fallo | `teb.exe` (`platform/shared/proton-x`): sin el GS puesto, su primer `gs:[0x30]` es un fallo de pagina, no un "MAL". Corre en el anfitrion (con `arch_prctl`) y en el Ryzen (con esto) |
 | 6. las tres tablas | `TASK_OP_PON_GS` en kernel y ABI, `OP_PON_GS` y `poner_gs` en userland |
 
+**Los tramos (30-09, P0.4b.6):** de cada PE se declaran sus paginas por
+permiso, seguidas: codigo, datos, codigo... (`bmo_proton_x::tramos`). Hizo
+falta con la primera DLL de verdad: `bink2w64.dll` trae `.rdata` ENTRE dos
+secciones de codigo, y el reparto viejo (codigo delante, datos detras) la
+rechazaba. Lo que NO es como Windows: `.rdata` queda R+W (alli, solo R), y una
+seccion solo-R que comparta pagina con codigo se ejecutaria. Una escribible
+que la comparta, no: se dice y no se carga.
+
 **La concesion, dicha entera:** el cambio de contexto aprende UNA cosa de
 Windows -- que un hilo puede tener su propio GS. El kernel no sabe que es un
 TEB ni lo mira; guarda un numero por hilo y lo pone en `KERNEL_GS_BASE`.
@@ -169,7 +177,7 @@ vez (P0.4b de `docs/plan/PLAN_LAS_TRES_GRANDES.md`; permiso del propietario:
 | 2. libre en las dos | libres en `syscall/ops.rs` y en `surface/tarea.rs` |
 | 3. un NO con nombre | **quince** `IMAGEN_*`; el de RAM lleva lo que pide y lo que hay, en MiB |
 | 4. se suelta al morir | `imagen::process_died` en `revoke_all`, con el espacio DEL QUE MUERE: cada pagina desmapeada, a cero y de vuelta |
-| 5. una prueba que ve el fallo | `bmo-imagen-juicio`, 8 pruebas: la de Cyberpunk entra, y sin RAM, desordenada, vacia o absurda, no |
+| 5. una prueba que ve el fallo | `bmo-imagen-juicio`, 9 pruebas: la de Cyberpunk entra, y sin RAM, desordenada, vacia o absurda, no |
 | 6. las tres tablas | `TASK_OP_IMAGEN_*` en kernel y ABI, `OP_IMAGEN_*` en userland |
 
 **La concesion, dicha entera:** una ventana de VA propia (16 GiB desde

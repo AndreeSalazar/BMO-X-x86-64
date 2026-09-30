@@ -54,6 +54,68 @@ pub fn partir(pe: &Pe) -> Result<Partes, Fallo> {
     Ok(Partes { codigo: corte, datos: total - corte })
 }
 
+/// **Un tramo de la imagen**: paginas seguidas con el mismo permiso. El
+/// codigo se SELLA (R+X, sin W); los datos quedan R+W, sin X.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Tramo {
+    pub codigo: bool,
+    pub bytes: u32,
+}
+
+/// **Partir la imagen en TRAMOS** (P0.4b.6, 30-09): de la RVA 0 al final,
+/// una pagina tras otra, y las seguidas del mismo permiso juntas. Lo que
+/// [`partir`] no puede: una DLL con `.rdata` ENTRE dos secciones de codigo
+/// (`bink2w64.dll` de Cyberpunk) sale como codigo, datos, codigo, datos.
+///
+/// ```text
+///    una pagina con codigo          codigo (las cabeceras tambien)
+///    ... y ademas algo escribible   NO: una pagina no es W y X a la vez
+///    ... y ademas algo solo-R       codigo: se ejecutaria (Windows no)
+///    lo demas                       datos, R+W (Windows: .rdata solo R)
+/// ```
+///
+/// Con secciones alineadas a pagina (lo normal) ninguna comparte pagina con
+/// otra, y la tercera fila no pasa.
+pub fn tramos(pe: &Pe) -> Result<Vec<Tramo>, Fallo> {
+    let total = pe.tam_imagen.div_ceil(PAGINA);
+    let cab = pe.tam_cabeceras.max(1).div_ceil(PAGINA);
+    if total == 0 || cab > total {
+        return Err(Fallo::Corto("la imagen: las cabeceras pasan de su medida"));
+    }
+    // Por pagina: si tiene codigo; y de paso, que ninguna sea W y X.
+    let mut es_codigo = vec![false; total as usize];
+    for p in es_codigo.iter_mut().take(cab as usize) {
+        *p = true;
+    }
+    let paginas = |s: &crate::pe::Seccion| {
+        let ini = s.rva / PAGINA;
+        let fin = (s.rva as u64 + s.tam_en_imagen() as u64).div_ceil(PAGINA as u64) as u32;
+        ini..fin
+    };
+    for s in pe.secciones.iter().filter(|s| s.permiso() == Permiso::Codigo) {
+        let r = paginas(s);
+        if r.end > total {
+            return Err(Fallo::Corto("la imagen: el codigo pasa de su medida"));
+        }
+        for k in r {
+            es_codigo[k as usize] = true;
+        }
+    }
+    for s in pe.secciones.iter().filter(|s| s.permiso() == Permiso::Datos) {
+        if paginas(s).any(|k| es_codigo.get(k as usize) == Some(&true)) {
+            return Err(Fallo::NoSeParte(s.nombre.clone()));
+        }
+    }
+    let mut v: Vec<Tramo> = Vec::new();
+    for &c in &es_codigo {
+        match v.last_mut() {
+            Some(t) if t.codigo == c => t.bytes += PAGINA,
+            _ => v.push(Tramo { codigo: c, bytes: PAGINA }),
+        }
+    }
+    Ok(v)
+}
+
 /// **La imagen, en su base**: cabeceras y secciones en su RVA, el resto a
 /// cero, y las relocalizaciones aplicadas si `base` no es la del enlazador.
 pub fn colocar(pe: &Pe, d: &[u8], base: u64) -> Result<Vec<u8>, Fallo> {

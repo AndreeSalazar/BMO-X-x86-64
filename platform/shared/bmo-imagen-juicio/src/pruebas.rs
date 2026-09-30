@@ -82,12 +82,12 @@ fn lo_que_no_vale() {
     let muchas: std::vec::Vec<Parte> = (0..129).map(|i| c(i as u16, 4096)).collect();
     assert_eq!(juzgar(&muchas, &l), Veredicto::Negada(Motivo::DeMas { partes: 129, max: 128 }));
     assert_eq!(juzgar(&[c(0, 10), d(0, 0)], &l), Veredicto::Negada(Motivo::ParteVacia { i: 1 }));
-    // Desordenadas: datos antes que codigo, dos codigos, un PE que salta o
-    // vuelve, y uno que no empieza en 0.
-    assert_eq!(juzgar(&[d(0, 10), c(0, 10)], &l), Veredicto::Negada(Motivo::Desordenada { i: 1 }));
+    // Desordenadas: dos tramos seguidos del mismo permiso (serian uno), un
+    // PE que salta o vuelve, y uno que no empieza en 0.
     assert_eq!(juzgar(&[c(0, 10), c(0, 10)], &l), Veredicto::Negada(Motivo::Desordenada { i: 1 }));
+    assert_eq!(juzgar(&[c(0, 10), d(0, 10), d(0, 10)], &l), Veredicto::Negada(Motivo::Desordenada { i: 2 }));
     assert_eq!(juzgar(&[c(0, 10), c(2, 10)], &l), Veredicto::Negada(Motivo::Desordenada { i: 1 }));
-    assert_eq!(juzgar(&[c(0, 10), d(0, 10), c(0, 10)], &l), Veredicto::Negada(Motivo::Desordenada { i: 2 }));
+    assert_eq!(juzgar(&[c(0, 10), c(1, 10), c(0, 10)], &l), Veredicto::Negada(Motivo::Desordenada { i: 2 }));
     assert_eq!(juzgar(&[c(1, 10)], &l), Veredicto::Negada(Motivo::Desordenada { i: 0 }));
 }
 
@@ -116,4 +116,19 @@ fn limites_que_no_tienen_sentido() {
     let mut l = limites(GIB);
     l.alineacion = 1024;
     assert_eq!(juzgar(&[c(0, 10)], &l), Veredicto::Negada(Motivo::LimitesMalos));
+}
+
+#[test]
+fn tramos_que_alternan_van_seguidos() {
+    // `bink2w64.dll` (P0.4b.6): codigo, `.rdata`, codigo, datos; y un PE que
+    // empieza por datos tambien vale.
+    let l = limites(24 * GIB);
+    let v = [c(0, 8192), d(0, 4096), c(0, 4096), d(0, 100), d(1, 10), c(1, 10)];
+    assert!(matches!(juzgar(&v, &l), Veredicto::Concedida { .. }));
+    let va = |i| donde(&v, &l, i).unwrap().0;
+    assert_eq!(va(1), va(0) + 8192);
+    assert_eq!(va(2), va(1) + 4096);
+    assert_eq!(va(3), va(2) + 4096, "los tramos de un PE, uno detras de otro");
+    assert_eq!(va(4) % l.alineacion, 0, "el PE siguiente, alineado");
+    assert_eq!(va(5), va(4) + 4096);
 }
