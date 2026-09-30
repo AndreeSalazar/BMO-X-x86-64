@@ -122,5 +122,5 @@ fn tanda18_exe_tiene_el_locale_de_msvcp() {
 #[test]
 fn tanda19_exe_tiene_los_flujos_de_msvcp() {
     std::fs::write(volumen().join("window").join("tanda19.exe"), TANDA19).unwrap();
-    tanda(TANDA19, Some("window/tanda19.exe"), 16, "tanda19.exe: los flujos de msvcp140 son los de Windows");
+    tanda(TANDA19, Some("window/tanda19.exe"), 19, "tanda19.exe: los flujos de msvcp140 son los de Windows");
 }

@@ -22,6 +22,7 @@ IMPORTA long __cdecl ftell(FILE *f);
 
 void operator delete(void *) noexcept {}
 void operator delete(void *, size_t) noexcept {}
+inline void *operator new(size_t, void *p) noexcept { return p; }
 
 struct _Mbstatet {
     unsigned long _Wchar;
@@ -300,6 +301,39 @@ struct Cuerda : public streambuf {
     void base_imbue(const locale &l) { streambuf::imbue(l); }
 };
 
+static void hex64(unsigned long long v) {
+    char t[19] = "0x";
+    for (int k = 0; k < 16; k++)
+        t[2 + k] = "0123456789ABCDEF"[(v >> (60 - 4 * k)) & 15];
+    t[18] = 0;
+    di(t);
+}
+
+// Un locale que vuelve por valor, en un sitio con una marca: si quien lo
+// devuelve no lo escribe, se ve (y no se destruye basura).
+union Sitio {
+    locale l;
+    unsigned long long crudo;
+    Sitio() : crudo(0x4242424242424242ull) {}
+    ~Sitio() {}
+};
+
+static bool es_global(const char *que, Sitio &s) {
+    unsigned long long g = (unsigned long long)Amiga::global();
+    if (s.crudo == g) {
+        s.l.~locale();
+        return true;
+    }
+    di("        ");
+    di(que);
+    di(" dio ");
+    hex64(s.crudo);
+    di("; el global es ");
+    hex64(g);
+    di("\r\n");
+    return false;
+}
+
 static ios_base &hex_(ios_base &b) {
     b.setf(0x800, 0xE00);
     return b;
@@ -329,11 +363,15 @@ static void con_streambuf() {
     long long k = c.sgetn(sale, 4);
     c.setg(entrada, entrada + 10, entrada + 10);
     mira(h == 'h' && k == 4 && igual(sale, "ola ") && c.sbumpc() == -1, "sbumpc, xsgetn y, sin nada, uflow (underflow dice EOF)");
-    locale l = c.getloc();
+    locale l = {};
+    l._Ptr = nullptr;
     c._Lock();
     c._Unlock();
     c.base_imbue(l);
-    mira(c.base_showmanyc() == 0 && c.base_setbuf() == &c && c.base_sync() == 0 && l._Ptr == Amiga::global(), "showmanyc, setbuf, sync, imbue, _Lock y getloc de la base");
+    mira(c.base_showmanyc() == 0 && c.base_setbuf() == &c && c.base_sync() == 0, "showmanyc, setbuf, sync, imbue y _Lock de la base");
+    Sitio s;
+    new (&s.l) locale(c.getloc());
+    mira(es_global("basic_streambuf::getloc", s), "basic_streambuf::getloc: el locale global, por valor");
 }
 
 static void con_ostream() {
@@ -392,8 +430,11 @@ static void con_ostream() {
     mira(fallo && o.rdstate() == 0 && igual(c.texto(), ""), "setstate(failbit): no escribe; clear() lo quita");
     ostream nada(nullptr);
     nada.clear();
-    locale l = o.getloc();
-    mira(nada.rdstate() == 4 && o.widen('z') == 'z' && l._Ptr == Amiga::global(), "sin streambuf, badbit (y clear no lo quita); widen y getloc de ios_base");
+    mira(nada.rdstate() == 4, "sin streambuf, badbit (y clear no lo quita)");
+    mira(o.widen('z') == 'z', "basic_ios::widen");
+    Sitio s;
+    new (&s.l) locale(o.getloc());
+    mira(es_global("ios_base::getloc", s), "ios_base::getloc: el locale global, por valor");
 }
 
 static void con_istream() {
