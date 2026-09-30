@@ -762,7 +762,7 @@ pub extern "C" fn _start() -> ! {
     // kernel (ver `cargador.rs`): se juzga una vez contra la RAM libre, y cada
     // seccion va del disco a su sitio. Sin topes de bloque.
     drop(a);
-    let (imagen, modulos) = cargador::declarar_y_colocar(ruta, pe, partes);
+    let (imagen, modulos, tiempos) = cargador::declarar_y_colocar(ruta, pe, partes);
     let exe = &modulos[0];
     let base = exe.base;
     // P0.4b.8: el MAPA, con el diario: un `rip` de la autopsia (que solo
@@ -803,6 +803,7 @@ pub extern "C" fn _start() -> ! {
     let mut funciones = 0usize;
     let mut tls_del_exe = None;
     let mut faltan: Vec<(alloc::string::String, bmo_proton_x::Importacion)> = Vec::new();
+    let t_resolver = plataforma::ahora_ns();
     for (k, m) in modulos.iter().enumerate() {
         let img = m.imagen();
         let imps = importaciones(&m.pe, img).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)));
@@ -825,6 +826,7 @@ pub extern "C" fn _start() -> ! {
         }
         fin(&t);
     }
+    let t_resolver_ns = plataforma::ahora_ns() - t_resolver;
 
     // -- 6. SELLAR el codigo de cada uno: sin esto, saltar seria un #PF por NX.
     for m in &modulos {
@@ -858,14 +860,30 @@ pub extern "C" fn _start() -> ! {
     unsafe { bmo_proton_x_casa::hilos::preparar_tls(tls_del_exe, base) };
     // -- 6e. P5a: los DllMain de las DLL del juego, con el GS puesto, en su
     // orden (dependencias primero).
+    let ms = |ns: u64| ns / 1_000_000;
+    di(&format!(
+        "PROTON-X: tiempos: cabeceras {} ms; colocar {} ms (disco {} ms para {} MiB, {} MiB/s; el resto, copiar y relocalizar); resolver {} ms\n",
+        ms(tiempos.cabeceras),
+        ms(tiempos.colocar),
+        ms(tiempos.disco),
+        tiempos.bytes >> 20,
+        (tiempos.bytes >> 20) * 1000 / ms(tiempos.disco).max(1),
+        ms(t_resolver_ns)
+    ));
+    let mut t_dllmain = 0u64;
     if modulos.len() > 1 {
         di(&format!("PROTON-X: los DllMain de {} DLL del juego\n", modulos.len() - 1));
         // SAFETY: sus entradas son codigo sellado de DLL que acabamos de cargar.
-        if let Err(f) = unsafe { bmo_proton_x_casa::modulos::iniciar_dlls() } {
+        // Con el diario, cada una se dice ANTES: si una se cae, la ultima
+        // linea (y la autopsia) dice cual.
+        let t_dll = plataforma::ahora_ns();
+        if let Err(f) = unsafe { bmo_proton_x_casa::modulos::iniciar_dlls_con(|n| if con_diario { di(&format!("PROTON-X: DllMain de {n}\n")) }) } {
             fin(&f);
         }
+        t_dllmain = plataforma::ahora_ns() - t_dll;
     }
     let entrada = base + exe.pe.entrada as u64;
+    di(&format!("PROTON-X: los DllMain tardaron {} ms\n", t_dllmain / 1_000_000));
     di("PROTON-X: salto a su entrada ----------------------------------\n");
     // La imagen vive hasta que el proceso muera (no hay soltar).
     core::mem::forget(imagen);
