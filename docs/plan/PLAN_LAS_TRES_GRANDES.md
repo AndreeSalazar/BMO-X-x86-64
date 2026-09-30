@@ -117,8 +117,10 @@ pide y en que orden.
   dice ahora `LA IMAGEN: ... cabe / NO CABE`; si no cabe, es ring 0.
 - [ ] P0.4b -- **LA DECLARACION DE IMAGEN `[RING 0]`** (permiso del propietario
   el 30-09: "si al kernel"). Esquema escrito ANTES del codigo; abajo.
-  - [ ] P0.4b.1 -- `bmo-imagen-juicio` (puro, como `bmo-carga-juicio`): el
-    juez, con sus pruebas en el anfitrion.
+  - [x] P0.4b.1 -- `bmo-imagen-juicio` (puro, como `bmo-carga-juicio`): el
+    juez, con sus pruebas en el anfitrion. **HECHO el 30-09**: 8 pruebas
+    (la de Cyberpunk cabe; sin RAM dice cuanta pide y cuanta hay; codigo y
+    datos seguidos; lo desordenado, lo vacio y lo absurdo, no).
   - [ ] P0.4b.2 -- El kernel: la operacion de declarar, la ventana de
     imagenes, sellar cada parte y devolverlo todo al morir.
   - [ ] P0.4b.3 -- `bmo-abi` y `bmo::Imagen` en Ring 3.
