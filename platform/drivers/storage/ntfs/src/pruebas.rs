@@ -238,3 +238,52 @@ fn el_espacio_libre_como_lo_cuenta_ntfsinfo() {
     // Y leer despues sigue leyendo: `libres` no deja el registro cambiado mal.
     assert_eq!(entero(&mut v, "hola.txt"), b"hola desde NTFS\n");
 }
+
+/// El mismo disco, contando cuantas lecturas le llegan.
+struct Contada(std::sync::atomic::AtomicU64);
+
+impl BlockDevice for Contada {
+    fn identity(&self) -> DeviceId {
+        IMAGEN.identity()
+    }
+    fn read(&self, lba: u64, count: u16, buf: &mut [u8]) -> Result<u16, BlockError> {
+        self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        IMAGEN.read(lba, count, buf)
+    }
+    fn write(&self, _: u64, _: u16, _: &[u8]) -> Result<u16, BlockError> {
+        Err(BlockError::ReadOnly)
+    }
+    fn flush(&self) -> Result<(), BlockError> {
+        Ok(())
+    }
+}
+
+#[test]
+fn abrir_otra_vez_la_misma_carpeta_no_toca_el_disco() {
+    // El metal (30-09): abrir las 25 DLL de `bin/x64` recorria la misma
+    // carpeta 25 veces, un comando por bloque INDX. Con la cache, la segunda
+    // vez sale de la RAM.
+    static DISCO_CONTADO: Contada = Contada(std::sync::atomic::AtomicU64::new(0));
+    let mut v = Box::new(Volumen::montar(&DISCO_CONTADO, 0).unwrap());
+    let cuenta = || DISCO_CONTADO.0.load(std::sync::atomic::Ordering::SeqCst);
+    let recorrer = |v: &mut Volumen| {
+        let d = v.abrir("r6/scripts").unwrap();
+        let mut n = 0;
+        v.recorrer(d.registro, &mut |_| {
+            n += 1;
+            false
+        })
+        .unwrap();
+        n
+    };
+    let a = cuenta();
+    let primera = recorrer(&mut v);
+    let leidas = cuenta() - a;
+    let b = cuenta();
+    assert_eq!(recorrer(&mut v), primera, "las mismas entradas");
+    assert_eq!(cuenta() - b, 0, "la segunda vez, ni una lectura (la primera: {leidas})");
+    let (aciertos, fallos) = v.cache();
+    assert!(aciertos > 0 && fallos > 0, "{aciertos} aciertos, {fallos} fallos");
+    // Y lo que se lee sigue siendo lo del disco.
+    assert_eq!(entero(&mut v, "BIN\\X64\\cyberpunk2077.EXE"), patron(70_000, 1));
+}

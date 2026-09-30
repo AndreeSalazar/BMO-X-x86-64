@@ -440,9 +440,69 @@ struct Disco<'d> {
     bloque: u64,
 }
 
-/// Lee `dst.len()` bytes desde el byte `off` del VOLUMEN (`puente`: un
-/// bloque para lo que no va alineado).
-fn leer_disco(d: &Disco, puente: &mut [u8; MAX_REGISTRO], off: u64, dst: &mut [u8]) -> R<()> {
+/// Cuantos bloques de 4 KiB guarda la cache de lecturas chicas.
+const CACHE: usize = 32;
+const BLOQUE: u64 = 4096;
+
+/// **El puente, y la CACHE de lecturas chicas** (30-09). Lo chico que se
+/// lee -- registros de la MFT, bloques INDX de las carpetas -- se lee una y
+/// otra vez: abrir 25 DLL de `bin/x64` recorria la misma carpeta 25 veces,
+/// un comando al disco por bloque (en el metal: 0,5 s de cabeceras). El
+/// volumen es de SOLO LECTURA para quien lo monta, asi que lo guardado no
+/// caduca mientras vive el montaje. Lo grande (los ficheros) no pasa por
+/// aqui: va directo a su sitio.
+pub struct Puente {
+    b: [u8; MAX_REGISTRO],
+    /// El byte del volumen de cada bloque guardado (`u64::MAX`: vacio).
+    donde: [u64; CACHE],
+    datos: [[u8; BLOQUE as usize]; CACHE],
+    /// Cuando se uso por ultima vez (se echa el mas viejo).
+    uso: [u64; CACHE],
+    reloj: u64,
+    aciertos: u64,
+    fallos: u64,
+}
+
+impl Puente {
+    const fn nuevo() -> Self {
+        Puente { b: [0; MAX_REGISTRO], donde: [u64::MAX; CACHE], datos: [[0; BLOQUE as usize]; CACHE], uso: [0; CACHE], reloj: 0, aciertos: 0, fallos: 0 }
+    }
+}
+
+/// Lee `dst.len()` bytes desde el byte `off` del VOLUMEN. Lo que cabe en un
+/// bloque de 4 KiB sale de la cache (o entra en ella); lo demas, del disco.
+fn leer_disco(d: &Disco, puente: &mut Puente, off: u64, dst: &mut [u8]) -> R<()> {
+    let n = dst.len() as u64;
+    let blk = off & !(BLOQUE - 1);
+    if n == 0 || n > BLOQUE || off + n > blk + BLOQUE {
+        return leer_crudo(d, &mut puente.b, off, dst);
+    }
+    puente.reloj += 1;
+    let dentro = (off - blk) as usize;
+    if let Some(i) = puente.donde.iter().position(|&x| x == blk) {
+        puente.uso[i] = puente.reloj;
+        puente.aciertos += 1;
+        dst.copy_from_slice(&puente.datos[i][dentro..dentro + n as usize]);
+        return Ok(());
+    }
+    // El mas viejo se va. Si el bloque entero no se deja leer (el final del
+    // volumen), se lee solo lo pedido y no se guarda nada.
+    let i = (0..CACHE).min_by_key(|&k| puente.uso[k]).unwrap_or(0);
+    puente.donde[i] = u64::MAX;
+    let Puente { b, datos, .. } = puente;
+    if leer_crudo(d, b, blk, &mut datos[i]).is_err() {
+        return leer_crudo(d, &mut puente.b, off, dst);
+    }
+    puente.donde[i] = blk;
+    puente.uso[i] = puente.reloj;
+    puente.fallos += 1;
+    dst.copy_from_slice(&puente.datos[i][dentro..dentro + n as usize]);
+    Ok(())
+}
+
+/// Lee `dst.len()` bytes desde el byte `off` del VOLUMEN, del disco (`puente`:
+/// un bloque para lo que no va alineado).
+fn leer_crudo(d: &Disco, puente: &mut [u8; MAX_REGISTRO], off: u64, dst: &mut [u8]) -> R<()> {
     let b = d.bloque;
     let (mut off, mut hecho) = (off, 0usize);
     while hecho < dst.len() {
@@ -479,7 +539,7 @@ fn leer_disco(d: &Disco, puente: &mut [u8; MAX_REGISTRO], off: u64, dst: &mut [u
 
 /// Lee `dst` desde el byte `off` (del valor entero) de lo que describe una
 /// lista de tramos que empieza en `vcn0`; los huecos, a cero.
-fn leer_tramos(d: &Disco, puente: &mut [u8; MAX_REGISTRO], bpc: u64, tramos: &[u8], vcn0: u64, off: u64, dst: &mut [u8]) -> R<()> {
+fn leer_tramos(d: &Disco, puente: &mut Puente, bpc: u64, tramos: &[u8], vcn0: u64, off: u64, dst: &mut [u8]) -> R<()> {
     let mut hecho = 0usize;
     while hecho < dst.len() {
         let p = off + hecho as u64;
@@ -517,7 +577,7 @@ pub struct Volumen<'d> {
     blq: [u8; MAX_INDICE],
     /// El mapa de bloques de indice en uso.
     bits: [u8; 512],
-    puente: [u8; MAX_REGISTRO],
+    puente: Puente,
     montado: bool,
 }
 
@@ -533,9 +593,14 @@ impl<'d> Volumen<'d> {
             lista: [0; MAX_INDICE],
             blq: [0; MAX_INDICE],
             bits: [0; 512],
-            puente: [0; MAX_REGISTRO],
+            puente: Puente::nuevo(),
             montado: false,
         }
+    }
+
+    /// La cache de lecturas chicas: `(aciertos, fallos)` desde el montaje.
+    pub fn cache(&self) -> (u64, u64) {
+        (self.puente.aciertos, self.puente.fallos)
     }
 
     /// **Montar**: el sector de arranque en `part_lba` y el registro 0.

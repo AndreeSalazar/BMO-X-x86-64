@@ -1795,6 +1795,13 @@ fueron directos y cuantos rebotaron. Lo que queda despues: NCQ (varios
 comandos en vuelo; hoy uno), y leer directo a la IMAGEN sin el bloque de
 paso (una copia menos).
 
+Lo que dio (13:37): 310 MiB/s, 563 MiB directos y 10 rebotados. Y lo
+siguiente que pesaba eran las CABECERAS (0,5 s): abrir cada DLL recorria
+`bin/x64` entera, un comando por bloque INDX, 25 veces. `bmo-ntfs` guarda
+ahora 32 bloques de 4 KiB de lecturas chicas (registros de la MFT, bloques
+de carpeta): D: es de solo lectura para BMO-X, lo guardado no caduca. La
+segunda vez que se recorre una carpeta, ni una lectura al disco (prueba).
+
 Y las reglas que salen de ahi, para cada pieza de PROTON-X:
 
 - **El disco primero, la cache despues.** Una cache de la imagen (P0.4d) en
