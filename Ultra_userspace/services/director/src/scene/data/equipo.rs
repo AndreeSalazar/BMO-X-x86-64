@@ -286,10 +286,10 @@ pub(crate) fn en(z: &Zona, px: u32, py: u32) -> Option<usize> {
 
 // == El pintado ===============================================================
 
-/// El cuerpo de una tarjeta: un peldano sobre la ventana.
+/// El cuerpo de una tarjeta: un nivel sobre la ventana.
 const TARJETA_FONDO: u32 = 0x001A_2520;
 const TARJETA_BORDE: u32 = 0x002C_4038;
-/// La elegida: un peldano mas, y el borde en degradado.
+/// La elegida: un nivel mas, y el borde en degradado.
 const TARJETA_ELEGIDA: u32 = 0x0020_2E28;
 /// El `col.active_border` de Hyprland, de un extremo al otro.
 const DEGRADADO: (u32, u32) = (0x0033_CCFF, 0x0000_FF99);
@@ -353,7 +353,7 @@ fn medida(p: &bmo::Pantalla, x: u32, y: u32, bytes: u64, color: u32) -> u32 {
 
 fn pinta_tarjeta(p: &bmo::Pantalla, r: (u32, u32, u32, u32), u: Unidad, m: Medida, elegida: bool) {
     let (x, y, w, h) = r;
-    // La sombra, un peldano por debajo del fondo de la ventana.
+    // La sombra, un nivel por debajo del fondo de la ventana.
     borde::relleno_r(p, x + 2, y + 3, w, h, RADIO, 0x000B_100E);
     if elegida {
         borde_degradado(p, r, TARJETA_ELEGIDA);

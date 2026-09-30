@@ -25,7 +25,7 @@
 //!                     no es un diagnostico (L6i/L6j)
 //! ```
 //!
-//! ## La escalera, y donde esta cada peldano
+//! ## La escalera, y donde esta cada nivel
 //!
 //! ```text
 //!    Ethernet, ARP, IPv4, ICMP, UDP   este crate, probado aqui

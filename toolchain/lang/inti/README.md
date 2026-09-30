@@ -192,7 +192,7 @@ tiene funciones anonimas. **Nada de eso se habria visto leyendo.**
 
 ## Que falta para poder afirmar lo que se afirma
 
-[`PLAN_DE_PRUEBAS.md`](PLAN_DE_PRUEBAS.md) -- los siete peldanos, en orden de
+[`PLAN_DE_PRUEBAS.md`](PLAN_DE_PRUEBAS.md) -- los siete niveles, en orden de
 DEPENDENCIA y no de importancia, cada uno con un criterio de aprobado que se
 puede ejecutar.
 

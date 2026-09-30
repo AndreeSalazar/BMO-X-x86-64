@@ -377,7 +377,7 @@ pub(crate) const BOX_BG: u32 = tema_gen::BOX_FONDO;
 /// lo que separa la ventana del fondo es la sombra y el salto de tono, no una
 /// raya de color.
 pub(crate) const BOX_EDGE: u32 = tema_gen::BOX_BORDE;
-/// La barra de titulo: un peldano MAS claro que el cuerpo.
+/// La barra de titulo: un nivel MAS claro que el cuerpo.
 pub(crate) const BOX_TITLE: u32 = 0x0025_1F44;
 /// Los campos donde se escribe van hacia abajo, no hacia arriba: un hueco se
 /// lee como hundido y ahi es donde se mete texto.

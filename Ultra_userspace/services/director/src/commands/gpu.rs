@@ -389,7 +389,7 @@ pub(crate) fn contar_vblanks(ms: u64) -> (u64, u64) {
     )
 }
 
-/// **E2: la 3060 AVISA?** La cuenta, y la ESCALERA: cada peldano es un sitio
+/// **E2: la 3060 AVISA?** La cuenta, y la ESCALERA: cada nivel es un sitio
 /// donde el aviso se puede quedar. En el metal, el primero que falte dice
 /// donde mirar.
 fn fila_e2(s: &mut Output) {

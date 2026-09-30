@@ -749,10 +749,10 @@ const SHADOW_NODE: u32 = 0x000B_100E;
 /// son lo que hay que seguir con la vista, y una linea del mismo tono que el
 /// marco se pierde entre los marcos.
 const DATA_EDGE_LINE: u32 = 0x0045_6B5C;
-/// El cuerpo de una caja del grafo: un peldano por encima de la ventana, que es
+/// El cuerpo de una caja del grafo: un nivel por encima de la ventana, que es
 /// la misma regla que separa la ventana del escritorio.
 const NODE_BG: u32 = 0x001B_2622;
-/// Y la marcada, otro peldano mas. La profundidad se lee sola.
+/// Y la marcada, otro nivel mas. La profundidad se lee sola.
 const NODE_SEL: u32 = 0x0024_332C;
 
 /// **LO SELECCIONADO VA EN AZUL, y el azul no me lo he inventado.**

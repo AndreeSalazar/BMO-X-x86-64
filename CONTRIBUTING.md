@@ -176,7 +176,7 @@ get a contribution rejected on principle.
    word -- the maimed form of *owner* means nothing and the maimed form of
    *year* means something else -- so it is written as the word that survives
    whole: `propietario`, `medida`, `chico`, `mostrar`, `agregar`, `castellano`.
-   The dictionary is closed and lives in `ascii_sweep.py` (`ENES_CAIDAS`);
+   The dictionary is closed and lives in `enes_caidas.py` (`ENES_CAIDAS`), next to `ascii_sweep.py`;
    `--check` fails the build on any of them, in prose, in strings and inside
    identifiers (`CamelCase` and `snake_case` are split before looking), and
    `--apply` rewrites comments, `.md`, `.txt`, screen strings and `.inti`.

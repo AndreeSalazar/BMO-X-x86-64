@@ -5,7 +5,7 @@
 
 Este documento no dice lo que INTI hace bien. Dice **que hay que comprobar para
 poder afirmar lo que se afirma**, en el orden en que hay que hacerlo, y **que
-falta hoy** en cada peldano.
+falta hoy** en cada nivel.
 
 La regla para entrar aqui: cada fila tiene un **criterio de aprobado que se
 puede ejecutar**. Una fila sin criterio es una intencion, y las intenciones van
@@ -34,7 +34,7 @@ Y el programa mas grande que INTI ha compilado tiene **once lineas**.
 
 ---
 
-## 1. LOS SIETE PELDANOS, en orden
+## 1. LOS SIETE NIVELES, en orden
 
 El orden no es de importancia: es de **dependencia**. Cada uno necesita que el
 anterior este, y saltarse uno hace que el siguiente mida otra cosa.
@@ -51,7 +51,7 @@ anterior este, y saltarse uno hace que el siguiente mida otra cosa.
 
 ---
 
-## 2. PELDANO 1 -- EL CORPUS: que las sondas digan la verdad
+## 2. NIVEL 1 -- EL CORPUS: que las sondas digan la verdad
 
 **Estado: ✅ hecho el 21-08, y hasta hoy estaba a medias.**
 
@@ -62,7 +62,7 @@ anterior este, y saltarse uno hace que el siguiente mida otra cosa.
 | toda sonda cumple el veredicto que declara | `cada_sonda_cumple_el_veredicto_que_declara` | ✅ **nuevo**: 37 de 42 |
 | las 5 exentas tienen su motivo, y **la exencion caduca sola** | el mismo test, en la otra direccion | ✅ **nuevo** |
 
-⚠ **Lo que este peldano costo descubrir, y es la leccion del dia:** el test
+⚠ **Lo que este nivel costo descubrir, y es la leccion del dia:** el test
 comprobaba **diez** sondas contra su veredicto, escritas en una lista a mano. Las
 otras treinta y dos declaraban un veredicto que no miraba nadie.
 
@@ -91,7 +91,7 @@ que el corpus DECLARA, no contra lo que el compilador hace.
 
 ---
 
-## 3. PELDANO 2 -- EL EMULADOR: que lo que compila corra y acierte
+## 3. NIVEL 2 -- EL EMULADOR: que lo que compila corra y acierte
 
 **Estado: ✅ hecho, con un limite que hay que decir.**
 
@@ -118,15 +118,15 @@ familia --el banco decia que si y el Ryzen habria dicho que no--:
                                          cero; el silicio da el centinela
 ```
 
-⚠ **Eso es lo que mide de verdad la fiabilidad de este peldano**: el oraculo se
+⚠ **Eso es lo que mide de verdad la fiabilidad de este nivel**: el oraculo se
 equivoca, y solo se descubre cuando un lenguaje nuevo le pregunta algo que
 ninguno le habia preguntado. **Quedan preguntas sin hacer.**
 
 ---
 
-## 4. PELDANO 3 -- EL METAL: donde estamos, y que hace falta
+## 4. NIVEL 3 -- EL METAL: donde estamos, y que hace falta
 
-**Estado: ✅ M1, M2 y M3 HECHOS en el Ryzen (22-08). El peldano 3 esta CERRADO.**
+**Estado: ✅ M1, M2 y M3 HECHOS en el Ryzen (22-08). El nivel 3 esta CERRADO.**
 
     -- cpu -  0x10          la hoja maxima, como se predijo
     -- cpu -  0x00A20F12    familia 0x19, modelo 0x21, revision 2: Zen 3
@@ -180,11 +180,11 @@ publica la dispersion al lado.
 
 **El minimo es estable aunque la dispersion sea grande**, y de ahi sale el
 umbral: para poder AFIRMAR una mejora hay que mover el minimo mas de ~1%.
-Sin ese numero, el peldano 6 no puede empezar.
+Sin ese numero, el nivel 6 no puede empezar.
 
 `sondas/cpu.inti` esta escrita, compila, pasa el gate, **su formateador se
 calibro en el emulador antes de medir con el** -- y ya corrio en la maquina. Lo
-que falta de este peldano no es un arranque: es la Regla 2, que nace con
+que falta de este nivel no es un arranque: es la Regla 2, que nace con
 `lista de T`.
 
 ### 3.1 Las tres pruebas, en orden
@@ -237,7 +237,7 @@ el emisor.
 
 ---
 
-## 5. PELDANO 4 -- EL MEDIDA: un programa grande
+## 5. NIVEL 4 -- EL MEDIDA: un programa grande
 
 **Estado: ⛔ CERO. El programa mas grande que INTI ha compilado tiene ONCE
 lineas.**
@@ -260,7 +260,7 @@ mismos resultados que el de las pruebas de F4c**.
 
 ---
 
-## 6. PELDANO 5 -- EL HOSTIL: lo que rompe a proposito
+## 6. NIVEL 5 -- EL HOSTIL: lo que rompe a proposito
 
 **Estado: ⛔ CERO.**
 
@@ -274,17 +274,17 @@ que funcionaran**. Eso es la mitad facil.
 | ningun aviso **miente sobre su causa** | es lo que casi pasa con el destino de trampa unico, y lo que si pasaba con `E0030` en los parametros |
 | un fuente de **cero bytes**, uno de un solo salto de linea, uno sin salto final | los tres bordes clasicos |
 
-⚠ **Y el criterio de este peldano no es "no falla": es "falla bien".** Un
+⚠ **Y el criterio de este nivel no es "no falla": es "falla bien".** Un
 compilador que rechaza un fichero raro con un mensaje claro esta aprobado. Uno
 que revienta, no -- aunque el fichero fuera basura.
 
 ---
 
-## 7. PELDANO 6 -- EL TIEMPO: cuanto cuesta, medido
+## 7. NIVEL 6 -- EL TIEMPO: cuanto cuesta, medido
 
 **Estado: ⛔ CERO, y es el que mas se presta a mentir.**
 
-⚠ **Este peldano NO puede empezar antes del 3.** Medir en un emulador da un
+⚠ **Este nivel NO puede empezar antes del 3.** Medir en un emulador da un
 numero que no significa nada: el emulador no tiene cache, ni prediccion de
 saltos, ni ejecucion fuera de orden -- y las comprobaciones anti-UB son baratas
 **exactamente por eso**.
@@ -295,13 +295,13 @@ saltos, ni ejecucion fuera de orden -- y las comprobaciones anti-UB son baratas
 | lo que cuesta la coma flotante en registros normales | la version que reparta registros de coma flotante, el dia que exista |
 | lo que cuesta un `.bex` de INTI | el mismo programa en BMO C |
 
-★★ Y la frase que este peldano tiene que poder decir **no es** *"va como
+★★ Y la frase que este nivel tiene que poder decir **no es** *"va como
 ensamblador"* -- eso es el mito de 13e. Es: **"comprobar cuesta X%, medido en
 este CPU, contra este programa"**. Un porcentaje sin las tres cosas no vale nada.
 
 ---
 
-## 8. PELDANO 7 -- EL AJENO: alguien que no lo escribio
+## 8. NIVEL 7 -- EL AJENO: alguien que no lo escribio
 
 **Estado: ⛔ CERO, y es el unico que no puedo hacer yo.**
 
@@ -311,7 +311,7 @@ este CPU, contra este programa"**. Un porcentaje sin las tres cosas no vale nada
 | alguien porta un programa de C a INTI | si la biblioteca cubre lo que hace falta |
 | alguien lee un `.inti` que no escribio y **dice que hace** | la promesa de la sintaxis |
 
-⚠ **Sin este peldano, "estricto para facilitar" es una opinion.** Los otros seis
+⚠ **Sin este nivel, "estricto para facilitar" es una opinion.** Los otros seis
 los puede aprobar el que escribio el lenguaje; este no.
 
 ---

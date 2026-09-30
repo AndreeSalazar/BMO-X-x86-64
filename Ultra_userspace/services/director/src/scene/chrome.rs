@@ -69,7 +69,7 @@ const GRIP_CORNER: u32 = 16;
 /// eso solo aparece al senalarlo: un aspa roja permanente es una alarma de
 /// fondo.
 const CLOSE_HOVER: u32 = 0x00C4_2B1F;
-/// El realce de los otros dos: un peldano mas claro, sin color propio.
+/// El realce de los otros dos: un nivel mas claro, sin color propio.
 const BTN_HOVER: u32 = 0x003A_3358;
 
 /// Geometria y estado de una ventana. **Lo unico que hay que llevar.**

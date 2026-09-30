@@ -30,7 +30,7 @@
 //! # El ORACULO
 //!
 //! [`Dominio::traducir`] recorre las tablas COMO LA IOMMU: desde la raiz, nivel
-//! a nivel, mirando PR, el nivel siguiente y los permisos de cada peldano. Las
+//! a nivel, mirando PR, el nivel siguiente y los permisos de cada nivel. Las
 //! pruebas no comparan con lo que el codigo cree haber escrito: comparan con lo
 //! que el hardware leeria. Y el kernel lo usa igual, sobre la RAM de verdad,
 //! para RELEER lo que presto.
@@ -192,7 +192,7 @@ impl Dominio {
             if e & PR == 0 {
                 return None;
             }
-            // Los permisos son el AND de todos los peldanos.
+            // Los permisos son el AND de todos los niveles.
             lee &= e & IR != 0;
             escribe &= e & IW != 0;
             let siguiente = ((e & NIVEL_MASK) >> NIVEL_SHIFT) as u8;

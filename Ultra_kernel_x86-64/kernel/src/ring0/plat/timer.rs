@@ -282,7 +282,7 @@ pub fn eoi() {
 /// **El LAPIC tiene `vector` PENDIENTE** (su bit en el IRR)? `None` si aun no
 /// se sabe donde esta el LAPIC. Solo lee.
 ///
-/// Es el peldano de la escalera del aviso del disco que separa "el mensaje no
+/// Es el nivel de la escalera del aviso del disco que separa "el mensaje no
 /// llego al LAPIC" de "llego y la CPU no lo coge" -- dos fallos que se ven
 /// igual desde fuera y se arreglan en sitios que no tienen nada que ver.
 pub fn pendiente_en_lapic(vector: u8) -> Option<bool> {

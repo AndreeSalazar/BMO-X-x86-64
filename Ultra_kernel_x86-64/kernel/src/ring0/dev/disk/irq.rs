@@ -76,7 +76,7 @@ pub fn entradas() -> u32 {
     ENTRADAS.load(core::sync::atomic::Ordering::Relaxed)
 }
 
-/// **`INFO_DISCO_AVISO`: la escalera del aviso, leida AHORA.** Cada peldano es
+/// **`INFO_DISCO_AVISO`: la escalera del aviso, leida AHORA.** Cada nivel es
 /// un sitio donde el aviso se puede perder, preguntado a quien lo tiene: el
 /// aparato (su MSI), el HBA (sus registros), el LAPIC (su IRR) y el vector
 /// (sus entradas). Ver el ABI.
