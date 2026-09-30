@@ -88,6 +88,9 @@ struct Hilo {
     resultado: u32,
     /// Una condicion lo desperto (Wake*ConditionVariable).
     despertado: bool,
+    /// `SuspendThread` (30-09): mientras no sea 0, no corre, este en lo que
+    /// este (su espera sigue donde estaba al reanudarlo).
+    suspension: u32,
 }
 
 /// **Lo que toca ahora.**
@@ -123,7 +126,7 @@ impl Default for Planificador {
 impl Planificador {
     pub fn nuevo() -> Self {
         Planificador {
-            hilos: alloc::vec![Hilo { estado: Estado::Listo, resultado: 0, despertado: false }],
+            hilos: alloc::vec![Hilo { estado: Estado::Listo, resultado: 0, despertado: false, suspension: 0 }],
             objetos: Vec::new(),
             cerrojos: Vec::new(),
             condiciones: Vec::new(),
@@ -157,14 +160,31 @@ impl Planificador {
     /// Un hilo nuevo y su objeto (lo que devuelve `CreateThread`).
     pub fn crear(&mut self, suspendido: bool) -> (Id, usize) {
         let estado = if suspendido { Estado::Suspendido(1) } else { Estado::Listo };
-        self.hilos.push(Hilo { estado, resultado: 0, despertado: false });
+        self.hilos.push(Hilo { estado, resultado: 0, despertado: false, suspension: 0 });
         let id = self.hilos.len() - 1;
         (id, self.nuevo_objeto(Objeto::Hilo(id)))
+    }
+
+    /// `SuspendThread`: la cuenta de antes, o `None` si no es un hilo (o ya
+    /// termino).
+    pub fn suspender(&mut self, h: Id) -> Option<u32> {
+        let x = self.hilos.get_mut(h)?;
+        if matches!(x.estado, Estado::Terminado(_)) {
+            return None;
+        }
+        let antes = x.suspension + if let Estado::Suspendido(n) = x.estado { n } else { 0 };
+        x.suspension += 1;
+        Some(antes)
     }
 
     /// `ResumeThread`: la cuenta de antes, o `None` si no es un hilo.
     pub fn reanudar(&mut self, h: Id) -> Option<u32> {
         let x = self.hilos.get_mut(h)?;
+        if x.suspension > 0 {
+            let antes = x.suspension + if let Estado::Suspendido(n) = x.estado { n } else { 0 };
+            x.suspension -= 1;
+            return Some(antes);
+        }
         Some(match x.estado {
             Estado::Suspendido(n) => {
                 x.estado = if n <= 1 { Estado::Listo } else { Estado::Suspendido(n - 1) };
@@ -484,6 +504,9 @@ impl Planificador {
 
     /// Si `h` puede seguir ya; si su espera se cumple, la cumple.
     fn puede(&mut self, h: Id, ahora: u64) -> bool {
+        if self.hilos[h].suspension > 0 {
+            return false;
+        }
         let estado = self.hilos[h].estado.clone();
         let (listo, resultado) = match estado {
             Estado::Listo => (true, None),

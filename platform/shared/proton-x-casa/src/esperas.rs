@@ -325,10 +325,6 @@ extern "win64" fn set_handle_information(_h: u64, _mascara: u32, _banderas: u32)
     1
 }
 
-extern "win64" fn is_thread_a_fiber() -> i32 {
-    0
-}
-
 extern "win64" fn set_thread_stack_guarantee(antes: *mut u32) -> i32 {
     if !antes.is_null() {
         // SAFETY: un ULONG del `.exe`: pide una medida y recibe la de antes.
@@ -378,7 +374,6 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "GetCurrentProcess" => dir!(get_current_process),
         "DuplicateHandle" => dir!(duplicate_handle),
         "SetHandleInformation" => dir!(set_handle_information),
-        "IsThreadAFiber" => dir!(is_thread_a_fiber),
         "SetThreadStackGuarantee" => dir!(set_thread_stack_guarantee),
         "GetSystemTimeAsFileTime" | "GetSystemTimePreciseAsFileTime" => dir!(get_system_time_as_file_time),
         _ => return None,

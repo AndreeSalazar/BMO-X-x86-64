@@ -486,8 +486,11 @@ extern "win64" fn read_process_memory(p: u64, desde: u64, buf: u64, n: usize, le
     1
 }
 
-extern "win64" fn wait_for_multiple_objects_ex(n: u32, hs: *const u64, todos: i32, ms: u32, _alertable: i32) -> u32 {
-    hilos::wait_for_multiple_objects(n, hs, todos, ms)
+extern "win64" fn wait_for_multiple_objects_ex(n: u32, hs: *const u64, todos: i32, ms: u32, alertable: i32) -> u32 {
+    if alertable == 0 {
+        return hilos::wait_for_multiple_objects(n, hs, todos, ms);
+    }
+    crate::kernel32_procesos::espera_alertable(ms, |t| hilos::wait_for_multiple_objects(n, hs, todos, t))
 }
 
 extern "win64" fn get_overlapped_result_ex(h: u64, ov: u64, n: *mut u32, _ms: u32, _alertable: i32) -> i32 {

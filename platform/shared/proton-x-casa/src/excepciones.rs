@@ -611,6 +611,27 @@ fn desenrollar_con(objetivo: u64, destino: u64, rec: *mut u8, mut c: Contexto, m
     }
 }
 
+// -- La pila, para RtlCaptureStackBackTrace (30-09) ----------------------------------
+
+/// Los pc de la pila del `.exe` desde el CONTEXT `ctx`: el suyo y los de
+/// quienes llamaron, hasta `max` o hasta salir de sus imagenes.
+pub(crate) fn pcs_desde(ctx: *mut u8, max: usize) -> Vec<u64> {
+    let (m, imagenes) = Viva::de_ahora();
+    let mut c = Contexto::de_context(bytes(ctx, CONTEXT_BYTES));
+    let mut v = Vec::new();
+    while v.len() < max {
+        if seh::imagen_de(&imagenes, c.rip).is_none() {
+            break;
+        }
+        v.push(c.rip);
+        match seh::subir(&m, &imagenes, &mut c, 0) {
+            Ok(Subida::Fuera) | Err(_) => break,
+            _ => {}
+        }
+    }
+    v
+}
+
 // -- Lo demas que se exporta ----------------------------------------------------------
 
 /// `RtlLookupFunctionEntry(pc, *base, historia)`: la RUNTIME_FUNCTION de `pc`,
