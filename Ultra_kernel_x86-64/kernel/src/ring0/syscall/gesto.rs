@@ -255,9 +255,26 @@ fn origen_poner(pid: u32, handle: u64, desde: u64) -> u64 {
 
 /// La direccion y el medida, **y vacia el renglon**. `None` si no cuadra.
 ///
-/// La comprobacion del rango es UNA RESTA contra lo que el kernel entrego, y esa
-/// es la idea entera: no hay que validar un puntero de Ring 3 porque no hay
-/// ningun puntero de Ring 3 -- hay un bloque que dimos nosotros.
+/// La comprobacion del rango es contra lo que el kernel entrego, y esa es la
+/// idea entera: no hay que validar un puntero de Ring 3 porque no hay ningun
+/// puntero de Ring 3 -- hay un bloque que dimos nosotros.
+///
+/// *** LA DIRECCION QUE SALE ES LA DEL ESPEJO DEL KERNEL, NO LA DEL PROCESO
+/// (2026-09-29). Hasta hoy salia `bloque.object` + `desde`, que es la VA de
+/// Ring 3, y `copiar::traer` la leia tal cual. Con CR4.SMAP encendido eso es un
+/// #PF de Ring 0 -- *"proteccion leyendo desde el KERNEL"*, dentro de `memcpy`,
+/// con cr2 en la primera pagina del bloque --, y la maquina entera se paraba.
+/// Lo piso el primero que guardo en ESTRATOS desde un bloque despues de que
+/// SMAP se encendiera: F1 sembrando su biblioteca (`PLAN_TALLER` 8.6).
+///
+/// Y el limite se comparaba contra `handed_over_by` -- **la suma de todos los
+/// bloques del proceso** --, que es exactamente el fallo que
+/// `memory::bytes_de_bloque` dejo escrito el 2026-08-24 para `LEER_EN` y
+/// `ESCRIBIR_DE`. Aquellos dos se corrigieron; este renglon, que es el mismo
+/// camino con otro verbo, se quedo atras. Ahora hace lo mismo que
+/// `ESCRIBIR_DE`: `fisica_de` exige que `[desde, desde+cuantos)` caiga dentro
+/// de ESTE bloque, y los marcos de un bloque son contiguos por construccion,
+/// asi que el espejo cubre el rango entero.
 fn origen_tomar(pid: u32, cuantos: u64) -> Option<(u64, u32)> {
     let (base, desde) = unsafe {
         if ORIGEN_PID != pid {
@@ -271,10 +288,12 @@ fn origen_tomar(pid: u32, cuantos: u64) -> Option<(u64, u32)> {
     if cuantos == 0 || cuantos > u32::MAX as u64 {
         return None;
     }
-    let tam = crate::ring0::obj::memory::handed_over_by(pid);
-    if desde.checked_add(cuantos).map_or(true, |fin| fin > tam) {
+    let fisica = base
+        .checked_add(desde)
+        .and_then(|va| crate::ring0::obj::memory::fisica_de(pid, va, cuantos));
+    let Some(fisica) = fisica else {
         crate::ring0::cabina::warn("estratos", "ese rango no cae dentro del bloque", cuantos);
         return None;
-    }
-    Some((base + desde, cuantos as u32))
+    };
+    Some((crate::ring0::mm::phys_to_virt(fisica), cuantos as u32))
 }

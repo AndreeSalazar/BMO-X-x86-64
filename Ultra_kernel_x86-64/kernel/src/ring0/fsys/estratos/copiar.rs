@@ -75,10 +75,12 @@ pub enum Origen<'a> {
     Fat32(&'a str),
     /// Un bloque de `KIND_MEMORIA` de Ring 3, **ya validado en el borde**.
     ///
-    /// ** `base` es una direccion virtual del proceso que llama, y solo vale
-    /// mientras ese proceso es el actual. No se guarda: se usa dentro del mismo
-    /// syscall que la trajo. Quien la valido fue `syscall/gesto.rs`, con una
-    /// resta contra lo que el kernel entrego -- aqui ya no se vuelve a dudar.
+    /// ** `base` es la direccion del ESPEJO DEL KERNEL (physmap) de ese bloque,
+    /// nunca la VA de Ring 3: con CR4.SMAP Ring 0 no puede leer una pagina de
+    /// usuario, y leerla era un #PF que paraba la maquina (2026-09-29, ver
+    /// `syscall/gesto.rs::origen_tomar`). No se guarda: se usa dentro del mismo
+    /// syscall que la trajo. Quien la valido fue `syscall/gesto.rs`, contra ESTE
+    /// bloque (`memory::fisica_de`) -- aqui ya no se vuelve a dudar.
     Ram { base: u64, size: u32 },
 }
 

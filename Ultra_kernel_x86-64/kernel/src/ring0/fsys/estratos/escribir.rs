@@ -796,10 +796,11 @@ pub fn copiar_fichero(ruta: &str, nombre: &str, origen: &str) -> Result<u64, Wri
 ///
 /// # Safety
 ///
-/// `base` tiene que apuntar a `size` bytes legibles **del proceso que esta
-/// corriendo ahora**. Quien llama es `syscall/gesto.rs`, que lo saca de un
-/// bloque `KIND_MEMORIA` propio tras comprobar el rango contra lo que el kernel
-/// le entrego -- la misma regla, escrita igual, que `file::write_from`.
+/// `base` tiene que apuntar a `size` bytes legibles **por el espejo del
+/// kernel** (physmap), nunca a la VA de Ring 3: con SMAP, leer esa es un #PF
+/// de Ring 0. Quien llama es `syscall/gesto.rs`, que la saca de un bloque
+/// `KIND_MEMORIA` propio con `memory::fisica_de` -- el rango dentro de ESTE
+/// bloque --, la misma regla, escrita igual, que `ARCH_OP_ESCRIBIR_DE`.
 pub unsafe fn guardar_desde(
     ruta: &str,
     nombre: &str,
@@ -820,10 +821,11 @@ pub unsafe fn guardar_desde(
 ///
 /// # Safety
 ///
-/// `base` tiene que apuntar a `size` bytes legibles **del proceso que esta
-/// corriendo ahora**. Quien llama es `syscall/gesto.rs`, que lo saca de un
-/// bloque `KIND_MEMORIA` propio tras comprobar el rango contra lo que el kernel
-/// le entrego -- la misma regla, escrita igual, que `file::write_from`.
+/// `base` tiene que apuntar a `size` bytes legibles **por el espejo del
+/// kernel** (physmap), nunca a la VA de Ring 3: con SMAP, leer esa es un #PF
+/// de Ring 0. Quien llama es `syscall/gesto.rs`, que la saca de un bloque
+/// `KIND_MEMORIA` propio con `memory::fisica_de` -- el rango dentro de ESTE
+/// bloque --, la misma regla, escrita igual, que `ARCH_OP_ESCRIBIR_DE`.
 pub unsafe fn crear_desde(ruta: &str, nombre: &str, base: u64, size: u32) -> Result<u64, WriteError> {
     aplicar(
         ruta,
