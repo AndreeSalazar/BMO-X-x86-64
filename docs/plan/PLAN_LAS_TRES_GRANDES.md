@@ -144,6 +144,11 @@ pide y en que orden.
     codigo...: `bmo_proton_x::tramos`), el juez acepta que alternen, y se
     sellan todos los de codigo. `.rdata` queda R+W (Windows: solo R); una
     seccion escribible en una pagina de codigo sigue siendo un NO.
+  - [x] P0.4b.7 -- El segundo golpe (30-09): la imagen ya se CONCEDE en el
+    metal (25 modulos, 52 partes, codigo 70 MiB + datos 168 MiB), y
+    `dbghelp.dll` pide a `api-ms-win-downlevel-kernel32-l2-1-0.dll`. Los API
+    set "downlevel" se resuelven como su DLL; y el cargador APUNTA lo que
+    falta de TODAS las DLL antes de decir NO (un viaje, la lista entera).
   - [ ] P0.4b.5 -- En el metal: los DllMain de las 26 corren y el `.exe`
     llega a su entrada (o el diario dice donde se paro).
 - [ ] P0.4c -- **LA MEMORIA DEL JUEGO `[RING 0]`**: lo que el juego pide EN
