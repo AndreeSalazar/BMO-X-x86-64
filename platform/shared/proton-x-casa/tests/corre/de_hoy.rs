@@ -133,3 +133,13 @@ fn tanda19m_exe_de_msvc_tiene_los_flujos() {
     std::fs::write(volumen().join("window").join("tanda19m.exe"), TANDA19M).unwrap();
     tanda(TANDA19M, Some("window/tanda19m.exe"), 15, "tanda19m.exe: los flujos de msvcp140, compilados por MSVC, son los de Windows");
 }
+
+/// **La tanda 20 de Cyberpunk** (30-09): `tanda20.exe` -- las ultimas DURAS
+/// del censo del metal: << float, << const void*, << long long, read, seekg,
+/// tellg, setprecision, _Fiopen ancho (abre su PROPIO `.exe`), el
+/// constructor de task_continuation_context y el API set de CFGMGR32.
+#[test]
+fn tanda20_exe_tiene_las_ultimas_duras() {
+    std::fs::write(volumen().join("window").join("tanda20.exe"), TANDA20).unwrap();
+    tanda(TANDA20, Some("window/tanda20.exe"), 15, "tanda20.exe: las ultimas DURAS son las de Windows");
+}

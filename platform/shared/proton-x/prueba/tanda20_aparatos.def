@@ -1,0 +1,4 @@
+LIBRARY api-ms-win-devices-config-l1-1-1.dll
+EXPORTS
+CM_Get_Device_ID_List_SizeW
+CM_MapCrToWin32Err

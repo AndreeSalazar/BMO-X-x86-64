@@ -929,10 +929,27 @@ fn poner_teb(base: u64) {
 
 #[panic_handler]
 fn panico(info: &core::panic::PanicInfo) -> ! {
-    di("PROTON-X: panico en el cargador\n");
-    if let Some(s) = info.message().as_str() {
-        di(s);
-        di("\n");
+    // El motivo y el sitio, ENTEROS, en un bufer de la pila: el monton puede
+    // ser justo lo que se acabo (metal 30-09: el primer contacto decia solo
+    // "panico en el cargador", porque el mensaje no era un texto fijo).
+    struct Bufer {
+        b: [u8; 512],
+        n: usize,
     }
+    impl core::fmt::Write for Bufer {
+        fn write_str(&mut self, s: &str) -> core::fmt::Result {
+            let k = s.len().min(self.b.len() - self.n);
+            self.b[self.n..self.n + k].copy_from_slice(&s.as_bytes()[..k]);
+            self.n += k;
+            Ok(())
+        }
+    }
+    let mut t = Bufer { b: [0; 512], n: 0 };
+    let _ = core::fmt::write(&mut t, format_args!("PROTON-X: panico en el cargador: {}", info.message()));
+    if let Some(l) = info.location() {
+        let _ = core::fmt::write(&mut t, format_args!(" ({}:{})", l.file(), l.line()));
+    }
+    let _ = core::fmt::write(&mut t, format_args!("; monton {} B\n", MONTON.gastado()));
+    di(core::str::from_utf8(&t.b[..t.n]).unwrap_or("PROTON-X: panico en el cargador\n"));
     bmo::salir();
 }

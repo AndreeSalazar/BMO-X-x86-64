@@ -1,0 +1,13 @@
+[package]
+name = "bmo-imagen-juicio"
+version = "0.1.0"
+edition = "2021"
+description = "El juez de la declaracion de imagen: si las partes de un .exe y sus DLL caben, y donde va cada una"
+license = "Apache-2.0"
+
+[lib]
+
+# ** CERO DEPENDENCIAS, por el mismo motivo que `bmo-prestamo-juicio`: lo
+# consume Ring 0 --sin asignador, en el metal-- y `cargo test` en el
+# anfitrion.
+[dependencies]

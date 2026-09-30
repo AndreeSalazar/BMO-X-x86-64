@@ -89,6 +89,7 @@ pub mod msvcp_locale;
 pub mod msvcp_flujos;
 pub mod msvcp_tiempo;
 pub mod msvcp_accesos;
+pub mod msvcp_ultimas;
 pub mod nativo;
 pub mod proceso;
 pub mod red;
@@ -340,7 +341,7 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("msvcp140.dll") {
         // Tanda 2 de Cyberpunk: la biblioteca de C++ de MSVC.
         // Tanda 18: su locale.
-        msvcp_hilos::buscar(n).or_else(|| msvcp_errores::buscar(n)).or_else(|| msvcp_locale::buscar(n)).or_else(|| msvcp_flujos::buscar(n)).or_else(|| msvcp_tiempo::buscar(n)).or_else(|| msvcp_accesos::buscar(n))
+        msvcp_hilos::buscar(n).or_else(|| msvcp_errores::buscar(n)).or_else(|| msvcp_locale::buscar(n)).or_else(|| msvcp_flujos::buscar(n)).or_else(|| msvcp_tiempo::buscar(n)).or_else(|| msvcp_accesos::buscar(n)).or_else(|| msvcp_ultimas::buscar(n))
     } else if dll.eq_ignore_ascii_case("ntdll.dll") {
         // P4f4: NtReadFile/NtWriteFile de verdad; lo demas de ntdll, dicho.
         // P4c: __C_specific_handler y los Rtl* de las excepciones.
@@ -365,6 +366,9 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         advapi32::buscar(n).or_else(|| version_y_seguridad::buscar(n)).or_else(|| de_kernel32(n)).or_else(|| dll_chicas::buscar(n))
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {
         gdi32::buscar(n).or_else(|| dll_chicas::buscar(n))
+    } else if es_api_set_de(dll, &["api-ms-win-devices-config-"]) {
+        // Tanda 20: el API set de CFGMGR32 (lo pide una DLL del juego).
+        aparatos::buscar(n)
     } else if CHICAS.iter().any(|c| dll.eq_ignore_ascii_case(c)) {
         // Tanda 14a: las DLL de las que el juego pide una, dos o cuatro.
         dll_chicas::buscar(n).or_else(|| version_y_seguridad::buscar(n)).or_else(|| com_basico::buscar(n)).or_else(|| aparatos::buscar(n))
@@ -413,7 +417,10 @@ fn de_kernel32(n: &str) -> Option<u64> {
 /// Si `f` (un nombre de fichero en minusculas) es un API set o una DLL del
 /// CRT: tambien son de la casa (P5a: no se buscan en el disco).
 pub(crate) fn es_api_set_o_crt(f: &str) -> bool {
-    (f.len() > 16 && f.as_bytes()[..16].eq_ignore_ascii_case(b"api-ms-win-core-")) || crt::es_del_crt(f)
+    // Tanda 20: TODOS los api-ms-win-* (core, crt, security, eventing,
+    // devices-config...): en Windows ninguno es un fichero de verdad, y uno
+    // que la casa no conozca carga igual (lo que falte avisa al llamarse).
+    es_api_set_de(f, &["api-ms-win-"]) || crt::es_del_crt(f)
 }
 
 /// La direccion de una funcion, para la tabla.

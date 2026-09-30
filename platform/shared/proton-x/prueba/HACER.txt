@@ -969,3 +969,35 @@ Dice `bien` quince veces (y una linea de cerr) y sale con 0. Con /O1 IMPORTA
 los accesores que el juego (/O2) lleva dentro (msvcp_accesos.rs) y el
 contador de los id (`_Id_cnt`, un DATO). Y mostro lo que clang no: en MSVC
 `std::locale` mide 16 BYTES y su _Locimp esta en el +8 (dos bases vacias).
+
+tanda20.exe -- la TANDA 20 de Cyberpunk (30-09): las ultimas DURAS del censo
+
+Las 14 que el censo del metal dijo que faltaban. De msvcp140: << float (con
+setprecision, fixed y setw), << const void*, << long long; read, seekg y
+tellg de istream sobre un streambuf propio que se deja mover; _Fiopen de un
+nombre ANCHO (abre su propio .exe) y el constructor privado de
+Concurrency::task_continuation_context. Y el API set de CFGMGR32
+(api-ms-win-devices-config-l1-1-1). Las declaraciones son las de
+tanda19.cpp, con lo nuevo (tanda20_*.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda20_kernel32.def -l tanda20_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda20_crt.def -l tanda20_crt.lib
+   llvm-dlltool -m i386:x86-64 -d tanda20_aparatos.def -l tanda20_aparatos.lib
+   llvm-dlltool -m i386:x86-64 -d tanda20_msvcp140.def -l tanda20_msvcp140.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -fno-exceptions -fno-rtti -ffreestanding -fno-stack-protector -fno-builtin -Wno-undefined-var-template -c tanda20.cpp -o tanda20.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda20.obj tanda20_kernel32.lib tanda20_crt.lib tanda20_aparatos.lib tanda20_msvcp140.lib /out:tanda20.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   3ec976bb36832fced94aa2054c71ecb97e8da68d5d43aa50a174c5bfbd829bfd
+
+Dice `bien` quince veces y sale con 0. En Windows dice lo mismo.
+
+tanda20m.exe -- la TANDA 20 compilada por MSVC con SUS cabeceras (FALTA: la
+hace el propietario en su Windows). Lo mismo que tanda20.exe con <sstream>,
+<fstream>, <iomanip> y <ppltasks.h> de verdad (salvo el API set, que es de
+C y ya lo mira tanda20.exe). En la "x64 Native Tools Command Prompt":
+
+   cl /nologo /EHsc /MD /O1 /std:c++17 tanda20m.cpp /Fe:tanda20m.exe
+
+Tiene que decir `bien` trece veces y salir con 0.

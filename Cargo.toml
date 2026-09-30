@@ -34,6 +34,10 @@ members = [
     # que el DIRECTOR leia la cabecera en el sitio equivocado. La cuenta
     # estaba escrita TRES veces --tomar, soltar, morir-- y mal las tres.
     "platform/shared/bmo-prestamo-juicio",
+    # EL JUEZ DE LA DECLARACION DE IMAGEN, 2026-09-30 (P0.4b): un `.exe` de
+    # Windows y sus DLL declaran TODAS sus partes de una vez; esto dice si
+    # caben (la RAM libre de ahora, no un tope escrito) y donde va cada una.
+    "platform/shared/bmo-imagen-juicio",
     # LA PARTITURA: que partes existen y como se reparte una entre n atriles.
     # Vive aqui por la MISMA frase que `bmo-mmio-juicio` un poco mas arriba:
     # levantar doce nucleos es del kernel, pero decidir QUE LE TOCA A CADA UNO
