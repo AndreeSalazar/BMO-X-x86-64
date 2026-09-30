@@ -1007,3 +1007,62 @@ fn base64_de_la_rfc_4648() {
     assert_eq!(de_base64(b"Zm=v"), None);
     assert_eq!(de_base64(b"!!!!"), None);
 }
+
+#[test]
+fn el_censo_lee_las_importaciones_retrasadas() {
+    use crate::{retrasadas_de_seccion, Funcion, Pe};
+    use crate::pe::Directorio;
+    // Una seccion que empieza en la RVA 0x1000: dos descriptores (uno con
+    // RVA, uno del formato viejo con direcciones) y el de cero.
+    let desde = 0x1000u32;
+    // El formato viejo guarda direcciones de 32 bits: la base cabe en ellas.
+    let base = 0x4000_0000u64;
+    let mut t = alloc::vec![0u8; 0x200];
+    let p32 = |t: &mut Vec<u8>, o: usize, v: u32| t[o..o + 4].copy_from_slice(&v.to_le_bytes());
+    let p64 = |t: &mut Vec<u8>, o: usize, v: u64| t[o..o + 8].copy_from_slice(&v.to_le_bytes());
+    // Descriptor 1 (RVA): dxgi.dll, CreateDXGIFactory2 y el ordinal 7.
+    p32(&mut t, 0x00, 1);
+    p32(&mut t, 0x04, desde + 0x100);
+    p32(&mut t, 0x0C, desde + 0x140);
+    p32(&mut t, 0x10, desde + 0x160);
+    t[0x100..0x109].copy_from_slice(b"dxgi.dll\0");
+    p64(&mut t, 0x160, (desde + 0x180) as u64);
+    p64(&mut t, 0x168, 1 << 63 | 7);
+    t[0x182..0x195].copy_from_slice(b"CreateDXGIFactory2\0");
+    // Descriptor 2 (viejo: direcciones): winmm.dll, timeGetTime.
+    p32(&mut t, 0x20, 0);
+    p32(&mut t, 0x24, (base + (desde + 0x110) as u64) as u32);
+    p32(&mut t, 0x2C, (base + (desde + 0x1A0) as u64) as u32);
+    p32(&mut t, 0x30, (base + (desde + 0x1C0) as u64) as u32);
+    t[0x110..0x11A].copy_from_slice(b"winmm.dll\0");
+    p64(&mut t, 0x1C0, base + (desde + 0x1D0) as u64);
+    t[0x1D2..0x1DE].copy_from_slice(b"timeGetTime\0");
+    let pe = Pe {
+        base,
+        entrada: 0,
+        tam_imagen: 0x3000,
+        tam_cabeceras: 0x400,
+        secciones: alloc::vec![],
+        exportaciones: Directorio::default(),
+        importaciones: Directorio::default(),
+        relocalizaciones: Directorio::default(),
+        tls: Directorio::default(),
+        excepciones: Directorio::default(),
+        retrasadas: Directorio { rva: desde, tam: 0x60 },
+        relocs_quitadas: false,
+        es_dll: false,
+    };
+    let v = retrasadas_de_seccion(&pe, &t, desde).unwrap();
+    let dicho: Vec<(String, Funcion)> = v.iter().map(|i| (i.dll.clone(), i.funcion.clone())).collect();
+    assert_eq!(
+        dicho,
+        alloc::vec![
+            ("dxgi.dll".into(), Funcion::Nombre("CreateDXGIFactory2".into())),
+            ("dxgi.dll".into(), Funcion::Ordinal(7)),
+            ("winmm.dll".into(), Funcion::Nombre("timeGetTime".into())),
+        ]
+    );
+    assert_eq!(v[0].ranura, desde + 0x140, "la ranura es la de su IAT");
+    let sin = Pe { retrasadas: Directorio::default(), ..pe };
+    assert!(retrasadas_de_seccion(&sin, &t, desde).unwrap().is_empty());
+}

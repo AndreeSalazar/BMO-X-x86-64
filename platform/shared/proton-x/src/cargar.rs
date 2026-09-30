@@ -186,6 +186,54 @@ fn importaciones_con(pe: &Pe, img: &[u8], ver: impl Fn(usize) -> Option<usize>) 
     Ok(v)
 }
 
+/// **Las importaciones RETRASADAS, sin colocar** (el censo, 30-09): como
+/// [`importaciones_de_seccion`], pero del directorio 13. Cada descriptor
+/// (`ImgDelayDescr`, 32 bytes) da el nombre de la DLL (+4), su IAT (+12) y
+/// su tabla de nombres (+16); con el bit 0 de sus atributos a 0 (el formato
+/// viejo de VC6) son direcciones y no RVA, y se les quita la base.
+pub fn retrasadas_de_seccion(pe: &Pe, trozo: &[u8], desde: u32) -> Result<Vec<Importacion>, Fallo> {
+    let mut v = Vec::new();
+    if pe.retrasadas.rva == 0 {
+        return Ok(v);
+    }
+    let ver = |rva: usize| rva.checked_sub(desde as usize).filter(|&o| o < trozo.len());
+    let en = |rva: usize, que: &'static str| ver(rva).ok_or(Fallo::Corto(que));
+    let mut p = pe.retrasadas.rva as usize;
+    loop {
+        let campo = |k: usize| -> Result<u32, Fallo> { u32_en(trozo, en(p + k, "un descriptor retrasado")?, "un descriptor retrasado") };
+        let (atributos, nombre_dll, iat, nombres) = (campo(0)?, campo(4)?, campo(12)?, campo(16)?);
+        if nombre_dll == 0 && iat == 0 && nombres == 0 {
+            break;
+        }
+        let rva = |x: u32| -> usize {
+            if atributos & 1 != 0 {
+                x as usize
+            } else {
+                (x as u64).wrapping_sub(pe.base) as usize
+            }
+        };
+        let dll = cadena(trozo, en(rva(nombre_dll), "el nombre de una DLL retrasada")?)?;
+        let mut lista = rva(nombres);
+        let mut ranura = rva(iat) as u32;
+        loop {
+            let e = u64_en(trozo, en(lista, "una entrada retrasada")?, "una entrada retrasada")?;
+            if e == 0 {
+                break;
+            }
+            let funcion = if e >> 63 != 0 {
+                Funcion::Ordinal(e as u16)
+            } else {
+                Funcion::Nombre(cadena(trozo, en(rva(e as u32) + 2, "un nombre retrasado")?)?)
+            };
+            v.push(Importacion { dll: dll.clone(), funcion, ranura });
+            lista += 8;
+            ranura += 8;
+        }
+        p += 32;
+    }
+    Ok(v)
+}
+
 /// **Resolver contra la tabla de la casa.** `tabla(dll, funcion)` da la
 /// direccion de la funcion de la casa, o `None`. Si falta UNA, no se escribe
 /// nada y vuelven TODAS las que faltan: el `.exe` no arranca a medias.
