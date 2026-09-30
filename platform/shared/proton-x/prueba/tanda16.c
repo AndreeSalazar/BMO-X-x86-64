@@ -17,7 +17,8 @@ IMPORTA int W WriteFile(HANDLE h, const void *b, DWORD n, DWORD *e, void *o);
 IMPORTA void W ExitProcess(unsigned c);
 IMPORTA DWORD W GetLastError(void);
 IMPORTA void W HidD_GetHidGuid(void *g);
-IMPORTA int W HidD_GetAttributes(HANDLE h, void *a);
+/* BOOLEAN: un byte (lo de encima de al es basura en Windows). */
+IMPORTA unsigned char W HidD_GetAttributes(HANDLE h, void *a);
 IMPORTA long W HidP_GetCaps(void *pp, void *caps);
 IMPORTA HANDLE W SetupDiGetClassDevsW(const void *g, const WCHAR *e, HANDLE h, DWORD f);
 IMPORTA int W SetupDiEnumDeviceInterfaces(HANDLE h, void *di, const void *g, DWORD i, void *d);
@@ -94,7 +95,7 @@ void inicio(void) {
     {
         unsigned char a[12];
         static unsigned char pp[256], caps[64];
-        int r = HidD_GetAttributes((HANDLE)(long long)-1, a);
+        unsigned char r = HidD_GetAttributes((HANDLE)(long long)-1, a);
         long c = HidP_GetCaps(pp, caps);
         mira(!r, "HidD_GetAttributes sin aparato: FALSE");
         mira(c == (long)0xC0110001, "HidP_GetCaps de algo que no es: HIDP_STATUS_INVALID_PREPARSED_DATA (0xC0110001)");

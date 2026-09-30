@@ -888,7 +888,7 @@ Windows, y los 18 ordinales de WLDAP32 del juego, cargados sin llamarlos
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   bf72bf25fd22e090c5a2fd6cc4b4178214032132fd4b2f5ae7f0aae2915d9d33
+   3c8566af4c157fc2e18a6042abefecc7ec5d20b2bf7cb552081b48cf9f2e57bb
 
 Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.
 
