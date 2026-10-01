@@ -292,6 +292,21 @@ Escalones del B simple, sobre los de la seccion 3:
 Elegido por el propietario el 25-09 (entre Recreativa, Ludoteca y Salon).
 La app se llama **Ludoteca**, como este plan, y su crate `bmo-ludoteca`.
 
+**La tecla y la cara (01-10, el propietario):**
+
+- **F4 abre la LUDOTECA.** Las doce teclas estaban tomadas; F4 era la orden
+  `apps` (fila VER), que sigue escribiendose a mano. Se conecta cuando la app
+  exista en el escritorio.
+- **Sin retro, y cada tienda con lo suyo:** *"que sea unico en cada uno...
+  MUCHO MEJOR en todo, pero cada uno tiene animaciones unicas"*. La maqueta
+  es `LudotecaViva` en el lienzo de maquetas: un riel de tiendas donde cada
+  una tiene su animacion propia (orbita, vapor, esquirlas, espiral, pulso,
+  ondas hexagonales, mosaicos que voltean, estrella, curva, puntos que
+  saltan, ecualizador, rama que crece), el color de la tienda elegida colorea
+  la escena entera, el juego elegido entra con su titulo revelado y un
+  destello RGB, y las cartas se inclinan al pasar. Dibujos PROPIOS: ningun
+  logo de ninguna tienda.
+
 ## 8. "El x86-64 no cambia: se puede analizar" -- lo que es verdad y lo que no
 
 El propietario (25-09): *"todos los frontends van por AST, pero lo que se
