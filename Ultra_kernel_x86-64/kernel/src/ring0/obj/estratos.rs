@@ -33,7 +33,18 @@
 //! alternativa --inventar un prefijo de volumen-- seria una segunda convencion
 //! para el mismo problema.
 //!
-//! === Por que el fichero entra ENTERO en el buffer ===
+//! === ** C1 (01-10): YA NO ENTRA ENTERO ===
+//!
+//! Lo de abajo es la historia de por que entraba entero, y la nota que pedia
+//! volver a mirarlo "el dia que haya un visor". Ese dia fue el de PROTON-X:
+//! los juegos guardan alli su perfil y sus caches, que pueden medir GiB, y no
+//! hay marcos contiguos para eso. Ahora un `Archivo` de ESTRATOS va por la
+//! ventana como uno de D: (`file.rs`, `reflejar`) y cada tramo baja solo por
+//! las ramas que lo tocan (`leer_rango`, `bmo_estratos::descender_desde`). El
+//! que necesita un `.bex` ENTERO (`launch`) sigue con `est::open` +
+//! `est::read`, como siempre.
+//!
+//! === Por que el fichero entraba ENTERO en el buffer (hasta el 01-10) ===
 //!
 //! Un archivo de FAT32 se refleja: se guarda un cursor de doce bytes y los
 //! bytes van del disco al que los pide, cuando los pide (ver la cabecera de
@@ -88,11 +99,8 @@ pub(super) fn buscar(ruta: &str) -> Option<(est::Nodo, usize)> {
     None
 }
 
-/// Lee el contenido de `n` en `dst`. Devuelve los bytes que entraron.
-///
-/// Cero es un contenido perfectamente valido --un fichero vacio-- y tambien lo
-/// que se contesta si el nodo no tiene `:datos`. Las dos cosas se ven igual
-/// desde fuera y esta bien que asi sea: en los dos casos no hay nada que leer.
-pub(super) fn leer(n: &est::Nodo, dst: &mut [u8]) -> usize {
-    est::read(n, dst).unwrap_or(0)
+/// **El tramo `[desde, desde + dst.len())` de un fichero de ESTRATOS** (01-10,
+/// C1): lo que la ventana del `Archivo` pide, sin traer el fichero entero.
+pub(super) fn leer_rango(a: &bmo_estratos::objects::Attr, desde: u64, dst: &mut [u8]) -> usize {
+    est::leer_rango(a, desde, dst).unwrap_or(0)
 }

@@ -531,7 +531,7 @@ el 01-10:
 Con PROTON-X usando ESTRATOS para el perfil de los juegos, lo que falta para
 usarlo "por completo", en el orden que se decidio:
 
-- [ ] **C1 -- LEER A TROZOS.** Hoy un fichero se trae ENTERO y a marcos
+- [x] **C1 -- LEER A TROZOS.** *Hecho en codigo 01-10:* `read::descender_desde` (salta sin leer las ramas enteras de antes; 2 pruebas: el mismo tramo que el fichero entero con 0, 1 y 2 niveles, y el ultimo trozo de 2 niveles cuesta 3 bloques), `walk::leer_rango` y el `Archivo` de ESTRATOS por la ventana como uno de D:. Falta el metal. Hoy un fichero se trae ENTERO y a marcos
       fisicos CONTIGUOS (`obj/estratos.rs`): uno de cientos de MiB puede no
       entrar con la RAM libre, y uno de GiB no entra nunca. Leer
       `[desde, desde + n)` bajando solo por las ramas del arbol de

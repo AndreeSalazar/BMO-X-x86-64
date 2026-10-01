@@ -67,7 +67,7 @@ pub mod read;
 pub use escritura::{Fase, Rechazo, Transaccion};
 pub use espacio::{Nivel, Ocupacion};
 pub use objects::{Attr, BlockPtr, Entrada, Nodo, Tipo};
-pub use read::{descender, Fuente};
+pub use read::{descender, descender_desde, Fuente};
 
 pub use bmo_hash::hash as blake3;
 /// El BLAKE3 **incremental**. Se reexporta porque el cargador necesita

@@ -113,6 +113,41 @@ pub fn flujo(a: &Attr, dst: &mut [u8]) -> Option<usize> {
     Some((a.size as usize).min(escritos))
 }
 
+/// **Lee el tramo `[desde, desde + dst.len())` de un flujo** (01-10, C1:
+/// leer a trozos). Baja solo por las ramas que tocan el tramo
+/// (`bmo_estratos::descender_desde`): leer el final de un fichero de GiB
+/// cuesta un bloque por nivel. Devuelve los bytes copiados (menos si el
+/// flujo se acaba antes); `None` si el arbol no se pudo leer.
+pub fn leer_rango(a: &Attr, desde: u64, dst: &mut [u8]) -> Option<usize> {
+    if desde >= a.size || dst.is_empty() {
+        return Some(0);
+    }
+    if let Some(d) = a.datos_residentes() {
+        let ini = (desde as usize).min(d.len());
+        let n = (d.len() - ini).min(dst.len());
+        dst[..n].copy_from_slice(&d[ini..ini + n]);
+        return Some(n);
+    }
+    let raiz = a.raiz()?;
+    let scratch = scratch_de_flujo();
+    let bloque = BLOQUE as u64;
+    let mut dentro = (desde % bloque) as usize;
+    let mut escritos = 0usize;
+    let r = es::descender_desde(&mut DelDisco, &raiz, a.levels, desde / bloque, scratch, &mut |trozo| {
+        let t = &trozo[dentro.min(trozo.len())..];
+        dentro = 0;
+        let n = t.len().min(dst.len() - escritos);
+        dst[escritos..escritos + n].copy_from_slice(&t[..n]);
+        escritos += n;
+        escritos < dst.len()
+    });
+    if let Err(e) = r {
+        crate::ring0::cabina::fault("estratos", e.name(), raiz.lba);
+        return None;
+    }
+    Some(escritos.min((a.size - desde) as usize))
+}
+
 /// **Lee el principio del archivo Y comprueba su firma, en UNA sola pasada.**
 ///
 /// Devuelve `(copiados, medida_real, veredicto)`.
