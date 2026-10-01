@@ -65,6 +65,8 @@ struct Estado {
     noes: u32,
     /// Las pedidas grandes que SI se dieron (se dicen las `MAX_NOES` primeras).
     grandes: u32,
+    /// Las VirtualQuery fuera de VirtualAlloc (se dicen las `MAX_CONSULTAS`).
+    consultas: u32,
     /// Los montones de `HeapCreate` vivos (el del proceso no esta: siempre vive).
     creados: Vec<u16>,
     siguiente: u16,
@@ -74,7 +76,7 @@ struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y ninguna funcion
 // de aqui cede el turno.
 unsafe impl Sync for Global {}
-static ESTADO: Global = Global(UnsafeCell::new(Estado { monton: Monton::nuevo(), regiones: Regiones::nuevas(), huecos: Vec::new(), ventana: false, noes: 0, grandes: 0, creados: Vec::new(), siguiente: 2 }));
+static ESTADO: Global = Global(UnsafeCell::new(Estado { monton: Monton::nuevo(), regiones: Regiones::nuevas(), huecos: Vec::new(), ventana: false, noes: 0, grandes: 0, consultas: 0, creados: Vec::new(), siguiente: 2 }));
 
 fn estado() -> &'static mut Estado {
     // SAFETY: ver `Global`; nadie guarda la referencia.
@@ -572,15 +574,55 @@ pub(crate) fn legible(dir: u64, n: u64) -> bool {
     true
 }
 
+const MEM_IMAGE: u32 = 0x100_0000;
+const PAGE_READWRITE: u32 = 0x04;
+const PAGE_EXECUTE_READ: u32 = 0x20;
+const PAGE_EXECUTE_WRITECOPY: u32 = 0x80;
+/// Las consultas fuera de VirtualAlloc que se dicen (con el diario).
+const MAX_CONSULTAS: u32 = 8;
+
+/// **`VirtualQuery(dir, mbi, n)`: TODA direccion tiene respuesta**, como en
+/// Windows (02-10).
+///
+/// ```text
+///    de VirtualAlloc   la tirada de paginas iguales (regiones.rs)
+///    de una imagen     MEM_IMAGE, AllocationBase = su HMODULE, el tramo
+///                      (codigo EXECUTE_READ, datos READWRITE)
+///    lo demas          el monton, los TEB, lo de la casa: MEM_PRIVATE,
+///                      hecha, READWRITE, una pagina
+/// ```
+///
+/// Hasta hoy, fuera de VirtualAlloc devolvia 0 con un aviso, y los avisos
+/// solo se dicen los 8 primeros: en Cyberpunk ese 0 no se vio. El juego
+/// pregunta y, con un MEMORY_BASIC_INFORMATION sin rellenar, busca la region
+/// en su tabla, no la encuentra (-1) y lee `tabla[-1]`: el fallo de pagina en
+/// `Cyberpunk2077.exe+0x24d8b3` (`imul rdi, rax, 0x1900`).
 extern "win64" fn virtual_query(dir: u64, mbi: *mut u8, n: usize) -> usize {
     if n < 48 {
         kernel32::poner_error(ERROR_BAD_LENGTH);
         return 0;
     }
-    let Some(c) = estado().regiones.consultar(dir) else {
-        aviso("VirtualQuery de una direccion que no es de VirtualAlloc: la casa solo sabe de las suyas");
+    if mbi.is_null() || dir >= 0x8000_0000_0000 {
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return 0;
+    }
+    let c: Respuesta = match estado().regiones.consultar(dir) {
+        Some(c) => c.into(),
+        None => {
+            let c = fuera_de_regiones(dir);
+            let e = estado();
+            e.consultas += 1;
+            if e.consultas <= MAX_CONSULTAS && crate::diario::encendido() {
+                crate::decir(&alloc::format!(
+                    "VirtualQuery({dir:#x}) fuera de VirtualAlloc: base {:#x}, region {:#x}, {:#x} B, {}",
+                    c.base,
+                    c.base_region,
+                    c.tam,
+                    if c.tipo == MEM_IMAGE { "imagen" } else { "privada" }
+                ));
+            }
+            c
+        }
     };
     // MEMORY_BASIC_INFORMATION de x64: 48 bytes.
     let mut b = [0u8; 48];
@@ -590,10 +632,47 @@ extern "win64" fn virtual_query(dir: u64, mbi: *mut u8, n: usize) -> usize {
     b[24..32].copy_from_slice(&c.tam.to_le_bytes());
     b[32..36].copy_from_slice(&c.estado.to_le_bytes());
     b[36..40].copy_from_slice(&c.prot.to_le_bytes());
-    b[40..44].copy_from_slice(&MEM_PRIVATE.to_le_bytes());
+    b[40..44].copy_from_slice(&c.tipo.to_le_bytes());
     // SAFETY: el `.exe` da 48 bytes (comprobado arriba).
     unsafe { core::ptr::copy_nonoverlapping(b.as_ptr(), mbi, 48) };
     48
+}
+
+/// Lo que dice VirtualQuery de una direccion que no es de VirtualAlloc.
+struct Respuesta {
+    base: u64,
+    base_region: u64,
+    prot_inicial: u32,
+    tam: u64,
+    estado: u32,
+    prot: u32,
+    tipo: u32,
+}
+
+impl From<regiones::Consulta> for Respuesta {
+    fn from(c: regiones::Consulta) -> Self {
+        Respuesta { base: c.base, base_region: c.base_region, prot_inicial: c.prot_inicial, tam: c.tam, estado: c.estado, prot: c.prot, tipo: MEM_PRIVATE }
+    }
+}
+
+fn fuera_de_regiones(dir: u64) -> Respuesta {
+    let pagina = dir & !(PAGINA - 1);
+    if let Some(base) = crate::kernel32_procesos::imagen_con(dir) {
+        // El tramo que la contiene (los pone el cargador al sellar); sin
+        // tramos, la imagen entera como datos.
+        let (hasta, codigo) = tramos().iter().find(|t| t.0 <= dir && dir < t.1).map_or((base + crate::kernel32_procesos::medida_imagen(base) as u64, false), |t| (t.1, t.2));
+        let hasta = (hasta + PAGINA - 1) & !(PAGINA - 1);
+        return Respuesta {
+            base: pagina,
+            base_region: base,
+            prot_inicial: PAGE_EXECUTE_WRITECOPY,
+            tam: hasta.saturating_sub(pagina).max(PAGINA),
+            estado: MEM_COMMIT,
+            prot: if codigo { PAGE_EXECUTE_READ } else { PAGE_READWRITE },
+            tipo: MEM_IMAGE,
+        };
+    }
+    Respuesta { base: pagina, base_region: dir & !(GRANO - 1), prot_inicial: PAGE_READWRITE, tam: PAGINA, estado: MEM_COMMIT, prot: PAGE_READWRITE, tipo: MEM_PRIVATE }
 }
 
 // -- VirtualProtect sobre la IMAGEN (P0.4b.8, 30-09) ----------------------

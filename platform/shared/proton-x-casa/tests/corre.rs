@@ -103,6 +103,8 @@ const TANDA36: &[u8] = include_bytes!("../../proton-x/prueba/tanda36.exe");
 const TANDA37: &[u8] = include_bytes!("../../proton-x/prueba/tanda37.exe");
 /// La TANDA 38 (01-10): IDXGIAdapter::EnumOutputs, el monitor.
 const TANDA38: &[u8] = include_bytes!("../../proton-x/prueba/tanda38.exe");
+/// La TANDA 39 (02-10): VirtualQuery de toda direccion.
+const TANDA39: &[u8] = include_bytes!("../../proton-x/prueba/tanda39.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).

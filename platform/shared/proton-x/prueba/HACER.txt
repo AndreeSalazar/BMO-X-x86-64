@@ -1429,3 +1429,25 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    419bdde56a1f20d6aa9eac1717a21aca9e10159d92474b3569735c2196fb1138
 
 Dice `bien` trece veces y sale con 0. En Windows dice lo mismo.
+
+tanda39.exe -- la TANDA 39 (02-10): VirtualQuery de toda direccion
+
+Por Cyberpunk: pregunta a VirtualQuery por una direccion que no es de
+VirtualAlloc; la casa contestaba 0 (con un aviso que no se veia: solo se
+dicen los 8 primeros), el juego no encontraba la region en su tabla (-1)
+y leia tabla[-1]: fallo de pagina en Cyberpunk2077.exe+0x24d8b3. Aqui,
+como en Windows: un dato y el codigo del .exe son MEM_IMAGE con
+AllocationBase = su HMODULE (el dato escribible, el codigo ejecutable);
+una variable de la pila y un bloque del monton son MEM_PRIVATE, hechos y
+escribibles; VirtualAlloc da su base y la medida desde la pagina pedida,
+lo solo reservado es MEM_RESERVE sin proteccion, y con 47 bytes, 0.
+
+   llvm-dlltool -m i386:x86-64 -d tanda39_kernel32.def -l tanda39_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda39.c -o tanda39.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda39.obj tanda39_kernel32.lib /out:tanda39.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   090821b2ed0fd560aca18a88c44c9ef514fce30f1ed86f82648ce187228a65b4
+
+Dice `bien` ocho veces y sale con 0. En Windows dice lo mismo.

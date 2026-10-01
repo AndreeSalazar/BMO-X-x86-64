@@ -379,6 +379,14 @@ fn tanda38_exe_el_monitor_del_adaptador() {
     tanda(TANDA38, None, 13, "tanda38.exe: IDXGIAdapter::EnumOutputs, el monitor");
 }
 
+/// **La tanda 39** (02-10): `tanda39.exe` -- Cyberpunk pregunta a
+/// VirtualQuery por una direccion que no es de VirtualAlloc; la casa decia 0
+/// y el juego leia `tabla[-1]`.
+#[test]
+fn tanda39_exe_virtualquery_de_toda_direccion() {
+    tanda(TANDA39, None, 8, "tanda39.exe: VirtualQuery de toda direccion");
+}
+
 /// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
 /// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
 /// asi el camino que en BMO-X lleva los ficheros grandes.
