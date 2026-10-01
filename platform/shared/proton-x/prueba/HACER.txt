@@ -1319,3 +1319,26 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    50f85f4f002272c79d649faa714a5def06c5d73235176272f5789ce1633de49a
 
 Dice `bien` ocho veces y sale con 0. En Windows dice lo mismo.
+
+tanda34.exe -- la TANDA 34 (01-10): un HMODULE se puede leer
+
+Por Cyberpunk: con Galaxy arrancado y los ficheros grandes a la carta, el
+juego cayo con un fallo de pagina en sl.interposer.dll (NVIDIA Streamline):
+pide dxgi.dll y LEE su cabecera PE por el handle (handle + 0x3C, el
+e_lfanew) para recorrer sus exportaciones. En Windows un HMODULE es la
+direccion de la imagen; en la casa era un numero sin nada detras. Aqui lo
+que hace un recorredor: kernel32 y dxgi tienen MZ, PE, x64, DLL y PE32+,
+un directorio de exportaciones con su nombre, GetCurrentProcessId se
+encuentra por la tabla y llamada por ahi da el mismo pid (o es un reenvio),
+y CreateDXGIFactory1 se encuentra por la tabla y es la misma direccion que
+da GetProcAddress.
+
+   llvm-dlltool -m i386:x86-64 -d tanda34_kernel32.def -l tanda34_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda34.c -o tanda34.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda34.obj tanda34_kernel32.lib /out:tanda34.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   b9f3010947b0c107f56cf646c0a03bbec0d342ae0abdf75a186c31b5943dc3b4
+
+Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.

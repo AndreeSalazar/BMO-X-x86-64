@@ -101,6 +101,8 @@ mod espia;
 mod red_local;
 /// La SSPI sin paquetes: secur32 y sspicli (01-10).
 mod sspi;
+/// Las imagenes PE de las DLL de la casa: un HMODULE que se puede leer (01-10).
+mod imagenes;
 pub mod cripto;
 pub mod sistema;
 pub mod texto;
@@ -312,6 +314,7 @@ pub unsafe fn empezar(p: Plataforma) {
     carpetas::reiniciar();
     kernel32::reiniciar();
     modulos::reiniciar();
+    imagenes::reiniciar();
     crt::reiniciar();
     crt_cadenas::reiniciar();
     crt_entorno::reiniciar();
@@ -374,11 +377,18 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
         // Con el diario, Init y GetError de Galaxy van por el espia.
         return Some(espia::envolver(dll, &alloc::format!("{f}"), d));
     }
-    // Tanda 18: los `id` de msvcp140 tambien son DATOS.
+    // Tanda 18: los `id` de msvcp140 tambien son DATOS (y no van a su imagen:
+    // un trampolin delante de un dato no es el dato).
     if matches!(f, Funcion::Nombre(n) if dll.eq_ignore_ascii_case("msvcp140.dll") && (msvcp_locale::es_dato(n) || msvcp_flujos::es_dato(n))) {
         return Some(d);
     }
-    Some(diario::envolver(dll, &alloc::format!("{f}"), d))
+    let r = diario::envolver(dll, &alloc::format!("{f}"), d);
+    // Lo que se importa de una DLL de la casa va a su imagen (01-10), con su
+    // trampolin del diario si lo hay: llamar por la imagen es llamar igual.
+    if let Funcion::Nombre(n) = f {
+        imagenes::apuntar(dll, n, r);
+    }
+    Some(r)
 }
 
 /// **La tabla, para la casa misma**: la funcion de verdad, sin trampolin

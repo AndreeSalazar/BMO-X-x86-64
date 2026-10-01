@@ -339,6 +339,14 @@ fn tanda33_exe_secur32_y_la_tabla_sspi() {
     tanda(TANDA33, None, 8, "tanda33.exe: secur32 por su ruta y la tabla SSPI que pide curl");
 }
 
+/// **La tanda 34** (01-10): `tanda34.exe` -- Streamline (sl.interposer.dll)
+/// lee la cabecera de dxgi.dll por su HMODULE: los modulos de la casa son
+/// imagenes PE de verdad, con sus exportaciones recorribles.
+#[test]
+fn tanda34_exe_un_hmodule_se_puede_leer() {
+    tanda(TANDA34, None, 9, "tanda34.exe: un HMODULE es una imagen PE que se puede leer");
+}
+
 /// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
 /// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
 /// asi el camino que en BMO-X lleva los ficheros grandes.
