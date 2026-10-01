@@ -47,170 +47,152 @@ fn level_text(n: u64) -> (&'static str, u32) {
     }
 }
 
-/// Pinta la solapa de numeros dentro de la ventana.
+/// ** EL PANEL, AL ESTILO DEL INICIO (01-10). El propietario: *"rehaz numeros
+/// e historial al estilo inicio, pero todo mejor"*. Las mismas cifras de
+/// siempre --generacion, cuando, espacio, estado, identidad, cuantas caben y
+/// la verdad sobre la escritura--, en tarjetas: arriba el volumen en grande
+/// con su estado, debajo una tarjeta por cifra y la de la escritura.
 ///
-/// `tx` es el margen izquierdo que ya calculo el marco: se recibe en vez de
-/// recalcularlo para que las dos solapas empiecen en la misma columna. Dos
-/// margenes distintos en la misma ventana se ven como dos programas.
+/// `tx` se sigue recibiendo para que el pie empiece en la misma columna que
+/// las demas solapas.
 pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow, tx: u32) {
-    let mut ty = c.chrome.y + TITLE_H + 6;
+    use super::data::{DATA_EDGE, DATA_TITLE};
+    let z = c.bib_zona();
+    let pie = c.chrome.y + c.chrome.height - bmo::GLIFO_ALTO - 8;
+    p.texto(tx, pie, "F12 o ESC cierran   Ctrl+n su consola   mientras este abierta, el teclado es de esta ventana", INK_DIM);
 
-    if bmo::info(bmo::INFO_ES_MONTADO) == 0 {
-        p.texto(tx, ty, "ningun volumen ESTRATOS montado.", INK_BAD);
-        ty += bmo::GLIFO_ALTO + 4;
-        p.texto(tx, ty, "se formatea desde el anfitrion con estratos-fmt.", INK_DIM);
-        return;
-    }
-
-    let bloques = bmo::info(bmo::INFO_ES_BLOQUES);
-    let used_count = bmo::info(bmo::INFO_ES_USADOS);
-    let tam = bmo::info(bmo::INFO_ES_BLOQUE_TAM).max(1);
-    let level = bmo::info(bmo::INFO_ES_NIVEL);
-
-    let row = |label: &str, y: &mut u32, pinta: &dyn Fn(u32, u32)| {
-        p.texto(tx, *y, label, INK_DIM);
-        pinta(tx + 13 * bmo::GLIFO_ANCHO, *y);
-        *y += bmo::GLIFO_ALTO + 3;
+    let (x0, y0) = (z.x + 12, z.y + 12);
+    let ancho = z.w.saturating_sub(24);
+    let fondo = 0x0011_261A;
+    let caja = |x: u32, y: u32, w: u32, h: u32, filo: u32| {
+        super::borde::marco(p, x, y, w, h, RADIUS, filo, fondo);
+        p.rect(x + RADIUS, y, w.saturating_sub(2 * RADIUS), 1, DATA_TITLE);
     };
 
-    row("generacion", &mut ty, &|x, y| {
-        let g = bmo::info(bmo::INFO_ES_GENERACION);
-        let mut b = [0u8; 10];
-        let n = decimal(g, &mut b);
-        let x = p.texto_bytes(x, y, &b[..n], INK);
-        p.texto(x, y, "  transacciones desde el formateo", INK_DIM);
-    });
-
-    // ** LA FECHA DE LA VERSION EN CURSO, que hasta hoy no existia.
-    //
-    // El campo `tiempo` del estrato llevaba un CERO desde el primer dia: el
-    // volumen tenia historia y no tenia fechas. Ahora la lleva, y por eso se
-    // muestra aqui -- justo debajo de la generacion, que es su pareja: una dice
-    // CUANTAS versiones van y la otra CUANDO se hizo esta.
-    //
-    // Sin fecha no se pinta nada. **No se inventa una**: un volumen escrito por
-    // una maquina sin reloj creible tiene versiones sin fechar, y ensenarlas
-    // como 1970 mentiria con mas conviccion que dejarlas en blanco.
-    row("cuando", &mut ty, &|x, y| {
-        let v = bmo::info(bmo::INFO_ES_FECHA);
-        match bmo_rtc::desempaquetar(v) {
-            Some(f) => {
-                let mut b = [0u8; 24];
-                let n = bmo_rtc::escribir(&f, &mut b);
-                let x = p.texto_bytes(x, y, &b[..n.min(19)], INK);
-                p.texto(x, y, "   cuando se hizo esta version", INK_DIM);
-            }
-            None => {
-                let x = p.texto(x, y, "sin fechar", INK_DIM);
-                p.texto(x, y, "   la placa no dio una hora creible", INK_DIM);
-            }
-        }
-    });
-
-    row("espacio", &mut ty, &|x, y| {
-        let x = magnitude(p, x, y, used_count * tam, INK);
-        let x = p.texto(x, y, " de ", INK_DIM);
-        let x = magnitude(p, x, y, bloques * tam, INK);
-        let pct = if bloques == 0 { 0 } else { used_count * 100 / bloques };
-        let x = p.texto(x, y, "   ", INK_DIM);
-        let mut b = [0u8; 10];
-        let n = decimal(pct, &mut b);
-        let x = p.texto_bytes(x, y, &b[..n], INK);
-        p.texto(x, y, "%", INK);
-    });
-
-    row("estado", &mut ty, &|x, y| {
-        let (t, color) = level_text(level);
-        p.texto(x, y, t, color);
-    });
-
-    row("identidad", &mut ty, &|x, y| {
-        if bmo::info(bmo::INFO_ES_IDENTIDAD) != 0 {
-            p.texto(x, y, "nacio en ESTE disco", INK_OK);
-        } else {
-            p.texto(x, y, "NO nacio aqui: clonado? no se escribira", INK_BAD);
-        }
-    });
-
-    // * Cuantas VERSIONES mas caben. Es lo que de verdad contesta "cuando
-    // hara falta el recolector?" -- un porcentaje no lo dice, y la respuesta
-    // con 414 GiB son millones.
-    row("caben", &mut ty, &|x, y| {
-        let free = bloques.saturating_sub(used_count);
-        let per_obj = (20 * 1024u64).div_ceil(tam).max(1);
-        let mut b = [0u8; 10];
-        let n = decimal(free / per_obj, &mut b);
-        let x = p.texto_bytes(x, y, &b[..n], INK);
-        p.texto(x, y, "  objetos mas de 20 KiB", INK_DIM);
-    });
-
-    ty += 8;
-    // == LA VERDAD SOBRE LA ESCRITURA, y ahora la bandera SI la dice =========
-    //
-    // ** HASTA EL 2026-08-18 ESTE `if` ERA CODIGO MUERTO, y la rama de abajo la
-    // unica que se veia.
-    //
-    // `INFO_ES_ESCRIBIBLE` contestaba **un cero constante** en el kernel, con un
-    // comentario que decia que la transaccion existia pero que nadie la habia
-    // cableado al dispositivo. Era cierto el dia que se escribio; dejo de serlo
-    // cuando `sellar` empezo a escribir el superbloque de verdad -- y el disco
-    // de esta casa va por la generacion 3, o sea que ha commiteado tres veces.
-    //
-    // Este panel ya se habia arreglado una vez por exactamente lo mismo, y el
-    // arreglo fue prosa: se cambio lo que la rama DICE. El defecto no estaba
-    // aqui -- estaba en que el campo no podia decir otra cosa.
-    //
-    // > Un valor fijo puesto por prudencia envejece hacia la MENTIRA, y no
-    // > avisa: lo unico que cambia a su alrededor es el mundo.
-    //
-    // Ahora la bandera es la conjuncion de las condiciones que de verdad
-    // deciden --hay volumen, es de este disco, cabe, y el gate armo la
-    // escritura-- asi que las dos ramas significan algo.
-    if bmo::info(bmo::INFO_ES_ESCRIBIBLE) != 0 {
-        p.texto(tx, ty, "escritura: ABIERTA", INK_OK);
-        ty += bmo::GLIFO_ALTO + 3;
-        p.texto(tx, ty, "  sellar cierra un estrato y sube la generacion,", INK_DIM);
-        ty += bmo::GLIFO_ALTO + 2;
-        p.texto(tx, ty, "  con FLUSH CACHE de verdad.  TAB -> S.", INK_DIM);
+    // -- el encabezado: el volumen en grande y su estado --
+    let cab_h = 92u32;
+    caja(x0, y0, ancho, cab_h, DATA_EDGE);
+    super::iconos::vector(p, x0 + 16, y0 + 14, 64, &super::iconos::dibujos::ESTRATOS, &super::iconos::paleta(DATA_TITLE, DATA_TITLE), fondo);
+    p.texto_escala(x0 + 96, y0 + 16, "ESTRATOS (F:)", INK, 2);
+    if bmo::info(bmo::INFO_ES_MONTADO) == 0 {
+        p.texto(x0 + 96, y0 + 58, "ningun volumen ESTRATOS montado: se formatea desde el anfitrion con estratos-fmt", INK_BAD);
+        return;
+    }
+    let bloques = bmo::info(bmo::INFO_ES_BLOQUES);
+    let usados = bmo::info(bmo::INFO_ES_USADOS);
+    let tam = bmo::info(bmo::INFO_ES_BLOQUE_TAM).max(1);
+    let (estado, color_estado) = level_text(bmo::info(bmo::INFO_ES_NIVEL));
+    // La pastilla del estado, y la identidad a su lado.
+    let py = y0 + 58;
+    let pw = (estado.len() as u32 + 2) * bmo::GLIFO_ANCHO;
+    super::borde::marco(p, x0 + 96, py - 3, pw, bmo::GLIFO_ALTO + 6, 6, color_estado, fondo);
+    p.texto(x0 + 96 + bmo::GLIFO_ANCHO, py, estado, color_estado);
+    let (ident, color_ident) = if bmo::info(bmo::INFO_ES_IDENTIDAD) != 0 {
+        ("nacio en ESTE disco", INK_OK)
     } else {
-        // ** UN "NO" QUE NO DICE CUAL DE LAS CUATRO ES UN "NO" QUE NO SIRVE.
-        //
-        // La bandera es una Y de varias condiciones, y cada una manda a mirar
-        // un sitio distinto: no hay volumen (se formatea), es de otro disco (se
-        // clono), no cabe (hay que recoger), o el gate del disco no armo (eso
-        // es del arranque, no de ESTRATOS). Mostrar solo "NO" obligaria a
-        // adivinar entre cuatro -- que es lo que costo una vuelta al metal en
-        // el recorte del 17-08.
-        //
-        // Y no hace falta un campo nuevo: las tres primeras ya se preguntan por
-        // separado en esta misma ventana, asi que si las tres dicen que si, el
-        // que queda es el gate.
-        p.texto(tx, ty, "escritura: CERRADA", 0x00F0_D070);
-        ty += bmo::GLIFO_ALTO + 3;
+        ("NO nacio aqui: clonado? no se escribira", INK_BAD)
+    };
+    p.texto(x0 + 96 + pw + 16, py, ident, color_ident);
+
+    // -- las cuatro cifras --
+    let ty = y0 + cab_h + 12;
+    let cols: u32 = if ancho >= 4 * 200 + 36 { 4 } else { 2 };
+    let cw = (ancho - (cols - 1) * 12) / cols;
+    let ch = 96u32;
+    let tarjeta = |k: u32| (x0 + (k % cols) * (cw + 12), ty + (k / cols) * (ch + 12));
+    let mut b = [0u8; 10];
+    let titulo = |x: u32, y: u32, t: &str| p.texto(x + 14, y + 12, t, INK_DIM);
+
+    // 1. Generacion
+    let (x, y) = tarjeta(0);
+    caja(x, y, cw, ch, DATA_EDGE);
+    titulo(x, y, "GENERACION");
+    let n = decimal(bmo::info(bmo::INFO_ES_GENERACION), &mut b);
+    p.texto_escala(x + 14, y + 34, core::str::from_utf8(&b[..n]).unwrap_or("?"), DATA_TITLE, 2);
+    p.texto(x + 14, y + 72, "transacciones desde el formateo", INK_DIM);
+
+    // 2. La version de ahora: cuando se hizo. Sin fecha no se inventa una.
+    let (x, y) = tarjeta(1);
+    caja(x, y, cw, ch, DATA_EDGE);
+    titulo(x, y, "ULTIMA VERSION");
+    match bmo_rtc::desempaquetar(bmo::info(bmo::INFO_ES_FECHA)) {
+        Some(f) => {
+            let mut fb = [0u8; 24];
+            let n = bmo_rtc::escribir(&f, &mut fb);
+            // La fecha en grande y la hora debajo.
+            let fecha = core::str::from_utf8(&fb[..n.min(10)]).unwrap_or("?");
+            p.texto_escala(x + 14, y + 34, fecha, INK, 2);
+            if n > 11 {
+                let x2 = p.texto_bytes(x + 14, y + 72, &fb[11..n.min(19)], 0x00C9_D8CF);
+                p.texto(x2 + 8, y + 72, "cuando se hizo", INK_DIM);
+            }
+        }
+        None => {
+            p.texto_escala(x + 14, y + 34, "sin fechar", INK_DIM, 2);
+            p.texto(x + 14, y + 72, "la placa no dio una hora creible", INK_DIM);
+        }
+    }
+
+    // 3. Espacio, con su barra
+    let (x, y) = tarjeta(2);
+    caja(x, y, cw, ch, DATA_EDGE);
+    titulo(x, y, "ESPACIO");
+    let pct = if bloques == 0 { 0 } else { usados * 100 / bloques };
+    let n = decimal(pct, &mut b);
+    let xe = p.texto_escala(x + 14, y + 34, core::str::from_utf8(&b[..n]).unwrap_or("?"), DATA_TITLE, 2);
+    p.texto(xe + 4, y + 34 + bmo::GLIFO_ALTO, "% usado", INK_DIM);
+    let bw = cw.saturating_sub(28);
+    p.rect(x + 14, y + 66, bw, 6, 0x0007_110B);
+    let lleno = if bloques == 0 { 0 } else { ((usados as u128 * bw as u128) / bloques as u128) as u32 };
+    p.rect(x + 14, y + 66, lleno.max(2), 6, color_estado);
+    let xm = magnitude(p, x + 14, y + 76, usados * tam, INK);
+    let xm = p.texto(xm, y + 76, " de ", INK_DIM);
+    magnitude(p, xm, y + 76, bloques * tam, INK);
+
+    // 4. Cuantas VERSIONES mas caben: lo que contesta "cuando hara falta el
+    // recolector?". Un porcentaje no lo dice; con 414 GiB son millones.
+    let (x, y) = tarjeta(3);
+    caja(x, y, cw, ch, DATA_EDGE);
+    titulo(x, y, "CABEN TODAVIA");
+    let libres = bloques.saturating_sub(usados);
+    let por_obj = (20 * 1024u64).div_ceil(tam).max(1);
+    let n = decimal(libres / por_obj, &mut b);
+    p.texto_escala(x + 14, y + 34, core::str::from_utf8(&b[..n]).unwrap_or("?"), DATA_TITLE, 2);
+    p.texto(x + 14, y + 72, "objetos de mas de 20 KiB", INK_DIM);
+
+    // -- la escritura: ABIERTA o por que no --
+    let filas = 4 / cols;
+    let ey = ty + filas * (ch + 12);
+    let eh = 84u32;
+    if ey + eh > z.y + z.h {
+        return;
+    }
+    let abierta = bmo::info(bmo::INFO_ES_ESCRIBIBLE) != 0;
+    let color = if abierta { INK_OK } else { 0x00F0_D070 };
+    caja(x0, ey, ancho, eh, if abierta { DATA_EDGE } else { color });
+    p.rect(x0 + 18, ey + 18, 10, 10, color);
+    p.texto(x0 + 36, ey + 15, if abierta { "escritura ABIERTA" } else { "escritura CERRADA" }, color);
+    let (l1, l2): (&str, &str) = if abierta {
+        ("sellar cierra un estrato y sube la generacion, con FLUSH CACHE de verdad.", "cada carpeta y cada fichero nuevo deja su version en historial.")
+    } else {
+        // ** UN "NO" QUE NO DICE CUAL ES UN "NO" QUE NO SIRVE: la bandera es una
+        // Y de cuatro condiciones, y cada una manda a mirar un sitio distinto.
         let montado = bmo::info(bmo::INFO_ES_MONTADO) != 0;
         let mio = bmo::info(bmo::INFO_ES_IDENTIDAD) != 0;
         let cabe = bmo::info(bmo::INFO_ES_NIVEL) < 3;
-        let porque: &str = if !montado {
-            "  no hay volumen montado: se formatea con estratos-fmt."
+        let porque = if !montado {
+            "no hay volumen montado: se formatea con estratos-fmt."
         } else if !mio {
-            "  el volumen NO nacio en este disco: no se le escribe."
+            "el volumen NO nacio en este disco: no se le escribe."
         } else if !cabe {
-            "  por encima del 95%: solo lectura hasta que se recoja."
+            "por encima del 95%: solo lectura hasta que se recoja."
         } else {
-            "  el gate de identidad del disco no armo la escritura."
+            "el gate de identidad del disco no armo la escritura."
         };
-        p.texto(tx, ty, porque, INK_DIM);
-        ty += bmo::GLIFO_ALTO + 2;
-        p.texto(tx, ty, "  sin esto, sellar no escribe y el recorte tampoco.", INK_DIM);
-    }
-
-    ty += bmo::GLIFO_ALTO + 10;
-    p.texto(tx, ty, "F12 o ESC cierran.   TAB: el explorador.   Ctrl+n: su consola.", INK_DIM);
-    ty += bmo::GLIFO_ALTO + 2;
-    // * Decirlo aqui evita el susto: con esta ventana delante el teclado es
-    // SUYO, asi que teclear no escribe en la caja de abajo. Antes si escribia
-    // --en una ventana tapada, sin verlo--, y eso era el fallo.
-    p.texto(tx, ty, "mientras este abierta, el teclado es de esta ventana.", INK_DIM);
+        (porque, "sin esto, sellar no escribe y el recorte tampoco.")
+    };
+    p.texto(x0 + 36, ey + 15 + bmo::GLIFO_ALTO + 8, l1, INK_DIM);
+    p.texto(x0 + 36, ey + 15 + 2 * (bmo::GLIFO_ALTO + 6), l2, INK_DIM);
 }
 
 /// Un numero de bytes con su unidad. Devuelve la x donde acabo.

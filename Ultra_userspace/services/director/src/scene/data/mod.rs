@@ -1288,10 +1288,9 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
     if c.view == View::Historial {
         // El panel ocupa el cuerpo entero: aqui no hay arbol ni rejilla que
         // repartir, hay una sola columna de versiones.
-        let z = Zonas::repartir(&c.chrome, false);
         historial::paint(
             p,
-            &z.rejilla,
+            &c.bib_zona(),
             c.hist_from,
             c.hist_sel,
             DATA_EDGE,
@@ -1302,7 +1301,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
         let y = c.chrome.y + c.chrome.height - bmo::GLIFO_ALTO - 8;
         p.texto(
             tx, y,
-            "mirar y ya: volver a una version todavia no esta. TAB sigue.",
+            "flechas eligen   ENTRAR vuelve a la marcada (es un revert: no se pierde nada)   TAB sigue",
             INK_DIM,
         );
         return;
