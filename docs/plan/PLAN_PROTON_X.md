@@ -1895,6 +1895,10 @@ PROTON-X: el kernel mata la tarea).
    rutas ya apuntan bien, pero LEER y LISTAR alli todavia no va: el
    `Directorio` del kernel solo conoce FAT32 y D:, y escribir un fichero
    desde la casa va por FAT32. Eso es el paso 4.
+   **Paso 4 HECHO 01-10:** el `Directorio` del kernel lista ESTRATOS junto
+   a FAT32 (`56ff2c195`, solo lectura, bit `DIR_NOMBRE_LARGO` en el ABI), y
+   la casa escribe, crea carpetas, mueve y borra alli (`b360e3e2f`,
+   tanda29, 18 bien).
 4. **CreateDirectoryW y escribir ficheros** en ESTRATOS
    (`estratos::crear_carpeta`, `crear_desde`, `guardar_desde`).
 5. **La capa encima de D:**: lo que el juego escriba junto a sus ficheros va
@@ -1904,7 +1908,8 @@ PROTON-X: el kernel mata la tarea).
    log ya se puede escribir y dira por que.
 
 Anotado para ESTRATOS: no hay recolector (borrar es dejar de nombrar; el
-espacio no vuelve), copiar una carpeta entera esta sin hacer (E2), y un
+espacio no vuelve; el propietario lo pidio el 01-10 y la cuenta cambia con los
+juegos: ver "EL RECOLECTOR VUELVE A LA MESA" en ESTRATOS.md), copiar una carpeta entera esta sin hacer (E2), y un
 fichero se lee entero. El propietario piensa partir el NVMe para una
 biblioteca de juegos compartida con Windows: hace falta antes el driver
 NVMe (hoy solo AHCI) y siempre en solo lectura, como D:.

@@ -491,6 +491,41 @@ esta hecho**.
    marcar lo alcanzable y soltar lo viejo    <- esto es el recolector
 ```
 
+### ** EL RECOLECTOR VUELVE A LA MESA (01-10) -- los juegos cambian la cuenta
+
+El propietario, el 01-10, con PROTON-X escribiendo el perfil de cada juego en
+ESTRATOS: *"no olvides el GC, el recolector para limpiar"*. Y tiene razon en que
+la cuenta del 19-08 ya no es la de ahora:
+
+```text
+   19-08   lo que se escribia eran GESTOS (notas, carpetas): 4-7 bloques cada uno
+           -> doce millones de gestos antes del ambar: siglos
+   01-10   lo que escribe un juego son DATOS: ajustes, partidas, logs y, sobre
+           todo, CACHES (sombreadores: cientos de MiB que se reescriben)
+           -> cada `guardar` de un fichero de N MiB deja N MiB de version vieja
+```
+
+Un juego que reescriba 500 MiB de cache por sesion se come ~180 GiB en doce meses:
+la mitad del volumen, en versiones que nadie va a pedir. El trabajo del
+recolector ya no lo crean los gestos sino los BYTES.
+
+El esquema no cambia: **B, COMPACTAR** (copiar lo vivo hacia adelante y bajar
+`log_head`), con la politica de la seccion 9 (los marcados para siempre; los
+automaticos se adelgazan hacia atras) y los avisos de CABINA. Lo que se decide
+el 01-10:
+
+1. **Va en serio, como tramo propio**, despues de que el perfil de los juegos
+   funcione en el metal (relevo de PROTON-X, pasos 4-6).
+2. **Primero en imagenes, nunca en F: a ciegas**: `estratos-fmt` hace una imagen
+   con miles de versiones; el recolector la compacta en el anfitrion y
+   `--verificar` comprueba cada suma de lo que se conserva, y que lo soltado no
+   lo alcanza nadie. Solo despues, en el metal, con `estratos limpiar` que LISTA
+   lo que va a soltar antes de hacerlo (seccion 9).
+3. **Mientras tanto, no generar basura de mas**: lo que es cache de verdad
+   (`proton-x/<juego>/cache`, los sombreadores) debe poder marcarse como "sin
+   historial" -- su version vieja no le interesa a nadie. Es un atributo, no un
+   cambio de formato, y quita casi toda la basura antes de que exista.
+
 ### Lo que sigue fuera de todo esto
 
 TimeBack encima (paso 7) y NVMe debajo de la capa de bloques. Ninguno de los dos
