@@ -145,6 +145,68 @@ const SOLAPAS_TITULO: [(View, &str); 7] = [
     (View::Procesos, "procesos"),
 ];
 
+/// El alto de una solapa: de `y + SOLAPA_ARRIBA` hasta el borde de la barra.
+const SOLAPA_ARRIBA: u32 = 5;
+
+/// **Donde cae cada solapa del titulo**: `(vista, x inicial, x final)`. La
+/// comparten quien pinta y quien acierta con el raton. Cada solapa: aire,
+/// su dibujo de 14, aire, el nombre y aire.
+fn solapas_x(c: &DataWindow) -> [(View, u32, u32); 7] {
+    // Empiezan tras el logo y "ESTRATOS" (16 + 22 + 8 letras + 2 de aire).
+    let mut x = c.chrome.x + 16 + 22 + 8 * bmo::GLIFO_ANCHO + 2 * bmo::GLIFO_ANCHO;
+    let mut out = [(View::Inicio, 0u32, 0u32); 7];
+    for (k, (v, nombre)) in SOLAPAS_TITULO.iter().enumerate() {
+        let w = 10 + 14 + 6 + nombre.len() as u32 * bmo::GLIFO_ANCHO + 12;
+        out[k] = (*v, x, x + w);
+        x += w + 2;
+    }
+    out
+}
+
+/// El dibujo de cada solapa.
+fn dibujo_solapa(v: View) -> &'static [bmo_dibujo::Capa] {
+    use iconos::dibujos as d;
+    match v {
+        View::Inicio | View::Historial => &d::ESTRATOS,
+        View::Equipo => &d::DISCO,
+        View::Numbers | View::Procesos => &d::CHIP,
+        View::Obra => &d::CARPETA,
+        View::Biblioteca => &d::HOJA,
+    }
+}
+
+/// **Las solapas como en un navegador**: la activa del color del cuerpo de
+/// la ventana y pegada a el (sin raya debajo), con el filo de neon arriba; las
+/// demas, un tono por debajo de la barra, separadas por una raya fina.
+fn pintar_solapas(p: &bmo::Pantalla, c: &DataWindow) {
+    let y0 = c.chrome.y + SOLAPA_ARRIBA;
+    let alto = super::TITLE_H - SOLAPA_ARRIBA;
+    let apagada = super::globo::mezcla(DATA_TITLE_BG, 0, 70);
+    for (k, (v, x0, x1)) in solapas_x(c).iter().enumerate() {
+        let es = c.view == *v;
+        let w = x1 - x0;
+        let fondo = if es { DATA_BG } else { apagada };
+        // El cuerpo, con las dos esquinas de arriba cortadas (2 px).
+        p.rect(x0 + 2, y0, w - 4, 1, fondo);
+        p.rect(x0 + 1, y0 + 1, w - 2, 1, fondo);
+        p.rect(*x0, y0 + 2, w, alto - 2, fondo);
+        if es {
+            // El filo de neon y los lados; abajo NADA: se funde con el cuerpo.
+            p.rect(x0 + 2, y0, w - 4, 2, DATA_TITLE);
+            p.rect(*x0, y0 + 2, 1, alto - 2, DATA_EDGE);
+            p.rect(x1 - 1, y0 + 2, 1, alto - 2, DATA_EDGE);
+            p.rect(x0 + 1, y0 + alto - 1, w - 2, 2, DATA_BG);
+        } else if k + 1 < SOLAPAS_TITULO.len() && c.view != SOLAPAS_TITULO[k + 1].0 {
+            p.rect(*x1, y0 + 6, 1, alto - 10, DATA_EDGE);
+        }
+        let color = if es { DATA_TITLE } else { INK_DIM };
+        let iy = y0 + (alto - 14) / 2 + 1;
+        iconos::vector(p, x0 + 10, iy, 14, dibujo_solapa(*v), &iconos::paleta(color, color), fondo);
+        let ty = y0 + (alto - bmo::GLIFO_ALTO) / 2 + 1;
+        p.texto(x0 + 30, ty, SOLAPAS_TITULO[k].1, if es { INK } else { INK_DIM });
+    }
+}
+
 /// La ventana de Datos: **un marco y lo que hay dentro**.
 ///
 /// Todo lo de mover, estirar, maximizar y los tres botones vive en
@@ -603,22 +665,13 @@ impl DataWindow {
         inicio::en(&self.bib_zona(), px, py)
     }
 
-    /// **La solapa del titulo bajo el puntero**, si alguna. La misma cuenta
-    /// que las pinta (`paint`): el texto empieza tras "ESTRATOS" y cada
-    /// solapa ocupa su nombre y dos espacios.
+    /// **La solapa del titulo bajo el puntero**, si alguna: la misma
+    /// geometria que las pinta ([`solapas_x`]).
     pub(crate) fn solapa_titulo_en(&self, px: u32, py: u32) -> Option<View> {
-        if self.chrome.minimized || py < self.chrome.y + 4 || py >= self.chrome.y + super::TITLE_H {
+        if self.chrome.minimized || py < self.chrome.y + SOLAPA_ARRIBA || py >= self.chrome.y + super::TITLE_H {
             return None;
         }
-        let mut x = self.chrome.x + 16 + 22 + 8 * bmo::GLIFO_ANCHO + 2 * bmo::GLIFO_ANCHO;
-        for (v, nombre) in SOLAPAS_TITULO {
-            let fin = x + nombre.len() as u32 * bmo::GLIFO_ANCHO;
-            if px >= x && px < fin {
-                return Some(v);
-            }
-            x = fin + 2 * bmo::GLIFO_ANCHO;
-        }
-        None
+        solapas_x(self).iter().find(|(_, x0, x1)| px >= *x0 && px < *x1).map(|t| t.0)
     }
 
     /// Al ENTRAR en la vista: se miden los discos. Pintar no los toca.
@@ -1174,21 +1227,11 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
     );
     let px = p.texto(tx + 22, c.chrome.y + 8, "ESTRATOS", DATA_TITLE);
     let px = px + 2 * bmo::GLIFO_ANCHO;
-    // Las solapas: la activa lleva su subrayado. Un corchete pintado de otro
-    // color se pierde en una foto; una linea debajo no.
-    // Las solapas: la activa en neon y con su subrayado. Una lista y no seis
-    // variables: agregar una solapa es una fila (PROCESOS, 01-10).
-    let mut x = px;
-    let (mut sx, mut sw) = (px, 0);
-    for (v, nombre) in SOLAPAS_TITULO {
-        let es = c.view == v;
-        let fin = p.texto(x, c.chrome.y + 8, nombre, if es { DATA_TITLE } else { INK_DIM });
-        if es {
-            (sx, sw) = (x, fin - x);
-        }
-        x = fin + 2 * bmo::GLIFO_ANCHO;
-    }
-    p.rect(sx, c.chrome.y + 8 + bmo::GLIFO_ALTO + 2, sw, 2, DATA_TITLE);
+    let _ = px;
+    // ** LAS SOLAPAS, COMO LAS DE UN NAVEGADOR (01-10). El propietario: *"vamos
+    // a cambiar ... pestania todo eso como navegador, asi como esta es feo"*.
+    // Ver `pintar_solapas`.
+    pintar_solapas(p, c);
 
     if c.view == View::Obra {
         obra(p, c);
