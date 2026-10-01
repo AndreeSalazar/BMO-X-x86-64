@@ -388,7 +388,7 @@ extern "win64" fn get_file_information_by_handle(h: u64, info: *mut u8) -> i32 {
     // BY_HANDLE_FILE_INFORMATION (52 bytes).
     let mut b = [0u8; 52];
     let atr = if a.carpeta { DIRECTORIO } else { NORMAL };
-    let n = a.bytes.len() as u64;
+    let n = a.medida();
     let i = indice(&a.ruta);
     b[0..4].copy_from_slice(&atr.to_le_bytes());
     b[28..32].copy_from_slice(&0xB0B0_0001u32.to_le_bytes());
@@ -410,7 +410,7 @@ extern "win64" fn get_file_information_by_handle_ex(h: u64, clase: u32, buf: *mu
         return 0;
     };
     let atr = if a.carpeta { DIRECTORIO } else { NORMAL };
-    let fin = a.bytes.len() as u64;
+    let fin = a.medida();
     let mut b = [0u8; 40];
     let medida = match clase {
         0 => {

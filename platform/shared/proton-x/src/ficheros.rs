@@ -137,9 +137,26 @@ pub struct Abierto {
     pub sucio: bool,
     /// Una CARPETA abierta (FILE_FLAG_BACKUP_SEMANTICS, P4f3): sin bytes.
     pub carpeta: bool,
+    /// ** A LA CARTA (01-10, Cyberpunk): un fichero grande abierto para
+    /// leer NO se trae entero; esta es su medida, `bytes` se queda vacio y
+    /// cada lectura trae solo su trozo (`Plataforma::trozos`). Lo pidio un
+    /// fichero de 46 MB contra un monton de 25 (y los `.archive` son GB).
+    pub a_la_carta: Option<u64>,
 }
 
 impl Abierto {
+    /// La medida del fichero: la de sus bytes, o la de uno a la carta.
+    pub fn medida(&self) -> u64 {
+        self.a_la_carta.unwrap_or(self.bytes.len() as u64)
+    }
+
+    /// Lo que toca leer a la carta desde la posicion: `(desde, cuantos)`.
+    pub fn trozo(&self, quiere: usize) -> (u64, usize) {
+        let m = self.medida();
+        let desde = self.pos.min(m);
+        (desde, (quiere as u64).min(m - desde) as usize)
+    }
+
     /// `ReadFile`: hasta `dst.len()` bytes desde la posicion; 0 al final (que
     /// en Windows es EXITO con 0 leidos, no un error).
     pub fn leer(&mut self, dst: &mut [u8]) -> usize {
@@ -170,7 +187,7 @@ impl Abierto {
         let base = match metodo {
             DESDE_INICIO => 0i128,
             DESDE_AQUI => self.pos as i128,
-            DESDE_FIN => self.bytes.len() as i128,
+            DESDE_FIN => self.medida() as i128,
             _ => return None,
         };
         let nueva = base + dist as i128;

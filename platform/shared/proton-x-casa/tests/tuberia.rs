@@ -79,7 +79,7 @@ fn empezar() -> std::sync::MutexGuard<'static, ()> {
     let g = UNO_A_LA_VEZ.lock().unwrap_or_else(|e| e.into_inner());
     DICHO.lock().unwrap().clear();
     // SAFETY: ningun `.exe` corre; una prueba a la vez (el cerrojo).
-    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None }) };
+    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None }) };
     g
 }
 
