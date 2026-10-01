@@ -95,6 +95,8 @@ const TANDA31: &[u8] = include_bytes!("../../proton-x/prueba/tanda31.exe");
 const TANDA32: &[u8] = include_bytes!("../../proton-x/prueba/tanda32.exe");
 /// La TANDA 33 (01-10): secur32 por su ruta y la tabla SSPI de curl.
 const TANDA33: &[u8] = include_bytes!("../../proton-x/prueba/tanda33.exe");
+/// La TANDA 34 (01-10): un HMODULE de la casa es una imagen PE que se lee.
+const TANDA34: &[u8] = include_bytes!("../../proton-x/prueba/tanda34.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).

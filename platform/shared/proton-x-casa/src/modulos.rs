@@ -32,7 +32,7 @@ use crate::{aviso, dir, kernel32};
 /// userenv, bcryptprimitives -- que pide por GetModuleHandle + GetProcAddress;
 /// y advapi32, desde la tanda 11; crypt32 y bcrypt, desde la 12; y las
 /// chicas del censo, desde la 14a, al final: los HANDLE de antes no cambian.)
-const DLL: [&str; 37] = [
+pub(crate) const DLL: [&str; 37] = [
     "kernel32.dll",
     "user32.dll",
     "gdi32.dll",
@@ -196,12 +196,16 @@ fn propia_por_base(h: u64) -> Option<usize> {
     propias().iter().position(|p| p.base == h)
 }
 
-/// El HANDLE de la DLL `i`: un numero que no es un puntero.
+/// El HANDLE de la DLL `i` sin imagen (no hubo bloque sellado): un numero
+/// que no es un puntero. Con imagen, su base (`imagenes`).
 const fn asa(i: usize) -> u64 {
     0x5A1D_D000_0000 + ((i as u64 + 1) << 16)
 }
 
 fn dll_de(h: u64) -> Option<&'static str> {
+    if let Some(i) = crate::imagenes::de_base(h) {
+        return Some(DLL[i]);
+    }
     DLL.iter().enumerate().find(|&(i, _)| asa(i) == h).map(|(_, d)| *d)
 }
 
@@ -234,7 +238,8 @@ fn por_nombre(n: &str) -> Option<u64> {
     let con = if base.contains('.') { String::from(base) } else { alloc::format!("{base}.dll") };
     let con = anfitrion(&con).unwrap_or(con);
     if let Some(i) = DLL.iter().position(|d| d.eq_ignore_ascii_case(&con)) {
-        return Some(asa(i));
+        // 01-10: una imagen PE de verdad si se puede (Streamline la LEE).
+        return Some(crate::imagenes::base(i).unwrap_or(asa(i)));
     }
     if let Some(p) = propias().iter().find(|p| p.nombre.eq_ignore_ascii_case(&con)) {
         return Some(p.base);
@@ -385,6 +390,11 @@ extern "win64" fn get_proc_address(h: u64, n: *const u8) -> u64 {
         kernel32::poner_error(ERROR_PROC_NOT_FOUND);
         return 0;
     };
+    // 01-10: con imagen, lo MISMO que encuentra quien recorre su tabla de
+    // exportaciones (el trampolin), como en Windows.
+    if let Some(t) = crate::imagenes::de_base(h).and_then(|i| crate::imagenes::exportada(i, &nombre)) {
+        return t;
+    }
     crate::tabla(dll, &Funcion::Nombre(nombre)).unwrap_or_else(|| {
         // Sin aviso: preguntar "esta?" es lo normal (la `std` de Rust lo hace
         // con lo de Windows 8 y 10), y decir que no es la respuesta.
