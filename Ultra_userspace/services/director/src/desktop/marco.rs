@@ -1,4 +1,4 @@
-//! **EL BORDE VIVO de las ventanas SIN MARCO** (01-10). Pedido: *"esta F4 no
+//! **EL BORDE VIVO de las ventanas SIN MARCO, y el de ESTRATOS** (01-10). Pedido: *"esta F4 no
 //! necesita bordes... que solo se mantenga minimizar, maximizar y cerrar...
 //! y tiene animacion, eso en los bordes nada mas"*.
 //!
@@ -15,14 +15,19 @@
 //!                           la app, que es lo que habia debajo
 //! ```
 //!
+//! ** ESTRATOS (F12) lleva la misma luz en su borde, sin perder su barra (sus
+//! solapas viven en ella): el propietario no queria su borde como una raya
+//! gris quieta. Solo cuando esta delante y ninguna app la pisa.
+//!
 //! La ventana la dibuja `Chrome` (`paint_vivo`, `paint_pastilla`); aqui solo
 //! se decide CUANDO, una vez por fotograma que pinta, despues de las apps.
 
 use bmo_userland as bmo;
 
-use crate::desktop::Desktop;
+use crate::desktop::{Desktop, Ventana};
 use crate::scene::chrome::{ASOMA, ZONA_ASOMA};
 use crate::scene::surface::MAX;
+use crate::scene::data::DATA_EDGE;
 use crate::scene::BOX_EDGE;
 
 const FOTOGRAMA_MS: u64 = 33;
@@ -35,9 +40,11 @@ struct Estado {
     /// La caja con la luz encendida el fotograma anterior: al irse el
     /// puntero, su borde vuelve a estar quieto.
     encendida: [bool; MAX],
+    /// Lo mismo, para ESTRATOS.
+    datos_encendida: bool,
 }
 
-static mut ESTADO: Estado = Estado { por_ms: 0, vivo: false, pintado: 0, encendida: [false; MAX] };
+static mut ESTADO: Estado = Estado { por_ms: 0, vivo: false, pintado: 0, encendida: [false; MAX], datos_encendida: false };
 
 fn estado() -> &'static mut Estado {
     // SAFETY: el escritorio es un solo hilo; esto solo se toca desde el compositor.
@@ -94,10 +101,34 @@ pub(crate) fn poner(dsk: &mut Desktop, p: &bmo::Pantalla, tapado: bool) {
         }
         e.encendida[i] = sobre;
     }
+    // ESTRATOS: delante de las ventanas del sistema, con el puntero encima
+    // y sin una app que pise su caja (las apps se componen por encima).
+    let c = &dsk.win.data.chrome;
+    let libre = dsk.win.data_open && !c.minimized && !tapado && dsk.win.top_before == Ventana::Data && !pisada(dsk, (c.x, c.y, c.width, c.height));
+    let sobre = libre && encima.is_none() && px != u32::MAX && c.contains(px, py);
+    if sobre {
+        vivo = true;
+        if toca {
+            c.paint_vivo(p, DATA_EDGE, ms, true);
+        }
+    } else if e.datos_encendida && libre {
+        c.paint_vivo(p, DATA_EDGE, ms, false);
+    }
+    e.datos_encendida = sobre;
     e.vivo = vivo;
     if toca && vivo {
         e.pintado = ahora;
     }
+}
+
+/// Alguna app (no minimizada) pisa la caja `c`?
+fn pisada(dsk: &Desktop, c: (u32, u32, u32, u32)) -> bool {
+    (0..MAX).any(|i| {
+        dsk.table.get(i).is_some_and(|s| {
+            let d = &s.chrome;
+            !d.minimized && d.x < c.0 + c.2 && c.0 < d.x + d.width && d.y < c.1 + c.3 && c.1 < d.y + d.height
+        })
+    })
 }
 
 /// **Pide fotograma** mientras algo se anima. Solo lee el reloj.

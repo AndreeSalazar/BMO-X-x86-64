@@ -837,12 +837,36 @@ impl Chrome {
     /// borde en sentidos opuestos, del acento a nada; sin el, el borde quieto.
     /// `fase` en milisegundos. Solo toca el pixel del borde, que la app nunca
     /// pinta, y asi no hay que volver a pegar nada.
+    ///
+    /// ** Con marco (ESTRATOS, 01-10) es el mismo borde vivo, pero solo en los
+    /// tramos RECTOS: las esquinas son redondas y suavizadas contra el fondo
+    /// (`borde::ventana`), y una luz cuadrada encima las romperia.
     pub(crate) fn paint_vivo(&self, p: &bmo::Pantalla, edge: u32, fase: u64, vivo: bool) {
-        let base = if self.foco { mezcla_c(super::acento(), 0, 120) } else { mezcla_c(edge, 0, 60) };
-        self.paint_borde(p, base);
+        let r = if self.sin_marco { 0 } else { super::borde::R_VENTANA };
+        let base = if self.sin_marco {
+            if self.foco { mezcla_c(super::acento(), 0, 120) } else { mezcla_c(edge, 0, 60) }
+        } else if self.foco {
+            super::acento()
+        } else {
+            edge
+        };
+        if self.sin_marco {
+            self.paint_borde(p, base);
+        } else {
+            let (x, y, w, h) = (self.x, self.y, self.width, self.height);
+            if w <= 2 * r + 2 || h <= 2 * r + 2 {
+                return;
+            }
+            p.rect(x + r, y, w - 2 * r, 1, base);
+            p.rect(x + r, y + h - 1, w - 2 * r, 1, base);
+            p.rect(x, y + r, 1, h - 2 * r, base);
+            p.rect(x + w - 1, y + r, 1, h - 2 * r, base);
+        }
         if !vivo {
             return;
         }
+        let (x, y, w, h) = (self.x, self.y, self.width, self.height);
+        let recto = |ax: u32, ay: u32| r == 0 || !((ax < x + r || ax >= x + w - r) && (ay < y + r || ay >= y + h - r));
         let total = 2 * (self.width + self.height);
         let cabeza = fase as u32 % total;
         let acento = super::acento();
@@ -851,9 +875,13 @@ impl Chrome {
             let luz = mezcla_c(acento, 0x00FF_FFFF, 180 * k / COLA);
             let color = mezcla_c(base, luz, 255 * k / COLA);
             let (ax, ay) = self.en_el_borde(cabeza + total - COLA + k);
-            p.punto_ya_marcado(ax, ay, color);
+            if recto(ax, ay) {
+                p.punto_ya_marcado(ax, ay, color);
+            }
             let (bx, by) = self.en_el_borde(cabeza / 2 * 3 + total * 2 - k);
-            p.punto_ya_marcado(bx, by, mezcla_c(base, MAGENTA, 255 * (COLA - k) / COLA / 2));
+            if recto(bx, by) {
+                p.punto_ya_marcado(bx, by, mezcla_c(base, MAGENTA, 255 * (COLA - k) / COLA / 2));
+            }
         }
     }
 
