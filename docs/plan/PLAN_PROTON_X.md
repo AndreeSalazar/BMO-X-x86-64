@@ -1871,19 +1871,30 @@ PROTON-X: el kernel mata la tarea).
 
 #### El relevo (01-10): lo que hay que hacer, en orden
 
-1. **Formatear ESTRATOS (F:, Disco 0 de 447 GB, el de BMO-X)** desde
-   Windows con `toolchain/tools/estratos-fmt`:
-   `estratos-fmt \\.\F: --volumen --si-estoy-seguro --modelo "<M>"
-   --serie "<S>" --sectores <N>`. La identidad (modelo, serie, sectores) es
-   la que LEE BMO-X del Disco 0 (DISCO.TXT del `save`), no la de Windows: si
-   no cuadra, el kernel monta SOLO LECTURA (seguro, pero inutil para esto).
-   Antes, comprobar en la Administracion de discos que F: es la RAW del
-   Disco 0. C: (NVMe, Windows) y D: (PERSONAL) no se tocan.
+1. ~~Formatear ESTRATOS~~ -- **NO: ya es un ESTRATOS sano** (corregido el
+   01-10, otra sesion lo midio). F: es la particion 3 del Disco 0 (KINGSTON
+   SA400S37480G, serie 50026B76846C2058), generacion 21, 108670208 bloques
+   (la particion entera), 11 ficheros con sus sumas, y dentro `apps/`,
+   `docs/`, `leeme.txt` y `titan/asteroids/` (TITAN++): formatear lo
+   BORRARIA. El kernel ya lo monta para escribir. Y la orden que decia aqui,
+   sin `--tam-mib`, habria grabado un volumen de 64 MiB (arreglado en
+   `35c09c8e0`: `estratos-fmt` mide el volumen solo). Para MIRARLO sin
+   escribir, desde PowerShell (en bash las barras se rompen):
+   `estratos-fmt \\.\F: --verificar`.
 2. **La base**: carpetas `proton-x/`, `cache/`, `juegos/`, `documentos/`.
+   Se crean desde la consola de Datos (`carpeta NOMBRE` en la raiz);
+   `proton-x/` la crea tambien PROTON-X si falta.
 3. **El perfil de cada juego en ESTRATOS**: para un `.exe` de D:,
    USERPROFILE, APPDATA, LOCALAPPDATA, TEMP, Documents y Saved Games bajo
    `proton-x/<juego>/perfil`, creados al arrancar (`proceso::Entorno::de_bmo`
-   y `dll_chicas::carpeta_csidl/carpeta_guid`).
+   y `dll_chicas::carpeta_csidl/carpeta_guid`). **HECHO 01-10:**
+   `proceso::perfil_de` y `Entorno::de_bmo_con_perfil` (prueba
+   `un_juego_de_d_tiene_su_perfil_en_estratos`), la casa con
+   `poner_exe_con_perfil` y PROTON-X creando las carpetas con
+   `estratos::crear_carpeta` si ESTRATOS esta montado y escribible. [!] Las
+   rutas ya apuntan bien, pero LEER y LISTAR alli todavia no va: el
+   `Directorio` del kernel solo conoce FAT32 y D:, y escribir un fichero
+   desde la casa va por FAT32. Eso es el paso 4.
 4. **CreateDirectoryW y escribir ficheros** en ESTRATOS
    (`estratos::crear_carpeta`, `crear_desde`, `guardar_desde`).
 5. **La capa encima de D:**: lo que el juego escriba junto a sus ficheros va

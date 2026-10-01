@@ -257,6 +257,28 @@ fn el_entorno_es_el_de_windows() {
     assert_eq!(Entorno::vacio().bloque(), [0, 0]);
 }
 
+/// Relevo 01-10, paso 3: un juego de D: (solo lectura) tiene su perfil de
+/// Windows en ESTRATOS, uno por juego; uno del volumen de BMO-X, no.
+#[test]
+fn un_juego_de_d_tiene_su_perfil_en_estratos() {
+    let w = |s: &str| s.encode_utf16().collect::<Vec<u16>>();
+    let p = proceso::perfil_de("d:Cyberpunk 2077/bin/x64/Cyberpunk2077.exe").unwrap();
+    assert_eq!(p.juego, "cyberpunk2077");
+    assert_eq!(p.volumen, "proton-x/cyberpunk2077/perfil");
+    assert_eq!(p.windows, "C:\\proton-x\\cyberpunk2077\\perfil");
+    let c = p.carpetas();
+    assert_eq!(&c[..3], ["proton-x", "proton-x/cyberpunk2077", "proton-x/cyberpunk2077/perfil"], "cada una despues de su padre");
+    assert!(c.contains(&String::from("proton-x/cyberpunk2077/perfil/AppData/Local")));
+    assert!(c.iter().position(|x| x.ends_with("/AppData")) < c.iter().position(|x| x.ends_with("/AppData/Local")));
+    assert_eq!(proceso::perfil_de("d:Juegos/Mi Juego (GOTY).exe").unwrap().juego, "mi-juego-goty");
+    assert_eq!(proceso::perfil_de("window/hola.exe"), None, "el volumen de BMO-X es escribible: su carpeta");
+    let e = Entorno::de_bmo_con_perfil("D:\\Cyberpunk 2077\\bin\\x64", &p.windows);
+    assert_eq!(e.leer(&w("LOCALAPPDATA")), Some(&w("C:\\proton-x\\cyberpunk2077\\perfil\\AppData\\Local")[..]));
+    assert_eq!(e.leer(&w("USERPROFILE")), Some(&w("C:\\proton-x\\cyberpunk2077\\perfil")[..]));
+    assert_eq!(e.leer(&w("TEMP")), Some(&w("C:\\proton-x\\cyberpunk2077\\perfil\\Temp")[..]));
+    assert_eq!(e.leer(&w("PATH")), Some(&w("D:\\Cyberpunk 2077\\bin\\x64")[..]), "las DLL siguen junto al .exe");
+}
+
 // -- P4f: el texto ------------------------------------------------------------------
 
 use crate::texto::{self, MalFormado};

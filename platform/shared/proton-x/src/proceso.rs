@@ -28,6 +28,61 @@ fn w(s: &str) -> Vec<u16> {
     s.encode_utf16().collect()
 }
 
+/// **El perfil de un juego de D: en ESTRATOS** (relevo 01-10, paso 3).
+///
+/// Un `.exe` del disco Personal (D:, solo lectura) no tiene donde escribir si
+/// su "casa" es su carpeta: Cyberpunk se rendia en `redgalaxy::api::Init`
+/// con APPDATA en `D:\...\bin\x64\AppData`. Su perfil de Windows vive en
+/// ESTRATOS, uno por juego: `proton-x/<juego>/perfil` en el volumen, que es
+/// `C:\proton-x\<juego>\perfil` para el `.exe`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Perfil {
+    /// El nombre del juego: el de su `.exe` sin extension, en minusculas,
+    /// con solo letras, cifras, `-` y `_`.
+    pub juego: String,
+    /// La ruta del perfil en el volumen (`proton-x/cyberpunk2077/perfil`).
+    pub volumen: String,
+    /// La misma, como la ve el `.exe` (`C:\proton-x\cyberpunk2077\perfil`).
+    pub windows: String,
+}
+
+/// Las carpetas de un perfil de Windows que se crean al arrancar, debajo de
+/// la del perfil (como las tiene cualquier usuario de Windows).
+pub const CARPETAS_DEL_PERFIL: [&str; 6] = ["AppData", "AppData/Local", "AppData/Roaming", "Documents", "Saved Games", "Temp"];
+
+/// **El perfil de `ruta_exe`** (la del volumen), si el `.exe` esta en D:. Un
+/// `.exe` del volumen de BMO-X sigue con su carpeta (es escribible).
+pub fn perfil_de(ruta_exe: &str) -> Option<Perfil> {
+    crate::ficheros::en_personal(ruta_exe)?;
+    let nombre = ruta_exe.rsplit(['/', '\\']).next()?;
+    let tallo = nombre.rsplit_once('.').map_or(nombre, |(t, _)| t);
+    let mut juego = String::new();
+    for c in tallo.chars() {
+        let c = c.to_ascii_lowercase();
+        if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+            juego.push(c);
+        } else if !juego.ends_with('-') {
+            juego.push('-');
+        }
+    }
+    let juego = String::from(juego.trim_matches('-'));
+    if juego.is_empty() {
+        return None;
+    }
+    let volumen = alloc::format!("proton-x/{juego}/perfil");
+    let windows = alloc::format!("C:\\proton-x\\{juego}\\perfil");
+    Some(Perfil { juego, volumen, windows })
+}
+
+impl Perfil {
+    /// Las carpetas a crear en el volumen, cada una despues de su padre.
+    pub fn carpetas(&self) -> Vec<String> {
+        let mut v = alloc::vec![String::from("proton-x"), alloc::format!("proton-x/{}", self.juego), self.volumen.clone()];
+        v.extend(CARPETAS_DEL_PERFIL.iter().map(|c| alloc::format!("{}/{c}", self.volumen)));
+        v
+    }
+}
+
 /// **La ruta de Windows** de una ruta del volumen: `C:\` y barras al reves.
 pub fn ruta_windows(vol: &str) -> String {
     // N2: lo de `d:` es del disco Personal, `D:\\` en Windows.
@@ -168,6 +223,24 @@ impl Entorno {
         let base = dir_exe.trim_end_matches('\\');
         let _ = e.poner(&w("APPDATA"), Some(&w(&alloc::format!("{base}\\AppData\\Roaming"))));
         let _ = e.poner(&w("LOCALAPPDATA"), Some(&w(&alloc::format!("{base}\\AppData\\Local"))));
+        e
+    }
+
+    /// **El de partida, con el perfil en otra parte** (`perfil`, ruta de
+    /// Windows): USERPROFILE, APPDATA, LOCALAPPDATA, TEMP y TMP alli; PATH
+    /// sigue en la carpeta del `.exe` (es donde estan sus DLL).
+    pub fn de_bmo_con_perfil(dir_exe: &str, perfil: &str) -> Self {
+        let mut e = Entorno::de_bmo(dir_exe);
+        let p = perfil.trim_end_matches('\\');
+        for (n, v) in [
+            ("USERPROFILE", String::from(p)),
+            ("APPDATA", alloc::format!("{p}\\AppData\\Roaming")),
+            ("LOCALAPPDATA", alloc::format!("{p}\\AppData\\Local")),
+            ("TEMP", alloc::format!("{p}\\Temp")),
+            ("TMP", alloc::format!("{p}\\Temp")),
+        ] {
+            let _ = e.poner(&w(n), Some(&w(&v)));
+        }
         e
     }
 
