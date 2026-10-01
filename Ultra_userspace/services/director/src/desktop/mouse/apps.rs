@@ -91,9 +91,11 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                     // cierra con el teclado y no con el boton de reset.
                     Some(Button::Maximize) => {
                         if let Some(s) = dsk.table.get_mut(i) {
-                            let (vx, vy, va, vl) = s.chrome.toggle_maximized(&p);
-                            erase_window(&p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
-                            uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+                            let viejo = s.chrome.toggle_maximized(&p);
+                            let nuevo = (s.chrome.x, s.chrome.y, s.chrome.width, s.chrome.height);
+                            if scene::erase_resized(&p, &dsk.run_box, viejo, nuevo, dsk.win.visible) {
+                                uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+                            }
                             s.repaint_all();
                             // Y se le dice a la app el hueco nuevo: maximizar
                             // sin avisarla deja su dibujo chico en un marco

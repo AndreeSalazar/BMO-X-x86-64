@@ -226,9 +226,11 @@ pub(crate) fn raton(dsk: &mut Desktop, p: &bmo::Pantalla, x: u32, y: u32, button
             return true;
         }
         Some(Button::Maximize) => {
-            let (vx, vy, va, vl) = dsk.win.sound.chrome.toggle_maximized(p);
-            erase_window(p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
-            uncover(p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+            let viejo = dsk.win.sound.chrome.toggle_maximized(p);
+            let c = &dsk.win.sound.chrome;
+            if crate::scene::erase_resized(p, &dsk.run_box, viejo, (c.x, c.y, c.width, c.height), dsk.win.visible) {
+                uncover(p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+            }
             dsk.snd.panel.olvidar();
             scene::sound::paint(p, &dsk.win.sound, &dsk.snd.panel);
             dsk.win.top_before = Ventana::Sound;

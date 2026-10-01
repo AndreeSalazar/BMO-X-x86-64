@@ -331,3 +331,10 @@ fn tanda31_exe_la_red_local_sin_cable() {
 fn tanda32_exe_las_rutas_de_boost() {
     tanda(TANDA32, None, 10, "tanda32.exe: las rutas de Boost.Filesystem, de ancho a estrecho y vuelta");
 }
+
+/// **La tanda 33** (01-10): `tanda33.exe` -- Galaxy arranca libcurl, que carga secur32 por la
+/// ruta del sistema y exige la tabla de InitSecurityInterfaceW.
+#[test]
+fn tanda33_exe_secur32_y_la_tabla_sspi() {
+    tanda(TANDA33, None, 8, "tanda33.exe: secur32 por su ruta y la tabla SSPI que pide curl");
+}

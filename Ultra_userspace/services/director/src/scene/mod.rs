@@ -870,6 +870,33 @@ pub(crate) fn erase_moved(
     v
 }
 
+/// **Maximizar, restaurar y encajar SIN TIRONES** (01-10): borra solo lo que
+/// la caja nueva destapa de la vieja, y dice si destapo algo.
+///
+/// Antes cada uno de esos botones borraba la caja VIEJA entera con
+/// `erase_window`: al maximizar, eso apuntaba como perjudicada toda la zona que
+/// la ventana iba a tapar, y el cierre del fotograma (`paint::devolver`) volvia
+/// a pintar la ventana entera Y todas las apps encima -- dos pintadas enteras
+/// y un volcado del doble en el mismo fotograma, que es el tiron que se veia.
+/// Maximizar no destapa nada (la nueva cubre la vieja): no se borra nada, no se
+/// devuelven los iconos y la ventana se pinta UNA vez.
+pub(crate) fn erase_resized(
+    p: &bmo::Pantalla,
+    c: &RunBox,
+    viejo: (u32, u32, u32, u32),
+    nuevo: (u32, u32, u32, u32),
+    visible: bool,
+) -> bool {
+    let caja = |(x, y, w, h): (u32, u32, u32, u32)| {
+        Recorte::nuevo(x as i32, y as i32, (w + SHADOW_RIGHT) as i32, (h + SHADOW_BOTTOM) as i32)
+    };
+    let destapa = resta(caja(viejo), caja(nuevo)).iter().any(|t| !t.vacio());
+    if destapa {
+        erase_moved(p, c, viejo, nuevo, visible);
+    }
+    destapa
+}
+
 #[inline(never)]
 pub(crate) fn paint_status(p: &bmo::Pantalla, c: &RunBox, msg: &str, color: u32) {
     // Ancho fijo de limpieza: el mensaje anterior puede ser mas largo que el
