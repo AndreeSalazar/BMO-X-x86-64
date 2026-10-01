@@ -499,7 +499,9 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
    848abda5cace4da055d3112966adf7ec95c3bbd701d564e5043b4d5d38d7e6bc
 
-Dice `bien` trece veces y sale con 0. En Windows dice lo mismo (pide
+Dice `bien` catorce veces y sale con 0. En Windows dice lo mismo (la
+primera ronda, el 01-10, dijo MAL en la ultima: pedia NULL en el puntero sin
+WSAStartup, y Windows no lo toca; ahora se mira el codigo y el puntero aparte).(pide
 msvcp140.dll, el redistribuible de Visual C++, como los juegos).
 
 tanda3.exe -- la TANDA 3 de Cyberpunk (29-09): kernel32, pasos 1 a 3
@@ -1233,7 +1235,8 @@ WSAStartup 2.2 y 1.1 (cuenta las dos), getaddrinfo y GetAddrInfoW de
 127.0.0.1 con su ADDRINFO (AF_INET, TCP, 16 B, el puerto), un servicio que
 no existe (WSATYPE_NOT_FOUND), un nombre .invalid (un error y NULL),
 WSACleanup que cuenta y el de mas (WSANOTINITIALISED), y getaddrinfo sin
-WSAStartup. Nada depende de tener red: con cable y sin el, lo mismo.
+WSAStartup (el codigo, y que no toca el puntero). Nada depende de tener
+red: con cable y sin el, lo mismo.
 
    llvm-dlltool -m i386:x86-64 -d tanda30_kernel32.def -l tanda30_kernel32.lib
    llvm-dlltool -m i386:x86-64 -d tanda30_ws2_32.def -l tanda30_ws2_32.lib
@@ -1242,6 +1245,8 @@ WSAStartup. Nada depende de tener red: con cable y sin el, lo mismo.
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   d41c9c2f0fa11a13f4cf0aa62313a535c6d99f42db65cd1871db0eb82ce11112
+   b9978626b8acd8fdd0bd386577e02690a1ad9784f6d31d6c8780e46e343917d3
 
-Dice `bien` trece veces y sale con 0. En Windows dice lo mismo.
+Dice `bien` catorce veces y sale con 0. En Windows dice lo mismo (la
+primera ronda, el 01-10, dijo MAL en la ultima: pedia NULL en el puntero sin
+WSAStartup, y Windows no lo toca; ahora se mira el codigo y el puntero aparte).

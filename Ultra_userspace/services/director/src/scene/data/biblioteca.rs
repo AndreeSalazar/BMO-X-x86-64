@@ -366,6 +366,54 @@ fn lado(p: &bmo::Pantalla, z: &Zona) {
     }
     if recortada() {
         p.texto(z.x + 14, y + 4, "RECORTADA", INK_BAD);
+        y += bmo::GLIFO_ALTO + 8;
+    }
+    // ** EL GATO VERDE, abajo, cuidando (01-10). El propietario: *"que
+    // ESTRATOS tenga el Gato verde como que te cuida"*. El logo de la intro
+    // (`scene::gato`) a la mitad, en el neon de ESTRATOS. Solo si cabe entero:
+    // un gato cortado no cuida, asusta.
+    let (gw, gh) = (crate::scene::gato::WIDTH / 2, crate::scene::gato::HEIGHT / 2);
+    let pie = bmo::GLIFO_ALTO + 6;
+    if z.w >= gw + 20 && z.y + z.h >= y + gh + pie + 24 {
+        let gx = z.x + (z.w - gw) / 2;
+        let gy = z.y + z.h - gh - pie - 12;
+        gato_verde(p, gx, gy, NODE_BG);
+        let t = "te cuida";
+        let tx = z.x + (z.w.saturating_sub(t.len() as u32 * bmo::GLIFO_ANCHO)) / 2;
+        p.texto(tx, gy + gh + 6, t, INK_DIM);
+    }
+}
+
+/// **El gato de BMO-X en verde**, a la mitad (76x90): el trazo en el neon de
+/// ESTRATOS con un halo de un pixel, y los ojos casi blancos. Un pixel si
+/// alguno de los cuatro lo es, como la intro: no se pierde un trazo fino.
+fn gato_verde(p: &bmo::Pantalla, x: u32, y: u32, fondo: u32) {
+    use crate::scene::gato::{EYES, HEIGHT, STROKE, WIDTH};
+    let bit = |m: &[u8], fx: u32, fy: u32| {
+        let i = (fy * WIDTH + fx) as usize;
+        m[i / 8] >> (i % 8) & 1 == 1
+    };
+    let halo = crate::scene::globo::mezcla(fondo, DATA_TITLE, 70);
+    for pasada in 0..2 {
+        for fy in (0..HEIGHT).step_by(2) {
+            for fx in (0..WIDTH).step_by(2) {
+                let (mut trazo, mut ojo) = (false, false);
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                    if fx + dx < WIDTH && fy + dy < HEIGHT {
+                        trazo |= bit(&STROKE, fx + dx, fy + dy);
+                        ojo |= bit(&EYES, fx + dx, fy + dy);
+                    }
+                }
+                let (px, py) = (x + fx / 2, y + fy / 2);
+                if pasada == 0 && (trazo || ojo) {
+                    p.rect(px.saturating_sub(1), py.saturating_sub(1), 3, 3, halo);
+                } else if pasada == 1 && ojo {
+                    p.rect(px, py, 1, 1, 0x00D8_FFE8);
+                } else if pasada == 1 && trazo {
+                    p.rect(px, py, 1, 1, DATA_TITLE);
+                }
+            }
+        }
     }
 }
 
