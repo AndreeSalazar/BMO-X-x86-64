@@ -1,7 +1,8 @@
 //! **The five window toggles**: F7 cpu, F8 memory, F10 sound, F11 CABINA,
 //! F12 data -- and the ESC that closes each one. And F1, which since
 //! 2026-09-29 LAUNCHES the TALLER (`sys/taller.bex`) instead of toggling a
-//! window of the DIRECTOR.
+//! window of the DIRECTOR, and F4, which since 01-10 launches the LUDOTECA
+//! (`sys/ludoteca.bex`).
 //!
 //! [consumo] NADA      no corre en reposo: lo llama el bucle SOLO si hubo una
 //!                     tecla o el raton se movio. Sin entrada, no se entra
@@ -259,6 +260,16 @@ if c == 0x89 {
     // 29-09 en el Ryzen `estructura.bex` dio "un nombre no cabe en 8.3" en
     // CABINA y F1 no abrio nada. El build ya lo comprueba (`ejemplos.ps1`).
     scene::abrir::pedir(&[b"sys/taller.bex"]);
+    return Key::Taken;
+}
+
+// ** F4: LA LUDOTECA (01-10). El propietario: *"F4 para la LUDOTECA"*.
+// Las doce estaban tomadas; F4 escribia `apps`, que se sigue tecleando. Es
+// una app como el TALLER (`sys/ludoteca.bex`, `Ultra_userspace/apps/
+// ludoteca`): mismo camino, mismo cierre (Esc dentro, Alt+F4 fuera). Y su
+// JUGAR vuelve aqui por la consola: ver `desktop::pide`.
+if c == 0x8C {
+    scene::abrir::pedir(&[b"sys/ludoteca.bex"]);
     return Key::Taken;
 }
 

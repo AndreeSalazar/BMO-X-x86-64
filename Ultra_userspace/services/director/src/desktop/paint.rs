@@ -243,7 +243,10 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
                     }
                 }
             } else {
-                dsk.out.grid.text(&buf[..read_bytes]);
+                // Una linea que empieza por 0x1E es una PETICION de la app
+                // (el JUGAR de la LUDOTECA): no se pinta. Ver `desktop::pide`.
+                let grid = &mut dsk.out.grid;
+                crate::desktop::pide::filtrar(&buf[..read_bytes], |t| grid.text(t));
             }
             drained += 1;
         }
@@ -268,6 +271,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
             paint_calc(&p, &dsk.calc_pad, &dsk.calc, dsk.tick.calc_hover);
         }
     }
+    crate::desktop::pide::atender(dsk, &p);
     // * Y solo en un fotograma que haya apartado el cursor. Un hijo que
     // escribe no es motivo suficiente: pintar aqui dejaria el puntero
     // enterrado bajo la rejilla y, al quitarlo, devolveria pixeles viejos

@@ -7,6 +7,15 @@ name = "bmo-antena"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-app-ludoteca"
+version = "0.1.0"
+dependencies = [
+ "bmo-dibujo",
+ "bmo-ludoteca",
+ "bmo-userland",
+]
+
+[[package]]
 name = "bmo-app-proton-x"
 version = "0.1.0"
 dependencies = [
@@ -82,6 +91,13 @@ version = "0.1.0"
 [[package]]
 name = "bmo-juicio"
 version = "0.1.0"
+
+[[package]]
+name = "bmo-ludoteca"
+version = "0.1.0"
+dependencies = [
+ "bmo-cripto",
+]
 
 [[package]]
 name = "bmo-medida-coste"
