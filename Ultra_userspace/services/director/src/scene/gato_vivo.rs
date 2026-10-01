@@ -135,3 +135,29 @@ pub(crate) fn estado_ojos(ms: u64) -> (bool, i32) {
     let salto = if (3108..3478).contains(&g) { salto(g - 3108, 370) } else { 0 };
     (cerrados, salto)
 }
+
+/// **El gato en miniatura**: uno de cada `paso` pixeles de la mascara (un
+/// pixel si alguno del cuadro lo es, para no perder un trazo fino), en
+/// `trazo` y los ojos en `ojos`; `cerrados` los apaga. Para la tarjeta "el
+/// gato vigila" del Inicio de ESTRATOS: a `paso` 3 mide 51x60.
+pub(crate) fn miniatura(p: &bmo::Pantalla, x: u32, y: u32, paso: u32, trazo: u32, ojos: u32, cerrados: bool) {
+    let paso = paso.max(1);
+    for fy in (0..HEIGHT).step_by(paso as usize) {
+        for fx in (0..WIDTH).step_by(paso as usize) {
+            let (mut t, mut o) = (false, false);
+            for dy in 0..paso {
+                for dx in 0..paso {
+                    if fx + dx < WIDTH && fy + dy < HEIGHT {
+                        t |= bit(&STROKE, fx + dx, fy + dy);
+                        o |= bit(&EYES, fx + dx, fy + dy);
+                    }
+                }
+            }
+            if o && !cerrados {
+                p.rect(x + fx / paso, y + fy / paso, 1, 1, ojos);
+            } else if t {
+                p.rect(x + fx / paso, y + fy / paso, 1, 1, trazo);
+            }
+        }
+    }
+}

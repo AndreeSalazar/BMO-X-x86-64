@@ -173,6 +173,28 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                         dsk.win.top_before = Ventana::Data;
                         servido = true;
                     }
+                    // ** LAS SOLAPAS DEL TITULO (01-10): un clic cambia de
+                    // solapa, como TAB pero directo.
+                    if !servido {
+                        if let Some(v) = dsk.win.data.solapa_titulo_en(pos.x, pos.y) {
+                            if v != dsk.win.data.view {
+                                dsk.win.data.ir_a(v);
+                            }
+                            scene::data::paint(&p, &dsk.win.data);
+                            dsk.win.top_before = Ventana::Data;
+                            servido = true;
+                        }
+                    }
+                    // ** EL INICIO (01-10): un clic abre (una carpeta fijada, un
+                    // disco, otra solapa).
+                    if !servido {
+                        if let Some(a) = dsk.win.data.ini_en(pos.x, pos.y) {
+                            dsk.win.data.ini_hacer(a);
+                            scene::data::paint(&p, &dsk.win.data);
+                            dsk.win.top_before = Ventana::Data;
+                            servido = true;
+                        }
+                    }
                     // ** EL EQUIPO: un clic elige la unidad y dos la exploran.
                     if let Some(k) = dsk.win.data.eq_en(pos.x, pos.y) {
                         if dsk.win.data.eq_clic(k) {
