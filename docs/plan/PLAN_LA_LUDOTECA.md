@@ -325,15 +325,32 @@ La app se llama **Ludoteca**, como este plan, y su crate `bmo-ludoteca`.
   su cliente y su cifrado. Su cara, cuando llegue: negra, la estandar de
   las apps de BMO-X, futurista y elegante, con el gato y su glitch en la
   entrada -- la misma entrada que ya lleva la LUDOTECA.
-- **La TERTULIA, en F3 (maqueta, 01-10):** la sala propia tiene tecla y
-  cara: F3 abre o esconde la TERTULIA, como F4 la LUDOTECA (y `consumo`
-  se sigue escribiendo en Ejecutar). La maqueta esta en el lienzo de
-  esquemas (tablero "TERTULIA (F3)"): contactos con su estado y su frase
-  como en el Messenger, emojis y GUINOS que llenan la pantalla, fotos que
-  se guardan en ESTRATOS (`F:/social/fotos/`) y el ZUMBIDO: la ventana
-  tiembla, destella y suena. Para que sea de verdad, en orden: TCP y DNS
-  medidos en metal; el texto en la LAN; TLS 1.3 o un servidor propio con
-  la ANTENA; y la voz, cuando el audio USB tambien ENTRE (microfono).
+- **HERMES, en F3 (maqueta, 01-10):** la sala propia tiene nombre, tecla y
+  cara. Los nombres: **HERMES** es la app (el mensajero de los dioses, y el
+  guino al Messenger); el **protocolo HERMES** es como hablan dos BMO-X; y
+  las **tertulias** son las salas de grupo. F3 la abre o la esconde, como F4
+  la LUDOTECA (`consumo` se sigue escribiendo en Ejecutar). Maqueta en el
+  lienzo de esquemas, tablero "HERMES (F3)": mensajes con emojis, guinos y
+  ZUMBIDO (tiembla, destella y suena); tertulias; el MURO de fotos con
+  historias y corazones; el CANAL de videos; y ENVIOS con permiso.
+  - **El protocolo HERMES, sin servidor de nadie.** Cada BMO-X tiene una
+    clave Ed25519; un amigo es una clave aceptada una vez (como un
+    `known_hosts`). En la LAN, TCP con X25519 + AES-GCM de `bmo-cripto`;
+    fuera de casa, TLS 1.3 o el relevo de la ANTENA. Un mensaje es texto
+    UTF-8 (los emojis van solos), un zumbido, un guino o una OFERTA.
+  - **Un envio pide permiso:** OFERTA (nombre, bytes, sha256, tipo) ->
+    MANUAL pregunta cada vez, AUTOMATICO (por amigo) acepta solo fotos y
+    videos hasta 2 GiB -> llega por trozos a la cuarentena
+    `F:/hermes/entrantes/` -> el juez comprueba la suma -> `F:/hermes/fotos`,
+    `videos` o `muro`. Rechazar no guarda ni un byte.
+  - **El kernel lo cuida:** HERMES recibe la capacidad de `F:/hermes/` y
+    nada mas del disco, y ninguna de EJECUTAR: un `.exe` o un `.bex` que
+    llegue se queda en cuarentena. El muro y el canal son lo que cada amigo
+    publica en SU maquina, pedido por el protocolo.
+  - **En orden:** (1) texto en la LAN, con TCP y DNS medidos en metal; (2)
+    envios con permiso; (3) el muro, que pide leer PNG/JPEG; (4) el canal,
+    que pide un decodificador de video propio (el trozo mas grande); (5) la
+    voz, cuando el audio USB tambien ENTRE (microfono).
 
 ## 8. "El x86-64 no cambia: se puede analizar" -- lo que es verdad y lo que no
 
