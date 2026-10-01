@@ -201,8 +201,10 @@ if let Some(open) = toggle_data {
         dsk.win.focus.open(Ventana::Data);
         // El equipo se MIDE al abrir: los numeros son de ahora, no de la
         // ultima vez que alguien miro.
-        if dsk.win.data.view == scene::data::View::Equipo {
-            dsk.win.data.eq_entrar();
+        // Y el Inicio, que ademas lee la historia (01-10).
+        let v = dsk.win.data.view;
+        if v == scene::data::View::Equipo || v == scene::data::View::Inicio {
+            dsk.win.data.ir_a(v);
         }
         scene::data::paint(&p, &dsk.win.data);
         dsk.win.top_before = if dsk.win.focus.es_para(Ventana::Data) { Ventana::Data } else { Ventana::Run };

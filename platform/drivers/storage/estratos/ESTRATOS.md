@@ -566,12 +566,12 @@ Lo que de esa captura vale para ESTRATOS, en verde neon con el gato que cuida:
       01-10:* las tres capas en la barra y en las solapas, la categoria
       juegos (.exe con PROTON-X), barrido y rejilla en el cuerpo, y el gato del
       logo a la mitad en verde al pie de la biblioteca ("te cuida").
-- [ ] **V1 -- la columna de la izquierda**: Inicio, los volumenes (ESTRATOS,
+- [x] **V1 -- la columna de la izquierda** *(hecho 01-10, en la solapa inicio, con el gato que vigila abajo)*: Inicio, los volumenes (ESTRATOS,
       DATOS, Personal D:, EFI) con su dibujo y las carpetas fijadas (cache,
       juegos, documentos), como "Este equipo" y "Acceso rapido".
-- [ ] **V2 -- ACCESO RAPIDO**: tarjetas grandes con dibujo, nombre y donde
+- [x] **V2 -- ACCESO RAPIDO** *(hecho 01-10: las cuatro fijadas y los discos con su barra; clic o ENTRAR los abre)*: tarjetas grandes con dibujo, nombre y donde
       vive (las carpetas base de ESTRATOS y los juegos).
-- [ ] **V3 -- RECIENTE**: la tabla Nombre / Fecha / Ubicacion / Actividad.
+- [~] **V3 -- RECIENTE** *(01-10: las versiones de ESTRATOS, cuando y quien; falta por fichero, que pide C5)*: la tabla Nombre / Fecha / Ubicacion / Actividad.
       Pide C5 (las fechas de cada fichero) y el diario de versiones de
       ESTRATOS, que ya sabe que se escribio y cuando.
 - [ ] **V4 -- la barra de arriba**: atras, adelante, arriba, la miga de pan y

@@ -240,6 +240,13 @@ pub(crate) fn releer() {
     }
 }
 
+/// Lo medido de la unidad `k` (en el orden de [`TODAS`]): `(bytes, libres)`.
+/// `bytes == 0`: no esta montada o no se midio todavia.
+pub(crate) fn medida_de(k: usize) -> (u64, Option<u64>) {
+    let m = medidas()[k];
+    (m.bytes, m.libres)
+}
+
 /// Esta montada? (Para decir por que no se abre.)
 pub(crate) fn montada(k: usize) -> bool {
     medidas()[k].bytes != 0

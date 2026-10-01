@@ -133,6 +133,18 @@ fn textura(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32) {
     }
 }
 
+/// Las solapas del titulo, en su orden: las pinta `paint` y las acierta
+/// `DataWindow::solapa_titulo_en`.
+const SOLAPAS_TITULO: [(View, &str); 7] = [
+    (View::Inicio, "inicio"),
+    (View::Equipo, "equipo"),
+    (View::Numbers, "numeros"),
+    (View::Obra, "explorador"),
+    (View::Biblioteca, "biblioteca"),
+    (View::Historial, "historial"),
+    (View::Procesos, "procesos"),
+];
+
 /// La ventana de Datos: **un marco y lo que hay dentro**.
 ///
 /// Todo lo de mover, estirar, maximizar y los tres botones vive en
@@ -196,6 +208,8 @@ pub(crate) struct DataWindow {
     pub(crate) bib_from: usize,
     /// La unidad elegida en la solapa `equipo`.
     pub(crate) eq_sel: usize,
+    /// El blanco de las flechas en el Inicio (0..8: fijadas y discos).
+    pub(crate) ini_sel: usize,
 }
 
 /// **El estado del sellado, que es lo unico de esta ventana que ESCRIBE.**
@@ -244,6 +258,10 @@ const DATA_PCT_H: u32 = 44;
 /// meter un arbol entre la generacion y la ocupacion deja las dos ilegibles.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum View {
+    /// ** INICIO (2026-10-01): la portada al estilo del Explorador de Windows
+    /// -- la columna de lugares, acceso rapido, los discos y lo reciente. Es
+    /// la solapa con la que se abre. Ver [`inicio`].
+    Inicio,
     /// ** EL EQUIPO (2026-09-29): "Dispositivos y unidades", todos los discos
     /// y lo que les queda, como `Este equipo` de Windows y con el aire de
     /// Hyprland. Es la solapa con la que se abre. Ver [`equipo`].
@@ -296,7 +314,7 @@ impl DataWindow {
                 DATA_MIN_W,
                 DATA_MIN_H,
             ),
-            view: View::Equipo,
+            view: View::Inicio,
             sel: 0,
             from: 0,
             arbol_from: 0,
@@ -312,6 +330,7 @@ impl DataWindow {
             bib_sel: 0,
             bib_from: 0,
             eq_sel: 0,
+            ini_sel: 0,
         }
     }
 
@@ -499,6 +518,108 @@ impl DataWindow {
     }
 
     // -- El equipo: la eleccion vive aqui, lo medido en `equipo` -------------
+
+    /// **Ir a la solapa `v`**, con lo que cada una hace al ENTRAR (medir los
+    /// discos, volver a la raiz, recorrer la biblioteca, leer la historia...).
+    /// Lo usan TAB y el clic en las solapas del titulo: un sitio, no dos.
+    pub(crate) fn ir_a(&mut self, v: View) {
+        match v {
+            View::Inicio => {
+                equipo::releer();
+                bmo::estratos::hist_releer();
+                self.aviso = None;
+            }
+            View::Equipo => self.eq_entrar(),
+            View::Numbers => {}
+            View::Obra => {
+                fuente::a_la_raiz();
+                self.to_top();
+                self.arbol_from = 0;
+            }
+            View::Biblioteca => self.bib_entrar(),
+            View::Historial => {
+                bmo::estratos::hist_releer();
+                self.hist_from = 0;
+                self.hist_sel = 0;
+            }
+            View::Procesos => procesos::entrar(),
+        }
+        self.view = v;
+        self.seal = Seal::Idle;
+    }
+
+    /// La solapa que sigue a la de ahora (TAB).
+    pub(crate) fn siguiente(&self) -> View {
+        match self.view {
+            View::Inicio => View::Equipo,
+            View::Equipo => View::Numbers,
+            View::Numbers => View::Obra,
+            View::Obra => View::Biblioteca,
+            View::Biblioteca => View::Historial,
+            View::Historial => View::Procesos,
+            View::Procesos => View::Inicio,
+        }
+    }
+
+    /// **Hace lo que pide un clic (o ENTRAR) en el Inicio.**
+    pub(crate) fn ini_hacer(&mut self, a: inicio::Accion) {
+        match a {
+            inicio::Accion::Ir(v) => {
+                if v != self.view {
+                    self.ir_a(v);
+                }
+            }
+            inicio::Accion::Unidad(k) => {
+                self.eq_sel = k;
+                self.eq_abrir();
+            }
+            inicio::Accion::Carpeta(k) => {
+                let nombre = inicio::FIJADAS[k].as_bytes();
+                self.cambiar_volumen(fuente::Volumen::Estratos);
+                fuente::a_la_raiz();
+                let mut nom = [0u8; 64];
+                let hallada = (0..fuente::hijos()).find(|&i| {
+                    let n = fuente::hijo_nombre(i, &mut nom);
+                    &nom[..n] == nombre
+                });
+                match hallada {
+                    Some(i) if fuente::entrar(i) => {
+                        self.to_top();
+                        self.view = View::Obra;
+                        self.seal = Seal::Idle;
+                    }
+                    _ => {
+                        self.aviso = Some("esa carpeta no esta en ESTRATOS: creala desde Ejecutar con `carpeta NOMBRE`");
+                    }
+                }
+            }
+        }
+    }
+
+    pub(crate) fn ini_en(&self, px: u32, py: u32) -> Option<inicio::Accion> {
+        if self.view != View::Inicio || self.chrome.minimized {
+            return None;
+        }
+        inicio::en(&self.bib_zona(), px, py)
+    }
+
+    /// **La solapa del titulo bajo el puntero**, si alguna. La misma cuenta
+    /// que las pinta (`paint`): el texto empieza tras "ESTRATOS" y cada
+    /// solapa ocupa su nombre y dos espacios.
+    pub(crate) fn solapa_titulo_en(&self, px: u32, py: u32) -> Option<View> {
+        if self.chrome.minimized || py < self.chrome.y + 4 || py >= self.chrome.y + super::TITLE_H {
+            return None;
+        }
+        let mut x = self.chrome.x + 16 + 22 + 8 * bmo::GLIFO_ANCHO + 2 * bmo::GLIFO_ANCHO;
+        for (v, nombre) in SOLAPAS_TITULO {
+            let fin = x + nombre.len() as u32 * bmo::GLIFO_ANCHO;
+            if px >= x && px < fin {
+                return Some(v);
+            }
+            x = fin + 2 * bmo::GLIFO_ANCHO;
+        }
+        None
+    }
 
     /// Al ENTRAR en la vista: se miden los discos. Pintar no los toca.
     pub(crate) fn eq_entrar(&mut self) {
@@ -930,6 +1051,8 @@ pub(crate) mod biblioteca;
 pub(crate) mod equipo;
 /// PROCESOS: el benchmark en vivo (01-10).
 pub(crate) mod procesos;
+/// INICIO: la portada al estilo de Windows (01-10).
+pub(crate) mod inicio;
 
 /// **EL LATIDO DE LA VENTANA** (01-10): lo que se mueve solo, a su ritmo, y
 /// SOLO si la ventana esta a la vista y sin tapar (lo mira quien llama).
@@ -1055,17 +1178,9 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
     // color se pierde en una foto; una linea debajo no.
     // Las solapas: la activa en neon y con su subrayado. Una lista y no seis
     // variables: agregar una solapa es una fila (PROCESOS, 01-10).
-    const SOLAPAS: [(View, &str); 6] = [
-        (View::Equipo, "equipo"),
-        (View::Numbers, "numeros"),
-        (View::Obra, "explorador"),
-        (View::Biblioteca, "biblioteca"),
-        (View::Historial, "historial"),
-        (View::Procesos, "procesos"),
-    ];
     let mut x = px;
     let (mut sx, mut sw) = (px, 0);
-    for (v, nombre) in SOLAPAS {
+    for (v, nombre) in SOLAPAS_TITULO {
         let es = c.view == v;
         let fin = p.texto(x, c.chrome.y + 8, nombre, if es { DATA_TITLE } else { INK_DIM });
         if es {
@@ -1077,6 +1192,15 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
 
     if c.view == View::Obra {
         obra(p, c);
+        return;
+    }
+    if c.view == View::Inicio {
+        inicio::paint(p, &c.bib_zona(), c.ini_sel);
+        let y = c.chrome.y + c.chrome.height - bmo::GLIFO_ALTO - 8;
+        match c.aviso {
+            Some(a) => p.texto(tx, y, a, 0x00F0_D070),
+            None => p.texto(tx, y, "clic o ENTRAR abre  flechas eligen  clic en una solapa de arriba para cambiar  TAB sigue", INK_DIM),
+        };
         return;
     }
     if c.view == View::Procesos {

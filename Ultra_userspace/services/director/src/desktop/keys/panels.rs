@@ -188,64 +188,12 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
         // TAB: numeros <-> explorador. Es la misma tecla que cambia
         // de solapa en todas partes.
         b'\t' => {
-            dsk.win.data.view = match dsk.win.data.view {
-                View::Equipo => View::Numbers,
-                View::Numbers => {
-                    // ** AQUI Y SOLO AQUI SE VA A LA RAIZ.
-                    //
-                    // Al ENTRAR en el explorador se empieza por
-                    // arriba: conservar el sitio de la ultima vez
-                    // mostraria un directorio que ya no se sabe
-                    // cual es.
-                    //
-                    // [!] Y este es el UNICO sitio del compositor
-                    // que mueve el cursor sin que nadie lo haya
-                    // pedido. Lo era tambien `paint_nodes`, que
-                    // llamaba a `a_la_raiz()` en cada repintado y
-                    // por eso la vista de nodos no podia navegar.
-                    // Pintar no navega.
-                    scene::data::fuente::a_la_raiz();
-                    dsk.win.data.to_top();
-                    dsk.win.data.arbol_from = 0;
-                    View::Obra
-                }
-                // ** Y AL SALIR NO SE TOCA EL CURSOR.
-                //
-                // Estas en `/cobol/10`, miras los numeros, vuelves
-                // con TAB y sigues en `/cobol/10`. Devolverlo a la
-                // raiz al salir convertiria las dos solapas en
-                // dos programas.
-                // ** Y LA BIBLIOTECA, que se RECORRE al entrar (2026-09-13):
-                // pintar solo mira lo leido. Ver `scene::data::biblioteca`.
-                View::Obra => {
-                    dsk.win.data.bib_entrar();
-                    View::Biblioteca
-                }
-                View::Biblioteca => {
-                    // ** La historia se RELEE al entrar, no al pintar.
-                    //
-                    // Cuesta un bloque por version. Releerla en cada
-                    // repintado serian doscientas lecturas por mover
-                    // el raton -- el mismo martillo sobre el disco
-                    // que ya costo el detalle del cursor.
-                    bmo::estratos::hist_releer();
-                    dsk.win.data.hist_from = 0;
-                    dsk.win.data.hist_sel = 0;
-                    View::Historial
-                }
-                // ** Y PROCESOS (01-10): el benchmark en vivo. Muestrea al
-                // entrar y luego a su ritmo, solo mientras se mira.
-                View::Historial => {
-                    scene::data::procesos::entrar();
-                    View::Procesos
-                }
-                // Y de vuelta al equipo, que se MIDE al entrar.
-                View::Procesos => {
-                    dsk.win.data.eq_entrar();
-                    View::Equipo
-                }
-            };
-            dsk.win.data.seal = Seal::Idle;
+            // ** Lo que cada solapa hace al ENTRAR (ir a la raiz al entrar en el
+            // explorador, recorrer la biblioteca, leer la historia, medir los
+            // discos...) vive en `DataWindow::ir_a`: lo usan TAB y el clic en
+            // las solapas del titulo, y dos copias acabarian diciendo distinto.
+            let v = dsk.win.data.siguiente();
+            dsk.win.data.ir_a(v);
         }
         // El historial tiene sus propias flechas: mueven por versiones, no
         // por hijos. Y no escribe nada -- aqui solo se mira.
@@ -313,6 +261,23 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
                     Some(&k) => dsk.win.data.bib_filtrar(Some(k)),
                     None => served = false,
                 },
+            }
+        }
+        // ** EL INICIO (01-10): las flechas por las fijadas y los discos,
+        // ENTRAR abre, R vuelve a medir.
+        _ if dsk.win.data.view == View::Inicio => {
+            let n = scene::data::inicio::BLANCOS;
+            match c {
+                0x82 => dsk.win.data.ini_sel = dsk.win.data.ini_sel.saturating_sub(1),
+                0x83 => dsk.win.data.ini_sel = (dsk.win.data.ini_sel + 1).min(n - 1),
+                0x80 => dsk.win.data.ini_sel = dsk.win.data.ini_sel.saturating_sub(4),
+                0x81 => dsk.win.data.ini_sel = (dsk.win.data.ini_sel + 4).min(n - 1),
+                b'\r' | b'\n' => {
+                    let a = scene::data::inicio::blanco(dsk.win.data.ini_sel);
+                    dsk.win.data.ini_hacer(a);
+                }
+                b'r' | b'R' => dsk.win.data.ir_a(View::Inicio),
+                _ => served = false,
             }
         }
         // ** EL EQUIPO: las flechas por las tarjetas, ENTRAR explora, R mide.
