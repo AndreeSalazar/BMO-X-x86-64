@@ -306,6 +306,20 @@ La app se llama **Ludoteca**, como este plan, y su crate `bmo-ludoteca`.
   la escena entera, el juego elegido entra con su titulo revelado y un
   destello RGB, y las cartas se inclinan al pasar. Dibujos PROPIOS: ningun
   logo de ninguna tienda.
+- **Y el armazon, estilo comunidad (01-10):** *"me gusta mas esta direccion...
+  aplicar como estilo Discord por completo"*. La maqueta `LudotecaComunidad`:
+  un riel de burbujas (una por tienda, con su animacion; la elegida se
+  vuelve cuadrada y lleva su pastilla), los canales de la tienda (un canal
+  por juego, y una sala de voz), el centro con el juego fijado y su
+  actividad como mensajes de las PIEZAS de BMO-X (PROTON-X, la casa,
+  ESTRATOS, el juez), y a la derecha las piezas trabajando o esperando --
+  nunca gente inventada. Colores propios, no los de Discord.
+- **Una sala propia (idea, 01-10):** chat y llamadas entre maquinas BMO-X,
+  con control total. Se puede, y en orden: texto en la LAN sobre TCP (G5)
+  con X25519 + AES-GCM de `bmo-cripto`; voz cuando haya MICROFONO (hoy el
+  audio USB solo SALE) y un codec propio; fuera de casa, TLS 1.3 (el muro)
+  o la ANTENA de relevo. El Discord de verdad no: su API y su voz piden
+  su cliente y su cifrado.
 
 ## 8. "El x86-64 no cambia: se puede analizar" -- lo que es verdad y lo que no
 
