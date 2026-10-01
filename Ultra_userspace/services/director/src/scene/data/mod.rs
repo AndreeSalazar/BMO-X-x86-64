@@ -276,6 +276,10 @@ pub(crate) enum View {
     /// PASADO**. Un volumen que nunca sobreescribe tiene esa tercera respuesta
     /// y ningun sistema de ficheros clasico la tiene.
     Historial,
+    /// ** PROCESOS (2026-10-01): lo que corre y a que velocidad, en vivo --
+    /// CPU, memoria y el MiB/s del disco con su grafica, y los programas. Ver
+    /// [`procesos`].
+    Procesos,
 }
 
 // El alto de la barra de titulo --que es el asa-- sale de `super::TITLE_H`:
@@ -924,6 +928,76 @@ pub(crate) mod biblioteca;
 
 /// **El EQUIPO**: los discos y lo que les queda, en tarjetas (2026-09-29).
 pub(crate) mod equipo;
+/// PROCESOS: el benchmark en vivo (01-10).
+pub(crate) mod procesos;
+
+/// **EL LATIDO DE LA VENTANA** (01-10): lo que se mueve solo, a su ritmo, y
+/// SOLO si la ventana esta a la vista y sin tapar (lo mira quien llama).
+///
+/// ```text
+///    PROCESOS   una muestra cada medio segundo y se repinta su zona
+///    el titulo  cada ~5 s, 150 ms de glitch: "ESTRATOS" en rosa y cian
+///               corrido, y vuelve
+///    el gato    en la biblioteca, parpadea cada ~4 s
+/// ```
+///
+/// Ni un pixel fuera de la ventana, y nada se pinta si no cambio.
+pub(crate) fn vivo(p: &bmo::Pantalla, c: &DataWindow) {
+    if c.chrome.minimized || c.chrome.is_fullscreen() {
+        return;
+    }
+    let ahora = bmo::ciclos();
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1);
+    if c.view == View::Procesos && procesos::muestrear() {
+        procesos::paint(p, &c.bib_zona());
+    }
+    // SAFETY: el director es una tarea; estos relojes son solo suyos.
+    let (glitch, gato) = unsafe { (&mut *core::ptr::addr_of_mut!(GLITCH), &mut *core::ptr::addr_of_mut!(GATO_OJOS)) };
+    // -- el glitch del titulo --
+    let tx = c.chrome.x + 16 + 22;
+    let ty = c.chrome.y + 8;
+    match glitch.0 {
+        0 if ahora >= glitch.1 => {
+            restaurar_titulo(p, tx, ty);
+            p.texto(tx - 3, ty, "ESTRATOS", 0x00FF_2E88);
+            p.texto(tx + 3, ty + 1, "ESTRATOS", 0x005E_F2E6);
+            p.texto(tx, ty, "ESTRATOS", DATA_TITLE);
+            *glitch = (1, ahora + hz * 15 / 100);
+        }
+        1 if ahora >= glitch.1 => {
+            restaurar_titulo(p, tx, ty);
+            p.texto(tx, ty, "ESTRATOS", DATA_TITLE);
+            *glitch = (0, ahora + hz * 5);
+        }
+        _ => {}
+    }
+    // -- el gato parpadea --
+    if c.view == View::Biblioteca && !c.visor.abierto && ahora >= gato.1 {
+        let cerrar = gato.0 == 0;
+        biblioteca::parpadear(p, cerrar);
+        *gato = if cerrar { (1, ahora + hz * 18 / 100) } else { (0, ahora + hz * 4) };
+    }
+}
+
+/// `(fase, cuando)`: 0 espera, 1 en glitch.
+static mut GLITCH: (u8, u64) = (0, 0);
+/// `(fase, cuando)`: 0 abiertos, 1 cerrados.
+static mut GATO_OJOS: (u8, u64) = (0, 0);
+
+/// Devuelve el fondo de la barra de titulo bajo "ESTRATOS": el color liso y
+/// las scanlines de `Chrome::paint_hacker` (una fila de cada dos desde
+/// `R_VENTANA + 2`), sin repintar el cromo entero.
+fn restaurar_titulo(p: &bmo::Pantalla, tx: u32, ty: u32) {
+    let oscura = super::globo::mezcla(DATA_TITLE_BG, 0, 46);
+    let desde = super::borde::R_VENTANA + 2;
+    let y0 = ty.saturating_sub(2);
+    let fila0 = 8u32.saturating_sub(2);
+    for k in 0..bmo::GLIFO_ALTO + 4 {
+        let fila = fila0 + k;
+        let c = if fila >= desde && (fila - desde) % 2 == 0 { oscura } else { DATA_TITLE_BG };
+        p.rect(tx.saturating_sub(6), y0 + k, 8 * bmo::GLIFO_ANCHO + 12, 1, c);
+    }
+}
 
 /// **Repinta SOLO la consola del pie.**
 ///
@@ -979,34 +1053,36 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
     let px = px + 2 * bmo::GLIFO_ANCHO;
     // Las solapas: la activa lleva su subrayado. Un corchete pintado de otro
     // color se pierde en una foto; una linea debajo no.
-    let (c0, c1, c2, c3, c4) = match c.view {
-        View::Equipo => (INK, INK_DIM, INK_DIM, INK_DIM, INK_DIM),
-        View::Numbers => (INK_DIM, INK, INK_DIM, INK_DIM, INK_DIM),
-        View::Obra => (INK_DIM, INK_DIM, INK, INK_DIM, INK_DIM),
-        View::Biblioteca => (INK_DIM, INK_DIM, INK_DIM, INK, INK_DIM),
-        View::Historial => (INK_DIM, INK_DIM, INK_DIM, INK_DIM, INK),
-    };
-    let px0 = px;
-    let fin0 = p.texto(px0, c.chrome.y + 8, "equipo", c0);
-    let px = fin0 + 2 * bmo::GLIFO_ANCHO;
-    let fin1 = p.texto(px, c.chrome.y + 8, "numeros", c1);
-    let px2 = fin1 + 2 * bmo::GLIFO_ANCHO;
-    let fin2 = p.texto(px2, c.chrome.y + 8, "explorador", c2);
-    let px3 = fin2 + 2 * bmo::GLIFO_ANCHO;
-    let fin3 = p.texto(px3, c.chrome.y + 8, "biblioteca", c3);
-    let px4 = fin3 + 2 * bmo::GLIFO_ANCHO;
-    let fin4 = p.texto(px4, c.chrome.y + 8, "historial", c4);
-    let (sx, sw) = match c.view {
-        View::Equipo => (px0, fin0 - px0),
-        View::Numbers => (px, fin1 - px),
-        View::Obra => (px2, fin2 - px2),
-        View::Biblioteca => (px3, fin3 - px3),
-        View::Historial => (px4, fin4 - px4),
-    };
+    // Las solapas: la activa en neon y con su subrayado. Una lista y no seis
+    // variables: agregar una solapa es una fila (PROCESOS, 01-10).
+    const SOLAPAS: [(View, &str); 6] = [
+        (View::Equipo, "equipo"),
+        (View::Numbers, "numeros"),
+        (View::Obra, "explorador"),
+        (View::Biblioteca, "biblioteca"),
+        (View::Historial, "historial"),
+        (View::Procesos, "procesos"),
+    ];
+    let mut x = px;
+    let (mut sx, mut sw) = (px, 0);
+    for (v, nombre) in SOLAPAS {
+        let es = c.view == v;
+        let fin = p.texto(x, c.chrome.y + 8, nombre, if es { DATA_TITLE } else { INK_DIM });
+        if es {
+            (sx, sw) = (x, fin - x);
+        }
+        x = fin + 2 * bmo::GLIFO_ANCHO;
+    }
     p.rect(sx, c.chrome.y + 8 + bmo::GLIFO_ALTO + 2, sw, 2, DATA_TITLE);
 
     if c.view == View::Obra {
         obra(p, c);
+        return;
+    }
+    if c.view == View::Procesos {
+        procesos::paint(p, &c.bib_zona());
+        let y = c.chrome.y + c.chrome.height - bmo::GLIFO_ALTO - 8;
+        p.texto(tx, y, "en vivo: una muestra cada medio segundo  TAB sigue  F12 cierra", INK_DIM);
         return;
     }
     if c.view == View::Equipo {

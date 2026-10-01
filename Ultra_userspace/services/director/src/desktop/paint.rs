@@ -403,6 +403,12 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         // Y el MAESTRO: su indicador al pie del panel y, si su ventana esta
         // abierta, su medidor. Se mira a su propio ritmo, no al del panel.
         crate::desktop::sonido::latido(dsk, &p);
+        // ** Y ESTRATOS VIVO (01-10): PROCESOS en tiempo real, el glitch del
+        // titulo y el gato que parpadea. Solo sin tapar: si no, se pintaria
+        // encima de la ventana de delante.
+        if dsk.win.data_open && !crate::desktop::foco::tapada(dsk, Ventana::Data) {
+            scene::data::vivo(&p, &dsk.win.data);
+        }
     }
 
     // El parpadeo del cursor de escritura. Solo repinta cuando cambia de

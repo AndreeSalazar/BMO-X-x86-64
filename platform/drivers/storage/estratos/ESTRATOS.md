@@ -577,6 +577,17 @@ Lo que de esa captura vale para ESTRATOS, en verde neon con el gato que cuida:
 - [ ] **V4 -- la barra de arriba**: atras, adelante, arriba, la miga de pan y
       buscar; y la de acciones: nuevo, renombrar, borrar (lo que ya hacen
       los gestos de ESTRATOS: crear_carpeta, renombrar, quitar).
+- [x] **V5 -- VIVO (la maqueta animada, 01-10).** *Hecho en codigo:* la
+      solapa **procesos** con su benchmark en tiempo real (CPU, memoria y el
+      MiB/s que lee y escribe el disco, con grafica de 40 muestras, y la tabla
+      de los programas); el kernel cuenta los bytes de cada comando del disco
+      (`INFO_DISCO_LEIDO` / `INFO_DISCO_ESCRITO`). El titulo da un glitch cada
+      ~5 s y el gato de la biblioteca parpadea. Solo con la ventana a la vista
+      y sin tapar. Falta el metal.
+- [ ] **V6 -- lo que queda de la maqueta animada**: las solapas con la
+      esquina cortada y su cifra, el barrido que baja, el "orquestador" (los
+      discos alrededor de ESTRATOS con los datos que corren) y el gato grande
+      que respira y mueve la cola.
 
 ### Lo que sigue fuera de todo esto
 

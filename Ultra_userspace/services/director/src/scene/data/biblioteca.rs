@@ -374,10 +374,12 @@ fn lado(p: &bmo::Pantalla, z: &Zona) {
     // un gato cortado no cuida, asusta.
     let (gw, gh) = (crate::scene::gato::WIDTH / 2, crate::scene::gato::HEIGHT / 2);
     let pie = bmo::GLIFO_ALTO + 6;
+    unsafe { GATO_EN = None };
     if z.w >= gw + 20 && z.y + z.h >= y + gh + pie + 24 {
         let gx = z.x + (z.w - gw) / 2;
         let gy = z.y + z.h - gh - pie - 12;
-        gato_verde(p, gx, gy, NODE_BG);
+        gato_verde(p, gx, gy, NODE_BG, false);
+        unsafe { GATO_EN = Some((gx, gy)) };
         let t = "te cuida";
         let tx = z.x + (z.w.saturating_sub(t.len() as u32 * bmo::GLIFO_ANCHO)) / 2;
         p.texto(tx, gy + gh + 6, t, INK_DIM);
@@ -387,7 +389,19 @@ fn lado(p: &bmo::Pantalla, z: &Zona) {
 /// **El gato de BMO-X en verde**, a la mitad (76x90): el trazo en el neon de
 /// ESTRATOS con un halo de un pixel, y los ojos casi blancos. Un pixel si
 /// alguno de los cuatro lo es, como la intro: no se pierde un trazo fino.
-fn gato_verde(p: &bmo::Pantalla, x: u32, y: u32, fondo: u32) {
+/// Donde quedo pintado el gato la ultima vez (para que parpadee sin repintar
+/// la biblioteca). `None` si no cupo.
+static mut GATO_EN: Option<(u32, u32)> = None;
+
+/// **El parpadeo**: los ojos del gato, cerrados (apagados) o abiertos, donde
+/// se pinto. Lo llama el latido de la ventana (`super::vivo`).
+pub(crate) fn parpadear(p: &bmo::Pantalla, cerrados: bool) {
+    if let Some((x, y)) = unsafe { GATO_EN } {
+        gato_verde(p, x, y, NODE_BG, cerrados);
+    }
+}
+
+fn gato_verde(p: &bmo::Pantalla, x: u32, y: u32, fondo: u32, cerrados: bool) {
     use crate::scene::gato::{EYES, HEIGHT, STROKE, WIDTH};
     let bit = |m: &[u8], fx: u32, fy: u32| {
         let i = (fy * WIDTH + fx) as usize;
@@ -408,7 +422,8 @@ fn gato_verde(p: &bmo::Pantalla, x: u32, y: u32, fondo: u32) {
                 if pasada == 0 && (trazo || ojo) {
                     p.rect(px.saturating_sub(1), py.saturating_sub(1), 3, 3, halo);
                 } else if pasada == 1 && ojo {
-                    p.rect(px, py, 1, 1, 0x00D8_FFE8);
+                    // Cerrados: los ojos se apagan al color del halo.
+                    p.rect(px, py, 1, 1, if cerrados { halo } else { 0x00D8_FFE8 });
                 } else if pasada == 1 && trazo {
                     p.rect(px, py, 1, 1, DATA_TITLE);
                 }
