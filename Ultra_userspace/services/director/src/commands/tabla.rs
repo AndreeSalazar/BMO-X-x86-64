@@ -41,6 +41,7 @@ use crate::scene::OUT_COLS;
 /// ** Con una fila en blanco delante (24-09): dos secciones seguidas se leian
 /// como una sola, "juntas".
 pub(crate) fn section(s: &mut Output, title: &[u8]) {
+    super::save_maestro::tramo(s);
     s.separar();
     s.with_ink(INK_ECHO);
     s.text(b"  ");
@@ -299,6 +300,7 @@ pub(crate) fn fila_cero(s: &mut Output, que: &[u8], valor: u64, nota: &[u8]) {
 
 /// Un renglon de separacion DENTRO de una seccion. Ver `report_consumo`.
 pub(crate) fn subregla(s: &mut Output, titulo: &[u8]) {
+    super::save_maestro::tramo(s);
     s.with_ink(INK_ECHO);
     s.text(b"    ");
     s.text(titulo);

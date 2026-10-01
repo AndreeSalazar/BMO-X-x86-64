@@ -144,6 +144,18 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
         let m = g.mark();
         capitulo(g, titulo);
         super::datos::capitulo(n as u8 + 1);
+        let h = hoja(fichero);
+        let mut ch = Cuenta { bytes: 0, lineas: 0 };
+        // Del capitulo 2 en adelante, A TROZOS: cada `section`/`subregla`
+        // vuelca lo que habia (ver `tramo`). La sesion (el 1) no: lo suyo ya
+        // estaba en el anillo antes del rotulo.
+        if n > 0 {
+            // SAFETY: `a`, `h` y las cuentas viven hasta `soltar_cinta`, mas
+            // abajo en esta misma vuelta; un hilo.
+            unsafe {
+                CINTA = Some(Cinta { a: &a, h: h.as_ref().map_or(core::ptr::null(), |x| x as *const _), ca: &mut c, ch: &mut ch, marca: m });
+            }
+        }
         match n {
             0 => {}
             1 => {
@@ -163,12 +175,18 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
             5 => super::reports::report_disco(g),
             _ => super::reports::report_autopsy(g),
         }
+        if n > 0 {
+            // Lo que queda del ultimo trozo, y la cinta fuera.
+            tramo(g);
+            // SAFETY: un hilo; nadie mas la toca.
+            unsafe { CINTA = None };
+        }
         let (f, t) = g.rows_since(m);
-        let h = hoja(fichero);
-        volcar(&a, g, f, t, &mut c);
-        let mut ch = Cuenta { bytes: 0, lineas: 0 };
-        if let Some(h) = h.as_ref() {
-            volcar(h, g, f, t, &mut ch);
+        if n == 0 {
+            volcar(&a, g, f, t, &mut c);
+            if let Some(h) = h.as_ref() {
+                volcar(h, g, f, t, &mut ch);
+            }
         }
         // La sesion es lo que ya estaba en el anillo ANTES del rotulo: se
         // vuelca despues de el, y es lo primero que el anillo tira.
@@ -270,6 +288,59 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
         // El kernel no dice el motivo -- se queda en la CABINA (F11). Lo que
         // si se sabe con certeza es que en el disco NO hay nada.
         Err(0)
+    }
+}
+
+/// **La cinta de `save`** (02-10): mientras se pinta un capitulo, a donde
+/// van sus trozos. El anillo de la pantalla guarda [`crate::scene::OUT_HIST`]
+/// filas y los capitulos 2 (la 3060 sola son ~150) y 4 ya pasaban de ahi:
+/// perdian el principio SIN DECIRLO, y el informe salia revuelto y sin
+/// rotulos. Ahora cada `section`/`subregla` vuelca antes lo pendiente.
+struct Cinta {
+    a: *const bmo::Archivo,
+    /// La hoja del capitulo, o nulo si no se pudo abrir.
+    h: *const bmo::Archivo,
+    ca: *mut Cuenta,
+    ch: *mut Cuenta,
+    marca: usize,
+}
+
+static mut CINTA: Option<Cinta> = None;
+
+/// **Volcar lo pendiente**, si hay un `save` en marcha (si no, nada). Solo
+/// las filas CERRADAS: la de ahora va en el siguiente trozo. Si aun asi se
+/// cayo algo del anillo, se dice en el fichero.
+pub(crate) fn tramo(g: &Output) {
+    // SAFETY: un hilo; los punteros de la cinta viven mientras esta puesta
+    // (ver `maestro`).
+    unsafe {
+        let Some(k) = (*core::ptr::addr_of_mut!(CINTA)).as_mut() else { return };
+        let Some((f, t, perdidas)) = g.cerradas_desde(k.marca) else { return };
+        for (dest, cuenta) in [(k.a, k.ca), (k.h, k.ch)] {
+            if dest.is_null() {
+                continue;
+            }
+            if perdidas > 0 {
+                let mut n = [0u8; 20];
+                let mut l = 0;
+                let mut v = perdidas;
+                loop {
+                    n[19 - l] = b'0' + (v % 10) as u8;
+                    l += 1;
+                    v /= 10;
+                    if v == 0 {
+                        break;
+                    }
+                }
+                (*cuenta).bytes += (*dest).write(b"  [!] save: ");
+                (*cuenta).bytes += (*dest).write(&n[20 - l..]);
+                (*cuenta).bytes += (*dest).write(b" filas se cayeron de la pantalla antes de guardarse\r\n");
+            }
+            if f <= t {
+                volcar(&*dest, g, f, t, &mut *cuenta);
+            }
+        }
+        k.marca = g.mark();
     }
 }
 
