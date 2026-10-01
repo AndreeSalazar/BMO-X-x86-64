@@ -70,6 +70,8 @@ pub(crate) mod cursor;
 pub(crate) mod splash;
 /// El LOGO, en dos mascaras de 1 bit. Generado por `docs/arte/gato_a_mascara.py`.
 pub(crate) mod gato;
+/// El gato ANIMADO, fotograma a fotograma (01-10).
+pub(crate) mod gato_vivo;
 /// La REJILLA de iconos del escritorio: un `.bex` por celda, con la cara que
 /// trae dentro. Marcar es un clic; abrir son dos -- ver `double_click`.
 pub(crate) mod launcher;

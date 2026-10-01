@@ -261,6 +261,39 @@ fn pintar_ojos(p: &bmo::Pantalla, x0: u32, y0: u32) {
     }
 }
 
+/// El estado de los ojos que se pinto la ultima vez: `(cerrados, salto)`.
+static mut OJOS_PINTADOS: (bool, i32) = (false, 0);
+
+/// ** LOS OJOS VIVOS (01-10): el parpadeo y el glitch del logo animado
+/// (`scene::gato_vivo`), en los ojos `=` de la barra. Solo se repintan cuando
+/// cambia su estado -- abiertos, cerrados o partidos en rosa y azul --, y solo
+/// cuando el compositor ya pinta: en reposo no despiertan a nadie.
+fn ojos_vivos(p: &bmo::Pantalla, x0: u32, y0: u32, fondo: u32, forzar: bool) {
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+    let ms = bmo::ciclos() / (hz / 1000);
+    let (cerrados, salto) = crate::scene::gato_vivo::estado_ojos(ms);
+    if !forzar && unsafe { OJOS_PINTADOS } == (cerrados, salto) {
+        return;
+    }
+    unsafe { OJOS_PINTADOS = (cerrados, salto) };
+    let ancho = 2 * OJO_W + OJO_ENTRE;
+    p.rect(x0.saturating_sub(8), y0, ancho + 16, 12, fondo);
+    let rayas = |dx: i32, color: u32| {
+        for ojo in [x0, x0 + OJO_W + OJO_ENTRE] {
+            for r in RAYAS {
+                p.rect((ojo as i32 + dx).max(0) as u32, y0 + r, OJO_W, 2, color);
+            }
+        }
+    };
+    if salto != 0 {
+        rayas(2 * salto, 0x00FF_2E88);
+        rayas(-2 * salto, 0x003D_A5FF);
+    }
+    if !cerrados {
+        rayas(0, acento());
+    }
+}
+
 // ===================================================================
 //  Las fichas: una por ventana abierta
 // ===================================================================
@@ -447,6 +480,7 @@ pub(crate) fn latido(p: &bmo::Pantalla, mw: Option<u64>, l: &Lectura) {
         unsafe { FICHAS_SUCIAS = false };
         pintar_fichas(p, &pl);
     }
+    ojos_vivos(p, pl.x0, pl.logo_y, e.barra_fondo, forzar);
     if e.reloj {
         reloj(p, &pl);
     }
