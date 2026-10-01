@@ -129,7 +129,27 @@ pub(crate) struct Chrome {
     /// del color de acento (el `col.active_border` de Hyprland). Lo pone UN
     /// sitio -- `desktop::foco::seguir` -- cuando el foco cambia.
     pub(crate) foco: bool,
+    /// ** SIN MARCO (01-10): ni barra de titulo ni titulo -- un borde de un
+    /// pixel que se enciende, y los tres botones que ASOMAN arriba a la
+    /// derecha cuando el puntero se acerca. Lo pidio el propietario para la
+    /// LUDOTECA: *"no necesitan bordes... solo minimizar, maximizar y cerrar"*.
+    pub(crate) sin_marco: bool,
+    /// Cuanto asoman los botones, de 0 (escondidos) a [`ASOMA`] (fuera).
+    pub(crate) asoma: u8,
 }
+
+/// Los pasos de asomar: 8 fotogramas de 33 ms, un cuarto de segundo.
+pub(crate) const ASOMA: u8 = 8;
+/// Sin marco: la franja de arriba que sirve de asa (siempre).
+const ASA: u32 = 8;
+/// Sin marco: lo cerca de arriba que tiene que estar el puntero para que
+/// asomen los botones.
+pub(crate) const ZONA_ASOMA: u32 = 44;
+/// La pastilla de los botones: su alto y lo que se separa del borde.
+const PASTILLA_H: u32 = 28;
+const PASTILLA_AIRE: u32 = 8;
+/// La segunda luz del borde vivo, la que corre al reves: el magenta del glitch.
+const MAGENTA: u32 = 0x00FF_2E88;
 
 /// ** LOS HUECOS (HUD 2): lo que queda libre entre dos ventanas encajadas, y
 /// entre una ventana y la barra o el borde de la pantalla. Los `gaps` de
@@ -201,6 +221,8 @@ impl Chrome {
             hover: None,
             closable: true,
             foco: false,
+            sin_marco: false,
+            asoma: 0,
         }
     }
 
@@ -237,7 +259,34 @@ impl Chrome {
             hover: None,
             closable: true,
             foco: false,
+            sin_marco: false,
+            asoma: 0,
         }
+    }
+
+    /// **Una ventana sin marco** del medida de su contenido: un pixel de borde
+    /// alrededor y nada mas. Ver [`Chrome::sin_marco`].
+    pub(crate) fn for_content_sin_marco(p: &bmo::Pantalla, width: u32, height: u32) -> Self {
+        let mut c = Self::for_content(p, width, height);
+        let height = (height + 2).min(p.alto.saturating_sub(16));
+        c.y = p.alto.saturating_sub(height) / 2;
+        c.height = height;
+        c.min_h = PASTILLA_H + 2 * PASTILLA_AIRE;
+        c.sin_marco = true;
+        c
+    }
+
+    /// **Lo que ocupa la barra de arriba**: `TITLE_H`, o un pixel sin marco.
+    /// Es lo que separa el borde de arriba del contenido de una app.
+    pub(crate) fn titulo(&self) -> u32 {
+        if self.sin_marco { 1 } else { TITLE_H }
+    }
+
+    /// La pastilla de los botones de una ventana sin marco, ENTERA:
+    /// `(x, y, ancho, alto)`.
+    fn pastilla(&self) -> (u32, u32, u32, u32) {
+        let w = 3 * BTN_SIDE + 12;
+        (self.x + self.width.saturating_sub(w + PASTILLA_AIRE), self.y + PASTILLA_AIRE, w, PASTILLA_H)
     }
 
     /// Esta ventana no lleva aspa. Ver [`Chrome::closable`].
@@ -294,12 +343,25 @@ impl Chrome {
 
     /// La `x` donde empieza el boton `i` contando desde la derecha.
     fn boton_x(&self, i: u32) -> u32 {
+        if self.sin_marco {
+            return self.pastilla().0 + 6 + i * BTN_SIDE;
+        }
         self.x + self.width - (3 - i) * BTN_SIDE - 6
     }
 
     /// Que boton hay bajo el puntero, si hay alguno.
     pub(crate) fn button_at(&self, px: u32, py: u32) -> Option<Button> {
-        if self.minimized || self.is_fullscreen() || py < self.y + 2 || py >= self.y + TITLE_H {
+        if self.minimized || self.is_fullscreen() {
+            return None;
+        }
+        // Sin marco: solo cuando ya asomaron, y dentro de su pastilla. Un boton
+        // escondido que se pulsa es un aspa invisible que funciona.
+        if self.sin_marco {
+            let (_, by, _, bh) = self.pastilla();
+            if self.asoma < ASOMA / 2 || py < by || py >= by + bh {
+                return None;
+            }
+        } else if py < self.y + 2 || py >= self.y + TITLE_H {
             return None;
         }
         for (i, b) in [Button::Minimize, Button::Maximize, Button::Close].into_iter().enumerate() {
@@ -326,6 +388,13 @@ impl Chrome {
         // A pantalla completa no hay barra de titulo que agarrar.
         if self.is_fullscreen() {
             return false;
+        }
+        if self.sin_marco {
+            // La franja fina de arriba siempre; con los botones fuera, tambien
+            // la raya de agarrar del centro.
+            let centro = self.x + self.width / 2;
+            let raya = self.asoma > 0 && py < self.y + 2 * ASA + 4 && px + 48 > centro && px < centro + 48;
+            return self.contains(px, py) && (py < self.y + ASA || raya) && self.button_at(px, py).is_none();
         }
         self.contains(px, py) && py < self.y + TITLE_H && self.button_at(px, py).is_none()
     }
@@ -590,6 +659,12 @@ impl Chrome {
             return;
         }
         shadow(p, self.x, self.y, self.width, self.height);
+        if self.sin_marco {
+            // Sin marco: el borde fino y nada mas. Su luz, la que corre, la
+            // pinta `paint_vivo` en cada fotograma que anima.
+            self.paint_borde(p, if self.foco { mezcla_c(super::acento(), 0, 120) } else { mezcla_c(edge, 0, 60) });
+            return;
+        }
         // ** EL BORDE DE FOCO: el de la ventana a la que van las teclas es del
         // acento; los demas, del color de su ventana (que dice CUAL es).
         let edge = if self.foco { super::acento() } else { edge };
@@ -679,6 +754,10 @@ impl Chrome {
     /// y meterlos en la fuente por tres iconos seria tocar el generador para
     /// algo que se dibuja con cuatro `rect`.
     pub(crate) fn paint_buttons(&self, p: &bmo::Pantalla, fondo: u32) {
+        if self.sin_marco {
+            self.paint_pastilla(p);
+            return;
+        }
         for (i, b) in [Button::Minimize, Button::Maximize, Button::Close].into_iter().enumerate() {
             if b == Button::Close && !self.closable {
                 continue;
@@ -686,7 +765,15 @@ impl Chrome {
             let bx = self.boton_x(i as u32);
             let by = self.y + 2;
             let height = TITLE_H - 3;
-            let realce = if self.hover == Some(b) {
+            Self::paint_boton(p, b, bx, by, height, fondo, self.hover == Some(b), self.is_maximized());
+        }
+    }
+
+    /// Un boton, en su caja: el fondo (realzado si hace falta) y su icono.
+    #[allow(clippy::too_many_arguments)]
+    fn paint_boton(p: &bmo::Pantalla, b: Button, bx: u32, by: u32, height: u32, fondo: u32, encima: bool, maximizada: bool) {
+        {
+            let realce = if encima {
                 if b == Button::Close { CLOSE_HOVER } else { BTN_HOVER }
             } else {
                 fondo
@@ -695,14 +782,14 @@ impl Chrome {
 
             let cx = bx + BTN_SIDE / 2;
             let cy = by + height / 2;
-            let ink = if self.hover == Some(b) && b == Button::Close { 0x00FF_FFFF } else { INK };
+            let ink = if encima && b == Button::Close { 0x00FF_FFFF } else { INK };
             match b {
                 // Una raya. Es el icono universal y no necesita mas.
                 Button::Minimize => p.rect(cx - 5, cy, 10, 1, ink),
                 // Un cuadrado hueco; DOS solapados cuando ya esta maximizada,
                 // que es como se dice "restaurar" en todas partes.
                 Button::Maximize => {
-                    if self.is_maximized() {
+                    if maximizada {
                         chrome_gap(p, cx - 5, cy - 3, 8, 8, ink);
                         chrome_gap(p, cx - 2, cy - 6, 8, 8, ink);
                     } else {
@@ -721,10 +808,94 @@ impl Chrome {
         }
     }
 
+    /// El borde de un pixel, todo alrededor.
+    fn paint_borde(&self, p: &bmo::Pantalla, color: u32) {
+        let (x, y, w, h) = (self.x, self.y, self.width, self.height);
+        p.rect(x, y, w, 1, color);
+        p.rect(x, y + h - 1, w, 1, color);
+        p.rect(x, y, 1, h, color);
+        p.rect(x + w - 1, y, 1, h, color);
+    }
+
+    /// El punto `d` del borde, recorrido en el sentido del reloj desde la
+    /// esquina de arriba a la izquierda.
+    fn en_el_borde(&self, d: u32) -> (u32, u32) {
+        let (x, y, w, h) = (self.x, self.y, self.width.max(2), self.height.max(2));
+        let d = d % (2 * (w + h) - 4);
+        if d < w {
+            (x + d, y)
+        } else if d < w + h - 1 {
+            (x + w - 1, y + d - w + 1)
+        } else if d < 2 * w + h - 2 {
+            (x + w - 1 - (d - w - h + 2), y + h - 1)
+        } else {
+            (x, y + h - 1 - (d - 2 * w - h + 3).min(h - 1))
+        }
+    }
+
+    /// ** EL BORDE VIVO (01-10): con el puntero encima, dos luces corren por el
+    /// borde en sentidos opuestos, del acento a nada; sin el, el borde quieto.
+    /// `fase` en milisegundos. Solo toca el pixel del borde, que la app nunca
+    /// pinta, y asi no hay que volver a pegar nada.
+    pub(crate) fn paint_vivo(&self, p: &bmo::Pantalla, edge: u32, fase: u64, vivo: bool) {
+        let base = if self.foco { mezcla_c(super::acento(), 0, 120) } else { mezcla_c(edge, 0, 60) };
+        self.paint_borde(p, base);
+        if !vivo {
+            return;
+        }
+        let total = 2 * (self.width + self.height);
+        let cabeza = fase as u32 % total;
+        let acento = super::acento();
+        const COLA: u32 = 160;
+        for k in 0..COLA {
+            let luz = mezcla_c(acento, 0x00FF_FFFF, 180 * k / COLA);
+            let color = mezcla_c(base, luz, 255 * k / COLA);
+            let (ax, ay) = self.en_el_borde(cabeza + total - COLA + k);
+            p.punto_ya_marcado(ax, ay, color);
+            let (bx, by) = self.en_el_borde(cabeza / 2 * 3 + total * 2 - k);
+            p.punto_ya_marcado(bx, by, mezcla_c(base, MAGENTA, 255 * (COLA - k) / COLA / 2));
+        }
+    }
+
+    /// ** LA PASTILLA DE LOS BOTONES (sin marco): asoma desde la derecha,
+    /// abriendose a lo ancho segun [`Chrome::asoma`], y encima del contenido
+    /// de la app. Con [`ASOMA`] entera lleva los tres botones; escondida, no
+    /// se pinta (quien llama vuelve a pegar la app). Y la raya de agarrar,
+    /// arriba en el centro.
+    pub(crate) fn paint_pastilla(&self, p: &bmo::Pantalla) {
+        if self.asoma == 0 || self.minimized || self.is_fullscreen() {
+            return;
+        }
+        let (px, py, pw, ph) = self.pastilla();
+        let a = self.asoma as u32;
+        let ancho = (pw * a / ASOMA as u32).max(4);
+        let x0 = px + pw - ancho;
+        let fondo = 0x000D_1018;
+        let acento = super::acento();
+        p.rect(x0, py, ancho, ph, fondo);
+        p.rect(x0, py, ancho, 1, mezcla_c(fondo, acento, 160));
+        p.rect(x0, py + ph - 1, ancho, 1, mezcla_c(fondo, acento, 90));
+        p.rect(x0, py, 1, ph, mezcla_c(fondo, acento, 160));
+        p.rect(px + pw - 1, py, 1, ph, mezcla_c(fondo, acento, 90));
+        // La raya de agarrar, que crece con la pastilla.
+        let raya = 64 * a / ASOMA as u32;
+        let cx = self.x + self.width / 2;
+        p.rect(cx - raya / 2, self.y + 5, raya.max(1), 3, mezcla_c(0x0020_2430, acento, 200));
+        if self.asoma < ASOMA {
+            return;
+        }
+        for (i, b) in [Button::Minimize, Button::Maximize, Button::Close].into_iter().enumerate() {
+            if b == Button::Close && !self.closable {
+                continue;
+            }
+            Self::paint_boton(p, b, self.boton_x(i as u32), py + 2, ph - 4, fondo, self.hover == Some(b), self.is_maximized());
+        }
+    }
+
     /// Las tres rayitas en diagonal de la esquina. Un agarre invisible no
     /// existe: nadie prueba a estirar una ventana que no parece estirable.
     fn paint_corner_grip(&self, p: &bmo::Pantalla, color: u32) {
-        if self.is_maximized() {
+        if self.is_maximized() || self.sin_marco {
             return;
         }
         for k in 0..3u32 {
@@ -740,4 +911,9 @@ fn chrome_gap(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32, color: u32) {
     p.rect(x, y + h - 1, w, 1, color);
     p.rect(x, y, 1, h, color);
     p.rect(x + w - 1, y, 1, h, color);
+}
+
+/// `a` hacia `b`, `t` de 255. La mezcla de siempre, con el orden de `globo`.
+fn mezcla_c(a: u32, b: u32, t: u32) -> u32 {
+    super::globo::mezcla(a, b, t.min(256))
 }

@@ -520,6 +520,8 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         // Ejecutar delante (Ctrl+Alt, 01-10): las apps no la pisan.
         let tapa = run_delante(dsk).then(|| (dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h()));
         dsk.table.compose(&p, tapa);
+        // Y encima de las apps sin marco, su borde vivo y sus botones.
+        crate::desktop::marco::poner(dsk, &p, fs || tapa.is_some());
     }
 
     if dsk.tick.loops == 1 {
