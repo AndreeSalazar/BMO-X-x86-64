@@ -1223,3 +1223,25 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    c424a4753bf556595bccb925b0094b85372d81bb5488ddea9cbca8812e5fcfba
 
 Dice `bien` dieciocho veces y sale con 0. En Windows dice lo mismo.
+
+tanda30.exe -- la TANDA 30 (01-10): Winsock ARRANCA sin cable
+
+Por Cyberpunk: Galaxy (REDGalaxy64.dll) llama a WSAStartup y, si no da 0,
+su Init falla y el juego sale con 0. Un Windows sin cable da 0, la version
+2.2, "WinSock 2.0" y "Running"; lo que falla es resolver NOMBRES. Aqui:
+WSAStartup 2.2 y 1.1 (cuenta las dos), getaddrinfo y GetAddrInfoW de
+127.0.0.1 con su ADDRINFO (AF_INET, TCP, 16 B, el puerto), un servicio que
+no existe (WSATYPE_NOT_FOUND), un nombre .invalid (un error y NULL),
+WSACleanup que cuenta y el de mas (WSANOTINITIALISED), y getaddrinfo sin
+WSAStartup. Nada depende de tener red: con cable y sin el, lo mismo.
+
+   llvm-dlltool -m i386:x86-64 -d tanda30_kernel32.def -l tanda30_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda30_ws2_32.def -l tanda30_ws2_32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda30.c -o tanda30.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda30.obj tanda30_kernel32.lib tanda30_ws2_32.lib /out:tanda30.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   d41c9c2f0fa11a13f4cf0aa62313a535c6d99f42db65cd1871db0eb82ce11112
+
+Dice `bien` trece veces y sale con 0. En Windows dice lo mismo.

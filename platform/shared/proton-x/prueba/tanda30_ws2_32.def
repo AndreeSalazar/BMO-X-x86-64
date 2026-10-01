@@ -1,0 +1,9 @@
+LIBRARY ws2_32.dll
+EXPORTS
+WSAGetLastError @111 NONAME
+WSAStartup @115 NONAME
+WSACleanup @116 NONAME
+getaddrinfo
+freeaddrinfo
+GetAddrInfoW
+FreeAddrInfoW

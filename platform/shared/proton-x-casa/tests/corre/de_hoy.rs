@@ -304,3 +304,12 @@ fn tanda28_exe_desenrollar_consolidando() {
 fn tanda29_exe_carpetas_que_se_crean_mueven_y_borran() {
     tanda(TANDA29, None, 18, "tanda29.exe: carpetas y ficheros que se crean, se mueven y se borran como en Windows");
 }
+
+/// **La tanda 30** (01-10): `tanda30.exe` -- Winsock ARRANCA sin cable
+/// (Galaxy lo pide en su Init): WSAStartup 2.2 da 0, getaddrinfo y
+/// GetAddrInfoW de una IPv4 en numeros, el servicio que no existe y
+/// WSACleanup que cuenta.
+#[test]
+fn tanda30_exe_winsock_arranca_sin_cable() {
+    tanda(TANDA30, None, 13, "tanda30.exe: Winsock arranca sin cable y contesta una IPv4 en numeros");
+}
