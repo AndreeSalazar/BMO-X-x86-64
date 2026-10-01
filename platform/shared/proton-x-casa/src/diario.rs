@@ -168,6 +168,8 @@ pub fn diario(ruta: Option<&[u8]>) {
     e.texto = CABECERA.to_vec();
     e.vistas = 0;
     e.lleno = false;
+    // SAFETY: ver `Notas`.
+    unsafe { *NOTAS.0.get() = 0 };
     // SAFETY: una tarea (ver `Global`); nadie salta por un trampolin ahora.
     unsafe {
         *core::ptr::addr_of_mut!(PROTON_X_DIARIO_CUENTA) = 0;
@@ -255,4 +257,38 @@ pub fn al_salir(codigo: u32) {
     }
     e.texto.extend_from_slice(t.as_bytes());
     let _ = (plataforma().escribir_fichero)(&r, &e.texto);
+}
+
+/// Cuantas notas de investigacion (rutas que no estan, carpetas que se dan)
+/// se dicen por la consola: las primeras.
+const MAX_NOTAS: u32 = 64;
+
+struct Notas(UnsafeCell<u32>);
+// SAFETY: una tarea, hilos cooperativos.
+unsafe impl Sync for Notas {}
+static NOTAS: Notas = Notas(UnsafeCell::new(0));
+
+/// **Una nota de investigacion** (01-10), solo con el diario encendido y
+/// solo las [`MAX_NOTAS`] primeras: Cyberpunk se rinde en silencio leyendo
+/// su configuracion, y lo que no encuentra es justo lo que hay que ver.
+pub(crate) fn nota(texto: &str) {
+    if !encendido() {
+        return;
+    }
+    // SAFETY: ver `Notas`.
+    let n = unsafe { &mut *NOTAS.0.get() };
+    *n += 1;
+    if *n <= MAX_NOTAS {
+        crate::decir(texto);
+    }
+}
+
+/// La nota de una ruta del `.exe` que no se pudo abrir o mirar.
+pub(crate) fn no_esta(que: &str, nombre: *const u16) {
+    if !encendido() || nombre.is_null() {
+        return;
+    }
+    // SAFETY: una cadena del `.exe` acabada en 0 (la funcion de Windows la pide asi).
+    let w = unsafe { crate::user32::utf16(nombre) };
+    nota(&alloc::format!("{que}(\"{}\"): no (error {})", String::from_utf16_lossy(&w), crate::kernel32::ultimo_error()));
 }

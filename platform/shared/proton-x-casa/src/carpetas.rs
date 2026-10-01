@@ -188,6 +188,14 @@ fn poner_hallazgo(e: &Entrada, d: *mut u8) {
 }
 
 extern "win64" fn find_first_file_w(nombre: *const u16, datos: *mut u8) -> u64 {
+    let h = find_first_dentro(nombre, datos);
+    if h == NO_VALE {
+        crate::diario::no_esta("FindFirstFileW", nombre);
+    }
+    h
+}
+
+fn find_first_dentro(nombre: *const u16, datos: *mut u8) -> u64 {
     let w = ancho(nombre);
     let (carpeta, patron) = match ficheros::partir_patron(&w, &directorio()) {
         Ok(x) => x,
@@ -262,6 +270,14 @@ extern "win64" fn find_close(h: u64) -> i32 {
 // -- Rutas y directorio actual ---------------------------------------------------------------
 
 extern "win64" fn get_file_attributes_ex_w(nombre: *const u16, nivel: u32, datos: *mut u8) -> i32 {
+    let r = get_file_attributes_ex_dentro(nombre, nivel, datos);
+    if r == 0 {
+        crate::diario::no_esta("GetFileAttributesExW", nombre);
+    }
+    r
+}
+
+fn get_file_attributes_ex_dentro(nombre: *const u16, nivel: u32, datos: *mut u8) -> i32 {
     if nivel != 0 || datos.is_null() {
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return 0;
@@ -314,7 +330,9 @@ fn actual() -> Vec<u16> {
 }
 
 extern "win64" fn get_current_directory_w(n: u32, buf: *mut u16) -> u32 {
-    dar(&actual(), buf, n)
+    let a = actual();
+    crate::diario::nota(&alloc::format!("GetCurrentDirectoryW: \"{}\"", String::from_utf16_lossy(&a)));
+    dar(&a, buf, n)
 }
 
 extern "win64" fn set_current_directory_w(nombre: *const u16) -> i32 {
