@@ -68,13 +68,38 @@ impl Canvas {
         }
     }
 
+    /// A filled circle with SOFT edges: the pixels the edge crosses take the
+    /// share of 16 samples (4x4) that fall inside, so a circle has no teeth.
+    /// In eighths of a pixel: radius `r + 1/2`, the same size the hard one
+    /// had. Inside and outside cost one comparison; only the rim is sampled.
     pub fn disc(&mut self, cx: i32, cy: i32, r: i32, c: Color) {
-        for dy in -r..=r {
-            let mut dx = 0;
-            while (dx + 1) * (dx + 1) + dy * dy <= r * r {
-                dx += 1;
+        let rr = (8 * r + 4) * (8 * r + 4);
+        for dy in -r - 1..=r + 1 {
+            let ay = (8 * dy).abs();
+            for dx in -r - 1..=r + 1 {
+                let ax = (8 * dx).abs();
+                if (ax + 4) * (ax + 4) + (ay + 4) * (ay + 4) <= rr {
+                    self.put(cx + dx, cy + dy, c);
+                    continue;
+                }
+                let (nx, ny) = ((ax - 4).max(0), (ay - 4).max(0));
+                if nx * nx + ny * ny > rr {
+                    continue;
+                }
+                let mut dentro = 0;
+                for j in 0..4 {
+                    let sy = 8 * dy + 2 * j - 3;
+                    for i in 0..4 {
+                        let sx = 8 * dx + 2 * i - 3;
+                        if sx * sx + sy * sy <= rr {
+                            dentro += 1;
+                        }
+                    }
+                }
+                if dentro > 0 {
+                    self.blend(cx + dx, cy + dy, c, dentro, 16);
+                }
             }
-            self.rect(cx - dx, cy + dy, 2 * dx + 1, 1, c);
         }
     }
 

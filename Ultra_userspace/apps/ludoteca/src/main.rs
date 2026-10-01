@@ -160,7 +160,7 @@ pub extern "C" fn _start() -> ! {
     // SAFETY: el bloque es nuestro, mide PARA_MONTON y vive lo que el proceso.
     unsafe { MONTON.poner(bloque.base() as usize, PARA_MONTON as usize) };
     core::mem::forget(bloque);
-    let Some(win) = Window::open(ANCHO, ALTO) else {
+    let Some(mut win) = Window::open(ANCHO, ALTO) else {
         say("LUDOTECA: NO -- sin ventana (no hay memoria, o nadie me lanzo)\n");
         bmo::salir();
     };
@@ -189,6 +189,18 @@ pub extern "C" fn _start() -> ! {
 
         while let Some(ev) = win.next() {
             tocada = ahora;
+            // ** MAXIMIZAR LLENA LA VENTANA (01-10): el DIRECTOR dice el hueco
+            // nuevo y la LUDOTECA se vuelve a pintar a esa medida, nitida --
+            // no se estira: un estirado son pixeles gordos y dientes. Con menos
+            // de lo minimo contesta con su minimo y el DIRECTOR la centra.
+            if let Input::Resize { w, h } = ev {
+                let (w, h) = (w.max(pintar::MINIMO.0), h.max(pintar::MINIMO.1));
+                if win.resize(w, h) {
+                    pintar::medir(w, h);
+                    cv = Canvas::new(win.px, win.w, win.h);
+                }
+                continue;
+            }
             if entrada {
                 // La primera tecla o clic solo corta la entrada.
                 entrada = false;
