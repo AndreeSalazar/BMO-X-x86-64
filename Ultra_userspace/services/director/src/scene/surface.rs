@@ -217,7 +217,11 @@ impl Surface {
     /// una superficie -- entonces no era para esto, y no se toca.
     fn new(p: &bmo::Pantalla, handle: u64, base: u64, bytes: u64, tid: u32) -> Option<Self> {
         let cab = Header::read(base, bytes)?;
-        let chrome = Chrome::for_content(p, cab.width, cab.height);
+        let chrome = if sin_marco(tid) {
+            Chrome::for_content_sin_marco(p, cab.width, cab.height)
+        } else {
+            Chrome::for_content(p, cab.width, cab.height)
+        };
         let s = Surface {
             chrome,
             handle,
@@ -255,7 +259,7 @@ impl Surface {
 
     /// Donde empieza el interior, dentro del marco.
     fn inner(&self) -> (u32, u32) {
-        (self.chrome.x + 1, self.chrome.y + TITLE_H)
+        (self.chrome.x + 1, self.chrome.y + self.chrome.titulo())
     }
 
     /// **Lo que de verdad se esta viendo del interior**, en coordenadas de
@@ -289,7 +293,7 @@ impl Surface {
         }
         let (x, y) = self.inner();
         let gap_w = self.chrome.width.saturating_sub(2);
-        let gap_h = self.chrome.height.saturating_sub(TITLE_H + 1);
+        let gap_h = self.chrome.height.saturating_sub(self.chrome.titulo() + 1);
         bmo_golpe::Visible {
             x,
             y,
@@ -365,6 +369,11 @@ impl Surface {
         // medias por un recorte se daria por pintado y no volveria a intentarse.
         self.stuck = cab.sequence;
         self.ritmo.presento();
+        // Sin marco, los botones van ENCIMA del contenido: lo recien pegado
+        // los habra tapado. Con Ejecutar delante no: la pisarian.
+        if tapa.is_none() {
+            self.chrome.paint_pastilla(p);
+        }
         true
     }
 
@@ -512,6 +521,10 @@ impl Surface {
 
     pub(crate) fn paint_chrome(&self, p: &bmo::Pantalla) {
         self.chrome.paint_chrome(p, BOX_EDGE, BOX_BG, BOX_TITLE, acento());
+        // Sin marco no hay titulo donde escribir el tid.
+        if self.chrome.sin_marco {
+            return;
+        }
         p.rect(self.chrome.x + 10, self.chrome.y + 10, 8, 8, acento());
         // El titulo es el TID, porque es lo unico que el DIRECTOR sabe de esta
         // app con certeza: el nombre lo pondria quien la lanzo, y lanzar y
@@ -534,6 +547,12 @@ impl Surface {
         self.width = self.chrome.width;
         self.height = self.chrome.height;
         cambio
+    }
+
+    /// [`Surface::mark_dirty`] para quien esconde algo pintado encima del
+    /// contenido (los botones de una ventana sin marco).
+    pub(crate) fn repegar(&mut self) {
+        self.mark_dirty();
     }
 
     /// **Fuerza a repegar los pixeles en la siguiente vuelta**, aunque la app no
@@ -647,7 +666,7 @@ impl Surface {
             self.chrome.is_maximized(),
             (p.ancho, p.alto),
             (self.chrome.width, self.chrome.height),
-            TITLE_H,
+            self.chrome.titulo(),
         );
         let clave = (quiere.ancho, quiere.alto, quiere.estado as u8);
         if clave == self.configurado {
@@ -709,6 +728,30 @@ impl Surface {
 }
 
 /// `tid 7` en bytes, sin `alloc` y sin formato.
+/// ** LAS APPS SIN MARCO (01-10): su ventana es un borde vivo de un pixel y
+/// tres botones que asoman (ver `Chrome::sin_marco`). Se decide por el
+/// programa, no por la app: el marco es cosa del escritorio.
+const SIN_MARCO: [&[u8]; 1] = [b"ludoteca.bex"];
+
+/// El programa de `tid` es de los [`SIN_MARCO`]? Lo mismo que mira F4 para
+/// saber si la LUDOTECA ya esta abierta: el nombre que el kernel apunto al
+/// lanzarlo.
+fn sin_marco(tid: u32) -> bool {
+    for k in 0..64u64 {
+        let quien = bmo::info(bmo::INFO_PROG_QUIEN | (k << 8));
+        if quien == 0 {
+            break;
+        }
+        if (quien >> 16) & 0xFFFF != tid as u64 {
+            continue;
+        }
+        let mut texto = [0u8; 40];
+        let t = bmo::info_texto(bmo::INFO_TXT_PROG_NOMBRE | (k << 8), &mut texto).min(texto.len());
+        return SIN_MARCO.iter().any(|n| texto[..t].ends_with(n));
+    }
+    false
+}
+
 fn tid_text(tid: u32, dst: &mut [u8; 12]) -> usize {
     dst[..4].copy_from_slice(b"tid ");
     let mut n = 4;

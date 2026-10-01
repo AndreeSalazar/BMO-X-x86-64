@@ -52,7 +52,8 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
     {
         use scene::chrome::Button;
 
-        if button && !dsk.tick.button_before {
+        // Con Ejecutar delante (Ctrl+Alt), su caja no es de la app de debajo.
+        if button && !dsk.tick.button_before && crate::desktop::paint::app_encima(dsk, pos.x, pos.y) {
             if let Some(i) = dsk.table.at(pos.x, pos.y) {
                 // El realce se pone aunque no se pulse: si no, los tres
                 // botones de una app serian los unicos del escritorio
@@ -104,9 +105,9 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                         }
                     }
                     None => {
-                        if let Some(s) = dsk.table.get_mut(i) {
-                            s.chrome.grab(pos.x, pos.y);
-                        }
+                        // Sin marco, el asa esta DENTRO de la caja (la franja
+                        // de arriba): lo que agarra no es un clic de la app.
+                        let agarro = dsk.table.get_mut(i).is_some_and(|s| s.chrome.grab(pos.x, pos.y) && s.chrome.sin_marco);
                         // ** EL CLIC LE DA EL FOCO, y el turno largo sale de
                         // ahi: lo aplica `turno_al_foco` una vez por vuelta,
                         // en un solo sitio. Pedirlo tambien aqui seria la
@@ -117,7 +118,9 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                         // `keys::app::raton`: contesta que no si el punto cae
                         // fuera del contenido, asi que la barra de titulo
                         // sigue siendo del marco.
-                        keys::app::raton(dsk, &p, pos.x, pos.y, pos.botones, true);
+                        if !agarro {
+                            keys::app::raton(dsk, &p, pos.x, pos.y, pos.botones, true);
+                        }
                     }
                 }
             }

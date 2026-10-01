@@ -239,7 +239,14 @@ fn repartir(
     };
     // De arriba abajo, que es `TODAS` del reves: la de encima se lleva el clic
     // de la zona compartida. Antes era otra lista escrita a mano.
-    let under_pointer = if at(dsk.win.top_before) {
+    // ** UNA APP ENCIMA SE LLEVA EL PUNTO (01-10). Las apps se componen por
+    // encima de las ventanas fijas, pero esta pregunta solo miraba las fijas:
+    // un clic en la LUDOTECA, encima del boton "save" de Ejecutar, corria
+    // `save` en la terminal tapada (visto en el Ryzen: "save, linea limpia"
+    // cuatro veces). Lo que se ve encima es lo que recibe el clic.
+    let under_pointer = if crate::desktop::paint::app_encima(dsk, pos.x, pos.y) {
+        None
+    } else if at(dsk.win.top_before) {
         Some(dsk.win.top_before)
     } else {
         Ventana::TODAS

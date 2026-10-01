@@ -497,7 +497,28 @@ fn entrada(base: u64, rsrc: u64, dir: u64, id: Option<u16>) -> Option<(u64, bool
     })
 }
 
-/// **El recurso** `tipo`/`id` del modulo `base` (el primer idioma): su
+/// **El idioma** de un recurso, como Windows en en-US: el neutro, en-US,
+/// otro ingles, el del usuario o el del sistema; si no hay ninguno, el
+/// primero. Los idiomas van en orden de su numero, y "el primero" seria el
+/// arabe (0x401) antes que el ingles (0x409): Cyberpunk saco su aviso en
+/// arabe por eso.
+fn idioma(base: u64, rsrc: u64, dir: u64) -> Option<(u64, bool)> {
+    let d = rsrc + dir;
+    let n = leer16(base, d + 12) as u64 + leer16(base, d + 14) as u64;
+    let lenguas: Vec<(u32, u32)> = (0..n).map(|i| d + 16 + 8 * i).map(|e| (leer32(base, e), leer32(base, e + 4))).collect();
+    let rango = |l: u32| match l {
+        0x0000 => 0,
+        0x0409 => 1,
+        _ if l & 0x3FF == 0x09 => 2,
+        0x0400 => 3,
+        0x0800 => 4,
+        _ => 5,
+    };
+    let (_, a) = lenguas.iter().filter(|(l, _)| l & 0x8000_0000 == 0).min_by_key(|(l, _)| rango(*l)).or(lenguas.first())?;
+    Some(((a & 0x7FFF_FFFF) as u64, a & 0x8000_0000 != 0))
+}
+
+/// **El recurso** `tipo`/`id` del modulo `base` (en su idioma): su
 /// direccion y su medida.
 fn recurso(base: u64, tipo: u16, id: u16) -> Option<(u64, u32)> {
     if base == 0 || leer16(base, 0) != 0x5A4D {
@@ -511,7 +532,7 @@ fn recurso(base: u64, tipo: u16, id: u16) -> Option<(u64, u32)> {
     }
     let (t, sub) = entrada(base, rsrc, 0, Some(tipo))?;
     let (n, sub2) = sub.then(|| entrada(base, rsrc, t, Some(id))).flatten()?;
-    let (l, hoja) = sub2.then(|| entrada(base, rsrc, n, None)).flatten()?;
+    let (l, hoja) = sub2.then(|| idioma(base, rsrc, n)).flatten()?;
     if hoja {
         return None;
     }

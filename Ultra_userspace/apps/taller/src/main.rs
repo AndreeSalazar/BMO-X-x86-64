@@ -138,7 +138,7 @@ fn fit(g: &Graph) -> Camera {
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    let Some(win) = Window::open(WIDTH, HEIGHT) else {
+    let Some(mut win) = Window::open(WIDTH, HEIGHT) else {
         say("TALLER: NO -- sin ventana (no hay memoria, o nadie me lanzo)\n");
         bmo::salir();
     };
@@ -257,6 +257,8 @@ pub extern "C" fn _start() -> ! {
                         dirty = true;
                     }
                 }
+                // TALLER keeps its size: the DIRECTOR centers it.
+                Input::Resize { .. } => {}
                 Input::Char(c) => {
                     dirty |= key(c, &mut shown, &mut cam, &store.loaded.graph);
                 }

@@ -27,6 +27,14 @@ pub struct Window {
     pub px: *mut u32,
     pub w: u32,
     pub h: u32,
+    /// The blocks offered before a CONFIGURE: the DIRECTOR may still be
+    /// composing from them until it marks the new one TAKEN. Released then,
+    /// never before (`bmo-golpe/src/configure.rs`, step 4).
+    old: [Option<bmo::Memoria>; 4],
+    /// The block in use, kept to hand it to `old` on the next resize.
+    /// (TALLER never resizes: for it, this only keeps the block alive.)
+    #[allow(dead_code)]
+    block: Option<bmo::Memoria>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -35,6 +43,9 @@ pub enum Input {
     Mouse { x: i32, y: i32, buttons: u8, down: bool },
     /// A letter, already cooked by the kernel's keyboard map (Latin-1).
     Char(u8),
+    /// CONFIGURE: the DIRECTOR says the room we have now (maximized, full
+    /// screen, back to a window). `resize` answers it; ignoring it is safe.
+    Resize { w: u32, h: u32 },
 }
 
 #[derive(Clone, Copy)]
@@ -63,6 +74,55 @@ impl Window {
     /// launched us (the DIRECTOR). `None` says which step failed through the
     /// console, and the caller exits.
     pub fn open(w: u32, h: u32) -> Option<Window> {
+        let (block, base, mailbox) = Self::offered(w, h)?;
+        Some(Window { base, mailbox, px: (base + bmo::SUP_CABECERA) as *mut u32, w, h, old: [None, None, None, None], block: Some(block) })
+    }
+
+    /// **Answers a CONFIGURE**: a new surface of `w x h`, offered while the
+    /// old one stays alive. From here on we paint into the new one. `false`:
+    /// same size, or no memory -- we stay as we were, which the DIRECTOR
+    /// also accepts (it centers us).
+    #[allow(dead_code)] // TALLER keeps its size; LUDOTECA answers.
+    pub fn resize(&mut self, w: u32, h: u32) -> bool {
+        if (w, h) == (self.w, self.h) || w == 0 || h == 0 {
+            return false;
+        }
+        let Some((block, base, mailbox)) = Self::offered(w, h) else { return false };
+        // Four resizes before the DIRECTOR takes one is not a real case; if it
+        // happens, the oldest is forgotten (lent forever) rather than freed.
+        if let Some(b) = self.block.replace(block) {
+            if let Some(hueco) = self.old.iter_mut().find(|o| o.is_none()) {
+                *hueco = Some(b);
+            } else {
+                core::mem::forget(b);
+            }
+        }
+        self.base = base;
+        self.mailbox = mailbox;
+        self.px = (base + bmo::SUP_CABECERA) as *mut u32;
+        self.w = w;
+        self.h = h;
+        true
+    }
+
+    /// The old blocks go back once the DIRECTOR took the new one. A block it
+    /// still holds stays ours until the next look: never released lent.
+    fn release_old(&mut self) {
+        if self.old.iter().all(Option::is_none) || get(self.mailbox + 12) as u64 & bmo::SUP_TOMADA == 0 {
+            return;
+        }
+        for o in self.old.iter_mut() {
+            if let Some(b) = o.take() {
+                if let Err(b) = b.soltar_esperando(1_000_000) {
+                    *o = Some(b);
+                }
+            }
+        }
+    }
+
+    /// A block of `w x h` with its header and an empty mailbox, offered to
+    /// whoever launched us.
+    fn offered(w: u32, h: u32) -> Option<(bmo::Memoria, u64, u64)> {
         let pixels = w as u64 * h as u64 * 4;
         let mailbox_at = bmo::SUP_CABECERA + pixels;
         let bytes = mailbox_at + bmo::SUP_BUZON_CABECERA + SLOTS * bmo::SUP_BUZON_RANURA;
@@ -80,13 +140,11 @@ impl Window {
         for i in 0..4 {
             put(mailbox + 4 * i, 0);
         }
-        // The block lives until the process dies: the DIRECTOR composes from it.
-        core::mem::forget(block);
         let parent = bmo::mi_padre();
         if parent == 0 || !bmo::offer(handle, 0, bytes, parent) {
             return None;
         }
-        Some(Window { base, mailbox, px: (base + bmo::SUP_CABECERA) as *mut u32, w, h })
+        Some((block, base, mailbox))
     }
 
     /// The frame is finished: raise the sequence so the DIRECTOR copies it.
@@ -97,7 +155,8 @@ impl Window {
 
     /// The next click or letter, if any. The DIRECTOR writes the head; we own
     /// the tail.
-    pub fn next(&self) -> Option<Input> {
+    pub fn next(&mut self) -> Option<Input> {
+        self.release_old();
         let head = get(self.mailbox);
         let tail = get(self.mailbox + 4);
         if head == tail {
@@ -108,6 +167,9 @@ impl Window {
         // SAFETY: the slot is inside the mailbox of our own block.
         let e = unsafe { core::ptr::read_volatile(slot as *const u64) };
         put(self.mailbox + 4, (tail + 1) & mask);
+        if e & bmo::SUP_EV_CONFIGURE != 0 {
+            return Some(Input::Resize { w: ((e >> 16) & 0xFFFF) as u32, h: ((e >> 32) & 0xFFFF) as u32 });
+        }
         if e & bmo::SUP_EV_RATON != 0 {
             return Some(Input::Mouse {
                 x: ((e >> 16) & 0xFFFF) as i32,

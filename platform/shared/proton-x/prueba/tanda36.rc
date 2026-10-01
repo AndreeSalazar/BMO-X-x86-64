@@ -1,0 +1,15 @@
+/* tanda36.rc -- un STRINGTABLE en dos idiomas, como el de Cyberpunk: el
+ * arabe (0x401) va antes que el ingles (0x409) en el directorio. */
+LANGUAGE 0x01, 0x01
+STRINGTABLE
+BEGIN
+  7 L"\x0645\x0631\x062D\x0628\x0627"
+  9 L"\x0634\x0643\x0631\x0627"
+  20 L"\x0634\x0643\x0631\x0627"
+END
+
+LANGUAGE 0x09, 0x01
+STRINGTABLE
+BEGIN
+  7 "Night City"
+END

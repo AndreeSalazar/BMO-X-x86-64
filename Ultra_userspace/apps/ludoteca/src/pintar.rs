@@ -24,12 +24,39 @@ use bmo_ludoteca::Camino;
 pub const ANCHO: u32 = 1280;
 pub const ALTO: u32 = 760;
 
+/// **La medida de verdad**: la de la superficie de ahora. Empieza en
+/// `ANCHO x ALTO` y la cambia un CONFIGURE (maximizar, pantalla completa):
+/// la LUDOTECA se vuelve a pintar a su medida nueva, pixel a pixel, sin
+/// estirar nada. Las columnas de los lados no cambian; el centro crece.
+static MEDIDA: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(ANCHO << 16 | ALTO);
+
+/// Lo minimo que cabe: los tres paneles y el estandarte.
+pub const MINIMO: (u32, u32) = (960, 600);
+
+pub fn medir(w: u32, h: u32) {
+    MEDIDA.store(w.max(MINIMO.0) << 16 | h.max(MINIMO.1), core::sync::atomic::Ordering::Relaxed);
+}
+
+fn ancho() -> i32 {
+    (MEDIDA.load(core::sync::atomic::Ordering::Relaxed) >> 16) as i32
+}
+
+fn alto() -> i32 {
+    (MEDIDA.load(core::sync::atomic::Ordering::Relaxed) & 0xFFFF) as i32
+}
+
+fn w_centro() -> i32 {
+    ancho() - X_CENTRO - PIEZAS
+}
+
+fn x_piezas() -> i32 {
+    ancho() - PIEZAS
+}
+
 const RIEL: i32 = 72;
 const CANALES: i32 = 240;
 const PIEZAS: i32 = 232;
 const X_CENTRO: i32 = RIEL + CANALES;
-const W_CENTRO: i32 = ANCHO as i32 - X_CENTRO - PIEZAS;
-const X_PIEZAS: i32 = ANCHO as i32 - PIEZAS;
 
 const BURBUJA: i32 = 48;
 const PASO_RIEL: i32 = 56;
@@ -100,7 +127,7 @@ fn caja_canal(k: usize) -> (i32, i32, i32, i32) {
 }
 
 fn caja_heroe() -> (i32, i32, i32, i32) {
-    (X_CENTRO + 16, CABECERA + 16, W_CENTRO - 32, 232)
+    (X_CENTRO + 16, CABECERA + 16, w_centro() - 32, 232)
 }
 
 fn caja_jugar() -> (i32, i32, i32, i32) {
@@ -217,7 +244,7 @@ fn gato(cv: &mut Canvas, x: i32, y: i32, paso: u32, trazo: Color, ojos: Color) {
 // -- las cuatro columnas --------------------------------------------------------
 
 fn riel(cv: &mut Canvas, v: &Vista) {
-    cv.rect(0, 0, RIEL, ALTO as i32, FONDO_RIEL);
+    cv.rect(0, 0, RIEL, alto(), FONDO_RIEL);
     let crece = ((v.ms.wrapping_sub(v.desde_tienda)).min(220) * 256 / 220) as i32;
     for (i, p) in PUESTOS.iter().enumerate() {
         let (x, y, w, h) = caja_burbuja(i);
@@ -243,7 +270,7 @@ fn riel(cv: &mut Canvas, v: &Vista) {
 
 fn canales(cv: &mut Canvas, v: &Vista) {
     let p = &PUESTOS[v.tienda];
-    cv.rect(RIEL, 0, CANALES, ALTO as i32, FONDO_CANALES);
+    cv.rect(RIEL, 0, CANALES, alto(), FONDO_CANALES);
     // La cabecera: el nombre de la tienda.
     negrita(cv, RIEL + 16, 16, p.nombre().as_bytes(), BLANCO, 1);
     cv.disc(RIEL + CANALES - 20, 24, 4 + onda(v.ms, 1600) / 128, p.color);
@@ -264,12 +291,17 @@ fn canales(cv: &mut Canvas, v: &Vista) {
     negrita(cv, RIEL + 16 + k, CABECERA + 60, if v.visibles.len() == 1 { b" juego" } else { b" juegos" }, sobre, 1);
     // El hueco del logo oficial: dicho, y listo para cuando llegue.
     let oficial = v.logos.get(v.tienda).copied().unwrap_or(false);
-    cv.text(RIEL + 16, CABECERA + 14, if oficial { b"logo oficial: listo" } else { b"insignia propia" }, mezclar(BLANCO, p.fondo, 170, 256), 1);
+    let rotulo: &[u8] = match (p.tienda, oficial) {
+        (None, _) => b"todas las tiendas",
+        (Some(_), true) => b"logo oficial: listo",
+        (Some(_), false) => b"insignia propia",
+    };
+    cv.text(RIEL + 16, CABECERA + 14, rotulo, mezclar(BLANCO, p.fondo, 170, 256), 1);
     // Los canales: uno por juego.
     cv.text(RIEL + 16, Y_CANALES, b"JUEGOS", TENUE, 1);
     for (k, &i) in v.visibles.iter().enumerate() {
         let (x, y, w, h) = caja_canal(k);
-        if y + h > ALTO as i32 - 120 {
+        if y + h > alto() - 120 {
             break;
         }
         let elegido = k == v.sel;
@@ -298,7 +330,7 @@ fn canales(cv: &mut Canvas, v: &Vista) {
         cv.text(RIEL + 16, Y_CANALES + 48, b"todavia", GRIS, 1);
     }
     // Quien eres: el gato de BMO-X, y a que juegas.
-    let yp = ALTO as i32 - 56;
+    let yp = alto() - 56;
     cv.rect(RIEL, yp, CANALES, 56, FONDO_PANEL);
     cv.disc(RIEL + 30, yp + 28, 19, OSCURO);
     let ojos = if (v.ms % 6000) < 140 { OSCURO } else { NEON };
@@ -311,7 +343,7 @@ fn canales(cv: &mut Canvas, v: &Vista) {
 }
 
 fn centro(cv: &mut Canvas, v: &Vista) {
-    cv.rect(X_CENTRO, 0, W_CENTRO, ALTO as i32, FONDO_CENTRO);
+    cv.rect(X_CENTRO, 0, w_centro(), alto(), FONDO_CENTRO);
     let elegido = v.visibles.get(v.sel).copied();
     // La cabecera del canal.
     cv.text(X_CENTRO + 18, 16, b"#", GRIS, 1);
@@ -325,12 +357,12 @@ fn centro(cv: &mut Canvas, v: &Vista) {
         cv.text(X_CENTRO + 60 + k + w, 16, b" . ", TENUE, 1);
         cv.text(X_CENTRO + 84 + k + w, 16, v.cat.l.juegos[i].tienda.nombre().as_bytes(), TENUE, 1);
     }
-    cv.text(X_CENTRO + W_CENTRO - 40, 16, b"F4", GRIS, 1);
+    cv.text(X_CENTRO + w_centro() - 40, 16, b"F4", GRIS, 1);
     // El gato de BMO-X en medio de la cabecera, en su cajita.
-    let gx = X_CENTRO + W_CENTRO / 2 + 40;
+    let gx = X_CENTRO + w_centro() / 2 + 40;
     redondo(cv, gx - 4, 6, 34, 36, 6, OSCURO);
     gato(cv, gx + 2, 9, 6, NEON, if (v.ms % 6000) < 140 { OSCURO } else { BLANCO });
-    cv.rect(X_CENTRO, CABECERA - 1, W_CENTRO, 1, BORDE);
+    cv.rect(X_CENTRO, CABECERA - 1, w_centro(), 1, BORDE);
 
     // -- el juego fijado --
     let (hx, hy, hw, hh) = caja_heroe();
@@ -420,22 +452,22 @@ fn centro(cv: &mut Canvas, v: &Vista) {
         redondo(cv, X_CENTRO + 80 + w, yy + 2, 44, 16, 3, tinta(NEON));
         cv.text(X_CENTRO + 82 + w, yy + 2, b"PIEZA", tinta(OSCURO), 1);
         cv.text(X_CENTRO + 136 + w, yy + 2, b"hoy", tinta(TENUE), 1);
-        cv.text_fit(X_CENTRO + 72, yy + 22, texto, tinta(TEXTO), W_CENTRO - 100);
+        cv.text_fit(X_CENTRO + 72, yy + 22, texto, tinta(TEXTO), w_centro() - 100);
         y += 52;
     }
     // Lo que contesto el escritorio a JUGAR.
     if !v.aviso.is_empty() {
-        cv.text_fit(X_CENTRO + 72, y + 4, v.aviso, NEON, W_CENTRO - 100);
+        cv.text_fit(X_CENTRO + 72, y + 4, v.aviso, NEON, w_centro() - 100);
     }
 
     // -- la caja de abajo: las teclas, y el juez que "escribe" --
-    let yb = ALTO as i32 - 70;
+    let yb = alto() - 70;
     for k in 0..3 {
         let s = seno(fase(v.ms + k * 150, 1200)).max(0) * 4 / 256;
         cv.disc(X_CENTRO + 24 + k as i32 * 8, yb + 6 - s, 2, TENUE);
     }
     cv.text(X_CENTRO + 52, yb - 2, b"el juez espera la suma de la tienda...", TENUE, 1);
-    redondo(cv, X_CENTRO + 16, yb + 18, W_CENTRO - 32, 40, 8, 0x0010_2238);
+    redondo(cv, X_CENTRO + 16, yb + 18, w_centro() - 32, 40, 8, 0x0010_2238);
     cv.text(X_CENTRO + 32, yb + 30, b"ENTER juega   flechas eligen   T tienda siguiente   Esc cierra", TENUE, 1);
 }
 
@@ -463,7 +495,7 @@ fn mensajes(v: &Vista, elegido: Option<usize>) -> [(&'static [u8], u8, Color, &'
 }
 
 fn piezas(cv: &mut Canvas, v: &Vista) {
-    cv.rect(X_PIEZAS, 0, PIEZAS, ALTO as i32, FONDO_CANALES);
+    cv.rect(x_piezas(), 0, PIEZAS, alto(), FONDO_CANALES);
     let lista: [(&[u8], u8, Color, Color, &[u8]); 6] = [
         (b"PROTON-X", b'P', 0x005E_F2E6, if v.proton { VERDE } else { GRIS }, if v.proton { b"listo en sys/" } else { b"no esta en sys/" }),
         (b"ESTRATOS", b'E', 0x004D_E38F, if v.estratos { VERDE } else { AMBAR }, if v.estratos { b"F: montado" } else { b"sin montar" }),
@@ -475,21 +507,21 @@ fn piezas(cv: &mut Canvas, v: &Vista) {
     let mut y = 20;
     for (k, (nombre, ini, c, estado, hace)) in lista.iter().enumerate() {
         if k == 0 || k == 4 {
-            cv.text(X_PIEZAS + 16, y + 8, if k == 0 { b"TRABAJANDO - 4" } else { b"ESPERANDO - 2" }, TENUE, 1);
+            cv.text(x_piezas() + 16, y + 8, if k == 0 { b"TRABAJANDO - 4" } else { b"ESPERANDO - 2" }, TENUE, 1);
             y += 34;
         }
-        let encima = v.puntero.is_some_and(|(px, py)| dentro(px, py, (X_PIEZAS + 8, y, PIEZAS - 16, 44)));
+        let encima = v.puntero.is_some_and(|(px, py)| dentro(px, py, (x_piezas() + 8, y, PIEZAS - 16, 44)));
         if encima {
-            redondo(cv, X_PIEZAS + 8, y, PIEZAS - 16, 44, 5, ENCIMA);
+            redondo(cv, x_piezas() + 8, y, PIEZAS - 16, 44, 5, ENCIMA);
         }
-        cv.disc(X_PIEZAS + 32, y + 22, 16, mezclar(*c, 0x0010_2A30, 150, 256));
-        negrita(cv, X_PIEZAS + 28, y + 14, &[*ini], BLANCO, 1);
-        cv.disc(X_PIEZAS + 44, y + 34, 6, FONDO_CANALES);
+        cv.disc(x_piezas() + 32, y + 22, 16, mezclar(*c, 0x0010_2A30, 150, 256));
+        negrita(cv, x_piezas() + 28, y + 14, &[*ini], BLANCO, 1);
+        cv.disc(x_piezas() + 44, y + 34, 6, FONDO_CANALES);
         let vivo = *estado == VERDE;
         let r = if vivo { 3 + onda(v.ms + k as u32 * 300, 1600) / 128 } else { 4 };
-        cv.disc(X_PIEZAS + 44, y + 34, r, *estado);
-        negrita(cv, X_PIEZAS + 58, y + 6, nombre, TEXTO, 1);
-        cv.text_fit(X_PIEZAS + 58, y + 24, hace, TENUE, PIEZAS - 66);
+        cv.disc(x_piezas() + 44, y + 34, r, *estado);
+        negrita(cv, x_piezas() + 58, y + 6, nombre, TEXTO, 1);
+        cv.text_fit(x_piezas() + 58, y + 24, hace, TENUE, PIEZAS - 66);
         y += 48;
     }
     estado(cv, v);
@@ -497,7 +529,7 @@ fn piezas(cv: &mut Canvas, v: &Vista) {
 
 /// **La tarjeta de estado**, abajo a la derecha: lo que es verdad ahora.
 fn estado(cv: &mut Canvas, v: &Vista) {
-    let (x, y, w, h) = (X_PIEZAS + 8, ALTO as i32 - 112, PIEZAS - 16, 100);
+    let (x, y, w, h) = (x_piezas() + 8, alto() - 112, PIEZAS - 16, 100);
     redondo(cv, x, y, w, h, 6, NEON);
     redondo(cv, x + 1, y + 1, w - 2, h - 2, 5, OSCURO);
     cv.text(x + 10, y + 8, b"LUDOTECA 01", NEON, 1);
