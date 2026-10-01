@@ -719,7 +719,8 @@ muro, y cada muro dejo su tanda:
 | salto a la direccion 0 tras D3D12CreateDevice | las exportaciones de d3d12/dxgi que faltaban; un NULL de GetProcAddress se apunta | en el metal: el salto se fue |
 | sale con 0xC0DE0C07: `IDXGIAdapter::EnumOutputs` (hueco 7), "que monitores tienes" | una salida (el monitor de user32, 1920x1080 a 60 Hz) hasta IDXGIOutput6, con sus modos | tanda38; en el metal (22:34): EL MONITOR PASO |
 | fallo de pagina en Cyberpunk2077.exe+0x24d8b3, leyendo 0x19100300ec68 (justo tras su primer VirtualQuery) | la autopsia no veia ni los bytes ni la pila de un `.exe` (guardas de `.bex`): ahora si (Ring 0) | en el metal (17:46): `mov eax, [rdi+0x18c0]` con `rdi` = 0x19100300d3a8, de nadie; el unico retorno, sl.interposer+0x608c8 |
-| de donde sale ese `rdi` | la autopsia guarda los 15 registros (el stub, antes de pisarlos) y los 16 bytes de antes del `rip` | la proxima ejecucion |
+| de donde sale ese `rdi` | la autopsia guarda los 15 registros (el stub, antes de pisarlos) y los 16 bytes de antes del `rip` | en el metal (17:59): `mov eax, edx; imul rdi, rax, 0x1900; add rdi, [rcx+0x48]` con edx = -1: `tabla[-1]` |
+| el -1: VirtualQuery de una direccion que no es de VirtualAlloc daba 0 (y el aviso no salia: solo los 8 primeros) | VirtualQuery contesta TODA direccion: imagen (MEM_IMAGE), pila y monton (MEM_PRIVATE) | tanda39 |
 
 **El muro de AHORA (01-10, 13:59): las FECHAS de los ficheros.** El juego
 mira `final.redscripts` SOLO con GetFileAttributesExW (no lo abre: el DIARIO

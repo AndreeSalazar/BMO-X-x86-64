@@ -409,7 +409,7 @@ fn imagenes() -> Vec<u64> {
     v
 }
 
-fn medida_imagen(b: u64) -> u32 {
+pub(crate) fn medida_imagen(b: u64) -> u32 {
     // SAFETY: la cabecera PE de una imagen cargada.
     unsafe {
         let nt = b + ((b + 0x3C) as *const u32).read_unaligned() as u64;
