@@ -264,6 +264,29 @@ fn a_cero(p: u64, n: u64) {
 
 /// Pedir del monton del proceso (para lo que la casa da y el `.exe` suelta
 /// con `HeapFree`/`Free*`, como el bloque del entorno).
+/// **La pila del hilo principal** (tanda 29 de Cyberpunk, 01-10): `bytes`
+/// hechos, R+W, a cero, como la reserva de pila que Windows le da al hilo
+/// principal (`SizeOfStackReserve` del `.exe`). La de BMO-X para cualquier
+/// programa son 64 KiB, y Cyberpunk (su catch de C++, varios marcos de la
+/// casa debajo) la desbordo. Sale de la ventana de reserva si la hay (y la
+/// cuenta de VirtualAlloc la ve, como en Windows); si no, del monton.
+/// Devuelve el FONDO (la direccion mas baja).
+pub fn pila_principal(bytes: u64) -> Option<u64> {
+    let bytes = bytes.checked_add(GRANO - 1)? & !(GRANO - 1);
+    if let Some(r) = reserva() {
+        let base = tomar_va(bytes)?;
+        if !(r.hacer)(base, bytes) {
+            soltar_va(base, bytes);
+            return None;
+        }
+        estado().regiones.nueva(base, bytes, 0x04, true); // PAGE_READWRITE
+        return Some(base);
+    }
+    let p = pedir(bytes, 16, PROPIETARIO_VIRTUAL)?;
+    a_cero(p, bytes);
+    Some(p)
+}
+
 pub(crate) fn pedir_del_proceso(tam: u64) -> Option<u64> {
     pedir(tam, 16, PROPIETARIO_PROCESO)
 }
