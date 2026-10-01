@@ -1,0 +1,19 @@
+LIBRARY ws2_32.dll
+EXPORTS
+accept @1 NONAME
+bind @2 NONAME
+closesocket @3 NONAME
+connect @4 NONAME
+getsockname @6 NONAME
+ioctlsocket @10 NONAME
+listen @13 NONAME
+recv @16 NONAME
+recvfrom @17 NONAME
+select @18 NONAME
+send @19 NONAME
+sendto @20 NONAME
+setsockopt @21 NONAME
+socket @23 NONAME
+WSAGetLastError @111 NONAME
+WSAStartup @115 NONAME
+WSACleanup @116 NONAME

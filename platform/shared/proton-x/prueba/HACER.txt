@@ -1250,3 +1250,26 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` catorce veces y sale con 0. En Windows dice lo mismo (la
 primera ronda, el 01-10, dijo MAL en la ultima: pedia NULL en el puntero sin
 WSAStartup, y Windows no lo toca; ahora se mira el codigo y el puntero aparte).
+
+tanda31.exe -- la TANDA 31 (01-10): la RED LOCAL, sin cable
+
+Por Cyberpunk: Galaxy (REDGalaxy64.dll, 0x879645 y 0x7c69b0, segun la IA
+local) forma un par de sockets TCP en 127.0.0.1 para despertar su hilo, y su
+logger abre un UDP (2, 2, 17) no bloqueante. Aqui, lo mismo y lo que un
+Windows sin cable contesta en el bucle local: socket, SO_REUSEADDR,
+bind(127.0.0.1:0), getsockname, listen, connect, accept, send y recv de un
+byte; FIONREAD, FIONBIO y recv sin datos (WSAEWOULDBLOCK); select; el cierre
+del otro (recv 0); closesocket dos veces (WSAENOTSOCK); connect a un puerto
+sin nadie (WSAECONNREFUSED); y un datagrama UDP de un socket a otro. ws2_32
+por ordinal, como el juego. Nada sale de la maquina.
+
+   llvm-dlltool -m i386:x86-64 -d tanda31_kernel32.def -l tanda31_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda31_ws2_32.def -l tanda31_ws2_32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda31.c -o tanda31.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda31.obj tanda31_kernel32.lib tanda31_ws2_32.lib /out:tanda31.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   70780bd47af2dc80c7da4399f496cd34d84b4c80657d50d00963cb5f54284fea
+
+Dice `bien` treinta veces y sale con 0. En Windows dice lo mismo.
