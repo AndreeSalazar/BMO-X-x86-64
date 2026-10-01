@@ -259,7 +259,7 @@ if c == 0x89 {
     // `taller` y no `estructura`: el FAT32 de BMO-X busca por nombre 8.3, y el
     // 29-09 en el Ryzen `estructura.bex` dio "un nombre no cabe en 8.3" en
     // CABINA y F1 no abrio nada. El build ya lo comprueba (`ejemplos.ps1`).
-    scene::abrir::pedir(&[b"sys/taller.bex"]);
+    lanzar_o_alternar(dsk, p, b"sys/taller.bex");
     return Key::Taken;
 }
 
@@ -269,7 +269,7 @@ if c == 0x89 {
 // ludoteca`): mismo camino, mismo cierre (Esc dentro, Alt+F4 fuera). Y su
 // JUGAR vuelve aqui por la consola: ver `desktop::pide`.
 if c == 0x8C {
-    scene::abrir::pedir(&[b"sys/ludoteca.bex"]);
+    lanzar_o_alternar(dsk, p, b"sys/ludoteca.bex");
     return Key::Taken;
 }
 
@@ -392,4 +392,79 @@ if let Some(open) = toggle_sound {
     return Key::Taken;
 }
     Key::Pass
+}
+
+// == F1 y F4: UNA SOLA VENTANA DE CADA APP (01-10) =========================
+//
+// El propietario: *"F4 cuando abro normal pero se duplica; presiono F4 y no
+// se cierra ni se minimiza"*. Cada F lanzaba OTRA copia. Ahora la tecla de una
+// app es como la de una ventana del escritorio (F11, F12):
+//
+//    no esta abierta          la lanza (UNA vez: dos pulsaciones seguidas,
+//                             antes de que llegue su ventana, no son dos)
+//    abierta y delante        la minimiza
+//    abierta, detras o minimizada   la trae delante, con el foco
+//
+// Cual es cual se sabe por el tid de su superficie y la tabla de programas
+// del kernel (INFO_PROG_QUIEN y su nombre), no por adivinarlo.
+
+/// Lo que se espera a que aparezca la ventana de una app recien pedida.
+const ESPERA_MS: u64 = 4000;
+/// (ciclos, ruta) de la ultima app pedida por una F.
+static mut PEDIDA: (u64, [u8; 24]) = (0, [0; 24]);
+
+/// La superficie de la app cuyo programa acaba en `nombre`, si esta abierta.
+fn app_abierta(dsk: &Desktop, nombre: &[u8]) -> Option<usize> {
+    let (huecos, n) = dsk.table.fichas();
+    for &i in &huecos[..n] {
+        let Some(sup) = dsk.table.get(i) else { continue };
+        for k in 0..64u64 {
+            let quien = bmo::info(bmo::INFO_PROG_QUIEN | (k << 8));
+            if quien == 0 {
+                break;
+            }
+            if (quien >> 16) & 0xFFFF != sup.tid as u64 {
+                continue;
+            }
+            let mut texto = [0u8; 40];
+            let t = bmo::info_texto(bmo::INFO_TXT_PROG_NOMBRE | (k << 8), &mut texto).min(texto.len());
+            if texto[..t].ends_with(nombre) {
+                return Some(i);
+            }
+        }
+    }
+    None
+}
+
+fn lanzar_o_alternar(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) {
+    let nombre = ruta.rsplit(|&c| c == b'/').next().unwrap_or(ruta);
+    if let Some(i) = app_abierta(dsk, nombre) {
+        let v = Ventana::App(i as u8);
+        if !dsk.table.minimizada(i) && dsk.win.focus.actual() == Some(v) {
+            if let Some(s) = dsk.table.get_mut(i) {
+                let (x, y, w, h) = (s.chrome.x, s.chrome.y, s.chrome.width, s.chrome.height);
+                s.chrome.minimized = true;
+                erase_window(p, &dsk.run_box, x, y, w, h, dsk.win.visible);
+                uncover(p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+            }
+        } else if dsk.table.traer(i, p) {
+            dsk.win.focus.open(v);
+            dsk.win.focus.clic_en(v);
+        }
+        dsk.win.taskbar_dirty = true;
+        return;
+    }
+    // Pedida hace nada y su ventana todavia no llego: la misma pulsacion.
+    let ahora = bmo::ciclos();
+    let ms = bmo::info(bmo::INFO_TSC_HZ).max(1) / 1000;
+    // SAFETY: el hilo del escritorio, al atender una tecla.
+    let pedida = unsafe { &mut *core::ptr::addr_of_mut!(PEDIDA) };
+    let misma = pedida.1[..ruta.len().min(24)] == ruta[..ruta.len().min(24)];
+    if misma && ahora.wrapping_sub(pedida.0) < ESPERA_MS * ms.max(1) {
+        return;
+    }
+    let mut r = [0u8; 24];
+    r[..ruta.len().min(24)].copy_from_slice(&ruta[..ruta.len().min(24)]);
+    *pedida = (ahora, r);
+    scene::abrir::pedir(&[ruta]);
 }
