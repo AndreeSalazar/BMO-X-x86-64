@@ -76,8 +76,11 @@ lineas y una tabla:
       id1/PAK0.PAK), el CAMINO de cada juego --NATIVO, PROTON-X si trae un
       `.exe` (el camino que no existia cuando se escribio esto), o
       STREAMING-- y el juez de la suma por trozos (SHA-256 de `bmo-cripto`).
-      **Como se sabe:** `cargo test -p bmo-ludoteca`: 6 pruebas y 40.000
+      **Como se sabe:** `cargo test -p bmo-ludoteca`: 7 pruebas y 40.000
       lineas y ficheros mutados sin un panico; compila para el metal.
+      El 01-10, segunda pasada: las tiendas GLOBALES (gog, steam, epic,
+      ubisoft, ea, battlenet, microsoft, rockstar, amazon, itch, humble y
+      libre) y sin streaming: lo que no tiene camino queda PENDIENTE.
 - [ ] **J1 -- la Biblioteca los muestra.** La Biblioteca del escritorio
       (`scene/data/biblioteca.rs`) lista los juegos de un fichero de lineas
       en `datos/`, con su camino (A nativo, B streaming). Sin red: el fichero
@@ -95,7 +98,9 @@ lineas y una tabla:
       del camino A, por la antena, a ESTRATOS, con su suma. Pide TCP en el
       metal (G5). **Como se sabe:** DOOM II arranca con el `doom2.wad` que
       trajo la antena.
-- [ ] **J4 -- el camino B.** Un juego de Windows lanzado en el PC y visto en
+- [-] **J4 -- el camino B. DESCARTADO el 01-10 por el propietario:** *"no
+      quiero streaming, que mi PC lo aplique, o OM"*. Un juego se juega en
+      BMO-X (nativo o PROTON-X) o queda PENDIENTE. Lo de antes: Un juego de Windows lanzado en el PC y visto en
       BMO-X: es S6 (ESPEJO) con un fotograma por `gpu video`.
 
 ## 3b. GOG por dentro, leido en `heroic-gogdl` (29-09)
@@ -286,6 +291,35 @@ Escalones del B simple, sobre los de la seccion 3:
 
 Elegido por el propietario el 25-09 (entre Recreativa, Ludoteca y Salon).
 La app se llama **Ludoteca**, como este plan, y su crate `bmo-ludoteca`.
+
+**La tecla y la cara (01-10, el propietario):**
+
+- **F4 abre la LUDOTECA.** Las doce teclas estaban tomadas; F4 era la orden
+  `apps` (fila VER), que sigue escribiendose a mano. Se conecta cuando la app
+  exista en el escritorio.
+- **Sin retro, y cada tienda con lo suyo:** *"que sea unico en cada uno...
+  MUCHO MEJOR en todo, pero cada uno tiene animaciones unicas"*. La maqueta
+  es `LudotecaViva` en el lienzo de maquetas: un riel de tiendas donde cada
+  una tiene su animacion propia (orbita, vapor, esquirlas, espiral, pulso,
+  ondas hexagonales, mosaicos que voltean, estrella, curva, puntos que
+  saltan, ecualizador, rama que crece), el color de la tienda elegida colorea
+  la escena entera, el juego elegido entra con su titulo revelado y un
+  destello RGB, y las cartas se inclinan al pasar. Dibujos PROPIOS: ningun
+  logo de ninguna tienda.
+- **Y el armazon, estilo comunidad (01-10):** *"me gusta mas esta direccion...
+  aplicar como estilo Discord por completo"*. La maqueta `LudotecaComunidad`:
+  un riel de burbujas (una por tienda, con su animacion; la elegida se
+  vuelve cuadrada y lleva su pastilla), los canales de la tienda (un canal
+  por juego, y una sala de voz), el centro con el juego fijado y su
+  actividad como mensajes de las PIEZAS de BMO-X (PROTON-X, la casa,
+  ESTRATOS, el juez), y a la derecha las piezas trabajando o esperando --
+  nunca gente inventada. Colores propios, no los de Discord.
+- **Una sala propia (idea, 01-10):** chat y llamadas entre maquinas BMO-X,
+  con control total. Se puede, y en orden: texto en la LAN sobre TCP (G5)
+  con X25519 + AES-GCM de `bmo-cripto`; voz cuando haya MICROFONO (hoy el
+  audio USB solo SALE) y un codec propio; fuera de casa, TLS 1.3 (el muro)
+  o la ANTENA de relevo. El Discord de verdad no: su API y su voz piden
+  su cliente y su cifrado.
 
 ## 8. "El x86-64 no cambia: se puede analizar" -- lo que es verdad y lo que no
 

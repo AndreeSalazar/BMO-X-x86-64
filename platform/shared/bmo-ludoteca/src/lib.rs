@@ -27,7 +27,10 @@
 //!               una linea MOTOR, o un FICHERO que es el dato de un motor
 //!               (DOOM2.WAD, id1/PAK0.PAK)
 //!    PROTON-X   no hay motor, pero trae un .exe de Windows (Cyberpunk)
-//!    STREAMING  ni lo uno ni lo otro: se juega en el PC y se ve aqui
+//!    PENDIENTE  todavia no se sabe: faltan sus ficheros (la tienda dio el
+//!               titulo y nada mas). Se juega AQUI o no se juega: sin
+//!               streaming, por decision del propietario (01-10: "no quiero
+//!               streaming, que mi PC lo aplique, o OM")
 //! ```
 //!
 //! # Lista blanca, como `bmo-antena`
@@ -36,7 +39,7 @@
 //!    una linea de mas de 256 bytes, o con un byte no imprimible   Largo / NoAscii
 //!    un verbo que no es JUEGO, FICHERO ni MOTOR                    Verbo
 //!    un id fuera de [a-z0-9_-]{1,32}                               Id
-//!    una tienda que no es gog, steam, epic ni libre                Tienda
+//!    una tienda que no esta en la lista de `Tienda`                Tienda
 //!    un titulo vacio o de mas de 128                               Titulo
 //!    un nombre con `..`, que empieza en `/` o con otro byte        Nombre
 //!    (o con dos espacios seguidos, o uno al principio o al final)
@@ -91,25 +94,65 @@ pub enum Falla {
     Lleno,
 }
 
-/// De que tienda es.
+/// De que tienda es: las globales, y lo libre (01-10: *"todas las tiendas
+/// globales"*). La linea dice el nombre corto; la Biblioteca, el largo.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tienda {
     Gog,
     Steam,
     Epic,
+    /// Ubisoft Connect.
+    Ubisoft,
+    /// EA app.
+    Ea,
+    /// Battle.net.
+    Battlenet,
+    /// Microsoft Store / Xbox para PC.
+    Microsoft,
+    /// Rockstar Games Launcher.
+    Rockstar,
+    /// Amazon Games.
+    Amazon,
+    Itch,
+    Humble,
     /// Libre: Freedoom, un shareware...
     Libre,
 }
 
+/// `(tienda, nombre corto en la linea, nombre largo)`.
+const TIENDAS: [(Tienda, &str, &str); 12] = [
+    (Tienda::Gog, "gog", "GOG"),
+    (Tienda::Steam, "steam", "Steam"),
+    (Tienda::Epic, "epic", "Epic Games"),
+    (Tienda::Ubisoft, "ubisoft", "Ubisoft Connect"),
+    (Tienda::Ea, "ea", "EA app"),
+    (Tienda::Battlenet, "battlenet", "Battle.net"),
+    (Tienda::Microsoft, "microsoft", "Microsoft Store"),
+    (Tienda::Rockstar, "rockstar", "Rockstar Games"),
+    (Tienda::Amazon, "amazon", "Amazon Games"),
+    (Tienda::Itch, "itch", "itch.io"),
+    (Tienda::Humble, "humble", "Humble"),
+    (Tienda::Libre, "libre", "libre"),
+];
+
 impl Tienda {
     fn de(p: &[u8]) -> Option<Self> {
-        Some(match p {
-            b"gog" => Tienda::Gog,
-            b"steam" => Tienda::Steam,
-            b"epic" => Tienda::Epic,
-            b"libre" => Tienda::Libre,
-            _ => return None,
-        })
+        TIENDAS.iter().find(|t| t.1.as_bytes() == p).map(|t| t.0)
+    }
+
+    /// Como se escribe en una linea JUEGO.
+    pub fn corto(self) -> &'static str {
+        TIENDAS.iter().find(|t| t.0 == self).map_or("", |t| t.1)
+    }
+
+    /// Como se muestra.
+    pub fn nombre(self) -> &'static str {
+        TIENDAS.iter().find(|t| t.0 == self).map_or("", |t| t.2)
+    }
+
+    /// Todas, en el orden de la Biblioteca.
+    pub fn todas() -> impl Iterator<Item = Tienda> {
+        TIENDAS.iter().map(|t| t.0)
     }
 }
 
@@ -283,7 +326,8 @@ pub fn leer(l: &[u8]) -> Result<Linea<'_>, Falla> {
 pub enum Camino {
     Nativo(Motor),
     ProtonX,
-    Streaming,
+    /// Sin motor ni `.exe` conocidos todavia.
+    Pendiente,
 }
 
 /// Un juego de la ludoteca.
@@ -366,7 +410,7 @@ impl Ludoteca {
     }
 
     /// **Como se juega**: la linea MOTOR manda; si no, un dato de motor entre
-    /// sus ficheros; si no, un `.exe` es PROTON-X; si no, streaming.
+    /// sus ficheros; si no, un `.exe` es PROTON-X; si no, pendiente.
     pub fn camino(&self, id: &str) -> Option<Camino> {
         let j = self.juego(id)?;
         if let Some(m) = j.motor.or_else(|| self.ficheros_de(id).find_map(|f| Motor::por_dato(&f.nombre))) {
@@ -375,7 +419,7 @@ impl Ludoteca {
         if self.ficheros_de(id).any(|f| termina_en_ext(&f.nombre, ".exe")) {
             return Some(Camino::ProtonX);
         }
-        Some(Camino::Streaming)
+        Some(Camino::Pendiente)
     }
 }
 
