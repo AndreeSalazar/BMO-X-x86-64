@@ -395,9 +395,12 @@ extern "win64" fn get_proc_address(h: u64, n: *const u8) -> u64 {
     if let Some(t) = crate::imagenes::de_base(h).and_then(|i| crate::imagenes::exportada(i, &nombre)) {
         return t;
     }
-    crate::tabla(dll, &Funcion::Nombre(nombre)).unwrap_or_else(|| {
-        // Sin aviso: preguntar "esta?" es lo normal (la `std` de Rust lo hace
-        // con lo de Windows 8 y 10), y decir que no es la respuesta.
+    crate::tabla(dll, &Funcion::Nombre(nombre.clone())).unwrap_or_else(|| {
+        // Preguntar "esta?" es lo normal (la `std` de Rust lo hace con lo de
+        // Windows 8 y 10), y decir que no es la respuesta. Pero un `.exe` que
+        // llama al NULL salta a la direccion 0 (Cyberpunk, 01-10) y la autopsia
+        // no dice a que: se apunta UNA vez por nombre, para que el registro si.
+        no_estaba(dll, &nombre);
         kernel32::poner_error(ERROR_PROC_NOT_FOUND);
         0
     })
@@ -415,4 +418,26 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "GetProcAddress" => dir!(get_proc_address),
         _ => return None,
     })
+}
+
+/// Lo que GetProcAddress contesto con NULL, una vez por nombre (01-10).
+fn no_estaba(dll: &str, nombre: &str) {
+    struct Vistas(core::cell::UnsafeCell<alloc::vec::Vec<alloc::string::String>>);
+    // SAFETY: la casa corre en un hilo a la vez (ver `Global` en lib.rs).
+    unsafe impl Sync for Vistas {}
+    static VISTAS: Vistas = Vistas(core::cell::UnsafeCell::new(alloc::vec::Vec::new()));
+    // SAFETY: como arriba; nadie guarda la referencia.
+    let v = unsafe { &mut *VISTAS.0.get() };
+    // Preguntar por lo del sistema (kernel32, ntdll, api-ms-*) es lo normal
+    // y el `.exe` mira el NULL; lo que se apunta es lo de las demas DLL
+    // (graficos, juego), donde un NULL es una funcion que falta de verdad.
+    let d = dll.to_ascii_lowercase();
+    if d.starts_with("kernel32") || d.starts_with("kernelbase") || d.starts_with("ntdll") || d.starts_with("api-ms-") || d.starts_with("ext-ms-") {
+        return;
+    }
+    let clave = alloc::format!("{dll}!{nombre}");
+    if v.len() < 256 && !v.contains(&clave) {
+        aviso(&alloc::format!("GetProcAddress({dll}, \"{nombre}\"): la casa no la tiene; el .exe recibe NULL"));
+        v.push(clave);
+    }
 }

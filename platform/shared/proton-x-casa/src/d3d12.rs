@@ -862,9 +862,49 @@ extern "win64" fn set_event_on_completion(this: u64, valor: u64, evento: u64) ->
     S_OK
 }
 
+/// Dejar 0 donde el `.exe` espera una interfaz que no se le da.
+fn nada(pp: *mut u64) {
+    if !pp.is_null() {
+        // SAFETY: el puntero a interfaz del `.exe`.
+        unsafe { pp.write_unaligned(0) };
+    }
+}
+
+/// ** LAS EXPORTACIONES DE d3d12.dll QUE FALTABAN (01-10). Cyberpunk, tras
+/// D3D12CreateDevice, salto a la direccion 0: un GetProcAddress que la casa
+/// contestaba con NULL y el `.exe` llamaba igual. Contestan lo que Windows
+/// sin las capas de depuracion del SDK: no hay interfaz de depuracion
+/// (E_NOINTERFACE, y 0 en el puntero), no hay funciones experimentales.
+extern "win64" fn d3d12_get_debug_interface(_riid: *const Guid, pp: *mut u64) -> i32 {
+    nada(pp);
+    E_NOINTERFACE
+}
+
+extern "win64" fn d3d12_get_interface(_clsid: *const Guid, _riid: *const Guid, pp: *mut u64) -> i32 {
+    nada(pp);
+    E_NOINTERFACE
+}
+
+extern "win64" fn d3d12_enable_experimental_features(_n: u32, _iids: *const Guid, _cfg: u64, _medidas: *const u32) -> i32 {
+    E_NOINTERFACE
+}
+
+/// Leer una firma raiz ya serializada: la casa todavia no; se dice.
+extern "win64" fn d3d12_create_root_signature_deserializer(_datos: u64, _medida: usize, _riid: *const Guid, pp: *mut u64) -> i32 {
+    aviso("D3D12Create(Versioned)RootSignatureDeserializer: la casa todavia no lee firmas serializadas");
+    nada(pp);
+    E_NOTIMPL
+}
+
+const E_NOTIMPL: i32 = 0x8000_4001_u32 as i32;
+
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "D3D12CreateDevice" => dir!(d3d12_create_device),
+        "D3D12GetDebugInterface" => dir!(d3d12_get_debug_interface),
+        "D3D12GetInterface" => dir!(d3d12_get_interface),
+        "D3D12EnableExperimentalFeatures" => dir!(d3d12_enable_experimental_features),
+        "D3D12CreateRootSignatureDeserializer" | "D3D12CreateVersionedRootSignatureDeserializer" => dir!(d3d12_create_root_signature_deserializer),
         _ => return None,
     })
 }
