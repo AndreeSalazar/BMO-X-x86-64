@@ -1820,6 +1820,84 @@ Y las reglas que salen de ahi, para cada pieza de PROTON-X:
   tener dos permisos por tramo, no por ahorrar; si algun dia sobra un
   permiso de verdad (R), se pone.
 
+### 4a.2 Cyberpunk 2077, el CONEJILLO DE INDIAS (01-10) -- lo que tumbo cada pared
+
+El propietario: *"anotar eso: Cyberpunk 2077 es mi conejillo de indias,
+como lo fue DOOMgeneric"*. DOOM probo que BMO-X corre un juego; Cyberpunk
+prueba que PROTON-X corre un juego de Windows de verdad, de los grandes. Cada
+pared que puso se arreglo en la casa para TODOS los `.exe`, con su tanda
+juzgada por Windows. Lo que cayo, en orden (30-09 / 01-10):
+
+```text
+   pared                                   arreglo (para todos)                   tanda
+   --------------------------------------  -------------------------------------  -----
+   30 s para cargar (disco a 10 MiB/s)      DMA directo, rebote de 1 MiB, cache    --
+                                           de NTFS: 330 MiB/s, carga en ~1,7 s
+   API sets downlevel, LoadLibrary de       el anfitrion de cada API set           21
+   API sets, VirtualProtect de la imagen    tramos de codigo y datos
+   TLS de una DLL (null+8)                  TLS por modulo, callbacks antes de     22
+                                           DllMain
+   VirtualAlloc de mas de 64 MiB            LA RESERVA del kernel (P0.4c)          23
+   IsProcessorFeaturePresent mentia         la verdad del CPUID/XGETBV             24
+   abort(): SystemFunction036 no estaba     el azar de rand_s                      25
+   redMemory "Out of Memory!" (int3)        ventana de reserva 128 -> 384 GiB      --
+   GetModuleHandleExW desde una direccion   el modulo de una direccion             26
+   el primer hilo moria (PEB+0x20 nulo)     PEB->ProcessParameters                 27
+   catch de C++ de un CRT ajeno (Galaxy)    RtlUnwindEx CONSOLIDA                  28
+   la pila del hilo principal (64 KiB)      la que pide el .exe (2 MiB)            --
+   sale con 0 sin decir por que             el ANILLO del diario y las rutas que   --
+                                           no estan
+```
+
+**El efecto domino:** cada fila de arriba es una pieza que cualquier juego
+moderno de Windows tambien pide. Que Cyberpunk llegue a su maquina de
+estados significa que el cargador, la memoria grande, el TLS, los hilos, las
+excepciones de C++ y el arranque del CRT de MSVC ya son los de Windows.
+
+**Donde esta (01-10):** el juego sale con 0 porque `redgalaxy::api::Init`
+(GOG Galaxy) termina con error: es lo ultimo de
+`GameAppBaseInitializationState::OnEnter` (0x9f3cd0 -> 0xf880a0), y sin red
+y SIN SITIO DONDE ESCRIBIR. Hoy USERPROFILE/APPDATA/TEMP apuntan a la carpeta
+del `.exe`, y para un juego de D: (PERSONAL, solo lectura) eso es
+`D:\Cyberpunk 2077\bin\x64\AppData`: no se puede escribir ni crear nada
+(`CreateDirectoryW` siempre dice que no). Lo siguiente NO es pelear con el
+juego: es **ESTRATOS por primera vez de verdad** (ver el relevo, abajo).
+
+**Lo que viene despues, ya visto:** CreateFileW lee el fichero ENTERO al
+abrir (los `.archive` miden GiB: hay que leer a trozos); la ventana
+(CreateWindowExW) y D3D12; hilos de verdad (hoy cooperativos, un nucleo);
+las excepciones de hardware (un `int3` o un nulo del juego no llegan a
+PROTON-X: el kernel mata la tarea).
+
+#### El relevo (01-10): lo que hay que hacer, en orden
+
+1. **Formatear ESTRATOS (F:, Disco 0 de 447 GB, el de BMO-X)** desde
+   Windows con `toolchain/tools/estratos-fmt`:
+   `estratos-fmt \\.\F: --volumen --si-estoy-seguro --modelo "<M>"
+   --serie "<S>" --sectores <N>`. La identidad (modelo, serie, sectores) es
+   la que LEE BMO-X del Disco 0 (DISCO.TXT del `save`), no la de Windows: si
+   no cuadra, el kernel monta SOLO LECTURA (seguro, pero inutil para esto).
+   Antes, comprobar en la Administracion de discos que F: es la RAW del
+   Disco 0. C: (NVMe, Windows) y D: (PERSONAL) no se tocan.
+2. **La base**: carpetas `proton-x/`, `cache/`, `juegos/`, `documentos/`.
+3. **El perfil de cada juego en ESTRATOS**: para un `.exe` de D:,
+   USERPROFILE, APPDATA, LOCALAPPDATA, TEMP, Documents y Saved Games bajo
+   `proton-x/<juego>/perfil`, creados al arrancar (`proceso::Entorno::de_bmo`
+   y `dll_chicas::carpeta_csidl/carpeta_guid`).
+4. **CreateDirectoryW y escribir ficheros** en ESTRATOS
+   (`estratos::crear_carpeta`, `crear_desde`, `guardar_desde`).
+5. **La capa encima de D:**: lo que el juego escriba junto a sus ficheros va
+   a `proton-x/<juego>/capa`; al leer, primero la capa y luego D:. D: no se
+   escribe nunca (lo aprobo el propietario el 01-10).
+6. Correr Cyberpunk con `personal diario` y ver si Galaxy pasa; si no, su
+   log ya se puede escribir y dira por que.
+
+Anotado para ESTRATOS: no hay recolector (borrar es dejar de nombrar; el
+espacio no vuelve), copiar una carpeta entera esta sin hacer (E2), y un
+fichero se lee entero. El propietario piensa partir el NVMe para una
+biblioteca de juegos compartida con Windows: hace falta antes el driver
+NVMe (hoy solo AHCI) y siempre en solo lectura, como D:.
+
 ## 4b. "La MAYORIA de los juegos?" -- lo que decide, medido y no a ojo
 
 El propietario (27-09), mirando su Steam, su GOG y su Epic: GTA V, Dying
