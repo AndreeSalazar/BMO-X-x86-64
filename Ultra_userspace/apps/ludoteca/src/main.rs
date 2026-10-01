@@ -25,6 +25,7 @@
 extern crate alloc;
 
 mod catalogo;
+mod charla;
 mod entrada;
 mod iconos;
 mod mates;
@@ -97,12 +98,20 @@ impl Reloj {
 }
 
 struct Estado {
+    /// La caja de abajo tiene el teclado, y lo que va escrito.
+    escribiendo: bool,
+    borrador: Vec<u8>,
     tienda: usize,
     visibles: Vec<usize>,
     sel: usize,
     desde_tienda: u32,
     desde_juego: u32,
     aviso: Vec<u8>,
+}
+
+/// El canal de delante: el id del juego, o `general` sin juego.
+fn canal(st: &Estado, cat: &Catalogo) -> Vec<u8> {
+    st.visibles.get(st.sel).map_or(b"general".to_vec(), |&i| cat.l.juegos[i].id.as_bytes().to_vec())
 }
 
 impl Estado {
@@ -168,12 +177,14 @@ pub extern "C" fn _start() -> ! {
     let cat = Catalogo::abrir();
     let reloj = Reloj { hz: bmo::info(bmo::INFO_TSC_HZ) };
     let abierta = reloj.ms();
-    let mut st = Estado { tienda: 0, visibles: Vec::new(), sel: 0, desde_tienda: abierta, desde_juego: abierta, aviso: Vec::new() };
+    let mut st = Estado { escribiendo: false, borrador: Vec::new(), tienda: 0, visibles: Vec::new(), sel: 0, desde_tienda: abierta, desde_juego: abierta, aviso: Vec::new() };
     st.elegir_tienda(&cat, 0, abierta);
     let estratos = bmo::info(bmo::INFO_ES_MONTADO) != 0;
     let proton = existe(b"sys/proton-x.bex");
     // Los logos oficiales que el propietario ya dejo (ver `tiendas`).
     let logos: Vec<bool> = PUESTOS.iter().map(|p| p.logo()).collect();
+    // Lo que se escribio en cada canal (ver `charla`).
+    let mut charla = charla::Charla::abrir();
     let mut tocada = abierta;
     let mut entrada = true;
     let mut vista_antes = u8::MAX;
@@ -207,13 +218,43 @@ pub extern "C" fn _start() -> ! {
                 st.desde_juego = ahora;
                 continue;
             }
+            // ** ESCRIBIENDO EN EL CANAL: las letras son del mensaje.
+            if st.escribiendo {
+                match ev {
+                    Input::Char(0x1B) => st.escribiendo = false,
+                    Input::Char(b'\r' | b'\n') => {
+                        let c = canal(&st, &cat);
+                        if !charla.mandar(&c, &st.borrador) {
+                            say("LUDOTECA: el mensaje no se pudo guardar en sys/ludomsg.txt\n");
+                        }
+                        st.borrador.clear();
+                    }
+                    Input::Char(0x08 | 0x7F) => {
+                        st.borrador.pop();
+                    }
+                    Input::Char(c) if (c >= 0x20 && c < 0x7F) || c >= 0xA0 => {
+                        if st.borrador.len() < charla::LARGO {
+                            st.borrador.push(c);
+                        }
+                    }
+                    Input::Mouse { x, y, buttons, down: true } if buttons & BOTON != 0 => {
+                        if pintar::golpe(x, y, st.visibles.len()) != Some(Golpe::Escribir) {
+                            st.escribiendo = false;
+                        }
+                    }
+                    _ => {}
+                }
+                continue;
+            }
             match ev {
                 Input::Mouse { x, y, buttons, down: true } if buttons & BOTON != 0 => match pintar::golpe(x, y, st.visibles.len()) {
                     Some(Golpe::Tienda(i)) => st.elegir_tienda(&cat, i, ahora),
                     Some(Golpe::Juego(k)) => st.elegir_juego(k, ahora),
                     Some(Golpe::Jugar) => st.jugar(&cat),
+                    Some(Golpe::Escribir) => st.escribiendo = true,
                     None => {}
                 },
+                Input::Char(b'/') => st.escribiendo = true,
                 Input::Char(0x80) => st.elegir_juego(st.sel.saturating_sub(1), ahora),
                 Input::Char(0x81) => st.elegir_juego(st.sel + 1, ahora),
                 Input::Char(0x82) => st.elegir_tienda(&cat, st.tienda + PUESTOS.len() - 1, ahora),
@@ -236,6 +277,8 @@ pub extern "C" fn _start() -> ! {
             if entrada && desde < entrada::FUNDIDO {
                 entrada::pintar(&mut cv, desde);
             } else {
+                let c = canal(&st, &cat);
+                let del_canal = charla.de(&c);
                 let v = Vista {
                     cat: &cat,
                     tienda: st.tienda,
@@ -249,6 +292,9 @@ pub extern "C" fn _start() -> ! {
                     estratos,
                     proton,
                     logos: &logos,
+                    charla: &del_canal,
+                    escribiendo: st.escribiendo,
+                    borrador: &st.borrador,
                 };
                 pintar::pintar(&mut cv, &v);
                 if entrada {
