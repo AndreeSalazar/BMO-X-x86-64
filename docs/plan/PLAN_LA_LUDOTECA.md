@@ -347,6 +347,11 @@ La app se llama **Ludoteca**, como este plan, y su crate `bmo-ludoteca`.
     nada mas del disco, y ninguna de EJECUTAR: un `.exe` o un `.bex` que
     llegue se queda en cuarentena. El muro y el canal son lo que cada amigo
     publica en SU maquina, pedido por el protocolo.
+  - **Hecho (01-10):** la maqueta entera; la LUDOTECA ya tiene su charla por
+    canal (`sys/ludomsg.txt`), que es el primer canal que HERMES compartira.
+    **Lo siguiente:** la app de verdad en F3 (la entrada con alas, mensajes y
+    tertulias en ESTRATOS, el zumbido con sonido), primero en una sola
+    maquina.
   - **En orden:** (1) texto en la LAN, con TCP y DNS medidos en metal; (2)
     envios con permiso; (3) el muro, que pide leer PNG/JPEG; (4) el canal,
     que pide un decodificador de video propio (el trozo mas grande); (5) la
@@ -698,6 +703,23 @@ parte el disco por esto.
 El propietario (25-09): *"Cyberpunk 2077 que compre es DRM FREE: vamos a
 aplicar el metodo DOOM generic con sus datos; es DirectX 12, y NAGA ya lo
 tengo en BMO-externo. Seria mi JEFE FINAL"*.
+
+**Donde va (01-10, al cierre del dia).** Cada ejecucion en el metal salta un
+muro, y cada muro dejo su tanda:
+
+| muro | arreglo | prueba |
+|---|---|---|
+| secur32 no estaba (curl y su SSPI) | la casa la tiene | tanda33 |
+| un fichero de 46 MB entero en un monton de 25 | ficheros grandes A LA CARTA | el banco (umbral 0) |
+| Streamline lee la cabecera PE de dxgi por su HMODULE | HMODULE = imagen PE de verdad | tanda34 |
+| `IDXGIAdapter::GetDesc` (hueco 8) | GetDesc = GetDesc1 | tanda35 |
+| el aviso del juego salia en arabe | STRINGTABLE por idioma, por bloque | tanda36 |
+| *"corrupted or missing scripts file"* | GetFileAttributesEx y stat con la medida DEL FICHERO, no la del indice de NTFS | la proxima ejecucion (si no cuadran, lo avisa) |
+
+Lo que queda, en orden probable: el dispositivo D3D12 y su cadena de
+intercambio; los `.archive` de GiB sin copiarlos enteros (MapViewOfFile hoy
+copia el fichero); los sombreadores; y `api-ms-win-appmodel-runtime-l1-1-2`.
+Para cada ejecucion: SYSPROTO, SALIDA y DIARIO.
 
 **Por que el metodo DOOM no le sirve (todavia), dicho claro:**
 
