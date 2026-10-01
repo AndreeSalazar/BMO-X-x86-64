@@ -92,7 +92,10 @@ apunta aqui, con la fecha y lo que lo destapo.
 
 | fecha | el limite en el padre | que lo destapo | lo que el hijo hace |
 |---|---|---|---|
-| 30-09 | 8 bloques por proceso, de 64 MiB como mucho (`obj/memory.rs`) | Cyberpunk: 26 DLL imprescindibles (~52 bloques) y libxess con 70 MiB de datos | la **declaracion de imagen** desde el dia 1: la app declara sus partes, el orquestador juzga una vez |
+| 30-09 | 8 bloques por proceso, de 64 MiB como mucho (`obj/memory.rs`); llego LA RESERVA como parche (P0.4c, ventana de 128 a 384 GiB) | Cyberpunk: 26 DLL imprescindibles, libxess con 70 MiB de datos y un VirtualAlloc de 64 GiB | la reserva y la **declaracion de imagen** desde el dia 1: la app declara, el orquestador juzga una vez |
 | 30-09 | el cargador de PE nacio para `.exe` de KiB | el `.exe` de Cyberpunk: 57 MiB | cargar por secciones, del disco a su sitio, desde el principio |
-| -- | un solo nucleo al arrancar (`smp all` aparte) | el informe: "smp: solo el BSP" | los nucleos son del orquestador desde el arranque |
+| 01-10 | los hilos de un `.exe` son cooperativos, en un nucleo (`smp all` aparte) | Cyberpunk y su maquina de estados (PLAN_PROTON_X 4a.2) | los nucleos son del orquestador desde el arranque |
+| 01-10 | una excepcion de hardware de Ring 3 (un `int3`, un nulo) mata la tarea: no llega a quien la puede manejar | PLAN_PROTON_X 4a.2 | la excepcion se entrega a su programa por una puerta, y el kernel juzga si la deja manejar |
+| 01-10 | abrir un fichero lo trae ENTERO (`CreateFileW`) | los `.archive` de Cyberpunk miden GiB | leer a trozos, por ventana, desde el principio |
+| 01-10 | el perfil de un programa de un disco de solo lectura no tiene donde escribir | Galaxy::Init de Cyberpunk (D: es solo lectura) | ESTRATOS y la capa encima de lo ajeno, desde el dia 1 |
 | -- | el certificado de TITAN++ (J2) llegara tarde, encima | `TITAN_MAESTRO` 6b.5 | la puerta de carga lo compara desde el dia 1 |
