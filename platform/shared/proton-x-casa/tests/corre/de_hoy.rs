@@ -347,6 +347,13 @@ fn tanda34_exe_un_hmodule_se_puede_leer() {
     tanda(TANDA34, None, 9, "tanda34.exe: un HMODULE es una imagen PE que se puede leer");
 }
 
+/// **La tanda 35** (01-10): `tanda35.exe` -- Cyberpunk pide GetDesc (el
+/// hueco 8) del adaptador: dice lo mismo que GetDesc1.
+#[test]
+fn tanda35_exe_getdesc_del_adaptador() {
+    tanda(TANDA35, None, 8, "tanda35.exe: IDXGIAdapter::GetDesc, lo mismo que GetDesc1");
+}
+
 /// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
 /// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
 /// asi el camino que en BMO-X lleva los ficheros grandes.
