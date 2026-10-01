@@ -717,7 +717,8 @@ muro, y cada muro dejo su tanda:
 | *"corrupted or missing scripts file"* | GetFileAttributesEx y stat con la medida DEL FICHERO, no la del indice de NTFS | probado en el metal (13:59): NO era eso; las medidas cuadran |
 | el mismo aviso: las FECHAS iban a 0 (1601) | DIR_OP_FECHAS: fechas y atributos de NTFS hasta la casa (Ring 0) | tanda37; en el metal (14:38): EL AVISO SE FUE |
 | salto a la direccion 0 tras D3D12CreateDevice | las exportaciones de d3d12/dxgi que faltaban; un NULL de GetProcAddress se apunta | en el metal: el salto se fue |
-| sale con 0xC0DE0C07: `IDXGIAdapter::EnumOutputs` (hueco 7), "que monitores tienes" | una salida (el monitor de user32, 1920x1080 a 60 Hz) hasta IDXGIOutput6, con sus modos | tanda38 |
+| sale con 0xC0DE0C07: `IDXGIAdapter::EnumOutputs` (hueco 7), "que monitores tienes" | una salida (el monitor de user32, 1920x1080 a 60 Hz) hasta IDXGIOutput6, con sus modos | tanda38; en el metal (22:34): EL MONITOR PASO |
+| fallo de pagina en Cyberpunk2077.exe+0x24d8b3, leyendo 0x19100300ec68 (justo tras su primer VirtualQuery) | la autopsia no veia ni los bytes ni la pila de un `.exe` (guardas de `.bex`): ahora si (Ring 0) | la proxima ejecucion: con la instruccion y los retornos se sabe que leia |
 
 **El muro de AHORA (01-10, 13:59): las FECHAS de los ficheros.** El juego
 mira `final.redscripts` SOLO con GetFileAttributesExW (no lo abre: el DIARIO
