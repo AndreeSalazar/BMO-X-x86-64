@@ -465,6 +465,10 @@ const INFO_UNIDAD: u64 = 0xC4;
 /// El resto de la receta, partido (29-09, Z6). Espejo de
 /// `bmo_abi::...::INFO_RECETA`; las piezas, en `gpu_trabajo::cubo`.
 const INFO_RECETA: u64 = 0xC5;
+/// Bytes leidos / escritos de todos los discos desde el arranque (01-10).
+/// Espejo de `bmo_abi::...::INFO_DISCO_LEIDO` y `INFO_DISCO_ESCRITO`.
+const INFO_DISCO_LEIDO: u64 = 0xC6;
+const INFO_DISCO_ESCRITO: u64 = 0xC7;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -1005,6 +1009,8 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_DISCO_HBA => crate::ring0::dev::disk::hba(),
         INFO_DISCO_CACHE => crate::ring0::dev::disk::cache(),
         INFO_DISCO_BANDA => crate::ring0::dev::disk::banda(),
+        INFO_DISCO_LEIDO => crate::ring0::dev::disk::trafico().0,
+        INFO_DISCO_ESCRITO => crate::ring0::dev::disk::trafico().1,
         INFO_DISCO_BANDA_ORDEN => crate::ring0::dev::disk::banda_orden(),
         INFO_DISCO_HILO => crate::ring0::dev::disk::cuentas_hilo(),
         INFO_DISCO_AVISO => crate::ring0::dev::disk::escalera_aviso(),

@@ -313,7 +313,10 @@ pub(super) fn mandar_lectura(lba: u64, count: u16, phys: u64, prestando: bool) -
     // el numero del que saldra el plazo de R-DMA-8 (N5b).
     marcar_el_tramo(phys, bytes, false, crate::ring0::task::scheduler::rdtsc());
     match r {
-        Ok(n) => Some(n),
+        Ok(n) => {
+            super::trafico::leido(n as u64 * SECTOR as u64);
+            Some(n)
+        }
         Err(e) => {
             // El LBA y no el numero de sectores: cuando un disco se queja, lo
             // que hace falta saber es DONDE, para poder mirar ese sector con

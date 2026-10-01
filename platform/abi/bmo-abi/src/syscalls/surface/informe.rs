@@ -1878,6 +1878,15 @@ pub const UNIDAD_NO_SE: u64 = u64::MAX;
 /// quien: esto lo parte. Solo lee contadores.
 pub const INFO_RECETA: u64 = 0xC5;
 
+/// # `INFO_DISCO_LEIDO` / `INFO_DISCO_ESCRITO`: el trafico del disco (2026-10-01)
+///
+/// Bytes leidos y escritos desde el arranque, de TODOS los discos (el propio y
+/// el Personal), contados despues de que el disco contesta. Quien quiera MiB/s
+/// resta dos lecturas y divide por el tiempo entre ellas: es el benchmark en
+/// vivo de las solapas de ESTRATOS. Solo lee contadores.
+pub const INFO_DISCO_LEIDO: u64 = 0xC6;
+pub const INFO_DISCO_ESCRITO: u64 = 0xC7;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text
