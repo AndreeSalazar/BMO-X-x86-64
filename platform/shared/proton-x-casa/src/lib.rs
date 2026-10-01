@@ -169,9 +169,23 @@ pub struct Plataforma {
     /// Lo que hay en una carpeta del volumen (P4f3: FindFirstFileW), o
     /// `None` si no es una carpeta. `""` es la raiz.
     pub listar: fn(&[u8]) -> Option<Vec<bmo_proton_x::ficheros::Entrada>>,
+    /// Crear carpetas, quitar y renombrar (ESTRATOS en BMO-X); `None`: no hay.
+    pub carpetas: Option<Carpetas>,
     /// La RESERVA (P0.4c): una ventana de direcciones donde se hacen y
     /// deshacen paginas a peticion. `None`: solo las arenas de `memoria`.
     pub reserva: Option<Reserva>,
+}
+
+/// **Lo que cambia carpetas del volumen** (relevo 01-10, paso 4b): en
+/// BMO-X, ESTRATOS (crear carpeta, quitar, renombrar en la misma carpeta).
+/// `false` = no se pudo (la casa contesta lo de Windows). Sin esto (el banco,
+/// un volumen sin ESTRATOS), la casa dice ACCESO DENEGADO como siempre.
+#[derive(Clone, Copy)]
+pub struct Carpetas {
+    pub crear: fn(&[u8]) -> bool,
+    pub quitar: fn(&[u8]) -> bool,
+    /// `(ruta, nombre nuevo)`: el nombre, no la ruta; misma carpeta.
+    pub renombrar: fn(&[u8], &[u8]) -> bool,
 }
 
 /// **La reserva de la plataforma** (P0.4c, 30-09): en BMO-X, la ventana de

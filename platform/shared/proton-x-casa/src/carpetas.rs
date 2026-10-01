@@ -606,19 +606,100 @@ fn con_ruta(p: *const u16, f: impl FnOnce(&str) -> i32) -> i32 {
 }
 
 extern "win64" fn create_directory_w(n: *const u16, _seg: u64) -> i32 {
-    con_ruta(n, |r| no_se_puede("CreateDirectoryW", r, ERROR_ALREADY_EXISTS))
+    con_ruta(n, |r| {
+        // Relevo 01-10, paso 4b: en ESTRATOS si se puede (el perfil de un juego).
+        if let Some(c) = plataforma().carpetas {
+            if entrada(r).is_none() && padre_existe(r) && (c.crear)(r.as_bytes()) {
+                kernel32::poner_error(0);
+                return 1;
+            }
+        }
+        no_se_puede("CreateDirectoryW", r, ERROR_ALREADY_EXISTS)
+    })
 }
 
+/// Quitar `r` (fichero o carpeta) por la plataforma, si lo hay y se puede.
+fn quitar(r: &str, carpeta: bool) -> bool {
+    match (plataforma().carpetas, entrada(r)) {
+        (Some(c), Some(e)) if e.carpeta == carpeta => (c.quitar)(r.as_bytes()),
+        _ => false,
+    }
+}
+
+const ERROR_DIR_NOT_EMPTY: u32 = 145;
+
 extern "win64" fn remove_directory_w(n: *const u16) -> i32 {
-    con_ruta(n, |r| no_se_puede("RemoveDirectoryW", r, ERROR_ACCESS_DENIED))
+    con_ruta(n, |r| {
+        // Solo una VACIA, como Windows: quitarla en ESTRATOS se llevaria lo de dentro.
+        if entrada(r).is_some_and(|e| e.carpeta) && (plataforma().listar)(r.as_bytes()).is_some_and(|v| v.iter().any(|e| e.nombre != "." && e.nombre != "..")) {
+            kernel32::poner_error(ERROR_DIR_NOT_EMPTY);
+            return 0;
+        }
+        if quitar(r, true) {
+            1
+        } else {
+            no_se_puede("RemoveDirectoryW", r, ERROR_ACCESS_DENIED)
+        }
+    })
 }
 
 extern "win64" fn delete_file_w(n: *const u16) -> i32 {
-    con_ruta(n, |r| no_se_puede("DeleteFileW", r, ERROR_ACCESS_DENIED))
+    con_ruta(n, |r| if quitar(r, false) { 1 } else { no_se_puede("DeleteFileW", r, ERROR_ACCESS_DENIED) })
 }
 
-extern "win64" fn move_file_ex_w(origen: *const u16, _destino: *const u16, _banderas: u32) -> i32 {
-    con_ruta(origen, |r| no_se_puede("MoveFileExW", r, ERROR_ACCESS_DENIED))
+const MOVEFILE_REPLACE_EXISTING: u32 = 1;
+
+/// `MoveFileExW(origen, destino, banderas)`: en la misma carpeta, renombrar;
+/// un fichero a otra carpeta, copiarlo y quitar el de antes (como hace
+/// Windows entre volumenes). Una carpeta a otra carpeta: no todavia.
+extern "win64" fn move_file_ex_w(origen: *const u16, destino: *const u16, banderas: u32) -> i32 {
+    let (a, b) = match (ruta(origen), ruta(destino)) {
+        (Ok(a), Ok(b)) => (a, b),
+        (Err(e), _) | (_, Err(e)) => {
+            kernel32::poner_error(e);
+            return 0;
+        }
+    };
+    let Some(c) = plataforma().carpetas else {
+        return no_se_puede("MoveFileExW", &a, ERROR_ACCESS_DENIED);
+    };
+    let Some(ea) = entrada(&a) else {
+        kernel32::poner_error(if padre_existe(&a) { ERROR_FILE_NOT_FOUND } else { ERROR_PATH_NOT_FOUND });
+        return 0;
+    };
+    match entrada(&b) {
+        Some(eb) => {
+            if banderas & MOVEFILE_REPLACE_EXISTING == 0 || eb.carpeta || ea.carpeta {
+                kernel32::poner_error(ERROR_ALREADY_EXISTS);
+                return 0;
+            }
+            if !(c.quitar)(b.as_bytes()) {
+                kernel32::poner_error(ERROR_ACCESS_DENIED);
+                return 0;
+            }
+        }
+        None if !padre_existe(&b) => {
+            kernel32::poner_error(ERROR_PATH_NOT_FOUND);
+            return 0;
+        }
+        None => {}
+    }
+    let ((pa, _), (pb, nb)) = (partir(&a), partir(&b));
+    let hecho = if pa.eq_ignore_ascii_case(pb) {
+        (c.renombrar)(a.as_bytes(), nb.as_bytes())
+    } else if !ea.carpeta {
+        (plataforma().leer_fichero)(a.as_bytes()).is_some_and(|bytes| (plataforma().escribir_fichero)(b.as_bytes(), &bytes) && (c.quitar)(a.as_bytes()))
+    } else {
+        aviso("MoveFileExW: una carpeta a otra carpeta, todavia no");
+        false
+    };
+    if hecho {
+        kernel32::poner_error(0);
+        1
+    } else {
+        kernel32::poner_error(ERROR_ACCESS_DENIED);
+        0
+    }
 }
 
 extern "win64" fn move_file_w(origen: *const u16, destino: *const u16) -> i32 {

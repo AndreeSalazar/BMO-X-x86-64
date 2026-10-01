@@ -34,7 +34,7 @@ use bmo_userland as bmo;
 const RANURAS: u64 = 64;
 
 pub fn de_bmo() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: super::la3060::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, reserva: Some(RESERVA) }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: super::la3060::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: Some(CARPETAS), reserva: Some(RESERVA) }
 }
 
 /// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el
@@ -77,7 +77,49 @@ fn leer_fichero(ruta: &[u8]) -> Option<alloc::vec::Vec<u8>> {
 /// Un fichero entero, de UNA llamada (P4f3): los bytes a un bloque y
 /// `Archivo::escribir_de`, en vez de siete bytes por llamada con `write`.
 /// Sin bloque libre (son ocho), el camino lento: sale igual.
+/// **Escribir un fichero del `.exe`** (relevo 01-10, paso 4b): lo de
+/// `proton-x/` (el perfil de un juego) va a ESTRATOS; lo demas, a FAT32 como
+/// siempre, y si FAT32 no puede (su carpeta solo esta en ESTRATOS), a
+/// ESTRATOS.
 fn escribir_fichero(ruta: &[u8], bytes: &[u8]) -> bool {
+    if ruta.starts_with(b"proton-x/") {
+        return escribir_en_estratos(ruta, bytes);
+    }
+    escribir_en_fat32(ruta, bytes) || escribir_en_estratos(ruta, bytes)
+}
+
+/// ESTRATOS montado y escribible.
+fn estratos_escribible() -> bool {
+    bmo::info(bmo::INFO_ES_MONTADO) != 0 && bmo::info(bmo::INFO_ES_ESCRIBIBLE) != 0
+}
+
+/// Guardar en ESTRATOS: lo crea, o publica su version nueva (la de antes se
+/// queda en el historial: guardar encima no pierde nada). Un fichero VACIO
+/// solo se puede crear (ESTRATOS no publica una version de cero bytes).
+fn escribir_en_estratos(ruta: &[u8], bytes: &[u8]) -> bool {
+    if !estratos_escribible() {
+        return false;
+    }
+    if bytes.is_empty() {
+        return bmo::estratos::crear_fichero(ruta, &[]) != 0;
+    }
+    let Some(m) = bmo::Memoria::request(bytes.len() as u64) else { return false };
+    // SAFETY: un bloque nuestro de al menos `bytes.len()` bytes.
+    unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), m.base(), bytes.len()) };
+    let g = bmo::estratos::guardar_desde(ruta, m.handle(), 0, bytes.len() as u64);
+    m.soltar();
+    g != 0
+}
+
+/// **Las carpetas en ESTRATOS** (relevo 01-10, paso 4b): crear, quitar y
+/// renombrar. En FAT32 no se puede desde Ring 3: lo de alli contesta que no.
+const CARPETAS: bmo_proton_x_casa::Carpetas = bmo_proton_x_casa::Carpetas {
+    crear: |r| estratos_escribible() && bmo::estratos::crear_carpeta(r) != 0,
+    quitar: |r| estratos_escribible() && bmo::estratos::quitar(r) != 0,
+    renombrar: |r, nuevo| estratos_escribible() && bmo::estratos::renombrar(r, nuevo) != 0,
+};
+
+fn escribir_en_fat32(ruta: &[u8], bytes: &[u8]) -> bool {
     let Ok(a) = bmo::Archivo::create(ruta) else { return false };
     let n = if bytes.is_empty() {
         0

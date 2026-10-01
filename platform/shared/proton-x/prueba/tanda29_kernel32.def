@@ -1,0 +1,14 @@
+LIBRARY kernel32.dll
+EXPORTS
+GetStdHandle
+WriteFile
+ReadFile
+CloseHandle
+ExitProcess
+GetLastError
+CreateFileW
+CreateDirectoryW
+RemoveDirectoryW
+DeleteFileW
+MoveFileExW
+GetFileAttributesW

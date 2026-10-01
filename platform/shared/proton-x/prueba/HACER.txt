@@ -1202,3 +1202,24 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    effb9e10d6559bb0b846ccf92962c8372600ec2c6c519e21b2c5a8c430c51add
 
 Dice `bien` seis veces y sale con 0. En Windows dice lo mismo.
+
+tanda29.exe -- la TANDA 29 (01-10): carpetas que se crean, ficheros que se
+renombran, se mueven y se borran
+
+Para el perfil de un juego en ESTRATOS (relevo de PROTON-X, paso 4b):
+CreateDirectoryW (y otra vez: ERROR_ALREADY_EXISTS; sin la de arriba:
+ERROR_PATH_NOT_FOUND), MoveFileExW en la misma carpeta y a otra (sin
+REPLACE_EXISTING sobre uno que esta: no), RemoveDirectoryW de una llena
+(ERROR_DIR_NOT_EMPTY) y de una vacia, DeleteFileW (y otra vez:
+ERROR_FILE_NOT_FOUND). Todo en una carpeta propia (t29) junto al .exe; al
+acabar no queda nada.
+
+   llvm-dlltool -m i386:x86-64 -d tanda29_kernel32.def -l tanda29_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda29.c -o tanda29.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda29.obj tanda29_kernel32.lib /out:tanda29.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   c424a4753bf556595bccb925b0094b85372d81bb5488ddea9cbca8812e5fcfba
+
+Dice `bien` dieciocho veces y sale con 0. En Windows dice lo mismo.
