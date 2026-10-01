@@ -402,19 +402,21 @@ pub fn leer_fichero(registro: u64, medida: u64, off: u64, dst: &mut [u8]) -> usi
 }
 
 /// **La entrada `n` (desde 0) de la carpeta `dir`**: su nombre en UTF-8 en
-/// `nombre` y `(bytes del nombre, carpeta, medida)`. `None` cuando se acaban.
+/// `nombre` y `(bytes del nombre, carpeta, medida, [creado, escrito, leido],
+/// atributos)`. `None` cuando se acaban. Las fechas y los atributos (01-10)
+/// salen de la misma clave del indice: no cuestan lecturas.
 ///
 /// [!] Recorre la carpeta desde el principio en cada llamada: pedir las N es
 /// cuadratico. Una carpeta de Cyberpunk tiene cientos, no millones; el dia
 /// que pese se guarda por donde iba.
-pub fn entrada(dir: u64, n: usize, nombre: &mut [u8]) -> Option<(usize, bool, u64)> {
+pub fn entrada(dir: u64, n: usize, nombre: &mut [u8]) -> Option<(usize, bool, u64, [u64; 3], u32)> {
     let v = volumen()?;
     let mut k = 0usize;
     let mut hallada = None;
     let r = v.recorrer(dir, &mut |e| {
         if k == n {
             let largo = e.nombre_utf8(nombre);
-            hallada = Some((largo, e.carpeta, e.medida));
+            hallada = Some((largo, e.carpeta, e.medida, e.fechas, e.atributos));
             return true;
         }
         k += 1;

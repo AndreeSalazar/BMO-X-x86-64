@@ -92,6 +92,21 @@ pub const DIR_OP_NOMBRE: u64 = 0x02;
 /// los dos casos es la misma: **quien devuelve esto, y ocurre alguna vez?**
 pub const DIR_OP_CERRAR: u64 = 0x03;
 
+/// ** LAS FECHAS Y LOS ATRIBUTOS de la entrada ACTUAL (01-10): `arg0` 0, 1 y
+/// 2 son creado, escrito y leido (FILETIME: 100 ns desde 1601); 3, los
+/// atributos de Windows. Solo los da el disco Personal (`d:`, NTFS); en FAT32
+/// y ESTRATOS, 0 (= no se sabe).
+///
+/// Por que hace falta (y por que en Ring 0): Cyberpunk mira su
+/// `final.redscripts` SOLO con GetFileAttributesExW, y con las fechas a 0 (un
+/// fichero de 1601) dice "corrupted or missing scripts file". Las fechas
+/// estan en la clave del indice NTFS que el kernel ya lee para listar; este
+/// es el unico sitio que las tiene.
+pub const DIR_OP_FECHAS: u64 = 0x04;
+
+/// `[creado, escrito, leido, atributos]` de la entrada actual de cada ranura.
+static mut FECHAS: [[u64; 4]; MAX_ABIERTOS] = [[0; 4]; MAX_ABIERTOS];
+
 static mut CLUSTER: [u32; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 /// ** De que VOLUMEN es el cluster: `true` = la particion de arranque (`efi:`),
 /// en solo lectura. Un cluster sin su volumen es un numero que apunta a dos
@@ -187,9 +202,10 @@ fn next(i: usize) -> u64 {
             let nombre = &mut *core::ptr::addr_of_mut!(LARGO[i]);
             return match crate::ring0::dev::disk::ajeno::entrada(PERSONAL[i], n, nombre) {
                 // La medida en 62 bits: un fichero de Cyberpunk pasa de 4 GiB.
-                Some((largo, carpeta, medida)) => {
+                Some((largo, carpeta, medida, f, atributos)) => {
                     INDICE[i] = n;
                     NLEN[i] = largo;
+                    FECHAS[i] = [f[0], f[1], f[2], atributos as u64];
                     (1u64 << 63) | ((carpeta as u64) << 62) | (medida & ((1 << 62) - 1))
                 }
                 None => 0,
@@ -244,12 +260,15 @@ pub fn operation(idx: u64, op: u64, arg0: u64) -> Option<u64> {
     match op {
         DIR_OP_SIGUIENTE => Some(next(i)),
         DIR_OP_NOMBRE => Some(name(i, arg0 as usize)),
+        // SAFETY: el indice ya se comprobo; un solo hilo toca la tabla.
+        DIR_OP_FECHAS => Some(unsafe { FECHAS[i][(arg0 as usize).min(3)] }),
         DIR_OP_CERRAR => {
             unsafe {
                 OWNER[i] = NO_OWNER;
                 CLUSTER[i] = 0;
                 INDICE[i] = usize::MAX;
                 PERSONAL[i] = u64::MAX;
+                FECHAS[i] = [0; 4];
                 ESTRATOS[i] = None;
                 FAT[i] = false;
                 DE_ESTRATOS[i] = false;

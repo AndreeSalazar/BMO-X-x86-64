@@ -1394,6 +1394,9 @@ pub const DIR_OP_NOMBRE: u32 = 0x02;
 pub const DIR_NOMBRE_LARGO: u64 = 1 << 61;
 /// Cierra el directorio y devuelve su ranura. Lo llama `Drop`, no tu.
 pub const DIR_OP_CERRAR: u32 = 0x03;
+/// Fechas (0 creado, 1 escrito, 2 leido; FILETIME) y atributos (3) de la
+/// entrada actual. 0 = no se sabe.
+pub const DIR_OP_FECHAS: u32 = 0x04;
 
 // Operaciones sobre un handle de archivo (`KIND_ARCHIVO`).
 pub const ARCH_OP_LEER: u32 = 0x01;

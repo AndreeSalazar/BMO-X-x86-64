@@ -166,6 +166,14 @@ impl Directorio {
     /// Para el disco Personal (`d:`, N1b): un nombre NTFS no es un 8.3 de 11
     /// bytes y una medida de Cyberpunk no cabe en 32 bits. El nombre se pide
     /// de 7 en 7 hasta que un trozo llega corto.
+    /// **Las fechas y los atributos de la entrada de ahora** (la ultima que
+    /// dio `siguiente_*`): `[creado, escrito, leido]` en FILETIME y los
+    /// atributos de Windows. Todo 0 = no se sabe (hoy solo los da `d:`).
+    pub fn fechas(&self) -> ([u64; 3], u32) {
+        let f = |k: u64| invoke(self.cap, DIR_OP_FECHAS, k, 0, 0).value;
+        ([f(0), f(1), f(2)], f(3) as u32)
+    }
+
     pub fn siguiente_largo(&self, nombre: &mut [u8]) -> Option<(usize, bool, u64)> {
         let v = invoke(self.cap, DIR_OP_SIGUIENTE, 0, 0, 0).value;
         if v >> 63 == 0 {
