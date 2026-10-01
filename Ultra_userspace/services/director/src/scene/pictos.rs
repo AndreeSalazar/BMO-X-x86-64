@@ -11,6 +11,7 @@
 //! comparten el kernel y Ring 3 (ver `userland/src/pantalla/verde.rs`).
 //!
 //! ```text
+//!    Juego    un mando: la cruz y dos botones (01-10)
 //!    App      una ventana con su barra
 //!    Imagen   un marco, un sol y una sierra
 //!    Audio    una nota
@@ -45,6 +46,18 @@ pub(crate) fn dibujar(p: &bmo::Pantalla, x: u32, y: u32, lado: u32, clase: Clase
     let (ix, iy) = (x + 2 * u, y + 2 * u);
     let ia = lado - 4 * u;
     match clase {
+        Clase::Juego => {
+            // El cuerpo del mando, la cruz a la izquierda y dos botones.
+            let cy = iy + ia / 2;
+            let alto = (ia * 5 / 8).max(3);
+            marco(p, ix, cy - alto / 2, ia, alto, g, TINTA);
+            let cx = ix + ia / 4 + g;
+            p.rect(cx - u, cy - g / 2, 2 * u + g, g.max(1), TINTA);
+            p.rect(cx - g / 2, cy - u, g.max(1), 2 * u + g, TINTA);
+            let bx = ix + ia * 3 / 4 - g;
+            p.rect(bx - u, cy - u / 2 - g, g.max(1) + 1, g.max(1) + 1, TINTA);
+            p.rect(bx + u / 2, cy + u / 2 - g, g.max(1) + 1, g.max(1) + 1, TINTA);
+        }
         Clase::App => {
             marco(p, ix, iy, ia, ia, g, TINTA);
             p.rect(ix, iy, ia, u + g, TINTA);

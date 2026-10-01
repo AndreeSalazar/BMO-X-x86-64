@@ -95,12 +95,43 @@ use super::*;
 // dice de que ventana estas hablando antes de leer su titulo. Lo que cambia es
 // el tono -- el verde de antes era de rotulador, escogido para verse en una foto
 // de una pantalla que a lo mejor ni arrancaba.
-pub(crate) const DATA_BG: u32 = 0x0013_1C18;
-pub(crate) const DATA_TITLE_BG: u32 = 0x001B_2622;
+//
+// ** VERDE NEON desde el 01-10. El propietario: *"con colores Verdes Neon con
+// texturas"*. El fondo baja a casi negro con un pelo de verde --el neon solo
+// brilla sobre oscuro-- y el acento sube a neon de verdad. La textura es la
+// de `textura`: lineas de barrido y una rejilla de puntos, como una placa.
+pub(crate) const DATA_BG: u32 = 0x000B_1610;
+pub(crate) const DATA_TITLE_BG: u32 = 0x0010_2418;
 /// El borde, discreto. Lo que separa la ventana del fondo es la sombra.
-pub(crate) const DATA_EDGE: u32 = 0x002C_4038;
+pub(crate) const DATA_EDGE: u32 = 0x0021_5A3A;
 /// Y el acento verde, que si puede ser vivo: es una linea, no un marco.
-pub(crate) const DATA_TITLE: u32 = 0x0034_D399;
+pub(crate) const DATA_TITLE: u32 = 0x0039_FF88;
+/// La textura: una linea de barrido cada `BARRIDO` filas y un punto de la
+/// rejilla cada `REJILLA` pixeles. Tonos que apenas se separan del fondo: es
+/// textura, no dibujo, y encima se tiene que leer.
+const TEXTURA_LINEA: u32 = 0x000E_1C14;
+const TEXTURA_PUNTO: u32 = 0x001B_4A30;
+const BARRIDO: u32 = 3;
+const REJILLA: u32 = 24;
+
+/// **La textura de ESTRATOS** en el cuerpo de la ventana: barrido y rejilla.
+/// Solo `rect` sobre el framebuffer en memoria, y se pinta lo que se repinta.
+fn textura(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32) {
+    let mut k = 0u32;
+    while k < h {
+        p.rect(x, y + k, w, 1, TEXTURA_LINEA);
+        k += BARRIDO;
+    }
+    let mut j = REJILLA / 2;
+    while j < h {
+        let mut i = REJILLA / 2;
+        while i + 1 < w {
+            p.rect(x + i, y + j, 2, 2, TEXTURA_PUNTO);
+            i += REJILLA;
+        }
+        j += REJILLA;
+    }
+}
 
 /// La ventana de Datos: **un marco y lo que hay dentro**.
 ///
@@ -744,16 +775,16 @@ pub(crate) const NODE_MIN: u32 = 170;
 pub(crate) const CHANNEL: u32 = 44;
 const NODE_H: u32 = 40;
 const NODE_GAP: u32 = 12;
-const SHADOW_NODE: u32 = 0x000B_100E;
+const SHADOW_NODE: u32 = 0x0004_0A07;
 /// Las aristas del grafo. Mas claras que el borde de la ventana **a proposito**:
 /// son lo que hay que seguir con la vista, y una linea del mismo tono que el
 /// marco se pierde entre los marcos.
-const DATA_EDGE_LINE: u32 = 0x0045_6B5C;
+const DATA_EDGE_LINE: u32 = 0x002C_9A60;
 /// El cuerpo de una caja del grafo: un nivel por encima de la ventana, que es
 /// la misma regla que separa la ventana del escritorio.
-const NODE_BG: u32 = 0x001B_2622;
+const NODE_BG: u32 = 0x0011_261A;
 /// Y la marcada, otro nivel mas. La profundidad se lee sola.
-const NODE_SEL: u32 = 0x0024_332C;
+const NODE_SEL: u32 = 0x0019_3A27;
 
 /// **LO SELECCIONADO VA EN AZUL, y el azul no me lo he inventado.**
 ///
@@ -923,10 +954,28 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
     // son de esta ventana: el verde dice ESTRATOS antes de que nadie lea el
     // titulo.
     c.chrome.paint_chrome(p, DATA_EDGE, DATA_BG, DATA_TITLE_BG, DATA_TITLE);
+    textura(
+        p,
+        c.chrome.x + 1,
+        c.chrome.y + TITLE_H,
+        c.chrome.width.saturating_sub(2),
+        // Sin bajar a la curva de abajo: la textura es cuadrada y la esquina no.
+        c.chrome.height.saturating_sub(TITLE_H + super::borde::R_VENTANA),
+    );
 
     let tx = c.chrome.x + 16;
-    p.rect(tx, c.chrome.y + 9, 8, 8, DATA_TITLE);
-    let px = p.texto(tx + 16, c.chrome.y + 8, "ESTRATOS", INK);
+    // El logo de ESTRATOS --las tres capas-- en vez del cuadrado de antes: el
+    // mismo dibujo que la tarjeta del equipo y la solapa del explorador.
+    iconos::vector(
+        p,
+        tx - 2,
+        c.chrome.y + 5,
+        18,
+        &iconos::dibujos::ESTRATOS,
+        &iconos::paleta(DATA_TITLE, DATA_TITLE),
+        DATA_TITLE_BG,
+    );
+    let px = p.texto(tx + 22, c.chrome.y + 8, "ESTRATOS", DATA_TITLE);
     let px = px + 2 * bmo::GLIFO_ANCHO;
     // Las solapas: la activa lleva su subrayado. Un corchete pintado de otro
     // color se pierde en una foto; una linea debajo no.
@@ -987,7 +1036,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
             Some(a) => p.texto(tx, y, a, 0x00F0_D070),
             None => p.texto(
                 tx, y,
-                "ENTRAR abre  flechas mueven  0 A I M T filtran  R vuelve a mirar  TAB sigue",
+                "ENTRAR abre  flechas mueven  0 J A I M T filtran  R vuelve a mirar  TAB sigue",
                 INK_DIM,
             ),
         };

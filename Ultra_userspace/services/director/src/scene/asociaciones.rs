@@ -15,11 +15,15 @@
 //! fichero como texto y mostrar bytes crudos, que se leeria como "el formato
 //! esta roto" cuando lo que falta es la app.
 //!
-//! [!] Ninguna extension pasa de TRES letras: el FAT32 del kernel es 8.3, y un
+//! [!] En FAT32 ninguna extension pasa de TRES letras: el kernel es 8.3, y un
 //! tipo de cuatro letras no llegaria nunca aqui con su nombre (ver `.ibx`).
+//! Desde el 01-10 la biblioteca tambien lee ESTRATOS, de nombre largo: ahi si
+//! llega un `.json`.
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Clase {
+    /// Un `.exe` de Windows: lo abre PROTON-X (01-10).
+    Juego,
     App,
     Imagen,
     Audio,
@@ -30,10 +34,11 @@ pub(crate) enum Clase {
 impl Clase {
     /// Las que se muestran en la biblioteca, en su orden. `Otro` no esta a
     /// proposito: una biblioteca que lista lo que no sabe abrir es un `ls`.
-    pub(crate) const VISIBLES: [Clase; 4] = [Clase::App, Clase::Imagen, Clase::Audio, Clase::Texto];
+    pub(crate) const VISIBLES: [Clase; 5] = [Clase::Juego, Clase::App, Clase::Imagen, Clase::Audio, Clase::Texto];
 
     pub(crate) fn nombre(self) -> &'static str {
         match self {
+            Clase::Juego => "juegos",
             Clase::App => "apps",
             Clase::Imagen => "imagenes",
             Clase::Audio => "audio",
@@ -45,6 +50,7 @@ impl Clase {
     /// La tecla que la filtra. La inicial, que es la que la mano busca.
     pub(crate) fn tecla(self) -> u8 {
         match self {
+            Clase::Juego => b'J',
             Clase::App => b'A',
             Clase::Imagen => b'I',
             Clase::Audio => b'M',
@@ -56,6 +62,9 @@ impl Clase {
     /// Un color por clase, el mismo en toda la biblioteca.
     pub(crate) fn color(self) -> u32 {
         match self {
+            // Verde lima neon: del verde de ESTRATOS pero no el mismo, que
+            // ese ya dice DE DONDE viene un fichero.
+            Clase::Juego => 0x00A6_FF3B,
             Clase::App => 0x0060_A5FA,
             Clase::Imagen => 0x00F0_A860,
             Clase::Audio => 0x00C0_84FC,
@@ -84,6 +93,9 @@ struct Tipo {
 }
 
 const TIPOS: &[Tipo] = &[
+    // ** Los juegos (01-10): un `.exe` de Windows se lanza con PROTON-X, que
+    // recibe la ruta por los argumentos como `run sys/proton-x.bex x.exe`.
+    Tipo { ext: b"exe", clase: Clase::Juego, abre: Abre::Con(b"sys/proton-x.bex") },
     Tipo { ext: b"bex", clase: Clase::App, abre: Abre::Programa },
     Tipo { ext: b"ibx", clase: Clase::App, abre: Abre::Programa },
     // ** El reproductor recibe la ruta por los ARGUMENTOS (`task/argumentos.rs`).

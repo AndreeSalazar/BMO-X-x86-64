@@ -139,11 +139,23 @@ pub(crate) fn solapas_x(z: &Zona) -> [(u32, u32); 3] {
     let mut x = z.x;
     let mut out = [(0u32, 0u32); 3];
     for (k, v) in fuente::Volumen::TODOS.iter().enumerate() {
-        let w = (v.nombre().len() as u32 + 4) * bmo::GLIFO_ANCHO;
+        let w = (v.nombre().len() as u32 + 4) * bmo::GLIFO_ANCHO + ICONO_SOLAPA + 4;
         out[k] = (x, x + w);
         x += w + 6;
     }
     out
+}
+
+/// El lado del dibujo de cada solapa (01-10): las capas de ESTRATOS, la losa
+/// de DATOS, el chip de EFI. Los mismos dibujos que las tarjetas del equipo.
+const ICONO_SOLAPA: u32 = 14;
+
+fn dibujo_de(v: fuente::Volumen) -> (&'static [bmo_dibujo::Capa], u32) {
+    match v {
+        fuente::Volumen::Estratos => (&iconos::dibujos::ESTRATOS, DATA_TITLE),
+        fuente::Volumen::Datos => (&iconos::dibujos::DISCO, 0x0060_A5FA),
+        fuente::Volumen::Efi => (&iconos::dibujos::CHIP, 0x00A7_8BFA),
+    }
 }
 
 /// **Las solapas de VOLUMEN**, al principio de la miga: `1 ESTRATOS 2 DATOS
@@ -163,8 +175,12 @@ fn solapas(p: &bmo::Pantalla, z: &Zona) -> u32 {
             p.rect(x0, z.y + 2, x1 - x0, MIGA_H.saturating_sub(6), NODE_SEL);
             p.rect(x0, z.abajo().saturating_sub(4), x1 - x0, 2, DATA_TITLE);
         }
+        let (dibujo, color) = dibujo_de(*v);
+        let fondo = if es { NODE_SEL } else { DATA_BG };
+        let iy = z.y + MIGA_H.saturating_sub(ICONO_SOLAPA) / 2;
+        iconos::vector(p, x0 + 4, iy, ICONO_SOLAPA, dibujo, &iconos::paleta(color, color), fondo);
         let cifra = [b'1' + k as u8];
-        let x = p.texto_bytes(x0 + bmo::GLIFO_ANCHO, ty, &cifra, INK_DIM);
+        let x = p.texto_bytes(x0 + ICONO_SOLAPA + 4 + bmo::GLIFO_ANCHO, ty, &cifra, INK_DIM);
         p.texto(x + bmo::GLIFO_ANCHO, ty, v.nombre(), if es { INK } else { INK_DIM });
     }
     xs[2].1 + 2 * bmo::GLIFO_ANCHO
