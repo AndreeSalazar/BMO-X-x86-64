@@ -214,8 +214,10 @@ extern "win64" fn sh_get_known_folder_path(id: *const u8, _banderas: u32, _token
     unsafe { sale.write(0) };
     let Some(r) = carpeta_guid(&g) else {
         aviso("SHGetKnownFolderPath de una carpeta que la casa no sabe");
+        crate::diario::nota(&alloc::format!("SHGetKnownFolderPath({g:02x?}): no la sabe"));
         return E_FILE_NOT_FOUND;
     };
+    crate::diario::nota(&alloc::format!("SHGetKnownFolderPath: \"{}\"", alloc::string::String::from_utf16_lossy(&r)));
     let p = co_task_mem_alloc(((r.len() + 1) * 2) as u64);
     if p == 0 {
         return 0x8007_000E; // E_OUTOFMEMORY

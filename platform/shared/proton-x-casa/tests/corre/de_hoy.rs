@@ -70,6 +70,11 @@ fn diario_exe_con_diario_apunta_cada_funcion_una_vez_y_en_orden() {
     bmo_proton_x_casa::diario::diario(Some(b"diario.txt"));
     let (salio, dicho, _) = correr_exe(&uno, DIARIO, true, &[]);
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    // Con el diario, la casa dice la ruta que el .exe no encontro (01-10):
+    // diario.exe abre a proposito uno que no esta, y es lo unico que dice.
+    let nota = "PROTON-X: CreateFileW(\"no_esta_diario.txt\"): no (error 2)\n";
+    assert!(texto.contains(nota), "{texto}");
+    let texto = texto.replace(nota, "");
     assert!(!texto.contains("  MAL   ") && !texto.contains("PROTON-X:"), "{texto}");
     assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
     assert!(texto.ends_with("diario.exe: los trampolines no se notan\r\n[salio 0x0]"), "{texto}");
