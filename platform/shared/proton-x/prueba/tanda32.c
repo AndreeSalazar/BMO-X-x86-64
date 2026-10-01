@@ -3,10 +3,10 @@
  * "boost::filesystem::path codecvt to string: error". Boost pasa las rutas
  * de ancho a estrecho con WideCharToMultiByte(CP_ACP o CP_OEMCP,
  * WC_NO_BEST_FIT_CHARS) y de vuelta con MultiByteToWideChar(CP_ACP,
- * MB_PRECOMPOSED). Con la pagina del SISTEMA esas banderas son validas; con
- * CP_UTF8 explicito, Windows las rechaza (ERROR_INVALID_FLAGS) y no deja
- * pasar lpUsedDefaultChar (ERROR_INVALID_PARAMETER). Solo ASCII: en una
- * pagina 1252 y en UTF-8 da lo mismo.
+ * MB_PRECOMPOSED). Con la pagina del SISTEMA esas banderas son validas, y
+ * con CP_UTF8 explicito TAMBIEN: la primera ronda en Windows (01-10) dijo que
+ * no las rechaza, aunque la documentacion diga ERROR_INVALID_FLAGS y pida
+ * lpUsedDefaultChar a NULL. Solo ASCII: en 1252 y en UTF-8 da lo mismo.
  *
  * Sale con el numero de fallos. En Windows dice lo mismo. */
 typedef void *HANDLE;
@@ -28,8 +28,6 @@ IMPORTA int W AreFileApisANSI(void);
 #define CP_UTF8 65001
 #define WC_NO_BEST_FIT_CHARS 0x400
 #define MB_PRECOMPOSED 1
-#define ERROR_INVALID_FLAGS 1004
-#define ERROR_INVALID_PARAMETER 87
 
 static unsigned fallos;
 
@@ -79,15 +77,13 @@ void inicio(void) {
     mira(n == 26, "WideCharToMultiByte(CP_OEMCP, WC_NO_BEST_FIT_CHARS): 26");
     n = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, "D:\\juego\\x64", -1, w, 64);
     mira(n == 13 && igual_w(w, L"D:\\juego\\x64"), "MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED): 13 y la ruta");
-    SetLastError(0);
     n = WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, ruta, -1, b, 64, 0, 0);
-    mira(n == 0 && GetLastError() == ERROR_INVALID_FLAGS, "con CP_UTF8, WC_NO_BEST_FIT_CHARS: ERROR_INVALID_FLAGS");
-    SetLastError(0);
+    mira(n == 26, "con CP_UTF8 y WC_NO_BEST_FIT_CHARS: 26, no la rechaza");
+    usado = 7;
     n = WideCharToMultiByte(CP_UTF8, 0, ruta, -1, b, 64, 0, &usado);
-    mira(n == 0 && GetLastError() == ERROR_INVALID_PARAMETER, "con CP_UTF8, lpUsedDefaultChar: ERROR_INVALID_PARAMETER");
-    SetLastError(0);
+    mira(n == 26, "con CP_UTF8 y lpUsedDefaultChar: 26, no lo rechaza");
     n = MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, "D:\\juego", -1, w, 64);
-    mira(n == 0 && GetLastError() == ERROR_INVALID_FLAGS, "con CP_UTF8, MB_PRECOMPOSED: ERROR_INVALID_FLAGS");
+    mira(n == 9 && igual_w(w, L"D:\\juego"), "con CP_UTF8 y MB_PRECOMPOSED: 9, no la rechaza");
     n = WideCharToMultiByte(CP_UTF8, 0, ruta, -1, b, 64, 0, 0);
     mira(n == 26 && igual(b, "D:\\Cyberpunk 2077\\bin\\x64"), "con CP_UTF8 y sin banderas: la ruta");
     di("tanda32.exe: las rutas de Boost.Filesystem, de ancho a estrecho y vuelta\r\n");
