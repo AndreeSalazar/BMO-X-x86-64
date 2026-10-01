@@ -171,6 +171,24 @@ impl Output {
         (self.row + 1 - count, self.row)
     }
 
+    /// **Las filas CERRADAS desde una marca** (sin la linea en curso), como
+    /// `(desde, hasta, perdidas)`: `perdidas` son las que ya se cayeron del
+    /// historial. `None` si no se cerro ninguna. Para `save`, que vuelca a
+    /// trozos (02-10): un capitulo de mas de [`OUT_HIST`] filas perdia su
+    /// principio sin decirlo.
+    pub(crate) fn cerradas_desde(&self, mark: usize) -> Option<(usize, usize, usize)> {
+        let closed = self.written.saturating_sub(mark);
+        let hay = closed.min(self.alive_boxes.saturating_sub(1)).min(self.row);
+        if closed == 0 {
+            return None;
+        }
+        if hay == 0 {
+            // Todas perdidas: un rango vacio (desde > hasta).
+            return Some((1, 0, closed));
+        }
+        Some((self.row - hay, self.row - 1, closed - hay))
+    }
+
     /// Todo lo que queda guardado, sin las filas en blanco de arriba.
     pub(crate) fn all_rows(&self) -> (usize, usize) {
         (self.row + 1 - self.alive_boxes, self.row)
