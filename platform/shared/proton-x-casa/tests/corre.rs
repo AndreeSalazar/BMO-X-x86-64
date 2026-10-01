@@ -207,6 +207,9 @@ static mut MARCO: u64 = 0;
 static mut SALIO: u32 = u32::MAX;
 
 fn salir(codigo: u32) -> ! {
+    // Como la app: con el diario, el anillo al fichero (con el GS del .exe
+    // todavia puesto).
+    bmo_proton_x_casa::diario::al_salir(codigo);
     unsafe {
         SALIO = codigo;
         core::arch::asm!(
