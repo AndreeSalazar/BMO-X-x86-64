@@ -114,6 +114,8 @@ match c {
         // con las rutas ensucia la flecha arriba justo cuando
         // hace falta repetir el comando de verdad.
         dsk.field.history.push(&dsk.field.path[..dsk.field.n]);
+        // Y la solapa toma el nombre de su ultima orden.
+        crate::scene::solapas::apuntar(&dsk.field.path[..dsk.field.n]);
         // ** LA LINEA SE COPIA ANTES DE INTERPRETARLA.
         //
         // `Command<'a>` toma prestado `dsk.field.path`, asi que

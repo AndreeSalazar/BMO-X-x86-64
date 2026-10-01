@@ -130,6 +130,25 @@ pub(crate) fn entrada(ruta: &str) -> Option<Entrada> {
     (plataforma().listar)(padre.as_bytes())?.into_iter().find(|e| e.nombre.eq_ignore_ascii_case(nombre))
 }
 
+/// ** LA MEDIDA DE VERDAD de un fichero (01-10), la de su contenido.
+///
+/// La de [`entrada`] es la que apunta el LISTADO de su carpeta, y en NTFS
+/// esa es la del INDICE: Windows no la pone al dia cada vez que un fichero
+/// cambia, y puede ser vieja (o 0). `FindFirstFile` da esa, como Windows;
+/// `GetFileAttributesEx` y `stat` dan la del fichero. Cyberpunk lo noto:
+/// `r6\cache\final.redscripts` se reescribe en cada parche, su medida del
+/// indice era otra, y el juego dijo *"corrupted or missing scripts file"*.
+pub(crate) fn medida_real(ruta: &str, e: &Entrada) -> u64 {
+    if e.carpeta {
+        return 0;
+    }
+    let m = plataforma().trozos.and_then(|t| (t.medida)(ruta.as_bytes())).unwrap_or(e.bytes);
+    if m != e.bytes {
+        aviso(&alloc::format!("{ruta}: el indice de su carpeta dice {} B; el fichero mide {m} B (se da esta)", e.bytes));
+    }
+    m
+}
+
 /// Si la carpeta de `ruta` existe (para distinguir el 2 del 3).
 pub(crate) fn padre_existe(ruta: &str) -> bool {
     let (padre, _) = partir(ruta);
@@ -293,11 +312,13 @@ fn get_file_attributes_ex_dentro(nombre: *const u16, nivel: u32, datos: *mut u8)
         kernel32::poner_error(if padre_existe(&r) { ERROR_FILE_NOT_FOUND } else { ERROR_PATH_NOT_FOUND });
         return 0;
     };
-    // WIN32_FILE_ATTRIBUTE_DATA (36 bytes): atributos, tres fechas, la medida.
+    // WIN32_FILE_ATTRIBUTE_DATA (36 bytes): atributos, tres fechas, la medida
+    // (la del fichero, no la del indice: ver `medida_real`).
+    let medida = medida_real(&r, &e);
     let mut b = [0u8; 36];
     b[0..4].copy_from_slice(&atributos(&e).to_le_bytes());
-    b[28..32].copy_from_slice(&((e.bytes >> 32) as u32).to_le_bytes());
-    b[32..36].copy_from_slice(&(e.bytes as u32).to_le_bytes());
+    b[28..32].copy_from_slice(&((medida >> 32) as u32).to_le_bytes());
+    b[32..36].copy_from_slice(&(medida as u32).to_le_bytes());
     // SAFETY: el `.exe` da un WIN32_FILE_ATTRIBUTE_DATA.
     unsafe { core::ptr::copy_nonoverlapping(b.as_ptr(), datos, 36) };
     1

@@ -441,12 +441,7 @@ fn lanzar_o_alternar(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) {
     if let Some(i) = app_abierta(dsk, nombre) {
         let v = Ventana::App(i as u8);
         if !dsk.table.minimizada(i) && dsk.win.focus.actual() == Some(v) {
-            if let Some(s) = dsk.table.get_mut(i) {
-                let (x, y, w, h) = (s.chrome.x, s.chrome.y, s.chrome.width, s.chrome.height);
-                s.chrome.minimized = true;
-                erase_window(p, &dsk.run_box, x, y, w, h, dsk.win.visible);
-                uncover(p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
-            }
+            crate::desktop::mouse::apps::minimizar_app(dsk, p, i);
         } else if dsk.table.traer(i, p) {
             dsk.win.focus.open(v);
             dsk.win.focus.clic_en(v);

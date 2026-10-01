@@ -20,7 +20,8 @@ use bmo_userland as bmo;
 
 use crate::desktop::keys::editor::on_key;
 use crate::desktop::Desktop;
-use crate::scene::caja::{boton_en, Boton, ORDENES};
+use crate::desktop::solapas;
+use crate::scene::caja::{boton_en, solapa_en, Boton, Solapa, ORDENES};
 
 /// Las teclas que ya existian (`keys::editor`).
 const ARRIBA: u8 = 0x80;
@@ -30,6 +31,18 @@ const CTRL_F: u8 = 0x06;
 
 /// **Un clic en la caja.** `true` si cayo en un boton (y se hizo lo suyo).
 pub(crate) fn clic(dsk: &mut Desktop, p: &bmo::Pantalla, x: u32, y: u32) -> bool {
+    // Las solapas (01-10): ponerla delante, cerrarla o una nueva.
+    if let Some(s) = solapa_en(&dsk.run_box, x, y) {
+        let cambio = match s {
+            Solapa::Ir(k) => solapas::ir(dsk, k),
+            Solapa::Cerrar(k) => solapas::cerrar(dsk, k),
+            Solapa::Nueva => solapas::nueva(dsk),
+        };
+        if cambio {
+            repintar(dsk, p);
+        }
+        return true;
+    }
     let Some(b) = boton_en(&dsk.run_box, x, y) else { return false };
     match b {
         Boton::Atras => {
@@ -69,4 +82,12 @@ pub(crate) fn clic(dsk: &mut Desktop, p: &bmo::Pantalla, x: u32, y: u32) -> bool
     }
     dsk.tick.repaint_field = true;
     true
+}
+
+/// **Toda la caja otra vez**: las solapas, la salida de la que quedo delante
+/// y su linea. Despues de cambiar de solapa no se salva nada de lo pintado.
+pub(crate) fn repintar(dsk: &mut Desktop, p: &bmo::Pantalla) {
+    dsk.out.grid.dirty = true;
+    dsk.tick.repaint_field = true;
+    crate::desktop::paint::pintar_ventana(dsk, p, crate::desktop::Ventana::Run);
 }

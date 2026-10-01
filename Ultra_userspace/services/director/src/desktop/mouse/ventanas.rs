@@ -123,7 +123,13 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
             }
         }
 
+        // Las solapas viven en la barra de titulo, que es el asa: lo que cae
+        // en una no arrastra (01-10). Y una app que tapa la barra se queda su
+        // clic (ver `paint::app_encima`).
         if button && !dsk.run_box.chrome.grabbed()
+            && !dsk.tick.button_before
+            && scene::caja::solapa_en(&dsk.run_box, pos.x, pos.y).is_none()
+            && !crate::desktop::paint::app_encima(dsk, pos.x, pos.y)
             && (dsk.run_box.chrome.on_the_grip(pos.x, pos.y)
                 || dsk.run_box.chrome.on_the_corner(pos.x, pos.y))
         {

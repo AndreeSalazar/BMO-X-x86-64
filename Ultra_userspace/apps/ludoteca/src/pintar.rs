@@ -19,6 +19,7 @@ use crate::iconos;
 use crate::mates::{azar, entre, fase, onda, seno};
 use crate::tiendas::PUESTOS;
 use bmo_dibujo::{mezclar, Color, Lienzo};
+use alloc::vec::Vec;
 use bmo_ludoteca::Camino;
 
 pub const ANCHO: u32 = 1280;
@@ -104,6 +105,11 @@ pub struct Vista<'a> {
     pub proton: bool,
     /// Que tiendas tienen ya su logo oficial en `ludoteca/logos/`.
     pub logos: &'a [bool],
+    /// La charla del canal de delante, del mas viejo al mas nuevo.
+    pub charla: &'a [&'a [u8]],
+    /// Se esta escribiendo en la caja de abajo, y lo que va.
+    pub escribiendo: bool,
+    pub borrador: &'a [u8],
 }
 
 /// Donde cayo un clic.
@@ -112,6 +118,8 @@ pub enum Golpe {
     Tienda(usize),
     Juego(usize),
     Jugar,
+    /// La caja de abajo: escribir en el canal.
+    Escribir,
 }
 
 fn dentro(x: i32, y: i32, (bx, by, bw, bh): (i32, i32, i32, i32)) -> bool {
@@ -146,7 +154,15 @@ pub fn golpe(x: i32, y: i32, n_juegos: usize) -> Option<Golpe> {
     if n_juegos > 0 && dentro(x, y, caja_jugar()) {
         return Some(Golpe::Jugar);
     }
+    if dentro(x, y, caja_escribir()) {
+        return Some(Golpe::Escribir);
+    }
     None
+}
+
+/// La caja de abajo, donde se escribe.
+fn caja_escribir() -> (i32, i32, i32, i32) {
+    (X_CENTRO + 16, alto() - 52, w_centro() - 32, 40)
 }
 
 // -- piezas de dibujo ---------------------------------------------------------
@@ -342,6 +358,13 @@ fn canales(cv: &mut Canvas, v: &Vista) {
     cv.text_fit(RIEL + 58, yp + 30, jugando, TENUE, CANALES - 70);
 }
 
+/// El nombre del canal de delante, como se escribe tras `#`.
+fn nombre_canal(v: &Vista) -> Vec<u8> {
+    let mut nombre = [0u8; 40];
+    let n = v.visibles.get(v.sel).map_or(0, |&i| como_canal(&v.cat.l.juegos[i].titulo, &mut nombre));
+    if n > 0 { nombre[..n].to_vec() } else { b"bienvenida".to_vec() }
+}
+
 fn centro(cv: &mut Canvas, v: &Vista) {
     cv.rect(X_CENTRO, 0, w_centro(), alto(), FONDO_CENTRO);
     let elegido = v.visibles.get(v.sel).copied();
@@ -458,6 +481,22 @@ fn centro(cv: &mut Canvas, v: &Vista) {
     // Lo que contesto el escritorio a JUGAR.
     if !v.aviso.is_empty() {
         cv.text_fit(X_CENTRO + 72, y + 4, v.aviso, NEON, w_centro() - 100);
+        y += 28;
+    }
+
+    // -- ** LA CHARLA DEL CANAL (01-10): lo que escribiste en el. Los mas
+    // nuevos abajo, pegados a la caja; los que no caben, arriba, se van.
+    let fondo = alto() - 84;
+    let cabe = ((fondo - y).max(0) / 44) as usize;
+    let desde = v.charla.len().saturating_sub(cabe);
+    let mut yy = fondo - (v.charla.len() - desde) as i32 * 44;
+    for texto in &v.charla[desde..] {
+        cv.disc(X_CENTRO + 40, yy + 18, 18, OSCURO);
+        gato(cv, X_CENTRO + 40 - 15, yy, 5, BLANCO, NEON);
+        let w = negrita(cv, X_CENTRO + 72, yy + 2, b"BMO-X", NEON, 1);
+        cv.text(X_CENTRO + 80 + w, yy + 2, b"hoy", TENUE, 1);
+        cv.text_fit(X_CENTRO + 72, yy + 22, texto, TEXTO, w_centro() - 100);
+        yy += 44;
     }
 
     // -- la caja de abajo: las teclas, y el juez que "escribe" --
@@ -467,8 +506,25 @@ fn centro(cv: &mut Canvas, v: &Vista) {
         cv.disc(X_CENTRO + 24 + k as i32 * 8, yb + 6 - s, 2, TENUE);
     }
     cv.text(X_CENTRO + 52, yb - 2, b"el juez espera la suma de la tienda...", TENUE, 1);
-    redondo(cv, X_CENTRO + 16, yb + 18, w_centro() - 32, 40, 8, 0x0010_2238);
-    cv.text(X_CENTRO + 32, yb + 30, b"ENTER juega   flechas eligen   T tienda siguiente   Esc cierra", TENUE, 1);
+    // ** LA CAJA DE ESCRIBIR (01-10): "/" o un clic, y se escribe en el canal.
+    let (ex, ey, ew, eh) = caja_escribir();
+    if v.escribiendo {
+        redondo(cv, ex - 1, ey - 1, ew + 2, eh + 2, 9, NEON);
+        redondo(cv, ex, ey, ew, eh, 8, 0x0010_2238);
+        let w = cv.text_fit(ex + 16, ey + 12, v.borrador, BLANCO, ew - 220);
+        if (v.ms / 500) % 2 == 0 {
+            cv.rect(ex + 16 + w + 2, ey + 10, 2, 20, NEON);
+        }
+        cv.text(ex + ew - 190, ey + 12, b"Enter manda  Esc sale", TENUE, 1);
+    } else {
+        redondo(cv, ex, ey, ew, eh, 8, 0x0010_2238);
+        let encima = v.puntero.is_some_and(|(px, py)| dentro(px, py, (ex, ey, ew, eh)));
+        let mut t = Vec::new();
+        t.extend_from_slice(b"/  escribe en #");
+        t.extend_from_slice(&nombre_canal(v));
+        cv.text_fit(ex + 16, ey + 12, &t, if encima { TEXTO } else { TENUE }, ew / 2);
+        cv.text(ex + ew - 400, ey + 12, b"ENTER juega   T tienda   Esc cierra", TENUE, 1);
+    }
 }
 
 /// Los mensajes de las piezas para el juego elegido: lo que es VERDAD hoy.

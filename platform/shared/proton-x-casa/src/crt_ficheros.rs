@@ -354,9 +354,10 @@ fn stat_w(ruta: &[u16], st: *mut u8) -> i32 {
     let carpeta = at & 0x10 != 0;
     let mut medida = 0;
     if !carpeta {
-        // La medida: por la lista de su carpeta, sin leerlo entero.
+        // La medida: la del fichero, sin leerlo entero (ver
+        // `carpetas::medida_real`: la del listado puede ser vieja).
         if let Ok(r) = ficheros::ruta_de(ruta.as_ptr()) {
-            medida = crate::carpetas::entrada(&r).map_or(0, |e| e.bytes);
+            medida = crate::carpetas::entrada(&r).map_or(0, |e| crate::carpetas::medida_real(&r, &e));
         }
     }
     poner_stat(st, carpeta, medida, at & 1 != 0, es_exe(ruta));

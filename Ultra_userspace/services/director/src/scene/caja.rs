@@ -158,6 +158,50 @@ fn dentro(x: u32, y: u32, (bx, by, bw, bh): (u32, u32, u32, u32)) -> bool {
     x >= bx && x < bx + bw && y >= by && y < by + bh
 }
 
+// -- Las solapas (01-10) -------------------------------------------------------
+
+/// Lo que se pulso en la fila de las solapas.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Solapa {
+    /// Ponerla delante (el numero del hueco, no el orden).
+    Ir(usize),
+    /// Su `x`.
+    Cerrar(usize),
+    /// El `+`.
+    Nueva,
+}
+
+/// El ancho de una solapa con `n` vivas: la de siempre, o lo que quepa.
+fn solapa_w(c: &RunBox, n: usize) -> u32 {
+    SOLAPA_W.min(c.w().saturating_sub(320) / n.max(1) as u32).max(96)
+}
+
+/// La caja de la solapa que va en el lugar `i` de `n`.
+fn solapa_caja(c: &RunBox, i: usize, n: usize) -> (u32, u32, u32, u32) {
+    let w = solapa_w(c, n);
+    (c.x + 10 + i as u32 * (w + 4), c.y + 5, w, TITLE_H - 6)
+}
+
+/// La caja del `+`, si cabe otra.
+fn mas_caja(c: &RunBox, n: usize) -> Option<(u32, u32, u32, u32)> {
+    (n < super::solapas::MAX).then(|| {
+        let (x, y, w, h) = solapa_caja(c, n.saturating_sub(1), n);
+        (x + w + 4, y, 22, h)
+    })
+}
+
+/// **Que solapa (o `x`, o `+`) hay bajo el puntero.**
+pub(crate) fn solapa_en(c: &RunBox, x: u32, y: u32) -> Option<Solapa> {
+    let (l, n) = super::solapas::lista();
+    for (i, &k) in l[..n].iter().enumerate() {
+        let b = solapa_caja(c, i, n);
+        if dentro(x, y, b) {
+            return Some(if n > 1 && x + 22 >= b.0 + b.2 { Solapa::Cerrar(k) } else { Solapa::Ir(k) });
+        }
+    }
+    mas_caja(c, n).filter(|&b| dentro(x, y, b)).map(|_| Solapa::Nueva)
+}
+
 /// **El boton bajo el puntero**, si lo hay.
 pub(crate) fn boton_en(c: &RunBox, x: u32, y: u32) -> Option<Boton> {
     const FLECHAS: [Boton; 4] = [Boton::Atras, Boton::Adelante, Boton::Subir, Boton::Repetir];
@@ -176,8 +220,11 @@ pub(crate) fn boton_en(c: &RunBox, x: u32, y: u32) -> Option<Boton> {
 /// caja que cae en lo de este fichero, o `None` si no es suyo.
 pub(crate) fn color_en(c: &RunBox, x: u32, y: u32) -> Option<u32> {
     if y < c.y + TITLE_H {
-        let solapa = x >= c.x + 10 && x < c.x + 10 + SOLAPA_W && y >= c.y + 5 && y < c.y + TITLE_H - 1;
-        return solapa.then_some(BANDA);
+        return match solapa_en(c, x, y) {
+            Some(Solapa::Ir(k) | Solapa::Cerrar(k)) if k == super::solapas::activa() => Some(BANDA),
+            Some(_) => Some(mezcla(BOX_TITLE, BANDA, 110)),
+            None => None,
+        };
     }
     if y < c.y + ARRIBA {
         if dentro(x, y, buscador(c)) {
@@ -194,16 +241,32 @@ pub(crate) fn color_en(c: &RunBox, x: u32, y: u32) -> Option<u32> {
 /// bandas, los botones, la cabecera y el pie. Lo llama `paint_run_box`.
 pub(crate) fn pintar(p: &bmo::Pantalla, c: &RunBox) {
     let a = acento();
-    // La solapa: se funde con la banda de abajo, sobre el rail de neon.
-    let t = (c.x + 10, c.y + 5, SOLAPA_W, TITLE_H - 6);
-    // Redondeada arriba (suavizada contra la barra) y recta abajo: pegada a
-    // la banda, como la del Explorador.
-    super::borde::pastilla(p, t, 6, BANDA, BANDA, BOX_TITLE);
-    p.rect(t.0, t.1 + t.3 - 6, t.2, 6, BANDA);
-    p.rect(t.0 + 10, c.y + 12, 8, 8, a);
-    p.texto(t.0 + 26, c.y + 9, "Ejecutar", INK);
-    p.texto(t.0 + SOLAPA_W - 18, c.y + 9, "x", INK_DIM);
-    p.texto(t.0 + SOLAPA_W + 10, c.y + 9, "+", INK_DIM);
+    // ** LAS SOLAPAS (01-10): la de delante se funde con la banda de abajo,
+    // sobre el rail de neon; las demas, un tono por debajo y sin fundirse.
+    // Redondeadas arriba (suavizadas contra la barra) y rectas abajo, como
+    // las del Explorador. Ver `desktop::solapas`.
+    let (l, n) = super::solapas::lista();
+    let delante = super::solapas::activa();
+    for (i, &k) in l[..n].iter().enumerate() {
+        let t = solapa_caja(c, i, n);
+        let suya = k == delante;
+        let fondo = if suya { BANDA } else { mezcla(BOX_TITLE, BANDA, 110) };
+        super::borde::pastilla(p, t, 6, fondo, if suya { BANDA } else { fondo }, BOX_TITLE);
+        if suya {
+            p.rect(t.0, t.1 + t.3 - 6, t.2, 6, BANDA);
+        }
+        p.rect(t.0 + 10, c.y + 12, 8, 8, if suya { a } else { mezcla(INK_DIM, BOX_TITLE, 80) });
+        let mut r = [0u8; 20];
+        let largo = super::solapas::rotulo(k, &mut r);
+        let cabe = ((t.2.saturating_sub(26 + 22)) / bmo::GLIFO_ANCHO as u32) as usize;
+        p.texto_bytes(t.0 + 26, c.y + 9, &r[..largo.min(cabe)], if suya { INK } else { INK_DIM });
+        if n > 1 {
+            p.texto(t.0 + t.2 - 16, c.y + 9, "x", INK_DIM);
+        }
+    }
+    if let Some(m) = mas_caja(c, n) {
+        p.texto(m.0 + 7, c.y + 9, "+", INK_DIM);
+    }
 
     // Las dos bandas, y la raya que las separa del cuerpo.
     p.rect(c.x + 1, c.y + TITLE_H, c.w() - 2, NAV_H + ORDENES_H, BANDA);

@@ -84,6 +84,8 @@ pub(crate) mod chrome;
 /// marcando iconos sin abrir ninguno.
 pub(crate) mod double_click;
 pub(crate) mod output;
+// Las solapas de Ejecutar: cuales hay (01-10).
+pub(crate) mod solapas;
 /// **La luz del bus USB en el panel**: si el teclado se muere, se ve sin abrir
 /// nada. E6 de `docs/componente/EL_TECLADO_EXIGE.md`.
 pub(crate) mod testigo;
