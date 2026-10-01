@@ -526,6 +526,38 @@ el 01-10:
    historial" -- su version vieja no le interesa a nadie. Es un atributo, no un
    cambio de formato, y quita casi toda la basura antes de que exista.
 
+### ** ESTRATOS COMPLETO -- el plan del 01-10 (el propietario: "dale")
+
+Con PROTON-X usando ESTRATOS para el perfil de los juegos, lo que falta para
+usarlo "por completo", en el orden que se decidio:
+
+- [ ] **C1 -- LEER A TROZOS.** Hoy un fichero se trae ENTERO y a marcos
+      fisicos CONTIGUOS (`obj/estratos.rs`): uno de cientos de MiB puede no
+      entrar con la RAM libre, y uno de GiB no entra nunca. Leer
+      `[desde, desde + n)` bajando solo por las ramas del arbol de
+      indireccion que tocan ese tramo. **Como se sabe:** prueba en el
+      anfitrion (un fichero de varios niveles leido a trozos raros, cada
+      trozo igual que el mismo tramo del fichero entero) y en el metal un
+      fichero mayor que la RAM contigua que hay.
+- [ ] **C2 -- ESCRIBIR A TROZOS y AGREGAR AL FINAL.** Hoy guardar es el fichero entero
+      en un bloque de memoria y una version nueva entera. Escribir por
+      tramos (y al final) reusando los bloques que no cambian: la version
+      nueva comparte con la vieja todo lo que no toco.
+- [ ] **C3 -- SIN HISTORIAL y EL RECOLECTOR.** Ver "EL RECOLECTOR VUELVE A
+      LA MESA", arriba.
+- [ ] **C4 -- COPIAR y MOVER CARPETAS ENTERAS** (E2 de la Ludoteca), de FAT32
+      y de D: a ESTRATOS, y una carpeta a otra.
+- [ ] **C5 -- FECHAS y ATRIBUTOS** de cada fichero, para Windows
+      (GetFileTime, solo lectura, oculto).
+- [ ] **C6 -- AGUANTE**: mas de 8 directorios abiertos, listar sin releer la
+      carpeta en cada entrada, mas de 256 entradas, un cursor por cliente.
+- [ ] **C7 -- VELOCIDAD**: una cache de bloques de ESTRATOS en el kernel,
+      como la de NTFS para D:.
+- [ ] **C8 -- HERRAMIENTAS**: cuanto ocupa cada juego, el historial de una
+      carpeta, `estratos limpiar` con su lista, `verificar` desde BMO-X.
+
+[!] El medida NO es lo que falta: F: tiene 414 GiB. Lo que limita son C1-C3.
+
 ### Lo que sigue fuera de todo esto
 
 TimeBack encima (paso 7) y NVMe debajo de la capa de bloques. Ninguno de los dos
