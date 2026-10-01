@@ -106,6 +106,12 @@ impl Directorio {
     /// nombre legible en `nombre`: el 8.3 de FAT32 como `cobol.bex`, el de
     /// ESTRATOS entero. `(bytes del nombre, carpeta, medida)`.
     pub fn siguiente_todo(&self, nombre: &mut [u8]) -> Option<(usize, bool, u64)> {
+        self.siguiente_con_origen(nombre).map(|(k, c, b, _)| (k, c, b))
+    }
+
+    /// Como [`Directorio::siguiente_todo`], y ademas DE DONDE viene: `true`
+    /// si la entrada es de ESTRATOS (01-10, para la biblioteca).
+    pub fn siguiente_con_origen(&self, nombre: &mut [u8]) -> Option<(usize, bool, u64, bool)> {
         let v = invoke(self.cap, DIR_OP_SIGUIENTE, 0, 0, 0).value;
         if v >> 63 == 0 {
             return None;
@@ -113,7 +119,7 @@ impl Directorio {
         let carpeta = (v >> 62) & 1 != 0;
         if v & DIR_NOMBRE_LARGO != 0 {
             let k = self.nombre_entero(nombre);
-            return Some((k, carpeta, v & (DIR_NOMBRE_LARGO - 1)));
+            return Some((k, carpeta, v & (DIR_NOMBRE_LARGO - 1), true));
         }
         let mut crudo = [b' '; 11];
         let mut puesto = 0usize;
@@ -131,7 +137,7 @@ impl Directorio {
         let k = EntradaDir { name: crudo, es_dir: carpeta, bytes: v as u32 }.legible(&mut l);
         let k = k.min(nombre.len());
         nombre[..k].copy_from_slice(&l[..k]);
-        Some((k, carpeta, v as u32 as u64))
+        Some((k, carpeta, v as u32 as u64, false))
     }
 
     /// El nombre ENTERO de la entrada actual, de 7 en 7 hasta un trozo corto.

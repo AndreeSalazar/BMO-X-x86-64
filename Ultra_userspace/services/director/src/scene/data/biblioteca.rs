@@ -39,6 +39,16 @@
 //! Por ANCHURA sobre `DIR_ABRIR`, UNA carpeta abierta a la vez (el kernel tiene
 //! ocho ranuras). Cuatro niveles, 48 carpetas y 160 ficheros; lo que no cabe se
 //! DICE.
+//!
+//! ## ** Tambien lo de ESTRATOS, con su marca (01-10)
+//!
+//! Desde que el Directorio del kernel mezcla FAT32 y ESTRATOS, `next()` salta
+//! las entradas de ESTRATOS (nombre largo) y la biblioteca se quedaba ciega a
+//! justo el volumen que va a guardarlo TODO. Ahora recorre con
+//! `siguiente_con_origen` y cada fila lleva una franja: verde = ESTRATOS, azul =
+//! DATOS. Es informacion, no adorno: el mismo verde de la ventana de ESTRATOS.
+//! La ruta crece a 96 bytes porque un nombre de ESTRATOS no es un 8.3, y
+//! `proton-x/` se salta: son los perfiles de los juegos, no tus cosas.
 
 use bmo_userland as bmo;
 use core::ptr::addr_of_mut;
@@ -49,7 +59,7 @@ use crate::scene::zonas::Zona;
 use crate::text::decimal;
 
 const MAX: usize = 160;
-const RUTA: usize = 48;
+const RUTA: usize = 96;
 const CARPETAS: usize = 48;
 const HONDO: u8 = 4;
 
@@ -61,9 +71,11 @@ struct Item {
     nombre: u8,
     clase: Clase,
     bytes: u32,
+    /// `true` si vive en ESTRATOS; `false`, en DATOS (FAT32).
+    estratos: bool,
 }
 
-const ITEM_VACIO: Item = Item { ruta: [0; RUTA], largo: 0, nombre: 0, clase: Clase::Otro, bytes: 0 };
+const ITEM_VACIO: Item = Item { ruta: [0; RUTA], largo: 0, nombre: 0, clase: Clase::Otro, bytes: 0, estratos: false };
 
 static mut ITEMS: [Item; MAX] = [ITEM_VACIO; MAX];
 static mut CUANTOS: usize = 0;
@@ -83,7 +95,15 @@ fn es_de_windows(nom: &[u8]) -> bool {
     nom.first() == Some(&b'$') || nom == b"system~1"
 }
 
-/// **Recorre DATOS y apunta lo que sabe abrir.** Lo llama quien ENTRA en la vista.
+/// Verde ESTRATOS y azul DATOS: de donde viene cada fila.
+const COLOR_ESTRATOS: u32 = 0x0039_FF88;
+const COLOR_DATOS: u32 = 0x0060_A5FA;
+
+fn color_origen(estratos: bool) -> u32 {
+    if estratos { COLOR_ESTRATOS } else { COLOR_DATOS }
+}
+
+/// **Recorre DATOS y ESTRATOS y apunta lo que sabe abrir.** Lo llama quien ENTRA en la vista.
 pub(crate) fn releer() {
     unsafe {
         CUANTOS = 0;
@@ -103,10 +123,9 @@ pub(crate) fn releer() {
             let Ok(dir) = bmo::Directorio::open(&base[..bl]) else { continue };
             let mut vistas = 0u32;
             while vistas < 256 {
-                let Some(e) = dir.next() else { break };
+                let mut nom = [0u8; 64];
+                let Some((n, es_dir, bytes, estratos)) = dir.siguiente_con_origen(&mut nom) else { break };
                 vistas += 1;
-                let mut nom = [0u8; 12];
-                let n = e.legible(&mut nom);
                 if crate::text::is_dot_entry(&nom[..n]) {
                     continue;
                 }
@@ -122,11 +141,11 @@ pub(crate) fn releer() {
                 }
                 r[bl + hueco..bl + hueco + n].copy_from_slice(&nom[..n]);
                 let rl = bl + hueco + n;
-                if e.es_dir {
+                if es_dir {
                     if es_de_windows(&nom[..n]) {
                         continue;
                     }
-                    if d == 0 && (&nom[..n] == b"sys" || &nom[..n] == b"efi") {
+                    if d == 0 && (&nom[..n] == b"sys" || &nom[..n] == b"efi" || &nom[..n] == b"proton-x") {
                         continue;
                     }
                     if d + 1 >= HONDO || en_cola == CARPETAS {
@@ -151,7 +170,8 @@ pub(crate) fn releer() {
                         largo: rl as u8,
                         nombre: (bl + hueco) as u8,
                         clase,
-                        bytes: e.bytes,
+                        bytes: bytes.min(u32::MAX as u64) as u32,
+                        estratos,
                     };
                     CUANTOS += 1;
                 }
@@ -180,6 +200,12 @@ fn pasa(it: &Item) -> bool {
 pub(crate) fn de_clase(c: Option<Clase>) -> usize {
     let n = unsafe { CUANTOS };
     items()[..n].iter().filter(|it| c.map_or(true, |c| c == it.clase)).count()
+}
+
+/// Cuantas viven en ESTRATOS (`true`) o en DATOS (`false`).
+pub(crate) fn de_origen(estratos: bool) -> usize {
+    let n = unsafe { CUANTOS };
+    items()[..n].iter().filter(|it| it.estratos == estratos).count()
 }
 
 /// Cuantas pasan el filtro.
@@ -321,9 +347,21 @@ fn lado(p: &bmo::Pantalla, z: &Zona) {
         let x = p.texto_bytes(x, ty, &[tecla], INK_DIM);
         p.texto_bytes(x + bmo::GLIFO_ANCHO, ty, &b[..nb], INK);
     }
+    // De donde viene lo de arriba: la misma franja que lleva cada fila.
+    let mut y = z.y + CAB + CATEGORIAS.len() as u32 * FILA + 8;
+    p.rect(z.x + 14, y, z.w.saturating_sub(28), 1, DATA_EDGE);
+    y += 10;
+    for (estratos, nombre) in [(true, "ESTRATOS"), (false, "DATOS")] {
+        p.rect(z.x + 16, y + 2, 4, bmo::GLIFO_ALTO - 4, color_origen(estratos));
+        p.texto(z.x + 32, y, nombre, INK_DIM);
+        let mut b = [0u8; 10];
+        let nb = decimal(de_origen(estratos) as u64, &mut b);
+        let x = z.x + z.w - 14 - nb as u32 * bmo::GLIFO_ANCHO;
+        p.texto_bytes(x, y, &b[..nb], INK);
+        y += bmo::GLIFO_ALTO + 8;
+    }
     if recortada() {
-        let y = z.y + CAB + CATEGORIAS.len() as u32 * FILA + 8;
-        p.texto(z.x + 14, y, "RECORTADA", INK_BAD);
+        p.texto(z.x + 14, y + 4, "RECORTADA", INK_BAD);
     }
 }
 
@@ -366,6 +404,10 @@ fn vista(p: &bmo::Pantalla, z: &Zona, sel: usize) {
     fila(p, y, "medida", &t[..nb + 2]);
     y += bmo::GLIFO_ALTO + 6;
     fila(p, y, "tipo", it.clase.nombre().as_bytes());
+    y += bmo::GLIFO_ALTO + 6;
+    p.rect(x + 9 * bmo::GLIFO_ANCHO, y + 2, 4, bmo::GLIFO_ALTO - 4, color_origen(it.estratos));
+    p.texto(x, y, "vive en", INK_DIM);
+    p.texto(x + 9 * bmo::GLIFO_ANCHO + 10, y, if it.estratos { "ESTRATOS" } else { "DATOS" }, color_origen(it.estratos));
     y += bmo::GLIFO_ALTO + 18;
     // Con que se abre: lo dice la MISMA tabla que decide al pulsar ENTRAR.
     p.rect(x, y, z.w.saturating_sub(40), 1, DATA_EDGE);
@@ -394,7 +436,7 @@ fn lista(p: &bmo::Pantalla, z: &Zona, from: usize, sel: usize, caben: usize) {
     p.texto(x + bmo::GLIFO_ANCHO, ty, if total == 1 { "fichero" } else { "ficheros" }, INK_DIM);
     if total == 0 {
         let msg = if de_clase(None) == 0 {
-            "no hay nada que yo sepa abrir en DATOS. R vuelve a mirar."
+            "no hay nada que yo sepa abrir en DATOS ni ESTRATOS. R vuelve a mirar."
         } else {
             "nada de esta clase. 0 muestra todo."
         };
@@ -408,6 +450,8 @@ fn lista(p: &bmo::Pantalla, z: &Zona, from: usize, sel: usize, caben: usize) {
         if k == sel {
             realzar(p, z.x + 6, y + 2, ancho, FILA - 4);
         }
+        // La franja de origen, pegada al borde: verde ESTRATOS, azul DATOS.
+        p.rect(z.x + 9, y + 8, 3, FILA - 16, color_origen(it.estratos));
         icono(p, z.x + 16, y + 7, 20, it.clase);
         let ty = y + (FILA - bmo::GLIFO_ALTO) / 2;
         // Derecha: el medida; delante, la carpeta. Lo que no cabe se come la
