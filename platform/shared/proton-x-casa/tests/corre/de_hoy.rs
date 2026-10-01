@@ -371,6 +371,14 @@ fn tanda37_exe_las_fechas_de_un_fichero() {
     tanda(TANDA37, Some("window/tanda37.exe"), 9, "tanda37.exe: las fechas de un fichero, las mismas por los cuatro caminos");
 }
 
+/// **La tanda 38** (01-10): `tanda38.exe` -- con el dispositivo hecho,
+/// Cyberpunk pregunta al adaptador por sus monitores (EnumOutputs) y la casa
+/// no lo tenia: salio con 0xC0DE0C07.
+#[test]
+fn tanda38_exe_el_monitor_del_adaptador() {
+    tanda(TANDA38, None, 13, "tanda38.exe: IDXGIAdapter::EnumOutputs, el monitor");
+}
+
 /// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
 /// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
 /// asi el camino que en BMO-X lleva los ficheros grandes.

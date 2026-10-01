@@ -1406,3 +1406,26 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    199a273cf19cb0b3db94f5cff2b5ba19fecff52dd64d5f67bb06c922dbc309b4
 
 Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.
+
+tanda38.exe -- la TANDA 38 (01-10): IDXGIAdapter::EnumOutputs, el monitor
+
+Por Cyberpunk: con el dispositivo ya creado, el juego pregunta al
+adaptador "que monitores tienes" (EnumOutputs, el hueco 7) y la casa no lo
+tenia: el .exe salio con 0xC0DE0C07. Aqui: la salida 0 existe, esta en el
+escritorio con un rectangulo de verdad, un nombre \\.\ y un HMONITOR;
+tiene modos en R8G8B8A8 (con medida, hercios y ese formato) y con sitio
+para uno solo es DXGI_ERROR_MORE_DATA; la salida 64 no existe (NOT_FOUND
+y el puntero a nulo); es tambien IDXGIOutput1 y 6, su padre es el
+adaptador, y GetDesc1 dice el mismo nombre con 8 bits o mas. No depende
+del monitor.
+
+   llvm-dlltool -m i386:x86-64 -d tanda38_kernel32.def -l tanda38_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda38_dxgi.def -l tanda38_dxgi.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda38.c -o tanda38.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda38.obj tanda38_kernel32.lib tanda38_dxgi.lib /out:tanda38.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   419bdde56a1f20d6aa9eac1717a21aca9e10159d92474b3569735c2196fb1138
+
+Dice `bien` trece veces y sale con 0. En Windows dice lo mismo.

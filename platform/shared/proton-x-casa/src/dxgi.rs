@@ -118,7 +118,7 @@ extern "win64" fn create_swap_chain_for_hwnd(_this: u64, _cola: u64, hwnd: u64, 
         // SAFETY: un Recurso de la casa, recien hecho.
         unsafe { de::<crate::d3d12::Recurso>(b).cadena = true };
     }
-    let vt = vtabla::<{ com::SWAPCHAIN }>(&[(8, dir!(present)), (9, dir!(get_buffer)), (36, dir!(get_current_back_buffer_index))]);
+    let vt = vtabla::<{ com::SWAPCHAIN }>(&[(8, dir!(present)), (9, dir!(get_buffer)), (15, dir!(get_containing_output)), (36, dir!(get_current_back_buffer_index))]);
     dar(pp, nuevo(com::SWAPCHAIN, vt, Cadena { hwnd, buffers, actual: 0 }) as u64)
 }
 
@@ -190,7 +190,7 @@ fn adaptador(i: u32, riid: *const Guid, pp: *mut u64) -> i32 {
     if !riid.is_null() && !pide(riid, com::ADAPTER) {
         return E_NOINTERFACE;
     }
-    let vt = vtabla::<{ com::ADAPTER }>(&[(8, dir!(get_desc)), (10, dir!(get_desc1))]);
+    let vt = vtabla::<{ com::ADAPTER }>(&[(7, dir!(enum_outputs)), (8, dir!(get_desc)), (10, dir!(get_desc1))]);
     dar(pp, nuevo(com::ADAPTER, vt, Adaptador) as u64)
 }
 
@@ -248,6 +248,250 @@ fn escribir_desc(desc: *mut u8, n: usize) {
             (desc.add(2 * k) as *mut u16).write_unaligned(c);
         }
     }
+}
+
+// -- 01-10: la salida (el monitor) -------------------------------------------------
+//
+// Cyberpunk, con el dispositivo ya hecho, pregunta al adaptador "que monitores
+// tienes" (EnumOutputs) y sale si no hay respuesta. La casa tiene uno: la
+// pantalla de user32 (1920x1080 a 60 Hz, el mismo HMONITOR y el mismo nombre
+// que GetMonitorInfoW), asi que DXGI y user32 dicen lo mismo.
+
+use crate::user32_medidas::{HERCIOS, MONITOR, NOMBRE_PANTALLA, PANTALLA};
+
+const DXGI_ERROR_MORE_DATA: i32 = 0x887A_0003_u32 as i32;
+const DXGI_ERROR_UNSUPPORTED: i32 = 0x887A_0004_u32 as i32;
+const DXGI_MODE_ROTATION_IDENTITY: u32 = 1;
+const DXGI_MODE_SCALING_UNSPECIFIED: u32 = 0;
+const DXGI_MODE_SCANLINE_ORDER_PROGRESSIVE: u32 = 1;
+/// DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709: SDR de toda la vida.
+const COLOR_SRGB: u32 = 0;
+/// Las medidas que se ofrecen, de la mayor (la pantalla) a la menor.
+const MODOS: [(u32, u32); 4] = [(PANTALLA.0 as u32, PANTALLA.1 as u32), (1600, 900), (1280, 720), (1024, 768)];
+/// Los formatos que la casa presenta (Present copia de estos dos).
+const FORMATOS: [u32; 2] = [DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_B8G8R8A8_UNORM];
+
+pub struct Salida;
+
+/// La salida `i` del adaptador: solo la 0.
+fn salida(i: u32, pp: *mut u64) -> i32 {
+    if pp.is_null() {
+        return E_INVALIDARG;
+    }
+    if i != 0 {
+        // SAFETY: un puntero del `.exe`.
+        unsafe { *pp = 0 };
+        return DXGI_ERROR_NOT_FOUND;
+    }
+    let vt = vtabla::<{ com::OUTPUT }>(&[
+        (6, dir!(salida_get_parent)),
+        (7, dir!(salida_get_desc)),
+        (8, dir!(get_display_mode_list)),
+        (9, dir!(find_closest_matching_mode)),
+        (10, dir!(wait_for_vblank)),
+        (11, dir!(take_ownership)),
+        (12, dir!(release_ownership)),
+        (18, dir!(get_frame_statistics)),
+        (19, dir!(get_display_mode_list1)),
+        (20, dir!(find_closest_matching_mode1)),
+        (22, dir!(duplicate_output)),
+        (23, dir!(supports_overlays)),
+        (24, dir!(check_overlay_support)),
+        (25, dir!(check_overlay_color_space_support)),
+        (26, dir!(duplicate_output1)),
+        (27, dir!(salida_get_desc1)),
+        (28, dir!(check_hardware_composition_support)),
+    ]);
+    dar(pp, nuevo(com::OUTPUT, vt, Salida) as u64)
+}
+
+/// `EnumOutputs(this, i, pp)` (hueco 7 del adaptador).
+extern "win64" fn enum_outputs(_this: u64, i: u32, pp: *mut u64) -> i32 {
+    salida(i, pp)
+}
+
+/// `GetContainingOutput(this, pp)` de la cadena: el unico monitor.
+extern "win64" fn get_containing_output(_this: u64, pp: *mut u64) -> i32 {
+    salida(0, pp)
+}
+
+/// `GetParent(this, riid, pp)`: el adaptador.
+extern "win64" fn salida_get_parent(_this: u64, riid: *const Guid, pp: *mut u64) -> i32 {
+    adaptador(0, riid, pp)
+}
+
+/// DXGI_OUTPUT_DESC (96 B): DeviceName (32 WCHAR) +0, DesktopCoordinates
+/// (RECT) +64, AttachedToDesktop +80, Rotation +84, Monitor +88.
+fn escribir_desc_salida(d: *mut u8, n: usize) {
+    // SAFETY: `n` >= 96 bytes del `.exe` (quien llama lo comprobo no nulo).
+    unsafe {
+        core::ptr::write_bytes(d, 0, n);
+        for (k, c) in NOMBRE_PANTALLA.encode_utf16().enumerate() {
+            (d.add(2 * k) as *mut u16).write_unaligned(c);
+        }
+        (d.add(64) as *mut [i32; 4]).write_unaligned([0, 0, PANTALLA.0, PANTALLA.1]);
+        (d.add(80) as *mut u32).write_unaligned(1);
+        (d.add(84) as *mut u32).write_unaligned(DXGI_MODE_ROTATION_IDENTITY);
+        (d.add(88) as *mut u64).write_unaligned(MONITOR);
+    }
+}
+
+extern "win64" fn salida_get_desc(_this: u64, d: *mut u8) -> i32 {
+    if d.is_null() {
+        return E_INVALIDARG;
+    }
+    escribir_desc_salida(d, 96);
+    S_OK
+}
+
+/// `GetDesc1` (Output6): lo de GetDesc y luego BitsPerColor +96, ColorSpace
+/// +100, los primarios y el blanco (8 f32) +104, y las luminancias +136
+/// +140 +144 (152 B). Un monitor SDR corriente de 8 bits y 270 nits.
+extern "win64" fn salida_get_desc1(_this: u64, d: *mut u8) -> i32 {
+    if d.is_null() {
+        return E_INVALIDARG;
+    }
+    escribir_desc_salida(d, 152);
+    // Rec. 709: rojo, verde, azul y el blanco D65 (x, y).
+    let primarios: [f32; 8] = [0.64, 0.33, 0.30, 0.60, 0.15, 0.06, 0.3127, 0.3290];
+    // SAFETY: 152 bytes del `.exe`.
+    unsafe {
+        (d.add(96) as *mut u32).write_unaligned(8);
+        (d.add(100) as *mut u32).write_unaligned(COLOR_SRGB);
+        (d.add(104) as *mut [f32; 8]).write_unaligned(primarios);
+        (d.add(136) as *mut [f32; 3]).write_unaligned([0.5, 270.0, 270.0]);
+    }
+    S_OK
+}
+
+/// Un DXGI_MODE_DESC (7 u32: Width, Height, RefreshRate {n, d}, Format,
+/// ScanlineOrdering, Scaling); el 1 agrega Stereo (32 B).
+fn modo(ancho: u32, alto: u32, formato: u32) -> [u32; 7] {
+    [ancho, alto, HERCIOS, 1, formato, DXGI_MODE_SCANLINE_ORDER_PROGRESSIVE, DXGI_MODE_SCALING_UNSPECIFIED]
+}
+
+/// `GetDisplayModeList(this, formato, banderas, n, lista)` y el 1 (`paso`
+/// 28 o 32): sin lista, cuantos; con lista, hasta `*n` y MORE_DATA si no
+/// caben. Un formato que la casa no presenta tiene cero modos.
+fn lista_de_modos(formato: u32, n: *mut u32, lista: *mut u8, paso: usize) -> i32 {
+    if n.is_null() {
+        return E_INVALIDARG;
+    }
+    let total = if FORMATOS.contains(&formato) { MODOS.len() as u32 } else { 0 };
+    // SAFETY: `n` es del `.exe`; `lista`, si no es nula, tiene `*n` modos.
+    unsafe {
+        if lista.is_null() {
+            n.write_unaligned(total);
+            return S_OK;
+        }
+        let cabe = n.read_unaligned().min(total);
+        for (k, &(w, h)) in MODOS.iter().take(cabe as usize).enumerate() {
+            let m = lista.add(k * paso);
+            core::ptr::write_bytes(m, 0, paso);
+            (m as *mut [u32; 7]).write_unaligned(modo(w, h, formato));
+        }
+        n.write_unaligned(cabe);
+        if cabe < total { DXGI_ERROR_MORE_DATA } else { S_OK }
+    }
+}
+
+extern "win64" fn get_display_mode_list(_this: u64, formato: u32, _banderas: u32, n: *mut u32, lista: *mut u8) -> i32 {
+    lista_de_modos(formato, n, lista, 28)
+}
+
+extern "win64" fn get_display_mode_list1(_this: u64, formato: u32, _banderas: u32, n: *mut u32, lista: *mut u8) -> i32 {
+    lista_de_modos(formato, n, lista, 32)
+}
+
+/// `FindClosestMatchingMode(this, pedido, mas_cercano, dispositivo)` y el 1:
+/// el modo de la lista que mas se parece en medida (sin medida, la pantalla);
+/// el formato, el pedido si la casa lo presenta.
+fn mas_cercano(pedido: *const u32, sale: *mut u8, paso: usize) -> i32 {
+    if pedido.is_null() || sale.is_null() {
+        return E_INVALIDARG;
+    }
+    // SAFETY: un DXGI_MODE_DESC(1) del `.exe`, y donde dejar otro.
+    unsafe {
+        let p = (pedido as *const [u32; 7]).read_unaligned();
+        let formato = if FORMATOS.contains(&p[4]) { p[4] } else { DXGI_FORMAT_R8G8B8A8_UNORM };
+        let (w, h) = if p[0] == 0 || p[1] == 0 {
+            MODOS[0]
+        } else {
+            *MODOS.iter().min_by_key(|&&(w, h)| w.abs_diff(p[0]) as u64 + h.abs_diff(p[1]) as u64).unwrap_or(&MODOS[0])
+        };
+        core::ptr::write_bytes(sale, 0, paso);
+        (sale as *mut [u32; 7]).write_unaligned(modo(w, h, formato));
+    }
+    S_OK
+}
+
+extern "win64" fn find_closest_matching_mode(_this: u64, pedido: *const u32, sale: *mut u8, _dispositivo: u64) -> i32 {
+    mas_cercano(pedido, sale, 28)
+}
+
+extern "win64" fn find_closest_matching_mode1(_this: u64, pedido: *const u32, sale: *mut u8, _dispositivo: u64) -> i32 {
+    mas_cercano(pedido, sale, 32)
+}
+
+/// Sin reloj de barrido: se vuelve enseguida (Present ya marca el paso).
+extern "win64" fn wait_for_vblank(_this: u64) -> i32 {
+    S_OK
+}
+
+/// La pantalla completa exclusiva: la casa dice que si y no cambia nada.
+extern "win64" fn take_ownership(_this: u64, _dispositivo: u64, _exclusiva: i32) -> i32 {
+    S_OK
+}
+
+extern "win64" fn release_ownership(_this: u64) {}
+
+/// Sin estadisticas de cuadros, como una salida en ventana.
+extern "win64" fn get_frame_statistics(_this: u64, _e: *mut u8) -> i32 {
+    DXGI_ERROR_UNSUPPORTED
+}
+
+/// Sin duplicar el escritorio (eso es para grabadores de pantalla).
+extern "win64" fn duplicate_output(_this: u64, _dispositivo: u64, pp: *mut u64) -> i32 {
+    if !pp.is_null() {
+        // SAFETY: el puntero a interfaz del `.exe`.
+        unsafe { pp.write_unaligned(0) };
+    }
+    DXGI_ERROR_UNSUPPORTED
+}
+
+extern "win64" fn duplicate_output1(_this: u64, _dispositivo: u64, _banderas: u32, _n: u32, _formatos: *const u32, pp: *mut u64) -> i32 {
+    duplicate_output(0, 0, pp)
+}
+
+/// Sin planos superpuestos: FALSE.
+extern "win64" fn supports_overlays(_this: u64) -> i32 {
+    0
+}
+
+/// Ninguna bandera en el UINT del `.exe` (si lo hay).
+fn sin_banderas(banderas: *mut u32) -> i32 {
+    if banderas.is_null() {
+        return E_INVALIDARG;
+    }
+    // SAFETY: un UINT del `.exe`.
+    unsafe { banderas.write_unaligned(0) };
+    S_OK
+}
+
+/// `CheckOverlaySupport(this, formato, dispositivo, banderas)`: ninguna.
+extern "win64" fn check_overlay_support(_this: u64, _formato: u32, _dispositivo: u64, banderas: *mut u32) -> i32 {
+    sin_banderas(banderas)
+}
+
+/// `CheckOverlayColorSpaceSupport(this, formato, color, dispositivo,
+/// banderas)`: ninguna.
+extern "win64" fn check_overlay_color_space_support(_this: u64, _formato: u32, _color: u32, _dispositivo: u64, banderas: *mut u32) -> i32 {
+    sin_banderas(banderas)
+}
+
+/// `CheckHardwareCompositionSupport(this, banderas)`: ninguna.
+extern "win64" fn check_hardware_composition_support(_this: u64, banderas: *mut u32) -> i32 {
+    sin_banderas(banderas)
 }
 
 extern "win64" fn get_current_back_buffer_index(this: u64) -> u32 {

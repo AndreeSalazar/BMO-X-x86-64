@@ -36,10 +36,10 @@ const ERROR_INVALID_WINDOW_HANDLE: u32 = 1400;
 /// La pantalla de la casa: ancho, alto, DPI, hercios y la barra de tareas.
 pub(crate) const PANTALLA: (i32, i32) = (1920, 1080);
 const DPI: u32 = 96;
-const HERCIOS: u32 = 60;
+pub(crate) const HERCIOS: u32 = 60;
 const BARRA: i32 = 40;
 /// El HMONITOR del unico monitor y el HWND del escritorio.
-const MONITOR: u64 = 0x5B00_0001;
+pub(crate) const MONITOR: u64 = 0x5B00_0001;
 pub(crate) const ESCRITORIO: u64 = 0x0001_0000;
 
 // -- Los rectangulos (RECT: left, top, right, bottom; i32) ----------------------------
@@ -376,7 +376,7 @@ fn monitor_info(m: u64, i: *mut u8, ancho: bool) -> i32 {
     1
 }
 
-const NOMBRE_PANTALLA: &str = "\\\\.\\DISPLAY1";
+pub(crate) const NOMBRE_PANTALLA: &str = "\\\\.\\DISPLAY1";
 
 /// `texto` en `d` (UTF-16 si `ancho`), con su 0, en `max` caracteres.
 ///
