@@ -358,7 +358,10 @@ pub(crate) const OUT_COLS: usize = 88;
 /// una ventana del alto de la pantalla mostraba exactamente el mismo texto que
 /// una chica y dejaba el resto en negro -- o sea que el boton estaba pero no
 /// pagaba. El historial guardado sigue siendo [`OUT_HIST`].
-pub(crate) const OUT_ROWS: usize = 32;
+///
+/// ** Y de 32 a 64 el 01-10: con 32 (512 px) una caja maximizada en 1080
+/// dejaba un tercio vacio abajo ("no se completa del todo").
+pub(crate) const OUT_ROWS: usize = 64;
 /// Cuantas filas se GUARDAN, aunque solo se vean [`OUT_ROWS`].
 ///
 /// * Antes lo que salia por arriba se perdia para siempre: `scroll` movia
