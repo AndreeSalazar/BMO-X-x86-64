@@ -128,13 +128,14 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                     dsk.win.taskbar_dirty = true;
                 }
                 Some(Button::Maximize) => {
-                    let (vx, vy, va, vl) = dsk.win.data.chrome.toggle_maximized(&p);
+                    let viejo = dsk.win.data.chrome.toggle_maximized(&p);
                     // Al restaurar, el hueco que deja hay que
                     // devolverselo al escritorio; al maximizar no sobra
-                    // nada, pero borrar el rectangulo viejo entero
-                    // cubre los dos casos con una sola regla.
-                    erase_window(&p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
-                    uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+                    // nada y no se toca (`erase_resized`: sin tirones).
+                    let nuevo = (dsk.win.data.x(), dsk.win.data.y(), dsk.win.data.width(), dsk.win.data.height());
+                    if scene::erase_resized(&p, &dsk.run_box, viejo, nuevo, dsk.win.visible) {
+                        uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+                    }
                     dsk.win.data.relayout();
                     scene::data::paint(&p, &dsk.win.data);
                     dsk.win.top_before = Ventana::Data;

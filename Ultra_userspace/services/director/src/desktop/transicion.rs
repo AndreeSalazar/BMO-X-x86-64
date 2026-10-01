@@ -11,14 +11,23 @@
 //! lo que SE VE: en cada fotograma que pinta, que ventanas tienen caja
 //! (`foco::caja`) y cuales la tenian el anterior. La que aparece, ABRE; la
 //! que desaparece, CIERRA con la caja que tenia.
+//!
+//! ** Y la que CAMBIA DE MEDIDA de golpe (01-10): maximizar, restaurar,
+//! encajar con las flechas o el mosaico. Mismo truco, sin enganchar cada
+//! boton: si de un fotograma al otro el ancho o el alto saltan mas de
+//! [`SALTO`] px, el marco viaja de la caja vieja a la nueva con glitch. Un
+//! arrastre no cambia la medida, y estirar con el raton va de pocos en pocos.
 
 use bmo_userland as bmo;
 
 use crate::desktop::{Desktop, Ventana};
 use crate::scene::surface::MAX;
-use crate::scene::transicion::{self as tr, DURA_MS, HUECOS};
+use crate::scene::transicion::{self as tr, DURA_CAMBIO_MS, DURA_MS, HUECOS};
 
 const FOTOGRAMA_MS: u64 = 33;
+/// Lo que tiene que saltar el ancho o el alto en un fotograma para ser un
+/// cambio de caja y no la mano estirando.
+const SALTO: u32 = 96;
 /// Las del sistema y las apps.
 const VENTANAS: usize = Ventana::TODAS.len() + MAX;
 
@@ -28,6 +37,8 @@ type Caja = (u32, u32, u32, u32);
 struct Viva {
     caja: Caja,
     abre: bool,
+    /// Si es un cambio de caja, la caja de antes.
+    de: Option<Caja>,
     desde: u64,
 }
 
@@ -61,12 +72,17 @@ fn animable(c: Caja, p: &bmo::Pantalla) -> bool {
     c.2 >= 24 && c.3 >= 24 && c.2 < p.ancho && c.3 < p.alto
 }
 
-fn nacer(e: &mut Estado, caja: Caja, abre: bool, ahora: u64) {
+/// Un cambio de caja de golpe: el ancho o el alto saltan [`SALTO`] px.
+fn salta(a: Caja, b: Caja) -> bool {
+    a.2.abs_diff(b.2) >= SALTO || a.3.abs_diff(b.3) >= SALTO
+}
+
+fn nacer(e: &mut Estado, caja: Caja, abre: bool, de: Option<Caja>, ahora: u64) {
     // En el hueco libre, o en el mas viejo.
     let k = (0..HUECOS).find(|&k| e.vivas[k].is_none()).unwrap_or_else(|| {
         (0..HUECOS).min_by_key(|&k| e.vivas[k].map_or(0, |v| v.desde)).unwrap_or(0)
     });
-    e.vivas[k] = Some(Viva { caja, abre, desde: ahora });
+    e.vivas[k] = Some(Viva { caja, abre, de, desde: ahora });
 }
 
 /// **Las transiciones de este fotograma**: mira que abrio y que cerro, y
@@ -81,8 +97,9 @@ pub(crate) fn poner(dsk: &Desktop, p: &bmo::Pantalla, tapado: bool) {
         let hoy = crate::desktop::foco::caja(dsk, ventana(k));
         if e.mirado {
             match (e.antes[k], hoy) {
-                (None, Some(c)) if animable(c, p) => nacer(e, c, true, ahora),
-                (Some(c), None) if animable(c, p) => nacer(e, c, false, ahora),
+                (None, Some(c)) if animable(c, p) => nacer(e, c, true, None, ahora),
+                (Some(c), None) if animable(c, p) => nacer(e, c, false, None, ahora),
+                (Some(a), Some(b)) if salta(a, b) && animable(a, p) && animable(b, p) => nacer(e, b, true, Some(a), ahora),
                 _ => {}
             }
         }
@@ -95,12 +112,15 @@ pub(crate) fn poner(dsk: &Desktop, p: &bmo::Pantalla, tapado: bool) {
     for k in 0..HUECOS {
         if let Some(v) = e.vivas[k] {
             let ms = ahora.wrapping_sub(v.desde) / e.por_ms;
-            if ms >= DURA_MS {
+            if ms >= if v.de.is_some() { DURA_CAMBIO_MS } else { DURA_MS } {
                 e.vivas[k] = None;
                 continue;
             }
             e.pintado = ahora;
-            tr::poner(p, k, v.caja, v.abre, ms);
+            match v.de {
+                Some(de) => tr::poner_cambio(p, k, de, v.caja, ms),
+                None => tr::poner(p, k, v.caja, v.abre, ms),
+            }
         }
     }
 }

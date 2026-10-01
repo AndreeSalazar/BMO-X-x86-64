@@ -261,8 +261,10 @@ if ctrl && (0x80..=0x83).contains(&c) {
                     dsk.win.data.chrome.push(&p, heading)
                 };
                 if cambio {
-                    erase_window(&p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
-                    uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+                    let c = &dsk.win.data.chrome;
+                    if scene::erase_resized(&p, &dsk.run_box, (vx, vy, va, vl), (c.x, c.y, c.width, c.height), dsk.win.visible) {
+                        uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+                    }
                     // Encajar CAMBIA el medida, asi que las cajas del
                     // grafo hay que recolocarlas: sin esto la ventana
                     // mide una cosa y su contenido sigue midiendo otra.
@@ -285,8 +287,10 @@ if ctrl && (0x80..=0x83).contains(&c) {
                     dsk.win.cabina.chrome.push(&p, heading)
                 };
                 if cambio {
-                    erase_window(&p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
-                    uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+                    let c = &dsk.win.cabina.chrome;
+                    if scene::erase_resized(&p, &dsk.run_box, (vx, vy, va, vl), (c.x, c.y, c.width, c.height), dsk.win.visible) {
+                        uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+                    }
                     scene::cabina::paint(&p, &dsk.win.cabina);
                     dsk.win.top_before = Ventana::Cabina;
                     moved = true;
@@ -307,8 +311,10 @@ if ctrl && (0x80..=0x83).contains(&c) {
                     dsk.win.sound.chrome.push(&p, heading)
                 };
                 if cambio {
-                    erase_window(&p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
-                    uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+                    let c = &dsk.win.sound.chrome;
+                    if scene::erase_resized(&p, &dsk.run_box, (vx, vy, va, vl), (c.x, c.y, c.width, c.height), dsk.win.visible) {
+                        uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+                    }
                     scene::sound::paint(&p, &dsk.win.sound, &dsk.snd.panel);
                     dsk.win.top_before = Ventana::Sound;
                     moved = true;
