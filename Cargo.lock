@@ -437,6 +437,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-ludoteca"
+version = "0.1.0"
+dependencies = [
+ "bmo-cripto",
+ "bmo-hostile",
+]
+
+[[package]]
 name = "bmo-maqueta"
 version = "0.1.0"
 dependencies = [
