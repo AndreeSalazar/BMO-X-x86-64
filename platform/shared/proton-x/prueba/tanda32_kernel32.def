@@ -1,0 +1,10 @@
+LIBRARY kernel32.dll
+EXPORTS
+GetStdHandle
+WriteFile
+ExitProcess
+GetLastError
+SetLastError
+WideCharToMultiByte
+MultiByteToWideChar
+AreFileApisANSI

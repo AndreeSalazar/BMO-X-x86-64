@@ -322,3 +322,12 @@ fn tanda30_exe_winsock_arranca_sin_cable() {
 fn tanda31_exe_la_red_local_sin_cable() {
     tanda(TANDA31, None, 30, "tanda31.exe: la red local de Galaxy, sin cable, como en Windows");
 }
+
+/// **La tanda 32** (01-10): `tanda32.exe` -- las rutas de Boost.Filesystem
+/// (Galaxy): WideCharToMultiByte con WC_NO_BEST_FIT_CHARS y
+/// MultiByteToWideChar con MB_PRECOMPOSED en la pagina del sistema; con
+/// CP_UTF8 explicito, los mismos rechazos que Windows.
+#[test]
+fn tanda32_exe_las_rutas_de_boost() {
+    tanda(TANDA32, None, 10, "tanda32.exe: las rutas de Boost.Filesystem, de ancho a estrecho y vuelta");
+}

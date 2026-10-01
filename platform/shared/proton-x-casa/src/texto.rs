@@ -21,6 +21,12 @@ const CP_THREAD_ACP: u32 = 3;
 const CP_UTF8: u32 = 65001;
 const MB_ERR_INVALID_CHARS: u32 = 0x8;
 const WC_ERR_INVALID_CHARS: u32 = 0x80;
+/// Las banderas que Windows acepta con la pagina del SISTEMA (CP_ACP,
+/// CP_OEMCP, CP_THREAD_ACP) y NO con CP_UTF8 explicito: MB_PRECOMPOSED,
+/// MB_COMPOSITE, MB_USEGLYPHCHARS; WC_NO_BEST_FIT_CHARS, WC_COMPOSITECHECK,
+/// WC_DEFAULTCHAR, WC_DISCARDNS, WC_SEPCHARS. Con UTF-8 no cambian nada.
+const MB_DEL_SISTEMA: u32 = 0x1 | 0x2 | 0x4;
+const WC_DEL_SISTEMA: u32 = 0x400 | 0x200 | 0x40 | 0x20 | 0x10;
 
 const ERROR_INVALID_HANDLE: u32 = 6;
 const ERROR_INVALID_PARAMETER: u32 = 87;
@@ -75,7 +81,11 @@ extern "win64" fn multi_byte_to_wide_char(cp: u32, banderas: u32, src: *const u8
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return 0;
     }
-    if banderas & !MB_ERR_INVALID_CHARS != 0 {
+    // ** Con la pagina del sistema, MB_PRECOMPOSED y compania son validas (01-10:
+    // Boost.Filesystem de Galaxy las pasa, y el "no" de antes era su
+    // "codecvt to string: error"). Con CP_UTF8 explicito, Windows las rechaza.
+    let permitidas = if cp == CP_UTF8 { MB_ERR_INVALID_CHARS } else { MB_ERR_INVALID_CHARS | MB_DEL_SISTEMA };
+    if banderas & !permitidas != 0 {
         kernel32::poner_error(ERROR_INVALID_FLAGS);
         return 0;
     }
@@ -94,14 +104,23 @@ extern "win64" fn multi_byte_to_wide_char(cp: u32, banderas: u32, src: *const u8
 }
 
 extern "win64" fn wide_char_to_multi_byte(cp: u32, banderas: u32, src: *const u16, n: i32, dst: *mut u8, m: i32, por_defecto: u64, usado: u64) -> i32 {
-    if !es_utf8(cp) || por_defecto != 0 || usado != 0 {
-        // Con UTF-8, Windows pide que esos dos vayan a NULL.
+    if !es_utf8(cp) || (cp == CP_UTF8 && (por_defecto != 0 || usado != 0)) {
+        // Con CP_UTF8 explicito, Windows pide que esos dos vayan a NULL; con
+        // la pagina del sistema son validos.
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return 0;
     }
-    if banderas & !WC_ERR_INVALID_CHARS != 0 {
+    // ** Lo mismo que en MultiByteToWideChar: WC_NO_BEST_FIT_CHARS (lo que pasa
+    // Boost.Filesystem) es valida con la pagina del sistema.
+    let permitidas = if cp == CP_UTF8 { WC_ERR_INVALID_CHARS } else { WC_ERR_INVALID_CHARS | WC_DEL_SISTEMA };
+    if banderas & !permitidas != 0 {
         kernel32::poner_error(ERROR_INVALID_FLAGS);
         return 0;
+    }
+    if usado != 0 {
+        // UTF-8 escribe cualquier caracter: nunca hace falta el de por defecto.
+        // SAFETY: un BOOL del `.exe`.
+        unsafe { *(usado as *mut i32) = 0 };
     }
     // SAFETY: lo que promete el `.exe`.
     let Some(w) = (unsafe { trozo(src, n) }) else {
