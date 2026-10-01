@@ -70,6 +70,23 @@ macro_rules! err_stub_isolating {
                 "je 2f",
                 "swapgs",
                 "2:",
+                // 02-10: los quince registros, ANTES de pisar ninguno; la
+                // autopsia los dice (`autopsy::REGISTROS`).
+                "mov qword ptr [rip + {regs}], rax",
+                "mov qword ptr [rip + {regs} + 8], rbx",
+                "mov qword ptr [rip + {regs} + 16], rcx",
+                "mov qword ptr [rip + {regs} + 24], rdx",
+                "mov qword ptr [rip + {regs} + 32], rsi",
+                "mov qword ptr [rip + {regs} + 40], rdi",
+                "mov qword ptr [rip + {regs} + 48], rbp",
+                "mov qword ptr [rip + {regs} + 56], r8",
+                "mov qword ptr [rip + {regs} + 64], r9",
+                "mov qword ptr [rip + {regs} + 72], r10",
+                "mov qword ptr [rip + {regs} + 80], r11",
+                "mov qword ptr [rip + {regs} + 88], r12",
+                "mov qword ptr [rip + {regs} + 96], r13",
+                "mov qword ptr [rip + {regs} + 104], r14",
+                "mov qword ptr [rip + {regs} + 112], r15",
                 "mov rdi, {v}",        // vector
                 "mov rsi, [rsp]",      // error code (CPU-pushed)
                 "mov rdx, [rsp + 8]",  // faulting RIP
@@ -123,6 +140,7 @@ macro_rules! err_stub_isolating {
                 "8: mov rdi, {m_cab}", "mov rsi, rsp", "and rsp, -16", "call {podrido}",
                 v = const $vec,
                 h = sym fault_dispatch,
+                regs = sym crate::ring0::core::autopsy::REGISTROS,
                 podrido = sym contexto_podrido,
                 no_xcr0 = sym crate::ring0::plat::trap::XSAVE_NO_XCR0,
                 area = const crate::ring0::plat::trap::XSAVE_AREA,
@@ -147,6 +165,23 @@ macro_rules! noerr_stub_isolating {
                 "je 2f",
                 "swapgs",
                 "2:",
+                // 02-10: los quince registros, ANTES de pisar ninguno; la
+                // autopsia los dice (`autopsy::REGISTROS`).
+                "mov qword ptr [rip + {regs}], rax",
+                "mov qword ptr [rip + {regs} + 8], rbx",
+                "mov qword ptr [rip + {regs} + 16], rcx",
+                "mov qword ptr [rip + {regs} + 24], rdx",
+                "mov qword ptr [rip + {regs} + 32], rsi",
+                "mov qword ptr [rip + {regs} + 40], rdi",
+                "mov qword ptr [rip + {regs} + 48], rbp",
+                "mov qword ptr [rip + {regs} + 56], r8",
+                "mov qword ptr [rip + {regs} + 64], r9",
+                "mov qword ptr [rip + {regs} + 72], r10",
+                "mov qword ptr [rip + {regs} + 80], r11",
+                "mov qword ptr [rip + {regs} + 88], r12",
+                "mov qword ptr [rip + {regs} + 96], r13",
+                "mov qword ptr [rip + {regs} + 104], r14",
+                "mov qword ptr [rip + {regs} + 112], r15",
                 "mov rdi, {v}",        // vector
                 "xor esi, esi",        // no error code
                 "mov rdx, [rsp]",      // faulting RIP
@@ -196,6 +231,7 @@ macro_rules! noerr_stub_isolating {
                 "8: mov rdi, {m_cab}", "mov rsi, rsp", "and rsp, -16", "call {podrido}",
                 v = const $vec,
                 h = sym fault_dispatch,
+                regs = sym crate::ring0::core::autopsy::REGISTROS,
                 podrido = sym contexto_podrido,
                 no_xcr0 = sym crate::ring0::plat::trap::XSAVE_NO_XCR0,
                 area = const crate::ring0::plat::trap::XSAVE_AREA,

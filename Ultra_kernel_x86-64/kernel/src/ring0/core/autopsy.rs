@@ -67,7 +67,10 @@ const CUANTAS: usize = 4;
 // informe de nueve no podia explicar. Ver la nota sobre `pila` mas abajo.
 // ONCE desde el 2026-08-14: el undecimo es el VEREDICTO, y llego por lo
 // contrario -- un fallo que el informe de diez SI podia explicar y no explico.
-const RENGLONES: usize = 11;
+// DIECISIETE desde el 2026-10-02: los bytes de ANTES de la instruccion y los
+// quince registros, por Cyberpunk (`mov eax, [rdi+0x18c0]` con un `rdi` que
+// no era de nadie: sin los registros y lo de antes no se sabe de donde salio).
+const RENGLONES: usize = 17;
 
 /// **Lo que se saca del proceso ANTES de tocar nada.**
 ///
@@ -101,6 +104,13 @@ pub struct Captura {
     /// la funcion, esto da la INSTRUCCION: juntos son el sitio exacto.
     codigo: [u8; CODIGO_BYTES],
     codigo_n: usize,
+    /// Los bytes de JUSTO ANTES del `rip` (02-10): ahi esta de donde salio el
+    /// registro que se uso mal. `antes_n` son los que se leyeron, los ultimos.
+    antes: [u8; CODIGO_BYTES],
+    antes_n: usize,
+    /// Los quince registros enteros al fallar, como los dejo el stub
+    /// ([`REGISTROS`]): rax rbx rcx rdx rsi rdi rbp r8..r15.
+    regs: [u64; 15],
     /// **Donde cae el `cr2` respecto de lo que el kernel le ENTREGO a este
     /// proceso**, preguntado aqui y no en `clasificar` por una razon de reloj:
     /// la estacion 10 de `revoke_all` --que corre entre una cosa y la otra--
@@ -154,6 +164,14 @@ pub struct Captura {
     marco: Option<u64>,
 }
 
+/// **Los registros enteros del ultimo fallo**, en el orden rax rbx rcx rdx rsi
+/// rdi rbp r8 r9 r10 r11 r12 r13 r14 r15. Los escribe el stub aislante de
+/// `faults/roja.rs` ANTES de pisar ninguno (02-10). Un solo juego para todos
+/// los nucleos: es un diagnostico, y dos fallos a la vez ya se dicen como
+/// ANIDADO.
+#[unsafe(no_mangle)]
+pub static mut REGISTROS: [u64; 15] = [0; 15];
+
 /// Cuantas palabras de pila se miran. Treinta y dos (eran 24 hasta el 02-10:
 /// los marcos de un juego son mas grandes) y no cuatro porque las
 /// primeras suelen ser locales del marco que fallo, y el retorno --lo unico que
@@ -168,6 +186,9 @@ impl Captura {
         pila: [None; PILA_PALABRAS],
         codigo: [0; CODIGO_BYTES],
         codigo_n: 0,
+        antes: [0; CODIGO_BYTES],
+        antes_n: 0,
+        regs: [0; 15],
         caida: crate::ring0::obj::memory::Caida::SinCuenta,
         traducida: false,
         agujero_ini: 0,
@@ -210,7 +231,20 @@ impl Captura {
                     None => break,
                 }
             }
+            // Lo de antes, hacia atras hasta el primer byte que no se lee.
+            for k in 1..=CODIGO_BYTES {
+                match leer_byte_de_ring3(rip.wrapping_sub(k as u64)) {
+                    Some(b) => {
+                        c.antes[CODIGO_BYTES - k] = b;
+                        c.antes_n = k;
+                    }
+                    None => break,
+                }
+            }
         }
+        // SAFETY: el stub los escribio antes de llamar, en este mismo nucleo, y
+        // nadie mas escribe ahi hasta el siguiente fallo.
+        c.regs = unsafe { core::ptr::addr_of!(REGISTROS).read() };
         c
     }
 
@@ -1043,6 +1077,8 @@ pub fn registrar(
         Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
         Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
         Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
+        Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
+        Renglon::nuevo(), Renglon::nuevo(), Renglon::nuevo(),
     ];
 
     renglones[0].s("== FALLO EN RING 3 #");
@@ -1325,6 +1361,29 @@ pub fn registrar(
     }
     unsafe {
         FUGAS_TOTAL = FUGAS_TOTAL.wrapping_add(fugas);
+    }
+
+    // ** LO DE ANTES Y LOS REGISTROS (02-10). Con la instruccion de arriba
+    // dicen que registro se uso y de donde salio su valor.
+    renglones[11].s("antes     ");
+    if cap.antes_n == 0 {
+        renglones[11].s("(no se pudo leer)");
+    }
+    for &b in &cap.antes[CODIGO_BYTES - cap.antes_n..] {
+        renglones[11].hex_byte(b);
+        renglones[11].s(" ");
+    }
+    renglones[11].s("| rip");
+    const NOMBRES: [&str; 15] = ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "r8 ", "r9 ", "r10", "r11", "r12", "r13", "r14", "r15"];
+    for (k, (n, v)) in NOMBRES.iter().zip(cap.regs.iter()).enumerate() {
+        let r = &mut renglones[12 + k / 3];
+        if k % 3 == 0 {
+            r.s("regs      ");
+        }
+        r.s(n);
+        r.s(" ");
+        r.hex(*v);
+        r.s("  ");
     }
 
     unsafe {
