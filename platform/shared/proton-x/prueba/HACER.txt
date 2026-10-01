@@ -1282,8 +1282,10 @@ Boost pasa las rutas con WideCharToMultiByte(CP_ACP u CP_OEMCP,
 WC_NO_BEST_FIT_CHARS) y de vuelta con MultiByteToWideChar(CP_ACP,
 MB_PRECOMPOSED); la casa rechazaba esas banderas. Aqui: AreFileApisANSI,
 las dos conversiones (medir, convertir, sin el 0 y con lpUsedDefaultChar),
-CP_OEMCP, y con CP_UTF8 explicito los rechazos de Windows
-(ERROR_INVALID_FLAGS y ERROR_INVALID_PARAMETER). Solo ASCII.
+CP_OEMCP, y con CP_UTF8 explicito lo mismo: la primera ronda en Windows dijo
+MAL en los tres "rechazos" que pedia la documentacion (ERROR_INVALID_FLAGS,
+ERROR_INVALID_PARAMETER) -- Windows NO los rechaza, y manda el metal. Solo
+ASCII.
 
    llvm-dlltool -m i386:x86-64 -d tanda32_kernel32.def -l tanda32_kernel32.lib
    clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda32.c -o tanda32.obj
@@ -1291,6 +1293,6 @@ CP_OEMCP, y con CP_UTF8 explicito los rechazos de Windows
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   d62eab0d73848d61e8ce59e015dae549cfb172e11e064205c2e70478a09406ec
+   07018046808e190097cca89079225ae67af3ca64610c5ef94fee22728e534bc4
 
 Dice `bien` diez veces y sale con 0. En Windows dice lo mismo.
