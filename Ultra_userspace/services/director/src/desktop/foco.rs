@@ -133,6 +133,19 @@ fn se_pisan((x, y, w, h): (u32, u32, u32, u32), (a, b, c, d): (u32, u32, u32, u3
 /// una ventana ajena.
 pub(crate) fn tapada(dsk: &Desktop, v: Ventana) -> bool {
     let Some(mia) = caja(dsk, v) else { return false };
+    // ** LAS APPS VAN SIEMPRE ENCIMA de las ventanas del sistema (01-10), se
+    // diga lo que se diga en la lista del foco: el compositor las pega al
+    // final. Sin esto, Sonido con el foco mas reciente que DOOM pintaba su
+    // medidor ENCIMA de DOOM, y entre fotograma y fotograma de DOOM las dos
+    // capas se mezclaban. Ejecutar delante (Ctrl+Alt) es la excepcion: ahi
+    // las apps no la pisan.
+    let ejecutar_delante = v == Ventana::Run && crate::desktop::paint::run_delante(dsk);
+    if !matches!(v, Ventana::App(_)) && !ejecutar_delante {
+        let (fichas, n) = dsk.table.fichas();
+        if fichas[..n].iter().any(|&i| caja(dsk, Ventana::App(i as u8)).is_some_and(|otra| se_pisan(mia, otra))) {
+            return true;
+        }
+    }
     let lista = dsk.win.focus.lista();
     let hasta = lista.iter().position(|&id| Ventana::de_id(id) == Some(v));
     let delante = &lista[..hasta.unwrap_or(lista.len())];
