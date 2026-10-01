@@ -65,6 +65,7 @@ pub const ROOTSIG: usize = 9;
 pub const PSO: usize = 10;
 pub const BLOB: usize = 11;
 pub const ADAPTER: usize = 12;
+pub const OUTPUT: usize = 13;
 
 const IID_OBJECT: Guid = guid(0xc4fec28f, 0x7966, 0x4e95, [0x9f, 0x94, 0xf4, 0x31, 0xcb, 0x56, 0xc3, 0xb8]);
 const IID_DEVICECHILD: Guid = guid(0x905db94b, 0xa00c, 0x4140, [0x9d, 0xf5, 0x2b, 0x64, 0xca, 0x9e, 0xa3, 0x57]);
@@ -93,12 +94,21 @@ pub const IID_FACTORY5: Guid = guid(0x7632e1f5, 0xee65, 0x4dca, [0x87, 0xfd, 0x8
 pub const IID_FACTORY6: Guid = guid(0xc1b6694f, 0xff09, 0x44a9, [0xb0, 0x3c, 0x77, 0x90, 0x0a, 0x0a, 0x1d, 0x17]);
 pub const IID_ADAPTER: Guid = guid(0x2411e7e1, 0x12ac, 0x4ccf, [0xbd, 0x14, 0x97, 0x98, 0xe8, 0x53, 0x4d, 0xc0]);
 pub const IID_ADAPTER1: Guid = guid(0x29038f61, 0x3839, 0x4626, [0x91, 0xfd, 0x08, 0x68, 0x79, 0x01, 0x1a, 0x05]);
+// 01-10: la salida (el monitor) hasta Output6, de las cabeceras publicas de
+// DXGI (dxgi.h, dxgi1_2.h ... dxgi1_6.h).
+const IID_OUTPUT: Guid = guid(0xae02eedb, 0xc735, 0x4690, [0x8d, 0x52, 0x5a, 0x8d, 0xc2, 0x02, 0x13, 0xaa]);
+const IID_OUTPUT1: Guid = guid(0x00cddea8, 0x939b, 0x4b83, [0xa3, 0x40, 0xa6, 0x85, 0x22, 0x66, 0x66, 0xcc]);
+const IID_OUTPUT2: Guid = guid(0x595e39d1, 0x2724, 0x4663, [0x99, 0xb1, 0xda, 0x96, 0x9d, 0xe2, 0x83, 0x64]);
+const IID_OUTPUT3: Guid = guid(0x8a6bb301, 0x7e7e, 0x41f4, [0xa8, 0xe0, 0x5b, 0x32, 0xf7, 0xf9, 0x9b, 0x18]);
+const IID_OUTPUT4: Guid = guid(0xdc7dca35, 0x2196, 0x414d, [0x9f, 0x53, 0x61, 0x78, 0x84, 0x03, 0x2a, 0x60]);
+const IID_OUTPUT5: Guid = guid(0x80a07424, 0xab52, 0x42eb, [0x83, 0x3c, 0x0c, 0x42, 0xfd, 0x28, 0x2d, 0x98]);
+pub const IID_OUTPUT6: Guid = guid(0x068346e8, 0xaaec, 0x4b84, [0xad, 0xd7, 0x13, 0x7f, 0x51, 0x3f, 0x77, 0xa1]);
 const IID_SWAPCHAIN: Guid = guid(0x310d36a0, 0xd2e7, 0x4c0a, [0xaa, 0x04, 0x6a, 0x9d, 0x23, 0xb8, 0x88, 0x6a]);
 pub const IID_SWAPCHAIN2: Guid = guid(0xa8be2ac4, 0x199f, 0x4946, [0xb3, 0x31, 0x79, 0x59, 0x9f, 0xb9, 0x8d, 0xe7]);
 pub const IID_SWAPCHAIN3: Guid = guid(0x94d99bdb, 0xf1f8, 0x4ab0, [0xb2, 0x36, 0x7d, 0xa0, 0x17, 0x0e, 0xda, 0xb1]);
 pub const IID_SWAPCHAIN1: Guid = guid(0x790a45f7, 0x0d42, 0x4876, [0x98, 0x3a, 0x0a, 0x55, 0xcf, 0xe6, 0xf4, 0xaa]);
 
-pub static INTERFACES: [Interfaz; 13] = [
+pub static INTERFACES: [Interfaz; 14] = [
     Interfaz { nombre: "ID3D12Device", metodos: M_ID3D12DEVICE, iids: &[IID_DEVICE, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandQueue", metodos: M_ID3D12COMMANDQUEUE, iids: &[IID_QUEUE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandAllocator", metodos: M_ID3D12COMMANDALLOCATOR, iids: &[IID_ALLOCATOR, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
@@ -112,6 +122,7 @@ pub static INTERFACES: [Interfaz; 13] = [
     Interfaz { nombre: "ID3D12PipelineState", metodos: M_ID3D12PIPELINESTATE, iids: &[IID_PSO, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3DBlob", metodos: M_ID3D10BLOB, iids: &[IID_BLOB] },
     Interfaz { nombre: "IDXGIAdapter1", metodos: M_IDXGIADAPTER1, iids: &[IID_ADAPTER1, IID_ADAPTER, IID_DXGIOBJECT] },
+    Interfaz { nombre: "IDXGIOutput6", metodos: M_IDXGIOUTPUT6, iids: &[IID_OUTPUT6, IID_OUTPUT5, IID_OUTPUT4, IID_OUTPUT3, IID_OUTPUT2, IID_OUTPUT1, IID_OUTPUT, IID_DXGIOBJECT] },
 ];
 
 /// **La cabecera de todo objeto de la casa.** `repr(C)` y delante: el `.exe`
@@ -184,10 +195,10 @@ extern "win64" fn release(this: *mut Cabecera) -> u32 {
     }
 }
 
-struct Vtablas(UnsafeCell<[*const u64; 13]>);
+struct Vtablas(UnsafeCell<[*const u64; 14]>);
 // SAFETY: un hilo (ver `Global` en lib.rs).
 unsafe impl Sync for Vtablas {}
-static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 13]));
+static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 14]));
 
 /// **La vtabla de la interfaz `I`**: IUnknown, los `metodos` que la casa
 /// tiene (hueco, direccion), y un `falta` en todos los demas. Se arma una vez.
@@ -319,6 +330,18 @@ pub const M_IDXGIFACTORY6: &[&str] = &[
 pub const M_IDXGIADAPTER1: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",
     "GetPrivateData", "GetParent", "EnumOutputs", "GetDesc", "CheckInterfaceSupport", "GetDesc1",
+];
+pub const M_IDXGIOUTPUT6: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",
+    "GetPrivateData", "GetParent", "GetDesc", "GetDisplayModeList", "FindClosestMatchingMode",
+    "WaitForVBlank", "TakeOwnership", "ReleaseOwnership", "GetGammaControlCapabilities",
+    "SetGammaControl", "GetGammaControl", "SetDisplaySurface", "GetDisplaySurfaceData",
+    "GetFrameStatistics",
+    // IDXGIOutput1 a 6 (01-10)
+    "GetDisplayModeList1", "FindClosestMatchingMode1", "GetDisplaySurfaceData1",
+    "DuplicateOutput", "SupportsOverlays", "CheckOverlaySupport",
+    "CheckOverlayColorSpaceSupport", "DuplicateOutput1", "GetDesc1",
+    "CheckHardwareCompositionSupport",
 ];
 pub const M_IDXGISWAPCHAIN3: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",

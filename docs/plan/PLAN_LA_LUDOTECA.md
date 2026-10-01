@@ -716,7 +716,8 @@ muro, y cada muro dejo su tanda:
 | el aviso del juego salia en arabe | STRINGTABLE por idioma, por bloque | tanda36 |
 | *"corrupted or missing scripts file"* | GetFileAttributesEx y stat con la medida DEL FICHERO, no la del indice de NTFS | probado en el metal (13:59): NO era eso; las medidas cuadran |
 | el mismo aviso: las FECHAS iban a 0 (1601) | DIR_OP_FECHAS: fechas y atributos de NTFS hasta la casa (Ring 0) | tanda37; en el metal (14:38): EL AVISO SE FUE |
-| salto a la direccion 0 tras D3D12CreateDevice | las exportaciones de d3d12/dxgi que faltaban; un NULL de GetProcAddress se apunta | la proxima ejecucion |
+| salto a la direccion 0 tras D3D12CreateDevice | las exportaciones de d3d12/dxgi que faltaban; un NULL de GetProcAddress se apunta | en el metal: el salto se fue |
+| sale con 0xC0DE0C07: `IDXGIAdapter::EnumOutputs` (hueco 7), "que monitores tienes" | una salida (el monitor de user32, 1920x1080 a 60 Hz) hasta IDXGIOutput6, con sus modos | tanda38 |
 
 **El muro de AHORA (01-10, 13:59): las FECHAS de los ficheros.** El juego
 mira `final.redscripts` SOLO con GetFileAttributesExW (no lo abre: el DIARIO
