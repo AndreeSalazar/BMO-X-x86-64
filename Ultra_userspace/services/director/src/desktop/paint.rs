@@ -30,6 +30,20 @@ use crate::scene::output::paint_output;
 use crate::scene::{self, paint_field, paint_status, acento, INK_BAD};
 use crate::{erase_window, uncover};
 
+/// **Ejecutar esta DELANTE de las apps** (Ctrl+Alt, 01-10): arriba y con el
+/// teclado. Lo preguntan quien compone y quien reparte el raton: lo que se ve
+/// encima es lo que recibe el clic.
+pub(crate) fn run_delante(dsk: &Desktop) -> bool {
+    dsk.win.visible && dsk.win.top_before == Ventana::Run && dsk.win.focus.actual() == Some(Ventana::Run)
+}
+
+/// **Que tapa el punto `(x, y)`: una app o una ventana fija.** Las apps se
+/// componen encima de las ventanas del sistema, salvo Ejecutar delante en su
+/// caja. `true`: el punto es de una app.
+pub(crate) fn app_encima(dsk: &Desktop, x: u32, y: u32) -> bool {
+    dsk.table.at(x, y).is_some() && !(run_delante(dsk) && dsk.run_box.contains(x, y))
+}
+
 /// **La terminal pinto: las apps que la tapan se vuelven a pegar.**
 ///
 /// ** Visto en el Ryzen el 2026-09-12: la barra de texto de Ejecutar, con su
@@ -504,8 +518,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         }
         devolver(dsk, p);
         // Ejecutar delante (Ctrl+Alt, 01-10): las apps no la pisan.
-        let delante = dsk.win.visible && dsk.win.top_before == Ventana::Run && dsk.win.focus.actual() == Some(Ventana::Run);
-        let tapa = delante.then(|| (dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h()));
+        let tapa = run_delante(dsk).then(|| (dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h()));
         dsk.table.compose(&p, tapa);
     }
 
