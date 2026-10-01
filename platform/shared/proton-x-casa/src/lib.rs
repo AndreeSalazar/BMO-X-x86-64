@@ -95,6 +95,8 @@ pub mod proceso;
 pub mod red;
 pub mod rtti;
 pub mod red_puro;
+/// El espia de Init y GetError de Galaxy, con el diario (01-10).
+mod espia;
 /// Los sockets de 127.0.0.1 dentro del proceso (01-10).
 mod red_local;
 pub mod cripto;
@@ -351,7 +353,8 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     let d = tabla_casa(dll, f)?;
     // Lo que exporta una DLL propia puede ser un DATO: nunca se envuelve.
     if modulos::exportada(dll, f).is_some() {
-        return Some(d);
+        // Con el diario, Init y GetError de Galaxy van por el espia.
+        return Some(espia::envolver(dll, &alloc::format!("{f}"), d));
     }
     // Tanda 18: los `id` de msvcp140 tambien son DATOS.
     if matches!(f, Funcion::Nombre(n) if dll.eq_ignore_ascii_case("msvcp140.dll") && (msvcp_locale::es_dato(n) || msvcp_flujos::es_dato(n))) {
