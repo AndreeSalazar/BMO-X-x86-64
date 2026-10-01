@@ -233,8 +233,14 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
                     dsk.win.data.hist_sel = 0;
                     View::Historial
                 }
-                // Y de vuelta al equipo, que se MIDE al entrar.
+                // ** Y PROCESOS (01-10): el benchmark en vivo. Muestrea al
+                // entrar y luego a su ritmo, solo mientras se mira.
                 View::Historial => {
+                    scene::data::procesos::entrar();
+                    View::Procesos
+                }
+                // Y de vuelta al equipo, que se MIDE al entrar.
+                View::Procesos => {
                     dsk.win.data.eq_entrar();
                     View::Equipo
                 }

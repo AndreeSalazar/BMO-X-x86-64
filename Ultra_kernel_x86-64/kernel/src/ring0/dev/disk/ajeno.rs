@@ -163,6 +163,7 @@ fn leer(p: u8, dma: u64, lba: u64, count: u16, buf: &mut [u8]) -> Result<u16, Bl
                     }
                 };
                 DIRECTOS.fetch_add(k as u64 * SECTOR as u64, Ordering::Relaxed);
+                super::trafico::leido(k as u64 * SECTOR as u64);
                 hecho += k;
                 continue;
             }
@@ -193,6 +194,7 @@ fn leer(p: u8, dma: u64, lba: u64, count: u16, buf: &mut [u8]) -> Result<u16, Bl
         let src = unsafe { core::slice::from_raw_parts(mm::phys_to_virt(dma) as *const u8, bytes as usize) };
         buf[desde..desde + bytes as usize].copy_from_slice(src);
         REBOTADOS.fetch_add(bytes, Ordering::Relaxed);
+        super::trafico::leido(bytes);
         hecho += n;
     }
     Ok(count)

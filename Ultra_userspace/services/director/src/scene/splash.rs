@@ -72,15 +72,26 @@ const CON_AVISO_MS: u64 = 1100;
 /// dormir menos seria despertarse para preguntar por algo que no ha cambiado.
 const TROZO_MS: u64 = 4;
 
-fn wait_ms(ms: u64, input: Option<&bmo::Entrada>) {
+/// Con `gato`, mientras espera el gato se mueve: un fotograma cada ~33 ms.
+fn wait_ms(ms: u64, input: Option<&bmo::Entrada>, gato: Option<(&bmo::Pantalla, (u32, u32, u32))>) {
     let hz = bmo::info(bmo::INFO_TSC_HZ);
     if hz == 0 {
         // Sin frecuencia medida no se inventa una: se sigue. Una intro que no
         // se ve es infinitamente mejor que una espera de duracion desconocida.
         return;
     }
-    let target = bmo::ciclos() + hz / 1000 * ms;
+    let inicio = bmo::ciclos();
+    let target = inicio + hz / 1000 * ms;
+    let mut proximo = inicio;
     while bmo::ciclos() < target {
+        if let Some((p, (gx, gy, escala))) = gato {
+            let ahora = bmo::ciclos();
+            if ahora >= proximo {
+                proximo = ahora + hz / 30;
+                paint_cat(p, gx, gy, escala, (ahora - inicio) / (hz / 1000).max(1));
+                p.vaciar();
+            }
+        }
         // La tecla se consume al leerla, asi que la que salta la intro **no**
         // acaba escrita en la caja de Ejecutar. Un atajo que ademas teclea algo
         // seria un atajo que hay que deshacer.
@@ -104,39 +115,12 @@ fn wait_ms(ms: u64, input: Option<&bmo::Entrada>) {
     }
 }
 
-/// * Pinta EL GATO desde sus dos mascaras de 1 bit.
-///
-/// El fondo no se dibuja: la mascara no lo lleva, porque el fondo del splash ya
-/// es negro. Solo se encienden los pixeles del trazo y los de los ojos -- 1.622
-/// de los 27.360 del rectangulo, o sea que dibujarlo cuesta menos que un `rect`
-/// de ese medida.
-///
-/// `escala` multiplica en enteros y a proposito: interpolar un dibujo de lineas
-/// de un pixel lo convierte en una mancha gris. Aqui un pixel de la mascara es
-/// un cuadrado exacto, que es como se ve un logo hecho de trazos.
-fn paint_cat(p: &bmo::Pantalla, x0: u32, y0: u32, escala: u32) {
-    let bit = |m: &[u8], i: usize| m[i / 8] >> (i % 8) & 1 == 1;
-    for fy in 0..gato::HEIGHT {
-        for fx in 0..gato::WIDTH {
-            let i = (fy * gato::WIDTH + fx) as usize;
-            // Los ojos ganan al trazo: son el unico sitio con color y es lo
-            // primero que mira quien mira un gato.
-            let color = if bit(&gato::EYES, i) {
-                acento()
-            } else if bit(&gato::STROKE, i) {
-                INK
-            } else {
-                continue;
-            };
-            let px = x0 + fx * escala;
-            let py = y0 + fy * escala;
-            if escala == 1 {
-                p.punto(px, py, color);
-            } else {
-                p.rect(px, py, escala, escala, color);
-            }
-        }
-    }
+/// ** EL GATO, VIVO (01-10): el logo animado de `docs/arte/bmo-x-gato-hd.svg`
+/// -- el mismo gato de las mascaras, con su halo, el parpadeo, el glitch de los
+/// ojos, las franjas y el escaneo. Ver `scene::gato_vivo`. Antes se pintaba
+/// quieto aqui mismo, pixel a pixel desde las mascaras.
+fn paint_cat(p: &bmo::Pantalla, x0: u32, y0: u32, escala: u32, ms: u64) {
+    super::gato_vivo::fotograma(p, x0, y0, escala, ms, SPLASH_BG, acento());
 }
 
 /// Una fila del informe: etiqueta a la izquierda, valor a la derecha.
@@ -185,7 +169,8 @@ pub(crate) fn paint(
 
     // El gato se centra respecto al bloque de texto, no respecto a la pantalla:
     // lo que tiene que quedar alineado es lo que se mira junto.
-    paint_cat(p, 120, y + 8, escala);
+    paint_cat(p, 120, y + 8, escala, 0);
+    let gato_en = (120, y + 8, escala);
 
     // -- El nombre, grande --
     let width = bmo::Pantalla::ancho_escala("BMO-X", 6);
@@ -398,7 +383,7 @@ pub(crate) fn paint(
         // vueltas de bucle, y cualquier tecla la corta.
         p.texto(x, y + bmo::GLIFO_ALTO + 26, "una tecla para entrar", SPLASH_DIM);
         p.vaciar();
-        wait_ms(CON_AVISO_MS, input);
+        wait_ms(CON_AVISO_MS, input, Some((p, gato_en)));
     }
 }
 

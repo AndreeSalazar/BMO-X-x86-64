@@ -82,6 +82,9 @@ pub use hilo::{arrancar as arrancar_hilo, avisar as avisar_hilo, cuentas as cuen
     sin_el_hilo, vivo as hilo_vivo, Paso};
 /// THE DISK METER (D0): how fast THIS disk reads, measured here. Read only.
 mod banda;
+/// Bytes leidos y escritos desde el arranque: el MiB/s en vivo (01-10).
+mod trafico;
+pub use trafico::trafico;
 pub use banda::{banda, banda_orden, medir as medir_banda};
 
 pub const SECTOR: usize = 512;
@@ -645,6 +648,7 @@ pub fn write(lba: u64, count: u16, data: &[u8]) -> u16 {
                 None => return done,
             };
             if put == 0 { return done; }
+            trafico::escrito(put as u64 * SECTOR as u64);
             done += put;
             if put < trozo { break; }
             continue;
@@ -698,6 +702,7 @@ pub fn write(lba: u64, count: u16, data: &[u8]) -> u16 {
         };
         phys::aterrizo(dma, phys::APARATO_AHCI, crate::ring0::task::scheduler::rdtsc());
         if put == 0 { return done; }
+        trafico::escrito(put as u64 * SECTOR as u64);
         done += put;
         if put < batch { break; } // escritura corta: el disco dijo basta
     }

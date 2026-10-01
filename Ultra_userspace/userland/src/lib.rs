@@ -1187,6 +1187,10 @@ pub const UNIDAD_PERSONAL: u64 = 2;
 pub const UNIDAD_NO_SE: u64 = u64::MAX;
 /// El tiempo de la receta de la 3060, por piezas. Ver el ABI (`INFO_RECETA`).
 pub const INFO_RECETA: u64 = 0xC5;
+/// Bytes leidos / escritos de todos los discos desde el arranque: el MiB/s en
+/// vivo sale de restar dos lecturas. Ver el ABI (`INFO_DISCO_LEIDO`).
+pub const INFO_DISCO_LEIDO: u64 = 0xC6;
+pub const INFO_DISCO_ESCRITO: u64 = 0xC7;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.
