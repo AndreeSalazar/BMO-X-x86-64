@@ -21,6 +21,9 @@
 //!                 MEM_OP_SOLTAR: de los ocho bloques vivos, el codigo gasta uno
 //!    leer_fichero   Archivo::leer_de + un bloque + leer_en: ENTERO, un viaje
 //!    escribir_fichero  Archivo::create + write (hoy, hasta 4 KiB)
+//!    trozos       A LA CARTA (01-10): Archivo::reflejar + saltar + leer_en,
+//!                 sin traerse el fichero: los grandes de un juego (Cyberpunk
+//!                 abrio uno de 46 MB con un monton de 25)
 //! ```
 //!
 //! La superficie es la MISMA que pide una app de INTI o de C
@@ -34,7 +37,7 @@ use bmo_userland as bmo;
 const RANURAS: u64 = 64;
 
 pub fn de_bmo() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: super::la3060::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: Some(CARPETAS), reserva: Some(RESERVA) }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: super::la3060::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: Some(CARPETAS), reserva: Some(RESERVA), trozos: Some(TROZOS) }
 }
 
 /// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el
@@ -162,6 +165,85 @@ fn listar(ruta: &[u8]) -> Option<alloc::vec::Vec<bmo_proton_x::ficheros::Entrada
         v.push(bmo_proton_x::ficheros::Entrada { nombre, carpeta, bytes });
     }
     Some(v)
+}
+
+/// **A la carta** (01-10): la medida de un fichero sin traerlo, y un rango.
+const TROZOS: bmo_proton_x_casa::Trozos = bmo_proton_x_casa::Trozos { medida: trozo_medida, leer: trozo_leer, umbral: 1 << 20 };
+
+/// Los ficheros abiertos a la carta que se quedan abiertos: el kernel tiene
+/// 16 ranuras para TODO el sistema, asi que pocos, y se cierra el mas viejo.
+const ABIERTOS: usize = 3;
+/// El bloque de paso: el kernel escribe en un bloque SUYO (`leer_en` va por
+/// capability, no por puntero) y de ahi se copia al `.exe`. Uno, y se queda:
+/// pedir y soltar uno por `ReadFile` serian dos llamadas mas por lectura.
+const PASO: u64 = 1 << 20;
+
+struct Carta {
+    ruta: alloc::vec::Vec<u8>,
+    a: bmo::Archivo,
+    /// Donde esta el cursor del kernel: leer seguido no salta.
+    pos: u64,
+    uso: u64,
+}
+
+struct ALaCarta {
+    abiertos: alloc::vec::Vec<Carta>,
+    paso: Option<bmo::Memoria>,
+    reloj: u64,
+}
+
+struct Global(core::cell::UnsafeCell<ALaCarta>);
+// SAFETY: una tarea, y los hilos de la casa son cooperativos.
+unsafe impl Sync for Global {}
+static CARTA: Global = Global(core::cell::UnsafeCell::new(ALaCarta { abiertos: alloc::vec::Vec::new(), paso: None, reloj: 0 }));
+
+fn trozo_medida(ruta: &[u8]) -> Option<u64> {
+    let a = bmo::Archivo::reflejar(ruta).ok()?;
+    let m = a.size();
+    a.close();
+    Some(m)
+}
+
+fn trozo_leer(ruta: &[u8], desde: u64, dst: &mut [u8]) -> Option<usize> {
+    // SAFETY: ver `Global`; nadie guarda la referencia.
+    let e = unsafe { &mut *CARTA.0.get() };
+    e.reloj += 1;
+    if e.paso.is_none() {
+        e.paso = Some(bmo::Memoria::request(PASO)?);
+    }
+    let k = match e.abiertos.iter().position(|c| c.ruta == ruta) {
+        Some(k) => k,
+        None => {
+            if e.abiertos.len() >= ABIERTOS {
+                let viejo = (0..e.abiertos.len()).min_by_key(|&k| e.abiertos[k].uso).unwrap_or(0);
+                e.abiertos.swap_remove(viejo).a.close();
+            }
+            let a = bmo::Archivo::reflejar(ruta).ok()?;
+            e.abiertos.push(Carta { ruta: ruta.to_vec(), a, pos: 0, uso: 0 });
+            e.abiertos.len() - 1
+        }
+    };
+    let (c, paso) = (&mut e.abiertos[k], e.paso.as_ref()?);
+    c.uso = e.reloj;
+    if c.pos != desde {
+        c.pos = c.a.saltar(desde);
+        if c.pos != desde {
+            return Some(0);
+        }
+    }
+    let mut hecho = 0usize;
+    while hecho < dst.len() {
+        let n = ((dst.len() - hecho) as u64).min(PASO);
+        let got = c.a.leer_en(paso, 0, n);
+        // SAFETY: `got` bytes que el kernel acaba de escribir en el bloque de paso.
+        unsafe { core::ptr::copy_nonoverlapping(paso.base(), dst[hecho..].as_mut_ptr(), got as usize) };
+        hecho += got as usize;
+        c.pos += got;
+        if got < n {
+            break;
+        }
+    }
+    Some(hecho)
 }
 
 /// Una arena del monton de Windows (P4e): un bloque del kernel, que ya viene

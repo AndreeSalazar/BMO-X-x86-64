@@ -233,7 +233,7 @@ fn escribir(d: &Descriptor, fd: i32, src: &[u8]) -> Result<usize, i32> {
     }
     if d.anexar {
         if let Some(a) = ficheros::abierto(d.h) {
-            a.pos = a.bytes.len() as u64;
+            a.pos = a.medida();
         }
     }
     let t: Vec<u8>;
@@ -292,7 +292,7 @@ extern "win64" fn lseeki64(fd: i32, off: i64, desde: i32) -> i64 {
 
 extern "win64" fn filelengthi64(fd: i32) -> i64 {
     match descriptor(fd).and_then(|d| ficheros::abierto(d.h)) {
-        Some(a) => a.bytes.len() as i64,
+        Some(a) => a.medida() as i64,
         None => {
             poner_errno(EBADF);
             -1
@@ -381,7 +381,7 @@ extern "win64" fn fstat64(fd: i32, st: *mut u8) -> i32 {
         return -1;
     }
     match ficheros::abierto(d.h) {
-        Some(a) => poner_stat(st, a.carpeta, a.bytes.len() as u64, !a.escribe, false),
+        Some(a) => poner_stat(st, a.carpeta, a.medida(), !a.escribe, false),
         // La consola: un dispositivo de caracteres.
         None => {
             poner_stat(st, false, 0, false, false);

@@ -180,6 +180,22 @@ pub struct Plataforma {
     /// La RESERVA (P0.4c): una ventana de direcciones donde se hacen y
     /// deshacen paginas a peticion. `None`: solo las arenas de `memoria`.
     pub reserva: Option<Reserva>,
+    /// Leer ficheros A LA CARTA (01-10): sin esto, todo fichero se trae
+    /// entero con `leer_fichero`.
+    pub trozos: Option<Trozos>,
+}
+
+/// **Leer un fichero a trozos** (01-10, Cyberpunk): su medida sin traerlo, y
+/// un rango cualquiera. En BMO-X, `Archivo::reflejar` + `saltar` + `leer_en`.
+#[derive(Clone, Copy)]
+pub struct Trozos {
+    /// La medida, o `None` si no esta (o es una carpeta).
+    pub medida: fn(&[u8]) -> Option<u64>,
+    /// `(ruta, desde, destino)`: los bytes traidos, o `None` si fallo.
+    pub leer: fn(&[u8], u64, &mut [u8]) -> Option<usize>,
+    /// Desde que medida un fichero de solo leer va a la carta (los chicos
+    /// se traen enteros: leer de cuatro en cuatro bytes del disco no).
+    pub umbral: u64,
 }
 
 /// **Lo que cambia carpetas del volumen** (relevo 01-10, paso 4b): en

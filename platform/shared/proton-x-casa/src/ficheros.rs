@@ -47,6 +47,7 @@ const ERROR_INVALID_PARAMETER: u32 = 87;
 const ERROR_NEGATIVE_SEEK: u32 = 131;
 const ERROR_ALREADY_EXISTS: u32 = 183;
 const ERROR_WRITE_FAULT: u32 = 29;
+const ERROR_READ_FAULT: u32 = 30;
 const INVALID_FILE_ATTRIBUTES: u32 = u32::MAX;
 const FILE_TYPE_DISK: u32 = 1;
 
@@ -158,6 +159,15 @@ fn create_file_dentro(nombre: *const u16, acceso: u32, _compartir: u32, _seg: u6
         kernel32::poner_error(ERROR_PATH_NOT_FOUND);
         return NO_VALE;
     }
+    // ** A LA CARTA: solo leer, abrir lo que hay, y grande: se mide y no se trae.
+    if acceso & GENERIC_WRITE == 0 && matches!(disposicion, OPEN_EXISTING | OPEN_ALWAYS) {
+        if let Some(t) = plataforma().trozos {
+            if let Some(m) = (t.medida)(ruta.as_bytes()).filter(|&m| m >= t.umbral) {
+                kernel32::poner_error(if disposicion == OPEN_ALWAYS { ERROR_ALREADY_EXISTS } else { 0 });
+                return abrir(Abierto { ruta, lee: acceso & GENERIC_READ != 0, a_la_carta: Some(m), ..Abierto::default() });
+            }
+        }
+    }
     let habia = (plataforma().leer_fichero)(ruta.as_bytes());
     let existe = habia.is_some();
     let bytes = match (disposicion, habia) {
@@ -179,7 +189,7 @@ fn create_file_dentro(nombre: *const u16, acceso: u32, _compartir: u32, _seg: u6
     let escribe = acceso & GENERIC_WRITE != 0;
     // Crear (o vaciar) es escribir, aunque no se escriba nada despues.
     let sucio = escribe && matches!(disposicion, CREATE_ALWAYS | CREATE_NEW | TRUNCATE_EXISTING) || (disposicion == OPEN_ALWAYS && !existe);
-    let a = Abierto { ruta, bytes, pos: 0, lee: acceso & GENERIC_READ != 0, escribe, sucio, carpeta: false };
+    let a = Abierto { ruta, bytes, pos: 0, lee: acceso & GENERIC_READ != 0, escribe, sucio, carpeta: false, a_la_carta: None };
     // Como Windows: CREATE_ALWAYS y OPEN_ALWAYS sobre uno que ya estaba lo dicen.
     kernel32::poner_error(if existe && matches!(disposicion, CREATE_ALWAYS | OPEN_ALWAYS) { ERROR_ALREADY_EXISTS } else { 0 });
     abrir(a)
@@ -230,6 +240,16 @@ pub(crate) fn leer_de(h: u64, dst: &mut [u8], desde: Option<u64>) -> Result<usiz
     }
     if let Some(p) = desde {
         a.pos = p;
+    }
+    if a.a_la_carta.is_some() {
+        let (desde, n) = a.trozo(dst.len());
+        if n == 0 {
+            return Ok(0);
+        }
+        let t = plataforma().trozos.ok_or(ERROR_INVALID_HANDLE)?;
+        let k = (t.leer)(a.ruta.as_bytes(), desde, &mut dst[..n]).ok_or(ERROR_READ_FAULT)?;
+        a.pos = desde + k as u64;
+        return Ok(k);
     }
     Ok(a.leer(dst))
 }
@@ -358,7 +378,7 @@ extern "win64" fn get_file_size_ex(h: u64, medida: *mut i64) -> i32 {
     };
     if !medida.is_null() {
         // SAFETY: un LARGE_INTEGER del `.exe`.
-        unsafe { *medida = a.bytes.len() as i64 };
+        unsafe { *medida = a.medida() as i64 };
     }
     1
 }
@@ -368,7 +388,7 @@ extern "win64" fn get_file_size(h: u64, alto: *mut u32) -> u32 {
         kernel32::poner_error(ERROR_INVALID_HANDLE);
         return u32::MAX;
     };
-    let n = a.bytes.len() as u64;
+    let n = a.medida();
     if !alto.is_null() {
         // SAFETY: un DWORD del `.exe`.
         unsafe { *alto = (n >> 32) as u32 };

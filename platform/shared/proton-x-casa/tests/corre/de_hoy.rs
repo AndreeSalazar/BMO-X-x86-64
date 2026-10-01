@@ -338,3 +338,27 @@ fn tanda32_exe_las_rutas_de_boost() {
 fn tanda33_exe_secur32_y_la_tabla_sspi() {
     tanda(TANDA33, None, 8, "tanda33.exe: secur32 por su ruta y la tabla SSPI que pide curl");
 }
+
+/// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
+/// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
+/// asi el camino que en BMO-X lleva los ficheros grandes.
+pub(crate) const TROZOS_DEL_BANCO: bmo_proton_x_casa::Trozos = bmo_proton_x_casa::Trozos {
+    medida: |r| {
+        let m = std::fs::metadata(super::volumen().join(std::str::from_utf8(r).ok()?)).ok()?;
+        m.is_file().then(|| m.len())
+    },
+    leer: |r, desde, dst| {
+        use std::io::{Read, Seek, SeekFrom};
+        let mut f = std::fs::File::open(super::volumen().join(std::str::from_utf8(r).ok()?)).ok()?;
+        f.seek(SeekFrom::Start(desde)).ok()?;
+        let mut n = 0;
+        while n < dst.len() {
+            match f.read(&mut dst[n..]).ok()? {
+                0 => break,
+                k => n += k,
+            }
+        }
+        Some(n)
+    },
+    umbral: 0,
+};
