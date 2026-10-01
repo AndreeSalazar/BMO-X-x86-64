@@ -456,7 +456,8 @@ match c {
     // # Y agrupadas por LA PREGUNTA, no por el orden en que se anadieron
     //
     // ```text
-    //    VER            F2 info    F3 consumo   F4 apps
+    //    VER            F2 info    F3 consumo   (F4: la LUDOTECA, 01-10;
+    //                   `apps` se sigue tecleando)
     //    (F1 era `help`; desde el 06-09 la coge ANTES `keys::windows` -- hoy
     //    lanza el TALLER -- y aqui ya no llegaba. Se quito el 29-09.)
     //    LA MAQUINA     F5 red     F6 smp     F7 banda     F8 ext
@@ -481,7 +482,6 @@ match c {
         let orden: &[u8] = match f {
             0x8A => b"info",
             0x8B => b"consumo",
-            0x8C => b"apps",
             0x8D => b"red",
             0x8E => b"smp",
             0x8F => b"banda",
@@ -535,7 +535,7 @@ match c {
 /// `.exe` no arranca el firmware de la 3060 por su cuenta. Sin `init`, se
 /// dice por que va por la CPU. Un NO al preparar lo dice `preparar_hasta` y
 /// el `.exe` se lanza igual (por la CPU).
-fn antes_de_proton_x(dsk: &mut Desktop, p: &bmo::Pantalla, target: &[u8]) {
+pub(crate) fn antes_de_proton_x(dsk: &mut Desktop, p: &bmo::Pantalla, target: &[u8]) {
     let programa = target.split(|&c| c == b' ').next().unwrap_or(target);
     if !programa.ends_with(b"proton-x.bex") {
         return;

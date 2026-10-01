@@ -75,6 +75,8 @@ pub(crate) mod arranque;
 pub(crate) mod tocable;
 /// **LA ENTRADA DE EJECUTAR**: el titulo en ASCII al invocarla con Ctrl+Alt (29-09).
 pub(crate) mod entrada;
+/// Lo que una app le pide al escritorio por su consola: el JUGAR de la LUDOTECA (01-10).
+pub(crate) mod pide;
 
 /// **El panel aparecio, se fue o cambio de medida** (Ctrl+B, la tira, el
 /// editor de aspecto; HUD 3 y 5): el area util y la

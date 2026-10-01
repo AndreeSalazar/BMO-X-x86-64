@@ -180,6 +180,26 @@ try {
     }
     if ($LASTEXITCODE -ne 0) { Fail 'bex-link fallo con apps/taller' }
     if (-not (Test-Path $estBex)) { Fail 'bex-link no produjo taller.bex' }
+
+    # -- LUDOTECA (F4): `sys/ludoteca.bex` (01-10) --------------------
+    #
+    # Tus juegos de todas las tiendas, con el armazon de una comunidad y una
+    # animacion propia por tienda (PLAN_LA_LUDOTECA, J1). F4 la LANZA: si no
+    # esta en el disco, F4 no abre nada. Mismo camino que el TALLER.
+    $ludElf = Join-Path $usDir 'target\x86_64-unknown-none\release\ludoteca'
+    if (-not (Test-Path $ludElf)) { Fail 'no salio el ELF de apps/ludoteca' }
+    $ludBex = Join-Path $dataBase 'sys\ludoteca.bex'
+    if ([System.IO.Path]::GetFileNameWithoutExtension($ludBex).Length -gt 8) { Fail ($ludBex + ': el tallo no cabe en 8.3') }
+    if (Test-Path $ludBex) { Remove-Item $ludBex -Force }
+    $out = & (Obrero bmo-bex-link) $ludElf $ludBex 2>&1
+    $out | ForEach-Object {
+        $linea = $_.ToString()
+        if ($linea -match '^\s+(\.text|->)|error|!!') {
+            Write-Host ('    [bex-link] ' + $linea.Trim()) -ForegroundColor DarkGray
+        }
+    }
+    if ($LASTEXITCODE -ne 0) { Fail 'bex-link fallo con apps/ludoteca' }
+    if (-not (Test-Path $ludBex)) { Fail 'bex-link no produjo ludoteca.bex' }
     # Y `teb.exe` (P1d, 27-09): lee su TEB y su PEB por `gs:` como el CRT de
     # Microsoft, y dice `bien` seis veces si el GS de la casa es el de Windows.
     # Y `ventana.exe` (P2, 27-09): una ventana Win32 de manual, con el user32 y

@@ -514,7 +514,9 @@ try {
     # ** Y `estructura` (2026-09-29): F1, el taller como editor de nodos de
     # TITAN++ con el comprobador animado. El DIRECTOR lo LANZA con F1, asi que
     # si el build no lo construye, F1 no abre nada.
-    $out = cargo +nightly build -p bmo-service-director -p bmo-medida-coste -p bmo-medida-sombra -p bmo-app-proton-x -p bmo-app-taller `
+    # ** Y `ludoteca` (01-10): F4, tus juegos de todas las tiendas. Igual:
+    # sin construirla, F4 no abre nada.
+    $out = cargo +nightly build -p bmo-service-director -p bmo-medida-coste -p bmo-medida-sombra -p bmo-app-proton-x -p bmo-app-taller -p bmo-app-ludoteca `
         --release --target x86_64-unknown-none 2>&1
     $out | ForEach-Object {
         if ($_ -match 'Compiling|Finished|error') { Write-Host ('    [userspace] ' + $_) -ForegroundColor DarkGray }
