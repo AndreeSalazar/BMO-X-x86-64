@@ -12,7 +12,11 @@
 //! estratos-fmt disco.img --tam-mib 64 --desde .\contenido
 //! estratos-fmt disco.img --tam-mib 64 --desde .\contenido --modelo "KINGSTON ..." --serie "5002..." --sectores 937703088
 //! estratos-fmt \\.\F: --volumen --si-estoy-seguro --modelo ... --serie ... --sectores ...
+//! estratos-fmt \\.\F: --verificar
 //! ```
+//!
+//! Con `--volumen` la medida la dice Windows (todo el volumen); `--tam-mib`
+//! solo puede pedir menos, nunca mas.
 //!
 //! Por defecto escribe una **imagen en un archivo**, que no puede romper nada.
 //! Tocar un volumen de verdad exige `--volumen` **y** `--si-estoy-seguro`, y
@@ -271,6 +275,8 @@ fn verificar(ruta: &Path) -> Result<(usize, u64), String> {
     let b = l.bloque(es::SUPER_B_BLOCK).map_err(|e| e.to_string())?;
     let (sb, cual) = es::pick_superblock(&a, &b).map_err(|e| e.name().to_string())?;
     println!("  superbloque      copia {} generacion {}", cual, sb.generation);
+    println!("  medida           {} bloques ({} MiB), log hasta el bloque {}",
+             sb.total_blocks, sb.total_blocks * BLOQUE as u64 / (1024 * 1024), sb.log_head);
 
     let e = es::Estrato::decode(&l.seguir(&sb.estrato)?).map_err(|e| e.name().to_string())?;
     println!("  estrato          \"{}\"  autor {:?}", e.motivo_str(), e.autor);
@@ -332,6 +338,26 @@ mod win {
     const FSCTL_LOCK_VOLUME: u32 = 0x0009_0018;
     const FSCTL_UNLOCK_VOLUME: u32 = 0x0009_001C;
     const FSCTL_DISMOUNT_VOLUME: u32 = 0x0009_0020;
+    const IOCTL_DISK_GET_LENGTH_INFO: u32 = 0x0007_405C;
+
+    /// Bytes que mide el volumen, preguntados a Windows. Un `\\.\F:` abierto
+    /// como fichero mide 0 para `metadata()`: la medida solo la sabe el driver.
+    pub fn medida(f: &File) -> Result<u64, String> {
+        let mut largo = 0i64;
+        let mut devueltos = 0u32;
+        let ok = unsafe {
+            DeviceIoControl(
+                f.as_raw_handle() as Handle, IOCTL_DISK_GET_LENGTH_INFO,
+                core::ptr::null_mut(), 0,
+                &mut largo as *mut i64 as *mut core::ffi::c_void, 8,
+                &mut devueltos, core::ptr::null_mut(),
+            ) != 0
+        };
+        if !ok || devueltos != 8 || largo <= 0 {
+            return Err("Windows no dijo cuanto mide el volumen".into());
+        }
+        Ok(largo as u64)
+    }
 
     fn ctl(f: &File, code: u32) -> bool {
         let mut devueltos = 0u32;
@@ -367,7 +393,10 @@ mod win {
 
 struct Opciones {
     destino: PathBuf,
-    tam_mib: u64,
+    /// `None` = no lo dijo nadie: una imagen mide 64 MiB y un volumen lo que
+    /// diga Windows. Antes era 64 tambien para un volumen, y una particion de
+    /// 414 GB quedaba con un ESTRATOS de 64 MiB sin un solo aviso.
+    tam_mib: Option<u64>,
     desde: Option<PathBuf>,
     volumen: bool,
     seguro: bool,
@@ -383,7 +412,8 @@ fn ayuda() -> ! {
 
   estratos-fmt <destino> [opciones]
 
-  --tam-mib N        medida del volumen en MiB (imagen). Por defecto 64
+  --tam-mib N        medida en MiB. Imagen: por defecto 64. Volumen: por
+                     defecto TODO el volumen, y nunca mas de lo que mide
   --desde CARPETA    mete el contenido de esa carpeta en el volumen
   --motivo TEXTO     motivo del primer estrato. Por defecto \"formato inicial\"
   --verificar        NO escribe: solo lee el volumen y comprueba sus sumas
@@ -404,14 +434,17 @@ fn ayuda() -> ! {
 fn parsear() -> Opciones {
     let mut a = std::env::args().skip(1);
     let mut o = Opciones {
-        destino: PathBuf::new(), tam_mib: 64, desde: None,
+        destino: PathBuf::new(), tam_mib: None, desde: None,
         volumen: false, seguro: false, solo_verificar: false,
         modelo: String::new(), serie: String::new(), sectores: 0,
         motivo: "formato inicial".into(),
     };
     while let Some(x) = a.next() {
         match x.as_str() {
-            "--tam-mib" => o.tam_mib = a.next().unwrap_or_default().parse().unwrap_or(64),
+            "--tam-mib" => match a.next().unwrap_or_default().parse() {
+                Ok(n) if n > 0 => o.tam_mib = Some(n),
+                _ => ayuda(),
+            },
             "--desde" => o.desde = a.next().map(PathBuf::from),
             "--motivo" => o.motivo = a.next().unwrap_or_default(),
             "--modelo" => o.modelo = a.next().unwrap_or_default(),
@@ -429,6 +462,35 @@ fn parsear() -> Opciones {
     }
     if o.destino.as_os_str().is_empty() { ayuda(); }
     o
+}
+
+/// Cuantos bloques va a declarar el superbloque. Una imagen mide lo que se
+/// pida (64 MiB si nadie lo dice). Un volumen mide lo que diga Windows: el
+/// superbloque no puede prometer bloques que la particion no tiene, y no debe
+/// dejar sin usar los que si tiene por un valor por defecto pensado para
+/// imagenes de prueba.
+fn medida_en_bloques(o: &Opciones, _f: &File) -> Result<u64, String> {
+    let pedida = o.tam_mib.map(|mib| mib * 1024 * 1024 / BLOQUE as u64);
+    if !o.volumen {
+        return Ok(pedida.unwrap_or(64 * 1024 * 1024 / BLOQUE as u64));
+    }
+    #[cfg(windows)]
+    let real = win::medida(_f)? / BLOQUE as u64;
+    #[cfg(not(windows))]
+    let real = pedida.ok_or("fuera de Windows, un volumen necesita --tam-mib")?;
+    println!("  el volumen mide  {} MiB ({} bloques)", real * BLOQUE as u64 / (1024 * 1024), real);
+    match pedida {
+        None => Ok(real),
+        Some(p) if p > real => Err(format!(
+            "--tam-mib pide {} bloques y el volumen tiene {}: el superbloque prometeria \
+             bloques que no existen", p, real)),
+        Some(p) => {
+            if p < real {
+                println!("  AVISO            se usan {} de {} bloques: el resto queda fuera", p, real);
+            }
+            Ok(p)
+        }
+    }
 }
 
 fn main() {
@@ -472,13 +534,11 @@ fn main() {
         std::process::exit(1);
     }
 
-    let total_bloques = o.tam_mib * 1024 * 1024 / BLOQUE as u64;
     let disk_id = es::disk_id(o.modelo.as_bytes(), o.serie.as_bytes(), o.sectores);
 
     println!("== estratos-fmt ==");
     println!("  destino          {}", o.destino.display());
     println!("  modo             {}", if o.volumen { "VOLUMEN REAL" } else { "imagen en archivo" });
-    if !o.volumen { println!("  medida           {} MiB ({} bloques)", o.tam_mib, total_bloques); }
     if o.modelo.is_empty() || o.serie.is_empty() || o.sectores == 0 {
         println!("  identidad        SIN identidad de disco — el kernel lo montara en SOLO LECTURA");
     } else {
@@ -489,6 +549,11 @@ fn main() {
         Ok(f) => f,
         Err(e) => { eprintln!("estratos-fmt: no se pudo abrir {}: {}", o.destino.display(), e); std::process::exit(1); }
     };
+    let total_bloques = match medida_en_bloques(&o, &f) {
+        Ok(n) => n,
+        Err(e) => { eprintln!("estratos-fmt: {}", e); std::process::exit(1); }
+    };
+    println!("  medida           {} MiB ({} bloques)", total_bloques * BLOQUE as u64 / (1024 * 1024), total_bloques);
     if !o.volumen {
         if let Err(e) = f.set_len(total_bloques * BLOQUE as u64) {
             eprintln!("estratos-fmt: no se pudo dimensionar la imagen: {}", e);
