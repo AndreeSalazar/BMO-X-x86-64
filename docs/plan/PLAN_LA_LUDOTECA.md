@@ -325,6 +325,15 @@ La app se llama **Ludoteca**, como este plan, y su crate `bmo-ludoteca`.
   su cliente y su cifrado. Su cara, cuando llegue: negra, la estandar de
   las apps de BMO-X, futurista y elegante, con el gato y su glitch en la
   entrada -- la misma entrada que ya lleva la LUDOTECA.
+- **La TERTULIA, en F3 (maqueta, 01-10):** la sala propia tiene tecla y
+  cara: F3 abre o esconde la TERTULIA, como F4 la LUDOTECA (y `consumo`
+  se sigue escribiendo en Ejecutar). La maqueta esta en el lienzo de
+  diseno (tablero "TERTULIA (F3)"): contactos con su estado y su frase
+  como en el Messenger, emojis y GUINOS que llenan la pantalla, fotos que
+  se guardan en ESTRATOS (`F:/social/fotos/`) y el ZUMBIDO: la ventana
+  tiembla, destella y suena. Para que sea de verdad, en orden: TCP y DNS
+  medidos en metal; el texto en la LAN; TLS 1.3 o un servidor propio con
+  la ANTENA; y la voz, cuando el audio USB tambien ENTRE (microfono).
 
 ## 8. "El x86-64 no cambia: se puede analizar" -- lo que es verdad y lo que no
 
