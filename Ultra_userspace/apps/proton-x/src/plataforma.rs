@@ -112,11 +112,12 @@ fn listar(ruta: &[u8]) -> Option<alloc::vec::Vec<bmo_proton_x::ficheros::Entrada
         }
         return Some(v);
     }
-    while let Some(e) = d.next() {
-        let mut n = [0u8; 12];
-        let k = e.legible(&mut n);
-        let nombre = alloc::string::String::from(core::str::from_utf8(&n[..k]).unwrap_or("?"));
-        v.push(bmo_proton_x::ficheros::Entrada { nombre, carpeta: e.es_dir, bytes: e.bytes as u64 });
+    // El volumen de BMO-X: FAT32 (8.3) y ESTRATOS (nombres enteros, 01-10)
+    // en la misma carpeta.
+    let mut n = [0u8; 256];
+    while let Some((k, carpeta, bytes)) = d.siguiente_todo(&mut n) {
+        let nombre = alloc::string::String::from_utf8_lossy(&n[..k]).into_owned();
+        v.push(bmo_proton_x::ficheros::Entrada { nombre, carpeta, bytes });
     }
     Some(v)
 }

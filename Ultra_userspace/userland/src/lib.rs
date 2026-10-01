@@ -1386,6 +1386,8 @@ pub const INFO_TXT_USB_TRABAJO: u64 = 0x0E;
 // Operaciones sobre un handle de directorio (`KIND_DIRECTORIO`).
 pub const DIR_OP_SIGUIENTE: u32 = 0x01;
 pub const DIR_OP_NOMBRE: u32 = 0x02;
+/// La entrada es de ESTRATOS: nombre entero en UTF-8 (espejo del ABI).
+pub const DIR_NOMBRE_LARGO: u64 = 1 << 61;
 /// Cierra el directorio y devuelve su ranura. Lo llama `Drop`, no tu.
 pub const DIR_OP_CERRAR: u32 = 0x03;
 

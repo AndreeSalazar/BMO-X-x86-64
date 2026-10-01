@@ -106,6 +106,20 @@ static mut OWNER: [u32; MAX_ABIERTOS] = [NO_OWNER; MAX_ABIERTOS];
 static mut PERSONAL: [u64; MAX_ABIERTOS] = [u64::MAX; MAX_ABIERTOS];
 static mut LARGO: [[u8; 256]; MAX_ABIERTOS] = [[0; 256]; MAX_ABIERTOS];
 static mut NLEN: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
+/// ** ESTRATOS (01-10): la carpeta en ESTRATOS, si la hay. Una ruta puede
+/// estar en los DOS volumenes (la raiz siempre): se listan las de FAT32 y
+/// despues las de ESTRATOS, como una sola carpeta. `FAT[i]` dice si quedan
+/// de FAT32; `DESDE[i]`, en que numero empezaron las de ESTRATOS.
+static mut ESTRATOS: [Option<bmo_estratos::objects::BlockPtr>; MAX_ABIERTOS] = [None; MAX_ABIERTOS];
+static mut FAT: [bool; MAX_ABIERTOS] = [false; MAX_ABIERTOS];
+static mut DESDE: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
+/// La entrada de ahora es de ESTRATOS (nombre largo en `LARGO`).
+static mut DE_ESTRATOS: [bool; MAX_ABIERTOS] = [false; MAX_ABIERTOS];
+
+/// El bit de `SIGUIENTE` que dice "nombre ENTERO en UTF-8" para una entrada
+/// de ESTRATOS (su medida va en los 61 de abajo). Las de FAT32 no lo llevan:
+/// quien solo sabe de 8.3 (`next` del userland) las salta.
+pub const DIR_NOMBRE_LARGO: u64 = 1 << 61;
 
 /// Abre un directorio y entrega su handle a `pid`. Ruta vacia = la raiz de
 /// DATOS; `efi:` delante = la particion de arranque, solo para mirar (ver
@@ -113,6 +127,8 @@ static mut NLEN: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
     // ** `d:` es el disco Personal, en NTFS y solo para leer (N1b).
     let mut personal = u64::MAX;
+    let mut estratos = None;
+    let mut fat = false;
     let (arranque, cluster) = if let Some(resto) = crate::ring0::dev::disk::ajeno::ruta_personal(ruta) {
         match crate::ring0::dev::disk::ajeno::abrir(resto) {
             Some(Ok(n)) if n.carpeta => personal = n.registro,
@@ -120,10 +136,15 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
         }
         (false, 0)
     } else {
-        match crate::ring0::fsys::fs::dir_de(ruta) {
-            Some(c) => c,
-            None => return Err(ERROR_DIR_NO_ESTA),
+        // FAT32 y ESTRATOS: la carpeta puede estar en uno, en otro o en los dos.
+        let f = crate::ring0::fsys::fs::dir_de(ruta);
+        let es = crate::ring0::fsys::estratos::is_mounted().then(|| crate::ring0::fsys::estratos::abrir_carpeta(ruta)).flatten();
+        if f.is_none() && es.is_none() {
+            return Err(ERROR_DIR_NO_ESTA);
         }
+        fat = f.is_some();
+        estratos = es;
+        f.unwrap_or((false, 0))
     };
     unsafe {
         let libre = (0..MAX_ABIERTOS).find(|&i| OWNER[i] == NO_OWNER);
@@ -141,6 +162,10 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
         NAME[i] = [b' '; 11];
         PERSONAL[i] = personal;
         NLEN[i] = 0;
+        ESTRATOS[i] = estratos;
+        FAT[i] = fat;
+        DESDE[i] = 0;
+        DE_ESTRATOS[i] = false;
         OWNER[i] = pid;
         match cap::grant(pid, cap::KIND_DIRECTORIO, cap::RIGHT_READ, i as u64) {
             Some(h) => {
@@ -170,11 +195,28 @@ fn next(i: usize) -> u64 {
                 None => 0,
             };
         }
-        match crate::ring0::fsys::fs::entrada_de(ARRANQUE[i], CLUSTER[i], n) {
-            Some((name, es_dir, tam)) => {
+        if FAT[i] {
+            match crate::ring0::fsys::fs::entrada_de(ARRANQUE[i], CLUSTER[i], n) {
+                Some((name, es_dir, tam)) => {
+                    INDICE[i] = n;
+                    NAME[i] = name;
+                    DE_ESTRATOS[i] = false;
+                    return (1u64 << 63) | ((es_dir as u64) << 62) | tam as u64;
+                }
+                None => {
+                    FAT[i] = false;
+                    DESDE[i] = n;
+                }
+            }
+        }
+        let Some(p) = ESTRATOS[i] else { return 0 };
+        let nombre = &mut *core::ptr::addr_of_mut!(LARGO[i]);
+        match crate::ring0::fsys::estratos::entrada_n(&p, n - DESDE[i], nombre) {
+            Some((largo, carpeta, medida)) => {
                 INDICE[i] = n;
-                NAME[i] = name;
-                (1u64 << 63) | ((es_dir as u64) << 62) | tam as u64
+                NLEN[i] = largo;
+                DE_ESTRATOS[i] = true;
+                (1u64 << 63) | ((carpeta as u64) << 62) | DIR_NOMBRE_LARGO | (medida & (DIR_NOMBRE_LARGO - 1))
             }
             None => 0,
         }
@@ -183,7 +225,7 @@ fn next(i: usize) -> u64 {
 
 fn name(i: usize, desde: usize) -> u64 {
     unsafe {
-        let n: &[u8] = if PERSONAL[i] != u64::MAX { &LARGO[i][..NLEN[i]] } else { &NAME[i] };
+        let n: &[u8] = if PERSONAL[i] != u64::MAX || DE_ESTRATOS[i] { &LARGO[i][..NLEN[i]] } else { &NAME[i] };
         let mut w = [0u8; 8];
         let mut k = 0usize;
         while k < 7 && desde + k < n.len() {
@@ -208,6 +250,9 @@ pub fn operation(idx: u64, op: u64, arg0: u64) -> Option<u64> {
                 CLUSTER[i] = 0;
                 INDICE[i] = usize::MAX;
                 PERSONAL[i] = u64::MAX;
+                ESTRATOS[i] = None;
+                FAT[i] = false;
+                DE_ESTRATOS[i] = false;
             }
             Some(1)
         }
@@ -244,6 +289,9 @@ pub fn process_died(pid: u32) {
                 CLUSTER[i] = 0;
                 INDICE[i] = usize::MAX;
                 PERSONAL[i] = u64::MAX;
+                ESTRATOS[i] = None;
+                FAT[i] = false;
+                DE_ESTRATOS[i] = false;
             }
         }
     }
