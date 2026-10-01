@@ -503,7 +503,10 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
             }
         }
         devolver(dsk, p);
-        dsk.table.compose(&p);
+        // Ejecutar delante (Ctrl+Alt, 01-10): las apps no la pisan.
+        let delante = dsk.win.visible && dsk.win.top_before == Ventana::Run && dsk.win.focus.actual() == Some(Ventana::Run);
+        let tapa = delante.then(|| (dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h()));
+        dsk.table.compose(&p, tapa);
     }
 
     if dsk.tick.loops == 1 {
