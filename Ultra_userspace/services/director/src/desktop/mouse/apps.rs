@@ -73,15 +73,7 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                     // proceso. Al reves, `revoke_all` correria mientras esta
                     // vuelta todavia puede leer su superficie.
                     Some(Button::Close) => cerrar_app(dsk, &p, i),
-                    Some(Button::Minimize) => {
-                        if let Some(s) = dsk.table.get_mut(i) {
-                            let (vx, vy, va, vl) =
-                                (s.chrome.x, s.chrome.y, s.chrome.width, s.chrome.height);
-                            s.chrome.minimized = true;
-                            erase_window(&p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
-                            uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
-                        }
-                    }
+                    Some(Button::Minimize) => minimizar_app(dsk, &p, i),
                     // ** PANTALLA COMPLETA = QUE NO SE DIBUJE EL BORDE.
                     //
                     // Y aqui todavia no: maximizar da el hueco entero
@@ -173,6 +165,26 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
             .get_mut(i)
             .is_some_and(|s| !s.chrome.minimized && s.chrome.contains(pos.x, pos.y))
     })
+}
+
+/// **MINIMIZAR LA APP DE LA CAJA `i`**, y SOLTAR SU FOCO (01-10).
+///
+/// La caja se escondia pero el foco se quedaba en ella: lo que se escribia
+/// despues iba a una ventana que no se veia, y Ejecutar parecia ignorar el
+/// teclado (el propietario: *"intento escribir y no me hace caso"*). Es lo
+/// que ESTRATOS ya hacia al minimizar: `focus.close`, y el teclado pasa a la
+/// siguiente de la lista. Al volver (su ficha, F4, Alt+Tab) se abre otra vez.
+/// Lo llaman el boton `_` de la caja y F4.
+pub(crate) fn minimizar_app(dsk: &mut Desktop, p: &bmo::Pantalla, i: usize) {
+    if let Some(s) = dsk.table.get_mut(i) {
+        let (vx, vy, va, vl) = (s.chrome.x, s.chrome.y, s.chrome.width, s.chrome.height);
+        s.chrome.minimized = true;
+        erase_window(p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
+        uncover(p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+    }
+    dsk.win.focus.close(Ventana::App(i as u8));
+    dsk.win.taskbar_dirty = true;
+    dsk.tick.repaint_field = true;
 }
 
 /// **CERRAR LA APP DE LA CAJA `i`.** Un solo sitio, y por eso existe.
