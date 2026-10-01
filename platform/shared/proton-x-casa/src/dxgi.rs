@@ -255,8 +255,30 @@ extern "win64" fn get_current_back_buffer_index(this: u64) -> u32 {
     unsafe { de::<Cadena>(this).actual as u32 }
 }
 
+/// `CreateDXGIFactory`: la misma fabrica (01-10).
+extern "win64" fn create_dxgi_factory(riid: *const Guid, pp: *mut u64) -> i32 {
+    fabrica(riid, pp)
+}
+
+/// Sin capa de depuracion de DXGI, como un Windows sin el SDK (01-10).
+extern "win64" fn dxgi_get_debug_interface1(_banderas: u32, _riid: *const Guid, pp: *mut u64) -> i32 {
+    if !pp.is_null() {
+        // SAFETY: el puntero a interfaz del `.exe`.
+        unsafe { pp.write_unaligned(0) };
+    }
+    E_NOINTERFACE
+}
+
+/// El `.exe` dice que sabe vivir con un adaptador que se quita: apuntado.
+extern "win64" fn dxgi_declare_adapter_removal_support() -> i32 {
+    S_OK
+}
+
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
+        "CreateDXGIFactory" => dir!(create_dxgi_factory),
+        "DXGIGetDebugInterface1" => dir!(dxgi_get_debug_interface1),
+        "DXGIDeclareAdapterRemovalSupport" => dir!(dxgi_declare_adapter_removal_support),
         "CreateDXGIFactory1" => dir!(create_dxgi_factory1),
         "CreateDXGIFactory2" => dir!(create_dxgi_factory2),
         _ => return None,
