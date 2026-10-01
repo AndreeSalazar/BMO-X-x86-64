@@ -55,8 +55,40 @@ if (-not $root) { $root = Split-Path -Parent $MyInvocation.MyCommand.Path }
 # de lo que se quedo de otro. Ver el guardian de fantasmas del final.
 $buildStart = Get-Date
 
-function Step { param($m) if (-not $script:reloj) { $script:reloj = [Diagnostics.Stopwatch]::StartNew() }; Write-Host ('  => ' + $m + ('   [{0,5:N1} s]' -f $script:reloj.Elapsed.TotalSeconds)) -ForegroundColor Cyan }
-function Fail { param($m) Write-Host ('  [X] ' + $m) -ForegroundColor Red; exit 1 }
+# ** EL RELOJ POR ETAPA (2026-10-01). `Step` ya decia el tiempo ACUMULADO, y
+# con eso no se ve donde se va: hay que restar a mano cuarenta lineas. Ahora
+# cada `Step` apunta cuando empieza, una etapa dura hasta que empieza la
+# siguiente, y `Tiempos` imprime la tabla al final (y tambien si el build
+# muere: ahi es donde mas importa saber cuanto llevaba). Solo mide: no cambia
+# nada de lo que se compila.
+$script:reloj = [Diagnostics.Stopwatch]::StartNew()
+$script:etapas = New-Object System.Collections.ArrayList
+function Step {
+    param($m)
+    [void]$script:etapas.Add([pscustomobject]@{ Nombre = "$m"; Desde = $script:reloj.Elapsed.TotalSeconds })
+    Write-Host ('  => ' + $m + ('   [{0,5:N1} s]' -f $script:reloj.Elapsed.TotalSeconds)) -ForegroundColor Cyan
+}
+function Tiempos {
+    $fin = $script:reloj.Elapsed.TotalSeconds
+    $filas = @()
+    $primera = if ($script:etapas.Count -gt 0) { $script:etapas[0].Desde } else { $fin }
+    if ($primera -gt 0.05) { $filas += [pscustomobject]@{ Nombre = '(antes del primer paso)'; Segundos = $primera } }
+    for ($i = 0; $i -lt $script:etapas.Count; $i++) {
+        $hasta = if ($i + 1 -lt $script:etapas.Count) { $script:etapas[$i + 1].Desde } else { $fin }
+        $filas += [pscustomobject]@{ Nombre = $script:etapas[$i].Nombre; Segundos = $hasta - $script:etapas[$i].Desde }
+    }
+    Write-Host ''
+    Write-Host '  etapa                                                         segundos' -ForegroundColor White
+    Write-Host '  ------------------------------------------------------------  --------' -ForegroundColor DarkGray
+    foreach ($f in ($filas | Sort-Object Segundos -Descending)) {
+        $n = $f.Nombre; if ($n.Length -gt 60) { $n = $n.Substring(0, 57) + '...' }
+        Write-Host ('  {0,-60}  {1,8:N1}' -f $n, $f.Segundos)
+    }
+    Write-Host '  ------------------------------------------------------------  --------' -ForegroundColor DarkGray
+    Write-Host ('  {0,-60}  {1,8:N1}' -f 'TOTAL', $fin) -ForegroundColor White
+    Write-Host ''
+}
+function Fail { param($m) Write-Host ('  [X] ' + $m) -ForegroundColor Red; Tiempos; exit 1 }
 
 # ** UN OBRERO SE CONSTRUYE UNA VEZ Y SE LLAMA MUCHAS (2026-09-21).
 #
@@ -880,6 +912,7 @@ elseif ($PSBoundParameters.ContainsKey('Drive')) { $espejoLetra = $Drive.TrimEnd
 if ($BuildOnly) {
     Espejo $espejoLetra
     SinCopiar
+    Tiempos
     exit 0
 }
 
@@ -888,3 +921,4 @@ if ($BuildOnly) {
 
 Espejo $espejoLetra
 SinCopiar
+Tiempos
