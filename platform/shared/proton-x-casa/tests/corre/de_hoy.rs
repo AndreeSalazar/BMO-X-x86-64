@@ -361,6 +361,16 @@ fn tanda36_exe_el_idioma_de_un_recurso() {
     tanda(TANDA36, None, 6, "tanda36.exe: LoadStringW elige el ingles, no el primer idioma");
 }
 
+/// **La tanda 37** (01-10): `tanda37.exe` -- Cyberpunk mira su
+/// `final.redscripts` solo con GetFileAttributesExW: las fechas de un fichero
+/// no son de 1601 y son las mismas por los cuatro caminos de Windows.
+#[test]
+fn tanda37_exe_las_fechas_de_un_fichero() {
+    // Se mira a si mismo: tiene que estar en el volumen, como en Windows.
+    std::fs::write(volumen().join("window/tanda37.exe"), TANDA37).unwrap();
+    tanda(TANDA37, Some("window/tanda37.exe"), 9, "tanda37.exe: las fechas de un fichero, las mismas por los cuatro caminos");
+}
+
 /// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
 /// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
 /// asi el camino que en BMO-X lleva los ficheros grandes.

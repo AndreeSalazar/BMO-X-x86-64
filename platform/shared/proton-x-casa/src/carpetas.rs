@@ -124,7 +124,7 @@ fn partir(ruta: &str) -> (&str, &str) {
 /// **Lo que hay en `ruta`**, por la lista de su carpeta (sin leer nada).
 pub(crate) fn entrada(ruta: &str) -> Option<Entrada> {
     if es_una_raiz(ruta) {
-        return Some(Entrada { nombre: String::new(), carpeta: true, bytes: 0 });
+        return Some(Entrada { nombre: String::new(), carpeta: true, ..Entrada::default() });
     }
     let (padre, nombre) = partir(ruta);
     (plataforma().listar)(padre.as_bytes())?.into_iter().find(|e| e.nombre.eq_ignore_ascii_case(nombre))
@@ -156,10 +156,25 @@ pub(crate) fn padre_existe(ruta: &str) -> bool {
 }
 
 pub(crate) fn atributos(e: &Entrada) -> u32 {
+    // Los de verdad, si el volumen los sabe (NTFS, 01-10): un fichero copiado
+    // lleva ARCHIVE, y NORMAL solo vale cuando no hay ningun otro.
+    let carpeta = if e.carpeta { DIRECTORIO } else { 0 };
+    if e.atributos & !NORMAL != 0 {
+        return (e.atributos & !NORMAL) | carpeta;
+    }
     if e.carpeta {
         DIRECTORIO
     } else {
         NORMAL
+    }
+}
+
+/// Las tres fechas de Windows (creado, leido, escrito: ESE orden, el de las
+/// estructuras) en `b` desde `en`, de 8 en 8.
+pub(crate) fn poner_fechas(e: &Entrada, b: &mut [u8], en: usize) {
+    let [creado, escrito, leido] = e.fechas;
+    for (k, f) in [creado, leido, escrito].into_iter().enumerate() {
+        b[en + 8 * k..en + 8 * k + 8].copy_from_slice(&f.to_le_bytes());
     }
 }
 
@@ -197,6 +212,7 @@ fn ruta(p: *const u16) -> Result<String, u32> {
 fn poner_hallazgo(e: &Entrada, d: *mut u8) {
     let mut b = [0u8; 592];
     b[0..4].copy_from_slice(&atributos(e).to_le_bytes());
+    poner_fechas(e, &mut b, 4);
     b[28..32].copy_from_slice(&((e.bytes >> 32) as u32).to_le_bytes());
     b[32..36].copy_from_slice(&(e.bytes as u32).to_le_bytes());
     for (i, c) in e.nombre.encode_utf16().take(259).enumerate() {
@@ -232,7 +248,7 @@ fn find_first_dentro(nombre: *const u16, datos: *mut u8) -> u64 {
     // Fuera de la raiz, Windows da "." y ".." primero.
     if !carpeta.is_empty() {
         for n in ["..", "."] {
-            todas.insert(0, Entrada { nombre: String::from(n), carpeta: true, bytes: 0 });
+            todas.insert(0, Entrada { nombre: String::from(n), carpeta: true, ..Entrada::default() });
         }
     }
     let halladas: Vec<Entrada> = todas.into_iter().filter(|e| ficheros::comodin(&patron, &e.nombre)).collect();
@@ -317,6 +333,12 @@ fn get_file_attributes_ex_dentro(nombre: *const u16, nivel: u32, datos: *mut u8)
     let medida = medida_real(&r, &e);
     let mut b = [0u8; 36];
     b[0..4].copy_from_slice(&atributos(&e).to_le_bytes());
+    poner_fechas(&e, &mut b, 4);
+    // ** El fichero que tumba a Cyberpunk, dicho en el registro (01-10): lo
+    // que se le contesto, para saber si es eso o lo de despues.
+    if r.ends_with(".redscripts") {
+        aviso(&alloc::format!("GetFileAttributesExW({r}): {medida} B, atributos {:#x}, escrito {} (FILETIME)", atributos(&e), e.fechas[1]));
+    }
     b[28..32].copy_from_slice(&((medida >> 32) as u32).to_le_bytes());
     b[32..36].copy_from_slice(&(medida as u32).to_le_bytes());
     // SAFETY: el `.exe` da un WIN32_FILE_ATTRIBUTE_DATA.
@@ -408,10 +430,13 @@ extern "win64" fn get_file_information_by_handle(h: u64, info: *mut u8) -> i32 {
     };
     // BY_HANDLE_FILE_INFORMATION (52 bytes).
     let mut b = [0u8; 52];
-    let atr = if a.carpeta { DIRECTORIO } else { NORMAL };
     let n = a.medida();
     let i = indice(&a.ruta);
+    // Sus fechas y atributos, los del listado de su carpeta (01-10).
+    let e = entrada(&a.ruta).unwrap_or(Entrada { carpeta: a.carpeta, ..Entrada::default() });
+    let atr = atributos(&Entrada { carpeta: a.carpeta, ..e.clone() });
     b[0..4].copy_from_slice(&atr.to_le_bytes());
+    poner_fechas(&e, &mut b, 4);
     b[28..32].copy_from_slice(&0xB0B0_0001u32.to_le_bytes());
     b[32..36].copy_from_slice(&((n >> 32) as u32).to_le_bytes());
     b[36..40].copy_from_slice(&(n as u32).to_le_bytes());
@@ -430,11 +455,15 @@ extern "win64" fn get_file_information_by_handle_ex(h: u64, clase: u32, buf: *mu
         kernel32::poner_error(ERROR_INVALID_HANDLE);
         return 0;
     };
-    let atr = if a.carpeta { DIRECTORIO } else { NORMAL };
+    let e = entrada(&a.ruta).unwrap_or(Entrada { carpeta: a.carpeta, ..Entrada::default() });
+    let atr = atributos(&Entrada { carpeta: a.carpeta, ..e.clone() });
     let fin = a.medida();
     let mut b = [0u8; 40];
     let medida = match clase {
         0 => {
+            // FILE_BASIC_INFO: creado, leido, escrito y cambiado (= escrito).
+            poner_fechas(&e, &mut b, 0);
+            b[24..32].copy_from_slice(&e.fechas[1].to_le_bytes());
             b[32..36].copy_from_slice(&atr.to_le_bytes());
             40
         }

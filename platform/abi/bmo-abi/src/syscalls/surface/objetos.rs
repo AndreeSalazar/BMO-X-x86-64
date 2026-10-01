@@ -222,6 +222,11 @@ pub const DIR_OP_NOMBRE: u64 = 0x02;
 /// vez, asi que quien no cierra se los come. Lo llama el `Drop` del userland.
 pub const DIR_OP_CERRAR: u64 = 0x03;
 
+/// Las fechas y los atributos de la entrada ACTUAL (01-10): `arg0` 0, 1, 2 =
+/// creado, escrito, leido (FILETIME); 3 = atributos de Windows. 0 = no se
+/// sabe (hoy solo los da el disco Personal, NTFS).
+pub const DIR_OP_FECHAS: u64 = 0x04;
+
 // -- Las cuatro de la CONSOLA (`KIND_CONSOLA`) ------------------------------
 
 /// Leer hasta **7** bytes de la salida del hijo: `(n << 56) | bytes_LE`.

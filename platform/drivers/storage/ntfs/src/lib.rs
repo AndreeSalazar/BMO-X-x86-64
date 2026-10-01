@@ -350,7 +350,14 @@ fn entradas(nodo: &[u8], f: &mut dyn FnMut(&Entrada) -> bool) -> R<bool> {
             return Err(NoNtfs::Forma("un nombre que se sale de su clave"));
         }
         if espacio != DOS {
-            let ent = Entrada { registro: le64(nodo, e) & 0xFFFF_FFFF_FFFF, nombre16: &k[0x42..0x42 + 2 * n], carpeta: le32(k, 0x38) & ES_CARPETA != 0, medida: le64(k, 0x30) };
+            let ent = Entrada {
+                registro: le64(nodo, e) & 0xFFFF_FFFF_FFFF,
+                nombre16: &k[0x42..0x42 + 2 * n],
+                carpeta: le32(k, 0x38) & ES_CARPETA != 0,
+                medida: le64(k, 0x30),
+                fechas: [le64(k, 0x08), le64(k, 0x10), le64(k, 0x20)],
+                atributos: le32(k, 0x38) & 0xFFFF,
+            };
             if f(&ent) {
                 return Ok(true);
             }
@@ -379,6 +386,14 @@ pub struct Entrada<'a> {
     /// La medida que apunta el INDICE (la de Windows al listar; la de
     /// verdad la da `abrir`).
     pub medida: u64,
+    /// ** Las FECHAS que apunta el indice (01-10), en FILETIME (100 ns desde
+    /// 1601): `[creado, escrito, leido]`. Vienen en la misma clave
+    /// (`$FILE_NAME` +0x08, +0x10, +0x20), sin leer nada mas. Son las que da
+    /// Windows al listar; como la medida, pueden ir un poco por detras.
+    pub fechas: [u64; 3],
+    /// Los atributos de Windows (ARCHIVE, READONLY, HIDDEN...) de la misma
+    /// clave (+0x38), sin el bit de carpeta del NTFS.
+    pub atributos: u32,
 }
 
 impl Entrada<'_> {

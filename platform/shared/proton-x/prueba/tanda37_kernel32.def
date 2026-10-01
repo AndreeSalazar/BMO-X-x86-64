@@ -1,0 +1,13 @@
+LIBRARY kernel32.dll
+EXPORTS
+GetStdHandle
+WriteFile
+ExitProcess
+GetModuleFileNameW
+GetFileAttributesExW
+FindFirstFileW
+FindClose
+CreateFileW
+GetFileTime
+GetFileInformationByHandleEx
+CloseHandle
