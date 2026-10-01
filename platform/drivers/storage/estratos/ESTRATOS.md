@@ -558,6 +558,26 @@ usarlo "por completo", en el orden que se decidio:
 
 [!] El medida NO es lo que falta: F: tiene 414 GiB. Lo que limita son C1-C3.
 
+### ** LA CARA DE ESTRATOS -- el plan del 01-10 (el propietario, con una captura del Explorador de Windows 11: "una gran INSPIRACION")
+
+Lo que de esa captura vale para ESTRATOS, en verde neon con el gato que cuida:
+
+- [x] **V0 -- el logo, juegos, el verde neon con textura y el gato.** *Hecho
+      01-10:* las tres capas en la barra y en las solapas, la categoria
+      juegos (.exe con PROTON-X), barrido y rejilla en el cuerpo, y el gato del
+      logo a la mitad en verde al pie de la biblioteca ("te cuida").
+- [ ] **V1 -- la columna de la izquierda**: Inicio, los volumenes (ESTRATOS,
+      DATOS, Personal D:, EFI) con su dibujo y las carpetas fijadas (cache,
+      juegos, documentos), como "Este equipo" y "Acceso rapido".
+- [ ] **V2 -- ACCESO RAPIDO**: tarjetas grandes con dibujo, nombre y donde
+      vive (las carpetas base de ESTRATOS y los juegos).
+- [ ] **V3 -- RECIENTE**: la tabla Nombre / Fecha / Ubicacion / Actividad.
+      Pide C5 (las fechas de cada fichero) y el diario de versiones de
+      ESTRATOS, que ya sabe que se escribio y cuando.
+- [ ] **V4 -- la barra de arriba**: atras, adelante, arriba, la miga de pan y
+      buscar; y la de acciones: nuevo, renombrar, borrar (lo que ya hacen
+      los gestos de ESTRATOS: crear_carpeta, renombrar, quitar).
+
 ### Lo que sigue fuera de todo esto
 
 TimeBack encima (paso 7) y NVMe debajo de la capa de bloques. Ninguno de los dos
