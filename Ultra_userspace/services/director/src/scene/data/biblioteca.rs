@@ -181,8 +181,8 @@ pub(crate) fn releer() {
 }
 
 /// Las categorias del panel de la izquierda, en su orden.
-pub(crate) const CATEGORIAS: [Option<Clase>; 5] =
-    [None, Some(Clase::App), Some(Clase::Imagen), Some(Clase::Audio), Some(Clase::Texto)];
+pub(crate) const CATEGORIAS: [Option<Clase>; 6] =
+    [None, Some(Clase::Juego), Some(Clase::App), Some(Clase::Imagen), Some(Clase::Audio), Some(Clase::Texto)];
 
 pub(crate) fn filtro() -> Option<Clase> {
     unsafe { FILTRO }
@@ -310,6 +310,10 @@ pub(crate) fn en(z: &Zona, from: usize, px: u32, py: u32) -> Option<Golpe> {
 fn panel(p: &bmo::Pantalla, z: &Zona) {
     rounded_rect(p, z.x + 2, z.y + 3, z.w, z.h, SHADOW_NODE);
     crate::scene::borde::marco(p, z.x, z.y, z.w, z.h, crate::scene::RADIUS, DATA_EDGE, NODE_BG);
+    // El filo de neon arriba, entre las dos curvas: el panel se enciende sin
+    // que el marco entero grite.
+    let r = crate::scene::RADIUS;
+    p.rect(z.x + r, z.y, z.w.saturating_sub(2 * r), 1, DATA_TITLE);
 }
 
 /// El realce de lo elegido: el acento de borde y un relleno oscuro. Es el
