@@ -11,8 +11,8 @@
 //!    todas      cuatro puntos en orbita          gog        anillo que gira
 //!    steam      tres hilos de vapor que suben    epic       esquirlas que flotan
 //!    ubisoft    una espiral que se dibuja        ea         un pulso que corre
-//!    battlenet  ondas hexagonales                microsoft  cuatro mosaicos que voltean
-//!    rockstar   una estrella que gira y late     amazon     una curva con flecha
+//!    battlenet  ondas hexagonales                microsoft  cuatro colores en orbita
+//!    rockstar   estrella que late y destella     amazon     una caja que se abre
 //!    itch       tres puntos que saltan           humble     un ecualizador
 //!    libre      una rama que crece
 //! ```
@@ -136,17 +136,24 @@ pub fn pintar(cv: &mut Canvas, gesto: Gesto, cx: i32, cy: i32, ms: u32, c: Color
             hexagono(cv, cx, cy, 6 + f * 9 / 256, 1, suave(256 - f));
         }
         Gesto::Microsoft => {
-            let cual = (ms / 450) % 4;
-            let giro = coseno(fase(ms, 450) / 2).abs();
-            for k in 0..4u32 {
-                let (x, y) = (cx - 10 + (k % 2) as i32 * 11, cy - 10 + (k / 2) as i32 * 11);
-                let w = if k == cual { (9 * giro / 256).max(1) } else { 9 };
-                cv.rect(x + (9 - w) / 2, y, w, 9, suave(256 - k as i32 * 40));
+            // Cuatro colores en orbita alrededor de un nucleo que late.
+            let giro = fase(ms, 7000);
+            for (k, col) in [0x00F2_5022u32, 0x007F_BA00, 0x0000_A4EF, 0x00FF_B900].into_iter().enumerate() {
+                let (x, y) = en(cx, cy, 9, giro + k as i32 * 64);
+                cv.disc(x, y, 4, col);
             }
+            cv.disc(cx, cy, 1 + onda(ms, 2400) * 2 / 256, c);
         }
         Gesto::Rockstar => {
-            let giro = seno(fase(ms, 3000)) * 18 / 256;
-            let r = 12 + onda(ms, 3000) * 2 / 256;
+            // La estrella que gira y late, y sus rayos que destellan.
+            let destello = onda(ms, 1600);
+            for k in 0..8 {
+                let a = en(cx, cy, 13, k * 32);
+                let b = en(cx, cy, 15, k * 32);
+                trazo(cv, a, b, 1, suave(60 + destello * 196 / 256));
+            }
+            let giro = seno(fase(ms, 3200)) * 18 / 256;
+            let r = 10 + onda(ms, 3200) / 128;
             let mut p = [(0, 0); 10];
             for (k, q) in p.iter_mut().enumerate() {
                 *q = en(cx, cy, if k % 2 == 0 { r } else { r * 2 / 5 }, giro + k as i32 * 256 / 10 - 64);
@@ -156,17 +163,16 @@ pub fn pintar(cv: &mut Canvas, gesto: Gesto, cx: i32, cy: i32, ms: u32, c: Color
             }
         }
         Gesto::Amazon => {
-            let hasta = (fase(ms, 3000) * 2).min(256);
-            let mut ultimo = (cx - 12, cy + 2);
-            for k in 0..=hasta / 8 {
-                let x = -12 + k * 24 / 32;
-                let y = 2 + (144 - x * x) / 24;
-                ultimo = (cx + x, cy + y - 4);
-                punto(cv, ultimo.0, ultimo.1, 2, c);
-            }
-            if hasta >= 256 {
-                trazo(cv, ultimo, (ultimo.0 - 5, ultimo.1 - 2), 2, c);
-                trazo(cv, ultimo, (ultimo.0 - 1, ultimo.1 - 6), 2, c);
+            // La caja que se abre y deja salir una luz.
+            cv.rect(cx - 9, cy - 3, 18, 13, c);
+            cv.rect(cx - 9, cy - 3, 18, 1, suave(120));
+            cv.rect(cx, cy - 3, 1, 13, suave(120));
+            let f = fase(ms, 3400);
+            let abre = if (90..200).contains(&f) { 4 } else { 0 };
+            trazo(cv, (cx - 9, cy - 5 - abre), (cx + 1, cy - 5), 2, suave(200));
+            if f > 120 {
+                let sube = (f - 120) * 12 / 136;
+                cv.disc(cx, cy - 6 - sube, 2, suave(256 - (f - 120) * 2));
             }
         }
         Gesto::Itch => {

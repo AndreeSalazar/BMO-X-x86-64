@@ -172,6 +172,8 @@ pub extern "C" fn _start() -> ! {
     st.elegir_tienda(&cat, 0, abierta);
     let estratos = bmo::info(bmo::INFO_ES_MONTADO) != 0;
     let proton = existe(b"sys/proton-x.bex");
+    // Los logos oficiales que el propietario ya dejo (ver `tiendas`).
+    let logos: Vec<bool> = PUESTOS.iter().map(|p| p.logo()).collect();
     let mut tocada = abierta;
     let mut entrada = true;
     let mut vista_antes = u8::MAX;
@@ -234,6 +236,7 @@ pub extern "C" fn _start() -> ! {
                     aviso: &st.aviso,
                     estratos,
                     proton,
+                    logos: &logos,
                 };
                 pintar::pintar(&mut cv, &v);
                 if entrada {

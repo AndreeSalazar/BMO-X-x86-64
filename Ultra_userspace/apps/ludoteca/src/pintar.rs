@@ -41,7 +41,6 @@ const FONDO_RIEL: Color = 0x0007_0F1C;
 const FONDO_CANALES: Color = 0x000A_1626;
 const FONDO_CENTRO: Color = 0x000C_1B2E;
 const FONDO_PANEL: Color = 0x0008_1322;
-const BURBUJA_FONDO: Color = 0x0010_2238;
 const ELEGIDO: Color = 0x0014_3A30;
 const TEXTO: Color = 0x00D6_F5E3;
 const TENUE: Color = 0x007F_A392;
@@ -76,6 +75,8 @@ pub struct Vista<'a> {
     /// Que piezas estan: ESTRATOS montado, PROTON-X en el disco.
     pub estratos: bool,
     pub proton: bool,
+    /// Que tiendas tienen ya su logo oficial en `ludoteca/logos/`.
+    pub logos: &'a [bool],
 }
 
 /// Donde cayo un clic.
@@ -227,11 +228,12 @@ fn riel(cv: &mut Canvas, v: &Vista) {
         let r = if elegida { entre(24, 15, crece) } else if encima { 16 } else { 24 };
         let pastilla = if elegida { entre(8, 40, crece) } else if encima { 20 } else { 0 };
         if pastilla > 0 {
-            redondo(cv, -4, y + (h - pastilla) / 2, 8, pastilla, 3, NEON);
+            redondo(cv, -4, y + (h - pastilla) / 2, 8, pastilla, 3, p.color);
         }
-        let fondo = if elegida { NEON } else if encima { mezclar(NEON, BURBUJA_FONDO, 50, 256) } else { BURBUJA_FONDO };
+        // La insignia: su fondo, y elegida, su color oficial lleno.
+        let fondo = if elegida { p.color } else if encima { mezclar(p.color, p.fondo, 50, 256) } else { p.fondo };
         redondo(cv, x, y, w, h, r, fondo);
-        let tinta = if elegida { OSCURO } else { NEON };
+        let tinta = if elegida { p.fondo } else { p.color };
         iconos::pintar(cv, p.gesto, x + w / 2, y + h / 2, v.ms + i as u32 * 137, tinta, fondo);
         if i == 0 {
             cv.rect(x + 8, y + h + 7, w - 16, 2, BORDE);
@@ -244,11 +246,12 @@ fn canales(cv: &mut Canvas, v: &Vista) {
     cv.rect(RIEL, 0, CANALES, ALTO as i32, FONDO_CANALES);
     // La cabecera: el nombre de la tienda.
     negrita(cv, RIEL + 16, 16, p.nombre().as_bytes(), BLANCO, 1);
-    cv.disc(RIEL + CANALES - 20, 24, 4 + onda(v.ms, 1600) / 128, NEON);
+    cv.disc(RIEL + CANALES - 20, 24, 4 + onda(v.ms, 1600) / 128, p.color);
     cv.rect(RIEL, CABECERA - 1, CANALES, 1, BORDE);
     // El estandarte: su degradado y dos luces que flotan.
     let est = (RIEL, CABECERA, CANALES, 84);
-    cv.gradient(est.0, est.1, est.2, est.3, NEON2, 0x000E_4A36);
+    // El estandarte en el color OFICIAL de la tienda: dentro de GOG, se ve GOG.
+    cv.gradient(est.0, est.1, est.2, est.3, mezclar(p.color, p.fondo, 200, 256), p.fondo);
     let f1 = seno(crate::mates::fase(v.ms, 6000)) * 8 / 256;
     let f2 = seno(crate::mates::fase(v.ms + 3000, 6000)) * 8 / 256;
     luz(cv, RIEL + CANALES - 30, CABECERA + 6 + f1, 54, BLANCO, 14, est);
@@ -259,6 +262,9 @@ fn canales(cv: &mut Canvas, v: &Vista) {
     let n = crate::fmt_num(v.visibles.len() as u64, &mut t);
     let k = negrita(cv, RIEL + 16, CABECERA + 60, &t[..n], sobre, 1);
     negrita(cv, RIEL + 16 + k, CABECERA + 60, if v.visibles.len() == 1 { b" juego" } else { b" juegos" }, sobre, 1);
+    // El hueco del logo oficial: dicho, y listo para cuando llegue.
+    let oficial = v.logos.get(v.tienda).copied().unwrap_or(false);
+    cv.text(RIEL + 16, CABECERA + 14, if oficial { b"logo oficial: listo" } else { b"insignia propia" }, mezclar(BLANCO, p.fondo, 170, 256), 1);
     // Los canales: uno por juego.
     cv.text(RIEL + 16, Y_CANALES, b"JUEGOS", TENUE, 1);
     for (k, &i) in v.visibles.iter().enumerate() {
