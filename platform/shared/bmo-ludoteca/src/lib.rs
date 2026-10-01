@@ -145,7 +145,7 @@ impl Tienda {
         TIENDAS.iter().find(|t| t.0 == self).map_or("", |t| t.1)
     }
 
-    /// Como se ensena.
+    /// Como se muestra.
     pub fn nombre(self) -> &'static str {
         TIENDAS.iter().find(|t| t.0 == self).map_or("", |t| t.2)
     }
