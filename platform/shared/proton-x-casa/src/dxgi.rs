@@ -15,7 +15,8 @@
 //!                               CheckFeatureSupport(PRESENT_ALLOW_TEARING):
 //!                               FALSE (Present no rompe la imagen)
 //!    IDXGIAdapter1              GetDesc1: "PROTON-X (la CPU de BMO-X)", con
-//!                               la bandera SOFTWARE: dibuja la CPU, y se dice
+//!                               la bandera SOFTWARE: dibuja la CPU, y se dice;
+//!                               GetDesc (01-10, Cyberpunk): lo mismo sin Flags
 //!    IDXGISwapChain3            GetCurrentBackBufferIndex
 //! ```
 //!
@@ -189,7 +190,7 @@ fn adaptador(i: u32, riid: *const Guid, pp: *mut u64) -> i32 {
     if !riid.is_null() && !pide(riid, com::ADAPTER) {
         return E_NOINTERFACE;
     }
-    let vt = vtabla::<{ com::ADAPTER }>(&[(10, dir!(get_desc1))]);
+    let vt = vtabla::<{ com::ADAPTER }>(&[(8, dir!(get_desc)), (10, dir!(get_desc1))]);
     dar(pp, nuevo(com::ADAPTER, vt, Adaptador) as u64)
 }
 
@@ -221,16 +222,32 @@ extern "win64" fn get_desc1(_this: u64, desc: *mut u8) -> i32 {
     if desc.is_null() {
         return E_INVALIDARG;
     }
-    let nombre = "PROTON-X (la CPU de BMO-X)";
+    escribir_desc(desc, 304);
     // SAFETY: 312 bytes del `.exe`.
+    unsafe { (desc.add(304) as *mut u32).write_unaligned(DXGI_ADAPTER_FLAG_SOFTWARE) };
+    S_OK
+}
+
+/// `GetDesc(this, desc)` (hueco 8, 01-10: Cyberpunk lo pide antes que el 1):
+/// DXGI_ADAPTER_DESC, lo mismo que el 1 hasta el LUID (304 B, sin Flags).
+extern "win64" fn get_desc(_this: u64, desc: *mut u8) -> i32 {
+    if desc.is_null() {
+        return E_INVALIDARG;
+    }
+    escribir_desc(desc, 304);
+    S_OK
+}
+
+/// Lo comun de GetDesc y GetDesc1: el nombre y lo demas a cero, `n` bytes.
+fn escribir_desc(desc: *mut u8, n: usize) {
+    let nombre = "PROTON-X (la CPU de BMO-X)";
+    // SAFETY: `n` bytes del `.exe` (quien llama lo comprobo no nulo).
     unsafe {
-        core::ptr::write_bytes(desc, 0, 312);
+        core::ptr::write_bytes(desc, 0, n);
         for (k, c) in nombre.encode_utf16().enumerate() {
             (desc.add(2 * k) as *mut u16).write_unaligned(c);
         }
-        (desc.add(304) as *mut u32).write_unaligned(DXGI_ADAPTER_FLAG_SOFTWARE);
     }
-    S_OK
 }
 
 extern "win64" fn get_current_back_buffer_index(this: u64) -> u32 {

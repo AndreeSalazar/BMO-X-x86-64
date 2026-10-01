@@ -1342,3 +1342,23 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    b9f3010947b0c107f56cf646c0a03bbec0d342ae0abdf75a186c31b5943dc3b4
 
 Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.
+
+tanda35.exe -- la TANDA 35 (01-10): IDXGIAdapter::GetDesc
+
+Por Cyberpunk: con las imagenes de la casa, Streamline pasa y el juego
+crea la fabrica, toma el adaptador 0 y pide GetDesc (el hueco 8, el de
+antes del 1); la casa solo tenia GetDesc1 y el .exe salio (368171 llamadas
+despues de entrar). Aqui: la fabrica, el adaptador, GetDesc y GetDesc1 con
+S_OK y diciendo LO MISMO en sus 304 bytes comunes, GetDesc sin pasarse de
+ellos, y sin donde escribir, E_INVALIDARG. No depende de la tarjeta.
+
+   llvm-dlltool -m i386:x86-64 -d tanda35_kernel32.def -l tanda35_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda35_dxgi.def -l tanda35_dxgi.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda35.c -o tanda35.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda35.obj tanda35_kernel32.lib tanda35_dxgi.lib /out:tanda35.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   9c019a1c01d5050cf1adadf5169ec5a9f1550352e81c2e0f9ba32ba0c3131c55
+
+Dice `bien` ocho veces y sale con 0. En Windows dice lo mismo.

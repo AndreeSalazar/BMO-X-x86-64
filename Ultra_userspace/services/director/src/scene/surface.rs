@@ -318,7 +318,7 @@ impl Surface {
     /// Se recorta contra el marco Y contra la pantalla: una ventana arrastrada
     /// medio fuera del panel no puede escribir mas alla del lienzo, y el marco
     /// puede ser mas chico que la superficie si el usuario lo encogio.
-    pub(crate) fn compose(&mut self, p: &bmo::Pantalla) -> bool {
+    pub(crate) fn compose(&mut self, p: &bmo::Pantalla, tapa: Option<(u32, u32, u32, u32)>) -> bool {
         if self.por_3060 {
             return false;
         }
@@ -341,9 +341,18 @@ impl Surface {
             return false;
         }
 
+        // ** LO QUE TAPA UNA VENTANA DE DELANTE (01-10): Ejecutar llamada con
+        // Ctrl+Alt queda ENCIMA de las apps, y una app animada la repintaria
+        // detras en el fotograma siguiente. Sus columnas no se pegan.
+        let (tx0, ty0, tx1, ty1) = tapa.map_or((0, 0, 0, 0), |(x, y, w, h)| (x, y, x + w, y + h));
         for row in 0..height {
             let src = self.base + HEADER_TAG + (row as u64 * cab.stride as u64) * 4;
+            let yy = y0 + row;
+            let tapada = yy >= ty0 && yy < ty1;
             for col in 0..width {
+                if tapada && x0 + col >= tx0 && x0 + col < tx1 {
+                    continue;
+                }
                 let px = unsafe { core::ptr::read_volatile((src + col as u64 * 4) as *const u32) };
                 // `punto_sin_comprobar` y una sola marca al final: el recorte ya
                 // esta hecho arriba, y marcar pixel a pixel serian cientos de
@@ -1140,8 +1149,9 @@ impl Table {
         n
     }
 
-    /// **Compone.** `true` si pinto algo.
-    pub(crate) fn compose(&mut self, p: &bmo::Pantalla) -> bool {
+    /// **Compone.** `true` si pinto algo. `tapa`: lo que una ventana del
+    /// sistema tiene DELANTE de las apps (Ejecutar, 01-10), que no se pisa.
+    pub(crate) fn compose(&mut self, p: &bmo::Pantalla, tapa: Option<(u32, u32, u32, u32)>) -> bool {
         let mut painted = false;
         for s in self.iter_mut() {
             if s.chrome.minimized {
@@ -1149,7 +1159,7 @@ impl Table {
             }
             // A pantalla completa no hay cromo que repintar: solo pixeles.
             if s.chrome.is_fullscreen() {
-                painted |= s.compose(p);
+                painted |= s.compose(p, None);
                 continue;
             }
             if s.moved() {
@@ -1157,7 +1167,7 @@ impl Table {
                 s.mark_dirty();
                 painted = true;
             }
-            painted |= s.compose(p);
+            painted |= s.compose(p, tapa);
         }
         painted
     }

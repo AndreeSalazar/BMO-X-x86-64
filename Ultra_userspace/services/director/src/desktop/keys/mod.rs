@@ -281,13 +281,22 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
         dsk.tick.key_during_combo = false;
     }
     if !g.combo && dsk.tick.combo_before && !dsk.tick.key_during_combo {
-        dsk.win.visible = !dsk.win.visible;
+        // ** DELANTE ANTES QUE ESCONDER (01-10). El propietario: *"cuando
+        // llamo Ctrl+Alt no se pone delante, se queda detras"*. Era un
+        // interruptor ciego: con Ejecutar visible pero TAPADO por otra
+        // ventana, el toque la escondia. Ahora, tapada, la trae delante con
+        // el foco; solo delante y con el foco, el toque la esconde.
+        let delante = dsk.win.visible && dsk.win.top_before == Ventana::Run && dsk.win.focus.actual() == Some(Ventana::Run);
+        dsk.win.visible = !delante;
         if dsk.win.visible {
+            dsk.win.top_before = Ventana::Run;
+            dsk.win.taskbar_dirty = true;
             // Esconderla y volver a invocarla es cerrarla y abrirla
             // para el foco. Sin esto, Alt+Tab llevaria el teclado a una
             // ventana que no esta en la pantalla: escribirias en algo
             // invisible, que es la peor forma de perder una linea.
             dsk.win.focus.open(Ventana::Run);
+            dsk.win.focus.clic_en(Ventana::Run);
             // ** Y EL CONSEJO, SIEMPRE (peticion del propietario, 24-09):
             // cada vez que la caja se invoca recuerda `save mode` y sus
             // opciones, para que quien la abra sepa que hay una orden que lo

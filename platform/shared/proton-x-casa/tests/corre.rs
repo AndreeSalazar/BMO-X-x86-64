@@ -97,6 +97,8 @@ const TANDA32: &[u8] = include_bytes!("../../proton-x/prueba/tanda32.exe");
 const TANDA33: &[u8] = include_bytes!("../../proton-x/prueba/tanda33.exe");
 /// La TANDA 34 (01-10): un HMODULE de la casa es una imagen PE que se lee.
 const TANDA34: &[u8] = include_bytes!("../../proton-x/prueba/tanda34.exe");
+/// La TANDA 35 (01-10): IDXGIAdapter::GetDesc.
+const TANDA35: &[u8] = include_bytes!("../../proton-x/prueba/tanda35.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
