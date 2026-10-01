@@ -100,6 +100,7 @@ const TANDA34: &[u8] = include_bytes!("../../proton-x/prueba/tanda34.exe");
 /// La TANDA 35 (01-10): IDXGIAdapter::GetDesc.
 const TANDA35: &[u8] = include_bytes!("../../proton-x/prueba/tanda35.exe");
 const TANDA36: &[u8] = include_bytes!("../../proton-x/prueba/tanda36.exe");
+const TANDA37: &[u8] = include_bytes!("../../proton-x/prueba/tanda37.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -317,7 +318,12 @@ fn listar(ruta: &[u8]) -> Option<Vec<bmo_proton_x::ficheros::Entrada>> {
     for e in std::fs::read_dir(r).ok()? {
         let e = e.ok()?;
         let m = e.metadata().ok()?;
-        v.push(bmo_proton_x::ficheros::Entrada { nombre: e.file_name().to_string_lossy().into_owned(), carpeta: m.is_dir(), bytes: m.len() });
+        // Las fechas del anfitrion en FILETIME (100 ns desde 1601), como las da
+        // el NTFS del disco Personal (01-10).
+        let ft = |t: std::io::Result<std::time::SystemTime>| t.ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos() as u64 / 100 + 116_444_736_000_000_000);
+        let creado = ft(m.created());
+        let fechas = [if creado != 0 { creado } else { ft(m.modified()) }, ft(m.modified()), ft(m.accessed())];
+        v.push(bmo_proton_x::ficheros::Entrada { nombre: e.file_name().to_string_lossy().into_owned(), carpeta: m.is_dir(), bytes: m.len(), fechas, atributos: if m.is_dir() { 0x10 } else { 0x20 } });
     }
     Some(v)
 }

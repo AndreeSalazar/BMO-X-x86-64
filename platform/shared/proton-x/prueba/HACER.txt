@@ -1386,3 +1386,23 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    728df08ed40f7e0707f8342476a63723a49047c392018248e83aa8911ed0e943
 
 Dice `bien` seis veces y sale con 0. En Windows dice lo mismo.
+
+tanda37.exe -- la TANDA 37 (01-10): las fechas de un fichero
+
+Por Cyberpunk: mira su final.redscripts SOLO con GetFileAttributesExW y,
+con las fechas a 0 (un fichero de 1601), dice "corrupted or missing
+scripts file". El .exe se mira a si mismo por los cuatro caminos de
+Windows (GetFileAttributesExW, FindFirstFileW, GetFileTime y
+GetFileInformationByHandleEx con FileBasicInfo): la fecha de escritura es
+de despues del 2000 y la MISMA por los cuatro; la de creacion tambien es
+de despues del 2000; y es un fichero, no una carpeta.
+
+   llvm-dlltool -m i386:x86-64 -d tanda37_kernel32.def -l tanda37_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda37.c -o tanda37.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda37.obj tanda37_kernel32.lib /out:tanda37.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   199a273cf19cb0b3db94f5cff2b5ba19fecff52dd64d5f67bb06c922dbc309b4
+
+Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.

@@ -153,7 +153,10 @@ fn listar(ruta: &[u8]) -> Option<alloc::vec::Vec<bmo_proton_x::ficheros::Entrada
             if nombre == "." || nombre == ".." || nombre.starts_with('$') {
                 continue;
             }
-            v.push(bmo_proton_x::ficheros::Entrada { nombre, carpeta, bytes });
+            // Y sus fechas y atributos de NTFS (01-10): sin ellas un fichero es
+            // de 1601, y Cyberpunk toma su `final.redscripts` por roto.
+            let (fechas, atributos) = d.fechas();
+            v.push(bmo_proton_x::ficheros::Entrada { nombre, carpeta, bytes, fechas, atributos });
         }
         return Some(v);
     }
@@ -162,7 +165,7 @@ fn listar(ruta: &[u8]) -> Option<alloc::vec::Vec<bmo_proton_x::ficheros::Entrada
     let mut n = [0u8; 256];
     while let Some((k, carpeta, bytes)) = d.siguiente_todo(&mut n) {
         let nombre = alloc::string::String::from_utf8_lossy(&n[..k]).into_owned();
-        v.push(bmo_proton_x::ficheros::Entrada { nombre, carpeta, bytes });
+        v.push(bmo_proton_x::ficheros::Entrada { nombre, carpeta, bytes, ..Default::default() });
     }
     Some(v)
 }

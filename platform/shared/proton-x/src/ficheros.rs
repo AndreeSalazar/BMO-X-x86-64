@@ -202,11 +202,17 @@ impl Abierto {
 // -- P4f3: las carpetas ---------------------------------------------------------------
 
 /// **Una entrada de una carpeta** del volumen, como la da quien lista.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Entrada {
     pub nombre: String,
     pub carpeta: bool,
     pub bytes: u64,
+    /// `[creado, escrito, leido]` en FILETIME (100 ns desde 1601); 0 = no
+    /// se sabe (01-10: hoy solo las da el disco Personal, NTFS).
+    pub fechas: [u64; 3],
+    /// Los atributos de Windows tal cual (ARCHIVE, READONLY...); 0 = no se
+    /// saben, y se dan NORMAL o DIRECTORY.
+    pub atributos: u32,
 }
 
 fn igual_sin_mayusculas(a: u8, b: u8) -> bool {

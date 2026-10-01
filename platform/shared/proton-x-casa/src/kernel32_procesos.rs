@@ -903,15 +903,17 @@ extern "win64" fn get_drive_type_w(raiz: *const u16) -> u32 {
     }
 }
 
-/// `GetFileTime`: las fechas de un fichero abierto son 0 (ver arriba).
+/// `GetFileTime`: las fechas del listado de su carpeta (01-10: las de NTFS
+/// en el disco Personal; 0 donde el volumen no las da).
 extern "win64" fn get_file_time(h: u64, creado: *mut u64, leido: *mut u64, escrito: *mut u64) -> i32 {
     if !crate::ficheros::es_fichero(h) {
         return no(ERROR_INVALID_HANDLE);
     }
-    for p in [creado, leido, escrito] {
+    let f = crate::ficheros::abierto(h).and_then(|a| crate::carpetas::entrada(&a.ruta)).map_or([0; 3], |e| e.fechas);
+    for (p, v) in [(creado, f[0]), (leido, f[2]), (escrito, f[1])] {
         if !p.is_null() {
             // SAFETY: los FILETIME del `.exe`.
-            unsafe { p.write_unaligned(0) };
+            unsafe { p.write_unaligned(v) };
         }
     }
     1
