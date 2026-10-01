@@ -81,11 +81,14 @@ lineas y una tabla:
       El 01-10, segunda pasada: las tiendas GLOBALES (gog, steam, epic,
       ubisoft, ea, battlenet, microsoft, rockstar, amazon, itch, humble y
       libre) y sin streaming: lo que no tiene camino queda PENDIENTE.
-- [ ] **J1 -- la Biblioteca los muestra.** La Biblioteca del escritorio
-      (`scene/data/biblioteca.rs`) lista los juegos de un fichero de lineas
-      en `datos/`, con su camino (A nativo, B streaming). Sin red: el fichero
-      se copia a mano. **Como se sabe:** DOOM sale como "nativo" y lanza el
-      `.bex` de siempre.
+- [~] **J1 -- la LUDOTECA los muestra.** Cambiado el 01-10: no en la
+      Biblioteca de ESTRATOS sino en su propia app, `sys/ludoteca.bex`
+      (`Ultra_userspace/apps/ludoteca`), que abre F4. Lee
+      `ludoteca/ludoteca.txt` (las lineas de J0) o, sin el, lo que HAY en los
+      discos (Cyberpunk en D:, DOOM en apps/). JUGAR se lo pide al escritorio
+      (`desktop::pide`, linea con 0x1E y lista blanca). Visto en el anfitrion
+      fotograma a fotograma. **Como se sabe:** F4 en el Ryzen abre la
+      ventana con su entrada, Cyberpunk sale como PROTON-X y JUGAR lo lanza.
 - [ ] **J2 -- la antena pide la lista a GOG, EN RUST.** Cambiado el 29-09
       por el propietario: *"Heroic usa la API de GOG, perfecto, pero no
       quiero su launcher: usa su Python, yo usare Rust como el nuevo
@@ -319,7 +322,9 @@ La app se llama **Ludoteca**, como este plan, y su crate `bmo-ludoteca`.
   con X25519 + AES-GCM de `bmo-cripto`; voz cuando haya MICROFONO (hoy el
   audio USB solo SALE) y un codec propio; fuera de casa, TLS 1.3 (el muro)
   o la ANTENA de relevo. El Discord de verdad no: su API y su voz piden
-  su cliente y su cifrado.
+  su cliente y su cifrado. Su cara, cuando llegue: negra, la estandar de
+  las apps de BMO-X, futurista y elegante, con el gato y su glitch en la
+  entrada -- la misma entrada que ya lleva la LUDOTECA.
 
 ## 8. "El x86-64 no cambia: se puede analizar" -- lo que es verdad y lo que no
 
