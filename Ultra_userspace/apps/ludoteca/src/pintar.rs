@@ -17,7 +17,7 @@ use crate::canvas::Canvas;
 use crate::catalogo::Catalogo;
 use crate::iconos;
 use crate::mates::{azar, entre, fase, onda, seno};
-use crate::tiendas::{color_de, PUESTOS};
+use crate::tiendas::PUESTOS;
 use bmo_dibujo::{mezclar, Color, Lienzo};
 use bmo_ludoteca::Camino;
 
@@ -37,16 +37,21 @@ const FILA_CANAL: i32 = 34;
 const Y_CANALES: i32 = 48 + 84 + 40;
 const CABECERA: i32 = 48;
 
-const FONDO_RIEL: Color = 0x001E_1F22;
-const FONDO_CANALES: Color = 0x002B_2D31;
-const FONDO_CENTRO: Color = 0x0031_3338;
-const FONDO_PANEL: Color = 0x0023_2428;
-const BURBUJA_FONDO: Color = 0x0031_3338;
-const ELEGIDO: Color = 0x0040_4249;
-const TEXTO: Color = 0x00DB_DEE1;
-const TENUE: Color = 0x0094_9BA4;
-const BLANCO: Color = 0x00F2_F3F5;
-const OSCURO: Color = 0x0011_1214;
+const FONDO_RIEL: Color = 0x0007_0F1C;
+const FONDO_CANALES: Color = 0x000A_1626;
+const FONDO_CENTRO: Color = 0x000C_1B2E;
+const FONDO_PANEL: Color = 0x0008_1322;
+const BURBUJA_FONDO: Color = 0x0010_2238;
+const ELEGIDO: Color = 0x0014_3A30;
+const TEXTO: Color = 0x00D6_F5E3;
+const TENUE: Color = 0x007F_A392;
+const BLANCO: Color = 0x00E8_FFF1;
+const OSCURO: Color = 0x0006_1018;
+/// El verde neon de la LUDOTECA (01-10: *"verde con azul oscuro total"*).
+const NEON: Color = 0x0039_FF88;
+const NEON2: Color = 0x0016_A85A;
+const BORDE: Color = 0x0016_303F;
+const ENCIMA: Color = 0x0012_2840;
 const ROSA: Color = 0x00FF_2E88;
 const AZUL: Color = 0x003D_A5FF;
 const VERDE: Color = 0x0023_A55A;
@@ -222,14 +227,14 @@ fn riel(cv: &mut Canvas, v: &Vista) {
         let r = if elegida { entre(24, 15, crece) } else if encima { 16 } else { 24 };
         let pastilla = if elegida { entre(8, 40, crece) } else if encima { 20 } else { 0 };
         if pastilla > 0 {
-            redondo(cv, -4, y + (h - pastilla) / 2, 8, pastilla, 3, BLANCO);
+            redondo(cv, -4, y + (h - pastilla) / 2, 8, pastilla, 3, NEON);
         }
-        let fondo = if elegida { p.color } else if encima { mezclar(p.color, BURBUJA_FONDO, 60, 256) } else { BURBUJA_FONDO };
+        let fondo = if elegida { NEON } else if encima { mezclar(NEON, BURBUJA_FONDO, 50, 256) } else { BURBUJA_FONDO };
         redondo(cv, x, y, w, h, r, fondo);
-        let tinta = if elegida { OSCURO } else { p.color };
+        let tinta = if elegida { OSCURO } else { NEON };
         iconos::pintar(cv, p.gesto, x + w / 2, y + h / 2, v.ms + i as u32 * 137, tinta, fondo);
         if i == 0 {
-            cv.rect(x + 8, y + h + 7, w - 16, 2, 0x0035_363C);
+            cv.rect(x + 8, y + h + 7, w - 16, 2, BORDE);
         }
     }
 }
@@ -239,18 +244,17 @@ fn canales(cv: &mut Canvas, v: &Vista) {
     cv.rect(RIEL, 0, CANALES, ALTO as i32, FONDO_CANALES);
     // La cabecera: el nombre de la tienda.
     negrita(cv, RIEL + 16, 16, p.nombre().as_bytes(), BLANCO, 1);
-    cv.disc(RIEL + CANALES - 20, 24, 5, p.color);
-    cv.rect(RIEL, CABECERA - 1, CANALES, 1, 0x001F_2023);
+    cv.disc(RIEL + CANALES - 20, 24, 4 + onda(v.ms, 1600) / 128, NEON);
+    cv.rect(RIEL, CABECERA - 1, CANALES, 1, BORDE);
     // El estandarte: su degradado y dos luces que flotan.
     let est = (RIEL, CABECERA, CANALES, 84);
-    cv.gradient(est.0, est.1, est.2, est.3, p.color, p.color2);
+    cv.gradient(est.0, est.1, est.2, est.3, NEON2, 0x000E_4A36);
     let f1 = seno(crate::mates::fase(v.ms, 6000)) * 8 / 256;
     let f2 = seno(crate::mates::fase(v.ms + 3000, 6000)) * 8 / 256;
     luz(cv, RIEL + CANALES - 30, CABECERA + 6 + f1, 54, BLANCO, 14, est);
     luz(cv, RIEL + 60, CABECERA + 96 + f2, 44, OSCURO, 15, est);
     // Sobre un estandarte claro, letra oscura: se mira su brillo.
-    let brillo = ((p.color >> 16 & 255) * 3 + (p.color >> 8 & 255) * 6 + (p.color & 255)) / 10;
-    let sobre = if brillo > 170 { OSCURO } else { BLANCO };
+    let sobre = BLANCO;
     let mut t = [0u8; 32];
     let n = crate::fmt_num(v.visibles.len() as u64, &mut t);
     let k = negrita(cv, RIEL + 16, CABECERA + 60, &t[..n], sobre, 1);
@@ -265,7 +269,7 @@ fn canales(cv: &mut Canvas, v: &Vista) {
         let elegido = k == v.sel;
         let encima = v.puntero.is_some_and(|(px, py)| dentro(px, py, (x, y, w, h)));
         if elegido || encima {
-            redondo(cv, x, y, w, h, 5, if elegido { ELEGIDO } else { 0x0035_373C });
+            redondo(cv, x, y, w, h, 5, if elegido { ELEGIDO } else { ENCIMA });
         }
         let j = &v.cat.l.juegos[i];
         cv.text(x + 8, y + 9, b"#", GRIS, 1);
@@ -280,7 +284,7 @@ fn canales(cv: &mut Canvas, v: &Vista) {
         // PROTON-X lleva su punto vivo: es lo que se esta construyendo.
         if v.cat.camino(i) == Camino::ProtonX {
             let r = 3 + onda(v.ms, 1600) / 128;
-            cv.disc(x + w - 14, y + h / 2, r, 0x005E_F2E6);
+            cv.disc(x + w - 14, y + h / 2, r, NEON);
         }
     }
     if v.visibles.is_empty() {
@@ -291,10 +295,10 @@ fn canales(cv: &mut Canvas, v: &Vista) {
     let yp = ALTO as i32 - 56;
     cv.rect(RIEL, yp, CANALES, 56, FONDO_PANEL);
     cv.disc(RIEL + 30, yp + 28, 19, OSCURO);
-    let ojos = if (v.ms % 6000) < 140 { OSCURO } else { 0x005E_F2E6 };
+    let ojos = if (v.ms % 6000) < 140 { OSCURO } else { NEON };
     gato(cv, RIEL + 30 - 15, yp + 28 - 18, 5, BLANCO, ojos);
     cv.disc(RIEL + 44, yp + 42, 6, FONDO_PANEL);
-    cv.disc(RIEL + 44, yp + 42, 4, VERDE);
+    cv.disc(RIEL + 44, yp + 42, 4, NEON);
     negrita(cv, RIEL + 58, yp + 12, b"BMO-X", BLANCO, 1);
     let jugando: &[u8] = v.visibles.get(v.sel).map_or(b"en la LUDOTECA", |&i| v.cat.l.juegos[i].titulo.as_bytes());
     cv.text_fit(RIEL + 58, yp + 30, jugando, TENUE, CANALES - 70);
@@ -308,7 +312,7 @@ fn centro(cv: &mut Canvas, v: &Vista) {
     let mut nombre = [0u8; 40];
     let n = elegido.map_or(0, |i| como_canal(&v.cat.l.juegos[i].titulo, &mut nombre));
     let k = negrita(cv, X_CENTRO + 36, 16, if n > 0 { &nombre[..n] } else { b"bienvenida" }, BLANCO, 1);
-    cv.rect(X_CENTRO + 48 + k, 12, 1, 24, 0x003F_4147);
+    cv.rect(X_CENTRO + 48 + k, 12, 1, 24, BORDE);
     if let Some(i) = elegido {
         let (t, c) = camino_texto(v.cat.camino(i));
         let w = cv.text(X_CENTRO + 60 + k, 16, t, c, 1);
@@ -316,38 +320,33 @@ fn centro(cv: &mut Canvas, v: &Vista) {
         cv.text(X_CENTRO + 84 + k + w, 16, v.cat.l.juegos[i].tienda.nombre().as_bytes(), TENUE, 1);
     }
     cv.text(X_CENTRO + W_CENTRO - 40, 16, b"F4", GRIS, 1);
-    cv.rect(X_CENTRO, CABECERA - 1, W_CENTRO, 1, 0x0026_272B);
+    // El gato de BMO-X en medio de la cabecera, en su cajita.
+    let gx = X_CENTRO + W_CENTRO / 2 + 40;
+    redondo(cv, gx - 4, 6, 34, 36, 6, OSCURO);
+    gato(cv, gx + 2, 9, 6, NEON, if (v.ms % 6000) < 140 { OSCURO } else { BLANCO });
+    cv.rect(X_CENTRO, CABECERA - 1, W_CENTRO, 1, BORDE);
 
     // -- el juego fijado --
     let (hx, hy, hw, hh) = caja_heroe();
-    let (color, titulo, camino, tienda) = match elegido {
+    let (titulo, camino, tienda) = match elegido {
         Some(i) => {
             let j = &v.cat.l.juegos[i];
-            (color_de(j.tienda), j.titulo.as_bytes(), Some(v.cat.camino(i)), j.tienda.nombre())
+            (j.titulo.as_bytes(), Some(v.cat.camino(i)), j.tienda.nombre())
         }
-        None => (PUESTOS[v.tienda].color, &b"Sin juegos todavia"[..], None, PUESTOS[v.tienda].nombre()),
+        None => (&b"Sin juegos todavia"[..], None, PUESTOS[v.tienda].nombre()),
     };
-    redondo(cv, hx, hy, hw, hh, 12, 0x002B_2D31);
-    cv.gradient(hx + 6, hy + 6, hw - 12, hh - 12, mezclar(color, 0x002B_2D31, 150, 256), 0x002B_2D31);
-    // Las capas que flotan detras: profundidad sin una imagen inventada.
-    let f = seno(fase(v.ms, 6000)) * 10 / 256;
-    let capa = (hx + hw - 300, hy + 28 + f, 250, 150);
-    for j in 0..capa.3 {
-        for i in [0, capa.2 - 1] {
-            cv.blend(capa.0 + i, capa.1 + j, BLANCO, 16, 100);
-        }
-    }
-    for i in 0..capa.2 {
-        for j in [0, capa.3 - 1] {
-            cv.blend(capa.0 + i, capa.1 + j, BLANCO, 16, 100);
-        }
-    }
-    luz(cv, hx + hw - 120, hy + 60 - f, 70, color, 10, (hx, hy, hw, hh));
+    // El marco verde que late, y dentro el azul de la noche.
+    let late = 25 + onda(v.ms, 2400) as u32 * 35 / 256;
+    cv.glow(hx, hy, hw, hh, NEON, 10, late);
+    redondo(cv, hx, hy, hw, hh, 12, NEON);
+    redondo(cv, hx + 3, hy + 3, hw - 6, hh - 6, 10, 0x000A_1A2C);
+    cv.gradient(hx + 8, hy + 8, hw - 16, hh - 16, mezclar(NEON2, 0x000A_1A2C, 46, 256), 0x000A_1A2C);
+    recreativa(cv, hx + hw - 210, hy + 18, v.ms);
     // La pastilla del camino.
     if let Some(c) = camino {
         let (t, tc) = camino_texto(c);
         let w = (t.len() + tienda.len() + 3) as i32 * 8 + 20;
-        redondo(cv, hx + 28, hy + 26, w, 24, 12, mezclar(OSCURO, color, 150, 256));
+        redondo(cv, hx + 28, hy + 26, w, 24, 12, 0x0010_2A22);
         let r = 3 + onda(v.ms, 1800) / 128;
         cv.disc(hx + 40, hy + 38, r, tc);
         let k = cv.text(hx + 50, hy + 30, t, tc, 1);
@@ -365,37 +364,34 @@ fn centro(cv: &mut Canvas, v: &Vista) {
         cv.text(hx + 28 - d, ty, &titulo[..cuantas], ROSA, escala);
         cv.text(hx + 28 + d, ty, &titulo[..cuantas], AZUL, escala);
     }
-    cv.text(hx + 29, ty, &titulo[..cuantas], BLANCO, escala);
-    cv.text(hx + 28, ty, &titulo[..cuantas], BLANCO, escala);
+    cv.text(hx + 29, ty, &titulo[..cuantas], 0x00C8_FFD8, escala);
+    cv.text(hx + 28, ty, &titulo[..cuantas], 0x00C8_FFD8, escala);
     // JUGAR: un liquido que corre por dentro.
     let (bx, by, bw, bh) = caja_jugar();
-    let p = &PUESTOS[v.tienda];
-    // El boton lleva los colores de la tienda DEL JUEGO, no la del riel.
-    let suya = elegido.and_then(|i| PUESTOS.iter().find(|q| q.tienda == Some(v.cat.l.juegos[i].tienda))).unwrap_or(p);
     let puede = elegido.is_some_and(|i| v.cat.orden(i).is_some());
     if puede {
         let corre = fase(v.ms, 1400);
         for i in 0..bw {
             let t = ((i * 256 / bw + corre) % 256 - 128).abs() * 2;
-            cv.rect(bx + i, by, 1, bh, mezclar(suya.color2, suya.color, t as u32, 256));
+            cv.rect(bx + i, by, 1, bh, mezclar(0x00A8_FFCC, NEON, (t / 3) as u32, 256));
         }
         // Las esquinas redondas: se recortan con el fondo.
         for (cx, cy) in [(bx, by), (bx + bw - 1, by), (bx, by + bh - 1), (bx + bw - 1, by + bh - 1)] {
-            cv.put(cx, cy, mezclar(color, 0x002B_2D31, 40, 256));
+            cv.put(cx, cy, 0x000A_1A2C);
         }
         let encima = v.puntero.is_some_and(|(px, py)| dentro(px, py, (bx, by, bw, bh)));
         if encima {
-            cv.glow(bx, by, bw, bh, suya.color, 6, 40);
+            cv.glow(bx, by, bw, bh, NEON, 6, 45);
         }
         negrita(cv, bx + (bw - 5 * 8 * 2) / 2, by + 5, b"JUGAR", OSCURO, 2);
     } else {
-        redondo(cv, bx, by, bw, bh, 8, 0x003F_4147);
+        redondo(cv, bx, by, bw, bh, 8, BORDE);
         let t: &[u8] = if elegido.is_some() { b"PENDIENTE" } else { b"--" };
         cv.text(bx + (bw - t.len() as i32 * 8) / 2, by + 13, t, TENUE, 1);
     }
     if let Some(i) = elegido {
         if let Some(o) = v.cat.orden(i) {
-            cv.text_fit(bx + bw + 16, by + 13, o.as_bytes(), mezclar(BLANCO, color, 200, 256), hw - bw - 60);
+            cv.text_fit(bx + bw + 16, by + 13, o.as_bytes(), TENUE, hw - bw - 280);
         }
     }
 
@@ -412,10 +408,10 @@ fn centro(cv: &mut Canvas, v: &Vista) {
         let dy = (256 - entra) * 14 / 256;
         let yy = y + dy;
         let tinta = |c: Color| mezclar(c, FONDO_CENTRO, entra as u32, 256);
-        cv.disc(X_CENTRO + 40, yy + 18, 18, tinta(*c));
-        negrita(cv, X_CENTRO + 36, yy + 10, &[*ini], tinta(OSCURO), 1);
-        let w = negrita(cv, X_CENTRO + 72, yy + 2, quien, tinta(*c), 1);
-        redondo(cv, X_CENTRO + 80 + w, yy + 2, 44, 16, 3, tinta(p.color));
+        cv.disc(X_CENTRO + 40, yy + 18, 18, tinta(mezclar(*c, 0x0010_2A30, 150, 256)));
+        negrita(cv, X_CENTRO + 36, yy + 10, &[*ini], tinta(BLANCO), 1);
+        let w = negrita(cv, X_CENTRO + 72, yy + 2, quien, tinta(mezclar(*c, NEON, 90, 256)), 1);
+        redondo(cv, X_CENTRO + 80 + w, yy + 2, 44, 16, 3, tinta(NEON));
         cv.text(X_CENTRO + 82 + w, yy + 2, b"PIEZA", tinta(OSCURO), 1);
         cv.text(X_CENTRO + 136 + w, yy + 2, b"hoy", tinta(TENUE), 1);
         cv.text_fit(X_CENTRO + 72, yy + 22, texto, tinta(TEXTO), W_CENTRO - 100);
@@ -423,7 +419,7 @@ fn centro(cv: &mut Canvas, v: &Vista) {
     }
     // Lo que contesto el escritorio a JUGAR.
     if !v.aviso.is_empty() {
-        cv.text_fit(X_CENTRO + 72, y + 4, v.aviso, 0x005E_F2E6, W_CENTRO - 100);
+        cv.text_fit(X_CENTRO + 72, y + 4, v.aviso, NEON, W_CENTRO - 100);
     }
 
     // -- la caja de abajo: las teclas, y el juez que "escribe" --
@@ -433,8 +429,8 @@ fn centro(cv: &mut Canvas, v: &Vista) {
         cv.disc(X_CENTRO + 24 + k as i32 * 8, yb + 6 - s, 2, TENUE);
     }
     cv.text(X_CENTRO + 52, yb - 2, b"el juez espera la suma de la tienda...", TENUE, 1);
-    redondo(cv, X_CENTRO + 16, yb + 18, W_CENTRO - 32, 40, 8, 0x0038_3A40);
-    cv.text(X_CENTRO + 32, yb + 30, b"ENTER juega   flechas eligen   T tienda siguiente   Esc cierra", 0x006D_6F78, 1);
+    redondo(cv, X_CENTRO + 16, yb + 18, W_CENTRO - 32, 40, 8, 0x0010_2238);
+    cv.text(X_CENTRO + 32, yb + 30, b"ENTER juega   flechas eligen   T tienda siguiente   Esc cierra", TENUE, 1);
 }
 
 /// Los mensajes de las piezas para el juego elegido: lo que es VERDAD hoy.
@@ -478,10 +474,10 @@ fn piezas(cv: &mut Canvas, v: &Vista) {
         }
         let encima = v.puntero.is_some_and(|(px, py)| dentro(px, py, (X_PIEZAS + 8, y, PIEZAS - 16, 44)));
         if encima {
-            redondo(cv, X_PIEZAS + 8, y, PIEZAS - 16, 44, 5, 0x0035_373C);
+            redondo(cv, X_PIEZAS + 8, y, PIEZAS - 16, 44, 5, ENCIMA);
         }
-        cv.disc(X_PIEZAS + 32, y + 22, 16, *c);
-        negrita(cv, X_PIEZAS + 28, y + 14, &[*ini], OSCURO, 1);
+        cv.disc(X_PIEZAS + 32, y + 22, 16, mezclar(*c, 0x0010_2A30, 150, 256));
+        negrita(cv, X_PIEZAS + 28, y + 14, &[*ini], BLANCO, 1);
         cv.disc(X_PIEZAS + 44, y + 34, 6, FONDO_CANALES);
         let vivo = *estado == VERDE;
         let r = if vivo { 3 + onda(v.ms + k as u32 * 300, 1600) / 128 } else { 4 };
@@ -490,6 +486,79 @@ fn piezas(cv: &mut Canvas, v: &Vista) {
         cv.text_fit(X_PIEZAS + 58, y + 24, hace, TENUE, PIEZAS - 66);
         y += 48;
     }
+    estado(cv, v);
+}
+
+/// **La tarjeta de estado**, abajo a la derecha: lo que es verdad ahora.
+fn estado(cv: &mut Canvas, v: &Vista) {
+    let (x, y, w, h) = (X_PIEZAS + 8, ALTO as i32 - 112, PIEZAS - 16, 100);
+    redondo(cv, x, y, w, h, 6, NEON);
+    redondo(cv, x + 1, y + 1, w - 2, h - 2, 5, OSCURO);
+    cv.text(x + 10, y + 8, b"LUDOTECA 01", NEON, 1);
+    cv.rect(x + 10, y + 26, w - 20, 1, BORDE);
+    let mut n = [0u8; 8];
+    let k = crate::fmt_num(v.cat.l.juegos.len() as u64, &mut n);
+    let a = cv.text(x + 10, y + 34, b"JUEGOS: ", TENUE, 1);
+    cv.text(x + 10 + a, y + 34, &n[..k], TEXTO, 1);
+    let a = cv.text(x + 10, y + 52, b"PROTON-X: ", TENUE, 1);
+    cv.text(x + 10 + a, y + 52, if v.proton { b"listo" } else { b"falta" }, TEXTO, 1);
+    let a = cv.text(x + 10, y + 70, b"ESTRATOS: ", TENUE, 1);
+    cv.text(x + 10 + a, y + 70, if v.estratos { b"montado" } else { b"sin montar" }, TEXTO, 1);
+    // Un cursor que parpadea, como una terminal viva.
+    if (v.ms / 500) % 2 == 0 {
+        cv.rect(x + w - 18, y + 72, 8, 12, NEON);
+    }
+}
+
+/// **La recreativa**: una maquina de salon dibujada a trazo verde, con su
+/// pantalla viva (una linea que baja y un parpadeo) y la palanca que se mueve.
+fn recreativa(cv: &mut Canvas, x: i32, y: i32, ms: u32) {
+    let t = |cv: &mut Canvas, a: (i32, i32), b: (i32, i32)| {
+        cv.line(a, b, NEON);
+        cv.line((a.0 + 1, a.1), (b.0 + 1, b.1), NEON);
+    };
+    let (w, l) = (120, 24); // ancho del frente y fondo del lateral
+    // El lateral, en perspectiva.
+    for &(a, b) in &[((x + w, y + 4), (x + w + l, y - 6)), ((x + w + l, y - 6), (x + w + l, y + 186)), ((x + w + l, y + 186), (x + w, y + 196))] {
+        t(cv, a, b);
+    }
+    // El cuerpo.
+    cv.rect(x + 2, y + 2, w - 2, 194, 0x000E_2230);
+    for &(a, b) in &[((x, y), (x + w, y)), ((x, y), (x, y + 196)), ((x + w, y), (x + w, y + 196)), ((x, y + 196), (x + w, y + 196))] {
+        t(cv, a, b);
+    }
+    // La marquesina con su nombre.
+    t(cv, (x, y + 28), (x + w, y + 28));
+    cv.text(x + 12, y + 7, b"LUDOTECA", NEON, 1);
+    // La pantalla: un hueco oscuro, una linea que baja y un parpadeo.
+    let (sx, sy, sw, sh) = (x + 14, y + 38, w - 28, 66);
+    cv.rect(sx, sy, sw, sh, 0x0004_0C12);
+    let baja = (ms % 1600) as i32 * sh / 1600;
+    cv.rect(sx, sy + baja, sw, 2, mezclar(NEON, 0x0004_0C12, 120, 256));
+    let brillo = 100 + (azar(ms / 90) % 80);
+    cv.text(sx + 10, sy + 14, b"BMO-X", mezclar(NEON, 0x0004_0C12, brillo, 256), 1);
+    cv.text(sx + 10, sy + 36, b"INSERT", mezclar(NEON, 0x0004_0C12, if (ms / 400) % 2 == 0 { 220 } else { 60 }, 256), 1);
+    // El tablero de mandos, inclinado hacia fuera.
+    t(cv, (x, y + 112), (x - 8, y + 128));
+    t(cv, (x + w, y + 112), (x + w + 8, y + 128));
+    t(cv, (x - 8, y + 128), (x + w + 8, y + 128));
+    t(cv, (x, y + 112), (x + w, y + 112));
+    // La palanca, que se mueve, y tres botones.
+    let lado = seno(fase(ms, 1300)) * 4 / 256;
+    t(cv, (x + 26, y + 122), (x + 26 + lado, y + 110));
+    cv.disc(x + 26 + lado, y + 109, 4, NEON);
+    for k in 0..3 {
+        cv.disc(x + 58 + k * 16, y + 120, 4, if (ms / 300) % 3 == k as u32 { BLANCO } else { NEON });
+    }
+    // La puerta de las monedas.
+    cv.rect(x + 44, y + 146, 32, 34, 0x0008_1822);
+    t(cv, (x + 44, y + 146), (x + 76, y + 146));
+    t(cv, (x + 44, y + 180), (x + 76, y + 180));
+    cv.rect(x + 52, y + 156, 2, 10, NEON);
+    cv.rect(x + 66, y + 156, 2, 10, NEON);
+    // El numero en el lateral.
+    cv.text(x + w + 6, y + 60, b"0", NEON, 1);
+    cv.text(x + w + 6, y + 78, b"1", NEON, 1);
 }
 
 /// **Un fotograma entero.**
