@@ -27,6 +27,14 @@
 //! Se escribe el fichero ENTERO en cada funcion nueva: si el `.exe` muere,
 //! lo ultimo apuntado ya esta en el disco. Cuesta disco y solo se paga con
 //! el diario encendido.
+//!
+//! **EL ANILLO** (01-10): Cyberpunk acabo saliendo con ExitProcess(0), sin
+//! fallo, y el diario (solo la PRIMERA vez de cada funcion) no decia que
+//! hizo justo antes. Cada llamada, primera o no, deja en un anillo de
+//! [`ANILLO`] su numero de trampolin y su direccion de vuelta (quien
+//! llamo): dos `mov` y un `inc`, con rax y r10 (volatiles, sin argumentos).
+//! Al salir (`al_salir`) el anillo va al final del diario: las ultimas
+//! llamadas, con modulo+RVA de quien las hizo.
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -36,6 +44,17 @@ use crate::{aviso, plataforma};
 
 /// Cuantos trampolines hay (las 1619 de Cyberpunk caben, con sitio).
 const PUESTOS: usize = 4096;
+
+/// Cuantas llamadas guarda el anillo (potencia de 2: el asm hace `and`).
+const ANILLO: usize = 256;
+
+/// El anillo: cuantas llamadas van, y de cada una su trampolin y su vuelta.
+#[no_mangle]
+static mut PROTON_X_DIARIO_CUENTA: u32 = 0;
+#[no_mangle]
+static mut PROTON_X_DIARIO_ANILLO: [u16; ANILLO] = [0; ANILLO];
+#[no_mangle]
+static mut PROTON_X_DIARIO_VUELTAS: [u64; ANILLO] = [0; ANILLO];
 
 /// Lo que el trampolin lee: si ya se vio, y a donde saltar. Estaticos con
 /// nombre para que el asm los alcance por `sym`.
@@ -57,6 +76,18 @@ core::arch::global_asm!(
     ".endr",
     ".globl proton_x_diario_comun",
     "proton_x_diario_comun:",
+    // El anillo: [cuenta & 255] = (trampolin, vuelta). rax y r10 son
+    // volatiles y no llevan argumentos.
+    "movl {cuenta}(%rip), %eax",
+    "incl %eax",
+    "movl %eax, {cuenta}(%rip)",
+    "andl $255, %eax",
+    "leaq {anillo}(%rip), %r10",
+    "movw %r11w, (%r10,%rax,2)",
+    "leaq {vueltas}(%rip), %r10",
+    "leaq (%r10,%rax,8), %r10",
+    "movq (%rsp), %rax",
+    "movq %rax, (%r10)",
     "leaq {vistos}(%rip), %rax",
     "cmpb $0, (%rax,%r11)",
     "jne 2f",
@@ -91,6 +122,9 @@ core::arch::global_asm!(
     "2:",
     "leaq {destinos}(%rip), %rax",
     "jmpq *(%rax,%r11,8)",
+    cuenta = sym PROTON_X_DIARIO_CUENTA,
+    anillo = sym PROTON_X_DIARIO_ANILLO,
+    vueltas = sym PROTON_X_DIARIO_VUELTAS,
     vistos = sym PROTON_X_DIARIO_VISTOS,
     destinos = sym PROTON_X_DIARIO_DESTINOS,
     primera = sym primera,
@@ -136,6 +170,7 @@ pub fn diario(ruta: Option<&[u8]>) {
     e.lleno = false;
     // SAFETY: una tarea (ver `Global`); nadie salta por un trampolin ahora.
     unsafe {
+        *core::ptr::addr_of_mut!(PROTON_X_DIARIO_CUENTA) = 0;
         (*core::ptr::addr_of_mut!(PROTON_X_DIARIO_VISTOS)).fill(0);
         (*core::ptr::addr_of_mut!(PROTON_X_DIARIO_DESTINOS)).fill(0);
     }
@@ -198,3 +233,26 @@ extern "win64" fn primera(i: u32) {
     }
 }
 
+
+/// **Al salir el proceso** (ExitProcess, o cualquier salida de la casa): las
+/// ultimas llamadas del anillo, de la mas vieja a la mas nueva, al final del
+/// diario, con quien las hizo. Con el diario apagado, nada.
+pub fn al_salir(codigo: u32) {
+    let e = estado();
+    let Some(r) = e.ruta.clone() else { return };
+    // SAFETY: una tarea; el `.exe` ya no corre (esta saliendo).
+    let (cuenta, anillo, vueltas) = unsafe { (*core::ptr::addr_of!(PROTON_X_DIARIO_CUENTA), *core::ptr::addr_of!(PROTON_X_DIARIO_ANILLO), *core::ptr::addr_of!(PROTON_X_DIARIO_VUELTAS)) };
+    let n = (cuenta as usize).min(ANILLO);
+    let mut t = alloc::format!("# las ultimas {n} llamadas (de {cuenta}) antes de salir con {codigo:#x}; la ultima, abajo\n# dll funcion <- quien la llamo\n");
+    for k in 0..n {
+        let j = (cuenta as usize + 1 + ANILLO - n + k) % ANILLO;
+        let (dll, f) = e.puestos.get(anillo[j] as usize).map_or(("?", "?"), |p| (p.0.as_str(), p.1.as_str()));
+        let quien = match crate::kernel32_procesos::imagen_con(vueltas[j]).and_then(|_| crate::modulos::nombre_de(vueltas[j])) {
+            Some((m, rva)) => alloc::format!("{m}+{rva:#x}"),
+            None => alloc::format!("{:#x}", vueltas[j]),
+        };
+        t.push_str(&alloc::format!("  {dll} {f} <- {quien}\n"));
+    }
+    e.texto.extend_from_slice(t.as_bytes());
+    let _ = (plataforma().escribir_fichero)(&r, &e.texto);
+}

@@ -74,14 +74,20 @@ fn diario_exe_con_diario_apunta_cada_funcion_una_vez_y_en_orden() {
     assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
     assert!(texto.ends_with("diario.exe: los trampolines no se notan\r\n[salio 0x0]"), "{texto}");
     let texto = std::fs::read_to_string(&ruta).unwrap();
-    let funciones: Vec<&str> = texto.lines().filter(|l| !l.starts_with('#')).map(|l| l.rsplit(' ').next().unwrap()).collect();
+    let funciones: Vec<&str> = texto.lines().filter(|l| !l.starts_with('#') && !l.contains(" <- ")).map(|l| l.rsplit(' ').next().unwrap()).collect();
     assert_eq!(
         funciones,
         ["pow", "GetStdHandle", "WriteFile", "GetModuleHandleW", "GetProcAddress", "GetTickCount", "GetCurrentProcessId", "CreateFileA", "GetLastError", "ExitProcess"],
         "{texto}"
     );
-    let numeros: Vec<&str> = texto.lines().filter(|l| !l.starts_with('#')).map(|l| l.split_whitespace().next().unwrap()).collect();
+    let numeros: Vec<&str> = texto.lines().filter(|l| !l.starts_with('#') && !l.contains(" <- ")).map(|l| l.split_whitespace().next().unwrap()).collect();
     assert_eq!(numeros, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], "{texto}");
+    // EL ANILLO (01-10): al salir, las ultimas llamadas (todas, no solo la
+    // primera de cada una), la ultima ExitProcess, cada una con quien la hizo.
+    let anillo: Vec<&str> = texto.lines().filter(|l| !l.starts_with('#') && l.contains(" <- ")).collect();
+    assert!(anillo.len() > 10, "mas llamadas que funciones distintas: {texto}");
+    assert!(anillo.last().unwrap().contains("ExitProcess <- "), "{texto}");
+    assert!(anillo.iter().all(|l| l.contains("prueba.exe+0x")), "quien llamo: el .exe, con su RVA: {texto}");
 }
 
 /// **La tanda 14a de Cyberpunk** (30-09): `tanda14.exe` -- las DLL chicas

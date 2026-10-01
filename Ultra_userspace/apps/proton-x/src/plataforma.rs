@@ -225,6 +225,8 @@ fn decir(b: &[u8]) {
 }
 
 fn salir(codigo: u32) -> ! {
+    // Con el diario: las ultimas llamadas del anillo, al fichero (01-10).
+    bmo_proton_x_casa::diario::al_salir(codigo);
     super::fin_del_exe(codigo)
 }
 
