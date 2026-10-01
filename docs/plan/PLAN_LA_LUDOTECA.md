@@ -76,8 +76,11 @@ lineas y una tabla:
       id1/PAK0.PAK), el CAMINO de cada juego --NATIVO, PROTON-X si trae un
       `.exe` (el camino que no existia cuando se escribio esto), o
       STREAMING-- y el juez de la suma por trozos (SHA-256 de `bmo-cripto`).
-      **Como se sabe:** `cargo test -p bmo-ludoteca`: 6 pruebas y 40.000
+      **Como se sabe:** `cargo test -p bmo-ludoteca`: 7 pruebas y 40.000
       lineas y ficheros mutados sin un panico; compila para el metal.
+      El 01-10, segunda pasada: las tiendas GLOBALES (gog, steam, epic,
+      ubisoft, ea, battlenet, microsoft, rockstar, amazon, itch, humble y
+      libre) y sin streaming: lo que no tiene camino queda PENDIENTE.
 - [ ] **J1 -- la Biblioteca los muestra.** La Biblioteca del escritorio
       (`scene/data/biblioteca.rs`) lista los juegos de un fichero de lineas
       en `datos/`, con su camino (A nativo, B streaming). Sin red: el fichero
@@ -95,7 +98,9 @@ lineas y una tabla:
       del camino A, por la antena, a ESTRATOS, con su suma. Pide TCP en el
       metal (G5). **Como se sabe:** DOOM II arranca con el `doom2.wad` que
       trajo la antena.
-- [ ] **J4 -- el camino B.** Un juego de Windows lanzado en el PC y visto en
+- [-] **J4 -- el camino B. DESCARTADO el 01-10 por el propietario:** *"no
+      quiero streaming, que mi PC lo aplique, o OM"*. Un juego se juega en
+      BMO-X (nativo o PROTON-X) o queda PENDIENTE. Lo de antes: Un juego de Windows lanzado en el PC y visto en
       BMO-X: es S6 (ESPEJO) con un fotograma por `gpu video`.
 
 ## 3b. GOG por dentro, leido en `heroic-gogdl` (29-09)

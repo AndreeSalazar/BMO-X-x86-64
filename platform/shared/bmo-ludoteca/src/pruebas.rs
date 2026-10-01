@@ -31,6 +31,7 @@ fn la_lista_blanca_dice_por_que() {
         ("JUEGO Mayus gog T", Falla::Id),
         ("JUEGO aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa gog T", Falla::Id),
         ("JUEGO x origin T", Falla::Tienda),
+        ("JUEGO x GOG T", Falla::Tienda),
         ("JUEGO x gog  T", Falla::Titulo),
         ("FICHERO x 3 S /etc/passwd", Falla::Nombre),
         ("FICHERO x 3 S a/../b", Falla::Nombre),
@@ -74,7 +75,7 @@ fn cada_juego_tiene_su_camino() {
     assert_eq!(l.camino("doom2"), Some(Camino::Nativo(Motor::Doom)));
     assert_eq!(l.camino("quake"), Some(Camino::Nativo(Motor::Quake)));
     assert_eq!(l.camino("cyberpunk2077"), Some(Camino::ProtonX));
-    assert_eq!(l.camino("witcher3"), Some(Camino::Streaming));
+    assert_eq!(l.camino("witcher3"), Some(Camino::Pendiente));
     assert_eq!(l.camino("no-esta"), None);
 }
 
@@ -107,4 +108,16 @@ fn el_juez_de_la_suma() {
     let mut j = Juez::para(&f);
     assert!(!j.mete(b"abcd"), "pasarse del largo se dice en el trozo");
     assert_eq!(j.veredicto(), Veredicto::Largo);
+}
+
+#[test]
+fn las_tiendas_globales_van_y_vuelven() {
+    let mut n = 0;
+    for t in Tienda::todas() {
+        let l = format!("JUEGO x {} T", t.corto());
+        assert_eq!(leer(l.as_bytes()), Ok(Linea::Juego { id: "x", tienda: t, titulo: "T" }));
+        assert!(!t.nombre().is_empty());
+        n += 1;
+    }
+    assert_eq!(n, 12);
 }
