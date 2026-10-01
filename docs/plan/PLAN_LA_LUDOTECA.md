@@ -714,7 +714,25 @@ muro, y cada muro dejo su tanda:
 | Streamline lee la cabecera PE de dxgi por su HMODULE | HMODULE = imagen PE de verdad | tanda34 |
 | `IDXGIAdapter::GetDesc` (hueco 8) | GetDesc = GetDesc1 | tanda35 |
 | el aviso del juego salia en arabe | STRINGTABLE por idioma, por bloque | tanda36 |
-| *"corrupted or missing scripts file"* | GetFileAttributesEx y stat con la medida DEL FICHERO, no la del indice de NTFS | la proxima ejecucion (si no cuadran, lo avisa) |
+| *"corrupted or missing scripts file"* | GetFileAttributesEx y stat con la medida DEL FICHERO, no la del indice de NTFS | probado en el metal (13:59): NO era eso; las medidas cuadran |
+
+**El muro de AHORA (01-10, 13:59): las FECHAS de los ficheros.** El juego
+mira `final.redscripts` SOLO con GetFileAttributesExW (no lo abre: el DIARIO
+no tiene ni un CreateFile despues) y decide que esta roto. De lo que esa
+llamada devuelve, la medida y los atributos ya son los de Windows; las tres
+FECHAS van a 0 (el listado de BMO-X no las da), y un fichero de 1601 es lo
+que un motor que compara fechas de cache tomaria por roto. El paso: las
+fechas de NTFS hasta la casa. Estan gratis en la clave del indice de cada
+carpeta (`$FILE_NAME`: creado +0x08, escrito +0x10, leido +0x20), asi que no
+cuesta lecturas de disco, pero toca el NTFS del kernel y el ABI del listado
+(Ring 0: con el permiso de Cyberpunk). Despues: atributos ARCHIVE (0x20) en
+vez de NORMAL, que es lo que Windows da a un fichero que se copio.
+
+**Pendientes del escritorio (01-10):** el orden de capas UNICO (como
+Photoshop: la que eliges domina, sea app o ventana del sistema; hoy las apps
+van siempre encima); la salida de Ejecutar a todo el ANCHO (hoy 88 columnas
+fijas: pide volver a partir las lineas al cambiar de medida); y en la
+LUDOTECA, el registro de lo que ARRANCO (solo lo del juego, como CABINA).
 
 Lo que queda, en orden probable: el dispositivo D3D12 y su cadena de
 intercambio; los `.archive` de GiB sin copiarlos enteros (MapViewOfFile hoy
