@@ -334,6 +334,11 @@ fn get_file_attributes_ex_dentro(nombre: *const u16, nivel: u32, datos: *mut u8)
     let mut b = [0u8; 36];
     b[0..4].copy_from_slice(&atributos(&e).to_le_bytes());
     poner_fechas(&e, &mut b, 4);
+    // ** El fichero que tumba a Cyberpunk, dicho en el registro (01-10): lo
+    // que se le contesto, para saber si es eso o lo de despues.
+    if r.ends_with(".redscripts") {
+        aviso(&alloc::format!("GetFileAttributesExW({r}): {medida} B, atributos {:#x}, escrito {} (FILETIME)", atributos(&e), e.fechas[1]));
+    }
     b[28..32].copy_from_slice(&((medida >> 32) as u32).to_le_bytes());
     b[32..36].copy_from_slice(&(medida as u32).to_le_bytes());
     // SAFETY: el `.exe` da un WIN32_FILE_ATTRIBUTE_DATA.
