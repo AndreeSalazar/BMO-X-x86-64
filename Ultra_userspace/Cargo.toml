@@ -15,6 +15,8 @@ members = [
     # El TALLER (F1): editor de nodos de TITAN++, con el comprobador
     # animado. PLAN_TALLER seccion 8, B1-B3.
     "apps/taller",
+    # La LUDOTECA (F4): tus juegos de todas las tiendas. PLAN_LA_LUDOTECA, J1.
+    "apps/ludoteca",
 ]
 resolver = "2"
 

@@ -1,0 +1,16 @@
+[package]
+name = "bmo-app-ludoteca"
+version = "0.1.0"
+edition = "2021"
+description = "LUDOTECA (F4): tus juegos de todas las tiendas, con el armazon de una comunidad y una animacion propia por tienda. J1 de PLAN_LA_LUDOTECA."
+
+[[bin]]
+name = "ludoteca"
+path = "src/main.rs"
+
+[dependencies]
+bmo-userland = { path = "../../userland" }
+# Las lineas JUEGO / FICHERO / MOTOR y el camino de cada juego (J0).
+bmo-ludoteca = { path = "../../../platform/shared/bmo-ludoteca" }
+# El mismo rasterizador que el kernel, el escritorio y el TALLER.
+bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
