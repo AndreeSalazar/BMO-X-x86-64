@@ -176,6 +176,9 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
         INDICE[i] = usize::MAX;
         NAME[i] = [b' '; 11];
         PERSONAL[i] = personal;
+        // Las fechas de la entrada de antes no son del nuevo: una ranura
+        // que dejo un proceso muerto no puede contarle nada al siguiente.
+        FECHAS[i] = [0; 4];
         NLEN[i] = 0;
         ESTRATOS[i] = estratos;
         FAT[i] = fat;
