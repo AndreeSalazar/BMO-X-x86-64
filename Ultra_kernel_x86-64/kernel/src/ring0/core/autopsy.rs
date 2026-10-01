@@ -154,10 +154,11 @@ pub struct Captura {
     marco: Option<u64>,
 }
 
-/// Cuantas palabras de pila se miran. Veinticuatro y no cuatro porque las
+/// Cuantas palabras de pila se miran. Treinta y dos (eran 24 hasta el 02-10:
+/// los marcos de un juego son mas grandes) y no cuatro porque las
 /// primeras suelen ser locales del marco que fallo, y el retorno --lo unico que
 /// nombra al llamante-- queda detras de ellas.
-const PILA_PALABRAS: usize = 24;
+const PILA_PALABRAS: usize = 32;
 /// Bytes de instruccion. La mas larga de x86-64 son 15.
 const CODIGO_BYTES: usize = 16;
 
@@ -199,7 +200,7 @@ impl Captura {
             }
         }
         // El `rip` cae en la imagen, no en la pila: guarda propia.
-        if rip >= crate::ring0::mm::vmm::USER_IMAGE_BASE && rip >> 47 == 0 {
+        if rip >= 0x1000 && rip >> 47 == 0 {
             for k in 0..CODIGO_BYTES {
                 match leer_byte_de_ring3(rip.wrapping_add(k as u64)) {
                     Some(b) => {
@@ -426,13 +427,16 @@ fn sonda_de_pila(rip: u64) -> Option<u64> {
     Some(paginas * 0x1000 + resto_del_marco(q))
 }
 
-/// Un byte de la imagen de un proceso, con la misma guarda que la pila: dentro
-/// del rango de usuario y canonica, o nada.
+/// Un byte del codigo de un proceso: de la mitad de usuario y canonico, o nada.
+///
+/// ** Antes, ademas, por debajo de `USER_STACK_BOTTOM` (02-10): el codigo de
+/// un `.bex` vive ahi. El de un `.exe` de PROTON-X no: Cyberpunk murio en
+/// `0x100024d8b3` y la autopsia salio sin un byte de la instruccion. La
+/// guarda que de verdad protege es la de `leer_de_ring3` (camina la tabla y
+/// lee por la fisica: una pagina que no esta da `None`), asi que el rango
+/// sobraba.
 fn leer_byte_de_ring3(dir: u64) -> Option<u8> {
-    if dir >> 47 != 0 || dir < crate::ring0::mm::vmm::USER_IMAGE_BASE {
-        return None;
-    }
-    if dir >= crate::ring0::mm::vmm::USER_STACK_BOTTOM {
+    if dir >> 47 != 0 || dir < 0x1000 {
         return None;
     }
     leer_de_ring3::<u8>(dir)
@@ -445,9 +449,11 @@ fn leer_byte_de_ring3(dir: u64) -> Option<u8> {
 /// el caso interesante-- leerlo sin comprobar produce un segundo fallo con el
 /// primero a medio informar, y entonces no hay informe.
 fn leer_palabra_de_ring3(dir: u64) -> Option<u64> {
-    // Canonica y alineada, y en el rango de una pila de Ring 3 (por debajo de
-    // `0x8000_0000`); fuera de ahi no se lee, aunque fuera canonica.
-    if dir >> 47 != 0 || dir & 7 != 0 || dir < 0x1000 || dir >= 0x8000_0000 {
+    // Canonica y alineada. Hasta el 02-10 tambien por debajo de `0x8000_0000`
+    // (las pilas de un `.bex`); la de un `.exe` de PROTON-X esta en
+    // `0x20_0400_0000` y salia "0 palabras". `leer_de_ring3` ya no deja leer
+    // lo que no esta mapeado.
+    if dir >> 47 != 0 || dir & 7 != 0 || dir < 0x1000 {
         return None;
     }
     leer_de_ring3::<u64>(dir)
@@ -1195,6 +1201,24 @@ pub fn registrar(
         renglones[10].s("SIN retornos en ");
         renglones[10].dec(leidas as u64);
         renglones[10].s(" palabras");
+        // ** Y LAS QUE APUNTAN LEJOS DE LA PILA, crudas (02-10). El codigo de
+        // un `.exe` de PROTON-X no es "la imagen" del proceso, asi que
+        // `es_codigo` no lo ve; pero sus retornos son palabras de la pila que
+        // apuntan fuera de ella (a mas de 16 MiB del `rsp`). Sin mirar si
+        // estan mapeadas: aqui el CR3 ya puede no ser el del proceso.
+        // Con el `mapa:` que PROTON-X escribe al cargar, cada una es un
+        // `modulo+desplazamiento`.
+        let mut crudas = 0usize;
+        for v in cap.pila.iter().map_while(|e| *e) {
+            if crudas == 3 {
+                break;
+            }
+            if v >> 47 == 0 && v >= 0x1_0000 && v.abs_diff(rsp) > 16 << 20 {
+                renglones[10].s(if crudas == 0 { ": " } else { " " });
+                renglones[10].hex(v);
+                crudas += 1;
+            }
+        }
     }
     if nocanon > 0 {
         renglones[10].s("  [");
