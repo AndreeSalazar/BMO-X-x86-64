@@ -354,6 +354,13 @@ fn tanda35_exe_getdesc_del_adaptador() {
     tanda(TANDA35, None, 8, "tanda35.exe: IDXGIAdapter::GetDesc, lo mismo que GetDesc1");
 }
 
+/// **La tanda 36** (01-10): `tanda36.exe` -- el aviso de Cyberpunk salio en
+/// arabe: el STRINGTABLE se elige por idioma (el ingles), no el primero.
+#[test]
+fn tanda36_exe_el_idioma_de_un_recurso() {
+    tanda(TANDA36, None, 6, "tanda36.exe: LoadStringW elige el ingles, no el primer idioma");
+}
+
 /// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
 /// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
 /// asi el camino que en BMO-X lleva los ficheros grandes.

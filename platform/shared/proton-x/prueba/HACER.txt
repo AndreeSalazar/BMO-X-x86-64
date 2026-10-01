@@ -1362,3 +1362,27 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    9c019a1c01d5050cf1adadf5169ec5a9f1550352e81c2e0f9ba32ba0c3131c55
 
 Dice `bien` ocho veces y sale con 0. En Windows dice lo mismo.
+
+tanda36.exe -- la TANDA 36 (01-10): el idioma de un recurso
+
+Por Cyberpunk: tras redgalaxy y los .archive, el juego saco un MessageBox y
+salio con 1; el aviso salio en arabe ("?????" en el registro), porque la
+casa tomaba el PRIMER idioma del STRINGTABLE y el arabe (0x401) va antes
+que el ingles (0x409). Windows elige por idioma: el del usuario, el ingles
+de EE. UU. y, si no hay ninguno, el que haya. Aqui (tanda36.rc): la cadena
+7 en arabe y en ingles sale la inglesa (copiada, con 0 de medida y sin
+instancia). Windows elige el BLOQUE de 16 cadenas: la 9 solo esta en el
+bloque arabe, y en el ingles esta vacia (0); la 20, de un bloque que solo
+esta en arabe, sale la arabe; la 8 no esta.
+
+   llvm-dlltool -m i386:x86-64 -d tanda36_kernel32.def -l tanda36_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda36_user32.def -l tanda36_user32.lib
+   llvm-rc /fo tanda36.res tanda36.rc
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda36.c -o tanda36.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda36.obj tanda36.res tanda36_kernel32.lib tanda36_user32.lib /out:tanda36.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   728df08ed40f7e0707f8342476a63723a49047c392018248e83aa8911ed0e943
+
+Dice `bien` seis veces y sale con 0. En Windows dice lo mismo.
