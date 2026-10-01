@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 54 planes
+# LO QUE FALTA -- las casillas abiertas de los 55 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   466 casillas ABIERTAS en 44 planes
+   471 casillas ABIERTAS en 45 planes
    359 hechas
      1 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -282,6 +282,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] emit_program son 357 lineas dentro de mod.rs, y hace TRES cosas:
 - [ ] emit_stmt son 175 lineas y un match de sentencias. Es hermano de
 - [ ] parser/preprocessor.rs son 1.204 lineas y es el otro monolito.
+- ... y 2 mas
+
+## [`PLAN_EL_ESPEJO.md`](PLAN_EL_ESPEJO.md) -- 5 abiertas, 0 hechas
+
+*PLAN EL ESPEJO -- lo que Windows le contesta a Cyberpunk, apuntado en Windows*
+
+- [ ] Paso 0 -- el lanzador y el primer registro
+- [ ] Paso 1 -- las DLL del juego y las que llegan tarde
+- [ ] Paso 2 -- las vigiladas, con sus datos
 - ... y 2 mas
 
 ## [`PLAN_EL_SEMAFORO_COMPLETO.md`](PLAN_EL_SEMAFORO_COMPLETO.md) -- 5 abiertas, 4 hechas
