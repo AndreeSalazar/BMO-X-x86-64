@@ -1296,3 +1296,26 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    07018046808e190097cca89079225ae67af3ca64610c5ef94fee22728e534bc4
 
 Dice `bien` diez veces y sale con 0. En Windows dice lo mismo.
+
+tanda33.exe -- la TANDA 33 (01-10): secur32 y la tabla SSPI de curl
+
+Por Cyberpunk: con la red local y las rutas de Boost, Galaxy llega a
+arrancar libcurl en un hilo suyo. Curl (Curl_sspi_global_init) pide la
+carpeta del sistema, carga "<sistema>\secur32.dll" por su ruta entera, pide
+InitSecurityInterfaceW y exige la tabla; la casa no tenia secur32, curl no
+arranco, Galaxy lanzo una excepcion que nadie atrapo y el juego aborto
+(STATUS_FATAL_APP_EXIT, exit 3). Aqui el mismo camino: GetSystemDirectoryW,
+LoadLibraryExW por la ruta, LoadLibraryW por el nombre (el mismo modulo),
+InitSecurityInterfaceW y A, version 1 o mas, las nueve entradas que usa el
+Schannel de curl no nulas, y un paquete que no existe contesta
+SEC_E_SECPKG_NOT_FOUND. Nada depende de que paquetes tenga la maquina.
+
+   llvm-dlltool -m i386:x86-64 -d tanda33_kernel32.def -l tanda33_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda33.c -o tanda33.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda33.obj tanda33_kernel32.lib /out:tanda33.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   50f85f4f002272c79d649faa714a5def06c5d73235176272f5789ce1633de49a
+
+Dice `bien` ocho veces y sale con 0. En Windows dice lo mismo.

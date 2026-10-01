@@ -32,7 +32,7 @@ use crate::{aviso, dir, kernel32};
 /// userenv, bcryptprimitives -- que pide por GetModuleHandle + GetProcAddress;
 /// y advapi32, desde la tanda 11; crypt32 y bcrypt, desde la 12; y las
 /// chicas del censo, desde la 14a, al final: los HANDLE de antes no cambian.)
-const DLL: [&str; 35] = [
+const DLL: [&str; 37] = [
     "kernel32.dll",
     "user32.dll",
     "gdi32.dll",
@@ -67,6 +67,9 @@ const DLL: [&str; 35] = [
     "setupapi.dll",
     "cfgmgr32.dll",
     "wldap32.dll",
+    // 01-10: la SSPI (libcurl de Galaxy la carga por su ruta del sistema).
+    "secur32.dll",
+    "sspicli.dll",
     // P0.4b.8: el anfitrion de los API set del CRT (`api-ms-win-crt-*`).
     "ucrtbase.dll",
 ];

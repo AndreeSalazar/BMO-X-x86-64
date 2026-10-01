@@ -99,6 +99,8 @@ pub mod red_puro;
 mod espia;
 /// Los sockets de 127.0.0.1 dentro del proceso (01-10).
 mod red_local;
+/// La SSPI sin paquetes: secur32 y sspicli (01-10).
+mod sspi;
 pub mod cripto;
 pub mod sistema;
 pub mod texto;
@@ -411,6 +413,8 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         red::buscar(n)
     } else if dll.eq_ignore_ascii_case("bcryptprimitives.dll") || dll.eq_ignore_ascii_case("userenv.dll") {
         sistema::buscar_otras(dll, n)
+    } else if dll.eq_ignore_ascii_case("secur32.dll") || dll.eq_ignore_ascii_case("sspicli.dll") {
+        sspi::buscar(n)
     } else if dll.eq_ignore_ascii_case("user32.dll") {
         user32::buscar(n).or_else(|| user32_medidas::buscar(n)).or_else(|| user32_ventanas::buscar(n)).or_else(|| user32_mensajes::buscar(n)).or_else(|| user32_entrada::buscar(n)).or_else(|| user32_portapapeles::buscar(n)).or_else(|| user32_dialogos::buscar(n))
     } else if dll.eq_ignore_ascii_case("crypt32.dll") {
