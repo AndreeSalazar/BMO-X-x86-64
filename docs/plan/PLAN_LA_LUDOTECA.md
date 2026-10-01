@@ -53,7 +53,8 @@ lineas y una tabla:
 
 ```text
    JUEGO <id> <tienda> <titulo>              uno por juego que tienes
-   FICHERO <id> <nombre> <bytes> <sha256>    lo que la antena puede traer
+   FICHERO <id> <bytes> <sha256> <nombre>    lo que la antena puede traer
+                                             (el nombre al final: lleva espacios)
    MOTOR <id> <motor>                        si hay motor nativo (camino A)
 ```
 
@@ -68,9 +69,15 @@ lineas y una tabla:
 
 ## 3. Los escalones
 
-- [ ] **J0 -- el formato, puro y con banco.** `platform/shared/bmo-ludoteca`:
-      las tres lineas, la tabla de motores y el juez de la suma. **Como se
-      sabe:** `cargo test -p bmo-ludoteca` en verde con lineas mutadas.
+- [x] **J0 -- el formato, puro y con banco.** HECHO el 01-10 (reabierto por
+      el propietario: *"vamos a completar eso... que comunique en internet
+      por completo"*). `platform/shared/bmo-ludoteca`: las tres lineas con su
+      lista blanca, la tabla de motores (el dato delata al motor: DOOM2.WAD,
+      id1/PAK0.PAK), el CAMINO de cada juego --NATIVO, PROTON-X si trae un
+      `.exe` (el camino que no existia cuando se escribio esto), o
+      STREAMING-- y el juez de la suma por trozos (SHA-256 de `bmo-cripto`).
+      **Como se sabe:** `cargo test -p bmo-ludoteca`: 6 pruebas y 40.000
+      lineas y ficheros mutados sin un panico; compila para el metal.
 - [ ] **J1 -- la Biblioteca los muestra.** La Biblioteca del escritorio
       (`scene/data/biblioteca.rs`) lista los juegos de un fichero de lineas
       en `datos/`, con su camino (A nativo, B streaming). Sin red: el fichero
@@ -169,7 +176,8 @@ en el arbol (no de memoria):
    MD5                      no                                    FALTA (los
                                                                   trozos de
                                                                   GOG)
-   HKDF                     no (sale de HMAC en pocas lineas)     FALTA
+   HKDF                     bmo-cripto (hmac.rs: extraer,         HAY (visto
+                            expandir)                             el 01-10)
    TLS 1.3, el apreton      no                                    FALTA
    X.509 / ASN.1 (DER)      no                                    FALTA
    RSA y ECDSA P-256        no (los certificados de los hosts     FALTA
@@ -188,7 +196,22 @@ como todo es Rust no_std y con banco, **el mismo TLS sirve despues a BMO-X
 entero**: es el muro de la criptografia del README, derribado por el lado
 de GOG.
 
-**EN PAUSA (29-09, el propietario): "no vayamos por alli todavia, prioriza
+**REABIERTO (01-10, el propietario): "vamos a completar eso... que
+comunique en internet por completo".** La escalera hasta internet, en orden
+(cada escalon con su banco; nada se salta):
+
+```text
+   J0   el formato y el juez                      HECHO 01-10
+   R1   TCP en el metal (G5 de PLAN_RED_TX)       en codigo; falta la foto
+   R2   DNS (G4)                                  en codigo; falta la foto
+   R3   MD5, JSON (leer), HTTP/1.1 (cliente)      chicos, puros, con banco
+   R4   X.509/DER, RSA y ECDSA P-256 (verificar)  el grueso
+   R5   TLS 1.3 cliente: AES-128-GCM + X25519     el MURO (G6)
+   R6   las raices de GOG, a mano y con su suma
+   J2   la lista de GOG, ya por internet          embed.gog.com/user/data/games
+```
+
+**(Antes de reabrirse) EN PAUSA (29-09, el propietario): "no vayamos por alli todavia, prioriza
 Cyberpunk 2077".** Queda escrito para cuando se retome: J0 (el formato y el
 crate), luego MD5/HKDF/HTTP/JSON, luego el TLS. Nada de esto se toca hasta
 que el propietario lo reabra.

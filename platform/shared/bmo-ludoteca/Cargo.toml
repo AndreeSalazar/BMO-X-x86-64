@@ -1,0 +1,14 @@
+[package]
+name = "bmo-ludoteca"
+version = "0.1.0"
+edition = "2021"
+description = "LUDOTECA J0: las lineas JUEGO / FICHERO / MOTOR, el camino de cada juego y el juez de la suma. Puro, probado en el anfitrion."
+license = "Apache-2.0"
+
+# Solo crates de la casa: independencia extrema (PLAN_LA_LUDOTECA, 3b).
+[dependencies]
+bmo-cripto = { path = "../bmo-cripto" }
+
+# Only for the hostile tests: nothing that runs on the machine links it.
+[dev-dependencies]
+bmo-hostile = { path = "../bmo-hostile" }

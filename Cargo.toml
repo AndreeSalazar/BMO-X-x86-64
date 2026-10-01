@@ -123,6 +123,9 @@ members = [
     # EL CLOUD LOCAL: el protocolo ANTENA/1 entre BMO-X y el movil que hace de
     # antena. Ver PLAN_CLOUD_LOCAL, S2.
     "platform/shared/bmo-antena",
+    # LA LUDOTECA (J0): las lineas JUEGO / FICHERO / MOTOR, el camino de cada
+    # juego y el juez de la suma. Ver PLAN_LA_LUDOTECA.
+    "platform/shared/bmo-ludoteca",
     # La RED POR USB de un movil: que es cada interfaz, y los mensajes RNDIS.
     # Ver PLAN_CLOUD_LOCAL, S3b.
     "platform/shared/bmo-usbred",
