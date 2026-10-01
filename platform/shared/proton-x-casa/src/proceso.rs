@@ -55,11 +55,21 @@ pub(crate) fn reiniciar() {
 /// **Quien es el `.exe`**: su ruta en el volumen (`window/juego.exe`) y lo que
 /// se escribio detras. Lo dice quien carga, antes de saltar.
 pub fn poner_exe(ruta: &str, resto: &str) {
+    poner_exe_con_perfil(ruta, resto, None);
+}
+
+/// [`poner_exe`], con el perfil de Windows (USERPROFILE, APPDATA, TEMP...)
+/// en `perfil` (ruta de Windows) si lo hay: el de un juego de D: en
+/// ESTRATOS (relevo 01-10, paso 3). Sin perfil, la carpeta del `.exe`.
+pub fn poner_exe_con_perfil(ruta: &str, resto: &str, perfil: Option<&str>) {
     let e = estado();
     let exe = proceso::ruta_windows(ruta);
     let linea = proceso::linea(&exe, resto);
     let dir = exe.rfind('\\').map_or("C:\\", |i| &exe[..i.max(3)]);
-    e.entorno = Entorno::de_bmo(dir);
+    e.entorno = match perfil {
+        Some(p) => Entorno::de_bmo_con_perfil(dir, p),
+        None => Entorno::de_bmo(dir),
+    };
     e.exe_w = exe.encode_utf16().chain([0]).collect();
     e.exe_a = exe.bytes().chain([0]).collect();
     e.linea_w = linea.encode_utf16().chain([0]).collect();

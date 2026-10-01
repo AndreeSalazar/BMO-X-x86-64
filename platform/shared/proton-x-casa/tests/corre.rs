@@ -89,6 +89,7 @@ const TANDA25: &[u8] = include_bytes!("../../proton-x/prueba/tanda25.exe");
 const TANDA26: &[u8] = include_bytes!("../../proton-x/prueba/tanda26.exe");
 const TANDA27: &[u8] = include_bytes!("../../proton-x/prueba/tanda27.exe");
 const TANDA28: &[u8] = include_bytes!("../../proton-x/prueba/tanda28.exe");
+const TANDA29: &[u8] = include_bytes!("../../proton-x/prueba/tanda29.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -223,7 +224,7 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_la_3060, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, reserva: Some(de_hoy::reserva_del_banco()) }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_la_3060, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: Some(CARPETAS_DEL_BANCO), reserva: Some(de_hoy::reserva_del_banco()) }
 }
 
 /// Codigo SELLADO, como `MEM_OP_SELLAR`: memoria nueva, los bytes, y de
@@ -260,6 +261,25 @@ fn volumen() -> std::path::PathBuf {
 fn leer_fichero(ruta: &[u8]) -> Option<Vec<u8>> {
     std::fs::read(volumen().join(std::str::from_utf8(ruta).ok()?)).ok()
 }
+
+/// Crear, quitar y renombrar en el volumen del banco (lo que en BMO-X hace
+/// ESTRATOS, relevo 01-10 paso 4b).
+const CARPETAS_DEL_BANCO: bmo_proton_x_casa::Carpetas = bmo_proton_x_casa::Carpetas {
+    crear: |r| std::str::from_utf8(r).is_ok_and(|r| std::fs::create_dir(volumen().join(r)).is_ok()),
+    quitar: |r| {
+        std::str::from_utf8(r).is_ok_and(|r| {
+            let p = volumen().join(r);
+            if p.is_dir() { std::fs::remove_dir(p).is_ok() } else { std::fs::remove_file(p).is_ok() }
+        })
+    },
+    renombrar: |r, nuevo| match (std::str::from_utf8(r), std::str::from_utf8(nuevo)) {
+        (Ok(r), Ok(n)) => {
+            let p = volumen().join(r);
+            p.parent().is_some_and(|d| std::fs::rename(&p, d.join(n)).is_ok())
+        }
+        _ => false,
+    },
+};
 
 fn escribir_fichero(ruta: &[u8], bytes: &[u8]) -> bool {
     let Ok(r) = std::str::from_utf8(ruta) else { return false };

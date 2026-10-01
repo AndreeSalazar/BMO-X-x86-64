@@ -295,3 +295,12 @@ fn tanda27_exe_los_parametros_del_proceso() {
 fn tanda28_exe_desenrollar_consolidando() {
     tanda(TANDA28, None, 6, "tanda28.exe: RtlUnwindEx CONSOLIDA como Windows (el catch de C++)");
 }
+
+/// **La tanda 29** (01-10): `tanda29.exe` -- CreateDirectoryW,
+/// RemoveDirectoryW, DeleteFileW y MoveFileExW de verdad (relevo de PROTON-X,
+/// paso 4b: el perfil de un juego en ESTRATOS). El banco lo hace con su
+/// volumen; BMO-X, con ESTRATOS.
+#[test]
+fn tanda29_exe_carpetas_que_se_crean_mueven_y_borran() {
+    tanda(TANDA29, None, 18, "tanda29.exe: carpetas y ficheros que se crean, se mueven y se borran como en Windows");
+}

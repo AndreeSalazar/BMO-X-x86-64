@@ -304,6 +304,9 @@ static mut START: [bmo_fat32::Cursor; MAX_ABIERTOS] =
 /// su registro del MFT; `u64::MAX` = no. Va por el REFLEJO (la ventana de
 /// [`WINDOW`]), y `reflejar` la llena desde el NTFS en vez de desde FAT32.
 static mut PERSONAL: [u64; MAX_ABIERTOS] = [u64::MAX; MAX_ABIERTOS];
+/// ** C1 (01-10): el fichero es de ESTRATOS: su `:datos`. Va por el REFLEJO,
+/// como uno de D:, y `reflejar` baja solo por las ramas del tramo pedido.
+static mut ESTRATOS: [Option<bmo_estratos::objects::Attr>; MAX_ABIERTOS] = [None; MAX_ABIERTOS];
 /// En que byte del archivo empieza lo que hay ahora en el buffer.
 static mut WINDOW_OFF: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 /// Cuantos bytes validos hay en la ventana. `0` = no hay nada leido.
@@ -442,6 +445,12 @@ unsafe fn reflejar(i: usize, offset: usize, dst: &mut [u8]) -> usize {
         BYTES_REFLEJADOS += n as u64;
         return n;
     }
+    if let Some(a) = &*core::ptr::addr_of!(ESTRATOS[i]) {
+        let k = (LARGO[i] - offset).min(dst.len());
+        let n = super::estratos::leer_rango(a, offset as u64, &mut dst[..k]);
+        BYTES_REFLEJADOS += n as u64;
+        return n;
+    }
     let cur = &mut *core::ptr::addr_of_mut!(CUR[i]);
     if offset < cur.base() {
         // Volver al principio. `fs::leer_rango` contestaria `0` y lo diria a
@@ -571,15 +580,22 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
     // ESTRATOS no es una cadena que se pueda pedir a trozos. Lo de "y hoy mide
     // como mucho 96 bytes" VENCIO el 19-08 y ya no se dice aqui: el limite es
     // la RAM contigua, y quien lo cuenta es `obj/estratos.rs`.
+    // ** C1 (01-10): YA NO ENTERO. Como uno de D:, por la ventana: un fichero
+    // de ESTRATOS de GiB cuesta lo mismo que uno de 16 bytes al abrir, y cada
+    // tramo baja solo por sus ramas del arbol (`reflejar`).
     if let Some((nodo, mide)) = super::estratos::buscar(ruta) {
         unsafe {
-            if !reserve(i, mide.max(1)) {
-                crate::ring0::cabina::warn("arch", "sin RAM para el fichero de ESTRATOS", mide as u64);
+            if !reserve(i, mide.clamp(1, WINDOW)) {
+                crate::ring0::cabina::warn("arch", "sin RAM para la ventana del fichero de ESTRATOS", mide as u64);
                 return Err(ERROR_ARCH_GRANDE);
             }
-            let leidos = super::estratos::leer(&nodo, buf(i));
-            REFLEJO[i] = false;
-            LARGO[i] = leidos;
+            REFLEJO[i] = true;
+            ESTRATOS[i] = nodo.attr(bmo_estratos::objects::ATTR_DATOS).copied();
+            REF_AL_ABRIR[i] = BYTES_REFLEJADOS;
+            RET_AL_ABRIR[i] = RETROCESOS;
+            WINDOW_OFF[i] = 0;
+            WINDOW_LEN[i] = 0;
+            LARGO[i] = if ESTRATOS[i].is_some() { mide } else { 0 };
             CURSOR[i] = 0;
             WRITES[i] = false;
             DESBORDO[i] = false;
@@ -587,7 +603,7 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
             OWNER[i] = pid;
             return match cap::grant(pid, cap::KIND_ARCHIVO, cap::RIGHT_READ, i as u64) {
                 Some(h) => {
-                    crate::ring0::cabina::bytes("arch", "archivo de ESTRATOS leido", leidos as u64);
+                    crate::ring0::cabina::bytes("arch", "fichero de ESTRATOS abierto para leer (por ventana)", mide as u64);
                     Ok(h)
                 }
                 None => {
@@ -962,6 +978,7 @@ fn release(i: usize) {
         // del archivo anterior leeria **otro fichero** sin que nada avise.
         REFLEJO[i] = false;
         PERSONAL[i] = u64::MAX;
+        ESTRATOS[i] = None;
         CUR[i] = bmo_fat32::Cursor::vacio();
         START[i] = bmo_fat32::Cursor::vacio();
         WINDOW_OFF[i] = 0;

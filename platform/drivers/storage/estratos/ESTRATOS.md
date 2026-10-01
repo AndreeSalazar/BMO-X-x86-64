@@ -491,6 +491,73 @@ esta hecho**.
    marcar lo alcanzable y soltar lo viejo    <- esto es el recolector
 ```
 
+### ** EL RECOLECTOR VUELVE A LA MESA (01-10) -- los juegos cambian la cuenta
+
+El propietario, el 01-10, con PROTON-X escribiendo el perfil de cada juego en
+ESTRATOS: *"no olvides el GC, el recolector para limpiar"*. Y tiene razon en que
+la cuenta del 19-08 ya no es la de ahora:
+
+```text
+   19-08   lo que se escribia eran GESTOS (notas, carpetas): 4-7 bloques cada uno
+           -> doce millones de gestos antes del ambar: siglos
+   01-10   lo que escribe un juego son DATOS: ajustes, partidas, logs y, sobre
+           todo, CACHES (sombreadores: cientos de MiB que se reescriben)
+           -> cada `guardar` de un fichero de N MiB deja N MiB de version vieja
+```
+
+Un juego que reescriba 500 MiB de cache por sesion se come ~180 GiB en doce meses:
+la mitad del volumen, en versiones que nadie va a pedir. El trabajo del
+recolector ya no lo crean los gestos sino los BYTES.
+
+El esquema no cambia: **B, COMPACTAR** (copiar lo vivo hacia adelante y bajar
+`log_head`), con la politica de la seccion 9 (los marcados para siempre; los
+automaticos se adelgazan hacia atras) y los avisos de CABINA. Lo que se decide
+el 01-10:
+
+1. **Va en serio, como tramo propio**, despues de que el perfil de los juegos
+   funcione en el metal (relevo de PROTON-X, pasos 4-6).
+2. **Primero en imagenes, nunca en F: a ciegas**: `estratos-fmt` hace una imagen
+   con miles de versiones; el recolector la compacta en el anfitrion y
+   `--verificar` comprueba cada suma de lo que se conserva, y que lo soltado no
+   lo alcanza nadie. Solo despues, en el metal, con `estratos limpiar` que LISTA
+   lo que va a soltar antes de hacerlo (seccion 9).
+3. **Mientras tanto, no generar basura de mas**: lo que es cache de verdad
+   (`proton-x/<juego>/cache`, los sombreadores) debe poder marcarse como "sin
+   historial" -- su version vieja no le interesa a nadie. Es un atributo, no un
+   cambio de formato, y quita casi toda la basura antes de que exista.
+
+### ** ESTRATOS COMPLETO -- el plan del 01-10 (el propietario: "dale")
+
+Con PROTON-X usando ESTRATOS para el perfil de los juegos, lo que falta para
+usarlo "por completo", en el orden que se decidio:
+
+- [x] **C1 -- LEER A TROZOS.** *Hecho en codigo 01-10:* `read::descender_desde` (salta sin leer las ramas enteras de antes; 2 pruebas: el mismo tramo que el fichero entero con 0, 1 y 2 niveles, y el ultimo trozo de 2 niveles cuesta 3 bloques), `walk::leer_rango` y el `Archivo` de ESTRATOS por la ventana como uno de D:. Falta el metal. Hoy un fichero se trae ENTERO y a marcos
+      fisicos CONTIGUOS (`obj/estratos.rs`): uno de cientos de MiB puede no
+      entrar con la RAM libre, y uno de GiB no entra nunca. Leer
+      `[desde, desde + n)` bajando solo por las ramas del arbol de
+      indireccion que tocan ese tramo. **Como se sabe:** prueba en el
+      anfitrion (un fichero de varios niveles leido a trozos raros, cada
+      trozo igual que el mismo tramo del fichero entero) y en el metal un
+      fichero mayor que la RAM contigua que hay.
+- [ ] **C2 -- ESCRIBIR A TROZOS y AGREGAR AL FINAL.** Hoy guardar es el fichero entero
+      en un bloque de memoria y una version nueva entera. Escribir por
+      tramos (y al final) reusando los bloques que no cambian: la version
+      nueva comparte con la vieja todo lo que no toco.
+- [ ] **C3 -- SIN HISTORIAL y EL RECOLECTOR.** Ver "EL RECOLECTOR VUELVE A
+      LA MESA", arriba.
+- [ ] **C4 -- COPIAR y MOVER CARPETAS ENTERAS** (E2 de la Ludoteca), de FAT32
+      y de D: a ESTRATOS, y una carpeta a otra.
+- [ ] **C5 -- FECHAS y ATRIBUTOS** de cada fichero, para Windows
+      (GetFileTime, solo lectura, oculto).
+- [ ] **C6 -- AGUANTE**: mas de 8 directorios abiertos, listar sin releer la
+      carpeta en cada entrada, mas de 256 entradas, un cursor por cliente.
+- [ ] **C7 -- VELOCIDAD**: una cache de bloques de ESTRATOS en el kernel,
+      como la de NTFS para D:.
+- [ ] **C8 -- HERRAMIENTAS**: cuanto ocupa cada juego, el historial de una
+      carpeta, `estratos limpiar` con su lista, `verificar` desde BMO-X.
+
+[!] El medida NO es lo que falta: F: tiene 414 GiB. Lo que limita son C1-C3.
+
 ### Lo que sigue fuera de todo esto
 
 TimeBack encima (paso 7) y NVMe debajo de la capa de bloques. Ninguno de los dos

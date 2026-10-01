@@ -72,9 +72,14 @@ impl Directorio {
         if st.ok() { Ok(Self { cap: st.value }) } else { Err(st.code) }
     }
 
-    /// La siguiente entrada, o `None` cuando se acaba.
+    /// La siguiente entrada, o `None` cuando se acaba. Solo las de nombre
+    /// 8.3 (FAT32): las de ESTRATOS, con nombre largo, se saltan -- quien las
+    /// quiera usa [`Directorio::siguiente_todo`].
     pub fn next(&self) -> Option<EntradaDir> {
-        let v = invoke(self.cap, DIR_OP_SIGUIENTE, 0, 0, 0).value;
+        let mut v = invoke(self.cap, DIR_OP_SIGUIENTE, 0, 0, 0).value;
+        while v >> 63 != 0 && v & DIR_NOMBRE_LARGO != 0 {
+            v = invoke(self.cap, DIR_OP_SIGUIENTE, 0, 0, 0).value;
+        }
         if v >> 63 == 0 {
             return None;
         }
@@ -95,6 +100,64 @@ impl Directorio {
             }
         }
         Some(EntradaDir { name, es_dir, bytes })
+    }
+
+    /// **La siguiente entrada, de FAT32 o de ESTRATOS** (01-10), con su
+    /// nombre legible en `nombre`: el 8.3 de FAT32 como `cobol.bex`, el de
+    /// ESTRATOS entero. `(bytes del nombre, carpeta, medida)`.
+    pub fn siguiente_todo(&self, nombre: &mut [u8]) -> Option<(usize, bool, u64)> {
+        self.siguiente_con_origen(nombre).map(|(k, c, b, _)| (k, c, b))
+    }
+
+    /// Como [`Directorio::siguiente_todo`], y ademas DE DONDE viene: `true`
+    /// si la entrada es de ESTRATOS (01-10, para la biblioteca).
+    pub fn siguiente_con_origen(&self, nombre: &mut [u8]) -> Option<(usize, bool, u64, bool)> {
+        let v = invoke(self.cap, DIR_OP_SIGUIENTE, 0, 0, 0).value;
+        if v >> 63 == 0 {
+            return None;
+        }
+        let carpeta = (v >> 62) & 1 != 0;
+        if v & DIR_NOMBRE_LARGO != 0 {
+            let k = self.nombre_entero(nombre);
+            return Some((k, carpeta, v & (DIR_NOMBRE_LARGO - 1), true));
+        }
+        let mut crudo = [b' '; 11];
+        let mut puesto = 0usize;
+        for desde in [0u64, 7] {
+            let w = invoke(self.cap, DIR_OP_NOMBRE, desde, 0, 0).value;
+            let b = w.to_le_bytes();
+            for k in 0..((w >> 56) as usize).min(7) {
+                if puesto < 11 {
+                    crudo[puesto] = b[k];
+                    puesto += 1;
+                }
+            }
+        }
+        let mut l = [0u8; 12];
+        let k = EntradaDir { name: crudo, es_dir: carpeta, bytes: v as u32 }.legible(&mut l);
+        let k = k.min(nombre.len());
+        nombre[..k].copy_from_slice(&l[..k]);
+        Some((k, carpeta, v as u32 as u64, false))
+    }
+
+    /// El nombre ENTERO de la entrada actual, de 7 en 7 hasta un trozo corto.
+    fn nombre_entero(&self, nombre: &mut [u8]) -> usize {
+        let mut puesto = 0usize;
+        loop {
+            let w = invoke(self.cap, DIR_OP_NOMBRE, puesto as u64, 0, 0).value;
+            let n = ((w >> 56) as usize).min(7);
+            let b = w.to_le_bytes();
+            for k in 0..n {
+                if puesto < nombre.len() {
+                    nombre[puesto] = b[k];
+                }
+                puesto += 1;
+            }
+            if n < 7 || puesto >= nombre.len() {
+                break;
+            }
+        }
+        puesto.min(nombre.len())
     }
 
     /// **La siguiente entrada con su nombre ENTERO** (UTF-8 en `nombre`):

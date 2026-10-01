@@ -859,8 +859,10 @@ pub extern "C" fn _start() -> ! {
     ));
     // P4d: su directorio actual es el suyo (`window` para `window/x.exe`).
     bmo_proton_x_casa::ficheros::poner_directorio(nombre.rsplit_once('/').map(|(d, _)| d).unwrap_or(""));
-    // P4e: su nombre (GetModuleFileNameW) y su linea de ordenes.
-    bmo_proton_x_casa::proceso::poner_exe(nombre, linea);
+    // P4e: su nombre (GetModuleFileNameW) y su linea de ordenes; y si es un
+    // juego de D:, su perfil de Windows en ESTRATOS (relevo 01-10, paso 3).
+    let perfil = perfil_en_estratos(nombre);
+    bmo_proton_x_casa::proceso::poner_exe_con_perfil(nombre, linea, perfil.as_ref().map(|p| p.windows.as_str()));
     // -- 6d. P4: el TLS del hilo principal y los callbacks con PROCESS_ATTACH,
     // antes de la entrada, como el cargador de Windows.
     if let Some(t) = &tls_del_exe {
@@ -939,6 +941,22 @@ pub extern "C" fn _start() -> ! {
     }
     let r = r as u32;
     fin_del_exe(r)
+}
+
+/// **El perfil de un juego de D: en ESTRATOS** (relevo 01-10, paso 3): sus
+/// carpetas (`proton-x/<juego>/perfil` y las de Windows debajo) creadas si no
+/// estan. `None` si el `.exe` no es de D: o si ESTRATOS no esta montado
+/// para escribir (entonces sigue con su carpeta, como antes, y lo dice).
+fn perfil_en_estratos(nombre: &str) -> Option<bmo_proton_x::proceso::Perfil> {
+    let p = bmo_proton_x::proceso::perfil_de(nombre)?;
+    if bmo::info(bmo::INFO_ES_MONTADO) == 0 || bmo::info(bmo::INFO_ES_ESCRIBIBLE) == 0 {
+        di(&format!("PROTON-X: sin ESTRATOS escribible: el perfil de {} se queda en su carpeta (D:, solo lectura)\n", p.juego));
+        return None;
+    }
+    // Crear una que ya esta devuelve 0 (y lo cuenta CABINA): se cuentan las nuevas.
+    let nuevas = p.carpetas().iter().filter(|c| bmo::estratos::crear_carpeta(c.as_bytes()) != 0).count();
+    di(&format!("PROTON-X: el perfil de {} en ESTRATOS: {} ({} carpeta(s) nueva(s)) = {}\n", p.juego, p.volumen, nuevas, p.windows));
+    Some(p)
 }
 
 /// Lo menos y lo mas que se le da al hilo principal del `.exe` (lo que pide

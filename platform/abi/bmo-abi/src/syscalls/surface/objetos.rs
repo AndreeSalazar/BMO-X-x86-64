@@ -205,6 +205,11 @@ pub const ES_TXT_HIST_NOMBRE: u64 = 3;
 /// se pide aparte con [`DIR_OP_NOMBRE`]. Es la misma decision que la consola:
 /// un contador honesto vale mas que un byte apretado.
 pub const DIR_OP_SIGUIENTE: u64 = 0x01;
+/// En la respuesta de [`DIR_OP_SIGUIENTE`]: la entrada es de ESTRATOS (01-10)
+/// y su nombre llega ENTERO en UTF-8 por [`DIR_OP_NOMBRE`]; la medida va en
+/// los 61 bits de abajo. Una carpeta que esta en FAT32 y en ESTRATOS da las
+/// de FAT32 y despues las de ESTRATOS.
+pub const DIR_NOMBRE_LARGO: u64 = 1 << 61;
 
 /// Los 11 bytes del nombre 8.3 de la entrada ACTUAL, de 7 en 7. `arg0` es el
 /// desplazamiento (0 o 7) y devuelve `(n << 56) | bytes_LE`.

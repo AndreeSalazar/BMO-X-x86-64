@@ -482,6 +482,51 @@ pub fn open(ruta: &str) -> Option<Nodo> {
     nodo(&ptr)
 }
 
+/// **La carpeta de `ruta`, por su puntero** (`""` = la raiz): lo que guarda
+/// el objeto `Directorio` para listarla despues (01-10). `None` si no esta o
+/// no es una carpeta.
+pub fn abrir_carpeta(ruta: &str) -> Option<BlockPtr> {
+    let (mut ptr, mut actual) = raiz()?;
+    for tramo in ruta.split(['/', '\\']).filter(|t| !t.is_empty()) {
+        if actual.tipo != Tipo::Directorio {
+            return None;
+        }
+        ptr = buscar_en(&actual, tramo)?;
+        actual = nodo(&ptr)?;
+    }
+    (actual.tipo == Tipo::Directorio).then_some(ptr)
+}
+
+/// Donde se lista una carpeta para el objeto `Directorio`: aparte de
+/// `DIR_BUF` (el de `open`) y del cursor del panel, que siguen vivos a la vez.
+const LISTA_MAX: usize = 256;
+static mut LISTA: [u8; LISTA_MAX * ENTRADA_LEN] = [0u8; LISTA_MAX * ENTRADA_LEN];
+
+/// **La entrada `k` de la carpeta `dir`**: su nombre en `nombre` (UTF-8) y
+/// `(bytes del nombre, es carpeta, medida)`. Relee la lista cada vez (sin
+/// `alloc` no hay donde guardarla por handle): una carpeta de n entradas
+/// cuesta n listados; las de un perfil de juego son de pocas. Pasadas las
+/// [`LISTA_MAX`] primeras, se corta (y CABINA lo dice).
+pub fn entrada_n(dir: &BlockPtr, k: usize, nombre: &mut [u8]) -> Option<(usize, bool, u64)> {
+    let d = nodo(dir)?;
+    // SAFETY: un solo hilo de kernel lista a la vez (syscall, IF=0).
+    let buf = unsafe { &mut *core::ptr::addr_of_mut!(LISTA) };
+    let (cuantas, cortada) = listar_en(&d, buf)?;
+    if k >= cuantas {
+        if cortada && k == cuantas {
+            crate::ring0::cabina::warn("estratos", "una carpeta listada por Directorio se corto (entradas)", LISTA_MAX as u64);
+        }
+        return None;
+    }
+    let e = Entrada::decode(&buf[k * ENTRADA_LEN..(k + 1) * ENTRADA_LEN]).ok()?;
+    let hijo = nodo(&e.nodo)?;
+    let n = e.nombre_str().as_bytes();
+    let largo = n.len().min(nombre.len());
+    nombre[..largo].copy_from_slice(&n[..largo]);
+    let medida = hijo.attr(bmo_estratos::objects::ATTR_DATOS).map_or(0, |a| a.size);
+    Some((largo, hijo.tipo == Tipo::Directorio, medida))
+}
+
 /// Lee el `:datos` de un nodo. Devuelve los bytes leidos.
 pub fn read(n: &Nodo, dst: &mut [u8]) -> Option<usize> {
     if n.tipo != Tipo::Archivo { return None; }

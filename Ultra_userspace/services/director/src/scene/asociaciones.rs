@@ -104,6 +104,8 @@ const TIPOS: &[Tipo] = &[
     Tipo { ext: b"txt", clase: Clase::Texto, abre: Abre::Visor },
     Tipo { ext: b"log", clase: Clase::Texto, abre: Abre::Visor },
     Tipo { ext: b"md", clase: Clase::Texto, abre: Abre::Visor },
+    // ** JSON desde el 01-10: los ajustes que dejan apps y juegos.
+    Tipo { ext: b"json", clase: Clase::Texto, abre: Abre::Visor },
     Tipo { ext: b"csv", clase: Clase::Texto, abre: Abre::Visor },
     Tipo { ext: b"ini", clase: Clase::Texto, abre: Abre::Visor },
     Tipo { ext: b"cfg", clase: Clase::Texto, abre: Abre::Visor },

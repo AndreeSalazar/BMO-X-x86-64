@@ -84,6 +84,92 @@ fn bajar(
     Ok(())
 }
 
+/// **Como [`descender`], pero empezando en el trozo de datos numero
+/// `desde`** (01-10, C1: leer a trozos). Los trozos son bloques de datos de
+/// [`BLOQUE`] bytes, llenos menos el ultimo (asi los parten el formateador y
+/// `flujo`), asi que un hijo que no es el ultimo cubre exactamente
+/// `PTRS_POR_BLOQUE^(niveles-1)` trozos: las ramas que quedan enteras antes
+/// de `desde` **se saltan sin leerlas**. Leer el final de un fichero de GiB
+/// cuesta un bloque por nivel, no el fichero.
+///
+/// Si un trozo entregado que no es el ultimo no mide [`BLOQUE`], el arbol no
+/// es de los que se saben saltar: `BadField`, no bytes en el sitio que no es.
+pub fn descender_desde(
+    src: &mut dyn Fuente,
+    raiz: &BlockPtr,
+    niveles: u8,
+    desde: u64,
+    scratch: &mut [[u8; BLOQUE]],
+    salida: &mut dyn FnMut(&[u8]) -> bool,
+) -> Result<(), FormatError> {
+    let mut seguir = true;
+    let mut saltar = desde;
+    let mut corto = false;
+    bajar_desde(src, raiz, niveles, scratch, salida, &mut seguir, &mut saltar, &mut corto)
+}
+
+/// Cuantos trozos de datos cubre un hijo lleno de un nodo de `niveles`.
+fn trozos_por_hijo(niveles: u8) -> u64 {
+    let mut n = 1u64;
+    for _ in 1..niveles {
+        n = n.saturating_mul(crate::objects::PTRS_POR_BLOQUE as u64);
+    }
+    n
+}
+
+#[allow(clippy::too_many_arguments)]
+fn bajar_desde(
+    src: &mut dyn Fuente,
+    p: &BlockPtr,
+    niveles: u8,
+    scratch: &mut [[u8; BLOQUE]],
+    salida: &mut dyn FnMut(&[u8]) -> bool,
+    seguir: &mut bool,
+    saltar: &mut u64,
+    corto: &mut bool,
+) -> Result<(), FormatError> {
+    if !*seguir { return Ok(()); }
+    let (mio, resto) = match scratch.split_first_mut() {
+        Some(v) => v,
+        None => return Err(FormatError::SinScratch),
+    };
+    if !src.bloque(p.lba, mio) { return Err(FormatError::Io); }
+    let ini = p.off as usize;
+    let fin = ini + p.len as usize;
+    if fin > BLOQUE { return Err(FormatError::BadField); }
+    let datos = &mio[ini..fin];
+    if !p.verifica(datos) { return Err(FormatError::BadChecksum); }
+
+    if niveles == 0 {
+        if *saltar > 0 {
+            *saltar -= 1;
+            return Ok(());
+        }
+        // Un trozo corto solo puede ser el ultimo: si llega otro despues, el
+        // arbol no tiene trozos llenos y los saltos de arriba mintieron.
+        if *corto { return Err(FormatError::BadField); }
+        if datos.len() != BLOQUE { *corto = true; }
+        if !salida(datos) { *seguir = false; }
+        return Ok(());
+    }
+
+    let cubre = trozos_por_hijo(niveles);
+    let total = datos.len() / PTR_LEN;
+    for i in 0..total {
+        let hijo = BlockPtr::decode(&datos[i * PTR_LEN..(i + 1) * PTR_LEN])?;
+        if hijo.es_nulo() { break; }
+        // Un hijo que no es el ultimo esta lleno: si cae entero antes de
+        // `desde`, se salta sin leerlo.
+        if i + 1 < total && *saltar >= cubre {
+            *saltar -= cubre;
+            continue;
+        }
+        bajar_desde(src, &hijo, niveles - 1, resto, salida, seguir, saltar, corto)?;
+        if !*seguir { break; }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,5 +296,47 @@ mod tests {
             descender(&mut m, &r, 3, &mut s, &mut |_| true),
             Err(FormatError::SinScratch)
         );
+    }
+
+    /// C1 (01-10): leer a trozos da lo mismo que leerlo entero, en cualquier
+    /// sitio, y con arboles de 0, 1 y 2 niveles.
+    #[test]
+    fn descender_desde_da_el_mismo_tramo_que_el_fichero_entero() {
+        for medida in [10usize, BLOQUE, BLOQUE * 3 + 17, BLOQUE * PTRS_POR_BLOQUE + 5, BLOQUE * (PTRS_POR_BLOQUE * 2 + 3) + 100] {
+            let datos: Vec<u8> = (0..medida).map(|i| (i * 31 % 251) as u8).collect();
+            let mut m = Memoria::nuevo();
+            let (raiz, niveles) = m.arbol(&datos);
+            assert_eq!(read(&mut m, raiz, niveles), datos);
+            let trozos = medida.div_ceil(BLOQUE) as u64;
+            for desde in [0, 1, trozos / 2, trozos.saturating_sub(1), PTRS_POR_BLOQUE as u64, PTRS_POR_BLOQUE as u64 + 1] {
+                if desde >= trozos { continue; }
+                let mut out = Vec::new();
+                let mut s = scratch();
+                descender_desde(&mut m, &raiz, niveles, desde, &mut s, &mut |t| { out.extend_from_slice(t); true }).unwrap();
+                assert_eq!(out, datos[desde as usize * BLOQUE..], "medida {medida}, desde el trozo {desde}");
+            }
+        }
+    }
+
+    /// Saltar no lee: pedir el ultimo trozo de un arbol de 2 niveles cuesta
+    /// un bloque por nivel, no todos.
+    #[test]
+    fn descender_desde_no_lee_las_ramas_que_salta() {
+        struct Contando<'a> { m: &'a mut Memoria, leidos: usize }
+        impl Fuente for Contando<'_> {
+            fn bloque(&mut self, lba: u64, dst: &mut [u8; BLOQUE]) -> bool { self.leidos += 1; self.m.bloque(lba, dst) }
+        }
+        let medida = BLOQUE * (PTRS_POR_BLOQUE * 2 + 3);
+        let datos = vec![7u8; medida];
+        let mut m = Memoria::nuevo();
+        let (raiz, niveles) = m.arbol(&datos);
+        assert_eq!(niveles, 2);
+        let ultimo = (medida / BLOQUE - 1) as u64;
+        let mut c = Contando { m: &mut m, leidos: 0 };
+        let mut s = scratch();
+        let mut n = 0;
+        descender_desde(&mut c, &raiz, niveles, ultimo, &mut s, &mut |t| { n += t.len(); true }).unwrap();
+        assert_eq!(n, BLOQUE);
+        assert_eq!(c.leidos, 3, "la raiz, un nodo del nivel 1 y el trozo: nada mas");
     }
 }
