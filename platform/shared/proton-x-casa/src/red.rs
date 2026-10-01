@@ -160,17 +160,20 @@ pub(crate) fn addrinfo_v4(tipo: i32, proto: i32, ip: [u8; 4], puerto: u16, d: &m
 }
 
 /// El corazon de `getaddrinfo` y `GetAddrInfoW`, con las cadenas ya leidas.
+///
+/// [!] Sin WSAStartup NO se toca `r`: la tanda 30 en Windows (01-10) dijo
+/// MAL al pedir NULL ahi. Con Winsock arrancado, si: NULL en cada fallo.
 fn resolver(nodo: Option<String>, servicio: Option<String>, h: *const i32, r: *mut u64) -> i32 {
-    if !r.is_null() {
-        // SAFETY: un ADDRINFO** del `.exe`.
-        unsafe { *r = 0 };
-    }
     let fallo = |e: u32| {
         kernel32::poner_error(e);
         e as i32
     };
     if !arrancado() {
         return fallo(WSANOTINITIALISED);
+    }
+    if !r.is_null() {
+        // SAFETY: un ADDRINFO** del `.exe`.
+        unsafe { *r = 0 };
     }
     let (_, familia, tipo, proto) = pistas(h);
     let puerto = match servicio.as_deref() {

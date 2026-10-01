@@ -311,5 +311,5 @@ fn tanda29_exe_carpetas_que_se_crean_mueven_y_borran() {
 /// WSACleanup que cuenta.
 #[test]
 fn tanda30_exe_winsock_arranca_sin_cable() {
-    tanda(TANDA30, None, 13, "tanda30.exe: Winsock arranca sin cable y contesta una IPv4 en numeros");
+    tanda(TANDA30, None, 14, "tanda30.exe: Winsock arranca sin cable y contesta una IPv4 en numeros");
 }

@@ -116,7 +116,8 @@ void inicio(void) {
 
     r = (struct Info *)1;
     e = getaddrinfo("127.0.0.1", "80", &pista, (void **)&r);
-    mira(e == WSANOTINITIALISED && r == 0, "getaddrinfo sin WSAStartup: WSANOTINITIALISED y NULL");
+    mira(e == WSANOTINITIALISED, "getaddrinfo sin WSAStartup: WSANOTINITIALISED");
+    mira(r == (struct Info *)1, "y sin WSAStartup NO toca el puntero (la primera ronda en Windows: no lo pone a NULL)");
     di("tanda30.exe: Winsock arranca sin cable y contesta una IPv4 en numeros\r\n");
     ExitProcess(fallos);
 }
