@@ -313,3 +313,12 @@ fn tanda29_exe_carpetas_que_se_crean_mueven_y_borran() {
 fn tanda30_exe_winsock_arranca_sin_cable() {
     tanda(TANDA30, None, 14, "tanda30.exe: Winsock arranca sin cable y contesta una IPv4 en numeros");
 }
+
+/// **La tanda 31** (01-10): `tanda31.exe` -- la red local sin cable: el par
+/// TCP de Galaxy en 127.0.0.1 (bind, getsockname, listen, connect, accept,
+/// send y recv de un byte), FIONREAD, recv no bloqueante, select, el cierre
+/// del otro, el puerto sin nadie y el UDP del logger con un datagrama local.
+#[test]
+fn tanda31_exe_la_red_local_sin_cable() {
+    tanda(TANDA31, None, 30, "tanda31.exe: la red local de Galaxy, sin cable, como en Windows");
+}

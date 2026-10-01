@@ -14,10 +14,10 @@
 //!    getaddrinfo         una IPv4 en numeros (127.0.0.1) SE CONTESTA, con
 //!                        su ADDRINFO en el monton; un nombre:
 //!                        WSAHOST_NOT_FOUND (11001), lo de Windows sin DNS
-//!    socket y demas      antes de WSAStartup, WSANOTINITIALISED (10093);
-//!                        despues, WSAENETDOWN (10050) y una nota en el
-//!                        diario con lo que se pidio: aqui falta la red de
-//!                        verdad (ni el bucle local 127.0.0.1, todavia)
+//!    los sockets         [`crate::red_local`]: TCP y UDP de verdad en
+//!                        127.0.0.1 dentro del proceso (el par de sockets
+//!                        de Galaxy); lo que va fuera, WSAENETUNREACH.
+//!                        Antes de WSAStartup, WSANOTINITIALISED (10093)
 //!    WSAGetLastError     el LastError del hilo (en Windows es el mismo)
 //!    GetHostNameW        "BMO-X" (lo unico que se sabe sin red)
 //!    lo puro (tanda 12)  en [`crate::red_puro`]: no cambia cuando haya red
@@ -45,11 +45,10 @@ const AF_INET: i32 = 2;
 /// Cuantas veces se arranco Winsock sin su WSACleanup (Windows cuenta igual).
 static ARRANCADO: AtomicU32 = AtomicU32::new(0);
 
-fn arrancado() -> bool {
+pub(crate) fn arrancado() -> bool {
     ARRANCADO.load(Ordering::Relaxed) > 0
 }
 const SOCKET_ERROR: i32 = -1;
-const INVALID_SOCKET: u64 = u64::MAX;
 
 // -- LA FRONTERA ------------------------------------------------------------------------
 //
@@ -117,22 +116,6 @@ extern "win64" fn no_int(_a: u64, _b: u64, _c: u64, _d: u64) -> i32 {
     SOCKET_ERROR
 }
 
-/// Las que devuelven un SOCKET: INVALID_SOCKET.
-extern "win64" fn no_socket(_a: u64, _b: u64, _c: u64, _d: u64) -> u64 {
-    sin_red();
-    INVALID_SOCKET
-}
-
-/// `socket`/`WSASocketW`: INVALID_SOCKET, y en el diario QUE se pidio --
-/// es lo que dira si hace falta el bucle local (127.0.0.1) o la red entera.
-extern "win64" fn socket(af: i32, tipo: i32, proto: i32) -> u64 {
-    let e = sin_red();
-    if e == WSAENETDOWN {
-        crate::diario::nota(&alloc::format!("red: socket({af}, {tipo}, {proto}) negado: la casa aun no tiene red (WSAENETDOWN)"));
-        kernel32::poner_error(e);
-    }
-    INVALID_SOCKET
-}
 
 /// Lo que pide `getaddrinfo` en sus pistas: `(flags, familia, tipo, protocolo)`.
 fn pistas(h: *const i32) -> (i32, i32, i32, i32) {
@@ -304,14 +287,14 @@ pub(crate) fn por_ordinal(o: u16) -> Option<u64> {
 }
 
 pub(crate) fn buscar(n: &str) -> Option<u64> {
+    if let Some(f) = crate::red_local::buscar(n) {
+        return Some(f);
+    }
     Some(match n {
         "WSAStartup" => dir!(wsa_startup),
         "WSACleanup" => dir!(wsa_cleanup),
         "WSAGetLastError" => dir!(wsa_get_last_error),
-        "WSASocketW" | "socket" => dir!(socket),
-        "accept" => dir!(no_socket),
-        "WSADuplicateSocketW" | "WSARecv" | "WSASend" | "bind" | "closesocket" | "connect" | "getpeername" | "getsockname" | "getsockopt" | "ioctlsocket" | "listen" | "recv" | "recvfrom" | "select" | "send" | "sendto"
-        | "setsockopt" | "shutdown" | "WSASendTo" | "WSARecvFrom" | "WSAIoctl" | "WSASendDisconnect" | "WSAAddressToStringW" | "WSAStringToAddressW" | "gethostname" => dir!(no_int),
+        "WSADuplicateSocketW" | "WSARecv" | "WSASend" | "WSASendTo" | "WSARecvFrom" | "WSAIoctl" | "WSASendDisconnect" | "WSAAddressToStringW" | "WSAStringToAddressW" | "gethostname" => dir!(no_int),
         "gethostbyname" | "gethostbyaddr" => dir!(no_puntero),
         "getnameinfo" | "GetNameInfoW" => dir!(getnameinfo),
         "getaddrinfo" => dir!(getaddrinfo),

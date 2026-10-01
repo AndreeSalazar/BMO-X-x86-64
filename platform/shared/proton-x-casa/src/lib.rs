@@ -95,6 +95,8 @@ pub mod proceso;
 pub mod red;
 pub mod rtti;
 pub mod red_puro;
+/// Los sockets de 127.0.0.1 dentro del proceso (01-10).
+mod red_local;
 pub mod cripto;
 pub mod sistema;
 pub mod texto;
