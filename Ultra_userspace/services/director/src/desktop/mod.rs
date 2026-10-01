@@ -69,6 +69,8 @@ pub(crate) mod fraps;
 pub(crate) mod transicion;
 // El borde vivo de las ventanas sin marco (01-10).
 pub(crate) mod marco;
+// Las solapas de Ejecutar (01-10).
+pub(crate) mod solapas;
 /// **LA CAJA COMO UN EXPLORADOR**: que hace cada boton al pulsarlo (25-09).
 pub(crate) mod caja;
 /// **EL ARRANQUE ORQUESTADO**: la CPU prepara, la 3060 toma el control (2026-09-25).

@@ -393,6 +393,22 @@ pub(crate) fn dispatch(
             app::caracter(dsk, c);
             continue;
         }
+        // ** LAS SOLAPAS (01-10): Ctrl+N una nueva, Ctrl+Tab la siguiente,
+        // Ctrl+Shift+W cierra la de delante. Solo con el teclado en Ejecutar.
+        if g.ctrl {
+            let cambio = match c {
+                0x0E => Some(crate::desktop::solapas::nueva(dsk)),
+                b'\t' => Some(crate::desktop::solapas::siguiente(dsk)),
+                0x17 if g.m & bmo::MOD_SHIFT != 0 => Some(crate::desktop::solapas::cerrar(dsk, crate::desktop::solapas::activa())),
+                _ => None,
+            };
+            if let Some(hecho) = cambio {
+                if hecho {
+                    crate::desktop::caja::repintar(dsk, p);
+                }
+                continue;
+            }
+        }
         if let Edit::Launch(target, n) = editor::on_key(dsk, p, c) {
             return Some((target, n));
         }
