@@ -911,17 +911,26 @@ pub extern "C" fn _start() -> ! {
     // `teb`, sin `movaps`, no se enteraron. El banco del anfitrion tampoco: su
     // trampolin ya alineaba. Una vez alineada la entrada, todo lo que el `.exe`
     // llama (la casa) y lo que la casa le devuelve (su WndProc) sale derecho.
+    //
+    // Y con SU pila (tanda 29, 01-10): la de BMO-X para cualquier programa son
+    // 64 KiB, y Windows le da al hilo principal la que pide el `.exe` en su
+    // cabecera (SizeOfStackReserve). Cyberpunk desbordo la de 64 KiB en el
+    // catch de C++ de Galaxy. El TEB dice la nueva (StackBase, StackLimit):
+    // el desenrollado de la casa lee la pila por ahi.
+    let tope = pila_del_exe(base);
     let r: u64;
     // SAFETY: la entrada cae en una seccion de codigo del bloque sellado
     // (comprobado arriba) y la imagen esta colocada y resuelta. `r12` es
-    // no volatil en Windows x64: el `.exe` lo devuelve como estaba.
+    // no volatil en Windows x64: el `.exe` lo devuelve como estaba. `tope`
+    // es el final de una pila nuestra, R+W, alineado a 64 KiB.
     unsafe {
         core::arch::asm!(
             "mov r12, rsp",
-            "and rsp, -16",
+            "mov rsp, {tope}",
             "sub rsp, 32",
             "call {entrada}",
             "mov rsp, r12",
+            tope = in(reg) tope,
             entrada = in(reg) entrada,
             out("r12") _,
             lateout("rax") r,
@@ -930,6 +939,38 @@ pub extern "C" fn _start() -> ! {
     }
     let r = r as u32;
     fin_del_exe(r)
+}
+
+/// Lo menos y lo mas que se le da al hilo principal del `.exe` (lo que pide
+/// su cabecera, entre estos dos): Windows reserva lo que pide y lo hace a
+/// medida; aqui se hace entero, asi que se pone techo.
+const PILA_EXE_MIN: u64 = 1 << 20;
+const PILA_EXE_MAX: u64 = 32 << 20;
+
+/// **La pila del hilo principal del `.exe`**: SizeOfStackReserve de su
+/// cabecera (entre [`PILA_EXE_MIN`] y [`PILA_EXE_MAX`]), pedida a la casa, y
+/// el TEB apuntando a ella. Devuelve el tope (StackBase).
+fn pila_del_exe(base: u64) -> u64 {
+    // SAFETY: la cabecera PE de la imagen colocada en `base` (mapeada).
+    let pide = unsafe {
+        let nt = base + ((base + 0x3C) as *const u32).read_unaligned() as u64;
+        ((nt + 0x18 + 0x48) as *const u64).read_unaligned()
+    };
+    let bytes = pide.clamp(PILA_EXE_MIN, PILA_EXE_MAX);
+    let Some(fondo) = bmo_proton_x_casa::memoria::pila_principal(bytes) else {
+        fin(&format!("no hay {} MiB para la pila del .exe", bytes >> 20));
+    };
+    let tope = fondo + bytes;
+    let teb: u64;
+    // SAFETY: leer gs:[0x30], el TEB que puso `poner_teb`.
+    unsafe { core::arch::asm!("mov {}, gs:[0x30]", out(reg) teb, options(nostack, preserves_flags)) };
+    // SAFETY: el TEB de este hilo, nuestro y R+W.
+    unsafe {
+        ((teb + teb::TEB_STACK_BASE as u64) as *mut u64).write(tope);
+        ((teb + teb::TEB_STACK_LIMIT as u64) as *mut u64).write(fondo);
+    }
+    di(&format!("PROTON-X: la pila del .exe: {} MiB (pide {} KiB) en {fondo:#x}..{tope:#x}\n", bytes >> 20, pide >> 10));
+    tope
 }
 
 /// La pila de Ring 3 de BMO-X. Espejo de `USER_STACK_TOP` y `USER_STACK_SIZE`
