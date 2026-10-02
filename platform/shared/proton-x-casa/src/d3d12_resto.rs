@@ -153,6 +153,7 @@ pub struct Computo {
 /// D3D12_COMPUTE_PIPELINE_STATE_DESC -- pRootSignature +0, CS +8 (puntero y
 /// medida), NodeMask +24, CachedPSO +32, Flags +48.
 extern "win64" fn create_compute_pipeline_state(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+    crate::pulso::contar(crate::pulso::Cosa::Pso, 0);
     if !pide(riid, com::PSO) {
         return E_NOINTERFACE;
     }

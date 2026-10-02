@@ -93,6 +93,54 @@ fn diario_exe_con_diario_apunta_cada_funcion_una_vez_y_en_orden() {
     assert!(anillo.len() > 10, "mas llamadas que funciones distintas: {texto}");
     assert!(anillo.last().unwrap().contains("ExitProcess <- "), "{texto}");
     assert!(anillo.iter().all(|l| l.contains("prueba.exe+0x")), "quien llamo: el .exe, con su RVA: {texto}");
+    // EL PULSO (02-10): al salir, tambien la foto -- el reloj, lo de D3D12 y
+    // los hilos (el principal, con su ultima llamada); y cada llamada del
+    // anillo dice su hilo.
+    let foto = &texto[texto.find("# EN VIVO").unwrap_or_else(|| panic!("sin foto: {texto}"))..];
+    assert!(foto.contains("ms desde la entrada del .exe") && foto.contains("# d3d12: 0 PSO"), "{foto}");
+    let hilo = foto.lines().find(|l| l.contains("[principal]")).unwrap_or_else(|| panic!("{foto}"));
+    assert!(hilo.contains("CORRIENDO; ultima: kernel32.dll ExitProcess <- prueba.exe+0x"), "{hilo}");
+    let id = hilo.trim_start_matches('#').split_whitespace().next().unwrap();
+    assert!(anillo.iter().all(|l| l.split_whitespace().next() == Some(id)), "cada llamada, del hilo {id}: {texto}");
+}
+
+/// **El pulso con el diario encendido** (02-10): `crt.exe` (mas de dos mil
+/// llamadas: el latido de cada 1024 corre dos veces dentro del trampolin) y
+/// `hilos.exe` (el planificador sin nadie listo) dicen LO MISMO que sin el
+/// diario, y la foto de la salida cuenta las llamadas y los hilos.
+#[test]
+fn el_pulso_no_se_nota_y_su_foto_dice_hilos_y_llamadas() {
+    struct Apagar;
+    impl Drop for Apagar {
+        fn drop(&mut self) {
+            bmo_proton_x_casa::diario::diario(None);
+            *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+        }
+    }
+    let uno = uno_a_la_vez();
+    let _apagar = Apagar;
+    let ruta = volumen().join("pulso.txt");
+    for (exe, nombre, bien, fin) in [(CRT, ("window/crt.exe", "-nivel 3"), 0, "crt.exe"), (HILOS, ("window/prueba.exe", ""), 19, "hilos.exe: los hilos son los de Windows")] {
+        let _ = std::fs::remove_file(&ruta);
+        bmo_proton_x_casa::diario::diario(Some(b"pulso.txt"));
+        *NOMBRE.lock().unwrap() = nombre;
+        let (salio, dicho, _) = correr_exe(&uno, exe, true, &[]);
+        let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+        assert!(!texto.contains("MAL") && salio == 0, "{texto}");
+        if bien > 0 {
+            assert_eq!(texto.matches("  bien  ").count(), bien, "{texto}");
+        }
+        assert!(texto.contains(fin), "{texto}");
+        let diario = std::fs::read_to_string(&ruta).unwrap();
+        let foto = &diario[diario.find("# EN VIVO").unwrap_or_else(|| panic!("sin foto: {diario}"))..];
+        let llamadas: u64 = foto.split("; ").nth(1).and_then(|x| x.split(' ').next()).and_then(|n| n.parse().ok()).unwrap_or_else(|| panic!("{foto}"));
+        let hilos = foto.lines().filter(|l| l.starts_with("#   ") && l.contains("; ultima: ")).count();
+        if exe == CRT {
+            assert!(llamadas > 2048, "{foto}");
+        } else {
+            assert!(hilos > 1, "hilos.exe crea hilos: {foto}");
+        }
+    }
 }
 
 /// **La tanda 14a de Cyberpunk** (30-09): `tanda14.exe` -- las DLL chicas

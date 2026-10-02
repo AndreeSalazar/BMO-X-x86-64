@@ -368,8 +368,11 @@ pub(crate) extern "win64" fn create_graphics_pipeline_state(_this: u64, desc: *c
     if desc.is_null() {
         return E_INVALIDARG;
     }
+    let empezo = (plataforma().ahora_ns)();
     // SAFETY: un D3D12_GRAPHICS_PIPELINE_STATE_DESC del `.exe`.
-    match unsafe { pso_de(desc) } {
+    let r = unsafe { pso_de(desc) };
+    crate::pulso::contar(crate::pulso::Cosa::Pso, (plataforma().ahora_ns)().saturating_sub(empezo));
+    match r {
         Ok(pso) => {
             let vt = vtabla::<{ com::PSO }>(&[(8, dir!(crate::d3d12_resto::get_cached_blob))]);
             let obj = nuevo(com::PSO, vt, pso) as u64;

@@ -303,6 +303,7 @@ pub(crate) fn recurso_forma(forma: Forma, cadena: bool, banderas: u32) -> Option
         _ => Pixeles::sobre(datos, forma.ancho as usize * forma.alto as usize),
     };
     let tex = Some(Tex { forma, subs, datos, almacen, banderas });
+    crate::pulso::contar(crate::pulso::Cosa::Recurso, 0);
     let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: forma.ancho, alto: forma.alto, formato: forma.formato, pixeles, bufer: None, cadena, en_pantalla: false, tipo_monton: 1, tex }) as u64;
     // Uno nuevo en la direccion de uno que se fue no hereda su limpieza.
     tuberia::olvidar_limpieza(r);
@@ -311,6 +312,7 @@ pub(crate) fn recurso_forma(forma: Forma, cadena: bool, banderas: u32) -> Option
 
 /// Un recurso que es un bufer (CreateCommittedResource).
 pub(crate) fn recurso_bufer(b: Bufer) -> u64 {
+    crate::pulso::contar(crate::pulso::Cosa::Recurso, 0);
     nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Pixeles::ninguno(), bufer: Some(b), cadena: false, en_pantalla: false, tipo_monton: 1, tex: None }) as u64
 }
 
@@ -926,6 +928,7 @@ extern "win64" fn execute_command_lists(_this: u64, n: u32, listas: *const u64) 
 }
 
 fn ejecutar_listas(n: u32, listas: *const u64) {
+    crate::pulso::contar(crate::pulso::Cosa::Lista, 0);
     for i in 0..n as usize {
         // SAFETY: `n` punteros a listas de la casa.
         let l = unsafe { de::<Lista>(listas.add(i).read()) };

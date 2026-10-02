@@ -55,6 +55,10 @@ static mut PROTON_X_DIARIO_CUENTA: u32 = 0;
 static mut PROTON_X_DIARIO_ANILLO: [u16; ANILLO] = [0; ANILLO];
 #[no_mangle]
 static mut PROTON_X_DIARIO_VUELTAS: [u64; ANILLO] = [0; ANILLO];
+/// El hilo (su id de Windows, `gs:[0x48]`) de cada llamada del anillo
+/// (el pulso, 02-10).
+#[no_mangle]
+static mut PROTON_X_DIARIO_HILOS: [u32; ANILLO] = [0; ANILLO];
 
 /// Lo que el trampolin lee: si ya se vio, y a donde saltar. Estaticos con
 /// nombre para que el asm los alcance por `sym`.
@@ -81,9 +85,46 @@ core::arch::global_asm!(
     "movl {cuenta}(%rip), %eax",
     "incl %eax",
     "movl %eax, {cuenta}(%rip)",
+    // El pulso (02-10): cada 1024 llamadas, el latido mira el reloj. Se
+    // guardan los argumentos como para `primera` (abajo).
+    "testl $1023, %eax",
+    "jnz 3f",
+    "pushq %rcx",
+    "pushq %rdx",
+    "pushq %r8",
+    "pushq %r9",
+    "pushq %r11",
+    "subq $0x80, %rsp",
+    "movdqu %xmm0, 0x20(%rsp)",
+    "movdqu %xmm1, 0x30(%rsp)",
+    "movdqu %xmm2, 0x40(%rsp)",
+    "movdqu %xmm3, 0x50(%rsp)",
+    "movdqu %xmm4, 0x60(%rsp)",
+    "movdqu %xmm5, 0x70(%rsp)",
+    "callq {latido}",
+    "movdqu 0x20(%rsp), %xmm0",
+    "movdqu 0x30(%rsp), %xmm1",
+    "movdqu 0x40(%rsp), %xmm2",
+    "movdqu 0x50(%rsp), %xmm3",
+    "movdqu 0x60(%rsp), %xmm4",
+    "movdqu 0x70(%rsp), %xmm5",
+    "addq $0x80, %rsp",
+    "popq %r11",
+    "popq %r9",
+    "popq %r8",
+    "popq %rdx",
+    "popq %rcx",
+    "movl {cuenta}(%rip), %eax",
+    "3:",
     "andl $255, %eax",
     "leaq {anillo}(%rip), %r10",
     "movw %r11w, (%r10,%rax,2)",
+    "leaq {hilos}(%rip), %r10",
+    "leaq (%r10,%rax,4), %r10",
+    "pushq %rax",
+    "movl %gs:0x48, %eax",
+    "movl %eax, (%r10)",
+    "popq %rax",
     "leaq {vueltas}(%rip), %r10",
     "leaq (%r10,%rax,8), %r10",
     "movq (%rsp), %rax",
@@ -125,6 +166,8 @@ core::arch::global_asm!(
     cuenta = sym PROTON_X_DIARIO_CUENTA,
     anillo = sym PROTON_X_DIARIO_ANILLO,
     vueltas = sym PROTON_X_DIARIO_VUELTAS,
+    hilos = sym PROTON_X_DIARIO_HILOS,
+    latido = sym crate::pulso::latido,
     vistos = sym PROTON_X_DIARIO_VISTOS,
     destinos = sym PROTON_X_DIARIO_DESTINOS,
     primera = sym primera,
@@ -242,21 +285,60 @@ extern "win64" fn primera(i: u32) {
 pub fn al_salir(codigo: u32) {
     let e = estado();
     let Some(r) = e.ruta.clone() else { return };
-    // SAFETY: una tarea; el `.exe` ya no corre (esta saliendo).
-    let (cuenta, anillo, vueltas) = unsafe { (*core::ptr::addr_of!(PROTON_X_DIARIO_CUENTA), *core::ptr::addr_of!(PROTON_X_DIARIO_ANILLO), *core::ptr::addr_of!(PROTON_X_DIARIO_VUELTAS)) };
-    let n = (cuenta as usize).min(ANILLO);
-    let mut t = alloc::format!("# las ultimas {n} llamadas (de {cuenta}) antes de salir con {codigo:#x}; la ultima, abajo\n# dll funcion <- quien la llamo\n");
-    for k in 0..n {
-        let j = (cuenta as usize + 1 + ANILLO - n + k) % ANILLO;
-        let (dll, f) = e.puestos.get(anillo[j] as usize).map_or(("?", "?"), |p| (p.0.as_str(), p.1.as_str()));
-        let quien = match crate::kernel32_procesos::imagen_con(vueltas[j]).and_then(|_| crate::modulos::nombre_de(vueltas[j])) {
-            Some((m, rva)) => alloc::format!("{m}+{rva:#x}"),
-            None => alloc::format!("{:#x}", vueltas[j]),
-        };
-        t.push_str(&alloc::format!("  {dll} {f} <- {quien}\n"));
-    }
+    let mut t = alloc::format!("# saliendo con {codigo:#x}\n");
+    t.push_str(&crate::pulso::texto((plataforma().ahora_ns)()));
+    t.push_str(&ultimas(ANILLO));
     e.texto.extend_from_slice(t.as_bytes());
     let _ = (plataforma().escribir_fichero)(&r, &e.texto);
+}
+
+/// Cuantas llamadas del `.exe` van (las que pasaron por un trampolin).
+pub(crate) fn llamadas() -> u32 {
+    // SAFETY: una tarea; un u32 que solo escribe el trampolin.
+    unsafe { *core::ptr::addr_of!(PROTON_X_DIARIO_CUENTA) }
+}
+
+/// `dll funcion`, de un trampolin.
+fn nombre(i: u16) -> String {
+    estado().puestos.get(i as usize).map_or(String::from("? ?"), |p| alloc::format!("{} {}", p.0, p.1))
+}
+
+/// **Las ultimas `n` llamadas del anillo** (como mucho [`ANILLO`]), de la
+/// mas vieja a la mas nueva: hilo, funcion y quien la llamo.
+pub(crate) fn ultimas(n: usize) -> String {
+    // SAFETY: una tarea; el `.exe` no llama a nada mientras se lee.
+    let (cuenta, anillo, vueltas, hilos) = unsafe {
+        (*core::ptr::addr_of!(PROTON_X_DIARIO_CUENTA), *core::ptr::addr_of!(PROTON_X_DIARIO_ANILLO), *core::ptr::addr_of!(PROTON_X_DIARIO_VUELTAS), *core::ptr::addr_of!(PROTON_X_DIARIO_HILOS))
+    };
+    let n = n.min(ANILLO).min(cuenta as usize);
+    let mut t = alloc::format!("# las ultimas {n} llamadas (de {cuenta}); la ultima, abajo\n# hilo dll funcion <- quien la llamo\n");
+    for k in 0..n {
+        let j = (cuenta as usize + 1 + ANILLO - n + k) % ANILLO;
+        t.push_str(&alloc::format!("  {:>5} {} <- {}\n", hilos[j], nombre(anillo[j]), crate::pulso::donde(vueltas[j])));
+    }
+    t
+}
+
+/// La ultima llamada del hilo `id` que queda en el anillo, y quien la hizo.
+pub(crate) fn ultima_de(id: u32) -> Option<String> {
+    // SAFETY: como en `ultimas`.
+    let (cuenta, anillo, vueltas, hilos) = unsafe {
+        (*core::ptr::addr_of!(PROTON_X_DIARIO_CUENTA), *core::ptr::addr_of!(PROTON_X_DIARIO_ANILLO), *core::ptr::addr_of!(PROTON_X_DIARIO_VUELTAS), *core::ptr::addr_of!(PROTON_X_DIARIO_HILOS))
+    };
+    let n = (cuenta as usize).min(ANILLO);
+    (0..n).map(|k| (cuenta as usize + ANILLO - k) % ANILLO).find(|&j| hilos[j] == id).map(|j| alloc::format!("{} <- {}", nombre(anillo[j]), crate::pulso::donde(vueltas[j])))
+}
+
+/// **El diario y, detras, `extra`** (la foto del pulso), al fichero: la foto
+/// no se queda en el texto, la siguiente la reemplaza.
+pub(crate) fn escribir_con(extra: &str) {
+    let e = estado();
+    let Some(r) = &e.ruta else { return };
+    let mut v = e.texto.clone();
+    v.extend_from_slice(extra.as_bytes());
+    if !(plataforma().escribir_fichero)(r, &v) {
+        aviso("diario: no se pudo escribir la foto del pulso");
+    }
 }
 
 /// Cuantas notas de investigacion (rutas que no estan, carpetas que se dan)

@@ -154,6 +154,7 @@ extern "win64" fn get_buffer(this: u64, i: u32, riid: *const Guid, pp: *mut u64)
 /// `Present(this, intervalo, banderas)`: el back buffer actual a la ventana.
 /// Lo que no cabe se recorta; lo que sobra de la ventana no se toca.
 pub(crate) extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32) -> i32 {
+    crate::pulso::contar(crate::pulso::Cosa::Present, 0);
     let empezo = (plataforma().ahora_ns)();
     // SAFETY: `this` es una Cadena de la casa.
     let c = unsafe { de::<Cadena>(this) };

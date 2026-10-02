@@ -249,7 +249,12 @@ fn bloquear() {
                 cambiar_a(h);
                 return;
             }
-            Turno::Esperar(_) => (plataforma().dormir)(),
+            Turno::Esperar(_) => {
+                // El pulso (02-10): todos esperan; si el `.exe` se queda
+                // aqui, la foto dice a que.
+                crate::pulso::latido();
+                (plataforma().dormir)()
+            }
             Turno::Bloqueo => {
                 aviso("todos los hilos esperan algo que solo otro que tambien espera podria dar: bloqueo mutuo");
                 (plataforma().salir)(BLOQUEO_MUTUO);
@@ -731,6 +736,56 @@ pub(crate) fn ids_vivos() -> Vec<u32> {
             continue;
         };
         v.push(id);
+    }
+    v
+}
+
+/// El id del hilo principal (su TEB no es de la casa: lo pone el cargador),
+/// visto la ultima vez que el pulso corrio en el.
+static PRINCIPAL: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
+/// **Cada hilo, en una linea** (el pulso, 02-10): su id, su funcion de
+/// arranque, en que esta (a que espera, con el objeto y como esta) y su
+/// ultima llamada que queda en el anillo del diario.
+pub(crate) fn describir() -> Vec<alloc::string::String> {
+    use bmo_proton_x::hilos::Estado as E;
+    use core::sync::atomic::Ordering;
+    let yo = kernel32::get_current_thread_id();
+    let c = casa();
+    if c.plan.actual == 0 {
+        PRINCIPAL.store(yo, Ordering::Relaxed);
+    }
+    let t = ahora();
+    let ms = |hasta: u64| hasta.saturating_sub(t) / 1_000_000;
+    let mut v = Vec::new();
+    for (n, h) in c.hilos.iter().enumerate() {
+        let id = if n == c.plan.actual {
+            yo
+        } else if h.teb != 0 {
+            // SAFETY: el TEB de un hilo de la casa, vivo.
+            unsafe { ((h.teb + teb::TEB_THREAD_ID as u64) as *const u64).read() as u32 }
+        } else {
+            PRINCIPAL.load(Ordering::Relaxed)
+        };
+        let quien = if n == 0 { alloc::string::String::from("principal") } else { crate::pulso::donde(h.funcion) };
+        let objeto = |o: usize| alloc::format!("objeto {o} = {:?}", c.plan.objeto(o));
+        let que = match c.plan.estado(n) {
+            Some(E::Listo) if n == c.plan.actual => alloc::string::String::from("CORRIENDO"),
+            Some(E::Listo) => alloc::string::String::from("listo"),
+            Some(E::Espera { objetos, todos, plazo }) => {
+                let lista: Vec<_> = objetos.iter().map(|&o| objeto(o)).collect();
+                let plazo = plazo.map_or(alloc::string::String::from("sin plazo"), |p| alloc::format!("le quedan {} ms", ms(p)));
+                alloc::format!("ESPERA ({}, {plazo}) a {}", if *todos { "todos" } else { "cualquiera" }, lista.join(", "))
+            }
+            Some(E::Dormido { hasta }) => alloc::format!("Sleep, le quedan {} ms", ms(*hasta)),
+            Some(E::Suspendido(k)) => alloc::format!("suspendido ({k})"),
+            Some(E::Cerrojo { dir, exclusivo }) => alloc::format!("ESPERA un cerrojo en {dir:#x} ({}; lo tiene: {:?})", if *exclusivo { "exclusivo" } else { "compartido" }, c.plan.ver_cerrojo(*dir)),
+            Some(E::Condicion { dir, plazo }) => alloc::format!("ESPERA una condicion en {dir:#x} ({})", plazo.map_or(alloc::string::String::from("sin plazo"), |p| alloc::format!("le quedan {} ms", ms(p)))),
+            Some(E::Terminado(k)) => alloc::format!("terminado ({k:#x})"),
+            None => alloc::string::String::from("?"),
+        };
+        let ultima = crate::diario::ultima_de(id).unwrap_or_else(|| alloc::string::String::from("(ninguna en el anillo)"));
+        v.push(alloc::format!("{id:>5} [{quien}] {que}; ultima: {ultima}"));
     }
     v
 }

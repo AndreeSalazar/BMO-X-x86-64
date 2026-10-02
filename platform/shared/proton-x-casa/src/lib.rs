@@ -70,6 +70,8 @@ pub mod subrecursos;
 pub mod d3d12_texturas;
 /// 02-10: las vistas (SRV, RTV, DSV, UAV) de todas las dimensiones.
 pub mod d3d12_vistas;
+/// 02-10: la foto en vivo al final del diario (el pulso).
+pub mod pulso;
 pub mod d3d12_lista2;
 pub mod fallas;
 pub mod d3d12_resto;
@@ -323,6 +325,7 @@ pub unsafe fn empezar(p: Plataforma) {
         e.dichos.clear();
     });
     hilos::reiniciar();
+    pulso::reiniciar();
     tuberia::reiniciar();
     dxgi::reiniciar();
     nativo::reiniciar();
