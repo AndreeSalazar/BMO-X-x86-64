@@ -105,6 +105,8 @@ const TANDA37: &[u8] = include_bytes!("../../proton-x/prueba/tanda37.exe");
 const TANDA38: &[u8] = include_bytes!("../../proton-x/prueba/tanda38.exe");
 /// La TANDA 39 (02-10): VirtualQuery de toda direccion.
 const TANDA39: &[u8] = include_bytes!("../../proton-x/prueba/tanda39.exe");
+/// La TANDA 41 (02-10): cuantos procesadores, igual por todas partes.
+const TANDA41: &[u8] = include_bytes!("../../proton-x/prueba/tanda41.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).

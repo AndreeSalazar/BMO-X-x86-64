@@ -721,7 +721,8 @@ muro, y cada muro dejo su tanda:
 | fallo de pagina en Cyberpunk2077.exe+0x24d8b3, leyendo 0x19100300ec68 (justo tras su primer VirtualQuery) | la autopsia no veia ni los bytes ni la pila de un `.exe` (guardas de `.bex`): ahora si (Ring 0) | en el metal (17:46): `mov eax, [rdi+0x18c0]` con `rdi` = 0x19100300d3a8, de nadie; el unico retorno, sl.interposer+0x608c8 |
 | de donde sale ese `rdi` | la autopsia guarda los 15 registros (el stub, antes de pisarlos) y los 16 bytes de antes del `rip` | en el metal (17:59): `mov eax, edx; imul rdi, rax, 0x1900; add rdi, [rcx+0x48]` con edx = -1: `tabla[-1]` |
 | el -1: VirtualQuery de una direccion que no es de VirtualAlloc daba 0 (y el aviso no salia: solo los 8 primeros) | VirtualQuery contesta TODA direccion: imagen (MEM_IMAGE), pila y monton (MEM_PRIVATE) | tanda39; en el metal (01-10 22:49): la caida SIGUE igual (mismo rip, edx = -1): NO era eso |
-| de donde sale el -1 | SYSPROTO dice cada VirtualQuery (las 12 primeras); y los bytes del juego antes de 0x24d8b3, que el propietario saca de SU copia en Windows (sin tocar nada) | la proxima ejecucion |
+| de donde sale el -1 | los bytes del juego (sacados de SU copia en Windows): `+0x24d9a9` llama a "vaciar la ultima cola" con `cuantas - 1`, y cuantas = 0 | visto en el codigo del juego |
+| cero colas: una por nucleo sin el principal, y la casa decia UN procesador (y el PEB, 0) | 6 nucleos y 12 logicos (la forma del Ryzen) en `bmo_proton_x::procesadores`, iguales en GetSystemInfo, afinidades, LPI(Ex), CPU sets, el PEB y el registro | tanda41 |
 
 **El muro de AHORA (01-10, 13:59): las FECHAS de los ficheros.** El juego
 mira `final.redscripts` SOLO con GetFileAttributesExW (no lo abre: el DIARIO

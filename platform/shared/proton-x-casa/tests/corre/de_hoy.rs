@@ -387,6 +387,14 @@ fn tanda39_exe_virtualquery_de_toda_direccion() {
     tanda(TANDA39, None, 8, "tanda39.exe: VirtualQuery de toda direccion");
 }
 
+/// **La tanda 41** (02-10): `tanda41.exe` -- Cyberpunk monta una cola por
+/// nucleo sin el principal y vacia la ultima con `cuantas - 1`; con UN
+/// procesador le salian cero y leia `tabla[-1]`.
+#[test]
+fn tanda41_exe_cuantos_procesadores() {
+    tanda(TANDA41, None, 10, "tanda41.exe: cuantos procesadores, igual por todas partes");
+}
+
 /// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
 /// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
 /// asi el camino que en BMO-X lleva los ficheros grandes.

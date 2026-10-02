@@ -768,16 +768,16 @@ extern "win64" fn virtual_protect(dir: u64, n: usize, prot: u32, antes: *mut u32
     }
 }
 
-/// `SYSTEM_INFO` de x64 (48 bytes). Un procesador: los hilos de la casa son
-/// M:1, y es lo que un programa debe creer para no esperar paralelismo.
+/// `SYSTEM_INFO` de x64 (48 bytes). Los procesadores de
+/// `bmo_proton_x::procesadores` (02-10: era uno, y Cyberpunk no lo aguanta).
 extern "win64" fn get_system_info(si: *mut u8) {
     let mut b = [0u8; 48];
     b[0..2].copy_from_slice(&9u16.to_le_bytes()); // PROCESSOR_ARCHITECTURE_AMD64
     b[4..8].copy_from_slice(&(PAGINA as u32).to_le_bytes());
     b[8..16].copy_from_slice(&0x1_0000u64.to_le_bytes());
     b[16..24].copy_from_slice(&0x7FFF_FFFE_FFFFu64.to_le_bytes());
-    b[24..32].copy_from_slice(&1u64.to_le_bytes());
-    b[32..36].copy_from_slice(&1u32.to_le_bytes());
+    b[24..32].copy_from_slice(&bmo_proton_x::procesadores::MASCARA.to_le_bytes());
+    b[32..36].copy_from_slice(&bmo_proton_x::procesadores::LOGICOS.to_le_bytes());
     b[36..40].copy_from_slice(&8664u32.to_le_bytes()); // PROCESSOR_AMD_X8664
     b[40..44].copy_from_slice(&(GRANO as u32).to_le_bytes());
     b[44..46].copy_from_slice(&0x19u16.to_le_bytes()); // familia 19h: Zen 3

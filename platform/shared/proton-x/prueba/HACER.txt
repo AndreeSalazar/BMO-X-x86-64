@@ -1451,3 +1451,27 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    090821b2ed0fd560aca18a88c44c9ef514fce30f1ed86f82648ce187228a65b4
 
 Dice `bien` ocho veces y sale con 0. En Windows dice lo mismo.
+
+tanda41.exe -- la TANDA 41 (02-10): cuantos procesadores, igual por todas partes
+
+Por Cyberpunk: monta una cola de trabajo por nucleo sin contar el principal
+y vacia "la ultima" con cuantas - 1 (Cyberpunk2077.exe+0x24d9a9); la casa
+decia UN procesador, le salian cero colas y leia tabla[-1] (+0x24d8b3, el
+fallo de pagina de 0x19100300ec68). Visto en los bytes del propio juego,
+que el propietario saco de su copia en Windows. Aqui, como en Windows:
+GetSystemInfo, su mascara, el PEB (NumberOfProcessors, +0xB8),
+GetProcessAffinityMask, los nucleos y el grupo de
+GetLogicalProcessorInformationEx, los nucleos de
+GetLogicalProcessorInformation y los CPU sets dicen el MISMO numero; los
+nucleos no se pisan y tienen SMT si tienen mas de un logico; las caches caen
+dentro de la mascara; y hay al menos dos. No depende de que CPU haya.
+
+   llvm-dlltool -m i386:x86-64 -d tanda41_kernel32.def -l tanda41_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda41.c -o tanda41.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda41.obj tanda41_kernel32.lib /out:tanda41.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   097f695c989259de600a349b1c57998c04d5a2f4fba6cb01382d5960f054bc4f
+
+Dice `bien` diez veces y sale con 0. En Windows dice lo mismo.

@@ -21,9 +21,11 @@
 //!
 //! La memoria que se dice: con la reserva (P0.4c), la del kernel (total y
 //! libre de ahora); sin ella, una cifra FIJA (16 GiB, la del Ryzen del
-//! propietario; 12 libres). Un procesador, como `GetSystemInfo`: los hilos de
-//! la casa se turnan en uno.
+//! propietario; 12 libres). Los procesadores, los de
+//! `bmo_proton_x::procesadores` (6 nucleos, 12 logicos: la forma del Ryzen),
+//! como `GetSystemInfo`; los hilos de la casa se siguen turnando en uno.
 
+use bmo_proton_x::procesadores::MASCARA;
 use crate::{dir, kernel32};
 
 const GIB: u64 = 1 << 30;
@@ -115,25 +117,27 @@ extern "win64" fn uno4(_a: u64, _b: u64, _c: u64, _d: u64) -> i32 {
 
 extern "win64" fn nada(_a: u64) {}
 
-/// `GetProcessAffinityMask(h, *proceso, *sistema)`: un procesador.
+/// `GetProcessAffinityMask(h, *proceso, *sistema)`: todos los de
+/// `bmo_proton_x::procesadores`.
 extern "win64" fn get_process_affinity_mask(_h: u64, proceso: *mut u64, sistema: *mut u64) -> i32 {
     for p in [proceso, sistema] {
         if !p.is_null() {
             // SAFETY: los DWORD_PTR del `.exe`.
-            unsafe { p.write_unaligned(1) };
+            unsafe { p.write_unaligned(MASCARA) };
         }
     }
     1
 }
 
-/// `SetThreadAffinityMask(h, mascara)`: la de antes (1); 0 si la nueva no
-/// deja el unico procesador.
+/// `SetThreadAffinityMask(h, mascara)`: la de antes (todos); 0 si la nueva
+/// no deja ninguno de los que hay. Se acepta y no cambia nada: los hilos de
+/// la casa se turnan en uno.
 extern "win64" fn set_thread_affinity_mask(_h: u64, mascara: u64) -> u64 {
-    if mascara & 1 == 0 {
+    if mascara & MASCARA == 0 {
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         0
     } else {
-        1
+        MASCARA
     }
 }
 
