@@ -65,7 +65,7 @@ struct Estado {
     noes: u32,
     /// Las pedidas grandes que SI se dieron (se dicen las `MAX_NOES` primeras).
     grandes: u32,
-    /// Las VirtualQuery fuera de VirtualAlloc (se dicen las `MAX_CONSULTAS`).
+    /// Las VirtualQuery (se dicen las `MAX_CONSULTAS` primeras).
     consultas: u32,
     /// Los montones de `HeapCreate` vivos (el del proceso no esta: siempre vive).
     creados: Vec<u16>,
@@ -578,8 +578,8 @@ const MEM_IMAGE: u32 = 0x100_0000;
 const PAGE_READWRITE: u32 = 0x04;
 const PAGE_EXECUTE_READ: u32 = 0x20;
 const PAGE_EXECUTE_WRITECOPY: u32 = 0x80;
-/// Las consultas fuera de VirtualAlloc que se dicen (con el diario).
-const MAX_CONSULTAS: u32 = 8;
+/// Las VirtualQuery que se dicen (con el diario), de donde sean.
+const MAX_CONSULTAS: u32 = 12;
 
 /// **`VirtualQuery(dir, mbi, n)`: TODA direccion tiene respuesta**, como en
 /// Windows (02-10).
@@ -592,11 +592,11 @@ const MAX_CONSULTAS: u32 = 8;
 ///                      hecha, READWRITE, una pagina
 /// ```
 ///
-/// Hasta hoy, fuera de VirtualAlloc devolvia 0 con un aviso, y los avisos
-/// solo se dicen los 8 primeros: en Cyberpunk ese 0 no se vio. El juego
-/// pregunta y, con un MEMORY_BASIC_INFORMATION sin rellenar, busca la region
-/// en su tabla, no la encuentra (-1) y lee `tabla[-1]`: el fallo de pagina en
-/// `Cyberpunk2077.exe+0x24d8b3` (`imul rdi, rax, 0x1900`).
+/// Hasta hoy, fuera de VirtualAlloc devolvia 0 con un aviso (y los avisos
+/// solo se dicen los 8 primeros). Se sospecho que ese 0 era el `tabla[-1]`
+/// de Cyberpunk (`Cyberpunk2077.exe+0x24d8b3`, `imul rdi, rax, 0x1900`); en
+/// el metal (01-10 22:49) la caida SIGUIO igual: no era eso. Lo de Windows se
+/// queda (tanda39), y las primeras consultas se dicen todas.
 extern "win64" fn virtual_query(dir: u64, mbi: *mut u8, n: usize) -> usize {
     if n < 48 {
         kernel32::poner_error(ERROR_BAD_LENGTH);
@@ -606,24 +606,25 @@ extern "win64" fn virtual_query(dir: u64, mbi: *mut u8, n: usize) -> usize {
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return 0;
     }
-    let c: Respuesta = match estado().regiones.consultar(dir) {
-        Some(c) => c.into(),
+    let (c, de_donde): (Respuesta, &str) = match estado().regiones.consultar(dir) {
+        Some(c) => (c.into(), "VirtualAlloc"),
         None => {
             let c = fuera_de_regiones(dir);
-            let e = estado();
-            e.consultas += 1;
-            if e.consultas <= MAX_CONSULTAS && crate::diario::encendido() {
-                crate::decir(&alloc::format!(
-                    "VirtualQuery({dir:#x}) fuera de VirtualAlloc: base {:#x}, region {:#x}, {:#x} B, {}",
-                    c.base,
-                    c.base_region,
-                    c.tam,
-                    if c.tipo == MEM_IMAGE { "imagen" } else { "privada" }
-                ));
-            }
-            c
+            let tipo = if c.tipo == MEM_IMAGE { "imagen" } else { "privada" };
+            (c, tipo)
         }
     };
+    // Las primeras se dicen TODAS, de donde sean (02-10: el juego sigue
+    // cayendo en `tabla[-1]` justo despues de su primera VirtualQuery, y
+    // no fue de las de fuera: hace falta ver QUE pregunta y QUE se contesta).
+    let e = estado();
+    e.consultas += 1;
+    if e.consultas <= MAX_CONSULTAS && crate::diario::encendido() {
+        crate::decir(&alloc::format!(
+            "VirtualQuery({dir:#x}) [{de_donde}]: base {:#x}, region {:#x} (prot {:#x}), {:#x} B, estado {:#x}, prot {:#x}",
+            c.base, c.base_region, c.prot_inicial, c.tam, c.estado, c.prot
+        ));
+    }
     // MEMORY_BASIC_INFORMATION de x64: 48 bytes.
     let mut b = [0u8; 48];
     b[0..8].copy_from_slice(&c.base.to_le_bytes());
@@ -767,16 +768,16 @@ extern "win64" fn virtual_protect(dir: u64, n: usize, prot: u32, antes: *mut u32
     }
 }
 
-/// `SYSTEM_INFO` de x64 (48 bytes). Un procesador: los hilos de la casa son
-/// M:1, y es lo que un programa debe creer para no esperar paralelismo.
+/// `SYSTEM_INFO` de x64 (48 bytes). Los procesadores de
+/// `bmo_proton_x::procesadores` (02-10: era uno, y Cyberpunk no lo aguanta).
 extern "win64" fn get_system_info(si: *mut u8) {
     let mut b = [0u8; 48];
     b[0..2].copy_from_slice(&9u16.to_le_bytes()); // PROCESSOR_ARCHITECTURE_AMD64
     b[4..8].copy_from_slice(&(PAGINA as u32).to_le_bytes());
     b[8..16].copy_from_slice(&0x1_0000u64.to_le_bytes());
     b[16..24].copy_from_slice(&0x7FFF_FFFE_FFFFu64.to_le_bytes());
-    b[24..32].copy_from_slice(&1u64.to_le_bytes());
-    b[32..36].copy_from_slice(&1u32.to_le_bytes());
+    b[24..32].copy_from_slice(&bmo_proton_x::procesadores::MASCARA.to_le_bytes());
+    b[32..36].copy_from_slice(&bmo_proton_x::procesadores::LOGICOS.to_le_bytes());
     b[36..40].copy_from_slice(&8664u32.to_le_bytes()); // PROCESSOR_AMD_X8664
     b[40..44].copy_from_slice(&(GRANO as u32).to_le_bytes());
     b[44..46].copy_from_slice(&0x19u16.to_le_bytes()); // familia 19h: Zen 3

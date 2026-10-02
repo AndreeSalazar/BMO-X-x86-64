@@ -52,6 +52,9 @@ pub const PEB_IMAGE_BASE: usize = 0x10;
 /// `ProcessHeap` (P4e): el HANDLE de `GetProcessHeap`, leido de aqui por
 /// quien no llama a nadie.
 pub const PEB_PROCESS_HEAP: usize = 0x30;
+/// `NumberOfProcessors` (u32), lo que el CRT y algun motor leen sin llamar
+/// a nadie (02-10: estaba a 0). Ver [`crate::procesadores`].
+pub const PEB_NUMBER_OF_PROCESSORS: usize = 0xB8;
 /// `ProcessParameters`: un RTL_USER_PROCESS_PARAMETERS, que vive en la misma
 /// pagina del PEB, en [`PARAMETROS_EN`].
 pub const PEB_PROCESS_PARAMETERS: usize = 0x20;
@@ -105,6 +108,7 @@ pub fn escribir_peb(peb: &mut [u8], h: &Hilo) {
     pon(peb, PEB_IMAGE_BASE, h.base_imagen);
     pon(peb, PEB_PROCESS_HEAP, crate::monton::asa(crate::monton::PROPIETARIO_PROCESO));
     pon(peb, PEB_PROCESS_PARAMETERS, h.peb + PARAMETROS_EN as u64);
+    peb[PEB_NUMBER_OF_PROCESSORS..PEB_NUMBER_OF_PROCESSORS + 4].copy_from_slice(&crate::procesadores::LOGICOS.to_le_bytes());
     let q = &mut peb[PARAMETROS_EN..PARAMETROS_EN + PARAMETROS_BYTES];
     q[0..4].copy_from_slice(&(PARAMETROS_BYTES as u32).to_le_bytes());
     q[4..8].copy_from_slice(&(PARAMETROS_BYTES as u32).to_le_bytes());

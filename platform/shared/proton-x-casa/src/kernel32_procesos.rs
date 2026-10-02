@@ -32,6 +32,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 
+use bmo_proton_x::procesadores::{mascara_del_nucleo, LOGICOS, MASCARA, NUCLEOS, POR_NUCLEO};
 use crate::kernel32_a::w;
 use crate::{aviso, dir, hilos, kernel32, modulos, plataforma};
 
@@ -662,16 +663,52 @@ extern "win64" fn k32_get_process_memory_info(proceso: u64, p: *mut u8, cb: u32)
 
 // -- El procesador -----------------------------------------------------------------------------
 
-/// (nivel, asociatividad, linea, medida, tipo): 0 unificada, 1 instrucciones, 2 datos.
+/// (nivel, asociatividad, linea, medida, tipo): 0 unificada, 1 instrucciones,
+/// 2 datos. Las de nivel 1 y 2 son de cada nucleo; la 3, de todos (Zen 3).
 const CACHES: [(u8, u8, u16, u32, u32); 4] = [(1, 8, 64, 32 << 10, 2), (1, 8, 64, 32 << 10, 1), (2, 8, 64, 512 << 10, 0), (3, 16, 64, 32 << 20, 0)];
 
-/// SYSTEM_LOGICAL_PROCESSOR_INFORMATION (32 bytes cada una): el nucleo, el
-/// nodo NUMA, las cuatro caches y el paquete.
+/// LTP_PC_SMT: el nucleo tiene mas de un logico.
+const SMT: u8 = 1;
+
+/// Lo que dice cada entrada, sin formato: `(relacion, mascara, cuerpo)`. La
+/// misma lista para las dos funciones (02-10: 6 nucleos y 12 logicos, ver
+/// `bmo_proton_x::procesadores`). Orden de Windows: nucleos, NUMA, caches,
+/// paquete.
+fn topologia() -> Vec<(u32, u64, Vec<u8>)> {
+    let mut v = Vec::new();
+    for n in 0..NUCLEOS {
+        v.push((0, mascara_del_nucleo(n), alloc::vec![SMT]));
+    }
+    v.push((1, MASCARA, alloc::vec![0]));
+    for n in 0..NUCLEOS {
+        for &(nivel, asoc, linea, tam, tipo) in CACHES.iter().filter(|c| c.0 < 3) {
+            v.push((2, mascara_del_nucleo(n), cache(nivel, asoc, linea, tam, tipo)));
+        }
+    }
+    for &(nivel, asoc, linea, tam, tipo) in CACHES.iter().filter(|c| c.0 == 3) {
+        v.push((2, MASCARA, cache(nivel, asoc, linea, tam, tipo)));
+    }
+    v.push((3, MASCARA, alloc::vec![0]));
+    v
+}
+
+/// CACHE_DESCRIPTOR: nivel, asociatividad, linea, medida, tipo (12 bytes).
+fn cache(nivel: u8, asoc: u8, linea: u16, tam: u32, tipo: u32) -> Vec<u8> {
+    let mut c = alloc::vec![nivel, asoc];
+    c.extend_from_slice(&linea.to_le_bytes());
+    c.extend_from_slice(&tam.to_le_bytes());
+    c.extend_from_slice(&tipo.to_le_bytes());
+    c
+}
+
+/// SYSTEM_LOGICAL_PROCESSOR_INFORMATION (32 bytes cada una): la mascara +0,
+/// la relacion +8, lo suyo +16.
 extern "win64" fn get_logical_processor_information(p: *mut u8, largo: *mut u32) -> i32 {
     if largo.is_null() {
         return no(ERROR_INVALID_PARAMETER);
     }
-    let n = 7 * 32;
+    let t = topologia();
+    let n = t.len() * 32;
     // SAFETY: el DWORD del `.exe`.
     let tiene = unsafe { *largo } as usize;
     // SAFETY: como arriba.
@@ -680,34 +717,32 @@ extern "win64" fn get_logical_processor_information(p: *mut u8, largo: *mut u32)
         return no(ERROR_INSUFFICIENT_BUFFER);
     }
     let mut b = alloc::vec![0u8; n];
-    let mut poner = |i: usize, rel: u32, cuerpo: &[u8]| {
-        b[32 * i..32 * i + 8].copy_from_slice(&1u64.to_le_bytes());
+    for (i, (rel, mascara, cuerpo)) in t.iter().enumerate() {
+        b[32 * i..32 * i + 8].copy_from_slice(&mascara.to_le_bytes());
         b[32 * i + 8..32 * i + 12].copy_from_slice(&rel.to_le_bytes());
         b[32 * i + 16..32 * i + 16 + cuerpo.len()].copy_from_slice(cuerpo);
-    };
-    poner(0, 0, &[0]);
-    poner(1, 1, &[0]);
-    for (k, &(nivel, asoc, linea, tam, tipo)) in CACHES.iter().enumerate() {
-        let mut c = alloc::vec![nivel, asoc];
-        c.extend_from_slice(&linea.to_le_bytes());
-        c.extend_from_slice(&tam.to_le_bytes());
-        c.extend_from_slice(&tipo.to_le_bytes());
-        poner(2 + k, 2, &c);
     }
-    poner(6, 3, &[0]);
     // SAFETY: `tiene` >= n bytes del `.exe`.
     unsafe { core::ptr::copy_nonoverlapping(b.as_ptr(), p, n) };
     1
 }
 
-/// GROUP_AFFINITY del unico procesador: mascara 1, grupo 0.
-fn afinidad() -> [u8; 16] {
+/// GROUP_AFFINITY: la mascara, grupo 0.
+fn afinidad(mascara: u64) -> [u8; 16] {
     let mut a = [0u8; 16];
-    a[..8].copy_from_slice(&1u64.to_le_bytes());
+    a[..8].copy_from_slice(&mascara.to_le_bytes());
     a
 }
 
 /// SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX: cada una con su medida.
+///
+/// ```text
+///    nucleo (0), paquete (3)   Flags, EfficiencyClass, 20, GroupCount, GROUP_AFFINITY
+///    NUMA (1)                  NodeNumber (u32), 18, GroupCount, GROUP_AFFINITY
+///    cache (2)                 el descriptor (12), 18 (= 30), GroupCount, GROUP_AFFINITY
+///    grupo (4)                 Maximum/ActiveGroupCount, 20, y el grupo 0:
+///                              Maximum/ActiveProcessorCount, 38, su mascara
+/// ```
 extern "win64" fn get_logical_processor_information_ex(rel: u32, p: *mut u8, largo: *mut u32) -> i32 {
     if largo.is_null() {
         return no(ERROR_INVALID_PARAMETER);
@@ -721,39 +756,24 @@ extern "win64" fn get_logical_processor_information_ex(rel: u32, p: *mut u8, lar
             b.extend_from_slice(&cuerpo);
         }
     };
-    // Nucleo (0) y paquete (3): Flags, EfficiencyClass, 20 reservados,
-    // GroupCount 1 y su afinidad.
-    let procesador = || {
-        let mut c = alloc::vec![0u8; 22];
+    for (tipo, mascara, lo_suyo) in topologia() {
+        // Lo de delante del GroupCount: 22 en nucleo, NUMA y paquete; 30 en
+        // una cache (su descriptor de 12 y 18 reservados).
+        let mut c = alloc::vec![0u8; if tipo == 2 { 30 } else { 22 }];
+        if tipo == 2 {
+            c[..lo_suyo.len()].copy_from_slice(&lo_suyo);
+        } else if tipo == 0 {
+            c[0] = lo_suyo[0];
+        }
         c.extend_from_slice(&1u16.to_le_bytes());
-        c.extend_from_slice(&afinidad());
-        c
-    };
-    una(0, procesador());
-    // Nodo NUMA (1): el 0, 18 reservados, GroupCount 1 y su afinidad.
-    let mut numa = alloc::vec![0u8; 22];
-    numa.extend_from_slice(&1u16.to_le_bytes());
-    numa.extend_from_slice(&afinidad());
-    una(1, numa);
-    // Caches (2): nivel, asociatividad, linea, medida, tipo, 18 reservados,
-    // GroupCount 1 y su afinidad.
-    for &(nivel, asoc, linea, tam, tipo) in &CACHES {
-        let mut c = alloc::vec![nivel, asoc];
-        c.extend_from_slice(&linea.to_le_bytes());
-        c.extend_from_slice(&tam.to_le_bytes());
-        c.extend_from_slice(&tipo.to_le_bytes());
-        c.extend_from_slice(&[0u8; 18]);
-        c.extend_from_slice(&1u16.to_le_bytes());
-        c.extend_from_slice(&afinidad());
-        una(2, c);
+        c.extend_from_slice(&afinidad(mascara));
+        una(tipo, c);
     }
-    una(3, procesador());
-    // Grupo (4): 1 y 1, 20 reservados, y el grupo 0 con 1 procesador.
     let mut g = alloc::vec![1u8, 0, 1, 0];
     g.extend_from_slice(&[0u8; 20]);
-    g.extend_from_slice(&[1, 1]);
+    g.extend_from_slice(&[LOGICOS as u8, LOGICOS as u8]);
     g.extend_from_slice(&[0u8; 38]);
-    g.extend_from_slice(&1u64.to_le_bytes());
+    g.extend_from_slice(&MASCARA.to_le_bytes());
     una(4, g);
     // SAFETY: el DWORD del `.exe`.
     let tiene = unsafe { *largo } as usize;
@@ -770,20 +790,28 @@ extern "win64" fn get_logical_processor_information_ex(rel: u32, p: *mut u8, lar
     1
 }
 
-/// SYSTEM_CPU_SET_INFORMATION (32 bytes): un CPU set, el 0x100.
+/// SYSTEM_CPU_SET_INFORMATION (32 bytes cada uno), uno por logico: Size +0,
+/// Type +4 (0), Id +8 (0x100 + i, como Windows), Group +12, el indice del
+/// logico +14, el del nucleo (su primer logico) +15, LLC +16, NUMA +17.
 extern "win64" fn get_system_cpu_set_information(p: *mut u8, largo: u32, devuelto: *mut u32, _proceso: u64, _b: u32) -> i32 {
+    let n = 32 * LOGICOS;
     if !devuelto.is_null() {
         // SAFETY: el ULONG del `.exe`.
-        unsafe { *devuelto = 32 };
+        unsafe { *devuelto = n };
     }
-    if p.is_null() || largo < 32 {
+    if p.is_null() || largo < n {
         return no(ERROR_INSUFFICIENT_BUFFER);
     }
-    // SAFETY: 32 bytes del `.exe`.
+    // SAFETY: `n` bytes del `.exe`.
     unsafe {
-        core::ptr::write_bytes(p, 0, 32);
-        (p as *mut u32).write_unaligned(32);
-        (p.add(8) as *mut u32).write_unaligned(0x100);
+        core::ptr::write_bytes(p, 0, n as usize);
+        for i in 0..LOGICOS {
+            let e = p.add(32 * i as usize);
+            (e as *mut u32).write_unaligned(32);
+            (e.add(8) as *mut u32).write_unaligned(0x100 + i);
+            *e.add(14) = i as u8;
+            *e.add(15) = (i - i % POR_NUCLEO) as u8;
+        }
     }
     1
 }

@@ -129,8 +129,7 @@ const HKCU: &str = "HKEY_CURRENT_USER";
 fn arbol() -> Vec<Clave> {
     let (fab, (familia, modelo, paso), nombre) = cpuid();
     let version = alloc::format!("{HKLM}\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion");
-    let cpu = alloc::format!("{HKLM}\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0");
-    let hojas: Vec<(alloc::string::String, Vec<Valor>)> = alloc::vec![
+    let mut hojas: Vec<(alloc::string::String, Vec<Valor>)> = alloc::vec![
         (
             version,
             alloc::vec![
@@ -147,15 +146,6 @@ fn arbol() -> Vec<Clave> {
                 dw("UBR", 0),
                 sz("CurrentType", "Multiprocessor Free"),
                 sz("SystemRoot", "C:\\Windows"),
-            ],
-        ),
-        (
-            cpu,
-            alloc::vec![
-                sz("ProcessorNameString", &texto_de(&nombre)),
-                sz("VendorIdentifier", &texto_de(&fab)),
-                sz("Identifier", &alloc::format!("{} Family {familia} Model {modelo} Stepping {paso}", if fab == b"GenuineIntel" { "Intel64" } else { "AMD64" })),
-                dw("~MHz", 3700),
             ],
         ),
         (alloc::format!("{HKLM}\\HARDWARE\\DESCRIPTION\\System\\BIOS"), Vec::new()),
@@ -176,6 +166,19 @@ fn arbol() -> Vec<Clave> {
         (alloc::string::String::from("HKEY_USERS"), Vec::new()),
         (alloc::string::String::from("HKEY_CURRENT_CONFIG"), Vec::new()),
     ];
+    // Una subclave por procesador logico, como Windows (02-10: era solo la
+    // 0; ver `bmo_proton_x::procesadores`).
+    for k in 0..bmo_proton_x::procesadores::LOGICOS {
+        hojas.push((
+            alloc::format!("{HKLM}\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\{k}"),
+            alloc::vec![
+                sz("ProcessorNameString", &texto_de(&nombre)),
+                sz("VendorIdentifier", &texto_de(&fab)),
+                sz("Identifier", &alloc::format!("{} Family {familia} Model {modelo} Stepping {paso}", if fab == b"GenuineIntel" { "Intel64" } else { "AMD64" })),
+                dw("~MHz", 3700),
+            ],
+        ));
+    }
     let mut claves: Vec<Clave> = Vec::new();
     for (ruta, valores) in hojas {
         let ruta = w(&ruta);

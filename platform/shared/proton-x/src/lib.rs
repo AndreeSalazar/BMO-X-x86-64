@@ -45,6 +45,7 @@ pub mod ficheros;
 pub mod formato;
 pub mod pe;
 pub mod proceso;
+pub mod procesadores;
 pub mod raiz;
 pub mod regiones;
 pub mod registro;
