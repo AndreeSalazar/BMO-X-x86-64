@@ -115,7 +115,7 @@ impl core::ops::Deref for Pixeles {
 
 impl core::ops::DerefMut for Pixeles {
     fn deref_mut(&mut self) -> &mut [u32] {
-        // SAFETY: como arriba; el Recurso es su unico dueno.
+        // SAFETY: como arriba; el Recurso es su unico propietario.
         unsafe { core::slice::from_raw_parts_mut(self.p, self.n) }
     }
 }
