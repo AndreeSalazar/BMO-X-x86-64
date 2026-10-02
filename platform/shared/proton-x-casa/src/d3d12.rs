@@ -185,6 +185,7 @@ fn dispositivo() -> u64 {
         (45, dir!(dv::set_event_on_multiple_fence_completion)),
         (46, dir!(dv::set_residency_priority)),
         (47, dir!(dv::create_pipeline_state)),
+        (48, dir!(crate::d3d12_montones::open_existing_heap_from_address)),
         (50, dir!(dv::enqueue_make_resident)),
         (51, dir!(dv::create_command_list1)),
         (53, dir!(dv::create_committed_resource1)),

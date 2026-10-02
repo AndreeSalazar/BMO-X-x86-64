@@ -1583,3 +1583,24 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    bfb6405571db069780ba0915b528049b7dcdc3d77894dcca2f1d9855b1343a40
 
 Dice `bien` quince veces y sale con 0. En Windows dice lo mismo.
+
+tanda46.exe -- la TANDA 46 (02-10): un monton sobre memoria del .exe
+
+Por Cyberpunk: tras dos VirtualAlloc pide ID3D12Device3::
+OpenExistingHeapFromAddress (el hueco 48) y la casa no lo tenia: salia con
+0xC0DE0030. Aqui, como en Windows: un VirtualAlloc de 1 MiB hecho entero se
+abre como ID3D12Heap, que mide 1 MiB y es CUSTOM; un bufer colocado en el ve
+lo que se escribe por el puntero de VirtualAlloc, y al reves; una direccion
+que no es la base de su region, o una region hecha a medias, son
+E_INVALIDARG. No depende de que tarjeta haya.
+
+   llvm-dlltool -m i386:x86-64 -d tanda46_kernel32.def -l tanda46_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda46_d3d12.def -l tanda46_d3d12.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda46.c -o tanda46.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda46.obj tanda46_kernel32.lib tanda46_d3d12.lib /out:tanda46.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   66344853de8e90fb01e97d6f0e5f113824822486f6badcbf33701af2d7c36837
+
+Dice `bien` siete veces y sale con 0. En Windows dice lo mismo.

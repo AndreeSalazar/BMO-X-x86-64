@@ -114,6 +114,8 @@ const TANDA43: &[u8] = include_bytes!("../../proton-x/prueba/tanda43.exe");
 const TANDA44: &[u8] = include_bytes!("../../proton-x/prueba/tanda44.exe");
 /// La TANDA 45 (02-10): ID3D12Device1 a 10.
 const TANDA45: &[u8] = include_bytes!("../../proton-x/prueba/tanda45.exe");
+/// La TANDA 46 (02-10): un monton sobre memoria del .exe.
+const TANDA46: &[u8] = include_bytes!("../../proton-x/prueba/tanda46.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).

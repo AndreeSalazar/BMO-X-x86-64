@@ -471,3 +471,11 @@ pub(crate) const TROZOS_DEL_BANCO: bmo_proton_x_casa::Trozos = bmo_proton_x_casa
     },
     umbral: 0,
 };
+
+/// **La tanda 46** (02-10): `tanda46.exe` -- Cyberpunk, tras dos
+/// VirtualAlloc, pide OpenExistingHeapFromAddress (hueco 48) y salia con
+/// 0xC0DE0030. El monton ES la memoria del VirtualAlloc.
+#[test]
+fn tanda46_exe_un_monton_sobre_memoria_del_exe() {
+    tanda(TANDA46, None, 7, "tanda46.exe: un monton sobre memoria del .exe");
+}

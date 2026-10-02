@@ -411,6 +411,29 @@ pub(crate) fn reservar_direcciones(bytes: u64) -> Option<u64> {
     tomar_va(bytes)
 }
 
+/// **Una region de `VirtualAlloc` ENTERA, desde su base** (tanda 46, para
+/// `OpenExistingHeapFromAddress`): su medida si `dir` es la base de la
+/// region, y TODAS sus paginas estan hechas con la misma proteccion (lo que
+/// `VirtualQuery` daria como una sola region). `None` si no.
+pub(crate) fn region_entera(dir: u64) -> Option<u64> {
+    let e = estado();
+    let c = e.regiones.consultar(dir)?;
+    if c.base_region != dir || c.estado != MEM_COMMIT {
+        return None;
+    }
+    let mut tam = c.tam;
+    while let Some(s) = e.regiones.consultar(dir + tam) {
+        if s.base_region != dir {
+            break;
+        }
+        if s.estado != MEM_COMMIT || s.prot != c.prot {
+            return None;
+        }
+        tam += s.tam;
+    }
+    Some(tam)
+}
+
 /// Si hay ventana de reserva (en BMO-X, si; en el banco viejo, no).
 pub(crate) fn hay_reserva() -> bool {
     reserva().is_some()

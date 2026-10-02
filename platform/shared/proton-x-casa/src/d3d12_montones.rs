@@ -43,6 +43,9 @@ pub(crate) struct Monton {
     desc: [u8; 48],
     /// Sus direcciones en la ventana de reserva, o 0 si no hay reserva.
     base: u64,
+    /// Su memoria YA esta hecha (`OpenExistingHeapFromAddress`: es la de un
+    /// VirtualAlloc del `.exe`): colocar no hace paginas.
+    hecha: bool,
     /// Sin reserva: los desplazamientos ya ocupados (para decir el aliasing).
     colocados: alloc::vec::Vec<u64>,
 }
@@ -107,7 +110,41 @@ pub(crate) extern "win64" fn create_heap(_this: u64, desc: *const u8, riid: *con
         None => 0,
     };
     let vt = vtabla::<{ com::MEMORIA }>(&[(8, dir!(get_desc))]);
-    dar(pp, nuevo(com::MEMORIA, vt, Monton { desc: d, base, colocados: alloc::vec::Vec::new() }) as u64)
+    dar(pp, nuevo(com::MEMORIA, vt, Monton { desc: d, base, hecha: false, colocados: alloc::vec::Vec::new() }) as u64)
+}
+
+/// D3D12_CPU_PAGE_PROPERTY_WRITE_BACK y D3D12_MEMORY_POOL_L0.
+const PAGINA_WRITE_BACK: u32 = 3;
+const PISCINA_L0: u32 = 1;
+/// D3D12_HEAP_FLAG_SHARED | SHARED_CROSS_ADAPTER | ALLOW_ONLY_BUFFERS.
+const BANDERAS_DE_DIRECCION: u32 = 0x1 | 0x20 | 0xC0;
+
+/// **`OpenExistingHeapFromAddress(this, direccion, riid, pp)`** (Device3,
+/// tanda 46): un monton cuya memoria ES la de un `VirtualAlloc` del `.exe`.
+/// Como Windows (y vkd3d-proton, que lo copia): la direccion es la BASE de
+/// su region, la region entera esta hecha con una sola proteccion, y el
+/// monton mide eso, es CUSTOM con paginas WRITE_BACK en L0 y solo admite
+/// buferes. Lo que se coloque en el escribe en esa misma memoria.
+pub(crate) extern "win64" fn open_existing_heap_from_address(_this: u64, direccion: u64, riid: *const Guid, pp: *mut u64) -> i32 {
+    let Some(medida) = (direccion != 0).then(|| crate::memoria::region_entera(direccion)).flatten() else {
+        return E_INVALIDARG;
+    };
+    if pp.is_null() {
+        return E_INVALIDARG;
+    }
+    if !pide(riid, com::MEMORIA) {
+        // SAFETY: el `void **` del `.exe`.
+        unsafe { *pp = 0 };
+        return E_NOINTERFACE;
+    }
+    let mut d = [0u8; 48];
+    d[0..8].copy_from_slice(&medida.to_le_bytes());
+    for (k, v) in [(8, TIPO_CUSTOM), (12, PAGINA_WRITE_BACK), (16, PISCINA_L0), (20, 1), (24, 1), (40, BANDERAS_DE_DIRECCION)] {
+        d[k..k + 4].copy_from_slice(&v.to_le_bytes());
+    }
+    d[32..40].copy_from_slice(&ALINEADO.to_le_bytes());
+    let vt = vtabla::<{ com::MEMORIA }>(&[(8, dir!(get_desc))]);
+    dar(pp, nuevo(com::MEMORIA, vt, Monton { desc: d, base: direccion, hecha: true, colocados: alloc::vec::Vec::new() }) as u64)
 }
 
 /// `ID3D12Heap::GetDesc(this, ret)`: la estructura por el puntero oculto.
@@ -142,7 +179,7 @@ pub(crate) extern "win64" fn create_placed_resource(_this: u64, monton: u64, des
         if ancho == 0 || ancho > medida - desde {
             return E_INVALIDARG;
         }
-        if !crate::memoria::hacer_paginas(m.base + desde, ancho) {
+        if !m.hecha && !crate::memoria::hacer_paginas(m.base + desde, ancho) {
             aviso("CreatePlacedResource: el kernel no tiene RAM para el bufer: E_OUTOFMEMORY");
             return E_OUTOFMEMORY;
         }
