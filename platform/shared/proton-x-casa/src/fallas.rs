@@ -2,7 +2,7 @@
 //!
 //! Hasta hoy un hueco de vtabla era una de dos cosas: lo que la casa HACE, o
 //! un `falta` que dice cual es y SALE (`0xC0DE....`). La investigacion de
-//! como Proton domo a Cyberpunk (`reports/`, la leccion 4) enseno que hay
+//! como Proton domo a Cyberpunk (`reports/`, la leccion 4) dejo ver que hay
 //! una tercera, y que el juego depende de ella: metodos donde FALLAR con un
 //! HRESULT es lo que Windows hace en una maquina sin esa funcion, y el juego
 //! lo sabe llevar. Cyberpunk llama a `OpenExistingHeapFromFileMapping` sin

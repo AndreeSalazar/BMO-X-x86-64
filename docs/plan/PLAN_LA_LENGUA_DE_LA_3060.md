@@ -384,7 +384,7 @@ por medio --. Hecho en el anfitrion, de la punta del Programa a la del juez:
 - **La lengua** (`bmo-sm86`): FSETP, ISETP, SEL, IADD3 y BRA, con las 18
   palabras de oro de `ptxas` 12.9 (`ga10x/sombreadores/oro_saltos.ptx`,
   128 bits con su control) y 21 fabricadas que `nvdisasm` 13.4 lee como
-  dice su texto (`LEIDAS_E6`). Lo que `ptxas` enseno: para `if` y bucles
+  dice su texto (`LEIDAS_E6`). Lo que se vio en `ptxas`: para `if` y bucles
   pone `FSETP` y `@P0 BRA`, SIN `BSSY`/`BSYNC` (la reconvergencia es
   rendimiento; con `TEX.LZ` no hay derivadas que la pidan); y un predicado
   tarda 13 ciclos en poder ser GUARDA, 4 en ser operando de SEL.
