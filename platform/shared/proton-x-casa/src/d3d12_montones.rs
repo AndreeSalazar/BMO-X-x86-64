@@ -187,6 +187,14 @@ pub(crate) extern "win64" fn create_placed_resource(_this: u64, monton: u64, des
         crate::d3d12_resto::apuntar_monton(r, pp, m.desc[8..].as_ptr());
         return r;
     }
+    // Tanda 48: lo que no cabe desde su desplazamiento es E_INVALIDARG, como
+    // los drivers nativos (el inventario de Cyberpunk: un monton de dos mips
+    // y una textura de seis). Con la cuenta de la casa (`d3d12_medidas`).
+    // SAFETY: el D3D12_RESOURCE_DESC del `.exe`.
+    let (necesita, _) = unsafe { crate::d3d12_medidas::medida(desc) };
+    if necesita > medida - desde {
+        return E_INVALIDARG;
+    }
     if m.colocados.contains(&desde) {
         aviso("CreatePlacedResource: dos recursos en el mismo sitio de un monton; en la casa no comparten memoria");
     } else {

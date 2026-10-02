@@ -44,16 +44,24 @@ const OPTIONS7: u32 = 32;
 /// sombreadores de malla y "sampler feedback" (OPTIONS7) van a 0, "no hay",
 /// como con el MSAA. Un juego que los tiene por opcionales sigue sin ellos;
 /// decir que si seria una pared por cada uno.
+///
+/// ** Tanda 48 (la leccion de vkd3d-proton: "anunciar solo lo que existe"):
+/// pasan a 0 los recursos reservados (tiles), la prueba de limites de
+/// profundidad, las posiciones de muestra, el view instancing, las
+/// baricentricas, compartir recursos y los 16 bits nativos: la casa no los
+/// hace, y un motor que lee un "si" los usa y cae. Sigue el "si" de
+/// WriteBufferImmediate y de los sellos de tiempo en la cola de copia, que
+/// la casa ya hace (`d3d12_lista2`, `d3d12_resto`).
 const OPCIONES_MAS: [(u32, &[u32]); 6] = [
-    // DepthBoundsTest, ProgrammableSamplePositions tier 2.
-    (OPTIONS2, &[1, 2]),
+    // DepthBoundsTest NO, ProgrammableSamplePositions NO.
+    (OPTIONS2, &[0, 0]),
     // CopyQueueTimestamps, CastingFullyTypedFormat, WriteBufferImmediate en
-    // DIRECT|BUNDLE|COMPUTE|COPY, ViewInstancing tier 3, Barycentrics.
-    (OPTIONS3, &[1, 1, 0xF, 3, 1]),
-    // MSAA64KBAlignedTexture, SharedResourceCompatibility tier 2, Native16Bit.
-    (OPTIONS4, &[1, 2, 1]),
-    // SRVOnlyTiledResourceTier3, RenderPasses tier 0, Raytracing NO.
-    (OPTIONS5, &[1, 0, 0]),
+    // DIRECT|BUNDLE|COMPUTE|COPY, ViewInstancing NO, Barycentrics NO.
+    (OPTIONS3, &[1, 1, 0xF, 0, 0]),
+    // MSAA64KBAlignedTexture, SharedResourceCompatibility 0, Native16Bit NO.
+    (OPTIONS4, &[1, 0, 0]),
+    // SRVOnlyTiledResourceTier3 NO, RenderPasses tier 0, Raytracing NO.
+    (OPTIONS5, &[0, 0, 0]),
     // AdditionalShadingRates, PerPrimitive..., VRS tier NO, tesela 0,
     // BackgroundProcessing.
     (OPTIONS6, &[0, 0, 0, 0, 0]),
@@ -68,12 +76,14 @@ const MODELO_MAXIMO: u32 = 0x66;
 /// D3D_ROOT_SIGNATURE_VERSION_1_0: lo que lee la firma de raiz de la casa.
 const FIRMA_1_0: u32 = 1;
 /// D3D12_FEATURE_DATA_D3D12_OPTIONS, en orden (15 campos de 4 bytes):
-/// doble precision, LogicOp, MinPrecision (16 bits = 2), TiledResources 3,
-/// ResourceBinding 3, PSSpecifiedStencilRef, TypedUAVLoadAdditionalFormats,
-/// ROVs, ConservativeRasterization 3, 40 bits de VA por recurso,
-/// StandardSwizzle64KB, CrossNodeSharing 0, CrossAdapterRowMajorTexture,
-/// VPAndRTArrayIndex sin GS, ResourceHeap 2. Los de una RTX 3060.
-const OPCIONES: [u32; 15] = [1, 1, 2, 3, 3, 0, 1, 1, 3, 40, 0, 0, 1, 1, 2];
+/// doble precision, LogicOp, MinPrecision, TiledResources, ResourceBinding
+/// 3, PSSpecifiedStencilRef, TypedUAVLoadAdditionalFormats, ROVs,
+/// ConservativeRasterization, 40 bits de VA por recurso, StandardSwizzle64KB,
+/// CrossNodeSharing 0, CrossAdapterRowMajorTexture, VPAndRTArrayIndex sin
+/// GS, ResourceHeap 2. Los de una RTX 3060 MENOS lo que la casa no hace
+/// (tanda 48): dobles, LogicOp, 16 bits, tiles, ROVs, rasterizacion
+/// conservadora y texturas entre adaptadores, a 0.
+const OPCIONES: [u32; 15] = [0, 0, 0, 0, 3, 0, 1, 0, 0, 40, 0, 0, 0, 1, 2];
 
 /// Los DXGI_FORMAT de profundidad: D32_FLOAT_S8X24_UINT, D32_FLOAT,
 /// D24_UNORM_S8_UINT, D16_UNORM.

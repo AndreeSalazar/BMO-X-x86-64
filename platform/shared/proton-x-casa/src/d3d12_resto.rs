@@ -40,7 +40,7 @@ use crate::tuberia::Estado;
 use crate::{aviso, dir};
 
 /// Los huecos de ID3D12Device que pone esto.
-pub(crate) fn dispositivo() -> [(usize, u64); 11] {
+pub(crate) fn dispositivo() -> [(usize, u64); 13] {
     [
         (11, dir!(create_compute_pipeline_state)),
         (17, dir!(create_constant_buffer_view)),
@@ -53,6 +53,8 @@ pub(crate) fn dispositivo() -> [(usize, u64); 11] {
         (39, dir!(create_query_heap)),
         (40, dir!(set_stable_power_state)),
         (41, dir!(create_command_signature)),
+        (42, dir!(get_resource_tiling)),
+        (63, dir!(get_raytracing_prebuild_info)),
     ]
 }
 
@@ -257,6 +259,40 @@ extern "win64" fn get_custom_heap_properties(_this: u64, ret: *mut u8, _nodos: u
     ret
 }
 
+/// `GetResourceTiling(this, recurso, n_tiles, mips_empaquetadas, forma,
+/// n_subrecursos, primero, subrecursos)`: la casa no tiene recursos
+/// reservados (anuncia TiledResourcesTier NOT_SUPPORTED), y de uno que no lo
+/// es Windows dice cero tiles: todo a cero, y cero subrecursos escritos.
+#[allow(clippy::too_many_arguments)]
+extern "win64" fn get_resource_tiling(_this: u64, _r: u64, n: *mut u32, mips: *mut u8, forma: *mut u8, n_sub: *mut u32, _primero: u32, _sub: *mut u8) {
+    // SAFETY: los punteros del `.exe` que no son nulos: un UINT, un
+    // D3D12_PACKED_MIP_INFO (12 B), un D3D12_TILE_SHAPE (12 B) y un UINT.
+    unsafe {
+        if !n.is_null() {
+            n.write_unaligned(0);
+        }
+        if !mips.is_null() {
+            core::ptr::write_bytes(mips, 0, 12);
+        }
+        if !forma.is_null() {
+            core::ptr::write_bytes(forma, 0, 12);
+        }
+        if !n_sub.is_null() {
+            n_sub.write_unaligned(0);
+        }
+    }
+}
+
+/// `GetRaytracingAccelerationStructurePrebuildInfo(this, desc, info)`: sin
+/// rayos (RaytracingTier NOT_SUPPORTED), medidas cero, y se dice.
+extern "win64" fn get_raytracing_prebuild_info(_this: u64, _d: *const u8, info: *mut u8) {
+    aviso("GetRaytracingAccelerationStructurePrebuildInfo: la casa anuncia RaytracingTier NOT_SUPPORTED: medidas cero");
+    if !info.is_null() {
+        // SAFETY: un D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO (24 B).
+        unsafe { core::ptr::write_bytes(info, 0, 24) };
+    }
+}
+
 /// MakeResident, Evict: todo es residente, siempre.
 extern "win64" fn make_resident(_this: u64, _n: u32, _objetos: *const u64) -> i32 {
     S_OK
@@ -433,7 +469,7 @@ extern "win64" fn copy_buffer_region(this: u64, dst: u64, desde_dst: u64, src: u
     }
 }
 
-extern "win64" fn copy_resource(this: u64, dst: u64, src: u64) {
+pub(crate) extern "win64" fn copy_resource(this: u64, dst: u64, src: u64) {
     if dst != 0 && src != 0 {
         l(this).ordenes.push(Orden::Entero { dst, src });
     }
@@ -521,6 +557,8 @@ pub(crate) fn ejecutar(o: &Orden) {
         Orden::Entero { dst, src } => copiar_entero(dst, src),
         Orden::Consulta { monton, indice, tipo } => consulta(monton, indice, tipo),
         Orden::Resolver { monton, desde, n, bufer: b, off } => resolver(monton, desde, n, b, off),
+        // SAFETY: comprobado al apuntar: cuatro bytes de un bufer de la casa.
+        Orden::Escribir { dst, valor } => unsafe { (dst as *mut u32).write_unaligned(valor) },
         _ => {}
     }
 }

@@ -99,6 +99,26 @@ const IID_DEVICES: [Guid; 10] = [
 pub const IID_QUEUE: Guid = guid(0x0ec870a6, 0x5d7e, 0x4c22, [0x8c, 0xfc, 0x5b, 0xaa, 0xe0, 0x76, 0x16, 0xed]);
 pub const IID_ALLOCATOR: Guid = guid(0x6102dee4, 0xaf59, 0x4b09, [0xb9, 0x99, 0xb4, 0x4d, 0x73, 0xf0, 0x9b, 0x24]);
 pub const IID_LIST: Guid = guid(0x5b160d0f, 0xac1b, 0x4185, [0x8b, 0xa8, 0xb3, 0xae, 0x42, 0xa5, 0xa4, 0x55]);
+/// ID3D12GraphicsCommandList1 a 10 (tanda 48), de d3d12.idl (mingw-w64 hasta
+/// la 7; vkd3d-proton la 8, la 9 y la 10). Un objeto, 86 huecos.
+const IID_LISTAS: [Guid; 10] = [
+    guid(0x553103fb, 0x1fe7, 0x4557, [0xbb, 0x38, 0x94, 0x6d, 0x7d, 0x0e, 0x7c, 0xa7]),
+    guid(0x38c3e585, 0xff17, 0x412c, [0x91, 0x50, 0x4f, 0xc6, 0xf9, 0xd7, 0x2a, 0x28]),
+    guid(0x6fda83a7, 0xb84c, 0x4e38, [0x9a, 0xc8, 0xc7, 0xbd, 0x22, 0x01, 0x6b, 0x3d]),
+    guid(0x8754318e, 0xd3a9, 0x4541, [0x98, 0xcf, 0x64, 0x5b, 0x50, 0xdc, 0x48, 0x74]),
+    guid(0x55050859, 0x4024, 0x474c, [0x87, 0xf5, 0x64, 0x72, 0xea, 0xee, 0x44, 0xea]),
+    guid(0xc3827890, 0xe548, 0x4cfa, [0x96, 0xcf, 0x56, 0x89, 0xa9, 0x37, 0x0f, 0x80]),
+    guid(0xdd171223, 0x8b61, 0x4769, [0x90, 0xe3, 0x16, 0x0c, 0xcd, 0xe4, 0xe2, 0xc1]),
+    guid(0xee936ef9, 0x599d, 0x4d28, [0x93, 0x8e, 0x23, 0xc4, 0xad, 0x05, 0xce, 0x51]),
+    guid(0x34ed2808, 0xffe6, 0x4c2b, [0xb1, 0x1a, 0xca, 0xbd, 0x2b, 0x0c, 0x59, 0xe1]),
+    guid(0x7013c015, 0xd161, 0x4b63, [0xa0, 0x8c, 0x23, 0x85, 0x52, 0xdd, 0x8a, 0xcc]),
+];
+const IID_RESOURCE1: Guid = guid(0x9d5e227a, 0x4430, 0x4161, [0x88, 0xb3, 0x3e, 0xca, 0x6b, 0xb1, 0x6e, 0x19]);
+const IID_RESOURCE2: Guid = guid(0xbe36ec3b, 0xea85, 0x4aeb, [0xa4, 0x5a, 0xe9, 0xd7, 0x64, 0x04, 0xa4, 0x95]);
+const IID_FENCE1: Guid = guid(0x433685fe, 0xe22b, 0x4ca0, [0xa8, 0xdb, 0xb5, 0xb4, 0xf4, 0xdd, 0x0e, 0x4a]);
+const IID_MEMORIA1: Guid = guid(0x572f7389, 0x2168, 0x49e3, [0x96, 0x93, 0xd6, 0xdf, 0x58, 0x71, 0xbf, 0x6d]);
+const IID_SWAPCHAIN4: Guid = guid(0x3d585d5a, 0xbd4a, 0x489e, [0xb1, 0xf4, 0x3d, 0xbc, 0xb6, 0x45, 0x2f, 0xfb]);
+const IID_FACTORY7: Guid = guid(0xa4966eed, 0x76db, 0x44da, [0x84, 0xc1, 0xee, 0x9a, 0x7a, 0xfb, 0x20, 0xa8]);
 pub const IID_HEAP: Guid = guid(0x8efb471d, 0x616c, 0x4f49, [0x90, 0xf7, 0x12, 0x7b, 0xb7, 0x63, 0xfa, 0x51]);
 pub const IID_RESOURCE: Guid = guid(0x696442be, 0xa72e, 0x4059, [0xbc, 0x79, 0x5b, 0x5c, 0x98, 0x04, 0x0f, 0xad]);
 pub const IID_FENCE: Guid = guid(0x0a753dcf, 0xc4d8, 0x4b91, [0xad, 0xf6, 0xbe, 0x5a, 0x60, 0xd9, 0x5a, 0x76]);
@@ -147,18 +167,22 @@ pub static INTERFACES: [Interfaz; 17] = [
     },
     Interfaz { nombre: "ID3D12CommandQueue", metodos: M_ID3D12COMMANDQUEUE, iids: &[IID_QUEUE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandAllocator", metodos: M_ID3D12COMMANDALLOCATOR, iids: &[IID_ALLOCATOR, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
-    Interfaz { nombre: "ID3D12GraphicsCommandList", metodos: M_ID3D12GRAPHICSCOMMANDLIST, iids: &[IID_LIST, IID_COMMANDLIST, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz {
+        nombre: "ID3D12GraphicsCommandList",
+        metodos: M_ID3D12GRAPHICSCOMMANDLIST,
+        iids: &[IID_LIST, IID_LISTAS[0], IID_LISTAS[1], IID_LISTAS[2], IID_LISTAS[3], IID_LISTAS[4], IID_LISTAS[5], IID_LISTAS[6], IID_LISTAS[7], IID_LISTAS[8], IID_LISTAS[9], IID_COMMANDLIST, IID_DEVICECHILD, IID_OBJECT],
+    },
     Interfaz { nombre: "ID3D12DescriptorHeap", metodos: M_ID3D12DESCRIPTORHEAP, iids: &[IID_HEAP, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
-    Interfaz { nombre: "ID3D12Resource", metodos: M_ID3D12RESOURCE, iids: &[IID_RESOURCE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
-    Interfaz { nombre: "ID3D12Fence", metodos: M_ID3D12FENCE, iids: &[IID_FENCE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
-    Interfaz { nombre: "IDXGIFactory6", metodos: M_IDXGIFACTORY6, iids: &[IID_FACTORY6, IID_FACTORY5, IID_FACTORY4, IID_FACTORY3, IID_FACTORY2, IID_FACTORY1, IID_FACTORY, IID_DXGIOBJECT] },
-    Interfaz { nombre: "IDXGISwapChain3", metodos: M_IDXGISWAPCHAIN3, iids: &[IID_SWAPCHAIN3, IID_SWAPCHAIN2, IID_SWAPCHAIN1, IID_SWAPCHAIN, IID_DEVICESUBOBJECT, IID_DXGIOBJECT] },
+    Interfaz { nombre: "ID3D12Resource", metodos: M_ID3D12RESOURCE, iids: &[IID_RESOURCE, IID_RESOURCE1, IID_RESOURCE2, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "ID3D12Fence", metodos: M_ID3D12FENCE, iids: &[IID_FENCE, IID_FENCE1, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "IDXGIFactory6", metodos: M_IDXGIFACTORY6, iids: &[IID_FACTORY7, IID_FACTORY6, IID_FACTORY5, IID_FACTORY4, IID_FACTORY3, IID_FACTORY2, IID_FACTORY1, IID_FACTORY, IID_DXGIOBJECT] },
+    Interfaz { nombre: "IDXGISwapChain3", metodos: M_IDXGISWAPCHAIN3, iids: &[IID_SWAPCHAIN4, IID_SWAPCHAIN3, IID_SWAPCHAIN2, IID_SWAPCHAIN1, IID_SWAPCHAIN, IID_DEVICESUBOBJECT, IID_DXGIOBJECT] },
     Interfaz { nombre: "ID3D12RootSignature", metodos: M_ID3D12ROOTSIGNATURE, iids: &[IID_ROOTSIG, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12PipelineState", metodos: M_ID3D12PIPELINESTATE, iids: &[IID_PSO, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3DBlob", metodos: M_ID3D10BLOB, iids: &[IID_BLOB] },
     Interfaz { nombre: "IDXGIAdapter4", metodos: M_IDXGIADAPTER1, iids: &[IID_ADAPTER4, IID_ADAPTER3, IID_ADAPTER2, IID_ADAPTER1, IID_ADAPTER, IID_DXGIOBJECT] },
     Interfaz { nombre: "IDXGIOutput6", metodos: M_IDXGIOUTPUT6, iids: &[IID_OUTPUT6, IID_OUTPUT5, IID_OUTPUT4, IID_OUTPUT3, IID_OUTPUT2, IID_OUTPUT1, IID_OUTPUT, IID_DXGIOBJECT] },
-    Interfaz { nombre: "ID3D12Heap", metodos: M_ID3D12HEAP, iids: &[IID_MEMORIA, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "ID3D12Heap", metodos: M_ID3D12HEAP, iids: &[IID_MEMORIA, IID_MEMORIA1, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12QueryHeap", metodos: M_PAGEABLE, iids: &[IID_CONSULTAS, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandSignature", metodos: M_PAGEABLE, iids: &[IID_FIRMA, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
 ];
@@ -193,10 +217,13 @@ macro_rules! faltas {
     ($i:ident; $($s:literal)*) => { [$(falta::<$i, $s> as *const () as usize as u64),*] };
 }
 
-fn faltas_de<const I: usize>() -> [u64; 80] {
+fn faltas_de<const I: usize>() -> [u64; HUECOS] {
     faltas!(I; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59
-        60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79)
+        60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87)
 }
+
+/// Los huecos de la vtabla mas larga (ID3D12GraphicsCommandList10: 86), con margen.
+pub(crate) const HUECOS: usize = 88;
 
 extern "win64" fn query_interface(this: *mut Cabecera, riid: *const Guid, ppv: *mut u64) -> i32 {
     if ppv.is_null() {
@@ -261,6 +288,8 @@ pub fn vtabla<const I: usize>(metodos: &[(usize, u64)]) -> *const u64 {
             v[hueco] = f;
         }
     }
+    // Tanda 48: las fallas documentadas (ver `fallas`), tambien debajo.
+    crate::fallas::aplicar::<I>(&mut v);
     for &(hueco, f) in metodos {
         v[hueco] = f;
     }
@@ -337,6 +366,8 @@ pub const M_PAGEABLE: &[&str] = &["QueryInterface", "AddRef", "Release", "GetPri
 pub const M_ID3D12HEAP: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
     "SetPrivateDataInterface", "SetName", "GetDevice", "GetDesc",
+    // ID3D12Heap1 (tanda 48).
+    "GetProtectedResourceSession",
 ];
 pub const M_ID3D12COMMANDQUEUE: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
@@ -367,6 +398,15 @@ pub const M_ID3D12GRAPHICSCOMMANDLIST: &[&str] = &[
     "ClearUnorderedAccessViewFloat", "DiscardResource", "BeginQuery", "EndQuery",
     "ResolveQueryData", "SetPredication", "SetMarker", "BeginEvent", "EndEvent",
     "ExecuteIndirect",
+    // ID3D12GraphicsCommandList1 a 10 (tanda 48).
+    "AtomicCopyBufferUINT", "AtomicCopyBufferUINT64", "OMSetDepthBounds", "SetSamplePositions",
+    "ResolveSubresourceRegion", "SetViewInstanceMask", "WriteBufferImmediate",
+    "SetProtectedResourceSession", "BeginRenderPass", "EndRenderPass", "InitializeMetaCommand",
+    "ExecuteMetaCommand", "BuildRaytracingAccelerationStructure",
+    "EmitRaytracingAccelerationStructurePostbuildInfo", "CopyRaytracingAccelerationStructure",
+    "SetPipelineState1", "DispatchRays", "RSSetShadingRate", "RSSetShadingRateImage",
+    "DispatchMesh", "Barrier", "OMSetFrontAndBackStencilRef", "RSSetDepthBias",
+    "IASetIndexBufferStripCutValue", "SetProgram", "DispatchGraph",
 ];
 pub const M_ID3D12DESCRIPTORHEAP: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
@@ -377,11 +417,15 @@ pub const M_ID3D12RESOURCE: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
     "SetPrivateDataInterface", "SetName", "GetDevice", "Map", "Unmap", "GetDesc",
     "GetGPUVirtualAddress", "WriteToSubresource", "ReadFromSubresource", "GetHeapProperties",
+    // ID3D12Resource1 y 2 (tanda 48).
+    "GetProtectedResourceSession", "GetDesc1",
 ];
 pub const M_ID3D12FENCE: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
     "SetPrivateDataInterface", "SetName", "GetDevice", "GetCompletedValue",
     "SetEventOnCompletion", "Signal",
+    // ID3D12Fence1 (tanda 48).
+    "GetCreationFlags",
 ];
 pub const M_IDXGIFACTORY6: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",
@@ -395,6 +439,8 @@ pub const M_IDXGIFACTORY6: &[&str] = &[
     // IDXGIFactory3, 4, 5 y 6 (P3c4)
     "GetCreationFlags", "EnumAdapterByLuid", "EnumWarpAdapter", "CheckFeatureSupport",
     "EnumAdapterByGpuPreference",
+    // IDXGIFactory7 (tanda 48).
+    "RegisterAdaptersChangedEvent", "UnregisterAdaptersChangedEvent",
 ];
 pub const M_IDXGIADAPTER1: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",
@@ -428,6 +474,8 @@ pub const M_IDXGISWAPCHAIN3: &[&str] = &[
     "SetSourceSize", "GetSourceSize", "SetMaximumFrameLatency", "GetMaximumFrameLatency",
     "GetFrameLatencyWaitableObject", "SetMatrixTransform", "GetMatrixTransform",
     "GetCurrentBackBufferIndex", "CheckColorSpaceSupport", "SetColorSpace1", "ResizeBuffers1",
+    // IDXGISwapChain4 (tanda 48).
+    "SetHDRMetaData",
 ];
 pub const M_ID3D12ROOTSIGNATURE: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",

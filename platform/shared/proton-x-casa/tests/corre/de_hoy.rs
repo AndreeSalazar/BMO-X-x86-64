@@ -487,3 +487,50 @@ fn tanda46_exe_un_monton_sobre_memoria_del_exe() {
 fn tanda47_exe_lo_que_vkd3d_proton_tiene() {
     tanda(TANDA47, None, 19, "tanda47.exe: lo que vkd3d-proton tiene y la casa no tenia");
 }
+
+/// **La tanda 48** (02-10): `tanda48.exe` -- la base de PROTON-X, llena:
+/// cada hueco de las 17 interfaces es algo que la casa hace o una falla
+/// documentada. Las medidas de GetResourceAllocationInfo y lo que cabe en un
+/// monton (el inventario de Cyberpunk en vkd3d-proton), la lista 2 y 4
+/// (WriteBufferImmediate, BeginRenderPass con CLEAR), Fence1, Resource2 y
+/// Factory7. Dice UN aviso, el de la falla documentada: en el banco eso es
+/// lo que se espera, no un fallo.
+#[test]
+fn tanda48_exe_la_base_de_proton_x_llena() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, TANDA48, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.contains("PROTON-X:")).collect();
+    assert_eq!(avisos.len(), 1, "un aviso, el de la falla documentada: {texto}");
+    assert!(avisos[0].starts_with("PROTON-X: ID3D12Device::OpenExistingHeapFromFileMapping (hueco 49): falla documentada, HRESULT 0x80004001 -- "), "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 13, "{texto}");
+    assert!(texto.ends_with("tanda48.exe: la base de PROTON-X, llena\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **Una falla documentada dice su NOMBRE, devuelve el error de Windows y NO
+/// sale** (tanda 48). Hasta la tanda 47 aqui se saltaba a un hueco que la
+/// casa no tenia y el proceso salia con `0xC0DE....`; desde la 48 no queda
+/// ninguno en las 17 interfaces (el inventario contra vkd3d-proton), y los que
+/// Windows deja fallar son fallas documentadas (`fallas.rs`). Se salta al
+/// hueco 49 del dispositivo, `OpenExistingHeapFromFileMapping`: Cyberpunk lo
+/// llama sin mirar `D3D12_FEATURE_EXISTING_HEAPS`, y tiene que poder seguir.
+#[test]
+fn una_falla_documentada_dice_cual_es_y_no_sale() {
+    let _uno = uno_a_la_vez();
+    DICHO.lock().unwrap().clear();
+    // SAFETY: nada corre; se pone la plataforma de mentira.
+    unsafe { bmo_proton_x_casa::empezar(plataforma()) };
+    let dir = bmo_proton_x_casa::tabla("d3d12.dll", &Funcion::Nombre("D3D12CreateDevice".into())).unwrap();
+    let crear: extern "win64" fn(u64, u32, *const [u8; 16], *mut u64) -> i32 = unsafe { core::mem::transmute(dir as usize) };
+    let mut disp = 0u64;
+    assert_eq!(crear(0, 0xb000, &bmo_proton_x_casa::com::IID_DEVICE, &mut disp), 0);
+    // SAFETY: `disp` es un objeto de la casa: su primer puntero es la vtabla.
+    let hueco49 = unsafe { (*(disp as *const *const u64)).add(49).read() };
+    let abrir: extern "win64" fn(u64, u64, *const [u8; 16], *mut u64) -> i32 = unsafe { core::mem::transmute(hueco49 as usize) };
+    let mut monton = 0xDEAD_BEEFu64;
+    assert_eq!(abrir(disp, 0, &bmo_proton_x_casa::com::IID_MEMORIA, &mut monton) as u32, 0x8000_4001, "E_NOTIMPL, como vkd3d-proton");
+    assert_eq!(monton, 0, "el puntero de salida, a NULL");
+    let dicho = String::from_utf8_lossy(&DICHO.lock().unwrap()).into_owned();
+    assert!(dicho.starts_with("PROTON-X: ID3D12Device::OpenExistingHeapFromFileMapping (hueco 49): falla documentada, HRESULT 0x80004001 -- "), "{dicho}");
+}

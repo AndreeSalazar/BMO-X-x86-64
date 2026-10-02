@@ -1632,3 +1632,34 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    ca341bc002e06b6ede86bd74f28a07fed4ce84af58bc0c29e2a610122314017b
 
 Dice `bien` diecinueve veces y sale con 0. En Windows dice lo mismo.
+
+tanda48.exe -- la TANDA 48 (02-10): la base de PROTON-X, llena
+
+Lo que la investigacion de como Proton domo a Cyberpunk (vkd3d-proton) dejo
+en codigo. Cada hueco de las 17 interfaces es ahora algo que la casa HACE o
+una FALLA DOCUMENTADA (fallas.rs): el HRESULT de Windows sin esa funcion, el
+puntero de salida a NULL, y una linea que lo dice. Aqui, como en Windows:
+OpenExistingHeapFromFileMapping sin fichero falla y deja NULL;
+GetResourceAllocationInfo crece con las mips y con el formato (BC1 menos que
+RGBA8); una textura de 4 MiB no cabe en un monton de 1 MiB (E_INVALIDARG) y
+una de 256 KiB si; la lista es tambien GraphicsCommandList2 y 4:
+WriteBufferImmediate escribe sus valores y BeginRenderPass con CLEAR limpia
+el destino de rojo (leido con CopyTextureRegion tras la valla);
+GetCreationFlags de la valla (Fence1); GetDesc1 de un bufer (Resource2); y
+Register/UnregisterAdaptersChangedEvent (Factory7). No depende de que
+tarjeta haya.
+
+   llvm-dlltool -m i386:x86-64 -d tanda48_kernel32.def -l tanda48_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda48_d3d12.def -l tanda48_d3d12.lib
+   llvm-dlltool -m i386:x86-64 -d tanda48_dxgi.def -l tanda48_dxgi.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda48.c -o tanda48.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda48.obj tanda48_kernel32.lib tanda48_d3d12.lib tanda48_dxgi.lib /out:tanda48.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   6890ed6edcce26c574b206cab0770f08caca951edd599291562c1cc946a7cba6
+
+Dice `bien` trece veces y sale con 0. En la casa dice ademas UNA linea
+"PROTON-X: ID3D12Device::OpenExistingHeapFromFileMapping (hueco 49): falla
+documentada, ..." -- esa es la falla documentada hablando, no un fallo. En
+Windows dice los mismos trece `bien` (sin esa linea).

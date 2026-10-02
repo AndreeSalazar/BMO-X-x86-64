@@ -35,7 +35,7 @@ const DXGI_ERROR_FRAME_STATISTICS_DISJOINT: i32 = 0x887A_000B_u32 as i32;
 const SRGB: u32 = 0;
 
 /// Los huecos de IDXGISwapChain3 que pone esto.
-pub(crate) fn cadena() -> [(usize, u64); 29] {
+pub(crate) fn cadena() -> [(usize, u64); 30] {
     [
         (10, dir!(set_fullscreen_state)),
         (11, dir!(get_fullscreen_state)),
@@ -67,11 +67,13 @@ pub(crate) fn cadena() -> [(usize, u64); 29] {
         (39, dir!(resize_buffers1)),
         // IDXGIDeviceSubObject::GetDevice: el dispositivo de D3D12.
         (7, dir!(crate::com_objeto::get_device)),
+        // IDXGISwapChain4 (tanda 48).
+        (40, dir!(set_hdr_meta_data)),
     ]
 }
 
 /// Los huecos de IDXGIFactory6 que pone esto.
-pub(crate) fn fabrica() -> [(usize, u64); 16] {
+pub(crate) fn fabrica() -> [(usize, u64); 18] {
     [
         (9, dir!(get_window_association)),
         (10, dir!(create_swap_chain)),
@@ -89,6 +91,9 @@ pub(crate) fn fabrica() -> [(usize, u64); 16] {
         (25, dir!(get_creation_flags)),
         (26, dir!(enum_adapter_by_luid)),
         (27, dir!(enum_warp_adapter)),
+        // IDXGIFactory7 (tanda 48).
+        (30, dir!(registrar_estado_evento)),
+        (31, dir!(quitar_estado_hr)),
     ]
 }
 
@@ -432,6 +437,20 @@ extern "win64" fn registrar_estado_evento(_this: u64, _evento: u64, cookie: *mut
 }
 
 extern "win64" fn quitar_estado(_this: u64, _cookie: u32) {}
+
+/// UnregisterAdaptersChangedEvent: como `quitar_estado`, con su HRESULT.
+extern "win64" fn quitar_estado_hr(_this: u64, _cookie: u32) -> i32 {
+    S_OK
+}
+
+/// `SetHDRMetaData(this, tipo, medida, datos)`: se aceptan y no cambian nada
+/// (la casa presenta sRGB: CheckColorSpaceSupport no ofrece HDR).
+extern "win64" fn set_hdr_meta_data(_this: u64, tipo: u32, n: u32, datos: *const u8) -> i32 {
+    if tipo != 0 && (n == 0 || datos.is_null()) {
+        return E_INVALIDARG;
+    }
+    S_OK
+}
 
 extern "win64" fn get_creation_flags(_this: u64) -> u32 {
     0

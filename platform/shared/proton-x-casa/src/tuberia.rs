@@ -433,6 +433,11 @@ fn resolver(va: u64, n: usize) -> Option<&'static [u8]> {
     Some(unsafe { core::slice::from_raw_parts(va as *const u8, n) })
 }
 
+/// Si `[va, va + n)` cae entero dentro de un bufer de la casa (tanda 48).
+pub(crate) fn dentro_de_bufer(va: u64, n: usize) -> bool {
+    resolver(va, n).is_some()
+}
+
 /// Una imagen nueva en `pp`, o E_OUTOFMEMORY (antes, un panico del cargador).
 fn dar_imagen(pp: *mut u64, ancho: u32, alto: u32, formato: u32) -> i32 {
     match crate::d3d12::recurso(ancho, alto, formato, false) {

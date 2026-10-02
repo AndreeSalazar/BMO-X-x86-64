@@ -78,6 +78,9 @@ pub(crate) enum Orden {
     Entero { dst: u64, src: u64 },
     Consulta { monton: u64, indice: u32, tipo: u32 },
     Resolver { monton: u64, desde: u32, n: u32, bufer: u64, off: u64 },
+    /// Tanda 48: escribir un `u32` en una direccion de un bufer de la casa
+    /// (WriteBufferImmediate).
+    Escribir { dst: u64, valor: u32 },
 }
 
 pub struct Lista {
@@ -239,6 +242,7 @@ fn vtabla_recurso() -> *const u64 {
         (12, dir!(crate::d3d12_resto::write_to_subresource)),
         (13, dir!(crate::d3d12_resto::read_from_subresource)),
         (14, dir!(crate::d3d12_resto::get_heap_properties)),
+        (16, dir!(get_desc1)),
     ])
 }
 
@@ -361,6 +365,7 @@ pub(crate) extern "win64" fn create_command_list(_this: u64, _mascara: u32, tipo
         (48, dir!(clear_render_target_view)),
     ];
     m.extend_from_slice(&crate::d3d12_resto::lista());
+    m.extend_from_slice(&crate::d3d12_lista2::lista());
     let vt = vtabla::<{ com::LIST }>(&m);
     let pso = if crate::d3d12_resto::es_computo(pso) { 0 } else { pso };
     let estado = Estado { pso, ..Estado::default() };
@@ -404,6 +409,7 @@ extern "win64" fn create_fence(_this: u64, inicial: u64, _banderas: u32, riid: *
         (8, dir!(get_completed_value)),
         (9, dir!(set_event_on_completion)),
         (10, dir!(fence_signal)),
+        (11, dir!(get_creation_flags)),
     ]);
     dar(pp, nuevo(com::FENCE, vt, Valla { valor: inicial, pendientes: Vec::new() }) as u64)
 }
@@ -599,7 +605,7 @@ unsafe fn vista(v: *const u8) -> Vista {
 /// recurso del primer descriptor. Con `uno_solo` los n descriptores son
 /// consecutivos desde `handles[0]`; sin el, `handles` es un array. Para el
 /// primero da lo mismo.
-extern "win64" fn om_set_render_targets(this: u64, n: u32, handles: *const u64, _uno_solo: i32, dsv: *const u64) {
+pub(crate) extern "win64" fn om_set_render_targets(this: u64, n: u32, handles: *const u64, _uno_solo: i32, dsv: *const u64) {
     if n > 1 {
         aviso("OMSetRenderTargets con mas de un destino: todavia uno");
     }
@@ -653,7 +659,7 @@ fn unorm8(c: f32) -> u32 {
 
 /// `ClearRenderTargetView(this, handle, color[4], n, rects)`. Con rectangulos,
 /// todavia no: lo dice.
-extern "win64" fn clear_render_target_view(this: u64, handle: u64, color: *const f32, n: u32, _rects: *const u8) {
+pub(crate) extern "win64" fn clear_render_target_view(this: u64, handle: u64, color: *const f32, n: u32, _rects: *const u8) {
     if n != 0 {
         aviso("ClearRenderTargetView con rectangulos: todavia limpia solo el recurso entero");
         return;
@@ -704,7 +710,7 @@ extern "C" {
 
 const CLEAR_FLAG_DEPTH: u32 = 1;
 
-extern "win64" fn clear_depth_stencil_view(this: u64, handle: u64, banderas: u32, bits: u32, _stencil: u8, n: u32, _rects: *const u8) {
+pub(crate) extern "win64" fn clear_depth_stencil_view(this: u64, handle: u64, banderas: u32, bits: u32, _stencil: u8, n: u32, _rects: *const u8) {
     if n != 0 {
         aviso("ClearDepthStencilView con rectangulos: todavia limpia solo el recurso entero");
         return;
@@ -722,8 +728,17 @@ extern "win64" fn clear_depth_stencil_view(this: u64, handle: u64, banderas: u32
     unsafe { de::<Lista>(this) }.ordenes.push(Orden::Limpiar { recurso, pixel: bits });
 }
 
+/// `ID3D12Resource2::GetDesc1(this, ret)`: el D3D12_RESOURCE_DESC1 (64 B): el
+/// de siempre y la region de mips de sampler feedback, a cero.
+extern "win64" fn get_desc1(this: u64, ret: *mut u8) -> *mut u8 {
+    get_desc(this, ret);
+    // SAFETY: los 64 bytes del `.exe`.
+    unsafe { core::ptr::write_bytes(ret.add(56), 0, 8) };
+    ret
+}
+
 /// `GetDesc(this, ret)`: el D3D12_RESOURCE_DESC (56 B) por el puntero oculto.
-extern "win64" fn get_desc(this: u64, ret: *mut u8) -> *mut u8 {
+pub(crate) extern "win64" fn get_desc(this: u64, ret: *mut u8) -> *mut u8 {
     // SAFETY: `this` es un Recurso de la casa.
     let r = unsafe { de::<Recurso>(this) };
     let (dimension, layout, banderas, ancho) = match (&r.bufer, r.formato) {
@@ -760,32 +775,31 @@ extern "win64" fn get_resource_allocation_info(_this: u64, ret: *mut u64, _masca
 /// `paso` bytes (56 la de siempre, 64 la DESC1), y si `info1` no es nulo,
 /// un D3D12_RESOURCE_ALLOCATION_INFO1 por recurso (Offset, Alignment,
 /// SizeInBytes: 24 bytes), uno detras de otro como los pondria un monton.
+/// Tanda 48: cada recurso con `d3d12_medidas::medida` (sus mips, capas,
+/// formato y muestras), cada uno en su alineacion, y la del conjunto, la
+/// mayor.
 pub(crate) fn asignacion(ret: *mut u64, n: u32, descs: *const u8, paso: usize, info1: *mut u64) -> *mut u64 {
-    const ALINEACION: u64 = 65536;
-    let mut total = 0u64;
+    let (mut total, mut alineacion) = (0u64, crate::d3d12_medidas::ALINEACION);
     for i in 0..n as usize {
         // SAFETY: `n` descripciones del `.exe`, de `paso` bytes cada una.
-        let (dimension, ancho, alto) = unsafe {
-            let d = descs.add(paso * i);
-            ((d as *const u32).read_unaligned(), (d.add(16) as *const u64).read_unaligned(), (d.add(24) as *const u32).read_unaligned())
-        };
-        let bytes = if dimension == 1 { ancho } else { ancho * alto as u64 * 4 };
-        let medida = bytes.div_ceil(ALINEACION) * ALINEACION;
+        let (medida, alin) = unsafe { crate::d3d12_medidas::medida(descs.add(paso * i)) };
+        let desde = total.div_ceil(alin) * alin;
         if !info1.is_null() {
             // SAFETY: `n` D3D12_RESOURCE_ALLOCATION_INFO1 del `.exe`.
             unsafe {
                 let e = info1.add(3 * i);
-                e.write_unaligned(total);
-                e.add(1).write_unaligned(ALINEACION);
+                e.write_unaligned(desde);
+                e.add(1).write_unaligned(alin);
                 e.add(2).write_unaligned(medida);
             }
         }
-        total += medida;
+        total = desde + medida;
+        alineacion = alineacion.max(alin);
     }
     // SAFETY: 16 bytes del `.exe`.
     unsafe {
         ret.write_unaligned(total);
-        ret.add(1).write_unaligned(ALINEACION);
+        ret.add(1).write_unaligned(alineacion);
     }
     ret
 }
@@ -988,6 +1002,12 @@ extern "win64" fn allocator_reset(_this: u64) -> i32 {
 
 extern "win64" fn get_completed_value(this: u64) -> u64 {
     valor_de_valla(this)
+}
+
+/// `ID3D12Fence1::GetCreationFlags`: D3D12_FENCE_FLAG_NONE (la casa no
+/// comparte vallas).
+extern "win64" fn get_creation_flags(_this: u64) -> u32 {
+    0
 }
 
 /// El valor de la valla `v` (de la casa).

@@ -118,6 +118,7 @@ const TANDA45: &[u8] = include_bytes!("../../proton-x/prueba/tanda45.exe");
 const TANDA46: &[u8] = include_bytes!("../../proton-x/prueba/tanda46.exe");
 /// La TANDA 47 (02-10): lo que vkd3d-proton tiene y la casa no tenia.
 const TANDA47: &[u8] = include_bytes!("../../proton-x/prueba/tanda47.exe");
+const TANDA48: &[u8] = include_bytes!("../../proton-x/prueba/tanda48.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -591,31 +592,6 @@ fn limpia_exe_limpia_su_ventana_con_d3d12_y_presenta_por_dxgi() {
     // El color 2 (0.75, 0.25, 0.0) en R8G8B8A8, presentado en la superficie
     // BGRA: R = 191, G = 64, B = 0. Todos los pixeles.
     assert!(px.iter().all(|&c| c == 0xFFBF_4000), "primero {:#x}", px[0]);
-}
-
-/// **Un hueco que la casa no tiene dice su NOMBRE y sale**: nunca un S_OK
-/// callado ni un salto a cero. Se crea un dispositivo por la tabla de la casa
-/// y se salta al hueco 30 de su vtabla, `CreateReservedResource` (los
-/// recursos reservados, "tiled", no estan a proposito; hasta la tanda 47 el
-/// ejemplo era el 11, `CreateComputePipelineState`, que ya se guarda).
-#[test]
-fn un_hueco_que_falta_dice_cual_es_y_sale() {
-    let _uno = uno_a_la_vez();
-    DICHO.lock().unwrap().clear();
-    // SAFETY: nada corre; se pone la plataforma de mentira.
-    unsafe { bmo_proton_x_casa::empezar(plataforma()) };
-    let dir = bmo_proton_x_casa::tabla("d3d12.dll", &Funcion::Nombre("D3D12CreateDevice".into())).unwrap();
-    let crear: extern "win64" fn(u64, u32, *const [u8; 16], *mut u64) -> i32 = unsafe { core::mem::transmute(dir as usize) };
-    let mut disp = 0u64;
-    assert_eq!(crear(0, 0xb000, &bmo_proton_x_casa::com::IID_DEVICE, &mut disp), 0);
-    // SAFETY: `disp` es un objeto de la casa: su primer puntero es la vtabla.
-    let hueco30 = unsafe { (*(disp as *const *const u64)).add(30).read() };
-    let salio = unsafe { correr(hueco30) };
-    assert_eq!(salio, 0xC0DE_001E, "0xC0DE0000 | interfaz 0 (el dispositivo) << 8 | hueco 30");
-    assert_eq!(
-        String::from_utf8_lossy(&DICHO.lock().unwrap()),
-        "PROTON-X: ID3D12Device::CreateReservedResource (hueco 30) no esta en la casa\n"
-    );
 }
 
 /// **`prueba/cubo_datos.h` es la salida de su fabrica**: nadie lo toco a mano,
