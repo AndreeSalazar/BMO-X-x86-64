@@ -10,11 +10,12 @@
 //!    GetFileAttributesW, CloseHandle
 //! ```
 //!
-//! El directorio actual es el del `.exe` (lo dice quien carga). Lo que no
-//! hay, dicho: compartir un fichero entre dos handles que escriben (cada uno
-//! tiene su copia). En BMO-X un fichero escrito sale de UNA llamada
-//! (`Archivo::escribir_de`, P4f3) y de la medida que sea; si no sale entero,
-//! CloseHandle lo dice. Las carpetas: `carpetas.rs` (P4f3).
+//! El directorio actual es el del `.exe` (lo dice quien carga). D: nunca se
+//! escribe: un juego con perfil publica sus cambios en una capa de ESTRATOS y
+//! lee primero desde ahi. Lo que no hay, dicho: compartir un fichero entre dos
+//! handles que escriben (cada uno tiene su copia). En BMO-X un fichero escrito
+//! sale de UNA llamada (`Archivo::escribir_de`, P4f3) y de la medida que sea;
+//! si no sale entero, CloseHandle lo dice. Las carpetas: `carpetas.rs` (P4f3).
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -54,12 +55,19 @@ const FILE_TYPE_DISK: u32 = 1;
 struct Estado {
     abiertos: Vec<Option<Abierto>>,
     dir: String,
+    capa: String,
+    borrados: String,
 }
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
 unsafe impl Sync for Global {}
-static ESTADO: Global = Global(UnsafeCell::new(Estado { abiertos: Vec::new(), dir: String::new() }));
+static ESTADO: Global = Global(UnsafeCell::new(Estado {
+    abiertos: Vec::new(),
+    dir: String::new(),
+    capa: String::new(),
+    borrados: String::new(),
+}));
 
 fn estado() -> &'static mut Estado {
     // SAFETY: ver `Global`; nadie guarda la referencia.
@@ -70,12 +78,77 @@ pub(crate) fn reiniciar() {
     let e = estado();
     e.abiertos.clear();
     e.dir.clear();
+    e.capa.clear();
+    e.borrados.clear();
 }
 
 /// **El directorio actual del `.exe`** (el suyo, `window` para `window/x.exe`).
 /// Lo dice quien carga, antes de saltar.
 pub fn poner_directorio(dir: &str) {
     estado().dir = String::from(dir.trim_matches('/'));
+}
+
+/// La capa de escritura del juego que corre desde D: (`proton-x/<juego>/capa`).
+/// Sin ella, las rutas del disco Personal siguen siendo estrictamente de solo lectura.
+pub fn poner_capa(capa: Option<&str>) {
+    let e = estado();
+    e.capa = capa.unwrap_or("").trim_matches('/').into();
+    e.borrados = e
+        .capa
+        .strip_suffix("/capa")
+        .map_or_else(String::new, |raiz| alloc::format!("{raiz}/borrados"));
+}
+
+/// La ruta paralela de ESTRATOS para un fichero del disco Personal.
+pub(crate) fn ruta_capa(ruta: &str) -> Option<String> {
+    let raiz = &estado().capa;
+    if raiz.is_empty() {
+        return None;
+    }
+    let relativa = ficheros::en_personal(ruta)?;
+    let relativa = relativa.trim_start_matches('/');
+    Some(if relativa.is_empty() {
+        raiz.clone()
+    } else {
+        alloc::format!("{raiz}/{relativa}")
+    })
+}
+
+pub(crate) fn huella_de_nombre(nombre: &str) -> String {
+    let normal = nombre.to_lowercase();
+    let hash = bmo_proton_x::resumen::sha256(normal.as_bytes());
+    let mut hex = String::with_capacity(64);
+    for b in hash {
+        hex.push(char::from(b"0123456789abcdef"[(b >> 4) as usize]));
+        hex.push(char::from(b"0123456789abcdef"[(b & 0x0f) as usize]));
+    }
+    hex
+}
+
+/// Carpeta de marcas para las entradas de `ruta` (una por directorio de D:).
+pub(crate) fn carpeta_marcas(ruta: &str) -> Option<String> {
+    let raiz = &estado().borrados;
+    if raiz.is_empty() {
+        return None;
+    }
+    let relativa = ficheros::en_personal(ruta)?.trim_start_matches('/');
+    let padre = relativa.rsplit_once('/').map_or("", |(p, _)| p);
+    Some(alloc::format!("{raiz}/{}", huella_de_nombre(padre)))
+}
+
+/// Ruta de la marca que oculta `ruta` sin escribir en D:.
+pub(crate) fn ruta_marca(ruta: &str) -> Option<String> {
+    let carpeta = carpeta_marcas(ruta)?;
+    let relativa = ficheros::en_personal(ruta)?.trim_start_matches('/');
+    let nombre = relativa.rsplit('/').next()?;
+    Some(alloc::format!("{carpeta}/{}", huella_de_nombre(nombre)))
+}
+
+/// Ruta de lectura con prioridad a la copia publicada en ESTRATOS.
+pub(crate) fn ruta_para_leer(ruta: &str) -> String {
+    ruta_capa(ruta)
+        .filter(|capa| crate::carpetas::entrada_directa(capa).is_some())
+        .unwrap_or_else(|| String::from(ruta))
 }
 
 /// El directorio actual (ruta del volumen, `window`).
@@ -118,85 +191,198 @@ pub(crate) fn ruta_de(nombre: *const u16) -> Result<String, u32> {
 }
 
 /// `CreateFileW(nombre, acceso, compartir, seguridad, disposicion, banderas, plantilla)`.
-pub(crate) extern "win64" fn create_file_w(nombre: *const u16, acceso: u32, compartir: u32, seg: u64, disposicion: u32, banderas: u32, plantilla: u64) -> u64 {
-    let h = create_file_dentro(nombre, acceso, compartir, seg, disposicion, banderas, plantilla);
+pub(crate) extern "win64" fn create_file_w(
+    nombre: *const u16,
+    acceso: u32,
+    compartir: u32,
+    seg: u64,
+    disposicion: u32,
+    banderas: u32,
+    plantilla: u64,
+) -> u64 {
+    let h = create_file_dentro(
+        nombre,
+        acceso,
+        compartir,
+        seg,
+        disposicion,
+        banderas,
+        plantilla,
+    );
     if h == NO_VALE {
         crate::diario::no_esta("CreateFileW", nombre);
     }
     h
 }
 
-fn create_file_dentro(nombre: *const u16, acceso: u32, _compartir: u32, _seg: u64, disposicion: u32, banderas: u32, _plantilla: u64) -> u64 {
-    let ruta = match ruta_de(nombre) {
+fn create_file_dentro(
+    nombre: *const u16,
+    acceso: u32,
+    _compartir: u32,
+    _seg: u64,
+    disposicion: u32,
+    banderas: u32,
+    _plantilla: u64,
+) -> u64 {
+    let ruta_original = match ruta_de(nombre) {
         Ok(r) => r,
         // P4f3: la raiz del volumen es una carpeta ("C:\\", "\\"); N2, y la de D:.
-        Err(ERROR_FILE_NOT_FOUND) if crate::carpetas::es_raiz(nombre) => crate::carpetas::raiz_de(nombre).unwrap_or_default(),
+        Err(ERROR_FILE_NOT_FOUND) if crate::carpetas::es_raiz(nombre) => {
+            crate::carpetas::raiz_de(nombre).unwrap_or_default()
+        }
         Err(e) => {
             kernel32::poner_error(e);
             return NO_VALE;
         }
     };
-    // P4f3: una CARPETA se abre solo con FILE_FLAG_BACKUP_SEMANTICS, como en
-    // Windows (la `std` de Rust lo hace para `metadata`); si no, acceso denegado.
-    // ** N2: D: es el disco Personal y se abre SOLO PARA LEER. Crear, vaciar o
-    // pedir escritura ahi es acceso denegado -- el kernel lo niega igual,
-    // pero el .exe tiene que oirlo al abrir, no al cerrar.
-    let personal = ficheros::en_personal(&ruta).is_some();
-    if personal && (acceso & GENERIC_WRITE != 0 || !matches!(disposicion, OPEN_EXISTING | OPEN_ALWAYS)) {
-        kernel32::poner_error(ERROR_ACCESS_DENIED);
-        return NO_VALE;
-    }
-    if ruta.is_empty() || ruta == ficheros::PERSONAL || crate::carpetas::entrada(&ruta).is_some_and(|e| e.carpeta) {
-        if banderas & FILE_FLAG_BACKUP_SEMANTICS == 0 || !matches!(disposicion, OPEN_EXISTING | OPEN_ALWAYS) {
+    let personal = ficheros::en_personal(&ruta_original).is_some();
+    let existente = crate::carpetas::entrada(&ruta_original);
+    if ruta_original.is_empty()
+        || ruta_original == ficheros::PERSONAL
+        || existente.as_ref().is_some_and(|e| e.carpeta)
+    {
+        if banderas & FILE_FLAG_BACKUP_SEMANTICS == 0
+            || !matches!(disposicion, OPEN_EXISTING | OPEN_ALWAYS)
+        {
+            kernel32::poner_error(ERROR_ACCESS_DENIED);
+            return NO_VALE;
+        }
+        if acceso & GENERIC_WRITE != 0 {
             kernel32::poner_error(ERROR_ACCESS_DENIED);
             return NO_VALE;
         }
         kernel32::poner_error(0);
-        return abrir(Abierto { ruta, lee: true, carpeta: true, ..Abierto::default() });
+        return abrir(Abierto {
+            ruta: ruta_original,
+            lee: true,
+            carpeta: true,
+            ..Abierto::default()
+        });
     }
-    // Una carpeta de por medio que no esta: ERROR_PATH_NOT_FOUND, no el 2.
-    if !crate::carpetas::padre_existe(&ruta) {
+    if !matches!(
+        disposicion,
+        CREATE_NEW | CREATE_ALWAYS | OPEN_EXISTING | OPEN_ALWAYS | TRUNCATE_EXISTING
+    ) {
+        kernel32::poner_error(ERROR_INVALID_PARAMETER);
+        return NO_VALE;
+    }
+    let existe = existente.is_some();
+    if !crate::carpetas::padre_existe(&ruta_original) {
         kernel32::poner_error(ERROR_PATH_NOT_FOUND);
         return NO_VALE;
     }
+    if disposicion == CREATE_NEW && existe {
+        kernel32::poner_error(ERROR_FILE_EXISTS);
+        return NO_VALE;
+    }
+    if matches!(disposicion, OPEN_EXISTING | TRUNCATE_EXISTING) && !existe {
+        kernel32::poner_error(ERROR_FILE_NOT_FOUND);
+        return NO_VALE;
+    }
+
+    // CREATE_NEW/TRUNCATE/CREATE_ALWAYS cambian el destino; OPEN_ALWAYS solo
+    // lo crea cuando no estaba. Un handle de escritura sobre un fichero de D:
+    // conserva los bytes originales y publica su copia en la capa de ESTRATOS.
+    let crea_o_trunca = matches!(disposicion, CREATE_NEW | CREATE_ALWAYS | TRUNCATE_EXISTING)
+        || (disposicion == OPEN_ALWAYS && !existe);
+    let escribe = acceso & GENERIC_WRITE != 0;
+    if matches!(disposicion, CREATE_NEW | CREATE_ALWAYS | TRUNCATE_EXISTING) && !escribe {
+        kernel32::poner_error(ERROR_ACCESS_DENIED);
+        return NO_VALE;
+    }
+    let mutacion = escribe || crea_o_trunca;
+    let ruta_capa = if personal && mutacion {
+        let Some(capa) = ruta_capa(&ruta_original) else {
+            kernel32::poner_error(ERROR_ACCESS_DENIED);
+            return NO_VALE;
+        };
+        if !crate::carpetas::preparar_capa(&ruta_original) {
+            kernel32::poner_error(ERROR_ACCESS_DENIED);
+            return NO_VALE;
+        }
+        Some(capa)
+    } else {
+        None
+    };
+    let ruta = ruta_capa.clone().unwrap_or_else(|| {
+        if personal {
+            ruta_para_leer(&ruta_original)
+        } else {
+            ruta_original.clone()
+        }
+    });
+
     // ** A LA CARTA: solo leer, abrir lo que hay, y grande: se mide y no se trae.
     if acceso & GENERIC_WRITE == 0 && matches!(disposicion, OPEN_EXISTING | OPEN_ALWAYS) {
         if let Some(t) = plataforma().trozos {
             if let Some(m) = (t.medida)(ruta.as_bytes()).filter(|&m| m >= t.umbral) {
-                kernel32::poner_error(if disposicion == OPEN_ALWAYS { ERROR_ALREADY_EXISTS } else { 0 });
-                return abrir(Abierto { ruta, lee: acceso & GENERIC_READ != 0, a_la_carta: Some(m), ..Abierto::default() });
+                kernel32::poner_error(if disposicion == OPEN_ALWAYS {
+                    ERROR_ALREADY_EXISTS
+                } else {
+                    0
+                });
+                return abrir(Abierto {
+                    ruta,
+                    lee: acceso & GENERIC_READ != 0,
+                    a_la_carta: Some(m),
+                    ..Abierto::default()
+                });
             }
         }
     }
-    let habia = (plataforma().leer_fichero)(ruta.as_bytes());
-    let existe = habia.is_some();
-    let bytes = match (disposicion, habia) {
-        (CREATE_NEW, Some(_)) => {
-            kernel32::poner_error(ERROR_FILE_EXISTS);
+    let bytes = if matches!(disposicion, CREATE_ALWAYS | TRUNCATE_EXISTING | CREATE_NEW) {
+        Vec::new()
+    } else if existe {
+        let origen = if ruta_capa
+            .as_ref()
+            .is_some_and(|c| crate::carpetas::entrada_directa(c).is_none())
+        {
+            &ruta_original
+        } else {
+            &ruta
+        };
+        let Some(bytes) = (plataforma().leer_fichero)(origen.as_bytes()) else {
+            kernel32::poner_error(ERROR_READ_FAULT);
             return NO_VALE;
-        }
-        (OPEN_EXISTING | TRUNCATE_EXISTING, None) => {
-            kernel32::poner_error(ERROR_FILE_NOT_FOUND);
-            return NO_VALE;
-        }
-        (CREATE_ALWAYS | TRUNCATE_EXISTING | CREATE_NEW, _) => Vec::new(),
-        (OPEN_EXISTING | OPEN_ALWAYS, b) => b.unwrap_or_default(),
-        _ => {
-            kernel32::poner_error(ERROR_INVALID_PARAMETER);
-            return NO_VALE;
-        }
+        };
+        bytes
+    } else {
+        Vec::new()
     };
-    let escribe = acceso & GENERIC_WRITE != 0;
-    // Crear (o vaciar) es escribir, aunque no se escriba nada despues.
-    let sucio = escribe && matches!(disposicion, CREATE_ALWAYS | CREATE_NEW | TRUNCATE_EXISTING) || (disposicion == OPEN_ALWAYS && !existe);
-    let a = Abierto { ruta, bytes, pos: 0, lee: acceso & GENERIC_READ != 0, escribe, sucio, carpeta: false, a_la_carta: None };
+    // Crear o truncar con GENERIC_WRITE publica incluso si cierra sin escribir.
+    let sucio = escribe && matches!(disposicion, CREATE_ALWAYS | CREATE_NEW | TRUNCATE_EXISTING)
+        || (disposicion == OPEN_ALWAYS && !existe);
+    let a = Abierto {
+        ruta,
+        bytes,
+        pos: 0,
+        lee: acceso & GENERIC_READ != 0,
+        escribe,
+        sucio,
+        carpeta: false,
+        a_la_carta: None,
+    };
     // Como Windows: CREATE_ALWAYS y OPEN_ALWAYS sobre uno que ya estaba lo dicen.
-    kernel32::poner_error(if existe && matches!(disposicion, CREATE_ALWAYS | OPEN_ALWAYS) { ERROR_ALREADY_EXISTS } else { 0 });
+    kernel32::poner_error(
+        if existe && matches!(disposicion, CREATE_ALWAYS | OPEN_ALWAYS) {
+            ERROR_ALREADY_EXISTS
+        } else {
+            0
+        },
+    );
     abrir(a)
 }
 
 /// `CreateFileA`: la misma, con la ruta en ASCII.
-extern "win64" fn create_file_a(nombre: *const u8, acceso: u32, compartir: u32, seg: u64, disposicion: u32, banderas: u32, plantilla: u64) -> u64 {
+extern "win64" fn create_file_a(
+    nombre: *const u8,
+    acceso: u32,
+    compartir: u32,
+    seg: u64,
+    disposicion: u32,
+    banderas: u32,
+    plantilla: u64,
+) -> u64 {
     if nombre.is_null() {
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return NO_VALE;
@@ -208,7 +394,15 @@ extern "win64" fn create_file_a(nombre: *const u8, acceso: u32, compartir: u32, 
         w.push(unsafe { nombre.add(w.len()).read() } as u16);
     }
     w.push(0);
-    create_file_w(w.as_ptr(), acceso, compartir, seg, disposicion, banderas, plantilla)
+    create_file_w(
+        w.as_ptr(),
+        acceso,
+        compartir,
+        seg,
+        disposicion,
+        banderas,
+        plantilla,
+    )
 }
 
 /// P4f4: el desplazamiento de un OVERLAPPED (Offset en +16, OffsetHigh en
@@ -216,7 +410,10 @@ extern "win64" fn create_file_a(nombre: *const u8, acceso: u32, compartir: u32, 
 /// detras.
 fn desde_solapado(ov: u64) -> Option<u64> {
     // SAFETY: un OVERLAPPED del `.exe` (32 bytes).
-    (ov != 0).then(|| unsafe { ((ov + 16) as *const u32).read_unaligned() as u64 | (((ov + 20) as *const u32).read_unaligned() as u64) << 32 })
+    (ov != 0).then(|| unsafe {
+        ((ov + 16) as *const u32).read_unaligned() as u64
+            | (((ov + 20) as *const u32).read_unaligned() as u64) << 32
+    })
 }
 
 /// Lo que queda en el OVERLAPPED al acabar: Internal (el NTSTATUS, +0) e
@@ -256,7 +453,9 @@ pub(crate) fn leer_de(h: u64, dst: &mut [u8], desde: Option<u64>) -> Result<usiz
 
 /// **Escribir en un fichero de la casa** (WriteFile y NtWriteFile).
 pub(crate) fn escribir_en(h: u64, src: &[u8], desde: Option<u64>) -> Result<usize, u32> {
-    let a = abierto(h).filter(|a| a.escribe).ok_or(ERROR_INVALID_HANDLE)?;
+    let a = abierto(h)
+        .filter(|a| a.escribe)
+        .ok_or(ERROR_INVALID_HANDLE)?;
     if let Some(p) = desde {
         a.pos = p;
     }
@@ -266,7 +465,11 @@ pub(crate) fn escribir_en(h: u64, src: &[u8], desde: Option<u64>) -> Result<usiz
 /// `ReadFile(h, bufer, n, *leidos, solapado)`.
 extern "win64" fn read_file(h: u64, b: *mut u8, n: u32, leidos: *mut u32, solapado: u64) -> i32 {
     // SAFETY: `n` bytes del `.exe` donde escribir.
-    let dst = if n == 0 { &mut [][..] } else { unsafe { core::slice::from_raw_parts_mut(b, n as usize) } };
+    let dst = if n == 0 {
+        &mut [][..]
+    } else {
+        unsafe { core::slice::from_raw_parts_mut(b, n as usize) }
+    };
     match leer_de(h, dst, desde_solapado(solapado)) {
         Ok(k) => {
             if !leidos.is_null() {
@@ -286,7 +489,11 @@ extern "win64" fn read_file(h: u64, b: *mut u8, n: u32, leidos: *mut u32, solapa
 /// `WriteFile` sobre un fichero (la consola la lleva `kernel32`).
 pub(crate) fn escribir(h: u64, b: *const u8, n: u32, escritos: *mut u32, solapado: u64) -> i32 {
     // SAFETY: `n` bytes del `.exe`.
-    let src = if n == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(b, n as usize) } };
+    let src = if n == 0 {
+        &[][..]
+    } else {
+        unsafe { core::slice::from_raw_parts(b, n as usize) }
+    };
     match escribir_en(h, src, desde_solapado(solapado)) {
         Ok(k) => {
             if !escritos.is_null() {
@@ -314,7 +521,9 @@ fn volcar(a: &mut Abierto) -> bool {
 
 /// `CloseHandle` sobre un fichero: si se escribio, sale entero.
 pub(crate) fn cerrar(h: u64) -> i32 {
-    let Some(i) = h.checked_sub(FICHERO).map(|i| i as usize) else { return 0 };
+    let Some(i) = h.checked_sub(FICHERO).map(|i| i as usize) else {
+        return 0;
+    };
     let Some(mut a) = estado().abiertos.get_mut(i).and_then(Option::take) else {
         kernel32::poner_error(ERROR_INVALID_HANDLE);
         return 0;
@@ -348,7 +557,11 @@ extern "win64" fn set_file_pointer_ex(h: u64, dist: i64, nueva: *mut i64, metodo
             1
         }
         None => {
-            kernel32::poner_error(if metodo > 2 { ERROR_INVALID_PARAMETER } else { ERROR_NEGATIVE_SEEK });
+            kernel32::poner_error(if metodo > 2 {
+                ERROR_INVALID_PARAMETER
+            } else {
+                ERROR_NEGATIVE_SEEK
+            });
             0
         }
     }
@@ -358,7 +571,11 @@ extern "win64" fn set_file_pointer_ex(h: u64, dist: i64, nueva: *mut i64, metodo
 /// alta por puntero (si lo dan).
 extern "win64" fn set_file_pointer(h: u64, bajo: i32, alto: *mut i32, metodo: u32) -> u32 {
     // SAFETY: un LONG del `.exe`, o nulo.
-    let dist = if alto.is_null() { bajo as i64 } else { (unsafe { *alto } as i64) << 32 | bajo as u32 as i64 };
+    let dist = if alto.is_null() {
+        bajo as i64
+    } else {
+        (unsafe { *alto } as i64) << 32 | bajo as u32 as i64
+    };
     let mut p = 0i64;
     if set_file_pointer_ex(h, dist, &mut p, metodo) == 0 {
         return u32::MAX;
@@ -419,11 +636,17 @@ fn get_file_attributes_dentro(nombre: *const u16) -> u32 {
         Ok(r) => match crate::carpetas::entrada(&r) {
             Some(e) => crate::carpetas::atributos(&e),
             None => {
-                kernel32::poner_error(if crate::carpetas::padre_existe(&r) { ERROR_FILE_NOT_FOUND } else { ERROR_PATH_NOT_FOUND });
+                kernel32::poner_error(if crate::carpetas::padre_existe(&r) {
+                    ERROR_FILE_NOT_FOUND
+                } else {
+                    ERROR_PATH_NOT_FOUND
+                });
                 INVALID_FILE_ATTRIBUTES
             }
         },
-        Err(ERROR_FILE_NOT_FOUND) if crate::carpetas::es_raiz(nombre) => crate::carpetas::DIRECTORIO,
+        Err(ERROR_FILE_NOT_FOUND) if crate::carpetas::es_raiz(nombre) => {
+            crate::carpetas::DIRECTORIO
+        }
         Err(e) => {
             kernel32::poner_error(e);
             INVALID_FILE_ATTRIBUTES
@@ -445,4 +668,338 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "GetFileAttributesW" => dir!(get_file_attributes_w),
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod pruebas_capa {
+    use super::*;
+    extern crate std;
+    use bmo_proton_x::ficheros::Entrada;
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::sync::Mutex;
+
+    #[derive(Default)]
+    struct Volumen {
+        carpetas: BTreeSet<String>,
+        ficheros: BTreeMap<String, Vec<u8>>,
+    }
+
+    static VOLUMEN: Mutex<Volumen> = Mutex::new(Volumen {
+        carpetas: BTreeSet::new(),
+        ficheros: BTreeMap::new(),
+    });
+    static UNA_A_LA_VEZ: Mutex<()> = Mutex::new(());
+
+    fn leer(r: &[u8]) -> Option<Vec<u8>> {
+        VOLUMEN
+            .lock()
+            .unwrap()
+            .ficheros
+            .get(core::str::from_utf8(r).ok()?)
+            .cloned()
+    }
+
+    fn escribir(r: &[u8], bytes: &[u8]) -> bool {
+        let Ok(r) = core::str::from_utf8(r) else {
+            return false;
+        };
+        VOLUMEN
+            .lock()
+            .unwrap()
+            .ficheros
+            .insert(String::from(r), bytes.to_vec());
+        true
+    }
+
+    fn listar(r: &[u8]) -> Option<Vec<Entrada>> {
+        let r = core::str::from_utf8(r).ok()?;
+        let v = VOLUMEN.lock().unwrap();
+        if !v.carpetas.contains(r) {
+            return None;
+        }
+        let prefijo = if r.is_empty() {
+            String::new()
+        } else {
+            alloc::format!("{r}/")
+        };
+        let mut entradas = Vec::new();
+        for d in &v.carpetas {
+            let Some(resto) = d.strip_prefix(&prefijo) else {
+                continue;
+            };
+            if !resto.is_empty() && !resto.contains('/') {
+                entradas.push(Entrada {
+                    nombre: String::from(resto),
+                    carpeta: true,
+                    atributos: 0x10,
+                    ..Default::default()
+                });
+            }
+        }
+        for (p, b) in &v.ficheros {
+            let Some(resto) = p.strip_prefix(&prefijo) else {
+                continue;
+            };
+            if !resto.is_empty() && !resto.contains('/') {
+                entradas.push(Entrada {
+                    nombre: String::from(resto),
+                    bytes: b.len() as u64,
+                    atributos: 0x20,
+                    ..Default::default()
+                });
+            }
+        }
+        Some(entradas)
+    }
+
+    fn crear(r: &[u8]) -> bool {
+        let Ok(r) = core::str::from_utf8(r) else {
+            return false;
+        };
+        let padre = r.rsplit_once('/').map_or("", |(p, _)| p);
+        let mut v = VOLUMEN.lock().unwrap();
+        if v.carpetas.contains(r) || v.ficheros.contains_key(r) || !v.carpetas.contains(padre) {
+            return false;
+        }
+        v.carpetas.insert(String::from(r))
+    }
+
+    fn no_quitar(r: &[u8]) -> bool {
+        let Ok(r) = core::str::from_utf8(r) else {
+            return false;
+        };
+        let mut v = VOLUMEN.lock().unwrap();
+        if v.ficheros.remove(r).is_some() {
+            return true;
+        }
+        let prefijo = alloc::format!("{r}/");
+        let vacia = v.carpetas.contains(r)
+            && !v.ficheros.keys().any(|p| p.starts_with(&prefijo))
+            && !v.carpetas.iter().any(|p| p != r && p.starts_with(&prefijo));
+        vacia && v.carpetas.remove(r)
+    }
+    fn no_renombrar(_: &[u8], _: &[u8]) -> bool {
+        false
+    }
+    fn escribir_consola(_: &[u8]) {}
+    fn salir(_: u32) -> ! {
+        panic!("la plataforma de prueba no sale")
+    }
+    fn superficie(_: u32, _: u32) -> Option<crate::Superficie> {
+        None
+    }
+    fn mostrar(_: &crate::Superficie) -> bool {
+        false
+    }
+    fn presentar(_: &crate::Superficie) {}
+    fn evento(_: &crate::Superficie) -> u64 {
+        0
+    }
+    fn dormir() {}
+    fn poner_gs(_: u64) {}
+    fn ahora() -> u64 {
+        0
+    }
+    fn sellar(_: &[u8]) -> Option<u64> {
+        None
+    }
+    fn soltar(_: u64, _: usize) {}
+    fn memoria(_: usize) -> Option<u64> {
+        None
+    }
+    fn fecha() -> Option<u64> {
+        None
+    }
+
+    fn plataforma_prueba() -> crate::Plataforma {
+        crate::Plataforma {
+            escribir: escribir_consola,
+            salir,
+            superficie,
+            mostrar,
+            presentar,
+            evento,
+            dormir,
+            poner_gs,
+            ahora_ns: ahora,
+            dibujar: bmo_proton_x::lote::en_cpu,
+            sellar_codigo: sellar,
+            soltar_codigo: soltar,
+            leer_fichero: leer,
+            escribir_fichero: escribir,
+            memoria,
+            fecha,
+            listar,
+            carpetas: Some(crate::Carpetas {
+                crear,
+                quitar: no_quitar,
+                renombrar: no_renombrar,
+            }),
+            reserva: None,
+            trozos: None,
+        }
+    }
+
+    #[test]
+    fn escribir_en_d_publica_una_copia_y_listar_la_prefiere() {
+        let _una = UNA_A_LA_VEZ.lock().unwrap();
+        {
+            let mut v = VOLUMEN.lock().unwrap();
+            *v = Volumen::default();
+            for d in [
+                "",
+                "d:",
+                "d:Cyberpunk 2077",
+                "d:Cyberpunk 2077/bin",
+                "d:Cyberpunk 2077/bin/x64",
+            ] {
+                v.carpetas.insert(String::from(d));
+            }
+            v.ficheros.insert(
+                String::from("d:Cyberpunk 2077/bin/x64/settings.ini"),
+                b"original".to_vec(),
+            );
+            v.ficheros.insert(
+                String::from("d:Cyberpunk 2077/bin/x64/engine.dll"),
+                b"base".to_vec(),
+            );
+        }
+        // SAFETY: prueba serializada; las funciones usan solo el volumen de arriba.
+        unsafe { crate::empezar(plataforma_prueba()) };
+        poner_directorio("d:Cyberpunk 2077/bin/x64");
+        poner_capa(Some("proton-x/cyberpunk2077/capa"));
+        let nombre: Vec<u16> = "D:\\Cyberpunk 2077\\bin\\x64\\settings.ini"
+            .encode_utf16()
+            .chain([0])
+            .collect();
+        let h = create_file_dentro(
+            nombre.as_ptr(),
+            GENERIC_READ | GENERIC_WRITE,
+            0,
+            0,
+            OPEN_EXISTING,
+            0,
+            0,
+        );
+        assert_ne!(
+            h, NO_VALE,
+            "un OPEN_EXISTING para escribir crea la copia en la capa"
+        );
+        let mut antes = [0u8; 8];
+        assert_eq!(leer_de(h, &mut antes, None), Ok(8));
+        assert_eq!(&antes, b"original");
+        assert_eq!(abierto(h).unwrap().mover(0, 0), Some(0));
+        assert_eq!(escribir_en(h, b"patched!", None), Ok(8));
+        assert_eq!(cerrar(h), 1);
+
+        let original = "d:Cyberpunk 2077/bin/x64/settings.ini";
+        let copia = "proton-x/cyberpunk2077/capa/Cyberpunk 2077/bin/x64/settings.ini";
+        assert_eq!(
+            leer(original.as_bytes()).unwrap(),
+            b"original",
+            "D: nunca cambia"
+        );
+        assert_eq!(leer(copia.as_bytes()).unwrap(), b"patched!");
+        assert_eq!(
+            ruta_para_leer(original),
+            copia,
+            "la siguiente lectura usa la capa"
+        );
+
+        let nuevas: Vec<u16> = "D:\\Cyberpunk 2077\\bin\\x64\\trace.log"
+            .encode_utf16()
+            .chain([0])
+            .collect();
+        let h = create_file_dentro(nuevas.as_ptr(), GENERIC_WRITE, 0, 0, CREATE_NEW, 0, 0);
+        assert_ne!(h, NO_VALE, "CREATE_NEW de D: se dirige a ESTRATOS");
+        assert_eq!(escribir_en(h, b"log", None), Ok(3));
+        assert_eq!(cerrar(h), 1);
+        assert_eq!(
+            leer(b"d:Cyberpunk 2077/bin/x64/trace.log"),
+            None,
+            "un fichero nuevo tampoco aparece en D:"
+        );
+        assert_eq!(
+            leer(b"proton-x/cyberpunk2077/capa/Cyberpunk 2077/bin/x64/trace.log").unwrap(),
+            b"log"
+        );
+
+        let entradas = crate::carpetas::listar("d:Cyberpunk 2077/bin/x64").unwrap();
+        assert_eq!(
+            entradas
+                .iter()
+                .find(|e| e.nombre == "settings.ini")
+                .unwrap()
+                .bytes,
+            8
+        );
+        assert!(
+            entradas.iter().any(|e| e.nombre == "engine.dll"),
+            "D: sigue visible debajo de la capa"
+        );
+        assert!(
+            entradas.iter().any(|e| e.nombre == "trace.log"),
+            "los ficheros de la capa tambien se listan"
+        );
+
+        let origen: Vec<u16> = "D:\\Cyberpunk 2077\\bin\\x64\\engine.dll"
+            .encode_utf16()
+            .chain([0])
+            .collect();
+        let destino: Vec<u16> = "D:\\Cyberpunk 2077\\bin\\x64\\engine-copy.dll"
+            .encode_utf16()
+            .chain([0])
+            .collect();
+        assert_eq!(
+            crate::carpetas::move_file_ex_w(origen.as_ptr(), destino.as_ptr(), 0),
+            1
+        );
+        assert_eq!(
+            leer(b"d:Cyberpunk 2077/bin/x64/engine.dll").unwrap(),
+            b"base",
+            "mover tambien conserva el original"
+        );
+        assert!(crate::carpetas::entrada("d:Cyberpunk 2077/bin/x64/engine.dll").is_none());
+        assert_eq!(
+            leer(b"proton-x/cyberpunk2077/capa/Cyberpunk 2077/bin/x64/engine-copy.dll").unwrap(),
+            b"base"
+        );
+
+        let copia: Vec<u16> = "D:\\Cyberpunk 2077\\bin\\x64\\engine-copy.dll"
+            .encode_utf16()
+            .chain([0])
+            .collect();
+        let respaldo: Vec<u16> = "D:\\Cyberpunk 2077\\bin\\x64\\engine-backup.dll"
+            .encode_utf16()
+            .chain([0])
+            .collect();
+        assert_eq!(
+            crate::carpetas::copy_file_ex_w(copia.as_ptr(), respaldo.as_ptr(), 0, 0, 0, 0),
+            1
+        );
+        assert_eq!(
+            leer(b"proton-x/cyberpunk2077/capa/Cyberpunk 2077/bin/x64/engine-backup.dll").unwrap(),
+            b"base"
+        );
+
+        assert_eq!(
+            crate::carpetas::delete_file_w(nombre.as_ptr()),
+            1,
+            "borrar marca el nombre sin tocar D:"
+        );
+        assert_eq!(leer(original.as_bytes()).unwrap(), b"original");
+        assert!(
+            crate::carpetas::entrada(original).is_none(),
+            "el original queda oculto"
+        );
+        let entradas = crate::carpetas::listar("d:Cyberpunk 2077/bin/x64").unwrap();
+        assert!(
+            !entradas.iter().any(|e| e.nombre == "settings.ini"),
+            "el listado respeta la marca"
+        );
+
+        poner_capa(None);
+        let denied = create_file_dentro(nombre.as_ptr(), GENERIC_WRITE, 0, 0, OPEN_EXISTING, 0, 0);
+        assert_eq!(denied, NO_VALE, "sin perfil, D: conserva el solo lectura");
+    }
 }

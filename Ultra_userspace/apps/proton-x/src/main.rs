@@ -52,13 +52,15 @@
 extern crate alloc;
 
 mod cargador;
+mod entorno_windows;
+mod la3060;
 mod monton;
 mod plataforma;
-mod la3060;
+mod perfil;
 
 use alloc::format;
 use alloc::vec::Vec;
-use bmo_proton_x::{importaciones, leer_cabeceras, resolver, teb, tls, tramos, Permiso};
+use bmo_proton_x::{importaciones, leer_cabeceras, resolver, tls, tramos, Permiso};
 use bmo_userland as bmo;
 
 #[global_allocator]
@@ -156,19 +158,35 @@ fn mirar(ruta: &[u8]) -> Result<Mirado, alloc::string::String> {
     let hb = bmo::Memoria::request(n.max(1)).ok_or("sin memoria para las cabeceras")?;
     let k = a.leer_en(&hb, 0, n);
     // SAFETY: `k` bytes que el kernel acaba de escribir en un bloque nuestro.
-    let cab: Vec<u8> = unsafe { core::slice::from_raw_parts(hb.base() as *const u8, k as usize) }.to_vec();
+    let cab: Vec<u8> =
+        unsafe { core::slice::from_raw_parts(hb.base() as *const u8, k as usize) }.to_vec();
     hb.soltar();
     let pe = bmo_proton_x::leer_cabeceras(&cab, mide).map_err(|f| format!("{f}"))?;
     let partes = tramos(&pe).map_err(|f| format!("{f}"));
     let rva = pe.importaciones.rva;
-    let seccion_de = |rva: u32| pe.secciones.iter().find(|s| rva != 0 && (s.rva..s.rva + s.tam_en_fichero).contains(&rva));
+    let seccion_de = |rva: u32| {
+        pe.secciones
+            .iter()
+            .find(|s| rva != 0 && (s.rva..s.rva + s.tam_en_fichero).contains(&rva))
+    };
     let Some(sec) = seccion_de(rva) else {
-        return Ok(Mirado { pe: pe.clone(), imps: Vec::new(), retrasadas: Vec::new(), fallo_retrasadas: None, en_vivo: Vec::new(), mide, partes });
+        return Ok(Mirado {
+            pe: pe.clone(),
+            imps: Vec::new(),
+            retrasadas: Vec::new(),
+            fallo_retrasadas: None,
+            en_vivo: Vec::new(),
+            mide,
+            partes,
+        });
     };
     let (imps, retrasadas, en_vivo) = con_seccion(&a, sec, |trozo| {
-        let imps = bmo_proton_x::importaciones_de_seccion(&pe, trozo, sec.rva).map_err(|f| format!("{f}"))?;
+        let imps = bmo_proton_x::importaciones_de_seccion(&pe, trozo, sec.rva)
+            .map_err(|f| format!("{f}"))?;
         // Las retrasadas suelen vivir en la misma seccion (.rdata).
-        let ret = seccion_de(pe.retrasadas.rva).filter(|s| s.rva == sec.rva).map(|_| bmo_proton_x::retrasadas_de_seccion(&pe, trozo, sec.rva));
+        let ret = seccion_de(pe.retrasadas.rva)
+            .filter(|s| s.rva == sec.rva)
+            .map(|_| bmo_proton_x::retrasadas_de_seccion(&pe, trozo, sec.rva));
         Ok((imps, ret, nombres_de_dll(trozo)))
     })?;
     // Si no estaban ahi, o sus nombres caen en otra seccion (libxess.dll,
@@ -177,26 +195,50 @@ fn mirar(ruta: &[u8]) -> Result<Mirado, alloc::string::String> {
     let (retrasadas, fallo_retrasadas) = match retrasadas {
         Some(Ok(r)) => (r, None),
         _ if pe.retrasadas.rva == 0 => (Vec::new(), None),
-        _ => match con_ventana(&a, &pe, |v, desde| Ok(bmo_proton_x::retrasadas_de_seccion(&pe, v, desde))) {
+        _ => match con_ventana(&a, &pe, |v, desde| {
+            Ok(bmo_proton_x::retrasadas_de_seccion(&pe, v, desde))
+        }) {
             Ok(Ok(r)) => (r, None),
             Ok(Err(f)) => (Vec::new(), Some(format!("{f}"))),
             Err(f) => (Vec::new(), Some(f)),
         },
     };
-    Ok(Mirado { pe, imps, retrasadas, fallo_retrasadas, en_vivo, mide, partes })
+    Ok(Mirado {
+        pe,
+        imps,
+        retrasadas,
+        fallo_retrasadas,
+        en_vivo,
+        mide,
+        partes,
+    })
 }
 
 /// **Todas las secciones de DATOS en un bloque**, cada una en su RVA (lo de
 /// en medio, a cero), y `f` sobre el bloque y la RVA donde empieza. Para las
 /// tablas que apuntan de una seccion a otra.
-fn con_ventana<R>(a: &bmo::Archivo, pe: &bmo_proton_x::Pe, f: impl FnOnce(&[u8], u32) -> Result<R, alloc::string::String>) -> Result<R, alloc::string::String> {
-    let datos: Vec<&bmo_proton_x::Seccion> = pe.secciones.iter().filter(|s| s.permiso() != bmo_proton_x::Permiso::Codigo && s.tam_en_fichero > 0).collect();
-    let (Some(desde), Some(hasta)) = (datos.iter().map(|s| s.rva).min(), datos.iter().map(|s| s.rva + s.tam_en_fichero).max()) else {
+fn con_ventana<R>(
+    a: &bmo::Archivo,
+    pe: &bmo_proton_x::Pe,
+    f: impl FnOnce(&[u8], u32) -> Result<R, alloc::string::String>,
+) -> Result<R, alloc::string::String> {
+    let datos: Vec<&bmo_proton_x::Seccion> = pe
+        .secciones
+        .iter()
+        .filter(|s| s.permiso() != bmo_proton_x::Permiso::Codigo && s.tam_en_fichero > 0)
+        .collect();
+    let (Some(desde), Some(hasta)) = (
+        datos.iter().map(|s| s.rva).min(),
+        datos.iter().map(|s| s.rva + s.tam_en_fichero).max(),
+    ) else {
         return Err(alloc::string::String::from("sin secciones de datos"));
     };
     let tam = (hasta - desde) as u64;
     if tam > TOPE_SECCION {
-        return Err(format!("las secciones de datos pasan de 64 MiB ({} MiB)", tam >> 20));
+        return Err(format!(
+            "las secciones de datos pasan de 64 MiB ({} MiB)",
+            tam >> 20
+        ));
     }
     let b = bmo::Memoria::request(tam.max(1)).ok_or("sin memoria para la ventana de datos")?;
     // SAFETY: un bloque nuestro de `tam` bytes: a cero lo que ninguna llena.
@@ -224,7 +266,11 @@ fn con_ventana<R>(a: &bmo::Archivo, pe: &bmo_proton_x::Pe, f: impl FnOnce(&[u8],
 
 /// **Una seccion del fichero en un bloque**, a trozos (cediendo el turno), y
 /// `f` sobre sus bytes; el bloque se suelta al acabar.
-fn con_seccion<R>(a: &bmo::Archivo, sec: &bmo_proton_x::Seccion, f: impl FnOnce(&[u8]) -> Result<R, alloc::string::String>) -> Result<R, alloc::string::String> {
+fn con_seccion<R>(
+    a: &bmo::Archivo,
+    sec: &bmo_proton_x::Seccion,
+    f: impl FnOnce(&[u8]) -> Result<R, alloc::string::String>,
+) -> Result<R, alloc::string::String> {
     let tam = sec.tam_en_fichero as u64;
     if tam > TOPE_SECCION {
         return Err(format!("la seccion {} pasa de 64 MiB", sec.nombre));
@@ -289,7 +335,15 @@ fn nombres_de_dll(d: &[u8]) -> Vec<alloc::string::String> {
             bmo::yield_screen();
         }
         let w = &d[i..i + 8];
-        if w[1] == 0 && w[3] == 0 && w[5] == 0 && w[7] == 0 && w[0] == b'.' && w[2] | 0x20 == b'd' && w[4] | 0x20 == b'l' && w[6] | 0x20 == b'l' {
+        if w[1] == 0
+            && w[3] == 0
+            && w[5] == 0
+            && w[7] == 0
+            && w[0] == b'.'
+            && w[2] | 0x20 == b'd'
+            && w[4] | 0x20 == b'l'
+            && w[6] | 0x20 == b'l'
+        {
             let mut a = i;
             while a >= 2 && d[a - 1] == 0 && vale(d[a - 2]) && (i - a) / 2 < 64 {
                 a -= 2;
@@ -320,7 +374,14 @@ fn recortar(s: &str, n: usize) -> &str {
 }
 
 /// Nombres de Windows que un byte suelto delante no puede volver nuevos.
-const COMO_WINDOWS: &[&str] = &["kernel32.dll", "user32.dll", "gdi32.dll", "ntdll.dll", "advapi32.dll", "shell32.dll"];
+const COMO_WINDOWS: &[&str] = &[
+    "kernel32.dll",
+    "user32.dll",
+    "gdi32.dll",
+    "ntdll.dll",
+    "advapi32.dll",
+    "shell32.dll",
+];
 
 /// Las clases de lo que se carga EN VIVO: (nombre, que significa, listar los
 /// nombres en la consola).
@@ -329,10 +390,26 @@ const GRAFICOS: Clase = ("graficos", "", true);
 const SONIDO: Clase = ("sonido", "", true);
 const NVIDIA: Clase = ("driver nvidia", "", true);
 const AMD: Clase = ("de AMD", "no hacen falta con la 3060", false);
-const HERRAMIENTAS: Clase = ("herramientas", "depurar, capturar, perifericos: opcionales", false);
-const API_SETS: Clase = ("api-ms", "alias de kernelbase/kernel32: la casa los resuelve alli", false);
+const HERRAMIENTAS: Clase = (
+    "herramientas",
+    "depurar, capturar, perifericos: opcionales",
+    false,
+);
+const API_SETS: Clase = (
+    "api-ms",
+    "alias de kernelbase/kernel32: la casa los resuelve alli",
+    false,
+);
 const WINDOWS: Clase = ("de Windows", "", true);
-const CLASES: &[Clase] = &[GRAFICOS, SONIDO, NVIDIA, WINDOWS, API_SETS, AMD, HERRAMIENTAS];
+const CLASES: &[Clase] = &[
+    GRAFICOS,
+    SONIDO,
+    NVIDIA,
+    WINDOWS,
+    API_SETS,
+    AMD,
+    HERRAMIENTAS,
+];
 
 /// **La clase** de una DLL que se carga en vivo, por su nombre.
 fn clase(d: &str) -> Clase {
@@ -348,7 +425,18 @@ fn clase(d: &str) -> Clase {
         NVIDIA
     } else if empieza(&["ati", "amd", "llvm_"]) {
         AMD
-    } else if empieza(&["renderdoc", "msdia", "srcsrv", "symaudit", "dbghelp", "rzchroma", "physxupdate", "gameoverlay", "steam_api", "bink"]) {
+    } else if empieza(&[
+        "renderdoc",
+        "msdia",
+        "srcsrv",
+        "symaudit",
+        "dbghelp",
+        "rzchroma",
+        "physxupdate",
+        "gameoverlay",
+        "steam_api",
+        "bink",
+    ]) {
         HERRAMIENTAS
     } else {
         WINDOWS
@@ -403,7 +491,9 @@ impl Nivel {
 fn censo(ruta: &[u8]) -> ! {
     use alloc::string::String;
     let nombre = core::str::from_utf8(ruta).unwrap_or("?");
-    let Some(bloque) = bmo::Memoria::request(16 << 20) else { fin("sin memoria para el censo") };
+    let Some(bloque) = bmo::Memoria::request(16 << 20) else {
+        fin("sin memoria para el censo")
+    };
     // SAFETY: el bloque es de este proceso y no se suelta nunca (forget).
     unsafe { MONTON.poner(bloque.base() as usize, 16 << 20) };
     core::mem::forget(bloque);
@@ -434,13 +524,24 @@ fn censo(ruta: &[u8]) -> ! {
         Err(f) => fin(&format!("censo: {nombre}: {f}")),
     };
     let la_imagen = imagen(&exe);
-    let mut pendiente: Option<(String, Mirado, Nivel)> = Some((String::from(nombre.rsplit('/').next().unwrap_or(nombre)), exe, Nivel::Dura));
+    let mut pendiente: Option<(String, Mirado, Nivel)> = Some((
+        String::from(nombre.rsplit('/').next().unwrap_or(nombre)),
+        exe,
+        Nivel::Dura,
+    ));
     loop {
         let Some((quien, m, nivel)) = pendiente.take() else {
             // La siguiente de la cola, la de nivel MAS fuerte: asi una DLL
             // se mira siempre con el mas fuerte de sus caminos (una de nivel
             // N solo pide de nivel N o mas flojo).
-            let Some(i) = cola.iter().enumerate().min_by_key(|(_, c)| c.1).map(|(i, _)| i) else { break };
+            let Some(i) = cola
+                .iter()
+                .enumerate()
+                .min_by_key(|(_, c)| c.1)
+                .map(|(i, _)| i)
+            else {
+                break;
+            };
             let (dll, nv) = cola.remove(i);
             match mirar(&junto(&dll)) {
                 Ok(m) => pendiente = Some((dll, m, nv)),
@@ -449,7 +550,16 @@ fn censo(ruta: &[u8]) -> ! {
             continue;
         };
         vistos.push(quien.to_ascii_lowercase());
-        juego.push((quien.clone(), m.mide >> 20, m.imps.len(), m.retrasadas.len(), nivel, m.fallo_retrasadas.as_ref().map(|f| format!("solo las retrasadas: {f}"))));
+        juego.push((
+            quien.clone(),
+            m.mide >> 20,
+            m.imps.len(),
+            m.retrasadas.len(),
+            nivel,
+            m.fallo_retrasadas
+                .as_ref()
+                .map(|f| format!("solo las retrasadas: {f}")),
+        ));
         let mut encolar = |dll: &str, nv: Nivel| {
             if vistos.contains(&dll.to_ascii_lowercase()) {
                 return;
@@ -460,14 +570,21 @@ fn censo(ruta: &[u8]) -> ! {
             }
         };
         let retrasada = nivel.max(Nivel::Retrasada);
-        let pedidas = m.imps.iter().map(|i| (i, nivel)).chain(m.retrasadas.iter().map(|i| (i, retrasada)));
+        let pedidas = m
+            .imps
+            .iter()
+            .map(|i| (i, nivel))
+            .chain(m.retrasadas.iter().map(|i| (i, retrasada)));
         for (i, nv) in pedidas {
             if existe(&i.dll) {
                 encolar(&i.dll, nv);
                 continue;
             }
             let f = format!("{}", i.funcion);
-            match windows.iter_mut().find(|(d, g, _, _)| d.eq_ignore_ascii_case(&i.dll) && *g == f) {
+            match windows
+                .iter_mut()
+                .find(|(d, g, _, _)| d.eq_ignore_ascii_case(&i.dll) && *g == f)
+            {
                 Some(w) => w.3 = w.3.min(nv),
                 None => {
                     let hay = bmo_proton_x_casa::tabla(&i.dll, &i.funcion).is_some();
@@ -476,7 +593,11 @@ fn censo(ruta: &[u8]) -> ! {
             }
         }
         for d in &m.en_vivo {
-            let importada = m.imps.iter().chain(&m.retrasadas).any(|i| i.dll.eq_ignore_ascii_case(d));
+            let importada = m
+                .imps
+                .iter()
+                .chain(&m.retrasadas)
+                .any(|i| i.dll.eq_ignore_ascii_case(d));
             if importada {
                 continue;
             }
@@ -484,7 +605,14 @@ fn censo(ruta: &[u8]) -> ! {
                 // Una DLL del juego que se carga en vivo: la de AMD o una
                 // herramienta no aporta nada con la 3060.
                 let c = clase(d);
-                encolar(d, if c == AMD || c == HERRAMIENTAS { Nivel::NoAporta } else { nivel.max(Nivel::Vivo) });
+                encolar(
+                    d,
+                    if c == AMD || c == HERRAMIENTAS {
+                        Nivel::NoAporta
+                    } else {
+                        nivel.max(Nivel::Vivo)
+                    },
+                );
             } else if !en_vivo.iter().any(|(x, _)| x.eq_ignore_ascii_case(d)) {
                 en_vivo.push((d.clone(), quien.clone()));
             }
@@ -499,8 +627,12 @@ fn censo(ruta: &[u8]) -> ! {
         .iter()
         .filter(|(d, _)| {
             let raiz = d.len() - 4;
-            let otro = en_vivo.iter().any(|(x, _)| d.len() == x.len() + 1 && d[1..].eq_ignore_ascii_case(x))
-                || COMO_WINDOWS.iter().any(|x| d.len() == x.len() + 1 && d[1..].eq_ignore_ascii_case(x));
+            let otro = en_vivo
+                .iter()
+                .any(|(x, _)| d.len() == x.len() + 1 && d[1..].eq_ignore_ascii_case(x))
+                || COMO_WINDOWS
+                    .iter()
+                    .any(|x| d.len() == x.len() + 1 && d[1..].eq_ignore_ascii_case(x));
             raiz >= 3 && d.as_bytes()[0].is_ascii_alphabetic() && !otro && !importadas(d)
         })
         .cloned()
@@ -531,8 +663,14 @@ fn censo(ruta: &[u8]) -> ! {
     // primer censo completo perdio su cabecera) y linea a linea, cediendo el
     // turno para que el escritorio lo drene.
     // Un fichero con solo sus retrasadas sin leer SI se miro (cuenta lo demas).
-    let parcial = |f: &Option<String>| f.as_ref().is_some_and(|f| f.starts_with("solo las retrasadas"));
-    let fallidos = juego.iter().filter(|j| j.5.is_some() && !parcial(&j.5)).count();
+    let parcial = |f: &Option<String>| {
+        f.as_ref()
+            .is_some_and(|f| f.starts_with("solo las retrasadas"))
+    };
+    let fallidos = juego
+        .iter()
+        .filter(|j| j.5.is_some() && !parcial(&j.5))
+        .count();
     let a_medias = juego.iter().filter(|j| parcial(&j.5)).count();
     linea(&format!(
         "CENSO de {nombre}: {} ficheros del juego ({} MiB); {} funciones de Windows distintas\n",
@@ -542,33 +680,67 @@ fn censo(ruta: &[u8]) -> ! {
     ));
     linea(&la_imagen);
     let (de, si) = cuenta(Nivel::Dura);
-    linea(&format!("  PARA ARRANCAR (DURAS): {de}; la casa tiene {si} ({}%), FALTAN {}\n", si * 100 / de.max(1), de - si));
+    linea(&format!(
+        "  PARA ARRANCAR (DURAS): {de}; la casa tiene {si} ({}%), FALTAN {}\n",
+        si * 100 / de.max(1),
+        de - si
+    ));
     for nv in [Nivel::Retrasada, Nivel::Vivo] {
         let (de, si) = cuenta(nv);
-        let que = if nv == Nivel::Retrasada { "solo si las llama" } else { "solo si carga su DLL" };
-        linea(&format!("  {:<11} {de:>5}; faltan {:>4}  ({que})\n", nv.nombre(), de - si));
+        let que = if nv == Nivel::Retrasada {
+            "solo si las llama"
+        } else {
+            "solo si carga su DLL"
+        };
+        linea(&format!(
+            "  {:<11} {de:>5}; faltan {:>4}  ({que})\n",
+            nv.nombre(),
+            de - si
+        ));
     }
     let (de, _) = cuenta(Nivel::NoAporta);
-    linea(&format!("  NO APORTAN  {de:>5}  (solo de AMD o de herramientas: fuera de las cuentas)\n"));
+    linea(&format!(
+        "  NO APORTAN  {de:>5}  (solo de AMD o de herramientas: fuera de las cuentas)\n"
+    ));
     let duras = por_dll(Nivel::Dura);
     if duras.iter().all(|d| d.1 == d.2) {
         linea("  NO FALTA NINGUNA DURA: el cargador ya puede arrancar el juego (el primer contacto)\n");
     } else {
         linea("  las DLL de Windows con mas DURAS que faltan:\n");
-        for par in duras.iter().filter(|d| d.1 > d.2).take(12).collect::<Vec<_>>().chunks(2) {
+        for par in duras
+            .iter()
+            .filter(|d| d.1 > d.2)
+            .take(12)
+            .collect::<Vec<_>>()
+            .chunks(2)
+        {
             let mut l = String::new();
             for (d, n, si) in par {
-                l.push_str(&format!("  {:<22} {:>4} de {:<4}", recortar(d, 22), n - si, n));
+                l.push_str(&format!(
+                    "  {:<22} {:>4} de {:<4}",
+                    recortar(d, 22),
+                    n - si,
+                    n
+                ));
             }
             l.push('\n');
             linea(&l);
         }
-        let resto = duras.iter().filter(|d| d.1 > d.2).count().saturating_sub(12);
+        let resto = duras
+            .iter()
+            .filter(|d| d.1 > d.2)
+            .count()
+            .saturating_sub(12);
         if resto > 0 {
-            linea(&format!("  ... y {resto} DLL mas con alguna DURA que falta\n"));
+            linea(&format!(
+                "  ... y {resto} DLL mas con alguna DURA que falta\n"
+            ));
         }
     }
-    linea(&format!("  EN VIVO (LoadLibrary, sin importarse): {} DLL\n", limpios.len()));
+    linea(&format!(
+        "  EN VIVO (LoadLibrary, sin importarse): {} DLL\n",
+        limpios.len()
+    ));
     for c in CLASES {
         let de: Vec<&(String, String)> = limpios.iter().filter(|(d, _)| clase(d) == *c).collect();
         if de.is_empty() {
@@ -595,9 +767,14 @@ fn censo(ruta: &[u8]) -> ! {
         linea(&format!("  {a_medias} ficheros del juego sin sus retrasadas (lo demas cuenta; en informe/censo.txt)\n"));
     }
     if fallidos > 0 {
-        linea(&format!("  {fallidos} ficheros del juego no se pudieron mirar (en informe/censo.txt)\n"));
+        linea(&format!(
+            "  {fallidos} ficheros del juego no se pudieron mirar (en informe/censo.txt)\n"
+        ));
     }
-    linea(&format!("  la lista entera, funcion a funcion: {}\n", core::str::from_utf8(RUTA_CENSO).unwrap_or("")));
+    linea(&format!(
+        "  la lista entera, funcion a funcion: {}\n",
+        core::str::from_utf8(RUTA_CENSO).unwrap_or("")
+    ));
 
     // -- La lista entera, nivel a nivel.
     let mut t = String::new();
@@ -606,10 +783,17 @@ fn censo(ruta: &[u8]) -> ! {
     t.push_str(&format!("#{}", &la_imagen[1..]));
     for nv in NIVELES {
         let (de, si) = cuenta(nv);
-        t.push_str(&format!("#   {:<11} {de:>5}  faltan {:>5}\n", nv.nombre(), de - si));
+        t.push_str(&format!(
+            "#   {:<11} {de:>5}  faltan {:>5}\n",
+            nv.nombre(),
+            de - si
+        ));
     }
     for nv in NIVELES {
-        t.push_str(&format!("\n## {}: POR DLL DE WINDOWS (faltan, de, dll)\n", nv.nombre()));
+        t.push_str(&format!(
+            "\n## {}: POR DLL DE WINDOWS (faltan, de, dll)\n",
+            nv.nombre()
+        ));
         let dlls = por_dll(nv);
         for (d, n, si) in &dlls {
             t.push_str(&format!("{:>5} {:>5} {d}\n", n - si, n));
@@ -643,7 +827,9 @@ fn censo(ruta: &[u8]) -> ! {
     for (f, mib, n, r, nv, fallo) in &juego {
         match fallo {
             None => t.push_str(&format!("{} {f} {mib} {n} {r}\n", nv.nombre())),
-            Some(e) if parcial(fallo) => t.push_str(&format!("{} {f} {mib} {n} {r} ({e})\n", nv.nombre())),
+            Some(e) if parcial(fallo) => {
+                t.push_str(&format!("{} {f} {mib} {n} {r} ({e})\n", nv.nombre()))
+            }
             Some(e) => t.push_str(&format!("{} {f} NO SE PUDO MIRAR: {e}\n", nv.nombre())),
         }
     }
@@ -659,7 +845,12 @@ fn imagen(m: &Mirado) -> alloc::string::String {
     match &m.partes {
         Err(f) => format!("  LA IMAGEN: no se puede partir ({f})\n"),
         Ok(p) => {
-            let suma = |cod: bool| p.iter().filter(|t| t.codigo == cod).map(|t| t.bytes as u64).sum::<u64>();
+            let suma = |cod: bool| {
+                p.iter()
+                    .filter(|t| t.codigo == cod)
+                    .map(|t| t.bytes as u64)
+                    .sum::<u64>()
+            };
             let (c, d) = (suma(true), suma(false));
             let veredicto = "va en la imagen declarada (la juzga el kernel contra la RAM libre)";
             format!("  LA IMAGEN: {} MiB en el disco; en memoria {} MiB = codigo {} + datos {}; {veredicto}\n", mib(m.mide), mib(c + d), mib(c), mib(d))
@@ -690,7 +881,11 @@ fn guardar_censo(bytes: &[u8]) {
 pub extern "C" fn _start() -> ! {
     let mut arg = [0u8; 96];
     let n = bmo::argumentos(&mut arg);
-    let todo: &[u8] = if n == 0 { b"window/hola.exe" } else { &arg[..n] };
+    let todo: &[u8] = if n == 0 {
+        b"window/hola.exe"
+    } else {
+        &arg[..n]
+    };
     // ** EL CENSO (29-09): `--censo <ruta>` no ejecuta nada: dice que DLL y que
     // funciones de Windows pide el `.exe` y cuantas tiene ya la casa.
     if let Some(r) = todo.strip_prefix(b"--censo ") {
@@ -747,10 +942,13 @@ pub extern "C" fn _start() -> ! {
 
     // -- 2 y 3. El veredicto, la forma, y como se parte: de las cabeceras.
     let n = CABECERAS.min(mide);
-    let Some(hb) = bmo::Memoria::request(n) else { fin("sin memoria para las cabeceras") };
+    let Some(hb) = bmo::Memoria::request(n) else {
+        fin("sin memoria para las cabeceras")
+    };
     let k = a.leer_en(&hb, 0, n);
     // SAFETY: `k` bytes que el kernel acaba de escribir en un bloque nuestro.
-    let cab: Vec<u8> = unsafe { core::slice::from_raw_parts(hb.base() as *const u8, k as usize) }.to_vec();
+    let cab: Vec<u8> =
+        unsafe { core::slice::from_raw_parts(hb.base() as *const u8, k as usize) }.to_vec();
     hb.soltar();
     let pe = leer_cabeceras(&cab, mide).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
     drop(cab);
@@ -758,8 +956,16 @@ pub extern "C" fn _start() -> ! {
 
     // La entrada tiene que caer en lo que se va a sellar: saltar a los datos
     // seria un #PF por NX, y saltar fuera, peor.
-    if pe.entrada == 0 || !pe.secciones.iter().any(|s| s.permiso() == Permiso::Codigo && (s.rva..s.rva + s.tam_en_imagen()).contains(&pe.entrada)) {
-        fin(&format!("{nombre}: la entrada ({:#x}) no cae en una seccion de codigo", pe.entrada));
+    if pe.entrada == 0
+        || !pe.secciones.iter().any(|s| {
+            s.permiso() == Permiso::Codigo
+                && (s.rva..s.rva + s.tam_en_imagen()).contains(&pe.entrada)
+        })
+    {
+        fin(&format!(
+            "{nombre}: la entrada ({:#x}) no cae en una seccion de codigo",
+            pe.entrada
+        ));
     }
 
     // -- 3b y 4. P0.4b: el `.exe` Y SUS DLL, en UNA imagen declarada al
@@ -781,7 +987,7 @@ pub extern "C" fn _start() -> ! {
     }
 
     // -- 5. La casa lista (antes de registrar nada en ella), el TEB y el GS.
-    poner_teb(base);
+    entorno_windows::poner_teb(base);
     // SAFETY: un solo `.exe` por proceso, y todavia no se ha saltado.
     unsafe { bmo_proton_x_casa::empezar(plataforma::de_bmo()) };
     // Las DLL del juego, registradas (sus exportaciones) en el orden en que se
@@ -789,18 +995,25 @@ pub extern "C" fn _start() -> ! {
     // contra la casa Y contra las otras.
     for m in &modulos[1..] {
         use bmo_proton_x::dll::{self, Destino};
-        let exps = dll::exportaciones(&m.pe, m.imagen()).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)));
+        let exps = dll::exportaciones(&m.pe, m.imagen())
+            .unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)));
         let dadas = exps
             .into_iter()
             .map(|e| {
                 let d = match &e.destino {
                     Destino::Rva(r) => m.base + *r as u64,
-                    Destino::Reenvio { dll, funcion } => bmo_proton_x_casa::tabla(dll, funcion).unwrap_or(0),
+                    Destino::Reenvio { dll, funcion } => {
+                        bmo_proton_x_casa::tabla(dll, funcion).unwrap_or(0)
+                    }
                 };
                 (e.nombre, e.ordinal, d)
             })
             .collect();
-        let entrada = if m.pe.entrada != 0 { m.base + m.pe.entrada as u64 } else { 0 };
+        let entrada = if m.pe.entrada != 0 {
+            m.base + m.pe.entrada as u64
+        } else {
+            0
+        };
         bmo_proton_x_casa::modulos::registrar_dll(&m.nombre, m.base, entrada, dadas);
     }
     // Resolver cada uno; el TLS del `.exe`, leido de su imagen ya relocalizada.
@@ -812,11 +1025,19 @@ pub extern "C" fn _start() -> ! {
         let img = m.imagen();
         let imps = importaciones(&m.pe, img).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)));
         if k == 0 {
-            tls_del_exe = tls::leer(&m.pe, img, m.base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
-        } else if let Some(t) = tls::leer(&m.pe, img, m.base).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre))) {
+            tls_del_exe =
+                tls::leer(&m.pe, img, m.base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+        } else if let Some(t) =
+            tls::leer(&m.pe, img, m.base).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)))
+        {
             // P0.4b.9: el TLS de las DLL del juego (libxess_fg.dll lo tiene).
             if con_diario {
-                di(&format!("PROTON-X: TLS de {}: {} B por hilo, {} callback(s)\n", m.nombre, t.bytes(), t.callbacks.len()));
+                di(&format!(
+                    "PROTON-X: TLS de {}: {} B por hilo, {} callback(s)\n",
+                    m.nombre,
+                    t.bytes(),
+                    t.callbacks.len()
+                ));
             }
             bmo_proton_x_casa::hilos::registrar_tls_dll(t, m.base);
         }
@@ -824,13 +1045,18 @@ pub extern "C" fn _start() -> ! {
         // viaje al metal dice TODO lo que falta, no solo lo de la primera DLL.
         match resolver(img, &imps, bmo_proton_x_casa::tabla) {
             Ok(()) => {}
-            Err(bmo_proton_x::Fallo::Faltan(v)) => faltan.extend(v.into_iter().map(|i| (m.nombre.clone(), i))),
+            Err(bmo_proton_x::Fallo::Faltan(v)) => {
+                faltan.extend(v.into_iter().map(|i| (m.nombre.clone(), i)))
+            }
             Err(f) => fin(&format!("{}: {f}", m.nombre)),
         }
         funciones += imps.len();
     }
     if !faltan.is_empty() {
-        let mut t = format!("no arranca: faltan {} funcion(es) en la tabla de la casa:", faltan.len());
+        let mut t = format!(
+            "no arranca: faltan {} funcion(es) en la tabla de la casa:",
+            faltan.len()
+        );
         for (quien, i) in &faltan {
             t.push_str(&format!("\n  {quien} pide {}!{}", i.dll, i.funcion));
         }
@@ -840,11 +1066,19 @@ pub extern "C" fn _start() -> ! {
 
     // -- 6. SELLAR el codigo de cada uno: sin esto, saltar seria un #PF por NX.
     for m in &modulos {
-        let t: Vec<(u64, bool)> = m.tramos.iter().map(|t| (t.bytes as u64, t.codigo)).collect();
+        let t: Vec<(u64, bool)> = m
+            .tramos
+            .iter()
+            .map(|t| (t.bytes as u64, t.codigo))
+            .collect();
         bmo_proton_x_casa::memoria::registrar_tramos(m.base, &t);
         for i in m.de_codigo() {
             if let Err(no) = imagen.sellar(i) {
-                fin(&format!("{}: SELLAR dice NO ({}): su codigo no se ejecuta sin sellar", m.nombre, no.frase()));
+                fin(&format!(
+                    "{}: SELLAR dice NO ({}): su codigo no se ejecuta sin sellar",
+                    m.nombre,
+                    no.frase()
+                ));
             }
         }
     }
@@ -858,15 +1092,26 @@ pub extern "C" fn _start() -> ! {
         MONTON.gastado()
     ));
     // P4d: su directorio actual es el suyo (`window` para `window/x.exe`).
-    bmo_proton_x_casa::ficheros::poner_directorio(nombre.rsplit_once('/').map(|(d, _)| d).unwrap_or(""));
+    bmo_proton_x_casa::ficheros::poner_directorio(
+        nombre.rsplit_once('/').map(|(d, _)| d).unwrap_or(""),
+    );
     // P4e: su nombre (GetModuleFileNameW) y su linea de ordenes; y si es un
     // juego de D:, su perfil de Windows en ESTRATOS (relevo 01-10, paso 3).
-    let perfil = perfil_en_estratos(nombre);
-    bmo_proton_x_casa::proceso::poner_exe_con_perfil(nombre, linea, perfil.as_ref().map(|p| p.windows.as_str()));
+    let perfil = perfil::en_estratos(nombre);
+    bmo_proton_x_casa::proceso::poner_exe_con_perfil(
+        nombre,
+        linea,
+        perfil.as_ref().map(|p| p.windows.as_str()),
+    );
+    bmo_proton_x_casa::ficheros::poner_capa(perfil.as_ref().map(|p| p.capa.as_str()));
     // -- 6d. P4: el TLS del hilo principal y los callbacks con PROCESS_ATTACH,
     // antes de la entrada, como el cargador de Windows.
     if let Some(t) = &tls_del_exe {
-        di(&format!("PROTON-X: TLS: {} B por hilo, {} callback(s)\n", t.bytes(), t.callbacks.len()));
+        di(&format!(
+            "PROTON-X: TLS: {} B por hilo, {} callback(s)\n",
+            t.bytes(),
+            t.callbacks.len()
+        ));
     }
     // SAFETY: el GS ya esta en el TEB, `empezar` hecho, la imagen sellada.
     unsafe { bmo_proton_x_casa::hilos::preparar_tls(tls_del_exe, base) };
@@ -884,18 +1129,30 @@ pub extern "C" fn _start() -> ! {
     ));
     let mut t_dllmain = 0u64;
     if modulos.len() > 1 {
-        di(&format!("PROTON-X: los DllMain de {} DLL del juego\n", modulos.len() - 1));
+        di(&format!(
+            "PROTON-X: los DllMain de {} DLL del juego\n",
+            modulos.len() - 1
+        ));
         // SAFETY: sus entradas son codigo sellado de DLL que acabamos de cargar.
         // Con el diario, cada una se dice ANTES: si una se cae, la ultima
         // linea (y la autopsia) dice cual.
         let t_dll = plataforma::ahora_ns();
-        if let Err(f) = unsafe { bmo_proton_x_casa::modulos::iniciar_dlls_con(|n| if con_diario { di(&format!("PROTON-X: DllMain de {n}\n")) }) } {
+        if let Err(f) = unsafe {
+            bmo_proton_x_casa::modulos::iniciar_dlls_con(|n| {
+                if con_diario {
+                    di(&format!("PROTON-X: DllMain de {n}\n"))
+                }
+            })
+        } {
             fin(&f);
         }
         t_dllmain = plataforma::ahora_ns() - t_dll;
     }
     let entrada = base + exe.pe.entrada as u64;
-    di(&format!("PROTON-X: los DllMain tardaron {} ms\n", t_dllmain / 1_000_000));
+    di(&format!(
+        "PROTON-X: los DllMain tardaron {} ms\n",
+        t_dllmain / 1_000_000
+    ));
     di("PROTON-X: salto a su entrada ----------------------------------\n");
     // La imagen vive hasta que el proceso muera (no hay soltar).
     core::mem::forget(imagen);
@@ -919,7 +1176,7 @@ pub extern "C" fn _start() -> ! {
     // cabecera (SizeOfStackReserve). Cyberpunk desbordo la de 64 KiB en el
     // catch de C++ de Galaxy. El TEB dice la nueva (StackBase, StackLimit):
     // el desenrollado de la casa lee la pila por ahi.
-    let tope = pila_del_exe(base);
+    let tope = entorno_windows::pila_del_exe(base);
     let r: u64;
     // SAFETY: la entrada cae en una seccion de codigo del bloque sellado
     // (comprobado arriba) y la imagen esta colocada y resuelta. `r12` es
@@ -943,106 +1200,6 @@ pub extern "C" fn _start() -> ! {
     fin_del_exe(r)
 }
 
-/// **El perfil de un juego de D: en ESTRATOS** (relevo 01-10, paso 3): sus
-/// carpetas (`proton-x/<juego>/perfil` y las de Windows debajo) creadas si no
-/// estan. `None` si el `.exe` no es de D: o si ESTRATOS no esta montado
-/// para escribir (entonces sigue con su carpeta, como antes, y lo dice).
-fn perfil_en_estratos(nombre: &str) -> Option<bmo_proton_x::proceso::Perfil> {
-    let p = bmo_proton_x::proceso::perfil_de(nombre)?;
-    if bmo::info(bmo::INFO_ES_MONTADO) == 0 || bmo::info(bmo::INFO_ES_ESCRIBIBLE) == 0 {
-        di(&format!("PROTON-X: sin ESTRATOS escribible: el perfil de {} se queda en su carpeta (D:, solo lectura)\n", p.juego));
-        return None;
-    }
-    // Crear una que ya esta devuelve 0 (y lo cuenta CABINA): se cuentan las nuevas.
-    let nuevas = p.carpetas().iter().filter(|c| bmo::estratos::crear_carpeta(c.as_bytes()) != 0).count();
-    di(&format!("PROTON-X: el perfil de {} en ESTRATOS: {} ({} carpeta(s) nueva(s)) = {}\n", p.juego, p.volumen, nuevas, p.windows));
-    Some(p)
-}
-
-/// Lo menos y lo mas que se le da al hilo principal del `.exe` (lo que pide
-/// su cabecera, entre estos dos): Windows reserva lo que pide y lo hace a
-/// medida; aqui se hace entero, asi que se pone techo.
-const PILA_EXE_MIN: u64 = 1 << 20;
-const PILA_EXE_MAX: u64 = 32 << 20;
-
-/// **La pila del hilo principal del `.exe`**: SizeOfStackReserve de su
-/// cabecera (entre [`PILA_EXE_MIN`] y [`PILA_EXE_MAX`]), pedida a la casa, y
-/// el TEB apuntando a ella. Devuelve el tope (StackBase).
-fn pila_del_exe(base: u64) -> u64 {
-    // SAFETY: la cabecera PE de la imagen colocada en `base` (mapeada).
-    let pide = unsafe {
-        let nt = base + ((base + 0x3C) as *const u32).read_unaligned() as u64;
-        ((nt + 0x18 + 0x48) as *const u64).read_unaligned()
-    };
-    let bytes = pide.clamp(PILA_EXE_MIN, PILA_EXE_MAX);
-    let Some(fondo) = bmo_proton_x_casa::memoria::pila_principal(bytes) else {
-        fin(&format!("no hay {} MiB para la pila del .exe", bytes >> 20));
-    };
-    let tope = fondo + bytes;
-    let teb: u64;
-    // SAFETY: leer gs:[0x30], el TEB que puso `poner_teb`.
-    unsafe { core::arch::asm!("mov {}, gs:[0x30]", out(reg) teb, options(nostack, preserves_flags)) };
-    // SAFETY: el TEB de este hilo, nuestro y R+W.
-    unsafe {
-        ((teb + teb::TEB_STACK_BASE as u64) as *mut u64).write(tope);
-        ((teb + teb::TEB_STACK_LIMIT as u64) as *mut u64).write(fondo);
-    }
-    di(&format!("PROTON-X: la pila del .exe: {} MiB (pide {} KiB) en {fondo:#x}..{tope:#x}\n", bytes >> 20, pide >> 10));
-    tope
-}
-
-/// La pila de Ring 3 de BMO-X. Espejo de `USER_STACK_TOP` y `USER_STACK_SIZE`
-/// (`Ultra_kernel_x86-64/kernel/src/ring0/mm/vmm/verde.rs`): no estan en el
-/// ABI, asi que [`poner_teb`] COMPRUEBA con su propio `rsp` que caen donde
-/// dicen, y si no, no salta.
-const PILA_TOPE: u64 = 0x8000_0000;
-const PILA_BYTES: u64 = 0x1_0000;
-
-/// **P1d: el TEB y el PEB, y el GS** (PLAN_PROTON_X, 3). Un `.exe` de Windows
-/// lee `gs:[0x30]` sin avisar --lo pone el compilador de Microsoft, y el CRT
-/// lo hace al arrancar--, asi que el GS se pone SIEMPRE, lo lea o no.
-///
-/// Van en el monton (R+W, sin X). Dice donde, y lo que le costo al kernel
-/// poner el GS: ese `wrmsr` es lo que paga un relevo entre este hilo y uno
-/// con otro GS. Y lo pide otra vez con el mismo valor: tiene que ser 0,
-/// porque el kernel solo escribe el MSR si CAMBIA.
-fn poner_teb(base: u64) {
-    let rsp: u64;
-    // SAFETY: leer un registro.
-    unsafe { core::arch::asm!("mov {}, rsp", out(reg) rsp, options(nomem, nostack, preserves_flags)) };
-    let fondo = PILA_TOPE - PILA_BYTES;
-    if !(fondo < rsp && rsp <= PILA_TOPE) {
-        fin(&format!("la pila no esta donde el kernel la pone ({rsp:#x} fuera de {fondo:#x}..{PILA_TOPE:#x}): el TEB mentiria"));
-    }
-    let bytes = teb::TEB_BYTES + teb::PEB_BYTES;
-    let Ok(forma) = core::alloc::Layout::from_size_align(bytes, 4096) else { fin("la forma del TEB") };
-    // SAFETY: `forma` no mide cero.
-    let mem = unsafe { alloc::alloc::alloc_zeroed(forma) };
-    if mem.is_null() {
-        fin("sin monton para el TEB y el PEB");
-    }
-    let h = teb::Hilo {
-        teb: mem as u64,
-        peb: mem as u64 + teb::TEB_BYTES as u64,
-        pila_tope: PILA_TOPE,
-        pila_fondo: fondo,
-        proceso: bmo::pid(),
-        hilo: bmo::tid(),
-        base_imagen: base,
-    };
-    // SAFETY: `bytes` recien pedidos al monton, nuestros y vivos para siempre.
-    let t = unsafe { core::slice::from_raw_parts_mut(mem, bytes) };
-    let (tb, pb) = t.split_at_mut(teb::TEB_BYTES);
-    teb::escribir_teb(tb, &h);
-    teb::escribir_peb(pb, &h);
-    let ciclos = bmo::poner_gs(h.teb).unwrap_or_else(|c| fin(&format!("el kernel no pone el GS (codigo {c}): un .exe de Windows no encontraria su TEB")));
-    let otra = bmo::poner_gs(h.teb).unwrap_or(u64::MAX);
-    di(&format!(
-        "PROTON-X: TEB en {:#x}, PEB en {:#x}; GS -> TEB: el wrmsr costo {} ciclos (el mismo otra vez: {}, no se toca)\n",
-        h.teb, h.peb, ciclos, otra
-    ));
-}
-
 #[panic_handler]
 fn panico(info: &core::panic::PanicInfo) -> ! {
     // El motivo y el sitio, ENTEROS, en un bufer de la pila: el monton puede
@@ -1061,7 +1218,10 @@ fn panico(info: &core::panic::PanicInfo) -> ! {
         }
     }
     let mut t = Bufer { b: [0; 512], n: 0 };
-    let _ = core::fmt::write(&mut t, format_args!("PROTON-X: panico en el cargador: {}", info.message()));
+    let _ = core::fmt::write(
+        &mut t,
+        format_args!("PROTON-X: panico en el cargador: {}", info.message()),
+    );
     if let Some(l) = info.location() {
         let _ = core::fmt::write(&mut t, format_args!(" ({}:{})", l.file(), l.line()));
     }

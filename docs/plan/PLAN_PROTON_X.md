@@ -1904,6 +1904,19 @@ PROTON-X: el kernel mata la tarea).
 5. **La capa encima de D:**: lo que el juego escriba junto a sus ficheros va
    a `proton-x/<juego>/capa`; al leer, primero la capa y luego D:. D: no se
    escribe nunca (lo aprobo el propietario el 01-10).
+   **Parte escrita y probada en el banco (02-10):** `CreateFileW` redirige
+   crear, truncar y abrir para escritura a la capa; un `OPEN_EXISTING` copia
+   primero los bytes de D: y modifica solo esa copia. `CreateDirectoryW`,
+   `CopyFileExW` y `MoveFileExW` publican sus destinos en la capa; al mover un
+   fichero desde D: se conserva el original y una marca SHA-256 oculta su
+   nombre. Lecturas y listados prefieren la capa y mantienen visibles las
+   entradas no superpuestas. `DeleteFileW` y `RemoveDirectoryW` tambien usan
+   marcas fuera de la carpeta visible, asi el original no reaparece.
+   `ficheros::pruebas_capa` verifica escritura, listado, copia, movimiento de
+   fichero, borrado, perfil ausente y que D: queda intacto. No mueve carpetas
+   entre rutas; la capa aun no tiene recolector y copiar un arbol entero sigue
+   pendiente. **Falta correr Cyberpunk en el Ryzen con `personal diario`**:
+   validar ESTRATOS y confirmar que Galaxy supera su inicializacion.
 6. Correr Cyberpunk con `personal diario` y ver si Galaxy pasa; si no, su
    log ya se puede escribir y dira por que.
 

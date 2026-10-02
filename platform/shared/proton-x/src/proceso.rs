@@ -42,13 +42,24 @@ pub struct Perfil {
     pub juego: String,
     /// La ruta del perfil en el volumen (`proton-x/cyberpunk2077/perfil`).
     pub volumen: String,
+    /// La capa de escritura sobre el disco Personal (`proton-x/<juego>/capa`).
+    pub capa: String,
+    /// Las marcas que ocultan nombres borrados del disco Personal.
+    pub borrados: String,
     /// La misma, como la ve el `.exe` (`C:\proton-x\cyberpunk2077\perfil`).
     pub windows: String,
 }
 
 /// Las carpetas de un perfil de Windows que se crean al arrancar, debajo de
 /// la del perfil (como las tiene cualquier usuario de Windows).
-pub const CARPETAS_DEL_PERFIL: [&str; 6] = ["AppData", "AppData/Local", "AppData/Roaming", "Documents", "Saved Games", "Temp"];
+pub const CARPETAS_DEL_PERFIL: [&str; 6] = [
+    "AppData",
+    "AppData/Local",
+    "AppData/Roaming",
+    "Documents",
+    "Saved Games",
+    "Temp",
+];
 
 /// **El perfil de `ruta_exe`** (la del volumen), si el `.exe` esta en D:. Un
 /// `.exe` del volumen de BMO-X sigue con su carpeta (es escribible).
@@ -71,14 +82,32 @@ pub fn perfil_de(ruta_exe: &str) -> Option<Perfil> {
     }
     let volumen = alloc::format!("proton-x/{juego}/perfil");
     let windows = alloc::format!("C:\\proton-x\\{juego}\\perfil");
-    Some(Perfil { juego, volumen, windows })
+    let capa = alloc::format!("proton-x/{juego}/capa");
+    let borrados = alloc::format!("proton-x/{juego}/borrados");
+    Some(Perfil {
+        juego,
+        volumen,
+        capa,
+        borrados,
+        windows,
+    })
 }
 
 impl Perfil {
     /// Las carpetas a crear en el volumen, cada una despues de su padre.
     pub fn carpetas(&self) -> Vec<String> {
-        let mut v = alloc::vec![String::from("proton-x"), alloc::format!("proton-x/{}", self.juego), self.volumen.clone()];
-        v.extend(CARPETAS_DEL_PERFIL.iter().map(|c| alloc::format!("{}/{c}", self.volumen)));
+        let mut v = alloc::vec![
+            String::from("proton-x"),
+            alloc::format!("proton-x/{}", self.juego),
+            self.volumen.clone(),
+            self.capa.clone(),
+            self.borrados.clone(),
+        ];
+        v.extend(
+            CARPETAS_DEL_PERFIL
+                .iter()
+                .map(|c| alloc::format!("{}/{c}", self.volumen)),
+        );
         v
     }
 }
@@ -221,8 +250,14 @@ impl Entorno {
         // Tanda 14a: las dos de AppData, bajo el perfil, como en cualquier
         // Windows (SHGetFolderPathW las contesta de aqui).
         let base = dir_exe.trim_end_matches('\\');
-        let _ = e.poner(&w("APPDATA"), Some(&w(&alloc::format!("{base}\\AppData\\Roaming"))));
-        let _ = e.poner(&w("LOCALAPPDATA"), Some(&w(&alloc::format!("{base}\\AppData\\Local"))));
+        let _ = e.poner(
+            &w("APPDATA"),
+            Some(&w(&alloc::format!("{base}\\AppData\\Roaming"))),
+        );
+        let _ = e.poner(
+            &w("LOCALAPPDATA"),
+            Some(&w(&alloc::format!("{base}\\AppData\\Local"))),
+        );
         e
     }
 
@@ -246,7 +281,10 @@ impl Entorno {
 
     /// El valor de `nombre` (sin el 0 del final).
     pub fn leer(&self, nombre: &[u16]) -> Option<&[u16]> {
-        self.v.iter().find(|(n, _)| igual(n, nombre)).map(|(_, v)| v.as_slice())
+        self.v
+            .iter()
+            .find(|(n, _)| igual(n, nombre))
+            .map(|(_, v)| v.as_slice())
     }
 
     /// Poner (o con `None`, quitar) `nombre`. Guarda el nombre como se
