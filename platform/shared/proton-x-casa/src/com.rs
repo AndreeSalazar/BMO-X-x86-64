@@ -171,6 +171,9 @@ extern "win64" fn query_interface(this: *mut Cabecera, riid: *const Guid, ppv: *
         unsafe { *ppv = this as u64 };
         S_OK
     } else {
+        // Dicho (02-10): un "no" en silencio aqui es un camino del `.exe` que
+        // no se ve (un ID3D12Device5 que no hay y el juego sigue sin el).
+        aviso(&format!("{}::QueryInterface {}: la casa no la tiene", INTERFACES[i].nombre, crate::com_basico::clsid_texto(riid as *const u8)));
         // SAFETY: como arriba.
         unsafe { *ppv = 0 };
         E_NOINTERFACE

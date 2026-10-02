@@ -255,6 +255,8 @@ struct Estado {
     ventanas: Vec<Ventana>,
     cola: Cola,
     avisos: u32,
+    /// La huella de cada aviso ya dicho (02-10): uno repetido no gasta sitio.
+    dichos: Vec<u64>,
 }
 
 struct Global(UnsafeCell<Estado>);
@@ -269,6 +271,7 @@ static ESTADO: Global = Global(UnsafeCell::new(Estado {
     ventanas: Vec::new(),
     cola: Cola::nueva(),
     avisos: 0,
+    dichos: Vec::new(),
 }));
 
 /// **El estado, un momento.** Nunca se llama a la `WndProc` desde dentro:
@@ -302,6 +305,7 @@ pub unsafe fn empezar(p: Plataforma) {
         e.ventanas.clear();
         e.cola = Cola::nueva();
         e.avisos = 0;
+        e.dichos.clear();
     });
     hilos::reiniciar();
     tuberia::reiniciar();
@@ -351,15 +355,29 @@ pub(crate) fn decir(texto: &str) {
     }
 }
 
-/// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
-/// un `.exe` que repita lo mismo en cada fotograma no puede ahogar la consola.
+/// Cuantos avisos DISTINTOS se dicen.
+const AVISOS: usize = 64;
+
+/// **Decir algo que la casa no sabe hacer**, por la consola: cada aviso
+/// distinto UNA vez, hasta [`AVISOS`] (un `.exe` que repita lo mismo en cada
+/// fotograma no ahoga la consola).
+///
+/// Hasta el 02-10 eran los OCHO primeros, repetidos o no, y en Cyberpunk los
+/// gastaban los `LoadLibrary` de GameServices*.dll antes de que el juego
+/// tocara D3D12: lo que fallaba despues no salia en ningun sitio.
 pub fn aviso(texto: &str) {
-    let (p, n) = con(|e| {
+    // FNV-1a: para no repetir, no para nada mas.
+    let huella = texto.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3));
+    let (p, decir) = con(|e| {
         e.avisos += 1;
-        (e.plataforma, e.avisos)
+        let nuevo = !e.dichos.contains(&huella) && e.dichos.len() < AVISOS;
+        if nuevo {
+            e.dichos.push(huella);
+        }
+        (e.plataforma, nuevo)
     });
     if let Some(p) = p {
-        if n <= 8 {
+        if decir {
             (p.escribir)(b"PROTON-X: ");
             (p.escribir)(texto.as_bytes());
             (p.escribir)(b"\n");
