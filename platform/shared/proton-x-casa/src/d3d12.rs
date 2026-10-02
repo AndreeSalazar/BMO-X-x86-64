@@ -131,6 +131,8 @@ fn dispositivo() -> u64 {
         (22, dir!(create_sampler)),
         (25, dir!(get_resource_allocation_info)),
         (27, dir!(tuberia::create_committed_resource)),
+        (28, dir!(crate::d3d12_montones::create_heap)),
+        (29, dir!(crate::d3d12_montones::create_placed_resource)),
         (36, dir!(create_fence)),
         (38, dir!(get_copyable_footprints)),
         (43, dir!(get_adapter_luid)),

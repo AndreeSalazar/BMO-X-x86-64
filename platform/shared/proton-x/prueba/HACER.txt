@@ -1502,3 +1502,27 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    549e9852a9fcf25f044dc68d8e47ff4559579cac1c1760366441d2f77234e80a
 
 Dice `bien` trece veces y sale con 0. En Windows dice lo mismo.
+
+tanda43.exe -- la TANDA 43 (02-10): montones de memoria
+
+Por Cyberpunk: con lo grafico ya montado pide ID3D12Device::CreateHeap (el
+hueco 28) y la casa no lo tenia: salia con 0xC0DE001C. Un motor grande pide
+montones y COLOCA los recursos dentro (CreatePlacedResource), y pregunta
+CheckFeatureSupport OPTIONS2 a OPTIONS7. Aqui, como en Windows: un monton
+DEFAULT de 1 MiB se crea y es un ID3D12Heap (y un ID3D12Pageable), GetDesc
+dice su medida y su tipo, sin donde dejarlo es S_FALSE, con un alineado que
+no existe es E_INVALIDARG; en un monton UPLOAD se coloca un bufer de 64 KiB,
+se mapea, se escribe y se lee, y tiene direccion de GPU; OPTIONS2..7
+contestan con su medida y con otra, E_INVALIDARG. No depende de que tarjeta
+haya.
+
+   llvm-dlltool -m i386:x86-64 -d tanda43_kernel32.def -l tanda43_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda43_d3d12.def -l tanda43_d3d12.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda43.c -o tanda43.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda43.obj tanda43_kernel32.lib tanda43_d3d12.lib /out:tanda43.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   a1f09af021614ca74b70e9bacc49e4444f385f29b1a83afe3a92ec17c6c05b84
+
+Dice `bien` doce veces y sale con 0. En Windows dice lo mismo.

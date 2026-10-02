@@ -403,6 +403,14 @@ fn tanda42_exe_lo_que_la_tarjeta_dice_de_si() {
     tanda(TANDA42, None, 13, "tanda42.exe: lo que la tarjeta dice de si");
 }
 
+/// **La tanda 43** (02-10): `tanda43.exe` -- Cyberpunk pide
+/// ID3D12Device::CreateHeap (hueco 28) y la casa no lo tenia; luego coloca
+/// recursos en el monton y pregunta OPTIONS2 a OPTIONS7.
+#[test]
+fn tanda43_exe_montones_de_memoria() {
+    tanda(TANDA43, None, 12, "tanda43.exe: montones de memoria");
+}
+
 /// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
 /// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
 /// asi el camino que en BMO-X lleva los ficheros grandes.

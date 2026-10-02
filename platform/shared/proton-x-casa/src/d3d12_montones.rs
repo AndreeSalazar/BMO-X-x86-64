@@ -1,0 +1,149 @@
+//! **`ID3D12Device::CreateHeap` y `CreatePlacedResource`: la memoria de la
+//! tarjeta en montones** (02-10).
+//!
+//! Cyberpunk, con lo grafico ya montado, pide un monton de memoria
+//! (`ID3D12Heap`) para colocar recursos dentro; la casa no tenia el hueco 28
+//! y el juego salia con `0xC0DE001C`. Un motor grande no crea cada recurso
+//! con su memoria (CreateCommittedResource): pide montones grandes y coloca
+//! (CreatePlacedResource) los recursos en desplazamientos de ellos.
+//!
+//! ```text
+//!    CreateHeap            el monton guarda su D3D12_HEAP_DESC (48 bytes):
+//!                          SizeInBytes +0, Properties +8 (Type, CPUPage,
+//!                          MemoryPool, CreationNodeMask, VisibleNodeMask),
+//!                          Alignment +32, Flags +40
+//!    ID3D12Heap::GetDesc   la devuelve (por el puntero oculto)
+//!    CreatePlacedResource  el recurso, con su PROPIA memoria, como uno
+//!                          comprometido: la casa no comparte memoria entre
+//!                          recursos del mismo monton (el "aliasing")
+//! ```
+//!
+//! Que dos recursos colocados en el mismo sitio no se vean entre si es lo
+//! que falta, y se dice una vez (aviso) cuando pasa.
+
+use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, S_FALSE};
+use crate::{aviso, dir};
+
+/// D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT (64 KiB) y la de MSAA (4 MiB).
+const ALINEADO: u64 = 0x1_0000;
+const ALINEADO_MSAA: u64 = 0x40_0000;
+/// D3D12_HEAP_TYPE: DEFAULT 1 ... CUSTOM 4, GPU_UPLOAD 5.
+const TIPO_CUSTOM: u32 = 4;
+const TIPO_MAXIMO: u32 = 5;
+
+/// Lo de dentro de un ID3D12Heap: su descripcion, ya completada.
+pub(crate) struct Monton {
+    desc: [u8; 48],
+    /// Los desplazamientos ya ocupados (para decir el aliasing).
+    colocados: alloc::vec::Vec<u64>,
+}
+
+fn u32_de(p: &[u8], k: usize) -> u32 {
+    u32::from_le_bytes([p[k], p[k + 1], p[k + 2], p[k + 3]])
+}
+
+fn u64_de(p: &[u8], k: usize) -> u64 {
+    u64::from(u32_de(p, k)) | (u64::from(u32_de(p, k + 4)) << 32)
+}
+
+/// Lo que Windows dice de una descripcion: `None` si no vale, o la misma
+/// con lo que el runtime rellena (alineado 0 = 64 KiB, nodos 0 = el 1).
+fn completar(mut d: [u8; 48]) -> Option<[u8; 48]> {
+    let (medida, tipo, pagina, piscina, alineado) = (u64_de(&d, 0), u32_de(&d, 8), u32_de(&d, 12), u32_de(&d, 16), u64_de(&d, 32));
+    if medida == 0 || tipo == 0 || tipo > TIPO_MAXIMO {
+        return None;
+    }
+    // Solo el CUSTOM dice la pagina de CPU y la piscina; los demas, UNKNOWN.
+    if (tipo == TIPO_CUSTOM) != (pagina != 0 && piscina != 0) {
+        return None;
+    }
+    let alineado = match alineado {
+        0 => ALINEADO,
+        ALINEADO | ALINEADO_MSAA => alineado,
+        _ => return None,
+    };
+    d[32..40].copy_from_slice(&alineado.to_le_bytes());
+    for k in [20, 24] {
+        if u32_de(&d, k) == 0 {
+            d[k..k + 4].copy_from_slice(&1u32.to_le_bytes());
+        }
+    }
+    Some(d)
+}
+
+/// `CreateHeap(this, pDesc, riid, ppvHeap)`. Con `ppvHeap` nulo solo
+/// pregunta si se podria: S_FALSE, como Windows.
+pub(crate) extern "win64" fn create_heap(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+    if desc.is_null() {
+        return E_INVALIDARG;
+    }
+    let mut d = [0u8; 48];
+    // SAFETY: un D3D12_HEAP_DESC (48 bytes) del `.exe`.
+    unsafe { core::ptr::copy_nonoverlapping(desc, d.as_mut_ptr(), 48) };
+    let Some(d) = completar(d) else {
+        return E_INVALIDARG;
+    };
+    if pp.is_null() {
+        return S_FALSE;
+    }
+    if !pide(riid, com::MEMORIA) {
+        return E_NOINTERFACE;
+    }
+    let vt = vtabla::<{ com::MEMORIA }>(&[(8, dir!(get_desc))]);
+    dar(pp, nuevo(com::MEMORIA, vt, Monton { desc: d, colocados: alloc::vec::Vec::new() }) as u64)
+}
+
+/// `ID3D12Heap::GetDesc(this, ret)`: la estructura por el puntero oculto.
+extern "win64" fn get_desc(this: u64, ret: *mut u8) -> *mut u8 {
+    // SAFETY: `this` es un Monton de la casa (su vtabla); `ret`, 48 bytes
+    // del `.exe`.
+    unsafe { core::ptr::copy_nonoverlapping(de::<Monton>(this).desc.as_ptr(), ret, 48) };
+    ret
+}
+
+/// `CreatePlacedResource(this, pHeap, HeapOffset, pDesc, InitialState,
+/// pOptimizedClearValue, riid, ppvResource)`: como uno comprometido, con
+/// su memoria; el desplazamiento tiene que caber en el monton y estar
+/// alineado a 64 KiB (o a 4 KiB, el de los recursos chicos).
+#[allow(clippy::too_many_arguments)]
+pub(crate) extern "win64" fn create_placed_resource(this: u64, monton: u64, desde: u64, desc: *const u8, estado: u32, clear: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+    if monton == 0 || desc.is_null() {
+        return E_INVALIDARG;
+    }
+    // SAFETY: un ID3D12Heap que dio la casa.
+    let m = unsafe { de::<Monton>(monton) };
+    if desde >= u64_de(&m.desc, 0) || desde % 0x1000 != 0 {
+        return E_INVALIDARG;
+    }
+    if m.colocados.contains(&desde) {
+        aviso("CreatePlacedResource: dos recursos en el mismo sitio de un monton; en la casa no comparten memoria");
+    } else {
+        m.colocados.push(desde);
+    }
+    crate::tuberia::create_committed_resource(this, m.desc[8..].as_ptr(), u32_de(&m.desc, 40), desc, estado, clear, riid, pp)
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+
+    fn desc(medida: u64, tipo: u32, alineado: u64) -> [u8; 48] {
+        let mut d = [0u8; 48];
+        d[0..8].copy_from_slice(&medida.to_le_bytes());
+        d[8..12].copy_from_slice(&tipo.to_le_bytes());
+        d[32..40].copy_from_slice(&alineado.to_le_bytes());
+        d
+    }
+
+    #[test]
+    fn una_buena_se_completa_y_las_malas_no_valen() {
+        let d = completar(desc(1 << 20, 1, 0)).unwrap();
+        assert_eq!(u64_de(&d, 32), ALINEADO);
+        assert_eq!((u32_de(&d, 20), u32_de(&d, 24)), (1, 1));
+        assert!(completar(desc(0, 1, 0)).is_none());
+        assert!(completar(desc(1 << 20, 0, 0)).is_none());
+        assert!(completar(desc(1 << 20, 1, 12345)).is_none());
+        // CUSTOM sin pagina de CPU ni piscina, no.
+        assert!(completar(desc(1 << 20, TIPO_CUSTOM, 0)).is_none());
+    }
+}

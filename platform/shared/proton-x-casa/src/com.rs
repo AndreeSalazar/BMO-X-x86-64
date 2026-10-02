@@ -66,6 +66,9 @@ pub const PSO: usize = 10;
 pub const BLOB: usize = 11;
 pub const ADAPTER: usize = 12;
 pub const OUTPUT: usize = 13;
+/// ID3D12Heap: memoria de la tarjeta donde se colocan recursos (no confundir
+/// con HEAP, el monton de DESCRIPTORES).
+pub const MEMORIA: usize = 14;
 
 const IID_OBJECT: Guid = guid(0xc4fec28f, 0x7966, 0x4e95, [0x9f, 0x94, 0xf4, 0x31, 0xcb, 0x56, 0xc3, 0xb8]);
 const IID_DEVICECHILD: Guid = guid(0x905db94b, 0xa00c, 0x4140, [0x9d, 0xf5, 0x2b, 0x64, 0xca, 0x9e, 0xa3, 0x57]);
@@ -82,6 +85,8 @@ pub const IID_FACTORY1: Guid = guid(0x770aae78, 0xf26f, 0x4dba, [0xa8, 0x29, 0x2
 pub const IID_FACTORY2: Guid = guid(0x50c83a1c, 0xe072, 0x4c48, [0x87, 0xb0, 0x36, 0x30, 0xfa, 0x36, 0xa6, 0xd0]);
 pub const IID_ROOTSIG: Guid = guid(0xc54a6b66, 0x72df, 0x4ee8, [0x8b, 0xe5, 0xa9, 0x46, 0xa1, 0x42, 0x92, 0x14]);
 pub const IID_PSO: Guid = guid(0x765a30f3, 0xf624, 0x4c6f, [0xa8, 0x28, 0xac, 0xe9, 0x48, 0x62, 0x24, 0x45]);
+// 02-10: el monton de memoria (d3d12.h), lo que Cyberpunk crea en seguida.
+pub const IID_MEMORIA: Guid = guid(0x6b3b2502, 0x6e51, 0x45b3, [0x90, 0xee, 0x98, 0x84, 0x26, 0x5e, 0x8d, 0xf3]);
 pub const IID_BLOB: Guid = guid(0x8ba5fb08, 0x5195, 0x40e2, [0xac, 0x58, 0x0d, 0x98, 0x9c, 0x3a, 0x01, 0x02]);
 // P3c4: DXGI hasta Factory6 y SwapChain3, y el adaptador (comprobados con
 // las cabeceras de Windows del crate `windows` 0.58).
@@ -113,7 +118,7 @@ pub const IID_SWAPCHAIN2: Guid = guid(0xa8be2ac4, 0x199f, 0x4946, [0xb3, 0x31, 0
 pub const IID_SWAPCHAIN3: Guid = guid(0x94d99bdb, 0xf1f8, 0x4ab0, [0xb2, 0x36, 0x7d, 0xa0, 0x17, 0x0e, 0xda, 0xb1]);
 pub const IID_SWAPCHAIN1: Guid = guid(0x790a45f7, 0x0d42, 0x4876, [0x98, 0x3a, 0x0a, 0x55, 0xcf, 0xe6, 0xf4, 0xaa]);
 
-pub static INTERFACES: [Interfaz; 14] = [
+pub static INTERFACES: [Interfaz; 15] = [
     Interfaz { nombre: "ID3D12Device", metodos: M_ID3D12DEVICE, iids: &[IID_DEVICE, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandQueue", metodos: M_ID3D12COMMANDQUEUE, iids: &[IID_QUEUE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandAllocator", metodos: M_ID3D12COMMANDALLOCATOR, iids: &[IID_ALLOCATOR, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
@@ -128,6 +133,7 @@ pub static INTERFACES: [Interfaz; 14] = [
     Interfaz { nombre: "ID3DBlob", metodos: M_ID3D10BLOB, iids: &[IID_BLOB] },
     Interfaz { nombre: "IDXGIAdapter4", metodos: M_IDXGIADAPTER1, iids: &[IID_ADAPTER4, IID_ADAPTER3, IID_ADAPTER2, IID_ADAPTER1, IID_ADAPTER, IID_DXGIOBJECT] },
     Interfaz { nombre: "IDXGIOutput6", metodos: M_IDXGIOUTPUT6, iids: &[IID_OUTPUT6, IID_OUTPUT5, IID_OUTPUT4, IID_OUTPUT3, IID_OUTPUT2, IID_OUTPUT1, IID_OUTPUT, IID_DXGIOBJECT] },
+    Interfaz { nombre: "ID3D12Heap", metodos: M_ID3D12HEAP, iids: &[IID_MEMORIA, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
 ];
 
 /// **La cabecera de todo objeto de la casa.** `repr(C)` y delante: el `.exe`
@@ -203,10 +209,10 @@ extern "win64" fn release(this: *mut Cabecera) -> u32 {
     }
 }
 
-struct Vtablas(UnsafeCell<[*const u64; 14]>);
+struct Vtablas(UnsafeCell<[*const u64; 15]>);
 // SAFETY: un hilo (ver `Global` en lib.rs).
 unsafe impl Sync for Vtablas {}
-static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 14]));
+static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 15]));
 
 /// **La vtabla de la interfaz `I`**: IUnknown, los `metodos` que la casa
 /// tiene (hueco, direccion), y un `falta` en todos los demas. Se arma una vez.
@@ -276,6 +282,10 @@ pub const M_ID3D12DEVICE: &[&str] = &[
     "OpenSharedHandle", "OpenSharedHandleByName", "MakeResident", "Evict", "CreateFence",
     "GetDeviceRemovedReason", "GetCopyableFootprints", "CreateQueryHeap", "SetStablePowerState",
     "CreateCommandSignature", "GetResourceTiling", "GetAdapterLuid",
+];
+pub const M_ID3D12HEAP: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
+    "SetPrivateDataInterface", "SetName", "GetDevice", "GetDesc",
 ];
 pub const M_ID3D12COMMANDQUEUE: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
