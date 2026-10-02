@@ -299,7 +299,12 @@ fn recorrer(l: &mut Lector, ptr: &BlockPtr, sangria: usize, archivos: &mut usize
         *bytes += a.size;
         return Ok(());
     }
-    let a = nodo.attr(ATTR_ENTRADAS).ok_or("directorio sin :entradas")?;
+    // Un directorio sin `:entradas` es una carpeta vacia valida. El primer
+    // formateador ya emitia asi las carpetas vacias; rechazarlas aqui hacia
+    // que `--verificar` no pudiera comprobar volumenes validos.
+    let Some(a) = nodo.attr(ATTR_ENTRADAS) else {
+        return Ok(());
+    };
     let cuerpo = l.flujo(a)?;
     for trozo in cuerpo.chunks(ENTRADA_LEN) {
         if trozo.len() < ENTRADA_LEN { break; }
@@ -310,6 +315,50 @@ fn recorrer(l: &mut Lector, ptr: &BlockPtr, sangria: usize, archivos: &mut usize
         recorrer(l, &ent.nodo, sangria + 2, archivos, bytes)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn verificar_acepta_directorio_vacio_sin_entradas() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("reloj posterior a UNIX_EPOCH")
+            .as_nanos();
+        let ruta = std::env::temp_dir().join(format!(
+            "bmo-estratos-fmt-dir-vacio-{}-{nonce}.img",
+            std::process::id(),
+        ));
+        let bytes = Nodo::nuevo(Tipo::Directorio).encode();
+        let ptr = BlockPtr::nuevo(2, 0, &bytes);
+        let mut f = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&ruta)
+            .expect("imagen temporal exclusiva");
+        f.set_len(3 * BLOQUE as u64)
+            .expect("dimensionar imagen temporal");
+        f.seek(SeekFrom::Start(2 * BLOQUE as u64))
+            .expect("posicionar nodo");
+        f.write_all(&bytes).expect("escribir nodo de carpeta vacia");
+
+        let mut lector = Lector { f };
+        let mut archivos = 0;
+        let mut total = 0;
+        let resultado = recorrer(&mut lector, &ptr, 0, &mut archivos, &mut total);
+        drop(lector);
+        std::fs::remove_file(&ruta).expect("limpiar imagen temporal");
+
+        assert!(
+            resultado.is_ok(),
+            "directorio vacio valido: {resultado:?}"
+        );
+        assert_eq!((archivos, total), (0, 0));
+    }
 }
 
 // -- Tomar el volumen (Windows) ----------------------------------------------

@@ -1888,15 +1888,17 @@ todavia reserva/lee todo ese resto. Falta medir en BMO-X que longitud pide
 Cyberpunk y probar contra un `.archive` real de D:. No declarar resuelto el
 cuello de botella hasta esa corrida.
 
-**Donde viven el juego y sus escrituras (01-10):** la instalacion comprada se
-queda en `D:\Cyberpunk 2077`, como fuente NTFS de solo lectura: medida local
-de 91.350.992.227 bytes (85,08 GiB; 4.991 archivos). No se copia a FAT32 ni
-a ESTRATOS: la particion ESTRATOS tiene 108.670.208 bloques de 512 bytes,
-55.639.146.496 bytes en total (51,81 GiB, antes de contar lo que ya guarda),
-por lo que el juego completo no cabe. PROTON-X lee el original desde D: y
-guarda perfil, partidas, cache y la capa de cambios en ESTRATOS. FAT32 A:
-queda para el arranque y los componentes base de BMO-X, no para los datos del
-juego.
+**Donde viven el juego y sus escrituras (01-10, capacidad corregida):** la
+instalacion comprada se queda en `D:\Cyberpunk 2077`, como fuente NTFS de solo
+lectura: medida local de 91.350.992.227 bytes (85,08 GiB; 4.991 archivos).
+PROTON-X puede leerla directamente desde BMO-X: el kernel ya monta NTFS en D:
+y expone lectura de carpetas y archivos; no se necesita que Windows este
+ejecutandose. Las partidas, el perfil, la cache y la capa de cambios van a
+ESTRATOS, porque D: nunca se escribe. La particion ESTRATOS tiene 108.670.208
+bloques de 4 KiB, es decir, 445.113.171.968 bytes (424.493 MiB / 414,54 GiB),
+asi que una copia tambien cabria, pero duplicar el juego no es requisito y
+gastaria otros 85,08 GiB. No se ponen datos del juego en FAT32 A:, que queda
+para el arranque y los componentes base de BMO-X.
 
 **Lo que viene despues:** medir y completar el comportamiento real de las
 vistas de `.archive`; la ventana (CreateWindowExW) y D3D12; hilos de verdad
