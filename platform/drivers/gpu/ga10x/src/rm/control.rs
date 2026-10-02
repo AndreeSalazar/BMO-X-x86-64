@@ -29,6 +29,10 @@
 //!    PERF_BOOST                  0x2080200A, 8 B (C2, 25-09, sobre el
 //!                                SUBDISPOSITIVO): flags (bits 1:0 = 2
 //!                                BOOST_TO_MAX, 0 CLEAR) y duration en s
+//!    PERF_AGGRESSIVE_PSTATE_     0x2080208F, 24 B (C3, 02-10, sobre el
+//!      NOTIFY                    SUBDISPOSITIVO): bGpuIsIdle +0,
+//!                                bRestoreToMax +1, idleTimeUs +8,
+//!                                busyTimeUs +16
 //! ```
 //!
 //! # Los relojes (C2, 2026-09-25)
@@ -45,6 +49,20 @@
 //! respetar la 3060 es que se BAJE sola si el escritorio se olvida. Y como no
 //! hay MHz que leer, lo que dice si funciono es el mismo fotograma de `gpu
 //! pantalla` medido antes y despues (la ley 0: el numero, no la promesa).
+//!
+//! # El reposo (C3, 2026-10-02)
+//!
+//! En Windows la 3060 baja SOLA a P8 (210 MHz, ~17 W) cuando no hay trabajo:
+//! alli el RM corre en la CPU, dentro del driver, y mide. En BMO-X el GSP-RM
+//! se queda donde arranco (P0 en la SALIDA del 02-10). `ctrl2080perf.h`
+//! (570.144) tiene la orden para que el SISTEMA se lo diga:
+//! `PERF_AGGRESSIVE_PSTATE_NOTIFY`, *"for the KMD Aggressive P-state
+//! feature"*: con `bGpuIsIdle` el RM pone de tope el P-state mas bajo, y sin
+//! el, lo quita; `idleTimeUs` y `busyTimeUs` son lo medido desde la vez
+//! anterior. Si una GeForce con GSP-RM la obedece no lo dice nadie: lo dice
+//! `gpu reposo`, que lee el P-state antes y despues. Los tiempos van FIJOS
+//! (un segundo ocioso, o uno ocupado), como la duracion de PERF_BOOST: el
+//! contrato los compara byte a byte.
 //!
 //! # El directorio de paginas (L1c3)
 //!
@@ -101,6 +119,12 @@ pub enum Control {
     RelojesArriba,
     /// C2: quitar la subida (`PERF_BOOST`, CLEAR): el RM vuelve a lo suyo.
     RelojesNormales,
+    /// C3: "la 3060 esta ociosa" (`PERF_AGGRESSIVE_PSTATE_NOTIFY`, bGpuIsIdle):
+    /// el RM la limita al P-state mas bajo. Un ajuste, por la puerta de
+    /// [`Control::relojes`].
+    ReposoSi,
+    /// C3: "ya no esta ociosa": el RM quita el tope.
+    ReposoNo,
 }
 
 /// `NV2080_CTRL_CMD_PERF_BOOST`.
@@ -112,11 +136,16 @@ pub const BOOST_QUITAR: u32 = 0;
 /// medir y para una sesion de trabajo, y si nadie la renueva, la 3060 baja.
 pub const SUBIDA_SEGUNDOS: u32 = 60;
 
+/// `NV2080_CTRL_CMD_PERF_AGGRESSIVE_PSTATE_NOTIFY`.
+pub const PERF_REPOSO: u32 = 0x2080_208F;
+/// Lo que se le dice que duro el tramo: un segundo, ocioso u ocupado.
+pub const REPOSO_US: u64 = 1_000_000;
+
 /// Entradas de la PD3 de Ampere: 2 bits de direccion (48..47).
 pub const PD3_ENTRADAS: u32 = 4;
 
 impl Control {
-    pub const TODOS: [Control; 13] = [
+    pub const TODOS: [Control; 15] = [
         Control::Pstate,
         Control::Directorio,
         Control::Motores,
@@ -131,6 +160,9 @@ impl Control {
         // C2 (25-09): AL FINAL, que los indices de antes no se muevan.
         Control::RelojesArriba,
         Control::RelojesNormales,
+        // C3 (02-10): detras, por lo mismo.
+        Control::ReposoSi,
+        Control::ReposoNo,
     ];
 
     pub fn de(n: u64) -> Option<Control> {
@@ -152,6 +184,7 @@ impl Control {
             Control::ProgramarGr => (0xA06F_0103, 2, crate::canal::GR.asa),
             Control::FichaGr => (0xC36F_0108, 4, crate::canal::GR.asa),
             Control::RelojesArriba | Control::RelojesNormales => (PERF_BOOST, 8, SUBDISPOSITIVO),
+            Control::ReposoSi | Control::ReposoNo => (PERF_REPOSO, 24, SUBDISPOSITIVO),
         }
     }
 
@@ -162,11 +195,11 @@ impl Control {
         matches!(self, Control::Pstate | Control::Motores | Control::Metodos | Control::Ficha | Control::Dispositivos | Control::FichaGr)
     }
 
-    /// **Los relojes** (C2): un ajuste que se pide SOLO, como una pregunta,
-    /// porque no depende de nada mas que del subdispositivo. Solo estos dos:
-    /// al maximo un rato, o quitarlo.
+    /// **Los relojes** (C2, C3): un ajuste que se pide SOLO, como una
+    /// pregunta, porque no depende de nada mas que del subdispositivo. Solo
+    /// estos cuatro: al maximo un rato o quitarlo, y ociosa o ya no.
     pub const fn relojes(self) -> bool {
-        matches!(self, Control::RelojesArriba | Control::RelojesNormales)
+        matches!(self, Control::RelojesArriba | Control::RelojesNormales | Control::ReposoSi | Control::ReposoNo)
     }
 
     /// Las que ENCIENDEN el canal (L1d2c): solo por su puerta, tras pedirlo.
@@ -201,6 +234,13 @@ impl Control {
                 poner(p, 4, SUBIDA_SEGUNDOS);
             }
             Control::RelojesNormales => poner(p, 0, BOOST_QUITAR),
+            // bGpuIsIdle, bRestoreToMax (no: que lo decida el RM), y lo
+            // medido: ocioso un segundo, u ocupado un segundo.
+            Control::ReposoSi => {
+                p[0] = 1;
+                p[8..16].copy_from_slice(&REPOSO_US.to_le_bytes());
+            }
+            Control::ReposoNo => p[16..24].copy_from_slice(&REPOSO_US.to_le_bytes()),
             _ => {}
         }
         medida
@@ -371,7 +411,7 @@ mod pruebas {
         assert_eq!(Control::RelojesArriba.forma(), (0x2080_200A, 8, SUBDISPOSITIVO));
         // Un ajuste, no una pregunta; y ninguna otra orden es de relojes.
         assert!(Control::RelojesArriba.relojes() && !Control::RelojesArriba.pregunta());
-        assert_eq!(Control::TODOS.iter().filter(|c| c.relojes()).count(), 2);
+        assert_eq!(Control::TODOS.iter().filter(|c| c.relojes()).count(), 4);
         // Otra duracion (una subida de una hora, o "para siempre") NO es la nuestra.
         assert!(!Control::RelojesArriba.iguales(&[2, 0, 0, 0, 0x10, 0x0E, 0, 0]));
         assert!(!Control::RelojesArriba.iguales(&[2, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF]));
@@ -383,6 +423,33 @@ mod pruebas {
 
     use super::*;
     use crate::rpc::{Mensaje, Suma, CABECERA};
+
+    #[test]
+    fn el_reposo_va_con_sus_24_bytes_exactos() {
+        let mut p = [0xAAu8; 24];
+        assert_eq!(Control::ReposoSi.parametros(&mut p), 24);
+        let mut si = [0u8; 24];
+        si[0] = 1;
+        si[8..16].copy_from_slice(&1_000_000u64.to_le_bytes());
+        assert_eq!(p, si);
+        assert_eq!(Control::ReposoNo.parametros(&mut p), 24);
+        let mut no = [0u8; 24];
+        no[16..24].copy_from_slice(&1_000_000u64.to_le_bytes());
+        assert_eq!(p, no);
+        assert_eq!(Control::ReposoSi.forma(), (0x2080_208F, 24, SUBDISPOSITIVO));
+        assert!(Control::ReposoSi.relojes() && !Control::ReposoSi.pregunta());
+        // bRestoreToMax, u otros tiempos, NO son los nuestros.
+        let mut otro = si;
+        otro[1] = 1;
+        assert!(!Control::ReposoSi.iguales(&otro));
+        let mut otro = si;
+        otro[8] = 0x41;
+        assert!(!Control::ReposoSi.iguales(&otro));
+        assert!(Control::ReposoSi.iguales(&si) && Control::ReposoNo.iguales(&no));
+        // Los indices de antes, quietos.
+        assert_eq!(Control::de(12), Some(Control::RelojesNormales));
+        assert_eq!(Control::de(14), Some(Control::ReposoNo));
+    }
 
     #[test]
     fn la_pregunta_del_pstate() {
@@ -416,7 +483,8 @@ mod pruebas {
         assert_eq!(Control::de(7), Some(Control::Dispositivos));
         assert_eq!(Control::de(8), Some(Control::AtarGr));
         assert_eq!(Control::de(10), Some(Control::FichaGr));
-        assert_eq!(Control::de(13), None);
+        assert_eq!(Control::de(13), Some(Control::ReposoSi));
+        assert_eq!(Control::de(15), None);
         assert!(Control::FichaGr.pregunta() && !Control::FichaGr.del_canal_gr());
         assert!(Control::AtarGr.del_canal_gr() && !Control::AtarGr.del_canal() && !Control::AtarGr.pregunta());
         assert!(Control::Dispositivos.pregunta() && !Control::Dispositivos.del_canal());

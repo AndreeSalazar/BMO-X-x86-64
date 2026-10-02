@@ -59,6 +59,8 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu salud", b"temperatura, enlace PCIe y P-state de la 3060"),
     (b"gpu relojes", b"la 3060 al maximo un minuto (PERF_BOOST al GSP), medida antes y despues con el mismo fotograma"),
     (b"gpu relojes off", b"quita la subida: los relojes vuelven a lo que decida el GSP-RM"),
+    (b"gpu reposo", b"le dice al GSP-RM que la 3060 esta ociosa (como Windows) y mira si baja de P-state"),
+    (b"gpu reposo off", b"quita el tope de reposo: el GSP-RM vuelve a decidir solo"),
     (b"gpu vram", b"la CPU escribe en la VRAM (PRAMIN) y la deja como estaba"),
     (b"gpu directorio", b"la raiz del espacio de direcciones de la GPU, en tu VRAM"),
     (b"gpu tramo", b"mapear 64 KiB de tu VRAM en el espacio de la GPU"),

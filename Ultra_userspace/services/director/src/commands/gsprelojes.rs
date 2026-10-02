@@ -64,7 +64,7 @@ fn medir() -> Option<(u64, u64)> {
 }
 
 /// Espera durmiendo (la rampa del reloj no se acelera girando).
-fn dormir_ms(ms: u64) {
+pub(crate) fn dormir_ms(ms: u64) {
     let hz = bmo::info(bmo::INFO_TSC_HZ);
     if hz == 0 {
         return;

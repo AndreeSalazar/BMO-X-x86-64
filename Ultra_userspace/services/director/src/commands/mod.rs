@@ -34,6 +34,8 @@ pub(crate) mod gspobjeto;
 pub(crate) mod gspsalud;
 /// `gpu relojes`: la 3060 al maximo un minuto, medida antes y despues (C2, 25-09).
 pub(crate) mod gsprelojes;
+/// `gpu reposo`: decirle al GSP-RM que la 3060 esta ociosa, y ver si baja (C3, 02-10).
+pub(crate) mod gspreposo;
 /// `gpu vram`: la CPU escribe en la VRAM por PRAMIN (L1c2, 24-09).
 pub(crate) mod gspvram;
 /// `gpu motores`: que motores tiene la 3060 y el de copia del canal (L1d2a, 24-09).
