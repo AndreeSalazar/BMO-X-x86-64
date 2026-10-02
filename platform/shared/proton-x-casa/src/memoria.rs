@@ -85,6 +85,22 @@ fn estado() -> &'static mut Estado {
 
 pub(crate) fn reiniciar() {
     let e = estado();
+    // Lo tomado de la ventana vuelve a la plataforma. En BMO-X no hay nada
+    // (se reinicia antes del `.exe`); en el banco un `.exe` corre detras de
+    // otro, y sin esto el siguiente encontraria hechas, y SUCIAS, las paginas
+    // del anterior (un VirtualAlloc que no da ceros).
+    if let Some(r) = reserva().filter(|_| e.ventana) {
+        let mut d = r.base;
+        for &(b, n) in &e.huecos {
+            if b > d {
+                (r.deshacer)(d, b - d);
+            }
+            d = b + n;
+        }
+        if d < r.base + r.bytes {
+            (r.deshacer)(d, r.base + r.bytes - d);
+        }
+    }
     e.monton = Monton::nuevo();
     e.regiones = Regiones::nuevas();
     e.creados.clear();
@@ -287,6 +303,56 @@ pub fn pila_principal(bytes: u64) -> Option<u64> {
     let p = pedir(bytes, 16, PROPIETARIO_VIRTUAL)?;
     a_cero(p, bytes);
     Some(p)
+}
+
+/// **La memoria de un bufer de D3D12** (tanda 44 de Cyberpunk, 02-10): `bytes`
+/// R+W, a cero, alineados a 256 (lo que D3D12 pide a un bufer de
+/// constantes). Antes era un `Vec` del monton del CARGADOR, que mide 48 MiB y
+/// solo avanza: Cyberpunk pidio un bufer de 192 MiB y el cargador entro en
+/// panico. Ahora, como en Windows, es memoria del proceso: lo de 64 KiB o mas,
+/// paginas propias de la ventana de reserva (sin gastar una arena del monton,
+/// que son 64); lo chico, del monton de Windows. Como todo objeto de la casa,
+/// no se devuelve (ver `com::release`).
+pub(crate) fn pedir_bufer(bytes: u64) -> Option<u64> {
+    if let Some(r) = reserva().filter(|_| bytes >= GRANO) {
+        let n = bytes.checked_add(GRANO - 1)? & !(GRANO - 1);
+        let Some(base) = tomar_va(n) else {
+            decir_no(&alloc::format!("un bufer de D3D12 de {} MiB: no queda hueco en la ventana", bytes >> 20));
+            return None;
+        };
+        if !(r.hacer)(base, n) {
+            soltar_va(base, n);
+            decir_no(&alloc::format!("un bufer de D3D12 de {} MiB: el kernel dice que no hay RAM", bytes >> 20));
+            return None;
+        }
+        return Some(base);
+    }
+    let p = pedir(bytes.max(1), 256, PROPIETARIO_VIRTUAL)?;
+    a_cero(p, bytes);
+    Some(p)
+}
+
+/// **Las direcciones de un `ID3D12Heap`** (tanda 44): `bytes` de la ventana de
+/// reserva, SIN hacer ninguna pagina (un monton de 256 MiB no gasta nada hasta
+/// que se coloca algo en el). `None` sin reserva, o sin hueco.
+pub(crate) fn reservar_direcciones(bytes: u64) -> Option<u64> {
+    reserva()?;
+    tomar_va(bytes)
+}
+
+/// Si hay ventana de reserva (en BMO-X, si; en el banco viejo, no).
+pub(crate) fn hay_reserva() -> bool {
+    reserva().is_some()
+}
+
+/// Hacer las paginas que falten de `[va, va + bytes)`, dentro de unas
+/// direcciones de [`reservar_direcciones`]. `false` si el kernel dice que no.
+pub(crate) fn hacer_paginas(va: u64, bytes: u64) -> bool {
+    let (d, fin) = regiones::paginas(va, bytes);
+    match reserva() {
+        Some(r) if en_ventana(d) && en_ventana(fin - 1) => (r.hacer)(d, fin - d),
+        _ => false,
+    }
 }
 
 pub(crate) fn pedir_del_proceso(tam: u64) -> Option<u64> {

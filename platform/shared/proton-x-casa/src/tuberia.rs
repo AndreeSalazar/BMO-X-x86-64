@@ -34,7 +34,6 @@
 //! [`dibujos`] tal como los vio (P3b2): lo que el banco compara con X1.
 
 use alloc::string::String;
-use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 
@@ -45,7 +44,7 @@ use bmo_proton_x::lote::{enlazar, Enlace, Lote, NoDibuja, Topologia};
 use bmo_proton_x::trama;
 use bmo_proton_x::raiz::{self, Carga, Firma, Parametro, Rango};
 
-use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, S_OK};
+use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, E_OUTOFMEMORY, S_OK};
 use crate::{aviso, dir, plataforma};
 
 // -- Constantes de D3D12 que se miran ---------------------------------------
@@ -390,20 +389,18 @@ pub(crate) extern "win64" fn create_graphics_pipeline_state(_this: u64, desc: *c
 
 // -- Los buferes y su registro ----------------------------------------------
 
-/// 256 bytes alineados a 256: la unidad de un bufer de la casa (la alineacion
-/// que D3D12 pide a un bufer de constantes).
-#[repr(C, align(256))]
-#[derive(Clone, Copy)]
-struct Trozo([u8; 256]);
-
+/// Un bufer de la casa: `bytes` desde `base`, alineado a 256 (lo que D3D12
+/// pide a un bufer de constantes). La memoria es del PROCESO
+/// (`memoria::pedir_bufer`), o la de su `ID3D12Heap` si es colocado; nunca
+/// del monton del cargador (tanda 44). No se devuelve: ver `com::release`.
 pub struct Bufer {
-    trozos: Vec<Trozo>,
+    base: u64,
     pub bytes: usize,
 }
 
 impl Bufer {
     pub fn base(&self) -> u64 {
-        self.trozos.as_ptr() as u64
+        self.base
     }
 }
 
@@ -439,6 +436,13 @@ fn resolver(va: u64, n: usize) -> Option<&'static [u8]> {
 /// `CreateCommittedResource(this, heap, banderas, desc, estado, clear, riid, pp)`.
 /// `D3D12_RESOURCE_DESC` (56 B): Dimension +0, Width +16. Solo BUFFER.
 pub(crate) extern "win64" fn create_committed_resource(_this: u64, _heap: *const u8, _banderas: u32, desc: *const u8, _estado: u32, _clear: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+    crear_recurso(desc, riid, pp, None)
+}
+
+/// Un recurso: el de `CreateCommittedResource` (`memoria` = `None`: un bufer
+/// con la suya), o uno colocado (`CreatePlacedResource`), con `memoria` la
+/// direccion de su sitio en el monton, ya hecha.
+pub(crate) fn crear_recurso(desc: *const u8, riid: *const Guid, pp: *mut u64, memoria: Option<u64>) -> i32 {
     if !pide(riid, com::RESOURCE) {
         return E_NOINTERFACE;
     }
@@ -467,8 +471,21 @@ pub(crate) extern "win64" fn create_committed_resource(_this: u64, _heap: *const
         aviso("CreateCommittedResource: buferes, profundidades D32 y texturas 2D RGBA/BGRA de 8 bits, todavia");
         return E_INVALIDARG;
     }
+    if ancho == 0 {
+        return E_INVALIDARG;
+    }
+    let base = match memoria {
+        Some(m) => m,
+        None => match crate::memoria::pedir_bufer(ancho) {
+            Some(m) => m,
+            None => {
+                aviso("CreateCommittedResource: no hay memoria para el bufer: E_OUTOFMEMORY");
+                return E_OUTOFMEMORY;
+            }
+        },
+    };
     let bytes = ancho as usize;
-    let b = Bufer { trozos: vec![Trozo([0; 256]); bytes.div_ceil(256).max(1)], bytes };
+    let b = Bufer { base, bytes };
     // SAFETY: un hilo.
     unsafe { (*BUFERES.0.get()).push((b.base(), bytes)) };
     dar(pp, crate::d3d12::recurso_bufer(b))

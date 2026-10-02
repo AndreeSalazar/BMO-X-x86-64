@@ -411,6 +411,15 @@ fn tanda43_exe_montones_de_memoria() {
     tanda(TANDA43, None, 12, "tanda43.exe: montones de memoria");
 }
 
+/// **La tanda 44** (02-10): `tanda44.exe` -- Cyberpunk pidio un bufer de
+/// 192 MiB y el cargador entro en panico (cada bufer era un `Vec` de su
+/// monton de 48 MiB). Ahora la memoria es del proceso, y los buferes
+/// colocados viven en la de su monton: dos en el mismo sitio se ven.
+#[test]
+fn tanda44_exe_buferes_grandes_y_montones_de_verdad() {
+    tanda(TANDA44, None, 10, "tanda44.exe: buferes grandes y montones de verdad");
+}
+
 /// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
 /// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
 /// asi el camino que en BMO-X lleva los ficheros grandes.

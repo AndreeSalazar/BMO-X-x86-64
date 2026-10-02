@@ -110,6 +110,8 @@ const TANDA41: &[u8] = include_bytes!("../../proton-x/prueba/tanda41.exe");
 /// La TANDA 42 (02-10): lo que la tarjeta dice de si.
 const TANDA42: &[u8] = include_bytes!("../../proton-x/prueba/tanda42.exe");
 const TANDA43: &[u8] = include_bytes!("../../proton-x/prueba/tanda43.exe");
+/// La TANDA 44 (02-10): buferes grandes y montones de verdad.
+const TANDA44: &[u8] = include_bytes!("../../proton-x/prueba/tanda44.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).

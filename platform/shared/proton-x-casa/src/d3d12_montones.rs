@@ -13,15 +13,20 @@
 //!                          MemoryPool, CreationNodeMask, VisibleNodeMask),
 //!                          Alignment +32, Flags +40
 //!    ID3D12Heap::GetDesc   la devuelve (por el puntero oculto)
-//!    CreatePlacedResource  el recurso, con su PROPIA memoria, como uno
-//!                          comprometido: la casa no comparte memoria entre
-//!                          recursos del mismo monton (el "aliasing")
+//!    CreatePlacedResource  un BUFER vive en la memoria del monton, en su
+//!                          desplazamiento: dos en el mismo sitio SE VEN
+//!                          (el "aliasing", como en Windows); una TEXTURA,
+//!                          con su propia memoria, como una comprometida
 //! ```
 //!
-//! Que dos recursos colocados en el mismo sitio no se vean entre si es lo
-//! que falta, y se dice una vez (aviso) cuando pasa.
+//! **La memoria del monton** (tanda 44, 02-10): con la reserva, CreateHeap
+//! toma DIRECCIONES de la ventana sin hacer ninguna pagina, y cada bufer
+//! colocado hace solo las suyas. Antes cada bufer colocado era un `Vec` del
+//! monton del cargador (48 MiB, solo avanza), y Cyberpunk lo agoto con uno de
+//! 192 MiB: un panico en el cargador. Sin reserva (el banco viejo), el bufer
+//! colocado tiene la suya, y que dos en el mismo sitio no se vean se dice.
 
-use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, S_FALSE};
+use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, E_OUTOFMEMORY, S_FALSE};
 use crate::{aviso, dir};
 
 /// D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT (64 KiB) y la de MSAA (4 MiB).
@@ -30,11 +35,15 @@ const ALINEADO_MSAA: u64 = 0x40_0000;
 /// D3D12_HEAP_TYPE: DEFAULT 1 ... CUSTOM 4, GPU_UPLOAD 5.
 const TIPO_CUSTOM: u32 = 4;
 const TIPO_MAXIMO: u32 = 5;
+/// D3D12_RESOURCE_DIMENSION_BUFFER.
+const DIMENSION_BUFFER: u32 = 1;
 
 /// Lo de dentro de un ID3D12Heap: su descripcion, ya completada.
 pub(crate) struct Monton {
     desc: [u8; 48],
-    /// Los desplazamientos ya ocupados (para decir el aliasing).
+    /// Sus direcciones en la ventana de reserva, o 0 si no hay reserva.
+    base: u64,
+    /// Sin reserva: los desplazamientos ya ocupados (para decir el aliasing).
     colocados: alloc::vec::Vec<u64>,
 }
 
@@ -89,8 +98,16 @@ pub(crate) extern "win64" fn create_heap(_this: u64, desc: *const u8, riid: *con
     if !pide(riid, com::MEMORIA) {
         return E_NOINTERFACE;
     }
+    let base = match crate::memoria::reservar_direcciones(u64_de(&d, 0)) {
+        Some(b) => b,
+        None if crate::memoria::hay_reserva() => {
+            aviso("CreateHeap: no queda hueco en la ventana de reserva: E_OUTOFMEMORY");
+            return E_OUTOFMEMORY;
+        }
+        None => 0,
+    };
     let vt = vtabla::<{ com::MEMORIA }>(&[(8, dir!(get_desc))]);
-    dar(pp, nuevo(com::MEMORIA, vt, Monton { desc: d, colocados: alloc::vec::Vec::new() }) as u64)
+    dar(pp, nuevo(com::MEMORIA, vt, Monton { desc: d, base, colocados: alloc::vec::Vec::new() }) as u64)
 }
 
 /// `ID3D12Heap::GetDesc(this, ret)`: la estructura por el puntero oculto.
@@ -102,25 +119,41 @@ extern "win64" fn get_desc(this: u64, ret: *mut u8) -> *mut u8 {
 }
 
 /// `CreatePlacedResource(this, pHeap, HeapOffset, pDesc, InitialState,
-/// pOptimizedClearValue, riid, ppvResource)`: como uno comprometido, con
-/// su memoria; el desplazamiento tiene que caber en el monton y estar
-/// alineado a 64 KiB (o a 4 KiB, el de los recursos chicos).
+/// pOptimizedClearValue, riid, ppvResource)`: el desplazamiento tiene que
+/// caber en el monton y estar alineado a 64 KiB (o a 4 KiB, el de los
+/// recursos chicos). Un bufer, ademas, tiene que caber ENTERO, y vive en la
+/// memoria del monton; lo demas, como uno comprometido.
 #[allow(clippy::too_many_arguments)]
-pub(crate) extern "win64" fn create_placed_resource(this: u64, monton: u64, desde: u64, desc: *const u8, estado: u32, clear: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+pub(crate) extern "win64" fn create_placed_resource(_this: u64, monton: u64, desde: u64, desc: *const u8, _estado: u32, _clear: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
     if monton == 0 || desc.is_null() {
         return E_INVALIDARG;
     }
     // SAFETY: un ID3D12Heap que dio la casa.
     let m = unsafe { de::<Monton>(monton) };
-    if desde >= u64_de(&m.desc, 0) || desde % 0x1000 != 0 {
+    let medida = u64_de(&m.desc, 0);
+    if desde >= medida || desde % 0x1000 != 0 {
         return E_INVALIDARG;
+    }
+    // SAFETY: un D3D12_RESOURCE_DESC del `.exe`: Dimension +0, Width +16.
+    let (dimension, ancho) = unsafe { (desc.cast::<u32>().read_unaligned(), desc.add(16).cast::<u64>().read_unaligned()) };
+    if dimension == DIMENSION_BUFFER && m.base != 0 {
+        // Uno que no cabe desde ahi: E_INVALIDARG, como Windows (no es algo
+        // que le falte a la casa: no se avisa).
+        if ancho == 0 || ancho > medida - desde {
+            return E_INVALIDARG;
+        }
+        if !crate::memoria::hacer_paginas(m.base + desde, ancho) {
+            aviso("CreatePlacedResource: el kernel no tiene RAM para el bufer: E_OUTOFMEMORY");
+            return E_OUTOFMEMORY;
+        }
+        return crate::tuberia::crear_recurso(desc, riid, pp, Some(m.base + desde));
     }
     if m.colocados.contains(&desde) {
         aviso("CreatePlacedResource: dos recursos en el mismo sitio de un monton; en la casa no comparten memoria");
     } else {
         m.colocados.push(desde);
     }
-    crate::tuberia::create_committed_resource(this, m.desc[8..].as_ptr(), u32_de(&m.desc, 40), desc, estado, clear, riid, pp)
+    crate::tuberia::crear_recurso(desc, riid, pp, None)
 }
 
 #[cfg(test)]

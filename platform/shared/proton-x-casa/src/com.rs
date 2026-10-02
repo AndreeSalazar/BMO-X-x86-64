@@ -30,6 +30,7 @@ pub const E_NOINTERFACE: i32 = 0x8000_4002_u32 as i32;
 pub const E_INVALIDARG: i32 = 0x8007_0057_u32 as i32;
 pub const E_FAIL: i32 = 0x8000_4005_u32 as i32;
 pub const E_POINTER: i32 = 0x8000_4003_u32 as i32;
+pub const E_OUTOFMEMORY: i32 = 0x8007_000E_u32 as i32;
 
 /// Un GUID tal como esta en memoria: Data1 (u32), Data2 y Data3 (u16) en
 /// little-endian, y los ocho bytes de Data4.

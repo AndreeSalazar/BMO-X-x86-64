@@ -1526,3 +1526,27 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    a1f09af021614ca74b70e9bacc49e4444f385f29b1a83afe3a92ec17c6c05b84
 
 Dice `bien` doce veces y sale con 0. En Windows dice lo mismo.
+
+tanda44.exe -- la TANDA 44 (02-10): buferes grandes y montones de verdad
+
+Por Cyberpunk: ya con CreateHeap, pidio un bufer de 192 MiB y el cargador de
+PROTON-X entro en panico ("memory allocation of 201326592 bytes failed"):
+cada bufer de D3D12 era un Vec del monton del cargador, que mide 48 MiB y
+solo avanza. Aqui, como en Windows: un bufer UPLOAD comprometido de 192 MiB
+se crea, se mapea y se escribe de punta a punta; en un monton UPLOAD de 256
+MiB, dos buferes colocados en el mismo sitio comparten la memoria (lo que
+uno escribe, el otro lo lee) y la direccion de GPU; uno que no cabe desde su
+desplazamiento es E_INVALIDARG, y el ultimo que cabe se escribe entero. No
+depende de que tarjeta haya. En el banco la casa de antes falla 3 (el panico
+del cargador solo se ve en el metal: el banco usa el asignador de std).
+
+   llvm-dlltool -m i386:x86-64 -d tanda44_kernel32.def -l tanda44_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda44_d3d12.def -l tanda44_d3d12.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda44.c -o tanda44.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda44.obj tanda44_kernel32.lib tanda44_d3d12.lib /out:tanda44.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   3bda4d376c239f3518757f259dbc6df386414650582e926eb83e05409cdc3744
+
+Dice `bien` diez veces y sale con 0. En Windows dice lo mismo.
