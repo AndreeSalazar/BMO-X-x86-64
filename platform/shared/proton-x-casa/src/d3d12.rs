@@ -37,6 +37,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::com::{self, dar, de, nuevo, pide, vtabla, Com, Guid, E_NOINTERFACE, S_FALSE, S_OK};
+use crate::d3d12_dispositivos as dv;
 use crate::tuberia::{self, Bufer, Estado, Vista};
 use crate::{aviso, dir, hilos};
 
@@ -46,7 +47,10 @@ pub const DXGI_FORMAT_B8G8R8A8_UNORM: u32 = 87;
 /// Lo que mide un descriptor en un monton de la casa.
 const DESCRIPTOR: u64 = 32;
 
-pub struct Dispositivo;
+/// El dispositivo: si se quito (`RemoveDevice`, Device5).
+pub struct Dispositivo {
+    quitado: bool,
+}
 pub struct Cola;
 pub struct Asignador;
 
@@ -77,12 +81,51 @@ pub struct Monton {
     ranuras: Vec<u64>,
 }
 
+/// **Los pixeles de una imagen** (tanda 45, 02-10): `n` palabras en memoria
+/// del PROCESO (`memoria::pedir_pixeles`), que se usan como un `[u32]`.
+/// Antes eran un `Vec<u32>` del monton del cargador, que mide 48 MiB y solo
+/// avanza: un juego a 1080p (8 MiB cada render target) no cabe. No se
+/// devuelven: ver `com::release`.
+pub struct Pixeles {
+    p: *mut u32,
+    n: usize,
+}
+
+impl Pixeles {
+    /// Los de algo que no es una imagen (un bufer).
+    fn ninguno() -> Self {
+        Pixeles { p: core::ptr::NonNull::dangling().as_ptr(), n: 0 }
+    }
+
+    /// `n` pixeles a cero; `prestable`: la 3060 podria usarlos.
+    fn nuevos(n: usize, prestable: bool) -> Option<Self> {
+        let p = crate::memoria::pedir_pixeles(n as u64 * 4, prestable)?;
+        Some(Pixeles { p: p as *mut u32, n })
+    }
+}
+
+impl core::ops::Deref for Pixeles {
+    type Target = [u32];
+    fn deref(&self) -> &[u32] {
+        // SAFETY: `n` palabras de este proceso, a PAGINA, que no se sueltan
+        // (o ninguna, con un puntero no nulo y alineado).
+        unsafe { core::slice::from_raw_parts(self.p, self.n) }
+    }
+}
+
+impl core::ops::DerefMut for Pixeles {
+    fn deref_mut(&mut self) -> &mut [u32] {
+        // SAFETY: como arriba; el Recurso es su unico dueno.
+        unsafe { core::slice::from_raw_parts_mut(self.p, self.n) }
+    }
+}
+
 /// Una imagen en la memoria de este proceso: lo que un back buffer ES aqui.
 pub struct Recurso {
     pub ancho: u32,
     pub alto: u32,
     pub formato: u32,
-    pub pixeles: Vec<u32>,
+    pub pixeles: Pixeles,
     /// Si es un bufer (CreateCommittedResource), sus bytes; una imagen no.
     pub bufer: Option<Bufer>,
     /// P3b4c.9 Z1: un back buffer de la cadena de intercambio (lo pone DXGI).
@@ -134,10 +177,34 @@ fn dispositivo() -> u64 {
         (28, dir!(crate::d3d12_montones::create_heap)),
         (29, dir!(crate::d3d12_montones::create_placed_resource)),
         (36, dir!(create_fence)),
+        (37, dir!(get_device_removed_reason)),
         (38, dir!(get_copyable_footprints)),
         (43, dir!(get_adapter_luid)),
+        // ID3D12Device1 a 10 (tanda 45): ver d3d12_dispositivos.rs.
+        (44, dir!(dv::create_pipeline_library)),
+        (45, dir!(dv::set_event_on_multiple_fence_completion)),
+        (46, dir!(dv::set_residency_priority)),
+        (47, dir!(dv::create_pipeline_state)),
+        (50, dir!(dv::enqueue_make_resident)),
+        (51, dir!(dv::create_command_list1)),
+        (53, dir!(dv::create_committed_resource1)),
+        (54, dir!(dv::create_heap1)),
+        (56, dir!(dv::get_resource_allocation_info1)),
+        (58, dir!(dv::remove_device)),
+        (59, dir!(dv::enumerate_meta_commands)),
+        (64, dir!(dv::check_driver_matching_identifier)),
+        (65, dir!(dv::set_background_processing_mode)),
+        (68, dir!(dv::get_resource_allocation_info2)),
+        (69, dir!(dv::create_committed_resource2)),
+        (70, dir!(dv::create_placed_resource1)),
+        (72, dir!(dv::get_copyable_footprints1)),
+        (73, dir!(dv::create_shader_cache_session)),
+        (74, dir!(dv::shader_cache_control)),
+        (75, dir!(dv::create_command_queue1)),
+        (76, dir!(dv::create_committed_resource3)),
+        (77, dir!(dv::create_placed_resource2)),
     ]);
-    nuevo(com::DEVICE, vt, Dispositivo) as u64
+    nuevo(com::DEVICE, vt, Dispositivo { quitado: false }) as u64
 }
 
 /// La vtabla de todo recurso: Map y compania dicen por si mismos si el
@@ -146,17 +213,24 @@ fn vtabla_recurso() -> *const u64 {
     vtabla::<{ com::RESOURCE }>(&[(8, dir!(tuberia::map)), (9, dir!(tuberia::unmap)), (10, dir!(get_desc)), (11, dir!(tuberia::get_gpu_virtual_address))])
 }
 
-/// Un recurso nuevo (lo pide la cadena de intercambio de DXGI).
-pub(crate) fn recurso(ancho: u32, alto: u32, formato: u32) -> u64 {
-    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho, alto, formato, pixeles: vec![0; (ancho * alto) as usize], bufer: None, cadena: false, en_pantalla: false }) as u64;
+/// **Una imagen nueva**: un back buffer de la cadena de intercambio
+/// (`cadena`), una textura o una profundidad. `None` si no hay memoria. Va a
+/// memoria que la 3060 sabe usar (ver `memoria::pedir_pixeles`) lo que ella
+/// usaria hoy: la cadena y las texturas de color chicas; una profundidad, no
+/// (su Z vive en la VRAM).
+pub(crate) fn recurso(ancho: u32, alto: u32, formato: u32, cadena: bool) -> Option<u64> {
+    let n = ancho as usize * alto as usize;
+    let prestable = cadena || (formato != tuberia::FMT_D32_FLOAT && n as u64 * 4 <= crate::memoria::TEXTURA_PRESTABLE);
+    let pixeles = Pixeles::nuevos(n, prestable)?;
+    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho, alto, formato, pixeles, bufer: None, cadena, en_pantalla: false }) as u64;
     // Uno nuevo en la direccion de uno que se fue no hereda su limpieza.
     tuberia::olvidar_limpieza(r);
-    r
+    Some(r)
 }
 
 /// Un recurso que es un bufer (CreateCommittedResource).
 pub(crate) fn recurso_bufer(b: Bufer) -> u64 {
-    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Vec::new(), bufer: Some(b), cadena: false, en_pantalla: false }) as u64
+    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Pixeles::ninguno(), bufer: Some(b), cadena: false, en_pantalla: false }) as u64
 }
 
 /// El inicio de un bufer de la casa, o `None` si `this` es una imagen.
@@ -190,7 +264,24 @@ extern "win64" fn get_node_count(_this: u64) -> u32 {
     1
 }
 
-extern "win64" fn create_command_queue(_this: u64, _desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+/// `GetDeviceRemovedReason(this)`: S_OK mientras el dispositivo vive; tras
+/// un `RemoveDevice`, DXGI_ERROR_DEVICE_REMOVED.
+extern "win64" fn get_device_removed_reason(this: u64) -> i32 {
+    // SAFETY: `this` es el Dispositivo de la casa.
+    if unsafe { de::<Dispositivo>(this) }.quitado {
+        0x887A_0005_u32 as i32
+    } else {
+        S_OK
+    }
+}
+
+/// Lo que hace `RemoveDevice` (Device5).
+pub(crate) fn quitar_dispositivo(this: u64) {
+    // SAFETY: como arriba.
+    unsafe { de::<Dispositivo>(this) }.quitado = true;
+}
+
+pub(crate) extern "win64" fn create_command_queue(_this: u64, _desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
     if !pide(riid, com::QUEUE) {
         return E_NOINTERFACE;
     }
@@ -208,7 +299,7 @@ extern "win64" fn create_command_allocator(_this: u64, _tipo: u32, riid: *const 
 
 /// `CreateCommandList(this, mascara, tipo, asignador, pso, riid, pp)`: nace
 /// ABIERTA, como en Windows.
-extern "win64" fn create_command_list(_this: u64, _mascara: u32, _tipo: u32, _asig: u64, pso: u64, riid: *const Guid, pp: *mut u64) -> i32 {
+pub(crate) extern "win64" fn create_command_list(_this: u64, _mascara: u32, _tipo: u32, _asig: u64, pso: u64, riid: *const Guid, pp: *mut u64) -> i32 {
     if !pide(riid, com::LIST) {
         return E_NOINTERFACE;
     }
@@ -344,7 +435,7 @@ extern "win64" fn create_sampler(_this: u64, desc: *const u8, handle: u64) {
 
 // -- La lista de ordenes ----------------------------------------------------
 
-extern "win64" fn list_close(this: u64) -> i32 {
+pub(crate) extern "win64" fn list_close(this: u64) -> i32 {
     // SAFETY: `this` es una Lista de la casa.
     let l = unsafe { de::<Lista>(this) };
     l.abierta = false;
@@ -611,16 +702,34 @@ extern "win64" fn get_desc(this: u64, ret: *mut u8) -> *mut u8 {
 /// D3D12_RESOURCE_ALLOCATION_INFO (medida, alineacion) oculto. No son las
 /// cifras de un driver (la 3060 da otras: el DICCIONARIO de EPICX).
 extern "win64" fn get_resource_allocation_info(_this: u64, ret: *mut u64, _mascara: u32, n: u32, descs: *const u8) -> *mut u64 {
+    asignacion(ret, n, descs, 56, core::ptr::null_mut())
+}
+
+/// **La cuenta de GetResourceAllocationInfo, 1 y 2**: `n` descripciones de
+/// `paso` bytes (56 la de siempre, 64 la DESC1), y si `info1` no es nulo,
+/// un D3D12_RESOURCE_ALLOCATION_INFO1 por recurso (Offset, Alignment,
+/// SizeInBytes: 24 bytes), uno detras de otro como los pondria un monton.
+pub(crate) fn asignacion(ret: *mut u64, n: u32, descs: *const u8, paso: usize, info1: *mut u64) -> *mut u64 {
     const ALINEACION: u64 = 65536;
     let mut total = 0u64;
     for i in 0..n as usize {
-        // SAFETY: `n` D3D12_RESOURCE_DESC del `.exe` (56 B cada uno).
+        // SAFETY: `n` descripciones del `.exe`, de `paso` bytes cada una.
         let (dimension, ancho, alto) = unsafe {
-            let d = descs.add(56 * i);
+            let d = descs.add(paso * i);
             ((d as *const u32).read_unaligned(), (d.add(16) as *const u64).read_unaligned(), (d.add(24) as *const u32).read_unaligned())
         };
         let bytes = if dimension == 1 { ancho } else { ancho * alto as u64 * 4 };
-        total += bytes.div_ceil(ALINEACION) * ALINEACION;
+        let medida = bytes.div_ceil(ALINEACION) * ALINEACION;
+        if !info1.is_null() {
+            // SAFETY: `n` D3D12_RESOURCE_ALLOCATION_INFO1 del `.exe`.
+            unsafe {
+                let e = info1.add(3 * i);
+                e.write_unaligned(total);
+                e.add(1).write_unaligned(ALINEACION);
+                e.add(2).write_unaligned(medida);
+            }
+        }
+        total += medida;
     }
     // SAFETY: 16 bytes del `.exe`.
     unsafe {
@@ -641,7 +750,7 @@ const PASO_DE_FILA: u32 = 256;
 /// un subrecurso 2D de 4 bytes por pixel (RGBA8, BGRA8, D32): cada fila a
 /// 256, y el total SIN el relleno de la ultima fila, como D3D12. Lo demas se
 /// dice y se da como un bufer de una fila.
-extern "win64" fn get_copyable_footprints(_this: u64, desc: *const u8, primero: u32, n: u32, desde: u64, huellas: *mut u8, filas: *mut u32, bytes_fila: *mut u64, total: *mut u64) {
+pub(crate) extern "win64" fn get_copyable_footprints(_this: u64, desc: *const u8, primero: u32, n: u32, desde: u64, huellas: *mut u8, filas: *mut u32, bytes_fila: *mut u64, total: *mut u64) {
     if desc.is_null() {
         return;
     }
@@ -826,11 +935,16 @@ extern "win64" fn allocator_reset(_this: u64) -> i32 {
 }
 
 extern "win64" fn get_completed_value(this: u64) -> u64 {
-    // SAFETY: una Valla de la casa.
-    unsafe { de::<Valla>(this).valor }
+    valor_de_valla(this)
 }
 
-extern "win64" fn fence_signal(this: u64, valor: u64) -> i32 {
+/// El valor de la valla `v` (de la casa).
+pub(crate) fn valor_de_valla(v: u64) -> u64 {
+    // SAFETY: una Valla de la casa.
+    unsafe { de::<Valla>(v).valor }
+}
+
+pub(crate) extern "win64" fn fence_signal(this: u64, valor: u64) -> i32 {
     // SAFETY: como arriba.
     marcar(unsafe { de::<Valla>(this) }, valor);
     S_OK
@@ -840,7 +954,7 @@ extern "win64" fn fence_signal(this: u64, valor: u64) -> i32 {
 /// enciende YA; si no, cuando un Signal (de la cola o de otro hilo) llegue.
 /// Con evento nulo, Windows ESPERA ahi mismo: aqui se cede el turno hasta que
 /// llegue (o hasta el bloqueo mutuo, que se dice).
-extern "win64" fn set_event_on_completion(this: u64, valor: u64, evento: u64) -> i32 {
+pub(crate) extern "win64" fn set_event_on_completion(this: u64, valor: u64, evento: u64) -> i32 {
     // SAFETY: como arriba.
     let v = unsafe { de::<Valla>(this) };
     if v.valor >= valor {

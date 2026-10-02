@@ -433,6 +433,17 @@ fn resolver(va: u64, n: usize) -> Option<&'static [u8]> {
     Some(unsafe { core::slice::from_raw_parts(va as *const u8, n) })
 }
 
+/// Una imagen nueva en `pp`, o E_OUTOFMEMORY (antes, un panico del cargador).
+fn dar_imagen(pp: *mut u64, ancho: u32, alto: u32, formato: u32) -> i32 {
+    match crate::d3d12::recurso(ancho, alto, formato, false) {
+        Some(r) => dar(pp, r),
+        None => {
+            aviso("CreateCommittedResource: no hay memoria para la textura: E_OUTOFMEMORY");
+            E_OUTOFMEMORY
+        }
+    }
+}
+
 /// `CreateCommittedResource(this, heap, banderas, desc, estado, clear, riid, pp)`.
 /// `D3D12_RESOURCE_DESC` (56 B): Dimension +0, Width +16. Solo BUFFER.
 pub(crate) extern "win64" fn create_committed_resource(_this: u64, _heap: *const u8, _banderas: u32, desc: *const u8, _estado: u32, _clear: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
@@ -455,7 +466,7 @@ pub(crate) fn crear_recurso(desc: *const u8, riid: *const Guid, pp: *mut u64, me
     if dimension == DIMENSION_TEXTURE2D && formato == FMT_D32_FLOAT && medida_ok {
         // P3c4: una profundidad D32 (lo que el cubo de BMOX-12 pide). Su
         // contenido es indefinido hasta ClearDepthStencilView, como en D3D12.
-        return dar(pp, crate::d3d12::recurso(ancho as u32, alto, FMT_D32_FLOAT));
+        return dar_imagen(pp, ancho as u32, alto, FMT_D32_FLOAT);
     }
     if dimension == DIMENSION_TEXTURE2D && matches!(formato, FMT_R8G8B8A8_UNORM | FMT_B8G8R8A8_UNORM) && medida_ok {
         // ** Una TEXTURA 2D de 8 bits por canal (29-09, HelloTexture): un
@@ -465,7 +476,7 @@ pub(crate) fn crear_recurso(desc: *const u8, riid: *const Guid, pp: *mut u64, me
         if capas > 1 || niveles > 1 {
             aviso("CreateCommittedResource: una textura con mipmaps o capas: se usa el nivel 0 de la capa 0");
         }
-        return dar(pp, crate::d3d12::recurso(ancho as u32, alto, formato));
+        return dar_imagen(pp, ancho as u32, alto, formato);
     }
     if dimension != DIMENSION_BUFFER {
         aviso("CreateCommittedResource: buferes, profundidades D32 y texturas 2D RGBA/BGRA de 8 bits, todavia");

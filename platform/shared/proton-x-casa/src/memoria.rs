@@ -70,13 +70,17 @@ struct Estado {
     /// Los montones de `HeapCreate` vivos (el del proceso no esta: siempre vive).
     creados: Vec<u16>,
     siguiente: u16,
+    /// La memoria PRESTABLE a la 3060 (tanda 45): su monton, y cuantos
+    /// bloques de la plataforma lleva.
+    prestable: Monton,
+    bloques_prestables: u32,
 }
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y ninguna funcion
 // de aqui cede el turno.
 unsafe impl Sync for Global {}
-static ESTADO: Global = Global(UnsafeCell::new(Estado { monton: Monton::nuevo(), regiones: Regiones::nuevas(), huecos: Vec::new(), ventana: false, noes: 0, grandes: 0, consultas: 0, creados: Vec::new(), siguiente: 2 }));
+static ESTADO: Global = Global(UnsafeCell::new(Estado { monton: Monton::nuevo(), regiones: Regiones::nuevas(), huecos: Vec::new(), ventana: false, noes: 0, grandes: 0, consultas: 0, creados: Vec::new(), siguiente: 2, prestable: Monton::nuevo(), bloques_prestables: 0 }));
 
 fn estado() -> &'static mut Estado {
     // SAFETY: ver `Global`; nadie guarda la referencia.
@@ -110,6 +114,10 @@ pub(crate) fn reiniciar() {
     e.grandes = 0;
     tramos().clear();
     e.siguiente = 2;
+    // Los bloques prestables no se devuelven (la plataforma no tiene como):
+    // en el banco, el `.exe` siguiente empieza con un monton vacio.
+    e.prestable = Monton::nuevo();
+    e.bloques_prestables = 0;
 }
 
 /// La memoria de verdad, para el monton.
@@ -305,6 +313,28 @@ pub fn pila_principal(bytes: u64) -> Option<u64> {
     Some(p)
 }
 
+/// **Paginas propias de la ventana de reserva**: `bytes` (a 64 KiB), hechas,
+/// R+W y a cero. `None` (y dicho, con `que`) si no hay hueco o RAM. Sin
+/// reserva, del monton de Windows, a 4 KiB.
+fn pedir_paginas(bytes: u64, que: &str) -> Option<u64> {
+    let Some(r) = reserva() else {
+        let p = pedir(bytes.max(1), PAGINA, PROPIETARIO_VIRTUAL)?;
+        a_cero(p, bytes);
+        return Some(p);
+    };
+    let n = bytes.max(1).checked_add(GRANO - 1)? & !(GRANO - 1);
+    let Some(base) = tomar_va(n) else {
+        decir_no(&alloc::format!("{que} de {} MiB: no queda hueco en la ventana", bytes >> 20));
+        return None;
+    };
+    if !(r.hacer)(base, n) {
+        soltar_va(base, n);
+        decir_no(&alloc::format!("{que} de {} MiB: el kernel dice que no hay RAM", bytes >> 20));
+        return None;
+    }
+    Some(base)
+}
+
 /// **La memoria de un bufer de D3D12** (tanda 44 de Cyberpunk, 02-10): `bytes`
 /// R+W, a cero, alineados a 256 (lo que D3D12 pide a un bufer de
 /// constantes). Antes era un `Vec` del monton del CARGADOR, que mide 48 MiB y
@@ -314,22 +344,63 @@ pub fn pila_principal(bytes: u64) -> Option<u64> {
 /// que son 64); lo chico, del monton de Windows. Como todo objeto de la casa,
 /// no se devuelve (ver `com::release`).
 pub(crate) fn pedir_bufer(bytes: u64) -> Option<u64> {
-    if let Some(r) = reserva().filter(|_| bytes >= GRANO) {
-        let n = bytes.checked_add(GRANO - 1)? & !(GRANO - 1);
-        let Some(base) = tomar_va(n) else {
-            decir_no(&alloc::format!("un bufer de D3D12 de {} MiB: no queda hueco en la ventana", bytes >> 20));
-            return None;
-        };
-        if !(r.hacer)(base, n) {
-            soltar_va(base, n);
-            decir_no(&alloc::format!("un bufer de D3D12 de {} MiB: el kernel dice que no hay RAM", bytes >> 20));
-            return None;
-        }
-        return Some(base);
+    if reserva().is_some() && bytes >= GRANO {
+        return pedir_paginas(bytes, "un bufer de D3D12");
     }
     let p = pedir(bytes.max(1), 256, PROPIETARIO_VIRTUAL)?;
     a_cero(p, bytes);
     Some(p)
+}
+
+/// Cuantos bloques de la plataforma se gastan, como mucho, en memoria
+/// prestable: un proceso de BMO-X tiene OCHO, y el cargador, la superficie de
+/// la ventana y el codigo de los sombreadores tambien los quieren.
+const MAX_PRESTABLES: u32 = 2;
+
+/// **Memoria PRESTABLE a la 3060** (tanda 45, 02-10): `bytes` a cero, a
+/// PAGINA, dentro de un BLOQUE de la plataforma -- en BMO-X un bloque del
+/// kernel, contiguo, que es lo unico que `IOMMU_OP_GPU_DIBUJAR` sabe prestar
+/// (el kernel lo busca con `fisica_de` entre los bloques del proceso; una
+/// pagina de la ventana de reserva no esta ahi). Lo reparte un monton propio
+/// en bloques de 64 MiB, como mucho [`MAX_PRESTABLES`]. `None` si no cabe:
+/// quien llama tira de [`pedir_paginas`], que la CPU dibuja igual.
+fn pedir_prestable(bytes: u64) -> Option<u64> {
+    let e = estado();
+    let bytes = bytes.max(1);
+    if let Some(p) = e.prestable.pedir(&mut Real, bytes, PAGINA, PROPIETARIO_VIRTUAL) {
+        a_cero(p, bytes);
+        return Some(p);
+    }
+    if e.bloques_prestables >= MAX_PRESTABLES || bytes.checked_add(PAGINA + 256)? > ARENA {
+        return None;
+    }
+    let base = (plataforma().memoria)(ARENA as usize)?;
+    e.bloques_prestables += 1;
+    if !e.prestable.agregar(&mut Real, base, ARENA) {
+        return None;
+    }
+    let p = e.prestable.pedir(&mut Real, bytes, PAGINA, PROPIETARIO_VIRTUAL)?;
+    a_cero(p, bytes);
+    Some(p)
+}
+
+/// Lo mas que mide una textura (que no es de la cadena) para ir a memoria
+/// prestable: las que la 3060 muestrea hoy son chicas, y un render target de
+/// 1080p (8 MiB) llenaria los bloques en un momento.
+pub(crate) const TEXTURA_PRESTABLE: u64 = 4 << 20;
+
+/// **Los pixeles de una textura** (tanda 45): `bytes` a cero, a PAGINA, de
+/// memoria del proceso -- antes eran un `Vec` del monton del cargador (48
+/// MiB, solo avanza), donde un juego a 1080p no cabe. `prestable`: la 3060
+/// podria usarla (un back buffer de la cadena, una textura chica), y se
+/// intenta primero en un bloque prestable; lo demas, de la ventana.
+pub(crate) fn pedir_pixeles(bytes: u64, prestable: bool) -> Option<u64> {
+    if prestable {
+        if let Some(p) = pedir_prestable(bytes) {
+            return Some(p);
+        }
+    }
+    pedir_paginas(bytes, "una textura de D3D12")
 }
 
 /// **Las direcciones de un `ID3D12Heap`** (tanda 44): `bytes` de la ventana de

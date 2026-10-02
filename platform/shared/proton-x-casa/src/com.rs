@@ -76,6 +76,21 @@ const IID_DEVICECHILD: Guid = guid(0x905db94b, 0xa00c, 0x4140, [0x9d, 0xf5, 0x2b
 const IID_PAGEABLE: Guid = guid(0x63ee58fb, 0x1268, 0x4835, [0x86, 0xda, 0xf0, 0x08, 0xce, 0x62, 0xf0, 0xd6]);
 const IID_COMMANDLIST: Guid = guid(0x7116d91c, 0xe7e4, 0x47ce, [0xb8, 0xc6, 0xec, 0x81, 0x68, 0xf4, 0x37, 0xe5]);
 pub const IID_DEVICE: Guid = guid(0x189819f1, 0x1db6, 0x4b57, [0xbe, 0x54, 0x18, 0x21, 0x33, 0x9b, 0x85, 0xf7]);
+/// ID3D12Device1 a ID3D12Device10 (tanda 45: Cyberpunk pide la 1, la 4, la
+/// 8 y la 10), de `d3d12.idl` (mingw-w64 y vkd3d-proton dicen los mismos).
+/// Cada una hereda de la anterior: un objeto, una vtabla de 79 huecos.
+const IID_DEVICES: [Guid; 10] = [
+    guid(0x77acce80, 0x638e, 0x4e65, [0x88, 0x95, 0xc1, 0xf2, 0x33, 0x86, 0x86, 0x3e]),
+    guid(0x30baa41e, 0xb15b, 0x475c, [0xa0, 0xbb, 0x1a, 0xf5, 0xc5, 0xb6, 0x43, 0x28]),
+    guid(0x81dadc15, 0x2bad, 0x4392, [0x93, 0xc5, 0x10, 0x13, 0x45, 0xc4, 0xaa, 0x98]),
+    guid(0xe865df17, 0xa9ee, 0x46f9, [0xa4, 0x63, 0x30, 0x98, 0x31, 0x5a, 0xa2, 0xe5]),
+    guid(0x8b4f173b, 0x2fea, 0x4b80, [0x8f, 0x58, 0x43, 0x07, 0x19, 0x1a, 0xb9, 0x5d]),
+    guid(0xc70b221b, 0x40e4, 0x4a17, [0x89, 0xaf, 0x02, 0x5a, 0x07, 0x27, 0xa6, 0xdc]),
+    guid(0x5c014b53, 0x68a1, 0x4b9b, [0x8b, 0xd1, 0xdd, 0x60, 0x46, 0xb9, 0x35, 0x8b]),
+    guid(0x9218e6bb, 0xf944, 0x4f7e, [0xa7, 0x5c, 0xb1, 0xb2, 0xc7, 0xb7, 0x01, 0xf3]),
+    guid(0x4c80e962, 0xf032, 0x4f60, [0xbc, 0x9e, 0xeb, 0xc2, 0xcf, 0xa1, 0xd8, 0x3c]),
+    guid(0x517f8718, 0xaa66, 0x49f9, [0xb0, 0x2b, 0xa7, 0xab, 0x89, 0xc0, 0x60, 0x31]),
+];
 pub const IID_QUEUE: Guid = guid(0x0ec870a6, 0x5d7e, 0x4c22, [0x8c, 0xfc, 0x5b, 0xaa, 0xe0, 0x76, 0x16, 0xed]);
 pub const IID_ALLOCATOR: Guid = guid(0x6102dee4, 0xaf59, 0x4b09, [0xb9, 0x99, 0xb4, 0x4d, 0x73, 0xf0, 0x9b, 0x24]);
 pub const IID_LIST: Guid = guid(0x5b160d0f, 0xac1b, 0x4185, [0x8b, 0xa8, 0xb3, 0xae, 0x42, 0xa5, 0xa4, 0x55]);
@@ -120,7 +135,11 @@ pub const IID_SWAPCHAIN3: Guid = guid(0x94d99bdb, 0xf1f8, 0x4ab0, [0xb2, 0x36, 0
 pub const IID_SWAPCHAIN1: Guid = guid(0x790a45f7, 0x0d42, 0x4876, [0x98, 0x3a, 0x0a, 0x55, 0xcf, 0xe6, 0xf4, 0xaa]);
 
 pub static INTERFACES: [Interfaz; 15] = [
-    Interfaz { nombre: "ID3D12Device", metodos: M_ID3D12DEVICE, iids: &[IID_DEVICE, IID_OBJECT] },
+    Interfaz {
+        nombre: "ID3D12Device",
+        metodos: M_ID3D12DEVICE,
+        iids: &[IID_DEVICE, IID_DEVICES[0], IID_DEVICES[1], IID_DEVICES[2], IID_DEVICES[3], IID_DEVICES[4], IID_DEVICES[5], IID_DEVICES[6], IID_DEVICES[7], IID_DEVICES[8], IID_DEVICES[9], IID_OBJECT],
+    },
     Interfaz { nombre: "ID3D12CommandQueue", metodos: M_ID3D12COMMANDQUEUE, iids: &[IID_QUEUE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandAllocator", metodos: M_ID3D12COMMANDALLOCATOR, iids: &[IID_ALLOCATOR, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12GraphicsCommandList", metodos: M_ID3D12GRAPHICSCOMMANDLIST, iids: &[IID_LIST, IID_COMMANDLIST, IID_DEVICECHILD, IID_OBJECT] },
@@ -167,8 +186,9 @@ macro_rules! faltas {
     ($i:ident; $($s:literal)*) => { [$(falta::<$i, $s> as *const () as usize as u64),*] };
 }
 
-fn faltas_de<const I: usize>() -> [u64; 60] {
-    faltas!(I; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59)
+fn faltas_de<const I: usize>() -> [u64; 80] {
+    faltas!(I; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59
+        60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79)
 }
 
 extern "win64" fn query_interface(this: *mut Cabecera, riid: *const Guid, ppv: *mut u64) -> i32 {
@@ -283,6 +303,19 @@ pub const M_ID3D12DEVICE: &[&str] = &[
     "OpenSharedHandle", "OpenSharedHandleByName", "MakeResident", "Evict", "CreateFence",
     "GetDeviceRemovedReason", "GetCopyableFootprints", "CreateQueryHeap", "SetStablePowerState",
     "CreateCommandSignature", "GetResourceTiling", "GetAdapterLuid",
+    // ID3D12Device1 a ID3D12Device10 (tanda 45).
+    "CreatePipelineLibrary", "SetEventOnMultipleFenceCompletion", "SetResidencyPriority",
+    "CreatePipelineState", "OpenExistingHeapFromAddress", "OpenExistingHeapFromFileMapping",
+    "EnqueueMakeResident", "CreateCommandList1", "CreateProtectedResourceSession",
+    "CreateCommittedResource1", "CreateHeap1", "CreateReservedResource1",
+    "GetResourceAllocationInfo1", "CreateLifetimeTracker", "RemoveDevice",
+    "EnumerateMetaCommands", "EnumerateMetaCommandParameters", "CreateMetaCommand",
+    "CreateStateObject", "GetRaytracingAccelerationStructurePrebuildInfo",
+    "CheckDriverMatchingIdentifier", "SetBackgroundProcessingMode", "AddToStateObject",
+    "CreateProtectedResourceSession1", "GetResourceAllocationInfo2", "CreateCommittedResource2",
+    "CreatePlacedResource1", "CreateSamplerFeedbackUnorderedAccessView", "GetCopyableFootprints1",
+    "CreateShaderCacheSession", "ShaderCacheControl", "CreateCommandQueue1",
+    "CreateCommittedResource3", "CreatePlacedResource2", "CreateReservedResource2",
 ];
 pub const M_ID3D12HEAP: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",

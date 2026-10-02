@@ -1550,3 +1550,33 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    3bda4d376c239f3518757f259dbc6df386414650582e926eb83e05409cdc3744
 
 Dice `bien` diez veces y sale con 0. En Windows dice lo mismo.
+
+tanda45.exe -- la TANDA 45 (02-10): ID3D12Device1 a 10
+
+Por Cyberpunk: con el dispositivo hecho pide ID3D12Device1, 4, 8 y 10
+(QueryInterface), y la casa decia que no. Aqui, como en un Windows 11 con
+ID3D12Device10: D3D12CreateDevice la da directamente, y la 1 a la 9 son el
+MISMO objeto; un bufer y una textura de 16 MiB con CreateCommittedResource1;
+un monton con CreateHeap1 donde CreatePlacedResource1 y 2 colocan dos buferes
+en el mismo sitio (y se ven); GetResourceAllocationInfo1 y 2 con dos buferes
+(cada uno a 64 KiB, uno detras de otro); CreateCommandQueue1, y
+CreateCommandList1, que nace CERRADA (Reset y Close: S_OK); un PSO por
+CreatePipelineState, con un FLUJO de subobjetos (el HLSL de cubo12: el banco
+pone sus .cso en window/sombras, como para cubo12.exe); EnqueueMakeResident
+lleva la valla a su valor; SetBackgroundProcessingMode y
+GetDeviceRemovedReason, S_OK; y CreatePipelineLibrary da una libreria o
+DXGI_ERROR_UNSUPPORTED (las dos son de Windows: depende del driver). En el
+banco, ademas, la textura de 16 MiB sale de la ventana de reserva, no del
+monton del cargador. La casa de antes falla las 15. Usa cubo12_hlsl.h.
+
+   llvm-dlltool -m i386:x86-64 -d tanda45_kernel32.def -l tanda45_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda45_d3d12.def -l tanda45_d3d12.lib
+   llvm-dlltool -m i386:x86-64 -d tanda45_d3dcompiler.def -l tanda45_d3dcompiler.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda45.c -o tanda45.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda45.obj tanda45_kernel32.lib tanda45_d3d12.lib tanda45_d3dcompiler.lib /out:tanda45.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   5d5917c357fcd0842baeef77b601f924f3cf5ef99b764912ba6af2d7963723b5
+
+Dice `bien` quince veces y sale con 0. En Windows dice lo mismo.

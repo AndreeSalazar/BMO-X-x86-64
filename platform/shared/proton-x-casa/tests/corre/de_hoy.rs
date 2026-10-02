@@ -420,6 +420,34 @@ fn tanda44_exe_buferes_grandes_y_montones_de_verdad() {
     tanda(TANDA44, None, 10, "tanda44.exe: buferes grandes y montones de verdad");
 }
 
+/// **La tanda 45** (02-10): `tanda45.exe` -- Cyberpunk pide ID3D12Device1,
+/// 4, 8 y 10 y la casa decia que no. Ahora es el mismo objeto con los 79
+/// huecos, y lo de cada version que un motor sin rayos ni malla usa;
+/// CreatePipelineState compila el HLSL de cubo12 (sus .cso, como cubo12.exe).
+/// Y una textura de 16 MiB sale de la ventana de reserva (tanda 45: las
+/// texturas ya no son del monton del cargador).
+#[test]
+fn tanda45_exe_id3d12device1_a_10() {
+    let uno = uno_a_la_vez();
+    let dir = volumen().join("window/sombras");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for h in ["f3ef42a0", "4d67f5e4"] {
+        std::fs::copy(format!("../proton-x/prueba/sombras/{h}.cso"), dir.join(format!("{h}.cso"))).unwrap();
+    }
+    let h0 = HECHOS.load(Ordering::SeqCst);
+    let (salio, dicho, _) = correr_exe(&uno, TANDA45, true, &[]);
+    let hechos = HECHOS.load(Ordering::SeqCst) - h0;
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 15, "{texto}");
+    assert!(texto.ends_with("tanda45.exe: ID3D12Device1 a 10\r\n[salio 0x0]"), "{texto}");
+    // La textura de 16 MiB son paginas de la ventana de reserva, no del
+    // monton del cargador (que en el banco seria el asignador de std).
+    assert!(hechos >= 16 << 20, "la ventana hizo {hechos} bytes");
+}
+
 /// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
 /// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
 /// asi el camino que en BMO-X lleva los ficheros grandes.

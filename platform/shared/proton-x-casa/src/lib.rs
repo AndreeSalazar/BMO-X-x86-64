@@ -63,6 +63,7 @@ pub mod cxx;
 pub mod cxx4;
 pub mod d3d12;
 pub mod d3d12_capacidades;
+pub mod d3d12_dispositivos;
 pub mod d3d12_montones;
 pub mod diario;
 pub mod dll_chicas;
