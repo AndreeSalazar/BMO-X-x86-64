@@ -43,7 +43,11 @@ impl Modulo {
     /// Los indices, en la declaracion, de sus tramos de codigo: los que se
     /// SELLAN.
     pub fn de_codigo(&self) -> impl Iterator<Item = usize> + '_ {
-        self.tramos.iter().enumerate().filter(|(_, t)| t.codigo).map(|(k, _)| self.primera + k)
+        self.tramos
+            .iter()
+            .enumerate()
+            .filter(|(_, t)| t.codigo)
+            .map(|(k, _)| self.primera + k)
     }
 
     /// Su imagen entera, los tramos seguidos.
@@ -64,11 +68,14 @@ fn junto(dir: &[u8], dll: &str) -> Vec<u8> {
 /// Las DLL del juego que pide `ruta` (importadas y retrasadas), en el orden
 /// en que las nombra, y sus cabeceras (se lee UNA vez: P0.4d).
 fn pedidas(ruta: &[u8], dir: &[u8]) -> (Vec<String>, Pe) {
-    let m = crate::mirar(ruta).unwrap_or_else(|f| fin(&format!("{}: {f}", String::from_utf8_lossy(ruta))));
+    let m = crate::mirar(ruta)
+        .unwrap_or_else(|f| fin(&format!("{}: {f}", String::from_utf8_lossy(ruta))));
     let mut v: Vec<String> = Vec::new();
     for i in m.imps.iter().chain(&m.retrasadas) {
         let d = &i.dll;
-        if bmo_proton_x_casa::modulos::es_de_la_casa(d) || v.iter().any(|x| x.eq_ignore_ascii_case(d)) {
+        if bmo_proton_x_casa::modulos::es_de_la_casa(d)
+            || v.iter().any(|x| x.eq_ignore_ascii_case(d))
+        {
             continue;
         }
         if bmo::Archivo::reflejar(&junto(dir, d)).is_ok() {
@@ -93,12 +100,23 @@ fn visitar(dll: &str, dir: &[u8], lista: &mut Vec<Modulo>, vistos: &mut Vec<Stri
         fin(&format!("{dll}: esta junto al .exe pero no es una DLL"));
     }
     let tramos = tramos(&pe).unwrap_or_else(|f| fin(&format!("{dll}: {f}")));
-    lista.push(Modulo { nombre: String::from(dll), ruta, pe, tramos, primera: 0, base: 0 });
+    lista.push(Modulo {
+        nombre: String::from(dll),
+        ruta,
+        pe,
+        tramos,
+        primera: 0,
+        base: 0,
+    });
 }
 
 /// **Declarar y colocar** el `.exe` de `ruta` y sus DLL. El primero de la
 /// lista es el `.exe`.
-pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bmo::Imagen, Vec<Modulo>, Tiempos) {
+pub(crate) fn declarar_y_colocar(
+    ruta: &[u8],
+    pe: Pe,
+    tramos: Vec<Tramo>,
+) -> (bmo::Imagen, Vec<Modulo>, Tiempos) {
     let mut tiempos = Tiempos::default();
     let t0 = ahora_ns();
     let dir: Vec<u8> = match ruta.iter().rposition(|&c| c == b'/') {
@@ -106,8 +124,16 @@ pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bm
         None => Vec::new(),
     };
     let nombre = String::from_utf8_lossy(ruta).into_owned();
-    let mut modulos = alloc::vec![Modulo { nombre: nombre.clone(), ruta: ruta.to_vec(), pe, tramos, primera: 0, base: 0 }];
-    let mut vistos: Vec<String> = alloc::vec![String::from(nombre.rsplit('/').next().unwrap_or(&nombre))];
+    let mut modulos = alloc::vec![Modulo {
+        nombre: nombre.clone(),
+        ruta: ruta.to_vec(),
+        pe,
+        tramos,
+        primera: 0,
+        base: 0
+    }];
+    let mut vistos: Vec<String> =
+        alloc::vec![String::from(nombre.rsplit('/').next().unwrap_or(&nombre))];
     for d in pedidas(ruta, &dir).0 {
         visitar(&d, &dir, &mut modulos, &mut vistos);
     }
@@ -119,7 +145,11 @@ pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bm
     for (k, m) in modulos.iter_mut().enumerate() {
         m.primera = decl.len();
         for t in &m.tramos {
-            decl.push(bmo::ParteImagen { pe: k as u16, codigo: t.codigo, bytes: t.bytes as u64 });
+            decl.push(bmo::ParteImagen {
+                pe: k as u16,
+                codigo: t.codigo,
+                bytes: t.bytes as u64,
+            });
             *(if t.codigo { &mut c } else { &mut d }) += t.bytes as u64;
         }
     }
@@ -130,10 +160,17 @@ pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bm
 
     // -- 3. Colocar, por un bloque de paso.
     let t1 = ahora_ns();
-    let Some(paso) = bmo::Memoria::request(TROZO) else { fin("sin memoria para el bloque de paso") };
+    let Some(paso) = bmo::Memoria::request(TROZO) else {
+        fin("sin memoria para el bloque de paso")
+    };
     for m in modulos.iter_mut() {
-        m.base = imagen.parte(m.primera).unwrap_or_else(|| fin(&format!("{}: el kernel no dice donde quedo", m.nombre))) as u64;
-        let Ok(a) = bmo::Archivo::reflejar(&m.ruta) else { fin(&format!("{}: no se abre", m.nombre)) };
+        m.base = imagen
+            .parte(m.primera)
+            .unwrap_or_else(|| fin(&format!("{}: el kernel no dice donde quedo", m.nombre)))
+            as u64;
+        let Ok(a) = bmo::Archivo::reflejar(&m.ruta) else {
+            fin(&format!("{}: no se abre", m.nombre))
+        };
         let img = m.imagen();
         colocar_en(&m.pe, img, m.base, |desde, destino| {
             let tam = destino.len() as u64;
@@ -149,7 +186,8 @@ pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bm
                 tiempos.bytes += k;
                 // SAFETY: `k` bytes que el kernel acaba de escribir en el
                 // bloque de paso, que es nuestro.
-                let de = unsafe { core::slice::from_raw_parts(paso.base() as *const u8, k as usize) };
+                let de =
+                    unsafe { core::slice::from_raw_parts(paso.base() as *const u8, k as usize) };
                 destino[hecho as usize..(hecho + k) as usize].copy_from_slice(de);
                 hecho += k;
                 bmo::yield_screen();

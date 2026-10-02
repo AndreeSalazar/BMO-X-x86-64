@@ -21,7 +21,9 @@ unsafe impl Sync for Monton {}
 
 impl Monton {
     pub const fn vacio() -> Self {
-        Monton { estado: UnsafeCell::new((0, 0, 0)) }
+        Monton {
+            estado: UnsafeCell::new((0, 0, 0)),
+        }
     }
 
     /// Da al monton el bloque `[base, base + bytes)`.
@@ -48,7 +50,11 @@ unsafe impl GlobalAlloc for Monton {
         // dibuja en un destino que empieza en pagina (el kernel lo presta
         // por la IOMMU de pagina en pagina). Cuesta como mucho 4 KiB por
         // cosa grande; lo chico sigue con su alineacion.
-        let alinea = if l.size() >= 1 << 16 { l.align().max(4096) } else { l.align() };
+        let alinea = if l.size() >= 1 << 16 {
+            l.align().max(4096)
+        } else {
+            l.align()
+        };
         let dir = (e.1 + alinea - 1) & !(alinea - 1);
         match dir.checked_add(l.size()) {
             Some(fin) if e.0 != 0 && fin <= e.2 => {

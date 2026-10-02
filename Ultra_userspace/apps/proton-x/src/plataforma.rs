@@ -37,7 +37,28 @@ use bmo_userland as bmo;
 const RANURAS: u64 = 64;
 
 pub fn de_bmo() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: super::la3060::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: Some(CARPETAS), reserva: Some(RESERVA), trozos: Some(TROZOS) }
+    Plataforma {
+        escribir,
+        salir,
+        superficie,
+        mostrar,
+        presentar,
+        evento,
+        dormir,
+        poner_gs,
+        ahora_ns,
+        dibujar: super::la3060::dibujar,
+        sellar_codigo,
+        soltar_codigo,
+        leer_fichero,
+        escribir_fichero,
+        memoria,
+        fecha,
+        listar,
+        carpetas: Some(CARPETAS),
+        reserva: Some(RESERVA),
+        trozos: Some(TROZOS),
+    }
 }
 
 /// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el
@@ -106,7 +127,9 @@ fn escribir_en_estratos(ruta: &[u8], bytes: &[u8]) -> bool {
     if bytes.is_empty() {
         return bmo::estratos::crear_fichero(ruta, &[]) != 0;
     }
-    let Some(m) = bmo::Memoria::request(bytes.len() as u64) else { return false };
+    let Some(m) = bmo::Memoria::request(bytes.len() as u64) else {
+        return false;
+    };
     // SAFETY: un bloque nuestro de al menos `bytes.len()` bytes.
     unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), m.base(), bytes.len()) };
     let g = bmo::estratos::guardar_desde(ruta, m.handle(), 0, bytes.len() as u64);
@@ -123,7 +146,9 @@ const CARPETAS: bmo_proton_x_casa::Carpetas = bmo_proton_x_casa::Carpetas {
 };
 
 fn escribir_en_fat32(ruta: &[u8], bytes: &[u8]) -> bool {
-    let Ok(a) = bmo::Archivo::create(ruta) else { return false };
+    let Ok(a) = bmo::Archivo::create(ruta) else {
+        return false;
+    };
     let n = if bytes.is_empty() {
         0
     } else if let Some(b) = bmo::Memoria::request(bytes.len() as u64) {
@@ -156,7 +181,13 @@ fn listar(ruta: &[u8]) -> Option<alloc::vec::Vec<bmo_proton_x::ficheros::Entrada
             // Y sus fechas y atributos de NTFS (01-10): sin ellas un fichero es
             // de 1601, y Cyberpunk toma su `final.redscripts` por roto.
             let (fechas, atributos) = d.fechas();
-            v.push(bmo_proton_x::ficheros::Entrada { nombre, carpeta, bytes, fechas, atributos });
+            v.push(bmo_proton_x::ficheros::Entrada {
+                nombre,
+                carpeta,
+                bytes,
+                fechas,
+                atributos,
+            });
         }
         return Some(v);
     }
@@ -165,13 +196,22 @@ fn listar(ruta: &[u8]) -> Option<alloc::vec::Vec<bmo_proton_x::ficheros::Entrada
     let mut n = [0u8; 256];
     while let Some((k, carpeta, bytes)) = d.siguiente_todo(&mut n) {
         let nombre = alloc::string::String::from_utf8_lossy(&n[..k]).into_owned();
-        v.push(bmo_proton_x::ficheros::Entrada { nombre, carpeta, bytes, ..Default::default() });
+        v.push(bmo_proton_x::ficheros::Entrada {
+            nombre,
+            carpeta,
+            bytes,
+            ..Default::default()
+        });
     }
     Some(v)
 }
 
 /// **A la carta** (01-10): la medida de un fichero sin traerlo, y un rango.
-const TROZOS: bmo_proton_x_casa::Trozos = bmo_proton_x_casa::Trozos { medida: trozo_medida, leer: trozo_leer, umbral: 1 << 20 };
+const TROZOS: bmo_proton_x_casa::Trozos = bmo_proton_x_casa::Trozos {
+    medida: trozo_medida,
+    leer: trozo_leer,
+    umbral: 1 << 20,
+};
 
 /// Los ficheros abiertos a la carta que se quedan abiertos: el kernel tiene
 /// 16 ranuras para TODO el sistema, asi que pocos, y se cierra el mas viejo.
@@ -198,7 +238,11 @@ struct ALaCarta {
 struct Global(core::cell::UnsafeCell<ALaCarta>);
 // SAFETY: una tarea, y los hilos de la casa son cooperativos.
 unsafe impl Sync for Global {}
-static CARTA: Global = Global(core::cell::UnsafeCell::new(ALaCarta { abiertos: alloc::vec::Vec::new(), paso: None, reloj: 0 }));
+static CARTA: Global = Global(core::cell::UnsafeCell::new(ALaCarta {
+    abiertos: alloc::vec::Vec::new(),
+    paso: None,
+    reloj: 0,
+}));
 
 fn trozo_medida(ruta: &[u8]) -> Option<u64> {
     let a = bmo::Archivo::reflejar(ruta).ok()?;
@@ -218,11 +262,18 @@ fn trozo_leer(ruta: &[u8], desde: u64, dst: &mut [u8]) -> Option<usize> {
         Some(k) => k,
         None => {
             if e.abiertos.len() >= ABIERTOS {
-                let viejo = (0..e.abiertos.len()).min_by_key(|&k| e.abiertos[k].uso).unwrap_or(0);
+                let viejo = (0..e.abiertos.len())
+                    .min_by_key(|&k| e.abiertos[k].uso)
+                    .unwrap_or(0);
                 e.abiertos.swap_remove(viejo).a.close();
             }
             let a = bmo::Archivo::reflejar(ruta).ok()?;
-            e.abiertos.push(Carta { ruta: ruta.to_vec(), a, pos: 0, uso: 0 });
+            e.abiertos.push(Carta {
+                ruta: ruta.to_vec(),
+                a,
+                pos: 0,
+                uso: 0,
+            });
             e.abiertos.len() - 1
         }
     };
@@ -239,7 +290,9 @@ fn trozo_leer(ruta: &[u8], desde: u64, dst: &mut [u8]) -> Option<usize> {
         let n = ((dst.len() - hecho) as u64).min(PASO);
         let got = c.a.leer_en(paso, 0, n);
         // SAFETY: `got` bytes que el kernel acaba de escribir en el bloque de paso.
-        unsafe { core::ptr::copy_nonoverlapping(paso.base(), dst[hecho..].as_mut_ptr(), got as usize) };
+        unsafe {
+            core::ptr::copy_nonoverlapping(paso.base(), dst[hecho..].as_mut_ptr(), got as usize)
+        };
         hecho += got as usize;
         c.pos += got;
         if got < n {
@@ -259,7 +312,13 @@ fn memoria(bytes: usize) -> Option<u64> {
 }
 
 /// **La RESERVA del kernel** (P0.4c): la ventana de `TASK_OP_RESERVA_*`.
-const RESERVA: bmo_proton_x_casa::Reserva = bmo_proton_x_casa::Reserva { base: bmo::reserva::VENTANA_BASE, bytes: bmo::reserva::VENTANA_BYTES, hacer: reserva_hacer, deshacer: reserva_deshacer, ram };
+const RESERVA: bmo_proton_x_casa::Reserva = bmo_proton_x_casa::Reserva {
+    base: bmo::reserva::VENTANA_BASE,
+    bytes: bmo::reserva::VENTANA_BYTES,
+    hacer: reserva_hacer,
+    deshacer: reserva_deshacer,
+    ram,
+};
 
 /// Hacer `[va, va + bytes)`, en trozos de lo mas que el kernel hace de una
 /// vez. Si dice que no, se dice por que (una vez por NO, con sus numeros) y
@@ -289,14 +348,19 @@ fn reserva_deshacer(va: u64, bytes: u64) {
 
 /// La RAM de la maquina: total y libre AHORA (para GlobalMemoryStatus).
 fn ram() -> (u64, u64) {
-    (bmo::info(bmo::INFO_RAM_TOTAL), bmo::info(bmo::INFO_RAM_LIBRE))
+    (
+        bmo::info(bmo::INFO_RAM_TOTAL),
+        bmo::info(bmo::INFO_RAM_LIBRE),
+    )
 }
 
 /// La fecha de la placa (el RTC, `INFO_FECHA`), en segundos desde 1970
 /// (P4f2). La placa no dice su zona: se toma como UTC.
 fn fecha() -> Option<u64> {
     let f = bmo_rtc::desempaquetar(bmo::info(bmo::INFO_FECHA))?;
-    Some(bmo_proton_x::hora::segundos_unix(f.anio, f.mes, f.dia, f.hora, f.minuto, f.segundo))
+    Some(bmo_proton_x::hora::segundos_unix(
+        f.anio, f.mes, f.dia, f.hora, f.minuto, f.segundo,
+    ))
 }
 
 fn soltar_codigo(base: u64, _bytes: usize) {
@@ -346,7 +410,11 @@ fn decir(b: &[u8]) {
         Ok(s) => bmo::consola(s),
         Err(_) => {
             for &c in b {
-                bmo::consola(if c.is_ascii() { core::str::from_utf8(core::slice::from_ref(&c)).unwrap_or("?") } else { "?" });
+                bmo::consola(if c.is_ascii() {
+                    core::str::from_utf8(core::slice::from_ref(&c)).unwrap_or("?")
+                } else {
+                    "?"
+                });
             }
         }
     }
@@ -380,7 +448,15 @@ static SUP_BASE: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::
 pub(crate) fn pedir_pantalla(si: bool) {
     let base = SUP_BASE.load(core::sync::atomic::Ordering::Acquire);
     if base != 0 {
-        pon(base, 4, if si { bmo::SUP_LA_3060_DIRECTA } else { bmo::SUP_BGRA32 } as u32);
+        pon(
+            base,
+            4,
+            if si {
+                bmo::SUP_LA_3060_DIRECTA
+            } else {
+                bmo::SUP_BGRA32
+            } as u32,
+        );
     }
 }
 
@@ -406,7 +482,13 @@ fn superficie(ancho: u32, alto: u32) -> Option<Superficie> {
     for i in 0..4 {
         pon(buzon + base, i, 0);
     }
-    let s = Superficie { pixeles: (base + bmo::SUP_CABECERA) as *mut u32, ancho, alto, stride: ancho, dato: bloque.handle() };
+    let s = Superficie {
+        pixeles: (base + bmo::SUP_CABECERA) as *mut u32,
+        ancho,
+        alto,
+        stride: ancho,
+        dato: bloque.handle(),
+    };
     SUP_BASE.store(base, core::sync::atomic::Ordering::Release);
     // Vive hasta que el proceso muera: el escritorio la esta leyendo.
     core::mem::forget(bloque);
@@ -418,13 +500,18 @@ fn mostrar(s: &Superficie) -> bool {
     if padre == 0 {
         return false;
     }
-    let bytes = campo(base_de(s), 6) as u64 + bmo::SUP_BUZON_CABECERA + RANURAS * bmo::SUP_BUZON_RANURA;
+    let bytes =
+        campo(base_de(s), 6) as u64 + bmo::SUP_BUZON_CABECERA + RANURAS * bmo::SUP_BUZON_RANURA;
     bmo::offer(s.dato, 0, bytes, padre)
 }
 
 fn presentar(s: &Superficie) {
     let base = base_de(s);
-    pon(base, bmo::SUP_CAMPO_SECUENCIA, campo(base, bmo::SUP_CAMPO_SECUENCIA).wrapping_add(1));
+    pon(
+        base,
+        bmo::SUP_CAMPO_SECUENCIA,
+        campo(base, bmo::SUP_CAMPO_SECUENCIA).wrapping_add(1),
+    );
 }
 
 /// El siguiente evento del buzon: la cabeza la escribe el escritorio, la cola

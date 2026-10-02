@@ -119,7 +119,12 @@ impl Partes {
         let pasado = ahora.saturating_sub(self.desde_ns);
         if pasado >= 1_000_000_000 {
             let n = self.lotes.max(1);
-            let (k, a, b, c) = (self.kernel_ns / 1000 / n, self.tarjeta_us / n, self.preparar_us / n, self.sombra_us / n);
+            let (k, a, b, c) = (
+                self.kernel_ns / 1000 / n,
+                self.tarjeta_us / n,
+                self.preparar_us / n,
+                self.sombra_us / n,
+            );
             bmo::consola(&alloc::format!(
                 "[3060] {} lotes/s; por lote: puerta {} us, kernel {k} us = 3060 {a} + preparar {b} + sombra {c} + resto {}; en caliente {} de {n}, en la pantalla {}\n",
                 self.lotes * 1_000_000_000 / pasado.max(1),
@@ -146,7 +151,11 @@ impl Partes {
                 us(5).saturating_sub(a + b + c),
                 k.saturating_sub(us(7)),
             ));
-            *self = Partes { desde_ns: ahora, receta: ahora_r, ..Partes::default() };
+            *self = Partes {
+                desde_ns: ahora,
+                receta: ahora_r,
+                ..Partes::default()
+            };
         }
     }
 }
@@ -154,7 +163,27 @@ impl Partes {
 struct Celda(core::cell::UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
 unsafe impl Sync for Celda {}
-static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado { puerta: None, dichos: Vec::new(), negados: 0, apagada: false, por_la_3060: 0, partes: Partes { desde_ns: 0, lotes: 0, puerta_ns: 0, kernel_ns: 0, tarjeta_us: 0, preparar_us: 0, sombra_us: 0, calientes: 0, en_pantalla: 0, receta: [0; 8] }, pantalla_pedida: false, sin_pantalla: false }));
+static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado {
+    puerta: None,
+    dichos: Vec::new(),
+    negados: 0,
+    apagada: false,
+    por_la_3060: 0,
+    partes: Partes {
+        desde_ns: 0,
+        lotes: 0,
+        puerta_ns: 0,
+        kernel_ns: 0,
+        tarjeta_us: 0,
+        preparar_us: 0,
+        sombra_us: 0,
+        calientes: 0,
+        en_pantalla: 0,
+        receta: [0; 8],
+    },
+    pantalla_pedida: false,
+    sin_pantalla: false,
+}));
 
 /// **P3b4c.9 Z1: soltar la pantalla directa** si se pidio, y no volver a
 /// pedirla: lo que venga va por la RAM y lo compone el escritorio. Un lote
@@ -204,7 +233,13 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     // SAFETY: ver `Celda`.
     let e = unsafe { &mut *ESTADO.0.get() };
     if !e.apagada {
-        let blanco = Blanco { va: d.pixeles.as_ptr() as u64, ancho: d.ancho, alto: d.alto, bgra: d.bgra, cadena: d.cadena };
+        let blanco = Blanco {
+            va: d.pixeles.as_ptr() as u64,
+            ancho: d.ancho,
+            alto: d.alto,
+            bgra: d.bgra,
+            cadena: d.cadena,
+        };
         let p = e.puerta.get_or_insert_with(Puerta::nueva);
         let t0 = crate::plataforma::ahora_ns();
         match p.preparar(l, blanco) {
@@ -225,13 +260,21 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         // ** P3b4c.9 Z1: con el back buffer de la cadena ya por
                         // la 3060, se le pide al escritorio la pantalla directa;
                         // si la da, el kernel dibuja alli y el `Ok` lo dice.
-                        if d.cadena && !e.pantalla_pedida && !e.sin_pantalla && (d.ancho, d.alto) == (1280, 720) {
+                        if d.cadena
+                            && !e.pantalla_pedida
+                            && !e.sin_pantalla
+                            && (d.ancho, d.alto) == (1280, 720)
+                        {
                             crate::plataforma::pedir_pantalla(true);
                             e.pantalla_pedida = true;
                             bmo::consola("PROTON-X: pido la pantalla directa (Z1): si el escritorio la da, el fotograma no sale de la VRAM\n");
                         }
                         let (_, tris, _, _) = puerta::desempaquetar(r);
-                        return Ok(Cuenta { dibujados: tris, en_pantalla: puerta::a_pantalla(r), ..Cuenta::default() });
+                        return Ok(Cuenta {
+                            dibujados: tris,
+                            en_pantalla: puerta::a_pantalla(r),
+                            ..Cuenta::default()
+                        });
                     }
                     Ok(r) => {
                         // El metal (28-09): cada NO pagado costo 1 s entero
