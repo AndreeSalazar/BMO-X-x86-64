@@ -33,6 +33,9 @@
 //!      NOTIFY                    SUBDISPOSITIVO): bGpuIsIdle +0,
 //!                                bRestoreToMax +1, idleTimeUs +8,
 //!                                busyTimeUs +16
+//!    STOP_CHANNEL                0xA06F0112, 1 B (E7, 02-10, sobre el CANAL
+//!                                DE GR): bImmediate 1 -- el corte del
+//!                                vigilante (`vigilante.rs`)
 //! ```
 //!
 //! # Los relojes (C2, 2026-09-25)
@@ -125,7 +128,14 @@ pub enum Control {
     ReposoSi,
     /// C3: "ya no esta ociosa": el RM quita el tope.
     ReposoNo,
+    /// E7: PARAR el canal de GR0 (`STOP_CHANNEL`, bImmediate): sacarlo del
+    /// motor y de su lista; si no se deja, el RM le hace RC. Solo lo pide el
+    /// VIGILANTE del kernel ([`Control::corte`]), nunca el escritorio.
+    PararGr,
 }
+
+/// `NVA06F_CTRL_CMD_STOP_CHANNEL`.
+pub const STOP_CHANNEL: u32 = 0xA06F_0112;
 
 /// `NV2080_CTRL_CMD_PERF_BOOST`.
 pub const PERF_BOOST: u32 = 0x2080_200A;
@@ -145,7 +155,7 @@ pub const REPOSO_US: u64 = 1_000_000;
 pub const PD3_ENTRADAS: u32 = 4;
 
 impl Control {
-    pub const TODOS: [Control; 15] = [
+    pub const TODOS: [Control; 16] = [
         Control::Pstate,
         Control::Directorio,
         Control::Motores,
@@ -163,6 +173,8 @@ impl Control {
         // C3 (02-10): detras, por lo mismo.
         Control::ReposoSi,
         Control::ReposoNo,
+        // E7 (02-10): detras, por lo mismo.
+        Control::PararGr,
     ];
 
     pub fn de(n: u64) -> Option<Control> {
@@ -185,6 +197,7 @@ impl Control {
             Control::FichaGr => (0xC36F_0108, 4, crate::canal::GR.asa),
             Control::RelojesArriba | Control::RelojesNormales => (PERF_BOOST, 8, SUBDISPOSITIVO),
             Control::ReposoSi | Control::ReposoNo => (PERF_REPOSO, 24, SUBDISPOSITIVO),
+            Control::PararGr => (STOP_CHANNEL, 1, crate::canal::GR.asa),
         }
     }
 
@@ -205,6 +218,12 @@ impl Control {
     /// Las que ENCIENDEN el canal (L1d2c): solo por su puerta, tras pedirlo.
     pub const fn del_canal(self) -> bool {
         matches!(self, Control::Atar | Control::Programar)
+    }
+
+    /// **El corte del vigilante** (E7): solo lo pide el kernel, cuando un
+    /// trabajo del GR no vuelve; ni pregunta, ni ajuste, ni del canal.
+    pub const fn corte(self) -> bool {
+        matches!(self, Control::PararGr)
     }
 
     /// Las que ENCIENDEN el canal de GR0 (M5 G1): solo tras pedirlo.
@@ -241,6 +260,8 @@ impl Control {
                 p[8..16].copy_from_slice(&REPOSO_US.to_le_bytes());
             }
             Control::ReposoNo => p[16..24].copy_from_slice(&REPOSO_US.to_le_bytes()),
+            // bImmediate: sin esperar a que se quede quieto (no se quedara).
+            Control::PararGr => p[0] = 1,
             _ => {}
         }
         medida
@@ -484,7 +505,15 @@ mod pruebas {
         assert_eq!(Control::de(8), Some(Control::AtarGr));
         assert_eq!(Control::de(10), Some(Control::FichaGr));
         assert_eq!(Control::de(13), Some(Control::ReposoSi));
-        assert_eq!(Control::de(15), None);
+        assert_eq!(Control::de(15), Some(Control::PararGr));
+        assert_eq!(Control::de(16), None);
+        // E7: el corte, solo el corte -- ni pregunta, ni ajuste, ni del canal.
+        let c = Control::PararGr;
+        assert!(c.corte() && !c.pregunta() && !c.relojes() && !c.del_canal() && !c.del_canal_gr());
+        assert_eq!(Control::TODOS.iter().filter(|c| c.corte()).count(), 1);
+        let mut p = [0u8; 4];
+        assert_eq!((c.parametros(&mut p), p[0]), (1, 1));
+        assert_eq!(c.forma(), (0xA06F_0112, 1, crate::canal::GR.asa));
         assert!(Control::FichaGr.pregunta() && !Control::FichaGr.del_canal_gr());
         assert!(Control::AtarGr.del_canal_gr() && !Control::AtarGr.del_canal() && !Control::AtarGr.pregunta());
         assert!(Control::Dispositivos.pregunta() && !Control::Dispositivos.del_canal());

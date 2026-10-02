@@ -949,6 +949,10 @@ pub fn leer_tramo(dir: u64) -> Result<u64, u32> {
 // RM (las de `GET_GSP_STATIC_INFO`, que el escritorio leyo): una pregunta. El
 // contrato solo deja salir ESTA orden con sus parametros a cero.
 
+/// E7: las asas INTERNAS del RM (cliente | subdispositivo << 32), las que
+/// G0 uso: con ellas escala el vigilante (`RC_WATCHDOG_TIMEOUT`). 0 = aun no.
+static ASAS_INTERNAS: AtomicU64 = AtomicU64::new(0);
+
 /// **G0: preguntar los buferes de GR.** `asas` = cliente | subdispositivo
 /// << 32. `Ok(pagina | numero << 32)` de la RPC.
 pub fn preguntar_gr(asas: u64) -> Result<u64, u32> {
@@ -957,8 +961,24 @@ pub fn preguntar_gr(asas: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_RPC_CONTROL);
     }
     let r = enviar(|h, n| bmo_gpu_ga10x::gr::pedir(h, n, cliente, sub))?;
+    ASAS_INTERNAS.store(asas, Ordering::Release);
     crate::ring0::cabina::count("gpu", "M5 G0: buferes de GR preguntados al cliente interno; asa", cliente as u64);
     Ok(r)
+}
+
+/// **E7: un paso del corte del vigilante** (`bmo_gpu_ga10x::vigilante`): 1
+/// PARAR, `STOP_CHANNEL` sobre nuestro canal de GR; 2 ESCALAR,
+/// `RC_WATCHDOG_TIMEOUT` sobre las asas internas de G0. Solo lo pide el
+/// vigilante del kernel: el escritorio no tiene puerta para esto.
+pub(super) fn cortar_gr(paso: bmo_gpu_ga10x::vigilante::Paso) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::vigilante::Paso;
+    match paso {
+        Paso::Parar => enviar(|h, n| bmo_gpu_ga10x::control::pedir(h, n, bmo_gpu_ga10x::control::Control::PararGr)),
+        Paso::Escalar => {
+            let asas = ASAS_INTERNAS.load(Ordering::Acquire);
+            enviar(|h, n| bmo_gpu_ga10x::vigilante::escalar(h, n, asas as u32, (asas >> 32) as u32))
+        }
+    }
 }
 
 // == M5 G1: EL CANAL DE GR0 (2026-09-24) ======================================

@@ -124,6 +124,7 @@ fn pantalla_(bar0: u64, ficha: u32, e: u32, f: u32, p: &pa::Pantalla, cargar: bo
         esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
+    super::vigilante::vigilar("E7: la PANTALLA no volvio en su plazo; us", lanzado, qmd == pa::PAGA_QMD && fin == pa::PAGA_FIN, us, FRACTAL_ESPERA_US);
     // Las muestras, leidas de donde mira el monitor.
     //
     // ** POR EL PHYSMAP, no por `display().base` (metal 25-09: #PF "proteccion

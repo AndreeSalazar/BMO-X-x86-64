@@ -104,10 +104,10 @@ siempre (`bmo_gpu_ga10x::falcon`).
 |---|---|---|---|
 | `lectura/` | VERDE | identidad, salud, vblank, **aon** | lee; la unica escritura es el aviso del VBLANK |
 | `arranque/` | ROJO | falcon, vbios, fwsec, booter, elf, wpr, libos, secuenciador, correr, descarga | firmware, WPR, AON: **un error aqui se ve en la SIGUIENTE sesion** |
-| `rm/` | AMARILLO | rpc, orden, estatica, objeto, control, contrato | lo que sale al GSP-RM, por la lista cerrada |
+| `rm/` | AMARILLO | rpc, orden, estatica, objeto, control, contrato, vigilante | lo que sale al GSP-RM, por la lista cerrada |
 | `memoria/` | ROJO | vram, mmu | tablas de la MMU: una PTE mala da memoria ajena |
 | `motores/` | AMARILLO | canal, copia, gr, computo, sombreador, tresde | canales y clases, pagados por semaforo |
-| `trabajos/` | VERDE | lienzo, blur, fractal, triangulo, raster, color3d, giro, pantalla, video, volcado, escena, cubo, tuberia, anillo, pegamento, destino, profundidad, sombra, texturas, receta | bytes y jueces; tocan la tarjeta por `motores` y `memoria` |
+| `trabajos/` | VERDE | lienzo, blur, fractal, triangulo, raster, color3d, giro, pantalla, video, volcado, escena, cubo, tuberia, anillo, pegamento, destino, profundidad, sombra, texturas, receta, eterno | bytes y jueces; tocan la tarjeta por `motores` y `memoria` |
 | `sass/` | VERDE | **juez** (el juez del SASS: `TOMA TU BODRIO` o `PERFECTO Y PRECISO`), corpus (lo que ya corrio en el metal) | nada: lee programas y dice SI o NO, antes de que la 3060 los vea |
 
 Cada fichero de `arranque/` y `lectura/` declara en su cabecera:

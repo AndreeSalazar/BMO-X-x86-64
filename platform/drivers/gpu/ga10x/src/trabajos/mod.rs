@@ -47,3 +47,6 @@ pub mod texturas;
 /// P3b4c: la RECETA (VRN2) -- lo que manda una APP: los cuerpos y como se
 /// cargan; el pegamento lo pone el kernel (2026-09-28).
 pub mod receta;
+/// E7: el trabajo ETERNO -- un computo que no acaba nunca, a proposito: lo
+/// que corta el vigilante (2026-10-02).
+pub mod eterno;

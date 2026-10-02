@@ -19,3 +19,5 @@ pub mod objeto;
 pub mod control;
 /// La lista CERRADA de lo que sale hacia el GSP-RM, y el NO de lo demas (2026-09-24).
 pub mod contrato;
+/// E7: el vigilante -- el corte de un trabajo del GR que no vuelve (2026-10-02).
+pub mod vigilante;

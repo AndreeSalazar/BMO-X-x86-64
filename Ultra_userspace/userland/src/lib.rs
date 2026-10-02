@@ -319,6 +319,8 @@ pub const IOMMU_OP_GSP_REINTENTO_CERRAR: u64 = 0x4A;
 pub const IOMMU_OP_GSP_REINTENTO_DESCARGAR: u64 = 0x4B;
 pub const IOMMU_OP_GSP_REINTENTO_SUBIR: u64 = 0x4C;
 pub const IOMMU_OP_GSP_REINTENTO: u64 = 0x4D;
+/// E7: el trabajo ETERNO, que corta el vigilante del kernel. Ver el ABI.
+pub const IOMMU_OP_GPU_ETERNO: u64 = 0x4E;
 pub const CUBO_LEER: u64 = 1 << 63;
 pub const CUBO_VERRANO: u64 = 1 << 62;
 pub const CUBO_LIGERO: u64 = 1 << 61;

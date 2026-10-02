@@ -48,7 +48,7 @@ pub mod arranque;
 pub use arranque::{falcon, vbios, fwsec, booter, elf, wpr, libos, secuenciador, correr, descarga};
 /// LA CONVERSACION CON EL GSP-RM: mensajes, y la lista cerrada de lo que sale.
 pub mod rm;
-pub use rm::{rpc, orden, estatica, objeto, control, contrato};
+pub use rm::{rpc, orden, estatica, objeto, control, contrato, vigilante};
 /// LA MEMORIA DE LA TARJETA: la ventana PRAMIN y las tablas de la MMU.
 pub mod memoria;
 pub use memoria::{vram, mmu};
@@ -60,7 +60,7 @@ pub mod trabajos;
 
 /// El idioma de la 3060: el juez del SASS y su corpus (26-09).
 pub mod sass;
-pub use trabajos::{lienzo, blur, fractal, triangulo, raster, color3d, giro, pantalla, video, imagen, volcado, escena, cubo, tuberia, anillo, pegamento, destino, profundidad, sombra, texturas, receta};
+pub use trabajos::{lienzo, blur, fractal, triangulo, raster, color3d, giro, pantalla, video, imagen, volcado, escena, cubo, tuberia, anillo, pegamento, destino, profundidad, sombra, texturas, receta, eterno};
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

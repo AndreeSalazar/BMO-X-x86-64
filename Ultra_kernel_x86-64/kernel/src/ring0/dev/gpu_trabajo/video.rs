@@ -141,6 +141,7 @@ fn video_(bar0: u64, ficha: u32, en: u32, fisica: u64, f: &vi::Formato, e: &vi::
             }
             esperando(us);
         }
+        super::vigilante::vigilar("E7: un fotograma de VIDEO no volvio en su plazo; us", lanzado, qmd == vi::PAGA_QMD && fin == vi::PAGA_FIN, us, FRACTAL_ESPERA_US);
     } else {
         crate::ring0::cabina::warn("gpu", "video: el tramo no quedo preparado; no se toca el timbre", 0);
     }

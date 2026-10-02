@@ -140,6 +140,7 @@ fn imagen_(bar0: u64, ficha: u32, en: u32, origen: (u64, u64, u64), f: &im::Form
             }
             esperando(us);
         }
+        super::vigilante::vigilar("E7: un fotograma de la IMAGEN no volvio en su plazo; us", lanzado, qmd == im::PAGA_QMD && fin == im::PAGA_FIN, us, FRACTAL_ESPERA_US);
     } else {
         crate::ring0::cabina::warn("gpu", "imagen: el tramo no quedo preparado; no se toca el timbre", 0);
     }

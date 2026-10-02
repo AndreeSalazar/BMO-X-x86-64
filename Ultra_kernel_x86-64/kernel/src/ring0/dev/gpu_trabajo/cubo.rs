@@ -743,6 +743,7 @@ fn vaciar(r: &mut Bar0) -> Result<u64, u32> {
         }
         if us >= FRACTAL_ESPERA_US {
             crate::ring0::cabina::warn("gpu", "V1b: el anillo no se vacio: la 3060 no pago el fotograma", numero as u64);
+            super::vigilante::vigilar("E7: un fotograma del ANILLO no volvio en su plazo; us", true, false, us, FRACTAL_ESPERA_US);
             ANILLO_HUELLA.store(0, Ordering::Release);
             ANILLO_PAGADO.store(numero, Ordering::Release);
             return Err(IOMMU_NO_BLUR);
@@ -874,6 +875,7 @@ fn enviar_en_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga1
             }
             if espera >= FRACTAL_ESPERA_US {
                 crate::ring0::cabina::warn("gpu", "V1b: la 3060 no pago el fotograma que ocupaba la ranura; numero", viejo as u64);
+                super::vigilante::vigilar("E7: el fotograma de una ranura del ANILLO no volvio en su plazo; us", true, false, espera, FRACTAL_ESPERA_US);
                 ANILLO_HUELLA.store(0, Ordering::Release);
                 ANILLO_PAGADO.store(ANILLO_NUMERO.load(Ordering::Acquire), Ordering::Release);
                 DIAG_3D[0].store(0, Ordering::Release);
@@ -947,6 +949,7 @@ fn armar_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::
         esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
+    super::vigilante::vigilar("E7: el primer fotograma del ANILLO no volvio en su plazo; us", lanzado, pagado, us, FRACTAL_ESPERA_US);
     let etapas = if pagado { 0b100 } else { 0 };
     DIAG_3D[0].store(etapas, Ordering::Release);
     if pagado {
@@ -1005,6 +1008,9 @@ fn dibujar(bar0: u64, ficha: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla,
         esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
+    // E7: si no volvio, el vigilante lo corta antes de leer la escalera.
+    let pagado = cu::mirar(&mut r).1 == cu::PAGA_FIN;
+    super::vigilante::vigilar("E7: el dibujo del CUBO (X5 o VERRANO) no volvio en su plazo; us", lanzado, pagado, us, FRACTAL_ESPERA_US);
     // La escalera y el motor grafico, como T1c: los lee `DIAG_3D` (`gpu cubo
     // 3060` los muestra si no se pago).
     let etapas = bmo_gpu_ga10x::raster::etapas(&mut r, cu::SEMAFORO_FIN, cu::PAGA_FIN);
@@ -1013,9 +1019,6 @@ fn dibujar(bar0: u64, ficha: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla,
         diagnostico(&mut r);
     }
     let v = cu::empaquetar(us as u32, n, etapas, lanzado);
-    if lanzado {
-        super::tras_esperar(cu::sano(v));
-    }
     if cu::sano(v) {
         DIBUJADO.store(true, Ordering::Release);
         let n = VECES.fetch_add(1, Ordering::AcqRel) + 1;

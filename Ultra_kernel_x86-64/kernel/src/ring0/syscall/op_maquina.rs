@@ -974,6 +974,9 @@ fn iommu_(arg0: u64, arg1: u64) -> BmoStatus {
             }
             crate::ring0::dev::gpu_trabajo::fractal(arg1)
         }
+        // ** E7: el trabajo ETERNO, a proposito: lo corta el vigilante. No
+        // escribe memoria del PC (solo gira): sin FLUSH.
+        IOMMU_OP_GPU_ETERNO => crate::ring0::dev::gpu_trabajo::eterno(arg1),
         // ** M5d T0: el mismo MiB que el fractal. El FLUSH, igual.
         IOMMU_OP_GPU_TRIANGULO => {
             if !crate::ring0::dev::disk::flush() {

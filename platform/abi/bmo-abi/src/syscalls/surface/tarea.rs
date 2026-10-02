@@ -1010,6 +1010,13 @@ pub const IOMMU_OP_GSP_REINTENTO_CERRAR: u64 = 0x4A;
 pub const IOMMU_OP_GSP_REINTENTO_DESCARGAR: u64 = 0x4B;
 pub const IOMMU_OP_GSP_REINTENTO_SUBIR: u64 = 0x4C;
 pub const IOMMU_OP_GSP_REINTENTO: u64 = 0x4D;
+/// E7: el trabajo ETERNO -- un computo que no acaba nunca, a proposito, en el
+/// canal de GR: lo tiene que CORTAR el vigilante del kernel (el TDR de
+/// BMO-X). `arg1` = la ficha del timbre de GR (la de S3). `Ok(v)`:
+/// `lanzado | pagado << 1 | cortado << 2 | us << 8 | final del corte << 32`
+/// (`bmo_gpu_ga10x::eterno::empaquetar`). Deja el canal de GR MUERTO hasta
+/// reiniciar: es la ultima prueba de una sesion.
+pub const IOMMU_OP_GPU_ETERNO: u64 = 0x4E;
 /// P1: EL PASE de la GPU, neutro (`bmo_pase_gpu::orden`): ABRIR con la VA del
 /// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
 /// o ESTADO en los bits 63..60 de `arg1`.

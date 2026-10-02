@@ -36,6 +36,10 @@ pub use imagen::{imagen, imagen_formato, IOMMU_NO_IMAGEN};
 /// X5: el cubo del estudio D3D por la 3060, en una ventana de la pantalla.
 mod cubo;
 pub use cubo::{cubo, info_receta, pantalla_para, receta};
+/// E7: el vigilante -- un trabajo del GR que no vuelve se corta (el TDR de
+/// BMO-X), y el trabajo ETERNO que lo prueba.
+mod vigilante;
+pub use vigilante::eterno;
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //
@@ -103,6 +107,7 @@ pub fn trabajo_gr(ficha: u64) -> Result<u64, u32> {
         }
         core::hint::spin_loop();
     }
+    vigilante::vigilar("E7: el PRIMER trabajo del GR (S3) no volvio en su plazo; us", lanzado, semaforo == cm::PAGA, us, COPIA_ESPERA_US);
     // Como la copia: GP_GET llega despues; hasta 10 ms, sin exigirlo.
     let pagado_en = us;
     while semaforo == cm::PAGA && gp_get == 0 && us < pagado_en + 10_000 {
@@ -164,6 +169,7 @@ pub fn sombrear(ficha: u64) -> Result<u64, u32> {
         }
         core::hint::spin_loop();
     }
+    vigilante::vigilar("E7: el primer SOMBREADOR (S4) no volvio en su plazo; us", lanzado, qmd == sb::PAGA_QMD && fin == sb::PAGA_FIN, us, COPIA_ESPERA_US);
     let acabo_en = us;
     let (buenas, limpio) = sb::comprobar(&mut r);
     let v = sb::empaquetar(buenas, limpio, qmd == sb::PAGA_QMD, fin == sb::PAGA_FIN, lanzado, gp_get, acabo_en as u32);
@@ -272,6 +278,7 @@ pub fn pintar_lienzo(ficha: u64) -> Result<u64, u32> {
         core::hint::spin_loop();
     }
     core::sync::atomic::fence(Ordering::SeqCst);
+    vigilante::vigilar("E7: el LIENZO no volvio en su plazo; us", lanzado, qmd == lz::PAGA_QMD && fin == lz::PAGA_FIN, us, COPIA_ESPERA_US);
     let buenos = pixeles_del_lienzo().map_or(0, lz::comprobar);
     let v = lz::empaquetar(buenos, qmd == lz::PAGA_QMD, fin == lz::PAGA_FIN, lanzado, gp_get, us as u32);
     if lz::sano(v) {
@@ -344,17 +351,17 @@ fn gr_ocupado() -> bool {
 // se dice UNA vez con su Xid y todo trabajo del GR dice NO al instante.
 //
 // Como se sabe: el `RC_TRIGGERED` del canal en la cola del GSP (leida sin
-// moverla), o dos dibujos seguidos sin pagar (por si alguien ya consumio ese
-// mensaje de la cola).
+// moverla), o el VIGILANTE (E7, 02-10, `gpu_trabajo/vigilante.rs`): un
+// trabajo del GR que no vuelve en su plazo se CORTA, y el canal queda fuera
+// igual. (Hasta E7 eran dos dibujos seguidos sin pagar, y la 3060 seguia
+// girando.)
 
 /// 0 = vivo; si no, el Xid + 1 (1 = muerto sin Xid conocido).
 static GR_MUERTO: AtomicU64 = AtomicU64::new(0);
-/// Dibujos seguidos que se esperaron enteros sin pagarse.
-static SIN_PAGAR: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 /// El canal de GR tomo una excepcion y el GSP-RM lo mato: hasta reiniciar.
 pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
 
-fn marcar_muerto(xid: u32, por: &str) {
+pub(super) fn marcar_muerto(xid: u32, por: &str) {
     if GR_MUERTO.compare_exchange(0, xid as u64 + 1, Ordering::AcqRel, Ordering::Acquire).is_ok() {
         crate::ring0::cabina::warn("gpu", por, xid as u64);
         crate::ring0::cabina::warn("gpu", "P3b4c: el canal de GR queda MUERTO hasta reiniciar: todo trabajo del GR dice NO al instante (sin esperar su segundo)", bmo_gpu_ga10x::canal::GR.chid as u64);
@@ -371,21 +378,6 @@ pub(super) fn gr_muerto() -> Option<u32> {
     let xid = super::gpu_libos::rc_del_canal(bmo_gpu_ga10x::canal::GR.chid)?;
     marcar_muerto(xid, "P3b4c: el GSP-RM MATO el canal de GR (RC_TRIGGERED en su cola); Xid");
     Some(xid)
-}
-
-/// Lo que paso con un dibujo del GR que se espero: pagado o no. Dos seguidos
-/// sin pagar, sin un aviso del GSP que lo diga, tambien lo dan por muerto.
-pub(super) fn tras_esperar(pagado: bool) {
-    if pagado {
-        SIN_PAGAR.store(0, Ordering::Release);
-        return;
-    }
-    if gr_muerto().is_some() {
-        return;
-    }
-    if SIN_PAGAR.fetch_add(1, Ordering::AcqRel) + 1 >= 2 {
-        marcar_muerto(0, "P3b4c: dos dibujos seguidos del GR esperados enteros SIN pagarse (y sin RC_TRIGGERED en la cola); Xid");
-    }
 }
 
 /// B: sin el lienzo, una ficha ajena, el GPFIFO gastado, o uno en marcha.
@@ -489,6 +481,7 @@ fn blur_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         core::hint::spin_loop();
     }
     core::sync::atomic::fence(Ordering::SeqCst);
+    vigilante::vigilar("E7: el BLUR no volvio en su plazo; us", lanzado, qmd == bl::PAGA_QMD && fin == bl::PAGA_FIN, us, COPIA_ESPERA_US);
     let buenos = match (pixeles_del_lienzo(), pixeles_del_blur()) {
         (Some(src), Some(sal)) => bl::comprobar(src, sal),
         _ => 0,
@@ -513,8 +506,9 @@ fn blur_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
 
 static FRACTAL_F: AtomicU64 = AtomicU64::new(0);
 static FRACTAL_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
-/// Lo mas que se espera a la 3060: 262144 hilos de hasta 256 vueltas.
-const FRACTAL_ESPERA_US: u64 = 1_000_000;
+/// Lo mas que se espera a la 3060: 262144 hilos de hasta 256 vueltas. Es el
+/// PLAZO del vigilante (E7): pasado, el trabajo se corta.
+const FRACTAL_ESPERA_US: u64 = bmo_gpu_ga10x::vigilante::PLAZO_US;
 
 /// Hasta aqui se espera GIRANDO; despues, cediendo el CPU en cada vuelta.
 ///
@@ -618,6 +612,7 @@ fn fractal_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
+    vigilante::vigilar("E7: el FRACTAL no volvio en su plazo; us", lanzado, qmd == fr::PAGA_QMD && fin == fr::PAGA_FIN, us, FRACTAL_ESPERA_US);
     // La CPU hace la MISMA cuenta, cronometrada, y compara cada pixel.
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
     let (buenos, vueltas) = pixeles_del_fractal().map_or((0, 0), fr::comprobar);
@@ -683,6 +678,7 @@ fn triangulo_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
+    vigilante::vigilar("E7: el TRIANGULO no volvio en su plazo; us", lanzado, qmd == tr::PAGA_QMD && fin == tr::PAGA_FIN, us, FRACTAL_ESPERA_US);
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
     let buenos = pixeles_del_fractal().map_or(0, tr::comprobar);
     let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
@@ -745,6 +741,7 @@ fn limpiar_3d_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
+    vigilante::vigilar("E7: la LIMPIEZA 3D no volvio en su plazo; us", lanzado, fin == td::PAGA_FIN, us, FRACTAL_ESPERA_US);
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
     let buenos = pixeles_del_fractal().map_or(0, td::comprobar);
     let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
@@ -808,6 +805,7 @@ fn escena_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
+    vigilante::vigilar("E7: la ESCENA no volvio en su plazo; us", lanzado, qmd == es::PAGA_QMD && fin == es::PAGA_FIN, us, FRACTAL_ESPERA_US);
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
     let buenos = pixeles_del_fractal().map_or(0, es::comprobar);
     let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
@@ -912,6 +910,7 @@ fn dibujo_3d_(bar0: u64, ficha: u32, e: u32, d: &Dibujo3d) -> Result<u64, u32> {
         esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
+    vigilante::vigilar("E7: el dibujo 3D no volvio en su plazo; us", lanzado, fin == d.paga, us, FRACTAL_ESPERA_US);
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
     let buenos = pixeles_del_fractal().map_or(0, d.comprobar);
     let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
@@ -1007,6 +1006,7 @@ fn giro_(bar0: u64, ficha: u32, e: u32, f: u32) -> Result<u64, u32> {
         esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
+    vigilante::vigilar("E7: el GIRO no volvio en su plazo; us", lanzado, qmd == gi::PAGA_QMD && fin == gi::PAGA_FIN, us, FRACTAL_ESPERA_US);
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
     let buenos = pixeles_del_fractal().map_or(0, |p| gi::comprobar(p, f));
     let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;

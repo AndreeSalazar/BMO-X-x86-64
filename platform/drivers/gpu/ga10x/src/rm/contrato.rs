@@ -19,7 +19,9 @@
 //!                           (su memoria, su motor, su espacio); y L1d3: su
 //!                           copiador AMPERE_DMA_COPY_B sobre COPY2 (8 B)
 //!    GSP_RM_CONTROL    76   (M5 G0: y la pregunta de los buferes de GR sobre
-//!                           las asas INTERNAS del RM, `gr::permitida`)
+//!                           las asas INTERNAS del RM, `gr::permitida`; E7:
+//!                           y el escalon del vigilante, RC_WATCHDOG_TIMEOUT
+//!                           sin parametros, `vigilante::permitida`)
 //!                           SOLO las ordenes de `control::Control`, cada
 //!                           una sobre SU objeto nuestro y con SUS parametros
 //!                           exactos (el directorio de L1c3: su direccion y
@@ -126,6 +128,11 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
             // M5 G3: PROMOTE_CTX, solo con direcciones DENTRO de la region
             // de G2 (`gr::promover_permitida`).
             if crate::gr::promover_permitida(d) {
+                return Ok(h.funcion);
+            }
+            // E7: el escalon del vigilante -- RC_WATCHDOG_TIMEOUT sobre las
+            // asas INTERNAS, sin parametros (`vigilante::permitida`).
+            if crate::vigilante::permitida(d) {
                 return Ok(h.funcion);
             }
             let (cliente, objeto, cmd, medida) = (u32_de(d, 0), u32_de(d, 4), u32_de(d, 8), u32_de(d, 16) as usize);

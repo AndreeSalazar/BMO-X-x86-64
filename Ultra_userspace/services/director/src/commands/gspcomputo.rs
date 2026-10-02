@@ -27,6 +27,9 @@ use bmo_userland as bmo;
 mod pipeline3d;
 /// G: la esfera que gira y bota.
 mod giro;
+/// E7: la prueba del vigilante -- un trabajo que no acaba, a proposito.
+mod eterno;
+pub(crate) use eterno::orden_eterno;
 pub(crate) use giro::{dibujar_giro, giro_hecho, orden_giro};
 /// P: la 3060 pinta la pantalla entera.
 mod pantalla;

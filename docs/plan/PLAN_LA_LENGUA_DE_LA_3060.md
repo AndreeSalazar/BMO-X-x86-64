@@ -426,9 +426,10 @@ por medio --. Hecho en el anfitrion, de la punta del Programa a la del juez:
   primero (`max(-0, +0)` es -0). Ya no se ponen al reves.
 - **Queda (el metal):** un sombreador que salta en `gpu verrano`, contra
   D3D12 en la 3060 bajo Windows, como E5. Y [!] un bucle que no sale CUELGA
-  la 3060: el juez no puede saber si acaba, y el kernel no tiene todavia un
+  la 3060: el juez no puede saber si acaba, y el kernel no tenia un
   vigilante que corte un trabajo que no vuelve. Antes de dejar que una app
-  mande cuerpos con bucles al metal, ese vigilante.
+  mande cuerpos con bucles al metal, ese vigilante (E7: hecho en el
+  anfitrion el 02-10; falta verlo en el metal con `gpu eterno ya`).
 - **E6b, el DXIL que salta (02-10, hecho en el anfitrion):** el de `dxc`,
   el de Cyberpunk. El lector sabe `br`, `phi` (sus valores van con signo y
   pueden ser de mas adelante: se resuelven al acabar), `fcmp`/`icmp`
@@ -566,6 +567,52 @@ reinicia la GPU); en BMO-X no hay nada igual -- ni en
 - **Como se sabra:** en el metal, un sombreador hecho a proposito con un
   bucle eterno: la cabina dice el corte, el canal se recupera y el
   siguiente dibujo sale.
+- **E7a, el vigilante (02-10, hecho en el anfitrion; falta el metal):**
+  - Lo estudiado, de open-gpu-kernel-modules 570.144 (bajado de
+    raw.githubusercontent): el RM de la CPU de NVIDIA tiene su vigilante
+    (`kernel_rc_watchdog_callback.c`) y, cuando ve la GPU colgada, NO toca
+    registros: le manda al GSP-RM `INTERNAL_RC_WATCHDOG_TIMEOUT`
+    (0x20800A6A, sin parametros; `krcWatchdogRecovery_KERNEL`), y el GSP
+    recupera. En un sistema con GSP, el RM de la CPU es BMO-X: ese vigilante
+    es nuestro. Sus banderas (`g_subdevice_nvoc.c`) son 0xC0,
+    `ROUTE_TO_PHYSICAL | INTERNAL`: va sobre las asas INTERNAS del RM, las
+    de `GET_GSP_STATIC_INFO` con las que G0 ya hablo en el metal. Y para un
+    solo canal, `STOP_CHANNEL` (0xA06F0112, `bImmediate`, banderas 0x8: lo
+    puede pedir quien tiene el canal): lo saca del motor y de su lista, y si
+    no se deja, le hace RC.
+  - El corte (`bmo_gpu_ga10x::vigilante`, puro y probado; el kernel en
+    `gpu_trabajo/vigilante.rs`): tras CADA espera de un trabajo del GR (17
+    sitios: los del kernel, el cubo, el anillo, la pantalla, el video y la
+    imagen), si VENCIO -- lanzado, sin pagar y pasado su plazo (1 s; los
+    cortos del kernel, 100 ms) -- y el canal no estaba ya muerto: 1 PARAR
+    (`STOP_CHANNEL` sobre nuestro canal de GR); si a los 250 ms el GR sigue
+    ocupado (`NV_PGRAPH_STATUS` 0x400700, bit 0) y sin RC, 2 ESCALAR
+    (`RC_WATCHDOG_TIMEOUT`). Acaba con el RC_TRIGGERED del canal (su Xid),
+    con el GR quieto, o "sigue girando: reiniciar". La cabina lo dice paso a
+    paso (`E7:`), y el canal de GR queda MUERTO (P3b4c): todo trabajo del GR
+    dice NO al instante. La regla vieja (dos dibujos seguidos sin pagar) se
+    va: el primero que vence ya se corta, y la 3060 deja de girar.
+  - Las respuestas del GSP no se pueden emparejar con su pregunta (salen
+    todas con `sequence` 0): por eso el corte mira el MOTOR y la cola de
+    avisos, no la respuesta.
+  - El contrato deja salir los dos pasos y nada parecido: `PararGr` con su
+    `bImmediate` exacto (con 0, NO), y el escalon solo sin parametros y con
+    asas.
+  - La prueba en el metal: `gpu eterno ya` (`IOMMU_OP_GPU_ETERNO`, 0x4E):
+    un computo de un warp cuyo programa EMPIEZA por el `BRA` a si mismo que
+    `ptxas` pone detras de cada EXIT (palabra ya corrida en el metal). Dice
+    si se corto, en cuanto y como acabo. Deja el GR fuera: la ultima prueba
+    de una sesion.
+- **Falta:**
+  - **El metal**: `gpu eterno ya` y que la cabina diga el corte, y que el
+    resto (pantalla, copia, escritorio) siga. Lo que conteste el GSP a cada
+    paso (RC con que Xid, o quieto) se aprende ahi.
+  - **E7b, levantar el GR otra vez sin reiniciar**: pedir otro canal al RM y
+    rehacer su contexto (G1..G4, S1); hoy el canal de GR queda fuera hasta
+    reiniciar, como tras un Xid.
+  - Con E7a visto en el metal, los cuerpos de app con bucles pueden ir a la
+    3060: un bucle eterno ya no la cuelga para siempre (la deja sin GR hasta
+    reiniciar, y lo dice).
 - Las convenciones: comentarios en ASCII y en castellano sin enes caidas,
   ambitos de `toolchain/tools/ambitos/AMBITOS.txt`, los guardianes de
   `toolchain/tools/*` con `--check`.
