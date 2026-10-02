@@ -1138,3 +1138,51 @@ superficie, que para eso llega el raton.
    [ ] cerrar por el marco PIERDE lo no guardado, sin preguntar: el DIRECTOR
        no sabe preguntarle a una app si puede morir -- `scene/chrome.rs`
 ```
+
+# VITALES, CABINA P Y EL SAVE SIN REPETIR (2026-10-02)
+
+El propietario, con el F8 del metal diciendo 129 MiB de 2518 usados: *"el F7
+y F8 le falta su parte e influencias, mejora con interfaz y vista y control
+interfaz simple... mejorar el save, y un printf en tiempo real que no repita
+lo que ya conoce, que CABINA lea todo y si se repite pones (x1) hasta el
+infinito"*. Eligio las cuatro mejoras de F7/F8, el printf en CABINA y las
+tres del save.
+
+```text
+   VITALES (F7/F8)    UNA ventana con tres solapas: CPU, MEMORIA, PROCESOS
+                      (1 2 3, Tab o un clic; F7 abre en CPU, F8 en MEMORIA,
+                      la misma tecla otra vez cierra). Graficas de los
+                      ultimos 15 s (CPU, vatios, memoria). La memoria POR
+                      QUIEN LA TIENE: kernel, programas y lo que nadie apunta
+                      (la ventana de reserva de PROTON-X: el kernel aun no la
+                      cuenta por proceso), para que cuadre con lo usado. Cada
+                      pid con su NOMBRE. PROCESOS: flechas eligen, O ordena
+                      (memoria, pid, nombre), F FINALIZA -- solo lo que lanzo
+                      el escritorio (`bmo::Hijo`). Y ya esta en el raton:
+                      se arrastra, sus botones responden, un clic la trae
+                      delante (antes no estaba, y el clic se lo llevaba la
+                      ventana de debajo)
+   CABINA P           lo que ESCRIBE el programa en marcha, en vivo: cada
+                      linea distinta UNA vez, con (xN); en ambar fuerte la
+                      que se acaba de repetir. `bmo-registro` (probado en el
+                      anfitrion) y `registro.rs`: todo lo que se drena del
+                      hijo pasa por alli
+   save               la sesion empieza donde acabo el save anterior y sin
+                      la portada propia (el SALIDA.TXT del 02-10 salia casi
+                      dos veces); lo repetido seguido, una vez con (xN);
+                      capitulo 8 (`informe/ESCRITO.TXT`): lo que escribio el
+                      programa, sin repetir; y una COPIA con fecha,
+                      `datos/DDMMHHMM.TXT`, que el siguiente save no pisa
+```
+
+## Casillas
+
+```text
+   [ ] VITALES no se mueve con el teclado (con el raton si)
+   [ ] la CPU POR PROCESO: el kernel la tiene (`ciclos_de_tareas`) y no hay
+       clave INFO que la saque a Ring 3 -- Ring 0, con permiso
+   [ ] la ventana de reserva POR PROCESO (`reserva::hechos(pid)`): lo mismo;
+       con ella, "sin decir de quien" se vuelve el nombre de PROTON-X
+   [ ] la tabla de PROCESOS son las 8 fichas del kernel (una historia, no la
+       lista de lo vivo): lo que acabo sigue hasta que llega otro
+```

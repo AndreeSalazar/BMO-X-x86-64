@@ -167,6 +167,10 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
         }
     }
 
+    // VITALES (02-10): sus botones, sus solapas, sus filas y su arrastre.
+    if crate::desktop::vitales::raton(dsk, &p, pos.x, pos.y, button, dsk.tick.button_before) {
+        return;
+    }
     // ** EL PANEL DEL MAESTRO: el fader, el MUDO y los tres botones. Antes que
     // el arrastre del titulo: un gesto que se queda el panel no es un arrastre.
     if crate::desktop::sonido::raton(dsk, &p, pos.x, pos.y, button, dsk.tick.button_before) {

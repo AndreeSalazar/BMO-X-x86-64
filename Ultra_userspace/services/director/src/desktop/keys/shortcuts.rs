@@ -375,14 +375,10 @@ if ctrl && (0x80..=0x83).contains(&c) {
                 }
             }
         }
-        // [!] LAS VITALES NO SE MUEVEN CON EL TECLADO, y aqui lo pone.
-        //
-        // Es el mismo hueco que en el raton: F7 y F8 tienen marco, titulo y
-        // un pie que anuncia "arrastra el titulo", y no las mueve nada. Antes
-        // caian en un `_ => {}` donde no se distinguian de "no hay foco"; con
-        // el `match` sin comodin son un caso con nombre, y el dia que se
-        // arreglen no hay que buscar donde.
-        Some(Ventana::Cpu) | Some(Ventana::Mem) => {}
+        // [!] VITALES NO SE MUEVE CON EL TECLADO (todavia): con el raton si,
+        // desde el 02-10 (`desktop::vitales::raton`). Es un caso con nombre
+        // para que el dia que se haga no haya que buscar donde.
+        Some(Ventana::Mem) => {}
         // Sin foco no hay a quien mover. La tecla se come igual: dejarla
         // pasar mandaria un Alt+flecha a la linea de comandos.
         None => {}

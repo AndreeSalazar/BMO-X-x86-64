@@ -121,6 +121,16 @@ pub(crate) struct CabinaWindow {
     /// ** No hay nada que deducir: el kernel ya agrupa (`cabina::intento`) y
     /// desde hoy entrega el numero (`CABINA_INTENTO`). Esto solo lo lee.
     pub(crate) last_only: bool,
+    /// **P: lo que ESCRIBE el programa en marcha, sin repetir** (02-10).
+    ///
+    /// El propietario: *"el printf en tiempo real pero que no se repita lo
+    /// que ya conoce, que CABINA lea todo para que registre y si se repite
+    /// se ignora pero pones (x1) hasta el infinito"*. Con esta vista, en
+    /// vez de los eventos del kernel, CABINA pinta el registro de la sesion
+    /// (`crate::registro`): cada linea distinta una vez, en el orden en que
+    /// llego, con `(xN)` si volvio; y en ambar fuerte la que se acaba de
+    /// repetir. Se repinta sola mientras el programa escribe.
+    pub(crate) programa: bool,
 }
 
 impl CabinaWindow {
@@ -130,6 +140,7 @@ impl CabinaWindow {
             from: 0,
             minima: 0,
             last_only: false,
+            programa: false,
         }
     }
 }
@@ -202,6 +213,12 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &CabinaWindow) {
 
     let mut ty = c.chrome.y + TITLE_H + 8;
 
+    if c.programa {
+        paint_programa(p, c, tx, ty);
+        pie(p, c, tx);
+        return;
+    }
+
     let any = bmo::cabina_disponibles();
     let total = bmo::cabina_total();
     let lost = bmo::cabina_perdidos();
@@ -261,6 +278,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &CabinaWindow) {
     if c.last_only {
         p.rect(gx, ty + bmo::GLIFO_ALTO + 1, end - gx, 1, color_to);
     }
+    p.texto(end + bmo::GLIFO_ANCHO * 3, ty, "P: lo que escribe el programa", CYAN_DIM);
     ty += bmo::GLIFO_ALTO + 8;
 
     // -- LOS EVENTOS ----------------------------------------------------
@@ -334,6 +352,11 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &CabinaWindow) {
         i += 1;
     }
 
+    pie(p, c, tx);
+}
+
+/// La linea de instrumentos (en blanco) y la barra de atajos.
+fn pie(p: &bmo::Pantalla, c: &CabinaWindow, tx: u32) {
     // -- La linea de instrumentos: se deja en blanco y se da por perdida, y
     // `instrumentos` la escribe en la vuelta siguiente (ver abajo).
     let (ix, iy, iw) = linea_instrumentos(c);
@@ -347,9 +370,90 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &CabinaWindow) {
     p.texto(
         tx,
         by,
-        "G gravedad   RePag/AvPag historia   arrastra el titulo   ESC cierra",
+        if c.programa { "P vuelve al kernel   RePag/AvPag historia   arrastra el titulo   ESC cierra" } else { "G gravedad   A accion   P programa   RePag/AvPag historia   ESC cierra" },
         CYAN_DIM,
     );
+}
+
+// ===================================================================
+//  P: LO QUE ESCRIBE EL PROGRAMA, SIN REPETIR (02-10)
+// ===================================================================
+
+/// Cuantas lineas habia en el registro la ultima vez que se pinto la vista
+/// P: si no cambio, no se repinta.
+static PINTADAS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(u64::MAX);
+
+/// Si la vista P tiene algo nuevo que pintar (lo pregunta `desktop::paint`
+/// cada cuarto de segundo).
+pub(crate) fn programa_cambio() -> bool {
+    crate::registro::registro().lineas != PINTADAS.load(core::sync::atomic::Ordering::Relaxed)
+}
+
+/// Cuantas lineas distintas hay (para RePag/AvPag).
+pub(crate) fn programa_distintas() -> u64 {
+    crate::registro::registro().distintas() as u64
+}
+
+fn paint_programa(p: &bmo::Pantalla, c: &CabinaWindow, tx: u32, mut ty: u32) {
+    let r = crate::registro::registro();
+    PINTADAS.store(r.lineas, core::sync::atomic::Ordering::Relaxed);
+    // La cabecera: de quien, y lo que el registro se ahorro.
+    let mut cab = [0u8; 120];
+    let mut n = 0usize;
+    let nombre = crate::registro::nombre();
+    place(if nombre.is_empty() { b"(ningun programa lanzado)" } else { nombre }, &mut cab, &mut n);
+    place(b"   ", &mut cab, &mut n);
+    num(r.lineas, &mut cab, &mut n);
+    place(b" lineas, ", &mut cab, &mut n);
+    num(r.distintas() as u64, &mut cab, &mut n);
+    place(b" distintas, ", &mut cab, &mut n);
+    num(r.repetidas(), &mut cab, &mut n);
+    place(b" repetidas contadas", &mut cab, &mut n);
+    if r.sin_sitio > 0 {
+        place(b"   (no cupieron ", &mut cab, &mut n);
+        num(r.sin_sitio, &mut cab, &mut n);
+        place(b")", &mut cab, &mut n);
+    }
+    p.texto_bytes(tx, ty, &cab[..n], INK_DIM);
+    ty += bmo::GLIFO_ALTO + 6;
+    p.texto(tx, ty, "P: lo que escribe el programa -- cada linea UNA vez; (xN) = cuantas veces vino", SEV_COLOR[2]);
+    ty += bmo::GLIFO_ALTO + 8;
+    if r.distintas() == 0 {
+        p.texto(tx, ty, "el programa no ha escrito nada todavia.", INK_DIM);
+        return;
+    }
+    // Las ultimas que caben, la mas reciente ABAJO (como una consola);
+    // RePag sube.
+    let filas = visible_rows(&c.chrome);
+    let fin = r.distintas().saturating_sub(c.from as usize);
+    let desde = fin.saturating_sub(filas);
+    let cabe = ((c.chrome.width.saturating_sub(48)) / bmo::GLIFO_ANCHO) as usize;
+    let mut linea = [0u8; bmo_registro::LARGO + 24];
+    for i in desde..fin {
+        let Some(e) = r.entrada(i) else { break };
+        // Ambar fuerte: se repitio en las ultimas 16 lineas. Ambar: se
+        // repitio alguna vez. Gris: vino una sola.
+        let color = if e.veces > 1 && r.lineas.saturating_sub(e.ultima) < 16 {
+            SEV_COLOR[2]
+        } else if e.veces > 1 {
+            0x00B0_9050
+        } else {
+            SEV_COLOR[0]
+        };
+        p.rect(tx, ty + 2, 3, bmo::GLIFO_ALTO - 2, color);
+        let k = bmo_registro::Registro::<{ crate::registro::DISTINTAS }>::con_veces(e, &mut linea);
+        // Lo que no cabe en el ancho se corta, pero el (xN) se ve siempre.
+        let (texto, veces) = match linea[..k].windows(2).rposition(|w| w == b"(x") {
+            Some(q) if e.veces > 1 => (&linea[..q.saturating_sub(2)], &linea[q..k]),
+            _ => (&linea[..k], &linea[k..k]),
+        };
+        let sitio = cabe.saturating_sub(veces.len() + 3);
+        let fin_x = p.texto_bytes(tx + 10, ty, &texto[..texto.len().min(sitio)], color);
+        if !veces.is_empty() {
+            p.texto_bytes(fin_x + 2 * bmo::GLIFO_ANCHO, ty, veces, SEV_COLOR[2]);
+        }
+        ty += bmo::GLIFO_ALTO + 3;
+    }
 }
 
 // ===================================================================

@@ -49,6 +49,9 @@ pub(crate) mod nya;
 /// **El mando del sonido**: abrir y cerrar el panel del maestro, sus teclas, su
 /// raton y el refresco del medidor. La cara la pinta `scene::sound`.
 pub(crate) mod sonido;
+/// **El mando de VITALES** (F7 / F8): solapas, teclas, raton y la muestra de
+/// cada cuarto de segundo. La cara la pinta `scene::vitals`.
+pub(crate) mod vitales;
 /// **EL BORDE DE FOCO**: cuando el foco cambia, el marco de la nueva lleva el
 /// acento y el de la vieja lo pierde. HUD 2.
 pub(crate) mod foco;
@@ -95,7 +98,6 @@ pub(crate) fn lateral_cambio(dsk: &mut Desktop, p: &bmo_userland::Pantalla, esta
     dsk.win.data.chrome.fit(p);
     dsk.win.data.relayout();
     dsk.win.cabina.chrome.fit(p);
-    dsk.win.cpu.chrome.fit(p);
     dsk.win.mem.chrome.fit(p);
     dsk.win.sound.chrome.fit(p);
     for i in 0..crate::scene::surface::MAX {
@@ -240,8 +242,8 @@ pub(crate) struct Windows {
     pub data_open: bool,
     pub cabina: crate::scene::cabina::CabinaWindow,
     pub cabina_open: bool,
-    pub cpu: crate::scene::vitals::VitalsWindow,
-    pub cpu_open: bool,
+    /// VITALES (F7 / F8): una ventana, tres solapas. Se llama `mem` por la
+    /// ventana de memoria que fue hasta el 02-10.
     pub mem: crate::scene::vitals::VitalsWindow,
     pub mem_open: bool,
     pub sound: crate::scene::sound::SoundWindow,
@@ -277,9 +279,7 @@ impl Windows {
             data_open: false,
             cabina: crate::scene::cabina::CabinaWindow::new(p),
             cabina_open: false,
-            cpu: crate::scene::vitals::VitalsWindow::new(p, crate::scene::vitals::Which::Cpu),
-            cpu_open: false,
-            mem: crate::scene::vitals::VitalsWindow::new(p, crate::scene::vitals::Which::Memoria),
+            mem: crate::scene::vitals::VitalsWindow::new(p),
             mem_open: false,
             sound: crate::scene::sound::SoundWindow::new(p),
             sound_open: false,
@@ -313,7 +313,6 @@ impl Windows {
             Ventana::Run => self.visible,
             Ventana::Data => self.data_open,
             Ventana::Cabina => self.cabina_open,
-            Ventana::Cpu => self.cpu_open,
             Ventana::Mem => self.mem_open,
             Ventana::Sound => self.sound_open,
             // ** UNA APP ESTA ABIERTA SI EL FOCO LA CONOCE, y eso no es

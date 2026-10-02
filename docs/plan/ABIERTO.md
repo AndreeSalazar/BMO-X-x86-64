@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   472 casillas ABIERTAS en 46 planes
+   476 casillas ABIERTAS en 46 planes
    361 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -114,6 +114,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
 - ... y 11 mas
 
+## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 13 abiertas, 7 hechas
+
+*DIRECTOR -- de compositor a administrador*
+
+- [ ] el DIRECTOR le dice el hueco: una ranura de buzon con bit propio
+- [ ] la app puede REEMPLAZAR su superficie: hoy una segunda oferta del
+- [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
+- ... y 10 mas
+
 ## [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) -- 12 abiertas, 4 hechas
 
 *PLAN EL COMPAS -- el quantum se retira, y el turno se CONCEDE*
@@ -158,15 +167,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 3 taller.bex DIBUJA una ventana con su rejilla y su cursor,
 - [ ] 4 y LEE TECLAS por el buzon de entrada, con el
 - ... y 7 mas
-
-## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 9 abiertas, 7 hechas
-
-*DIRECTOR -- de compositor a administrador*
-
-- [ ] el DIRECTOR le dice el hueco: una ranura de buzon con bit propio
-- [ ] la app puede REEMPLAZAR su superficie: hoy una segunda oferta del
-- [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
-- ... y 6 mas
 
 ## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 9 abiertas, 4 hechas
 

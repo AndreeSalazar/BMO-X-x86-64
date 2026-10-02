@@ -74,13 +74,15 @@ pub(crate) enum Ventana {
     Data,
     /// F11 -- CABINA, la consola del kernel.
     Cabina,
-    /// F7 -- las vitales del CPU. Ver `scene::vitals`.
-    Cpu,
-    /// F8 -- la memoria, con QUIEN se la esta comiendo.
+    /// F7 y F8 -- VITALES: una ventana con tres solapas (CPU, memoria con
+    /// QUIEN se la esta comiendo, y los procesos con su boton de finalizar).
+    /// Ver `scene::vitals`. Hasta el 02-10 eran dos (`Cpu` y `Mem`); al
+    /// juntarlas, el id 3 paso a esta y el sonido bajo al 4.
     Mem,
     /// F10 -- el sonido. Ver `scene::sound`.
     ///
-    /// ** ES 5 Y NO 3, Y ESE ES EL MOTIVO DE ESTE FICHERO.
+    /// ** UN ID QUE NO ES EL DE NADIE MAS, Y ESE ES EL MOTIVO DE ESTE FICHERO.
+    /// (Fue el 5 hasta el 02-10; al juntarse CPU y memoria en VITALES es el 4.)
     ///
     /// Valia 3 --el mismo id que `Cpu`-- desde el dia que nacieron F7 y F8
     /// (2026-08-12): las dos ventanas nuevas cogieron los dos numeros libres
@@ -113,12 +115,11 @@ impl Ventana {
     /// cuatro: las vitales no estaban, y lo unico que las salvaba de no verse
     /// era que se repintan solas cada 15 fotogramas. Aqui no se puede olvidar
     /// una, porque el medida del array lo cuenta el compilador.
-    pub(crate) const TODAS: [Ventana; 6] = [
+    pub(crate) const TODAS: [Ventana; 5] = [
         Ventana::Run,
         Ventana::Data,
         Ventana::Cabina,
         Ventana::Sound,
-        Ventana::Cpu,
         Ventana::Mem,
     ];
 
@@ -143,9 +144,8 @@ impl Ventana {
             Ventana::Run => 0,
             Ventana::Data => 1,
             Ventana::Cabina => 2,
-            Ventana::Cpu => 3,
-            Ventana::Mem => 4,
-            Ventana::Sound => 5,
+            Ventana::Mem => 3,
+            Ventana::Sound => 4,
             Ventana::App(i) => Ventana::PRIMERA_APP + i,
         }
     }
@@ -157,9 +157,8 @@ impl Ventana {
             0 => Ventana::Run,
             1 => Ventana::Data,
             2 => Ventana::Cabina,
-            3 => Ventana::Cpu,
-            4 => Ventana::Mem,
-            5 => Ventana::Sound,
+            3 => Ventana::Mem,
+            4 => Ventana::Sound,
             // Las cuatro cajas de `scene::surface::MAX`. Un id mas alto no es
             // de nadie: se contesta `None` en vez de inventar una app numero
             // cinco que no tiene donde vivir. El rango sale de `PRIMERA_APP`
@@ -187,8 +186,7 @@ impl Ventana {
             Ventana::Run => "Ejecutar",
             Ventana::Data => "Datos (ESTRATOS)",
             Ventana::Cabina => "CABINA (kernel)",
-            Ventana::Cpu => "CPU",
-            Ventana::Mem => "Memoria",
+            Ventana::Mem => "Vitales (F7 F8)",
             Ventana::Sound => "Sonido",
             // Sin el numero seria imposible saber cual de las cuatro conmuta.
             // El nombre de verdad --el del programa-- lo sabe la superficie, no

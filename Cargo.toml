@@ -84,6 +84,10 @@ members = [
     # quien marca el paso. E0 de `docs/maestro/INTI_Y_LA_GPU.md` sec. 6, y
     # vive aqui por la misma razon que la resta: aqui se PRUEBA.
     "platform/shared/bmo-ritmo",
+    # EL REGISTRO: lo que escribe un programa, cada linea distinta una vez con
+    # sus veces (xN), y las series de las graficas. Del DIRECTOR (CABINA, F7);
+    # vive aqui para PROBARSE.
+    "platform/shared/bmo-registro",
     # FRAPS-X: los fotogramas por SEGUNDO (el ritmo cuenta miradas, no tiempo),
     # el peor de cada segundo y el banco con sus bajos del 1 % y el 0,1 %.
     "platform/shared/bmo-fraps",

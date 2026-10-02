@@ -47,7 +47,6 @@ pub(crate) fn seguir(dsk: &mut Desktop, p: &bmo::Pantalla) {
     dsk.run_box.chrome.foco = es(Ventana::Run);
     dsk.win.data.chrome.foco = es(Ventana::Data);
     dsk.win.cabina.chrome.foco = es(Ventana::Cabina);
-    dsk.win.cpu.chrome.foco = es(Ventana::Cpu);
     dsk.win.mem.chrome.foco = es(Ventana::Mem);
     dsk.win.sound.chrome.foco = es(Ventana::Sound);
     for i in 0..MAX {
@@ -104,7 +103,6 @@ pub(crate) fn caja(dsk: &Desktop, v: Ventana) -> Option<(u32, u32, u32, u32)> {
         Ventana::Run => Some((dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h())),
         Ventana::Data => de(&dsk.win.data.chrome),
         Ventana::Cabina => de(&dsk.win.cabina.chrome),
-        Ventana::Cpu => de(&dsk.win.cpu.chrome),
         Ventana::Mem => de(&dsk.win.mem.chrome),
         Ventana::Sound => de(&dsk.win.sound.chrome),
         Ventana::App(i) => dsk.table.get(i as usize).and_then(|s| {

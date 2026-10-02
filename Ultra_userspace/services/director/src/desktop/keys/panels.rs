@@ -21,6 +21,11 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, _alt_alone: bo
 if !ctrl && crate::desktop::sonido::on_key(dsk, p, c) {
     return Key::Taken;
 }
+// VITALES (02-10): sus solapas, y en PROCESOS elegir, ordenar y finalizar.
+// La guarda del foco vive dentro, como la del sonido.
+if !ctrl && crate::desktop::vitales::on_key(dsk, p, c) {
+    return Key::Taken;
+}
 
 // -- ** LAS LETRAS DE CABINA: `G` y `A` --
 //
@@ -76,6 +81,18 @@ if dsk.win.cabina_open
     scene::cabina::paint(&p, &dsk.win.cabina);
     return Key::Taken;
 }
+// ** P: LO QUE ESCRIBE EL PROGRAMA, SIN REPETIR (02-10). En vez de los
+// eventos del kernel, el registro de la sesion: cada linea distinta una
+// vez, con (xN). Letra, asi que con la guarda del foco, como G y A.
+if dsk.win.cabina_open
+    && dsk.win.focus.es_para(Ventana::Cabina)
+    && (c == b'p' || c == b'P')
+{
+    dsk.win.cabina.programa = !dsk.win.cabina.programa;
+    dsk.win.cabina.from = 0;
+    scene::cabina::paint(&p, &dsk.win.cabina);
+    return Key::Taken;
+}
 // -- RePag/AvPag dentro de la consola del kernel: recorrer el log --
 //
 // ** ESTAS DOS NO SE LE PIDEN AL FOCO, y son las unicas que no.
@@ -102,7 +119,7 @@ if dsk.win.cabina_open
 // ya existe --`bmo_foco::Foco::esta_delante`-- y hoy no la llama nadie
 // en todo el repo: `Focus` ni siquiera la asoma. Es un trabajo aparte.
 if dsk.win.cabina_open && (c == 0x87 || c == 0x88) {
-    let any = bmo::cabina_disponibles();
+    let any = if dsk.win.cabina.programa { scene::cabina::programa_distintas() } else { bmo::cabina_disponibles() };
     if c == 0x87 {
         // Hacia atras en el tiempo, sin pasarse del principio.
         dsk.win.cabina.from = (dsk.win.cabina.from + 6).min(any.saturating_sub(1));

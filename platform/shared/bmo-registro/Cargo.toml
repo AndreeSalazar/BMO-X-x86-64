@@ -1,0 +1,10 @@
+[package]
+name = "bmo-registro"
+version = "0.1.0"
+edition = "2021"
+description = "Lo que escribe un programa, cada linea distinta UNA vez con cuantas veces vino (xN); y las series cortas de las graficas del administrador de tareas."
+license = "Apache-2.0"
+
+# Sin dependencias, como `bmo-ritmo`: existe para poder PROBARSE en el
+# anfitrion. Juntar lineas y guardar muestras es aritmetica sobre bytes.
+[dependencies]

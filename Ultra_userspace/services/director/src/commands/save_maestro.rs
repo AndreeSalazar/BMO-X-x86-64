@@ -86,8 +86,8 @@ const FICHAS: u64 = 8;
 /// Donde van las hojas. La barra va dentro para que el nombre se pegue.
 const CARPETA: &[u8] = b"informe/";
 
-/// Las siete hojas, en el orden de los capitulos, y el fichero de cada una.
-const HOJAS: [(&[u8], &[u8]); 7] = [
+/// Las ocho hojas, en el orden de los capitulos, y el fichero de cada una.
+const HOJAS: [(&[u8], &[u8]); 8] = [
     (b"SESION.TXT",   b"1. LA SESION -- lo que se tecleo y lo que contesto"),
     (b"MAQUINA.TXT",  b"2. LA MAQUINA -- cpu, caches medidas, extensiones"),
     (b"MEMORIA.TXT",  b"3. LA MEMORIA -- marcos, entregas, cache de disco"),
@@ -95,7 +95,15 @@ const HOJAS: [(&[u8], &[u8]); 7] = [
     (b"PROGRAMA.TXT", b"5. LOS PROGRAMAS -- memoria pedida y la ficha BEF2 de cada uno"),
     (b"DISCO.TXT",    b"6. EL DISCO -- aparato, particiones, ESTRATOS"),
     (b"AUTOPSIA.TXT", b"7. LA AUTOPSIA -- el ultimo fallo de Ring 3"),
+    (b"ESCRITO.TXT",  b"8. LO QUE ESCRIBIO EL PROGRAMA -- cada linea una vez, con sus veces"),
 ];
+
+/// **Donde acabo el `save` anterior** (02-10), como marca del historial de
+/// la pantalla; `usize::MAX` si no hubo. La sesion de un `save` empieza
+/// ahi: lo de antes ya esta en el fichero del anterior. Antes se volcaba la
+/// pantalla ENTERA, y la pantalla tenia el informe anterior (y la portada
+/// de este): el SALIDA.TXT del metal del 02-10 salia casi dos veces.
+static FIN_ANTERIOR: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(usize::MAX);
 
 /// **El informe entero, a `dest`, y cada capitulo a su hoja en `informe/`.**
 /// Devuelve `(bytes, lineas, hojas)`: los bytes y las lineas del informe
@@ -118,7 +126,8 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
     let g = &mut dsk.out.grid;
 
     // La cabecera va al informe entero y al INDICE, que ademas lista las hojas.
-    let m = g.mark();
+    let antes = g.mark();
+    let m = antes;
     cabecera(g);
     let (f, t) = g.rows_since(m);
     volcar(&a, g, f, t, &mut c);
@@ -173,7 +182,8 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
                 report_programas(g);
             }
             5 => super::reports::report_disco(g),
-            _ => super::reports::report_autopsy(g),
+            6 => super::reports::report_autopsy(g),
+            _ => report_escrito(g),
         }
         if n > 0 {
             // Lo que queda del ultimo trozo, y la cinta fuera.
@@ -188,14 +198,15 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
                 volcar(h, g, f, t, &mut ch);
             }
         }
-        // La sesion es lo que ya estaba en el anillo ANTES del rotulo: se
-        // vuelca despues de el, y es lo primero que el anillo tira.
+        // La sesion es lo que ya estaba en el anillo ANTES de la portada de
+        // este `save` y DESPUES del anterior: se vuelca despues del rotulo, y
+        // es lo primero que el anillo tira. Lo repetido seguido, una vez con
+        // sus veces.
         if n == 0 {
-            let (desde, _) = g.all_rows();
-            if desde < f {
-                volcar(&a, g, desde, f - 1, &mut c);
+            if let Some((desde, hasta)) = sesion(g, antes) {
+                volcar_sin_repetir(&a, g, desde, hasta, &mut c);
                 if let Some(h) = h.as_ref() {
-                    volcar(h, g, desde, f - 1, &mut ch);
+                    volcar_sin_repetir(h, g, desde, hasta, &mut ch);
                 }
             }
         }
@@ -283,6 +294,8 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
     volcar(&a, g, f, t, &mut c);
 
     if a.close() {
+        FIN_ANTERIOR.store(g.mark(), core::sync::atomic::Ordering::Relaxed);
+        copia_con_fecha(g, dest);
         Ok((c.bytes, c.lineas, hojas))
     } else {
         // El kernel no dice el motivo -- se queda en la CABINA (F11). Lo que
@@ -371,6 +384,135 @@ fn volcar(a: &bmo::Archivo, g: &Output, from: usize, to: usize, c: &mut Cuenta) 
         c.bytes += a.write(b"\r\n");
         c.lineas += 1;
     }
+}
+
+/// **Las filas de la sesion de este `save`**: desde donde acabo el anterior
+/// (o desde lo mas viejo que quede) hasta justo antes de su portada
+/// (`antes`). `None` si no hay ninguna.
+fn sesion(g: &Output, antes: usize) -> Option<(usize, usize)> {
+    let (viejo, _) = g.all_rows();
+    let fin = FIN_ANTERIOR.load(core::sync::atomic::Ordering::Relaxed);
+    let desde = if fin == usize::MAX || fin > antes { viejo } else { g.rows_since(fin).0.max(viejo) };
+    let hasta = g.rows_since(antes).0.checked_sub(1)?;
+    (desde <= hasta).then_some((desde, hasta))
+}
+
+/// Como [`volcar`], pero una fila igual a la de antes no se repite: la
+/// racha sale UNA vez, con `  (xN)` detras.
+#[inline(never)]
+fn volcar_sin_repetir(a: &bmo::Archivo, g: &Output, from: usize, to: usize, c: &mut Cuenta) {
+    let mut f = from;
+    while f <= to {
+        let l = g.line(f);
+        let mut k = f + 1;
+        while k <= to && g.line(k) == l {
+            k += 1;
+        }
+        c.bytes += a.write(l);
+        if k - f > 1 {
+            let mut d = [0u8; 20];
+            let n = bmo_registro::decimal((k - f) as u64, &mut d);
+            c.bytes += a.write(b"  (x");
+            c.bytes += a.write(&d[..n]);
+            c.bytes += a.write(b")");
+        }
+        c.bytes += a.write(b"\r\n");
+        c.lineas += 1;
+        f = k;
+    }
+}
+
+/// **El capitulo 8: lo que escribio el programa**, del registro de la
+/// sesion (`crate::registro`): cada linea distinta una vez, en el orden en
+/// que llego la primera, con `(xN)` si se repitio. A trozos (la cinta).
+#[inline(never)]
+fn report_escrito(g: &mut Output) {
+    let r = crate::registro::registro();
+    section(g, b"el programa -- lo que escribio, sin repetir");
+    let nombre = crate::registro::nombre();
+    if r.lineas == 0 {
+        g.with_ink(INK_ECHO);
+        g.text(b"    ningun programa ha escrito nada desde que se lanzo el ultimo\n");
+        g.with_ink(INK_PLAIN);
+        return;
+    }
+    super::tabla::campo(g, b"programa");
+    g.text(if nombre.is_empty() { b"(sin nombre)" } else { nombre });
+    g.byte(b'\n');
+    let mut d = [0u8; 20];
+    super::tabla::campo(g, b"lineas");
+    let n = bmo_registro::decimal(r.lineas, &mut d);
+    g.text(&d[..n]);
+    g.text(b" escritas, ");
+    let n = bmo_registro::decimal(r.distintas() as u64, &mut d);
+    g.text(&d[..n]);
+    g.text(b" distintas; ");
+    let n = bmo_registro::decimal(r.repetidas(), &mut d);
+    g.text(&d[..n]);
+    g.text(b" repetidas se contaron en vez de escribirse");
+    if r.sin_sitio > 0 {
+        g.text(b"; ");
+        let n = bmo_registro::decimal(r.sin_sitio, &mut d);
+        g.text(&d[..n]);
+        g.text(b" NUEVAS ya no cupieron");
+    }
+    g.byte(b'\n');
+    subregla(g, b"cada linea una vez; (xN) = cuantas veces vino");
+    let mut l = [0u8; bmo_registro::LARGO + 24];
+    for i in 0..r.distintas() {
+        let Some(e) = r.entrada(i) else { break };
+        let n = bmo_registro::Registro::<{ crate::registro::DISTINTAS }>::con_veces(e, &mut l);
+        g.with_ink(if e.veces > 1 { INK_ECHO } else { INK_PLAIN });
+        g.text(b"  ");
+        g.text(&l[..n]);
+        g.byte(b'\n');
+        // Cada 64, al fichero: el anillo de la pantalla no lo guarda todo.
+        if i % 64 == 63 {
+            tramo(g);
+        }
+    }
+    g.with_ink(INK_PLAIN);
+}
+
+/// **Una copia con fecha** (02-10): el informe recien cerrado en `dest`,
+/// copiado a `datos/DDMMHHMM.TXT` (el dia, el mes, la hora y el minuto de
+/// la placa: 8.3, que el volumen es FAT32). `dest` sigue siendo el ultimo
+/// (lo leen otros); la copia no se pisa con el siguiente `save`. Sin reloj,
+/// no hay copia, y se dice.
+fn copia_con_fecha(g: &mut Output, dest: &[u8]) {
+    let mut fecha = [0u8; 24];
+    if fecha_en(&mut fecha) < 16 {
+        g.with_ink(INK_ECHO);
+        g.text(b"  (sin la hora de la placa: no hay copia con fecha de este save)\n");
+        g.with_ink(INK_PLAIN);
+        return;
+    }
+    // `AAAA-MM-DD HH:MM` -> `datos/DDMMHHMM.TXT`.
+    let mut ruta = *b"datos/DDMMHHMM.TXT";
+    for (k, o) in [8usize, 9, 5, 6, 11, 12, 14, 15].into_iter().enumerate() {
+        ruta[6 + k] = fecha[o];
+    }
+    let (Ok(origen), Ok(copia)) = (bmo::Archivo::leer_de(dest), bmo::Archivo::create(&ruta)) else {
+        g.with_ink(INK_ERR);
+        g.text(b"  la copia con fecha no se pudo crear\n");
+        g.with_ink(INK_PLAIN);
+        return;
+    };
+    let mut b = [0u8; 2048];
+    loop {
+        let n = origen.read(&mut b);
+        if n == 0 {
+            break;
+        }
+        copia.write(&b[..n]);
+    }
+    let _ = origen.close();
+    let bien = copia.close();
+    g.with_ink(if bien { INK_GOOD } else { INK_ERR });
+    g.text(if bien { b"  y una copia con fecha: " as &[u8] } else { b"  la copia con fecha NO se cerro: " });
+    g.text(&ruta);
+    g.byte(b'\n');
+    g.with_ink(INK_PLAIN);
 }
 
 /// Una regla doble hasta el margen.

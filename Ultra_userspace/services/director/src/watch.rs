@@ -105,9 +105,12 @@ pub(crate) fn watch_run(
                 break;
             }
             output.text(&buf[..read_bytes]);
+            crate::registro::escribir(&buf[..read_bytes]);
             reads += 1;
         }
     }
+    // Lo que el programa dejo a media linea, al registro como linea.
+    crate::registro::terminar();
 
     let path_n = c.dest_n;
     let path = c.dest;

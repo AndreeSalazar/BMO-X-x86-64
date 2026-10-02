@@ -220,13 +220,9 @@ fn repartir(
         Ventana::Sound => dsk.win.sound_open && dsk.win.sound.chrome.contains(pos.x, pos.y),
         // (ESTRUCTURA estuvo aqui hasta el 29-09: ahora es una app, y el raton
         // le llega como a cualquier app, por su buzon.)
-        // [!] LAS VITALES NO ESTAN EN EL RATON, y esto lo dice en voz alta en
-        // vez de esconderlo detras de un comodin. No se arrastran, sus botones
-        // no responden y un clic encima se lo lleva la ventana de DEBAJO --que
-        // ademas se queda el foco--. Su propio pie anuncia "arrastra el
-        // titulo", asi que hoy prometen algo que no hacen: es el pecado del
-        // 2026-08-09 otra vez, y es un trabajo aparte de este.
-        Ventana::Cpu | Ventana::Mem => false,
+        // VITALES (02-10): en el raton como las demas -- antes no lo estaba,
+        // y un clic encima se lo llevaba la ventana de DEBAJO.
+        Ventana::Mem => dsk.win.mem_open && dsk.win.mem.chrome.contains(pos.x, pos.y),
         Ventana::Run => dsk.win.visible && dsk.run_box.contains(pos.x, pos.y),
         // ** LAS APPS NO SE BUSCAN AQUI: este `match` recorre las ventanas
         // FIJAS del escritorio, y una superficie no es una de ellas -- vive
@@ -279,6 +275,7 @@ fn repartir(
                     new.clamp(0, any.saturating_sub(1) as i64) as u64;
                 scene::cabina::paint(&p, &dsk.win.cabina);
             }
+            Some(Ventana::Mem) => crate::desktop::vitales::rueda(dsk, p, wheel),
             Some(Ventana::Run) => {
                 // Tres filas por muesca: una sola se queda corta y una
                 // pagina entera se pasa. Es el paso de un terminal.
@@ -370,6 +367,8 @@ fn repartir(
         Ventana::Cabina
     } else if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
         Ventana::Data
+    } else if dsk.win.mem_open && dsk.win.focus.es_para(Ventana::Mem) {
+        Ventana::Mem
     } else {
         Ventana::Run
     };
@@ -377,6 +376,7 @@ fn repartir(
         match top {
             Ventana::Cabina => scene::cabina::paint(&p, &dsk.win.cabina),
             Ventana::Data => scene::data::paint(&p, &dsk.win.data),
+            Ventana::Mem => crate::desktop::vitales::pintar(dsk, p),
             // Sin guarda de `visible`: `uncover` ya no hace nada si
             // la caja esta escondida, y una guarda repetida es una que
             // puede quedarse desincronizada de la funcion.

@@ -146,7 +146,6 @@ pub(crate) fn pintar_ventana(dsk: &mut Desktop, p: &bmo::Pantalla, v: Ventana) {
         Ventana::App(_) => {}
         Ventana::Cabina => scene::cabina::paint(p, &dsk.win.cabina),
         Ventana::Data => scene::data::paint(p, &dsk.win.data),
-        Ventana::Cpu => scene::vitals::paint(p, &dsk.win.cpu, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo),
         Ventana::Mem => scene::vitals::paint(p, &dsk.win.mem, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo),
         Ventana::Sound => scene::sound::paint(p, &dsk.win.sound, &dsk.snd.panel),
         Ventana::Run => uncover(
@@ -259,8 +258,13 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
             } else {
                 // Una linea que empieza por 0x1E es una PETICION de la app
                 // (el JUGAR de la LUDOTECA): no se pinta. Ver `desktop::pide`.
+                // 02-10: y al REGISTRO (cada linea una vez, con sus veces):
+                // lo leen CABINA (P) y `save`.
                 let grid = &mut dsk.out.grid;
-                crate::desktop::pide::filtrar(&buf[..read_bytes], |t| grid.text(t));
+                crate::desktop::pide::filtrar(&buf[..read_bytes], |t| {
+                    grid.text(t);
+                    crate::registro::escribir(t);
+                });
             }
             drained += 1;
         }
@@ -550,13 +554,22 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // un comentario que daba por hecho que quince vueltas eran ~250 ms porque
     // el escritorio iba a 60 por segundo. El bucle no tiene freno: `Tick::pulse`
     // ya lo mide, y el cuarto de segundo lo pone ahora el reloj de referencia.
-    if (dsk.win.cpu_open || dsk.win.mem_open) && dsk.tick.quarter {
-        if dsk.win.cpu_open {
-            scene::vitals::paint(&p, &dsk.win.cpu, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo);
-        }
-        if dsk.win.mem_open {
-            scene::vitals::paint(&p, &dsk.win.mem, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo);
-        }
+    // 02-10: CABINA en su vista P (lo que escribe el programa) se repinta
+    // sola cada cuarto de segundo, SI el registro cambio y no esta tapada.
+    if dsk.win.cabina_open
+        && dsk.win.cabina.programa
+        && dsk.tick.quarter
+        && !fs
+        && scene::cabina::programa_cambio()
+        && !crate::desktop::foco::tapada(dsk, Ventana::Cabina)
+    {
+        scene::cabina::paint(&p, &dsk.win.cabina);
+    }
+    // VITALES (02-10): una muestra para sus graficas cada cuarto de segundo, y
+    // se repinta solo si se ve (tapada, pintar encima seria peor que no).
+    if dsk.win.mem_open && dsk.tick.quarter {
+        let se_ve = !fs && !crate::desktop::foco::tapada(dsk, Ventana::Mem);
+        crate::desktop::vitales::cuarto(dsk, &p, se_ve);
     }
 
     // -- ** EL TESTIGO DEL BUS USB: la luz que no hay que abrir --

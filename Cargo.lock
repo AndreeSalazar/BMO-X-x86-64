@@ -633,6 +633,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-registro"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-ritmo"
 version = "0.1.0"
 

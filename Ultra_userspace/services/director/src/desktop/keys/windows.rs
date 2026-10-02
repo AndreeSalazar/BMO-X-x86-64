@@ -273,56 +273,19 @@ if c == 0x8C {
     return Key::Taken;
 }
 
-// -- F7 y F8: las vitales --
+// -- F7 y F8: VITALES, una ventana con tres solapas (02-10) --
 //
-// Calcadas de F11 y por los mismos motivos: se atienden ANTES
-// de preguntar por el foco, porque un atajo que solo funciona
-// si ya estas dentro de la ventana no sirve para abrirla.
-//
-// ESC cierra la que este abierta. Si las dos lo estan, cierra
-// primero la de memoria -- que es la que se abre encima.
-let toggle_cpu = if c == 0x8F {
-    Some(!dsk.win.cpu_open)
-} else if c == 0x1B && dsk.win.cpu_open && !dsk.win.mem_open {
-    Some(false)
-} else {
-    None
-};
-if let Some(open) = toggle_cpu {
-    dsk.win.cpu_open = open;
-    if open {
-        dsk.win.focus.open(Ventana::Cpu);
-        scene::vitals::paint(&p, &dsk.win.cpu, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo);
-    } else {
-        dsk.win.focus.close(Ventana::Cpu);
-        erase_window(
-            &p, &dsk.run_box, dsk.win.cpu.chrome.x, dsk.win.cpu.chrome.y,
-            dsk.win.cpu.chrome.width, dsk.win.cpu.chrome.height, dsk.win.visible,
-        );
-        uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
-    }
+// Calcadas de F11 y por los mismos motivos: se atienden ANTES de preguntar
+// por el foco, porque un atajo que solo funciona si ya estas dentro de la
+// ventana no sirve para abrirla. F7 abre en CPU y F8 en MEMORIA; la misma
+// tecla otra vez la cierra, la otra cambia de solapa. ESC la cierra.
+if c == 0x8F || c == 0x90 {
+    let s = if c == 0x8F { scene::vitals::Solapa::Cpu } else { scene::vitals::Solapa::Memoria };
+    crate::desktop::vitales::tecla_f(dsk, &p, s);
     return Key::Taken;
 }
-let toggle_mem = if c == 0x90 {
-    Some(!dsk.win.mem_open)
-} else if c == 0x1B && dsk.win.mem_open {
-    Some(false)
-} else {
-    None
-};
-if let Some(open) = toggle_mem {
-    dsk.win.mem_open = open;
-    if open {
-        dsk.win.focus.open(Ventana::Mem);
-        scene::vitals::paint(&p, &dsk.win.mem, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo);
-    } else {
-        dsk.win.focus.close(Ventana::Mem);
-        erase_window(
-            &p, &dsk.run_box, dsk.win.mem.chrome.x, dsk.win.mem.chrome.y,
-            dsk.win.mem.chrome.width, dsk.win.mem.chrome.height, dsk.win.visible,
-        );
-        uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
-    }
+if c == 0x1B && dsk.win.mem_open {
+    crate::desktop::vitales::cerrar(dsk, &p);
     return Key::Taken;
 }
 

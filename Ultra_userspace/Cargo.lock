@@ -153,6 +153,10 @@ name = "bmo-puerta-red"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-registro"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-ritmo"
 version = "0.1.0"
 
@@ -178,6 +182,7 @@ dependencies = [
  "bmo-juicio",
  "bmo-pase-gpu",
  "bmo-pila",
+ "bmo-registro",
  "bmo-ritmo",
  "bmo-rtc",
  "bmo-userland",

@@ -80,6 +80,7 @@ mod simbolos;
 mod commands;
 mod text;
 mod watch;
+mod registro;
 /// Que ventana es cual. Vivia en `desktop`; la nombran tambien `scene` y el foco (L8).
 mod ventana;
 
@@ -1126,6 +1127,8 @@ pub extern "C" fn _start() -> ! {
                         // volcado.
                         let mut dest = [0u8; 32];
                         let dest_n = dump_name(target, &mut dest);
+                        // 02-10: un registro nuevo (CABINA P, `save` 8).
+                        crate::registro::empezar(target);
                         dsk.out.run = Some(Run {
                             mark: dsk.out.grid.mark().saturating_sub(1),
                             // El tid, para que `Ctrl+C` tenga a quien frenar.
