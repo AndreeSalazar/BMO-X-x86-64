@@ -173,7 +173,6 @@ extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32) -> i32 {
 
 const DXGI_ERROR_NOT_FOUND: i32 = 0x887A_0002_u32 as i32;
 const DXGI_FEATURE_PRESENT_ALLOW_TEARING: u32 = 0;
-const DXGI_ADAPTER_FLAG_SOFTWARE: u32 = 2;
 
 pub struct Adaptador;
 
@@ -190,7 +189,19 @@ fn adaptador(i: u32, riid: *const Guid, pp: *mut u64) -> i32 {
     if !riid.is_null() && !pide(riid, com::ADAPTER) {
         return E_NOINTERFACE;
     }
-    let vt = vtabla::<{ com::ADAPTER }>(&[(7, dir!(enum_outputs)), (8, dir!(get_desc)), (10, dir!(get_desc1))]);
+    let vt = vtabla::<{ com::ADAPTER }>(&[
+        (7, dir!(enum_outputs)),
+        (8, dir!(get_desc)),
+        (10, dir!(get_desc1)),
+        (11, dir!(get_desc2)),
+        (12, dir!(registrar_aviso)),
+        (13, dir!(quitar_aviso)),
+        (14, dir!(query_video_memory_info)),
+        (15, dir!(set_video_memory_reservation)),
+        (16, dir!(registrar_aviso)),
+        (17, dir!(quitar_aviso)),
+        (18, dir!(get_desc2)),
+    ]);
     dar(pp, nuevo(com::ADAPTER, vt, Adaptador) as u64)
 }
 
@@ -217,14 +228,24 @@ extern "win64" fn check_feature_support(_this: u64, que: u32, datos: *mut u32, m
 
 /// `GetDesc1(this, desc)`: DXGI_ADAPTER_DESC1 (312 B): Description (128
 /// WCHAR) +0, VendorId +256, DeviceId +260, SubSysId +264, Revision +268,
-/// las tres memorias (SIZE_T) +272 +280 +288, AdapterLuid +296, Flags +304.
+/// las tres memorias (SIZE_T) +272 +280 +288, AdapterLuid +296, Flags +304
+/// (0: una tarjeta de verdad, no DXGI_ADAPTER_FLAG_SOFTWARE).
 extern "win64" fn get_desc1(_this: u64, desc: *mut u8) -> i32 {
     if desc.is_null() {
         return E_INVALIDARG;
     }
-    escribir_desc(desc, 304);
-    // SAFETY: 312 bytes del `.exe`.
-    unsafe { (desc.add(304) as *mut u32).write_unaligned(DXGI_ADAPTER_FLAG_SOFTWARE) };
+    escribir_desc(desc, 312);
+    S_OK
+}
+
+/// `GetDesc2` y `GetDesc3` (DXGI_ADAPTER_DESC2/3, 320 B): lo del 1, y las
+/// granularidades de expropiacion de graficos +308 y de computo +312 (0:
+/// por bufer DMA, la mas gruesa).
+extern "win64" fn get_desc2(_this: u64, desc: *mut u8) -> i32 {
+    if desc.is_null() {
+        return E_INVALIDARG;
+    }
+    escribir_desc(desc, 320);
     S_OK
 }
 
@@ -238,17 +259,77 @@ extern "win64" fn get_desc(_this: u64, desc: *mut u8) -> i32 {
     S_OK
 }
 
-/// Lo comun de GetDesc y GetDesc1: el nombre y lo demas a cero, `n` bytes.
+const GIB: u64 = 1 << 30;
+/// La tarjeta del propietario, la que BMO-X lee en el bus (SALIDA, `sysinfo`):
+/// una RTX 3060 de MSI, 10DE:2504 sub 1462:397D rev A1, 12 GiB (02-10: era
+/// "PROTON-X", fabricante 0, SIN memoria y por SOFTWARE, y un juego descarta
+/// un adaptador asi). Como los procesadores (`bmo_proton_x::procesadores`):
+/// lo que se CUENTA es la maquina; lo que dibuja es la casa.
+const NOMBRE: &str = "NVIDIA GeForce RTX 3060";
+const FABRICANTE: u32 = 0x10DE;
+const APARATO: u32 = 0x2504;
+const SUBSISTEMA: u32 = 0x397D_1462;
+const REVISION: u32 = 0xA1;
+const VRAM: u64 = 12 * GIB;
+/// La compartida: la mitad de la RAM (16 GiB), como Windows.
+const COMPARTIDA: u64 = 8 * GIB;
+/// El LUID del adaptador (no cero: Windows nunca da 0). El mismo que da
+/// `ID3D12Device::GetAdapterLuid`.
+pub(crate) const LUID: u64 = 0x0000_0000_0000_B0E0;
+
+/// Lo comun de GetDesc, 1, 2 y 3: `n` bytes (304, 312 o 320), lo que no se
+/// dice a cero.
 fn escribir_desc(desc: *mut u8, n: usize) {
-    let nombre = "PROTON-X (la CPU de BMO-X)";
     // SAFETY: `n` bytes del `.exe` (quien llama lo comprobo no nulo).
     unsafe {
         core::ptr::write_bytes(desc, 0, n);
-        for (k, c) in nombre.encode_utf16().enumerate() {
+        for (k, c) in NOMBRE.encode_utf16().enumerate() {
             (desc.add(2 * k) as *mut u16).write_unaligned(c);
         }
+        for (off, v) in [(256, FABRICANTE), (260, APARATO), (264, SUBSISTEMA), (268, REVISION)] {
+            (desc.add(off) as *mut u32).write_unaligned(v);
+        }
+        (desc.add(272) as *mut u64).write_unaligned(VRAM);
+        (desc.add(288) as *mut u64).write_unaligned(COMPARTIDA);
+        (desc.add(296) as *mut u64).write_unaligned(LUID);
     }
 }
+
+/// `QueryVideoMemoryInfo(this, nodo, grupo, info)`: DXGI_QUERY_VIDEO_MEMORY_INFO
+/// (Budget, CurrentUsage, AvailableForReservation, CurrentReservation): la
+/// local (0) es la VRAM y la otra (1) la compartida; el presupuesto, el 90 %
+/// como en Windows; nada usado.
+extern "win64" fn query_video_memory_info(_this: u64, nodo: u32, grupo: u32, info: *mut u64) -> i32 {
+    if info.is_null() || nodo != 0 || grupo > 1 {
+        return E_INVALIDARG;
+    }
+    let total = if grupo == 0 { VRAM } else { COMPARTIDA };
+    // SAFETY: los cuatro UINT64 del `.exe`.
+    unsafe {
+        info.write_unaligned(total / 10 * 9);
+        info.add(1).write_unaligned(0);
+        info.add(2).write_unaligned(total / 2);
+        info.add(3).write_unaligned(0);
+    }
+    S_OK
+}
+
+extern "win64" fn set_video_memory_reservation(_this: u64, _nodo: u32, _grupo: u32, _bytes: u64) -> i32 {
+    S_OK
+}
+
+/// `Register...Event(this, evento, *galleta)`: se apunta, nunca avisa (el
+/// presupuesto no cambia, nadie quita la proteccion).
+extern "win64" fn registrar_aviso(_this: u64, _evento: u64, galleta: *mut u32) -> i32 {
+    if galleta.is_null() {
+        return E_INVALIDARG;
+    }
+    // SAFETY: el DWORD del `.exe`.
+    unsafe { galleta.write_unaligned(1) };
+    S_OK
+}
+
+extern "win64" fn quitar_aviso(_this: u64, _galleta: u32) {}
 
 // -- 01-10: la salida (el monitor) -------------------------------------------------
 //

@@ -107,6 +107,8 @@ const TANDA38: &[u8] = include_bytes!("../../proton-x/prueba/tanda38.exe");
 const TANDA39: &[u8] = include_bytes!("../../proton-x/prueba/tanda39.exe");
 /// La TANDA 41 (02-10): cuantos procesadores, igual por todas partes.
 const TANDA41: &[u8] = include_bytes!("../../proton-x/prueba/tanda41.exe");
+/// La TANDA 42 (02-10): lo que la tarjeta dice de si.
+const TANDA42: &[u8] = include_bytes!("../../proton-x/prueba/tanda42.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -1251,7 +1253,7 @@ fn bmox12_exe_sin_sus_cso_arranca_y_deja_el_pedido() {
     let uno = uno_a_la_vez();
     let esc = 1 << 8 | 1 << 9 | 0x01; // la tecla ESC (scancode 1): WM_KEYDOWN VK_ESCAPE
     let (salio, texto) = correr_bmox12(&uno, false, "", &[0, 0, 0, esc]);
-    assert!(texto.starts_with("[Estudio D3D12] GPU: PROTON-X (la CPU de BMO-X)\n"), "{texto}");
+    assert!(texto.starts_with("[Estudio D3D12] GPU: NVIDIA GeForce RTX 3060\n"), "{texto}");
     assert!(texto.contains("[Estudio D3D12] tearing (VSync apagado de verdad en flip model): no\n"), "{texto}");
     assert!(texto.contains("[memoria] depth D32 (DEFAULT)          pedidos   3686400 B"), "{texto}");
     assert!(texto.contains("D3DCompile(VSMain, vs_5_0) sin compilar todavia: dejado en window/sombras/d7e2992c.hls"), "{texto}");
