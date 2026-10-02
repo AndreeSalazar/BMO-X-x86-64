@@ -3,7 +3,8 @@
  * Por el inventario de la casa contra vkd3d-proton (en vez de un muro por
  * cada vez que se corre Cyberpunk): lo que un motor llama al montar y en
  * cada fotograma. Aqui, como en Windows: SetName en el dispositivo, la cola y
- * un bufer, y GetPrivateData lo devuelve; GetDevice de la cola y de la valla
+ * un bufer (que NO llena WKPDID_D3DDebugObjectNameW, y un SetPrivateData de
+ * ese GUID si vuelve entero); GetDevice de la cola y de la valla
  * dan el dispositivo; GetParent del adaptador da la fabrica; IsCurrent;
  * EnumAdapterByLuid con el LUID del dispositivo; CheckInterfaceSupport
  * (IDXGIDevice) da la version del driver; GetDesc de la cola y del monton de
@@ -46,6 +47,7 @@ typedef HRESULT (W *Pide)(void *t, const GUID *riid, void **pp);
 typedef unsigned long (W *Soltar)(void *t);
 typedef HRESULT (W *Nombrar)(void *t, const unsigned short *n);
 typedef HRESULT (W *Privado)(void *t, const GUID *g, UINT *n, void *d);
+typedef HRESULT (W *Guardar)(void *t, const GUID *g, UINT n, const void *d);
 typedef HRESULT (W *Crear3)(void *t, const void *d, const GUID *riid, void **pp);
 typedef HRESULT (W *CrearAsig)(void *t, int tipo, const GUID *riid, void **pp);
 typedef HRESULT (W *CrearLista)(void *t, UINT m, int tipo, void *a, void *pso, const GUID *riid, void **pp);
@@ -73,6 +75,8 @@ typedef int (W *Booleano)(void *t);
 typedef HRESULT (W *PorLuid)(void *t, U64 luid, const GUID *riid, void **pp);
 typedef HRESULT (W *Enumerar)(void *t, UINT i, void **pp);
 typedef HRESULT (W *Interfaz)(void *t, const GUID *g, U64 *v);
+
+#define DXGI_ERROR_NOT_FOUND ((HRESULT)0x887A0002)
 
 static unsigned fallos;
 
@@ -106,24 +110,33 @@ static void di_hex(unsigned long x) {
     di(t);
 }
 
-/* SetName(`o`) y GetPrivateData(WKPDID_D3DDebugObjectNameW) lo devuelve?
- * Si no, dice el HRESULT y cuantos bytes contesto. */
+/* Como Windows (02-10, la 3060 del propietario): SetName da S_OK pero NO
+ * llena WKPDID_D3DDebugObjectNameW -- GetPrivateData dice
+ * DXGI_ERROR_NOT_FOUND y 0 bytes --; un SetPrivateData explicito con ese
+ * GUID si vuelve entero. Si no, dice los HRESULT y cuantos bytes. */
 static void se_llama(void *o, const char *que) {
     static unsigned short d[32];
     UINT n = sizeof d, i;
-    HRESULT r = -1, rn = -1;
+    HRESULT r = -1, rn = -1, rp = -1;
     int bien = 0;
     if (o) {
         rn = ((Nombrar)hueco(o, 6))(o, NOMBRE_BUFER);
         r = ((Privado)hueco(o, 3))(o, &NOMBRE, &n, d);
-        bien = rn == 0 && r == 0 && n >= 14;
-        for (i = 0; bien && i < 7; i++)
+        bien = rn == 0 && r == DXGI_ERROR_NOT_FOUND && n == 0;
+        rp = ((Guardar)hueco(o, 4))(o, &NOMBRE, sizeof NOMBRE_BUFER, NOMBRE_BUFER);
+        n = sizeof d;
+        if (bien)
+            r = ((Privado)hueco(o, 3))(o, &NOMBRE, &n, d);
+        bien = bien && rp == 0 && r == 0 && n == sizeof NOMBRE_BUFER;
+        for (i = 0; bien && i < 8; i++)
             bien = d[i] == NOMBRE_BUFER[i];
     }
     mira(bien, que);
     if (!bien) {
         di("        (SetName ");
         di_hex((unsigned long)rn);
+        di(", SetPrivateData ");
+        di_hex((unsigned long)rp);
         di(", GetPrivateData ");
         di_hex((unsigned long)r);
         di(", ");
@@ -185,9 +198,9 @@ void inicio(void) {
     lee2 = dev ? bufer(dev, 3, 256, 0x400) : 0;
     mira(r == 0 && cola && sube && lee && lee2, "una cola y tres buferes (UPLOAD y dos READBACK)");
 
-    se_llama(dev, "SetName en el dispositivo; GetPrivateData lo devuelve");
-    se_llama(cola, "SetName en la cola; GetPrivateData lo devuelve");
-    se_llama(sube, "SetName en un bufer; GetPrivateData lo devuelve");
+    se_llama(dev, "SetName en el dispositivo: como Windows, no es WKPDID_D3DDebugObjectNameW");
+    se_llama(cola, "SetName en la cola: igual; SetPrivateData de ese GUID si vuelve");
+    se_llama(sube, "SetName en un bufer: igual");
     r = cola ? ((Pide)hueco(cola, 7))(cola, &IID_Device, &otro) : -1;
     mira(r == 0 && otro == dev, "GetDevice de la cola: el dispositivo");
     r = dev ? ((CrearValla)hueco(dev, 36))(dev, 0, 0, &IID_Fence, &valla) : -1;

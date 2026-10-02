@@ -1617,8 +1617,9 @@ tanda47.exe -- la TANDA 47 (02-10): lo que vkd3d-proton tiene y la casa no tenia
 
 No por un muro de Cyberpunk sino por el inventario de la casa contra
 vkd3d-proton: lo que un motor llama al montar y en cada fotograma. Aqui,
-como en Windows: SetName en el dispositivo, la cola y un bufer, y
-GetPrivateData lo devuelve; GetDevice de la cola y de la valla dan el
+como en Windows: SetName en el dispositivo, la cola y un bufer (que NO
+llena WKPDID_D3DDebugObjectNameW, y un SetPrivateData de ese GUID si vuelve
+entero); GetDevice de la cola y de la valla dan el
 dispositivo; GetParent del adaptador da la fabrica; IsCurrent;
 EnumAdapterByLuid con el LUID del dispositivo; CheckInterfaceSupport
 (IDXGIDevice) da la version del driver; GetDesc de la cola y del monton de
@@ -1637,15 +1638,18 @@ depende de que tarjeta haya.
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   0061f92f5698cd53af5bf7325794d2bc7ed81b077af1a1cfbbd9994292f5c6ee
+   f4fa8b5c0ded638c25c84ce1dcac73f14c933415ac6883ef312143a80e3597fc
 
 Dice `bien` veintiuna veces y sale con 0.
 
-Lo que dijo Windows (02-10): MAL en "SetName en el dispositivo, la cola y
-un bufer; GetPrivateData lo devuelve", sin decir cual. Ahora es un `bien`
-por objeto y, si sale MAL, escribe el HRESULT de SetName, el de
-GetPrivateData(WKPDID_D3DDebugObjectNameW) y cuantos bytes contesto: la
-proxima corrida en Windows dice que hace D3D12 de verdad con el nombre.
+Lo que dijo Windows (02-10, dos corridas): la primera, MAL en "SetName ...
+GetPrivateData lo devuelve", sin decir de quien; partida en un `bien` por
+objeto con sus HRESULT, la segunda dijo en los tres: SetName 0x00000000,
+GetPrivateData 0x887A0002 (DXGI_ERROR_NOT_FOUND), 0 bytes. D3D12 de verdad
+guarda el nombre para si y NO lo pone en WKPDID_D3DDebugObjectNameW
+(vkd3d-proton si, y la casa lo habia copiado). Ahora la casa hace lo de
+Windows (`com_objeto.rs`: el nombre con una clave suya) y la tanda prueba
+eso, y que un SetPrivateData explicito de ese GUID vuelve entero.
 
 tanda48.exe -- la TANDA 48 (02-10): la base de PROTON-X, llena
 

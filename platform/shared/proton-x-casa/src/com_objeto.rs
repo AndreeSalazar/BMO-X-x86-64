@@ -14,8 +14,11 @@
 //!                               5 GetPrivateData  6 GetParent
 //! ```
 //!
-//! Los datos van por (objeto, GUID), como en vkd3d-proton: `SetName` es
-//! `WKPDID_D3DDebugObjectNameW` con el nombre y su 0; una interfaz guardada
+//! Los datos van por (objeto, GUID), como en vkd3d-proton. `SetName` NO es
+//! `WKPDID_D3DDebugObjectNameW` (eso hace vkd3d-proton): en Windows, tras
+//! SetName, GetPrivateData de ese GUID dice DXGI_ERROR_NOT_FOUND y 0 bytes
+//! (tanda47 en la 3060 del propietario, 02-10). La casa guarda el nombre
+//! con una clave suya, que el `.exe` no conoce; una interfaz guardada
 //! lleva su AddRef, y GetPrivateData da otra. El padre DXGI: del adaptador y
 //! de la cadena, la fabrica; de la salida, el adaptador; la fabrica no tiene.
 
@@ -27,8 +30,9 @@ use crate::dir;
 
 const DXGI_ERROR_NOT_FOUND: i32 = 0x887A_0002_u32 as i32;
 const DXGI_ERROR_MORE_DATA: i32 = 0x887A_0003_u32 as i32;
-/// WKPDID_D3DDebugObjectNameW {4cca5fd8-921f-42c8-8566-70caf2a9c6e5}.
-const NOMBRE: Guid = com::guid(0x4cca5fd8, 0x921f, 0x42c8, [0x85, 0x66, 0x70, 0xca, 0xf2, 0xa9, 0xc6, 0xe5]);
+/// La clave del nombre de `SetName`: de la casa ("BMOX" y "nombre"), no
+/// WKPDID_D3DDebugObjectNameW, que Windows no llena con SetName.
+const NOMBRE: Guid = com::guid(0x424d_4f58, 0x6e6f, 0x6d62, [0x72, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]);
 
 enum Dato {
     Bytes(Vec<u8>),
@@ -199,8 +203,8 @@ extern "win64" fn get_private_data(this: u64, g: *const Guid, n: *mut u32, datos
     S_OK
 }
 
-/// `SetName(this, nombre)`: el nombre (UTF-16 con su 0) como el dato
-/// `WKPDID_D3DDebugObjectNameW`; un nombre nulo lo quita.
+/// `SetName(this, nombre)`: el nombre (UTF-16 con su 0), con la clave de la
+/// casa; un nombre nulo lo quita.
 extern "win64" fn set_name(this: u64, nombre: *const u16) -> i32 {
     quitar(this, &NOMBRE);
     if nombre.is_null() {
