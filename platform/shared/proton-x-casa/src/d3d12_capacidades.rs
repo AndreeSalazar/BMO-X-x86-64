@@ -29,6 +29,37 @@ const SHADER_MODEL: u32 = 7;
 const OPTIONS1: u32 = 8;
 const ROOT_SIGNATURE: u32 = 12;
 const ARCHITECTURE1: u32 = 16;
+const OPTIONS2: u32 = 18;
+const OPTIONS3: u32 = 21;
+const OPTIONS4: u32 = 23;
+const OPTIONS5: u32 = 27;
+const OPTIONS6: u32 = 30;
+const OPTIONS7: u32 = 32;
+
+/// OPTIONS2 a OPTIONS7 (02-10, lo siguiente que pregunta Cyberpunk): su
+/// numero y sus campos de 4 bytes, en orden.
+///
+/// Lo de la 3060 menos lo que la casa NO hace y un motor usaria si se dice:
+/// trazado de rayos (OPTIONS5), sombreado de tasa variable (OPTIONS6),
+/// sombreadores de malla y "sampler feedback" (OPTIONS7) van a 0, "no hay",
+/// como con el MSAA. Un juego que los tiene por opcionales sigue sin ellos;
+/// decir que si seria una pared por cada uno.
+const OPCIONES_MAS: [(u32, &[u32]); 6] = [
+    // DepthBoundsTest, ProgrammableSamplePositions tier 2.
+    (OPTIONS2, &[1, 2]),
+    // CopyQueueTimestamps, CastingFullyTypedFormat, WriteBufferImmediate en
+    // DIRECT|BUNDLE|COMPUTE|COPY, ViewInstancing tier 3, Barycentrics.
+    (OPTIONS3, &[1, 1, 0xF, 3, 1]),
+    // MSAA64KBAlignedTexture, SharedResourceCompatibility tier 2, Native16Bit.
+    (OPTIONS4, &[1, 2, 1]),
+    // SRVOnlyTiledResourceTier3, RenderPasses tier 0, Raytracing NO.
+    (OPTIONS5, &[1, 0, 0]),
+    // AdditionalShadingRates, PerPrimitive..., VRS tier NO, tesela 0,
+    // BackgroundProcessing.
+    (OPTIONS6, &[0, 0, 0, 0, 0]),
+    // MeshShader NO, SamplerFeedback NO.
+    (OPTIONS7, &[0, 0]),
+];
 
 /// D3D_FEATURE_LEVEL_12_2: lo mas alto que dice la tarjeta.
 const NIVEL_MAXIMO: u32 = 0xc200;
@@ -57,6 +88,15 @@ pub(crate) extern "win64" fn check_feature_support(_this: u64, que: u32, datos: 
     unsafe {
         let u = |k: usize| (datos.add(4 * k) as *const u32).read_unaligned();
         let pon = |k: usize, v: u32| (datos.add(4 * k) as *mut u32).write_unaligned(v);
+        if let Some((_, campos)) = OPCIONES_MAS.iter().find(|(n, _)| *n == que) {
+            if !cabe(4 * campos.len()) {
+                return E_INVALIDARG;
+            }
+            for (k, &v) in campos.iter().enumerate() {
+                pon(k, v);
+            }
+            return S_OK;
+        }
         match que {
             OPTIONS if cabe(60) => {
                 for (k, &v) in OPCIONES.iter().enumerate() {
