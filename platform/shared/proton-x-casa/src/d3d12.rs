@@ -51,11 +51,14 @@ const DESCRIPTOR: u64 = 32;
 pub struct Dispositivo {
     quitado: bool,
 }
-pub struct Cola;
+/// Una cola: su D3D12_COMMAND_QUEUE_DESC (Type, Priority, Flags, NodeMask).
+pub struct Cola {
+    pub(crate) desc: [u8; 16],
+}
 pub struct Asignador;
 
 /// Una orden apuntada en la lista.
-enum Orden {
+pub(crate) enum Orden {
     /// Limpiar un recurso con este pixel (ya en SU formato; en una
     /// profundidad D32, los bits del float).
     Limpiar { recurso: u64, pixel: u32 },
@@ -67,18 +70,30 @@ enum Orden {
     /// Un bufer a una textura entera (CopyTextureRegion al reves: lo que
     /// hace `UpdateSubresources` de d3dx12 para subir una textura).
     Subir { textura: u64, bufer: u64, desde: u64, paso: u32 },
+    /// Tanda 47 (ver `d3d12_resto`): `n` bytes de `src` a `dst`
+    /// (CopyBufferRegion), un recurso entero en otro (CopyResource), el fin
+    /// de una consulta (EndQuery) y sus resultados a un bufer
+    /// (ResolveQueryData).
+    Bytes { dst: u64, src: u64, n: u64 },
+    Entero { dst: u64, src: u64 },
+    Consulta { monton: u64, indice: u32, tipo: u32 },
+    Resolver { monton: u64, desde: u32, n: u32, bufer: u64, off: u64 },
 }
 
 pub struct Lista {
-    ordenes: Vec<Orden>,
-    abierta: bool,
+    pub(crate) ordenes: Vec<Orden>,
+    pub(crate) abierta: bool,
     /// El estado de dibujo: lo que los `Set*` van dejando.
-    estado: Estado,
+    pub(crate) estado: Estado,
+    /// D3D12_COMMAND_LIST_TYPE (GetType, tanda 47).
+    pub(crate) tipo: u32,
 }
 
 pub struct Monton {
     /// Los descriptores: 4 palabras cada uno; la primera, el recurso.
-    ranuras: Vec<u64>,
+    pub(crate) ranuras: Vec<u64>,
+    /// Su D3D12_DESCRIPTOR_HEAP_DESC (GetDesc, tanda 47).
+    pub(crate) desc: [u8; 16],
 }
 
 /// **Los pixeles de una imagen** (tanda 45, 02-10): `n` palabras en memoria
@@ -133,6 +148,9 @@ pub struct Recurso {
     /// Z1: lo ultimo que se dibujo en el quedo en la PANTALLA, no en
     /// `pixeles`: su `Present` no copia nada.
     pub en_pantalla: bool,
+    /// D3D12_HEAP_TYPE de su memoria (GetHeapProperties, tanda 47): 1
+    /// DEFAULT, salvo lo que diga quien lo crea.
+    pub tipo_monton: u32,
 }
 
 pub struct Valla {
@@ -158,7 +176,7 @@ fn marcar(v: &mut Valla, valor: u64) {
 // -- Crear objetos ----------------------------------------------------------
 
 fn dispositivo() -> u64 {
-    let vt = vtabla::<{ com::DEVICE }>(&[
+    let mut m = alloc::vec![
         (7, dir!(get_node_count)),
         (8, dir!(create_command_queue)),
         (9, dir!(create_command_allocator)),
@@ -204,14 +222,24 @@ fn dispositivo() -> u64 {
         (75, dir!(dv::create_command_queue1)),
         (76, dir!(dv::create_committed_resource3)),
         (77, dir!(dv::create_placed_resource2)),
-    ]);
+    ];
+    m.extend_from_slice(&crate::d3d12_resto::dispositivo());
+    let vt = vtabla::<{ com::DEVICE }>(&m);
     nuevo(com::DEVICE, vt, Dispositivo { quitado: false }) as u64
 }
 
 /// La vtabla de todo recurso: Map y compania dicen por si mismos si el
 /// recurso es un bufer.
 fn vtabla_recurso() -> *const u64 {
-    vtabla::<{ com::RESOURCE }>(&[(8, dir!(tuberia::map)), (9, dir!(tuberia::unmap)), (10, dir!(get_desc)), (11, dir!(tuberia::get_gpu_virtual_address))])
+    vtabla::<{ com::RESOURCE }>(&[
+        (8, dir!(tuberia::map)),
+        (9, dir!(tuberia::unmap)),
+        (10, dir!(get_desc)),
+        (11, dir!(tuberia::get_gpu_virtual_address)),
+        (12, dir!(crate::d3d12_resto::write_to_subresource)),
+        (13, dir!(crate::d3d12_resto::read_from_subresource)),
+        (14, dir!(crate::d3d12_resto::get_heap_properties)),
+    ])
 }
 
 /// **Una imagen nueva**: un back buffer de la cadena de intercambio
@@ -223,7 +251,7 @@ pub(crate) fn recurso(ancho: u32, alto: u32, formato: u32, cadena: bool) -> Opti
     let n = ancho as usize * alto as usize;
     let prestable = cadena || (formato != tuberia::FMT_D32_FLOAT && n as u64 * 4 <= crate::memoria::TEXTURA_PRESTABLE);
     let pixeles = Pixeles::nuevos(n, prestable)?;
-    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho, alto, formato, pixeles, bufer: None, cadena, en_pantalla: false }) as u64;
+    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho, alto, formato, pixeles, bufer: None, cadena, en_pantalla: false, tipo_monton: 1 }) as u64;
     // Uno nuevo en la direccion de uno que se fue no hereda su limpieza.
     tuberia::olvidar_limpieza(r);
     Some(r)
@@ -231,7 +259,7 @@ pub(crate) fn recurso(ancho: u32, alto: u32, formato: u32, cadena: bool) -> Opti
 
 /// Un recurso que es un bufer (CreateCommittedResource).
 pub(crate) fn recurso_bufer(b: Bufer) -> u64 {
-    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Pixeles::ninguno(), bufer: Some(b), cadena: false, en_pantalla: false }) as u64
+    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Pixeles::ninguno(), bufer: Some(b), cadena: false, en_pantalla: false, tipo_monton: 1 }) as u64
 }
 
 /// El inicio de un bufer de la casa, o `None` si `this` es una imagen.
@@ -282,12 +310,19 @@ pub(crate) fn quitar_dispositivo(this: u64) {
     unsafe { de::<Dispositivo>(this) }.quitado = true;
 }
 
-pub(crate) extern "win64" fn create_command_queue(_this: u64, _desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+pub(crate) extern "win64" fn create_command_queue(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
     if !pide(riid, com::QUEUE) {
         return E_NOINTERFACE;
     }
-    let vt = vtabla::<{ com::QUEUE }>(&[(10, dir!(execute_command_lists)), (14, dir!(queue_signal))]);
-    dar(pp, nuevo(com::QUEUE, vt, Cola) as u64)
+    let mut m = alloc::vec![(10, dir!(execute_command_lists)), (14, dir!(queue_signal))];
+    m.extend_from_slice(&crate::d3d12_resto::cola());
+    let vt = vtabla::<{ com::QUEUE }>(&m);
+    let mut d = [0u8; 16];
+    if !desc.is_null() {
+        // SAFETY: un D3D12_COMMAND_QUEUE_DESC del `.exe` (16 B).
+        unsafe { core::ptr::copy_nonoverlapping(desc, d.as_mut_ptr(), 16) };
+    }
+    dar(pp, nuevo(com::QUEUE, vt, Cola { desc: d }) as u64)
 }
 
 extern "win64" fn create_command_allocator(_this: u64, _tipo: u32, riid: *const Guid, pp: *mut u64) -> i32 {
@@ -300,11 +335,11 @@ extern "win64" fn create_command_allocator(_this: u64, _tipo: u32, riid: *const 
 
 /// `CreateCommandList(this, mascara, tipo, asignador, pso, riid, pp)`: nace
 /// ABIERTA, como en Windows.
-pub(crate) extern "win64" fn create_command_list(_this: u64, _mascara: u32, _tipo: u32, _asig: u64, pso: u64, riid: *const Guid, pp: *mut u64) -> i32 {
+pub(crate) extern "win64" fn create_command_list(_this: u64, _mascara: u32, tipo: u32, _asig: u64, pso: u64, riid: *const Guid, pp: *mut u64) -> i32 {
     if !pide(riid, com::LIST) {
         return E_NOINTERFACE;
     }
-    let vt = vtabla::<{ com::LIST }>(&[
+    let mut m = alloc::vec![
         (9, dir!(list_close)),
         (10, dir!(list_reset)),
         (12, dir!(draw_instanced)),
@@ -324,9 +359,12 @@ pub(crate) extern "win64" fn create_command_list(_this: u64, _mascara: u32, _tip
         (46, dir!(om_set_render_targets)),
         (47, dir!(proton_x_clear_depth_stencil_view)),
         (48, dir!(clear_render_target_view)),
-    ]);
+    ];
+    m.extend_from_slice(&crate::d3d12_resto::lista());
+    let vt = vtabla::<{ com::LIST }>(&m);
+    let pso = if crate::d3d12_resto::es_computo(pso) { 0 } else { pso };
     let estado = Estado { pso, ..Estado::default() };
-    dar(pp, nuevo(com::LIST, vt, Lista { ordenes: Vec::new(), abierta: true, estado }) as u64)
+    dar(pp, nuevo(com::LIST, vt, Lista { ordenes: Vec::new(), abierta: true, estado, tipo }) as u64)
 }
 
 /// `D3D12_DESCRIPTOR_HEAP_DESC`: Type +0, NumDescriptors +4, Flags +8.
@@ -336,8 +374,11 @@ extern "win64" fn create_descriptor_heap(_this: u64, desc: *const u8, riid: *con
     }
     // SAFETY: un D3D12_DESCRIPTOR_HEAP_DESC del `.exe`.
     let n = unsafe { (desc.add(4) as *const u32).read_unaligned() } as usize;
-    let vt = vtabla::<{ com::HEAP }>(&[(9, dir!(get_cpu_descriptor_handle_for_heap_start)), (10, dir!(get_cpu_descriptor_handle_for_heap_start))]);
-    dar(pp, nuevo(com::HEAP, vt, Monton { ranuras: vec![0; n.max(1) * (DESCRIPTOR / 8) as usize] }) as u64)
+    let vt = vtabla::<{ com::HEAP }>(&[(8, dir!(crate::d3d12_resto::get_desc_monton)), (9, dir!(get_cpu_descriptor_handle_for_heap_start)), (10, dir!(get_cpu_descriptor_handle_for_heap_start))]);
+    let mut d = [0u8; 16];
+    // SAFETY: como arriba (16 B).
+    unsafe { core::ptr::copy_nonoverlapping(desc, d.as_mut_ptr(), 16) };
+    dar(pp, nuevo(com::HEAP, vt, Monton { ranuras: vec![0; n.max(1) * (DESCRIPTOR / 8) as usize], desc: d }) as u64)
 }
 
 extern "win64" fn get_descriptor_handle_increment_size(_this: u64, _tipo: u32) -> u32 {
@@ -386,6 +427,11 @@ extern "win64" fn get_cpu_descriptor_handle_for_heap_start(this: u64, ret: *mut 
 /// La marca de la palabra 1 de un descriptor: que es.
 pub(crate) const DESC_SRV: u64 = 1;
 pub(crate) const DESC_MUESTREADOR: u64 = 2;
+/// Tanda 47: una vista de constantes (CBV: la direccion y la medida) y una
+/// de acceso desordenado (UAV: el recurso).
+pub(crate) const DESC_CBV: u64 = 3;
+pub(crate) const DESC_UAV: u64 = 4;
+pub(crate) const DESCRIPTOR_BYTES: u64 = DESCRIPTOR;
 
 /// `CreateShaderResourceView(this, recurso, desc, handle)`: en la ranura, el
 /// recurso y la marca de SRV. Una textura 2D de un nivel, con el mapeo de
@@ -490,6 +536,10 @@ extern "win64" fn rs_set_scissor_rects(this: u64, n: u32, r: *const i32) {
 }
 
 extern "win64" fn set_pipeline_state(this: u64, pso: u64) {
+    // Uno de computo no se dibuja: el grafico de antes sigue (tanda 47).
+    if crate::d3d12_resto::es_computo(pso) {
+        return;
+    }
     // SAFETY: `this` es una Lista de la casa.
     unsafe { lista(this).estado.pso = pso };
 }
@@ -919,6 +969,7 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
                 }
                 Orden::Copiar { rt, bufer, desde, paso } => copiar(*rt, *bufer, *desde, *paso),
                 Orden::Subir { textura, bufer, desde, paso } => subir(*textura, *bufer, *desde, *paso),
+                o => crate::d3d12_resto::ejecutar(o),
             }
         }
     }

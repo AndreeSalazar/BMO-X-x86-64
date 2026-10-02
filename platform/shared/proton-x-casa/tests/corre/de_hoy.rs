@@ -479,3 +479,11 @@ pub(crate) const TROZOS_DEL_BANCO: bmo_proton_x_casa::Trozos = bmo_proton_x_casa
 fn tanda46_exe_un_monton_sobre_memoria_del_exe() {
     tanda(TANDA46, None, 7, "tanda46.exe: un monton sobre memoria del .exe");
 }
+
+/// **La tanda 47** (02-10): `tanda47.exe` -- el inventario contra
+/// vkd3d-proton: nombres y datos privados, GetDevice/GetParent, el resto de
+/// la fabrica y el adaptador, vistas CBV, consultas y copias de buferes.
+#[test]
+fn tanda47_exe_lo_que_vkd3d_proton_tiene() {
+    tanda(TANDA47, None, 19, "tanda47.exe: lo que vkd3d-proton tiene y la casa no tenia");
+}

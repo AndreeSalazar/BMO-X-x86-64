@@ -59,9 +59,17 @@ pub(crate) fn dibujado(ns: u64) {
 pub struct Fabrica;
 
 pub struct Cadena {
-    hwnd: u64,
-    buffers: Vec<u64>,
-    actual: usize,
+    pub(crate) hwnd: u64,
+    pub(crate) buffers: Vec<u64>,
+    pub(crate) actual: usize,
+    /// Tanda 47: su DXGI_SWAP_CHAIN_DESC1 (48 B), con el ancho y el alto ya
+    /// resueltos; y lo que el `.exe` va pidiendo (ver `dxgi_resto`).
+    pub(crate) desc1: [u8; 48],
+    pub(crate) presentes: u32,
+    pub(crate) latencia: u32,
+    pub(crate) completa: bool,
+    pub(crate) espera: u64,
+    pub(crate) fuente: (u32, u32),
 }
 
 fn fabrica(riid: *const Guid, pp: *mut u64) -> i32 {
@@ -69,14 +77,16 @@ fn fabrica(riid: *const Guid, pp: *mut u64) -> i32 {
         aviso("CreateDXGIFactory: pide una fabrica que la casa no tiene (IDXGIFactory7+?)");
         return E_NOINTERFACE;
     }
-    let vt = vtabla::<{ com::FACTORY }>(&[
+    let mut m = alloc::vec![
         (7, dir!(enum_adapters)),
         (8, dir!(make_window_association)),
         (12, dir!(enum_adapters)),
         (15, dir!(create_swap_chain_for_hwnd)),
         (28, dir!(check_feature_support)),
         (29, dir!(enum_adapter_by_gpu_preference)),
-    ]);
+    ];
+    m.extend_from_slice(&crate::dxgi_resto::fabrica());
+    let vt = vtabla::<{ com::FACTORY }>(&m);
     dar(pp, nuevo(com::FACTORY, vt, Fabrica) as u64)
 }
 
@@ -95,7 +105,7 @@ extern "win64" fn make_window_association(_this: u64, _hwnd: u64, _banderas: u32
 /// `CreateSwapChainForHwnd(this, cola, hwnd, desc1, fs, salida, pp)`.
 /// `DXGI_SWAP_CHAIN_DESC1`: Width +0, Height +4, Format +8, BufferCount +28.
 /// Un ancho o alto 0 es "el de la ventana", como en Windows.
-extern "win64" fn create_swap_chain_for_hwnd(_this: u64, _cola: u64, hwnd: u64, desc: *const u8, _fs: *const u8, _salida: u64, pp: *mut u64) -> i32 {
+pub(crate) extern "win64" fn create_swap_chain_for_hwnd(_this: u64, _cola: u64, hwnd: u64, desc: *const u8, _fs: *const u8, _salida: u64, pp: *mut u64) -> i32 {
     if desc.is_null() {
         return E_INVALIDARG;
     }
@@ -117,8 +127,16 @@ extern "win64" fn create_swap_chain_for_hwnd(_this: u64, _cola: u64, hwnd: u64, 
         aviso("CreateSwapChainForHwnd: no hay memoria para los back buffers: E_OUTOFMEMORY");
         return E_OUTOFMEMORY;
     };
-    let vt = vtabla::<{ com::SWAPCHAIN }>(&[(8, dir!(present)), (9, dir!(get_buffer)), (15, dir!(get_containing_output)), (36, dir!(get_current_back_buffer_index))]);
-    dar(pp, nuevo(com::SWAPCHAIN, vt, Cadena { hwnd, buffers, actual: 0 }) as u64)
+    let mut m = alloc::vec![(8, dir!(present)), (9, dir!(get_buffer)), (15, dir!(get_containing_output)), (36, dir!(get_current_back_buffer_index))];
+    m.extend_from_slice(&crate::dxgi_resto::cadena());
+    let vt = vtabla::<{ com::SWAPCHAIN }>(&m);
+    let mut d1 = [0u8; 48];
+    // SAFETY: el DXGI_SWAP_CHAIN_DESC1 del `.exe` (48 bytes).
+    unsafe { core::ptr::copy_nonoverlapping(desc, d1.as_mut_ptr(), 48) };
+    d1[0..4].copy_from_slice(&w.to_le_bytes());
+    d1[4..8].copy_from_slice(&h.to_le_bytes());
+    let c = Cadena { hwnd, buffers, actual: 0, desc1: d1, presentes: 0, latencia: 3, completa: false, espera: 0, fuente: (w, h) };
+    dar(pp, nuevo(com::SWAPCHAIN, vt, c) as u64)
 }
 
 extern "win64" fn get_buffer(this: u64, i: u32, riid: *const Guid, pp: *mut u64) -> i32 {
@@ -135,7 +153,7 @@ extern "win64" fn get_buffer(this: u64, i: u32, riid: *const Guid, pp: *mut u64)
 
 /// `Present(this, intervalo, banderas)`: el back buffer actual a la ventana.
 /// Lo que no cabe se recorta; lo que sobra de la ventana no se toca.
-extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32) -> i32 {
+pub(crate) extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32) -> i32 {
     let empezo = (plataforma().ahora_ns)();
     // SAFETY: `this` es una Cadena de la casa.
     let c = unsafe { de::<Cadena>(this) };
@@ -161,6 +179,7 @@ extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32) -> i32 {
     }
     (plataforma().presentar)(&sup);
     c.actual = (c.actual + 1) % c.buffers.len();
+    c.presentes = c.presentes.wrapping_add(1);
     let ahora = (plataforma().ahora_ns)();
     if let Some(linea) = registro().presente(ahora, ahora.saturating_sub(empezo)) {
         (plataforma().escribir)(linea.as_bytes());
@@ -176,7 +195,7 @@ const DXGI_FEATURE_PRESENT_ALLOW_TEARING: u32 = 0;
 pub struct Adaptador;
 
 /// El adaptador `i`: solo hay uno, el 0 (la CPU de la casa).
-fn adaptador(i: u32, riid: *const Guid, pp: *mut u64) -> i32 {
+pub(crate) fn adaptador(i: u32, riid: *const Guid, pp: *mut u64) -> i32 {
     if pp.is_null() {
         return E_INVALIDARG;
     }
@@ -200,6 +219,7 @@ fn adaptador(i: u32, riid: *const Guid, pp: *mut u64) -> i32 {
         (16, dir!(registrar_aviso)),
         (17, dir!(quitar_aviso)),
         (18, dir!(get_desc2)),
+        (9, dir!(crate::dxgi_resto::check_interface_support)),
     ]);
     dar(pp, nuevo(com::ADAPTER, vt, Adaptador) as u64)
 }

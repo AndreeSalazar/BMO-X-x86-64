@@ -1604,3 +1604,31 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    66344853de8e90fb01e97d6f0e5f113824822486f6badcbf33701af2d7c36837
 
 Dice `bien` siete veces y sale con 0. En Windows dice lo mismo.
+
+tanda47.exe -- la TANDA 47 (02-10): lo que vkd3d-proton tiene y la casa no tenia
+
+No por un muro de Cyberpunk sino por el inventario de la casa contra
+vkd3d-proton: lo que un motor llama al montar y en cada fotograma. Aqui,
+como en Windows: SetName en el dispositivo, la cola y un bufer, y
+GetPrivateData lo devuelve; GetDevice de la cola y de la valla dan el
+dispositivo; GetParent del adaptador da la fabrica; IsCurrent;
+EnumAdapterByLuid con el LUID del dispositivo; CheckInterfaceSupport
+(IDXGIDevice) da la version del driver; GetDesc de la cola y del monton de
+descriptores; un CBV copiado con CopyDescriptorsSimple; GetCustomHeap
+Properties de UPLOAD; GetHeapProperties de un bufer READBACK; GetType de la
+lista; y una lista que copia con CopyBufferRegion y CopyResource y pone dos
+sellos de tiempo (EndQuery) resueltos a un bufer (ResolveQueryData), leido
+tras la valla. La casa de antes muere en el primer SetName (hueco 6). No
+depende de que tarjeta haya.
+
+   llvm-dlltool -m i386:x86-64 -d tanda47_kernel32.def -l tanda47_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda47_d3d12.def -l tanda47_d3d12.lib
+   llvm-dlltool -m i386:x86-64 -d tanda47_dxgi.def -l tanda47_dxgi.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda47.c -o tanda47.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda47.obj tanda47_kernel32.lib tanda47_d3d12.lib tanda47_dxgi.lib /out:tanda47.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   ca341bc002e06b6ede86bd74f28a07fed4ce84af58bc0c29e2a610122314017b
+
+Dice `bien` diecinueve veces y sale con 0. En Windows dice lo mismo.

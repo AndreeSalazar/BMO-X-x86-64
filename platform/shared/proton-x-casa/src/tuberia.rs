@@ -371,7 +371,7 @@ pub(crate) extern "win64" fn create_graphics_pipeline_state(_this: u64, desc: *c
     // SAFETY: un D3D12_GRAPHICS_PIPELINE_STATE_DESC del `.exe`.
     match unsafe { pso_de(desc) } {
         Ok(pso) => {
-            let vt = vtabla::<{ com::PSO }>(&[]);
+            let vt = vtabla::<{ com::PSO }>(&[(8, dir!(crate::d3d12_resto::get_cached_blob))]);
             let obj = nuevo(com::PSO, vt, pso) as u64;
             // P3b3b: sus sombreadores, traducidos a x86-64 una vez, aqui.
             // SAFETY: el Pso recien creado; vive lo que el proceso.
@@ -446,8 +446,10 @@ fn dar_imagen(pp: *mut u64, ancho: u32, alto: u32, formato: u32) -> i32 {
 
 /// `CreateCommittedResource(this, heap, banderas, desc, estado, clear, riid, pp)`.
 /// `D3D12_RESOURCE_DESC` (56 B): Dimension +0, Width +16. Solo BUFFER.
-pub(crate) extern "win64" fn create_committed_resource(_this: u64, _heap: *const u8, _banderas: u32, desc: *const u8, _estado: u32, _clear: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
-    crear_recurso(desc, riid, pp, None)
+pub(crate) extern "win64" fn create_committed_resource(_this: u64, heap: *const u8, _banderas: u32, desc: *const u8, _estado: u32, _clear: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+    let r = crear_recurso(desc, riid, pp, None);
+    crate::d3d12_resto::apuntar_monton(r, pp, heap);
+    r
 }
 
 /// Un recurso: el de `CreateCommittedResource` (`memoria` = `None`: un bufer

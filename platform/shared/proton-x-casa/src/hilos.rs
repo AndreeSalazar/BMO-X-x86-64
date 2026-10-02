@@ -386,6 +386,12 @@ fn handle(o: usize) -> u64 {
     OBJETO + o as u64
 }
 
+/// Un evento MANUAL ya encendido (tanda 47: la espera de latencia de una
+/// cadena de intercambio, que nunca hace esperar: la cola es sincrona).
+pub(crate) fn evento_encendido() -> u64 {
+    handle(casa().plan.nuevo_objeto(Objeto::Evento { manual: true, encendido: true }))
+}
+
 /// Encender un evento (lo usa la valla de D3D12).
 pub(crate) fn encender_evento(h: u64) {
     if let Some(o) = objeto_de(h) {

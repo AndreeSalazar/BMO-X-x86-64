@@ -101,8 +101,10 @@ pub(crate) extern "win64" fn create_command_list1(this: u64, mascara: u32, tipo:
 /// `CreateCommittedResource1(this, props, banderas, desc, estado, clear,
 /// sesion, riid, pp)`: sin sesion protegida, como el de siempre.
 #[allow(clippy::too_many_arguments)]
-pub(crate) extern "win64" fn create_committed_resource1(_this: u64, _props: *const u8, _banderas: u32, desc: *const u8, _estado: u32, _clear: *const u8, _sesion: u64, riid: *const Guid, pp: *mut u64) -> i32 {
-    tuberia::crear_recurso(desc, riid, pp, None)
+pub(crate) extern "win64" fn create_committed_resource1(_this: u64, props: *const u8, _banderas: u32, desc: *const u8, _estado: u32, _clear: *const u8, _sesion: u64, riid: *const Guid, pp: *mut u64) -> i32 {
+    let r = tuberia::crear_recurso(desc, riid, pp, None);
+    crate::d3d12_resto::apuntar_monton(r, pp, props);
+    r
 }
 
 /// `CreateHeap1(this, desc, sesion, riid, pp)`.
@@ -158,8 +160,10 @@ pub(crate) extern "win64" fn set_background_processing_mode(_this: u64, _modo: u
 /// `CreateCommittedResource2(this, props, banderas, desc1, estado, clear,
 /// sesion, riid, pp)`: el D3D12_RESOURCE_DESC1 empieza como el de siempre.
 #[allow(clippy::too_many_arguments)]
-pub(crate) extern "win64" fn create_committed_resource2(_this: u64, _props: *const u8, _banderas: u32, desc1: *const u8, _estado: u32, _clear: *const u8, _sesion: u64, riid: *const Guid, pp: *mut u64) -> i32 {
-    tuberia::crear_recurso(desc1, riid, pp, None)
+pub(crate) extern "win64" fn create_committed_resource2(_this: u64, props: *const u8, _banderas: u32, desc1: *const u8, _estado: u32, _clear: *const u8, _sesion: u64, riid: *const Guid, pp: *mut u64) -> i32 {
+    let r = tuberia::crear_recurso(desc1, riid, pp, None);
+    crate::d3d12_resto::apuntar_monton(r, pp, props);
+    r
 }
 
 /// `CreatePlacedResource1(this, monton, desde, desc1, estado, clear, riid, pp)`.
@@ -200,8 +204,10 @@ pub(crate) extern "win64" fn create_command_queue1(this: u64, desc: *const u8, _
 /// `CreateCommittedResource3(this, props, banderas, desc1, layout, clear,
 /// sesion, n_formatos, formatos, riid, pp)`.
 #[allow(clippy::too_many_arguments)]
-pub(crate) extern "win64" fn create_committed_resource3(_this: u64, _props: *const u8, _banderas: u32, desc1: *const u8, _layout: u32, _clear: *const u8, _sesion: u64, _n_formatos: u32, _formatos: *const u32, riid: *const Guid, pp: *mut u64) -> i32 {
-    tuberia::crear_recurso(desc1, riid, pp, None)
+pub(crate) extern "win64" fn create_committed_resource3(_this: u64, props: *const u8, _banderas: u32, desc1: *const u8, _layout: u32, _clear: *const u8, _sesion: u64, _n_formatos: u32, _formatos: *const u32, riid: *const Guid, pp: *mut u64) -> i32 {
+    let r = tuberia::crear_recurso(desc1, riid, pp, None);
+    crate::d3d12_resto::apuntar_monton(r, pp, props);
+    r
 }
 
 /// `CreatePlacedResource2(this, monton, desde, desc1, layout, clear,

@@ -116,6 +116,8 @@ const TANDA44: &[u8] = include_bytes!("../../proton-x/prueba/tanda44.exe");
 const TANDA45: &[u8] = include_bytes!("../../proton-x/prueba/tanda45.exe");
 /// La TANDA 46 (02-10): un monton sobre memoria del .exe.
 const TANDA46: &[u8] = include_bytes!("../../proton-x/prueba/tanda46.exe");
+/// La TANDA 47 (02-10): lo que vkd3d-proton tiene y la casa no tenia.
+const TANDA47: &[u8] = include_bytes!("../../proton-x/prueba/tanda47.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -593,8 +595,9 @@ fn limpia_exe_limpia_su_ventana_con_d3d12_y_presenta_por_dxgi() {
 
 /// **Un hueco que la casa no tiene dice su NOMBRE y sale**: nunca un S_OK
 /// callado ni un salto a cero. Se crea un dispositivo por la tabla de la casa
-/// y se salta al hueco 11 de su vtabla, `CreateComputePipelineState` (los
-/// sombreadores de calculo no son de P3b).
+/// y se salta al hueco 30 de su vtabla, `CreateReservedResource` (los
+/// recursos reservados, "tiled", no estan a proposito; hasta la tanda 47 el
+/// ejemplo era el 11, `CreateComputePipelineState`, que ya se guarda).
 #[test]
 fn un_hueco_que_falta_dice_cual_es_y_sale() {
     let _uno = uno_a_la_vez();
@@ -606,12 +609,12 @@ fn un_hueco_que_falta_dice_cual_es_y_sale() {
     let mut disp = 0u64;
     assert_eq!(crear(0, 0xb000, &bmo_proton_x_casa::com::IID_DEVICE, &mut disp), 0);
     // SAFETY: `disp` es un objeto de la casa: su primer puntero es la vtabla.
-    let hueco11 = unsafe { (*(disp as *const *const u64)).add(11).read() };
-    let salio = unsafe { correr(hueco11) };
-    assert_eq!(salio, 0xC0DE_000B, "0xC0DE0000 | interfaz 0 (el dispositivo) << 8 | hueco 11");
+    let hueco30 = unsafe { (*(disp as *const *const u64)).add(30).read() };
+    let salio = unsafe { correr(hueco30) };
+    assert_eq!(salio, 0xC0DE_001E, "0xC0DE0000 | interfaz 0 (el dispositivo) << 8 | hueco 30");
     assert_eq!(
         String::from_utf8_lossy(&DICHO.lock().unwrap()),
-        "PROTON-X: ID3D12Device::CreateComputePipelineState (hueco 11) no esta en la casa\n"
+        "PROTON-X: ID3D12Device::CreateReservedResource (hueco 30) no esta en la casa\n"
     );
 }
 

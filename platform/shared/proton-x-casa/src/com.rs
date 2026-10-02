@@ -70,6 +70,11 @@ pub const OUTPUT: usize = 13;
 /// ID3D12Heap: memoria de la tarjeta donde se colocan recursos (no confundir
 /// con HEAP, el monton de DESCRIPTORES).
 pub const MEMORIA: usize = 14;
+/// ID3D12QueryHeap y ID3D12CommandSignature (tanda 47).
+pub const CONSULTAS: usize = 15;
+pub const FIRMA: usize = 16;
+const IID_CONSULTAS: Guid = guid(0x0d9658ae, 0xed45, 0x469e, [0xa6, 0x1d, 0x97, 0x0e, 0xc5, 0x83, 0xca, 0xb4]);
+const IID_FIRMA: Guid = guid(0xc36a797c, 0xec80, 0x4f0a, [0x89, 0x85, 0xa7, 0xb2, 0x47, 0x50, 0x82, 0xd1]);
 
 const IID_OBJECT: Guid = guid(0xc4fec28f, 0x7966, 0x4e95, [0x9f, 0x94, 0xf4, 0x31, 0xcb, 0x56, 0xc3, 0xb8]);
 const IID_DEVICECHILD: Guid = guid(0x905db94b, 0xa00c, 0x4140, [0x9d, 0xf5, 0x2b, 0x64, 0xca, 0x9e, 0xa3, 0x57]);
@@ -134,7 +139,7 @@ pub const IID_SWAPCHAIN2: Guid = guid(0xa8be2ac4, 0x199f, 0x4946, [0xb3, 0x31, 0
 pub const IID_SWAPCHAIN3: Guid = guid(0x94d99bdb, 0xf1f8, 0x4ab0, [0xb2, 0x36, 0x7d, 0xa0, 0x17, 0x0e, 0xda, 0xb1]);
 pub const IID_SWAPCHAIN1: Guid = guid(0x790a45f7, 0x0d42, 0x4876, [0x98, 0x3a, 0x0a, 0x55, 0xcf, 0xe6, 0xf4, 0xaa]);
 
-pub static INTERFACES: [Interfaz; 15] = [
+pub static INTERFACES: [Interfaz; 17] = [
     Interfaz {
         nombre: "ID3D12Device",
         metodos: M_ID3D12DEVICE,
@@ -154,6 +159,8 @@ pub static INTERFACES: [Interfaz; 15] = [
     Interfaz { nombre: "IDXGIAdapter4", metodos: M_IDXGIADAPTER1, iids: &[IID_ADAPTER4, IID_ADAPTER3, IID_ADAPTER2, IID_ADAPTER1, IID_ADAPTER, IID_DXGIOBJECT] },
     Interfaz { nombre: "IDXGIOutput6", metodos: M_IDXGIOUTPUT6, iids: &[IID_OUTPUT6, IID_OUTPUT5, IID_OUTPUT4, IID_OUTPUT3, IID_OUTPUT2, IID_OUTPUT1, IID_OUTPUT, IID_DXGIOBJECT] },
     Interfaz { nombre: "ID3D12Heap", metodos: M_ID3D12HEAP, iids: &[IID_MEMORIA, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "ID3D12QueryHeap", metodos: M_PAGEABLE, iids: &[IID_CONSULTAS, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "ID3D12CommandSignature", metodos: M_PAGEABLE, iids: &[IID_FIRMA, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
 ];
 
 /// **La cabecera de todo objeto de la casa.** `repr(C)` y delante: el `.exe`
@@ -230,10 +237,10 @@ extern "win64" fn release(this: *mut Cabecera) -> u32 {
     }
 }
 
-struct Vtablas(UnsafeCell<[*const u64; 15]>);
+struct Vtablas(UnsafeCell<[*const u64; 17]>);
 // SAFETY: un hilo (ver `Global` en lib.rs).
 unsafe impl Sync for Vtablas {}
-static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 15]));
+static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 17]));
 
 /// **La vtabla de la interfaz `I`**: IUnknown, los `metodos` que la casa
 /// tiene (hueco, direccion), y un `falta` en todos los demas. Se arma una vez.
@@ -248,6 +255,12 @@ pub fn vtabla<const I: usize>(metodos: &[(usize, u64)]) -> *const u64 {
     v[0] = crate::dir!(query_interface);
     v[1] = crate::dir!(add_ref);
     v[2] = crate::dir!(release);
+    // Tanda 47: ID3D12Object / IDXGIObject de su familia; los suyos mandan.
+    for &(hueco, f) in crate::com_objeto::genericos(I) {
+        if hueco < n {
+            v[hueco] = f;
+        }
+    }
     for &(hueco, f) in metodos {
         v[hueco] = f;
     }
@@ -257,7 +270,9 @@ pub fn vtabla<const I: usize>(metodos: &[(usize, u64)]) -> *const u64 {
 
 /// **Un objeto nuevo** de la interfaz `I`, con una referencia.
 pub fn nuevo<T>(interfaz: usize, vt: *const u64, t: T) -> *mut Com<T> {
-    Box::leak(Box::new(Com { vtabla: vt, interfaz: interfaz as u32, refs: 1, t }))
+    let p = Box::leak(Box::new(Com { vtabla: vt, interfaz: interfaz as u32, refs: 1, t }));
+    crate::com_objeto::nacio(interfaz, p as *mut Com<T> as u64);
+    p
 }
 
 /// Lo de dentro de un objeto de la casa.
@@ -317,6 +332,8 @@ pub const M_ID3D12DEVICE: &[&str] = &[
     "CreateShaderCacheSession", "ShaderCacheControl", "CreateCommandQueue1",
     "CreateCommittedResource3", "CreatePlacedResource2", "CreateReservedResource2",
 ];
+/// Lo de un ID3D12Pageable sin metodos propios (QueryHeap, CommandSignature).
+pub const M_PAGEABLE: &[&str] = &["QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData", "SetPrivateDataInterface", "SetName", "GetDevice"];
 pub const M_ID3D12HEAP: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
     "SetPrivateDataInterface", "SetName", "GetDevice", "GetDesc",

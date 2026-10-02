@@ -183,14 +183,18 @@ pub(crate) extern "win64" fn create_placed_resource(_this: u64, monton: u64, des
             aviso("CreatePlacedResource: el kernel no tiene RAM para el bufer: E_OUTOFMEMORY");
             return E_OUTOFMEMORY;
         }
-        return crate::tuberia::crear_recurso(desc, riid, pp, Some(m.base + desde));
+        let r = crate::tuberia::crear_recurso(desc, riid, pp, Some(m.base + desde));
+        crate::d3d12_resto::apuntar_monton(r, pp, m.desc[8..].as_ptr());
+        return r;
     }
     if m.colocados.contains(&desde) {
         aviso("CreatePlacedResource: dos recursos en el mismo sitio de un monton; en la casa no comparten memoria");
     } else {
         m.colocados.push(desde);
     }
-    crate::tuberia::crear_recurso(desc, riid, pp, None)
+    let r = crate::tuberia::crear_recurso(desc, riid, pp, None);
+    crate::d3d12_resto::apuntar_monton(r, pp, m.desc[8..].as_ptr());
+    r
 }
 
 #[cfg(test)]
