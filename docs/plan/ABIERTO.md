@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   471 casillas ABIERTAS en 46 planes
+   472 casillas ABIERTAS en 46 planes
    361 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -23,9 +23,9 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 9 de 10 hechas, faltan 1
 - [`PLAN_EL_AISLAMIENTO.md`](PLAN_EL_AISLAMIENTO.md) -- 4 de 5 hechas, faltan 1
-- [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 9 hechas, faltan 1
 - [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 8 de 9 hechas, faltan 1
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
+- [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 10 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_SEGURIDAD.md`](PLAN_SEGURIDAD.md) -- 26 de 32 hechas, faltan 6
 
@@ -395,6 +395,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] X5b -- el depth buffer. Para lo que NO es convexo (dos objetos que
 - [ ] X6 -- mas huellas. Las 360 de la vuelta, generadas en Windows por
 
+## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 2 abiertas, 8 hechas
+
+*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
+
+- [ ] E6 -- SALTOS, BUCLES, switch Y ENTEROS, del SM5 y del DXIL (02-10; el anfitrion, hecho)
+- [ ] E7 -- EL VIGILANTE: un trabajo de la 3060 que no vuelve (el TDR de BMO-X)
+
 ## [`PLAN_REX.md`](PLAN_REX.md) -- 2 abiertas, 15 hechas
 
 *REX -- la puerta de los terceros, ORDENADA*
@@ -413,12 +420,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 *PLAN EL AISLAMIENTO -- cada GPU con su emisor, su juez y su puerta*
 
 - [ ] A5 -- LA SEGUNDA TARJETA (cuando la haya)
-
-## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 1 abiertas, 8 hechas
-
-*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
-
-- [ ] E6 -- SALTOS Y BUCLES: si, bucles y sus BRA, del SM5 y del DXIL (02-10; el anfitrion, hecho)
 
 ## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 1 abiertas, 8 hechas
 

@@ -52,7 +52,7 @@
 
 use alloc::vec::Vec;
 
-use crate::dxil::programa::{Comparacion, NoPrograma, Op, Programa, Reg};
+use crate::dxil::programa::{Comparacion, Conversion, NoPrograma, Op, OpEntera, Programa, Reg};
 use crate::dxil::Elemento;
 
 // Los codigos que se saben (D3D10_SB_OPCODE_TYPE).
@@ -61,6 +61,39 @@ const BREAK: u32 = 2;
 const BREAKC: u32 = 3;
 const CONTINUE: u32 = 7;
 const CONTINUEC: u32 = 8;
+// E6c (02-10): los enteros, las conversiones y el `switch`.
+const AND: u32 = 1;
+const CASE: u32 = 6;
+const DEFAULT: u32 = 10;
+const ENDSWITCH: u32 = 23;
+const FTOI: u32 = 27;
+const FTOU: u32 = 28;
+const IMAD: u32 = 35;
+const IMAX: u32 = 36;
+const IMIN: u32 = 37;
+const IMUL: u32 = 38;
+const INEG: u32 = 40;
+const ISHL: u32 = 41;
+const ISHR: u32 = 42;
+const ITOF: u32 = 43;
+const NOT: u32 = 59;
+const OR: u32 = 60;
+const SWITCH: u32 = 76;
+const ULT: u32 = 79;
+const UGE: u32 = 80;
+const UMUL: u32 = 81;
+const UMAD: u32 = 82;
+const UMAX: u32 = 83;
+const UMIN: u32 = 84;
+const USHR: u32 = 85;
+const UTOF: u32 = 86;
+const XOR: u32 = 87;
+/// D3D10_SB_OPERAND_TYPE_NULL: el destino alto de `imul`/`umul` que no se usa.
+const NULO: u32 = 13;
+/// Las instrucciones de enteros o de bits: sin modificadores de float.
+const fn de_enteros(c: u32) -> bool {
+    matches!(c, ILT | IGE | IEQ | INE | IADD | MOVC | AND | OR | XOR | NOT | INEG | IMUL | UMUL | IMAD | UMAD | ISHL | ISHR | USHR | IMIN | IMAX | UMIN | UMAX | ITOF | UTOF | ULT | UGE)
+}
 const ELSE: u32 = 18;
 const ENDIF: u32 = 21;
 const ENDLOOP: u32 = 22;
@@ -215,6 +248,26 @@ struct Traductor<'a> {
     variables: bool,
     /// E6: cuantos `if`/`loop` hay abiertos.
     hondo: usize,
+    /// E6c: lo abierto que es bucle (`false`) o `switch` (`true`): un
+    /// `continue` dentro de un `switch` todavia no.
+    construcciones: Vec<bool>,
+    /// E6c: los `switch` abiertos.
+    switches: Vec<Interruptor>,
+}
+
+/// Un `switch` abierto: se hace un BUCLE de una vuelta (su `break` es el
+/// Romper de ese bucle) y cada tramo de `case` un `Si` de `m`, que dice si
+/// ya se entro (asi el que cae al siguiente caso, cae): `m |= (x == v)` en
+/// cada `case`, `m |= defecto` en el `default`, y `defecto` es que `x` no es
+/// ninguno de los casos (se miran todos al abrir).
+struct Interruptor {
+    x: Reg,
+    m: Reg,
+    defecto: Reg,
+    /// Hay un `Si` de tramo abierto.
+    abierto: bool,
+    /// Tras un `case`/`default`: la siguiente instruccion abre el tramo.
+    pendiente: bool,
 }
 
 impl Traductor<'_> {
@@ -307,6 +360,150 @@ impl Traductor<'_> {
         Ok(x)
     }
 
+    /// **Una operacion** (no `mov` ni `dp`) sobre las fuentes `s`: su
+    /// resultado, en un registro nuevo.
+    fn operar(&mut self, codigo: u32, s: &[Reg]) -> Result<Reg, NoPrograma> {
+        let x = self.nuevo()?;
+        let entera = |op| Op::Entera { d: x, a: s[0], b: s.get(1).copied().unwrap_or(s[0]), op };
+        let compara = |como, entero| Op::Compara { d: x, a: s[0], b: s[1], como, entero };
+        let convierte = |como| Op::Convierte { d: x, a: s[0], como };
+        let op = match codigo {
+            ADD => Op::Add { d: x, a: s[0], b: s[1] },
+            MUL => Op::Mul { d: x, a: s[0], b: s[1] },
+            DIV => Op::Div { d: x, a: s[0], b: s[1] },
+            MIN => Op::Min { d: x, a: s[0], b: s[1] },
+            MAX => Op::Max { d: x, a: s[0], b: s[1] },
+            MAD => Op::Mad { d: x, a: s[0], b: s[1], c: s[2] },
+            RSQ => Op::Rsqrt { d: x, a: s[0] },
+            SQRT => Op::Sqrt { d: x, a: s[0] },
+            IADD => Op::SumaEntera { d: x, a: s[0], b: s[1] },
+            MOVC => Op::Elige { d: x, c: s[0], a: s[1], b: s[2] },
+            LT => compara(Comparacion::Menor, false),
+            GE => compara(Comparacion::MayorIgual, false),
+            EQ => compara(Comparacion::Igual, false),
+            NE => compara(Comparacion::Distinto, false),
+            ILT => compara(Comparacion::Menor, true),
+            IGE => compara(Comparacion::MayorIgual, true),
+            IEQ => compara(Comparacion::Igual, true),
+            INE => compara(Comparacion::Distinto, true),
+            ULT => compara(Comparacion::MenorSinSigno, true),
+            UGE => compara(Comparacion::MayorIgualSinSigno, true),
+            AND => entera(OpEntera::Y),
+            OR => entera(OpEntera::O),
+            XOR => entera(OpEntera::OX),
+            IMUL | UMUL => entera(OpEntera::Mul),
+            ISHL => entera(OpEntera::Shl),
+            ISHR => entera(OpEntera::ShrA),
+            USHR => entera(OpEntera::ShrL),
+            IMIN => entera(OpEntera::MinS),
+            IMAX => entera(OpEntera::MaxS),
+            UMIN => entera(OpEntera::MinU),
+            UMAX => entera(OpEntera::MaxU),
+            ITOF => convierte(Conversion::EnteroAFloat),
+            UTOF => convierte(Conversion::SinSignoAFloat),
+            FTOI => convierte(Conversion::FloatAEntero),
+            FTOU => convierte(Conversion::FloatASinSigno),
+            // not x = x ^ 0xFFFFFFFF; ineg x = 0 - x.
+            NOT => {
+                let todos = self.literal(u32::MAX)?;
+                Op::Entera { d: x, a: s[0], b: todos, op: OpEntera::OX }
+            }
+            INEG => {
+                let cero = self.literal(0)?;
+                Op::Entera { d: x, a: cero, b: s[0], op: OpEntera::Resta }
+            }
+            // imad/umad: a * b + c (los 32 de abajo: igual con o sin signo).
+            _ => {
+                let t = self.nuevo()?;
+                self.p.ops.push(Op::Entera { d: t, a: s[0], b: s[1], op: OpEntera::Mul });
+                Op::SumaEntera { d: x, a: t, b: s[2] }
+            }
+        };
+        self.p.ops.push(op);
+        Ok(x)
+    }
+
+    /// E6c: tras un `case`/`default`, la primera instruccion abre su tramo.
+    fn abrir_tramo(&mut self) {
+        if let Some(s) = self.switches.last_mut().filter(|s| s.pendiente) {
+            s.pendiente = false;
+            s.abierto = true;
+            let m = s.m;
+            self.p.ops.push(Op::Si { c: m });
+            self.hondo += 1;
+        }
+    }
+
+    fn cerrar_tramo(&mut self) -> Result<(), NoPrograma> {
+        let s = self.switches.last_mut().ok_or(NoPrograma::Forma("un case/default/endswitch SM5 fuera de un switch"))?;
+        if s.abierto {
+            s.abierto = false;
+            self.p.ops.push(Op::FinSi);
+            self.hondo -= 1;
+        }
+        Ok(())
+    }
+
+    /// `switch x` con estos casos: `m = 0`, `defecto = x no es ninguno`, y el
+    /// bucle de una vuelta.
+    fn abrir_switch(&mut self, x: Reg, casos: &[u32]) -> Result<(), NoPrograma> {
+        let cero = self.literal(0)?;
+        let m = self.nuevo()?;
+        self.p.ops.push(Op::Copia { d: m, a: cero });
+        let mut defecto = self.literal(u32::MAX)?;
+        for &v in casos {
+            let lit = self.literal(v)?;
+            let distinto = self.nuevo()?;
+            self.p.ops.push(Op::Compara { d: distinto, a: x, b: lit, como: Comparacion::Distinto, entero: true });
+            let y = self.nuevo()?;
+            self.p.ops.push(Op::Entera { d: y, a: defecto, b: distinto, op: OpEntera::Y });
+            defecto = y;
+        }
+        self.p.ops.push(Op::Bucle);
+        self.hondo += 1;
+        self.construcciones.push(true);
+        self.switches.push(Interruptor { x, m, defecto, abierto: false, pendiente: false });
+        Ok(())
+    }
+
+    /// `case v` (o `default` con `None`): `m |= (x == v)` (o `m |= defecto`).
+    fn caso(&mut self, v: Option<u32>) -> Result<(), NoPrograma> {
+        self.cerrar_tramo()?;
+        let (x, m, defecto) = match self.switches.last() {
+            Some(s) => (s.x, s.m, s.defecto),
+            None => return Err(NoPrograma::Forma("un case/default SM5 fuera de un switch")),
+        };
+        let entra = match v {
+            Some(v) => {
+                let lit = self.literal(v)?;
+                let e = self.nuevo()?;
+                self.p.ops.push(Op::Compara { d: e, a: x, b: lit, como: Comparacion::Igual, entero: true });
+                e
+            }
+            None => defecto,
+        };
+        let o = self.nuevo()?;
+        self.p.ops.push(Op::Entera { d: o, a: m, b: entra, op: OpEntera::O });
+        self.p.ops.push(Op::Copia { d: m, a: o });
+        if let Some(s) = self.switches.last_mut() {
+            s.pendiente = true;
+        }
+        Ok(())
+    }
+
+    /// `endswitch`: el tramo, y salir del bucle de una vuelta.
+    fn cerrar_switch(&mut self) -> Result<(), NoPrograma> {
+        self.cerrar_tramo()?;
+        self.switches.pop();
+        if self.construcciones.pop() != Some(true) {
+            return Err(NoPrograma::Forma("un endswitch SM5 sin su switch"));
+        }
+        self.p.ops.push(Op::Romper);
+        self.p.ops.push(Op::FinBucle);
+        self.hondo -= 1;
+        Ok(())
+    }
+
     /// Escribe el componente `k` del destino (con `_sat` si toca).
     fn escribir(&mut self, o: &Operando, k: usize, x: Reg, saturar: bool) -> Result<(), NoPrograma> {
         let x = if saturar {
@@ -356,7 +553,7 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
     // E6: si salta, antes de leer nada (lo de antes del primer `if` tambien
     // va a sus variables).
     let variables = salta(t, medida);
-    let mut tr = Traductor { entradas, salidas, p, temps: Vec::new(), outs: Vec::new(), leidas: Vec::new(), filas: Vec::new(), literales: Vec::new(), variables, hondo: 0 };
+    let mut tr = Traductor { entradas, salidas, p, temps: Vec::new(), outs: Vec::new(), leidas: Vec::new(), filas: Vec::new(), literales: Vec::new(), variables, hondo: 0, construcciones: Vec::new(), switches: Vec::new() };
     let mut i = 2;
     let mut acabado = false;
     while i < medida {
@@ -373,6 +570,10 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
         if acabado {
             // Tras el `ret` del principal solo hay subrutinas o nada.
             return Err(NoPrograma::Forma("un programa SM5 con algo detras del ret (subrutinas): todavia no"));
+        }
+        // E6c: la primera instruccion tras un `case`/`default` abre su tramo.
+        if !matches!(codigo, CASE | DEFAULT | ENDSWITCH) && !es_declaracion(codigo) {
+            tr.abrir_tramo();
         }
         match codigo {
             CUSTOMDATA => return Err(NoPrograma::Forma("un programa SM5 con datos propios (icb): todavia no")),
@@ -394,6 +595,7 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
             RET if tr.hondo > 0 => return Err(NoPrograma::Forma("un ret dentro de un if o un loop: todavia no")),
             RET => acabado = true,
             // ** E6: los saltos.
+            CONTINUE | CONTINUEC if tr.construcciones.last() == Some(&true) => return Err(NoPrograma::Forma("un continue SM5 dentro de un switch: todavia no")),
             IF | BREAKC | CONTINUEC => {
                 let mut j = i + 1;
                 let c = operando(t, &mut j)?;
@@ -429,24 +631,50 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
             ELSE => tr.p.ops.push(Op::SiNo),
             ENDIF | ENDLOOP => {
                 tr.hondo = tr.hondo.checked_sub(1).ok_or(NoPrograma::Forma("un endif/endloop SM5 sin su if/loop"))?;
+                if codigo == ENDLOOP && tr.construcciones.pop() != Some(false) {
+                    return Err(NoPrograma::Forma("un endloop SM5 sin su loop"));
+                }
                 tr.p.ops.push(if codigo == ENDIF { Op::FinSi } else { Op::FinBucle });
             }
             LOOP => {
                 tr.p.ops.push(Op::Bucle);
                 tr.hondo += 1;
+                tr.construcciones.push(false);
             }
+            // ** E6c: el `switch`.
+            SWITCH => {
+                let mut j = i + 1;
+                let o = operando(t, &mut j)?;
+                let x = tr.fuente(&o, 0)?;
+                tr.abrir_switch(x, &casos_del_switch(t, fin, medida)?)?;
+            }
+            CASE => {
+                let mut j = i + 1;
+                let o = operando(t, &mut j)?;
+                tr.caso(Some(o.inmediato[0]))?;
+            }
+            DEFAULT => tr.caso(None)?,
+            ENDSWITCH => tr.cerrar_switch()?,
             BREAK => tr.p.ops.push(Op::Romper),
             CONTINUE => tr.p.ops.push(Op::Continuar),
-            ADD | MUL | DIV | MIN | MAX | MAD | MOV | RSQ | SQRT | DP2 | DP3 | DP4 | LT | GE | EQ | NE | ILT | IGE | IEQ | INE | IADD | MOVC => {
+            ADD | MUL | DIV | MIN | MAX | MAD | MOV | RSQ | SQRT | DP2 | DP3 | DP4 | LT | GE | EQ | NE | ILT | IGE | IEQ | INE | IADD | MOVC | AND | OR | XOR | NOT | INEG | IMUL | UMUL | IMAD | UMAD | ISHL | ISHR | USHR | IMIN | IMAX | UMIN | UMAX | ITOF | UTOF | FTOI | FTOU | ULT | UGE => {
                 let saturar = w & 0x2000 != 0;
                 let mut j = i + 1;
                 while t[j - 1] >> 31 != 0 && j < fin {
                     j += 1; // los tokens extendidos del codigo
                 }
-                let d = operando(t, &mut j)?;
+                let mut d = operando(t, &mut j)?;
+                // `imul`/`umul` escriben DOS: la mitad alta (que no se usa:
+                // null) y la baja.
+                if matches!(codigo, IMUL | UMUL) {
+                    if d.tipo != NULO {
+                        return Err(NoPrograma::Forma("un imul/umul SM5 que usa la mitad alta: todavia no"));
+                    }
+                    d = operando(t, &mut j)?;
+                }
                 let n = match codigo {
-                    MAD | MOVC => 3,
-                    MOV | RSQ | SQRT => 1,
+                    MAD | MOVC | IMAD | UMAD => 3,
+                    MOV | RSQ | SQRT | NOT | INEG | ITOF | UTOF | FTOI | FTOU => 1,
                     _ => 2,
                 };
                 let mut f = Vec::with_capacity(n);
@@ -455,7 +683,7 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
                 }
                 // Un `-` o un `|x|` de float no es el de un entero (ni el de
                 // los bits de `movc`): todavia no.
-                if matches!(codigo, ILT | IGE | IEQ | INE | IADD | MOVC) && f.iter().any(|o| o.modificador != 0) {
+                if de_enteros(codigo) && f.iter().any(|o| o.modificador != 0) {
                     return Err(NoPrograma::Forma("un modificador en una instruccion SM5 de enteros o de bits: todavia no"));
                 }
                 if j != fin {
@@ -494,33 +722,7 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
                             tr.p.ops.push(Op::Copia { d: x, a: s[0] });
                             x
                         } else {
-                            let x = tr.nuevo()?;
-                            tr.p.ops.push(match codigo {
-                                ADD => Op::Add { d: x, a: s[0], b: s[1] },
-                                MUL => Op::Mul { d: x, a: s[0], b: s[1] },
-                                DIV => Op::Div { d: x, a: s[0], b: s[1] },
-                                MIN => Op::Min { d: x, a: s[0], b: s[1] },
-                                MAX => Op::Max { d: x, a: s[0], b: s[1] },
-                                MAD => Op::Mad { d: x, a: s[0], b: s[1], c: s[2] },
-                                RSQ => Op::Rsqrt { d: x, a: s[0] },
-                                SQRT => Op::Sqrt { d: x, a: s[0] },
-                                IADD => Op::SumaEntera { d: x, a: s[0], b: s[1] },
-                                MOVC => Op::Elige { d: x, c: s[0], a: s[1], b: s[2] },
-                                c => {
-                                    let (como, entero) = match c {
-                                        LT => (Comparacion::Menor, false),
-                                        GE => (Comparacion::MayorIgual, false),
-                                        EQ => (Comparacion::Igual, false),
-                                        NE => (Comparacion::Distinto, false),
-                                        ILT => (Comparacion::Menor, true),
-                                        IGE => (Comparacion::MayorIgual, true),
-                                        IEQ => (Comparacion::Igual, true),
-                                        _ => (Comparacion::Distinto, true),
-                                    };
-                                    Op::Compara { d: x, a: s[0], b: s[1], como, entero }
-                                }
-                            });
-                            x
+                            tr.operar(codigo, &s)?
                         };
                         hechos.push((k, x));
                     }
@@ -586,13 +788,39 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
     Ok(tr.p)
 }
 
+/// E6c: los valores de los `case` de un `switch` (los de SU nivel), desde
+/// la instruccion `desde` (la de detras del `switch`) hasta su `endswitch`.
+fn casos_del_switch(t: &[u32], desde: usize, medida: usize) -> Result<Vec<u32>, NoPrograma> {
+    let (mut i, mut hondo, mut casos) = (desde, 0usize, Vec::new());
+    while i < medida {
+        let w = t[i];
+        let codigo = w & 0x7FF;
+        let largo = ((w >> 24) & 0x7F) as usize;
+        if largo == 0 {
+            break;
+        }
+        match codigo {
+            SWITCH => hondo += 1,
+            ENDSWITCH if hondo == 0 => return Ok(casos),
+            ENDSWITCH => hondo -= 1,
+            CASE if hondo == 0 => {
+                let mut j = i + 1;
+                casos.push(operando(t, &mut j)?.inmediato[0]);
+            }
+            _ => {}
+        }
+        i += largo;
+    }
+    Err(NoPrograma::Forma("un switch SM5 sin su endswitch"))
+}
+
 /// E6: si el programa (de la palabra 2 a `medida`) tiene algun salto.
 fn salta(t: &[u32], medida: usize) -> bool {
     let mut i = 2;
     while i < medida {
         let w = t[i];
         let codigo = w & 0x7FF;
-        if matches!(codigo, IF | LOOP | BREAK | BREAKC | CONTINUE | CONTINUEC | ELSE | ENDIF | ENDLOOP) {
+        if matches!(codigo, IF | LOOP | BREAK | BREAKC | CONTINUE | CONTINUEC | ELSE | ENDIF | ENDLOOP | SWITCH) {
             return true;
         }
         let largo = if codigo == CUSTOMDATA { t.get(i + 1).copied().unwrap_or(0) as usize } else { ((w >> 24) & 0x7F) as usize };

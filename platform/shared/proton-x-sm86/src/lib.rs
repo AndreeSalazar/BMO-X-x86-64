@@ -73,7 +73,7 @@ pub mod muestreo;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use bmo_proton_x::dxil::programa::{Comparacion, Op, Programa, Reg};
+use bmo_proton_x::dxil::programa::{Comparacion, Conversion, Op, OpEntera, Programa, Reg};
 use bmo_sm86::codifica::{self as c, Cmp, Fuente, Mufu, PT, RZ};
 
 use planifica::Meta;
@@ -198,6 +198,10 @@ enum Abierto {
 /// ordenadas, y `Distinto` desordenada (NEU: cierta con un NaN, como `ne`).
 fn cmp_de(como: Comparacion, entero: bool) -> Cmp {
     match como {
+        Comparacion::MenorSinSigno => Cmp::Lt,
+        Comparacion::MenorIgualSinSigno => Cmp::Le,
+        Comparacion::MayorSinSigno => Cmp::Gt,
+        Comparacion::MayorIgualSinSigno => Cmp::Ge,
         Comparacion::Menor => Cmp::Lt,
         Comparacion::MenorIgual => Cmp::Le,
         Comparacion::Mayor => Cmp::Gt,
@@ -522,7 +526,8 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
                 let ra = e.registro(a, &mut paso)?;
                 let fb = e.fuente(b);
                 let cmp = cmp_de(como, entero);
-                let w = if entero { c::isetp(0, cmp, ra, fb, false, 0) } else { c::fsetp(0, cmp, c::r(ra), fb, 0) };
+                let sin_signo = matches!(como, Comparacion::MenorSinSigno | Comparacion::MenorIgualSinSigno | Comparacion::MayorSinSigno | Comparacion::MayorIgualSinSigno);
+                let w = if entero { c::isetp(0, cmp, ra, fb, sin_signo, 0) } else { c::fsetp(0, cmp, c::r(ra), fb, 0) };
                 e.poner_meta(w, Meta { escribe_p: Some(0), ..Meta::de(Clase::Alu, None, [Some(ra), reg_de(fb), None]) });
                 if an.fundible[i] {
                     e.p0 = Some(d);
@@ -550,6 +555,69 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
                 let (ra, fb) = e.dos(a, b, true, &mut paso)?;
                 let x = e.destino(d, i)?;
                 e.poner(c::iadd3(x, ra, fb, 0), Clase::Alu, Some(x), [Some(ra), reg_de(fb), None]);
+            }
+            // ** E6c: las de enteros y las conversiones.
+            Op::Entera { d, a, b, op } => {
+                let conmuta = matches!(op, OpEntera::Mul | OpEntera::Y | OpEntera::O | OpEntera::OX | OpEntera::MinS | OpEntera::MaxS | OpEntera::MinU | OpEntera::MaxU);
+                let (ra, fb) = e.dos(a, b, conmuta, &mut paso)?;
+                // Restar y desplazar: la segunda, negada o con sus 5 bits.
+                let fb = match (op, fb) {
+                    (OpEntera::Resta, Fuente::Imm(v)) => Fuente::Imm(v.wrapping_neg()),
+                    (OpEntera::Resta, Fuente::R { r, .. }) => c::neg(r),
+                    (OpEntera::Resta, f) => {
+                        let t = e.pedir()?;
+                        paso.push(t);
+                        e.poner(c::mov(t, f, 0), Clase::Alu, Some(t), [None; 3]);
+                        c::neg(t)
+                    }
+                    (OpEntera::Shl | OpEntera::ShrL | OpEntera::ShrA, Fuente::Imm(v)) => Fuente::Imm(v & 31),
+                    // Una cuenta en registro (o en c[][]): `& 31` antes (SHF
+                    // no lo hace: con 32 o mas da 0).
+                    (OpEntera::Shl | OpEntera::ShrL | OpEntera::ShrA, f) => {
+                        let t = e.pedir()?;
+                        paso.push(t);
+                        let r = match f {
+                            Fuente::R { r, .. } => r,
+                            _ => {
+                                e.poner(c::mov(t, f, 0), Clase::Alu, Some(t), [None; 3]);
+                                t
+                            }
+                        };
+                        e.poner(c::lop3(t, r, Fuente::Imm(31), c::Y, 0), Clase::Alu, Some(t), [Some(r), None, None]);
+                        c::r(t)
+                    }
+                    (_, f) => f,
+                };
+                let x = e.destino(d, i)?;
+                let lee = [Some(ra), reg_de(fb), None];
+                let (w, clase) = match op {
+                    OpEntera::Resta => (c::iadd3(x, ra, fb, 0), Clase::Alu),
+                    OpEntera::Mul => (c::imad(x, ra, fb, RZ, 0), Clase::Fma),
+                    OpEntera::Shl => (c::shl(x, ra, fb, 0), Clase::Alu),
+                    OpEntera::ShrL => (c::shr(x, ra, fb, false, 0), Clase::Alu),
+                    OpEntera::ShrA => (c::shr(x, ra, fb, true, 0), Clase::Alu),
+                    OpEntera::Y => (c::lop3(x, ra, fb, c::Y, 0), Clase::Alu),
+                    OpEntera::O => (c::lop3(x, ra, fb, c::O, 0), Clase::Alu),
+                    OpEntera::OX => (c::lop3(x, ra, fb, c::OX, 0), Clase::Alu),
+                    OpEntera::MinS => (c::imnmx(x, ra, fb, false, true, 0), Clase::Alu),
+                    OpEntera::MaxS => (c::imnmx(x, ra, fb, true, true, 0), Clase::Alu),
+                    OpEntera::MinU => (c::imnmx(x, ra, fb, false, false, 0), Clase::Alu),
+                    OpEntera::MaxU => (c::imnmx(x, ra, fb, true, false, 0), Clase::Alu),
+                };
+                e.poner(w, clase, Some(x), lee);
+            }
+            Op::Convierte { d, a, como } => {
+                let ra = e.registro(a, &mut paso)?;
+                let x = e.destino(d, i)?;
+                let w = match como {
+                    Conversion::EnteroAFloat => c::i2f(x, ra, true, 0),
+                    Conversion::SinSignoAFloat => c::i2f(x, ra, false, 0),
+                    Conversion::FloatAEntero => c::f2i(x, ra, true, 0),
+                    Conversion::FloatASinSigno => c::f2i(x, ra, false, 0),
+                };
+                // Desacopladas, como MUFU: con barrera.
+                e.poner(w, Clase::Mufu, Some(x), [Some(ra), None, None]);
+                e.mufus += 1;
             }
             Op::Si { c: cond } => {
                 e.condicion(cond, &mut paso)?;

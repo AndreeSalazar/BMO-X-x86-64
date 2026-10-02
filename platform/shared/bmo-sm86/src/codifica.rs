@@ -243,6 +243,82 @@ pub fn bra(guarda: u8, desplazamiento: i64, control: u64) -> (u64, u64) {
     palabra(lo, (PT as u64) << 23 | (d >> 32) & 0x3_FFFF, control)
 }
 
+// == Los enteros y las conversiones (E6c, 02-10) ==============================
+//
+// De `ptxas` 12.9 (`oro_enteros.ptx`): `mul.lo` es IMAD (el bit 73, con
+// signo), `and/or/xor` son LOP3 con su tabla (0xC0, 0xFC, 0x3C), `shl` es
+// SHF.L.U32 y `shr` es SHF.R.{U32,S32}.HI (el valor en el 64..72, la cuenta
+// en la segunda fuente), `min/max` son IMNMX (PT el menor, !PT el mayor; el
+// bit 73, con signo). Las conversiones: F2I.TRUNC.NTZ (desacoplada; con
+// signo, el bit 72) y, de entero a float, I2F -- desacoplada, con barrera --
+// aunque `ptxas` ponga en la 3060 I2FP (acoplada, opcode 0x45): de I2FP no
+// se tiene su latencia de NAK, y una espera mal puesta es un pixel al azar.
+// I2F con RN es la de `ptxas` con su redondeo (78..80) a 0, y `nvdisasm` la
+// lee (`LEIDAS_E6C`).
+
+/// `IMAD Rd, Ra, b, Rc`: `Ra * b + Rc` (modulo 2^32), con signo (73).
+pub fn imad(rd: u8, a: u8, b: Fuente, c: u8, control: u64) -> (u64, u64) {
+    dos(0x024, 4, 5, 0x078e_0200 | c as u64, rd, r(a), b, false, control)
+}
+
+/// La tabla de LOP3 para `a & b`, `a | b` y `a ^ b` (con `c` = RZ).
+pub const Y: u8 = 0xC0;
+pub const O: u8 = 0xFC;
+pub const OX: u8 = 0x3C;
+
+/// `LOP3.LUT Rd, Ra, b, RZ, lut, !PT`.
+pub fn lop3(rd: u8, a: u8, b: Fuente, lut: u8, control: u64) -> (u64, u64) {
+    dos(0x012, 4, 5, 0x078e_0000 | (lut as u64) << 8 | RZ as u64, rd, r(a), b, false, control)
+}
+
+/// `SHF.L.U32 Rd, Ra, n, RZ`: `Ra << n`.
+pub fn shl(rd: u8, a: u8, n: Fuente, control: u64) -> (u64, u64) {
+    dos(0x019, 4, 5, 0x0600 | RZ as u64, rd, r(a), n, false, control)
+}
+
+/// `SHF.R.{U32,S32}.HI Rd, RZ, n, Ra`: `Ra >> n`, logico o aritmetico.
+pub fn shr(rd: u8, a: u8, n: Fuente, con_signo: bool, control: u64) -> (u64, u64) {
+    let tipo = if con_signo { 0x0400 } else { 0x0600 };
+    dos(0x019, 4, 5, 0x0001_1000 | tipo | a as u64, rd, r(RZ), n, false, control)
+}
+
+/// `IMNMX[.U32] Rd, Ra, b, PT|!PT`: el menor (PT) o el mayor (!PT).
+pub fn imnmx(rd: u8, a: u8, b: Fuente, mayor: bool, con_signo: bool, control: u64) -> (u64, u64) {
+    dos(0x017, 4, 5, (7 | (mayor as u64) << 3) << 23 | (con_signo as u64) << 9, rd, r(a), b, false, control)
+}
+
+/// `I2F[.U32] Rd, Ra`: de entero a float, al mas cercano (desacoplada).
+pub fn i2f(rd: u8, a: u8, con_signo: bool, control: u64) -> (u64, u64) {
+    palabra(0x106 | 1 << 9 | SIEMPRE | (rd as u64) << 16 | (a as u64) << 32, 0x20_1000 | (con_signo as u64) << 10, control)
+}
+
+/// `F2I[.U32].TRUNC.NTZ Rd, Ra`: de float a entero, hacia cero (desacoplada).
+pub fn f2i(rd: u8, a: u8, con_signo: bool, control: u64) -> (u64, u64) {
+    palabra(0x105 | 1 << 9 | SIEMPRE | (rd as u64) << 16 | (a as u64) << 32, 0x20_f000 | (con_signo as u64) << 8, control)
+}
+
+/// Las PALABRAS DE ORO de E6c (02-10): `ptxas -arch=sm_86 -O3` (CUDA 12.9)
+/// sobre `ga10x/sombreadores/oro_enteros.ptx`, leido con `nvdisasm -hex`.
+pub const ORO_E6C: &[(&str, u64, u64)] = &[
+    ("IMAD R9, R0.reuse, R7.reuse, RZ", 0x0000000700097224, 0x0c0fe200078e02ff),
+    ("IMAD R11, R0.reuse, 0x7, RZ", 0x00000007000b7824, 0x048fe200078e02ff),
+    ("LOP3.LUT R13, R0.reuse, R7.reuse, RZ, 0xc0, !PT", 0x00000007000d7212, 0x0d0fe200078ec0ff),
+    ("LOP3.LUT R15, R0.reuse, R7.reuse, RZ, 0xfc, !PT", 0x00000007000f7212, 0x0c0fe200078efcff),
+    ("LOP3.LUT R5, R0, R7.reuse, RZ, 0x3c, !PT", 0x0000000700057212, 0x080fe400078e3cff),
+    ("LOP3.LUT R17, R0, 0x1f, RZ, 0xc0, !PT", 0x0000001f00117812, 0x000fcc00078ec0ff),
+    ("SHF.L.U32 R19, R0.reuse, R7.reuse, RZ", 0x0000000700137219, 0x0c1fe200000006ff),
+    ("SHF.R.U32.HI R21, RZ, R7.reuse, R0.reuse", 0x00000007ff157219, 0x180fe20000011600),
+    ("SHF.R.S32.HI R23, RZ, R7, R0", 0x00000007ff177219, 0x000fc60000011400),
+    ("SHF.R.U32.HI R21, RZ, 0x5, R0", 0x00000005ff157819, 0x004fc60000011600),
+    ("SHF.R.S32.HI R7, RZ, 0x6, R7", 0x00000006ff077819, 0x000fe20000011407),
+    ("IMNMX R11, R0.reuse, R7.reuse, PT", 0x00000007000b7217, 0x0c4fe40003800200),
+    ("IMNMX R13, R0, R7, !PT", 0x00000007000d7217, 0x008fc60007800200),
+    ("IMNMX.U32 R15, R0, R7, PT", 0x00000007000f7217, 0x001fc60003800000),
+    ("IMNMX.U32 R25, R0, R7, !PT", 0x0000000700197217, 0x002fc60007800000),
+    ("F2I.TRUNC.NTZ R19, R6", 0x0000000600137305, 0x004e22000020f100),
+    ("F2I.U32.TRUNC.NTZ R25, R6", 0x0000000600197305, 0x000e62000020f000),
+];
+
 /// El control de una de ALU (el de `ptxas` y del driver: 6 ciclos, el bit 4,
 /// sin barreras): el de las combinaciones leidas por `nvdisasm`.
 pub const ALU: u64 = 6 | 1 << 4 | 7 << 5 | 7 << 8;
@@ -351,6 +427,21 @@ pub const LEIDAS_E6: &[(&str, u64, u64)] = &[
     ("@!P0 BRA -0x200 (en 0x120: a -0xd0)", 0xfffffe0000008947, 0x000fec000383ffff),
     ("@P3 BRA +0x10 (en 0x130: a 0x150)", 0x0000001000003947, 0x000fec0003800000),
     ("BRA -0x70000 (en 0x140: a -0x6feb0)", 0xfff9000000007947, 0x000fec000383ffff),
+];
+
+/// Lo que `ptxas` NO dio de E6c, fabricado aqui y leido por `nvdisasm -b
+/// SM86` (13.4) como dice el texto (02-10): I2F al mas cercano (con y sin
+/// signo), IADD3 restando un registro, y otras formas de las de arriba.
+pub const LEIDAS_E6C: &[(&str, u64, u64)] = &[
+    ("I2F R1, R2", 0x0000000200017306, 0x000fec0000201400),
+    ("I2F.U32 R3, R4", 0x0000000400037306, 0x000fec0000201000),
+    ("IADD3 R5, R6, -R7, RZ", 0x8000000706057210, 0x000fec0007ffe0ff),
+    ("IMAD R8, R9, -0x1, RZ", 0xffffffff09087824, 0x000fec00078e02ff),
+    ("LOP3.LUT R10, R11, 0xffffffff, RZ, 0x3c, !PT", 0xffffffff0b0a7812, 0x000fec00078e3cff),
+    ("SHF.L.U32 R12, R13, 0x3, RZ", 0x000000030d0c7819, 0x000fec00000006ff),
+    ("IMNMX R14, R15, 0x5, !PT", 0x000000050f0e7817, 0x000fec0007800200),
+    ("F2I.TRUNC.NTZ R16, R17", 0x0000001100107305, 0x000fec000020f100),
+    ("LOP3.LUT R18, R19, R20, RZ, 0xc0, !PT", 0x0000001413127212, 0x000fec00078ec0ff),
 ];
 
 #[cfg(test)]
@@ -477,6 +568,53 @@ mod pruebas {
         ];
         assert_eq!(hechas.len(), LEIDAS_E6.len());
         for ((texto, lo, hi), h) in LEIDAS_E6.iter().zip(hechas) {
+            assert_eq!(h, (*lo, *hi), "{texto}");
+        }
+    }
+    /// E6c: los enteros y las conversiones, como `ptxas`.
+    #[test]
+    fn los_enteros_como_ptxas() {
+        let k = |i: usize| ORO_E6C[i].2 >> 41;
+        let hechas: [(u64, u64); 17] = [
+            imad(9, 0, r(7), RZ, k(0)),
+            imad(11, 0, Fuente::Imm(7), RZ, k(1)),
+            lop3(13, 0, r(7), Y, k(2)),
+            lop3(15, 0, r(7), O, k(3)),
+            lop3(5, 0, r(7), OX, k(4)),
+            lop3(17, 0, Fuente::Imm(0x1f), Y, k(5)),
+            shl(19, 0, r(7), k(6)),
+            shr(21, 0, r(7), false, k(7)),
+            shr(23, 0, r(7), true, k(8)),
+            shr(21, 0, Fuente::Imm(5), false, k(9)),
+            shr(7, 7, Fuente::Imm(6), true, k(10)),
+            imnmx(11, 0, r(7), false, true, k(11)),
+            imnmx(13, 0, r(7), true, true, k(12)),
+            imnmx(15, 0, r(7), false, false, k(13)),
+            imnmx(25, 0, r(7), true, false, k(14)),
+            f2i(19, 6, true, k(15)),
+            f2i(25, 6, false, k(16)),
+        ];
+        for ((texto, lo, hi), h) in ORO_E6C.iter().zip(hechas) {
+            assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
+        }
+    }
+    /// E6c: lo fabricado es lo que leyo `nvdisasm`.
+    #[test]
+    fn nvdisasm_lee_lo_que_fabrica_e6c() {
+        let k = ALU;
+        let hechas = [
+            i2f(1, 2, true, k),
+            i2f(3, 4, false, k),
+            iadd3(5, 6, neg(7), k),
+            imad(8, 9, Fuente::Imm(0xFFFF_FFFF), RZ, k),
+            lop3(10, 11, Fuente::Imm(0xFFFF_FFFF), OX, k),
+            shl(12, 13, Fuente::Imm(3), k),
+            imnmx(14, 15, Fuente::Imm(5), true, true, k),
+            f2i(16, 17, true, k),
+            lop3(18, 19, r(20), Y, k),
+        ];
+        assert_eq!(hechas.len(), LEIDAS_E6C.len());
+        for ((texto, lo, hi), h) in LEIDAS_E6C.iter().zip(hechas) {
             assert_eq!(h, (*lo, *hi), "{texto}");
         }
     }

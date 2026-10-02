@@ -162,7 +162,7 @@ fn imm(bits: u32) -> [u32; 2] {
 
 fn programa_sm5(cuerpo: &[Vec<u32>]) -> Vec<u32> {
     // ps_5_0, la medida, y `dcl_temps 1` (las declaraciones se saltan).
-    let mut t = vec![0x50, 0, 104 | 2 << 24, 1];
+    let mut t = vec![0x50, 0, 104 | 2 << 24, 4];
     for i in cuerpo {
         t.extend_from_slice(i);
     }
@@ -235,5 +235,96 @@ pub fn sm5_si_cero() -> (Vec<u32>, Vec<Elemento>, Vec<Elemento>) {
         ins(54, 0, &cat(&[&dst(2, 0, 2), &imm(3.0f32.to_bits())])),
     ]);
     let (e, s) = firmas();
+    (t, e, s)
+}
+
+/// Un operando NULL (el destino alto de `imul`).
+fn nulo() -> [u32; 1] {
+    [13 << 12]
+}
+
+/// E6c: un `switch` con un caso compartido, uno que CAE al siguiente y su
+/// `default`; y `ftoi`, `ftou`, `imul`, `ushr`, `itof`, `utof`, `ineg`:
+///
+/// ```text
+///    ftoi r0.x, v0.x ; ftou r0.y, v0.y ; mov o0.y, l(0.0)
+///    switch r0.x
+///      case 0: mov o0.x, l(10.0) ; break
+///      case 1: case 2: imul null, r0.z, r0.x, l(3) ; itof o0.x, r0.z
+///      case 3: ushr r0.w, r0.y, l(1) ; utof o0.y, r0.w ; break
+///      default: ineg r0.z, r0.x ; itof o0.x, r0.z ; break
+///    endswitch
+/// ```
+pub fn sm5_switch() -> (Vec<u32>, Vec<Elemento>, Vec<Elemento>) {
+    let t = programa_sm5(&[
+        ins(27, 0, &cat(&[&dst(0, 0, 1), &src(1, 0, 0)])),
+        ins(28, 0, &cat(&[&dst(0, 0, 2), &src(1, 0, 1)])),
+        ins(54, 0, &cat(&[&dst(2, 0, 2), &imm(0)])),
+        ins(76, 0, &src(0, 0, 0)),
+        ins(6, 0, &imm(0)),
+        ins(54, 0, &cat(&[&dst(2, 0, 1), &imm(10.0f32.to_bits())])),
+        ins(2, 0, &[]),
+        ins(6, 0, &imm(1)),
+        ins(6, 0, &imm(2)),
+        ins(38, 0, &cat(&[&nulo(), &dst(0, 0, 4), &src(0, 0, 0), &imm(3)])),
+        ins(43, 0, &cat(&[&dst(2, 0, 1), &src(0, 0, 2)])),
+        ins(6, 0, &imm(3)),
+        ins(85, 0, &cat(&[&dst(0, 0, 8), &src(0, 0, 1), &imm(1)])),
+        ins(86, 0, &cat(&[&dst(2, 0, 2), &src(0, 0, 3)])),
+        ins(2, 0, &[]),
+        ins(10, 0, &[]),
+        ins(40, 0, &cat(&[&dst(0, 0, 4), &src(0, 0, 0)])),
+        ins(43, 0, &cat(&[&dst(2, 0, 1), &src(0, 0, 2)])),
+        ins(2, 0, &[]),
+        ins(23, 0, &[]),
+    ]);
+    let (e, s) = firmas();
+    (t, e, s)
+}
+
+/// E6c: los de bits y los de comparar sin signo, a cuatro salidas:
+///
+/// ```text
+///    ftoi r0.x, v0.x ; ftoi r0.y, v0.y
+///    and r1.x, r0.x, l(6) ; or r1.y, r0.x, r0.y ; xor r1.z, r1.x, r1.y
+///    not r1.w, r1.z ; itof o0.x, r1.w
+///    imin r2.x, r0.x, r0.y ; imax r2.y, r0.x, r0.y ; umin r2.z, r0.x, r0.y
+///    umax r2.w, r0.x, r0.y ; iadd r2.x, r2.x, r2.y ; iadd r2.x, r2.x, r2.z
+///    iadd r2.x, r2.x, r2.w ; itof o0.y, r2.x
+///    ishr r3.x, r0.x, l(1) ; imad r3.y, r0.x, r0.y, l(7) ; iadd r3.y, r3.y, r3.x
+///    itof o0.z, r3.y
+///    ult r3.z, r0.x, r0.y ; uge r3.w, r0.x, r0.y ; and r3.z, r3.z, l(1)
+///    and r3.w, r3.w, l(2) ; or r3.z, r3.z, r3.w ; itof o0.w, r3.z
+/// ```
+pub fn sm5_enteros() -> (Vec<u32>, Vec<Elemento>, Vec<Elemento>) {
+    let t = programa_sm5(&[
+        ins(27, 0, &cat(&[&dst(0, 0, 1), &src(1, 0, 0)])),
+        ins(27, 0, &cat(&[&dst(0, 0, 2), &src(1, 0, 1)])),
+        ins(1, 0, &cat(&[&dst(0, 1, 1), &src(0, 0, 0), &imm(6)])),
+        ins(60, 0, &cat(&[&dst(0, 1, 2), &src(0, 0, 0), &src(0, 0, 1)])),
+        ins(87, 0, &cat(&[&dst(0, 1, 4), &src(0, 1, 0), &src(0, 1, 1)])),
+        ins(59, 0, &cat(&[&dst(0, 1, 8), &src(0, 1, 2)])),
+        ins(43, 0, &cat(&[&dst(2, 0, 1), &src(0, 1, 3)])),
+        ins(37, 0, &cat(&[&dst(0, 2, 1), &src(0, 0, 0), &src(0, 0, 1)])),
+        ins(36, 0, &cat(&[&dst(0, 2, 2), &src(0, 0, 0), &src(0, 0, 1)])),
+        ins(84, 0, &cat(&[&dst(0, 2, 4), &src(0, 0, 0), &src(0, 0, 1)])),
+        ins(83, 0, &cat(&[&dst(0, 2, 8), &src(0, 0, 0), &src(0, 0, 1)])),
+        ins(30, 0, &cat(&[&dst(0, 2, 1), &src(0, 2, 0), &src(0, 2, 1)])),
+        ins(30, 0, &cat(&[&dst(0, 2, 1), &src(0, 2, 0), &src(0, 2, 2)])),
+        ins(30, 0, &cat(&[&dst(0, 2, 1), &src(0, 2, 0), &src(0, 2, 3)])),
+        ins(43, 0, &cat(&[&dst(2, 0, 2), &src(0, 2, 0)])),
+        ins(42, 0, &cat(&[&dst(0, 3, 1), &src(0, 0, 0), &imm(1)])),
+        ins(35, 0, &cat(&[&dst(0, 3, 2), &src(0, 0, 0), &src(0, 0, 1), &imm(7)])),
+        ins(30, 0, &cat(&[&dst(0, 3, 2), &src(0, 3, 1), &src(0, 3, 0)])),
+        ins(43, 0, &cat(&[&dst(2, 0, 4), &src(0, 3, 1)])),
+        ins(79, 0, &cat(&[&dst(0, 3, 4), &src(0, 0, 0), &src(0, 0, 1)])),
+        ins(80, 0, &cat(&[&dst(0, 3, 8), &src(0, 0, 0), &src(0, 0, 1)])),
+        ins(1, 0, &cat(&[&dst(0, 3, 4), &src(0, 3, 2), &imm(1)])),
+        ins(1, 0, &cat(&[&dst(0, 3, 8), &src(0, 3, 3), &imm(2)])),
+        ins(60, 0, &cat(&[&dst(0, 3, 4), &src(0, 3, 2), &src(0, 3, 3)])),
+        ins(43, 0, &cat(&[&dst(2, 0, 8), &src(0, 3, 2)])),
+    ]);
+    let (e, mut s) = firmas();
+    s[0].mascara = 0xF;
     (t, e, s)
 }

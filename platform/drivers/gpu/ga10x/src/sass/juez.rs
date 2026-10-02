@@ -463,6 +463,8 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
 ///    FADD FMUL FFMA FMNMX MOV   con registros o inmediatos -- sin c[][]
 ///    MUFU                       con un registro
 ///    FSETP ISETP SEL IADD3      (E6) igual: registros o inmediatos
+///    IMAD LOP3 SHF IMNMX        (E6c) los enteros: igual
+///    I2F F2I                    (E6c) las conversiones: con un registro
 ///    BRA                        (E6) a una instruccion DEL CUERPO (de la 0 a
 ///                               su EXIT, que es donde sigue el pegamento)
 ///    EXIT                       la ultima, y solo ella
@@ -501,7 +503,8 @@ pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) 
             0x021 => &[1, 2],
             // FMUL, FFMA, FMNMX, MOV, y (E6) FSETP, ISETP, SEL, IADD3:
             // inmediato en la 4 (y c[][] en la 5).
-            0x020 | 0x023 | 0x009 | 0x002 | 0x00B | 0x00C | 0x007 | 0x010 => &[1, 4],
+            0x020 | 0x023 | 0x009 | 0x002 | 0x00B | 0x00C | 0x007 | 0x010 | 0x024 | 0x012 | 0x019 | 0x017 => &[1, 4],
+            0x106 | 0x105 => &[1],
             // E6: un salto, si cae DENTRO del cuerpo (de 0 a su EXIT).
             0x147 => {
                 let d = (((hi & 0x3_FFFF) << 32 | lo >> 32) << 14) as i64 >> 14;

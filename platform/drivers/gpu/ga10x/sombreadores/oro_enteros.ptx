@@ -1,0 +1,58 @@
+// oro_enteros.ptx -- el PTX de las PALABRAS DE ORO de E6c (`ORO_E6C` en
+// bmo-sm86/src/codifica.rs): los enteros y las conversiones.
+// Rehacerlas (CUDA 12.9 y nvdisasm 13.4, de PyPI, 02-10):
+//   ptxas -arch=sm_86 -O3 oro_enteros.ptx -o oro.cubin
+//   nvdisasm -hex oro.cubin
+// `ent`: mul, and/or/xor, shl/shr, min/max con y sin signo, sub y los cvt
+// (los de entero a float salen I2FP: ver codifica.rs); `i2f`: un I2F.RM, de
+// donde sale el campo del redondeo.
+.version 8.0
+.target sm_86
+.address_size 64
+.visible .entry ent(.param .u64 pin, .param .u64 pout)
+{
+  .reg .s32 %r<60>;
+  .reg .f32 %f<20>;
+  .reg .u64 %rd<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.global.s32 %r1, [%rd1];
+  ld.global.s32 %r2, [%rd1+4];
+  ld.global.f32 %f1, [%rd1+8];
+  mul.lo.s32 %r3, %r1, %r2;      st.global.s32 [%rd2], %r3;
+  mul.lo.s32 %r4, %r1, 7;        st.global.s32 [%rd2+4], %r4;
+  and.b32 %r5, %r1, %r2;         st.global.s32 [%rd2+8], %r5;
+  or.b32 %r6, %r1, %r2;          st.global.s32 [%rd2+12], %r6;
+  xor.b32 %r7, %r1, %r2;         st.global.s32 [%rd2+16], %r7;
+  and.b32 %r8, %r1, 31;          st.global.s32 [%rd2+20], %r8;
+  shl.b32 %r9, %r1, %r2;         st.global.s32 [%rd2+24], %r9;
+  shr.u32 %r10, %r1, %r2;        st.global.s32 [%rd2+28], %r10;
+  shr.s32 %r11, %r1, %r2;        st.global.s32 [%rd2+32], %r11;
+  shl.b32 %r12, %r1, 3;          st.global.s32 [%rd2+36], %r12;
+  min.s32 %r13, %r1, %r2;        st.global.s32 [%rd2+40], %r13;
+  max.s32 %r14, %r1, %r2;        st.global.s32 [%rd2+44], %r14;
+  min.u32 %r15, %r1, %r2;        st.global.s32 [%rd2+48], %r15;
+  max.u32 %r16, %r1, %r2;        st.global.s32 [%rd2+52], %r16;
+  sub.s32 %r17, %r1, %r2;        st.global.s32 [%rd2+56], %r17;
+  cvt.rn.f32.s32 %f2, %r1;       st.global.f32 [%rd2+60], %f2;
+  cvt.rn.f32.u32 %f3, %r2;       st.global.f32 [%rd2+64], %f3;
+  cvt.rzi.s32.f32 %r18, %f1;     st.global.s32 [%rd2+68], %r18;
+  cvt.rzi.u32.f32 %r19, %f1;     st.global.s32 [%rd2+72], %r19;
+  shr.u32 %r20, %r1, 5;          st.global.s32 [%rd2+76], %r20;
+  shr.s32 %r21, %r2, 6;          st.global.s32 [%rd2+80], %r21;
+  ret;
+}
+.visible .entry i2f(.param .u64 pin, .param .u64 pout)
+{
+  .reg .s32 %r<10>;
+  .reg .f32 %f<20>;
+  .reg .u64 %rd<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.global.s32 %r1, [%rd1];
+  ld.global.s32 %r2, [%rd1+4];
+  cvt.rz.f32.s32 %f2, %r1;   st.global.f32 [%rd2], %f2;
+  cvt.rz.f32.u32 %f3, %r2;   st.global.f32 [%rd2+4], %f3;
+  cvt.rm.f32.s32 %f4, %r1;   st.global.f32 [%rd2+8], %f4;
+  ret;
+}

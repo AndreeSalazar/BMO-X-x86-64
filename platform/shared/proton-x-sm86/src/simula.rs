@@ -111,6 +111,20 @@ fn compara_floats(como: u64, x: f32, y: f32) -> Option<bool> {
     Some(if como >= 8 { base || nan } else { base })
 }
 
+/// La segunda fuente de una de ENTEROS: registro (con `-` de complemento a
+/// dos, bit 63), inmediato (forma 4) o constante (forma 5).
+fn entera(m: &Maquina, lo: u64, forma: u64) -> Option<u32> {
+    match forma {
+        1 => {
+            let x = m.reg((lo >> 32 & 0xFF) as usize);
+            Some(if lo >> 63 != 0 { x.wrapping_neg() } else { x })
+        }
+        4 => Some((lo >> 32) as u32),
+        5 => Some(m.constante(lo)),
+        _ => None,
+    }
+}
+
 /// **Correr** `codigo` sobre `m` hasta su EXIT. Devuelve cuantas instrucciones
 /// se ejecutaron.
 pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula> {
@@ -178,9 +192,56 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
             }
             // IADD3 Rd, Ra, b, Rc, sin acarreos (los de 77..91 como los pone
             // `ptxas`: `!PT`).
-            0x010 if hi & ((1 << 41) - 1) & !0xFF == 0x07ff_e000 => {
-                let b = segunda(4, 5).ok_or(NoSimula::Instruccion(n))?;
-                m.reg(ra).wrapping_add(b).wrapping_add(m.reg((hi & 0xFF) as usize))
+            // E6c: con `-` en una fuente, el de los ENTEROS (complemento a
+            // dos), no el del bit de signo de un float.
+            0x010 if hi & ((1 << 41) - 1) & !0x1FF == 0x07ff_e000 => {
+                let b = entera(m, lo, forma).ok_or(NoSimula::Instruccion(n))?;
+                let a = if hi >> 8 & 1 != 0 { m.reg(ra).wrapping_neg() } else { m.reg(ra) };
+                a.wrapping_add(b).wrapping_add(m.reg((hi & 0xFF) as usize))
+            }
+            // ** E6c: IMAD (sin negar la tercera), LOP3, SHF, IMNMX, I2F, F2I.
+            0x024 if hi & ((1 << 41) - 1) & !0x3FF == 0x078e_0000 => {
+                let b = entera(m, lo, forma).ok_or(NoSimula::Instruccion(n))?;
+                m.reg(ra).wrapping_mul(b).wrapping_add(m.reg((hi & 0xFF) as usize))
+            }
+            0x012 if hi & ((1 << 41) - 1) & !0xFFFF == 0x078e_0000 => {
+                let (x, y, z) = (m.reg(ra), entera(m, lo, forma).ok_or(NoSimula::Instruccion(n))?, m.reg((hi & 0xFF) as usize));
+                let lut = hi >> 8 & 0xFF;
+                (0..8).filter(|k| lut >> k & 1 != 0).fold(0u32, |r, k| r | (if k & 4 != 0 { x } else { !x }) & (if k & 2 != 0 { y } else { !y }) & (if k & 1 != 0 { z } else { !z }))
+            }
+            0x019 => {
+                let cuenta = entera(m, lo, forma).ok_or(NoSimula::Instruccion(n))?.min(32);
+                let v = m.reg((hi & 0xFF) as usize);
+                match hi & ((1 << 41) - 1) & !0xFF {
+                    // SHF.L.U32 Rd, Ra, n, RZ (la tercera, RZ).
+                    0x0600 if hi & 0xFF == 0xFF => (m.reg(ra) as u64).checked_shl(cuenta).map_or(0, |x| x as u32),
+                    // SHF.R.U32.HI / S32.HI Rd, RZ, n, Rc (el valor, en la tercera).
+                    0x0001_1600 if ra == RZ => (v as u64 >> cuenta) as u32,
+                    0x0001_1400 if ra == RZ => (v as i32 as i64 >> cuenta) as u32,
+                    _ => return Err(NoSimula::Instruccion(n)),
+                }
+            }
+            0x017 if hi & ((1 << 41) - 1) & !(1 << 26 | 1 << 9) == 7 << 23 => {
+                let (x, y) = (m.reg(ra), entera(m, lo, forma).ok_or(NoSimula::Instruccion(n))?);
+                let (mayor, signo) = (hi >> 26 & 1 != 0, hi >> 9 & 1 != 0);
+                match (mayor, signo) {
+                    (false, true) => (x as i32).min(y as i32) as u32,
+                    (true, true) => (x as i32).max(y as i32) as u32,
+                    (false, false) => x.min(y),
+                    (true, false) => x.max(y),
+                }
+            }
+            0x106 if forma == 1 && hi & ((1 << 41) - 1) & !(1 << 10) == 0x20_1000 => {
+                let x = m.reg((lo >> 32 & 0xFF) as usize);
+                (if hi >> 10 & 1 != 0 { x as i32 as f32 } else { x as f32 }).to_bits()
+            }
+            0x105 if forma == 1 && hi & ((1 << 41) - 1) & !(1 << 8) == 0x20_f000 => {
+                let x = f(m.reg((lo >> 32 & 0xFF) as usize));
+                if hi >> 8 & 1 != 0 {
+                    x as i32 as u32
+                } else {
+                    x as u32
+                }
             }
             // BRA: el desplazamiento en BYTES (32..82, con signo) desde la
             // siguiente.

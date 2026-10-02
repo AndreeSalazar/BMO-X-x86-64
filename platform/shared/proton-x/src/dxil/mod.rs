@@ -31,6 +31,8 @@ pub mod programa;
 pub mod ejemplos;
 /// E6b (02-10): el grafo de bloques del DXIL, vuelto `si` y bucles.
 mod estructura;
+/// E6c (02-10): los enteros y las conversiones del DXIL.
+mod enteros;
 
 use alloc::string::String;
 use alloc::vec::Vec;

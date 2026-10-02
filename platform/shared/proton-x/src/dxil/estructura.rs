@@ -49,12 +49,15 @@ pub(super) struct Phi {
 }
 
 /// Un bloque leido: sus operaciones (de `c.ops`), como acaba y sus `phi`.
+/// E6c: si acaba en `switch` (`Fin::Salto` a su `defecto` hasta armar), sus
+/// casos (valor, bloque) y su condicion.
 #[derive(Debug, Clone)]
 struct Bloque {
     desde: usize,
     hasta: usize,
     fin: Fin,
     phis: Vec<Phi>,
+    switch: Option<(Reg, Vec<(u32, usize)>)>,
 }
 
 /// Los bloques de la funcion mientras se lee.
@@ -76,7 +79,7 @@ impl Bloques {
         if self.hechos.len() >= self.declarados.max(1) {
             return Err(NoPrograma::Forma("mas bloques de los que la funcion declara"));
         }
-        self.hechos.push(Bloque { desde: self.desde, hasta, fin, phis: core::mem::take(&mut self.phis) });
+        self.hechos.push(Bloque { desde: self.desde, hasta, fin, phis: core::mem::take(&mut self.phis), switch: None });
         self.desde = hasta;
         Ok(())
     }
@@ -88,7 +91,7 @@ impl Bloques {
 /// o `undef`, que se lee como 0) puesta en uno.
 pub(super) fn bits(c: &mut Compilador, id: usize) -> Result<Reg, NoPrograma> {
     let v = match c.valores.get(id).copied() {
-        Some(Valor::Float(r) | Valor::Bits(r)) => return Ok(r),
+        Some(Valor::Float(r) | Valor::Bits(r) | Valor::Bool(r)) => return Ok(r),
         Some(Valor::Entero(v)) => v as i32 as u32,
         Some(Valor::Indefinido) => 0,
         _ => return Err(NoPrograma::Forma("un operando que no es un numero (ni float, ni entero, ni i1)")),
@@ -96,7 +99,7 @@ pub(super) fn bits(c: &mut Compilador, id: usize) -> Result<Reg, NoPrograma> {
     literal(c, v)
 }
 
-fn literal(c: &mut Compilador, v: u32) -> Result<Reg, NoPrograma> {
+pub(super) fn literal(c: &mut Compilador, v: u32) -> Result<Reg, NoPrograma> {
     if let Some(&(_, r)) = c.literales.iter().find(|x| x.0 == v) {
         return Ok(r);
     }
@@ -121,7 +124,7 @@ pub(super) fn br(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoPrograma
 
 /// `phi ty [v0, bb0], ...`: los valores van con SIGNO (pueden ser de mas
 /// adelante); su registro, nuevo, se escribe en cada arista.
-pub(super) fn phi(c: &mut Compilador, o: &mut Operandos, floats: &[bool]) -> Result<(), NoPrograma> {
+pub(super) fn phi(c: &mut Compilador, o: &mut Operandos, floats: &[bool], anchos: &[u32]) -> Result<(), NoPrograma> {
     let tipo = o.crudo()? as usize;
     let yo = o.siguiente as i64;
     let mut entrantes = Vec::new();
@@ -133,7 +136,13 @@ pub(super) fn phi(c: &mut Compilador, o: &mut Operandos, floats: &[bool]) -> Res
     }
     let d = c.registro(0.0)?;
     c.bloques.phis.push(Phi { d, entrantes });
-    c.valores.push(if floats.get(tipo).copied().unwrap_or(false) { Valor::Float(d) } else { Valor::Bits(d) });
+    c.valores.push(if floats.get(tipo).copied().unwrap_or(false) {
+        Valor::Float(d)
+    } else if anchos.get(tipo) == Some(&1) {
+        Valor::Bool(d)
+    } else {
+        Valor::Bits(d)
+    });
     Ok(())
 }
 
@@ -162,7 +171,10 @@ pub(super) fn cmp(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoProgram
         39 => (Comparacion::MayorIgual, true, false),
         40 => (Comparacion::Menor, true, false),
         41 => (Comparacion::MenorIgual, true, false),
-        34..=37 => return Err(NoPrograma::Forma("una comparacion de enteros SIN signo: todavia no")),
+        34 => (Comparacion::MayorSinSigno, true, false),
+        35 => (Comparacion::MayorIgualSinSigno, true, false),
+        36 => (Comparacion::MenorSinSigno, true, false),
+        37 => (Comparacion::MenorIgualSinSigno, true, false),
         _ => return Err(NoPrograma::Forma("una comparacion de floats ONE, UEQ, ORD, UNO o constante: todavia no")),
     };
     let d = c.registro(0.0)?;
@@ -176,7 +188,7 @@ pub(super) fn cmp(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoProgram
     } else {
         d
     };
-    c.valores.push(Valor::Bits(d));
+    c.valores.push(Valor::Bool(d));
     Ok(())
 }
 
@@ -185,36 +197,78 @@ pub(super) fn select(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoProg
     let a = o.con_tipo()?;
     let b = o.solo()?;
     let cond = o.con_tipo()?;
-    let float = matches!(c.valores.get(a), Some(Valor::Float(_)));
+    let tipo = c.valores.get(a).copied();
     let (ra, rb, rc) = (bits(c, a)?, bits(c, b)?, bits(c, cond)?);
     let d = c.registro(0.0)?;
     c.ops.push(Op::Elige { d, c: rc, a: ra, b: rb });
-    c.valores.push(if float { Valor::Float(d) } else { Valor::Bits(d) });
+    c.valores.push(match tipo {
+        Some(Valor::Float(_)) => Valor::Float(d),
+        Some(Valor::Bool(_)) => Valor::Bool(d),
+        _ => Valor::Bits(d),
+    });
     Ok(())
 }
 
-/// Si el BINOP de `o` es de enteros (su primer operando lo es).
-pub(super) fn es_entero(c: &Compilador, o: &Operandos) -> Result<bool, NoPrograma> {
-    let mut p = o.copia();
-    let a = p.con_tipo()?;
-    Ok(matches!(c.valores.get(a), Some(Valor::Bits(_) | Valor::Entero(_))))
+/// `switch ty c, defecto [valor, bloque]...` (E6c): los valores de los casos
+/// van como id ABSOLUTO de su constante (no relativo, como en LLVM 3.7). Se
+/// cierra como un salto a `defecto` y se guardan los casos: `armar` los
+/// vuelve una cadena de `si`.
+pub(super) fn switch(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoPrograma> {
+    let _tipo = o.crudo()?;
+    let cond = o.solo()?;
+    let defecto = o.crudo()? as usize;
+    let rc = bits(c, cond)?;
+    let mut casos = Vec::new();
+    while o.i + 1 < o.ops.len() {
+        let id = o.crudo()? as usize;
+        let bb = o.crudo()? as usize;
+        let v = match c.valores.get(id) {
+            Some(Valor::Entero(v)) => *v as i32 as u32,
+            _ => return Err(NoPrograma::Forma("un caso de switch que no es una constante entera")),
+        };
+        casos.push((v, bb));
+    }
+    let hasta = c.ops.len();
+    c.bloques.cerrar(Fin::Salto(defecto), hasta)?;
+    if let Some(b) = c.bloques.hechos.last_mut() {
+        b.switch = Some((rc, casos));
+    }
+    Ok(())
 }
 
-/// `add`/`sub` de enteros: `SumaEntera` (un `sub` de una constante, sumando
-/// su contrario). Las demas, todavia no.
-pub(super) fn binop_entero(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoPrograma> {
-    let a = o.con_tipo()?;
-    let b = o.solo()?;
-    let opcode = o.crudo()?;
-    let ra = bits(c, a)?;
-    let rb = match (opcode, c.valores.get(b).copied()) {
-        (0, _) => bits(c, b)?,
-        (1, Some(Valor::Entero(k))) => literal(c, (k as i32).wrapping_neg() as u32)?,
-        _ => return Err(NoPrograma::Forma("una operacion de enteros que no es add, o sub de una constante: todavia no")),
-    };
-    let d = c.registro(0.0)?;
-    c.ops.push(Op::SumaEntera { d, a: ra, b: rb });
-    c.valores.push(Valor::Bits(d));
+/// **Un `switch` es una cadena de `si`**: el bloque salta a uno nuevo que
+/// compara con el primer caso y va a el o al siguiente nuevo, y asi; el
+/// ultimo, al `defecto`. Los `phi` de cada destino aceptan ademas al bloque
+/// nuevo que salta a el (con el mismo valor que traia del `switch`).
+fn bajar_switches(c: &mut Compilador, bloques: &mut Vec<Bloque>) -> Result<(), NoPrograma> {
+    for s in 0..bloques.len() {
+        let Some((x, casos)) = bloques[s].switch.take() else { continue };
+        let Fin::Salto(defecto) = bloques[s].fin else { continue };
+        if casos.is_empty() {
+            continue;
+        }
+        let primero = bloques.len();
+        bloques[s].fin = Fin::Salto(primero);
+        for (k, &(v, destino)) in casos.iter().enumerate() {
+            let yo = bloques.len();
+            let desde = c.ops.len();
+            let lit = literal(c, v)?;
+            let d = c.registro(0.0)?;
+            c.ops.push(Op::Compara { d, a: x, b: lit, como: Comparacion::Igual, entero: true });
+            let no = if k + 1 == casos.len() { defecto } else { yo + 1 };
+            bloques.push(Bloque { desde, hasta: c.ops.len(), fin: Fin::Si { c: d, si: destino, no }, phis: Vec::new(), switch: None });
+            // (El siguiente bloque nuevo aun no esta, y no tiene `phi`.)
+            for t in [destino, no].into_iter().filter(|&t| t < yo) {
+                for p in bloques[t].phis.iter_mut() {
+                    if let Some(&(id, _)) = p.entrantes.iter().find(|e| e.1 == s) {
+                        if !p.entrantes.iter().any(|e| e.1 == yo) {
+                            p.entrantes.push((id, yo));
+                        }
+                    }
+                }
+            }
+        }
+    }
     Ok(())
 }
 
@@ -251,13 +305,14 @@ struct Armador<'a> {
 /// **Armar**: sin saltos, nada que hacer; con ellos, `c.ops` pasa a ser el
 /// programa estructurado.
 pub(super) fn armar(c: &mut Compilador) -> Result<(), NoPrograma> {
-    let bloques = core::mem::take(&mut c.bloques.hechos);
+    let mut bloques = core::mem::take(&mut c.bloques.hechos);
     if bloques.len() <= 1 && bloques.iter().all(|b| b.phis.is_empty()) {
         return Ok(());
     }
     if bloques.len() != c.bloques.declarados {
         return Err(NoPrograma::Forma("una funcion que acaba sin cerrar todos sus bloques"));
     }
+    bajar_switches(c, &mut bloques)?;
     let n = bloques.len();
     let mut phis = Vec::with_capacity(n);
     for b in &bloques {

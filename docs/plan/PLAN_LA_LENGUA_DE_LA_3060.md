@@ -375,7 +375,7 @@ dibuja el cubo con ese sobre.
 - **Queda (no bloquea):** `cubo.bsf` sin SASS a mano; la interpolacion con
   perspectiva (hoy ScreenLinear, exacta en caras de un valor).
 
-## [ ] E6 -- SALTOS Y BUCLES: `si`, bucles y sus BRA, del SM5 y del DXIL (02-10; el anfitrion, hecho)
+## [ ] E6 -- SALTOS, BUCLES, `switch` Y ENTEROS, del SM5 y del DXIL (02-10; el anfitrion, hecho)
 
 Del propietario (02-10): "haz los saltos y bucles del emisor", en orden y
 DIRECTO al emisor -- DXIL/SM5 a SASS sin SPIR-V ni el compilador de NVIDIA
@@ -450,10 +450,73 @@ por medio --. Hecho en el anfitrion, de la punta del Programa a la del juez:
   la PRIMERA vuelta. Ahora lo que lee una Entrada o el cbuffer vive hasta el
   fin del bucle; la prueba al azar lee filas dentro de bucles y lo habria
   visto (comprobado deshaciendo el arreglo).
+- **E6c, los enteros y el `switch` (02-10, hecho en el anfitrion):**
+  - La lengua (`bmo-sm86`): IMAD, LOP3, SHF, IMNMX, F2I e I2F, con 17
+    palabras de oro de `ptxas` (`oro_enteros.ptx`) y 9 leidas por
+    `nvdisasm`. `ptxas` pone en la 3060 `I2FP` (acoplada, opcode 0x45) para
+    pasar de entero a float; aqui va I2F (desacoplada, con barrera): de
+    `I2FP` no se tiene su latencia, y una espera mal puesta es un pixel al
+    azar.
+  - El Programa: `Entera` (resta, mul, shl, shr logico y aritmetico, and,
+    or, xor, min y max con y sin signo; los desplazamientos con `& 31`,
+    como D3D), `Convierte` (de float a entero hacia cero y en su limite, un
+    NaN 0; de entero a float al mas cercano) y las comparaciones sin signo.
+    El simulador las sabe (y el `-` de IADD3 es ya el de los enteros, no el
+    bit de signo de un float); el juez, en R7, las deja a una app.
+  - El DXIL: `sub mul shl lshr ashr and or xor`, `trunc`/`zext`/`sext` de
+    `i1` (un `i1` cierto es 0xFFFFFFFF), `fptosi fptoui sitofp uitofp`,
+    `bitcast`, las sobrecargas `.i32` y `dx.op.binary.i32`; y el `switch`,
+    que se vuelve una cadena de `si` antes de estructurar.
+  - El SM5: `and or xor not ineg imul umul imad umad ishl ishr ushr imin
+    imax umin umax itof utof ftoi ftou ult uge`, y `switch`/`case`/
+    `default`/`endswitch` como un bucle de UNA vuelta (su `break` es el
+    Romper) con un `si` por tramo y una marca de "ya se entro" (asi un caso
+    sin `break` cae al siguiente).
+  - **Como se sabe:** `enteros.hlsl` de `dxc` y dos SM5 armados palabra a
+    palabra (un `switch` con un caso que cae y su `default`; y los de bits)
+    dan los mismos bits que su referencia en Rust, y en el simulador los
+    de la casa con los dos ABI; el juez, PERFECTO. Cada operacion sola, con
+    17 x 17 entradas raras (shifts de 32 o mas, NaN, infinitos), igual. Y
+    4000 programas al azar con enteros: iguales. Lo que se vio con el azar: un
+    NaN visto como ENTERO cambia el camino segun su signo, que no se modela
+    (`a - b` de la CPU y `FADD a, -b` lo dan distinto); un sombreador de
+    verdad no lo hace -- sus tipos lo impiden -- y la prueba tampoco.
 - **Despues (no es esta casilla):** bucles de varias salidas y `break` de
-  dos bucles, `switch`, comparaciones sin signo, mas enteros (`mul`, `shl`,
-  `and`/`or` de `i1`, `sitofp`, `fptosi`), y el grafo no reducible (`dxc`
-  no lo escribe).
+  dos bucles, division y resto de enteros, `continue` dentro de un
+  `switch`, y el grafo no reducible (`dxc` no lo escribe).
+
+## [ ] E7 -- EL VIGILANTE: un trabajo de la 3060 que no vuelve (el TDR de BMO-X)
+
+Anotado el 02-10, del propietario (la tarjeta de tarea que salio de E6):
+desde E6 el emisor de PROTON-X pone bucles (`BRA` hacia atras) y R7 deja a
+un cuerpo de app saltar dentro de si mismo. El juez NO puede saber si un
+bucle acaba. Un sombreador con un bucle que no sale cuelga la 3060 PARA
+SIEMPRE: en Windows lo para el TDR (Timeout Detection and Recovery, que
+reinicia la GPU); en BMO-X no hay nada igual -- ni en
+`Ultra_kernel_x86-64/kernel/src/ring0/dev/gpu_trabajo/` ni en
+`platform/drivers/gpu/ga10x/src/trabajos/` --.
+
+- **Que hace falta**, del lado del kernel, para los trabajos que entran por
+  la puerta de VERRANO/PROTON-X (`gpu_trabajo/cubo.rs`, donde se juzgan con
+  `juzgar_programa` antes de subir):
+  1. darse cuenta de que un trabajo mandado no aviso de que acabo
+     dentro de un plazo;
+  2. parar o reiniciar el canal o el motor SIN romper lo demas -- estudiar
+     como se le quita el canal a la 3060 o se le mata por el GSP-RM: el
+     punto de partida es `platform/drivers/gpu/ga10x/COMO_LE_HABLA_NVIDIA.md`
+     y los controles del GSP-RM (`control.rs`, `Control::TODOS`; nova-core y
+     open-gpu-kernel-modules tienen la preempcion de canales y el
+     recuperar de un canal en `RC`, "robust channel");
+  3. decirlo claro en la cabina (`warn`), como el juez dice un BODRIO.
+- **Mientras no exista:** un cuerpo de app con bucles NO va al metal (lo
+  dice E6). Los programas de la casa con bucles, solo los que se sabe que
+  acaban.
+- **Como se sabra:** en el metal, un sombreador hecho a proposito con un
+  bucle eterno: la cabina dice el corte, el canal se recupera y el
+  siguiente dibujo sale.
+- Las convenciones: comentarios en ASCII y en castellano sin enes caidas,
+  ambitos de `toolchain/tools/ambitos/AMBITOS.txt`, los guardianes de
+  `toolchain/tools/*` con `--check`.
 
 ---
 

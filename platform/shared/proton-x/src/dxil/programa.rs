@@ -72,6 +72,9 @@ const FUNC_BR: u64 = 11;
 const FUNC_PHI: u64 = 16;
 const FUNC_CMP2: u64 = 28;
 const FUNC_VSELECT: u64 = 29;
+// E6c (02-10): las conversiones y el `switch` (`enteros.rs`, `estructura.rs`).
+const FUNC_CAST: u64 = 3;
+const FUNC_SWITCH: u64 = 12;
 const FUNC_EXTRACTVAL: u64 = 26;
 const FUNC_DEBUG_LOC_AGAIN: u64 = 33;
 const FUNC_CALL: u64 = 34;
@@ -155,6 +158,10 @@ pub enum Op {
     Copia { d: Reg, a: Reg },
     /// `d = a + b` como enteros de 32 bits (modulo 2^32: `iadd`).
     SumaEntera { d: Reg, a: Reg, b: Reg },
+    /// E6c (02-10): las demas de enteros de 32 bits (ver [`OpEntera`]).
+    Entera { d: Reg, a: Reg, b: Reg, op: OpEntera },
+    /// E6c: de entero a float y al reves (ver [`Conversion`]).
+    Convierte { d: Reg, a: Reg, como: Conversion },
     /// Lo de hasta su `SiNo` o su `FinSi` corre si los bits de `c` no son 0.
     Si { c: Reg },
     SiNo,
@@ -172,7 +179,8 @@ pub enum Op {
     FinBucle,
 }
 
-/// Lo que pregunta [`Op::Compara`].
+/// Lo que pregunta [`Op::Compara`]. Las `SinSigno` (E6c), solo con
+/// `entero`: los bits como `u32`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Comparacion {
     Menor,
@@ -181,6 +189,73 @@ pub enum Comparacion {
     MayorIgual,
     Igual,
     Distinto,
+    MenorSinSigno,
+    MenorIgualSinSigno,
+    MayorSinSigno,
+    MayorIgualSinSigno,
+}
+
+/// Lo que hace [`Op::Entera`], sobre los bits (modulo 2^32). Los
+/// desplazamientos usan los 5 bits de abajo de la cuenta, como D3D (`ishl`,
+/// `ushr`, `ishr`; `dxc` pone ese `& 31` el mismo).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpEntera {
+    Resta,
+    Mul,
+    Shl,
+    /// `>>` logico (`ushr`, `lshr`).
+    ShrL,
+    /// `>>` aritmetico (`ishr`, `ashr`).
+    ShrA,
+    Y,
+    O,
+    OX,
+    MinS,
+    MaxS,
+    MinU,
+    MaxU,
+}
+
+impl OpEntera {
+    pub fn hacer(self, a: u32, b: u32) -> u32 {
+        match self {
+            OpEntera::Resta => a.wrapping_sub(b),
+            OpEntera::Mul => a.wrapping_mul(b),
+            OpEntera::Shl => a << (b & 31),
+            OpEntera::ShrL => a >> (b & 31),
+            OpEntera::ShrA => ((a as i32) >> (b & 31)) as u32,
+            OpEntera::Y => a & b,
+            OpEntera::O => a | b,
+            OpEntera::OX => a ^ b,
+            OpEntera::MinS => (a as i32).min(b as i32) as u32,
+            OpEntera::MaxS => (a as i32).max(b as i32) as u32,
+            OpEntera::MinU => a.min(b),
+            OpEntera::MaxU => a.max(b),
+        }
+    }
+}
+
+/// Lo que hace [`Op::Convierte`]. De float a entero: hacia cero, y lo que no
+/// cabe se queda en el limite (un NaN, 0) -- lo de D3D (`ftoi`, `ftou`) y de
+/// PTX (`cvt.rzi`); `as` de Rust hace eso mismo. De entero a float: al mas
+/// cercano.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Conversion {
+    EnteroAFloat,
+    SinSignoAFloat,
+    FloatAEntero,
+    FloatASinSigno,
+}
+
+impl Conversion {
+    pub fn hacer(self, x: u32) -> u32 {
+        match self {
+            Conversion::EnteroAFloat => (x as i32 as f32).to_bits(),
+            Conversion::SinSignoAFloat => (x as f32).to_bits(),
+            Conversion::FloatAEntero => f32::from_bits(x) as i32 as u32,
+            Conversion::FloatASinSigno => f32::from_bits(x) as u32,
+        }
+    }
 }
 
 impl Comparacion {
@@ -193,11 +268,17 @@ impl Comparacion {
             Comparacion::MayorIgual => x >= y,
             Comparacion::Igual => x == y,
             Comparacion::Distinto => x != y,
+            // Sin sentido con floats (los lectores no las dan): las ordenadas.
+            Comparacion::MenorSinSigno => x < y,
+            Comparacion::MenorIgualSinSigno => x <= y,
+            Comparacion::MayorSinSigno => x > y,
+            Comparacion::MayorIgualSinSigno => x >= y,
         }
     }
 
-    /// Con enteros con signo.
+    /// Con enteros: con signo, o sin el las `SinSigno`.
     pub fn enteros(self, x: i32, y: i32) -> bool {
+        let (u, v) = (x as u32, y as u32);
         match self {
             Comparacion::Menor => x < y,
             Comparacion::MenorIgual => x <= y,
@@ -205,6 +286,10 @@ impl Comparacion {
             Comparacion::MayorIgual => x >= y,
             Comparacion::Igual => x == y,
             Comparacion::Distinto => x != y,
+            Comparacion::MenorSinSigno => u < v,
+            Comparacion::MenorIgualSinSigno => u <= v,
+            Comparacion::MayorSinSigno => u > v,
+            Comparacion::MayorIgualSinSigno => u >= v,
         }
     }
 }
@@ -249,7 +334,7 @@ impl Programa {
     /// enteros o booleanos. Lo que no sabe de esto (el traductor a x86-64,
     /// `nativo`) lo mira aqui y se aparta.
     pub fn salta(&self) -> bool {
-        self.ops.iter().any(|o| matches!(o, Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle))
+        self.ops.iter().any(|o| matches!(o, Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Entera { .. } | Op::Convierte { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle))
     }
 
     /// **La forma**: cada `Si` con su `FinSi` (y a lo sumo un `SiNo`), cada
@@ -346,6 +431,8 @@ impl Programa {
                 Op::Elige { d, c, a, b } => regs[d as usize] = f32::from_bits(if bits(regs, c) != 0 { bits(regs, a) } else { bits(regs, b) }),
                 Op::Copia { d, a } => regs[d as usize] = f32::from_bits(bits(regs, a)),
                 Op::SumaEntera { d, a, b } => regs[d as usize] = f32::from_bits(bits(regs, a).wrapping_add(bits(regs, b))),
+                Op::Entera { d, a, b, op } => regs[d as usize] = f32::from_bits(op.hacer(bits(regs, a), bits(regs, b))),
+                Op::Convierte { d, a, como } => regs[d as usize] = f32::from_bits(como.hacer(bits(regs, a))),
                 Op::Si { c } => {
                     if bits(regs, c) == 0 {
                         pc = self.tras_si(pc - 1, true);
@@ -513,8 +600,12 @@ pub(super) enum Valor {
     Entero(i64),
     /// Un float: en este registro.
     Float(Reg),
-    /// E6b: un entero o un `i1` CALCULADO (sus bits, en este registro).
+    /// E6b: un entero CALCULADO (sus bits, en este registro).
     Bits(Reg),
+    /// E6c: un `i1` (0xFFFFFFFF cierto, 0 falso: el `true` de LLVM es -1).
+    Bool(Reg),
+    /// E6c: lo que devuelve CBufferLoadLegacy.i32: 4 enteros seguidos.
+    CuatroEnteros(Reg),
     /// Lo que devuelve CBufferLoadLegacy: 4 floats seguidos.
     Cuatro(Reg),
     /// El handle de un cbuffer.
@@ -653,6 +744,7 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     let relativos = m.registros.iter().find(|r| r.codigo == MODULE_CODE_VERSION).and_then(|r| r.ops.first()).copied().unwrap_or(0) >= 1;
     let tipos = tipos(m);
     let floats = tipos_float(m);
+    let anchos = super::enteros::anchos(m);
     let mut c = Compilador { valores: Vec::new(), iniciales: Vec::new(), ops: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, bloques: Default::default(), literales: Vec::new() };
 
     // 1. Los globales, en el orden de sus registros.
@@ -699,7 +791,7 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
         c.constantes(b, &floats)?;
     }
     for r in &cuerpo.registros {
-        instruccion(&mut c, r, relativos, &tipos, &funciones, &floats)?;
+        instruccion(&mut c, r, relativos, &tipos, &funciones, &floats, &anchos)?;
     }
     // E6b: con saltos, el grafo de bloques vuelve a ser `si` y bucles.
     super::estructura::armar(&mut c)?;
@@ -752,18 +844,21 @@ impl Operandos<'_> {
     }
 }
 
-fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo], funciones: &[Funcion], floats: &[bool]) -> Result<(), NoPrograma> {
+#[allow(clippy::too_many_arguments)]
+fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo], funciones: &[Funcion], floats: &[bool], anchos: &[u32]) -> Result<(), NoPrograma> {
     let mut o = Operandos { ops: &r.ops, i: 0, siguiente: c.valores.len(), relativos };
     match r.codigo {
         FUNC_DECLAREBLOCKS => c.bloques.declarar(r.ops.first().copied().unwrap_or(1) as usize, c.ops.len()),
         FUNC_DEBUG_LOC | FUNC_DEBUG_LOC_AGAIN => {}
         FUNC_RET => c.bloques.cerrar(super::estructura::Fin::Ret, c.ops.len())?,
         FUNC_BR => super::estructura::br(c, &mut o)?,
-        FUNC_PHI => super::estructura::phi(c, &mut o, floats)?,
+        FUNC_PHI => super::estructura::phi(c, &mut o, floats, anchos)?,
+        FUNC_CAST => super::enteros::cast(c, &mut o, floats, anchos)?,
+        FUNC_SWITCH => super::estructura::switch(c, &mut o)?,
         FUNC_CMP2 => super::estructura::cmp(c, &mut o)?,
         FUNC_VSELECT => super::estructura::select(c, &mut o)?,
         // E6b: + y - de ENTEROS (un contador de bucle).
-        FUNC_BINOP if super::estructura::es_entero(c, &o)? => super::estructura::binop_entero(c, &mut o)?,
+        FUNC_BINOP if super::enteros::es_entero(c, &o)? => super::enteros::binop_entero(c, &mut o)?,
         FUNC_BINOP => {
             let a = o.con_tipo()?;
             let b = o.solo()?;
@@ -784,6 +879,7 @@ fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo]
             let k = o.crudo()?;
             let v = match (c.valores.get(a), k) {
                 (Some(Valor::Cuatro(base)), 0..=3) => Valor::Float(base + k as Reg),
+                (Some(Valor::CuatroEnteros(base)), 0..=3) => Valor::Bits(base + k as Reg),
                 _ => return Err(NoPrograma::Forma("extractvalue de algo que no es un CBufRet ni un ResRet")),
             };
             c.valores.push(v);
@@ -814,7 +910,7 @@ fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo]
             while o.i < o.ops.len() {
                 args.push(o.solo()?);
             }
-            let v = llamada(c, &args)?;
+            let v = llamada(c, &args, &fun.nombre)?;
             if !vacia {
                 c.valores.push(v);
             }
@@ -825,7 +921,9 @@ fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo]
 }
 
 /// Una llamada a `dx.op.*`: el primer argumento es el numero de operacion.
-fn llamada(c: &mut Compilador, args: &[usize]) -> Result<Valor, NoPrograma> {
+fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, NoPrograma> {
+    // E6c: lo que trae ENTEROS lo dice su sobrecarga (`dx.op.X.i32`).
+    let enteros = nombre.ends_with(".i32");
     let arg = |k: usize| args.get(k).copied().ok_or(NoPrograma::Forma("una operacion de D3D con menos argumentos"));
     let op = c.entero(arg(0)?)?;
     let uno = |c: &mut Compilador, f: fn(Reg, Reg) -> Op| -> Result<Valor, NoPrograma> {
@@ -846,10 +944,14 @@ fn llamada(c: &mut Compilador, args: &[usize]) -> Result<Valor, NoPrograma> {
                 c.lee |= 1 << elemento;
                 let d = c.registro(0.0)?;
                 c.ops.push(Op::Entrada { d, elemento, componente });
-                Valor::Float(d)
+                if enteros {
+                    Valor::Bits(d)
+                } else {
+                    Valor::Float(d)
+                }
             } else {
                 c.salidas = c.salidas.max(elemento as usize + 1);
-                let s = c.float(arg(4)?)?;
+                let s = super::estructura::bits(c, arg(4)?)?;
                 c.ops.push(Op::Salida { s, elemento, componente });
                 Valor::Nada
             }
@@ -881,7 +983,7 @@ fn llamada(c: &mut Compilador, args: &[usize]) -> Result<Valor, NoPrograma> {
             }
             c.filas_cb = c.filas_cb.max(fila as u16 + 1);
             c.ops.push(Op::Constantes { d, fila: fila as u16 });
-            Valor::Cuatro(d)
+            if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) }
         }
         DX_SAMPLE => {
             // (srv, sampler, coord0..3, offset0..2, clamp): 2D, sin desplazar.
@@ -924,6 +1026,8 @@ fn llamada(c: &mut Compilador, args: &[usize]) -> Result<Valor, NoPrograma> {
         DX_SQRT => uno(c, |d, a| Op::Sqrt { d, a })?,
         DX_SATURATE => uno(c, |d, a| Op::Saturate { d, a })?,
         DX_FABS => uno(c, |d, a| Op::Abs { d, a })?,
+        // E6c: IMax, IMin, UMax, UMin (`dx.op.binary.i32`).
+        37..=40 => super::enteros::min_max(c, op, arg(1)?, arg(2)?)?,
         DX_FMIN | DX_FMAX => {
             let (a, b) = (c.float(arg(1)?)?, c.float(arg(2)?)?);
             let d = c.registro(0.0)?;

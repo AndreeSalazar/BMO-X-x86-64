@@ -234,3 +234,86 @@ fn el_grafo_de_anidado_sale_estructurado_sin_repetir() {
     assert!(n(|o| matches!(o, Op::Romper | Op::RomperSi { .. })) >= 2);
 }
 
+
+// -- E6c: enteros, conversiones y switch del DXIL de dxc --------------------
+
+const DXIL_ENTEROS: &[u8] = include_bytes!("../prueba/enteros.dxil");
+
+/// `enteros.hlsl`, como lo dejo `dxc` (su `.ll`): `n` es la fila 1 del
+/// cbuffer, como enteros.
+fn enteros_ref(x: f32, y: f32, n: [i32; 4]) -> [f32; 4] {
+    let a = (x * 16.0) as i32;
+    let b = (y * 8.0) as u32;
+    let c = n[0].wrapping_add(4).wrapping_mul(a).wrapping_sub((b >> 1) as i32);
+    let d = (b ^ 5) | (a as u32 & 15);
+    let m = c.max(n[1]).min(n[2]);
+    let u = d.min(n[3] as u32);
+    let r = match a & 3 {
+        0 => c as f32,
+        1 => d as f32 * 0.5,
+        2 | 3 => m.wrapping_sub(u as i32) as f32,
+        _ => -1.0,
+    };
+    let w = if b & 1 == 0 { 1.0 } else { (c >> 3) as f32 };
+    [r, m as f32, u as f32, w]
+}
+
+#[test]
+fn el_dxil_con_enteros_y_switch_corre_como_su_hlsl() {
+    let p = dxil(DXIL_ENTEROS);
+    assert!(p.ops.iter().any(|o| matches!(o, Op::Entera { .. })) && p.ops.iter().any(|o| matches!(o, Op::Convierte { .. })));
+    let ns: [[i32; 4]; 3] = [[3, -50, 50, 7], [-2, i32::MIN, i32::MAX, -1], [0, 10, 5, 0]];
+    let uv: [(f32, f32); 8] = [(0.1, 0.9), (0.3, 0.2), (0.7, 0.7), (-0.4, 0.6), (0.99, -0.3), (1e9, 3.0), (-1e9, 1e12), (0.0, 0.125)];
+    for n in ns {
+        let mut cb: Vec<u8> = [0.0f32; 4].iter().flat_map(|v| v.to_le_bytes()).collect();
+        cb.extend(n.iter().flat_map(|v| v.to_le_bytes()));
+        for (x, y) in uv {
+            let mut s = [[0.0f32; 4]; 1];
+            p.correr(&[[0.0; 4], [x, y, 0.0, 0.0]], &cb, &mut s, &mut Vec::new());
+            let r = enteros_ref(x, y, n);
+            for k in 0..4 {
+                assert_eq!(s[0][k].to_bits(), r[k].to_bits(), "uv ({x}, {y}) n {n:?}: {:?} y el hlsl {r:?}", s[0]);
+            }
+        }
+    }
+}
+
+// -- E6c: el SM5 de enteros y el switch --------------------------------------
+
+fn sm5_ref_switch(x: f32, y: f32) -> [f32; 2] {
+    let (a, b) = (x as i32, y as u32);
+    match a {
+        0 => [10.0, 0.0],
+        1 | 2 => [a.wrapping_mul(3) as f32, (b >> 1) as f32],
+        3 => [0.0, (b >> 1) as f32],
+        _ => [a.wrapping_neg() as f32, 0.0],
+    }
+}
+
+fn sm5_ref_enteros(x: f32, y: f32) -> [f32; 4] {
+    let (a, b) = (x as i32, y as i32);
+    let r1 = !((a & 6) ^ (a | b));
+    let r2 = a.min(b).wrapping_add(a.max(b)).wrapping_add((a as u32).min(b as u32) as i32).wrapping_add((a as u32).max(b as u32) as i32);
+    let r3 = a.wrapping_mul(b).wrapping_add(7).wrapping_add(a >> 1);
+    let ult = if (a as u32) < (b as u32) { -1i32 } else { 0 };
+    let uge = if (a as u32) >= (b as u32) { -1i32 } else { 0 };
+    let r4 = (ult & 1) | (uge & 2);
+    [r1 as f32, r2 as f32, r3 as f32, r4 as f32]
+}
+
+#[test]
+fn el_sm5_con_switch_y_enteros() {
+    let ps = sm5(crate::dxil::ejemplos::sm5_switch);
+    let pe = sm5(crate::dxil::ejemplos::sm5_enteros);
+    let entradas = [(0.5, 7.9), (1.9, 3.0), (2.2, 9.5), (3.7, 1e10), (4.0, 2.0), (-1.5, -3.0), (-7.0, 0.0), (1e10, 5.0), (-1e10, 1.0), (f32::NAN, f32::NAN)];
+    for (x, y) in entradas {
+        let s = correr2(&ps, x, y);
+        let r = sm5_ref_switch(x, y);
+        assert_eq!([s[0].to_bits(), s[1].to_bits()], [r[0].to_bits(), r[1].to_bits()], "switch ({x}, {y}): {s:?} y {r:?}");
+        let s = correr2(&pe, x, y);
+        let r = sm5_ref_enteros(x, y);
+        for k in 0..4 {
+            assert_eq!(s[k].to_bits(), r[k].to_bits(), "enteros ({x}, {y}): {s:?} y {r:?}");
+        }
+    }
+}

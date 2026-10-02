@@ -10,7 +10,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use bmo_proton_x::dxil::ejemplos;
-use bmo_proton_x::dxil::programa::{Comparacion, Op, Programa, Reg};
+use bmo_proton_x::dxil::programa::{Comparacion, Conversion, Op, OpEntera, Programa, Reg};
 
 use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_de_app, juzgar_drenado, Contexto, RESERVADOS};
 
@@ -118,6 +118,11 @@ struct Gen {
     ops: Vec<Op>,
     /// Lo que se puede leer: entradas, constantes, variables y lo calculado.
     legibles: Vec<Reg>,
+    /// E6c: los ENTEROS que se pueden leer (contadores, constantes enteras, lo
+    /// calculado con enteros). Como en un sombreador de verdad, una de
+    /// enteros no lee los bits de un float: el signo y la carga de un NaN
+    /// no se modelan, y verlos como entero cambiaria el camino.
+    enteros: Vec<Reg>,
     /// Las variables (se escriben con Copia).
     variables: Vec<Reg>,
     siguiente: Reg,
@@ -138,6 +143,11 @@ impl Gen {
         self.legibles[k]
     }
 
+    fn entero(&mut self) -> Reg {
+        let k = self.az.n(self.enteros.len() as u32) as usize;
+        self.enteros[k]
+    }
+
     fn cuenta(&mut self) {
         // E6b: a veces una fila del cbuffer, donde caiga (dentro de un bucle,
         // como la repite `dxc`): con el ABI de registros es una precarga que
@@ -156,6 +166,30 @@ impl Gen {
         };
         let (a, b, c) = (fila.unwrap_or_else(|| self.legible()), self.legible(), self.legible());
         let d = self.nuevo();
+        // E6c: enteros y conversiones (sobre los bits de lo que haya).
+        const ENTERAS: [OpEntera; 12] = [OpEntera::Resta, OpEntera::Mul, OpEntera::Shl, OpEntera::ShrL, OpEntera::ShrA, OpEntera::Y, OpEntera::O, OpEntera::OX, OpEntera::MinS, OpEntera::MaxS, OpEntera::MinU, OpEntera::MaxU];
+        const CONVERSIONES: [Conversion; 4] = [Conversion::EnteroAFloat, Conversion::SinSignoAFloat, Conversion::FloatAEntero, Conversion::FloatASinSigno];
+        if self.az.n(4) == 0 {
+            let como = CONVERSIONES[self.az.n(4) as usize];
+            match self.az.n(3) {
+                // De float a entero (un NaN, 0) o de entero a float.
+                0 if matches!(como, Conversion::FloatAEntero | Conversion::FloatASinSigno) => {
+                    self.ops.push(Op::Convierte { d, a, como });
+                    self.enteros.push(d);
+                }
+                0 => {
+                    let a = self.entero();
+                    self.ops.push(Op::Convierte { d, a, como });
+                    self.legibles.push(d);
+                }
+                _ => {
+                    let (a, b) = (self.entero(), self.entero());
+                    self.ops.push(Op::Entera { d, a, b, op: ENTERAS[self.az.n(12) as usize] });
+                    self.enteros.push(d);
+                }
+            }
+            return;
+        }
         self.ops.push(match self.az.n(9) {
             0 => Op::Add { d, a, b },
             1 => Op::Mul { d, a, b },
@@ -178,7 +212,14 @@ impl Gen {
         let (a, b) = (self.legible(), self.legible());
         let d = self.nuevo();
         let como = [Comparacion::Menor, Comparacion::MenorIgual, Comparacion::Mayor, Comparacion::MayorIgual, Comparacion::Igual, Comparacion::Distinto][self.az.n(6) as usize];
-        self.ops.push(Op::Compara { d, a, b, como, entero: false });
+        // E6c: a veces de enteros (de su pozo), con o sin signo.
+        let (como, entero) = match self.az.n(4) {
+            0 => ([Comparacion::MenorSinSigno, Comparacion::MenorIgualSinSigno, Comparacion::MayorSinSigno, Comparacion::MayorIgualSinSigno][self.az.n(4) as usize], true),
+            1 => (como, true),
+            _ => (como, false),
+        };
+        let (a, b) = if entero { (self.entero(), self.entero()) } else { (a, b) };
+        self.ops.push(Op::Compara { d, a, b, como, entero });
         d
     }
 
@@ -222,6 +263,7 @@ impl Gen {
                     // un RomperSi de una comparacion de floats.
                     let i = self.nuevo();
                     self.ops.push(Op::Copia { d: i, a: self.cero });
+                    self.enteros.push(i);
                     self.ops.push(Op::Bucle);
                     let c = self.nuevo();
                     let tope = self.topes[self.az.n(3) as usize];
@@ -245,7 +287,7 @@ impl Gen {
 /// Un programa al azar: dos entradas, cuatro variables (las cuatro salidas)
 /// y lo que salga.
 fn al_azar(semilla: u64) -> Programa {
-    let mut g = Gen { az: Azar(semilla), ops: Vec::new(), legibles: Vec::new(), variables: vec![2, 3, 4, 5], siguiente: 40, cero: 10, uno: 11, topes: [12, 13, 14] };
+    let mut g = Gen { az: Azar(semilla), ops: Vec::new(), legibles: Vec::new(), enteros: vec![10, 11, 12, 13, 14], variables: vec![2, 3, 4, 5], siguiente: 40, cero: 10, uno: 11, topes: [12, 13, 14] };
     g.ops.push(Op::Entrada { d: 0, elemento: 0, componente: 0 });
     g.ops.push(Op::Entrada { d: 1, elemento: 0, componente: 1 });
     for v in 2..6 {
@@ -310,7 +352,7 @@ fn cientos_de_programas_al_azar_dan_los_bits_de_la_casa() {
 /// mentira, bit a bit con la casa, y PERFECTO ante el juez.
 #[test]
 fn el_sm5_con_saltos_de_punta_a_punta() {
-    for f in [ejemplos::sm5_bucle, ejemplos::sm5_si_cero] {
+    for f in [ejemplos::sm5_bucle, ejemplos::sm5_si_cero, ejemplos::sm5_switch, ejemplos::sm5_enteros] {
         let (t, ent, sal) = f();
         let p = bmo_proton_x::sm5::compilar(&t, &ent, &sal).unwrap();
         assert!(p.salta());
@@ -323,6 +365,7 @@ fn el_sm5_con_saltos_de_punta_a_punta() {
 const DXIL_SALTOS: &[u8] = include_bytes!("../../proton-x/prueba/saltos.dxil");
 const DXIL_ANIDADO: &[u8] = include_bytes!("../../proton-x/prueba/anidado.dxil");
 const DXIL_MIENTRAS: &[u8] = include_bytes!("../../proton-x/prueba/mientras.dxil");
+const DXIL_ENTEROS: &[u8] = include_bytes!("../../proton-x/prueba/enteros.dxil");
 
 /// dxc -> el lector -> la estructura -> el emisor -> la 3060 de mentira: bit a
 /// bit con la casa (los dos ABI), PERFECTO ante el juez y dentro de R7. El
@@ -331,14 +374,16 @@ const DXIL_MIENTRAS: &[u8] = include_bytes!("../../proton-x/prueba/mientras.dxil
 fn el_dxil_de_dxc_con_saltos_de_punta_a_punta() {
     let ks: [[f32; 4]; 3] = [[2.0, 1.0, 0.75, 3.0], [0.5, 1.0, 1.5, 100.0], [5.0, 1.0, -0.25, 1.0]];
     let uv: [(f32, f32); 6] = [(0.1, 0.9), (0.9, 0.1), (0.7, 0.7), (3.0, 0.25), (-0.5, 0.6), (0.0, -0.0)];
-    for d in [DXIL_SALTOS, DXIL_ANIDADO, DXIL_MIENTRAS] {
+    for d in [DXIL_SALTOS, DXIL_ANIDADO, DXIL_MIENTRAS, DXIL_ENTEROS] {
         let p = bmo_proton_x::dxil::programa::compilar(&bmo_proton_x::dxil::leer(d).unwrap()).unwrap();
         assert!(p.salta());
         let e = emitir(&p, TECHO).unwrap();
         let r = emitir_con(&p, TECHO, Abi::Registros).unwrap();
         juzgado(&e, &r);
         for k in ks {
-            let cb: Vec<u8> = k.iter().flat_map(|v| v.to_le_bytes()).collect();
+            // La fila 1 (los `int4 n` de `enteros.hlsl`): enteros.
+            let n: [i32; 4] = [3, -50, 50, k[0] as i32];
+            let cb: Vec<u8> = k.iter().flat_map(|v| v.to_le_bytes()).chain(n.iter().flat_map(|v| v.to_le_bytes())).collect();
             for (x, y) in uv {
                 let ent = [[0.0; 4], [x, y, 0.0, 0.0]];
                 igual(&p, &e.codigo, &ent, &cb);
@@ -347,3 +392,42 @@ fn el_dxil_de_dxc_con_saltos_de_punta_a_punta() {
         }
     }
 }
+
+// -- E6c: cada operacion de enteros y cada conversion, sola -----------------
+
+/// `x op y` (o `conv(x)`), con las entradas como BITS, en los dos ABI.
+#[test]
+fn cada_operacion_entera_sola() {
+    let bits = [0u32, 1, 5, 31, 32, 33, 0x7FFF_FFFF, 0x8000_0000, 0xFFFF_FFFF, 0xFFFF_FFFB, 0x3F80_0000, 0xBF80_0000, 0x4F00_0000, 0xCF00_0001, 0x7FC0_0000, 0x7F80_0000, 0xFF80_0000];
+    let ops = [OpEntera::Resta, OpEntera::Mul, OpEntera::Shl, OpEntera::ShrL, OpEntera::ShrA, OpEntera::Y, OpEntera::O, OpEntera::OX, OpEntera::MinS, OpEntera::MaxS, OpEntera::MinU, OpEntera::MaxU];
+    let mut programas: Vec<(std::string::String, Programa)> = Vec::new();
+    for op in ops {
+        let p = ejemplos::programa(
+            vec![Op::Entrada { d: 0, elemento: 0, componente: 0 }, Op::Entrada { d: 1, elemento: 0, componente: 1 }, Op::Entera { d: 2, a: 0, b: 1, op }, Op::Salida { s: 2, elemento: 0, componente: 0 }],
+            3,
+            &[],
+        );
+        programas.push((std::format!("{op:?}"), p));
+    }
+    for como in [Conversion::EnteroAFloat, Conversion::SinSignoAFloat, Conversion::FloatAEntero, Conversion::FloatASinSigno] {
+        let p = ejemplos::programa(vec![Op::Entrada { d: 0, elemento: 0, componente: 0 }, Op::Convierte { d: 2, a: 0, como }, Op::Salida { s: 2, elemento: 0, componente: 0 }], 3, &[]);
+        programas.push((std::format!("{como:?}"), p));
+    }
+    for (nombre, p) in &programas {
+        let e = emitir(p, TECHO).unwrap();
+        let r = emitir_con(p, TECHO, Abi::Registros).unwrap();
+        juzgado(&e, &r);
+        for &x in &bits {
+            for &y in &bits {
+                let ent = [[f32::from_bits(x), f32::from_bits(y), 0.0, 0.0]];
+                let mut casa = [[0.0f32; 4]; 1];
+                p.correr(&ent, &[], &mut casa, &mut Vec::new());
+                let banco: Vec<u8> = ent.iter().flat_map(|e| e.iter().flat_map(|v| v.to_le_bytes())).collect();
+                let mut m = crate::simula::Maquina::nueva([&[], &banco, &[], &[], &[], &[], &[], &[]]);
+                crate::simula::correr(&e.codigo, &mut m).unwrap();
+                assert_eq!(m.r[0], casa[0][0].to_bits(), "{nombre} {x:#x} {y:#x}");
+            }
+        }
+    }
+}
+

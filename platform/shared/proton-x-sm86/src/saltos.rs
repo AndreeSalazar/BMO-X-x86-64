@@ -42,7 +42,7 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
     let mut v = [None; 8];
     match *op {
         Op::Salida { s, .. } => v[0] = Some(s),
-        Op::Mul { a, b, .. } | Op::Add { a, b, .. } | Op::Sub { a, b, .. } | Op::Div { a, b, .. } | Op::Min { a, b, .. } | Op::Max { a, b, .. } | Op::Compara { a, b, .. } | Op::SumaEntera { a, b, .. } => {
+        Op::Mul { a, b, .. } | Op::Add { a, b, .. } | Op::Sub { a, b, .. } | Op::Div { a, b, .. } | Op::Min { a, b, .. } | Op::Max { a, b, .. } | Op::Compara { a, b, .. } | Op::SumaEntera { a, b, .. } | Op::Entera { a, b, .. } => {
             v[0] = Some(a);
             v[1] = Some(b);
         }
@@ -62,7 +62,7 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
                 v[2 * j + 1] = Some(b[j]);
             }
         }
-        Op::Rsqrt { a, .. } | Op::Sqrt { a, .. } | Op::Saturate { a, .. } | Op::Abs { a, .. } | Op::Copia { a, .. } => v[0] = Some(a),
+        Op::Rsqrt { a, .. } | Op::Sqrt { a, .. } | Op::Saturate { a, .. } | Op::Abs { a, .. } | Op::Copia { a, .. } | Op::Convierte { a, .. } => v[0] = Some(a),
         Op::Muestra { u, v: vv, .. } => {
             v[0] = Some(u);
             v[1] = Some(vv);
@@ -96,7 +96,9 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         | Op::Compara { d, .. }
         | Op::Elige { d, .. }
         | Op::Copia { d, .. }
-        | Op::SumaEntera { d, .. } => uno(d),
+        | Op::SumaEntera { d, .. }
+        | Op::Entera { d, .. }
+        | Op::Convierte { d, .. } => uno(d),
         Op::Salida { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
     }
 }

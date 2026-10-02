@@ -1724,3 +1724,26 @@ juez dice PERFECTO.
 [!] `mientras` con `k.y = 0.5` y `uv.x = -0.5` no acaba nunca (`x = -0.5 *
 2 + 0.5 = -0.5`): asi es el HLSL, en la casa y en una GPU. El banco usa un
 `k` con el que acaba.
+
+enteros.dxil -- los ENTEROS y el SWITCH del DXIL (E6c, 02-10)
+
+Para que el lector de DXIL aprenda lo de `int`, `uint` y `bool`
+(`dxil/enteros.rs`) y el `switch` (`dxil/estructura.rs`: una cadena de
+`si`). De `enteros.hlsl` (aqui al lado), con el mismo `dxc` de Linux que
+`saltos.dxil` (1.9, 4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo enteros.dxil enteros.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   5750dfcef3193927d670b7ed4fdcf7a58b0368814dd5531263d88d23157625f4  enteros.dxil
+
+Y su TESTIGO, `enteros.ll` (`dxc -dumpbin`). Lo que se aprendio de el: los
+`int4` del cbuffer llegan con `cbufferLoadLegacy.i32` (la sobrecarga dice
+que son enteros); min y max de enteros son `dx.op.binary.i32` (37 IMax, 38
+IMin, 40 UMin); `switch` lleva sus casos con el id ABSOLUTO de su constante,
+y dos casos al mismo bloque son dos casos; `dxc` reordena `a * n.x + (a <<
+2)` en `(n.x + 4) * a` (con enteros modulo 2^32 da lo mismo). El banco lo
+compara, bit a bit, con su HLSL escrito en Rust (`pruebas_saltos.rs`), y el
+emisor de la 3060 lo emite, lo simula con los dos ABI y el juez dice
+PERFECTO.
