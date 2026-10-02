@@ -350,6 +350,7 @@ pub(crate) fn filetime_ahora() -> u64 {
 }
 
 extern "win64" fn get_system_time_as_file_time(ft: *mut u64) {
+    crate::hilos::ahora_del_exe();
     // SAFETY: un FILETIME del `.exe` (dos DWORD seguidos: un u64 sin alinear).
     unsafe { ft.write_unaligned(filetime_ahora()) };
 }

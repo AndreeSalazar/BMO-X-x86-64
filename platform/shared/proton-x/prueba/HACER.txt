@@ -1799,3 +1799,23 @@ cuatro i32 (las mips, en w) y el sombreador las pasa a float con `uitofp`.
 El banco (`un_pixel_de_dxc_lee_arrays_cubos_3d_y_mips`) lo corre con
 texturas de colores conocidos y lo compara con lo que dice D3D, escrito a
 mano.
+
+vueltas.exe -- el hilo que ESPERA DANDO VUELTAS (02-10)
+
+Lo que se sospecha de Cyberpunk en el metal (02-10 17:53: la CPU al 100 %,
+nada nuevo tras un ReleaseSemaphore): el principal espera a un trabajador
+mirando el reloj en un bucle, sin llamar a ninguna espera de Windows. Con el
+mismo kernel32.def (no cambia) y las mismas herramientas:
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c vueltas.c -o vueltas.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro vueltas.obj kernel32.lib /out:vueltas.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   f76f6ffc59de548f8779bd2d4a1daccf5edbd789e771000b0df75852cdc2fca1
+
+Dice `bien` cuatro veces y sale con 0. Con la casa de antes (sin ceder al
+preguntar la hora) decia MAL dos veces: el trabajador no corria nunca y el
+bucle acababa por su plazo de dos segundos. Es lo que se comprobo antes de
+arreglarlo.

@@ -228,6 +228,7 @@ fn cambiar_a(destino: usize) {
         }
     }
     c.plan.actual = destino;
+    SONDEOS.store(0, core::sync::atomic::Ordering::Relaxed);
     let (guardar, cargar, gs) = (&mut c.hilos[origen].rsp as *mut u64, c.hilos[destino].rsp, c.hilos[destino].teb);
     (plataforma().poner_gs)(gs);
     // SAFETY: `cargar` es la pila guardada de otro hilo de la casa (o su marco
@@ -950,12 +951,42 @@ pub(crate) extern "win64" fn wake_all_condition_variable(cv: u64) {
 
 // -- La hora -------------------------------------------------------------------------------
 
+/// Cuantas veces seguidas el hilo que corre ha preguntado la hora sin ceder.
+static SONDEOS: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
+/// Cada cuantas preguntas de la hora seguidas se cede el turno.
+const SONDEOS_POR_TURNO: u32 = 64;
+
+/// **Preguntar la hora tambien suelta el turno, de vez en cuando** (02-10).
+///
+/// Un motor espera muchas veces a otro hilo DANDO VUELTAS y mirando el
+/// reloj (`while (QueryPerformanceCounter() < fin) {}`, o hasta que el otro
+/// ponga una bandera). En Windows el reloj del sistema le quita el turno y el
+/// otro hilo corre; aqui los hilos son cooperativos y no hay quien se lo
+/// quite: el que da vueltas no acaba nunca y el otro no empieza (Cyberpunk
+/// en el metal, 02-10: la CPU al 100 % y nada nuevo tras un
+/// ReleaseSemaphore). Cada [`SONDEOS_POR_TURNO`] preguntas seguidas de la
+/// misma hora se cede, si hay otro listo: el reloj sigue corriendo igual.
+fn sondeo() {
+    use core::sync::atomic::Ordering;
+    if SONDEOS.fetch_add(1, Ordering::Relaxed) + 1 >= SONDEOS_POR_TURNO {
+        SONDEOS.store(0, Ordering::Relaxed);
+        ceder();
+    }
+}
+
+/// La hora para el `.exe`: [`sondeo`] y la de la casa.
+pub(crate) fn ahora_del_exe() -> u64 {
+    sondeo();
+    ahora()
+}
+
 extern "win64" fn get_tick_count() -> u32 {
-    (ahora() / 1_000_000) as u32
+    (ahora_del_exe() / 1_000_000) as u32
 }
 
 extern "win64" fn get_tick_count64() -> u64 {
-    ahora() / 1_000_000
+    ahora_del_exe() / 1_000_000
 }
 
 /// El contador de rendimiento de la casa cuenta NANOSEGUNDOS.
@@ -963,8 +994,9 @@ pub(crate) extern "win64" fn query_performance_counter(v: *mut i64) -> i32 {
     if v.is_null() {
         return 0;
     }
+    let t = ahora_del_exe();
     // SAFETY: un LARGE_INTEGER del `.exe`.
-    unsafe { *v = ahora() as i64 };
+    unsafe { *v = t as i64 };
     1
 }
 

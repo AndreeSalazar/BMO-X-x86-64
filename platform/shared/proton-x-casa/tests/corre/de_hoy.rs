@@ -104,6 +104,17 @@ fn diario_exe_con_diario_apunta_cada_funcion_una_vez_y_en_orden() {
     assert!(anillo.iter().all(|l| l.split_whitespace().next() == Some(id)), "cada llamada, del hilo {id}: {texto}");
 }
 
+const VUELTAS: &[u8] = include_bytes!("../../../proton-x/prueba/vueltas.exe");
+
+/// **Un hilo que espera DANDO VUELTAS** (02-10): `vueltas.exe` despierta a
+/// un trabajador y lo espera mirando QueryPerformanceCounter en un bucle,
+/// como un motor. Con hilos cooperativos el trabajador no corria nunca;
+/// ahora preguntar la hora cede el turno cada 64 veces (`hilos::sondeo`).
+#[test]
+fn vueltas_exe_el_que_espera_mirando_el_reloj_deja_correr_a_los_demas() {
+    tanda(VUELTAS, None, 4, "vueltas.exe: un hilo que espera dando vueltas deja correr a los demas");
+}
+
 /// **El pulso con el diario encendido** (02-10): `crt.exe` (mas de dos mil
 /// llamadas: el latido de cada 1024 corre dos veces dentro del trampolin) y
 /// `hilos.exe` (el planificador sin nadie listo) dicen LO MISMO que sin el
