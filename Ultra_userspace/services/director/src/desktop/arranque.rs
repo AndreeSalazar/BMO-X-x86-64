@@ -259,15 +259,32 @@ pub(crate) fn acabar(dsk: &mut Desktop, p: &bmo::Pantalla) {
             pintar(p, b"la 3060 viene CALIENTE", crate::commands::gsp::CALIENTE, b"CPU: arranque hecho sin la 3060", sa::AMBAR);
             esperar_ms(2 * DESPUES_MS);
         } else if crate::commands::gsp::despierto() {
-            // `save mode init` (26-09): el arranque que SOLO despierta la
-            // 3060 acaba aqui, con el GSP-RM corriendo; lo demas, a mano.
-            pintar(
-                p,
-                b"LA 3060 DESPIERTA",
-                b"el GSP-RM de la 570.144 corre en tu 3060 y BAR1 volvio a la pantalla: lista para `gpu cubo 3060`, `gpu pantalla` o jugar",
-                b"3060: despierta; el escritorio sale ahora",
-                VERDE,
-            );
+            // `save mode init` (26-09): el GSP-RM corriendo. ** Y CON TODO
+            // (02-10, pedido del propietario: *"que despierte con todo, no
+            // ande mareado"*): lo que hasta hoy preparaba cada orden que
+            // dibuja (PROTON-X, `gpu cubo 3060`) al lanzarse -- objetos,
+            // canales, el contexto de GR, hasta `lienzo` --, aqui, una vez.
+            // Sin un save entre paso y paso (`preparar_hasta`), y con la marca
+            // `en curso`: si uno tumba la maquina, el arranque siguiente lo sabe.
+            pintar(p, b"preparando la 3060", b"objetos, canales y el motor grafico, hasta `lienzo`: lo que PROTON-X y `gpu cubo 3060` piden", b"3060: despierta; preparandola entera", CIAN);
+            let lista = crate::commands::verificar::preparar_hasta(dsk, p, b"lienzo").is_ok();
+            if lista {
+                pintar(
+                    p,
+                    b"LA 3060 LISTA, CON TODO",
+                    b"el GSP-RM de la 570.144 corre en tu 3060, BAR1 volvio a la pantalla y el motor grafico esta preparado: `gpu cubo 3060`, `gpu pantalla` o jugar",
+                    b"3060: lista; el escritorio sale ahora",
+                    VERDE,
+                );
+            } else {
+                pintar(
+                    p,
+                    b"LA 3060 DESPIERTA, NO ENTERA",
+                    b"el GSP-RM corre, pero un paso de preparar dijo que no: la salida dice cual. Se reintenta al lanzar lo que dibuja",
+                    b"3060: despierta; el escritorio sale ahora",
+                    sa::AMBAR,
+                );
+            }
             esperar_ms(DESPUES_MS);
         } else {
             pintar(

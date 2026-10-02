@@ -263,7 +263,9 @@ const RETIRADOS: &[&[u8]] = &[b"-apagado", b"-fuego", b"-frontera"];
 /// que va detras queda quitado. `save mode init` repite en cada arranque
 /// hasta `init` (el GSP-RM arriba, BAR1 de vuelta) y deja el escritorio; las
 /// pruebas del motor grafico, la pantalla y el aguante quedan para `save
-/// mode` a secas. Vale con cualquier paso: `save mode estatica`.
+/// mode` a secas. Vale con cualquier paso: `save mode estatica`. ** Desde el
+/// 02-10, tras `init` el arranque PREPARA ademas hasta `lienzo` sin saves
+/// (`desktop::arranque::acabar`): la 3060 sale lista, no solo despierta.
 fn quitados_de(args: &[u8]) -> Result<[bool; MAX_PASOS], &[u8]> {
     let mut quitados = [false; MAX_PASOS];
     for t in args.split(|&b| b == b' ').filter(|t| !t.is_empty() && !RETIRADOS.contains(t)) {
