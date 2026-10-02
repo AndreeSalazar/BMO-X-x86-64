@@ -1565,7 +1565,10 @@ CreatePipelineState, con un FLUJO de subobjetos (el HLSL de cubo12: el banco
 pone sus .cso en window/sombras, como para cubo12.exe); EnqueueMakeResident
 lleva la valla a su valor; SetBackgroundProcessingMode y
 GetDeviceRemovedReason, S_OK; y CreatePipelineLibrary da una libreria o
-DXGI_ERROR_UNSUPPORTED (las dos son de Windows: depende del driver). En el
+DXGI_ERROR_UNSUPPORTED (las dos son de Windows: depende del driver). Si el
+driver quiere mas medidas de fondo tambien lo decide el: en el Windows del
+propietario (02-10) la primera version, que pedia FALSE, dio MAL ahi (14 de
+15); ahora se exige S_OK y un BOOL, y la linea escribe lo que contesto. En el
 banco, ademas, la textura de 16 MiB sale de la ventana de reserva, no del
 monton del cargador. La casa de antes falla las 15. Usa cubo12_hlsl.h.
 
@@ -1577,6 +1580,6 @@ monton del cargador. La casa de antes falla las 15. Usa cubo12_hlsl.h.
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   5d5917c357fcd0842baeef77b601f924f3cf5ef99b764912ba6af2d7963723b5
+   bfb6405571db069780ba0915b528049b7dcdc3d77894dcca2f1d9855b1343a40
 
 Dice `bien` quince veces y sale con 0. En Windows dice lo mismo.

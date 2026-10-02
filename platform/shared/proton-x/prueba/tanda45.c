@@ -10,7 +10,8 @@
  * CreateCommandList1, que nace CERRADA (Reset y Close: S_OK); un PSO por
  * CreatePipelineState, con un FLUJO de subobjetos (el HLSL de cubo12);
  * EnqueueMakeResident lleva la valla a su valor; SetBackgroundProcessingMode
- * y GetDeviceRemovedReason, S_OK; y CreatePipelineLibrary da una libreria o
+ * (si quiere mas medidas, lo dice el driver: se escribe lo que contesto) y
+ * GetDeviceRemovedReason, S_OK; y CreatePipelineLibrary da una libreria o
  * DXGI_ERROR_UNSUPPORTED (las dos cosas son de Windows: depende del driver).
  * No depende de que tarjeta haya.
  *
@@ -127,6 +128,21 @@ static void mira(int bien, const char *que) {
     di("\r\n");
 }
 
+/* Lo mismo, con un numero detras (lo que contesto Windows o la casa). */
+static void mira_x(int bien, const char *que, U64 x) {
+    static char t[20] = " 0x";
+    int i;
+    for (i = 0; i < 16; i++)
+        t[3 + i] = "0123456789abcdef"[(x >> (60 - 4 * i)) & 15];
+    t[19] = 0;
+    if (!bien)
+        fallos++;
+    di(bien ? "  bien  " : "  MAL   ");
+    di(que);
+    di(t);
+    di("\r\n");
+}
+
 static void *hueco(void *obj, int k) {
     return (*(void ***)obj)[k];
 }
@@ -187,7 +203,7 @@ void inicio(void) {
     volatile DWORD *p, *q;
     U64 vsb[2], psb[2], il[2], flujo_desc[2];
     UINT u, rt[9];
-    int todas = 1, mas = 1, i;
+    int todas = 1, mas = 7, i;
     HRESULT r;
 
     r = D3D12CreateDevice(0, 0xb000, &IID_Device10, &dev);
@@ -304,7 +320,10 @@ void inicio(void) {
         r = ((AlLlegar)hueco(valla, 9))(valla, 7, 0);
     mira(r == 0 && ((Completado)hueco(valla, 8))(valla) == 7, "EnqueueMakeResident lleva la valla a su valor");
     r = dev ? ((Fondo)hueco(dev, 65))(dev, 0, 0, 0, &mas) : -1;
-    mira(r == 0 && mas == 0, "SetBackgroundProcessingMode: S_OK, no hacen falta mas medidas");
+    /* Si quiere mas medidas (TRUE o FALSE) lo decide el driver: el de NVIDIA,
+     * en Windows, no dice lo mismo que la casa (02-10). Se exige S_OK y un
+     * BOOL; detras van el HRESULT (32 bits altos) y el BOOL (los bajos). */
+    mira_x(r == 0 && (mas == 0 || mas == 1), "SetBackgroundProcessingMode: S_OK y un BOOL", (U64)(unsigned)r << 32 | (unsigned)mas);
     mira(dev && ((Motivo)hueco(dev, 37))(dev) == 0, "GetDeviceRemovedReason: S_OK, el dispositivo vive");
     r = dev ? ((Libreria)hueco(dev, 44))(dev, 0, 0, &IID_PipelineLibrary, &lib) : -1;
     mira((r == 0 && lib != 0) || (r == DXGI_ERROR_UNSUPPORTED && lib == 0), "CreatePipelineLibrary: una libreria, o DXGI_ERROR_UNSUPPORTED");
