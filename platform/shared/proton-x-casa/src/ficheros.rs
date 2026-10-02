@@ -1,9 +1,9 @@
 //! **Los ficheros de Windows, de la casa** (P4d, 27-09).
 //!
 //! ```text
-//!    CreateFileW/A        la ruta a la del volumen (bmo_proton_x::ficheros),
-//!                         y el fichero ENTERO a memoria (Plataforma::leer_fichero)
-//!    ReadFile             una copia desde la memoria
+//!    CreateFileW/A        la ruta a la del volumen (bmo_proton_x::ficheros)
+//!    ReadFile             chicos: el fichero entero en memoria; grandes:
+//!                         medida al abrir y rangos via Plataforma::trozos
 //!    WriteFile            en memoria; al cerrar, sale entero
 //!                         (Plataforma::escribir_fichero)
 //!    SetFilePointer(Ex), GetFileSize(Ex), GetFileType, FlushFileBuffers,
@@ -811,6 +811,36 @@ mod pruebas_capa {
         None
     }
 
+    const ARCHIVO_GIGANTE: &str = "d:Cyberpunk 2077/archive/pc/content/basegame_4_gamedata.archive";
+    const MEDIDA_GIGANTE: u64 = (5 << 30) + 37;
+
+    fn medida_gigante(ruta: &[u8]) -> Option<u64> {
+        (ruta == ARCHIVO_GIGANTE.as_bytes()).then_some(MEDIDA_GIGANTE)
+    }
+
+    fn leer_gigante(ruta: &[u8], desde: u64, dst: &mut [u8]) -> Option<usize> {
+        if ruta != ARCHIVO_GIGANTE.as_bytes() || desde >= MEDIDA_GIGANTE {
+            return None;
+        }
+        let n = dst
+            .len()
+            .min((MEDIDA_GIGANTE - desde).min(usize::MAX as u64) as usize);
+        for (k, byte) in dst[..n].iter_mut().enumerate() {
+            *byte = desde.wrapping_add(k as u64) as u8;
+        }
+        Some(n)
+    }
+
+    fn plataforma_prueba_trozos() -> crate::Plataforma {
+        let mut p = plataforma_prueba();
+        p.trozos = Some(crate::Trozos {
+            medida: medida_gigante,
+            leer: leer_gigante,
+            umbral: 1,
+        });
+        p
+    }
+
     fn plataforma_prueba() -> crate::Plataforma {
         crate::Plataforma {
             escribir: escribir_consola,
@@ -1001,5 +1031,102 @@ mod pruebas_capa {
         poner_capa(None);
         let denied = create_file_dentro(nombre.as_ptr(), GENERIC_WRITE, 0, 0, OPEN_EXISTING, 0, 0);
         assert_eq!(denied, NO_VALE, "sin perfil, D: conserva el solo lectura");
+    }
+
+    #[test]
+    fn archivo_mayor_de_4_gib_se_mide_y_lee_sin_cargarlo_entero() {
+        let _una = UNA_A_LA_VEZ.lock().unwrap();
+        {
+            let mut v = VOLUMEN.lock().unwrap();
+            *v = Volumen::default();
+            for d in [
+                "",
+                "d:",
+                "d:Cyberpunk 2077",
+                "d:Cyberpunk 2077/archive",
+                "d:Cyberpunk 2077/archive/pc",
+                "d:Cyberpunk 2077/archive/pc/content",
+            ] {
+                v.carpetas.insert(String::from(d));
+            }
+            // Solo se registra el nombre. Los 5 GiB existen virtualmente en
+            // los callbacks: la prueba no reserva memoria proporcional.
+            v.ficheros.insert(String::from(ARCHIVO_GIGANTE), Vec::new());
+        }
+        // SAFETY: prueba serializada; todas las E/S van al volumen simulado.
+        unsafe { crate::empezar(plataforma_prueba_trozos()) };
+        crate::ficheros::poner_directorio("d:Cyberpunk 2077/bin/x64");
+        crate::ficheros::poner_capa(None);
+
+        let nombre: Vec<u16> =
+            "D:\\Cyberpunk 2077\\archive\\pc\\content\\basegame_4_gamedata.archive"
+                .encode_utf16()
+                .chain([0])
+                .collect();
+        let h = create_file_dentro(nombre.as_ptr(), GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
+        assert_ne!(h, NO_VALE);
+        assert_eq!(
+            abierto(h).unwrap().bytes.len(),
+            0,
+            "no se carga el contenido"
+        );
+        assert_eq!(abierto(h).unwrap().medida(), MEDIDA_GIGANTE);
+
+        let mut medida = 0i64;
+        assert_eq!(get_file_size_ex(h, &mut medida), 1);
+        assert_eq!(medida as u64, MEDIDA_GIGANTE);
+        let mut alto = 0u32;
+        assert_eq!(get_file_size(h, &mut alto), MEDIDA_GIGANTE as u32);
+        assert_eq!(alto, (MEDIDA_GIGANTE >> 32) as u32);
+
+        let desde = (1u64 << 32) + 19;
+        let mut nueva = 0i64;
+        assert_eq!(set_file_pointer_ex(h, desde as i64, &mut nueva, 0), 1);
+        assert_eq!(nueva as u64, desde);
+        let mut bytes = [0u8; 32];
+        let mut leidos = 0u32;
+        assert_eq!(
+            read_file(h, bytes.as_mut_ptr(), bytes.len() as u32, &mut leidos, 0),
+            1
+        );
+        assert_eq!(leidos as usize, bytes.len());
+        for (k, byte) in bytes.iter().enumerate() {
+            assert_eq!(*byte, desde.wrapping_add(k as u64) as u8);
+        }
+
+        assert_eq!(set_file_pointer_ex(h, -3, &mut nueva, 2), 1);
+        assert_eq!(nueva as u64, MEDIDA_GIGANTE - 3);
+        let mut final_bytes = [0xFF; 8];
+        assert_eq!(
+            read_file(
+                h,
+                final_bytes.as_mut_ptr(),
+                final_bytes.len() as u32,
+                &mut leidos,
+                0
+            ),
+            1
+        );
+        assert_eq!(leidos, 3);
+        assert_eq!(
+            &final_bytes[..3],
+            &[
+                (MEDIDA_GIGANTE - 3) as u8,
+                (MEDIDA_GIGANTE - 2) as u8,
+                (MEDIDA_GIGANTE - 1) as u8
+            ]
+        );
+        assert_eq!(
+            read_file(
+                h,
+                final_bytes.as_mut_ptr(),
+                final_bytes.len() as u32,
+                &mut leidos,
+                0
+            ),
+            1
+        );
+        assert_eq!(leidos, 0, "EOF es exito con 0 bytes");
+        assert_eq!(cerrar(h), 1);
     }
 }

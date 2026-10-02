@@ -2,9 +2,10 @@
 //! (P4d, 27-09).
 //!
 //! Un juego carga sus datos con `CreateFileW` + `ReadFile` + `SetFilePointerEx`.
-//! La casa los sirve PAGANDO UNA VEZ: al abrir, el fichero entero viene a la
-//! memoria (en BMO-X, `Archivo::leer_de` + `leer_en`: un bloque, un viaje), y
-//! cada `ReadFile` es una copia; al cerrar uno que se escribio, sale entero.
+//! Los ficheros chicos se sirven PAGANDO UNA VEZ: al abrir, el contenido viene
+//! a memoria y cada `ReadFile` es una copia. Los grandes se miden al abrir y
+//! se leen por rangos bajo demanda, para no reservar varios GiB por `.archive`.
+//! Al cerrar, un fichero escrito sale entero.
 //!
 //! Aqui va lo que se dice sin punteros:
 //!
@@ -14,8 +15,8 @@
 //!               se enderezan, "." y ".." se resuelven -- y un ".." que saldria
 //!               del volumen se RECHAZA, no se recorta
 //!    relativa   desde el directorio del `.exe` (su "directorio actual")
-//!    abierto    los bytes, la posicion, si se escribio, y SetFilePointerEx
-//!               con los tres metodos de Windows
+//!    abierto    los bytes o la medida a la carta, la posicion, si se escribio,
+//!               y SetFilePointerEx con los tres metodos de Windows
 //! ```
 
 use alloc::string::String;

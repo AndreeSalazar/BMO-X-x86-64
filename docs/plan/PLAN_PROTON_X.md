@@ -1354,10 +1354,11 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       P4d [HECHO el 27-09, VISTO en el metal] LOS FICHEROS. La
            casa sirve CreateFileW/A, ReadFile, WriteFile, SetFilePointer(Ex),
            GetFileSize(Ex), GetFileType, FlushFileBuffers, GetFileAttributesW
-           y CloseHandle PAGANDO UNA VEZ: al abrir, el fichero ENTERO a
-           memoria (en BMO-X `Archivo::leer_de` + un bloque + `leer_en`: un
-           viaje), cada ReadFile una copia, y al cerrar uno escrito sale
-           entero (`Archivo::create` + `write`). `bmo_proton_x::ficheros`
+           y CloseHandle. Los chicos se traen enteros al abrir; desde 1 MiB,
+           los de solo lectura se miden y se leen por rangos (`Plataforma::trozos`;
+           en BMO-X `Archivo::reflejar` + `saltar` + `leer_en`), sin reservar
+           el contenido entero. Al cerrar uno escrito sale entero
+           (`Archivo::create` + `write`). `bmo_proton_x::ficheros`
            (puro) pasa la ruta de Windows a la del volumen: la unidad se
            quita, las barras se enderezan, `..` se resuelve y uno que saldria
            del volumen se RECHAZA; una relativa va desde el directorio del
@@ -1371,7 +1372,13 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            -- el bufer del kernel crece; lo caro era `Archivo::write`, siete
            bytes por llamada. Ahora sale de UNA con `escribir_de`.]
            En el Ryzen, el 27-09 11:23: `ficheros.exe` dijo `bien` dieciseis
-           veces y salio con 0.
+           veces y salio con 0. **Cyberpunk, grandes (02-10):** una prueba
+           integrada abre un `.archive` virtual de 5 GiB, comprueba
+           GetFileSize(Ex), hace seek/ReadFile por encima de 4 GiB, lee el
+           final y confirma EOF sin materializar el contenido. Es una prueba
+           de la semantica Win32 con proveedor simulado, no una lectura del
+           disco D: en el Ryzen; los `.archive` reales de D: miden hasta
+           13,9 GB y aun falta ver su acceso durante el juego.
       P4e [HECHO el 27-09, en el banco; falta el metal] LO QUE PIDE UN CRT.
            `bmo_proton_x::monton` es el monton de Windows del `.exe`, el suyo
            y no el del cargador (que solo avanza): cabeceras DENTRO del
@@ -1872,11 +1879,11 @@ fallan con `WSAHOST_NOT_FOUND` y destinos externos con `WSAENETUNREACH`.
 No esta demostrado que eso impida el arranque sin conexion; el diario de la
 proxima corrida debe decidir si hay que avanzar DNS/salida de red.
 
-**Lo que viene despues, ya visto:** CreateFileW lee el fichero ENTERO al
-abrir (los `.archive` miden GiB: hay que leer a trozos); la ventana
-(CreateWindowExW) y D3D12; hilos de verdad (hoy cooperativos, un nucleo);
-las excepciones de hardware (un `int3` o un nulo del juego no llegan a
-PROTON-X: el kernel mata la tarea).
+**Lo que viene despues, ya visto:** la lectura de `.archive` ya va a demanda
+(el banco comprueba rangos por encima de 4 GiB; falta leer uno real desde D:
+durante el juego); la ventana (CreateWindowExW) y D3D12; hilos de verdad (hoy
+cooperativos, un nucleo); las excepciones de hardware (un `int3` o un nulo del
+juego no llegan a PROTON-X: el kernel mata la tarea).
 
 #### El relevo (01-10): lo que hay que hacer, en orden
 
