@@ -119,7 +119,7 @@ extern "win64" fn co_initialize_security(_sd: u64, _n: i32, _s: u64, _r: u64, _a
 
 // -- Crear objetos: no hay clases -------------------------------------------------------------
 
-fn clsid_texto(g: *const u8) -> alloc::string::String {
+pub(crate) fn clsid_texto(g: *const u8) -> alloc::string::String {
     if g.is_null() {
         return alloc::string::String::from("(nulo)");
     }
