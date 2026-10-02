@@ -11,12 +11,11 @@
 //!               FormatMessageA
 //! ```
 //!
-//! **Un mapeo** tiene UNA memoria de respaldo (de `VirtualAlloc` de la
-//! casa): dos vistas del mismo mapeo ven lo mismo (en Windows serian dos
-//! direcciones de la misma memoria; aqui la vista es la memoria + su
-//! desplazamiento). Uno de un fichero se lee al mapearlo por primera vez y
-//! se escribe de vuelta al desmapear una vista que escribe, o con
-//! FlushViewOfFile. El puntero del fichero no se mueve.
+//! **Un mapeo escribible** tiene UNA memoria de respaldo (de `VirtualAlloc`
+//! de la casa): dos vistas del mismo mapeo ven lo mismo. Una vista de solo
+//! lectura de un fichero reserva y lee solo el rango pedido. Si `n == 0`,
+//! Windows pide el resto entero del mapeo y aun se materializa ese rango; no
+//! hay paginacion bajo demanda. El puntero del fichero no se mueve.
 //!
 //! **Un puerto** es una cola de paquetes y un semaforo de la casa: esperar
 //! un paquete es esperar el semaforo (cediendo el turno como cualquier
@@ -93,8 +92,13 @@ struct Puerto {
 
 struct Vista {
     dir: u64,
+    largo: u64,
     mapeo: usize,
     escribe: bool,
+    /// Una vista de solo lectura de un fichero tiene su propio rango en RAM;
+    /// no obliga a materializar el resto del `.archive`.
+    memoria: u64,
+    propia: bool,
 }
 
 struct Estado {
@@ -167,12 +171,24 @@ fn en_el_fichero(f: u64, desde: u64, buf: u64, n: u64, escribir: bool) -> bool {
             break;
         }
         if k == 0 {
+            bien = false;
             break;
         }
         hecho += k as u64;
     }
     mover(f, antes, core::ptr::null_mut(), FILE_BEGIN);
-    bien
+    bien && hecho == n
+}
+
+/// La longitud de una vista valida de `tam` bytes. `n == 0` significa desde
+/// `desde` hasta el final, como en MapViewOfFile; no convierte la vista en
+/// una copia de otro rango.
+fn largo_vista(tam: u64, desde: u64, n: usize) -> Option<u64> {
+    if desde >= tam {
+        return None;
+    }
+    let largo = if n == 0 { tam - desde } else { n as u64 };
+    (largo != 0 && desde.checked_add(largo).is_some_and(|fin| fin <= tam)).then_some(largo)
 }
 
 // -- El mapeo ---------------------------------------------------------------------------
@@ -231,44 +247,72 @@ extern "win64" fn map_view_of_file_ex(h: u64, acceso: u32, alto: u32, bajo: u32,
         kernel32::poner_error(ERROR_MAPPED_ALIGNMENT);
         return 0;
     }
-    let Some((fichero, tam, memoria)) = con(|e| match &e.cosas[i] {
-        Cosa::Mapeo(m) => Some((m.fichero, m.tam, m.memoria)),
+    let Some((fichero, tam, memoria, escribe)) = con(|e| match &e.cosas[i] {
+        Cosa::Mapeo(m) => Some((m.fichero, m.tam, m.memoria, m.escribe)),
         _ => None,
     }) else {
         kernel32::poner_error(ERROR_INVALID_HANDLE);
         return 0;
     };
-    if desde >= tam || (n != 0 && desde + n as u64 > tam) {
+    let Some(largo) = largo_vista(tam, desde, n) else {
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return 0;
-    }
-    let memoria = if memoria != 0 {
-        memoria
-    } else {
-        // Un fichero: su contenido, la primera vez.
-        let reservado = tam.div_ceil(PAGINA) * PAGINA;
-        let m = w::<Alloc>("VirtualAlloc")(0, reservado, MEM_COMMIT_RESERVE, PAGE_READWRITE);
-        if m == 0 {
+    };
+    let (memoria, propia) = if memoria != 0 {
+        // Los mapeos anonimos y escribibles conservan una sola memoria de
+        // respaldo para que sus vistas sigan compartiendo los mismos bytes.
+        (memoria + desde, false)
+    } else if fichero == INVALID_HANDLE_VALUE {
+        kernel32::poner_error(ERROR_INVALID_HANDLE);
+        return 0;
+    } else if !escribe {
+        // `.archive` y otros datos grandes: solo se trae el rango pedido. Una
+        // vista de longitud 0 sigue siendo el resto del fichero por contrato.
+        let reservado_vista = largo.div_ceil(PAGINA) * PAGINA;
+        let base = w::<Alloc>("VirtualAlloc")(0, reservado_vista, MEM_COMMIT_RESERVE, PAGE_READWRITE);
+        if base == 0 {
             kernel32::poner_error(ERROR_NOT_ENOUGH_MEMORY);
             return 0;
         }
-        if !en_el_fichero(fichero, 0, m, tam, false) {
-            w::<Free>("VirtualFree")(m, 0, MEM_RELEASE);
+        if !en_el_fichero(fichero, desde, base, largo, false) {
+            w::<Free>("VirtualFree")(base, 0, MEM_RELEASE);
+            kernel32::poner_error(ERROR_FILE_INVALID);
+            return 0;
+        }
+        (base, true)
+    } else {
+        // Un mapeo escribible comparte una sola memoria para conservar la
+        // coherencia de todas sus vistas; la escritura vuelve al cerrar.
+        let reservado_mapeo = tam.div_ceil(PAGINA) * PAGINA;
+        let base = w::<Alloc>("VirtualAlloc")(0, reservado_mapeo, MEM_COMMIT_RESERVE, PAGE_READWRITE);
+        if base == 0 {
+            kernel32::poner_error(ERROR_NOT_ENOUGH_MEMORY);
+            return 0;
+        }
+        if !en_el_fichero(fichero, 0, base, tam, false) {
+            w::<Free>("VirtualFree")(base, 0, MEM_RELEASE);
             return 0;
         }
         con(|e| {
             if let Cosa::Mapeo(x) = &mut e.cosas[i] {
-                x.memoria = m;
-                x.reservado = reservado;
+                x.memoria = base;
+                x.reservado = reservado_mapeo;
             }
         });
-        m
+        (base + desde, false)
     };
-    let dir = memoria + desde;
+    let dir = memoria;
     con(|e| {
         if let Cosa::Mapeo(x) = &mut e.cosas[i] {
             x.vistas += 1;
-            e.vistas.push(Vista { dir, mapeo: i, escribe: acceso & FILE_MAP_WRITE != 0 && x.escribe });
+            e.vistas.push(Vista {
+                dir,
+                largo,
+                mapeo: i,
+                escribe: acceso & FILE_MAP_WRITE != 0 && x.escribe,
+                memoria: if propia { memoria } else { 0 },
+                propia,
+            });
         }
     });
     dir
@@ -315,6 +359,9 @@ extern "win64" fn unmap_view_of_file(dir: u64) -> i32 {
     if v.escribe {
         volcar(v.mapeo);
     }
+    if v.propia {
+        w::<Free>("VirtualFree")(v.memoria, 0, MEM_RELEASE);
+    }
     con(|e| {
         if let Cosa::Mapeo(x) = &mut e.cosas[v.mapeo] {
             x.vistas -= 1;
@@ -325,14 +372,18 @@ extern "win64" fn unmap_view_of_file(dir: u64) -> i32 {
 }
 
 extern "win64" fn flush_view_of_file(dir: u64, _n: usize) -> i32 {
-    // El mapeo cuya memoria contiene `dir`.
-    let Some(i) = con(|e| {
-        e.cosas.iter().position(|c| matches!(c, Cosa::Mapeo(m) if m.memoria != 0 && dir >= m.memoria && dir < m.memoria + m.tam))
+    // Una vista de solo lectura no tiene nada que volcar. Las escribibles
+    // mantienen la memoria compartida completa del mapeo.
+    let Some((i, escribe)) = con(|e| {
+        e.vistas
+            .iter()
+            .find(|v| dir >= v.dir && dir < v.dir.saturating_add(v.largo))
+            .map(|v| (v.mapeo, v.escribe))
     }) else {
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return 0;
     };
-    volcar(i) as i32
+    if escribe { volcar(i) as i32 } else { 1 }
 }
 
 /// **CloseHandle** de un mapeo o un puerto de la casa.
@@ -541,6 +592,21 @@ extern "win64" fn format_message_a(banderas: u32, fuente: u64, id: u32, idioma: 
     b.len() as i32
 }
 
+#[cfg(test)]
+pub(crate) fn crear_mapeo_solo_lectura_para_prueba(fichero: u64) -> u64 {
+    create_file_mapping_w(fichero, 0, 0x02, 0, 0, core::ptr::null())
+}
+
+#[cfg(test)]
+pub(crate) fn mapear_rango_para_prueba(mapeo: u64, desde: u64, n: usize) -> u64 {
+    map_view_of_file(mapeo, 0x0004, (desde >> 32) as u32, desde as u32, n)
+}
+
+#[cfg(test)]
+pub(crate) fn desmapear_para_prueba(dir: u64) -> i32 {
+    unmap_view_of_file(dir)
+}
+
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "CreateFileMappingW" => dir!(create_file_mapping_w),
@@ -563,4 +629,28 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "FormatMessageA" => dir!(format_message_a),
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod pruebas_mapeo {
+    use super::largo_vista;
+
+    #[test]
+    fn una_vista_de_64_kib_en_un_archive_de_5_gib_no_reserva_el_archivo() {
+        let tam = (5u64 << 30) + 37;
+        let desde = 1u64 << 32;
+        let n = 64 * 1024;
+        let largo = largo_vista(tam, desde, n).unwrap();
+        assert_eq!(largo, n as u64);
+        assert_eq!(largo.div_ceil(4096) * 4096, n as u64);
+    }
+
+    #[test]
+    fn una_vista_de_cero_bytes_va_hasta_el_final_y_no_pasa_el_archive() {
+        let tam = (5u64 << 30) + 37;
+        assert_eq!(largo_vista(tam, 0, 0), Some(tam));
+        assert_eq!(largo_vista(tam, tam - 64 * 1024, 0), Some(64 * 1024));
+        assert_eq!(largo_vista(tam, tam - 10, 11), None);
+        assert_eq!(largo_vista(tam, tam, 1), None);
+    }
 }

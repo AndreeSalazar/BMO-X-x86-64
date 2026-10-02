@@ -1879,11 +1879,29 @@ fallan con `WSAHOST_NOT_FOUND` y destinos externos con `WSAENETUNREACH`.
 No esta demostrado que eso impida el arranque sin conexion; el diario de la
 proxima corrida debe decidir si hay que avanzar DNS/salida de red.
 
-**Lo que viene despues, ya visto:** la lectura de `.archive` ya va a demanda
-(el banco comprueba rangos por encima de 4 GiB; falta leer uno real desde D:
-durante el juego); la ventana (CreateWindowExW) y D3D12; hilos de verdad (hoy
-cooperativos, un nucleo); las excepciones de hardware (un `int3` o un nulo del
-juego no llegan a PROTON-X: el kernel mata la tarea).
+**Avance nuevo (02-10):** `MapViewOfFile` en mapeos de solo lectura con
+longitud explicita reserva y lee solo ese rango; una prueba integrada mapea
+64 KiB desde mas de 4 GiB de un `.archive` sintetico de 5 GiB. Esto evita
+copiar el archivo entero cuando el juego pide una vista acotada. **No es aun
+paginacion bajo demanda:** una longitud cero significa "hasta el final" y
+todavia reserva/lee todo ese resto. Falta medir en BMO-X que longitud pide
+Cyberpunk y probar contra un `.archive` real de D:. No declarar resuelto el
+cuello de botella hasta esa corrida.
+
+**Donde viven el juego y sus escrituras (01-10):** la instalacion comprada se
+queda en `D:\Cyberpunk 2077`, como fuente NTFS de solo lectura: medida local
+de 91.350.992.227 bytes (85,08 GiB; 4.991 archivos). No se copia a FAT32 ni
+a ESTRATOS: la particion ESTRATOS tiene 108.670.208 bloques de 512 bytes,
+55.639.146.496 bytes en total (51,81 GiB, antes de contar lo que ya guarda),
+por lo que el juego completo no cabe. PROTON-X lee el original desde D: y
+guarda perfil, partidas, cache y la capa de cambios en ESTRATOS. FAT32 A:
+queda para el arranque y los componentes base de BMO-X, no para los datos del
+juego.
+
+**Lo que viene despues:** medir y completar el comportamiento real de las
+vistas de `.archive`; la ventana (CreateWindowExW) y D3D12; hilos de verdad
+(hoy cooperativos, un nucleo); las excepciones de hardware (un `int3` o un
+nulo del juego no llegan a PROTON-X: el kernel mata la tarea).
 
 #### El relevo (01-10): lo que hay que hacer, en orden
 

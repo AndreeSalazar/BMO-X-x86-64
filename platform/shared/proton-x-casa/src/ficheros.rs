@@ -807,6 +807,7 @@ mod pruebas_capa {
     fn memoria(_: usize) -> Option<u64> {
         None
     }
+
     fn fecha() -> Option<u64> {
         None
     }
@@ -1129,4 +1130,7 @@ mod pruebas_capa {
         assert_eq!(leidos, 0, "EOF es exito con 0 bytes");
         assert_eq!(cerrar(h), 1);
     }
+
+    #[path = "../pruebas_mapeo_archive.rs"]
+    mod pruebas_mapeo_archive;
 }

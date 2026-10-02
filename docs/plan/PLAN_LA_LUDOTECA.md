@@ -741,8 +741,10 @@ fijas: pide volver a partir las lineas al cambiar de medida); y en la
 LUDOTECA, el registro de lo que ARRANCO (solo lo del juego, como CABINA).
 
 Lo que queda, en orden probable: el dispositivo D3D12 y su cadena de
-intercambio; los `.archive` de GiB sin copiarlos enteros (MapViewOfFile hoy
-copia el fichero); los sombreadores; y `api-ms-win-appmodel-runtime-l1-1-2`.
+intercambio; verificar `MapViewOfFile` contra los `.archive` reales (una
+vista de solo lectura con longitud explicita lee solo ese rango; longitud
+cero aun materializa el resto entero, asi que falta paginacion bajo demanda);
+los sombreadores; y `api-ms-win-appmodel-runtime-l1-1-2`.
 Para cada ejecucion: SYSPROTO, SALIDA y DIARIO.
 
 **Por que el metodo DOOM no le sirve (todavia), dicho claro:**
