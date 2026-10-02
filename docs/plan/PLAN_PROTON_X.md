@@ -1854,14 +1854,23 @@ moderno de Windows tambien pide. Que Cyberpunk llegue a su maquina de
 estados significa que el cargador, la memoria grande, el TLS, los hilos, las
 excepciones de C++ y el arranque del CRT de MSVC ya son los de Windows.
 
-**Donde esta (01-10):** el juego sale con 0 porque `redgalaxy::api::Init`
-(GOG Galaxy) termina con error: es lo ultimo de
-`GameAppBaseInitializationState::OnEnter` (0x9f3cd0 -> 0xf880a0), y sin red
-y SIN SITIO DONDE ESCRIBIR. Hoy USERPROFILE/APPDATA/TEMP apuntan a la carpeta
-del `.exe`, y para un juego de D: (PERSONAL, solo lectura) eso es
-`D:\Cyberpunk 2077\bin\x64\AppData`: no se puede escribir ni crear nada
-(`CreateDirectoryW` siempre dice que no). Lo siguiente NO es pelear con el
-juego: es **ESTRATOS por primera vez de verdad** (ver el relevo, abajo).
+**Donde esta (02-10):** la ultima corrida conocida salio con 0 al fallar
+`redgalaxy::api::Init` (GOG Galaxy), lo ultimo de
+`GameAppBaseInitializationState::OnEnter` (0x9f3cd0 -> 0xf880a0). Esa corrida
+precede dos correcciones ya desplegadas: Winsock ahora devuelve el inicio
+normal de Windows sin cable (ver `red.rs`), y el perfil/capa escribible del
+juego ahora vive en ESTRATOS (ver el relevo, abajo). Aun falta repetir la
+prueba en el Ryzen para saber si Galaxy supera su inicializacion.
+
+**Medida y limite actuales (02-10):** en la copia de D:, `rayosx` vuelve a
+medir el ejecutable principal con 663 funciones de 36 bibliotecas; la DLL
+`REDGalaxy64.dll` pide 328 funciones de 10 bibliotecas (`WS2_32`, `CRYPT32`,
+`bcrypt`, `WININET` e `IPHLPAPI`, entre otras). Esto mide imports estaticos,
+no que todas se ejecuten. PROTON-X ya implementa el par TCP local que Galaxy
+usa para despertar su hilo; todavia no conecta la red del kernel: nombres DNS
+fallan con `WSAHOST_NOT_FOUND` y destinos externos con `WSAENETUNREACH`.
+No esta demostrado que eso impida el arranque sin conexion; el diario de la
+proxima corrida debe decidir si hay que avanzar DNS/salida de red.
 
 **Lo que viene despues, ya visto:** CreateFileW lee el fichero ENTERO al
 abrir (los `.archive` miden GiB: hay que leer a trozos); la ventana
@@ -1915,10 +1924,14 @@ PROTON-X: el kernel mata la tarea).
    `ficheros::pruebas_capa` verifica escritura, listado, copia, movimiento de
    fichero, borrado, perfil ausente y que D: queda intacto. No mueve carpetas
    entre rutas; la capa aun no tiene recolector y copiar un arbol entero sigue
-   pendiente. **Falta correr Cyberpunk en el Ryzen con `personal diario`**:
-   validar ESTRATOS y confirmar que Galaxy supera su inicializacion.
-6. Correr Cyberpunk con `personal diario` y ver si Galaxy pasa; si no, su
-   log ya se puede escribir y dira por que.
+   pendiente. **Desplegado 02-10:** el build completo paso el banco de 3.925
+   filas (105 crates); el volumen `A:` (etiqueta `BMO`, FAT32) recibio el
+   arranque y 151 archivos de datos, todos verificados por SHA-256. Esto
+   comprueba el build y el medio, no que Cyberpunk haya corrido en BMO-X.
+6. **Falta la prueba en el Ryzen:** arrancar desde `A:` y, en el escritorio,
+   ejecutar `personal diario D:\Cyberpunk 2077\bin\x64\Cyberpunk2077.exe`.
+   El informe queda en `informe/diario.txt`. Ver si Galaxy pasa; si no, ese
+   log dira el siguiente bloqueo concreto.
 
 Anotado para ESTRATOS: no hay recolector (borrar es dejar de nombrar; el
 espacio no vuelve; el propietario lo pidio el 01-10 y la cuenta cambia con los
