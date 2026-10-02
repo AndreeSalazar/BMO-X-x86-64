@@ -418,7 +418,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 *PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
 
-- [ ] E6 -- SALTOS Y BUCLES: si, bucles y sus BRA (02-10; el anfitrion, hecho)
+- [ ] E6 -- SALTOS Y BUCLES: si, bucles y sus BRA, del SM5 y del DXIL (02-10; el anfitrion, hecho)
 
 ## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 1 abiertas, 8 hechas
 

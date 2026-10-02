@@ -17,7 +17,9 @@
 //! ```
 //!
 //! Lo que no sabe se dice al leer, con su nombre: nunca una instruccion que se
-//! salte callada. Hoy, un cuerpo de UN bloque (sin saltos) y un solo cbuffer.
+//! salte callada. Un solo cbuffer. Desde E6b (02-10) un cuerpo de VARIOS
+//! bloques: `br`, `phi`, `fcmp`/`icmp`, `select` y `add`/`sub` de enteros,
+//! y el grafo vuelve a ser `si` y bucles en `estructura.rs`.
 //!
 //! # Los numeros, a mano (y por que asi)
 //!
@@ -65,6 +67,11 @@ const CST_FLOAT: u64 = 6;
 const FUNC_DECLAREBLOCKS: u64 = 1;
 const FUNC_BINOP: u64 = 2;
 const FUNC_RET: u64 = 10;
+// E6b (02-10): los saltos del DXIL (`estructura.rs`).
+const FUNC_BR: u64 = 11;
+const FUNC_PHI: u64 = 16;
+const FUNC_CMP2: u64 = 28;
+const FUNC_VSELECT: u64 = 29;
 const FUNC_EXTRACTVAL: u64 = 26;
 const FUNC_DEBUG_LOC_AGAIN: u64 = 33;
 const FUNC_CALL: u64 = 34;
@@ -159,6 +166,9 @@ pub enum Op {
     RomperSi { c: Reg, si_cero: bool },
     /// Sale del bucle mas interno (`break`).
     Romper,
+    /// Vuelve a la cabeza del bucle mas interno (`continue`; E6b, 02-10: lo
+    /// pide el DXIL, que salta a la cabeza desde el medio del cuerpo).
+    Continuar,
     FinBucle,
 }
 
@@ -239,7 +249,7 @@ impl Programa {
     /// enteros o booleanos. Lo que no sabe de esto (el traductor a x86-64,
     /// `nativo`) lo mira aqui y se aparta.
     pub fn salta(&self) -> bool {
-        self.ops.iter().any(|o| matches!(o, Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::FinBucle))
+        self.ops.iter().any(|o| matches!(o, Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle))
     }
 
     /// **La forma**: cada `Si` con su `FinSi` (y a lo sumo un `SiNo`), cada
@@ -267,7 +277,7 @@ impl Programa {
                         return Err(MalaForma(i));
                     }
                 }
-                Op::RomperSi { .. } | Op::Romper => {
+                Op::RomperSi { .. } | Op::Romper | Op::Continuar => {
                     if !abierto.iter().any(|x| x.0) {
                         return Err(MalaForma(i));
                     }
@@ -359,6 +369,7 @@ impl Programa {
                     pc = self.tras_bucle(pc - 1);
                     hondo -= 1;
                 }
+                Op::Continuar => pc = bucles[hondo - 1],
                 Op::Entrada { d, elemento, componente } => {
                     regs[d as usize] = entradas.get(elemento as usize).map(|e| e[componente as usize & 3]).unwrap_or(0.0);
                 }
@@ -497,11 +508,13 @@ enum Tipo {
 
 /// Un valor de LLVM, lo que se sabe de el al compilar.
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Valor {
+pub(super) enum Valor {
     Nada,
     Entero(i64),
     /// Un float: en este registro.
     Float(Reg),
+    /// E6b: un entero o un `i1` CALCULADO (sus bits, en este registro).
+    Bits(Reg),
     /// Lo que devuelve CBufferLoadLegacy: 4 floats seguidos.
     Cuatro(Reg),
     /// El handle de un cbuffer.
@@ -542,7 +555,7 @@ fn texto(ops: &[u64]) -> String {
 }
 
 /// El valor de un entero de constantes: con el signo en el bit 0.
-fn con_signo(v: u64) -> i64 {
+pub(super) fn con_signo(v: u64) -> i64 {
     if v & 1 == 0 {
         (v >> 1) as i64
     } else if v != 1 {
@@ -552,18 +565,22 @@ fn con_signo(v: u64) -> i64 {
     }
 }
 
-struct Compilador {
-    valores: Vec<Valor>,
-    iniciales: Vec<f32>,
-    ops: Vec<Op>,
+pub(super) struct Compilador {
+    pub(super) valores: Vec<Valor>,
+    pub(super) iniciales: Vec<f32>,
+    pub(super) ops: Vec<Op>,
     entradas: usize,
     salidas: usize,
     lee: u32,
     filas_cb: u16,
+    /// E6b: los bloques ya cerrados, el que se esta leyendo, y las
+    /// constantes enteras que hicieron falta como registro.
+    pub(super) bloques: super::estructura::Bloques,
+    pub(super) literales: Vec<(u32, Reg)>,
 }
 
 impl Compilador {
-    fn registro(&mut self, inicial: f32) -> Result<Reg, NoPrograma> {
+    pub(super) fn registro(&mut self, inicial: f32) -> Result<Reg, NoPrograma> {
         let r = self.iniciales.len();
         if r >= Reg::MAX as usize - 4 {
             return Err(NoPrograma::Forma("un sombreador con mas de 65000 valores"));
@@ -597,7 +614,7 @@ impl Compilador {
         Ok(())
     }
 
-    fn float(&self, id: usize) -> Result<Reg, NoPrograma> {
+    pub(super) fn float(&self, id: usize) -> Result<Reg, NoPrograma> {
         match self.valores.get(id) {
             Some(Valor::Float(r)) => Ok(*r),
             _ => Err(NoPrograma::Forma("un operando que deberia ser un float y no lo es")),
@@ -636,7 +653,7 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     let relativos = m.registros.iter().find(|r| r.codigo == MODULE_CODE_VERSION).and_then(|r| r.ops.first()).copied().unwrap_or(0) >= 1;
     let tipos = tipos(m);
     let floats = tipos_float(m);
-    let mut c = Compilador { valores: Vec::new(), iniciales: Vec::new(), ops: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0 };
+    let mut c = Compilador { valores: Vec::new(), iniciales: Vec::new(), ops: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, bloques: Default::default(), literales: Vec::new() };
 
     // 1. Los globales, en el orden de sus registros.
     let mut funciones: Vec<Funcion> = Vec::new();
@@ -682,28 +699,30 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
         c.constantes(b, &floats)?;
     }
     for r in &cuerpo.registros {
-        instruccion(&mut c, r, relativos, &tipos, &funciones)?;
+        instruccion(&mut c, r, relativos, &tipos, &funciones, &floats)?;
     }
+    // E6b: con saltos, el grafo de bloques vuelve a ser `si` y bucles.
+    super::estructura::armar(&mut c)?;
     Ok(Programa { ops: c.ops, iniciales: c.iniciales, entradas: c.entradas, salidas: c.salidas, lee: c.lee, filas_cb: c.filas_cb })
 }
 
 /// Lee operandos de un registro de instruccion: relativos o absolutos, y si
 /// es una referencia HACIA DELANTE, su tipo va detras (y se salta).
-struct Operandos<'a> {
-    ops: &'a [u64],
-    i: usize,
-    siguiente: usize,
+pub(super) struct Operandos<'a> {
+    pub(super) ops: &'a [u64],
+    pub(super) i: usize,
+    pub(super) siguiente: usize,
     relativos: bool,
 }
 
 impl Operandos<'_> {
-    fn crudo(&mut self) -> Result<u64, NoPrograma> {
+    pub(super) fn crudo(&mut self) -> Result<u64, NoPrograma> {
         let v = *self.ops.get(self.i).ok_or(NoPrograma::Forma("una instruccion cortada"))?;
         self.i += 1;
         Ok(v)
     }
 
-    fn id(&self, v: u64) -> usize {
+    pub(super) fn id(&self, v: u64) -> usize {
         if self.relativos {
             (self.siguiente as u64).wrapping_sub(v) as u32 as usize
         } else {
@@ -712,7 +731,7 @@ impl Operandos<'_> {
     }
 
     /// Un valor con su tipo si hace falta (`getValueTypePair`).
-    fn con_tipo(&mut self) -> Result<usize, NoPrograma> {
+    pub(super) fn con_tipo(&mut self) -> Result<usize, NoPrograma> {
         let v = self.crudo()?;
         let id = self.id(v);
         if id >= self.siguiente {
@@ -721,23 +740,30 @@ impl Operandos<'_> {
         Ok(id)
     }
 
+    /// Otro lector en el mismo sitio (para mirar sin avanzar).
+    pub(super) fn copia(&self) -> Self {
+        Operandos { ops: self.ops, i: self.i, siguiente: self.siguiente, relativos: self.relativos }
+    }
+
     /// Un valor sin tipo (`getValue`).
-    fn solo(&mut self) -> Result<usize, NoPrograma> {
+    pub(super) fn solo(&mut self) -> Result<usize, NoPrograma> {
         let v = self.crudo()?;
         Ok(self.id(v))
     }
 }
 
-fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo], funciones: &[Funcion]) -> Result<(), NoPrograma> {
+fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo], funciones: &[Funcion], floats: &[bool]) -> Result<(), NoPrograma> {
     let mut o = Operandos { ops: &r.ops, i: 0, siguiente: c.valores.len(), relativos };
     match r.codigo {
-        FUNC_DECLAREBLOCKS => {
-            if r.ops.first().copied() != Some(1) {
-                return Err(NoPrograma::Forma("un cuerpo con saltos (mas de un bloque): todavia no"));
-            }
-        }
+        FUNC_DECLAREBLOCKS => c.bloques.declarar(r.ops.first().copied().unwrap_or(1) as usize, c.ops.len()),
         FUNC_DEBUG_LOC | FUNC_DEBUG_LOC_AGAIN => {}
-        FUNC_RET => {}
+        FUNC_RET => c.bloques.cerrar(super::estructura::Fin::Ret, c.ops.len())?,
+        FUNC_BR => super::estructura::br(c, &mut o)?,
+        FUNC_PHI => super::estructura::phi(c, &mut o, floats)?,
+        FUNC_CMP2 => super::estructura::cmp(c, &mut o)?,
+        FUNC_VSELECT => super::estructura::select(c, &mut o)?,
+        // E6b: + y - de ENTEROS (un contador de bucle).
+        FUNC_BINOP if super::estructura::es_entero(c, &o)? => super::estructura::binop_entero(c, &mut o)?,
         FUNC_BINOP => {
             let a = o.con_tipo()?;
             let b = o.solo()?;

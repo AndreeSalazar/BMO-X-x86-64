@@ -68,7 +68,7 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
             v[1] = Some(vv);
         }
         Op::Si { c } | Op::RomperSi { c, .. } => v[0] = Some(c),
-        Op::Entrada { .. } | Op::Constantes { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::Romper | Op::FinBucle => {}
+        Op::Entrada { .. } | Op::Constantes { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::Romper | Op::Continuar | Op::FinBucle => {}
     }
     v
 }
@@ -97,7 +97,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         | Op::Elige { d, .. }
         | Op::Copia { d, .. }
         | Op::SumaEntera { d, .. } => uno(d),
-        Op::Salida { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::FinBucle => ([None; 4], false),
+        Op::Salida { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
     }
 }
 
@@ -192,7 +192,12 @@ pub(crate) fn analizar(p: &Programa) -> Analisis {
             for r in 0..n {
                 let dentro = |x: usize| x > b && x < f;
                 let usado = lecturas[r].iter().any(|&x| dentro(x)) || dentro(ultimo[r]);
-                let antes = escrituras[r].first().is_none_or(|&w| w < b);
+                // ** Lo que lee una Entrada o una fila del cbuffer esta desde
+                // el PRINCIPIO (con el ABI de registros es una precarga, hecha
+                // una vez): aunque `dxc` repita su `cbufferLoadLegacy` dentro
+                // del bucle, vive hasta su fin (E6b, 02-10: `anidado.hlsl`
+                // perdia `k.x` en la segunda vuelta).
+                let antes = inmutable[r] || escrituras[r].first().is_none_or(|&w| w < b);
                 if usado && (antes || variable[r]) && ultimo[r] < f {
                     ultimo[r] = f;
                     cambia = true;

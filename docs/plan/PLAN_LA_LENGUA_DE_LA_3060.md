@@ -375,7 +375,7 @@ dibuja el cubo con ese sobre.
 - **Queda (no bloquea):** `cubo.bsf` sin SASS a mano; la interpolacion con
   perspectiva (hoy ScreenLinear, exacta en caras de un valor).
 
-## [ ] E6 -- SALTOS Y BUCLES: `si`, bucles y sus BRA (02-10; el anfitrion, hecho)
+## [ ] E6 -- SALTOS Y BUCLES: `si`, bucles y sus BRA, del SM5 y del DXIL (02-10; el anfitrion, hecho)
 
 Del propietario (02-10): "haz los saltos y bucles del emisor", en orden y
 DIRECTO al emisor -- DXIL/SM5 a SASS sin SPIR-V ni el compilador de NVIDIA
@@ -429,9 +429,31 @@ por medio --. Hecho en el anfitrion, de la punta del Programa a la del juez:
   la 3060: el juez no puede saber si acaba, y el kernel no tiene todavia un
   vigilante que corte un trabajo que no vuelve. Antes de dejar que una app
   mande cuerpos con bucles al metal, ese vigilante.
-- **Despues (no es esta casilla):** el DXIL que salta (`br`, `phi`: el de
-  Cyberpunk; pide reconstruir los `si` y bucles de su grafo), `continue`,
-  `switch`, mas enteros (`imul`, `ishl`, `itof`, `ftoi`).
+- **E6b, el DXIL que salta (02-10, hecho en el anfitrion):** el de `dxc`,
+  el de Cyberpunk. El lector sabe `br`, `phi` (sus valores van con signo y
+  pueden ser de mas adelante: se resuelven al acabar), `fcmp`/`icmp`
+  (CMP2; las desordenadas, como la negacion de una ordenada), `select` y
+  `add`/`sub` de enteros. `dxil/estructura.rs` vuelve el grafo `si` y
+  bucles: dominadores y post-dominadores (Cooper, Harvey y Kennedy), bucles
+  naturales de UNA salida, la union de un `si` dentro de un bucle con los
+  post-dominadores de SU grafo (sin las aristas de `break` ni de `continue`:
+  si no, el bloque de detras salia repetido), y cada `phi` una copia en su
+  arista, en paralelo. Y `Continuar` (el `continue`) en el Programa, el
+  interprete, el emisor y el SM5 (`continue`, `continuec`).
+  **Como se sabe:** tres sombreadores de `dxc` (`proton-x/prueba/saltos`,
+  `anidado`, `mientras`: if/else con phi, bucles rotados, continue y break
+  anidados, select, un while) dan en la casa los MISMOS bits que su HLSL
+  escrito en Rust, y en el simulador los mismos que en la casa, con los dos
+  ABI; el juez, PERFECTO. Encontro un fallo del emisor: `dxc` repite el
+  `cbufferLoadLegacy` DENTRO del bucle, y con el ABI de registros (una
+  precarga, hecha una vez) su registro se soltaba tras su ultima lectura de
+  la PRIMERA vuelta. Ahora lo que lee una Entrada o el cbuffer vive hasta el
+  fin del bucle; la prueba al azar lee filas dentro de bucles y lo habria
+  visto (comprobado deshaciendo el arreglo).
+- **Despues (no es esta casilla):** bucles de varias salidas y `break` de
+  dos bucles, `switch`, comparaciones sin signo, mas enteros (`mul`, `shl`,
+  `and`/`or` de `i1`, `sitofp`, `fptosi`), y el grafo no reducible (`dxc`
+  no lo escribe).
 
 ---
 

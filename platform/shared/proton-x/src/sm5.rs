@@ -23,15 +23,16 @@
 //! que la fuente), y un swizzle tampoco.
 //!
 //! **Con saltos (E6, 02-10)**: `if_nz`/`if_z`, `else`, `endif`, `loop`,
-//! `endloop`, `break`, `breakc_nz`/`breakc_z`; y lo que los alimenta: `lt`
+//! `endloop`, `break`, `breakc_nz`/`breakc_z`, `continue`,
+//! `continuec_nz`/`continuec_z`; y lo que los alimenta: `lt`
 //! `ge` `eq` `ne` (floats; `ne` desordenada), `ilt` `ige` `ieq` `ine`,
 //! `iadd` y `movc`. Un programa que salta no puede renombrar: tras un `if`
 //! los dos caminos tienen que dejar el valor en el MISMO sitio. Asi que en
 //! uno que salta cada componente de `r#` y de `o#` es una VARIABLE (un
 //! registro fijo, que se escribe con `Copia`), y lo que se lee de `v#` y de
 //! `cb0` va al PRINCIPIO del programa (si no, un camino que no paso por la
-//! lectura no lo tendria). `continue`, `switch`, `retc` y los enteros que no
-//! son esos se dicen por su numero.
+//! lectura no lo tendria). `switch`, `retc` y los enteros que no son esos se
+//! dicen por su numero.
 //!
 //! Lo que se sabe hoy es lo que pide el cubo de BMOX-12 y poco mas: `add`
 //! `mul` `mad` `div` `dp2` `dp3` `dp4` `rsq` `sqrt` `min` `max` `mov` y
@@ -58,6 +59,8 @@ use crate::dxil::Elemento;
 const ADD: u32 = 0;
 const BREAK: u32 = 2;
 const BREAKC: u32 = 3;
+const CONTINUE: u32 = 7;
+const CONTINUEC: u32 = 8;
 const ELSE: u32 = 18;
 const ENDIF: u32 = 21;
 const ENDLOOP: u32 = 22;
@@ -391,7 +394,7 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
             RET if tr.hondo > 0 => return Err(NoPrograma::Forma("un ret dentro de un if o un loop: todavia no")),
             RET => acabado = true,
             // ** E6: los saltos.
-            IF | BREAKC => {
+            IF | BREAKC | CONTINUEC => {
                 let mut j = i + 1;
                 let c = operando(t, &mut j)?;
                 if j != fin {
@@ -401,6 +404,14 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
                 let no_cero = w & PRUEBA_NO_CERO != 0;
                 if codigo == BREAKC {
                     tr.p.ops.push(Op::RomperSi { c: x, si_cero: !no_cero });
+                } else if codigo == CONTINUEC {
+                    // `continuec_nz x`: si x { continue }; `_z`: si x {} sino { continue }.
+                    tr.p.ops.push(Op::Si { c: x });
+                    if !no_cero {
+                        tr.p.ops.push(Op::SiNo);
+                    }
+                    tr.p.ops.push(Op::Continuar);
+                    tr.p.ops.push(Op::FinSi);
                 } else {
                     // `if_z x`: si x == 0 (los bits): el si de "x es cero".
                     let c = if no_cero {
@@ -425,6 +436,7 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
                 tr.hondo += 1;
             }
             BREAK => tr.p.ops.push(Op::Romper),
+            CONTINUE => tr.p.ops.push(Op::Continuar),
             ADD | MUL | DIV | MIN | MAX | MAD | MOV | RSQ | SQRT | DP2 | DP3 | DP4 | LT | GE | EQ | NE | ILT | IGE | IEQ | INE | IADD | MOVC => {
                 let saturar = w & 0x2000 != 0;
                 let mut j = i + 1;
@@ -580,7 +592,7 @@ fn salta(t: &[u32], medida: usize) -> bool {
     while i < medida {
         let w = t[i];
         let codigo = w & 0x7FF;
-        if matches!(codigo, IF | LOOP | BREAK | BREAKC | ELSE | ENDIF | ENDLOOP) {
+        if matches!(codigo, IF | LOOP | BREAK | BREAKC | CONTINUE | CONTINUEC | ELSE | ENDIF | ENDLOOP) {
             return true;
         }
         let largo = if codigo == CUSTOMDATA { t.get(i + 1).copied().unwrap_or(0) as usize } else { ((w >> 24) & 0x7F) as usize };

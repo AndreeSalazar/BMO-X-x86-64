@@ -198,7 +198,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
             Op::Min { d, a, b } => e.min_max(MINSS, d, a, b),
             Op::Max { d, a, b } => e.min_max(MAXSS, d, a, b),
             Op::Muestra { .. } => unreachable!("mirado arriba: `muestrea`"),
-            Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::FinBucle => unreachable!("mirado arriba: `salta`"),
+            Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => unreachable!("mirado arriba: `salta`"),
         }
     }
     // Epilogo: el MXCSR de quien llamo, de vuelta.

@@ -29,6 +29,8 @@ pub mod bits;
 pub mod programa;
 /// E6 (02-10): programas de muestra con `si` y bucles (el banco del emisor).
 pub mod ejemplos;
+/// E6b (02-10): el grafo de bloques del DXIL, vuelto `si` y bucles.
+mod estructura;
 
 use alloc::string::String;
 use alloc::vec::Vec;

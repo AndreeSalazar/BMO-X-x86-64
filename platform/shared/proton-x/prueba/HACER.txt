@@ -1642,7 +1642,8 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 Dice `bien` veintiuna veces y sale con 0.
 
-Lo que dijo Windows (02-10, dos corridas): la primera, MAL en "SetName ...
+Lo que dijo Windows (02-10, tres corridas): la tercera, `bien` veintiuna
+veces -- lo de abajo, comprobado. La primera, MAL en "SetName ...
 GetPrivateData lo devuelve", sin decir de quien; partida en un `bien` por
 objeto con sus HRESULT, la segunda dijo en los tres: SetName 0x00000000,
 GetPrivateData 0x887A0002 (DXGI_ERROR_NOT_FOUND), 0 bytes. D3D12 de verdad
@@ -1687,3 +1688,39 @@ RT", y 0x84 es ALLOW_ONLY_RT_DS_TEXTURES; la buena es 0x44. La casa lo
 dejaba pasar: desde hoy mira las DENY_* del monton contra la clase de
 recurso (`d3d12_montones::admite`), como Windows, y el `bien` catorce es
 justo eso: una textura sin RT en un monton 0x84 es E_INVALIDARG.
+
+saltos.dxil, anidado.dxil y mientras.dxil -- el DXIL QUE SALTA (E6b, 02-10)
+
+Para que el lector de DXIL aprenda los saltos (`br`, `phi`, `fcmp`/`icmp`,
+`select`, `add` de enteros) y la casa vuelva su grafo de bloques `si` y
+bucles (`dxil/estructura.rs`). De su `.hlsl` (aqui al lado), con `dxc` de
+Linux de la pagina de publicaciones de Microsoft (v1.8.2505,
+linux_dxc_2025_05_24.x86_64.tar.gz, sha256 b99655f6...; libdxcompiler 1.9
+4946-9efbb6c3, con su libdxil.so), en la nube:
+
+   dxc -T ps_6_0 -E pixel -Fo saltos.dxil saltos.hlsl
+   dxc -T ps_6_0 -E pixel -Fo anidado.dxil anidado.hlsl
+   dxc -T ps_6_0 -E pixel -Fo mientras.dxil mientras.hlsl
+
+   saltos     un if/else ([branch]) con su phi, y un bucle ([loop]) con break
+   anidado    dos bucles, un continue y un break en el de dentro, y un ?: (select)
+   mientras   un while (dxc lo hace un if y un bucle) con un if/else dentro
+
+Reproducibles (comprobado dos veces). sha256:
+
+   5f8a42f44ab774f184444ae0e6ffcb075cd07522ede42f96a767c994f17f08d3  saltos.dxil
+   e9f6fe3aa7233a7dc1e68e1116cff4e163e9b9f5f40651cb7d56e503e6615b0b  anidado.dxil
+   870b82ffdc0997876eb8daf2039abc0fadfe2a9065212b00ec4bcc6164b38ff3  mientras.dxil
+
+Y el TESTIGO de cada uno, `dxc -dumpbin X.dxil -Fc X.ll`: el LLVM de dentro.
+Lo que se aprendio de el: `dxc` escribe los bucles ROTADOS (la cabeza sale
+con un `br` condicional y el ultimo bloque decide si vuelve), repite el
+`cbufferLoadLegacy` DENTRO del bucle, y un `while` es un `if` y un bucle.
+El banco (`proton-x/src/pruebas_saltos.rs`) corre los tres en la casa y los
+compara, bit a bit, con su HLSL escrito en Rust; y el emisor de la 3060
+(`proton-x-sm86`) los emite, los corre en el simulador con los dos ABI y el
+juez dice PERFECTO.
+
+[!] `mientras` con `k.y = 0.5` y `uv.x = -0.5` no acaba nunca (`x = -0.5 *
+2 + 0.5 = -0.5`): asi es el HLSL, en la casa y en una GPU. El banco usa un
+`k` con el que acaba.

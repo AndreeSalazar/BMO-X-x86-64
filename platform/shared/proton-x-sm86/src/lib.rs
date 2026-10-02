@@ -584,6 +584,13 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
                 let k = e.saltar(PT);
                 e.salida_de_bucle(k);
             }
+            // A la cabeza del bucle mas interno: ya se sabe donde esta.
+            Op::Continuar => {
+                let k = e.saltar(PT);
+                if let Some(cabeza) = e.abiertos.iter().rev().find_map(|x| if let Abierto::Bucle { cabeza, .. } = x { Some(*cabeza) } else { None }) {
+                    e.parchear(k, cabeza);
+                }
+            }
             Op::FinBucle => {
                 let k = e.saltar(PT);
                 if let Some(Abierto::Bucle { cabeza, salidas }) = e.abiertos.pop() {
