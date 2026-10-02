@@ -1,0 +1,9 @@
+LIBRARY kernel32.dll
+EXPORTS
+LoadLibraryW
+GetCurrentProcessId
+GetCurrentThreadId
+GetTickCount64
+GetSystemTimeAsFileTime
+QueryPerformanceCounter
+ExitProcess

@@ -1,0 +1,7 @@
+# DIARIO de PROTON-X: cada funcion de Windows, la PRIMERA vez que el .exe la llama
+# orden hilo dll funcion
+    1     7 KERNEL32.dll GetCurrentProcessId
+    2     7 KERNEL32.dll GetCurrentThreadId
+    3     7 KERNEL32.dll GetTickCount64
+    4     7 KERNEL32.dll GetSystemTimeAsFileTime
+    5     7 KERNEL32.dll ExitProcess

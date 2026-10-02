@@ -832,6 +832,10 @@ mod pruebas_capa {
         Some(n)
     }
 
+    // El TEB del hilo de la prueba (Linux): ver el fichero.
+    mod teb_de_prueba;
+    use teb_de_prueba::teb_de_prueba;
+
     fn plataforma_prueba_trozos() -> crate::Plataforma {
         let mut p = plataforma_prueba();
         p.trozos = Some(crate::Trozos {
@@ -897,6 +901,7 @@ mod pruebas_capa {
         }
         // SAFETY: prueba serializada; las funciones usan solo el volumen de arriba.
         unsafe { crate::empezar(plataforma_prueba()) };
+        teb_de_prueba();
         poner_directorio("d:Cyberpunk 2077/bin/x64");
         poner_capa(Some("proton-x/cyberpunk2077/capa"));
         let nombre: Vec<u16> = "D:\\Cyberpunk 2077\\bin\\x64\\settings.ini"
@@ -1056,6 +1061,7 @@ mod pruebas_capa {
         }
         // SAFETY: prueba serializada; todas las E/S van al volumen simulado.
         unsafe { crate::empezar(plataforma_prueba_trozos()) };
+        teb_de_prueba();
         crate::ficheros::poner_directorio("d:Cyberpunk 2077/bin/x64");
         crate::ficheros::poner_capa(None);
 
@@ -1131,6 +1137,8 @@ mod pruebas_capa {
         assert_eq!(cerrar(h), 1);
     }
 
-    #[path = "../pruebas_mapeo_archive.rs"]
+    // En su carpeta (`ficheros/pruebas_capa/`) y sin `#[path]`: el `../` de
+    // antes pasaba por una carpeta que no existe, y eso Windows lo resuelve
+    // en el texto pero Linux no (02-10).
     mod pruebas_mapeo_archive;
 }

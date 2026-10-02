@@ -49,6 +49,7 @@ fn mapview_solo_lectura_de_un_archive_grande_trae_el_rango_pedido() {
     }
     // SAFETY: prueba serializada; la vista y el fichero usan el banco.
     unsafe { crate::empezar(plataforma_prueba_mapeo()) };
+    teb_de_prueba();
     crate::ficheros::poner_directorio("d:Cyberpunk 2077/bin/x64");
     crate::ficheros::poner_capa(None);
 

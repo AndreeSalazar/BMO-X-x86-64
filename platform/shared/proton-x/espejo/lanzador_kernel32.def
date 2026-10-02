@@ -1,0 +1,24 @@
+LIBRARY kernel32.dll
+EXPORTS
+VirtualAlloc
+VirtualProtect
+CreateFileW
+WriteFile
+CloseHandle
+SetFilePointer
+GetModuleHandleW
+CreateProcessW
+VirtualAllocEx
+WriteProcessMemory
+CreateRemoteThread
+WaitForSingleObject
+GetExitCodeThread
+ResumeThread
+GetModuleFileNameW
+GetProcAddress
+GetCommandLineW
+TerminateProcess
+GetStdHandle
+GetCurrentProcessId
+GetLastError
+ExitProcess
