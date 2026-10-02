@@ -1,0 +1,8 @@
+# ESPEJO de Windows: cada funcion, la PRIMERA vez que el .exe la llama
+# orden hilo dll funcion
+    1     7 kernel32.dll GetCurrentProcessId
+    2     7 kernel32.dll GetCurrentThreadId
+    3     7 kernel32.dll GetTickCount64
+    4     7 kernel32.dll GetSystemTimeAsFileTime
+    5     7 kernel32.dll QueryPerformanceCounter
+    6     7 kernel32.dll ExitProcess

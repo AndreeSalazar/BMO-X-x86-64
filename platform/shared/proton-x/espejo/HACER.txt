@@ -1,23 +1,61 @@
-ESPEJO -- Paso 0, reproducible con LLVM para Windows x64
+ESPEJO -- el instrumento de WINDOWS, no una tanda del metal
+===========================================================
 
-No usa CRT ni una biblioteca de enganche.  Hace falta clang, lld-link y
-llvm-dlltool en PATH.  Desde esta carpeta:
+Esto NO vive en prueba/ a proposito: una tanda de prueba/ es un .exe que
+PROTON-X corre en el Ryzen (el guardian proton-x exige que ejemplos.ps1 la
+copie a window/ y que el banco la corra). ESPEJO es lo contrario: un .exe y
+una .dll que corren en el WINDOWS del propietario para apuntar lo que Windows
+le contesta al juego, y comparar ese registro con el DIARIO de BMO-X. Ver
+docs/plan/PLAN_EL_ESPEJO.md.
 
-  llvm-dlltool -m i386:x86-64 -d espejo_kernel32.def -l kernel32.lib
-  clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c espejo_dll.c -o espejo_dll.obj
-  lld-link /dll /nodefaultlib /entry:DllMain /dynamicbase /brepro espejo_dll.obj kernel32.lib /out:espejo.dll
-  clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c espejo.c -o espejo.obj
-  lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro espejo.obj kernel32.lib /out:espejo.exe
-  clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda40.c -o tanda40.obj
-  lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda40.obj kernel32.lib /out:tanda40.exe
-  certutil -hashfile espejo.exe SHA256
-  certutil -hashfile espejo.dll SHA256
-  certutil -hashfile tanda40.exe SHA256
+Se compila con la MISMA cadena reproducible que las tandas (clang 18 +
+lld-link, sin CRT). En Git bash las opciones de lld-link van con `-` (no `/`),
+porque el shell convierte `/flag` en una ruta.
 
-Prueba en Windows, desde ESTA carpeta:
+   cd platform/shared/proton-x/espejo
+   PATH="/c/Program Files/LLVM/bin:$PATH"
+   llvm-dlltool -m i386:x86-64 -d espejo_kernel32.def  -l espejo_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda40_kernel32.def -l tanda40_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c espejo.c  -o espejo.obj
+   lld-link -nodefaultlib -dll -entry:DllMain -subsystem:windows -dynamicbase -brepro espejo.obj  espejo_kernel32.lib  -out:espejo.dll  -noimplib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda40.c -o tanda40.obj
+   lld-link -nodefaultlib -entry:inicio -subsystem:console -dynamicbase -brepro tanda40.obj tanda40_kernel32.lib -out:tanda40.exe
+   rm -f *.obj *.lib *.exp
 
-  .\espejo.exe .\tanda40.exe
+sha256 (reproducibles, comprobado dos veces, dos enlaces):
 
-ESPEJO.TXT debe contener, una vez y en este orden: GetStdHandle, WriteFile,
-GetCurrentProcessId, GetLastError, ExitProcess.  El primer hilo es 7 porque
-Paso 0 solo engancha el proceso principal; Paso 1 asigna los demas hilos.
+   espejo.dll   889183f62e9eefd1c868d14b2f1b71ea516c156a6793c7a16c8aee3a11656bc5
+   tanda40.exe  98dbdffe4ac6aff50a4411a5530fdca9b9acd987e6e01446d201976313f4d47a
+
+Prueba (paso 0a, en Windows):
+
+   cd platform/shared/proton-x/espejo
+   .\tanda40.exe
+   type ESPEJO.TXT
+
+tanda40.exe carga espejo.dll (que engancha su IAT) y llama a cinco funciones.
+ESPEJO.TXT, al lado del .exe, sale con seis lineas en el hilo 7:
+GetCurrentProcessId, GetCurrentThreadId, GetTickCount64,
+GetSystemTimeAsFileTime, QueryPerformanceCounter y ExitProcess (la que cierra).
+Es el formato del DIARIO (proton-x-casa/src/diario.rs); se comparan los dos
+con toolchain/tools/espejo/espejo.py.
+
+ESPEJO.TXT es salida de una corrida: no se versiona.
+
+FALTA (paso 0b, en su propio commit, revisado aparte): espejo.exe, el lanzador
+que mete espejo.dll en OTRO proceso (CreateProcessW suspendido + VirtualAllocEx
++ WriteProcessMemory + CreateRemoteThread), para llevar el enganche ya probado
+hasta Cyberpunk.
+
+CANDIDATO para el paso 0b (llego por main el 01-10, escrito por otra IA):
+lanzador.c (con lanzador_kernel32.def) es un espejo.exe que hace
+CreateProcessW suspendido + VirtualAllocEx + WriteProcessMemory +
+CreateRemoteThread(LoadLibraryW) de espejo.dll y luego ResumeThread. Compila
+limpio con la misma cadena; NO esta revisado ni probado, y por eso no tiene
+sha256 ni binario aqui. Su revision es el paso 0b. (La DLL que traia aparte,
+espejo_dll.c, hacia lo mismo que espejo.c, la probada: se quito; esta en el
+historial de main, cba361d76.)
+
+   llvm-dlltool -m i386:x86-64 -d lanzador_kernel32.def -l lanzador_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c lanzador.c -o lanzador.obj
+   lld-link -nodefaultlib -entry:inicio -subsystem:console -dynamicbase -brepro lanzador.obj lanzador_kernel32.lib -out:espejo.exe
