@@ -395,6 +395,14 @@ fn tanda41_exe_cuantos_procesadores() {
     tanda(TANDA41, None, 10, "tanda41.exe: cuantos procesadores, igual por todas partes");
 }
 
+/// **La tanda 42** (02-10): `tanda42.exe` -- Cyberpunk pregunta
+/// CheckFeatureSupport (niveles, opciones) y pide IDXGIAdapter2; la casa
+/// decia que no y era un adaptador de software sin memoria.
+#[test]
+fn tanda42_exe_lo_que_la_tarjeta_dice_de_si() {
+    tanda(TANDA42, None, 13, "tanda42.exe: lo que la tarjeta dice de si");
+}
+
 /// **A la carta, en el banco** (01-10): con umbral CERO, todo fichero que se
 /// abre solo para leer va por trozos -- las tandas que leen ficheros prueban
 /// asi el camino que en BMO-X lleva los ficheros grandes.

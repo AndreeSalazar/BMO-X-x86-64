@@ -36,7 +36,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::com::{self, dar, de, nuevo, pide, vtabla, Com, Guid, E_INVALIDARG, E_NOINTERFACE, S_FALSE, S_OK};
+use crate::com::{self, dar, de, nuevo, pide, vtabla, Com, Guid, E_NOINTERFACE, S_FALSE, S_OK};
 use crate::tuberia::{self, Bufer, Estado, Vista};
 use crate::{aviso, dir, hilos};
 
@@ -123,7 +123,7 @@ fn dispositivo() -> u64 {
         (12, dir!(create_command_list)),
         (14, dir!(create_descriptor_heap)),
         (15, dir!(get_descriptor_handle_increment_size)),
-        (13, dir!(check_feature_support)),
+        (13, dir!(crate::d3d12_capacidades::check_feature_support)),
         (16, dir!(tuberia::create_root_signature)),
         (18, dir!(create_shader_resource_view)),
         (20, dir!(create_render_target_view)),
@@ -133,6 +133,7 @@ fn dispositivo() -> u64 {
         (27, dir!(tuberia::create_committed_resource)),
         (36, dir!(create_fence)),
         (38, dir!(get_copyable_footprints)),
+        (43, dir!(get_adapter_luid)),
     ]);
     nuevo(com::DEVICE, vt, Dispositivo) as u64
 }
@@ -160,6 +161,14 @@ pub(crate) fn recurso_bufer(b: Bufer) -> u64 {
 pub(crate) fn base_de_bufer(this: u64) -> Option<u64> {
     // SAFETY: `this` es un Recurso de la casa (lo dice su vtabla).
     unsafe { de::<Recurso>(this).bufer.as_ref().map(Bufer::base) }
+}
+
+/// `GetAdapterLuid(this, ret)`: el LUID del adaptador (el de su GetDesc), por
+/// el puntero oculto (devuelve una estructura).
+extern "win64" fn get_adapter_luid(_this: u64, ret: *mut u64) -> *mut u64 {
+    // SAFETY: el LUID oculto del `.exe`.
+    unsafe { ret.write_unaligned(crate::dxgi::LUID) };
+    ret
 }
 
 /// `D3D12CreateDevice(adapter, nivel, riid, ppDevice)`. Con `ppDevice` nulo
@@ -329,22 +338,6 @@ extern "win64" fn create_sampler(_this: u64, desc: *const u8, handle: u64) {
         r.add(2).write(w(0) as u64 | (w(4) as u64) << 32);
         r.add(3).write(w(8) as u64 | borde << 32);
     }
-}
-
-/// `CheckFeatureSupport(this, que, datos, medida)`. De lo que se pregunta
-/// en el camino de HelloTexture: D3D12_FEATURE_ROOT_SIGNATURE (12) -- la
-/// casa dice 1.0 (lo que lee su root signature), y d3dx12 convierte la 1.1
-/// a 1.0. Lo demas, E_INVALIDARG (y se dice).
-extern "win64" fn check_feature_support(_this: u64, que: u32, datos: *mut u8, medida: u32) -> i32 {
-    const FEATURE_ROOT_SIGNATURE: u32 = 12;
-    const ROOT_SIGNATURE_VERSION_1_0: u32 = 1;
-    if que == FEATURE_ROOT_SIGNATURE && !datos.is_null() && medida >= 4 {
-        // SAFETY: un D3D12_FEATURE_DATA_ROOT_SIGNATURE del `.exe`.
-        unsafe { (datos as *mut u32).write_unaligned(ROOT_SIGNATURE_VERSION_1_0) };
-        return S_OK;
-    }
-    aviso(&alloc::format!("ID3D12Device::CheckFeatureSupport({que}): todavia no se contesta"));
-    E_INVALIDARG
 }
 
 // -- La lista de ordenes ----------------------------------------------------

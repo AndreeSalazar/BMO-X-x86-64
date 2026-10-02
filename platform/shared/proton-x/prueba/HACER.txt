@@ -1475,3 +1475,30 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    097f695c989259de600a349b1c57998c04d5a2f4fba6cb01382d5960f054bc4f
 
 Dice `bien` diez veces y sale con 0. En Windows dice lo mismo.
+
+tanda42.exe -- la TANDA 42 (02-10): lo que la tarjeta dice de si
+
+Por Cyberpunk: crea el dispositivo y pregunta en seguida
+CheckFeatureSupport(FEATURE_LEVELS) y (OPTIONS), y pide IDXGIAdapter2; la
+casa contestaba E_INVALIDARG y E_NOINTERFACE, y ademas se presentaba como un
+adaptador por SOFTWARE sin memoria. El juego no monto lo grafico y cayo con
+cero colas en su fin de fotograma. Aqui, como en Windows con una tarjeta de
+verdad: el adaptador 0 es tambien IDXGIAdapter2, 3 y 4, no es de software,
+tiene fabricante y memoria, GetDesc2 dice lo mismo que GetDesc1, hay
+presupuesto de VRAM; el dispositivo dice un nivel de la lista pedida, unas
+OPTIONS con sus tiers en rango (y con una medida mala, E_INVALIDARG), un
+modelo de sombreador entre 5.1 y el pedido, que R8G8B8A8 sirve de textura y
+de destino, su arquitectura, y el mismo LUID que el adaptador. No depende de
+que tarjeta haya.
+
+   llvm-dlltool -m i386:x86-64 -d tanda42_kernel32.def -l tanda42_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda42_d3d12.def -l tanda42_d3d12.lib
+   llvm-dlltool -m i386:x86-64 -d tanda42_dxgi.def -l tanda42_dxgi.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda42.c -o tanda42.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda42.obj tanda42_kernel32.lib tanda42_d3d12.lib tanda42_dxgi.lib /out:tanda42.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   549e9852a9fcf25f044dc68d8e47ff4559579cac1c1760366441d2f77234e80a
+
+Dice `bien` trece veces y sale con 0. En Windows dice lo mismo.

@@ -62,6 +62,7 @@ pub mod crt_numeros;
 pub mod cxx;
 pub mod cxx4;
 pub mod d3d12;
+pub mod d3d12_capacidades;
 pub mod diario;
 pub mod dll_chicas;
 pub mod dxgi;

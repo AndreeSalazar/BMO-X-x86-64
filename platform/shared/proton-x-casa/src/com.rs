@@ -94,6 +94,11 @@ pub const IID_FACTORY5: Guid = guid(0x7632e1f5, 0xee65, 0x4dca, [0x87, 0xfd, 0x8
 pub const IID_FACTORY6: Guid = guid(0xc1b6694f, 0xff09, 0x44a9, [0xb0, 0x3c, 0x77, 0x90, 0x0a, 0x0a, 0x1d, 0x17]);
 pub const IID_ADAPTER: Guid = guid(0x2411e7e1, 0x12ac, 0x4ccf, [0xbd, 0x14, 0x97, 0x98, 0xe8, 0x53, 0x4d, 0xc0]);
 pub const IID_ADAPTER1: Guid = guid(0x29038f61, 0x3839, 0x4626, [0x91, 0xfd, 0x08, 0x68, 0x79, 0x01, 0x1a, 0x05]);
+// 02-10: Cyberpunk pide el 2 (dxgi1_2.h); el 3 y el 4 (dxgi1_4.h, dxgi1_6.h)
+// son los que un motor pide despues para la memoria de video.
+pub const IID_ADAPTER2: Guid = guid(0x0aa1ae0a, 0xfa0e, 0x4b84, [0x86, 0x44, 0xe0, 0x5f, 0xf8, 0xe5, 0xac, 0xb5]);
+pub const IID_ADAPTER3: Guid = guid(0x645967a4, 0x1392, 0x4310, [0xa7, 0x98, 0x80, 0x53, 0xce, 0x3e, 0x93, 0xfd]);
+pub const IID_ADAPTER4: Guid = guid(0x3c8d99d1, 0x4fbf, 0x4181, [0xa8, 0x2c, 0xaf, 0x66, 0xbf, 0x7b, 0xd2, 0x4e]);
 // 01-10: la salida (el monitor) hasta Output6, de las cabeceras publicas de
 // DXGI (dxgi.h, dxgi1_2.h ... dxgi1_6.h).
 const IID_OUTPUT: Guid = guid(0xae02eedb, 0xc735, 0x4690, [0x8d, 0x52, 0x5a, 0x8d, 0xc2, 0x02, 0x13, 0xaa]);
@@ -121,7 +126,7 @@ pub static INTERFACES: [Interfaz; 14] = [
     Interfaz { nombre: "ID3D12RootSignature", metodos: M_ID3D12ROOTSIGNATURE, iids: &[IID_ROOTSIG, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12PipelineState", metodos: M_ID3D12PIPELINESTATE, iids: &[IID_PSO, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3DBlob", metodos: M_ID3D10BLOB, iids: &[IID_BLOB] },
-    Interfaz { nombre: "IDXGIAdapter1", metodos: M_IDXGIADAPTER1, iids: &[IID_ADAPTER1, IID_ADAPTER, IID_DXGIOBJECT] },
+    Interfaz { nombre: "IDXGIAdapter4", metodos: M_IDXGIADAPTER1, iids: &[IID_ADAPTER4, IID_ADAPTER3, IID_ADAPTER2, IID_ADAPTER1, IID_ADAPTER, IID_DXGIOBJECT] },
     Interfaz { nombre: "IDXGIOutput6", metodos: M_IDXGIOUTPUT6, iids: &[IID_OUTPUT6, IID_OUTPUT5, IID_OUTPUT4, IID_OUTPUT3, IID_OUTPUT2, IID_OUTPUT1, IID_OUTPUT, IID_DXGIOBJECT] },
 ];
 
@@ -333,6 +338,11 @@ pub const M_IDXGIFACTORY6: &[&str] = &[
 pub const M_IDXGIADAPTER1: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",
     "GetPrivateData", "GetParent", "EnumOutputs", "GetDesc", "CheckInterfaceSupport", "GetDesc1",
+    // IDXGIAdapter2, 3 y 4 (02-10)
+    "GetDesc2", "RegisterHardwareContentProtectionTeardownStatusEvent",
+    "UnregisterHardwareContentProtectionTeardownStatus", "QueryVideoMemoryInfo",
+    "SetVideoMemoryReservation", "RegisterVideoMemoryBudgetChangeNotificationEvent",
+    "UnregisterVideoMemoryBudgetChangeNotification", "GetDesc3",
 ];
 pub const M_IDXGIOUTPUT6: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",
