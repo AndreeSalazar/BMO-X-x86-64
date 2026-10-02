@@ -81,14 +81,24 @@ suyos), no el TID de Windows, para que los dos ficheros se comparen.
 
 ## 3. Los pasos
 
-### [ ] Paso 0 -- el lanzador y el primer registro
+### [x] Paso 0a -- el enganche de la IAT, SIN inyectar (02-10)
 
-`espejo.exe <ruta del juego>` lanza, inyecta, reanuda. `espejo.dll` engancha
-la IAT del `.exe` SOLO y apunta la primera llamada de cada funcion. Prueba:
-`tanda40.exe` (un `.exe` chico que llama a cinco funciones conocidas) bajo
-ESPEJO da esas cinco en orden, y el banco (`tests/corre.rs`) comprueba el
-mismo `.exe` en la casa con el DIARIO. Lo prueba el propietario con la tanda
-y luego con Cyberpunk.
+La mitad segura primero: `espejo.dll` se carga en su PROPIO proceso y engancha
+la IAT del `.exe` que la cargo. `tanda40.exe` la carga y llama a cinco
+funciones conocidas; salen en ESPEJO.TXT en el formato del DIARIO (hilo 7, el
+principal, como PROTON-X). Hecho y probado en Windows: las cinco en orden mas
+`ExitProcess`. Reproducible (dos enlaces, misma huella); sha256 en HACER.txt.
+El trampolin es el del DIARIO con salto ABSOLUTO (VirtualAlloc cae a mas de
+2 GiB del modulo y un `jmp rel32` se pasaria).
+
+### [ ] Paso 0b -- el lanzador que inyecta en el juego
+
+`espejo.exe <ruta del juego>`: `CreateProcessW(SUSPENDED)`, mete `espejo.dll`
+(VirtualAllocEx + WriteProcessMemory + CreateRemoteThread(LoadLibraryW)),
+espera y `ResumeThread`. Es la inyeccion en un proceso de terceros, asi que va
+en su propio commit, revisado aparte. El enganche (0a) ya esta probado; esto
+solo lo lleva hasta Cyberpunk. Lo prueba el propietario con la tanda y luego
+con el juego.
 
 ### [ ] Paso 1 -- las DLL del juego y las que llegan tarde
 
@@ -107,12 +117,14 @@ Una lista corta y a mano, la de las paredes de PROTON-X:
 el nombre), `CoCreateInstance` (el CLSID y el HRESULT). Cada una con su
 formateador; tope de lineas por funcion para que el fichero no pese GB.
 
-### [ ] Paso 3 -- el comparador
+### [x] Paso 3 -- el comparador (02-10)
 
-`espejo-compara ESPEJO.TXT DIARIO.TXT` (Python en `toolchain/tools/espejo/`,
-con su `--check` sobre dos ficheros de ejemplo): la primera funcion que
-Windows ve y la casa no, la primera vigilada con respuesta distinta, y las
-que la casa llama y Windows no. Una pantalla, no un volcado.
+`espejo.py ESPEJO.TXT DIARIO.TXT` en `toolchain/tools/espejo/`, con `--check`
+sobre `ejemplo_espejo.txt`/`ejemplo_diario.txt`: dice la primera funcion que
+Windows ve y la casa no (la pared), las que la casa llama y Windows no, y
+cuantas coinciden. Compara el `dll` sin mirar mayusculas (`kernel32.dll` =
+`KERNEL32.dll`). Una pantalla, no un volcado. Las vigiladas (paso 2) quedan
+para cuando existan. Hecho; el `--check` da la pared esperada.
 
 ### [ ] Paso 4 -- los objetos COM de DirectX
 

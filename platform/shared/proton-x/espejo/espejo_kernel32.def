@@ -1,0 +1,10 @@
+LIBRARY kernel32.dll
+EXPORTS
+GetModuleHandleW
+GetModuleFileNameW
+VirtualProtect
+VirtualAlloc
+GetCurrentThreadId
+CreateFileW
+WriteFile
+CloseHandle
