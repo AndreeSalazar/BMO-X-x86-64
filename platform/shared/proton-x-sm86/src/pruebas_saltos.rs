@@ -166,8 +166,9 @@ impl Gen {
         };
         let (a, b, c) = (fila.unwrap_or_else(|| self.legible()), self.legible(), self.legible());
         let d = self.nuevo();
-        // E6c: enteros y conversiones (sobre los bits de lo que haya).
-        const ENTERAS: [OpEntera; 12] = [OpEntera::Resta, OpEntera::Mul, OpEntera::Shl, OpEntera::ShrL, OpEntera::ShrA, OpEntera::Y, OpEntera::O, OpEntera::OX, OpEntera::MinS, OpEntera::MaxS, OpEntera::MinU, OpEntera::MaxU];
+        // E6c: enteros y conversiones (sobre los bits de lo que haya); E6d:
+        // y la division.
+        const ENTERAS: [OpEntera; 16] = [OpEntera::Resta, OpEntera::Mul, OpEntera::Shl, OpEntera::ShrL, OpEntera::ShrA, OpEntera::Y, OpEntera::O, OpEntera::OX, OpEntera::MinS, OpEntera::MaxS, OpEntera::MinU, OpEntera::MaxU, OpEntera::DivU, OpEntera::RemU, OpEntera::DivS, OpEntera::RemS];
         const CONVERSIONES: [Conversion; 4] = [Conversion::EnteroAFloat, Conversion::SinSignoAFloat, Conversion::FloatAEntero, Conversion::FloatASinSigno];
         if self.az.n(4) == 0 {
             let como = CONVERSIONES[self.az.n(4) as usize];
@@ -184,7 +185,7 @@ impl Gen {
                 }
                 _ => {
                     let (a, b) = (self.entero(), self.entero());
-                    self.ops.push(Op::Entera { d, a, b, op: ENTERAS[self.az.n(12) as usize] });
+                    self.ops.push(Op::Entera { d, a, b, op: ENTERAS[self.az.n(16) as usize] });
                     self.enteros.push(d);
                 }
             }
@@ -352,7 +353,7 @@ fn cientos_de_programas_al_azar_dan_los_bits_de_la_casa() {
 /// mentira, bit a bit con la casa, y PERFECTO ante el juez.
 #[test]
 fn el_sm5_con_saltos_de_punta_a_punta() {
-    for f in [ejemplos::sm5_bucle, ejemplos::sm5_si_cero, ejemplos::sm5_switch, ejemplos::sm5_enteros] {
+    for f in [ejemplos::sm5_bucle, ejemplos::sm5_si_cero, ejemplos::sm5_switch, ejemplos::sm5_enteros, ejemplos::sm5_division] {
         let (t, ent, sal) = f();
         let p = bmo_proton_x::sm5::compilar(&t, &ent, &sal).unwrap();
         assert!(p.salta());
@@ -366,6 +367,7 @@ const DXIL_SALTOS: &[u8] = include_bytes!("../../proton-x/prueba/saltos.dxil");
 const DXIL_ANIDADO: &[u8] = include_bytes!("../../proton-x/prueba/anidado.dxil");
 const DXIL_MIENTRAS: &[u8] = include_bytes!("../../proton-x/prueba/mientras.dxil");
 const DXIL_ENTEROS: &[u8] = include_bytes!("../../proton-x/prueba/enteros.dxil");
+const DXIL_DIVISION: &[u8] = include_bytes!("../../proton-x/prueba/division.dxil");
 
 /// dxc -> el lector -> la estructura -> el emisor -> la 3060 de mentira: bit a
 /// bit con la casa (los dos ABI), PERFECTO ante el juez y dentro de R7. El
@@ -374,14 +376,15 @@ const DXIL_ENTEROS: &[u8] = include_bytes!("../../proton-x/prueba/enteros.dxil")
 fn el_dxil_de_dxc_con_saltos_de_punta_a_punta() {
     let ks: [[f32; 4]; 3] = [[2.0, 1.0, 0.75, 3.0], [0.5, 1.0, 1.5, 100.0], [5.0, 1.0, -0.25, 1.0]];
     let uv: [(f32, f32); 6] = [(0.1, 0.9), (0.9, 0.1), (0.7, 0.7), (3.0, 0.25), (-0.5, 0.6), (0.0, -0.0)];
-    for d in [DXIL_SALTOS, DXIL_ANIDADO, DXIL_MIENTRAS, DXIL_ENTEROS] {
+    for d in [DXIL_SALTOS, DXIL_ANIDADO, DXIL_MIENTRAS, DXIL_ENTEROS, DXIL_DIVISION] {
         let p = bmo_proton_x::dxil::programa::compilar(&bmo_proton_x::dxil::leer(d).unwrap()).unwrap();
         assert!(p.salta());
         let e = emitir(&p, TECHO).unwrap();
         let r = emitir_con(&p, TECHO, Abi::Registros).unwrap();
         juzgado(&e, &r);
         for k in ks {
-            // La fila 1 (los `int4 n` de `enteros.hlsl`): enteros.
+            // La fila 1 (los `int4 n` de `enteros.hlsl` y `division.hlsl`):
+            // enteros.
             let n: [i32; 4] = [3, -50, 50, k[0] as i32];
             let cb: Vec<u8> = k.iter().flat_map(|v| v.to_le_bytes()).chain(n.iter().flat_map(|v| v.to_le_bytes())).collect();
             for (x, y) in uv {
@@ -398,8 +401,8 @@ fn el_dxil_de_dxc_con_saltos_de_punta_a_punta() {
 /// `x op y` (o `conv(x)`), con las entradas como BITS, en los dos ABI.
 #[test]
 fn cada_operacion_entera_sola() {
-    let bits = [0u32, 1, 5, 31, 32, 33, 0x7FFF_FFFF, 0x8000_0000, 0xFFFF_FFFF, 0xFFFF_FFFB, 0x3F80_0000, 0xBF80_0000, 0x4F00_0000, 0xCF00_0001, 0x7FC0_0000, 0x7F80_0000, 0xFF80_0000];
-    let ops = [OpEntera::Resta, OpEntera::Mul, OpEntera::Shl, OpEntera::ShrL, OpEntera::ShrA, OpEntera::Y, OpEntera::O, OpEntera::OX, OpEntera::MinS, OpEntera::MaxS, OpEntera::MinU, OpEntera::MaxU];
+    let bits = [0u32, 1, 2, 3, 5, 7, 31, 32, 33, 1000, 0x7FFF_FFFF, 0x8000_0000, 0x8000_0001, 0xFFFF_FFFF, 0xFFFF_FFFE, 0xFFFF_FFFB, 0x3F80_0000, 0xBF80_0000, 0x4F00_0000, 0xCF00_0001, 0x7FC0_0000, 0x7F80_0000, 0xFF80_0000];
+    let ops = [OpEntera::Resta, OpEntera::Mul, OpEntera::Shl, OpEntera::ShrL, OpEntera::ShrA, OpEntera::Y, OpEntera::O, OpEntera::OX, OpEntera::MinS, OpEntera::MaxS, OpEntera::MinU, OpEntera::MaxU, OpEntera::DivU, OpEntera::RemU, OpEntera::DivS, OpEntera::RemS];
     let mut programas: Vec<(std::string::String, Programa)> = Vec::new();
     for op in ops {
         let p = ejemplos::programa(
@@ -431,3 +434,83 @@ fn cada_operacion_entera_sola() {
     }
 }
 
+
+// -- E6d: la division ---------------------------------------------------------
+
+/// 32 bits al azar (`n` da 31 como mucho).
+fn palabra(az: &mut Azar) -> u32 {
+    az.n(1 << 16) << 16 | az.n(1 << 16)
+}
+
+/// La division del emisor, contra la casa, con muchos pares: los bordes
+/// (0, 1, potencias de 2 y sus vecinos, i32::MIN, -1...) y al azar.
+#[test]
+fn la_division_da_lo_de_la_casa() {
+    let mut az = Azar(0x00D1_7151_0000_0001);
+    let mut bits: Vec<u32> = Vec::new();
+    for k in 0..32 {
+        let p = 1u32 << k;
+        bits.extend([p, p.wrapping_sub(1), p.wrapping_add(1), p.wrapping_neg(), p.wrapping_neg().wrapping_sub(1)]);
+    }
+    bits.extend([0, 3, 7, 10, 641, 6700417, 0x5555_5555, 0xAAAA_AAAB, 0xFFFF_FFFF, 0x7FFF_FFFF, 0x8000_0001]);
+    for _ in 0..40 {
+        bits.push(palabra(&mut az));
+    }
+    for op in [OpEntera::DivU, OpEntera::RemU, OpEntera::DivS, OpEntera::RemS] {
+        let p = ejemplos::programa(
+            vec![Op::Entrada { d: 0, elemento: 0, componente: 0 }, Op::Entrada { d: 1, elemento: 0, componente: 1 }, Op::Entera { d: 2, a: 0, b: 1, op }, Op::Salida { s: 2, elemento: 0, componente: 0 }],
+            3,
+            &[],
+        );
+        let e = emitir(&p, TECHO).unwrap();
+        let r = emitir_con(&p, TECHO, Abi::Registros).unwrap();
+        juzgado(&e, &r);
+        for &x in &bits {
+            for &y in &bits {
+                let banco: Vec<u8> = [x, y, 0, 0].iter().flat_map(|v| v.to_le_bytes()).collect();
+                let mut m = crate::simula::Maquina::nueva([&[], &banco, &[], &[], &[], &[], &[], &[]]);
+                crate::simula::correr(&e.codigo, &mut m).unwrap();
+                assert_eq!(m.r[0], op.hacer(x, y), "{op:?} {x:#x} {y:#x}");
+            }
+        }
+    }
+}
+
+/// El simulador hace MUFU.RCP exacto; la 3060 se equivoca en un ULP. La
+/// cuenta de `dividir` (la misma, paso a paso) con el inverso movido un ULP
+/// arriba o hasta 64 abajo: el cociente sale igual. (Con 2 arriba ya no:
+/// ese es el margen de las -2 ULP de `0x0ffffffe`.)
+#[test]
+fn la_division_aguanta_un_inverso_aproximado() {
+    let dividir = |a: u32, b: u32, ulp: i32| -> u32 {
+        let fb = {
+            let y = b as f32;
+            if (y as f64) < b as f64 { f32::from_bits(y.to_bits() + 1) } else { y }
+        };
+        let inv = f32::from_bits((1.0 / fb).to_bits().wrapping_add_signed(ulp));
+        let e = f32::from_bits(inv.to_bits().wrapping_add(0x0fff_fffe)) as u32;
+        let t = b.wrapping_neg().wrapping_mul(e);
+        let e = e.wrapping_add(((e as u64 * t as u64) >> 32) as u32);
+        let mut q = ((e as u64 * a as u64) >> 32) as u32;
+        let mut r = a.wrapping_sub(q.wrapping_mul(b));
+        for _ in 0..2 {
+            if r >= b {
+                r -= b;
+                q += 1;
+            }
+        }
+        q
+    };
+    let mut az = Azar(0x00D1_7151_0000_0002);
+    for _ in 0..50_000 {
+        let a = palabra(&mut az);
+        let b = match az.n(3) {
+            0 => az.n(256) + 1,
+            1 => (palabra(&mut az) >> az.n(32)).max(1),
+            _ => (palabra(&mut az)).max(1),
+        };
+        for ulp in [-64, -16, -4, -3, -2, -1, 0, 1] {
+            assert_eq!(dividir(a, b, ulp), a / b, "{a} / {b}, {ulp} ulp");
+        }
+    }
+}

@@ -5,7 +5,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::dxil::ejemplos::{anidado, bucle_entero, bucle_geometrico, programa, si_sino};
-use crate::dxil::programa::{MalaForma, Op, Programa};
+use crate::dxil::programa::{MalaForma, Op, OpEntera, Programa};
 
 fn correr(p: &Programa, x: f32, y: f32) -> [f32; 4] {
     assert_eq!(p.forma(), Ok(()));
@@ -314,6 +314,71 @@ fn el_sm5_con_switch_y_enteros() {
         let r = sm5_ref_enteros(x, y);
         for k in 0..4 {
             assert_eq!(s[k].to_bits(), r[k].to_bits(), "enteros ({x}, {y}): {s:?} y {r:?}");
+        }
+    }
+}
+
+// -- E6d: la division y el resto ----------------------------------------------
+
+const DXIL_DIVISION: &[u8] = include_bytes!("../prueba/division.dxil");
+
+/// `division.hlsl`, en Rust: `n` es la fila 1 del cbuffer, como enteros.
+/// Entre 0 da todo unos (lo de la casa); `i32::MIN / -1`, `i32::MIN`.
+fn division_ref(x: f32, y: f32, n: [i32; 4]) -> [f32; 4] {
+    let div = |a: u32, b: u32| a.checked_div(b).unwrap_or(u32::MAX);
+    let rem = |a: u32, b: u32| a.checked_rem(b).unwrap_or(u32::MAX);
+    let a = (x * 1000.0) as i32;
+    let ua = (y * 100000.0) as u32;
+    let (q, r) = if n[0] == 0 { (-1, -1) } else { (a.wrapping_div(n[0]), a.wrapping_rem(n[0])) };
+    let (uq, ur) = (div(ua, n[1] as u32), rem(ua, n[1] as u32));
+    let z = n[2] as u32;
+    let (mut s, mut v, mut i) = (0u32, ua, 0);
+    while i < 8 && v != 0 {
+        s = s.wrapping_add(rem(v, z));
+        v = div(v, z);
+        i += 1;
+    }
+    [q as f32, r as f32, uq.wrapping_add(ur.wrapping_mul(3)) as f32, s as f32 + (a / 4) as f32]
+}
+
+#[test]
+fn el_dxil_con_division_corre_como_su_hlsl() {
+    let p = dxil(DXIL_DIVISION);
+    let divisiones = p.ops.iter().filter(|o| matches!(o, Op::Entera { op: OpEntera::DivU | OpEntera::RemU | OpEntera::DivS | OpEntera::RemS, .. })).count();
+    assert!(divisiones >= 7, "{divisiones}");
+    let ns: [[i32; 4]; 4] = [[7, 13, 10, 0], [-3, 1, 2, 0], [1000, -1, 16, 0], [i32::MIN, 0x7FFF_FFFF, 3, 0]];
+    let uv: [(f32, f32); 8] = [(0.1, 0.9), (0.3, 0.2), (-0.7, 0.7), (-0.004, 0.6), (0.99, 0.0), (1e6, 3.0), (-1e6, 42.95), (0.0, 0.125)];
+    for n in ns {
+        let mut cb: Vec<u8> = [0.0f32; 4].iter().flat_map(|v| v.to_le_bytes()).collect();
+        cb.extend(n.iter().flat_map(|v| v.to_le_bytes()));
+        for (x, y) in uv {
+            let mut s = [[0.0f32; 4]; 1];
+            p.correr(&[[0.0; 4], [x, y, 0.0, 0.0]], &cb, &mut s, &mut Vec::new());
+            let r = division_ref(x, y, n);
+            for k in 0..4 {
+                assert_eq!(s[0][k].to_bits(), r[k].to_bits(), "uv ({x}, {y}) n {n:?}: {:?} y el hlsl {r:?}", s[0]);
+            }
+        }
+    }
+}
+
+fn sm5_ref_division(x: f32, y: f32) -> [f32; 4] {
+    let div = |a: u32, b: u32| a.checked_div(b).unwrap_or(u32::MAX);
+    let rem = |a: u32, b: u32| a.checked_rem(b).unwrap_or(u32::MAX);
+    let (a, b) = (x as u32, y as u32);
+    let w = rem(b, 10).wrapping_add(div(b, a)).wrapping_add(rem(b, a));
+    [div(a, b) as f32, rem(a, b) as f32, (a / 7) as f32, w as f32]
+}
+
+#[test]
+fn el_sm5_con_udiv() {
+    let p = sm5(crate::dxil::ejemplos::sm5_division);
+    let entradas = [(100.0, 7.0), (7.0, 100.0), (0.0, 3.0), (5.0, 0.0), (0.0, 0.0), (4e9, 3.0), (4294967040.0, 65536.0), (-3.0, 2.0), (1e10, 1.0), (f32::NAN, 9.0)];
+    for (x, y) in entradas {
+        let s = correr2(&p, x, y);
+        let r = sm5_ref_division(x, y);
+        for k in 0..4 {
+            assert_eq!(s[k].to_bits(), r[k].to_bits(), "udiv ({x}, {y}): {s:?} y {r:?}");
         }
     }
 }

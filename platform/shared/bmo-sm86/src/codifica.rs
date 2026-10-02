@@ -319,6 +319,51 @@ pub const ORO_E6C: &[(&str, u64, u64)] = &[
     ("F2I.U32.TRUNC.NTZ R25, R6", 0x0000000600197305, 0x000e62000020f000),
 ];
 
+// == La division de enteros (E6d, 02-10) =====================================
+//
+// La 3060 no divide enteros: `ptxas` (`oro_division.ptx`) saca un inverso
+// aproximado de `b` en float (I2F.U32.RP, redondeo hacia arriba: 2 en el
+// 78..80; y MUFU.RCP), lo pasa a entero (F2I.FTZ.U32.TRUNC: FTZ, el bit 80),
+// lo afina con IMAD.HI.U32 (la mitad ALTA de un producto de 32 x 32) y
+// corrige el cociente dos veces. Con signo, sobre IABS.
+
+/// `I2F[.U32].RP Rd, Ra`: de entero a float, redondeando hacia arriba.
+pub fn i2f_arriba(rd: u8, a: u8, con_signo: bool, control: u64) -> (u64, u64) {
+    let (lo, hi) = i2f(rd, a, con_signo, control);
+    (lo, hi | 2 << 14)
+}
+
+/// `F2I.FTZ[.U32].TRUNC.NTZ Rd, Ra`.
+pub fn f2i_ftz(rd: u8, a: u8, con_signo: bool, control: u64) -> (u64, u64) {
+    let (lo, hi) = f2i(rd, a, con_signo, control);
+    (lo, hi | 1 << 16)
+}
+
+/// `IMAD.HI.U32 Rd, Ra, b, Rc`: la mitad alta de `Ra * b` (sin signo), con
+/// `Rc` = RZ (con otro, `ptxas` suma el PAR `Rc+1:Rc`: aqui no se usa).
+pub fn imad_hi(rd: u8, a: u8, b: Fuente, control: u64) -> (u64, u64) {
+    dos(0x027, 4, 5, 0x078e_0000 | RZ as u64, rd, r(a), b, false, control)
+}
+
+/// `IABS Rd, Ra`: el valor absoluto de un entero (de i32::MIN, el mismo).
+pub fn iabs(rd: u8, a: u8, control: u64) -> (u64, u64) {
+    palabra(0x013 | 1 << 9 | SIEMPRE | (rd as u64) << 16 | (a as u64) << 32, 0, control)
+}
+
+/// Las PALABRAS DE ORO de E6d (02-10): `ptxas -arch=sm_86 -O3` sobre
+/// `ga10x/sombreadores/oro_division.ptx` (div y rem, u32 y s32).
+pub const ORO_E6D: &[(&str, u64, u64)] = &[
+    ("I2F.U32.RP R6, R7", 0x0000000700067306, 0x004e220000209000),
+    ("I2F.RP R6, R9", 0x0000000900067306, 0x000e220000209400),
+    ("IADD3 R4, R6, 0xffffffe, RZ", 0x0ffffffe06047810, 0x001fcc0007ffe0ff),
+    ("F2I.FTZ.U32.TRUNC.NTZ R5, R4", 0x0000000400057305, 0x000064000021f000),
+    ("IMAD R9, R9, R5, RZ", 0x0000000509097224, 0x002fc800078e02ff),
+    ("IMAD.HI.U32 R5, R5, R0, RZ", 0x0000000005057227, 0x008fc800078e00ff),
+    ("IMAD R0, R7, R2, R0", 0x0000000207007224, 0x000fe400078e0200),
+    ("IABS R9, R7.reuse", 0x0000000700097213, 0x084fe40000000000),
+    ("IABS R10, R0", 0x00000000000a7213, 0x008fc40000000000),
+];
+
 /// El control de una de ALU (el de `ptxas` y del driver: 6 ciclos, el bit 4,
 /// sin barreras): el de las combinaciones leidas por `nvdisasm`.
 pub const ALU: u64 = 6 | 1 << 4 | 7 << 5 | 7 << 8;
@@ -616,6 +661,25 @@ mod pruebas {
         assert_eq!(hechas.len(), LEIDAS_E6C.len());
         for ((texto, lo, hi), h) in LEIDAS_E6C.iter().zip(hechas) {
             assert_eq!(h, (*lo, *hi), "{texto}");
+        }
+    }
+    /// E6d: lo de la division, como `ptxas`.
+    #[test]
+    fn la_division_como_ptxas() {
+        let k = |i: usize| ORO_E6D[i].2 >> 41;
+        let hechas: [(u64, u64); 9] = [
+            i2f_arriba(6, 7, false, k(0)),
+            i2f_arriba(6, 9, true, k(1)),
+            iadd3(4, 6, Fuente::Imm(0x0fff_fffe), k(2)),
+            f2i_ftz(5, 4, false, k(3)),
+            imad(9, 9, r(5), RZ, k(4)),
+            imad_hi(5, 5, r(0), k(5)),
+            imad(0, 7, r(2), 0, k(6)),
+            iabs(9, 7, k(7)),
+            iabs(10, 0, k(8)),
+        ];
+        for ((texto, lo, hi), h) in ORO_E6D.iter().zip(hechas) {
+            assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
         }
     }
 }

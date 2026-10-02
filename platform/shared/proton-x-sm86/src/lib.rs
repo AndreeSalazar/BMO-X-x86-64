@@ -40,6 +40,8 @@
 //! - `Rsqrt` y `Sqrt` son `MUFU`: la 3060 APROXIMA (ver `simula`).
 //! - `Div` se RECHAZA hoy: la de la 3060 (MUFU.RCP y FMUL) no es la division
 //!   exacta de la casa, y ningun sombreador de los que corren la usa.
+//! - La division de ENTEROS (E6d) si es exacta: la cuenta de `ptxas` con el
+//!   inverso, sin guardas (ver `dividir`).
 //!
 //! # Los bits de control, POR REGLA (E4)
 //!
@@ -119,6 +121,8 @@ pub enum Clase {
     Mufu,
     /// El TEX: desacoplado, escribe CUATRO registros con una barrera.
     Tex,
+    /// E6d: IMAD.HI (la mitad alta de un producto: la tabla "ancha" de NAK).
+    Ancha,
     /// EXIT.
     Nada,
 }
@@ -411,6 +415,96 @@ impl Emisor<'_> {
         Ok(i as u8)
     }
 
+    /// ** E6d: `d = a / b` o `a % b`, con signo o sin el, como `ptxas`
+    /// (`oro_division.ptx`) pero SIN guardas -- en el cuerpo de una app solo
+    /// un BRA lleva guarda (R7) --: cada `@P0` es un SEL.
+    ///
+    /// ```text
+    ///    e ~ 2^32 / b, por abajo   I2F.U32.RP, MUFU.RCP, - 2 ulp, F2I.FTZ
+    ///    una vuelta de Newton      e += hi(e * (-b * e))
+    ///    q = hi(e * a)             r = a - q * b; q se queda corto en 2
+    ///                              como mucho: dos veces "si r >= b"
+    ///    con signo                 lo mismo con |a| y |b| (IABS); el
+    ///                              cociente, negado si a y b tienen signos
+    ///                              distintos, y el resto con el de a
+    ///    b = 0                     0xFFFFFFFF (lo de D3D; la 3060 pone ~b)
+    /// ```
+    ///
+    /// Lo que no da exacto el MUFU.RCP lo corrige la vuelta: la cuenta vale
+    /// con cualquier `e` por debajo de 2^32 / b y cerca. El resultado va a su
+    /// registro AL FINAL: `d` puede ser `a` (una variable, `x = x / 3`).
+    fn dividir(&mut self, d: Reg, a: Reg, b: Reg, op: OpEntera, i: usize, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+        let con_signo = matches!(op, OpEntera::DivS | OpEntera::RemS);
+        let resto = matches!(op, OpEntera::RemU | OpEntera::RemS);
+        let (ra, rb) = (self.registro(a, paso)?, self.registro(b, paso)?);
+        let mut t = [0u8; 5];
+        for x in t.iter_mut() {
+            *x = self.pedir()?;
+            paso.push(*x);
+        }
+        let [e, nb, q, r, k] = t;
+        // Sin signo, |a| y |b|.
+        let (ua, ub) = if con_signo {
+            let ua = self.pedir()?;
+            let ub = self.pedir()?;
+            paso.push(ua);
+            paso.push(ub);
+            self.poner(c::iabs(ua, ra, 0), Clase::Alu, Some(ua), [Some(ra), None, None]);
+            self.poner(c::iabs(ub, rb, 0), Clase::Alu, Some(ub), [Some(rb), None, None]);
+            (ua, ub)
+        } else {
+            (ra, rb)
+        };
+        // El inverso, por abajo.
+        self.poner(c::i2f_arriba(e, ub, false, 0), Clase::Mufu, Some(e), [Some(ub), None, None]);
+        self.poner(c::iadd3(nb, RZ, c::neg(ub), 0), Clase::Alu, Some(nb), [Some(ub), None, None]);
+        self.poner(c::mufu(e, Mufu::Rcp, e, 0), Clase::Mufu, Some(e), [Some(e), None, None]);
+        self.poner(c::iadd3(e, e, Fuente::Imm(0x0fff_fffe), 0), Clase::Alu, Some(e), [Some(e), None, None]);
+        self.poner(c::f2i_ftz(e, e, false, 0), Clase::Mufu, Some(e), [Some(e), None, None]);
+        self.mufus += 3;
+        // La vuelta de Newton.
+        self.poner(c::imad(k, nb, c::r(e), RZ, 0), Clase::Fma, Some(k), [Some(nb), Some(e), None]);
+        self.poner(c::imad_hi(k, e, c::r(k), 0), Clase::Ancha, Some(k), [Some(e), Some(k), None]);
+        self.poner(c::iadd3(e, e, c::r(k), 0), Clase::Alu, Some(e), [Some(e), Some(k), None]);
+        // El cociente y el resto, y las dos correcciones.
+        self.poner(c::imad_hi(q, e, c::r(ua), 0), Clase::Ancha, Some(q), [Some(e), Some(ua), None]);
+        self.poner(c::imad(r, nb, c::r(q), ua, 0), Clase::Fma, Some(r), [Some(nb), Some(q), Some(ua)]);
+        for vuelta in 0..2 {
+            let w = c::isetp(0, Cmp::Ge, r, c::r(ub), true, 0);
+            self.poner_meta(w, Meta { escribe_p: Some(0), ..Meta::de(Clase::Alu, None, [Some(r), Some(ub), None]) });
+            // La segunda, solo lo que se pide.
+            if vuelta == 0 || resto {
+                self.poner(c::iadd3(k, r, c::neg(ub), 0), Clase::Alu, Some(k), [Some(r), Some(ub), None]);
+                self.poner_meta(c::sel(r, k, c::r(r), 0, false, 0), Meta { lee_p: Some((0, false)), ..Meta::de(Clase::Alu, Some(r), [Some(k), Some(r), None]) });
+            }
+            if vuelta == 0 || !resto {
+                self.poner(c::iadd3(k, q, Fuente::Imm(1), 0), Clase::Alu, Some(k), [Some(q), None, None]);
+                self.poner_meta(c::sel(q, k, c::r(q), 0, false, 0), Meta { lee_p: Some((0, false)), ..Meta::de(Clase::Alu, Some(q), [Some(k), Some(q), None]) });
+            }
+        }
+        let v = if resto { r } else { q };
+        // Los signos: el cociente, si a ^ b < 0; el resto, si a < 0.
+        if con_signo {
+            let s = if resto {
+                ra
+            } else {
+                self.poner(c::lop3(k, ra, c::r(rb), c::OX, 0), Clase::Alu, Some(k), [Some(ra), Some(rb), None]);
+                k
+            };
+            let w = c::isetp(0, Cmp::Lt, s, c::r(RZ), false, 0);
+            self.poner_meta(w, Meta { escribe_p: Some(0), ..Meta::de(Clase::Alu, None, [Some(s), None, None]) });
+            self.poner(c::iadd3(nb, RZ, c::neg(v), 0), Clase::Alu, Some(nb), [Some(v), None, None]);
+            self.poner_meta(c::sel(v, nb, c::r(v), 0, false, 0), Meta { lee_p: Some((0, false)), ..Meta::de(Clase::Alu, Some(v), [Some(nb), Some(v), None]) });
+        }
+        // Entre 0: todo unos. Y al registro del resultado.
+        let w = c::isetp(0, Cmp::Ne, rb, c::r(RZ), true, 0);
+        self.poner_meta(w, Meta { escribe_p: Some(0), ..Meta::de(Clase::Alu, None, [Some(rb), None, None]) });
+        let x = self.destino(d, i)?;
+        self.poner_meta(c::sel(x, v, Fuente::Imm(u32::MAX), 0, false, 0), Meta { lee_p: Some((0, false)), ..Meta::de(Clase::Alu, Some(x), [Some(v), None, None]) });
+        self.p0 = None;
+        Ok(())
+    }
+
     fn dos(&mut self, a: Reg, b: Reg, conmuta: bool, paso: &mut Vec<u8>) -> Result<(u8, Fuente), NoEmite> {
         // Al reves si `b` ya esta en un registro y `a` no; y si ninguno lo
         // esta, va al registro el que vive MAS (se reusara).
@@ -557,6 +651,7 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
                 e.poner(c::iadd3(x, ra, fb, 0), Clase::Alu, Some(x), [Some(ra), reg_de(fb), None]);
             }
             // ** E6c: las de enteros y las conversiones.
+            Op::Entera { d, a, b, op } if matches!(op, OpEntera::DivU | OpEntera::RemU | OpEntera::DivS | OpEntera::RemS) => e.dividir(d, a, b, op, i, &mut paso)?,
             Op::Entera { d, a, b, op } => {
                 let conmuta = matches!(op, OpEntera::Mul | OpEntera::Y | OpEntera::O | OpEntera::OX | OpEntera::MinS | OpEntera::MaxS | OpEntera::MinU | OpEntera::MaxU);
                 let (ra, fb) = e.dos(a, b, conmuta, &mut paso)?;
@@ -603,6 +698,8 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
                     OpEntera::MaxS => (c::imnmx(x, ra, fb, true, true, 0), Clase::Alu),
                     OpEntera::MinU => (c::imnmx(x, ra, fb, false, false, 0), Clase::Alu),
                     OpEntera::MaxU => (c::imnmx(x, ra, fb, true, false, 0), Clase::Alu),
+                    // La division va por `dividir`, arriba.
+                    OpEntera::DivU | OpEntera::RemU | OpEntera::DivS | OpEntera::RemS => return Err(NoEmite::Operacion(i)),
                 };
                 e.poner(w, clase, Some(x), lee);
             }

@@ -6,7 +6,8 @@
 //! Lo que sabe ejecutar es lo que el emisor pone -- FADD, FMUL, FMNMX, MUFU,
 //! MOV, TEX (P3b4c.8: el asa, a [`Maquina::muestrear`]), EXIT y NOP, con registros, inmediatos y constantes, `-`, `|x|` y
 //! `.SAT`; y desde E6 (02-10) FSETP, ISETP, SEL, IADD3 y BRA, con los
-//! predicados P0..P6 y el GUARDA de cada instruccion --; cualquier otra
+//! predicados P0..P6 y el GUARDA de cada instruccion; desde E6c y E6d las
+//! de enteros: IMAD, IMAD.HI, LOP3, SHF, IMNMX, IABS, I2F y F2I --; cualquier otra
 //! palabra (u otra forma de esas) es [`NoSimula::Instruccion`], nunca un
 //! "seguramente".
 //!
@@ -204,6 +205,13 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
                 let b = entera(m, lo, forma).ok_or(NoSimula::Instruccion(n))?;
                 m.reg(ra).wrapping_mul(b).wrapping_add(m.reg((hi & 0xFF) as usize))
             }
+            // ** E6d: IMAD.HI.U32 Rd, Ra, b, RZ (la mitad alta, sin signo) e
+            // IABS Rd, Rb.
+            0x027 if hi & ((1 << 41) - 1) == 0x078e_00ff => {
+                let b = entera(m, lo, forma).ok_or(NoSimula::Instruccion(n))?;
+                ((m.reg(ra) as u64 * b as u64) >> 32) as u32
+            }
+            0x013 if forma == 1 && hi & ((1 << 41) - 1) == 0 => (m.reg((lo >> 32 & 0xFF) as usize) as i32).unsigned_abs(),
             0x012 if hi & ((1 << 41) - 1) & !0xFFFF == 0x078e_0000 => {
                 let (x, y, z) = (m.reg(ra), entera(m, lo, forma).ok_or(NoSimula::Instruccion(n))?, m.reg((hi & 0xFF) as usize));
                 let lut = hi >> 8 & 0xFF;
@@ -231,11 +239,17 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
                     (true, false) => x.max(y),
                 }
             }
-            0x106 if forma == 1 && hi & ((1 << 41) - 1) & !(1 << 10) == 0x20_1000 => {
+            // I2F: al mas cercano o (E6d, `.RP`: 2 en 78..80) hacia arriba.
+            0x106 if forma == 1 && hi & ((1 << 41) - 1) & !(1 << 10 | 2 << 14) == 0x20_1000 => {
                 let x = m.reg((lo >> 32 & 0xFF) as usize);
-                (if hi >> 10 & 1 != 0 { x as i32 as f32 } else { x as f32 }).to_bits()
+                let exacto = if hi >> 10 & 1 != 0 { x as i32 as f64 } else { x as f64 };
+                let y = exacto as f32;
+                let y = if hi >> 15 & 1 != 0 && (y as f64) < exacto { f32::from_bits(if y > 0.0 { y.to_bits() + 1 } else { y.to_bits() - 1 }) } else { y };
+                y.to_bits()
             }
-            0x105 if forma == 1 && hi & ((1 << 41) - 1) & !(1 << 8) == 0x20_f000 => {
+            // F2I hacia cero; `.FTZ` (80) no cambia nada: un subnormal da 0
+            // igual.
+            0x105 if forma == 1 && hi & ((1 << 41) - 1) & !(1 << 8 | 1 << 16) == 0x20_f000 => {
                 let x = f(m.reg((lo >> 32 & 0xFF) as usize));
                 if hi >> 8 & 1 != 0 {
                     x as i32 as u32

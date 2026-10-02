@@ -1,0 +1,59 @@
+// oro_division.ptx -- el PTX de las PALABRAS DE ORO de E6d (`ORO_E6D` en
+// bmo-sm86/src/codifica.rs): la division y el resto de enteros.
+// Rehacerlas (CUDA 12.9 y nvdisasm 13.4, de PyPI, 02-10):
+//   ptxas -arch=sm_86 -O3 oro_division.ptx -o oro.cubin
+//   nvdisasm -hex oro.cubin
+// `div_u32`, `rem_u32`, `div_s32`, `rem_s32`: el reciproco del divisor
+// (I2F.RP, MUFU.RCP, F2I.FTZ), una vuelta de Newton con IMAD.HI.U32 y dos
+// correcciones; con signo, sobre los IABS.
+.version 8.0
+.target sm_86
+.address_size 64
+.visible .entry div_u32(.param .u64 pin, .param .u64 pout)
+{
+  .reg .s32 %r<10>;
+  .reg .u64 %rd<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.global.s32 %r1, [%rd1];
+  ld.global.s32 %r2, [%rd1+4];
+  div.u32 %r3, %r1, %r2;
+  st.global.s32 [%rd2], %r3;
+  ret;
+}
+.visible .entry rem_u32(.param .u64 pin, .param .u64 pout)
+{
+  .reg .s32 %r<10>;
+  .reg .u64 %rd<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.global.s32 %r1, [%rd1];
+  ld.global.s32 %r2, [%rd1+4];
+  rem.u32 %r3, %r1, %r2;
+  st.global.s32 [%rd2], %r3;
+  ret;
+}
+.visible .entry div_s32(.param .u64 pin, .param .u64 pout)
+{
+  .reg .s32 %r<10>;
+  .reg .u64 %rd<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.global.s32 %r1, [%rd1];
+  ld.global.s32 %r2, [%rd1+4];
+  div.s32 %r3, %r1, %r2;
+  st.global.s32 [%rd2], %r3;
+  ret;
+}
+.visible .entry rem_s32(.param .u64 pin, .param .u64 pout)
+{
+  .reg .s32 %r<10>;
+  .reg .u64 %rd<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.global.s32 %r1, [%rd1];
+  ld.global.s32 %r2, [%rd1+4];
+  rem.s32 %r3, %r1, %r2;
+  st.global.s32 [%rd2], %r3;
+  ret;
+}

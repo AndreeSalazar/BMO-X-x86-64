@@ -79,6 +79,7 @@ const ITOF: u32 = 43;
 const NOT: u32 = 59;
 const OR: u32 = 60;
 const SWITCH: u32 = 76;
+const UDIV: u32 = 78;
 const ULT: u32 = 79;
 const UGE: u32 = 80;
 const UMUL: u32 = 81;
@@ -92,7 +93,7 @@ const XOR: u32 = 87;
 const NULO: u32 = 13;
 /// Las instrucciones de enteros o de bits: sin modificadores de float.
 const fn de_enteros(c: u32) -> bool {
-    matches!(c, ILT | IGE | IEQ | INE | IADD | MOVC | AND | OR | XOR | NOT | INEG | IMUL | UMUL | IMAD | UMAD | ISHL | ISHR | USHR | IMIN | IMAX | UMIN | UMAX | ITOF | UTOF | ULT | UGE)
+    matches!(c, ILT | IGE | IEQ | INE | IADD | MOVC | AND | OR | XOR | NOT | INEG | IMUL | UMUL | IMAD | UMAD | ISHL | ISHR | USHR | IMIN | IMAX | UMIN | UMAX | ITOF | UTOF | ULT | UGE | UDIV)
 }
 const ELSE: u32 = 18;
 const ENDIF: u32 = 21;
@@ -657,6 +658,41 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
             ENDSWITCH => tr.cerrar_switch()?,
             BREAK => tr.p.ops.push(Op::Romper),
             CONTINUE => tr.p.ops.push(Op::Continuar),
+            // ** E6d: `udiv cociente, resto, a, b` -- cualquiera de los dos
+            // destinos puede ser null. Se lee todo antes de escribir nada.
+            UDIV => {
+                if w & 0x2000 != 0 {
+                    return Err(NoPrograma::Forma("un udiv SM5 con _sat"));
+                }
+                let mut j = i + 1;
+                while t[j - 1] >> 31 != 0 && j < fin {
+                    j += 1;
+                }
+                let dq = operando(t, &mut j)?;
+                let dr = operando(t, &mut j)?;
+                let (a, b) = (operando(t, &mut j)?, operando(t, &mut j)?);
+                if j != fin {
+                    return Err(NoPrograma::Forma("una instruccion SM5 que no mide lo que dice"));
+                }
+                if a.modificador != 0 || b.modificador != 0 {
+                    return Err(NoPrograma::Forma("un modificador en una instruccion SM5 de enteros o de bits: todavia no"));
+                }
+                let mut hechos = Vec::with_capacity(8);
+                for (d, op) in [(&dq, OpEntera::DivU), (&dr, OpEntera::RemU)] {
+                    if d.tipo == NULO {
+                        continue;
+                    }
+                    for k in (0..4).filter(|k| d.mascara & (1 << k) != 0) {
+                        let (ra, rb) = (tr.fuente(&a, k)?, tr.fuente(&b, k)?);
+                        let x = tr.nuevo()?;
+                        tr.p.ops.push(Op::Entera { d: x, a: ra, b: rb, op });
+                        hechos.push((d, k, x));
+                    }
+                }
+                for (d, k, x) in hechos {
+                    tr.escribir(d, k, x, false)?;
+                }
+            }
             ADD | MUL | DIV | MIN | MAX | MAD | MOV | RSQ | SQRT | DP2 | DP3 | DP4 | LT | GE | EQ | NE | ILT | IGE | IEQ | INE | IADD | MOVC | AND | OR | XOR | NOT | INEG | IMUL | UMUL | IMAD | UMAD | ISHL | ISHR | USHR | IMIN | IMAX | UMIN | UMAX | ITOF | UTOF | FTOI | FTOU | ULT | UGE => {
                 let saturar = w & 0x2000 != 0;
                 let mut j = i + 1;

@@ -1747,3 +1747,26 @@ y dos casos al mismo bloque son dos casos; `dxc` reordena `a * n.x + (a <<
 compara, bit a bit, con su HLSL escrito en Rust (`pruebas_saltos.rs`), y el
 emisor de la 3060 lo emite, lo simula con los dos ABI y el juez dice
 PERFECTO.
+
+division.dxil -- la DIVISION y el RESTO de enteros del DXIL (E6d, 02-10)
+
+Para que el lector de DXIL aprenda `udiv sdiv urem srem` (`dxil/enteros.rs`)
+y el emisor de la 3060 su cuenta (`dividir`, sin guardas). De
+`division.hlsl` (aqui al lado), con el mismo `dxc` de Linux que
+`saltos.dxil` (1.9, 4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo division.dxil division.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   5d114c6cc98b9a8863f604055927ad037e32c0b438b4a03c90971326cb234abc  division.dxil
+
+Y su TESTIGO, `division.ll` (`dxc -dumpbin`). Lo que se aprendio de el:
+`dxc` deja `sdiv`/`srem`/`udiv`/`urem` como estan, tambien `a / 4` (no lo
+vuelve un desplazamiento); el bucle de las cifras divide y saca el resto
+del MISMO par, dos cuentas. Entre 0 la casa da todo unos (lo de D3D; para
+LLVM es indefinido, y el banco no se lo pide al `dxc`: sus divisores no
+son 0; si lo prueba el SM5 de `udiv`, armado a mano). El banco lo compara, bit a bit, con
+su HLSL escrito en Rust (`pruebas_saltos.rs`), y el emisor de la 3060 lo
+emite (200 instrucciones: mas que la puerta de 128 del kernel, ver E6d en
+el plan), lo simula con los dos ABI y el juez dice PERFECTO.

@@ -3,7 +3,8 @@
 //! Lo que `dxc` escribe para `int`, `uint` y `bool`:
 //!
 //! ```text
-//!    BINOP de enteros   add sub mul shl lshr ashr and or xor (div y rem: no)
+//!    BINOP de enteros   add sub mul udiv sdiv urem srem shl lshr ashr and
+//!                       or xor
 //!    CAST               trunc a i1, zext/sext de i1, fptosi fptoui sitofp
 //!                       uitofp, bitcast entre i32 y float
 //!    dx.op.binary.i32   IMax IMin UMax UMin (37..40)
@@ -60,13 +61,17 @@ pub(super) fn binop_entero(c: &mut Compilador, o: &mut Operandos) -> Result<(), 
         }
         1 => OpEntera::Resta,
         2 => OpEntera::Mul,
+        3 => OpEntera::DivU,
+        4 => OpEntera::DivS,
+        5 => OpEntera::RemU,
+        6 => OpEntera::RemS,
         7 => OpEntera::Shl,
         8 => OpEntera::ShrL,
         9 => OpEntera::ShrA,
         10 => OpEntera::Y,
         11 => OpEntera::O,
         12 => OpEntera::OX,
-        _ => return Err(NoPrograma::Forma("una division o un resto de enteros (udiv, sdiv, urem, srem): todavia no")),
+        _ => return Err(NoPrograma::Forma("un BINOP de enteros que no existe")),
     };
     c.ops.push(Op::Entera { d, a: ra, b: rb, op });
     let logico = matches!(op, OpEntera::Y | OpEntera::O | OpEntera::OX);

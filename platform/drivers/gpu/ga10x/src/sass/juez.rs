@@ -505,6 +505,9 @@ pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) 
             // inmediato en la 4 (y c[][] en la 5).
             0x020 | 0x023 | 0x009 | 0x002 | 0x00B | 0x00C | 0x007 | 0x010 | 0x024 | 0x012 | 0x019 | 0x017 => &[1, 4],
             0x106 | 0x105 => &[1],
+            // E6d: la division -- IMAD.HI.U32 (con c = RZ: el par no se
+            // usa) e IABS, de registros.
+            0x027 | 0x013 => &[1],
             // E6: un salto, si cae DENTRO del cuerpo (de 0 a su EXIT).
             0x147 => {
                 let d = (((hi & 0x3_FFFF) << 32 | lo >> 32) << 14) as i64 >> 14;

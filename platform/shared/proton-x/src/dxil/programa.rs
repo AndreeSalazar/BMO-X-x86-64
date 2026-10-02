@@ -198,6 +198,11 @@ pub enum Comparacion {
 /// Lo que hace [`Op::Entera`], sobre los bits (modulo 2^32). Los
 /// desplazamientos usan los 5 bits de abajo de la cuenta, como D3D (`ishl`,
 /// `ushr`, `ishr`; `dxc` pone ese `& 31` el mismo).
+///
+/// La division y el resto (E6d): por 0 dan 0xFFFFFFFF, cociente y resto, con
+/// signo o sin el (lo de D3D en `udiv`; la 3060 hace eso mismo, `~b`). Con
+/// signo, hacia cero y el resto con el signo de `a`; `i32::MIN / -1` es
+/// `i32::MIN` y su resto 0 (lo que no cabe da la vuelta).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpEntera {
     Resta,
@@ -214,6 +219,10 @@ pub enum OpEntera {
     MaxS,
     MinU,
     MaxU,
+    DivU,
+    RemU,
+    DivS,
+    RemS,
 }
 
 impl OpEntera {
@@ -231,6 +240,11 @@ impl OpEntera {
             OpEntera::MaxS => (a as i32).max(b as i32) as u32,
             OpEntera::MinU => a.min(b),
             OpEntera::MaxU => a.max(b),
+            _ if b == 0 => u32::MAX,
+            OpEntera::DivU => a / b,
+            OpEntera::RemU => a % b,
+            OpEntera::DivS => (a as i32).wrapping_div(b as i32) as u32,
+            OpEntera::RemS => (a as i32).wrapping_rem(b as i32) as u32,
         }
     }
 }

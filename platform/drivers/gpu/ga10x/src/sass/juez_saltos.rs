@@ -17,8 +17,8 @@ fn regla(codigo: &[(u64, u64)]) -> Result<(), Regla> {
 }
 
 #[test]
-fn el_juez_conoce_las_palabras_de_e6_y_e6c() {
-    for (texto, lo, hi) in c::ORO_E6.iter().chain(c::LEIDAS_E6).chain(c::ORO_E6C).chain(c::LEIDAS_E6C) {
+fn el_juez_conoce_las_palabras_de_e6_e6c_y_e6d() {
+    for (texto, lo, hi) in c::ORO_E6.iter().chain(c::LEIDAS_E6).chain(c::ORO_E6C).chain(c::LEIDAS_E6C).chain(c::ORO_E6D) {
         assert!(conoce(*lo, *hi), "{texto}");
     }
 }

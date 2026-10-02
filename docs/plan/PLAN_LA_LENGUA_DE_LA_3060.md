@@ -481,9 +481,37 @@ por medio --. Hecho en el anfitrion, de la punta del Programa a la del juez:
     NaN visto como ENTERO cambia el camino segun su signo, que no se modela
     (`a - b` de la CPU y `FADD a, -b` lo dan distinto); un sombreador de
     verdad no lo hace -- sus tipos lo impiden -- y la prueba tampoco.
+- **E6d, la division y el resto de enteros (02-10, hecho en el anfitrion):**
+  - La 3060 no divide enteros. `ptxas` (`oro_division.ptx`: div y rem, u32
+    y s32) saca un inverso de `b` por abajo (I2F.U32.RP, MUFU.RCP, menos 2
+    ULP, F2I.FTZ.U32.TRUNC), lo afina con una vuelta de Newton con
+    IMAD.HI.U32 (la mitad alta de un producto) y corrige el cociente dos
+    veces; con signo, sobre IABS. 9 palabras de oro nuevas.
+  - El emisor (`dividir`) hace esa cuenta SIN guardas -- en el cuerpo de una
+    app solo un BRA lleva guarda (R7) --: cada `@P0` es un SEL. Y la vuelta
+    de Newton sin el par de IMAD.HI (`e + hi(e * t)` con un IADD3). 20
+    instrucciones sin signo, 26 a 28 con signo; IMAD.HI es una clase nueva
+    del planificador, `Ancha` (la de NAK: 6 ciclos entre dos de ellas).
+  - Entre 0 da todo unos, cociente y resto (lo de D3D en `udiv`, y la 3060
+    pone `~b`); con signo, hacia cero, el resto con el signo de `a`, y
+    `i32::MIN / -1` es `i32::MIN` (y su resto 0).
+  - El DXIL: `udiv sdiv urem srem`. El SM5: `udiv` con sus dos destinos,
+    cualquiera null, y leyendo todo antes de escribir.
+  - **Como se sabe:** cada una sola con 23 x 23 entradas raras y con 211 x
+    211 pares (los bordes de cada potencia de 2 y al azar), igual que la
+    casa en el simulador; `division.hlsl` de `dxc` (con un bucle que divide)
+    y un SM5 de `udiv` armado a mano, igual que su HLSL en Rust y emitidos
+    con los dos ABI, PERFECTO ante el juez; y el azar con division. El
+    simulador hace el MUFU.RCP exacto, la 3060 no: la misma cuenta en Rust
+    con el inverso movido de -64 a +1 ULP da el mismo cociente (con +2 ya
+    no: ese es el margen de las -2 ULP), en 50000 pares.
+  - **Lo que falta:** `division.hlsl` sale de 200 instrucciones, mas que
+    la puerta de 128 del kernel: `a / b` y `a % b` del mismo par son DOS
+    cuentas enteras (fundirlas en una es un ahorro, y dividir por una
+    constante, una multiplicacion: lo que hace `ptxas`).
 - **Despues (no es esta casilla):** bucles de varias salidas y `break` de
-  dos bucles, division y resto de enteros, `continue` dentro de un
-  `switch`, y el grafo no reducible (`dxc` no lo escribe).
+  dos bucles, `continue` dentro de un `switch`, y el grafo no reducible
+  (`dxc` no lo escribe).
 
 ## [ ] E7 -- EL VIGILANTE: un trabajo de la 3060 que no vuelve (el TDR de BMO-X)
 

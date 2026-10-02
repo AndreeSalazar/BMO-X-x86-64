@@ -328,3 +328,33 @@ pub fn sm5_enteros() -> (Vec<u32>, Vec<Elemento>, Vec<Elemento>) {
     s[0].mascara = 0xF;
     (t, e, s)
 }
+
+/// E6d: `udiv` con sus dos destinos, con uno solo (el otro null) y leyendo
+/// lo que escribe:
+///
+/// ```text
+///    ftou r0.x, v0.x ; ftou r0.y, v0.y
+///    udiv r1.x, r1.y, r0.x, r0.y ; udiv r1.z, null, r0.x, l(7)
+///    udiv null, r1.w, r0.y, l(10) ; udiv r0.x, r0.y, r0.y, r0.x
+///    iadd r1.w, r1.w, r0.x ; iadd r1.w, r1.w, r0.y
+///    utof o0.x, r1.x ; utof o0.y, r1.y ; utof o0.z, r1.z ; utof o0.w, r1.w
+/// ```
+pub fn sm5_division() -> (Vec<u32>, Vec<Elemento>, Vec<Elemento>) {
+    let t = programa_sm5(&[
+        ins(28, 0, &cat(&[&dst(0, 0, 1), &src(1, 0, 0)])),
+        ins(28, 0, &cat(&[&dst(0, 0, 2), &src(1, 0, 1)])),
+        ins(78, 0, &cat(&[&dst(0, 1, 1), &dst(0, 1, 2), &src(0, 0, 0), &src(0, 0, 1)])),
+        ins(78, 0, &cat(&[&dst(0, 1, 4), &nulo(), &src(0, 0, 0), &imm(7)])),
+        ins(78, 0, &cat(&[&nulo(), &dst(0, 1, 8), &src(0, 0, 1), &imm(10)])),
+        ins(78, 0, &cat(&[&dst(0, 0, 1), &dst(0, 0, 2), &src(0, 0, 1), &src(0, 0, 0)])),
+        ins(30, 0, &cat(&[&dst(0, 1, 8), &src(0, 1, 3), &src(0, 0, 0)])),
+        ins(30, 0, &cat(&[&dst(0, 1, 8), &src(0, 1, 3), &src(0, 0, 1)])),
+        ins(86, 0, &cat(&[&dst(2, 0, 1), &src(0, 1, 0)])),
+        ins(86, 0, &cat(&[&dst(2, 0, 2), &src(0, 1, 1)])),
+        ins(86, 0, &cat(&[&dst(2, 0, 4), &src(0, 1, 2)])),
+        ins(86, 0, &cat(&[&dst(2, 0, 8), &src(0, 1, 3)])),
+    ]);
+    let (e, mut s) = firmas();
+    s[0].mascara = 0xF;
+    (t, e, s)
+}

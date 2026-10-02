@@ -43,9 +43,12 @@ pub fn latencia(escritor: Clase, lector: Clase) -> u32 {
     use Clase::*;
     match (lector, escritor) {
         (Alu | Nada, Alu) => 4,
-        (Alu | Nada, Fma) => 5,
+        (Alu | Nada, Fma | Ancha) => 5,
         (Fma, Alu) => 5,
-        (Fma, Fma) => 4,
+        (Fma, Fma | Ancha) => 4,
+        (Ancha, Alu) => 5,
+        (Ancha, Fma) => 4,
+        (Ancha, Ancha) => 6,
         (Mufu, _) => 4,
         // El TEX lee sus fuentes como las de memoria del juez (Agu): 5.
         (Tex, _) => 5,
