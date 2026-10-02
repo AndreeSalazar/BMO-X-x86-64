@@ -1,0 +1,12 @@
+[package]
+name = "bmo-estratos-put"
+version = "0.1.0"
+edition = "2021"
+description = "Publica un BEX en un volumen ESTRATOS existente mediante copy-on-write"
+
+[[bin]]
+name = "estratos-put"
+path = "src/main.rs"
+
+[dependencies]
+bmo-estratos = { path = "../../../platform/drivers/storage/estratos" }

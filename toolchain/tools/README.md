@@ -63,6 +63,7 @@ documento recien escrito esta huerfano un rato por definicion.
 | [`fontgen`](fontgen/) | la fuente de la consola |
 | [`maqueta`](maqueta/) | compila un `.maqueta` a Rust |
 | [`estratos-fmt`](estratos-fmt/) | formatea el sistema de ficheros propio |
+| [`estratos-put`](estratos-put/) | publica un `.bex` en un ESTRATOS existente sin reformatearlo |
 | [`hello-bex`](hello-bex/) | el `.bex` mas chico que existe, para probar la puerta |
 | [`rpc-demo`](rpc-demo/) | la demostracion de IPC |
 | [`vista-ciudad`](vista-ciudad/) | la vista de `bmo-ciudad` |

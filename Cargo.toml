@@ -285,6 +285,8 @@ members = [
     "toolchain/tools/fontgen",
     # Formatea un volumen ESTRATOS desde el anfitrion (paso 4c del esquema).
     "toolchain/tools/estratos-fmt",
+    # Publica un artefacto en un ESTRATOS ya existente, con copia-en-escritura.
+    "toolchain/tools/estratos-put",
     # El eslabon Rust -> .bex: sin el, Ultra_userspace/ no puede producir
     # nada que el kernel admita, y por eso llevaba meses lleno de stubs.
     "toolchain/tools/bex-link",
