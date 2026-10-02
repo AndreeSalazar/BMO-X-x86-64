@@ -133,7 +133,79 @@ pub enum Op {
     /// `Sample`: la textura `t` (el registro tN) con el muestreador `s` (sN)
     /// en `(u, v)`; los cuatro canales (R, G, B, A) en `d..d+4`.
     Muestra { d: Reg, t: u8, s: u8, u: Reg, v: Reg },
+
+    // -- E6 (02-10): comparar, elegir y saltar. Un registro guarda BITS: un
+    // float, un entero (complemento a dos) o un booleano de D3D (0xFFFFFFFF
+    // si, 0 no). Las de abajo los copian tal cual; las de arriba los leen
+    // como float.
+    /// `d = a <como> b`: 0xFFFFFFFF si se cumple, 0 si no (como `lt`, `ge`,
+    /// `eq`, `ne` de SM5). Float: con un NaN solo se cumple `Distinto` (D3D:
+    /// `ne` es desordenada). `entero`: los bits como `i32`.
+    Compara { d: Reg, a: Reg, b: Reg, como: Comparacion, entero: bool },
+    /// `d = c != 0 ? a : b`, los bits (`movc`).
+    Elige { d: Reg, c: Reg, a: Reg, b: Reg },
+    /// `d = a`, los bits: una VARIABLE (escrita mas de una vez) se escribe asi.
+    Copia { d: Reg, a: Reg },
+    /// `d = a + b` como enteros de 32 bits (modulo 2^32: `iadd`).
+    SumaEntera { d: Reg, a: Reg, b: Reg },
+    /// Lo de hasta su `SiNo` o su `FinSi` corre si los bits de `c` no son 0.
+    Si { c: Reg },
+    SiNo,
+    FinSi,
+    /// Lo de hasta su `FinBucle` se repite hasta un `Romper`.
+    Bucle,
+    /// Sale del bucle mas interno si los bits de `c` no son 0 (`si_cero`:
+    /// si SON 0): `breakc_nz` y `breakc_z`.
+    RomperSi { c: Reg, si_cero: bool },
+    /// Sale del bucle mas interno (`break`).
+    Romper,
+    FinBucle,
 }
+
+/// Lo que pregunta [`Op::Compara`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Comparacion {
+    Menor,
+    MenorIgual,
+    Mayor,
+    MayorIgual,
+    Igual,
+    Distinto,
+}
+
+impl Comparacion {
+    /// Con floats (`Distinto` se cumple con un NaN; las demas, no).
+    pub fn floats(self, x: f32, y: f32) -> bool {
+        match self {
+            Comparacion::Menor => x < y,
+            Comparacion::MenorIgual => x <= y,
+            Comparacion::Mayor => x > y,
+            Comparacion::MayorIgual => x >= y,
+            Comparacion::Igual => x == y,
+            Comparacion::Distinto => x != y,
+        }
+    }
+
+    /// Con enteros con signo.
+    pub fn enteros(self, x: i32, y: i32) -> bool {
+        match self {
+            Comparacion::Menor => x < y,
+            Comparacion::MenorIgual => x <= y,
+            Comparacion::Mayor => x > y,
+            Comparacion::MayorIgual => x >= y,
+            Comparacion::Igual => x == y,
+            Comparacion::Distinto => x != y,
+        }
+    }
+}
+
+/// Por que la forma de un programa no vale (su indice): un `SiNo` o un
+/// `FinSi` sin su `Si`, un `Romper` fuera de un bucle, algo sin cerrar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MalaForma(pub usize);
+
+/// Lo que se puede anidar (bucles dentro de `si` dentro de bucles...).
+pub const ANIDADO_MAXIMO: usize = 32;
 
 /// **Un sombreador listo para correr.**
 #[derive(Debug, Clone, PartialEq)]
@@ -163,14 +235,130 @@ impl Programa {
         self.ops.iter().any(|o| matches!(o, Op::Muestra { .. }))
     }
 
+    /// Si el programa salta (E6): `si`, bucles, o lo que lee bits como
+    /// enteros o booleanos. Lo que no sabe de esto (el traductor a x86-64,
+    /// `nativo`) lo mira aqui y se aparta.
+    pub fn salta(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::FinBucle))
+    }
+
+    /// **La forma**: cada `Si` con su `FinSi` (y a lo sumo un `SiNo`), cada
+    /// `Bucle` con su `FinBucle`, cada `Romper` dentro de un bucle, y no mas
+    /// de [`ANIDADO_MAXIMO`] por dentro. Quien lee un sombreador la comprueba
+    /// antes de darlo; el interprete y el emisor cuentan con ella.
+    pub fn forma(&self) -> Result<(), MalaForma> {
+        // Lo abierto: `true` un bucle, `false` un si (y si ya vio su SiNo).
+        let mut abierto: Vec<(bool, bool)> = Vec::new();
+        for (i, op) in self.ops.iter().enumerate() {
+            match op {
+                Op::Si { .. } => abierto.push((false, false)),
+                Op::Bucle => abierto.push((true, false)),
+                Op::SiNo => match abierto.last_mut() {
+                    Some((false, visto)) if !*visto => *visto = true,
+                    _ => return Err(MalaForma(i)),
+                },
+                Op::FinSi => {
+                    if !matches!(abierto.pop(), Some((false, _))) {
+                        return Err(MalaForma(i));
+                    }
+                }
+                Op::FinBucle => {
+                    if !matches!(abierto.pop(), Some((true, _))) {
+                        return Err(MalaForma(i));
+                    }
+                }
+                Op::RomperSi { .. } | Op::Romper => {
+                    if !abierto.iter().any(|x| x.0) {
+                        return Err(MalaForma(i));
+                    }
+                }
+                _ => {}
+            }
+            if abierto.len() > ANIDADO_MAXIMO {
+                return Err(MalaForma(i));
+            }
+        }
+        if abierto.is_empty() {
+            Ok(())
+        } else {
+            Err(MalaForma(self.ops.len()))
+        }
+    }
+
+    /// Desde el `Si` (o el `SiNo`) `i`: el indice tras su `SiNo` (si
+    /// `hasta_sino`) o tras su `FinSi`.
+    fn tras_si(&self, i: usize, hasta_sino: bool) -> usize {
+        let mut hondo = 0usize;
+        for (k, op) in self.ops.iter().enumerate().skip(i + 1) {
+            match op {
+                Op::Si { .. } => hondo += 1,
+                Op::SiNo if hondo == 0 && hasta_sino => return k + 1,
+                Op::FinSi if hondo == 0 => return k + 1,
+                Op::FinSi => hondo -= 1,
+                _ => {}
+            }
+        }
+        self.ops.len()
+    }
+
+    /// Desde dentro del bucle (en `i`): el indice tras su `FinBucle`.
+    fn tras_bucle(&self, i: usize) -> usize {
+        let mut hondo = 0usize;
+        for (k, op) in self.ops.iter().enumerate().skip(i + 1) {
+            match op {
+                Op::Bucle => hondo += 1,
+                Op::FinBucle if hondo == 0 => return k + 1,
+                Op::FinBucle => hondo -= 1,
+                _ => {}
+            }
+        }
+        self.ops.len()
+    }
+
     /// [`Programa::correr`] con las texturas y los muestreadores del dibujo.
     /// Una textura o un muestreador que no esta da (0, 0, 0, 0), como un SRV
     /// nulo en D3D12.
     pub fn correr_con(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) {
         regs.clear();
         regs.extend_from_slice(&self.iniciales);
-        for op in &self.ops {
+        let bits = |regs: &Vec<f32>, r: Reg| regs[r as usize].to_bits();
+        // Donde empieza cada bucle abierto (la forma ya se comprobo).
+        let mut bucles = [0usize; ANIDADO_MAXIMO];
+        let mut hondo = 0usize;
+        let mut pc = 0usize;
+        while let Some(op) = self.ops.get(pc) {
+            pc += 1;
             match *op {
+                Op::Compara { d, a, b, como, entero } => {
+                    let si = if entero { como.enteros(bits(regs, a) as i32, bits(regs, b) as i32) } else { como.floats(regs[a as usize], regs[b as usize]) };
+                    regs[d as usize] = f32::from_bits(if si { u32::MAX } else { 0 });
+                }
+                Op::Elige { d, c, a, b } => regs[d as usize] = f32::from_bits(if bits(regs, c) != 0 { bits(regs, a) } else { bits(regs, b) }),
+                Op::Copia { d, a } => regs[d as usize] = f32::from_bits(bits(regs, a)),
+                Op::SumaEntera { d, a, b } => regs[d as usize] = f32::from_bits(bits(regs, a).wrapping_add(bits(regs, b))),
+                Op::Si { c } => {
+                    if bits(regs, c) == 0 {
+                        pc = self.tras_si(pc - 1, true);
+                    }
+                }
+                // Se llega al SiNo corriendo la rama del si: la otra, no.
+                Op::SiNo => pc = self.tras_si(pc - 1, false),
+                Op::FinSi => {}
+                Op::Bucle => {
+                    bucles[hondo] = pc;
+                    hondo += 1;
+                }
+                Op::FinBucle => pc = bucles[hondo - 1],
+                Op::RomperSi { c, si_cero } => {
+                    if (bits(regs, c) == 0) == si_cero {
+                        pc = self.tras_bucle(pc - 1);
+                        hondo -= 1;
+                    }
+                }
+                Op::Romper => {
+                    pc = self.tras_bucle(pc - 1);
+                    hondo -= 1;
+                }
                 Op::Entrada { d, elemento, componente } => {
                     regs[d as usize] = entradas.get(elemento as usize).map(|e| e[componente as usize & 3]).unwrap_or(0.0);
                 }

@@ -87,14 +87,14 @@ fn el_sm5_de_fxc_y_la_trama_dan_las_huellas_de_d3d12() {
 }
 
 /// Lo que no se sabe se DICE, con su numero: una instruccion cambiada por un
-/// `movc` (55) no se salta callada.
+/// `exp` (25) no se salta callada. (Hasta E6 era un `movc`, que ya se sabe.)
 #[test]
 fn una_instruccion_sm5_que_no_se_sabe_se_dice() {
     let mut d = SM5_PS.to_vec();
-    // El `rsq` (0x44, 5 palabras) -> `movc` (0x37).
+    // El `rsq` (0x44, 5 palabras) -> `exp` (0x19).
     let o = d.windows(4).position(|w| w == [0x44, 0, 0, 0x05]).unwrap();
-    d[o] = 0x37;
-    assert_eq!(compilar(&dxil::leer(&d).unwrap()), Err(NoPrograma::Sm5(55)));
+    d[o] = 0x19;
+    assert_eq!(compilar(&dxil::leer(&d).unwrap()), Err(NoPrograma::Sm5(25)));
     // Un SHEX cortado tampoco se lee.
     let mut d = SM5_VS.to_vec();
     let o = d.windows(4).position(|w| w == b"SHEX").unwrap();

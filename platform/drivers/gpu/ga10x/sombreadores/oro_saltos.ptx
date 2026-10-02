@@ -1,0 +1,140 @@
+// oro_saltos.ptx -- el PTX de las PALABRAS DE ORO de E6 (`ORO_E6` en
+// bmo-sm86/src/codifica.rs): comparar, elegir, sumar enteros y saltar.
+// Rehacerlas (CUDA 12.9 y nvdisasm 13.4, de PyPI, 02-10):
+//   ptxas -arch=sm_86 -O3 oro_saltos.ptx -o oro.cubin
+//   nvdisasm -hex oro.cubin
+// `si` y `bucle`: un if y un bucle; `junta`: un if con su union y un bucle
+// con contador entero y salida; `oro2`: cada comparacion, SEL e IADD3.
+.version 8.0
+.target sm_86
+.address_size 64
+.visible .entry si(.param .u64 pin, .param .u64 pout)
+{
+  .reg .f32 %f<20>;
+  .reg .u64 %rd<4>;
+  .reg .pred %p<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.global.f32 %f1, [%rd1];
+  ld.global.f32 %f2, [%rd1+4];
+  setp.lt.f32 %p1, %f1, %f2;
+  @%p1 bra ELSE;
+  mul.rn.f32 %f3, %f1, %f2;
+  add.rn.f32 %f4, %f3, %f1;
+  st.global.f32 [%rd2], %f4;
+  bra FIN;
+ELSE:
+  add.rn.f32 %f5, %f1, %f2;
+  mul.rn.f32 %f6, %f5, %f2;
+  st.global.f32 [%rd2+4], %f6;
+FIN:
+  ret;
+}
+.visible .entry bucle(.param .u64 pin, .param .u64 pout)
+{
+  .reg .f32 %f<20>;
+  .reg .u64 %rd<4>;
+  .reg .pred %p<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.global.f32 %f1, [%rd1];
+  ld.global.f32 %f2, [%rd1+4];
+  mov.f32 %f3, 0f00000000;
+CAB:
+  add.rn.f32 %f3, %f3, %f2;
+  mul.rn.f32 %f2, %f2, 0f3F000000;
+  setp.lt.f32 %p1, %f3, %f1;
+  @%p1 bra CAB;
+  st.global.f32 [%rd2], %f3;
+  ret;
+}
+.visible .entry junta(.param .u64 pin, .param .u64 pout)
+{
+  .reg .f32 %f<20>;
+  .reg .u64 %rd<4>;
+  .reg .u32 %r<10>;
+  .reg .pred %p<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.global.f32 %f1, [%rd1];
+  ld.global.f32 %f2, [%rd1+4];
+  ld.global.u32 %r1, [%rd1+8];
+  setp.lt.f32 %p1, %f1, %f2;
+  @%p1 bra ELSE;
+  sqrt.approx.f32 %f3, %f1;
+  mul.rn.f32 %f3, %f3, %f2;
+  bra FIN;
+ELSE:
+  rsqrt.approx.f32 %f3, %f2;
+  add.rn.f32 %f3, %f3, %f1;
+FIN:
+  mov.u32 %r2, 0;
+  mov.f32 %f4, 0f00000000;
+CAB:
+  setp.ge.s32 %p2, %r2, %r1;
+  @%p2 bra SAL;
+  add.rn.f32 %f4, %f4, %f3;
+  setp.gt.f32 %p3, %f4, 0f42C80000;
+  @%p3 bra SAL;
+  add.s32 %r2, %r2, 1;
+  bra CAB;
+SAL:
+  mul.rn.f32 %f5, %f4, %f3;
+  st.global.f32 [%rd2], %f5;
+  ret;
+}
+.visible .entry oro2(.param .u64 pin, .param .u64 pout, .param .f32 k)
+{
+  .reg .f32 %f<40>;
+  .reg .u64 %rd<4>;
+  .reg .s32 %r<40>;
+  .reg .pred %p<40>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.param.f32 %f30, [k];
+  ld.global.f32 %f1, [%rd1];
+  ld.global.f32 %f2, [%rd1+4];
+  ld.global.s32 %r1, [%rd1+8];
+  ld.global.s32 %r2, [%rd1+12];
+  setp.lt.f32 %p1, %f1, %f2;
+  @%p1 st.global.f32 [%rd2+0], %f1;
+  setp.le.f32 %p2, %f1, %f2;
+  @%p2 st.global.f32 [%rd2+4], %f1;
+  setp.gt.f32 %p3, %f1, %f2;
+  @%p3 st.global.f32 [%rd2+8], %f1;
+  setp.ge.f32 %p4, %f1, %f2;
+  @%p4 st.global.f32 [%rd2+12], %f1;
+  setp.eq.f32 %p5, %f1, %f2;
+  @%p5 st.global.f32 [%rd2+16], %f1;
+  setp.neu.f32 %p6, %f1, %f2;
+  @%p6 st.global.f32 [%rd2+20], %f1;
+  setp.lt.f32 %p7, %f1, 0f3F800000;
+  @%p7 st.global.f32 [%rd2+24], %f1;
+  setp.gt.f32 %p8, %f1, %f30;
+  @%p8 st.global.f32 [%rd2+28], %f1;
+  setp.lt.s32 %p9, %r1, %r2;
+  @%p9 st.global.f32 [%rd2+32], %f1;
+  setp.le.s32 %p10, %r1, %r2;
+  @%p10 st.global.f32 [%rd2+36], %f1;
+  setp.gt.s32 %p11, %r1, %r2;
+  @%p11 st.global.f32 [%rd2+40], %f1;
+  setp.ge.s32 %p12, %r1, %r2;
+  @%p12 st.global.f32 [%rd2+44], %f1;
+  setp.eq.s32 %p13, %r1, %r2;
+  @%p13 st.global.f32 [%rd2+48], %f1;
+  setp.ne.s32 %p14, %r1, %r2;
+  @%p14 st.global.f32 [%rd2+52], %f1;
+  setp.lt.s32 %p15, %r1, 7;
+  @%p15 st.global.f32 [%rd2+56], %f1;
+  setp.lt.f32 %p16, %f2, %f1;
+  selp.b32 %r10, -1, 0, %p16;
+  st.global.s32 [%rd2+60], %r10;
+  setp.ne.s32 %p17, %r1, 0;
+  selp.b32 %r11, %r2, %r1, %p17;
+  st.global.s32 [%rd2+64], %r11;
+  add.s32 %r12, %r1, %r2;
+  st.global.s32 [%rd2+68], %r12;
+  add.s32 %r13, %r2, 5;
+  st.global.s32 [%rd2+72], %r13;
+  ret;
+}

@@ -167,6 +167,82 @@ pub fn exit(control: u64) -> (u64, u64) {
     palabra(0x14D | 4 << 9 | SIEMPRE, 7 << 23, control)
 }
 
+// == Comparar, elegir y saltar (E6, 02-10) ===================================
+//
+// Lo que el emisor necesita para `if` y para los bucles. `ptxas` (12.9) lo
+// hace asi para la 3060, sin BSSY/BSYNC aunque los hilos se separen (la
+// reconvergencia es rendimiento, no correccion; con TEX.LZ no hay
+// derivadas que la pidan):
+//
+//    FSETP.<cmp>.AND P0, PT, Ra, b, PT     el predicado
+//    @!P0 BRA destino                      13 ciclos despues (ver `planifica`)
+//
+// Los campos nuevos, de las palabras de oro de abajo:
+//
+//    76..80   la comparacion (`Cmp`)      81..84  el predicado que escribe
+//    84..87   el segundo (PT: no se usa)  87..90  el que se combina (PT) o el
+//                                                 que elige SEL; 90 = negado
+//    12..16   el GUARDA de cualquier instruccion: 7 = siempre (PT), 0..6 = P0..P6,
+//             +8 = negado
+//    32..82   el desplazamiento de BRA, en BYTES y con signo, desde la siguiente
+
+/// La comparacion de FSETP e ISETP (bits 76..80). Las `U` son de float: se
+/// cumplen tambien si alguno es NaN (desordenadas).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Cmp {
+    Lt = 1,
+    Eq = 2,
+    Le = 3,
+    Gt = 4,
+    Ne = 5,
+    Ge = 6,
+    Ltu = 9,
+    Equ = 10,
+    Leu = 11,
+    Gtu = 12,
+    Neu = 13,
+    Geu = 14,
+}
+
+/// Los predicados del guarda y de SEL: P0..P6, y PT (7).
+pub const PT: u8 = 7;
+
+/// Lo comun de FSETP e ISETP: escribe `pu`, combina con PT por AND.
+fn setp_hi(como: Cmp, pu: u8) -> u64 {
+    (como as u64) << 12 | (pu as u64 & 7) << 17 | (PT as u64) << 20 | (PT as u64) << 23
+}
+
+/// `FSETP.<como>.AND Ppu, PT, a, b, PT` (`a` un registro, con `-` y `|x|`).
+pub fn fsetp(pu: u8, como: Cmp, a: Fuente, b: Fuente, control: u64) -> (u64, u64) {
+    dos(0x00B, 4, 5, setp_hi(como, pu), 0, a, b, false, control)
+}
+
+/// `ISETP.<como>[.U32].AND Ppu, PT, Ra, b, PT` -- con signo salvo
+/// `sin_signo` (bit 73); el 68..71 es el predicado de .EX, PT.
+pub fn isetp(pu: u8, como: Cmp, a: u8, b: Fuente, sin_signo: bool, control: u64) -> (u64, u64) {
+    let hi = setp_hi(como, pu) | (PT as u64) << 4 | (!sin_signo as u64) << 9;
+    dos(0x00C, 4, 5, hi, 0, r(a), b, false, control)
+}
+
+/// `SEL Rd, Ra, b, [!]Pp`: `Rd = Pp ? Ra : b`, los bits tal cual.
+pub fn sel(rd: u8, a: u8, b: Fuente, p: u8, negado: bool, control: u64) -> (u64, u64) {
+    dos(0x007, 4, 5, (p as u64 & 7) << 23 | (negado as u64) << 26, rd, r(a), b, false, control)
+}
+
+/// `IADD3 Rd, Ra, b, RZ`: la suma entera (modulo 2^32). Lo de 77..90 son
+/// los predicados de acarreo, `!PT`/PT como los pone `ptxas`.
+pub fn iadd3(rd: u8, a: u8, b: Fuente, control: u64) -> (u64, u64) {
+    dos(0x010, 4, 5, 0x07ff_e000 | RZ as u64, rd, r(a), b, false, control)
+}
+
+/// `[@[!]Pg] BRA destino`: `guarda` 0..6 (P0..P6, +8 negado) o 7 (siempre);
+/// `desplazamiento` en BYTES desde la instruccion SIGUIENTE (multiplo de 16).
+pub fn bra(guarda: u8, desplazamiento: i64, control: u64) -> (u64, u64) {
+    let d = desplazamiento as u64;
+    let lo = 0x147 | 4 << 9 | (guarda as u64 & 0xF) << 12 | d << 32;
+    palabra(lo, (PT as u64) << 23 | (d >> 32) & 0x3_FFFF, control)
+}
+
 /// El control de una de ALU (el de `ptxas` y del driver: 6 ciclos, el bit 4,
 /// sin barreras): el de las combinaciones leidas por `nvdisasm`.
 pub const ALU: u64 = 6 | 1 << 4 | 7 << 5 | 7 << 8;
@@ -222,6 +298,59 @@ pub const LEIDAS: &[(&str, u64, u64)] = &[
         ("FFMA R6, R7, c[0x0][0x1fc], |R8|", 0x00007f0007067a23, 0x000fec0000000408),
         ("MOV R0, c[0x1][0x10]", 0x0040040000007a02, 0x000fec0000000f00),
         ("EXIT", 0x000000000000794d, 0x000fec0003800000),
+];
+
+/// Las PALABRAS DE ORO de E6 (02-10): `ptxas -arch=sm_86 -O3` (CUDA 12.9)
+/// sobre `ga10x/sombreadores/oro_saltos.ptx`, leido con `nvdisasm -hex`
+/// (13.4). Comparar, elegir, sumar enteros y saltar, con su control.
+pub const ORO_E6: &[(&str, u64, u64)] = &[
+    ("FSETP.GEU.AND P0, PT, R0, R5, PT", 0x000000050000720b, 0x004fda0003f0e000),
+    ("FSETP.GE.AND P5, PT, R7, R0, PT", 0x000000000700720b, 0x000fc40003fa6000),
+    ("FSETP.NEU.AND P6, PT, R7, R0, PT", 0x000000000700720b, 0x000fe20003fcd000),
+    ("FSETP.GT.AND P0, PT, R3, 100, PT", 0x42c800000300780b, 0x000fda0003f04000),
+    ("FSETP.GT.AND P1, PT, R7.reuse, c[0x0][0x170], PT", 0x00005c0007007a0b, 0x040fe40003f24000),
+    ("FSETP.GEU.AND P0, PT, |R0|, 1.175494350822287508e-38, PT", 0x008000000000780b, 0x000fc80003f0e200),
+    ("FSETP.GTU.AND P3, PT, R7.reuse, R0.reuse, PT", 0x000000000700720b, 0x0c0fe40003f6c000),
+    ("ISETP.GT.AND P0, PT, R4, RZ, PT", 0x000000ff0400720c, 0x020fe20003f04270),
+    ("ISETP.GE.AND P2, PT, R6, 0x7, PT", 0x000000070600780c, 0x000fc60003f46270),
+    ("ISETP.NE.AND P1, PT, R6.reuse, R9, PT", 0x000000090600720c, 0x040fe40003f25270),
+    ("SEL R11, R9, R6, P3", 0x00000006090b7207, 0x000fe20001800000),
+    ("SEL R3, RZ, 0xffffffff, P3", 0xffffffffff037807, 0x000fe20001800000),
+    ("IADD3 R9, R9, 0x5, RZ", 0x0000000509097810, 0x000fe20007ffe0ff),
+    ("@!P0 BRA `(.L_x_0)", 0x0000007000008947, 0x000fea0003800000),
+    ("@!P0 BRA `(.L_x_3)", 0xffffffa000008947, 0x000fea000383ffff),
+    ("@P0 BRA `(.L_x_2)", 0x0000003000000947, 0x000fea0003800000),
+    ("BRA `(.L_x_1)", 0x0000005000007947, 0x000fea0003800000),
+    ("BRA `(.L_x_0)", 0xfffffff000007947, 0x000fc0000383ffff),
+];
+
+/// Lo que `ptxas` NO dio de E6 y fabrica ESTE codificador, leido por
+/// `nvdisasm -b SM86` (13.4) como dice el texto (02-10): las otras
+/// comparaciones, `.U32`, los modificadores, c[][], el predicado negado de
+/// SEL, IADD3 de registro y de constante, y saltos a ambos lados con otros
+/// guardas (el texto de BRA dice donde estaba y a donde lo leyo `nvdisasm`).
+pub const LEIDAS_E6: &[(&str, u64, u64)] = &[
+    ("FSETP.LT.AND P0, PT, R1, R2, PT", 0x000000020100720b, 0x000fec0003f01000),
+    ("FSETP.LE.AND P1, PT, R3, 1, PT", 0x3f8000000300780b, 0x000fec0003f23000),
+    ("FSETP.EQ.AND P2, PT, -R4, c[0x3][0x10], PT", 0x00c0040004007a0b, 0x000fec0003f42100),
+    ("FSETP.NE.AND P3, PT, R5, |R6|, PT", 0x400000060500720b, 0x000fec0003f65000),
+    ("FSETP.GE.AND P4, PT, R7, -R8, PT", 0x800000080700720b, 0x000fec0003f86000),
+    ("FSETP.LTU.AND P6, PT, R9, R10, PT", 0x0000000a0900720b, 0x000fec0003fc9000),
+    ("ISETP.LT.AND P0, PT, R1, R2, PT", 0x000000020100720c, 0x000fec0003f01270),
+    ("ISETP.LE.AND P1, PT, R3, -0x1, PT", 0xffffffff0300780c, 0x000fec0003f23270),
+    ("ISETP.EQ.AND P2, PT, R4, c[0x3][0x20], PT", 0x00c0080004007a0c, 0x000fec0003f42270),
+    ("ISETP.LT.U32.AND P5, PT, R6, R7, PT", 0x000000070600720c, 0x000fec0003fa1070),
+    ("ISETP.NE.AND P0, PT, R12, RZ, PT", 0x000000ff0c00720c, 0x000fec0003f05270),
+    ("SEL R1, R2, R3, !P0", 0x0000000302017207, 0x000fec0004000000),
+    ("SEL R4, RZ, 0xffffffff, !P2", 0xffffffffff047807, 0x000fec0005000000),
+    ("SEL R5, R6, c[0x3][0x30], P6", 0x00c00c0006057a07, 0x000fec0003000000),
+    ("IADD3 R7, R8, R9, RZ", 0x0000000908077210, 0x000fec0007ffe0ff),
+    ("IADD3 R10, R11, c[0x3][0x40], RZ", 0x00c010000b0a7a10, 0x000fec0007ffe0ff),
+    ("IADD3 R12, R13, -0x1, RZ", 0xffffffff0d0c7810, 0x000fec0007ffe0ff),
+    ("@P0 BRA +0x100 (en 0x110: a 0x220)", 0x0000010000000947, 0x000fec0003800000),
+    ("@!P0 BRA -0x200 (en 0x120: a -0xd0)", 0xfffffe0000008947, 0x000fec000383ffff),
+    ("@P3 BRA +0x10 (en 0x130: a 0x150)", 0x0000001000003947, 0x000fec0003800000),
+    ("BRA -0x70000 (en 0x140: a -0x6feb0)", 0xfff9000000007947, 0x000fec000383ffff),
 ];
 
 #[cfg(test)]
@@ -288,6 +417,66 @@ mod pruebas {
             exit(k),
         ];
         for ((texto, lo, hi), h) in LEIDAS.iter().zip(hechas) {
+            assert_eq!(h, (*lo, *hi), "{texto}");
+        }
+    }
+    /// E6: cada codificador nuevo da la palabra de oro ENTERA de `ptxas`.
+    #[test]
+    fn comparar_elegir_sumar_y_saltar_como_ptxas() {
+        let k = |i: usize| ORO_E6[i].2 >> 41;
+        let hechas: [(u64, u64); 18] = [
+            fsetp(0, Cmp::Geu, r(0), r(5), k(0)),
+            fsetp(5, Cmp::Ge, r(7), r(0), k(1)),
+            fsetp(6, Cmp::Neu, r(7), r(0), k(2)),
+            fsetp(0, Cmp::Gt, r(3), Fuente::Imm(100.0f32.to_bits()), k(3)),
+            fsetp(1, Cmp::Gt, r(7), c(0, 0x170), k(4)),
+            fsetp(0, Cmp::Geu, abs(0), Fuente::Imm(0x0080_0000), k(5)),
+            fsetp(3, Cmp::Gtu, r(7), r(0), k(6)),
+            isetp(0, Cmp::Gt, 4, r(RZ), false, k(7)),
+            isetp(2, Cmp::Ge, 6, Fuente::Imm(7), false, k(8)),
+            isetp(1, Cmp::Ne, 6, r(9), false, k(9)),
+            sel(11, 9, r(6), 3, false, k(10)),
+            sel(3, RZ, Fuente::Imm(0xFFFF_FFFF), 3, false, k(11)),
+            iadd3(9, 9, Fuente::Imm(5), k(12)),
+            bra(8, 0x70, k(13)),
+            bra(8, -0x60, k(14)),
+            bra(0, 0x30, k(15)),
+            bra(PT, 0x50, k(16)),
+            bra(PT, -0x10, k(17)),
+        ];
+        for ((texto, lo, hi), h) in ORO_E6.iter().zip(hechas) {
+            assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
+        }
+    }
+    /// E6: lo fabricado, con el control de `ALU`, es lo que leyo `nvdisasm`.
+    #[test]
+    fn nvdisasm_lee_lo_que_fabrica_e6() {
+        let k = ALU;
+        let hechas = [
+            fsetp(0, Cmp::Lt, r(1), r(2), k),
+            fsetp(1, Cmp::Le, r(3), Fuente::Imm(0x3f80_0000), k),
+            fsetp(2, Cmp::Eq, neg(4), c(3, 0x10), k),
+            fsetp(3, Cmp::Ne, r(5), abs(6), k),
+            fsetp(4, Cmp::Ge, r(7), neg(8), k),
+            fsetp(6, Cmp::Ltu, r(9), r(10), k),
+            isetp(0, Cmp::Lt, 1, r(2), false, k),
+            isetp(1, Cmp::Le, 3, Fuente::Imm(0xFFFF_FFFF), false, k),
+            isetp(2, Cmp::Eq, 4, c(3, 0x20), false, k),
+            isetp(5, Cmp::Lt, 6, r(7), true, k),
+            isetp(0, Cmp::Ne, 12, r(RZ), false, k),
+            sel(1, 2, r(3), 0, true, k),
+            sel(4, RZ, Fuente::Imm(0xFFFF_FFFF), 2, true, k),
+            sel(5, 6, c(3, 0x30), 6, false, k),
+            iadd3(7, 8, r(9), k),
+            iadd3(10, 11, c(3, 0x40), k),
+            iadd3(12, 13, Fuente::Imm(0xFFFF_FFFF), k),
+            bra(0, 0x100, k),
+            bra(8, -0x200, k),
+            bra(3, 0x10, k),
+            bra(PT, -0x7_0000, k),
+        ];
+        assert_eq!(hechas.len(), LEIDAS_E6.len());
+        for ((texto, lo, hi), h) in LEIDAS_E6.iter().zip(hechas) {
             assert_eq!(h, (*lo, *hi), "{texto}");
         }
     }

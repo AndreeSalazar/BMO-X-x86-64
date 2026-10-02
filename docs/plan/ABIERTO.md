@@ -7,9 +7,9 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   470 casillas ABIERTAS en 45 planes
+   471 casillas ABIERTAS en 46 planes
    361 hechas
-     1 planes CUMPLIDOS (ni una casilla pendiente)
+     0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
@@ -23,6 +23,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 9 de 10 hechas, faltan 1
 - [`PLAN_EL_AISLAMIENTO.md`](PLAN_EL_AISLAMIENTO.md) -- 4 de 5 hechas, faltan 1
+- [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 9 hechas, faltan 1
 - [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 8 de 9 hechas, faltan 1
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
@@ -413,6 +414,12 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] A5 -- LA SEGUNDA TARJETA (cuando la haya)
 
+## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 1 abiertas, 8 hechas
+
+*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
+
+- [ ] E6 -- SALTOS Y BUCLES: si, bucles y sus BRA (02-10; el anfitrion, hecho)
+
 ## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 1 abiertas, 8 hechas
 
 *PLAN MAQUETA*
@@ -436,13 +443,4 @@ ya no aplican, o esperan a alguien que no es el codigo.
 - **ESPERA** [`en_pausa/PLAN_DOCUMENTOS.md`](en_pausa/PLAN_DOCUMENTOS.md) -- una decision del propietario (.datex, .window/.data): idea suya, sin decidir a proposito; lo que si existe ya es CLASE_PANTALLA en los requisitos del BEF. Lo que hay aqui es el  *(0 hechas, 12 sueltas)*
 - **SUPERADO** [`en_pausa/PLAN_EL_CODEGEN.md`](en_pausa/PLAN_EL_CODEGEN.md) -- por PLAN_EL_TROQUEL.md (18/19-09): plegado (decidir/plegado.rs), operador con inmediato, comparacion fundida, troquel por variable, convencion de llamada hibrida. El metro dice 451.306 -> 183.875 instrucciones (-59 %); la MEDIDA de aqui fue el punto de partida y se conserva.  *(0 hechas, 9 sueltas)*
 - **SUPERADO** [`en_pausa/PLAN_EL_GUARDIAN.md`](en_pausa/PLAN_EL_GUARDIAN.md) -- por la decision del 2026-09-18 (el guardian isa, toolchain/tools/isa/isa.py: "este repositorio es de UNA arquitectura"): este repositorio es SOLO x86-64 y ARM/RISC-V son OTRO repositorio. Una placa RISC-V como guardian no cabe aqui; la idea se conserva para ese otro arbol.  *(0 hechas, 15 sueltas)*
-
----
-
-# CUMPLIDOS -- todas sus casillas marcadas
-
-** No se archivan ni se mueven: siguen siendo la razon por la
-que algo se hizo asi, y eso se consulta mas que la casilla.
-
-- [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 hechas, 388 lineas
 

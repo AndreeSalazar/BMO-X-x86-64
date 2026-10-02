@@ -10,3 +10,5 @@
 
 pub mod juez;
 pub mod corpus;
+#[cfg(test)]
+mod juez_saltos;

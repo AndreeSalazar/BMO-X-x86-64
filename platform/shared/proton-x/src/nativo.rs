@@ -114,6 +114,11 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
     if p.muestrea() {
         return None;
     }
+    // Ni uno que SALTA (E6, 02-10): los `si` y los bucles van por el
+    // interprete hasta que esto sepa poner sus saltos.
+    if p.salta() {
+        return None;
+    }
     let mut e = Emisor { b: Vec::with_capacity(16 * p.ops.len() + 64) };
     // Prologo: el MXCSR de quien llama, a la pila; el de D3D, puesto.
     e.b.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]); // sub rsp, 8
@@ -193,6 +198,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
             Op::Min { d, a, b } => e.min_max(MINSS, d, a, b),
             Op::Max { d, a, b } => e.min_max(MAXSS, d, a, b),
             Op::Muestra { .. } => unreachable!("mirado arriba: `muestrea`"),
+            Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::FinBucle => unreachable!("mirado arriba: `salta`"),
         }
     }
     // Epilogo: el MXCSR de quien llamo, de vuelta.

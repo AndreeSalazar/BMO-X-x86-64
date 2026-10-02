@@ -30,9 +30,17 @@ fn cb_de(f: u32) -> Vec<u8> {
     c.wvp.iter().chain(&c.world).chain(&c.luz).flat_map(|x| x.to_le_bytes()).collect()
 }
 
+/// Los mismos bits -- o los dos NaN: la carga util y el signo de un NaN no
+/// se modelan (la 3060 da su NaN canonico; `FADD a, -b` no es `a - b` de la
+/// CPU con un NaN en `b`), y D3D solo pide que sea NaN. Lo mismo dice el
+/// banco de la casa (`corre.rs`) y `nativo`. E6 (02-10), con NaN de entrada.
+pub(crate) fn mismos(sass: u32, casa: f32) -> bool {
+    sass == casa.to_bits() || (f32::from_bits(sass).is_nan() && casa.is_nan())
+}
+
 /// Corre `p` en la casa y su SASS en el simulador con las mismas entradas y
 /// el mismo cbuffer; los bits de cada salida tienen que ser los mismos.
-fn igual(p: &Programa, codigo: &[(u64, u64)], entradas: &[[f32; 4]], cb: &[u8]) {
+pub(crate) fn igual(p: &Programa, codigo: &[(u64, u64)], entradas: &[[f32; 4]], cb: &[u8]) {
     let mut casa = std::vec![[0.0f32; 4]; p.salidas];
     let mut regs = Vec::new();
     p.correr(entradas, cb, &mut casa, &mut regs);
@@ -41,7 +49,7 @@ fn igual(p: &Programa, codigo: &[(u64, u64)], entradas: &[[f32; 4]], cb: &[u8]) 
     correr(codigo, &mut m).unwrap();
     for (e, s) in casa.iter().enumerate() {
         for k in 0..4 {
-            assert_eq!(m.r[4 * e + k], s[k].to_bits(), "salida {e}.{k}: la 3060 {} y la casa {}", f32::from_bits(m.r[4 * e + k]), s[k]);
+            assert!(mismos(m.r[4 * e + k], s[k]), "salida {e}.{k}: la 3060 {} y la casa {}", f32::from_bits(m.r[4 * e + k]), s[k]);
         }
     }
 }
@@ -171,7 +179,7 @@ fn cada_operacion_emitida_da_los_bits_de_la_casa() {
 /// E5: con [`Abi::Registros`] las entradas y las filas del cbuffer llegan YA
 /// en los registros que dice `precargas` (como las dejara el LDG del
 /// pegamento); el banco va VACIO, y los bits tienen que ser los de la casa.
-fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]], cb: &[u8]) {
+pub(crate) fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]], cb: &[u8]) {
     let mut casa = std::vec![[0.0f32; 4]; p.salidas];
     let mut regs = Vec::new();
     p.correr(entradas, cb, &mut casa, &mut regs);
@@ -199,7 +207,7 @@ fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]], cb: &[u8
     let escritas: Vec<(usize, usize)> = p.ops.iter().filter_map(|o| if let Op::Salida { elemento, componente, .. } = *o { Some((elemento as usize, componente as usize & 3)) } else { None }).collect();
     for (el, s) in casa.iter().enumerate() {
         for k in (0..4).filter(|&k| escritas.contains(&(el, k))) {
-            assert_eq!(m.r[4 * el + k], s[k].to_bits(), "salida {el}.{k}: la 3060 {} y la casa {}", f32::from_bits(m.r[4 * el + k]), s[k]);
+            assert!(mismos(m.r[4 * el + k], s[k]), "salida {el}.{k}: la 3060 {} y la casa {}", f32::from_bits(m.r[4 * el + k]), s[k]);
         }
     }
 }

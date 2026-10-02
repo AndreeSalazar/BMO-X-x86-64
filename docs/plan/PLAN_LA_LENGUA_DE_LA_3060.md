@@ -375,6 +375,64 @@ dibuja el cubo con ese sobre.
 - **Queda (no bloquea):** `cubo.bsf` sin SASS a mano; la interpolacion con
   perspectiva (hoy ScreenLinear, exacta en caras de un valor).
 
+## [ ] E6 -- SALTOS Y BUCLES: `si`, bucles y sus BRA (02-10; el anfitrion, hecho)
+
+Del propietario (02-10): "haz los saltos y bucles del emisor", en orden y
+DIRECTO al emisor -- DXIL/SM5 a SASS sin SPIR-V ni el compilador de NVIDIA
+por medio --. Hecho en el anfitrion, de la punta del Programa a la del juez:
+
+- **La lengua** (`bmo-sm86`): FSETP, ISETP, SEL, IADD3 y BRA, con las 18
+  palabras de oro de `ptxas` 12.9 (`ga10x/sombreadores/oro_saltos.ptx`,
+  128 bits con su control) y 21 fabricadas que `nvdisasm` 13.4 lee como
+  dice su texto (`LEIDAS_E6`). Lo que `ptxas` enseno: para `if` y bucles
+  pone `FSETP` y `@P0 BRA`, SIN `BSSY`/`BSYNC` (la reconvergencia es
+  rendimiento; con `TEX.LZ` no hay derivadas que la pidan); y un predicado
+  tarda 13 ciclos en poder ser GUARDA, 4 en ser operando de SEL.
+- **El Programa** (`proton-x`): `Compara`, `Elige`, `Copia`, `SumaEntera`,
+  `Si`/`SiNo`/`FinSi`, `Bucle`/`RomperSi`/`Romper`/`FinBucle`; un registro
+  guarda BITS (float, entero o el booleano de D3D, 0xFFFFFFFF); su forma se
+  comprueba (`Programa::forma`). El interprete los corre y es el juez de
+  todo lo demas; `nativo` (x86-64) se aparta de lo que salta.
+- **El lector SM5**: `if_nz`/`if_z`, `else`, `endif`, `loop`, `endloop`,
+  `break`, `breakc_nz`/`breakc_z`, `lt` `ge` `eq` `ne`, `ilt` `ige` `ieq`
+  `ine`, `iadd`, `movc`. Un programa que salta no renombra: `r#` y `o#` son
+  VARIABLES, y lo que lee de `v#` y `cb0` va al principio.
+- **El emisor** (`proton-x-sm86`, `saltos.rs`): las variables (un registro
+  de la 3060 todo el programa, puesto a su valor inicial), lo vivo en la
+  cabeza de un bucle hasta su fin, nada de constantes guardadas dentro de
+  una rama, y la Compara de un solo lector FUNDIDA a P0 (sin SEL).
+- **El planificador**: un predicado, 13 ciclos a su guarda y 5 a SEL; un
+  BRA DRENA (todo lo escrito llego, todas las barreras esperadas) y deja 5
+  ciclos detras. Asi la cuenta en linea recta vale para cualquier camino.
+- **El simulador**: P0..P6, el guarda de cada instruccion, las cinco nuevas,
+  y un tope de pasos (un bucle que no sale es `SinFin`, no un cuelgue).
+- **El juez** (J1): R9 (predicado antes de llegar: 13 guarda, 4 operando --
+  todo el oro de `ptxas` lo cumple); R8 (salto sucio: un BRA con algo en
+  vuelo) en lo que fabrica BMO-X -- los programas con SPH, los que sube la
+  puerta del kernel -- y en `juzgar_drenado`; el computo de `ptxas` (`giro`
+  salta con cargas en vuelo y las espera en el destino) se sigue leyendo
+  como en v1. R7: un cuerpo de app puede comparar, elegir, sumar enteros y
+  SALTAR, pero solo dentro de su cuerpo, y el guarda solo en su BRA.
+
+- **Como se sabe:** los cuatro programas de `dxil::ejemplos` y los dos SM5
+  armados palabra a palabra, con los dos ABI, dan los MISMOS bits en el
+  simulador que en la casa (un NaN, NaN: su signo y su carga no se modelan),
+  y el juez dice PERFECTO con los saltos drenados; y 400 programas al azar
+  (si dentro de bucles dentro de si, romper desde un si, variables que
+  cruzan ramas, contadores enteros) en el banco -- 4000 una vez: 3977
+  emitidos, 23 sin registros, 34 562 saltos, todos iguales y PERFECTOS. La
+  prueba al azar encontro un fallo VIEJO de la linea recta: `Min`/`Max` se
+  ponian al reves para ahorrar un MOV, y con un cero de cada signo dan el
+  primero (`max(-0, +0)` es -0). Ya no se ponen al reves.
+- **Queda (el metal):** un sombreador que salta en `gpu verrano`, contra
+  D3D12 en la 3060 bajo Windows, como E5. Y [!] un bucle que no sale CUELGA
+  la 3060: el juez no puede saber si acaba, y el kernel no tiene todavia un
+  vigilante que corte un trabajo que no vuelve. Antes de dejar que una app
+  mande cuerpos con bucles al metal, ese vigilante.
+- **Despues (no es esta casilla):** el DXIL que salta (`br`, `phi`: el de
+  Cyberpunk; pide reconstruir los `si` y bucles de su grafo), `continue`,
+  `switch`, mas enteros (`imul`, `ishl`, `itof`, `ftoi`).
+
 ---
 
 # 4. LO QUE ESTE PLAN NO ES

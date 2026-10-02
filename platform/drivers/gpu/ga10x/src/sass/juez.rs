@@ -53,6 +53,13 @@
 //!                                     (en Volta y despues, DOS se gastan en el
 //!                                     contador de programa)
 //!    R6  final sucio                  EXIT con un AST aun leyendo sus datos
+//!    R8  salto sucio                  (E6) un BRA con algo aun en vuelo: una
+//!                                     desacoplada sin esperar, o una acoplada
+//!                                     (o un predicado) que no habra llegado
+//!                                     cuando se corra el destino
+//!    R9  predicado antes de llegar    (E6) leer un predicado antes de 13
+//!                                     ciclos como GUARDA, o de 4 como operando
+//!                                     (SEL): lo que hace `ptxas`
 //!    R0  no se                        una instruccion que el juez no conoce:
 //!                                     tambien es NO (un juez que aprueba lo que
 //!                                     no entiende no es un juez)
@@ -60,12 +67,23 @@
 //!
 //! # [!] Lo que v1 NO mira, dicho
 //!
-//! - Los PREDICADOS (el acarreo de `IADD3` que lee `IMAD.X`): sin reglas aun.
+//! - El acarreo de `IADD3` que lee `IMAD.X` (sus predicados de 77..90): sin
+//!   regla; R9 mira los de FSETP, ISETP y SEL, y el guarda de todas.
 //! - Los registros UNIFORMES (`UMOV`, `S2UR`...): solo sus barreras.
-//! - Los SALTOS hacia atras: el programa se lee en linea recta; lo que
-//!   depende de la vuelta anterior de un bucle no se juzga (y R3 se calla si
-//!   hay un salto hacia atras). Es conservador en la linea recta: lo que dice
-//!   NO, es NO.
+//!
+//! # Los saltos (E6, 02-10)
+//!
+//! El programa se sigue leyendo en LINEA RECTA, y R8 es lo que lo hace valer
+//! para cualquier camino -- en lo que fabrica BMO-X: los programas de la
+//! tuberia grafica (con SPH: VERRANO, PROTON-X y su pegamento, los que sube
+//! la puerta del kernel) y lo que se juzga con [`juzgar_drenado`]. Los de
+//! computo de `ptxas` (el oro: `giro` salta con cargas en vuelo y las espera
+//! en el destino) se siguen leyendo como en v1, sin juzgar sus saltos: en cada BRA todo tiene que haber llegado (lo de las
+//! acopladas, contando la espera del propio BRA; las desacopladas,
+//! esperadas). Asi quien llega a un destino SALTANDO lo encuentra todo hecho
+//! -- nada que el juez, leyendo por debajo, no haya visto mas tarde --, y la
+//! vuelta de un bucle tambien. R3 se calla si hay un salto hacia atras (una
+//! barrera esperada en la cabeza puede venir de la vuelta anterior).
 
 use crate::raster::SPH;
 
@@ -86,6 +104,10 @@ pub enum Regla {
     /// P3b4c: el cuerpo que manda una APP toca lo que no es suyo -- memoria,
     /// atributos, constantes, saltos o registros del pegamento.
     R7CuerpoAjeno,
+    /// E6: un salto con algo aun en vuelo.
+    R8SaltoSucio,
+    /// E6: un predicado leido antes de llegar.
+    R9PredicadoAntesDeLlegar,
 }
 
 impl Regla {
@@ -100,6 +122,8 @@ impl Regla {
             Regla::R5CabeceraMiente => "R5 la cabecera miente",
             Regla::R6FinalSucio => "R6 final sucio",
             Regla::R7CuerpoAjeno => "R7 cuerpo ajeno: una app toca lo que no es suyo",
+            Regla::R8SaltoSucio => "R8 salto sucio: un BRA con algo aun en vuelo",
+            Regla::R9PredicadoAntesDeLlegar => "R9 predicado leido antes de llegar",
         }
     }
 }
@@ -203,6 +227,12 @@ struct Instr {
     atributo: Option<(u32, u32)>,
     /// LDG/STG.
     memoria: bool,
+    /// E6: los predicados que escribe (7 = ninguno).
+    escribe_p: [u8; 2],
+    /// E6: los que lee: (predicado, como guarda). 7 = ninguno.
+    lee_p: [(u8, bool); 3],
+    /// E6: un BRA.
+    salto: bool,
 }
 
 const NADA: (u8, u8) = (RZ, 0);
@@ -269,7 +299,25 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
         atras: false,
         atributo: None,
         memoria: false,
+        escribe_p: [7; 2],
+        // El guarda (12..16) de cualquiera: PT (7) no se lee.
+        lee_p: [((lo >> 12 & 7) as u8, true), (7, false), (7, false)],
+        salto: false,
     };
+    // Los predicados de FSETP/ISETP (escriben 81..84 y 84..87; leen el que
+    // combinan, 87..90, e ISETP el de .EX, 68..71) y de SEL (lee 87..90).
+    let pred = |desde: u32| r(desde, 3) as u8;
+    match op {
+        0x0B | 0x0C => {
+            i.escribe_p = [pred(81), pred(84)];
+            i.lee_p[1] = (pred(87), false);
+            if op == 0x0C {
+                i.lee_p[2] = (pred(68), false);
+            }
+        }
+        0x07 => i.lee_p[1] = (pred(87), false),
+        _ => {}
+    }
     match op {
         // Acopladas de ALU con destino.
         0x10 | 0x12 | 0x11 | 0x19 | 0x16 => {
@@ -386,6 +434,7 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
         }
         0x147 => {
             i.clase = Clase::Nada;
+            i.salto = true;
             // El desplazamiento, con signo, en 34..82: negativo = hacia atras.
             i.atras = r(81, 1) == 1;
         }
@@ -413,12 +462,18 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
 /// ```text
 ///    FADD FMUL FFMA FMNMX MOV   con registros o inmediatos -- sin c[][]
 ///    MUFU                       con un registro
+///    FSETP ISETP SEL IADD3      (E6) igual: registros o inmediatos
+///    BRA                        (E6) a una instruccion DEL CUERPO (de la 0 a
+///                               su EXIT, que es donde sigue el pegamento)
 ///    EXIT                       la ultima, y solo ella
-///    predicado                  PT siempre
+///    guarda                     PT siempre, salvo en BRA (su `@P`)
 ///    destino                    < registros: los del pegamento no se tocan
 /// ```
 ///
-/// Nada de LDG/STG/ALD/AST/IPA, ni un banco de constantes, ni un salto.
+/// Nada de LDG/STG/ALD/AST/IPA, ni un banco de constantes, ni un salto fuera.
+///
+/// [!] Un bucle que no sale cuelga la 3060 (E6): el juez no puede saber si
+/// acaba. Lo que lo para es del kernel, no de esta lista.
 pub fn juzgar_cuerpo_de_app(codigo: &[(u64, u64)], registros: u32) -> Result<(), Bodrio> {
     juzgar_cuerpo_con_asas(codigo, registros, 0)
 }
@@ -438,14 +493,24 @@ pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) 
     for (k, &(lo, hi)) in codigo.iter().enumerate() {
         let op = (lo & 0x1FF) as u32;
         let forma = (lo >> 9 & 7) as u32;
-        if lo >> 12 & 0xF != 7 {
-            return ajeno(k, op, "con predicado: el cuerpo de una app corre siempre (PT)");
+        if lo >> 12 & 0xF != 7 && op != 0x147 {
+            return ajeno(k, op, "con predicado: en el cuerpo de una app solo un BRA lleva guarda");
         }
         let formas: &[u32] = match op {
             // FADD: inmediato en la forma 2 (y c[][] en la 3).
             0x021 => &[1, 2],
-            // FMUL, FFMA, FMNMX, MOV: inmediato en la 4 (y c[][] en la 5).
-            0x020 | 0x023 | 0x009 | 0x002 => &[1, 4],
+            // FMUL, FFMA, FMNMX, MOV, y (E6) FSETP, ISETP, SEL, IADD3:
+            // inmediato en la 4 (y c[][] en la 5).
+            0x020 | 0x023 | 0x009 | 0x002 | 0x00B | 0x00C | 0x007 | 0x010 => &[1, 4],
+            // E6: un salto, si cae DENTRO del cuerpo (de 0 a su EXIT).
+            0x147 => {
+                let d = (((hi & 0x3_FFFF) << 32 | lo >> 32) << 14) as i64 >> 14;
+                let destino = 16 * (k as i64 + 1) + d;
+                if d % 16 != 0 || destino < 0 || destino > 16 * ultima as i64 {
+                    return ajeno(k, op, "un salto que sale del cuerpo: solo de la 0 a su EXIT");
+                }
+                &[4]
+            }
             0x108 => &[1],
             // TEX: con un asa que puso el kernel (abajo).
             0x161 if asas != 0 => &[1],
@@ -478,6 +543,14 @@ pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) 
     }
     Ok(())
 }
+
+/// E6: lo que tarda un predicado de FSETP/ISETP en poder leerse como GUARDA
+/// y como operando (SEL), y lo que un BRA espera a lo escrito antes de que
+/// corra su destino -- lo mas largo de la tabla de abajo. Los dos primeros,
+/// de `ptxas` (`oro_saltos.ptx`): nunca pone menos.
+pub const PREDICADO_GUARDA: u32 = 13;
+pub const PREDICADO_OPERANDO: u32 = 4;
+pub const DRENAR: u32 = 6;
 
 /// La latencia de lectura tras escritura (NAK `RegLatencySM80::read_after_write`,
 /// reducida a estas clases; ante la duda, la mayor).
@@ -526,13 +599,21 @@ fn no(regla: Regla, instruccion: usize, que: u32, detalle: &'static str) -> Resu
 }
 
 /// **JUZGAR** un programa. `Ok` = PERFECTO Y PRECISO; `Err` = TOMA TU BODRIO.
+/// Con SPH (un programa de la tuberia, de BMO-X) los saltos se juzgan (R8).
 pub fn juzgar(codigo: &[(u64, u64)], ctx: &Contexto) -> Result<Veredicto, Bodrio> {
-    juzgar_con(codigo.len(), |k| codigo[k], ctx)
+    juzgar_con(codigo.len(), |k| codigo[k], ctx, ctx.sph.is_some())
+}
+
+/// **JUZGAR con los saltos drenados** (E6): R8 siempre, tenga SPH o no. Lo
+/// que emite PROTON-X lo cumple por construccion (`planifica`: un BRA espera
+/// a todo); un cuerpo suelto se juzga asi.
+pub fn juzgar_drenado(codigo: &[(u64, u64)], ctx: &Contexto) -> Result<Veredicto, Bodrio> {
+    juzgar_con(codigo.len(), |k| codigo[k], ctx, true)
 }
 
 /// `juzgar`, leyendo la palabra `k` con `palabra` (sin copiar el programa:
 /// el kernel juzga los bytes del paquete donde estan, sin 2 KiB en su pila).
-fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto) -> Result<Veredicto, Bodrio> {
+fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto, drenados: bool) -> Result<Veredicto, Bodrio> {
     let codigo = (0..n).map(&palabra);
     let mut regs = [LIMPIO; 256];
     let mut encendidas = 0u32;
@@ -541,6 +622,8 @@ fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto) -
     // ciclo, corrio en el metal).
     let mut encendida_en = [None::<u32>; 6];
     let mut ciclo = 0u32;
+    // E6: el ciclo en que se escribio cada predicado.
+    let mut pred = [None::<u32>; 7];
     let mut v = Veredicto::default();
     // Un salto hacia atras ANTES del primer EXIT sin predicado: un bucle. El
     // `BRA .` de relleno que va detras del EXIT no cuenta (no se alcanza).
@@ -603,6 +686,32 @@ fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto) -
                 }
             }
         }
+        // R9: los predicados que lee (el guarda, y los de SEL/FSETP/ISETP).
+        for &(p, guarda) in &i.lee_p {
+            if let Some(c) = pred.get(p as usize).copied().flatten() {
+                if ciclo.saturating_sub(c) < if guarda { PREDICADO_GUARDA } else { PREDICADO_OPERANDO } {
+                    return no(Regla::R9PredicadoAntesDeLlegar, k, p as u32, if guarda { "un guarda (@P) leido antes de 13 ciclos de su FSETP/ISETP" } else { "un predicado leido como operando antes de 4 ciclos" });
+                }
+            }
+        }
+        // R8: en un BRA, todo tiene que haber llegado cuando corra el destino
+        // (este ciclo mas su espera): asi el que llega saltando no encuentra
+        // nada que la lectura en linea recta no haya visto.
+        if i.salto && drenados {
+            let llega = ciclo + i.espera.max(1);
+            if let Some(x) = (0..256).find(|&x| regs[x].pendiente) {
+                return no(Regla::R8SaltoSucio, k, x as u32, "un BRA con una desacoplada aun cargando: esperar su barrera antes de saltar");
+            }
+            if let Some(x) = (0..256).find(|&x| regs[x].leido) {
+                return no(Regla::R8SaltoSucio, k, x as u32, "un BRA con una desacoplada aun leyendo sus fuentes: esperar su barrera antes de saltar");
+            }
+            if let Some(x) = (0..256).find(|&x| regs[x].acoplado && llega.saturating_sub(regs[x].ciclo) < DRENAR) {
+                return no(Regla::R8SaltoSucio, k, x as u32, "un BRA que llega antes de que este escrito lo de una acoplada (6 ciclos con la espera del BRA)");
+            }
+            if let Some(p) = (0..7).find(|&p| pred[p].is_some_and(|c| llega.saturating_sub(c) < PREDICADO_GUARDA)) {
+                return no(Regla::R8SaltoSucio, k, p as u32, "un BRA que llega antes de que este escrito un predicado (13 ciclos)");
+            }
+        }
         // Lo que lee.
         for &(r, n) in i.lee.iter() {
             for x in r as usize..r as usize + n as usize {
@@ -654,6 +763,11 @@ fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto) -
                     regs[x].leido_ast = i.op == 0x122;
                     regs[x].leido_wbar = i.bar_escritura as u8;
                 }
+            }
+        }
+        for &p in &i.escribe_p {
+            if let Some(x) = pred.get_mut(p as usize) {
+                *x = Some(ciclo);
             }
         }
         if i.bar_escritura < 6 {
@@ -728,7 +842,7 @@ pub fn juzgar_programa(bytes: &[u8], registros: u32) -> Result<Veredicto, Bodrio
     for (k, w) in sph.iter_mut().enumerate() {
         *w = u32le(4 * k);
     }
-    juzgar_con(n, |k| (u64le(cabecera + 16 * k), u64le(cabecera + 16 * k + 8)), &Contexto { registros, sph: Some(&sph) })
+    juzgar_con(n, |k| (u64le(cabecera + 16 * k), u64le(cabecera + 16 * k + 8)), &Contexto { registros, sph: Some(&sph) }, true)
 }
 
 #[cfg(test)]

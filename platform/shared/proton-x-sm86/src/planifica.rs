@@ -16,6 +16,24 @@
 //!
 //! Si esta tabla fuera mas corta que la del juez, el juez lo diria (R2): las
 //! pruebas del driver juzgan todo lo que sale de aqui.
+//!
+//! # Los saltos (E6, 02-10)
+//!
+//! ```text
+//!    un predicado (FSETP/ISETP)   quien lo lee como GUARDA (`@P0 BRA`) sale
+//!                                 13 ciclos despues; como operando (SEL), 5
+//!                                 -- `ptxas` pone 13 y 4 (`oro_saltos.ptx`)
+//!    un BRA DRENA                 sale cuando todo lo escrito por una
+//!                                 acoplada ya llego (6, lo mas largo de la
+//!                                 tabla) y esperando TODAS las barreras
+//!                                 abiertas; y deja 5 ciclos detras, como
+//!                                 `ptxas`
+//! ```
+//!
+//! Con eso, quien llega a un destino por un salto lo encuentra TODO hecho, y
+//! la cuenta en linea recta (la de aqui y la del juez) vale para cualquier
+//! camino: el que cae por debajo la hace; el que salta no tiene nada que
+//! esperar. Cuesta ciclos en cada salto; lo correcto primero (E5).
 
 use crate::Clase;
 
@@ -46,7 +64,29 @@ pub struct Meta {
     pub lee_salidas: u8,
     /// Cuantos registros escribe desde `escribe` (el TEX, cuatro).
     pub escribe_n: u8,
+    /// E6: el predicado que escribe (FSETP/ISETP).
+    pub escribe_p: Option<u8>,
+    /// E6: el predicado que lee, y si como GUARDA (`@P0 BRA`) o operando (SEL).
+    pub lee_p: Option<(u8, bool)>,
+    /// E6: un BRA (drena todo antes de salir).
+    pub salto: bool,
 }
+
+impl Meta {
+    /// Una sin predicados ni salto.
+    pub const fn de(clase: Clase, escribe: Option<u8>, lee: [Option<u8>; 3]) -> Self {
+        Meta { clase, escribe, lee, lee_salidas: 0, escribe_n: 1, escribe_p: None, lee_p: None, salto: false }
+    }
+}
+
+/// Lo que tarda un predicado en llegar a quien lo lee como guarda, y como
+/// operando (las de `ptxas`, ver arriba).
+pub const PREDICADO_GUARDA: u32 = 13;
+pub const PREDICADO_OPERANDO: u32 = 5;
+/// Lo mas largo de la tabla del juez: lo que espera un BRA a lo escrito.
+pub const DRENAR: u32 = 6;
+/// Lo que `ptxas` deja detras de un BRA.
+pub const TRAS_SALTO: u32 = 5;
 
 /// El bit 4, que `ptxas` pone en todas (ver `bmo_sm86::codifica::ALU`).
 const BIT4: u64 = 1 << 4;
@@ -60,6 +100,8 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
     // Barrera pendiente por registro (lo escribe un MUFU aun en vuelo).
     let mut pendiente: [Option<u8>; 256] = [None; 256];
     let mut libres = [true; 6];
+    // E6: el ciclo en que se escribio cada predicado.
+    let mut predicado: [Option<u32>; 7] = [None; 7];
     let mut espera_mascara = alloc::vec![0u64; n];
     let mut barrera_de = alloc::vec![7u64; n];
     let mut t = 0u32;
@@ -71,6 +113,22 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
         for r in leidos.clone().chain(escritos.clone()) {
             if let Some(b) = pendiente[r as usize].take() {
                 mascara |= 1 << b;
+            }
+        }
+        // Un salto espera TODO lo que este en vuelo, y que todo haya llegado.
+        if m.salto {
+            for p in pendiente.iter_mut() {
+                if let Some(b) = p.take() {
+                    mascara |= 1 << b;
+                }
+            }
+            for &(c, _) in escrito.iter().flatten() {
+                listo = listo.max(c + DRENAR);
+            }
+        }
+        if let Some((p, guarda)) = m.lee_p {
+            if let Some(c) = predicado.get(p as usize).copied().flatten() {
+                listo = listo.max(c + if guarda { PREDICADO_GUARDA } else { PREDICADO_OPERANDO });
             }
         }
         // Lo esperado se libera (y ya nadie mas lo tiene pendiente).
@@ -91,6 +149,15 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
         }
         ciclo[j] = listo;
         t = listo;
+        if let Some(p) = m.escribe_p {
+            if let Some(x) = predicado.get_mut(p as usize) {
+                *x = Some(listo);
+            }
+        }
+        // Detras de un salto, `TRAS_SALTO` ciclos (el siguiente sale en t + 1).
+        if m.salto {
+            t = listo + TRAS_SALTO - 1;
+        }
         espera_mascara[j] = mascara;
         if m.escribe.is_some() {
             if matches!(m.clase, Clase::Mufu | Clase::Tex) {

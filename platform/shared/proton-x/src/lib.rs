@@ -132,3 +132,5 @@ mod pruebas_windows;
 mod pruebas_sm5;
 #[cfg(test)]
 mod pruebas_seh;
+#[cfg(test)]
+mod pruebas_saltos;

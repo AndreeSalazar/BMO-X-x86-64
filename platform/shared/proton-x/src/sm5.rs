@@ -17,16 +17,27 @@
 //! ```
 //!
 //! No hay otro interprete: esto lo traduce al MISMO [`Programa`] que sale del
-//! DXIL (`dxil::programa`), escalar y sin saltos, y el lote, la trama y el
-//! traductor a x86-64 (`nativo`) no cambian. Cada componente escrito es un
-//! registro nuevo: un `mov` no cuesta nada (el destino pasa a ser el mismo
-//! registro que la fuente), y un swizzle tampoco.
+//! DXIL (`dxil::programa`), escalar, y el lote, la trama y el traductor a
+//! x86-64 (`nativo`) no cambian. Cada componente escrito es un registro
+//! nuevo: un `mov` no cuesta nada (el destino pasa a ser el mismo registro
+//! que la fuente), y un swizzle tampoco.
+//!
+//! **Con saltos (E6, 02-10)**: `if_nz`/`if_z`, `else`, `endif`, `loop`,
+//! `endloop`, `break`, `breakc_nz`/`breakc_z`; y lo que los alimenta: `lt`
+//! `ge` `eq` `ne` (floats; `ne` desordenada), `ilt` `ige` `ieq` `ine`,
+//! `iadd` y `movc`. Un programa que salta no puede renombrar: tras un `if`
+//! los dos caminos tienen que dejar el valor en el MISMO sitio. Asi que en
+//! uno que salta cada componente de `r#` y de `o#` es una VARIABLE (un
+//! registro fijo, que se escribe con `Copia`), y lo que se lee de `v#` y de
+//! `cb0` va al PRINCIPIO del programa (si no, un camino que no paso por la
+//! lectura no lo tendria). `continue`, `switch`, `retc` y los enteros que no
+//! son esos se dicen por su numero.
 //!
 //! Lo que se sabe hoy es lo que pide el cubo de BMOX-12 y poco mas: `add`
 //! `mul` `mad` `div` `dp2` `dp3` `dp4` `rsq` `sqrt` `min` `max` `mov` y
 //! `ret`, con `_sat` y los modificadores, sobre `r#`, `v#`, `o#`, `l()` y
-//! `cb0[n]`. Lo demas se dice al leer, con su numero: un salto, un segundo
-//! cbuffer, un indice relativo, una textura.
+//! `cb0[n]`; `sample` 2D; y los saltos de arriba. Lo demas se dice al leer,
+//! con su numero: un segundo cbuffer, un indice relativo, una textura 3D.
 //!
 //! Los numeros, como en el DXIL: `mad` SIN fundir y `dp` de izquierda a
 //! derecha (D3D deja las dos cosas al driver; asi las hace el juez). Lo que
@@ -40,11 +51,30 @@
 
 use alloc::vec::Vec;
 
-use crate::dxil::programa::{NoPrograma, Op, Programa, Reg};
+use crate::dxil::programa::{Comparacion, NoPrograma, Op, Programa, Reg};
 use crate::dxil::Elemento;
 
 // Los codigos que se saben (D3D10_SB_OPCODE_TYPE).
 const ADD: u32 = 0;
+const BREAK: u32 = 2;
+const BREAKC: u32 = 3;
+const ELSE: u32 = 18;
+const ENDIF: u32 = 21;
+const ENDLOOP: u32 = 22;
+const EQ: u32 = 24;
+const GE: u32 = 29;
+const IADD: u32 = 30;
+const IF: u32 = 31;
+const IEQ: u32 = 32;
+const IGE: u32 = 33;
+const ILT: u32 = 34;
+const INE: u32 = 39;
+const LOOP: u32 = 48;
+const LT: u32 = 49;
+const MOVC: u32 = 55;
+const NE: u32 = 57;
+/// D3D10_SB_INSTRUCTION_TEST_BOOLEAN (bit 18) de `if` y `breakc`: 1 = `_nz`.
+const PRUEBA_NO_CERO: u32 = 1 << 18;
 const DIV: u32 = 14;
 const DP2: u32 = 15;
 const DP3: u32 = 16;
@@ -178,6 +208,10 @@ struct Traductor<'a> {
     leidas: Vec<(u32, u8, Reg)>,
     filas: Vec<(u32, Reg)>,
     literales: Vec<(u32, Reg)>,
+    /// E6: el programa salta -- `r#` y `o#` son variables (ver arriba).
+    variables: bool,
+    /// E6: cuantos `if`/`loop` hay abiertos.
+    hondo: usize,
 }
 
 impl Traductor<'_> {
@@ -185,6 +219,16 @@ impl Traductor<'_> {
         let r = Reg::try_from(self.p.iniciales.len()).map_err(|_| NoPrograma::Forma("un programa SM5 con demasiados registros"))?;
         self.p.iniciales.push(0.0);
         Ok(r)
+    }
+
+    /// Una lectura de `v#` o `cb0`: dentro de un `if` o un `loop`, AL
+    /// PRINCIPIO del programa (lo que lee no cambia; asi todo camino la ve).
+    fn fija(&mut self, op: Op) {
+        if self.hondo > 0 {
+            self.p.ops.insert(0, op);
+        } else {
+            self.p.ops.push(op);
+        }
     }
 
     fn literal(&mut self, bits: u32) -> Result<Reg, NoPrograma> {
@@ -208,7 +252,7 @@ impl Traductor<'_> {
                 }
                 let (e, k) = elemento(self.entradas, r, c).ok_or(NoPrograma::Forma("un v# que la firma de entrada no tiene"))?;
                 let d = self.nuevo()?;
-                self.p.ops.push(Op::Entrada { d, elemento: e, componente: k });
+                self.fija(Op::Entrada { d, elemento: e, componente: k });
                 self.p.lee |= 1 << e;
                 self.leidas.push((r, c, d));
                 Ok(d)
@@ -228,7 +272,7 @@ impl Traductor<'_> {
                             self.nuevo()?;
                         }
                         let f = u16::try_from(fila).map_err(|_| NoPrograma::Forma("una fila de cbuffer imposible"))?;
-                        self.p.ops.push(Op::Constantes { d: b, fila: f });
+                        self.fija(Op::Constantes { d: b, fila: f });
                         self.p.filas_cb = self.p.filas_cb.max(f + 1);
                         self.filas.push((fila, b));
                         b
@@ -281,7 +325,22 @@ impl Traductor<'_> {
             }
             banco.resize(r + 1, [None; 4]);
         }
-        banco[r][k] = Some(x);
+        if !self.variables {
+            banco[r][k] = Some(x);
+            return Ok(());
+        }
+        // E6: la variable de ese componente (la primera vez, una nueva), y
+        // el valor copiado en ella.
+        let v = match banco[r][k] {
+            Some(v) => v,
+            None => {
+                let v = self.nuevo()?;
+                let banco = if o.tipo == TEMP { &mut self.temps } else { &mut self.outs };
+                banco[r][k] = Some(v);
+                v
+            }
+        };
+        self.p.ops.push(Op::Copia { d: v, a: x });
         Ok(())
     }
 }
@@ -291,7 +350,10 @@ impl Traductor<'_> {
 pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Result<Programa, NoPrograma> {
     let medida = (palabra(t, 1)? as usize).min(t.len());
     let p = Programa { ops: Vec::new(), iniciales: Vec::new(), entradas: entradas.len(), salidas: salidas.len(), lee: 0, filas_cb: 0 };
-    let mut tr = Traductor { entradas, salidas, p, temps: Vec::new(), outs: Vec::new(), leidas: Vec::new(), filas: Vec::new(), literales: Vec::new() };
+    // E6: si salta, antes de leer nada (lo de antes del primer `if` tambien
+    // va a sus variables).
+    let variables = salta(t, medida);
+    let mut tr = Traductor { entradas, salidas, p, temps: Vec::new(), outs: Vec::new(), leidas: Vec::new(), filas: Vec::new(), literales: Vec::new(), variables, hondo: 0 };
     let mut i = 2;
     let mut acabado = false;
     while i < medida {
@@ -326,8 +388,44 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
             DCL_SAMPLER => {}
             DCL_INDEXABLE_TEMP => return Err(NoPrograma::Forma("un sombreador SM5 con x# (registros indexables): todavia no")),
             c if es_declaracion(c) => {}
+            RET if tr.hondo > 0 => return Err(NoPrograma::Forma("un ret dentro de un if o un loop: todavia no")),
             RET => acabado = true,
-            ADD | MUL | DIV | MIN | MAX | MAD | MOV | RSQ | SQRT | DP2 | DP3 | DP4 => {
+            // ** E6: los saltos.
+            IF | BREAKC => {
+                let mut j = i + 1;
+                let c = operando(t, &mut j)?;
+                if j != fin {
+                    return Err(NoPrograma::Forma("un if/breakc SM5 que no mide lo que dice"));
+                }
+                let x = tr.fuente(&c, 0)?;
+                let no_cero = w & PRUEBA_NO_CERO != 0;
+                if codigo == BREAKC {
+                    tr.p.ops.push(Op::RomperSi { c: x, si_cero: !no_cero });
+                } else {
+                    // `if_z x`: si x == 0 (los bits): el si de "x es cero".
+                    let c = if no_cero {
+                        x
+                    } else {
+                        let cero = tr.literal(0)?;
+                        let d = tr.nuevo()?;
+                        tr.p.ops.push(Op::Compara { d, a: x, b: cero, como: Comparacion::Igual, entero: true });
+                        d
+                    };
+                    tr.p.ops.push(Op::Si { c });
+                    tr.hondo += 1;
+                }
+            }
+            ELSE => tr.p.ops.push(Op::SiNo),
+            ENDIF | ENDLOOP => {
+                tr.hondo = tr.hondo.checked_sub(1).ok_or(NoPrograma::Forma("un endif/endloop SM5 sin su if/loop"))?;
+                tr.p.ops.push(if codigo == ENDIF { Op::FinSi } else { Op::FinBucle });
+            }
+            LOOP => {
+                tr.p.ops.push(Op::Bucle);
+                tr.hondo += 1;
+            }
+            BREAK => tr.p.ops.push(Op::Romper),
+            ADD | MUL | DIV | MIN | MAX | MAD | MOV | RSQ | SQRT | DP2 | DP3 | DP4 | LT | GE | EQ | NE | ILT | IGE | IEQ | INE | IADD | MOVC => {
                 let saturar = w & 0x2000 != 0;
                 let mut j = i + 1;
                 while t[j - 1] >> 31 != 0 && j < fin {
@@ -335,13 +433,18 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
                 }
                 let d = operando(t, &mut j)?;
                 let n = match codigo {
-                    MAD => 3,
+                    MAD | MOVC => 3,
                     MOV | RSQ | SQRT => 1,
                     _ => 2,
                 };
                 let mut f = Vec::with_capacity(n);
                 for _ in 0..n {
                     f.push(operando(t, &mut j)?);
+                }
+                // Un `-` o un `|x|` de float no es el de un entero (ni el de
+                // los bits de `movc`): todavia no.
+                if matches!(codigo, ILT | IGE | IEQ | INE | IADD | MOVC) && f.iter().any(|o| o.modificador != 0) {
+                    return Err(NoPrograma::Forma("un modificador en una instruccion SM5 de enteros o de bits: todavia no"));
                 }
                 if j != fin {
                     return Err(NoPrograma::Forma("una instruccion SM5 que no mide lo que dice"));
@@ -370,8 +473,14 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
                     let mut hechos = Vec::with_capacity(4);
                     for k in (0..4).filter(|k| d.mascara & (1 << k) != 0) {
                         let s: Vec<Reg> = f.iter().map(|o| tr.fuente(o, k)).collect::<Result<_, _>>()?;
-                        let x = if codigo == MOV {
+                        let x = if codigo == MOV && !tr.variables {
                             s[0]
+                        } else if codigo == MOV {
+                            // E6: con variables el `mov` COPIA ya lo que lee
+                            // (`mov r0.xy, r0.yx` lee el r0 de antes).
+                            let x = tr.nuevo()?;
+                            tr.p.ops.push(Op::Copia { d: x, a: s[0] });
+                            x
                         } else {
                             let x = tr.nuevo()?;
                             tr.p.ops.push(match codigo {
@@ -382,7 +491,22 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
                                 MAX => Op::Max { d: x, a: s[0], b: s[1] },
                                 MAD => Op::Mad { d: x, a: s[0], b: s[1], c: s[2] },
                                 RSQ => Op::Rsqrt { d: x, a: s[0] },
-                                _ => Op::Sqrt { d: x, a: s[0] },
+                                SQRT => Op::Sqrt { d: x, a: s[0] },
+                                IADD => Op::SumaEntera { d: x, a: s[0], b: s[1] },
+                                MOVC => Op::Elige { d: x, c: s[0], a: s[1], b: s[2] },
+                                c => {
+                                    let (como, entero) = match c {
+                                        LT => (Comparacion::Menor, false),
+                                        GE => (Comparacion::MayorIgual, false),
+                                        EQ => (Comparacion::Igual, false),
+                                        NE => (Comparacion::Distinto, false),
+                                        ILT => (Comparacion::Menor, true),
+                                        IGE => (Comparacion::MayorIgual, true),
+                                        IEQ => (Comparacion::Igual, true),
+                                        _ => (Comparacion::Distinto, true),
+                                    };
+                                    Op::Compara { d: x, a: s[0], b: s[1], como, entero }
+                                }
                             });
                             x
                         };
@@ -434,6 +558,9 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
     if !acabado {
         return Err(NoPrograma::Forma("un programa SM5 sin ret"));
     }
+    if tr.hondo != 0 {
+        return Err(NoPrograma::Forma("un if o un loop SM5 sin cerrar"));
+    }
     // Las salidas: lo ultimo escrito en cada o#.
     for (r, comps) in core::mem::take(&mut tr.outs).into_iter().enumerate() {
         for (c, x) in comps.iter().enumerate() {
@@ -443,5 +570,24 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
             }
         }
     }
+    tr.p.forma().map_err(|_| NoPrograma::Forma("los if/else/loop/break SM5 no casan"))?;
     Ok(tr.p)
+}
+
+/// E6: si el programa (de la palabra 2 a `medida`) tiene algun salto.
+fn salta(t: &[u32], medida: usize) -> bool {
+    let mut i = 2;
+    while i < medida {
+        let w = t[i];
+        let codigo = w & 0x7FF;
+        if matches!(codigo, IF | LOOP | BREAK | BREAKC | ELSE | ENDIF | ENDLOOP) {
+            return true;
+        }
+        let largo = if codigo == CUSTOMDATA { t.get(i + 1).copied().unwrap_or(0) as usize } else { ((w >> 24) & 0x7F) as usize };
+        if largo == 0 {
+            return false;
+        }
+        i += largo;
+    }
+    false
 }

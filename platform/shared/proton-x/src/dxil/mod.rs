@@ -27,6 +27,8 @@
 
 pub mod bits;
 pub mod programa;
+/// E6 (02-10): programas de muestra con `si` y bucles (el banco del emisor).
+pub mod ejemplos;
 
 use alloc::string::String;
 use alloc::vec::Vec;

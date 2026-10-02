@@ -12,8 +12,9 @@
 //! BMOX-12 y a lo que venga, y el interprete de la casa es su juez.
 //!
 //! ```text
-//!    Programa (escalar, sin saltos)  -->  emitir  -->  SASS de SM86 en linea
-//!                                                      recta, con su EXIT
+//!    Programa (escalar)  -->  emitir  -->  SASS de SM86, con su EXIT; desde
+//!                                          E6 (02-10) con `si`, bucles y
+//!                                          sus saltos (`saltos.rs`)
 //!    el simulador (`simula`) corre ese SASS en el anfitrion; tiene que dar
 //!    los MISMOS bits que `Programa::correr`
 //! ```
@@ -59,6 +60,8 @@ extern crate alloc;
 
 pub mod planifica;
 pub mod simula;
+/// E6 (02-10): lo que se mira antes de emitir un programa que salta.
+mod saltos;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
 pub mod pso;
 /// P3b4c: el lote a la PUERTA de la 3060 (la receta VRN2 que manda la app).
@@ -70,8 +73,8 @@ pub mod muestreo;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use bmo_proton_x::dxil::programa::{Op, Programa, Reg};
-use bmo_sm86::codifica::{self as c, Fuente, Mufu, RZ};
+use bmo_proton_x::dxil::programa::{Comparacion, Op, Programa, Reg};
+use bmo_sm86::codifica::{self as c, Cmp, Fuente, Mufu, PT, RZ};
 
 use planifica::Meta;
 
@@ -127,8 +130,11 @@ pub enum NoEmite {
     Operacion(usize),
     /// No caben los registros vivos en `registros`.
     Registros,
-    /// Un registro del Programa escrito dos veces (el emisor pide SSA).
+    /// Un registro del Programa escrito dos veces donde no puede serlo (una
+    /// Entrada o una fila del cbuffer que ademas se reescribe).
     NoSsa(usize),
+    /// E6: un `si` o un bucle mal cerrado (el indice de `Programa::forma`).
+    Forma(usize),
 }
 
 /// Lo emitido.
@@ -170,6 +176,36 @@ struct Emisor<'a> {
     codigo: Vec<(u64, u64)>,
     metas: Vec<Meta>,
     mufus: usize,
+    /// E6: las variables (un registro de la 3060 todo el programa).
+    variable: Vec<bool>,
+    /// E6: cuantos `si` y bucles hay abiertos donde se emite.
+    hondo: usize,
+    /// E6: la Compara fundida cuyo resultado esta en P0 (y no en un registro).
+    p0: Option<Reg>,
+    /// E6: los `si` y bucles abiertos, con sus saltos por parchear.
+    abiertos: Vec<Abierto>,
+}
+
+/// Un `si` o un bucle abierto mientras se emite.
+enum Abierto {
+    /// El salto condicional del Si y, tras su SiNo, el salto al final.
+    Si { salto: usize, sino: Option<usize> },
+    /// Donde empieza el cuerpo, y los saltos que salen (Romper).
+    Bucle { cabeza: usize, salidas: Vec<usize> },
+}
+
+/// La comparacion de la 3060 para una del Programa: con floats, las
+/// ordenadas, y `Distinto` desordenada (NEU: cierta con un NaN, como `ne`).
+fn cmp_de(como: Comparacion, entero: bool) -> Cmp {
+    match como {
+        Comparacion::Menor => Cmp::Lt,
+        Comparacion::MenorIgual => Cmp::Le,
+        Comparacion::Mayor => Cmp::Gt,
+        Comparacion::MayorIgual => Cmp::Ge,
+        Comparacion::Igual => Cmp::Eq,
+        Comparacion::Distinto if entero => Cmp::Ne,
+        Comparacion::Distinto => Cmp::Neu,
+    }
 }
 
 /// El registro de una fuente, si lo es (para el planificador).
@@ -183,8 +219,45 @@ fn reg_de(f: Fuente) -> Option<u8> {
 impl Emisor<'_> {
     /// Una instruccion (sin control: lo pone el planificador) y su meta.
     fn poner(&mut self, w: (u64, u64), clase: Clase, escribe: Option<u8>, lee: [Option<u8>; 3]) {
+        self.poner_meta(w, Meta::de(clase, escribe, lee));
+    }
+
+    fn poner_meta(&mut self, w: (u64, u64), m: Meta) {
         self.codigo.push(w);
-        self.metas.push(Meta { clase, escribe, lee, lee_salidas: 0, escribe_n: 1 });
+        self.metas.push(m);
+    }
+
+    /// Un BRA por parchear (el destino, cuando se sepa): su indice.
+    fn saltar(&mut self, guarda: u8) -> usize {
+        let k = self.codigo.len();
+        let lee_p = (guarda & 7 != PT).then_some((guarda & 7, true));
+        self.poner_meta(c::bra(guarda, 0, 0), Meta { lee_p, salto: true, ..Meta::de(Clase::Nada, None, [None; 3]) });
+        k
+    }
+
+    /// El BRA `k` salta a la instruccion `destino`.
+    fn parchear(&mut self, k: usize, destino: usize) {
+        let guarda = (self.codigo[k].0 >> 12 & 0xF) as u8;
+        self.codigo[k] = c::bra(guarda, (destino as i64 - k as i64 - 1) * 16, 0);
+    }
+
+    /// El salto `k` sale del bucle mas interno (se parchea en su FinBucle).
+    fn salida_de_bucle(&mut self, k: usize) {
+        if let Some(Abierto::Bucle { salidas, .. }) = self.abiertos.iter_mut().rev().find(|x| matches!(x, Abierto::Bucle { .. })) {
+            salidas.push(k);
+        }
+    }
+
+    /// P0 = los bits de `c` no son 0 -- o ya lo es, si `c` es la Compara
+    /// fundida de justo antes.
+    fn condicion(&mut self, cond: Reg, paso: &mut Vec<u8>) -> Result<(), NoEmite> {
+        if self.p0.take() == Some(cond) {
+            return Ok(());
+        }
+        let rc = self.registro(cond, paso)?;
+        let w = c::isetp(0, Cmp::Ne, rc, c::r(RZ), false, 0);
+        self.poner_meta(w, Meta { escribe_p: Some(0), ..Meta::de(Clase::Alu, None, [Some(rc), None, None]) });
+        Ok(())
     }
 
     fn pedir(&mut self) -> Result<u8, NoEmite> {
@@ -226,14 +299,21 @@ impl Emisor<'_> {
     /// Una fuente que TIENE que ser registro: si no lo es, un MOV a uno, y
     /// el valor SE QUEDA en el hasta su ultimo uso (una entrada o una fila
     /// del cbuffer que se lee cuatro veces se carga UNA).
-    fn registro(&mut self, r: Reg, _paso: &mut Vec<u8>) -> Result<u8, NoEmite> {
+    ///
+    /// E6: DENTRO de un `si` o de un bucle no se queda: es de paso. El MOV
+    /// corre solo por ese camino, y quien lea despues por otro no lo tendria.
+    fn registro(&mut self, r: Reg, paso: &mut Vec<u8>) -> Result<u8, NoEmite> {
         match self.valor(r) {
             Valor::Reg(x) => Ok(x),
             _ => {
                 let f = self.fuente(r);
                 let t = self.pedir()?;
                 self.poner(c::mov(t, f, 0), Clase::Alu, Some(t), [None; 3]);
-                self.valor[r as usize] = Some(Valor::Reg(t));
+                if self.hondo == 0 {
+                    self.valor[r as usize] = Some(Valor::Reg(t));
+                } else {
+                    paso.push(t);
+                }
                 Ok(t)
             }
         }
@@ -251,6 +331,12 @@ impl Emisor<'_> {
     /// El registro del resultado: el de su salida si es una y esta libre, o
     /// uno nuevo.
     fn destino(&mut self, d: Reg, i: usize) -> Result<u8, NoEmite> {
+        // Una variable: su registro de siempre (puesto al empezar).
+        if self.variable[d as usize] {
+            if let Some(Valor::Reg(x)) = self.valor[d as usize] {
+                return Ok(x);
+            }
+        }
         if self.valor[d as usize].is_some() {
             return Err(NoEmite::NoSsa(i));
         }
@@ -345,18 +431,28 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
     if reservados as u32 > registros || registros > 255 {
         return Err(NoEmite::Registros);
     }
-    // El ultimo uso de cada registro del Programa, y su salida (la primera).
-    let mut ultimo = vec![0usize; n];
+    p.forma().map_err(|f| NoEmite::Forma(f.0))?;
+    // El ultimo uso de cada registro (con los bucles), sus variables...
+    let an = saltos::analizar(p);
+    // ...y la salida de cada valor: la calcula YA en su registro de salida
+    // si es la UNICA Salida de ese componente, fuera de todo `si` y bucle,
+    // y el valor no es una variable (E6: si no, otro camino lo pisaria).
     let mut salida_de: Vec<Option<u8>> = vec![None; n];
-    for (i, op) in p.ops.iter().enumerate() {
-        for &r in leidos(op).iter().flatten() {
-            if let Some(u) = ultimo.get_mut(r as usize) {
-                *u = i;
+    let mut veces = vec![0u32; reservados];
+    for op in &p.ops {
+        if let Op::Salida { elemento, componente, .. } = *op {
+            if let Some(v) = veces.get_mut(4 * elemento as usize + (componente as usize & 3)) {
+                *v += 1;
             }
         }
+    }
+    for (i, op) in p.ops.iter().enumerate() {
         if let Op::Salida { s, elemento, componente } = *op {
-            if let Some(x) = salida_de.get_mut(s as usize) {
-                x.get_or_insert(4 * elemento + (componente & 3));
+            let o = 4 * elemento + (componente & 3);
+            if an.hondo[i] == 0 && veces.get(o as usize) == Some(&1) && !an.variable.get(s as usize).copied().unwrap_or(true) {
+                if let Some(x) = salida_de.get_mut(s as usize) {
+                    x.get_or_insert(o);
+                }
             }
         }
     }
@@ -367,7 +463,7 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
     let mut e = Emisor {
         p,
         valor: vec![None; n],
-        ultimo,
+        ultimo: an.ultimo.clone(),
         libres,
         reservados,
         fijos: vec![false; registros as usize],
@@ -379,6 +475,10 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
         codigo: Vec::new(),
         metas: Vec::new(),
         mufus: 0,
+        variable: an.variable.clone(),
+        hondo: 0,
+        p0: None,
+        abiertos: Vec::new(),
     };
     // Con `Abi::Registros` TODO lo precargado se pide ANTES del cuerpo: el
     // pegamento lo carga al empezar, asi que su registro no puede servir de
@@ -403,9 +503,97 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             }
         }
     }
+    // E6: cada variable, su registro, con el valor que tiene en el
+    // interprete antes de que nada la escriba.
+    for r in 0..n {
+        if an.variable[r] {
+            let x = e.pedir()?;
+            let bits = p.iniciales[r].to_bits();
+            e.poner(c::mov(x, Fuente::Imm(bits), 0), Clase::Alu, Some(x), [None; 3]);
+            e.valor[r] = Some(Valor::Reg(x));
+        }
+    }
     for (i, op) in p.ops.iter().enumerate() {
         let mut paso: Vec<u8> = Vec::new();
+        e.hondo = an.hondo[i];
         match *op {
+            // ** E6: comparar, elegir, copiar, sumar enteros y saltar.
+            Op::Compara { d, a, b, como, entero } => {
+                let ra = e.registro(a, &mut paso)?;
+                let fb = e.fuente(b);
+                let cmp = cmp_de(como, entero);
+                let w = if entero { c::isetp(0, cmp, ra, fb, false, 0) } else { c::fsetp(0, cmp, c::r(ra), fb, 0) };
+                e.poner_meta(w, Meta { escribe_p: Some(0), ..Meta::de(Clase::Alu, None, [Some(ra), reg_de(fb), None]) });
+                if an.fundible[i] {
+                    e.p0 = Some(d);
+                } else {
+                    // 0xFFFFFFFF si P0, 0 si no: SEL d, RZ, -1, !P0.
+                    let x = e.destino(d, i)?;
+                    e.poner_meta(c::sel(x, RZ, Fuente::Imm(u32::MAX), 0, true, 0), Meta { lee_p: Some((0, false)), ..Meta::de(Clase::Alu, Some(x), [None; 3]) });
+                }
+            }
+            Op::Elige { d, c: cond, a, b } => {
+                e.condicion(cond, &mut paso)?;
+                let ra = e.registro(a, &mut paso)?;
+                let fb = e.fuente(b);
+                let x = e.destino(d, i)?;
+                e.poner_meta(c::sel(x, ra, fb, 0, false, 0), Meta { lee_p: Some((0, false)), ..Meta::de(Clase::Alu, Some(x), [Some(ra), reg_de(fb), None]) });
+            }
+            Op::Copia { d, a } => {
+                let f = e.fuente(a);
+                let x = e.destino(d, i)?;
+                if f != c::r(x) {
+                    e.poner(c::mov(x, f, 0), Clase::Alu, Some(x), [reg_de(f), None, None]);
+                }
+            }
+            Op::SumaEntera { d, a, b } => {
+                let (ra, fb) = e.dos(a, b, true, &mut paso)?;
+                let x = e.destino(d, i)?;
+                e.poner(c::iadd3(x, ra, fb, 0), Clase::Alu, Some(x), [Some(ra), reg_de(fb), None]);
+            }
+            Op::Si { c: cond } => {
+                e.condicion(cond, &mut paso)?;
+                let salto = e.saltar(8);
+                e.abiertos.push(Abierto::Si { salto, sino: None });
+            }
+            Op::SiNo => {
+                let k = e.saltar(PT);
+                let destino = e.codigo.len();
+                if let Some(Abierto::Si { salto, sino }) = e.abiertos.last_mut() {
+                    *sino = Some(k);
+                    let s = *salto;
+                    e.parchear(s, destino);
+                }
+            }
+            Op::FinSi => {
+                let destino = e.codigo.len();
+                if let Some(Abierto::Si { salto, sino }) = e.abiertos.pop() {
+                    e.parchear(sino.unwrap_or(salto), destino);
+                }
+            }
+            Op::Bucle => {
+                let cabeza = e.codigo.len();
+                e.abiertos.push(Abierto::Bucle { cabeza, salidas: Vec::new() });
+            }
+            Op::RomperSi { c: cond, si_cero } => {
+                e.condicion(cond, &mut paso)?;
+                let k = e.saltar(if si_cero { 8 } else { 0 });
+                e.salida_de_bucle(k);
+            }
+            Op::Romper => {
+                let k = e.saltar(PT);
+                e.salida_de_bucle(k);
+            }
+            Op::FinBucle => {
+                let k = e.saltar(PT);
+                if let Some(Abierto::Bucle { cabeza, salidas }) = e.abiertos.pop() {
+                    e.parchear(k, cabeza);
+                    let destino = e.codigo.len();
+                    for s in salidas {
+                        e.parchear(s, destino);
+                    }
+                }
+            }
             // ** P3b4c.8 T2b: el muestreo, un TEX (2D, nivel 0) con el asa
             // que pone el KERNEL. Solo con el ABI de registros (el del
             // pegamento); con el del banco, no hay asa: se dice.
@@ -468,7 +656,10 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
                 }
             }
             Op::Mul { d, a, b } | Op::Add { d, a, b } | Op::Min { d, a, b } | Op::Max { d, a, b } => {
-                let (ra, fb) = e.dos(a, b, true, &mut paso)?;
+                // ** Min y Max NO se ponen al reves (E6, 02-10, lo encontro la
+                // prueba al azar): con un cero de cada signo dan el PRIMERO
+                // (`max(-0, +0)` es -0 en la casa); al reves, el otro.
+                let (ra, fb) = e.dos(a, b, matches!(op, Op::Mul { .. } | Op::Add { .. }), &mut paso)?;
                 let x = e.destino(d, i)?;
                 let lee = [Some(ra), reg_de(fb), None];
                 match op {
@@ -496,7 +687,17 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             }
             Op::Dot { d, n, a, b } => {
                 // De izquierda a derecha, sin fundir, acumulando en el destino.
-                let x = e.destino(d, i)?;
+                // E6: una variable que es tambien fuente se acumula aparte (el
+                // primer FMUL la pisaria antes de leerla).
+                let alias = e.variable[d as usize] && a[..n as usize].iter().chain(&b[..n as usize]).any(|&r| r == d);
+                let destino = e.destino(d, i)?;
+                let x = if alias {
+                    let t = e.pedir()?;
+                    paso.push(t);
+                    t
+                } else {
+                    destino
+                };
                 let (r0, f0) = e.dos(a[0], b[0], true, &mut paso)?;
                 e.poner(c::fmul(x, c::r(r0), f0, false, 0), Clase::Fma, Some(x), [Some(r0), reg_de(f0), None]);
                 let u = e.pedir()?;
@@ -505,6 +706,9 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
                     let (rj, fj) = e.dos(a[j], b[j], true, &mut paso)?;
                     e.poner(c::fmul(u, c::r(rj), fj, false, 0), Clase::Fma, Some(u), [Some(rj), reg_de(fj), None]);
                     e.poner(c::fadd(x, c::r(x), c::r(u), false, 0), Clase::Fma, Some(x), [Some(x), Some(u), None]);
+                }
+                if alias {
+                    e.poner(c::mov(destino, c::r(x), 0), Clase::Alu, Some(destino), [Some(x), None, None]);
                 }
             }
             Op::Rsqrt { d, a } | Op::Sqrt { d, a } => {
@@ -526,11 +730,9 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
         for t in paso {
             e.soltar(t);
         }
-        for &r in leidos(op).iter().flatten() {
-            if e.ultimo.get(r as usize) == Some(&i) {
-                if let Some(Some(Valor::Reg(x))) = e.valor.get(r as usize).copied() {
-                    e.soltar(x);
-                }
+        for &r in &an.muere[i] {
+            if let Some(Some(Valor::Reg(x))) = e.valor.get(r as usize).copied() {
+                e.soltar(x);
             }
         }
         for (r, f) in fin.iter().enumerate() {
@@ -552,35 +754,7 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
     Ok(Emitido { codigo, registros: e.maximo, mufus: e.mufus, ciclos, precargas: e.precargas })
 }
 
-/// Los registros del Programa que lee una operacion.
-fn leidos(op: &Op) -> [Option<Reg>; 8] {
-    let mut v = [None; 8];
-    match *op {
-        Op::Salida { s, .. } => v[0] = Some(s),
-        Op::Mul { a, b, .. } | Op::Add { a, b, .. } | Op::Sub { a, b, .. } | Op::Div { a, b, .. } | Op::Min { a, b, .. } | Op::Max { a, b, .. } => {
-            v[0] = Some(a);
-            v[1] = Some(b);
-        }
-        Op::Mad { a, b, c, .. } => {
-            v[0] = Some(a);
-            v[1] = Some(b);
-            v[2] = Some(c);
-        }
-        Op::Dot { n, a, b, .. } => {
-            for j in 0..n as usize {
-                v[2 * j] = Some(a[j]);
-                v[2 * j + 1] = Some(b[j]);
-            }
-        }
-        Op::Rsqrt { a, .. } | Op::Sqrt { a, .. } | Op::Saturate { a, .. } | Op::Abs { a, .. } => v[0] = Some(a),
-        Op::Muestra { u, v: vv, .. } => {
-            v[0] = Some(u);
-            v[1] = Some(vv);
-        }
-        Op::Entrada { .. } | Op::Constantes { .. } => {}
-    }
-    v
-}
-
 #[cfg(test)]
 mod pruebas;
+#[cfg(test)]
+mod pruebas_saltos;

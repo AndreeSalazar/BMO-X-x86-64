@@ -5,8 +5,14 @@
 //!
 //! Lo que sabe ejecutar es lo que el emisor pone -- FADD, FMUL, FMNMX, MUFU,
 //! MOV, TEX (P3b4c.8: el asa, a [`Maquina::muestrear`]), EXIT y NOP, con registros, inmediatos y constantes, `-`, `|x|` y
-//! `.SAT` --; cualquier otra palabra es [`NoSimula::Instruccion`], nunca un
+//! `.SAT`; y desde E6 (02-10) FSETP, ISETP, SEL, IADD3 y BRA, con los
+//! predicados P0..P6 y el GUARDA de cada instruccion --; cualquier otra
+//! palabra (u otra forma de esas) es [`NoSimula::Instruccion`], nunca un
 //! "seguramente".
+//!
+//! Corre UN hilo: lo que un warp hace cuando sus hilos se separan en un
+//! salto es cosa de la 3060 (y del metal); cada hilo, por su lado, hace
+//! esto.
 //!
 //! # Lo que es MODELO y no hardware, dicho
 //!
@@ -27,16 +33,21 @@ const RZ: usize = 255;
 pub enum NoSimula {
     /// Una palabra que el simulador no sabe ejecutar.
     Instruccion(usize),
-    /// Una instruccion con predicado (el emisor no los pone).
-    Predicado(usize),
-    /// El programa se acabo sin EXIT.
+    /// El programa se acabo sin EXIT (o salto fuera de el).
     SinExit,
+    /// Mas de [`PASOS_MAXIMOS`] instrucciones: un bucle que no sale.
+    SinFin,
 }
+
+/// Lo que corre como mucho un programa en el simulador.
+pub const PASOS_MAXIMOS: usize = 1 << 22;
 
 /// La maquina: 256 registros (los bits de cada `f32`) y los bancos de
 /// constantes (`c[banco][desp]`); lo que no esta se lee como 0.
 pub struct Maquina<'a> {
     pub r: [u32; 256],
+    /// P0..P6 (PT, el 7, es siempre cierto).
+    pub p: [bool; 7],
     pub bancos: [&'a [u8]; 8],
     /// Lo que un TEX lee: `(asa, u, v)` -> los cuatro canales. Es el
     /// muestreo de la casa (`bmo_proton_x::textura`), que iguala a la 3060
@@ -46,7 +57,7 @@ pub struct Maquina<'a> {
 
 impl<'a> Maquina<'a> {
     pub fn nueva(bancos: [&'a [u8]; 8]) -> Self {
-        Maquina { r: [0; 256], bancos, muestrear: None }
+        Maquina { r: [0; 256], p: [false; 7], bancos, muestrear: None }
     }
 
     fn reg(&self, i: usize) -> u32 {
@@ -77,12 +88,40 @@ fn f(b: u32) -> f32 {
     f32::from_bits(b)
 }
 
+/// El valor de un predicado: 0..6, o 7 (PT); con `+8`, negado.
+fn predicado(m: &Maquina, g: u64) -> bool {
+    let v = if g & 7 == 7 { true } else { m.p[(g & 7) as usize] };
+    v != (g & 8 != 0)
+}
+
+/// Una comparacion de FSETP (bits 76..80): las ordenadas no se cumplen con
+/// un NaN, las `U` si; 0 nunca, 15 siempre.
+fn compara_floats(como: u64, x: f32, y: f32) -> Option<bool> {
+    let nan = x.is_nan() || y.is_nan();
+    let base = match como & 7 {
+        0 => false,
+        1 => x < y,
+        2 => x == y,
+        3 => x <= y,
+        4 => x > y,
+        5 => x != y && !nan,
+        6 => x >= y,
+        _ => return None,
+    };
+    Some(if como >= 8 { base || nan } else { base })
+}
+
 /// **Correr** `codigo` sobre `m` hasta su EXIT. Devuelve cuantas instrucciones
 /// se ejecutaron.
 pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula> {
-    for (n, &(lo, hi)) in codigo.iter().enumerate() {
-        if lo >> 12 & 0xF != 7 {
-            return Err(NoSimula::Predicado(n));
+    let mut pc = 0usize;
+    for pasos in 1..=PASOS_MAXIMOS {
+        let n = pc;
+        let Some(&(lo, hi)) = codigo.get(pc) else { return Err(NoSimula::SinExit) };
+        pc += 1;
+        // El guarda: si no se cumple, la instruccion no hace nada.
+        if !predicado(m, lo >> 12 & 0xF) {
+            continue;
         }
         let op = lo & 0x1FF;
         let forma = lo >> 9 & 7;
@@ -99,7 +138,61 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
             }
         };
         let sat = |x: f32| if hi >> 13 & 1 != 0 { saturar(x) } else { x };
+        // FSETP/ISETP: escriben Pu (81..84) combinando con PT por AND: el
+        // segundo (84..87) y el que se combina (87..91) tienen que ser PT.
+        let setp_sabido = hi >> 20 & 7 == 7 && hi >> 23 & 0xF == 7 && hi >> 10 & 3 == 0;
         let v: u32 = match op {
+            0x00B if setp_sabido => {
+                let y = f(segunda(4, 5).ok_or(NoSimula::Instruccion(n))?);
+                let si = compara_floats(hi >> 12 & 0xF, f(a()), y).ok_or(NoSimula::Instruccion(n))?;
+                if let Some(p) = m.p.get_mut((hi >> 17 & 7) as usize) {
+                    *p = si;
+                }
+                continue;
+            }
+            0x00C if setp_sabido && hi >> 4 & 0xF == 7 && hi >> 8 & 1 == 0 => {
+                let (x, y) = (m.reg(ra), segunda(4, 5).ok_or(NoSimula::Instruccion(n))?);
+                let (x, y) = if hi >> 9 & 1 != 0 { (x as i32 as i64, y as i32 as i64) } else { (x as i64, y as i64) };
+                let si = match hi >> 12 & 0xF {
+                    1 => x < y,
+                    2 => x == y,
+                    3 => x <= y,
+                    4 => x > y,
+                    5 => x != y,
+                    6 => x >= y,
+                    _ => return Err(NoSimula::Instruccion(n)),
+                };
+                if let Some(p) = m.p.get_mut((hi >> 17 & 7) as usize) {
+                    *p = si;
+                }
+                continue;
+            }
+            // SEL Rd, Ra, b, [!]Pp (87..91).
+            0x007 if hi >> 8 & 3 == 0 => {
+                let b = segunda(4, 5).ok_or(NoSimula::Instruccion(n))?;
+                if predicado(m, hi >> 23 & 0xF) {
+                    m.reg(ra)
+                } else {
+                    b
+                }
+            }
+            // IADD3 Rd, Ra, b, Rc, sin acarreos (los de 77..91 como los pone
+            // `ptxas`: `!PT`).
+            0x010 if hi & ((1 << 41) - 1) & !0xFF == 0x07ff_e000 => {
+                let b = segunda(4, 5).ok_or(NoSimula::Instruccion(n))?;
+                m.reg(ra).wrapping_add(b).wrapping_add(m.reg((hi & 0xFF) as usize))
+            }
+            // BRA: el desplazamiento en BYTES (32..82, con signo) desde la
+            // siguiente.
+            0x147 if forma == 4 && hi >> 23 & 0xF == 7 => {
+                let d = (((hi & 0x3_FFFF) << 32 | lo >> 32) << 14) as i64 >> 14;
+                let destino = 16 * pc as i64 + d;
+                if destino < 0 || destino % 16 != 0 {
+                    return Err(NoSimula::Instruccion(n));
+                }
+                pc = (destino / 16) as usize;
+                continue;
+            }
             0x021 => sat(f(a()) + f(segunda(2, 3).ok_or(NoSimula::Instruccion(n))?)).to_bits(),
             0x020 => sat(f(a()) * f(segunda(4, 5).ok_or(NoSimula::Instruccion(n))?)).to_bits(),
             0x009 => {
@@ -142,7 +235,7 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
                 m.r[rd2 + 1] = c[3].to_bits();
                 continue;
             }
-            0x14D => return Ok(n + 1),
+            0x14D => return Ok(pasos),
             0x118 => continue,
             _ => return Err(NoSimula::Instruccion(n)),
         };
@@ -150,5 +243,5 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
             m.r[rd] = v;
         }
     }
-    Err(NoSimula::SinExit)
+    Err(NoSimula::SinFin)
 }
