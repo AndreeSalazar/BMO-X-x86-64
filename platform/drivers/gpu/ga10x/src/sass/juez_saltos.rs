@@ -73,3 +73,14 @@ fn r7_un_salto_de_una_app_se_queda_en_su_cuerpo() {
     otro[2].0 = (otro[2].0 & !(0xF << 12)) | 8 << 12;
     assert_eq!(juzgar_cuerpo_de_app(&otro, 8).map_err(|b| b.regla), Err(Regla::R7CuerpoAjeno));
 }
+
+/// E6d: el acarreo de IADD3 es un predicado: IADD3.X lo lee como operando
+/// (4 ciclos, como `ptxas` en `oro_division.ptx`); antes, R9.
+#[test]
+fn r9_el_acarreo_se_lee_cuando_llega() {
+    let x = |espera| [c::iadd3_acarreo(1, 0, 2, c::neg(3), k(espera, 7, 0)), c::iadd3_x(4, 4, c::r(c::RZ), 0, k(6, 7, 0)), c::exit(k(5, 7, 0))];
+    assert_eq!(regla(&x(4)), Ok(()));
+    assert_eq!(regla(&x(3)), Err(Regla::R9PredicadoAntesDeLlegar));
+    // Y una app puede usarlos (R7).
+    assert_eq!(juzgar_cuerpo_de_app(&x(4), 8), Ok(()));
+}

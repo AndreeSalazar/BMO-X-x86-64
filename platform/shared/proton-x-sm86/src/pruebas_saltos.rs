@@ -185,8 +185,23 @@ impl Gen {
                 }
                 _ => {
                     let (a, b) = (self.entero(), self.entero());
-                    self.ops.push(Op::Entera { d, a, b, op: ENTERAS[self.az.n(16) as usize] });
+                    let op = ENTERAS[self.az.n(16) as usize];
+                    self.ops.push(Op::Entera { d, a, b, op });
                     self.enteros.push(d);
+                    // E6d: a veces su pareja (el resto del mismo par, o el
+                    // cociente), detras: una cuenta para las dos.
+                    let otra = match op {
+                        OpEntera::DivU => Some(OpEntera::RemU),
+                        OpEntera::RemU => Some(OpEntera::DivU),
+                        OpEntera::DivS => Some(OpEntera::RemS),
+                        OpEntera::RemS => Some(OpEntera::DivS),
+                        _ => None,
+                    };
+                    if let Some(otra) = otra.filter(|_| self.az.n(2) == 0) {
+                        let d2 = self.nuevo();
+                        self.ops.push(Op::Entera { d: d2, a, b, op: otra });
+                        self.enteros.push(d2);
+                    }
                 }
             }
             return;
@@ -513,4 +528,129 @@ fn la_division_aguanta_un_inverso_aproximado() {
             assert_eq!(dividir(a, b, ulp), a / b, "{a} / {b}, {ulp} ulp");
         }
     }
+}
+
+/// Corre `p` emitido con los dos ABI (y juzgado) y compara los BITS de la
+/// salida 0 con los de la casa (sin la tolerancia de NaN: 0xFFFFFFFF es un
+/// NaN y aqui es un resultado). Devuelve lo emitido con el del banco.
+fn bits_exactos(p: &Programa, pares: &[(u32, u32)]) -> Emitido {
+    let e = emitir(p, TECHO).unwrap();
+    let r = emitir_con(p, TECHO, Abi::Registros).unwrap();
+    juzgado(&e, &r);
+    for &(x, y) in pares {
+        let ent = [[f32::from_bits(x), f32::from_bits(y), 0.0, 0.0]];
+        let mut casa = [[0.0f32; 4]; 1];
+        p.correr(&ent, &[], &mut casa, &mut Vec::new());
+        let banco: Vec<u8> = [x, y, 0, 0].iter().flat_map(|v| v.to_le_bytes()).collect();
+        let mut m = crate::simula::Maquina::nueva([&[], &banco, &[], &[], &[], &[], &[], &[]]);
+        crate::simula::correr(&e.codigo, &mut m).unwrap();
+        for k in 0..4 {
+            assert_eq!(m.r[k], casa[0][k].to_bits(), "salida {k} con ({x:#x}, {y:#x}): {:?}", p.ops);
+        }
+    }
+    e
+}
+
+/// Los `a` de las pruebas de division: los bordes y unos al azar.
+fn dividendos() -> Vec<u32> {
+    let mut az = Azar(0x00D1_7151_0000_0003);
+    let mut v = std::vec![0u32, 1, 2, 3, 6, 7, 8, 9, 10, 99, 100, 101, 640, 641, 642, 0x7FFF_FFFF, 0x8000_0000, 0x8000_0001, 0xFFFF_FFFF, 0xFFFF_FFFE, 0xFFFF_FFF9, 0xFFFF_FFF6, 0xCCCC_CCCC, 0x2492_4924];
+    for _ in 0..60 {
+        v.push(palabra(&mut az));
+    }
+    v
+}
+
+/// E6d: entre una CONSTANTE (0, 1, -1, potencias de 2, i32::MIN, las de
+/// magia de 32 y de 33 bits, negativas): los bits de la casa, sin I2F ni
+/// MUFU (ni inverso ni comprobar el 0).
+#[test]
+fn la_division_por_una_constante() {
+    let constantes = [0u32, 1, 2, 3, 4, 5, 6, 7, 10, 25, 64, 100, 641, 1000, 6700417, 0x7FFF_FFFF, 0x8000_0000, 0x8000_0001, 0xFFFF_FFFF, 0xFFFF_FFFE, 0xFFFF_FFF9, 0xFFFF_FFF6, 0xFFFF_FC18, 0xCCCC_CCCD];
+    let pares: Vec<(u32, u32)> = dividendos().into_iter().map(|x| (x, 0)).collect();
+    for op in [OpEntera::DivU, OpEntera::RemU, OpEntera::DivS, OpEntera::RemS] {
+        for n in constantes {
+            let p = ejemplos::programa(
+                vec![Op::Entrada { d: 0, elemento: 0, componente: 0 }, Op::Entera { d: 2, a: 0, b: 1, op }, Op::Salida { s: 2, elemento: 0, componente: 0 }],
+                3,
+                &[(1, f32::from_bits(n))],
+            );
+            let e = bits_exactos(&p, &pares);
+            assert_eq!((cuantas(&e.codigo, 0x106), e.mufus), (0, 0), "{op:?} entre {n:#x}");
+        }
+    }
+}
+
+/// E6d: `a / b` y `a % b` del mismo par son UNA cuenta (un I2F), en los dos
+/// ordenes, con algo por medio, con una constante, y con `x = x % b` (el
+/// destino de la pareja es lo que se divide); y NO se funden si algo
+/// escribe `a` entre medias o hay un `si` por medio.
+#[test]
+fn la_pareja_es_una_cuenta() {
+    use Op::*;
+    let pares: Vec<(u32, u32)> = dividendos().iter().flat_map(|&x| [(x, 7), (x, 0), (x, 0xFFFF_FFF9), (x, x.rotate_left(7) >> 3), (x, 1), (x, 0x8000_0000)]).collect();
+    let ent = || std::vec![Entrada { d: 0, elemento: 0, componente: 0 }, Entrada { d: 1, elemento: 0, componente: 1 }];
+    let sal = |a: Reg, b: Reg| [Salida { s: a, elemento: 0, componente: 0 }, Salida { s: b, elemento: 0, componente: 1 }];
+    for (div, rem) in [(OpEntera::DivU, OpEntera::RemU), (OpEntera::DivS, OpEntera::RemS)] {
+        // Cociente y resto; resto y cociente con una suma en medio.
+        let mut a = ent();
+        a.extend([Entera { d: 2, a: 0, b: 1, op: div }, Entera { d: 3, a: 0, b: 1, op: rem }]);
+        a.extend(sal(2, 3));
+        let mut b = ent();
+        b.extend([Entera { d: 3, a: 0, b: 1, op: rem }, SumaEntera { d: 4, a: 0, b: 1 }, Entera { d: 2, a: 0, b: 1, op: div }, Salida { s: 4, elemento: 0, componente: 2 }]);
+        b.extend(sal(2, 3));
+        // Entre la constante -7 (el registro 5): sin inverso.
+        let mut k = ent();
+        k.extend([Entera { d: 2, a: 0, b: 5, op: div }, Entera { d: 3, a: 0, b: 5, op: rem }]);
+        k.extend(sal(2, 3));
+        // `q = x / b; x = x % b`: x es una variable (se escribe dos veces).
+        let mut x = ent();
+        x.extend([Copia { d: 4, a: 0 }, Entera { d: 2, a: 4, b: 1, op: div }, Entera { d: 4, a: 4, b: 1, op: rem }]);
+        x.extend(sal(2, 4));
+        let mut xk = ent();
+        xk.extend([Copia { d: 4, a: 0 }, Entera { d: 2, a: 4, b: 5, op: div }, Entera { d: 4, a: 4, b: 5, op: rem }]);
+        xk.extend(sal(2, 4));
+        for (nombre, ops, inversos) in [("cociente y resto", a, 1), ("resto y cociente", b, 1), ("entre -7", k, 0), ("x = x % b", x, 1), ("x = x % -7", xk, 0)] {
+            let p = ejemplos::programa(ops, 6, &[(5, f32::from_bits(0xFFFF_FFF9))]);
+            let e = bits_exactos(&p, &pares);
+            assert_eq!(cuantas(&e.codigo, 0x106), inversos, "{nombre} {div:?}");
+        }
+        // Algo escribe `a` entre medias: dos cuentas.
+        let mut w = ent();
+        w.extend([Copia { d: 4, a: 0 }, Entera { d: 2, a: 4, b: 1, op: div }, SumaEntera { d: 4, a: 4, b: 1 }, Entera { d: 3, a: 4, b: 1, op: rem }]);
+        w.extend(sal(2, 3));
+        // Un `si` por medio: dos cuentas.
+        let mut s = ent();
+        s.extend([Entera { d: 2, a: 0, b: 1, op: div }, Compara { d: 4, a: 0, b: 1, como: Comparacion::Menor, entero: true }, Si { c: 4 }, FinSi, Entera { d: 3, a: 0, b: 1, op: rem }]);
+        s.extend(sal(2, 3));
+        for (nombre, ops) in [("a escrita en medio", w), ("un si en medio", s)] {
+            let p = ejemplos::programa(ops, 6, &[]);
+            let e = bits_exactos(&p, &pares);
+            assert_eq!(cuantas(&e.codigo, 0x106), 2, "{nombre} {div:?}");
+        }
+    }
+}
+
+/// E6d: `division.hlsl` entero (siete divisiones: tres parejas y una entre
+/// la constante 4), pegado con el pegamento de pixel del driver, CABE en la
+/// puerta de 128 y el juez de programas lo da por bueno.
+#[test]
+fn el_dxil_de_division_cabe_en_la_puerta() {
+    use bmo_gpu_ga10x::pegamento::{self, Datos};
+    use bmo_gpu_ga10x::sass::juez;
+    use bmo_gpu_ga10x::tuberia;
+    let p = bmo_proton_x::dxil::programa::compilar(&bmo_proton_x::dxil::leer(DXIL_DIVISION).unwrap()).unwrap();
+    let r = emitir_con(&p, 64, Abi::Registros).unwrap();
+    // Siete divisiones: tres parejas fundidas (la del bucle tambien) y `a /
+    // 4` sin inverso: tres I2F.RP (el inverso de la division; los demas I2F
+    // son conversiones), no siete.
+    assert_eq!(r.codigo.iter().filter(|w| w.0 & 0x1FF == 0x106 && w.1 >> 14 & 3 == 2).count(), 3);
+    let genericos = [None, Some(0u8)];
+    let pegado = pegamento::pixel(&r.codigo, r.registros, &crate::pso::cargas(&r), Datos { filas: p.filas_cb as u32, paso: 0, elementos: &[] }, &genericos).unwrap();
+    let mut b = vec![0u8; tuberia::HUECO];
+    let n = pegado.bytes(&mut b);
+    let v = juez::juzgar_programa(&b[..n], tuberia::REGISTROS);
+    let v = v.unwrap_or_else(|x| panic!("{x}"));
+    assert!(v.instrucciones <= juez::MAX_INSTRUCCIONES);
+    std::eprintln!("division.hlsl: cuerpo {} y pegado {} instrucciones", r.codigo.len(), v.instrucciones);
 }

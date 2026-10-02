@@ -489,8 +489,9 @@ por medio --. Hecho en el anfitrion, de la punta del Programa a la del juez:
     veces; con signo, sobre IABS. 9 palabras de oro nuevas.
   - El emisor (`dividir`) hace esa cuenta SIN guardas -- en el cuerpo de una
     app solo un BRA lleva guarda (R7) --: cada `@P0` es un SEL. Y la vuelta
-    de Newton sin el par de IMAD.HI (`e + hi(e * t)` con un IADD3). 20
-    instrucciones sin signo, 26 a 28 con signo; IMAD.HI es una clase nueva
+    de Newton sin el par de IMAD.HI (`e + hi(e * t)` con un IADD3). Con el
+    acarreo (abajo), de 17 a 20 instrucciones sin signo y de 22 a 26 con
+    signo, segun el ABI y lo que se pida; IMAD.HI es una clase nueva
     del planificador, `Ancha` (la de NAK: 6 ciclos entre dos de ellas).
   - Entre 0 da todo unos, cociente y resto (lo de D3D en `udiv`, y la 3060
     pone `~b`); con signo, hacia cero, el resto con el signo de `a`, y
@@ -505,10 +506,33 @@ por medio --. Hecho en el anfitrion, de la punta del Programa a la del juez:
     simulador hace el MUFU.RCP exacto, la 3060 no: la misma cuenta en Rust
     con el inverso movido de -64 a +1 ULP da el mismo cociente (con +2 ya
     no: ese es el margen de las -2 ULP), en 50000 pares.
-  - **Lo que falta:** `division.hlsl` sale de 200 instrucciones, mas que
-    la puerta de 128 del kernel: `a / b` y `a % b` del mismo par son DOS
-    cuentas enteras (fundirlas en una es un ahorro, y dividir por una
-    constante, una multiplicacion: lo que hace `ptxas`).
+  - **Lo que se ahorra (02-10, segunda parte, `division.rs`):**
+    `division.hlsl` salia de 200 instrucciones, mas que la puerta de 128
+    del kernel. Ahora 113 (123 con el pegamento de pixel; la prueba lo
+    PEGA y lo juzga con la puerta):
+    - LA PAREJA: `a / b` y `a % b` del mismo par en el mismo tramo recto
+      (lo que escribe `dxc` para `x / n` y `x % n`, tambien dentro de un
+      bucle) son UNA cuenta con dos salidas. No se funden si algo escribe
+      `a` o `b` entre medias, o lee el destino de la segunda, o hay un `si`
+      o un bucle por medio.
+    - UNA CONSTANTE: ni inverso ni comprobar el 0. Potencia de 2, un
+      desplazamiento; si no, la multiplicacion "magica" de Granlund y
+      Montgomery (la de 32 bits si existe, si no la de 33 con su suma), lo
+      que hace NVVM antes del PTX (`ptxas` no: usa el inverso tambien con
+      una constante, se vio en su SASS). Con signo, sobre `|a|`.
+    - EL ACARREO: cada correccion era ISETP, IADD3, SEL, IADD3, SEL; ahora
+      `IADD3 k, P0, r, -b` (su acarreo es `r >= b`), SEL y `IADD3.X q, q,
+      RZ, RZ, P0`. 5 palabras de oro mas (IMAD.HI con inmediato, IADD3 con
+      acarreo e IADD3.X); el juez sabe que IADD3 escribe su acarreo y que
+      .X lo lee (R9: 4 ciclos, como `ptxas`), y el simulador lo suma como
+      la 3060 (`a - 0` acarrea: es `a + ~0 + 1`).
+    - **Como se sabe:** cada constante rara (0, 1, -1, potencias de 2,
+      `i32::MIN`, las dos magias, negativas) con 84 dividendos, sin un I2F;
+      la pareja en los dos ordenes, con algo por medio, con constante y con
+      `x = x % b`, UNA cuenta; con `a` escrita en medio o un `si`, dos; la
+      magia contra Rust con unos 6000 divisores; y el azar con parejas. Romper la
+      magia, el resto o la condicion de la pareja lo detectan las pruebas
+      (comprobado).
 - **Despues (no es esta casilla):** bucles de varias salidas y `break` de
   dos bucles, `continue` dentro de un `switch`, y el grafo no reducible
   (`dxc` no lo escribe).

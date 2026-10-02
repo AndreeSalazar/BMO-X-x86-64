@@ -195,10 +195,27 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
             // `ptxas`: `!PT`).
             // E6c: con `-` en una fuente, el de los ENTEROS (complemento a
             // dos), no el del bit de signo de un float.
-            0x010 if hi & ((1 << 41) - 1) & !0x1FF == 0x07ff_e000 => {
-                let b = entera(m, lo, forma).ok_or(NoSimula::Instruccion(n))?;
-                let a = if hi >> 8 & 1 != 0 { m.reg(ra).wrapping_neg() } else { m.reg(ra) };
-                a.wrapping_add(b).wrapping_add(m.reg((hi & 0xFF) as usize))
+            // E6d: y su ACARREO (el bit 32 de la suma) a Pu (81..84), y con
+            // .X (74) sumando el de Pp (87..91). El acarreo de `a - b` es el
+            // de `a + ~b + 1`: con b = 0, 1.
+            0x010 if hi & ((1 << 41) - 1) & !(0x1FF | 1 << 10 | 7 << 17 | 0xF << 23) == 0x0071_e000 => {
+                let x = hi >> 10 & 1 != 0;
+                let pp = hi >> 23 & 0xF;
+                if x == (pp == 0xF) {
+                    return Err(NoSimula::Instruccion(n));
+                }
+                let termino = |v: u32, negado: bool| if negado { (!v) as u64 + 1 } else { v as u64 };
+                let b = match forma {
+                    1 => termino(m.reg((lo >> 32 & 0xFF) as usize), lo >> 63 != 0),
+                    4 => (lo >> 32) as u64,
+                    5 => m.constante(lo) as u64,
+                    _ => return Err(NoSimula::Instruccion(n)),
+                };
+                let suma = termino(m.reg(ra), hi >> 8 & 1 != 0) + b + m.reg((hi & 0xFF) as usize) as u64 + (x && predicado(m, pp)) as u64;
+                if let Some(p) = m.p.get_mut((hi >> 17 & 7) as usize) {
+                    *p = suma >> 32 & 1 != 0;
+                }
+                suma as u32
             }
             // ** E6c: IMAD (sin negar la tercera), LOP3, SHF, IMNMX, I2F, F2I.
             0x024 if hi & ((1 << 41) - 1) & !0x3FF == 0x078e_0000 => {

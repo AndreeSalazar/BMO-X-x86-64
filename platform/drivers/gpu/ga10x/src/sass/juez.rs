@@ -305,7 +305,8 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
         salto: false,
     };
     // Los predicados de FSETP/ISETP (escriben 81..84 y 84..87; leen el que
-    // combinan, 87..90, e ISETP el de .EX, 68..71) y de SEL (lee 87..90).
+    // combinan, 87..90, e ISETP el de .EX, 68..71), de SEL (lee 87..90) y
+    // de IADD3 (sus acarreos).
     let pred = |desde: u32| r(desde, 3) as u8;
     match op {
         0x0B | 0x0C => {
@@ -316,6 +317,15 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
             }
         }
         0x07 => i.lee_p[1] = (pred(87), false),
+        // E6d: IADD3 escribe sus acarreos (81..84 y 84..87; PT si no); con
+        // .X (el 74) los SUMA: lee 87..90 y 77..80 como operandos.
+        0x10 => {
+            i.escribe_p = [pred(81), pred(84)];
+            if r(74, 1) == 1 {
+                i.lee_p[1] = (pred(87), false);
+                i.lee_p[2] = (pred(77), false);
+            }
+        }
         _ => {}
     }
     match op {
@@ -506,8 +516,9 @@ pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) 
             0x020 | 0x023 | 0x009 | 0x002 | 0x00B | 0x00C | 0x007 | 0x010 | 0x024 | 0x012 | 0x019 | 0x017 => &[1, 4],
             0x106 | 0x105 => &[1],
             // E6d: la division -- IMAD.HI.U32 (con c = RZ: el par no se
-            // usa) e IABS, de registros.
-            0x027 | 0x013 => &[1],
+            // usa; y con inmediato, la de una constante) e IABS.
+            0x027 => &[1, 4],
+            0x013 => &[1],
             // E6: un salto, si cae DENTRO del cuerpo (de 0 a su EXIT).
             0x147 => {
                 let d = (((hi & 0x3_FFFF) << 32 | lo >> 32) << 14) as i64 >> 14;

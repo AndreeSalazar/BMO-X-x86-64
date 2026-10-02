@@ -350,8 +350,22 @@ pub fn iabs(rd: u8, a: u8, control: u64) -> (u64, u64) {
     palabra(0x013 | 1 << 9 | SIEMPRE | (rd as u64) << 16 | (a as u64) << 32, 0, control)
 }
 
+/// `IADD3 Rd, Pu, Ra, b, RZ`: la suma, y su ACARREO (el bit 32) a `Pu` (el
+/// 81..84). Con `b` negado es `Ra - b`, y el acarreo dice `Ra >= b` sin
+/// signo (lo que `ptxas` saca de `sub.cc`).
+pub fn iadd3_acarreo(rd: u8, pu: u8, a: u8, b: Fuente, control: u64) -> (u64, u64) {
+    dos(0x010, 4, 5, (0x07ff_e000 & !(7 << 17)) | (pu as u64 & 7) << 17 | RZ as u64, rd, r(a), b, false, control)
+}
+
+/// `IADD3.X Rd, Ra, b, RZ, Pp, !PT`: la suma MAS el acarreo de `Pp` (el
+/// 87..91; .X es el bit 74).
+pub fn iadd3_x(rd: u8, a: u8, b: Fuente, pp: u8, control: u64) -> (u64, u64) {
+    dos(0x010, 4, 5, (0x07ff_e000 & !(0xF << 23)) | (pp as u64 & 7) << 23 | 1 << 10 | RZ as u64, rd, r(a), b, false, control)
+}
+
 /// Las PALABRAS DE ORO de E6d (02-10): `ptxas -arch=sm_86 -O3` sobre
-/// `ga10x/sombreadores/oro_division.ptx` (div y rem, u32 y s32).
+/// `ga10x/sombreadores/oro_division.ptx` (div y rem, u32 y s32; `mul.hi`
+/// con un inmediato, el de dividir por una constante; y el acarreo).
 pub const ORO_E6D: &[(&str, u64, u64)] = &[
     ("I2F.U32.RP R6, R7", 0x0000000700067306, 0x004e220000209000),
     ("I2F.RP R6, R9", 0x0000000900067306, 0x000e220000209400),
@@ -362,6 +376,13 @@ pub const ORO_E6D: &[(&str, u64, u64)] = &[
     ("IMAD R0, R7, R2, R0", 0x0000000207007224, 0x000fe400078e0200),
     ("IABS R9, R7.reuse", 0x0000000700097213, 0x084fe40000000000),
     ("IABS R10, R0", 0x00000000000a7213, 0x008fc40000000000),
+    // `mulhi`: la de la division por una constante, con su inmediato.
+    ("IMAD.HI.U32 R0, R2, 0x24924925, RZ", 0x2492492502007827, 0x004fc800078e00ff),
+    ("IMAD.HI.U32 R9, R2, -0x33333333, RZ", 0xcccccccd02097827, 0x000fe200078e00ff),
+    // `acarreo`: el de las correcciones.
+    ("IADD3 R13, P1, R0, R6, RZ", 0x00000006000d7210, 0x004fc40007f3e0ff),
+    ("IADD3 R9, P0, R0, -R7, RZ", 0x8000000700097210, 0x008fc60007f1e0ff),
+    ("IADD3.X R11, RZ, R6, RZ, P0, !PT", 0x00000006ff0b7210, 0x000fe200007fe4ff),
 ];
 
 /// El control de una de ALU (el de `ptxas` y del driver: 6 ciclos, el bit 4,
@@ -667,7 +688,7 @@ mod pruebas {
     #[test]
     fn la_division_como_ptxas() {
         let k = |i: usize| ORO_E6D[i].2 >> 41;
-        let hechas: [(u64, u64); 9] = [
+        let hechas: [(u64, u64); 14] = [
             i2f_arriba(6, 7, false, k(0)),
             i2f_arriba(6, 9, true, k(1)),
             iadd3(4, 6, Fuente::Imm(0x0fff_fffe), k(2)),
@@ -677,6 +698,11 @@ mod pruebas {
             imad(0, 7, r(2), 0, k(6)),
             iabs(9, 7, k(7)),
             iabs(10, 0, k(8)),
+            imad_hi(0, 2, Fuente::Imm(0x2492_4925), k(9)),
+            imad_hi(9, 2, Fuente::Imm(0xcccc_cccd), k(10)),
+            iadd3_acarreo(13, 1, 0, r(6), k(11)),
+            iadd3_acarreo(9, 0, 0, neg(7), k(12)),
+            iadd3_x(11, RZ, r(6), 0, k(13)),
         ];
         for ((texto, lo, hi), h) in ORO_E6D.iter().zip(hechas) {
             assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
