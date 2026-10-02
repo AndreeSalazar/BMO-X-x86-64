@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "Publica un BEX en un volumen ESTRATOS existente mediante copy-on-write"
 
-[[bin]]
-name = "estratos-put"
-path = "src/main.rs"
+# Es una LIBRERIA (src/lib.rs: `instalar`, `Almacen`, `Resultado`), no un
+# binario. El Cargo.toml venia con un `[[bin]]` a src/main.rs copiado de
+# estratos-fmt, y ese fichero no existe: el banco no compilaba. Cargo toma
+# src/lib.rs sola, sin declararla.
 
 [dependencies]
 bmo-estratos = { path = "../../../platform/drivers/storage/estratos" }

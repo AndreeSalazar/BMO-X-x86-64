@@ -11,11 +11,11 @@ use bmo_estratos as es;
 use bmo_estratos::carpeta::{self, Cambio, Veredicto};
 use bmo_estratos::flujo::{plan_de, Arbol};
 use bmo_estratos::objects::{
-    Attr, BlockPtr, Entrada, Nodo, Tipo, ATTR_ENTRADAS, ATTR_FIRMA, BLOQUE, ENTRADA_LEN,
-    NIVELES_MAX, NODO_LEN, RESIDENTE_MAX, SUPER_LEN,
+    Attr, BlockPtr, Nodo, Tipo, ATTR_ENTRADAS, ATTR_FIRMA, BLOQUE, NIVELES_MAX,
 };
 use bmo_estratos::read::Fuente;
-use bmo_estratos::{Autor, Estrato, Superblock, Transaccion};
+// SUPER_LEN vive en la raiz de la crate, no en `objects`.
+use bmo_estratos::{Autor, Estrato, Superblock, Transaccion, SUPER_LEN};
 
 const NOMBRE_APLICACION: &str = "proton-x.bex";
 const NOMBRE_CARPETA: &str = "apps";
@@ -325,7 +325,7 @@ pub fn instalar<W: Almacen>(
     generacion_esperada: u64,
     bloques_esperados: u64,
 ) -> Result<Resultado, String> {
-    let preparado = preparar(disco, disk_id, generacion_esperada, bloques_esperados)?;
+    let mut preparado = preparar(disco, disk_id, generacion_esperada, bloques_esperados)?;
     let datos_plan = plan_de(bytes.len() as u64).ok_or("el BEX esta vacio o es demasiado grande")?;
     let bloques = datos_plan.total
         + 1 // nodo del fichero
@@ -366,7 +366,7 @@ pub fn instalar<W: Almacen>(
     let cambio_apps = Cambio::Guardar { nombre: NOMBRE_APLICACION, nodo: archivo_ptr };
     let (apps_lista, usados) = grabar_lista(
         disco,
-        &mut { preparado.cache },
+        &mut preparado.cache,
         preparado.apps.attr(ATTR_ENTRADAS),
         &cambio_apps,
         &preparado.apps_veredicto,
@@ -381,7 +381,7 @@ pub fn instalar<W: Almacen>(
     let cambio_raiz = Cambio::Guardar { nombre: NOMBRE_CARPETA, nodo: apps_ptr };
     let (raiz_lista, usados) = grabar_lista(
         disco,
-        &mut { preparado.cache },
+        &mut preparado.cache,
         preparado.raiz.attr(ATTR_ENTRADAS),
         &cambio_raiz,
         &preparado.raiz_veredicto,
