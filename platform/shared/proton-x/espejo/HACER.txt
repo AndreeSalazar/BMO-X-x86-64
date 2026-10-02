@@ -1,0 +1,23 @@
+ESPEJO -- Paso 0, reproducible con LLVM para Windows x64
+
+No usa CRT ni una biblioteca de enganche.  Hace falta clang, lld-link y
+llvm-dlltool en PATH.  Desde esta carpeta:
+
+  llvm-dlltool -m i386:x86-64 -d espejo_kernel32.def -l kernel32.lib
+  clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c espejo_dll.c -o espejo_dll.obj
+  lld-link /dll /nodefaultlib /entry:DllMain /dynamicbase /brepro espejo_dll.obj kernel32.lib /out:espejo.dll
+  clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c espejo.c -o espejo.obj
+  lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro espejo.obj kernel32.lib /out:espejo.exe
+  clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda40.c -o tanda40.obj
+  lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda40.obj kernel32.lib /out:tanda40.exe
+  certutil -hashfile espejo.exe SHA256
+  certutil -hashfile espejo.dll SHA256
+  certutil -hashfile tanda40.exe SHA256
+
+Prueba en Windows, desde ESTA carpeta:
+
+  .\espejo.exe .\tanda40.exe
+
+ESPEJO.TXT debe contener, una vez y en este orden: GetStdHandle, WriteFile,
+GetCurrentProcessId, GetLastError, ExitProcess.  El primer hilo es 7 porque
+Paso 0 solo engancha el proceso principal; Paso 1 asigna los demas hilos.
