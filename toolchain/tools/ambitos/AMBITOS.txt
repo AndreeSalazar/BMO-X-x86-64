@@ -22,7 +22,7 @@
 # los 69 `gui` de ayer no se reescriben, y un guardian que fallara por ellos se
 # apagaria en una semana. Se mueve con `--sellar`.
 [DESDE]
-ff71c334aa8738783dd5d208edb1a441cd76ac97   sellado a mano
+43bd767a912043948f15a089ee45f64f5f3681d2   sellado a mano
 
 # Viejo -> como se llama ahora, y por que. Un alias no es un error del que
 # escribe: es un nombre que se quedo atras, y decirle el nuevo cuesta lo mismo
@@ -36,13 +36,13 @@ estructura     -> taller       el propietario lo renombro el 29-09 ("reemplazar 
 # Los que valen. Ordenados por uso, que es el orden en el que se ve el ruido.
 [AMBITOS]
 c                (0) 
-kernel           (0) 
+kernel           (5) 
 cobol            (0) 
-estratos         (2) 
+estratos         (4) 
 inti             (0) 
 usb              (0) 
 boot             (0) 
-director         (4) 
+director         (2) 
 maqueta          (0) 
 medida           (0) 
 mm               (0) 
@@ -53,10 +53,10 @@ bef              (0)
 disk             (0) 
 ring0            (0) 
 c-front          (0) 
-disco            (69) 
+disco            (47) 
 puerta           (0) 
 cpp              (0) 
-metal            (1) 
+metal            (0) 
 ahci             (0) 
 cabina           (0) 
 ciudad           (0) 
@@ -66,27 +66,27 @@ lienzo           (0)
 cap              (0) 
 ram              (0) 
 audio            (0) 
-build            (2) 
+build            (0) 
 forge            (0) 
-gpu              (48) 
+gpu              (0) 
 iommu            (0) la IOMMU de AMD (AMD-Vi): M0 de PLAN_LA_3060, la frontera del DMA de TODO aparato, no solo de la grafica
 lanzar           (0) 
 proc             (0) 
 red              (0) 
 shell            (0) 
-toolchain        (0) 
+toolchain        (8) 
 caja             (0) 
 calc             (0) 
 censo            (0) 
 coste            (0) 
-docs             (22) 
+docs             (15) 
 emu              (0) 
 ext              (0) 
 fat32            (0) 
 input            (0) 
 intro            (0) 
 lower            (0) 
-ring3            (14) 
+ring3            (3) 
 verify           (0) 
 xhci             (0) 
 axion            (0) 
@@ -117,9 +117,9 @@ doom             (0)
 navegar          (0) la app que navega sin ser navegador: la cara de la LAMINA (Ultra_userspace/apps/navegar)
 faggin           (0) 
 fat              (0) 
-fault            (1) 
+fault            (0) 
 fuero            (0) 
-guardianes       (2) 
+guardianes       (0) 
 # ** Componente NUEVO el 2026-08-24: `platform/shared/bmo-cripto`. Es el octavo
 # escalon del plan --el unico que es un invento y no trabajo-- y va aparte de
 # `hash` a proposito: aquel es BLAKE3, que sirve para saber si dos ficheros son
@@ -159,7 +159,7 @@ vmm              (0)
 spirv            (0) 
 # 2026-09-29: el TALLER de F1 (`Ultra_userspace/apps/taller`) y
 # su contrato con TITAN++ (`platform/shared/titan-contrato`). Nace aqui.
-taller           (5) 
+taller           (0) 
 # 2026-09-30: el frontend de TITAN++ (`toolchain/lang/titan`), el lenguaje
 # para CONSTRUIR. Nace aqui, con el nivel 0 de su escalera.
 titan            (0) 
