@@ -474,11 +474,15 @@ fn verificar_objetivo<R: Read + Seek>(reader: &mut R, firma: &[u8; 32], esperado
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bmo_estratos::objects::Entrada;
     use std::fs::{self, File, OpenOptions};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     const TEST_BLOCKS: u64 = 2048;
-    const TEST_ID: [u8; 32] = es::disk_id(b"TEST DISK", b"TEST-SERIAL", 4096);
+    // `disk_id` no es `const fn`: una funcion, no una constante (02-10).
+    fn test_id() -> [u8; 32] {
+        es::disk_id(b"TEST DISK", b"TEST-SERIAL", 4096)
+    }
 
     fn put_block(file: &mut File, lba: u64, data: &[u8]) {
         escribir_bloque(file, lba, data).unwrap();
@@ -523,7 +527,7 @@ mod tests {
         let estrato = Estrato::new(root_ptr, BlockPtr::NULO, 0, Autor::Herramienta, "");
         let estrato_ptr = BlockPtr::nuevo(7, 0, &estrato.encode());
         put_block(file, 7, &estrato.encode());
-        let mut sb = Superblock::new(TEST_ID, TEST_BLOCKS);
+        let mut sb = Superblock::new(test_id(), TEST_BLOCKS);
         sb.generation = 30;
         sb.log_head = 8;
         sb.estrato = estrato_ptr;
@@ -532,16 +536,17 @@ mod tests {
             file.write_all(&sb.encode()).unwrap();
         }
         file.sync_all().unwrap();
-        estrato_ptr
+        // La RAIZ, como `Resultado::raiz`: la prueba compara raices (02-10;
+        // antes devolvia el estrato y `read_target` leia una raiz como estrato).
+        root_ptr
     }
 
     fn read_target<R: Read + Seek>(
         reader: &mut R,
-        estrato_ptr: BlockPtr,
+        raiz: BlockPtr,
         name: &str,
     ) -> Vec<u8> {
-        let estrato = Estrato::decode(&leer_objeto(reader, &estrato_ptr).unwrap()).unwrap();
-        let root = leer_nodo(reader, &estrato.raiz).unwrap();
+        let root = leer_nodo(reader, &raiz).unwrap();
         let mut cache = Cache::default();
         let root_attr = root.attr(ATTR_ENTRADAS).copied();
         let mut scratch = [[0u8; BLOQUE]; NIVELES_MAX + 1];
@@ -581,13 +586,13 @@ mod tests {
             .unwrap();
         let anterior = seed(&mut disk);
         let primero = vec![0x42; BLOQUE * 2 + 37];
-        let r1 = instalar(&mut disk, &primero, TEST_ID, 30, TEST_BLOCKS).unwrap();
+        let r1 = instalar(&mut disk, &primero, test_id(), 30, TEST_BLOCKS).unwrap();
         assert_eq!(r1.generacion, 31);
         assert_eq!(read_target(&mut disk, r1.raiz, NOMBRE_APLICACION), primero);
         assert_eq!(read_target(&mut disk, anterior, "hola.bex"), b"previous app");
 
         let segundo = b"updated BMO-X Proton-X";
-        let r2 = instalar(&mut disk, segundo, TEST_ID, 31, TEST_BLOCKS).unwrap();
+        let r2 = instalar(&mut disk, segundo, test_id(), 31, TEST_BLOCKS).unwrap();
         assert_eq!(r2.generacion, 32);
         assert_eq!(read_target(&mut disk, r2.raiz, NOMBRE_APLICACION), segundo);
         assert_eq!(read_target(&mut disk, r1.raiz, NOMBRE_APLICACION), primero);
@@ -611,8 +616,8 @@ mod tests {
         let _ = seed(&mut disk);
         let before = fs::read(&path).unwrap();
         assert!(instalar(&mut disk, b"bex", [0; 32], 30, TEST_BLOCKS).is_err());
-        assert!(instalar(&mut disk, b"bex", TEST_ID, 29, TEST_BLOCKS).is_err());
-        assert!(instalar(&mut disk, b"bex", TEST_ID, 30, TEST_BLOCKS - 1).is_err());
+        assert!(instalar(&mut disk, b"bex", test_id(), 29, TEST_BLOCKS).is_err());
+        assert!(instalar(&mut disk, b"bex", test_id(), 30, TEST_BLOCKS - 1).is_err());
         drop(disk);
         assert_eq!(fs::read(&path).unwrap(), before);
         fs::remove_file(path).unwrap();
