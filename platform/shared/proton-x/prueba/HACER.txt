@@ -1773,3 +1773,29 @@ divisiones salian en 200 instrucciones (mas que la puerta de 128 del
 kernel); con las parejas fundidas, `a / 4` sin inverso y las correcciones
 con acarreo, 113, y PEGADO con el pegamento de pixel, 123: cabe (E6d en el
 plan).
+
+vistas.dxil -- las VISTAS que no son una 2D de nivel 0 (02-10)
+
+Lo que un motor como el de Cyberpunk lee de sus texturas: un Texture2DArray,
+un TextureCube, un Texture3D, SampleLevel, Load (de floats y de enteros),
+GetDimensions y un Sample desplazado (`int2(1, -1)`), cada uno a su
+SV_Target. De `vistas.hlsl` (aqui al lado), con el mismo `dxc` de Linux
+(1.9, 4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo vistas.dxil vistas.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   6f8c137b20a1113438fe47b2f8870bddfbc9a26c63bdbddbb5ca27a79782f460  vistas.dxil
+
+Y su TESTIGO, `vistas.ll` (`dxc -dumpbin`). Lo que se aprendio de el: las
+coordenadas que la vista no usa llegan `undef` (un Texture2D trae `undef`
+en la tercera y la cuarta; un array, la capa en la tercera), asi que la
+CLASE de la vista (plana, array, cubo, 3D) la sabe el SRV, no el
+sombreador: `Op::Lee` lleva las cuatro y la textura decide. Los
+desplazamientos son enteros constantes (`i32 0` o `undef` si no hay); el
+Load de un `Texture2D<uint4>` es `textureLoad.i32`; GetDimensions devuelve
+cuatro i32 (las mips, en w) y el sombreador las pasa a float con `uitofp`.
+El banco (`un_pixel_de_dxc_lee_arrays_cubos_3d_y_mips`) lo corre con
+texturas de colores conocidos y lo compara con lo que dice D3D, escrito a
+mano.

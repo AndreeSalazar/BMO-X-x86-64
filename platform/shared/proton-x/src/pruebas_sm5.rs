@@ -193,7 +193,7 @@ fn sample_de_sm5_muestrea() {
         t
     };
     let tx: Vec<u32> = vec![0xFF30_2010, 0xFF60_5040, 0xFF90_8070, 0xFFC0_B0A0];
-    let tex = [Some(Textura { texeles: &tx, ancho: 2, alto: 2, bgra: false })];
+    let tex = [Some(Textura::rgba(&tx, 2, 2, false))];
     let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Repetir, v: Direccion::Repetir, borde: [0.0; 4] })];
     let rec = Recursos { texturas: &tex, muestreadores: &m };
     let p = crate::sm5::compilar(&programa([0, 1, 2, 3]), &entradas, &salidas).unwrap();

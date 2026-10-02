@@ -45,13 +45,13 @@ use bmo_proton_x::trama;
 use bmo_proton_x::raiz::{self, Carga, Firma, Parametro, Rango};
 
 use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, E_OUTOFMEMORY, S_OK};
+use crate::subrecursos::{Almacen, Forma};
 use crate::{aviso, dir, plataforma};
 
 // -- Constantes de D3D12 que se miran ---------------------------------------
 
 const RS_VERSION_1: u32 = 1;
 const DIMENSION_BUFFER: u32 = 1;
-const DIMENSION_TEXTURE2D: u32 = 3;
 pub const FMT_D32_FLOAT: u32 = 40;
 const FMT_R32G32B32A32_FLOAT: u32 = 2;
 const FMT_R32G32B32_FLOAT: u32 = 6;
@@ -438,9 +438,9 @@ pub(crate) fn dentro_de_bufer(va: u64, n: usize) -> bool {
     resolver(va, n).is_some()
 }
 
-/// Una imagen nueva en `pp`, o E_OUTOFMEMORY (antes, un panico del cargador).
-fn dar_imagen(pp: *mut u64, ancho: u32, alto: u32, formato: u32) -> i32 {
-    match crate::d3d12::recurso(ancho, alto, formato, false) {
+/// Una textura nueva en `pp`, o E_OUTOFMEMORY (antes, un panico del cargador).
+fn dar_imagen(pp: *mut u64, forma: Forma, banderas: u32) -> i32 {
+    match crate::d3d12::recurso_forma(forma, false, banderas) {
         Some(r) => dar(pp, r),
         None => {
             aviso("CreateCommittedResource: no hay memoria para la textura: E_OUTOFMEMORY");
@@ -467,27 +467,28 @@ pub(crate) fn crear_recurso(desc: *const u8, riid: *const Guid, pp: *mut u64, me
     if desc.is_null() {
         return E_INVALIDARG;
     }
-    // SAFETY: un D3D12_RESOURCE_DESC del `.exe`.
-    let (dimension, ancho, alto, formato) = unsafe { (u32_de(desc, 0), u64_de(desc, 16), u32_de(desc, 24), u32_de(desc, 32)) };
-    let medida_ok = ancho > 0 && ancho <= 16384 && alto > 0 && alto <= 16384;
-    if dimension == DIMENSION_TEXTURE2D && formato == FMT_D32_FLOAT && medida_ok {
-        // P3c4: una profundidad D32 (lo que el cubo de BMOX-12 pide). Su
-        // contenido es indefinido hasta ClearDepthStencilView, como en D3D12.
-        return dar_imagen(pp, ancho as u32, alto, FMT_D32_FLOAT);
-    }
-    if dimension == DIMENSION_TEXTURE2D && matches!(formato, FMT_R8G8B8A8_UNORM | FMT_B8G8R8A8_UNORM) && medida_ok {
-        // ** Una TEXTURA 2D de 8 bits por canal (29-09, HelloTexture): un
-        // nivel y una capa (lo demas se dice). Se llena con CopyTextureRegion.
-        // SAFETY: el mismo D3D12_RESOURCE_DESC: DepthOrArraySize +28, MipLevels +30.
-        let (capas, niveles) = unsafe { ((desc.add(28) as *const u16).read_unaligned(), (desc.add(30) as *const u16).read_unaligned()) };
-        if capas > 1 || niveles > 1 {
-            aviso("CreateCommittedResource: una textura con mipmaps o capas: se usa el nivel 0 de la capa 0");
-        }
-        return dar_imagen(pp, ancho as u32, alto, formato);
-    }
+    // SAFETY: un D3D12_RESOURCE_DESC del `.exe`: Dimension +0, Width +16,
+    // Format +32, SampleDesc.Count +36, Flags +48.
+    let (dimension, ancho, formato, muestras, banderas) = unsafe { (u32_de(desc, 0), u64_de(desc, 16), u32_de(desc, 32), u32_de(desc, 36), u32_de(desc, 48)) };
     if dimension != DIMENSION_BUFFER {
-        aviso("CreateCommittedResource: buferes, profundidades D32 y texturas 2D RGBA/BGRA de 8 bits, todavia");
-        return E_INVALIDARG;
+        // ** 02-10: una TEXTURA de cualquier formato (los BC tal cual), con
+        // sus mips y sus capas (arrays, cubos), 1D, 2D o 3D: ver
+        // `subrecursos`. Una colocada (CreatePlacedResource) tambien va a
+        // memoria suya: sus texeles no son los bytes del monton (como en una
+        // GPU, que los guarda en su propio orden).
+        // SAFETY: el mismo D3D12_RESOURCE_DESC.
+        let Some(forma) = (unsafe { Forma::de(desc) }) else {
+            aviso("CreateCommittedResource: una textura de medidas imposibles: E_INVALIDARG");
+            return E_INVALIDARG;
+        };
+        if formato == 0 {
+            aviso("CreateCommittedResource: una textura de formato UNKNOWN: E_INVALIDARG");
+            return E_INVALIDARG;
+        }
+        if muestras > 1 {
+            aviso("CreateCommittedResource: una textura MULTIMUESTRA (MSAA): se guarda con una muestra por texel");
+        }
+        return dar_imagen(pp, forma, banderas);
     }
     if ancho == 0 {
         return E_INVALIDARG;
@@ -550,6 +551,10 @@ pub struct Estado {
     pub rtv: u64,
     /// El recurso de profundidad (OMSetRenderTargets), o 0.
     pub dsv: u64,
+    /// 02-10: el subrecurso de cada vista (y su rebanada 3D << 32): ver
+    /// `d3d12_vistas`. 0, el de siempre.
+    pub rtv_sub: u64,
+    pub dsv_sub: u64,
     /// El identificador de GPU dado a cada tabla de la raiz, por su indice
     /// (SetGraphicsRootDescriptorTable): la direccion de su primera ranura.
     pub tablas: [u64; 16],
@@ -606,8 +611,10 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
         aviso("Draw sin OMSetRenderTargets: no hay donde dibujar");
         return;
     }
-    // SAFETY: el descriptor guarda un Recurso de la casa.
-    if unsafe { crate::d3d12::recurso_de(e.rtv) }.formato != pso.formato_rt {
+    // SAFETY: el descriptor guarda un Recurso de la casa. El formato de la
+    // vista puede no ser el del recurso (TYPELESS, SRGB): basta que se
+    // guarden igual.
+    if Almacen::de(unsafe { crate::d3d12::recurso_de(e.rtv) }.formato) != Almacen::de(pso.formato_rt) {
         aviso("Draw sobre un render target de otro formato que el del PSO");
         return;
     }
@@ -698,8 +705,6 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
 
 
 const TRIANGLESTRIP: u32 = 5;
-const FMT_B8G8R8A8_UNORM: u32 = 87;
-const FMT_R8G8B8A8_UNORM: u32 = 28;
 
 /// **Pintar un Draw** (P3b3): el sombreador de vertices por cada vertice que
 /// piden los indices (una vez cada uno), los triangulos por la trama, y el de
@@ -726,13 +731,19 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     }
     // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
     let rt = unsafe { de::<crate::d3d12::Recurso>(e.rtv) };
-    let bgra = match rt.formato {
-        FMT_B8G8R8A8_UNORM => true,
-        FMT_R8G8B8A8_UNORM => false,
+    // 02-10: todo lo que la casa guarda en 8 bits por canal (tambien un
+    // RGBA16F o un R10G10B10A2: se pintan en 8 bits, como se guardan).
+    let bgra = match Almacen::de(rt.formato) {
+        Almacen::Bgra8 => true,
+        Almacen::Rgba8 => false,
         _ => {
-            aviso("Draw sobre un render target que no es RGBA/BGRA de 8 bits: todavia no");
+            aviso("Draw sobre un render target de floats (R32) o BC: todavia no");
             return;
         }
+    };
+    let Some((pixeles, ancho, alto)) = destino(e.rtv, e.rtv_sub) else {
+        aviso("Draw sobre una vista de un subrecurso que el render target no tiene");
+        return;
     };
     // Los ids de vertice, en el orden en que llegan.
     let mut ids: Vec<u32> = Vec::with_capacity(cuantos as usize);
@@ -788,8 +799,8 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     let (texturas, muestreadores) = recursos_del_dibujo(firma, &e.tablas);
     // P3b4c: las limpiezas apuntadas de SU render target y de SU Z: las
     // hace quien dibuje este lote.
-    let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 { tomar_limpieza(e.dsv) } else { None };
-    let limpiar_rt = tomar_limpieza(e.rtv);
+    let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 && e.dsv_sub == 0 { tomar_limpieza(e.dsv) } else { None };
+    let limpiar_rt = if e.rtv_sub == 0 { tomar_limpieza(e.rtv) } else { None };
     let lote = Lote {
         recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores },
         limpiar_z,
@@ -803,25 +814,26 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         cb,
         reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad },
     };
-    let (ancho, alto) = (rt.ancho, rt.alto);
     // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.
     let z = match (pso.profundidad, e.dsv) {
         (Some(_), 0) | (None, _) => None,
         // SAFETY: el descriptor DSV guarda un Recurso de la casa, distinto del RT.
-        (Some(_), dsv) => match unsafe { de::<crate::d3d12::Recurso>(dsv) } {
-            r if r.formato == FMT_D32_FLOAT && (r.ancho, r.alto) == (ancho, alto) => Some(&mut r.pixeles[..]),
+        (Some(_), dsv) => match (Almacen::de(unsafe { de::<crate::d3d12::Recurso>(dsv) }.formato), destino(dsv, e.dsv_sub)) {
+            (Almacen::Flotante, Some((z, w, h))) if (w, h) == (ancho, alto) => Some(z),
             _ => {
-                aviso("Draw: la profundidad no es D32 o no mide lo que el render target: se dibuja sin ella");
+                aviso("Draw: la profundidad no es de floats (D32, D24S8...) o no mide lo que el render target: se dibuja sin ella");
                 None
             }
         },
     };
-    let cadena = rt.cadena;
-    let mut destino = trama::Destino { pixeles: &mut rt.pixeles, ancho, alto, bgra, z, cadena };
+    let cadena = rt.cadena && e.rtv_sub == 0;
+    let mut destino = trama::Destino { pixeles, ancho, alto, bgra, z, cadena };
     let r = (plataforma().dibujar)(&lote, &mut destino);
     // P3b4c.9 Z1: donde quedo este dibujo (la pantalla o la RAM) es donde
     // queda el fotograma: lo lee `Present`.
-    rt.en_pantalla = r.as_ref().is_ok_and(|c| c.en_pantalla);
+    if e.rtv_sub == 0 {
+        rt.en_pantalla = r.as_ref().is_ok_and(|c| c.en_pantalla);
+    }
     match r {
         Ok(c) if c.sin_recortar > 0 => aviso("Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan"),
         Ok(_) => {}
@@ -861,15 +873,10 @@ fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16]) -> (Vec<Option<bmo_pro
                 let ranura = unsafe { core::slice::from_raw_parts((base + (desde + i) * DESCRIPTOR_BYTES) as *const u64, 4) };
                 let registro = (r.registro as u64 + i) as usize;
                 match (r.tipo, ranura[1]) {
-                    (RANGO_SRV, crate::d3d12::DESC_SRV) if ranura[0] != 0 => {
-                        aplicar_limpieza(ranura[0]);
-                        // SAFETY: el SRV guarda un Recurso de la casa.
-                        let t = unsafe { de::<crate::d3d12::Recurso>(ranura[0]) };
-                        match t.formato {
-                            FMT_R8G8B8A8_UNORM | FMT_B8G8R8A8_UNORM => poner(&mut tex, registro, Textura { texeles: &t.pixeles, ancho: t.ancho, alto: t.alto, bgra: t.formato == FMT_B8G8R8A8_UNORM }),
-                            _ => aviso("un SRV de un recurso que no es una textura RGBA/BGRA de 8 bits: se lee como nulo"),
-                        }
-                    }
+                    (RANGO_SRV, crate::d3d12::DESC_SRV) if ranura[0] != 0 => match textura_de_srv(ranura) {
+                        Ok(t) => poner(&mut tex, registro, t),
+                        Err(m) => aviso(m),
+                    },
                     (RANGO_SAMPLER, crate::d3d12::DESC_MUESTREADOR) => {
                         let (f, u, v, b) = (ranura[2] as u32, (ranura[2] >> 32) as u32, ranura[3] as u32, (ranura[3] >> 32) as u32);
                         let borde = core::array::from_fn(|c| ((b >> (8 * c)) & 0xFF) as f32 / 255.0);
@@ -891,6 +898,42 @@ fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16]) -> (Vec<Option<bmo_pro
         }
     }
     (tex, mue)
+}
+
+/// **La textura que lee un SRV** (02-10): TODA la textura (sus mips y sus
+/// capas, como las guarda la casa), como se guarda (8 bits, floats o
+/// bloques BC), y lo que mira la vista: su clase (plana, array, cubo, 3D),
+/// su mip mas detallada y su primera capa o cara (ver `d3d12_vistas`), si
+/// es sRGB y su mapeo.
+fn textura_de_srv(ranura: &[u64]) -> Result<bmo_proton_x::textura::Textura<'static>, &'static str> {
+    use bmo_proton_x::textura::{Clase, Como, Textura};
+    let ((dimension, formato, mapeo), (sub, _)) = crate::d3d12_vistas::leer(ranura);
+    aplicar_limpieza(ranura[0]);
+    let Some(t) = crate::d3d12_vistas::tex(ranura[0]) else {
+        return Err("un SRV de un bufer: los sombreadores de la casa aun no leen buferes (se lee como nulo)");
+    };
+    let clase = match dimension {
+        2 | 4 | 6 => Clase::Plana,
+        3 | 5 | 7 => Clase::Array,
+        8 => Clase::Volumen,
+        9 => Clase::Cubo,
+        10 => Clase::CuboArray,
+        _ => return Err("un SRV de bufer o de aceleracion sobre una textura: en Windows es un error (se lee como nulo)"),
+    };
+    let como = match t.almacen {
+        Almacen::Rgba8 => Como::Rgba8,
+        Almacen::Bgra8 => Como::Bgra8,
+        Almacen::Flotante => Como::Flotante,
+        Almacen::Bloques(b) => Como::Bloques(b),
+    };
+    let total: u64 = t.subs.iter().map(|x| x.bytes()).sum();
+    // SAFETY: la memoria de una textura de la casa, que no se suelta.
+    let texeles = unsafe { core::slice::from_raw_parts(t.datos as *const u32, (total / 4) as usize) };
+    let f = t.forma;
+    let (mip, capa) = f.sub(sub);
+    let formato = if formato == 0 { f.formato } else { formato };
+    let hondo = if f.dimension == crate::subrecursos::DIM_TEXTURA3D { f.hondo } else { 1 };
+    Ok(Textura { texeles, ancho: f.ancho, alto: f.alto, como, srgb: crate::d3d12_vistas::es_srgb(formato), mapeo, mips: f.mips, capas: f.capas(), hondo, clase, mip, capa })
 }
 
 /// `v[i] = Some(x)`, creciendo `v` (hasta el registro 31).
@@ -937,6 +980,31 @@ fn tomar_limpieza(recurso: u64) -> Option<u32> {
 
 pub(crate) fn olvidar_limpieza(recurso: u64) {
     let _ = tomar_limpieza(recurso);
+}
+
+/// **El subrecurso `sub` de un recurso donde se dibuja o se limpia** (ver
+/// `d3d12_vistas`: el subrecurso, y la rebanada 3D << 32): sus palabras y
+/// sus medidas. El 0 es `pixeles` (la cadena incluida). `None`: no lo
+/// tiene, o es de bloques.
+pub(crate) fn destino(recurso: u64, sub: u64) -> Option<(&'static mut [u32], u32, u32)> {
+    // SAFETY: lo que llega aqui son Recursos de la casa (una vista).
+    let r = unsafe { de::<crate::d3d12::Recurso>(recurso) };
+    if sub == 0 {
+        return (!r.pixeles.is_empty()).then(|| {
+            // SAFETY: los pixeles de un Recurso de la casa, que no se sueltan.
+            (unsafe { core::slice::from_raw_parts_mut(r.pixeles.as_mut_ptr(), r.pixeles.len()) }, r.ancho, r.alto)
+        });
+    }
+    let t = r.tex.as_ref()?;
+    let s = *t.subs.get(sub as u32 as usize)?;
+    let rebanada = (sub >> 32) as u32;
+    if t.almacen.elemento() != (4, 1) || rebanada >= s.hondo {
+        return None;
+    }
+    let n = s.ancho as usize * s.alto as usize;
+    let p = (t.datos + s.desde + rebanada as u64 * s.fila * s.filas as u64) as *mut u32;
+    // SAFETY: una rebanada de un subrecurso, dentro de la memoria de la textura.
+    Some((unsafe { core::slice::from_raw_parts_mut(p, n) }, s.ancho, s.alto))
 }
 
 /// **Hacerla ya**, si la hay: alguien va a LEER los pixeles.

@@ -984,7 +984,7 @@ fn un_pixel_de_dxc_muestrea_la_textura() {
     assert!(!vs.muestrea());
     // Un tablero de 4x4: blanco y negro alternos (RGBA).
     let t: Vec<u32> = (0..16).map(|i| if (i % 4 + i / 4) % 2 == 0 { 0xFFFF_FFFF } else { 0xFF00_0000 }).collect();
-    let tex = [Some(Textura { texeles: &t, ancho: 4, alto: 4, bgra: false })];
+    let tex = [Some(Textura::rgba(&t, 4, 4, false))];
     let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4] })];
     let rec = Recursos { texturas: &tex, muestreadores: &m };
     let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
@@ -995,6 +995,80 @@ fn un_pixel_de_dxc_muestrea_la_textura() {
     }
     ps.correr(&[[0.0; 4], [0.1, 0.1, 0.0, 0.0]], &[], &mut sal, &mut regs);
     assert_eq!(sal[0], [0.0; 4], "sin textura: ceros, como un SRV nulo");
+}
+
+const VISTAS_PS: &[u8] = include_bytes!("../prueba/vistas.dxil");
+
+/// *** 02-10: las VISTAS que no son una 2D de nivel 0 (`vistas.hlsl`, de
+/// `dxc`): un array, un cubo, una 3D, `SampleLevel`, `Load`,
+/// `GetDimensions`, un `Sample` desplazado y un `Load` de enteros. Lo
+/// esperado, escrito a mano con las reglas de D3D (no con la casa).
+#[test]
+fn un_pixel_de_dxc_lee_arrays_cubos_3d_y_mips() {
+    use crate::dxil::programa::{compilar, Op};
+    use crate::textura::{Clase, Direccion, Filtro, Muestreador, Recursos, Textura};
+    let ps = compilar(&dxil::leer(VISTAS_PS).unwrap()).unwrap();
+    assert!(ps.muestrea());
+    // Ningun Muestra: todo es de lo nuevo (el 2D de nivel 0 desplazado, tambien).
+    assert_eq!(ps.ops.iter().filter(|o| matches!(o, Op::Muestra { .. })).count(), 0);
+    assert_eq!(ps.ops.iter().filter(|o| matches!(o, Op::Lee { .. })).count(), 8, "{:?}", ps.ops);
+    let r = |v: u32| 0xFF00_0000 | v;
+    // t0: un array de 2x2 con 3 capas: R = 80 * capa.
+    let capas: Vec<u32> = (0..3).flat_map(|k| [r(80 * k); 4]).collect();
+    // t1: un cubo de 1x1: R = 40 * cara.
+    let cubo: Vec<u32> = (0..6).map(|k| r(40 * k)).collect();
+    // t2: una 3D de 2x2x4: R = 60 * rebanada.
+    let volumen: Vec<u32> = (0..4).flat_map(|z| [r(60 * z); 4]).collect();
+    // t3: 4x4 con 3 mips: R = x + 4y en la 0; 100 + x + 2y en la 1; 200 en la 2.
+    let mut mips: Vec<u32> = (0..16).map(|i| r(i)).collect();
+    mips.extend((0..4).map(|i| r(100 + i)));
+    mips.push(r(200));
+    // t4: 4x4 de enteros de 8 bits: (x, y, 7, 9).
+    let enteros: Vec<u32> = (0..16).map(|i| 9 << 24 | 7 << 16 | (i / 4) << 8 | i % 4).collect();
+    let base = Textura::rgba(&[], 0, 0, false);
+    let tex = [
+        Some(Textura { texeles: &capas, ancho: 2, alto: 2, capas: 3, clase: Clase::Array, ..base }),
+        Some(Textura { texeles: &cubo, ancho: 1, alto: 1, capas: 6, clase: Clase::Cubo, ..base }),
+        Some(Textura { texeles: &volumen, ancho: 2, alto: 2, hondo: 4, clase: Clase::Volumen, ..base }),
+        Some(Textura { texeles: &mips, ancho: 4, alto: 4, mips: 3, ..base }),
+        Some(Textura::rgba(&enteros, 4, 4, false)),
+    ];
+    let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4] })];
+    let rec = Recursos { texturas: &tex, muestreadores: &m };
+    let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
+    let ent = |x: i32| f32::from_bits(x as u32);
+    let corre = |c: [f32; 4], i: [i32; 4], sal: &mut Vec<[f32; 4]>, regs: &mut Vec<f32>| {
+        ps.correr_con(&[[0.0; 4], c, i.map(ent)], &[], &rec, sal, regs);
+    };
+    let rojo = |v: u32| [v as f32 / 255.0, 0.0, 0.0, 1.0];
+    // uv (0.3, 0.6), tercera 1.6, nivel 1.2; Load en (2, 3) de la mip 0;
+    // GetDimensions de la mip 1.
+    corre([0.3, 0.6, 1.6, 1.2], [2, 3, 0, 1], &mut sal, &mut regs);
+    assert_eq!(sal[0], rojo(160), "array: la capa round(1.6) = 2");
+    assert_eq!(sal[2], rojo(180), "3D: w = 1.6, rebanada floor(6.4), sujeta a la 3");
+    assert_eq!(sal[3], rojo(102), "SampleLevel 1.2: la mip 1, texel (floor(0.6), floor(1.2)) = (0, 1)");
+    assert_eq!(sal[4], rojo(14), "Load (2, 3) de la mip 0");
+    assert_eq!(sal[5], [2.0, 2.0, 3.0, 0.0], "GetDimensions(1): 2x2 y 3 mips");
+    assert_eq!(sal[6], rojo(6), "Sample desplazado (1, -1): de (1, 2) a (2, 1)");
+    assert_eq!(sal[7], [2.0, 3.0, 7.0, 9.0], "Load de enteros: los bytes como enteros");
+    // El cubo: la direccion (0.3, 0.6, 1.6) mira a +Z (cara 4); (-2, 0.6,
+    // 1.6), a -X (cara 1); (0.3, -2, 1.6), a -Y (cara 3).
+    assert_eq!(sal[1], rojo(160));
+    corre([-2.0, 0.6, 1.6, 0.0], [0; 4], &mut sal, &mut regs);
+    assert_eq!(sal[1], rojo(40));
+    corre([0.3, -2.0, 1.6, 0.0], [0; 4], &mut sal, &mut regs);
+    assert_eq!(sal[1], rojo(120));
+    // La 3D dentro: w = 0.6 -> rebanada floor(2.4) = 2.
+    corre([0.3, 0.6, 0.6, 0.0], [0; 4], &mut sal, &mut regs);
+    assert_eq!(sal[2], rojo(120));
+    corre([0.3, 0.6, 0.1, 0.0], [0; 4], &mut sal, &mut regs);
+    assert_eq!(sal[2], rojo(0));
+    // Load fuera (x = 4) y de una mip que no hay: ceros, como D3D.
+    corre([0.0; 4], [4, 0, 0, 0], &mut sal, &mut regs);
+    assert_eq!(sal[4], [0.0; 4]);
+    corre([0.0; 4], [0, 0, 3, 5], &mut sal, &mut regs);
+    assert_eq!(sal[4], [0.0; 4]);
+    assert_eq!(sal[5], [0.0, 0.0, 3.0, 0.0], "GetDimensions de una mip que no hay: ceros, y las mips (el sombreador las pone en z)");
 }
 
 fn hex(b: &[u8]) -> alloc::string::String {

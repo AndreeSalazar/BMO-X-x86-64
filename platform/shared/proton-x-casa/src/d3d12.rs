@@ -37,6 +37,7 @@ use alloc::vec::Vec;
 
 use crate::com::{self, dar, de, nuevo, pide, vtabla, Com, Guid, E_NOINTERFACE, E_OUTOFMEMORY, S_FALSE, S_OK};
 use crate::d3d12_dispositivos as dv;
+use crate::subrecursos::{self as sr, Almacen, Forma, Sub};
 use crate::tuberia::{self, Bufer, Estado, Vista};
 use crate::{aviso, dir, hilos};
 
@@ -59,16 +60,17 @@ pub struct Asignador;
 /// Una orden apuntada en la lista.
 pub(crate) enum Orden {
     /// Limpiar un recurso con este pixel (ya en SU formato; en una
-    /// profundidad D32, los bits del float).
-    Limpiar { recurso: u64, pixel: u32 },
+    /// profundidad, los bits del float). `sub`: el subrecurso de la vista y
+    /// su rebanada 3D << 32 (ver `d3d12_vistas`); 0, el de siempre.
+    Limpiar { recurso: u64, sub: u64, pixel: u32 },
     /// Un dibujo, con el estado de la lista TAL COMO ESTABA al pedirlo. Los
     /// buferes se leen al ejecutarse, como los lee la GPU.
     Dibujar { estado: Estado, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool },
-    /// Un render target entero a un bufer (CopyTextureRegion).
-    Copiar { rt: u64, bufer: u64, desde: u64, paso: u32 },
-    /// Un bufer a una textura entera (CopyTextureRegion al reves: lo que
-    /// hace `UpdateSubresources` de d3dx12 para subir una textura).
-    Subir { textura: u64, bufer: u64, desde: u64, paso: u32 },
+    /// Una copia de CopyTextureRegion (02-10: cualquier subrecurso, con su
+    /// caja; ver `d3d12_texturas`): de una textura a un bufer (leer), de un
+    /// bufer a una textura (subir: `UpdateSubresources` de d3dx12), o entre
+    /// dos texturas.
+    Region(crate::d3d12_texturas::Region),
     /// Tanda 47 (ver `d3d12_resto`): `n` bytes de `src` a `dst`
     /// (CopyBufferRegion), un recurso entero en otro (CopyResource), el fin
     /// de una consulta (EndQuery) y sus resultados a un bufer
@@ -113,15 +115,14 @@ pub struct Pixeles {
 }
 
 impl Pixeles {
-    /// Los de algo que no es una imagen (un bufer).
+    /// Los de algo que no es una imagen (un bufer, o una textura de bloques).
     fn ninguno() -> Self {
         Pixeles { p: core::ptr::NonNull::dangling().as_ptr(), n: 0 }
     }
 
-    /// `n` pixeles a cero; `prestable`: la 3060 podria usarlos.
-    fn nuevos(n: usize, prestable: bool) -> Option<Self> {
-        let p = crate::memoria::pedir_pixeles(n as u64 * 4, prestable)?;
-        Some(Pixeles { p: p as *mut u32, n })
+    /// Los `n` primeros de la memoria de una textura, en `p` (a PAGINA).
+    fn sobre(p: u64, n: usize) -> Self {
+        Pixeles { p: p as *mut u32, n }
     }
 }
 
@@ -157,6 +158,32 @@ pub struct Recurso {
     /// D3D12_HEAP_TYPE de su memoria (GetHeapProperties, tanda 47): 1
     /// DEFAULT, salvo lo que diga quien lo crea.
     pub tipo_monton: u32,
+    /// 02-10: si es una textura, TODA ella (sus mips y capas); `pixeles` es
+    /// la vista de su subrecurso 0 (lo que dibuja y presenta la casa).
+    pub tex: Option<Tex>,
+}
+
+/// **Una textura entera** (02-10): su forma, donde va cada subrecurso
+/// dentro de `datos` (ver `subrecursos`: los BC tal cual, lo demas a 4
+/// bytes por texel), como se guarda, y las D3D12_RESOURCE_FLAGS con que se
+/// creo (GetDesc).
+pub struct Tex {
+    pub forma: Forma,
+    pub subs: Vec<Sub>,
+    pub datos: u64,
+    pub almacen: Almacen,
+    pub banderas: u32,
+}
+
+impl Tex {
+    /// El subrecurso `i` como palabras de 4 bytes (texeles, o bloques de 8 o
+    /// 16 bytes: van a 8 dentro de `datos`, que empieza a pagina).
+    pub fn palabras(&self, i: u32) -> Option<&'static [u32]> {
+        let s = self.subs.get(i as usize)?;
+        // SAFETY: `datos` es memoria de este proceso que no se suelta (ver
+        // `Pixeles`), y el subrecurso cae dentro.
+        Some(unsafe { core::slice::from_raw_parts((self.datos + s.desde) as *const u32, (s.bytes() / 4) as usize) })
+    }
 }
 
 pub struct Valla {
@@ -192,9 +219,9 @@ fn dispositivo() -> u64 {
         (15, dir!(get_descriptor_handle_increment_size)),
         (13, dir!(crate::d3d12_capacidades::check_feature_support)),
         (16, dir!(tuberia::create_root_signature)),
-        (18, dir!(create_shader_resource_view)),
-        (20, dir!(create_render_target_view)),
-        (21, dir!(create_render_target_view)),
+        (18, dir!(crate::d3d12_vistas::create_shader_resource_view)),
+        (20, dir!(crate::d3d12_vistas::create_render_target_view)),
+        (21, dir!(crate::d3d12_vistas::create_depth_stencil_view)),
         (22, dir!(create_sampler)),
         (25, dir!(get_resource_allocation_info)),
         (27, dir!(tuberia::create_committed_resource)),
@@ -250,15 +277,33 @@ fn vtabla_recurso() -> *const u64 {
 }
 
 /// **Una imagen nueva**: un back buffer de la cadena de intercambio
-/// (`cadena`), una textura o una profundidad. `None` si no hay memoria. Va a
-/// memoria que la 3060 sabe usar (ver `memoria::pedir_pixeles`) lo que ella
-/// usaria hoy: la cadena y las texturas de color chicas; una profundidad, no
-/// (su Z vive en la VRAM).
+/// (`cadena`) o un render target de un nivel. `None` si no hay memoria.
 pub(crate) fn recurso(ancho: u32, alto: u32, formato: u32, cadena: bool) -> Option<u64> {
-    let n = ancho as usize * alto as usize;
-    let prestable = cadena || (formato != tuberia::FMT_D32_FLOAT && n as u64 * 4 <= crate::memoria::TEXTURA_PRESTABLE);
-    let pixeles = Pixeles::nuevos(n, prestable)?;
-    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho, alto, formato, pixeles, bufer: None, cadena, en_pantalla: false, tipo_monton: 1 }) as u64;
+    let banderas = if Almacen::de(formato) == Almacen::Flotante { BANDERA_PROFUNDIDAD } else { BANDERA_RT };
+    recurso_forma(Forma::plana(ancho, alto, formato), cadena, banderas)
+}
+
+/// D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET y ALLOW_DEPTH_STENCIL.
+pub(crate) const BANDERA_RT: u32 = 1;
+pub(crate) const BANDERA_PROFUNDIDAD: u32 = 2;
+
+/// **Una textura nueva, de cualquier forma** (02-10): todos sus
+/// subrecursos en una memoria del proceso, a cero. Va a memoria que la 3060
+/// sabe usar (ver `memoria::pedir_pixeles`) lo que ella usaria hoy: la
+/// cadena y las texturas de color chicas de un subrecurso; una
+/// profundidad, un BC o una con mips, no.
+pub(crate) fn recurso_forma(forma: Forma, cadena: bool, banderas: u32) -> Option<u64> {
+    let (subs, total) = sr::disposicion(&forma);
+    let almacen = Almacen::de(forma.formato);
+    let color = matches!(almacen, Almacen::Rgba8 | Almacen::Bgra8);
+    let prestable = cadena || (color && subs.len() == 1 && total <= crate::memoria::TEXTURA_PRESTABLE);
+    let datos = crate::memoria::pedir_pixeles(total.max(4), prestable)?;
+    let pixeles = match almacen {
+        Almacen::Bloques(_) => Pixeles::ninguno(),
+        _ => Pixeles::sobre(datos, forma.ancho as usize * forma.alto as usize),
+    };
+    let tex = Some(Tex { forma, subs, datos, almacen, banderas });
+    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: forma.ancho, alto: forma.alto, formato: forma.formato, pixeles, bufer: None, cadena, en_pantalla: false, tipo_monton: 1, tex }) as u64;
     // Uno nuevo en la direccion de uno que se fue no hereda su limpieza.
     tuberia::olvidar_limpieza(r);
     Some(r)
@@ -266,7 +311,7 @@ pub(crate) fn recurso(ancho: u32, alto: u32, formato: u32, cadena: bool) -> Opti
 
 /// Un recurso que es un bufer (CreateCommittedResource).
 pub(crate) fn recurso_bufer(b: Bufer) -> u64 {
-    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Pixeles::ninguno(), bufer: Some(b), cadena: false, en_pantalla: false, tipo_monton: 1 }) as u64
+    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Pixeles::ninguno(), bufer: Some(b), cadena: false, en_pantalla: false, tipo_monton: 1, tex: None }) as u64
 }
 
 /// El inicio de un bufer de la casa, o `None` si `this` es una imagen.
@@ -398,17 +443,6 @@ extern "win64" fn get_descriptor_handle_increment_size(_this: u64, _tipo: u32) -
     DESCRIPTOR as u32
 }
 
-/// El `D3D12_CPU_DESCRIPTOR_HANDLE` es un struct de 8 bytes y va en un
-/// registro: es la direccion de la ranura, y en ella se deja el recurso.
-extern "win64" fn create_render_target_view(_this: u64, recurso: u64, _desc: *const u8, handle: u64) {
-    if handle == 0 {
-        return;
-    }
-    // SAFETY: `handle` es la direccion de una ranura de un monton de la casa
-    // (GetCPUDescriptorHandleForHeapStart + n * incremento).
-    unsafe { (handle as *mut u64).write(recurso) };
-}
-
 extern "win64" fn create_fence(_this: u64, inicial: u64, _banderas: u32, riid: *const Guid, pp: *mut u64) -> i32 {
     if !pide(riid, com::FENCE) {
         return E_NOINTERFACE;
@@ -446,33 +480,6 @@ pub(crate) const DESC_MUESTREADOR: u64 = 2;
 pub(crate) const DESC_CBV: u64 = 3;
 pub(crate) const DESC_UAV: u64 = 4;
 pub(crate) const DESCRIPTOR_BYTES: u64 = DESCRIPTOR;
-
-/// `CreateShaderResourceView(this, recurso, desc, handle)`: en la ranura, el
-/// recurso y la marca de SRV. Una textura 2D de un nivel, con el mapeo de
-/// componentes de siempre (D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, 0x1688).
-extern "win64" fn create_shader_resource_view(_this: u64, recurso: u64, desc: *const u8, handle: u64) {
-    if handle == 0 {
-        return;
-    }
-    if !desc.is_null() {
-        // SAFETY: un D3D12_SHADER_RESOURCE_VIEW_DESC del `.exe`: Format +0,
-        // ViewDimension +4, Shader4ComponentMapping +8, la union +16.
-        let (dimension, mapeo) = unsafe { ((desc.add(4) as *const u32).read_unaligned(), (desc.add(8) as *const u32).read_unaligned()) };
-        if dimension != 4 {
-            aviso("CreateShaderResourceView de algo que no es TEXTURE2D: todavia no");
-            return;
-        }
-        if mapeo != 0x1688 {
-            aviso("CreateShaderResourceView con otro mapeo de componentes: se lee el de siempre");
-        }
-    }
-    // SAFETY: la ranura de un monton de la casa: 4 palabras.
-    unsafe {
-        let r = handle as *mut u64;
-        r.write(recurso);
-        r.add(1).write(DESC_SRV);
-    }
-}
 
 /// `CreateSampler(this, desc, handle)`: D3D12_SAMPLER_DESC -- Filter +0,
 /// AddressU +4, V +8, W +12, MipLODBias +16, MaxAnisotropy +20,
@@ -618,11 +625,13 @@ pub(crate) extern "win64" fn om_set_render_targets(this: u64, n: u32, handles: *
         aviso("OMSetRenderTargets con mas de un destino: todavia uno");
     }
     // SAFETY: `this` es una Lista de la casa; `handles` y `dsv`, descriptores
-    // del `.exe` (o nulos), y cada uno una ranura de un monton de la casa.
+    // del `.exe` (o nulos), y cada uno una ranura de un monton de la casa:
+    // el recurso en la palabra 0, el subrecurso de la vista en la 3.
     unsafe {
         let e = &mut lista(this).estado;
-        e.rtv = if n == 0 || handles.is_null() { 0 } else { (handles.read_unaligned() as *const u64).read() };
-        e.dsv = if dsv.is_null() { 0 } else { (dsv.read_unaligned() as *const u64).read() };
+        let ranura = |h: u64| ((h as *const u64).read(), (h as *const u64).add(3).read());
+        (e.rtv, e.rtv_sub) = if n == 0 || handles.is_null() { (0, 0) } else { ranura(handles.read_unaligned()) };
+        (e.dsv, e.dsv_sub) = if dsv.is_null() { (0, 0) } else { ranura(dsv.read_unaligned()) };
     }
 }
 
@@ -677,9 +686,9 @@ pub(crate) extern "win64" fn clear_render_target_view(this: u64, handle: u64, co
     }
     // SAFETY: el descriptor es una ranura de la casa (ver arriba); `color`,
     // cuatro floats del `.exe`.
-    let (recurso, rgba) = unsafe {
+    let (recurso, sub, c) = unsafe {
         let c = core::slice::from_raw_parts(color, 4);
-        ((handle as *const u64).read(), [unorm8(c[0]), unorm8(c[1]), unorm8(c[2]), unorm8(c[3])])
+        ((handle as *const u64).read(), (handle as *const u64).add(3).read(), [c[0], c[1], c[2], c[3]])
     };
     if recurso == 0 {
         aviso("ClearRenderTargetView sobre un descriptor sin CreateRenderTargetView");
@@ -687,15 +696,20 @@ pub(crate) extern "win64" fn clear_render_target_view(this: u64, handle: u64, co
     }
     // SAFETY: el descriptor guarda un Recurso de la casa.
     let formato = unsafe { de::<Recurso>(recurso).formato };
-    let [r, g, b, a] = rgba;
-    // En memoria, R8G8B8A8 es R,G,B,A y B8G8R8A8 es B,G,R,A.
-    let pixel = match formato {
-        DXGI_FORMAT_B8G8R8A8_UNORM => a << 24 | r << 16 | g << 8 | b,
-        _ => a << 24 | b << 16 | g << 8 | r,
+    let [r, g, b, a] = c.map(unorm8);
+    // En memoria, R8G8B8A8 es R,G,B,A y B8G8R8A8 es B,G,R,A; un float, R.
+    let pixel = match Almacen::de(formato) {
+        Almacen::Bgra8 => a << 24 | r << 16 | g << 8 | b,
+        Almacen::Flotante => c[0].to_bits(),
+        Almacen::Bloques(_) => {
+            aviso("ClearRenderTargetView de una textura BC: en Windows es un error");
+            return;
+        }
+        Almacen::Rgba8 => a << 24 | b << 16 | g << 8 | r,
     };
     // SAFETY: `this` es una Lista de la casa.
     let l = unsafe { de::<Lista>(this) };
-    l.ordenes.push(Orden::Limpiar { recurso, pixel });
+    l.ordenes.push(Orden::Limpiar { recurso, sub, pixel });
 }
 
 // -- La profundidad (P3c4) --------------------------------------------------
@@ -727,13 +741,13 @@ pub(crate) extern "win64" fn clear_depth_stencil_view(this: u64, handle: u64, ba
         return;
     }
     // SAFETY: el descriptor es una ranura de la casa (CreateDepthStencilView).
-    let recurso = unsafe { (handle as *const u64).read() };
+    let (recurso, sub) = unsafe { ((handle as *const u64).read(), (handle as *const u64).add(3).read()) };
     if recurso == 0 {
         aviso("ClearDepthStencilView sobre un descriptor sin CreateDepthStencilView");
         return;
     }
     // SAFETY: `this` es una Lista de la casa.
-    unsafe { de::<Lista>(this) }.ordenes.push(Orden::Limpiar { recurso, pixel: bits });
+    unsafe { de::<Lista>(this) }.ordenes.push(Orden::Limpiar { recurso, sub, pixel: bits });
 }
 
 /// `ID3D12Resource2::GetDesc1(this, ret)`: el D3D12_RESOURCE_DESC1 (64 B): el
@@ -745,14 +759,19 @@ extern "win64" fn get_desc1(this: u64, ret: *mut u8) -> *mut u8 {
     ret
 }
 
-/// `GetDesc(this, ret)`: el D3D12_RESOURCE_DESC (56 B) por el puntero oculto.
+/// `GetDesc(this, ret)`: el D3D12_RESOURCE_DESC (56 B) por el puntero
+/// oculto. Una textura, con su forma de verdad (02-10): dimension, mips,
+/// capas o profundidad, y las banderas con que se creo.
 pub(crate) extern "win64" fn get_desc(this: u64, ret: *mut u8) -> *mut u8 {
     // SAFETY: `this` es un Recurso de la casa.
     let r = unsafe { de::<Recurso>(this) };
-    let (dimension, layout, banderas, ancho) = match (&r.bufer, r.formato) {
-        (Some(b), _) => (1u32, 1u32, 0u32, b.bytes as u64),
-        (None, tuberia::FMT_D32_FLOAT) => (3, 0, 2, r.ancho as u64), // ALLOW_DEPTH_STENCIL
-        (None, _) => (3, 0, 1, r.ancho as u64),                      // ALLOW_RENDER_TARGET
+    let (dimension, layout, banderas, ancho, alto, hondo, mips, formato) = match (&r.bufer, &r.tex) {
+        (Some(b), _) => (1u32, 1u32, 0u32, b.bytes as u64, 1, 1, 1, 0),
+        (None, Some(t)) => {
+            let f = t.forma;
+            (f.dimension, 0, t.banderas, f.ancho as u64, f.alto, f.hondo as u16, f.mips as u16, f.formato)
+        }
+        (None, None) => (3, 0, BANDERA_RT, r.ancho as u64, r.alto, 1, 1, r.formato),
     };
     // SAFETY: 56 bytes del `.exe`.
     unsafe {
@@ -760,10 +779,10 @@ pub(crate) extern "win64" fn get_desc(this: u64, ret: *mut u8) -> *mut u8 {
         let u = |o: usize, v: u32| (ret.add(o) as *mut u32).write_unaligned(v);
         u(0, dimension);
         (ret.add(16) as *mut u64).write_unaligned(ancho);
-        u(24, r.alto);
-        (ret.add(28) as *mut u16).write_unaligned(1);
-        (ret.add(30) as *mut u16).write_unaligned(1);
-        u(32, r.formato);
+        u(24, alto);
+        (ret.add(28) as *mut u16).write_unaligned(hondo);
+        (ret.add(30) as *mut u16).write_unaligned(mips);
+        u(32, formato);
         u(36, 1);
         u(44, layout);
         u(48, banderas);
@@ -814,151 +833,87 @@ pub(crate) fn asignacion(ret: *mut u64, n: u32, descs: *const u8, paso: usize, i
 
 // -- Leer un render target desde la CPU (P3c4, el --fotograma de BMOX-12) ---
 
-/// Lo que mide una fila de una textura en un bufer: D3D12 la alinea a 256
-/// (D3D12_TEXTURE_DATA_PITCH_ALIGNMENT).
-const PASO_DE_FILA: u32 = 256;
-
 /// `GetCopyableFootprints(this, desc, primero, n, desde, huellas, filas,
-/// bytes_fila, total)`: como queda una textura en un bufer. La casa sabe de
-/// un subrecurso 2D de 4 bytes por pixel (RGBA8, BGRA8, D32): cada fila a
-/// 256, y el total SIN el relleno de la ultima fila, como D3D12. Lo demas se
-/// dice y se da como un bufer de una fila.
+/// bytes_fila, total)`: como quedan `n` subrecursos de una textura en un
+/// bufer (02-10: cualquier formato, mips, capas y 3D; ver
+/// `subrecursos::huellas`), cada fila a 256 y cada subrecurso a 512, y el
+/// total SIN el relleno de la ultima fila, como D3D12. Un bufer es una
+/// fila. D3D12_PLACED_SUBRESOURCE_FOOTPRINT (32 B): Offset +0, Format +8,
+/// Width +12, Height +16, Depth +20, RowPitch +24.
+#[allow(clippy::too_many_arguments)]
 pub(crate) extern "win64" fn get_copyable_footprints(_this: u64, desc: *const u8, primero: u32, n: u32, desde: u64, huellas: *mut u8, filas: *mut u32, bytes_fila: *mut u64, total: *mut u64) {
     if desc.is_null() {
         return;
     }
     // SAFETY: un D3D12_RESOURCE_DESC del `.exe` (56 B).
-    let (dimension, ancho, alto, formato) = unsafe {
-        let u = |o: usize| (desc.add(o) as *const u32).read_unaligned();
-        (u(0), (desc.add(16) as *const u64).read_unaligned(), u(24), u(32))
-    };
-    let textura = dimension == 3 && matches!(formato, DXGI_FORMAT_R8G8B8A8_UNORM | DXGI_FORMAT_B8G8R8A8_UNORM | tuberia::FMT_D32_FLOAT);
-    if dimension == 3 && !textura {
-        aviso("GetCopyableFootprints de una textura que no es de 4 bytes por pixel: todavia no");
-    }
-    if n > 1 || primero != 0 {
-        aviso("GetCopyableFootprints de mas de un subrecurso: todavia solo el 0");
-    }
-    let (fila, n_filas, paso) = if textura {
-        let fila = ancho * 4;
-        (fila, alto, fila.div_ceil(PASO_DE_FILA as u64) * PASO_DE_FILA as u64)
+    let (dimension, ancho, formato) = unsafe { ((desc as *const u32).read_unaligned(), (desc.add(16) as *const u64).read_unaligned(), (desc.add(32) as *const u32).read_unaligned()) };
+    let todas: Vec<sr::Huella> = if dimension == 1 {
+        let h = sr::Huella { desde: 0, ancho: ancho as u32, alto: 1, hondo: 1, paso: ancho, filas: 1, fila: ancho };
+        alloc::vec![h; n.min(1) as usize]
     } else {
-        (ancho, 1, ancho)
+        // SAFETY: como arriba.
+        match unsafe { Forma::de(desc) } {
+            Some(f) if primero.saturating_add(n) <= f.subrecursos() => sr::huellas(&f, primero, n).0,
+            _ => {
+                aviso("GetCopyableFootprints de una textura imposible, o de subrecursos que no tiene: todo a 0xFF..., como D3D12");
+                // SAFETY: los punteros del `.exe` que no son nulos.
+                unsafe {
+                    if !total.is_null() {
+                        total.write_unaligned(u64::MAX);
+                    }
+                }
+                return;
+            }
+        }
     };
+    let suma = todas.last().map_or(0, |h| h.desde + h.paso * (h.filas as u64 * h.hondo as u64 - 1) + h.fila);
     // SAFETY: los punteros del `.exe` que no son nulos (uno por subrecurso).
     unsafe {
-        if !huellas.is_null() {
-            core::ptr::write_bytes(huellas, 0, 32);
-            (huellas as *mut u64).write_unaligned(desde);
-            let u = |o: usize, v: u32| (huellas.add(o) as *mut u32).write_unaligned(v);
-            u(8, formato);
-            u(12, ancho as u32);
-            u(16, n_filas);
-            u(20, 1);
-            u(24, paso as u32);
-        }
-        if !filas.is_null() {
-            filas.write_unaligned(n_filas);
-        }
-        if !bytes_fila.is_null() {
-            bytes_fila.write_unaligned(fila);
+        for (i, h) in todas.iter().enumerate() {
+            if !huellas.is_null() {
+                let e = huellas.add(32 * i);
+                core::ptr::write_bytes(e, 0, 32);
+                (e as *mut u64).write_unaligned(desde + h.desde);
+                let u = |o: usize, v: u32| (e.add(o) as *mut u32).write_unaligned(v);
+                u(8, formato);
+                u(12, h.ancho);
+                u(16, h.alto);
+                u(20, h.hondo);
+                u(24, h.paso as u32);
+            }
+            if !filas.is_null() {
+                filas.add(i).write_unaligned(h.filas);
+            }
+            if !bytes_fila.is_null() {
+                bytes_fila.add(i).write_unaligned(h.fila);
+            }
         }
         if !total.is_null() {
-            total.write_unaligned(paso * (n_filas as u64 - 1) + fila);
+            total.write_unaligned(suma);
         }
     }
 }
 
-/// `CopyTextureRegion(this, destino, x, y, z, origen, caja)`: lo de BMOX-12,
-/// un render target entero (SUBRESOURCE_INDEX 0) a un bufer
-/// (PLACED_FOOTPRINT). D3D12_TEXTURE_COPY_LOCATION: pResource +0, Type +8, y
-/// +16 la huella (Offset, Format, Width, Height, Depth, RowPitch) o el
-/// indice. Se APUNTA; se hace en ExecuteCommandLists, como la GPU.
+/// `CopyTextureRegion(this, destino, x, y, z, origen, caja)`: dos
+/// D3D12_TEXTURE_COPY_LOCATION (un subrecurso, o una huella en un bufer) y
+/// una D3D12_BOX del origen (nula: todo). Se APUNTA; se hace en
+/// ExecuteCommandLists, como la GPU (ver `d3d12_texturas::hacer`).
 extern "win64" fn copy_texture_region(this: u64, destino: *const u8, x: u32, y: u32, z: u32, origen: *const u8, caja: *const u8) {
     if destino.is_null() || origen.is_null() {
         return;
     }
-    // SAFETY: dos D3D12_TEXTURE_COPY_LOCATION del `.exe` (48 B).
-    let (bufer, tipo_d, desde, paso, rt, tipo_o, sub) = unsafe {
-        let u64_ = |p: *const u8, o: usize| (p.add(o) as *const u64).read_unaligned();
-        let u32_ = |p: *const u8, o: usize| (p.add(o) as *const u32).read_unaligned();
-        (u64_(destino, 0), u32_(destino, 8), u64_(destino, 16), u32_(destino, 40), u64_(origen, 0), u32_(origen, 8), u32_(origen, 16))
+    // SAFETY: dos D3D12_TEXTURE_COPY_LOCATION del `.exe` (48 B), y su
+    // D3D12_BOX (24 B) si no es nula.
+    let (d, o, caja) = unsafe {
+        let caja = (!caja.is_null()).then(|| core::array::from_fn(|k| (caja.add(4 * k) as *const u32).read_unaligned()));
+        (crate::d3d12_texturas::Ubicacion::de(destino), crate::d3d12_texturas::Ubicacion::de(origen), caja)
     };
-    if !caja.is_null() || (x, y, z) != (0, 0, 0) {
-        aviso("CopyTextureRegion con caja o desplazamiento: todavia no");
+    let (Some(destino), Some(origen)) = (d, o) else {
+        aviso("CopyTextureRegion con un tipo de ubicacion que no es de D3D12");
         return;
-    }
-    // Un bufer a una textura (subir: UpdateSubresources), o una imagen a un
-    // bufer (leer: READBACK).
-    if tipo_d == 0 && tipo_o == 1 {
-        // SAFETY: las mismas dos D3D12_TEXTURE_COPY_LOCATION, al reves.
-        let (textura, sub_d, bufer, desde, paso) = unsafe {
-            let u64_ = |p: *const u8, o: usize| (p.add(o) as *const u64).read_unaligned();
-            let u32_ = |p: *const u8, o: usize| (p.add(o) as *const u32).read_unaligned();
-            (u64_(destino, 0), u32_(destino, 16), u64_(origen, 0), u64_(origen, 16), u32_(origen, 40))
-        };
-        if sub_d != 0 {
-            aviso("CopyTextureRegion a un subrecurso que no es el 0 (mipmaps, arrays): todavia no");
-            return;
-        }
-        // SAFETY: `this` es una Lista de la casa.
-        unsafe { de::<Lista>(this) }.ordenes.push(Orden::Subir { textura, bufer, desde, paso });
-        return;
-    }
-    if tipo_d != 1 || tipo_o != 0 || sub != 0 {
-        aviso("CopyTextureRegion: una imagen entera (subrecurso 0) a un bufer, o un bufer a una textura; otra cosa, todavia no");
-        return;
-    }
+    };
     // SAFETY: `this` es una Lista de la casa.
-    unsafe { de::<Lista>(this) }.ordenes.push(Orden::Copiar { rt, bufer, desde, paso });
-}
-
-/// Hacer la copia apuntada: cada fila del render target (sus bytes tal como
-/// estan en memoria) en el bufer, a `paso` bytes una de otra.
-fn copiar(rt: u64, bufer: u64, desde: u64, paso: u32) {
-    // SAFETY: dos Recurso de la casa (lo que un `.exe` da a CopyTextureRegion).
-    let (r, b) = unsafe { (de::<Recurso>(rt), de::<Recurso>(bufer)) };
-    let Some(destino) = b.bufer.as_ref() else {
-        aviso("CopyTextureRegion a algo que no es un bufer");
-        return;
-    };
-    let fila = r.ancho as u64 * 4;
-    if r.bufer.is_some() || (paso as u64) < fila || desde + paso as u64 * (r.alto as u64).saturating_sub(1) + fila > destino.bytes as u64 {
-        aviso("CopyTextureRegion: la huella no cabe en el bufer (o el origen no es una imagen)");
-        return;
-    }
-    tuberia::aplicar_limpieza(rt);
-    for (y, px) in r.pixeles.chunks_exact(r.ancho as usize).enumerate() {
-        let o = destino.base() + desde + y as u64 * paso as u64;
-        for (k, p) in px.iter().enumerate() {
-            // SAFETY: dentro del bufer de la casa: se comprobo arriba.
-            unsafe { ((o + 4 * k as u64) as *mut u32).write_unaligned(*p) };
-        }
-    }
-}
-
-/// Hacer la subida apuntada: cada fila del bufer (a `paso` bytes una de
-/// otra) a la textura, tal cual.
-fn subir(textura: u64, bufer: u64, desde: u64, paso: u32) {
-    // SAFETY: dos Recurso de la casa (lo que un `.exe` da a CopyTextureRegion).
-    let (t, b) = unsafe { (de::<Recurso>(textura), de::<Recurso>(bufer)) };
-    let Some(origen) = b.bufer.as_ref() else {
-        aviso("CopyTextureRegion desde algo que no es un bufer");
-        return;
-    };
-    let fila = t.ancho as u64 * 4;
-    if t.bufer.is_some() || (paso as u64) < fila || desde + paso as u64 * (t.alto as u64).saturating_sub(1) + fila > origen.bytes as u64 {
-        aviso("CopyTextureRegion: la huella no cabe en el bufer (o el destino no es una textura)");
-        return;
-    }
-    tuberia::olvidar_limpieza(textura);
-    for (y, px) in t.pixeles.chunks_exact_mut(t.ancho as usize).enumerate() {
-        let o = origen.base() + desde + y as u64 * paso as u64;
-        for (k, p) in px.iter_mut().enumerate() {
-            // SAFETY: dentro del bufer de la casa: se comprobo arriba.
-            *p = unsafe { ((o + 4 * k as u64) as *const u32).read_unaligned() };
-        }
-    }
+    unsafe { de::<Lista>(this) }.ordenes.push(Orden::Region(crate::d3d12_texturas::Region { destino, en: [x, y, z], origen, caja }));
 }
 
 // -- La cola, el asignador y la valla ---------------------------------------
@@ -985,12 +940,20 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
                 // quien lea los pixeles antes (Present, CopyTextureRegion).
                 // Asi, con la 3060 dibujando, la CPU no llena 3,6 MB por
                 // limpieza y por fotograma.
-                Orden::Limpiar { recurso, pixel } => tuberia::limpieza_pendiente(*recurso, *pixel),
+                Orden::Limpiar { recurso, sub: 0, pixel } => tuberia::limpieza_pendiente(*recurso, *pixel),
+                // La de otro subrecurso (una mip, una capa): ya.
+                Orden::Limpiar { recurso, sub, pixel } => match tuberia::destino(*recurso, *sub) {
+                    Some((px, _, _)) => px.fill(*pixel),
+                    None => aviso("ClearRenderTargetView/ClearDepthStencilView de un subrecurso que la textura no tiene"),
+                },
                 Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado } => {
                     tuberia::ejecutar_dibujo(estado, *cuantos, *instancias, *primero, *base, *indexado);
                 }
-                Orden::Copiar { rt, bufer, desde, paso } => copiar(*rt, *bufer, *desde, *paso),
-                Orden::Subir { textura, bufer, desde, paso } => subir(*textura, *bufer, *desde, *paso),
+                Orden::Region(c) => {
+                    if let Err(m) = crate::d3d12_texturas::hacer(c) {
+                        aviso(&alloc::format!("CopyTextureRegion no se hace: {m}"));
+                    }
+                }
                 o => crate::d3d12_resto::ejecutar(o),
             }
         }

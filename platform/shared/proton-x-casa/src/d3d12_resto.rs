@@ -35,7 +35,7 @@ use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 
 use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, S_OK};
-use crate::d3d12::{Cola, Lista, Monton, Orden, Recurso, DESCRIPTOR_BYTES, DESC_CBV, DESC_UAV};
+use crate::d3d12::{Cola, Lista, Monton, Orden, Recurso, DESCRIPTOR_BYTES, DESC_CBV};
 use crate::tuberia::Estado;
 use crate::{aviso, dir};
 
@@ -44,7 +44,7 @@ pub(crate) fn dispositivo() -> [(usize, u64); 13] {
     [
         (11, dir!(create_compute_pipeline_state)),
         (17, dir!(create_constant_buffer_view)),
-        (19, dir!(create_unordered_access_view)),
+        (19, dir!(crate::d3d12_vistas::create_unordered_access_view)),
         (23, dir!(copy_descriptors)),
         (24, dir!(copy_descriptors_simple)),
         (26, dir!(get_custom_heap_properties)),
@@ -186,22 +186,6 @@ extern "win64" fn create_constant_buffer_view(_this: u64, desc: *const u8, handl
         r.write(va);
         r.add(1).write(DESC_CBV);
         r.add(2).write(n);
-        r.add(3).write(0);
-    }
-}
-
-/// `CreateUnorderedAccessView(this, recurso, contador, desc, handle)`: el
-/// recurso y la marca.
-extern "win64" fn create_unordered_access_view(_this: u64, recurso: u64, _contador: u64, _desc: *const u8, handle: u64) {
-    if handle == 0 {
-        return;
-    }
-    // SAFETY: como arriba.
-    unsafe {
-        let r = handle as *mut u64;
-        r.write(recurso);
-        r.add(1).write(DESC_UAV);
-        r.add(2).write(0);
         r.add(3).write(0);
     }
 }
@@ -571,13 +555,18 @@ fn copiar_entero(dst: u64, src: u64) {
         }
         (None, None) => {
             crate::tuberia::aplicar_limpieza(src);
-            // SAFETY: dos Recursos de la casa (imagenes).
+            crate::tuberia::olvidar_limpieza(dst);
+            // SAFETY: dos Recursos de la casa (texturas).
             let (d, s) = unsafe { (de::<Recurso>(dst), de::<Recurso>(src)) };
-            if (d.ancho, d.alto) == (s.ancho, s.alto) && d.pixeles.len() == s.pixeles.len() {
-                d.pixeles.copy_from_slice(&s.pixeles);
-                crate::tuberia::olvidar_limpieza(dst);
-            } else {
-                aviso("CopyResource entre imagenes de otra medida: en Windows es un error");
+            match (&d.tex, &s.tex) {
+                // 02-10: la textura ENTERA (todas sus mips y capas), si se
+                // guardan igual: mismas medidas por dentro.
+                (Some(td), Some(ts)) if td.almacen.elemento() == ts.almacen.elemento() && td.subs == ts.subs => {
+                    let n: u64 = ts.subs.iter().map(|x| x.bytes()).sum();
+                    // SAFETY: las dos memorias de texturas de la casa, de `n` bytes.
+                    unsafe { core::ptr::copy(ts.datos as *const u8, td.datos as *mut u8, n as usize) };
+                }
+                _ => aviso("CopyResource entre texturas de otra forma: en Windows es un error"),
             }
         }
         _ => aviso("CopyResource entre un bufer y una imagen: en Windows es un error"),
@@ -658,16 +647,21 @@ fn caja(b: *const u8, ancho: u32, alto: u32) -> Option<(u32, u32, u32, u32)> {
     (x0 < x1 && y0 < y1 && x1 <= ancho && y1 <= alto).then(|| (x0, y0, x1 - x0, y1 - y0))
 }
 
-/// Copiar filas entre la memoria del `.exe` (`p`, `paso` bytes por fila) y
-/// un recurso de la casa. `escribir`: del `.exe` al recurso.
-fn filas(this: u64, sub: u32, b: *const u8, p: *mut u8, paso: u32, escribir: bool) -> i32 {
-    if sub != 0 || p.is_null() {
+/// Copiar entre la memoria del `.exe` (`p`: filas de `paso` bytes,
+/// rebanadas de `capa`) y un recurso de la casa. `escribir`: del `.exe` al
+/// recurso. Una textura, cualquier subrecurso y caja (02-10; ver
+/// `d3d12_texturas::con_el_exe`).
+fn filas(this: u64, sub: u32, b: *const u8, p: *mut u8, paso: u32, capa: u32, escribir: bool) -> i32 {
+    if p.is_null() {
         return E_INVALIDARG;
     }
     // SAFETY: un Recurso de la casa.
     let r = unsafe { de::<Recurso>(this) };
     if let Some(bf) = r.bufer.as_ref() {
         let Some((x, _, n, _)) = caja(b, bf.bytes as u32, 1) else { return E_INVALIDARG };
+        if sub != 0 {
+            return E_INVALIDARG;
+        }
         // SAFETY: `n` bytes del `.exe` y del bufer, dentro de los dos.
         unsafe {
             let a = (bf.base() + x as u64) as *mut u8;
@@ -679,35 +673,24 @@ fn filas(this: u64, sub: u32, b: *const u8, p: *mut u8, paso: u32, escribir: boo
         }
         return S_OK;
     }
-    let Some((x, y, w, h)) = caja(b, r.ancho, r.alto) else { return E_INVALIDARG };
-    if !escribir {
-        crate::tuberia::aplicar_limpieza(this);
-    }
-    for f in 0..h as usize {
-        let desde = (y as usize + f) * r.ancho as usize + x as usize;
-        // SAFETY: `w` pixeles de 4 bytes por fila, a `paso` bytes, del `.exe`.
-        let e = unsafe { core::slice::from_raw_parts_mut(p.add(f * paso as usize) as *mut u32, w as usize) };
-        let px = &mut r.pixeles[desde..desde + w as usize];
-        if escribir {
-            px.copy_from_slice(e);
-        } else {
-            e.copy_from_slice(px);
+    // SAFETY: `p` es memoria del `.exe` que cubre la caja con esos pasos.
+    match unsafe { crate::d3d12_texturas::con_el_exe(this, sub, b, p, paso, capa, escribir) } {
+        Ok(()) => S_OK,
+        Err(m) => {
+            aviso(&alloc::format!("WriteToSubresource/ReadFromSubresource: {m}: E_INVALIDARG"));
+            E_INVALIDARG
         }
     }
-    if escribir {
-        crate::tuberia::olvidar_limpieza(this);
-    }
-    S_OK
 }
 
 /// `WriteToSubresource(this, sub, caja, origen, paso_fila, paso_capa)`.
-pub(crate) extern "win64" fn write_to_subresource(this: u64, sub: u32, b: *const u8, origen: *const u8, paso: u32, _capa: u32) -> i32 {
-    filas(this, sub, b, origen as *mut u8, paso, true)
+pub(crate) extern "win64" fn write_to_subresource(this: u64, sub: u32, b: *const u8, origen: *const u8, paso: u32, capa: u32) -> i32 {
+    filas(this, sub, b, origen as *mut u8, paso, capa, true)
 }
 
 /// `ReadFromSubresource(this, destino, paso_fila, paso_capa, sub, caja)`.
-pub(crate) extern "win64" fn read_from_subresource(this: u64, destino: *mut u8, paso: u32, _capa: u32, sub: u32, b: *const u8) -> i32 {
-    filas(this, sub, b, destino, paso, false)
+pub(crate) extern "win64" fn read_from_subresource(this: u64, destino: *mut u8, paso: u32, capa: u32, sub: u32, b: *const u8) -> i32 {
+    filas(this, sub, b, destino, paso, capa, false)
 }
 
 #[cfg(test)]

@@ -824,6 +824,9 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
                 e.poner(c::fadd(x, fa, c::neg(RZ), sat, 0), Clase::Fma, Some(x), [Some(ra), None, None]);
             }
             Op::Div { .. } => return Err(NoEmite::Operacion(i)),
+            // 02-10: arrays, cubos, 3D, mips, Load y GetDimensions: en la
+            // CPU todavia (la 3060 lee aqui un TEX 2D de nivel 0).
+            Op::Lee { .. } => return Err(NoEmite::Operacion(i)),
         }
         // Lo de paso, y lo que ya nadie lee, se devuelve.
         for t in paso {

@@ -67,6 +67,12 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
             v[0] = Some(u);
             v[1] = Some(vv);
         }
+        Op::Lee { c, nivel, .. } => {
+            for (k, r) in c.into_iter().enumerate() {
+                v[k] = Some(r);
+            }
+            v[4] = Some(nivel);
+        }
         Op::Si { c } | Op::RomperSi { c, .. } => v[0] = Some(c),
         Op::Entrada { .. } | Op::Constantes { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::Romper | Op::Continuar | Op::FinBucle => {}
     }
@@ -80,7 +86,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         // Lo que lee algo que no cambia: nunca variable.
         Op::Entrada { d, .. } => ([Some(d), None, None, None], true),
         Op::Constantes { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], true),
-        Op::Muestra { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
+        Op::Muestra { d, .. } | Op::Lee { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
         Op::Mul { d, .. }
         | Op::Add { d, .. }
         | Op::Sub { d, .. }

@@ -33,7 +33,7 @@ use bmo_gpu_ga10x::destino::Destino;
 use bmo_gpu_ga10x::pegamento::{Carga, Elemento};
 use bmo_gpu_ga10x::profundidad::Z;
 use bmo_gpu_ga10x::texturas::{DeApp, Muestreo, MAX_TEXTURAS};
-use bmo_proton_x::textura::{Direccion, Filtro};
+use bmo_proton_x::textura::{Clase, Como, Direccion, Filtro, Textura};
 use bmo_gpu_ga10x::receta::{self, Receta, Taller, MAX_CARGAS, MAX_ELEMENTOS, MAX_GENERICOS, NINGUNA, NINGUNO};
 use bmo_gpu_ga10x::tuberia::{Descarte, Dibujo, DATOS_MAX};
 use bmo_proton_x::lote::{ElementoIa, Enlace, Lote, Topologia};
@@ -206,8 +206,13 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         let (Some(Some(t)), Some(Some(m))) = (l.recursos.texturas.get(tn as usize), l.recursos.muestreadores.get(sm as usize)) else {
             return Err(format!("el sombreador muestrea t{tn} con s{sm} y el lote no los tiene atados"));
         };
+        // 02-10: la 3060 lee aqui RGBA/BGRA de 8 bits, lineales y con el
+        // mapeo de siempre; un BC, un float, un sRGB o un mapeo, en la CPU.
+        if !matches!(t.como, Como::Rgba8 | Como::Bgra8) || t.srgb || t.mapeo & 0xFFF != Textura::MAPEO & 0xFFF || t.clase != Clase::Plana || (t.mip, t.capa) != (0, 0) {
+            return Err(format!("la textura t{tn} es BC, float, sRGB, con otro mapeo o una vista que no es la mip 0 de una 2D: la 3060 todavia lee solo eso"));
+        }
         let muestreo = Muestreo { lineal: m.filtro == Filtro::Lineal, u: d3d(m.u), v: d3d(m.v), borde: m.borde };
-        let d = DeApp { va: t.texeles.as_ptr() as u64, ancho: t.ancho, alto: t.alto, fila: 4 * t.ancho, bgra: t.bgra, muestreo };
+        let d = DeApp { va: t.texeles.as_ptr() as u64, ancho: t.ancho, alto: t.alto, fila: 4 * t.ancho, bgra: t.bgra(), muestreo };
         if t.texeles.len() < (t.ancho * t.alto) as usize || !d.valida() {
             return Err(format!(
                 "la textura t{tn} ({}x{}, VA {:#x}): la 3060 la lee con filas de 32 B, desde 32 B y en 1 MiB; esta no",

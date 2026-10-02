@@ -161,10 +161,29 @@ fn dibujar_y_su_tex(l: &bmo_proton_x::lote::Lote, d: &mut bmo_proton_x::trama::D
     bmo_proton_x::lote::en_cpu(l, d)
 }
 
+/// Las pruebas de este fichero empiezan la casa: de una en una.
+static LLAVE: Mutex<()> = Mutex::new(());
+
+/// 02-10: la textura BC1 de 8x8 con 2 capas y la cadena de mips entera
+/// (4: 8, 4, 2 y 1): cada subrecurso, de un color 565 suyo.
+const PALETA: [u16; 8] = [0xF800, 0x07E0, 0x001F, 0xFFE0, 0xF81F, 0x07FF, 0x8410, 0xFFFF];
+
+/// Un 565 a `0xAABBGGRR` como lo expande BC1 (`(c << 3) | (c >> 2)`, ...).
+fn de_565(c: u16) -> u32 {
+    let (r, g, b) = ((c >> 11) as u32, (c >> 5 & 0x3F) as u32, (c & 0x1F) as u32);
+    0xFF00_0000 | (b << 3 | b >> 2) << 16 | (g << 2 | g >> 4) << 8 | (r << 3 | r >> 2)
+}
+
+/// Lo que la casa dio de una textura BC1 (02-10): sus huellas y lo que se
+/// leyo de vuelta del subrecurso 5.
+static DE_LA_BC1: Mutex<Option<(Vec<[u64; 4]>, u64, Vec<u8>)>> = Mutex::new(None);
+
 /// **HelloTexture por la casa.** `version_1_1`: la firma como la manda
 /// d3dx12 cuando el dispositivo dice 1.1 (la casa dice 1.0, y d3dx12 la
-/// convierte; aqui se prueban los dos caminos).
-fn hello_texture(version_1_1: bool) -> Vec<u32> {
+/// convierte; aqui se prueban los dos caminos). `bc`: en vez de la 8x8 RGBA,
+/// la BC1 de [`PALETA`], y el SRV es de un ARRAY (mip 1, capa 1: el
+/// subrecurso 5).
+fn hello_texture(version_1_1: bool, bc: bool) -> Vec<u32> {
     DICHO.lock().unwrap().clear();
     // SAFETY: ningun `.exe` corre; esta prueba no corre en paralelo con otra
     // que empiece la casa (es la unica de este fichero).
@@ -248,23 +267,62 @@ fn hello_texture(version_1_1: bool) -> Vec<u32> {
 
     // La textura, y su subida (UpdateSubresources): un bufer con filas de
     // 256 B (D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) y CopyTextureRegion.
-    let tex = recurso(disp, &desc_recurso(3, 8, 8, 28));
-    let subida = recurso(disp, &desc_recurso(1, 256 * 8, 1, 0));
+    let mut desc_tex = desc_recurso(3, 8, 8, if bc { 71 } else { 28 });
+    if bc {
+        desc_tex[28..30].copy_from_slice(&2u16.to_le_bytes()); // 2 capas
+        desc_tex[30..32].copy_from_slice(&0u16.to_le_bytes()); // toda la cadena
+    }
+    let tex = recurso(disp, &desc_tex);
+    // Las huellas (GetCopyableFootprints): de todos los subrecursos.
+    let n_subs = if bc { 8 } else { 1 };
+    let (mut huellas, mut filas, mut bytes_fila, mut total) = ([0u8; 32 * 8], [0u32; 8], [0u64; 8], 0u64);
+    let gcf: extern "win64" fn(u64, *const u8, u32, u32, u64, *mut u8, *mut u32, *mut u64, *mut u64) = hueco(disp, 38);
+    gcf(disp, desc_tex.as_ptr(), 0, n_subs, 0, huellas.as_mut_ptr(), filas.as_mut_ptr(), bytes_fila.as_mut_ptr(), &mut total);
+    let huella = |k: usize| {
+        let h = &huellas[32 * k..32 * k + 32];
+        let u = |o: usize| u32::from_le_bytes(h[o..o + 4].try_into().unwrap());
+        (u64::from_le_bytes(h[0..8].try_into().unwrap()), u(8), u(12), u(16), u(20), u(24))
+    };
+    let subida = recurso(disp, &desc_recurso(1, total.max(256 * 8), 1, 0));
     let p = mapear(subida);
-    for y in 0..8u32 {
-        for x in 0..8u32 {
-            // SAFETY: dentro del bufer de la casa (256 * 8 bytes).
-            unsafe { (p.add((256 * y + 4 * x) as usize) as *mut u32).write_unaligned(texel(x, y)) };
+    if bc {
+        // Cada subrecurso, sus bloques de un color: c0 = c1, indices a 0.
+        for k in 0..8 {
+            let (desde, _, _, _, _, paso) = huella(k);
+            for f in 0..filas[k] as u64 {
+                for b in 0..bytes_fila[k] / 8 {
+                    let c = PALETA[k].to_le_bytes();
+                    let bloque = [c[0], c[1], c[0], c[1], 0, 0, 0, 0];
+                    // SAFETY: dentro del bufer de subida (`total` bytes).
+                    unsafe { core::ptr::copy_nonoverlapping(bloque.as_ptr(), p.add((desde + f * paso as u64 + 8 * b) as usize), 8) };
+                }
+            }
+        }
+        *DE_LA_BC1.lock().unwrap() = Some(((0..8).map(|k| { let h = huella(k); [h.0, h.2 as u64 | (h.3 as u64) << 32, h.5 as u64, filas[k] as u64 | bytes_fila[k] << 32] }).collect(), total, Vec::new()));
+    } else {
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                // SAFETY: dentro del bufer de la casa (256 * 8 bytes).
+                unsafe { (p.add((256 * y + 4 * x) as usize) as *mut u32).write_unaligned(texel(x, y)) };
+            }
         }
     }
-    // El SRV, en un monton CBV_SRV_UAV SHADER_VISIBLE.
+    // El SRV, en un monton CBV_SRV_UAV SHADER_VISIBLE: una 2D; o, de la BC1,
+    // un ARRAY desde la mip 1 y la capa 1.
     let (_srvs, srv_cpu, srv_gpu) = monton(disp, 0, 1, true);
     let csrv: extern "win64" fn(u64, u64, *const u8, u64) = hueco(disp, 18);
     let mut vista = [0u8; 40];
-    vista[0..4].copy_from_slice(&28u32.to_le_bytes());
-    vista[4..8].copy_from_slice(&4u32.to_le_bytes()); // TEXTURE2D
+    vista[0..4].copy_from_slice(&(if bc { 71u32 } else { 28 }).to_le_bytes());
+    vista[4..8].copy_from_slice(&(if bc { 5u32 } else { 4 }).to_le_bytes()); // TEXTURE2D(ARRAY)
     vista[8..12].copy_from_slice(&0x1688u32.to_le_bytes());
-    vista[20..24].copy_from_slice(&1u32.to_le_bytes()); // MipLevels
+    if bc {
+        vista[16..20].copy_from_slice(&1u32.to_le_bytes()); // MostDetailedMip
+        vista[20..24].copy_from_slice(&u32::MAX.to_le_bytes()); // MipLevels: todas
+        vista[24..28].copy_from_slice(&1u32.to_le_bytes()); // FirstArraySlice
+        vista[28..32].copy_from_slice(&1u32.to_le_bytes()); // ArraySize
+    } else {
+        vista[20..24].copy_from_slice(&1u32.to_le_bytes()); // MipLevels
+    }
     csrv(disp, tex, vista.as_ptr(), srv_cpu);
 
     // El render target (64x64) y su RTV; los vertices (dos triangulos que
@@ -307,7 +365,31 @@ fn hello_texture(version_1_1: bool) -> Vec<u32> {
         }
         x
     };
-    copia(&ubicacion(tex, 0, None), &ubicacion(subida, 1, Some((8, 8, 256))));
+    // Un subrecurso (Type 0) o una huella entera de GetCopyableFootprints
+    // (Type 1).
+    let sub = |r: u64, k: u32| {
+        let mut x = [0u8; 48];
+        x[0..8].copy_from_slice(&r.to_le_bytes());
+        x[16..20].copy_from_slice(&k.to_le_bytes());
+        x
+    };
+    let de_huella = |r: u64, k: usize| {
+        let mut x = [0u8; 48];
+        x[0..8].copy_from_slice(&r.to_le_bytes());
+        x[8..12].copy_from_slice(&1u32.to_le_bytes());
+        x[16..48].copy_from_slice(&huellas[32 * k..32 * k + 32]);
+        x
+    };
+    let leida = recurso(disp, &desc_recurso(1, 4096, 1, 0));
+    if bc {
+        for k in 0..8 {
+            copia(&sub(tex, k as u32), &de_huella(subida, k));
+        }
+        // Y de vuelta: el subrecurso 5 (mip 1 de la capa 1) a otro bufer.
+        copia(&de_huella(leida, 5), &sub(tex, 5));
+    } else {
+        copia(&sub(tex, 0), &ubicacion(subida, 1, Some((8, 8, 256))));
+    }
     let set_raiz: extern "win64" fn(u64, u64) = hueco(l, 30);
     set_raiz(l, raiz);
     let set_montones: extern "win64" fn(u64, u32, *const u64) = hueco(l, 28);
@@ -336,6 +418,13 @@ fn hello_texture(version_1_1: bool) -> Vec<u32> {
     assert_eq!(cerrar(l), 0);
     let ejecutar: extern "win64" fn(u64, u32, *const u64) = hueco(cola, 10);
     ejecutar(cola, 1, &l);
+    if bc {
+        let (desde, ..) = huella(5);
+        let r = mapear(leida);
+        // SAFETY: dentro del bufer `leida` (4096 bytes).
+        let v = unsafe { core::slice::from_raw_parts(r.add(desde as usize), 8) }.to_vec();
+        DE_LA_BC1.lock().unwrap().as_mut().unwrap().2 = v;
+    }
 
     let q = mapear(lectura);
     (0..64 * 64).map(|i| {
@@ -349,8 +438,9 @@ fn hello_texture(version_1_1: bool) -> Vec<u32> {
 /// `floor(uv * 8)` en su centro (PUNTO); con la firma en 1.0 y en 1.1.
 #[test]
 fn hellotexture_dibuja_su_textura() {
+    let _llave = LLAVE.lock().unwrap_or_else(|e| e.into_inner());
     for version_1_1 in [false, true] {
-        let img = hello_texture(version_1_1);
+        let img = hello_texture(version_1_1, false);
         let dicho = String::from_utf8_lossy(&DICHO.lock().unwrap()).into_owned();
         // Lo UNICO que dice: que ese PSO se interpreta (el JIT aun no muestrea).
         assert_eq!(dicho, "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)\n");
@@ -373,4 +463,32 @@ fn hellotexture_dibuja_su_textura() {
     for (texturas, juzgado, texs) in vistos.iter() {
         assert_eq!((texturas.as_slice(), *juzgado, *texs), (&[(0u8, 0u8)][..], true, 1));
     }
+}
+
+/// *** 02-10: una textura BC1 con MIPS y CAPAS por la casa, como las de un
+/// juego: GetCopyableFootprints de sus 8 subrecursos (las huellas de
+/// D3D12: filas a 256, subrecursos a 512, en bloques), la subida de cada
+/// uno por su huella, la lectura de vuelta de uno, y un DIBUJO con un SRV de
+/// ARRAY desde la mip 1 de la capa 1: cada pixel, el color de ese
+/// subrecurso, descomprimido.
+#[test]
+fn una_bc1_con_mips_y_capas_se_sube_se_lee_y_se_dibuja() {
+    let _llave = LLAVE.lock().unwrap_or_else(|e| e.into_inner());
+    let img = hello_texture(true, true);
+    let dicho = String::from_utf8_lossy(&DICHO.lock().unwrap()).into_owned();
+    assert!(!dicho.contains("CopyTextureRegion no se hace"), "{dicho}");
+    let (huellas, total, leido) = DE_LA_BC1.lock().unwrap().take().unwrap();
+    // [desde, ancho | alto << 32, paso, filas | bytes_fila << 32]: la mip 0
+    // (8x8: 2x2 bloques de 8 B), la 1 (4x4: un bloque) a 512, la 2 (2x2) y
+    // la 3 (1x1) en un bloque de 4x4; la capa 1 detras, a 512 cada uno.
+    let h = |d: u64, w: u64, a: u64, f: u64, b: u64| [d, w | a << 32, 256, f | b << 32];
+    assert_eq!(huellas, [h(0, 8, 8, 2, 16), h(512, 4, 4, 1, 8), h(1024, 4, 4, 1, 8), h(1536, 4, 4, 1, 8), h(2048, 8, 8, 2, 16), h(2560, 4, 4, 1, 8), h(3072, 4, 4, 1, 8), h(3584, 4, 4, 1, 8)]);
+    assert_eq!(total, 3584 + 8);
+    // Lo que se leyo de vuelta del subrecurso 5: su bloque, tal cual.
+    let c = PALETA[5].to_le_bytes();
+    assert_eq!(leido, [c[0], c[1], c[0], c[1], 0, 0, 0, 0]);
+    // El dibujo: todo del color del subrecurso 5 (la mip 1 de la capa 1).
+    let esperado = de_565(PALETA[5]);
+    let malos = img.iter().filter(|&&p| p != esperado).count();
+    assert_eq!(malos, 0, "{:08x} y se esperaba {esperado:08x}; dijo: {dicho}", img[0]);
 }

@@ -64,6 +64,12 @@ pub mod cxx4;
 pub mod com_objeto;
 pub mod d3d12;
 pub mod d3d12_medidas;
+/// 02-10: las texturas de verdad -- cualquier formato, mips, capas, 1D/2D/3D.
+pub mod subrecursos;
+/// 02-10: las copias de texturas por subrecurso, con caja.
+pub mod d3d12_texturas;
+/// 02-10: las vistas (SRV, RTV, DSV, UAV) de todas las dimensiones.
+pub mod d3d12_vistas;
 pub mod d3d12_lista2;
 pub mod fallas;
 pub mod d3d12_resto;

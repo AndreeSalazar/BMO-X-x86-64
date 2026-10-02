@@ -262,7 +262,7 @@ fn el_pixel_de_hellotexture_es_un_tex() {
     let asa_reg = match asas[0] { Precarga::Asa { reg, .. } => reg, _ => unreachable!() };
     assert_eq!(bmo_gpu_ga10x::sass::juez::juzgar_cuerpo_con_asas(&e.codigo, e.registros, 1 << asa_reg), Ok(()));
     let t: Vec<u32> = (0..64u32).map(|k| (k * 37 & 0xFF) | (k * 91 & 0xFF) << 8 | (255 - k * 3) << 16 | 0xFF << 24).collect();
-    let tx = [Some(Textura { texeles: &t, ancho: 8, alto: 8, bgra: false })];
+    let tx = [Some(Textura::rgba(&t, 8, 8, false))];
     for filtro in [Filtro::Punto, Filtro::Lineal] {
         let ms = [Some(Muestreador { filtro, u: Direccion::Repetir, v: Direccion::Espejo, borde: [0.0; 4] })];
         let rec = Recursos { texturas: &tx, muestreadores: &ms };
@@ -303,7 +303,7 @@ fn la_tabla_del_metal_es_la_de_la_casa() {
     use bmo_gpu_ga10x::texturas::prueba as pr;
     use bmo_proton_x::textura::{Direccion, Filtro, Muestreador, Textura};
     let t: Vec<u32> = (0..16u32).map(|i| (i % 4) * 60 | (i / 4 * 60) << 8 | ((i % 4 + i / 4) * 20) << 16 | 255 << 24).collect();
-    let tx = Textura { texeles: &t, ancho: 4, alto: 4, bgra: false };
+    let tx = Textura::rgba(&t, 4, 4, false);
     for (m, &(lineal, modo)) in pr::MUESTREADORES.iter().enumerate() {
         let d = [Direccion::Repetir, Direccion::Espejo, Direccion::Sujetar, Direccion::Borde][modo as usize - 1];
         let mu = Muestreador { filtro: if lineal { Filtro::Lineal } else { Filtro::Punto }, u: d, v: d, borde: pr::BORDE };

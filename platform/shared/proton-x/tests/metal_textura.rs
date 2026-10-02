@@ -49,7 +49,7 @@ fn muestras() -> Vec<Muestra> {
 #[test]
 fn la_cpu_contra_la_3060() {
     let t = texeles();
-    let tx = Textura { texeles: &t, ancho: 4, alto: 4, bgra: false };
+    let tx = Textura::rgba(&t, 4, 4, false);
     let ms = muestras();
     assert_eq!(ms.len(), 96, "las 96 de la 3060");
     let (mut iguales, mut peor) = (0, 0f32);

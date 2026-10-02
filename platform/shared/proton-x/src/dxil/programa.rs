@@ -98,6 +98,11 @@ const DX_STORE_OUTPUT: i64 = 5;
 const DX_CREATE_HANDLE: i64 = 57;
 const DX_CBUFFER_LOAD_LEGACY: i64 = 59;
 const DX_SAMPLE: i64 = 60;
+const DX_SAMPLE_BIAS: i64 = 61;
+const DX_SAMPLE_LEVEL: i64 = 62;
+const DX_SAMPLE_GRAD: i64 = 63;
+const DX_TEXTURE_LOAD: i64 = 66;
+const DX_GET_DIMENSIONS: i64 = 72;
 
 /// Por que un sombreador no se deja correr. El texto dice CUAL cosa.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -143,6 +148,15 @@ pub enum Op {
     /// `Sample`: la textura `t` (el registro tN) con el muestreador `s` (sN)
     /// en `(u, v)`; los cuatro canales (R, G, B, A) en `d..d+4`.
     Muestra { d: Reg, t: u8, s: u8, u: Reg, v: Reg },
+    /// 02-10: leer una textura con lo que `Muestra` (2D, la mip de la
+    /// vista) no dice: `Sample` con mas coordenadas (arrays, cubos, 3D) o
+    /// desplazado, `SampleLevel`, `SampleBias` y `SampleGrad` (sin su sesgo
+    /// ni sus gradientes: la mip de la vista), `Load` y `GetDimensions` (ver
+    /// [`Lectura`]). `c`: las coordenadas (floats, o enteros en `Load`; las
+    /// que no trae, un registro a 0); `nivel`: la mip (un float en
+    /// SampleLevel, un entero en Load y GetDimensions); `desp`: el
+    /// desplazamiento en texeles. Los cuatro canales en `d..d+4`.
+    Lee { d: Reg, t: u8, s: u8, como: Lectura, c: [Reg; 4], nivel: Reg, desp: [i8; 3] },
 
     // -- E6 (02-10): comparar, elegir y saltar. Un registro guarda BITS: un
     // float, un entero (complemento a dos) o un booleano de D3D (0xFFFFFFFF
@@ -331,6 +345,20 @@ pub struct Programa {
     pub filas_cb: u16,
 }
 
+/// **Como lee una textura** [`Op::Lee`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Lectura {
+    /// `Sample` (y Bias y Grad): la mip mas detallada de la vista.
+    Muestra,
+    /// `SampleLevel`: la mip de `nivel` (float).
+    Nivel,
+    /// `Load`: el texel de coordenadas enteras; `enteros`, del formato
+    /// entero (`.i32`), los canales como enteros.
+    Carga { enteros: bool },
+    /// `GetDimensions`: ancho, alto, profundidad o capas, mips (enteros).
+    Medidas,
+}
+
 impl Programa {
     /// **Correr el sombreador una vez.** `entradas` y `salidas` por el id del
     /// elemento en su firma; `cb`, los bytes del cbuffer (lo que falte se lee
@@ -341,7 +369,7 @@ impl Programa {
 
     /// Si el programa lee alguna textura (`Sample`).
     pub fn muestrea(&self) -> bool {
-        self.ops.iter().any(|o| matches!(o, Op::Muestra { .. }))
+        self.ops.iter().any(|o| matches!(o, Op::Muestra { .. } | Op::Lee { .. }))
     }
 
     /// Si el programa salta (E6): `si`, bucles, o lo que lee bits como
@@ -517,9 +545,45 @@ impl Programa {
                     let c = rec.muestrear(t, s, regs[u as usize], regs[v as usize]);
                     regs[d as usize..d as usize + 4].copy_from_slice(&c);
                 }
+                Op::Lee { d, t, s, como, c, nivel, desp } => {
+                    let f = c.map(|r| regs[r as usize]);
+                    let b = |r: Reg| regs[r as usize].to_bits();
+                    let x = match como {
+                        Lectura::Muestra => rec.muestrear_en(t, s, f, None, desp).map(f32::to_bits),
+                        Lectura::Nivel => rec.muestrear_en(t, s, f, Some(regs[nivel as usize]), desp).map(f32::to_bits),
+                        Lectura::Carga { enteros } => rec.cargar(t, [b(c[0]) as i32, b(c[1]) as i32, b(c[2]) as i32], b(nivel) as i32, desp, enteros),
+                        Lectura::Medidas => rec.medidas(t, b(nivel)),
+                    };
+                    for (k, v) in x.into_iter().enumerate() {
+                        regs[d as usize + k] = f32::from_bits(v);
+                    }
+                }
             }
         }
     }
+}
+
+/// Cuatro registros seguidos (lo que devuelve un ResRet), el primero.
+fn cuatro(c: &mut Compilador) -> Result<Reg, NoPrograma> {
+    let d = c.registro(0.0)?;
+    for _ in 0..3 {
+        c.registro(0.0)?;
+    }
+    Ok(d)
+}
+
+/// Los desplazamientos de un Sample o un Load: enteros constantes (o
+/// `undef`, 0), de -8 a 7 como en D3D.
+fn desplazamientos(c: &Compilador, ids: [usize; 3]) -> Result<[i8; 3], NoPrograma> {
+    let mut v = [0i8; 3];
+    for (k, id) in ids.into_iter().enumerate() {
+        v[k] = match c.valores.get(id) {
+            Some(Valor::Entero(o)) if (-8..8).contains(o) => *o as i8,
+            Some(Valor::Indefinido) | None => 0,
+            _ => return Err(NoPrograma::Forma("un desplazamiento de textura que no es una constante de -8 a 7")),
+        };
+    }
+    Ok(v)
 }
 
 /// `saturate` de D3D: a [0, 1], y un NaN es 0.
@@ -999,25 +1063,54 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             c.ops.push(Op::Constantes { d, fila: fila as u16 });
             if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) }
         }
-        DX_SAMPLE => {
-            // (srv, sampler, coord0..3, offset0..2, clamp): 2D, sin desplazar.
+        DX_SAMPLE | DX_SAMPLE_BIAS | DX_SAMPLE_LEVEL | DX_SAMPLE_GRAD => {
+            // (srv, sampler, coord0..3, offset0..2, y lo de cada una: el
+            // sesgo, la mip o los gradientes, y el clamp).
             let (Some(Valor::Textura(t)), Some(Valor::Muestreador(sm))) = (c.valores.get(arg(1)?).copied(), c.valores.get(arg(2)?).copied()) else {
                 return Err(NoPrograma::Forma("Sample sin el handle de una textura y el de un muestreador"));
             };
-            for k in [7, 8] {
-                if let Some(Valor::Entero(o)) = args.get(k).and_then(|&a| c.valores.get(a)) {
-                    if *o != 0 {
-                        return Err(NoPrograma::Forma("Sample con desplazamiento (offset): todavia no"));
-                    }
-                }
+            let desp = desplazamientos(c, [arg(7)?, arg(8)?, arg(9)?])?;
+            let indefinido = |k: usize| matches!(c.valores.get(k), Some(Valor::Indefinido) | None);
+            let plana = indefinido(arg(5)?) && indefinido(arg(6)?) && desp == [0; 3];
+            if op == DX_SAMPLE && plana {
+                // Lo de siempre (2D, sin desplazar): lo que sabe la 3060.
+                let (u, v) = (c.float(arg(3)?)?, c.float(arg(4)?)?);
+                let d = cuatro(c)?;
+                c.ops.push(Op::Muestra { d, t, s: sm, u, v });
+                Valor::Cuatro(d)
+            } else {
+                let co = [super::estructura::bits(c, arg(3)?)?, super::estructura::bits(c, arg(4)?)?, super::estructura::bits(c, arg(5)?)?, super::estructura::bits(c, arg(6)?)?];
+                let (como, nivel) = match op {
+                    DX_SAMPLE_LEVEL => (Lectura::Nivel, super::estructura::bits(c, arg(10)?)?),
+                    _ => (Lectura::Muestra, super::estructura::literal(c, 0)?),
+                };
+                let d = cuatro(c)?;
+                c.ops.push(Op::Lee { d, t, s: sm, como, c: co, nivel, desp });
+                Valor::Cuatro(d)
             }
-            let (u, v) = (c.float(arg(3)?)?, c.float(arg(4)?)?);
-            let d = c.registro(0.0)?;
-            for _ in 0..3 {
-                c.registro(0.0)?;
-            }
-            c.ops.push(Op::Muestra { d, t, s: sm, u, v });
-            Valor::Cuatro(d)
+        }
+        DX_TEXTURE_LOAD => {
+            // (srv, mip o muestra, coord0..2, offset0..2).
+            let Some(Valor::Textura(t)) = c.valores.get(arg(1)?).copied() else {
+                return Err(NoPrograma::Forma("TextureLoad sin el handle de una textura (un UAV o un bufer: todavia no)"));
+            };
+            let nivel = super::estructura::bits(c, arg(2)?)?;
+            let co = [super::estructura::bits(c, arg(3)?)?, super::estructura::bits(c, arg(4)?)?, super::estructura::bits(c, arg(5)?)?, super::estructura::literal(c, 0)?];
+            let desp = desplazamientos(c, [arg(6)?, arg(7)?, arg(8)?])?;
+            let d = cuatro(c)?;
+            c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::Carga { enteros }, c: co, nivel, desp });
+            if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) }
+        }
+        DX_GET_DIMENSIONS => {
+            // (handle, mip): %dx.types.Dimensions, cuatro i32.
+            let Some(Valor::Textura(t)) = c.valores.get(arg(1)?).copied() else {
+                return Err(NoPrograma::Forma("GetDimensions de algo que no es una textura (un UAV o un bufer: todavia no)"));
+            };
+            let nivel = super::estructura::bits(c, arg(2)?)?;
+            let cero = super::estructura::literal(c, 0)?;
+            let d = cuatro(c)?;
+            c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::Medidas, c: [cero; 4], nivel, desp: [0; 3] });
+            Valor::CuatroEnteros(d)
         }
         DX_FMAD => {
             let (a, b, cc) = (c.float(arg(1)?)?, c.float(arg(2)?)?, c.float(arg(3)?)?);
