@@ -52,6 +52,25 @@ static void mira(int bien, const char *que) {
     di("\r\n");
 }
 
+/* Escribe `hr` en hexadecimal (para leerlo en Windows sin depurador). */
+static void di_hr(HRESULT hr) {
+    static char t[] = "HRESULT 0x00000000";
+    int i;
+    for (i = 0; i < 8; i++)
+        t[10 + i] = "0123456789ABCDEF"[((unsigned long)hr >> (28 - 4 * i)) & 0xF];
+    di(t);
+}
+
+/* Como `mira`, y si sale MAL dice tambien el HRESULT. */
+static void mira_hr(int bien, const char *que, HRESULT hr) {
+    mira(bien, que);
+    if (!bien) {
+        di("        (");
+        di_hr(hr);
+        di(")\r\n");
+    }
+}
+
 static void *hueco(void *obj, int k) {
     return (*(void ***)obj)[k];
 }
@@ -86,14 +105,27 @@ void inicio(void) {
     *(unsigned short *)(bd + 30) = 1;
     *(DWORD *)(bd + 36) = 1;
     *(DWORD *)(bd + 44) = 1;
+    /* Sin ALLOW_CROSS_ADAPTER: el monton es SHARED_CROSS_ADAPTER. Lo que
+     * Windows conteste se apunta (nota), no se juzga: la casa aun no lo
+     * exige, hasta verlo en Windows. */
+    r = h ? ((Colocar)hueco(dev, 29))(dev, h, 0x20000, bd, 0, 0, &IID_ID3D12Resource, &nada) : -1;
+    di("  nota  sin ALLOW_CROSS_ADAPTER, CreatePlacedResource dice ");
+    di_hr(r);
+    di("\r\n");
+    /* Con D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER (+48 = 0x10), como pide un
+     * monton SHARED_CROSS_ADAPTER (la leccion de Windows, 02-10). */
+    *(DWORD *)(bd + 48) = 0x10;
     r = h ? ((Colocar)hueco(dev, 29))(dev, h, 0x10000, bd, 0, 0, &IID_ID3D12Resource, &b) : -1;
+    mira_hr(r == 0 && b != 0, "CreatePlacedResource con ALLOW_CROSS_ADAPTER: un bufer de 64 KiB", r);
     if (r == 0 && b)
         r = ((Mapear)hueco(b, 8))(b, 0, 0, (void **)&m);
+    mira_hr(r == 0 && m != 0, "Map del bufer colocado", r);
     if (r == 0 && m) {
         v[0x4000 + 3] = 0x4646;
         m[5] = 0x46464646;
     }
     mira(r == 0 && m && m[3] == 0x4646 && v[0x4000 + 5] == 0x46464646, "un bufer colocado en el ES esa memoria: se ven los dos");
+    nada = 0;
 
     r = dev && v ? ((Abrir)hueco(dev, 48))(dev, (const void *)(v + 1024), &IID_ID3D12Heap, &nada) : 0;
     mira(r == E_INVALIDARG && nada == 0, "una direccion que no es la base de su region: E_INVALIDARG");

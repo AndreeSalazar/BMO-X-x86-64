@@ -5,7 +5,8 @@
  * salida a NULL). Aqui, como en Windows: OpenExistingHeapFromFileMapping sin
  * fichero falla y deja NULL; GetResourceAllocationInfo crece con las mips y
  * con el formato (BC1 menos que RGBA8); una textura de 4 MiB no cabe en un
- * monton de 1 MiB (E_INVALIDARG) y una de 256 KiB si; la lista es tambien
+ * monton de 1 MiB (E_INVALIDARG) y una de 256 KiB si, y no entra en uno
+ * que solo admite destinos (ALLOW_ONLY_RT_DS_TEXTURES); la lista es tambien
  * GraphicsCommandList2 y 4: WriteBufferImmediate escribe sus valores y
  * BeginRenderPass con CLEAR limpia el destino de rojo (leido con
  * CopyTextureRegion tras la valla); GetCreationFlags de la valla (Fence1);
@@ -88,6 +89,21 @@ static void mira(int bien, const char *que) {
     di("\r\n");
 }
 
+/* Como `mira`, y si sale MAL dice tambien el HRESULT (para leerlo en
+ * Windows sin depurador). */
+static void mira_hr(int bien, const char *que, HRESULT hr) {
+    static char t[] = " (HRESULT 0x00000000)";
+    int i;
+    mira(bien, que);
+    if (bien)
+        return;
+    for (i = 0; i < 8; i++)
+        t[11 + i] = "0123456789ABCDEF"[((unsigned long)hr >> (28 - 4 * i)) & 0xF];
+    di("        ");
+    di(t + 1);
+    di("\r\n");
+}
+
 static void *hueco(void *obj, int k) {
     return (*(void ***)obj)[k];
 }
@@ -155,7 +171,7 @@ void inicio(void);
 void inicio(void) {
     static DWORD cola_desc[4] = {0, 0, 0, 0}, rtv_desc[4] = {2, 1, 0, 0};
     static DWORD props[5] = {1, 0, 0, 1, 1};
-    /* D3D12_HEAP_DESC: 1 MiB, DEFAULT, ALLOW_ONLY_NON_RT_DS_TEXTURES (0x84). */
+    /* D3D12_HEAP_DESC: 1 MiB, DEFAULT, ALLOW_ONLY_NON_RT_DS_TEXTURES (0x44). */
     static unsigned char hd[48], td[56], d1[64];
     /* D3D12_WRITEBUFFERIMMEDIATE_PARAMETER: Dest, Value (16 B cada uno). */
     static U64 inmediatos[4];
@@ -169,7 +185,7 @@ void inicio(void) {
      * RGBA8 con filas de 256 bytes; el origen, el subrecurso 0. */
     static DWORD destino[12], origen[12];
     void *dev = 0, *dev3 = 0, *nada = 0, *cola = 0, *asig = 0, *lista = 0, *l2 = 0, *l4 = 0;
-    void *monton = 0, *cabe = 0, *grande = 0, *rt = 0, *rtvs = 0, *lee = 0, *lee_rt = 0;
+    void *monton = 0, *otro = 0, *cabe = 0, *grande = 0, *rt = 0, *rtvs = 0, *lee = 0, *lee_rt = 0;
     void *valla = 0, *valla1 = 0, *r2 = 0, *f = 0;
     volatile DWORD *p, *q;
     U64 una, dos, todas, bc1, rtv = 0;
@@ -195,15 +211,25 @@ void inicio(void) {
 
     *(U64 *)hd = 1 << 20;
     *(DWORD *)(hd + 8) = 1;
-    *(DWORD *)(hd + 40) = 0x84;
+    *(DWORD *)(hd + 40) = 0x44;
     r = dev ? ((Crear3)hueco(dev, 28))(dev, hd, &IID_Heap, &monton) : -1;
     textura(td, 256, 1, 28, 0);
     if (r == 0)
         r = ((Colocar)hueco(dev, 29))(dev, monton, 0, td, 0x400, 0, &IID_Resource, &cabe);
-    mira(r == 0 && cabe != 0, "CreatePlacedResource: 256 KiB caben en un monton de 1 MiB");
+    mira_hr(r == 0 && cabe != 0, "CreatePlacedResource: 256 KiB caben en un monton de 1 MiB", r);
     textura(td, 1024, 1, 28, 0);
     r = monton ? ((Colocar)hueco(dev, 29))(dev, monton, 0, td, 0x400, 0, &IID_Resource, &grande) : 0;
-    mira(r == E_INVALIDARG && grande == 0, "CreatePlacedResource: 4 MiB no caben en 1 MiB (E_INVALIDARG)");
+    mira_hr(r == E_INVALIDARG && grande == 0, "CreatePlacedResource: 4 MiB no caben en 1 MiB (E_INVALIDARG)", r);
+    /* La leccion de Windows (02-10): 0x84 es ALLOW_ONLY_RT_DS_TEXTURES, y una
+     * textura sin RENDER_TARGET no entra aunque quepa. */
+    *(DWORD *)(hd + 40) = 0x84;
+    otro = 0;
+    r = dev ? ((Crear3)hueco(dev, 28))(dev, hd, &IID_Heap, &otro) : -1;
+    textura(td, 256, 1, 28, 0);
+    grande = 0;
+    if (r == 0)
+        r = ((Colocar)hueco(dev, 29))(dev, otro, 0, td, 0x400, 0, &IID_Resource, &grande);
+    mira_hr(r == E_INVALIDARG && grande == 0, "una textura sin RT en un monton ALLOW_ONLY_RT_DS_TEXTURES: E_INVALIDARG", r);
 
     r = dev ? ((Crear3)hueco(dev, 8))(dev, cola_desc, &IID_Queue, &cola) : -1;
     if (r == 0)

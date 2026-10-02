@@ -97,16 +97,39 @@ static void *hueco(void *obj, int k) {
 
 static const unsigned short NOMBRE_BUFER[] = {'t', 'a', 'n', 'd', 'a', '4', '7', 0};
 
-/* El nombre de `o` es "tanda47"? */
-static int se_llama(void *o) {
+/* Escribe `x` en hexadecimal (para leerlo en Windows sin depurador). */
+static void di_hex(unsigned long x) {
+    static char t[] = "0x00000000";
+    int i;
+    for (i = 0; i < 8; i++)
+        t[2 + i] = "0123456789ABCDEF"[(x >> (28 - 4 * i)) & 0xF];
+    di(t);
+}
+
+/* SetName(`o`) y GetPrivateData(WKPDID_D3DDebugObjectNameW) lo devuelve?
+ * Si no, dice el HRESULT y cuantos bytes contesto. */
+static void se_llama(void *o, const char *que) {
     static unsigned short d[32];
     UINT n = sizeof d, i;
-    if (((Privado)hueco(o, 3))(o, &NOMBRE, &n, d) != 0 || n < 14)
-        return 0;
-    for (i = 0; i < 7; i++)
-        if (d[i] != NOMBRE_BUFER[i])
-            return 0;
-    return 1;
+    HRESULT r = -1, rn = -1;
+    int bien = 0;
+    if (o) {
+        rn = ((Nombrar)hueco(o, 6))(o, NOMBRE_BUFER);
+        r = ((Privado)hueco(o, 3))(o, &NOMBRE, &n, d);
+        bien = rn == 0 && r == 0 && n >= 14;
+        for (i = 0; bien && i < 7; i++)
+            bien = d[i] == NOMBRE_BUFER[i];
+    }
+    mira(bien, que);
+    if (!bien) {
+        di("        (SetName ");
+        di_hex((unsigned long)rn);
+        di(", GetPrivateData ");
+        di_hex((unsigned long)r);
+        di(", ");
+        di_hex(n);
+        di(" bytes)\r\n");
+    }
 }
 
 /* Un bufer comprometido de `n` bytes en el monton `tipo`. */
@@ -152,7 +175,7 @@ void inicio(void) {
     DWORD flags = 7;
     U64 freq = 0, ver = 0, base;
     HRESULT r;
-    int i, bien;
+    int i;
 
     r = D3D12CreateDevice(0, 0xb000, &IID_Device, &dev);
     mira(r == 0 && dev != 0, "D3D12CreateDevice en el nivel 11_0");
@@ -162,13 +185,9 @@ void inicio(void) {
     lee2 = dev ? bufer(dev, 3, 256, 0x400) : 0;
     mira(r == 0 && cola && sube && lee && lee2, "una cola y tres buferes (UPLOAD y dos READBACK)");
 
-    bien = dev && cola && sube;
-    if (bien) {
-        ((Nombrar)hueco(dev, 6))(dev, NOMBRE_BUFER);
-        ((Nombrar)hueco(cola, 6))(cola, NOMBRE_BUFER);
-        ((Nombrar)hueco(sube, 6))(sube, NOMBRE_BUFER);
-    }
-    mira(bien && se_llama(dev) && se_llama(cola) && se_llama(sube), "SetName en el dispositivo, la cola y un bufer; GetPrivateData lo devuelve");
+    se_llama(dev, "SetName en el dispositivo; GetPrivateData lo devuelve");
+    se_llama(cola, "SetName en la cola; GetPrivateData lo devuelve");
+    se_llama(sube, "SetName en un bufer; GetPrivateData lo devuelve");
     r = cola ? ((Pide)hueco(cola, 7))(cola, &IID_Device, &otro) : -1;
     mira(r == 0 && otro == dev, "GetDevice de la cola: el dispositivo");
     r = dev ? ((CrearValla)hueco(dev, 36))(dev, 0, 0, &IID_Fence, &valla) : -1;

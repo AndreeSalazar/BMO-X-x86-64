@@ -1601,9 +1601,17 @@ E_INVALIDARG. No depende de que tarjeta haya.
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   66344853de8e90fb01e97d6f0e5f113824822486f6badcbf33701af2d7c36837
+   93602d65943b8e261f5ba364f230dcea801b8931ee365bbb1e803f3fae0ff7de
 
-Dice `bien` siete veces y sale con 0. En Windows dice lo mismo.
+Dice `bien` nueve veces, una `nota`, y sale con 0.
+
+Lo que dijo Windows (02-10, la 3060 del propietario): el primer tanda46
+dijo MAL en "un bufer colocado ... se ven los dos". El monton de
+OpenExistingHeapFromAddress es SHARED_CROSS_ADAPTER, y Windows pide
+D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER a lo que se coloque en el. Ahora el
+bufer lo lleva, colocar y Map son dos `bien` aparte con su HRESULT si salen
+MAL, y la `nota` apunta lo que Windows contesta SIN esa bandera. La casa aun
+no la exige: se exigira cuando esa nota diga E_INVALIDARG en Windows.
 
 tanda47.exe -- la TANDA 47 (02-10): lo que vkd3d-proton tiene y la casa no tenia
 
@@ -1629,9 +1637,15 @@ depende de que tarjeta haya.
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   ca341bc002e06b6ede86bd74f28a07fed4ce84af58bc0c29e2a610122314017b
+   0061f92f5698cd53af5bf7325794d2bc7ed81b077af1a1cfbbd9994292f5c6ee
 
-Dice `bien` diecinueve veces y sale con 0. En Windows dice lo mismo.
+Dice `bien` veintiuna veces y sale con 0.
+
+Lo que dijo Windows (02-10): MAL en "SetName en el dispositivo, la cola y
+un bufer; GetPrivateData lo devuelve", sin decir cual. Ahora es un `bien`
+por objeto y, si sale MAL, escribe el HRESULT de SetName, el de
+GetPrivateData(WKPDID_D3DDebugObjectNameW) y cuantos bytes contesto: la
+proxima corrida en Windows dice que hace D3D12 de verdad con el nombre.
 
 tanda48.exe -- la TANDA 48 (02-10): la base de PROTON-X, llena
 
@@ -1657,9 +1671,15 @@ tarjeta haya.
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   6890ed6edcce26c574b206cab0770f08caca951edd599291562c1cc946a7cba6
+   c0e81aec8f27bb8e4714b3297e9f7a99bdf35513c1364cb4d9a3e4afab432f59
 
-Dice `bien` trece veces y sale con 0. En la casa dice ademas UNA linea
+Dice `bien` catorce veces y sale con 0. En la casa dice ademas UNA linea
 "PROTON-X: ID3D12Device::OpenExistingHeapFromFileMapping (hueco 49): falla
-documentada, ..." -- esa es la falla documentada hablando, no un fallo. En
-Windows dice los mismos trece `bien` (sin esa linea).
+documentada, ..." -- esa es la falla documentada hablando, no un fallo.
+
+Lo que dijo Windows (02-10): MAL en "256 KiB caben en un monton de 1 MiB".
+El error era del .c: puso las banderas 0x84 creyendolas "solo texturas sin
+RT", y 0x84 es ALLOW_ONLY_RT_DS_TEXTURES; la buena es 0x44. La casa lo
+dejaba pasar: desde hoy mira las DENY_* del monton contra la clase de
+recurso (`d3d12_montones::admite`), como Windows, y el `bien` catorce es
+justo eso: una textura sin RT en un monton 0x84 es E_INVALIDARG.

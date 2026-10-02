@@ -477,7 +477,7 @@ pub(crate) const TROZOS_DEL_BANCO: bmo_proton_x_casa::Trozos = bmo_proton_x_casa
 /// 0xC0DE0030. El monton ES la memoria del VirtualAlloc.
 #[test]
 fn tanda46_exe_un_monton_sobre_memoria_del_exe() {
-    tanda(TANDA46, None, 7, "tanda46.exe: un monton sobre memoria del .exe");
+    tanda(TANDA46, None, 9, "tanda46.exe: un monton sobre memoria del .exe");
 }
 
 /// **La tanda 47** (02-10): `tanda47.exe` -- el inventario contra
@@ -485,7 +485,7 @@ fn tanda46_exe_un_monton_sobre_memoria_del_exe() {
 /// la fabrica y el adaptador, vistas CBV, consultas y copias de buferes.
 #[test]
 fn tanda47_exe_lo_que_vkd3d_proton_tiene() {
-    tanda(TANDA47, None, 19, "tanda47.exe: lo que vkd3d-proton tiene y la casa no tenia");
+    tanda(TANDA47, None, 21, "tanda47.exe: lo que vkd3d-proton tiene y la casa no tenia");
 }
 
 /// **La tanda 48** (02-10): `tanda48.exe` -- la base de PROTON-X, llena:
@@ -504,7 +504,7 @@ fn tanda48_exe_la_base_de_proton_x_llena() {
     let avisos: Vec<&str> = texto.lines().filter(|l| l.contains("PROTON-X:")).collect();
     assert_eq!(avisos.len(), 1, "un aviso, el de la falla documentada: {texto}");
     assert!(avisos[0].starts_with("PROTON-X: ID3D12Device::OpenExistingHeapFromFileMapping (hueco 49): falla documentada, HRESULT 0x80004001 -- "), "{texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 13, "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 14, "{texto}");
     assert!(texto.ends_with("tanda48.exe: la base de PROTON-X, llena\r\n[salio 0x0]"), "{texto}");
 }
 

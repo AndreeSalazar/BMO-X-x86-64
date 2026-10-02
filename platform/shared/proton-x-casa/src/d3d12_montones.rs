@@ -50,6 +50,28 @@ pub(crate) struct Monton {
     colocados: alloc::vec::Vec<u64>,
 }
 
+/// D3D12_HEAP_FLAG_DENY_BUFFERS, DENY_RT_DS_TEXTURES, DENY_NON_RT_DS_TEXTURES.
+const NIEGA_BUFERES: u32 = 0x4;
+const NIEGA_RT_DS: u32 = 0x40;
+const NIEGA_OTRAS_TEXTURAS: u32 = 0x80;
+/// D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | ALLOW_DEPTH_STENCIL.
+const ES_RT_DS: u32 = 0x1 | 0x2;
+
+/// **Lo que un monton admite** (tanda 48, lo que dijo Windows el 02-10):
+/// las banderas DENY_* del monton contra la clase de recurso. Un monton
+/// ALLOW_ONLY_RT_DS_TEXTURES (0x84) no admite una textura sin RENDER_TARGET
+/// ni DEPTH_STENCIL; Windows dice E_INVALIDARG y la casa lo dejaba pasar.
+fn admite(banderas: u32, dimension: u32, flags_recurso: u32) -> bool {
+    let niega = if dimension == DIMENSION_BUFFER {
+        NIEGA_BUFERES
+    } else if flags_recurso & ES_RT_DS != 0 {
+        NIEGA_RT_DS
+    } else {
+        NIEGA_OTRAS_TEXTURAS
+    };
+    banderas & niega == 0
+}
+
 fn u32_de(p: &[u8], k: usize) -> u32 {
     u32::from_le_bytes([p[k], p[k + 1], p[k + 2], p[k + 3]])
 }
@@ -173,6 +195,10 @@ pub(crate) extern "win64" fn create_placed_resource(_this: u64, monton: u64, des
     }
     // SAFETY: un D3D12_RESOURCE_DESC del `.exe`: Dimension +0, Width +16.
     let (dimension, ancho) = unsafe { (desc.cast::<u32>().read_unaligned(), desc.add(16).cast::<u64>().read_unaligned()) };
+    // SAFETY: el mismo D3D12_RESOURCE_DESC: Flags +48.
+    if !admite(u32_de(&m.desc, 40), dimension, unsafe { desc.add(48).cast::<u32>().read_unaligned() }) {
+        return E_INVALIDARG;
+    }
     if dimension == DIMENSION_BUFFER && m.base != 0 {
         // Uno que no cabe desde ahi: E_INVALIDARG, como Windows (no es algo
         // que le falte a la casa: no se avisa).
@@ -227,5 +253,17 @@ mod pruebas {
         assert!(completar(desc(1 << 20, 1, 12345)).is_none());
         // CUSTOM sin pagina de CPU ni piscina, no.
         assert!(completar(desc(1 << 20, TIPO_CUSTOM, 0)).is_none());
+    }
+
+    #[test]
+    fn las_banderas_del_monton_dicen_que_clase_de_recurso_entra() {
+        // ALLOW_ALL (0): todo.
+        assert!(admite(0, DIMENSION_BUFFER, 0) && admite(0, 3, 0) && admite(0, 3, 1));
+        // ALLOW_ONLY_BUFFERS (0xC0).
+        assert!(admite(0xC0, DIMENSION_BUFFER, 0) && !admite(0xC0, 3, 0) && !admite(0xC0, 3, 1));
+        // ALLOW_ONLY_NON_RT_DS_TEXTURES (0x44): lo que la tanda 48 quiso.
+        assert!(!admite(0x44, DIMENSION_BUFFER, 0) && admite(0x44, 3, 0) && !admite(0x44, 3, 2));
+        // ALLOW_ONLY_RT_DS_TEXTURES (0x84): lo que la tanda 48 puso, y Windows dijo que no.
+        assert!(!admite(0x84, DIMENSION_BUFFER, 0) && !admite(0x84, 3, 0) && admite(0x84, 3, 1));
     }
 }
