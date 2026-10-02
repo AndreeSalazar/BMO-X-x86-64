@@ -33,10 +33,9 @@
 //! (`GetCPUDescriptorHandleForHeapStart`) lo hacen, en Windows x64, por un
 //! puntero oculto detras de `this`, y devuelven ese puntero. Asi estan aqui.
 
-use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::com::{self, dar, de, nuevo, pide, vtabla, Com, Guid, E_NOINTERFACE, S_FALSE, S_OK};
+use crate::com::{self, dar, de, nuevo, pide, vtabla, Com, Guid, E_NOINTERFACE, E_OUTOFMEMORY, S_FALSE, S_OK};
 use crate::d3d12_dispositivos as dv;
 use crate::tuberia::{self, Bufer, Estado, Vista};
 use crate::{aviso, dir, hilos};
@@ -93,8 +92,12 @@ pub struct Lista {
 }
 
 pub struct Monton {
-    /// Los descriptores: 4 palabras cada uno; la primera, el recurso.
-    pub(crate) ranuras: Vec<u64>,
+    /// Los descriptores: 4 palabras cada uno; la primera, el recurso. Su
+    /// DIRECCION en la memoria del proceso (`memoria::pedir_bufer`), no un
+    /// `Vec` del monton del cargador (48 MiB, solo avanza): Cyberpunk pide
+    /// uno de 1.000.000 de descriptores, el tope de D3D12 (32 MB), y el
+    /// cargador entraba en panico (metal 02-10).
+    pub(crate) ranuras: u64,
     /// Su D3D12_DESCRIPTOR_HEAP_DESC (GetDesc, tanda 47).
     pub(crate) desc: [u8; 16],
 }
@@ -383,7 +386,12 @@ extern "win64" fn create_descriptor_heap(_this: u64, desc: *const u8, riid: *con
     let mut d = [0u8; 16];
     // SAFETY: como arriba (16 B).
     unsafe { core::ptr::copy_nonoverlapping(desc, d.as_mut_ptr(), 16) };
-    dar(pp, nuevo(com::HEAP, vt, Monton { ranuras: vec![0; n.max(1) * (DESCRIPTOR / 8) as usize], desc: d }) as u64)
+    // A cero, como el `vec!` de antes; pedido al proceso, como en Windows.
+    let Some(ranuras) = crate::memoria::pedir_bufer(n.max(1) as u64 * DESCRIPTOR) else {
+        crate::aviso("CreateDescriptorHeap: no hay memoria para los descriptores: E_OUTOFMEMORY");
+        return E_OUTOFMEMORY;
+    };
+    dar(pp, nuevo(com::HEAP, vt, Monton { ranuras, desc: d }) as u64)
 }
 
 extern "win64" fn get_descriptor_handle_increment_size(_this: u64, _tipo: u32) -> u32 {
@@ -423,7 +431,7 @@ extern "win64" fn get_cpu_descriptor_handle_for_heap_start(this: u64, ret: *mut 
     // SAFETY: `this` es un Monton de la casa; `ret`, el hueco del `.exe`.
     unsafe {
         let m = de::<Monton>(this);
-        ret.write(m.ranuras.as_ptr() as u64);
+        ret.write(m.ranuras);
     }
     ret
 }
