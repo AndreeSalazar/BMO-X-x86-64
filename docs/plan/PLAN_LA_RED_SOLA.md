@@ -11,7 +11,7 @@
 > de red: `METAS.md` seccion 5, `PLAN_RED_TX.md`, `PLAN_NAVEGAR.md`,
 > `PLAN_CLOUD_LOCAL.md`, `PLAN_HERMES.md`, `PLAN_SEGURIDAD.md`,
 > `PLAN_LA_LUDOTECA.md` (la escalera R1-R6), `EL_ORDEN.md`,
-> `maestro/RED_MAESTRO.md` y las hojas del metal; y el codigo: `bmo-net`,
+> `docs/maestro/RED_MAESTRO.md` y las hojas del metal; y el codigo: `bmo-net`,
 > `ring0/red`, `bmo-puerta-red`, `bmo-pila`, `bmo-cripto`, `bmo-antena`,
 > `bmo-hermes` y las ordenes `red *` del DIRECTOR.
 
@@ -61,7 +61,7 @@ O sea, la lista ENTERA de con quien habla BMO-X:
 que el propietario encendio, no decidir por el. La regla de la LUDOTECA sigue:
 *"internet es un interruptor, cerrado de serie"* (`PLAN_LA_LUDOTECA.md`
 249-256). Y la del codigo: *"el kernel no sabe lo que es una IP"*
-(`maestro/RED_MAESTRO.md` 83-98) -- todo lo de este plan vive en Ring 3, salvo
+(`docs/maestro/RED_MAESTRO.md` 83-98) -- todo lo de este plan vive en Ring 3, salvo
 dos piezas de Ring 0 dichas con su motivo (RS2 y RS5).
 
 ---
@@ -320,7 +320,7 @@ rechazado: la red de la casa no lo exige.
 - TLS: "juego completo en primitivas" (`EL_ORDEN.md` 278-280) contra G6, que
   pide ChaCha20 (no esta) y la LUDOTECA, que pide RSA, P-256 y X.509 (no
   estan). Lo cierto: hay AES-GCM, X25519 y HKDF; no hay TLS.
-- `maestro/RED_MAESTRO.md` describe los anillos de la tarjeta mapeados en
+- `docs/maestro/RED_MAESTRO.md` describe los anillos de la tarjeta mapeados en
   Ring 3 (sin copia); lo que se construyo copia por el buzon. Y varios
   comentarios viejos dicen "esto no transmite" (`commands/red.rs` 27-29,
   `ring0/red/mod.rs` 37, `bmo-net/Cargo.toml`).
