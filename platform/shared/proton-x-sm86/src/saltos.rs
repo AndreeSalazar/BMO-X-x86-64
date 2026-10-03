@@ -74,6 +74,11 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
             v[4] = Some(nivel);
         }
         Op::Si { c } | Op::RomperSi { c, .. } | Op::Descarta { c } => v[0] = Some(c),
+        Op::LeeIndexado { i, .. } | Op::ConstantesEn { i, .. } => v[0] = Some(i),
+        Op::EscribeIndexado { i, s, .. } => {
+            v[0] = Some(i);
+            v[1] = Some(s);
+        }
         Op::Entrada { .. } | Op::Constantes { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::Romper | Op::Continuar | Op::FinBucle => {}
     }
     v
@@ -86,6 +91,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         // Lo que lee algo que no cambia: nunca variable.
         Op::Entrada { d, .. } => ([Some(d), None, None, None], true),
         Op::Constantes { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], true),
+        Op::ConstantesEn { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
         Op::Muestra { d, .. } | Op::Lee { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
         Op::Mul { d, .. }
         | Op::Add { d, .. }
@@ -105,8 +111,9 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         | Op::Copia { d, .. }
         | Op::SumaEntera { d, .. }
         | Op::Entera { d, .. }
-        | Op::Convierte { d, .. } => uno(d),
-        Op::Salida { .. } | Op::Descarta { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
+        | Op::Convierte { d, .. }
+        | Op::LeeIndexado { d, .. } => uno(d),
+        Op::Salida { .. } | Op::Descarta { .. } | Op::EscribeIndexado { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
     }
 }
 

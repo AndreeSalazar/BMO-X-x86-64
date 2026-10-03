@@ -16,7 +16,8 @@
 //! f32, que es lo que guarda un registro del sombreador.
 //!
 //! ```text
-//!    DXIL  12 Cos   13 Sin   14 Tan   15 Acos   16 Asin   17 Atan
+//!    DXIL  8 IsNaN  9 IsInf  10 IsFinite  11 IsNormal (dan un booleano)
+//!          12 Cos   13 Sin   14 Tan   15 Acos   16 Asin   17 Atan
 //!          18 Hcos  19 Hsin  20 Htan  21 Exp (2^x)   22 Frc   23 Log (log2)
 //!          26 Round_ne (al par)  27 Round_ni (suelo)  28 Round_pi (techo)
 //!          29 Round_z (truncar)   130 f32tof16   131 f16tof32
@@ -47,6 +48,12 @@ pub enum Mate {
     Cosh,
     Senh,
     Tanh,
+    /// isnan, isinf, isfinite y "es normal": un booleano de D3D (0xFFFFFFFF
+    /// cierto, 0 no) -- sale como `Valor::Bool`.
+    EsNan,
+    EsInf,
+    EsFinito,
+    EsNormal,
 }
 
 impl Mate {
@@ -55,6 +62,10 @@ impl Mate {
         Some(match op {
             12 => Mate::Cos,
             13 => Mate::Sin,
+            8 => Mate::EsNan,
+            9 => Mate::EsInf,
+            10 => Mate::EsFinito,
+            11 => Mate::EsNormal,
             14 => Mate::Tan,
             15 => Mate::Acos,
             16 => Mate::Asin,
@@ -101,7 +112,16 @@ impl Mate {
             }
             Mate::Senh => senh64(x as f64).to_bits_f32(),
             Mate::Tanh => tanh64(x as f64).to_bits_f32(),
+            Mate::EsNan => booleano(x.is_nan()),
+            Mate::EsInf => booleano(x.is_infinite()),
+            Mate::EsFinito => booleano(x.is_finite()),
+            Mate::EsNormal => booleano(x.is_normal()),
         }
+    }
+
+    /// Si da un booleano (de los cuatro "es...").
+    pub fn da_booleano(self) -> bool {
+        matches!(self, Mate::EsNan | Mate::EsInf | Mate::EsFinito | Mate::EsNormal)
     }
 }
 
@@ -268,6 +288,15 @@ fn log2(x: f32) -> f32 {
         s += t / (2 * k + 1) as f64;
     }
     (e as f64 + 2.0 * s / LN_2) as f32
+}
+
+/// Un booleano de D3D: todos los bits, o ninguno.
+fn booleano(b: bool) -> u32 {
+    if b {
+        u32::MAX
+    } else {
+        0
+    }
 }
 
 /// Un f64 a los bits de su f32 (lo que guarda un registro).
@@ -487,6 +516,17 @@ mod pruebas {
             x += 0.0437;
         }
         assert_eq!(f32::from_bits(Mate::Tanh.aplicar(50.0f32.to_bits())), 1.0);
+    }
+
+    /// isnan, isinf, isfinite y es normal (la septima corrida pidio la 10).
+    #[test]
+    fn los_es_dan_booleanos_de_d3d() {
+        let es = |m: Mate, x: f32| m.aplicar(x.to_bits());
+        assert_eq!([es(Mate::EsNan, f32::NAN), es(Mate::EsNan, 1.0)], [u32::MAX, 0]);
+        assert_eq!([es(Mate::EsInf, f32::NEG_INFINITY), es(Mate::EsInf, f32::MAX)], [u32::MAX, 0]);
+        assert_eq!([es(Mate::EsFinito, 3.0), es(Mate::EsFinito, f32::INFINITY), es(Mate::EsFinito, f32::NAN)], [u32::MAX, 0, 0]);
+        assert_eq!([es(Mate::EsNormal, 1.0), es(Mate::EsNormal, 1e-40), es(Mate::EsNormal, 0.0)], [u32::MAX, 0, 0]);
+        assert!(Mate::de_dxil(10).unwrap().da_booleano());
     }
 
     #[test]

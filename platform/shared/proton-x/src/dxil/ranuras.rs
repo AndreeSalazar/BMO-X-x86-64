@@ -103,7 +103,7 @@ impl Programa {
                     *t = a(&m.texturas, *t);
                     *s = a(&m.muestreadores, *s);
                 }
-                Op::Constantes { cb, .. } => *cb = a(&m.cbuffers, *cb),
+                Op::Constantes { cb, .. } | Op::ConstantesEn { cb, .. } => *cb = a(&m.cbuffers, *cb),
                 _ => {}
             }
         }
@@ -113,12 +113,15 @@ impl Programa {
     /// sumadas a `filas` (que crece si hace falta).
     pub fn filas_por_cbuffer(&self, filas: &mut Vec<u16>) {
         for op in &self.ops {
-            if let Op::Constantes { fila, cb, .. } = *op {
-                if filas.len() <= cb as usize {
-                    filas.resize(cb as usize + 1, 0);
-                }
-                filas[cb as usize] = filas[cb as usize].max(fila + 1);
+            let (hasta, cb) = match *op {
+                Op::Constantes { fila, cb, .. } => (fila + 1, cb),
+                Op::ConstantesEn { fila, filas: n, cb, .. } => (fila + n, cb),
+                _ => continue,
+            };
+            if filas.len() <= cb as usize {
+                filas.resize(cb as usize + 1, 0);
             }
+            filas[cb as usize] = filas[cb as usize].max(hasta);
         }
     }
 
@@ -128,9 +131,16 @@ impl Programa {
     pub fn aplanar(&mut self, bases: &[u16]) {
         let mut filas = 0;
         for op in &mut self.ops {
-            if let Op::Constantes { fila, cb, .. } = op {
-                *fila += bases.get(*cb as usize).copied().unwrap_or(0);
-                filas = filas.max(*fila + 1);
+            match op {
+                Op::Constantes { fila, cb, .. } => {
+                    *fila += bases.get(*cb as usize).copied().unwrap_or(0);
+                    filas = filas.max(*fila + 1);
+                }
+                Op::ConstantesEn { fila, filas: n, cb, .. } => {
+                    *fila += bases.get(*cb as usize).copied().unwrap_or(0);
+                    filas = filas.max(fila.saturating_add(*n));
+                }
+                _ => {}
             }
         }
         self.filas_cb = filas;

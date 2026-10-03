@@ -736,6 +736,15 @@ alguien la continua, salta a `pfnCur` = 0: ahora `pfnCur` es la TRAMPA de
 se apunta tambien). Pidio ademas OperacionD3d 15 (acos): los arcos y los
 hiperbolicos, hechos.
 
+**Estado al 03-10, septima corrida: ventana, sin fotogramas.** Ya no
+aparece la importacion retrasada (no era eso) y el diario apunta, por
+primera vez, los NULL del sistema que da GetProcAddress (GetCurrentPackageId,
+SetDefaultDllDirectories, AddDllDirectory, EnumSystemLocalesEx,
+IsValidLocaleName, Get/SetFileInformationByHandle...). Sus sombreadores
+pidieron OperacionD3d 10 (isfinite: hechos 8 a 11, isnan/isinf/isfinite/
+isnormal), los arrays (N5.10, hecho) y el operando no constante (el de los
+cbuffers, hecho; el bindless dira su nombre).
+
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:
 
@@ -779,8 +788,12 @@ la proxima corrida del metal dice cual pesa mas:
 - [ ] **N5.3c -- los UAV** (RWTexture, RWBuffer) en el de pixeles: escribir
   desde un sombreador. Texto: "un UAV ... todavia no".
 - [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
-  no es una constante. Hoy el sombreador no compila; pide que la ranura sea
-  un RANGO y no un lugar.
+  no es una constante. Hoy el sombreador no compila (y lo dice: "createHandle
+  con un registro CALCULADO"); pide que la ranura sea un RANGO y no un
+  lugar. El de los CBUFFERS ya (03-10): `CBufferLoadLegacy` con la fila
+  calculada (`color[i]`, los arrays de luces y huesos) es
+  `Op::ConstantesEn`, con las 4096 filas de D3D reservadas; probado con
+  `prueba/luces.dxil`.
 - [x] **N5.6 -- la matematica que falta** (03-10): sin, cos, tan, exp2,
   log2, frac, los cuatro redondeos y los medios floats, en el interprete
   (`proton-x/src/mates.rs`, sin `libm`; contra la del anfitrion y los
@@ -821,8 +834,12 @@ la proxima corrida del metal dice cual pesa mas:
   cada pixel (la w de recorte, con perspectiva: la de D3D, no la 1/w de
   GL). Probado con `prueba/posicion.dxil` en un cuadro de 8x8. En la 3060
   todavia no (`NoVa::Entrada`): por la CPU (N6.1).
-- [ ] **N5.10 -- arrays locales y lo de las olas**: `alloca`/GEP (registros
-  indexables), todavia. Las OLAS ya (03-10, `dxil/olas.rs`): con un pixel
+- [x] **N5.10 -- arrays locales y lo de las olas** (03-10). Los ARRAYS
+  (`dxil/arreglos.rs`): `alloca`, `getelementptr` (indice constante o
+  calculado; los de dos dimensiones, aplanados), `load`/`store` como
+  `Op::LeeIndexado`/`EscribeIndexado`, y las tablas GLOBALES constantes
+  (`static const float x[] = {...}`, float o int); probado con
+  `prueba/arreglos.dxil`. Las OLAS ya (03-10, `dxil/olas.rs`): con un pixel
   por ola, ReadLaneFirst/At, ActiveOp, AnyTrue/AllTrue, el prefijo, los
   carriles y la cuenta de bits dan lo de un carril; y las derivadas (ddx,
   ddy, fwidth) dan 0 hasta que la trama corra cuadros de 2x2. Y SV_Depth:

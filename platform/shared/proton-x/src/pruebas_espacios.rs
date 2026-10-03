@@ -277,3 +277,60 @@ fn un_pixel_de_dxc_con_olas_y_derivadas_corre_con_un_carril() {
     ps.correr(&[[0.0; 4], [0.25, 0.0, 0.5, 4.0], [f32::from_bits(7), 0.0, 0.0, 0.0]], &[], &mut sal, &mut regs);
     assert_eq!(sal[0], [0.25, 0.0, 10.0, 0.0]);
 }
+
+const ARREGLOS_PS: &[u8] = include_bytes!("../prueba/arreglos.dxil");
+
+/// *** N5.10: `arreglos.hlsl` (de `dxc`): alloca y getelementptr (lo que
+/// pedian vertices y pixeles de Cyberpunk, `Instruccion(19)` y `(43)`), con
+/// indices calculados, un bucle que escribe, y dos tablas globales (float e
+/// int). Antes no compilaba.
+#[test]
+fn un_pixel_de_dxc_con_arrays_y_tablas() {
+    use crate::dxil::programa::compilar;
+    let ps = compilar(&dxil::leer(ARREGLOS_PS).unwrap()).unwrap();
+    assert!(ps.ops.iter().any(|o| matches!(o, Op::LeeIndexado { .. })) && ps.ops.iter().any(|o| matches!(o, Op::EscribeIndexado { .. })));
+    let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
+    let x = [1.0f32, 2.0, 3.0, 4.0];
+    for i in 0u32..4 {
+        ps.correr(&[[0.0; 4], [f32::from_bits(i), 0.0, 0.0, 0.0], x], &[], &mut sal, &mut regs);
+        let mut a = x;
+        a[(i & 3) as usize] += 1.0;
+        let pesos = [0.1f32, 0.2, 0.3, 0.4];
+        let mut s = 0.0f32;
+        for j in 0..4 {
+            s += a[j] * pesos[j];
+        }
+        let m = |f: u32, c: u32| ((f * 3 + c) * 10) as f32;
+        let saltos = [5i32, -2, 7];
+        let esperado = [a[((i + 1) & 3) as usize], s, m(i & 1, 2) + saltos[(i % 3) as usize] as f32, a[0]];
+        assert_eq!(sal[0], esperado, "i = {i}");
+    }
+}
+
+const LUCES_PS: &[u8] = include_bytes!("../prueba/luces.dxil");
+
+/// *** `luces.hlsl` (de `dxc`): un array de un cbuffer con indice calculado
+/// (`color[i & 7]`): la fila de `CBufferLoadLegacy` no es una constante.
+/// Antes: "un operando que deberia ser un entero constante".
+#[test]
+fn un_cbuffer_se_lee_con_fila_calculada() {
+    use crate::dxil::programa::compilar;
+    let ps = compilar(&dxil::leer(LUCES_PS).unwrap()).unwrap();
+    assert!(ps.ops.iter().any(|o| matches!(o, Op::ConstantesEn { .. })), "{:?}", ps.ops);
+    // b0: 8 colores (el k, (k, 2k, 3k, 4k)) y `extra` (0.5).
+    let mut cb = Vec::new();
+    for k in 0..8u32 {
+        for c in 1..=4u32 {
+            cb.extend_from_slice(&((k * c) as f32).to_le_bytes());
+        }
+    }
+    for _ in 0..4 {
+        cb.extend_from_slice(&0.5f32.to_le_bytes());
+    }
+    let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
+    for i in [0u32, 3, 7, 12] {
+        ps.correr(&[[0.0; 4], [f32::from_bits(i), 0.0, 0.0, 0.0]], &cb, &mut sal, &mut regs);
+        let k = (i & 7) as f32;
+        assert_eq!(sal[0], [k + 0.5, 2.0 * k + 0.5, 3.0 * k + 0.5, 4.0 * k + 0.5], "i = {i}");
+    }
+}

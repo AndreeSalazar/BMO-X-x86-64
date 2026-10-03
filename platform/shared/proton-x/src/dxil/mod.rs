@@ -38,6 +38,10 @@ mod estructura;
 mod enteros;
 /// 03-10: las olas (un pixel por ola) y las derivadas.
 mod olas;
+/// El interprete de un `Programa` (partido de `programa.rs`, 03-10).
+mod interprete;
+/// N5.10: los arrays (alloca, GEP, load, store y las tablas globales).
+mod arreglos;
 
 use alloc::string::String;
 use alloc::vec::Vec;
