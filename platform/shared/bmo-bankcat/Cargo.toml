@@ -1,0 +1,10 @@
+[package]
+name = "bmo-bankcat"
+version = "0.1.0"
+edition = "2021"
+description = "El WRAPPER de BANK CAT: las ordenes al motor COBOL (cobol/11/libro.bex) y sus respuestas, en centimos enteros. Puro, probado en el anfitrion."
+license = "Apache-2.0"
+
+# Sin dependencias. Lo usa la cara de BANK CAT (Ring 3); el dinero lo calcula
+# el motor COBOL, y las pruebas de `bmo-cobol-x86-64` ponen a los dos a hablar.
+[dependencies]

@@ -45,3 +45,25 @@ fn lo_que_no_cabe_no_entra() {
     let r = motor("1\n9999999999999.00\n2\n0.99\n2\n0.01\n9\n0\n");
     assert_eq!(r, ["0", "9999999999999.00", "0", "9999999999999.99", "1", "9999999999999.99", "0", "9999999999999.99"]);
 }
+
+/// ** EL WRAPPER Y EL MOTOR, hablando (BC2): las ordenes las escribe
+/// `bmo-bankcat` (Rust), las ejecuta el motor COBOL compilado a x86-64, y
+/// las respuestas las lee otra vez `bmo-bankcat`. Si los dos lados no
+/// dijeran lo mismo, esto no cuadraria al centimo.
+#[test]
+fn el_wrapper_y_el_motor_hablan_el_mismo_idioma() {
+    use bmo_bankcat::{escribir, Charla, Estado, Orden, Respuesta};
+    let ordenes = [Orden::Abrir(125_000), Orden::Cobrar(5_000), Orden::Veces(3), Orden::Pagar(1_999), Orden::Pagar(9_999_900), Orden::Cerrar];
+    let mut entrada = String::new();
+    for o in &ordenes {
+        let mut b = [0u8; 64];
+        let n = escribir(o, &mut b).unwrap();
+        entrada.push_str(std::str::from_utf8(&b[..n]).unwrap());
+    }
+    let src = bmo_cobol_front::copia::expandir(LIBRO, &mut libreria).unwrap();
+    let salida = run_cobol_con_entrada(&src, &entrada);
+    let mut ch = Charla::nueva();
+    let r: Vec<Respuesta> = salida.bytes().filter_map(|b| ch.empujar(b)).collect::<Result<_, _>>().expect("el wrapper entiende al motor");
+    let hecho = |saldo| Respuesta { estado: Estado::Hecho, saldo };
+    assert_eq!(r, [hecho(125_000), hecho(130_000), hecho(130_000), hecho(124_003), Respuesta { estado: Estado::SinSaldo, saldo: 124_003 }, hecho(124_003)]);
+}

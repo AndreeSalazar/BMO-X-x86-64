@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   545 casillas ABIERTAS en 51 planes
-   385 hechas
+   544 casillas ABIERTAS en 51 planes
+   386 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -303,15 +303,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
 - ... y 3 mas
 
-## [`PLAN_BANK_CAT.md`](PLAN_BANK_CAT.md) -- 5 abiertas, 2 hechas
-
-*PLAN BANK CAT -- la cartera de CAB, llevada por COBOL (F5)*
-
-- [ ] BC2 -- el WRAPPER (bmo-bankcat): las ordenes y las respuestas,
-- [ ] BC3 -- la CARA (apps/bankcat, F5): el gato hucha de la maqueta,
-- [ ] BC4 -- el libro en el DISCO. Hoy el motor lo lleva en memoria.
-- ... y 2 mas
-
 ## [`PLAN_CODEGEN.md`](PLAN_CODEGEN.md) -- 5 abiertas, 4 hechas
 
 *PLAN DEL CODEGEN DE BMO C -- el censo, los cortes y el numero que los ordena*
@@ -365,6 +356,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 2. EL JUEZ, en su crate. platform/shared/bmo-pila-juicio: *"se
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
 - ... y 2 mas
+
+## [`PLAN_BANK_CAT.md`](PLAN_BANK_CAT.md) -- 4 abiertas, 3 hechas
+
+*PLAN BANK CAT -- la cartera de CAB, llevada por COBOL (F5)*
+
+- [ ] BC3 -- la CARA (apps/bankcat, F5): el gato hucha de la maqueta,
+- [ ] BC4 -- el libro en el DISCO. Hoy el motor lo lleva en memoria.
+- [ ] BC5 -- entre amigos, por HERMES (pide H6): un movimiento firmado
+- ... y 1 mas
 
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas
 

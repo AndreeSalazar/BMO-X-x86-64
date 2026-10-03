@@ -46,9 +46,12 @@ mismo codigo, el que se puede leer en voz alta.
       `cobol/11/libro.bex`. **Como se sabe en el Ryzen:** `run cobol/11/libro.bex`
       y teclear `1`, `1250.00`, `2`, `50.00`, `9`, `0`: contesta `0`/`1250.00`,
       `0`/`1300.00`, `0`/`1300.00`. [!] NO probado en el Ryzen.
-- [ ] **BC2 -- el WRAPPER** (`bmo-bankcat`): las ordenes y las respuestas,
-      puras y probadas; y una prueba que pone al wrapper a hablar con el
-      motor COBOL DE VERDAD, ejecutado en el emulador.
+- [x] **BC2 -- el WRAPPER** (`platform/shared/bmo-bankcat`, 03-10): las
+      ordenes y las respuestas, puras, en centimos `i64` (ni un `f64`), y el
+      saldo en castellano (`1.240,03`); 7 pruebas. Y la que importa:
+      `el_wrapper_y_el_motor_hablan_el_mismo_idioma` (en `bmo-cobol-x86-64`)
+      escribe las ordenes con el wrapper, las EJECUTA el motor COBOL en el
+      emulador y las respuestas las lee otra vez el wrapper: cuadra al centimo.
 - [ ] **BC3 -- la CARA** (`apps/bankcat`, F5): el gato hucha de la maqueta,
       el saldo y los botones, hablando con el motor por el wrapper.
 - [ ] **BC4 -- el libro en el DISCO.** Hoy el motor lo lleva en memoria.

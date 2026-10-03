@@ -61,6 +61,10 @@ name = "bmo-audio"
 version = "1.0.0"
 
 [[package]]
+name = "bmo-bankcat"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-bex-gate"
 version = "1.0.0"
 dependencies = [
@@ -144,6 +148,7 @@ name = "bmo-cobol-x86-64"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+ "bmo-bankcat",
  "bmo-bex-gate",
  "bmo-cobol-front",
  "bmo-lower",
