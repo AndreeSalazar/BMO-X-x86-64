@@ -197,6 +197,10 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
             }
             Op::Min { d, a, b } => e.min_max(MINSS, d, a, b),
             Op::Max { d, a, b } => e.min_max(MAXSS, d, a, b),
+            // N5.6: la matematica va por el interprete hasta que esto la sepa.
+            Op::Mate { .. } => return None,
+            // N5.7: el que tira pixeles, tambien (el x86-64 no sabe salir a medias).
+            Op::Descarta { .. } => return None,
             Op::Muestra { .. } | Op::Lee { .. } => unreachable!("mirado arriba: `muestrea`"),
             Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Entera { .. } | Op::Convierte { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => unreachable!("mirado arriba: `salta`"),
         }

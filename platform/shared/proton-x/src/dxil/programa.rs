@@ -105,6 +105,7 @@ const DX_SAMPLE_GRAD: i64 = 63;
 const DX_TEXTURE_LOAD: i64 = 66;
 const DX_GET_DIMENSIONS: i64 = 72;
 const DX_BUFFER_LOAD: i64 = 68;
+const DX_DISCARD: i64 = 82;
 
 /// Por que un sombreador no se deja correr. El texto dice CUAL cosa.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -148,6 +149,9 @@ pub enum Op {
     Sqrt { d: Reg, a: Reg },
     Saturate { d: Reg, a: Reg },
     Abs { d: Reg, a: Reg },
+    /// N5.6: sin, cos, tan, exp2, log2, frac, los redondeos y los medios
+    /// floats (`crate::mates`), sobre los BITS del registro.
+    Mate { d: Reg, a: Reg, f: crate::mates::Mate },
     Min { d: Reg, a: Reg, b: Reg },
     Max { d: Reg, a: Reg, b: Reg },
     /// `Sample`: la textura `t` (el registro tN) con el muestreador `s` (sN)
@@ -196,6 +200,10 @@ pub enum Op {
     /// pide el DXIL, que salta a la cabeza desde el medio del cuerpo).
     Continuar,
     FinBucle,
+    /// N5.7 (03-10): `discard` y `clip()`: si los bits de `c` no son 0, el
+    /// pixel se TIRA -- ni color ni profundidad -- y el programa acaba ahi.
+    /// Solo tiene sentido en el de pixeles.
+    Descarta { c: Reg },
 }
 
 /// Lo que pregunta [`Op::Compara`]. Las `SinSigno` (E6c), solo con
@@ -377,7 +385,7 @@ impl Programa {
     /// **Correr el sombreador una vez.** `entradas` y `salidas` por el id del
     /// elemento en su firma; `cb`, los bytes del cbuffer (lo que falte se lee
     /// como 0). `regs` es memoria de trabajo (se reusa entre llamadas).
-    pub fn correr(&self, entradas: &[[f32; 4]], cb: &[u8], salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) {
+    pub fn correr(&self, entradas: &[[f32; 4]], cb: &[u8], salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) -> bool {
         self.correr_con(entradas, cb, &crate::textura::Recursos::NINGUNO, salidas, regs)
     }
 
@@ -468,8 +476,9 @@ impl Programa {
 
     /// [`Programa::correr`] con las texturas y los muestreadores del dibujo.
     /// Una textura o un muestreador que no esta da (0, 0, 0, 0), como un SRV
-    /// nulo en D3D12.
-    pub fn correr_con(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) {
+    /// nulo en D3D12. Devuelve si el pixel QUEDA: `false` si un
+    /// [`Op::Descarta`] lo tiro (N5.7); un programa sin ellos, siempre `true`.
+    pub fn correr_con(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) -> bool {
         regs.clear();
         regs.extend_from_slice(&self.iniciales);
         let bits = |regs: &Vec<f32>, r: Reg| regs[r as usize].to_bits();
@@ -513,6 +522,11 @@ impl Programa {
                     hondo -= 1;
                 }
                 Op::Continuar => pc = bucles[hondo - 1],
+                Op::Descarta { c } => {
+                    if bits(regs, c) != 0 {
+                        return false;
+                    }
+                }
                 Op::Entrada { d, elemento, componente } => {
                     regs[d as usize] = entradas.get(elemento as usize).map(|e| e[componente as usize & 3]).unwrap_or(0.0);
                 }
@@ -546,6 +560,7 @@ impl Programa {
                 Op::Sqrt { d, a } => regs[d as usize] = raiz(regs[a as usize]),
                 Op::Saturate { d, a } => regs[d as usize] = saturar(regs[a as usize]),
                 Op::Abs { d, a } => regs[d as usize] = f32::from_bits(regs[a as usize].to_bits() & 0x7FFF_FFFF),
+                Op::Mate { d, a, f } => regs[d as usize] = f32::from_bits(f.aplicar(regs[a as usize].to_bits())),
                 // FMin/FMax de D3D: si uno es NaN, el otro.
                 Op::Min { d, a, b } => {
                     let (x, y) = (regs[a as usize], regs[b as usize]);
@@ -576,6 +591,7 @@ impl Programa {
                 }
             }
         }
+        true
     }
 }
 
@@ -702,7 +718,6 @@ pub(super) enum Valor {
     CuatroEnteros(Reg),
     /// Lo que devuelve CBufferLoadLegacy: 4 floats seguidos.
     Cuatro(Reg),
-    /// El handle de un cbuffer.
     /// El handle de un cbuffer: su ranura.
     Cbuffer(u8),
     /// El handle de una textura (su registro tN) o de un muestreador (sN).
@@ -1057,6 +1072,13 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                 Valor::Nada
             }
         }
+        // N5.7: `discard(i1 c)`; `clip(x)` llega como `discard(x < 0)`, y un
+        // `discard` a secas, con un `i1 true` (un literal).
+        DX_DISCARD => {
+            let c_ = super::estructura::bits(c, arg(1)?)?;
+            c.ops.push(Op::Descarta { c: c_ });
+            Valor::Nada
+        }
         DX_CREATE_HANDLE => {
             // (clase, rango, indice, no uniforme): 0 SRV, 1 UAV, 2 CBuffer, 3
             // Sampler. El indice es el REGISTRO (la base del rango incluida);
@@ -1182,6 +1204,15 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             let d = c.registro(0.0)?;
             c.ops.push(Op::Dot { d, n: n as u8, a, b });
             Valor::Float(d)
+        }
+        // N5.6: la matematica (`crate::mates`). f16tof32 lee un entero; f32tof16
+        // da uno (sus bits); las demas, float a float.
+        _ if crate::mates::Mate::de_dxil(op).is_some() => {
+            let f = crate::mates::Mate::de_dxil(op).unwrap_or(crate::mates::Mate::Frac);
+            let a = if f == crate::mates::Mate::F16aF32 { super::estructura::bits(c, arg(1)?)? } else { c.float(arg(1)?)? };
+            let d = c.registro(0.0)?;
+            c.ops.push(Op::Mate { d, a, f });
+            if f == crate::mates::Mate::F32aF16 { Valor::Bits(d) } else { Valor::Float(d) }
         }
         DX_RSQRT => uno(c, |d, a| Op::Rsqrt { d, a })?,
         DX_SQRT => uno(c, |d, a| Op::Sqrt { d, a })?,

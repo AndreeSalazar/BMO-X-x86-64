@@ -62,6 +62,7 @@ pub mod sombras;
 pub mod hilos;
 pub mod hora;
 pub mod lote;
+pub mod mates;
 pub mod mensajes;
 pub mod monton;
 pub mod nativo;

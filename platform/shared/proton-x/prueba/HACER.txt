@@ -1882,3 +1882,42 @@ desplazamiento solo en el estructurado (aqui 4, el `b` tras el `a`); en
 los otros es `undef`. El del crudo es `.i32` (Load4 da uint4; `asfloat`
 no cuesta nada). GetDimensions de un bufer: `mip` `undef`, y su ancho son
 los elementos.
+
+mates.dxil -- la MATEMATICA de los sombreadores (03-10, N5.6)
+
+Las doce operaciones que el metal dijo que faltaban (OperacionD3d 12, 13,
+14, 21, 22, 23, 26, 27, 131 en la cuarta corrida de Cyberpunk) y sus
+hermanas: sin, cos, tan, exp2, log2, frac, round, floor, ceil, trunc,
+f16tof32 y f32tof16, una por componente de tres SV_Target. De
+`mates.hlsl` (aqui al lado), con el mismo `dxc` de Linux (1.9,
+4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo mates.dxil mates.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   0331da1be1b471c890ddf8aa44b4c4017ab3f1688d6660c012b6da9f0681c799  mates.dxil
+
+`dxc -dumpbin`: las diez de float son `dx.op.unary.f32` (12 Cos, 13 Sin,
+14 Tan, 21 Exp -- que es 2^x --, 22 Frc, 23 Log -- log2 --, 26 Round_ne,
+27 Round_ni, 28 Round_pi, 29 Round_z); los medios floats, `legacyF16ToF32`
+(131, lee un entero) y `legacyF32ToF16` (130, da uno). El banco
+(`pruebas_espacios.rs`) lo corre y lo compara con la `libm` del
+anfitrion; `mates.rs` las calcula sin `libm` (Ring 3 no la tiene).
+
+descarte.dxil -- `clip` y `discard` (03-10, N5.7)
+
+Lo que Cyberpunk usa para lo recortado por alfa (follaje, pelo, rejas):
+OperacionD3d 82 en la cuarta corrida. De `descarte.hlsl` (aqui al lado),
+con el mismo `dxc` de Linux (1.9, 4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo descarte.dxil descarte.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   c0f32ec6cf0dc6b0f6cce1beea0d87c1f3d6c338a7645984cd297231192de5ee  descarte.dxil
+
+`dxc -dumpbin`: `clip(x.x - 0.5)` es `fcmp olt` + `dx.op.discard(82, i1
+%c)`; el `discard` del `if` queda en su rama como `dx.op.discard(82, i1
+true)`. El banco (`pruebas_espacios.rs`) lo corre: queda solo el pixel que
+pasa los dos.

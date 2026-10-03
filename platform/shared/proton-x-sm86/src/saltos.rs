@@ -62,7 +62,7 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
                 v[2 * j + 1] = Some(b[j]);
             }
         }
-        Op::Rsqrt { a, .. } | Op::Sqrt { a, .. } | Op::Saturate { a, .. } | Op::Abs { a, .. } | Op::Copia { a, .. } | Op::Convierte { a, .. } => v[0] = Some(a),
+        Op::Rsqrt { a, .. } | Op::Sqrt { a, .. } | Op::Saturate { a, .. } | Op::Abs { a, .. } | Op::Mate { a, .. } | Op::Copia { a, .. } | Op::Convierte { a, .. } => v[0] = Some(a),
         Op::Muestra { u, v: vv, .. } => {
             v[0] = Some(u);
             v[1] = Some(vv);
@@ -73,7 +73,7 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
             }
             v[4] = Some(nivel);
         }
-        Op::Si { c } | Op::RomperSi { c, .. } => v[0] = Some(c),
+        Op::Si { c } | Op::RomperSi { c, .. } | Op::Descarta { c } => v[0] = Some(c),
         Op::Entrada { .. } | Op::Constantes { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::Romper | Op::Continuar | Op::FinBucle => {}
     }
     v
@@ -97,6 +97,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         | Op::Sqrt { d, .. }
         | Op::Saturate { d, .. }
         | Op::Abs { d, .. }
+        | Op::Mate { d, .. }
         | Op::Min { d, .. }
         | Op::Max { d, .. }
         | Op::Compara { d, .. }
@@ -105,7 +106,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         | Op::SumaEntera { d, .. }
         | Op::Entera { d, .. }
         | Op::Convierte { d, .. } => uno(d),
-        Op::Salida { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
+        Op::Salida { .. } | Op::Descarta { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
     }
 }
 
