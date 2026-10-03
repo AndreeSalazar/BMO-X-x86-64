@@ -115,9 +115,9 @@ Grace Hopper y su equipo para la banca:
   decimal. Parsea como COBOL (PIC existe) pero **calcula como C**. Para el
   alma bancaria: aritmetica que respete la escala del `PIC` y, a futuro,
   packed decimal. Esto vive en el descenso propio de COBOL -- no afecta a C.
-- ⚠ La PIC la parsea `gnucobol-rs` (**GPL**). Para un BMO 100% propio y
-  limpio, la esencia pediria un parser de PIC propio (hoy el corazon del
-  DATA DIVISION es codigo ajeno con copyleft).
+- ✅ La PIC la parsea `src/pic.rs`, PROPIO: `gnucobol-rs` (GPL) se quito y
+  su submodulo ya no existe (03-10, la regla: "no integrar objetos
+  terceros").
 
 > Regla: **el encoder puede ser compartido; la ARITMETICA de COBOL jamas.**
 > El decimal es sagrado y vive solo en `lang/cobol`.

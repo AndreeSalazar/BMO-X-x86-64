@@ -25,6 +25,11 @@
 //!    NO JUZGA        GnuCOBOL no esta, o los dos lo rechazan
 //! ```
 //!
+//! *** GnuCOBOL es un TESTIGO, no una pieza: se ejecuta en el anfitrion y se
+//! compara lo que IMPRIME; ni una linea suya entra en BMO-X (la regla del
+//! propietario, 03-10: "no integrar objetos terceros"). Con CM4, el juez
+//! principal sera el interprete PROPIO del IR de COBOL.
+//!
 //! La entrada de un `ACCEPT` va en `<nombre>.entrada`, al lado del `.cob` o en
 //! `entradas/` de este espejo. Los ficheros de datos son los de
 //! `toolchain/lang/cobol/examples/datos`, con la misma ruta (`datos/x.txt`) en
