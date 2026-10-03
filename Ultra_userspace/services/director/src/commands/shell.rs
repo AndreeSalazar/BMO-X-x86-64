@@ -256,6 +256,7 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"    save mode     TODOS los pasos en orden, un save antes de cada\n");
     dsk.out.grid.text(b"                  uno, y NOTAS Y CONSEJOS   (-paso lo quita)\n");
     dsk.out.grid.text(b"    save auto     guarda solo antes de lo arriesgado  (o manual)\n");
+    dsk.out.grid.text(b"    save siempre  guarda solo al arrancar, mientras corre y al acabar\n");
     dsk.out.grid.text(b"    iommu         la frontera del DMA   (encender | apagar)\n");
     dsk.out.grid.text(b"    gpu           la 3060 y su rayo     (cegar | ver)\n");
     dsk.out.grid.text(b"    gpu salud     temperatura, PCIe y P-state   (tambien en el panel)\n");

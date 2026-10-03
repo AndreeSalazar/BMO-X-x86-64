@@ -52,6 +52,8 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"save mode off", b"desarma el modo: al arrancar ya no se repite"),
     (b"save auto", b"guardar solo antes de lo arriesgado"),
     (b"save manual", b"guardar solo cuando se teclea"),
+    (b"save siempre", b"guarda solo: al arrancar, cada 30 s mientras corre un programa (datos/vivo.txt) y al acabar; sigue armado tras reiniciar"),
+    (b"save siempre off", b"desarma `save siempre`"),
     (b"gpu", b"la 3060: el rayo, el GSP y cada fila de la verificacion"),
     (b"gpu init", b"corre el secuenciador y arranca el GSP-RM"),
     (b"gpu estatica", b"la primera RPC: lo que el GSP-RM dice de la 3060"),

@@ -65,15 +65,16 @@ pub(crate) struct Run {
 /// programa que muere dejando megabytes no puede quedarse con el bucle.
 const DRAIN_MAX: u32 = 8192;
 
-/// Termino el programa que se lanzo? Entonces, a guardarlo.
+/// Termino el programa que se lanzo? Entonces, a guardarlo. `true` si
+/// termino en esta vuelta (para `save siempre`).
 ///
 /// Se llama una vez por fotograma, lo primero.
 pub(crate) fn watch_run(
     run: &mut Option<Run>,
     child_console: &Option<bmo::Consola>,
     output: &mut Output,
-) {
-    let Some(c) = run.as_mut() else { return };
+) -> bool {
+    let Some(c) = run.as_mut() else { return false };
 
     c.waits = c.waits.saturating_add(1);
     let alive_one = child_console.as_ref().map(|cc| cc.has_child()).unwrap_or(false);
@@ -82,7 +83,7 @@ pub(crate) fn watch_run(
     // kernel registre al hijo en la tabla de la consola. Sin ese
     // margen se volcaria un archivo vacio en el acto.
     if alive_one || c.waits <= 2 {
-        return;
+        return false;
     }
 
     // ** SE DRENA ANTES DE GUARDAR, y esto lo mostro el disco.
@@ -146,4 +147,5 @@ pub(crate) fn watch_run(
     }
 
     *run = None;
+    true
 }
