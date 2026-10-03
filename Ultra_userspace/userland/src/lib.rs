@@ -672,6 +672,8 @@ pub const INFO_AUDIO_OIDO: u64 = 0xC8;
 pub const INFO_AUDIO_FONDO: u64 = 0xC9;
 /// El espacio: el modo 3D que aplica el maestro.
 pub const INFO_AUDIO_ESPACIO: u64 = 0xCA;
+/// Los lados del aparato: lo que traia cada uno y cual venia callado.
+pub const INFO_AUDIO_LADOS: u64 = 0xCB;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

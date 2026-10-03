@@ -497,6 +497,13 @@ fn report_maestro(s: &mut Output) {
     fila_db(s, b"oido medios", db(b(24)), b"campana a 1 kHz");
     fila_db(s, b"oido agudos", db(b(32)), b"estante a 3,5 kHz: lo que se pierde primero, y lo que hace entender una voz");
     fila(s, b"oido tono aplica", (o >> 48) & 1, b"", b"1 = el tubo va a 44,1 o 48 kHz; si no, solo mono y balance");
+    // ** LOS LADOS DEL APARATO (03-10, "se escucha un solo lado"): lo que el
+    // aparato traia en cada canal al reclamarlo, antes de igualarlos.
+    let l = bmo::info(bmo::INFO_AUDIO_LADOS);
+    fila(s, b"lados con volumen", l >> 48, b"", b"bit n = canal n del aparato que declara volumen (0 maestro, 1 izq, 2 der)");
+    fila_db(s, b"traia izq", l & 0xFFFF, b"el volumen del aparato en el izquierdo al reclamarlo");
+    fila_db(s, b"traia der", (l >> 16) & 0xFFFF, b"y en el derecho: si eran distintos, se igualaron al mas alto");
+    fila(s, b"venia callado", (l >> 32) & 3, b"", b"bit 0 izq, bit 1 der: un lado que el APARATO traia en mute (se le quita)");
     // ** EL ESPACIO (03-10, S7): el modo 3D, antes del oido.
     let e = bmo::info(bmo::INFO_AUDIO_ESPACIO);
     fila(s, b"3d modo", e & 0xFF, b"", b"0 apagado, 1 cerca, 2 sala, 3 amplio, 4 orbita (`3d`)");

@@ -31,7 +31,7 @@
 //! Es el mismo reparto que hizo util al driver del raton: la decision separada
 //! del registro.
 
-use core::sync::atomic::{AtomicBool, AtomicI16, AtomicI32, AtomicU8, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicI16, AtomicI32, AtomicU16, AtomicU8, Ordering};
 
 /// El slot xHCI del aparato de audio, o 0 si no se ha encontrado.
 static SLOT: AtomicU8 = AtomicU8::new(0);
@@ -49,6 +49,15 @@ static VOL_MAX: AtomicI16 = AtomicI16::new(0);
 /// STALL contado como fallo esconde el volumen que si llego.
 static TIENE_MUTE: AtomicBool = AtomicBool::new(false);
 static CANALES: AtomicU8 = AtomicU8::new(0);
+/// **Que canal declara volumen y cual mute** (bit `n` = canal `n`, el 0 es el
+/// maestro). UN LADO SOLO (03-10): se mandaba al maestro y, si lo aceptaba,
+/// izquierdo y derecho se quedaban como arranco el aparato.
+static VOL_CANALES: AtomicU16 = AtomicU16::new(0);
+static MUTE_CANALES: AtomicU16 = AtomicU16::new(0);
+/// Lo que cada lado traia puesto al reclamar el aparato (1/256 dB; canal 1 y
+/// 2), y si alguno venia callado: para el `save` y para CABINA.
+static LADO_TRAIA: [AtomicI16; 2] = [AtomicI16::new(0), AtomicI16::new(0)];
+static LADO_CALLADO: AtomicU8 = AtomicU8::new(0);
 
 // -- EL VOLUMEN VA POR EL HILO DEL BUS (2026-09-21) -------------------------
 //
@@ -216,10 +225,14 @@ pub fn reclamar(slot: u8, cfg: &[u8]) -> bool {
     UNIT.store(ac.feature_unit, Ordering::SeqCst);
     TIENE_MUTE.store(ac.has_mute, Ordering::SeqCst);
     CANALES.store(ac.channels, Ordering::SeqCst);
+    VOL_CANALES.store(ac.vol_canales, Ordering::SeqCst);
+    MUTE_CANALES.store(ac.mute_canales, Ordering::SeqCst);
     // El rango son dos transferencias contra un aparato que ACABA de
     // contestar sus descriptores: microsegundos, en el hilo que enumera.
     leer_rango(&ac);
     crate::ring0::cabina::info("uaudio", "audifono USB con volumen, en la ranura", slot as u64);
+    crate::ring0::cabina::info("uaudio", "  su Feature Unit de reproduccion, el id", ac.feature_unit as u64);
+    igualar_lados(slot, &ac);
     // El ultimo volumen que se mando (a este o al de antes) se restaura: un
     // audifono que se desenchufa y vuelve no tiene por que volver a cero.
     let ultimo = VOL_PCT.load(Ordering::SeqCst);
@@ -391,8 +404,23 @@ fn leer_rango(ac: &bmo_uaudio::AudioControl) {
     crate::ring0::cabina::warn("uaudio", "el aparato no dijo su rango: se supone", 0);
 }
 
+/// El canal por el que se pregunta el rango: el maestro si declara volumen;
+/// si no, el primero que lo declare (un aparato que solo lo tiene por canal
+/// contesta STALL al maestro, y el rango salia "supuesto").
+fn canal_del_rango(ac: &bmo_uaudio::AudioControl) -> u8 {
+    if ac.vol_canales == 0 || ac.vol_canales & 1 != 0 {
+        bmo_uaudio::CHANNEL_MASTER
+    } else {
+        ac.vol_canales.trailing_zeros() as u8
+    }
+}
+
 fn leer(ac: &bmo_uaudio::AudioControl, cual: u8) -> Option<i16> {
-    let r = bmo_uaudio::get_volume(ac, bmo_uaudio::CHANNEL_MASTER, cual);
+    leer_canal(ac, canal_del_rango(ac), cual)
+}
+
+fn leer_canal(ac: &bmo_uaudio::AudioControl, canal: u8, cual: u8) -> Option<i16> {
+    let r = bmo_uaudio::get_volume(ac, canal, cual);
     let mut buf = [0u8; 2];
     let n = unsafe {
         bmo_xhci::control_transfer(
@@ -475,10 +503,107 @@ fn actual() -> bmo_uaudio::AudioControl {
         channels: CANALES.load(Ordering::SeqCst),
         has_volume: true,
         has_mute: TIENE_MUTE.load(Ordering::SeqCst),
+        vol_canales: VOL_CANALES.load(Ordering::SeqCst),
+        mute_canales: MUTE_CANALES.load(Ordering::SeqCst),
     }
 }
 
+/// **IGUALAR LOS LADOS** al reclamar el aparato (03-10, el Ryzen: *"se
+/// escucha un solo lado"*).
+///
+/// Windows y Linux ajustan cada canal del Feature Unit por separado; BMO-X
+/// solo hablaba con el maestro. Un aparato que arranca con el derecho al
+/// minimo, o callado, sonaba por un lado y nada lo decia. Aqui, una vez:
+///
+/// ```text
+///    1  se quita el mute de CADA canal que lo declara (y del maestro)
+///    2  se lee el volumen de cada canal que lo declara, y se dice
+///    3  todos se ponen al del lado que MAS suena: el que se oia
+/// ```
+///
+/// Despues, cada volumen que se mande va a todos (`mandar_volumen`).
+fn igualar_lados(slot: u8, ac: &bmo_uaudio::AudioControl) {
+    for canal in 0..=ac.channels.min(15) {
+        if ac.mute_canales & (1 << canal) == 0 {
+            continue;
+        }
+        // Que traia: si un lado venia callado, se dice.
+        let r = bmo_uaudio::set_mute(ac, canal, true);
+        let mut buf = [0u8; 1];
+        let leido = unsafe {
+            bmo_xhci::control_transfer(slot, 0xA1, bmo_uaudio::GET_CUR, r.w_value, r.w_index, &mut buf, true)
+        };
+        if leido >= 1 && buf[0] != 0 && (1..=2).contains(&canal) {
+            LADO_CALLADO.fetch_or(1 << (canal - 1), Ordering::SeqCst);
+            crate::ring0::cabina::warn("uaudio", "un lado venia CALLADO por el aparato: se le quita, canal", canal as u64);
+        }
+        // Y se le quita: el `r` es el SET_CUR del mute; el dato 0 es "suena".
+        let mut datos = [0u8];
+        unsafe {
+            bmo_xhci::control_transfer(slot, r.bm_request_type, r.b_request, r.w_value, r.w_index, &mut datos, false);
+        }
+    }
+    if ac.mute_canales != 0 {
+        CALLADO.store(false, Ordering::SeqCst);
+    }
+    let mut traia = [None::<i16>; 16];
+    let mut alto: Option<i16> = None;
+    for canal in 1..=ac.channels.min(15) {
+        if ac.vol_canales & (1 << canal) == 0 {
+            continue;
+        }
+        let v = leer_canal(ac, canal, bmo_uaudio::GET_CUR);
+        traia[canal as usize] = v;
+        if let Some(v) = v {
+            if (1..=2).contains(&canal) {
+                LADO_TRAIA[canal as usize - 1].store(v, Ordering::SeqCst);
+            }
+            crate::ring0::cabina::info("uaudio", "  el canal traia (1/256 dB, canal en los 8 de arriba)", (v as u16 as u64) | ((canal as u64) << 56));
+            alto = Some(alto.map_or(v, |a: i16| a.max(v)));
+        }
+    }
+    let Some(meta) = alto else { return };
+    let mut distintos = false;
+    for canal in 1..=ac.channels.min(15) {
+        if let Some(v) = traia[canal as usize] {
+            if v != meta {
+                distintos = true;
+                escribir_volumen(slot, ac, canal, meta);
+            }
+        }
+    }
+    if distintos {
+        crate::ring0::cabina::warn("uaudio", "los lados NO estaban iguales: igualados al que mas sonaba (1/256 dB)", meta as u16 as u64);
+    }
+}
+
+/// `INFO` de los lados: `[0..16)` lo que traia el izquierdo | `[16..32)` el
+/// derecho (1/256 dB, `i16`) | `[32..34)` cual venia callado | `[48..64)` los
+/// canales con volumen (bit n = canal n).
+pub fn info_lados() -> u64 {
+    (LADO_TRAIA[0].load(Ordering::SeqCst) as u16 as u64)
+        | ((LADO_TRAIA[1].load(Ordering::SeqCst) as u16 as u64) << 16)
+        | ((LADO_CALLADO.load(Ordering::SeqCst) as u64) << 32)
+        | ((VOL_CANALES.load(Ordering::SeqCst) as u64) << 48)
+}
+
 fn mandar_mute(slot: u8, ac: &bmo_uaudio::AudioControl, callar: bool) -> bool {
+    // ** A CADA CANAL que lo declara, no solo al maestro (UN LADO SOLO, 03-10).
+    // El maestro sigue siendo el que cuenta para CALLADO, como antes.
+    for canal in 1..=ac.channels.min(15) {
+        if ac.mute_canales & (1 << canal) != 0 {
+            let r = bmo_uaudio::set_mute(ac, canal, callar);
+            let mut datos = [callar as u8];
+            unsafe {
+                bmo_xhci::control_transfer(slot, r.bm_request_type, r.b_request, r.w_value, r.w_index, &mut datos, false);
+            }
+        }
+    }
+    if ac.mute_canales != 0 && ac.mute_canales & 1 == 0 {
+        // Sin mute en el maestro: el de los canales es el que vale.
+        CALLADO.store(callar, Ordering::SeqCst);
+        return true;
+    }
     let r = bmo_uaudio::set_mute(ac, bmo_uaudio::CHANNEL_MASTER, callar);
     let mut datos = [if callar { 1u8 } else { 0u8 }];
     let n = unsafe {
@@ -513,14 +638,25 @@ fn mandar_volumen(slot: u8, ac: &bmo_uaudio::AudioControl, pct: u8, valor: i16) 
     VOL_PCT.store(pct, Ordering::SeqCst);
     VOL_MANDADO.store(valor, Ordering::SeqCst);
     VOL_CONFIRMADO.store(false, Ordering::SeqCst);
+    // ** Y A CADA CANAL que declara volumen, ADEMAS del maestro (UN LADO
+    // SOLO, 03-10). Con el maestro aceptado se paraba aqui, y un lado que el
+    // aparato traia al minimo se quedaba al minimo.
+    let mut alguno = false;
+    for canal in 1..=ac.channels.min(15) {
+        if ac.vol_canales & (1 << canal) != 0 && escribir_volumen(slot, ac, canal, valor) {
+            alguno = true;
+        }
+    }
     if escribir_volumen(slot, ac, bmo_uaudio::CHANNEL_MASTER, valor) {
         confirmar(slot, ac, bmo_uaudio::CHANNEL_MASTER, pct, valor);
         return true;
     }
-    let mut alguno = false;
-    for canal in 1..=ac.channels {
-        if escribir_volumen(slot, ac, canal, valor) {
-            alguno = true;
+    if !alguno {
+        // El aparato no dijo cuales: se prueba canal por canal, como antes.
+        for canal in 1..=ac.channels {
+            if escribir_volumen(slot, ac, canal, valor) {
+                alguno = true;
+            }
         }
     }
     if alguno {

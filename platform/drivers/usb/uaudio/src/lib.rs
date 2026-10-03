@@ -70,6 +70,20 @@ pub const SUBCLASS_AUDIOCONTROL: u8 = 0x01;
 pub(crate) const DESC_CS_INTERFACE: u8 = 0x24;
 /// Subtipo: FEATURE_UNIT, el que lleva volumen y mute.
 const AC_FEATURE_UNIT: u8 = 0x06;
+/// Subtipos de las otras entidades del AudioControl (USB Audio 1.0, A.5).
+const AC_INPUT_TERMINAL: u8 = 0x02;
+const AC_MIXER_UNIT: u8 = 0x04;
+const AC_SELECTOR_UNIT: u8 = 0x05;
+const AC_PROCESSING_UNIT: u8 = 0x07;
+const AC_EXTENSION_UNIT: u8 = 0x08;
+/// `wTerminalType` de un Input Terminal que es el TUBO USB: lo que llega por
+/// el es lo que el host reproduce (Audio Terminal Types, 2.1).
+const TERMINAL_USB_STREAMING: u16 = 0x0101;
+/// Cuantas entidades de un AudioControl se recuerdan. Un auricular corriente
+/// declara menos de diez (terminales, unidades de volumen, mezclador).
+const MAX_ENTIDADES: usize = 24;
+/// Cuantas entradas se miran por unidad (un mezclador puede tener varias).
+const MAX_FUENTES: usize = 4;
 /// Tipos de descriptor estandar.
 pub(crate) const DESC_INTERFACE: u8 = 0x04;
 
@@ -109,6 +123,12 @@ pub struct AudioControl {
     pub has_volume: bool,
     /// Y de MUTE?
     pub has_mute: bool,
+    /// **Que canal declara VOLUMEN**: bit `n` = canal `n` (el 0 es el
+    /// maestro). Hace falta para mandar a CADA canal, no solo al maestro: ver
+    /// [`find_audio_control`], "un lado solo".
+    pub vol_canales: u16,
+    /// Y que canal declara MUTE, igual.
+    pub mute_canales: u16,
 }
 
 /// Una peticion de control ya montada, lista para `control_transfer`.
@@ -143,8 +163,40 @@ pub struct Request {
 /// [!] Un `bLength` de 0 pararia el bucle para siempre. Se comprueba: es la
 /// clase de dato que llega de fuera y no se le puede suponer nada.
 pub fn find_audio_control(config: &[u8]) -> Option<AudioControl> {
+    // ** UN LADO SOLO (2026-10-03, el Ryzen: *"se escucha un solo lado"*).
+    //
+    // Hasta hoy esto devolvia el PRIMER Feature Unit. Un auricular con
+    // microfono declara VARIOS: el del microfono (lo que sube al host), el del
+    // retorno de la voz (el microfono en el oido) y el de los altavoces. Si el
+    // primero es el del microfono, BMO-X mandaba sobre el volumen del micro y
+    // el de los altavoces se quedaba como arranco el aparato -- y hay aparatos
+    // que arrancan con un canal al minimo o callado.
+    //
+    // Ahora se recorre el GRAFO del AudioControl: el Feature Unit bueno es el
+    // que tiene, aguas arriba, el Input Terminal del TUBO USB (0x0101): por
+    // ahi entra lo que BMO-X reproduce. Si ninguno lo tiene (un aparato raro),
+    // el primero, como antes.
+    #[derive(Clone, Copy)]
+    struct Entidad {
+        id: u8,
+        /// Input Terminal: su tipo. 0 si no lo es.
+        tipo: u16,
+        fuentes: [u8; MAX_FUENTES],
+        n_fuentes: u8,
+        /// Si es un Feature Unit: el que saldria.
+        fu: Option<AudioControl>,
+    }
+    const VACIA: Entidad = Entidad { id: 0, tipo: 0, fuentes: [0; MAX_FUENTES], n_fuentes: 0, fu: None };
+    let mut ents = [VACIA; MAX_ENTIDADES];
+    let mut n = 0usize;
     let mut i = 0usize;
     let mut ac_interface: Option<u8> = None;
+    let poner = |e: Entidad, ents: &mut [Entidad; MAX_ENTIDADES], n: &mut usize| {
+        if *n < MAX_ENTIDADES {
+            ents[*n] = e;
+            *n += 1;
+        }
+    };
 
     while i + 2 <= config.len() {
         let len = config[i] as usize;
@@ -154,74 +206,110 @@ pub fn find_audio_control(config: &[u8]) -> Option<AudioControl> {
             // leer basura y creersela.
             break;
         }
+        let d = &config[i..i + len];
 
         if dtype == DESC_INTERFACE && len >= 9 {
-            let class = config[i + 5];
-            let subclass = config[i + 6];
+            let class = d[5];
+            let subclass = d[6];
             ac_interface = if class == CLASS_AUDIO && subclass == SUBCLASS_AUDIOCONTROL {
-                Some(config[i + 2]) // bInterfaceNumber
+                Some(d[2]) // bInterfaceNumber
             } else {
                 // Otra interfaz (AudioStreaming, HID...): a partir de aqui los
                 // descriptores de clase ya no son del AudioControl.
                 None
             };
-        } else if dtype == DESC_CS_INTERFACE && len >= 3 && config[i + 2] == AC_FEATURE_UNIT {
-            if let Some(interface) = ac_interface {
+        } else if let (DESC_CS_INTERFACE, Some(interface), true) = (dtype, ac_interface, len >= 4) {
+            let mut e = Entidad { id: d[3], ..VACIA };
+            let fuentes = |lista: &[u8], e: &mut Entidad| {
+                for &f in lista.iter().take(MAX_FUENTES) {
+                    e.fuentes[e.n_fuentes as usize] = f;
+                    e.n_fuentes += 1;
+                }
+            };
+            match d[2] {
+                AC_INPUT_TERMINAL if len >= 6 => {
+                    e.tipo = u16::from_le_bytes([d[4], d[5]]);
+                    poner(e, &mut ents, &mut n);
+                }
+                // Mezclador y selector: bNrInPins y la lista de fuentes.
+                AC_MIXER_UNIT | AC_SELECTOR_UNIT if len >= 5 => {
+                    let k = d[4] as usize;
+                    fuentes(&d[5..(5 + k).min(len)], &mut e);
+                    poner(e, &mut ents, &mut n);
+                }
+                // Procesado y extension: dos bytes de tipo delante.
+                AC_PROCESSING_UNIT | AC_EXTENSION_UNIT if len >= 7 => {
+                    let k = d[6] as usize;
+                    fuentes(&d[7..(7 + k).min(len)], &mut e);
+                    poner(e, &mut ents, &mut n);
+                }
                 // Feature Unit: bLength bDescriptorType bDescriptorSubtype
                 //               bUnitID bSourceID bControlSize bmaControls(0)...
-                if len >= 7 {
-                    let feature_unit = config[i + 3];
-                    let control_size = config[i + 5] as usize;
-                    let bma = &config[i + 6..i + len];
-                    // El primer bloque bmaControls es el del canal MAESTRO.
-                    let master = primer_bloque(bma, control_size);
-                    // Los bits son 1=mute, 2=volumen (bit 0 y bit 1).
-                    //
-                    // **** PERO NO SOLO EL MAESTRO, y esto salio del Ryzen.
-                    //
-                    // El 2026-08-09 la maquina dijo `aparato de audio SIN
-                    // control de volumen` con el audifono enchufado. El aparato
-                    // esta, tiene Feature Unit, y su bloque MAESTRO declara
-                    // cero -- porque **declara el volumen por CANAL**, en los
-                    // bloques de izquierdo y derecho.
-                    //
-                    // Es una disposicion corrientisima y el estandar la permite:
-                    // el canal 0 es opcional. Mirar solo el primer bloque
-                    // descarta esos aparatos enteros, y el sintoma es el peor
-                    // posible -- un "no se puede" sobre algo que si se puede.
-                    //
-                    // Se mira el maestro Y todos los canales. Cual funciona de
-                    // verdad lo averigua quien manda: `set_volume` prueba el
-                    // maestro y, si da STALL, va canal por canal.
-                    let mut junta = master;
+                AC_FEATURE_UNIT if len >= 7 => {
+                    fuentes(&d[4..5], &mut e);
+                    let control_size = d[5] as usize;
+                    let bma = &d[6..];
+                    // **** NO SOLO EL MAESTRO, y esto salio del Ryzen
+                    // (2026-08-09): un aparato que declara el volumen por
+                    // CANAL y cero en el maestro dio `aparato de audio SIN
+                    // control de volumen`. El canal 0 es opcional en el
+                    // estandar. Se mira el maestro Y cada canal, y se apunta
+                    // CUAL declara que: quien manda escribe en todos ellos.
+                    let (mut vol, mut mute) = (0u16, 0u16);
+                    let mut bloques = 0usize;
                     if control_size > 0 {
-                        let mut k = control_size;
+                        let mut k = 0;
                         while k + control_size <= bma.len() {
-                            junta |= primer_bloque(&bma[k..], control_size);
+                            let b = primer_bloque(&bma[k..], control_size);
+                            if bloques < 16 {
+                                vol |= ((b >> 1) as u16 & 1) << bloques;
+                                mute |= (b as u16 & 1) << bloques;
+                            }
+                            bloques += 1;
                             k += control_size;
                         }
                     }
-                    let has_mute = junta & 0x01 != 0;
-                    let has_volume = junta & 0x02 != 0;
-                    // Cuantos bloques hay, menos el maestro.
-                    let channels = if control_size > 0 {
-                        ((bma.len() / control_size).saturating_sub(1)) as u8
-                    } else {
-                        0
-                    };
-                    return Some(AudioControl {
+                    e.fu = Some(AudioControl {
                         interface,
-                        feature_unit,
-                        channels,
-                        has_volume,
-                        has_mute,
+                        feature_unit: d[3],
+                        // Cuantos bloques hay, menos el maestro. (El ultimo
+                        // byte puede ser iFeature: no forma un bloque entero
+                        // con control_size > 1, y con 1 se cuenta como antes.)
+                        channels: bloques.saturating_sub(1) as u8,
+                        has_volume: vol != 0,
+                        has_mute: mute != 0,
+                        vol_canales: vol,
+                        mute_canales: mute,
                     });
+                    poner(e, &mut ents, &mut n);
                 }
+                _ => {}
             }
         }
         i += len;
     }
-    None
+
+    let ents = &ents[..n];
+    // Aguas arriba de `id`, hay un tubo USB? Con tope de saltos: un grafo con
+    // un ciclo (llega de fuera) no puede colgar esto.
+    fn del_tubo(ents: &[Entidad], id: u8, saltos: u8) -> bool {
+        if saltos == 0 {
+            return false;
+        }
+        let Some(e) = ents.iter().find(|e| e.id == id) else { return false };
+        if e.tipo != 0 {
+            return e.tipo == TERMINAL_USB_STREAMING;
+        }
+        e.fuentes[..e.n_fuentes as usize].iter().any(|&f| del_tubo(ents, f, saltos - 1))
+    }
+    let reproduce = ents
+        .iter()
+        .filter_map(|e| e.fu.map(|fu| (e, fu)))
+        .find(|(e, _)| e.fuentes[..e.n_fuentes as usize].iter().any(|&f| del_tubo(ents, f, 8)));
+    match reproduce {
+        Some((_, fu)) => Some(fu),
+        None => ents.iter().find_map(|e| e.fu),
+    }
 }
 
 /// Los `bmaControls` del canal maestro, leidos como un entero chico.
@@ -471,6 +559,82 @@ mod tests {
         let ac = find_audio_control(&c).expect("el Feature Unit esta");
         assert!(!ac.has_volume);
         assert!(!ac.has_mute);
+    }
+
+    /// ***** UN LADO SOLO (03-10): un auricular con microfono. El PRIMER
+    /// Feature Unit es el del microfono (id 5, mono, aguas abajo de un Input
+    /// Terminal de microfono 0x0201); el de los altavoces (id 6) viene
+    /// despues, aguas abajo del TUBO USB (0x0101), y declara el volumen y el
+    /// mute SOLO por canal (izquierdo y derecho), nada en el maestro. Antes se
+    /// elegia el 5: BMO-X subia y bajaba el microfono y los altavoces se
+    /// quedaban como arranco el aparato.
+    fn config_auricular() -> [u8; 77] {
+        [
+            // Configuration (9)
+            9, 0x02, 77, 0, 3, 1, 0, 0x80, 50,
+            // Interface 0: Audio / AudioControl (9)
+            9, DESC_INTERFACE, 0, 0, 0, CLASS_AUDIO, SUBCLASS_AUDIOCONTROL, 0, 0,
+            // HEADER (10)
+            10, DESC_CS_INTERFACE, 0x01, 0x00, 0x01, 0x40, 0x00, 2, 1, 2,
+            // INPUT_TERMINAL id 1: microfono (0x0201), 1 canal (12)
+            12, DESC_CS_INTERFACE, AC_INPUT_TERMINAL, 1, 0x01, 0x02, 0, 1, 0x00, 0x00, 0, 0,
+            // FEATURE_UNIT id 5 <- 1, ctrlSize 1: maestro mute+vol, canal 1 nada, iFeature (9)
+            9, DESC_CS_INTERFACE, AC_FEATURE_UNIT, 5, 1, 1, 0x03, 0x00, 0,
+            // INPUT_TERMINAL id 2: el TUBO USB (0x0101), 2 canales (12)
+            12, DESC_CS_INTERFACE, AC_INPUT_TERMINAL, 2, 0x01, 0x01, 0, 2, 0x03, 0x00, 0, 0,
+            // FEATURE_UNIT id 6 <- 2: maestro nada, L y R mute+vol, iFeature (10)
+            10, DESC_CS_INTERFACE, AC_FEATURE_UNIT, 6, 2, 1, 0x00, 0x03, 0x03, 0,
+            // Interface 1: AudioStreaming (6, recortada a proposito)
+            6, DESC_INTERFACE, 1, 0, 0, CLASS_AUDIO,
+        ]
+    }
+
+    #[test]
+    fn el_feature_unit_es_el_de_los_altavoces_no_el_del_microfono() {
+        let ac = find_audio_control(&config_auricular()).expect("hay Feature Unit");
+        assert_eq!(ac.feature_unit, 6, "el que viene del TUBO USB, no el del microfono");
+        assert!(ac.has_volume && ac.has_mute);
+        // Bit n = canal n: el maestro (0) no declara nada; 1 y 2 si.
+        assert_eq!(ac.vol_canales, 0b0110, "volumen en izquierdo y derecho, no en el maestro");
+        assert_eq!(ac.mute_canales, 0b0110, "y el mute igual");
+    }
+
+    /// El orden del descriptor no importa: con los altavoces delante, tambien.
+    #[test]
+    fn el_de_los_altavoces_gana_aunque_vaya_primero_o_segundo() {
+        let c = config_auricular();
+        // Se monta otro con los dos bloques (terminal + unidad) al reves.
+        let (cab, mic, tubo, resto) = (&c[..28], &c[28..49], &c[49..71], &c[71..]);
+        let mut v = [0u8; 77];
+        let mut k = 0;
+        for parte in [cab, tubo, mic, resto] {
+            v[k..k + parte.len()].copy_from_slice(parte);
+            k += parte.len();
+        }
+        assert_eq!(find_audio_control(&v).unwrap().feature_unit, 6);
+    }
+
+    /// Un adaptador sin terminales declarados (el de siempre) sigue dando su
+    /// unico Feature Unit, con los canales apuntados.
+    #[test]
+    fn sin_terminales_sigue_el_primero() {
+        let ac = find_audio_control(&config_tipica()).unwrap();
+        assert_eq!(ac.feature_unit, 6);
+        assert_eq!(ac.vol_canales, 0b001, "el maestro declara volumen; L y R no");
+        assert_eq!(ac.mute_canales, 0b001);
+    }
+
+    /// Un grafo con un CICLO (una unidad que se tiene de fuente a si misma, o
+    /// dos que se citan) no cuelga: el recorrido tiene tope de saltos.
+    #[test]
+    fn un_ciclo_en_el_grafo_no_cuelga() {
+        let mut c = config_auricular();
+        // El Feature Unit 6 empieza en el byte 61: len, tipo, subtipo, id (64)
+        // y su fuente (65). Que se cite a si mismo.
+        c[65] = 6;
+        let ac = find_audio_control(&c).expect("devuelve uno");
+        // Sin camino al tubo, se queda con el primero, como antes.
+        assert_eq!(ac.feature_unit, 5);
     }
 
     /// Un aparato sin Feature Unit existe, y la respuesta correcta es `None`:

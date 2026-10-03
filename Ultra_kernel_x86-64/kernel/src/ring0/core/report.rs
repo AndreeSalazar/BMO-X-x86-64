@@ -267,6 +267,8 @@ const INFO_AUDIO_OIDO: u64 = 0xC8;
 const INFO_AUDIO_FONDO: u64 = 0xC9;
 /// El ESPACIO: el modo 3D que aplica el maestro (S7).
 const INFO_AUDIO_ESPACIO: u64 = 0xCA;
+/// Los LADOS del aparato: lo que traia cada uno y cual venia callado.
+const INFO_AUDIO_LADOS: u64 = 0xCB;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -890,6 +892,7 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_AUDIO_OIDO => crate::ring0::dev::usb::maestro::info_oido(),
         INFO_AUDIO_FONDO => crate::ring0::dev::usb::voces::info_fondo(),
         INFO_AUDIO_ESPACIO => crate::ring0::dev::usb::maestro::info_espacio(),
+        INFO_AUDIO_LADOS => crate::ring0::dev::uaudio::info_lados(),
         INFO_AUDIO_TIRONES => {
             let (en_marcha, cortes, peor) = crate::ring0::dev::usb::audio::tirones();
             en_marcha.min(0xFFFF_FFFF) | (cortes.min(0xFFFF) << 32) | (peor.min(0xFFFF) << 48)
