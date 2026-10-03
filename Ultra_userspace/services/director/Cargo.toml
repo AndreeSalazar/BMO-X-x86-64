@@ -60,3 +60,6 @@ bmo-config = { path = "../../../platform/shared/bmo-config" }
 bmo-pila = { path = "../../../platform/shared/bmo-pila" }
 # ANTENA/1: la conversacion y el juez de la lamina, para `red pagina` (N3a).
 bmo-antena = { path = "../../../platform/shared/bmo-antena" }
+# El censo de los sonidos (`sonidos`): la ficha de cada cabecera, probada en
+# el anfitrion contra bytes hostiles.
+bmo-sonido = { path = "../../../platform/shared/bmo-sonido" }

@@ -305,5 +305,8 @@ pub fn leer_wav(bytes: &[u8]) -> Result<Pcm<'_>, Falta> {
     Ok(Pcm { canales, frecuencia, bits, datos })
 }
 
+/// **El censo**: que es cada fichero por dentro, y si es oficial o no.
+pub mod censo;
+
 #[cfg(test)]
 mod pruebas;

@@ -78,6 +78,8 @@ pub(crate) mod history;
 /// El anillo de eventos del kernel, leido desde aqui. Ver su cabecera.
 pub(crate) mod cabina;
 pub(crate) mod red;
+/// `sonidos`: el censo de los sonidos del disco entero (F3, la ONDA).
+pub(crate) mod sonidos;
 /// EL GATE RED desde el escritorio: el pase, `red prueba` en tiempo real y el
 /// perfil de la red, recortado para no exponer a nadie. Ver su cabecera.
 pub(crate) mod red_pase;
@@ -207,6 +209,9 @@ pub(crate) enum Command<'a> {
     /// Ring 3, este todo lo que el kernel apunto -- incluido lo que no fallo.
     Cabina(&'a [u8]),
     Placa,
+    /// `sonidos`: cada fichero de DATOS y ESTRATOS que por dentro es sonido,
+    /// con su veredicto (suena, oficial, no oficial, miente).
+    Sonidos,
     Cpu,
     /// `gpu`, `gpu cegar`, `gpu ver` (M0e).
     Gpu(&'a [u8]),
@@ -606,6 +611,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         // firmware, donde vive la config de PCIe, si hay IOMMU. Contesta y no
         // concede: no cambia nada.
         b"placa" | b"firmware" => Command::Placa,
+        b"sonidos" | b"censo-sonidos" => Command::Sonidos,
         b"cpu" | b"procesador" => Command::Cpu,
         // La grafica, PREGUNTADA: quien es y si su VBLANK se ve sin firmware.
         b"gpu" | b"grafica" => Command::Gpu(rest),

@@ -185,6 +185,7 @@ dependencies = [
  "bmo-registro",
  "bmo-ritmo",
  "bmo-rtc",
+ "bmo-sonido",
  "bmo-userland",
  "bmo-verrano",
 ]
@@ -199,6 +200,10 @@ dependencies = [
 [[package]]
 name = "bmo-sm86"
 version = "0.1.0"
+
+[[package]]
+name = "bmo-sonido"
+version = "1.0.0"
 
 [[package]]
 name = "bmo-spirv-front"

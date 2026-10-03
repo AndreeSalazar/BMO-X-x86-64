@@ -124,6 +124,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"smp all", b"levantar todos los nucleos"),
     (b"banda", b"el ancho de banda de la RAM"),
     (b"audio", b"el aparato de sonido"),
+    (b"sonidos", b"el censo de los sonidos del disco entero"),
     (b"ext", b"que ofrece el silicio y que coge BMO"),
     (b"cache", b"L1, L2 y L3 medidas"),
     (b"captura", b"la pantalla a capturas/"),
