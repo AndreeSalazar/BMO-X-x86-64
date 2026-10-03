@@ -218,7 +218,10 @@ escucha solo sabe decir el saludo.
    OFERTA    nombre (solo para ensenar), bytes, sha256. El TIPO no viaja
    SI / NO   la respuesta a una OFERTA
    TROZO     hasta 64 KiB de un envio aceptado, con su numero
-   PIDE      el muro o el canal de un amigo: lo que ESE amigo publica
+   PIDE      el muro, el canal o una PAGINA de un amigo: lo que ESE amigo
+             publica. Una pagina llega como CARA (seccion 7)
+   REACCION  el numero de un mensaje y UN emoji; uno por persona y mensaje,
+             y mandar el mismo otra vez lo quita (como WhatsApp)
 ```
 
 Lista blanca, como `bmo-pila`: un verbo que no esta aqui, un largo que se
@@ -278,7 +281,100 @@ JUEZ no ve `clave.bin`.
 
 ---
 
-## 7. Los escalones, desde el principio
+## 7. Las PAGINAS: un navegador sin Google
+
+> El propietario (03-10): *"vamos a poner emojis tipicos que ya tiene
+> Microsoft y WhatsApp [...] pero alli en "+" o algo simple es construir tu
+> propia pagina ya con .maqueta que es HTML + CSS es suficiente no? [...]
+> vamos a mejorar MAS y MAS porque eso es entre comillas navegador en BARE
+> metal sin Google"*.
+
+### 7.1 La respuesta: SI basta, y la mitad ya esta escrita
+
+Un navegador manda el documento **y trae el motor que lo maqueta**: HTML,
+CSS, JavaScript, fuentes, imagenes de cualquier sitio. Por eso un navegador
+son millones de lineas, y por eso cada pagina puede hacer casi cualquier cosa
+en tu maquina.
+
+BMO-X ya tiene la otra forma, y la tiene ESCRITA:
+
+```text
+   MAQUETA            .maqueta = HTML + CSS en un fichero, con LISTA CERRADA
+                      (toolchain/tools/maqueta, docs/componente/LA_MAQUETA_EXIGE.md)
+   la CARA            la maquetacion YA RESUELTA: rectangulos, letras y golpes
+                      (platform/shared/bmo-maqueta-cara). ~1 KB por pantalla
+   el lector          desconfia de cada numero: una CARA corrupta no tumba a
+                      quien la pinta
+```
+
+Una pagina de HERMES es eso: **quien la escribe la compila, y lo que viaja es
+la CARA**. Quien la recibe no maqueta, no interpreta HTML ni CSS, no ejecuta
+nada: lee una CARA con el lector que ya desconfia y pinta rectangulos y
+letras con `bmo-dibujo`. Con la cuenta del formato (cabecera 20 B, trazo
+20 B, golpe 12 B, y las cadenas), las cinco paginas de la maqueta salen entre
+437 y 782 bytes.
+
+*** **Y lo que una pagina no puede tener no es un filtro: no existe.** No hay
+`<script>`, ni eventos, ni `<a href>`, ni `<img src>`, ni `url()`. MAQUETA
+"rechaza lo que no entiende" (seccion 0 de su contrato), y esas etiquetas no
+estan en la lista. Ni Google, ni anuncios, ni rastreadores, ni cookies: no
+porque se bloqueen, sino porque no hay con que escribirlos.
+
+### 7.2 Lo que le falta a MAQUETA para hacer paginas (H13)
+
+Medido contra `LA_MAQUETA_EXIGE.md`, que se escribio para el escritorio:
+
+```text
+   FALTA                      PROPUESTA                         POR QUE ASI
+   -------------------------------------------------------------------------
+   ir a otra pagina           destino="hermes://amigo/pagina"   el id YA es la
+                              en un <div> o <span> con id       clave de la tabla
+                                                                de golpeo: un
+                                                                golpe con destino
+   fotos                      imagen="muro/nombre" en un <div>  solo del muro de
+                              con width y height                quien publica,
+                                                                ya juzgadas
+   letra mas grande           font-size: 16 | 32 | 48 | 64 px   una sola letra
+                                                                de 8x16, por
+                                                                escalas enteras
+   parrafos                   white-space: normal               hoy la
+                                                                comprobacion B
+                                                                rechaza el texto
+                                                                que no cabe
+   paginas largas             el visor desplaza; la CARA ya     nada nuevo en el
+                              lleva su alto                     formato
+```
+
+El contrato dice como entra algo nuevo: *"Agregar algo a MAQUETA empieza por
+anadirlo a este fichero"*. Y la CARA pasa a la version 2 (un golpe con
+destino, un trazo de imagen), porque el lector compara la version por
+IGUALDAD.
+
+### 7.3 Donde corre el compilador (H14)
+
+Hoy MAQUETA es del anfitrion (`std`). Para que el `+` de HERMES publique una
+pagina, MAQUETA tiene que correr en BMO-X: sus cinco crates en `no_std`,
+dentro de la jaula de la APP. Quien RECIBE no necesita el compilador: solo el
+lector de la CARA. El trabajo pesado y el codigo grande se quedan en la
+maquina de quien escribe.
+
+### 7.4 Los emojis (H7)
+
+```text
+   el CATALOGO   Unicode hasta Emoji 15.0: 1.870, en 9 grupos, con tonos de
+                 piel. Nombres en castellano de CLDR (via emojibase, MIT):
+                 el buscador encuentra "corazon" sin acento
+   el DIBUJO     los de WhatsApp son de Meta y no se pueden copiar. Los de
+                 Microsoft (Fluent Emoji) se publican con licencia MIT:
+                 se comprueba al traerlos, y el atlas se hace en el
+                 anfitrion y vive en ESTRATOS
+   el PROTOCOLO  nada nuevo: un emoji es UTF-8 dentro de TEXTO, o el unico
+                 cuerpo de una REACCION
+```
+
+---
+
+## 8. Los escalones, desde el principio
 
 Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
 
@@ -290,8 +386,11 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       [`../arte/maqueta_hermes.html`](../arte/maqueta_hermes.html). F3 abre
       HERMES y F4 la LUDOTECA; la entrada con el gato y su glitch, mensajes con
       emojis, guinos y ZUMBIDO, tertulias, el MURO, el CANAL, los ENVIOS con su
-      cuarentena, los amigos con su huella y las tres jaulas en vivo. **Como se
-      sabe:** el propietario la abre y dice si es la cara.
+      cuarentena, los amigos con su huella y las tres jaulas en vivo. Y desde
+      el 03-10: los emojis completos con buscador, tonos y recientes, las
+      reacciones, el menu `+`, y PAGINAS (el visor `hermes://` y un editor de
+      `.maqueta` que juzga con el contrato y marca la propuesta H13). **Como
+      se sabe:** el propietario la abre y dice si es la cara.
 - [ ] **H2 -- `bmo-hermes`, puro y con banco.** Un crate `no_std` sin
       `unsafe` en `platform/shared/`: el saludo Noise XX/IK como maquina de
       estados, el formato de la seccion 4.3 y sus rechazos con nombre. **Como
@@ -315,9 +414,11 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
 - [ ] **H6 -- texto entre dos BMO-X en la LAN.** Pide G5 en el metal. **Como
       se sabe:** dos maquinas se aceptan por huella, se escriben, y una
       captura del cable no tiene ni una palabra en claro.
-- [ ] **H7 -- los emojis se pintan.** Un atlas propio de emojis para
-      `bmo-dibujo`, dibujos de BMO-X. **Como se sabe:** el mensaje del banco
-      con emojis se ve igual en las dos maquinas.
+- [ ] **H7 -- los emojis se pintan.** `bmo-dibujo` aprende UTF-8 y un atlas
+      de emojis sacado de Fluent Emoji (seccion 7.4), con el selector, el
+      buscador en castellano, los tonos de piel y las REACCIONES. **Como se
+      sabe:** el mensaje del banco con emojis y tonos se ve igual en las dos
+      maquinas, y una reaccion llega y se quita.
 - [ ] **H8a -- ESTRATOS escribe por trozos.** La salida A o la B de la
       seccion 5. **Como se sabe:** un fichero de 4 GiB entra en ESTRATOS con
       64 KiB de RAM prestada, y su suma cuadra.
@@ -334,5 +435,20 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       solo reenvia bytes ya cifrados y no sabe leer ninguno. **Como se sabe:**
       dos BMO-X en dos casas se escriben, y el relevo no tiene la clave de
       ninguno de los dos.
+- [ ] **H13 -- MAQUETA para paginas.** Las cinco cosas de la seccion 7.2,
+      primero en `LA_MAQUETA_EXIGE.md` y despues en los crates, y la CARA
+      version 2. **Como se sabe:** las cinco paginas de la maqueta compilan
+      con la MAQUETA de verdad y dan ficheros dorados; las que rechaza la
+      maqueta (`<script>`, `<a href>`, `margin`, `rgba`) las rechaza tambien.
+- [ ] **H14 -- MAQUETA en BMO-X.** Los cinco crates en `no_std`, dentro de la
+      jaula de HERMES: el `+` compila y publica en `F:/hermes/paginas/`.
+      **Como se sabe:** compilar la misma pagina en el Ryzen y en el anfitrion
+      da los mismos bytes (el contrato ya exige determinismo).
+- [ ] **H15 -- el visor de paginas.** PIDE pagina -> la CARA -> el lector de
+      `bmo-maqueta-cara` -> `bmo-dibujo`; los golpes con destino navegan,
+      atras y adelante, y `https://` contesta que eso no es HERMES. **Como se
+      sabe:** `hermes://nova/inicio` se ve en el Ryzen igual que la vista de
+      MAQUETA en el anfitrion, y una CARA con medidas mentirosas no tumba al
+      visor (un `tests/hostile.rs` para el lector).
 - [ ] **H12 -- la voz.** Cuando el audio USB tambien ENTRE (microfono), con
       un codec propio. **Como se sabe:** una llamada de un minuto sin cortes.
