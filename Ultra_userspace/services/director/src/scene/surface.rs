@@ -732,7 +732,7 @@ impl Surface {
 /// tres botones que asoman (ver `Chrome::sin_marco`). Se decide por el
 /// programa, no por la app: el marco es cosa del escritorio.
 /// HERMES (F3, 03-10) tambien: es la otra cara de la maqueta.
-const SIN_MARCO: [&[u8]; 2] = [b"ludoteca.bex", b"hermes.bex"];
+const SIN_MARCO: [&[u8]; 3] = [b"ludoteca.bex", b"hermes.bex", b"bankcat.bex"];
 
 /// El programa de `tid` es de los [`SIN_MARCO`]? Lo mismo que mira F4 para
 /// saber si la LUDOTECA ya esta abierta: el nombre que el kernel apunto al

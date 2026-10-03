@@ -16,6 +16,9 @@
 //!                                         (la ONDA de HERMES, 03-10)
 //!    0x1E aviso <nombre>                  un aviso encima de la musica (el
 //!                                         ZUMBIDO de HERMES)
+//!    0x1E bankcat hola|cuadrar            BANK CAT (03-10): el libro lo lleva
+//!    0x1E bankcat cobrar|pagar <importe>  el motor COBOL del escritorio
+//!    0x1E bankcat veces <n>               (`desktop::bankcat`)
 //! ```
 //!
 //! ** La musica es del ESCRITORIO y no de la app: por eso HERMES la PIDE y no
@@ -97,6 +100,8 @@ pub(crate) enum Que<'a> {
     Pausa,
     /// `fondo volumen <0..100>`: la voz de la musica, no el fader.
     Volumen(u32),
+    /// `bankcat ...`: una orden al motor del libro (`None` = hola).
+    Banco(Option<bmo_bankcat::Orden>),
     /// Fuera de la lista blanca.
     No,
 }
@@ -104,6 +109,27 @@ pub(crate) enum Que<'a> {
 pub(crate) fn juzgar(l: &[u8]) -> Que<'_> {
     if let Some(r) = l.strip_prefix(b"personal diario ") {
         return if r.is_empty() { Que::No } else { Que::Diario(r) };
+    }
+    // ** BANK CAT (03-10): la orden se lee con el wrapper; nada de abrir un
+    // libro desde fuera (eso lo hace el escritorio al nacer el motor).
+    if let Some(r) = l.strip_prefix(b"bankcat ") {
+        use bmo_bankcat::{leer_centimos, Orden};
+        let (verbo, dato) = match r.iter().position(|&c| c == b' ') {
+            Some(i) => (&r[..i], &r[i + 1..]),
+            None => (r, &b""[..]),
+        };
+        let importe = || leer_centimos(dato).filter(|&c| c > 0);
+        return match verbo {
+            b"hola" if dato.is_empty() => Que::Banco(None),
+            b"cuadrar" if dato.is_empty() => Que::Banco(Some(Orden::Cuadrar)),
+            b"cobrar" => importe().map_or(Que::No, |c| Que::Banco(Some(Orden::Cobrar(c)))),
+            b"pagar" => importe().map_or(Que::No, |c| Que::Banco(Some(Orden::Pagar(c)))),
+            b"veces" => match leer_centimos(dato) {
+                Some(c) if c >= 100 && c <= 9_999_900 && c % 100 == 0 => Que::Banco(Some(Orden::Veces((c / 100) as u32))),
+                _ => Que::No,
+            },
+            _ => Que::No,
+        };
     }
     // ** EL REPRODUCTOR de HERMES (03-10): lo mismo que la PASTILLA.
     if l == b"fondo pausa" {
@@ -197,10 +223,20 @@ pub(crate) fn atender(dsk: &mut Desktop, p: &bmo::Pantalla) {
         Que::Aviso(a) => crate::desktop::musica::avisar(a),
         Que::Pausa => crate::desktop::musica::pausa(),
         Que::Volumen(v) => crate::desktop::musica::volumen(v),
+        Que::Banco(o) => {
+            if let Err(frase) = crate::desktop::bankcat::pedir(o) {
+                let g = &mut dsk.out.grid;
+                g.with_ink(INK_ERR);
+                g.text(b"  ");
+                g.text(frase);
+                g.text(b"\n");
+                g.with_ink(INK_PLAIN);
+            }
+        }
         Que::No => {
             let g = &mut dsk.out.grid;
             g.with_ink(INK_ERR);
-            g.text(b"  no: solo `personal diario <ruta>`, un .bex de apps/ o sys/, `fondo <n>|pausa|volumen <0..100>` o `aviso <nombre>`\n");
+            g.text(b"  no: solo `personal diario <ruta>`, un .bex de apps/ o sys/, `fondo <n>|pausa|volumen <0..100>`, `aviso <nombre>` o `bankcat <orden>`\n");
             g.with_ink(INK_PLAIN);
         }
     }

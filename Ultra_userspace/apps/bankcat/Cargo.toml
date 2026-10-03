@@ -1,0 +1,17 @@
+[package]
+name = "bmo-app-bankcat"
+version = "0.1.0"
+edition = "2021"
+description = "BANK CAT (F5): la cartera de CAB y el gato hucha. El dinero lo lleva el motor COBOL del escritorio (cobol/11/libro.bex); esto es la cara. BC3 de PLAN_BANK_CAT."
+
+[[bin]]
+name = "bankcat"
+path = "src/main.rs"
+
+[dependencies]
+bmo-monton = { path = "../../../platform/shared/bmo-monton" }
+bmo-userland = { path = "../../userland" }
+# El mismo rasterizador que el escritorio, el TALLER, la LUDOTECA y HERMES.
+bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
+# El WRAPPER del motor: los importes en centimos y el saldo en castellano.
+bmo-bankcat = { path = "../../../platform/shared/bmo-bankcat" }

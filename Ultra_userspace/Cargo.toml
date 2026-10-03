@@ -20,6 +20,7 @@ members = [
     # HERMES (F3): mensajes, tertulias, la ONDA y las jaulas, en una sola
     # maquina. PLAN_HERMES, H5.
     "apps/hermes",
+    "apps/bankcat",
 ]
 resolver = "2"
 

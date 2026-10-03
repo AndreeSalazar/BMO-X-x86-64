@@ -26,6 +26,9 @@ bmo-verrano = { path = "../../../platform/shared/verrano" }
 bmo-bsf = { path = "../../../toolchain/lang/spirv/bsf" }
 bmo-iommu-amdvi = { path = "../../../platform/drivers/iommu/amdvi" }
 bmo-userland = { path = "../../userland" }
+# BANK CAT (03-10): el WRAPPER del motor COBOL del libro (ordenes y
+# respuestas en centimos). Puro, probado contra el motor en el emulador.
+bmo-bankcat = { path = "../../../platform/shared/bmo-bankcat" }
 # La politica de FOCO (quien recibe las teclas). Alli se puede PROBAR -- este
 # binario es `no_main` para un target sin sistema operativo y no corre un test.
 # ** Hasta el 2026-09-13 esto era `bmo-input`, un driver de Ring 0 enlazado desde
