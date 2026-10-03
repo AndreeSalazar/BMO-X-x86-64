@@ -358,3 +358,23 @@ pub fn sm5_division() -> (Vec<u32>, Vec<Elemento>, Vec<Elemento>) {
     s[0].mascara = 0xF;
     (t, e, s)
 }
+
+/// N5.7: `discard_nz` y `discard_z`:
+///
+/// ```text
+///    lt r0.x, v0.x, l(0.5) ; discard_nz r0.x
+///    discard_z v0.y
+///    mov o0.x, v0.x ; mov o0.y, v0.y ; ret
+/// ```
+/// Se tira si x < 0.5 o si los bits de y son 0; si no, sale (x, y).
+pub fn sm5_descarte() -> (Vec<u32>, Vec<Elemento>, Vec<Elemento>) {
+    let t = programa_sm5(&[
+        ins(49, 0, &cat(&[&dst(0, 0, 1), &src(1, 0, 0), &imm(0.5f32.to_bits())])),
+        ins(13, 1 << 18, &src(0, 0, 0)),
+        ins(13, 0, &src(1, 0, 1)),
+        ins(54, 0, &cat(&[&dst(2, 0, 1), &src(1, 0, 0)])),
+        ins(54, 0, &cat(&[&dst(2, 0, 2), &src(1, 0, 1)])),
+    ]);
+    let (e, s) = firmas();
+    (t, e, s)
+}

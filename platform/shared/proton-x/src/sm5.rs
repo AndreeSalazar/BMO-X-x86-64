@@ -61,6 +61,8 @@ const BREAK: u32 = 2;
 const BREAKC: u32 = 3;
 const CONTINUE: u32 = 7;
 const CONTINUEC: u32 = 8;
+/// N5.7: `discard_nz x` / `discard_z x` (el `clip()` de HLSL, compilado).
+const DISCARD: u32 = 13;
 // E6c (02-10): los enteros, las conversiones y el `switch`.
 const AND: u32 = 1;
 const CASE: u32 = 6;
@@ -591,6 +593,24 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
             RET => acabado = true,
             // ** E6: los saltos.
             CONTINUE | CONTINUEC if tr.construcciones.last() == Some(&true) => return Err(NoPrograma::Forma("un continue SM5 dentro de un switch: todavia no")),
+            DISCARD => {
+                let mut j = i + 1;
+                let c = operando(t, &mut j)?;
+                if j != fin {
+                    return Err(NoPrograma::Forma("un discard SM5 que no mide lo que dice"));
+                }
+                let x = tr.fuente(&c, 0)?;
+                // `discard_z x`: se tira si x ES cero (los bits).
+                let c = if w & PRUEBA_NO_CERO != 0 {
+                    x
+                } else {
+                    let cero = tr.literal(0)?;
+                    let d = tr.nuevo()?;
+                    tr.p.ops.push(Op::Compara { d, a: x, b: cero, como: Comparacion::Igual, entero: true });
+                    d
+                };
+                tr.p.ops.push(Op::Descarta { c });
+            }
             IF | BREAKC | CONTINUEC => {
                 let mut j = i + 1;
                 let c = operando(t, &mut j)?;

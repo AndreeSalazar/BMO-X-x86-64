@@ -199,3 +199,57 @@ fn un_pixel_de_dxc_hace_la_matematica_que_faltaba() {
     assert_eq!(sal[2][2], 1.0, "f16tof32(0x3C00)");
     assert_eq!(sal[2][3].to_bits(), 0x3800, "f32tof16(0.5)");
 }
+
+const DESCARTE_PS: &[u8] = include_bytes!("../prueba/descarte.dxil");
+
+/// *** N5.7: `descarte.hlsl` (de `dxc`): `clip(x - 0.5)` llega como
+/// `discard(x < 0)` y el `discard` de un `if`, como `discard(true)` en su
+/// rama. Corrido: el pixel queda solo si pasa los dos, y entonces sale el
+/// color.
+#[test]
+fn un_pixel_de_dxc_se_tira_con_clip_y_discard() {
+    use crate::dxil::programa::compilar;
+    let ps = compilar(&dxil::leer(DESCARTE_PS).unwrap()).unwrap();
+    assert_eq!(ps.ops.iter().filter(|o| matches!(o, Op::Descarta { .. })).count(), 2, "{:?}", ps.ops);
+    let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
+    let mut corre = |x: f32, y: f32| ps.correr(&[[0.0; 4], [x, y, 0.0, 0.0]], &[], &mut sal, &mut regs);
+    assert!(!corre(0.25, 0.5), "clip: x - 0.5 < 0");
+    assert!(!corre(0.75, 0.9), "discard: y > 0.75");
+    assert!(corre(0.5, 0.75), "en el borde de los dos, queda (clip tira solo si < 0)");
+    assert_eq!(sal[0], [0.5, 0.75, 0.0, 1.0]);
+}
+
+/// El mismo `discard` en SM5 (`discard_nz`, `discard_z`), de `fxc`.
+#[test]
+fn el_sm5_tira_con_discard_nz_y_discard_z() {
+    let (t, e, s) = crate::dxil::ejemplos::sm5_descarte();
+    let p = crate::sm5::compilar(&t, &e, &s).unwrap();
+    let mut sal = [[0f32; 4]; 1];
+    let mut corre = |x: f32, y: f32| p.correr(&[[x, y, 0.0, 0.0]], &[], &mut sal, &mut Vec::new());
+    assert!(!corre(0.25, 1.0), "discard_nz (x < 0.5)");
+    assert!(!corre(0.75, 0.0), "discard_z (los bits de y, 0)");
+    assert!(corre(0.75, -0.0), "-0.0 no son bits 0: queda");
+    assert!(corre(0.75, 2.0));
+    assert_eq!(sal[0][..2], [0.75, 2.0]);
+}
+
+/// En la trama, el pixel tirado no escribe NADA: ni color ni profundidad
+/// (la Z se escribe despues del sombreador), y se cuenta en `tirados`.
+#[test]
+fn la_trama_no_escribe_el_pixel_tirado_ni_su_profundidad() {
+    use crate::trama;
+    let v = crate::pruebas::triangulo([1.0; 3], [0.0, 1.0, 1.0], true);
+    let mut px = vec![0u32; 64];
+    let mut z = vec![1.0f32.to_bits(); 64];
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: Some(trama::Profundidad { funcion: 2, escribir: true }) };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: Some(&mut z), cadena: false };
+    // Tira lo de atributo < 0.5 (cerca del vertice de (0,0)).
+    let c = trama::dibujar(&reglas, &v, &[[0, 1, 2]], &mut d, |e| (e[0][0] >= 0.5).then_some([1.0, 1.0, 1.0, 1.0]));
+    assert_eq!(c.pixeles, 28);
+    assert!(c.tirados > 0 && c.tirados < 28, "{c:?}");
+    let pintados = px.iter().filter(|&&p| p != 0).count() as u64;
+    let escritos = z.iter().filter(|&&b| b != 1.0f32.to_bits()).count() as u64;
+    assert_eq!((pintados, escritos), (28 - c.tirados, 28 - c.tirados), "{c:?}");
+    // Los mismos: donde hay color hay Z, y al reves.
+    assert!(px.iter().zip(&z).all(|(&p, &b)| (p != 0) == (b != 1.0f32.to_bits())));
+}

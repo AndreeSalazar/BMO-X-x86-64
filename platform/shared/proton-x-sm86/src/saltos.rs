@@ -73,7 +73,7 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
             }
             v[4] = Some(nivel);
         }
-        Op::Si { c } | Op::RomperSi { c, .. } => v[0] = Some(c),
+        Op::Si { c } | Op::RomperSi { c, .. } | Op::Descarta { c } => v[0] = Some(c),
         Op::Entrada { .. } | Op::Constantes { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::Romper | Op::Continuar | Op::FinBucle => {}
     }
     v
@@ -106,7 +106,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         | Op::SumaEntera { d, .. }
         | Op::Entera { d, .. }
         | Op::Convierte { d, .. } => uno(d),
-        Op::Salida { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
+        Op::Salida { .. } | Op::Descarta { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
     }
 }
 

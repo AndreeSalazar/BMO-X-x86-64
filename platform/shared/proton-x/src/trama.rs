@@ -110,6 +110,9 @@ pub struct Cuenta {
     pub sombreados: u64,
     /// Pixeles cubiertos que la prueba de profundidad dejo sin pintar.
     pub tapados: u64,
+    /// N5.7: pixeles que el sombreador TIRO (`discard`, `clip`): pasaron la
+    /// prueba de profundidad y no escribieron nada.
+    pub tirados: u64,
     /// P3b4c.9 Z1: el dibujo quedo EN LA PANTALLA (la 3060, directo), no en
     /// `Destino::pixeles`: `Present` no tiene nada que copiar.
     pub en_pantalla: bool,
@@ -164,8 +167,9 @@ pub fn empaquetar(c: [f32; 4], bgra: bool) -> u32 {
 
 /// **Dibujar triangulos** (cada tres indices de `tris`, uno) sobre `destino`,
 /// con `ps` como sombreador de pixeles: recibe los atributos interpolados y
-/// devuelve el color (r, g, b, a).
-pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, mut ps: impl FnMut(&[[f32; 4]]) -> [f32; 4]) -> Cuenta {
+/// devuelve el color (r, g, b, a), o `None` si TIRA el pixel (N5.7: ni color
+/// ni profundidad; por eso la Z se escribe DESPUES de correrlo).
+pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, mut ps: impl FnMut(&[[f32; 4]]) -> Option<[f32; 4]>) -> Cuenta {
     let mut cuenta = Cuenta::default();
     let [vx, vy, vw, vh, zmin, zmax] = reglas.viewport;
     let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= destino.pixeles.len()));
@@ -178,7 +182,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
     let y1 = ((vy + vh) as i64).min(reglas.tijera[3] as i64).min(destino.alto as i64) - 1;
     let ancho = destino.ancho as i64;
     // La memoria del sombreador de pixeles: lo ultimo que entro y lo que dio.
-    let mut ultima: Option<(Vec<[f32; 4]>, u32)> = None;
+    let mut ultima: Option<(Vec<[f32; 4]>, Option<u32>)> = None;
     let mut entrada: Vec<[f32; 4]> = Vec::new();
     for t in tris {
         let Some(v) = t.iter().map(|&i| vertices.get(i)).collect::<Option<Vec<_>>>() else {
@@ -255,6 +259,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                     continue;
                 }
                 let i = (py * ancho + px) as usize;
+                let mut z_nueva = None;
                 if let (Some(p), Some(zs)) = (prueba, destino.z.as_deref_mut()) {
                     // Lineal en pantalla: los pesos de las aristas, sin w.
                     let s = (e[0] + e[1] + e[2]) as f32;
@@ -265,7 +270,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                         continue;
                     }
                     if p.escribir {
-                        zs[i] = z.to_bits();
+                        z_nueva = Some(z.to_bits());
                     }
                 }
                 cuenta.pixeles += 1;
@@ -287,11 +292,18 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                     Some((antes, p)) if antes.len() == entrada.len() && antes.iter().zip(&entrada).all(|(a, b)| a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())) => *p,
                     _ => {
                         cuenta.sombreados += 1;
-                        let p = empaquetar(ps(&entrada), destino.bgra);
+                        let p = ps(&entrada).map(|c| empaquetar(c, destino.bgra));
                         ultima = Some((entrada.clone(), p));
                         p
                     }
                 };
+                let Some(pixel) = pixel else {
+                    cuenta.tirados += 1;
+                    continue;
+                };
+                if let (Some(z), Some(zs)) = (z_nueva, destino.z.as_deref_mut()) {
+                    zs[i] = z;
+                }
                 destino.pixeles[i] = pixel;
             }
         }

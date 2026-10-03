@@ -614,7 +614,7 @@ fn los_dxil_corridos_y_la_trama_dan_las_huellas_de_d3d12() {
 
 /// Un triangulo de pantalla completa... casi: de (0,0) a (8,0) a (0,8) en un
 /// destino de 8x8, en coordenadas de recorte con `w` por vertice.
-fn triangulo(w: [f32; 3], atributo: [f32; 3], horario: bool) -> Vec<trama::Sombreado> {
+pub(crate) fn triangulo(w: [f32; 3], atributo: [f32; 3], horario: bool) -> Vec<trama::Sombreado> {
     // x_ndc = px / 4 - 1, y_ndc = 1 - py / 4; en recorte, por w.
     let p = [(0.0f32, 0.0f32), (8.0, 0.0), (0.0, 8.0)];
     let mut v: Vec<trama::Sombreado> = (0..3)
@@ -630,7 +630,7 @@ fn pinta(v: &[trama::Sombreado], descarte: u32, antihorario: bool) -> (Vec<u32>,
     let mut px = vec![0u32; 64];
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte, antihorario, profundidad: None };
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: None, cadena: false };
-    let c = trama::dibujar(&reglas, v, &[[0, 1, 2]], &mut d, |e| e[0]);
+    let c = trama::dibujar(&reglas, v, &[[0, 1, 2]], &mut d, |e| Some(e[0]));
     (px, c)
 }
 

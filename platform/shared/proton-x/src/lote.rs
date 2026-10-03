@@ -245,6 +245,10 @@ pub fn triangulos(ids: &[u32], t: Topologia) -> Vec<[u32; 3]> {
 /// Corre un sombreador: entradas -> salidas (el cbuffer lo lleva dentro).
 pub type Corre<'a> = &'a mut dyn FnMut(&[[f32; 4]], &mut [[f32; 4]]);
 
+/// El de pixeles, igual, diciendo si el pixel QUEDA (`false`: un `discard`
+/// lo tiro, N5.7).
+pub type CorrePs<'a> = &'a mut dyn FnMut(&[[f32; 4]], &mut [[f32; 4]]) -> bool;
+
 /// **Una entrada del de vertices** para el vertice `id` (de bytes `v`): el
 /// elemento del layout con su formato (`formato_ia`), o el numero de
 /// vertice o de instancia, como ENTERO en los bits del registro.
@@ -271,13 +275,16 @@ pub fn entrada(l: &Lote, fuente: Fuente, id: u32, v: &[u8]) -> [f32; 4] {
 pub fn en_cpu(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, NoDibuja> {
     let (mut rv, mut rp) = (Vec::new(), Vec::new());
     let en = l.enlace;
-    en_cpu_con(l, destino, &mut |e, s| en.vs.correr_con(e, l.cb, &l.recursos, s, &mut rv), &mut |e, s| en.ps.correr_con(e, l.cb, &l.recursos, s, &mut rp))
+    en_cpu_con(l, destino, &mut |e, s| {
+            en.vs.correr_con(e, l.cb, &l.recursos, s, &mut rv);
+        },
+        &mut |e, s| en.ps.correr_con(e, l.cb, &l.recursos, s, &mut rp))
 }
 
 /// **Lo mismo, con quien corre los sombreadores puesto desde fuera** (P3b3b:
 /// el interprete, o su traduccion a x86-64). La trama y el orden no cambian:
 /// lo unico que cambia es QUIEN hace las cuentas de cada sombreador.
-pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: Corre) -> Result<trama::Cuenta, NoDibuja> {
+pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs) -> Result<trama::Cuenta, NoDibuja> {
     // Las limpiezas que la casa dejo a quien dibuje: aqui, la CPU.
     if let Some(p) = l.limpiar_rt {
         destino.pixeles.fill(p);
@@ -318,7 +325,6 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: Corre) 
     }
     let mut sal_ps = [[0.0f32; 4]; 1];
     Ok(trama::dibujar(&l.reglas, &sombreados, &locales, destino, |x| {
-        ps(x, &mut sal_ps);
-        sal_ps[0]
+        ps(x, &mut sal_ps).then_some(sal_ps[0])
     }))
 }

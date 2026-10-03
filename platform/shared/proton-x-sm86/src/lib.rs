@@ -829,6 +829,8 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             Op::Lee { .. } => return Err(NoEmite::Operacion(i)),
             // N5.6: sin, cos, exp2, log2... (MUFU) todavia no: va por la CPU.
             Op::Mate { .. } => return Err(NoEmite::Operacion(i)),
+            // N5.7: `discard` (el KILL de la 3060) todavia no: va por la CPU.
+            Op::Descarta { .. } => return Err(NoEmite::Operacion(i)),
         }
         // Lo de paso, y lo que ya nadie lee, se devuelve.
         for t in paso {

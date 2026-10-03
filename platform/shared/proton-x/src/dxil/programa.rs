@@ -105,6 +105,7 @@ const DX_SAMPLE_GRAD: i64 = 63;
 const DX_TEXTURE_LOAD: i64 = 66;
 const DX_GET_DIMENSIONS: i64 = 72;
 const DX_BUFFER_LOAD: i64 = 68;
+const DX_DISCARD: i64 = 82;
 
 /// Por que un sombreador no se deja correr. El texto dice CUAL cosa.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -199,6 +200,10 @@ pub enum Op {
     /// pide el DXIL, que salta a la cabeza desde el medio del cuerpo).
     Continuar,
     FinBucle,
+    /// N5.7 (03-10): `discard` y `clip()`: si los bits de `c` no son 0, el
+    /// pixel se TIRA -- ni color ni profundidad -- y el programa acaba ahi.
+    /// Solo tiene sentido en el de pixeles.
+    Descarta { c: Reg },
 }
 
 /// Lo que pregunta [`Op::Compara`]. Las `SinSigno` (E6c), solo con
@@ -380,7 +385,7 @@ impl Programa {
     /// **Correr el sombreador una vez.** `entradas` y `salidas` por el id del
     /// elemento en su firma; `cb`, los bytes del cbuffer (lo que falte se lee
     /// como 0). `regs` es memoria de trabajo (se reusa entre llamadas).
-    pub fn correr(&self, entradas: &[[f32; 4]], cb: &[u8], salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) {
+    pub fn correr(&self, entradas: &[[f32; 4]], cb: &[u8], salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) -> bool {
         self.correr_con(entradas, cb, &crate::textura::Recursos::NINGUNO, salidas, regs)
     }
 
@@ -471,8 +476,9 @@ impl Programa {
 
     /// [`Programa::correr`] con las texturas y los muestreadores del dibujo.
     /// Una textura o un muestreador que no esta da (0, 0, 0, 0), como un SRV
-    /// nulo en D3D12.
-    pub fn correr_con(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) {
+    /// nulo en D3D12. Devuelve si el pixel QUEDA: `false` si un
+    /// [`Op::Descarta`] lo tiro (N5.7); un programa sin ellos, siempre `true`.
+    pub fn correr_con(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) -> bool {
         regs.clear();
         regs.extend_from_slice(&self.iniciales);
         let bits = |regs: &Vec<f32>, r: Reg| regs[r as usize].to_bits();
@@ -516,6 +522,11 @@ impl Programa {
                     hondo -= 1;
                 }
                 Op::Continuar => pc = bucles[hondo - 1],
+                Op::Descarta { c } => {
+                    if bits(regs, c) != 0 {
+                        return false;
+                    }
+                }
                 Op::Entrada { d, elemento, componente } => {
                     regs[d as usize] = entradas.get(elemento as usize).map(|e| e[componente as usize & 3]).unwrap_or(0.0);
                 }
@@ -580,6 +591,7 @@ impl Programa {
                 }
             }
         }
+        true
     }
 }
 
@@ -1059,6 +1071,13 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                 c.ops.push(Op::Salida { s, elemento, componente });
                 Valor::Nada
             }
+        }
+        // N5.7: `discard(i1 c)`; `clip(x)` llega como `discard(x < 0)`, y un
+        // `discard` a secas, con un `i1 true` (un literal).
+        DX_DISCARD => {
+            let c_ = super::estructura::bits(c, arg(1)?)?;
+            c.ops.push(Op::Descarta { c: c_ });
+            Valor::Nada
         }
         DX_CREATE_HANDLE => {
             // (clase, rango, indice, no uniforme): 0 SRV, 1 UAV, 2 CBuffer, 3

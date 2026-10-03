@@ -146,9 +146,12 @@ pub fn dibujar(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, 
         rp.clear();
         rp.extend_from_slice(&en.ps.iniciales);
         if ent.len() >= en.ps.entradas && sal.len() >= en.ps.salidas {
+            // Lo traducido no tiene `Op::Descarta` (`nativo` no lo traduce):
+            // el pixel siempre queda.
             fp(rp.as_mut_ptr(), ent.as_ptr(), cbp, sal.as_mut_ptr());
+            true
         } else {
-            en.ps.correr(ent, cb, sal, &mut rp);
+            en.ps.correr(ent, cb, sal, &mut rp)
         }
     };
     lote::en_cpu_con(l, destino, &mut vs, &mut ps)

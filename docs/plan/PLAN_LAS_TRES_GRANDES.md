@@ -755,7 +755,12 @@ la proxima corrida del metal dice cual pesa mas:
   (`proton-x/src/mates.rs`, sin `libm`; contra la del anfitrion y los
   65.536 halfs ida y vuelta), probado con `prueba/mates.dxil`. En la 3060
   (MUFU) todavia no: esos sombreadores van por la CPU (N6.1).
-- [ ] **N5.7 -- discard**: el pixel no se escribe (la trama lo salta).
+- [x] **N5.7 -- discard** (03-10): `Op::Descarta` (DXIL 82, y
+  `discard_nz`/`discard_z` de SM5; `clip()` llega como uno de ellos). El
+  interprete acaba ahi y dice que el pixel NO queda; la trama no escribe
+  ni color ni profundidad (la Z va despues del sombreador) y lo cuenta en
+  `Cuenta::tirados`. Probado con `prueba/descarte.dxil` y un SM5 hecho a
+  mano. En la 3060 (KILL) todavia no: va por la CPU (N6.1).
 - [ ] **N5.8 -- mas de un render target** (hasta 8): el G-buffer de
   Cyberpunk; hoy el PSO entero se niega.
 - [ ] **N5.9 -- SV_Position en el de pixeles**: la trama ya lo sabe; que
