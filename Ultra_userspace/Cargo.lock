@@ -11,6 +11,16 @@ name = "bmo-antena"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-app-bankcat"
+version = "0.1.0"
+dependencies = [
+ "bmo-bankcat",
+ "bmo-dibujo",
+ "bmo-monton",
+ "bmo-userland",
+]
+
+[[package]]
 name = "bmo-app-hermes"
 version = "0.1.0"
 dependencies = [
@@ -51,6 +61,10 @@ dependencies = [
  "bmo-titan-lector",
  "bmo-userland",
 ]
+
+[[package]]
+name = "bmo-bankcat"
+version = "0.1.0"
 
 [[package]]
 name = "bmo-bsf"
@@ -196,6 +210,7 @@ name = "bmo-service-director"
 version = "0.1.0"
 dependencies = [
  "bmo-antena",
+ "bmo-bankcat",
  "bmo-bsf",
  "bmo-config",
  "bmo-cubo",

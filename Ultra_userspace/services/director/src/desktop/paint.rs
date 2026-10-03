@@ -290,6 +290,8 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         }
     }
     crate::desktop::pide::atender(dsk, &p);
+    // BANK CAT: lo que el motor del libro haya contestado, a la app.
+    crate::desktop::bankcat::drenar(dsk);
     // * Y solo en un fotograma que haya apartado el cursor. Un hijo que
     // escribe no es motivo suficiente: pintar aqui dejaria el puntero
     // enterrado bajo la rejilla y, al quitarlo, devolveria pixeles viejos

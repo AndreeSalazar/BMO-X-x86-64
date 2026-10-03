@@ -190,7 +190,7 @@ try {
         if ($LASTEXITCODE -ne 0) { Fail ('bex-link fallo con apps/' + $app) }
         if (-not (Test-Path $bex)) { Fail ('bex-link no produjo ' + $app + '.bex') }
     }
-    foreach ($app in @('taller', 'ludoteca', 'hermes')) { Enlazar-App $app }
+    foreach ($app in @('taller', 'ludoteca', 'hermes', 'bankcat')) { Enlazar-App $app }
     # Y `teb.exe` (P1d, 27-09): lee su TEB y su PEB por `gs:` como el CRT de
     # Microsoft, y dice `bien` seis veces si el GS de la casa es el de Windows.
     # Y `ventana.exe` (P2, 27-09): una ventana Win32 de manual, con el user32 y

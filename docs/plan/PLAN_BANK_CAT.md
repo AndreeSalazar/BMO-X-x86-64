@@ -52,8 +52,21 @@ mismo codigo, el que se puede leer en voz alta.
       `el_wrapper_y_el_motor_hablan_el_mismo_idioma` (en `bmo-cobol-x86-64`)
       escribe las ordenes con el wrapper, las EJECUTA el motor COBOL en el
       emulador y las respuestas las lee otra vez el wrapper: cuadra al centimo.
-- [ ] **BC3 -- la CARA** (`apps/bankcat`, F5): el gato hucha de la maqueta,
-      el saldo y los botones, hablando con el motor por el wrapper.
+- [~] **BC3 -- la CARA** (`Ultra_userspace/apps/bankcat`, F5, 03-10): el
+      gato hucha de la maqueta (monedas en los ojos y cayendo en la ranura al
+      cobrar, lagrima al pagar, la pata que llama), el saldo grande en
+      castellano, los tres botones, el libro de la sesion y las tarjetas de
+      lo que aun no hay (Mover, Mercado, Cajero) dichas sin fingir.
+      ** El motor es del ESCRITORIO (`desktop/bankcat.rs`): una app nace sin
+      la autoridad de lanzar (`task/autoridad.rs`), asi que la app PIDE
+      (`0x1E bankcat pagar 19.99`, `desktop/pide.rs`), el escritorio le
+      habla al motor con el wrapper y le devuelve `0x1E bank <estado>
+      <centimos>`. El motor vive lo que vive el escritorio y abre el libro
+      con la BIENVENIDA (1.250,00 CAB de juego). Pintado en el anfitrion con
+      el arnes (1200x720 y 900x600). **Como se sabe en el Ryzen:** F5, el
+      saldo dice 1.250,00; "3 x 19,99" lo deja en 1.190,03 y el gato llora;
+      cerrar y volver a abrir con F5 sigue en 1.190,03. [!] NO probado en el
+      Ryzen.
 - [ ] **BC4 -- el libro en el DISCO.** Hoy el motor lo lleva en memoria.
       Guardarlo pide `OPEN EXTEND` o `I-O` (3.1 y 3.2 de PLAN_BANCA), o
       reescribir el fichero entero en cada cierre.
