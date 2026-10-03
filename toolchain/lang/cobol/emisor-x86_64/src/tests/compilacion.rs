@@ -63,6 +63,12 @@ fn cobol_feature_matrix_runs_correctly() {
         // El guion PEGADO es del nombre (03-10, BANK CAT); la resta va con
         // espacios. Y entre cifras pegadas sigue restando.
         ("COMPUTE con guiones", "01 CAB-A PIC 9(3) VALUE 9.\n01 CAB-B PIC 9(3) VALUE 4.\n01 CAB-C PIC 9(3).", "COMPUTE CAB-C = CAB-A - CAB-B.\nIF CAB-C = 5\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
+        // ** Las negaciones simbolicas (03-10): `NOT >` se leia como `>`,
+        // la condicion AL REVES y sin un error.
+        ("NOT >", "01 A PIC S9(3)V99 VALUE -1.00.", "IF A NOT > 0\nDISPLAY \"ok\"\nELSE\nDISPLAY \"no\"\nEND-IF.", "ok\n"),
+        ("NOT <", "01 A PIC S9(3)V99 VALUE 5.00.", "IF A NOT < 0\nDISPLAY \"ok\"\nELSE\nDISPLAY \"no\"\nEND-IF.", "ok\n"),
+        ("NOT >=", "01 A PIC S9(3)V99 VALUE 1.00.", "IF A NOT >= 2\nDISPLAY \"ok\"\nELSE\nDISPLAY \"no\"\nEND-IF.", "ok\n"),
+        ("IS NOT <=", "01 A PIC S9(3)V99 VALUE 3.00.", "IF A IS NOT <= 2\nDISPLAY \"ok\"\nELSE\nDISPLAY \"no\"\nEND-IF.", "ok\n"),
         ("COMPUTE resta pegada", "01 A PIC 9(3).", "COMPUTE A = 9-4.\nIF A = 5\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
         ("IF/ELSE", "01 A PIC 9(3).", "MOVE 1 TO A.\nIF A > 5\nDISPLAY \"no\"\nELSE\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
         ("IF anidado", "01 A PIC 9(3).", "MOVE 5 TO A.\nIF A > 1\nIF A < 9\nDISPLAY \"ok\"\nEND-IF\nEND-IF.", "ok\n"),

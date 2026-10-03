@@ -462,11 +462,13 @@ match c {
     //                   01-10; `consumo` y `apps` se siguen tecleando)
     //    (F1 era `help`; desde el 06-09 la coge ANTES `keys::windows` -- hoy
     //    lanza el TALLER -- y aqui ya no llegaba. Se quito el 29-09.)
-    //    LA MAQUINA     F6 red     F7 banda   F8 ext
-    //    (03-10: F5 es BANK CAT y la coge `keys::windows`; la RED paso a
-    //    F6, y `smp` se teclea: "el smp no tiene sentido en F6")
-    //    CUANDO FALLA   F9 fallo   F10 disco
-    //    VENTANAS       F11 CABINA           F12 ESTRATOS
+    //    CUANDO FALLA   F9 fallo
+    //    (03-10: F5 es BANK CAT, F6 la RED en VITALES, F7/F8 VITALES y F10
+    //    el SONIDO: las coge `keys::windows` antes de llegar aqui. Por eso se
+    //    quitaron `red`, `banda`, `ext` y `disco` de esta tabla: eran filas
+    //    que no se ejecutaban nunca. Las ordenes se siguen tecleando.)
+    //    VENTANAS       F6 RED  F7 CPU  F8 MEMORIA  F10 SONIDO  F11 CABINA
+    //                   F12 ESTRATOS
     // ```
     //
     // *** La tercera fila existe porque el dia malo nadie se acuerda de una
@@ -485,12 +487,8 @@ match c {
     f @ 0x8A..=0x92 => {
         let orden: &[u8] = match f {
             0x8A => b"info",
-            0x8E => b"red",
-            0x8F => b"banda",
-            0x90 => b"ext",
             // La del dia malo.
             0x91 => b"fallo",
-            0x92 => b"disco",
             _ => b"",
         };
         if !orden.is_empty() {

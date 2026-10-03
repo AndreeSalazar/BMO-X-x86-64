@@ -9,6 +9,8 @@
 pub mod ast;
 /// `COPY`: la libreria de COBOL, expandida antes de parsear (2.8).
 pub mod copia;
+/// EL JUEZ: COBOL a nivel banco, que ningun centimo se pierda en silencio.
+pub mod juez;
 pub mod dialect;
 pub mod edicion;
 pub mod lexer;

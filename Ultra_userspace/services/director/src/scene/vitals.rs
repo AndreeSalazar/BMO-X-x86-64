@@ -73,16 +73,20 @@ pub(crate) enum Solapa {
     Memoria,
     /// Los programas, con su nombre, y el boton de finalizar.
     Procesos,
+    /// F6 -- LA RED (03-10): la tarjeta, el cable, lo que llega. Antes F6
+    /// solo tecleaba `red`, y la red no tenia ventana.
+    Red,
 }
 
 impl Solapa {
-    pub(crate) const TODAS: [Solapa; 3] = [Solapa::Cpu, Solapa::Memoria, Solapa::Procesos];
+    pub(crate) const TODAS: [Solapa; 4] = [Solapa::Cpu, Solapa::Memoria, Solapa::Procesos, Solapa::Red];
 
     fn rotulo(self) -> &'static str {
         match self {
             Solapa::Cpu => " 1 CPU ",
             Solapa::Memoria => " 2 MEMORIA ",
             Solapa::Procesos => " 3 PROCESOS ",
+            Solapa::Red => " 4 RED ",
         }
     }
 
@@ -90,7 +94,8 @@ impl Solapa {
         match self {
             Solapa::Cpu => Solapa::Memoria,
             Solapa::Memoria => Solapa::Procesos,
-            Solapa::Procesos => Solapa::Cpu,
+            Solapa::Procesos => Solapa::Red,
+            Solapa::Red => Solapa::Cpu,
         }
     }
 }
@@ -147,6 +152,29 @@ impl MandoSmp {
     }
 }
 
+/// **Los mandos de la RED** (03-10), los de la orden `red` con boton.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MandoRed {
+    /// `A`: armar el receptor y mirar lo que llego (`red rx`).
+    Armar,
+    /// `V`: anunciar 10/100/1000 y renegociar (`red velocidad`).
+    Velocidad,
+}
+
+impl MandoRed {
+    pub(crate) const TODOS: [MandoRed; 2] = [MandoRed::Armar, MandoRed::Velocidad];
+
+    fn rotulo(self) -> &'static [u8] {
+        match self {
+            MandoRed::Armar => b" A  armar el receptor ",
+            MandoRed::Velocidad => b" V  velocidad (renegociar) ",
+        }
+    }
+}
+
+/// Las filas de la solapa RED antes de sus botones.
+const RED_FILAS: u32 = 10;
+
 /// Lo que ocupa un hilo en la rejilla de nucleos, y el alto de la rejilla.
 const HILO_W: u32 = 26;
 const HILO_H: u32 = 24;
@@ -164,6 +192,9 @@ pub(crate) struct VitalsWindow {
     pub(crate) cpu: Serie<MUESTRAS>,
     pub(crate) vatios: Serie<MUESTRAS>,
     pub(crate) memoria: Serie<MUESTRAS>,
+    /// Las tramas por segundo que llegan (RED), y la cuenta anterior.
+    pub(crate) red: Serie<MUESTRAS>,
+    tramas: u64,
     /// La lectura anterior (el TSC y el reposo del nucleo de arranque): la CPU
     /// es una RESTA entre dos.
     tsc: u64,
@@ -182,6 +213,8 @@ impl VitalsWindow {
             cpu: Serie::nueva(),
             vatios: Serie::nueva(),
             memoria: Serie::nueva(),
+            red: Serie::nueva(),
+            tramas: 0,
             tsc: 0,
             reposo: 0,
         }
@@ -205,6 +238,17 @@ impl VitalsWindow {
         }
         let total = bmo::info(bmo::INFO_RAM_TOTAL);
         self.memoria.poner(total.saturating_sub(bmo::info(bmo::INFO_RAM_LIBRE)) / (1024 * 1024));
+        // ** LA RED: el contador solo sube cuando alguien MIRA el anillo
+        // (`red.rs`: "un cero presentado como un hecho"). Con la solapa RED
+        // delante y el receptor armado, se mira aqui, cada cuarto de segundo.
+        if self.solapa == Solapa::Red && bmo::info(bmo::INFO_NET_RX_ARMADO) != 0 {
+            bmo::red::sondear();
+        }
+        let tramas = bmo::info(bmo::INFO_NET_RX_TRAMAS);
+        if self.tramas != 0 || tramas == 0 {
+            self.red.poner(tramas.saturating_sub(self.tramas) * 4);
+        }
+        self.tramas = tramas;
     }
 
     pub(crate) fn decir(&mut self, s: &[u8]) {
@@ -219,9 +263,9 @@ impl VitalsWindow {
     }
 
     /// `(x0, x1)` de cada solapa, en el orden de [`Solapa::TODAS`].
-    fn x_solapas(&self) -> [(u32, u32); 3] {
+    fn x_solapas(&self) -> [(u32, u32); 4] {
         let mut x = self.chrome.x + 16;
-        let mut v = [(0, 0); 3];
+        let mut v = [(0, 0); 4];
         for (k, t) in Solapa::TODAS.iter().enumerate() {
             let w = t.rotulo().len() as u32 * bmo::GLIFO_ANCHO;
             v[k] = (x, x + w);
@@ -264,6 +308,31 @@ impl VitalsWindow {
             x += w + bmo::GLIFO_ANCHO;
         }
         v
+    }
+
+    /// La y de los botones de la solapa RED.
+    fn y_botones_red(&self) -> u32 {
+        self.y_contenido() + RED_FILAS * (bmo::GLIFO_ALTO + 4) + 10
+    }
+
+    fn x_botones_red(&self) -> [(u32, u32); 2] {
+        let mut x = self.chrome.x + 16;
+        let mut v = [(0, 0); 2];
+        for (k, m) in MandoRed::TODOS.iter().enumerate() {
+            let w = m.rotulo().len() as u32 * bmo::GLIFO_ANCHO;
+            v[k] = (x, x + w);
+            x += w + bmo::GLIFO_ANCHO;
+        }
+        v
+    }
+
+    /// El boton de la RED bajo `(x, y)`, en la solapa RED.
+    pub(crate) fn mando_red_en(&self, x: u32, y: u32) -> Option<MandoRed> {
+        let by = self.y_botones_red();
+        if self.solapa != Solapa::Red || y + 4 < by || y > by + bmo::GLIFO_ALTO + 4 {
+            return None;
+        }
+        self.x_botones_red().iter().position(|&(a, b)| x >= a && x < b).map(|k| MandoRed::TODOS[k])
     }
 
     /// El boton del SMP bajo `(x, y)`, en la solapa CPU.
@@ -473,6 +542,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &VitalsWindow, vueltas: u32, consumo: 
             Solapa::Cpu => "a que va y que gasta",
             Solapa::Memoria => "quien se la esta comiendo",
             Solapa::Procesos => "lo que corre, y su boton de finalizar",
+            Solapa::Red => "la tarjeta, el cable y lo que llega",
         },
         VIT_CYAN_DIM,
     );
@@ -497,6 +567,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &VitalsWindow, vueltas: u32, consumo: 
         Solapa::Cpu => paint_cpu(p, c, tx, &mut y, step, &mut b, vueltas, consumo),
         Solapa::Memoria => paint_memory(p, c, tx, &mut y, step, &mut b),
         Solapa::Procesos => paint_procesos(p, c, tx, y),
+        Solapa::Red => paint_red(p, c, tx, &mut y, step, &mut b),
     }
 
     // La barra de abajo dice lo unico que hay que saber para usarla.
@@ -509,8 +580,9 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &VitalsWindow, vueltas: u32, consumo: 
         by,
         match c.solapa {
             Solapa::Procesos => "flechas elegir   O ordenar   F finalizar   1 2 3 / Tab solapa   ESC cierra",
-            Solapa::Cpu => "A todos   S parar   M medir   1 2 3 / Tab solapa   F8 memoria   ESC cierra",
-            _ => "1 2 3 / Tab solapa   F7 CPU   F8 memoria   se repinta sola   ESC cierra",
+            Solapa::Cpu => "A todos   S parar   M medir   1 2 3 4 / Tab solapa   F8 memoria   ESC cierra",
+            Solapa::Red => "A armar   V velocidad   1 2 3 4 / Tab solapa   F6 cierra   ESC cierra",
+            _ => "1 2 3 4 / Tab solapa   F6 red   F7 CPU   F8 memoria   ESC cierra",
         },
         INK_DIM,
     );
@@ -593,6 +665,140 @@ fn paint_smp(p: &bmo::Pantalla, c: &VitalsWindow, tx: u32, y: u32) -> u32 {
         p.texto_bytes(a, by, m.rotulo(), VIT_CYAN);
     }
     by + bmo::GLIFO_ALTO + 14
+}
+
+/// **LA RED** (03-10, F6): lo de la orden `red`, en filas que se repintan
+/// solas, la grafica de lo que llega y los dos mandos.
+fn paint_red(p: &bmo::Pantalla, c: &VitalsWindow, tx: u32, y: &mut u32, step: u32, b: &mut [u8; 120]) {
+    let present = bmo::info(bmo::INFO_NET_PRESENTE) != 0;
+    let mut n = 0usize;
+    if !present {
+        place(b"NINGUNA reconocida en el PCI: lo de abajo no significa nada", b, &mut n);
+        row(p, tx, *y, "tarjeta", &b[..n], INK_DIM);
+        *y += step;
+    } else {
+        let vd = bmo::info(bmo::INFO_NET_VENDOR_DEVICE);
+        place(if vd == 0x10EC_8168 { b"Realtek RTL8168" } else { b"otra (vendor:device en `red`)" }, b, &mut n);
+        let pci = bmo::info(bmo::INFO_NET_PCI);
+        place(b"   en el bus ", b, &mut n);
+        num((pci >> 16) & 0xFF, b, &mut n);
+        place(b":", b, &mut n);
+        num((pci >> 8) & 0xFF, b, &mut n);
+        place(b".", b, &mut n);
+        num(pci & 0xFF, b, &mut n);
+        row(p, tx, *y, "tarjeta", &b[..n], INK);
+        *y += step;
+    }
+    // El enlace: lo del arranque y lo del aparato AHORA; si no cuadran, manda el crudo.
+    let mbit = bmo::info(bmo::INFO_NET_MEGABITS);
+    let phy = bmo::info(bmo::INFO_NET_PHY_CRUDO);
+    let vivo = phy & bmo::red::PHY_ENLACE_ARRIBA != 0;
+    let mut n = 0usize;
+    if !vivo {
+        place(b"ABAJO ahora (PHY crudo)", b, &mut n);
+    } else if mbit == 0 {
+        place(b"ARRIBA ahora; al arrancar no habia", b, &mut n);
+    } else {
+        num(mbit, b, &mut n);
+        place(b" Mbit/s", b, &mut n);
+    }
+    place(b"   PHY 0x", b, &mut n);
+    let hx = b"0123456789ABCDEF";
+    for k in (0..2).rev() {
+        place(&[hx[((phy >> (k * 4)) & 0xF) as usize]], b, &mut n);
+    }
+    row(p, tx, *y, "enlace", &b[..n], if vivo { INK_OK } else { INK_BAD });
+    *y += step;
+    // El veredicto del PHY: por que va a lo que va.
+    let mut n = 0usize;
+    let tinta;
+    match bmo::red::veredicto_phy() {
+        Some((causa, nos, otro, comun)) => {
+            place(b"nosotros ", b, &mut n);
+            num(nos as u64, b, &mut n);
+            place(b"  router ", b, &mut n);
+            num(otro as u64, b, &mut n);
+            place(b"  comun ", b, &mut n);
+            num(comun as u64, b, &mut n);
+            place(b" Mbit", b, &mut n);
+            row(p, tx, *y, "anuncian", &b[..n], INK);
+            *y += step;
+            n = 0;
+            let (que, t): (&[u8], u32) = match causa {
+                1 => (b"BIEN: lo mas que dan los dos", INK_OK),
+                2 => (b"ANUNCIAMOS POCO (el apagado de Windows): pulsa V", INK_BAD),
+                3 => (b"el ROUTER no da mas: no es BMO-X", INK),
+                4 => (b"el CABLE tiene pares rotos: cambia el cable", INK_BAD),
+                5 => (b"autonegociacion APAGADA: pulsa V", INK_BAD),
+                6 => (b"el PHY esta APAGADO: pulsa V", INK_BAD),
+                _ => (b"SIN ENLACE: nada al otro lado del cable", INK_DIM),
+            };
+            place(que, b, &mut n);
+            tinta = t;
+        }
+        None => {
+            place(b"--", b, &mut n);
+            row(p, tx, *y, "anuncian", &b[..n], INK_DIM);
+            *y += step;
+            n = 0;
+            place(b"el PHY no contesta (ni PHYAR ni OCP): CABINA", b, &mut n);
+            tinta = INK_DIM;
+        }
+    }
+    row(p, tx, *y, "por que", &b[..n], tinta);
+    *y += step;
+    // Lo que llega.
+    let armed = bmo::info(bmo::INFO_NET_RX_ARMADO) != 0;
+    let mut n = 0usize;
+    place(if armed { b"ARMADO: se mira cada cuarto de segundo".as_slice() } else { b"apagado   (A lo arma)".as_slice() }, b, &mut n);
+    row(p, tx, *y, "receptor", &b[..n], if armed { INK_OK } else { INK_DIM });
+    *y += step;
+    let mut n = 0usize;
+    num(bmo::info(bmo::INFO_NET_RX_TRAMAS), b, &mut n);
+    place(b" tramas, ", b, &mut n);
+    tam(bmo::info(bmo::INFO_NET_RX_BYTES), b, &mut n);
+    row(p, tx, *y, "cogidas", &b[..n], INK);
+    *y += step;
+    let perdidas = bmo::info(bmo::INFO_NET_RX_PERDIDAS);
+    let malas = bmo::info(bmo::INFO_NET_RX_MALAS);
+    let mut n = 0usize;
+    num(perdidas, b, &mut n);
+    place(b" perdidas (sin descriptor),  ", b, &mut n);
+    num(malas, b, &mut n);
+    place(b" malas", b, &mut n);
+    row(p, tx, *y, "tiradas", &b[..n], if perdidas + malas == 0 { INK } else { INK_BAD });
+    *y += step;
+    let t = bmo::info(bmo::INFO_NET_RX_TIPOS);
+    let mut n = 0usize;
+    for (k, que) in [&b"ARP "[..], b"  IPv4 ", b"  IPv6 ", b"  otros "].iter().enumerate() {
+        place(que, b, &mut n);
+        num((t >> (16 * k)) & 0xFFFF, b, &mut n);
+    }
+    row(p, tx, *y, "reparto", &b[..n], INK);
+    *y += step;
+    let mut n = 0usize;
+    place(if bmo::red::pase_abierto() { b"PASE ABIERTO (`red pase` dice como va)".as_slice() } else { b"solo con pase (`red prueba`)".as_slice() }, b, &mut n);
+    row(p, tx, *y, "transmitir", &b[..n], INK);
+    *y += step;
+    let mut n = 0usize;
+    place(b"recortada en la pantalla: `red mac` (la foto viaja lejos)", b, &mut n);
+    row(p, tx, *y, "MAC", &b[..n], INK_DIM);
+    // Los mandos, en su sitio fijo (el raton los busca ahi).
+    let by = c.y_botones_red();
+    for (k, m) in MandoRed::TODOS.iter().enumerate() {
+        let (a, bx) = c.x_botones_red()[k];
+        p.rect(a, by - 2, bx - a, bmo::GLIFO_ALTO + 4, C_ELEGIDO);
+        p.rect(a, by + bmo::GLIFO_ALTO + 2, bx - a, 1, VIT_CYAN_DIM);
+        p.texto_bytes(a, by, m.rotulo(), VIT_CYAN);
+    }
+    *y = by + bmo::GLIFO_ALTO + 14;
+    // La grafica: tramas por segundo, los ultimos 15 s.
+    let w = c.chrome.width.saturating_sub(32);
+    let pie = c.chrome.y + c.chrome.height - 2 * (bmo::GLIFO_ALTO + 4) - 12;
+    let alto = pie.saturating_sub(*y).saturating_sub(6).min(110);
+    if alto >= 30 {
+        grafica(p, tx, *y, w, alto, &c.red, 0, C_MEM, b"tramas por segundo que llegan -- los ultimos 15 s");
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

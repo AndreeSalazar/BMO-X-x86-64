@@ -1819,6 +1819,14 @@ impl Parser {
     /// un `OR` logico. Partir antes de normalizar lo cortaria por la mitad.
     fn parse_condicion(text: &str, line_no: usize) -> Result<Condicion, CobolError> {
         let normalized = Self::normalize_condition_words(text);
+        // ** Un `NOT` que sobrevive a la normalizacion es uno que no se
+        // entiende, y se dice: tirarlo daria la condicion al reves.
+        if Self::split_on_word(&normalized, "NOT").len() > 1 {
+            return Err(CobolError::new(
+                line_no,
+                format!("un NOT que no se entiende en la condicion `{}`: escribelo como NOT =, NOT >, NOT <, NOT >=, NOT <= o con palabras", text.trim()),
+            ));
+        }
         Self::parse_condicion_o(&normalized, line_no)
     }
 
@@ -1874,6 +1882,19 @@ impl Parser {
             ("GREATER THAN", " > "),
             ("LESS THAN", " < "),
             ("EQUAL TO", " = "),
+            // ** LAS NEGACIONES SIMBOLICAS (03-10). Faltaban, y `A NOT > 0`
+            // se leia como `A > 0`: la condicion AL REVES y sin un error. Lo
+            // encontro el JUEZ de BANK CAT y lo confirmo el ESPEJO contra
+            // GnuCOBOL. Van antes que `IS NOT`, que se las comeria.
+            ("IS NOT >=", " < "),
+            ("IS NOT <=", " > "),
+            ("IS NOT >", " <= "),
+            ("IS NOT <", " >= "),
+            ("IS NOT =", " <> "),
+            ("NOT >=", " < "),
+            ("NOT <=", " > "),
+            ("NOT >", " <= "),
+            ("NOT <", " >= "),
             ("IS NOT", " <> "),
             ("NOT =", " <> "),
             ("EQUALS", " = "),

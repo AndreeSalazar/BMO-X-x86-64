@@ -78,6 +78,11 @@ mismo codigo, el que se puede leer en voz alta.
       [!] Reescribir un fichero que ya existe es 3.0 de PLAN_BANCA (FAT32
       que REEMPLAZA), escrito y NO probado en el Ryzen. **Como se sabe en el
       Ryzen:** F5, pagar 19,99, reiniciar la maquina, F5: el saldo sigue.
+- [x] **BC4b -- PASA EL JUEZ** (03-10). La libreria (`CABDATOS`,
+      `CABLIBRO`) y el motor pasan `cobol --juez`, el juez de nivel banco de
+      PLAN_COBOL_MAESTRO: toda aritmetica con ON SIZE ERROR, y cada
+      movimiento calculado ENTERO en temporales (`CAB-PRUEBA`, `CAB-T-*`)
+      y apuntado solo si todo cupo.
 - [ ] **BC5 -- entre amigos, por HERMES** (pide H6): un movimiento firmado
       con tu clave y apuntado en LOS DOS libros.
 - [ ] **BC6 -- el CAJERO** (decision D1 del propietario).

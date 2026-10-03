@@ -204,15 +204,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
 
-## [`PLAN_COBOL_MAESTRO.md`](PLAN_COBOL_MAESTRO.md) -- 8 abiertas, 1 hechas
-
-*PLAN COBOL MAESTRO -- un FRONTEND bien hecho, y el x86-64 aparte*
-
-- [ ] CM1 -- los fallos que el espejo ya muestra. El MOVE que no trunca
-- [ ] CM2 -- el parser de TOKENS como principal (0.2). Sentencias que
-- [ ] CM3 -- la SEMANTICA, en el frontend. Un crate agnostico que
-- ... y 5 mas
-
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 8 hechas
 
 *PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
@@ -221,6 +212,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
 - [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
 - ... y 5 mas
+
+## [`PLAN_COBOL_MAESTRO.md`](PLAN_COBOL_MAESTRO.md) -- 7 abiertas, 1 hechas
+
+*PLAN COBOL MAESTRO -- un FRONTEND bien hecho, y el x86-64 aparte*
+
+- [ ] CM1 -- los fallos que el espejo ya muestra. El MOVE que no trunca
+- [ ] CM2 -- el parser de TOKENS como principal (0.2). Sentencias que
+- [ ] **CM4 -- el IR COBOL (propio, decimal, solo de COBOL) y su
+- ... y 4 mas
 
 ## [`PLAN_EL_BUS_APARTE.md`](PLAN_EL_BUS_APARTE.md) -- 7 abiertas, 12 hechas
 
@@ -433,7 +433,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A1 -- SET_INTERFACE -- ⛔ EL RYZEN LO NEGO. Corregido el 26-08, sin ejecutar
 - [ ] A1 SET_INTERFACE EL METAL LO NEGO; corregido 26-08
 
-## [`PLAN_BANK_CAT.md`](PLAN_BANK_CAT.md) -- 2 abiertas, 3 hechas
+## [`PLAN_BANK_CAT.md`](PLAN_BANK_CAT.md) -- 2 abiertas, 4 hechas
 
 *PLAN BANK CAT -- la cartera de CAB, llevada por COBOL (F5)*
 

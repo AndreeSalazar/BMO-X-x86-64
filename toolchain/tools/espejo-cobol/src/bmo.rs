@@ -72,3 +72,15 @@ pub fn datos_de(carpeta: &Path, prefijo: &str) -> Vec<(String, Vec<u8>)> {
     }
     v
 }
+
+/// **Lo que dice el JUEZ** (nivel banco) de este programa: `Some(faltas)`,
+/// o `None` si ni se analiza.
+pub fn juez(fuente: &str, copias: &[PathBuf]) -> Option<usize> {
+    let mut buscar = |n: &str| {
+        let nombres = [format!("{n}.cpy"), format!("{}.cpy", n.to_ascii_lowercase()), format!("{n}.CPY")];
+        copias.iter().flat_map(|c| nombres.iter().map(move |x| c.join(x))).find_map(|r| std::fs::read_to_string(r).ok())
+    };
+    let fuente = bmo_cobol_front::copia::expandir(fuente, &mut buscar).ok()?;
+    let p = catch_unwind(AssertUnwindSafe(|| bmo_cobol_front::parse(&fuente))).ok()?.ok()?;
+    Some(bmo_cobol_front::juez::juzgar(&p).len())
+}
