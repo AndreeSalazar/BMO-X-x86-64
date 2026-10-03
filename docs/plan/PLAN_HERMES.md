@@ -479,7 +479,39 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       con raiz en `F:/hermes/`, que escucha en un puerto propio (no el 7117) y
       habla con la app por `bmo-cola`. **Como se sabe:** la app de F3 sigue
       con autoridad NINGUNA y aun asi manda un mensaje a la PUERTA.
-- [ ] **H5 -- la app en F3, en una sola maquina.** `sys/hermes.bex`
+- [~] **H5 -- la app en F3, en una sola maquina.** EN CODIGO el 03-10; falta
+      el metal. El propietario: *"F3 su ventana propia [...] dale para
+      terminar"*. Lo que hay:
+      - `Ultra_userspace/apps/hermes` -> `sys/hermes.bex` (en `build.ps1` y
+        en `ejemplos.ps1`, que ahora enlaza TALLER, LUDOTECA y HERMES con una
+        sola funcion). F3 la lanza o la alterna desde `keys::windows`, antes
+        del foco; sin marco, como la LUDOTECA.
+      - La ENTRADA: el gato con ALAS (nueve plumas por lado y su membrana,
+        que se abren y aletean) y el glitch; HERMES se escribe debajo.
+      - El riel de las NUEVE secciones de la maqueta, cada una con su gesto
+        (el bocadillo que escribe, las cabezas que botan, la foto que se
+        voltea, la tele, las barras, la pagina, la flecha, los dos que se
+        orbitan, los barrotes) y su ENTRADA: las notas llegan por la
+        derecha, las tertulias suben, el MURO voltea seis postales, el CANAL
+        se enciende como una tele (raya, se abre, barras y nieve, SIN
+        EMISION), los pasos de ENVIOS se encienden en orden, la huella se
+        escribe, las jaulas caen con rebote.
+      - DE VERDAD: tus notas y cuatro tertulias se guardan en
+        `sys/hermsg.txt` (canal, hora, texto); el ZUMBIDO (uno cada 10 s)
+        sacude, destella en rosa y SUENA (pide `aviso zumbido` al
+        escritorio); la ONDA lista las trece piezas y un clic la toca en el
+        ESCRITORIO (pide `fondo N`; `desktop::pide` acepta ahora esas dos
+        lineas), con un ecualizador de 32 barras que sigue al medidor del
+        maestro. Cerrar HERMES no corta la musica.
+      - LO QUE AUN NO, dicho en su seccion con su escalon: amigos y huella
+        (H6), MURO (H9), CANAL (H10), paginas (H13-H15), ENVIOS (H8), la
+        PUERTA (H4) y el JUEZ (H8). Nada de gente inventada.
+      - Visto en el anfitrion con un arnes que pinta los mismos
+        `pintar.rs` y `entrada.rs` a PNG (cada seccion, la entrada, y la
+        medida minima 960 x 600, sin panico con las comprobaciones de
+        desborde). Pila de Ring 3: 3.784 B de 65.536.
+      Lo que sigue de abajo es el pedido original y su prueba:
+      `sys/hermes.bex`
       (`Ultra_userspace/apps/hermes`), F3 la abre o la esconde como F4 a la
       LUDOTECA; `consumo` se sigue escribiendo en Ejecutar. Entrada con alas,
       mensajes y tertulias guardados, zumbido con sonido. Y, como pidio el

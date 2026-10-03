@@ -11,6 +11,16 @@ name = "bmo-antena"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-app-hermes"
+version = "0.1.0"
+dependencies = [
+ "bmo-dibujo",
+ "bmo-fondo",
+ "bmo-monton",
+ "bmo-userland",
+]
+
+[[package]]
 name = "bmo-app-ludoteca"
 version = "0.1.0"
 dependencies = [

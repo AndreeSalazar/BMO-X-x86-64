@@ -156,50 +156,41 @@ try {
     if ($LASTEXITCODE -ne 0) { Fail 'bex-link fallo con apps/proton-x' }
     if (-not (Test-Path $protonBex)) { Fail 'bex-link no produjo proton-x.bex' }
 
-    # -- TALLER (F1): `sys/taller.bex` -------------------------------
+    # -- LAS APPS DE LAS TECLAS: F1 TALLER, F4 LUDOTECA y F3 HERMES -----
     #
-    # El taller como editor de nodos de TITAN++, con el comprobador animado
-    # (PLAN_TALLER seccion 8, B1-B3). F1 en el escritorio lo LANZA: si no
-    # esta en el disco, F1 no abre nada. Mismo camino que proton-x.
+    # Las tres se enlazan igual, asi que van por UNA funcion (03-10: con la
+    # tercera, el mismo bloque copiado tres veces paso de las mil lineas).
+    #
+    #    taller     el editor de nodos de TITAN++, con el comprobador animado
+    #               (PLAN_TALLER seccion 8, B1-B3)
+    #    ludoteca   tus juegos de todas las tiendas (PLAN_LA_LUDOTECA, J1)
+    #    hermes     mensajes, tertulias, la ONDA y las jaulas, en una sola
+    #               maquina (PLAN_HERMES, H5)
+    #
+    # La tecla LANZA `sys/<app>.bex`: si no esta en el disco, F1 y F4 no abren
+    # nada y F3 solo lo avisa con el globo.
     #
     # ** `taller` y no `estructura`: el 29-09 se desplego `estructura.bex` y en
     # el Ryzen F1 dio "un nombre no cabe en 8.3". Windows lo copia con nombre
-    # largo y el FAT32 de BMO-X busca por el corto. Este bloque iba aparte y se
-    # salto la comprobacion de `Construir-Ejemplos`: ahora la hace el tambien.
-    $estElf = Join-Path $usDir 'target\x86_64-unknown-none\release\taller'
-    if (-not (Test-Path $estElf)) { Fail 'no salio el ELF de apps/taller' }
-    $estBex = Join-Path $dataBase 'sys\taller.bex'
-    if ([System.IO.Path]::GetFileNameWithoutExtension($estBex).Length -gt 8) { Fail ($estBex + ': el tallo no cabe en 8.3') }
-    if (Test-Path $estBex) { Remove-Item $estBex -Force }
-    $out = & (Obrero bmo-bex-link) $estElf $estBex 2>&1
-    $out | ForEach-Object {
-        $linea = $_.ToString()
-        if ($linea -match '^\s+(\.text|->)|error|!!') {
-            Write-Host ('    [bex-link] ' + $linea.Trim()) -ForegroundColor DarkGray
+    # largo y el FAT32 de BMO-X busca por el corto. Por eso la funcion
+    # comprueba el 8.3 de cada una, como `Construir-Ejemplos`.
+    function Enlazar-App([string]$app) {
+        $elf = Join-Path $usDir ('target\x86_64-unknown-none\release\' + $app)
+        if (-not (Test-Path $elf)) { Fail ('no salio el ELF de apps/' + $app) }
+        $bex = Join-Path $dataBase ('sys\' + $app + '.bex')
+        if ([System.IO.Path]::GetFileNameWithoutExtension($bex).Length -gt 8) { Fail ($bex + ': el tallo no cabe en 8.3') }
+        if (Test-Path $bex) { Remove-Item $bex -Force }
+        $out = & (Obrero bmo-bex-link) $elf $bex 2>&1
+        $out | ForEach-Object {
+            $linea = $_.ToString()
+            if ($linea -match '^\s+(\.text|->)|error|!!') {
+                Write-Host ('    [bex-link] ' + $linea.Trim()) -ForegroundColor DarkGray
+            }
         }
+        if ($LASTEXITCODE -ne 0) { Fail ('bex-link fallo con apps/' + $app) }
+        if (-not (Test-Path $bex)) { Fail ('bex-link no produjo ' + $app + '.bex') }
     }
-    if ($LASTEXITCODE -ne 0) { Fail 'bex-link fallo con apps/taller' }
-    if (-not (Test-Path $estBex)) { Fail 'bex-link no produjo taller.bex' }
-
-    # -- LUDOTECA (F4): `sys/ludoteca.bex` (01-10) --------------------
-    #
-    # Tus juegos de todas las tiendas, con el armazon de una comunidad y una
-    # animacion propia por tienda (PLAN_LA_LUDOTECA, J1). F4 la LANZA: si no
-    # esta en el disco, F4 no abre nada. Mismo camino que el TALLER.
-    $ludElf = Join-Path $usDir 'target\x86_64-unknown-none\release\ludoteca'
-    if (-not (Test-Path $ludElf)) { Fail 'no salio el ELF de apps/ludoteca' }
-    $ludBex = Join-Path $dataBase 'sys\ludoteca.bex'
-    if ([System.IO.Path]::GetFileNameWithoutExtension($ludBex).Length -gt 8) { Fail ($ludBex + ': el tallo no cabe en 8.3') }
-    if (Test-Path $ludBex) { Remove-Item $ludBex -Force }
-    $out = & (Obrero bmo-bex-link) $ludElf $ludBex 2>&1
-    $out | ForEach-Object {
-        $linea = $_.ToString()
-        if ($linea -match '^\s+(\.text|->)|error|!!') {
-            Write-Host ('    [bex-link] ' + $linea.Trim()) -ForegroundColor DarkGray
-        }
-    }
-    if ($LASTEXITCODE -ne 0) { Fail 'bex-link fallo con apps/ludoteca' }
-    if (-not (Test-Path $ludBex)) { Fail 'bex-link no produjo ludoteca.bex' }
+    foreach ($app in @('taller', 'ludoteca', 'hermes')) { Enlazar-App $app }
     # Y `teb.exe` (P1d, 27-09): lee su TEB y su PEB por `gs:` como el CRT de
     # Microsoft, y dice `bien` seis veces si el GS de la casa es el de Windows.
     # Y `ventana.exe` (P2, 27-09): una ventana Win32 de manual, con el user32 y

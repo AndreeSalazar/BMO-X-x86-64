@@ -1,0 +1,18 @@
+[package]
+name = "bmo-app-hermes"
+version = "0.1.0"
+edition = "2021"
+description = "HERMES (F3): mensajes, tertulias, el MURO, el CANAL, la ONDA, ENVIOS, amigos y las jaulas, en una sola maquina. H5 de PLAN_HERMES."
+
+[[bin]]
+name = "hermes"
+path = "src/main.rs"
+
+[dependencies]
+# El monton (03-10): la lista de libres sobre UN bloque (`bmo_monton::Region`).
+bmo-monton = { path = "../../../platform/shared/bmo-monton" }
+bmo-userland = { path = "../../userland" }
+# El mismo rasterizador que el kernel, el escritorio, el TALLER y la LUDOTECA.
+bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
+# Los nombres de las piezas de la ONDA (las compone y las toca el escritorio).
+bmo-fondo = { path = "../../../platform/shared/bmo-fondo" }

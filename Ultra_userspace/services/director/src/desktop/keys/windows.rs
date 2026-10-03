@@ -278,10 +278,10 @@ if c == 0x8C {
 // `keys::editor`), y eso solo llegaba con Ejecutar delante; con otra ventana
 // con el foco, o con Ejecutar escondida, la tecla se perdia sin decir nada.
 // Y lo que se esperaba es lo que dicen el plan y la maqueta: F3 es HERMES
-// (`PLAN_HERMES.md`). Ahora se atiende AQUI, antes del foco, como F1 y F4:
-// si `sys/hermes.bex` esta en el disco se lanza (o se alterna); si no, el
-// globo lo dice junto al puntero -- HERMES aun no esta construido (H5) -- en
-// vez de no hacer nada. `consumo` se sigue tecleando.
+// (`PLAN_HERMES.md`, H5: `Ultra_userspace/apps/hermes`). Se atiende AQUI,
+// antes del foco, como F1 y F4: lanza `sys/hermes.bex` (o lo alterna). Si el
+// disco no lo trae (un build viejo), el globo lo dice junto al puntero en vez
+// de no hacer nada. `consumo` se sigue tecleando.
 if c == 0x8B {
     const HERMES: &[u8] = b"sys/hermes.bex";
     if bmo::Archivo::reflejar(HERMES).is_ok() {
@@ -289,7 +289,7 @@ if c == 0x8B {
     } else {
         crate::desktop::globo::avisar(
             b"F3 es HERMES",
-            b"aun no esta construido (H5 de PLAN_HERMES): sin sys/hermes.bex no hay ventana que abrir. `consumo` se teclea en Ejecutar",
+            b"no esta en el disco: sys/hermes.bex sale del build (apps/hermes). `consumo` se teclea en Ejecutar",
             crate::desktop::globo::Tono::Consejo,
         );
     }
