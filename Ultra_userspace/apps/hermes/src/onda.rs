@@ -4,6 +4,7 @@
 
 use crate::canvas::Canvas;
 use crate::mates::{coseno, fase, onda, seno};
+use crate::piezas::{t_grande, ancho_txt, txt, txt_cabe};
 use crate::pintar::{suelo, ancho_centro, llega, nivel, Vista, BLANCO, CABECERA, CIAN, FONDO, GRIS, LIMA, LINEA, NEGRO, PANEL2, ROSA, TENUE, TEXTO, AMBAR, AZUL, MORADO, VERDE};
 use bmo_dibujo::{mezclar, Color, Lienzo};
 use bmo_fondo::{Estilo, PIEZAS};
@@ -90,9 +91,9 @@ pub(crate) fn la_onda(cv: &mut Canvas, v: &Vista, x0: i32) {
     let tw = (x0 + 20 + w - tx).max(80);
     let ty = y + 8 + (256 - entra) * 16 / 256;
     let etiqueta: &[u8] = if suena { b"AHORA SUENA" } else if v.pedida == Some(k) { b"PEDIDA" } else { b"ELIGE Y SUENA" };
-    cv.text(tx, ty, etiqueta, if suena { color } else { TENUE }, 1);
+    txt(cv, tx, ty, etiqueta, if suena { color } else { TENUE });
     let escala = if (p.nombre.len() as i32) * 24 <= tw { 3 } else { 2 };
-    cv.text(tx, ty + 22, p.nombre.as_bytes(), mezclar(BLANCO, FONDO, entra as u32, 256), escala);
+    t_grande(cv, tx, ty + 22, p.nombre.as_bytes(), mezclar(BLANCO, FONDO, entra as u32, 256), escala);
     // Las fichas chicas: pulsos, timbre, escala, estilo.
     let mut d = [0u8; 12];
     let nd = crate::fmt_num(p.bpm as u64, &mut d);
@@ -113,15 +114,15 @@ pub(crate) fn la_onda(cv: &mut Canvas, v: &Vista, x0: i32) {
     let mut fx = tx;
     let fy = ty + 22 + escala * 16 + 14;
     for (kk, ficha) in [&d[..nd], timbre, modo, estilo].iter().enumerate() {
-        let fw = ficha.len() as i32 * 8 + 16 + if kk == 0 { 7 * 8 } else { 0 };
+        let fw = ancho_txt(ficha) + 16 + if kk == 0 { ancho_txt(b" pulsos") } else { 0 };
         if fx + fw > tx + tw {
             break;
         }
         cv.rect(fx, fy, fw, 22, mezclar(color, FONDO, 36, 256));
         cv.frame(fx, fy, fw, 22, 1, mezclar(color, FONDO, 120, 256));
-        let fin = cv.text(fx + 8, fy + 3, ficha, TEXTO, 1);
+        let fin = txt(cv, fx + 8, fy + 3, ficha, TEXTO);
         if kk == 0 {
-            cv.text(fx + 8 + fin, fy + 3, b" pulsos", TENUE, 1);
+            txt(cv, fx + 8 + fin, fy + 3, b" pulsos", TENUE);
         }
         fx += fw + 8;
     }
@@ -139,9 +140,9 @@ pub(crate) fn la_onda(cv: &mut Canvas, v: &Vista, x0: i32) {
     let mut b1 = [0u8; 8];
     let mut b2 = [0u8; 8];
     let (n1, n2) = (reloj(va, &mut b1), reloj(total, &mut b2));
-    cv.text(tx, ly + 12, &b1[..n1], TEXTO, 1);
-    cv.text(tx + lw - n2 as i32 * 8, ly + 12, &b2[..n2], TENUE, 1);
-    cv.text(tx + n1 as i32 * 8 + 16, ly + 12, b"en bucle, sin costura", TENUE, 1);
+    txt(cv, tx, ly + 12, &b1[..n1], TEXTO);
+    txt(cv, tx + lw - ancho_txt(&b2[..n2]), ly + 12, &b2[..n2], TENUE);
+    txt(cv, tx + ancho_txt(&b1[..n1]) + 16, ly + 12, b"en bucle, sin costura", TENUE);
     let estado: &[u8] = if suena {
         b"suena en el ESCRITORIO: sigue con HERMES cerrado"
     } else if v.pedida == Some(k) {
@@ -149,7 +150,7 @@ pub(crate) fn la_onda(cv: &mut Canvas, v: &Vista, x0: i32) {
     } else {
         b"un clic en la lista y suena: la compone y la toca el escritorio"
     };
-    cv.text_fit(tx, ly + 34, estado, if suena { mezclar(color, TEXTO, 120, 256) } else { TENUE }, tw);
+    txt_cabe(cv, tx, ly + 34, estado, if suena { mezclar(color, TEXTO, 120, 256) } else { TENUE }, tw);
 
     // ** EL ECUALIZADOR: 48 barras finas en degradado. La fuerza es la del
     // medidor del MAESTRO (lo que sale por el cable), con una curva de

@@ -245,6 +245,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-bankcat",
  "bmo-dibujo",
+ "bmo-fondo",
  "bmo-huesped",
  "bmo-imagen",
  "bmo-letra",

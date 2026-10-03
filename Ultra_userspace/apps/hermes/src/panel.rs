@@ -7,9 +7,9 @@
 //! `bmo-hermes`) y que el camino aun no existe; la huella, que no hay clave.
 
 use crate::canvas::Canvas;
-use crate::piezas::{caja, cara, negrita, negrita_fit, pildora, redonda, rotulo};
+use crate::piezas::{caja, cara, negrita, negrita_fit, pildora, redonda, rotulo, ancho_txt, txt};
 use crate::pintar::{
-    suelo, ancho_panel, nivel, partir, Vista, AMBAR, BARRA, BLANCO, CANAL, CIAN, ENVIOS, LIMA, LINEA, MENSAJES, MURO, ONDA,
+    suelo, ancho_panel, nivel, Vista, AMBAR, BARRA, BLANCO, CANAL, CIAN, ENVIOS, LIMA, LINEA, MENSAJES, MURO, ONDA,
     PAGINAS, PANEL, ROJO, ROSA, SECCIONES, TENUE, TERTULIAS, TEXTO, VERDE, AMIGOS,
 };
 use bmo_dibujo::{mezclar, Color, Lienzo};
@@ -27,22 +27,22 @@ fn tarjeta(cv: &mut Canvas, x: i32, y: i32, w: i32, h: i32, titulo: &[u8]) -> i3
 
 /// Una fila de clave y valor, el valor pegado a la derecha.
 fn par(cv: &mut Canvas, x: i32, y: i32, w: i32, clave: &[u8], valor: &[u8], c: Color) {
-    cv.text(x, y, clave, TENUE, 1);
-    cv.text(x + w - valor.len() as i32 * 8, y, valor, c, 1);
+    txt(cv, x, y, clave, TENUE);
+    txt(cv, x + w - ancho_txt(valor), y, valor, c);
 }
 
 /// Un texto partido en la tarjeta; devuelve cuantas lineas.
 fn parrafo(cv: &mut Canvas, x: i32, y: i32, w: i32, t: &[u8], c: Color) -> i32 {
-    let lineas = partir(t, (w / 8).max(8) as usize);
+    let lineas = crate::piezas::partir(t, crate::piezas::T, w);
     for (k, l) in lineas.iter().enumerate() {
-        cv.text(x, y + k as i32 * 18, l, c, 1);
+        txt(cv, x, y + k as i32 * 18, l, c);
     }
     lineas.len() as i32
 }
 
 /// Cuantas lineas ocupa un texto en una tarjeta de contenido `w`.
 fn lineas(t: &[u8], w: i32) -> i32 {
-    partir(t, (w / 8).max(8) as usize).len() as i32
+    crate::piezas::partir(t, crate::piezas::T, w).len() as i32
 }
 
 pub(crate) fn panel(cv: &mut Canvas, v: &Vista, x0: i32) {
@@ -118,7 +118,7 @@ fn conexion(cv: &mut Canvas, x: i32, y: i32, tw: i32) -> i32 {
     let cw = tw - 28;
     cara(cv, x + 30, yc + 14, 16, CIAN, b'N', TARJETA);
     negrita(cv, x + 54, yc + 0, b"tus notas", BLANCO);
-    cv.text(x + 54, yc + 18, b"esta maquina, sin red", TENUE, 1);
+    txt(cv, x + 54, yc + 18, b"esta maquina, sin red", TENUE);
     let yk = yc + 44;
     par(cv, x + 14, yk, cw, b"Saludo", b"Noise IK", TEXTO);
     par(cv, x + 14, yk + 22, cw, b"Acuerdo", b"X25519", TEXTO);
@@ -141,7 +141,7 @@ fn jaulas(cv: &mut Canvas, x: i32, y: i32, tw: i32, ms: u32) {
         let luz = if vive && ms / 600 % 2 == 1 { mezclar(c, TARJETA, 110, 256) } else { c };
         redonda(cv, x + 14, yy + 4, 8, 8, 2, luz);
         negrita_fit(cv, x + 30, yy, nombre, BLANCO, 80);
-        cv.text(x + 30, yy + 18, que, TENUE, 1);
+        txt(cv, x + 30, yy + 18, que, TENUE);
         let rc = if red == b"RED" { ROJO } else { mezclar(TEXTO, TARJETA, 150, 256) };
         pildora(cv, x + tw - 12, yy + 2, red, rc, TARJETA);
     }
@@ -172,10 +172,10 @@ fn sonando(cv: &mut Canvas, v: &Vista, x: i32, y: i32, tw: i32) -> i32 {
     let ty = yc + gh + 12;
     if v.sonando {
         negrita_fit(cv, x + 14, ty, PIEZAS[k].nombre.as_bytes(), BLANCO, tw - 28);
-        cv.text(x + 14, ty + 20, b"suena en el escritorio", mezclar(color, TEXTO, 120, 256), 1);
+        txt(cv, x + 14, ty + 20, b"suena en el escritorio", mezclar(color, TEXTO, 120, 256));
     } else {
-        cv.text(x + 14, ty, b"Nada todavia. Elige una", TENUE, 1);
-        cv.text(x + 14, ty + 20, b"pieza y dale a tocar.", TENUE, 1);
+        txt(cv, x + 14, ty, b"Nada todavia. Elige una", TENUE);
+        txt(cv, x + 14, ty + 20, b"pieza y dale a tocar.", TENUE);
     }
     y + h + 14
 }

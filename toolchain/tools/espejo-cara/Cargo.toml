@@ -13,6 +13,7 @@ bmo-imagen = { path = "../../../platform/shared/bmo-imagen" }
 bmo-letra = { path = "../../../platform/shared/bmo-letra" }
 bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
 bmo-bankcat = { path = "../../../platform/shared/bmo-bankcat" }
+bmo-fondo = { path = "../../../platform/shared/bmo-fondo" }
 # Lo minimo de `bmo-userland` para que el codigo de la app compile en el
 # anfitrion: la letra de 8 x 16 (la MISMA tabla, incluida) y el medidor.
 bmo-userland = { path = "huesped", package = "bmo-huesped" }

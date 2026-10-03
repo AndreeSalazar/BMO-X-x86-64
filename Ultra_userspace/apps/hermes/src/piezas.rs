@@ -4,8 +4,9 @@
 //! espaciados de las tarjetas, las caras redondas de la lista y las pildoras
 //! de estado.
 //!
-//! Todo con el lienzo del TALLER y la letra del escritorio (8 x 16): nada de
-//! fuera, ni una fuente nueva.
+//! Todo con el lienzo del TALLER y, desde el 03-10, la LETRA de las maquetas
+//! (`bmo-letra`: proporcional, suave, trazos de la casa). La de 8 x 16 queda
+//! para lo que en la maqueta es letra de pixel (`t_grande`).
 
 use crate::canvas::Canvas;
 use bmo_dibujo::{mezclar, Color, Lienzo};
@@ -61,34 +62,61 @@ pub fn caja(cv: &mut Canvas, x: i32, y: i32, w: i32, h: i32, r: i32, relleno: Co
     redonda(cv, x + 1, y + 1, w - 2, h - 2, (r - 1).max(0), relleno);
 }
 
-/// **Negrita**: la letra dos veces, un pixel corrida. Devuelve el ancho.
+/// **Negrita**: la de la maqueta (`font-weight: 600`, 14 px), en la caja de
+/// 16 de las cuentas de siempre. Devuelve el ancho.
 pub fn negrita(cv: &mut Canvas, x: i32, y: i32, s: &[u8], c: Color) -> i32 {
-    cv.text(x, y, s, c, 1);
-    cv.text(x + 1, y, s, c, 1) + 1
+    texto(cv, x, y, 16, s, c, NEGRITA)
 }
 
-/// Negrita recortada a `max` pixeles.
+/// Negrita recortada a `max` pixeles (con tres puntos si no cabe).
 pub fn negrita_fit(cv: &mut Canvas, x: i32, y: i32, s: &[u8], c: Color, max: i32) -> i32 {
-    let cabe = ((max - 1) / 8).max(0) as usize;
-    negrita(cv, x, y, &s[..s.len().min(cabe)], c)
+    texto_cabe(cv, x, y, 16, s, c, NEGRITA, max)
 }
 
-/// **Un rotulo** de tarjeta: MAYUSCULAS espaciadas, como `LA CONEXION`.
+/// **Un rotulo** de tarjeta: MAYUSCULAS de 11 espaciadas (`letter-spacing:
+/// .14em`), como `LA CONEXION`.
 pub fn rotulo(cv: &mut Canvas, x: i32, y: i32, s: &[u8], c: Color) -> i32 {
-    let mut cx = x;
-    for &b in s {
-        cv.text(cx, y, &[b.to_ascii_uppercase()], c, 1);
-        cx += 10;
-    }
-    cx - x
+    texto(cv, x, y, 16, s, c, ROTULO)
 }
 
-/// **Una cara redonda** con su letra, como los amigos de la maqueta.
+/// La letra del cuerpo (`font-size: 14px`), la negrita y el rotulo.
+pub const T: Estilo = Estilo::normal(14);
+/// La de las notas de debajo de un nombre (`.t2`, 12 px).
+pub const T2: Estilo = Estilo::normal(12);
+pub const NEGRITA: Estilo = Estilo::negrita(14);
+pub const MEDIA: Estilo = Estilo::media(14);
+pub const ROTULO: Estilo = Estilo::normal(11).espaciado(140).mayusculas();
+
+/// **Texto del cuerpo** en la caja de 16 de siempre (lo que era
+/// `cv.text(.., 1)`, ya con la letra de la maqueta). Devuelve el ancho.
+pub fn txt(cv: &mut Canvas, x: i32, y: i32, s: &[u8], c: Color) -> i32 {
+    texto(cv, x, y, 16, s, c, T)
+}
+
+/// Texto del cuerpo recortado a `max` pixeles, con tres puntos.
+pub fn txt_cabe(cv: &mut Canvas, x: i32, y: i32, s: &[u8], c: Color, max: i32) -> i32 {
+    texto_cabe(cv, x, y, 16, s, c, T, max)
+}
+
+/// Lo que mide un texto del cuerpo.
+pub fn ancho_txt(s: &[u8]) -> i32 {
+    medir(s, T)
+}
+
+/// **La letra de PIXEL**, grande (los rotulos de la maqueta en Silkscreen):
+/// la de 8 x 16 del escritorio, a `escala`.
+pub fn t_grande(cv: &mut Canvas, x: i32, y: i32, s: &[u8], c: Color, escala: i32) -> i32 {
+    cv.text(x, y, s, c, escala)
+}
+
+/// **Una cara redonda** con su letra, como los amigos de la maqueta
+/// (`.avatar`: negrita de 13, centrada).
 pub fn cara(cv: &mut Canvas, cx: i32, cy: i32, r: i32, c: Color, letra: u8, fondo: Color) {
     cv.disc(cx, cy, r, c);
     let tinta = mezclar(fondo, c, 220, 256);
-    cv.text(cx - 4, cy - 8, &[letra], tinta, 1);
-    cv.text(cx - 3, cy - 8, &[letra], tinta, 1);
+    let e = Estilo::negrita(13);
+    let w = medir(&[letra], e);
+    texto(cv, cx - w / 2, cy - 9, 18, &[letra], tinta, e);
 }
 
 /// El punto de estado de una cara (abajo a la derecha), con su aro.
@@ -101,10 +129,12 @@ pub fn punto(cv: &mut Canvas, cx: i32, cy: i32, c: Color, aro: Color) {
 /// color sobre su color apagado. Se pinta hacia la IZQUIERDA desde `der`;
 /// devuelve donde empieza.
 pub fn pildora(cv: &mut Canvas, der: i32, y: i32, s: &[u8], c: Color, fondo: Color) -> i32 {
-    let w = s.len() as i32 * 8 + 18;
+    // `.chip` de la maqueta: 11 px, `font-weight: 600`, 9 de relleno.
+    let e = Estilo::negrita(11);
+    let w = medir(s, e) + 20;
     let x = der - w;
     caja(cv, x, y, w, 22, 11, mezclar(c, fondo, 34, 256), mezclar(c, fondo, 200, 256));
-    negrita(cv, x + 9, y + 3, s, c);
+    texto(cv, x + 10, y + 3, 16, s, c, e);
     x
 }
 

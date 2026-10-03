@@ -40,10 +40,14 @@ alguien edito uno de los dos a mano.
 | fecha | app | igual | parecido | que cambio |
 |---|---|---|---|---|
 | 03-10 | BANK CAT, cartera | 92,04 % | 94,85 % | la letra de la casa (`bmo-letra`), el gato trazo a trazo de su SVG, las medidas del navegador |
+| 03-10 | HERMES, mensajes (antes) | 86,94 % | 90,54 % | la letra de 8 x 16 y las medidas de antes |
+| 03-10 | HERMES, mensajes | 88,09 % | 91,09 % | la letra de la casa y las columnas de la maqueta (35 / 69 / 236 / 265) |
 
 Lo que falta para el 100 % y NO se va a hacer: la maqueta pone amigos,
-fichas y asientos DE EJEMPLO; la app pone lo que el motor contesto. Esas
-zonas (la lista de la izquierda) nunca van a ser iguales, y esta bien.
+fichas, asientos y charlas DE EJEMPLO (nova, orbe, faro, una OFERTA, emojis);
+la app pone lo que hay de verdad. Esas zonas nunca van a ser iguales, y esta
+bien: el ESPEJO mide la CARA, no inventa contenido. En HERMES, ademas, la
+app lleva el REPRODUCTOR abajo (66 px) que la foto de la maqueta no tiene.
 
 ## Lo que NO es
 
