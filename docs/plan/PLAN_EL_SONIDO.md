@@ -790,6 +790,52 @@ que valga para Apache-2.0. Se dice ahora para no prometerlo luego.
 
 **Tam: L** (sin HRTF). **XL** con ella, y entonces no es esta casilla.
 
+### [~] EN CODIGO el 03-10: el MODO 3D, global, en el maestro
+
+El propietario: *"se puede aplicar global si ponemos un Modo 3D, no? pero
+PRO, EPICO [...] y 4D?"*. Si: las pistas 1 y 2 aplicadas por el MAESTRO a todo
+lo que suena, tratando el estereo como dos ALTAVOCES VIRTUALES. Es
+`bmo-amplificador::espacio`, delante del OIDO (primero se situa la escena,
+despues se ajusta a los oidos de quien escucha), y en el kernel en un `static`
+(las lineas de la sala son ~4 KiB y la etapa se crea en la pila del bus).
+
+| modo | que es |
+|---|---|
+| `cerca` | dos altavoces virtuales a +-30 grados: ITD de Woodworth (hasta 0,66 ms) y la sombra de la cabeza en el oido lejano. El sonido sale de dentro de la cabeza y se pone delante |
+| `sala` | y ocho reflejos tempranos (5 a 20 ms) en parejas espejo: el sonido se oye FUERA, a una distancia, sin empujar la escena a un lado |
+| `amplio` | los altavoces a +-60 grados, con sala |
+| `orbita` | **el "4D"**: la escena entera gira alrededor de la cabeza, una vuelta cada N s (2 a 60) |
+
+* **"4D" no es una dimension del sonido**, y se dice: lo que se vende como
+  audio 4D u 8D es 3D que se MUEVE. Eso es `orbita`.
+* Lo de DETRAS es una pista pobre (mas oscuro): sin HRTF el cerebro a veces lo
+  pone delante. Arriba y abajo, nada. Sigue siendo la 3 de arriba.
+* **El mismo volumen** en los cinco modos con una musica centrada (prueba
+  `cada_modo_suena_igual_de_fuerte`, dentro de 0,5 dB): comparar modos no es
+  comparar volumenes.
+* **Sin clics**: fundido de 20 ms de seco a 3D, la sala por su rampa, y los
+  altavoces GIRAN hasta su sitio en vez de saltar; retardo fraccionario.
+* Apagado es un cable; tras el sonido el silencio es cero (el paso bajo
+  redondea al mas cercano: a secas se quedaba pegado en -1).
+* 7 pruebas. Y `BMO_FONDO_WAV=<carpeta> cargo test` en `bmo-fondo` escribe
+  `demo_3d_modos.wav`: la misma musica por los cinco modos, para oirlo con
+  audifonos.
+
+El mando: `AUDIO_MANDO_3D` (9) y `AUDIO_MANDO_3D_VUELTA` (10) en la puerta del
+maestro, solo el escritorio; `INFO_AUDIO_ESPACIO` (0xCA). En Ejecutar, `3d`
+(`3d sala`, `3d orbita 8`...), y en el `save` sus filas.
+
+[!] Lo que falta de S7 es lo POR FUENTE: que cada voz de DOOM tenga su angulo
+(hoy da `sep`, un paneo). Pide un angulo en el contrato de las voces, y usa la
+misma cuenta (`situar`).
+
+| que | afirma | como se cae |
+|---|---|---|
+| `3d sala` con el fondo sonando | la musica sale de la cabeza y se pone delante, igual de fuerte | mas fuerte o mas floja: el ajuste del modo |
+| `3d orbita 8` | todo gira alrededor de la cabeza, una vuelta cada 8 s, sin clics | chasquidos: el retardo salta |
+| cambiar de modo con DOOM | sin golpes | un golpe: el fundido o los angulos |
+| `3d apagado` | el estereo de siempre | -- |
+
 ## [ ] S8 -- LO QUE PIDE EL APARATO, NO LA ONDA
 
 Del ADN de [`PLAN_AUDIO.md`](PLAN_AUDIO.md) 6.2, que sigue pendiente y no es de
