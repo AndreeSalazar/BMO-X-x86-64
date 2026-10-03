@@ -907,6 +907,18 @@ de dos (o las dos):
   verde) y el kernel las pone a 0 dB (ganancia unidad, dentro de su rango) y
   sin mute al reclamar el aparato; `oido` y el `save` dicen cuantas abrio.
 
+**Y la FUENTE, que era la que mas robaba: ESCUCHAR** (`bmo-fondo::escuchar`).
+La musica de fondo esta a -26 dBFS a proposito; una pieza ELEGIDA no es
+fondo. La ONDA de HERMES (y `fondo escuchar <pieza>`) la compone con la
+mezcla de CANCION y NORMALIZA su sonoridad a **-14 dBFS** de fuerza, la de
+los servicios de musica: la ganancia se BUSCA en pasadas que solo leen
+(el limite se come parte de lo que se sube) y la ultima escribe; el limite
+es de masterizar (50 ms de relajo, no los 250 de seguridad del maestro, que
+bombearia), y se calienta con la cola del bucle para que la costura no
+salte. Medido en las trece: de -14,1 a -14,4 dBFS, subiendo de 4 a 11 dB
+(prueba `escuchar_normaliza_sin_costura`). O sea **+12 dB sobre el fondo
+antes de tocar el fader**, sin aplastar.
+
 [!] **Lo que no se puede, dicho:** por encima del tope del aparato, el fader
 ya no sube la PUNTA -- una onda no sale de 0 dBFS --, sube lo flojo hacia
 ella: es compresion. Con la musica de fondo a -32 dBFS (fuente + voz), el

@@ -71,6 +71,8 @@ struct Estado {
     moviendo: [Option<Movimiento>; 4],
     /// **El tema de los avisos**: el clasico o el NEKO PHONK (`fondo tema`).
     tema: Tema,
+    /// La pieza suena para ESCUCHARLA (a -14 dBFS), no de fondo.
+    escuchando: bool,
 }
 
 /// Un aviso que va de un sitio a otro mientras suena.
@@ -101,6 +103,7 @@ static mut ESTADO: Estado = Estado {
     cambios: 0,
     moviendo: [None; 4],
     tema: Tema::Clasico,
+    escuchando: false,
 };
 
 fn estado() -> &'static mut Estado {
@@ -195,17 +198,35 @@ pub(crate) fn tema_actual() -> Tema {
 }
 
 /// **Toca la pieza `i`** (de [`PIEZAS`]): se compone en el sitio libre y
-/// entra por la rampa mientras la de antes se va por la suya.
+/// entra por la rampa mientras la de antes se va por la suya. De FONDO: la
+/// mezcla que acompana, a -26 dBFS.
 pub(crate) fn tocar(i: usize) -> Result<(), Fallo> {
+    tocar_con(i, false)
+}
+
+/// **ESCUCHAR la pieza `i`** (03-10, *"que se escuchen fuerte todo"*): la
+/// mezcla de CANCION y la sonoridad normalizada a -14 dBFS
+/// (`bmo_fondo::escuchar`): +12 dB sobre la de fondo, todas igual de
+/// fuertes. Es lo que pide la ONDA de HERMES: una pieza ELEGIDA no es fondo.
+pub(crate) fn escuchar(i: usize) -> Result<(), Fallo> {
+    tocar_con(i, true)
+}
+
+fn tocar_con(i: usize, escuchar: bool) -> Result<(), Fallo> {
     preparar()?;
     let e = estado();
     let i = i % PIEZAS.len();
     let nuevo = if e.sonando { 1 - e.sitio } else { e.sitio };
     let t0 = ahora_ms();
-    let mut c = Compositor::nuevo(&PIEZAS[i], Mezcla::FONDO);
+    let mut c = Compositor::nuevo(&PIEZAS[i], if escuchar { Mezcla::CANCION } else { Mezcla::FONDO });
     let n = c.muestras_del_bucle();
     let (Some(m), Some(f)) = (e.memoria.as_ref(), e.fondo.as_ref()) else { return Err(Fallo::Banco) };
-    c.llenar(muestras(m, nuevo * SITIO, n));
+    let banco = muestras(m, nuevo * SITIO, n);
+    c.llenar(banco);
+    if escuchar {
+        bmo_fondo::escuchar::normalizar(banco, c.medida().1);
+    }
+    e.escuchando = escuchar;
     e.compuso_ms = ahora_ms().saturating_sub(t0);
     // Entra en silencio y sube por la rampa; la de antes baja por la suya y
     // se queda sonando muda hasta que su canal se reuse (callarla ya seria
@@ -378,6 +399,11 @@ pub(crate) fn mover() -> bool {
         }
     }
     queda
+}
+
+/// Suena para ESCUCHARLA (la ONDA) o de fondo?
+pub(crate) fn escuchando() -> bool {
+    estado().escuchando
 }
 
 /// Lo que suena: la pieza, el volumen y lo que tardo en componerse.

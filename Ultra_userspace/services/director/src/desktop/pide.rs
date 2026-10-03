@@ -163,9 +163,10 @@ pub(crate) fn atender(dsk: &mut Desktop, p: &bmo::Pantalla) {
         }
         Que::Fondo(i) => {
             let g = &mut dsk.out.grid;
-            match crate::desktop::musica::tocar(i) {
+            // La ONDA ELIGE: se escucha, no es fondo (-14 dBFS, no -26).
+            match crate::desktop::musica::escuchar(i) {
                 Ok(()) => {
-                    g.text(b"  de fondo: ");
+                    g.text(b"  a escuchar (-14 dBFS): ");
                     g.text(bmo_fondo::PIEZAS[i].nombre.as_bytes());
                     g.text(b"\n");
                 }
