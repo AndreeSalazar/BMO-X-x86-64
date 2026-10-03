@@ -19,10 +19,11 @@
 //! sigue en la primera como si la cancion no se acabara nunca. La prueba
 //! `el_bucle_no_tiene_costura` lo comprueba muestra a muestra.
 
-use bmo_amplificador::{Ganancia, Limite, Medidor, MilesimasDb};
+use bmo_amplificador::{Ganancia, Limite, Medidor, MilesimasDb, DB};
 
+use crate::neko::Maullido;
 use crate::sintesis::{inc_midi, Forma, Nota, Timbre, HZ};
-use crate::{Escala, Mezcla, Pieza};
+use crate::{Escala, Estilo, Mezcla, Pieza};
 
 /// Pasos por vuelta: ocho compases de dieciseis. Los acordes se repiten cada
 /// cuatro y el arpegio calla en el octavo, asi que la vuelta entera son ocho.
@@ -108,6 +109,7 @@ impl Patron {
 impl Escala {
     fn grados(self) -> &'static [i32] {
         match self {
+            Escala::Frigia => &[0, 1, 3, 5, 7, 8, 10],
             Escala::Menor => &[0, 2, 3, 5, 7, 8, 10],
             Escala::Mayor => &[0, 2, 4, 5, 7, 9, 11],
             Escala::Penta => &[0, 3, 5, 7, 10],
@@ -116,11 +118,70 @@ impl Escala {
     }
 }
 
+/// **El patron del NEKO PHONK**, sacado de la semilla como el otro.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PatronPhonk {
+    /// La frase del cencerro: dos compases de dieciseis pasos.
+    pub cencerro: [Option<i32>; 32],
+    /// Donde golpea el 808 en el compas.
+    pub ocho: [bool; 16],
+    /// La raiz de cada compas sobre la de la pieza: i, II bemol, i, VII bemol.
+    pub raices: [i32; 4],
+    /// El "nya" de cada compas impar (en semitonos), o nada.
+    pub nya: [Option<i32>; 8],
+}
+
+impl PatronPhonk {
+    pub fn de(p: &Pieza) -> PatronPhonk {
+        let esc = p.escala.grados();
+        let r = |i: u32| azar(p.semilla.wrapping_mul(7919).wrapping_add(1_000 + i));
+        let grado = |i: u32| esc[((r(i) as u64 * esc.len() as u64) >> 32) as usize];
+        let mut pat = PatronPhonk { cencerro: [None; 32], ocho: [false; 16], raices: [0, 1, 0, -2], nya: [None; 8] };
+        for i in 0..32u32 {
+            // A contratiempo casi siempre, en el tiempo a veces: el cencerro
+            // del phonk baila ENTRE los golpes.
+            let toca = if i % 2 == 1 { r(i) < P62 } else { i % 4 == 0 && r(i) < P30 };
+            if toca {
+                pat.cencerro[i as usize] = Some(grado(100 + i) + if r(200 + i) < P25 { 12 } else { 0 });
+            }
+        }
+        pat.ocho[0] = true;
+        pat.ocho[10] = true;
+        pat.ocho[7] = r(300) < P55;
+        pat.ocho[14] = r(301) < P30;
+        for c in (1..8).step_by(2) {
+            pat.nya[c] = Some(grado(400 + c as u32));
+        }
+        pat
+    }
+}
+
+/// Volumenes del NEKO PHONK, en 1/256 dB.
+const VOL_OCHO: MilesimasDb = -1_024;
+const VOL_CENCERRO: MilesimasDb = -3_600;
+const VOL_NYA: MilesimasDb = -2_800;
+const VOL_ACORDE_SIERRA: MilesimasDb = -4_600;
+
+/// **El bombeo**: lo que se bombea baja al 30 % con cada 808 y vuelve en
+/// 125 ms. Es el latido del phonk (y del EDM entero).
+const BOMBEO_VUELVE: u32 = 6_000;
+
+/// La ganancia del bombeo (Q16) a las `t` muestras de un 808: del 30 % al
+/// 100 % en linea recta en [`BOMBEO_VUELVE`].
+pub fn ganancia_bombeo(t: u32) -> i32 {
+    19_660 + (45_876 * t.min(BOMBEO_VUELVE) as i64 / BOMBEO_VUELVE as i64) as i32
+}
+
 /// **El compositor**: una pieza sonando, desde la muestra 0 de su bucle.
 pub struct Compositor {
     pieza: Pieza,
     mezcla: Mezcla,
     patron: Patron,
+    phonk: PatronPhonk,
+    /// Muestras desde el ultimo 808: lo que lleva vuelto el bombeo.
+    bombeo: u32,
+    /// Donde empieza el proximo 808 (el bombeo arranca ahi).
+    bombeo_en: Option<i64>,
     /// La muestra que sale ahora.
     s: i64,
     /// El siguiente paso por programar.
@@ -140,6 +201,9 @@ impl Compositor {
             pieza: *pieza,
             mezcla,
             patron: Patron::de(pieza),
+            phonk: PatronPhonk::de(pieza),
+            bombeo: BOMBEO_VUELVE,
+            bombeo_en: None,
             s: 0,
             k: -ANTES,
             notas: [Nota::NADA; POLIFONIA],
@@ -189,8 +253,73 @@ impl Compositor {
         }
     }
 
+    /// **El paso `k` del NEKO PHONK.**
+    fn programar_phonk(&mut self, k: i64) {
+        let kk = k.rem_euclid(PASOS) as usize;
+        let (i, compas) = (kk % 16, kk / 16);
+        let t = self.inicio(k);
+        let medio = (self.inicio(k + 1) - t) / 2;
+        let (m, p) = (self.mezcla, self.phonk);
+        let raiz = self.pieza.raiz + p.raices[compas % 4];
+        // El 808 (y un golpe encima para el ataque): suena hasta el siguiente.
+        if p.ocho[i] {
+            let hasta = (i + 1..16).find(|&j| p.ocho[j]).unwrap_or(16);
+            let largo = self.pasos(((hasta - i).min(8) * 10) as u32);
+            if m.suena(m.bajo) {
+                self.meter(Nota::ochocientos(t, inc_midi(raiz - 24), largo, VOL_OCHO, m.bajo));
+            }
+            if m.suena(m.bombo) {
+                self.meter(Nota::golpe(t, Forma::Bombo, m.bombo - 4 * DB));
+            }
+            self.bombeo_en = Some(t);
+        }
+        if i == 8 && m.suena(m.caja) {
+            self.meter(Nota::golpe(t, Forma::Caja, m.caja));
+        }
+        // El plato a corcheas, y redobles a fusas al final de cada cuatro.
+        if m.suena(m.plato) {
+            let redoble = compas % 4 == 3 && i >= 12;
+            if i % 2 == 0 || redoble {
+                self.meter(Nota::golpe(t, Forma::Plato, m.plato - 2 * DB));
+            }
+            if redoble {
+                self.meter(Nota::golpe(t + medio, Forma::Plato, m.plato - 5 * DB));
+            }
+        }
+        // El cencerro: la frase de dos compases; el octavo compas respira.
+        if let Some(g) = p.cencerro[(compas % 2) * 16 + i] {
+            if compas % 8 != 7 && m.suena(m.arpegio) {
+                self.meter(Nota::cencerro(t, inc_midi(raiz + 12 + g), VOL_CENCERRO, m.arpegio));
+            }
+        }
+        // Lo de Geoxor: un acorde de sierra corto y brillante en la segunda
+        // mitad, en el uno de cada compas.
+        if i == 0 && compas >= 4 && m.suena(m.acordes) {
+            for x in [0, 3, 7] {
+                let mut n = Nota::tono(t, inc_midi(raiz + 12 + x), self.pasos(30), Timbre::Sierra, VOL_ACORDE_SIERRA, m.acordes);
+                n.bombea = true;
+                self.meter(n);
+            }
+        }
+        // El gato: "nya" al final de cada compas impar; "miau" al final de todo.
+        if m.suena(m.acordes) {
+            if i == 14 {
+                if let Some(s) = p.nya[compas] {
+                    self.meter(Nota::maullido(t, Maullido::Nya, s, VOL_NYA, m.acordes));
+                }
+            }
+            if compas == 7 && i == 10 {
+                self.meter(Nota::maullido(t, Maullido::Miau, 0, VOL_NYA, m.acordes));
+            }
+        }
+    }
+
     /// La `programar()` de la maqueta, para el paso `k`.
     fn programar(&mut self, k: i64) {
+        if self.pieza.estilo == Estilo::NekoPhonk {
+            self.programar_phonk(k);
+            return;
+        }
         let kk = k.rem_euclid(PASOS) as usize;
         let (i, compas) = (kk % 16, kk / 16);
         let ac = self.patron.acordes[compas % 4];
@@ -232,12 +361,28 @@ impl Compositor {
             self.programar(self.k);
             self.k += 1;
         }
-        let mut suma: i32 = 0;
+        // El bombeo empieza en la muestra del 808, no en la del paso.
+        if self.bombeo_en == Some(self.s) {
+            self.bombeo = 0;
+            self.bombeo_en = None;
+        }
+        let mut golpes: i32 = 0;
+        let mut bombean: i32 = 0;
         for n in self.notas.iter_mut() {
             if n.viva() && n.inicio <= self.s {
-                suma = suma.saturating_add(n.muestra());
+                let x = n.muestra();
+                if n.bombea {
+                    bombean = bombean.saturating_add(x);
+                } else {
+                    golpes = golpes.saturating_add(x);
+                }
             }
         }
+        // ** EL BOMBEO: lo que se bombea, al 30 % con el 808 y de vuelta en
+        // 125 ms. En las piezas de ambiente no hay nada que bombee.
+        let g = ganancia_bombeo(self.bombeo);
+        self.bombeo = self.bombeo.saturating_add(1);
+        let suma = golpes.saturating_add(((bombean as i64 * g as i64) >> 16) as i32);
         self.s += 1;
         let x = self.limite.muestra(self.nivel.aplicar(suma));
         self.medidor.mirar_uno(x as i32);

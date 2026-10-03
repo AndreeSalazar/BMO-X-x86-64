@@ -56,6 +56,10 @@ pub mod compositor;
 /// Los sonidos del sistema.
 pub mod avisos;
 
+/// Las voces del gato: cencerro, 808, maullidos, ronroneo y bufido (S4h).
+pub mod neko;
+mod neko_tablas;
+
 pub use avisos::Aviso;
 pub use compositor::Compositor;
 pub use sintesis::{Timbre, HZ};
@@ -63,6 +67,8 @@ pub use sintesis::{Timbre, HZ};
 /// **La escala** de una pieza: de donde salen las notas del bajo y el arpegio.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Escala {
+    /// La del phonk: la segunda MENOR (medio tono sobre la raiz) es la tension.
+    Frigia,
     Menor,
     Mayor,
     Penta,
@@ -79,24 +85,40 @@ pub struct Pieza {
     pub raiz: i32,
     pub escala: Escala,
     pub timbre: Timbre,
+    /// **Su estilo**: de que esta hecha.
+    pub estilo: Estilo,
     /// **Su nivel**, para que todas suenen igual de fuertes: cada pieza tiene
     /// su densidad, y sin esto una sonaria el doble que otra. Medido por la
     /// prueba `cada_pieza_suena_igual_de_fuerte`.
     pub nivel: MilesimasDb,
 }
 
-/// **Las diez piezas de la ONDA**, las de la maqueta.
-pub const PIEZAS: [Pieza; 10] = [
-    Pieza { nombre: "Kernel a medianoche", semilla: 11, bpm: 88, raiz: 57, escala: Escala::Menor, timbre: Timbre::Cuadrada, nivel: 0 },
-    Pieza { nombre: "Ring 0", semilla: 23, bpm: 104, raiz: 52, escala: Escala::Dorica, timbre: Timbre::Sierra, nivel: -128 },
-    Pieza { nombre: "La ciudad de neon", semilla: 5, bpm: 96, raiz: 60, escala: Escala::Penta, timbre: Timbre::Triangulo, nivel: 154 },
-    Pieza { nombre: "Compilando", semilla: 41, bpm: 120, raiz: 55, escala: Escala::Menor, timbre: Timbre::Cuadrada, nivel: -128 },
-    Pieza { nombre: "Pasillos de ladrillo", semilla: 66, bpm: 132, raiz: 52, escala: Escala::Menor, timbre: Timbre::Sierra, nivel: 102 },
-    Pieza { nombre: "La llave azul", semilla: 71, bpm: 140, raiz: 50, escala: Escala::Dorica, timbre: Timbre::Cuadrada, nivel: 77 },
-    Pieza { nombre: "Sierra al atardecer", semilla: 7, bpm: 76, raiz: 62, escala: Escala::Mayor, timbre: Timbre::Seno, nivel: 282 },
-    Pieza { nombre: "El ecualizador", semilla: 9, bpm: 84, raiz: 57, escala: Escala::Penta, timbre: Timbre::Triangulo, nivel: 410 },
-    Pieza { nombre: "Ocho bits por pixel", semilla: 13, bpm: 150, raiz: 60, escala: Escala::Mayor, timbre: Timbre::Cuadrada, nivel: -205 },
-    Pieza { nombre: "El emisor salta", semilla: 17, bpm: 128, raiz: 59, escala: Escala::Penta, timbre: Timbre::Cuadrada, nivel: -102 },
+/// **De que esta hecha una pieza.**
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Estilo {
+    /// Las de la maqueta: bombo, caja, plato, bajo, arpegio y acordes.
+    Ambiente,
+    /// **NEKO PHONK** (S4h): el 808 saturado, el cencerro en frigia, los
+    /// "nya" al final de cada frase, los redobles del plato y TODO lo demas
+    /// bombeando con el bombo. Ver `neko.rs`.
+    NekoPhonk,
+}
+
+/// **Las piezas**: las diez de la maqueta y las tres del NEKO PHONK.
+pub const PIEZAS: [Pieza; 13] = [
+    Pieza { nombre: "Kernel a medianoche", semilla: 11, bpm: 88, raiz: 57, escala: Escala::Menor, timbre: Timbre::Cuadrada, estilo: Estilo::Ambiente, nivel: 0 },
+    Pieza { nombre: "Ring 0", semilla: 23, bpm: 104, raiz: 52, escala: Escala::Dorica, timbre: Timbre::Sierra, estilo: Estilo::Ambiente, nivel: -128 },
+    Pieza { nombre: "La ciudad de neon", semilla: 5, bpm: 96, raiz: 60, escala: Escala::Penta, timbre: Timbre::Triangulo, estilo: Estilo::Ambiente, nivel: 154 },
+    Pieza { nombre: "Compilando", semilla: 41, bpm: 120, raiz: 55, escala: Escala::Menor, timbre: Timbre::Cuadrada, estilo: Estilo::Ambiente, nivel: -128 },
+    Pieza { nombre: "Pasillos de ladrillo", semilla: 66, bpm: 132, raiz: 52, escala: Escala::Menor, timbre: Timbre::Sierra, estilo: Estilo::Ambiente, nivel: 102 },
+    Pieza { nombre: "La llave azul", semilla: 71, bpm: 140, raiz: 50, escala: Escala::Dorica, timbre: Timbre::Cuadrada, estilo: Estilo::Ambiente, nivel: 77 },
+    Pieza { nombre: "Sierra al atardecer", semilla: 7, bpm: 76, raiz: 62, escala: Escala::Mayor, timbre: Timbre::Seno, estilo: Estilo::Ambiente, nivel: 282 },
+    Pieza { nombre: "El ecualizador", semilla: 9, bpm: 84, raiz: 57, escala: Escala::Penta, timbre: Timbre::Triangulo, estilo: Estilo::Ambiente, nivel: 410 },
+    Pieza { nombre: "Ocho bits por pixel", semilla: 13, bpm: 150, raiz: 60, escala: Escala::Mayor, timbre: Timbre::Cuadrada, estilo: Estilo::Ambiente, nivel: -205 },
+    Pieza { nombre: "El emisor salta", semilla: 17, bpm: 128, raiz: 59, escala: Escala::Penta, timbre: Timbre::Cuadrada, estilo: Estilo::Ambiente, nivel: -102 },
+    Pieza { nombre: "Neko drift", semilla: 31, bpm: 144, raiz: 50, escala: Escala::Frigia, timbre: Timbre::Sierra, estilo: Estilo::NekoPhonk, nivel: -2637 },
+    Pieza { nombre: "Gato de neon", semilla: 47, bpm: 128, raiz: 53, escala: Escala::Frigia, timbre: Timbre::Sierra, estilo: Estilo::NekoPhonk, nivel: -2278 },
+    Pieza { nombre: "Nyan de medianoche", semilla: 58, bpm: 136, raiz: 49, escala: Escala::Menor, timbre: Timbre::Sierra, estilo: Estilo::NekoPhonk, nivel: -2586 },
 ];
 
 /// **Las que relajan**: las lentas y redondas, en el orden en que suenan de

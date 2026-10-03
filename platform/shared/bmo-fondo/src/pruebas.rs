@@ -79,7 +79,7 @@ fn componer(p: &Pieza, m: Mezcla, muestras: usize) -> (Vec<i16>, Compositor) {
 fn el_bucle_no_tiene_costura() {
     // Dos vueltas seguidas: la segunda tiene que ser la primera, muestra a
     // muestra. Eso es lo que oye la voz en bucle al volver al principio.
-    for i in [6usize, 0, 4] {
+    for i in [6usize, 0, 4, 10] {
         let p = &PIEZAS[i];
         let largo = Compositor::nuevo(p, Mezcla::FONDO).muestras_del_bucle();
         let (v, _) = componer(p, Mezcla::FONDO, 2 * largo);
@@ -231,6 +231,9 @@ fn escribir_wav_para_oirlos() {
         let mut v = vec![0i16; avisos::muestras(a)];
         avisos::componer(a, &mut v);
         wav(&dir.join(std::format!("aviso_{a:?}.wav").to_lowercase()), &v);
+        let mut v = vec![0i16; avisos::muestras_en(a, avisos::Tema::Neko)];
+        avisos::componer_en(a, avisos::Tema::Neko, &mut v);
+        wav(&dir.join(std::format!("neko_{a:?}.wav").to_lowercase()), &v);
     }
 }
 
@@ -328,6 +331,12 @@ fn escribir_la_demo_3d() {
 /// y "se va" SE MUEVEN, situados cada 16 ms como hace el escritorio.
 #[test]
 fn escribir_la_demo_de_la_voz() {
+    for (tema, nombre) in [(avisos::Tema::Clasico, "demo_voz_3d.wav"), (avisos::Tema::Neko, "demo_neko_3d.wav")] {
+        demo_de_la_voz(tema, nombre);
+    }
+}
+
+fn demo_de_la_voz(tema: avisos::Tema, nombre: &str) {
     use bmo_amplificador::voces::{Formato, Sonido, Voces};
     let Some(dir) = std::env::var_os("BMO_FONDO_WAV") else { return };
     let dir = std::path::PathBuf::from(dir);
@@ -335,8 +344,8 @@ fn escribir_la_demo_de_la_voz() {
     let mut banco = Vec::new();
     let mut sitio = Vec::new();
     for a in avisos::AVISOS {
-        let mut v = vec![0i16; avisos::muestras(a)];
-        avisos::componer(a, &mut v);
+        let mut v = vec![0i16; avisos::muestras_en(a, tema)];
+        avisos::componer_en(a, tema, &mut v);
         sitio.push((a, banco.len() as u32, v.len() as u32));
         for x in v {
             banco.extend_from_slice(&x.to_le_bytes());
@@ -405,7 +414,7 @@ fn escribir_la_demo_de_la_voz() {
             fuera.push([acc[2 * k].clamp(-32768, 32767) as i16, acc[2 * k + 1].clamp(-32768, 32767) as i16]);
         }
     }
-    wav_estereo(&dir.join("demo_voz_3d.wav"), &fuera);
+    wav_estereo(&dir.join(nombre), &fuera);
 }
 
 /// **"Llega" se mueve de verdad**: tocado por el mezclador del kernel y
@@ -451,6 +460,59 @@ fn llega_se_mueve_sin_saltos() {
     for x in [&izq, &der] {
         let peor = x.windows(2).map(|w| (w[1] - w[0]).abs()).max().unwrap();
         assert!(peor < 2_500, "un salto de {peor}");
+    }
+}
+
+/// **Los avisos NEKO PHONK**: todos a -6 dBFS de pico como los clasicos, y
+/// ninguno se queda en silencio ni se pasa.
+#[test]
+fn los_avisos_neko_se_oyen_y_no_se_pasan() {
+    use avisos::Tema;
+    let mut picos = Vec::new();
+    for a in avisos::AVISOS {
+        let n = avisos::muestras_en(a, Tema::Neko);
+        assert!(n > HZ as usize / 20 && n < 2 * HZ as usize, "{a:?}: {n} muestras");
+        let mut v = vec![0i16; n];
+        assert_eq!(avisos::componer_en(a, Tema::Neko, &mut v), n);
+        let pico = v.iter().map(|&x| (x as i32).abs()).max().unwrap();
+        let db = 20.0 * (pico.max(1) as f64 / 32768.0).log10();
+        std::println!("neko {a:?}: {n} muestras, pico {db:.1} dBFS");
+        picos.push((a, db));
+    }
+    for (a, db) in picos {
+        assert!((-7.0..=-5.0).contains(&db), "neko {a:?}: pico {db:.1} dBFS, y todos tienen que llegar a -6");
+    }
+}
+
+/// **El 808 grune**: la saturacion le saca el tercer armonico, que un seno
+/// limpio no tiene. Sin eso es un bajo de ambiente, no un 808 de phonk.
+#[test]
+fn el_808_grune() {
+    use super::sintesis::{inc_midi, Nota};
+    let mut n = Nota::ochocientos(0, inc_midi(45), HZ, -1_000, 0);
+    let x: Vec<i32> = (0..HZ as usize).map(|_| n.muestra()).collect();
+    let f0 = 440.0 * 2f64.powf((45.0 - 69.0) / 12.0);
+    // Despues de la caida de tono (la primera decima de segundo).
+    let tramo = &x[6_000..30_000];
+    let fundamental = goertzel(tramo, f0);
+    let tercero = goertzel(tramo, 3.0 * f0);
+    let db = 10.0 * (tercero / fundamental).log10();
+    assert!(db > -25.0, "el 808 no satura: tercer armonico a {db:.1} dB");
+}
+
+/// **El phonk bombea**: lo que se bombea (el cencerro, los "nya", los
+/// acordes) cae al 30 % con cada 808 y vuelve entero en 125 ms, sin
+/// escalones. Lo de ambiente no lleva nada que bombee.
+#[test]
+fn el_phonk_bombea() {
+    use super::compositor::ganancia_bombeo;
+    assert_eq!(ganancia_bombeo(0), 19_660, "al 30 % en el golpe");
+    assert_eq!(ganancia_bombeo(6_000), 65_536, "entero a los 125 ms");
+    assert_eq!(ganancia_bombeo(60_000), 65_536);
+    let mitad = ganancia_bombeo(3_000);
+    assert!((40_000..46_000).contains(&mitad), "a la mitad: {mitad}");
+    for t in 0..6_000 {
+        assert!(ganancia_bombeo(t + 1) - ganancia_bombeo(t) <= 8, "un escalon en {t}");
     }
 }
 
