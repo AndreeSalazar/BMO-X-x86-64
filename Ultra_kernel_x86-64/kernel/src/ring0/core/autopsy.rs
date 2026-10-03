@@ -108,6 +108,10 @@ pub struct Captura {
     /// registro que se uso mal. `antes_n` son los que se leyeron, los ultimos.
     antes: [u8; CODIGO_BYTES],
     antes_n: usize,
+    /// 03-10: `antes` es lo de antes del RETORNO (`[rsp]`), no del `rip`: el
+    /// `rip` no se lee (un salto a 0, un puntero a funcion nulo) y el `call`
+    /// que lo hizo esta justo antes de la direccion que dejo en la pila.
+    antes_del_retorno: bool,
     /// Los quince registros enteros al fallar, como los dejo el stub
     /// ([`REGISTROS`]): rax rbx rcx rdx rsi rdi rbp r8..r15.
     regs: [u64; 15],
@@ -188,6 +192,7 @@ impl Captura {
         codigo_n: 0,
         antes: [0; CODIGO_BYTES],
         antes_n: 0,
+        antes_del_retorno: false,
         regs: [0; 15],
         caida: crate::ring0::obj::memory::Caida::SinCuenta,
         traducida: false,
@@ -231,21 +236,36 @@ impl Captura {
                     None => break,
                 }
             }
-            // Lo de antes, hacia atras hasta el primer byte que no se lee.
-            for k in 1..=CODIGO_BYTES {
-                match leer_byte_de_ring3(rip.wrapping_sub(k as u64)) {
-                    Some(b) => {
-                        c.antes[CODIGO_BYTES - k] = b;
-                        c.antes_n = k;
-                    }
-                    None => break,
-                }
+            c.leer_antes(rip);
+        }
+        // ** Un SALTO A NADA (03-10, el metal de Cyberpunk: rip 0, "antes (no
+        // se pudo leer)"): un `call` a un puntero nulo deja su retorno en
+        // `[rsp]`, y lo de antes de el ES el `call`. Que registro y que
+        // desplazamiento usaba dice de que tabla salio el nulo.
+        if c.antes_n == 0 && rip < 0x1000 {
+            if let Some(r) = c.pila[0].filter(|&r| r >= 0x1_0000 && r >> 47 == 0) {
+                c.leer_antes(r);
+                c.antes_del_retorno = c.antes_n > 0;
             }
         }
         // SAFETY: el stub los escribio antes de llamar, en este mismo nucleo, y
         // nadie mas escribe ahi hasta el siguiente fallo.
         c.regs = unsafe { core::ptr::addr_of!(REGISTROS).read() };
         c
+    }
+
+    /// Los bytes de antes de `desde`, hacia atras hasta el primero que no se
+    /// lee.
+    fn leer_antes(&mut self, desde: u64) {
+        for k in 1..=CODIGO_BYTES {
+            match leer_byte_de_ring3(desde.wrapping_sub(k as u64)) {
+                Some(b) => {
+                    self.antes[CODIGO_BYTES - k] = b;
+                    self.antes_n = k;
+                }
+                None => break,
+            }
+        }
     }
 
     /// `(fichero, linea)` de quien solto la tabla del corte. El fichero va
@@ -1373,7 +1393,7 @@ pub fn registrar(
         renglones[11].hex_byte(b);
         renglones[11].s(" ");
     }
-    renglones[11].s("| rip");
+    renglones[11].s(if cap.antes_del_retorno { "| ret (el call)" } else { "| rip" });
     const NOMBRES: [&str; 15] = ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "r8 ", "r9 ", "r10", "r11", "r12", "r13", "r14", "r15"];
     for (k, (n, v)) in NOMBRES.iter().zip(cap.regs.iter()).enumerate() {
         let r = &mut renglones[12 + k / 3];

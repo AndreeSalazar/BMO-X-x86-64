@@ -466,7 +466,12 @@ extern "win64" fn resolve_subresource(this: u64, dst: u64, _sd: u32, src: u64, _
     copy_resource(this, dst, src);
 }
 
-extern "win64" fn om_set_blend_factor(_this: u64, _f: *const f32) {}
+/// `OMSetBlendFactor(this, factor[4])` (N5.11): el de los factores
+/// BLEND_FACTOR de la mezcla; nulo es (1, 1, 1, 1).
+extern "win64" fn om_set_blend_factor(this: u64, f: *const f32) {
+    // SAFETY: `this` es una Lista de la casa; `f`, 4 floats del `.exe` o nulo.
+    unsafe { crate::d3d12::lista(this).estado.factor_mezcla = (!f.is_null()).then(|| [f.read_unaligned(), f.add(1).read_unaligned(), f.add(2).read_unaligned(), f.add(3).read_unaligned()]) };
+}
 
 extern "win64" fn om_set_stencil_ref(_this: u64, _r: u32) {}
 

@@ -91,6 +91,15 @@ pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
         return Err(NoVa::Emisor("vertice", crate::NoEmite::Operacion(0)));
     }
     let ep = emitir_con(&en.ps, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor("pixel", e))?;
+    // N5.9: el de pixeles que lee SV_Position, por la CPU todavia (la 3060
+    // la da en un atributo de sistema que el pegamento no pone).
+    if en.pos_ps.is_some() {
+        return Err(NoVa::Entrada("SV_Position en el de pixeles"));
+    }
+    // N5.8: la 3060 pinta UN render target todavia: el G-buffer, por la CPU.
+    if en.objetivos != [0] {
+        return Err(NoVa::Entrada("varios render targets (o uno que no es el 0, o SV_Depth)"));
+    }
     let posicion = en.posicion as u32;
     let genericos = en.desde_vs.iter().map(|o| o.and_then(|o| bmo_gpu_ga10x::pegamento::generico(o as u32, posicion))).collect();
     Ok(Cuerpos {
@@ -281,6 +290,10 @@ impl Puerta {
     /// **La receta de este lote**, en `self.caja[..n]`: `Ok(n)`, o por que
     /// no va a la 3060.
     pub fn preparar(&mut self, l: &Lote, b: Blanco) -> Result<usize, String> {
+        // N5.11: la 3060 aun no mezcla (ni enmascara): ese lote, por la CPU.
+        if !l.reglas.mezcla.trivial() {
+            return Err(String::from("el lote mezcla (o escribe solo algunos canales): la 3060 no lo sabe todavia"));
+        }
         if l.reglas.profundidad.is_some() && !self.z_a_la_3060 {
             return Err(String::from(
                 "el lote usa Z y la 3060 no dibuja con Z sobre un color PITCH (el back buffer en tu RAM): sin la sombra en bloque del kernel fue Xid 69 y el canal GR MUERTO hasta reiniciar",

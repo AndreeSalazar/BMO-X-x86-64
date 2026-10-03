@@ -40,7 +40,7 @@ use core::cell::UnsafeCell;
 use alloc::format;
 
 use bmo_proton_x::dxil::{self, Etapa, Sombreador};
-use bmo_proton_x::lote::{enlazar, Lote, NoDibuja, Topologia};
+use bmo_proton_x::lote::{enlazar_con, Lote, NoDibuja, Topologia};
 use bmo_proton_x::trama;
 use bmo_proton_x::raiz::{self, Carga, Firma, Parametro, Rango};
 
@@ -259,15 +259,20 @@ pub struct Pso {
     pub descarte: u32,
     pub antihorario: bool,
     pub topologia: u32,
-    pub formato_rt: u32,
+    /// Los formatos de sus render targets (`RTVFormats`, N5.8: hasta 8) y
+    /// cuantos son (`NumRenderTargets`).
+    pub formatos_rt: [u32; 8],
+    pub n_rt: u32,
     /// Los dos sombreadores COMPILADOS y enlazados (P3b3), o por que no se
     /// pueden correr: entonces el PSO existe, y cada Draw lo dice. Con los
     /// nombres de sus funciones; compartido por los PSO con los mismos
     /// sombreadores y layout (`enlaces.rs`, 03-10: el `Sombreador` leido ya
     /// no se guarda).
     pub compilado: alloc::rc::Rc<crate::enlaces::Compilado>,
-    /// Mezcla encendida o una mascara de escritura que no es RGBA: todavia no.
-    pub mezcla: bool,
+    /// N5.11: la mezcla de cada render target (con IndependentBlendEnable,
+    /// la suya; sin el, la del 0 para todos), o por que no se sabe todavia
+    /// (operacion logica, dos fuentes): entonces cada Draw lo dice.
+    pub mezcla: Result<[bmo_proton_x::mezcla::Mezcla; 8], &'static str>,
     /// La prueba de profundidad (P3c4), si `DepthEnable`.
     pub profundidad: Option<trama::Profundidad>,
 }
@@ -305,7 +310,8 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
         }
     }
     let bytes_vs = bytecode(u64_de(d, 8) as *const u8, u64_de(d, 16) as usize, "CreateGraphicsPipelineState sin sombreador de vertices")?;
-    let bytes_ps = bytecode(u64_de(d, 24) as *const u8, u64_de(d, 32) as usize, "CreateGraphicsPipelineState sin sombreador de pixeles")?;
+    // N5.12: sin sombreador de pixeles es un dibujo de solo profundidad.
+    let bytes_ps = if u64_de(d, 24) == 0 || u64_de(d, 32) == 0 { None } else { Some(bytecode(u64_de(d, 24) as *const u8, u64_de(d, 32) as usize, "")?) };
     // El input layout, con los desplazamientos APPEND_ALIGNED resueltos.
     let (elems, n) = (u64_de(d, 552) as *const u8, u32_de(d, 560));
     let mut entradas: Vec<EntradaIa> = Vec::with_capacity(n as usize);
@@ -324,24 +330,38 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
         siguiente[r] = desde + bytes;
         entradas.push(EntradaIa { semantica: cadena_c(u64_de(e, 0) as *const u8), indice: u32_de(e, 8), formato, ranura, desde });
     }
-    let (n_rt, formato_rt) = (u32_de(d, 576), u32_de(d, 580));
-    if n_rt != 1 {
-        return Err("CreateGraphicsPipelineState con mas de un render target: todavia no");
+    // N5.8 (03-10): hasta 8 render targets (el G-buffer); N5.12: ninguno es
+    // un dibujo de solo profundidad (las sombras, el prepaso de Z).
+    let n_rt = u32_de(d, 576);
+    if n_rt > 8 {
+        return Err("CreateGraphicsPipelineState con mas de 8 render targets: en Windows es un error");
     }
+    let formatos_rt: [u32; 8] = core::array::from_fn(|i| u32_de(d, 580 + 4 * i));
     // DepthStencilState (+496): DepthEnable +0, DepthWriteMask +4 (1 ALL),
     // DepthFunc +8, StencilEnable +12.
     let profundidad = (u32_de(d, 496) != 0).then(|| trama::Profundidad { funcion: u32_de(d, 504), escribir: u32_de(d, 500) == 1 });
     if u32_de(d, 508) != 0 {
         aviso("CreateGraphicsPipelineState con stencil: se apunta, y no se usa todavia");
     }
-    // RenderTarget[0] de BlendState (+120): BlendEnable +8, LogicOpEnable
-    // +12, la mascara de escritura +44.
-    let mezcla = u32_de(d, 128) != 0 || u32_de(d, 132) != 0 || (d.add(164).read() & 0xF) != 0xF;
+    // BlendState (+120): AlphaToCoverageEnable +0, IndependentBlendEnable
+    // +4, y RenderTarget[i] desde +8, de 40 bytes (`mezcla::Mezcla::de_desc`).
+    // Sin IndependentBlendEnable, el 0 vale para todos.
+    if u32_de(d, 120) != 0 {
+        aviso("CreateGraphicsPipelineState con AlphaToCoverage: sin MSAA no cubre nada; se apunta, y no se usa");
+    }
+    let independiente = u32_de(d, 124) != 0;
+    let mezcla = (0..8usize)
+        .map(|i| {
+            let rt = 128 + 40 * if independiente { i } else { 0 };
+            bmo_proton_x::mezcla::Mezcla::de_desc(core::slice::from_raw_parts(d.add(rt), 40))
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(|v| core::array::from_fn(|i| v[i]));
     // Los sombreadores: leidos, comprobados y compilados UNA vez por (VS, PS,
     // layout); los demas PSO con lo mismo lo comparten (`enlaces.rs`).
-    let (compilado, nuevo) = crate::enlaces::de(bytes_vs, bytes_ps, &entradas, || {
+    let (compilado, nuevo) = crate::enlaces::de(bytes_vs, bytes_ps.unwrap_or(&[]), &entradas, || {
         let vs = sombreador(bytes_vs, Etapa::Vertice)?;
-        let ps = sombreador(bytes_ps, Etapa::Pixel)?;
+        let ps = bytes_ps.map(|b| sombreador(b, Etapa::Pixel)).transpose()?;
         // Cada elemento del sombreador de vertices tiene que venir del
         // layout, MENOS los valores de sistema (SV_VertexID, SV_InstanceID):
         // esos los pone quien dibuja, y D3D12 no los pide al layout (03-10:
@@ -352,7 +372,7 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
             }
         }
         let nombre = |s: &Sombreador| s.modulo.entrada().map(|f| f.nombre.clone()).unwrap_or_default();
-        Ok(crate::enlaces::Compilado { nombres: (nombre(&vs), nombre(&ps)), enlace: enlazar(&vs, &ps, &entradas) })
+        Ok(crate::enlaces::Compilado { nombres: (nombre(&vs), ps.as_ref().map(nombre).unwrap_or_default()), enlace: enlazar_con(&vs, ps.as_ref(), &entradas) })
     })?;
     if nuevo {
         if let Err(m) = &compilado.enlace {
@@ -368,7 +388,8 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
         descarte: u32_de(d, 452 + 4),
         antihorario: u32_de(d, 452 + 8) != 0,
         topologia: u32_de(d, 572),
-        formato_rt,
+        formatos_rt,
+        n_rt,
     }, nuevo))
 }
 
@@ -580,6 +601,11 @@ pub struct Estado {
     pub viewport: [f32; 6],
     pub tijera: [i32; 4],
     pub rtv: u64,
+    /// N5.11: el factor de mezcla (`OMSetBlendFactor`); `None` es el de
+    /// D3D12 sin poner, (1, 1, 1, 1).
+    pub factor_mezcla: Option<[f32; 4]>,
+    /// N5.8: los render targets 1..8 (recurso y subrecurso; 0, ninguno).
+    pub rtv_otros: [(u64, u64); 7],
     /// El recurso de profundidad (OMSetRenderTargets), o 0.
     pub dsv: u64,
     /// 02-10: el subrecurso de cada vista (y su rebanada 3D << 32): ver
@@ -638,16 +664,30 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
         aviso("Draw con una root signature distinta de la del PSO: en Windows es un error");
         return;
     }
-    if e.rtv == 0 {
+    // N5.12: el de solo profundidad pinta en el DSV, y nada mas.
+    if pso.n_rt == 0 && e.dsv == 0 {
+        aviso("Draw de solo profundidad sin DSV en OMSetRenderTargets: no hay donde dibujar");
+        return;
+    }
+    if pso.n_rt > 0 && e.rtv == 0 {
         aviso("Draw sin OMSetRenderTargets: no hay donde dibujar");
         return;
     }
     // SAFETY: el descriptor guarda un Recurso de la casa. El formato de la
     // vista puede no ser el del recurso (TYPELESS, SRGB): basta que se
     // guarden igual.
-    if Almacen::de(unsafe { crate::d3d12::recurso_de(e.rtv) }.formato) != Almacen::de(pso.formato_rt) {
+    if pso.n_rt > 0 && Almacen::de(unsafe { crate::d3d12::recurso_de(e.rtv) }.formato) != Almacen::de(pso.formatos_rt[0]) {
         aviso("Draw sobre un render target de otro formato que el del PSO");
         return;
+    }
+    // N5.8: los demas, igual (los que no estan puestos no se miran: lo que
+    // va a ellos se pierde, como con un RTV nulo).
+    for (k, &(r, _)) in e.rtv_otros.iter().enumerate().take((pso.n_rt as usize).saturating_sub(1)) {
+        // SAFETY: como arriba.
+        if r != 0 && Almacen::de(unsafe { crate::d3d12::recurso_de(r) }.formato) != Almacen::de(pso.formatos_rt[k + 1]) {
+            aviso("Draw sobre un render target (de los 1..8) de otro formato que el del PSO");
+            return;
+        }
     }
     pintar(e, pso, cuantos, instancias, primero, base_vertice, indexado);
     // SAFETY: un hilo.
@@ -742,10 +782,13 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             return;
         }
     };
-    if pso.mezcla {
-        aviso("Draw no se dibuja: mezcla, operacion logica o mascara de escritura parcial, todavia no");
-        return;
-    }
+    let mezcla = match pso.mezcla {
+        Ok(rt) => bmo_proton_x::mezcla::Mezclas { rt, factor: e.factor_mezcla.unwrap_or([1.0; 4]) },
+        Err(m) => {
+            aviso(&format!("Draw no se dibuja: {m}"));
+            return;
+        }
+    };
     if instancias > 1 {
         aviso("Draw con varias instancias: se dibuja una (no hay datos por instancia todavia)");
     }
@@ -753,21 +796,37 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         aviso("Draw sin RSSetScissorRects: en D3D12 la tijera siempre corta, y vacia no deja pintar nada");
         return;
     }
+    // N5.12: sin render target, el dibujo es de solo profundidad: sin
+    // pixeles, y mide lo que su Z.
+    let solo_z = pso.n_rt == 0 || e.rtv == 0;
     // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
-    let rt = unsafe { de::<crate::d3d12::Recurso>(e.rtv) };
+    let mut rt = (!solo_z).then(|| unsafe { de::<crate::d3d12::Recurso>(e.rtv) });
     // 02-10: todo lo que la casa guarda en 8 bits por canal (tambien un
     // RGBA16F o un R10G10B10A2: se pintan en 8 bits, como se guardan).
-    let bgra = match Almacen::de(rt.formato) {
-        Almacen::Bgra8 => true,
-        Almacen::Rgba8 => false,
-        _ => {
+    let bgra = match rt.as_ref().map(|r| Almacen::de(r.formato)) {
+        Some(Almacen::Bgra8) => true,
+        Some(Almacen::Rgba8) | None => false,
+        Some(_) => {
             aviso("Draw sobre un render target de floats (R32) o BC: todavia no");
             return;
         }
     };
-    let Some((pixeles, ancho, alto)) = destino(e.rtv, e.rtv_sub) else {
-        aviso("Draw sobre una vista de un subrecurso que el render target no tiene");
-        return;
+    let (pixeles, ancho, alto): (&mut [u32], u32, u32) = if solo_z {
+        match destino(e.dsv, e.dsv_sub) {
+            Some((_, w, h)) => (&mut [], w, h),
+            None => {
+                aviso("Draw de solo profundidad sobre un subrecurso que la Z no tiene");
+                return;
+            }
+        }
+    } else {
+        match destino(e.rtv, e.rtv_sub) {
+            Some(d) => d,
+            None => {
+                aviso("Draw sobre una vista de un subrecurso que el render target no tiene");
+                return;
+            }
+        }
     };
     // Los ids de vertice, en el orden en que llegan.
     let mut ids: Vec<u32> = Vec::with_capacity(cuantos as usize);
@@ -818,7 +877,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // P3b4c: las limpiezas apuntadas de SU render target y de SU Z: las
     // hace quien dibuje este lote.
     let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 && e.dsv_sub == 0 { tomar_limpieza(e.dsv) } else { None };
-    let limpiar_rt = if e.rtv_sub == 0 { tomar_limpieza(e.rtv) } else { None };
+    let limpiar_rt = if e.rtv_sub == 0 && !solo_z { tomar_limpieza(e.rtv) } else { None };
     let lote = Lote {
         recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes },
         limpiar_z,
@@ -830,7 +889,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         ids: &ids,
         topologia,
         cb: &cb,
-        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad },
+        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad, mezcla, z_del_sombreador: false },
     };
     // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.
     let z = match (pso.profundidad, e.dsv) {
@@ -844,12 +903,49 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             }
         },
     };
-    let cadena = rt.cadena && e.rtv_sub == 0;
-    let mut destino = trama::Destino { pixeles, ancho, alto, bgra, z, cadena };
+    let cadena = rt.as_ref().is_some_and(|r| r.cadena) && e.rtv_sub == 0;
+    // N5.8: los render targets 1..8 que el PSO escribe, con su limpieza
+    // apuntada ya hecha (la del 0 la hace quien dibuje: `limpiar_rt`).
+    let mut otros: Vec<trama::Otro> = Vec::new();
+    let mut puestos = alloc::vec![e.rtv];
+    for &(r, sub) in e.rtv_otros.iter().take((pso.n_rt as usize).saturating_sub(1)) {
+        if r == 0 {
+            otros.push(trama::Otro { pixeles: None, bgra: false });
+            continue;
+        }
+        // Dos vistas del mismo recurso serian dos `&mut` a la misma memoria.
+        if puestos.contains(&r) {
+            aviso("Draw con el mismo recurso en dos render targets: en Windows es un error, y no se dibuja");
+            return;
+        }
+        // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
+        let bgra = match Almacen::de(unsafe { de::<crate::d3d12::Recurso>(r) }.formato) {
+            Almacen::Bgra8 => true,
+            Almacen::Rgba8 => false,
+            _ => {
+                aviso("Draw sobre un render target (de los 1..8) de floats (R32) o BC: todavia no");
+                return;
+            }
+        };
+        if sub == 0 {
+            aplicar_limpieza(r);
+        }
+        match destino(r, sub) {
+            Some((p, w, h)) if (w, h) == (ancho, alto) => {
+                puestos.push(r);
+                otros.push(trama::Otro { pixeles: Some(p), bgra });
+            }
+            _ => {
+                aviso("Draw: un render target (de los 1..8) que no mide lo que el 0, o un subrecurso que no tiene");
+                return;
+            }
+        }
+    }
+    let mut destino = trama::Destino { pixeles, ancho, alto, bgra, z, cadena, otros: &mut otros };
     let r = (plataforma().dibujar)(&lote, &mut destino);
     // P3b4c.9 Z1: donde quedo este dibujo (la pantalla o la RAM) es donde
     // queda el fotograma: lo lee `Present`.
-    if e.rtv_sub == 0 {
+    if let (0, Some(rt)) = (e.rtv_sub, rt.as_mut()) {
         rt.en_pantalla = r.as_ref().is_ok_and(|c| c.en_pantalla);
     }
     match r {

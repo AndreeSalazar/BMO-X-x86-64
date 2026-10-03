@@ -697,8 +697,10 @@ ventana (`SetWindowPos`) y arranca los hilos de **Bink** (la entrada en
 video). Todavia 0 ExecuteCommandLists y 0 Present: no dibujo nada. Despues
 cayo con un fallo de Ring 3 (en `datos/fallos.txt`, pendiente de leer):
 
-- [ ] **N4.4 -- el fallo de Ring 3 tras los ~15 s**: leer `datos/fallos.txt`
-  de la cuarta corrida (la direccion, el modulo y la instruccion).
+- [ ] **N4.4 -- el fallo de Ring 3**: un salto a 0 por `call [rip+..]`
+  desde `Cyberpunk2077.exe+0x1d4c6cf` (ranura `+0x35848f8`), igual en la
+  quinta y la sexta corrida. Tapados los dos sospechosos (retrasada sin
+  DLL, NULL del sistema): la proxima corrida dice cual era.
 - [x] **N4.5 -- el sonido del juego** (03-10, falta oirlo en el metal):
   WASAPI en la casa (A1.1 a A1.5 y A1.8 de la seccion 3): el
   `MMDeviceEnumerator`, un aparato de salida, `IAudioClient3` por evento, lo
@@ -706,6 +708,33 @@ cayo con un fallo de Ring 3 (en `datos/fallos.txt`, pendiente de leer):
   (`apps/proton-x/src/sonido.rs`), y su reloj. Sin aparato (o con el
   audifono de otro proceso), el reloj corre con la hora y el juego sigue,
   mudo.
+
+**Estado al 03-10, quinta corrida: nivel 4, vivo a los 47 s** (tres veces
+mas que la cuarta). Abre el audifono (`sonido: el audifono para el juego,
+48000 Hz estereo`), crea su ventana de 1738x1064, y ya no se quejan ni el
+discard, ni el G-buffer, ni SV_Position (N5.7 a N5.9). Por primera vez
+`fallos.txt` llego: a los 47 s el `.exe` SALTO A 0 (un puntero a funcion
+nulo; el retorno, `Cyberpunk2077.exe+0x1d4c6cf`; `rcx` 0, `r9` 0x438). La
+autopsia no pudo dar el `call` (miraba antes del `rip`, que es 0): desde
+el 03-10, con `rip` nulo, da los bytes de antes del RETORNO de `[rsp]`, y
+la proxima corrida dice que registro y que tabla daban el nulo (N4.4). Lo
+nuevo que dijo de sus sombreadores, ya hecho el mismo dia: las derivadas
+(83, 84), las olas (118) y SV_Depth; quedan alloca/GEP (19, 43) y el
+operando no constante (N5.4).
+
+**Estado al 03-10, sexta corrida: el sonido ARRANCA.** `IAudioClient::
+Initialize: 48000 Hz, 2 canal(es), 32 bits float, por evento: aceptado` y
+`Start: el juego empieza a sonar, por el audifono` (el bloque con sonido de
+verdad no llego: aun no habia nada que oir). Murio DOS veces (a los 40 s y
+a los 8 min, otra sesion) en el MISMO sitio, ahora con el `call`: `ff 15
+29 82 83 01`, un `call [rip+0x1838229]` -- la ranura `Cyberpunk2077.exe
++0x35848f8`, una importacion (o un puntero a funcion global) que vale 0.
+Los dos sospechosos, tapados el mismo dia: una importacion RETRASADA cuya
+DLL la casa no tiene (el cargador retrasado de MSVC lanza 0xC06D007E y, si
+alguien la continua, salta a `pfnCur` = 0: ahora `pfnCur` es la TRAMPA de
+`dll!funcion`, y se dice), y un NULL de GetProcAddress del sistema (ahora
+se apunta tambien). Pidio ademas OperacionD3d 15 (acos): los arcos y los
+hiperbolicos, hechos.
 
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:
@@ -719,7 +748,9 @@ casilla:
    mas de un render target      el G-buffer (diferido)           N5.8
    el de pixeles lee SV_Position                                 N5.9
    Instruccion(19), (43)        alloca y GEP: arrays locales     N5.10
-   OperacionD3d(118)            WaveReadLaneFirst                N5.10
+   OperacionD3d(118)            WaveReadLaneFirst                hecho
+   OperacionD3d(83, 84)         ddx, ddy (quinta corrida)        hecho
+   el de pixeles escribe SV_Depth (quinta corrida)               hecho
    un operando que deberia ser un entero constante               N5.4
 ```
 
@@ -761,12 +792,42 @@ la proxima corrida del metal dice cual pesa mas:
   ni color ni profundidad (la Z va despues del sombreador) y lo cuenta en
   `Cuenta::tirados`. Probado con `prueba/descarte.dxil` y un SM5 hecho a
   mano. En la 3060 (KILL) todavia no: va por la CPU (N6.1).
-- [ ] **N5.8 -- mas de un render target** (hasta 8): el G-buffer de
-  Cyberpunk; hoy el PSO entero se niega.
-- [ ] **N5.9 -- SV_Position en el de pixeles**: la trama ya lo sabe; que
-  llegue al sombreador.
+- [x] **N5.8 -- mas de un render target** (03-10, hasta 8): el G-buffer
+  de Cyberpunk. El PSO lee los 8 `RTVFormats` y la mezcla de cada uno (con
+  IndependentBlendEnable); `OMSetRenderTargets` guarda los N (consecutivos
+  o en array; uno nulo, lo suyo se pierde); el enlace dice a que render
+  target va cada salida (`Enlace::objetivos`, por su SV_Target) y la trama
+  pinta cada una en el suyo (`Destino::otros`). Probado con
+  `prueba/gbuffer.dxil` (SV_Target 0, 1 y 3) en el banco y por las puertas
+  de Windows (`proton-x-casa/tests/gbuffer.rs`). En la 3060 todavia uno:
+  el G-buffer va por la CPU (N6.1).
+- [x] **N5.11 -- la MEZCLA** (03-10): la luz que se suma, las
+  particulas, el humo, el cristal, la interfaz. `proton-x/src/mezcla.rs`:
+  los factores, las cinco operaciones, color y alfa por separado y la
+  mascara por canal; cada render target la suya (IndependentBlendEnable) y
+  el factor de `OMSetBlendFactor`. La trama guarda en su memoria el color
+  SIN mezclar y mezcla en cada pixel con el que esta. Falta: la operacion
+  logica y las dos fuentes (SRC1), que se dicen; sRGB se mezcla en sus
+  bytes. En la 3060 todavia no: por la CPU (N6.1).
+- [x] **N5.12 -- solo PROFUNDIDAD** (03-10): los mapas de sombras y el
+  prepaso de Z. Un PSO con `NumRenderTargets` 0 y sin sombreador de
+  pixeles se crea (`lote::enlazar_con`, el de pixeles `Programa::vacio`);
+  el Draw pinta en el DSV, con la medida de la Z, y la trama solo escribe Z
+  (`Destino::pixeles` vacio). Probado por las puertas de Windows: un mapa
+  de sombras D32 (`tests/gbuffer.rs`). La 3060 no lo toma todavia (sin
+  back buffer que darle a la puerta): por la CPU.
+- [x] **N5.9 -- SV_Position en el de pixeles** (03-10): `Enlace::pos_ps`
+  dice que entrada es; la trama pone en ella (x + 0.5, y + 0.5, z, w) de
+  cada pixel (la w de recorte, con perspectiva: la de D3D, no la 1/w de
+  GL). Probado con `prueba/posicion.dxil` en un cuadro de 8x8. En la 3060
+  todavia no (`NoVa::Entrada`): por la CPU (N6.1).
 - [ ] **N5.10 -- arrays locales y lo de las olas**: `alloca`/GEP (registros
-  indexables) y `WaveReadLaneFirst` (con una ola de un pixel, el mismo).
+  indexables), todavia. Las OLAS ya (03-10, `dxil/olas.rs`): con un pixel
+  por ola, ReadLaneFirst/At, ActiveOp, AnyTrue/AllTrue, el prefijo, los
+  carriles y la cuenta de bits dan lo de un carril; y las derivadas (ddx,
+  ddy, fwidth) dan 0 hasta que la trama corra cuadros de 2x2. Y SV_Depth:
+  el de pixeles que escribe su Z (la prueba va despues de el). Probado con
+  `prueba/olas.dxil` y `prueba/profundidad.dxil`.
 - [ ] **N5.5 -- el COMPUTO** (`Dispatch`, `SetComputeRoot*`): hoy se dice
   y se salta. Cyberpunk calcula con el la luz, las sombras y el
   post-proceso; sin el, la imagen sale pero a medias. Primero en la CPU

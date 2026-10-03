@@ -293,6 +293,21 @@ impl Cliente {
 
 // -- IAudioClient -----------------------------------------------------------
 
+/// 03-10: lo que pidio el juego, dicho una vez por formato (en el metal, la
+/// quinta corrida abrio el audifono y no sono nada: esto dice hasta donde
+/// llego).
+fn decir_inicio(f: &Formato, banderas: u32, r: i32) {
+    aviso(&alloc::format!(
+        "IAudioClient::Initialize: {} Hz, {} canal(es), {} bits{}, {}: {}",
+        f.hz,
+        f.canales,
+        f.bits,
+        if f.flotante { " float" } else { "" },
+        if banderas & POR_EVENTO != 0 { "por evento" } else { "por sondeo" },
+        if r == S_OK { "aceptado" } else { "NO aceptado" }
+    ));
+}
+
 extern "win64" fn initialize(this: u64, modo: u32, banderas: u32, duracion: i64, _periodicidad: i64, fmt: *const u8, _sesion: *const Guid) -> i32 {
     if modo != 0 {
         return EXCLUSIVO_NO;
@@ -301,7 +316,9 @@ extern "win64" fn initialize(this: u64, modo: u32, banderas: u32, duracion: i64,
         aviso("IAudioClient::Initialize con un formato que no es PCM ni float: AUDCLNT_E_UNSUPPORTED_FORMAT");
         return FORMATO_NO;
     };
-    cliente(this).iniciar(banderas, duracion, f)
+    let r = cliente(this).iniciar(banderas, duracion, f);
+    decir_inicio(&f, banderas, r);
+    r
 }
 
 extern "win64" fn get_buffer_size(this: u64, sale: *mut u32) -> i32 {
@@ -382,6 +399,7 @@ extern "win64" fn start(this: u64) -> i32 {
     c.corriendo = true;
     c.reloj_desde = ahora();
     c.bombear(this);
+    aviso(if e.propietario == this { "IAudioClient::Start: el juego empieza a sonar, por el audifono" } else { "IAudioClient::Start: el juego empieza a sonar, sin aparato (un reloj que no suena)" });
     S_OK
 }
 
@@ -535,7 +553,9 @@ extern "win64" fn get_current_shared_mode_engine_period(_this: u64, fmt: *mut u6
 extern "win64" fn initialize_shared_audio_stream(this: u64, banderas: u32, periodo: u32, fmt: *const u8, _sesion: *const Guid) -> i32 {
     let Some(f) = leer_formato(fmt) else { return FORMATO_NO };
     let duracion = periodo as i64 * 10_000_000 / f.hz.max(1) as i64;
-    cliente(this).iniciar(banderas, duracion, f)
+    let r = cliente(this).iniciar(banderas, duracion, f);
+    decir_inicio(&f, banderas, r);
+    r
 }
 
 // -- IAudioRenderClient -----------------------------------------------------
@@ -579,6 +599,11 @@ extern "win64" fn release_buffer(this: u64, n: u32, banderas: u32) -> i32 {
     let desde = c.cola.len();
     if let Some(conv) = &mut c.conversor {
         conv.convertir(&c.hoja[..bytes], &mut c.cola);
+    }
+    // 03-10: el primer bloque que NO es silencio, dicho una vez: desde ahi,
+    // si no se oye, el problema esta del anillo hacia el audifono.
+    if c.cola[desde..].chunks_exact(2).any(|m| m != [0, 0]) {
+        aviso("WASAPI: llega el primer sonido de verdad (no silencio) al anillo del audifono");
     }
     // El volumen de la sesion (y el mudo), sobre lo recien convertido.
     if c.mudo || c.volumen < 1.0 {

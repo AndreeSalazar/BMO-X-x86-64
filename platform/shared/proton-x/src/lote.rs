@@ -37,6 +37,12 @@ const SV_POSITION: u32 = 1;
 /// los pone quien dibuja.
 const SV_VERTEXID: u32 = 6;
 const SV_INSTANCEID: u32 = 8;
+/// SV_Target (`D3D_NAME_TARGET`): un render target.
+const SV_TARGET: u32 = 64;
+/// SV_Depth y sus variantes (`D3D_NAME_DEPTH`, `_GREATER_EQUAL`, `_LESS_EQUAL`).
+const SV_DEPTH: u32 = 65;
+const SV_DEPTH_MAYOR_IGUAL: u32 = 67;
+const SV_DEPTH_MENOR_IGUAL: u32 = 68;
 
 /// **De donde sale una entrada del sombreador de vertices** (03-10).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,8 +83,18 @@ pub struct Enlace {
     /// La salida del de vertices que es SV_Position.
     pub posicion: usize,
     /// Por elemento de entrada del de pixeles: la salida del de vertices que
-    /// le llega (`None`: SV_Position, que hoy no lee).
+    /// le llega (`None`: SV_Position, que pone la trama).
     pub desde_vs: Vec<Option<usize>>,
+    /// N5.9 (03-10): la entrada del de pixeles que es SV_Position, si la
+    /// LEE: ahi la trama pone (x + 0.5, y + 0.5, z, w) del pixel.
+    pub pos_ps: Option<usize>,
+    /// N5.8 (03-10): por salida del de pixeles, a que render target va (su
+    /// SV_Target: 0..8; `trama::PROFUNDIDAD` si es su SV_Depth). El
+    /// G-buffer de Cyberpunk escribe cuatro o cinco.
+    pub objetivos: Vec<u8>,
+    /// 03-10: la salida del de pixeles que es SV_Depth (o sus variantes
+    /// GreaterEqual/LessEqual), si la escribe.
+    pub profundidad_ps: Option<usize>,
     /// Las texturas y los muestreadores de LOS DOS, en una tabla (03-10,
     /// N5.1): el `t` y el `s` de sus operaciones son posiciones aqui. Quien
     /// dibuja pone en cada posicion el descriptor de ese espacio y registro.
@@ -137,8 +153,19 @@ fn aplanar(vs: &mut Programa, ps: &mut Programa, n: usize) -> Result<Vec<Bloque>
 /// **Coser** los dos sombreadores con el input layout. El texto dice por que
 /// no, si no.
 pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Result<Enlace, String> {
+    enlazar_con(vs, Some(ps), entradas)
+}
+
+/// **Coser** con o sin sombreador de pixeles (N5.12: sin el, el dibujo es
+/// solo profundidad -- las sombras, el prepaso de Z --, y el de pixeles es
+/// [`Programa::vacio`]).
+pub fn enlazar_con(vs: &Sombreador, ps: Option<&Sombreador>, entradas: &[ElementoIa]) -> Result<Enlace, String> {
     let mut pv = programa::compilar(vs).map_err(|e| format!("el sombreador de vertices no se sabe correr todavia: {e:?}"))?;
-    let mut pp = programa::compilar(ps).map_err(|e| format!("el sombreador de pixeles no se sabe correr todavia: {e:?}"))?;
+    let mut pp = match ps {
+        Some(ps) => programa::compilar(ps).map_err(|e| format!("el sombreador de pixeles no se sabe correr todavia: {e:?}"))?,
+        None => Programa::vacio(),
+    };
+    let (ps_entradas, ps_salidas) = ps.map_or((&[][..], &[][..]), |p| (&p.entradas[..], &p.salidas[..]));
     // Una tabla para los dos: las del de vertices se quedan donde estan y las
     // del de pixeles se renumeran a la suya (la misma si los dos la leen).
     // Cada lugar, con su etapa: el t0 de uno no es el t0 del otro si la root
@@ -167,11 +194,12 @@ pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Res
         desde_ia.push(Fuente::Ia(i.ok_or_else(|| format!("el sombreador de vertices lee {}{} y el input layout no lo da", f.semantica, f.indice))?));
     }
     let posicion = vs.salidas.iter().position(|f| f.sistema == SV_POSITION).ok_or_else(|| String::from("el sombreador de vertices no escribe SV_Position"))?;
-    let mut desde_vs = Vec::with_capacity(ps.entradas.len());
-    for (i, f) in ps.entradas.iter().enumerate() {
+    let mut desde_vs = Vec::with_capacity(ps_entradas.len());
+    let mut pos_ps = None;
+    for (i, f) in ps_entradas.iter().enumerate() {
         if f.sistema == SV_POSITION {
             if pp.lee & (1 << i) != 0 {
-                return Err(String::from("el sombreador de pixeles lee SV_Position: todavia no"));
+                pos_ps = Some(i);
             }
             desde_vs.push(None);
             continue;
@@ -179,10 +207,23 @@ pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Res
         let k = vs.salidas.iter().position(|o| o.semantica.eq_ignore_ascii_case(&f.semantica) && o.indice == f.indice);
         desde_vs.push(Some(k.ok_or_else(|| format!("el sombreador de pixeles lee {}{} y el de vertices no lo escribe", f.semantica, f.indice))?));
     }
-    if pp.salidas != 1 {
-        return Err(String::from("el sombreador de pixeles escribe mas de un render target: todavia no"));
+    let mut objetivos = Vec::with_capacity(ps_salidas.len());
+    let mut profundidad_ps = None;
+    for (k, f) in ps_salidas.iter().enumerate() {
+        if matches!(f.sistema, SV_DEPTH | SV_DEPTH_MAYOR_IGUAL | SV_DEPTH_MENOR_IGUAL) {
+            profundidad_ps = Some(k);
+            objetivos.push(trama::PROFUNDIDAD as u8);
+            continue;
+        }
+        if f.sistema != SV_TARGET && !f.semantica.eq_ignore_ascii_case("SV_Target") {
+            return Err(format!("el sombreador de pixeles escribe {}{} (valor de sistema {}): todavia no", f.semantica, f.indice, f.sistema));
+        }
+        if f.indice as usize >= trama::OBJETIVOS {
+            return Err(format!("el sombreador de pixeles escribe SV_Target{}: D3D12 tiene 8", f.indice));
+        }
+        objetivos.push(f.indice as u8);
     }
-    Ok(Enlace { vs: pv, ps: pp, desde_ia, posicion, desde_vs, ranuras, constantes })
+    Ok(Enlace { vs: pv, ps: pp, desde_ia, posicion, desde_vs, pos_ps, objetivos, profundidad_ps, ranuras, constantes })
 }
 
 /// Como se agrupan los ids en triangulos.
@@ -275,10 +316,10 @@ pub fn entrada(l: &Lote, fuente: Fuente, id: u32, v: &[u8]) -> [f32; 4] {
 pub fn en_cpu(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, NoDibuja> {
     let (mut rv, mut rp) = (Vec::new(), Vec::new());
     let en = l.enlace;
-    en_cpu_con(l, destino, &mut |e, s| {
-            en.vs.correr_con(e, l.cb, &l.recursos, s, &mut rv);
-        },
-        &mut |e, s| en.ps.correr_con(e, l.cb, &l.recursos, s, &mut rp))
+    let mut vs = |e: &[[f32; 4]], s: &mut [[f32; 4]]| {
+        en.vs.correr_con(e, l.cb, &l.recursos, s, &mut rv);
+    };
+    en_cpu_con(l, destino, &mut vs, &mut |e, s| en.ps.correr_con(e, l.cb, &l.recursos, s, &mut rp))
 }
 
 /// **Lo mismo, con quien corre los sombreadores puesto desde fuera** (P3b3b:
@@ -323,8 +364,15 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs
         }
         locales.push(local);
     }
-    let mut sal_ps = [[0.0f32; 4]; 1];
-    Ok(trama::dibujar(&l.reglas, &sombreados, &locales, destino, |x| {
-        ps(x, &mut sal_ps).then_some(sal_ps[0])
+    // N5.8: cada salida del de pixeles, a su render target.
+    let mut sal_ps = vec![[0.0f32; 4]; en.ps.salidas.max(en.objetivos.len())];
+    // Con SV_Depth, la prueba de profundidad va despues del de pixeles.
+    let reglas = trama::Reglas { z_del_sombreador: en.profundidad_ps.is_some(), ..l.reglas };
+    Ok(trama::dibujar(&reglas, &sombreados, &locales, destino, en.pos_ps, |x, colores| {
+        let queda = ps(x, &mut sal_ps);
+        for (k, &t) in en.objetivos.iter().enumerate() {
+            colores[t as usize] = sal_ps[k];
+        }
+        queda
     }))
 }

@@ -382,6 +382,12 @@ pub enum Lectura {
 }
 
 impl Programa {
+    /// N5.12: el que no hace nada (el de pixeles de un PSO sin el: solo
+    /// profundidad, las sombras).
+    pub fn vacio() -> Programa {
+        Programa { ops: Vec::new(), iniciales: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, ranuras: Ranuras::default() }
+    }
+
     /// **Correr el sombreador una vez.** `entradas` y `salidas` por el id del
     /// elemento en su firma; `cb`, los bytes del cbuffer (lo que falte se lee
     /// como 0). `regs` es memoria de trabajo (se reusa entre llamadas).
@@ -1048,6 +1054,10 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
         c.ops.push(f(d, a));
         Ok(Valor::Float(d))
     };
+    // Las olas (con un carril) y las derivadas: `olas.rs`.
+    if let Some(v) = super::olas::de_un_carril(c, op, args) {
+        return v;
+    }
     Ok(match op {
         DX_LOAD_INPUT | DX_STORE_OUTPUT => {
             let (elemento, fila, col) = (c.entero(arg(1)?)?, c.entero(arg(2)?)?, c.entero(arg(3)?)?);

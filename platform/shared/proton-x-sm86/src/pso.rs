@@ -132,6 +132,15 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     let els = elementos(en, ia)?;
     let filas = en.vs.filas_cb.max(en.ps.filas_cb) as u32;
     let datos = Datos { filas, paso, elementos: &els };
+    // N5.9: el de pixeles que lee SV_Position, por la CPU todavia (la 3060
+    // la da en un atributo de sistema que el pegamento no pone).
+    if en.pos_ps.is_some() {
+        return Err(NoVa::Entrada("SV_Position en el de pixeles"));
+    }
+    // N5.8: la 3060 pinta UN render target todavia: el G-buffer, por la CPU.
+    if en.objetivos != [0] {
+        return Err(NoVa::Entrada("varios render targets (o uno que no es el 0, o SV_Depth)"));
+    }
     let posicion = en.posicion as u32;
     let v = pegamento::vertice(&ev.codigo, ev.registros, &cargas(&ev), datos, en.vs.salidas as u32, posicion).map_err(|e| NoVa::Pegamento("vertice", e))?;
     let genericos: Vec<Option<u8>> = en.desde_vs.iter().map(|o| o.and_then(|o| pegamento::generico(o as u32, posicion))).collect();

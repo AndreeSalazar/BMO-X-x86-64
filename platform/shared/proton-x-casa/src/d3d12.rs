@@ -619,13 +619,12 @@ unsafe fn vista(v: *const u8) -> Vista {
     }
 }
 
-/// `OMSetRenderTargets(this, n, handles, uno_solo, dsv)`: el destino es el
-/// recurso del primer descriptor. Con `uno_solo` los n descriptores son
-/// consecutivos desde `handles[0]`; sin el, `handles` es un array. Para el
-/// primero da lo mismo.
-pub(crate) extern "win64" fn om_set_render_targets(this: u64, n: u32, handles: *const u64, _uno_solo: i32, dsv: *const u64) {
-    if n > 1 {
-        aviso("OMSetRenderTargets con mas de un destino: todavia uno");
+/// `OMSetRenderTargets(this, n, handles, uno_solo, dsv)`: los destinos
+/// (N5.8: hasta 8). Con `uno_solo` los n descriptores son consecutivos desde
+/// `handles[0]`; sin el, `handles` es un array.
+pub(crate) extern "win64" fn om_set_render_targets(this: u64, n: u32, handles: *const u64, uno_solo: i32, dsv: *const u64) {
+    if n > 8 {
+        aviso("OMSetRenderTargets con mas de 8 destinos: en Windows es un error; se toman 8");
     }
     // SAFETY: `this` es una Lista de la casa; `handles` y `dsv`, descriptores
     // del `.exe` (o nulos), y cada uno una ranura de un monton de la casa:
@@ -634,6 +633,14 @@ pub(crate) extern "win64" fn om_set_render_targets(this: u64, n: u32, handles: *
         let e = &mut lista(this).estado;
         let ranura = |h: u64| ((h as *const u64).read(), (h as *const u64).add(3).read());
         (e.rtv, e.rtv_sub) = if n == 0 || handles.is_null() { (0, 0) } else { ranura(handles.read_unaligned()) };
+        e.rtv_otros = [(0, 0); 7];
+        for i in 1..(n as usize).min(8) {
+            if handles.is_null() {
+                break;
+            }
+            let h = if uno_solo != 0 { handles.read_unaligned() + i as u64 * DESCRIPTOR as u64 } else { handles.add(i).read_unaligned() };
+            e.rtv_otros[i - 1] = if h == 0 { (0, 0) } else { ranura(h) };
+        }
         (e.dsv, e.dsv_sub) = if dsv.is_null() { (0, 0) } else { ranura(dsv.read_unaligned()) };
     }
 }
