@@ -127,3 +127,36 @@ pub fn alas(cv: &mut Canvas, cx: i32, cy: i32, c: Color) {
     }
     cv.disc(cx, cy + 2, 2, c);
 }
+
+/// **Un trazo de dos pixeles**, como las lineas de los iconos de la maqueta.
+pub fn trazo(cv: &mut Canvas, a: (i32, i32), b: (i32, i32), c: Color) {
+    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+        cv.line((a.0 + dx, a.1 + dy), (b.0 + dx, b.1 + dy), c);
+    }
+}
+
+/// **Un arco** de radio `r` y dos pixeles de grueso, de `a0` a `a1` (vueltas
+/// de 256, 0 a la derecha, creciendo hacia abajo).
+pub fn arco(cv: &mut Canvas, cx: i32, cy: i32, r: i32, a0: i32, a1: i32, c: Color) {
+    use crate::mates::{coseno, seno};
+    let pasos = ((a1 - a0).abs() * r / 24).max(8);
+    for k in 0..=pasos {
+        let a = a0 + (a1 - a0) * k / pasos;
+        for rr in [r, r - 1] {
+            cv.put(cx + coseno(a) * rr / 256, cy + seno(a) * rr / 256, c);
+        }
+    }
+}
+
+/// **Un triangulo relleno** que apunta a la derecha (`dir` = 1) o a la
+/// izquierda (-1), de alto `2h` y punta a `w` del lomo.
+pub fn flecha(cv: &mut Canvas, x: i32, cy: i32, w: i32, h: i32, dir: i32, c: Color) {
+    for j in -h..=h {
+        let largo = w * (h - j.abs()) / h.max(1);
+        if dir > 0 {
+            cv.rect(x, cy + j, largo, 1, c);
+        } else {
+            cv.rect(x - largo, cy + j, largo, 1, c);
+        }
+    }
+}
