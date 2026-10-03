@@ -1,9 +1,11 @@
 ﻿//! **`bmo-rt` -- LA LIBC DE BMO.** Lo que un `.bex` enlaza.
 //!
-//! Exporta con nombre C: `crt0` (`_start` -> `main` -> `exit`), el monton
-//! (`malloc`/`free`/`calloc`/`realloc`), las cadenas (`memcpy`, `strlen`,
-//! `strcmp`, `strdup`...) y el formato (`printf`, `sprintf`, `snprintf`).
-//! Veintitres simbolos `#[no_mangle]` en total.
+//! Exporta con nombre C, SOLO en el `.bex`: `crt0` (`_start` -> `main` ->
+//! `exit`), el monton (`malloc`/`free`/`calloc`/`realloc`), los ficheros
+//! (`fopen`/`fread`/`fseek`/`fgets`/`fwrite`/`fclose`... y `stdout`), las
+//! cadenas (`memcpy`, `strlen`, `strcasecmp`, `strtol`...) y el formato
+//! (`bmo_printf`, `bmo_fprintf`, `bmo_snprintf`). La lista entera, con su
+//! firma, esta en `BMO.toml`.
 //!
 //! =======================================================================
 //! * POR QUE EXISTE, si el compilador ya emite `printf` en linea
@@ -62,63 +64,75 @@
 //!   como `KIND_INPUT`. Ni el bus era ese ni el camino.
 //!
 //! =======================================================================
-//! * ESTADO HONESTO: escrito, y sin un solo usuario
+//! * BMO-X Y NADA MAS (03-10)
 //! =======================================================================
 //!
-//! **Ningun frontend lo enlaza todavia.** Son 1.279 lineas y 6 tests que
-//! **pasan desde el 2026-08-07 y no los llama nadie** -- hasta ese dia la frase
-//! aqui decia "que compilan", y era falsa: `cargo test -p bmo-rt` moria al
-//! enlazar por el `_start` de `crt0` (ver el `cfg` de abajo) y no ejecutaba ni
-//! un test. Se creyo durante dias que el monton estaba probado. **Un test que
-//! no corre no es una prueba, y no dar salida es peor que fallar** -- un fallo
-//! se ve; un `running 0 tests` que nadie mira, no.
+//! Hasta el 03-10 esto era una libc de GNU con otro nombre, y se notaba en lo
+//! que fallaba:
 //!
-//! Con eso quitado: 6/6 en verde. El monton (`malloc`/`free`/`calloc`/`realloc`,
-//! incluido `test_many_small_allocs`) esta **probado de verdad**, y eso es lo
-//! unico que cambio de estado -- la misma categoria que las seis librerias
-//! que se borraron el 2026-08-02, y se conserva por una razon concreta y no
-//! por afecto: es **el punto 12 de la hoja de ruta**, lo que DOOM necesita, y
-//! esta escrito.
+//! ```text
+//!    antes                                 ahora
+//!    crt0 borraba __bss_start..__bss_end   la region CEROS de BEF2 llega a
+//!      -- simbolos de un ELF de GNU que      cero del kernel; nada que borrar,
+//!      el link.ld de BMO no define: NO       y nada que no enlace
+//!      ENLAZABA
+//!    main(0, NULL)                         argc/argv de TASK_OP_ARGUMENTOS
+//!    malloc exportado tambien en las       los nombres de C solo en el .bex;
+//!      pruebas: pisaba el del anfitrion      el banco pasa (y antes moria:
+//!      y el banco moria                      "memory allocation failed")
+//!    arenas de 1 MiB, una peticion cada    arenas que doblan (1 -> 64 MiB):
+//!      una -- con OCHO por proceso, 8 MiB    ocho peticiones dan ~200 MiB
+//!    lo grande, pedido y nunca devuelto    vuelve con MEM_OP_SOLTAR
+//!    alineado a 8, sin mirar el Layout     a 16 (C) y a lo que pida Rust
+//!    printf a un bufer de 1 KiB, %d %s     ancho, precision (%.8s), %f, %x
+//!      y poco mas; "(nil)" de glibc          y sin tope de largo
+//!    sin ficheros                          fopen/fread/fseek/fgets/fwrite
+//!                                            sobre KIND_ARCHIVO, leyendo
+//!                                            DIRECTO al monton (LEER_EN)
+//!    BMO.toml prometia printf, sprintf     dice lo que hay
+//!      y snprintf, que no existian
+//! ```
 //!
-//! Lo que le falta para ser una libc de verdad, en orden de lo que mas duele:
+//! Lo que la forma de BMO-X cambia de una libc, y aqui se dice una vez:
 //!
-//! 1. **Ficheros**: `fopen`/`fread`/`fclose` sobre `KIND_ARCHIVO`. Sin esto
-//!    DOOM no carga su WAD, y es literalmente lo unico que le falta al motor.
-//! 2. **`malloc` sobre `KIND_MEMORIA`**: hoy el monton toma su arena de un
-//!    `backend` que hay que cablear al bloque real (ya verificado en metal).
-//! 3. **`printf` completo**: `%f` necesita la ruta SSE, que **desde el
-//!    2026-08-02 el emulador ya sabe ejecutar** -- asi que ahora se puede
-//!    probar de verdad.
-//! 4. **El enlace**: que un frontend emita las relocaciones contra estos
-//!    simbolos en vez de la copia en linea. Es lo que convierte este crate de
-//!    "escrito" en "usado", y sin ello los tres puntos de arriba no se notan.
+//! - **Un `FILE` es un handle concedido**, no un descriptor: `fopen` empuja la
+//!   ruta por el renglon (`TASK_OP_RUTA`) y el kernel da un `KIND_ARCHIVO`.
+//!   Lo escrito llega al disco AL CERRAR, y por eso `exit` cierra todo.
+//! - **`printf` no es variadico del ABI de C**: los argumentos llegan en un
+//!   arreglo de palabras con su cuenta (`bmo_printf(fmt, n, args)`), que es
+//!   lo que emite el frontend. Ver `fmt`.
+//! - **No hay entorno, ni `stdin` de texto, ni `locale`**: la entrada es
+//!   `KIND_INPUT`, y las clases de caracteres son ASCII.
 //!
-//! Mientras el punto 4 no exista, esto es una promesa. Esta dicho aqui para
-//! que nadie lo cuente como hecho.
+//! =======================================================================
+//! * ESTADO HONESTO: probado, y todavia sin un programa que lo enlace
+//! =======================================================================
+//!
+//! Las pruebas del anfitrion cubren el monton, el formato, las cadenas, los
+//! argumentos y los ficheros (sobre un disco de mentira con el mismo
+//! contrato). Lo que NO se ha visto todavia es un `.bex` de C que enlace estos
+//! simbolos en el metal: eso sigue siendo el punto del enlace, que es de la
+//! forja (`toolchain/forge/README.md`, caminos A y B), no de esta libc.
+//! Mientras no exista, esto esta LISTO, no USADO -- y se dice aqui para que
+//! nadie lo cuente como hecho.
 
 #![no_std]
+#![no_builtins]
 #![allow(static_mut_refs)]
 
 #[cfg(test)]
 extern crate std;
 
-pub mod syscall;
+pub mod argumentos;
+pub mod fichero;
+pub mod fmt;
 pub mod heap;
 pub mod string;
-pub mod fmt;
+pub mod syscall;
 
-/// * FUERA DE LOS TESTS, y no es un detalle de compilacion.
-///
-/// `crt0` define `_start` y referencia `__bss_start`/`__bss_end`, que **solo
-/// los da el script de enlazado de BMO**. En el host, el arnes de `cargo test`
-/// intenta enlazar un `.exe` normal, no los encuentra, y muere con `LNK2019`
-/// antes de ejecutar nada.
-///
-/// Por eso los 6 tests del monton **no habian corrido nunca**: no fallaban,
-/// que seria una signal -- es que no llegaban a existir. `cargo test -p bmo-rt`
-/// no imprimia ni un `test result:`, y "escrita y probada" era una hipotesis.
+/// `_start`, `exit` y `abort`: FUERA de las pruebas, porque en el anfitrion
+/// el arnes de `cargo test` ya trae su arranque y su `exit`.
 #[cfg(not(test))]
 pub mod crt0;
 
-mod init;
 pub mod ffi;

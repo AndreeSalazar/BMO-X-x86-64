@@ -71,6 +71,15 @@ ningun `.bex` puede llamarla. Terminar `fopen` sin resolver esto seria escribir
 mas codigo muerto, que es justo lo que se limpio el 2026-08-02 borrando seis
 crates huerfanos.
 
+> **03-10: la mitad de esto cambio.** `bmo-rt` ya tiene `fopen`/`fread`/
+> `fseek`/`fgets`/`fwrite` sobre `KIND_ARCHIVO`, y su `crt0` ya ENLAZA con el
+> `link.ld` de la casa (antes pedia `__bss_start`/`__bss_end`, simbolos de un
+> ELF de GNU que aqui no existen, y `rust-lld` se plantaba). Comprobado: un
+> crate de Rust con un `main` de C que depende de `bmo-rt` sale por `cargo` +
+> `bex-link` como un `.bex` BEF2 con `_start` en `0x40000000`. Lo que NO
+> cambio: un frontend de C sigue sin poder llamarla -- eso es el camino A o
+> el B de abajo, y es de la forja.
+
 ### Camino A -- enlazador de verdad
 
 `bmo-rt` se compila a un BEF con su tabla de exports; el frontend emite imports
