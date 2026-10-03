@@ -325,6 +325,31 @@ pub(crate) fn avisar(a: Aviso) {
     }
 }
 
+/// **LA PRUEBA DE LOS LADOS** (03-10: *"escucho solo por la derecha"*): el
+/// aviso de mensaje, SOLO por un lado, como la prueba de altavoces de
+/// Windows. Si `oido izq` no se oye por la izquierda, no es BMO-X: es el
+/// aparato, el cable o el conector (el `save` dice que trae cada lado). Arma
+/// el banco y el tubo si no estaban (como `fondo`); `fondo apagar` los suelta.
+pub(crate) fn probar_lado(izq: u16, der: u16) -> Result<(), Fallo> {
+    preparar()?;
+    let e = estado();
+    let (Some(f), Some(k)) = (e.fondo.as_ref(), AVISOS.iter().position(|&x| x == Aviso::Mensaje)) else {
+        return Err(Fallo::Banco);
+    };
+    let (desde, n) = e.avisos[k];
+    if n == 0 {
+        return Err(Fallo::Banco);
+    }
+    let canal = CANAL_AVISO + e.rueda % 8;
+    e.rueda = e.rueda.wrapping_add(1);
+    // Entra callado y la orden de los lados va detras en la misma cola: el
+    // primer milisegundo que suene ya va solo por su lado.
+    if !f.tocar(canal, desde, n, 0, false) || !f.lados(canal, izq, der) {
+        return Err(Fallo::Banco);
+    }
+    Ok(())
+}
+
 /// **Mueve los avisos que se mueven.** Lo llama el bucle en cada vuelta y
 /// devuelve si queda alguno por mover: mientras lo haya, el bucle no se
 /// duerme (es un tercio de segundo, y sin esto "llega" se quedaria quieto).

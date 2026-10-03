@@ -844,6 +844,7 @@ en como se le habla al AURICULAR. Dos causas, y las dos estaban en el codigo:
 | arrancar con el auricular y `fondo` | suenan los DOS lados | sigue uno: mirar `oido` (que traia cada lado) y CABINA (`uaudio`) |
 | `oido` | `el aparato traia: izquierdo X dB, derecho Y dB` | sin la linea: el aparato no declara volumen por canal |
 | el fader del maestro | sube y baja los dos lados a la vez | uno se queda: el aparato no acepta el volumen por canal (CABINA lo dice) |
+| `oido izq` y `oido der` (03-10: *"escucho solo por la derecha"*) | un aviso SOLO por ese lado, como la prueba de altavoces de Windows | `oido izq` no suena por la izquierda: no es la mezcla, es el aparato, el cable o el conector (un auricular de 4 polos en un enchufe de 3) |
 
 ## [ ] S4k -- LA ANATOMIA: del bit al oido, etapa por etapa (2026-10-03)
 
