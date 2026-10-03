@@ -11,6 +11,9 @@ fn main() {
     let mut solo_copybook = false;
     let mut ver_datos: Option<PathBuf> = None;
     let mut ver_registro: Option<String> = None;
+    // * Donde se buscan los COPYBOOKS (`COPY NOMBRE.`), ademas de la carpeta
+    // del fuente y de la libreria de la casa.
+    let mut carpetas_copy: Vec<PathBuf> = Vec::new();
 
     let mut i = 1;
     while i < args.len() {
@@ -51,6 +54,15 @@ fn main() {
                     process::exit(2);
                 }
             }
+            "-I" => {
+                i += 1;
+                if i < args.len() {
+                    carpetas_copy.push(PathBuf::from(&args[i]));
+                } else {
+                    eprintln!("error: -I necesita una carpeta de copybooks");
+                    process::exit(2);
+                }
+            }
             _ => {
                 file_path = Some(&args[i]);
             }
@@ -60,7 +72,7 @@ fn main() {
 
     let Some(path) = file_path else {
         eprintln!(
-            "usage: {program} [-o <salida.bex>] [--copybook] <source.cob>"
+            "usage: {program} [-o <salida.bex>] [-I <copybooks>] [--copybook] <source.cob>"
         );
         process::exit(2);
     };
@@ -69,6 +81,25 @@ fn main() {
         Ok(source) => source,
         Err(err) => {
             eprintln!("error: cannot read {path}: {err}");
+            process::exit(1);
+        }
+    };
+
+    // * LOS COPY, antes que nada (2.8): el `-I` de quien llama, la carpeta
+    // del fuente y su `copy/`, y la LIBRERIA DE LA CASA
+    // (`toolchain/lang/cobol/copy`: CABDATOS y CABLIBRO de BANK CAT).
+    let carpeta = Path::new(path).parent().map(Path::to_path_buf).unwrap_or_default();
+    carpetas_copy.push(carpeta.clone());
+    carpetas_copy.push(carpeta.join("copy"));
+    carpetas_copy.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../copy"));
+    let mut buscar = |nombre: &str| {
+        let nombres = [format!("{nombre}.cpy"), format!("{}.cpy", nombre.to_ascii_lowercase()), format!("{nombre}.CPY")];
+        carpetas_copy.iter().flat_map(|c| nombres.iter().map(move |n| c.join(n))).find_map(|r| fs::read_to_string(r).ok())
+    };
+    let source = match bmo_cobol_front::copia::expandir(&source, &mut buscar) {
+        Ok(s) => s,
+        Err(err) => {
+            eprintln!("error:{}: {}", err.line, err.message);
             process::exit(1);
         }
     };

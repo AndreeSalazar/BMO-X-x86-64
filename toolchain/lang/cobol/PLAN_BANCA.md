@@ -492,10 +492,19 @@ desbloquea por hora de trabajo.
       ⛔ Buscar o sustituir una CADENA es busqueda de subcadena y se rechaza:
       aceptarlo mirando solo la primera letra contaria de mas.
 
-- [ ] **2.8 - `COPY ... REPLACING`** -- M
+- [~] **2.8 - `COPY ... REPLACING`** -- M
       **Asi se comparten los layouts de registro entre programas.** Sin esto,
       cada programa reescribe el `01` del fichero a mano y se descuadran solos.
       No depende de nadie: es inclusion de texto antes de analizar.
+      [~] **2026-10-03, `COPY` sin `REPLACING`** (`src/copia.rs`): se expande
+      antes de parsear, anidado hasta 8, con el circulo y el nombre que falta
+      dichos; `REPLACING` y `OF/IN` dan un error que lo dice (2.8b). El
+      compilador busca en `-I`, en la carpeta del fuente y en la LIBRERIA de
+      la casa, `copy/` (`CABDATOS`, `CABLIBRO`: BANK CAT). Lo usa
+      `examples/11-bankcat/libro.cob`, EJECUTADO en `tests/bankcat.rs`
+      (19.99 x 3 = 59.97, sin saldo no se paga, lo que no cabe no entra).
+      De paso: `COMPUTE` partia `CAB-SALDO` en `CAB` menos `SALDO`; el guion
+      pegado a un nombre es del nombre (dos filas nuevas en la matriz).
 
 - [ ] **2.9 - Las intrinsecas que importan (~15 de 55)** -- M
       `NUMVAL`, `NUMVAL-C`, `CURRENT-DATE`, `INTEGER-OF-DATE`,

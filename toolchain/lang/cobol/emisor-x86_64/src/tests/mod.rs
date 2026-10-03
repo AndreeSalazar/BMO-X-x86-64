@@ -53,6 +53,8 @@ mod go_to;
 mod nivel88;
 
 mod comp3;
+/// BANK CAT: la libreria de copybooks y su motor, ejecutados.
+mod bankcat;
 mod rounded;
 mod desbordes;
 mod texto;

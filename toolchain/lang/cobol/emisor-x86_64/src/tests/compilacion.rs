@@ -60,6 +60,10 @@ fn cobol_feature_matrix_runs_correctly() {
         ("COMPUTE", "01 A PIC 9(3).", "COMPUTE A = 2 + 3 * 4.\nIF A = 14\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
         ("COMPUTE parens", "01 A PIC 9(3).", "COMPUTE A = (2 + 3) * 4.\nIF A = 20\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
         ("COMPUTE vars", "01 A PIC 9(3).\n01 B PIC 9(3).", "MOVE 6 TO A.\nMOVE 7 TO B.\nCOMPUTE A = A * B.\nIF A = 42\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
+        // El guion PEGADO es del nombre (03-10, BANK CAT); la resta va con
+        // espacios. Y entre cifras pegadas sigue restando.
+        ("COMPUTE con guiones", "01 CAB-A PIC 9(3) VALUE 9.\n01 CAB-B PIC 9(3) VALUE 4.\n01 CAB-C PIC 9(3).", "COMPUTE CAB-C = CAB-A - CAB-B.\nIF CAB-C = 5\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
+        ("COMPUTE resta pegada", "01 A PIC 9(3).", "COMPUTE A = 9-4.\nIF A = 5\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
         ("IF/ELSE", "01 A PIC 9(3).", "MOVE 1 TO A.\nIF A > 5\nDISPLAY \"no\"\nELSE\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
         ("IF anidado", "01 A PIC 9(3).", "MOVE 5 TO A.\nIF A > 1\nIF A < 9\nDISPLAY \"ok\"\nEND-IF\nEND-IF.", "ok\n"),
         ("IF con AND", "01 A PIC 9(3).", "MOVE 5 TO A.\nIF A > 1 AND A < 9\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
