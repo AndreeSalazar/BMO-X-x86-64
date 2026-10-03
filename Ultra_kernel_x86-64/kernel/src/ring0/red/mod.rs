@@ -239,6 +239,23 @@ pub fn releer() -> Option<bmo_net::Identidad> {
 /// El camino que contesto: 0 sin probar, 1 PHYAR, 2 OCP, 3 ninguno.
 static CAMINO_PHY: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(0);
 
+/// Espera por TSC, aqui y no en `plat` (que esta por encima de la red: L8b).
+/// Sin calibrar, unas vueltas: es dar aire al PHY, no medir.
+fn esperar_us(us: u64) {
+    use crate::ring0::task::scheduler::{rdtsc, tsc_freq};
+    let hz = tsc_freq();
+    if hz == 0 {
+        for _ in 0..200_000 {
+            core::hint::spin_loop();
+        }
+        return;
+    }
+    let hasta = rdtsc() + (hz / 1_000_000) * us;
+    while rdtsc() < hasta {
+        core::hint::spin_loop();
+    }
+}
+
 /// Una orden al PHY por `camino` y la espera de la bandera: la LECTURA acaba
 /// cuando la tarjeta la PONE; la ESCRITURA, cuando la QUITA. 20 x 25 us como
 /// el r8169; si no, `None`.
@@ -246,14 +263,14 @@ unsafe fn phy_orden(mmio: *mut u8, camino: bmo_net::mii::Camino, valor: u32, lee
     let r = camino.registro();
     w32(mmio, r, valor);
     for _ in 0..20 {
-        crate::ring0::plat::smp::lapic::esperar_us(25);
+        esperar_us(25);
         let v = core::ptr::read_volatile(mmio.add(r) as *const u32);
         let bandera = v & bmo_net::mii::BANDERA != 0;
         if leer && bandera {
             return Some((v & 0xFFFF) as u16);
         }
         if !leer && !bandera {
-            crate::ring0::plat::smp::lapic::esperar_us(20);
+            esperar_us(20);
             return Some(0);
         }
     }
