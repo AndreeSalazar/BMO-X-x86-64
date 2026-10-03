@@ -597,6 +597,21 @@ mark { background: rgba(255,194,77,.25); color: inherit; border-radius: 2px; pad
 .censo-filtros button { font-size: 11px; padding: 4px 10px; border-radius: 14px; border: 1px solid var(--linea); color: var(--gris); }
 .censo-filtros button[aria-pressed="true"] { border-color: var(--onda); color: var(--onda); }
 .ventana[hidden], .escritorio-vacio[hidden] { display: none; }
+/* ---------- la VOZ de BMO-X: los sonidos en 3D ---------- */
+.voz-cab { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 18px; align-items: start; }
+#cabeza3d { width: 100%; max-width: 340px; aspect-ratio: 1; display: block; border-radius: 12px; background: radial-gradient(circle at 50% 50%, #0E1420, #06080D 70%); }
+.reglas-voz { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; color: var(--gris); }
+.reglas-voz b { color: var(--blanco); font-weight: 500; }
+.voz-c { position: relative; border: 1px solid transparent; }
+.voz-c:hover { border-color: var(--c); }
+.voz-c .voz-punto { width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 12px var(--c); animation: voz-late 1.6s ease-in-out infinite; animation-delay: calc(var(--i, 0) * 180ms); }
+@keyframes voz-late { 50% { transform: scale(1.5); box-shadow: 0 0 22px var(--c); } }
+.voz-c:active .voz-punto { transform: scale(2); }
+.compilador-log { display: grid; gap: 4px; margin-top: 10px; max-height: 260px; overflow: auto; }
+.linea-c { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; animation: e-onda .35s cubic-bezier(.2,.8,.2,1) both; }
+.linea-c .luz-c { width: 8px; height: 8px; border-radius: 50%; }
+.linea-c.fin { grid-template-columns: minmax(0, 1fr) auto; padding-top: 6px; border-top: 1px solid var(--linea); }
+@media (max-width: 760px) { .voz-cab { grid-template-columns: minmax(0, 1fr); } }
 /* ---------- a la medida ---------- */
 @media (max-width: 1100px) { .app { grid-template-columns: 68px 220px minmax(0,1fr); } .app > .panel { display: none; } .tubo { grid-template-columns: repeat(3, minmax(0,1fr)); } }
 @media (max-width: 760px) {
@@ -659,6 +674,7 @@ mark { background: rgba(255,194,77,.25); color: inherit; border-radius: 2px; pad
       <li>PAGINAS: tu propia pagina en <code>.maqueta</code> (HTML + CSS), compilada con las reglas de MAQUETA, y las de tus amigos en <code>hermes://amigo/pagina</code>. Sin scripts y sin Google. Su inicio es como el de Google: un buscador (que busca en TU maquina) y tus atajos, con Ctrl+L, Alt+flechas, Alt+Inicio y <kbd>/</kbd>.</li>
       <li>la ONDA, toda la musica como Spotify y sin algoritmo: listas tuyas y de tus amigos, una barra que sigue sonando en todas las secciones, los formatos (WAV, MP3, FLAC, OGG, AAC) y cuando suena cada uno en BMO-X, y los sonidos del sistema. Suena de verdad (se compone aqui con WebAudio) y cada lista, cancion y sonido dibuja su audio a su manera.</li>
       <li>La musica nunca se duerme: si cierras HERMES (<kbd>Esc</kbd>) o abres la LUDOTECA sigue sonando, y la manda una pastilla escondida arriba que asoma al pasar el raton o al cambiar de cancion. Pausa, siguiente, volumen (Alt+P, Alt+N, Alt+flechas) sin quitarte el juego, baja sola mientras juegas, y trae recomendaciones de tus amigos, dichas a mano.</li>
+      <li>La voz de BMO-X, en 3D (ponte audifonos): error, advertencia, aviso, pregunta, hecho, lo que llega y lo que se va, cada uno con su forma y su SITIO alrededor de la cabeza, y el compilador que compila TODO: cada crate un tic que cruza de izquierda a derecha, cada aviso un clic, y al final la verdad (un golpe por error). El mismo 3D que el maestro del kernel.</li>
       <li>En tu disco: la orden <code>sonidos</code> recorre FAT32 y ESTRATOS enteros, mira 64 bytes de cada fichero y dice cuales suenan, cuales son oficiales (y que falta), cuales no y que nombres mienten.</li>
       <li>Tertulias, el MURO con historias y corazones, y el CANAL a fondo: una pagina por canal (videos, listas, sobre), y cada video con capitulos, reacciones, comentarios y "a continuacion" del mismo canal.</li>
       <li>ENVIOS con permiso: OFERTA, la cuarentena <code>F:/hermes/entrantes/</code> y el JUEZ.</li>
@@ -2421,13 +2437,15 @@ function secOnda() {
     <div class="etiqueta">Tu biblioteca</div>
     ${LISTAS.map(l => `<button class="fila" data-ol="${l.id}" aria-current="${o.vista === "lista" && o.lista === l.id}"><canvas class="mini-port" width="80" height="80" data-portada="${l.id}"></canvas><span class="txt"><span class="t1">${esc(l.nombre)}</span><span class="t2">lista &middot; ${esc(nombreDe(l.de))}${o.listaSonando === l.id && AUD.sonando ? " &middot; sonando" : ""}</span></span>${o.listaSonando === l.id && AUD.pista ? eqMini(!AUD.sonando) : ""}</button>`).join("")}
     <button class="fila" data-ov="sonidos" aria-current="${o.vista === "sonidos"}"><canvas class="mini-port" width="80" height="80" data-vis="circulo" data-col="#5EF2E6"></canvas><span class="txt"><span class="t1">Sonidos de BMO-X</span><span class="t2">${SONIDOS.length} sonidos del sistema</span></span></button>
+    <button class="fila" data-ov="voz" aria-current="${o.vista === "voz"}"><canvas class="mini-port" width="80" height="80" data-vis="ondas" data-col="#FF2E88"></canvas><span class="txt"><span class="t1">La voz de BMO-X</span><span class="t2">los sonidos del sistema, en 3D</span></span></button>
     <button class="fila" data-ov="disco" aria-current="${o.vista === "disco"}"><canvas class="mini-port" width="80" height="80" data-vis="espiral" data-col="#FFC24D"></canvas><span class="txt"><span class="t1">En tu disco</span><span class="t2">todo FAT32 y ESTRATOS, mirado por dentro</span></span></button>
     <div class="fila" style="cursor:default;opacity:.55"><span class="avatar" style="background:#1B2130;color:var(--gris);border-radius:8px">&#127897;</span><span class="txt"><span class="t1">Notas de voz</span><span class="t2">cuando haya microfono (H12)</span></span></div>
     <p class="nota" style="padding:10px 8px">La musica vive en tu maquina o en la de un amigo, y llega por HERMES/1. Aqui se compone en el navegador para que suene de verdad.</p></div>${listaYo()}`;
   $("#lista").querySelectorAll("[data-ov]").forEach(b => b.onclick = () => { o.vista = b.dataset.ov; hermes(); });
   $("#lista").querySelectorAll("[data-ol]").forEach(b => b.onclick = () => { o.vista = "lista"; o.lista = b.dataset.ol; hermes(); });
   const centro = $("#centro");
-  if (o.vista === "disco") secOndaDisco();
+  if (o.vista === "voz") secOndaVoz();
+  else if (o.vista === "disco") secOndaDisco();
   else if (o.vista === "sonidos") {
     centro.innerHTML = `<div class="cab"><b>Sonidos de BMO-X</b><span class="t2">cada uno suena y se mueve a su manera</span></div>
       <div class="lienzo"><div class="tarjetas-onda">${SONIDOS.map(s => `<button class="tarjeta-onda sonido-c" data-son="${s.id}"><canvas width="240" height="160" data-vis="${s.vis}" data-col="${s.col || s.color}" data-sonido="${s.id}" data-vivo="1"></canvas><b>${esc(s.nombre)}</b><span class="nota">${esc(s.desc)}</span></button>`).join("")}</div>
@@ -2511,6 +2529,244 @@ function pintarOnda(cambioPista) {
   if (cambioPista && S.app === "hermes" && S.sec !== "onda") toast("Sonando: " + AUD.pista.titulo);
   pintarPastilla();
   if (cambioPista && S.app !== "hermes") latir();
+}
+/* ============================ la VOZ de BMO-X: los sonidos en 3D ============================ */
+/* Los sonidos del sistema, con SITIO. Cada uno dice QUE paso (su forma), DONDE
+   (la pieza que lo dice tiene su lugar alrededor de la cabeza) y CUANTO (los
+   errores se cuentan, no se adivinan). El 3D es el MISMO calculo que el maestro
+   del kernel (bmo-amplificador::espacio): retardo entre oidos de Woodworth,
+   la sombra de la cabeza en el oido lejano, lo de detras mas oscuro y una sala
+   de ocho reflejos en parejas espejo. Aqui con WebAudio; alli en enteros. */
+const VOZ3D = { modo: "sala", bus: null, log: [], compilando: false };
+const CABEZA = 0.0875, SON = 343;
+/** Los dos caminos de una fuente en `g` grados (+ derecha, 0 delante): lo de espacio::caminos. */
+function caminos3d(g) {
+  g = ((g + 180) % 360 + 360) % 360 - 180;
+  const lado = Math.abs(g), lat = (lado <= 90 ? lado : 180 - lado) * Math.PI / 180, sn = Math.sin(lat);
+  const atras = lado <= 90 ? 20000 : 20000 - (20000 - 6000) * (lado - 90) / 90;
+  const sombra = 18000 * Math.pow(1200 / 18000, sn);
+  return [0, 1].map(oido => {
+    const cerca = oido === 1 ? g >= 0 : g <= 0;
+    return cerca ? { g: 1, d: 0, fc: atras } : { g: 1 - sn * 2 / 3, d: CABEZA / SON * (lat + sn), fc: Math.min(sombra, atras) };
+  });
+}
+/** La sala: ocho reflejos tempranos en parejas espejo, como REFLEJOS del kernel. */
+function bus3d() {
+  const c = audioCtx(); if (!c) return null;
+  if (VOZ3D.bus) return VOZ3D.bus;
+  const entrada = [c.createGain(), c.createGain()], mezcla = c.createChannelMerger(2);
+  const REF = [[5.3, -9, 0, 0], [5.9, -9, 1, 1], [9.1, -12, 0, 1], [9.7, -12, 1, 0], [14.3, -15, 0, 0], [15.1, -15, 1, 1], [17.9, -18, 0, 1], [19.7, -18, 1, 0]];
+  const filtros = [0, 1].map(o => { const f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 4000; f.connect(mezcla, 0, o); return f; });
+  REF.forEach(([ms, db, de, a]) => { const d = c.createDelay(0.05); d.delayTime.value = ms / 1000; const g = c.createGain(); g.gain.value = Math.pow(10, db / 20); entrada[de].connect(d); d.connect(g); g.connect(filtros[a]); });
+  mezcla.connect(AUD.master);
+  VOZ3D.bus = { entrada };
+  return VOZ3D.bus;
+}
+/**
+ * **Una fuente con sitio.** `ruta` es [[segundos, grados], ...] desde `t`: un
+ * punto es una fuente quieta, varios la MUEVEN (el retardo, la sombra y el
+ * volumen de cada oido van por rampa, como en el kernel). Devuelve la entrada
+ * donde se conecta el sonido.
+ */
+function fuente3d(t, ruta, dur) {
+  const c = audioCtx(); if (!c) return null;
+  const entrada = c.createGain(), salida = c.createChannelMerger(2);
+  const apagado = VOZ3D.modo === "apagado";
+  const oidos = [0, 1].map(o => {
+    const d = c.createDelay(0.01), f = c.createBiquadFilter(), g = c.createGain();
+    f.type = "lowpass"; f.Q.value = 0.5;
+    entrada.connect(d); d.connect(f); f.connect(g); g.connect(salida, 0, o);
+    return { d, f, g };
+  });
+  const poner = (cuando, grados, rampa) => {
+    // Apagado: el paneo de siempre (seno del angulo), sin retardo ni sombra.
+    const cam = apagado
+      ? [{ g: Math.cos((Math.sin(grados * Math.PI / 180) + 1) * Math.PI / 4) * 1.41, d: 0, fc: 20000 }, { g: Math.sin((Math.sin(grados * Math.PI / 180) + 1) * Math.PI / 4) * 1.41, d: 0, fc: 20000 }]
+      : caminos3d(grados);
+    oidos.forEach((o, i) => {
+      const v = [[o.d.delayTime, cam[i].d], [o.f.frequency, cam[i].fc], [o.g.gain, cam[i].g]];
+      v.forEach(([p, x]) => rampa ? p.linearRampToValueAtTime(x, cuando) : p.setValueAtTime(x, cuando));
+    });
+  };
+  ruta.forEach(([s, g], k) => poner(t + s, g, k > 0));
+  salida.connect(AUD.master);
+  if (VOZ3D.modo === "sala") {
+    const b = bus3d();
+    if (b) { const parte = c.createChannelSplitter(2); salida.connect(parte); [0, 1].forEach(o => parte.connect(b.entrada[o], o)); }
+  }
+  const fin = (t - c.currentTime + dur + 0.6) * 1000;
+  setTimeout(() => { try { entrada.disconnect(); salida.disconnect(); } catch (e) { /* ya estaba */ } }, Math.max(0, fin));
+  return entrada;
+}
+/** Un barrido de ruido (lo que "llega" o "se va"). */
+function barrido(t, dur, f0, f1, vol, destino) {
+  const c = AUD.ctx, s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+  s.buffer = ruido(); s.loop = true; f.type = "bandpass"; f.Q.value = 4;
+  f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f).connect(g).connect(destino); s.start(t); s.stop(t + dur + 0.05);
+}
+/** **La voz de BMO-X**: cada sonido, QUE dice, DONDE suena y por que ahi. */
+const VOZ = [
+  { id: "error", nombre: "Error", que: "algo NO salio. Cerca, delante y seco: lo urgente se dice de frente", donde: "delante, cerca", ruta: [[0, 0]], color: "#FF4F5E", dura: .5,
+    toca: (t, e) => { tono(t, frec(52), .16, "square", .13, e); tono(t + .17, frec(46), .28, "square", .13, e); } },
+  { id: "advertencia", nombre: "Advertencia", que: "ojo, pero sigue. Una nota que cae un poco, a la derecha del frente", donde: "delante a la derecha", ruta: [[0, 30]], color: "#FFC24D", dura: .4,
+    toca: (t, e) => { tono(t, frec(69), .12, "triangle", .2, e); tono(t + .1, frec(67), .25, "triangle", .18, e); } },
+  { id: "aviso", nombre: "Aviso de HERMES", que: "llega algo de un amigo. Por la izquierda: donde vive F3", donde: "izquierda", ruta: [[0, -50]], color: "#3DA5FF", dura: .5,
+    toca: (t, e) => { tono(t, frec(76), .18, "sine", .25, e); tono(t + .12, frec(83), .3, "sine", .22, e); } },
+  { id: "pregunta", nombre: "Pregunta", que: "te pide un si o un no. Sube, como sube una pregunta", donde: "delante", ruta: [[0, 0]], color: "#5EF2E6", dura: .4,
+    toca: (t, e) => { tono(t, frec(67), .14, "sine", .22, e); tono(t + .13, frec(72), .24, "sine", .22, e); } },
+  { id: "hecho", nombre: "Hecho", que: "salio DE VERDAD (nunca antes). Se abre: es el unico que suena ancho", donde: "delante, abierto", ruta: [[0, -25], [.25, 25]], color: "#4DE38F", dura: .7,
+    toca: (t, e) => { [0, 4, 7, 12].forEach((x, k) => tono(t + k * .06, frec(67 + x), .45 - k * .05, "sine", .18, e)); } },
+  { id: "llega", nombre: "Llega un envio", que: "viene de fuera: de detras a la izquierda hasta delante", donde: "de detras a delante", ruta: [[0, -150], [.55, -15]], color: "#A55DFF", dura: .8,
+    toca: (t, e) => { barrido(t, .55, 400, 3000, .35, e); tono(t + .5, frec(79), .25, "sine", .2, e); } },
+  { id: "red", nombre: "Se va la red", que: "algo se aleja: de delante hacia atras, y mas oscuro", donde: "de delante a detras", ruta: [[0, 10], [.8, 165]], color: "#9AA2B4", dura: .9,
+    toca: (t, e) => { barrido(t, .8, 2500, 300, .3, e); tono(t + .05, frec(64), .6, "triangle", .12, e); } },
+  { id: "captura", nombre: "Captura", que: "el obturador, arriba en el centro de la vista", donde: "delante", ruta: [[0, 0]], color: "#F2F7F9", dura: .3,
+    toca: (t, e) => { golpe(t, "plato", e); golpe(t + .06, "caja", e); } },
+];
+/** Toca un sonido de la voz, en su sitio. */
+function tocarVoz(id) {
+  const v = VOZ.find(x => x.id === id), c = audioCtx(); if (!v || !c) return;
+  c.resume();
+  const t = c.currentTime + .03, e = fuente3d(t, v.ruta, v.dura); if (!e) return;
+  v.toca(t, e);
+  VOZ3D.ultimo = { id, desde: performance.now(), ruta: v.ruta, color: v.color, dura: v.dura };
+}
+
+/* -- el COMPILADOR que compila TODO: el progreso se OYE cruzar de izquierda a derecha -- */
+const CRATES = ["bmo-cripto", "bmo-hermes", "bmo-raiz-juicio", "bmo-sonido", "bmo-amplificador", "bmo-fondo", "bmo-abi", "bmo-userland", "bmo-dibujo", "bmo-pila", "director", "kernel", "maqueta", "doom (bmo-c)"];
+/** Los avisos y errores de cada crate en la prueba: fijos, para que la prueba sea la misma cada vez. */
+const DEFECTOS = { 3: [2, 0], 9: [1, 0], 11: [0, 2] };
+function compilarTodo(conErrores) {
+  const c = audioCtx(); if (!c || VOZ3D.compilando) return;
+  c.resume(); VOZ3D.compilando = true; VOZ3D.log = [];
+  const t0 = c.currentTime + .1, paso = .22, n = CRATES.length;
+  let avisos = 0, errores = 0;
+  const empieza = fuente3d(t0, [[0, -70]], .5); if (empieza) barrido(t0, .35, 300, 1400, .15, empieza);
+  CRATES.forEach((nombre, i) => {
+    const t = t0 + .35 + i * paso, g = -60 + 120 * i / (n - 1);
+    const [a, e] = DEFECTOS[i] && (conErrores || DEFECTOS[i][1] === 0) ? DEFECTOS[i] : [0, 0];
+    avisos += a; errores += e;
+    // El tic de cada crate: su sitio dice CUANTO va (de izquierda a derecha),
+    // y sube un poco de tono con el progreso.
+    const f = fuente3d(t, [[0, g]], .2); if (f) tono(t, frec(84 + Math.round(i / 2)), .05, "sine", .12, f);
+    // Cada aviso, un clic agudo a la derecha (lo que hay que mirar despues).
+    for (let k = 0; k < a; k++) { const w = fuente3d(t + .06 + k * .06, [[0, 70]], .2); if (w) tono(t + .06 + k * .06, frec(96), .04, "triangle", .1, w); }
+    setTimeout(() => { VOZ3D.log.push({ nombre, avisos: a, errores: e, g }); VOZ3D.ultimo = { id: "tic", desde: performance.now(), ruta: [[0, g]], color: e ? "#FF4F5E" : a ? "#FFC24D" : "#4DE38F", dura: .25 }; pintarCompilador(); }, (t - c.currentTime) * 1000);
+  });
+  const tf = t0 + .35 + n * paso + .15;
+  setTimeout(() => {
+    // ** EL FINAL NO MIENTE: con errores, un golpe por error (hasta cinco);
+    // "hecho" solo si salio.
+    if (errores) {
+      const e = fuente3d(tf, [[0, 0]], .3 * Math.min(errores, 5) + .3);
+      for (let k = 0; k < Math.min(errores, 5); k++) { tono(tf + k * .22, frec(43), .16, "square", .13, e); golpe(tf + k * .22, "bombo", e); }
+      VOZ3D.ultimo = { id: "error", desde: performance.now(), ruta: [[0, 0]], color: "#FF4F5E", dura: .3 * errores };
+    } else tocarVoz("hecho");
+    VOZ3D.fin = { avisos, errores };
+    VOZ3D.compilando = false; pintarCompilador();
+  }, (tf - c.currentTime) * 1000);
+  VOZ3D.fin = null; pintarCompilador();
+}
+function pintarCompilador() {
+  const caja = $("#compilador-log"); if (!caja) return;
+  const f = VOZ3D.fin;
+  caja.innerHTML = VOZ3D.log.map(l => `<div class="linea-c"><span class="luz-c" style="background:${l.errores ? "#FF4F5E" : l.avisos ? "#FFC24D" : "#4DE38F"}"></span><span class="mono">${esc(l.nombre)}</span><span class="nota">${l.errores ? l.errores + " error" + (l.errores > 1 ? "es" : "") : l.avisos ? l.avisos + " aviso" + (l.avisos > 1 ? "s" : "") : "ok"}</span></div>`).join("")
+    + (f ? `<div class="linea-c fin" style="color:${f.errores ? "#FF4F5E" : "#4DE38F"}"><b>${f.errores ? `NO compilo: ${f.errores} errores (los oiste: un golpe cada uno)` : `compilo TODO`}</b><span class="nota">${f.avisos} avisos</span></div>` : VOZ3D.compilando ? `<div class="nota">compilando... escucha como cruza de izquierda a derecha</div>` : "");
+  const b = $("#compilar-barra i"); if (b) b.style.width = (VOZ3D.log.length / CRATES.length * 100) + "%";
+}
+
+/* -- la CABEZA vista desde arriba: donde suena cada cosa, y lo que suena ahora -- */
+let lazoVoz = null;
+function arrancarLazoVoz() {
+  cancelAnimationFrame(lazoVoz);
+  const paso = () => {
+    const cv = $("#cabeza3d"); if (!cv || S.app !== "hermes" || S.sec !== "onda" || S.onda.vista !== "voz") return;
+    dibujarCabeza(cv); lazoVoz = requestAnimationFrame(paso);
+  };
+  lazoVoz = requestAnimationFrame(paso);
+}
+function dibujarCabeza(cv) {
+  const g = cv.getContext("2d"), w = cv.width, h = cv.height, cx = w / 2, cy = h / 2, R = w * .33, ahora = performance.now();
+  g.clearRect(0, 0, w, h);
+  // Los anillos de distancia y la cruz de los cuatro lados.
+  g.strokeStyle = "#1E2636"; g.lineWidth = 1;
+  [R, R * .66, R * .33].forEach(r => { g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke(); });
+  g.fillStyle = "#6E7A89"; g.font = `${Math.round(w * .04)}px "IBM Plex Mono", monospace`; g.textAlign = "center";
+  g.fillText("delante", cx, cy - R - 8); g.fillText("detras", cx, cy + R + 16);
+  g.textAlign = "right"; g.fillText("izq", cx - R - 6, cy + 4); g.textAlign = "left"; g.fillText("der", cx + R + 6, cy + 4);
+  // La cabeza: nariz arriba, dos orejas.
+  g.fillStyle = "#121826"; g.strokeStyle = "#B6FF5C"; g.lineWidth = 2;
+  g.beginPath(); g.arc(cx, cy, w * .07, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(cx - 6, cy - w * .065); g.lineTo(cx, cy - w * .1); g.lineTo(cx + 6, cy - w * .065); g.stroke();
+  [-1, 1].forEach(s => { g.beginPath(); g.ellipse(cx + s * w * .075, cy, 4, 9, 0, 0, Math.PI * 2); g.stroke(); });
+  const pos = (grados, r = R) => [cx + Math.sin(grados * Math.PI / 180) * r, cy - Math.cos(grados * Math.PI / 180) * r];
+  // Donde vive cada sonido.
+  VOZ.forEach(v => {
+    const [x, y] = pos(v.ruta[0][1], v.id === "error" || v.id === "pregunta" ? R * .5 : R);
+    g.fillStyle = v.color + "66"; g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill();
+    if (v.ruta.length > 1) { const [x2, y2] = pos(v.ruta[v.ruta.length - 1][1]); g.strokeStyle = v.color + "44"; g.setLineDash([3, 4]); g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke(); g.setLineDash([]); }
+  });
+  // Lo que suena AHORA: su punto (que se mueve si la ruta se mueve) y las
+  // ondas que salen de el hacia los dos oidos -- la del lejano, despues.
+  const u = VOZ3D.ultimo;
+  if (u) {
+    const s = (ahora - u.desde) / 1000, total = Math.max(u.dura, .3) + .6;
+    if (s < total) {
+      const r = u.ruta, fin = r[r.length - 1];
+      let grados = r[0][1];
+      for (let k = 1; k < r.length; k++) if (s >= r[k - 1][0]) { const a = r[k - 1], b = r[k]; const f = Math.min(1, (s - a[0]) / Math.max(.001, b[0] - a[0])); grados = a[1] + (b[1] - a[1]) * f; }
+      if (s > fin[0]) grados = fin[1];
+      const radio = u.id === "error" || u.id === "pregunta" ? R * .5 : R;
+      const [x, y] = pos(grados, radio), vida = 1 - s / total;
+      for (let k = 0; k < 3; k++) {
+        const rr = ((s * 120 + k * 22) % 66);
+        g.strokeStyle = u.color; g.globalAlpha = vida * (1 - rr / 66); g.lineWidth = 2;
+        g.beginPath(); g.arc(x, y, rr, 0, Math.PI * 2); g.stroke();
+      }
+      g.globalAlpha = vida; g.fillStyle = u.color; g.beginPath(); g.arc(x, y, 8, 0, Math.PI * 2); g.fill();
+      // Las dos rayas a los oidos; la del oido lejano, mas fina (mas floja).
+      [-1, 1].forEach(sl => {
+        const lejano = Math.sign(Math.sin(grados * Math.PI / 180) || 0) === -sl;
+        g.lineWidth = lejano ? 1 : 3; g.strokeStyle = u.color; g.globalAlpha = vida * (lejano ? .4 : .9);
+        g.beginPath(); g.moveTo(x, y); g.lineTo(cx + sl * w * .075, cy); g.stroke();
+      });
+      g.globalAlpha = 1;
+    }
+  }
+}
+
+function secOndaVoz() {
+  $("#centro").innerHTML = `<div class="cab"><b>La voz de BMO-X</b><span class="t2">los sonidos del sistema, en 3D: que paso, donde y cuanto</span></div>
+    <div class="lienzo">
+      <div class="voz-cab">
+        <canvas id="cabeza3d" width="340" height="340" aria-label="La cabeza vista desde arriba, y donde suena cada cosa"></canvas>
+        <div style="display:grid;gap:10px;align-content:start;min-width:0">
+          <div class="censo-filtros" role="group" aria-label="El 3D">${[["apagado", "estereo de siempre"], ["cerca", "3D sin sala"], ["sala", "3D con sala"]].map(([m, n]) => `<button data-m3="${m}" aria-pressed="${VOZ3D.modo === m}" title="${n}">${m}</button>`).join("")}</div>
+          <p class="nota" style="margin:0">Ponte audifonos. Es el mismo calculo que hace el maestro del kernel con <code>3d sala</code>: retardo entre oidos (hasta 0,66 ms), la sombra de la cabeza y una sala de ocho reflejos. Arriba y abajo no: eso pide HRTF.</p>
+          <div class="tarjeta" style="margin:0"><h4>Las reglas de la voz</h4><ol class="reglas-voz">
+            <li><b>Que, donde, cuanto.</b> La forma dice que paso; el sitio, que pieza lo dice; la cuenta, cuantos.</li>
+            <li><b>Nunca miente.</b> "Hecho" suena solo si salio. Los errores se cuentan: un golpe por error, hasta cinco.</li>
+            <li><b>Lo urgente, cerca y seco.</b> Lo bueno se abre. Lo que llega, viene de fuera.</li>
+            <li><b>Corto y sin repetir:</b> menos de un segundo, y el mismo no dos veces en dos.</li>
+          </ol></div>
+        </div>
+      </div>
+      <div class="tarjetas-onda">${VOZ.map((v, i) => `<button class="tarjeta-onda voz-c" data-voz="${v.id}" style="--i:${i};--c:${v.color}"><span class="voz-punto"></span><b>${esc(v.nombre)}</b><span class="nota">${esc(v.que)}</span><span class="fmt" style="color:${v.color}">${esc(v.donde)}</span></button>`).join("")}</div>
+      <div class="tarjeta"><h4>El compilador que compila TODO, oido</h4>
+        <p class="nota" style="margin:0 0 10px">Cada crate es un tic que CRUZA de izquierda a derecha: sin mirar, se oye cuanto falta. Cada aviso, un clic a la derecha. Al final, la verdad: "hecho" solo si compilo; si no, un golpe por error.</p>
+        <div class="acciones-o"><button class="btn" id="compilar">Compilar TODO</button><button class="btn rojo" id="compilar-mal">... con errores</button></div>
+        <div class="progreso-o" style="margin-top:10px"><div class="barra" id="compilar-barra"><i style="width:0%"></i></div></div>
+        <div id="compilador-log" class="compilador-log"></div>
+      </div>
+    </div>`;
+  $("#centro").querySelectorAll("[data-m3]").forEach(b => b.onclick = () => { VOZ3D.modo = b.dataset.m3; secOndaVoz(); panelOnda(); });
+  $("#centro").querySelectorAll("[data-voz]").forEach(b => b.onclick = () => tocarVoz(b.dataset.voz));
+  $("#compilar").onclick = () => compilarTodo(false);
+  $("#compilar-mal").onclick = () => compilarTodo(true);
+  pintarCompilador();
+  arrancarLazoVoz();
 }
 /* ============================ la PASTILLA: el audio que nunca se duerme ============================ */
 /* La musica no es de una ventana: es del escritorio. Sigue sonando si cierras

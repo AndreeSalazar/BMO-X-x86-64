@@ -260,7 +260,12 @@ pub(crate) fn avisar(a: Aviso) {
     }
     let canal = CANAL_AVISO + e.rueda % 8;
     e.rueda = e.rueda.wrapping_add(1);
-    f.tocar(canal, desde, n, 256, false);
+    // Y en su SITIO (la voz de BMO-X): la orden va detras en la misma cola,
+    // asi que el aviso entra ya situado. Lo urgente delante, HERMES a la
+    // izquierda, lo que llega de detras (`avisos::angulo`).
+    if f.tocar(canal, desde, n, 256, false) {
+        f.situar(canal, 256, avisos::angulo(a));
+    }
 }
 
 /// Lo que suena: la pieza, el volumen y lo que tardo en componerse.

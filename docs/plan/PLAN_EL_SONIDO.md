@@ -825,9 +825,72 @@ El mando: `AUDIO_MANDO_3D` (9) y `AUDIO_MANDO_3D_VUELTA` (10) en la puerta del
 maestro, solo el escritorio; `INFO_AUDIO_ESPACIO` (0xCA). En Ejecutar, `3d`
 (`3d sala`, `3d orbita 8`...), y en el `save` sus filas.
 
-[!] Lo que falta de S7 es lo POR FUENTE: que cada voz de DOOM tenga su angulo
-(hoy da `sep`, un paneo). Pide un angulo en el contrato de las voces, y usa la
-misma cuenta (`situar`).
+### [~] Y POR VOZ (03-10, por la tarde): cada sonido de DOOM en su sitio
+
+`Voces::situar(canal, vol, angulo)`: con angulo, cada oido oye la voz con su
+retardo y su sombra (los mismos caminos que el modo global,
+`espacio::caminos`). El retardo no pide lineas por voz: el oido lejano LEE EL
+BANCO un poco antes --el mismo sonido, mas tarde--, y antes del principio de
+un sonido oye silencio, como en el mundo. Volumen, retardo y sombra van por
+rampa: un monstruo que cruza por delante no chasquea (prueba
+`un_monstruo_que_cruza_no_chasquea`; la primera version daba un escalon de
+920 al cambiar de oido lejano, y por eso la sombra tambien va por rampa).
+
+* El contrato: `AUDIO_OP_VOZ` ajustar con el bit 48 (`VOZ_AJUSTAR_ANGULO`)
+  lleva volumen y angulo; una app de antes no lo pone y sigue igual. El fondo:
+  `AUDIO_FONDO_SITUAR` (7).
+* DOOM no da el angulo: da `sep = 128 - 96 sen(angulo)`, y `bmo_sonido.c` lo
+  DESHACE con una tabla de arcoseno. Delante o detras no se puede deshacer (el
+  seno es el mismo) y se toma delante: DOOM tampoco lo distinguia. Compila
+  con `bmo-c` contra las fuentes fijadas (787.851 bytes).
+* Con DOOM, `3d apagado` deja el 3D por voz puro; `3d sala` le pone la sala
+  encima (los altavoces virtuales sobre una mezcla ya binaural: se oye, pero
+  es mas "habitacion" que "precision").
+
+| que | afirma | como se cae |
+|---|---|---|
+| un imp a la izquierda, con `3d apagado` | se oye A LA IZQUIERDA y un poco despues por la derecha, no solo mas fuerte | igual que antes: DOOM no manda el bit 48 (mirar `voces` en el `save`) |
+| girar delante de un monstruo | el sonido cruza sin chasquidos | chasquido al pasar por el centro: el retardo o la sombra saltan |
+
+## [ ] S4g -- LA VOZ DE BMO-X: los sonidos del sistema dicen que, donde y cuanto (2026-10-03)
+
+El propietario: *"sonidos 3D propios [...] para tener como sonidos tipicos de
+Windows: error, avisos y signos, y sonidos de compilador que compila TODO,
+porque el sonido es IMPORTANTE para que ayude, y que sea honesto"*.
+
+Las cuatro reglas (la maqueta las muestra en la ONDA, "La voz de BMO-X"):
+
+1. **Que, donde, cuanto.** La forma dice que paso; el SITIO, que pieza lo
+   dice; la cuenta, cuantos.
+2. **Nunca miente.** "Hecho" suena solo si salio. Los errores se cuentan: un
+   golpe por error, hasta cinco.
+3. **Lo urgente, cerca y seco.** Lo bueno se abre. Lo que llega, viene de
+   fuera.
+4. **Corto y sin repetir**: menos de un segundo.
+
+| aviso | forma | sitio |
+|---|---|---|
+| error | dos notas cuadradas graves que caen | delante (0) |
+| advertencia | una nota que cae un poco | delante a la derecha (+30) |
+| mensaje, conecta, zumbido | lo de HERMES | a la izquierda (-50), donde vive F3 |
+| pregunta | sube, como una pregunta | delante |
+| hecho | un acorde que se abre | delante |
+| llega | sube, de fuera | detras a la izquierda (-140) |
+| se va | baja | detras (+160) |
+| el compilador | un tic por crate que CRUZA de -60 a +60 grados (se oye cuanto falta), un clic a la derecha por aviso, y al final la verdad | -- |
+
+En codigo: los seis nuevos en `bmo-fondo::avisos` (12 en total, todos a -6
+dBFS de pico) con `avisos::angulo`, y el escritorio los toca EN SU SITIO por
+el 3D por voz del atril del fondo; `globo::avisar` usa ya error y hecho.
+`fondo aviso error` (y los demas) para oirlos. `BMO_FONDO_WAV=<carpeta> cargo
+test` en `bmo-fondo` escribe `demo_voz_3d.wav` con el mismo mezclador del
+kernel.
+
+[!] Lo que falta: que "llega" y "se va" se MUEVAN en el metal (en la maqueta
+se mueven; aqui estan quietos en su sitio: hace falta que el escritorio mande
+`situar` durante el sonido), y el compilador: el que compila TODO hoy corre
+en Windows (`build.ps1`); en BMO-X sonara cuando compile dentro (H14 de
+PLAN_HERMES, MAQUETA en BMO-X).
 
 | que | afirma | como se cae |
 |---|---|---|

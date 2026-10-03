@@ -8,8 +8,10 @@
 //!    fondo <pieza>       esa pieza, por su nombre ("sierra al atardecer")
 //!    fondo siguiente     la siguiente de las tranquilas
 //!    fondo vol N         el volumen, 0..100
-//!    fondo aviso [que]   un aviso encima (mensaje, conecta, zumbido, juez,
-//!                        captura, arranque): para OIR como se agacha
+//!    fondo aviso [que]   un aviso encima, en su sitio (mensaje, conecta,
+//!                        zumbido, juez, captura, arranque, error,
+//!                        advertencia, pregunta, hecho, llega, seva): para
+//!                        OIR como se agacha la musica y de donde viene
 //!    fondo lista         las diez piezas
 //!    fondo apagar        la apaga y suelta el banco y el tubo
 //! ```
@@ -38,6 +40,12 @@ fn aviso_de(b: &[u8]) -> Option<Aviso> {
         b"juez" => Aviso::Juez,
         b"captura" => Aviso::Captura,
         b"arranque" => Aviso::Arranque,
+        b"error" => Aviso::Error,
+        b"advertencia" => Aviso::Advertencia,
+        b"pregunta" => Aviso::Pregunta,
+        b"hecho" => Aviso::Hecho,
+        b"llega" => Aviso::Llega,
+        b"seva" | b"se-va" => Aviso::SeVa,
         _ => return None,
     })
 }
@@ -78,7 +86,8 @@ pub(crate) fn fondo(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After 
             if let Some(que) = arg.strip_prefix(b"aviso") {
                 let Some(a) = aviso_de(que.trim_ascii()) else {
                     s.with_ink(INK_ERR);
-                    s.text(b"  avisos: mensaje, conecta, zumbido, juez, captura, arranque\n");
+                    s.text(b"  avisos: mensaje, conecta, zumbido, juez, captura, arranque,\n");
+                    s.text(b"          error, advertencia, pregunta, hecho, llega, seva (cada uno en su sitio, en 3D)\n");
                     s.with_ink(INK_PLAIN);
                     return After::Settle;
                 };

@@ -163,6 +163,7 @@ fn la_cancion_suena_mas_que_el_fondo() {
 
 #[test]
 fn los_avisos_se_oyen_y_no_se_pasan() {
+    let mut picos = Vec::new();
     for a in avisos::AVISOS {
         let n = avisos::muestras(a);
         assert!(n > HZ as usize / 20 && n < 2 * HZ as usize, "{a:?}: {n} muestras");
@@ -171,10 +172,13 @@ fn los_avisos_se_oyen_y_no_se_pasan() {
         let pico = v.iter().map(|&x| (x as i32).abs()).max().unwrap();
         let db = 20.0 * (pico as f64 / 32768.0).log10();
         std::println!("{a:?}: {n} muestras, pico {db:.1} dBFS");
-        assert!((-7.0..=-5.0).contains(&db), "{a:?}: pico {db:.1} dBFS, y todos tienen que llegar a -6");
+        picos.push((a, db));
         // Lo que no cabe, no se escribe.
         let mut corto = [0i16; 100];
         assert_eq!(avisos::componer(a, &mut corto), 100);
+    }
+    for (a, db) in picos {
+        assert!((-7.0..=-5.0).contains(&db), "{a:?}: pico {db:.1} dBFS, y todos tienen que llegar a -6");
     }
 }
 
@@ -315,5 +319,78 @@ fn escribir_la_demo_3d() {
         fuera.push([t[0].clamp(-32768, 32767) as i16, t[1].clamp(-32768, 32767) as i16]);
     }
     wav_estereo(&dir.join("demo_3d_modos.wav"), &fuera);
+}
+
+/// **La voz de BMO-X en 3D, en un WAV**: cada aviso en su sitio con el 3D
+/// POR VOZ del orquestador (`Voces::situar`, el mismo que corre el kernel), y
+/// despues el compilador que compila TODO: catorce tics que cruzan de
+/// izquierda a derecha, dos clics de aviso a la derecha y "hecho".
+#[test]
+fn escribir_la_demo_de_la_voz() {
+    use bmo_amplificador::voces::{Formato, Sonido, Voces};
+    let Some(dir) = std::env::var_os("BMO_FONDO_WAV") else { return };
+    let dir = std::path::PathBuf::from(dir);
+    // El banco: todos los avisos seguidos, en S16 little endian.
+    let mut banco = Vec::new();
+    let mut sitio = Vec::new();
+    for a in avisos::AVISOS {
+        let mut v = vec![0i16; avisos::muestras(a)];
+        avisos::componer(a, &mut v);
+        sitio.push((a, banco.len() as u32, v.len() as u32));
+        for x in v {
+            banco.extend_from_slice(&x.to_le_bytes());
+        }
+    }
+    // Un tic: un seno corto (el de la maqueta), al final del banco.
+    let tic: Vec<i16> = (0..2_400).map(|i| {
+        let env = if i < 100 { i as f64 / 100.0 } else { (-(i as f64 - 100.0) / 500.0).exp() };
+        (9_000.0 * env * (2.0 * core::f64::consts::PI * 1_050.0 * i as f64 / 48_000.0).sin()) as i16
+    }).collect();
+    let tic_inicio = banco.len() as u32;
+    for x in &tic {
+        banco.extend_from_slice(&x.to_le_bytes());
+    }
+    let sonido = |inicio: u32, muestras: u32| Sonido { inicio, muestras, formato: Formato::S16, hz: 48_000, izq: 256, der: 256, pista: 0, bucle: false };
+    // El guion: (segundo, que suena, angulo).
+    let mut guion: Vec<(f64, Option<Aviso>, i16)> = Vec::new();
+    let mut t = 0.3;
+    for a in [Aviso::Error, Aviso::Advertencia, Aviso::Mensaje, Aviso::Pregunta, Aviso::Hecho, Aviso::Llega, Aviso::SeVa] {
+        guion.push((t, Some(a), avisos::angulo(a)));
+        t += 1.3;
+    }
+    for i in 0..14 {
+        guion.push((t + i as f64 * 0.22, None, (-60 + 120 * i / 13) as i16));
+        if i == 3 || i == 9 {
+            guion.push((t + i as f64 * 0.22 + 0.07, Some(Aviso::Captura), 70));
+        }
+    }
+    guion.push((t + 14.0 * 0.22 + 0.2, Some(Aviso::Hecho), 0));
+    let total = ((t + 5.0) * 48_000.0) as usize;
+    let mut voces = Voces::nuevas();
+    let mut fuera = Vec::with_capacity(total);
+    let mut canal = 0usize;
+    let mut siguiente = 0usize;
+    for b in (0..total).step_by(48) {
+        while siguiente < guion.len() && (guion[siguiente].0 * 48_000.0) as usize <= b {
+            let (_, que, angulo) = guion[siguiente];
+            let s = match que {
+                Some(a) => {
+                    let (_, ini, n) = sitio.iter().find(|x| x.0 == a).copied().unwrap();
+                    sonido(ini, n)
+                }
+                None => sonido(tic_inicio, tic.len() as u32),
+            };
+            voces.tocar(canal, s, banco.len() as u64, 48_000).unwrap();
+            voces.situar(canal, 256, angulo);
+            canal = (canal + 1) % 16;
+            siguiente += 1;
+        }
+        let mut acc = [0i32; 96];
+        voces.mezclar(&banco, &mut acc, 2);
+        for k in 0..48 {
+            fuera.push([acc[2 * k].clamp(-32768, 32767) as i16, acc[2 * k + 1].clamp(-32768, 32767) as i16]);
+        }
+    }
+    wav_estereo(&dir.join("demo_voz_3d.wav"), &fuera);
 }
 
