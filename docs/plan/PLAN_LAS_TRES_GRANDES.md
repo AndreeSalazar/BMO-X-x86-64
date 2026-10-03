@@ -761,8 +761,20 @@ la proxima corrida del metal dice cual pesa mas:
   ni color ni profundidad (la Z va despues del sombreador) y lo cuenta en
   `Cuenta::tirados`. Probado con `prueba/descarte.dxil` y un SM5 hecho a
   mano. En la 3060 (KILL) todavia no: va por la CPU (N6.1).
-- [ ] **N5.8 -- mas de un render target** (hasta 8): el G-buffer de
-  Cyberpunk; hoy el PSO entero se niega.
+- [x] **N5.8 -- mas de un render target** (03-10, hasta 8): el G-buffer
+  de Cyberpunk. El PSO lee los 8 `RTVFormats` y la mezcla de cada uno (con
+  IndependentBlendEnable); `OMSetRenderTargets` guarda los N (consecutivos
+  o en array; uno nulo, lo suyo se pierde); el enlace dice a que render
+  target va cada salida (`Enlace::objetivos`, por su SV_Target) y la trama
+  pinta cada una en el suyo (`Destino::otros`). Probado con
+  `prueba/gbuffer.dxil` (SV_Target 0, 1 y 3) en el banco y por las puertas
+  de Windows (`proton-x-casa/tests/gbuffer.rs`). En la 3060 todavia uno:
+  el G-buffer va por la CPU (N6.1).
+- [ ] **N5.11 -- la MEZCLA** (BlendEnable, LogicOp, mascaras parciales):
+  la luz que se suma, las particulas, el humo, la interfaz. Hoy ese Draw
+  se dice y no se pinta.
+- [ ] **N5.12 -- solo PROFUNDIDAD** (`NumRenderTargets` 0, sin sombreador
+  de pixeles): los mapas de sombras y el prepaso de Z. Hoy el PSO se niega.
 - [x] **N5.9 -- SV_Position en el de pixeles** (03-10): `Enlace::pos_ps`
   dice que entrada es; la trama pone en ella (x + 0.5, y + 0.5, z, w) de
   cada pixel (la w de recorte, con perspectiva: la de D3D, no la 1/w de

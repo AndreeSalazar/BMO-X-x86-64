@@ -1937,3 +1937,20 @@ Reproducible (comprobado dos veces). sha256:
 `dxc -dumpbin`: la entrada 0 es SV_Position (`noperspective`), leida con
 `loadInput` x, y, z y w. El banco (`pruebas_pixeles.rs`) la cose al de
 vertices de `textura.hlsl` y la pinta en 8x8: cada pixel, su centro.
+
+gbuffer.dxil -- varios render targets (03-10, N5.8)
+
+Un G-buffer como el de Cyberpunk, en chico: SV_Target0 (rojo), 1 (su
+SV_Position / 8) y 3 (la normal, azul con alfa 0.5); el 2 se salta, como
+una ranura sin vista. De `gbuffer.hlsl` (aqui al lado), con el mismo `dxc`
+de Linux (1.9, 4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo gbuffer.dxil gbuffer.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   e0c6ef02567590437ab977d692540c8cf9eaefe58498419b4ed612d3c332b9af  gbuffer.dxil
+
+`dxc -dumpbin`: tres salidas SV_Target con indice 0, 1 y 3 (los
+`outputSigId` 0, 1 y 2: el enlace los cruza por la semantica, no por la
+posicion). La usan `pruebas_pixeles.rs` y `proton-x-casa/tests/gbuffer.rs`.

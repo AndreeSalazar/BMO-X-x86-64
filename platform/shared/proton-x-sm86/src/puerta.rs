@@ -96,6 +96,10 @@ pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
     if en.pos_ps.is_some() {
         return Err(NoVa::Entrada("SV_Position en el de pixeles"));
     }
+    // N5.8: la 3060 pinta UN render target todavia: el G-buffer, por la CPU.
+    if en.objetivos != [0] {
+        return Err(NoVa::Entrada("varios render targets (o uno que no es el 0)"));
+    }
     let posicion = en.posicion as u32;
     let genericos = en.desde_vs.iter().map(|o| o.and_then(|o| bmo_gpu_ga10x::pegamento::generico(o as u32, posicion))).collect();
     Ok(Cuerpos {

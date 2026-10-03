@@ -83,7 +83,7 @@ impl Profundidad {
 
 /// Donde se pinta: `ancho * alto` pixeles de 32 bits, fila 0 arriba, en el
 /// orden de bytes de su formato.
-pub struct Destino<'a> {
+pub struct Destino<'a, 'o> {
     pub pixeles: &'a mut [u32],
     pub ancho: u32,
     pub alto: u32,
@@ -97,7 +97,21 @@ pub struct Destino<'a> {
     /// muestra `Present`, y nada mas lo lee): el ejecutor puede ponerlo
     /// directo en la pantalla y NO en `pixeles` (lo dice `Cuenta::en_pantalla`).
     pub cadena: bool,
+    /// N5.8 (03-10): los render targets 1..8 (el G-buffer): `otros[k]` es
+    /// el SV_Target `k + 1`, del mismo `ancho * alto`. `pixeles` es el 0.
+    pub otros: &'a mut [Otro<'o>],
 }
+
+/// **Otro render target** del mismo dibujo (N5.8): sus pixeles y su orden
+/// de bytes. `None` es una ranura sin vista: lo que se escribe ahi se
+/// pierde, como en D3D con un RTV nulo.
+pub struct Otro<'a> {
+    pub pixeles: Option<&'a mut [u32]>,
+    pub bgra: bool,
+}
+
+/// Cuantos render targets puede escribir un dibujo (D3D12: 8).
+pub const OBJETIVOS: usize = 8;
 
 /// Lo que paso.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -166,14 +180,16 @@ pub fn empaquetar(c: [f32; 4], bgra: bool) -> u32 {
 }
 
 /// **Dibujar triangulos** (cada tres indices de `tris`, uno) sobre `destino`,
-/// con `ps` como sombreador de pixeles: recibe los atributos interpolados y
-/// devuelve el color (r, g, b, a), o `None` si TIRA el pixel (N5.7: ni color
-/// ni profundidad; por eso la Z se escribe DESPUES de correrlo).
+/// con `ps` como sombreador de pixeles: recibe los atributos interpolados,
+/// pone el color (r, g, b, a) de cada render target en su SV_Target (N5.8:
+/// el 0 en `pixeles`, los demas en `otros`) y dice si el pixel queda --
+/// `false` lo TIRA (N5.7: ni color ni profundidad; por eso la Z se escribe
+/// DESPUES de correrlo).
 ///
 /// `posicion` (N5.9): el atributo que es SV_Position, si el sombreador lo
 /// lee: en cada pixel, (x + 0.5, y + 0.5, z, w) -- el centro en pantalla,
 /// la z del viewport y la w de recorte (la de D3D: w, no 1/w como en GL).
-pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, mut ps: impl FnMut(&[[f32; 4]]) -> Option<[f32; 4]>) -> Cuenta {
+pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, mut ps: impl FnMut(&[[f32; 4]], &mut [[f32; 4]; OBJETIVOS]) -> bool) -> Cuenta {
     let mut cuenta = Cuenta::default();
     let [vx, vy, vw, vh, zmin, zmax] = reglas.viewport;
     let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= destino.pixeles.len()));
@@ -186,7 +202,14 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
     let y1 = ((vy + vh) as i64).min(reglas.tijera[3] as i64).min(destino.alto as i64) - 1;
     let ancho = destino.ancho as i64;
     // La memoria del sombreador de pixeles: lo ultimo que entro y lo que dio.
-    let mut ultima: Option<(Vec<[f32; 4]>, Option<u32>)> = None;
+    let mut ultima: Option<(Vec<[f32; 4]>, Option<[u32; OBJETIVOS]>)> = None;
+    // Cuantos render targets se pintan, y el orden de bytes de cada uno.
+    let n_rt = (1 + destino.otros.len()).min(OBJETIVOS);
+    let mut bgra = [false; OBJETIVOS];
+    bgra[0] = destino.bgra;
+    for (k, o) in destino.otros.iter().take(OBJETIVOS - 1).enumerate() {
+        bgra[k + 1] = o.bgra;
+    }
     let mut entrada: Vec<[f32; 4]> = Vec::new();
     for t in tris {
         let Some(v) = t.iter().map(|&i| vertices.get(i)).collect::<Option<Vec<_>>>() else {
@@ -303,7 +326,8 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                     Some((antes, p)) if antes.len() == entrada.len() && antes.iter().zip(&entrada).all(|(a, b)| a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())) => *p,
                     _ => {
                         cuenta.sombreados += 1;
-                        let p = ps(&entrada).map(|c| empaquetar(c, destino.bgra));
+                        let mut colores = [[0.0f32; 4]; OBJETIVOS];
+                        let p = ps(&entrada, &mut colores).then(|| core::array::from_fn(|k| if k < n_rt { empaquetar(colores[k], bgra[k]) } else { 0 }));
                         ultima = Some((entrada.clone(), p));
                         p
                     }
@@ -315,7 +339,12 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                 if let (Some(z), Some(zs)) = (z_nueva, destino.z.as_deref_mut()) {
                     zs[i] = z;
                 }
-                destino.pixeles[i] = pixel;
+                destino.pixeles[i] = pixel[0];
+                for (k, o) in destino.otros.iter_mut().take(n_rt - 1).enumerate() {
+                    if let Some(p) = o.pixeles.as_deref_mut().and_then(|p| p.get_mut(i)) {
+                        *p = pixel[k + 1];
+                    }
+                }
             }
         }
     }

@@ -169,6 +169,11 @@ fn pso(raiz: u64, vs: &[u8], ps: &[u8], layout: &[Elemento]) -> i32 {
 }
 
 fn pso_y_objeto(raiz: u64, vs: &[u8], ps: &[u8], layout: &[Elemento]) -> (i32, u64) {
+    pso_cambiado(raiz, vs, ps, layout, |_| {})
+}
+
+/// El PSO de siempre, con `cambiar` sobre su descripcion antes de crearlo.
+fn pso_cambiado(raiz: u64, vs: &[u8], ps: &[u8], layout: &[Elemento], cambiar: impl Fn(&mut [u8; 656])) -> (i32, u64) {
     let mut d = [0u8; 656];
     let mut pon = |o: usize, v: &[u8]| d[o..o + v.len()].copy_from_slice(v);
     pon(0, &raiz.to_le_bytes());
@@ -185,6 +190,11 @@ fn pso_y_objeto(raiz: u64, vs: &[u8], ps: &[u8], layout: &[Elemento]) -> (i32, u
     pon(576, &1u32.to_le_bytes());
     pon(580, &28u32.to_le_bytes());
     pon(616, &1u32.to_le_bytes());
+    // La mascara de escritura de los 8 render targets: RGBA.
+    for i in 0..8 {
+        d[128 + 40 * i + 36] = 0xF;
+    }
+    cambiar(&mut d);
     let disp = dispositivo();
     type Crear = extern "win64" fn(u64, *const u8, *const Guid, *mut u64) -> i32;
     // SAFETY: el hueco 10 del dispositivo, CreateGraphicsPipelineState.
@@ -260,4 +270,47 @@ fn los_pso_con_los_mismos_sombreadores_comparten_lo_compilado() {
     assert_eq!(c, 0);
     // SAFETY: un PSO de la casa.
     assert!(!std::rc::Rc::ptr_eq(ca, unsafe { &com::de::<bmo_proton_x_casa::tuberia::Pso>(pc).compilado }));
+}
+
+/// N5.8 (03-10): un PSO con varios render targets (el G-buffer) se CREA --
+/// antes se negaba entero --, cada uno con su formato; sin ninguno (solo
+/// profundidad) todavia no, y se dice. La mezcla se mira en cada render
+/// target con IndependentBlendEnable, y en el 0 sin el.
+#[test]
+fn un_pso_con_varios_render_targets_se_crea() {
+    let _uno = empezar();
+    let r = raiz();
+    let rts = |n: u32| {
+        move |d: &mut [u8; 656]| {
+            d[576..580].copy_from_slice(&n.to_le_bytes());
+            for i in 0..n as usize {
+                d[580 + 4 * i..584 + 4 * i].copy_from_slice(&28u32.to_le_bytes());
+            }
+        }
+    };
+    let (h, p) = pso_cambiado(r, VS, PS, &layout(true), rts(4));
+    assert_eq!(h, 0);
+    // SAFETY: un PSO de la casa.
+    let pso = unsafe { com::de::<bmo_proton_x_casa::tuberia::Pso>(p) };
+    assert_eq!((pso.n_rt, pso.formatos_rt[3], pso.formatos_rt[4]), (4, 28, 0));
+    assert!(!pso.mezcla);
+    // Mezcla en el render target 2: sin IndependentBlendEnable no cuenta (vale
+    // la del 0); con el, si.
+    let mezcla_en_2 = |independiente: u32| {
+        move |d: &mut [u8; 656]| {
+            rts(4)(d);
+            d[124..128].copy_from_slice(&independiente.to_le_bytes());
+            d[128 + 80..132 + 80].copy_from_slice(&1u32.to_le_bytes());
+        }
+    };
+    let (_, p) = pso_cambiado(r, VS, PS, &layout(true), mezcla_en_2(0));
+    // SAFETY: un PSO de la casa.
+    assert!(!unsafe { com::de::<bmo_proton_x_casa::tuberia::Pso>(p) }.mezcla);
+    let (_, p) = pso_cambiado(r, VS, PS, &layout(true), mezcla_en_2(1));
+    // SAFETY: un PSO de la casa.
+    assert!(unsafe { com::de::<bmo_proton_x_casa::tuberia::Pso>(p) }.mezcla);
+
+    DICHO.lock().unwrap().clear();
+    assert_eq!(pso_cambiado(r, VS, PS, &layout(true), rts(0)).0, E_INVALIDARG);
+    assert_eq!(dicho(), "PROTON-X: CreateGraphicsPipelineState sin render target (solo profundidad): todavia no\n");
 }
