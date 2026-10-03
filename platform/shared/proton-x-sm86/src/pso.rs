@@ -139,7 +139,7 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     }
     // N5.8: la 3060 pinta UN render target todavia: el G-buffer, por la CPU.
     if en.objetivos != [0] {
-        return Err(NoVa::Entrada("varios render targets (o uno que no es el 0)"));
+        return Err(NoVa::Entrada("varios render targets (o uno que no es el 0, o SV_Depth)"));
     }
     let posicion = en.posicion as u32;
     let v = pegamento::vertice(&ev.codigo, ev.registros, &cargas(&ev), datos, en.vs.salidas as u32, posicion).map_err(|e| NoVa::Pegamento("vertice", e))?;

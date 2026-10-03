@@ -697,8 +697,9 @@ ventana (`SetWindowPos`) y arranca los hilos de **Bink** (la entrada en
 video). Todavia 0 ExecuteCommandLists y 0 Present: no dibujo nada. Despues
 cayo con un fallo de Ring 3 (en `datos/fallos.txt`, pendiente de leer):
 
-- [ ] **N4.4 -- el fallo de Ring 3 tras los ~15 s**: leer `datos/fallos.txt`
-  de la cuarta corrida (la direccion, el modulo y la instruccion).
+- [ ] **N4.4 -- el fallo de Ring 3**: en la quinta corrida, a los 47 s, un
+  salto a 0 desde `Cyberpunk2077.exe+0x1d4c6cf`. La autopsia ya da el
+  `call` (los bytes de antes del retorno): la proxima corrida lo dice.
 - [x] **N4.5 -- el sonido del juego** (03-10, falta oirlo en el metal):
   WASAPI en la casa (A1.1 a A1.5 y A1.8 de la seccion 3): el
   `MMDeviceEnumerator`, un aparato de salida, `IAudioClient3` por evento, lo
@@ -706,6 +707,19 @@ cayo con un fallo de Ring 3 (en `datos/fallos.txt`, pendiente de leer):
   (`apps/proton-x/src/sonido.rs`), y su reloj. Sin aparato (o con el
   audifono de otro proceso), el reloj corre con la hora y el juego sigue,
   mudo.
+
+**Estado al 03-10, quinta corrida: nivel 4, vivo a los 47 s** (tres veces
+mas que la cuarta). Abre el audifono (`sonido: el audifono para el juego,
+48000 Hz estereo`), crea su ventana de 1738x1064, y ya no se quejan ni el
+discard, ni el G-buffer, ni SV_Position (N5.7 a N5.9). Por primera vez
+`fallos.txt` llego: a los 47 s el `.exe` SALTO A 0 (un puntero a funcion
+nulo; el retorno, `Cyberpunk2077.exe+0x1d4c6cf`; `rcx` 0, `r9` 0x438). La
+autopsia no pudo dar el `call` (miraba antes del `rip`, que es 0): desde
+el 03-10, con `rip` nulo, da los bytes de antes del RETORNO de `[rsp]`, y
+la proxima corrida dice que registro y que tabla daban el nulo (N4.4). Lo
+nuevo que dijo de sus sombreadores, ya hecho el mismo dia: las derivadas
+(83, 84), las olas (118) y SV_Depth; quedan alloca/GEP (19, 43) y el
+operando no constante (N5.4).
 
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:
@@ -719,7 +733,9 @@ casilla:
    mas de un render target      el G-buffer (diferido)           N5.8
    el de pixeles lee SV_Position                                 N5.9
    Instruccion(19), (43)        alloca y GEP: arrays locales     N5.10
-   OperacionD3d(118)            WaveReadLaneFirst                N5.10
+   OperacionD3d(118)            WaveReadLaneFirst                hecho
+   OperacionD3d(83, 84)         ddx, ddy (quinta corrida)        hecho
+   el de pixeles escribe SV_Depth (quinta corrida)               hecho
    un operando que deberia ser un entero constante               N5.4
 ```
 
@@ -791,7 +807,12 @@ la proxima corrida del metal dice cual pesa mas:
   GL). Probado con `prueba/posicion.dxil` en un cuadro de 8x8. En la 3060
   todavia no (`NoVa::Entrada`): por la CPU (N6.1).
 - [ ] **N5.10 -- arrays locales y lo de las olas**: `alloca`/GEP (registros
-  indexables) y `WaveReadLaneFirst` (con una ola de un pixel, el mismo).
+  indexables), todavia. Las OLAS ya (03-10, `dxil/olas.rs`): con un pixel
+  por ola, ReadLaneFirst/At, ActiveOp, AnyTrue/AllTrue, el prefijo, los
+  carriles y la cuenta de bits dan lo de un carril; y las derivadas (ddx,
+  ddy, fwidth) dan 0 hasta que la trama corra cuadros de 2x2. Y SV_Depth:
+  el de pixeles que escribe su Z (la prueba va despues de el). Probado con
+  `prueba/olas.dxil` y `prueba/profundidad.dxil`.
 - [ ] **N5.5 -- el COMPUTO** (`Dispatch`, `SetComputeRoot*`): hoy se dice
   y se salta. Cyberpunk calcula con el la luz, las sombras y el
   post-proceso; sin el, la imagen sale pero a medias. Primero en la CPU

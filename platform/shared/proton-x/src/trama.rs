@@ -56,6 +56,9 @@ pub struct Reglas {
     pub profundidad: Option<Profundidad>,
     /// N5.11: la mezcla de cada render target y el factor de mezcla.
     pub mezcla: crate::mezcla::Mezclas,
+    /// 03-10: el de pixeles escribe SV_Depth: la prueba de profundidad va
+    /// DESPUES de el, con la suya (en `colores[PROFUNDIDAD][0]`).
+    pub z_del_sombreador: bool,
 }
 
 /// La prueba de profundidad: `D3D12_COMPARISON_FUNC` (1 nunca, 2 menor,
@@ -115,6 +118,10 @@ pub struct Otro<'a> {
 
 /// Cuantos render targets puede escribir un dibujo (D3D12: 8).
 pub const OBJETIVOS: usize = 8;
+/// Lo que el de pixeles le da a la trama: un color por render target y,
+/// detras, su SV_Depth (en el canal 0 de `colores[PROFUNDIDAD]`).
+pub const SALIDAS: usize = OBJETIVOS + 1;
+pub const PROFUNDIDAD: usize = OBJETIVOS;
 
 /// Lo que paso.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -203,7 +210,7 @@ pub fn empaquetar(c: [f32; 4], bgra: bool) -> u32 {
 /// `posicion` (N5.9): el atributo que es SV_Position, si el sombreador lo
 /// lee: en cada pixel, (x + 0.5, y + 0.5, z, w) -- el centro en pantalla,
 /// la z del viewport y la w de recorte (la de D3D: w, no 1/w como en GL).
-pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, mut ps: impl FnMut(&[[f32; 4]], &mut [[f32; 4]; OBJETIVOS]) -> bool) -> Cuenta {
+pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, mut ps: impl FnMut(&[[f32; 4]], &mut [[f32; 4]; SALIDAS]) -> bool) -> Cuenta {
     let mut cuenta = Cuenta::default();
     let [vx, vy, vw, vh, zmin, zmax] = reglas.viewport;
     let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= destino.pixeles.len()));
@@ -218,7 +225,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
     // La memoria del sombreador de pixeles: lo ultimo que entro y lo que dio.
     // Con los colores SIN mezclar (N5.11: la mezcla depende del pixel que ya
     // esta, la memoria no) y ya empaquetados para los que no mezclan.
-    type Salida = Option<([[f32; 4]; OBJETIVOS], [u32; OBJETIVOS])>;
+    type Salida = Option<([[f32; 4]; SALIDAS], [u32; OBJETIVOS])>;
     let mut ultima: Option<(Vec<[f32; 4]>, Salida)> = None;
     let mezclas = reglas.mezcla;
     // Cuantos render targets se pintan, y el orden de bytes de cada uno.
@@ -305,7 +312,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                 }
                 let i = (py * ancho + px) as usize;
                 let mut z_nueva = None;
-                if let (Some(p), Some(zs)) = (prueba, destino.z.as_deref_mut()) {
+                if let (Some(p), Some(zs)) = (prueba.filter(|_| !reglas.z_del_sombreador), destino.z.as_deref_mut()) {
                     // Lineal en pantalla: los pesos de las aristas, sin w.
                     let s = (e[0] + e[1] + e[2]) as f32;
                     let (b1, b2) = (e[1] as f32 / s, e[2] as f32 / s);
@@ -344,7 +351,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                     Some((antes, p)) if antes.len() == entrada.len() && antes.iter().zip(&entrada).all(|(a, b)| a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())) => *p,
                     _ => {
                         cuenta.sombreados += 1;
-                        let mut colores = [[0.0f32; 4]; OBJETIVOS];
+                        let mut colores = [[0.0f32; 4]; SALIDAS];
                         let p = ps(&entrada, &mut colores).then(|| (colores, core::array::from_fn(|k| if k < n_rt { empaquetar(colores[k], bgra[k]) } else { 0 })));
                         ultima = Some((entrada.clone(), p));
                         p
@@ -354,6 +361,18 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                     cuenta.tirados += 1;
                     continue;
                 };
+                // SV_Depth: la prueba, ahora, con la Z del sombreador (D3D la
+                // recorta al rango del viewport).
+                if let (true, Some(p), Some(zs)) = (reglas.z_del_sombreador, prueba, destino.z.as_deref_mut()) {
+                    let z = colores[PROFUNDIDAD][0].clamp(zmin.min(zmax), zmin.max(zmax));
+                    if !p.pasa(z, f32::from_bits(zs[i])) {
+                        cuenta.tapados += 1;
+                        continue;
+                    }
+                    if p.escribir {
+                        z_nueva = Some(z.to_bits());
+                    }
+                }
                 if let (Some(z), Some(zs)) = (z_nueva, destino.z.as_deref_mut()) {
                     zs[i] = z;
                 }

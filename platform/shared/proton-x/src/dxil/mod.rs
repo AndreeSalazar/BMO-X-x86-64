@@ -36,6 +36,8 @@ pub mod ejemplos;
 mod estructura;
 /// E6c (02-10): los enteros y las conversiones del DXIL.
 mod enteros;
+/// 03-10: las olas (un pixel por ola) y las derivadas.
+mod olas;
 
 use alloc::string::String;
 use alloc::vec::Vec;

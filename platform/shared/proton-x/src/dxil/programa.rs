@@ -1054,6 +1054,10 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
         c.ops.push(f(d, a));
         Ok(Valor::Float(d))
     };
+    // Las olas (con un carril) y las derivadas: `olas.rs`.
+    if let Some(v) = super::olas::de_un_carril(c, op, args) {
+        return v;
+    }
     Ok(match op {
         DX_LOAD_INPUT | DX_STORE_OUTPUT => {
             let (elemento, fila, col) = (c.entero(arg(1)?)?, c.entero(arg(2)?)?, c.entero(arg(3)?)?);

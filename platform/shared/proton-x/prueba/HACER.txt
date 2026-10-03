@@ -1954,3 +1954,36 @@ Reproducible (comprobado dos veces). sha256:
 `dxc -dumpbin`: tres salidas SV_Target con indice 0, 1 y 3 (los
 `outputSigId` 0, 1 y 2: el enlace los cruza por la semantica, no por la
 posicion). La usan `pruebas_pixeles.rs` y `proton-x-casa/tests/gbuffer.rs`.
+
+olas.dxil -- las olas y las derivadas (03-10)
+
+Lo que pedia la quinta corrida del metal (OperacionD3d 83, 84 y 118) y sus
+hermanas: WaveReadLaneFirst, WaveActiveSum, WaveGetLaneCount, WavePrefixSum,
+WaveGetLaneIndex, WaveActiveCountBits, WaveIsFirstLane, WaveActiveAllTrue,
+WaveActiveAnyTrue, ddx, ddy y fwidth. De `olas.hlsl` (aqui al lado), con el
+mismo `dxc` de Linux (1.9, 4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo olas.dxil olas.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   bbfba491bb7ad3c392361d574452831a245d9022bc0c0b0d1f89f60a621a6b79  olas.dxil
+
+`dxc -dumpbin`: 83 y 84 (DerivCoarseX/Y, dos de cada: fwidth es
+abs(ddx) + abs(ddy)), 110 a 114, 118, 119 (ActiveOp), 121 (PrefixOp.i32) y
+135 (waveAllOp: la cuenta de bits). La casa corre un pixel por ola
+(`dxil/olas.rs`); el banco (`pruebas_espacios.rs`) mira lo de un carril.
+
+profundidad.dxil -- SV_Depth (03-10)
+
+El de pixeles que escribe su Z (la quinta corrida: "escribe SV_Depth0").
+De `profundidad.hlsl` (aqui al lado), con el mismo `dxc`:
+
+   dxc -T ps_6_0 -E pixel -Fo profundidad.dxil profundidad.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   a037bdfeb90793a106a0f7104a3bd4816cd10e6b25339641fc65b3298713d053  profundidad.dxil
+
+`dxc -dumpbin`: la salida 1 es SV_Depth (`oDepth`). El banco
+(`pruebas_pixeles.rs`) la dibuja sobre una Z de 0.5 con LESS: pasa x < 4.

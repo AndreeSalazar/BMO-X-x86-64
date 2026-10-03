@@ -36,7 +36,7 @@ fn pintar(en: &Enlace, ia: &[ElementoIa], vertices: &[u8]) -> (Vec<u32>, trama::
 }
 
 fn pintar_con(en: &Enlace, ia: &[ElementoIa], vertices: &[u8], otros: &mut [trama::Otro]) -> (Vec<u32>, trama::Cuenta) {
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
     let l = Lote { enlace: en, entradas: ia, vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO };
     let mut px = vec![0u32; 64];
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros };
@@ -74,7 +74,7 @@ fn la_w_de_sv_position_va_con_perspectiva() {
         trama::Sombreado { pos: [3.0 * 4.0, 1.0 * 4.0, 0.0, 4.0], atributos: vec![[0.0; 4]] },
         trama::Sombreado { pos: [-1.0 * 4.0, -3.0 * 4.0, 0.0, 4.0], atributos: vec![[0.0; 4]] },
     ];
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
     let mut px = vec![0u32; 64];
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros: &mut [] };
     let mut vistos = Vec::new();
@@ -129,17 +129,17 @@ fn el_g_buffer_pinta_cada_salida_en_su_render_target() {
     }
 }
 
-/// Lo que el de pixeles escribe y no es un render target (SV_Depth) se dice:
-/// el enlace no lo pinta a medias.
+/// Lo que el de pixeles escribe y no es un render target ni su profundidad
+/// (SV_Coverage) se dice: el enlace no lo pinta a medias.
 #[test]
 fn una_salida_que_no_es_sv_target_se_dice() {
     let (vs, ps) = (dxil::leer(TEXTURA_VS).unwrap(), dxil::leer(GBUFFER_PS).unwrap());
     let mut ps = ps;
-    ps.salidas[2].sistema = 65;
-    ps.salidas[2].semantica = "SV_Depth".into();
+    ps.salidas[2].sistema = 66;
+    ps.salidas[2].semantica = "SV_Coverage".into();
     let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
     let r = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]);
-    assert_eq!(r.err().as_deref(), Some("el sombreador de pixeles escribe SV_Depth3 (valor de sistema 65): todavia no"));
+    assert_eq!(r.err().as_deref(), Some("el sombreador de pixeles escribe SV_Coverage3 (valor de sistema 66): todavia no"));
 }
 
 /// *** N5.11: la transparencia en la trama: un triangulo de alfa 0.5 sobre
@@ -153,7 +153,7 @@ fn la_trama_mezcla_con_lo_que_ya_esta() {
         let m = Mezcla { encendida: true, origen: ORIGEN_ALFA, destino: INV_ORIGEN_ALFA, op: SUMAR, origen_a: UNO, destino_a: INV_ORIGEN_ALFA, op_a: SUMAR, mascara };
         let mut rt = [Mezcla::NINGUNA; 8];
         rt[0] = m;
-        let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: Mezclas { rt, factor: [1.0; 4] } };
+        let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: Mezclas { rt, factor: [1.0; 4] }, z_del_sombreador: false };
         let fondo = rgba([0.0, 0.0, 1.0, 1.0]);
         let mut px = vec![fondo; 64];
         let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros: &mut [] };
@@ -170,4 +170,31 @@ fn la_trama_mezcla_con_lo_que_ya_esta() {
     assert_eq!(px.iter().filter(|&&p| p == fondo).count(), 64 - 28, "lo demas, el fondo");
     let (px, _) = pinta(0b1011);
     assert_eq!(px[0], rgba([0.5, 0.0, 1.0, 1.0]), "sin el azul en la mascara, el azul se queda");
+}
+
+const PROFUNDIDAD_PS: &[u8] = include_bytes!("../prueba/profundidad.dxil");
+
+/// *** `profundidad.hlsl` (de `dxc`) escribe SV_Depth = x / 8: sobre una Z
+/// limpiada a 0.5 con LESS, pasan solo las cuatro columnas de la izquierda
+/// (su Z, la del sombreador; el triangulo esta a 0.9 y no cuenta), y esa Z
+/// queda escrita. Antes el enlace se negaba.
+#[test]
+fn el_de_pixeles_escribe_su_profundidad() {
+    let (en, ia) = enlace(PROFUNDIDAD_PS);
+    assert_eq!((en.objetivos.as_slice(), en.profundidad_ps), (&[0, trama::PROFUNDIDAD as u8][..], Some(1)));
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: Some(trama::Profundidad { funcion: 2, escribir: true }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
+    let vertices = cuadro(0.9, 1.0);
+    let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: Some(0.5f32.to_bits()), limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO };
+    let (mut px, mut z) = (vec![0u32; 64], vec![0u32; 64]);
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: Some(&mut z), cadena: false, otros: &mut [] };
+    let c = lote::en_cpu(&l, &mut d).unwrap();
+    assert_eq!(c.tapados, 32, "{c:?}");
+    for k in 0..64 {
+        let x = k % 8;
+        if x < 4 {
+            assert_eq!((px[k], f32::from_bits(z[k])), (0xFFFF_FFFF, (x as f32 + 0.5) / 8.0), "({x}, {})", k / 8);
+        } else {
+            assert_eq!((px[k], f32::from_bits(z[k])), (0, 0.5), "({x}, {})", k / 8);
+        }
+    }
 }
