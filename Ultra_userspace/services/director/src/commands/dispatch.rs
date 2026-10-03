@@ -30,7 +30,7 @@
 
 use bmo_userland as bmo;
 
-use super::{disco, files, guia, shell, sonidos, system, Command};
+use super::{disco, files, fondo, guia, shell, sonidos, system, Command};
 use crate::desktop::Desktop;
 
 /// What the key loop should do once the command has run.
@@ -90,6 +90,7 @@ pub(crate) fn dispatch(dsk: &mut Desktop, p: &bmo::Pantalla, cmd: Command) -> Af
         Command::Net(what) => system::net(dsk, p, what),
         Command::Placa => system::placa(dsk, p),
         Command::Sonidos => sonidos::sonidos(dsk, p),
+        Command::Fondo(a) => fondo::fondo(dsk, p, a),
         Command::Audio(a) => system::audio(dsk, p, a),
         Command::Autopsy => system::autopsy(dsk, p),
         Command::Cabina(a) => system::cabina(dsk, p, a),

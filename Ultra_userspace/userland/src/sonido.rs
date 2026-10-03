@@ -247,3 +247,79 @@ impl Tubo<'_> {
         let _ = self.pedir(TUBO_SOLTAR, 0);
     }
 }
+
+// ===================================================================
+//  EL ATRIL DEL FONDO: la musica del escritorio (S4e, 2026-10-03)
+// ===================================================================
+
+/// **El atril del fondo**: un banco del escritorio que el orquestador mezcla
+/// aunque OTRO proceso tenga el sonido, y que agacha solo bajo un aviso o la
+/// app (ver `bmo_amplificador::agacha`).
+///
+/// No es un `Sonido` reclamado: no hay nada que soltar al cederlo, y un
+/// juego que reclama el sonido no lo calla. Lo puede usar SOLO quien tiene la
+/// pantalla, por la misma regla que el mando del maestro.
+///
+/// ```text
+///    canales 0..8    MUSICA   se agacha
+///    canales 8..16   AVISOS   no se agacha, y agacha la musica
+/// ```
+///
+/// Las muestras del banco son siempre S16 mono a 48 kHz.
+pub struct Fondo {
+    bytes: u64,
+}
+
+impl Fondo {
+    fn orden(que: u64, canal: u64, izq: u16, der: u16, bucle: bool, a1: u64) -> Option<u64> {
+        let a0 = (que & 0xF)
+            | ((canal & 0xF) << 4)
+            | ((izq.min(256) as u64) << 8)
+            | ((der.min(256) as u64) << 17)
+            | ((bucle as u64) << 26);
+        invoke(CURRENT_TASK, OP_AUDIO_FONDO, a0, a1, 0).valor()
+    }
+
+    /// **Prestar el banco**: el bloque `base` (de un [`crate::Memoria`] de este
+    /// proceso), entero. Arma el tubo. `None` si no es del escritorio, si no
+    /// hay tubo, o si la memoria no es de este proceso (el motivo, en CABINA).
+    pub fn prestar(base: *const u8) -> Option<Fondo> {
+        match Self::orden(AUDIO_FONDO_BANCO, 0, 0, 0, false, base as u64)? {
+            0 => None,
+            bytes => Some(Fondo { bytes }),
+        }
+    }
+
+    /// Los bytes del banco que el kernel acepto.
+    pub fn bytes(&self) -> u64 {
+        self.bytes
+    }
+
+    /// **Tocar** `muestras` muestras desde `inicio` (en BYTES) del banco, en
+    /// `canal`, al volumen `vol` (0..=256, igual a los dos lados).
+    pub fn tocar(&self, canal: u64, inicio: u32, muestras: u32, vol: u16, bucle: bool) -> bool {
+        let a1 = inicio as u64 | ((muestras as u64) << 32);
+        Self::orden(AUDIO_FONDO_TOCAR, canal, vol, vol, bucle, a1) == Some(1)
+    }
+
+    /// Mover el volumen de un canal que suena. Va por una rampa de 5 ms.
+    pub fn volumen(&self, canal: u64, vol: u16) -> bool {
+        Self::orden(AUDIO_FONDO_AJUSTAR, canal, vol, vol, false, 0) == Some(1)
+    }
+
+    /// Callar un canal.
+    pub fn callar(&self, canal: u64) -> bool {
+        Self::orden(AUDIO_FONDO_CALLAR, canal, 0, 0, false, 0) == Some(1)
+    }
+
+    /// Suena el canal?
+    pub fn suena(&self, canal: u64) -> bool {
+        Self::orden(AUDIO_FONDO_SUENA, canal, 0, 0, false, 0) == Some(1)
+    }
+
+    /// **Soltar** el banco y el tubo. Consume el `Fondo`: despues de esto la
+    /// memoria del banco ya se puede devolver.
+    pub fn soltar(self) -> bool {
+        Self::orden(AUDIO_FONDO_SOLTAR, 0, 0, 0, false, 0) == Some(1)
+    }
+}

@@ -355,6 +355,7 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_AUTOPSIA_TEXTO => op_contar::autopsia_texto(arg0, arg1),
         TASK_OP_AUDIO_CENSO => op_aparato::audio_censo(arg0, arg1),
         TASK_OP_AUDIO_MANDO => op_aparato::audio_mando(arg0, arg1),
+        TASK_OP_AUDIO_FONDO => op_aparato::audio_fondo(arg0, arg1),
         TASK_OP_IOMMU => op_maquina::iommu(arg0, arg1),
         // ** PROTON-X P1d: el GS de Ring 3 de ESTE hilo. Solo el suyo, asi que
         // no pide autoridad; lo unico que se exige es que sea de la mitad de
