@@ -1,14 +1,21 @@
-//! **LA VENTANA DE HERMES** -- la cara de la maqueta (H1), de izquierda a
-//! derecha:
+//! **LA VENTANA DE HERMES** -- la cara de la maqueta (H1,
+//! `docs/arte/maqueta_hermes.html`), de izquierda a derecha:
 //!
 //! ```text
-//!    riel     una burbuja por seccion, cada una con SU gesto vivo; la
-//!             elegida se vuelve cuadrada y lleva su pastilla
-//!    lista    lo de la seccion (tus notas, las tertulias, las piezas de la
-//!             ONDA...) y abajo quien eres: el gato de BMO-X
-//!    centro   la seccion, que ENTRA a su manera: los mensajes desde su
-//!             lado, el MURO voltea, el CANAL se enciende como una tele, los
-//!             pasos de ENVIOS se encienden en orden, las jaulas bajan
+//!    barra    HERMES, su programa, y la X que cierra
+//!    riel     las alas arriba; una burbuja REDONDA por seccion, cada una
+//!             con su aro de color y SU gesto vivo; la elegida se vuelve una
+//!             caja redonda que brilla, con su pastilla blanca al borde
+//!    lista    el nombre en negrita, su rotulo (CONVERSACIONES, TU
+//!             BIBLIOTECA...) y filas de DOS lineas con su cara redonda; abajo
+//!             quien eres: el gato de BMO-X
+//!    centro   la cabecera (cara, nombre, de que va y su pildora de estado,
+//!             con la raya de color debajo) y la seccion, que ENTRA a su
+//!             manera: los mensajes desde su lado, el MURO voltea, el CANAL
+//!             se enciende como una tele, los pasos de ENVIOS en orden...
+//!    panel    las TARJETAS (`panel.rs`): que es la seccion, la conexion,
+//!             las tres jaulas, lo que suena. Si la ventana es estrecha, se
+//!             esconde y el centro se queda con todo
 //! ```
 //!
 //! *** Nada inventado: lo que aun no existe (la red, los amigos, las fotos,
@@ -19,6 +26,7 @@
 use crate::canvas::Canvas;
 use crate::charla::Mensaje;
 use crate::mates::{azar, coseno, entre, fase, onda, seno};
+use crate::piezas::{caja, cara, negrita, negrita_fit, pildora, punto, redonda, rotulo};
 use alloc::vec::Vec;
 use bmo_dibujo::{mezclar, Color, Lienzo};
 use bmo_fondo::{Estilo, PIEZAS};
@@ -37,45 +45,63 @@ pub fn medir(w: u32, h: u32) {
     MEDIDA.store(w.max(MINIMO.0) << 16 | h.max(MINIMO.1), core::sync::atomic::Ordering::Relaxed);
 }
 
-fn ancho() -> i32 {
+pub(crate) fn ancho() -> i32 {
     (MEDIDA.load(core::sync::atomic::Ordering::Relaxed) >> 16) as i32
 }
 
-fn alto() -> i32 {
+pub(crate) fn alto() -> i32 {
     (MEDIDA.load(core::sync::atomic::Ordering::Relaxed) & 0xFFFF) as i32
 }
 
-const RIEL: i32 = 72;
-const LISTA: i32 = 248;
-const X_CENTRO: i32 = RIEL + LISTA;
-const CABECERA: i32 = 64;
-const BURBUJA: i32 = 48;
-const PASO_RIEL: i32 = 58;
-const FILA: i32 = 34;
-const Y_FILAS: i32 = CABECERA + 12;
-const CAJA_ALTO: i32 = 44;
+/// El panel de las tarjetas, a la derecha: solo si queda un centro que se lea.
+pub(crate) fn ancho_panel() -> i32 {
+    if ancho() >= 1180 { 268 } else { 0 }
+}
+
+/// Lo que mide el centro, entre la lista y el panel.
+pub(crate) fn ancho_centro() -> i32 {
+    ancho() - X_CENTRO - ancho_panel()
+}
+
+/// La barra de arriba (HERMES, su programa y la X).
+pub(crate) const BARRA: i32 = 30;
+const RIEL: i32 = 64;
+const LISTA: i32 = 240;
+pub(crate) const X_CENTRO: i32 = RIEL + LISTA;
+/// Donde acaban las cabeceras de la lista y del centro.
+pub(crate) const CABECERA: i32 = BARRA + 56;
+const BURBUJA: i32 = 44;
+const PASO_RIEL: i32 = 54;
+/// Las alas y su raya van encima de las burbujas.
+const Y_RIEL: i32 = BARRA + 54;
+const FILA: i32 = 52;
+/// Las filas empiezan debajo del rotulo.
+const Y_FILAS: i32 = CABECERA + 38;
+const CAJA_ALTO: i32 = 50;
+/// Quien eres, abajo de la lista.
+const PIE: i32 = 66;
 
 // La paleta de la maqueta (`maqueta_hermes.html`).
-const NEGRO: Color = 0x0005_060A;
-const FONDO: Color = 0x0008_0A10;
-const PANEL: Color = 0x000B_0E15;
-const PANEL2: Color = 0x0010_141D;
-const LINEA: Color = 0x001B_2130;
-const TEXTO: Color = 0x00C9_D3DB;
-const TENUE: Color = 0x006E_7A89;
-const GRIS: Color = 0x009A_A2B4;
-const BLANCO: Color = 0x00F2_F7F9;
-const CIAN: Color = 0x005E_F2E6;
-const ROSA: Color = 0x00FF_2E88;
-const AZUL: Color = 0x003D_A5FF;
-const AMBAR: Color = 0x00FF_C24D;
-const VERDE: Color = 0x004D_E38F;
-const ROJO: Color = 0x00FF_4F5E;
-const LIMA: Color = 0x00B6_FF5C;
-const MORADO: Color = 0x00A5_5DFF;
+pub(crate) const NEGRO: Color = 0x0005_060A;
+pub(crate) const FONDO: Color = 0x0008_0A10;
+pub(crate) const PANEL: Color = 0x000B_0E15;
+pub(crate) const PANEL2: Color = 0x0010_141D;
+pub(crate) const LINEA: Color = 0x001B_2130;
+pub(crate) const TEXTO: Color = 0x00C9_D3DB;
+pub(crate) const TENUE: Color = 0x006E_7A89;
+pub(crate) const GRIS: Color = 0x009A_A2B4;
+pub(crate) const BLANCO: Color = 0x00F2_F7F9;
+pub(crate) const CIAN: Color = 0x005E_F2E6;
+pub(crate) const ROSA: Color = 0x00FF_2E88;
+pub(crate) const AZUL: Color = 0x003D_A5FF;
+pub(crate) const AMBAR: Color = 0x00FF_C24D;
+pub(crate) const VERDE: Color = 0x004D_E38F;
+pub(crate) const ROJO: Color = 0x00FF_4F5E;
+pub(crate) const LIMA: Color = 0x00B6_FF5C;
+pub(crate) const MORADO: Color = 0x00A5_5DFF;
 
 /// **Las secciones**, en el orden del riel de la maqueta: nombre, color, y lo
-/// que dice debajo del titulo.
+/// que es (va en la tarjeta QUE ES del panel).
 pub const SECCIONES: [(&[u8], Color, &[u8]); 9] = [
     (b"Mensajes", CIAN, b"en una sola maquina: tus notas, guardadas. Los amigos llegan con H6, por huella y sin servidor"),
     (b"Tertulias", AZUL, b"una tertulia es un canal: hoy lo tuyo en el; con H6, lo de todos los que esten"),
@@ -87,6 +113,23 @@ pub const SECCIONES: [(&[u8], Color, &[u8]); 9] = [
     (b"Amigos", ROSA, b"un amigo es una clave aceptada UNA vez, comparando la huella en voz alta (H6)"),
     (b"Las jaulas", GRIS, b"tres procesos, tres jaulas: ninguno ve lo del otro (H3, H4, H8)"),
 ];
+
+/// De que va cada seccion, en corto: al lado del nombre en la cabecera.
+const CORTO: [&[u8]; 9] = [
+    b"en esta maquina",
+    b"un canal por tema",
+    b"tus fotos",
+    b"tu video",
+    b"toda tu musica y todos los sonidos",
+    b"sin scripts, sin Google",
+    b"nada entra sin tu permiso",
+    b"por huella, sin servidor",
+    b"tres procesos aparte",
+];
+
+/// El rotulo de la lista de cada seccion.
+const ROTULOS: [&[u8]; 9] =
+    [b"conversaciones", b"canales", b"tus fotos", b"emisiones", b"tu biblioteca", b"paginas", b"envios", b"amigos", b"procesos"];
 
 pub const MENSAJES: usize = 0;
 pub const TERTULIAS: usize = 1;
@@ -170,20 +213,26 @@ pub enum Golpe {
     Item(usize),
     Escribir,
     Zumbido,
+    /// La X de la barra.
+    Cerrar,
 }
 
-fn dentro(x: i32, y: i32, (bx, by, bw, bh): (i32, i32, i32, i32)) -> bool {
+pub(crate) fn dentro(x: i32, y: i32, (bx, by, bw, bh): (i32, i32, i32, i32)) -> bool {
     x >= bx && y >= by && x < bx + bw && y < by + bh
 }
 
+fn caja_cerrar() -> (i32, i32, i32, i32) {
+    (ancho() - 38, 3, 32, BARRA - 6)
+}
+
 fn caja_burbuja(i: usize) -> (i32, i32, i32, i32) {
-    ((RIEL - BURBUJA) / 2, 12 + i as i32 * PASO_RIEL, BURBUJA, BURBUJA)
+    ((RIEL - BURBUJA) / 2, Y_RIEL + i as i32 * PASO_RIEL, BURBUJA, BURBUJA)
 }
 
 /// Las filas de la lista que caben, y desde cual se empieza (la elegida
 /// siempre se ve).
 fn filas_visibles(sec: usize, item: usize) -> (usize, usize) {
-    let caben = ((alto() - Y_FILAS - 110) / FILA).max(1) as usize;
+    let caben = ((alto() - Y_FILAS - PIE - 8) / FILA).max(1) as usize;
     let n = cuantos_items(sec);
     let desde = if item >= caben { item + 1 - caben } else { 0 };
     (desde, caben.min(n - desde.min(n)))
@@ -194,15 +243,18 @@ fn caja_fila(j: usize) -> (i32, i32, i32, i32) {
 }
 
 fn caja_escribir() -> (i32, i32, i32, i32) {
-    (X_CENTRO + 20, alto() - CAJA_ALTO - 16, ancho() - X_CENTRO - 40, CAJA_ALTO)
+    (X_CENTRO + 20, alto() - CAJA_ALTO - 16, ancho_centro() - 40, CAJA_ALTO)
 }
 
+/// El ZUMBIDO va DENTRO de la caja de escribir, a la derecha, como en la
+/// maqueta.
 fn caja_zumbido() -> (i32, i32, i32, i32) {
-    (ancho() - 20 - 112, 14, 112, 32)
+    let (ex, ey, ew, eh) = caja_escribir();
+    (ex + ew - 8 - 96, ey + 9, 96, eh - 18)
 }
 
 fn caja_atajo(k: usize) -> (i32, i32, i32, i32) {
-    let w = (ancho() - X_CENTRO - 40 - 2 * 16) / 3;
+    let w = (ancho_centro() - 40 - 2 * 16) / 3;
     (X_CENTRO + 20 + k as i32 * (w + 16), CABECERA + 210, w, 70)
 }
 
@@ -211,6 +263,9 @@ const ATAJOS: [(usize, &[u8]); 3] = [(MENSAJES, b"tus notas"), (ONDA, b"la ONDA"
 
 /// **Que hay debajo de un clic.**
 pub fn golpe(x: i32, y: i32, sec: usize, item: usize) -> Option<Golpe> {
+    if dentro(x, y, caja_cerrar()) {
+        return Some(Golpe::Cerrar);
+    }
     for i in 0..SECCIONES.len() {
         if dentro(x, y, caja_burbuja(i)) {
             return Some(Golpe::Seccion(i));
@@ -222,11 +277,12 @@ pub fn golpe(x: i32, y: i32, sec: usize, item: usize) -> Option<Golpe> {
             return Some(Golpe::Item(desde + j));
         }
     }
-    if canal_de(sec, item).is_some() && dentro(x, y, caja_escribir()) {
-        return Some(Golpe::Escribir);
-    }
+    // El ZUMBIDO antes que la caja: esta dentro de ella.
     if sec == MENSAJES && dentro(x, y, caja_zumbido()) {
         return Some(Golpe::Zumbido);
+    }
+    if canal_de(sec, item).is_some() && dentro(x, y, caja_escribir()) {
+        return Some(Golpe::Escribir);
     }
     if sec == PAGINAS {
         for (k, &(s, _)) in ATAJOS.iter().enumerate() {
@@ -240,7 +296,7 @@ pub fn golpe(x: i32, y: i32, sec: usize, item: usize) -> Option<Golpe> {
 
 /// De 0 a 256 en `dura` ms, empezando `retraso` ms despues de `desde`, con
 /// un frenado al final (sale rapido y se posa).
-fn llega(ms: u32, desde: u32, retraso: u32, dura: u32) -> i32 {
+pub(crate) fn llega(ms: u32, desde: u32, retraso: u32, dura: u32) -> i32 {
     let t = ms.wrapping_sub(desde);
     if t <= retraso {
         return 0;
@@ -251,7 +307,7 @@ fn llega(ms: u32, desde: u32, retraso: u32, dura: u32) -> i32 {
 }
 
 /// Un texto partido en lineas de `max` letras como mucho, por los espacios.
-fn partir(t: &[u8], max: usize) -> Vec<&[u8]> {
+pub(crate) fn partir(t: &[u8], max: usize) -> Vec<&[u8]> {
     let mut v = Vec::new();
     let mut resto = t;
     while !resto.is_empty() {
@@ -270,13 +326,14 @@ fn partir(t: &[u8], max: usize) -> Vec<&[u8]> {
 }
 
 /// De dBFS (1/256) a 0..=256, con -60 dB como suelo.
-fn nivel(db: i32) -> i32 {
+pub(crate) fn nivel(db: i32) -> i32 {
     ((db + 60 * 256).clamp(0, 60 * 256) * 256) / (60 * 256)
 }
 
 /// **Un fotograma entero.**
 pub fn pintar(cv: &mut Canvas, v: &Vista) {
     cv.clear(FONDO);
+    barra(cv, v);
     riel(cv, v);
     lista(cv, v);
     // El ZUMBIDO sacude el centro y lo enciende en rosa (700 ms).
@@ -288,38 +345,72 @@ pub fn pintar(cv: &mut Canvas, v: &Vista) {
         _ => 0,
     };
     centro(cv, v, sacude);
+    if ancho_panel() > 0 {
+        crate::panel::panel(cv, v, ancho() - ancho_panel());
+    }
     if let Some(t0) = v.zumbido {
         let t = v.ms.wrapping_sub(t0);
         if t < 700 {
             let a = (700 - t) * 120 / 700;
-            cv.glow(X_CENTRO + 4, 4, ancho() - X_CENTRO - 8, alto() - 8, ROSA, 4, a);
-            cv.frame(X_CENTRO, 0, ancho() - X_CENTRO, alto(), 2, mezclar(ROSA, FONDO, a * 2, 256));
+            let (x, w) = (X_CENTRO, ancho_centro());
+            cv.glow(x + 4, BARRA + 4, w - 8, alto() - BARRA - 8, ROSA, 4, a);
+            cv.frame(x, BARRA, w, alto() - BARRA, 2, mezclar(ROSA, FONDO, a * 2, 256));
         }
+    }
+}
+
+// ============================== LA BARRA ==============================
+
+/// **La barra de arriba**: como la ventana de la maqueta. HERMES no lleva el
+/// marco del escritorio (`SIN_MARCO`), asi que la barra es suya.
+fn barra(cv: &mut Canvas, v: &Vista) {
+    cv.rect(0, 0, ancho(), BARRA, NEGRO);
+    cv.rect(0, BARRA - 1, ancho(), 1, LINEA);
+    let fin = negrita(cv, 14, 7, b"HERMES", BLANCO);
+    cv.text(14 + fin + 14, 7, b"sys/hermes.bex", TENUE, 1);
+    let ayuda: &[u8] = b"Tab secciones  /  escribir  Esc cierra";
+    let (cx, cy, cw, ch) = caja_cerrar();
+    cv.text(cx - 16 - ayuda.len() as i32 * 8, 7, ayuda, mezclar(TENUE, NEGRO, 170, 256), 1);
+    let encima = v.puntero.map_or(false, |(px, py)| dentro(px, py, (cx, cy, cw, ch)));
+    if encima {
+        redonda(cv, cx, cy, cw, ch, 6, mezclar(ROJO, NEGRO, 120, 256));
+    }
+    // La X, de dos rayas gruesas.
+    let (mx, my) = (cx + cw / 2, cy + ch / 2);
+    for g in 0..2 {
+        cv.line((mx - 5 + g, my - 5), (mx + 5 + g, my + 5), if encima { BLANCO } else { GRIS });
+        cv.line((mx - 5 + g, my + 5), (mx + 5 + g, my - 5), if encima { BLANCO } else { GRIS });
     }
 }
 
 // ============================== EL RIEL ==============================
 
 fn riel(cv: &mut Canvas, v: &Vista) {
-    cv.rect(0, 0, RIEL, alto(), NEGRO);
-    cv.rect(RIEL - 1, 0, 1, alto(), LINEA);
+    cv.rect(0, BARRA, RIEL, alto() - BARRA, NEGRO);
+    cv.rect(RIEL - 1, BARRA, 1, alto() - BARRA, LINEA);
+    // Las alas de HERMES, y su raya.
+    crate::piezas::alas(cv, RIEL / 2, BARRA + 20, CIAN);
+    cv.rect(RIEL / 2 - 14, BARRA + 42, 28, 1, LINEA);
     for (i, &(_, color, _)) in SECCIONES.iter().enumerate() {
         let (x, y, w, h) = caja_burbuja(i);
         let elegida = i == v.sec;
         let encima = v.puntero.map_or(false, |(px, py)| dentro(px, py, (x, y, w, h)));
         let (cx, cy) = (x + w / 2, y + h / 2);
         if elegida {
-            // Cuadrada (con las esquinas comidas) y su pastilla a la izquierda.
-            cv.rect(x + 3, y, w - 6, h, mezclar(color, PANEL2, 60, 256));
-            cv.rect(x, y + 3, w, h - 6, mezclar(color, PANEL2, 60, 256));
-            cv.rect(0, y + 8, 4, h - 16, BLANCO);
+            // Una caja redonda que brilla, y su pastilla blanca al borde.
+            let entra = llega(v.ms, v.desde_sec, 0, 220) as u32;
+            cv.glow(x, y, w, h, color, 4, 30 * entra / 256);
+            caja(cv, x, y, w, h, 13, mezclar(color, NEGRO, 52, 256), mezclar(color, NEGRO, 200, 256));
+            redonda(cv, 0, y + 8, 4, h - 16, 2, BLANCO);
         } else {
-            cv.disc(cx, cy, w / 2, if encima { PANEL2 } else { PANEL });
+            // Redonda, con su aro de color apagado.
+            cv.disc(cx, cy, w / 2, mezclar(color, NEGRO, if encima { 150 } else { 70 }, 256));
+            cv.disc(cx, cy, w / 2 - 1, if encima { 0x0016_1B26 } else { 0x0010_131B });
             if encima {
-                cv.rect(0, y + 18, 3, h - 36, TEXTO);
+                redonda(cv, 0, y + 16, 3, h - 32, 1, TEXTO);
             }
         }
-        icono(cv, i, cx, cy, v.ms, if elegida || encima { color } else { mezclar(color, PANEL, 150, 256) });
+        icono(cv, i, cx, cy, v.ms, if elegida || encima { color } else { mezclar(color, NEGRO, 170, 256) });
     }
 }
 
@@ -405,14 +496,31 @@ fn icono(cv: &mut Canvas, i: usize, cx: i32, cy: i32, ms: u32, c: Color) {
 
 // ============================== LA LISTA ==============================
 
+/// La segunda linea de una fila: lo ultimo escrito, cuantos hay, o de que va.
+fn segunda<'a>(v: &'a Vista, k: usize, d: &'a mut [u8; 24]) -> &'a [u8] {
+    match v.sec {
+        MENSAJES => v.charla.last().map_or(&b"aun no hay nada escrito"[..], |m| &m.texto[..]),
+        TERTULIAS => match v.cuentas.get(k).copied().unwrap_or(0) {
+            0 => b"aun vacia",
+            n => {
+                let nd = crate::fmt_num(n as u64, &mut d[..]);
+                d[nd..nd + 9].copy_from_slice(b" mensajes");
+                &d[..nd + 9]
+            }
+        },
+        _ => CORTO[v.sec],
+    }
+}
+
 fn lista(cv: &mut Canvas, v: &Vista) {
     let (nombre, color, _) = SECCIONES[v.sec];
-    cv.rect(RIEL, 0, LISTA, alto(), PANEL);
-    cv.rect(X_CENTRO - 1, 0, 1, alto(), LINEA);
+    cv.rect(RIEL, BARRA, LISTA, alto() - BARRA, PANEL);
+    cv.rect(X_CENTRO - 1, BARRA, 1, alto() - BARRA, LINEA);
     cv.rect(RIEL, CABECERA - 1, LISTA, 1, LINEA);
-    // El nombre de la seccion entra escribiendose.
+    // El nombre de la seccion, en negrita, entra escribiendose.
     let n = ((v.ms.wrapping_sub(v.desde_sec) / 35) as usize).min(nombre.len());
-    cv.text(RIEL + 16, 20, &nombre[..n], color, 2);
+    negrita(cv, RIEL + 16, BARRA + 20, &nombre[..n], BLANCO);
+    rotulo(cv, RIEL + 16, CABECERA + 14, ROTULOS[v.sec], mezclar(TENUE, PANEL, 200, 256));
     let (desde, filas) = filas_visibles(v.sec, v.item);
     for j in 0..filas {
         let k = desde + j;
@@ -423,69 +531,87 @@ fn lista(cv: &mut Canvas, v: &Vista) {
         let elegida = k == v.item;
         let encima = v.puntero.map_or(false, |(px, py)| dentro(px, py, (x, y, w, h)));
         if elegida {
-            cv.rect(x, y, w, h, mezclar(color, PANEL, 50, 256));
-            cv.rect(x, y, 3, h, color);
+            redonda(cv, x, y, w, h, 9, mezclar(color, PANEL, 34, 256));
         } else if encima {
-            cv.rect(x, y, w, h, PANEL2);
+            redonda(cv, x, y, w, h, 9, PANEL2);
         }
-        let tinta = mezclar(if elegida { BLANCO } else { TEXTO }, PANEL, t as u32, 256);
-        if v.sec == ONDA {
-            // La ONDA: la que se pidio lleva su ecualizador chico.
-            let p = &PIEZAS[k];
-            let suena = v.pedida == Some(k) && v.sonando;
-            if suena {
-                for b in 0..3 {
-                    let a = 3 + onda(v.ms + b as u32 * 110, 380) * 10 / 256;
-                    cv.rect(x + 8 + b * 4, y + h / 2 + 6 - a, 3, a, LIMA);
-                }
+        let (cx, cy) = (x + 24, y + h / 2);
+        let suena = v.sec == ONDA && v.pedida == Some(k) && v.sonando;
+        // La cara de la fila.
+        match v.sec {
+            ONDA => crate::onda::portada(cv, x + 8, y + (h - 34) / 2, 34, k, suena, v.ms),
+            TERTULIAS => {
+                redonda(cv, x + 7, y + (h - 34) / 2, 34, 34, 10, mezclar(color, PANEL, 60, 256));
+                negrita(cv, cx - 4, cy - 8, b"#", color);
             }
-            cv.text_fit(x + 26, y + 9, p.nombre.as_bytes(), if suena { LIMA } else { tinta }, w - 70);
-            let mut d = [0u8; 8];
-            let nd = crate::fmt_num(p.bpm as u64, &mut d);
-            cv.text(x + w - 8 - nd as i32 * 8, y + 9, &d[..nd], TENUE, 1);
-            if p.estilo == Estilo::NekoPhonk {
-                cv.rect(x + w - 44, y + 13, 6, 6, ROSA);
+            MENSAJES => {
+                cara(cv, cx, cy, 17, CIAN, b'N', PANEL);
+                punto(cv, cx + 12, cy + 12, VERDE, if elegida { mezclar(color, PANEL, 34, 256) } else { PANEL });
             }
-            continue;
+            s => cara(cv, cx, cy, 17, mezclar(color, PANEL, 200, 256), SECCIONES[s].0[0].to_ascii_uppercase(), PANEL),
         }
-        let pre: &[u8] = if v.sec == TERTULIAS { b"" } else { b"> " };
-        let fin = cv.text(x + 12, y + 9, pre, color, 1);
-        cv.text_fit(x + 12 + fin, y + 9, nombre_item(v.sec, k), tinta, w - 60);
+        let tinta = mezclar(if elegida || suena { BLANCO } else { TEXTO }, PANEL, t as u32, 256);
+        // A la derecha, cuantos hay (si hay).
+        let mut der = x + w - 8;
         if let Some(&c) = v.cuentas.get(k) {
-            if c > 0 {
+            if c > 0 && v.sec != TERTULIAS {
                 let mut d = [0u8; 8];
                 let nd = crate::fmt_num(c as u64, &mut d);
-                let bw = nd as i32 * 8 + 10;
-                cv.rect(x + w - bw - 6, y + 7, bw, 18, mezclar(color, PANEL, 90, 256));
-                cv.text(x + w - bw + 5 - 6, y + 9, &d[..nd], BLANCO, 1);
+                let bw = nd as i32 * 8 + 12;
+                redonda(cv, der - bw, y + 8, bw, 18, 9, mezclar(color, PANEL, 110, 256));
+                cv.text(der - bw + 6, y + 9, &d[..nd], BLANCO, 1);
+                der -= bw + 6;
             }
         }
+        let tx = x + 50;
+        let nombre_item = nombre_item(v.sec, k);
+        if elegida {
+            negrita_fit(cv, tx, y + 7, nombre_item, tinta, der - tx);
+        } else {
+            cv.text_fit(tx, y + 7, nombre_item, tinta, der - tx);
+        }
+        // La segunda linea.
+        let mut d = [0u8; 24];
+        if v.sec == ONDA {
+            let p = &PIEZAS[k];
+            let nd = crate::fmt_num(p.bpm as u64, &mut d);
+            let fin = cv.text(tx, y + 26, &d[..nd], TENUE, 1);
+            let estilo: &[u8] = if p.estilo == Estilo::NekoPhonk { b" pulsos - neko" } else { b" pulsos" };
+            cv.text_fit(tx + fin, y + 26, estilo, if p.estilo == Estilo::NekoPhonk { mezclar(ROSA, PANEL, 190, 256) } else { TENUE }, x + w - 8 - tx - fin);
+        } else {
+            let s = segunda(v, k, &mut d);
+            cv.text_fit(tx, y + 26, s, TENUE, x + w - 8 - tx);
+        }
     }
-    // Abajo, quien eres: el gato chico de BMO-X, y lo que aun no hay.
-    let y0 = alto() - 96;
-    cv.rect(RIEL, y0, LISTA, 96, NEGRO);
+    // Abajo, quien eres: el gato chico de BMO-X.
+    let y0 = alto() - PIE;
+    cv.rect(RIEL, y0, LISTA, PIE, PANEL);
     cv.rect(RIEL, y0, LISTA, 1, LINEA);
-    gato_chico(cv, RIEL + 14, y0 + 16, v.ms);
-    cv.text(RIEL + 70, y0 + 22, b"tu BMO-X", BLANCO, 1);
-    cv.text(RIEL + 70, y0 + 42, b"sin red todavia", TENUE, 1);
-    cv.text(RIEL + 70, y0 + 60, b"(la PUERTA es H4)", TENUE, 1);
-    let luz = if v.ms / 1200 % 2 == 0 { AMBAR } else { mezclar(AMBAR, NEGRO, 120, 256) };
-    cv.disc(RIEL + 50, y0 + 66, 5, luz);
+    gato_chico(cv, RIEL + 12, y0 + 11, v.ms);
+    negrita(cv, RIEL + 60, y0 + 14, b"BMO-X (tu)", BLANCO);
+    cv.text(RIEL + 60, y0 + 36, b"sin clave aun: H6", TENUE, 1);
+    let luz = if v.ms / 1200 % 2 == 0 { AMBAR } else { mezclar(AMBAR, PANEL, 120, 256) };
+    punto(cv, RIEL + 46, y0 + 50, luz, PANEL);
 }
 
 /// El gato de BMO-X a un cuarto (38 x 45), que parpadea de vez en cuando.
-fn gato_chico(cv: &mut Canvas, x: i32, y: i32, ms: u32) {
+pub(crate) fn gato_chico(cv: &mut Canvas, x: i32, y: i32, ms: u32) {
+    gato(cv, x, y, ms, 4);
+}
+
+/// El gato de BMO-X a `1/div`, que parpadea de vez en cuando.
+pub(crate) fn gato(cv: &mut Canvas, x: i32, y: i32, ms: u32, div: u32) {
     use crate::gato::{EYES, HEIGHT, STROKE, WIDTH};
     let bit = |m: &[u8], fx: u32, fy: u32| {
         let i = (fy * WIDTH + fx) as usize;
         m[i / 8] >> (i % 8) & 1 == 1
     };
     let parpadea = ms % 4000 < 150;
-    for by in 0..HEIGHT / 4 {
-        for bx in 0..WIDTH / 4 {
+    for by in 0..HEIGHT / div {
+        for bx in 0..WIDTH / div {
             let (mut trazo, mut ojo) = (false, false);
-            for d in 0..16 {
-                let (fx, fy) = (bx * 4 + d % 4, by * 4 + d / 4);
+            for d in 0..div * div {
+                let (fx, fy) = (bx * div + d % div, by * div + d / div);
                 trazo |= bit(&STROKE, fx, fy);
                 ojo |= bit(&EYES, fx, fy);
             }
@@ -503,22 +629,58 @@ fn gato_chico(cv: &mut Canvas, x: i32, y: i32, ms: u32) {
 
 // ============================== EL CENTRO ==============================
 
+/// La pildora de estado de la cabecera: lo que la seccion ES hoy.
+fn estado(v: &Vista) -> (&'static [u8], Color) {
+    match v.sec {
+        MENSAJES => (b"solo aqui", CIAN),
+        TERTULIAS => (b"sin red: H6", AZUL),
+        MURO => (b"H9", MORADO),
+        CANAL => (b"SIN EMISION", ROJO),
+        ONDA if v.sonando => (b"SUENA", LIMA),
+        ONDA => (b"parada", TENUE),
+        PAGINAS => (b"sin Google", AMBAR),
+        ENVIOS => (b"H8", VERDE),
+        AMIGOS => (b"H6", ROSA),
+        _ => (b"3 jaulas", GRIS),
+    }
+}
+
 fn centro(cv: &mut Canvas, v: &Vista, dx: i32) {
     let (_, color, sub) = SECCIONES[v.sec];
-    let (x0, w) = (X_CENTRO + dx, ancho() - X_CENTRO);
-    cv.rect(X_CENTRO, CABECERA - 1, w, 1, LINEA);
-    // La cabecera: el item y lo que es, de verdad.
+    let (x0, w) = (X_CENTRO + dx, ancho_centro());
+    // La cabecera: la cara, el nombre en negrita, de que va, y su pildora.
     // En la ONDA el nombre de la pieza ya va grande en la ficha: arriba, la
     // seccion.
-    let titulo = if v.sec == ONDA { b"la musica de BMO-X".as_slice() } else { nombre_item(v.sec, v.item) };
+    let titulo = if v.sec == ONDA { b"la ONDA".as_slice() } else { nombre_item(v.sec, v.item) };
     let t = llega(v.ms, v.desde_item, 0, 260);
-    cv.text(x0 + 20 + (256 - t) * 20 / 256, 14, titulo, mezclar(BLANCO, FONDO, t as u32, 256), 2);
-    cv.text_fit(x0 + 20, 44, sub, TENUE, w - 40 - if v.sec == MENSAJES { 130 } else { 0 });
+    let cy = BARRA + 28;
+    match v.sec {
+        TERTULIAS => {
+            redonda(cv, x0 + 18, cy - 15, 30, 30, 9, mezclar(color, FONDO, 60, 256));
+            negrita(cv, x0 + 29, cy - 8, b"#", color);
+        }
+        MENSAJES => {
+            cara(cv, x0 + 33, cy, 15, CIAN, b'N', FONDO);
+            punto(cv, x0 + 44, cy + 11, VERDE, FONDO);
+        }
+        s => cara(cv, x0 + 33, cy, 15, mezclar(color, FONDO, 200, 256), SECCIONES[s].0[0].to_ascii_uppercase(), FONDO),
+    }
+    let tx = x0 + 60 + (256 - t) * 16 / 256;
+    let fin = negrita(cv, tx, cy - 8, titulo, mezclar(BLANCO, FONDO, t as u32, 256));
+    let (texto_p, color_p) = estado(v);
+    let px = pildora(cv, x0 + w - 18, cy - 11, texto_p, color_p, FONDO);
+    // Sin panel, lo que la seccion es va aqui (el panel lo lleva en su tarjeta).
+    let corto = if ancho_panel() > 0 { CORTO[v.sec] } else { sub };
+    cv.text_fit(tx + fin + 12, cy - 8, corto, TENUE, px - 16 - (tx + fin + 12));
+    cv.rect(X_CENTRO, CABECERA - 1, w, 1, LINEA);
+    // La raya de color de la maqueta: nace del nombre y se apaga.
+    let rw = w * 2 / 5 * t / 256;
+    cv.gradient(X_CENTRO, CABECERA - 2, rw, 2, color, FONDO);
     match v.sec {
         MENSAJES | TERTULIAS => charla(cv, v, x0, color),
         MURO => muro(cv, v, x0),
         CANAL => tele(cv, v, x0),
-        ONDA => la_onda(cv, v, x0),
+        ONDA => crate::onda::la_onda(cv, v, x0),
         PAGINAS => paginas(cv, v, x0),
         ENVIOS => envios(cv, v, x0),
         AMIGOS => amigos(cv, v, x0),
@@ -530,22 +692,17 @@ fn centro(cv: &mut Canvas, v: &Vista, dx: i32) {
     }
 }
 
-/// **La charla**: los mensajes desde su lado, y la caja de escribir.
+/// **La charla**, como la de la maqueta: sin bocadillos, la cara y el nombre
+/// al empezar cada racha, y el texto debajo; la caja de escribir abajo, con
+/// el ZUMBIDO dentro.
 fn charla(cv: &mut Canvas, v: &Vista, x0: i32, color: Color) {
-    let w = ancho() - X_CENTRO;
-    if v.sec == MENSAJES {
-        // El ZUMBIDO: uno cada 10 s, como en la maqueta.
-        let (bx, by, bw, bh) = caja_zumbido();
-        let c = if v.zumbido_listo { ROSA } else { mezclar(ROSA, FONDO, 70, 256) };
-        cv.rect(bx + x0 - X_CENTRO, by, bw, bh, mezclar(c, FONDO, 50, 256));
-        cv.frame(bx + x0 - X_CENTRO, by, bw, bh, 2, c);
-        cv.text(bx + x0 - X_CENTRO + 24, by + 9, b"ZUMBIDO", if v.zumbido_listo { BLANCO } else { TENUE }, 1);
-    }
+    let w = ancho_centro();
     let (ex, ey, ew, eh) = caja_escribir();
     let ex = ex + x0 - X_CENTRO;
-    let por_linea = ((ew - 80) / 8).max(10) as usize;
+    let tx = x0 + 20 + 52;
+    let por_linea = ((x0 + w - 24 - tx) / 8).max(10) as usize;
     let tope = CABECERA + 16;
-    let mut y = ey - 18;
+    let mut y = ey - 16;
     if v.charla.is_empty() {
         let t = llega(v.ms, v.desde_item, 100, 400);
         let c = mezclar(TENUE, FONDO, t as u32, 256);
@@ -553,59 +710,76 @@ fn charla(cv: &mut Canvas, v: &Vista, x0: i32, color: Color) {
         cv.text(x0 + (w - 30 * 8) / 2, mid - 20, b"aun no hay nada escrito aqui", c, 1);
         cv.text(x0 + (w - 46 * 8) / 2, mid + 4, b"lo que escribas se queda en sys/hermsg.txt", c, 1);
     }
+    let n = v.charla.len();
     // Del mas nuevo hacia arriba, hasta que no quepan.
     for (j, m) in v.charla.iter().rev().enumerate() {
+        let i = n - 1 - j;
+        // Una racha empieza si es el primero, o si el de antes es de hace
+        // mas de cinco minutos (o no se sabe cuando fue).
+        let empieza = i == 0 || m.cuando == 0 || m.cuando.saturating_sub(v.charla[i - 1].cuando) > 300;
         let lineas = partir(&m.texto, por_linea);
-        let alto_b = lineas.len() as i32 * 18 + 16;
-        y -= alto_b;
+        let alto_m = lineas.len() as i32 * 20 + if empieza { 24 } else { 0 };
+        y -= alto_m;
         if y < tope {
             break;
         }
-        let ancho_b = lineas.iter().map(|l| l.len()).max().unwrap_or(0) as i32 * 8 + 24;
         // ** ENTRAN DESDE SU LADO: en tus notas los mensajes son tuyos y
         // llegan por la derecha; en una tertulia suben desde abajo.
         let base = if j == 0 { v.enviado.max(v.desde_item) } else { v.desde_item };
         let t = llega(v.ms, base, if j == 0 { 0 } else { j as u32 * 35 }, 300);
-        let (bx, by) = if v.sec == MENSAJES {
-            (x0 + w - 20 - ancho_b + (256 - t) * 260 / 256, y)
-        } else {
-            (x0 + 20, y + (256 - t) * 60 / 256)
-        };
-        let fondo_b = if v.sec == MENSAJES { mezclar(color, FONDO, 40, 256) } else { PANEL2 };
-        cv.rect(bx, by, ancho_b, alto_b, mezclar(fondo_b, FONDO, t as u32, 256));
-        if v.sec == MENSAJES {
-            cv.rect(bx + ancho_b - 3, by, 3, alto_b, mezclar(color, FONDO, t as u32, 256));
-        } else {
-            cv.rect(bx, by, 3, alto_b, mezclar(color, FONDO, t as u32, 256));
+        let (dx, dy) = if v.sec == MENSAJES { ((256 - t) * 120 / 256, 0) } else { (0, (256 - t) * 40 / 256) };
+        let a = t as u32;
+        if empieza {
+            gato(cv, x0 + 20 + dx + 6, y + dy + 2, v.ms, 6);
+            let fin = negrita(cv, tx + dx, y + dy + 2, b"BMO-X (tu)", mezclar(BLANCO, FONDO, a, 256));
+            if v.sec == TERTULIAS {
+                cv.text(tx + dx + fin + 10, y + dy + 2, CANALES[v.item % CANALES.len()], mezclar(color, FONDO, a * 3 / 4, 256), 1);
+            }
         }
+        let y_t = y + dy + if empieza { 24 } else { 0 };
         for (k, l) in lineas.iter().enumerate() {
-            cv.text(bx + 12, by + 8 + k as i32 * 18, l, mezclar(TEXTO, FONDO, t as u32, 256), 1);
+            cv.text(tx + dx, y_t + k as i32 * 20, l, mezclar(TEXTO, FONDO, a, 256), 1);
         }
-        y -= 8;
+        y -= 10;
     }
-    // La caja de escribir.
-    cv.rect(ex, ey, ew, eh, if v.escribiendo { PANEL2 } else { PANEL });
-    cv.frame(ex, ey, ew, eh, 1, if v.escribiendo { color } else { LINEA });
+    // La caja de escribir: redonda, con su + a la izquierda.
+    let borde = if v.escribiendo { mezclar(color, FONDO, 200, 256) } else { LINEA };
+    caja(cv, ex, ey, ew, eh, 12, if v.escribiendo { PANEL2 } else { PANEL }, borde);
+    negrita(cv, ex + 16, ey + 17, b"+", TENUE);
+    let tope_x = if v.sec == MENSAJES { caja_zumbido().0 + x0 - X_CENTRO - 12 } else { ex + ew - 16 };
+    let tx = ex + 40;
     if v.escribiendo || !v.borrador.is_empty() {
-        let cabe = ((ew - 30) / 8) as usize;
+        let cabe = ((tope_x - tx - 6) / 8).max(1) as usize;
         let ver = &v.borrador[v.borrador.len().saturating_sub(cabe)..];
-        let fin = cv.text(ex + 12, ey + 14, ver, BLANCO, 1);
+        let fin = cv.text(tx, ey + 17, ver, BLANCO, 1);
         if v.escribiendo && v.ms / 500 % 2 == 0 {
-            cv.rect(ex + 13 + fin, ey + 12, 2, 20, color);
+            cv.rect(tx + fin + 1, ey + 15, 2, 20, color);
         }
     } else {
-        let donde: &[u8] = if v.sec == MENSAJES { b"escribe una nota" } else { b"escribe en la tertulia" };
-        let fin = cv.text(ex + 12, ey + 14, donde, TENUE, 1);
-        cv.text(ex + 12 + fin, ey + 14, b"  (/ o clic; Enter manda, Esc sale)", mezclar(TENUE, PANEL, 150, 256), 1);
+        let fin = if v.sec == MENSAJES {
+            cv.text(tx, ey + 17, b"Escribe una nota", TENUE, 1)
+        } else {
+            let f = cv.text(tx, ey + 17, b"Escribe en ", TENUE, 1);
+            f + cv.text(tx + f, ey + 17, CANALES[v.item % CANALES.len()], TENUE, 1)
+        };
+        cv.text_fit(tx + fin, ey + 17, b"  (/ o clic; Enter manda, Esc sale)", mezclar(TENUE, PANEL, 150, 256), tope_x - tx - fin);
+    }
+    if v.sec == MENSAJES {
+        // El ZUMBIDO: uno cada 10 s, como en la maqueta.
+        let (bx, by, bw, bh) = caja_zumbido();
+        let bx = bx + x0 - X_CENTRO;
+        let c = if v.zumbido_listo { ROSA } else { mezclar(ROSA, PANEL, 90, 256) };
+        redonda(cv, bx, by, bw, bh, 8, mezclar(c, PANEL, 60, 256));
+        cv.text(bx + (bw - 7 * 8) / 2, by + (bh - 16) / 2, b"ZUMBIDO", c, 1);
     }
     if v.sin_guardar {
-        cv.text(ex + ew - 30 * 8, ey - 16, b"no se pudo guardar en el disco", ROJO, 1);
+        cv.text(ex + ew - 30 * 8, ey - 18, b"no se pudo guardar en el disco", ROJO, 1);
     }
 }
 
 /// **El MURO**: seis postales que se voltean una tras otra.
 fn muro(cv: &mut Canvas, v: &Vista, x0: i32) {
-    let w = ancho() - X_CENTRO - 40;
+    let w = ancho_centro() - 40;
     let cw = (w - 2 * 16) / 3;
     let ch = ((alto() - CABECERA - 80) / 2 - 16).min(cw * 3 / 4);
     for k in 0..6 {
@@ -666,7 +840,7 @@ fn postal(cv: &mut Canvas, x: i32, y: i32, w: i32, h: i32, semilla: u32, ms: u32
 /// **El CANAL**: se enciende como una tele vieja -- una raya, se abre, y
 /// las barras de cuando no hay emision.
 fn tele(cv: &mut Canvas, v: &Vista, x0: i32) {
-    let wc = ancho() - X_CENTRO - 40;
+    let wc = ancho_centro() - 40;
     let tw = wc.min((alto() - CABECERA - 100) * 16 / 9);
     let th = tw * 9 / 16;
     let (tx, ty) = (x0 + 20 + (wc - tw) / 2, CABECERA + 30);
@@ -708,199 +882,9 @@ fn tele(cv: &mut Canvas, v: &Vista, x0: i32) {
     cv.disc(tx + tw, ty + th + 4, 3, if t < 220 || v.ms / 900 % 2 == 0 { ROJO } else { mezclar(ROJO, NEGRO, 100, 256) });
 }
 
-/// El color de una pieza: el suyo en el disco, en la ficha y en las barras.
-fn color_pieza(k: usize) -> Color {
-    if PIEZAS[k % PIEZAS.len()].estilo == Estilo::NekoPhonk {
-        return ROSA;
-    }
-    [CIAN, LIMA, AZUL, MORADO, AMBAR, VERDE, CIAN, LIMA, AZUL, MORADO][k % 10]
-}
-
-/// Lo que tarda una vuelta del bucle, en ms: ocho compases de cuatro pulsos
-/// (`bmo_fondo::compositor::PASOS` son 128 semicorcheas).
-fn vuelta_ms(bpm: u32) -> u32 {
-    32 * 60_000 / bpm.max(1)
-}
-
-/// `m:ss` en `b`; devuelve cuantos bytes.
-fn reloj(ms: u32, b: &mut [u8; 8]) -> usize {
-    let s = ms / 1000;
-    let mut n = crate::fmt_num((s / 60) as u64, &mut b[..]);
-    b[n] = b':';
-    b[n + 1] = b'0' + (s % 60 / 10) as u8;
-    b[n + 2] = b'0' + (s % 10) as u8;
-    n += 3;
-    n
-}
-
-/// Los picos del ecualizador, que caen despacio: el unico estado de la ONDA
-/// entre fotogramas (la app es un solo hilo).
-static PICOS: [core::sync::atomic::AtomicI32; 48] = [const { core::sync::atomic::AtomicI32::new(0) }; 48];
-
-/// **La ONDA**: el DISCO de la pieza que gira mientras suena, su ficha, la
-/// vuelta del bucle y un ecualizador que sigue al medidor del MAESTRO.
-fn la_onda(cv: &mut Canvas, v: &Vista, x0: i32) {
-    let w = ancho() - X_CENTRO - 40;
-    let k = v.pedida.unwrap_or(v.item) % PIEZAS.len();
-    let p = &PIEZAS[k];
-    let suena = v.pedida == Some(k) && v.sonando;
-    let color = color_pieza(k);
-    let entra = llega(v.ms, v.desde_item, 0, 450);
-    let y = CABECERA + 24;
-
-    // ** EL DISCO: surcos, el brillo que gira, la etiqueta y el agujero. Gira
-    // a 33 vueltas por minuto mientras suena; parado, se queda donde estaba.
-    const R: i32 = 96;
-    let (cx, cy) = (x0 + 20 + R + 8, y + R + 12);
-    let giro = if suena { fase(v.ms.wrapping_sub(v.pedida_desde), 1818) } else { 0 };
-    cv.disc(cx + 4, cy + 6, R, mezclar(NEGRO, FONDO, 140, 256));
-    cv.disc(cx, cy, R, 0x0007_080C);
-    let mut r = R - 4;
-    while r > 34 {
-        let pasos = (r * 3).max(24);
-        for q in 0..pasos {
-            let a = q * 256 / pasos;
-            // El brillo: dos lobulos opuestos que giran con el disco.
-            let rel = (a - giro).rem_euclid(128);
-            let luz = if rel < 22 { (22 - rel) * 7 } else { 0 } as u32;
-            let base = if r % 8 == 0 { 0x0028_2E3C } else if r % 4 == 0 { 0x0018_1C26 } else { 0x0010_1219 };
-            let c = mezclar(mezclar(color, BLANCO, 110, 256), base, luz.min(140), 256);
-            cv.put(cx + coseno(a) * r / 256, cy + seno(a) * r / 256, c);
-        }
-        r -= 2;
-    }
-    cv.disc(cx, cy, 34, color);
-    cv.disc(cx, cy, 30, mezclar(color, NEGRO, 60, 256));
-    // Una marca en la etiqueta, para que se VEA girar.
-    let (mx, my) = (cx + coseno(giro) * 22 / 256, cy + seno(giro) * 22 / 256);
-    cv.disc(mx, my, 3, BLANCO);
-    cv.disc(cx, cy, 4, FONDO);
-    // El brazo: posado en el surco si suena, levantado si no.
-    let (bx, by) = (cx + R + 22, cy - R + 6);
-    let (px, py) = if suena { (cx + R / 2, cy + 8) } else { (cx + R + 6, cy + 30) };
-    cv.disc(bx, by, 7, PANEL2);
-    cv.disc(bx, by, 3, GRIS);
-    for g in 0..3 {
-        cv.line((bx + g - 1, by), (px + g - 1, py), GRIS);
-    }
-    cv.rect(px - 5, py - 3, 10, 7, if suena { color } else { TENUE });
-
-    // ** LA FICHA, a la derecha del disco.
-    let tx = cx + R + 48;
-    let tw = (x0 + 20 + w - tx).max(80);
-    let ty = y + 8 + (256 - entra) * 16 / 256;
-    let etiqueta: &[u8] = if suena { b"AHORA SUENA" } else if v.pedida == Some(k) { b"PEDIDA" } else { b"ELIGE Y SUENA" };
-    cv.text(tx, ty, etiqueta, if suena { color } else { TENUE }, 1);
-    let escala = if (p.nombre.len() as i32) * 24 <= tw { 3 } else { 2 };
-    cv.text(tx, ty + 22, p.nombre.as_bytes(), mezclar(BLANCO, FONDO, entra as u32, 256), escala);
-    // Las fichas chicas: pulsos, timbre, escala, estilo.
-    let mut d = [0u8; 12];
-    let nd = crate::fmt_num(p.bpm as u64, &mut d);
-    let timbre: &[u8] = match p.timbre {
-        bmo_fondo::Timbre::Seno => b"seno",
-        bmo_fondo::Timbre::Cuadrada => b"cuadrada 8 bits",
-        bmo_fondo::Timbre::Sierra => b"sierra",
-        bmo_fondo::Timbre::Triangulo => b"triangulo",
-    };
-    let modo: &[u8] = match p.escala {
-        bmo_fondo::Escala::Frigia => b"frigia",
-        bmo_fondo::Escala::Menor => b"menor",
-        bmo_fondo::Escala::Mayor => b"mayor",
-        bmo_fondo::Escala::Penta => b"pentatonica",
-        bmo_fondo::Escala::Dorica => b"dorica",
-    };
-    let estilo: &[u8] = if p.estilo == Estilo::NekoPhonk { b"NEKO PHONK" } else { b"ambiente" };
-    let mut fx = tx;
-    let fy = ty + 22 + escala * 16 + 14;
-    for (kk, ficha) in [&d[..nd], timbre, modo, estilo].iter().enumerate() {
-        let fw = ficha.len() as i32 * 8 + 16 + if kk == 0 { 7 * 8 } else { 0 };
-        if fx + fw > tx + tw {
-            break;
-        }
-        cv.rect(fx, fy, fw, 22, mezclar(color, FONDO, 36, 256));
-        cv.frame(fx, fy, fw, 22, 1, mezclar(color, FONDO, 120, 256));
-        let fin = cv.text(fx + 8, fy + 3, ficha, TEXTO, 1);
-        if kk == 0 {
-            cv.text(fx + 8 + fin, fy + 3, b" pulsos", TENUE, 1);
-        }
-        fx += fw + 8;
-    }
-    // La vuelta del bucle: por donde va y cuanto mide (la musica de fondo
-    // es un bucle SIN COSTURA: al acabar sigue, no se para).
-    let total = vuelta_ms(p.bpm);
-    let va = if suena { v.ms.wrapping_sub(v.pedida_desde) % total } else { 0 };
-    let (ly, lw) = (fy + 40, tw.min(520));
-    cv.rect(tx, ly, lw, 4, LINEA);
-    cv.rect(tx, ly, (lw as u64 * va as u64 / total as u64) as i32, 4, color);
-    if suena {
-        let px = tx + (lw as u64 * va as u64 / total as u64) as i32;
-        cv.disc(px, ly + 1, 5, BLANCO);
-    }
-    let mut b1 = [0u8; 8];
-    let mut b2 = [0u8; 8];
-    let (n1, n2) = (reloj(va, &mut b1), reloj(total, &mut b2));
-    cv.text(tx, ly + 12, &b1[..n1], TEXTO, 1);
-    cv.text(tx + lw - n2 as i32 * 8, ly + 12, &b2[..n2], TENUE, 1);
-    cv.text(tx + n1 as i32 * 8 + 16, ly + 12, b"en bucle, sin costura", TENUE, 1);
-    let estado: &[u8] = if suena {
-        b"suena en el ESCRITORIO: sigue con HERMES cerrado, y la PASTILLA de arriba la manda"
-    } else if v.pedida == Some(k) {
-        b"pedida al escritorio: si no suena, `fondo` en Ejecutar dice por que"
-    } else {
-        b"un clic en la lista y suena: la compone y la toca el escritorio"
-    };
-    cv.text_fit(tx, ly + 34, estado, if suena { mezclar(color, TEXTO, 120, 256) } else { TENUE }, tw);
-
-    // ** EL ECUALIZADOR: 48 barras finas en degradado. La fuerza es la del
-    // medidor del MAESTRO (lo que sale por el cable), con una curva de
-    // espectro (los graves arriba) y un baile propio de cada barra; los picos
-    // caen despacio, y el suelo refleja.
-    let ey = cy + R + 40;
-    let eh = (alto() - ey - 70).max(60);
-    for q in 1..4 {
-        cv.rect(x0 + 20, ey + eh * q / 4, w, 1, mezclar(LINEA, FONDO, 140, 256));
-    }
-    let barras = 48;
-    let paso = (w / barras).max(4);
-    let ancho_b = (paso - 3).max(2);
-    let crece = llega(v.ms, v.desde_sec, 0, 600);
-    for b in 0..barras {
-        let lado = (b % 2) as usize;
-        // Los graves (a la izquierda) suben mas que los agudos.
-        let curva = 256 - b * 120 / barras;
-        let fuerza = if v.sonando { nivel(v.rms[lado]) } else { 0 };
-        let baila = if v.sonando { onda(v.ms + b as u32 * 71, 210 + (b as u32 % 9) * 37) } else { 0 };
-        let a = ((fuerza * curva / 256 * 3 / 4 + baila * fuerza / 256 / 3) * eh / 256 * crece / 256).clamp(2, eh * 9 / 10);
-        let bx = x0 + 20 + b * paso;
-        let c = mezclar(color, CIAN, b as u32 * 256 / barras as u32, 256);
-        // El degradado: cuatro tramos, mas oscuros abajo.
-        for t in 0..4 {
-            let (y0, y1) = (ey + eh - a * (t + 1) / 4, ey + eh - a * t / 4);
-            cv.rect(bx, y0, ancho_b, y1 - y0, mezclar(c, FONDO, 256 - (3 - t as u32) * 45, 256));
-        }
-        cv.rect(bx, ey + eh - a, ancho_b, 2, mezclar(BLANCO, c, 110, 256));
-        // El reflejo, que se apaga.
-        for t in 0..3 {
-            let h = (a / 10).max(1);
-            cv.rect(bx, ey + eh + 3 + t * h, ancho_b, h, mezclar(c, FONDO, [60, 30, 12][t as usize], 256));
-        }
-        // El pico, que sube de golpe y cae despacio.
-        let pk = &PICOS[b as usize];
-        let antes = pk.load(core::sync::atomic::Ordering::Relaxed);
-        // El pico sale del medidor (la punta, no la fuerza): mas alto que la barra.
-        let punta = if v.sonando { (nivel(v.pico[lado]) * curva / 256 * 3 / 4 * eh / 256 * crece / 256).min(eh * 9 / 10) } else { 0 };
-        let sube = a.max(punta);
-        let ahora = if sube > antes { sube } else { (antes - 2).max(0) };
-        pk.store(ahora, core::sync::atomic::Ordering::Relaxed);
-        if v.sonando && ahora > a + 3 {
-            cv.rect(bx, ey + eh - ahora, ancho_b, 2, mezclar(BLANCO, c, 160, 256));
-        }
-    }
-}
-
 /// **Las paginas**: el inicio, con su buscador que se escribe solo.
 fn paginas(cv: &mut Canvas, v: &Vista, x0: i32) {
-    let w = ancho() - X_CENTRO - 40;
+    let w = ancho_centro() - 40;
     let y = CABECERA + 60;
     let titulo = b"hermes";
     let tw = titulo.len() as i32 * 8 * 4;
@@ -938,7 +922,7 @@ fn envios(cv: &mut Canvas, v: &Vista, x0: i32) {
         (b"EL JUEZ", b"lo mira por dentro"),
         (b"TU CARPETA", b"solo entonces"),
     ];
-    let w = ancho() - X_CENTRO - 40;
+    let w = ancho_centro() - 40;
     let pw = (w - 4 * 24) / 5;
     let y = CABECERA + 80;
     let t = v.ms.wrapping_sub(v.desde_sec);
@@ -986,7 +970,7 @@ fn envios(cv: &mut Canvas, v: &Vista, x0: i32) {
 
 /// **Amigos**: tu huella, que se escribe; y como se acepta a alguien.
 fn amigos(cv: &mut Canvas, v: &Vista, x0: i32) {
-    let w = ancho() - X_CENTRO - 40;
+    let w = ancho_centro() - 40;
     let y = CABECERA + 40;
     cv.text(x0 + 20, y, b"tu huella", ROSA, 2);
     // Dieciseis grupos de cuatro: los de una huella de verdad. Sin clave
@@ -1037,7 +1021,7 @@ fn jaulas(cv: &mut Canvas, v: &Vista, x0: i32) {
         (b"LA APP", b"esta ventana", b"corre ahora", CIAN, true),
         (b"EL JUEZ", b"lo que llega", b"H8: aun no existe", ROSA, false),
     ];
-    let w = ancho() - X_CENTRO - 40;
+    let w = ancho_centro() - 40;
     let jw = (w - 2 * 30) / 3;
     let jh = 200;
     let y_fin = CABECERA + 70;
