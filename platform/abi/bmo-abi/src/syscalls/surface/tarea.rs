@@ -1299,6 +1299,14 @@ pub const AUDIO_FONDO_CALLAR: u64 = 4;
 pub const AUDIO_FONDO_SUENA: u64 = 5;
 /// Soltar el banco y el tubo.
 pub const AUDIO_FONDO_SOLTAR: u64 = 6;
+/// Situar un canal del fondo en el espacio (S7 por voz): volumen = el `izq`
+/// de `arg0`, `arg1` = el angulo (`i16`, grados, + derecha, 0 delante), o
+/// -32768 para volver al paneo.
+pub const AUDIO_FONDO_SITUAR: u64 = 7;
+/// **El 3D por voz en `AUDIO_OP_VOZ` / ajustar** (S7, 03-10): con este bit
+/// en `arg2`, `[0..16)` es el volumen (0..256) y `[32..48)` el angulo (`i16`,
+/// grados, + derecha). Sin el, `[0..16)` izq y `[16..32)` der, como siempre.
+pub const VOZ_AJUSTAR_ANGULO: u64 = 1 << 48;
 /// Los canales desde aqui son AVISOS: no se agachan y agachan la musica.
 pub const AUDIO_FONDO_AVISO: u64 = 8;
 

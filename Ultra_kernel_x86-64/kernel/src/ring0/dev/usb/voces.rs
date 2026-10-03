@@ -72,6 +72,8 @@ enum Orden {
     /// Canal, generacion del banco para la que se pidio, y el sonido.
     Tocar(u8, u32, Sonido),
     Ajustar(u8, u16, u16),
+    /// Canal, volumen y angulo (S7 por voz).
+    Situar(u8, u16, i16),
     Callar(u8),
     CallarTodas,
 }
@@ -237,6 +239,15 @@ impl Atril {
         self.ordenes.empujar(Orden::Ajustar(canal as u8, izq.min(PLENO_VOZ), der.min(PLENO_VOZ))) as u64
     }
 
+    /// **Situar** una voz que suena (S7 por voz): volumen 0..=256 y angulo
+    /// en grados (+ derecha, 0 delante), o `SIN_ANGULO`.
+    pub fn situar(&self, pid: u32, canal: u64, vol: u16, angulo: i16) -> u64 {
+        if self.pid.load(Ordering::SeqCst) != pid || canal as usize >= MAX_VOCES {
+            return 0;
+        }
+        self.ordenes.empujar(Orden::Situar(canal as u8, vol.min(PLENO_VOZ), angulo)) as u64
+    }
+
     /// **Callar** un canal, o todos con `canal = 0xFF`.
     pub fn callar(&self, pid: u32, canal: u64) -> u64 {
         if self.pid.load(Ordering::SeqCst) != pid {
@@ -333,6 +344,7 @@ impl Atril {
                     }
                 }
                 Orden::Ajustar(c, i, d) => voces.ajustar(c as usize, i, d),
+                Orden::Situar(c, v, g) => voces.situar(c as usize, v, g),
                 Orden::Callar(c) => voces.callar(c as usize),
                 Orden::CallarTodas => voces.callar_todas(),
             }
@@ -431,8 +443,15 @@ pub fn tocar(pid: u32, a1: u64, a2: u64) -> u64 {
     APP.tocar_sonido(pid, canal, s)
 }
 
-/// **Ajustar** en el atril de la APP: `lados` = izq `[0..16)` | der `[16..32)`.
+/// **Ajustar** en el atril de la APP: `lados` = izq `[0..16)` | der
+/// `[16..32)`. Y desde el 03-10 (S7 por voz), con el bit 48 puesto: `[0..16)`
+/// es el VOLUMEN y `[32..48)` el ANGULO (`i16`, grados, + derecha): la voz
+/// suena en ese sitio, con su retardo y su sombra en cada oido. Una app de
+/// antes no pone el bit 48 y sigue igual.
 pub fn ajustar(pid: u32, canal: u64, lados: u64) -> u64 {
+    if (lados >> 48) & 1 == 1 {
+        return APP.situar(pid, canal, (lados & 0xFFFF) as u16, ((lados >> 32) & 0xFFFF) as u16 as i16);
+    }
     APP.ajustar_lados(pid, canal, (lados & 0xFFFF) as u16, ((lados >> 16) & 0xFFFF) as u16)
 }
 
@@ -482,6 +501,9 @@ pub fn block_returned(pid: u32, fisica: u64, bytes: u64) {
 ///    4 CALLAR   el canal de `a0`, o todos con canal 15 y a1 = 1
 ///    5 SUENA    el canal de `a0`
 ///    6 SOLTAR   el banco, y desarma el tubo si era por el fondo
+///    7 SITUAR   el canal de `a0` en el espacio: volumen = izq de `a0`,
+///               a1 = el angulo (`i16`, grados, + derecha), o -32768 para
+///               volver al paneo
 /// ```
 ///
 /// Los canales 8..16 son AVISOS ([`AVISOS`]): no se agachan y agachan al
@@ -518,6 +540,7 @@ pub fn fondo(pid: u32, a0: u64, a1: u64) -> u64 {
         3 => FONDO.ajustar_lados(pid, canal as u64, izq, der),
         4 => FONDO.callar(pid, if a1 == 1 { 0xFF } else { canal as u64 }),
         5 => FONDO.suena(canal as u64),
+        7 => FONDO.situar(pid, canal as u64, izq, (a1 & 0xFFFF) as u16 as i16),
         6 => {
             let era = FONDO.pid() == pid;
             FONDO.soltar(pid);

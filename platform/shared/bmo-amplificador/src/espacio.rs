@@ -229,6 +229,31 @@ fn seno(g: i32) -> i32 {
     }
 }
 
+/// **Los dos caminos de una fuente en `g` grados** (+ derecha, 0 delante),
+/// para el oido izquierdo y el derecho: (ganancia Q16, retardo Q8 muestras,
+/// polo del paso bajo Q16, con lo de detras ya dentro). `None` si no hay
+/// tablas para `hz`. Lo usan las VOCES, una por fuente (S7 por voz).
+pub(crate) fn caminos(hz: u32, g: i32) -> Option<[(i32, i32, i32); 2]> {
+    let (itd, sombra, detras) = match hz {
+        44_100 => (&ITD_44100, &SOMBRA_44100, DETRAS_44100),
+        48_000 => (&ITD_48000, &SOMBRA_48000, DETRAS_48000),
+        _ => return None,
+    };
+    let g = (g + 180).rem_euclid(360) - 180;
+    let lado = g.abs();
+    let lat = if lado <= 90 { lado } else { 180 - lado } as usize;
+    let sn = seno(lat as i32);
+    let atras = if lado <= 90 { 65_536 } else { 65_536 - (65_536 - detras) * (lado - 90) / 90 };
+    let mut c = [(65_536, 0, atras); 2];
+    for (oido, camino) in c.iter_mut().enumerate() {
+        let cerca = if oido == 1 { g >= 0 } else { g <= 0 };
+        if !cerca {
+            *camino = (65_536 - (sn * 2 / 3), itd[lat], ((sombra[lat] as i64 * atras as i64) >> 16) as i32);
+        }
+    }
+    Some(c)
+}
+
 impl Espacio {
     pub const fn nuevo(hz: u32) -> Espacio {
         Espacio {
