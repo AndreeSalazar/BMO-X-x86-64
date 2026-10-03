@@ -4,6 +4,17 @@
 >
 > Datos actualizados el 2026-09-21 (seccion 9, "System One"): el plan sigue aparcado; lo que cambia es que hay un escalon ANTES del motor de inferencia que no necesita ni GPU ni ancho de memoria, y que el `save` ya escribe su entrada (`informe/DATOS.TXT`).
 
+> ** Idea del propietario (2026-10-03), anotada SIN cambiar el estado: *"la F2
+> creo que es tener mi IA personal JARVIS, pero ese puede estar prendido
+> siempre o apagarse, pero te hace caso en todo en voz y eso, pero eso es
+> cuando tengo TITAN++, que F1 lo tengo"*. Lo que agrega a este plan: la TECLA
+> (F2, que hoy escribe `info` en el escritorio y se cambia cuando exista), el
+> INTERRUPTOR (encendido siempre o apagado) y la VOZ, que pide el mismo
+> microfono que HERMES H12 (`docs/plan/PLAN_HERMES.md`): una pieza para los
+> dos. Y "te hace caso en todo" pasa por la regla de las jaulas de HERMES: la
+> autoridad se da al nacer y nunca se hereda (`task/autoridad.rs`), asi que
+> cada orden que toque la maquina pide su permiso. Sigue APARCADO.
+
 > Escrito el 2026-08-23, el dia que entraron AVX2 y el monton grande.
 >
 > **Este documento fusiona cuatro que ya existian** y que contestaban trozos de

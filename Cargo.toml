@@ -127,6 +127,13 @@ members = [
     # EL CLOUD LOCAL: el protocolo ANTENA/1 entre BMO-X y el movil que hace de
     # antena. Ver PLAN_CLOUD_LOCAL, S2.
     "platform/shared/bmo-antena",
+    # HERMES/1 (H2): el saludo Noise XX/IK y los mensajes entre dos BMO-X, sin
+    # servidor de nadie. NO es la ANTENA de arriba. Ver PLAN_HERMES.
+    "platform/shared/bmo-hermes",
+    "platform/shared/bmo-fondo",
+    # H3 de PLAN_HERMES: la carpeta como capacidad. El juez de la RAIZ, puro;
+    # el kernel lo aplica en el unico sitio por donde entra una ruta.
+    "platform/shared/bmo-raiz-juicio",
     # LA LUDOTECA (J0): las lineas JUEGO / FICHERO / MOTOR, el camino de cada
     # juego y el juez de la suma. Ver PLAN_LA_LUDOTECA.
     "platform/shared/bmo-ludoteca",

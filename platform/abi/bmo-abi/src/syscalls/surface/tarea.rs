@@ -680,6 +680,24 @@ pub const IMAGEN_NO_REMAPEA: u32 = 15;
 pub const TASK_OP_RESERVA_HACER: u64 = 0x3A;
 /// DESHACER las paginas de `[arg0, arg0+arg1)`: `Ok` lleva los bytes devueltos.
 pub const TASK_OP_RESERVA_DESHACER: u64 = 0x3B;
+/// **LA RAIZ DEL SIGUIENTE HIJO** (H3 de `docs/plan/PLAN_HERMES.md`, 03-10):
+/// la ruta acumulada con [`TASK_OP_RUTA`] es la carpeta donde nacera
+/// ENCERRADO el siguiente hijo que lance quien llama. Se lee DENTRO de la raiz
+/// de quien llama, asi que un hijo nunca ve mas disco que su padre. Encerrado
+/// quiere decir: toda ruta que escriba se resuelve debajo de esa carpeta (sin
+/// `..`, sin letras de unidad) y las operaciones que ven el volumen entero sin
+/// ruta (el cursor de ESTRATOS, sellar, el disco, las versiones) le dicen NO.
+/// `Ok` o `ERROR_PERMISSION_DENIED` con el motivo en CABINA.
+pub const TASK_OP_RAIZ_HIJO: u64 = 0x3C;
+/// **EL ATRIL DEL FONDO** (`PLAN_EL_SONIDO.md` S4e, 03-10): la musica de
+/// fondo del escritorio y sus avisos, en un banco SUYO que el orquestador
+/// mezcla aunque otro proceso tenga el sonido (DOOM), agachandola sola bajo
+/// un aviso o la app. Solo quien tiene la pantalla; a cualquier otro,
+/// `ERROR_PERMISSION_DENIED` con el motivo en CABINA. `arg0` = orden `[0..4)`
+/// ([`AUDIO_FONDO_BANCO`]...) | canal `[4..8)` | izq `[8..17)` | der
+/// `[17..26)` | bucle `[26]`; `arg1` segun la orden. Las muestras son siempre
+/// S16 mono a 48 kHz.
+pub const TASK_OP_AUDIO_FONDO: u64 = 0x3D;
 /// La ventana de reserva: 384 GiB desde `0x20_0000_0000`, hasta el final
 /// de `PML4[0]` (era de 128: Cyberpunk aparta mas de 130 GiB al arrancar).
 pub const RESERVA_VENTANA_BASE: u64 = 0x0000_0020_0000_0000;
@@ -1246,6 +1264,22 @@ pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (`arg1 != 0`) o descallar. Con rampa: no es un corte seco.
 pub const AUDIO_MANDO_MUDO: u64 = 2;
+
+/// Prestar el banco del fondo: `arg1` = la VA de un bloque propio. Arma el
+/// tubo. `Ok` lleva los bytes del banco (0 = no se acepto).
+pub const AUDIO_FONDO_BANCO: u64 = 1;
+/// Tocar: `arg1` = inicio en bytes `[0..32)` | muestras `[32..64)`.
+pub const AUDIO_FONDO_TOCAR: u64 = 2;
+/// Ajustar izq y der de un canal que suena, por una rampa de 5 ms.
+pub const AUDIO_FONDO_AJUSTAR: u64 = 3;
+/// Callar un canal, o todos con `arg1 = 1`.
+pub const AUDIO_FONDO_CALLAR: u64 = 4;
+/// Suena el canal?
+pub const AUDIO_FONDO_SUENA: u64 = 5;
+/// Soltar el banco y el tubo.
+pub const AUDIO_FONDO_SOLTAR: u64 = 6;
+/// Los canales desde aqui son AVISOS: no se agachan y agachan la musica.
+pub const AUDIO_FONDO_AVISO: u64 = 8;
 
 /// Ocho bytes del nombre del hijo `arg0`; `arg1` numera el trozo.
 ///

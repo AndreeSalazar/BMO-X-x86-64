@@ -1,0 +1,10 @@
+[package]
+name = "bmo-raiz-juicio"
+version = "0.1.0"
+edition = "2021"
+description = "El juez de la RAIZ: una carpeta como capacidad. Resuelve la ruta de un proceso encerrado DENTRO de su raiz, sin que ningun tramo pueda subir. Puro, probado en el anfitrion."
+license = "Apache-2.0"
+
+# Sin dependencias: lo enlaza el kernel (`task/raiz.rs`) y se juzga en el
+# anfitrion, con una FAT32 de mentira que sigue `.` y `..` como la de verdad.
+[dependencies]

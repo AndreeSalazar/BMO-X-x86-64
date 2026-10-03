@@ -460,6 +460,33 @@ pub fn armar_silencio(si: bool) -> bool {
     true
 }
 
+/// **El tubo armado POR EL FONDO** (2026-10-03): la musica del escritorio
+/// tiene que sonar aunque nadie haya reclamado el sonido, y seguir sonando
+/// cuando DOOM sale y lo calla. El latido empuja si lo armo la app O el
+/// fondo; cada uno apaga solo lo suyo.
+static ARMADO_FONDO: AtomicBool = AtomicBool::new(false);
+
+/// **Armar o desarmar el tubo para el fondo.** Igual que [`armar_silencio`]:
+/// sin tubo abierto dice que no, con su motivo.
+pub fn armar_fondo(si: bool) -> bool {
+    if si && unsafe { TUBO.is_none() } {
+        cabina::warn("fondo", "no hay tubo abierto: la musica de fondo no tiene por donde salir", 0);
+        return false;
+    }
+    if si && unsafe { CEROS } == 0 {
+        let Some(f) = crate::ring0::mm::phys::alloc_frame() else {
+            cabina::fault("fondo", "sin marco para el bufer de silencio", 0);
+            return false;
+        };
+        crate::ring0::mm::phys::zero_frame(f);
+        unsafe { CEROS = f };
+    }
+    if ARMADO_FONDO.swap(si, Ordering::SeqCst) != si {
+        cabina::count("fondo", if si { "tubo ARMADO por el fondo" } else { "el fondo suelta el tubo" }, 0);
+    }
+    true
+}
+
 /// **Cuantas tramas sirvio el xHC desde la ultima vez**, segun SU reloj.
 ///
 /// La cuenta es `(MFINDEX_ahora - MFINDEX_antes) / 8`, con la vuelta de los 14
@@ -498,7 +525,7 @@ pub fn armado() -> bool {
 /// xHC recorre el anillo entero desde donde estaba, asi que un solo timbre
 /// despues de encolar las ocho es exactamente igual de efectivo.
 pub fn latido() {
-    if !unsafe { ARMADO } {
+    if !(unsafe { ARMADO } || ARMADO_FONDO.load(Ordering::SeqCst)) {
         unsafe { LATIDO_ARMADO = false };
         return;
     }

@@ -52,7 +52,7 @@
 //! que es lo unico que este lado sabe y el otro no.
 
 use super::ops::*;
-use super::{datos_limpiar, datos_meter, datos_tomar, ruta_tomar};
+use super::{datos_limpiar, datos_meter, datos_tomar, ruta_tomar, ruta_tomar_cruda};
 use crate::ring0::fsys::estratos::escribir::{self, Gesto};
 use crate::ring0::obj::cap;
 
@@ -87,6 +87,14 @@ fn partir(ruta: &str) -> Option<(&str, &str)> {
 /// con "no cabe" que con "esa ruta no existe" salvo ensenarselo a una persona,
 /// y para eso esta F11.
 pub(super) fn servir(pid: u32, arg0: u64, arg1: u64) -> u64 {
+    // ** MARCAR y VOLVER no llevan ruta y tocan el volumen ENTERO (H3): a un
+    // proceso encerrado, no. Los renglones se vacian igual, como en `hacer`.
+    if matches!(arg0 & 0xFF, ES_GESTO_MARCAR | ES_GESTO_VOLVER) && crate::ring0::task::raiz::encerrado(pid) {
+        ruta_tomar_cruda(pid);
+        datos_tomar(pid);
+        crate::ring0::cabina::warn("raiz", "un proceso encerrado quiso marcar o volver una version del volumen", pid as u64);
+        return 0;
+    }
     match arg0 & 0xFF {
         ES_GESTO_LIMPIAR => {
             datos_limpiar(pid);
@@ -156,7 +164,7 @@ pub(super) fn servir(pid: u32, arg0: u64, arg1: u64) -> u64 {
         // NOMBRE. Partirlo por la ultima barra convertiria `copia de ayer` en
         // otra cosa el dia que alguien use una barra en un nombre.
         ES_GESTO_MARCAR => {
-            let nombre = ruta_tomar(pid);
+            let nombre = ruta_tomar_cruda(pid);
             datos_tomar(pid);
             crate::ring0::cabina::info("estratos", "marcar la version", pid as u64);
             escribir::marcar(nombre).unwrap_or(0)
@@ -197,6 +205,12 @@ fn hacer(
 ) -> u64 {
     let ruta = ruta_tomar(pid);
     let datos = datos_tomar(pid);
+    // Fuera de la raiz (H3): no se construye nada, y los dos renglones ya se
+    // vaciaron arriba.
+    let Ok(ruta) = ruta else {
+        crate::ring0::cabina::warn("raiz", "un gesto de ESTRATOS fuera de la raiz", pid as u64);
+        return 0;
+    };
     // Lo unico que este lado sabe y el otro no: QUIEN lo ha pedido. El resto de
     // la historia --que paso y por que-- lo cuenta `escribir::aplicar`.
     crate::ring0::cabina::info("estratos", que, pid as u64);

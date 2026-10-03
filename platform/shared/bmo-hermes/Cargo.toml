@@ -1,0 +1,15 @@
+[package]
+name = "bmo-hermes"
+version = "0.1.0"
+edition = "2021"
+description = "El protocolo HERMES/1: el saludo Noise (XX e IK) y los mensajes entre dos BMO-X. Puro, probado en el anfitrion contra los vectores de Noise."
+license = "Apache-2.0"
+
+# Debajo solo `bmo-cripto`: X25519, AES-GCM, SHA-256 y HMAC, escritos aqui y
+# con sus vectores. La ANTENA no esta y no va a estar: HERMES no es ANTENA/1.
+[dependencies]
+bmo-cripto = { path = "../bmo-cripto" }
+
+# Only for the hostile tests: nothing that runs on the machine links it.
+[dev-dependencies]
+bmo-hostile = { path = "../bmo-hostile" }

@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 55 planes
+# LO QUE FALTA -- las casillas abiertas de los 56 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   476 casillas ABIERTAS en 46 planes
-   361 hechas
+   496 casillas ABIERTAS en 47 planes
+   363 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -87,6 +87,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 1.2 (S) La misma comprobacion en EXIT: una salida limpia tambien
 - ... y 14 mas
 
+## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 16 abiertas, 2 hechas
+
+*PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
+
+- [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
+- [ ] E3 -- el compositor al compas de la pantalla
+- [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
+- ... y 13 mas
+
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas
 
 *PLAN MEDIOS -- VLC como objetivo, medido contra lo que hay*
@@ -114,6 +123,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
 - ... y 11 mas
 
+## [`PLAN_HERMES.md`](PLAN_HERMES.md) -- 14 abiertas, 2 hechas
+
+*PLAN HERMES -- F3 de BMO-X: dos BMO-X que se hablan, sin servidor de nadie*
+
+- [ ] H4 -- la PUERTA HERMES. Un servicio que nace con RED (y nada mas),
+- [ ] H5 -- la app en F3, en una sola maquina. sys/hermes.bex
+- [ ] H6 -- texto entre dos BMO-X en la LAN. Pide G5 en el metal. **Como
+- ... y 11 mas
+
 ## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 13 abiertas, 7 hechas
 
 *DIRECTOR -- de compositor a administrador*
@@ -132,15 +150,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 11 abiertas, 2 hechas
-
-*PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
-
-- [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
-- [ ] E3 -- el compositor al compas de la pantalla
-- [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
-- ... y 8 mas
-
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -149,6 +158,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M0c -- los 112 ticks del match de INFO. El rechazo por campo
 - [ ] M1b -- CUANTO CUESTA REVOCAR UNA PAGINA, y va ANTES de M1. La seccion
 - ... y 8 mas
+
+## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 10 abiertas, 4 hechas
+
+*PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
+
+- [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
+- [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
+- [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
+- ... y 7 mas
 
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 
@@ -167,15 +185,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 3 taller.bex DIBUJA una ventana con su rejilla y su cursor,
 - [ ] 4 y LEE TECLAS por el buzon de entrada, con el
 - ... y 7 mas
-
-## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 9 abiertas, 4 hechas
-
-*PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
-
-- [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
-- [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
-- [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
-- ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 

@@ -318,6 +318,16 @@ pub(crate) const TASK_OP_RESERVA_HACER: u64 = 0x3A;
 /// DESHACER las paginas de `[arg0, arg0+arg1)`: contesta los bytes devueltos.
 /// Espejo de `bmo_abi::...::TASK_OP_RESERVA_DESHACER`.
 pub(crate) const TASK_OP_RESERVA_DESHACER: u64 = 0x3B;
+/// **LA RAIZ DEL SIGUIENTE HIJO** (H3 de PLAN_HERMES, 03-10): la ruta del
+/// renglon (`TASK_OP_RUTA`) es la carpeta donde nacera encerrado el siguiente
+/// hijo que lance quien llama, leida DENTRO de su propia raiz. Espejo de
+/// `bmo_abi::...::TASK_OP_RAIZ_HIJO`. Ver `task/raiz.rs`.
+pub(crate) const TASK_OP_RAIZ_HIJO: u64 = 0x3C;
+/// **EL ATRIL DEL FONDO** (03-10): la musica del escritorio y sus avisos, en
+/// un banco SUYO que suena aunque otro tenga el sonido. Solo quien tiene la
+/// pantalla. Espejo de `bmo_abi::...::TASK_OP_AUDIO_FONDO`. Ver
+/// `dev/usb/voces.rs`.
+pub(crate) const TASK_OP_AUDIO_FONDO: u64 = 0x3D;
 pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su entrada, bloqueada.

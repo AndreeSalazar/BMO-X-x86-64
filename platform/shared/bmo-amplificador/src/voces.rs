@@ -127,6 +127,20 @@ pub enum Rechazo {
     FueraDelBanco,
 }
 
+/// **Lo que tarda una voz en llegar al volumen que se le ajusto**: 240 tramas,
+/// 5 ms a 48 kHz (2026-10-03).
+///
+/// Hasta hoy `ajustar` saltaba en la trama siguiente, y un salto de volumen
+/// en mitad de una onda es un escalon: se oye como un CLIC. DOOM mueve el
+/// paneo de cada voz en cada tic y nadie lo noto porque los disparos lo
+/// tapan; una musica de fondo que se baja para dejar oir un aviso, no. 5 ms
+/// es lo que tardan las mesas de mezcla en "suavizar" un fader: por debajo de
+/// lo que el oido separa como movimiento, y bastante para no ser un escalon.
+pub const RAMPA_TRAMAS: u32 = 240;
+
+/// El paso por trama de la rampa, en la unidad interna (1/65536 de pleno).
+const RAMPA_PASO: u32 = ((PLENO_VOZ as u32) << 8) / RAMPA_TRAMAS;
+
 #[derive(Clone, Copy, Debug)]
 struct Voz {
     sonido: Sonido,
@@ -134,11 +148,25 @@ struct Voz {
     pos: u64,
     /// Cuanto avanza por cada muestra de SALIDA, en 16.16.
     paso: u64,
+    /// **El volumen que SUENA**, izquierdo y derecho, en 1/65536 de pleno: va
+    /// hacia `sonido.izq`/`sonido.der` (el que se PIDIO) por la rampa. Cuando
+    /// ya llego, la cuenta es la de siempre bit a bit: `(m * (v << 8)) >> 16`
+    /// es `(m * v) >> 8`.
+    vol: [u32; 2],
     activa: bool,
 }
 
 impl Voz {
-    const CALLADA: Voz = Voz { sonido: Sonido::NADA, pos: 0, paso: 0, activa: false };
+    const CALLADA: Voz = Voz { sonido: Sonido::NADA, pos: 0, paso: 0, vol: [0, 0], activa: false };
+}
+
+/// Un paso de la rampa: hacia `meta`, sin pasarse.
+fn acercar(v: u32, meta: u32) -> u32 {
+    if v < meta {
+        (v + RAMPA_PASO).min(meta)
+    } else {
+        v.saturating_sub(RAMPA_PASO).max(meta)
+    }
 }
 
 /// **Las voces**: el estado entero del mezclador. Sin asignador, sin nada
@@ -170,16 +198,20 @@ impl Voces {
         let mut s = s;
         s.izq = s.izq.min(PLENO_VOZ);
         s.der = s.der.min(PLENO_VOZ);
+        // Un sonido NUEVO empieza ya a su volumen: el ataque de un disparo es
+        // parte del disparo, y una rampa ahi se lo comeria.
         self.voz[canal] = Voz {
             sonido: s,
             pos: 0,
             paso: ((s.hz as u64) << 16) / hz_salida as u64,
+            vol: [(s.izq as u32) << 8, (s.der as u32) << 8],
             activa: true,
         };
         Ok(())
     }
 
-    /// **Mover** una voz que suena: volumen y lado. No la reinicia.
+    /// **Mover** una voz que suena: volumen y lado. No la reinicia, y no SALTA:
+    /// llega en [`RAMPA_TRAMAS`].
     pub fn ajustar(&mut self, canal: usize, izq: u16, der: u16) {
         if let Some(v) = self.voz.get_mut(canal) {
             v.sonido.izq = izq.min(PLENO_VOZ);
@@ -230,10 +262,17 @@ impl Voces {
     /// Una voz que se acaba se calla sola; una muestra que no esta en el
     /// banco la calla tambien, en vez de leer fuera.
     pub fn mezclar(&mut self, banco: &[u8], acc: &mut [i32], canales: usize) {
+        self.mezclar_solo(banco, acc, canales, u32::MAX);
+    }
+
+    /// **Mezclar SOLO los canales de `mascara`** (bit `n` = canal `n`). Es lo
+    /// que deja separar, en el mismo banco, lo que se agacha (la musica de
+    /// fondo) de lo que no (el aviso que la hace agacharse).
+    pub fn mezclar_solo(&mut self, banco: &[u8], acc: &mut [i32], canales: usize, mascara: u32) {
         let canales = canales.max(1);
         let tramas = acc.len() / canales;
-        for v in self.voz.iter_mut() {
-            if !v.activa {
+        for (n, v) in self.voz.iter_mut().enumerate() {
+            if !v.activa || mascara & (1 << n) == 0 {
                 continue;
             }
             let s = v.sonido;
@@ -265,12 +304,15 @@ impl Voces {
                 };
                 let frac = (v.pos & 0xFFFF) as i64;
                 let m = a + (((b - a) as i64 * frac) >> 16) as i32;
+                v.vol[0] = acercar(v.vol[0], (s.izq as u32) << 8);
+                v.vol[1] = acercar(v.vol[1], (s.der as u32) << 8);
+                let (vi, vd) = (v.vol[0] as i64, v.vol[1] as i64);
                 let base = t * canales;
                 if canales >= 2 {
-                    acc[base] += (m * s.izq as i32) >> 8;
-                    acc[base + 1] += (m * s.der as i32) >> 8;
+                    acc[base] += ((m as i64 * vi) >> 16) as i32;
+                    acc[base + 1] += ((m as i64 * vd) >> 16) as i32;
                 } else {
-                    acc[base] += (m * ((s.izq as i32 + s.der as i32) / 2)) >> 8;
+                    acc[base] += ((m as i64 * ((vi + vd) / 2)) >> 16) as i32;
                 }
                 v.pos += v.paso;
             }
@@ -402,8 +444,15 @@ mod pruebas {
         v.mezclar(&b, &mut acc, 2);
         assert!(acc[0] != 0);
         assert!((0..48).all(|t| acc[2 * t + 1] == 0));
-        // Y ajustar lo cambia sin reiniciar.
+        // Y ajustar lo cambia sin reiniciar: por la rampa, asi que lo que se
+        // mira es despues de ella (el sonido dura 50 muestras a 12 kHz, 200 a
+        // la salida: se toca en bucle para que siga sonando).
+        let mut s2 = s;
+        s2.bucle = true;
+        v.tocar(0, s2, 220, 48_000).unwrap();
         v.ajustar(0, 0, 256);
+        let mut acc = [0i32; 2 * RAMPA_TRAMAS as usize];
+        v.mezclar(&b, &mut acc, 2);
         let mut acc = [0i32; 96];
         v.mezclar(&b, &mut acc, 2);
         assert!((0..48).all(|t| acc[2 * t] == 0));
@@ -531,5 +580,66 @@ mod pruebas {
         let mut acc = [0i32; 96];
         v.mezclar(&chico, &mut acc, 2);
         assert!(!v.hay());
+    }
+
+    /// Un banco S16 con una CONTINUA a 20.000: lo peor para un salto de
+    /// volumen, porque todo el escalon se oye.
+    fn continua() -> [u8; 200] {
+        let mut b = [0u8; 200];
+        for i in 0..100 {
+            let [lo, hi] = 20_000i16.to_le_bytes();
+            b[2 * i] = lo;
+            b[2 * i + 1] = hi;
+        }
+        b
+    }
+
+    #[test]
+    fn ajustar_no_salta_va_por_la_rampa() {
+        let b = continua();
+        let s = Sonido { inicio: 0, muestras: 100, formato: Formato::S16, hz: 48_000, izq: 256, der: 256, pista: 0, bucle: true };
+        let mut v = Voces::nuevas();
+        v.tocar(0, s, 200, 48_000).unwrap();
+        let mut acc = [0i32; 96];
+        v.mezclar(&b, &mut acc, 2);
+        assert_eq!(acc[0], 20_000, "sin ajustar, el volumen pedido tal cual");
+        // Bajar a cero de golpe: la salida baja por escalones de una rampa,
+        // no de una vez.
+        v.ajustar(0, 0, 0);
+        let mut acc = [0i32; 2 * 300];
+        v.mezclar(&b, &mut acc, 2);
+        let mut antes = 20_000;
+        for t in 0..300 {
+            let x = acc[2 * t];
+            assert!(antes - x <= 100, "trama {t}: de {antes} a {x} es un escalon");
+            antes = x;
+        }
+        assert_eq!(acc[2 * 299], 0, "y al acabar la rampa, callada");
+        // Un `tocar` nuevo NO lleva rampa: el ataque es del sonido.
+        v.tocar(0, s, 200, 48_000).unwrap();
+        let mut acc = [0i32; 2];
+        v.mezclar(&b, &mut acc, 2);
+        assert_eq!(acc[0], 20_000);
+    }
+
+    #[test]
+    fn la_mascara_separa_lo_que_se_agacha_de_lo_que_no() {
+        let b = continua();
+        let s = Sonido { inicio: 0, muestras: 100, formato: Formato::S16, hz: 48_000, izq: 256, der: 256, pista: 0, bucle: true };
+        let mut v = Voces::nuevas();
+        v.tocar(0, s, 200, 48_000).unwrap();
+        v.tocar(9, s, 200, 48_000).unwrap();
+        let mut fondo = [0i32; 2];
+        let mut aviso = [0i32; 2];
+        v.mezclar_solo(&b, &mut fondo, 2, 0x00FF);
+        v.mezclar_solo(&b, &mut aviso, 2, 0xFF00);
+        assert_eq!((fondo[0], aviso[0]), (20_000, 20_000), "cada una en su cubo");
+        // Y las dos mitades juntas son lo mismo que mezclar todo.
+        let mut v2 = Voces::nuevas();
+        v2.tocar(0, s, 200, 48_000).unwrap();
+        v2.tocar(9, s, 200, 48_000).unwrap();
+        let mut todo = [0i32; 2];
+        v2.mezclar(&b, &mut todo, 2);
+        assert_eq!(todo[0], fondo[0] + aviso[0]);
     }
 }

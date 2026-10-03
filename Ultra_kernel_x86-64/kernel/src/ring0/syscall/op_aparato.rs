@@ -146,6 +146,23 @@ pub(super) fn audio_mando(arg0: u64, arg1: u64) -> BmoStatus {
         }
 }
 
+//// * EL ATRIL DEL FONDO (03-10, S4e de PLAN_EL_SONIDO): la musica del
+//// escritorio. La misma regla que el maestro: es del escritorio, asi que solo
+//// lo toca quien tiene la pantalla. La orden y sus numeros, en
+//// `dev/usb/voces.rs` (`fondo`).
+pub(super) fn audio_fondo(arg0: u64, arg1: u64) -> BmoStatus {
+        let pid = scheduler::current_pid();
+        if crate::ring0::obj::fb::owner() != Some(pid) {
+            crate::ring0::cabina::warn(
+                "fondo",
+                "la musica de fondo es del escritorio (quien tiene la pantalla): negado al pid",
+                pid as u64,
+            );
+            return BmoStatus::err(cap::ERROR_PERMISSION_DENIED);
+        }
+        BmoStatus::ok_value(crate::ring0::dev::usb::voces::fondo(pid, arg0, arg1))
+}
+
 //// * TOMAR LA VENTANA DE UN APARATO (S1 del suelo de Ring 3).
 ////
 //// `arg0` = cual, de la lista cerrada de `obj::mmio`. **No es una direccion**, y

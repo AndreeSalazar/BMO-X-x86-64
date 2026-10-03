@@ -681,5 +681,9 @@ pub mod maestro;
 /// Ver [`voces`].
 pub mod voces;
 
+/// **EL AGACHE**: la musica de fondo baja sola bajo un aviso o el juego, y
+/// vuelve sola. Ver [`agacha`].
+pub mod agacha;
+
 #[cfg(test)]
 mod pruebas;

@@ -172,6 +172,8 @@ mod op_aparato;
 /// **Abrir algo y recibir un handle**: directorio, fichero, consola, el propio
 /// paquete. Las seis donde el handle ES el permiso.
 mod op_abrir;
+/// **La raiz en la puerta** (H3): el NO de lo que se sale de la carpeta.
+mod op_raiz;
 /// **La consola**: escribir y leer. Sale porque es la unica pareja que habla
 /// con una pantalla, y la mas caliente del sistema.
 mod op_consola;
@@ -353,6 +355,7 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_AUTOPSIA_TEXTO => op_contar::autopsia_texto(arg0, arg1),
         TASK_OP_AUDIO_CENSO => op_aparato::audio_censo(arg0, arg1),
         TASK_OP_AUDIO_MANDO => op_aparato::audio_mando(arg0, arg1),
+        TASK_OP_AUDIO_FONDO => op_aparato::audio_fondo(arg0, arg1),
         TASK_OP_IOMMU => op_maquina::iommu(arg0, arg1),
         // ** PROTON-X P1d: el GS de Ring 3 de ESTE hilo. Solo el suyo, asi que
         // no pide autoridad; lo unico que se exige es que sea de la mitad de
@@ -372,6 +375,10 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         // llamaba a `crew::repartir` era un banco de pruebas.
         TASK_OP_ATRIL => op_maquina::atril(arg0, arg1),
         TASK_OP_TOCAR => op_maquina::tocar(arg0, arg1),
+        // ** Las cuatro que ven el volumen ENTERO sin ruta: a un proceso
+        // encerrado, NO (H3). La guarda solo se evalua para estas cuatro.
+        TASK_OP_ES_NODO | TASK_OP_ES_TEXTO | TASK_OP_ESTRATOS_SELLAR | TASK_OP_DISCO if op_raiz::encerrado() => op_raiz::no_sin_ruta(),
+        TASK_OP_RAIZ_HIJO => op_raiz::raiz_hijo(),
         TASK_OP_ESTRATOS_SELLAR => op_maquina::estratos_sellar(arg0, arg1),
         TASK_OP_DISCO => op_maquina::disco(arg0, arg1),
         // ** LOS DOS QUE LE DEVUELVEN AL PROPIETARIO SU MAQUINA (2026-08-24).
@@ -535,7 +542,15 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
             // lanza, y lo que lanza NO hereda lo que el tiene. La autoridad no
             // viaja porque no hay ninguna operacion que la mueva.
             // ** Y lo que va detras del primer espacio, al hijo: `task/argumentos.rs`.
-            let informe = crate::ring0::task::argumentos::lanzar(ruta_tomar(pid), autoridad::NINGUNA);
+            // ** Y la raiz (H3): la ruta, dentro de la del padre; y el hijo nace
+            // con la que el padre pidio (RAIZ_HIJO) o, como poco, la suya.
+            let linea = match crate::ring0::task::raiz::linea_de_lanzar(pid, ruta_tomar_cruda(pid)) {
+                Ok(l) => l,
+                Err(n) => return op_raiz::fuera(pid, n),
+            };
+            crate::ring0::task::raiz::preparar(Some(pid));
+            let informe = crate::ring0::task::argumentos::lanzar(linea, autoridad::NINGUNA);
+            crate::ring0::task::raiz::soltar_pendiente();
             match informe.res {
                 Ok(tid) => {
                     if let (Some(idx), Some(hijo)) = (consola_idx, informe.pid) {
@@ -661,9 +676,19 @@ fn ruta_push(pid: u32, empaquetado: u64) {
     }
 }
 
-/// La ruta acumulada, y el renglon queda vacio. Devuelve `""` si el que llama
-/// no es el que la escribio -- no se lanza la ruta de otro.
-pub(super) fn ruta_tomar(pid: u32) -> &'static str {
+/// **La ruta que de verdad se abre** (H3): la del renglon, escrita DENTRO de la
+/// raiz de `pid` si la tiene (`task/raiz.rs`). Es el unico sitio por donde una
+/// ruta de Ring 3 entra al kernel, y por eso la raiz se aplica aqui y no en
+/// cada brazo. [!] El `Err` NO es `""`: para `DIR_ABRIR` la ruta vacia es la
+/// raiz, y un rechazo que abriera la raiz seria lo contrario de un rechazo.
+pub(super) fn ruta_tomar(pid: u32) -> Result<&'static str, bmo_raiz_juicio::NoRuta> {
+    crate::ring0::task::raiz::resolver(pid, ruta_tomar_cruda(pid))
+}
+
+/// La ruta acumulada TAL CUAL, y el renglon queda vacio. Devuelve `""` si el
+/// que llama no es el que la escribio -- no se lanza la ruta de otro. Solo la
+/// usan quien pide una raiz y quien lanza: los dos pasan por el juez despues.
+pub(super) fn ruta_tomar_cruda(pid: u32) -> &'static str {
     unsafe {
         if RUTA_PID != pid {
             return "";

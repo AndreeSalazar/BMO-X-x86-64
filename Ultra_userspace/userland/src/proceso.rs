@@ -39,6 +39,25 @@ pub fn ejecutar_en(ruta: &[u8], consola: u64) -> Result<u64, u32> {
     }
 }
 
+/// **El siguiente hijo que lance nacera ENCERRADO en `carpeta`** (H3 de
+/// `docs/plan/PLAN_HERMES.md`): toda ruta que escriba se resolvera debajo de
+/// ella, y la carpeta se lee dentro de MI raiz si yo tengo una. Se gasta en el
+/// siguiente [`ejecutar`]. `false` si la carpeta no vale (con `..`, una letra
+/// de unidad o vacia): el motivo va a CABINA.
+///
+/// ```ignore
+/// raiz_del_siguiente_hijo(b"hermes");
+/// ejecutar(b"sys/hermes.bex");   // HERMES ve `hermes/` y nada mas
+/// ```
+pub fn raiz_del_siguiente_hijo(carpeta: &[u8]) -> bool {
+    for trozo in carpeta.chunks(8) {
+        let mut w = [0u8; 8];
+        w[..trozo.len()].copy_from_slice(trozo);
+        invoke(CURRENT_TASK, OP_RUTA, u64::from_le_bytes(w), 0, 0);
+    }
+    invoke(CURRENT_TASK, OP_RAIZ_HIJO, 0, 0, 0).ok()
+}
+
 /// **Mis argumentos** en `dst`: lo que iba detras de la ruta cuando me lanzaron
 /// (`run prog.bex datos/x.txt` -> `datos/x.txt`). Devuelve cuantos bytes.
 ///

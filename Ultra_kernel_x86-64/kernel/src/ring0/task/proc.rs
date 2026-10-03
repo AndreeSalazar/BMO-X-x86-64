@@ -390,6 +390,12 @@ pub fn has_room() -> bool {
 pub fn admit_from_disk(name: &str, bytes: &[u8], tam_fichero: usize) -> Option<(u32, u32)> {
     if !has_room() { return None; }
     let pid = next_pid();
+    // ** LA RAIZ, ANTES DE QUE EXISTA LA TAREA (H3). Despues seria tarde: en
+    // otro nucleo la tarea podria correr un instante sin su carpeta.
+    if !crate::ring0::task::raiz::nacer(pid) {
+        crate::ring0::cabina::warn("proc", "tenia que nacer encerrado y no queda plaza para su raiz: no nace", pid as u64);
+        return None;
+    }
     let stored = intern_name(name);
     // La etiqueta del log ANTES de que el proceso escriba su primera linea,
     // igual que con los demos: si no, la primera linea sale sin propietario.
@@ -404,6 +410,7 @@ pub fn admit_from_disk(name: &str, bytes: &[u8], tam_fichero: usize) -> Option<(
         }
         None => {
             crate::ring0::cabina::warn("proc", "el .bex de disco no paso la admision", pid as u64);
+            crate::ring0::task::raiz::olvidar(pid);
             None
         }
     }
@@ -434,6 +441,11 @@ pub fn admitir_por_rangos(
         return None;
     }
     let pid = next_pid();
+    // La raiz, antes de la tarea: el mismo motivo que en `admit_from_disk`.
+    if !crate::ring0::task::raiz::nacer(pid) {
+        crate::ring0::cabina::warn("proc", "tenia que nacer encerrado y no queda plaza para su raiz: no nace", pid as u64);
+        return None;
+    }
     let stored = intern_name(name);
     crate::ring0::uconsole::set_tag(pid, stored);
     record_open(stored, stored, pid, tam_fichero as u32);
@@ -445,6 +457,7 @@ pub fn admitir_por_rangos(
         }
         None => {
             crate::ring0::cabina::warn("proc", "el .bex de disco no paso la admision", pid as u64);
+            crate::ring0::task::raiz::olvidar(pid);
             None
         }
     }

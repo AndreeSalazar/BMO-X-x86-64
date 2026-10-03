@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "bmo-amplificador"
+version = "1.0.0"
+
+[[package]]
 name = "bmo-antena"
 version = "0.1.0"
 
@@ -63,6 +67,13 @@ version = "0.1.0"
 [[package]]
 name = "bmo-foco"
 version = "0.1.0"
+
+[[package]]
+name = "bmo-fondo"
+version = "1.0.0"
+dependencies = [
+ "bmo-amplificador",
+]
 
 [[package]]
 name = "bmo-fraps"
@@ -174,6 +185,7 @@ dependencies = [
  "bmo-cubo",
  "bmo-dibujo",
  "bmo-foco",
+ "bmo-fondo",
  "bmo-fraps",
  "bmo-golpe",
  "bmo-gpu-ga10x",
@@ -185,6 +197,7 @@ dependencies = [
  "bmo-registro",
  "bmo-ritmo",
  "bmo-rtc",
+ "bmo-sonido",
  "bmo-userland",
  "bmo-verrano",
 ]
@@ -199,6 +212,10 @@ dependencies = [
 [[package]]
 name = "bmo-sm86"
 version = "0.1.0"
+
+[[package]]
+name = "bmo-sonido"
+version = "1.0.0"
 
 [[package]]
 name = "bmo-spirv-front"

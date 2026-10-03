@@ -49,6 +49,9 @@ pub(crate) mod nya;
 /// **El mando del sonido**: abrir y cerrar el panel del maestro, sus teclas, su
 /// raton y el refresco del medidor. La cara la pinta `scene::sound`.
 pub(crate) mod sonido;
+/// **LA MUSICA DE FONDO**: el banco del escritorio, la pieza que suena y
+/// los avisos que la agachan. La orden es `fondo`.
+pub(crate) mod musica;
 /// **El mando de VITALES** (F7 / F8): solapas, teclas, raton y la muestra de
 /// cada cuarto de segundo. La cara la pinta `scene::vitals`.
 pub(crate) mod vitales;

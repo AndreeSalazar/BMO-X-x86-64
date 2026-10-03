@@ -1,0 +1,13 @@
+[package]
+name = "bmo-fondo"
+version = "1.0.0"
+edition = "2021"
+description = "La musica de fondo de BMO-X, compuesta aqui: patrones, sintesis sin aliasing y un bucle sin costura. Enteros, sin E/S."
+license = "Apache-2.0"
+
+# ** UNA DEPENDENCIA, y es de la casa: `bmo-amplificador`, por su tabla de dB,
+# su limite y su medidor. La musica sale por la misma cuenta que mide el
+# maestro, y no por una segunda que pudiera discrepar. Lo consume Ring 3 --sin
+# asignador-- y el anfitrion, que lo prueba.
+[dependencies]
+bmo-amplificador = { path = "../bmo-amplificador" }

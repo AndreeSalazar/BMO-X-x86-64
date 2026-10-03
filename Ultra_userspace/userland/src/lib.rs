@@ -119,6 +119,12 @@ pub const OP_IMAGEN_SELLAR: u32 = 0x39;
 /// **La RESERVA** (P0.4c): hacer y deshacer paginas en marcha. Ver `reserva.rs`.
 pub const OP_RESERVA_HACER: u32 = 0x3A;
 pub const OP_RESERVA_DESHACER: u32 = 0x3B;
+/// **La raiz del siguiente hijo** (H3). Ver [`raiz_del_siguiente_hijo`].
+pub const OP_RAIZ_HIJO: u32 = 0x3C;
+/// **El atril del fondo**: la musica del escritorio en un banco suyo, que
+/// suena aunque otro tenga el sonido. Solo quien tiene la pantalla. Ver
+/// [`crate::sonido::Fondo`].
+pub const OP_AUDIO_FONDO: u32 = 0x3D;
 /// El log del kernel, leido desde Ring 3. Ver `klog_lineas`/`klog_texto`.
 pub const OP_KLOG_INFO: u32 = 0x16;
 pub const OP_KLOG_TEXTO: u32 = 0x17;
@@ -423,6 +429,15 @@ pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).
 pub const AUDIO_MANDO_MUDO: u64 = 2;
+/// Las ordenes del atril del fondo (`OP_AUDIO_FONDO`), espejo de `bmo-abi`.
+pub const AUDIO_FONDO_BANCO: u64 = 1;
+pub const AUDIO_FONDO_TOCAR: u64 = 2;
+pub const AUDIO_FONDO_AJUSTAR: u64 = 3;
+pub const AUDIO_FONDO_CALLAR: u64 = 4;
+pub const AUDIO_FONDO_SUENA: u64 = 5;
+pub const AUDIO_FONDO_SOLTAR: u64 = 6;
+/// Desde este canal, AVISOS: no se agachan y agachan la musica.
+pub const AUDIO_FONDO_AVISO: u64 = 8;
 
 /// Operaciones sobre un handle de hijo. Ver `obj/tarea.rs` en el kernel.
 pub const TAREA_OP_VIVE: u32 = 0x01;

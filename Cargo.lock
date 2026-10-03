@@ -293,6 +293,13 @@ name = "bmo-foco"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-fondo"
+version = "1.0.0"
+dependencies = [
+ "bmo-amplificador",
+]
+
+[[package]]
 name = "bmo-fontgen"
 version = "0.1.0"
 
@@ -329,6 +336,14 @@ name = "bmo-hello-bex"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+]
+
+[[package]]
+name = "bmo-hermes"
+version = "0.1.0"
+dependencies = [
+ "bmo-cripto",
+ "bmo-hostile",
 ]
 
 [[package]]
@@ -426,6 +441,7 @@ dependencies = [
  "bmo-pase-gpu",
  "bmo-prestamo-juicio",
  "bmo-puerta-red",
+ "bmo-raiz-juicio",
  "bmo-rtc",
  "bmo-trim",
  "bmo-uaudio",
@@ -631,6 +647,10 @@ version = "0.1.0"
 dependencies = [
  "bmo-hostile",
 ]
+
+[[package]]
+name = "bmo-raiz-juicio"
+version = "0.1.0"
 
 [[package]]
 name = "bmo-registro"

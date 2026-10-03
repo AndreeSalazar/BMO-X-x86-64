@@ -285,7 +285,8 @@ static mut SUMA: [i32; SUMA_MAX] = [0; SUMA_MAX]; // [escribe] bombeo
 /// ```text
 ///    sin voces   el camino de siempre: la trama del anillo por `pasar`
 ///                (y en reposo, sin copia), o silencio
-///    con voces   anillo + voces sumados en 32 bits -> maestro -> rebote
+///    con voces   anillo + voces de la app + el FONDO agachado + sus
+///                avisos, sumados en 32 bits -> maestro -> rebote
 /// ```
 ///
 /// # Safety
@@ -326,7 +327,15 @@ pub unsafe fn componer(pcm: Option<(u64, u16)>, largo: u16, t: &super::audio::Tu
         }
         None => suma.fill(0),
     }
-    super::voces::mezclar(suma, canales);
+    super::voces::APP.mezclar(suma, canales, u32::MAX);
+    // ** EL FONDO (2026-10-03): la musica del escritorio, agachada si suena
+    // un aviso o la app, y los avisos encima. "Suena la app" es que lo que
+    // trae ESTA trama pasa de -40 dBFS: el sosten del agache (400 ms) tapa
+    // las tramas flojas entre dos golpes.
+    if super::voces::FONDO.hay() {
+        let app_suena = suma.iter().any(|&x| !(-328..=328).contains(&x));
+        super::voces::mezclar_fondo(suma, canales, t.frecuencia, app_suena);
+    }
     let m = etapa(t.frecuencia, t.canales);
     let dst = core::slice::from_raw_parts_mut(crate::ring0::mm::phys_to_virt(destino) as *mut i16, muestras);
     m.pasar_acumulador(suma, dst, canales);
