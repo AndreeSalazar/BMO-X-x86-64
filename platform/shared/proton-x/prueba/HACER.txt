@@ -1987,3 +1987,32 @@ Reproducible (comprobado dos veces). sha256:
 
 `dxc -dumpbin`: la salida 1 es SV_Depth (`oDepth`). El banco
 (`pruebas_pixeles.rs`) la dibuja sobre una Z de 0.5 con LESS: pasa x < 4.
+
+arreglos.dxil -- los arrays (03-10, N5.10)
+
+Lo que pedian vertices y pixeles de Cyberpunk (`Instruccion(19)` alloca y
+`(43)` getelementptr): un array local con indice calculado, uno de dos
+dimensiones escrito en un bucle (dxc lo aplana a [6 x float]) y dos tablas
+globales constantes (float e int). De `arreglos.hlsl` (aqui al lado), con
+el mismo `dxc` de Linux (1.9, 4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo arreglos.dxil arreglos.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   4e2cf517ac3de2a9767faef9b13a2e1d883820426337b2c8affacd9ac7898cc5  arreglos.dxil
+
+`dxc -dumpbin`: `@pesos` y `@saltos` son `internal constant` con su
+inicial; dos `alloca`, `getelementptr` con indices constantes y calculados,
+`load` y `store`. El banco (`pruebas_espacios.rs`) lo corre con i = 0..3.
+
+luces.dxil -- un cbuffer con fila calculada (03-10)
+
+`color[i & 7]` de un cbuffer: `CBufferLoadLegacy` con una fila que no es
+constante (las luces, los huesos). De `luces.hlsl`, con el mismo `dxc`:
+
+   dxc -T ps_6_0 -E pixel -Fo luces.dxil luces.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   625a7ae63dd668c68e8293393b877156f8804fc8b2f389bd85e5ccf8cf19b140  luces.dxil

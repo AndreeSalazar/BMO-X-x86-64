@@ -56,6 +56,7 @@ const MODULE_CODE_ALIAS: u64 = 9;
 const TYPE_NUMENTRY: u64 = 1;
 const TYPE_VOID: u64 = 2;
 const TYPE_POINTER: u64 = 8;
+const TYPE_ARRAY: u64 = 11;
 const TYPE_STRUCT_NAME: u64 = 19;
 const TYPE_FUNCTION: u64 = 21;
 
@@ -79,6 +80,10 @@ const FUNC_SWITCH: u64 = 12;
 const FUNC_EXTRACTVAL: u64 = 26;
 const FUNC_DEBUG_LOC_AGAIN: u64 = 33;
 const FUNC_CALL: u64 = 34;
+const FUNC_ALLOCA: u64 = 19;
+const FUNC_LOAD: u64 = 20;
+const FUNC_GEP: u64 = 43;
+const FUNC_STORE: u64 = 44;
 const FUNC_DEBUG_LOC: u64 = 35;
 
 const CALL_EXPLICIT_TYPE: u64 = 1 << 15;
@@ -106,6 +111,8 @@ const DX_TEXTURE_LOAD: i64 = 66;
 const DX_GET_DIMENSIONS: i64 = 72;
 const DX_BUFFER_LOAD: i64 = 68;
 const DX_DISCARD: i64 = 82;
+/// Las filas de 16 bytes que puede tener un cbuffer en D3D (64 KiB).
+const FILAS_DE_D3D: u16 = 4096;
 
 /// Por que un sombreador no se deja correr. El texto dice CUAL cosa.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -204,6 +211,16 @@ pub enum Op {
     /// pixel se TIRA -- ni color ni profundidad -- y el programa acaba ahi.
     /// Solo tiene sentido en el de pixeles.
     Descarta { c: Reg },
+    /// N5.10 (03-10): `d = array[i]`: el array son los `n` registros desde
+    /// `base`; el indice, los bits de `i` (fuera, 0).
+    LeeIndexado { d: Reg, base: Reg, n: u16, i: Reg },
+    /// `array[i] = s` (fuera, nada).
+    EscribeIndexado { base: Reg, n: u16, i: Reg, s: Reg },
+    /// 03-10: [`Op::Constantes`] con la fila CALCULADA: la `fila + i` (los
+    /// bits de `i`), si `i < filas` (las que se reservan para el cbuffer:
+    /// sin saber hasta donde llega el indice, las 4096 de D3D); si no, 0.
+    /// Los arrays de un cbuffer (luces, huesos) se leen asi.
+    ConstantesEn { d: Reg, fila: u16, filas: u16, i: Reg, cb: u8 },
 }
 
 /// Lo que pregunta [`Op::Compara`]. Las `SinSigno` (E6c), solo con
@@ -449,156 +466,6 @@ impl Programa {
             Err(MalaForma(self.ops.len()))
         }
     }
-
-    /// Desde el `Si` (o el `SiNo`) `i`: el indice tras su `SiNo` (si
-    /// `hasta_sino`) o tras su `FinSi`.
-    fn tras_si(&self, i: usize, hasta_sino: bool) -> usize {
-        let mut hondo = 0usize;
-        for (k, op) in self.ops.iter().enumerate().skip(i + 1) {
-            match op {
-                Op::Si { .. } => hondo += 1,
-                Op::SiNo if hondo == 0 && hasta_sino => return k + 1,
-                Op::FinSi if hondo == 0 => return k + 1,
-                Op::FinSi => hondo -= 1,
-                _ => {}
-            }
-        }
-        self.ops.len()
-    }
-
-    /// Desde dentro del bucle (en `i`): el indice tras su `FinBucle`.
-    fn tras_bucle(&self, i: usize) -> usize {
-        let mut hondo = 0usize;
-        for (k, op) in self.ops.iter().enumerate().skip(i + 1) {
-            match op {
-                Op::Bucle => hondo += 1,
-                Op::FinBucle if hondo == 0 => return k + 1,
-                Op::FinBucle => hondo -= 1,
-                _ => {}
-            }
-        }
-        self.ops.len()
-    }
-
-    /// [`Programa::correr`] con las texturas y los muestreadores del dibujo.
-    /// Una textura o un muestreador que no esta da (0, 0, 0, 0), como un SRV
-    /// nulo en D3D12. Devuelve si el pixel QUEDA: `false` si un
-    /// [`Op::Descarta`] lo tiro (N5.7); un programa sin ellos, siempre `true`.
-    pub fn correr_con(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) -> bool {
-        regs.clear();
-        regs.extend_from_slice(&self.iniciales);
-        let bits = |regs: &Vec<f32>, r: Reg| regs[r as usize].to_bits();
-        // Donde empieza cada bucle abierto (la forma ya se comprobo).
-        let mut bucles = [0usize; ANIDADO_MAXIMO];
-        let mut hondo = 0usize;
-        let mut pc = 0usize;
-        while let Some(op) = self.ops.get(pc) {
-            pc += 1;
-            match *op {
-                Op::Compara { d, a, b, como, entero } => {
-                    let si = if entero { como.enteros(bits(regs, a) as i32, bits(regs, b) as i32) } else { como.floats(regs[a as usize], regs[b as usize]) };
-                    regs[d as usize] = f32::from_bits(if si { u32::MAX } else { 0 });
-                }
-                Op::Elige { d, c, a, b } => regs[d as usize] = f32::from_bits(if bits(regs, c) != 0 { bits(regs, a) } else { bits(regs, b) }),
-                Op::Copia { d, a } => regs[d as usize] = f32::from_bits(bits(regs, a)),
-                Op::SumaEntera { d, a, b } => regs[d as usize] = f32::from_bits(bits(regs, a).wrapping_add(bits(regs, b))),
-                Op::Entera { d, a, b, op } => regs[d as usize] = f32::from_bits(op.hacer(bits(regs, a), bits(regs, b))),
-                Op::Convierte { d, a, como } => regs[d as usize] = f32::from_bits(como.hacer(bits(regs, a))),
-                Op::Si { c } => {
-                    if bits(regs, c) == 0 {
-                        pc = self.tras_si(pc - 1, true);
-                    }
-                }
-                // Se llega al SiNo corriendo la rama del si: la otra, no.
-                Op::SiNo => pc = self.tras_si(pc - 1, false),
-                Op::FinSi => {}
-                Op::Bucle => {
-                    bucles[hondo] = pc;
-                    hondo += 1;
-                }
-                Op::FinBucle => pc = bucles[hondo - 1],
-                Op::RomperSi { c, si_cero } => {
-                    if (bits(regs, c) == 0) == si_cero {
-                        pc = self.tras_bucle(pc - 1);
-                        hondo -= 1;
-                    }
-                }
-                Op::Romper => {
-                    pc = self.tras_bucle(pc - 1);
-                    hondo -= 1;
-                }
-                Op::Continuar => pc = bucles[hondo - 1],
-                Op::Descarta { c } => {
-                    if bits(regs, c) != 0 {
-                        return false;
-                    }
-                }
-                Op::Entrada { d, elemento, componente } => {
-                    regs[d as usize] = entradas.get(elemento as usize).map(|e| e[componente as usize & 3]).unwrap_or(0.0);
-                }
-                Op::Salida { s, elemento, componente } => {
-                    if let Some(e) = salidas.get_mut(elemento as usize) {
-                        e[componente as usize & 3] = regs[s as usize];
-                    }
-                }
-                Op::Constantes { d, fila, .. } => {
-                    for k in 0..4 {
-                        let o = fila as usize * 16 + 4 * k;
-                        regs[d as usize + k] = cb.get(o..o + 4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).unwrap_or(0.0);
-                    }
-                }
-                Op::Mul { d, a, b } => regs[d as usize] = regs[a as usize] * regs[b as usize],
-                Op::Add { d, a, b } => regs[d as usize] = regs[a as usize] + regs[b as usize],
-                Op::Sub { d, a, b } => regs[d as usize] = regs[a as usize] - regs[b as usize],
-                Op::Div { d, a, b } => regs[d as usize] = regs[a as usize] / regs[b as usize],
-                Op::Mad { d, a, b, c } => {
-                    let p = regs[a as usize] * regs[b as usize];
-                    regs[d as usize] = p + regs[c as usize];
-                }
-                Op::Dot { d, n, a, b } => {
-                    let mut s = regs[a[0] as usize] * regs[b[0] as usize];
-                    for k in 1..n as usize {
-                        s = s + regs[a[k] as usize] * regs[b[k] as usize];
-                    }
-                    regs[d as usize] = s;
-                }
-                Op::Rsqrt { d, a } => regs[d as usize] = 1.0 / raiz(regs[a as usize]),
-                Op::Sqrt { d, a } => regs[d as usize] = raiz(regs[a as usize]),
-                Op::Saturate { d, a } => regs[d as usize] = saturar(regs[a as usize]),
-                Op::Abs { d, a } => regs[d as usize] = f32::from_bits(regs[a as usize].to_bits() & 0x7FFF_FFFF),
-                Op::Mate { d, a, f } => regs[d as usize] = f32::from_bits(f.aplicar(regs[a as usize].to_bits())),
-                // FMin/FMax de D3D: si uno es NaN, el otro.
-                Op::Min { d, a, b } => {
-                    let (x, y) = (regs[a as usize], regs[b as usize]);
-                    regs[d as usize] = if x.is_nan() || y < x { y } else { x };
-                }
-                Op::Max { d, a, b } => {
-                    let (x, y) = (regs[a as usize], regs[b as usize]);
-                    regs[d as usize] = if x.is_nan() || y > x { y } else { x };
-                }
-                Op::Muestra { d, t, s, u, v } => {
-                    let c = rec.muestrear(t, s, regs[u as usize], regs[v as usize]);
-                    regs[d as usize..d as usize + 4].copy_from_slice(&c);
-                }
-                Op::Lee { d, t, s, como, c, nivel, desp } => {
-                    let f = c.map(|r| regs[r as usize]);
-                    let b = |r: Reg| regs[r as usize].to_bits();
-                    let x = match como {
-                        Lectura::Muestra => rec.muestrear_en(t, s, f, None, desp).map(f32::to_bits),
-                        Lectura::Nivel => rec.muestrear_en(t, s, f, Some(regs[nivel as usize]), desp).map(f32::to_bits),
-                        Lectura::Carga { enteros } => rec.cargar(t, [b(c[0]) as i32, b(c[1]) as i32, b(c[2]) as i32], b(nivel) as i32, desp, enteros),
-                        Lectura::Medidas => rec.medidas(t, b(nivel)),
-                        Lectura::Bufer(modo) => rec.cargar_bufer(t, modo, b(c[0]), b(c[1])),
-                        Lectura::MedidasBufer(modo) => rec.medidas_bufer(t, modo),
-                    };
-                    for (k, v) in x.into_iter().enumerate() {
-                        regs[d as usize + k] = f32::from_bits(v);
-                    }
-                }
-            }
-        }
-        true
-    }
 }
 
 /// Cuatro registros seguidos (lo que devuelve un ResRet), el primero.
@@ -702,10 +569,12 @@ pub fn raiz(x: f32) -> f32 {
 // -- Leer el modulo ---------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Tipo {
+pub(super) enum Tipo {
     Vacio,
     Funcion { devuelve: usize },
     Puntero { a: usize },
+    /// N5.10: `[n x elem]`.
+    Arreglo { n: usize, elem: usize },
     Otro,
 }
 
@@ -734,6 +603,11 @@ pub(super) enum Valor {
     Muestreador(u8),
     /// Una funcion del modulo (su indice en `funciones`).
     Funcion(usize),
+    /// N5.10: un array (`alloca` o global): sus `n` registros desde `base`
+    /// (aplanado), si son enteros, y su tipo (para bajar por el con GEP).
+    Arreglo { base: Reg, n: u16, enteros: bool, tipo: u32 },
+    /// N5.10: un puntero dentro de un array: el indice, en un registro.
+    Puntero { base: Reg, n: u16, i: Reg, enteros: bool },
     Indefinido,
 }
 
@@ -751,6 +625,7 @@ fn tipos(m: &Bloque) -> Vec<Tipo> {
                 TYPE_NUMENTRY | TYPE_STRUCT_NAME => {}
                 TYPE_VOID => v.push(Tipo::Vacio),
                 TYPE_POINTER => v.push(Tipo::Puntero { a: r.ops.first().copied().unwrap_or(0) as usize }),
+                TYPE_ARRAY => v.push(Tipo::Arreglo { n: r.ops.first().copied().unwrap_or(0) as usize, elem: r.ops.get(1).copied().unwrap_or(0) as usize }),
                 // [vararg, devuelve, parametros...]
                 TYPE_FUNCTION => v.push(Tipo::Funcion { devuelve: r.ops.get(1).copied().unwrap_or(0) as usize }),
                 _ => v.push(Tipo::Otro),
@@ -803,14 +678,17 @@ impl Compilador {
     }
 
     /// Las constantes de un CONSTANTS_BLOCK, en orden, como valores nuevos.
-    fn constantes(&mut self, b: &Bloque, tipos_float: &[bool]) -> Result<(), NoPrograma> {
-        let mut es_float = false;
+    fn constantes(&mut self, b: &Bloque, tipos_float: &[bool], tipos: &[Tipo], anchos: &[u32]) -> Result<(), NoPrograma> {
+        let (mut es_float, mut tipo) = (false, 0usize);
         for r in &b.registros {
             let v = match r.codigo {
                 CST_SETTYPE => {
-                    es_float = tipos_float.get(r.ops.first().copied().unwrap_or(0) as usize).copied().unwrap_or(false);
+                    tipo = r.ops.first().copied().unwrap_or(0) as usize;
+                    es_float = tipos_float.get(tipo).copied().unwrap_or(false);
                     continue;
                 }
+                // N5.10: las tablas (`static const float x[4] = {...}`).
+                super::arreglos::CST_AGGREGATE | super::arreglos::CST_DATA => super::arreglos::constante(self, r.codigo, &r.ops, tipo, tipos, tipos_float, anchos)?,
                 CST_INTEGER => Valor::Entero(con_signo(r.ops.first().copied().unwrap_or(0))),
                 CST_FLOAT if es_float => {
                     let bits = r.ops.first().copied().unwrap_or(0) as u32;
@@ -869,11 +747,17 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     let anchos = super::enteros::anchos(m);
     let mut c = Compilador { valores: Vec::new(), iniciales: Vec::new(), ops: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, recursos: s.recursos.clone(), ranuras: Ranuras::default(), bloques: Default::default(), literales: Vec::new() };
 
-    // 1. Los globales, en el orden de sus registros.
+    // 1. Los globales, en el orden de sus registros (N5.10: las variables,
+    //    apuntadas para cuando esten sus iniciales).
     let mut funciones: Vec<Funcion> = Vec::new();
+    let mut globales: Vec<(usize, &[u64])> = Vec::new();
     for r in &m.registros {
         match r.codigo {
-            MODULE_CODE_GLOBALVAR | MODULE_CODE_ALIAS => c.valores.push(Valor::Nada),
+            MODULE_CODE_GLOBALVAR => {
+                globales.push((c.valores.len(), &r.ops));
+                c.valores.push(Valor::Nada);
+            }
+            MODULE_CODE_ALIAS => c.valores.push(Valor::Nada),
             MODULE_CODE_FUNCTION => {
                 c.valores.push(Valor::Funcion(funciones.len()));
                 funciones.push(Funcion {
@@ -901,7 +785,10 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     }
     // 2. Las constantes del modulo.
     for b in m.bloques.iter().filter(|b| b.id == CONSTANTS) {
-        c.constantes(b, &floats)?;
+        c.constantes(b, &floats, &tipos, &anchos)?;
+    }
+    for (k, ops) in globales {
+        c.valores[k] = super::arreglos::global(&mut c, ops, &tipos, &floats, &anchos)?;
     }
     // 3. El cuerpo: el primer FUNCTION_BLOCK es el de la primera funcion
     //    definida (la entrada: sin argumentos).
@@ -910,7 +797,7 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     }
     let cuerpo = m.hijo(FUNCTION_BLOCK).ok_or(NoPrograma::Forma("la entrada no tiene cuerpo"))?;
     for b in cuerpo.bloques.iter().filter(|b| b.id == CONSTANTS) {
-        c.constantes(b, &floats)?;
+        c.constantes(b, &floats, &tipos, &anchos)?;
     }
     for r in &cuerpo.registros {
         instruccion(&mut c, r, relativos, &tipos, &funciones, &floats, &anchos)?;
@@ -979,6 +866,11 @@ fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo]
         FUNC_SWITCH => super::estructura::switch(c, &mut o)?,
         FUNC_CMP2 => super::estructura::cmp(c, &mut o)?,
         FUNC_VSELECT => super::estructura::select(c, &mut o)?,
+        // N5.10: los arrays (`arreglos.rs`).
+        FUNC_ALLOCA => super::arreglos::alloca(c, &r.ops, tipos, floats, anchos)?,
+        FUNC_GEP => super::arreglos::gep(c, &mut o, tipos, floats, anchos)?,
+        FUNC_LOAD => super::arreglos::load(c, &mut o)?,
+        FUNC_STORE => super::arreglos::store(c, &mut o)?,
         // E6b: + y - de ENTEROS (un contador de bucle).
         FUNC_BINOP if super::enteros::es_entero(c, &o)? => super::enteros::binop_entero(c, &mut o)?,
         FUNC_BINOP => {
@@ -1060,6 +952,9 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
     }
     Ok(match op {
         DX_LOAD_INPUT | DX_STORE_OUTPUT => {
+            if !matches!(c.valores.get(arg(2)?), Some(Valor::Entero(_))) {
+                return Err(NoPrograma::Forma("loadInput/storeOutput con una fila CALCULADA (una entrada en array): todavia no"));
+            }
             let (elemento, fila, col) = (c.entero(arg(1)?)?, c.entero(arg(2)?)?, c.entero(arg(3)?)?);
             if fila != 0 || !(0..32).contains(&elemento) || !(0..4).contains(&col) {
                 return Err(NoPrograma::Forma("una entrada o salida en array o fuera de rango: todavia no"));
@@ -1093,6 +988,9 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             // (clase, rango, indice, no uniforme): 0 SRV, 1 UAV, 2 CBuffer, 3
             // Sampler. El indice es el REGISTRO (la base del rango incluida);
             // el ESPACIO, el del rango `rango` de su clase en la PSV0 (03-10).
+            if !matches!(c.valores.get(arg(3)?), Some(Valor::Entero(_))) {
+                return Err(NoPrograma::Forma("createHandle con un registro CALCULADO (un array de texturas o bindless): todavia no (N5.4)"));
+            }
             let (clase, rango, indice) = (c.entero(arg(1)?)?, c.entero(arg(2)?)?, c.entero(arg(3)?)?);
             if !(0..=3).contains(&clase) || rango < 0 || indice < 0 {
                 return Err(NoPrograma::Forma("un createHandle con una clase, un rango o un registro imposibles"));
@@ -1116,6 +1014,17 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             let Some(&Valor::Cbuffer(cb)) = c.valores.get(arg(1)?) else {
                 return Err(NoPrograma::Forma("CBufferLoadLegacy sin el handle del cbuffer"));
             };
+            // 03-10: la fila CALCULADA (un array del cbuffer).
+            if !matches!(c.valores.get(arg(2)?), Some(Valor::Entero(_))) {
+                let i = super::estructura::bits(c, arg(2)?)?;
+                let d = c.registro(0.0)?;
+                for _ in 0..3 {
+                    c.registro(0.0)?;
+                }
+                c.filas_cb = c.filas_cb.max(FILAS_DE_D3D);
+                c.ops.push(Op::ConstantesEn { d, fila: 0, filas: FILAS_DE_D3D, i, cb });
+                return Ok(if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) });
+            }
             let fila = c.entero(arg(2)?)?;
             if !(0..4096).contains(&fila) {
                 return Err(NoPrograma::Forma("CBufferLoadLegacy con una fila fuera del cbuffer"));
@@ -1222,7 +1131,13 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             let a = if f == crate::mates::Mate::F16aF32 { super::estructura::bits(c, arg(1)?)? } else { c.float(arg(1)?)? };
             let d = c.registro(0.0)?;
             c.ops.push(Op::Mate { d, a, f });
-            if f == crate::mates::Mate::F32aF16 { Valor::Bits(d) } else { Valor::Float(d) }
+            if f == crate::mates::Mate::F32aF16 {
+                Valor::Bits(d)
+            } else if f.da_booleano() {
+                Valor::Bool(d)
+            } else {
+                Valor::Float(d)
+            }
         }
         DX_RSQRT => uno(c, |d, a| Op::Rsqrt { d, a })?,
         DX_SQRT => uno(c, |d, a| Op::Sqrt { d, a })?,
