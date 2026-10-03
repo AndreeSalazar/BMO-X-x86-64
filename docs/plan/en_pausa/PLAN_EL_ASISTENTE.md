@@ -7,7 +7,7 @@
 > ** Idea del propietario (2026-10-03), anotada SIN cambiar el estado: *"la F2
 > creo que es tener mi IA personal JARVIS, pero ese puede estar prendido
 > siempre o apagarse, pero te hace caso en todo en voz y eso, pero eso es
-> cuando tengo TITAN++, que F1 lo tengo"*. Lo que anade a este plan: la TECLA
+> cuando tengo TITAN++, que F1 lo tengo"*. Lo que agrega a este plan: la TECLA
 > (F2, que hoy escribe `info` en el escritorio y se cambia cuando exista), el
 > INTERRUPTOR (encendido siempre o apagado) y la VOZ, que pide el mismo
 > microfono que HERMES H12 (`docs/plan/PLAN_HERMES.md`): una pieza para los

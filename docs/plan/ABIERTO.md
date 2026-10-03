@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   491 casillas ABIERTAS en 47 planes
-   362 hechas
+   490 casillas ABIERTAS en 47 planes
+   363 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -105,15 +105,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
 
-## [`PLAN_HERMES.md`](PLAN_HERMES.md) -- 15 abiertas, 1 hechas
-
-*PLAN HERMES -- F3 de BMO-X: dos BMO-X que se hablan, sin servidor de nadie*
-
-- [ ] H2 -- bmo-hermes, puro y con banco. Un crate no_std sin
-- [ ] H3 -- la carpeta como capacidad. El kernel aprende a que un proceso
-- [ ] H4 -- la PUERTA HERMES. Un servicio que nace con RED (y nada mas),
-- ... y 12 mas
-
 ## [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) -- 14 abiertas, 1 hechas
 
 *PLAN EL PLAZO -- V-Sync, VBlank y la deuda de planificacion*
@@ -121,6 +112,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] **P2.2 -- RESCHEDULE FORZADO: una tarea que se duerme suelta el CPU en el
 - [ ] P2.3 -- el kernel publica el TIEMPO DE CPU de una tarea. Hoy
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
+- ... y 11 mas
+
+## [`PLAN_HERMES.md`](PLAN_HERMES.md) -- 14 abiertas, 2 hechas
+
+*PLAN HERMES -- F3 de BMO-X: dos BMO-X que se hablan, sin servidor de nadie*
+
+- [ ] H3 -- la carpeta como capacidad. El kernel aprende a que un proceso
+- [ ] H4 -- la PUERTA HERMES. Un servicio que nace con RED (y nada mas),
+- [ ] H5 -- la app en F3, en una sola maquina. sys/hermes.bex
 - ... y 11 mas
 
 ## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 13 abiertas, 7 hechas

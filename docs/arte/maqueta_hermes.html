@@ -364,6 +364,72 @@ input.mini { width: 120px; font-family: var(--f-mono); }
 .lista-no li::before { content: "x"; color: var(--rojo); font-family: var(--f-mono); }
 .tostada { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: calc(100% - 32px); background: #0B0E15; border: 1px solid var(--verde); color: var(--blanco); padding: 10px 14px; border-radius: 10px; z-index: 25; font-size: 13px; box-shadow: 0 16px 40px rgba(0,0,0,.6); }
 
+/* ---------- el CANAL, a fondo ---------- */
+.canal-pag { gap: 14px; }
+.banner { height: 150px; border-radius: 12px; overflow: hidden; position: relative; background: #000; }
+.banner canvas { width: 100%; height: 100%; display: block; }
+.canal-cab { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; padding: 0 6px; }
+.canal-cab h2 { margin: 0; color: var(--blanco); font-size: 22px; }
+.avatar-g { margin-top: -44px; border: 4px solid var(--fondo); border-radius: 50%; display: inline-flex; }
+.avatar-g .avatar { font-size: 28px; }
+.pestanas-canal { display: flex; gap: 4px; border-bottom: 1px solid var(--linea); }
+.pestanas-canal button { padding: 10px 14px; color: var(--tenue); border-bottom: 2px solid transparent; font-weight: 500; }
+.pestanas-canal button[aria-current="true"] { color: var(--blanco); border-bottom-color: var(--canal, var(--cian)); }
+.rejilla-videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+.tarjeta-video { text-align: left; display: grid; gap: 6px; align-content: start; border-radius: 10px; padding: 4px; }
+.tarjeta-video:hover { background: #0E121B; }
+.tarjeta-video b { color: var(--blanco); font-weight: 500; }
+.mini-v { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 9px; overflow: hidden; background: #000; max-width: 100%; flex: none; }
+.mini-v canvas { width: 100%; height: 100%; display: block; }
+.fila .mini-v { width: 96px; }
+.resultado .mini-v { width: 160px; }
+.dura { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.82); color: #fff; font-size: 11px; padding: 1px 5px; border-radius: 4px; font-family: var(--f-mono); }
+.listas-c { display: grid; gap: 12px; }
+.lista-c { display: flex; gap: 14px; text-align: left; align-items: flex-start; padding: 6px; border-radius: 10px; }
+.lista-c:hover { background: #0E121B; }
+.lista-c .mini-v { width: 200px; box-shadow: 6px -6px 0 -2px #1B2130, 12px -12px 0 -4px #141924; }
+.lista-c > span:last-child { display: grid; gap: 4px; min-width: 0; }
+.lista-c b { color: var(--blanco); }
+.controles .barra { position: relative; overflow: visible; }
+.controles .barra i { border-radius: 3px; }
+.marca { position: absolute; top: -2px; width: 3px; height: 10px; background: var(--blanco); border-radius: 1px; transform: translateX(-1px); }
+.cap-actual { padding: 0 12px 8px; background: #0A0D13; font-size: 12px; color: var(--canal, var(--cian)); min-height: 24px; }
+.titulo-v { margin: 0; color: var(--blanco); font-size: 20px; }
+.capitulos { display: flex; flex-wrap: wrap; gap: 6px; }
+.capitulos button { padding: 6px 10px; border-radius: 8px; background: #121826; border: 1px solid var(--linea); font-size: 13px; }
+.capitulos button:hover { border-color: var(--canal, var(--cian)); }
+.capitulos .mono { color: var(--canal, var(--cian)); }
+.comentarios { display: grid; gap: 12px; }
+.comentario { display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 10px; }
+.comentario .quien b { color: var(--blanco); font-weight: 600; }
+#reac-v .reac { cursor: pointer; }
+
+/* ---------- el INICIO de PAGINAS ---------- */
+.inicio-h { max-width: 660px; margin: 34px auto; display: grid; gap: 22px; justify-items: center; text-align: center; }
+.logo-h { display: flex; align-items: center; gap: 14px; font-family: var(--f-pixel); font-weight: 700; font-size: clamp(34px, 6vw, 52px); color: var(--blanco); letter-spacing: .1em; }
+.logo-h svg { width: 70px; height: 42px; color: var(--cian); }
+.buscador { width: 100%; display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 18px; border-radius: 25px; background: #0B0E15; border: 1px solid #263044; font-family: var(--f-emoji); }
+.buscador:focus-within { border-color: var(--cian); box-shadow: 0 0 0 3px rgba(94,242,230,.12); }
+.buscador input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--blanco); font: inherit; font-family: var(--f-texto); font-size: 15px; }
+kbd { font-family: var(--f-mono); font-size: 11px; padding: 2px 6px; border-radius: 5px; background: var(--panel2); border: 1px solid #2A3245; border-bottom-width: 2px; color: var(--gris); }
+.atajos { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 8px; width: 100%; }
+.atajo { position: relative; }
+.ir-atajo { width: 100%; display: grid; justify-items: center; gap: 8px; padding: 14px 6px 10px; border-radius: 12px; font-size: 12px; color: var(--texto); }
+.ir-atajo:hover { background: #0E121B; }
+.ir-atajo > span:last-child { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.atajo .ic { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: #161B27; font-size: 22px; color: var(--cian); font-family: var(--f-emoji); }
+.atajo .quitar { position: absolute; top: 4px; right: 6px; width: 22px; height: 22px; border-radius: 50%; display: none; place-items: center; background: #1B2130; color: var(--gris); font-size: 14px; }
+.atajo:hover .quitar, .atajo:focus-within .quitar { display: grid; }
+.resultados { width: 100%; text-align: left; display: grid; gap: 10px; }
+.resultado { text-align: left; display: grid; gap: 3px; padding: 10px 12px; border-radius: 10px; }
+.resultado.video { display: flex; gap: 14px; align-items: flex-start; }
+.resultado.video > span:last-child { display: grid; gap: 3px; min-width: 0; }
+.resultado:hover { background: #0E121B; }
+.resultado .url { font-family: var(--f-mono); font-size: 12px; color: var(--verde); }
+.resultado h4 { margin: 0; font-size: 17px; color: var(--azul); font-weight: 500; }
+mark { background: rgba(255,194,77,.25); color: inherit; border-radius: 2px; padding: 0 1px; }
+.atajos-kv dt { color: var(--texto); }
+
 /* ---------- a la medida ---------- */
 @media (max-width: 1100px) { .app { grid-template-columns: 68px 220px minmax(0,1fr); } .app > .panel { display: none; } .tubo { grid-template-columns: repeat(3, minmax(0,1fr)); } }
 @media (max-width: 760px) {
@@ -419,8 +485,8 @@ input.mini { width: 120px; font-family: var(--f-mono); }
     <ul>
       <li>Emojis completos como en WhatsApp: 1.870, por grupos, buscador en castellano, tonos de piel y recientes. Se ven con la letra de emojis de tu sistema (en Windows, los de Microsoft).</li>
       <li>Reacciones a cada mensaje, el menu <b>+</b>, guinos de un catalogo cerrado y ZUMBIDO (tiembla, destella y suena; uno cada 10 s).</li>
-      <li>PAGINAS: tu propia pagina en <code>.maqueta</code> (HTML + CSS), compilada con las reglas de MAQUETA, y las de tus amigos en <code>hermes://amigo/pagina</code>. Sin scripts y sin Google.</li>
-      <li>Tertulias, el MURO con historias y corazones, el CANAL de videos.</li>
+      <li>PAGINAS: tu propia pagina en <code>.maqueta</code> (HTML + CSS), compilada con las reglas de MAQUETA, y las de tus amigos en <code>hermes://amigo/pagina</code>. Sin scripts y sin Google. Su inicio es como el de Google: un buscador (que busca en TU maquina) y tus atajos, con Ctrl+L, Alt+flechas, Alt+Inicio y <kbd>/</kbd>.</li>
+      <li>Tertulias, el MURO con historias y corazones, y el CANAL a fondo: una pagina por canal (videos, listas, sobre), y cada video con capitulos, reacciones, comentarios y "a continuacion" del mismo canal.</li>
       <li>ENVIOS con permiso: OFERTA, la cuarentena <code>F:/hermes/entrantes/</code> y el JUEZ.</li>
       <li>AMIGOS: una huella X25519 aceptada una vez. JAULAS: prueba que cada pieza ve solo lo suyo.</li>
     </ul>
@@ -522,11 +588,6 @@ const PUBLIS = [
   { de:"nova", escena:"aurora", semilla:5, texto:"fondo nuevo para el escritorio", corazones:21 },
   { de:"lince", escena:"olas", semilla:9, texto:"el ecualizador del amplificador", corazones:3 },
   { de:"orbe", escena:"gato", semilla:2, texto:"el gato, version mia", corazones:17 },
-];
-const VIDEOS = [
-  { de:"nova", titulo:"DOOM II, MAP01 sin un rasguno", dura:184, escena:"pasillo", semilla:4 },
-  { de:"faro", titulo:"la carretera de neon, 60 fps", dura:95, escena:"carretera", semilla:8 },
-  { de:"orbe", titulo:"el amplificador, en ondas", dura:132, escena:"ondas", semilla:6 },
 ];
 const ENVIOS = [
   { id:1, de:"orbe", nombre:"atardecer_en_la_sierra.jpg", bytes:"4,2 MiB", trozos:68, suma:"9f1c 03ab e7d2 ... 51c0", real:"JPEG", destino:"fotos/", modo:"MANUAL", estado:"oferta", hecho:0 },
@@ -648,7 +709,7 @@ function hermes() {
     <aside class="panel" id="panel"></aside>`;
   app.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => { S.sec = b.dataset.sec; S.selector = null; hermes(); });
   ({ mensajes: secMensajes, tertulias: secTertulias, muro: secMuro, canal: secCanal, paginas: secPaginas, envios: secEnvios, amigos: secAmigos, jaulas: secJaulas })[S.sec]();
-  if (S.sec !== "paginas") panelConexion();
+  if (S.sec !== "paginas" && S.sec !== "canal") panelConexion();
 }
 function listaYo() {
   return `<div class="yo">${avatar("yo")}<div class="txt"><span class="t1" style="color:var(--blanco)">BMO-X (tu)</span><span class="t2 mono">7D1E 4A90 &middot; tu huella</span></div></div>`;
@@ -860,25 +921,6 @@ function historia(id) {
   $("#visor").onclick = cerrar;
   const paso = () => { if (!barra.isConnected) return; const p = (performance.now() - t0) / 5000; barra.style.width = Math.min(100, p * 100) + "%"; if (p >= 1) cerrar(); else requestAnimationFrame(paso); };
   requestAnimationFrame(paso);
-}
-function secCanal() {
-  const v = VIDEOS[S.video];
-  $("#lista").innerHTML = `<div class="titulo">El CANAL</div><div class="scroll"><div class="etiqueta">Videos de tus amigos</div>
-    ${VIDEOS.map((x, i) => `<button class="fila" data-v="${i}" aria-current="${S.video === i}"><canvas class="miniatura" width="160" height="90" data-esc="${x.escena}" data-sem="${x.semilla}"></canvas><span class="txt"><span class="t1">${esc(x.titulo)}</span><span class="t2">${esc(AMIGOS[x.de].nombre)} &middot; ${mmss(x.dura)}</span></span></button>`).join("")}</div>${listaYo()}`;
-  $("#lista").querySelectorAll("canvas[data-esc]").forEach(cv => escena(cv, cv.dataset.esc, +cv.dataset.sem, 1));
-  $("#lista").querySelectorAll("[data-v]").forEach(b => b.onclick = () => { S.video = +b.dataset.v; S.pos = 0; hermes(); });
-  $("#centro").innerHTML = `<div class="cab">${avatar(v.de, 28)}<b>${esc(v.titulo)}</b><span class="t2">del canal de ${esc(AMIGOS[v.de].nombre)}</span></div>
-    <div class="lienzo"><div class="reproductor"><canvas width="640" height="360" id="video"></canvas>
-      <div class="controles"><button class="btn" id="play" style="width:72px">Pausa</button><span class="mono" id="tiempo">0:00</span><div class="barra" id="barra-v"><i></i></div><span class="mono">${mmss(v.dura)}</span></div></div>
-      <div class="tarjeta"><h4>Donde se decodifica</h4><div class="nota" style="font-size:13px">El video llega de la maquina de ${esc(AMIGOS[v.de].nombre)} por HERMES/1 y se decodifica dentro de la jaula del JUEZ, que no tiene red ni clave. Si un fichero hecho a mala idea rompe el decodificador, se cae el JUEZ y nada mas. MPEG-1, 640x360.</div></div>
-    </div>`;
-  const cv = $("#video"); let jugando = true; S.pos = S.pos || 0; let ult = performance.now();
-  const paso = () => { if (!cv.isConnected) return; const n = performance.now(); if (jugando) S.pos = Math.min(v.dura, S.pos + (n - ult) / 1000); ult = n;
-    escena(cv, v.escena, v.semilla, S.pos); $("#tiempo").textContent = mmss(S.pos); $("#barra-v i").style.width = (S.pos / v.dura * 100) + "%";
-    if (S.pos >= v.dura) { jugando = false; $("#play").textContent = "Otra vez"; } requestAnimationFrame(paso); };
-  requestAnimationFrame(paso);
-  $("#play").onclick = () => { if (S.pos >= v.dura) S.pos = 0; jugando = !jugando; $("#play").textContent = jugando ? "Pausa" : "Seguir"; };
-  $("#barra-v").onclick = e => { const r = e.currentTarget.getBoundingClientRect(); S.pos = (e.clientX - r.left) / r.width * v.dura; };
 }
 const mmss = s => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
 
@@ -1550,6 +1592,7 @@ function secPaginas() {
       <button class="ir" id="atras" aria-label="Atras" ${p.pos > 0 ? "" : "disabled"}>&larr;</button>
       <button class="ir" id="alante" aria-label="Adelante" ${p.pos < p.hist.length - 1 ? "" : "disabled"}>&rarr;</button>
       <button class="ir" id="recargar" aria-label="Volver a pedir">&#8635;</button>
+      <button class="ir" id="ir-inicio" aria-label="Inicio (Alt+Inicio)">&#8962;</button>
       <label class="direccion"><span class="candado" title="cifrada de punta a punta">&#128274;</span><input id="dir" value="${esc(p.url)}" spellcheck="false" autocomplete="off" aria-label="Direccion"></label>
     </div>
     <div class="hoja" id="hoja"><p class="nota">PIDE ...</p></div>
@@ -1557,10 +1600,21 @@ function secPaginas() {
   $("#atras").onclick = () => { p.pos--; p.url = p.hist[p.pos]; hermes(); };
   $("#alante").onclick = () => { p.pos++; p.url = p.hist[p.pos]; hermes(); };
   $("#recargar").onclick = () => hermes();
-  $("#dir").onkeydown = e => { if (e.key !== "Enter") return; let v = e.target.value.trim(); if (!/^[a-z]+:\/\//i.test(v) && !/\./.test(v) && v.includes("/")) v = "hermes://" + v; irAPagina(v); };
+  $("#ir-inicio").onclick = () => irAPagina("hermes://");
+  $("#dir").onkeydown = e => {
+    if (e.key !== "Enter") return;
+    let v = e.target.value.trim();
+    if (!v) v = "hermes://";
+    else if (!/^[a-z]+:\/\//i.test(v) && !/\./.test(v)) v = v.includes("/") && !/\s/.test(v) ? "hermes://" + v : "hermes://buscar?q=" + encodeURIComponent(v);
+    irAPagina(v);
+  };
   const hoja = $("#hoja"), estado = $("#estado-hoja");
   const aviso = (ic, t, txt) => { hoja.innerHTML = `<div class="aviso-pag"><div class="grande">${ic}</div><h3>${t}</h3><p>${txt}</p></div>`; panelPagina(null, [], false); };
-  const u = p.url, m = u.match(/^hermes:\/\/([a-z0-9_-]+)\/([a-z0-9_-]+)$/);
+  const u = p.url;
+  if (u === "hermes://") { estado.textContent = "la pagina de inicio, en tu maquina"; paginaInicio(hoja, ""); return; }
+  const mb = u.match(/^hermes:\/\/buscar\?q=(.*)$/);
+  if (mb) { let q = mb[1]; try { q = decodeURIComponent(q); } catch (er) { /* tal cual */ } estado.textContent = "buscado en tu maquina: no salio ni una palabra"; paginaInicio(hoja, q); return; }
+  const m = u.match(/^hermes:\/\/([a-z0-9_-]+)\/([a-z0-9_-]+)$/);
   if (/^https?:\/\//i.test(u) || (!m && /\./.test(u))) { estado.textContent = "no se pidio nada"; return aviso("🚫", "HERMES no sale a la web", `${esc(u)} es de internet. Eso es trabajo de la ANTENA, y la ANTENA no entra en HERMES. Aqui solo hay paginas de tus amigos: hermes://amigo/pagina.`); }
   if (!m) { estado.textContent = "no se pidio nada"; return aviso("❔", "Direccion mal escrita", "Una pagina de HERMES se escribe hermes://amigo/pagina, por ejemplo hermes://nova/inicio."); }
   const [, quien, nombre] = m;
@@ -1639,6 +1693,249 @@ function panelPagina(res, errs, editor) {
 }
 window.__hermes = { compilar, PAGINAS, PLANTILLAS };
 
+/* ============================ EL CANAL, a fondo ============================ */
+const CANALES = {
+  nova: { nombre: "nova juega", lema: "partidas enteras, sin cortes y sin anuncios", color: C.cian, escena: "ciudad", sem: 3,
+    sobre: "Grabo lo que juego en la LUDOTECA con la 3060 y lo publico aqui. Todo vive en mi maquina, en F:/hermes/canal/.",
+    videos: [
+      { id: "n1", titulo: "DOOM II, MAP01 sin un rasguno", dura: 184, escena: "pasillo", semilla: 4, fecha: "hace 2 dias",
+        desc: "Entryway de principio a fin, en Ultra-Violence. Motor nativo de BMO-X con el doom2.wad de GOG.",
+        capitulos: [[0, "la entrada"], [42, "la llave azul"], [118, "la sala del acido"], [161, "la salida"]],
+        comentarios: [{ de: "orbe", t: "ayer", texto: "la llave azul en 42 s, que limpio 🔥" }, { de: "faro", t: "ayer", texto: "y ni un tiron de la 3060" }], reac: { "🔥": ["orbe", "faro"], "😮": ["orbe"] } },
+      { id: "n2", titulo: "Heretic, el primer mapa", dura: 240, escena: "pasillo", semilla: 9, fecha: "hace 5 dias",
+        desc: "El muelle de Heretic, con el heretic.wad de GOG.", capitulos: [[0, "el muelle"], [130, "la torre"]], comentarios: [], reac: { "👍": ["faro"] } },
+      { id: "n3", titulo: "la ciudad de neon del arranque", dura: 62, escena: "ciudad", semilla: 5, fecha: "hace 1 semana",
+        desc: "El arranque de BMO-X, grabado tal cual: la ciudad la dibuja la CPU.", capitulos: [], comentarios: [{ de: "orbe", t: "hace 6 dias", texto: "esto de fondo de pantalla, ya" }], reac: { "❤️": ["orbe"] } },
+      { id: "n4", titulo: "Quake, E1M1 con la 3060", dura: 301, escena: "pasillo", semilla: 13, fecha: "hace 2 semanas",
+        desc: "Slipgate Complex con el pak0.pak de GOG.", capitulos: [[0, "la base"], [95, "el ascensor"], [240, "el portal"]], comentarios: [], reac: {} },
+    ],
+    listas: [{ nombre: "DOOM II, mapa a mapa", videos: ["n1"] }, { nombre: "los primeros mapas", videos: ["n1", "n2", "n4"] }] },
+  faro: { nombre: "el taller de faro", lema: "la 3060 por dentro, paso a paso", color: C.ambar, escena: "rejilla", sem: 11,
+    sobre: "Lo que voy aprendiendo del emisor de la 3060, con la pantalla delante. Si algo sale mal, sale en el video.",
+    videos: [
+      { id: "f1", titulo: "el emisor salta y hace bucles", dura: 410, escena: "rejilla", semilla: 11, fecha: "hace 3 dias",
+        desc: "E6: saltos y bucles en el emisor de la 3060.", capitulos: [[0, "el problema"], [140, "el salto"], [300, "el bucle"]], comentarios: [{ de: "nova", t: "hace 2 dias", texto: "lo del bucle en 300 s, por fin lo entiendo" }], reac: { "🤯": ["nova"] } },
+      { id: "f2", titulo: "la division cabe en la puerta", dura: 265, escena: "rejilla", semilla: 17, fecha: "hace 1 semana",
+        desc: "E6d: la division y el resto de enteros, pareja, constante y acarreo.", capitulos: [[0, "la pareja"], [120, "la constante"], [200, "el acarreo"]], comentarios: [], reac: {} },
+      { id: "f3", titulo: "la carretera de neon, 60 fps", dura: 95, escena: "carretera", semilla: 8, fecha: "hace 2 semanas",
+        desc: "Una prueba de ritmo: 60 fotogramas por segundo sin saltarse uno.", capitulos: [], comentarios: [], reac: { "🔥": ["nova", "orbe"] } },
+    ],
+    listas: [{ nombre: "la lengua de la 3060", videos: ["f1", "f2"] }] },
+  orbe: { nombre: "orbe en ondas", lema: "sonido, luz y paisajes", color: C.azul, escena: "aurora", sem: 5,
+    sobre: "Paisajes grabados y el amplificador de BMO-X en imagenes. Sin musica de nadie: solo la mia.",
+    videos: [
+      { id: "o1", titulo: "el amplificador, en ondas", dura: 132, escena: "ondas", semilla: 6, fecha: "ayer",
+        desc: "La ganancia, el limite y el medidor del amplificador, vistos como ondas.", capitulos: [[0, "la ganancia"], [70, "el limite"]], comentarios: [], reac: { "❤️": ["nova"] } },
+      { id: "o2", titulo: "atardecer en la sierra, a camara lenta", dura: 88, escena: "sierra", semilla: 7, fecha: "hace 4 dias",
+        desc: "Veinte minutos de atardecer en uno y medio.", capitulos: [], comentarios: [{ de: "nova", t: "hace 3 dias", texto: "🌄🌄🌄" }], reac: {} },
+      { id: "o3", titulo: "el ecualizador del amplificador", dura: 150, escena: "olas", semilla: 9, fecha: "hace 1 semana",
+        desc: "Doce bandas, una por columna.", capitulos: [], comentarios: [], reac: {} },
+    ],
+    listas: [{ nombre: "el sonido de BMO-X", videos: ["o1", "o3"] }] },
+  yo: { nombre: "tu canal", lema: "todavia sin videos", color: C.rosa, escena: "gato", sem: 2,
+    sobre: "Lo que publiques aqui vive en tu maquina, en F:/hermes/canal/, y tus amigos lo piden con PIDE canal.",
+    videos: [], listas: [] },
+};
+S.canal = { de: "nova", tab: "videos", video: null, lista: null, seguir: true, siguiendo: { nova: true, faro: true } };
+const minutos = c => Math.round(c.videos.reduce((a, v) => a + v.dura, 0) / 60);
+function buscarVideo(id) { for (const [de, c] of Object.entries(CANALES)) { const v = c.videos.find(x => x.id === id); if (v) return { de, c, v }; } return null; }
+function irAVideo(de, id, lista) { S.sec = "canal"; S.canal.de = de; S.canal.video = id; S.canal.lista = lista ?? null; S.pos = 0; if (S.app !== "hermes") abrir("hermes", false); else hermes(); }
+function miniatura(v, ancho = 320) { return `<span class="mini-v"><canvas width="${ancho}" height="${Math.round(ancho * 9 / 16)}" data-esc="${v.escena}" data-sem="${v.semilla}"></canvas><span class="dura">${mmss(v.dura)}</span></span>`; }
+function pintarMiniaturas(raiz) { raiz.querySelectorAll("canvas[data-esc]").forEach(cv => escena(cv, cv.dataset.esc, +cv.dataset.sem, 1)); }
+
+function secCanal() {
+  const k = S.canal;
+  $("#lista").innerHTML = `<div class="titulo">El CANAL</div><div class="scroll">
+    <div class="etiqueta">Canales de tus amigos</div>
+    ${["nova", "faro", "orbe", "lince"].map(id => {
+      const c = CANALES[id], a = AMIGOS[id];
+      return `<button class="fila" data-canal="${id}" aria-current="${k.de === id}" ${c ? "" : "disabled"}>${avatar(id)}<span class="txt"><span class="t1">${esc(c ? c.nombre : a.nombre)}</span><span class="t2">${c ? `${c.videos.length} videos &middot; ${minutos(c)} min${k.siguiendo[id] ? " &middot; siguiendo" : ""}` : "sin conectar: su canal vive en SU maquina"}</span></span></button>`;
+    }).join("")}
+    <div class="etiqueta">El tuyo</div>
+    <button class="fila" data-canal="yo" aria-current="${k.de === "yo"}">${avatar("yo")}<span class="txt"><span class="t1">tu canal</span><span class="t2">F:/hermes/canal/</span></span></button>
+    <p class="nota" style="padding:10px 8px">Cada canal vive en la maquina de su amigo y se pide con PIDE canal. Sin anuncios, sin recomendaciones de nadie y sin contador de visitas.</p></div>${listaYo()}`;
+  $("#lista").querySelectorAll("[data-canal]").forEach(b => b.onclick = () => { k.de = b.dataset.canal; k.video = null; k.tab = "videos"; hermes(); });
+  if (k.video) return paginaVideo();
+  const c = CANALES[k.de];
+  document.documentElement.style.setProperty("--canal", c.color);
+  $("#centro").innerHTML = `<div class="cab">${avatar(k.de, 28)}<b>${esc(c.nombre)}</b><span class="t2 mono">hermes://${k.de}/canal</span></div>
+    <div class="lienzo canal-pag">
+      <div class="banner"><canvas width="900" height="220" id="banner"></canvas></div>
+      <div class="canal-cab">
+        <span class="avatar-g">${avatar(k.de, 72)}</span>
+        <div style="min-width:0;flex:1"><h2>${esc(c.nombre)}</h2><div class="nota">${c.videos.length} videos &middot; ${minutos(c)} min &middot; ${c.listas.length} listas</div><div>${esc(c.lema)}</div></div>
+        ${k.de === "yo" ? `<button class="btn" id="subir">Publicar un video</button>` : `<button class="btn ${k.siguiendo[k.de] ? "" : "cian"}" id="seguir">${k.siguiendo[k.de] ? "Siguiendo ✓" : "Seguir"}</button>`}
+      </div>
+      <div class="pestanas-canal" role="tablist">${[["videos", "Videos"], ["listas", "Listas"], ["sobre", "Sobre"]].map(([t, n]) => `<button role="tab" data-tab-c="${t}" aria-current="${k.tab === t}">${n}</button>`).join("")}</div>
+      <div id="canal-cuerpo"></div>
+    </div>`;
+  viva($("#banner"), c.escena, c.sem);
+  const seg = $("#seguir"); if (seg) seg.onclick = () => { k.siguiendo[k.de] = !k.siguiendo[k.de]; hermes(); };
+  const sub = $("#subir"); if (sub) sub.onclick = () => toast("Para publicar: el video entra por ENVIOS o lo grabas en BMO-X, y el JUEZ lo deja en F:/hermes/canal/.");
+  $("#centro").querySelectorAll("[data-tab-c]").forEach(b => b.onclick = () => { k.tab = b.dataset.tabC; hermes(); });
+  const cuerpo = $("#canal-cuerpo");
+  if (k.tab === "videos") {
+    cuerpo.innerHTML = c.videos.length ? `<div class="rejilla-videos">${c.videos.map(v => `<button class="tarjeta-video" data-v="${v.id}">${miniatura(v)}<b>${esc(v.titulo)}</b><span class="nota">${esc(v.fecha)}${v.capitulos.length ? ` &middot; ${v.capitulos.length} capitulos` : ""}${v.comentarios.length ? ` &middot; ${v.comentarios.length} comentario${v.comentarios.length > 1 ? "s" : ""}` : ""}</span></button>`).join("")}</div>`
+      : `<div class="aviso-pag" style="margin:24px auto"><div class="grande">🎬</div><h3>Todavia no hay videos</h3><p>Lo que publiques vive en tu maquina. Tus amigos lo piden; nadie lo guarda por ti.</p></div>`;
+  } else if (k.tab === "listas") {
+    cuerpo.innerHTML = c.listas.length ? `<div class="listas-c">${c.listas.map((l, i) => { const vs = l.videos.map(id => c.videos.find(v => v.id === id)); return `<button class="lista-c" data-lista="${i}">${miniatura(vs[0], 240)}<span><b>${esc(l.nombre)}</b><span class="nota">${vs.length} video${vs.length > 1 ? "s" : ""} &middot; ${Math.round(vs.reduce((a, v) => a + v.dura, 0) / 60)} min</span><span class="nota">${vs.map(v => esc(v.titulo)).join(" &middot; ")}</span></span></button>`; }).join("")}</div>`
+      : `<p class="nota">Sin listas todavia.</p>`;
+  } else {
+    cuerpo.innerHTML = `<div class="tarjeta"><h4>Sobre ${esc(c.nombre)}</h4><p style="margin:0">${esc(c.sobre)}</p>
+      <dl class="kv" style="max-width:460px"><dt>Direccion</dt><dd class="mono">hermes://${k.de}/canal</dd><dt>Donde vive</dt><dd>F:/hermes/canal/ en ${k.de === "yo" ? "tu" : "SU"} maquina</dd><dt>Como llega</dt><dd>PIDE canal, cifrado, solo entre amigos</dd><dt>Formato</dt><dd>MPEG-1, lo decodifica el JUEZ</dd></dl></div>
+      <div class="tarjeta"><h4>Lo que no hay en el CANAL</h4><ul class="lista-no"><li>anuncios</li><li>recomendaciones de un algoritmo</li><li>contador de visitas ni de seguidores</li><li>videos de gente que no conoces</li></ul></div>`;
+  }
+  pintarMiniaturas(cuerpo);
+  cuerpo.querySelectorAll("[data-v]").forEach(b => b.onclick = () => irAVideo(k.de, b.dataset.v));
+  cuerpo.querySelectorAll("[data-lista]").forEach(b => b.onclick = () => { const l = c.listas[+b.dataset.lista]; irAVideo(k.de, l.videos[0], +b.dataset.lista); });
+  panelCanal();
+}
+function siguientes() {
+  const k = S.canal, c = CANALES[k.de];
+  const orden = k.lista != null ? c.listas[k.lista].videos : c.videos.map(v => v.id);
+  const i = orden.indexOf(k.video);
+  return orden.slice(i + 1).concat(k.lista != null ? [] : orden.slice(0, Math.max(0, i))).map(id => c.videos.find(v => v.id === id));
+}
+function paginaVideo() {
+  const k = S.canal, c = CANALES[k.de], v = c.videos.find(x => x.id === k.video);
+  document.documentElement.style.setProperty("--canal", c.color);
+  const capActual = t => { let n = null; v.capitulos.forEach(([s, nom]) => { if (t >= s) n = nom; }); return n; };
+  $("#centro").innerHTML = `<div class="cab"><button class="btn" id="volver-canal">&larr; ${esc(c.nombre)}</button><span class="t2">${k.lista != null ? "lista: " + esc(c.listas[k.lista].nombre) : ""}</span></div>
+    <div class="lienzo">
+      <div class="reproductor"><canvas width="640" height="360" id="video"></canvas>
+        <div class="controles"><button class="btn" id="play" style="width:72px">Pausa</button><span class="mono" id="tiempo">0:00</span><div class="barra" id="barra-v"><i></i>${v.capitulos.slice(1).map(([s]) => `<span class="marca" style="left:${s / v.dura * 100}%"></span>`).join("")}</div><span class="mono">${mmss(v.dura)}</span></div>
+        <div class="cap-actual" id="cap-actual"></div></div>
+      <h2 class="titulo-v">${esc(v.titulo)}</h2>
+      <div class="fila-botones">${avatar(k.de, 32)}<b>${esc(c.nombre)}</b><span class="nota">${esc(v.fecha)}</span><span style="flex:1"></span><span class="reacciones" id="reac-v"></span></div>
+      <div class="tarjeta"><p style="margin:0">${esc(v.desc)}</p>
+        ${v.capitulos.length ? `<div class="etiqueta" style="padding:4px 0 0">Capitulos</div><div class="capitulos">${v.capitulos.map(([s, nom]) => `<button data-salto="${s}"><span class="mono">${mmss(s)}</span> ${esc(nom)}</button>`).join("")}</div>` : ""}
+        <div class="nota">Llego de la maquina de ${esc(nombreDe(k.de))} por HERMES/1 &middot; MPEG-1, 640x360 &middot; decodificado en la jaula del JUEZ</div></div>
+      <div class="etiqueta" style="padding:0">Comentarios &middot; ${v.comentarios.length}</div>
+      <div class="comentarios" id="comentarios"></div>
+      <div class="redactar" style="margin:0"><input id="comentar" placeholder="Comenta, solo lo ven ${esc(nombreDe(k.de))} y sus amigos" aria-label="Comentario" autocomplete="off"></div>
+    </div>`;
+  $("#volver-canal").onclick = () => { k.video = null; hermes(); };
+  const pintarReac = () => {
+    const r = v.reac;
+    $("#reac-v").innerHTML = RAPIDAS.map(e => { const q = r[e] || []; return `<button class="reac" data-rv="${e}" aria-pressed="${q.includes("yo")}" title="${esc(q.map(nombreDe).join(", ") || "nadie todavia")}">${e}${q.length ? `<span>${q.length}</span>` : ""}</button>`; }).join("");
+    $("#reac-v").querySelectorAll("[data-rv]").forEach(b => b.onclick = () => { const e = b.dataset.rv, ya = (r[e] || []).includes("yo"); Object.keys(r).forEach(x => r[x] = r[x].filter(q => q !== "yo")); if (!ya) (r[e] = r[e] || []).push("yo"); pintarReac(); });
+  };
+  const pintarComentarios = () => {
+    $("#comentarios").innerHTML = v.comentarios.length ? v.comentarios.map(m => `<div class="comentario">${avatar(m.de, 32)}<div><div class="quien"><b>${esc(nombreDe(m.de))}</b> <span class="nota">${esc(m.t)}</span></div><div>${esc(m.texto)}</div></div></div>`).join("") : `<p class="nota" style="margin:0">Nadie ha comentado todavia.</p>`;
+  };
+  pintarReac(); pintarComentarios();
+  $("#comentar").onkeydown = e => { if (e.key === "Enter" && e.target.value.trim()) { v.comentarios.push({ de: "yo", t: "ahora", texto: e.target.value.trim() }); e.target.value = ""; pintarComentarios(); } };
+  const cv = $("#video"); let jugando = true; S.pos = S.pos || 0; let ult = performance.now(), fin = false;
+  const paso = () => {
+    if (!cv.isConnected) return;
+    const n = performance.now(); if (jugando) S.pos = Math.min(v.dura, S.pos + (n - ult) / 1000); ult = n;
+    escena(cv, v.escena, v.semilla, S.pos);
+    $("#tiempo").textContent = mmss(S.pos); $("#barra-v i").style.width = (S.pos / v.dura * 100) + "%";
+    const ca = capActual(S.pos); $("#cap-actual").textContent = ca ? "capitulo: " + ca : "";
+    if (S.pos >= v.dura && !fin) {
+      fin = true; jugando = false; $("#play").textContent = "Otra vez";
+      const sig = siguientes()[0];
+      if (sig && k.seguir) { $("#cap-actual").textContent = "a continuacion: " + sig.titulo; setTimeout(() => { if (cv.isConnected && k.video === v.id) irAVideo(k.de, sig.id, k.lista); }, 1800); }
+    }
+    requestAnimationFrame(paso);
+  };
+  requestAnimationFrame(paso);
+  $("#play").onclick = () => { if (S.pos >= v.dura) { S.pos = 0; fin = false; } jugando = !jugando; $("#play").textContent = jugando ? "Pausa" : "Seguir"; };
+  $("#barra-v").onclick = e => { const r = e.currentTarget.getBoundingClientRect(); S.pos = Math.max(0, Math.min(v.dura, (e.clientX - r.left) / r.width * v.dura)); fin = false; };
+  $("#centro").querySelectorAll("[data-salto]").forEach(b => b.onclick = () => { S.pos = +b.dataset.salto; fin = false; if (!jugando) { jugando = true; $("#play").textContent = "Pausa"; } });
+  panelCanal();
+}
+function panelCanal() {
+  const k = S.canal, c = CANALES[k.de];
+  if (k.video) {
+    const sig = siguientes();
+    $("#panel").innerHTML = `<div class="caja"><h3>A continuacion</h3>
+      <label class="nota" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="auto-sig" ${k.seguir ? "checked" : ""}> seguir con el siguiente al acabar</label>
+      ${sig.length ? sig.map(v => `<button class="fila" data-sig="${v.id}" style="align-items:flex-start">${miniatura(v, 160)}<span class="txt"><span class="t1" style="white-space:normal">${esc(v.titulo)}</span><span class="t2">${esc(v.fecha)}</span></span></button>`).join("") : `<p class="nota">Era el ultimo${k.lista != null ? " de la lista" : ""}.</p>`}</div>
+      <div class="caja"><h3>Del mismo canal, nada mas</h3><p class="nota">"A continuacion" sale de ${esc(c.nombre)} y de sus listas. No hay un algoritmo que te lleve a otro sitio.</p></div>`;
+    $("#auto-sig").onchange = e => { k.seguir = e.target.checked; };
+    $("#panel").querySelectorAll("[data-sig]").forEach(b => b.onclick = () => irAVideo(k.de, b.dataset.sig, k.lista));
+    pintarMiniaturas($("#panel"));
+    return;
+  }
+  $("#panel").innerHTML = `<div class="caja"><h3>Este canal</h3><dl class="kv"><dt>Videos</dt><dd>${c.videos.length}</dd><dt>Duracion</dt><dd>${minutos(c)} min</dd><dt>Listas</dt><dd>${c.listas.length}</dd><dt>Vive en</dt><dd>${k.de === "yo" ? "tu" : "su"} maquina</dd></dl></div>
+    <div class="caja"><h3>Como llega</h3><p class="nota">PIDE canal le pide a ${esc(nombreDe(k.de))} su lista; cada video llega por trozos, cifrado, y lo abre el JUEZ en su jaula. Si su maquina esta apagada, su canal no esta.</p></div>`;
+}
+
+/* ============================ el INICIO: buscador y atajos ============================ */
+const ATAJOS_BASE = [["Mi pagina", "hermes://yo/inicio"], ["nova", "hermes://nova/inicio"], ["taller de faro", "hermes://faro/taller"], ["fotos de orbe", "hermes://orbe/fotos"], ["Mis juegos", "hermes://yo/juegos"]];
+let ATAJOS = ATAJOS_BASE.slice();
+try { const a = JSON.parse(localStorage.getItem("hermes-atajos") || "null"); if (Array.isArray(a)) ATAJOS = a.filter(x => Array.isArray(x) && typeof x[0] === "string" && /^hermes:\/\/[a-z0-9_-]+\/[a-z0-9_-]+$/.test(x[1])).slice(0, 12); } catch (e) { /* los de siempre */ }
+const guardarAtajos = () => { try { localStorage.setItem("hermes-atajos", JSON.stringify(ATAJOS)); } catch (e) { /* se olvidan al cerrar */ } };
+S.pag.url = "hermes://"; S.pag.hist = ["hermes://"]; S.pag.pos = 0;
+function marcar(t, palabras) {
+  let s = esc(t);
+  palabras.forEach(w => { if (w.length > 1) s = s.replace(new RegExp("(" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig"), "<mark>$1</mark>"); });
+  return s;
+}
+function buscarHermes(q) {
+  const palabras = plano(q).trim().split(/\s+/).filter(Boolean);
+  if (!palabras.length) return { pags: [], vids: [], palabras };
+  const pags = Object.keys(PAGINAS).map(k => {
+    const textos = compilar(PAGINAS[k], k).textos.map(t => t.n.txt);
+    const todo = plano(k + " " + textos.join(" "));
+    if (!palabras.every(w => todo.includes(w))) return null;
+    const frag = textos.find(x => palabras.some(w => plano(x).includes(w))) || textos[1] || "";
+    return { k, titulo: textos[0] || k, frag };
+  }).filter(Boolean);
+  const vids = [];
+  Object.entries(CANALES).forEach(([de, c]) => c.videos.forEach(v => { const t = plano(v.titulo + " " + v.desc + " " + c.nombre + " " + v.capitulos.map(x => x[1]).join(" ")); if (palabras.every(w => t.includes(w))) vids.push({ de, c, v }); }));
+  return { pags, vids, palabras };
+}
+function atajoHtml([nombre, url], i) {
+  const q = url.split("/")[2];
+  const ic = q === "yo" || AMIGOS[q] ? avatar(q, 48) : `<span class="ic">🌐</span>`;
+  return `<div class="atajo"><button class="ir-atajo" data-atajo="${i}" title="${esc(url)}">${ic}<span>${esc(nombre)}</span></button><button class="quitar" data-quitar="${i}" aria-label="Quitar ${esc(nombre)}">&times;</button></div>`;
+}
+function paginaInicio(hoja, q) {
+  const r = q ? buscarHermes(q) : null;
+  hoja.innerHTML = `<div class="inicio-h">
+    ${q ? "" : `<div class="logo-h">${IC.alas}<span>HERMES</span></div>`}
+    <form class="buscador" id="form-buscar" role="search"><span aria-hidden="true">🔎</span><input id="buscar-hermes" value="${esc(q || "")}" placeholder="Busca en las paginas y canales de tus amigos" aria-label="Buscar en HERMES" autocomplete="off"><kbd>/</kbd></form>
+    ${q ? `<div class="resultados">
+        <p class="nota" style="margin:0">${r.pags.length + r.vids.length} resultados para "${esc(q)}", buscados en TU maquina.</p>
+        ${r.pags.map(x => `<button class="resultado" data-url="hermes://${x.k}"><span class="url">hermes://${esc(x.k)}</span><h4>${marcar(x.titulo, r.palabras)}</h4><span class="nota">${marcar(x.frag, r.palabras)}</span></button>`).join("")}
+        ${r.vids.map(x => `<button class="resultado video" data-vid="${x.de}|${x.v.id}">${miniatura(x.v, 160)}<span><span class="url">hermes://${x.de}/canal</span><h4>${marcar(x.v.titulo, r.palabras)}</h4><span class="nota">${esc(x.c.nombre)} &middot; ${mmss(x.v.dura)} &middot; ${marcar(x.v.desc, r.palabras)}</span></span></button>`).join("")}
+        ${r.pags.length + r.vids.length ? "" : `<div class="aviso-pag" style="margin:16px auto"><div class="grande">🔍</div><h3>Nada con esas palabras</h3><p>Solo se busca en lo que tus amigos publican. Lo de internet es de la ANTENA, y no entra aqui.</p></div>`}
+      </div>`
+      : `<div class="atajos" id="atajos">${ATAJOS.map(atajoHtml).join("")}${ATAJOS.length < 12 ? `<div class="atajo"><button class="ir-atajo" id="nuevo-atajo"><span class="ic">+</span><span>Agregar atajo</span></button></div>` : ""}</div>
+        <div id="form-atajo" style="width:100%"></div>
+        <p class="nota" style="margin:0">Solo busca en lo que tus amigos publican. No hay un indice de nadie: ni de Google, ni nuestro. La busqueda corre en tu maquina.</p>`}
+  </div>`;
+  $("#form-buscar").onsubmit = e => { e.preventDefault(); const v = $("#buscar-hermes").value.trim(); if (!v) return; irAPagina(/^hermes:\/\//.test(v) ? v : "hermes://buscar?q=" + encodeURIComponent(v)); };
+  hoja.querySelectorAll("[data-url]").forEach(b => b.onclick = () => irAPagina(b.dataset.url));
+  hoja.querySelectorAll("[data-vid]").forEach(b => b.onclick = () => { const [de, id] = b.dataset.vid.split("|"); irAVideo(de, id); });
+  pintarMiniaturas(hoja);
+  hoja.querySelectorAll("[data-atajo]").forEach(b => b.onclick = () => irAPagina(ATAJOS[+b.dataset.atajo][1]));
+  hoja.querySelectorAll("[data-quitar]").forEach(b => b.onclick = () => { ATAJOS.splice(+b.dataset.quitar, 1); guardarAtajos(); paginaInicio(hoja, q); });
+  const nuevo = $("#nuevo-atajo");
+  if (nuevo) nuevo.onclick = () => {
+    $("#form-atajo").innerHTML = `<form class="tarjeta" id="f-atajo" style="text-align:left"><h4>Nuevo atajo</h4>
+      <div class="fila-botones"><input class="mini" id="a-nombre" placeholder="Nombre" maxlength="24" aria-label="Nombre del atajo" style="flex:1;width:auto"><input class="mini" id="a-url" value="hermes://" aria-label="Direccion del atajo" spellcheck="false" style="flex:2;width:auto"></div>
+      <div class="fila-botones"><button class="btn cian" type="submit">Guardar</button><button class="btn" type="button" id="a-cancelar">Cancelar</button><span class="nota" id="a-error"></span></div></form>`;
+    $("#a-nombre").focus();
+    $("#a-cancelar").onclick = () => { $("#form-atajo").innerHTML = ""; };
+    $("#f-atajo").onsubmit = e => {
+      e.preventDefault();
+      const n = $("#a-nombre").value.trim(), u = $("#a-url").value.trim();
+      if (!n) { $("#a-error").textContent = "Ponle un nombre."; return; }
+      if (!/^hermes:\/\/[a-z0-9_-]+\/[a-z0-9_-]+$/.test(u)) { $("#a-error").textContent = /^https?:/i.test(u) ? "Eso es de internet: un atajo de HERMES es hermes://amigo/pagina." : "Escribelo asi: hermes://amigo/pagina."; return; }
+      ATAJOS.push([n, u]); guardarAtajos(); paginaInicio(hoja, q);
+    };
+  };
+  panelInicio();
+}
+function panelInicio() {
+  const filas = [["Ctrl+L", "escribir una direccion"], ["Alt+D", "lo mismo"], ["/", "buscar"], ["Alt+&larr;", "atras"], ["Alt+&rarr;", "adelante"], ["Alt+Inicio", "esta pagina de inicio"], ["Esc", "salir de la direccion"]];
+  $("#panel").innerHTML = `<div class="caja"><h3>Atajos de teclado</h3><dl class="kv atajos-kv">${filas.map(([t, q]) => `<dt><kbd>${t}</kbd></dt><dd>${q}</dd>`).join("")}</dl></div>
+    <div class="caja"><h3>Como busca</h3><p class="nota">Sobre las paginas y los canales de tus amigos que ya llegaron a tu maquina, cifrados. Las palabras que buscas no salen de tu maquina.</p></div>
+    <div class="caja"><h3>Una pagina no puede tener</h3><ul class="lista-no"><li>scripts ni eventos</li><li>enlaces fuera de hermes://</li><li>nada de otra web</li></ul></div>`;
+}
 /* ============================ LUDOTECA ============================ */
 const TIENDAS = [
   ["todas","Toda la coleccion","#39FF88","#08241A","orbita"], ["gog","GOG","#A55DFF","#1A0F2E","espiral"], ["steam","Steam","#66C0F4","#171A21","vapor"],
@@ -1872,6 +2169,18 @@ $("#btn-f4").onclick = () => tecla("ludoteca");
 $("#btn-entrada").onclick = () => abrir(S.app || "hermes", true);
 $("#cerrar").onclick = cerrar;
 window.addEventListener("keydown", e => {
+  if (S.app === "hermes" && S.sec === "paginas" && S.pag.modo === "ver") {
+    const enCampo = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName);
+    if ((e.ctrlKey && (e.key === "l" || e.key === "L")) || (e.altKey && (e.key === "d" || e.key === "D"))) { e.preventDefault(); const d = $("#dir"); if (d) { d.focus(); d.select(); } return; }
+    if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      e.preventDefault(); const p = S.pag, k = e.key === "ArrowLeft" ? -1 : 1;
+      if (p.hist[p.pos + k] !== undefined) { p.pos += k; p.url = p.hist[p.pos]; hermes(); }
+      return;
+    }
+    if (e.altKey && e.key === "Home") { e.preventDefault(); irAPagina("hermes://"); return; }
+    if (e.key === "/" && !enCampo) { const b = $("#buscar-hermes"); if (b) { e.preventDefault(); b.focus(); } return; }
+    if (e.key === "Escape" && document.activeElement?.id === "dir") { document.activeElement.blur(); return; }
+  }
   if (e.key === "F3") { e.preventDefault(); tecla("hermes"); }
   else if (e.key === "F4") { e.preventDefault(); tecla("ludoteca"); }
   else if (e.key === "Escape" && S.selector) { S.selector = null; pintarSelector(S.chActual); }

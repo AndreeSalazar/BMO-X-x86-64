@@ -132,7 +132,7 @@ kernel (H3 y H4), no con cuidado en la app.
                                                                     manda
    el nombre del fichero que llega      lo pone quien RECIBE        un nombre
                                         (sacado de su suma); el     ajeno es una
-                                        del amigo solo se ensena    ruta ajena
+                                        del amigo solo se muestra    ruta ajena
    "los emojis van solos"               viajan solos; PINTARLOS     bmo-dibujo no
                                         es un atlas propio (H7)     sabe UTF-8
    "el muro pide leer PNG/JPEG"         ya se leen; falta el        bmo-imagen
@@ -194,7 +194,7 @@ El patron de Noise, sobre lo que `bmo-cripto` ya tiene: X25519 para el
 acuerdo, HKDF-SHA256 para las claves, AES-256-GCM para cifrar.
 
 ```text
-   la primera vez   XX   los dos se ensenan la clave fija, cifrada
+   la primera vez   XX   los dos se muestran la clave fija, cifrada
    con un amigo     IK   el que llama ya sabe la clave del otro
    cada sesion      claves EFIMERAS nuevas, del AZAR: lo de ayer no se
                     descifra con lo de hoy
@@ -215,14 +215,18 @@ escucha solo sabe decir el saludo.
    ZUMBIDO   sin cuerpo; la ventana tiembla, destella y suena. Uno cada
              10 s por amigo como mucho: el resto se cuenta, no se ejecuta
    GUINO     un numero de un catalogo cerrado; nada que interpretar
-   OFERTA    nombre (solo para ensenar), bytes, sha256. El TIPO no viaja
+   OFERTA    nombre (solo para mostrar), bytes, sha256. El TIPO no viaja
    SI / NO   la respuesta a una OFERTA
-   TROZO     hasta 64 KiB de un envio aceptado, con su numero
+   TROZO     hasta 60 KiB de un envio aceptado, con su numero (64 no
+             caben: un mensaje de Noise mide 65.535 con su etiqueta)
    PIDE      el muro, el canal o una PAGINA de un amigo: lo que ESE amigo
              publica. Una pagina llega como CARA (seccion 7)
    REACCION  el numero de un mensaje y UN emoji; uno por persona y mensaje,
              y mandar el mismo otra vez lo quita (como WhatsApp)
 ```
+
+Los bytes exactos de cada verbo estan en `platform/shared/bmo-hermes/src/trama.rs`,
+y la medida exacta de cada mensaje del saludo en `Patron::medida_vacia`.
 
 Lista blanca, como `bmo-pila`: un verbo que no esta aqui, un largo que se
 pasa, un trozo fuera de orden o un UTF-8 roto cortan la conexion, y **cada
@@ -233,7 +237,7 @@ corte tiene su nombre** (L6i/L6j).
 ## 5. Un envio pide permiso
 
 ```text
-   1  OFERTA llega          la app ensena: quien, cuanto, el nombre (de el)
+   1  OFERTA llega          la app muestra: quien, cuanto, el nombre (de el)
    2  MANUAL                se pregunta cada vez
       AUTOMATICO            por amigo; acepta hasta 2 GiB y deja al JUEZ
                             decidir si es foto o video
@@ -389,14 +393,21 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       cuarentena, los amigos con su huella y las tres jaulas en vivo. Y desde
       el 03-10: los emojis completos con buscador, tonos y recientes, las
       reacciones, el menu `+`, y PAGINAS (el visor `hermes://` y un editor de
-      `.maqueta` que juzga con el contrato y marca la propuesta H13). **Como
+      `.maqueta` que juzga con el contrato y marca la propuesta H13). Y el
+      03-10 por la tarde: el inicio de PAGINAS con buscador y atajos, y el
+      CANAL a fondo (H10). **Como
       se sabe:** el propietario la abre y dice si es la cara.
-- [ ] **H2 -- `bmo-hermes`, puro y con banco.** Un crate `no_std` sin
-      `unsafe` en `platform/shared/`: el saludo Noise XX/IK como maquina de
-      estados, el formato de la seccion 4.3 y sus rechazos con nombre. **Como
-      se sabe:** pasa los vectores publicos de Noise para
-      `25519_AESGCM_SHA256`, y un `tests/hostile.rs` (trozos rotos, nonces
-      repetidos, claves ajenas, UTF-8 malo) no lo tumba. Todo en el anfitrion.
+- [x] **H2 -- `bmo-hermes`, puro y con banco.** HECHO el 03-10:
+      `platform/shared/bmo-hermes`, `no_std` y sin `unsafe`, encima de
+      `bmo-cripto` y de nada mas. El saludo Noise XX/IK como maquina de
+      estados (`noise.rs`), los nueve verbos de la seccion 4.3 (`trama.rs`),
+      el marco de dos bytes para TCP (`marco.rs`), la huella (`huella.rs`) y
+      el grifo del ZUMBIDO (`grifo.rs`), con 23 rechazos con nombre. **Como
+      se sabe:** `cargo test` en ese crate: los vectores publicos de Noise
+      para `25519_AESGCM_SHA256` (XX e IK, de cacophony y snow) salen byte a
+      byte; el que se pone en medio no pasa por amigo; un bit tocado en
+      cualquier byte del saludo lo tumba; y `tests/hostile.rs` (70.000 casos)
+      no lo hace caer ni abre basura. Compila para `x86_64-unknown-uefi`.
 - [ ] **H3 -- la carpeta como capacidad.** El kernel aprende a que un proceso
       nazca con una RAIZ: todo `open` y `dir_abrir` se resuelve debajo de ella
       y `d:` no existe. **Como se sabe:** HERMES pide `sys/director.bex` y
@@ -429,7 +440,12 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       es el de muchas fotos. **Como se sabe:** el muro de un amigo se ve con
       sus corazones, pedido por HERMES/1 a SU maquina.
 - [ ] **H10 -- el CANAL.** Primero se lee `ga10x/src/trabajos/video.rs` para
-      saber cuanto decodificador hay ya. **Como se sabe:** un video de un
+      saber cuanto decodificador hay ya. Y la cara, como la maqueta del 03-10
+      (*"me gusta ese nombre, pero puede ser mas profundo cada uno"*): una
+      pagina por canal (videos, listas, sobre), y cada video con capitulos,
+      reacciones, comentarios entre amigos y "a continuacion" sacado SOLO del
+      mismo canal y sus listas. Sin anuncios, sin algoritmo, sin contador de
+      visitas. **Como se sabe:** un video de un
       amigo se reproduce entero sin salir de la jaula del JUEZ.
 - [ ] **H11 -- fuera de casa.** Un relevo HERMES propio (no la ANTENA) que
       solo reenvia bytes ya cifrados y no sabe leer ninguno. **Como se sabe:**
@@ -446,7 +462,10 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       da los mismos bytes (el contrato ya exige determinismo).
 - [ ] **H15 -- el visor de paginas.** PIDE pagina -> la CARA -> el lector de
       `bmo-maqueta-cara` -> `bmo-dibujo`; los golpes con destino navegan,
-      atras y adelante, y `https://` contesta que eso no es HERMES. **Como se
+      atras y adelante, y `https://` contesta que eso no es HERMES. Su inicio,
+      como el de Google y sin Google: un buscador que busca en TU maquina
+      sobre lo que ya llego (las palabras no salen) y los atajos, con Ctrl+L,
+      Alt+flechas, Alt+Inicio y `/`. **Como se
       sabe:** `hermes://nova/inicio` se ve en el Ryzen igual que la vista de
       MAQUETA en el anfitrion, y una CARA con medidas mentirosas no tumba al
       visor (un `tests/hostile.rs` para el lector).

@@ -332,6 +332,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-hermes"
+version = "0.1.0"
+dependencies = [
+ "bmo-cripto",
+ "bmo-hostile",
+]
+
+[[package]]
 name = "bmo-hostile"
 version = "0.1.0"
 
