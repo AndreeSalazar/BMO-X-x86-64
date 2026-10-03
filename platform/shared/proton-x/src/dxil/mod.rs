@@ -28,6 +28,7 @@
 pub mod bits;
 pub mod programa;
 /// Los recursos de un sombreador con su espacio, de su PSV0 (03-10).
+pub mod ranuras;
 pub mod recursos;
 /// E6 (02-10): programas de muestra con `si` y bucles (el banco del emisor).
 pub mod ejemplos;

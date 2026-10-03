@@ -1860,3 +1860,25 @@ rangeId en el orden en que se declaran (A, B, K) y el registro absoluto;
 el espacio, de la PSV0 como las texturas. El banco (`pruebas_espacios.rs`)
 lo cose al de vertices de `textura.hlsl`, aplana sus tres cbuffers y lo
 corre con las constantes juntadas.
+
+buferes.dxil -- los BUFERES que lee un sombreador (03-10, N5.3)
+
+Un `Buffer<float4>` (t0), un `StructuredBuffer` de 20 bytes (t1) y un
+`ByteAddressBuffer` (t2 en space1), y el GetDimensions del estructurado:
+lo que leen los sombreadores de vertices de Cyberpunk (instancias, huesos).
+De `buferes.hlsl` (aqui al lado), con el mismo `dxc` de Linux (1.9,
+4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo buferes.dxil buferes.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   a8a17b7ec26f7d2101ede8f878d33b120244228eddd6cb3700c68dc47bf92467  buferes.dxil
+
+`dxc -dumpbin`: los tres son SRV (clase 0 de `createHandle`); lo que los
+separa es su ResKind en la PSV0 de 24 bytes (10 con tipo, 11 crudo, 12
+estructurado). `bufferLoad` (68) trae (indice, desplazamiento): el
+desplazamiento solo en el estructurado (aqui 4, el `b` tras el `a`); en
+los otros es `undef`. El del crudo es `.i32` (Load4 da uint4; `asfloat`
+no cuesta nada). GetDimensions de un bufer: `mip` `undef`, y su ancho son
+los elementos.

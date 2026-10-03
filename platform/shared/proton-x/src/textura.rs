@@ -555,10 +555,30 @@ fn mapear(mapeo: u32, c: [f32; 4]) -> [f32; 4] {
 pub struct Recursos<'a> {
     pub texturas: &'a [Option<Textura<'a>>],
     pub muestreadores: &'a [Option<Muestreador>],
+    /// N5.3: los SRV que son BUFERES, en la misma ranura que las texturas
+    /// (un SRV es una cosa u otra: la otra se queda en `None`).
+    pub buferes: &'a [Option<crate::bufer::Bufer<'a>>],
 }
 
 impl Recursos<'_> {
-    pub const NINGUNO: Recursos<'static> = Recursos { texturas: &[], muestreadores: &[] };
+    pub const NINGUNO: Recursos<'static> = Recursos { texturas: &[], muestreadores: &[], buferes: &[] };
+
+    /// `Load` del bufer tN (ver [`crate::bufer::Bufer::cargar`]); sin
+    /// bufer, ceros.
+    pub fn cargar_bufer(&self, t: u8, modo: crate::bufer::Modo, i: u32, desp: u32) -> [u32; 4] {
+        match self.buferes.get(t as usize) {
+            Some(Some(b)) => b.cargar(modo, i, desp),
+            _ => [0; 4],
+        }
+    }
+
+    /// `GetDimensions` del bufer tN; sin bufer, ceros.
+    pub fn medidas_bufer(&self, t: u8, modo: crate::bufer::Modo) -> [u32; 4] {
+        match self.buferes.get(t as usize) {
+            Some(Some(b)) => b.medidas(modo),
+            _ => [0; 4],
+        }
+    }
 
     /// `Sample(tN, sM, (u, v))`; sin textura o sin muestreador, ceros.
     pub fn muestrear(&self, t: u8, s: u8, u: f32, v: f32) -> [f32; 4] {

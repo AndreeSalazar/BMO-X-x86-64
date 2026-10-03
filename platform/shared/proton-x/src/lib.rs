@@ -36,6 +36,7 @@
 extern crate alloc;
 
 pub mod bc;
+pub mod bufer;
 pub mod cargar;
 pub mod desenrollar;
 /// Los formatos de un vertice: de los bytes a lo que lee el sombreador (03-10).

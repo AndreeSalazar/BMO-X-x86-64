@@ -7,8 +7,10 @@
 //! ```text
 //!    la ranura (32 B)   0 el recurso   1 la marca (SRV, RTV, DSV, UAV)
 //!                       2 dimension | formato << 8 | mapeo << 24
-//!                       3 el subrecurso | rebanada 3D << 32 (o el primer
-//!                         elemento de un bufer)
+//!                         (y en un SRV de bufer, N5.3: | paso << 40 |
+//!                         crudo << 56)
+//!                       3 el subrecurso | rebanada 3D << 32 (o, en un
+//!                         bufer, el primer elemento | elementos << 32)
 //!    el subrecurso      mip + capa * mips, de la textura del recurso (en un
 //!                       cubo, cada cara es una capa; en 3D, la mip)
 //! ```
@@ -39,6 +41,27 @@ pub(crate) struct Vista {
     pub rebanada: u32,
     /// El primer elemento de una vista de bufer.
     pub elemento: u64,
+    /// N5.3, un SRV de bufer: sus elementos, el paso de uno estructurado
+    /// (StructureByteStride, hasta 2048) y si es crudo (D3D12_BUFFER_SRV_FLAG_RAW).
+    pub elementos: u32,
+    pub paso: u32,
+    pub crudo: bool,
+}
+
+/// **Un SRV de bufer, leido de su ranura** (N5.3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct VistaBufer {
+    pub formato: u32,
+    pub primero: u64,
+    pub elementos: u32,
+    pub paso: u32,
+    pub crudo: bool,
+}
+
+/// Lo que guarda la ranura de un SRV de bufer (ver la cabecera).
+pub(crate) fn leer_bufer(ranura: &[u64]) -> VistaBufer {
+    let (w2, w3) = (ranura[2], ranura[3]);
+    VistaBufer { formato: (w2 >> 8) as u32 & 0xFFFF, primero: w3 & 0xFFFF_FFFF, elementos: (w3 >> 32) as u32, paso: (w2 >> 40) as u32 & 0xFFF, crudo: (w2 >> 56) & 1 != 0 }
 }
 
 /// D3D12_SRV_DIMENSION: BUFFER 1, TEXTURE1D 2, 1DARRAY 3, 2D 4, 2DARRAY 5,
@@ -71,7 +94,9 @@ pub(crate) unsafe fn srv(d: *const u8) -> Result<Vista, &'static str> {
     let (formato, dimension, mapeo) = (u32_(d, 0), u32_(d, 4), u32_(d, 8));
     let mut v = Vista { dimension, formato, mapeo, ..Vista::default() };
     match dimension {
-        SRV_BUFER => v.elemento = u64_(d, 16),
+        // D3D12_BUFFER_SRV: FirstElement +16, NumElements +24,
+        // StructureByteStride +28, Flags +32 (RAW = 1).
+        SRV_BUFER => (v.elemento, v.elementos, v.paso, v.crudo) = (u64_(d, 16), u32_(d, 24), u32_(d, 28), u32_(d, 32) & 1 != 0),
         2 | 4 | 8 | SRV_CUBO => v.mip = u32_(d, 16),
         3 | 5 | 10 => (v.mip, v.capa) = (u32_(d, 16), u32_(d, 24)),
         6 => {}
@@ -155,10 +180,12 @@ pub(crate) fn sub(t: &Tex, mip: u32, capa: u32) -> u32 {
 /// marca y la vista (ver la cabecera). Con la vista, el subrecurso que
 /// toca, si el recurso es una textura.
 pub(crate) fn poner(handle: u64, recurso: u64, marca: u64, v: &Vista) {
-    let w2 = v.dimension as u64 & 0xFF | (v.formato as u64 & 0xFFFF) << 8 | (v.mapeo as u64 & 0xFFFF) << 24;
+    let w2 = v.dimension as u64 & 0xFF | (v.formato as u64 & 0xFFFF) << 8 | (v.mapeo as u64 & 0xFFFF) << 24 | (v.paso as u64 & 0xFFF) << 40 | (v.crudo as u64) << 56;
     let w3 = match tex(recurso) {
         Some(t) => sub(t, v.mip, v.capa) as u64 | (v.rebanada as u64) << 32,
-        None => v.elemento,
+        // Un bufer: el primer elemento en 32 bits (4 mil millones de
+        // elementos bastan) y cuantos detras.
+        None => v.elemento & 0xFFFF_FFFF | (v.elementos as u64) << 32,
     };
     // SAFETY: la ranura de un monton de la casa: 4 palabras.
     unsafe {
@@ -306,5 +333,22 @@ mod pruebas {
         let d = palabras(&[0, 12]);
         assert!(unsafe { srv(d.as_ptr()) }.is_err());
         assert!(es_srgb(99) && es_srgb(29) && !es_srgb(28));
+    }
+
+    /// N5.3: un SRV de bufer deja en su ranura el primer elemento, cuantos,
+    /// el paso y si es crudo; y se leen tal cual.
+    #[test]
+    fn el_srv_de_bufer_guarda_su_vista_entera() {
+        let mut ranura = [0u64; 4];
+        // Estructurado: desde el 5, 7 elementos de 20 bytes.
+        let d = palabras(&[0, SRV_BUFER, 0x1688, 0, 5, 0, 7, 20, 0]);
+        create_shader_resource_view(0, 0, d.as_ptr(), ranura.as_mut_ptr() as u64);
+        assert_eq!(ranura[1], DESC_SRV);
+        assert_eq!(leer_bufer(&ranura), VistaBufer { formato: 0, primero: 5, elementos: 7, paso: 20, crudo: false });
+        assert_eq!(leer(&ranura).0 .0, SRV_BUFER, "la dimension se sigue leyendo igual");
+        // Crudo (R32_TYPELESS, 39, y la bandera RAW): 64 palabras.
+        let d = palabras(&[39, SRV_BUFER, 0x1688, 0, 0, 0, 64, 0, 1]);
+        create_shader_resource_view(0, 0, d.as_ptr(), ranura.as_mut_ptr() as u64);
+        assert_eq!(leer_bufer(&ranura), VistaBufer { formato: 39, primero: 0, elementos: 64, paso: 0, crudo: true });
     }
 }

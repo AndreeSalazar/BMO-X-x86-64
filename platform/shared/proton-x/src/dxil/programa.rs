@@ -38,6 +38,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use super::bits::{Bloque, Registro};
+pub use super::ranuras::{Lugar, Mapa, Ranuras};
 use super::Sombreador;
 
 // Bloques y registros de LLVM 3.7 (LLVMBitCodes.h).
@@ -103,6 +104,7 @@ const DX_SAMPLE_LEVEL: i64 = 62;
 const DX_SAMPLE_GRAD: i64 = 63;
 const DX_TEXTURE_LOAD: i64 = 66;
 const DX_GET_DIMENSIONS: i64 = 72;
+const DX_BUFFER_LOAD: i64 = 68;
 
 /// Por que un sombreador no se deja correr. El texto dice CUAL cosa.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -352,131 +354,6 @@ pub struct Programa {
     pub ranuras: Ranuras,
 }
 
-/// **Donde vive un recurso**: su espacio y su registro (`t40, space1`), y
-/// la etapa que lo lee.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct Lugar {
-    pub espacio: u32,
-    pub registro: u32,
-    /// `D3D12_SHADER_VISIBILITY` de quien lo lee (1 vertices, 5 pixeles; 0
-    /// sin decir): el t0 del de vertices y el del de pixeles pueden venir de
-    /// tablas distintas. La pone el enlace ([`Ranuras::de_la_etapa`]).
-    pub vista: u32,
-}
-
-/// **Las ranuras de un programa** (03-10, N5.1): cada textura y cada
-/// muestreador que lee, sin repetir, en el orden en que aparecen. Hasta hoy
-/// el `t` de una operacion ERA el registro, y solo cabian t0..t31 y s0..s15
-/// del espacio 0: el primer sombreador de Cyberpunk con un recurso mas alla
-/// no corria.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Ranuras {
-    pub texturas: Vec<Lugar>,
-    pub muestreadores: Vec<Lugar>,
-    /// Los cbuffers (N5.2): b0 ya no es el unico.
-    pub cbuffers: Vec<Lugar>,
-}
-
-/// **Lo que [`Ranuras::unir`] devuelve**: por ranura de las otras, su
-/// ranura en la union; lo que pide [`Programa::renumerar`].
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Mapa {
-    pub texturas: Vec<u8>,
-    pub muestreadores: Vec<u8>,
-    pub cbuffers: Vec<u8>,
-}
-
-impl Ranuras {
-    fn de(v: &mut Vec<Lugar>, l: Lugar) -> Result<u8, NoPrograma> {
-        if let Some(i) = v.iter().position(|&x| x == l) {
-            return Ok(i as u8);
-        }
-        if v.len() >= 256 {
-            return Err(NoPrograma::Forma("un sombreador con mas de 256 texturas o muestreadores distintos"));
-        }
-        v.push(l);
-        Ok((v.len() - 1) as u8)
-    }
-
-    /// La ranura de la textura de `espacio` y `registro` (nueva si no estaba).
-    pub fn textura(&mut self, espacio: u32, registro: u32) -> Result<u8, NoPrograma> {
-        Self::de(&mut self.texturas, Lugar { espacio, registro, vista: 0 })
-    }
-
-    /// La del muestreador.
-    pub fn muestreador(&mut self, espacio: u32, registro: u32) -> Result<u8, NoPrograma> {
-        Self::de(&mut self.muestreadores, Lugar { espacio, registro, vista: 0 })
-    }
-
-    /// La del cbuffer.
-    pub fn cbuffer(&mut self, espacio: u32, registro: u32) -> Result<u8, NoPrograma> {
-        Self::de(&mut self.cbuffers, Lugar { espacio, registro, vista: 0 })
-    }
-
-    /// **Las de la etapa `vista`**: todas pasan a ser de ella.
-    pub fn de_la_etapa(mut self, vista: u32) -> Ranuras {
-        for l in self.texturas.iter_mut().chain(self.muestreadores.iter_mut()).chain(self.cbuffers.iter_mut()) {
-            l.vista = vista;
-        }
-        self
-    }
-
-    /// **Sumar las de `otras`** (las del de pixeles a las del de vertices):
-    /// lo que ya estaba guarda su ranura, lo nuevo va detras. Devuelve, por
-    /// ranura de `otras`, su ranura aqui: lo que pide [`Programa::renumerar`].
-    pub fn unir(&mut self, otras: &Ranuras) -> Result<Mapa, NoPrograma> {
-        let sumar = |v: &mut Vec<Lugar>, de: &[Lugar]| de.iter().map(|&l| Self::de(v, l)).collect::<Result<Vec<u8>, _>>();
-        Ok(Mapa { texturas: sumar(&mut self.texturas, &otras.texturas)?, muestreadores: sumar(&mut self.muestreadores, &otras.muestreadores)?, cbuffers: sumar(&mut self.cbuffers, &otras.cbuffers)? })
-    }
-}
-
-impl Programa {
-    /// **Renumerar sus texturas y muestreadores** (la ranura `i` pasa a
-    /// `texturas[i]` y `muestreadores[i]`, y lo mismo los cbuffers): lo que
-    /// hace el enlace para que el de vertices y el de pixeles compartan UNA
-    /// tabla.
-    pub fn renumerar(&mut self, m: &Mapa) {
-        let a = |v: &[u8], x: u8| v.get(x as usize).copied().unwrap_or(x);
-        for op in &mut self.ops {
-            match op {
-                Op::Muestra { t, s, .. } | Op::Lee { t, s, .. } => {
-                    *t = a(&m.texturas, *t);
-                    *s = a(&m.muestreadores, *s);
-                }
-                Op::Constantes { cb, .. } => *cb = a(&m.cbuffers, *cb),
-                _ => {}
-            }
-        }
-    }
-
-    /// **Las filas que lee de cada cbuffer** (la mayor mas uno), por ranura,
-    /// sumadas a `filas` (que crece si hace falta).
-    pub fn filas_por_cbuffer(&self, filas: &mut Vec<u16>) {
-        for op in &self.ops {
-            if let Op::Constantes { fila, cb, .. } = *op {
-                if filas.len() <= cb as usize {
-                    filas.resize(cb as usize + 1, 0);
-                }
-                filas[cb as usize] = filas[cb as usize].max(fila + 1);
-            }
-        }
-    }
-
-    /// **Aplanar**: cada fila pasa a su sitio en el bloque de todas las
-    /// constantes (`fila + bases[cb]`), y `filas_cb` a la mayor que lee mas
-    /// uno. Desde aqui, quien corre el programa ve UN cbuffer.
-    pub fn aplanar(&mut self, bases: &[u16]) {
-        let mut filas = 0;
-        for op in &mut self.ops {
-            if let Op::Constantes { fila, cb, .. } = op {
-                *fila += bases.get(*cb as usize).copied().unwrap_or(0);
-                filas = filas.max(*fila + 1);
-            }
-        }
-        self.filas_cb = filas;
-    }
-}
-
 /// **Como lee una textura** [`Op::Lee`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Lectura {
@@ -489,6 +366,11 @@ pub enum Lectura {
     Carga { enteros: bool },
     /// `GetDimensions`: ancho, alto, profundidad o capas, mips (enteros).
     Medidas,
+    /// N5.3: `Load` de un BUFER: `c[0]` el elemento (o el byte, crudo) y
+    /// `c[1]` el desplazamiento dentro de el (estructurado). Como bits.
+    Bufer(crate::bufer::Modo),
+    /// N5.3: `GetDimensions` de un bufer: sus elementos (o bytes).
+    MedidasBufer(crate::bufer::Modo),
 }
 
 impl Programa {
@@ -685,6 +567,8 @@ impl Programa {
                         Lectura::Nivel => rec.muestrear_en(t, s, f, Some(regs[nivel as usize]), desp).map(f32::to_bits),
                         Lectura::Carga { enteros } => rec.cargar(t, [b(c[0]) as i32, b(c[1]) as i32, b(c[2]) as i32], b(nivel) as i32, desp, enteros),
                         Lectura::Medidas => rec.medidas(t, b(nivel)),
+                        Lectura::Bufer(modo) => rec.cargar_bufer(t, modo, b(c[0]), b(c[1])),
+                        Lectura::MedidasBufer(modo) => rec.medidas_bufer(t, modo),
                     };
                     for (k, v) in x.into_iter().enumerate() {
                         regs[d as usize + k] = f32::from_bits(v);
@@ -823,6 +707,9 @@ pub(super) enum Valor {
     Cbuffer(u8),
     /// El handle de una textura (su registro tN) o de un muestreador (sN).
     Textura(u8),
+    /// N5.3: el handle de un SRV de bufer: su ranura (la de las texturas) y
+    /// como se direcciona.
+    Bufer(u8, crate::bufer::Modo),
     Muestreador(u8),
     /// Una funcion del modulo (su indice en `funciones`).
     Funcion(usize),
@@ -1182,7 +1069,13 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             let registro = indice as u32;
             match clase {
                 2 => Valor::Cbuffer(c.ranuras.cbuffer(espacio, registro)?),
-                0 => Valor::Textura(c.ranuras.textura(espacio, registro)?),
+                0 => {
+                    let t = c.ranuras.textura(espacio, registro)?;
+                    match super::recursos::rango(&c.recursos, 0, rango as u32).and_then(|r| r.modo_de_bufer()) {
+                        Some(modo) => Valor::Bufer(t, modo),
+                        None => Valor::Textura(t),
+                    }
+                }
                 3 => Valor::Muestreador(c.ranuras.muestreador(espacio, registro)?),
                 _ => return Err(NoPrograma::Forma("un UAV (RWTexture, RWBuffer...): todavia no")),
             }
@@ -1241,10 +1134,31 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::Carga { enteros }, c: co, nivel, desp });
             if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) }
         }
+        DX_BUFFER_LOAD => {
+            // (srv, indice, desplazamiento): el desplazamiento solo lo trae
+            // uno estructurado; en los demas es `undef`.
+            let Some(Valor::Bufer(t, modo)) = c.valores.get(arg(1)?).copied() else {
+                return Err(NoPrograma::Forma("BufferLoad sin el handle de un bufer (un UAV: todavia no)"));
+            };
+            let cero = super::estructura::literal(c, 0)?;
+            let indice = super::estructura::bits(c, arg(2)?)?;
+            let desp = if matches!(c.valores.get(arg(3)?), Some(Valor::Indefinido) | None) { cero } else { super::estructura::bits(c, arg(3)?)? };
+            let d = cuatro(c)?;
+            c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::Bufer(modo), c: [indice, desp, cero, cero], nivel: cero, desp: [0; 3] });
+            if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) }
+        }
         DX_GET_DIMENSIONS => {
-            // (handle, mip): %dx.types.Dimensions, cuatro i32.
-            let Some(Valor::Textura(t)) = c.valores.get(arg(1)?).copied() else {
-                return Err(NoPrograma::Forma("GetDimensions de algo que no es una textura (un UAV o un bufer: todavia no)"));
+            // (handle, mip): %dx.types.Dimensions, cuatro i32. De un bufer
+            // (N5.3), sus elementos; el mip es `undef`.
+            let t = match c.valores.get(arg(1)?).copied() {
+                Some(Valor::Textura(t)) => t,
+                Some(Valor::Bufer(t, modo)) => {
+                    let cero = super::estructura::literal(c, 0)?;
+                    let d = cuatro(c)?;
+                    c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::MedidasBufer(modo), c: [cero; 4], nivel: cero, desp: [0; 3] });
+                    return Ok(Valor::CuatroEnteros(d));
+                }
+                _ => return Err(NoPrograma::Forma("GetDimensions de algo que no es una textura ni un bufer (un UAV: todavia no)")),
             };
             let nivel = super::estructura::bits(c, arg(2)?)?;
             let cero = super::estructura::literal(c, 0)?;

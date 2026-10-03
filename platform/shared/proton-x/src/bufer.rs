@@ -1,0 +1,131 @@
+//! **Los buferes que lee un sombreador** (03-10, N5.3): `Buffer<T>`,
+//! `StructuredBuffer<S>` y `ByteAddressBuffer`, vistos por un SRV.
+//!
+//! [carril]  VERDE     lee bytes que ya le dan; no toca la maquina
+//! [cuesta]  DATO      un elemento mal contado da los datos del de al lado
+//! [riesgo]  ESPEJO    las reglas son las de D3D12 (fuera de la vista, 0);
+//!                     el banco las prueba con un sombreador de `dxc`
+//! [consumo] NADA      solo cuando un sombreador lee un bufer
+//!
+//! Hasta el 03-10 un SRV de bufer "se leia como nulo" y un `bufferLoad` no
+//! compilaba: los sombreadores de vertices de Cyberpunk leen sus instancias
+//! y sus huesos de buferes, y no corria ninguno.
+//!
+//! ```text
+//!    con tipo      Buffer<float4>: el elemento i, en el formato de la vista
+//!                  (como un vertice: `formato_ia`)
+//!    estructurado  StructuredBuffer<S>: 4 palabras desde i * paso + desp,
+//!                  dentro de SU elemento
+//!    crudo         ByteAddressBuffer: 4 palabras desde el byte i
+//!    fuera         lo que cae fuera de la vista se lee como 0
+//! ```
+
+/// **Como se direcciona** un bufer: lo dice el sombreador (su `ResKind`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Modo {
+    Tipado,
+    Estructurado,
+    Crudo,
+}
+
+/// **Un bufer, visto por un SRV**: sus bytes desde el primer elemento de la
+/// vista, y lo que dice la vista.
+#[derive(Clone, Copy, Debug)]
+pub struct Bufer<'a> {
+    pub bytes: &'a [u8],
+    /// El DXGI_FORMAT de una vista con tipo (0 si no tiene).
+    pub formato: u32,
+    /// El paso de una vista estructurada (0 si no lo es).
+    pub paso: u32,
+    /// Los elementos de la vista (en una cruda, palabras de 4 bytes).
+    pub elementos: u32,
+}
+
+impl Bufer<'_> {
+    /// Las 4 palabras de `[desde, desde + 16)`, con 0 fuera de `[0, hasta)`.
+    fn palabras(&self, desde: u64, hasta: u64) -> [u32; 4] {
+        let hasta = hasta.min(self.bytes.len() as u64);
+        core::array::from_fn(|k| {
+            let o = desde + 4 * k as u64;
+            match self.bytes.get(o as usize..o as usize + 4) {
+                Some(b) if o + 4 <= hasta => u32::from_le_bytes([b[0], b[1], b[2], b[3]]),
+                _ => 0,
+            }
+        })
+    }
+
+    /// **`Load`**: el elemento `i` (en uno crudo, el byte `i`), y `desp`
+    /// bytes dentro de el en uno estructurado. Como bits (un float, sus
+    /// bits; un entero, el).
+    pub fn cargar(&self, modo: Modo, i: u32, desp: u32) -> [u32; 4] {
+        match modo {
+            Modo::Tipado => {
+                let Some(f) = crate::formato_ia::forma(self.formato) else { return [0; 4] };
+                let (n, o) = (f.bytes as usize, i as usize * f.bytes as usize);
+                match self.bytes.get(o..o + n) {
+                    Some(b) if i < self.elementos => crate::formato_ia::leer(self.formato, b).map(f32::to_bits),
+                    _ => [0; 4],
+                }
+            }
+            Modo::Estructurado if self.paso == 0 || i >= self.elementos => [0; 4],
+            Modo::Estructurado => {
+                let base = i as u64 * self.paso as u64;
+                self.palabras(base + desp as u64, base + self.paso as u64)
+            }
+            Modo::Crudo => self.palabras(i as u64 + desp as u64, self.elementos as u64 * 4),
+        }
+    }
+
+    /// **`GetDimensions`**: los elementos (en uno crudo, los bytes).
+    pub fn medidas(&self, modo: Modo) -> [u32; 4] {
+        match modo {
+            Modo::Crudo => [self.elementos.saturating_mul(4), 0, 0, 0],
+            _ => [self.elementos, 0, 0, 0],
+        }
+    }
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    use alloc::vec::Vec;
+
+    fn bytes(v: &[u32]) -> Vec<u8> {
+        v.iter().flat_map(|x| x.to_le_bytes()).collect()
+    }
+
+    #[test]
+    fn estructurado_dentro_de_su_elemento() {
+        // Dos elementos de 12 bytes: (1, 2, 3) y (4, 5, 6).
+        let b = bytes(&[1, 2, 3, 4, 5, 6]);
+        let v = Bufer { bytes: &b, formato: 0, paso: 12, elementos: 2 };
+        assert_eq!(v.cargar(Modo::Estructurado, 1, 0), [4, 5, 6, 0], "la cuarta palabra ya es de fuera");
+        assert_eq!(v.cargar(Modo::Estructurado, 0, 4), [2, 3, 0, 0], "no se lee el elemento de al lado");
+        assert_eq!(v.cargar(Modo::Estructurado, 2, 0), [0; 4], "fuera de la vista");
+        assert_eq!(v.medidas(Modo::Estructurado), [2, 0, 0, 0]);
+    }
+
+    #[test]
+    fn crudo_por_bytes() {
+        let b = bytes(&[10, 20, 30, 40, 50]);
+        let v = Bufer { bytes: &b, formato: 0, paso: 0, elementos: 5 };
+        assert_eq!(v.cargar(Modo::Crudo, 8, 0), [30, 40, 50, 0]);
+        assert_eq!(v.medidas(Modo::Crudo), [20, 0, 0, 0]);
+        // Una vista mas corta que el bufer: lo de detras no se ve.
+        let corta = Bufer { elementos: 3, ..v };
+        assert_eq!(corta.cargar(Modo::Crudo, 4, 0), [20, 30, 0, 0]);
+    }
+
+    #[test]
+    fn con_tipo_en_su_formato() {
+        // R32G32B32A32_FLOAT (2) y R8G8B8A8_UNORM (28).
+        let f = [1.5f32, -2.0, 0.25, 8.0];
+        let b: Vec<u8> = f.iter().flat_map(|x| x.to_le_bytes()).collect();
+        let v = Bufer { bytes: &b, formato: 2, paso: 0, elementos: 1 };
+        assert_eq!(v.cargar(Modo::Tipado, 0, 0), f.map(f32::to_bits));
+        assert_eq!(v.cargar(Modo::Tipado, 1, 0), [0; 4]);
+        let c = [0u8, 255, 0, 255];
+        let u = Bufer { bytes: &c, formato: 28, paso: 0, elementos: 1 };
+        assert_eq!(u.cargar(Modo::Tipado, 0, 0), [0.0f32, 1.0, 0.0, 1.0].map(f32::to_bits));
+    }
+}

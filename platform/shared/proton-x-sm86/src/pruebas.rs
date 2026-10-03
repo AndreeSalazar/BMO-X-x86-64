@@ -265,7 +265,7 @@ fn el_pixel_de_hellotexture_es_un_tex() {
     let tx = [Some(Textura::rgba(&t, 8, 8, false))];
     for filtro in [Filtro::Punto, Filtro::Lineal] {
         let ms = [Some(Muestreador { filtro, u: Direccion::Repetir, v: Direccion::Espejo, borde: [0.0; 4] })];
-        let rec = Recursos { texturas: &tx, muestreadores: &ms };
+        let rec = Recursos { texturas: &tx, muestreadores: &ms, buferes: &[] };
         let mu = |asa: u32, u: f32, v: f32| {
             assert_eq!(asa, bmo_gpu_ga10x::texturas::asa(0, 0), "el asa de la textura 0");
             rec.muestrear(0, 0, u, v)

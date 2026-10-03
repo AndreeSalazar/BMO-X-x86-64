@@ -800,13 +800,13 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // (sus SRV y samplers, en las ranuras a las que apuntan) y de los
     // samplers estaticos de la firma. Por RANURA (03-10, N5.1): cada lugar
     // (espacio, registro, etapa) que leen, buscado en la firma.
-    let (texturas, muestreadores) = recursos_del_dibujo(firma, &e.tablas, &en.ranuras);
+    let (texturas, muestreadores, buferes) = recursos_del_dibujo(firma, &e.tablas, &en.ranuras);
     // P3b4c: las limpiezas apuntadas de SU render target y de SU Z: las
     // hace quien dibuje este lote.
     let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 && e.dsv_sub == 0 { tomar_limpieza(e.dsv) } else { None };
     let limpiar_rt = if e.rtv_sub == 0 { tomar_limpieza(e.rtv) } else { None };
     let lote = Lote {
-        recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores },
+        recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes },
         limpiar_z,
         limpiar_rt,
         enlace: en,
@@ -855,7 +855,10 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
 /// palabras: el recurso y la marca (`d3d12::DESC_SRV`, `DESC_MUESTREADOR`).
 /// Lo que no esta -- ni en una tabla puesta ni en los samplers estaticos --
 /// se lee como nulo, como en Windows con un descriptor nulo.
-fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, Vec<Option<bmo_proton_x::textura::Muestreador>>) {
+/// Lo que ve un dibujo, por ranura: cada SRV es una textura o un bufer.
+type Vistos = (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, Vec<Option<bmo_proton_x::textura::Muestreador>>, Vec<Option<bmo_proton_x::bufer::Bufer<'static>>>);
+
+fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
     use bmo_proton_x::donde::{self, RANGO_MUESTREADOR, RANGO_SRV};
     use bmo_proton_x::textura::Muestreador;
     // La ranura `i` de la tabla del parametro `k` (4 palabras), si el `.exe`
@@ -870,17 +873,14 @@ fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x
         // es de ella).
         Some(unsafe { core::slice::from_raw_parts((base + i * DESCRIPTOR_BYTES) as *const u64, 4) })
     };
-    let tex = ranuras
-        .texturas
-        .iter()
-        .map(|&l| {
-            let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor(k, i))?;
-            if ranura[1] != crate::d3d12::DESC_SRV || ranura[0] == 0 {
-                return None;
-            }
-            textura_de_srv(ranura).map_err(aviso).ok()
-        })
-        .collect();
+    // N5.3: cada SRV, a su sitio: una textura, o un bufer en la misma ranura.
+    let (mut tex, mut buf) = (Vec::with_capacity(ranuras.texturas.len()), Vec::with_capacity(ranuras.texturas.len()));
+    for &l in &ranuras.texturas {
+        let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor(k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0);
+        let es_bufer = ranura.is_some_and(|r| crate::d3d12_vistas::leer(r).0 .0 == crate::d3d12_vistas::SRV_BUFER);
+        tex.push(ranura.filter(|_| !es_bufer).and_then(|r| textura_de_srv(r).map_err(aviso).ok()));
+        buf.push(ranura.filter(|_| es_bufer).and_then(|r| bufer_de_srv(r).map_err(aviso).ok()));
+    }
     let mue = ranuras
         .muestreadores
         .iter()
@@ -897,7 +897,26 @@ fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x
             Muestreador::de_estatico(donde::estatico(firma, l)?).map_err(aviso).ok()
         })
         .collect();
-    (tex, mue)
+    (tex, mue, buf)
+}
+
+/// **El bufer que lee un SRV de bufer** (N5.3): sus bytes desde el primer
+/// elemento de la vista, hasta los que tenga el bufer de la casa.
+fn bufer_de_srv(ranura: &[u64]) -> Result<bmo_proton_x::bufer::Bufer<'static>, &'static str> {
+    let v = crate::d3d12_vistas::leer_bufer(ranura);
+    let base = crate::d3d12::base_de_bufer(ranura[0]).ok_or("un SRV de bufer sobre algo que no es un bufer de la casa (se lee como nulo)")?;
+    // Lo que mide un elemento: 4 bytes crudo, su paso estructurado, o su
+    // formato con tipo.
+    let medida = match (v.crudo, v.paso, bmo_proton_x::formato_ia::forma(v.formato)) {
+        (true, _, _) => 4,
+        (false, p, _) if p != 0 => p as u64,
+        (false, _, Some(f)) => f.bytes as u64,
+        _ => return Err("un SRV de bufer sin paso ni un formato que la casa sepa leer (se lee como nulo)"),
+    };
+    let bytes = resolver_hasta(base + v.primero * medida, v.elementos as usize * medida as usize).ok_or("un SRV de bufer fuera de su bufer (se lee como nulo)")?;
+    let elementos = (bytes.len() as u64 / medida) as u32;
+    let formato = if v.crudo || v.paso != 0 { 0 } else { v.formato };
+    Ok(bmo_proton_x::bufer::Bufer { bytes, formato, paso: if v.crudo { 0 } else { v.paso }, elementos })
 }
 
 /// **La textura que lee un SRV** (02-10): TODA la textura (sus mips y sus
@@ -910,7 +929,7 @@ fn textura_de_srv(ranura: &[u64]) -> Result<bmo_proton_x::textura::Textura<'stat
     let ((dimension, formato, mapeo), (sub, _)) = crate::d3d12_vistas::leer(ranura);
     aplicar_limpieza(ranura[0]);
     let Some(t) = crate::d3d12_vistas::tex(ranura[0]) else {
-        return Err("un SRV de un bufer: los sombreadores de la casa aun no leen buferes (se lee como nulo)");
+        return Err("un SRV de textura sobre un bufer: en Windows es un error (se lee como nulo)");
     };
     let clase = match dimension {
         2 | 4 | 6 => Clase::Plana,

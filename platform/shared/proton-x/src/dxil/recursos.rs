@@ -41,6 +41,30 @@ pub struct Recurso {
     pub espacio: u32,
     pub desde: u32,
     pub hasta: u32,
+    /// El `PSVResourceType` (3 SRV con tipo, 4 crudo, 5 estructurado...).
+    pub tipo: u32,
+    /// El `ResourceKind` de DXIL (2 Texture2D... 10 TypedBuffer, 11
+    /// RawBuffer, 12 StructuredBuffer); 0 si la PSV0 es la vieja de 16 bytes.
+    pub especie: u32,
+}
+
+/// `ResourceKind` de los buferes.
+pub const BUFER_TIPADO: u32 = 10;
+pub const BUFER_CRUDO: u32 = 11;
+pub const BUFER_ESTRUCTURADO: u32 = 12;
+
+impl Recurso {
+    /// **Como se direcciona, si es un bufer** (N5.3): por su especie, o
+    /// sin ella, por su tipo (con tipo, sin especie, no se sabe: textura).
+    pub fn modo_de_bufer(&self) -> Option<crate::bufer::Modo> {
+        use crate::bufer::Modo;
+        match (self.especie, self.tipo) {
+            (BUFER_TIPADO, _) => Some(Modo::Tipado),
+            (BUFER_CRUDO, _) | (0, 4) => Some(Modo::Crudo),
+            (BUFER_ESTRUCTURADO, _) | (0, 5) => Some(Modo::Estructurado),
+            _ => None,
+        }
+    }
 }
 
 fn u32_en(d: &[u8], o: usize) -> Option<u32> {
@@ -77,8 +101,10 @@ pub fn de_psv0(p: &[u8]) -> Option<Vec<Recurso>> {
         let r = o + i * paso;
         // Un tipo que no se conoce (0, "invalido") se guarda igual: cuenta en
         // el orden de su clase... pero sin clase no hay orden. Se salta.
-        let Some(clase) = clase(u32_en(p, r)?) else { continue };
-        v.push(Recurso { clase, espacio: u32_en(p, r + 4)?, desde: u32_en(p, r + 8)?, hasta: u32_en(p, r + 12)? });
+        let tipo = u32_en(p, r)?;
+        let Some(clase) = clase(tipo) else { continue };
+        let especie = if paso >= 24 { u32_en(p, r + 16)? } else { 0 };
+        v.push(Recurso { clase, espacio: u32_en(p, r + 4)?, desde: u32_en(p, r + 8)?, hasta: u32_en(p, r + 12)?, tipo, especie });
     }
     Some(v)
 }
@@ -100,17 +126,10 @@ mod pruebas {
     fn la_psv0_de_dxc_con_tres_espacios() {
         let d = include_bytes!("../../prueba/espacios.dxil");
         let s = crate::dxil::leer(d).unwrap();
-        assert_eq!(
-            s.recursos,
-            [
-                Recurso { clase: CBV, espacio: 0, desde: 0, hasta: 0 },
-                Recurso { clase: MUESTREADOR, espacio: 1, desde: 20, hasta: 20 },
-                Recurso { clase: MUESTREADOR, espacio: 0, desde: 2, hasta: 2 },
-                Recurso { clase: SRV, espacio: 0, desde: 3, hasta: 3 },
-                Recurso { clase: SRV, espacio: 1, desde: 40, hasta: 40 },
-                Recurso { clase: SRV, espacio: 2, desde: 7, hasta: 10 },
-            ]
-        );
+        let vistos: alloc::vec::Vec<(u8, u32, u32, u32)> = s.recursos.iter().map(|r| (r.clase, r.espacio, r.desde, r.hasta)).collect();
+        assert_eq!(vistos, [(CBV, 0, 0, 0), (MUESTREADOR, 1, 20, 20), (MUESTREADOR, 0, 2, 2), (SRV, 0, 3, 3), (SRV, 1, 40, 40), (SRV, 2, 7, 10)]);
+        // Las texturas: SRV con tipo (3), Texture2D (2); ninguna es un bufer.
+        assert!(s.recursos.iter().filter(|r| r.clase == SRV).all(|r| (r.tipo, r.especie) == (3, 2) && r.modo_de_bufer().is_none()));
         assert_eq!(rango(&s.recursos, SRV, 2).map(|r| (r.espacio, r.desde)), Some((2, 7)));
         assert_eq!(rango(&s.recursos, MUESTREADOR, 0).map(|r| (r.espacio, r.desde)), Some((1, 20)));
         assert_eq!(rango(&s.recursos, UAV, 0), None);

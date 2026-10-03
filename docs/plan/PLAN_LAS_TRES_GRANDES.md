@@ -667,16 +667,26 @@ la proxima corrida del metal dice cual pesa mas:
   dibujo (`cbuffers.rs`; con uno entero, sin copiar). Un cbuffer mas corto de
   lo que se lee da 0, no deja de dibujar. Probado con `prueba/cbuffers.dxil`.
   Queda: la fila DINAMICA (`cbuffer` con arrays indexados), que va con N5.4.
-- [ ] **N5.3 -- los UAV** (RWTexture, RWBuffer) y los SRV de bufer
-  (StructuredBuffer, ByteAddressBuffer). Texto: "un UAV ... todavia no" y
-  "un SRV de un bufer: ... se lee como nulo".
+- [x] **N5.3 -- los SRV de bufer** (03-10): `Buffer<T>`, `StructuredBuffer`
+  y `ByteAddressBuffer` en tablas. La especie de cada uno sale de la PSV0
+  (`dxil/recursos.rs`), `bufferLoad` y su GetDimensions compilan
+  (`Lectura::Bufer`), `bufer.rs` los lee con las reglas de D3D12 (fuera de
+  la vista, 0) y la casa guarda en la ranura del SRV el paso, los elementos
+  y si es crudo. Probado con `prueba/buferes.dxil`. Corren en la CPU (el
+  emisor de la 3060 aun no los sabe: N6.1).
+- [ ] **N5.3b -- los SRV en la RAIZ** (`SetGraphicsRootShaderResourceView`):
+  hoy se dicen y se tiran. El crudo sale solo; el estructurado necesita su
+  paso, que esta en los metadatos `dx.resources` del DXIL (no en la PSV0).
+- [ ] **N5.3c -- los UAV** (RWTexture, RWBuffer) en el de pixeles: escribir
+  desde un sombreador. Texto: "un UAV ... todavia no".
 - [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
   no es una constante. Hoy el sombreador no compila; pide que la ranura sea
   un RANGO y no un lugar.
 - [ ] **N6.1 -- a la 3060 lo que hoy va a la CPU**: SV_VertexID y
-  SV_InstanceID, y los formatos de vertice que no son float de 32 bits
-  (`proton-x-sm86/src/pso.rs`, `NoVa::Entrada`): el pegamento los
-  convierte antes de que corra el sombreador.
+  SV_InstanceID, los formatos de vertice que no son float de 32 bits
+  (`proton-x-sm86/src/pso.rs`, `NoVa::Entrada`: el pegamento los convierte
+  antes de que corra el sombreador), y las lecturas que el emisor no sabe
+  (`Op::Lee`: Load, SampleLevel, arrays, cubos, buferes).
 - [ ] **N6.2 -- ExecuteCommandLists y Present en el metal**: el primer
   fotograma del juego. Hasta la segunda corrida: 0 y 0.
 - [ ] **N6.3 -- el juez en el metal**: cada PSO que va a la 3060, comparado
@@ -698,6 +708,11 @@ FRAPS-X antes y despues:
 - [ ] **N9.4 -- la 3060 sin capas**: los lotes van del juego a la puerta de
   la 3060 sin driver de por medio; y a P0 mientras se juega (E-1 de
   [`PLAN_LA_3060.md`](PLAN_LA_3060.md) la duerme cuando no).
+
+**Y despues, GOG de verdad**: con el juego corriendo, que la LUDOTECA
+lo traiga de la cuenta de GOG del propietario, autentico y sin DRM que
+saltar (J2 de [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md): la antena pide
+la lista a GOG, en Rust), y lo instale y lo arranque desde BMO-X.
 
 **"Todo el potencial", dicho claro**: el trazado de rayos (RT Overdrive) pide
 los nucleos RT de la 3060 desde nuestro propio emisor, y va al final, detras

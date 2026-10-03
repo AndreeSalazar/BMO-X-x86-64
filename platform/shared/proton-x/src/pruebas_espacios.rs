@@ -48,7 +48,7 @@ fn el_enlace_da_a_cada_espacio_su_ranura() {
         let c = color(lugar);
         let esperado = [(c & 0xFF) as f32 / 255.0, ((c >> 8) & 0xFF) as f32 / 255.0, ((c >> 16) & 0xFF) as f32 / 255.0, 0.0];
         let tex: Vec<Option<Textura>> = (0..pix.len()).map(|i| (i == k).then(|| Textura::rgba(&pix[i], 1, 1, false))).collect();
-        let rec = Recursos { texturas: &tex, muestreadores: &mue };
+        let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &[] };
         en.ps.correr_con(&[[0.0; 4], [0.5, 0.5, 0.0, 0.0]], &cb, &rec, &mut sal, &mut regs);
         assert_eq!(sal[0], esperado, "solo la textura de {lugar:?}");
     }
@@ -133,4 +133,38 @@ fn el_enlace_aplana_los_cbuffers_que_no_son_b0() {
     assert_eq!(corto.len(), 48);
     assert_eq!(&corto[16..32], &k[..]);
     assert!(corto[..16].iter().chain(&corto[32..]).all(|&x| x == 0));
+}
+
+const BUFERES_PS: &[u8] = include_bytes!("../prueba/buferes.dxil");
+
+/// *** N5.3: `buferes.hlsl` (de `dxc`) lee un `Buffer<float4>` (t0), un
+/// `StructuredBuffer` de 20 bytes (t1, su `b`, a 4 bytes) y un
+/// `ByteAddressBuffer` (t2 de space1, por bytes), y suma el GetDimensions del
+/// estructurado. Cada uno es un bufer en SU ranura, y sin el, ceros.
+#[test]
+fn un_pixel_de_dxc_lee_los_tres_buferes() {
+    use crate::bufer::Bufer;
+    use crate::dxil::programa::{compilar, Lectura};
+    use crate::textura::Recursos;
+    let ps = compilar(&dxil::leer(BUFERES_PS).unwrap()).unwrap();
+    assert_eq!(ps.ops.iter().filter(|o| matches!(o, Op::Lee { como: Lectura::Bufer(_), .. })).count(), 3, "{:?}", ps.ops);
+    let f = |v: &[f32]| v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<u8>>();
+    let tipado = f(&[0.0; 8].iter().copied().chain([1.0, 2.0, 3.0, 4.0]).collect::<Vec<f32>>());
+    // Tres elementos de 20 bytes (a, b.xyzw); el 1 con b = (10, 20, 30, 40).
+    let estructurado = f(&[0.0, 0.0, 0.0, 0.0, 0.0, 7.0, 10.0, 20.0, 30.0, 40.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    let crudo = f(&[0.0, 0.0, 100.0, 200.0, 300.0, 400.0]);
+    let bufer = |l: crate::dxil::programa::Lugar| match (l.espacio, l.registro) {
+        (0, 0) => Bufer { bytes: &tipado, formato: 2, paso: 0, elementos: 3 },
+        (0, 1) => Bufer { bytes: &estructurado, formato: 0, paso: 20, elementos: 3 },
+        _ => Bufer { bytes: &crudo, formato: 0, paso: 0, elementos: 6 },
+    };
+    let buf: Vec<Option<Bufer>> = ps.ranuras.texturas.iter().map(|&l| Some(bufer(l))).collect();
+    let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &buf };
+    let i = [2u32, 1, 8, 0].map(f32::from_bits);
+    let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
+    ps.correr_con(&[[0.0; 4], i], &[], &rec, &mut sal, &mut regs);
+    assert_eq!(sal[0], [114.0, 225.0, 336.0, 447.0], "1 + 10 + 100 + 3 elementos...");
+    // Sin buferes (SRV nulos): todo 0, y 0 elementos.
+    ps.correr_con(&[[0.0; 4], i], &[], &Recursos::NINGUNO, &mut sal, &mut regs);
+    assert_eq!(sal[0], [0.0; 4]);
 }
