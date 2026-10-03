@@ -1003,7 +1003,10 @@ pub extern "C" fn _start() -> ! {
         }
         // ** Y el medidor del MAESTRO, mientras suena: pinta, pero NO es
         // actividad (W4b). `toca` no cruza puertas: mira el reloj.
-        dsk.tick.will_paint = dsk.tick.actividad || dsk.tick.quarter || desktop::sonido::toca(&dsk) || desktop::globo::anima() || desktop::pastilla::anima() || desktop::brillo::anima() || desktop::transicion::anima() || desktop::marco::anima() || desktop::fraps::anima() || desktop::entrada::anima();
+        // ** Los avisos que se MUEVEN (lo que llega, lo que se va): se mueven
+        // aqui, en cada vuelta, y mientras se muevan el bucle no se duerme.
+        let mueve = desktop::musica::mover();
+        dsk.tick.will_paint = mueve || dsk.tick.actividad || dsk.tick.quarter || desktop::sonido::toca(&dsk) || desktop::globo::anima() || desktop::pastilla::anima() || desktop::brillo::anima() || desktop::transicion::anima() || desktop::marco::anima() || desktop::fraps::anima() || desktop::entrada::anima();
 
         // -- LA ENTRADA, en dos mitades que no se pueden mezclar --
         //

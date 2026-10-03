@@ -324,7 +324,8 @@ fn escribir_la_demo_3d() {
 /// **La voz de BMO-X en 3D, en un WAV**: cada aviso en su sitio con el 3D
 /// POR VOZ del orquestador (`Voces::situar`, el mismo que corre el kernel), y
 /// despues el compilador que compila TODO: catorce tics que cruzan de
-/// izquierda a derecha, dos clics de aviso a la derecha y "hecho".
+/// izquierda a derecha, dos clics de aviso a la derecha y "hecho". "Llega"
+/// y "se va" SE MUEVEN, situados cada 16 ms como hace el escritorio.
 #[test]
 fn escribir_la_demo_de_la_voz() {
     use bmo_amplificador::voces::{Formato, Sonido, Voces};
@@ -370,6 +371,7 @@ fn escribir_la_demo_de_la_voz() {
     let mut fuera = Vec::with_capacity(total);
     let mut canal = 0usize;
     let mut siguiente = 0usize;
+    let mut moviendo: Vec<(usize, &[(u32, i16)], usize)> = Vec::new();
     for b in (0..total).step_by(48) {
         while siguiente < guion.len() && (guion[siguiente].0 * 48_000.0) as usize <= b {
             let (_, que, angulo) = guion[siguiente];
@@ -382,8 +384,20 @@ fn escribir_la_demo_de_la_voz() {
             };
             voces.tocar(canal, s, banco.len() as u64, 48_000).unwrap();
             voces.situar(canal, 256, angulo);
+            if let Some(a) = que {
+                if avisos::ruta(a).len() > 1 {
+                    moviendo.push((canal, avisos::ruta(a), b));
+                }
+            }
             canal = (canal + 1) % 16;
             siguiente += 1;
+        }
+        // Los que se mueven, cada 16 ms por su ruta (como el escritorio).
+        for &(c, r, desde) in &moviendo {
+            let ms = ((b - desde) / 48) as u32;
+            if ms % 16 == 0 && ms <= r.last().unwrap().0 + 16 {
+                voces.situar(c, 256, avisos::en_la_ruta(r, ms));
+            }
         }
         let mut acc = [0i32; 96];
         voces.mezclar(&banco, &mut acc, 2);
@@ -392,5 +406,51 @@ fn escribir_la_demo_de_la_voz() {
         }
     }
     wav_estereo(&dir.join("demo_voz_3d.wav"), &fuera);
+}
+
+/// **"Llega" se mueve de verdad**: tocado por el mezclador del kernel y
+/// situado cada 16 ms por su ruta (lo que hace `desktop::musica::mover`),
+/// empieza a la izquierda, acaba delante, y no da saltos.
+#[test]
+fn llega_se_mueve_sin_saltos() {
+    use bmo_amplificador::voces::{Formato, Sonido, Voces};
+    let n = avisos::muestras(Aviso::Llega);
+    let mut v = vec![0i16; n];
+    avisos::componer(Aviso::Llega, &mut v);
+    let banco: Vec<u8> = v.iter().flat_map(|x| x.to_le_bytes()).collect();
+    let mut voces = Voces::nuevas();
+    let s = Sonido { inicio: 0, muestras: n as u32, formato: Formato::S16, hz: 48_000, izq: 256, der: 256, pista: 0, bucle: false };
+    voces.tocar(0, s, banco.len() as u64, 48_000).unwrap();
+    voces.situar(0, 256, avisos::angulo(Aviso::Llega));
+    let ruta = avisos::ruta(Aviso::Llega);
+    let mut izq = Vec::new();
+    let mut der = Vec::new();
+    for b in (0..n).step_by(48) {
+        let ms = (b / 48) as u32;
+        if ms % 16 == 0 {
+            voces.situar(0, 256, avisos::en_la_ruta(ruta, ms));
+        }
+        let mut acc = [0i32; 96];
+        voces.mezclar(&banco, &mut acc, 2);
+        for k in 0..48 {
+            izq.push(acc[2 * k]);
+            der.push(acc[2 * k + 1]);
+        }
+    }
+    let energia = |x: &[i32]| x.iter().map(|&y| (y as f64).powi(2)).sum::<f64>() + 1.0;
+    // Pasa por la izquierda (a -90 grados hacia los 200 ms) y acaba delante.
+    let lado = 10.0 * (energia(&izq[7_200..12_000]) / energia(&der[7_200..12_000])).log10();
+    let final_ = 10.0 * (energia(&izq[n - 6_000..]) / energia(&der[n - 6_000..])).log10();
+    // Son notas graves (196 a 784 Hz): ahi la cabeza casi no cambia el
+    // volumen y lo que situa es el RETARDO. 3 dB de mas a la izquierda.
+    assert!(lado > 3.0, "no pasa por la izquierda: {lado:.1} dB");
+    // Acaba a -15 grados: delante, apenas a la izquierda.
+    assert!(final_.abs() < 2.0 && final_ < lado - 1.5, "al acabar no esta delante: {final_:.1} dB");
+    // Sin saltos: ninguna muestra se aparta de la anterior mas que el propio
+    // sonido (un triangulo de ~6 dBFS a menos de 800 Hz sube < 2.000).
+    for x in [&izq, &der] {
+        let peor = x.windows(2).map(|w| (w[1] - w[0]).abs()).max().unwrap();
+        assert!(peor < 2_500, "un salto de {peor}");
+    }
 }
 

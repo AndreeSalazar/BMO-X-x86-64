@@ -57,15 +57,40 @@ pub const AVISOS: [Aviso; 12] = [
 /// **Donde suena cada aviso** (grados, + derecha, 0 delante, 180 detras): la
 /// pieza que lo dice tiene su sitio alrededor de la cabeza. Lo urgente,
 /// delante; HERMES, a la izquierda (donde vive F3); lo que llega, de detras.
-/// El orquestador lo situa con el 3D por voz (`AUDIO_FONDO_SITUAR`).
+/// El orquestador lo situa con el 3D por voz (`AUDIO_FONDO_SITUAR`). Es donde
+/// EMPIEZA: los que se mueven siguen su [`ruta`].
 pub fn angulo(a: Aviso) -> i16 {
+    ruta(a)[0].1
+}
+
+/// **Por donde va cada aviso**: (milisegundos desde que empieza, grados). Uno
+/// solo, quieto; varios, se MUEVE por ellos en linea recta. Lo que llega
+/// viene de detras a la izquierda hasta delante; lo que se va, de delante
+/// hacia atras. La ruta acaba antes que el sonido: llega a su sitio y alli
+/// se oye su final.
+pub fn ruta(a: Aviso) -> &'static [(u32, i16)] {
     match a {
-        Aviso::Mensaje | Aviso::Zumbido | Aviso::Conecta => -50,
-        Aviso::Advertencia => 30,
-        Aviso::Llega => -140,
-        Aviso::SeVa => 160,
-        _ => 0,
+        Aviso::Mensaje | Aviso::Zumbido | Aviso::Conecta => &[(0, -50)],
+        Aviso::Advertencia => &[(0, 30)],
+        Aviso::Llega => &[(0, -150), (380, -15)],
+        Aviso::SeVa => &[(0, 10), (480, 165)],
+        _ => &[(0, 0)],
     }
+}
+
+/// El angulo de una ruta a los `ms` de empezar, en linea recta entre puntos.
+pub fn en_la_ruta(r: &[(u32, i16)], ms: u32) -> i16 {
+    let mut g = r.first().map(|p| p.1).unwrap_or(0);
+    for w in r.windows(2) {
+        let ((t0, g0), (t1, g1)) = (w[0], w[1]);
+        if ms >= t1 {
+            g = g1;
+        } else if ms >= t0 {
+            let f = (ms - t0) as i32 * 1000 / (t1 - t0).max(1) as i32;
+            g = (g0 as i32 + (g1 as i32 - g0 as i32) * f / 1000) as i16;
+        }
+    }
+    g
 }
 
 /// **El nivel de cada aviso**, para que TODOS lleguen a -6 dBFS de pico: el
