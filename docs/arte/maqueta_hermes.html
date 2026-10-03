@@ -430,6 +430,60 @@ kbd { font-family: var(--f-mono); font-size: 11px; padding: 2px 6px; border-radi
 mark { background: rgba(255,194,77,.25); color: inherit; border-radius: 2px; padding: 0 1px; }
 .atajos-kv dt { color: var(--texto); }
 
+/* ---------- F3: cada cosa con su gesto propio ---------- */
+.bh { overflow: visible; }
+.bh canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; pointer-events: none; }
+.bh svg { position: relative; z-index: 1; transition: transform .2s; }
+.bh:hover { color: var(--c); }
+.bh:hover svg { transform: scale(1.12); }
+.bh[aria-current="true"] { background: color-mix(in srgb, var(--c) 16%, #0B0E15); color: var(--c); box-shadow: inset 0 0 0 1.5px var(--c); }
+.bh .cuenta { z-index: 2; }
+.alas-riel svg path:first-child { transform-box: fill-box; transform-origin: 100% 70%; animation: ala2 2.6s ease-in-out infinite; }
+.alas-riel svg path:last-child { transform-box: fill-box; transform-origin: 0% 70%; animation: ala 2.6s ease-in-out infinite; }
+.app[style*="--sec"] .centro .cab { position: relative; }
+.app[style*="--sec"] .centro .cab::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: linear-gradient(90deg, transparent, var(--sec), transparent) 0 0 / 50% 100% no-repeat; animation: firma 5s linear infinite; pointer-events: none; }
+@keyframes firma { from { background-position: -50% 0 } to { background-position: 150% 0 } }
+/* las entradas: una por seccion */
+.entra-mensajes .grupo { animation: e-izq .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 55ms); }
+.entra-mensajes .grupo.mio { animation-name: e-der; }
+.entra-mensajes .sistema { animation: e-zumbido .7s both; animation-delay: calc(var(--i, 0) * 55ms); }
+@keyframes e-izq { from { opacity: 0; transform: translateX(-24px); } }
+@keyframes e-der { from { opacity: 0; transform: translateX(24px); } }
+@keyframes e-zumbido { 0% { opacity: 0; transform: scale(.8); } 55% { opacity: 1; transform: scale(1.06) translateX(-4px); } 75% { transform: translateX(4px); } 100% { transform: none; } }
+.entra-tertulias .grupo { animation: e-corro .6s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 70ms); transform-origin: 20px 20px; }
+@keyframes e-corro { from { opacity: 0; transform: rotate(-8deg) scale(.9); } }
+.entra-muro .historia { animation: e-pop .5s cubic-bezier(.3,1.6,.5,1) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.entra-muro .publi { animation: e-voltea .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(.15s + var(--i, 0) * 80ms); }
+@keyframes e-pop { from { opacity: 0; transform: scale(.3); } }
+@keyframes e-voltea { from { opacity: 0; transform: perspective(700px) rotateY(80deg); } }
+.entra-canal .banner { animation: e-telon .8s cubic-bezier(.6,0,.2,1) both; }
+.entra-canal .canal-cab, .entra-canal .titulo-v, .entra-canal .pestanas-canal { animation: e-sube .5s .25s both; }
+.entra-canal .tarjeta-video, .entra-canal .lista-c { animation: e-sube .5s both; animation-delay: calc(.35s + var(--i, 0) * 60ms); }
+.entra-canal .reproductor { animation: e-enciende .7s both; transform-origin: 50% 40%; }
+@keyframes e-telon { from { clip-path: inset(0 50% 0 50%); } to { clip-path: inset(0 0 0 0); } }
+@keyframes e-enciende { 0% { opacity: 0; transform: scale(1, .02); } 45% { opacity: 1; transform: scale(1, .02); } 100% { transform: none; } }
+@keyframes e-sube { from { opacity: 0; transform: translateY(16px); } }
+.entra-paginas .logo-h { animation: e-alas .9s cubic-bezier(.2,.8,.2,1) both; }
+.entra-paginas .buscador { animation: e-ancho .6s .2s cubic-bezier(.2,.8,.2,1) both; }
+.entra-paginas .atajo { animation: e-pop .45s cubic-bezier(.3,1.6,.5,1) both; animation-delay: calc(.35s + var(--i, 0) * 55ms); }
+.entra-paginas .resultado, .entra-paginas .maq-raiz { animation: e-sube .45s both; animation-delay: calc(var(--i, 0) * 60ms); }
+@keyframes e-alas { from { opacity: 0; letter-spacing: .6em; filter: blur(4px); } }
+@keyframes e-ancho { from { opacity: 0; transform: scaleX(.3); } }
+.entra-envios .paso { animation: e-luz .6s both; animation-delay: calc(var(--i, 0) * 150ms); }
+.entra-envios .tarjeta { animation: e-sube .5s .5s both; }
+@keyframes e-luz { from { opacity: .1; } 60% { opacity: 1; box-shadow: 0 0 20px rgba(77,227,143,.35); } }
+.entra-amigos .huella span { animation: e-escribe .25s both; animation-delay: calc(var(--i, 0) * 30ms); }
+.entra-amigos .tarjeta { animation: e-sube .5s both; }
+@keyframes e-escribe { from { opacity: 0; transform: translateY(-5px); } }
+.entra-jaulas .jaula { animation: e-baja .6s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 130ms); }
+.entra-jaulas .cabina { animation: e-sube .5s .45s both; }
+@keyframes e-baja { from { opacity: 0; transform: translateY(-24px); clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+/* cada amigo, su gesto */
+.avatar[class*=" g-"]::after { content: ""; position: absolute; border-radius: 50%; pointer-events: none; }
+.g-nova::after { inset: -3px; background: conic-gradient(from 0deg, transparent 0 62%, var(--cian) 92%, transparent); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px)); animation: gira 2.6s linear infinite; }
+.g-orbe::after { inset: -6px; background: radial-gradient(circle at 50% 3px, var(--azul) 0 2.5px, transparent 3px); animation: gira 3.4s linear infinite; }
+.g-faro::after { inset: -5px; background: conic-gradient(from 0deg, rgba(255,194,77,.75), transparent 16%, transparent 84%, rgba(255,194,77,.25)); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); animation: gira 3.8s linear infinite; }
+.g-lince::after { inset: -3px; border: 1.5px dashed rgba(77,227,143,.45); animation: gira 16s linear infinite; }
 /* ---------- a la medida ---------- */
 @media (max-width: 1100px) { .app { grid-template-columns: 68px 220px minmax(0,1fr); } .app > .panel { display: none; } .tubo { grid-template-columns: repeat(3, minmax(0,1fr)); } }
 @media (max-width: 760px) {
@@ -484,6 +538,7 @@ mark { background: rgba(255,194,77,.25); color: inherit; border-radius: 2px; pad
     <h2>HERMES &middot; F3</h2>
     <ul>
       <li>Emojis completos como en WhatsApp: 1.870, por grupos, buscador en castellano, tonos de piel y recientes. Se ven con la letra de emojis de tu sistema (en Windows, los de Microsoft).</li>
+      <li>Cada cosa con su gesto propio, como cada tienda en la LUDOTECA: cada seccion del riel se mueve a su manera, entra a su manera (los mensajes desde su lado, el MURO voltea las fotos, el CANAL se enciende como una tele, las jaulas bajan), y cada amigo tiene el suyo (nova una estela, orbe una luna, faro su haz de luz, lince duerme).</li>
       <li>Reacciones a cada mensaje, el menu <b>+</b>, guinos de un catalogo cerrado y ZUMBIDO (tiembla, destella y suena; uno cada 10 s).</li>
       <li>PAGINAS: tu propia pagina en <code>.maqueta</code> (HTML + CSS), compilada con las reglas de MAQUETA, y las de tus amigos en <code>hermes://amigo/pagina</code>. Sin scripts y sin Google. Su inicio es como el de Google: un buscador (que busca en TU maquina) y tus atajos, con Ctrl+L, Alt+flechas, Alt+Inicio y <kbd>/</kbd>.</li>
       <li>Tertulias, el MURO con historias y corazones, y el CANAL a fondo: una pagina por canal (videos, listas, sobre), y cada video con capitulos, reacciones, comentarios y "a continuacion" del mismo canal.</li>
@@ -689,20 +744,20 @@ function avatar(id, tam = 32) {
   if (id === "yo") return `<span class="avatar" style="width:${tam}px;height:${tam}px"><img alt="" src="${GATO}"></span>`;
   const a = AMIGOS[id];
   const pt = tam <= 32 ? `<span class="punto" style="background:${CAMINO[a.camino][1]}"></span>` : "";
-  return `<span class="avatar" style="width:${tam}px;height:${tam}px;background:${a.color}">${a.nombre[0].toUpperCase()}${pt}</span>`;
+  return `<span class="avatar g-${id}" style="width:${tam}px;height:${tam}px;background:${a.color}">${a.nombre[0].toUpperCase()}${pt}</span>`;
 }
 const nombreDe = id => id === "yo" ? "BMO-X (tu)" : AMIGOS[id].nombre;
 
 /* ============================ HERMES ============================ */
 const SECCIONES = [["mensajes","Mensajes"],["tertulias","Tertulias"],["muro","El MURO"],["canal","El CANAL"],["paginas","Paginas"],["envios","ENVIOS"],["amigos","Amigos"],["jaulas","Las jaulas"]];
 function hermes() {
-  const app = $("#app"); app.className = "app";
+  const app = $("#app"); app.className = "app"; app.style.setProperty("--sec", COLOR_SEC[S.sec]);
   const pendientes = ENVIOS.filter(e => e.estado === "oferta").length;
   app.innerHTML = `
     <nav class="riel" aria-label="Secciones de HERMES">
-      <span class="burbuja" style="background:transparent;color:var(--cian)" aria-hidden="true">${IC.alas}</span>
+      <span class="burbuja alas-riel" style="background:transparent;color:var(--cian)" aria-hidden="true">${IC.alas}</span>
       <span class="sep"></span>
-      ${SECCIONES.map(([k, n]) => `<button class="burbuja" data-sec="${k}" data-nombre="${n}" aria-label="${n}" aria-current="${S.sec === k}">${IC[k]}${k === "envios" && pendientes ? `<span class="cuenta">${pendientes}</span>` : ""}</button>`).join("")}
+      ${SECCIONES.map(([k, n]) => `<button class="burbuja bh" style="--c:${COLOR_SEC[k]}" data-sec="${k}" data-nombre="${n}" aria-label="${n}" aria-current="${S.sec === k}"><canvas width="92" height="92" data-gh="${k}" aria-hidden="true"></canvas>${IC[k]}${k === "envios" && pendientes ? `<span class="cuenta">${pendientes}</span>` : ""}</button>`).join("")}
     </nav>
     <aside class="lista" id="lista"></aside>
     <section class="centro" id="centro"></section>
@@ -710,6 +765,8 @@ function hermes() {
   app.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => { S.sec = b.dataset.sec; S.selector = null; hermes(); });
   ({ mensajes: secMensajes, tertulias: secTertulias, muro: secMuro, canal: secCanal, paginas: secPaginas, envios: secEnvios, amigos: secAmigos, jaulas: secJaulas })[S.sec]();
   if (S.sec !== "paginas" && S.sec !== "canal") panelConexion();
+  arrancarLazoH();
+  entrada_seccion();
 }
 function listaYo() {
   return `<div class="yo">${avatar("yo")}<div class="txt"><span class="t1" style="color:var(--blanco)">BMO-X (tu)</span><span class="t2 mono">7D1E 4A90 &middot; tu huella</span></div></div>`;
@@ -792,7 +849,7 @@ function pintarMensajes(ch, quieto) {
     if (m.oferta) cuerpo = ofertaHtml(m.oferta, i);
     if (m.enlace) cuerpo += enlaceHtml(m.enlace);
     const item = `<div class="item" data-i="${i}">${cuerpo}${reaccionesHtml(m)}<div class="barra-reac" role="toolbar" aria-label="Reaccionar">${RAPIDAS.map(e => `<button data-rq="${e}" aria-label="Reaccionar con ${e}">${e}</button>`).join("")}<button data-rmas aria-label="Mas reacciones" style="font-family:var(--f-texto);font-size:17px;color:var(--gris)">+</button></div></div>`;
-    if (prev !== m.de) html += `${prev !== null ? "</div></div>" : ""}<div class="grupo">${avatar(m.de, 40)}<div><div class="quien"><b>${esc(nombreDe(m.de))}</b><span>${m.t}</span></div>`;
+    if (prev !== m.de) html += `${prev !== null ? "</div></div>" : ""}<div class="grupo${m.de === "yo" ? " mio" : ""}">${avatar(m.de, 40)}<div><div class="quien"><b>${esc(nombreDe(m.de))}</b><span>${m.t}</span></div>`;
     html += item; prev = m.de;
   });
   if (prev !== null) html += "</div></div>";
@@ -1936,6 +1993,67 @@ function panelInicio() {
     <div class="caja"><h3>Como busca</h3><p class="nota">Sobre las paginas y los canales de tus amigos que ya llegaron a tu maquina, cifrados. Las palabras que buscas no salen de tu maquina.</p></div>
     <div class="caja"><h3>Una pagina no puede tener</h3><ul class="lista-no"><li>scripts ni eventos</li><li>enlaces fuera de hermes://</li><li>nada de otra web</li></ul></div>`;
 }
+/* ============================ F3: cada cosa con su gesto ============================ */
+const COLOR_SEC = { mensajes: "#5EF2E6", tertulias: "#B48CFF", muro: "#FF2E88", canal: "#FFC24D", paginas: "#3DA5FF", envios: "#4DE38F", amigos: "#FF8A5C", jaulas: "#FF4F5E" };
+const ENTRA = { mensajes: ".grupo, .sistema", tertulias: ".grupo", muro: ".historia, .publi", canal: ".tarjeta-video, .lista-c", paginas: ".atajo, .resultado", envios: ".paso", amigos: ".huella span", jaulas: ".jaula" };
+/** El gesto de cada seccion en su burbuja del riel: nadie repite el de otro. */
+function gestoH(g, k, w, h, t, activo) {
+  g.clearRect(0, 0, w, h);
+  const c = COLOR_SEC[k], cx = w / 2, cy = h / 2, base = activo ? .6 : .28;
+  g.strokeStyle = c; g.fillStyle = c; g.lineWidth = 2; g.globalAlpha = base;
+  switch (k) {
+    case "mensajes": // los tres puntos de "esta escribiendo"
+      for (let i = 0; i < 3; i++) { const y = h * .8 - Math.max(0, Math.sin(t * 5 - i * .8)) * 7; g.beginPath(); g.arc(cx + (i - 1) * 11, y, 3.2, 0, 7); g.fill(); }
+      break;
+    case "tertulias": // cuatro en corro, dando la vuelta a la mesa
+      for (let i = 0; i < 4; i++) { const a = t * .9 + i * Math.PI / 2; g.beginPath(); g.arc(cx + Math.cos(a) * w * .38, cy + Math.sin(a) * h * .38, 3.2, 0, 7); g.fill(); }
+      break;
+    case "muro": // cuatro fotos que se voltean, una detras de otra
+      for (let i = 0; i < 4; i++) { const s = Math.abs(Math.cos(t * 1.6 + i * .8)), q = 11, x = i % 2 ? w - q - 9 : 9, y = i < 2 ? 9 : h - q - 9; g.fillRect(x + q * (1 - s) / 2, y, q * s, q); }
+      break;
+    case "canal": // la barra que avanza, como un video que suena
+      g.globalAlpha = base * .5; g.fillRect(14, h - 15, w - 28, 3);
+      g.globalAlpha = base * 1.4; g.fillRect(14, h - 15, (w - 28) * ((t * .15) % 1), 3);
+      break;
+    case "paginas": // los meridianos de un globo que gira
+      for (let i = 0; i < 3; i++) { const f = Math.cos(t * 1.1 + i * Math.PI / 3); g.beginPath(); g.ellipse(cx, cy, Math.max(.5, Math.abs(f) * w * .42), h * .42, 0, 0, 7); g.stroke(); }
+      break;
+    case "envios": // los trozos que caen y llegan
+      for (let i = 0; i < 3; i++) { const f = (t * .7 + i / 3) % 1; g.globalAlpha = base * (1 - f) * 1.4; g.fillRect(cx - 3, 6 + f * (h - 22), 6, 6); }
+      break;
+    case "amigos": // la huella: arcos que laten hacia fuera
+      for (let i = 0; i < 3; i++) { const f = (t * .5 + i / 3) % 1; g.globalAlpha = base * (1 - f) * 1.4; g.beginPath(); g.arc(cx, cy + 4, 8 + f * w * .38, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+      break;
+    case "jaulas": { // el escaner que barre los barrotes
+      const x = 9 + ((t * .45) % 1) * (w - 18); g.globalAlpha = base * 1.3; g.fillRect(x, 8, 2, h - 16);
+      break;
+    }
+  }
+  g.globalAlpha = 1;
+}
+let lazoH = null;
+function arrancarLazoH() {
+  cancelAnimationFrame(lazoH);
+  const pinta = t => document.querySelectorAll("canvas[data-gh]").forEach(cv => { const k = cv.dataset.gh; gestoH(cv.getContext("2d"), k, cv.width, cv.height, t + k.length, k === S.sec); });
+  if (reduce) { pinta(1); return; }
+  const t0 = performance.now();
+  const paso = () => { if (S.app !== "hermes") return; pinta((performance.now() - t0) / 1000); lazoH = requestAnimationFrame(paso); };
+  lazoH = requestAnimationFrame(paso);
+}
+/** La entrada de cada seccion: solo al llegar, no en cada repintado. */
+function entrada_seccion() {
+  const centro = $("#centro"); if (!centro) return;
+  const clave = S.sec + "|" + (S.sec === "mensajes" || S.sec === "tertulias" ? S.conv : S.sec === "canal" ? S.canal.de + (S.canal.video || "") : S.sec === "paginas" ? S.pag.url + S.pag.modo : "");
+  if (S.secAnim === clave) return;
+  S.secAnim = clave;
+  const cls = "entra-" + S.sec;
+  centro.classList.add(cls);
+  centro.querySelectorAll(ENTRA[S.sec]).forEach((el, i) => el.style.setProperty("--i", Math.min(i, 40)));
+  // Lo que llega despues (un mensaje nuevo) entra sin repetir la funcion.
+  setTimeout(() => { centro.classList.remove(cls); }, 1600);
+  // PAGINAS pinta su hoja un poco despues: se le da su numero al llegar.
+  setTimeout(() => { centro.querySelectorAll(ENTRA[S.sec]).forEach((el, i) => el.style.setProperty("--i", Math.min(i, 40))); }, 240);
+}
 /* ============================ LUDOTECA ============================ */
 const TIENDAS = [
   ["todas","Toda la coleccion","#39FF88","#08241A","orbita"], ["gog","GOG","#A55DFF","#1A0F2E","espiral"], ["steam","Steam","#66C0F4","#171A21","vapor"],
@@ -1990,7 +2108,7 @@ function ludoteca() {
   const visibles = JUEGOS.map((j, i) => ({ j, i })).filter(x => S.tienda === 0 || x.j.tienda === T[0]);
   if (!visibles.some(x => x.i === S.juego)) S.juego = visibles.length ? visibles[0].i : -1;
   const J = S.juego >= 0 ? JUEGOS[S.juego] : null;
-  const app = $("#app"); app.className = "app lud";
+  const app = $("#app"); app.className = "app lud"; app.style.removeProperty("--sec");
   app.innerHTML = `
     <nav class="riel" aria-label="Tiendas">${TIENDAS.map((t, i) => `${i === 1 ? '<span class="sep"></span>' : ""}<button class="burbuja" data-t="${i}" data-nombre="${esc(t[1])}" aria-label="${esc(t[1])}" aria-current="${S.tienda === i}" style="background:${t[3]}"><canvas width="92" height="92" data-gesto="${i}"></canvas></button>`).join("")}</nav>
     <aside class="lista">

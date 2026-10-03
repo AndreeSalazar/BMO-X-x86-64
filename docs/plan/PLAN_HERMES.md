@@ -419,7 +419,13 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
 - [ ] **H5 -- la app en F3, en una sola maquina.** `sys/hermes.bex`
       (`Ultra_userspace/apps/hermes`), F3 la abre o la esconde como F4 a la
       LUDOTECA; `consumo` se sigue escribiendo en Ejecutar. Entrada con alas,
-      mensajes y tertulias guardados, zumbido con sonido. **Como se sabe:** en
+      mensajes y tertulias guardados, zumbido con sonido. Y, como pidio el
+      propietario el 03-10 (*"TODOS tienen animaciones unicas"*), cada cosa con
+      su gesto propio, como cada tienda de la LUDOTECA: cada seccion del riel
+      se mueve a su manera y ENTRA a su manera (los mensajes desde su lado, el
+      MURO voltea las fotos, el CANAL se enciende como una tele, los pasos de
+      ENVIOS se encienden en orden, la huella se escribe, las jaulas bajan), y
+      cada amigo lleva el suyo. La maqueta los muestra todos. **Como se sabe:** en
       el Ryzen, F3 abre HERMES, se escribe, se cierra con Alt+F4, se vuelve a
       abrir y lo escrito sigue ahi.
 - [ ] **H6 -- texto entre dos BMO-X en la LAN.** Pide G5 en el metal. **Como
