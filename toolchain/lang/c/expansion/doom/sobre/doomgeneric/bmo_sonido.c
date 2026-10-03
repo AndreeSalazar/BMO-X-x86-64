@@ -42,7 +42,9 @@
  *
  * == Lo que NO hace, dicho aqui para no prometerlo ==
  *
- *   - Sonido posicional de verdad (HRTF): `sep` es un paneo de dos canales.
+ *   - HRTF (arriba, abajo, un detras preciso): el 3D por voz (03-10) es
+ *     retardo y sombra entre oidos, y el angulo sale de `sep`, que no sabe
+ *     delante de detras.
  *   - PISTAS para LA MESA: van a 0 hasta que exista su contrato (M3).
  */
 
@@ -326,15 +328,47 @@ static void bmo_snd_lados(int vol, int sep, int *izq, int *der) {
     *der = vol * sep / 127;
 }
 
-static void I_BMO_UpdateSoundParams(int canal, int vol, int sep) {
-    int izq;
-    int der;
+/* ** EL 3D POR VOZ (2026-10-03, S7 de PLAN_EL_SONIDO). DOOM no da el angulo
+ * de la fuente, da `sep = 128 - 96 * sen(angulo)` (s_sound.c,
+ * S_STEREO_SWING). Asi que el angulo se DESHACE de ahi: arcoseno de
+ * (sep - 128) / 96, de una tabla. Lo que no se puede deshacer es delante o
+ * detras -- el seno es el mismo --, y se toma delante: DOOM tampoco lo
+ * distinguia. Con el angulo, el orquestador da a cada oido su retardo y su
+ * sombra, y un monstruo a la izquierda se oye A LA IZQUIERDA, no solo mas
+ * fuerte por ese lado. */
+static const int bmo_snd_asen[97] = {
+    0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 7, 7, 8, 8, 9,
+    10, 10, 11, 11, 12, 13, 13, 14, 14, 15, 16, 16, 17, 18, 18, 19,
+    19, 20, 21, 21, 22, 23, 23, 24, 25, 25, 26, 27, 27, 28, 29, 29,
+    30, 31, 31, 32, 33, 34, 34, 35, 36, 36, 37, 38, 39, 39, 40, 41,
+    42, 43, 43, 44, 45, 46, 47, 48, 49, 50, 50, 51, 52, 53, 54, 55,
+    56, 58, 59, 60, 61, 62, 64, 65, 66, 68, 70, 71, 73, 76, 78, 82,
+    90,
+};
 
+/* De `sep` (0..255, 128 centro) al angulo en grados, + a la derecha. */
+static int bmo_snd_angulo(int sep) {
+    int d = sep - 128;
+    if (d > 96) { d = 96; }
+    if (d < -96) { d = -96; }
+    if (d < 0) {
+        return -bmo_snd_asen[-d];
+    }
+    return bmo_snd_asen[d];
+}
+
+/* El volumen de DOOM (0..127) al de una voz (0..256). */
+static int bmo_snd_vol(int vol) {
+    if (vol < 0) { vol = 0; }
+    if (vol > 127) { vol = 127; }
+    return vol * 256 / 127;
+}
+
+static void I_BMO_UpdateSoundParams(int canal, int vol, int sep) {
     if (!bmo_snd_va || canal < 0 || canal >= BMO_SND_CANALES) {
         return;
     }
-    bmo_snd_lados(vol, sep, &izq, &der);
-    bmo_voz_ajustar(bmo_snd_cap, canal, izq, der);
+    bmo_voz_situar(bmo_snd_cap, canal, bmo_snd_vol(vol), bmo_snd_angulo(sep));
 }
 
 static int I_BMO_StartSound(sfxinfo_t *sfx, int canal, int vol, int sep) {
@@ -359,6 +393,9 @@ static int I_BMO_StartSound(sfxinfo_t *sfx, int canal, int vol, int sep) {
                        BMO_VOZ_U8, bmo_efecto[k].hz, izq, der, 0)) {
         return -1;
     }
+    /* Y en su sitio: la orden va detras en la misma cola, asi que el bus la
+     * aplica antes de la primera trama y el sonido ENTRA ya situado. */
+    bmo_voz_situar(bmo_snd_cap, canal, bmo_snd_vol(vol), bmo_snd_angulo(sep));
     return canal;
 }
 

@@ -279,6 +279,16 @@ unsigned long long bmo_voz_ajustar(unsigned long long cap, unsigned long long ca
     return bmo_valor(cap, BMO_SONIDO_VOZ, BMO_VOZ_AJUSTAR, canal, (izq & 0xFFFF) | ((der & 0xFFFF) << 16));
 }
 
+/* SITUAR una voz que suena en el espacio (S7, 2026-10-03): `vol` de 0 a 256 y
+ * `angulo` en grados, + a la derecha, 0 delante, 180 detras. Cada oido la oye
+ * con su retardo (hasta 0,66 ms) y su sombra; moverla va por rampa. */
+unsigned long long bmo_voz_situar(unsigned long long cap, unsigned long long canal,
+                                  unsigned long long vol, int angulo) {
+    unsigned long long a = (unsigned long long)(angulo & 0xFFFF);
+    return bmo_valor(cap, BMO_SONIDO_VOZ, BMO_VOZ_AJUSTAR, canal,
+                     (vol & 0xFFFF) | (a << 32) | (1ULL << 48));
+}
+
 /* Callar un canal, o todos con BMO_VOZ_TODOS. */
 unsigned long long bmo_voz_callar(unsigned long long cap, unsigned long long canal) {
     return bmo_valor(cap, BMO_SONIDO_VOZ, BMO_VOZ_CALLAR, canal, 0);

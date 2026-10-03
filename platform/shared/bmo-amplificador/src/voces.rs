@@ -141,6 +141,20 @@ pub const RAMPA_TRAMAS: u32 = 240;
 /// El paso por trama de la rampa, en la unidad interna (1/65536 de pleno).
 const RAMPA_PASO: u32 = ((PLENO_VOZ as u32) << 8) / RAMPA_TRAMAS;
 
+/// **Sin angulo**: la voz se paneo con `izq`/`der`, como siempre.
+pub const SIN_ANGULO: i16 = i16::MIN;
+
+/// Lo que el retardo entre oidos se mueve por trama, en Q8 muestras: 1/16 de
+/// muestra. De lado a lado (31 muestras) son ~10 ms: un monstruo que cruza
+/// delante no hace saltar el retardo, que seria un chasquido.
+const RETARDO_PASO: i32 = 16;
+
+/// Lo que el polo de la sombra se mueve por trama (Q16): de "sin filtro" a
+/// la sombra mas honda en ~10 ms. Sin esto, una fuente que cruza por delante
+/// cambia de golpe que oido es el lejano, y pasar de filtrado a sin filtrar
+/// en una muestra es un escalon (la prueba lo vio: 920).
+const POLO_PASO: i32 = 128;
+
 #[derive(Clone, Copy, Debug)]
 struct Voz {
     sonido: Sonido,
@@ -154,10 +168,37 @@ struct Voz {
     /// es `(m * v) >> 8`.
     vol: [u32; 2],
     activa: bool,
+    /// **El 3D por voz** (S7, 2026-10-03): donde esta la fuente, en grados
+    /// (+ derecha, 0 delante), o [`SIN_ANGULO`]. Con angulo, cada oido oye la
+    /// voz con su retardo (el lejano lee el banco un poco ANTES: el mismo
+    /// sonido, mas tarde) y su paso bajo (la sombra de la cabeza).
+    angulo: i16,
+    /// El retardo de cada oido, el que suena y al que va (Q8 muestras de
+    /// salida), y el polo y el estado de su paso bajo.
+    retardo: [i32; 2],
+    retardo_meta: [i32; 2],
+    polo: [i32; 2],
+    polo_meta: [i32; 2],
+    bajo: [i64; 2],
+    /// La frecuencia de salida, para las tablas del 3D.
+    hz: u32,
 }
 
 impl Voz {
-    const CALLADA: Voz = Voz { sonido: Sonido::NADA, pos: 0, paso: 0, vol: [0, 0], activa: false };
+    const CALLADA: Voz = Voz {
+        sonido: Sonido::NADA,
+        pos: 0,
+        paso: 0,
+        vol: [0, 0],
+        activa: false,
+        angulo: SIN_ANGULO,
+        retardo: [0, 0],
+        retardo_meta: [0, 0],
+        polo: [65_536, 65_536],
+        polo_meta: [65_536, 65_536],
+        bajo: [0, 0],
+        hz: 0,
+    };
 }
 
 /// Un paso de la rampa: hacia `meta`, sin pasarse.
@@ -206,6 +247,8 @@ impl Voces {
             paso: ((s.hz as u64) << 16) / hz_salida as u64,
             vol: [(s.izq as u32) << 8, (s.der as u32) << 8],
             activa: true,
+            hz: hz_salida,
+            ..Voz::CALLADA
         };
         Ok(())
     }
@@ -216,6 +259,36 @@ impl Voces {
         if let Some(v) = self.voz.get_mut(canal) {
             v.sonido.izq = izq.min(PLENO_VOZ);
             v.sonido.der = der.min(PLENO_VOZ);
+        }
+    }
+
+    /// **Situar una voz en el espacio** (S7 por voz): `vol` 0..=256 y
+    /// `angulo` en grados (+ derecha, 0 delante, 180 detras), o
+    /// [`SIN_ANGULO`] para volver al paneo de siempre. El volumen de cada
+    /// oido va por la rampa de siempre y el retardo por la suya: moverla no
+    /// salta. Si la voz acaba de empezar, entra ya en su sitio.
+    pub fn situar(&mut self, canal: usize, vol: u16, angulo: i16) {
+        let Some(v) = self.voz.get_mut(canal) else { return };
+        let vol = vol.min(PLENO_VOZ) as i32;
+        let caminos = if angulo == SIN_ANGULO { None } else { crate::espacio::caminos(v.hz, angulo as i32) };
+        let Some(c) = caminos else {
+            v.angulo = SIN_ANGULO;
+            v.sonido.izq = vol as u16;
+            v.sonido.der = vol as u16;
+            v.retardo_meta = [0, 0];
+            v.polo_meta = [65_536, 65_536];
+            return;
+        };
+        let nueva = v.angulo == SIN_ANGULO && v.pos == 0;
+        v.angulo = angulo;
+        v.sonido.izq = ((vol * c[0].0) >> 16) as u16;
+        v.sonido.der = ((vol * c[1].0) >> 16) as u16;
+        v.retardo_meta = [c[0].1, c[1].1];
+        v.polo_meta = [c[0].2, c[1].2];
+        if nueva {
+            v.retardo = v.retardo_meta;
+            v.polo = v.polo_meta;
+            v.vol = [(v.sonido.izq as u32) << 8, (v.sonido.der as u32) << 8];
         }
     }
 
@@ -308,7 +381,42 @@ impl Voces {
                 v.vol[1] = acercar(v.vol[1], (s.der as u32) << 8);
                 let (vi, vd) = (v.vol[0] as i64, v.vol[1] as i64);
                 let base = t * canales;
-                if canales >= 2 {
+                if v.angulo != SIN_ANGULO {
+                    // ** EL 3D POR VOZ: cada oido con su retardo y su sombra.
+                    let mut oye = [m; 2];
+                    for (e, x) in oye.iter_mut().enumerate() {
+                        let (r, meta) = (v.retardo[e], v.retardo_meta[e]);
+                        let r = if r < meta { (r + RETARDO_PASO).min(meta) } else { (r - RETARDO_PASO).max(meta) };
+                        v.retardo[e] = r;
+                        if r > 0 {
+                            // El retardo es en muestras de SALIDA; en el banco
+                            // son `r * paso`. Antes del principio, silencio.
+                            let atras = (r as u64 * v.paso) >> 8;
+                            *x = if v.pos >= atras {
+                                leer(banco, &s, v.pos - atras)
+                            } else if s.bucle && s.muestras > 0 {
+                                let largo = (s.muestras as u64) << 16;
+                                leer(banco, &s, (v.pos + largo - atras % largo) % largo)
+                            } else {
+                                0
+                            };
+                        }
+                        let (p, pm) = (v.polo[e], v.polo_meta[e]);
+                        let p = if p < pm { (p + POLO_PASO).min(pm) } else { (p - POLO_PASO).max(pm) };
+                        v.polo[e] = p;
+                        // Siempre por el filtro: con el polo en 65536 deja
+                        // pasar la muestra tal cual, y asi entrar y salir de
+                        // la sombra es continuo.
+                        v.bajo[e] += (p as i64 * (((*x as i64) << 16) - v.bajo[e]) + (1 << 15)) >> 16;
+                        *x = ((v.bajo[e] + (1 << 15)) >> 16) as i32;
+                    }
+                    if canales >= 2 {
+                        acc[base] += ((oye[0] as i64 * vi) >> 16) as i32;
+                        acc[base + 1] += ((oye[1] as i64 * vd) >> 16) as i32;
+                    } else {
+                        acc[base] += (((oye[0] as i64 * vi) + (oye[1] as i64 * vd)) >> 17) as i32;
+                    }
+                } else if canales >= 2 {
                     acc[base] += ((m as i64 * vi) >> 16) as i32;
                     acc[base + 1] += ((m as i64 * vd) >> 16) as i32;
                 } else {
@@ -339,6 +447,20 @@ pub fn comprobar(canal: usize, s: &Sonido, bytes_banco: u64, hz_salida: u32) -> 
         return Err(Rechazo::FueraDelBanco);
     }
     Ok(())
+}
+
+/// Una muestra de un sonido en una posicion 16.16, interpolada; 0 si no esta.
+fn leer(banco: &[u8], s: &Sonido, p: u64) -> i32 {
+    let idx = (p >> 16) as u32;
+    let Some(a) = muestra(banco, s, idx) else { return 0 };
+    let b = if idx + 1 < s.muestras {
+        muestra(banco, s, idx + 1).unwrap_or(0)
+    } else if s.bucle {
+        muestra(banco, s, 0).unwrap_or(0)
+    } else {
+        0
+    };
+    a + (((b - a) as i64 * (p & 0xFFFF) as i64) >> 16) as i32
 }
 
 /// Una muestra de un sonido, ya en 16 bits con signo. `None` si no esta en el
@@ -642,4 +764,104 @@ mod pruebas {
         v2.mezclar(&b, &mut todo, 2);
         assert_eq!(todo[0], fondo[0] + aviso[0]);
     }
+
+    /// Un banco S16 con `n` muestras de lo que diga `f`.
+    fn banco_de(n: usize, f: impl Fn(usize) -> i16) -> std::vec::Vec<u8> {
+        let mut b = std::vec::Vec::new();
+        for i in 0..n {
+            b.extend_from_slice(&f(i).to_le_bytes());
+        }
+        b
+    }
+
+    extern crate std;
+
+    fn voz(n: usize, bucle: bool) -> Sonido {
+        Sonido { inicio: 0, muestras: n as u32, formato: Formato::S16, hz: 48_000, izq: 256, der: 256, pista: 0, bucle }
+    }
+
+    #[test]
+    fn una_voz_a_la_derecha_llega_antes_y_mas_fuerte_al_oido_derecho() {
+        // Un golpe y despues nada: se ve en que muestra llega a cada oido.
+        let b = banco_de(200, |i| if i == 0 { 20_000 } else { 0 });
+        let mut v = Voces::nuevas();
+        v.tocar(0, voz(200, false), b.len() as u64, 48_000).unwrap();
+        v.situar(0, 256, 90);
+        let mut acc = [0i32; 400];
+        v.mezclar(&b, &mut acc, 2);
+        let izq: std::vec::Vec<i32> = (0..200).map(|t| acc[2 * t]).collect();
+        let der: std::vec::Vec<i32> = (0..200).map(|t| acc[2 * t + 1]).collect();
+        let primero = |x: &[i32]| x.iter().position(|&y| y.abs() > 30).unwrap();
+        assert_eq!(primero(&der), 0, "el oido cercano, ya");
+        let pi = primero(&izq);
+        assert!((29..=33).contains(&pi), "el lejano, 0,66 ms despues: muestra {pi}");
+        let pico = |x: &[i32]| x.iter().map(|y| y.abs()).max().unwrap();
+        assert!(pico(&izq) < pico(&der) / 2);
+    }
+
+    #[test]
+    fn sin_angulo_es_el_paneo_de_siempre() {
+        // Volver a SIN_ANGULO pasa por la rampa del volumen; acabada, es el
+        // paneo de siempre muestra a muestra.
+        let b = banco_de(100, |i| (i as i16) * 100);
+        let mut a = Voces::nuevas();
+        let mut c = Voces::nuevas();
+        a.tocar(0, voz(100, true), 200, 48_000).unwrap();
+        c.tocar(0, voz(100, true), 200, 48_000).unwrap();
+        c.situar(0, 256, 30);
+        c.situar(0, 256, SIN_ANGULO);
+        let (mut x, mut y) = ([0i32; 600], [0i32; 600]);
+        a.mezclar(&b, &mut x, 2);
+        c.mezclar(&b, &mut y, 2);
+        let (mut x, mut y) = ([0i32; 200], [0i32; 200]);
+        a.mezclar(&b, &mut x, 2);
+        c.mezclar(&b, &mut y, 2);
+        assert_eq!(x, y, "volver a SIN_ANGULO es el paneo de siempre");
+    }
+
+    #[test]
+    fn un_monstruo_que_cruza_no_chasquea() {
+        // Un seno de 300 Hz en bucle que cruza de -90 a +90 grados en medio
+        // segundo, moviendolo cada 1/35 s como DOOM: sin escalones.
+        let n = 160; // 300 Hz exactos a 48 kHz: 160 muestras por periodo
+        let b = banco_de(n, |i| (12_000.0 * (2.0 * core::f64::consts::PI * i as f64 / n as f64).sin()) as i16);
+        let mut v = Voces::nuevas();
+        v.tocar(0, voz(n, true), b.len() as u64, 48_000).unwrap();
+        v.situar(0, 256, -90);
+        let mut antes = [0i32; 2];
+        let mut peor = 0;
+        for tic in 0..18 {
+            v.situar(0, 256, (-90 + tic * 10) as i16);
+            let mut acc = [0i32; 2 * 1371];
+            v.mezclar(&b, &mut acc, 2);
+            for t in 0..1371 {
+                for e in 0..2 {
+                    // El primer milisegundo es el ATAQUE del sonido (el
+                    // filtro arranca de cero): lo que se mira es el cruce.
+                    if tic > 0 || t > 48 {
+                        peor = peor.max((acc[2 * t + e] - antes[e]).abs());
+                    }
+                    antes[e] = acc[2 * t + e];
+                }
+            }
+        }
+        // 300 Hz a 12.000 sube como mucho ~470 por muestra.
+        assert!(peor < 700, "un salto de {peor}");
+    }
+
+    #[test]
+    fn lo_de_detras_suena_mas_oscuro_que_lo_de_delante() {
+        // Una cuadrada de 6 kHz: casi todo agudos.
+        let b = banco_de(8, |i| if i < 4 { 12_000 } else { -12_000 });
+        let fuerza = |g: i16| {
+            let mut v = Voces::nuevas();
+            v.tocar(0, voz(8, true), b.len() as u64, 48_000).unwrap();
+            v.situar(0, 256, g);
+            let mut acc = [0i32; 2 * 4_800];
+            v.mezclar(&b, &mut acc, 2);
+            acc[4_800..].iter().map(|&x| (x as f64).powi(2)).sum::<f64>()
+        };
+        assert!(fuerza(180) < fuerza(0) * 0.6, "detras no es mas oscuro");
+    }
 }
+

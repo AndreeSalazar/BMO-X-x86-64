@@ -448,6 +448,8 @@ pub const AUDIO_FONDO_AJUSTAR: u64 = 3;
 pub const AUDIO_FONDO_CALLAR: u64 = 4;
 pub const AUDIO_FONDO_SUENA: u64 = 5;
 pub const AUDIO_FONDO_SOLTAR: u64 = 6;
+/// Situar un canal del fondo en el espacio (S7 por voz).
+pub const AUDIO_FONDO_SITUAR: u64 = 7;
 /// Desde este canal, AVISOS: no se agachan y agachan la musica.
 pub const AUDIO_FONDO_AVISO: u64 = 8;
 
