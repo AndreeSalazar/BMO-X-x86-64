@@ -52,6 +52,7 @@
 extern crate alloc;
 
 mod cargador;
+mod el_nulo;
 mod entorno_windows;
 mod la3060;
 mod monton;
@@ -1093,6 +1094,8 @@ pub extern "C" fn _start() -> ! {
         funciones,
         MONTON.gastado()
     ));
+    // N4.4: si la corrida anterior murio saltando a 0, que era esa casilla.
+    el_nulo::mirar(&modulos);
     // P4d: su directorio actual es el suyo (`window` para `window/x.exe`).
     bmo_proton_x_casa::ficheros::poner_directorio(
         nombre.rsplit_once('/').map(|(d, _)| d).unwrap_or(""),

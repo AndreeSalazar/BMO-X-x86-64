@@ -701,6 +701,15 @@ cayo con un fallo de Ring 3 (en `datos/fallos.txt`, pendiente de leer):
   desde `Cyberpunk2077.exe+0x1d4c6cf` (ranura `+0x35848f8`), igual en la
   quinta y la sexta corrida. Tapados los dos sospechosos (retrasada sin
   DLL, NULL del sistema): la proxima corrida dice cual era.
+  **Desde el 03-10 (novena corrida)** PROTON-X lo explica solo al arrancar
+  (`apps/proton-x/src/el_nulo.rs`, la parte pura en `bmo_proton_x::nulo`):
+  lee `datos/fallos.txt`, saca la casilla del `ff 15` de antes del retorno,
+  comprueba que esos bytes siguen en la imagen, y dice en SYSPROTO su
+  seccion, si es una importacion (y cual) o una variable, y CADA
+  instruccion del `.exe` que la apunta (lee, escribe, llama); de las que
+  escriben, el nombre que se paso en `rdx` (el de un GetProcAddress) y la
+  importacion llamada justo antes. Y el pulso la VIGILA: cada foto del
+  diario dice cuanto vale.
 - [x] **N4.5 -- el sonido del juego** (03-10, falta oirlo en el metal):
   WASAPI en la casa (A1.1 a A1.5 y A1.8 de la seccion 3): el
   `MMDeviceEnumerator`, un aparato de salida, `IAudioClient3` por evento, lo
@@ -758,6 +767,18 @@ SampleCmp: el PCF de 2x2 de las sombras --, un UAV en el de pixeles
 (N5.3c) y "un bucle con mas de una salida" (el estructurador). Y el
 muestreador ANISOTROPICO, que se NEGABA (las texturas salian negras), se
 lee lineal; el de comparacion guarda su funcion.
+
+**Estado al 03-10, novena corrida: con `smp all`, lo mismo.** El mismo
+salto a 0 (a los 53 s, tid 7, `+0x1d4c6cf`). Era lo esperado: los
+nucleos que levanta `smp all` solo hacen faenas del kernel (`plat/smp/
+crew.rs`: *"ni tareas de Ring 3 corriendo en otro nucleo"*); el juego, la
+casa y el interprete de sombreadores son Ring 3 y corren en el BSP. El
+100 % de CPU es UN nucleo. Lo que lo cambiaria: obreros de Ring 3 (repartir
+la trama por franjas entre los nucleos) o la 3060 (N6). La pista nueva del
+SYSPROTO: justo antes de la ventana del tid 8 el juego pide
+`Wtsapi32.dll`, y la casa no la tiene (tambien `nvapi64.dll`,
+`amd_fidelityfx_dx12`, `GFSDK_Aftermath_Lib.x64.dll`); la proxima corrida,
+con `el_nulo.rs`, dice si la casilla es de una de ellas.
 
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:
