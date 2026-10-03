@@ -458,8 +458,8 @@ match c {
     // # Y agrupadas por LA PREGUNTA, no por el orden en que se anadieron
     //
     // ```text
-    //    VER            F2 info    F3 consumo   (F4: la LUDOTECA, 01-10;
-    //                   `apps` se sigue tecleando)
+    //    VER            F2 info    (F3: HERMES, 03-10, y F4: la LUDOTECA,
+    //                   01-10; `consumo` y `apps` se siguen tecleando)
     //    (F1 era `help`; desde el 06-09 la coge ANTES `keys::windows` -- hoy
     //    lanza el TALLER -- y aqui ya no llegaba. Se quito el 29-09.)
     //    LA MAQUINA     F5 red     F6 smp     F7 banda     F8 ext
@@ -483,7 +483,6 @@ match c {
     f @ 0x8A..=0x92 => {
         let orden: &[u8] = match f {
             0x8A => b"info",
-            0x8B => b"consumo",
             0x8D => b"red",
             0x8E => b"smp",
             0x8F => b"banda",

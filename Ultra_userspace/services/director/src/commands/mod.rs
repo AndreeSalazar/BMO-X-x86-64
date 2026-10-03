@@ -78,7 +78,7 @@ pub(crate) mod history;
 /// El anillo de eventos del kernel, leido desde aqui. Ver su cabecera.
 pub(crate) mod cabina;
 pub(crate) mod red;
-/// `sonidos`: el censo de los sonidos del disco entero (F3, la ONDA).
+/// `sonidos`: el censo de los sonidos del disco entero (para la ONDA de HERMES).
 pub(crate) mod sonidos;
 /// `fondo`: la musica de fondo del escritorio (S4e de PLAN_EL_SONIDO).
 pub(crate) mod fondo;

@@ -273,6 +273,29 @@ if c == 0x8C {
     return Key::Taken;
 }
 
+// ** F3: HERMES (03-10). El propietario: *"F3 no veo ventana ni nada, es un
+// bug"*. Lo era: F3 ESCRIBIA `consumo` en Ejecutar (la regla vieja de
+// `keys::editor`), y eso solo llegaba con Ejecutar delante; con otra ventana
+// con el foco, o con Ejecutar escondida, la tecla se perdia sin decir nada.
+// Y lo que se esperaba es lo que dicen el plan y la maqueta: F3 es HERMES
+// (`PLAN_HERMES.md`). Ahora se atiende AQUI, antes del foco, como F1 y F4:
+// si `sys/hermes.bex` esta en el disco se lanza (o se alterna); si no, el
+// globo lo dice junto al puntero -- HERMES aun no esta construido (H5) -- en
+// vez de no hacer nada. `consumo` se sigue tecleando.
+if c == 0x8B {
+    const HERMES: &[u8] = b"sys/hermes.bex";
+    if bmo::Archivo::reflejar(HERMES).is_ok() {
+        lanzar_o_alternar(dsk, p, HERMES);
+    } else {
+        crate::desktop::globo::avisar(
+            b"F3 es HERMES",
+            b"aun no esta construido (H5 de PLAN_HERMES): sin sys/hermes.bex no hay ventana que abrir. `consumo` se teclea en Ejecutar",
+            crate::desktop::globo::Tono::Consejo,
+        );
+    }
+    return Key::Taken;
+}
+
 // -- F7 y F8: VITALES, una ventana con tres solapas (02-10) --
 //
 // Calcadas de F11 y por los mismos motivos: se atienden ANTES de preguntar
