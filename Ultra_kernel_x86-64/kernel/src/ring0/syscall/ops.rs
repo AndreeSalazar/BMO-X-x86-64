@@ -318,6 +318,11 @@ pub(crate) const TASK_OP_RESERVA_HACER: u64 = 0x3A;
 /// DESHACER las paginas de `[arg0, arg0+arg1)`: contesta los bytes devueltos.
 /// Espejo de `bmo_abi::...::TASK_OP_RESERVA_DESHACER`.
 pub(crate) const TASK_OP_RESERVA_DESHACER: u64 = 0x3B;
+/// **LA RAIZ DEL SIGUIENTE HIJO** (H3 de PLAN_HERMES, 03-10): la ruta del
+/// renglon (`TASK_OP_RUTA`) es la carpeta donde nacera encerrado el siguiente
+/// hijo que lance quien llama, leida DENTRO de su propia raiz. Espejo de
+/// `bmo_abi::...::TASK_OP_RAIZ_HIJO`. Ver `task/raiz.rs`.
+pub(crate) const TASK_OP_RAIZ_HIJO: u64 = 0x3C;
 pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su entrada, bloqueada.

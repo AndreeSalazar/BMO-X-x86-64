@@ -391,6 +391,9 @@ pub fn revoke_all(pid: u32) {
     // su hueco lo coja un `.bex` cualquiera, y que ese nazca pudiendo reiniciar
     // la maquina. No se ve hasta que la maquina lleva horas encendida.
     crate::ring0::task::autoridad::olvidar(pid);
+    // Y la raiz con ella, por la misma razon y en la misma estacion: un pid
+    // reutilizado no hereda la carpeta del muerto (H3).
+    crate::ring0::task::raiz::olvidar(pid);
     crate::ring0::core::desmontaje::entra(2, pid);
     crate::ring0::obj::endpoint::process_died(pid);
     // Si tenia la pantalla, el kernel la recupera aqui. Corre en TODAS las

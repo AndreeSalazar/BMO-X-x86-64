@@ -26,6 +26,9 @@ bmo-ntfs = { path = "../../platform/drivers/storage/ntfs" }
 # ESTRATOS: el formato propio. Solo lectura por ahora -- el modulo del kernel
 # (ring0/estratos.rs) no llama a `write` en ningun sitio.
 bmo-estratos = { path = "../../platform/drivers/storage/estratos" }
+# H3 de PLAN_HERMES: el juez de la RAIZ (una carpeta como capacidad). Puro y
+# probado en el anfitrion con una FAT32 de mentira; lo aplica `task/raiz.rs`.
+bmo-raiz-juicio = { path = "../../platform/shared/bmo-raiz-juicio" }
 # Lo que el disco CONTESTA (palabras 217, 169, 106, 209, 75, 76, 77) y el
 # VEREDICTO sobre el. Son dos crates y no una a proposito: los hechos no opinan
 # y el juez vive en `platform/shared/` porque **alli se puede probar** (L7b).

@@ -28,7 +28,10 @@ use super::*;
 pub(super) fn dir_abrir(arg0: u64, _arg1: u64) -> BmoStatus {
         let _ = arg0;
         let pid = scheduler::current_pid();
-        let ruta = ruta_tomar(pid);
+        let ruta = match ruta_tomar(pid) {
+            Ok(r) => r,
+            Err(n) => return op_raiz::fuera(pid, n),
+        };
         match crate::ring0::obj::directory::open(pid, ruta) {
             Ok(handle) => BmoStatus::ok_value(handle),
             Err(code) => BmoStatus::err(code),
@@ -40,7 +43,10 @@ pub(super) fn dir_abrir(arg0: u64, _arg1: u64) -> BmoStatus {
 pub(super) fn archivo_abrir(arg0: u64, _arg1: u64) -> BmoStatus {
         let _ = arg0;
         let pid = scheduler::current_pid();
-        let ruta = ruta_tomar(pid);
+        let ruta = match ruta_tomar(pid) {
+            Ok(r) => r,
+            Err(n) => return op_raiz::fuera(pid, n),
+        };
         match crate::ring0::obj::file::open(pid, ruta) {
             Ok(handle) => BmoStatus::ok_value(handle),
             Err(code) => BmoStatus::err(code),
@@ -50,7 +56,10 @@ pub(super) fn archivo_abrir(arg0: u64, _arg1: u64) -> BmoStatus {
 pub(super) fn archivo_asinc(arg0: u64, _arg1: u64) -> BmoStatus {
         let _ = arg0;
         let pid = scheduler::current_pid();
-        let ruta = ruta_tomar(pid);
+        let ruta = match ruta_tomar(pid) {
+            Ok(r) => r,
+            Err(n) => return op_raiz::fuera(pid, n),
+        };
         match crate::ring0::obj::file::abrir_asinc(pid, ruta) {
             Ok(handle) => BmoStatus::ok_value(handle),
             Err(code) => BmoStatus::err(code),
@@ -60,7 +69,10 @@ pub(super) fn archivo_asinc(arg0: u64, _arg1: u64) -> BmoStatus {
 pub(super) fn archivo_crear(arg0: u64, _arg1: u64) -> BmoStatus {
         let _ = arg0;
         let pid = scheduler::current_pid();
-        let ruta = ruta_tomar(pid);
+        let ruta = match ruta_tomar(pid) {
+            Ok(r) => r,
+            Err(n) => return op_raiz::fuera(pid, n),
+        };
         match crate::ring0::obj::file::create(pid, ruta) {
             Ok(handle) => BmoStatus::ok_value(handle),
             Err(code) => BmoStatus::err(code),

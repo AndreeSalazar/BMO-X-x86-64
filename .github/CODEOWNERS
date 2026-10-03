@@ -52,6 +52,7 @@
 /platform/shared/bmo-foco/                   @AndreeSalazar
 /platform/shared/bmo-hash/                   @AndreeSalazar
 /platform/shared/bmo-mmio-juicio/            @AndreeSalazar
+/platform/shared/bmo-raiz-juicio/            @AndreeSalazar
 /platform/shared/bmo-orquesta/               @AndreeSalazar
 /platform/shared/bmo-prestamo-juicio/        @AndreeSalazar
 /platform/shared/bmo-imagen-juicio/          @AndreeSalazar

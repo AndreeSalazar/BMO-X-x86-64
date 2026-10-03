@@ -119,6 +119,8 @@ pub const OP_IMAGEN_SELLAR: u32 = 0x39;
 /// **La RESERVA** (P0.4c): hacer y deshacer paginas en marcha. Ver `reserva.rs`.
 pub const OP_RESERVA_HACER: u32 = 0x3A;
 pub const OP_RESERVA_DESHACER: u32 = 0x3B;
+/// **La raiz del siguiente hijo** (H3). Ver [`raiz_del_siguiente_hijo`].
+pub const OP_RAIZ_HIJO: u32 = 0x3C;
 /// El log del kernel, leido desde Ring 3. Ver `klog_lineas`/`klog_texto`.
 pub const OP_KLOG_INFO: u32 = 0x16;
 pub const OP_KLOG_TEXTO: u32 = 0x17;

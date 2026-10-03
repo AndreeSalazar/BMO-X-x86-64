@@ -680,6 +680,15 @@ pub const IMAGEN_NO_REMAPEA: u32 = 15;
 pub const TASK_OP_RESERVA_HACER: u64 = 0x3A;
 /// DESHACER las paginas de `[arg0, arg0+arg1)`: `Ok` lleva los bytes devueltos.
 pub const TASK_OP_RESERVA_DESHACER: u64 = 0x3B;
+/// **LA RAIZ DEL SIGUIENTE HIJO** (H3 de `docs/plan/PLAN_HERMES.md`, 03-10):
+/// la ruta acumulada con [`TASK_OP_RUTA`] es la carpeta donde nacera
+/// ENCERRADO el siguiente hijo que lance quien llama. Se lee DENTRO de la raiz
+/// de quien llama, asi que un hijo nunca ve mas disco que su padre. Encerrado
+/// quiere decir: toda ruta que escriba se resuelve debajo de esa carpeta (sin
+/// `..`, sin letras de unidad) y las operaciones que ven el volumen entero sin
+/// ruta (el cursor de ESTRATOS, sellar, el disco, las versiones) le dicen NO.
+/// `Ok` o `ERROR_PERMISSION_DENIED` con el motivo en CABINA.
+pub const TASK_OP_RAIZ_HIJO: u64 = 0x3C;
 /// La ventana de reserva: 384 GiB desde `0x20_0000_0000`, hasta el final
 /// de `PML4[0]` (era de 128: Cyberpunk aparta mas de 130 GiB al arrancar).
 pub const RESERVA_VENTANA_BASE: u64 = 0x0000_0020_0000_0000;

@@ -90,6 +90,10 @@ pub mod task {
     /// Que puede pedir un proceso que NO sea un objeto. Ver su cabecera: son
     /// dos bits, no se delegan, y no deben ser tres.
     pub mod autoridad;
+    /// **La carpeta como capacidad** (H3 de PLAN_HERMES): lo que un proceso
+    /// puede NOMBRAR del disco. Ver su cabecera: se da al nacer, no se
+    /// ensancha nunca, y la ruta se construye dentro, no se compara.
+    pub mod raiz;
     pub mod bex;
     /// **Quien lanzo a quien.** Un pid y nada mas: lo justo para que una app
     /// pueda ofrecerle su superficie al que la puso en pantalla.

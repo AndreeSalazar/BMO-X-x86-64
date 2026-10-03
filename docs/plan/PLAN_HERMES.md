@@ -408,10 +408,31 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       byte; el que se pone en medio no pasa por amigo; un bit tocado en
       cualquier byte del saludo lo tumba; y `tests/hostile.rs` (70.000 casos)
       no lo hace caer ni abre basura. Compila para `x86_64-unknown-uefi`.
-- [ ] **H3 -- la carpeta como capacidad.** El kernel aprende a que un proceso
-      nazca con una RAIZ: todo `open` y `dir_abrir` se resuelve debajo de ella
-      y `d:` no existe. **Como se sabe:** HERMES pide `sys/director.bex` y
-      `d:` y recibe NO con nombre en CABINA; pide `charla/x.txt` y lo abre.
+- [~] **H3 -- la carpeta como capacidad.** EN CODIGO el 03-10; falta el metal.
+      Un proceso nace con una RAIZ y todo lo que nombra se resuelve debajo:
+      - el juez, puro: `platform/shared/bmo-raiz-juicio`. La ruta no se
+        COMPARA con la raiz, se CONSTRUYE dentro, y se rechaza todo tramo
+        que pueda subir. Medido en el arbol: FAT32 sigue `.` y `..`,
+        `to_8_3("...")` da `..`, y `to_8_3(".. .")` tambien -- este ultimo
+        lo encontro la prueba de las cien mil rutas contra una FAT32 de
+        mentira, con la regla de "solo puntos" ya escrita. Tambien fuera:
+        cualquier letra de unidad (`d:` es el disco Personal), blancos en
+        el borde y controles;
+      - el kernel: `task/raiz.rs` la fija en `proc.rs` justo despues de dar
+        el pid y antes de crear la tarea (no hay un instante suelto), la
+        aplica en `ruta_tomar`, el unico sitio por donde entra una ruta, y
+        la olvida en `cap::revoke_all` junto a la autoridad. Las cuatro
+        operaciones que ven el volumen entero sin ruta (cursor de ESTRATOS,
+        sus nombres, sellar y el disco) y MARCAR/VOLVER dicen NO a un
+        proceso encerrado (`syscall/op_raiz.rs`);
+      - la pone QUIEN LANZA: `TASK_OP_RAIZ_HIJO` (0x3C, en `bmo-abi`) y
+        `bmo::raiz_del_siguiente_hijo(b"hermes")`; un hijo de un encerrado
+        nace, como poco, igual de encerrado.
+      **Como se sabe:** en el Ryzen, el escritorio lanza HERMES con raiz
+      `hermes`; HERMES pide `sys/director.bex`, `d:` y `../sys` y recibe NO
+      con su motivo en CABINA (`raiz`); pide `charla/x.txt` y lo abre.
+      Hasta entonces: `cargo test` en el juez (8 pruebas, cien mil rutas) y
+      el kernel compila y enlaza con los mismos 12 avisos.
 - [ ] **H4 -- la PUERTA HERMES.** Un servicio que nace con RED (y nada mas),
       con raiz en `F:/hermes/`, que escucha en un puerto propio (no el 7117) y
       habla con la app por `bmo-cola`. **Como se sabe:** la app de F3 sigue
