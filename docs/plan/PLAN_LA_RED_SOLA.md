@@ -38,6 +38,25 @@
               H4 (la PUERTA), H6 (la LAN) y H11 (fuera de casa)
 ```
 
+**Y CELOSA (03-10, el propietario):** *"mi BMO-X es ultra celoso en RED, eso
+tiene que aplicarse; ya si es algo mas complejo, mi ANTENA es el que lleva
+todo el peso y la responsabilidad, por algo tengo navegador para eso: para ir
+a ver Google en la ANTENA sin mi BMO-X"*. Y: *"BMO-X coma RED en el router
+principal con fuerza, lo que este conectado al cable; el wifi no lo ponemos"*.
+O sea, la lista ENTERA de con quien habla BMO-X:
+
+```text
+   el ROUTER          ARP y DHCP, por el cable (sin wifi: no hay, y no se pone)
+   el DNS             el que da el router (D4), solo para nombres de la casa
+   la ANTENA          el movil o el PC, en la LAN, emparejada (P0). Ella lleva
+                      TODO lo de fuera: Google, las tiendas, su navegador, los
+                      logins, los tokens, el TLS. BMO-X recibe DATOS juzgados
+   los AMIGOS         HERMES: dos BMO-X por huella (H6), y su relevo (H11)
+   nadie mas          ni un "comprobar conexion", ni una hora de internet, ni
+                      telemetria, ni una actualizacion sola. Lo que no esta en
+                      esta lista lo tira el VIGIA y lo dice con nombre
+```
+
 *** **Automatica no es abierta.** Lo que se automatiza es MANTENER la red
 que el propietario encendio, no decidir por el. La regla de la LUDOTECA sigue:
 *"internet es un interruptor, cerrado de serie"* (`PLAN_LA_LUDOTECA.md`
@@ -209,6 +228,29 @@ Ordenados por lo que DESBLOQUEA y por lo que MIENTE hoy (`EL_ORDEN.md`).
       de seguridad. **Como se sabe:** `red ping` al router da tiempos por
       debajo del milisegundo en vez de escalones de 16, y el cambio de cable
       se ve al instante (el radar lo dice en CABINA).
+- [ ] **RS5b -- EL CABLE A FONDO: el gigabit.** La RTL8168 es de 1000
+      Mbit y el enlace lleva a 10 desde el 24-08. Con lo de RS0 dicho, se
+      reinicia la autonegociacion anunciando 1000/100/10 (BMCR, ANAR y
+      GBCR por `PHYAR`), y los anillos crecen de 16 a 256 descriptores con
+      su corral (`bmo-net/src/anillo.rs` ya lo calcula para cualquier
+      medida). "Con fuerza" se mide: **Como se sabe:** `red` dice `1000
+      Mbit, duplex completo`, y una transferencia larga por la LAN pasa de
+      100 MB/s sin una trama perdida (`MPC` a cero).
+- [ ] **RS5c -- LA RED EN SU PROPIO NUCLEO, en tiempo real.** El
+      propietario: *"que el CPU tenga su core y su hilo en tiempo real que
+      jale fuerte, para que use todo; no tener cuello de botella al
+      cargar"*. Como el USB (`PLAN_EL_BUS_APARTE.md` A2): la tarjeta, el
+      latido de la PUERTA y el VIGIA viven en un nucleo RESIDENTE elegido
+      por perfil, con su CONTRATO del COMPAS (periodo y presupuesto,
+      `PLAN_EL_COMPAS.md`), y su `[consumo]` dicho en `save`. Lo que llega
+      se reparte: el nucleo de la red recibe y ordena, OTROS nucleos
+      comprueban las sumas (SHA-256 con SHA-NI, que el Ryzen tiene y el
+      kernel ya detecta, `cpu_vendor/features`) y ESTRATOS escribe. A 1000
+      Mbit son 125 MB/s; la suma por SHA-NI va muy por encima, asi que el
+      cuello no esta en la CPU si se reparte bien. **Como se sabe:** una
+      descarga por la antena a 1000 Mbit con DOOM corriendo a sus fps de
+      siempre, y `save` dice cuanto gasto el nucleo de la red y cuanto
+      espero cada trozo.
 - [ ] **RS6 -- el muro: la tarjeta detras de la IOMMU** (es E4). La AMD-Vi
       ya traduce para la 3060 en el Ryzen; se pone a la RTL8168 en su propio
       dominio con SOLO su corral de RX y su anillo de TX. **Como se sabe:** una
@@ -229,26 +271,30 @@ Ordenados por lo que DESBLOQUEA y por lo que MIENTE hoy (`EL_ORDEN.md`).
       aceptan por huella y se escriben con Noise, por el VIGIA. **Como se
       sabe:** el de H6 -- una captura del cable no tiene ni una palabra en
       claro.
-- [ ] **RS10 -- fuera de casa, sin Google** (es H11). Un relevo HERMES PROPIO
+- [ ] **RS10 -- fuera de casa, sin Google** (es H11; lo demas de fuera,
+      las tiendas y la web, lo lleva la ANTENA: ver `PLAN_LA_LUDOTECA.md`
+      seccion 3c). Un relevo HERMES PROPIO
       (no la ANTENA, no un servidor de nadie) que no tiene ninguna de las dos
       llaves; sin UPnP (abrir puertos del router desde dentro es justo lo que
       no se hace). **Como se sabe:** el de H11.
 
-Y despues, cuando haga falta y no antes: **TLS 1.3** solo para servicios
-NOMBRADOS (la escalera R4-R6 de la LUDOTECA para GOG; G6), con AES-GCM, que ya
-esta -- ChaCha20 no es requisito; e **IPv6**, que hoy se rechaza y que la red
-de la casa no exige.
+Y el **TLS 1.3**: con la decision D1, el TLS de las tiendas vive en la
+ANTENA (Rust, la escalera R3-R6 de la LUDOTECA), no en BMO-X. BMO-X no
+necesita TLS para nada de esta lista: con la antena habla por la LAN
+emparejado (P0), y con sus amigos por Noise (HERMES). El **IPv6** sigue
+rechazado: la red de la casa no lo exige.
 
 ---
 
 # 5. LO QUE DECIDE EL PROPIETARIO
 
-- **D1 -- la ANTENA usa Chromium.** La antena del HONOR navega con Chromium
-  sin cabeza dentro de Termux (`PLAN_CLOUD_LOCAL.md` L3b,
-  `toolchain/tools/antena/navegador.py`). No entra en BMO-X -- llega su
-  RESULTADO, una lamina juzgada --, pero es Chromium. Si "no quiero Chromium"
-  incluye la antena, NAVEGAR por la via de la antena se para y la web queda
-  fuera; si es "nada de Google DENTRO de BMO-X", la antena sigue como esta.
+- [x] **D1 -- la ANTENA usa Chromium: SI, y es su trabajo.** DECIDIDO el
+  03-10 por el propietario: *"si es algo mas complejo, mi ANTENA es el que
+  lleva todo el peso [...] por algo tengo navegador para eso, para ir a ver
+  Google en la ANTENA sin mi BMO-X"*. Chromium, Google y los logins de las
+  tiendas viven en la antena (`toolchain/tools/antena/navegador.py`); a
+  BMO-X solo le llegan sus RESULTADOS juzgados (laminas, lineas de la
+  LUDOTECA, ficheros con su suma). Ver la lista de la seccion 0.
 - **D2 -- quien da la autoridad RED a un servicio** (RS8). Hoy solo Ring 0 la
   pone al nacer, y el DIRECTOR (con RED) no puede darsela a un hijo. Dos
   caminos: que el KERNEL lance `services/red` en el arranque (como lanza el
