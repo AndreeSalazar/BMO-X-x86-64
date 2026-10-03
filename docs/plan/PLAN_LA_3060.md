@@ -1193,6 +1193,71 @@ da los mismos bits que el oraculo del SOMBREADOR; y el triangulo se ve.
 > chico, firmado, fila NEUTRO. Distinto del GSP en medida (KB contra 69 MB)
 > y en lo que ve (el GR, no la tarjeta entera), no en su naturaleza.
 
+### [ ] M6 -- EL VIDEO COMPRIMIDO: lo descomprime NVDEC, no la CPU (anotado el 03-10)
+
+> El propietario (03-10), por curiosidad y para el CANAL de HERMES: *"que la
+> GPU reproduce directo y no la CPU [...] puede ser independiente o
+> dependiente"*. Se contesta aqui porque es trabajo de la 3060, y HERMES H10
+> (`PLAN_HERMES.md`) solo lo usa.
+
+**La respuesta corta: se puede, y la mitad esta escrita.** Un `.mp4` es una
+CAJA; dentro va H.264, HEVC o AV1. La 3060 trae NVDEC, un bloque aparte del GR
+que los descomprime en hardware y entrega NV12 en VRAM. Es lo que hace un
+navegador con YouTube:
+
+```text
+   el .mp4          la CPU (barato)                 la 3060 (lo caro)
+   -------------    -----------------------------   --------------------------
+   bytes        ->  abre la caja y lee las       ->  NVDEC: H.264/HEVC/AV1
+                    cabeceras; lleva la cuenta        -> NV12 en VRAM
+                    de los fotogramas de             M6 V0: NV12 -> RGB,
+                    referencia (pocos KB)             agrandado, a la pantalla
+```
+
+Lo que ya esta:
+
+```text
+   NVDEC0 y NVENC0     VISTOS en el metal (24-09, GET_ENGINES_V2, L1d2a)
+   M6 V0               NV12 -> pantalla por computo, en codigo (25-09); falta
+                       su foto en el metal (METAL_2026-09-25, seccion 4)
+   el NV12 de hoy      SIN comprimir, de ffmpeg: 20 s son ~207 MB. El mismo
+                       clip en H.264 son ~10 MB. Por eso NVDEC importa
+```
+
+**No depende de internet.** NVDEC y M6 V0 solo dependen de la 3060: sirven igual
+para un video de `D:`, para la LUDOTECA, para el CANAL de un amigo de HERMES
+(que mueve los bytes por TROZOS) y para la ANTENA, que dejaria de tener que
+convertir a MPEG-1. Para empezar a ver antes de que llegue todo, el `.mp4`
+tiene que traer su indice delante (`ffmpeg -movflags faststart`, o MP4
+fragmentado).
+
+**Y la CPU no queda a cero, dicho por delante:** abre la caja y lee las
+cabeceras del codec (lo que hace el "parser" de NVIDIA). Son pocos KB por
+fotograma; lo que se ahorra es descomprimir, que es lo que costaria meses
+escribir en software. El SONIDO va aparte: NVDEC solo hace imagen, y el AAC de
+un `.mp4` es trabajo de la CPU, barato, por el tubo de audio (A1).
+
+- [ ] **V1 -- la CAJA.** Un crate puro que lee las cajas de un `.mp4` (`moov`,
+      `trak`, `stsd`/`avcC`, `stsz`, `stco`, `stts`) y entrega cada muestra
+      del video con su hora. Entrada ajena: lista blanca y `tests/hostile.rs`.
+      **Como se sabe:** las medidas y horas de cada muestra de tres `.mp4` de
+      prueba coinciden con lo que lista `ffprobe -show_packets`.
+- [ ] **V2 -- las CABECERAS de H.264.** SPS, PPS y cabeceras de slice
+      (Exp-Golomb), y la lista de fotogramas de referencia. Puro, en el
+      anfitrion. **Como se sabe:** los campos coinciden con los de
+      `ffmpeg -bsf:v trace_headers` en los mismos ficheros.
+- [ ] **V3 -- NVDEC por el GSP-RM.** Reservar el decodificador (la clase de
+      video del RM; `nvdec_drv.h` en `COMO_LE_HABLA_NVIDIA.md`), mandarle los
+      parametros de cada fotograma y el bitstream prestado SOLO LECTURA por la
+      IOMMU (como M6 V0), y recibir el NV12 EN VRAM, que va a M6 V0 sin volver
+      a cruzar el PCIe. **Como se sabe:** el fotograma que sale es, bit a bit,
+      el que saca `ffmpeg -pix_fmt nv12` del mismo fichero. [!] Por medir: el
+      numero exacto de la clase para la GA106 y si el GSP-RM arranca solo el
+      firmware de NVDEC al reservarlo.
+- [ ] **V4 -- AV1 y HEVC.** La misma maquinaria con otro lector de cabeceras.
+      AV1 primero: la 3060 lo descomprime y no tiene patentes. **Como se
+      sabe:** el mismo juez de V3 con un `.mp4` en AV1.
+
 ### [ ] M4 -- cambiar de modo (resolucion y refresco)
 
 Solo si hace falta: hoy el 1080p a 60 del GOP sirve. Es lo que permitiria el

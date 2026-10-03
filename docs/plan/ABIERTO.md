@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   490 casillas ABIERTAS en 47 planes
+   495 casillas ABIERTAS en 47 planes
    363 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -87,6 +87,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 1.2 (S) La misma comprobacion en EXIT: una salida limpia tambien
 - ... y 14 mas
 
+## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 16 abiertas, 2 hechas
+
+*PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
+
+- [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
+- [ ] E3 -- el compositor al compas de la pantalla
+- [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
+- ... y 13 mas
+
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas
 
 *PLAN MEDIOS -- VLC como objetivo, medido contra lo que hay*
@@ -140,15 +149,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E1 -- EL TIEMPO DE CPU POR TAREA. Un contador en el cambio de contexto
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
-
-## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 11 abiertas, 2 hechas
-
-*PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
-
-- [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
-- [ ] E3 -- el compositor al compas de la pantalla
-- [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
-- ... y 8 mas
 
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 

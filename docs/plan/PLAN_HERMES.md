@@ -439,14 +439,19 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
 - [ ] **H9 -- el MURO.** PNG y JPEG ya se leen; falta el JPEG progresivo, que
       es el de muchas fotos. **Como se sabe:** el muro de un amigo se ve con
       sus corazones, pedido por HERMES/1 a SU maquina.
-- [ ] **H10 -- el CANAL.** Primero se lee `ga10x/src/trabajos/video.rs` para
-      saber cuanto decodificador hay ya. Y la cara, como la maqueta del 03-10
+- [ ] **H10 -- el CANAL.** El video viaja COMPRIMIDO (H.264 o AV1 en un
+      `.mp4` con su indice delante) por TROZOS, el JUEZ comprueba la suma y
+      la caja, y lo descomprime la 3060 con NVDEC, no la CPU: es M6 de
+      `PLAN_LA_3060.md` (V1 la caja, V2 las cabeceras, V3 NVDEC, V4 AV1), y
+      no depende de internet, solo de la 3060. Y la cara, como la maqueta del 03-10
       (*"me gusta ese nombre, pero puede ser mas profundo cada uno"*): una
       pagina por canal (videos, listas, sobre), y cada video con capitulos,
       reacciones, comentarios entre amigos y "a continuacion" sacado SOLO del
       mismo canal y sus listas. Sin anuncios, sin algoritmo, sin contador de
       visitas. **Como se sabe:** un video de un
-      amigo se reproduce entero sin salir de la jaula del JUEZ.
+      amigo, en AV1, se ve entero en el Ryzen mientras llega; la CPU no
+      descomprime un fotograma (lo dice la fila de M6) y la caja la abrio el
+      JUEZ en su jaula.
 - [ ] **H11 -- fuera de casa.** Un relevo HERMES propio (no la ANTENA) que
       solo reenvia bytes ya cifrados y no sabe leer ninguno. **Como se sabe:**
       dos BMO-X en dos casas se escriben, y el relevo no tiene la clave de
