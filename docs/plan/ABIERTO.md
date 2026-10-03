@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 57 planes
+# LO QUE FALTA -- las casillas abiertas de los 59 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   534 casillas ABIERTAS en 48 planes
+   548 casillas ABIERTAS en 50 planes
    373 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -96,6 +96,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
 - ... y 14 mas
 
+## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 16 abiertas, 4 hechas
+
+*PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
+
+- [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
+- [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
+- [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
+- ... y 13 mas
+
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas
 
 *PLAN MEDIOS -- VLC como objetivo, medido contra lo que hay*
@@ -104,15 +113,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M1 WAV dias despues del tubo
 - [ ] M2 MP3 (= A5) media tarde de comprobar la coma flotante antes
 - ... y 13 mas
-
-## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 15 abiertas, 4 hechas
-
-*PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
-
-- [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
-- [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
-- [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
-- ... y 12 mas
 
 ## [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) -- 15 abiertas, 14 hechas
 
@@ -222,6 +222,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
 - ... y 4 mas
 
+## [`PLAN_LA_CASA_ESCONDIDA.md`](PLAN_LA_CASA_ESCONDIDA.md) -- 7 abiertas, 0 hechas
+
+*PLAN LA CASA ESCONDIDA -- una red que cambia, para que la IP de casa no se vea*
+
+- [ ] CE0 -- quien ve la casa, dicho. Una seccion del save y la orden
+- [ ] CE1 -- la MAC y el DHCP que cambian (LAN). Al arrancar, una MAC al
+- [ ] CE2 -- HERMES por un relevo PROPIO (es H11). Los amigos no se
+- ... y 4 mas
+
 ## [`PLAN_LA_MESA.md`](PLAN_LA_MESA.md) -- 7 abiertas, 2 hechas
 
 *PLAN LA MESA -- el control de sonido de BMO-X, como app de ventana*
@@ -274,6 +283,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Y1.1 subir el bInterval del raton a Ring 0 y a Ring 3. Sin ese
 - [ ] Y1.2 que BUS_PERIOD_MS salga del minimo de los aparatos vivos y no
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
+- ... y 3 mas
+
+## [`PLAN_LA_ANTENA_AOT.md`](PLAN_LA_ANTENA_AOT.md) -- 6 abiertas, 0 hechas
+
+*PLAN LA ANTENA AOT -- el HONOR, optimizado al extremo y en un lenguaje de verdad nativo*
+
+- [ ] AO0 -- el banco de la antena, en Rust y en el anfitrion. Un crate
+- [ ] AO1 -- el binario en el HONOR (Fase A). `cargo build --target
+- [ ] AO2 -- la app chica (AA0, Fase B). El envoltorio de Kotlin con la
 - ... y 3 mas
 
 ## [`PLAN_RED_TX.md`](PLAN_RED_TX.md) -- 6 abiertas, 8 hechas

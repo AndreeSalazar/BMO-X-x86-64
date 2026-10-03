@@ -516,3 +516,24 @@ fn el_phonk_bombea() {
     }
 }
 
+
+/// **ESCUCHAR**: cada pieza, en la mezcla de CANCION y normalizada, a -14
+/// dBFS de fuerza (+-1,5), sin pasar de la escala, y el bucle SIN COSTURA:
+/// el salto de la ultima muestra a la primera no es mayor que el mas grande
+/// de dentro del bucle.
+#[test]
+fn escuchar_normaliza_sin_costura() {
+    for p in PIEZAS.iter() {
+        let largo = Compositor::nuevo(p, Mezcla::CANCION).muestras_del_bucle();
+        let (mut m, c) = componer(p, Mezcla::CANCION, largo);
+        let (_, fuerza) = c.medida();
+        let subio = crate::escuchar::normalizar(&mut m, fuerza);
+        let rms = (m.iter().map(|&x| (x as f64) * (x as f64)).sum::<f64>() / m.len() as f64).sqrt();
+        let db = 20.0 * (rms / 32768.0).log10();
+        std::println!("ESCUCHAR {:<24} subio {:5.1} dB -> {:6.1} dBFS", p.nombre, subio as f64 / 256.0, db);
+        assert!((-15.5..=-12.5).contains(&db), "{}: {db:.1} dBFS", p.nombre);
+        let salto_max = m.windows(2).map(|w| (w[1] as i32 - w[0] as i32).abs()).max().unwrap();
+        let costura = (m[0] as i32 - m[m.len() - 1] as i32).abs();
+        assert!(costura <= salto_max, "{}: la costura salta {costura} y dentro {salto_max}", p.nombre);
+    }
+}

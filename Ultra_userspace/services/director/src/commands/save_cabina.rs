@@ -504,6 +504,7 @@ fn report_maestro(s: &mut Output) {
     fila_db(s, b"traia izq", l & 0xFFFF, b"el volumen del aparato en el izquierdo al reclamarlo");
     fila_db(s, b"traia der", (l >> 16) & 0xFFFF, b"y en el derecho: si eran distintos, se igualaron al mas alto");
     fila(s, b"venia callado", (l >> 32) & 3, b"", b"bit 0 izq, bit 1 der: un lado que el APARATO traia en mute (se le quita)");
+    fila(s, b"otras unidades", (l >> 36) & 0xF, b"", b"volumenes del aparato DETRAS del principal (el retorno del micro...): puestos a 0 dB y sin mute");
     // ** EL ESPACIO (03-10, S7): el modo 3D, antes del oido.
     let e = bmo::info(bmo::INFO_AUDIO_ESPACIO);
     fila(s, b"3d modo", e & 0xFF, b"", b"0 apagado, 1 cerca, 2 sala, 3 amplio, 4 orbita (`3d`)");

@@ -16,6 +16,8 @@
 //!    oido agudos N         -12..12 dB (y graves, medios igual)
 //!    oido balance N        -100 solo izquierda .. +100 solo derecha
 //!    oido mono si|no       los dos lados sumados
+//!    oido izq | oido der   LA PRUEBA DE LOS LADOS: un aviso SOLO por ese
+//!                          lado (03-10, "escucho solo por la derecha")
 //! ```
 
 use bmo_userland as bmo;
@@ -48,6 +50,41 @@ pub(crate) fn oido(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After {
         Some(i) => (&arg[..i], &arg[i + 1..]),
         None => (arg, &b""[..]),
     };
+    // ** LA PRUEBA DE LOS LADOS: un aviso solo por un lado, y lo que dice.
+    let lado = match palabra {
+        b"izq" | b"izquierda" | b"izquierdo" => Some((256u16, 0u16, &b"IZQUIERDA"[..])),
+        b"der" | b"derecha" | b"derecho" => Some((0, 256, &b"DERECHA"[..])),
+        _ => None,
+    };
+    if let Some((i, d, nombre)) = lado {
+        match crate::desktop::musica::probar_lado(i, d) {
+            Ok(()) => {
+                s.with_ink(INK_GOOD);
+                s.text(b"  suena un aviso SOLO por la ");
+                s.text(nombre);
+                s.text(b"\n");
+                s.with_ink(INK_PLAIN);
+                s.text(b"  si lo oyes por ese lado, BMO-X manda bien los dos lados.\n");
+                s.text(b"  si NO se oye por ese lado: no es la mezcla, es el aparato, el cable o el\n");
+                s.text(b"  conector (un auricular con microfono, de 4 polos, en un enchufe de 3 da un\n");
+                s.text(b"  lado solo). `oido` dice que traia cada lado del aparato.\n");
+                let o = bmo::info(bmo::INFO_AUDIO_OIDO);
+                if (o >> 8) & 1 == 1 || o & 0xFF != 0 {
+                    s.with_ink(INK_ERR);
+                    s.text(b"  [!] el oido tiene MONO o BALANCE puesto: la prueba no es limpia (`oido plano`)\n");
+                    s.with_ink(INK_PLAIN);
+                }
+            }
+            Err(f) => {
+                s.with_ink(INK_ERR);
+                s.text(b"  ");
+                s.text(f.texto());
+                s.text(b"\n");
+                s.with_ink(INK_PLAIN);
+            }
+        }
+        return After::Settle;
+    }
     let ok = match palabra {
         b"" => true,
         b"plano" => mando(bmo::AUDIO_MANDO_PLANO, 0),
@@ -74,7 +111,7 @@ pub(crate) fn oido(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After {
     };
     if !ok {
         s.with_ink(INK_ERR);
-        s.text(b"  oido [voz|musica|plano] | graves|medios|agudos N (-12..12) | balance N (-100..100) | mono si|no\n");
+        s.text(b"  oido [voz|musica|plano] | graves|medios|agudos N (-12..12) | balance N (-100..100) | mono si|no | izq | der\n");
         s.text(b"  (si la orden era buena: solo lo puede mover el escritorio; mira `cabina`)\n");
         s.with_ink(INK_PLAIN);
         return After::Settle;
@@ -119,6 +156,12 @@ pub(crate) fn oido(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After {
             s.text(if (l >> 32) & 3 == 2 { b" (el DERECHO venia callado)" } else if (l >> 32) & 3 == 1 { b" (el IZQUIERDO venia callado)" } else { b" (los dos venian callados)" });
         }
         s.text(b"  -> igualados al reclamarlo\n");
+        let otras = (l >> 36) & 0xF;
+        if otras > 0 {
+            s.text(b"  y ");
+            s.dec(otras);
+            s.text(b" unidad(es) de volumen mas en el camino del aparato, abiertas a 0 dB\n");
+        }
     }
     if (o >> 48) & 1 == 0 {
         s.with_ink(INK_ERR);

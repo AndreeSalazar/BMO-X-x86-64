@@ -844,6 +844,110 @@ en como se le habla al AURICULAR. Dos causas, y las dos estaban en el codigo:
 | arrancar con el auricular y `fondo` | suenan los DOS lados | sigue uno: mirar `oido` (que traia cada lado) y CABINA (`uaudio`) |
 | `oido` | `el aparato traia: izquierdo X dB, derecho Y dB` | sin la linea: el aparato no declara volumen por canal |
 | el fader del maestro | sube y baja los dos lados a la vez | uno se queda: el aparato no acepta el volumen por canal (CABINA lo dice) |
+| `oido izq` y `oido der` (03-10: *"escucho solo por la derecha"*) | un aviso SOLO por ese lado, como la prueba de altavoces de Windows | `oido izq` no suena por la izquierda: no es la mezcla, es el aparato, el cable o el conector (un auricular de 4 polos en un enchufe de 3) |
+
+## [ ] S4k -- LA ANATOMIA: del bit al oido, etapa por etapa (2026-10-03)
+
+El propietario: *"investigar por que llegar a +52.0 no cumple para aumentar
+el volumen fuerte en mi audifono; estudiar toda la anatomia, el audio Pro en
+todos los puntos, y zero copy"*. Esta es la cadena ENTERA, leida en el
+codigo, con lo que cada etapa suma, cuanto copia y cuanto tarda.
+
+```text
+ etapa                    donde                         ganancia          copias          tarda
+ -----------------------  ----------------------------  ----------------  --------------  ---------
+ 1 la FUENTE: la musica   bmo-fondo, compuesta UNA vez  -26 dBFS de       0 por trama:    0 (ya esta)
+   de fondo               en el banco (6 MiB prestados) fuerza, a         se lee EN SU
+                                                        proposito: es     SITIO
+                                                        de fondo
+   los avisos             el mismo banco                -6 dBFS de pico   0               0
+   la app (DOOM, ...)     su bloque, prestado           lo que traiga     0 hasta el 2
+ 2 la VOZ del fondo       el orquestador (voces.rs)     el volumen de la  0: lee el banco el de su
+                                                        pastilla al       y suma en el    rampa (5 ms)
+                                                        cuadrado: 70 ->   acumulador
+                                                        -6,2 dB
+ 3 el AGACHE              agacha.rs                     -15 bajo un       0 (en sitio)    30 ms de
+                                                        aviso, -8 con la                  ataque
+                                                        app
+ 4 la MEZCLA              un acumulador de 32 bits      suma sin recorte  1 LECTURA de    0
+                          (SUMA, 512 muestras)                            la app
+ 5 el ESPACIO (3D)        espacio.rs, si esta puesto    trims calibrados  0 (en sitio)    <= 0,66 ms
+                                                                                          (el ITD)
+ 6 el OIDO                oido.rs, si esta puesto       +-12 dB por banda 0 (en sitio)    0
+ 7 la GANANCIA DIGITAL    maestro: lo que el fader      0 .. +52 dB       0 (en sitio)    rampa
+                          pide POR ENCIMA del aparato
+ 8 el LIMITE              sin ataque, 250 ms de relajo  techo 0 dBFS      1 ESCRITURA,    0
+                                                                          a la ranura
+                                                                          del xHC
+ 9 el MEDIDOR             pico, fuerza, ventanas        --                0               --
+10 el TUBO ISOCRONO       el xHC lee la ranura          --                0 (DMA)         <= 8 ms
+                                                                                          (8 tramas
+                                                                                          en vuelo)
+11 el APARATO: el FU      SET_CUR por canal (S4j)       -45 .. 0 dB (el   --              --
+   principal                                            de la casa)
+12 OTRAS unidades del     detras del mezclador del      las de fabrica    --              --
+   aparato                retorno del micro             -> 0 dB (S4k)
+13 el DAC y el            el aparato                    su potencia, que  --              --
+   amplificador                                         nadie la cambia
+```
+
+**Por que +52 no daba mas fuerte.** La cuenta de las etapas 1-8 con el
+fader a +52: la musica sale a -26 dBFS, la voz le quita 6, el aparato se pone
+a su tope (0 dB) y los +52 restantes son digitales: el limite la deja en
+**0 dBFS** -- el panel lo mostraba (`sonido -0`, rojo). O sea: por el cable sale
+lo MAXIMO que existe. Lo que se perdia estaba DENTRO del aparato, y era una
+de dos (o las dos):
+
+* sus canales izquierdo y derecho en el volumen de fabrica aunque el maestro
+  estuviera a tope -- arreglado en S4j: cada volumen va a todos los canales;
+* una SEGUNDA unidad de volumen en el camino: el PCM entra por la del fader,
+  pasa por el mezclador que mete la voz del microfono en el oido (el retorno)
+  y sale por OTRA, que nadie tocaba. Ahora `bmo-uaudio` da todas las del
+  camino de reproduccion (`otras_de_reproduccion`, 2 pruebas nuevas, 36 en
+  verde) y el kernel las pone a 0 dB (ganancia unidad, dentro de su rango) y
+  sin mute al reclamar el aparato; `oido` y el `save` dicen cuantas abrio.
+
+**Y la FUENTE, que era la que mas robaba: ESCUCHAR** (`bmo-fondo::escuchar`).
+La musica de fondo esta a -26 dBFS a proposito; una pieza ELEGIDA no es
+fondo. La ONDA de HERMES (y `fondo escuchar <pieza>`) la compone con la
+mezcla de CANCION y NORMALIZA su sonoridad a **-14 dBFS** de fuerza, la de
+los servicios de musica: la ganancia se BUSCA en pasadas que solo leen
+(el limite se come parte de lo que se sube) y la ultima escribe; el limite
+es de masterizar (50 ms de relajo, no los 250 de seguridad del maestro, que
+bombearia), y se calienta con la cola del bucle para que la costura no
+salte. Medido en las trece: de -14,1 a -14,4 dBFS, subiendo de 4 a 11 dB
+(prueba `escuchar_normaliza_sin_costura`). O sea **+12 dB sobre el fondo
+antes de tocar el fader**, sin aplastar.
+
+[!] **Lo que no se puede, dicho:** por encima del tope del aparato, el fader
+ya no sube la PUNTA -- una onda no sale de 0 dBFS --, sube lo flojo hacia
+ella: es compresion. Con la musica de fondo a -32 dBFS (fuente + voz), el
+aparato da todo lo suyo con el fader hacia **+26 a +30**; de ahi a +52 lo
+que se gana es densidad, y el limite lo cuenta (`limite` en el `save`). Y el
+DAC y el amplificador del auricular tienen su potencia: si con todo abierto
+sigue flojo, es el aparato, y el `save` lo demuestra con numeros.
+
+**ZERO COPY: donde esta, y por que no se puede quitar la ultima.**
+
+* El banco del fondo y el de las voces se leen EN SU SITIO (etapa 2): cero
+  copias por trama, desde el primer dia.
+* En REPOSO (fader a 0 dB, sin mudo, sin voces, sin 3D ni oido) el xHC lee
+  el bloque de la APP directamente: copia cero de verdad, de la app al
+  cable (`maestro.rs`, "en reposo").
+* Con cualquier proceso -- ganancia, mezcla, 3D, oido -- hace falta UNA
+  pasada que lea y escriba: no hay forma de multiplicar una muestra sin
+  escribir el resultado. Esa pasada escribe DIRECTAMENTE en la ranura que el
+  xHC lee por DMA (etapa 8): no hay una copia mas despues. El acumulador de
+  32 bits de en medio son 2 KiB que viven en la cache L1 (192 bytes de
+  cable por milisegundo), y es lo que deja sumar sin recortar.
+* El bloque de la app NO se escribe en sitio, a proposito: el kernel no
+  escribe en la memoria de otro (`maestro.rs`, "Por que se COPIA").
+
+| que | afirma | como se cae |
+|---|---|---|
+| arrancar con el auricular, `oido` | dice que traia cada lado y cuantas unidades de mas abrio | sin linea: el aparato no declara volumen por canal |
+| fader a +26 con `fondo` | suena claramente mas fuerte que antes del arreglo | igual que antes: mirar CABINA (`uaudio`, "otra unidad del camino") |
+| `save`, seccion de audio | `otras unidades` >= 0 y `limite` dice cuanto aplasta | -- |
 
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 

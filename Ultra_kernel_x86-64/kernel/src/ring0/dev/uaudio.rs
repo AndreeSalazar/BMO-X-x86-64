@@ -58,6 +58,9 @@ static MUTE_CANALES: AtomicU16 = AtomicU16::new(0);
 /// 2), y si alguno venia callado: para el `save` y para CABINA.
 static LADO_TRAIA: [AtomicI16; 2] = [AtomicI16::new(0), AtomicI16::new(0)];
 static LADO_CALLADO: AtomicU8 = AtomicU8::new(0);
+/// Cuantas OTRAS unidades de volumen del camino de reproduccion se abrieron
+/// (a 0 dB y sin mute) al reclamar el aparato: *"a +52 no suena fuerte"*.
+static OTRAS_ABIERTAS: AtomicU8 = AtomicU8::new(0);
 
 // -- EL VOLUMEN VA POR EL HILO DEL BUS (2026-09-21) -------------------------
 //
@@ -233,6 +236,14 @@ pub fn reclamar(slot: u8, cfg: &[u8]) -> bool {
     crate::ring0::cabina::info("uaudio", "audifono USB con volumen, en la ranura", slot as u64);
     crate::ring0::cabina::info("uaudio", "  su Feature Unit de reproduccion, el id", ac.feature_unit as u64);
     igualar_lados(slot, &ac);
+    // ** Y LAS OTRAS unidades del camino (03-10, "a +52 no suena fuerte"): una
+    // segunda detras del mezclador del retorno que se quede a media altura
+    // le quita al oido lo que el fader le da. A 0 dB y sin mute, una vez.
+    let (otras, n) = bmo_uaudio::otras_de_reproduccion(cfg);
+    OTRAS_ABIERTAS.store(0, Ordering::SeqCst);
+    for fu in otras[..n].iter().flatten() {
+        abrir_unidad(slot, fu);
+    }
     // El ultimo volumen que se mando (a este o al de antes) se restaura: un
     // audifono que se desenchufa y vuelve no tiene por que volver a cero.
     let ultimo = VOL_PCT.load(Ordering::SeqCst);
@@ -577,13 +588,50 @@ fn igualar_lados(slot: u8, ac: &bmo_uaudio::AudioControl) {
     }
 }
 
+/// **Abre una unidad de volumen SECUNDARIA**: sin mute en ningun canal y cada
+/// volumen a 0 dB (ganancia unidad), recortado al rango que ESE canal declara.
+/// No es la del fader: esa es la principal ([`reclamar`]).
+fn abrir_unidad(slot: u8, fu: &bmo_uaudio::AudioControl) {
+    for canal in 0..=fu.channels.min(15) {
+        if fu.mute_canales & (1 << canal) != 0 {
+            let r = bmo_uaudio::set_mute(fu, canal, false);
+            let mut datos = [0u8];
+            unsafe {
+                bmo_xhci::control_transfer(slot, r.bm_request_type, r.b_request, r.w_value, r.w_index, &mut datos, false);
+            }
+        }
+        if fu.vol_canales & (1 << canal) != 0 {
+            let traia = leer_canal(fu, canal, bmo_uaudio::GET_CUR);
+            let rango = match (leer_canal(fu, canal, bmo_uaudio::GET_MIN), leer_canal(fu, canal, bmo_uaudio::GET_MAX)) {
+                (Some(a), Some(b)) => bmo_uaudio::rango(a, b),
+                _ => None,
+            };
+            let meta = match rango {
+                Some((a, b)) => 0i16.clamp(a, b),
+                None => 0,
+            };
+            if traia != Some(meta) {
+                escribir_volumen(slot, fu, canal, meta);
+                crate::ring0::cabina::info(
+                    "uaudio",
+                    "  otra unidad del camino: traia (1/256 dB; unidad y canal en los 16 de arriba), puesta a 0 dB",
+                    (traia.unwrap_or(0) as u16 as u64) | ((fu.feature_unit as u64) << 56) | ((canal as u64) << 48),
+                );
+            }
+        }
+    }
+    OTRAS_ABIERTAS.fetch_add(1, Ordering::SeqCst);
+}
+
 /// `INFO` de los lados: `[0..16)` lo que traia el izquierdo | `[16..32)` el
-/// derecho (1/256 dB, `i16`) | `[32..34)` cual venia callado | `[48..64)` los
-/// canales con volumen (bit n = canal n).
+/// derecho (1/256 dB, `i16`) | `[32..34)` cual venia callado | `[36..40)`
+/// cuantas OTRAS unidades del camino se abrieron | `[48..64)` los canales con
+/// volumen (bit n = canal n).
 pub fn info_lados() -> u64 {
     (LADO_TRAIA[0].load(Ordering::SeqCst) as u16 as u64)
         | ((LADO_TRAIA[1].load(Ordering::SeqCst) as u16 as u64) << 16)
         | ((LADO_CALLADO.load(Ordering::SeqCst) as u64) << 32)
+        | (((OTRAS_ABIERTAS.load(Ordering::SeqCst) & 0xF) as u64) << 36)
         | ((VOL_CANALES.load(Ordering::SeqCst) as u64) << 48)
 }
 

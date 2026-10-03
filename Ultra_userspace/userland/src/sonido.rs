@@ -307,6 +307,13 @@ impl Fondo {
         Self::orden(AUDIO_FONDO_AJUSTAR, canal, vol, vol, false, 0) == Some(1)
     }
 
+    /// **Los dos lados de un canal que suena**, cada uno 0..=256 (la prueba de
+    /// los lados: un aviso SOLO por la izquierda o SOLO por la derecha). Va
+    /// por la rampa de 5 ms.
+    pub fn lados(&self, canal: u64, izq: u16, der: u16) -> bool {
+        Self::orden(AUDIO_FONDO_AJUSTAR, canal, izq, der, false, 0) == Some(1)
+    }
+
     /// **Situar un canal en el espacio** (S7 por voz): `vol` 0..=256 y
     /// `angulo` en grados (+ derecha, 0 delante, 180 detras). Va por rampa.
     pub fn situar(&self, canal: u64, vol: u16, angulo: i16) -> bool {

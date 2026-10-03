@@ -58,6 +58,8 @@ pub mod avisos;
 
 /// Las voces del gato: cencerro, 808, maullidos, ronroneo y bufido (S4h).
 pub mod neko;
+/// ESCUCHAR: la pieza elegida, a la fuerza de escucharla (-14 dBFS).
+pub mod escuchar;
 mod neko_tablas;
 
 pub use avisos::Aviso;

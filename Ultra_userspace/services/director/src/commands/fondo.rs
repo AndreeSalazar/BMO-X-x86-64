@@ -6,6 +6,9 @@
 //! ```text
 //!    fondo               la enciende (o dice que suena)
 //!    fondo <pieza>       esa pieza, por su nombre ("sierra al atardecer")
+//!    fondo escuchar <p>  la pieza para ESCUCHARLA: mezcla de cancion y a
+//!                        -14 dBFS, +12 dB sobre la de fondo (lo que hace la
+//!                        ONDA de HERMES)
 //!    fondo siguiente     la siguiente de las tranquilas
 //!    fondo vol N         el volumen, 0..100
 //!    fondo aviso [que]   un aviso encima, en su sitio (mensaje, conecta,
@@ -111,13 +114,25 @@ pub(crate) fn fondo(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After 
                 s.text(b"  aviso encima: la musica baja 15 dB en 30 ms y vuelve sola\n");
                 return After::Settle;
             }
-            match buscar(arg) {
-                Some(i) => musica::tocar(i),
-                None => {
-                    s.with_ink(INK_ERR);
-                    s.text(b"  no hay una pieza con ese nombre: `fondo lista`\n");
-                    s.with_ink(INK_PLAIN);
-                    return After::Settle;
+            if let Some(nombre) = arg.strip_prefix(b"escuchar ") {
+                match buscar(nombre.trim_ascii()) {
+                    Some(i) => musica::escuchar(i),
+                    None => {
+                        s.with_ink(INK_ERR);
+                        s.text(b"  no hay una pieza con ese nombre: `fondo lista`\n");
+                        s.with_ink(INK_PLAIN);
+                        return After::Settle;
+                    }
+                }
+            } else {
+                match buscar(arg) {
+                    Some(i) => musica::tocar(i),
+                    None => {
+                        s.with_ink(INK_ERR);
+                        s.text(b"  no hay una pieza con ese nombre: `fondo lista`\n");
+                        s.with_ink(INK_PLAIN);
+                        return After::Settle;
+                    }
                 }
             }
         }
@@ -125,7 +140,7 @@ pub(crate) fn fondo(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After 
     match (hecho, musica::que_suena()) {
         (Ok(()), Some((i, vol, ms))) => {
             s.with_ink(INK_GOOD);
-            s.text(b"  de fondo: ");
+            s.text(if musica::escuchando() { b"  a ESCUCHAR (-14 dBFS): ".as_slice() } else { b"  de fondo: ".as_slice() });
             s.text(PIEZAS[i].nombre.as_bytes());
             s.with_ink(INK_PLAIN);
             s.text(b"  (volumen ");
