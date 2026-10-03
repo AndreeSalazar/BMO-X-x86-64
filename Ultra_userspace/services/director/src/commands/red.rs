@@ -181,6 +181,50 @@ pub(crate) fn report_net(s: &mut Output, what: &[u8]) {
         s.hex(phy, 2);
         s.text(b"   (crudo, sin interpretar)");
         s.byte(b'\n');
+        // ** EL VEREDICTO (03-10, "mi Internet es de 100: algo lo limita"):
+        // lo que anunciamos, lo que anuncia el router, y por que sale lo que
+        // sale. Lo calcula el kernel con `bmo_net::mii`.
+        match bmo::red::veredicto_phy() {
+            Some((causa, nos, otro, comun)) => {
+                label(s, b"anunciamos");
+                s.dec(nos as u64);
+                s.text(b" Mbit como mucho\n");
+                label(s, b"el router");
+                s.dec(otro as u64);
+                s.text(b" Mbit como mucho\n");
+                label(s, b"comun");
+                s.dec(comun as u64);
+                s.text(b" Mbit\n");
+                label(s, b"por que");
+                s.text(match causa {
+                    1 => b"BIEN: va a lo mas que dan los dos".as_slice(),
+                    2 => b"ANUNCIAMOS POCO: lo dejo asi el apagado de Windows (Wake-on-LAN baja a 10 para gastar poco). `red velocidad` lo arregla",
+                    3 => b"el ROUTER (o su puerto) no da mas: no es BMO-X",
+                    4 => b"los dos dan 1000 y sale 100: el CABLE tiene dos pares rotos. Cambia el cable",
+                    5 => b"la autonegociacion esta APAGADA (velocidad forzada): `red velocidad` la enciende",
+                    6 => b"el PHY esta APAGADO: `red velocidad` lo enciende",
+                    _ => b"SIN ENLACE: no hay nada al otro lado del cable",
+                });
+                s.byte(b'\n');
+            }
+            None => s.text(b"    el PHY no contesta (ni por PHYAR ni por OCP): mira CABINA, `red`\n"),
+        }
+        return;
+    }
+
+    if what == b"velocidad" || what == b"gigabit" || what == b"renegociar" {
+        // ** RENEGOCIAR: anunciar 10/100/1000 como hace el driver de cualquier
+        // sistema al arrancar. El enlace se cae unos segundos.
+        match bmo::red::renegociar() {
+            Some((anar, gbcr, _)) => {
+                s.text(b"  el PHY renegocia: anuncia 10/100/1000 (ANAR 0x");
+                s.hex(anar as u64, 4);
+                s.text(b", GBCR 0x");
+                s.hex(gbcr as u64, 4);
+                s.text(b")\n  el enlace se cae unos segundos: en 5 s, `red phy` dice a cuanto quedo\n");
+            }
+            None => s.text(b"  no se pudo: sin tarjeta, el PHY no contesta, o falta la autoridad RED (CABINA)\n"),
+        }
         return;
     }
 

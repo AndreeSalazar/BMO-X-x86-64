@@ -69,6 +69,9 @@ pub mod anillo;
 /// `docs/plan/PLAN_RED_TX.md`: todo lo que se equivoca sin fallo, probado aqui
 /// antes de que el kernel encienda `CR.TE`.
 pub mod tx;
+/// El PHY por dentro: los registros MII, los dos caminos, el diagnostico de
+/// la velocidad y lo que se escribe para renegociar (2026-10-03).
+pub mod mii;
 
 /// **RECIBIR**: que se hace con cada trama que llega. Era politica escrita
 /// dentro del kernel, sin banco -- ver la cabecera del modulo.

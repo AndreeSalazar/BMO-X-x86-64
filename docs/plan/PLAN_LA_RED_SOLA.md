@@ -179,6 +179,28 @@ perder el cable, `error` si el router no contesta) y a CABINA.
 
 Ordenados por lo que DESBLOQUEA y por lo que MIENTE hoy (`EL_ORDEN.md`).
 
+- [~] **RS0b y RS5b, EN CODIGO el 03-10: los 10 Mbit, explicados y con su
+      arreglo.** El propietario: *"mi Internet es de 100, el router no es el
+      cuello de botella: algo lo limita"*. Lo que se encontro: BMO-X NUNCA
+      escribia en el PHY, y el driver de Realtek de Windows, al APAGAR con
+      Wake-on-LAN ("WOL & Shutdown Link Speed = 10 Mbps First", lo de
+      fabrica), deja el PHY anunciando SOLO 10 Mbit. Windows renegocia al
+      volver; BMO-X no lo hacia. Ahora:
+      - `bmo_net::mii` (puro, 6 pruebas): los registros MII, los DOS caminos
+        al PHY (`PHYAR` en los 8168 viejos, `GPHY_OCP` en los 8168g/h), el
+        VEREDICTO (que anunciamos, que anuncia el router, que sale y por que:
+        anunciamos poco, el router da poco, cable de dos pares, sin
+        autonegociar, apagado, sin enlace) y lo que se escribe para anunciar
+        10/100/1000 y renegociar;
+      - el kernel prueba los dos caminos y se queda con el que contesta el
+        fabricante de Realtek (`PHYID1 = 0x001C`), no lo supone;
+      - `RED_OP_MII` (leer, libre; `0xFF` = el veredicto) y
+        `RED_OP_RENEGOCIAR` (pide la autoridad RED);
+      - `red phy` dice el veredicto y `red velocidad` renegocia.
+      **Como se sabe:** en el Ryzen, `red phy` dice "anunciamos 10, el router
+      100: ANUNCIAMOS POCO"; tras `red velocidad`, a los 5 s, `red` dice 100
+      (o 1000) Mbit. Prueba de la sospecha sin tocar BMO-X: reiniciar desde
+      Windows (no apagar) y ver si `red` ya sale a 100.
 - [ ] **RS0 -- la tanda del Ryzen que ya espera.** G4 (`red dns`), G5 (`red
       hola` contra `antena.py`) y la causa de los 10 Mbit, en la misma
       sesion. Para los 10 Mbit: leer los registros del PHY (BMCR, ANAR,
