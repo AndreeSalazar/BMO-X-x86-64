@@ -222,10 +222,13 @@ struct PeorLatido {
     tid_ms: u64,
     /// Lo que costo la vuelta del bus de antes: si es ~ el retraso, fue el bus.
     vuelta_us: u64,
+    /// ** La PUERTA (syscall) larga que corria mientras tanto, en el paquete
+    /// de `syscall::larga` (03-10). 0 = ninguna: entonces no fue una puerta.
+    puerta: u64,
 }
 
 impl PeorLatido {
-    const NADA: Self = Self { ms: 0, tick: 0, ticks_durante: 0, tid: 0, tid_ms: 0, vuelta_us: 0 };
+    const NADA: Self = Self { ms: 0, tick: 0, ticks_durante: 0, tid: 0, tid_ms: 0, vuelta_us: 0, puerta: 0 };
 }
 
 static mut PEOR: PeorLatido = PeorLatido::NADA; // [escribe] bus
@@ -247,6 +250,12 @@ pub fn latido_peor() -> u64 {
     let ticks = p.ticks_durante.min(0xFFFF);
     let vuelta = (p.vuelta_us / 1000).min(0xFF);
     ms | (tid << 16) | (suyo << 24) | (ticks << 40) | (vuelta << 56)
+}
+
+/// `INFO_PUERTA_DEL_LATIDO`: la puerta larga que corria durante el peor
+/// retraso (paquete de `syscall::larga`). 0 = no fue una puerta.
+pub fn latido_peor_puerta() -> u64 {
+    unsafe { PEOR.puerta }
 }
 
 pub fn latido_peor_cuando() -> u64 {
@@ -714,6 +723,9 @@ fn foto_del_retraso(ms: u64, por_ms: u64) -> PeorLatido {
         tid: peor_tid,
         tid_ms: if por_ms != 0 { peor_ciclos / por_ms } else { 0 },
         vuelta_us: unsafe { VUELTA_US },
+        // La ultima puerta larga que acabo dentro del retraso (o justo al
+        // acabar: el bus solo corre cuando la puerta vuelve).
+        puerta: crate::ring0::syscall::larga::ultima_desde(scheduler::rdtsc().saturating_sub((ms + 1) * por_ms)),
     }
 }
 

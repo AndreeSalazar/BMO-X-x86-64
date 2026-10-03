@@ -11,7 +11,7 @@ use crate::canvas::Canvas;
 use bmo_dibujo::{mezclar, Color, Lienzo};
 
 /// Raiz cuadrada entera (por abajo).
-fn raiz(n: u64) -> u64 {
+pub fn raiz(n: u64) -> u64 {
     if n < 2 {
         return n;
     }
@@ -159,4 +159,149 @@ pub fn flecha(cv: &mut Canvas, x: i32, cy: i32, w: i32, h: i32, dir: i32, c: Col
             cv.rect(x - largo, cy + j, largo, 1, c);
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// LA LETRA DE LAS MAQUETAS (03-10): `bmo-letra`, con su cache, y lo que hace
+// falta para escribir como escribe el CSS de la maqueta.
+// ---------------------------------------------------------------------------
+
+pub use bmo_letra::Estilo;
+
+/// La cache de glifos de la app. La app es UN hilo: solo se toca desde el
+/// bucle que pinta.
+struct Cache(core::cell::UnsafeCell<bmo_letra::Letra>);
+// SAFETY: la app tiene un solo hilo; nadie mas llega a esta cache.
+unsafe impl Sync for Cache {}
+static LETRA: Cache = Cache(core::cell::UnsafeCell::new(bmo_letra::Letra::nueva()));
+
+fn letra() -> &'static mut bmo_letra::Letra {
+    // SAFETY: un hilo, y ninguna funcion de aqui se llama a si misma con la
+    // referencia viva (cada una la toma y la suelta).
+    unsafe { &mut *LETRA.0.get() }
+}
+
+/// Lo que mide un texto.
+pub fn medir(s: &[u8], e: Estilo) -> i32 {
+    letra().medir(s, e)
+}
+
+/// **Escribe** con la base en `base`. Devuelve el ancho.
+pub fn escribir(cv: &mut Canvas, x: i32, base: i32, s: &[u8], c: Color, e: Estilo) -> i32 {
+    letra().escribir(s, e, x, base, |x, y, a| cv.blend(x, y, c, a as u32, 255))
+}
+
+/// **Escribe en una caja de texto del CSS**: `y` es lo alto de la caja y
+/// `alto` su `line-height`, como los mide el navegador en la maqueta.
+pub fn texto(cv: &mut Canvas, x: i32, y: i32, alto: i32, s: &[u8], c: Color, e: Estilo) -> i32 {
+    escribir(cv, x, y + bmo_letra::base_en_caja(e.px, alto), s, c, e)
+}
+
+/// Como [`texto`], recortado a `max` pixeles con tres puntos.
+pub fn texto_cabe(cv: &mut Canvas, x: i32, y: i32, alto: i32, s: &[u8], c: Color, e: Estilo, max: i32) -> i32 {
+    let base = y + bmo_letra::base_en_caja(e.px, alto);
+    letra().escribir_cabe(s, e, x, base, max, |x, y, a| cv.blend(x, y, c, a as u32, 255))
+}
+
+/// Como [`texto`], pero ACABA en `der` (los numeros de la derecha).
+pub fn texto_der(cv: &mut Canvas, der: i32, y: i32, alto: i32, s: &[u8], c: Color, e: Estilo) -> i32 {
+    let w = medir(s, e);
+    texto(cv, der - w, y, alto, s, c, e);
+    der - w
+}
+
+/// **Parte un parrafo** en lineas de `ancho` pixeles, por los espacios.
+pub fn partir(s: &[u8], e: Estilo, ancho: i32) -> alloc::vec::Vec<&[u8]> {
+    let mut v = alloc::vec::Vec::new();
+    let mut resto = s;
+    while !resto.is_empty() {
+        if medir(resto, e) <= ancho {
+            v.push(resto);
+            break;
+        }
+        // El corte mas largo que cabe, en un espacio.
+        let mut corte = 0;
+        for (k, &b) in resto.iter().enumerate() {
+            if b == b' ' {
+                if k > 0 && medir(&resto[..k], e) > ancho {
+                    break;
+                }
+                corte = k;
+            }
+        }
+        if corte == 0 {
+            corte = resto.iter().position(|&b| b == b' ').unwrap_or(resto.len());
+        }
+        v.push(&resto[..corte]);
+        resto = &resto[corte..];
+        while resto.first() == Some(&b' ') {
+            resto = &resto[1..];
+        }
+    }
+    v
+}
+
+/// **Un parrafo** que empieza en `y`, de lineas de `alto`; como mucho
+/// `max_lineas`. Devuelve cuantas escribio.
+pub fn parrafo(cv: &mut Canvas, x: i32, y: i32, ancho: i32, alto: i32, s: &[u8], c: Color, e: Estilo, max_lineas: usize) -> usize {
+    let lineas = partir(s, e, ancho);
+    let n = lineas.len().min(max_lineas);
+    for (k, l) in lineas.iter().take(n).enumerate() {
+        texto(cv, x, y + k as i32 * alto, alto, l, c, e);
+    }
+    n
+}
+
+/// **Una sombra suave** (el `box-shadow: 0 0 Npx` del CSS) alrededor de una
+/// caja redonda: `fuerza` de 256 pegada al borde, y nada a `difusa` pixeles.
+pub fn sombra(cv: &mut Canvas, x: i32, y: i32, w: i32, h: i32, r: i32, c: Color, difusa: i32, fuerza: u32) {
+    let d = difusa.max(1);
+    let (cx2, cy2) = (2 * x + w, 2 * y + h);
+    for py in y - d..y + h + d {
+        for px in x - d..x + w + d {
+            // La distancia (en medios pixeles) al borde de la caja redonda.
+            let qx = ((2 * px + 1 - cx2).abs() - w + 2 * r).max(0);
+            let qy = ((2 * py + 1 - cy2).abs() - h + 2 * r).max(0);
+            let fuera = raiz((qx * qx + qy * qy) as u64) as i32 - 2 * r;
+            if fuera <= 0 {
+                continue;
+            }
+            let t = (2 * d - fuera).max(0) as u32;
+            if t == 0 {
+                continue;
+            }
+            let a = fuerza * t * t / (4 * (d * d) as u32);
+            cv.blend(px, py, c, a, 256);
+        }
+    }
+}
+
+/// **Un camino de SVG** de la maqueta, trazado con la pluma de la casa:
+/// `poner` lleva cada punto (en 1/64 de unidad del `viewBox`) a 1/64 de
+/// pixel de la ventana (ahi va la escala, el sitio y, si la hay, el giro).
+pub fn camino(cv: &mut Canvas, d: &str, grosor64: i32, c: Color, poner: impl Fn((i32, i32)) -> (i32, i32)) {
+    for sub in bmo_letra::svg::camino(d) {
+        let p: alloc::vec::Vec<(i32, i32)> = sub.puntos.iter().map(|&q| poner(q)).collect();
+        bmo_letra::pluma(&p, grosor64, sub.cerrado, |x, y, a| cv.blend(x, y, c, a as u32, 255));
+    }
+}
+
+/// **Un camino de SVG relleno** (la pajarita, la gota).
+pub fn camino_relleno(cv: &mut Canvas, d: &str, c: Color, poner: impl Fn((i32, i32)) -> (i32, i32)) {
+    let subs: alloc::vec::Vec<alloc::vec::Vec<(i32, i32)>> =
+        bmo_letra::svg::camino(d).into_iter().map(|s| s.puntos.iter().map(|&q| poner(q)).collect()).collect();
+    bmo_letra::svg::rellenar(&subs, |x, y, a| cv.blend(x, y, c, a as u32, 255));
+}
+
+/// Lo que casi siempre es `poner`: escala `k` (pixeles por unidad, en
+/// 1/64) y el origen en `(x, y)`.
+pub fn en(x: i32, y: i32, k64: i32) -> impl Fn((i32, i32)) -> (i32, i32) {
+    move |(px, py)| (x * 64 + px * k64 / 64, y * 64 + py * k64 / 64)
+}
+
+/// **Un icono de la maqueta** (viewBox de 24, trazo de 2, puntas
+/// redondas), de `lado` pixeles con su esquina en `(x, y)`.
+pub fn icono_svg(cv: &mut Canvas, x: i32, y: i32, lado: i32, d: &str, c: Color) {
+    let k64 = lado * 64 / 24;
+    camino(cv, d, 2 * k64, c, en(x, y, k64));
 }

@@ -69,6 +69,7 @@ documento recien escrito esta huerfano un rato por definicion.
 | [`vista-ciudad`](vista-ciudad/) | la vista de `bmo-ciudad` |
 | [`simbolo`](simbolo/) | la tabla de simbolos |
 | [`antena`](antena/) | **no fabrica para el build: corre en el MOVIL.** Es la antena del CLOUD LOCAL -- sirve una carpeta de videos a UNA IP, convertida a MPEG-1 -- y `cliente.py` la prueba desde un PC. Ver [`docs/plan/PLAN_CLOUD_LOCAL.md`](../../docs/plan/PLAN_CLOUD_LOCAL.md) |
+| [`espejo-cara`](espejo-cara/) | **no fabrica: MIDE.** Pinta una app (BANK CAT, HERMES) con SU codigo en el anfitrion y la compara pixel a pixel con la foto de su maqueta: cuanto se parece y DONDE no, con el mapa en rojo. Y `tinta`: la paleta del `:root` de la maqueta hecha `tinta.rs`. Ver [`ESPEJO_CARA.md`](espejo-cara/ESPEJO_CARA.md) |
 | [`rayosx`](rayosx/) | **no fabrica: MIDE.** Lee un `.exe` de Windows o un ELF de Linux (los de GOG) SIN ejecutarlo y dice que pide de fuera: cada biblioteca, cuantas funciones y por familia (graficos, sonido, entrada, red). Es la cuenta de lo que habria que VERIFICAR para que corriera. Ver la seccion 8 de [`docs/plan/PLAN_LA_LUDOTECA.md`](../../docs/plan/PLAN_LA_LUDOTECA.md) |
 
 ---

@@ -67,6 +67,9 @@ members = [
     # rectangulos por fotograma tirados y el 7,2% de la pantalla sin escribir.
     # Un solo recorte para las tres orillas.
     "platform/shared/bmo-dibujo",
+    # LA LETRA (2026-10-03): la de las maquetas, proporcional y suave, con
+    # trazos de la casa. La usan HERMES y BANK CAT; se prueba aqui.
+    "platform/shared/bmo-letra",
     # El formato de una cara maquetada que viaja. Ver PLAN_LA_CARA_VIAJA.md.
     "platform/shared/bmo-maqueta-cara",
     # Que hay dentro de un fichero de audio. Ver AUDIO_MAESTRO paso 3.
@@ -318,6 +321,9 @@ members = [
     "toolchain/tools/espejo",
     # El ESPEJO de COBOL (03-10): BMO COBOL contra GnuCOBOL, ejecutados (CM0).
     "toolchain/tools/espejo-cobol",
+    # El ESPEJO de CARA (03-10): la app pintada por su codigo contra la foto
+    # de su maqueta, y la paleta de la maqueta hecha constantes de Rust.
+    "toolchain/tools/espejo-cara",
     # *** LA HERRAMIENTA DE FIRMAR, y la unica del arbol que enciende la
     # bandera `firmar` de `bmo-cripto`. Vive en el ANFITRION y no baja: una
     # maquina que puede firmar tiene dentro con que falsificar lo que ejecuta.

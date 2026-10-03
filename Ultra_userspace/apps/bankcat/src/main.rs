@@ -27,6 +27,8 @@ extern crate alloc;
 
 mod gato;
 mod pintar;
+/// La paleta de la maqueta, GENERADA (`espejo-cara tinta`).
+mod tinta;
 
 /// La ventana y el lienzo son los del TALLER (F1).
 #[path = "../../taller/src/canvas.rs"]
@@ -274,8 +276,8 @@ pub extern "C" fn _start() -> ! {
                 Input::Char(0x82) => st.elegir(st.sec + SECCIONES.len() - 1, ahora),
                 Input::Char(0x83 | b'\t') => st.elegir(st.sec + 1, ahora),
                 Input::Char(c @ b'1'..=b'6') => st.elegir((c - b'1') as usize, ahora),
-                Input::Char(b'c' | b'C') if st.sec == pintar::CARTERA => st.boton(0),
-                Input::Char(b'p' | b'P') if st.sec == pintar::CARTERA => st.boton(1),
+                Input::Char(b'r' | b'R' | b'c' | b'C') if st.sec == pintar::CARTERA => st.boton(0),
+                Input::Char(b'e' | b'E' | b'p' | b'P') if st.sec == pintar::CARTERA => st.boton(1),
                 Input::Char(b't' | b'T') if st.sec == pintar::CARTERA => st.boton(2),
                 Input::Char(0x1B) => cerrar("Esc"),
                 _ => {}

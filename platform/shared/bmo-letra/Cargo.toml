@@ -1,0 +1,11 @@
+[package]
+name = "bmo-letra"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "LA LETRA de la casa: proporcional, de bordes suaves y de cualquier talla, dibujada con trazos propios (sin fuentes de terceros)"
+license = "Apache-2.0"
+
+# Sin dependencias y `no_std` (con `alloc`, para la cache de glifos): la usan
+# las apps de Ring 3 y se prueba en el anfitrion, igual que `bmo-dibujo`.
+[dependencies]

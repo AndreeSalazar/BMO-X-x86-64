@@ -349,22 +349,41 @@ impl Surface {
         // Ctrl+Alt queda ENCIMA de las apps, y una app animada la repintaria
         // detras en el fotograma siguiente. Sus columnas no se pegan.
         let (tx0, ty0, tx1, ty1) = tapa.map_or((0, 0, 0, 0), |(x, y, w, h)| (x, y, x + w, y + h));
+        // *** SOLO LO QUE CAMBIO (03-10): cada fila se compara con lo que ya
+        // hay en el lienzo y se copia solo su tramo distinto
+        // (`Pantalla::pegar_fila`); se marca UNA caja, la que cubre lo que
+        // cambio de verdad. Una app que repinta igual no manda nada a la
+        // pantalla; el gato que mueve la pata manda la pata.
+        let (mut cx0, mut cy0, mut cx1, mut cy1) = (u32::MAX, u32::MAX, 0u32, 0u32);
         for row in 0..height {
             let src = self.base + HEADER_TAG + (row as u64 * cab.stride as u64) * 4;
             let yy = y0 + row;
-            let tapada = yy >= ty0 && yy < ty1;
-            for col in 0..width {
-                if tapada && x0 + col >= tx0 && x0 + col < tx1 {
+            // Los tramos de la fila que se pegan: toda, o lo que queda a los
+            // lados de lo que la tapa.
+            let tramos = if yy >= ty0 && yy < ty1 {
+                [(0, tx0.saturating_sub(x0).min(width)), (tx1.saturating_sub(x0).min(width), width)]
+            } else {
+                [(0, width), (width, width)]
+            };
+            for (c0, c1) in tramos {
+                if c1 <= c0 {
                     continue;
                 }
-                let px = unsafe { core::ptr::read_volatile((src + col as u64 * 4) as *const u32) };
-                // `punto_sin_comprobar` y una sola marca al final: el recorte ya
-                // esta hecho arriba, y marcar pixel a pixel serian cientos de
-                // miles de llamadas para acabar en la misma caja.
-                unsafe { p.punto_sin_comprobar(x0 + col, y0 + row, px) };
+                // SAFETY: `visible()` recorto la caja contra la superficie y la
+                // pantalla: la fila `row` tiene `width` pixeles legibles desde
+                // `src`, y `x0 + c1 <= ancho`, `yy < alto`.
+                let cambio = unsafe { p.pegar_fila(x0 + c0, yy, (src + c0 as u64 * 4) as *const u32, (c1 - c0) as usize) };
+                if let Some((a, b)) = cambio {
+                    cx0 = cx0.min(a);
+                    cx1 = cx1.max(b);
+                    cy0 = cy0.min(yy);
+                    cy1 = yy + 1;
+                }
             }
         }
-        p.marcar(x0, y0, width, height);
+        if cx1 > cx0 {
+            p.marcar(cx0, cy0, cx1 - cx0, cy1 - cy0);
+        }
         // Se apunta DESPUES de pegar. Al reves, un fotograma que se quedara a
         // medias por un recorte se daria por pintado y no volveria a intentarse.
         self.stuck = cab.sequence;

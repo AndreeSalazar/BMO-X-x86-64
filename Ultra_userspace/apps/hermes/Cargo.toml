@@ -16,3 +16,5 @@ bmo-userland = { path = "../../userland" }
 bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
 # Los nombres de las piezas de la ONDA (las compone y las toca el escritorio).
 bmo-fondo = { path = "../../../platform/shared/bmo-fondo" }
+# LA LETRA de las maquetas (03-10): proporcional y suave, trazos de la casa.
+bmo-letra = { path = "../../../platform/shared/bmo-letra" }

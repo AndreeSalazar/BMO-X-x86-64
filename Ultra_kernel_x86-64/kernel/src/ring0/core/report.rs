@@ -269,6 +269,10 @@ const INFO_AUDIO_FONDO: u64 = 0xC9;
 const INFO_AUDIO_ESPACIO: u64 = 0xCA;
 /// Los LADOS del aparato: lo que traia cada uno y cual venia callado.
 const INFO_AUDIO_LADOS: u64 = 0xCB;
+/// LA PUERTA LARGA (03-10): la syscall mas larga desde el arranque, y la que
+/// corria durante el peor latido tarde. Paquete de `syscall::larga`.
+const INFO_PUERTA_LARGA: u64 = 0xCC;
+const INFO_PUERTA_DEL_LATIDO: u64 = 0xCD;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -893,6 +897,8 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_AUDIO_FONDO => crate::ring0::dev::usb::voces::info_fondo(),
         INFO_AUDIO_ESPACIO => crate::ring0::dev::usb::maestro::info_espacio(),
         INFO_AUDIO_LADOS => crate::ring0::dev::uaudio::info_lados(),
+        INFO_PUERTA_LARGA => crate::ring0::syscall::larga::peor(),
+        INFO_PUERTA_DEL_LATIDO => crate::ring0::dev::usb::latido_peor_puerta(),
         INFO_AUDIO_TIRONES => {
             let (en_marcha, cortes, peor) = crate::ring0::dev::usb::audio::tirones();
             en_marcha.min(0xFFFF_FFFF) | (cortes.min(0xFFFF) << 32) | (peor.min(0xFFFF) << 48)

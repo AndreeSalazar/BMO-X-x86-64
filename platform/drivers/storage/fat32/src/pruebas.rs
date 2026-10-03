@@ -1371,3 +1371,44 @@ fn el_fsinfo_es_un_testigo_con_firmas() {
     assert!(write(3, 1, &s));
     assert_eq!(v.libres_segun_fsinfo(), None, "sin su firma no vale");
 }
+
+/// ** LA PISTA DEL HUECO (03-10): guardar no vuelve a leer la FAT desde el
+/// sector 0 cada vez.
+///
+/// En el Ryzen eso eran miles de lecturas por fichero DENTRO de una syscall
+/// con el reloj callado (`latido tarde 467 ms`, el audio cortado). Aqui la
+/// FAT de mentira tiene sus tres primeros sectores LLENOS: el primer
+/// guardado los recorre para encontrar hueco; el segundo empieza donde se
+/// quedo el primero.
+#[test]
+fn guardar_empieza_donde_quedo_el_hueco() {
+    let (_turno, mut v) = volumen();
+    for c in 3..384 {
+        assert!(v.set_fat_entry(c, 0x0FFF_FFFF));
+    }
+    let antes = lecturas();
+    v.save_file_in_dir(2, &name("UNO     BIN"), &[1u8; 100]).expect("uno");
+    let primero = lecturas() - antes;
+    let antes = lecturas();
+    v.save_file_in_dir(2, &name("DOS     BIN"), &[2u8; 100]).expect("dos");
+    let segundo = lecturas() - antes;
+    assert!(segundo + 2 <= primero, "el segundo guardado releyo la FAT llena: {segundo} lecturas contra {primero}");
+    let mut dst = [0u8; 100];
+    assert_eq!(leer_archivo(&mut v, "UNO     BIN", &mut dst), Some(100));
+    assert_eq!(dst, [1u8; 100]);
+    assert_eq!(leer_archivo(&mut v, "DOS     BIN", &mut dst), Some(100));
+    assert_eq!(dst, [2u8; 100]);
+}
+
+/// Y lo que se SUELTA se reusa: reemplazar un fichero devuelve sus clusters
+/// y la pista baja hasta ellos (el volumen no se desparrama hacia el final).
+#[test]
+fn lo_soltado_se_reusa() {
+    let (_turno, mut v) = volumen();
+    v.save_file_in_dir(2, &name("A       BIN"), &[1u8; 2048]).expect("a");
+    let antes = ocupados(&mut v);
+    for k in 0..5u8 {
+        v.save_file_in_dir(2, &name("A       BIN"), &[k; 2048]).expect("otra vez");
+    }
+    assert_eq!(ocupados(&mut v), antes, "reemplazar cinco veces no gasta mas clusters");
+}

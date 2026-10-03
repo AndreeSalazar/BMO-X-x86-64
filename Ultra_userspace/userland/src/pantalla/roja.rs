@@ -331,6 +331,45 @@ impl Pantalla {
         self.anotar(&sucias);
     }
 
+    /// **Pega una fila de otra superficie COPIANDO SOLO LO QUE CAMBIO**, y
+    /// dice que tramo cambio (`[x0, x1)`), o `None` si era igual.
+    ///
+    /// *** EL CERO COPIAS DE LO QUE NO SE MUEVE (03-10). El escritorio pegaba
+    /// la ventana entera de una app en cada fotograma, pixel a pixel (lectura
+    /// `volatile`, escritura `volatile` y la valla de la 3060 mirada en CADA
+    /// pixel), y despues `volcar` la mandaba ENTERA por PCIe a la pantalla:
+    /// BANK CAT son 864.000 pixeles, 2,7 ms de PCIe por fotograma, para que
+    /// el gato mueva la pata. Ahora la fila se COMPARA con el lienzo (los dos
+    /// en RAM: leer es barato) y solo el tramo distinto se copia, de un
+    /// `rep movsb`, y solo ese tramo se marca. Lo que no cambio no viaja.
+    ///
+    /// Sin doble bufer el lienzo ES la pantalla y leerla es leer VRAM por
+    /// PCIe (cien veces mas caro): entonces se copia la fila sin comparar.
+    ///
+    /// # Safety
+    /// `origen` apunta a `n` pixeles legibles; `x + n <= ancho` y `y < alto`.
+    /// La superficie es de otro proceso, que puede estar escribiendola: un
+    /// pixel a medias da un fotograma a medias (como antes), nunca una
+    /// lectura fuera.
+    pub unsafe fn pegar_fila(&self, x: u32, y: u32, origen: *const u32, n: usize) -> Option<(u32, u32)> {
+        if n == 0 {
+            return None;
+        }
+        self.valla();
+        let destino = unsafe { self.lienzo.add((y as usize) * (self.stride as usize) + x as usize) };
+        if self.lienzo == self.panel {
+            unsafe { copiar(destino, origen, n) };
+            return Some((x, x + n as u32));
+        }
+        // SAFETY: las dos zonas son pixeles mapeados de `n` de largo (el
+        // contrato de arriba); un `u32` vale cualquier patron de bits.
+        let (a, b) = unsafe { (core::slice::from_raw_parts(origen, n), core::slice::from_raw_parts(destino as *const u32, n)) };
+        let ini = a.iter().zip(b).position(|(p, q)| p != q)?;
+        let fin = n - a.iter().rev().zip(b.iter().rev()).position(|(p, q)| p != q).unwrap_or(0);
+        unsafe { copiar(destino.add(ini), origen.add(ini), fin - ini) };
+        Some((x + ini as u32, x + fin as u32))
+    }
+
     /// **Las cajas a la 3060**: una llamada por caja; la ULTIMA toca el timbre
     /// y VUELVE sin esperar (1c) -- la CPU sigue mientras la 3060 copia.
     ///

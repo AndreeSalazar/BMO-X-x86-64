@@ -16,6 +16,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-bankcat",
  "bmo-dibujo",
+ "bmo-letra",
  "bmo-monton",
  "bmo-userland",
 ]
@@ -26,6 +27,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-dibujo",
  "bmo-fondo",
+ "bmo-letra",
  "bmo-monton",
  "bmo-userland",
 ]
@@ -127,6 +129,10 @@ version = "0.1.0"
 
 [[package]]
 name = "bmo-juicio"
+version = "0.1.0"
+
+[[package]]
+name = "bmo-letra"
 version = "0.1.0"
 
 [[package]]
