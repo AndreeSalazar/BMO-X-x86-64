@@ -29,3 +29,6 @@ path = "src/main.rs"
 bmo-bex-gate = { path = "../../../../platform/abi/bmo-bex-gate" }
 # El banco de pruebas: ejecuta el codigo emitido en vez de mirarlo.
 bmo-lower = { path = "../../../forge/bmo-lower", features = ["emulator"] }
+# BANK CAT: el WRAPPER de Rust, para que las pruebas lo pongan a hablar con
+# el motor COBOL de verdad (BC2 de PLAN_BANK_CAT).
+bmo-bankcat = { path = "../../../../platform/shared/bmo-bankcat" }

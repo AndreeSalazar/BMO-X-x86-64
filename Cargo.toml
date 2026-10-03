@@ -131,6 +131,8 @@ members = [
     # EL CLOUD LOCAL: el protocolo ANTENA/1 entre BMO-X y el movil que hace de
     # antena. Ver PLAN_CLOUD_LOCAL, S2.
     "platform/shared/bmo-antena",
+    # BANK CAT (03-10): el WRAPPER del motor COBOL del libro. Puro, en centimos.
+    "platform/shared/bmo-bankcat",
     # HERMES/1 (H2): el saludo Noise XX/IK y los mensajes entre dos BMO-X, sin
     # servidor de nadie. NO es la ANTENA de arriba. Ver PLAN_HERMES.
     "platform/shared/bmo-hermes",

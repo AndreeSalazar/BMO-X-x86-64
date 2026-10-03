@@ -167,3 +167,4 @@ titan            (0)
 # protocolo (`platform/shared/bmo-hermes`). Nace aqui, con H5.
 hermes           (0) 
 antena           (0)
+bankcat          (0)

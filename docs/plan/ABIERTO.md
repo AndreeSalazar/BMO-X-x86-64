@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 59 planes
+# LO QUE FALTA -- las casillas abiertas de los 60 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   540 casillas ABIERTAS en 50 planes
-   385 hechas
+   544 casillas ABIERTAS en 51 planes
+   388 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -356,6 +356,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 2. EL JUEZ, en su crate. platform/shared/bmo-pila-juicio: *"se
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
 - ... y 2 mas
+
+## [`PLAN_BANK_CAT.md`](PLAN_BANK_CAT.md) -- 4 abiertas, 3 hechas
+
+*PLAN BANK CAT -- la cartera de CAB, llevada por COBOL (F5)*
+
+- [ ] BC3 -- la CARA (apps/bankcat, F5): el gato hucha de la maqueta,
+- [ ] BC4 -- el libro en el DISCO. Hoy el motor lo lleva en memoria.
+- [ ] BC5 -- entre amigos, por HERMES (pide H6): un movimiento firmado
+- ... y 1 mas
 
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas
 

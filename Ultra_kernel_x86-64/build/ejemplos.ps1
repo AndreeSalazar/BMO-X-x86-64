@@ -300,7 +300,9 @@ $cobolEjemplos = @(
     @{ src = 'toolchain\lang\cobol\examples\7-empaquetado\cuentas.cob';   out = 'cuentas.bex'  ; dir = 'cobol\7' },
     @{ src = 'toolchain\lang\cobol\examples\8-parrafos\cierre.cob';       out = 'cierre.bex'   ; dir = 'cobol\8' },
     @{ src = 'toolchain\lang\cobol\examples\9-decision\comision.cob';     out = 'comisio.bex'  ; dir = 'cobol\9' },
-    @{ src = 'toolchain\lang\cobol\examples\10-binario\maestro.cob';      out = 'maestro.bex'  ; dir = 'cobol\10' }
+    @{ src = 'toolchain\lang\cobol\examples\10-binario\maestro.cob';      out = 'maestro.bex'  ; dir = 'cobol\10' },
+    # BANK CAT (03-10): el motor del libro, con la LIBRERIA de copybooks (`COPY`).
+    @{ src = 'toolchain\lang\cobol\examples\11-bankcat\libro.cob';      out = 'libro.bex'    ; dir = 'cobol\11' }
 )
 # -- Programas ADA de ejemplo -------------------------------------
 #

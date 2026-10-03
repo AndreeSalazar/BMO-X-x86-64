@@ -296,6 +296,25 @@ if c == 0x8B {
     return Key::Taken;
 }
 
+// -- F5: BANK CAT (03-10) --
+//
+// El propietario: "F5 para BANK CAT, y el F6 lo reemplazo con RED". Como F3:
+// lanza `sys/bankcat.bex` (o lo alterna) si el disco lo trae; si no, el globo
+// dice que aun no existe y donde esta la maqueta. `red` vive ahora en F6.
+if c == 0x8D {
+    const BANKCAT: &[u8] = b"sys/bankcat.bex";
+    if bmo::Archivo::reflejar(BANKCAT).is_ok() {
+        lanzar_o_alternar(dsk, p, BANKCAT);
+    } else {
+        crate::desktop::globo::avisar(
+            b"F5 es BANK CAT",
+            b"aun no esta en el disco: su maqueta es docs/arte/maqueta_bankcat.html. La RED se mudo a F6",
+            crate::desktop::globo::Tono::Consejo,
+        );
+    }
+    return Key::Taken;
+}
+
 // -- F7 y F8: VITALES, una ventana con tres solapas (02-10) --
 //
 // Calcadas de F11 y por los mismos motivos: se atienden ANTES de preguntar

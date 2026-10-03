@@ -2487,11 +2487,19 @@ impl Codegen {
     }
 
     /// Parte la expresion en operandos, operadores y parentesis.
+    ///
+    /// ** El guion PEGADO a un nombre es del nombre (03-10, BANK CAT): en
+    /// COBOL `CAB-SALDO` es un dato y la resta se escribe con espacios,
+    /// `A - B`. Antes todo `-` partia, y `COMPUTE X = CAB-A - CAB-B` decia
+    /// que `CAB` no estaba declarado. Entre cifras (`3-1`) sigue restando.
     fn tokenize_expr(expr: &str) -> Vec<String> {
         let mut out = Vec::new();
         let mut current = String::new();
         for ch in expr.chars() {
-            if "+-*/()".contains(ch) {
+            let es_nombre = !current.is_empty() && !current.chars().all(|c| c.is_ascii_digit() || c == '.');
+            if ch == '-' && es_nombre {
+                current.push(ch);
+            } else if "+-*/()".contains(ch) {
                 if !current.trim().is_empty() {
                     out.push(current.trim().to_string());
                 }

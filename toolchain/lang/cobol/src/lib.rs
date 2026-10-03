@@ -7,6 +7,8 @@
 //! que son lo unico agnostico. Ver `toolchain/tools/isa`.
 
 pub mod ast;
+/// `COPY`: la libreria de COBOL, expandida antes de parsear (2.8).
+pub mod copia;
 pub mod dialect;
 pub mod edicion;
 pub mod lexer;

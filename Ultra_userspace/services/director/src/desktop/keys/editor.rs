@@ -462,7 +462,9 @@ match c {
     //                   01-10; `consumo` y `apps` se siguen tecleando)
     //    (F1 era `help`; desde el 06-09 la coge ANTES `keys::windows` -- hoy
     //    lanza el TALLER -- y aqui ya no llegaba. Se quito el 29-09.)
-    //    LA MAQUINA     F5 red     F6 smp     F7 banda     F8 ext
+    //    LA MAQUINA     F6 red     F7 banda   F8 ext
+    //    (03-10: F5 es BANK CAT y la coge `keys::windows`; la RED paso a
+    //    F6, y `smp` se teclea: "el smp no tiene sentido en F6")
     //    CUANDO FALLA   F9 fallo   F10 disco
     //    VENTANAS       F11 CABINA           F12 ESTRATOS
     // ```
@@ -483,8 +485,7 @@ match c {
     f @ 0x8A..=0x92 => {
         let orden: &[u8] = match f {
             0x8A => b"info",
-            0x8D => b"red",
-            0x8E => b"smp",
+            0x8E => b"red",
             0x8F => b"banda",
             0x90 => b"ext",
             // La del dia malo.

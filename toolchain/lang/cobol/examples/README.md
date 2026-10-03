@@ -37,6 +37,7 @@ real hizo lo que el fuente promete. No son la misma afirmacion.
 | 8 | `8-parrafos/` | `cobol/8/cierre.bex` | -- | **Parrafos** y las cuatro formas del `PERFORM` fuera de linea, `VALUE`, `OR` |
 | 9 | `9-decision/` | `cobol/9/comisio.bex` | ✅ **2026-08-03** | `EVALUATE TRUE` y **`ROUNDED` con sus modos** |
 | 10 | `10-binario/` | `cobol/10/maestro.bex` | ✅ **2026-08-03** | **Registros binarios de largo fijo** con los campos en su byte |
+| 11 | `11-bankcat/` | `cobol/11/libro.bex` | -- | **`COPY`**: la libreria de copybooks de la casa (`copy/CABDATOS`, `copy/CABLIBRO`), el motor de BANK CAT |
 
 Los diez corren en el emulador y tienen su test.
 
