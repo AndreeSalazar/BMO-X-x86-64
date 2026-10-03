@@ -120,5 +120,19 @@ apagar() {
 }
 trap apagar EXIT
 
+# ** EL INTERRUPTOR (03-10, AO0 de PLAN_LA_ANTENA_AOT): `ANTENA=rust bash
+# arrancar.sh <IP>` arranca la antena en Rust, un solo binario y sin Python.
+# Vive en ~/antena y no aqui: el almacenamiento compartido no deja ejecutar.
+# Se copia una vez: cp antena ~/antena && chmod +x ~/antena. Aun no navega
+# (PAGINA contesta NO hasta AO2); para navegar, la de Python.
+if [ "${ANTENA:-python}" = "rust" ]; then
+    if [ -x "$HOME/antena" ]; then
+        echo "antena: la de RUST ($HOME/antena)"
+        "$HOME/antena" --carpeta "$AQUI" --permitir "$PERMITIR" --nombre "${NOMBRE:-honor}"
+        exit $?
+    fi
+    echo "antena: ANTENA=rust pero no hay ~/antena (cp antena ~/antena && chmod +x ~/antena); sigo con Python"
+fi
+
 # shellcheck disable=SC2086
 python "$AQUI/antena.py" --carpeta "$AQUI" --permitir "$PERMITIR" $NAVEGADOR

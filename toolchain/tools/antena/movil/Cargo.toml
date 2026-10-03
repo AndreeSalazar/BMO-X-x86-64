@@ -1,0 +1,17 @@
+[package]
+name = "bmo-antena-movil"
+version = "0.1.0"
+edition = "2021"
+description = "LA ANTENA en Rust (AO0 de PLAN_LA_ANTENA_AOT): lo que hace antena.py, juzgando con el MISMO bmo-antena que BMO-X. Corre en el movil (Termux) o en cualquier anfitrion."
+license = "Apache-2.0"
+
+# Herramienta de ANFITRION con `std`: corre en el MOVIL, no en BMO-X. Su unica
+# dependencia es el crate del protocolo -- el mismo que enlaza la app de BMO-X,
+# asi que los dos lados del cable no pueden discrepar. Ni un crate de fuera:
+# la regla de la LUDOTECA vale tambien en la antena.
+[dependencies]
+bmo-antena = { path = "../../../../platform/shared/bmo-antena" }
+
+[[bin]]
+name = "antena"
+path = "src/main.rs"

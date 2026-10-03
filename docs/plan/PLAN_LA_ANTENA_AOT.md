@@ -141,17 +141,34 @@ casa).
 
 # 6. LOS ESCALONES
 
-- [ ] **AO0 -- el banco de la antena, en Rust y en el anfitrion.** Un crate
+- [~] **AO0 -- el banco de la antena, en Rust y en el anfitrion.** Un crate
       `bmo-antena-movil` (nombre provisional) que hace lo de `antena.py` con
       `bmo-antena`: la carpeta, LISTA/PIDE/PAGINA, la lista blanca de UNA IP,
       los plazos y la cuarentena. **Como se sabe:** `cargo test` contra las
       mismas conversaciones que hoy pasan con `cliente.py`, y el juez de la
       lamina es el MISMO crate que en BMO-X (`lamina_juez.py` se borra).
-- [ ] **AO1 -- el binario en el HONOR (Fase A).** `cargo build --target
+      [~] **03-10, hecho en el anfitrion:** `toolchain/tools/antena/movil`
+      (`bmo-antena-movil`, binario `antena`): HOLA, LISTA, PIDE (video con
+      ffmpeg y laminas), la UNA IP con su castigo, los plazos, las 72 lineas
+      y la carpeta cerrada. Los pedidos los lee `bmo_antena::leer_pedido` (el
+      espejo de `escribir`) y las laminas las juzga `lamina::Lector`, el MISMO
+      juez que BMO-X. 12 pruebas, una de ellas pasa TODO lo que dice la antena
+      por la `Conversacion` de BMO-X; y `cliente.py` charla con ella sin
+      cambiar nada. Falta: `PAGINA` contesta NO (navegar es de AO2), y
+      `lamina_juez.py` sigue vivo mientras `antena.py` exista.
+- [~] **AO1 -- el binario en el HONOR (Fase A).** `cargo build --target
       aarch64-linux-android` con el NDK, copiado a Termux y arrancado por
       `arrancar.sh`. **Como se sabe:** `red hola <ip-del-movil>` desde BMO-X
       contesta `HOLA ANTENA/1 <nombre>` con la antena en Rust, y `top` en el
       movil muestra un proceso en vez de Python + ffmpeg.
+      [~] **03-10:** sin NDK hace falta menos: un binario ESTATICO
+      `aarch64-unknown-linux-musl` corre en Termux tal cual (el nucleo de
+      Android es Linux). `rustup target add aarch64-unknown-linux-musl` y
+      `CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld cargo build -p
+      bmo-antena-movil --release --target aarch64-unknown-linux-musl`: 465 KiB,
+      sin libc del sistema. En el movil: `cp antena ~/antena && chmod +x
+      ~/antena` y `ANTENA=rust bash arrancar.sh <IP>`. [!] NO probado en el
+      HONOR todavia.
 - [ ] **AO2 -- la app chica (AA0, Fase B).** El envoltorio de Kotlin con la
       WebView del sistema, el servicio que no se duerme y MediaProjection;
       el resto, la biblioteca de Rust por JNI. El codigo, en el repositorio

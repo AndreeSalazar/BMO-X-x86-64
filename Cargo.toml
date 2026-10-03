@@ -326,6 +326,9 @@ members = [
     # va a salir en el Ryzen. Ver su cabecera: la regla estaba escrita desde el
     # primer dia y esta parte no la cumplia.
     "toolchain/tools/vista-ciudad",
+    # LA ANTENA en Rust (AO0 de PLAN_LA_ANTENA_AOT, 03-10): corre en el MOVIL,
+    # no en BMO-X, y juzga con el MISMO `bmo-antena` que la app de BMO-X.
+    "toolchain/tools/antena/movil",
     # -- MAQUETA: el compilador de composicion del escritorio --------
     #
     # Cinco generaciones L7, una por carpeta, y los CONSUMIDORES al lado y no
