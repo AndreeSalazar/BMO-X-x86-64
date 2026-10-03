@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   527 casillas ABIERTAS en 48 planes
+   528 casillas ABIERTAS en 48 planes
    372 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -33,14 +33,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 # Los planes VIVOS, el que mas debe primero
 
-## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 93 abiertas, 34 hechas
+## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 94 abiertas, 34 hechas
 
 *PLAN LAS TRES GRANDES -- D3D12 de juego, el sonido del juego y varios nucleos*
 
 - [ ] P0.2 -- Las DURAS que falten, a CERO (una tanda por grupo de arriba).
 - [ ] P0.2g -- DONDE GUARDA EL JUEGO: hoy USERPROFILE (y con el APPDATA,
 - [ ] P0.2h -- El globo de run recomienda smp all para un juego SOLO
-- ... y 90 mas
+- ... y 91 mas
 
 ## [`PLAN_CLOUD_LOCAL.md`](PLAN_CLOUD_LOCAL.md) -- 46 abiertas, 16 hechas
 

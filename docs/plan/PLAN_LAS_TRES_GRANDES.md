@@ -682,6 +682,11 @@ la proxima corrida del metal dice cual pesa mas:
 - [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
   no es una constante. Hoy el sombreador no compila; pide que la ranura sea
   un RANGO y no un lugar.
+- [ ] **N5.5 -- el COMPUTO** (`Dispatch`, `SetComputeRoot*`): hoy se dice
+  y se salta. Cyberpunk calcula con el la luz, las sombras y el
+  post-proceso; sin el, la imagen sale pero a medias. Primero en la CPU
+  (el mismo interprete, con UAV de N5.3c y `SV_DispatchThreadID`), luego
+  en la 3060.
 - [ ] **N6.1 -- a la 3060 lo que hoy va a la CPU**: SV_VertexID y
   SV_InstanceID, los formatos de vertice que no son float de 32 bits
   (`proton-x-sm86/src/pso.rs`, `NoVa::Entrada`: el pegamento los convierte
