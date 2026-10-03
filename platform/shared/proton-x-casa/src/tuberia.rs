@@ -53,10 +53,6 @@ use crate::{aviso, dir, plataforma};
 const RS_VERSION_1: u32 = 1;
 const DIMENSION_BUFFER: u32 = 1;
 pub const FMT_D32_FLOAT: u32 = 40;
-const FMT_R32G32B32A32_FLOAT: u32 = 2;
-const FMT_R32G32B32_FLOAT: u32 = 6;
-const FMT_R32G32_FLOAT: u32 = 16;
-const FMT_R32_FLOAT: u32 = 41;
 const FMT_R16_UINT: u32 = 57;
 const FMT_R32_UINT: u32 = 42;
 const APPEND_ALIGNED: u32 = 0xFFFF_FFFF;
@@ -311,20 +307,22 @@ unsafe fn pso_de(d: *const u8) -> Result<Pso, &'static str> {
     for i in 0..n as usize {
         let e = elems.add(32 * i);
         let (formato, ranura, desde) = (u32_de(e, 12), u32_de(e, 16), u32_de(e, 20));
-        let bytes = match formato {
-            FMT_R32G32B32A32_FLOAT => 16,
-            FMT_R32G32B32_FLOAT => 12,
-            FMT_R32G32_FLOAT => 8,
-            FMT_R32_FLOAT => 4,
-            _ => return Err("un input layout con un formato que no es float de 32 bits: todavia no"),
+        // 03-10 (N3.1): cualquier formato de vertice (`formato_ia`); antes,
+        // solo floats de 32 bits, y lo demas NEGABA el PSO entero.
+        let Some(f) = bmo_proton_x::formato_ia::forma(formato) else {
+            return Err("un input layout con un formato que no es de vertice");
         };
+        let bytes = f.bytes;
         let r = (ranura as usize).min(15);
         let desde = if desde == APPEND_ALIGNED { siguiente[r] } else { desde };
         siguiente[r] = desde + bytes;
         entradas.push(EntradaIa { semantica: cadena_c(u64_de(e, 0) as *const u8), indice: u32_de(e, 8), formato, ranura, desde });
     }
-    // Cada elemento del sombreador de vertices tiene que venir del layout.
-    for f in &vs.entradas {
+    // Cada elemento del sombreador de vertices tiene que venir del layout,
+    // MENOS los valores de sistema (SV_VertexID, SV_InstanceID): esos los pone
+    // quien dibuja, y D3D12 no los pide al layout (03-10: la casa negaba asi
+    // los triangulos de pantalla completa de Cyberpunk).
+    for f in vs.entradas.iter().filter(|f| f.sistema == 0) {
         if !entradas.iter().any(|e| e.semantica.eq_ignore_ascii_case(&f.semantica) && e.indice == f.indice) {
             return Err("el sombreador de vertices lee una semantica que el input layout no da");
         }
@@ -658,16 +656,10 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
                 .iter()
                 .filter(|x| x.ranura == 0)
                 .map(|x| {
-                    let n = match x.formato {
-                        FMT_R32G32B32A32_FLOAT => 4,
-                        FMT_R32G32B32_FLOAT => 3,
-                        FMT_R32G32_FLOAT => 2,
-                        _ => 1,
-                    };
-                    (0..n).map(|k| {
-                        let o = x.desde as usize + 4 * k;
-                        v.get(o..o + 4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).unwrap_or(0.0)
-                    }).collect()
+                    // Con su formato (`formato_ia`, 03-10): los componentes que trae.
+                    let n = bmo_proton_x::lote::componentes(x.formato);
+                    let c = bmo_proton_x::formato_ia::leer(x.formato, v.get(x.desde as usize..).unwrap_or(&[]));
+                    c[..n].to_vec()
                 })
                 .collect();
             d.vertices.push(campos);

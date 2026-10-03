@@ -1,0 +1,274 @@
+//! **Los formatos de un vertice** (03-10, N3.1): de los bytes de un elemento
+//! del input layout a los cuatro componentes que lee el sombreador.
+//!
+//! [carril]  VERDE     bytes a numeros; no toca la maquina
+//! [cuesta]  DATO      un formato mal leido mueve un vertice o cambia un color
+//! [riesgo]  SILENCIO  un vertice mal leido no falla: se dibuja en otro sitio.
+//!                     Cada clase tiene su fila en el banco
+//! [consumo] NADA      una vez por vertice distinto de cada dibujo
+//!
+//! Hasta el 03-10 la casa solo leia floats de 32 bits, y cualquier otro
+//! formato NEGABA el PSO entero (`E_INVALIDARG`): en el metal, Cyberpunk pidio
+//! uno de esos y se le nego. Un motor guarda normales y tangentes en 8 o 16
+//! bits, y colores en RGBA8: es lo normal, no lo raro.
+//!
+//! Como los lee el sombreador, que es lo que importa:
+//!
+//! ```text
+//!    FLOAT (32, 16, 11/10)   el float
+//!    UNORM                   n / (2^bits - 1), de 0 a 1
+//!    SNORM                   n / (2^(bits-1) - 1), de -1 a 1 (el mas bajo, -1)
+//!    UINT, SINT              el ENTERO, en los bits del registro: el
+//!                            interprete guarda los enteros asi (`Valor::Bits`)
+//!    lo que el formato no    0, 0, 0 y 1 (el 1 como float o como entero,
+//!    trae                    segun la clase), como D3D12
+//!    B8G8R8A8                se da la vuelta: el sombreador ve RGBA
+//! ```
+
+/// Como se lee cada componente.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Clase {
+    Float,
+    Unorm,
+    Snorm,
+    Uint,
+    Sint,
+}
+
+/// **La forma de un formato**: cuantos bytes ocupa, cuantos componentes, de
+/// cuantos bits cada uno, y su clase.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Forma {
+    pub bytes: u32,
+    pub clase: Clase,
+    /// Los bits de cada componente, en orden (0 = no lo trae).
+    pub bits: [u8; 4],
+    /// B8G8R8A8: los bytes vienen al reves de como los ve el sombreador.
+    pub bgra: bool,
+}
+
+impl Forma {
+    const fn de(clase: Clase, bits: [u8; 4]) -> Self {
+        let total = bits[0] as u32 + bits[1] as u32 + bits[2] as u32 + bits[3] as u32;
+        Forma { bytes: total / 8, clase, bits, bgra: false }
+    }
+
+    /// Cuantos componentes trae.
+    pub fn componentes(&self) -> usize {
+        self.bits.iter().filter(|&&b| b != 0).count()
+    }
+}
+
+/// `R32G32B32A32_FLOAT` y compania: los que la 3060 ya lee tal cual.
+pub const FMT_R32G32B32A32_FLOAT: u32 = 2;
+pub const FMT_R32G32B32_FLOAT: u32 = 6;
+pub const FMT_R32G32_FLOAT: u32 = 16;
+pub const FMT_R32_FLOAT: u32 = 41;
+
+/// **La forma de un `DXGI_FORMAT` de vertice**, o `None` si no es uno.
+pub fn forma(formato: u32) -> Option<Forma> {
+    use Clase::*;
+    let f = match formato {
+        2 => Forma::de(Float, [32, 32, 32, 32]),
+        3 => Forma::de(Uint, [32, 32, 32, 32]),
+        4 => Forma::de(Sint, [32, 32, 32, 32]),
+        6 => Forma::de(Float, [32, 32, 32, 0]),
+        7 => Forma::de(Uint, [32, 32, 32, 0]),
+        8 => Forma::de(Sint, [32, 32, 32, 0]),
+        10 => Forma::de(Float, [16, 16, 16, 16]),
+        11 => Forma::de(Unorm, [16, 16, 16, 16]),
+        12 => Forma::de(Uint, [16, 16, 16, 16]),
+        13 => Forma::de(Snorm, [16, 16, 16, 16]),
+        14 => Forma::de(Sint, [16, 16, 16, 16]),
+        16 => Forma::de(Float, [32, 32, 0, 0]),
+        17 => Forma::de(Uint, [32, 32, 0, 0]),
+        18 => Forma::de(Sint, [32, 32, 0, 0]),
+        24 => Forma::de(Unorm, [10, 10, 10, 2]),
+        25 => Forma::de(Uint, [10, 10, 10, 2]),
+        26 => Forma::de(Float, [11, 11, 10, 0]),
+        28 => Forma::de(Unorm, [8, 8, 8, 8]),
+        30 => Forma::de(Uint, [8, 8, 8, 8]),
+        31 => Forma::de(Snorm, [8, 8, 8, 8]),
+        32 => Forma::de(Sint, [8, 8, 8, 8]),
+        34 => Forma::de(Float, [16, 16, 0, 0]),
+        35 => Forma::de(Unorm, [16, 16, 0, 0]),
+        36 => Forma::de(Uint, [16, 16, 0, 0]),
+        37 => Forma::de(Snorm, [16, 16, 0, 0]),
+        38 => Forma::de(Sint, [16, 16, 0, 0]),
+        41 => Forma::de(Float, [32, 0, 0, 0]),
+        42 => Forma::de(Uint, [32, 0, 0, 0]),
+        43 => Forma::de(Sint, [32, 0, 0, 0]),
+        49 => Forma::de(Unorm, [8, 8, 0, 0]),
+        50 => Forma::de(Uint, [8, 8, 0, 0]),
+        51 => Forma::de(Snorm, [8, 8, 0, 0]),
+        52 => Forma::de(Sint, [8, 8, 0, 0]),
+        54 => Forma::de(Float, [16, 0, 0, 0]),
+        56 => Forma::de(Unorm, [16, 0, 0, 0]),
+        57 => Forma::de(Uint, [16, 0, 0, 0]),
+        58 => Forma::de(Snorm, [16, 0, 0, 0]),
+        59 => Forma::de(Sint, [16, 0, 0, 0]),
+        61 => Forma::de(Unorm, [8, 0, 0, 0]),
+        62 => Forma::de(Uint, [8, 0, 0, 0]),
+        63 => Forma::de(Snorm, [8, 0, 0, 0]),
+        64 => Forma::de(Sint, [8, 0, 0, 0]),
+        87 => Forma { bgra: true, ..Forma::de(Unorm, [8, 8, 8, 8]) },
+        _ => return None,
+    };
+    Some(f)
+}
+
+/// Si es un float de 32 bits por componente (lo que la 3060 lee hoy).
+pub fn es_float32(formato: u32) -> bool {
+    matches!(formato, FMT_R32G32B32A32_FLOAT | FMT_R32G32B32_FLOAT | FMT_R32G32_FLOAT | FMT_R32_FLOAT)
+}
+
+/// Un half (IEEE 754 binary16) a float.
+pub fn half(h: u16) -> f32 {
+    let s = (h as u32 & 0x8000) << 16;
+    let e = (h >> 10) as u32 & 0x1F;
+    let m = h as u32 & 0x3FF;
+    let bits = match e {
+        0 if m == 0 => s,
+        0 => {
+            // Subnormal: normalizarlo.
+            let mut m = m;
+            let mut e = 113u32;
+            while m & 0x400 == 0 {
+                m <<= 1;
+                e -= 1;
+            }
+            s | e << 23 | (m & 0x3FF) << 13
+        }
+        0x1F => s | 0x7F80_0000 | m << 13,
+        _ => s | (e + 112) << 23 | m << 13,
+    };
+    f32::from_bits(bits)
+}
+
+/// Un float sin signo de 11 o 10 bits (5 de exponente) a float.
+fn chico(v: u32, mantisa: u32) -> f32 {
+    let e = v >> mantisa & 0x1F;
+    let m = v & ((1 << mantisa) - 1);
+    match e {
+        // Subnormal: m / 2^mantisa por 2^-14.
+        0 => m as f32 / (1u32 << mantisa) as f32 * 6.103_515_6e-5,
+        0x1F => {
+            if m == 0 {
+                f32::INFINITY
+            } else {
+                f32::NAN
+            }
+        }
+        _ => f32::from_bits((e + 112) << 23 | m << (23 - mantisa)),
+    }
+}
+
+/// **Los cuatro componentes** de un elemento de formato `formato` en `v`
+/// (sus bytes, desde el elemento). Lo que falte en `v` cuenta como 0.
+pub fn leer(formato: u32, v: &[u8]) -> [f32; 4] {
+    let Some(f) = forma(formato) else { return [0.0, 0.0, 0.0, 1.0] };
+    let entero = matches!(f.clase, Clase::Uint | Clase::Sint);
+    let uno = if entero { f32::from_bits(1) } else { 1.0 };
+    let mut x = [0.0, 0.0, 0.0, uno];
+    // Los bytes del elemento, como un numero de hasta 128 bits.
+    let mut b = [0u8; 16];
+    let n = (f.bytes as usize).min(v.len()).min(16);
+    b[..n].copy_from_slice(&v[..n]);
+    let todo = u128::from_le_bytes(b);
+    let mut desde = 0u32;
+    for (c, &bits) in f.bits.iter().enumerate() {
+        if bits == 0 {
+            continue;
+        }
+        let bits = bits as u32;
+        let crudo = ((todo >> desde) & ((1u128 << bits) - 1)) as u32;
+        desde += bits;
+        let signo = |r: u32| ((r << (32 - bits)) as i32) >> (32 - bits);
+        x[c] = match (f.clase, bits) {
+            (Clase::Float, 32) => f32::from_bits(crudo),
+            (Clase::Float, 16) => half(crudo as u16),
+            (Clase::Float, 11) => chico(crudo, 6),
+            (Clase::Float, 10) => chico(crudo, 5),
+            (Clase::Float, _) => 0.0,
+            (Clase::Unorm, _) => crudo as f32 / ((1u64 << bits) - 1) as f32,
+            (Clase::Snorm, _) => (signo(crudo) as f32 / ((1u32 << (bits - 1)) - 1) as f32).max(-1.0),
+            (Clase::Uint, _) => f32::from_bits(crudo),
+            (Clase::Sint, _) => f32::from_bits(signo(crudo) as u32),
+        };
+    }
+    if f.bgra {
+        x.swap(0, 2);
+    }
+    x
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    use alloc::vec::Vec;
+
+    #[test]
+    fn floats_de_32_como_siempre() {
+        let v: Vec<u8> = [1.5f32, -2.0, 0.25, 7.0].iter().flat_map(|f| f.to_le_bytes()).collect();
+        assert_eq!(leer(2, &v), [1.5, -2.0, 0.25, 7.0]);
+        assert_eq!(leer(6, &v), [1.5, -2.0, 0.25, 1.0], "lo que falta: w = 1");
+        assert_eq!(leer(41, &v), [1.5, 0.0, 0.0, 1.0]);
+        assert!(es_float32(16) && !es_float32(28));
+        assert_eq!(forma(6).unwrap().bytes, 12);
+    }
+
+    #[test]
+    fn unorm_y_snorm_de_8_y_16() {
+        assert_eq!(leer(28, &[0, 255, 128, 51]), [0.0, 1.0, 128.0 / 255.0, 0.2]);
+        // SNORM: 127 = 1, -127 = -1, y -128 tambien -1.
+        assert_eq!(leer(31, &[127, 0x81, 0x80, 0]), [1.0, -1.0, -1.0, 0.0]);
+        assert_eq!(leer(35, &[0xFF, 0xFF, 0, 0]), [1.0, 0.0, 0.0, 1.0]);
+        assert_eq!(leer(37, &0x8001u16.to_le_bytes()), [-1.0, 0.0, 0.0, 1.0]);
+        assert_eq!(leer(61, &[255]), [1.0, 0.0, 0.0, 1.0]);
+        assert_eq!(forma(28).unwrap().bytes, 4);
+    }
+
+    #[test]
+    fn enteros_en_los_bits_del_registro() {
+        let x = leer(30, &[1, 2, 255, 0]);
+        assert_eq!(x.map(f32::to_bits), [1, 2, 255, 0]);
+        let x = leer(32, &[0xFF, 0x80, 5, 0]);
+        assert_eq!(x.map(f32::to_bits), [(-1i32) as u32, (-128i32) as u32, 5, 0]);
+        // Lo que falta en uno entero: w = 1 ENTERO, no 1.0.
+        assert_eq!(leer(42, &7u32.to_le_bytes()).map(f32::to_bits), [7, 0, 0, 1]);
+    }
+
+    #[test]
+    fn halfs_y_floats_chicos() {
+        // 1.0, -2.0, 0.5, 65504 (el mayor half).
+        let h: Vec<u8> = [0x3C00u16, 0xC000, 0x3800, 0x7BFF].iter().flat_map(|x| x.to_le_bytes()).collect();
+        assert_eq!(leer(10, &h), [1.0, -2.0, 0.5, 65504.0]);
+        assert_eq!(half(0x0001), 2f32.powi(-24), "el subnormal mas chico");
+        assert!(half(0x7C00).is_infinite() && half(0x7E00).is_nan());
+        // R11G11B10: 1.0 en los tres (exponente 15).
+        let uno11 = 15u32 << 6;
+        let uno10 = 15u32 << 5;
+        let v = (uno11 | uno11 << 11 | uno10 << 22).to_le_bytes();
+        assert_eq!(leer(26, &v), [1.0, 1.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    fn diez_diez_diez_dos_y_bgra() {
+        let v = (1023u32 | 0 << 10 | 511 << 20 | 3 << 30).to_le_bytes();
+        let x = leer(24, &v);
+        assert_eq!(x[0], 1.0);
+        assert_eq!(x[1], 0.0);
+        assert!((x[2] - 511.0 / 1023.0).abs() < 1e-6);
+        assert_eq!(x[3], 1.0);
+        assert_eq!(leer(87, &[0, 0, 255, 255]), [1.0, 0.0, 0.0, 1.0], "BGRA: el rojo va en el tercer byte");
+    }
+
+    #[test]
+    fn lo_que_no_es_un_formato_de_vertice() {
+        assert_eq!(forma(0), None);
+        assert_eq!(forma(71), None, "BC1 no es de vertice");
+        assert_eq!(leer(0, &[1, 2, 3]), [0.0, 0.0, 0.0, 1.0]);
+        // Bytes que no llegan: lo que falta, cero.
+        assert_eq!(leer(28, &[255]), [1.0, 0.0, 0.0, 0.0]);
+    }
+}

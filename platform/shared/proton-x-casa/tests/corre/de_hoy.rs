@@ -129,6 +129,75 @@ fn el_diario_al_morir_guarda_lo_que_tenia_y_el_motivo() {
     assert!(texto.ends_with("# PANICO: PROTON-X: panico en el cargador: memory allocation of 48 bytes failed\n"), "{texto}");
 }
 
+/// **Las trampas con nombre** (03-10, N4.1): GetProcAddress de algo que la
+/// casa no tiene en una DLL que si tiene da una TRAMPA, no un NULL; llamarla
+/// lo DICE y devuelve 0. En lo del sistema sigue el NULL (preguntar "esta?"
+/// es lo normal). Y las dos que Cyberpunk pedia, de verdad.
+#[test]
+fn getprocaddress_da_trampas_con_nombre_y_no_nulos() {
+    use bmo_proton_x::Funcion;
+    let _uno = uno_a_la_vez();
+    DICHO.lock().unwrap().clear();
+    unsafe { bmo_proton_x_casa::empezar(plataforma()) };
+    // Un TEB en el GS, como `correr_exe`: la casa escribe ahi el LastError.
+    let bytes = (teb::TEB_BYTES + teb::PEB_BYTES) as u64;
+    let mem = mmap(bytes);
+    let rsp: u64;
+    unsafe { core::arch::asm!("mov {}, rsp", out(reg) rsp) };
+    let h = teb::Hilo { teb: mem, peb: mem + teb::TEB_BYTES as u64, pila_tope: rsp + (64 << 10), pila_fondo: rsp - (256 << 10), proceso: 7, hilo: 42, base_imagen: 0 };
+    {
+        let t = unsafe { core::slice::from_raw_parts_mut(mem as *mut u8, bytes as usize) };
+        let (tb, pb) = t.split_at_mut(teb::TEB_BYTES);
+        teb::escribir_teb(tb, &h);
+        teb::escribir_peb(pb, &h);
+    }
+    poner_gs(mem);
+    struct Quitar(u64, u64);
+    impl Drop for Quitar {
+        fn drop(&mut self) {
+            poner_gs(0);
+            munmap(self.0, self.1);
+        }
+    }
+    let _quitar = Quitar(mem, bytes);
+    let f = |d: &str, n: &str| bmo_proton_x_casa::tabla(d, &Funcion::Nombre(n.into())).unwrap();
+    type Carga = extern "win64" fn(*const u8) -> u64;
+    type Busca = extern "win64" fn(u64, *const u8) -> u64;
+    let cargar: Carga = unsafe { core::mem::transmute(f("kernel32.dll", "LoadLibraryA")) };
+    let buscar: Busca = unsafe { core::mem::transmute(f("kernel32.dll", "GetProcAddress")) };
+    let crypt32 = cargar(b"crypt32.dll\0".as_ptr());
+    let iphlpapi = cargar(b"iphlpapi.dll\0".as_ptr());
+    let kernel32 = cargar(b"kernel32.dll\0".as_ptr());
+    assert!(crypt32 != 0 && iphlpapi != 0 && kernel32 != 0);
+
+    // Las dos de verdad.
+    let cerrar = buscar(crypt32, b"CryptMsgClose\0".as_ptr());
+    assert_ne!(cerrar, 0);
+    let cerrar: extern "win64" fn(u64) -> i32 = unsafe { core::mem::transmute(cerrar) };
+    assert_eq!(cerrar(0), 1, "cerrar un NULL es TRUE, como en Windows");
+    let indice = buscar(iphlpapi, b"if_nametoindex\0".as_ptr());
+    assert_ne!(indice, 0);
+    let indice: extern "win64" fn(*const u8) -> u32 = unsafe { core::mem::transmute(indice) };
+    assert_eq!(indice(b"eth0\0".as_ptr()), 0);
+
+    // Una que no existe en una DLL de la casa: trampa, la misma dos veces.
+    let t = buscar(crypt32, b"CryptNoExisteJamas\0".as_ptr());
+    assert_ne!(t, 0, "una trampa, no un NULL");
+    assert_eq!(buscar(crypt32, b"CryptNoExisteJamas\0".as_ptr()), t);
+    let otra = buscar(crypt32, b"CryptTampocoExiste\0".as_ptr());
+    assert!(otra != 0 && otra != t, "cada nombre, la suya");
+    let llamar: extern "win64" fn(u64, u64) -> u64 = unsafe { core::mem::transmute(t) };
+    assert_eq!(llamar(0, 0), 0);
+    assert_eq!(llamar(0, 0), 0);
+    let dicho = String::from_utf8(DICHO.lock().unwrap().clone()).unwrap();
+    assert!(dicho.contains("GetProcAddress(crypt32.dll, \"CryptNoExisteJamas\"): la casa no la tiene; el .exe recibe una TRAMPA"), "{dicho}");
+    assert_eq!(dicho.matches("el .exe LLAMO a crypt32.dll!CryptNoExisteJamas").count(), 1, "se dice UNA vez: {dicho}");
+    assert!(!dicho.contains("CryptTampocoExiste, que"), "la que no se llamo no se dice: {dicho}");
+
+    // En lo del sistema, el NULL es la respuesta.
+    assert_eq!(buscar(kernel32, b"FuncionDeWindows99\0".as_ptr()), 0);
+}
+
 /// **Un hilo que espera DANDO VUELTAS** (02-10): `vueltas.exe` despierta a
 /// un trabajador y lo espera mirando QueryPerformanceCounter en un bucle,
 /// como un motor. Con hilos cooperativos el trabajador no corria nunca;

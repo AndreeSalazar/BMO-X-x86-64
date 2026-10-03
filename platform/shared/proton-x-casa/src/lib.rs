@@ -100,6 +100,10 @@ pub mod kernel32_pool;
 pub mod kernel32_sistema;
 pub mod memoria;
 pub mod modulos;
+/// Los pinceles de GDI: FillRect con cualquiera (03-10).
+mod pinceles;
+/// Las trampas con nombre de GetProcAddress (03-10).
+mod trampas;
 pub mod msvcp_hilos;
 pub mod msvcp_errores;
 pub mod msvcp_locale;
@@ -363,6 +367,9 @@ pub unsafe fn empezar(p: Plataforma) {
     msvcp_locale::reiniciar();
     // Tanda 19: cerr, con la plataforma ya puesta (pide memoria).
     msvcp_flujos::reiniciar();
+    // 03-10: las trampas con nombre de GetProcAddress (`trampas`).
+    trampas::reiniciar();
+    pinceles::reiniciar();
 }
 
 /// **Decir una linea por la consola**, sin el tope de `aviso` (quien llama
@@ -490,7 +497,7 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         // Tanda 14a: sus API set (seguridad, ETW) y lo de ETW.
         advapi32::buscar(n).or_else(|| version_y_seguridad::buscar(n)).or_else(|| de_kernel32(n)).or_else(|| dll_chicas::buscar(n))
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {
-        gdi32::buscar(n).or_else(|| dll_chicas::buscar(n))
+        gdi32::buscar(n).or_else(|| pinceles::buscar(n)).or_else(|| dll_chicas::buscar(n))
     } else if es_api_set_de(dll, &["api-ms-win-devices-config-"]) {
         // Tanda 20: el API set de CFGMGR32 (lo pide una DLL del juego).
         aparatos::buscar(n)

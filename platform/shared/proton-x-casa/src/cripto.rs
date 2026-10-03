@@ -340,6 +340,14 @@ extern "win64" fn crypt_query_object() -> i32 {
     no(CRYPT_E_NO_MATCH)
 }
 
+/// `CryptMsgClose(hMsg)`: la casa no abre mensajes (CryptQueryObject y
+/// CryptMsgOpenToDecode no dan ninguno), asi que no hay nada que cerrar; y
+/// cerrar un NULL es valido en Windows. TRUE (03-10: Cyberpunk lo pedia por
+/// GetProcAddress, la casa daba NULL y el juego saltaba a la direccion 0).
+extern "win64" fn crypt_msg_close(_msg: u64) -> i32 {
+    1
+}
+
 extern "win64" fn pfx_import_cert_store() -> u64 {
     aviso("PFXImportCertStore: la casa no lee PKCS#12 todavia");
     no(CRYPT_E_NO_MATCH) as u64
@@ -548,6 +556,7 @@ pub(crate) fn buscar_crypt32(n: &str) -> Option<u64> {
         "CertFreeCertificateChainEngine" | "CertFreeCertificateChain" => dir!(nada),
         "CryptDecodeObjectEx" => dir!(crypt_decode_object_ex),
         "CryptQueryObject" => dir!(crypt_query_object),
+        "CryptMsgClose" => dir!(crypt_msg_close),
         "PFXImportCertStore" => dir!(pfx_import_cert_store),
         _ => return None,
     })

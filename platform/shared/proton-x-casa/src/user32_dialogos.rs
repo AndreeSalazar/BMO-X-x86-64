@@ -380,17 +380,26 @@ fn pixel(c: u32) -> u32 {
     (c & 0xFF) << 16 | (c & 0xFF00) | (c >> 16 & 0xFF)
 }
 
-/// `FillRect(hdc, rect, pincel)`: los pinceles de color de sistema.
+/// `FillRect(hdc, rect, pincel)`: cualquier pincel de `pinceles` (03-10):
+/// los de color de sistema, los de serie y los de CreateSolidBrush.
 extern "win64" fn fill_rect(hdc: u64, r: *const i32, pincel: u64) -> i32 {
     let Some(r) = rect(r) else { return 0 };
     if hdc & BIT_HDC == 0 {
         return 0;
     }
-    if pincel == 0 || pincel > COLORES.len() as u64 {
-        avisar("FillRect: solo los pinceles de color de sistema (COLOR_x + 1), todavia");
-        return 1;
-    }
-    let c = pixel(COLORES[pincel as usize - 1]);
+    let c = match crate::pinceles::de(pincel) {
+        Some(crate::pinceles::Relleno::Sistema(i)) => match COLORES.get(i) {
+            Some(&c) => c,
+            None => return 0,
+        },
+        Some(crate::pinceles::Relleno::Color(c)) => c,
+        Some(crate::pinceles::Relleno::Hueco) => return 1,
+        None => {
+            avisar("FillRect: un pincel que la casa no conoce (ni de sistema, ni de serie, ni de CreateSolidBrush)");
+            return 0;
+        }
+    };
+    let c = pixel(c);
     pintar(hdc, r, |_, _, _| c);
     1
 }

@@ -1170,19 +1170,7 @@ fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
         correr(&ev.codigo, &mut m).unwrap();
         // La casa, con SU lectura del input layout (la de `lote::en_cpu`).
         let bytes = &l.vertices[id as usize * l.paso..(id as usize + 1) * l.paso];
-        let ent: Vec<[f32; 4]> = en
-            .desde_ia
-            .iter()
-            .map(|&ia| {
-                let el = &l.entradas[ia];
-                let mut x = [0.0, 0.0, 0.0, 1.0];
-                for c in 0..lote::componentes(el.formato) {
-                    let o = el.desde as usize + 4 * c;
-                    x[c] = f32::from_le_bytes(bytes[o..o + 4].try_into().unwrap());
-                }
-                x
-            })
-            .collect();
+        let ent: Vec<[f32; 4]> = en.desde_ia.iter().map(|&f| lote::entrada(&l, f, id, bytes)).collect();
         en.vs.correr(&ent, l.cb, &mut casa, &mut regs);
         for (e, s) in casa.iter().enumerate() {
             for k in 0..4 {

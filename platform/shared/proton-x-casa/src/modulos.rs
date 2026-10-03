@@ -396,13 +396,21 @@ extern "win64" fn get_proc_address(h: u64, n: *const u8) -> u64 {
         return t;
     }
     crate::tabla(dll, &Funcion::Nombre(nombre.clone())).unwrap_or_else(|| {
-        // Preguntar "esta?" es lo normal (la `std` de Rust lo hace con lo de
-        // Windows 8 y 10), y decir que no es la respuesta. Pero un `.exe` que
-        // llama al NULL salta a la direccion 0 (Cyberpunk, 01-10) y la autopsia
-        // no dice a que: se apunta UNA vez por nombre, para que el registro si.
-        no_estaba(dll, &nombre);
-        kernel32::poner_error(ERROR_PROC_NOT_FOUND);
-        0
+        // Preguntar "esta?" es lo normal en lo del sistema (la `std` de Rust
+        // lo hace con lo de Windows 8 y 10), y el NULL es la respuesta. En las
+        // demas DLL que la casa tiene, Windows SI tiene la funcion y el `.exe`
+        // no mira el NULL: salta a la direccion 0 (Cyberpunk, 03-10, a los
+        // ~11 s) y la autopsia no dice a que. Ahi va una TRAMPA con nombre
+        // (`trampas`), por el diario como lo demas.
+        let t = if crate::trampas::es_del_sistema(dll) { None } else { crate::trampas::trampa(dll, &nombre) };
+        no_estaba(dll, &nombre, t.is_some());
+        match t {
+            Some(t) => crate::diario::envolver(dll, &nombre, t),
+            None => {
+                kernel32::poner_error(ERROR_PROC_NOT_FOUND);
+                0
+            }
+        }
     })
 }
 
@@ -420,8 +428,9 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
     })
 }
 
-/// Lo que GetProcAddress contesto con NULL, una vez por nombre (01-10).
-fn no_estaba(dll: &str, nombre: &str) {
+/// Lo que GetProcAddress no tenia, una vez por nombre (01-10): si el `.exe`
+/// recibio NULL o una trampa.
+fn no_estaba(dll: &str, nombre: &str, con_trampa: bool) {
     struct Vistas(core::cell::UnsafeCell<alloc::vec::Vec<alloc::string::String>>);
     // SAFETY: la casa corre en un hilo a la vez (ver `Global` en lib.rs).
     unsafe impl Sync for Vistas {}
@@ -431,13 +440,13 @@ fn no_estaba(dll: &str, nombre: &str) {
     // Preguntar por lo del sistema (kernel32, ntdll, api-ms-*) es lo normal
     // y el `.exe` mira el NULL; lo que se apunta es lo de las demas DLL
     // (graficos, juego), donde un NULL es una funcion que falta de verdad.
-    let d = dll.to_ascii_lowercase();
-    if d.starts_with("kernel32") || d.starts_with("kernelbase") || d.starts_with("ntdll") || d.starts_with("api-ms-") || d.starts_with("ext-ms-") {
+    if crate::trampas::es_del_sistema(dll) {
         return;
     }
     let clave = alloc::format!("{dll}!{nombre}");
     if v.len() < 256 && !v.contains(&clave) {
-        aviso(&alloc::format!("GetProcAddress({dll}, \"{nombre}\"): la casa no la tiene; el .exe recibe NULL"));
+        let recibe = if con_trampa { "una TRAMPA (si la llama, se dice)" } else { "NULL" };
+        aviso(&alloc::format!("GetProcAddress({dll}, \"{nombre}\"): la casa no la tiene; el .exe recibe {recibe}"));
         v.push(clave);
     }
 }

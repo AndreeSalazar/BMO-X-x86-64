@@ -373,7 +373,7 @@ extern "win64" fn rtl_utf8_to_unicode_n(d: *mut u16, max: u32, sale: *mut u32, s
 /// `GetStockObject`: un handle fijo por objeto de 0 a 19 (el 9 no existe).
 extern "win64" fn get_stock_object(i: i32) -> u64 {
     if (0..=19).contains(&i) && i != 9 {
-        0x5A1E_5000 + i as u64
+        crate::pinceles::SERIE + i as u64
     } else {
         0
     }
@@ -645,6 +645,14 @@ pub(crate) fn buscar_ntdll(n: &str) -> Option<u64> {
 }
 
 /// Lo demas, por su nombre (ninguno se repite entre estas DLL).
+/// `if_nametoindex(nombre)` (iphlpapi): el indice de una interfaz de red por
+/// su nombre. La casa no tiene interfaces con nombre (la red de BMO-X no se
+/// presenta asi): 0, "no hay", que es lo que Windows dice de un nombre que
+/// no existe. (03-10: Cyberpunk lo pedia y recibia NULL.)
+extern "win64" fn if_nametoindex(_nombre: *const u8) -> u32 {
+    0
+}
+
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "timeGetTime" => dir!(time_get_time),
@@ -669,6 +677,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "IcmpCreateFile" => dir!(icmp_create_file),
         "IcmpSendEcho" => dir!(icmp_send_echo),
         "IcmpCloseHandle" => dir!(icmp_close_handle),
+        "if_nametoindex" => dir!(if_nametoindex),
         "AcceptEx" => dir!(accept_ex),
         "GetAcceptExSockaddrs" => dir!(get_accept_ex_sockaddrs),
         "XInputGetState" | "XInputSetState" | "XInputGetCapabilities" => dir!(xinput_sin_mando),

@@ -21,7 +21,7 @@ use alloc::vec::Vec;
 use bmo_gpu_ga10x::pegamento::{self, Carga, Datos, Elemento, NoPega};
 use bmo_gpu_ga10x::sass::juez;
 use bmo_gpu_ga10x::tuberia;
-use bmo_proton_x::lote::{componentes, ElementoIa, Enlace};
+use bmo_proton_x::lote::{componentes, ElementoIa, Enlace, Fuente};
 
 use crate::{emitir_con, Abi, Emitido, NoEmite, Precarga};
 
@@ -34,6 +34,8 @@ pub enum NoVa {
     Pegamento(&'static str, NoPega),
     /// Un elemento de entrada que no viene de la ranura 0 (hoy solo esa).
     Ranura(u32),
+    /// Una entrada que la 3060 no lee todavia (03-10): va por la CPU.
+    Entrada(&'static str),
     /// El juez dijo BODRIO: nunca llega a la 3060.
     Juez(&'static str, String),
 }
@@ -106,10 +108,17 @@ fn bytes(p: &pegamento::Pegado) -> Vec<u8> {
 pub fn elementos(en: &Enlace, ia: &[ElementoIa]) -> Result<Vec<Elemento>, NoVa> {
     en.desde_ia
         .iter()
-        .map(|&i| {
+        .map(|&f| {
+            // 03-10: el numero de vertice o de instancia, y los formatos que
+            // no son floats de 32 bits, los lee la CPU (`lote::entrada`):
+            // aqui se dice que no, y el dibujo va por ella.
+            let Fuente::Ia(i) = f else { return Err(NoVa::Entrada("un valor de sistema (SV_VertexID o SV_InstanceID)")) };
             let e = &ia[i];
             if e.ranura != 0 {
                 return Err(NoVa::Ranura(e.ranura));
+            }
+            if !bmo_proton_x::formato_ia::es_float32(e.formato) {
+                return Err(NoVa::Entrada("un formato de vertice que no es float de 32 bits"));
             }
             Ok(Elemento { desde: e.desde, componentes: componentes(e.formato) as u8 })
         })

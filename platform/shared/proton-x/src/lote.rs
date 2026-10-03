@@ -29,13 +29,25 @@ use crate::dxil::programa::{self, Programa};
 use crate::dxil::Sombreador;
 use crate::trama;
 
-pub const FMT_R32G32B32A32_FLOAT: u32 = 2;
-pub const FMT_R32G32B32_FLOAT: u32 = 6;
-pub const FMT_R32G32_FLOAT: u32 = 16;
-pub const FMT_R32_FLOAT: u32 = 41;
+pub use crate::formato_ia::{FMT_R32G32B32A32_FLOAT, FMT_R32G32B32_FLOAT, FMT_R32G32_FLOAT, FMT_R32_FLOAT};
 
 /// SV_Position en una firma (valor de sistema 1).
 const SV_POSITION: u32 = 1;
+/// SV_VertexID y SV_InstanceID (`D3D_NAME` 6 y 8): no vienen del input layout,
+/// los pone quien dibuja.
+const SV_VERTEXID: u32 = 6;
+const SV_INSTANCEID: u32 = 8;
+
+/// **De donde sale una entrada del sombreador de vertices** (03-10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fuente {
+    /// Del elemento `i` del input layout.
+    Ia(usize),
+    /// SV_VertexID: el numero del vertice (el id, con el vertice base).
+    Vertice,
+    /// SV_InstanceID: el numero de la instancia (el lote dibuja la 0).
+    Instancia,
+}
 
 /// Un elemento del input layout, ya leido.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,14 +59,9 @@ pub struct ElementoIa {
     pub desde: u32,
 }
 
-/// Los floats que trae un formato de vertice (los que la casa acepta).
+/// Cuantos componentes trae un formato de vertice (1 si no es uno).
 pub fn componentes(formato: u32) -> usize {
-    match formato {
-        FMT_R32G32B32A32_FLOAT => 4,
-        FMT_R32G32B32_FLOAT => 3,
-        FMT_R32G32_FLOAT => 2,
-        _ => 1,
-    }
+    crate::formato_ia::forma(formato).map_or(1, |f| f.componentes())
 }
 
 /// **Los dos sombreadores, listos y cosidos**: de donde sale cada entrada del
@@ -64,8 +71,9 @@ pub fn componentes(formato: u32) -> usize {
 pub struct Enlace {
     pub vs: Programa,
     pub ps: Programa,
-    /// Por elemento de entrada del de vertices: su elemento del input layout.
-    pub desde_ia: Vec<usize>,
+    /// Por elemento de entrada del de vertices: de donde sale (el input
+    /// layout, o el numero de vertice o de instancia).
+    pub desde_ia: Vec<Fuente>,
     /// La salida del de vertices que es SV_Position.
     pub posicion: usize,
     /// Por elemento de entrada del de pixeles: la salida del de vertices que
@@ -80,11 +88,20 @@ pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Res
     let pp = programa::compilar(ps).map_err(|e| format!("el sombreador de pixeles no se sabe correr todavia: {e:?}"))?;
     let mut desde_ia = Vec::with_capacity(vs.entradas.len());
     for f in &vs.entradas {
-        if f.sistema != 0 {
-            return Err(format!("el sombreador de vertices lee el valor de sistema {} ({}): todavia no", f.sistema, f.semantica));
+        match f.sistema {
+            0 => {}
+            SV_VERTEXID => {
+                desde_ia.push(Fuente::Vertice);
+                continue;
+            }
+            SV_INSTANCEID => {
+                desde_ia.push(Fuente::Instancia);
+                continue;
+            }
+            s => return Err(format!("el sombreador de vertices lee el valor de sistema {s} ({}): todavia no", f.semantica)),
         }
         let i = entradas.iter().position(|e| e.semantica.eq_ignore_ascii_case(&f.semantica) && e.indice == f.indice);
-        desde_ia.push(i.ok_or_else(|| format!("el sombreador de vertices lee {}{} y el input layout no lo da", f.semantica, f.indice))?);
+        desde_ia.push(Fuente::Ia(i.ok_or_else(|| format!("el sombreador de vertices lee {}{} y el input layout no lo da", f.semantica, f.indice))?));
     }
     let posicion = vs.salidas.iter().position(|f| f.sistema == SV_POSITION).ok_or_else(|| String::from("el sombreador de vertices no escribe SV_Position"))?;
     let mut desde_vs = Vec::with_capacity(ps.entradas.len());
@@ -163,6 +180,25 @@ pub fn triangulos(ids: &[u32], t: Topologia) -> Vec<[u32; 3]> {
 /// Corre un sombreador: entradas -> salidas (el cbuffer lo lleva dentro).
 pub type Corre<'a> = &'a mut dyn FnMut(&[[f32; 4]], &mut [[f32; 4]]);
 
+/// **Una entrada del de vertices** para el vertice `id` (de bytes `v`): el
+/// elemento del layout con su formato (`formato_ia`), o el numero de
+/// vertice o de instancia, como ENTERO en los bits del registro.
+pub fn entrada(l: &Lote, fuente: Fuente, id: u32, v: &[u8]) -> [f32; 4] {
+    let entero = |n: u32| [f32::from_bits(n), 0.0, 0.0, 0.0];
+    match fuente {
+        Fuente::Vertice => entero(id),
+        Fuente::Instancia => entero(0),
+        Fuente::Ia(i) => {
+            let el = &l.entradas[i];
+            // Solo la ranura 0 llega al lote: lo de otra, como si no hubiera.
+            if el.ranura != 0 {
+                return [0.0, 0.0, 0.0, 1.0];
+            }
+            crate::formato_ia::leer(el.formato, v.get(el.desde as usize..).unwrap_or(&[]))
+        }
+    }
+}
+
 /// **El ejecutor de la CPU** (P3b3): el sombreador de vertices UNA vez por
 /// vertice distinto, los triangulos por la trama, el de pixeles en cada pixel
 /// que cubren -- con los sombreadores INTERPRETADOS. Es el que dio las huellas
@@ -204,13 +240,8 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: Corre) 
                 continue;
             }
             let v = &l.vertices[id as usize * l.paso..(id as usize + 1) * l.paso];
-            for (x, &ia) in ent.iter_mut().zip(&en.desde_ia) {
-                let el = &l.entradas[ia];
-                *x = [0.0, 0.0, 0.0, 1.0];
-                for c in 0..componentes(el.formato) {
-                    let o = el.desde as usize + 4 * c;
-                    x[c] = v.get(o..o + 4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).unwrap_or(0.0);
-                }
+            for (x, &fuente) in ent.iter_mut().zip(&en.desde_ia) {
+                *x = entrada(l, fuente, id, v);
             }
             vs(&ent, &mut sal);
             let atributos = en.desde_vs.iter().map(|o| o.and_then(|k| sal.get(k).copied()).unwrap_or([0.0; 4])).collect();
