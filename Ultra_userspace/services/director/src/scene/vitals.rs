@@ -249,7 +249,7 @@ impl VitalsWindow {
         self.y_contenido() + 7 * (bmo::GLIFO_ALTO + 4) + 10
     }
 
-    /// La y de la fila de botones del SMP (rotulo, rejilla, sueno, botones).
+    /// La y de la fila de botones del SMP (rotulo, rejilla, reposo, botones).
     fn y_botones_smp(&self) -> u32 {
         self.y_smp() + (bmo::GLIFO_ALTO + 6) + HILO_H + 16 + (bmo::GLIFO_ALTO + 6)
     }
