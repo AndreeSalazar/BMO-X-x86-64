@@ -14,6 +14,9 @@ fn main() {
     // * Donde se buscan los COPYBOOKS (`COPY NOMBRE.`), ademas de la carpeta
     // del fuente y de la libreria de la casa.
     let mut carpetas_copy: Vec<PathBuf> = Vec::new();
+    // * EL JUEZ (CM3): `--juez` solo juzga; `--estricto` compila SOLO si pasa.
+    let mut juez = false;
+    let mut estricto = false;
 
     let mut i = 1;
     while i < args.len() {
@@ -54,6 +57,8 @@ fn main() {
                     process::exit(2);
                 }
             }
+            "--juez" => juez = true,
+            "--estricto" => estricto = true,
             "-I" => {
                 i += 1;
                 if i < args.len() {
@@ -72,7 +77,7 @@ fn main() {
 
     let Some(path) = file_path else {
         eprintln!(
-            "usage: {program} [-o <salida.bex>] [-I <copybooks>] [--copybook] <source.cob>"
+            "usage: {program} [-o <salida.bex>] [-I <copybooks>] [--juez | --estricto] [--copybook] <source.cob>"
         );
         process::exit(2);
     };
@@ -103,6 +108,30 @@ fn main() {
             process::exit(1);
         }
     };
+
+    // * EL JUEZ: COBOL a nivel banco. Cada falta con su regla y donde.
+    if juez || estricto {
+        let programa = match bmo_cobol_front::parse(&source) {
+            Ok(p) => p,
+            Err(err) => {
+                eprintln!("error:{}: {}", err.line, err.message);
+                process::exit(1);
+            }
+        };
+        let faltas = bmo_cobol_front::juez::juzgar(&programa);
+        for f in &faltas {
+            eprintln!("juez: {f}");
+        }
+        if faltas.is_empty() {
+            eprintln!("juez: PASA -- ningun centimo se pierde en silencio");
+        } else {
+            eprintln!("juez: NO PASA -- {} falta(s)", faltas.len());
+            process::exit(1);
+        }
+        if juez {
+            return;
+        }
+    }
 
     // * El copybook sale del PARSER, no del binario: muestra el formato aunque
     // el programa todavia no compile entero. Quien tiene que acordar un fichero

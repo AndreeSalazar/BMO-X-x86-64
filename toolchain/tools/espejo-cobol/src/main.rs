@@ -130,6 +130,17 @@ fn entrada_de(cob: &Path) -> String {
 }
 
 /// **Un programa por los dos lados.**
+/// Lo que dice el JUEZ de la casa, en una palabra.
+fn veredicto_juez(cob: &Path) -> String {
+    let Ok(fuente) = std::fs::read_to_string(cob) else { return "-".into() };
+    let copias = vec![cob.parent().unwrap_or(Path::new(".")).to_path_buf(), raiz().join("toolchain/lang/cobol/copy")];
+    match bmo::juez(&fuente, &copias) {
+        Some(0) => "PASA".into(),
+        Some(n) => format!("{n} faltas"),
+        None => "-".into(),
+    }
+}
+
 fn juzgar(cob: &Path, cobc: Option<&Path>, tmp: &Path) -> (Juicio, Option<String>, Option<String>) {
     let fuente = match std::fs::read_to_string(cob) {
         Ok(f) => f,
@@ -206,10 +217,11 @@ fn main() {
     for cob in programas() {
         let (j, _, _) = juzgar(&cob, cobc.as_deref(), &tmp);
         let n = nombre(&cob);
-        println!("  {:<13} {:<52} {}", j.marca(), n, j.detalle());
-        filas.push((n, j));
+        let jz = veredicto_juez(&cob);
+        println!("  {:<13} {:<10} {:<52} {}", j.marca(), jz, n, j.detalle());
+        filas.push((n, j, jz));
     }
-    let cuenta = |m: &str| filas.iter().filter(|(_, j)| j.marca() == m).count();
+    let cuenta = |m: &str| filas.iter().filter(|(_, j, _)| j.marca() == m).count();
     let resumen = format!(
         "{} programas: {} IGUAL, {} SOLO DISPLAY, {} DISTINTO, {} BMO NO, {} NO ESTANDAR, {} NO JUZGA",
         filas.len(),
@@ -226,9 +238,12 @@ fn main() {
         md.push_str("> Lo escribe `cargo run -p bmo-espejo-cobol -- --informe` (CM0 de\n");
         md.push_str("> `docs/plan/PLAN_COBOL_MAESTRO.md`). BMO COBOL, ejecutado en el emulador de\n");
         md.push_str("> x86-64, contra GnuCOBOL. No se edita a mano.\n\n");
-        md.push_str(&format!("**{resumen}**\n\n| veredicto | programa | detalle |\n|---|---|---|\n"));
-        for (n, j) in &filas {
-            md.push_str(&format!("| {} | `{}` | {} |\n", j.marca(), n, ascii(&j.detalle()).replace('|', "\\|")));
+        let pasan = filas.iter().filter(|(_, _, jz)| jz == "PASA").count();
+        md.push_str(&format!("**{resumen}**\n\n"));
+        md.push_str(&format!("**El JUEZ de la casa** (nivel banco, `cobol --juez`): {pasan} de {} pasan.\n\n", filas.len()));
+        md.push_str("| veredicto | juez | programa | detalle |\n|---|---|---|---|\n");
+        for (n, j, jz) in &filas {
+            md.push_str(&format!("| {} | {} | `{}` | {} |\n", j.marca(), jz, n, ascii(&j.detalle()).replace('|', "\\|")));
         }
         let ruta = Path::new(env!("CARGO_MANIFEST_DIR")).join("ESPEJO_COBOL.md");
         if std::fs::write(&ruta, md).is_ok() {
@@ -236,5 +251,5 @@ fn main() {
         }
     }
     let _ = std::fs::remove_dir_all(&tmp);
-    std::process::exit(if filas.iter().any(|(_, j)| j.falla()) { 1 } else { 0 });
+    std::process::exit(if filas.iter().any(|(_, j, _)| j.falla()) { 1 } else { 0 });
 }

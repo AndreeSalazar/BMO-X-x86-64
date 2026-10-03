@@ -125,12 +125,28 @@ y una semantica que diga que no a lo que no es COBOL.
       verdad (columnas 7 y 8-72). **Como se sabe:** `casos/desborde.cob` y
       `casos/texto.cob` dejan de ser BMO NO, y la matriz de 61 filas sigue
       en verde.
-- [ ] **CM3 -- la SEMANTICA, en el frontend.** Un crate agnostico que
+- [~] **CM3 -- la SEMANTICA, en el frontend.** Un crate agnostico que
       resuelve nombres, convierte cada PIC en su tipo (digitos, escala,
       signo, uso), cuelga los 88 y las tablas, y RECHAZA con su motivo lo
       que no es COBOL. **Como se sabe:** `conceptos.cob` y `cartera.cob`
       salen de NO ESTANDAR (se arreglan los ejemplos, o BMO los rechaza con
       el mismo motivo que GnuCOBOL).
+      [~] **03-10, EL JUEZ** (`src/juez.rs`, `cobol --juez` y `cobol
+      --estricto`): COBOL a nivel BANCO, con el rasero de los principios del
+      BIS para los datos de riesgo (exacto, completo, trazable; NO es una
+      certificacion). Diez reglas, J1-J10, contra todo lo que pierde un
+      centimo EN SILENCIO: aritmetica sin ON SIZE ERROR, decimales que se
+      tiran sin ROUNDED, un MOVE que corta, un signo que se pierde, un
+      fichero sin FILE STATUS, `DIVIDE ... BY` sin GIVING, un numero sin
+      VALUE, dinero en binario, un nombre sin declarar y una igualdad
+      imposible. 12 pruebas. **La libreria de BANK CAT y su motor PASAN**
+      (`el_motor_de_bank_cat_pasa_el_juez`): para pasar, el motor calcula
+      cada movimiento ENTERO en temporales y solo lo apunta si todo cupo.
+      El ESPEJO tiene ahora una columna con el veredicto del juez.
+      ** De paso, el juez destapo un fallo de BMO: `IF A NOT > 0` se leia
+      como `A > 0` (la condicion AL REVES, sin error). Arreglado en el
+      parser (`NOT >`, `NOT <`, `NOT >=`, `NOT <=`, cuatro filas nuevas en
+      la matriz), y un `NOT` que no se entiende es ahora un ERROR.
 - [ ] **CM4 -- el IR COBOL (propio, decimal, solo de COBOL) y su
       INTERPRETE.** Lo que sale de la semantica:
       operaciones de decimal con escala, redondeo y desborde explicitos, y

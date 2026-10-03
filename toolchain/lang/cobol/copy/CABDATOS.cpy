@@ -16,8 +16,13 @@
        01  CAB-DEBE           PIC S9(13)V99 COMP-3 VALUE 0.
        01  CAB-HABER          PIC S9(13)V99 COMP-3 VALUE 0.
        01  CAB-PRUEBA         PIC S9(13)V99 COMP-3 VALUE 0.
-       01  CAB-VECES          PIC 9(5) VALUE 1.
-       01  CAB-ASIENTOS       PIC 9(7) VALUE 0.
+       01  CAB-VECES          PIC S9(5) VALUE 1.
+       01  CAB-ASIENTOS       PIC S9(7) VALUE 0.
+      * Los TEMPORALES de un asiento: se calcula todo aqui y solo se
+      * apunta si TODO cupo (o entra entero, o no entra).
+       01  CAB-T-HABER        PIC S9(13)V99 COMP-3 VALUE 0.
+       01  CAB-T-DEBE         PIC S9(13)V99 COMP-3 VALUE 0.
+       01  CAB-T-ASIENTOS     PIC S9(7) VALUE 0.
        01  CAB-ESTADO         PIC 9 VALUE 0.
            88  CAB-HECHO          VALUE 0.
            88  CAB-NO-CABE        VALUE 1.

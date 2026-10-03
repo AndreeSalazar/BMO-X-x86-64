@@ -23,6 +23,9 @@
       * (3.1 y 3.2 de PLAN_BANCA), escribir de nuevo es lo que hay, y el
       * libro es chico. ABRIR con un libro que ya existe NO lo pisa:
       * contesta su saldo.
+      *
+      * * PASA EL JUEZ (`cobol --juez`, nivel banco): ningun centimo se
+      * pierde en silencio.
        IDENTIFICATION DIVISION.
        PROGRAM-ID. LIBRO.
        ENVIRONMENT DIVISION.
@@ -32,12 +35,12 @@
        DATA DIVISION.
        FILE SECTION.
        FD  LIBRO.
-       01  R-CIFRA            PIC 9(13)V99.
+       01  R-CIFRA            PIC S9(13)V99.
        WORKING-STORAGE SECTION.
            COPY CABDATOS.
        01  ST                 PIC XX VALUE "00".
-       01  CODIGO             PIC 9.
-       01  ENTRA              PIC S9(13)V99.
+       01  CODIGO             PIC 9 VALUE 0.
+       01  ENTRA              PIC S9(13)V99 VALUE 0.
        01  FIN                PIC 9 VALUE 0.
            88  SE-ACABO           VALUE 1.
        01  CARGADO            PIC 9 VALUE 0.
@@ -63,8 +66,10 @@
                        PERFORM CAB-PAGAR
                        PERFORM GUARDAR
                    WHEN 4
-                       MOVE ENTRA TO CAB-VECES
                        MOVE 0 TO CAB-ESTADO
+                       COMPUTE CAB-VECES ROUNDED = ENTRA ON SIZE ERROR
+                           MOVE 3 TO CAB-ESTADO
+                       END-COMPUTE
                    WHEN 5
                        PERFORM CAB-CUADRAR
                    WHEN 9
@@ -101,7 +106,9 @@
                READ LIBRO
                    AT END MOVE 0 TO R-CIFRA
                END-READ
-               MOVE R-CIFRA TO CAB-ASIENTOS
+               COMPUTE CAB-ASIENTOS ROUNDED = R-CIFRA ON SIZE ERROR
+                   MOVE 0 TO CAB-ASIENTOS
+               END-COMPUTE
                CLOSE LIBRO
                MOVE 1 TO CARGADO
            END-IF.
