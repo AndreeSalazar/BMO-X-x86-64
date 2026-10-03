@@ -102,6 +102,24 @@ pub(crate) fn oido(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After {
     con_signo(s, b(0));
     s.text(b"  (-100 izquierda .. +100 derecha)\n  mono    ");
     s.text(if (o >> 8) & 1 == 1 { b"si\n" } else { b"no\n" });
+    // ** Y LOS LADOS DEL APARATO (03-10): un solo lado puede no ser el oido
+    // sino el aparato, que traia un canal al minimo o callado.
+    let l = bmo::info(bmo::INFO_AUDIO_LADOS);
+    if l >> 48 != 0 {
+        let dbs = |v: u64, s: &mut crate::scene::output::Output| {
+            let v = (v & 0xFFFF) as u16 as i16 as i64;
+            con_signo(s, v / 256);
+            s.text(b" dB");
+        };
+        s.text(b"  el aparato traia: izquierdo ");
+        dbs(l, s);
+        s.text(b", derecho ");
+        dbs(l >> 16, s);
+        if (l >> 32) & 3 != 0 {
+            s.text(if (l >> 32) & 3 == 2 { b" (el DERECHO venia callado)" } else if (l >> 32) & 3 == 1 { b" (el IZQUIERDO venia callado)" } else { b" (los dos venian callados)" });
+        }
+        s.text(b"  -> igualados al reclamarlo\n");
+    }
     if (o >> 48) & 1 == 0 {
         s.with_ink(INK_ERR);
         s.text(b"  [!] el tubo no va a 44,1 ni 48 kHz (o no hay tubo): el tono no se aplica; mono y balance si\n");

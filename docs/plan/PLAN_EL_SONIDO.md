@@ -813,6 +813,38 @@ por un lado, el gato (NEKO) por el suyo, con su receta.
 | una tecla a los 2 s | se minimiza y la letra llega a Ejecutar | la letra se pierde |
 | `bienvenida = no` | se llega en silencio, sin panel y sin tubo armado | -- |
 
+## [ ] S4j -- UN LADO SOLO: los canales del APARATO (2026-10-03)
+
+El Ryzen, con HERMES tocando la ONDA: *"se escucha un solo lado y no
+escucho ambos lados"*. Lo que dice la foto: el medidor del MAESTRO marca los
+DOS lados (las barras pares e impares de la ONDA, izquierdo y derecho, van
+parejas), asi que lo que sale por el cable es estereo. El fallo esta despues,
+en como se le habla al AURICULAR. Dos causas, y las dos estaban en el codigo:
+
+* **Se cogia el PRIMER Feature Unit** del descriptor. Un auricular con
+  microfono declara varios (el del microfono, el del retorno de voz, el de
+  los altavoces): si el primero era el del micro, BMO-X subia y bajaba el
+  MICROFONO. Ahora `bmo-uaudio` recorre el grafo del AudioControl y coge el
+  que tiene aguas arriba el TUBO USB (Input Terminal 0x0101). 4 pruebas
+  nuevas (el auricular con el micro delante, en los dos ordenes, el
+  adaptador de siempre y un grafo con ciclo); 34 en verde.
+* **Se mandaba solo al MAESTRO** (canal 0) y, si lo aceptaba, izquierdo y
+  derecho se quedaban como arranco el aparato -- y hay aparatos que arrancan
+  con un canal al minimo o CALLADO. Ahora el descriptor dice que canal declara
+  volumen y cual mute (`vol_canales`, `mute_canales`), y el kernel
+  (`ring0/dev/uaudio.rs`): al RECLAMAR el aparato quita el mute de cada canal,
+  lee el volumen de cada lado, lo dice en CABINA y los IGUALA al que mas
+  suena (`igualar_lados`); y cada volumen o mute que se mande despues va a
+  TODOS los canales que lo declaran.
+* Y se ve: `INFO_AUDIO_LADOS` (0xCB) -- lo que traia cada lado y cual venia
+  callado -- en el `save` (seccion de audio) y en `oido`.
+
+| que | afirma | como se cae |
+|---|---|---|
+| arrancar con el auricular y `fondo` | suenan los DOS lados | sigue uno: mirar `oido` (que traia cada lado) y CABINA (`uaudio`) |
+| `oido` | `el aparato traia: izquierdo X dB, derecho Y dB` | sin la linea: el aparato no declara volumen por canal |
+| el fader del maestro | sube y baja los dos lados a la vez | uno se queda: el aparato no acepta el volumen por canal (CABINA lo dice) |
+
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 
 Una fuente mono con una posicion (angulo y distancia) en dos canales:
