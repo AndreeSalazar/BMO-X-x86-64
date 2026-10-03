@@ -37,6 +37,7 @@
 //! limitador de mezcla, y aqui sale gratis porque las muestras llegan
 //! intercaladas.
 
+use crate::espacio::Espacio;
 use crate::oido::{Oido, Perfil};
 use crate::{q16_a_db, Ganancia, Limite, Medidor, MilesimasDb, DB, MAX_DB_MAESTRO, MIN_DB};
 
@@ -180,8 +181,18 @@ impl Maestro {
     /// cuesta, y por eso no deja el "zumbido de cremallera" que dejan los
     /// mandos que saltan una vez por bloque.
     pub fn pasar(&mut self, muestras: &mut [i16], canales: usize) {
+        self.pasar_con(None, muestras, canales);
+    }
+
+    /// [`Maestro::pasar`] con el ESPACIO (el 3D, S7) delante del oido. El
+    /// espacio vive fuera porque es grande (sus lineas de sala) y el kernel
+    /// lo tiene en un `static`; en reposo no se le llama.
+    pub fn pasar_con(&mut self, mut espacio: Option<&mut Espacio>, muestras: &mut [i16], canales: usize) {
         let canales = canales.max(1);
-        if self.en_reposo() {
+        if espacio.as_ref().is_some_and(|e| e.en_reposo()) {
+            espacio = None;
+        }
+        if self.en_reposo() && espacio.is_none() {
             // ** EL CABLE. Ni la multiplicacion (que a x1 es exacta) ni el
             // limite (que tocaria el -32.768, el unico valor de 16 bits cuyo
             // modulo no cabe): solo se mira.
@@ -201,7 +212,7 @@ impl Maestro {
             for (a, &m) in t.iter_mut().zip(trozo.iter()) {
                 *a = m as i32;
             }
-            self.trama(&mut t[..c], c == canales, f);
+            self.trama(&mut t[..c], c == canales, f, espacio.as_deref_mut());
             for (m, &y) in trozo.iter_mut().zip(t.iter()) {
                 *m = y as i16;
             }
@@ -210,7 +221,12 @@ impl Maestro {
 
     /// **Una trama por la etapa**, en su sitio: el oido (si la trama esta
     /// entera), la ganancia `f`, el limite y el medidor. Sale en 16 bits.
-    fn trama(&mut self, t: &mut [i32], entera: bool, f: i64) {
+    fn trama(&mut self, t: &mut [i32], entera: bool, f: i64, espacio: Option<&mut Espacio>) {
+        // Primero se SITUA la escena (el 3D) y despues se ajusta a los oidos
+        // de quien escucha (el oido): ese es el orden en el mundo.
+        if let (true, Some(e)) = (entera, espacio) {
+            e.trama(t);
+        }
         if entera && !self.oido.en_reposo() {
             self.oido.trama(t);
         }
@@ -233,6 +249,14 @@ impl Maestro {
     /// suman mas de lo que caben 16 bits aunque el fader este a 0 dB, y el que
     /// lo sujeta es el limite. Con el atajo, esa suma saldria recortada a pelo.
     pub fn pasar_acumulador(&mut self, acc: &[i32], salida: &mut [i16], canales: usize) {
+        self.pasar_acumulador_con(None, acc, salida, canales);
+    }
+
+    /// [`Maestro::pasar_acumulador`] con el ESPACIO delante del oido.
+    pub fn pasar_acumulador_con(&mut self, mut espacio: Option<&mut Espacio>, acc: &[i32], salida: &mut [i16], canales: usize) {
+        if espacio.as_ref().is_some_and(|e| e.en_reposo()) {
+            espacio = None;
+        }
         let canales = canales.max(1);
         let n = acc.len().min(salida.len());
         let (antes, despues) = self.avanzar();
@@ -244,7 +268,7 @@ impl Maestro {
             let f = f0 + (f1 - f0) * (k as i64 + 1) / tramas;
             let c = entra.len().min(TRAMA_MAX);
             t[..c].copy_from_slice(&entra[..c]);
-            self.trama(&mut t[..c], c == canales, f);
+            self.trama(&mut t[..c], c == canales, f, espacio.as_deref_mut());
             for (s, &y) in sale.iter_mut().zip(t.iter()) {
                 *s = y as i16;
             }

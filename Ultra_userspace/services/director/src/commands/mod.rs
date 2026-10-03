@@ -84,6 +84,8 @@ pub(crate) mod sonidos;
 pub(crate) mod fondo;
 /// `oido`: el perfil de quien escucha, que aplica el maestro (S4f).
 pub(crate) mod oido;
+/// `3d`: el modo 3D que aplica el maestro (S7).
+pub(crate) mod espacio;
 /// EL GATE RED desde el escritorio: el pase, `red prueba` en tiempo real y el
 /// perfil de la red, recortado para no exponer a nadie. Ver su cabecera.
 pub(crate) mod red_pase;
@@ -220,6 +222,8 @@ pub(crate) enum Command<'a> {
     Fondo(&'a [u8]),
     /// `oido [voz|musica|plano|graves N|...]`: el perfil del oido.
     Oido(&'a [u8]),
+    /// `3d [apagado|cerca|sala|amplio|orbita [s]]`: el espacio.
+    Espacio(&'a [u8]),
     Cpu,
     /// `gpu`, `gpu cegar`, `gpu ver` (M0e).
     Gpu(&'a [u8]),
@@ -622,6 +626,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         b"sonidos" | b"censo-sonidos" => Command::Sonidos,
         b"fondo" => Command::Fondo(rest),
         b"oido" => Command::Oido(rest),
+        b"3d" | b"espacio" => Command::Espacio(rest),
         b"cpu" | b"procesador" => Command::Cpu,
         // La grafica, PREGUNTADA: quien es y si su VBLANK se ve sin firmware.
         b"gpu" | b"grafica" => Command::Gpu(rest),

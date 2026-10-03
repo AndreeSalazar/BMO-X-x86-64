@@ -563,6 +563,10 @@ pub const INFO_AUDIO_OIDO: u64 = 0xC8;
 /// **EL ATRIL DEL FONDO** (03-10): `[0..16)` canales que suenan | `[16..32)`
 /// lo agachado ahora (`i16`, 1/256 dB) | `[48..64)` pid del banco (0 = no).
 pub const INFO_AUDIO_FONDO: u64 = 0xC9;
+/// **EL ESPACIO** (03-10, S7): `[0..8)` el modo 3D (0 apagado .. 4 orbita) |
+/// `[8..16)` segundos por vuelta de la orbita | `[48]` se aplica a la
+/// frecuencia del tubo (44,1 o 48 kHz).
+pub const INFO_AUDIO_ESPACIO: u64 = 0xCA;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///

@@ -264,3 +264,56 @@ fn escribir_la_demo_del_agache() {
     wav(&dir.join("demo_fondo_y_aviso.wav"), &fuera);
 }
 
+/// Escribe un WAV ESTEREO de 16 bits a 48 kHz.
+fn wav_estereo(ruta: &std::path::Path, v: &[[i16; 2]]) {
+    let mut b = Vec::new();
+    let datos = (v.len() * 4) as u32;
+    b.extend_from_slice(b"RIFF");
+    b.extend_from_slice(&(36 + datos).to_le_bytes());
+    b.extend_from_slice(b"WAVEfmt ");
+    b.extend_from_slice(&16u32.to_le_bytes());
+    b.extend_from_slice(&1u16.to_le_bytes());
+    b.extend_from_slice(&2u16.to_le_bytes());
+    b.extend_from_slice(&HZ.to_le_bytes());
+    b.extend_from_slice(&(HZ * 4).to_le_bytes());
+    b.extend_from_slice(&4u16.to_le_bytes());
+    b.extend_from_slice(&16u16.to_le_bytes());
+    b.extend_from_slice(b"data");
+    b.extend_from_slice(&datos.to_le_bytes());
+    for t in v {
+        b.extend_from_slice(&t[0].to_le_bytes());
+        b.extend_from_slice(&t[1].to_le_bytes());
+    }
+    std::fs::write(ruta, b).unwrap();
+}
+
+/// **El 3D en un WAV, para oirlo con audifonos**: la misma musica por los
+/// cinco modos del ESPACIO de `bmo-amplificador` (el mismo que corre el
+/// maestro del kernel): 6 s apagado, 6 cerca, 6 sala, 6 amplio y 24 de
+/// orbita, una vuelta cada 8 s.
+#[test]
+fn escribir_la_demo_3d() {
+    use bmo_amplificador::espacio::{Ajuste, Espacio, Modo};
+    let Some(dir) = std::env::var_os("BMO_FONDO_WAV") else { return };
+    let dir = std::path::PathBuf::from(dir);
+    let total = 48 * HZ as usize;
+    let (musica, _) = componer(&PIEZAS[2], Mezcla::FONDO, total);
+    let mut e = std::boxed::Box::new(Espacio::nuevo(HZ));
+    let mut fuera = Vec::with_capacity(total);
+    for (i, &x) in musica.iter().enumerate() {
+        let seg = i / HZ as usize;
+        let modo = match seg {
+            0..=5 => Modo::Apagado,
+            6..=11 => Modo::Cerca,
+            12..=17 => Modo::Sala,
+            18..=23 => Modo::Amplio,
+            _ => Modo::Orbita,
+        };
+        e.poner(Ajuste { modo, vuelta_s: 8 });
+        let mut t = [x as i32, x as i32];
+        e.trama(&mut t);
+        fuera.push([t[0].clamp(-32768, 32767) as i16, t[1].clamp(-32768, 32767) as i16]);
+    }
+    wav_estereo(&dir.join("demo_3d_modos.wav"), &fuera);
+}
+

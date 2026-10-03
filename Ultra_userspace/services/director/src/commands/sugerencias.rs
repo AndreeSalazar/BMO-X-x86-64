@@ -127,6 +127,8 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"sonidos", b"el censo de los sonidos del disco entero"),
     (b"fondo", b"musica de fondo que se aparta sola para los avisos"),
     (b"oido voz", b"agudos y medios arriba: entender voces, en todo lo que suena"),
+    (b"3d sala", b"el sonido sale de la cabeza: altavoces virtuales y una sala"),
+    (b"3d orbita", b"el 4D: todo lo que suena gira alrededor de tu cabeza"),
     (b"ext", b"que ofrece el silicio y que coge BMO"),
     (b"cache", b"L1, L2 y L3 medidas"),
     (b"captura", b"la pantalla a capturas/"),

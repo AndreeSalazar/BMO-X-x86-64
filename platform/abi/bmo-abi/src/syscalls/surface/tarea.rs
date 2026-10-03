@@ -1278,6 +1278,13 @@ pub const AUDIO_MANDO_MEDIOS: u64 = 6;
 pub const AUDIO_MANDO_AGUDOS: u64 = 7;
 /// Todo el oido a plano.
 pub const AUDIO_MANDO_PLANO: u64 = 8;
+/// **EL MODO 3D** (`PLAN_EL_SONIDO.md` S7, 03-10), para todo lo que suena:
+/// `arg1` = 0 apagado, 1 cerca (altavoces virtuales a +-30 grados), 2 sala
+/// (y reflejos tempranos), 3 amplio (+-60 grados), 4 orbita (la escena gira
+/// alrededor de la cabeza). Devuelve el ajuste, como `INFO_AUDIO_ESPACIO`.
+pub const AUDIO_MANDO_3D: u64 = 9;
+/// Segundos por vuelta de la orbita, 2..=60.
+pub const AUDIO_MANDO_3D_VUELTA: u64 = 10;
 
 /// Prestar el banco del fondo: `arg1` = la VA de un bloque propio. Arma el
 /// tubo. `Ok` lleva los bytes del banco (0 = no se acepto).

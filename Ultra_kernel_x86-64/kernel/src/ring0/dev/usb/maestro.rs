@@ -70,6 +70,7 @@
 use core::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, AtomicU8, Ordering};
 
 use bmo_amplificador::maestro::Maestro;
+use bmo_amplificador::espacio::{Ajuste, Espacio, Modo};
 use bmo_amplificador::oido::Perfil;
 
 use crate::ring0::cabina;
@@ -159,6 +160,46 @@ pub fn oido(que: u64, valor: i64) -> u64 {
     let x = p.recortado().empaquetar();
     OIDO.store(x, Ordering::SeqCst);
     x
+}
+
+/// **EL ESPACIO** (03-10, S7): el modo 3D, empaquetado (`Ajuste`). Lo escribe
+/// el escritorio, lo lee el bus.
+static ESPACIO_AJUSTE: AtomicU64 = AtomicU64::new(0);
+/// El espacio en marcha. En un `static` y no dentro de la etapa: sus lineas
+/// de sala son ~4 KiB y la etapa se crea en la pila del bus.
+static mut ESPACIO: Espacio = Espacio::nuevo(48_000); // [escribe] bombeo
+
+/// **El escritorio mueve el 3D.** `que`: 9 el modo (0 apagado, 1 cerca,
+/// 2 sala, 3 amplio, 4 orbita), 10 los segundos por vuelta de la orbita.
+/// Devuelve el ajuste que quedo, empaquetado.
+pub fn espacio(que: u64, valor: i64) -> u64 {
+    let mut a = Ajuste::desempaquetar(ESPACIO_AJUSTE.load(Ordering::SeqCst));
+    match que {
+        9 => a.modo = Modo::de(valor.clamp(0, 255) as u64),
+        10 => a.vuelta_s = valor.clamp(2, 60) as u32,
+        _ => {}
+    }
+    let x = a.recortado().empaquetar();
+    ESPACIO_AJUSTE.store(x, Ordering::SeqCst);
+    x
+}
+
+/// `INFO_AUDIO_ESPACIO`: `[0..8)` el modo | `[8..16)` segundos por vuelta |
+/// bit 48: se aplica a la frecuencia del tubo (44,1 o 48 kHz).
+pub fn info_espacio() -> u64 {
+    let hz = super::audio::tubo().map(|t| t.frecuencia).unwrap_or(0);
+    ESPACIO_AJUSTE.load(Ordering::SeqCst) | (((hz == 44_100 || hz == 48_000) as u64) << 48)
+}
+
+/// El espacio de esta trama, al dia con su ajuste y la frecuencia del tubo.
+///
+/// # Safety
+/// Desde el hilo del bus: es su unico escritor.
+unsafe fn espacio_al_dia(hz: u32) -> &'static mut Espacio {
+    let e = &mut *core::ptr::addr_of_mut!(ESPACIO);
+    e.frecuencia(hz);
+    e.poner(Ajuste::desempaquetar(ESPACIO_AJUSTE.load(Ordering::SeqCst)));
+    e
 }
 
 /// `INFO_AUDIO_OIDO`: `[0..40)` el perfil empaquetado | bit 48: el TONO se
@@ -258,7 +299,8 @@ pub unsafe fn pasar(desde: u64, n: u16, t: &super::audio::Tubo) -> u64 {
     let muestras = n as usize / 2;
     let origen = crate::ring0::mm::phys_to_virt(desde) as *const i16;
 
-    if m.en_reposo() {
+    let esp = espacio_al_dia(t.frecuencia);
+    if m.en_reposo() && esp.en_reposo() {
         // ** EL CABLE: el xHC lee del bloque de la app, como el primer dia.
         let s = core::slice::from_raw_parts(origen, muestras);
         m.mirar(s, canales);
@@ -270,7 +312,7 @@ pub unsafe fn pasar(desde: u64, n: u16, t: &super::audio::Tubo) -> u64 {
     let Some(destino) = ranura(n) else { return desde };
     let dst = crate::ring0::mm::phys_to_virt(destino) as *mut i16;
     core::ptr::copy_nonoverlapping(origen, dst, muestras);
-    m.pasar(core::slice::from_raw_parts_mut(dst, muestras), canales);
+    m.pasar_con(Some(esp), core::slice::from_raw_parts_mut(dst, muestras), canales);
     ventana(m);
     ESTADO.store(ESTADO_EN_MARCHA, Ordering::SeqCst);
     destino
@@ -372,7 +414,7 @@ pub unsafe fn componer(pcm: Option<(u64, u16)>, largo: u16, t: &super::audio::Tu
     }
     let m = etapa(t.frecuencia, t.canales);
     let dst = core::slice::from_raw_parts_mut(crate::ring0::mm::phys_to_virt(destino) as *mut i16, muestras);
-    m.pasar_acumulador(suma, dst, canales);
+    m.pasar_acumulador_con(Some(espacio_al_dia(t.frecuencia)), suma, dst, canales);
     ventana(m);
     ESTADO.store(ESTADO_EN_MARCHA, Ordering::SeqCst);
     Some((destino, n))

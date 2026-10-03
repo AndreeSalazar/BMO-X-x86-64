@@ -690,5 +690,10 @@ pub mod agacha;
 pub mod oido;
 mod oido_tablas;
 
+/// **EL ESPACIO**: el 3D en dos oidos para todo lo que suena (S7): altavoces
+/// virtuales, una sala y la ORBITA. Ver [`espacio`].
+pub mod espacio;
+mod espacio_tablas;
+
 #[cfg(test)]
 mod pruebas;

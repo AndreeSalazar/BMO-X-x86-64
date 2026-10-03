@@ -497,6 +497,11 @@ fn report_maestro(s: &mut Output) {
     fila_db(s, b"oido medios", db(b(24)), b"campana a 1 kHz");
     fila_db(s, b"oido agudos", db(b(32)), b"estante a 3,5 kHz: lo que se pierde primero, y lo que hace entender una voz");
     fila(s, b"oido tono aplica", (o >> 48) & 1, b"", b"1 = el tubo va a 44,1 o 48 kHz; si no, solo mono y balance");
+    // ** EL ESPACIO (03-10, S7): el modo 3D, antes del oido.
+    let e = bmo::info(bmo::INFO_AUDIO_ESPACIO);
+    fila(s, b"3d modo", e & 0xFF, b"", b"0 apagado, 1 cerca, 2 sala, 3 amplio, 4 orbita (`3d`)");
+    fila(s, b"3d vuelta", (e >> 8) & 0xFF, b" s", b"lo que tarda la orbita en dar la vuelta a la cabeza");
+    fila(s, b"3d aplica", (e >> 48) & 1, b"", b"1 = el tubo va a 44,1 o 48 kHz");
     // ** Y EL FONDO (03-10): la musica del escritorio y su agache.
     let f = bmo::info(bmo::INFO_AUDIO_FONDO);
     fila(s, b"fondo pid", f >> 48, b"", b"quien presto el banco del fondo; 0 = apagado (`fondo`)");

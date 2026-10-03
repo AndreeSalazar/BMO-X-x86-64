@@ -437,6 +437,10 @@ pub const AUDIO_MANDO_GRAVES: u64 = 5;
 pub const AUDIO_MANDO_MEDIOS: u64 = 6;
 pub const AUDIO_MANDO_AGUDOS: u64 = 7;
 pub const AUDIO_MANDO_PLANO: u64 = 8;
+/// El modo 3D (0 apagado, 1 cerca, 2 sala, 3 amplio, 4 orbita) y los
+/// segundos por vuelta de la orbita. Espejo de `bmo-abi`.
+pub const AUDIO_MANDO_3D: u64 = 9;
+pub const AUDIO_MANDO_3D_VUELTA: u64 = 10;
 /// Las ordenes del atril del fondo (`OP_AUDIO_FONDO`), espejo de `bmo-abi`.
 pub const AUDIO_FONDO_BANCO: u64 = 1;
 pub const AUDIO_FONDO_TOCAR: u64 = 2;
@@ -664,6 +668,8 @@ pub const INFO_AUDIO_VOCES_CUENTA: u64 = 0x91;
 pub const INFO_AUDIO_OIDO: u64 = 0xC8;
 /// El atril del fondo: que suena, lo agachado y de quien es.
 pub const INFO_AUDIO_FONDO: u64 = 0xC9;
+/// El espacio: el modo 3D que aplica el maestro.
+pub const INFO_AUDIO_ESPACIO: u64 = 0xCA;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.
