@@ -52,6 +52,8 @@ pub(crate) mod sonido;
 /// **LA MUSICA DE FONDO**: el banco del escritorio, la pieza que suena y
 /// los avisos que la agachan. La orden es `fondo`.
 pub(crate) mod musica;
+/// **LA PASTILLA**: cuando se esconde, asoma o abre, y sus clics.
+pub(crate) mod pastilla;
 /// **El mando de VITALES** (F7 / F8): solapas, teclas, raton y la muestra de
 /// cada cuarto de segundo. La cara la pinta `scene::vitals`.
 pub(crate) mod vitales;
