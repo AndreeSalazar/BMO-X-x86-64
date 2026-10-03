@@ -92,6 +92,12 @@ pub fn fmt_num(mut v: u64, out: &mut [u8]) -> usize {
     n
 }
 
+/// Los ms del reloj de la maquina, para quien no tiene el `Reloj` a mano.
+fn ahora_ms() -> u32 {
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1);
+    ((bmo::ciclos() as u128 * 1000 / hz as u128) & 0xFFFF_FFFF) as u32
+}
+
 struct Reloj {
     hz: u64,
 }
@@ -116,6 +122,7 @@ struct Estado {
     enviado: u32,
     zumbido: Option<u32>,
     pedida: Option<usize>,
+    pedida_desde: u32,
     aviso: Vec<u8>,
 }
 
@@ -154,6 +161,7 @@ impl Estado {
         say(unsafe { core::str::from_utf8_unchecked(&d[..n]) });
         say("\n");
         self.pedida = Some(k);
+        self.pedida_desde = crate::ahora_ms();
     }
 
     /// **El ZUMBIDO**: sacude, destella y suena (el sonido lo pone el
@@ -198,6 +206,7 @@ pub extern "C" fn _start() -> ! {
         enviado: 0,
         zumbido: None,
         pedida: None,
+        pedida_desde: 0,
         aviso: Vec::new(),
     };
     let mut charla = charla::Charla::abrir();
@@ -332,6 +341,7 @@ pub extern "C" fn _start() -> ! {
                     zumbido: st.zumbido,
                     zumbido_listo: st.zumbido.map_or(true, |t| ahora.wrapping_sub(t) >= ZUMBIDO_CADA_MS),
                     pedida: st.pedida,
+                    pedida_desde: st.pedida_desde,
                     // Los canales de musica del fondo (los 8 de abajo) suenan.
                     sonando: fondo & 0xFF != 0 && fondo >> 48 != 0,
                     pico,
