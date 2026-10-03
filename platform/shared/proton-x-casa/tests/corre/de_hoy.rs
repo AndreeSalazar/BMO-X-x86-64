@@ -254,6 +254,11 @@ fn tanda20_exe_tiene_las_ultimas_duras() {
 #[test]
 fn los_api_set_downlevel_son_su_dll() {
     use bmo_proton_x::Funcion;
+    // La vuelta, aunque no corra un .exe: `tabla` ESCRIBE en la casa (la
+    // imagen de cada DLL, el diario). Sin ella, este `push` y el del .exe de
+    // la prueba de al lado realojaban el mismo Vec a la vez: el SIGSEGV de
+    // una vuelta de cada muchas del banco (03-10, "double free in tcache").
+    let _uno = uno_a_la_vez();
     let f = |n: &str| Funcion::Nombre(n.into());
     for n in ["CreateFileMappingA", "LocalFree"] {
         let de = bmo_proton_x_casa::tabla("api-ms-win-downlevel-kernel32-l2-1-0.dll", &f(n));
