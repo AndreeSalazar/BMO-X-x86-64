@@ -15,7 +15,7 @@ use bmo_userland as bmo;
 use crate::desktop::{Desktop, Ventana};
 use crate::scene;
 use crate::scene::chrome::Button;
-use crate::scene::vitals::{filas, MandoSmp, Solapa, FICHAS, FILA_VACIA};
+use crate::scene::vitals::{filas, MandoRed, MandoSmp, Solapa, FICHAS, FILA_VACIA};
 use crate::{erase_window, uncover};
 
 /// Pintarla con lo que el escritorio ya midio.
@@ -27,7 +27,7 @@ fn mw(dsk: &Desktop) -> Option<u64> {
     dsk.tick.consumo.ultimo.map(|m| m.mw_paquete).filter(|&v| v > 0)
 }
 
-/// **F7 (`Solapa::Cpu`) o F8 (`Solapa::Memoria`)**: abre en esa solapa; si
+/// **F7 (`Solapa::Cpu`), F8 (`Solapa::Memoria`) o F6 (`Solapa::Red`)**: abre en esa solapa; si
 /// ya esta abierta EN ESA, la cierra; si esta en otra, cambia a esa.
 pub(crate) fn tecla_f(dsk: &mut Desktop, p: &bmo::Pantalla, s: Solapa) {
     if dsk.win.mem_open && dsk.win.mem.solapa == s {
@@ -172,6 +172,37 @@ fn mando_smp(dsk: &mut Desktop, p: &bmo::Pantalla, m: MandoSmp) {
     dsk.win.mem.decir(&t[..k]);
 }
 
+/// **Un mando de la RED** desde su solapa (03-10, F6): `red rx` y `red
+/// velocidad`, con lo que paso en el pie.
+fn mando_red(dsk: &mut Desktop, m: MandoRed) {
+    match m {
+        MandoRed::Armar => {
+            let antes = bmo::info(bmo::INFO_NET_RX_TRAMAS);
+            let frase: &[u8] = match bmo::red::armar() {
+                bmo::red::Armado::Ok => {
+                    bmo::red::sondear();
+                    if bmo::info(bmo::INFO_NET_RX_TRAMAS) > antes {
+                        b"receptor ARMADO, y ya llegan tramas"
+                    } else {
+                        b"receptor ARMADO: ninguna todavia (es lo normal al armar)"
+                    }
+                }
+                bmo::red::Armado::SinEnlace => b"el enlace esta ABAJO: enchufa el cable antes de armar",
+                bmo::red::Armado::NoArma => b"el receptor no se pudo armar: F11 dice por que",
+                bmo::red::Armado::SinTarjeta => b"no hay tarjeta que este kernel sepa leer",
+                bmo::red::Armado::Raro(_) => b"el kernel contesto algo que no conozco",
+            };
+            dsk.win.mem.decir(frase);
+        }
+        MandoRed::Velocidad => {
+            dsk.win.mem.decir(match bmo::red::renegociar() {
+                Some(_) => b"renegociando 10/100/1000: el enlace se cae unos segundos y vuelve",
+                None => b"no se pudo: sin tarjeta, el PHY no contesta, o falta la autoridad RED",
+            });
+        }
+    }
+}
+
 /// **Las teclas de la ventana**, con el foco en ella: `1 2 3` o Tab (y las
 /// flechas a los lados) cambian de solapa; en PROCESOS, arriba y abajo
 /// eligen, `O` ordena y `F` finaliza. `true` si la tecla era suya.
@@ -184,8 +215,17 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) -> bool {
         b'1' => cambiar(dsk, p, Solapa::Cpu),
         b'2' => cambiar(dsk, p, Solapa::Memoria),
         b'3' => cambiar(dsk, p, Solapa::Procesos),
+        b'4' => cambiar(dsk, p, Solapa::Red),
+        b'a' | b'A' if s == Solapa::Red => {
+            mando_red(dsk, MandoRed::Armar);
+            pintar(dsk, p);
+        }
+        b'v' | b'V' if s == Solapa::Red => {
+            mando_red(dsk, MandoRed::Velocidad);
+            pintar(dsk, p);
+        }
         b'\t' | 0x83 => cambiar(dsk, p, s.siguiente()),
-        0x82 => cambiar(dsk, p, s.siguiente().siguiente()),
+        0x82 => cambiar(dsk, p, s.siguiente().siguiente().siguiente()),
         0x80 if s == Solapa::Procesos => {
             dsk.win.mem.elegido = dsk.win.mem.elegido.saturating_sub(1);
             pintar(dsk, p);
@@ -279,6 +319,11 @@ pub(crate) fn raton(dsk: &mut Desktop, p: &bmo::Pantalla, x: u32, y: u32, button
     }
     if let Some(s) = dsk.win.mem.solapa_en(x, y) {
         cambiar(dsk, p, s);
+        return true;
+    }
+    if let Some(m) = dsk.win.mem.mando_red_en(x, y) {
+        mando_red(dsk, m);
+        pintar(dsk, p);
         return true;
     }
     if let Some(m) = dsk.win.mem.mando_smp_en(x, y) {

@@ -321,8 +321,14 @@ if c == 0x8D {
 // por el foco, porque un atajo que solo funciona si ya estas dentro de la
 // ventana no sirve para abrirla. F7 abre en CPU y F8 en MEMORIA; la misma
 // tecla otra vez la cierra, la otra cambia de solapa. ESC la cierra.
-if c == 0x8F || c == 0x90 {
-    let s = if c == 0x8F { scene::vitals::Solapa::Cpu } else { scene::vitals::Solapa::Memoria };
+// ** Y F6 (03-10): LA RED, en su solapa. Antes F6 solo tecleaba `red`, y la
+// red no tenia ventana; ahora es la cuarta solapa de VITALES.
+if c == 0x8E || c == 0x8F || c == 0x90 {
+    let s = match c {
+        0x8E => scene::vitals::Solapa::Red,
+        0x8F => scene::vitals::Solapa::Cpu,
+        _ => scene::vitals::Solapa::Memoria,
+    };
     crate::desktop::vitales::tecla_f(dsk, &p, s);
     return Key::Taken;
 }
