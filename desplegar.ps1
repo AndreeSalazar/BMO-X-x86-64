@@ -32,7 +32,9 @@ param(
     # Sin valor por defecto desde el 16-09: la letra se teclea o no se
     # despliega (D: dejo de ser de BMO y nadie aviso a esta linea).
     [string]$Arranque = '',
-    [string]$Datos = ''
+    [string]$Datos = '',
+    # Las tres ventanas: COMPILAR y VERIFICAR a la vez, y esta al disco.
+    [switch]$Paralelo
 )
 
 # == ** EL RELEVO, Y AQUI SE PERDIA UNA (2026-09-07) ==========================
@@ -54,5 +56,5 @@ param(
 # hueco no se ve leyendo -- se ve cuando algo no pasa, y para entonces ya se ha
 # buscado en el sitio equivocado.
 & "$PSScriptRoot\bmo.ps1" -Desplegar -Rapido:$Rapido -Si:$Si -Metro:$Metro `
-    -Arranque $Arranque -Datos $Datos
+    -Arranque $Arranque -Datos $Datos -Paralelo:$Paralelo
 exit $LASTEXITCODE

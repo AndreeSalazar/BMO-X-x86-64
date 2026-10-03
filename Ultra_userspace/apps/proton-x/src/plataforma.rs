@@ -58,6 +58,7 @@ pub fn de_bmo() -> Plataforma {
         carpetas: Some(CARPETAS),
         reserva: Some(RESERVA),
         trozos: Some(TROZOS),
+        sonido: Some(super::sonido::SONIDO),
     }
 }
 

@@ -872,6 +872,7 @@ mod pruebas_capa {
             }),
             reserva: None,
             trozos: None,
+            sonido: None,
         }
     }
 

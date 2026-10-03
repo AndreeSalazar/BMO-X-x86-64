@@ -450,35 +450,53 @@ cadena S1, la fraccion S2, el mezclador S3, el maestro S4c y las voces S4d.
 
 ## 3A. Medir lo que pide el juego
 
-- [ ] A0.1 -- El censo EN VIVO clase `sonido` y el diario de P0.3: WASAPI
+- [x] A0.1 -- El censo EN VIVO clase `sonido` y el diario de P0.3: WASAPI
   (`MMDevAPI`, `IAudioClient`), XAudio2, o los dos. **Como se sabe:** una
   tabla aqui, medida.
+
+  ```text
+     medido en el metal el 03-10 (cuarta corrida, SYSPROTO y DIARIO)
+     WASAPI    SI: CoCreateInstance {BCDE0395-E52F-467C-8E3D-C4579291692E}
+               = CLSID_MMDeviceEnumerator, y la casa no la tiene: SIN SONIDO
+     XAudio2   no: ni LoadLibrary de xaudio2_*.dll ni importacion
+     Bink      bink2w64.dll levanta sus dos hilos: sus videos (la entrada)
+               cuelgan del RELOJ del sonido (A1.4)
+  ```
 - [ ] A0.2 -- El formato que pide el juego (canales, frecuencia, bits) y su
   periodo.
 
 ## 3B. Del lado del juego (la casa)
 
-- [ ] A1.1 -- COM lo justo: `CoInitializeEx`, `CoCreateInstance` de
+- [x] A1.1 -- COM lo justo: `CoInitializeEx`, `CoCreateInstance` de
   `MMDeviceEnumerator`, `PROPVARIANT`, `IPropertyStore` (el nombre del
   audifono). **Como se sabe:** `tandaA1.exe` enumera en Windows y en el
-  banco, y mira RELACIONES (no el nombre de tu audifono).
-- [ ] A1.2 -- `IMMDeviceEnumerator`: `GetDefaultAudioEndpoint`,
+  banco, y mira RELACIONES (no el nombre de tu audifono). (03-10:
+  `proton-x-casa/src/wasapi.rs`; probado por la vtabla como un `.exe` en
+  `proton-x-casa/tests/wasapi.rs`; `tandaA1.exe` sigue pendiente.)
+- [x] A1.2 -- `IMMDeviceEnumerator`: `GetDefaultAudioEndpoint`,
   `EnumAudioEndpoints`, `RegisterEndpointNotificationCallback` (sin avisos).
-- [ ] A1.3 -- `IAudioClient`/`IAudioClient3`: `GetMixFormat`
+  (03-10, `wasapi.rs`: una salida; de entrada, E_NOTFOUND.)
+- [x] A1.3 -- `IAudioClient`/`IAudioClient3`: `GetMixFormat`
   (WAVEFORMATEXTENSIBLE), `IsFormatSupported`, `Initialize` compartido y por
   evento, `GetBufferSize`, `GetDevicePeriod`, `SetEventHandle`,
   `Start`/`Stop`/`Reset`, `GetCurrentPadding`. **Como se sabe:**
   `tandaA1.exe` abre el dispositivo y lo cierra SIN SONAR, en Windows igual.
-- [ ] A1.4 -- `IAudioRenderClient` (`GetBuffer`/`ReleaseBuffer`) e
+  (03-10, `proton-x-casa/src/wasapi_flujo.rs`; el evento lo enciende el
+  latido del planificador, una vez por periodo.)
+- [x] A1.4 -- `IAudioRenderClient` (`GetBuffer`/`ReleaseBuffer`) e
   `IAudioClock` (`GetFrequency`/`GetPosition`): el RELOJ del sonido, del que
-  cuelgan los videos (Bink).
-- [ ] A1.5 -- `ISimpleAudioVolume`, `IAudioSessionControl` (sin eventos).
+  cuelgan los videos (Bink). (03-10: lo sonado sale del anillo del tubo
+  (`apps/proton-x/src/sonido.rs`) o, sin aparato, de la hora.)
+- [x] A1.5 -- `ISimpleAudioVolume`, `IAudioSessionControl` (sin eventos).
+  (03-10, con `IAudioStreamVolume` e `IChannelAudioVolume`.)
 - [ ] A1.6 -- XAudio2, SOLO si A0.1 lo encuentra: voces de origen, de mezcla
   y la maestra; un mezclador en la casa.
 - [ ] A1.7 -- X3DAudio, si se usa: es solo matematicas, se prueba contra
   Windows numero a numero.
-- [ ] A1.8 -- Remuestrear (44.100 a 48.000) y bajar de 7.1 a estereo (el
+- [x] A1.8 -- Remuestrear (44.100 a 48.000) y bajar de 7.1 a estereo (el
   alt setting del audifono es estereo): es S2 y S6 de `PLAN_EL_SONIDO`.
+  (03-10, `proton-x/src/pcm.rs`: interpolacion lineal y la bajada de
+  Windows, el centro y los de atras a -3 dB, sin el LFE.)
 
 ## 3C. Del lado de BMO-X
 
@@ -655,6 +673,56 @@ orden (las dos corridas murieron igual: es determinista):
   "una tabla con un espacio que no es el 0: se salta". Probado con
   `prueba/espacios.dxil` (dxc: t40 de space1, un array en space2, s20).
 
+**Estado al 03-10, tercera corrida: nivel 4, sin el NULO.** Ya no murio a
+los ~11 s llamando a la direccion 0: las dos de verdad (`CryptMsgClose`,
+`if_nametoindex`) y las trampas lo pasaron (cinco de crypt32 recibieron
+trampa y ninguna se llamo). Ventana de 1738x1064, 176 PSO. Murio a los 9 s
+por OTRA cosa:
+
+- [x] **N4.3 -- el monton lleno por los PSO** (03-10): `memory allocation of
+  57344 bytes failed; monton 67098656 B en uso de 67108864`. Cada PSO
+  guardaba sus dos `Sombreador` leidos (el modulo de LLVM, unas 6 veces el
+  DXIL: ~380 KB por PSO) para sacar al dibujar solo el nombre de su
+  funcion; se noto al abrir los PSO con N3.1. Ahora el PSO guarda los
+  nombres, y lo compilado se comparte entre los PSO con el mismo VS, PS y
+  layout (`enlaces.rs`, llave: la huella de 16 bytes del contenedor): al
+  acertar no se lee ni el DXIL. El pulso dice cuantos enlaces distintos hay.
+
+**Estado al 03-10, cuarta corrida: nivel 4, sin morir de monton.** N4.3
+funciono: 1065 PSO en 27 ms con solo **119 enlaces distintos** (los demas se
+comparten), de los que 12 se pueden correr hoy. Vivo a los 14,6 s con ~30
+hilos y 637.000 llamadas por segundo, y paso de donde se quedaba: enumera
+monitores y modos (`EnumDisplayMonitors`, `EnumDisplaySettingsW`), coloca su
+ventana (`SetWindowPos`) y arranca los hilos de **Bink** (la entrada en
+video). Todavia 0 ExecuteCommandLists y 0 Present: no dibujo nada. Despues
+cayo con un fallo de Ring 3 (en `datos/fallos.txt`, pendiente de leer):
+
+- [ ] **N4.4 -- el fallo de Ring 3 tras los ~15 s**: leer `datos/fallos.txt`
+  de la cuarta corrida (la direccion, el modulo y la instruccion).
+- [x] **N4.5 -- el sonido del juego** (03-10, falta oirlo en el metal):
+  WASAPI en la casa (A1.1 a A1.5 y A1.8 de la seccion 3): el
+  `MMDeviceEnumerator`, un aparato de salida, `IAudioClient3` por evento, lo
+  del juego convertido a s16 estereo y al anillo del TUBO del audifono
+  (`apps/proton-x/src/sonido.rs`), y su reloj. Sin aparato (o con el
+  audifono de otro proceso), el reloj corre con la hora y el juego sigue,
+  mudo.
+
+**Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
+casilla:
+
+```text
+   OperacionD3d(12, 13, 14)     cos, sin, tan                    N5.6
+   OperacionD3d(21, 22, 23)     exp, frac, log                   N5.6
+   OperacionD3d(26, 27)         round_ne, floor                  N5.6
+   OperacionD3d(131)            f16tof32                         N5.6
+   OperacionD3d(82)             discard                          N5.7
+   mas de un render target      el G-buffer (diferido)           N5.8
+   el de pixeles lee SV_Position                                 N5.9
+   Instruccion(19), (43)        alloca y GEP: arrays locales     N5.10
+   OperacionD3d(118)            WaveReadLaneFirst                N5.10
+   un operando que deberia ser un entero constante               N5.4
+```
+
 **Lo que queda para que la 3060 PINTE un fotograma de Cyberpunk**, por
 orden. Cada uno lo dice el DIARIO con su texto la primera vez que pasa;
 la proxima corrida del metal dice cual pesa mas:
@@ -682,6 +750,16 @@ la proxima corrida del metal dice cual pesa mas:
 - [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
   no es una constante. Hoy el sombreador no compila; pide que la ranura sea
   un RANGO y no un lugar.
+- [ ] **N5.6 -- la matematica que falta**: sin, cos, tan, exp, log, frac,
+  los redondeos y f16tof32, en el interprete (sin `libm`: Ring 3 no la
+  tiene) y en el emisor de la 3060 (MUFU).
+- [ ] **N5.7 -- discard**: el pixel no se escribe (la trama lo salta).
+- [ ] **N5.8 -- mas de un render target** (hasta 8): el G-buffer de
+  Cyberpunk; hoy el PSO entero se niega.
+- [ ] **N5.9 -- SV_Position en el de pixeles**: la trama ya lo sabe; que
+  llegue al sombreador.
+- [ ] **N5.10 -- arrays locales y lo de las olas**: `alloca`/GEP (registros
+  indexables) y `WaveReadLaneFirst` (con una ola de un pixel, el mismo).
 - [ ] **N5.5 -- el COMPUTO** (`Dispatch`, `SetComputeRoot*`): hoy se dice
   y se salta. Cyberpunk calcula con el la luz, las sombras y el
   post-proceso; sin el, la imagen sale pero a medias. Primero en la CPU
