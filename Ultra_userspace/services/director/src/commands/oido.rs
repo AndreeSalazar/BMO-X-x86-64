@@ -18,6 +18,10 @@
 //!    oido mono si|no       los dos lados sumados
 //!    oido izq | oido der   LA PRUEBA DE LOS LADOS: un aviso SOLO por ese
 //!                          lado (03-10, "escucho solo por la derecha")
+//!    oido empuje si|no     EL EMPUJE (03-10, "que suene al 200 %"): con el
+//!                          fader por encima de 0 dB, dobla las puntas con
+//!                          una curva suave en vez de bajar toda la onda
+//!    oido fuerte           empuje si y graves +3: lo mas fuerte que hay
 //! ```
 
 use bmo_userland as bmo;
@@ -90,6 +94,12 @@ pub(crate) fn oido(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After {
         b"plano" => mando(bmo::AUDIO_MANDO_PLANO, 0),
         b"voz" => mando(bmo::AUDIO_MANDO_GRAVES, -2) && mando(bmo::AUDIO_MANDO_MEDIOS, 3) && mando(bmo::AUDIO_MANDO_AGUDOS, 6),
         b"musica" => mando(bmo::AUDIO_MANDO_GRAVES, 3) && mando(bmo::AUDIO_MANDO_MEDIOS, 0) && mando(bmo::AUDIO_MANDO_AGUDOS, 3),
+        b"empuje" => match resto.trim_ascii() {
+            b"si" | b"1" | b"" => mando(bmo::AUDIO_MANDO_EMPUJE, 1),
+            b"no" | b"0" => mando(bmo::AUDIO_MANDO_EMPUJE, 0),
+            _ => false,
+        },
+        b"fuerte" => mando(bmo::AUDIO_MANDO_EMPUJE, 1) && mando(bmo::AUDIO_MANDO_GRAVES, 3),
         b"mono" => match resto.trim_ascii() {
             b"si" | b"1" | b"" => mando(bmo::AUDIO_MANDO_MONO, 1),
             b"no" | b"0" => mando(bmo::AUDIO_MANDO_MONO, 0),
@@ -111,7 +121,7 @@ pub(crate) fn oido(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After {
     };
     if !ok {
         s.with_ink(INK_ERR);
-        s.text(b"  oido [voz|musica|plano] | graves|medios|agudos N (-12..12) | balance N (-100..100) | mono si|no | izq | der\n");
+        s.text(b"  oido [voz|musica|plano] | graves|medios|agudos N (-12..12) | balance N (-100..100) | mono si|no | empuje si|no | fuerte | izq | der\n");
         s.text(b"  (si la orden era buena: solo lo puede mover el escritorio; mira `cabina`)\n");
         s.with_ink(INK_PLAIN);
         return After::Settle;
@@ -139,6 +149,12 @@ pub(crate) fn oido(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After {
     con_signo(s, b(0));
     s.text(b"  (-100 izquierda .. +100 derecha)\n  mono    ");
     s.text(if (o >> 8) & 1 == 1 { b"si\n" } else { b"no\n" });
+    s.text(b"  empuje  ");
+    s.text(if (o >> 49) & 1 == 1 {
+        b"si  (las puntas se doblan suave: mas fuerte con el fader arriba)\n"
+    } else {
+        b"no  (`oido empuje si` o `oido fuerte`: suena mas fuerte con el fader arriba)\n"
+    });
     // ** Y LOS LADOS DEL APARATO (03-10): un solo lado puede no ser el oido
     // sino el aparato, que traia un canal al minimo o callado.
     let l = bmo::info(bmo::INFO_AUDIO_LADOS);

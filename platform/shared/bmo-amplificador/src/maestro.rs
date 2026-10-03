@@ -39,7 +39,7 @@
 
 use crate::espacio::Espacio;
 use crate::oido::{Oido, Perfil};
-use crate::{q16_a_db, Ganancia, Limite, Medidor, MilesimasDb, DB, MAX_DB_MAESTRO, MIN_DB};
+use crate::{q16_a_db, Ganancia, Limite, Medidor, MilesimasDb, DB, MAX_DB_MAESTRO, MIN_DB, PLENO};
 
 /// Los canales de una trama que la etapa sabe llevar juntos (un 7.1 cabe).
 const TRAMA_MAX: usize = 8;
@@ -66,6 +66,34 @@ pub const HONDO: MilesimasDb = -40 * DB;
 /// golpe baja y sube de una vez, no a tirones. La prueba
 /// `con_el_fader_arriba_el_fondo_no_bombea` fija la diferencia.
 pub const RELAJO_MS: u32 = 250;
+
+/// **Donde empieza a doblar el EMPUJE**: el 60 % de [`PLENO`] (-4,4 dBFS).
+/// Por debajo, la onda pasa tal cual; por encima, se curva hacia el techo.
+pub const RODILLA: i32 = PLENO * 6 / 10;
+
+/// **EL EMPUJE** (2026-10-03, el propietario: *"amplificar, que suene como al
+/// 200 %"*). Una curva SUAVE que dobla las puntas antes de que lleguen al
+/// limite: por debajo de [`RODILLA`] es un cable, y por encima
+/// `K + R*d/(d+R)` (con `d` lo que pasa de la rodilla y `R` lo que queda
+/// hasta el techo), que nunca llega a [`PLENO`] y no tiene esquinas.
+///
+/// Por que hace falta: con el fader arriba, el limite baja TODA la onda
+/// cuando llega un golpe, y lo que se oye es el golpe y un fondo que sube y
+/// baja. El empuje dobla SOLO la punta, muestra a muestra, y el resto se
+/// queda arriba: suena mas fuerte (mas RMS con el mismo techo), a cambio de
+/// algo de color en los golpes, como un amplificador apretado. Es una
+/// decision del que escucha: viene APAGADO.
+pub fn empujar(x: i32) -> i32 {
+    let a = (x as i64).abs();
+    let k = RODILLA as i64;
+    if a <= k {
+        return x;
+    }
+    let r = (PLENO - RODILLA) as i64;
+    let d = a - k;
+    let y = (k + r * d / (d + r)) as i32;
+    if x < 0 { -y } else { y }
+}
 
 /// **Lo que el medidor dijo en una ventana**, ya cerrado.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -102,6 +130,9 @@ pub struct Maestro {
     /// ganancia y del limite, para que el limite sujete tambien lo que el
     /// tono suba. En plano no toca nada.
     oido: Oido,
+    /// **El EMPUJE** ([`empujar`]): solo actua con ganancia por encima de
+    /// 0 dB, que es cuando hay puntas que doblar. Apagado de fabrica.
+    empuje: bool,
 }
 
 impl Maestro {
@@ -123,6 +154,7 @@ impl Maestro {
             medidores: [Medidor::nuevo(); 2],
             pozo: 1 << 16,
             oido: Oido::nuevo(hz),
+            empuje: false,
         }
     }
 
@@ -130,6 +162,16 @@ impl Maestro {
     /// en cada trama.
     pub fn oido(&mut self, p: Perfil) {
         self.oido.poner(p);
+    }
+
+    /// **El EMPUJE**, encendido o apagado (ver [`empujar`]).
+    pub fn empuje(&mut self, si: bool) {
+        self.empuje = si;
+    }
+
+    /// Si el empuje esta puesto, para mostrarlo.
+    pub fn empuje_puesto(&self) -> bool {
+        self.empuje
     }
 
     /// El oido, para quien quiera mostrar que tiene puesto.
@@ -230,8 +272,14 @@ impl Maestro {
         if entera && !self.oido.en_reposo() {
             self.oido.trama(t);
         }
+        // El empuje solo con ganancia de verdad (f > x1): a 0 dB o por
+        // debajo no hay puntas que doblar y la onda pasa entera.
+        let empuja = self.empuje && f > 1 << 16;
         for (j, v) in t.iter_mut().enumerate() {
-            let x = ((*v as i64 * f) >> 16).clamp(i32::MIN as i64, i32::MAX as i64) as i32;
+            let mut x = ((*v as i64 * f) >> 16).clamp(i32::MIN as i64, i32::MAX as i64) as i32;
+            if empuja {
+                x = empujar(x);
+            }
             let y = self.limite.muestra(x);
             *v = y as i32;
             self.medidores[j & 1].mirar_uno(y as i32);
@@ -506,6 +554,86 @@ mod pruebas {
             peor = peor.max(ultima - primera);
         }
         peor
+    }
+
+    #[test]
+    fn la_curva_del_empuje_es_suave_impar_y_no_toca_el_techo() {
+        // Un cable por debajo de la rodilla.
+        for x in [0, 1, -1, 5_000, -5_000, RODILLA, -RODILLA] {
+            assert_eq!(empujar(x), x);
+        }
+        let mut antes = empujar(RODILLA);
+        let mut x = RODILLA + 1;
+        while x < 40 * PLENO {
+            let y = empujar(x);
+            // Sube siempre, nunca mas que la entrada (pendiente <= 1: sin
+            // esquinas ni saltos) y sin llegar al techo.
+            assert!(y >= antes && y - antes <= 7, "x {} y {} antes {}", x, y, antes);
+            assert!(y < PLENO, "x {} y {}", x, y);
+            assert_eq!(empujar(-x), -y);
+            antes = y;
+            x += 7;
+        }
+        // Y hasta lo mas grande cabe en 16 bits.
+        assert!(empujar(i32::MAX) <= PLENO && empujar(i32::MIN + 1) >= -PLENO);
+    }
+
+    /// Una mezcla de musica de mentira: una nota floja todo el rato y un golpe
+    /// fuerte cada 100 ms. Devuelve el RMS y el pozo del limite, a +18 dB.
+    fn con_y_sin_empuje(empuje: bool) -> (MilesimasDb, MilesimasDb) {
+        let mut m = Maestro::nuevo(48_000, 2);
+        m.pedir(18 * DB, false);
+        m.empuje(empuje);
+        let mut rms = MIN_DB;
+        let mut pozo = 0;
+        for vuelta in 0..3 {
+            for bloque in 0..100 {
+                let mut b = [0i16; 96];
+                for t in 0..48 {
+                    // 1 kHz cuadrada floja, y el golpe los primeros 10 ms.
+                    let nota = if (t / 24) % 2 == 0 { 2_500 } else { -2_500 };
+                    let golpe = if bloque % 100 < 10 && (t / 6) % 2 == 0 { 14_000 } else { 0 };
+                    let v = (nota + golpe) as i16;
+                    b[2 * t] = v;
+                    b[2 * t + 1] = v;
+                }
+                m.pasar(&mut b, 2);
+            }
+            let l = m.lectura();
+            if vuelta > 0 {
+                rms = l.rms[0];
+                pozo = l.reduccion;
+            }
+        }
+        (rms, pozo)
+    }
+
+    #[test]
+    fn el_empuje_suena_mas_fuerte_y_el_limite_casi_no_baja() {
+        let (rms_sin, pozo_sin) = con_y_sin_empuje(false);
+        let (rms_con, pozo_con) = con_y_sin_empuje(true);
+        // Mas fuerte de verdad: por lo menos 3 dB de RMS mas.
+        assert!(rms_con > rms_sin + 3 * DB, "sin {} con {}", rms_sin, rms_con);
+        // Sin empuje el limite se hunde; con empuje apenas toca.
+        assert!(pozo_sin < -6 * DB, "pozo sin {}", pozo_sin);
+        assert!(pozo_con > -DB, "pozo con {}", pozo_con);
+    }
+
+    #[test]
+    fn a_cero_db_el_empuje_no_toca_nada() {
+        let mut a = Maestro::nuevo(48_000, 2);
+        let mut b = Maestro::nuevo(48_000, 2);
+        a.empuje(true);
+        // Un poco por debajo de 0 dB para salir del cable y pasar por la trama.
+        a.pedir(-DB, false);
+        b.pedir(-DB, false);
+        for _ in 0..20 {
+            let mut x = cuadrada(30_000, 48);
+            let mut y = cuadrada(30_000, 48);
+            a.pasar(&mut x, 2);
+            b.pasar(&mut y, 2);
+            assert_eq!(x, y);
+        }
     }
 
     #[test]

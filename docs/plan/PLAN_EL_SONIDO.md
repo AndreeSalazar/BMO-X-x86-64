@@ -949,6 +949,44 @@ sigue flojo, es el aparato, y el `save` lo demuestra con numeros.
 | fader a +26 con `fondo` | suena claramente mas fuerte que antes del arreglo | igual que antes: mirar CABINA (`uaudio`, "otra unidad del camino") |
 | `save`, seccion de audio | `otras unidades` >= 0 y `limite` dice cuanto aplasta | -- |
 
+## [ ] S4l -- EL EMPUJE: "que suene al 200 %" (2026-10-03)
+
+El propietario, con los dos lados ya sonando: *"romper el audio, que
+funcione mejor; amplificar, aumentar mas el volumen, como 200 %"*.
+
+**Lo que pasaba por encima del tope.** Con el fader en la parte digital, el
+limite del maestro hace bien su trabajo -- de seguridad --: cuando llega un
+golpe, baja TODA la onda, y la suelta en 250 ms. Lo que se oye es el golpe a
+0 dBFS y el resto hundido debajo. Mas fader = mas hundido; no mas fuerte.
+
+**El empuje** (`bmo-amplificador::maestro::empujar`): una curva SUAVE, muestra
+a muestra, ANTES del limite. Por debajo de la rodilla (60 % del techo,
+-4,4 dBFS) es un cable; por encima, `K + R*d/(d+R)`, que sube con pendiente
+<= 1, sin esquinas, y nunca llega al techo. Asi las puntas se DOBLAN en vez
+de bajar la onda entera, y el limite casi no tiene que actuar: mas fuerza
+media (RMS) con el mismo techo, a cambio de color en los golpes -- lo que hace
+un amplificador apretado. Solo actua con ganancia por encima de 0 dB, y viene
+APAGADO: sin el, el maestro es exactamente el de antes.
+
+```text
+   oido empuje si|no     lo enciende o lo apaga
+   oido fuerte           empuje si + graves +3
+   oido                  dice si esta puesto; el save: `oido empuje`
+```
+
+**Medido (pruebas de `bmo-amplificador`, 91 en verde):** una nota floja y un
+golpe cada 100 ms a +18 dB -- con empuje, **mas de 3 dB mas de RMS** y el
+pozo del limite por encima de -1 dB, contra mas de -6 dB sin el
+(`el_empuje_suena_mas_fuerte_y_el_limite_casi_no_baja`). La curva: impar,
+monotona, pendiente <= 1 y nunca en el techo
+(`la_curva_del_empuje_es_suave_impar_y_no_toca_el_techo`); a 0 dB o por
+debajo, el empuje no cambia ni un bit (`a_cero_db_el_empuje_no_toca_nada`).
+
+**Como se sabe en el Ryzen:** la ONDA de HERMES sonando, fader a +30,
+`oido empuje no` y `oido empuje si`: con el empuje suena claramente mas
+fuerte y el `limite` del `save` baja de lo que sujetaba a casi nada.
+[!] NO probado en el Ryzen todavia.
+
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 
 Una fuente mono con una posicion (angulo y distancia) en dos canales:

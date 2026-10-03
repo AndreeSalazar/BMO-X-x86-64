@@ -1300,6 +1300,12 @@ pub const AUDIO_MANDO_PLANO: u64 = 8;
 pub const AUDIO_MANDO_3D: u64 = 9;
 /// Segundos por vuelta de la orbita, 2..=60.
 pub const AUDIO_MANDO_3D_VUELTA: u64 = 10;
+/// **EL EMPUJE** (03-10, "que suene al 200 %"): `arg1 != 0` lo enciende. Con
+/// la ganancia por encima de 0 dB, dobla las puntas con una curva suave
+/// antes del limite, en vez de bajar toda la onda: mas fuerte con el mismo
+/// techo, con algo de color en los golpes. Devuelve lo mismo que
+/// `INFO_AUDIO_OIDO` (bit 49: empuje puesto).
+pub const AUDIO_MANDO_EMPUJE: u64 = 11;
 
 /// Prestar el banco del fondo: `arg1` = la VA de un bloque propio. Arma el
 /// tubo. `Ok` lleva los bytes del banco (0 = no se acepto).
