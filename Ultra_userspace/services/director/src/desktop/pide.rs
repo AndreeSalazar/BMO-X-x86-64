@@ -93,6 +93,10 @@ pub(crate) enum Que<'a> {
     Fondo(usize),
     /// Un aviso encima de la musica.
     Aviso(bmo_fondo::Aviso),
+    /// `fondo pausa`: pausa o sigue (el boton del reproductor de HERMES).
+    Pausa,
+    /// `fondo volumen <0..100>`: la voz de la musica, no el fader.
+    Volumen(u32),
     /// Fuera de la lista blanca.
     No,
 }
@@ -100,6 +104,15 @@ pub(crate) enum Que<'a> {
 pub(crate) fn juzgar(l: &[u8]) -> Que<'_> {
     if let Some(r) = l.strip_prefix(b"personal diario ") {
         return if r.is_empty() { Que::No } else { Que::Diario(r) };
+    }
+    // ** EL REPRODUCTOR de HERMES (03-10): lo mismo que la PASTILLA.
+    if l == b"fondo pausa" {
+        return Que::Pausa;
+    }
+    if let Some(n) = l.strip_prefix(b"fondo volumen ") {
+        let ok = !n.is_empty() && n.len() <= 3 && n.iter().all(u8::is_ascii_digit);
+        let v = n.iter().fold(0u32, |a, &c| a * 10 + (c - b'0') as u32);
+        return if ok && v <= 100 { Que::Volumen(v) } else { Que::No };
     }
     if let Some(n) = l.strip_prefix(b"fondo ") {
         let ok = !n.is_empty() && n.len() <= 3 && n.iter().all(u8::is_ascii_digit);
@@ -182,10 +195,12 @@ pub(crate) fn atender(dsk: &mut Desktop, p: &bmo::Pantalla) {
         // Un aviso suena con el fondo encendido (ver `musica::avisar`); sin
         // el, la app ya lo dijo con la vista (el zumbido sacude igual).
         Que::Aviso(a) => crate::desktop::musica::avisar(a),
+        Que::Pausa => crate::desktop::musica::pausa(),
+        Que::Volumen(v) => crate::desktop::musica::volumen(v),
         Que::No => {
             let g = &mut dsk.out.grid;
             g.with_ink(INK_ERR);
-            g.text(b"  no: solo `personal diario <ruta>`, un .bex de apps/ o sys/, `fondo <n>` o `aviso <nombre>`\n");
+            g.text(b"  no: solo `personal diario <ruta>`, un .bex de apps/ o sys/, `fondo <n>|pausa|volumen <0..100>` o `aviso <nombre>`\n");
             g.with_ink(INK_PLAIN);
         }
     }

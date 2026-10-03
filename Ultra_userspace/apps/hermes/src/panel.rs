@@ -9,7 +9,7 @@
 use crate::canvas::Canvas;
 use crate::piezas::{caja, cara, negrita, negrita_fit, pildora, redonda, rotulo};
 use crate::pintar::{
-    alto, ancho_panel, nivel, partir, Vista, AMBAR, BARRA, BLANCO, CANAL, CIAN, ENVIOS, LIMA, LINEA, MENSAJES, MURO, ONDA,
+    suelo, ancho_panel, nivel, partir, Vista, AMBAR, BARRA, BLANCO, CANAL, CIAN, ENVIOS, LIMA, LINEA, MENSAJES, MURO, ONDA,
     PAGINAS, PANEL, ROJO, ROSA, SECCIONES, TENUE, TERTULIAS, TEXTO, VERDE, AMIGOS,
 };
 use bmo_dibujo::{mezclar, Color, Lienzo};
@@ -47,8 +47,8 @@ fn lineas(t: &[u8], w: i32) -> i32 {
 
 pub(crate) fn panel(cv: &mut Canvas, v: &Vista, x0: i32) {
     let w = ancho_panel();
-    cv.rect(x0, BARRA, w, alto() - BARRA, PANEL);
-    cv.rect(x0, BARRA, 1, alto() - BARRA, LINEA);
+    cv.rect(x0, BARRA, w, suelo() - BARRA, PANEL);
+    cv.rect(x0, BARRA, 1, suelo() - BARRA, LINEA);
     let (x, tw) = (x0 + 14, w - 28);
     let cw = tw - 28;
     let mut y = BARRA + 14;

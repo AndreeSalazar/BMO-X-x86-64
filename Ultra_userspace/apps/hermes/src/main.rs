@@ -31,10 +31,12 @@ extern crate alloc;
 
 mod charla;
 mod entrada;
+mod iconos;
 mod onda;
 mod panel;
 mod piezas;
 mod pintar;
+mod reproductor;
 
 /// La ventana y el lienzo son los del TALLER (F1): las mismas piezas, sin copia.
 #[path = "../../taller/src/canvas.rs"]
@@ -127,6 +129,10 @@ struct Estado {
     pedida: Option<usize>,
     pedida_desde: u32,
     aviso: Vec<u8>,
+    /// El REPRODUCTOR: la pausa pedida y el volumen pedido. El escritorio
+    /// empieza a 70 (`desktop::musica`).
+    pausada: bool,
+    volumen: u32,
 }
 
 impl Estado {
@@ -165,6 +171,36 @@ impl Estado {
         say("\n");
         self.pedida = Some(k);
         self.pedida_desde = crate::ahora_ms();
+        // Una pieza nueva suena: la pausa, si la habia, ya no.
+        self.pausada = false;
+    }
+
+    /// **Un mando del REPRODUCTOR**, pedido al escritorio como la PASTILLA.
+    fn mando(&mut self, m: reproductor::Mando) {
+        use reproductor::Mando;
+        let n = pintar::PIEZAS_N;
+        match m {
+            Mando::PausaOSigue if self.pedida.is_none() => self.tocar(if self.sec == pintar::ONDA { self.item } else { 0 }),
+            Mando::PausaOSigue => {
+                say("\u{1E}fondo pausa\n");
+                self.pausada = !self.pausada;
+            }
+            Mando::Anterior => self.tocar((self.pedida.unwrap_or(0) + n - 1) % n),
+            Mando::Siguiente => self.tocar((self.pedida.unwrap_or(n - 1) + 1) % n),
+            Mando::Azar => {
+                let otra = (crate::ahora_ms() as usize / 7 + 1) % n;
+                self.tocar(if Some(otra) == self.pedida { (otra + 1) % n } else { otra });
+            }
+            Mando::Volumen(v) => {
+                let mut d = [0u8; 4];
+                let k = fmt_num(v.min(100) as u64, &mut d);
+                say("\u{1E}fondo volumen ");
+                // SAFETY: son cifras ASCII.
+                say(unsafe { core::str::from_utf8_unchecked(&d[..k]) });
+                say("\n");
+                self.volumen = v.min(100);
+            }
+        }
     }
 
     /// **El ZUMBIDO**: sacude, destella y suena (el sonido lo pone el
@@ -216,6 +252,8 @@ pub extern "C" fn _start() -> ! {
         zumbido: None,
         pedida: None,
         pedida_desde: 0,
+        pausada: false,
+        volumen: 70,
         aviso: Vec::new(),
     };
     let mut charla = charla::Charla::abrir();
@@ -276,6 +314,12 @@ pub extern "C" fn _start() -> ! {
                             Some(Golpe::Escribir) => {}
                             Some(Golpe::Zumbido) => st.zumbar(ahora),
                             Some(Golpe::Cerrar) => cerrar(),
+                            Some(Golpe::Repro(m)) => st.mando(m),
+                            Some(Golpe::Poner(t)) => {
+                                if st.borrador.len() + t.len() <= charla::LARGO {
+                                    st.borrador.extend_from_slice(t);
+                                }
+                            }
                             otro => {
                                 st.escribiendo = false;
                                 match otro {
@@ -298,6 +342,13 @@ pub extern "C" fn _start() -> ! {
                     Some(Golpe::Escribir) => st.escribiendo = true,
                     Some(Golpe::Zumbido) => st.zumbar(ahora),
                     Some(Golpe::Cerrar) => cerrar(),
+                    Some(Golpe::Repro(m)) => st.mando(m),
+                    Some(Golpe::Poner(t)) => {
+                        st.escribiendo = true;
+                        if st.borrador.len() + t.len() <= charla::LARGO {
+                            st.borrador.extend_from_slice(t);
+                        }
+                    }
                     None => {}
                 },
                 Input::Char(b'/') if escribible => st.escribiendo = true,
@@ -359,6 +410,8 @@ pub extern "C" fn _start() -> ! {
                     rms,
                     sin_guardar: charla.sin_guardar,
                     aviso: &st.aviso,
+                    pausada: st.pausada,
+                    volumen: st.volumen,
                 };
                 pintar::pintar(&mut cv, &v);
                 if entrada {

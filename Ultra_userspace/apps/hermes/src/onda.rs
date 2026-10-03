@@ -4,7 +4,7 @@
 
 use crate::canvas::Canvas;
 use crate::mates::{coseno, fase, onda, seno};
-use crate::pintar::{alto, ancho_centro, llega, nivel, Vista, BLANCO, CABECERA, CIAN, FONDO, GRIS, LIMA, LINEA, NEGRO, PANEL2, ROSA, TENUE, TEXTO, AMBAR, AZUL, MORADO, VERDE};
+use crate::pintar::{suelo, ancho_centro, llega, nivel, Vista, BLANCO, CABECERA, CIAN, FONDO, GRIS, LIMA, LINEA, NEGRO, PANEL2, ROSA, TENUE, TEXTO, AMBAR, AZUL, MORADO, VERDE};
 use bmo_dibujo::{mezclar, Color, Lienzo};
 use bmo_fondo::{Estilo, PIEZAS};
 
@@ -18,12 +18,12 @@ pub(crate) fn color_pieza(k: usize) -> Color {
 
 /// Lo que tarda una vuelta del bucle, en ms: ocho compases de cuatro pulsos
 /// (`bmo_fondo::compositor::PASOS` son 128 semicorcheas).
-fn vuelta_ms(bpm: u32) -> u32 {
+pub(crate) fn vuelta_ms(bpm: u32) -> u32 {
     32 * 60_000 / bpm.max(1)
 }
 
 /// `m:ss` en `b`; devuelve cuantos bytes.
-fn reloj(ms: u32, b: &mut [u8; 8]) -> usize {
+pub(crate) fn reloj(ms: u32, b: &mut [u8; 8]) -> usize {
     let s = ms / 1000;
     let mut n = crate::fmt_num((s / 60) as u64, &mut b[..]);
     b[n] = b':';
@@ -156,7 +156,7 @@ pub(crate) fn la_onda(cv: &mut Canvas, v: &Vista, x0: i32) {
     // espectro (los graves arriba) y un baile propio de cada barra; los picos
     // caen despacio, y el suelo refleja.
     let ey = cy + R + 40;
-    let eh = (alto() - ey - 70).max(60);
+    let eh = (suelo() - ey - 70).max(60);
     for q in 1..4 {
         cv.rect(x0 + 20, ey + eh * q / 4, w, 1, mezclar(LINEA, FONDO, 140, 256));
     }
