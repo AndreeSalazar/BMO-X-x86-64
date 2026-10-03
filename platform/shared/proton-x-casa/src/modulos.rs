@@ -438,12 +438,18 @@ fn no_estaba(dll: &str, nombre: &str, con_trampa: bool) {
     // SAFETY: como arriba; nadie guarda la referencia.
     let v = unsafe { &mut *VISTAS.0.get() };
     // Preguntar por lo del sistema (kernel32, ntdll, api-ms-*) es lo normal
-    // y el `.exe` mira el NULL; lo que se apunta es lo de las demas DLL
-    // (graficos, juego), donde un NULL es una funcion que falta de verdad.
+    // y el `.exe` suele mirar el NULL: no es un aviso. Desde el 03-10 va al
+    // DIARIO como nota (una vez por nombre): Cyberpunk salta a 0 dos veces
+    // en el mismo sitio, y un NULL del sistema que no mira es uno de los dos
+    // sospechosos.
+    let clave = alloc::format!("{dll}!{nombre}");
     if crate::trampas::es_del_sistema(dll) {
+        if v.len() < 256 && !v.contains(&clave) {
+            crate::diario::nota(&alloc::format!("GetProcAddress({dll}, \"{nombre}\"): del sistema y la casa no la tiene; el .exe recibe NULL (deberia mirarlo)"));
+            v.push(clave);
+        }
         return;
     }
-    let clave = alloc::format!("{dll}!{nombre}");
     if v.len() < 256 && !v.contains(&clave) {
         let recibe = if con_trampa { "una TRAMPA (si la llama, se dice)" } else { "NULL" };
         aviso(&alloc::format!("GetProcAddress({dll}, \"{nombre}\"): la casa no la tiene; el .exe recibe {recibe}"));

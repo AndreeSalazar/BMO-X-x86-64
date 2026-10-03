@@ -88,6 +88,43 @@ pub(crate) fn trampa(dll: &str, nombre: &str) -> Option<u64> {
     Some(DIRECCIONES[i] as usize as u64)
 }
 
+/// Las excepciones del cargador RETRASADO de MSVC (`/DELAYLOAD`):
+/// `VcppException(ERROR_SEVERITY_ERROR, ERROR_MOD_NOT_FOUND)` y la de
+/// `ERROR_PROC_NOT_FOUND`.
+pub(crate) const RETRASADA_SIN_DLL: u32 = 0xC06D_007E;
+pub(crate) const RETRASADA_SIN_FUNCION: u32 = 0xC06D_007F;
+
+/// **Una importacion RETRASADA que no esta** (03-10, la sexta corrida). El
+/// cargador retrasado del `.exe` (`__delayLoadHelper2`) pide la DLL y la
+/// funcion a la casa; si no estan, lanza una de las dos excepciones de
+/// arriba con su `DelayLoadInfo` y, SI ALGUIEN LA CONTINUA, salta a lo que
+/// haya en `pfnCur` -- 0: el `.exe` llama a la direccion 0 (Cyberpunk, dos
+/// veces en el mismo sitio, `call [rip+..]` desde `+0x1d4c6cf`).
+///
+/// Antes de despachar se pone en `pfnCur` la TRAMPA de `dll!funcion` y se
+/// dice: si se continua, el `.exe` llama a la trampa (que lo dice y da 0),
+/// no a la nada; si la coge un `__except`, no cambia nada.
+///
+/// `DelayLoadInfo` (x64): cb +0, pidd +8, ppfn +16, szDll +24, dlp
+/// (fImportByName +32, nombre u ordinal +40), hmodCur +48, pfnCur +56.
+pub(crate) fn retrasada(codigo: u32, parametros: &[u64]) {
+    if codigo != RETRASADA_SIN_DLL && codigo != RETRASADA_SIN_FUNCION {
+        return;
+    }
+    let Some(&dli) = parametros.first().filter(|&&p| p >= 0x1_0000) else { return };
+    // SAFETY: el `DelayLoadInfo` que el cargador retrasado del `.exe` paso
+    // como primer argumento de su excepcion (vive en su pila).
+    let (dll, por_nombre, quien) = unsafe { ((dli as *const u64).add(3).read(), ((dli + 32) as *const u32).read(), ((dli + 40) as *const u64).read()) };
+    let texto = |p: u64| if p >= 0x1_0000 { String::from_utf8_lossy(&crate::crt::cadena_c(p)).into_owned() } else { String::from("?") };
+    let dll = texto(dll);
+    let nombre = if por_nombre != 0 { texto(quien) } else { format!("#{}", quien as u16) };
+    let t = trampa(&dll, &nombre).unwrap_or(0);
+    // SAFETY: `pfnCur` del mismo `DelayLoadInfo`, que el `.exe` lee al volver.
+    unsafe { ((dli + 56) as *mut u64).write(t) };
+    let que = if codigo == RETRASADA_SIN_DLL { "la DLL no la tiene la casa" } else { "la casa no tiene esa funcion" };
+    aviso(&format!("importacion RETRASADA {dll}!{nombre}: {que}; si el .exe sigue, llama a una TRAMPA (no a la direccion 0)"));
+}
+
 /// Lo que hace cada trampa al llamarla: decirlo (una vez) y devolver 0.
 fn salto(i: usize) -> u64 {
     let e = estado();
@@ -112,3 +149,39 @@ static DIRECCIONES: [extern "win64" fn() -> u64; TRAMPAS] = direcciones!(
     0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
     32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63
 );
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+
+    /// Un `DelayLoadInfo` como el del cargador retrasado de MSVC: la
+    /// excepcion de "no esta" deja en `pfnCur` la trampa de `dll!funcion`
+    /// (antes, 0: el `.exe` saltaba a la direccion 0), y la trampa da 0.
+    #[test]
+    fn una_retrasada_que_no_esta_deja_una_trampa_y_no_un_nulo() {
+        let (dll, funcion) = (b"WTSAPI32.dll\0", b"WTSRegisterSessionNotification\0");
+        let mut dli = [0u64; 9];
+        dli[0] = 72;
+        dli[3] = dll.as_ptr() as u64;
+        dli[4] = 1; // fImportByName
+        dli[5] = funcion.as_ptr() as u64;
+        let p = dli.as_mut_ptr() as u64;
+        retrasada(RETRASADA_SIN_DLL, &[p]);
+        let t = dli[7];
+        assert_ne!(t, 0, "pfnCur ya no es nulo");
+        assert_eq!(Some(t), trampa("wtsapi32.dll", "WTSRegisterSessionNotification"), "la misma trampa que daria GetProcAddress");
+        // SAFETY: una trampa de la casa: u64 f().
+        assert_eq!(unsafe { core::mem::transmute::<u64, extern "win64" fn() -> u64>(t) }(), 0);
+        // Otra excepcion cualquiera no toca nada.
+        let mut otro = [0u64; 9];
+        otro[3] = dll.as_ptr() as u64;
+        retrasada(0xE06D_7363, &[otro.as_mut_ptr() as u64]);
+        assert_eq!(otro[7], 0);
+        // Por ordinal.
+        let mut ord = [0u64; 9];
+        ord[3] = dll.as_ptr() as u64;
+        ord[5] = 7;
+        retrasada(RETRASADA_SIN_FUNCION, &[ord.as_mut_ptr() as u64]);
+        assert_eq!(Some(ord[7]), trampa("WTSAPI32.dll", "#7"));
+    }
+}

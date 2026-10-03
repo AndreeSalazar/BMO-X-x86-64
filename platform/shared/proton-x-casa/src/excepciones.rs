@@ -374,6 +374,8 @@ extern "win64" fn despachar(codigo: u32, banderas: u32, n: u32, args: *const u64
     let n = (n as usize).min(seh::MAX_PARAMETROS);
     // SAFETY: el `.exe` promete `n` argumentos en `args`, como en Windows.
     let parametros = if args.is_null() { Vec::new() } else { unsafe { core::slice::from_raw_parts(args, n) }.to_vec() };
+    // 03-10: una importacion retrasada que no esta: su trampa, antes de nada.
+    crate::trampas::retrasada(codigo, &parametros);
     let r = Registro { codigo, banderas: banderas & seh::EXCEPTION_NONCONTINUABLE, anidado: 0, direccion: c.rip, parametros };
     let mut rec = Bytes([0u8; REGISTRO_BYTES]);
     r.a_bytes(&mut rec.0);

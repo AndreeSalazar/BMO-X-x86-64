@@ -1,6 +1,7 @@
 //! **La matematica de los sombreadores** (03-10, N5.6): lo que DXIL llama
 //! `dx.op.unary` y la casa no sabia -- seno, coseno, tangente, exp2, log2,
-//! frac, los redondeos y los medios floats.
+//! frac, los redondeos y los medios floats; y (03-10, la sexta corrida
+//! pidio la 15) los arcos y los hiperbolicos.
 //!
 //! [carril]  VERDE     cuentas; no toca la maquina
 //! [cuesta]  DATO      una cuenta mal hecha pinta otra luz (la niebla, el
@@ -15,7 +16,8 @@
 //! f32, que es lo que guarda un registro del sombreador.
 //!
 //! ```text
-//!    DXIL  12 Cos   13 Sin   14 Tan   21 Exp (2^x)   22 Frc   23 Log (log2)
+//!    DXIL  12 Cos   13 Sin   14 Tan   15 Acos   16 Asin   17 Atan
+//!          18 Hcos  19 Hsin  20 Htan  21 Exp (2^x)   22 Frc   23 Log (log2)
 //!          26 Round_ne (al par)  27 Round_ni (suelo)  28 Round_pi (techo)
 //!          29 Round_z (truncar)   130 f32tof16   131 f16tof32
 //! ```
@@ -39,6 +41,12 @@ pub enum Mate {
     F16aF32,
     /// Un float a half: sus 16 bits, como entero (sale como BITS).
     F32aF16,
+    Acos,
+    Asin,
+    Atan,
+    Cosh,
+    Senh,
+    Tanh,
 }
 
 impl Mate {
@@ -48,6 +56,12 @@ impl Mate {
             12 => Mate::Cos,
             13 => Mate::Sin,
             14 => Mate::Tan,
+            15 => Mate::Acos,
+            16 => Mate::Asin,
+            17 => Mate::Atan,
+            18 => Mate::Cosh,
+            19 => Mate::Senh,
+            20 => Mate::Tanh,
             21 => Mate::Exp2,
             22 => Mate::Frac,
             23 => Mate::Log2,
@@ -78,6 +92,15 @@ impl Mate {
             Mate::Trunca => trunca(x).to_bits(),
             Mate::F16aF32 => de_medio(a as u16).to_bits(),
             Mate::F32aF16 => a_medio(x) as u32,
+            Mate::Acos => (FRAC_PI_2 - arcoseno64(x as f64)).to_bits_f32(),
+            Mate::Asin => arcoseno64(x as f64).to_bits_f32(),
+            Mate::Atan => arcotangente64(x as f64).to_bits_f32(),
+            Mate::Cosh => {
+                let e = exp64(x.abs() as f64);
+                ((e + 1.0 / e) * 0.5).to_bits_f32()
+            }
+            Mate::Senh => senh64(x as f64).to_bits_f32(),
+            Mate::Tanh => tanh64(x as f64).to_bits_f32(),
         }
     }
 }
@@ -247,6 +270,123 @@ fn log2(x: f32) -> f32 {
     (e as f64 + 2.0 * s / LN_2) as f32
 }
 
+/// Un f64 a los bits de su f32 (lo que guarda un registro).
+trait AF32 {
+    fn to_bits_f32(self) -> u32;
+}
+impl AF32 for f64 {
+    fn to_bits_f32(self) -> u32 {
+        (self as f32).to_bits()
+    }
+}
+
+/// La raiz de un f64 >= 0, por Newton (sin `libm`): el exponente a la
+/// mitad para empezar, y seis vueltas.
+fn raiz64(x: f64) -> f64 {
+    if x.is_nan() || x < 0.0 {
+        return f64::NAN;
+    }
+    if x == 0.0 || x.is_infinite() {
+        return x;
+    }
+    let mut r = f64::from_bits((x.to_bits() >> 1) + (1023u64 << 51));
+    for _ in 0..6 {
+        r = 0.5 * (r + x / r);
+    }
+    r
+}
+
+/// atan(x). Lo de |x| > 1 va a 1/x (pi/2 - atan(1/x)); lo de mas de
+/// tan(pi/12), a la identidad de pi/6; ahi la serie corre deprisa (x^2 <
+/// 0.072).
+fn arcotangente64(x: f64) -> f64 {
+    if x.is_nan() {
+        return x;
+    }
+    let (signo, mut a) = (if x < 0.0 { -1.0 } else { 1.0 }, x.abs());
+    let mut suma = 0.0;
+    if a > 1.0 {
+        // pi/2 - atan(1/a); con a infinito, 1/a = 0.
+        suma = FRAC_PI_2;
+        a = -1.0 / a;
+    }
+    const RAIZ3: f64 = 1.732_050_807_568_877_2;
+    const TAN_PI_12: f64 = 0.267_949_192_431_122_7;
+    let (mut extra, mut b) = (0.0, a);
+    if b.abs() > TAN_PI_12 {
+        extra = b.signum() * PI / 6.0;
+        b = (b.abs() * RAIZ3 - 1.0) / (b.abs() + RAIZ3) * b.signum();
+    }
+    let b2 = b * b;
+    let (mut t, mut s) = (b, b);
+    for k in 1..14 {
+        t *= -b2;
+        s += t / (2 * k + 1) as f64;
+    }
+    signo * (suma + extra + s)
+}
+
+/// asin(x) = atan(x / raiz(1 - x^2)); fuera de [-1, 1], NaN.
+fn arcoseno64(x: f64) -> f64 {
+    if x.is_nan() || x.abs() > 1.0 {
+        return f64::NAN;
+    }
+    if x.abs() == 1.0 {
+        return x * FRAC_PI_2;
+    }
+    arcotangente64(x / raiz64((1.0 - x) * (1.0 + x)))
+}
+
+/// e^x en f64 (la misma serie que [`exp2`]).
+fn exp64(x: f64) -> f64 {
+    if x.is_nan() {
+        return x;
+    }
+    if x > 709.0 {
+        return f64::INFINITY;
+    }
+    if x < -745.0 {
+        return 0.0;
+    }
+    let n = suelo64(x / LN_2);
+    let f = x - n * LN_2;
+    let (mut t, mut s) = (1.0f64, 1.0f64);
+    for k in 1..18 {
+        t *= f / k as f64;
+        s += t;
+    }
+    // 2^n en dos mitades: n llega a -1075 y un solo exponente no cabe.
+    let (n1, n2) = ((n / 2.0) as i64, (n - (n / 2.0) as i64 as f64) as i64);
+    s * f64::from_bits(((n1 + 1023) as u64) << 52) * f64::from_bits(((n2 + 1023) as u64) << 52)
+}
+
+/// senh(x): la serie cerca de 0 (restar dos e^x casi iguales perderia todo).
+fn senh64(x: f64) -> f64 {
+    if x.abs() < 0.5 {
+        let x2 = x * x;
+        let (mut t, mut s) = (x, x);
+        for k in 1..10 {
+            t *= x2 / ((2 * k) * (2 * k + 1)) as f64;
+            s += t;
+        }
+        return s;
+    }
+    let e = exp64(x.abs());
+    x.signum() * (e - 1.0 / e) * 0.5
+}
+
+/// tanh(x): senh / cosh, y +-1 lejos de 0.
+fn tanh64(x: f64) -> f64 {
+    if x.is_nan() {
+        return x;
+    }
+    if x.abs() > 20.0 {
+        return x.signum();
+    }
+    let e = exp64(x.abs());
+    senh64(x) / ((e + 1.0 / e) * 0.5)
+}
+
 /// Un half (IEEE 754 binario16) a f32.
 pub fn de_medio(h: u16) -> f32 {
     let signo = ((h >> 15) as u32) << 31;
@@ -316,6 +456,37 @@ mod pruebas {
             x += 0.0173;
         }
         assert!(seno(f32::INFINITY).is_nan());
+    }
+
+    /// Los arcos y los hiperbolicos (03-10), contra la `std`.
+    #[test]
+    fn arcos_e_hiperbolicos_contra_la_libm() {
+        let cerca = |a: f32, b: f32, que: &str, x: f32| assert!((a - b).abs() <= 3e-7 * b.abs().max(1.0), "{que} {x}: {a} vs {b}");
+        let mut x = -1.0f32;
+        while x <= 1.0 {
+            cerca(f32::from_bits(Mate::Acos.aplicar(x.to_bits())), x.acos(), "acos", x);
+            cerca(f32::from_bits(Mate::Asin.aplicar(x.to_bits())), x.asin(), "asin", x);
+            x += 0.0071;
+        }
+        for x in [-1.0f32, 1.0, 0.0, -0.0, 0.999_999_9] {
+            cerca(f32::from_bits(Mate::Acos.aplicar(x.to_bits())), x.acos(), "acos", x);
+        }
+        assert!(f32::from_bits(Mate::Asin.aplicar(1.5f32.to_bits())).is_nan());
+        let mut x = -60.0f32;
+        while x < 60.0 {
+            cerca(f32::from_bits(Mate::Atan.aplicar(x.to_bits())), x.atan(), "atan", x);
+            x += 0.0613;
+        }
+        cerca(f32::from_bits(Mate::Atan.aplicar(f32::INFINITY.to_bits())), core::f32::consts::FRAC_PI_2, "atan", f32::INFINITY);
+        let mut x = -12.0f32;
+        while x < 12.0 {
+            let rel = |a: f32, b: f32, que: &str| assert!((a - b).abs() <= 3e-7 * b.abs().max(1e-30) + 1e-37, "{que} {x}: {a} vs {b}");
+            rel(f32::from_bits(Mate::Cosh.aplicar(x.to_bits())), x.cosh(), "cosh");
+            rel(f32::from_bits(Mate::Senh.aplicar(x.to_bits())), x.sinh(), "senh");
+            rel(f32::from_bits(Mate::Tanh.aplicar(x.to_bits())), x.tanh(), "tanh");
+            x += 0.0437;
+        }
+        assert_eq!(f32::from_bits(Mate::Tanh.aplicar(50.0f32.to_bits())), 1.0);
     }
 
     #[test]

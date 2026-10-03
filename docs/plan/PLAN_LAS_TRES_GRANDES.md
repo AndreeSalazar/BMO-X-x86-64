@@ -697,9 +697,10 @@ ventana (`SetWindowPos`) y arranca los hilos de **Bink** (la entrada en
 video). Todavia 0 ExecuteCommandLists y 0 Present: no dibujo nada. Despues
 cayo con un fallo de Ring 3 (en `datos/fallos.txt`, pendiente de leer):
 
-- [ ] **N4.4 -- el fallo de Ring 3**: en la quinta corrida, a los 47 s, un
-  salto a 0 desde `Cyberpunk2077.exe+0x1d4c6cf`. La autopsia ya da el
-  `call` (los bytes de antes del retorno): la proxima corrida lo dice.
+- [ ] **N4.4 -- el fallo de Ring 3**: un salto a 0 por `call [rip+..]`
+  desde `Cyberpunk2077.exe+0x1d4c6cf` (ranura `+0x35848f8`), igual en la
+  quinta y la sexta corrida. Tapados los dos sospechosos (retrasada sin
+  DLL, NULL del sistema): la proxima corrida dice cual era.
 - [x] **N4.5 -- el sonido del juego** (03-10, falta oirlo en el metal):
   WASAPI en la casa (A1.1 a A1.5 y A1.8 de la seccion 3): el
   `MMDeviceEnumerator`, un aparato de salida, `IAudioClient3` por evento, lo
@@ -720,6 +721,20 @@ la proxima corrida dice que registro y que tabla daban el nulo (N4.4). Lo
 nuevo que dijo de sus sombreadores, ya hecho el mismo dia: las derivadas
 (83, 84), las olas (118) y SV_Depth; quedan alloca/GEP (19, 43) y el
 operando no constante (N5.4).
+
+**Estado al 03-10, sexta corrida: el sonido ARRANCA.** `IAudioClient::
+Initialize: 48000 Hz, 2 canal(es), 32 bits float, por evento: aceptado` y
+`Start: el juego empieza a sonar, por el audifono` (el bloque con sonido de
+verdad no llego: aun no habia nada que oir). Murio DOS veces (a los 40 s y
+a los 8 min, otra sesion) en el MISMO sitio, ahora con el `call`: `ff 15
+29 82 83 01`, un `call [rip+0x1838229]` -- la ranura `Cyberpunk2077.exe
++0x35848f8`, una importacion (o un puntero a funcion global) que vale 0.
+Los dos sospechosos, tapados el mismo dia: una importacion RETRASADA cuya
+DLL la casa no tiene (el cargador retrasado de MSVC lanza 0xC06D007E y, si
+alguien la continua, salta a `pfnCur` = 0: ahora `pfnCur` es la TRAMPA de
+`dll!funcion`, y se dice), y un NULL de GetProcAddress del sistema (ahora
+se apunta tambien). Pidio ademas OperacionD3d 15 (acos): los arcos y los
+hiperbolicos, hechos.
 
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:
