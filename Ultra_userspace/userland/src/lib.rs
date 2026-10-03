@@ -676,6 +676,9 @@ pub const INFO_AUDIO_FONDO: u64 = 0xC9;
 pub const INFO_AUDIO_ESPACIO: u64 = 0xCA;
 /// Los lados del aparato: lo que traia cada uno y cual venia callado.
 pub const INFO_AUDIO_LADOS: u64 = 0xCB;
+/// La puerta (syscall) mas larga, y la que corria en el peor latido tarde.
+pub const INFO_PUERTA_LARGA: u64 = 0xCC;
+pub const INFO_PUERTA_DEL_LATIDO: u64 = 0xCD;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

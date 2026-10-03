@@ -135,6 +135,8 @@ pub use entry::init;
 // despachar, y porque quien busque "cuanto cuesta un syscall" no tiene por que
 // leerse el despachador para encontrarlo.
 pub mod meter;
+/// LA PUERTA LARGA (03-10): cual syscall tuvo el CPU con el reloj callado.
+pub mod larga;
 // Lo que una puerta TIENE PERMITIDO costar. Va al lado del metro porque uno
 // mide y el otro juzga, y separarlos dejaria el numero sin contrato.
 pub mod presupuesto;
@@ -1290,6 +1292,9 @@ extern "C" fn dispatch(frame: &mut TrapFrame) -> u64 {
         _ => SYSCALL_CLASS_COUNT,
     };
     meter::count_class(clase as usize);
+    // ** LA PUERTA LARGA (03-10): que operacion y cuanto, si pasa de 2 ms.
+    // Se lee ANTES de llamar: la operacion puede reescribir los registros.
+    let (__larga, __op) = (larga::empieza(), frame.rsi);
     let status = match frame.rax as u32 {
         NR_INVOKE => invoke(frame),
         NR_WAIT => wait(frame),
@@ -1300,6 +1305,7 @@ extern "C" fn dispatch(frame: &mut TrapFrame) -> u64 {
     };
     frame.rax = (status.code as u64) | ((status.flags as u64) << 32);
     frame.rdx = status.value;
+    larga::acaba(__larga, __op, clase as u32, unsafe { scheduler::current_tid_en_trap() });
     let salida = percpu::trap_rsp();
     meter::stop(__metro);
     salida

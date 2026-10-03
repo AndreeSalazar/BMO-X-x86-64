@@ -576,6 +576,18 @@ pub const INFO_AUDIO_ESPACIO: u64 = 0xCA;
 /// reclamarlo se igualan.
 pub const INFO_AUDIO_LADOS: u64 = 0xCB;
 
+/// **LA PUERTA LARGA** (03-10): la syscall mas larga desde el arranque. Una
+/// puerta corre ENTERA con las interrupciones cerradas: mientras dura, ni el
+/// reloj ni el hilo del bus USB (ni el audio) pueden entrar. `[0..16)` la
+/// operacion (`rsi`), `[16..24)` el tid, `[24..32)` la clase (0 consola,
+/// 1 tarea, 2 handle, 3 wait), `[32..64)` los microsegundos. 0 = ninguna
+/// paso de 2 ms.
+pub const INFO_PUERTA_LARGA: u64 = 0xCC;
+/// La puerta larga que corria durante el PEOR latido tarde del bus
+/// ([`INFO_USB_LATIDO`]), en el mismo paquete. 0 = el retraso no fue una
+/// puerta.
+pub const INFO_PUERTA_DEL_LATIDO: u64 = 0xCD;
+
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///
 /// Cuantas puertas ha servido el kernel, y cuantos ciclos ha pasado DENTRO de

@@ -86,7 +86,7 @@ pub mod portero;
 /// El atajo que le devuelve la maquina al propietario. Politica, no driver.
 pub mod rescate;
 
-pub use bus::{bus_stats, bus_thread, latido_peor, latido_peor_cuando, nombre_de_trabajo, peor_trabajo, ritmo, ritmo_y_peor, start_bus_thread};
+pub use bus::{bus_stats, bus_thread, latido_peor, latido_peor_cuando, latido_peor_puerta, nombre_de_trabajo, peor_trabajo, ritmo, ritmo_y_peor, start_bus_thread};
 use bus::pump_bus;
 use rescate::{raw_key_from_owner, tecla_del_propietario};
 pub use panel::*;

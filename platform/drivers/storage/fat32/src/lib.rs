@@ -143,7 +143,14 @@ pub struct FatVolume {
     /// El sector del FSInfo (FAT32; 0 = no hay): donde Windows apunta su
     /// cuenta de libres. Es una PISTA, y se lee solo como testigo.
     fsinfo: u16,
+    /// ** LA PISTA DEL HUECO (03-10): el sector de la FAT (desde su inicio)
+    /// donde empezar a buscar clusters libres. [`SIN_PISTA`] hasta la primera
+    /// busqueda. Ver `escribir.rs`, `orden_de_busqueda`.
+    pista: u32,
 }
+
+/// Aun no se busco hueco: la pista sale del FSInfo (o es 0).
+pub(crate) const SIN_PISTA: u32 = u32::MAX;
 
 /// No hay ningun sector cargado en `fat_cache`. No es un LBA posible.
 const SIN_CACHE: u64 = u64::MAX;
@@ -235,7 +242,7 @@ pub fn mount(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64) -> 
     // PRIMERA operacion que se haga con el volumen.
     if bpb.root_cluster < 2 || bpb.root_cluster > max_cluster { return None; }
     Some(FatVolume { dev, escribible, part_lba, fs_type: FsType::Fat32, bytes_per_sector: bpb.bytes_per_sector, sectors_per_cluster: spc,
-        num_fats, fat_start, fat_size_sectors, data_start, root_cluster: bpb.root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None, fsinfo: bpb.fs_info })
+        num_fats, fat_start, fat_size_sectors, data_start, root_cluster: bpb.root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None, fsinfo: bpb.fs_info, pista: SIN_PISTA })
 }
 
 fn mount_exfat(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64, buf: &[u8; 512]) -> Option<FatVolume> {
@@ -271,7 +278,7 @@ fn mount_exfat(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64, b
     let max_cluster = epb.cluster_count.checked_add(1)?;
     if root_cluster < 2 || root_cluster > max_cluster { return None; }
     Some(FatVolume { dev, escribible, part_lba, fs_type: FsType::ExFat, bytes_per_sector, sectors_per_cluster,
-        num_fats, fat_start, fat_size_sectors, data_start, root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None, fsinfo: 0 })
+        num_fats, fat_start, fat_size_sectors, data_start, root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None, fsinfo: 0, pista: SIN_PISTA })
 }
 
 /// **UN CURSOR DENTRO DE UN ARCHIVO.** Sabe por que cluster va y en que byte del

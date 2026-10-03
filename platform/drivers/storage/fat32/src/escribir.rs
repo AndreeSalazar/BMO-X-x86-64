@@ -22,6 +22,49 @@
 use super::*;
 
 impl FatVolume {
+    /// ** DONDE EMPEZAR A BUSCAR HUECO (03-10), y por que importa tanto.
+    ///
+    /// Buscar clusters libres empezaba SIEMPRE en el sector 0 de la FAT, y
+    /// leia sector a sector (una orden al disco cada uno) hasta dar con
+    /// hueco. En un volumen de 32 GB con lo de Windows delante son MILES de
+    /// lecturas antes del primer libre, por cada fichero que se guarda. Y en
+    /// BMO-X eso pasa DENTRO de una syscall, con las interrupciones cerradas:
+    /// el SALIDA.TXT del 03-10 tenia `latido tarde 467 ms` con el reloj
+    /// callado y el escritorio en el CPU, y el audio cortado 580 ms.
+    ///
+    /// La pista es lo que FAT32 trae para esto (el "proximo libre" del
+    /// FSInfo, que pone Windows) y, despues, donde se cogio el ultimo. Si la
+    /// pista miente no pasa nada malo: la busqueda da la vuelta y mira desde
+    /// el 0 lo que quedo atras. Solo cuesta lo de antes.
+    ///
+    /// Devuelve `(desde, ultimo)`: se busca de `desde` a `ultimo` y despues de
+    /// 0 a `desde`.
+    fn orden_de_busqueda(&mut self) -> (u32, u32) {
+        let ultimo = (((self.max_cluster as u64 + 1) * 4).div_ceil(512) as u32).min(self.fat_size_sectors).saturating_sub(1);
+        if self.pista == SIN_PISTA {
+            self.pista = self.pista_del_fsinfo().map_or(0, |c| c * 4 / 512);
+        }
+        (self.pista.min(ultimo), ultimo)
+    }
+
+    /// El "proximo libre" que Windows apunto en el FSInfo, si es un cluster
+    /// que existe. Solo dice POR DONDE empezar a mirar; nunca se cree que
+    /// este libre.
+    fn pista_del_fsinfo(&mut self) -> Option<u32> {
+        if self.fs_type != FsType::Fat32 || self.fsinfo == 0 || self.fsinfo == 0xFFFF {
+            return None;
+        }
+        if !self.read_sector(self.fsinfo as u64, Buf::buf) {
+            return None;
+        }
+        let le = |o: usize| u32::from_le_bytes([self.buf[o], self.buf[o + 1], self.buf[o + 2], self.buf[o + 3]]);
+        if le(0) != 0x4161_5252 || le(484) != 0x6141_7272 {
+            return None;
+        }
+        let c = le(492);
+        (c >= 2 && c <= self.max_cluster).then_some(c)
+    }
+
     /// Find a free cluster in the FAT.
     /// Busca un cluster libre DENTRO de los que existen.
     ///
@@ -29,19 +72,23 @@ impl FatVolume {
     /// final de la FAT se lee como espacio libre y se acaba escribiendo fuera
     /// del volumen. Ver la nota del campo.
     fn find_free_cluster(&mut self) -> Option<u32> {
-        for sector in 0..self.fat_size_sectors {
+        let (desde, ultimo) = self.orden_de_busqueda();
+        for sector in (desde..=ultimo).chain(0..desde) {
             unsafe {
                 if !self.read_sector((self.fat_start + sector) as u64, Buf::fat_cache) { continue; }
             }
             for i in 0..(512/4) {
                 let cluster = sector * (512/4) as u32 + i as u32;
                 if cluster < 2 { continue; }
-                if cluster > self.max_cluster { return None; }
+                if cluster > self.max_cluster { break; }
                 let entry = u32::from_le_bytes([
                     self.fat_cache[i*4], self.fat_cache[i*4+1],
                     self.fat_cache[i*4+2], self.fat_cache[i*4+3],
                 ]) & 0x0FFF_FFFF;
-                if entry == 0 { return Some(cluster); }
+                if entry == 0 {
+                    self.pista = sector;
+                    return Some(cluster);
+                }
             }
         }
         None
@@ -125,6 +172,11 @@ impl FatVolume {
                 }
             };
             if !self.set_fat_entry(c, 0) { return; }
+            // Lo soltado es hueco: la pista baja hasta el, y lo siguiente que
+            // se guarde lo reusa (el volumen no se desparrama hacia el final).
+            if self.pista != SIN_PISTA {
+                self.pista = self.pista.min(c * 4 / 512);
+            }
             if next < 2 || next >= 0x0FFF_FFF7 { return; }
             c = next;
             // Una FAT corrupta puede tener un ciclo; no se gira para siempre.
@@ -360,13 +412,13 @@ impl FatVolume {
         let mut tramo_n = 0usize;
         let mut tramo_i = 0usize;
 
-        for fs in 0..self.fat_size_sectors {
+        let (desde, ultimo) = self.orden_de_busqueda();
+        for fs in (desde..=ultimo).chain(0..desde) {
             if got == needed { break; }
             let lba = (self.fat_start + fs) as u64;
             // La copia 0 manda: es la que se lee al buscar hueco.
             if !self.read_sector(lba, Buf::fat_cache) { continue; }
             let mut tocado = false;
-            let mut sin_hueco = false;
             // Un enlace que no cabe en ESTE sector: el anterior vive en uno
             // que ya se escribio. Se apunta y se escribe despues.
             let mut enlace_fuera: Option<(u32, u32)> = None;
@@ -374,7 +426,7 @@ impl FatVolume {
                 if got == needed { break; }
                 let c = fs * POR_SECTOR + i;
                 if c < 2 { continue; }
-                if c > self.max_cluster { sin_hueco = true; break; }
+                if c > self.max_cluster { break; }
                 let k = (i * 4) as usize;
                 let e = u32::from_le_bytes([
                     self.fat_cache[k], self.fat_cache[k + 1],
@@ -426,7 +478,6 @@ impl FatVolume {
                     return Err(WriteError::Io);
                 }
             }
-            if sin_hueco { break; }
         }
         if got < needed {
             self.soltar_a_medias(first);
@@ -436,6 +487,8 @@ impl FatVolume {
             self.soltar_a_medias(first);
             return Err(WriteError::Io);
         }
+        // El proximo hueco esta donde se cogio el ultimo (o despues).
+        self.pista = prev * 4 / 512;
         Ok(first)
     }
 

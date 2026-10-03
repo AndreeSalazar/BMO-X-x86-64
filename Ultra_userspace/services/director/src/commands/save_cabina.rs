@@ -246,6 +246,42 @@ fn clave_ficha(buf: &mut [u8; 20], i: u64, que: &[u8]) -> usize {
     n
 }
 
+/// Una puerta larga (paquete de `INFO_PUERTA_LARGA`): sus ms, y de quien y
+/// cual en la nota.
+fn puerta(s: &mut Output, nombre: &[u8], v: u64, que: &[u8]) {
+    if v == 0 {
+        fila_cero(s, nombre, 0, b"ninguna puerta paso de 2 ms");
+        return;
+    }
+    let (op, tid, clase, us) = (v & 0xFFFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF, v >> 32);
+    let mut nota = [0u8; 160];
+    let mut n = 0;
+    let mut pon = |b: &[u8]| {
+        let k = b.len().min(nota.len() - n);
+        nota[n..n + k].copy_from_slice(&b[..k]);
+        n += k;
+    };
+    pon(match clase {
+        0 => b"consola",
+        1 => b"tarea, op ",
+        2 => b"handle, op ",
+        3 => b"wait",
+        _ => b"? ",
+    });
+    let mut d = [0u8; 10];
+    if clase == 1 || clase == 2 {
+        let k = crate::text::decimal(op, &mut d);
+        pon(&d[..k]);
+    }
+    pon(b" de ");
+    let mut quien = [0u8; 64];
+    let k = nombre_del_tid(tid, &mut quien);
+    pon(&quien[..k]);
+    pon(b" -- ");
+    pon(que);
+    fila(s, nombre, us / 1000, b"ms", &nota[..n]);
+}
+
 /// **El peor retraso del latido del bus, y QUIEN** (2026-09-21).
 ///
 /// `[!] usb el latido del bus llego TARDE 1266 ms` salio en dos saves seguidos
@@ -274,6 +310,10 @@ fn report_latido(s: &mut Output) {
     fila(s, b"  el CPU lo tuvo", tid, b"tid", &quien[..k]);
     fila(s, b"  durante", suyo, b"ms", b"de esos ms, los que fueron de ese tid");
     fila(s, b"  la vuelta del bus", vuelta, b"ms", b"lo que costo la vuelta anterior; si es ~ el retraso, fue el BUS");
+    // ** LA PUERTA LARGA (03-10): si el reloj estaba callado, alguien estaba
+    // DENTRO de una syscall (corren con las interrupciones cerradas). Cual.
+    puerta(s, b"  la puerta", bmo::info(bmo::INFO_PUERTA_DEL_LATIDO), b"la syscall que corria mientras el bus esperaba");
+    puerta(s, b"puerta larga", bmo::info(bmo::INFO_PUERTA_LARGA), b"la syscall MAS larga desde el arranque (reloj callado)");
     // Y de los trabajos de la vuelta, el que MAS tardo desde el arranque: si
     // la vuelta fue el culpable, esto dice que parte de la vuelta.
     let ritmo = bmo::info(bmo::INFO_USB_RITMO);
