@@ -240,6 +240,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-espejo-cara"
+version = "0.1.0"
+dependencies = [
+ "bmo-bankcat",
+ "bmo-dibujo",
+ "bmo-huesped",
+ "bmo-imagen",
+ "bmo-letra",
+]
+
+[[package]]
 name = "bmo-espejo-cobol"
 version = "0.1.0"
 dependencies = [
@@ -372,6 +383,10 @@ name = "bmo-hostile"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-huesped"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-identify"
 version = "0.1.0"
 
@@ -472,6 +487,10 @@ dependencies = [
  "boot-context",
  "cabina-core",
 ]
+
+[[package]]
+name = "bmo-letra"
+version = "0.1.0"
 
 [[package]]
 name = "bmo-lower"

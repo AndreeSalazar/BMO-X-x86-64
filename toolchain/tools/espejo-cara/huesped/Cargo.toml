@@ -1,0 +1,7 @@
+[package]
+name = "bmo-huesped"
+version = "0.1.0"
+edition = "2021"
+description = "Lo minimo de bmo-userland para pintar una app de BMO-X en el anfitrion (ESPEJO de cara)."
+
+[dependencies]

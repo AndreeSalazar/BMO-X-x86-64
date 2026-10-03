@@ -1,0 +1,30 @@
+[package]
+name = "bmo-espejo-cara"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "ESPEJO de CARA: la app de BMO-X, pintada en el anfitrion con su codigo de verdad, contra la foto de su maqueta; y la paleta de la maqueta hecha constantes de Rust."
+
+# Herramienta de ANFITRION, como el ESPEJO de C y el de COBOL. Lo de fuera
+# (el navegador que hace la foto de la maqueta) es la REGLA con que se mide,
+# no algo que baje a la maquina: `foto.js` corre en tu PC, no en BMO-X.
+[dependencies]
+bmo-imagen = { path = "../../../platform/shared/bmo-imagen" }
+bmo-letra = { path = "../../../platform/shared/bmo-letra" }
+bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
+bmo-bankcat = { path = "../../../platform/shared/bmo-bankcat" }
+# Lo minimo de `bmo-userland` para que el codigo de la app compile en el
+# anfitrion: la letra de 8 x 16 (la MISMA tabla, incluida) y el medidor.
+bmo-userland = { path = "huesped", package = "bmo-huesped" }
+
+[[bin]]
+name = "espejo-cara"
+path = "src/main.rs"
+
+[[bin]]
+name = "cara-bankcat"
+path = "src/bin/cara_bankcat.rs"
+
+[[bin]]
+name = "cara-hermes"
+path = "src/bin/cara_hermes.rs"

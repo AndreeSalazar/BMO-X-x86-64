@@ -15,3 +15,5 @@ bmo-userland = { path = "../../userland" }
 bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
 # El WRAPPER del motor: los importes en centimos y el saldo en castellano.
 bmo-bankcat = { path = "../../../platform/shared/bmo-bankcat" }
+# LA LETRA de las maquetas (03-10): proporcional y suave, trazos de la casa.
+bmo-letra = { path = "../../../platform/shared/bmo-letra" }
