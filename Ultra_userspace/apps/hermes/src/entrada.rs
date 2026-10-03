@@ -14,6 +14,7 @@
 use crate::canvas::Canvas;
 use crate::gato::{EYES, HEIGHT, STROKE, WIDTH};
 use crate::mates::{azar, coseno, seno};
+use crate::piezas::{t_grande, ancho_txt, txt};
 use bmo_dibujo::{mezclar, Color, Lienzo};
 
 pub const DURA: u32 = 1500;
@@ -137,13 +138,13 @@ pub fn pintar(cv: &mut Canvas, t: u32) {
         let ty = y + gh + 30;
         if fuerza > 0 {
             let j = (azar(tic) % 5) as i32 - 2;
-            cv.text(tx - 3 + j, ty, &palabra[..n], ROSA, escala);
-            cv.text(tx + 3 - j, ty, &palabra[..n], AZUL, escala);
+            t_grande(cv, tx - 3 + j, ty, &palabra[..n], ROSA, escala);
+            t_grande(cv, tx + 3 - j, ty, &palabra[..n], AZUL, escala);
         }
-        cv.text(tx, ty, &palabra[..n], BLANCO, escala);
+        t_grande(cv, tx, ty, &palabra[..n], BLANCO, escala);
         if n == palabra.len() {
             let sub = b"dos BMO-X que se hablan, sin servidor de nadie";
-            cv.text((cv.w - sub.len() as i32 * 8) / 2, ty + 80, sub, mezclar(CIAN, NEGRO, 180, 256), 1);
+            txt(cv, (cv.w - ancho_txt(sub)) / 2, ty + 80, sub, mezclar(CIAN, NEGRO, 180, 256));
         }
     }
 }

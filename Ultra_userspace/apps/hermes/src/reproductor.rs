@@ -9,7 +9,7 @@
 
 use crate::canvas::Canvas;
 use crate::onda::{color_pieza, portada, reloj, vuelta_ms};
-use crate::piezas::{flecha, negrita_fit, redonda, trazo};
+use crate::piezas::{flecha, negrita_fit, redonda, trazo, ancho_txt, txt, txt_cabe};
 use crate::pintar::{ancho, dentro, nivel, suelo, Vista, BLANCO, GRIS, LIMA, LINEA, NEGRO, REPRO, TENUE, TEXTO};
 use bmo_dibujo::{mezclar, Lienzo};
 use bmo_fondo::PIEZAS;
@@ -83,12 +83,12 @@ pub fn pintar(cv: &mut Canvas, v: &Vista) {
         negrita_fit(cv, 70, y0 + 14, PIEZAS[k].nombre.as_bytes(), BLANCO, tope - 70);
         let mut d = [0u8; 8];
         let nd = crate::fmt_num(PIEZAS[k].bpm as u64, &mut d);
-        let fin = cv.text(70, y0 + 34, b"la ONDA - ", TENUE, 1);
-        let fin2 = cv.text(70 + fin, y0 + 34, &d[..nd], TENUE, 1);
-        cv.text_fit(70 + fin + fin2, y0 + 34, b" pulsos", TENUE, tope - 70 - fin - fin2);
+        let fin = txt(cv, 70, y0 + 34, b"la ONDA - ", TENUE);
+        let fin2 = txt(cv, 70 + fin, y0 + 34, &d[..nd], TENUE);
+        txt_cabe(cv, 70 + fin + fin2, y0 + 34, b" pulsos", TENUE, tope - 70 - fin - fin2);
     } else {
         negrita_fit(cv, 70, y0 + 14, b"Nada suena", TEXTO, tope - 70);
-        cv.text_fit(70, y0 + 34, b"elige una pieza en la ONDA", TENUE, tope - 70);
+        txt_cabe(cv, 70, y0 + 34, b"elige una pieza en la ONDA", TENUE, tope - 70);
     }
 
     // ** Los botones.
@@ -125,8 +125,8 @@ pub fn pintar(cv: &mut Canvas, v: &Vista) {
     let mut b2 = [0u8; 8];
     let (n1, n2) = (reloj(va, &mut b1), reloj(total, &mut b2));
     if v.pedida.is_some() {
-        cv.text(p0 - 10 - n1 as i32 * 8, py - 8, &b1[..n1], TENUE, 1);
-        cv.text(p1 + 10, py - 8, &b2[..n2], TENUE, 1);
+        txt(cv, p0 - 10 - ancho_txt(&b1[..n1]), py - 8, &b1[..n1], TENUE);
+        txt(cv, p1 + 10, py - 8, &b2[..n2], TENUE);
     }
     redonda(cv, p0, py - 2, p1 - p0, 4, 2, LINEA);
     let lleno = ((p1 - p0) as u64 * va as u64 / total.max(1) as u64) as i32;

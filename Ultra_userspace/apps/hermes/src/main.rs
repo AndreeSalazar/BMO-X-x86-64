@@ -34,6 +34,9 @@ mod entrada;
 mod iconos;
 mod onda;
 mod panel;
+/// Compartidas con BANK CAT (que las usa todas: la sombra, los caminos de
+/// SVG...); HERMES aun no usa algunas.
+#[allow(dead_code)]
 mod piezas;
 mod pintar;
 mod reproductor;
