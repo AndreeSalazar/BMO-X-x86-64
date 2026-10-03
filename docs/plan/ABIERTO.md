@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   499 casillas ABIERTAS en 47 planes
+   500 casillas ABIERTAS en 47 planes
    363 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -123,6 +123,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
 - ... y 11 mas
 
+## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 14 abiertas, 4 hechas
+
+*PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
+
+- [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
+- [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
+- [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
+- ... y 11 mas
+
 ## [`PLAN_HERMES.md`](PLAN_HERMES.md) -- 14 abiertas, 2 hechas
 
 *PLAN HERMES -- F3 de BMO-X: dos BMO-X que se hablan, sin servidor de nadie*
@@ -139,15 +148,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] el DIRECTOR le dice el hueco: una ranura de buzon con bit propio
 - [ ] la app puede REEMPLAZAR su superficie: hoy una segunda oferta del
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
-- ... y 10 mas
-
-## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 13 abiertas, 4 hechas
-
-*PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
-
-- [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
-- [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
-- [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 10 mas
 
 ## [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) -- 12 abiertas, 4 hechas
