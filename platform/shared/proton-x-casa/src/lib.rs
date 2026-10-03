@@ -83,6 +83,7 @@ pub mod d3d12_montones;
 pub mod diario;
 pub mod dll_chicas;
 pub mod dxgi;
+pub mod enlaces;
 pub mod esperas;
 pub mod excepciones;
 pub mod ficheros;
@@ -371,6 +372,7 @@ pub unsafe fn empezar(p: Plataforma) {
     // 03-10: las trampas con nombre de GetProcAddress (`trampas`).
     trampas::reiniciar();
     pinceles::reiniciar();
+    enlaces::reiniciar();
 }
 
 /// **Decir una linea por la consola**, sin el tope de `aviso` (quien llama

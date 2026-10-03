@@ -165,6 +165,10 @@ struct Elemento {
 }
 
 fn pso(raiz: u64, vs: &[u8], ps: &[u8], layout: &[Elemento]) -> i32 {
+    pso_y_objeto(raiz, vs, ps, layout).0
+}
+
+fn pso_y_objeto(raiz: u64, vs: &[u8], ps: &[u8], layout: &[Elemento]) -> (i32, u64) {
     let mut d = [0u8; 656];
     let mut pon = |o: usize, v: &[u8]| d[o..o + v.len()].copy_from_slice(v);
     pon(0, &raiz.to_le_bytes());
@@ -186,7 +190,7 @@ fn pso(raiz: u64, vs: &[u8], ps: &[u8], layout: &[Elemento]) -> i32 {
     // SAFETY: el hueco 10 del dispositivo, CreateGraphicsPipelineState.
     let crear: Crear = unsafe { core::mem::transmute(hueco(disp, 10)) };
     let mut p = 0;
-    crear(disp, d.as_ptr(), &com::IID_PSO, &mut p)
+    (crear(disp, d.as_ptr(), &com::IID_PSO, &mut p), p)
 }
 
 fn raiz() -> u64 {
@@ -230,4 +234,30 @@ fn create_graphics_pipeline_state_cruza_el_layout_con_el_sombreador() {
     DICHO.lock().unwrap().clear();
     assert_eq!(pso(0, VS, PS, &layout(true)), E_INVALIDARG);
     assert_eq!(dicho(), "PROTON-X: CreateGraphicsPipelineState sin root signature\n");
+}
+
+/// 03-10: dos PSO con los mismos sombreadores y layout COMPARTEN lo
+/// compilado (`enlaces.rs`): el segundo no lee el DXIL ni lo compila otra
+/// vez, y el PSO ya no guarda los `Sombreador` leidos (en el metal llenaban
+/// el monton: 64 MiB con 176 PSO). Otro layout, otro enlace.
+#[test]
+fn los_pso_con_los_mismos_sombreadores_comparten_lo_compilado() {
+    let _uno = empezar();
+    let r = raiz();
+    let (a, pa) = pso_y_objeto(r, VS, PS, &layout(true));
+    let (b, pb) = pso_y_objeto(r, VS, PS, &layout(true));
+    assert_eq!((a, b), (0, 0));
+    assert_ne!(pa, pb, "dos PSO");
+    // SAFETY: dos PSO de la casa.
+    let (ca, cb) = unsafe { (&com::de::<bmo_proton_x_casa::tuberia::Pso>(pa).compilado, &com::de::<bmo_proton_x_casa::tuberia::Pso>(pb).compilado) };
+    assert!(std::rc::Rc::ptr_eq(ca, cb), "lo compilado es uno");
+    assert_eq!((ca.nombres.0.as_str(), ca.nombres.1.as_str()), ("vertice", "pixel"));
+    assert!(ca.enlace.is_ok());
+    // Con otro layout (COLOR en otro sitio) es otro.
+    let mut otro = layout(true);
+    otro[2].desde = 40;
+    let (c, pc) = pso_y_objeto(r, VS, PS, &otro);
+    assert_eq!(c, 0);
+    // SAFETY: un PSO de la casa.
+    assert!(!std::rc::Rc::ptr_eq(ca, unsafe { &com::de::<bmo_proton_x_casa::tuberia::Pso>(pc).compilado }));
 }

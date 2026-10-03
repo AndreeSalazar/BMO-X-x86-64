@@ -40,7 +40,7 @@ use core::cell::UnsafeCell;
 use alloc::format;
 
 use bmo_proton_x::dxil::{self, Etapa, Sombreador};
-use bmo_proton_x::lote::{enlazar, Enlace, Lote, NoDibuja, Topologia};
+use bmo_proton_x::lote::{enlazar, Lote, NoDibuja, Topologia};
 use bmo_proton_x::trama;
 use bmo_proton_x::raiz::{self, Carga, Firma, Parametro, Rango};
 
@@ -254,8 +254,6 @@ pub use bmo_proton_x::lote::ElementoIa as EntradaIa;
 
 pub struct Pso {
     pub raiz: u64,
-    pub vs: Sombreador,
-    pub ps: Sombreador,
     pub entradas: Vec<EntradaIa>,
     /// D3D12_CULL_MODE: 1 ninguna, 2 delante, 3 detras.
     pub descarte: u32,
@@ -263,8 +261,11 @@ pub struct Pso {
     pub topologia: u32,
     pub formato_rt: u32,
     /// Los dos sombreadores COMPILADOS y enlazados (P3b3), o por que no se
-    /// pueden correr: entonces el PSO existe, y cada Draw lo dice.
-    pub enlace: Result<Enlace, String>,
+    /// pueden correr: entonces el PSO existe, y cada Draw lo dice. Con los
+    /// nombres de sus funciones; compartido por los PSO con los mismos
+    /// sombreadores y layout (`enlaces.rs`, 03-10: el `Sombreador` leido ya
+    /// no se guarda).
+    pub compilado: alloc::rc::Rc<crate::enlaces::Compilado>,
     /// Mezcla encendida o una mascara de escritura que no es RGBA: todavia no.
     pub mezcla: bool,
     /// La prueba de profundidad (P3c4), si `DepthEnable`.
@@ -272,12 +273,16 @@ pub struct Pso {
 }
 
 
-fn sombreador(bytecode: *const u8, tam: usize, etapa: Etapa, que: &'static str) -> Result<Sombreador, &'static str> {
-    if bytecode.is_null() || tam == 0 {
+/// Los bytes de un D3D12_SHADER_BYTECODE, o `que` si no hay.
+fn bytecode(p: *const u8, tam: usize, que: &'static str) -> Result<&'static [u8], &'static str> {
+    if p.is_null() || tam == 0 {
         return Err(que);
     }
-    // SAFETY: `tam` bytes del `.exe` (D3D12_SHADER_BYTECODE).
-    let d = unsafe { core::slice::from_raw_parts(bytecode, tam) };
+    // SAFETY: `tam` bytes del `.exe` (D3D12_SHADER_BYTECODE); se leen ahora.
+    Ok(unsafe { core::slice::from_raw_parts(p, tam) })
+}
+
+fn sombreador(d: &[u8], etapa: Etapa) -> Result<Sombreador, &'static str> {
     let s = dxil::leer(d).map_err(|_| "CreateGraphicsPipelineState: un sombreador que no es DXIL ni SM5 (o no se lee)")?;
     if s.etapa != etapa {
         return Err("CreateGraphicsPipelineState: un sombreador de otra etapa en su hueco");
@@ -287,7 +292,8 @@ fn sombreador(bytecode: *const u8, tam: usize, etapa: Etapa, que: &'static str) 
 
 /// Lee el `D3D12_GRAPHICS_PIPELINE_STATE_DESC` (656 B, desplazamientos
 /// MEDIDOS con la cabecera de Windows: ver prueba/HACER.txt).
-unsafe fn pso_de(d: *const u8) -> Result<Pso, &'static str> {
+/// Con el PSO, si su enlace es NUEVO (no lo comparte con uno de antes).
+unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
     let raiz = u64_de(d, 0);
     if raiz == 0 {
         return Err("CreateGraphicsPipelineState sin root signature");
@@ -298,8 +304,8 @@ unsafe fn pso_de(d: *const u8) -> Result<Pso, &'static str> {
             return Err("CreateGraphicsPipelineState con dominio, casco o geometria: todavia no");
         }
     }
-    let vs = sombreador(u64_de(d, 8) as *const u8, u64_de(d, 16) as usize, Etapa::Vertice, "CreateGraphicsPipelineState sin sombreador de vertices")?;
-    let ps = sombreador(u64_de(d, 24) as *const u8, u64_de(d, 32) as usize, Etapa::Pixel, "CreateGraphicsPipelineState sin sombreador de pixeles")?;
+    let bytes_vs = bytecode(u64_de(d, 8) as *const u8, u64_de(d, 16) as usize, "CreateGraphicsPipelineState sin sombreador de vertices")?;
+    let bytes_ps = bytecode(u64_de(d, 24) as *const u8, u64_de(d, 32) as usize, "CreateGraphicsPipelineState sin sombreador de pixeles")?;
     // El input layout, con los desplazamientos APPEND_ALIGNED resueltos.
     let (elems, n) = (u64_de(d, 552) as *const u8, u32_de(d, 560));
     let mut entradas: Vec<EntradaIa> = Vec::with_capacity(n as usize);
@@ -318,15 +324,6 @@ unsafe fn pso_de(d: *const u8) -> Result<Pso, &'static str> {
         siguiente[r] = desde + bytes;
         entradas.push(EntradaIa { semantica: cadena_c(u64_de(e, 0) as *const u8), indice: u32_de(e, 8), formato, ranura, desde });
     }
-    // Cada elemento del sombreador de vertices tiene que venir del layout,
-    // MENOS los valores de sistema (SV_VertexID, SV_InstanceID): esos los pone
-    // quien dibuja, y D3D12 no los pide al layout (03-10: la casa negaba asi
-    // los triangulos de pantalla completa de Cyberpunk).
-    for f in vs.entradas.iter().filter(|f| f.sistema == 0) {
-        if !entradas.iter().any(|e| e.semantica.eq_ignore_ascii_case(&f.semantica) && e.indice == f.indice) {
-            return Err("el sombreador de vertices lee una semantica que el input layout no da");
-        }
-    }
     let (n_rt, formato_rt) = (u32_de(d, 576), u32_de(d, 580));
     if n_rt != 1 {
         return Err("CreateGraphicsPipelineState con mas de un render target: todavia no");
@@ -340,23 +337,39 @@ unsafe fn pso_de(d: *const u8) -> Result<Pso, &'static str> {
     // RenderTarget[0] de BlendState (+120): BlendEnable +8, LogicOpEnable
     // +12, la mascara de escritura +44.
     let mezcla = u32_de(d, 128) != 0 || u32_de(d, 132) != 0 || (d.add(164).read() & 0xF) != 0xF;
-    let enlace = enlazar(&vs, &ps, &entradas);
-    if let Err(m) = &enlace {
-        aviso(m);
+    // Los sombreadores: leidos, comprobados y compilados UNA vez por (VS, PS,
+    // layout); los demas PSO con lo mismo lo comparten (`enlaces.rs`).
+    let (compilado, nuevo) = crate::enlaces::de(bytes_vs, bytes_ps, &entradas, || {
+        let vs = sombreador(bytes_vs, Etapa::Vertice)?;
+        let ps = sombreador(bytes_ps, Etapa::Pixel)?;
+        // Cada elemento del sombreador de vertices tiene que venir del
+        // layout, MENOS los valores de sistema (SV_VertexID, SV_InstanceID):
+        // esos los pone quien dibuja, y D3D12 no los pide al layout (03-10:
+        // la casa negaba asi los triangulos de pantalla completa de Cyberpunk).
+        for f in vs.entradas.iter().filter(|f| f.sistema == 0) {
+            if !entradas.iter().any(|e| e.semantica.eq_ignore_ascii_case(&f.semantica) && e.indice == f.indice) {
+                return Err("el sombreador de vertices lee una semantica que el input layout no da");
+            }
+        }
+        let nombre = |s: &Sombreador| s.modulo.entrada().map(|f| f.nombre.clone()).unwrap_or_default();
+        Ok(crate::enlaces::Compilado { nombres: (nombre(&vs), nombre(&ps)), enlace: enlazar(&vs, &ps, &entradas) })
+    })?;
+    if nuevo {
+        if let Err(m) = &compilado.enlace {
+            aviso(m);
+        }
     }
-    Ok(Pso {
+    Ok((Pso {
         raiz,
-        vs,
-        ps,
         entradas,
-        enlace,
+        compilado,
         mezcla,
         profundidad,
         descarte: u32_de(d, 452 + 4),
         antihorario: u32_de(d, 452 + 8) != 0,
         topologia: u32_de(d, 572),
         formato_rt,
-    })
+    }, nuevo))
 }
 
 pub(crate) extern "win64" fn create_graphics_pipeline_state(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
@@ -371,12 +384,14 @@ pub(crate) extern "win64" fn create_graphics_pipeline_state(_this: u64, desc: *c
     let r = unsafe { pso_de(desc) };
     crate::pulso::contar(crate::pulso::Cosa::Pso, (plataforma().ahora_ns)().saturating_sub(empezo));
     match r {
-        Ok(pso) => {
+        Ok((pso, estrenado)) => {
             let vt = vtabla::<{ com::PSO }>(&[(8, dir!(crate::d3d12_resto::get_cached_blob))]);
             let obj = nuevo(com::PSO, vt, pso) as u64;
-            // P3b3b: sus sombreadores, traducidos a x86-64 una vez, aqui.
+            // P3b3b: sus sombreadores, traducidos a x86-64 una vez, aqui
+            // (una por enlace: los PSO que lo comparten, tambien la
+            // traduccion).
             // SAFETY: el Pso recien creado; vive lo que el proceso.
-            if let Ok(en) = &unsafe { de::<Pso>(obj) }.enlace {
+            if let (Ok(en), true) = (&unsafe { de::<Pso>(obj) }.compilado.enlace, estrenado) {
                 crate::nativo::registrar(en);
             }
             dar(pp, obj)
@@ -643,10 +658,9 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
     if v.len() >= GUARDADOS {
         return;
     }
-    let entrada = |s: &Sombreador| s.modulo.entrada().map(|f| f.nombre.clone()).unwrap_or_default();
     let mut d = Dibujo {
-        vs: entrada(&pso.vs),
-        ps: entrada(&pso.ps),
+        vs: pso.compilado.nombres.0.clone(),
+        ps: pso.compilado.nombres.1.clone(),
         topologia: e.topologia,
         vertices: Vec::new(),
         indices: Vec::new(),
@@ -721,7 +735,7 @@ const TRIANGLESTRIP: u32 = 5;
 /// pixeles en cada pixel que cubren, sobre el render target. Lo que no sabe
 /// hacer todavia lo dice y NO pinta: nunca un dibujo a medias callado.
 fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool) {
-    let en = match &pso.enlace {
+    let en = match &pso.compilado.enlace {
         Ok(en) => en,
         Err(m) => {
             aviso(&format!("Draw no se dibuja: {m}"));

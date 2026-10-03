@@ -655,6 +655,37 @@ orden (las dos corridas murieron igual: es determinista):
   "una tabla con un espacio que no es el 0: se salta". Probado con
   `prueba/espacios.dxil` (dxc: t40 de space1, un array en space2, s20).
 
+**Estado al 03-10, tercera corrida: nivel 4, sin el NULO.** Ya no murio a
+los ~11 s llamando a la direccion 0: las dos de verdad (`CryptMsgClose`,
+`if_nametoindex`) y las trampas lo pasaron (cinco de crypt32 recibieron
+trampa y ninguna se llamo). Ventana de 1738x1064, 176 PSO. Murio a los 9 s
+por OTRA cosa:
+
+- [x] **N4.3 -- el monton lleno por los PSO** (03-10): `memory allocation of
+  57344 bytes failed; monton 67098656 B en uso de 67108864`. Cada PSO
+  guardaba sus dos `Sombreador` leidos (el modulo de LLVM, unas 6 veces el
+  DXIL: ~380 KB por PSO) para sacar al dibujar solo el nombre de su
+  funcion; se noto al abrir los PSO con N3.1. Ahora el PSO guarda los
+  nombres, y lo compilado se comparte entre los PSO con el mismo VS, PS y
+  layout (`enlaces.rs`, llave: la huella de 16 bytes del contenedor): al
+  acertar no se lee ni el DXIL. El pulso dice cuantos enlaces distintos hay.
+
+**Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
+casilla:
+
+```text
+   OperacionD3d(12, 13, 14)     cos, sin, tan                    N5.6
+   OperacionD3d(21, 22, 23)     exp, frac, log                   N5.6
+   OperacionD3d(26, 27)         round_ne, floor                  N5.6
+   OperacionD3d(131)            f16tof32                         N5.6
+   OperacionD3d(82)             discard                          N5.7
+   mas de un render target      el G-buffer (diferido)           N5.8
+   el de pixeles lee SV_Position                                 N5.9
+   Instruccion(19), (43)        alloca y GEP: arrays locales     N5.10
+   OperacionD3d(118)            WaveReadLaneFirst                N5.10
+   un operando que deberia ser un entero constante               N5.4
+```
+
 **Lo que queda para que la 3060 PINTE un fotograma de Cyberpunk**, por
 orden. Cada uno lo dice el DIARIO con su texto la primera vez que pasa;
 la proxima corrida del metal dice cual pesa mas:
@@ -682,6 +713,16 @@ la proxima corrida del metal dice cual pesa mas:
 - [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
   no es una constante. Hoy el sombreador no compila; pide que la ranura sea
   un RANGO y no un lugar.
+- [ ] **N5.6 -- la matematica que falta**: sin, cos, tan, exp, log, frac,
+  los redondeos y f16tof32, en el interprete (sin `libm`: Ring 3 no la
+  tiene) y en el emisor de la 3060 (MUFU).
+- [ ] **N5.7 -- discard**: el pixel no se escribe (la trama lo salta).
+- [ ] **N5.8 -- mas de un render target** (hasta 8): el G-buffer de
+  Cyberpunk; hoy el PSO entero se niega.
+- [ ] **N5.9 -- SV_Position en el de pixeles**: la trama ya lo sabe; que
+  llegue al sombreador.
+- [ ] **N5.10 -- arrays locales y lo de las olas**: `alloca`/GEP (registros
+  indexables) y `WaveReadLaneFirst` (con una ola de un pixel, el mismo).
 - [ ] **N5.5 -- el COMPUTO** (`Dispatch`, `SetComputeRoot*`): hoy se dice
   y se salta. Cyberpunk calcula con el la luz, las sombras y el
   post-proceso; sin el, la imagen sale pero a medias. Primero en la CPU
