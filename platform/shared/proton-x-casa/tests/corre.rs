@@ -139,6 +139,32 @@ fn uno_a_la_vez() -> MutexGuard<'static, ()> {
     UNO_A_LA_VEZ.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// **Ninguna prueba toca la casa sin la vuelta** (03-10).
+///
+/// La casa es de UNA tarea, como en BMO-X: su estado son estaticos sin
+/// cerrojo. Aqui cada prueba es un hilo de Linux, y una que la tocaba sin
+/// [`uno_a_la_vez`] (`los_api_set_downlevel_son_su_dll`: solo llamaba a
+/// `tabla`, que parece leer y ESCRIBE) hacia `push` en el mismo Vec que el
+/// `.exe` de al lado. Una vuelta de cada muchas del banco, SIGSEGV o "double
+/// free"; con su `tabla` repetida unos segundos, 4 vueltas de 6.
+///
+/// Esto lee las fuentes de las pruebas y no deja pasar otra igual. Mira el
+/// cuerpo de cada `#[test]`: si nombra la casa, tiene que coger la vuelta
+/// (directa, o por `tanda`/`tanda_y`, que la cogen).
+#[test]
+fn ninguna_prueba_toca_la_casa_sin_la_vuelta() {
+    let casa = concat!("bmo_proton_x_", "casa::");
+    for (fichero, fuente) in [("corre.rs", include_str!("corre.rs")), ("corre/de_hoy.rs", include_str!("corre/de_hoy.rs"))] {
+        for trozo in fuente.split("\n#[test]\n").skip(1) {
+            let cuerpo = &trozo[..trozo.find("\n}\n").map_or(trozo.len(), |i| i + 3)];
+            let nombre = cuerpo.split("fn ").nth(1).and_then(|s| s.split('(').next()).unwrap_or("?");
+            let toca = cuerpo.contains(casa);
+            let vuelta = ["uno_a_la_vez()", "tanda(", "tanda_y("].iter().any(|m| cuerpo.contains(m));
+            assert!(!toca || vuelta, "{fichero}: `{nombre}` toca la casa sin `uno_a_la_vez()` -- en paralelo con otro .exe, corrompe su estado");
+        }
+    }
+}
+
 const PROT_LEE: u64 = 1;
 const PROT_ESCRIBE: u64 = 2;
 const PROT_EJECUTA: u64 = 4;
