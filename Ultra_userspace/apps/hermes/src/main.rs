@@ -31,6 +31,9 @@ extern crate alloc;
 
 mod charla;
 mod entrada;
+mod onda;
+mod panel;
+mod piezas;
 mod pintar;
 
 /// La ventana y el lienzo son los del TALLER (F1): las mismas piezas, sin copia.
@@ -180,6 +183,12 @@ impl Estado {
     }
 }
 
+/// La X de la barra: como Esc.
+fn cerrar() -> ! {
+    say("HERMES: cerrada con la X\n");
+    bmo::salir();
+}
+
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     let Some(bloque) = bmo::Memoria::request(PARA_MONTON) else {
@@ -266,6 +275,7 @@ pub extern "C" fn _start() -> ! {
                         match pintar::golpe(x, y, st.sec, st.item) {
                             Some(Golpe::Escribir) => {}
                             Some(Golpe::Zumbido) => st.zumbar(ahora),
+                            Some(Golpe::Cerrar) => cerrar(),
                             otro => {
                                 st.escribiendo = false;
                                 match otro {
@@ -287,6 +297,7 @@ pub extern "C" fn _start() -> ! {
                     Some(Golpe::Item(k)) => st.elegir_item(k, ahora),
                     Some(Golpe::Escribir) => st.escribiendo = true,
                     Some(Golpe::Zumbido) => st.zumbar(ahora),
+                    Some(Golpe::Cerrar) => cerrar(),
                     None => {}
                 },
                 Input::Char(b'/') if escribible => st.escribiendo = true,
