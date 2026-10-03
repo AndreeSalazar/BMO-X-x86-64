@@ -745,6 +745,20 @@ pidieron OperacionD3d 10 (isfinite: hechos 8 a 11, isnan/isinf/isfinite/
 isnormal), los arrays (N5.10, hecho) y el operando no constante (el de los
 cbuffers, hecho; el bindless dira su nombre).
 
+**Estado al 03-10, octava corrida: el mismo salto a 0** (a los 33 s, en
+el hilo de la VENTANA, tid 7; `call [rip+..]` desde `+0x1d4c6cf`). La casa
+ya da lo que el diario dijo que daba NULL: GetCurrentPackageId (sin
+paquete), SetDefaultDllDirectories, AddDllDirectory, RemoveDllDirectory,
+EnumSystemLocalesEx, IsValidLocaleName; y apunta al diario los
+GetProcAddress sobre un handle que no es de ninguna DLL (antes, NULL
+callado). Los sombreadores dijeron sus nombres: bindless (createHandle con
+registro calculado, N5.4), las de bits (32: firstbitlow; hechas 30 a 34),
+SampleCmpLevelZero (65) y TextureGather (73) -- hechos, con GatherCmp y
+SampleCmp: el PCF de 2x2 de las sombras --, un UAV en el de pixeles
+(N5.3c) y "un bucle con mas de una salida" (el estructurador). Y el
+muestreador ANISOTROPICO, que se NEGABA (las texturas salian negras), se
+lee lineal; el de comparacion guarda su funcion.
+
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:
 

@@ -54,6 +54,15 @@ pub enum Mate {
     EsInf,
     EsFinito,
     EsNormal,
+    /// De bits a bits (03-10, la octava corrida pidio la 32): reversebits,
+    /// countbits, firstbitlow, y firstbithigh sin y con signo -- estos tres,
+    /// como DXIL: la posicion desde ABAJO la del low y desde ARRIBA las del
+    /// high (dxc pone el `31 -`), o 0xFFFFFFFF si no hay bit.
+    InvierteBits,
+    CuentaBits,
+    PrimerBitBajo,
+    PrimerBitAlto,
+    PrimerBitAltoConSigno,
 }
 
 impl Mate {
@@ -62,6 +71,11 @@ impl Mate {
         Some(match op {
             12 => Mate::Cos,
             13 => Mate::Sin,
+            30 => Mate::InvierteBits,
+            31 => Mate::CuentaBits,
+            32 => Mate::PrimerBitBajo,
+            33 => Mate::PrimerBitAlto,
+            34 => Mate::PrimerBitAltoConSigno,
             8 => Mate::EsNan,
             9 => Mate::EsInf,
             10 => Mate::EsFinito,
@@ -116,7 +130,25 @@ impl Mate {
             Mate::EsInf => booleano(x.is_infinite()),
             Mate::EsFinito => booleano(x.is_finite()),
             Mate::EsNormal => booleano(x.is_normal()),
+            Mate::InvierteBits => a.reverse_bits(),
+            Mate::CuentaBits => a.count_ones(),
+            Mate::PrimerBitBajo => if a == 0 { u32::MAX } else { a.trailing_zeros() },
+            Mate::PrimerBitAlto => if a == 0 { u32::MAX } else { a.leading_zeros() },
+            Mate::PrimerBitAltoConSigno => {
+                let b = if (a as i32) < 0 { !a } else { a };
+                if b == 0 { u32::MAX } else { b.leading_zeros() }
+            }
         }
+    }
+
+    /// Si lee los BITS de un entero (y no un float).
+    pub fn lee_entero(self) -> bool {
+        matches!(self, Mate::F16aF32 | Mate::InvierteBits | Mate::CuentaBits | Mate::PrimerBitBajo | Mate::PrimerBitAlto | Mate::PrimerBitAltoConSigno)
+    }
+
+    /// Si da un entero (sus bits).
+    pub fn da_entero(self) -> bool {
+        matches!(self, Mate::F32aF16 | Mate::InvierteBits | Mate::CuentaBits | Mate::PrimerBitBajo | Mate::PrimerBitAlto | Mate::PrimerBitAltoConSigno)
     }
 
     /// Si da un booleano (de los cuatro "es...").
@@ -527,6 +559,19 @@ mod pruebas {
         assert_eq!([es(Mate::EsFinito, 3.0), es(Mate::EsFinito, f32::INFINITY), es(Mate::EsFinito, f32::NAN)], [u32::MAX, 0, 0]);
         assert_eq!([es(Mate::EsNormal, 1.0), es(Mate::EsNormal, 1e-40), es(Mate::EsNormal, 0.0)], [u32::MAX, 0, 0]);
         assert!(Mate::de_dxil(10).unwrap().da_booleano());
+    }
+
+    #[test]
+    fn las_de_bits_como_las_da_dxil() {
+        let b = |m: Mate, x: u32| m.aplicar(x);
+        assert_eq!(b(Mate::InvierteBits, 1), 0x8000_0000);
+        assert_eq!(b(Mate::CuentaBits, 0xF0F0), 8);
+        assert_eq!([b(Mate::PrimerBitBajo, 0b1000), b(Mate::PrimerBitBajo, 0)], [3, u32::MAX]);
+        // Desde arriba: 0x10 tiene el bit 4, a 27 de arriba.
+        assert_eq!([b(Mate::PrimerBitAlto, 0x10), b(Mate::PrimerBitAlto, 0)], [27, u32::MAX]);
+        // Con signo: -1 no tiene un 0, -2 tiene el bit 0 (a 31 de arriba).
+        assert_eq!([b(Mate::PrimerBitAltoConSigno, u32::MAX), b(Mate::PrimerBitAltoConSigno, (-2i32) as u32), b(Mate::PrimerBitAltoConSigno, 0x10)], [u32::MAX, 31, 27]);
+        assert!(Mate::de_dxil(32).unwrap().lee_entero() && Mate::de_dxil(32).unwrap().da_entero());
     }
 
     #[test]

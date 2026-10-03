@@ -160,6 +160,9 @@ pub struct Muestreador {
     pub v: Direccion,
     /// El color del borde (R, G, B, A), para [`Direccion::Borde`].
     pub borde: [f32; 4],
+    /// 03-10: un muestreador de COMPARACION (las sombras): su
+    /// `D3D12_COMPARISON_FUNC` (2 menor, 4 menor o igual...); 0, no lo es.
+    pub comparacion: u32,
 }
 
 impl Muestreador {
@@ -175,32 +178,35 @@ impl Muestreador {
             2 => [1.0, 1.0, 1.0, 1.0],
             _ => return Err("un color de borde que no es de D3D12"),
         };
-        Ok(Muestreador { filtro, u: direccion(p[1])?, v: direccion(p[2])?, borde })
+        let comparacion = if p[0] & COMPARACION != 0 { p[6] } else { 0 };
+        Ok(Muestreador { filtro, u: direccion(p[1])?, v: direccion(p[2])?, borde, comparacion })
     }
 
     /// **De un `D3D12_SAMPLER_DESC`** (CreateSampler: 13 palabras tambien --
     /// el borde, cuatro floats en 8..11, y MinLOD/MaxLOD en 12..13 van
     /// aparte: aqui llegan Filter, AddressU, V y los cuatro del borde).
-    pub fn de_descriptor(filtro_d3d: u32, u: u32, v: u32, borde: [f32; 4]) -> Result<Self, &'static str> {
-        Ok(Muestreador { filtro: filtro(filtro_d3d)?, u: direccion(u)?, v: direccion(v)?, borde })
+    pub fn de_descriptor(filtro_d3d: u32, u: u32, v: u32, borde: [f32; 4], comparacion: u32) -> Result<Self, &'static str> {
+        let comparacion = if filtro_d3d & COMPARACION != 0 { comparacion } else { 0 };
+        Ok(Muestreador { filtro: filtro(filtro_d3d)?, u: direccion(u)?, v: direccion(v)?, borde, comparacion })
     }
 }
 
+/// El bit de COMPARACION de un `D3D12_FILTER` (0x80..0xD5).
+const COMPARACION: u32 = 0x80;
+
 /// `D3D12_FILTER`: los bits de MIN, MAG y MIP (0x01 MIP, 0x04 MAG, 0x10
 /// MIN) lineales o no; 0x80 comparacion; 0x40/0x55 anisotropico.
+///
+/// 03-10: el ANISOTROPICO (el de casi todas las texturas de Cyberpunk) se
+/// lee LINEAL -- sin mipmaps por derivadas no hay de donde sacar la
+/// anisotropia, y lineal es lo que da una GPU de cerca; antes se negaba y
+/// la textura salia negra. Con MIN y MAG distintos, el de MAG (el de
+/// cerca). Los de comparacion, min y max (0x100, 0x180) filtran igual.
 fn filtro(f: u32) -> Result<Filtro, &'static str> {
-    if f & 0x80 != 0 {
-        return Err("un muestreador de COMPARACION: todavia no");
-    }
     if f & 0x40 != 0 {
-        return Err("un muestreador ANISOTROPICO: todavia no");
+        return Ok(Filtro::Lineal);
     }
-    // Sin mipmaps, el de MIP da igual; MIN y MAG tienen que coincidir.
-    match (f & 0x10 != 0, f & 0x04 != 0) {
-        (false, false) => Ok(Filtro::Punto),
-        (true, true) => Ok(Filtro::Lineal),
-        _ => Err("un filtro con MIN y MAG distintos: todavia no"),
-    }
+    Ok(if f & 0x04 != 0 { Filtro::Lineal } else { Filtro::Punto })
 }
 
 fn direccion(d: u32) -> Result<Direccion, &'static str> {
@@ -340,6 +346,45 @@ impl<'a> Textura<'a> {
             }
         };
         mapear(self.mapeo, c_.unwrap_or([0.0; 4]))
+    }
+
+    /// **`Gather`** (03-10): el canal `canal` de los CUATRO texeles del
+    /// cuadro de 2x2 que mezclaria un filtro lineal en `c`, en el orden de
+    /// D3D: x (-u, +v), y (+u, +v), z (+u, -v), w (-u, -v). Cada uno, por
+    /// el muestreador (su direccion y su borde) en su centro.
+    pub fn juntar(&self, m: &Muestreador, c: [f32; 4], canal: usize, desp: [i8; 3]) -> [f32; 4] {
+        let ((x0, y0), _) = self.cuadro(c);
+        let (w, h, _) = self.medidas_de(self.mip);
+        let p = Muestreador { filtro: Filtro::Punto, ..*m };
+        let en = |dx: f32, dy: f32| self.muestrear_en(&p, [(x0 + dx + 0.5) / w as f32, (y0 + dy + 0.5) / h as f32, c[2], c[3]], None, desp)[canal & 3];
+        [en(0.0, 1.0), en(1.0, 1.0), en(1.0, 0.0), en(0.0, 0.0)]
+    }
+
+    /// El texel de arriba a la izquierda del cuadro de 2x2 de `c` (en la mip
+    /// de la vista) y cuanto se mete el punto en el (para los pesos).
+    fn cuadro(&self, c: [f32; 4]) -> ((f32, f32), (f32, f32)) {
+        let (w, h, _) = self.medidas_de(self.mip);
+        let (x, y) = (c[0] * w as f32 - 0.5, c[1] * h as f32 - 0.5);
+        let (x0, y0) = (suelo(x), suelo(y));
+        ((x0, y0), (x - x0, y - y0))
+    }
+
+    /// **`SampleCmp`** (03-10, las sombras): `referencia` contra el canal 0
+    /// de cada texel con la funcion del muestreador (`comparacion`; sin ella,
+    /// MENOR O IGUAL), 1 si pasa y 0 si no; con filtro lineal, los cuatro del
+    /// cuadro con sus pesos (el PCF de 2x2 de una GPU).
+    pub fn comparar(&self, m: &Muestreador, c: [f32; 4], referencia: f32, desp: [i8; 3]) -> f32 {
+        let f = if m.comparacion == 0 { 4 } else { m.comparacion };
+        let pasa = |t: f32| if (crate::trama::Profundidad { funcion: f, escribir: false }).pasa(referencia, t) { 1.0 } else { 0.0 };
+        if m.filtro == Filtro::Punto {
+            let p = Muestreador { filtro: Filtro::Punto, ..*m };
+            return pasa(self.muestrear_en(&p, c, None, desp)[0]);
+        }
+        let g = self.juntar(m, c, 0, desp).map(pasa);
+        let (_, (fx, fy)) = self.cuadro(c);
+        let arriba = g[3] + (g[2] - g[3]) * fx;
+        let abajo = g[0] + (g[1] - g[0]) * fx;
+        arriba + (abajo - arriba) * fy
     }
 
     /// Una 3D: las dos rebanadas de alrededor de `w`, mezcladas si el
@@ -596,6 +641,22 @@ impl Recursos<'_> {
         }
     }
 
+    /// `Gather` de tN con sN (ver [`Textura::juntar`]); sin ellos, ceros.
+    pub fn juntar(&self, t: u8, s: u8, c: [f32; 4], canal: usize, desp: [i8; 3]) -> [f32; 4] {
+        match (self.texturas.get(t as usize), self.muestreadores.get(s as usize)) {
+            (Some(Some(tx)), Some(Some(m))) => tx.juntar(m, c, canal, desp),
+            _ => [0.0; 4],
+        }
+    }
+
+    /// `SampleCmp` de tN con sN (ver [`Textura::comparar`]); sin ellos, 0.
+    pub fn comparar(&self, t: u8, s: u8, c: [f32; 4], referencia: f32, desp: [i8; 3]) -> f32 {
+        match (self.texturas.get(t as usize), self.muestreadores.get(s as usize)) {
+            (Some(Some(tx)), Some(Some(m))) => tx.comparar(m, c, referencia, desp),
+            _ => 0.0,
+        }
+    }
+
     /// `Load` de tN (ver [`Textura::cargar`]); sin textura, ceros.
     pub fn cargar(&self, t: u8, c: [i32; 3], mip: i32, desp: [i8; 3], enteros: bool) -> [u32; 4] {
         match self.texturas.get(t as usize) {
@@ -617,7 +678,7 @@ impl Recursos<'_> {
 mod pruebas {
     use super::*;
 
-    const PUNTO_BORDE: Muestreador = Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0, 0.0, 0.0, 0.0] };
+    const PUNTO_BORDE: Muestreador = Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0, 0.0, 0.0, 0.0], comparacion: 0 };
 
     #[test]
     fn suelo_como_floor() {
@@ -653,7 +714,7 @@ mod pruebas {
     fn lineal_mezcla_los_cuatro() {
         let t = [0xFF00_0000, 0xFFFF_FFFF, 0xFF00_0000, 0xFFFF_FFFF];
         let tx = Textura::rgba(&t, 2, 2, false);
-        let m = Muestreador { filtro: Filtro::Lineal, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4] };
+        let m = Muestreador { filtro: Filtro::Lineal, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0 };
         // Justo entre los dos centros: la mitad, como la da la 3060 (en 16
         // bits, redondeada: 32768/65535, no 0,5 exacto).
         assert_eq!(tx.muestrear(&m, 0.5, 0.5)[0], 32768.0 / 65535.0);
@@ -687,7 +748,7 @@ mod pruebas {
         let f = [0.25f32.to_bits(), 0.75f32.to_bits()];
         let fl = Textura { como: Como::Flotante, ..Textura::rgba(&f, 2, 1, false) };
         assert_eq!(fl.muestrear(&PUNTO_BORDE, 0.75, 0.5), [0.75, 0.0, 0.0, 1.0]);
-        let lin = Muestreador { filtro: Filtro::Lineal, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4] };
+        let lin = Muestreador { filtro: Filtro::Lineal, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0 };
         assert_eq!(fl.muestrear(&lin, 0.5, 0.5)[0], 0.5);
         // Las caras de un cubo: el eje mayor y su signo.
         assert_eq!(cara_de_cubo(1.0, 0.0, 0.0), (0, 0.5, 0.5));
@@ -704,7 +765,12 @@ mod pruebas {
         let m = Muestreador::de_estatico(&[0, 4, 4, 4, 0, 0, 1, 0, 0, 0x7F7F_FFFF, 0, 0, 5]).unwrap();
         assert_eq!(m, PUNTO_BORDE);
         assert_eq!(Muestreador::de_estatico(&[0x15, 3, 3, 3, 0, 0, 1, 2, 0, 0, 0, 0, 0]).unwrap().filtro, Filtro::Lineal);
-        assert!(Muestreador::de_estatico(&[0x55, 1, 1, 1, 0, 16, 1, 0, 0, 0, 0, 0, 0]).is_err());
-        assert!(Muestreador::de_estatico(&[0x80, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0]).is_err());
+        // 03-10: el anisotropico se lee lineal (antes se negaba: negro), y el
+        // de comparacion guarda su funcion (aqui LESS_EQUAL, 4).
+        assert_eq!(Muestreador::de_estatico(&[0x55, 1, 1, 1, 0, 16, 1, 0, 0, 0, 0, 0, 0]).unwrap().filtro, Filtro::Lineal);
+        let c = Muestreador::de_estatico(&[0x95, 1, 1, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0]).unwrap();
+        assert_eq!((c.filtro, c.comparacion), (Filtro::Lineal, 4));
+        assert_eq!(Muestreador::de_estatico(&[0x80, 1, 1, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0]).unwrap().comparacion, 4);
+        assert_eq!(m.comparacion, 0, "sin el bit 0x80, no compara");
     }
 }

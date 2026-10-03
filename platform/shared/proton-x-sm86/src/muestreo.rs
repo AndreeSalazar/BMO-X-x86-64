@@ -42,12 +42,12 @@ mod pruebas {
         let modos = [Direccion::Repetir, Direccion::Espejo, Direccion::Sujetar, Direccion::Borde, Direccion::EspejoUnaVez];
         let tarjeta = [tx::REPETIR, tx::ESPEJO, tx::SUJETAR, tx::BORDE, tx::ESPEJO_UNA_VEZ];
         for (m, t) in modos.iter().zip(tarjeta) {
-            let s = tsc(&Muestreador { filtro: Filtro::Punto, u: *m, v: Direccion::Sujetar, borde: [1.0, 0.0, 0.0, 1.0] }).unwrap();
+            let s = tsc(&Muestreador { filtro: Filtro::Punto, u: *m, v: Direccion::Sujetar, borde: [1.0, 0.0, 0.0, 1.0], comparacion: 0 }).unwrap();
             assert_eq!((s[0] & 7, s[0] >> 3 & 7), (t, tx::SUJETAR));
             assert_eq!(s[1] & 3, tx::PUNTO);
             assert_eq!(s[4], 1.0f32.to_bits());
         }
-        let l = tsc(&Muestreador { filtro: Filtro::Lineal, u: Direccion::Repetir, v: Direccion::Repetir, borde: [0.0; 4] }).unwrap();
+        let l = tsc(&Muestreador { filtro: Filtro::Lineal, u: Direccion::Repetir, v: Direccion::Repetir, borde: [0.0; 4], comparacion: 0 }).unwrap();
         assert_eq!(l[1] & 3, tx::LINEAL);
     }
 
