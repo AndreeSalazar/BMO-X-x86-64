@@ -674,6 +674,7 @@ mark { background: rgba(255,194,77,.25); color: inherit; border-radius: 2px; pad
       <li>PAGINAS: tu propia pagina en <code>.maqueta</code> (HTML + CSS), compilada con las reglas de MAQUETA, y las de tus amigos en <code>hermes://amigo/pagina</code>. Sin scripts y sin Google. Su inicio es como el de Google: un buscador (que busca en TU maquina) y tus atajos, con Ctrl+L, Alt+flechas, Alt+Inicio y <kbd>/</kbd>.</li>
       <li>la ONDA, toda la musica como Spotify y sin algoritmo: listas tuyas y de tus amigos, una barra que sigue sonando en todas las secciones, los formatos (WAV, MP3, FLAC, OGG, AAC) y cuando suena cada uno en BMO-X, y los sonidos del sistema. Suena de verdad (se compone aqui con WebAudio) y cada lista, cancion y sonido dibuja su audio a su manera.</li>
       <li>La musica nunca se duerme: si cierras HERMES (<kbd>Esc</kbd>) o abres la LUDOTECA sigue sonando, y la manda una pastilla escondida arriba que asoma al pasar el raton o al cambiar de cancion. Pausa, siguiente, volumen (Alt+P, Alt+N, Alt+flechas) sin quitarte el juego, baja sola mientras juegas, y trae recomendaciones de tus amigos, dichas a mano.</li>
+      <li>NEKO PHONK: la voz de BMO-X con el gato (nya, mrrp, el bufido del error, el ronroneo de lo que llega) y la lista "neko phonk" en la ONDA: el 808 que grune, el cencerro en frigia, los nya al final de cada frase y todo bombeando con el bombo. Inspirado en como se hace el phonk y lo de Geoxor; todo compuesto aqui.</li>
       <li>La voz de BMO-X, en 3D (ponte audifonos): error, advertencia, aviso, pregunta, hecho, lo que llega y lo que se va, cada uno con su forma y su SITIO alrededor de la cabeza, y el compilador que compila TODO: cada crate un tic que cruza de izquierda a derecha, cada aviso un clic, y al final la verdad (un golpe por error). El mismo 3D que el maestro del kernel.</li>
       <li>En tu disco: la orden <code>sonidos</code> recorre FAT32 y ESTRATOS enteros, mira 64 bytes de cada fichero y dice cuales suenan, cuales son oficiales (y que falta), cuales no y que nombres mienten.</li>
       <li>Tertulias, el MURO con historias y corazones, y el CANAL a fondo: una pagina por canal (videos, listas, sobre), y cada video con capitulos, reacciones, comentarios y "a continuacion" del mismo canal.</li>
@@ -2214,12 +2215,16 @@ const PISTAS = {
   p8: { titulo: "El ecualizador", artista: "lista de orbe", album: "atardecer", dura: 187, fmt: "AAC", sem: 9, bpm: 84, raiz: 57, escala: "penta", timbre: "triangle", vis: "particulas" },
   p9: { titulo: "Ocho bits por pixel", artista: "lista de faro", album: "8 bits", dura: 98, fmt: "WAV", sem: 13, bpm: 150, raiz: 60, escala: "mayor", timbre: "square", vis: "pixeles" },
   p10: { titulo: "El emisor salta", artista: "lista de faro", album: "8 bits", dura: 112, fmt: "OGG", sem: 17, bpm: 128, raiz: 59, escala: "penta", timbre: "square", vis: "pixeles" },
+  p11: { titulo: "Neko drift", artista: "neko phonk, compuesta aqui", album: "neko phonk", dura: 160, fmt: "WAV", sem: 31, bpm: 144, raiz: 50, escala: "frigia", timbre: "sawtooth", vis: "fuego", estilo: "phonk" },
+  p12: { titulo: "Gato de neon", artista: "neko phonk, compuesta aqui", album: "neko phonk", dura: 150, fmt: "WAV", sem: 47, bpm: 128, raiz: 53, escala: "frigia", timbre: "sawtooth", vis: "pixeles", estilo: "phonk" },
+  p13: { titulo: "Nyan de medianoche", artista: "neko phonk, compuesta aqui", album: "neko phonk", dura: 150, fmt: "WAV", sem: 58, bpm: 136, raiz: 49, escala: "menor", timbre: "sawtooth", vis: "espiral", estilo: "phonk" },
 };
 const LISTAS = [
   { id: "l1", nombre: "para programar de noche", de: "yo", color: "#3DA5FF", vis: "barras", desc: "lo que suena mientras compila el kernel", pistas: ["p1", "p2", "p4", "p3"] },
   { id: "l2", nombre: "DOOM II, la banda", de: "nova", color: "#FF4F5E", vis: "fuego", desc: "compartida por nova por HERMES/1", pistas: ["p5", "p6"] },
   { id: "l3", nombre: "atardecer", de: "orbe", color: "#FFC24D", vis: "sol", desc: "compartida por orbe por HERMES/1", pistas: ["p7", "p8", "p3"] },
   { id: "l4", nombre: "8 bits", de: "faro", color: "#4DE38F", vis: "pixeles", desc: "compartida por faro por HERMES/1", pistas: ["p9", "p10"] },
+  { id: "l5", nombre: "neko phonk", de: "yo", color: "#FF2E88", vis: "fuego", desc: "el 808 que grune, el cencerro en frigia, los nya y todo bombeando", pistas: ["p11", "p12", "p13"] },
 ];
 /** Los sonidos de BMO-X: cada uno con su forma y su animacion. */
 const SONIDOS = [
@@ -2248,7 +2253,7 @@ function audioCtx() {
   } catch (e) { AUD.ctx = null; }
   return AUD.ctx;
 }
-const ESCALAS = { menor: [0, 2, 3, 5, 7, 8, 10], mayor: [0, 2, 4, 5, 7, 9, 11], penta: [0, 3, 5, 7, 10], dorica: [0, 2, 3, 5, 7, 9, 10] };
+const ESCALAS = { frigia: [0, 1, 3, 5, 7, 8, 10], menor: [0, 2, 3, 5, 7, 8, 10], mayor: [0, 2, 4, 5, 7, 9, 11], penta: [0, 3, 5, 7, 10], dorica: [0, 2, 3, 5, 7, 9, 10] };
 const frec = m => 440 * Math.pow(2, (m - 69) / 12);
 function patron(p) {
   const r = i => azar(p.sem * 7919 + i), esc = ESCALAS[p.escala], grado = i => esc[Math.floor(r(i) * esc.length)];
@@ -2286,6 +2291,7 @@ function golpe(t, tipo, destino) {
   s.connect(f).connect(g).connect(salida); s.start(t); s.stop(t + .2);
 }
 function programar() {
+  if (AUD.pista && AUD.pista.estilo === "phonk") { programarPhonk(); return; }
   const c = AUD.ctx, p = AUD.pista, P = AUD.pat; if (!c || !p) return;
   const seg = 60 / p.bpm / 4;
   while (AUD.siguiente < c.currentTime + .12) {
@@ -2302,6 +2308,9 @@ function tocarPista(id) {
   const p = PISTAS[id]; if (!p) return;
   if (AUD.bus) { const viejo = AUD.bus; viejo.gain.setTargetAtTime(0, c.currentTime, .03); setTimeout(() => { try { viejo.disconnect(); } catch (e) { /* ya estaba */ } }, 400); }
   AUD.bus = c.createGain(); AUD.bus.gain.value = 1; AUD.bus.connect(AUD.master);
+  // El bus de lo que BOMBEA (el neko phonk): cuelga del de la pista.
+  AUD.bomb = c.createGain(); AUD.bomb.connect(AUD.bus);
+  AUD.patPhonk = p.estilo === "phonk" ? patronPhonk(p) : null;
   AUD.pista = p; AUD.pistaId = id; AUD.pat = patron(p); AUD.paso = 0; AUD.siguiente = c.currentTime + .06; AUD.t0 = c.currentTime + .06; AUD.pos = 0;
   AUD.sonando = true; c.resume();
   if (!AUD.sched) AUD.sched = setInterval(() => { if (AUD.sonando) programar(); }, 25);
@@ -2537,7 +2546,7 @@ function pintarOnda(cambioPista) {
    del kernel (bmo-amplificador::espacio): retardo entre oidos de Woodworth,
    la sombra de la cabeza en el oido lejano, lo de detras mas oscuro y una sala
    de ocho reflejos en parejas espejo. Aqui con WebAudio; alli en enteros. */
-const VOZ3D = { modo: "sala", bus: null, log: [], compilando: false };
+const VOZ3D = { modo: "sala", tema: "clasica", bus: null, log: [], compilando: false };
 const CABEZA = 0.0875, SON = 343;
 /** Los dos caminos de una fuente en `g` grados (+ derecha, 0 delante): lo de espacio::caminos. */
 function caminos3d(g) {
@@ -2629,8 +2638,8 @@ const VOZ = [
 function tocarVoz(id) {
   const v = VOZ.find(x => x.id === id), c = audioCtx(); if (!v || !c) return;
   c.resume();
-  const t = c.currentTime + .03, e = fuente3d(t, v.ruta, v.dura); if (!e) return;
-  v.toca(t, e);
+  const t = c.currentTime + .03, e = fuente3d(t, v.ruta, v.dura + (VOZ3D.tema === "neko" ? .3 : 0)); if (!e) return;
+  ((VOZ3D.tema === "neko" && NEKO_VOZ[v.id]) || v.toca)(t, e);
   VOZ3D.ultimo = { id, desde: performance.now(), ruta: v.ruta, color: v.color, dura: v.dura };
 }
 
@@ -2650,9 +2659,10 @@ function compilarTodo(conErrores) {
     avisos += a; errores += e;
     // El tic de cada crate: su sitio dice CUANTO va (de izquierda a derecha),
     // y sube un poco de tono con el progreso.
-    const f = fuente3d(t, [[0, g]], .2); if (f) tono(t, frec(84 + Math.round(i / 2)), .05, "sine", .12, f);
+    const neko = VOZ3D.tema === "neko";
+    const f = fuente3d(t, [[0, g]], .45); if (f) { if (neko) cencerro(t, 79 + Math.round(i / 2), .06, f); else tono(t, frec(84 + Math.round(i / 2)), .05, "sine", .12, f); }
     // Cada aviso, un clic agudo a la derecha (lo que hay que mirar despues).
-    for (let k = 0; k < a; k++) { const w = fuente3d(t + .06 + k * .06, [[0, 70]], .2); if (w) tono(t + .06 + k * .06, frec(96), .04, "triangle", .1, w); }
+    for (let k = 0; k < a; k++) { const w = fuente3d(t + .06 + k * .06, [[0, 70]], .45); if (w) { if (neko) cencerro(t + .06 + k * .06, 91, .05, w); else tono(t + .06 + k * .06, frec(96), .04, "triangle", .1, w); } }
     setTimeout(() => { VOZ3D.log.push({ nombre, avisos: a, errores: e, g }); VOZ3D.ultimo = { id: "tic", desde: performance.now(), ruta: [[0, g]], color: e ? "#FF4F5E" : a ? "#FFC24D" : "#4DE38F", dura: .25 }; pintarCompilador(); }, (t - c.currentTime) * 1000);
   });
   const tf = t0 + .35 + n * paso + .15;
@@ -2661,7 +2671,10 @@ function compilarTodo(conErrores) {
     // "hecho" solo si salio.
     if (errores) {
       const e = fuente3d(tf, [[0, 0]], .3 * Math.min(errores, 5) + .3);
-      for (let k = 0; k < Math.min(errores, 5); k++) { tono(tf + k * .22, frec(43), .16, "square", .13, e); golpe(tf + k * .22, "bombo", e); }
+      for (let k = 0; k < Math.min(errores, 5); k++) {
+        if (VOZ3D.tema === "neko") { bufido(tf + k * .22, .18, .4, e); ochocientos(tf + k * .22, 31, .2, .4, e); }
+        else { tono(tf + k * .22, frec(43), .16, "square", .13, e); golpe(tf + k * .22, "bombo", e); }
+      }
       VOZ3D.ultimo = { id: "error", desde: performance.now(), ruta: [[0, 0]], color: "#FF4F5E", dura: .3 * errores };
     } else tocarVoz("hecho");
     VOZ3D.fin = { avisos, errores };
@@ -2744,6 +2757,7 @@ function secOndaVoz() {
         <canvas id="cabeza3d" width="340" height="340" aria-label="La cabeza vista desde arriba, y donde suena cada cosa"></canvas>
         <div style="display:grid;gap:10px;align-content:start;min-width:0">
           <div class="censo-filtros" role="group" aria-label="El 3D">${[["apagado", "estereo de siempre"], ["cerca", "3D sin sala"], ["sala", "3D con sala"]].map(([m, n]) => `<button data-m3="${m}" aria-pressed="${VOZ3D.modo === m}" title="${n}">${m}</button>`).join("")}</div>
+          <div class="censo-filtros" role="group" aria-label="El tema">${[["clasica", "la voz de siempre"], ["neko", "NEKO PHONK: el gato y el cencerro"]].map(([m, n]) => `<button data-tema="${m}" aria-pressed="${VOZ3D.tema === m}" title="${n}">${m === "neko" ? "neko phonk" : m}</button>`).join("")}</div>
           <p class="nota" style="margin:0">Ponte audifonos. Es el mismo calculo que hace el maestro del kernel con <code>3d sala</code>: retardo entre oidos (hasta 0,66 ms), la sombra de la cabeza y una sala de ocho reflejos. Arriba y abajo no: eso pide HRTF.</p>
           <div class="tarjeta" style="margin:0"><h4>Las reglas de la voz</h4><ol class="reglas-voz">
             <li><b>Que, donde, cuanto.</b> La forma dice que paso; el sitio, que pieza lo dice; la cuenta, cuantos.</li>
@@ -2763,11 +2777,112 @@ function secOndaVoz() {
     </div>`;
   $("#centro").querySelectorAll("[data-m3]").forEach(b => b.onclick = () => { VOZ3D.modo = b.dataset.m3; secOndaVoz(); panelOnda(); });
   $("#centro").querySelectorAll("[data-voz]").forEach(b => b.onclick = () => tocarVoz(b.dataset.voz));
+  $("#centro").querySelectorAll("[data-tema]").forEach(b => b.onclick = () => { VOZ3D.tema = b.dataset.tema; secOndaVoz(); if (VOZ3D.tema === "neko") tocarVoz("aviso"); });
   $("#compilar").onclick = () => compilarTodo(false);
   $("#compilar-mal").onclick = () => compilarTodo(true);
   pintarCompilador();
   arrancarLazoVoz();
 }
+/* ============================ NEKO PHONK: el gato y el cencerro ============================ */
+/* Lo mismo que bmo-fondo::neko en Rust: el cencerro del 808 (dos cuadradas en
+   razon 1 : 1,48), el 808 que cae a su nota y se SATURA, el maullido (una
+   sierra por dos resonancias que se MUEVEN: la vocal), el ronroneo (ruido grave
+   que late a 26 Hz) y el bufido (aire a 4 kHz). Inspirado en COMO se hace el
+   phonk y lo de Geoxor; nada copiado, todo compuesto aqui. */
+const CURVAS_MIAU = {
+  nya: [[0, 620, 300, 2400], [60, 760, 700, 2200], [150, 820, 950, 1500], [280, 600, 650, 1100]],
+  miau: [[0, 520, 350, 2500], [150, 700, 800, 1700], [350, 640, 900, 1300], [560, 460, 450, 800]],
+  mrrp: [[0, 380, 400, 1200], [80, 470, 550, 1300], [160, 600, 650, 1600], [230, 720, 700, 1900]],
+  pregunta: [[0, 560, 500, 2000], [150, 640, 700, 1900], [260, 760, 750, 2000], [360, 920, 800, 2200]],
+  triste: [[0, 820, 850, 1700], [200, 720, 800, 1450], [420, 560, 600, 1100], [620, 420, 450, 850]],
+};
+function maullido(t, tipo, semis, vol, destino) {
+  const c = AUD.ctx, curva = CURVAS_MIAU[tipo], k = Math.pow(2, (semis || 0) / 12), dur = curva[3][0] / 1000;
+  const o = c.createOscillator(); o.type = "sawtooth";
+  const f1 = c.createBiquadFilter(), f2 = c.createBiquadFilter(), g1 = c.createGain(), g2 = c.createGain(), env = c.createGain();
+  [f1, f2].forEach(f => { f.type = "bandpass"; f.Q.value = 5; });
+  g1.gain.value = 1.4; g2.gain.value = .9;
+  curva.forEach(([ms, f0, a, b], i) => {
+    const s = t + ms / 1000, fn = i ? "linearRampToValueAtTime" : "setValueAtTime";
+    o.frequency[fn](f0 * k, s); f1.frequency[fn](a, s); f2.frequency[fn](b, s);
+  });
+  env.gain.setValueAtTime(vol * .03, t); env.gain.exponentialRampToValueAtTime(vol, t + .035); env.gain.exponentialRampToValueAtTime(.0003, t + dur);
+  o.connect(f1).connect(g1).connect(env); o.connect(f2).connect(g2).connect(env); env.connect(destino || AUD.bus || AUD.master);
+  o.start(t); o.stop(t + dur + .02);
+}
+function cencerro(t, midi, vol, destino) {
+  const c = AUD.ctx, env = c.createGain();
+  [1, 1.48].forEach(r => { const o = c.createOscillator(); o.type = "square"; o.frequency.value = frec(midi) * r; o.connect(env); o.start(t); o.stop(t + .42); });
+  env.gain.setValueAtTime(vol, t); env.gain.exponentialRampToValueAtTime(vol * .35, t + .018); env.gain.exponentialRampToValueAtTime(.0003, t + .38);
+  env.connect(destino || AUD.bus || AUD.master);
+}
+let curvaSatura = null;
+function ochocientos(t, midi, dur, vol, destino) {
+  const c = AUD.ctx, o = c.createOscillator(), empuje = c.createGain(), sat = c.createWaveShaper(), env = c.createGain();
+  if (!curvaSatura) { curvaSatura = new Float32Array(1025); for (let i = 0; i < 1025; i++) { const u = Math.max(-1, Math.min(1, (i / 512 - 1))); curvaSatura[i] = 1.5 * u - .5 * u * u * u; } }
+  sat.curve = curvaSatura; empuje.gain.value = 3;
+  o.frequency.setValueAtTime(frec(midi) * 2, t); o.frequency.exponentialRampToValueAtTime(frec(midi), t + .15);
+  env.gain.setValueAtTime(vol, t); env.gain.exponentialRampToValueAtTime(vol * .8, t + .06); env.gain.exponentialRampToValueAtTime(.0003, t + dur);
+  o.connect(empuje).connect(sat).connect(env).connect(destino || AUD.bus || AUD.master); o.start(t); o.stop(t + dur + .02);
+}
+function ronroneo(t, dur, vol, destino) {
+  const c = AUD.ctx, s = c.createBufferSource(), a = c.createBiquadFilter(), b = c.createBiquadFilter(), late = c.createGain(), lfo = c.createOscillator(), lfoG = c.createGain(), env = c.createGain();
+  s.buffer = ruido(); s.loop = true; a.type = b.type = "lowpass"; a.frequency.value = b.frequency.value = 250;
+  lfo.frequency.value = 26; lfoG.gain.value = .35; late.gain.value = .65; lfo.connect(lfoG).connect(late.gain);
+  env.gain.setValueAtTime(vol * .06, t); env.gain.exponentialRampToValueAtTime(vol, t + dur / 2); env.gain.exponentialRampToValueAtTime(.0003, t + dur);
+  s.connect(a).connect(b).connect(late).connect(env).connect(destino || AUD.bus || AUD.master);
+  s.start(t); s.stop(t + dur + .02); lfo.start(t); lfo.stop(t + dur + .02);
+}
+function bufido(t, dur, vol, destino) {
+  const c = AUD.ctx, s = c.createBufferSource(), f = c.createBiquadFilter(), env = c.createGain();
+  s.buffer = ruido(); s.loop = true; f.type = "bandpass"; f.frequency.value = 4200; f.Q.value = 2;
+  env.gain.setValueAtTime(vol * .1, t); env.gain.exponentialRampToValueAtTime(vol, t + .02); env.gain.exponentialRampToValueAtTime(.0003, t + dur);
+  s.connect(f).connect(env).connect(destino || AUD.bus || AUD.master); s.start(t); s.stop(t + dur + .02);
+}
+/** La voz de BMO-X en NEKO: la misma intencion, con el gato. */
+const NEKO_VOZ = {
+  error: (t, e) => { bufido(t, .32, .14, e); ochocientos(t, 33, .42, .12, e); },
+  advertencia: (t, e) => maullido(t, "mrrp", -7, .65, e),
+  aviso: (t, e) => maullido(t, "nya", 0, .55, e),
+  pregunta: (t, e) => maullido(t, "pregunta", 0, .3, e),
+  hecho: (t, e) => { maullido(t, "nya", 5, .4, e); [74, 77, 81].forEach((m, j) => cencerro(t + .14 + j * .07, m, .12, e)); },
+  llega: (t, e) => { ronroneo(t, .42, .9, e); maullido(t + .33, "nya", 7, .3, e); },
+  red: (t, e) => maullido(t, "triste", 0, .25, e),
+  captura: (t, e) => { golpe(t, "plato", e); maullido(t + .04, "nya", 5, .25, e); },
+};
+
+/* -- el NEKO PHONK en la ONDA: el mismo patron que el compositor de Rust -- */
+function patronPhonk(p) {
+  const r = i => azar(p.sem * 7919 + 1000 + i), esc = ESCALAS[p.escala], grado = i => esc[Math.floor(r(i) * esc.length)];
+  const cen = Array.from({ length: 32 }, (_, i) => ((i % 2 === 1 && r(i) < .62) || (i % 4 === 0 && r(i) < .3)) ? grado(100 + i) + (r(200 + i) < .25 ? 12 : 0) : null);
+  const ocho = Array.from({ length: 16 }, (_, i) => i === 0 || i === 10 || (i === 7 && r(300) < .55) || (i === 14 && r(301) < .3));
+  const nya = Array.from({ length: 8 }, (_, c) => c % 2 === 1 ? grado(400 + c) : null);
+  return { cen, ocho, nya, raices: [0, 1, 0, -2] };
+}
+function programarPhonk() {
+  const c = AUD.ctx, p = AUD.pista, P = AUD.patPhonk; if (!c || !p || !P) return;
+  const seg = 60 / p.bpm / 4, bomb = AUD.bomb || AUD.bus;
+  while (AUD.siguiente < c.currentTime + .12) {
+    const t = AUD.siguiente, i = AUD.paso % 16, compas = Math.floor(AUD.paso / 16) % 8, raiz = p.raiz + P.raices[compas % 4];
+    if (P.ocho[i]) {
+      let hasta = 16; for (let j = i + 1; j < 16; j++) if (P.ocho[j]) { hasta = j; break; }
+      ochocientos(t, raiz - 24, Math.min(8, hasta - i) * seg, .55); golpe(t, "bombo");
+      // ** EL BOMBEO: lo melodico al 30 % con cada 808, de vuelta en 125 ms.
+      if (AUD.bomb) { AUD.bomb.gain.setValueAtTime(.3, t); AUD.bomb.gain.linearRampToValueAtTime(1, t + .125); }
+    }
+    if (i === 8) golpe(t, "caja");
+    const redoble = compas % 4 === 3 && i >= 12;
+    if (i % 2 === 0 || redoble) golpe(t, "plato");
+    if (redoble) golpe(t + seg / 2, "plato");
+    const g = P.cen[(compas % 2) * 16 + i]; if (g !== null && compas !== 7) cencerro(t, raiz + 12 + g, .1, bomb);
+    if (i === 0 && compas >= 4) [0, 3, 7].forEach(x => tono(t, frec(raiz + 12 + x), seg * 3, "sawtooth", .045, bomb));
+    if (i === 14 && P.nya[compas] !== null) maullido(t, "nya", P.nya[compas], .22, bomb);
+    if (compas === 7 && i === 10) maullido(t, "miau", 0, .22, bomb);
+    AUD.siguiente += seg; AUD.paso++;
+  }
+}
+/** Para las pruebas de la maqueta: el motor de audio, por fuera. */
+window.__hermes.audio = () => AUD;
 /* ============================ la PASTILLA: el audio que nunca se duerme ============================ */
 /* La musica no es de una ventana: es del escritorio. Sigue sonando si cierras
    HERMES o abres un juego, y la manda una pastilla escondida arriba que asoma

@@ -727,6 +727,50 @@ junto a las del maestro (y las del FONDO: `INFO_AUDIO_FONDO`, 0xC9).
 | `oido balance 100` | todo a la derecha, por una rampa corta | un golpe al cambiar |
 | `oido plano` | el maestro vuelve al cable (`estado 1` y nada que hacer) | -- |
 
+## [ ] S4h -- NEKO PHONK: el gato y el cencerro, para dar vida a BMO-X (2026-10-03)
+
+El propietario: *"inspirate en combinar Phonk [...] y Geoxor [...] estudia
+como se hicieron, pero para tener todo ese sonido en cat o neko sonido, para
+dar vida en todo mi BMO-X"*.
+
+[!] Los tres enlaces de YouTube no se pudieron abrir: la red de esta maquina
+los niega (403). Lo de abajo sale de lo que esos estilos SON como tecnica, y
+todo se compone en BMO-X; no se copia ni un compas.
+
+| de | que | como se hace aqui (`bmo-fondo::neko`) |
+|---|---|---|
+| phonk | el CENCERRO del 808 | dos cuadradas en razon 1 : 1,48; golpe que cae 9 dB en 18 ms y cola de 380 ms |
+| phonk | el 808 | un seno que cae de la octava a su nota y se SATURA (`1,5u - 0,5u^3`, empujado x3): el grunido. Prueba `el_808_grune` |
+| phonk | el BOMBEO | lo melodico cae al 30 % con cada 808 y vuelve en 125 ms. Prueba `el_phonk_bombea` |
+| phonk | la escala FRIGIA | la segunda menor sobre la raiz: la tension |
+| Geoxor | lo tierno y lo bruto | acordes de sierra cortos y brillantes, "voces" que juegan |
+| el gato | el MAULLIDO | una sierra por dos resonancias que se MUEVEN (los formantes: la vocal) con su curva de tono; cinco: nya, miau, mrrp, la pregunta, el triste. Medido: "nya" va de 680 a 820 Hz y vuelve, y se oscurece |
+| el gato | el RONRONEO | ruido grave (dos polos a 250 Hz) que late a 26 Hz |
+| el gato | el BUFIDO | aire a 4,2 kHz: el gato enfadado |
+
+* **El tema NEKO de los avisos** (`avisos::Tema::Neko`): mensaje "nya",
+  conecta "mrrp", error un bufido con un 808 grave, hecho "nya" y el cencerro
+  que sube, lo que llega un ronroneo que crece y "nya", lo que se va el
+  maullido triste... los doce a -6 dBFS de pico, con las mismas reglas de la
+  VOZ (S4g) y su sitio en 3D. `fondo tema neko` (y `clasico`).
+* **Tres piezas NEKO PHONK** en el compositor (`Estilo::NekoPhonk`): Neko
+  drift (144), Gato de neon (128), Nyan de medianoche (136). El 808 con un
+  golpe encima, la caja en el tres, el plato con redobles a fusas, la frase
+  del cencerro a contratiempo, los acordes de sierra de la segunda mitad,
+  "nya" al final de cada compas impar y "miau" al final de todo; a -26 dBFS
+  y sin costura en el bucle. `fondo neko drift`.
+* En la maqueta: el tema "neko phonk" en "La voz de BMO-X" (tambien el
+  compilador: tics de cencerro, bufidos por error) y la lista "neko phonk"
+  en la ONDA, con el mismo patron, en WebAudio.
+* `BMO_FONDO_WAV=<carpeta> cargo test` escribe `neko_*.wav`,
+  `cancion_neko_drift.wav` y `demo_neko_3d.wav`.
+
+| que | afirma | como se cae |
+|---|---|---|
+| `fondo tema neko` y `fondo aviso mensaje` | un "nya" que se entiende como gato, a la izquierda | un pitido: las resonancias no se mueven |
+| `fondo neko drift` | el 808 grune, el cencerro baila entre golpes, todo bombea | el 808 suena limpio: la saturacion no llega |
+| `fondo aviso error` en neko | un bufido con un golpe grave, delante | -- |
+
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 
 Una fuente mono con una posicion (angulo y distancia) en dos canales:
