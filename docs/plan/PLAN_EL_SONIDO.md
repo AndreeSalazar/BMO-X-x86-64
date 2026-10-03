@@ -573,6 +573,89 @@ es la condicion de esta casilla.
 
 Detalle, piezas y la tabla del metal: [`PLAN_DOOM.md`](terminado/PLAN_DOOM.md) 5.3g.
 
+## [ ] S4e -- EL FONDO: musica compuesta aqui, que se aparta sola para los avisos (2026-10-03)
+
+> Codigo HECHO el 03-10; la casilla se cierra cuando el metal conteste la tabla
+> de abajo.
+
+El propietario, despues de oir la ONDA de la maqueta de HERMES: *"me encantan
+las musicas que pusiste, puedes integrar? como si fuera fondo, integrado, que
+relaja al usuario hasta que aparece una notificacion para avisar [...] y
+mejorar mi audio, pero nivel maestro"*.
+
+### Las musicas no eran ficheros: eran partituras
+
+Cada pieza de la maqueta es una semilla, un tempo, una raiz, una escala y un
+timbre; el patron de cada compas sale de ahi. `platform/shared/bmo-fondo` es
+la MISMA partitura y la misma sintesis, en Rust y en enteros: lo que suena en
+el Ryzen es lo que sonaba en el navegador, y ocupa diez lineas, no diez megas.
+
+| pieza | que hace | como se sabe (anfitrion) |
+|---|---|---|
+| el patron | `azar()` de la maqueta bit a bit, y los umbrales con la fraccion exacta de cada doble | `el_patron_es_el_de_la_maqueta`: igual que `node` paso a paso, en cuatro piezas |
+| los osciladores | cuadrada y sierra con **PolyBLEP**: sin el silbido de los armonicos que pasan de 24 kHz y vuelven doblados | `la_cuadrada_no_silba`: mas de 15 dB menos de alias que la ingenua |
+| bombo, caja, plato | el bombo cae de 150 a 42 Hz; caja y plato son ruido por un biquad (los coeficientes de la norma de WebAudio, en Q28) | -- |
+| las envolventes | una rampa exponencial ES una recta en dB: se lleva en dB y se interpola cada 16 muestras, sin cremallera | -- |
+| **el bucle sin costura** | se compone un compas ANTES del cero y se tira: la muestra 0 lleva las colas de la vuelta anterior | `el_bucle_no_tiene_costura`: la segunda vuelta es la primera muestra a muestra |
+| el nivel | cada pieza calibrada a **-26 dBFS de fuerza** (RMS), picos de -5 a -10, y el limite sin trabajar | `cada_pieza_suena_igual_de_fuerte_y_el_limite_no_trabaja`: las diez dentro de 1 dB, cero sujetadas |
+| la mezcla FONDO | la misma partitura con la bateria muy atras y los acordes delante: acompana, no pide atencion | `la_cancion_suena_mas_que_el_fondo` |
+| los avisos | los seis sonidos del sistema, cada uno a **-6 dBFS de pico** | `los_avisos_se_oyen_y_no_se_pasan` |
+
+Con `BMO_FONDO_WAV=<carpeta> cargo test` escribe cada pieza, cada aviso y una
+demo del agache como WAV, para oirlos en el anfitrion.
+
+### "Nivel maestro": dos piezas nuevas en `bmo-amplificador`
+
+| pieza | que arregla |
+|---|---|
+| **la RAMPA de las voces** (`voces::RAMPA_TRAMAS`) | `ajustar` saltaba en la trama siguiente: un escalon de volumen es un CLIC. Ahora llega en 5 ms. Un `tocar` nuevo NO lleva rampa: el ataque es del sonido. Prueba `ajustar_no_salta_va_por_la_rampa` |
+| **el AGACHE** (`agacha.rs`) | la musica BAJA sola 15 dB en 30 ms bajo un aviso (8 bajo la app), se queda 400 ms desde el ultimo, y vuelve sola en ~1,3 s. En dB, sin escalones, y en reposo un cable bit a bit. 4 pruebas |
+
+### Por que hacia falta un SEGUNDO banco
+
+El banco de voces era del que reclamo el sonido. Con DOOM sonando, el
+escritorio no podia tocar nada: la musica de fondo se habria callado justo
+cuando se pidio que siguiera. Ahora hay dos ATRILES con la misma pieza
+dentro (`dev/usb/voces.rs`):
+
+```text
+   APP     el banco de quien reclamo el sonido, por AUDIO_OP_VOZ (como antes)
+   FONDO   el banco del ESCRITORIO, por TASK_OP_AUDIO_FONDO (0x3D):
+           canales 0..8 la musica (se agacha), 8..16 los avisos (no)
+```
+
+La trama: anillo + voces de la app, y si el fondo suena, su musica en un
+cubo aparte, por el agache (pide -15 si suena un aviso, -8 si lo de la app
+pasa de -40 dBFS), sumada; y los avisos encima. Despues, el maestro de
+siempre. El tubo se arma tambien por el fondo (`armar_fondo`): DOOM al salir
+lo calla y la musica sigue. Solo quien tiene la pantalla abre el atril, la
+misma regla que el mando del maestro.
+
+En el escritorio: la orden `fondo` (encender, `siguiente`, una pieza por su
+nombre, `vol N`, `aviso`, `lista`, `apagar`), y cada `globo::avisar` --los
+avisos de verdad, no los consejos que se turnan-- suena encima si el fondo
+esta encendido. La siguiente pieza se compone en un segundo sitio del banco
+MIENTRAS suena la de ahora: cambiar no deja hueco.
+
+### Lo que el metal tiene que contestar
+
+| que | afirma | como se cae |
+|---|---|---|
+| `fondo` | suena *Sierra al atardecer*, `compuesta aqui en N ms` con N de unos cientos | `el kernel no acepto el banco`: mirar `fondo` en CABINA (sin tubo, o no somos la pantalla) |
+| dejarla un minuto | ni un clic cada ~25 s (la vuelta) | un clic regular: la costura, o la voz en bucle pierde la fraccion |
+| `fondo aviso` | dos notas encima; la musica se aparta y vuelve sola en ~1 s | no baja: `FONDO.activas()` no ve el canal 8+ |
+| `fondo siguiente` | cambia sin hueco ni golpe | un silencio: se compuso encima de lo que sonaba |
+| abrir DOOM con el fondo sonando | sigue sonando, mas baja (-8 dB), y DOOM se oye entero | se calla: el fondo dependia del banco de la app |
+| salir de DOOM | la musica sigue y vuelve a su nivel | se calla: DOOM desarmo el tubo y el fondo no lo sostuvo |
+| `fondo apagar` | se va sin clic | clic: se solto antes de que acabara la rampa |
+
+### Lo que NO es
+
+No es la ONDA de HERMES: ni ficheros, ni listas, ni MP3 (M2 de
+`PLAN_MEDIOS.md`). Es la misma partitura de la maqueta, compuesta en la
+maquina. Y la PASTILLA de la maqueta (la notificacion escondida con pausa y
+volumen) todavia es solo de la maqueta: aqui se manda por `fondo`.
+
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 
 Una fuente mono con una posicion (angulo y distancia) en dos canales:

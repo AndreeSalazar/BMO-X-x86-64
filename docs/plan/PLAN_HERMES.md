@@ -555,10 +555,13 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       `datos/` como SUENA, un `.mp3` renombrado de un WAV como MIENTE, y un
       `.mid` como NO OFICIAL; hasta entonces, 18 pruebas en el anfitrion
       (una de 30.000 cabeceras hostiles) y el director compila.
-- [ ] **H17 -- el audio que no se duerme.** Un servicio de sonido del
-      escritorio (no de F3) que posee el tubo y mezcla con `bmo-amplificador`
-      la musica, los sonidos del sistema y el juego; el director pinta la
-      PASTILLA encima de cualquier ventana. Pide A1 y M1. **Como se sabe:**
+- [~] **H17 -- el audio que no se duerme.** EN CODIGO el 03-10 lo de
+      abajo de la PASTILLA: el atril del FONDO en el kernel (un segundo banco,
+      del escritorio, que suena aunque DOOM tenga el sonido), el AGACHE y la
+      rampa en `bmo-amplificador`, las diez piezas de la maqueta compuestas
+      en enteros por `bmo-fondo`, y la orden `fondo` (S4e de
+      `PLAN_EL_SONIDO.md`). Falta la PASTILLA en el director y el metal.
+      **Como se sabe:**
       en el Ryzen suena un WAV, se cierra HERMES, se abre DOOM II y sigue
       sonando sin cortes; la PASTILLA lo pausa sin que el juego pierda una
       tecla, y mientras el juego suena la musica baja.

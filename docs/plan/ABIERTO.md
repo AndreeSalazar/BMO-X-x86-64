@@ -114,15 +114,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
 
-## [`PLAN_HERMES.md`](PLAN_HERMES.md) -- 15 abiertas, 2 hechas
-
-*PLAN HERMES -- F3 de BMO-X: dos BMO-X que se hablan, sin servidor de nadie*
-
-- [ ] H4 -- la PUERTA HERMES. Un servicio que nace con RED (y nada mas),
-- [ ] H5 -- la app en F3, en una sola maquina. sys/hermes.bex
-- [ ] H6 -- texto entre dos BMO-X en la LAN. Pide G5 en el metal. **Como
-- ... y 12 mas
-
 ## [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) -- 14 abiertas, 1 hechas
 
 *PLAN EL PLAZO -- V-Sync, VBlank y la deuda de planificacion*
@@ -130,6 +121,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] **P2.2 -- RESCHEDULE FORZADO: una tarea que se duerme suelta el CPU en el
 - [ ] P2.3 -- el kernel publica el TIEMPO DE CPU de una tarea. Hoy
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
+- ... y 11 mas
+
+## [`PLAN_HERMES.md`](PLAN_HERMES.md) -- 14 abiertas, 2 hechas
+
+*PLAN HERMES -- F3 de BMO-X: dos BMO-X que se hablan, sin servidor de nadie*
+
+- [ ] H4 -- la PUERTA HERMES. Un servicio que nace con RED (y nada mas),
+- [ ] H5 -- la app en F3, en una sola maquina. sys/hermes.bex
+- [ ] H6 -- texto entre dos BMO-X en la LAN. Pide G5 en el metal. **Como
 - ... y 11 mas
 
 ## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 13 abiertas, 7 hechas
@@ -159,6 +159,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M1b -- CUANTO CUESTA REVOCAR UNA PAGINA, y va ANTES de M1. La seccion
 - ... y 8 mas
 
+## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 10 abiertas, 4 hechas
+
+*PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
+
+- [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
+- [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
+- [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
+- ... y 7 mas
+
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 
 *PLAN LA DEUDA -- lo que el arbol debe, medido el 2026-09-17*
@@ -176,15 +185,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 3 taller.bex DIBUJA una ventana con su rejilla y su cursor,
 - [ ] 4 y LEE TECLAS por el buzon de entrada, con el
 - ... y 7 mas
-
-## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 9 abiertas, 4 hechas
-
-*PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
-
-- [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
-- [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
-- [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
-- ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 
