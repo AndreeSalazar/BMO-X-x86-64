@@ -343,6 +343,92 @@ pub struct Programa {
     pub lee: u32,
     /// El mayor registro del cbuffer que lee, mas uno (en filas de 16 bytes).
     pub filas_cb: u16,
+    /// Las texturas y los muestreadores que lee, con su espacio y su registro
+    /// (03-10, N5.1): el `t` y el `s` de [`Op::Lee`] y [`Op::Muestra`] son
+    /// su POSICION aqui, no un registro.
+    pub ranuras: Ranuras,
+}
+
+/// **Donde vive un recurso**: su espacio y su registro (`t40, space1`), y
+/// la etapa que lo lee.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Lugar {
+    pub espacio: u32,
+    pub registro: u32,
+    /// `D3D12_SHADER_VISIBILITY` de quien lo lee (1 vertices, 5 pixeles; 0
+    /// sin decir): el t0 del de vertices y el del de pixeles pueden venir de
+    /// tablas distintas. La pone el enlace ([`Ranuras::de_la_etapa`]).
+    pub vista: u32,
+}
+
+/// **Las ranuras de un programa** (03-10, N5.1): cada textura y cada
+/// muestreador que lee, sin repetir, en el orden en que aparecen. Hasta hoy
+/// el `t` de una operacion ERA el registro, y solo cabian t0..t31 y s0..s15
+/// del espacio 0: el primer sombreador de Cyberpunk con un recurso mas alla
+/// no corria.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Ranuras {
+    pub texturas: Vec<Lugar>,
+    pub muestreadores: Vec<Lugar>,
+}
+
+impl Ranuras {
+    fn de(v: &mut Vec<Lugar>, l: Lugar) -> Result<u8, NoPrograma> {
+        if let Some(i) = v.iter().position(|&x| x == l) {
+            return Ok(i as u8);
+        }
+        if v.len() >= 256 {
+            return Err(NoPrograma::Forma("un sombreador con mas de 256 texturas o muestreadores distintos"));
+        }
+        v.push(l);
+        Ok((v.len() - 1) as u8)
+    }
+
+    /// La ranura de la textura de `espacio` y `registro` (nueva si no estaba).
+    pub fn textura(&mut self, espacio: u32, registro: u32) -> Result<u8, NoPrograma> {
+        Self::de(&mut self.texturas, Lugar { espacio, registro, vista: 0 })
+    }
+
+    /// La del muestreador.
+    pub fn muestreador(&mut self, espacio: u32, registro: u32) -> Result<u8, NoPrograma> {
+        Self::de(&mut self.muestreadores, Lugar { espacio, registro, vista: 0 })
+    }
+
+    /// **Las de la etapa `vista`**: todas pasan a ser de ella.
+    pub fn de_la_etapa(mut self, vista: u32) -> Ranuras {
+        for l in self.texturas.iter_mut().chain(self.muestreadores.iter_mut()) {
+            l.vista = vista;
+        }
+        self
+    }
+
+    /// **Sumar las de `otras`** (las del de pixeles a las del de vertices):
+    /// lo que ya estaba guarda su ranura, lo nuevo va detras. Devuelve, por
+    /// ranura de `otras`, su ranura aqui: lo que pide [`Programa::renumerar`].
+    pub fn unir(&mut self, otras: &Ranuras) -> Result<(Vec<u8>, Vec<u8>), NoPrograma> {
+        let t = otras.texturas.iter().map(|&l| Self::de(&mut self.texturas, l)).collect::<Result<Vec<u8>, _>>()?;
+        let s = otras.muestreadores.iter().map(|&l| Self::de(&mut self.muestreadores, l)).collect::<Result<Vec<u8>, _>>()?;
+        Ok((t, s))
+    }
+}
+
+impl Programa {
+    /// **Renumerar sus texturas y muestreadores** (la ranura `i` pasa a
+    /// `texturas[i]` y `muestreadores[i]`): lo que hace el enlace para que el
+    /// de vertices y el de pixeles compartan UNA tabla.
+    pub fn renumerar(&mut self, texturas: &[u8], muestreadores: &[u8]) {
+        let t = |x: u8| texturas.get(x as usize).copied().unwrap_or(x);
+        let s = |x: u8| muestreadores.get(x as usize).copied().unwrap_or(x);
+        for op in &mut self.ops {
+            match op {
+                Op::Muestra { t: a, s: b, .. } | Op::Lee { t: a, s: b, .. } => {
+                    *a = t(*a);
+                    *b = s(*b);
+                }
+                _ => {}
+            }
+        }
+    }
 }
 
 /// **Como lee una textura** [`Op::Lee`].
@@ -742,6 +828,9 @@ pub(super) struct Compilador {
     salidas: usize,
     lee: u32,
     filas_cb: u16,
+    /// Los recursos con su espacio (de la PSV0) y las ranuras que se piden.
+    recursos: Vec<super::recursos::Recurso>,
+    ranuras: Ranuras,
     /// E6b: los bloques ya cerrados, el que se esta leyendo, y las
     /// constantes enteras que hicieron falta como registro.
     pub(super) bloques: super::estructura::Bloques,
@@ -823,7 +912,7 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     let tipos = tipos(m);
     let floats = tipos_float(m);
     let anchos = super::enteros::anchos(m);
-    let mut c = Compilador { valores: Vec::new(), iniciales: Vec::new(), ops: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, bloques: Default::default(), literales: Vec::new() };
+    let mut c = Compilador { valores: Vec::new(), iniciales: Vec::new(), ops: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, recursos: s.recursos.clone(), ranuras: Ranuras::default(), bloques: Default::default(), literales: Vec::new() };
 
     // 1. Los globales, en el orden de sus registros.
     let mut funciones: Vec<Funcion> = Vec::new();
@@ -873,7 +962,7 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     }
     // E6b: con saltos, el grafo de bloques vuelve a ser `si` y bucles.
     super::estructura::armar(&mut c)?;
-    Ok(Programa { ops: c.ops, iniciales: c.iniciales, entradas: c.entradas, salidas: c.salidas, lee: c.lee, filas_cb: c.filas_cb })
+    Ok(Programa { ops: c.ops, iniciales: c.iniciales, entradas: c.entradas, salidas: c.salidas, lee: c.lee, filas_cb: c.filas_cb, ranuras: c.ranuras })
 }
 
 /// Lee operandos de un registro de instruccion: relativos o absolutos, y si
@@ -1036,15 +1125,20 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
         }
         DX_CREATE_HANDLE => {
             // (clase, rango, indice, no uniforme): 0 SRV, 1 UAV, 2 CBuffer, 3
-            // Sampler. El indice es el REGISTRO (la base del rango incluida).
+            // Sampler. El indice es el REGISTRO (la base del rango incluida);
+            // el ESPACIO, el del rango `rango` de su clase en la PSV0 (03-10).
             let (clase, rango, indice) = (c.entero(arg(1)?)?, c.entero(arg(2)?)?, c.entero(arg(3)?)?);
+            if !(0..=3).contains(&clase) || rango < 0 || indice < 0 {
+                return Err(NoPrograma::Forma("un createHandle con una clase, un rango o un registro imposibles"));
+            }
+            let espacio = super::recursos::rango(&c.recursos, clase as u8, rango as u32).map_or(0, |r| r.espacio);
+            let registro = indice as u32;
             match clase {
-                2 if rango == 0 && indice == 0 => Valor::Cbuffer,
-                2 => return Err(NoPrograma::Forma("un cbuffer que no es el b0: todavia no")),
-                0 if (0..32).contains(&indice) => Valor::Textura(indice as u8),
-                3 if (0..16).contains(&indice) => Valor::Muestreador(indice as u8),
-                1 => return Err(NoPrograma::Forma("un UAV (RWTexture, RWBuffer...): todavia no")),
-                _ => return Err(NoPrograma::Forma("un recurso fuera de t0..t31 o s0..s15")),
+                2 if espacio == 0 && registro == 0 => Valor::Cbuffer,
+                2 => return Err(NoPrograma::Forma("un cbuffer que no es el b0 del espacio 0: todavia no")),
+                0 => Valor::Textura(c.ranuras.textura(espacio, registro)?),
+                3 => Valor::Muestreador(c.ranuras.muestreador(espacio, registro)?),
+                _ => return Err(NoPrograma::Forma("un UAV (RWTexture, RWBuffer...): todavia no")),
             }
         }
         DX_CBUFFER_LOAD_LEGACY => {

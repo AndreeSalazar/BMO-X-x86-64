@@ -550,7 +550,7 @@ impl Traductor<'_> {
 /// medida) al programa escalar de la casa, con las firmas del sobre.
 pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Result<Programa, NoPrograma> {
     let medida = (palabra(t, 1)? as usize).min(t.len());
-    let p = Programa { ops: Vec::new(), iniciales: Vec::new(), entradas: entradas.len(), salidas: salidas.len(), lee: 0, filas_cb: 0 };
+    let p = Programa { ops: Vec::new(), iniciales: Vec::new(), entradas: entradas.len(), salidas: salidas.len(), lee: 0, filas_cb: 0, ranuras: Default::default() };
     // E6: si salta, antes de leer nada (lo de antes del primer `if` tambien
     // va a sus variables).
     let variables = salta(t, medida);
@@ -787,9 +787,8 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
                 if j != fin || res.tipo != RESOURCE || smp.tipo != SAMPLER {
                     return Err(NoPrograma::Forma("un sample SM5 que no es (destino, direccion, tN, sM)"));
                 }
-                let (Ok(tn), Ok(sn)) = (u8::try_from(res.indices[0]), u8::try_from(smp.indices[0])) else {
-                    return Err(NoPrograma::Forma("un sample SM5 con un registro imposible"));
-                };
+                // SM5 no tiene espacios: todo es del 0 (03-10: por ranura).
+                let (tn, sn) = (tr.p.ranuras.textura(0, res.indices[0])?, tr.p.ranuras.muestreador(0, smp.indices[0])?);
                 let (u, v) = (tr.fuente(&dir, 0)?, tr.fuente(&dir, 1)?);
                 let x = tr.nuevo()?;
                 for _ in 0..3 {

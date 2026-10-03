@@ -616,9 +616,11 @@ tanda52: preguntar la hora cede el turno); ahora sus hilos corren y crea
 PSO. Murio porque el monton de PROTON-X no devolvia lo soltado (tanda53, ya
 arreglado: `bmo-monton`). El siguiente paso que el juego YA PIDIO:
 
-- [ ] **N3.1 -- input layouts que no son float de 32 bits** (`tuberia.rs`:
-  UNORM, SNORM, UINT, SINT y half, de 8, 16 y 32 bits): lo ultimo que dijo
-  el metal antes de morir.
+- [x] **N3.1 -- input layouts que no son float de 32 bits** (03-10,
+  `proton-x/src/formato_ia.rs`): UNORM, SNORM, UINT, SINT, half, 10:10:10:2
+  y 11:11:10, de 8, 16 y 32 bits; y SV_VertexID y SV_InstanceID, que no
+  vienen del input layout (`lote::Fuente`). En la 3060 todavia no: esos van
+  por la CPU (N6.1).
 - [x] **N3.2 -- la corrida siguiente con el monton nuevo** (03-10): 2,2 MiB
   en uso al cargar (antes, 48 MiB llenos al morir): era basura, y ya no
   mata. Con 1065 PSO creados (163 ms) y 201 recursos.
@@ -629,7 +631,8 @@ arreglado: `bmo-monton`). El siguiente paso que el juego YA PIDIO:
 **Estado al 03-10, segunda corrida: nivel 4.** Lo que lo para ahora, por
 orden (las dos corridas murieron igual: es determinista):
 
-- [ ] **N4.1 -- el puntero NULO**: a los ~11 s, el hilo principal llama a la
+- [x] **N4.1 -- el puntero NULO** (03-10, `trampas.rs`; falta verlo en el
+  metal): a los ~11 s, el hilo principal llama a la
   direccion 0 desde `Cyberpunk2077.exe+0x1d4c6cf` con `rcx = 0` (no es un
   metodo COM: ahi `rcx` es el objeto). Los unicos nulos que la casa le dio
   fueron dos GetProcAddress: `crypt32!CryptMsgClose` e
@@ -639,11 +642,42 @@ orden (las dos corridas murieron igual: es determinista):
   arreglo y la red: esas dos de verdad, y un GetProcAddress de algo que la
   casa no tiene de una DLL que si tiene da una TRAMPA con nombre (dice quien
   es al llamarla y devuelve 0), no un nulo.
-- [ ] **N4.2 -- el fondo de la ventana**: FillRect con cualquier pincel, no
-  solo los de color de sistema.
-- [ ] **N5.1 -- los sombreadores de Cyberpunk** en la casa: recursos mas alla
-  de t0..t31 y s0..s15 (espacios de registro y rangos grandes), las
-  semanticas que el input layout no da con su nombre, y N3.1.
+- [x] **N4.2 -- el fondo de la ventana** (03-10, `pinceles.rs`): FillRect
+  con cualquier pincel: los de serie (`GetStockObject`, el NEGRO de
+  Cyberpunk), `CreateSolidBrush` y `DeleteObject`.
+- [x] **N5.1 -- los sombreadores de Cyberpunk: espacios y registros altos**
+  (03-10). El espacio de cada recurso sale de la parte PSV0
+  (`dxil/recursos.rs`); cada lugar (espacio, registro, etapa) es una RANURA
+  del programa (`programa::Ranuras`), el enlace une las del de vertices y
+  las del de pixeles en una tabla, y la casa busca cada ranura en la root
+  signature (`donde.rs`: rangos "a continuacion", sin medida, por etapa, y
+  los samplers estaticos con su espacio). Ya no hay "t0..t31 y s0..s15", ni
+  "una tabla con un espacio que no es el 0: se salta". Probado con
+  `prueba/espacios.dxil` (dxc: t40 de space1, un array en space2, s20).
+
+**Lo que queda para que la 3060 PINTE un fotograma de Cyberpunk**, por
+orden. Cada uno lo dice el DIARIO con su texto la primera vez que pasa;
+la proxima corrida del metal dice cual pesa mas:
+
+- [ ] **N5.2 -- los cbuffers que no son b0**: b1.., en otros espacios, y las
+  constantes de 32 bits de la raiz (`SetGraphicsRoot32BitConstants`).
+  Texto: "un cbuffer que no es el b0 del espacio 0: todavia no". Mismo
+  camino que N5.1: una ranura por cbuffer y la casa los busca en la firma.
+- [ ] **N5.3 -- los UAV** (RWTexture, RWBuffer) y los SRV de bufer
+  (StructuredBuffer, ByteAddressBuffer). Texto: "un UAV ... todavia no" y
+  "un SRV de un bufer: ... se lee como nulo".
+- [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
+  no es una constante. Hoy el sombreador no compila; pide que la ranura sea
+  un RANGO y no un lugar.
+- [ ] **N6.1 -- a la 3060 lo que hoy va a la CPU**: SV_VertexID y
+  SV_InstanceID, y los formatos de vertice que no son float de 32 bits
+  (`proton-x-sm86/src/pso.rs`, `NoVa::Entrada`): el pegamento los
+  convierte antes de que corra el sombreador.
+- [ ] **N6.2 -- ExecuteCommandLists y Present en el metal**: el primer
+  fotograma del juego. Hasta la segunda corrida: 0 y 0.
+- [ ] **N6.3 -- el juez en el metal**: cada PSO que va a la 3060, comparado
+  con la CPU la primera vez (lo que ya hace con el cubo); lo que no casa,
+  a la CPU y dicho.
 
 **El nivel 9 es posible por ser el kernel propio**, y no es un deseo: estas
 son las palancas que ningun juego tiene en Windows, cada una medible con

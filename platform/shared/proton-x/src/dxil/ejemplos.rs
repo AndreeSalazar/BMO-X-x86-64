@@ -16,7 +16,7 @@ pub fn programa(ops: Vec<Op>, n: usize, iniciales: &[(Reg, f32)]) -> Programa {
     for &(r, v) in iniciales {
         ini[r as usize] = v;
     }
-    Programa { ops, iniciales: ini, entradas: 1, salidas: 1, lee: 1, filas_cb: 0 }
+    Programa { ops, iniciales: ini, entradas: 1, salidas: 1, lee: 1, filas_cb: 0, ranuras: Default::default() }
 }
 
 /// `z = x < y ? x * y : x + y`, con un `si` de verdad (no un `Elige`).

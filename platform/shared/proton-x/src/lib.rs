@@ -42,6 +42,7 @@ pub mod desenrollar;
 pub mod formato_ia;
 pub mod direcciones;
 pub mod dll;
+pub mod donde;
 pub mod dxbc;
 pub mod dxil;
 pub mod ficheros;
@@ -137,3 +138,5 @@ mod pruebas_sm5;
 mod pruebas_seh;
 #[cfg(test)]
 mod pruebas_saltos;
+#[cfg(test)]
+mod pruebas_espacios;

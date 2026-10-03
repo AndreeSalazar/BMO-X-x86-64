@@ -1819,3 +1819,25 @@ Dice `bien` cuatro veces y sale con 0. Con la casa de antes (sin ceder al
 preguntar la hora) decia MAL dos veces: el trabajador no corria nunca y el
 bucle acababa por su plazo de dos segundos. Es lo que se comprobo antes de
 arreglarlo.
+
+espacios.dxil -- los ESPACIOS de registros y los registros altos (03-10, N5.1)
+
+Lo que hacen los sombreadores de Cyberpunk y la casa no sabia: texturas y
+muestreadores mas alla de t31 y s15, y en otros espacios (`space1`,
+`space2`), y un array de texturas. De `espacios.hlsl` (aqui al lado), con el
+mismo `dxc` de Linux (1.9, 4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo espacios.dxil espacios.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   3e7d5b835eb50eb0bbca1e0fd247d491c8c0a1677e86ddfcd314c533c4869e24  espacios.dxil
+
+Lo que se aprendio de el (`dxc -dumpbin`): `createHandle` da la clase, el
+numero del rango DENTRO de su clase y el registro absoluto, pero no el
+espacio; el espacio esta en la parte PSV0, con los recursos en el orden
+cbuffers, muestreadores, SRV y UAV, y cada clase en el orden de su rangeId
+(aqui s20 de space1 es el muestreador 0 y s2 el 1). `dxil/recursos.rs` lo
+lee y el banco lo compara; `dxil/programa.rs` le da a cada lugar (espacio,
+registro) su RANURA, y la casa busca cada ranura en la root signature
+(`donde.rs`).

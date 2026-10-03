@@ -121,7 +121,7 @@ fn cada_operacion_nativa_da_los_bits_del_interprete_con_nan_infinitos_y_ceros() 
     for (k, r) in (2..18u16).enumerate() {
         ops2.push(Op::Salida { s: r, elemento: (k / 4) as u8, componente: (k % 4) as u8 });
     }
-    let p = Programa { ops: ops2, iniciales: vec![0.0; 18], entradas: 1, salidas: 4, lee: 1, filas_cb: 2 };
+    let p = Programa { ops: ops2, iniciales: vec![0.0; 18], entradas: 1, salidas: 4, lee: 1, filas_cb: 2, ranuras: Default::default() };
     let f = sellar(&nativo::compilar(&p).unwrap());
     let raros = [
         0.0f32, -0.0, 1.0, -1.0, 0.5, 1.5, 3.0, -2.5, 1e-40, -1e-40, f32::MIN_POSITIVE, f32::MAX, f32::MIN, f32::INFINITY,
@@ -161,6 +161,7 @@ fn el_mxcsr_de_quien_llama_no_cuenta_y_se_devuelve() {
         salidas: 1,
         lee: 1,
         filas_cb: 0,
+        ranuras: Default::default(),
     };
     let f = sellar(&nativo::compilar(&p).unwrap());
     let mut regs = p.iniciales.clone();

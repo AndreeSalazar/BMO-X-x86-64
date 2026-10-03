@@ -898,6 +898,7 @@ fn los_opcodes_nativos_son_los_de_las_filas_sse_de_inti() {
         salidas: 0,
         lee: 0,
         filas_cb: 0,
+        ranuras: Default::default(),
     };
     let b = crate::nativo::compilar(&p).expect("sin texturas: se traduce");
     let (m, a) = (b.windows(3).position(|w| w == [0xF3, 0x0F, MULSS]).unwrap(), b.windows(3).position(|w| w == [0xF3, 0x0F, ADDSS]).unwrap());
@@ -966,7 +967,7 @@ fn un_fichero_abierto_lee_escribe_y_se_mueve_como_windows() {
 
 // ======================== TEXTURAS (29-09) ========================
 
-const TEXTURA_VS: &[u8] = include_bytes!("../prueba/textura_vs.dxil");
+pub(crate) const TEXTURA_VS: &[u8] = include_bytes!("../prueba/textura_vs.dxil");
 const TEXTURA_PS: &[u8] = include_bytes!("../prueba/textura_ps.dxil");
 
 /// *** Un sombreador de pixel de `dxc` que MUESTREA (`textura.hlsl`, el de
@@ -1026,13 +1027,16 @@ fn un_pixel_de_dxc_lee_arrays_cubos_3d_y_mips() {
     // t4: 4x4 de enteros de 8 bits: (x, y, 7, 9).
     let enteros: Vec<u32> = (0..16).map(|i| 9 << 24 | 7 << 16 | (i / 4) << 8 | i % 4).collect();
     let base = Textura::rgba(&[], 0, 0, false);
-    let tex = [
-        Some(Textura { texeles: &capas, ancho: 2, alto: 2, capas: 3, clase: Clase::Array, ..base }),
-        Some(Textura { texeles: &cubo, ancho: 1, alto: 1, capas: 6, clase: Clase::Cubo, ..base }),
-        Some(Textura { texeles: &volumen, ancho: 2, alto: 2, hondo: 4, clase: Clase::Volumen, ..base }),
-        Some(Textura { texeles: &mips, ancho: 4, alto: 4, mips: 3, ..base }),
-        Some(Textura::rgba(&enteros, 4, 4, false)),
+    let por_registro = [
+        Textura { texeles: &capas, ancho: 2, alto: 2, capas: 3, clase: Clase::Array, ..base },
+        Textura { texeles: &cubo, ancho: 1, alto: 1, capas: 6, clase: Clase::Cubo, ..base },
+        Textura { texeles: &volumen, ancho: 2, alto: 2, hondo: 4, clase: Clase::Volumen, ..base },
+        Textura { texeles: &mips, ancho: 4, alto: 4, mips: 3, ..base },
+        Textura::rgba(&enteros, 4, 4, false),
     ];
+    // 03-10 (N5.1): por RANURA, no por registro; cada ranura dice su tN.
+    let tex: Vec<Option<Textura>> = ps.ranuras.texturas.iter().map(|l| por_registro.get(l.registro as usize).copied()).collect();
+    assert_eq!(tex.len(), 5, "{:?}", ps.ranuras);
     let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4] })];
     let rec = Recursos { texturas: &tex, muestreadores: &m };
     let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
@@ -1192,3 +1196,4 @@ fn el_censo_lee_las_importaciones_retrasadas() {
     let sin = Pe { retrasadas: Directorio::default(), ..pe };
     assert!(retrasadas_de_seccion(&sin, &t, desde).unwrap().is_empty());
 }
+

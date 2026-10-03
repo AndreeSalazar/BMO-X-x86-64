@@ -790,8 +790,9 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // plataforma diga (hoy la CPU; luego VERRANO con la 3060).
     // ** Las TEXTURAS y los muestreadores (29-09): de las tablas de la raiz
     // (sus SRV y samplers, en las ranuras a las que apuntan) y de los
-    // samplers estaticos de la firma. Por registro: tN y sN.
-    let (texturas, muestreadores) = recursos_del_dibujo(firma, &e.tablas);
+    // samplers estaticos de la firma. Por RANURA (03-10, N5.1): cada lugar
+    // (espacio, registro, etapa) que leen, buscado en la firma.
+    let (texturas, muestreadores) = recursos_del_dibujo(firma, &e.tablas, &en.ranuras);
     // P3b4c: las limpiezas apuntadas de SU render target y de SU Z: las
     // hace quien dibuje este lote.
     let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 && e.dsv_sub == 0 { tomar_limpieza(e.dsv) } else { None };
@@ -837,61 +838,57 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     }
 }
 
-/// **Las texturas y los muestreadores que ve un dibujo**, por registro.
+/// **Las texturas y los muestreadores que ve un dibujo**, por RANURA del
+/// enlace (03-10, N5.1): la posicion `i` es el lugar `ranuras.texturas[i]`.
 ///
 /// Una tabla de la raiz es una direccion de ranura (`SetGraphicsRootDescriptorTable`)
-/// y sus rangos dicen que hay en cada una: `desde` es la ranura del rango en
-/// la tabla (0xFFFFFFFF = justo tras el anterior). Cada ranura son 4
+/// y sus rangos dicen que hay en cada una; donde cae cada lugar (espacio,
+/// registro, etapa) lo dice `bmo_proton_x::donde`. Cada ranura son 4
 /// palabras: el recurso y la marca (`d3d12::DESC_SRV`, `DESC_MUESTREADOR`).
-fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16]) -> (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, Vec<Option<bmo_proton_x::textura::Muestreador>>) {
-    use bmo_proton_x::textura::{Muestreador, Textura};
-    const RANGO_SRV: u32 = 0;
-    const RANGO_SAMPLER: u32 = 3;
-    const A_CONTINUACION: u32 = 0xFFFF_FFFF;
-    let (mut tex, mut mue): (Vec<Option<Textura<'static>>>, Vec<Option<Muestreador>>) = (Vec::new(), Vec::new());
-    for (k, p) in firma.parametros.iter().enumerate() {
-        let (Carga::Tabla(rangos), Some(&base)) = (&p.carga, tablas.get(k)) else { continue };
+/// Lo que no esta -- ni en una tabla puesta ni en los samplers estaticos --
+/// se lee como nulo, como en Windows con un descriptor nulo.
+fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, Vec<Option<bmo_proton_x::textura::Muestreador>>) {
+    use bmo_proton_x::donde::{self, RANGO_MUESTREADOR, RANGO_SRV};
+    use bmo_proton_x::textura::Muestreador;
+    // La ranura `i` de la tabla del parametro `k` (4 palabras), si el `.exe`
+    // puso esa tabla.
+    let descriptor = |k: usize, i: u64| -> Option<&'static [u64]> {
+        let base = *tablas.get(k)?;
         if base == 0 {
-            continue;
+            return None;
         }
-        let mut siguiente = 0u64;
-        for r in rangos {
-            let desde = if r.desde == A_CONTINUACION { siguiente } else { r.desde as u64 };
-            siguiente = desde + r.cuantos as u64;
-            if r.espacio != 0 || r.cuantos > 32 {
-                aviso("una tabla con un espacio de registros que no es el 0, o de mas de 32: se salta");
-                continue;
+        // SAFETY: la ranura `i` de un monton de la casa (la tabla la puso el
+        // `.exe` con un identificador de la casa; la firma dice que la ranura
+        // es de ella).
+        Some(unsafe { core::slice::from_raw_parts((base + i * DESCRIPTOR_BYTES) as *const u64, 4) })
+    };
+    let tex = ranuras
+        .texturas
+        .iter()
+        .map(|&l| {
+            let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor(k, i))?;
+            if ranura[1] != crate::d3d12::DESC_SRV || ranura[0] == 0 {
+                return None;
             }
-            for i in 0..r.cuantos as u64 {
-                // SAFETY: la ranura `desde + i` de un monton de la casa (la
-                // tabla la puso el `.exe` con un identificador de la casa).
-                let ranura = unsafe { core::slice::from_raw_parts((base + (desde + i) * DESCRIPTOR_BYTES) as *const u64, 4) };
-                let registro = (r.registro as u64 + i) as usize;
-                match (r.tipo, ranura[1]) {
-                    (RANGO_SRV, crate::d3d12::DESC_SRV) if ranura[0] != 0 => match textura_de_srv(ranura) {
-                        Ok(t) => poner(&mut tex, registro, t),
-                        Err(m) => aviso(m),
-                    },
-                    (RANGO_SAMPLER, crate::d3d12::DESC_MUESTREADOR) => {
-                        let (f, u, v, b) = (ranura[2] as u32, (ranura[2] >> 32) as u32, ranura[3] as u32, (ranura[3] >> 32) as u32);
-                        let borde = core::array::from_fn(|c| ((b >> (8 * c)) & 0xFF) as f32 / 255.0);
-                        match Muestreador::de_descriptor(f, u, v, borde) {
-                            Ok(m) => poner(&mut mue, registro, m),
-                            Err(e) => aviso(e),
-                        }
-                    }
-                    (RANGO_SRV | RANGO_SAMPLER, _) => {}
-                    _ => {}
+            textura_de_srv(ranura).map_err(aviso).ok()
+        })
+        .collect();
+    let mue = ranuras
+        .muestreadores
+        .iter()
+        .map(|&l| {
+            if let Some((k, i)) = donde::en_tabla(firma, RANGO_MUESTREADOR, l) {
+                let ranura = descriptor(k, i)?;
+                if ranura[1] != crate::d3d12::DESC_MUESTREADOR {
+                    return None;
                 }
+                let (f, u, v, b) = (ranura[2] as u32, (ranura[2] >> 32) as u32, ranura[3] as u32, (ranura[3] >> 32) as u32);
+                let borde = core::array::from_fn(|c| ((b >> (8 * c)) & 0xFF) as f32 / 255.0);
+                return Muestreador::de_descriptor(f, u, v, borde).map_err(aviso).ok();
             }
-        }
-    }
-    for s in &firma.samplers {
-        match Muestreador::de_estatico(s) {
-            Ok(m) => poner(&mut mue, s[10] as usize, m),
-            Err(e) => aviso(e),
-        }
-    }
+            Muestreador::de_estatico(donde::estatico(firma, l)?).map_err(aviso).ok()
+        })
+        .collect();
     (tex, mue)
 }
 
@@ -929,16 +926,6 @@ fn textura_de_srv(ranura: &[u64]) -> Result<bmo_proton_x::textura::Textura<'stat
     let formato = if formato == 0 { f.formato } else { formato };
     let hondo = if f.dimension == crate::subrecursos::DIM_TEXTURA3D { f.hondo } else { 1 };
     Ok(Textura { texeles, ancho: f.ancho, alto: f.alto, como, srgb: crate::d3d12_vistas::es_srgb(formato), mapeo, mips: f.mips, capas: f.capas(), hondo, clase, mip, capa })
-}
-
-/// `v[i] = Some(x)`, creciendo `v` (hasta el registro 31).
-fn poner<T: Clone>(v: &mut Vec<Option<T>>, i: usize, x: T) {
-    if i < 32 {
-        if v.len() <= i {
-            v.resize(i + 1, None);
-        }
-        v[i] = Some(x);
-    }
 }
 
 /// Lo que mide una ranura de un monton de descriptores de la casa.

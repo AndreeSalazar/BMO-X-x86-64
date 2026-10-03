@@ -27,6 +27,8 @@
 
 pub mod bits;
 pub mod programa;
+/// Los recursos de un sombreador con su espacio, de su PSV0 (03-10).
+pub mod recursos;
 /// E6 (02-10): programas de muestra con `si` y bucles (el banco del emisor).
 pub mod ejemplos;
 /// E6b (02-10): el grafo de bloques del DXIL, vuelto `si` y bucles.
@@ -124,6 +126,9 @@ pub struct Sombreador {
     /// Un sombreador de SM4/SM5 (FXC): las palabras de su `SHEX`/`SHDR`, que
     /// corre `crate::sm5` (P3c3). `None` en un DXIL.
     pub sm5: Option<Vec<u32>>,
+    /// Sus recursos con su espacio (de la parte PSV0, 03-10); vacio si no la
+    /// trae (FXC no la pone).
+    pub recursos: Vec<recursos::Recurso>,
 }
 
 fn u32_en(d: &[u8], o: usize) -> Option<u32> {
@@ -299,6 +304,7 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
     let n = u32_en(d, 28).ok_or(NoSombreador::Contenedor("sin numero de partes"))? as usize;
     let mut partes = Vec::with_capacity(n);
     let (mut entradas, mut salidas, mut programa, mut shex) = (Vec::new(), Vec::new(), None, None);
+    let mut tabla = Vec::new();
     for i in 0..n {
         let o = u32_en(d, 32 + 4 * i).ok_or(NoSombreador::Contenedor("una parte sin desplazamiento"))? as usize;
         let cc: [u8; 4] = d.get(o..o + 4).and_then(|b| b.try_into().ok()).ok_or(NoSombreador::Contenedor("una parte fuera"))?;
@@ -311,6 +317,7 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
             b"OSGN" => salidas = firma(p, false)?,
             b"DXIL" => programa = Some(p),
             b"SHEX" | b"SHDR" => shex = Some(p),
+            b"PSV0" => tabla = recursos::de_psv0(p).ok_or(NoSombreador::Contenedor("una PSV0 que no se lee"))?,
             _ => {}
         }
         partes.push(cc);
@@ -324,7 +331,7 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
             return Err(NoSombreador::Contenedor("SHEX con una medida que no cuadra"));
         }
         let modulo = Modulo { productor: String::new(), funciones: Vec::new(), bloques: Vec::new() };
-        return Ok(Sombreador { etapa: etapa(version), modelo: ((version >> 4) & 0xF, version & 0xF), entradas, salidas, partes, modulo, sm5: Some(t) });
+        return Ok(Sombreador { etapa: etapa(version), modelo: ((version >> 4) & 0xF, version & 0xF), entradas, salidas, partes, modulo, sm5: Some(t), recursos: tabla });
     }
     let p = programa.ok_or(NoSombreador::SinDxil)?;
     // Cabecera del programa: version (etapa << 16 | mayor << 4 | menor), medida
@@ -345,5 +352,6 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
         partes,
         modulo: modulo(bloques)?,
         sm5: None,
+        recursos: tabla,
     })
 }

@@ -25,7 +25,7 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::dxil::programa::{self, Programa};
+use crate::dxil::programa::{self, Programa, Ranuras};
 use crate::dxil::Sombreador;
 use crate::trama;
 
@@ -79,13 +79,26 @@ pub struct Enlace {
     /// Por elemento de entrada del de pixeles: la salida del de vertices que
     /// le llega (`None`: SV_Position, que hoy no lee).
     pub desde_vs: Vec<Option<usize>>,
+    /// Las texturas y los muestreadores de LOS DOS, en una tabla (03-10,
+    /// N5.1): el `t` y el `s` de sus operaciones son posiciones aqui. Quien
+    /// dibuja pone en cada posicion el descriptor de ese espacio y registro.
+    pub ranuras: Ranuras,
 }
 
 /// **Coser** los dos sombreadores con el input layout. El texto dice por que
 /// no, si no.
 pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Result<Enlace, String> {
-    let pv = programa::compilar(vs).map_err(|e| format!("el sombreador de vertices no se sabe correr todavia: {e:?}"))?;
-    let pp = programa::compilar(ps).map_err(|e| format!("el sombreador de pixeles no se sabe correr todavia: {e:?}"))?;
+    let mut pv = programa::compilar(vs).map_err(|e| format!("el sombreador de vertices no se sabe correr todavia: {e:?}"))?;
+    let mut pp = programa::compilar(ps).map_err(|e| format!("el sombreador de pixeles no se sabe correr todavia: {e:?}"))?;
+    // Una tabla para los dos: las del de vertices se quedan donde estan y las
+    // del de pixeles se renumeran a la suya (la misma si los dos la leen).
+    // Cada lugar, con su etapa: el t0 de uno no es el t0 del otro si la root
+    // signature les da tablas distintas (`donde::en_tabla`).
+    let mut ranuras = pv.ranuras.clone().de_la_etapa(crate::donde::VISTA_VERTICES);
+    let (t, s) = ranuras.unir(&pp.ranuras.clone().de_la_etapa(crate::donde::VISTA_PIXELES)).map_err(|e| format!("las texturas de los dos sombreadores: {e:?}"))?;
+    pp.renumerar(&t, &s);
+    pp.ranuras = ranuras.clone();
+    pv.ranuras = ranuras.clone();
     let mut desde_ia = Vec::with_capacity(vs.entradas.len());
     for f in &vs.entradas {
         match f.sistema {
@@ -119,7 +132,7 @@ pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Res
     if pp.salidas != 1 {
         return Err(String::from("el sombreador de pixeles escribe mas de un render target: todavia no"));
     }
-    Ok(Enlace { vs: pv, ps: pp, desde_ia, posicion, desde_vs })
+    Ok(Enlace { vs: pv, ps: pp, desde_ia, posicion, desde_vs, ranuras })
 }
 
 /// Como se agrupan los ids en triangulos.
