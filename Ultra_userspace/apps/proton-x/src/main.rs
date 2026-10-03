@@ -57,6 +57,7 @@ mod la3060;
 mod monton;
 mod plataforma;
 mod perfil;
+mod sonido;
 
 use alloc::format;
 use alloc::vec::Vec;

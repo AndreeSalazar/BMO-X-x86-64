@@ -187,7 +187,7 @@ fn hello_texture(version_1_1: bool, bc: bool) -> Vec<u32> {
     DICHO.lock().unwrap().clear();
     // SAFETY: ningun `.exe` corre; esta prueba no corre en paralelo con otra
     // que empiece la casa (es la unica de este fichero).
-    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_su_tex, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None }) };
+    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_su_tex, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None, sonido: None }) };
     type CrearDisp = extern "win64" fn(u64, u32, *const Guid, *mut u64) -> i32;
     // SAFETY: la direccion de `D3D12CreateDevice` de la casa.
     let crear: CrearDisp = unsafe { core::mem::transmute(funcion("d3d12.dll", "D3D12CreateDevice")) };

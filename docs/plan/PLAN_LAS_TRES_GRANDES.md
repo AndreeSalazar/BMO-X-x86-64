@@ -467,27 +467,36 @@ cadena S1, la fraccion S2, el mezclador S3, el maestro S4c y las voces S4d.
 
 ## 3B. Del lado del juego (la casa)
 
-- [ ] A1.1 -- COM lo justo: `CoInitializeEx`, `CoCreateInstance` de
+- [x] A1.1 -- COM lo justo: `CoInitializeEx`, `CoCreateInstance` de
   `MMDeviceEnumerator`, `PROPVARIANT`, `IPropertyStore` (el nombre del
   audifono). **Como se sabe:** `tandaA1.exe` enumera en Windows y en el
-  banco, y mira RELACIONES (no el nombre de tu audifono).
-- [ ] A1.2 -- `IMMDeviceEnumerator`: `GetDefaultAudioEndpoint`,
+  banco, y mira RELACIONES (no el nombre de tu audifono). (03-10:
+  `proton-x-casa/src/wasapi.rs`; probado por la vtabla como un `.exe` en
+  `proton-x-casa/tests/wasapi.rs`; `tandaA1.exe` sigue pendiente.)
+- [x] A1.2 -- `IMMDeviceEnumerator`: `GetDefaultAudioEndpoint`,
   `EnumAudioEndpoints`, `RegisterEndpointNotificationCallback` (sin avisos).
-- [ ] A1.3 -- `IAudioClient`/`IAudioClient3`: `GetMixFormat`
+  (03-10, `wasapi.rs`: una salida; de entrada, E_NOTFOUND.)
+- [x] A1.3 -- `IAudioClient`/`IAudioClient3`: `GetMixFormat`
   (WAVEFORMATEXTENSIBLE), `IsFormatSupported`, `Initialize` compartido y por
   evento, `GetBufferSize`, `GetDevicePeriod`, `SetEventHandle`,
   `Start`/`Stop`/`Reset`, `GetCurrentPadding`. **Como se sabe:**
   `tandaA1.exe` abre el dispositivo y lo cierra SIN SONAR, en Windows igual.
-- [ ] A1.4 -- `IAudioRenderClient` (`GetBuffer`/`ReleaseBuffer`) e
+  (03-10, `proton-x-casa/src/wasapi_flujo.rs`; el evento lo enciende el
+  latido del planificador, una vez por periodo.)
+- [x] A1.4 -- `IAudioRenderClient` (`GetBuffer`/`ReleaseBuffer`) e
   `IAudioClock` (`GetFrequency`/`GetPosition`): el RELOJ del sonido, del que
-  cuelgan los videos (Bink).
-- [ ] A1.5 -- `ISimpleAudioVolume`, `IAudioSessionControl` (sin eventos).
+  cuelgan los videos (Bink). (03-10: lo sonado sale del anillo del tubo
+  (`apps/proton-x/src/sonido.rs`) o, sin aparato, de la hora.)
+- [x] A1.5 -- `ISimpleAudioVolume`, `IAudioSessionControl` (sin eventos).
+  (03-10, con `IAudioStreamVolume` e `IChannelAudioVolume`.)
 - [ ] A1.6 -- XAudio2, SOLO si A0.1 lo encuentra: voces de origen, de mezcla
   y la maestra; un mezclador en la casa.
 - [ ] A1.7 -- X3DAudio, si se usa: es solo matematicas, se prueba contra
   Windows numero a numero.
-- [ ] A1.8 -- Remuestrear (44.100 a 48.000) y bajar de 7.1 a estereo (el
+- [x] A1.8 -- Remuestrear (44.100 a 48.000) y bajar de 7.1 a estereo (el
   alt setting del audifono es estereo): es S2 y S6 de `PLAN_EL_SONIDO`.
+  (03-10, `proton-x/src/pcm.rs`: interpolacion lineal y la bajada de
+  Windows, el centro y los de atras a -3 dB, sin el LFE.)
 
 ## 3C. Del lado de BMO-X
 
@@ -690,9 +699,13 @@ cayo con un fallo de Ring 3 (en `datos/fallos.txt`, pendiente de leer):
 
 - [ ] **N4.4 -- el fallo de Ring 3 tras los ~15 s**: leer `datos/fallos.txt`
   de la cuarta corrida (la direccion, el modulo y la instruccion).
-- [ ] **N4.5 -- el sonido del juego**: pide WASAPI y la casa no lo tiene
-  (A0.1 medido); A1.1 a A1.4 de la seccion 3, con el reloj del sonido del
-  que cuelga la entrada en video.
+- [x] **N4.5 -- el sonido del juego** (03-10, falta oirlo en el metal):
+  WASAPI en la casa (A1.1 a A1.5 y A1.8 de la seccion 3): el
+  `MMDeviceEnumerator`, un aparato de salida, `IAudioClient3` por evento, lo
+  del juego convertido a s16 estereo y al anillo del TUBO del audifono
+  (`apps/proton-x/src/sonido.rs`), y su reloj. Sin aparato (o con el
+  audifono de otro proceso), el reloj corre con la hora y el juego sigue,
+  mudo.
 
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:

@@ -281,7 +281,7 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_la_3060, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: Some(CARPETAS_DEL_BANCO), reserva: Some(de_hoy::reserva_del_banco()), trozos: Some(de_hoy::TROZOS_DEL_BANCO) }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_la_3060, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: Some(CARPETAS_DEL_BANCO), reserva: Some(de_hoy::reserva_del_banco()), trozos: Some(de_hoy::TROZOS_DEL_BANCO), sonido: None }
 }
 
 /// Codigo SELLADO, como `MEM_OP_SELLAR`: memoria nueva, los bytes, y de

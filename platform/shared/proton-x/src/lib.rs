@@ -48,6 +48,7 @@ pub mod dxbc;
 pub mod dxil;
 pub mod ficheros;
 pub mod formato;
+pub mod pcm;
 pub mod pe;
 pub mod proceso;
 pub mod procesadores;

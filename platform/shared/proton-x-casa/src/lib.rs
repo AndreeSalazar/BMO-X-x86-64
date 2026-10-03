@@ -138,6 +138,8 @@ pub mod user32_portapapeles;
 pub mod user32_dialogos;
 pub mod user32_ventanas;
 pub mod version_y_seguridad;
+pub mod wasapi;
+pub mod wasapi_flujo;
 
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
@@ -208,6 +210,27 @@ pub struct Plataforma {
     /// Leer ficheros A LA CARTA (01-10): sin esto, todo fichero se trae
     /// entero con `leer_fichero`.
     pub trozos: Option<Trozos>,
+    /// El SONIDO (03-10, N4.5): por donde suena lo que el juego da a WASAPI.
+    /// `None`: no hay aparato, y WASAPI corre con un reloj que no suena (el
+    /// juego sigue a su paso, mudo).
+    pub sonido: Option<Sonido>,
+}
+
+/// **El sonido de la plataforma** (03-10, N4.5): en BMO-X, el tubo del
+/// audifono USB con su anillo prestado (`bmo::sonido::Tubo`). Siempre entero
+/// de 16 bits ESTEREO; la casa convierte lo del juego (`bmo_proton_x::pcm`).
+#[derive(Clone, Copy)]
+pub struct Sonido {
+    /// Abrir el aparato: su frecuencia en Hz. `None`: no hay, o lo tiene
+    /// otro proceso.
+    pub abrir: fn() -> Option<u32>,
+    /// Escribir fotogramas s16 estereo: cuantos BYTES cupieron (fotogramas
+    /// enteros; lo demas, despues).
+    pub escribir: fn(&[u8]) -> usize,
+    /// Los bytes escritos que el aparato todavia no ha sonado.
+    pub pendientes: fn() -> usize,
+    /// Soltar el aparato.
+    pub cerrar: fn(),
 }
 
 /// **Leer un fichero a trozos** (01-10, Cyberpunk): su medida sin traerlo, y
@@ -373,6 +396,7 @@ pub unsafe fn empezar(p: Plataforma) {
     trampas::reiniciar();
     pinceles::reiniciar();
     enlaces::reiniciar();
+    wasapi::reiniciar();
 }
 
 /// **Decir una linea por la consola**, sin el tope de `aviso` (quien llama

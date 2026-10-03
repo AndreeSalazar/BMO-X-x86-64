@@ -8,7 +8,9 @@
 //!                        las demas, RPC_E_CHANGED_MODE si cambia el modelo
 //!    OleInitialize, OleUninitialize   lo mismo, en apartamento
 //!    CoInitializeSecurity  una vez; la segunda, RPC_E_TOO_LATE
-//!    CoCreateInstance(Ex)  REGDB_E_CLASSNOTREG (y el CLSID, por la consola)
+//!    CoCreateInstance(Ex)  el MMDeviceEnumerator (WASAPI, `wasapi.rs`, 03-10);
+//!                        lo demas, REGDB_E_CLASSNOTREG (y el CLSID, por la
+//!                        consola)
 //!    CoSetProxyBlanket     E_NOINTERFACE: la casa no tiene proxies
 //!    PropVariantClear, VariantInit, VariantClear   soltar lo que lleven
 //!    SysAllocString(Len/ByteLen), SysReAllocString, SysStringByteLen
@@ -134,12 +136,21 @@ pub(crate) fn clsid_texto(g: *const u8) -> alloc::string::String {
     )
 }
 
-extern "win64" fn co_create_instance(clsid: *const u8, _fuera: u64, _ctx: u32, _iid: *const u8, sale: *mut u64) -> u32 {
+/// Si `clsid` es el de una clase que la casa SI tiene.
+fn es(clsid: *const u8, c: &crate::com::Guid) -> bool {
+    // SAFETY: un GUID del `.exe` (o nulo).
+    !clsid.is_null() && unsafe { (clsid as *const crate::com::Guid).read_unaligned() } == *c
+}
+
+extern "win64" fn co_create_instance(clsid: *const u8, _fuera: u64, _ctx: u32, iid: *const u8, sale: *mut u64) -> u32 {
     if sale.is_null() {
         return E_INVALIDARG;
     }
     // SAFETY: un puntero del `.exe`.
     unsafe { sale.write(0) };
+    if es(clsid, &crate::wasapi::CLSID_ENUMERADOR) {
+        return crate::wasapi::crear_enumerador(iid as *const crate::com::Guid, sale) as u32;
+    }
     aviso(&alloc::format!("CoCreateInstance {}: la casa no tiene esa clase", clsid_texto(clsid)));
     REGDB_E_CLASSNOTREG
 }
@@ -147,6 +158,20 @@ extern "win64" fn co_create_instance(clsid: *const u8, _fuera: u64, _ctx: u32, _
 /// `CoCreateInstanceEx`: cada MULTI_QI (24 bytes: iid, puntero, hr) con su
 /// error.
 extern "win64" fn co_create_instance_ex(clsid: *const u8, _fuera: u64, _ctx: u32, _srv: u64, n: u32, qis: *mut u8) -> u32 {
+    if es(clsid, &crate::wasapi::CLSID_ENUMERADOR) && n > 0 {
+        // Cada MULTI_QI: el enumerador por su IID (`pIID` +0, `pItf` +8, `hr` +16).
+        let mut alguna = false;
+        for k in 0..n as usize {
+            // SAFETY: `n` MULTI_QI del `.exe`.
+            unsafe {
+                let iid = (qis.add(24 * k) as *const u64).read_unaligned() as *const crate::com::Guid;
+                let hr = crate::wasapi::crear_enumerador(iid, qis.add(24 * k + 8) as *mut u64);
+                (qis.add(24 * k + 16) as *mut i32).write_unaligned(hr);
+                alguna |= hr == 0;
+            }
+        }
+        return if alguna { S_OK } else { E_NOINTERFACE };
+    }
     for k in 0..n as usize {
         // SAFETY: `n` MULTI_QI del `.exe`.
         unsafe {

@@ -88,7 +88,10 @@ pub(crate) fn genericos(i: usize) -> &'static [(usize, u64)] {
     // SAFETY: como `Global`; se llena una vez.
     let t = unsafe { &mut *T.0.get() };
     let (k, n) = match i {
+        // El sonido (WASAPI) no hereda de ID3D12Object ni de IDXGIObject:
+        // sus huecos 3.. son suyos, y lo que no tenga es una falta con nombre.
         com::BLOB => return &[],
+        i if i >= com::PRIMERA_DE_SONIDO => return &[],
         com::DEVICE => (0, 4),
         com::FACTORY | com::ADAPTER | com::OUTPUT | com::SWAPCHAIN => (2, 4),
         _ => (1, 5),

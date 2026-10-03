@@ -73,6 +73,23 @@ pub const MEMORIA: usize = 14;
 /// ID3D12QueryHeap y ID3D12CommandSignature (tanda 47).
 pub const CONSULTAS: usize = 15;
 pub const FIRMA: usize = 16;
+/// 03-10 (N4.5): WASAPI, el sonido del juego (`wasapi`, `wasapi_flujo`).
+/// Desde aqui, ninguna hereda de ID3D12Object ni de IDXGIObject.
+pub const PRIMERA_DE_SONIDO: usize = 17;
+pub const MM_ENUMERADOR: usize = 17;
+pub const MM_COLECCION: usize = 18;
+pub const MM_APARATO: usize = 19;
+pub const MM_PUNTA: usize = 20;
+pub const PROPIEDADES: usize = 21;
+pub const CLIENTE: usize = 22;
+pub const RENDER: usize = 23;
+pub const RELOJ: usize = 24;
+pub const VOLUMEN: usize = 25;
+pub const SESION: usize = 26;
+pub const VOLUMEN_FLUJO: usize = 27;
+pub const VOLUMEN_CANALES: usize = 28;
+/// Cuantas interfaces tiene la casa.
+const CUANTAS: usize = 29;
 const IID_CONSULTAS: Guid = guid(0x0d9658ae, 0xed45, 0x469e, [0xa6, 0x1d, 0x97, 0x0e, 0xc5, 0x83, 0xca, 0xb4]);
 const IID_FIRMA: Guid = guid(0xc36a797c, 0xec80, 0x4f0a, [0x89, 0x85, 0xa7, 0xb2, 0x47, 0x50, 0x82, 0xd1]);
 
@@ -159,7 +176,7 @@ pub const IID_SWAPCHAIN2: Guid = guid(0xa8be2ac4, 0x199f, 0x4946, [0xb3, 0x31, 0
 pub const IID_SWAPCHAIN3: Guid = guid(0x94d99bdb, 0xf1f8, 0x4ab0, [0xb2, 0x36, 0x7d, 0xa0, 0x17, 0x0e, 0xda, 0xb1]);
 pub const IID_SWAPCHAIN1: Guid = guid(0x790a45f7, 0x0d42, 0x4876, [0x98, 0x3a, 0x0a, 0x55, 0xcf, 0xe6, 0xf4, 0xaa]);
 
-pub static INTERFACES: [Interfaz; 17] = [
+pub static INTERFACES: [Interfaz; CUANTAS] = [
     Interfaz {
         nombre: "ID3D12Device",
         metodos: M_ID3D12DEVICE,
@@ -185,6 +202,22 @@ pub static INTERFACES: [Interfaz; 17] = [
     Interfaz { nombre: "ID3D12Heap", metodos: M_ID3D12HEAP, iids: &[IID_MEMORIA, IID_MEMORIA1, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12QueryHeap", metodos: M_PAGEABLE, iids: &[IID_CONSULTAS, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandSignature", metodos: M_PAGEABLE, iids: &[IID_FIRMA, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "IMMDeviceEnumerator", metodos: crate::wasapi::M_ENUMERADOR, iids: &[crate::wasapi::IID_ENUMERADOR] },
+    Interfaz { nombre: "IMMDeviceCollection", metodos: crate::wasapi::M_COLECCION, iids: &[crate::wasapi::IID_COLECCION] },
+    Interfaz { nombre: "IMMDevice", metodos: crate::wasapi::M_APARATO, iids: &[crate::wasapi::IID_APARATO] },
+    Interfaz { nombre: "IMMEndpoint", metodos: crate::wasapi::M_PUNTA, iids: &[crate::wasapi::IID_PUNTA] },
+    Interfaz { nombre: "IPropertyStore", metodos: crate::wasapi::M_PROPIEDADES, iids: &[crate::wasapi::IID_PROPIEDADES] },
+    Interfaz {
+        nombre: "IAudioClient3",
+        metodos: crate::wasapi_flujo::M_CLIENTE,
+        iids: &[crate::wasapi_flujo::IID_CLIENTE3, crate::wasapi_flujo::IID_CLIENTE2, crate::wasapi_flujo::IID_CLIENTE],
+    },
+    Interfaz { nombre: "IAudioRenderClient", metodos: crate::wasapi_flujo::M_RENDER, iids: &[crate::wasapi_flujo::IID_RENDER] },
+    Interfaz { nombre: "IAudioClock", metodos: crate::wasapi_flujo::M_RELOJ, iids: &[crate::wasapi_flujo::IID_RELOJ] },
+    Interfaz { nombre: "ISimpleAudioVolume", metodos: crate::wasapi_flujo::M_VOLUMEN, iids: &[crate::wasapi_flujo::IID_VOLUMEN] },
+    Interfaz { nombre: "IAudioSessionControl2", metodos: crate::wasapi_flujo::M_SESION, iids: &[crate::wasapi_flujo::IID_SESION2, crate::wasapi_flujo::IID_SESION] },
+    Interfaz { nombre: "IAudioStreamVolume", metodos: crate::wasapi_flujo::M_VOLUMEN_CANALES, iids: &[crate::wasapi_flujo::IID_VOLUMEN_FLUJO] },
+    Interfaz { nombre: "IChannelAudioVolume", metodos: crate::wasapi_flujo::M_VOLUMEN_CANALES, iids: &[crate::wasapi_flujo::IID_VOLUMEN_CANALES] },
 ];
 
 /// **La cabecera de todo objeto de la casa.** `repr(C)` y delante: el `.exe`
@@ -254,6 +287,11 @@ extern "win64" fn add_ref(this: *mut Cabecera) -> u32 {
     }
 }
 
+/// `AddRef` de un objeto de la casa, desde dentro (lo que se da dos veces).
+pub(crate) fn add_ref_de(obj: u64) {
+    add_ref(obj as *mut Cabecera);
+}
+
 /// Un objeto que llega a cero no se libera: vive lo que el proceso. Un `.exe`
 /// que use un objeto soltado no pisa memoria ajena (P3a no reusa nada).
 extern "win64" fn release(this: *mut Cabecera) -> u32 {
@@ -264,10 +302,10 @@ extern "win64" fn release(this: *mut Cabecera) -> u32 {
     }
 }
 
-struct Vtablas(UnsafeCell<[*const u64; 17]>);
+struct Vtablas(UnsafeCell<[*const u64; CUANTAS]>);
 // SAFETY: un hilo (ver `Global` en lib.rs).
 unsafe impl Sync for Vtablas {}
-static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 17]));
+static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); CUANTAS]));
 
 /// **La vtabla de la interfaz `I`**: IUnknown, los `metodos` que la casa
 /// tiene (hueco, direccion), y un `falta` en todos los demas. Se arma una vez.

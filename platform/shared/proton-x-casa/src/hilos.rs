@@ -241,6 +241,10 @@ fn cambiar_a(destino: usize) {
 /// que espera (o esta listo y cede). Vuelve cuando le toca otra vez.
 fn bloquear() {
     loop {
+        // El latido del sonido (N4.5): lo convertido, al anillo; y el evento
+        // de un flujo de WASAPI, si ya cabe un periodo. Antes de elegir: su
+        // hilo puede ser el que toca.
+        crate::wasapi_flujo::latir();
         let t = {
             let c = casa();
             c.plan.siguiente(ahora())
@@ -256,6 +260,12 @@ fn bloquear() {
                 crate::pulso::latido();
                 (plataforma().dormir)()
             }
+            // Todos esperan sin plazo, pero un flujo de WASAPI corre: su
+            // evento se encendera cuando suene lo que tiene. No es un bloqueo.
+            Turno::Bloqueo if crate::wasapi_flujo::alguno_corre() => {
+                crate::pulso::latido();
+                (plataforma().dormir)()
+            }
             Turno::Bloqueo => {
                 aviso("todos los hilos esperan algo que solo otro que tambien espera podria dar: bloqueo mutuo");
                 (plataforma().salir)(BLOQUEO_MUTUO);
@@ -267,6 +277,7 @@ fn bloquear() {
 /// **Ceder el turno** si hay otro hilo que pueda seguir. `true` si se cedio.
 /// Es lo que hace GetMessage sin mensajes antes de dormir.
 pub(crate) fn ceder() -> bool {
+    crate::wasapi_flujo::latir();
     let (t, yo) = {
         let c = casa();
         if c.hilos.len() == 1 {
