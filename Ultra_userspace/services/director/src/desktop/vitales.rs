@@ -15,7 +15,7 @@ use bmo_userland as bmo;
 use crate::desktop::{Desktop, Ventana};
 use crate::scene;
 use crate::scene::chrome::Button;
-use crate::scene::vitals::{filas, Solapa, FICHAS, FILA_VACIA};
+use crate::scene::vitals::{filas, MandoSmp, Solapa, FICHAS, FILA_VACIA};
 use crate::{erase_window, uncover};
 
 /// Pintarla con lo que el escritorio ya midio.
@@ -115,6 +115,63 @@ fn finalizar(dsk: &mut Desktop, p: &bmo::Pantalla) {
     dsk.win.mem.decir(&t[..k]);
 }
 
+/// **Un mando del SMP** desde la solapa CPU (03-10): lo mismo que la orden
+/// `smp`, y lo que paso, en el pie. Despertar y medir BLOQUEAN (hasta un
+/// segundo): el aviso se pinta ANTES, para que se vea que esta pasando.
+fn mando_smp(dsk: &mut Desktop, p: &bmo::Pantalla, m: MandoSmp) {
+    let mut t = [0u8; 80];
+    let mut k = 0usize;
+    let mut poner = |s: &[u8], k: &mut usize| {
+        for &b in s {
+            if *k < t.len() {
+                t[*k] = b;
+                *k += 1;
+            }
+        }
+    };
+    let mut d = [0u8; 10];
+    match m {
+        MandoSmp::Todos => {
+            dsk.win.mem.decir(b"despertando nucleos (esto tarda)...");
+            pintar(dsk, p);
+            p.volcar();
+            let (vivos, esperados, parados) = bmo::smp_censo(u32::MAX);
+            poner(b"en pie: ", &mut k);
+            let n = crate::text::decimal(vivos as u64 + 1, &mut d);
+            poner(&d[..n], &mut k);
+            poner(b" de ", &mut k);
+            let n = crate::text::decimal(esperados as u64 + 1, &mut d);
+            poner(&d[..n], &mut k);
+            if parados {
+                poner(b"  [!] pero PARADOS: en pie no es trabajando", &mut k);
+            }
+        }
+        MandoSmp::Parar => {
+            bmo::smp_parar();
+            poner(b"obreros parados: siguen en pie (encendidos), no trabajan. A los despierta", &mut k);
+        }
+        MandoSmp::Medir => {
+            dsk.win.mem.decir(b"midiendo el reparto (esto tarda)...");
+            pintar(dsk, p);
+            p.volcar();
+            match bmo::smp_prueba_juzgada() {
+                Some(x100) if x100 > 0 => {
+                    poner(b"aceleracion: ", &mut k);
+                    let n = crate::text::decimal(x100 / 100, &mut d);
+                    poner(&d[..n], &mut k);
+                    poner(if x100 % 100 < 10 { b".0" } else { b"." }, &mut k);
+                    let n = crate::text::decimal(x100 % 100, &mut d);
+                    poner(&d[..n], &mut k);
+                    poner(b"x  (el techo: una cuenta pura, sin memoria compartida)", &mut k);
+                }
+                Some(_) => poner(b"0 = falto una parte: el numero no vale", &mut k),
+                None => poner(b"la prueba NO se pudo juzgar: el barrido no completo", &mut k),
+            }
+        }
+    }
+    dsk.win.mem.decir(&t[..k]);
+}
+
 /// **Las teclas de la ventana**, con el foco en ella: `1 2 3` o Tab (y las
 /// flechas a los lados) cambian de solapa; en PROCESOS, arriba y abajo
 /// eligen, `O` ordena y `F` finaliza. `true` si la tecla era suya.
@@ -144,6 +201,19 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) -> bool {
         }
         b'f' | b'F' if s == Solapa::Procesos => {
             finalizar(dsk, p);
+            pintar(dsk, p);
+        }
+        // ** EL SMP vive en la CPU (03-10).
+        b'a' | b'A' if s == Solapa::Cpu => {
+            mando_smp(dsk, p, MandoSmp::Todos);
+            pintar(dsk, p);
+        }
+        b's' | b'S' if s == Solapa::Cpu => {
+            mando_smp(dsk, p, MandoSmp::Parar);
+            pintar(dsk, p);
+        }
+        b'm' | b'M' if s == Solapa::Cpu => {
+            mando_smp(dsk, p, MandoSmp::Medir);
             pintar(dsk, p);
         }
         _ => return false,
@@ -209,6 +279,11 @@ pub(crate) fn raton(dsk: &mut Desktop, p: &bmo::Pantalla, x: u32, y: u32, button
     }
     if let Some(s) = dsk.win.mem.solapa_en(x, y) {
         cambiar(dsk, p, s);
+        return true;
+    }
+    if let Some(m) = dsk.win.mem.mando_smp_en(x, y) {
+        mando_smp(dsk, p, m);
+        pintar(dsk, p);
         return true;
     }
     if let Some(k) = dsk.win.mem.fila_en(x, y) {

@@ -122,6 +122,35 @@ impl Orden {
     }
 }
 
+/// **Los mandos del SMP** en la solapa CPU (03-10): el propietario, "el SMP
+/// vive en mi CPU, para controlar todo". Son los de la orden `smp`, con
+/// boton y con tecla.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MandoSmp {
+    /// `A`: despertar a todos (`smp all`).
+    Todos,
+    /// `S`: pararlos (`smp stop`).
+    Parar,
+    /// `M`: medir la aceleracion (`smp test`).
+    Medir,
+}
+
+impl MandoSmp {
+    pub(crate) const TODOS: [MandoSmp; 3] = [MandoSmp::Todos, MandoSmp::Parar, MandoSmp::Medir];
+
+    fn rotulo(self) -> &'static [u8] {
+        match self {
+            MandoSmp::Todos => b" A  despertar todos ",
+            MandoSmp::Parar => b" S  parar ",
+            MandoSmp::Medir => b" M  medir la aceleracion ",
+        }
+    }
+}
+
+/// Lo que ocupa un hilo en la rejilla de nucleos, y el alto de la rejilla.
+const HILO_W: u32 = 26;
+const HILO_H: u32 = 24;
+
 pub(crate) struct VitalsWindow {
     pub(crate) chrome: Chrome,
     pub(crate) solapa: Solapa,
@@ -213,6 +242,37 @@ impl VitalsWindow {
     /// La y donde empieza el contenido de una solapa.
     fn y_contenido(&self) -> u32 {
         self.y_solapas() + bmo::GLIFO_ALTO + 16
+    }
+
+    /// La y del bloque SMP de la solapa CPU: debajo de sus siete filas.
+    fn y_smp(&self) -> u32 {
+        self.y_contenido() + 7 * (bmo::GLIFO_ALTO + 4) + 10
+    }
+
+    /// La y de la fila de botones del SMP (rotulo, rejilla, reposo, botones).
+    fn y_botones_smp(&self) -> u32 {
+        self.y_smp() + (bmo::GLIFO_ALTO + 6) + HILO_H + 16 + (bmo::GLIFO_ALTO + 6)
+    }
+
+    /// `(x0, x1)` de cada boton del SMP.
+    fn x_botones_smp(&self) -> [(u32, u32); 3] {
+        let mut x = self.chrome.x + 16;
+        let mut v = [(0, 0); 3];
+        for (k, m) in MandoSmp::TODOS.iter().enumerate() {
+            let w = m.rotulo().len() as u32 * bmo::GLIFO_ANCHO;
+            v[k] = (x, x + w);
+            x += w + bmo::GLIFO_ANCHO;
+        }
+        v
+    }
+
+    /// El boton del SMP bajo `(x, y)`, en la solapa CPU.
+    pub(crate) fn mando_smp_en(&self, x: u32, y: u32) -> Option<MandoSmp> {
+        let by = self.y_botones_smp();
+        if self.solapa != Solapa::Cpu || y + 4 < by || y > by + bmo::GLIFO_ALTO + 4 {
+            return None;
+        }
+        self.x_botones_smp().iter().position(|&(a, b)| x >= a && x < b).map(|k| MandoSmp::TODOS[k])
     }
 
     /// La fila de PROCESOS bajo `(x, y)`, si hay una (en el orden de la
@@ -449,10 +509,90 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &VitalsWindow, vueltas: u32, consumo: 
         by,
         match c.solapa {
             Solapa::Procesos => "flechas elegir   O ordenar   F finalizar   1 2 3 / Tab solapa   ESC cierra",
+            Solapa::Cpu => "A todos   S parar   M medir   1 2 3 / Tab solapa   F8 memoria   ESC cierra",
             _ => "1 2 3 / Tab solapa   F7 CPU   F8 memoria   se repinta sola   ESC cierra",
         },
         INK_DIM,
     );
+}
+
+/// **EL SMP, dentro de la CPU** (03-10): cada nucleo fisico con sus hilos,
+/// de que esta haciendo cada uno, como duermen, y los tres mandos.
+/// Devuelve la y de debajo.
+fn paint_smp(p: &bmo::Pantalla, c: &VitalsWindow, tx: u32, y: u32) -> u32 {
+    const C_MAESTRO: u32 = 0x0034_E2E4;
+    const C_OBRERO: u32 = 0x0039_FF88;
+    const C_DORMIDO: u32 = 0x00F0_B060;
+    const C_AUSENTE: u32 = 0x0030_3A44;
+    let hilos = (bmo::info(bmo::INFO_CPU_HILOS) as u32).clamp(1, 64);
+    let fin_x = c.chrome.x + c.chrome.width - 16;
+    let px = p.texto(tx, y, "SMP", VIT_CYAN);
+    p.texto(px + bmo::GLIFO_ANCHO, y, "cada nucleo fisico con sus hilos (de la orden `smp`)", INK_DIM);
+    let gy = y + bmo::GLIFO_ALTO + 6;
+    // Los hilos de un mismo nucleo fisico, juntos en su recuadro.
+    let mut x = tx;
+    let mut nucleo_antes = u32::MAX;
+    let mut caja_x = tx;
+    let mut b = [0u8; 10];
+    for id in 0..hilos {
+        let (estado, _tipo, nucleo, _por) = bmo::smp_hilo(id);
+        if nucleo != nucleo_antes {
+            if nucleo_antes != u32::MAX {
+                p.rect(caja_x - 3, gy - 3, x - caja_x + 3, 1, VIT_EDGE);
+                p.rect(caja_x - 3, gy + HILO_H + 2, x - caja_x + 3, 1, VIT_EDGE);
+                x += 8;
+            }
+            caja_x = x;
+            nucleo_antes = nucleo;
+        }
+        if x + HILO_W > fin_x {
+            break;
+        }
+        let color = match estado {
+            0 => C_MAESTRO,
+            1 => C_OBRERO,
+            2 => C_DORMIDO,
+            _ => C_AUSENTE,
+        };
+        p.rect(x, gy, HILO_W - 3, HILO_H, color);
+        let n = decimal(id as u64, &mut b);
+        let tinta = if estado == 3 || estado > 3 { INK_DIM } else { 0x0005_0A0C };
+        p.texto_bytes(x + (HILO_W - 3 - n as u32 * bmo::GLIFO_ANCHO) / 2, gy + (HILO_H - bmo::GLIFO_ALTO) / 2, &b[..n], tinta);
+        x += HILO_W;
+    }
+    if nucleo_antes != u32::MAX {
+        p.rect(caja_x - 3, gy - 3, x - caja_x + 3, 1, VIT_EDGE);
+        p.rect(caja_x - 3, gy + HILO_H + 2, x - caja_x + 3, 1, VIT_EDGE);
+    }
+    // La leyenda y como duermen.
+    let ly = gy + HILO_H + 16;
+    let mut lx = tx;
+    for (color, que) in [(C_MAESTRO, "maestro"), (C_OBRERO, "obrero"), (C_DORMIDO, "dormido"), (C_AUSENTE, "ausente")] {
+        p.rect(lx, ly + 4, 8, 8, color);
+        lx = p.texto(lx + 12, ly, que, INK_DIM) + bmo::GLIFO_ANCHO * 2;
+    }
+    let siestas = bmo::info(bmo::INFO_SMP_SIESTAS);
+    let mut t = [0u8; 60];
+    let mut n = 0usize;
+    if siestas == 0 {
+        place(b"sin siestas (no hay MONITORX, o nadie durmio)", &mut t, &mut n);
+    } else {
+        place(b"duermen en C", &mut t, &mut n);
+        num(bmo::info(bmo::INFO_SMP_CSTATE), &mut t, &mut n);
+        place(b": ", &mut t, &mut n);
+        num(siestas, &mut t, &mut n);
+        place(b" siestas", &mut t, &mut n);
+    }
+    p.texto_bytes(lx, ly, &t[..n], INK_DIM);
+    // Los mandos.
+    let by = c.y_botones_smp();
+    for (k, m) in MandoSmp::TODOS.iter().enumerate() {
+        let (a, bx) = c.x_botones_smp()[k];
+        p.rect(a, by - 2, bx - a, bmo::GLIFO_ALTO + 4, C_ELEGIDO);
+        p.rect(a, by + bmo::GLIFO_ALTO + 2, bx - a, 1, VIT_CYAN_DIM);
+        p.texto_bytes(a, by, m.rotulo(), VIT_CYAN);
+    }
+    by + bmo::GLIFO_ALTO + 14
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -546,6 +686,7 @@ fn paint_cpu(p: &bmo::Pantalla, c: &VitalsWindow, tx: u32, y: &mut u32, step: u3
     }
     row(p, tx, *y, "escritorio", &b[..n], if vueltas == 0 { INK_DIM } else { INK });
     *y += step + 10;
+    *y = paint_smp(p, c, tx, *y);
 
     // -- Las graficas: la CPU contra 100, los vatios contra lo mas alto --
     let w = c.chrome.width.saturating_sub(32);
