@@ -145,8 +145,19 @@ fn aplanar(vs: &mut Programa, ps: &mut Programa, n: usize) -> Result<Vec<Bloque>
 /// **Coser** los dos sombreadores con el input layout. El texto dice por que
 /// no, si no.
 pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Result<Enlace, String> {
+    enlazar_con(vs, Some(ps), entradas)
+}
+
+/// **Coser** con o sin sombreador de pixeles (N5.12: sin el, el dibujo es
+/// solo profundidad -- las sombras, el prepaso de Z --, y el de pixeles es
+/// [`Programa::vacio`]).
+pub fn enlazar_con(vs: &Sombreador, ps: Option<&Sombreador>, entradas: &[ElementoIa]) -> Result<Enlace, String> {
     let mut pv = programa::compilar(vs).map_err(|e| format!("el sombreador de vertices no se sabe correr todavia: {e:?}"))?;
-    let mut pp = programa::compilar(ps).map_err(|e| format!("el sombreador de pixeles no se sabe correr todavia: {e:?}"))?;
+    let mut pp = match ps {
+        Some(ps) => programa::compilar(ps).map_err(|e| format!("el sombreador de pixeles no se sabe correr todavia: {e:?}"))?,
+        None => Programa::vacio(),
+    };
+    let (ps_entradas, ps_salidas) = ps.map_or((&[][..], &[][..]), |p| (&p.entradas[..], &p.salidas[..]));
     // Una tabla para los dos: las del de vertices se quedan donde estan y las
     // del de pixeles se renumeran a la suya (la misma si los dos la leen).
     // Cada lugar, con su etapa: el t0 de uno no es el t0 del otro si la root
@@ -175,9 +186,9 @@ pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Res
         desde_ia.push(Fuente::Ia(i.ok_or_else(|| format!("el sombreador de vertices lee {}{} y el input layout no lo da", f.semantica, f.indice))?));
     }
     let posicion = vs.salidas.iter().position(|f| f.sistema == SV_POSITION).ok_or_else(|| String::from("el sombreador de vertices no escribe SV_Position"))?;
-    let mut desde_vs = Vec::with_capacity(ps.entradas.len());
+    let mut desde_vs = Vec::with_capacity(ps_entradas.len());
     let mut pos_ps = None;
-    for (i, f) in ps.entradas.iter().enumerate() {
+    for (i, f) in ps_entradas.iter().enumerate() {
         if f.sistema == SV_POSITION {
             if pp.lee & (1 << i) != 0 {
                 pos_ps = Some(i);
@@ -188,8 +199,8 @@ pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Res
         let k = vs.salidas.iter().position(|o| o.semantica.eq_ignore_ascii_case(&f.semantica) && o.indice == f.indice);
         desde_vs.push(Some(k.ok_or_else(|| format!("el sombreador de pixeles lee {}{} y el de vertices no lo escribe", f.semantica, f.indice))?));
     }
-    let mut objetivos = Vec::with_capacity(ps.salidas.len());
-    for f in &ps.salidas {
+    let mut objetivos = Vec::with_capacity(ps_salidas.len());
+    for f in ps_salidas {
         if f.sistema != SV_TARGET && !f.semantica.eq_ignore_ascii_case("SV_Target") {
             return Err(format!("el sombreador de pixeles escribe {}{} (valor de sistema {}): todavia no", f.semantica, f.indice, f.sistema));
         }

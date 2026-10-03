@@ -84,7 +84,8 @@ impl Profundidad {
 }
 
 /// Donde se pinta: `ancho * alto` pixeles de 32 bits, fila 0 arriba, en el
-/// orden de bytes de su formato.
+/// orden de bytes de su formato. N5.12: `pixeles` VACIO es un dibujo de solo
+/// profundidad (las sombras): `ancho` y `alto` son los de la Z.
 pub struct Destino<'a, 'o> {
     pub pixeles: &'a mut [u32],
     pub ancho: u32,
@@ -361,7 +362,10 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                     let m = &mezclas.rt[k];
                     *p = if m.trivial() { pixel[k] } else { empaquetar(m.aplicar(colores[k], desempaquetar(*p, bgra[k]), mezclas.factor), bgra[k]) };
                 };
-                poner(0, &mut destino.pixeles[i]);
+                // N5.12: sin render target (solo profundidad), `pixeles` va vacio.
+                if let Some(p) = destino.pixeles.get_mut(i) {
+                    poner(0, p);
+                }
                 for (k, o) in destino.otros.iter_mut().take(n_rt - 1).enumerate() {
                     if let Some(p) = o.pixeles.as_deref_mut().and_then(|p| p.get_mut(i)) {
                         poner(k + 1, p);

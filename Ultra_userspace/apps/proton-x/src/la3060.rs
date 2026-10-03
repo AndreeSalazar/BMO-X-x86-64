@@ -232,7 +232,9 @@ fn no_pagado(r: u64) -> String {
 pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     // SAFETY: ver `Celda`.
     let e = unsafe { &mut *ESTADO.0.get() };
-    if !e.apagada {
+    // N5.12: un lote de solo profundidad (sin pixeles) no tiene back buffer
+    // que darle a la puerta: por la CPU.
+    if !e.apagada && !d.pixeles.is_empty() {
         let blanco = Blanco {
             va: d.pixeles.as_ptr() as u64,
             ancho: d.ancho,

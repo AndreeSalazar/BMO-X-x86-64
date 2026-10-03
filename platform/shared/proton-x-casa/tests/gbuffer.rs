@@ -3,6 +3,8 @@
 //! con `OMSetRenderTargets` de descriptores CONSECUTIVOS, un Draw, y cada
 //! render target leido de vuelta. Los sombreadores son los de
 //! `proton-x/prueba/textura.hlsl` (vertices) y `gbuffer.hlsl` (pixeles).
+//! Con la MEZCLA en el 0 (N5.11), y un MAPA DE SOMBRAS: sin render target
+//! ni sombreador de pixeles, solo la Z (N5.12).
 
 #![cfg(all(target_os = "linux", target_arch = "x86_64"))]
 
@@ -130,8 +132,13 @@ const RGBA8: u32 = 28;
 const BGRA8: u32 = 87;
 
 /// Cada render target leido de vuelta (8x8), o `None` si no se creo.
+/// Las pruebas de este fichero empiezan la casa: de una en una.
+static LLAVE: Mutex<()> = Mutex::new(());
+
 fn g_buffer(mezcla: bool) -> [Option<Vec<u32>>; 4] {
-    // SAFETY: ningun `.exe` corre; la unica prueba de este fichero.
+    DICHO.lock().unwrap().clear();
+    // SAFETY: ningun `.exe` corre; las pruebas de este fichero, de una en una
+    // (`LLAVE`).
     unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None, sonido: None }) };
     type CrearDisp = extern "win64" fn(u64, u32, *const Guid, *mut u64) -> i32;
     // SAFETY: la direccion de `D3D12CreateDevice` de la casa.
@@ -298,6 +305,7 @@ fn unorm8(x: f32) -> u32 {
 /// PSO se negaba, y `OMSetRenderTargets` tomaba solo el primero.
 #[test]
 fn un_draw_pinta_el_g_buffer_entero() {
+    let _llave = LLAVE.lock().unwrap_or_else(|e| e.into_inner());
     let [albedo, sitio, nada, normal] = g_buffer(false);
     let dicho = String::from_utf8_lossy(&DICHO.lock().unwrap()).into_owned();
     assert!(!dicho.contains("no se dibuja") && !dicho.contains("render target"), "{dicho}");
@@ -317,6 +325,7 @@ fn un_draw_pinta_el_g_buffer_entero() {
 /// decia y no se pintaba.
 #[test]
 fn la_mezcla_y_el_factor_de_mezcla_llegan_al_draw() {
+    let _llave = LLAVE.lock().unwrap_or_else(|e| e.into_inner());
     let [albedo, sitio, _, normal] = g_buffer(true);
     let dicho = String::from_utf8_lossy(&DICHO.lock().unwrap()).into_owned();
     assert!(!dicho.contains("no se dibuja"), "{dicho}");
@@ -324,4 +333,134 @@ fn la_mezcla_y_el_factor_de_mezcla_llegan_al_draw() {
     assert!(albedo.unwrap().iter().all(|&p| p == 0x8000_0080), "el 0, mezclado");
     assert!(normal.unwrap().iter().all(|&p| p == 0x8000_00FF), "el 3, sin mezcla");
     assert_eq!(sitio.unwrap()[0], 0xFF00_0000 | unorm8(0.5 / 8.0) << 8 | unorm8(0.5 / 8.0));
+}
+
+/// N5.12: un MAPA DE SOMBRAS -- un PSO sin sombreador de pixeles ni render
+/// target (`NumRenderTargets` 0) y un DSV D32 limpiado a 1.0; un triangulo
+/// a z = 0.5 que cubre la mitad. Leida la Z de vuelta: 0.5 donde cubre, 1.0
+/// donde no.
+fn mapa_de_sombras() -> Vec<f32> {
+    DICHO.lock().unwrap().clear();
+    // SAFETY: ningun `.exe` corre; las pruebas de este fichero, de una en una.
+    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None, sonido: None }) };
+    type CrearDisp = extern "win64" fn(u64, u32, *const Guid, *mut u64) -> i32;
+    // SAFETY: la direccion de `D3D12CreateDevice` de la casa.
+    let crear: CrearDisp = unsafe { core::mem::transmute(funcion("d3d12.dll", "D3D12CreateDevice")) };
+    let mut disp = 0;
+    assert_eq!(crear(0, 0xb000, &com::IID_DEVICE, &mut disp), 0);
+    let mut firma = [0u8; 40];
+    firma[32..36].copy_from_slice(&1u32.to_le_bytes());
+    let (mut blob, mut error) = (0u64, 0u64);
+    // SAFETY: la direccion de `D3D12SerializeRootSignature` de la casa.
+    let s: extern "win64" fn(*const u8, u32, *mut u64, *mut u64) -> i32 = unsafe { core::mem::transmute(funcion("d3d12.dll", "D3D12SerializeRootSignature")) };
+    assert_eq!(s(firma.as_ptr(), 1, &mut blob, &mut error), 0);
+    let (ptr, n): (extern "win64" fn(u64) -> *const u8, extern "win64" fn(u64) -> usize) = (hueco(blob, 3), hueco(blob, 4));
+    let rs: extern "win64" fn(u64, u32, *const u8, usize, *const Guid, *mut u64) -> i32 = hueco(disp, 16);
+    let mut raiz = 0;
+    assert_eq!(rs(disp, 0, ptr(blob), n(blob), &com::IID_ROOTSIG, &mut raiz), 0);
+    #[repr(C)]
+    struct Elemento {
+        semantica: *const u8,
+        indice: u32,
+        formato: u32,
+        ranura: u32,
+        desde: u32,
+        clase: u32,
+        paso: u32,
+    }
+    let layout = [Elemento { semantica: b"POSITION\0".as_ptr(), indice: 0, formato: 6, ranura: 0, desde: 0, clase: 0, paso: 0 }, Elemento { semantica: b"TEXCOORD\0".as_ptr(), indice: 0, formato: 16, ranura: 0, desde: 12, clase: 0, paso: 0 }];
+    let mut d = [0u8; 656];
+    let mut pon = |o: usize, v: &[u8]| d[o..o + v.len()].copy_from_slice(v);
+    pon(0, &raiz.to_le_bytes());
+    pon(8, &(VS.as_ptr() as u64).to_le_bytes());
+    pon(16, &(VS.len() as u64).to_le_bytes());
+    // Sin sombreador de pixeles (+24, +32 a cero) y sin render target (+576).
+    pon(164, &[0x0F]);
+    pon(448, &u32::MAX.to_le_bytes());
+    pon(452, &3u32.to_le_bytes());
+    pon(456, &1u32.to_le_bytes()); // CULL_NONE
+    // DepthEnable, DepthWriteMask ALL, LESS; DSVFormat D32_FLOAT (+612).
+    pon(496, &1u32.to_le_bytes());
+    pon(500, &1u32.to_le_bytes());
+    pon(504, &2u32.to_le_bytes());
+    pon(552, &(layout.as_ptr() as u64).to_le_bytes());
+    pon(560, &(layout.len() as u32).to_le_bytes());
+    pon(572, &3u32.to_le_bytes());
+    pon(612, &40u32.to_le_bytes());
+    pon(616, &1u32.to_le_bytes());
+    let cpso: Crear = hueco(disp, 10);
+    let mut pso = 0;
+    assert_eq!(cpso(disp, d.as_ptr(), &com::IID_PSO, &mut pso), 0, "{}", String::from_utf8_lossy(&DICHO.lock().unwrap()));
+
+    // La Z: D32_FLOAT de 8x8, su DSV.
+    let z = recurso(disp, &desc_recurso(3, 8, 8, 40));
+    let (_dsvs, dsv, _) = monton(disp, 3, 1, false);
+    let cdsv: extern "win64" fn(u64, u64, *const u8, u64) = hueco(disp, 21);
+    cdsv(disp, z, core::ptr::null(), dsv);
+    // Un triangulo de (0,0) (8,0) (0,8) en pantalla, a z = 0.5.
+    let v: [[f32; 5]; 3] = [[-1.0, 1.0, 0.5, 0.0, 0.0], [1.0, 1.0, 0.5, 0.0, 0.0], [-1.0, -1.0, 0.5, 0.0, 0.0]];
+    let vb = recurso(disp, &desc_recurso(1, core::mem::size_of_val(&v) as u64, 1, 0));
+    // SAFETY: el bufer mide lo mismo que `v`.
+    unsafe { core::ptr::copy_nonoverlapping(v.as_ptr() as *const u8, mapear(vb), core::mem::size_of_val(&v)) };
+    let va: extern "win64" fn(u64) -> u64 = hueco(vb, 11);
+    let lectura = recurso(disp, &desc_recurso(1, 256 * 8, 1, 0));
+
+    let cq: Crear = hueco(disp, 8);
+    let mut cola = 0;
+    assert_eq!(cq(disp, [0u8; 16].as_ptr(), &com::IID_QUEUE, &mut cola), 0);
+    let ca: extern "win64" fn(u64, u32, *const Guid, *mut u64) -> i32 = hueco(disp, 9);
+    let mut asig = 0;
+    assert_eq!(ca(disp, 0, &com::IID_ALLOCATOR, &mut asig), 0);
+    let cl: extern "win64" fn(u64, u32, u32, u64, u64, *const Guid, *mut u64) -> i32 = hueco(disp, 12);
+    let mut l = 0;
+    assert_eq!(cl(disp, 0, 0, asig, pso, &com::IID_LIST, &mut l), 0);
+    let set_raiz: extern "win64" fn(u64, u64) = hueco(l, 30);
+    set_raiz(l, raiz);
+    let set_vp: extern "win64" fn(u64, u32, *const f32) = hueco(l, 21);
+    set_vp(l, 1, [0.0f32, 0.0, 8.0, 8.0, 0.0, 1.0].as_ptr());
+    let set_tijera: extern "win64" fn(u64, u32, *const i32) = hueco(l, 22);
+    set_tijera(l, 1, [0i32, 0, 8, 8].as_ptr());
+    // Ningun render target: solo el DSV.
+    let om: extern "win64" fn(u64, u32, *const u64, i32, *const u64) = hueco(l, 46);
+    om(l, 0, core::ptr::null(), 0, &dsv);
+    let limpiar_z: extern "win64" fn(u64, u64, u32, f32, u8, u32, *const u8) = hueco(l, 47);
+    limpiar_z(l, dsv, 1, 1.0, 0, 0, core::ptr::null());
+    let topo: extern "win64" fn(u64, u32) = hueco(l, 20);
+    topo(l, 4);
+    let vista_vb: [u64; 2] = [va(vb), core::mem::size_of_val(&v) as u64 | 20 << 32];
+    let set_vb: extern "win64" fn(u64, u32, u32, *const u64) = hueco(l, 44);
+    set_vb(l, 0, 1, vista_vb.as_ptr());
+    let draw: extern "win64" fn(u64, u32, u32, u32, u32) = hueco(l, 12);
+    draw(l, 3, 1, 0, 0);
+    let mut dst = [0u8; 48];
+    dst[0..8].copy_from_slice(&lectura.to_le_bytes());
+    dst[8..12].copy_from_slice(&1u32.to_le_bytes());
+    for (o, x) in [(24, 40u32), (28, 8), (32, 8), (36, 1), (40, 256)] {
+        dst[o..o + 4].copy_from_slice(&x.to_le_bytes());
+    }
+    let mut src = [0u8; 48];
+    src[0..8].copy_from_slice(&z.to_le_bytes());
+    let copia: extern "win64" fn(u64, *const u8, u32, u32, u32, *const u8, *const u8) = hueco(l, 16);
+    copia(l, dst.as_ptr(), 0, 0, 0, src.as_ptr(), core::ptr::null());
+    let cerrar: extern "win64" fn(u64) -> i32 = hueco(l, 9);
+    assert_eq!(cerrar(l), 0);
+    let ejecutar: extern "win64" fn(u64, u32, *const u64) = hueco(cola, 10);
+    ejecutar(cola, 1, &l);
+    let q = mapear(lectura);
+    // SAFETY: dentro del bufer de lectura (256 * 8).
+    (0..64).map(|k| unsafe { (q.add(256 * (k / 8) + 4 * (k % 8)) as *const f32).read_unaligned() }).collect()
+}
+
+/// *** N5.12: el mapa de sombras se dibuja: un PSO de solo profundidad
+/// (antes se negaba) escribe su Z donde cubre, y nada mas.
+#[test]
+fn un_pso_de_solo_profundidad_dibuja_su_mapa_de_sombras() {
+    let _llave = LLAVE.lock().unwrap_or_else(|e| e.into_inner());
+    let z = mapa_de_sombras();
+    let dicho = String::from_utf8_lossy(&DICHO.lock().unwrap()).into_owned();
+    assert!(!dicho.contains("no se dibuja") && !dicho.contains("no hay donde"), "{dicho}");
+    // Los centros con x + y < 7 (los de la diagonal, fuera): 28.
+    assert_eq!(z.iter().filter(|&&v| v == 0.5).count(), 28, "{z:?}");
+    assert_eq!(z.iter().filter(|&&v| v == 1.0).count(), 64 - 28, "{z:?}");
+    assert_eq!((z[0], z[63]), (0.5, 1.0));
 }

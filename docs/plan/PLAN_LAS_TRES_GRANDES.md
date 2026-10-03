@@ -778,8 +778,13 @@ la proxima corrida del metal dice cual pesa mas:
   SIN mezclar y mezcla en cada pixel con el que esta. Falta: la operacion
   logica y las dos fuentes (SRC1), que se dicen; sRGB se mezcla en sus
   bytes. En la 3060 todavia no: por la CPU (N6.1).
-- [ ] **N5.12 -- solo PROFUNDIDAD** (`NumRenderTargets` 0, sin sombreador
-  de pixeles): los mapas de sombras y el prepaso de Z. Hoy el PSO se niega.
+- [x] **N5.12 -- solo PROFUNDIDAD** (03-10): los mapas de sombras y el
+  prepaso de Z. Un PSO con `NumRenderTargets` 0 y sin sombreador de
+  pixeles se crea (`lote::enlazar_con`, el de pixeles `Programa::vacio`);
+  el Draw pinta en el DSV, con la medida de la Z, y la trama solo escribe Z
+  (`Destino::pixeles` vacio). Probado por las puertas de Windows: un mapa
+  de sombras D32 (`tests/gbuffer.rs`). La 3060 no lo toma todavia (sin
+  back buffer que darle a la puerta): por la CPU.
 - [x] **N5.9 -- SV_Position en el de pixeles** (03-10): `Enlace::pos_ps`
   dice que entrada es; la trama pone en ella (x + 0.5, y + 0.5, z, w) de
   cada pixel (la w de recorte, con perspectiva: la de D3D, no la 1/w de

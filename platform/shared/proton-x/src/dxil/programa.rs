@@ -382,6 +382,12 @@ pub enum Lectura {
 }
 
 impl Programa {
+    /// N5.12: el que no hace nada (el de pixeles de un PSO sin el: solo
+    /// profundidad, las sombras).
+    pub fn vacio() -> Programa {
+        Programa { ops: Vec::new(), iniciales: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, ranuras: Ranuras::default() }
+    }
+
     /// **Correr el sombreador una vez.** `entradas` y `salidas` por el id del
     /// elemento en su firma; `cb`, los bytes del cbuffer (lo que falte se lee
     /// como 0). `regs` es memoria de trabajo (se reusa entre llamadas).

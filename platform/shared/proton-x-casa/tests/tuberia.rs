@@ -273,8 +273,8 @@ fn los_pso_con_los_mismos_sombreadores_comparten_lo_compilado() {
 }
 
 /// N5.8 (03-10): un PSO con varios render targets (el G-buffer) se CREA --
-/// antes se negaba entero --, cada uno con su formato; sin ninguno (solo
-/// profundidad) todavia no, y se dice. La mezcla se mira en cada render
+/// antes se negaba entero --, cada uno con su formato; N5.12: sin ninguno
+/// (solo profundidad), tambien. La mezcla se mira en cada render
 /// target con IndependentBlendEnable, y en el 0 sin el.
 #[test]
 fn un_pso_con_varios_render_targets_se_crea() {
@@ -324,7 +324,17 @@ fn un_pso_con_varios_render_targets_se_crea() {
     // SAFETY: un PSO de la casa.
     assert_eq!(unsafe { com::de::<bmo_proton_x_casa::tuberia::Pso>(p) }.mezcla, Err("una mezcla con operacion logica (LogicOpEnable): todavia no"));
 
+    // N5.12: sin render target y SIN sombreador de pixeles: solo
+    // profundidad (las sombras); se crea, y su de pixeles es el vacio.
+    let (h, p) = pso_cambiado(r, VS, PS, &layout(true), |d| {
+        rts(0)(d);
+        d[24..40].fill(0);
+    });
+    assert_eq!(h, 0);
+    // SAFETY: un PSO de la casa.
+    let en = unsafe { com::de::<bmo_proton_x_casa::tuberia::Pso>(p) }.compilado.enlace.clone().unwrap();
+    assert_eq!((en.ps.ops.len(), en.objetivos.len(), en.desde_vs.len()), (0, 0, 0));
     DICHO.lock().unwrap().clear();
-    assert_eq!(pso_cambiado(r, VS, PS, &layout(true), rts(0)).0, E_INVALIDARG);
-    assert_eq!(dicho(), "PROTON-X: CreateGraphicsPipelineState sin render target (solo profundidad): todavia no\n");
+    assert_eq!(pso_cambiado(r, VS, PS, &layout(true), rts(9)).0, E_INVALIDARG);
+    assert_eq!(dicho(), "PROTON-X: CreateGraphicsPipelineState con mas de 8 render targets: en Windows es un error\n");
 }
