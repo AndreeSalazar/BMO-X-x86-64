@@ -186,10 +186,11 @@ pub(crate) fn avisar(titulo: &[u8], texto: &[u8], tono: Tono) {
     e.tono = tono;
     e.aviso = true;
     // ** Y SE OYE (2026-10-03): si suena la musica de fondo, el aviso suena
-    // encima y la musica se agacha sola. Cada tono con su sonido.
+    // encima y la musica se agacha sola. Cada tono con su sonido de la VOZ
+    // de BMO-X, y en su sitio: lo que salio se abre, lo que no, delante.
     crate::desktop::musica::avisar(match tono {
-        Tono::Bien => bmo_fondo::Aviso::Conecta,
-        Tono::Mal => bmo_fondo::Aviso::Juez,
+        Tono::Bien => bmo_fondo::Aviso::Hecho,
+        Tono::Mal => bmo_fondo::Aviso::Error,
         Tono::Consejo => bmo_fondo::Aviso::Mensaje,
     });
 }

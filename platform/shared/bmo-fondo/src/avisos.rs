@@ -23,10 +23,50 @@ pub enum Aviso {
     Juez,
     /// Una captura: el obturador.
     Captura,
+    /// **La voz de BMO-X** (03-10): algo NO salio. Dos notas graves que
+    /// caen, cerca y delante.
+    Error,
+    /// Ojo, pero sigue: una nota que cae un poco, delante a la derecha.
+    Advertencia,
+    /// Te pide un si o un no: sube, como una pregunta.
+    Pregunta,
+    /// Salio DE VERDAD: un acorde que se abre. Nunca antes de que salga.
+    Hecho,
+    /// Llega algo de fuera: sube, desde detras a la izquierda.
+    Llega,
+    /// Algo se va (la red): baja, hacia atras.
+    SeVa,
 }
 
 /// Todos, en orden: lo que el banco guarda despues de la musica.
-pub const AVISOS: [Aviso; 6] = [Aviso::Arranque, Aviso::Zumbido, Aviso::Mensaje, Aviso::Conecta, Aviso::Juez, Aviso::Captura];
+pub const AVISOS: [Aviso; 12] = [
+    Aviso::Arranque,
+    Aviso::Zumbido,
+    Aviso::Mensaje,
+    Aviso::Conecta,
+    Aviso::Juez,
+    Aviso::Captura,
+    Aviso::Error,
+    Aviso::Advertencia,
+    Aviso::Pregunta,
+    Aviso::Hecho,
+    Aviso::Llega,
+    Aviso::SeVa,
+];
+
+/// **Donde suena cada aviso** (grados, + derecha, 0 delante, 180 detras): la
+/// pieza que lo dice tiene su sitio alrededor de la cabeza. Lo urgente,
+/// delante; HERMES, a la izquierda (donde vive F3); lo que llega, de detras.
+/// El orquestador lo situa con el 3D por voz (`AUDIO_FONDO_SITUAR`).
+pub fn angulo(a: Aviso) -> i16 {
+    match a {
+        Aviso::Mensaje | Aviso::Zumbido | Aviso::Conecta => -50,
+        Aviso::Advertencia => 30,
+        Aviso::Llega => -140,
+        Aviso::SeVa => 160,
+        _ => 0,
+    }
+}
 
 /// **El nivel de cada aviso**, para que TODOS lleguen a -6 dBFS de pico: el
 /// zumbido son 92 Hz cuadrados y el mensaje dos senos agudos, y a la misma
@@ -40,6 +80,12 @@ fn nivel(a: Aviso) -> MilesimasDb {
         Aviso::Conecta => 1690,
         Aviso::Juez => 2688,
         Aviso::Captura => 2611,
+        Aviso::Error => 3010,
+        Aviso::Advertencia => 2135,
+        Aviso::Pregunta => 1855,
+        Aviso::Hecho => 1710,
+        Aviso::Llega => 2517,
+        Aviso::SeVa => 2517,
     }
 }
 
@@ -89,6 +135,34 @@ fn notas(a: Aviso) -> ([Nota; MAX_NOTAS], usize) {
         Aviso::Captura => {
             poner(Nota::golpe(0, Forma::Plato, 0));
             poner(Nota::golpe(ms(60), Forma::Caja, 0));
+        }
+        // La voz de BMO-X, igual que en la maqueta (`VOZ`): 0,13 / 0,2 / 0,22 / 0,18.
+        Aviso::Error => {
+            poner(Nota::tono(0, inc_midi(52), HZ * 160 / 1000, Timbre::Cuadrada, -4536, 0));
+            poner(Nota::tono(ms(170), inc_midi(46), HZ * 280 / 1000, Timbre::Cuadrada, -4536, 0));
+        }
+        Aviso::Advertencia => {
+            poner(Nota::tono(0, inc_midi(69), HZ * 120 / 1000, Timbre::Triangulo, -3579, 0));
+            poner(Nota::tono(ms(100), inc_midi(67), HZ * 250 / 1000, Timbre::Triangulo, -3813, 0));
+        }
+        Aviso::Pregunta => {
+            poner(Nota::tono(0, inc_midi(67), HZ * 140 / 1000, Timbre::Seno, -3367, 0));
+            poner(Nota::tono(ms(130), inc_midi(72), HZ * 240 / 1000, Timbre::Seno, -3367, 0));
+        }
+        Aviso::Hecho => {
+            for (j, x) in [0, 4, 7, 12].into_iter().enumerate() {
+                poner(Nota::tono(ms(60) * j as i64, inc_midi(67 + x), (450 - j as u32 * 50) * HZ / 1000, Timbre::Seno, -3813, 0));
+            }
+        }
+        Aviso::Llega => {
+            for (j, x) in [55, 60, 67, 79].into_iter().enumerate() {
+                poner(Nota::tono(ms(90) * j as i64, inc_midi(x), HZ * 200 / 1000, Timbre::Triangulo, -4075, 0));
+            }
+        }
+        Aviso::SeVa => {
+            for (j, x) in [72, 67, 64, 60].into_iter().enumerate() {
+                poner(Nota::tono(ms(110) * j as i64, inc_midi(x), HZ * 260 / 1000, Timbre::Triangulo, -4075, 0));
+            }
         }
     }
     (n, k)
