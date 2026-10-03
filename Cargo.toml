@@ -376,9 +376,6 @@ members = [
 ]
 
 exclude = [
-    # Extern submodule with its own Cargo workspace
-    "extern/gnucobol-rs",
-
     # Sub-workspace (has its own [workspace] because build.ps1
     # Push-Locations into this directory to build the EFI binary;
     # see /Ultra_kernel_x86-64/uefi_chain/Cargo.toml).

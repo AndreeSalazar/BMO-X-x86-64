@@ -28,7 +28,8 @@ pub enum Dialect {
     Ansi85,
     /// ISO/IEC 1989:2002 (free-form source, inline comments).
     Cobol2002,
-    /// GnuCOBOL extensions (the `extern/gnucobol-rs` bridge speaks this).
+    /// The GnuCOBOL extensions, recognised by name only: no GnuCOBOL code is
+    /// linked or vendored (03-10: no third-party objects).
     GnuCobol,
     /// IBM Enterprise COBOL (COMP-3 packed decimal, EBCDIC pictures).
     IbmEnterprise,

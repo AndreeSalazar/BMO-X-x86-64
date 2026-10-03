@@ -10,9 +10,10 @@ description = "BMO COBOL: el FRONTEND (lexer, parser, arbol, PICTURE, registros)
 # `emisor-x86_64/`. El guardian `isa` lo vigila.
 [dependencies]
 
-# NOTA: gnucobol-rs (GPL) ELIMINADO -- la PIC ahora la parsea nuestro propio
-# src/pic.rs. El submodulo extern/gnucobol-rs queda solo como oraculo de
-# validacion cruzada, jamas enlazado. COBOL 100% BMO.
+# NOTA: gnucobol-rs (GPL) ELIMINADO -- la PIC la parsea nuestro propio
+# src/pic.rs, y el submodulo `extern/gnucobol-rs` ya no existe (03-10: la regla
+# del propietario, "no integrar objetos terceros, la inspiracion de Grace
+# Hopper"). COBOL 100% BMO.
 
 [lib]
 name = "bmo_cobol_front"

@@ -12,6 +12,36 @@
 
 ---
 
+# LA REGLA (03-10)
+
+> El propietario: *"regla simple: no integrar objetos terceros, sino tomar la
+> inspiracion de Grace Hopper y tener la ESENCIA, y mejorar y explotar al
+> nivel banco"*.
+
+```text
+   DENTRO de BMO-X     NADA de fuera: ni codigo, ni crates, ni runtime, ni
+                       objetos enlazados. El compilador, la PIC, el decimal,
+                       el emisor y la libreria de copybooks son de la casa
+   la ESENCIA          la de Grace Hopper (COBOL, 1959): legible por la gente
+                       de negocio, centrado en los datos y sus registros, el
+                       DECIMAL EXACTO, y el programa por encima de la maquina
+                       (por eso el frontend no nombra una CPU)
+   NIVEL BANCO         lo que un banco necesita de verdad, en el orden de
+                       PLAN_BANCA: ficheros, CALL, transacciones, auditoria
+   GnuCOBOL            un TESTIGO de fuera, en el anfitrion, como GCC para el
+                       ESPEJO de C: se le PREGUNTA que imprime, no se usa ni
+                       una linea suya. Sin el, el espejo no juzga y lo dice
+```
+
+El IR de CM4 es de COBOL y solo de COBOL, en decimal, dentro de
+`toolchain/lang/cobol` -- NO un IR compartido con C: `cobol.md` lo dice con
+razon, "un IR central presionaria a representar todo como binario y
+mancharia la esencia". Y con CM4 el oraculo pasa a ser PROPIO (el
+interprete de ese IR): GnuCOBOL queda de segundo testigo, que se puede
+quitar.
+
+---
+
 # 0. LA RESPUESTA CORTA
 
 ```text
@@ -101,7 +131,8 @@ y una semantica que diga que no a lo que no es COBOL.
       que no es COBOL. **Como se sabe:** `conceptos.cob` y `cartera.cob`
       salen de NO ESTANDAR (se arreglan los ejemplos, o BMO los rechaza con
       el mismo motivo que GnuCOBOL).
-- [ ] **CM4 -- el IR COBOL y su INTERPRETE.** Lo que sale de la semantica:
+- [ ] **CM4 -- el IR COBOL (propio, decimal, solo de COBOL) y su
+      INTERPRETE.** Lo que sale de la semantica:
       operaciones de decimal con escala, redondeo y desborde explicitos, y
       el flujo de control. Un interprete en el anfitrion lo ejecuta y
       entra en el ESPEJO como TERCER juez (BMO interpretado, BMO x86-64,
@@ -133,6 +164,8 @@ y una semantica que diga que no a lo que no es COBOL.
   hoy, mas comodo de leer). Lo recomendado: ESTRICTO por defecto, y las
   extensiones de BMO con una bandera que las nombre. Para hablar con un
   banco, lo que cuenta es "da lo mismo que el COBOL que ya usais".
-- **D2 -- GnuCOBOL como juez.** Es una herramienta del ANFITRION (como GCC
-  y Clang para el ESPEJO de C), nunca entra en BMO-X. En Windows se instala
+- **D2 -- GnuCOBOL como testigo.** Es una herramienta del ANFITRION (como
+  GCC y Clang para el ESPEJO de C), nunca entra en BMO-X ni se usa una
+  linea suya: se ejecuta y se compara lo que imprime. Con CM4 el juez
+  principal es el interprete PROPIO; la regla de arriba manda. En Windows se instala
   aparte; sin ella el espejo compila y corre BMO, pero no juzga.
