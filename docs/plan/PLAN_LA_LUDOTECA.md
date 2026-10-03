@@ -325,7 +325,12 @@ La app se llama **Ludoteca**, como este plan, y su crate `bmo-ludoteca`.
   su cliente y su cifrado. Su cara, cuando llegue: negra, la estandar de
   las apps de BMO-X, futurista y elegante, con el gato y su glitch en la
   entrada -- la misma entrada que ya lleva la LUDOTECA.
-- **HERMES, en F3 (maqueta, 01-10):** la sala propia tiene nombre, tecla y
+- **HERMES, en F3 (maqueta, 01-10):** *Desde el 02-10 HERMES tiene plan
+  propio, empezado desde el principio: [`PLAN_HERMES.md`](PLAN_HERMES.md).
+  Lo de abajo se queda como el origen de los nombres; lo que corrige (la
+  clave, el saludo, la carpeta como capacidad, la escritura por trozos en
+  ESTRATOS y que la ANTENA NO entra) esta en su seccion 2.*
+  la sala propia tiene nombre, tecla y
   cara. Los nombres: **HERMES** es la app (el mensajero de los dioses, y el
   guino al Messenger); el **protocolo HERMES** es como hablan dos BMO-X; y
   las **tertulias** son las salas de grupo. F3 la abre o la esconde, como F4
