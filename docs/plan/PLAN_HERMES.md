@@ -376,6 +376,45 @@ maquina de quien escribe.
                  cuerpo de una REACCION
 ```
 
+### 7.5 La ONDA: toda la musica, y nunca se duerme
+
+Pedido el 03-10: *"como Spotify, inspiracion para tener musica en total [...]
+mp3, todos sonidos [...] con animacion unica que represente"*; y despues:
+*"que encuentren TODO el disco en FAT32 y ESTRATOS"*, y *"se mantenga siempre
+despierto ese audio para que sigan jugando [...] una notificacion escondida en
+la pantalla con animacion en tiempo real [...] pausa o reproducir y control
+del audio [...] y recomendacion"*.
+
+```text
+   la ONDA       una seccion de F3: listas tuyas y de tus amigos (llegan por
+                 HERMES/1 como cualquier envio, con su JUEZ), sin cuentas,
+                 sin anuncios, sin algoritmo. Cada cancion, lista y sonido
+                 del sistema dibuja su audio a su manera
+   EN TU DISCO   la orden `sonidos` del escritorio: recorre DATOS (FAT32) y
+                 ESTRATOS, lee 64 bytes de cada fichero y dice que es por
+                 DENTRO: SUENA, OFICIAL (y que falta), NO OFICIAL (y por
+                 que), y que nombres MIENTEN. En codigo el 03-10 (H16)
+   la PASTILLA   el audio es del ESCRITORIO, no de una ventana: cerrar F3 o
+                 abrir un juego no lo para. Una pastilla escondida arriba
+                 asoma al pasar el raton o al cambiar de cancion; pausa,
+                 siguiente, volumen y una recomendacion de un amigo, sin
+                 quitar el foco. Mientras un juego suena, la musica baja
+   el ORIGEN     cada formato tiene su escalon y no se finge ninguno:
+                 WAV es M1 (despues de A1, el tubo del auricular), MP3 es
+                 M2 y M2b de PLAN_MEDIOS, FLAC y Vorbis van despues, Opus va
+                 con la voz (H12), AAC con el CANAL (M6 de PLAN_LA_3060)
+```
+
+[!] **Por que el censo NO es de HERMES.** Recorrer el disco entero es
+justo lo que H3 le prohibe a la app de F3: su raiz es `F:/hermes/` y `d:` le
+dice NO. Por eso `sonidos` es una orden del ESCRITORIO, que ya ve los dos
+volumenes; HERMES solo recibe lo que el propietario le pase. Y como Ring 3 no
+escribe en la CABINA (solo la lee), el censo sale en Ejecutar y `save` lo
+guarda.
+
+Las recomendaciones las dice un amigo a mano, con su frase, y llegan como un
+verbo mas de HERMES/1. Ninguna maquina elige por ti.
+
 ---
 
 ## 8. Los escalones, desde el principio
@@ -395,7 +434,10 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       reacciones, el menu `+`, y PAGINAS (el visor `hermes://` y un editor de
       `.maqueta` que juzga con el contrato y marca la propuesta H13). Y el
       03-10 por la tarde: el inicio de PAGINAS con buscador y atajos, y el
-      CANAL a fondo (H10). **Como
+      CANAL a fondo (H10). Y el 03-10 por la noche: la ONDA (seccion 7.5),
+      que suena de verdad con WebAudio, EN TU DISCO con el censo, y la
+      PASTILLA, que sigue sonando con HERMES cerrado o con la LUDOTECA
+      abierta. **Como
       se sabe:** el propietario la abre y dice si es la cara.
 - [x] **H2 -- `bmo-hermes`, puro y con banco.** HECHO el 03-10:
       `platform/shared/bmo-hermes`, `no_std` y sin `unsafe`, encima de
@@ -503,3 +545,24 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       visor (un `tests/hostile.rs` para el lector).
 - [ ] **H12 -- la voz.** Cuando el audio USB tambien ENTRE (microfono), con
       un codec propio. **Como se sabe:** una llamada de un minuto sin cortes.
+- [~] **H16 -- el censo de los sonidos.** EN CODIGO el 03-10; falta el
+      metal. `bmo-sonido::censo` (puro, en el anfitrion) mira una cabecera de
+      64 bytes y da el tipo por sus bytes magicos (WAV con su codec, MP3, FLAC,
+      Vorbis, Opus, AAC, M4A, AIFF, MIDI, WMA), el veredicto con su motivo y si
+      el nombre miente. La orden `sonidos` del escritorio
+      (`commands/sonidos.rs`) recorre DATOS y ESTRATOS con techos que DICE si
+      toca. **Como se sabe:** en el Ryzen, `sonidos` lista los WAV de
+      `datos/` como SUENA, un `.mp3` renombrado de un WAV como MIENTE, y un
+      `.mid` como NO OFICIAL; hasta entonces, 18 pruebas en el anfitrion
+      (una de 30.000 cabeceras hostiles) y el director compila.
+- [ ] **H17 -- el audio que no se duerme.** Un servicio de sonido del
+      escritorio (no de F3) que posee el tubo y mezcla con `bmo-amplificador`
+      la musica, los sonidos del sistema y el juego; el director pinta la
+      PASTILLA encima de cualquier ventana. Pide A1 y M1. **Como se sabe:**
+      en el Ryzen suena un WAV, se cierra HERMES, se abre DOOM II y sigue
+      sonando sin cortes; la PASTILLA lo pausa sin que el juego pierda una
+      tecla, y mientras el juego suena la musica baja.
+- [ ] **H18 -- la ONDA en F3.** Las listas, la cola, "me gusta", las listas
+      que comparte un amigo y sus recomendaciones como verbo de HERMES/1, y
+      cada cancion con su animacion. **Como se sabe:** nova comparte una
+      lista desde su BMO-X, llega por el JUEZ, y suena en la otra maquina.

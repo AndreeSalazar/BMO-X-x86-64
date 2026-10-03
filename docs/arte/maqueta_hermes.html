@@ -23,6 +23,7 @@
   --rojo: #FF4F5E;
   --gris: #9AA2B4;
   --tienda: #A55DFF;
+  --onda: #B6FF5C;
   --f-pixel: "Silkscreen", "Courier New", monospace;
   --f-emoji: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
   --f-texto: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji";
@@ -484,9 +485,123 @@ mark { background: rgba(255,194,77,.25); color: inherit; border-radius: 2px; pad
 .g-orbe::after { inset: -6px; background: radial-gradient(circle at 50% 3px, var(--azul) 0 2.5px, transparent 3px); animation: gira 3.4s linear infinite; }
 .g-faro::after { inset: -5px; background: conic-gradient(from 0deg, rgba(255,194,77,.75), transparent 16%, transparent 84%, rgba(255,194,77,.25)); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); animation: gira 3.8s linear infinite; }
 .g-lince::after { inset: -3px; border: 1.5px dashed rgba(77,227,143,.45); animation: gira 16s linear infinite; }
+/* ---------- la ONDA ---------- */
+.app { grid-template-rows: minmax(0, 1fr) auto; }
+.barra-onda { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 8px 14px; background: #07090E; border-top: 1px solid var(--linea); min-width: 0; }
+.mini-port { width: 40px; height: 40px; border-radius: 6px; flex: none; display: block; }
+.mini-port.g { width: 48px; height: 48px; }
+.barra-onda .que { min-width: 0; width: 190px; display: grid; }
+.barra-onda .que b { color: var(--blanco); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ico-o { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: var(--gris); flex: none; }
+.ico-o:hover { color: var(--blanco); }
+.ico-o[aria-pressed="true"] { color: var(--onda); }
+.ico-o.play { width: 40px; height: 40px; background: var(--blanco); color: #000; }
+.ico-o.play:hover { transform: scale(1.06); color: #000; }
+.mandos { flex: 1; display: grid; justify-items: center; gap: 2px; min-width: 0; }
+.mandos .botones { display: flex; gap: 8px; align-items: center; }
+.progreso-o { width: 100%; max-width: 560px; display: flex; align-items: center; gap: 8px; font-size: 11px; font-family: var(--f-mono); color: var(--tenue); }
+.progreso-o .barra { flex: 1; cursor: pointer; height: 5px; }
+.progreso-o .barra i { background: var(--onda); transition: none; }
+.vis-mini { width: 120px; height: 48px; border-radius: 6px; flex: none; }
+.volumen { display: flex; align-items: center; gap: 6px; width: 140px; color: var(--gris); flex: none; }
+.volumen input { width: 100%; accent-color: var(--onda); }
+.onda-cab { display: flex; gap: 22px; align-items: flex-end; flex-wrap: wrap; }
+.portada-g { width: 190px; height: 190px; border-radius: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.55); flex: none; max-width: 100%; }
+.onda-cab h2 { font-size: clamp(24px, 3vw, 38px); margin: 0; color: var(--blanco); line-height: 1.05; text-wrap: balance; }
+.onda-cab .nota .avatar { display: inline-grid; vertical-align: middle; font-size: 10px; }
+.acciones-o { display: flex; gap: 14px; align-items: center; margin-top: 6px; }
+.play-g { width: 56px; height: 56px; border-radius: 50%; background: var(--onda); color: #000; display: grid; place-items: center; box-shadow: 0 8px 26px rgba(182,255,92,.3); }
+.play-g:hover { transform: scale(1.05); }
+.play-g svg { width: 24px; height: 24px; }
+.vis-banda { width: 100%; height: 110px; border-radius: 10px; display: block; }
+.vis-panel { width: 100%; aspect-ratio: 16 / 10; border-radius: 8px; display: block; }
+.pistas { display: grid; }
+.fila-pista { display: grid; grid-template-columns: 34px minmax(0, 1.6fr) minmax(0, 1fr) 64px 52px; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 6px; text-align: left; font-size: 13px; color: var(--gris); width: 100%; }
+.fila-pista:hover { background: #0E121B; }
+.fila-pista[aria-current="true"] .t1 { color: var(--onda); }
+.fila-pista .num { text-align: right; }
+.fila-pista .alb { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cab-pistas { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--tenue); border-bottom: 1px solid var(--linea); border-radius: 0; cursor: default; }
+.cab-pistas:hover { background: none; }
+.fmt { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor; justify-self: start; font-family: var(--f-mono); }
+.tarjetas-onda { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+.tarjeta-onda { text-align: left; display: grid; gap: 6px; padding: 10px; border-radius: 10px; background: #0B0E15; align-content: start; }
+.tarjeta-onda:hover { background: #10141D; }
+.tarjeta-onda canvas { width: 100%; aspect-ratio: 1; border-radius: 8px; display: block; max-width: 100%; }
+.sonido-c canvas { aspect-ratio: 3 / 2; }
+.tarjeta-onda b { color: var(--blanco); font-weight: 500; }
+.formatos { display: grid; gap: 8px; }
+.formato { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; align-items: center; }
+.eq-mini { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; }
+.eq-mini i { width: 3px; height: 4px; background: var(--onda); border-radius: 1px; animation: eqm .7s ease-in-out infinite; }
+.eq-mini i:nth-child(2) { animation-delay: .2s; } .eq-mini i:nth-child(3) { animation-delay: .4s; }
+.eq-mini.parado i { animation-play-state: paused; }
+@keyframes eqm { 0%, 100% { height: 3px; } 50% { height: 14px; } }
+.entra-onda .portada-g { animation: e-disco .8s cubic-bezier(.2,.8,.2,1) both; }
+.entra-onda .fila-pista { animation: e-onda .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(.2s + var(--i, 0) * 45ms); }
+.entra-onda .tarjeta-onda { animation: e-pop .45s cubic-bezier(.3,1.6,.5,1) both; animation-delay: calc(var(--i, 0) * 55ms); }
+.entra-onda .vis-banda { animation: e-ancho .6s .1s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes e-disco { from { opacity: 0; transform: rotate(-120deg) scale(.5); border-radius: 50%; } }
+@keyframes e-onda { 0% { opacity: 0; transform: translateY(14px); } 60% { opacity: 1; transform: translateY(-4px); } 100% { transform: none; } }
+
+/* ---------- la PASTILLA: el audio siempre despierto, escondido arriba ---------- */
+.pastilla { position: absolute; top: 0; left: 50%; transform: translate(-50%, -38px); z-index: 24; width: 230px; height: 46px; border-radius: 0 0 22px 22px; background: #05070B; border: 1px solid #1E2636; border-top: 0; box-shadow: 0 10px 30px rgba(0,0,0,.55); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: 8px; padding: 0 12px 6px; overflow: hidden; cursor: pointer;
+  transition: transform .45s cubic-bezier(.3,1.4,.5,1), width .45s cubic-bezier(.3,1.3,.5,1), height .45s cubic-bezier(.3,1.3,.5,1), border-radius .45s, background .3s; }
+.pastilla[hidden] { display: none; }
+.pastilla:hover, .pastilla:focus-within, .pastilla.asoma { transform: translate(-50%, 0); }
+.pastilla .borde { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--onda); transform-origin: left; transform: scaleX(var(--p, 0)); opacity: .9; }
+.pastilla .eq-p { width: 34px; height: 22px; display: block; }
+.pastilla .que-p { min-width: 0; font-size: 12px; color: var(--gris); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-bottom: 3px; }
+.pastilla .que-p b { color: var(--blanco); font-weight: 500; }
+.pastilla .mini-b { display: flex; gap: 2px; }
+.pastilla .mini-b .ico-o { width: 26px; height: 26px; }
+.pastilla .mini-b .ico-o svg { width: 14px; height: 14px; }
+.pastilla .grande { display: none; }
+.pastilla.abierta { width: min(440px, calc(100% - 24px)); height: auto; border-radius: 0 0 26px 26px; transform: translate(-50%, 0); cursor: default; grid-template-columns: 1fr; padding: 14px 16px 12px; align-items: stretch; background: #070A10F2; backdrop-filter: blur(10px); }
+.pastilla.abierta .chica { display: none; }
+.pastilla.abierta .grande { display: grid; gap: 10px; animation: p-abre .45s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes p-abre { from { opacity: 0; transform: translateY(-10px) scale(.97); } }
+.pastilla .fila-p { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.pastilla .fila-p canvas { width: 64px; height: 64px; border-radius: 10px; display: block; }
+.pastilla .fila-p .que { display: grid; min-width: 0; }
+.pastilla .fila-p .que b { color: var(--blanco); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pastilla .vis-p { width: 100%; height: 54px; border-radius: 8px; display: block; }
+.pastilla .mandos-p { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.pastilla .vol-p { display: flex; align-items: center; gap: 8px; color: var(--gris); font-size: 11px; }
+.pastilla .vol-p input { flex: 1; accent-color: var(--onda); }
+.pastilla .reco { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px; border-radius: 10px; background: #0E1219; animation: p-reco .5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes p-reco { from { opacity: 0; transform: translateX(16px); } }
+.pastilla .reco .t2 { font-size: 11px; }
+.pastilla .reco button.mas-r { font-size: 11px; padding: 5px 10px; border-radius: 14px; border: 1px solid var(--onda); color: var(--onda); white-space: nowrap; }
+.pastilla .reco button.mas-r:hover { background: var(--onda); color: #000; }
+.pastilla .pie-p { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; color: var(--tenue); flex-wrap: wrap; }
+.pastilla .pie-p label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.pastilla .pie-p input { accent-color: var(--onda); }
+.pastilla .cerrar-p { position: absolute; top: 8px; right: 10px; color: var(--tenue); font-size: 16px; line-height: 1; padding: 4px; }
+.pastilla .cerrar-p:hover { color: var(--blanco); }
+/* el gesto propio: al cambiar de cancion la pastilla asoma y late una vez */
+.pastilla.late { animation: p-late .7s cubic-bezier(.3,1.6,.5,1); }
+@keyframes p-late { 40% { box-shadow: 0 0 0 3px var(--onda), 0 10px 30px rgba(0,0,0,.55); } }
+/* ---------- en tu disco: el censo ---------- */
+.censo-cuenta { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.censo-cuenta .c { padding: 12px; border-radius: 10px; background: #0B0E15; display: grid; gap: 2px; animation: e-pop .45s cubic-bezier(.3,1.6,.5,1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.censo-cuenta .c b { font-size: 26px; font-family: var(--f-mono); line-height: 1; }
+.censo-fila { display: grid; grid-template-columns: 98px minmax(0, 1fr) 70px; gap: 12px; align-items: start; padding: 8px 10px; border-radius: 6px; font-size: 13px; animation: e-onda .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(.15s + var(--i, 0) * 40ms); }
+.censo-fila:hover { background: #0E121B; }
+.censo-fila .ruta { color: var(--blanco); font-family: var(--f-mono); font-size: 12px; overflow-wrap: anywhere; }
+.censo-fila .vol { font-size: 10px; font-family: var(--f-mono); color: var(--tenue); text-align: right; }
+.veredicto { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: 1px solid currentColor; justify-self: start; font-family: var(--f-mono); white-space: nowrap; }
+.censo-barrido { height: 3px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--onda), transparent); background-size: 40% 100%; background-repeat: no-repeat; animation: barre 1.1s linear infinite; }
+@keyframes barre { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+.censo-filtros { display: flex; gap: 6px; flex-wrap: wrap; }
+.censo-filtros button { font-size: 11px; padding: 4px 10px; border-radius: 14px; border: 1px solid var(--linea); color: var(--gris); }
+.censo-filtros button[aria-pressed="true"] { border-color: var(--onda); color: var(--onda); }
+.ventana[hidden], .escritorio-vacio[hidden] { display: none; }
 /* ---------- a la medida ---------- */
 @media (max-width: 1100px) { .app { grid-template-columns: 68px 220px minmax(0,1fr); } .app > .panel { display: none; } .tubo { grid-template-columns: repeat(3, minmax(0,1fr)); } }
 @media (max-width: 760px) {
+  .barra-onda .volumen, .barra-onda .vis-mini, .barra-onda #o-gusta, .barra-onda .que { display: none; }
+  .fila-pista { grid-template-columns: 28px minmax(0,1fr) 46px; } .fila-pista .alb, .fila-pista .fmt { display: none; }
   .editor { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr) minmax(0,1fr) minmax(0,160px); }
   .editor textarea { border-right: 0; border-bottom: 1px solid var(--linea); }
   .pantalla { height: 82vh; min-height: 520px; }
@@ -531,6 +646,7 @@ mark { background: rgba(255,194,77,.25); color: inherit; border-radius: 2px; pad
     <div class="destello" id="destello"></div>
   </section>
   <div id="capa"></div>
+  <div class="pastilla" id="pastilla" hidden role="region" aria-label="La musica que suena"></div>
 </main>
 
 <div class="notas">
@@ -541,6 +657,9 @@ mark { background: rgba(255,194,77,.25); color: inherit; border-radius: 2px; pad
       <li>Cada cosa con su gesto propio, como cada tienda en la LUDOTECA: cada seccion del riel se mueve a su manera, entra a su manera (los mensajes desde su lado, el MURO voltea las fotos, el CANAL se enciende como una tele, las jaulas bajan), y cada amigo tiene el suyo (nova una estela, orbe una luna, faro su haz de luz, lince duerme).</li>
       <li>Reacciones a cada mensaje, el menu <b>+</b>, guinos de un catalogo cerrado y ZUMBIDO (tiembla, destella y suena; uno cada 10 s).</li>
       <li>PAGINAS: tu propia pagina en <code>.maqueta</code> (HTML + CSS), compilada con las reglas de MAQUETA, y las de tus amigos en <code>hermes://amigo/pagina</code>. Sin scripts y sin Google. Su inicio es como el de Google: un buscador (que busca en TU maquina) y tus atajos, con Ctrl+L, Alt+flechas, Alt+Inicio y <kbd>/</kbd>.</li>
+      <li>la ONDA, toda la musica como Spotify y sin algoritmo: listas tuyas y de tus amigos, una barra que sigue sonando en todas las secciones, los formatos (WAV, MP3, FLAC, OGG, AAC) y cuando suena cada uno en BMO-X, y los sonidos del sistema. Suena de verdad (se compone aqui con WebAudio) y cada lista, cancion y sonido dibuja su audio a su manera.</li>
+      <li>La musica nunca se duerme: si cierras HERMES (<kbd>Esc</kbd>) o abres la LUDOTECA sigue sonando, y la manda una pastilla escondida arriba que asoma al pasar el raton o al cambiar de cancion. Pausa, siguiente, volumen (Alt+P, Alt+N, Alt+flechas) sin quitarte el juego, baja sola mientras juegas, y trae recomendaciones de tus amigos, dichas a mano.</li>
+      <li>En tu disco: la orden <code>sonidos</code> recorre FAT32 y ESTRATOS enteros, mira 64 bytes de cada fichero y dice cuales suenan, cuales son oficiales (y que falta), cuales no y que nombres mienten.</li>
       <li>Tertulias, el MURO con historias y corazones, y el CANAL a fondo: una pagina por canal (videos, listas, sobre), y cada video con capitulos, reacciones, comentarios y "a continuacion" del mismo canal.</li>
       <li>ENVIOS con permiso: OFERTA, la cuarentena <code>F:/hermes/entrantes/</code> y el JUEZ.</li>
       <li>AMIGOS: una huella X25519 aceptada una vez. JAULAS: prueba que cada pieza ve solo lo suyo.</li>
@@ -728,6 +847,7 @@ const IC = {
   tertulias: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2 20c1-4 4-5 6-5s5 1 6 5M12 20c1-4 2-5 4-5s5 1 6 5"/></svg>`,
   muro: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>`,
   canal: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M10 9l5 3-5 3z" fill="currentColor"/></svg>`,
+  onda: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
   paginas: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.5 3.2 3.5 14.8 0 18M12 3c-3.5 3.2-3.5 14.8 0 18"/></svg>`,
   mas: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`,
   envios: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg>`,
@@ -749,7 +869,7 @@ function avatar(id, tam = 32) {
 const nombreDe = id => id === "yo" ? "BMO-X (tu)" : AMIGOS[id].nombre;
 
 /* ============================ HERMES ============================ */
-const SECCIONES = [["mensajes","Mensajes"],["tertulias","Tertulias"],["muro","El MURO"],["canal","El CANAL"],["paginas","Paginas"],["envios","ENVIOS"],["amigos","Amigos"],["jaulas","Las jaulas"]];
+const SECCIONES = [["mensajes","Mensajes"],["tertulias","Tertulias"],["muro","El MURO"],["canal","El CANAL"],["onda","la ONDA"],["paginas","Paginas"],["envios","ENVIOS"],["amigos","Amigos"],["jaulas","Las jaulas"]];
 function hermes() {
   const app = $("#app"); app.className = "app"; app.style.setProperty("--sec", COLOR_SEC[S.sec]);
   const pendientes = ENVIOS.filter(e => e.estado === "oferta").length;
@@ -761,11 +881,14 @@ function hermes() {
     </nav>
     <aside class="lista" id="lista"></aside>
     <section class="centro" id="centro"></section>
-    <aside class="panel" id="panel"></aside>`;
+    <aside class="panel" id="panel"></aside>
+    <div class="barra-onda" id="barra-onda" hidden></div>`;
   app.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => { S.sec = b.dataset.sec; S.selector = null; hermes(); });
-  ({ mensajes: secMensajes, tertulias: secTertulias, muro: secMuro, canal: secCanal, paginas: secPaginas, envios: secEnvios, amigos: secAmigos, jaulas: secJaulas })[S.sec]();
-  if (S.sec !== "paginas" && S.sec !== "canal") panelConexion();
+  ({ mensajes: secMensajes, tertulias: secTertulias, muro: secMuro, canal: secCanal, onda: secOnda, paginas: secPaginas, envios: secEnvios, amigos: secAmigos, jaulas: secJaulas })[S.sec]();
+  if (!["paginas", "canal", "onda"].includes(S.sec)) panelConexion();
+  pintarBarraOnda();
   arrancarLazoH();
+  arrancarLazoOnda();
   entrada_seccion();
 }
 function listaYo() {
@@ -881,6 +1004,7 @@ function mandar(ch, m) {
       }
       ch.push(Object.assign({ de: quien, t: ahora() }, typeof r === "string" ? { texto: r } : r));
       S.nonceRx++;
+      if (typeof r !== "string" && r.zumbido) { /* el zumbido suena por su lado */ } else sonidoBMO("mensaje", true);
       if (S.conv === clave && $("#mensajes")) { pintarMensajes(ch); const e2 = $("#escribiendo"); if (e2) e2.innerHTML = ""; }
       if (typeof r !== "string" && r.zumbido) zumbido();
       refrescarPanel();
@@ -1994,8 +2118,8 @@ function panelInicio() {
     <div class="caja"><h3>Una pagina no puede tener</h3><ul class="lista-no"><li>scripts ni eventos</li><li>enlaces fuera de hermes://</li><li>nada de otra web</li></ul></div>`;
 }
 /* ============================ F3: cada cosa con su gesto ============================ */
-const COLOR_SEC = { mensajes: "#5EF2E6", tertulias: "#B48CFF", muro: "#FF2E88", canal: "#FFC24D", paginas: "#3DA5FF", envios: "#4DE38F", amigos: "#FF8A5C", jaulas: "#FF4F5E" };
-const ENTRA = { mensajes: ".grupo, .sistema", tertulias: ".grupo", muro: ".historia, .publi", canal: ".tarjeta-video, .lista-c", paginas: ".atajo, .resultado", envios: ".paso", amigos: ".huella span", jaulas: ".jaula" };
+const COLOR_SEC = { mensajes: "#5EF2E6", tertulias: "#B48CFF", muro: "#FF2E88", canal: "#FFC24D", onda: "#B6FF5C", paginas: "#3DA5FF", envios: "#4DE38F", amigos: "#FF8A5C", jaulas: "#FF4F5E" };
+const ENTRA = { mensajes: ".grupo, .sistema", tertulias: ".grupo", muro: ".historia, .publi", canal: ".tarjeta-video, .lista-c", onda: ".fila-pista, .tarjeta-onda", paginas: ".atajo, .resultado", envios: ".paso", amigos: ".huella span", jaulas: ".jaula" };
 /** El gesto de cada seccion en su burbuja del riel: nadie repite el de otro. */
 function gestoH(g, k, w, h, t, activo) {
   g.clearRect(0, 0, w, h);
@@ -2024,6 +2148,14 @@ function gestoH(g, k, w, h, t, activo) {
     case "amigos": // la huella: arcos que laten hacia fuera
       for (let i = 0; i < 3; i++) { const f = (t * .5 + i / 3) % 1; g.globalAlpha = base * (1 - f) * 1.4; g.beginPath(); g.arc(cx, cy + 4, 8 + f * w * .38, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
       break;
+    case "onda": { // un osciloscopio: con musica, late con el bajo de verdad
+      let amp = .18 + .08 * Math.sin(t * 2);
+      if (typeof AUD !== "undefined" && AUD.sonando && AUD.datos) amp = .1 + AUD.datos[3] / 255 * .5;
+      g.globalAlpha = base * 1.5; g.beginPath();
+      for (let x = 6; x <= w - 6; x += 2) { const y = cy + 18 + Math.sin(x * .22 + t * 7) * amp * h * .22; x > 6 ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke();
+      break;
+    }
     case "jaulas": { // el escaner que barre los barrotes
       const x = 9 + ((t * .45) % 1) * (w - 18); g.globalAlpha = base * 1.3; g.fillRect(x, 8, 2, h - 16);
       break;
@@ -2053,6 +2185,500 @@ function entrada_seccion() {
   setTimeout(() => { centro.classList.remove(cls); }, 1600);
   // PAGINAS pinta su hoja un poco despues: se le da su numero al llegar.
   setTimeout(() => { centro.querySelectorAll(ENTRA[S.sec]).forEach((el, i) => el.style.setProperty("--i", Math.min(i, 40))); }, 240);
+}
+/* ============================ la ONDA: toda la musica, y todos los sonidos ============================ */
+const PISTAS = {
+  p1: { titulo: "Kernel a medianoche", artista: "generada aqui", album: "para programar de noche", dura: 168, fmt: "MP3", sem: 11, bpm: 88, raiz: 57, escala: "menor", timbre: "square", vis: "barras" },
+  p2: { titulo: "Ring 0", artista: "generada aqui", album: "para programar de noche", dura: 142, fmt: "FLAC", sem: 23, bpm: 104, raiz: 52, escala: "dorica", timbre: "sawtooth", vis: "ondas" },
+  p3: { titulo: "La ciudad de neon", artista: "generada aqui", album: "el arranque", dura: 196, fmt: "WAV", sem: 5, bpm: 96, raiz: 60, escala: "penta", timbre: "triangle", vis: "circulo" },
+  p4: { titulo: "Compilando", artista: "generada aqui", album: "para programar de noche", dura: 121, fmt: "OGG", sem: 41, bpm: 120, raiz: 55, escala: "menor", timbre: "square", vis: "espiral" },
+  p5: { titulo: "Pasillos de ladrillo", artista: "lista de nova", album: "DOOM II, la banda", dura: 154, fmt: "MP3", sem: 66, bpm: 132, raiz: 52, escala: "menor", timbre: "sawtooth", vis: "fuego" },
+  p6: { titulo: "La llave azul", artista: "lista de nova", album: "DOOM II, la banda", dura: 133, fmt: "MP3", sem: 71, bpm: 140, raiz: 50, escala: "dorica", timbre: "square", vis: "fuego" },
+  p7: { titulo: "Sierra al atardecer", artista: "lista de orbe", album: "atardecer", dura: 210, fmt: "FLAC", sem: 7, bpm: 76, raiz: 62, escala: "mayor", timbre: "sine", vis: "sol" },
+  p8: { titulo: "El ecualizador", artista: "lista de orbe", album: "atardecer", dura: 187, fmt: "AAC", sem: 9, bpm: 84, raiz: 57, escala: "penta", timbre: "triangle", vis: "particulas" },
+  p9: { titulo: "Ocho bits por pixel", artista: "lista de faro", album: "8 bits", dura: 98, fmt: "WAV", sem: 13, bpm: 150, raiz: 60, escala: "mayor", timbre: "square", vis: "pixeles" },
+  p10: { titulo: "El emisor salta", artista: "lista de faro", album: "8 bits", dura: 112, fmt: "OGG", sem: 17, bpm: 128, raiz: 59, escala: "penta", timbre: "square", vis: "pixeles" },
+};
+const LISTAS = [
+  { id: "l1", nombre: "para programar de noche", de: "yo", color: "#3DA5FF", vis: "barras", desc: "lo que suena mientras compila el kernel", pistas: ["p1", "p2", "p4", "p3"] },
+  { id: "l2", nombre: "DOOM II, la banda", de: "nova", color: "#FF4F5E", vis: "fuego", desc: "compartida por nova por HERMES/1", pistas: ["p5", "p6"] },
+  { id: "l3", nombre: "atardecer", de: "orbe", color: "#FFC24D", vis: "sol", desc: "compartida por orbe por HERMES/1", pistas: ["p7", "p8", "p3"] },
+  { id: "l4", nombre: "8 bits", de: "faro", color: "#4DE38F", vis: "pixeles", desc: "compartida por faro por HERMES/1", pistas: ["p9", "p10"] },
+];
+/** Los sonidos de BMO-X: cada uno con su forma y su animacion. */
+const SONIDOS = [
+  { id: "arranque", nombre: "el arranque", desc: "la ciudad de neon se enciende", vis: "circulo", color: "#5EF2E6" },
+  { id: "zumbido", nombre: "ZUMBIDO", desc: "un amigo te zumba", vis: "fuego", color: "#FF2E88" },
+  { id: "mensaje", nombre: "llega un mensaje", desc: "dos notas, como un toque en el hombro", vis: "ondas", color: "#3DA5FF" },
+  { id: "conecta", nombre: "un amigo se conecta", desc: "un acorde que sube", vis: "sol", color: "#4DE38F" },
+  { id: "juez", nombre: "el juez borra algo", desc: "baja y se rompe", vis: "pixeles", color: "#FF4F5E" },
+  { id: "captura", nombre: "una captura", desc: "el obturador", vis: "particulas", color: "#F2F7F9" },
+];
+S.onda = { vista: "inicio", lista: "l1", cola: [], idx: -1, listaSonando: null, aleatorio: false, repetir: false, gusta: { p3: true }, recientes: ["l2", "l1", "l3"] };
+
+/* -- el motor: musica que se compone aqui, con WebAudio -- */
+const AUD = { ctx: null, master: null, bus: null, analyser: null, datos: null, onda: null, sched: null, siguiente: 0, paso: 0, t0: 0, pos: 0, pista: null, pat: null, sonando: false, vol: .7, ruido: null };
+function audioCtx() {
+  if (AUD.ctx) return AUD.ctx;
+  const Ctor = window.AudioContext || window.webkitAudioContext;
+  if (!Ctor) return null;
+  try {
+    const c = new Ctor();
+    AUD.ctx = c;
+    AUD.master = c.createGain(); AUD.master.gain.value = AUD.vol * .55;
+    AUD.analyser = c.createAnalyser(); AUD.analyser.fftSize = 512; AUD.analyser.smoothingTimeConstant = .78;
+    AUD.master.connect(AUD.analyser); AUD.analyser.connect(c.destination);
+    AUD.datos = new Uint8Array(AUD.analyser.frequencyBinCount); AUD.onda = new Uint8Array(AUD.analyser.fftSize);
+  } catch (e) { AUD.ctx = null; }
+  return AUD.ctx;
+}
+const ESCALAS = { menor: [0, 2, 3, 5, 7, 8, 10], mayor: [0, 2, 4, 5, 7, 9, 11], penta: [0, 3, 5, 7, 10], dorica: [0, 2, 3, 5, 7, 9, 10] };
+const frec = m => 440 * Math.pow(2, (m - 69) / 12);
+function patron(p) {
+  const r = i => azar(p.sem * 7919 + i), esc = ESCALAS[p.escala], grado = i => esc[Math.floor(r(i) * esc.length)];
+  return {
+    bajo: Array.from({ length: 8 }, (_, i) => i % 4 === 0 ? 0 : (r(100 + i) < .55 ? grado(200 + i) : null)),
+    arp: Array.from({ length: 16 }, (_, i) => r(300 + i) < .62 ? grado(400 + i) + (r(500 + i) < .3 ? 12 : 0) : null),
+    bombo: Array.from({ length: 16 }, (_, i) => i % 4 === 0 || r(600 + i) < .1),
+    caja: Array.from({ length: 16 }, (_, i) => i % 8 === 4),
+    plato: Array.from({ length: 16 }, (_, i) => i % 2 === 0 || r(700 + i) < .25),
+    acordes: [0, esc[4 % esc.length] - 12, esc[3 % esc.length] - 12, esc[(esc.length - 2)] - 12],
+  };
+}
+function tono(t, f, dur, tipo, vol, destino) {
+  const c = AUD.ctx, o = c.createOscillator(), g = c.createGain();
+  o.type = tipo; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .012); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(destino || AUD.bus || AUD.master); o.start(t); o.stop(t + dur + .03);
+}
+function ruido() {
+  if (!AUD.ruido) { const c = AUD.ctx, b = c.createBuffer(1, c.sampleRate * .4, c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; AUD.ruido = b; }
+  return AUD.ruido;
+}
+function golpe(t, tipo, destino) {
+  const c = AUD.ctx, salida = destino || AUD.bus || AUD.master;
+  if (tipo === "bombo") {
+    const o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + .14);
+    g.gain.setValueAtTime(.85, t); g.gain.exponentialRampToValueAtTime(.001, t + .26);
+    o.connect(g).connect(salida); o.start(t); o.stop(t + .3);
+    return;
+  }
+  const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(), plato = tipo === "plato";
+  s.buffer = ruido(); f.type = plato ? "highpass" : "bandpass"; f.frequency.value = plato ? 7500 : 1700;
+  g.gain.setValueAtTime(plato ? .12 : .38, t); g.gain.exponentialRampToValueAtTime(.001, t + (plato ? .05 : .16));
+  s.connect(f).connect(g).connect(salida); s.start(t); s.stop(t + .2);
+}
+function programar() {
+  const c = AUD.ctx, p = AUD.pista, P = AUD.pat; if (!c || !p) return;
+  const seg = 60 / p.bpm / 4;
+  while (AUD.siguiente < c.currentTime + .12) {
+    const t = AUD.siguiente, i = AUD.paso % 16, compas = Math.floor(AUD.paso / 16), ac = P.acordes[compas % 4];
+    if (P.bombo[i]) golpe(t, "bombo"); if (P.caja[i]) golpe(t, "caja"); if (P.plato[i]) golpe(t, "plato");
+    if (i % 2 === 0) { const b = P.bajo[i >> 1]; if (b !== null) tono(t, frec(p.raiz - 12 + ac + b), seg * 1.8, "triangle", .32); }
+    const a = P.arp[i]; if (a !== null && compas % 8 !== 7) tono(t, frec(p.raiz + 12 + ac + a), seg * .9, p.timbre, p.timbre === "sine" ? .14 : .06);
+    if (i === 0) [0, 3, 7].forEach(x => tono(t, frec(p.raiz + ac + x), seg * 15, "sine", .045));
+    AUD.siguiente += seg; AUD.paso++;
+  }
+}
+function tocarPista(id) {
+  const c = audioCtx(); if (!c) { toast("Este navegador no deja sonar audio: la maqueta sigue, en silencio."); return; }
+  const p = PISTAS[id]; if (!p) return;
+  if (AUD.bus) { const viejo = AUD.bus; viejo.gain.setTargetAtTime(0, c.currentTime, .03); setTimeout(() => { try { viejo.disconnect(); } catch (e) { /* ya estaba */ } }, 400); }
+  AUD.bus = c.createGain(); AUD.bus.gain.value = 1; AUD.bus.connect(AUD.master);
+  AUD.pista = p; AUD.pistaId = id; AUD.pat = patron(p); AUD.paso = 0; AUD.siguiente = c.currentTime + .06; AUD.t0 = c.currentTime + .06; AUD.pos = 0;
+  AUD.sonando = true; c.resume();
+  if (!AUD.sched) AUD.sched = setInterval(() => { if (AUD.sonando) programar(); }, 25);
+  pintarOnda(true);
+}
+function tocarLista(listaId, desde = 0) {
+  const l = LISTAS.find(x => x.id === listaId); if (!l) return;
+  S.onda.cola = S.onda.aleatorio ? l.pistas.slice().sort((a, b) => azar(a.length * 31 + b.length) - .5) : l.pistas.slice();
+  if (S.onda.aleatorio && desde) S.onda.cola.unshift(...S.onda.cola.splice(S.onda.cola.indexOf(l.pistas[desde]), 1));
+  S.onda.idx = S.onda.aleatorio ? 0 : desde; S.onda.listaSonando = listaId;
+  S.onda.recientes = [listaId, ...S.onda.recientes.filter(x => x !== listaId)].slice(0, 6);
+  tocarPista(S.onda.cola[S.onda.idx]);
+}
+function pausaOnda() {
+  if (!AUD.pista) { tocarLista(S.onda.lista); return; }
+  AUD.sonando = !AUD.sonando;
+  if (AUD.ctx) { if (AUD.sonando) AUD.ctx.resume(); else AUD.ctx.suspend(); }
+  pintarOnda(false);
+}
+function siguienteOnda(salto = 1, solo = false) {
+  const o = S.onda; if (!o.cola.length) return;
+  let i = o.idx + salto;
+  if (i >= o.cola.length) { if (o.repetir) i = 0; else { AUD.sonando = false; if (AUD.ctx) AUD.ctx.suspend(); AUD.pos = AUD.pista ? AUD.pista.dura : 0; pintarOnda(false); return; } }
+  if (i < 0) i = 0;
+  if (!solo && salto < 0 && AUD.pos > 3) i = o.idx;
+  o.idx = i; tocarPista(o.cola[i]);
+}
+function irA(seg) {
+  const c = AUD.ctx, p = AUD.pista; if (!c || !p) return;
+  const s = Math.max(0, Math.min(p.dura - .5, seg)), paso = 60 / p.bpm / 4;
+  AUD.paso = Math.floor(s / paso); AUD.siguiente = c.currentTime + .03; AUD.t0 = c.currentTime + .03 - s;
+}
+/** Los sonidos del sistema: cortos, cada uno con su forma. */
+function sonidoBMO(id, soloSiHay) {
+  if (soloSiHay && !AUD.ctx) return;
+  const c = audioCtx(); if (!c) return;
+  c.resume();
+  const t = c.currentTime + .02, m = AUD.master;
+  if (id === "arranque") [0, 4, 7, 12, 16].forEach((x, k) => tono(t + k * .09, frec(60 + x), 1.1 - k * .1, "triangle", .2, m));
+  else if (id === "zumbido") { for (let k = 0; k < 5; k++) tono(t + k * .1, 92 - k * 4, .08, "square", .16, m); }
+  else if (id === "mensaje") { tono(t, frec(76), .18, "sine", .25, m); tono(t + .12, frec(83), .3, "sine", .22, m); }
+  else if (id === "conecta") [0, 4, 7].forEach((x, k) => tono(t + k * .07, frec(67 + x), .5, "sine", .18, m));
+  else if (id === "juez") { [12, 7, 3, 0].forEach((x, k) => tono(t + k * .07, frec(60 + x), .12, "square", .1, m)); golpe(t + .3, "caja", m); }
+  else if (id === "captura") { golpe(t, "plato", m); golpe(t + .06, "caja", m); }
+  S.onda.ultimoSonido = { id, t: performance.now() };
+}
+
+/* -- las animaciones: cada pista y cada lista dibujan su sonido a su manera -- */
+function energia(t, vivo) {
+  if (vivo && AUD.analyser && AUD.sonando) { AUD.analyser.getByteFrequencyData(AUD.datos); AUD.analyser.getByteTimeDomainData(AUD.onda); return { f: AUD.datos, w: AUD.onda, real: true }; }
+  const f = energia.f || (energia.f = new Uint8Array(256)), w = energia.w || (energia.w = new Uint8Array(512));
+  for (let i = 0; i < f.length; i++) f[i] = Math.max(0, 70 + 45 * Math.sin(t * 1.6 + i * .21) - i * .5);
+  for (let i = 0; i < w.length; i++) w[i] = 128 + 22 * Math.sin(i * .05 + t * 3) * Math.sin(t * .7);
+  return { f, w, real: false };
+}
+function dibujarVis(g, tipo, w, h, t, col, e) {
+  const f = e.f, W = e.w, cx = w / 2, cy = h / 2;
+  const banda = (a, b) => { let s = 0; for (let i = a; i < b; i++) s += f[i]; return s / (b - a) / 255; };
+  // El oido reparte en octavas, no en hercios: el indice crece como una potencia
+  // para que cada barra tenga musica y no solo las primeras.
+  const bin = (i, n) => f[1 + Math.floor(Math.pow(i / n, 1.8) * 150)];
+  const bajo = banda(1, 6), medio = banda(8, 40), alto = banda(60, 140);
+  g.fillStyle = "#05070B"; g.fillRect(0, 0, w, h);
+  g.strokeStyle = col; g.fillStyle = col; g.lineWidth = Math.max(1.5, w / 160);
+  switch (tipo) {
+    case "barras": { const n = 40, bw = w / n; for (let i = 0; i < n; i++) { const v = bin(i, n) / 255, bh = Math.max(2, v * h * .9); g.globalAlpha = .45 + v * .55; g.fillRect(i * bw + 1, h - bh, bw - 2, bh); } break; }
+    case "ondas": for (let k = 0; k < 3; k++) { g.globalAlpha = .9 - k * .25; g.beginPath(); for (let x = 0; x <= w; x += 2) { const v = (W[Math.floor(x / w * 255) + k * 60] - 128) / 128; const y = cy + v * h * (.45 - k * .1) + (k - 1) * h * .12; x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } break;
+    case "circulo": { const r0 = Math.min(w, h) * (.18 + bajo * .12), n = 64; g.globalAlpha = .9; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + t * .3, v = bin(i, n) / 255, r1 = r0 + 4 + v * Math.min(w, h) * .3; g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.stroke(); } g.globalAlpha = .25 + bajo * .6; g.beginPath(); g.arc(cx, cy, r0 * .8, 0, 7); g.fill(); break; }
+    case "espiral": { g.globalAlpha = .85; g.beginPath(); for (let i = 0; i < 220; i++) { const a = i * .18 + t * 1.2, v = f[i % 180] / 255, r = i / 220 * Math.min(w, h) * .45 * (.6 + v * .7); const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); break; }
+    case "particulas": { const cols = 16, filas = 8; for (let i = 0; i < cols; i++) for (let j = 0; j < filas; j++) { const v = bin(i, cols) / 255, on = (filas - j) / filas < v + .05; g.globalAlpha = on ? .4 + v * .6 : .08; const x = (i + .5) * w / cols, y = (j + .5) * h / filas - (on ? Math.sin(t * 8 + i) * 2 : 0); g.beginPath(); g.arc(x, y, Math.min(w / cols, h / filas) * .28, 0, 7); g.fill(); } break; }
+    case "pixeles": { const cols = 20, filas = 10, cw = w / cols, ch = h / filas; for (let i = 0; i < cols; i++) { const v = bin(i, cols) / 255, lit = Math.round(v * filas); for (let j = 0; j < lit; j++) { g.globalAlpha = j > filas * .7 ? 1 : .55; g.fillStyle = j > filas * .7 ? "#FF4F5E" : col; g.fillRect(i * cw + 1, h - (j + 1) * ch + 1, cw - 2, ch - 2); } } g.fillStyle = col; break; }
+    case "fuego": { const n = 28; for (let i = 0; i < n; i++) { const v = bin(i, n) / 255, bh = (v * .8 + .1 + .08 * Math.sin(t * 12 + i * 1.7)) * h, x = i * w / n; const gr = g.createLinearGradient(0, h, 0, h - bh); gr.addColorStop(0, "#FF2E1F"); gr.addColorStop(.6, "#FFC24D"); gr.addColorStop(1, "rgba(255,240,180,0)"); g.globalAlpha = .9; g.fillStyle = gr; g.beginPath(); g.moveTo(x, h); g.quadraticCurveTo(x + w / n / 2, h - bh * 1.1, x + w / n, h); g.fill(); } g.fillStyle = col; break; }
+    case "sol": { g.globalAlpha = 1; const gr = g.createRadialGradient(cx, cy * 1.25, 4, cx, cy * 1.25, Math.min(w, h) * (.25 + bajo * .15)); gr.addColorStop(0, "#FFF2C8"); gr.addColorStop(.5, col); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(0, 0, w, h); for (let k = 0; k < 4; k++) { const fase = ((t * .4 + k / 4) % 1); g.globalAlpha = (1 - fase) * (.3 + medio); g.beginPath(); g.arc(cx, cy * 1.25, fase * Math.max(w, h) * .6, 0, 7); g.stroke(); } g.fillStyle = col; break; }
+  }
+  g.globalAlpha = 1;
+  return { bajo, medio, alto };
+}
+function dibujarPortada(cv, l, t) {
+  const g = cv.getContext("2d"), w = cv.width, h = cv.height;
+  const vivo = S.onda.listaSonando === l.id && AUD.sonando;
+  dibujarVis(g, l.vis, w, h, t + l.id.length * 3, l.color, energia(t, vivo));
+  const gr = g.createLinearGradient(0, h * .45, 0, h); gr.addColorStop(0, "rgba(5,7,11,0)"); gr.addColorStop(1, "rgba(5,7,11,.92)");
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  g.fillStyle = "#F2F7F9"; g.font = `700 ${Math.round(w * .085)}px Silkscreen, monospace`; g.textBaseline = "bottom";
+  const pal = l.nombre.split(" "); let linea = "", y = h - w * .06; const lineas = [];
+  pal.forEach(p => { if (g.measureText(linea + " " + p).width > w * .86 && linea) { lineas.push(linea); linea = p; } else linea = linea ? linea + " " + p : p; });
+  lineas.push(linea); lineas.reverse().forEach((ln, k) => g.fillText(ln, w * .07, y - k * w * .1));
+}
+let lazoOnda = null;
+function arrancarLazoOnda() {
+  cancelAnimationFrame(lazoOnda);
+  const t0 = performance.now();
+  const paso = () => {
+    if (S.app !== "hermes") return;
+    const t = (performance.now() - t0) / 1000;
+    document.querySelectorAll("canvas[data-portada]").forEach(cv => { const l = LISTAS.find(x => x.id === cv.dataset.portada); if (l) dibujarPortada(cv, l, t); });
+    document.querySelectorAll("canvas[data-vis]").forEach(cv => {
+      const vivo = cv.dataset.vivo === "1";
+      const tipo = cv.dataset.vis === "actual" ? (AUD.pista ? AUD.pista.vis : "ondas") : cv.dataset.vis;
+      const col = cv.dataset.col || "#B6FF5C";
+      const ultimo = S.onda.ultimoSonido, reciente = ultimo && ultimo.id === cv.dataset.sonido && performance.now() - ultimo.t < 1600;
+      dibujarVis(cv.getContext("2d"), tipo, cv.width, cv.height, t * (reciente ? 3 : 1), col, energia(t * (reciente ? 2.5 : 1), vivo));
+    });
+    const p = AUD.pista;
+    if (p) {
+      const tm = $("#onda-tiempo"); if (tm) tm.textContent = mmss(AUD.pos);
+      const b = $("#onda-barra i"); if (b) b.style.width = (AUD.pos / p.dura * 100) + "%";
+    }
+    lazoOnda = requestAnimationFrame(paso);
+  };
+  lazoOnda = requestAnimationFrame(paso);
+}
+
+/* -- la cara -- */
+const IC_O = {
+  play: `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg>`,
+  pausa: `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
+  sig: `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M5 5l10 7-10 7zM17 5h2v14h-2z"/></svg>`,
+  ant: `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 5L9 12l10 7zM5 5h2v14H5z"/></svg>`,
+  azar: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h4l10 12h4M3 18h4l3-4M14 9l3-3h4M18 3l3 3-3 3M18 15l3 3-3 3"/></svg>`,
+  rep: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12V9a3 3 0 013-3h12l-3-3M20 12v3a3 3 0 01-3 3H5l3 3"/></svg>`,
+  cor: `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 21L3.5 12.5A5 5 0 0110.6 5.4L12 6.8l1.4-1.4a5 5 0 017.1 7.1z"/></svg>`,
+  corV: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21L3.5 12.5A5 5 0 0110.6 5.4L12 6.8l1.4-1.4a5 5 0 017.1 7.1z"/></svg>`,
+  vol: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9h4l5-4v14l-5-4H4zM17 9a4 4 0 010 6M19.5 6.5a8 8 0 010 11"/></svg>`,
+};
+const FORMATOS = [["WAV", "lo lee bmo-sonido hoy; suena cuando el tubo del auricular suene (A1)", C.verde], ["MP3", "el decodificador propio, en Rust: M2 de PLAN_MEDIOS", C.ambar], ["FLAC", "sin perdida: despues de MP3", C.gris], ["OGG", "Vorbis u Opus: despues de MP3", C.gris], ["AAC", "el sonido de los .mp4 del CANAL: despues", C.gris]];
+const eqMini = parado => `<span class="eq-mini${parado ? " parado" : ""}" aria-hidden="true"><i></i><i></i><i></i></span>`;
+
+function secOnda() {
+  const o = S.onda;
+  $("#lista").innerHTML = `<div class="titulo">la ONDA</div><div class="scroll">
+    <button class="fila" data-ov="inicio" aria-current="${o.vista === "inicio"}"><span class="avatar" style="background:#B6FF5C22;color:#B6FF5C;border-radius:8px">&#8962;</span><span class="txt"><span class="t1">Inicio</span><span class="t2">lo de hace poco, sin algoritmo</span></span></button>
+    <div class="etiqueta">Tu biblioteca</div>
+    ${LISTAS.map(l => `<button class="fila" data-ol="${l.id}" aria-current="${o.vista === "lista" && o.lista === l.id}"><canvas class="mini-port" width="80" height="80" data-portada="${l.id}"></canvas><span class="txt"><span class="t1">${esc(l.nombre)}</span><span class="t2">lista &middot; ${esc(nombreDe(l.de))}${o.listaSonando === l.id && AUD.sonando ? " &middot; sonando" : ""}</span></span>${o.listaSonando === l.id && AUD.pista ? eqMini(!AUD.sonando) : ""}</button>`).join("")}
+    <button class="fila" data-ov="sonidos" aria-current="${o.vista === "sonidos"}"><canvas class="mini-port" width="80" height="80" data-vis="circulo" data-col="#5EF2E6"></canvas><span class="txt"><span class="t1">Sonidos de BMO-X</span><span class="t2">${SONIDOS.length} sonidos del sistema</span></span></button>
+    <button class="fila" data-ov="disco" aria-current="${o.vista === "disco"}"><canvas class="mini-port" width="80" height="80" data-vis="espiral" data-col="#FFC24D"></canvas><span class="txt"><span class="t1">En tu disco</span><span class="t2">todo FAT32 y ESTRATOS, mirado por dentro</span></span></button>
+    <div class="fila" style="cursor:default;opacity:.55"><span class="avatar" style="background:#1B2130;color:var(--gris);border-radius:8px">&#127897;</span><span class="txt"><span class="t1">Notas de voz</span><span class="t2">cuando haya microfono (H12)</span></span></div>
+    <p class="nota" style="padding:10px 8px">La musica vive en tu maquina o en la de un amigo, y llega por HERMES/1. Aqui se compone en el navegador para que suene de verdad.</p></div>${listaYo()}`;
+  $("#lista").querySelectorAll("[data-ov]").forEach(b => b.onclick = () => { o.vista = b.dataset.ov; hermes(); });
+  $("#lista").querySelectorAll("[data-ol]").forEach(b => b.onclick = () => { o.vista = "lista"; o.lista = b.dataset.ol; hermes(); });
+  const centro = $("#centro");
+  if (o.vista === "disco") secOndaDisco();
+  else if (o.vista === "sonidos") {
+    centro.innerHTML = `<div class="cab"><b>Sonidos de BMO-X</b><span class="t2">cada uno suena y se mueve a su manera</span></div>
+      <div class="lienzo"><div class="tarjetas-onda">${SONIDOS.map(s => `<button class="tarjeta-onda sonido-c" data-son="${s.id}"><canvas width="240" height="160" data-vis="${s.vis}" data-col="${s.col || s.color}" data-sonido="${s.id}" data-vivo="1"></canvas><b>${esc(s.nombre)}</b><span class="nota">${esc(s.desc)}</span></button>`).join("")}</div>
+      <div class="tarjeta"><h4>Por donde sale cada sonido</h4><p class="nota" style="margin:0;font-size:13px">Por el amplificador de BMO-X (bmo-amplificador: mezcla, limite y medidor) y el tubo del auricular USB, a 48.000 Hz. El tubo ya se abrio en el Ryzen el 22-09; falta que suene.</p></div></div>`;
+    centro.querySelectorAll("[data-son]").forEach(b => b.onclick = () => sonidoBMO(b.dataset.son));
+  } else if (o.vista === "lista") {
+    const l = LISTAS.find(x => x.id === o.lista), suya = o.listaSonando === l.id;
+    const total = l.pistas.reduce((a, id) => a + PISTAS[id].dura, 0);
+    centro.innerHTML = `<div class="cab"><b>${esc(l.nombre)}</b><span class="t2">${esc(l.desc)}</span></div>
+      <div class="lienzo">
+        <div class="onda-cab"><canvas class="portada-g" width="380" height="380" data-portada="${l.id}"></canvas>
+          <div style="min-width:240px;flex:1;display:grid;gap:6px"><span class="etiqueta" style="padding:0">Lista</span><h2>${esc(l.nombre)}</h2><span class="nota">${esc(l.desc)}</span>
+            <span class="nota">${avatar(l.de, 20)} ${esc(nombreDe(l.de))} &middot; ${l.pistas.length} canciones &middot; ${Math.round(total / 60)} min</span>
+            <div class="acciones-o"><button class="play-g" id="play-lista" aria-label="${suya && AUD.sonando ? "Pausa" : "Tocar la lista"}">${suya && AUD.sonando ? IC_O.pausa : IC_O.play}</button>
+              <button class="ico-o" id="azar-l" aria-pressed="${o.aleatorio}" aria-label="Aleatorio">${IC_O.azar}</button></div></div></div>
+        <canvas class="vis-banda" width="1200" height="200" data-vis="${suya && AUD.pista ? "actual" : l.vis}" data-col="${l.color}" data-vivo="${suya ? 1 : 0}"></canvas>
+        <div class="pistas"><div class="fila-pista cab-pistas"><span class="num">#</span><span>titulo</span><span class="alb">album</span><span>formato</span><span class="num">dura</span></div>
+          ${l.pistas.map((id, i) => { const p = PISTAS[id], actual = suya && AUD.pistaId === id; return `<button class="fila-pista" data-pi="${i}" aria-current="${actual}"><span class="num">${actual ? eqMini(!AUD.sonando) : i + 1}</span><span class="txt"><span class="t1">${esc(p.titulo)}</span><span class="t2">${esc(p.artista)}</span></span><span class="alb">${esc(p.album)}</span><span class="fmt" style="color:${FORMATOS.find(x => x[0] === p.fmt)[2]}">${p.fmt}</span><span class="num mono">${mmss(p.dura)}</span></button>`; }).join("")}</div>
+        <p class="nota">Cada cancion dibuja su sonido a su manera: barras, ondas, un circulo, una espiral, fuego, un sol, pixeles o particulas. Se mueven con el audio de verdad.</p>
+      </div>`;
+    $("#play-lista").onclick = () => { if (suya && AUD.pista) pausaOnda(); else tocarLista(l.id); };
+    $("#azar-l").onclick = () => { o.aleatorio = !o.aleatorio; hermes(); };
+    centro.querySelectorAll("[data-pi]").forEach(b => b.onclick = () => tocarLista(l.id, +b.dataset.pi));
+  } else {
+    centro.innerHTML = `<div class="cab"><b>la ONDA</b><span class="t2">toda tu musica y todos los sonidos</span></div>
+      <div class="lienzo">
+        <div class="etiqueta" style="padding:0">Escuchado hace poco</div>
+        <div class="tarjetas-onda">${o.recientes.map(id => LISTAS.find(l => l.id === id)).filter(Boolean).map(l => `<button class="tarjeta-onda" data-ol="${l.id}"><canvas width="300" height="300" data-portada="${l.id}"></canvas><b>${esc(l.nombre)}</b><span class="nota">${esc(nombreDe(l.de))}</span></button>`).join("")}</div>
+        <div class="etiqueta" style="padding:0">Lo que tus amigos comparten</div>
+        <div class="tarjetas-onda">${LISTAS.filter(l => l.de !== "yo").map(l => `<button class="tarjeta-onda" data-ol="${l.id}"><canvas width="300" height="300" data-portada="${l.id}"></canvas><b>${esc(l.nombre)}</b><span class="nota">de ${esc(nombreDe(l.de))} &middot; ${l.pistas.length} canciones</span></button>`).join("")}</div>
+        <div class="tarjeta"><h4>Los formatos, y cuando suena cada uno en BMO-X</h4>
+          <div class="formatos">${FORMATOS.map(([f, q, c]) => `<div class="formato"><span class="fmt" style="color:${c}">${f}</span><span class="nota">${q}</span></div>`).join("")}</div></div>
+      </div>`;
+    centro.querySelectorAll("[data-ol]").forEach(b => b.onclick = () => { o.vista = "lista"; o.lista = b.dataset.ol; hermes(); });
+  }
+  panelOnda();
+}
+function panelOnda() {
+  const p = AUD.pista, o = S.onda;
+  $("#panel").innerHTML = `<div class="caja"><h3>Sonando</h3>
+      <canvas class="vis-panel" width="480" height="300" data-vis="actual" data-col="${p ? (LISTAS.find(l => l.id === o.listaSonando) || {}).color || "#B6FF5C" : "#B6FF5C"}" data-vivo="1"></canvas>
+      ${p ? `<b style="color:var(--blanco)">${esc(p.titulo)}</b><span class="nota">${esc(p.artista)} &middot; ${p.fmt} &middot; ${p.bpm} pulsos por minuto</span>` : `<span class="nota">Nada todavia. Elige una lista y dale a tocar.</span>`}</div>
+    <div class="caja"><h3>A continuacion</h3>${o.cola.length ? o.cola.slice(o.idx + 1).map(id => `<div class="nota">&middot; ${esc(PISTAS[id].titulo)}</div>`).join("") || `<span class="nota">Era la ultima.</span>` : `<span class="nota">La cola esta vacia.</span>`}</div>
+    <div class="caja"><h3>Por donde sale</h3><p class="nota">En BMO-X: el fichero (tuyo, o de un amigo por HERMES/1) se decodifica en su jaula, pasa por el amplificador y sale por el tubo del auricular a 48 kHz. Sin cuentas, sin anuncios, sin algoritmo.</p></div>`;
+}
+function pintarBarraOnda() {
+  const b = $("#barra-onda"); if (!b) return;
+  const p = AUD.pista;
+  if (!p) { b.hidden = true; return; }
+  b.hidden = false;
+  const l = LISTAS.find(x => x.id === S.onda.listaSonando);
+  b.innerHTML = `${l ? `<canvas class="mini-port g" width="92" height="92" data-portada="${l.id}"></canvas>` : ""}
+    <div class="que"><b>${esc(p.titulo)}</b><span class="nota">${esc(p.artista)}</span></div>
+    <button class="ico-o" id="o-gusta" aria-pressed="${!!S.onda.gusta[AUD.pistaId]}" aria-label="Me gusta">${S.onda.gusta[AUD.pistaId] ? IC_O.cor : IC_O.corV}</button>
+    <div class="mandos"><div class="botones">
+        <button class="ico-o" id="o-azar" aria-pressed="${S.onda.aleatorio}" aria-label="Aleatorio">${IC_O.azar}</button>
+        <button class="ico-o" id="o-ant" aria-label="Anterior">${IC_O.ant}</button>
+        <button class="ico-o play" id="o-play" aria-label="${AUD.sonando ? "Pausa" : "Tocar"}">${AUD.sonando ? IC_O.pausa : IC_O.play}</button>
+        <button class="ico-o" id="o-sig" aria-label="Siguiente">${IC_O.sig}</button>
+        <button class="ico-o" id="o-rep" aria-pressed="${S.onda.repetir}" aria-label="Repetir">${IC_O.rep}</button></div>
+      <div class="progreso-o"><span id="onda-tiempo">${mmss(AUD.pos)}</span><div class="barra" id="onda-barra"><i style="width:${AUD.pos / p.dura * 100}%"></i></div><span>${mmss(p.dura)}</span></div></div>
+    <canvas class="vis-mini" width="160" height="64" data-vis="actual" data-col="#B6FF5C" data-vivo="1"></canvas>
+    <label class="volumen">${IC_O.vol}<input type="range" id="o-vol" min="0" max="100" value="${Math.round(AUD.vol * 100)}" aria-label="Volumen"></label>`;
+  $("#o-play").onclick = pausaOnda;
+  $("#o-sig").onclick = () => siguienteOnda(1, true);
+  $("#o-ant").onclick = () => siguienteOnda(-1);
+  $("#o-azar").onclick = () => { S.onda.aleatorio = !S.onda.aleatorio; pintarOnda(false); };
+  $("#o-rep").onclick = () => { S.onda.repetir = !S.onda.repetir; pintarOnda(false); };
+  $("#o-gusta").onclick = () => { S.onda.gusta[AUD.pistaId] = !S.onda.gusta[AUD.pistaId]; pintarOnda(false); };
+  $("#onda-barra").onclick = e => { const r = e.currentTarget.getBoundingClientRect(); irA((e.clientX - r.left) / r.width * p.dura); };
+  $("#o-vol").oninput = e => { AUD.vol = e.target.value / 100; if (AUD.master) AUD.master.gain.setTargetAtTime(AUD.vol * .55, AUD.ctx.currentTime, .02); };
+}
+/** Repinta lo que depende de lo que suena, sin rehacer la seccion entera (y sin repetir su entrada). */
+function pintarOnda(cambioPista) {
+  pintarBarraOnda();
+  if (S.app === "hermes" && S.sec === "onda") {
+    const scroll = $("#centro .lienzo")?.scrollTop || 0;
+    secOnda();
+    const lz = $("#centro .lienzo"); if (lz) lz.scrollTop = scroll;
+  }
+  if (cambioPista && S.app === "hermes" && S.sec !== "onda") toast("Sonando: " + AUD.pista.titulo);
+  pintarPastilla();
+  if (cambioPista && S.app !== "hermes") latir();
+}
+/* ============================ la PASTILLA: el audio que nunca se duerme ============================ */
+/* La musica no es de una ventana: es del escritorio. Sigue sonando si cierras
+   HERMES o abres un juego, y la manda una pastilla escondida arriba que asoma
+   al pasar el raton (o al cambiar de cancion) sin quitarte el foco de nada. */
+/** Recomendaciones: las dice un amigo, a mano. Ningun algoritmo elige por ti. */
+const RECOS = [
+  { de: "nova", pista: "p6", dice: "para cuando juegues DOOM II", para: "ludoteca" },
+  { de: "orbe", pista: "p7", dice: "suena a fin de dia, de verdad" },
+  { de: "faro", pista: "p10", dice: "8 bits para la LUDOTECA", para: "ludoteca" },
+  { de: "orbe", pista: "p8", dice: "mira como se mueve el ecualizador" },
+];
+S.onda.reco = 0; S.onda.agacha = true; S.onda.pastilla = false;
+function volumenReal() {
+  const jugando = S.app === "ludoteca" && S.onda.agacha;
+  return AUD.vol * .55 * (jugando ? .45 : 1);
+}
+function aplicarVolumen() { if (AUD.master && AUD.ctx) AUD.master.gain.setTargetAtTime(volumenReal(), AUD.ctx.currentTime, .08); }
+function recoAhora() {
+  const delSitio = RECOS.filter(r => r.para === S.app);
+  const lista = delSitio.length && S.onda.reco === 0 ? delSitio : RECOS;
+  return lista[S.onda.reco % lista.length];
+}
+function pintarPastilla() {
+  const el = $("#pastilla"); if (!el) return;
+  const p = AUD.pista;
+  // En HERMES ya esta la barra de abajo: la pastilla es para todo lo demas.
+  if (!p || S.app === "hermes") { el.hidden = true; el.classList.remove("abierta"); S.onda.pastilla = false; return; }
+  el.hidden = false;
+  el.classList.toggle("abierta", S.onda.pastilla);
+  const l = LISTAS.find(x => x.id === S.onda.listaSonando);
+  const r = recoAhora(), rp = PISTAS[r.pista];
+  const donde = S.app === "ludoteca" ? "mientras juegas" : S.app ? "" : "en el escritorio";
+  el.innerHTML = `<span class="borde" aria-hidden="true"></span>
+    <canvas class="eq-p chica" width="68" height="44" data-pvis="1" aria-hidden="true"></canvas>
+    <span class="que-p chica"><b>${esc(p.titulo)}</b> &middot; ${esc(p.artista)}</span>
+    <span class="mini-b chica"><button class="ico-o" data-pp="play" aria-label="${AUD.sonando ? "Pausa" : "Tocar"}">${AUD.sonando ? IC_O.pausa : IC_O.play}</button><button class="ico-o" data-pp="sig" aria-label="Siguiente">${IC_O.sig}</button></span>
+    <div class="grande">
+      <button class="cerrar-p" data-pp="cerrar" aria-label="Esconder la pastilla">&times;</button>
+      <div class="fila-p">${l ? `<canvas width="128" height="128" data-portada="${l.id}"></canvas>` : `<canvas width="128" height="128" data-pvis="1"></canvas>`}
+        <span class="que"><b>${esc(p.titulo)}</b><span class="nota">${esc(p.artista)} &middot; ${p.fmt}${l ? " &middot; " + esc(l.nombre) : ""}</span><span class="nota mono"><span data-ptiempo>${mmss(AUD.pos)}</span> / ${mmss(p.dura)}${donde ? " &middot; " + donde : ""}</span></span>
+        <span></span></div>
+      <canvas class="vis-p" width="800" height="108" data-pvis="1"></canvas>
+      <div class="mandos-p"><button class="ico-o" data-pp="ant" aria-label="Anterior">${IC_O.ant}</button>
+        <button class="ico-o play" data-pp="play" aria-label="${AUD.sonando ? "Pausa" : "Tocar"}">${AUD.sonando ? IC_O.pausa : IC_O.play}</button>
+        <button class="ico-o" data-pp="sig" aria-label="Siguiente">${IC_O.sig}</button>
+        <button class="ico-o" data-pp="gusta" aria-pressed="${!!S.onda.gusta[AUD.pistaId]}" aria-label="Me gusta">${S.onda.gusta[AUD.pistaId] ? IC_O.cor : IC_O.corV}</button></div>
+      <label class="vol-p">${IC_O.vol}<input type="range" min="0" max="100" value="${Math.round(AUD.vol * 100)}" data-pp="vol" aria-label="Volumen"><span class="mono" data-pvol>${Math.round(AUD.vol * 100)}</span></label>
+      <div class="reco" data-reco="${S.onda.reco}">${avatar(r.de, 28)}<span class="txt"><span class="t1" style="color:var(--blanco)">${esc(nombreDe(r.de))} te recomienda "${esc(rp.titulo)}"</span><span class="t2">${esc(r.dice)}</span></span>
+        <span style="display:grid;gap:4px"><button class="mas-r" data-pp="reco">a continuacion</button><button class="mas-r" data-pp="otra" style="border-color:var(--linea);color:var(--gris)">otra</button></span></div>
+      <div class="pie-p"><label><input type="checkbox" data-pp="agacha" ${S.onda.agacha ? "checked" : ""}> bajar la musica cuando un juego suena</label><span class="mono">Alt+P &middot; Alt+N &middot; Alt+&uarr;&darr;</span></div>
+    </div>`;
+  el.querySelectorAll("[data-pp]").forEach(b => {
+    const k = b.dataset.pp;
+    if (k === "vol") { b.oninput = e => { AUD.vol = e.target.value / 100; aplicarVolumen(); const v = el.querySelector("[data-pvol]"); if (v) v.textContent = e.target.value; }; b.onclick = e => e.stopPropagation(); return; }
+    if (k === "agacha") { b.onchange = e => { S.onda.agacha = e.target.checked; aplicarVolumen(); }; b.onclick = e => e.stopPropagation(); return; }
+    b.onclick = e => {
+      e.stopPropagation();
+      if (k === "play") pausaOnda();
+      else if (k === "sig") siguienteOnda(1, true);
+      else if (k === "ant") siguienteOnda(-1);
+      else if (k === "gusta") { S.onda.gusta[AUD.pistaId] = !S.onda.gusta[AUD.pistaId]; pintarOnda(false); }
+      else if (k === "cerrar") { S.onda.pastilla = false; pintarPastilla(); }
+      else if (k === "otra") { S.onda.reco++; pintarPastilla(); }
+      else if (k === "reco") { const o = S.onda; o.cola.splice(o.idx + 1, 0, r.pista); S.onda.reco++; pintarPastilla(); latir("a continuacion: " + rp.titulo); }
+    };
+  });
+  el.onclick = () => { if (!S.onda.pastilla) { S.onda.pastilla = true; pintarPastilla(); } };
+}
+/** El gesto propio de la pastilla: asoma, late una vez, y se vuelve a esconder. */
+let asomaT = null;
+function latir(texto) {
+  const el = $("#pastilla"); if (!el || el.hidden) return;
+  el.classList.remove("late"); void el.offsetWidth; el.classList.add("late", "asoma");
+  if (texto) { const q = el.querySelector(".que-p"); if (q) q.innerHTML = `<b>${esc(texto)}</b>`; }
+  clearTimeout(asomaT); asomaT = setTimeout(() => { el.classList.remove("asoma"); if (texto) pintarPastilla(); }, 2600);
+}
+/* El reloj de la musica es del escritorio, no de HERMES: avanza y pinta la
+   pastilla aunque no haya ninguna ventana abierta. */
+let lazoP = null;
+(function lazoGlobal() {
+  const t0 = performance.now();
+  const paso = () => {
+    const t = (performance.now() - t0) / 1000;
+    if (AUD.ctx && AUD.pista && AUD.sonando) { AUD.pos = Math.max(0, AUD.ctx.currentTime - AUD.t0); if (AUD.pos >= AUD.pista.dura) siguienteOnda(1, true); }
+    const el = $("#pastilla");
+    if (el && !el.hidden && AUD.pista) {
+      el.style.setProperty("--p", (AUD.pos / AUD.pista.dura).toFixed(4));
+      const tm = el.querySelector("[data-ptiempo]"); if (tm) tm.textContent = mmss(AUD.pos);
+      // En la franja ancha, las formas de centro (circulo, sol, espiral) se
+      // quedarian en un punto: alli se dibuja la misma cancion en barras.
+      el.querySelectorAll("canvas[data-pvis]").forEach(cv => { const ancho = cv.width / cv.height > 3, v = AUD.pista.vis; dibujarVis(cv.getContext("2d"), ancho && ["circulo", "sol", "espiral"].includes(v) ? "barras" : v, cv.width, cv.height, t, "#B6FF5C", energia(t, true)); });
+      el.querySelectorAll("canvas[data-portada]").forEach(cv => { const l = LISTAS.find(x => x.id === cv.dataset.portada); if (l) dibujarPortada(cv, l, t); });
+    }
+    lazoP = requestAnimationFrame(paso);
+  };
+  lazoP = requestAnimationFrame(paso);
+})();
+window.addEventListener("keydown", e => {
+  if (!AUD.pista) return;
+  const k = e.key;
+  if (k === "MediaPlayPause" || (e.altKey && (k === "p" || k === "P"))) { e.preventDefault(); pausaOnda(); latir(); }
+  else if (k === "MediaTrackNext" || (e.altKey && (k === "n" || k === "N"))) { e.preventDefault(); siguienteOnda(1, true); }
+  else if (k === "MediaTrackPrevious") { e.preventDefault(); siguienteOnda(-1); }
+  else if (e.altKey && (k === "ArrowUp" || k === "ArrowDown")) {
+    e.preventDefault(); AUD.vol = Math.max(0, Math.min(1, AUD.vol + (k === "ArrowUp" ? .05 : -.05))); aplicarVolumen();
+    if (S.app === "hermes") pintarBarraOnda(); else { pintarPastilla(); latir("volumen " + Math.round(AUD.vol * 100)); }
+  }
+  else if (k === "Escape" && S.onda.pastilla) { e.stopImmediatePropagation(); S.onda.pastilla = false; pintarPastilla(); }
+});
+document.addEventListener("click", e => { if (S.onda.pastilla && e.target.isConnected && !e.target.closest("#pastilla")) { S.onda.pastilla = false; pintarPastilla(); } });
+
+/* ============================ en tu disco: el censo de los sonidos ============================ */
+/* Lo que hace la orden `sonidos` del escritorio: recorre DATOS (FAT32) y
+   ESTRATOS, lee los 64 primeros bytes de cada fichero y dice que es por
+   dentro, sin creerse el nombre. Aqui, con un disco de ejemplo. */
+const VEREDICTO = { SUENA: C.verde, OFICIAL: C.ambar, "NO OFICIAL": C.rojo, "NO ES SONIDO": C.gris };
+const DISCO = [
+  { ruta: "MUSICA/CIUDAD.WAV", vol: "FAT32", tipo: "WAV", v: "SUENA", m: "PCM en un sobre: cero decodificador", pista: "p3" },
+  { ruta: "sys/sonidos/arranque.wav", vol: "ESTRATOS", tipo: "WAV", v: "SUENA", m: "PCM en un sobre: cero decodificador" },
+  { ruta: "musica/8 bits/ocho bits por pixel.wav", vol: "ESTRATOS", tipo: "WAV", v: "SUENA", m: "PCM en un sobre: cero decodificador", pista: "p9" },
+  { ruta: "musica/para programar/kernel a medianoche.mp3", vol: "ESTRATOS", tipo: "MP3", v: "OFICIAL", m: "falta el decodificador propio de MP3 (M2 de PLAN_MEDIOS)", pista: "p1" },
+  { ruta: "musica/de nova/la llave azul.mp3", vol: "ESTRATOS", tipo: "MP3", v: "OFICIAL", m: "falta el decodificador propio de MP3 (M2 de PLAN_MEDIOS)", pista: "p6" },
+  { ruta: "musica/atardecer/sierra.flac", vol: "ESTRATOS", tipo: "FLAC", v: "OFICIAL", m: "sin perdida; su decodificador va despues de MP3", pista: "p7" },
+  { ruta: "grabaciones/estudio.wav", vol: "ESTRATOS", tipo: "WAV", v: "OFICIAL", m: "un WAV de coma flotante: el amplificador lo baja a enteros" },
+  { ruta: "voz/nota-0412.opus", vol: "ESTRATOS", tipo: "OGG Opus", v: "OFICIAL", m: "el de las llamadas; va con la voz de HERMES (H12)" },
+  { ruta: "canal/orbe/atardecer.m4a", vol: "ESTRATOS", tipo: "M4A", v: "OFICIAL", m: "el sonido de los .mp4: va con el CANAL (M6 de PLAN_LA_3060)" },
+  { ruta: "MUSICA/VIEJO.AIF", vol: "FAT32", tipo: "AIFF", v: "OFICIAL", m: "PCM como el WAV, al reves (big-endian): barato" },
+  { ruta: "descargas/cancion.mp3", vol: "ESTRATOS", tipo: "WAV", v: "SUENA", m: "PCM en un sobre: cero decodificador", miente: "se llama .mp3 y por dentro es un WAV" },
+  { ruta: "JUEGOS/DOOM2/D_RUNNIN.MID", vol: "FAT32", tipo: "MIDI", v: "NO OFICIAL", m: "son notas, no muestras: pide un sintetizador" },
+  { ruta: "WINDOWS/MEDIA/TADA.WMA", vol: "FAT32", tipo: "WMA", v: "NO OFICIAL", m: "formato cerrado de Microsoft, sin especificacion libre" },
+  { ruta: "musica/raro.ogg", vol: "ESTRATOS", tipo: "OGG (sin audio conocido)", v: "NO OFICIAL", m: "un OGG sin Vorbis ni Opus no es sonido que BMO-X sepa leer" },
+  { ruta: "fotos/playa.mp3", vol: "ESTRATOS", tipo: "no es sonido", v: "NO ES SONIDO", m: "por dentro no se parece a ningun sonido", miente: "se llama .mp3 y por dentro es otra cosa" },
+];
+S.onda.censo = { n: 0, filtro: "todos", pintadas: 0, timer: null };
+function cuentaCenso(filas) {
+  const c = { suenan: 0, oficiales: 0, no: 0, mienten: 0 };
+  filas.forEach(f => { if (f.v === "SUENA") c.suenan++; else if (f.v === "OFICIAL") c.oficiales++; else if (f.v === "NO OFICIAL") c.no++; if (f.miente) c.mienten++; });
+  return c;
+}
+function pintarCenso() {
+  const cz = S.onda.censo, cuerpo = $("#censo-cuerpo"); if (!cuerpo) return;
+  const vistas = DISCO.slice(0, cz.n), c = cuentaCenso(vistas), hecho = cz.n >= DISCO.length;
+  const ok = f => cz.filtro === "todos" || (cz.filtro === "MIENTE" ? f.miente : f.v === cz.filtro);
+  const ficheros = Math.round(1284 * cz.n / DISCO.length);
+  cuerpo.innerHTML = `${hecho ? "" : `<div class="censo-barrido" aria-hidden="true"></div>`}
+    <p class="nota mono" style="margin:0">${ficheros.toLocaleString("es")} ficheros mirados en ${Math.round(96 * cz.n / DISCO.length)} carpetas${hecho ? " &middot; hecho" : " &middot; leyendo 64 bytes de cada uno..."}</p>
+    <div class="censo-cuenta">${[["suenan", c.suenan, C.verde], ["oficiales", c.oficiales, C.ambar], ["no oficiales", c.no, C.rojo], ["nombres que mienten", c.mienten, C.rosa]].map(([n, v, col], i) => `<div class="c" style="--i:${i}${cz.pintadas ? ";animation:none" : ""}"><b style="color:${col}">${v}</b><span class="nota">${n}</span></div>`).join("")}</div>
+    <div class="censo-filtros">${["todos", "SUENA", "OFICIAL", "NO OFICIAL", "MIENTE"].map(f => `<button data-cf="${f}" aria-pressed="${cz.filtro === f}">${f === "todos" ? "todos" : f.toLowerCase()}</button>`).join("")}</div>
+    <div>${vistas.map((f, i) => ({ f, i })).filter(x => ok(x.f)).map(({ f, i }) => `<div class="censo-fila" style="--i:0${i < cz.pintadas ? ";animation:none" : ""}${f.pista ? ";cursor:pointer" : ""}" ${f.pista ? `data-cp="${f.pista}" title="tocarla"` : ""}>
+        <span style="display:grid;gap:4px"><span class="veredicto" style="color:${VEREDICTO[f.v]}">${f.v}</span>${f.miente ? `<span class="veredicto" style="color:${C.rosa}">MIENTE</span>` : ""}</span>
+        <span class="txt"><span class="ruta">${esc(f.ruta)}</span><span class="t2">${esc(f.tipo)} &middot; ${esc(f.m)}${f.miente ? ` &middot; <b style="color:${C.rosa};font-weight:500">${esc(f.miente)}</b>` : ""}</span></span>
+        <span class="vol">${f.vol}</span></div>`).join("")}</div>`;
+  cz.pintadas = cz.n;
+  cuerpo.querySelectorAll("[data-cf]").forEach(b => b.onclick = () => { cz.filtro = b.dataset.cf; cz.pintadas = cz.n; pintarCenso(); });
+  cuerpo.querySelectorAll("[data-cp]").forEach(b => b.onclick = () => { const l = LISTAS.find(x => x.pistas.includes(b.dataset.cp)); if (l) tocarLista(l.id, l.pistas.indexOf(b.dataset.cp)); });
+}
+function secOndaDisco() {
+  const cz = S.onda.censo;
+  $("#centro").innerHTML = `<div class="cab"><b>En tu disco</b><span class="t2">todo DATOS (FAT32) y ESTRATOS, mirado por dentro</span></div>
+    <div class="lienzo"><div id="censo-cuerpo" style="display:grid;gap:14px"></div>
+      <div class="tarjeta"><h4>Como mira</h4><p class="nota" style="margin:0;font-size:13px">Es la orden <code>sonidos</code> del escritorio. Recorre las dos unidades y de cada fichero lee solo los 64 primeros bytes, por la ventana: uno de varios GiB cuesta lo mismo que uno de 16 bytes. Lo decide <code>bmo-sonido::censo</code> por lo que hay DENTRO; el nombre solo sirve para pillar al que miente. Si llega a un techo (hondura, carpetas o ficheros), lo dice. Ring 3 no escribe en la CABINA, asi que el censo sale en Ejecutar y <code>save</code> lo guarda.</p></div></div>`;
+  if (cz.n < DISCO.length && !cz.timer) cz.timer = setInterval(() => {
+    cz.n++; if (cz.n >= DISCO.length) { clearInterval(cz.timer); cz.timer = null; }
+    if (S.app === "hermes" && S.sec === "onda" && S.onda.vista === "disco") pintarCenso(); else if (cz.timer) { clearInterval(cz.timer); cz.timer = null; }
+  }, 160);
+  cz.pintadas = Math.min(cz.pintadas, cz.n);
+  pintarCenso();
 }
 /* ============================ LUDOTECA ============================ */
 const TIENDAS = [
@@ -2279,8 +2905,9 @@ function abrir(app, conEntrada) {
   $("#marco-sub").textContent = app === "hermes" ? "sys/hermes.bex · jaula F:/hermes/" : "sys/ludoteca.bex";
   if (app === "hermes") { cancelAnimationFrame(lazo); hermes(); } else ludoteca();
   if (conEntrada) entrada(app, () => {});
+  pintarPastilla(); aplicarVolumen();
 }
-function cerrar() { S.app = null; cancelAnimationFrame(lazo); $("#ventana").hidden = true; $("#vacio").hidden = false; $("#capa").innerHTML = ""; $("#btn-f3").setAttribute("aria-pressed", false); $("#btn-f4").setAttribute("aria-pressed", false); }
+function cerrar() { S.app = null; cancelAnimationFrame(lazo); $("#ventana").hidden = true; $("#vacio").hidden = false; $("#capa").innerHTML = ""; $("#btn-f3").setAttribute("aria-pressed", false); $("#btn-f4").setAttribute("aria-pressed", false); pintarPastilla(); aplicarVolumen(); }
 function tecla(app) { if (S.app === app) cerrar(); else abrir(app, true); }
 $("#btn-f3").onclick = () => tecla("hermes");
 $("#btn-f4").onclick = () => tecla("ludoteca");
