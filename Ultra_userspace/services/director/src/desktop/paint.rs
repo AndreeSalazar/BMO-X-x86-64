@@ -608,6 +608,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     if dsk.tick.will_paint {
         crate::desktop::transicion::poner(dsk, &p, fs);
         crate::desktop::brillo::poner(dsk, &p, fs);
+        crate::desktop::pastilla::poner(dsk, &p, fs);
         crate::desktop::globo::poner(dsk, &p, fs);
         crate::desktop::captura::capa_poner(&p);
         // ** FRAPS-X, ENCIMA de las capas y debajo del cursor: el contador se

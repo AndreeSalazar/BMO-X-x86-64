@@ -261,6 +261,12 @@ const INFO_AUDIO_TIRONES: u64 = 0x8F;
 const INFO_AUDIO_VOCES: u64 = 0x90;
 /// Las voces: tocadas, rechazadas y ordenes perdidas.
 const INFO_AUDIO_VOCES_CUENTA: u64 = 0x91;
+/// El OIDO: el perfil que el maestro aplica (03-10).
+const INFO_AUDIO_OIDO: u64 = 0xC8;
+/// El atril del FONDO: que suena, cuanto esta agachado, de quien es.
+const INFO_AUDIO_FONDO: u64 = 0xC9;
+/// El ESPACIO: el modo 3D que aplica el maestro (S7).
+const INFO_AUDIO_ESPACIO: u64 = 0xCA;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -881,6 +887,9 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_AUDIO_FABRICA => crate::ring0::dev::uaudio::info_fabrica(),
         INFO_AUDIO_VOCES => crate::ring0::dev::usb::voces::info(),
         INFO_AUDIO_VOCES_CUENTA => crate::ring0::dev::usb::voces::info_cuenta(),
+        INFO_AUDIO_OIDO => crate::ring0::dev::usb::maestro::info_oido(),
+        INFO_AUDIO_FONDO => crate::ring0::dev::usb::voces::info_fondo(),
+        INFO_AUDIO_ESPACIO => crate::ring0::dev::usb::maestro::info_espacio(),
         INFO_AUDIO_TIRONES => {
             let (en_marcha, cortes, peor) = crate::ring0::dev::usb::audio::tirones();
             en_marcha.min(0xFFFF_FFFF) | (cortes.min(0xFFFF) << 32) | (peor.min(0xFFFF) << 48)

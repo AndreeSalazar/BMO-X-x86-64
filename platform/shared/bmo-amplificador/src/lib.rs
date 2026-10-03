@@ -685,5 +685,15 @@ pub mod voces;
 /// vuelve sola. Ver [`agacha`].
 pub mod agacha;
 
+/// **EL OIDO**: mono, balance y tres tonos, el perfil de quien escucha, que
+/// el maestro aplica a todo. Ver [`oido`].
+pub mod oido;
+mod oido_tablas;
+
+/// **EL ESPACIO**: el 3D en dos oidos para todo lo que suena (S7): altavoces
+/// virtuales, una sala y la ORBITA. Ver [`espacio`].
+pub mod espacio;
+mod espacio_tablas;
+
 #[cfg(test)]
 mod pruebas;

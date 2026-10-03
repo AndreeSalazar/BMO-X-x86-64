@@ -124,6 +124,8 @@ pub(crate) mod fraps;
 /// **El globo del puntero**: un consejo o un dato que sigue al raton unos
 /// segundos, animado (2026-09-25). Que dice y cuando, `desktop::globo`.
 pub(crate) mod globo;
+/// **LA PASTILLA**: la musica de fondo, escondida arriba. Ver su cabecera.
+pub(crate) mod pastilla;
 /// **El destello del foco**: la ventana que toma el foco se enciende en neon
 /// y se apaga sola (2026-09-25). Cuando y de quien, `desktop::brillo`.
 pub(crate) mod brillo;

@@ -560,7 +560,9 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       del escritorio, que suena aunque DOOM tenga el sonido), el AGACHE y la
       rampa en `bmo-amplificador`, las diez piezas de la maqueta compuestas
       en enteros por `bmo-fondo`, y la orden `fondo` (S4e de
-      `PLAN_EL_SONIDO.md`). Falta la PASTILLA en el director y el metal.
+      `PLAN_EL_SONIDO.md`). Y por la tarde la PASTILLA en el director
+      (`scene/pastilla.rs`), escondida arriba, latiendo con el medidor del
+      maestro, y el OIDO (S4f) para todo lo que suena. Falta el metal.
       **Como se sabe:**
       en el Ryzen suena un WAV, se cierra HERMES, se abre DOOM II y sigue
       sonando sin cortes; la PASTILLA lo pausa sin que el juego pierda una

@@ -59,6 +59,13 @@ struct Estado {
     rueda: u64,
     /// Lo que tardo la ultima composicion, en ms.
     compuso_ms: u64,
+    /// En pausa: la voz sigue en su bucle, CALLADA por la rampa. Es una radio
+    /// que se baja, no una cinta que se para: el orquestador no dice por
+    /// donde va una voz, y volver a empezar la vuelta cada vez seria peor.
+    pausada: bool,
+    /// Sube con cada cambio que se ve (pieza, volumen, pausa): la PASTILLA lo
+    /// mira para asomarse y decirlo.
+    cambios: u32,
 }
 
 static mut ESTADO: Estado = Estado {
@@ -71,6 +78,8 @@ static mut ESTADO: Estado = Estado {
     avisos: [(0, 0); AVISOS.len()],
     rueda: 0,
     compuso_ms: 0,
+    pausada: false,
+    cambios: 0,
 };
 
 fn estado() -> &'static mut Estado {
@@ -155,6 +164,8 @@ pub(crate) fn tocar(i: usize) -> Result<(), Fallo> {
         return Err(Fallo::Banco);
     }
     f.volumen(nuevo as u64, voz(e.volumen));
+    e.pausada = false;
+    e.cambios = e.cambios.wrapping_add(1);
     if e.sonando && nuevo != e.sitio {
         f.volumen(e.sitio as u64, 0);
     }
@@ -179,9 +190,43 @@ pub(crate) fn siguiente() -> Result<(), Fallo> {
 pub(crate) fn volumen(pct: u32) {
     let e = estado();
     e.volumen = pct.min(100);
-    if let (true, Some(f)) = (e.sonando, e.fondo.as_ref()) {
+    e.cambios = e.cambios.wrapping_add(1);
+    if let (true, false, Some(f)) = (e.sonando, e.pausada, e.fondo.as_ref()) {
         f.volumen(e.sitio as u64, voz(e.volumen));
     }
+}
+
+/// **Pausa o sigue**: baja la voz a cero por la rampa, o la devuelve.
+pub(crate) fn pausa() {
+    let e = estado();
+    let (true, Some(f)) = (e.sonando, e.fondo.as_ref()) else { return };
+    e.pausada = !e.pausada;
+    f.volumen(e.sitio as u64, if e.pausada { 0 } else { voz(e.volumen) });
+    e.cambios = e.cambios.wrapping_add(1);
+}
+
+/// **La recomendacion**: la siguiente de las tranquilas que NO suena. Sale
+/// del catalogo de la casa, en su orden; no hay amigos ni algoritmo que
+/// inventar.
+pub(crate) fn recomendada() -> usize {
+    let e = estado();
+    let k = TRANQUILAS.iter().position(|&x| x == e.pieza).map(|k| k + 1).unwrap_or(0);
+    TRANQUILAS[k % TRANQUILAS.len()]
+}
+
+/// **Lo que la PASTILLA necesita saber**, de una vez.
+#[derive(Clone, Copy)]
+pub(crate) struct Vista {
+    pub pieza: usize,
+    pub volumen: u32,
+    pub pausada: bool,
+    pub cambios: u32,
+}
+
+/// Lo que suena, para la PASTILLA; `None` con el fondo apagado.
+pub(crate) fn vista() -> Option<Vista> {
+    let e = estado();
+    e.sonando.then_some(Vista { pieza: e.pieza, volumen: e.volumen, pausada: e.pausada, cambios: e.cambios })
 }
 
 /// **Apagar**: baja por la rampa, espera a que acabe, y suelta banco y tubo.
@@ -201,6 +246,7 @@ pub(crate) fn apagar() {
     // El banco vuelve al asignador al caer el `Memoria` (es prestado).
     e.memoria = None;
     e.sonando = false;
+    e.pausada = false;
 }
 
 /// **Un aviso**: suena encima de la musica, que se agacha sola. Sin fondo
