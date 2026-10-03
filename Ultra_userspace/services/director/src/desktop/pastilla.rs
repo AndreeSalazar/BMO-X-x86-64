@@ -94,6 +94,12 @@ pub(crate) fn poner(dsk: &Desktop, p: &bmo::Pantalla, tapado: bool) {
         e.por_ms = (bmo::info(bmo::INFO_TSC_HZ) / 1000).max(1);
         e.t0 = bmo::ciclos();
     }
+    // Mientras la BIENVENIDA esta en pantalla, la pastilla espera: es a ella
+    // a donde se minimiza, y asoma justo despues (lo que suena es un cambio
+    // que aun no vio).
+    if crate::desktop::bienvenida::activa() {
+        return;
+    }
     let Some(v) = musica::vista() else {
         e.estaba = false;
         e.modo = Modo::Escondida;

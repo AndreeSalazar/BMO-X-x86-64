@@ -172,6 +172,11 @@ fn repartir(
     let button = pos.botones & IZQUIERDO != 0;
     let derecho = pos.botones & DERECHO != 0;
 
+    // ** LA BIENVENIDA, antes que nada: un clic la minimiza (y se queda el
+    // clic solo si cae dentro del panel).
+    if crate::desktop::bienvenida::raton(pos.x, pos.y, button, dsk.tick.button_before) {
+        return;
+    }
     // ** LA PASTILLA, la primera: se pinta encima de las ventanas, asi que un
     // clic que la toca es suyo. Uno que cae fuera sigue como si no estuviera.
     if crate::desktop::pastilla::raton(pos.x, pos.y, button, dsk.tick.button_before) {

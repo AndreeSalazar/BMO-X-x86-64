@@ -54,6 +54,9 @@ pub(crate) mod sonido;
 pub(crate) mod musica;
 /// **LA PASTILLA**: cuando se esconde, asoma o abre, y sus clics.
 pub(crate) mod pastilla;
+/// **LA BIENVENIDA**: "El emisor salta" al llegar, con su panel de 8 bits,
+/// que se minimiza en la pastilla (`bienvenida = no` la apaga).
+pub(crate) mod bienvenida;
 /// **El mando de VITALES** (F7 / F8): solapas, teclas, raton y la muestra de
 /// cada cuarto de segundo. La cara la pinta `scene::vitals`.
 pub(crate) mod vitales;

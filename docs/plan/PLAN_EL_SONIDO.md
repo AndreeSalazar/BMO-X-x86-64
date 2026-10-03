@@ -771,6 +771,48 @@ todo se compone en BMO-X; no se copia ni un compas.
 | `fondo neko drift` | el 808 grune, el cencerro baila entre golpes, todo bombea | el 808 suena limpio: la saturacion no llega |
 | `fondo aviso error` en neko | un bufido con un golpe grave, delante | -- |
 
+* **La receta**, aparte, para guardarla: `docs/arte/receta_nya.md` (las
+  curvas, la tabla de resonancias, el ronroneo, el bufido, el cencerro, el
+  808, el bombeo, que aviso lleva que, y como jugar con el).
+
+## [ ] S4i -- LA BIENVENIDA: "El emisor salta" al llegar, y se minimiza (2026-10-03)
+
+El propietario: *"'el emisor salta' esa musica ME ENCANTA y sirve como fondo
+en pantalla cuando lleguen, pero con animacion, como que encanta al usuario,
+y ya para que se minimice"*. Y: *"separamos los dos"*: la musica de 8 bits
+por un lado, el gato (NEKO) por el suyo, con su receta.
+
+* **Al acabar el arranque** (`desktop::boot`, lo ultimo, despues de
+  `al_arrancar`): `musica::tocar` de "El emisor salta" (buscada por nombre,
+  con la mezcla FONDO) y el panel de 8 bits en el centro
+  (`desktop::bienvenida` + `scene::bienvenida`).
+* **El panel** (600 x 340, guarda lo que tapa como la pastilla): crece con
+  rebote; estrellas en tres capas que pasan; BMO-X en letras de 5x que
+  saltan una tras otra al compas, con los colores rotando; el gato de la
+  intro bajado a bloques de 4, que BOTA y toca el suelo en cada golpe del
+  bombo (128 pulsos, desde el compas 0 de la pieza); "El emisor salta" con
+  su cursor; y once barras en bloques que siguen al **medidor del maestro**
+  (sin tubo, se quedan en un bloque y lo dice: "sin tubo de audio: solo se
+  ve").
+* **Se minimiza** a los 8 s, o con una tecla o un clic: se encoge acelerando
+  hacia arriba hasta la medida de la pastilla asomada, y la pastilla asoma
+  diciendo lo que suena. La musica sigue. Solo ESC y un clic DENTRO del panel
+  se quedan; las demas teclas siguen su camino (no se pierde la primera
+  letra), y un clic fuera tambien.
+* [!] **Es la unica vez que el escritorio arma el tubo sin que se lo pidan**
+  (la regla de `armar_silencio`). Por eso es una clave del fichero:
+  `bienvenida = no` en `sys/director.cfg` llega en silencio, como antes
+  (`bmo-config`, prueba `la_bienvenida_se_apaga_y_se_guarda`).
+* Una vista previa de la geometria, con la mascara del gato y la fuente
+  reales, se renderizo en el host; en el metal no se ha visto.
+
+| que | afirma | como se cae |
+|---|---|---|
+| arrancar con altavoz | suena "El emisor salta" y el panel sale en el centro; el gato bota con el bombo | el panel sale y no suena: mirar `fondo` en CABINA |
+| esperar 8 s | el panel se encoge hacia arriba y asoma la pastilla con la pieza | queda un rastro: la save-under no se devolvio |
+| una tecla a los 2 s | se minimiza y la letra llega a Ejecutar | la letra se pierde |
+| `bienvenida = no` | se llega en silencio, sin panel y sin tubo armado | -- |
+
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 
 Una fuente mono con una posicion (angulo y distancia) en dos canales:

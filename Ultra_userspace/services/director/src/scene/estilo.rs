@@ -33,6 +33,7 @@ pub(crate) const POR_DEFECTO: Estilo = Estilo {
     memoria: true,
     cpu: true,
     fondo_imagen: bmo_config::Ruta::VACIA,
+    bienvenida: true,
 };
 
 pub(crate) const RUTA: &[u8] = b"sys/director.cfg";

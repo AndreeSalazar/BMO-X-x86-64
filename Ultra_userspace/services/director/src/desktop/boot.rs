@@ -196,6 +196,9 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     crate::commands::verificar::al_arrancar(d, &p);
     paint_output(&p, &d.run_box, &d.out.grid);
     marca(&p, "listo");
+    // ** LA BIENVENIDA (S4i): "El emisor salta" y su panel de 8 bits, que se
+    // minimiza en la pastilla. La ultima, con el escritorio ya entero.
+    crate::desktop::bienvenida::empezar();
     (p, input, d)
 }
 

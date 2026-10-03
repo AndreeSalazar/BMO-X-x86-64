@@ -126,6 +126,8 @@ pub(crate) mod fraps;
 pub(crate) mod globo;
 /// **LA PASTILLA**: la musica de fondo, escondida arriba. Ver su cabecera.
 pub(crate) mod pastilla;
+/// **LA BIENVENIDA**: el panel de 8 bits de "El emisor salta" al llegar.
+pub(crate) mod bienvenida;
 /// **El destello del foco**: la ventana que toma el foco se enciende en neon
 /// y se apaga sola (2026-09-25). Cuando y de quien, `desktop::brillo`.
 pub(crate) mod brillo;

@@ -1011,7 +1011,7 @@ pub extern "C" fn _start() -> ! {
         // ** Los avisos que se MUEVEN (lo que llega, lo que se va): se mueven
         // aqui, en cada vuelta, y mientras se muevan el bucle no se duerme.
         let mueve = desktop::musica::mover();
-        dsk.tick.will_paint = mueve || dsk.tick.actividad || dsk.tick.quarter || desktop::sonido::toca(&dsk) || desktop::globo::anima() || desktop::pastilla::anima() || desktop::brillo::anima() || desktop::transicion::anima() || desktop::marco::anima() || desktop::fraps::anima() || desktop::entrada::anima();
+        dsk.tick.will_paint = mueve || dsk.tick.actividad || dsk.tick.quarter || desktop::sonido::toca(&dsk) || desktop::globo::anima() || desktop::pastilla::anima() || desktop::bienvenida::anima() || desktop::brillo::anima() || desktop::transicion::anima() || desktop::marco::anima() || desktop::fraps::anima() || desktop::entrada::anima();
 
         // -- LA ENTRADA, en dos mitades que no se pueden mezclar --
         //
