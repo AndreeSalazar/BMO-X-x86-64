@@ -244,7 +244,7 @@ fn la_trama_no_escribe_el_pixel_tirado_ni_su_profundidad() {
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: Some(trama::Profundidad { funcion: 2, escribir: true }) };
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: Some(&mut z), cadena: false };
     // Tira lo de atributo < 0.5 (cerca del vertice de (0,0)).
-    let c = trama::dibujar(&reglas, &v, &[[0, 1, 2]], &mut d, |e| (e[0][0] >= 0.5).then_some([1.0, 1.0, 1.0, 1.0]));
+    let c = trama::dibujar(&reglas, &v, &[[0, 1, 2]], &mut d, None, |e| (e[0][0] >= 0.5).then_some([1.0, 1.0, 1.0, 1.0]));
     assert_eq!(c.pixeles, 28);
     assert!(c.tirados > 0 && c.tirados < 28, "{c:?}");
     let pintados = px.iter().filter(|&&p| p != 0).count() as u64;

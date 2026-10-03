@@ -143,3 +143,5 @@ mod pruebas_seh;
 mod pruebas_saltos;
 #[cfg(test)]
 mod pruebas_espacios;
+#[cfg(test)]
+mod pruebas_pixeles;

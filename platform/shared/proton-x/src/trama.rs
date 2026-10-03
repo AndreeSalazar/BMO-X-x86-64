@@ -169,7 +169,11 @@ pub fn empaquetar(c: [f32; 4], bgra: bool) -> u32 {
 /// con `ps` como sombreador de pixeles: recibe los atributos interpolados y
 /// devuelve el color (r, g, b, a), o `None` si TIRA el pixel (N5.7: ni color
 /// ni profundidad; por eso la Z se escribe DESPUES de correrlo).
-pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, mut ps: impl FnMut(&[[f32; 4]]) -> Option<[f32; 4]>) -> Cuenta {
+///
+/// `posicion` (N5.9): el atributo que es SV_Position, si el sombreador lo
+/// lee: en cada pixel, (x + 0.5, y + 0.5, z, w) -- el centro en pantalla,
+/// la z del viewport y la w de recorte (la de D3D: w, no 1/w como en GL).
+pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, mut ps: impl FnMut(&[[f32; 4]]) -> Option<[f32; 4]>) -> Cuenta {
     let mut cuenta = Cuenta::default();
     let [vx, vy, vw, vh, zmin, zmax] = reglas.viewport;
     let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= destino.pixeles.len()));
@@ -287,6 +291,13 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                             }
                         }
                     }
+                }
+                if let Some(a) = posicion.filter(|&a| a < entrada.len()) {
+                    let s = (e[0] + e[1] + e[2]) as f32;
+                    let (b1, b2) = (e[1] as f32 / s, e[2] as f32 / s);
+                    let z = zv[0] + b1 * (zv[1] - zv[0]) + b2 * (zv[2] - zv[0]);
+                    let w = 1.0 / ((1.0 - b1 - b2) * inv_w[0] + b1 * inv_w[1] + b2 * inv_w[2]);
+                    entrada[a] = [px as f32 + 0.5, py as f32 + 0.5, z, w];
                 }
                 let pixel = match &ultima {
                     Some((antes, p)) if antes.len() == entrada.len() && antes.iter().zip(&entrada).all(|(a, b)| a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())) => *p,

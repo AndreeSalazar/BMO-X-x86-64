@@ -91,6 +91,11 @@ pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
         return Err(NoVa::Emisor("vertice", crate::NoEmite::Operacion(0)));
     }
     let ep = emitir_con(&en.ps, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor("pixel", e))?;
+    // N5.9: el de pixeles que lee SV_Position, por la CPU todavia (la 3060
+    // la da en un atributo de sistema que el pegamento no pone).
+    if en.pos_ps.is_some() {
+        return Err(NoVa::Entrada("SV_Position en el de pixeles"));
+    }
     let posicion = en.posicion as u32;
     let genericos = en.desde_vs.iter().map(|o| o.and_then(|o| bmo_gpu_ga10x::pegamento::generico(o as u32, posicion))).collect();
     Ok(Cuerpos {

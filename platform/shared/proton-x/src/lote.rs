@@ -77,8 +77,11 @@ pub struct Enlace {
     /// La salida del de vertices que es SV_Position.
     pub posicion: usize,
     /// Por elemento de entrada del de pixeles: la salida del de vertices que
-    /// le llega (`None`: SV_Position, que hoy no lee).
+    /// le llega (`None`: SV_Position, que pone la trama).
     pub desde_vs: Vec<Option<usize>>,
+    /// N5.9 (03-10): la entrada del de pixeles que es SV_Position, si la
+    /// LEE: ahi la trama pone (x + 0.5, y + 0.5, z, w) del pixel.
+    pub pos_ps: Option<usize>,
     /// Las texturas y los muestreadores de LOS DOS, en una tabla (03-10,
     /// N5.1): el `t` y el `s` de sus operaciones son posiciones aqui. Quien
     /// dibuja pone en cada posicion el descriptor de ese espacio y registro.
@@ -168,10 +171,11 @@ pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Res
     }
     let posicion = vs.salidas.iter().position(|f| f.sistema == SV_POSITION).ok_or_else(|| String::from("el sombreador de vertices no escribe SV_Position"))?;
     let mut desde_vs = Vec::with_capacity(ps.entradas.len());
+    let mut pos_ps = None;
     for (i, f) in ps.entradas.iter().enumerate() {
         if f.sistema == SV_POSITION {
             if pp.lee & (1 << i) != 0 {
-                return Err(String::from("el sombreador de pixeles lee SV_Position: todavia no"));
+                pos_ps = Some(i);
             }
             desde_vs.push(None);
             continue;
@@ -182,7 +186,7 @@ pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Res
     if pp.salidas != 1 {
         return Err(String::from("el sombreador de pixeles escribe mas de un render target: todavia no"));
     }
-    Ok(Enlace { vs: pv, ps: pp, desde_ia, posicion, desde_vs, ranuras, constantes })
+    Ok(Enlace { vs: pv, ps: pp, desde_ia, posicion, desde_vs, pos_ps, ranuras, constantes })
 }
 
 /// Como se agrupan los ids en triangulos.
@@ -324,7 +328,7 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs
         locales.push(local);
     }
     let mut sal_ps = [[0.0f32; 4]; 1];
-    Ok(trama::dibujar(&l.reglas, &sombreados, &locales, destino, |x| {
+    Ok(trama::dibujar(&l.reglas, &sombreados, &locales, destino, en.pos_ps, |x| {
         ps(x, &mut sal_ps).then_some(sal_ps[0])
     }))
 }

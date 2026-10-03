@@ -763,8 +763,11 @@ la proxima corrida del metal dice cual pesa mas:
   mano. En la 3060 (KILL) todavia no: va por la CPU (N6.1).
 - [ ] **N5.8 -- mas de un render target** (hasta 8): el G-buffer de
   Cyberpunk; hoy el PSO entero se niega.
-- [ ] **N5.9 -- SV_Position en el de pixeles**: la trama ya lo sabe; que
-  llegue al sombreador.
+- [x] **N5.9 -- SV_Position en el de pixeles** (03-10): `Enlace::pos_ps`
+  dice que entrada es; la trama pone en ella (x + 0.5, y + 0.5, z, w) de
+  cada pixel (la w de recorte, con perspectiva: la de D3D, no la 1/w de
+  GL). Probado con `prueba/posicion.dxil` en un cuadro de 8x8. En la 3060
+  todavia no (`NoVa::Entrada`): por la CPU (N6.1).
 - [ ] **N5.10 -- arrays locales y lo de las olas**: `alloca`/GEP (registros
   indexables) y `WaveReadLaneFirst` (con una ola de un pixel, el mismo).
 - [ ] **N5.5 -- el COMPUTO** (`Dispatch`, `SetComputeRoot*`): hoy se dice

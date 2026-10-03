@@ -630,7 +630,7 @@ fn pinta(v: &[trama::Sombreado], descarte: u32, antihorario: bool) -> (Vec<u32>,
     let mut px = vec![0u32; 64];
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte, antihorario, profundidad: None };
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: None, cadena: false };
-    let c = trama::dibujar(&reglas, v, &[[0, 1, 2]], &mut d, |e| Some(e[0]));
+    let c = trama::dibujar(&reglas, v, &[[0, 1, 2]], &mut d, None, |e| Some(e[0]));
     (px, c)
 }
 

@@ -1921,3 +1921,19 @@ Reproducible (comprobado dos veces). sha256:
 %c)`; el `discard` del `if` queda en su rama como `dx.op.discard(82, i1
 true)`. El banco (`pruebas_espacios.rs`) lo corre: queda solo el pixel que
 pasa los dos.
+
+posicion.dxil -- SV_Position en el de pixeles (03-10, N5.9)
+
+Cyberpunk lo lee para ir al G-buffer en el pixel que toca y para el ruido
+de pantalla. De `posicion.hlsl` (aqui al lado), con el mismo `dxc` de
+Linux (1.9, 4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo posicion.dxil posicion.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   53875ca2022bf9d20a914cbf1d1d258c8668f6d51c7e7c5bebd43b06be005065  posicion.dxil
+
+`dxc -dumpbin`: la entrada 0 es SV_Position (`noperspective`), leida con
+`loadInput` x, y, z y w. El banco (`pruebas_pixeles.rs`) la cose al de
+vertices de `textura.hlsl` y la pinta en 8x8: cada pixel, su centro.
