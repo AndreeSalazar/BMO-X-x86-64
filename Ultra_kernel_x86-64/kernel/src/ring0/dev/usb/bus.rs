@@ -725,7 +725,29 @@ fn foto_del_retraso(ms: u64, por_ms: u64) -> PeorLatido {
         vuelta_us: unsafe { VUELTA_US },
         // La ultima puerta larga que acabo dentro del retraso (o justo al
         // acabar: el bus solo corre cuando la puerta vuelve).
-        puerta: crate::ring0::syscall::larga::ultima_desde(scheduler::rdtsc().saturating_sub((ms + 1) * por_ms)),
+        puerta: ultima_puerta_desde(scheduler::rdtsc().saturating_sub((ms + 1) * por_ms)),
+    }
+}
+
+/// La ULTIMA puerta larga (el paquete de `syscall::larga`) y el TSC en que
+/// acabo. Viven aqui y no en `syscall` (que esta POR ENCIMA de `dev`: L8b,
+/// 03-10): la puerta las APUNTA aqui, el latido las lee.
+static PUERTA_ULTIMA: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+static PUERTA_FIN: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// Lo llama `syscall::larga` con cada puerta LARGA: su paquete y su fin.
+pub fn apuntar_puerta(v: u64, fin: u64) {
+    PUERTA_ULTIMA.store(v, core::sync::atomic::Ordering::Relaxed);
+    PUERTA_FIN.store(fin, core::sync::atomic::Ordering::Relaxed);
+}
+
+/// La ULTIMA puerta larga, si acabo despues de `desde` (TSC): la que estaba
+/// corriendo mientras el bus esperaba. 0 si no hubo ninguna.
+fn ultima_puerta_desde(desde: u64) -> u64 {
+    if PUERTA_FIN.load(core::sync::atomic::Ordering::Relaxed) >= desde {
+        PUERTA_ULTIMA.load(core::sync::atomic::Ordering::Relaxed)
+    } else {
+        0
     }
 }
 
