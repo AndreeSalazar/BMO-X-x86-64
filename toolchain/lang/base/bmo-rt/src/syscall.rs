@@ -21,7 +21,7 @@ fn value_or_code(result: SyscallResult) -> u64 {
 /// ```
 ///
 /// Devuelve el VALOR (RDX) si el codigo (RAX) es 0, o el codigo si no.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn bmo_syscall(
     nr: u32,
     a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64,

@@ -56,17 +56,17 @@ pub unsafe fn comparar(s1: *const u8, s2: *const u8, n: usize) -> i32 {
     0
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn memcpy(dest: *mut c_void, src: *const c_void, n: usize) -> *mut c_void {
     copiar(dest.cast(), src.cast(), n).cast()
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn memmove(dest: *mut c_void, src: *const c_void, n: usize) -> *mut c_void {
     copiar(dest.cast(), src.cast(), n).cast()
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn memset(s: *mut c_void, c: i32, n: usize) -> *mut c_void {
     let p: *mut u8 = s.cast();
     if !p.is_null() {
@@ -77,18 +77,18 @@ pub unsafe extern "C" fn memset(s: *mut c_void, c: i32, n: usize) -> *mut c_void
     s
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn memcmp(s1: *const c_void, s2: *const c_void, n: usize) -> i32 {
     comparar(s1.cast(), s2.cast(), n)
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strlen(s: *const c_char) -> usize {
     largo(s.cast())
 }
 
 /// Compare two null-terminated strings.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strcmp(s1: *const u8, s2: *const u8) -> i32 {
     let mut i = 0;
     loop {
@@ -101,7 +101,7 @@ pub unsafe extern "C" fn strcmp(s1: *const u8, s2: *const u8) -> i32 {
 }
 
 /// Compare up to `n` characters of `s1` and `s2`.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strncmp(s1: *const u8, s2: *const u8, n: usize) -> i32 {
     for i in 0..n {
         let a = *s1.add(i);
@@ -113,7 +113,7 @@ pub unsafe extern "C" fn strncmp(s1: *const u8, s2: *const u8, n: usize) -> i32 
 }
 
 /// Copy `src` to `dest`, including the null terminator.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strcpy(dest: *mut u8, src: *const u8) -> *mut u8 {
     let mut i = 0;
     loop {
@@ -126,7 +126,7 @@ pub unsafe extern "C" fn strcpy(dest: *mut u8, src: *const u8) -> *mut u8 {
 }
 
 /// Copy at most `n` characters from `src` to `dest`, padding with \0.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strncpy(dest: *mut u8, src: *const u8, n: usize) -> *mut u8 {
     let mut i = 0;
     while i < n {
@@ -143,7 +143,7 @@ pub unsafe extern "C" fn strncpy(dest: *mut u8, src: *const u8, n: usize) -> *mu
 }
 
 /// Find the first occurrence of `c` in `s`. Returns pointer or null.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strchr(s: *const u8, c: i32) -> *const u8 {
     let mut i = 0;
     loop {
@@ -156,7 +156,7 @@ pub unsafe extern "C" fn strchr(s: *const u8, c: i32) -> *const u8 {
 }
 
 /// Find the last occurrence of `c` in `s`.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strrchr(s: *const u8, c: i32) -> *const u8 {
     let len = largo(s);
     for i in (0..=len).rev() {
@@ -166,7 +166,7 @@ pub unsafe extern "C" fn strrchr(s: *const u8, c: i32) -> *const u8 {
 }
 
 /// Find `needle` in `haystack`. Returns pointer or null.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strstr(haystack: *const u8, needle: *const u8) -> *const u8 {
     if *needle == 0 { return haystack; }
     let nlen = largo(needle);
@@ -182,7 +182,7 @@ pub unsafe extern "C" fn strstr(haystack: *const u8, needle: *const u8) -> *cons
 
 /// Duplicate a string (malloc + copy). Returns pointer to copy.
 /// Caller must free() the result.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strdup(s: *const u8) -> *mut u8 {
     let len = largo(s);
     let p = crate::heap::malloc(len + 1) as *mut u8;
@@ -192,7 +192,7 @@ pub unsafe extern "C" fn strdup(s: *const u8) -> *mut u8 {
 }
 
 /// Duplicate at most `n` characters.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strndup(s: *const u8, n: usize) -> *mut u8 {
     let len = largo(s).min(n);
     let p = crate::heap::malloc(len + 1) as *mut u8;
@@ -203,7 +203,7 @@ pub unsafe extern "C" fn strndup(s: *const u8, n: usize) -> *mut u8 {
 }
 
 /// Append `src` to `dest`. dest must have enough space.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strcat(dest: *mut u8, src: *const u8) -> *mut u8 {
     let dlen = largo(dest);
     strcpy(dest.add(dlen), src);
@@ -213,7 +213,7 @@ pub unsafe extern "C" fn strcat(dest: *mut u8, src: *const u8) -> *mut u8 {
 /// Append at most `n` characters, and ALWAYS the terminating zero (que es lo
 /// que C promete y no lo que hacia esto: con `strncpy` debajo, un `src` largo
 /// dejaba `dest` sin cerrar).
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strncat(dest: *mut u8, src: *const u8, n: usize) -> *mut u8 {
     let d = dest.add(largo(dest));
     let mut i = 0;
@@ -227,12 +227,12 @@ pub unsafe extern "C" fn strncat(dest: *mut u8, src: *const u8, n: usize) -> *mu
 
 // -- Mayusculas, minusculas y clases (ASCII) ---------------------------------
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn toupper(c: i32) -> i32 {
     if (b'a' as i32..=b'z' as i32).contains(&c) { c - 32 } else { c }
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn tolower(c: i32) -> i32 {
     if (b'A' as i32..=b'Z' as i32).contains(&c) { c + 32 } else { c }
 }
@@ -241,54 +241,54 @@ fn clase(c: i32, f: fn(&u8) -> bool) -> bool {
     (0..=127).contains(&c) && f(&(c as u8))
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn isdigit(c: i32) -> i32 {
     clase(c, u8::is_ascii_digit) as i32
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn isalpha(c: i32) -> i32 {
     clase(c, u8::is_ascii_alphabetic) as i32
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn isalnum(c: i32) -> i32 {
     clase(c, u8::is_ascii_alphanumeric) as i32
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn isupper(c: i32) -> i32 {
     clase(c, u8::is_ascii_uppercase) as i32
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn islower(c: i32) -> i32 {
     clase(c, u8::is_ascii_lowercase) as i32
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn isxdigit(c: i32) -> i32 {
     clase(c, u8::is_ascii_hexdigit) as i32
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn isprint(c: i32) -> i32 {
     (0x20..0x7F).contains(&c) as i32
 }
 
 /// Espacio, tabulador, salto, retorno, tabulador vertical, salto de pagina.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn isspace(c: i32) -> i32 {
     matches!(c, 0x20 | 0x09..=0x0D) as i32
 }
 
 /// `strcmp` sin mirar mayusculas: DOOM compara asi los nombres de lump.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strcasecmp(s1: *const u8, s2: *const u8) -> i32 {
     strncasecmp(s1, s2, usize::MAX)
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strncasecmp(s1: *const u8, s2: *const u8, n: usize) -> i32 {
     let mut i = 0;
     while i < n {
@@ -309,7 +309,7 @@ pub unsafe extern "C" fn strncasecmp(s1: *const u8, s2: *const u8, n: usize) -> 
 
 /// `strtol`: espacios, signo, `0x`/`0` con base 0 o 16, y las cifras que haya.
 /// Satura en vez de desbordar. `fin`, si no es nulo, queda detras de lo leido.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strtol(s: *const u8, fin: *mut *const u8, base: i32) -> i64 {
     let (v, neg, p) = numero(s, base);
     if !fin.is_null() {
@@ -323,7 +323,7 @@ pub unsafe extern "C" fn strtol(s: *const u8, fin: *mut *const u8, base: i32) ->
 }
 
 /// `strtoul`: como `strtol`, sin signo (un `-` da la vuelta, como C).
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn strtoul(s: *const u8, fin: *mut *const u8, base: i32) -> u64 {
     let (v, neg, p) = numero(s, base);
     if !fin.is_null() {
@@ -332,22 +332,22 @@ pub unsafe extern "C" fn strtoul(s: *const u8, fin: *mut *const u8, base: i32) -
     if neg { v.wrapping_neg() } else { v }
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn atoi(s: *const u8) -> i32 {
     strtol(s, core::ptr::null_mut(), 10) as i32
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn atol(s: *const u8) -> i64 {
     strtol(s, core::ptr::null_mut(), 10)
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn abs(v: i32) -> i32 {
     v.wrapping_abs()
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub extern "C" fn labs(v: i64) -> i64 {
     v.wrapping_abs()
 }

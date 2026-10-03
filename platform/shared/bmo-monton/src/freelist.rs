@@ -1,6 +1,7 @@
-//! **El monton de `bmo-rt`**: una lista de libres sobre los bloques de
-//! `KIND_MEMORIA`, con la politica que pide el kernel de BMO-X y no la de un
-//! `brk` que aqui no existe.
+//! **La lista de libres**: el monton sobre los bloques de `KIND_MEMORIA`, con
+//! la politica que pide el kernel de BMO-X y no la de un `brk` que aqui no
+//! existe. El respaldo (de donde salen los bloques) lo pone quien lo usa:
+//! `bmo-rt` pide al kernel; [`crate::Region`] reparte uno ya dado.
 //!
 //! ```text
 //!    el kernel   da BLOQUES enteros y contiguos (TASK_OP_MEMORIA_PEDIR), como
@@ -26,7 +27,7 @@
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
 use core::ptr;
-use bmo_abi::fundamentals::sync::BmoSpinLock;
+use crate::cerrojo::Cerrojo;
 
 /// A lo que se alinea todo trozo.
 pub const ALINEA: usize = 16;
@@ -114,25 +115,44 @@ pub struct Bloque {
 
 const SIN_BLOQUE: Bloque = Bloque { base: ptr::null_mut(), medida: 0, handle: 0, grande: false };
 
-/// De donde salen los bloques: el kernel, o la memoria del anfitrion en las
-/// pruebas.
+/// Un bloque que da el respaldo: donde, su handle, y cuanto mide DE VERDAD
+/// (al menos lo pedido; una region fija lo da entero de una vez).
+#[derive(Clone, Copy)]
+pub struct Trozo {
+    pub base: *mut u8,
+    pub handle: u64,
+    pub medida: usize,
+}
+
+/// De donde salen los bloques: el kernel, una region fija ya dada, o la
+/// memoria del anfitrion en las pruebas.
 pub trait MemBackend {
-    /// Un bloque de al menos `min_size` bytes: `(direccion, handle)`.
-    unsafe fn alloc_chunk(&self, min_size: usize) -> Option<(*mut u8, u64)>;
-    /// Devolverlo entero. `false` si el kernel no lo recogio (sigue prestado).
+    /// Un bloque de al menos `min_size` bytes.
+    unsafe fn alloc_chunk(&self, min_size: usize) -> Option<Trozo>;
+    /// Devolverlo entero. `false` si no se recogio (sigue prestado, o el
+    /// respaldo no devuelve).
     unsafe fn free_chunk(&self, ptr: *mut u8, size: usize, handle: u64) -> bool;
+    /// Si lo grande ([`GRANDE_DESDE`]) pide su propio bloque. Una region fija
+    /// dice que no: no hay otro bloque que pedir, y lo grande sale de la lista
+    /// como lo demas.
+    fn grande_aparte(&self) -> bool {
+        true
+    }
 }
 
 struct HeapInner {
     free_head: *mut u8,
     bloques: [Bloque; BLOQUES],
     arenas: u32,
+    /// Bytes en trozos dados ahora (con su cabecera), y lo mas que llego.
+    en_uso: usize,
+    pico: usize,
 }
 
 pub struct FreelistAllocator<B: MemBackend> {
     inner: UnsafeCell<HeapInner>,
     backend: B,
-    lock: BmoSpinLock,
+    lock: Cerrojo,
 }
 
 unsafe impl<B: MemBackend> Send for FreelistAllocator<B> {}
@@ -145,9 +165,9 @@ const fn sube(v: usize, a: usize) -> usize {
 impl<B: MemBackend> FreelistAllocator<B> {
     pub const fn new_with(backend: B) -> Self {
         Self {
-            inner: UnsafeCell::new(HeapInner { free_head: ptr::null_mut(), bloques: [SIN_BLOQUE; BLOQUES], arenas: 0 }),
+            inner: UnsafeCell::new(HeapInner { free_head: ptr::null_mut(), bloques: [SIN_BLOQUE; BLOQUES], arenas: 0, en_uso: 0, pico: 0 }),
             backend,
-            lock: BmoSpinLock::new(),
+            lock: Cerrojo::new(),
         }
     }
 
@@ -159,7 +179,7 @@ impl<B: MemBackend> FreelistAllocator<B> {
         let needed = sube(HEADER_SIZE + size, ALINEA).max(MIN_BLOCK);
         self.lock.lock();
         let r = unsafe {
-            if needed >= GRANDE_DESDE {
+            if needed >= GRANDE_DESDE && self.backend.grande_aparte() {
                 self.allocate_large(needed)
             } else {
                 self.allocate_from_freelist(needed)
@@ -228,6 +248,16 @@ impl<B: MemBackend> FreelistAllocator<B> {
         &self.backend
     }
 
+    /// Bytes en trozos dados ahora (cabeceras incluidas).
+    pub fn en_uso(&self) -> usize {
+        self.inner().en_uso
+    }
+
+    /// Lo mas que llego [`FreelistAllocator::en_uso`].
+    pub fn pico(&self) -> usize {
+        self.inner().pico
+    }
+
     /// Cuantos bloques del kernel tiene apuntados ahora.
     pub fn bloques_vivos(&self) -> usize {
         self.inner().bloques.iter().filter(|b| b.medida != 0).count()
@@ -265,10 +295,12 @@ impl<B: MemBackend> FreelistAllocator<B> {
         if !self.inner().bloques.iter().any(|x| x.medida == 0) {
             return None;
         }
-        let (base, handle) = self.backend.alloc_chunk(medida)?;
-        if base.is_null() {
+        let t = self.backend.alloc_chunk(medida)?;
+        let (base, handle) = (t.base, t.handle);
+        if base.is_null() || t.medida < medida {
             return None;
         }
+        let medida = t.medida;
         base.cast::<Ficha>().write(Ficha { magia: MAGIA, medida, handle });
         let b = Bloque { base, medida, handle, grande };
         self.apuntar(b);
@@ -283,16 +315,19 @@ impl<B: MemBackend> FreelistAllocator<B> {
             let next_free = self.read_next_free(curr);
             if block_size >= needed {
                 let remaining = block_size - needed;
-                let siguiente = if remaining >= MIN_BLOCK {
+                let (siguiente, dado) = if remaining >= MIN_BLOCK {
                     let resto = curr.add(needed);
                     resto.cast::<BlockHeader>().write(BlockHeader::new(remaining, true));
                     self.write_next_free(resto, next_free);
                     curr.cast::<BlockHeader>().write(BlockHeader::new(needed, false));
-                    resto
+                    (resto, needed)
                 } else {
                     curr.cast::<BlockHeader>().write(BlockHeader::new(block_size, false));
-                    next_free
+                    (next_free, block_size)
                 };
+                let inner = self.inner();
+                inner.en_uso += dado;
+                inner.pico = inner.pico.max(inner.en_uso);
                 if prev.is_null() {
                     self.inner().free_head = siguiente;
                 } else {
@@ -313,8 +348,10 @@ impl<B: MemBackend> FreelistAllocator<B> {
         let Some(b) = self.pedir_bloque(medida, false) else { return ptr::null_mut() };
         self.inner().arenas += 1;
         let trozo = b.base.add(PRIMER_TROZO);
-        let cabe = (medida - PRIMER_TROZO) & !(ALINEA - 1);
+        let cabe = (b.medida - PRIMER_TROZO) & !(ALINEA - 1);
         trozo.cast::<BlockHeader>().write(BlockHeader::new(cabe, false));
+        // Entra en la lista como un trozo libre (sin contarlo como devuelto).
+        self.inner().en_uso += cabe;
         self.deallocate_inner(trozo.add(HEADER_SIZE));
         self.allocate_from_freelist(needed)
     }
@@ -323,6 +360,7 @@ impl<B: MemBackend> FreelistAllocator<B> {
         let mut hdr_ptr = ptr.sub(HEADER_SIZE);
         let hdr = &*hdr_ptr.cast::<BlockHeader>();
         debug_assert!(!hdr.is_free(), "doble free");
+        self.inner().en_uso -= hdr.size();
         if hdr.grande() {
             self.soltar_grande(hdr_ptr);
             return;
@@ -371,6 +409,9 @@ impl<B: MemBackend> FreelistAllocator<B> {
         let Some(b) = self.pedir_bloque(medida, true) else { return ptr::null_mut() };
         let trozo = b.base.add(PRIMER_TROZO);
         trozo.cast::<BlockHeader>().write(BlockHeader(needed | BlockHeader::GRANDE));
+        let inner = self.inner();
+        inner.en_uso += needed;
+        inner.pico = inner.pico.max(inner.en_uso);
         trozo.add(HEADER_SIZE)
     }
 

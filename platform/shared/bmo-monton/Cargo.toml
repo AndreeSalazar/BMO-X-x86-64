@@ -1,0 +1,11 @@
+[package]
+name = "bmo-monton"
+version = "0.1.0"
+edition = "2021"
+description = "El monton de BMO-X: una lista de libres alineada a 16 sobre bloques de KIND_MEMORIA, o sobre UN bloque ya dado (la region de PROTON-X). Puro: el respaldo lo pone quien lo usa."
+license = "Apache-2.0"
+
+# Sin dependencias, como `bmo-registro`: existe para poder PROBARSE en el
+# anfitrion y para que Ring 3 lo enlace (lo puro solo depende de lo puro). Lo
+# que pide bloques al kernel (`SyscallBackend`) vive en `bmo-rt`.
+[dependencies]

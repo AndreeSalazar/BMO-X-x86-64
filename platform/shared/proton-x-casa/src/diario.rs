@@ -187,12 +187,22 @@ struct Estado {
     texto: Vec<u8>,
     vistas: u32,
     lleno: bool,
+    /// **La ultima foto del pulso** (03-10): va SIEMPRE al final del fichero.
+    /// Hasta hoy se escribia en una copia aparte, y la siguiente funcion nueva
+    /// reescribia el diario sin ella: en el metal (02-10) no quedo ninguna.
+    foto: Vec<u8>,
+    /// Donde se junta `texto` + `foto` para escribirlos, con sitio de sobra
+    /// apartado: lo que usa [`al_morir`], que no puede pedir memoria.
+    salida: Vec<u8>,
 }
+
+/// Lo que se aparta en [`Estado::salida`] para un panico: su linea.
+const SOBRA_PARA_MORIR: usize = 1024;
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea, hilos cooperativos; se lee y escribe en el acto.
 unsafe impl Sync for Global {}
-static ESTADO: Global = Global(UnsafeCell::new(Estado { ruta: None, puestos: Vec::new(), texto: Vec::new(), vistas: 0, lleno: false }));
+static ESTADO: Global = Global(UnsafeCell::new(Estado { ruta: None, puestos: Vec::new(), texto: Vec::new(), vistas: 0, lleno: false, foto: Vec::new(), salida: Vec::new() }));
 
 fn estado() -> &'static mut Estado {
     // SAFETY: ver `Global`; nadie guarda la referencia.
@@ -211,6 +221,8 @@ pub fn diario(ruta: Option<&[u8]>) {
     e.texto = CABECERA.to_vec();
     e.vistas = 0;
     e.lleno = false;
+    e.foto.clear();
+    e.salida.clear();
     // SAFETY: ver `Notas`.
     unsafe { *NOTAS.0.get() = 0 };
     // SAFETY: una tarea (ver `Global`); nadie salta por un trampolin ahora.
@@ -271,10 +283,43 @@ extern "win64" fn primera(i: u32) {
     let hilo = crate::kernel32::get_current_thread_id();
     let linea = alloc::format!("{:>5} {:>5} {dll} {f}\n", e.vistas, hilo);
     e.texto.extend_from_slice(linea.as_bytes());
-    if let Some(r) = &e.ruta {
-        if !(plataforma().escribir_fichero)(r, &e.texto) {
-            aviso("diario: no se pudo escribir el fichero");
+    if !volcar(e) {
+        aviso("diario: no se pudo escribir el fichero");
+    }
+}
+
+/// **El diario al fichero**: lo apuntado y, detras, la ultima foto. Deja
+/// apartado en `salida` el sitio para [`al_morir`]. `true` si se escribio (o
+/// si esta apagado).
+fn volcar(e: &mut Estado) -> bool {
+    let Some(r) = &e.ruta else { return true };
+    e.salida.clear();
+    e.salida.reserve(e.texto.len() + e.foto.len() + SOBRA_PARA_MORIR);
+    e.salida.extend_from_slice(&e.texto);
+    e.salida.extend_from_slice(&e.foto);
+    (plataforma().escribir_fichero)(r, &e.salida)
+}
+
+/// **Al morir de panico** (03-10): lo que habia --lo apuntado y la ultima
+/// foto-- y el motivo, SIN pedir memoria (el panico puede ser justo que no
+/// queda): se junta en el sitio que `volcar` dejo apartado. Si el motivo no
+/// cabe, va sin el. Con el diario apagado, nada.
+pub fn al_morir(motivo: &[u8]) {
+    let e = estado();
+    let Some(r) = &e.ruta else { return };
+    let cabe = e.texto.len() + e.foto.len() + motivo.len() + 16;
+    e.salida.clear();
+    if cabe <= e.salida.capacity() {
+        e.salida.extend_from_slice(&e.texto);
+        e.salida.extend_from_slice(&e.foto);
+        e.salida.extend_from_slice(b"# PANICO: ");
+        e.salida.extend_from_slice(motivo);
+        if !motivo.ends_with(b"\n") {
+            e.salida.push(b'\n');
         }
+        let _ = (plataforma().escribir_fichero)(r, &e.salida);
+    } else {
+        let _ = (plataforma().escribir_fichero)(r, &e.texto);
     }
 }
 
@@ -284,12 +329,16 @@ extern "win64" fn primera(i: u32) {
 /// diario, con quien las hizo. Con el diario apagado, nada.
 pub fn al_salir(codigo: u32) {
     let e = estado();
-    let Some(r) = e.ruta.clone() else { return };
+    if e.ruta.is_none() {
+        return;
+    }
     let mut t = alloc::format!("# saliendo con {codigo:#x}\n");
     t.push_str(&crate::pulso::texto((plataforma().ahora_ns)()));
     t.push_str(&ultimas(ANILLO));
     e.texto.extend_from_slice(t.as_bytes());
-    let _ = (plataforma().escribir_fichero)(&r, &e.texto);
+    // La foto de la salida es mas nueva que la ultima del pulso: esa sobra.
+    e.foto.clear();
+    let _ = volcar(e);
 }
 
 /// Cuantas llamadas del `.exe` van (las que pasaron por un trampolin).
@@ -329,14 +378,17 @@ pub(crate) fn ultima_de(id: u32) -> Option<String> {
     (0..n).map(|k| (cuenta as usize + ANILLO - k) % ANILLO).find(|&j| hilos[j] == id).map(|j| alloc::format!("{} <- {}", nombre(anillo[j]), crate::pulso::donde(vueltas[j])))
 }
 
-/// **El diario y, detras, `extra`** (la foto del pulso), al fichero: la foto
-/// no se queda en el texto, la siguiente la reemplaza.
+/// **La foto del pulso**: se queda al final del fichero --tambien cuando el
+/// `.exe` llama a una funcion nueva y el diario se reescribe-- hasta que la
+/// siguiente la reemplaza.
 pub(crate) fn escribir_con(extra: &str) {
     let e = estado();
-    let Some(r) = &e.ruta else { return };
-    let mut v = e.texto.clone();
-    v.extend_from_slice(extra.as_bytes());
-    if !(plataforma().escribir_fichero)(r, &v) {
+    if e.ruta.is_none() {
+        return;
+    }
+    e.foto.clear();
+    e.foto.extend_from_slice(extra.as_bytes());
+    if !volcar(e) {
         aviso("diario: no se pudo escribir la foto del pulso");
     }
 }

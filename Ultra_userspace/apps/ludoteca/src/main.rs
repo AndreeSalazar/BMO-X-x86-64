@@ -167,7 +167,7 @@ pub extern "C" fn _start() -> ! {
         bmo::salir();
     };
     // SAFETY: el bloque es nuestro, mide PARA_MONTON y vive lo que el proceso.
-    unsafe { MONTON.poner(bloque.base() as usize, PARA_MONTON as usize) };
+    unsafe { MONTON.poner(bloque.base() as usize, PARA_MONTON as usize, bloque.handle()) };
     core::mem::forget(bloque);
     let Some(mut win) = Window::open(ANCHO, ALTO) else {
         say("LUDOTECA: NO -- sin ventana (no hay memoria, o nadie me lanzo)\n");

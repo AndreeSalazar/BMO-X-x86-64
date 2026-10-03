@@ -1,71 +1,105 @@
-//! **El monton de PROTON-X**: un bloque, y un cursor que solo avanza.
+//! **El monton de PROTON-X**: un bloque, y la lista de libres de
+//! `bmo-monton` encima (03-10). Lo usa tambien la LUDOTECA (`#[path]`).
 //!
-//! El cargador (`bmo-proton-x`) usa `alloc` -- el `.exe` leido, la imagen, la
-//! lista de importaciones -- y en Ring 3 de BMO-X no hay asignador: el kernel
-//! da BLOQUES enteros (`KIND_MEMORIA`) y el proceso decide. Para cargar un
-//! `.exe` basta lo mas simple que existe: pedir un bloque una vez y repartirlo
-//! hacia delante. `dealloc` no devuelve nada; el bloque entero muere con el
-//! proceso. El `HeapAlloc` del `.exe` es OTRO monton, el suyo, que si
-//! devuelve (P4e: `bmo_proton_x::monton`, en arenas de `Plataforma::memoria`).
+//! [carril]  VERDE     reparte el bloque del proceso; no pide nada al kernel
+//! [cuesta]  MAQUINA   un trozo mal dado pisa a la casa entera
+//! [riesgo]  SILENCIO  un trozo mal contado no falla: da memoria de otro. La
+//!                     lista se prueba en el anfitrion (`bmo-monton`)
+//! [consumo] NADA      solo cuando la casa pide o suelta memoria
+//!
+//! # Por que cambio
+//!
+//! Hasta el 03-10 era un CURSOR QUE SOLO AVANZA: pedir lo movia y soltar no
+//! hacia nada. Se escribio cuando PROTON-X solo cargaba un `.exe` ("el `.exe`
+//! de P1 no crea ninguno"); hoy encima vive la casa entera -- las listas de
+//! ordenes de D3D12 que se graban cada fotograma, los sombreadores que se
+//! leen y se compilan, los textos de cada aviso --, y cada temporal soltado
+//! se perdia. En el metal (02-10) Cyberpunk lo lleno al empezar a crear PSO:
+//! `memory allocation of 48 bytes failed; monton 50331640 B`.
+//!
+//! Las texturas y los buferes del `.exe` NO viven aqui (tanda 44: memoria del
+//! proceso, `memoria::pedir_paginas`): esto es la casa por dentro.
+//!
+//! # Lo que se queda igual
+//!
+//! UN bloque, pedido una vez (`poner`): el kernel da ocho por proceso y los
+//! sombreadores sellados tambien los quieren. Y lo grande (64 KiB o mas)
+//! empieza en PAGINA (P3b4c, 28-09): el back buffer de la casa es un
+//! `Vec<u32>` de aqui, y la 3060 solo dibuja en un destino que empieza en
+//! pagina (el kernel lo presta por la IOMMU de pagina en pagina).
 
+use bmo_monton::{FreelistAllocator, Region};
 use core::alloc::{GlobalAlloc, Layout};
-use core::cell::UnsafeCell;
 
-pub struct Monton {
-    /// (inicio, cursor, fin). Todo a 0 hasta [`Monton::poner`].
-    estado: UnsafeCell<(usize, usize, usize)>,
+/// Desde aqui, un trozo empieza en pagina.
+const GRANDE: usize = 1 << 16;
+
+pub struct Monton(FreelistAllocator<Region>);
+
+/// La alineacion de verdad de un trozo de `bytes` que pide `alinea`.
+fn alineacion(bytes: usize, alinea: usize) -> usize {
+    if bytes >= GRANDE {
+        alinea.max(4096)
+    } else {
+        alinea
+    }
 }
-
-// SAFETY: PROTON-X corre en UN hilo (el `.exe` de P1 no crea ninguno).
-unsafe impl Sync for Monton {}
 
 impl Monton {
     pub const fn vacio() -> Self {
-        Monton {
-            estado: UnsafeCell::new((0, 0, 0)),
-        }
+        Monton(FreelistAllocator::new_with(Region::vacia()))
     }
 
-    /// Da al monton el bloque `[base, base + bytes)`.
+    /// Da al monton el bloque `[base, base + bytes)`, con su HANDLE (el
+    /// ticket del kernel: con el, el monton sabe nombrar su bloque).
     ///
     /// # Safety
-    /// El bloque es de este proceso, vive hasta que el proceso muere, y nadie
-    /// mas lo usa.
-    pub unsafe fn poner(&self, base: usize, bytes: usize) {
-        *self.estado.get() = (base, base, base + bytes);
+    /// El bloque es de este proceso, vive hasta que el proceso muere, nadie
+    /// mas lo usa, y se pone UNA vez antes de pedir nada.
+    pub unsafe fn poner(&self, base: usize, bytes: usize, handle: u64) {
+        self.0.backend().poner(base, bytes, handle);
     }
 
-    /// Lo gastado, para decirlo.
+    /// Lo que esta dado AHORA (antes era todo lo que se dio alguna vez).
     pub fn gastado(&self) -> usize {
-        let (inicio, cursor, _) = unsafe { *self.estado.get() };
-        cursor - inicio
+        self.0.en_uso()
+    }
+
+    /// Lo mas que llego a estar dado.
+    #[allow(dead_code)]
+    pub fn pico(&self) -> usize {
+        self.0.pico()
+    }
+
+    /// Lo que mide el bloque.
+    #[allow(dead_code)]
+    pub fn medida(&self) -> usize {
+        self.0.backend().bytes()
     }
 }
 
 unsafe impl GlobalAlloc for Monton {
     unsafe fn alloc(&self, l: Layout) -> *mut u8 {
-        let e = &mut *self.estado.get();
-        // ** Lo GRANDE (64 KiB o mas) empieza en PAGINA (P3b4c, 28-09): el
-        // back buffer de la casa es un `Vec<u32>` de aqui, y la 3060 solo
-        // dibuja en un destino que empieza en pagina (el kernel lo presta
-        // por la IOMMU de pagina en pagina). Cuesta como mucho 4 KiB por
-        // cosa grande; lo chico sigue con su alineacion.
-        let alinea = if l.size() >= 1 << 16 {
-            l.align().max(4096)
-        } else {
-            l.align()
-        };
-        let dir = (e.1 + alinea - 1) & !(alinea - 1);
-        match dir.checked_add(l.size()) {
-            Some(fin) if e.0 != 0 && fin <= e.2 => {
-                e.1 = fin;
-                dir as *mut u8
-            }
-            // Nulo: `alloc` lo convierte en `handle_alloc_error`, que acaba en
-            // el `panic_handler` y se dice.
-            _ => core::ptr::null_mut(),
-        }
+        // Nulo: `alloc` lo convierte en `handle_alloc_error`, que acaba en el
+        // `panic_handler` y se dice.
+        self.0.allocate_aligned(l.size(), alineacion(l.size(), l.align()))
     }
 
-    unsafe fn dealloc(&self, _p: *mut u8, _l: Layout) {}
+    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
+        self.0.deallocate(p, l)
+    }
+
+    unsafe fn realloc(&self, p: *mut u8, l: Layout, nuevo: usize) -> *mut u8 {
+        let alinea = alineacion(nuevo, l.align());
+        // Cabe donde esta, y con la alineacion que pide su medida nueva.
+        if nuevo <= self.0.usable(p) && p as usize % alinea == 0 {
+            return p;
+        }
+        let q = self.0.allocate_aligned(nuevo, alinea);
+        if !q.is_null() {
+            core::ptr::copy_nonoverlapping(p, q, l.size().min(nuevo));
+            self.0.deallocate(p, l);
+        }
+        q
+    }
 }

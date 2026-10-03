@@ -88,6 +88,10 @@ members = [
     # sus veces (xN), y las series de las graficas. Del DIRECTOR (CABINA, F7);
     # vive aqui para PROBARSE.
     "platform/shared/bmo-registro",
+    # EL MONTON: la lista de libres de BMO-X (alineada, que junta lo soltado)
+    # y la region fija con su handle. De `bmo-rt` y de PROTON-X; vive aqui
+    # porque es puro y para PROBARSE (03-10).
+    "platform/shared/bmo-monton",
     # FRAPS-X: los fotogramas por SEGUNDO (el ritmo cuenta miradas, no tiempo),
     # el peor de cada segundo y el banco con sus bajos del 1 % y el 0,1 %.
     "platform/shared/bmo-fraps",

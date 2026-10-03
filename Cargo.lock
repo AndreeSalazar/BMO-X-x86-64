@@ -569,6 +569,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-monton"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-net"
 version = "0.1.0"
 
@@ -672,6 +676,7 @@ name = "bmo-rt"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+ "bmo-monton",
 ]
 
 [[package]]
