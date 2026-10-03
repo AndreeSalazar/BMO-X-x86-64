@@ -450,9 +450,18 @@ cadena S1, la fraccion S2, el mezclador S3, el maestro S4c y las voces S4d.
 
 ## 3A. Medir lo que pide el juego
 
-- [ ] A0.1 -- El censo EN VIVO clase `sonido` y el diario de P0.3: WASAPI
+- [x] A0.1 -- El censo EN VIVO clase `sonido` y el diario de P0.3: WASAPI
   (`MMDevAPI`, `IAudioClient`), XAudio2, o los dos. **Como se sabe:** una
   tabla aqui, medida.
+
+  ```text
+     medido en el metal el 03-10 (cuarta corrida, SYSPROTO y DIARIO)
+     WASAPI    SI: CoCreateInstance {BCDE0395-E52F-467C-8E3D-C4579291692E}
+               = CLSID_MMDeviceEnumerator, y la casa no la tiene: SIN SONIDO
+     XAudio2   no: ni LoadLibrary de xaudio2_*.dll ni importacion
+     Bink      bink2w64.dll levanta sus dos hilos: sus videos (la entrada)
+               cuelgan del RELOJ del sonido (A1.4)
+  ```
 - [ ] A0.2 -- El formato que pide el juego (canales, frecuencia, bits) y su
   periodo.
 
@@ -669,6 +678,21 @@ por OTRA cosa:
   nombres, y lo compilado se comparte entre los PSO con el mismo VS, PS y
   layout (`enlaces.rs`, llave: la huella de 16 bytes del contenedor): al
   acertar no se lee ni el DXIL. El pulso dice cuantos enlaces distintos hay.
+
+**Estado al 03-10, cuarta corrida: nivel 4, sin morir de monton.** N4.3
+funciono: 1065 PSO en 27 ms con solo **119 enlaces distintos** (los demas se
+comparten), de los que 12 se pueden correr hoy. Vivo a los 14,6 s con ~30
+hilos y 637.000 llamadas por segundo, y paso de donde se quedaba: enumera
+monitores y modos (`EnumDisplayMonitors`, `EnumDisplaySettingsW`), coloca su
+ventana (`SetWindowPos`) y arranca los hilos de **Bink** (la entrada en
+video). Todavia 0 ExecuteCommandLists y 0 Present: no dibujo nada. Despues
+cayo con un fallo de Ring 3 (en `datos/fallos.txt`, pendiente de leer):
+
+- [ ] **N4.4 -- el fallo de Ring 3 tras los ~15 s**: leer `datos/fallos.txt`
+  de la cuarta corrida (la direccion, el modulo y la instruccion).
+- [ ] **N4.5 -- el sonido del juego**: pide WASAPI y la casa no lo tiene
+  (A0.1 medido); A1.1 a A1.4 de la seccion 3, con el reloj del sonido del
+  que cuelga la entrada en video.
 
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:
