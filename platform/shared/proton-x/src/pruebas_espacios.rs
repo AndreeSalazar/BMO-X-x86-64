@@ -168,3 +168,34 @@ fn un_pixel_de_dxc_lee_los_tres_buferes() {
     ps.correr_con(&[[0.0; 4], i], &[], &Recursos::NINGUNO, &mut sal, &mut regs);
     assert_eq!(sal[0], [0.0; 4]);
 }
+
+const MATES_PS: &[u8] = include_bytes!("../prueba/mates.dxil");
+
+/// *** N5.6: `mates.hlsl` (de `dxc`) usa las doce operaciones que pedian
+/// los sombreadores de Cyberpunk en el metal (sin, cos, tan, exp2, log2,
+/// frac, los cuatro redondeos y los medios floats). Corrido en la casa, da lo
+/// que da la `libm` del anfitrion (dentro de los ULP que D3D permite).
+#[test]
+fn un_pixel_de_dxc_hace_la_matematica_que_faltaba() {
+    extern crate std;
+    use crate::dxil::programa::compilar;
+    let ps = compilar(&dxil::leer(MATES_PS).unwrap()).unwrap();
+    assert_eq!(ps.ops.iter().filter(|o| matches!(o, Op::Mate { .. })).count(), 12, "{:?}", ps.ops);
+    let x = [1.25f32, -2.75, 0.5, 3.3];
+    let u = 0x3C00u32; // el half de 1.0
+    let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
+    ps.correr(&[[0.0; 4], x, [f32::from_bits(u), 0.0, 0.0, 0.0]], &[], &mut sal, &mut regs);
+    let cerca = |a: f32, b: f32, que: &str| assert!((a - b).abs() <= 1e-6 * b.abs().max(1.0), "{que}: {a} vs {b}");
+    cerca(sal[0][0], x[0].sin(), "sin");
+    cerca(sal[0][1], x[1].cos(), "cos");
+    cerca(sal[0][2], x[2].tan(), "tan");
+    cerca(sal[0][3], x[3].exp2(), "exp2");
+    cerca(sal[1][0], x[0].log2(), "log2");
+    assert_eq!(sal[1][1], x[1] - x[1].floor(), "frac de HLSL");
+    assert_eq!(sal[1][2], x[2].round_ties_even(), "round: 0.5 al par, 0");
+    assert_eq!(sal[1][3], x[3].floor());
+    assert_eq!(sal[2][0], x[0].ceil());
+    assert_eq!(sal[2][1], x[1].trunc());
+    assert_eq!(sal[2][2], 1.0, "f16tof32(0x3C00)");
+    assert_eq!(sal[2][3].to_bits(), 0x3800, "f32tof16(0.5)");
+}

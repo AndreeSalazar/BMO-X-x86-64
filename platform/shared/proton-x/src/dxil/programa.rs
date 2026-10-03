@@ -148,6 +148,9 @@ pub enum Op {
     Sqrt { d: Reg, a: Reg },
     Saturate { d: Reg, a: Reg },
     Abs { d: Reg, a: Reg },
+    /// N5.6: sin, cos, tan, exp2, log2, frac, los redondeos y los medios
+    /// floats (`crate::mates`), sobre los BITS del registro.
+    Mate { d: Reg, a: Reg, f: crate::mates::Mate },
     Min { d: Reg, a: Reg, b: Reg },
     Max { d: Reg, a: Reg, b: Reg },
     /// `Sample`: la textura `t` (el registro tN) con el muestreador `s` (sN)
@@ -546,6 +549,7 @@ impl Programa {
                 Op::Sqrt { d, a } => regs[d as usize] = raiz(regs[a as usize]),
                 Op::Saturate { d, a } => regs[d as usize] = saturar(regs[a as usize]),
                 Op::Abs { d, a } => regs[d as usize] = f32::from_bits(regs[a as usize].to_bits() & 0x7FFF_FFFF),
+                Op::Mate { d, a, f } => regs[d as usize] = f32::from_bits(f.aplicar(regs[a as usize].to_bits())),
                 // FMin/FMax de D3D: si uno es NaN, el otro.
                 Op::Min { d, a, b } => {
                     let (x, y) = (regs[a as usize], regs[b as usize]);
@@ -702,7 +706,6 @@ pub(super) enum Valor {
     CuatroEnteros(Reg),
     /// Lo que devuelve CBufferLoadLegacy: 4 floats seguidos.
     Cuatro(Reg),
-    /// El handle de un cbuffer.
     /// El handle de un cbuffer: su ranura.
     Cbuffer(u8),
     /// El handle de una textura (su registro tN) o de un muestreador (sN).
@@ -1182,6 +1185,15 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             let d = c.registro(0.0)?;
             c.ops.push(Op::Dot { d, n: n as u8, a, b });
             Valor::Float(d)
+        }
+        // N5.6: la matematica (`crate::mates`). f16tof32 lee un entero; f32tof16
+        // da uno (sus bits); las demas, float a float.
+        _ if crate::mates::Mate::de_dxil(op).is_some() => {
+            let f = crate::mates::Mate::de_dxil(op).unwrap_or(crate::mates::Mate::Frac);
+            let a = if f == crate::mates::Mate::F16aF32 { super::estructura::bits(c, arg(1)?)? } else { c.float(arg(1)?)? };
+            let d = c.registro(0.0)?;
+            c.ops.push(Op::Mate { d, a, f });
+            if f == crate::mates::Mate::F32aF16 { Valor::Bits(d) } else { Valor::Float(d) }
         }
         DX_RSQRT => uno(c, |d, a| Op::Rsqrt { d, a })?,
         DX_SQRT => uno(c, |d, a| Op::Sqrt { d, a })?,

@@ -750,9 +750,11 @@ la proxima corrida del metal dice cual pesa mas:
 - [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
   no es una constante. Hoy el sombreador no compila; pide que la ranura sea
   un RANGO y no un lugar.
-- [ ] **N5.6 -- la matematica que falta**: sin, cos, tan, exp, log, frac,
-  los redondeos y f16tof32, en el interprete (sin `libm`: Ring 3 no la
-  tiene) y en el emisor de la 3060 (MUFU).
+- [x] **N5.6 -- la matematica que falta** (03-10): sin, cos, tan, exp2,
+  log2, frac, los cuatro redondeos y los medios floats, en el interprete
+  (`proton-x/src/mates.rs`, sin `libm`; contra la del anfitrion y los
+  65.536 halfs ida y vuelta), probado con `prueba/mates.dxil`. En la 3060
+  (MUFU) todavia no: esos sombreadores van por la CPU (N6.1).
 - [ ] **N5.7 -- discard**: el pixel no se escribe (la trama lo salta).
 - [ ] **N5.8 -- mas de un render target** (hasta 8): el G-buffer de
   Cyberpunk; hoy el PSO entero se niega.

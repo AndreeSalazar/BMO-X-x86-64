@@ -62,7 +62,7 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
                 v[2 * j + 1] = Some(b[j]);
             }
         }
-        Op::Rsqrt { a, .. } | Op::Sqrt { a, .. } | Op::Saturate { a, .. } | Op::Abs { a, .. } | Op::Copia { a, .. } | Op::Convierte { a, .. } => v[0] = Some(a),
+        Op::Rsqrt { a, .. } | Op::Sqrt { a, .. } | Op::Saturate { a, .. } | Op::Abs { a, .. } | Op::Mate { a, .. } | Op::Copia { a, .. } | Op::Convierte { a, .. } => v[0] = Some(a),
         Op::Muestra { u, v: vv, .. } => {
             v[0] = Some(u);
             v[1] = Some(vv);
@@ -97,6 +97,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         | Op::Sqrt { d, .. }
         | Op::Saturate { d, .. }
         | Op::Abs { d, .. }
+        | Op::Mate { d, .. }
         | Op::Min { d, .. }
         | Op::Max { d, .. }
         | Op::Compara { d, .. }
