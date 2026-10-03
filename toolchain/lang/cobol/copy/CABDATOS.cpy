@@ -3,6 +3,9 @@
       * La moneda CAB en CENTIMOS ENTEROS: COMP-3, como los datos de un
       * banco. Nada de coma flotante: 19.99 x 3 es 59.97 y no 59.969999.
       *
+      * CAB-SIN-DISCO (5): el movimiento se hizo en memoria pero el libro
+      * no se pudo guardar (BC4). Se dice: no se calla.
+      *
       * Es la "firma" de la libreria: el programa pone el importe en
       * CAB-IMPORTE (y si hace falta las veces en CAB-VECES), hace PERFORM
       * de un parrafo de CABLIBRO y mira CAB-ESTADO. Sin CALL todavia
@@ -21,3 +24,4 @@
            88  CAB-SIN-SALDO      VALUE 2.
            88  CAB-IMPORTE-MALO   VALUE 3.
            88  CAB-DESCUADRE      VALUE 4.
+           88  CAB-SIN-DISCO      VALUE 5.

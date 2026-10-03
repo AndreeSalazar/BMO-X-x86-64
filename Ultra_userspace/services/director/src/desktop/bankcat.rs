@@ -16,9 +16,10 @@
 //!    el escritorio   0x1E bank 0 124003              (a la consola de la app)
 //! ```
 //!
-//! ** Un motor VIVO, no uno por pregunta: el libro esta en su memoria. Vive
-//! lo que vive el escritorio; guardarlo en el disco es BC4. Al nacer, el
-//! libro se abre con la BIENVENIDA (CAB de juego: circuito cerrado, D1).
+//! ** Un motor VIVO, no uno por pregunta. Al nacer CARGA el libro de
+//! `bankcat.dat` y lo reescribe tras cada movimiento (BC4); la BIENVENIDA
+//! (CAB de juego: circuito cerrado, D1) solo abre un libro que no existia --
+//! abrir uno que ya hay no lo pisa.
 
 use bmo_bankcat::{escribir, Centimos, Charla, Orden};
 use bmo_userland as bmo;
@@ -139,12 +140,12 @@ pub(crate) fn drenar(dsk: &mut Desktop) {
         }
     }
     // Un motor que se fue debiendo respuestas: se dice, y el siguiente
-    // pedido lanza otro (con un libro nuevo: BC4 es guardarlo).
+    // pedido lanza otro, que carga el libro del disco.
     if !leido && !c.has_child() {
         b.consola = None;
         b.esperando = 0;
         if let Some(cc) = dsk.out.console.as_ref() {
-            cc.write(b"\x1Ebank no el motor se fue; el siguiente pedido abre un libro nuevo\n");
+            cc.write(b"\x1Ebank no el motor se fue; el siguiente pedido lo vuelve a lanzar\n");
         }
     }
 }

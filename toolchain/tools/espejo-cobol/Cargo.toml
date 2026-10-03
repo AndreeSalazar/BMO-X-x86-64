@@ -1,0 +1,17 @@
+[package]
+name = "bmo-espejo-cobol"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "ESPEJO de COBOL: BMO COBOL contra GnuCOBOL, programa a programa, EJECUTADOS. CM0 de PLAN_COBOL_MAESTRO."
+
+# Herramienta de ANFITRION, como el ESPEJO de C: compila con el emisor de
+# verdad, ejecuta en el emulador de x86-64, y llama a GnuCOBOL (`cobc`) si esta.
+[dependencies]
+bmo-cobol-front = { path = "../../lang/cobol" }
+bmo-cobol-x86-64 = { path = "../../lang/cobol/emisor-x86_64" }
+bmo-lower = { path = "../../forge/bmo-lower", features = ["emulator"] }
+
+[[bin]]
+name = "espejo-cobol"
+path = "src/main.rs"

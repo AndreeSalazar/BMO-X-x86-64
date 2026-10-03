@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 60 planes
+# LO QUE FALTA -- las casillas abiertas de los 61 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   541 casillas ABIERTAS en 51 planes
-   390 hechas
+   548 casillas ABIERTAS en 52 planes
+   391 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -204,6 +204,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
 
+## [`PLAN_COBOL_MAESTRO.md`](PLAN_COBOL_MAESTRO.md) -- 8 abiertas, 1 hechas
+
+*PLAN COBOL MAESTRO -- un FRONTEND bien hecho, y el x86-64 aparte*
+
+- [ ] CM1 -- los fallos que el espejo ya muestra. El MOVE que no trunca
+- [ ] CM2 -- el parser de TOKENS como principal (0.2). Sentencias que
+- [ ] CM3 -- la SEMANTICA, en el frontend. Un crate agnostico que
+- ... y 5 mas
+
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 8 hechas
 
 *PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
@@ -393,14 +402,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 6. ENTREGAR EN CERO. Mover el borrado del devolver al entregar, UNA
 - ... y 1 mas
 
-## [`PLAN_BANK_CAT.md`](PLAN_BANK_CAT.md) -- 3 abiertas, 3 hechas
-
-*PLAN BANK CAT -- la cartera de CAB, llevada por COBOL (F5)*
-
-- [ ] BC4 -- el libro en el DISCO. Hoy el motor lo lleva en memoria.
-- [ ] BC5 -- entre amigos, por HERMES (pide H6): un movimiento firmado
-- [ ] BC6 -- el CAJERO (decision D1 del propietario).
-
 ## [`PLAN_EL_SILICIO.md`](PLAN_EL_SILICIO.md) -- 3 abiertas, 5 hechas
 
 *PLAN EL SILICIO*
@@ -431,6 +432,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] A1 -- SET_INTERFACE -- ⛔ EL RYZEN LO NEGO. Corregido el 26-08, sin ejecutar
 - [ ] A1 SET_INTERFACE EL METAL LO NEGO; corregido 26-08
+
+## [`PLAN_BANK_CAT.md`](PLAN_BANK_CAT.md) -- 2 abiertas, 3 hechas
+
+*PLAN BANK CAT -- la cartera de CAB, llevada por COBOL (F5)*
+
+- [ ] BC5 -- entre amigos, por HERMES (pide H6): un movimiento firmado
+- [ ] BC6 -- el CAJERO (decision D1 del propietario).
 
 ## [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md) -- 2 abiertas, 4 hechas
 

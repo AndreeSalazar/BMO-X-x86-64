@@ -67,3 +67,42 @@ fn el_wrapper_y_el_motor_hablan_el_mismo_idioma() {
     let hecho = |saldo| Respuesta { estado: Estado::Hecho, saldo };
     assert_eq!(r, [hecho(125_000), hecho(130_000), hecho(130_000), hecho(124_003), Respuesta { estado: Estado::SinSaldo, saldo: 124_003 }, hecho(124_003)]);
 }
+
+/// El motor con DISCO (BC4): `libro` es lo que ya habia en `bankcat.dat`,
+/// y `sin_disco` hace que el disco se niegue a guardar. Devuelve lo que
+/// contesto y lo que quedo escrito.
+fn motor_con_disco(ordenes: &str, libro: Option<&str>, sin_disco: bool) -> (Vec<String>, Option<String>) {
+    use bmo_lower::emu::{run, Machine};
+    let src = bmo_cobol_front::copia::expandir(LIBRO, &mut libreria).unwrap();
+    let bef = crate::compile_source_to_bef(&src).expect("el motor compila");
+    let mut m = Machine::new(code_section(&bef));
+    m.poner_entrada(ordenes);
+    if let Some(l) = libro {
+        m.poner_archivo("bankcat.dat", l.as_bytes());
+    }
+    if sin_disco {
+        m.fallar_al_guardar("bankcat.dat");
+    }
+    let m = run(m, 2_000_000);
+    assert!(m.exited, "el motor tiene que acabar");
+    (m.console.lines().map(str::to_string).collect(), m.archivo_texto("bankcat.dat"))
+}
+
+/// ** EL LIBRO SOBREVIVE A UN REINICIO (BC4): el segundo motor carga lo que
+/// dejo el primero, y ABRIR no lo pisa.
+#[test]
+fn el_libro_sobrevive_al_reinicio() {
+    let (r, libro) = motor_con_disco("1\n1250.00\n3\n19.99\n9\n0\n", None, false);
+    assert_eq!(r, ["0", "1250.00", "0", "1230.01", "0", "1230.01"]);
+    let libro = libro.expect("el libro quedo en el disco");
+    // Otro arranque: abrir NO pisa (contesta el saldo), cobrar y cuadrar.
+    let (r, _) = motor_con_disco("1\n1250.00\n2\n10.00\n9\n0\n", Some(&libro), false);
+    assert_eq!(r, ["0", "1230.01", "0", "1240.01", "0", "1240.01"], "libro: {libro:?}");
+}
+
+/// Si el disco no guarda, el movimiento se hizo en memoria y se DICE (5).
+#[test]
+fn si_el_disco_no_guarda_se_dice() {
+    let (r, _) = motor_con_disco("1\n100.00\n2\n5.00\n9\n0\n", None, true);
+    assert_eq!(r, ["5", "100.00", "5", "105.00", "0", "105.00"]);
+}

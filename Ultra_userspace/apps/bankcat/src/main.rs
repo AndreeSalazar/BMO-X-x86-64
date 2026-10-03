@@ -166,6 +166,10 @@ impl App {
         self.saldo = Some(saldo);
         self.vueltas += 1;
         let k = self.vueltas % 3;
+        // Sin disco (5): el movimiento SI se hizo, y se avisa de que el libro
+        // no quedo guardado.
+        let sin_disco = estado == Estado::SinDisco;
+        let estado = if sin_disco { Estado::Hecho } else { estado };
         if estado != Estado::Hecho {
             self.humor = Humor::Triste;
             self.humor_desde = ahora;
@@ -182,6 +186,9 @@ impl App {
             self.libro.remove(0);
         }
         self.aviso.clear();
+        if sin_disco {
+            self.aviso.extend_from_slice(Estado::SinDisco.texto().as_bytes());
+        }
     }
 }
 

@@ -6,7 +6,7 @@
       *   CAB-CUADRAR   INICIAL + HABER - DEBE tiene que ser el SALDO
       *
       * CAB-ESTADO dice como fue: 0 hecho, 1 no cabe, 2 sin saldo,
-      * 3 importe malo, 4 descuadre. Un movimiento que no se puede hacer
+      * 3 importe malo, 4 descuadre, 5 hecho pero sin guardar. Un movimiento que no se puede hacer
       * NO toca nada: o entra entero, o no entra.
        CAB-ABRIR.
            MOVE 0 TO CAB-ESTADO.

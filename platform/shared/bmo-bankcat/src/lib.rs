@@ -57,6 +57,9 @@ pub enum Estado {
     SinSaldo,
     ImporteMalo,
     Descuadre,
+    /// Hecho en la memoria del motor, pero el libro NO se guardo en el
+    /// disco (BC4).
+    SinDisco,
 }
 
 impl Estado {
@@ -67,6 +70,7 @@ impl Estado {
             b'2' => Estado::SinSaldo,
             b'3' => Estado::ImporteMalo,
             b'4' => Estado::Descuadre,
+            b'5' => Estado::SinDisco,
             _ => return None,
         })
     }
@@ -79,6 +83,7 @@ impl Estado {
             Estado::SinSaldo => "no hay saldo: el gato no fia",
             Estado::ImporteMalo => "ese importe no vale",
             Estado::Descuadre => "EL LIBRO NO CUADRA",
+            Estado::SinDisco => "hecho, pero el libro NO se guardo en el disco",
         }
     }
 }
@@ -374,9 +379,9 @@ mod pruebas {
 
     #[test]
     fn todo_estado_tiene_su_frase() {
-        for c in b'0'..=b'4' {
+        for c in b'0'..=b'5' {
             assert!(!Estado::de(c).unwrap().texto().is_empty());
         }
-        assert_eq!(Estado::de(b'5'), None);
+        assert_eq!(Estado::de(b'6'), None);
     }
 }

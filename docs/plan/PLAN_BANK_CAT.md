@@ -67,9 +67,17 @@ mismo codigo, el que se puede leer en voz alta.
       saldo dice 1.250,00; "3 x 19,99" lo deja en 1.190,03 y el gato llora;
       cerrar y volver a abrir con F5 sigue en 1.190,03. [!] NO probado en el
       Ryzen.
-- [ ] **BC4 -- el libro en el DISCO.** Hoy el motor lo lleva en memoria.
-      Guardarlo pide `OPEN EXTEND` o `I-O` (3.1 y 3.2 de PLAN_BANCA), o
-      reescribir el fichero entero en cada cierre.
+- [~] **BC4 -- el libro en el DISCO** (03-10). El motor CARGA
+      `bankcat.dat` al nacer (cinco cifras: inicial, haber, debe, saldo,
+      asientos) y lo REESCRIBE entero tras cada movimiento hecho: sin `OPEN
+      EXTEND` ni `I-O` (3.1 y 3.2 de PLAN_BANCA), es lo que hay, y el libro
+      es chico. Abrir con un libro que ya existe no lo pisa (contesta su
+      saldo). Si el disco no guarda, el estado es **5**: hecho en memoria,
+      NO guardado, y la cara lo dice. Probado en el emulador
+      (`el_libro_sobrevive_al_reinicio`, `si_el_disco_no_guarda_se_dice`).
+      [!] Reescribir un fichero que ya existe es 3.0 de PLAN_BANCA (FAT32
+      que REEMPLAZA), escrito y NO probado en el Ryzen. **Como se sabe en el
+      Ryzen:** F5, pagar 19,99, reiniciar la maquina, F5: el saldo sigue.
 - [ ] **BC5 -- entre amigos, por HERMES** (pide H6): un movimiento firmado
       con tu clave y apuntado en LOS DOS libros.
 - [ ] **BC6 -- el CAJERO** (decision D1 del propietario).

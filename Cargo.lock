@@ -240,6 +240,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-espejo-cobol"
+version = "0.1.0"
+dependencies = [
+ "bmo-cobol-front",
+ "bmo-cobol-x86-64",
+ "bmo-lower",
+]
+
+[[package]]
 name = "bmo-estratos"
 version = "0.1.0"
 dependencies = [
