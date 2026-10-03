@@ -130,6 +130,7 @@ members = [
     # HERMES/1 (H2): el saludo Noise XX/IK y los mensajes entre dos BMO-X, sin
     # servidor de nadie. NO es la ANTENA de arriba. Ver PLAN_HERMES.
     "platform/shared/bmo-hermes",
+    "platform/shared/bmo-fondo",
     # H3 de PLAN_HERMES: la carpeta como capacidad. El juez de la RAIZ, puro;
     # el kernel lo aplica en el unico sitio por donde entra una ruta.
     "platform/shared/bmo-raiz-juicio",

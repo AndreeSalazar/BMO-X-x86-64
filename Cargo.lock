@@ -293,6 +293,13 @@ name = "bmo-foco"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-fondo"
+version = "1.0.0"
+dependencies = [
+ "bmo-amplificador",
+]
+
+[[package]]
 name = "bmo-fontgen"
 version = "0.1.0"
 
