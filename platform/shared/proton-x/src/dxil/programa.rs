@@ -129,8 +129,11 @@ pub enum Op {
     Entrada { d: Reg, elemento: u8, componente: u8 },
     /// `salida[elemento][componente] = s`.
     Salida { s: Reg, elemento: u8, componente: u8 },
-    /// Los 4 floats del registro `fila` del cbuffer, en `d..d+4`.
-    Constantes { d: Reg, fila: u16 },
+    /// Los 4 floats del registro `fila` del cbuffer, en `d..d+4`. `cb` es
+    /// su ranura ([`Ranuras::cbuffers`], 03-10, N5.2); tras el enlace,
+    /// `fila` ya es la del bloque APLANADO (`lote::Enlace::constantes`), y
+    /// quien corre el programa solo mira `fila`.
+    Constantes { d: Reg, fila: u16, cb: u8 },
     Mul { d: Reg, a: Reg, b: Reg },
     Add { d: Reg, a: Reg, b: Reg },
     Sub { d: Reg, a: Reg, b: Reg },
@@ -370,6 +373,17 @@ pub struct Lugar {
 pub struct Ranuras {
     pub texturas: Vec<Lugar>,
     pub muestreadores: Vec<Lugar>,
+    /// Los cbuffers (N5.2): b0 ya no es el unico.
+    pub cbuffers: Vec<Lugar>,
+}
+
+/// **Lo que [`Ranuras::unir`] devuelve**: por ranura de las otras, su
+/// ranura en la union; lo que pide [`Programa::renumerar`].
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Mapa {
+    pub texturas: Vec<u8>,
+    pub muestreadores: Vec<u8>,
+    pub cbuffers: Vec<u8>,
 }
 
 impl Ranuras {
@@ -394,9 +408,14 @@ impl Ranuras {
         Self::de(&mut self.muestreadores, Lugar { espacio, registro, vista: 0 })
     }
 
+    /// La del cbuffer.
+    pub fn cbuffer(&mut self, espacio: u32, registro: u32) -> Result<u8, NoPrograma> {
+        Self::de(&mut self.cbuffers, Lugar { espacio, registro, vista: 0 })
+    }
+
     /// **Las de la etapa `vista`**: todas pasan a ser de ella.
     pub fn de_la_etapa(mut self, vista: u32) -> Ranuras {
-        for l in self.texturas.iter_mut().chain(self.muestreadores.iter_mut()) {
+        for l in self.texturas.iter_mut().chain(self.muestreadores.iter_mut()).chain(self.cbuffers.iter_mut()) {
             l.vista = vista;
         }
         self
@@ -405,29 +424,56 @@ impl Ranuras {
     /// **Sumar las de `otras`** (las del de pixeles a las del de vertices):
     /// lo que ya estaba guarda su ranura, lo nuevo va detras. Devuelve, por
     /// ranura de `otras`, su ranura aqui: lo que pide [`Programa::renumerar`].
-    pub fn unir(&mut self, otras: &Ranuras) -> Result<(Vec<u8>, Vec<u8>), NoPrograma> {
-        let t = otras.texturas.iter().map(|&l| Self::de(&mut self.texturas, l)).collect::<Result<Vec<u8>, _>>()?;
-        let s = otras.muestreadores.iter().map(|&l| Self::de(&mut self.muestreadores, l)).collect::<Result<Vec<u8>, _>>()?;
-        Ok((t, s))
+    pub fn unir(&mut self, otras: &Ranuras) -> Result<Mapa, NoPrograma> {
+        let sumar = |v: &mut Vec<Lugar>, de: &[Lugar]| de.iter().map(|&l| Self::de(v, l)).collect::<Result<Vec<u8>, _>>();
+        Ok(Mapa { texturas: sumar(&mut self.texturas, &otras.texturas)?, muestreadores: sumar(&mut self.muestreadores, &otras.muestreadores)?, cbuffers: sumar(&mut self.cbuffers, &otras.cbuffers)? })
     }
 }
 
 impl Programa {
     /// **Renumerar sus texturas y muestreadores** (la ranura `i` pasa a
-    /// `texturas[i]` y `muestreadores[i]`): lo que hace el enlace para que el
-    /// de vertices y el de pixeles compartan UNA tabla.
-    pub fn renumerar(&mut self, texturas: &[u8], muestreadores: &[u8]) {
-        let t = |x: u8| texturas.get(x as usize).copied().unwrap_or(x);
-        let s = |x: u8| muestreadores.get(x as usize).copied().unwrap_or(x);
+    /// `texturas[i]` y `muestreadores[i]`, y lo mismo los cbuffers): lo que
+    /// hace el enlace para que el de vertices y el de pixeles compartan UNA
+    /// tabla.
+    pub fn renumerar(&mut self, m: &Mapa) {
+        let a = |v: &[u8], x: u8| v.get(x as usize).copied().unwrap_or(x);
         for op in &mut self.ops {
             match op {
-                Op::Muestra { t: a, s: b, .. } | Op::Lee { t: a, s: b, .. } => {
-                    *a = t(*a);
-                    *b = s(*b);
+                Op::Muestra { t, s, .. } | Op::Lee { t, s, .. } => {
+                    *t = a(&m.texturas, *t);
+                    *s = a(&m.muestreadores, *s);
                 }
+                Op::Constantes { cb, .. } => *cb = a(&m.cbuffers, *cb),
                 _ => {}
             }
         }
+    }
+
+    /// **Las filas que lee de cada cbuffer** (la mayor mas uno), por ranura,
+    /// sumadas a `filas` (que crece si hace falta).
+    pub fn filas_por_cbuffer(&self, filas: &mut Vec<u16>) {
+        for op in &self.ops {
+            if let Op::Constantes { fila, cb, .. } = *op {
+                if filas.len() <= cb as usize {
+                    filas.resize(cb as usize + 1, 0);
+                }
+                filas[cb as usize] = filas[cb as usize].max(fila + 1);
+            }
+        }
+    }
+
+    /// **Aplanar**: cada fila pasa a su sitio en el bloque de todas las
+    /// constantes (`fila + bases[cb]`), y `filas_cb` a la mayor que lee mas
+    /// uno. Desde aqui, quien corre el programa ve UN cbuffer.
+    pub fn aplanar(&mut self, bases: &[u16]) {
+        let mut filas = 0;
+        for op in &mut self.ops {
+            if let Op::Constantes { fila, cb, .. } = op {
+                *fila += bases.get(*cb as usize).copied().unwrap_or(0);
+                filas = filas.max(*fila + 1);
+            }
+        }
+        self.filas_cb = filas;
     }
 }
 
@@ -593,7 +639,7 @@ impl Programa {
                         e[componente as usize & 3] = regs[s as usize];
                     }
                 }
-                Op::Constantes { d, fila } => {
+                Op::Constantes { d, fila, .. } => {
                     for k in 0..4 {
                         let o = fila as usize * 16 + 4 * k;
                         regs[d as usize + k] = cb.get(o..o + 4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).unwrap_or(0.0);
@@ -773,7 +819,8 @@ pub(super) enum Valor {
     /// Lo que devuelve CBufferLoadLegacy: 4 floats seguidos.
     Cuatro(Reg),
     /// El handle de un cbuffer.
-    Cbuffer,
+    /// El handle de un cbuffer: su ranura.
+    Cbuffer(u8),
     /// El handle de una textura (su registro tN) o de un muestreador (sN).
     Textura(u8),
     Muestreador(u8),
@@ -1134,17 +1181,16 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             let espacio = super::recursos::rango(&c.recursos, clase as u8, rango as u32).map_or(0, |r| r.espacio);
             let registro = indice as u32;
             match clase {
-                2 if espacio == 0 && registro == 0 => Valor::Cbuffer,
-                2 => return Err(NoPrograma::Forma("un cbuffer que no es el b0 del espacio 0: todavia no")),
+                2 => Valor::Cbuffer(c.ranuras.cbuffer(espacio, registro)?),
                 0 => Valor::Textura(c.ranuras.textura(espacio, registro)?),
                 3 => Valor::Muestreador(c.ranuras.muestreador(espacio, registro)?),
                 _ => return Err(NoPrograma::Forma("un UAV (RWTexture, RWBuffer...): todavia no")),
             }
         }
         DX_CBUFFER_LOAD_LEGACY => {
-            if c.valores.get(arg(1)?) != Some(&Valor::Cbuffer) {
+            let Some(&Valor::Cbuffer(cb)) = c.valores.get(arg(1)?) else {
                 return Err(NoPrograma::Forma("CBufferLoadLegacy sin el handle del cbuffer"));
-            }
+            };
             let fila = c.entero(arg(2)?)?;
             if !(0..4096).contains(&fila) {
                 return Err(NoPrograma::Forma("CBufferLoadLegacy con una fila fuera del cbuffer"));
@@ -1154,7 +1200,7 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                 c.registro(0.0)?;
             }
             c.filas_cb = c.filas_cb.max(fila as u16 + 1);
-            c.ops.push(Op::Constantes { d, fila: fila as u16 });
+            c.ops.push(Op::Constantes { d, fila: fila as u16, cb });
             if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) }
         }
         DX_SAMPLE | DX_SAMPLE_BIAS | DX_SAMPLE_LEVEL | DX_SAMPLE_GRAD => {

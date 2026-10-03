@@ -243,7 +243,7 @@ struct Traductor<'a> {
     outs: Vec<[Option<Reg>; 4]>,
     /// Las ya leidas: `v#` por (registro, componente), `cb0[n]` y `l()`.
     leidas: Vec<(u32, u8, Reg)>,
-    filas: Vec<(u32, Reg)>,
+    filas: Vec<((u8, u32), Reg)>,
     literales: Vec<(u32, Reg)>,
     /// E6: el programa salta -- `r#` y `o#` son variables (ver arriba).
     variables: bool,
@@ -317,11 +317,10 @@ impl Traductor<'_> {
             OUTPUT => self.outs.get(r as usize).and_then(|t| t[c as usize]).ok_or(NoPrograma::Forma("un o# que se lee antes de escribirse")),
             IMMEDIATE32 => self.literal(o.inmediato[c as usize]),
             CONSTANT_BUFFER => {
-                if o.indices[0] != 0 {
-                    return Err(NoPrograma::Forma("un cbuffer que no es b0: todavia no"));
-                }
+                // N5.2: cbN es la ranura del cbuffer N (SM5 no tiene espacios).
+                let cb = self.p.ranuras.cbuffer(0, o.indices[0])?;
                 let fila = o.indices[1];
-                let base = match self.filas.iter().find(|x| x.0 == fila) {
+                let base = match self.filas.iter().find(|x| x.0 == (cb, fila)) {
                     Some(&(_, b)) => b,
                     None => {
                         let b = self.nuevo()?;
@@ -329,9 +328,9 @@ impl Traductor<'_> {
                             self.nuevo()?;
                         }
                         let f = u16::try_from(fila).map_err(|_| NoPrograma::Forma("una fila de cbuffer imposible"))?;
-                        self.fija(Op::Constantes { d: b, fila: f });
+                        self.fija(Op::Constantes { d: b, fila: f, cb });
                         self.p.filas_cb = self.p.filas_cb.max(f + 1);
-                        self.filas.push((fila, b));
+                        self.filas.push(((cb, fila), b));
                         b
                     }
                 };
@@ -578,13 +577,8 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
         }
         match codigo {
             CUSTOMDATA => return Err(NoPrograma::Forma("un programa SM5 con datos propios (icb): todavia no")),
-            DCL_CONSTANT_BUFFER => {
-                let mut j = i + 1;
-                let o = operando(t, &mut j)?;
-                if o.indices[0] != 0 {
-                    return Err(NoPrograma::Forma("un cbuffer que no es b0: todavia no"));
-                }
-            }
+            // N5.2 (03-10): cualquier cbN; su ranura la da quien lo lee.
+            DCL_CONSTANT_BUFFER => {}
             // ** Texturas (29-09): 2D y ya. El muestreador se declara con su
             // modo (default o comparacion): la comparacion, todavia no.
             DCL_RESOURCE if (w >> 11) & 0x1F != TEXTURA_2D => return Err(NoPrograma::Forma("una textura SM5 que no es 2D (1D, 3D, cubo, array, buffer...): todavia no")),

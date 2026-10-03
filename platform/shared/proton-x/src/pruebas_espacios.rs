@@ -61,14 +61,76 @@ fn el_enlace_da_a_cada_espacio_su_ranura() {
 fn unir_ranuras_renumera_las_del_de_pixeles() {
     use crate::dxil::programa::{Lugar, Programa, Ranuras};
     let l = |espacio, registro, vista| Lugar { espacio, registro, vista };
-    let mut todas = Ranuras { texturas: vec![l(0, 0, 1), l(1, 5, 0)], muestreadores: vec![l(0, 0, 1)] };
-    let ps = Ranuras { texturas: vec![l(0, 0, 5), l(1, 5, 0)], muestreadores: vec![l(0, 0, 5)] };
-    let (t, s) = todas.unir(&ps).unwrap();
-    assert_eq!((t.as_slice(), s.as_slice()), (&[2u8, 1][..], &[1u8][..]), "el t0 del pixel es otro; el t5 sin etapa, el mismo");
-    let mut p = Programa { ops: vec![Op::Muestra { d: 0, t: 0, s: 0, u: 4, v: 5 }, Op::Muestra { d: 0, t: 1, s: 0, u: 4, v: 5 }], iniciales: vec![0.0; 6], entradas: 0, salidas: 0, lee: 0, filas_cb: 0, ranuras: ps };
-    p.renumerar(&t, &s);
-    assert!(matches!(p.ops[..], [Op::Muestra { t: 2, s: 1, .. }, Op::Muestra { t: 1, s: 1, .. }]), "{:?}", p.ops);
+    let mut todas = Ranuras { texturas: vec![l(0, 0, 1), l(1, 5, 0)], muestreadores: vec![l(0, 0, 1)], cbuffers: vec![l(0, 0, 1)] };
+    let ps = Ranuras { texturas: vec![l(0, 0, 5), l(1, 5, 0)], muestreadores: vec![l(0, 0, 5)], cbuffers: vec![l(0, 3, 5)] };
+    let m = todas.unir(&ps).unwrap();
+    assert_eq!(m.texturas, [2, 1], "el t0 del pixel es otro; el t5 sin etapa, el mismo");
+    assert_eq!((m.muestreadores.as_slice(), m.cbuffers.as_slice()), (&[1u8][..], &[1u8][..]));
+    let mut p = Programa {
+        ops: vec![Op::Muestra { d: 0, t: 0, s: 0, u: 4, v: 5 }, Op::Muestra { d: 0, t: 1, s: 0, u: 4, v: 5 }, Op::Constantes { d: 6, fila: 2, cb: 0 }],
+        iniciales: vec![0.0; 10],
+        entradas: 0,
+        salidas: 0,
+        lee: 0,
+        filas_cb: 3,
+        ranuras: ps,
+    };
+    p.renumerar(&m);
+    assert!(matches!(p.ops[..], [Op::Muestra { t: 2, s: 1, .. }, Op::Muestra { t: 1, s: 1, .. }, Op::Constantes { cb: 1, .. }]), "{:?}", p.ops);
+    // Aplanado: el cbuffer 1 empieza en la fila 7.
+    p.aplanar(&[0, 7]);
+    assert!(matches!(p.ops[2], Op::Constantes { fila: 9, cb: 1, .. }));
+    assert_eq!(p.filas_cb, 10);
     // Mas de 256 lugares distintos: no cabe en un u8, se dice.
-    let mut llena = Ranuras { texturas: (0..256).map(|r| l(0, r, 0)).collect(), muestreadores: vec![] };
-    assert!(llena.unir(&Ranuras { texturas: vec![l(9, 9, 0)], muestreadores: vec![] }).is_err());
+    let mut llena = Ranuras { texturas: (0..256).map(|r| l(0, r, 0)).collect(), ..Default::default() };
+    assert!(llena.unir(&Ranuras { texturas: vec![l(9, 9, 0)], ..Default::default() }).is_err());
+}
+
+const CBUFFERS_PS: &[u8] = include_bytes!("../prueba/cbuffers.dxil");
+
+/// *** N5.2: `cbuffers.hlsl` (de `dxc`) lee b1 (su segunda fila), b2 de
+/// space3 y b0. Cosido, cada uno es un bloque con las filas que se leen de
+/// el; con las constantes juntadas en su sitio, da `a2 * 2 + b + k`, y un
+/// cbuffer que falta se lee como 0.
+#[test]
+fn el_enlace_aplana_los_cbuffers_que_no_son_b0() {
+    use crate::donde::VISTA_PIXELES;
+    use crate::dxil::programa::Lugar;
+    use crate::lote::{self, Bloque, ElementoIa};
+    let (vs, ps) = (dxil::leer(TEXTURA_VS).unwrap(), dxil::leer(CBUFFERS_PS).unwrap());
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let en = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]).unwrap();
+    let l = |espacio, registro| Lugar { espacio, registro, vista: VISTA_PIXELES };
+    let filas: Vec<(Lugar, u16)> = en.ranuras.cbuffers.iter().zip(&en.constantes).map(|(&x, b)| (x, b.filas)).collect();
+    let mut ordenadas = filas.clone();
+    ordenadas.sort_by_key(|x| (x.0.espacio, x.0.registro));
+    assert_eq!(ordenadas, [(l(0, 0), 1), (l(0, 1), 2), (l(3, 2), 1)], "b1 lee dos filas (a y a2)");
+    // Uno detras de otro, sin huecos.
+    let mut fila = 0;
+    for b in &en.constantes {
+        assert_eq!(b.fila, fila);
+        fila += b.filas;
+    }
+    assert_eq!(en.ps.filas_cb, fila);
+    let f4 = |v: [f32; 4]| v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<u8>>();
+    let a: Vec<u8> = [f4([9.0; 4]), f4([1.0, 2.0, 3.0, 4.0])].concat();
+    let (b, k) = (f4([10.0, 20.0, 30.0, 40.0]), f4([0.5; 4]));
+    let datos = |x: Lugar| match (x.espacio, x.registro) {
+        (0, 1) => &a[..],
+        (3, 2) => &b[..],
+        _ => &k[..],
+    };
+    let cb = lote::juntar_constantes(&en.constantes, |i| Some(datos(en.ranuras.cbuffers[i])));
+    let (mut sal, mut regs) = (vec![[0f32; 4]; en.ps.salidas], Vec::new());
+    en.ps.correr(&[[0.0; 4], [0.0; 4]], &cb, &mut sal, &mut regs);
+    assert_eq!(sal[0], [12.5, 24.5, 36.5, 48.5]);
+    // Sin el b2 de space3: lo suyo es 0.
+    let sin_b = lote::juntar_constantes(&en.constantes, |i| (en.ranuras.cbuffers[i].espacio != 3).then(|| datos(en.ranuras.cbuffers[i])));
+    en.ps.correr(&[[0.0; 4], [0.0; 4]], &sin_b, &mut sal, &mut regs);
+    assert_eq!(sal[0], [2.5, 4.5, 6.5, 8.5]);
+    // Y un cbuffer mas corto de lo que se lee: lo que falta, 0.
+    let corto = lote::juntar_constantes(&[Bloque { fila: 1, filas: 2 }], |_| Some(&k[..]));
+    assert_eq!(corto.len(), 48);
+    assert_eq!(&corto[16..32], &k[..]);
+    assert!(corto[..16].iter().chain(&corto[32..]).all(|&x| x == 0));
 }

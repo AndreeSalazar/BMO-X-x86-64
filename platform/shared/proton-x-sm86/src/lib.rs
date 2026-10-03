@@ -499,7 +499,7 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
         for op in &p.ops {
             let (base, d, k) = match *op {
                 Op::Entrada { d, elemento, componente } => (e.precarga(Precarga::Entrada { elemento, componente, reg: 0 })?, d, 1),
-                Op::Constantes { d, fila } => (e.precarga(Precarga::Fila { fila, reg: 0 })?, d, 4),
+                Op::Constantes { d, fila, .. } => (e.precarga(Precarga::Fila { fila, reg: 0 })?, d, 4),
                 // El asa: fija TODO el programa (la lee un TEX desacoplado).
                 Op::Muestra { t, s, .. } => {
                     e.precarga(Precarga::Asa { textura: t, muestreador: s, reg: 0 })?;
@@ -731,7 +731,7 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
                 };
                 e.valor[d as usize] = Some(v);
             }
-            Op::Constantes { d, fila } => {
+            Op::Constantes { d, fila, .. } => {
                 for k in 0..4u16 {
                     let r = d as usize + k as usize;
                     if e.valor.get(r).is_some_and(|v| v.is_some()) {

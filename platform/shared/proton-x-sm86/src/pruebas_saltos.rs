@@ -159,7 +159,7 @@ impl Gen {
             for _ in 0..3 {
                 self.nuevo();
             }
-            self.ops.push(Op::Constantes { d, fila: self.az.n(3) as u16 });
+            self.ops.push(Op::Constantes { d, fila: self.az.n(3) as u16, cb: 0 });
             Some(d + self.az.n(4) as Reg)
         } else {
             None

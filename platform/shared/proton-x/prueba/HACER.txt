@@ -1841,3 +1841,22 @@ cbuffers, muestreadores, SRV y UAV, y cada clase en el orden de su rangeId
 lee y el banco lo compara; `dxil/programa.rs` le da a cada lugar (espacio,
 registro) su RANURA, y la casa busca cada ranura en la root signature
 (`donde.rs`).
+
+cbuffers.dxil -- los CBUFFERS que no son b0 (03-10, N5.2)
+
+Un sombreador de pixeles que lee b1 (su segunda fila), b2 en space3 y b0:
+lo que la casa no sabia (solo el b0 del espacio 0, en la raiz). De
+`cbuffers.hlsl` (aqui al lado), con el mismo `dxc` de Linux (1.9,
+4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo cbuffers.dxil cbuffers.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   ca0a01c8664612504d1474f1eb97d8788173c9330867b41155afe7db3286bc2e  cbuffers.dxil
+
+`dxc -dumpbin`: los cbuffers son la clase 2 de `createHandle`, con su
+rangeId en el orden en que se declaran (A, B, K) y el registro absoluto;
+el espacio, de la PSV0 como las texturas. El banco (`pruebas_espacios.rs`)
+lo cose al de vertices de `textura.hlsl`, aplana sus tres cbuffers y lo
+corre con las constantes juntadas.

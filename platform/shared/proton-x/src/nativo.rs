@@ -136,7 +136,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                 e.cargar(0, s);
                 e.escalar_mem(MOVSS_A_MEM, 0, RCX, (elemento as u32 * 4 + componente as u32) * 4);
             }
-            Op::Constantes { d, fila } => {
+            Op::Constantes { d, fila, .. } => {
                 for k in 0..4u16 {
                     e.escalar_mem(MOVSS, 0, RDX, fila as u32 * 16 + 4 * k as u32);
                     e.guardar(d + k, 0);

@@ -584,7 +584,9 @@ pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32, z: bool, descarte: u32) -> 
     let enlace = lote::enlazar(&vs, &ps, &entradas).unwrap();
     let vertices: Vec<u8> = bmo_cubo::vertices().iter().flat_map(|v| v.pos.iter().chain(&v.normal).chain(&v.color).flat_map(|x| x.to_le_bytes())).collect();
     let ids: Vec<u32> = bmo_cubo::indices().iter().map(|&i| i as u32).collect();
-    let cb = cb_de(f);
+    // N5.2: el b0 de cada etapa, en su sitio del bloque (la misma raiz).
+    let b0 = cb_de(f);
+    let cb = lote::juntar_constantes(&enlace.constantes, |_| Some(&b0[..]));
     let (w, h) = (bmo_cubo::referencia::ANCHO, bmo_cubo::referencia::ALTO);
     let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte, antihorario: false, profundidad: z.then_some(trama::Profundidad { funcion: 2, escribir: true }) };
     let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO };

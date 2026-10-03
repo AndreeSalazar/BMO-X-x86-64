@@ -80,6 +80,43 @@ pub fn en_tabla(f: &Firma, tipo: u32, l: Lugar) -> Option<(usize, u64)> {
     None
 }
 
+/// **Donde esta un cbuffer** (N5.2): tres sitios posibles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Cb {
+    /// Un CBV en la raiz (`SetGraphicsRootConstantBufferView`): la direccion
+    /// dada al parametro.
+    Raiz(usize),
+    /// Constantes de 32 bits en la raiz (`SetGraphicsRoot32BitConstants`):
+    /// `cuantas`, desde la palabra `desde` de las de la raiz (ver
+    /// [`constantes_desde`]).
+    Constantes { desde: usize, cuantas: u32 },
+    /// Un CBV en una tabla: `(parametro, ranura)`, como [`en_tabla`].
+    Tabla(usize, u64),
+}
+
+/// **Donde guarda la casa las constantes del parametro `k`**: la palabra
+/// en que empiezan, contando las de los parametros de constantes de antes.
+/// Una root signature lleva a lo sumo 64 palabras en total, asi que caben
+/// todas juntas.
+pub fn constantes_desde(f: &Firma, k: usize) -> usize {
+    f.parametros.iter().take(k).map(|p| if let Carga::Constantes { cuantas, .. } = p.carga { cuantas as usize } else { 0 }).sum()
+}
+
+/// **El cbuffer de `l`**: en la raiz o en una tabla; `None` si no esta.
+pub fn cbuffer(f: &Firma, l: Lugar) -> Option<Cb> {
+    for (k, p) in f.parametros.iter().enumerate() {
+        if !lo_ve(p.visibilidad, l) {
+            continue;
+        }
+        match p.carga {
+            Carga::Descriptor { registro, espacio } if p.tipo == crate::raiz::CBV && (espacio, registro) == (l.espacio, l.registro) => return Some(Cb::Raiz(k)),
+            Carga::Constantes { registro, espacio, cuantas } if (espacio, registro) == (l.espacio, l.registro) => return Some(Cb::Constantes { desde: constantes_desde(f, k), cuantas }),
+            _ => {}
+        }
+    }
+    en_tabla(f, RANGO_CBV, l).map(|(k, i)| Cb::Tabla(k, i))
+}
+
 /// **El sampler estatico de `l`**, si la firma lo trae.
 pub fn estatico(f: &Firma, l: Lugar) -> Option<&[u32; 13]> {
     // D3D12_STATIC_SAMPLER_DESC: ShaderRegister +10, RegisterSpace +11,
@@ -156,6 +193,29 @@ mod pruebas {
         assert!(estatico(&f, lugar(2, 7, VISTA_PIXELES)).is_some());
         assert!(estatico(&f, lugar(0, 7, VISTA_PIXELES)).is_none(), "otro espacio");
         assert!(estatico(&f, lugar(2, 7, VISTA_VERTICES)).is_none(), "solo lo ve el de pixeles");
+    }
+
+    #[test]
+    fn los_cbuffers_en_la_raiz_en_constantes_y_en_tablas() {
+        use crate::raiz::{CBV, CONSTANTES};
+        let f = Firma {
+            parametros: vec![
+                Parametro { tipo: CONSTANTES, visibilidad: VISTA_VERTICES, carga: Carga::Constantes { registro: 1, espacio: 0, cuantas: 4 } },
+                Parametro { tipo: CBV, visibilidad: VISTA_TODAS, carga: Carga::Descriptor { registro: 0, espacio: 0 } },
+                Parametro { tipo: CONSTANTES, visibilidad: VISTA_PIXELES, carga: Carga::Constantes { registro: 1, espacio: 0, cuantas: 2 } },
+                tabla(VISTA_TODAS, &[rango(RANGO_SRV, 3, 0, 0, 0), rango(RANGO_CBV, 2, 4, 7, A_CONTINUACION)]),
+            ],
+            samplers: vec![],
+            banderas: 0,
+        };
+        assert_eq!(cbuffer(&f, lugar(0, 0, VISTA_PIXELES)), Some(Cb::Raiz(1)));
+        assert_eq!(cbuffer(&f, lugar(0, 1, VISTA_VERTICES)), Some(Cb::Constantes { desde: 0, cuantas: 4 }));
+        // El b1 del de pixeles es OTRO parametro: sus palabras van tras las 4.
+        assert_eq!(cbuffer(&f, lugar(0, 1, VISTA_PIXELES)), Some(Cb::Constantes { desde: 4, cuantas: 2 }));
+        assert_eq!(cbuffer(&f, lugar(7, 5, VISTA_PIXELES)), Some(Cb::Tabla(3, 4)));
+        assert_eq!(cbuffer(&f, lugar(7, 6, VISTA_PIXELES)), None);
+        assert_eq!(cbuffer(&f, lugar(0, 2, VISTA_PIXELES)), None);
+        assert_eq!(constantes_desde(&f, 3), 6);
     }
 
     #[test]

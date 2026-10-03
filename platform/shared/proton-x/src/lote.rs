@@ -83,6 +83,55 @@ pub struct Enlace {
     /// N5.1): el `t` y el `s` de sus operaciones son posiciones aqui. Quien
     /// dibuja pone en cada posicion el descriptor de ese espacio y registro.
     pub ranuras: Ranuras,
+    /// Los cbuffers de los dos, APLANADOS (03-10, N5.2): el de la ranura `i`
+    /// (`ranuras.cbuffers[i]`) va en `constantes[i]`. Quien dibuja copia cada
+    /// uno a su sitio de [`Lote::cb`].
+    pub constantes: Vec<Bloque>,
+}
+
+/// **Un cbuffer en el bloque de las constantes**: desde que fila y cuantas
+/// lee de el (de 16 bytes).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Bloque {
+    pub fila: u16,
+    pub filas: u16,
+}
+
+/// **Juntar las constantes de un dibujo**: el cbuffer de cada ranura (lo
+/// que da `cada`, o nada) en su sitio del bloque. Lo que un cbuffer no
+/// trae se lee como 0 (en D3D12, leer mas alla de la vista da 0).
+pub fn juntar_constantes<'a>(constantes: &[Bloque], mut cada: impl FnMut(usize) -> Option<&'a [u8]>) -> Vec<u8> {
+    let total = constantes.iter().map(|b| (b.fila as usize + b.filas as usize) * 16).max().unwrap_or(0);
+    let mut v = vec![0u8; total];
+    for (i, b) in constantes.iter().enumerate() {
+        if let Some(c) = cada(i) {
+            let (desde, n) = (b.fila as usize * 16, (b.filas as usize * 16).min(c.len()));
+            v[desde..desde + n].copy_from_slice(&c[..n]);
+        }
+    }
+    v
+}
+
+/// **Aplanar los cbuffers de los dos**: uno detras de otro, cada uno con las
+/// filas que se leen de el. El interprete, la 3060 y el x86 ven UN cbuffer;
+/// solo quien dibuja sabe que son varios.
+fn aplanar(vs: &mut Programa, ps: &mut Programa, n: usize) -> Result<Vec<Bloque>, String> {
+    let mut filas = vec![0u16; n];
+    vs.filas_por_cbuffer(&mut filas);
+    ps.filas_por_cbuffer(&mut filas);
+    let mut bloques = Vec::with_capacity(filas.len());
+    let mut fila = 0u32;
+    for &f in &filas {
+        bloques.push(Bloque { fila: fila as u16, filas: f });
+        fila += f as u32;
+    }
+    if fila > u16::MAX as u32 {
+        return Err(format!("los cbuffers de los dos sombreadores leen {fila} filas: mas de las que caben"));
+    }
+    let bases: Vec<u16> = bloques.iter().map(|b| b.fila).collect();
+    vs.aplanar(&bases);
+    ps.aplanar(&bases);
+    Ok(bloques)
 }
 
 /// **Coser** los dos sombreadores con el input layout. El texto dice por que
@@ -95,10 +144,11 @@ pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Res
     // Cada lugar, con su etapa: el t0 de uno no es el t0 del otro si la root
     // signature les da tablas distintas (`donde::en_tabla`).
     let mut ranuras = pv.ranuras.clone().de_la_etapa(crate::donde::VISTA_VERTICES);
-    let (t, s) = ranuras.unir(&pp.ranuras.clone().de_la_etapa(crate::donde::VISTA_PIXELES)).map_err(|e| format!("las texturas de los dos sombreadores: {e:?}"))?;
-    pp.renumerar(&t, &s);
+    let mapa = ranuras.unir(&pp.ranuras.clone().de_la_etapa(crate::donde::VISTA_PIXELES)).map_err(|e| format!("los recursos de los dos sombreadores: {e:?}"))?;
+    pp.renumerar(&mapa);
     pp.ranuras = ranuras.clone();
     pv.ranuras = ranuras.clone();
+    let constantes = aplanar(&mut pv, &mut pp, ranuras.cbuffers.len())?;
     let mut desde_ia = Vec::with_capacity(vs.entradas.len());
     for f in &vs.entradas {
         match f.sistema {
@@ -132,7 +182,7 @@ pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Res
     if pp.salidas != 1 {
         return Err(String::from("el sombreador de pixeles escribe mas de un render target: todavia no"));
     }
-    Ok(Enlace { vs: pv, ps: pp, desde_ia, posicion, desde_vs, ranuras })
+    Ok(Enlace { vs: pv, ps: pp, desde_ia, posicion, desde_vs, ranuras, constantes })
 }
 
 /// Como se agrupan los ids en triangulos.
@@ -153,7 +203,9 @@ pub struct Lote<'a> {
     /// Los vertices que se piden, en orden (ya con el vertice base sumado).
     pub ids: &'a [u32],
     pub topologia: Topologia,
-    /// Los bytes del cbuffer b0 que leen los sombreadores.
+    /// Los bytes de las constantes que leen los sombreadores: los cbuffers
+    /// uno detras de otro, como dice [`Enlace::constantes`] (con uno solo,
+    /// el b0 tal cual).
     pub cb: &'a [u8],
     pub reglas: trama::Reglas,
     /// P3b4c: la profundidad se LIMPIO desde el ultimo dibujo en ella

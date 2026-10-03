@@ -659,10 +659,14 @@ orden (las dos corridas murieron igual: es determinista):
 orden. Cada uno lo dice el DIARIO con su texto la primera vez que pasa;
 la proxima corrida del metal dice cual pesa mas:
 
-- [ ] **N5.2 -- los cbuffers que no son b0**: b1.., en otros espacios, y las
-  constantes de 32 bits de la raiz (`SetGraphicsRoot32BitConstants`).
-  Texto: "un cbuffer que no es el b0 del espacio 0: todavia no". Mismo
-  camino que N5.1: una ranura por cbuffer y la casa los busca en la firma.
+- [x] **N5.2 -- los cbuffers que no son b0** (03-10): b1.., en otros
+  espacios, como CBV en la raiz, en una TABLA o como constantes de 32 bits
+  (`SetGraphicsRoot32BitConstants`, que antes se tiraban). Cada cbuffer es
+  una ranura; el enlace los APLANA en un bloque (`Enlace::constantes`), asi
+  que el interprete, la 3060 y el x86 siguen viendo uno; la casa lo arma por
+  dibujo (`cbuffers.rs`; con uno entero, sin copiar). Un cbuffer mas corto de
+  lo que se lee da 0, no deja de dibujar. Probado con `prueba/cbuffers.dxil`.
+  Queda: la fila DINAMICA (`cbuffer` con arrays indexados), que va con N5.4.
 - [ ] **N5.3 -- los UAV** (RWTexture, RWBuffer) y los SRV de bufer
   (StructuredBuffer, ByteAddressBuffer). Texto: "un UAV ... todavia no" y
   "un SRV de un bufer: ... se lee como nulo".

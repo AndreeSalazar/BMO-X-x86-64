@@ -527,7 +527,7 @@ extern "win64" fn list_reset(this: u64, _asignador: u64, pso: u64) -> i32 {
 ///
 /// # Safety
 /// `this` es una Lista de la casa.
-unsafe fn lista<'a>(this: u64) -> &'a mut Lista {
+pub(crate) unsafe fn lista<'a>(this: u64) -> &'a mut Lista {
     de::<Lista>(this)
 }
 
@@ -573,6 +573,7 @@ extern "win64" fn set_graphics_root_signature(this: u64, raiz: u64) {
     let e = unsafe { &mut lista(this).estado };
     if e.raiz != raiz {
         e.cbv = Default::default();
+        e.raiz32 = Default::default();
     }
     e.raiz = raiz;
 }

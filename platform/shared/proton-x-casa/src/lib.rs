@@ -50,6 +50,7 @@
 extern crate alloc;
 
 pub mod carpetas;
+mod cbuffers;
 pub mod com;
 pub mod com_basico;
 pub mod compilador;

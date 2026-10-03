@@ -115,7 +115,7 @@ fn cada_operacion_nativa_da_los_bits_del_interprete_con_nan_infinitos_y_ceros() 
         Op::Abs { d: 11, a: 1 },
         Op::Min { d: 12, a: 0, b: 1 },
         Op::Max { d: 13, a: 0, b: 1 },
-        Op::Constantes { d: 14, fila: 1 },
+        Op::Constantes { d: 14, fila: 1, cb: 0 },
     ];
     let mut ops2 = ops.clone();
     for (k, r) in (2..18u16).enumerate() {

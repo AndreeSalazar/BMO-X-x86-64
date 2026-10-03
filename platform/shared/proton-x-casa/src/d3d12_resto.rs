@@ -481,12 +481,35 @@ extern "win64" fn de_computo2(_this: u64, _a: u32, _b: u64) {}
 extern "win64" fn de_computo3(_this: u64, _a: u32, _b: u32, _c: u32) {}
 extern "win64" fn de_computo4(_this: u64, _a: u32, _b: u32, _c: *const u8, _d: u32) {}
 
-extern "win64" fn root_32bit_constant(_this: u64, _parametro: u32, _valor: u32, _desde: u32) {
-    aviso("SetGraphicsRoot32BitConstant(s): constantes de raiz, el sombreador de la casa aun no las ve");
+/// `SetGraphicsRoot32BitConstant(this, parametro, valor, desde)` (N5.2).
+extern "win64" fn root_32bit_constant(this: u64, parametro: u32, valor: u32, desde: u32) {
+    constantes_de_raiz(this, parametro, desde, &[valor]);
 }
 
-extern "win64" fn root_32bit_constants(_this: u64, _parametro: u32, _n: u32, _datos: *const u8, _desde: u32) {
-    aviso("SetGraphicsRoot32BitConstant(s): constantes de raiz, el sombreador de la casa aun no las ve");
+/// `SetGraphicsRoot32BitConstants(this, parametro, n, datos, desde)` (N5.2).
+extern "win64" fn root_32bit_constants(this: u64, parametro: u32, n: u32, datos: *const u8, desde: u32) {
+    if datos.is_null() || n as usize > crate::cbuffers::PALABRAS {
+        aviso("SetGraphicsRoot32BitConstants sin datos (o con mas de 64): se tira");
+        return;
+    }
+    // SAFETY: `n` u32 del `.exe` (sin alinear, por si acaso).
+    let v: Vec<u32> = (0..n as usize).map(|k| unsafe { (datos as *const u32).add(k).read_unaligned() }).collect();
+    constantes_de_raiz(this, parametro, desde, &v);
+}
+
+/// Las constantes, a la raiz de la lista (las guarda `cbuffers::poner`).
+fn constantes_de_raiz(this: u64, parametro: u32, desde: u32, valores: &[u32]) {
+    // SAFETY: `this` es una Lista de la casa.
+    let e = unsafe { &mut crate::d3d12::lista(this).estado };
+    if e.raiz == 0 {
+        aviso("SetGraphicsRoot32BitConstant(s) sin SetGraphicsRootSignature: en Windows es un error, y se tira");
+        return;
+    }
+    // SAFETY: un RootSignature de la casa.
+    let firma = unsafe { &de::<crate::tuberia::RootSignature>(e.raiz).firma };
+    if let Err(m) = crate::cbuffers::poner(e, firma, parametro as usize, desde as usize, valores) {
+        aviso(m);
+    }
 }
 
 extern "win64" fn root_descriptor(_this: u64, _parametro: u32, _va: u64) {

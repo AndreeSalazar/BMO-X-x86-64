@@ -124,7 +124,7 @@ fn cada_operacion_emitida_da_los_bits_de_la_casa() {
     let ops = std::vec![
         Op::Entrada { d: 0, elemento: 0, componente: 0 },
         Op::Entrada { d: 1, elemento: 0, componente: 1 },
-        Op::Constantes { d: 2, fila: 0 },
+        Op::Constantes { d: 2, fila: 0, cb: 0 },
         Op::Mul { d: 10, a: 0, b: 1 },
         Op::Add { d: 11, a: 0, b: 40 },
         Op::Sub { d: 12, a: 0, b: 41 },

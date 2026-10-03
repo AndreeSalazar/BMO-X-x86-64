@@ -434,6 +434,18 @@ fn resolver(va: u64, n: usize) -> Option<&'static [u8]> {
     Some(unsafe { core::slice::from_raw_parts(va as *const u8, n) })
 }
 
+/// **Hasta `n` bytes desde `va`**, los que haya en el bufer de la casa que
+/// la contiene (N5.2: un cbuffer mas corto de lo que se lee da 0 en lo que
+/// falta, no deja de dibujar).
+pub(crate) fn resolver_hasta(va: u64, n: usize) -> Option<&'static [u8]> {
+    // SAFETY: un hilo; el registro solo lo toca la casa.
+    let r = unsafe { &*BUFERES.0.get() };
+    let &(i, t) = r.iter().find(|&&(i, t)| va >= i && va < i + t as u64)?;
+    let n = n.min((i + t as u64 - va) as usize);
+    // SAFETY: [va, va + n) cae dentro de un bufer vivo de la casa.
+    Some(unsafe { core::slice::from_raw_parts(va as *const u8, n) })
+}
+
 /// Si `[va, va + n)` cae entero dentro de un bufer de la casa (tanda 48).
 pub(crate) fn dentro_de_bufer(va: u64, n: usize) -> bool {
     resolver(va, n).is_some()
@@ -544,6 +556,9 @@ pub struct Estado {
     pub raiz: u64,
     /// La direccion dada a cada parametro CBV de la raiz, por su indice.
     pub cbv: [u64; 16],
+    /// Las constantes de 32 bits de la raiz (`SetGraphicsRoot32BitConstants`,
+    /// N5.2), las de todos sus parametros una tras otra: ver `cbuffers`.
+    pub raiz32: crate::cbuffers::Palabras,
     pub topologia: u32,
     pub vertices: Vista,
     pub indices: Vista,
@@ -768,21 +783,14 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         aviso("Draw sin un bufer de vertices de la casa en la ranura 0");
         return;
     };
-    // El cbuffer b0 (lo que los dos sombreadores leen de el).
+    // Las CONSTANTES (N5.2): cada cbuffer que leen, de la raiz o de una
+    // tabla, en su sitio del bloque (`cbuffers.rs`).
     // SAFETY: un RootSignature de la casa.
     let firma = unsafe { &de::<RootSignature>(e.raiz).firma };
-    let filas = en.vs.filas_cb.max(en.ps.filas_cb) as usize;
-    let cb: &[u8] = match firma.parametros.iter().position(|p| p.tipo == raiz::CBV && matches!(p.carga, Carga::Descriptor { registro: 0, espacio: 0 })) {
-        _ if filas == 0 => &[],
-        Some(i) => match resolver(e.cbv.get(i).copied().unwrap_or(0), filas * 16) {
-            Some(c) => c,
-            None => {
-                aviso("Draw: el cbuffer b0 no es un bufer de la casa (o es mas corto de lo que se lee)");
-                return;
-            }
-        },
-        None => {
-            aviso("Draw: los sombreadores leen b0 y la root signature no tiene un CBV b0 en la raiz: todavia no");
+    let cb = match crate::cbuffers::del_dibujo(firma, e, en) {
+        Ok(c) => c,
+        Err(m) => {
+            aviso(&format!("Draw: {m}: no se dibuja"));
             return;
         }
     };
@@ -807,7 +815,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         paso,
         ids: &ids,
         topologia,
-        cb,
+        cb: &cb,
         reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad },
     };
     // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.
