@@ -36,7 +36,7 @@ fn pintar(en: &Enlace, ia: &[ElementoIa], vertices: &[u8]) -> (Vec<u32>, trama::
 }
 
 fn pintar_con(en: &Enlace, ia: &[ElementoIa], vertices: &[u8], otros: &mut [trama::Otro]) -> (Vec<u32>, trama::Cuenta) {
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA };
     let l = Lote { enlace: en, entradas: ia, vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO };
     let mut px = vec![0u32; 64];
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros };
@@ -74,7 +74,7 @@ fn la_w_de_sv_position_va_con_perspectiva() {
         trama::Sombreado { pos: [3.0 * 4.0, 1.0 * 4.0, 0.0, 4.0], atributos: vec![[0.0; 4]] },
         trama::Sombreado { pos: [-1.0 * 4.0, -3.0 * 4.0, 0.0, 4.0], atributos: vec![[0.0; 4]] },
     ];
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA };
     let mut px = vec![0u32; 64];
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros: &mut [] };
     let mut vistos = Vec::new();
@@ -140,4 +140,34 @@ fn una_salida_que_no_es_sv_target_se_dice() {
     let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
     let r = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]);
     assert_eq!(r.err().as_deref(), Some("el sombreador de pixeles escribe SV_Depth3 (valor de sistema 65): todavia no"));
+}
+
+/// *** N5.11: la transparencia en la trama: un triangulo de alfa 0.5 sobre
+/// un fondo azul (SRC_ALPHA, INV_SRC_ALPHA) deja la media, solo donde
+/// cubre; con la mascara sin el azul, el azul de antes se queda.
+#[test]
+fn la_trama_mezcla_con_lo_que_ya_esta() {
+    use crate::mezcla::{Mezcla, Mezclas, INV_ORIGEN_ALFA, ORIGEN_ALFA, SUMAR, UNO};
+    let v = crate::pruebas::triangulo([1.0; 3], [1.0; 3], true);
+    let pinta = |mascara: u8| {
+        let m = Mezcla { encendida: true, origen: ORIGEN_ALFA, destino: INV_ORIGEN_ALFA, op: SUMAR, origen_a: UNO, destino_a: INV_ORIGEN_ALFA, op_a: SUMAR, mascara };
+        let mut rt = [Mezcla::NINGUNA; 8];
+        rt[0] = m;
+        let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: Mezclas { rt, factor: [1.0; 4] } };
+        let fondo = rgba([0.0, 0.0, 1.0, 1.0]);
+        let mut px = vec![fondo; 64];
+        let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros: &mut [] };
+        trama::dibujar(&reglas, &v, &[[0, 1, 2]], &mut d, None, |_, c| {
+            c[0] = [1.0, 0.0, 0.0, 0.5];
+            true
+        });
+        (px, fondo)
+    };
+    let (px, fondo) = pinta(0xF);
+    // (1, 0, 0) * 0.5 + (0, 0, 1) * 0.5; alfa: 0.5 + 1 * 0.5 = 1.
+    let medio = rgba([0.5, 0.0, 0.5, 1.0]);
+    assert_eq!(px.iter().filter(|&&p| p == medio).count(), 28, "los 28 que cubre");
+    assert_eq!(px.iter().filter(|&&p| p == fondo).count(), 64 - 28, "lo demas, el fondo");
+    let (px, _) = pinta(0b1011);
+    assert_eq!(px[0], rgba([0.5, 0.0, 1.0, 1.0]), "sin el azul en la mascara, el azul se queda");
 }

@@ -293,22 +293,36 @@ fn un_pso_con_varios_render_targets_se_crea() {
     // SAFETY: un PSO de la casa.
     let pso = unsafe { com::de::<bmo_proton_x_casa::tuberia::Pso>(p) };
     assert_eq!((pso.n_rt, pso.formatos_rt[3], pso.formatos_rt[4]), (4, 28, 0));
-    assert!(!pso.mezcla);
+    assert!(pso.mezcla.as_ref().unwrap().iter().all(|m| m.trivial()));
     // Mezcla en el render target 2: sin IndependentBlendEnable no cuenta (vale
     // la del 0); con el, si.
     let mezcla_en_2 = |independiente: u32| {
         move |d: &mut [u8; 656]| {
             rts(4)(d);
             d[124..128].copy_from_slice(&independiente.to_le_bytes());
-            d[128 + 80..132 + 80].copy_from_slice(&1u32.to_le_bytes());
+            // BlendEnable y la luz que se suma: ONE, ONE, ADD (color y alfa).
+            for (k, v) in [1u32, 0, 2, 2, 1, 2, 2, 1].into_iter().enumerate() {
+                d[128 + 80 + 4 * k..132 + 80 + 4 * k].copy_from_slice(&v.to_le_bytes());
+            }
         }
     };
     let (_, p) = pso_cambiado(r, VS, PS, &layout(true), mezcla_en_2(0));
     // SAFETY: un PSO de la casa.
-    assert!(!unsafe { com::de::<bmo_proton_x_casa::tuberia::Pso>(p) }.mezcla);
+    let m = unsafe { com::de::<bmo_proton_x_casa::tuberia::Pso>(p) }.mezcla.unwrap();
+    assert!(m.iter().all(|m| !m.encendida), "la del 0 para todos");
     let (_, p) = pso_cambiado(r, VS, PS, &layout(true), mezcla_en_2(1));
     // SAFETY: un PSO de la casa.
-    assert!(unsafe { com::de::<bmo_proton_x_casa::tuberia::Pso>(p) }.mezcla);
+    let m = unsafe { com::de::<bmo_proton_x_casa::tuberia::Pso>(p) }.mezcla.unwrap();
+    assert_eq!(m.iter().map(|m| m.encendida).collect::<Vec<_>>(), [false, false, true, false, false, false, false, false]);
+
+    // Una operacion logica se apunta en el PSO y se dice en cada Draw.
+    let (h, p) = pso_cambiado(r, VS, PS, &layout(true), |d| {
+        rts(1)(d);
+        d[132..136].copy_from_slice(&1u32.to_le_bytes());
+    });
+    assert_eq!(h, 0);
+    // SAFETY: un PSO de la casa.
+    assert_eq!(unsafe { com::de::<bmo_proton_x_casa::tuberia::Pso>(p) }.mezcla, Err("una mezcla con operacion logica (LogicOpEnable): todavia no"));
 
     DICHO.lock().unwrap().clear();
     assert_eq!(pso_cambiado(r, VS, PS, &layout(true), rts(0)).0, E_INVALIDARG);

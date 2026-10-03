@@ -130,7 +130,7 @@ const RGBA8: u32 = 28;
 const BGRA8: u32 = 87;
 
 /// Cada render target leido de vuelta (8x8), o `None` si no se creo.
-fn g_buffer() -> [Option<Vec<u32>>; 4] {
+fn g_buffer(mezcla: bool) -> [Option<Vec<u32>>; 4] {
     // SAFETY: ningun `.exe` corre; la unica prueba de este fichero.
     unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None, sonido: None }) };
     type CrearDisp = extern "win64" fn(u64, u32, *const Guid, *mut u64) -> i32;
@@ -174,6 +174,17 @@ fn g_buffer() -> [Option<Vec<u32>>; 4] {
     // BlendState (+120).RenderTarget[0] (+8).RenderTargetWriteMask (+36):
     // ALL (sin IndependentBlendEnable vale para los cuatro).
     pon(164, &[0x0F]);
+    if mezcla {
+        // N5.11: IndependentBlendEnable, y en el 0: BLEND_FACTOR, ZERO, ADD
+        // (color y alfa); los demas, apagados y RGBA.
+        pon(124, &1u32.to_le_bytes());
+        for (k, v) in [1u32, 0, 14, 1, 1, 14, 1, 1].into_iter().enumerate() {
+            pon(128 + 4 * k, &v.to_le_bytes());
+        }
+        for i in 1..4 {
+            pon(128 + 40 * i + 36, &[0x0F]);
+        }
+    }
     pon(448, &u32::MAX.to_le_bytes());
     pon(452, &3u32.to_le_bytes());
     pon(456, &1u32.to_le_bytes()); // CULL_NONE
@@ -245,6 +256,10 @@ fn g_buffer() -> [Option<Vec<u32>>; 4] {
     // Cuatro descriptores CONSECUTIVOS desde `rtv` (RTsSingleHandleToDescriptorRange).
     let om: extern "win64" fn(u64, u32, *const u64, i32, *const u64) = hueco(l, 46);
     om(l, 4, &rtv, 1, core::ptr::null());
+    if mezcla {
+        let factor: extern "win64" fn(u64, *const f32) = hueco(l, 23);
+        factor(l, [0.5f32, 0.25, 1.0, 0.5].as_ptr());
+    }
     // El 1 se limpia antes: el dibujo lo pisa entero igual.
     let limpiar: extern "win64" fn(u64, u64, *const f32, u32, *const u8) = hueco(l, 48);
     limpiar(l, rtv + incremento, [0.5f32, 0.5, 0.5, 0.5].as_ptr(), 0, core::ptr::null());
@@ -283,7 +298,7 @@ fn unorm8(x: f32) -> u32 {
 /// PSO se negaba, y `OMSetRenderTargets` tomaba solo el primero.
 #[test]
 fn un_draw_pinta_el_g_buffer_entero() {
-    let [albedo, sitio, nada, normal] = g_buffer();
+    let [albedo, sitio, nada, normal] = g_buffer(false);
     let dicho = String::from_utf8_lossy(&DICHO.lock().unwrap()).into_owned();
     assert!(!dicho.contains("no se dibuja") && !dicho.contains("render target"), "{dicho}");
     assert!(nada.is_none());
@@ -294,4 +309,19 @@ fn un_draw_pinta_el_g_buffer_entero() {
         let (x, y) = ((k % 8) as f32 + 0.5, (k / 8) as f32 + 0.5);
         assert_eq!(p, 0xFF00_0000 | unorm8(y / 8.0) << 8 | unorm8(x / 8.0), "({x}, {y})");
     }
+}
+
+/// *** N5.11: el mismo Draw con MEZCLA en el render target 0 (BLEND_FACTOR,
+/// ZERO, con `OMSetBlendFactor`): el rojo por el factor; los demas, sin
+/// mezcla (IndependentBlendEnable), igual que antes. Antes ese Draw se
+/// decia y no se pintaba.
+#[test]
+fn la_mezcla_y_el_factor_de_mezcla_llegan_al_draw() {
+    let [albedo, sitio, _, normal] = g_buffer(true);
+    let dicho = String::from_utf8_lossy(&DICHO.lock().unwrap()).into_owned();
+    assert!(!dicho.contains("no se dibuja"), "{dicho}");
+    // (1, 0, 0, 1) * (0.5, 0.25, 1, 0.5) = (0.5, 0, 0, 0.5).
+    assert!(albedo.unwrap().iter().all(|&p| p == 0x8000_0080), "el 0, mezclado");
+    assert!(normal.unwrap().iter().all(|&p| p == 0x8000_00FF), "el 3, sin mezcla");
+    assert_eq!(sitio.unwrap()[0], 0xFF00_0000 | unorm8(0.5 / 8.0) << 8 | unorm8(0.5 / 8.0));
 }

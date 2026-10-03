@@ -54,6 +54,8 @@ pub struct Reglas {
     pub antihorario: bool,
     /// La prueba de profundidad del PSO (`DepthEnable`), o `None`.
     pub profundidad: Option<Profundidad>,
+    /// N5.11: la mezcla de cada render target y el factor de mezcla.
+    pub mezcla: crate::mezcla::Mezclas,
 }
 
 /// La prueba de profundidad: `D3D12_COMPARISON_FUNC` (1 nunca, 2 menor,
@@ -169,6 +171,17 @@ pub fn unorm8(x: f32) -> u32 {
     (s * 255.0 + 0.5) as u32
 }
 
+/// Lo contrario de [`empaquetar`]: los cuatro canales de un pixel guardado
+/// (N5.11: la mezcla lee el que esta).
+pub fn desempaquetar(p: u32, bgra: bool) -> [f32; 4] {
+    let b = |k: u32| ((p >> (8 * k)) & 0xFF) as f32 / 255.0;
+    if bgra {
+        [b(2), b(1), b(0), b(3)]
+    } else {
+        [b(0), b(1), b(2), b(3)]
+    }
+}
+
 /// Un color en el orden de bytes del destino.
 pub fn empaquetar(c: [f32; 4], bgra: bool) -> u32 {
     let [r, g, b, a] = [unorm8(c[0]), unorm8(c[1]), unorm8(c[2]), unorm8(c[3])];
@@ -202,7 +215,11 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
     let y1 = ((vy + vh) as i64).min(reglas.tijera[3] as i64).min(destino.alto as i64) - 1;
     let ancho = destino.ancho as i64;
     // La memoria del sombreador de pixeles: lo ultimo que entro y lo que dio.
-    let mut ultima: Option<(Vec<[f32; 4]>, Option<[u32; OBJETIVOS]>)> = None;
+    // Con los colores SIN mezclar (N5.11: la mezcla depende del pixel que ya
+    // esta, la memoria no) y ya empaquetados para los que no mezclan.
+    type Salida = Option<([[f32; 4]; OBJETIVOS], [u32; OBJETIVOS])>;
+    let mut ultima: Option<(Vec<[f32; 4]>, Salida)> = None;
+    let mezclas = reglas.mezcla;
     // Cuantos render targets se pintan, y el orden de bytes de cada uno.
     let n_rt = (1 + destino.otros.len()).min(OBJETIVOS);
     let mut bgra = [false; OBJETIVOS];
@@ -327,22 +344,27 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                     _ => {
                         cuenta.sombreados += 1;
                         let mut colores = [[0.0f32; 4]; OBJETIVOS];
-                        let p = ps(&entrada, &mut colores).then(|| core::array::from_fn(|k| if k < n_rt { empaquetar(colores[k], bgra[k]) } else { 0 }));
+                        let p = ps(&entrada, &mut colores).then(|| (colores, core::array::from_fn(|k| if k < n_rt { empaquetar(colores[k], bgra[k]) } else { 0 })));
                         ultima = Some((entrada.clone(), p));
                         p
                     }
                 };
-                let Some(pixel) = pixel else {
+                let Some((colores, pixel)) = pixel else {
                     cuenta.tirados += 1;
                     continue;
                 };
                 if let (Some(z), Some(zs)) = (z_nueva, destino.z.as_deref_mut()) {
                     zs[i] = z;
                 }
-                destino.pixeles[i] = pixel[0];
+                // El render target `k`: el pixel nuevo, o mezclado con el que esta.
+                let poner = |k: usize, p: &mut u32| {
+                    let m = &mezclas.rt[k];
+                    *p = if m.trivial() { pixel[k] } else { empaquetar(m.aplicar(colores[k], desempaquetar(*p, bgra[k]), mezclas.factor), bgra[k]) };
+                };
+                poner(0, &mut destino.pixeles[i]);
                 for (k, o) in destino.otros.iter_mut().take(n_rt - 1).enumerate() {
                     if let Some(p) = o.pixeles.as_deref_mut().and_then(|p| p.get_mut(i)) {
-                        *p = pixel[k + 1];
+                        poner(k + 1, p);
                     }
                 }
             }

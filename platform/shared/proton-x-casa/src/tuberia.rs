@@ -269,9 +269,10 @@ pub struct Pso {
     /// sombreadores y layout (`enlaces.rs`, 03-10: el `Sombreador` leido ya
     /// no se guarda).
     pub compilado: alloc::rc::Rc<crate::enlaces::Compilado>,
-    /// Mezcla encendida o una mascara de escritura que no es RGBA, en alguno
-    /// de sus render targets: todavia no.
-    pub mezcla: bool,
+    /// N5.11: la mezcla de cada render target (con IndependentBlendEnable,
+    /// la suya; sin el, la del 0 para todos), o por que no se sabe todavia
+    /// (operacion logica, dos fuentes): entonces cada Draw lo dice.
+    pub mezcla: Result<[bmo_proton_x::mezcla::Mezcla; 8], &'static str>,
     /// La prueba de profundidad (P3c4), si `DepthEnable`.
     pub profundidad: Option<trama::Profundidad>,
 }
@@ -341,14 +342,20 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
     if u32_de(d, 508) != 0 {
         aviso("CreateGraphicsPipelineState con stencil: se apunta, y no se usa todavia");
     }
-    // BlendState (+120): IndependentBlendEnable +4, y RenderTarget[i] desde
-    // +8, de 40 bytes: BlendEnable +0, LogicOpEnable +4, la mascara de
-    // escritura +36. Sin IndependentBlendEnable, el 0 vale para todos.
+    // BlendState (+120): AlphaToCoverageEnable +0, IndependentBlendEnable
+    // +4, y RenderTarget[i] desde +8, de 40 bytes (`mezcla::Mezcla::de_desc`).
+    // Sin IndependentBlendEnable, el 0 vale para todos.
+    if u32_de(d, 120) != 0 {
+        aviso("CreateGraphicsPipelineState con AlphaToCoverage: sin MSAA no cubre nada; se apunta, y no se usa");
+    }
     let independiente = u32_de(d, 124) != 0;
-    let mezcla = (0..if independiente { n_rt as usize } else { 1 }).any(|i| {
-        let rt = 128 + 40 * i;
-        u32_de(d, rt) != 0 || u32_de(d, rt + 4) != 0 || (d.add(rt + 36).read() & 0xF) != 0xF
-    });
+    let mezcla = (0..8usize)
+        .map(|i| {
+            let rt = 128 + 40 * if independiente { i } else { 0 };
+            bmo_proton_x::mezcla::Mezcla::de_desc(core::slice::from_raw_parts(d.add(rt), 40))
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(|v| core::array::from_fn(|i| v[i]));
     // Los sombreadores: leidos, comprobados y compilados UNA vez por (VS, PS,
     // layout); los demas PSO con lo mismo lo comparten (`enlaces.rs`).
     let (compilado, nuevo) = crate::enlaces::de(bytes_vs, bytes_ps, &entradas, || {
@@ -593,6 +600,9 @@ pub struct Estado {
     pub viewport: [f32; 6],
     pub tijera: [i32; 4],
     pub rtv: u64,
+    /// N5.11: el factor de mezcla (`OMSetBlendFactor`); `None` es el de
+    /// D3D12 sin poner, (1, 1, 1, 1).
+    pub factor_mezcla: Option<[f32; 4]>,
     /// N5.8: los render targets 1..8 (recurso y subrecurso; 0, ninguno).
     pub rtv_otros: [(u64, u64); 7],
     /// El recurso de profundidad (OMSetRenderTargets), o 0.
@@ -766,10 +776,13 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             return;
         }
     };
-    if pso.mezcla {
-        aviso("Draw no se dibuja: mezcla, operacion logica o mascara de escritura parcial, todavia no");
-        return;
-    }
+    let mezcla = match pso.mezcla {
+        Ok(rt) => bmo_proton_x::mezcla::Mezclas { rt, factor: e.factor_mezcla.unwrap_or([1.0; 4]) },
+        Err(m) => {
+            aviso(&format!("Draw no se dibuja: {m}"));
+            return;
+        }
+    };
     if instancias > 1 {
         aviso("Draw con varias instancias: se dibuja una (no hay datos por instancia todavia)");
     }
@@ -854,7 +867,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         ids: &ids,
         topologia,
         cb: &cb,
-        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad },
+        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad, mezcla },
     };
     // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.
     let z = match (pso.profundidad, e.dsv) {

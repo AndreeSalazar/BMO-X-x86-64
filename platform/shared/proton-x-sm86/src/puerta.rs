@@ -290,6 +290,10 @@ impl Puerta {
     /// **La receta de este lote**, en `self.caja[..n]`: `Ok(n)`, o por que
     /// no va a la 3060.
     pub fn preparar(&mut self, l: &Lote, b: Blanco) -> Result<usize, String> {
+        // N5.11: la 3060 aun no mezcla (ni enmascara): ese lote, por la CPU.
+        if !l.reglas.mezcla.trivial() {
+            return Err(String::from("el lote mezcla (o escribe solo algunos canales): la 3060 no lo sabe todavia"));
+        }
         if l.reglas.profundidad.is_some() && !self.z_a_la_3060 {
             return Err(String::from(
                 "el lote usa Z y la 3060 no dibuja con Z sobre un color PITCH (el back buffer en tu RAM): sin la sombra en bloque del kernel fue Xid 69 y el canal GR MUERTO hasta reiniciar",

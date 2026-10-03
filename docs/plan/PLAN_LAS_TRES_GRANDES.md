@@ -770,9 +770,14 @@ la proxima corrida del metal dice cual pesa mas:
   `prueba/gbuffer.dxil` (SV_Target 0, 1 y 3) en el banco y por las puertas
   de Windows (`proton-x-casa/tests/gbuffer.rs`). En la 3060 todavia uno:
   el G-buffer va por la CPU (N6.1).
-- [ ] **N5.11 -- la MEZCLA** (BlendEnable, LogicOp, mascaras parciales):
-  la luz que se suma, las particulas, el humo, la interfaz. Hoy ese Draw
-  se dice y no se pinta.
+- [x] **N5.11 -- la MEZCLA** (03-10): la luz que se suma, las
+  particulas, el humo, el cristal, la interfaz. `proton-x/src/mezcla.rs`:
+  los factores, las cinco operaciones, color y alfa por separado y la
+  mascara por canal; cada render target la suya (IndependentBlendEnable) y
+  el factor de `OMSetBlendFactor`. La trama guarda en su memoria el color
+  SIN mezclar y mezcla en cada pixel con el que esta. Falta: la operacion
+  logica y las dos fuentes (SRC1), que se dicen; sRGB se mezcla en sus
+  bytes. En la 3060 todavia no: por la CPU (N6.1).
 - [ ] **N5.12 -- solo PROFUNDIDAD** (`NumRenderTargets` 0, sin sombreador
   de pixeles): los mapas de sombras y el prepaso de Z. Hoy el PSO se niega.
 - [x] **N5.9 -- SV_Position en el de pixeles** (03-10): `Enlace::pos_ps`

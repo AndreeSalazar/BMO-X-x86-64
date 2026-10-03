@@ -63,6 +63,7 @@ pub mod hilos;
 pub mod hora;
 pub mod lote;
 pub mod mates;
+pub mod mezcla;
 pub mod mensajes;
 pub mod monton;
 pub mod nativo;
