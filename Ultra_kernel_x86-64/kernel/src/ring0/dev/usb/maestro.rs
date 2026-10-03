@@ -162,6 +162,16 @@ pub fn oido(que: u64, valor: i64) -> u64 {
     x
 }
 
+/// **EL EMPUJE** (03-10): las puntas dobladas con una curva suave antes del
+/// limite (`bmo_amplificador::maestro::empujar`). Apagado de fabrica.
+static EMPUJE: AtomicBool = AtomicBool::new(false);
+
+/// **El escritorio enciende o apaga el empuje.** Devuelve `info_oido`.
+pub fn empuje(si: bool) -> u64 {
+    EMPUJE.store(si, Ordering::SeqCst);
+    info_oido()
+}
+
 /// **EL ESPACIO** (03-10, S7): el modo 3D, empaquetado (`Ajuste`). Lo escribe
 /// el escritorio, lo lee el bus.
 static ESPACIO_AJUSTE: AtomicU64 = AtomicU64::new(0);
@@ -203,10 +213,13 @@ unsafe fn espacio_al_dia(hz: u32) -> &'static mut Espacio {
 }
 
 /// `INFO_AUDIO_OIDO`: `[0..40)` el perfil empaquetado | bit 48: el TONO se
-/// aplica a la frecuencia del tubo (44,1 o 48 kHz; mono y balance siempre).
+/// aplica a la frecuencia del tubo (44,1 o 48 kHz; mono y balance siempre) |
+/// bit 49: el EMPUJE puesto.
 pub fn info_oido() -> u64 {
     let hz = super::audio::tubo().map(|t| t.frecuencia).unwrap_or(0);
-    OIDO.load(Ordering::SeqCst) | (((hz == 44_100 || hz == 48_000) as u64) << 48)
+    OIDO.load(Ordering::SeqCst)
+        | (((hz == 44_100 || hz == 48_000) as u64) << 48)
+        | ((EMPUJE.load(Ordering::SeqCst) as u64) << 49)
 }
 
 // ===================================================================
@@ -280,6 +293,7 @@ unsafe fn etapa(hz: u32, canales: u8) -> &'static mut Maestro {
     let (_, _, m) = ETAPA.as_mut().unwrap();
     m.pedir(DIGITAL_DB.load(Ordering::SeqCst), MUDO.load(Ordering::SeqCst));
     m.oido(Perfil::desempaquetar(OIDO.load(Ordering::SeqCst)));
+    m.empuje(EMPUJE.load(Ordering::SeqCst));
     m
 }
 

@@ -497,6 +497,7 @@ fn report_maestro(s: &mut Output) {
     fila_db(s, b"oido medios", db(b(24)), b"campana a 1 kHz");
     fila_db(s, b"oido agudos", db(b(32)), b"estante a 3,5 kHz: lo que se pierde primero, y lo que hace entender una voz");
     fila(s, b"oido tono aplica", (o >> 48) & 1, b"", b"1 = el tubo va a 44,1 o 48 kHz; si no, solo mono y balance");
+    fila(s, b"oido empuje", (o >> 49) & 1, b"", b"1 = con el fader sobre 0 dB las puntas se doblan suave en vez de bajar la onda");
     // ** LOS LADOS DEL APARATO (03-10, "se escucha un solo lado"): lo que el
     // aparato traia en cada canal al reclamarlo, antes de igualarlos.
     let l = bmo::info(bmo::INFO_AUDIO_LADOS);

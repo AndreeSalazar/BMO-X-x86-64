@@ -147,6 +147,9 @@ pub(super) fn audio_mando(arg0: u64, arg1: u64) -> BmoStatus {
             3..=8 => BmoStatus::ok_value(maestro::oido(arg0, arg1 as i64)),
             // ** EL ESPACIO (03-10, S7): el modo 3D y la vuelta de la orbita.
             9 | 10 => BmoStatus::ok_value(maestro::espacio(arg0, arg1 as i64)),
+            // ** EL EMPUJE (03-10): las puntas dobladas en vez de la onda
+            // bajada. Devuelve lo mismo que `INFO_AUDIO_OIDO`.
+            11 => BmoStatus::ok_value(maestro::empuje(arg1 != 0)),
             _ => BmoStatus::err(ERROR_INVALID_ARGUMENT),
         }
 }

@@ -441,6 +441,8 @@ pub const AUDIO_MANDO_PLANO: u64 = 8;
 /// segundos por vuelta de la orbita. Espejo de `bmo-abi`.
 pub const AUDIO_MANDO_3D: u64 = 9;
 pub const AUDIO_MANDO_3D_VUELTA: u64 = 10;
+/// El EMPUJE (1 encendido, 0 apagado). Espejo de `bmo-abi`.
+pub const AUDIO_MANDO_EMPUJE: u64 = 11;
 /// Las ordenes del atril del fondo (`OP_AUDIO_FONDO`), espejo de `bmo-abi`.
 pub const AUDIO_FONDO_BANCO: u64 = 1;
 pub const AUDIO_FONDO_TOCAR: u64 = 2;
