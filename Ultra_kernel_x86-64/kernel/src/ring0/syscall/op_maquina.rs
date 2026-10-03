@@ -677,6 +677,22 @@ pub(super) fn red(arg0: u64, _arg1: u64) -> BmoStatus {
         RED_OP_ESTADO => BmoStatus::ok_value(net::puerta::estado()),
         RED_OP_VUELOS => BmoStatus::ok_value(net::puerta::vuelos()),
         RED_OP_LATIDOS => BmoStatus::ok_value(net::puerta::latidos()),
+        // ** EL PHY (03-10): leer es libre, como ARMAR o ESTADO; renegociar
+        // tumba el enlace unos segundos y por eso pide la autoridad RED.
+        RED_OP_MII => BmoStatus::ok_value(if _arg1 as u8 == bmo_net::mii::PIDE_VEREDICTO {
+            net::mii_veredicto().map_or(0, |v| (1 << 63) | v)
+        } else {
+            net::mii_leer(_arg1 as u8).map_or(0, |v| (1 << 63) | v as u64)
+        }),
+        RED_OP_RENEGOCIAR => {
+            let pid = scheduler::current_pid();
+            if !autoridad::tiene(pid, autoridad::RED) {
+                return BmoStatus::negado(bmo_puerta_red::pase::NoPase::SinAutoridad.codigo(), 0);
+            }
+            BmoStatus::ok_value(
+                net::mii_renegociar().map_or(0, |(a, g, b)| (1 << 63) | ((b as u64) << 32) | ((g as u64) << 16) | a as u64),
+            )
+        }
         _ => unsupported(),
     }
 }

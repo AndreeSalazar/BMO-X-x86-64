@@ -507,6 +507,21 @@ pub const RED_OP_VUELOS: u64 = 0x06;
 /// Latidos del GATE RED servidos desde el arranque. Con el reloj de Ring 3 dice
 /// cada cuanto late de verdad.
 pub const RED_OP_LATIDOS: u64 = 0x07;
+/// **Lee un registro MII del PHY** (2026-10-03, "por que va a 10 Mbit").
+/// `arg1` = el registro, 0..=15. Devuelve `(1 << 63) | valor`; `0` si no hay
+/// tarjeta o el PHY no contesta. Solo lee: no pide autoridad.
+///
+/// Con `arg1 = 0xFF`, el VEREDICTO de `bmo_net::mii`: `(1 << 63) | causa |
+/// (lo que anunciamos << 8) | (lo que anuncia el otro << 24) | (lo comun <<
+/// 40)`, las velocidades en Mbit. Causa: 1 bien, 2 ANUNCIAMOS POCO (lo dejo
+/// el apagado de Windows con WOL: se arregla renegociando), 3 el otro da
+/// poco, 4 cable de dos pares, 5 sin autonegociar, 6 PHY apagado, 7 sin
+/// enlace.
+pub const RED_OP_MII: u64 = 0x08;
+/// **Anuncia 10/100/1000 y RENEGOCIA** el enlace (lo que hace el driver de
+/// cualquier sistema al arrancar). Pide la autoridad RED. El enlace cae unos
+/// segundos. Devuelve `(1 << 63) | (bmcr << 32) | (gbcr << 16) | anar`.
+pub const RED_OP_RENEGOCIAR: u64 = 0x09;
 /// Donde queda el buzon del pase en el proceso. 7 paginas.
 pub const RED_BUZON_VA: u64 = 0x0000_0002_0000_0000;
 

@@ -43,6 +43,8 @@ pub const RED_OP_CERRAR: u64 = 0x04;
 pub const RED_OP_ESTADO: u64 = 0x05;
 pub const RED_OP_VUELOS: u64 = 0x06;
 pub const RED_OP_LATIDOS: u64 = 0x07;
+pub const RED_OP_MII: u64 = 0x08;
+pub const RED_OP_RENEGOCIAR: u64 = 0x09;
 /// Donde el kernel deja el buzon del pase.
 pub const RED_BUZON_VA: u64 = 0x0000_0002_0000_0000;
 
@@ -148,6 +150,28 @@ pub fn vuelos() -> (u64, u64) {
 /// Latidos del GATE RED servidos desde el arranque.
 pub fn latidos() -> u64 {
     invoke(CURRENT_TASK, OP_RED, RED_OP_LATIDOS, 0, 0).value
+}
+
+/// **Un registro MII del PHY** (0..=15). `None` sin tarjeta o sin respuesta.
+pub fn mii(registro: u8) -> Option<u16> {
+    let v = invoke(CURRENT_TASK, OP_RED, RED_OP_MII, registro as u64, 0).value;
+    (v >> 63 == 1).then_some((v & 0xFFFF) as u16)
+}
+
+/// **Por que el enlace va a la velocidad que va**: `(causa, anunciamos,
+/// anuncia el otro, comun)`, las velocidades en Mbit. Ver `RED_OP_MII` en el
+/// ABI para las causas.
+pub fn veredicto_phy() -> Option<(u8, u32, u32, u32)> {
+    let v = invoke(CURRENT_TASK, OP_RED, RED_OP_MII, 0xFF, 0).value;
+    (v >> 63 == 1).then_some(((v & 0xFF) as u8, ((v >> 8) & 0xFFFF) as u32, ((v >> 24) & 0xFFFF) as u32, ((v >> 40) & 0xFFFF) as u32))
+}
+
+/// **Anunciar 10/100/1000 y renegociar.** Pide la autoridad RED (el
+/// escritorio la tiene). `Some((anar, gbcr, bmcr))` con lo que se escribio.
+pub fn renegociar() -> Option<(u16, u16, u16)> {
+    let r = invoke(CURRENT_TASK, OP_RED, RED_OP_RENEGOCIAR, 0, 0);
+    let v = r.valor()?;
+    (v >> 63 == 1).then_some(((v & 0xFFFF) as u16, ((v >> 16) & 0xFFFF) as u16, ((v >> 32) & 0xFFFF) as u16))
 }
 
 /// El estado empaquetado: ver `RED_OP_ESTADO` en el ABI.

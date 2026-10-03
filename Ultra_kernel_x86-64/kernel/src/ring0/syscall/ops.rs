@@ -555,6 +555,10 @@ pub(crate) const RED_OP_ESTADO: u64 = 0x05;
 pub(crate) const RED_OP_VUELOS: u64 = 0x06;
 /// Latidos del GATE RED servidos desde el arranque: cada cuanto late DE VERDAD.
 pub(crate) const RED_OP_LATIDOS: u64 = 0x07;
+/// Un registro MII del PHY: `(1 << 63) | valor`.
+pub(crate) const RED_OP_MII: u64 = 0x08;
+/// Anunciar 10/100/1000 y renegociar. Pide la autoridad RED.
+pub(crate) const RED_OP_RENEGOCIAR: u64 = 0x09;
 
 /// Lo que contesta `RED_OP_ARMAR`.
 pub(crate) const RED_ARMADO_OK: u64 = 0;

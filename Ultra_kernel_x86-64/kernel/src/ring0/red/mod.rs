@@ -222,6 +222,123 @@ pub fn releer() -> Option<bmo_net::Identidad> {
     Some(unsafe { bmo_net::identificar(mmio) })
 }
 
+// == EL PHY: POR QUE VA A 10 MBIT, Y RENEGOCIAR (2026-10-03) ==================
+//
+// El propietario: *"mi Internet es de 100: algo lo limita"*. El enlace lee 10
+// Mbit desde el 24-08 y BMO-X NUNCA escribia en el PHY: se quedaba con lo que
+// dejo quien apago (el driver de Windows, con WOL, deja el PHY anunciando
+// solo 10). Lo puro --los registros, los dos caminos, el diagnostico y lo
+// que se escribe-- esta en `bmo_net::mii`, con banco; aqui se habla con el
+// silicio.
+//
+// [!] El CAMINO no se supone: `PHYAR` (8168 hasta la f) o `GPHY_OCP` (8168g/h,
+// la de casi todas las placas AM4). Se prueban los dos y vale el que contesta
+// el fabricante de Realtek en `PHYID1`. Un camino equivocado no da error: da
+// numeros que parecen registros.
+
+/// El camino que contesto: 0 sin probar, 1 PHYAR, 2 OCP, 3 ninguno.
+static CAMINO_PHY: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(0);
+
+/// Una orden al PHY por `camino` y la espera de la bandera: la LECTURA acaba
+/// cuando la tarjeta la PONE; la ESCRITURA, cuando la QUITA. 20 x 25 us como
+/// el r8169; si no, `None`.
+unsafe fn phy_orden(mmio: *mut u8, camino: bmo_net::mii::Camino, valor: u32, leer: bool) -> Option<u16> {
+    let r = camino.registro();
+    w32(mmio, r, valor);
+    for _ in 0..20 {
+        crate::ring0::plat::smp::lapic::esperar_us(25);
+        let v = core::ptr::read_volatile(mmio.add(r) as *const u32);
+        let bandera = v & bmo_net::mii::BANDERA != 0;
+        if leer && bandera {
+            return Some((v & 0xFFFF) as u16);
+        }
+        if !leer && !bandera {
+            crate::ring0::plat::smp::lapic::esperar_us(20);
+            return Some(0);
+        }
+    }
+    None
+}
+
+/// El camino al PHY, probado una vez.
+fn camino_phy(mmio: *mut u8) -> Option<bmo_net::mii::Camino> {
+    use bmo_net::mii::{reg, Camino, REALTEK_PHYID1};
+    use core::sync::atomic::Ordering;
+    match CAMINO_PHY.load(Ordering::SeqCst) {
+        1 => return Some(Camino::Phyar),
+        2 => return Some(Camino::Ocp),
+        3 => return None,
+        _ => {}
+    }
+    for (n, c) in [(1u8, Camino::Phyar), (2, Camino::Ocp)] {
+        let id = unsafe { phy_orden(mmio, c, c.pedir_lectura(reg::PHYID1), true) };
+        if id == Some(REALTEK_PHYID1) {
+            CAMINO_PHY.store(n, Ordering::SeqCst);
+            crate::ring0::cabina::info("red", "el PHY contesta por el camino (1 PHYAR, 2 OCP)", n as u64);
+            return Some(c);
+        }
+    }
+    CAMINO_PHY.store(3, Ordering::SeqCst);
+    crate::ring0::cabina::warn("red", "el PHY no contesta por PHYAR ni por OCP", 0);
+    None
+}
+
+/// **Lee el registro MII `r`** del PHY (0..=15). `None` sin tarjeta o si el
+/// PHY no contesta por ningun camino.
+pub fn mii_leer(r: u8) -> Option<u16> {
+    let mmio = unsafe { MMIO };
+    if mmio.is_null() || r > 15 {
+        return None;
+    }
+    let c = camino_phy(mmio)?;
+    unsafe { phy_orden(mmio, c, c.pedir_lectura(r), true) }
+}
+
+/// **El VEREDICTO** (`bmo_net::mii::Veredicto::empaquetar`): los seis
+/// registros, la velocidad que dice `PHYstatus`, y por que.
+pub fn mii_veredicto() -> Option<u64> {
+    use bmo_net::mii::{reg, Mii};
+    let m = Mii {
+        bmcr: mii_leer(reg::BMCR)?,
+        bmsr: mii_leer(reg::BMSR)?,
+        anar: mii_leer(reg::ANAR)?,
+        anlpar: mii_leer(reg::ANLPAR)?,
+        gbcr: mii_leer(reg::GBCR)?,
+        gbsr: mii_leer(reg::GBSR)?,
+    };
+    let id = releer()?;
+    let mbit = if id.enlace_arriba() { id.megabits() as u32 } else { 0 };
+    Some(m.veredicto(mbit).empaquetar())
+}
+
+/// **Anuncia 10/100/1000 y RENEGOCIA** (`bmo_net::mii::anuncio_completo`): lo
+/// que hace el driver de cualquier sistema al arrancar. El enlace se cae unos
+/// segundos y vuelve a lo mas que den el router y el cable. Devuelve lo que
+/// se escribio `(anar, gbcr, bmcr)`.
+pub fn mii_renegociar() -> Option<(u16, u16, u16)> {
+    use bmo_net::mii::{anuncio_completo, reg, Mii};
+    let mmio = unsafe { MMIO };
+    if mmio.is_null() {
+        return None;
+    }
+    let c = camino_phy(mmio)?;
+    let m = Mii {
+        bmcr: mii_leer(reg::BMCR)?,
+        anar: mii_leer(reg::ANAR)?,
+        gbcr: mii_leer(reg::GBCR)?,
+        ..Mii::default()
+    };
+    let (anar, gbcr, bmcr) = anuncio_completo(&m);
+    unsafe {
+        phy_orden(mmio, c, c.pedir_escritura(reg::ANAR, anar), false)?;
+        phy_orden(mmio, c, c.pedir_escritura(reg::GBCR, gbcr), false)?;
+        // El BMCR el ULTIMO: su reinicio negocia con lo que se acaba de anunciar.
+        phy_orden(mmio, c, c.pedir_escritura(reg::BMCR, bmcr), false)?;
+    }
+    crate::ring0::cabina::info("red", "PHY renegociando: anuncia 10/100/1000 (anar, gbcr)", (anar as u64) | ((gbcr as u64) << 16));
+    Some((anar, gbcr, bmcr))
+}
+
 // == STEP 1: RECEIVE. NOTHING IS TRANSMITTED. =================================
 //
 // # Why this is behind a typed command and not in the boot path
