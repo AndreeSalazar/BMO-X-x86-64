@@ -1,54 +1,132 @@
+//! **El monton de `bmo-rt`**: una lista de libres sobre los bloques de
+//! `KIND_MEMORIA`, con la politica que pide el kernel de BMO-X y no la de un
+//! `brk` que aqui no existe.
+//!
+//! ```text
+//!    el kernel   da BLOQUES enteros y contiguos (TASK_OP_MEMORIA_PEDIR), como
+//!                mucho OCHO vivos por proceso y de 64 MiB cada uno; y desde el
+//!                2026-09-21 los recoge enteros (MEM_OP_SOLTAR)
+//!    las arenas  la primera de 1 MiB y cada una el doble que la anterior,
+//!                hasta 64 MiB: con ocho peticiones se llega a ~200 MiB, y un
+//!                programa chico gasta UNA
+//!    lo grande   lo que pasa de 16 MiB pide su propio bloque, y al liberarlo
+//!                vuelve al kernel: un WAD o un fondo no se quedan de por vida
+//!    alineado    a 16, lo que C promete en x86-64 (`max_align_t`) y lo que
+//!                quiere un `movaps`; mas, con un desplazamiento apuntado
+//! ```
+//!
+//! La lista de libres va ORDENADA POR DIRECCION: al liberar, un trozo se junta
+//! con el de delante y con el de detras. Hasta el 03-10 solo miraba el de
+//! detras, y un `free` en orden inverso dejaba la arena en migas.
+//!
+//! La forma de un trozo: una palabra de cabecera (su medida, multiplo de 16,
+//! con banderas en los cuatro bits bajos) y detras lo del usuario. Libre, los
+//! ocho primeros bytes de lo del usuario guardan el siguiente libre.
+
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
-use core::ptr::{self, NonNull};
+use core::ptr;
 use bmo_abi::fundamentals::sync::BmoSpinLock;
 
+/// A lo que se alinea todo trozo.
+pub const ALINEA: usize = 16;
+
+/// El trozo mas chico: cabecera, el puntero de la lista y relleno a 16.
 const MIN_BLOCK: usize = 32;
 
-pub(crate) const ARENA_SIZE: usize = 1024 * 1024;
+/// La primera arena; cada una nueva mide el doble.
+pub const ARENA_PRIMERA: usize = 1024 * 1024;
 
-const ARENA_MAGIC: u64 = 0x5254_4E41_B4D0_424D;
+/// El tope de un bloque de `KIND_MEMORIA` (`ring0::obj::loan`).
+pub const BLOQUE_TOPE: usize = 64 * 1024 * 1024;
 
+/// Desde aqui, un trozo pide su propio bloque.
+pub const GRANDE_DESDE: usize = 16 * 1024 * 1024;
+
+/// Cuantos bloques se apuntan. El kernel deja ocho vivos; el doble deja sitio
+/// a que cambie sin que esto sea lo primero que se rompa.
+pub const BLOQUES: usize = 16;
+
+/// La palabra de cabecera.
+pub const HEADER_SIZE: usize = core::mem::size_of::<usize>();
+
+/// Donde empieza el primer trozo de un bloque: detras de su ficha y de forma
+/// que lo del usuario caiga alineado a [`ALINEA`] (el bloque lo esta: es una
+/// pagina del kernel, o 16 en las pruebas).
+const PRIMER_TROZO: usize = 40;
+const _: () = assert!(PRIMER_TROZO >= core::mem::size_of::<Ficha>());
+const _: () = assert!((PRIMER_TROZO + HEADER_SIZE) % ALINEA == 0);
+
+/// La marca al principio de cada bloque, para verlo en un volcado.
+const MAGIA: u64 = 0x5254_4E41_B4D0_424D;
+
+/// La palabra de cabecera de un trozo.
 #[repr(transparent)]
 pub struct BlockHeader(usize);
 
 impl BlockHeader {
+    /// Libre: esta en la lista.
     const FREE: usize = 1;
+    /// Es un bloque entero del kernel: liberarlo es devolverlo.
+    const GRANDE: usize = 2;
+    const BANDERAS: usize = 0xF;
 
     pub const fn new(size: usize, free: bool) -> Self {
         Self(size | if free { Self::FREE } else { 0 })
     }
 
     pub fn size(&self) -> usize {
-        self.0 & !Self::FREE
+        self.0 & !Self::BANDERAS
     }
 
     pub fn is_free(&self) -> bool {
         self.0 & Self::FREE != 0
     }
 
-    pub fn set_free(&mut self, free: bool) {
-        if free { self.0 |= Self::FREE; } else { self.0 &= !Self::FREE; }
+    fn grande(&self) -> bool {
+        self.0 & Self::GRANDE != 0
     }
 }
 
-pub const HEADER_SIZE: usize = core::mem::size_of::<BlockHeader>();
+/// Lo que va delante de lo del usuario cuando se pidio mas alineado que
+/// [`ALINEA`]: cuanto hay que retroceder hasta lo de verdad. Va donde iria la
+/// cabecera, y el bit 2 la distingue de una.
+const DESPLAZADO: usize = 4;
 
+/// La ficha al principio de cada bloque.
 #[allow(dead_code)]
-struct ArenaHeader {
-    magic: u64,
-    size: usize,
-    next: Option<NonNull<ArenaHeader>>,
+#[repr(C)]
+struct Ficha {
+    magia: u64,
+    medida: usize,
+    handle: u64,
 }
 
+/// Un bloque que el kernel dio: donde, cuanto, su handle, y si es de un solo
+/// trozo grande.
+#[derive(Clone, Copy)]
+pub struct Bloque {
+    pub base: *mut u8,
+    pub medida: usize,
+    pub handle: u64,
+    grande: bool,
+}
+
+const SIN_BLOQUE: Bloque = Bloque { base: ptr::null_mut(), medida: 0, handle: 0, grande: false };
+
+/// De donde salen los bloques: el kernel, o la memoria del anfitrion en las
+/// pruebas.
 pub trait MemBackend {
-    unsafe fn alloc_chunk(&self, min_size: usize) -> *mut u8;
-    unsafe fn free_chunk(&self, ptr: *mut u8, size: usize);
+    /// Un bloque de al menos `min_size` bytes: `(direccion, handle)`.
+    unsafe fn alloc_chunk(&self, min_size: usize) -> Option<(*mut u8, u64)>;
+    /// Devolverlo entero. `false` si el kernel no lo recogio (sigue prestado).
+    unsafe fn free_chunk(&self, ptr: *mut u8, size: usize, handle: u64) -> bool;
 }
 
 struct HeapInner {
     free_head: *mut u8,
-    arenas: Option<NonNull<ArenaHeader>>,
+    bloques: [Bloque; BLOQUES],
+    arenas: u32,
 }
 
 pub struct FreelistAllocator<B: MemBackend> {
@@ -60,156 +138,253 @@ pub struct FreelistAllocator<B: MemBackend> {
 unsafe impl<B: MemBackend> Send for FreelistAllocator<B> {}
 unsafe impl<B: MemBackend> Sync for FreelistAllocator<B> {}
 
+const fn sube(v: usize, a: usize) -> usize {
+    (v + a - 1) & !(a - 1)
+}
+
 impl<B: MemBackend> FreelistAllocator<B> {
     pub const fn new_with(backend: B) -> Self {
         Self {
-            inner: UnsafeCell::new(HeapInner {
-                free_head: ptr::null_mut(),
-                arenas: None,
-            }),
+            inner: UnsafeCell::new(HeapInner { free_head: ptr::null_mut(), bloques: [SIN_BLOQUE; BLOQUES], arenas: 0 }),
             backend,
             lock: BmoSpinLock::new(),
         }
     }
 
+    /// `size` bytes alineados a [`ALINEA`], o nulo.
     pub fn allocate(&self, size: usize) -> *mut u8 {
-        if size == 0 { return ptr::null_mut(); }
-        let aligned = size.wrapping_add(7) & !7;
-        let needed = HEADER_SIZE + aligned;
-        if needed >= ARENA_SIZE / 2 {
-            return unsafe { self.allocate_large(needed) };
+        if size == 0 || size > BLOQUE_TOPE {
+            return ptr::null_mut();
         }
+        let needed = sube(HEADER_SIZE + size, ALINEA).max(MIN_BLOCK);
         self.lock.lock();
-        let result = unsafe { self.allocate_from_freelist(needed) };
+        let r = unsafe {
+            if needed >= GRANDE_DESDE {
+                self.allocate_large(needed)
+            } else {
+                self.allocate_from_freelist(needed)
+            }
+        };
         self.lock.unlock();
-        result
+        r
+    }
+
+    /// `size` bytes alineados a `align` (potencia de dos), o nulo.
+    pub fn allocate_aligned(&self, size: usize, align: usize) -> *mut u8 {
+        if align <= ALINEA {
+            return self.allocate(size);
+        }
+        let Some(pedir) = size.checked_add(align) else { return ptr::null_mut() };
+        let crudo = self.allocate(pedir);
+        if crudo.is_null() {
+            return crudo;
+        }
+        let p = sube(crudo as usize, align) as *mut u8;
+        if p != crudo {
+            // Cabe: los dos van alineados a 16 y son distintos, asi que hay al
+            // menos 16 bytes delante de `p` dentro del trozo.
+            unsafe { p.sub(HEADER_SIZE).cast::<usize>().write((p as usize - crudo as usize) | DESPLAZADO) };
+        }
+        p
     }
 
     pub fn deallocate(&self, ptr: *mut u8, _layout: Layout) {
-        if ptr.is_null() { return; }
+        if ptr.is_null() {
+            return;
+        }
         self.lock.lock();
-        unsafe { self.deallocate_inner(ptr) };
+        unsafe { self.deallocate_inner(Self::real(ptr)) };
         self.lock.unlock();
+    }
+
+    /// Cuantos bytes de usuario caben desde `ptr` hasta el final de su trozo.
+    pub fn usable(&self, ptr: *mut u8) -> usize {
+        if ptr.is_null() {
+            return 0;
+        }
+        unsafe {
+            let real = Self::real(ptr);
+            let hdr = real.sub(HEADER_SIZE);
+            hdr as usize + (*hdr.cast::<BlockHeader>()).size() - ptr as usize
+        }
+    }
+
+    /// **El bloque del kernel que contiene `[ptr, ptr + n)`**: `(handle,
+    /// desplazamiento dentro de el)`. Es lo que deja leer un fichero DIRECTO a
+    /// memoria del monton con `ARCH_OP_LEER_EN`, sin copia ni bufer aparte.
+    pub fn bloque_de(&self, ptr: *const u8, n: usize) -> Option<(u64, u64)> {
+        let p = ptr as usize;
+        self.lock.lock();
+        let r = self.inner().bloques.iter().find_map(|b| {
+            let base = b.base as usize;
+            (b.medida != 0 && p >= base && p.checked_add(n)? <= base + b.medida).then(|| (b.handle, (p - base) as u64))
+        });
+        self.lock.unlock();
+        r
+    }
+
+    /// De donde saca los bloques.
+    pub fn backend(&self) -> &B {
+        &self.backend
+    }
+
+    /// Cuantos bloques del kernel tiene apuntados ahora.
+    pub fn bloques_vivos(&self) -> usize {
+        self.inner().bloques.iter().filter(|b| b.medida != 0).count()
     }
 }
 
 impl<B: MemBackend> FreelistAllocator<B> {
+    #[allow(clippy::mut_from_ref)]
     fn inner(&self) -> &mut HeapInner {
         unsafe { &mut *self.inner.get() }
     }
 
+    /// Lo del usuario de verdad, deshaciendo un [`DESPLAZADO`].
+    unsafe fn real(ptr: *mut u8) -> *mut u8 {
+        let w = ptr.sub(HEADER_SIZE).cast::<usize>().read();
+        if w & DESPLAZADO != 0 {
+            ptr.sub(w & !BlockHeader::BANDERAS)
+        } else {
+            ptr
+        }
+    }
+
+    fn apuntar(&self, b: Bloque) -> bool {
+        match self.inner().bloques.iter_mut().find(|x| x.medida == 0) {
+            Some(x) => {
+                *x = b;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Un bloque nuevo del kernel con su ficha puesta.
+    unsafe fn pedir_bloque(&self, medida: usize, grande: bool) -> Option<Bloque> {
+        if !self.inner().bloques.iter().any(|x| x.medida == 0) {
+            return None;
+        }
+        let (base, handle) = self.backend.alloc_chunk(medida)?;
+        if base.is_null() {
+            return None;
+        }
+        base.cast::<Ficha>().write(Ficha { magia: MAGIA, medida, handle });
+        let b = Bloque { base, medida, handle, grande };
+        self.apuntar(b);
+        Some(b)
+    }
+
     unsafe fn allocate_from_freelist(&self, needed: usize) -> *mut u8 {
-        let needed = needed.max(MIN_BLOCK);
-        let inner = self.inner();
         let mut prev: *mut u8 = ptr::null_mut();
-        let mut curr = inner.free_head;
-
+        let mut curr = self.inner().free_head;
         while !curr.is_null() {
-            let hdr = &*curr.cast::<BlockHeader>();
-            let block_size = hdr.size();
+            let block_size = (*curr.cast::<BlockHeader>()).size();
+            let next_free = self.read_next_free(curr);
             if block_size >= needed {
-                let next_free = self.read_next_free(curr);
-                if prev.is_null() {
-                    inner.free_head = next_free;
-                } else {
-                    self.write_next_free(prev, next_free);
-                }
-
                 let remaining = block_size - needed;
-                if remaining >= MIN_BLOCK {
-                    let alloc_hdr = curr;
-                    let remainder_hdr = curr.add(needed);
-                    alloc_hdr.cast::<BlockHeader>().write(BlockHeader::new(needed, false));
-                    remainder_hdr.cast::<BlockHeader>().write(BlockHeader::new(remaining, true));
-                    self.write_next_free(remainder_hdr, next_free);
-                    inner.free_head = remainder_hdr;
+                let siguiente = if remaining >= MIN_BLOCK {
+                    let resto = curr.add(needed);
+                    resto.cast::<BlockHeader>().write(BlockHeader::new(remaining, true));
+                    self.write_next_free(resto, next_free);
+                    curr.cast::<BlockHeader>().write(BlockHeader::new(needed, false));
+                    resto
                 } else {
                     curr.cast::<BlockHeader>().write(BlockHeader::new(block_size, false));
+                    next_free
+                };
+                if prev.is_null() {
+                    self.inner().free_head = siguiente;
+                } else {
+                    self.write_next_free(prev, siguiente);
                 }
                 return curr.add(HEADER_SIZE);
             }
             prev = curr;
-            curr = self.read_next_free(curr);
+            curr = next_free;
         }
 
-        let arena = self.add_arena(ARENA_SIZE);
-        if arena.is_null() { return ptr::null_mut(); }
-
-        let hdr = &*arena.cast::<ArenaHeader>();
-        let arena_size = hdr.size;
-        let block_start = arena.add(core::mem::size_of::<ArenaHeader>());
-        let avail = (arena as usize + arena_size) - block_start as usize;
-        if avail < needed { return ptr::null_mut(); }
-
-        let remaining = avail - needed;
-        if remaining >= MIN_BLOCK {
-            block_start.cast::<BlockHeader>().write(BlockHeader::new(needed, false));
-            let remainder_hdr = block_start.add(needed);
-            remainder_hdr.cast::<BlockHeader>().write(BlockHeader::new(remaining, true));
-            self.write_next_free(remainder_hdr, inner.free_head);
-            inner.free_head = remainder_hdr;
-            block_start.add(HEADER_SIZE)
-        } else {
-            block_start.cast::<BlockHeader>().write(BlockHeader::new(avail, false));
-            block_start.add(HEADER_SIZE)
+        // Nada cabe: una arena nueva, el doble que la anterior.
+        let doble = ARENA_PRIMERA << self.inner().arenas.min(6);
+        let medida = doble.max(sube(PRIMER_TROZO + needed, ALINEA)).min(BLOQUE_TOPE);
+        if PRIMER_TROZO + needed > medida {
+            return ptr::null_mut();
         }
+        let Some(b) = self.pedir_bloque(medida, false) else { return ptr::null_mut() };
+        self.inner().arenas += 1;
+        let trozo = b.base.add(PRIMER_TROZO);
+        let cabe = (medida - PRIMER_TROZO) & !(ALINEA - 1);
+        trozo.cast::<BlockHeader>().write(BlockHeader::new(cabe, false));
+        self.deallocate_inner(trozo.add(HEADER_SIZE));
+        self.allocate_from_freelist(needed)
     }
 
     unsafe fn deallocate_inner(&self, ptr: *mut u8) {
-        let hdr_ptr = ptr.sub(HEADER_SIZE);
-        let hdr = &mut *hdr_ptr.cast::<BlockHeader>();
-        debug_assert!(!hdr.is_free(), "double free");
-        hdr.set_free(true);
-        let block_size = hdr.size();
-        let next_block = hdr_ptr.add(block_size);
+        let mut hdr_ptr = ptr.sub(HEADER_SIZE);
+        let hdr = &*hdr_ptr.cast::<BlockHeader>();
+        debug_assert!(!hdr.is_free(), "doble free");
+        if hdr.grande() {
+            self.soltar_grande(hdr_ptr);
+            return;
+        }
+        let mut size = hdr.size();
 
+        // El sitio en la lista ordenada: entre `prev` y `curr`.
         let inner = self.inner();
-        let mut curr = inner.free_head;
         let mut prev: *mut u8 = ptr::null_mut();
-
-        while !curr.is_null() {
-            if curr == next_block {
-                let next_hdr = &*next_block.cast::<BlockHeader>();
-                let next_size = next_hdr.size();
-                let next_next = self.read_next_free(next_block);
-                if prev.is_null() {
-                    inner.free_head = next_next;
-                } else {
-                    self.write_next_free(prev, next_next);
-                }
-                let new_size = block_size + next_size;
-                hdr_ptr.cast::<BlockHeader>().write(BlockHeader::new(new_size, true));
-                break;
-            }
+        let mut curr = inner.free_head;
+        while !curr.is_null() && (curr as usize) < hdr_ptr as usize {
             prev = curr;
             curr = self.read_next_free(curr);
         }
 
-        self.write_next_free(hdr_ptr, inner.free_head);
-        inner.free_head = hdr_ptr;
+        // Con el de detras, si toca.
+        let mut next = curr;
+        if !curr.is_null() && hdr_ptr.add(size) == curr {
+            size += (*curr.cast::<BlockHeader>()).size();
+            next = self.read_next_free(curr);
+        }
+        // Con el de delante, si toca.
+        if !prev.is_null() && prev.add((*prev.cast::<BlockHeader>()).size()) == hdr_ptr {
+            size += (*prev.cast::<BlockHeader>()).size();
+            hdr_ptr = prev;
+            hdr_ptr.cast::<BlockHeader>().write(BlockHeader::new(size, true));
+            self.write_next_free(hdr_ptr, next);
+            return;
+        }
+        hdr_ptr.cast::<BlockHeader>().write(BlockHeader::new(size, true));
+        self.write_next_free(hdr_ptr, next);
+        if prev.is_null() {
+            inner.free_head = hdr_ptr;
+        } else {
+            self.write_next_free(prev, hdr_ptr);
+        }
     }
 
+    /// Un trozo con su propio bloque: el bloque entero, con la cabecera donde
+    /// iria el primer trozo de una arena.
     unsafe fn allocate_large(&self, needed: usize) -> *mut u8 {
-        let total = needed.max(MIN_BLOCK);
-        let raw = self.backend.alloc_chunk(total);
-        if raw.is_null() { return ptr::null_mut(); }
-        raw.cast::<BlockHeader>().write(BlockHeader::new(total, false));
-        raw.add(HEADER_SIZE)
+        let medida = sube(PRIMER_TROZO + needed, ALINEA);
+        if medida > BLOQUE_TOPE {
+            return ptr::null_mut();
+        }
+        let Some(b) = self.pedir_bloque(medida, true) else { return ptr::null_mut() };
+        let trozo = b.base.add(PRIMER_TROZO);
+        trozo.cast::<BlockHeader>().write(BlockHeader(needed | BlockHeader::GRANDE));
+        trozo.add(HEADER_SIZE)
     }
 
-    unsafe fn add_arena(&self, size: usize) -> *mut u8 {
-        let total_size = size + core::mem::size_of::<ArenaHeader>();
-        let raw = self.backend.alloc_chunk(total_size);
-        if raw.is_null() { return ptr::null_mut(); }
-        let arena = raw.cast::<ArenaHeader>();
+    /// Devolver al kernel el bloque de un trozo grande. Si no lo recoge
+    /// (sigue prestado a otro), se queda apuntado: perder la cuenta de memoria
+    /// que otro lee seria peor que no reusarla.
+    unsafe fn soltar_grande(&self, hdr_ptr: *mut u8) {
+        let base = hdr_ptr.sub(PRIMER_TROZO);
         let inner = self.inner();
-        arena.write(ArenaHeader {
-            magic: ARENA_MAGIC,
-            size: total_size,
-            next: inner.arenas,
-        });
-        inner.arenas = Some(NonNull::new_unchecked(arena));
-        raw
+        if let Some(b) = inner.bloques.iter_mut().find(|b| b.base == base && b.grande) {
+            if self.backend.free_chunk(b.base, b.medida, b.handle) {
+                *b = SIN_BLOQUE;
+            }
+        }
     }
 
     fn read_next_free(&self, hdr: *mut u8) -> *mut u8 {
@@ -217,13 +392,13 @@ impl<B: MemBackend> FreelistAllocator<B> {
     }
 
     fn write_next_free(&self, hdr: *mut u8, next: *mut u8) {
-        unsafe { hdr.add(HEADER_SIZE).cast::<*mut u8>().write(next); }
+        unsafe { hdr.add(HEADER_SIZE).cast::<*mut u8>().write(next) }
     }
 }
 
 unsafe impl<B: MemBackend> GlobalAlloc for FreelistAllocator<B> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        self.allocate(layout.size())
+        self.allocate_aligned(layout.size(), layout.align())
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
@@ -231,16 +406,22 @@ unsafe impl<B: MemBackend> GlobalAlloc for FreelistAllocator<B> {
     }
 
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-        if ptr.is_null() { return self.alloc(Layout::from_size_align_unchecked(new_size, layout.align())); }
-        if new_size == 0 { self.dealloc(ptr, layout); return ptr::null_mut(); }
-        let hdr_ptr = ptr.sub(HEADER_SIZE);
-        let hdr = &*hdr_ptr.cast::<BlockHeader>();
-        let old_size = hdr.size() - HEADER_SIZE;
-        if new_size <= old_size { return ptr; }
-        let new_ptr = self.alloc(Layout::from_size_align_unchecked(new_size, layout.align()));
-        if new_ptr.is_null() { return ptr::null_mut(); }
-        let copy_size = old_size.min(new_size);
-        ptr::copy_nonoverlapping(ptr, new_ptr, copy_size);
+        if ptr.is_null() {
+            return self.allocate_aligned(new_size, layout.align());
+        }
+        if new_size == 0 {
+            self.dealloc(ptr, layout);
+            return ptr::null_mut();
+        }
+        let cabe = self.usable(ptr);
+        if new_size <= cabe {
+            return ptr;
+        }
+        let new_ptr = self.allocate_aligned(new_size, layout.align());
+        if new_ptr.is_null() {
+            return ptr::null_mut();
+        }
+        ptr::copy_nonoverlapping(ptr, new_ptr, cabe.min(new_size));
         self.dealloc(ptr, layout);
         new_ptr
     }

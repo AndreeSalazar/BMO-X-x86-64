@@ -1,21 +1,62 @@
-# userland_ring3 module -- the BMO userland standard library
-# Every function here is available to C/COBOL frontends via call relocations.
+# bmo_rt -- la libc de BMO-X, en Rust. Lo que un `.bex` de C enlaza.
+#
+# Esta lista es la de los simbolos que EXISTEN (`#[no_mangle]` en el `.bex`;
+# en las pruebas del anfitrion no se exportan). Hasta el 03-10 prometia
+# `printf`, `sprintf` y `snprintf`, que no existian: el formato es
+# `bmo_printf(fmt, n, args)` -- los argumentos en un arreglo de palabras con
+# su cuenta, no variadicos del ABI de C. Ver src/fmt.rs.
 
 [module]
 name = "bmo_rt"
-version = "1.0.0"
+version = "2.0.0"
 
 [exports]
-# -- Syscall dispatch --------------------------
+# -- Arranque y salida -------------------------
+_start = "void -> void"
+exit = "int -> void"
+abort = "void -> void"
+
+# -- La puerta cruda ---------------------------
 bmo_syscall = "u32, u64, u64, u64, u64, u64, u64 -> u64"
 
-# -- Heap -------------------------------------
+# -- Monton (KIND_MEMORIA) ---------------------
 malloc = "size_t -> ptr"
 free = "ptr -> void"
 calloc = "size_t, size_t -> ptr"
 realloc = "ptr, size_t -> ptr"
 
-# -- String -----------------------------------
+# -- Ficheros (KIND_ARCHIVO) -------------------
+stdin = "ptr"
+stdout = "ptr"
+stderr = "ptr"
+fopen = "ptr, ptr -> ptr"
+fclose = "ptr -> int"
+fread = "ptr, size_t, size_t, ptr -> size_t"
+fwrite = "ptr, size_t, size_t, ptr -> size_t"
+fgetc = "ptr -> int"
+getc = "ptr -> int"
+getchar = "void -> int"
+ungetc = "int, ptr -> int"
+fgets = "ptr, int, ptr -> ptr"
+fputc = "int, ptr -> int"
+putc = "int, ptr -> int"
+putchar = "int -> int"
+fputs = "ptr, ptr -> int"
+puts = "ptr -> int"
+fseek = "ptr, i64, int -> int"
+ftell = "ptr -> i64"
+rewind = "ptr -> void"
+feof = "ptr -> int"
+ferror = "ptr -> int"
+clearerr = "ptr -> void"
+fflush = "ptr -> int"
+
+# -- Formato (argumentos en arreglo) -----------
+bmo_printf = "ptr, u64, ptr -> int"
+bmo_fprintf = "ptr, ptr, u64, ptr -> int"
+bmo_snprintf = "ptr, size_t, ptr, u64, ptr -> int"
+
+# -- Memoria y cadenas -------------------------
 memcpy = "ptr, ptr, size_t -> ptr"
 memmove = "ptr, ptr, size_t -> ptr"
 memset = "ptr, int, size_t -> ptr"
@@ -23,6 +64,8 @@ memcmp = "ptr, ptr, size_t -> int"
 strlen = "ptr -> size_t"
 strcmp = "ptr, ptr -> int"
 strncmp = "ptr, ptr, size_t -> int"
+strcasecmp = "ptr, ptr -> int"
+strncasecmp = "ptr, ptr, size_t -> int"
 strcpy = "ptr, ptr -> ptr"
 strncpy = "ptr, ptr, size_t -> ptr"
 strcat = "ptr, ptr -> ptr"
@@ -33,11 +76,22 @@ strstr = "ptr, ptr -> ptr"
 strdup = "ptr -> ptr"
 strndup = "ptr, size_t -> ptr"
 
-# -- Formatted output --------------------------
-bmo_printf = "ptr, u64, ptr -> int"
-printf = "ptr -> int"
-snprintf = "ptr, size_t, ptr -> int"
-sprintf = "ptr -> int"
+# -- Caracteres (ASCII: no hay locale) ---------
+toupper = "int -> int"
+tolower = "int -> int"
+isdigit = "int -> int"
+isalpha = "int -> int"
+isalnum = "int -> int"
+isupper = "int -> int"
+islower = "int -> int"
+isxdigit = "int -> int"
+isprint = "int -> int"
+isspace = "int -> int"
 
-# -- Startup ----------------------------------
-_start = "void -> void"
+# -- Numeros -----------------------------------
+atoi = "ptr -> int"
+atol = "ptr -> i64"
+strtol = "ptr, ptr, int -> i64"
+strtoul = "ptr, ptr, int -> u64"
+abs = "int -> int"
+labs = "i64 -> i64"
