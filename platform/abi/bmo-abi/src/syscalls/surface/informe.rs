@@ -570,8 +570,10 @@ pub const INFO_AUDIO_ESPACIO: u64 = 0xCA;
 /// **LOS LADOS del aparato** (03-10, "se escucha un solo lado"): lo que el
 /// volumen del izquierdo `[0..16)` y del derecho `[16..32)` traian al
 /// reclamarlo (`i16`, 1/256 dB) | `[32..34)` cual venia CALLADO (bit 0
-/// izquierdo, bit 1 derecho) | `[48..64)` que canales declaran volumen (bit n
-/// = canal n, el 0 es el maestro). Al reclamarlo se igualan.
+/// izquierdo, bit 1 derecho) | `[36..40)` cuantas OTRAS unidades de volumen
+/// del camino de reproduccion se abrieron (a 0 dB y sin mute) | `[48..64)` que
+/// canales declaran volumen (bit n = canal n, el 0 es el maestro). Al
+/// reclamarlo se igualan.
 pub const INFO_AUDIO_LADOS: u64 = 0xCB;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------

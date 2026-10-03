@@ -119,6 +119,12 @@ pub(crate) fn oido(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After {
             s.text(if (l >> 32) & 3 == 2 { b" (el DERECHO venia callado)" } else if (l >> 32) & 3 == 1 { b" (el IZQUIERDO venia callado)" } else { b" (los dos venian callados)" });
         }
         s.text(b"  -> igualados al reclamarlo\n");
+        let otras = (l >> 36) & 0xF;
+        if otras > 0 {
+            s.text(b"  y ");
+            s.dec(otras);
+            s.text(b" unidad(es) de volumen mas en el camino del aparato, abiertas a 0 dB\n");
+        }
     }
     if (o >> 48) & 1 == 0 {
         s.with_ink(INK_ERR);

@@ -162,7 +162,7 @@ pub struct Request {
 ///
 /// [!] Un `bLength` de 0 pararia el bucle para siempre. Se comprueba: es la
 /// clase de dato que llega de fuera y no se le puede suponer nada.
-pub fn find_audio_control(config: &[u8]) -> Option<AudioControl> {
+fn analizar(config: &[u8]) -> Analisis {
     // ** UN LADO SOLO (2026-10-03, el Ryzen: *"se escucha un solo lado"*).
     //
     // Hasta hoy esto devolvia el PRIMER Feature Unit. Un auricular con
@@ -290,26 +290,69 @@ pub fn find_audio_control(config: &[u8]) -> Option<AudioControl> {
     }
 
     let ents = &ents[..n];
-    // Aguas arriba de `id`, hay un tubo USB? Con tope de saltos: un grafo con
-    // un ciclo (llega de fuera) no puede colgar esto.
-    fn del_tubo(ents: &[Entidad], id: u8, saltos: u8) -> bool {
+    // Cuantos saltos hay, aguas arriba de `id`, hasta un tubo USB. Con tope:
+    // un grafo con un ciclo (llega de fuera) no puede colgar esto.
+    fn al_tubo(ents: &[Entidad], id: u8, saltos: u8) -> Option<u8> {
         if saltos == 0 {
-            return false;
+            return None;
         }
-        let Some(e) = ents.iter().find(|e| e.id == id) else { return false };
+        let e = ents.iter().find(|e| e.id == id)?;
         if e.tipo != 0 {
-            return e.tipo == TERMINAL_USB_STREAMING;
+            return (e.tipo == TERMINAL_USB_STREAMING).then_some(1);
         }
-        e.fuentes[..e.n_fuentes as usize].iter().any(|&f| del_tubo(ents, f, saltos - 1))
+        e.fuentes[..e.n_fuentes as usize].iter().filter_map(|&f| al_tubo(ents, f, saltos - 1)).min().map(|d| d + 1)
     }
-    let reproduce = ents
-        .iter()
-        .filter_map(|e| e.fu.map(|fu| (e, fu)))
-        .find(|(e, _)| e.fuentes[..e.n_fuentes as usize].iter().any(|&f| del_tubo(ents, f, 8)));
-    match reproduce {
-        Some((_, fu)) => Some(fu),
-        None => ents.iter().find_map(|e| e.fu),
+    let mut a = Analisis { primero: ents.iter().find_map(|e| e.fu), camino: [None; MAX_EN_CAMINO] };
+    let mut k = 0;
+    for e in ents {
+        let Some(fu) = e.fu else { continue };
+        let d = e.fuentes[..e.n_fuentes as usize].iter().filter_map(|&f| al_tubo(ents, f, 8)).min();
+        if let (Some(d), true) = (d, k < MAX_EN_CAMINO) {
+            a.camino[k] = Some((fu, d));
+            k += 1;
+        }
     }
+    a
+}
+
+/// Cuantas unidades de volumen se recuerdan en el camino de reproduccion.
+pub const MAX_EN_CAMINO: usize = 4;
+
+struct Analisis {
+    /// El primer Feature Unit del descriptor, sea de lo que sea.
+    primero: Option<AudioControl>,
+    /// Los Feature Units con el TUBO USB aguas arriba, y a cuantos saltos.
+    camino: [Option<(AudioControl, u8)>; MAX_EN_CAMINO],
+}
+
+/// **El Feature Unit que manda el fader**: el de REPRODUCCION mas cerca del
+/// tubo USB (el "volumen del PCM"); si no hay ninguno con camino, el primero
+/// del descriptor, como antes. Ver [`analizar`] (UN LADO SOLO) y
+/// [`otras_de_reproduccion`].
+pub fn find_audio_control(config: &[u8]) -> Option<AudioControl> {
+    let a = analizar(config);
+    a.camino.iter().flatten().min_by_key(|(_, d)| *d).map(|(fu, _)| *fu).or(a.primero)
+}
+
+/// **LAS OTRAS unidades de volumen del camino de reproduccion** (03-10: *"a
+/// +52 no suena fuerte"*). Un auricular con microfono mezcla la voz en el oido
+/// (el retorno) DESPUES del volumen del PCM, y muchos llevan otro Feature
+/// Unit detras del mezclador: si ese se queda como lo trajo el aparato --a
+/// media altura, o callado--, el fader puede estar a tope y el oido no recibe
+/// el tope. Quien manda las pone a 0 dB (ganancia unidad, dentro de su rango)
+/// y sin mute, una vez, y el fader sigue en la principal.
+pub fn otras_de_reproduccion(config: &[u8]) -> ([Option<AudioControl>; MAX_EN_CAMINO], usize) {
+    let principal = find_audio_control(config);
+    let a = analizar(config);
+    let mut v = [None; MAX_EN_CAMINO];
+    let mut n = 0;
+    for (fu, _) in a.camino.iter().flatten() {
+        if Some(fu.feature_unit) != principal.map(|p| p.feature_unit) && n < MAX_EN_CAMINO {
+            v[n] = Some(*fu);
+            n += 1;
+        }
+    }
+    (v, n)
 }
 
 /// Los `bmaControls` del canal maestro, leidos como un entero chico.
@@ -635,6 +678,39 @@ mod tests {
         let ac = find_audio_control(&c).expect("devuelve uno");
         // Sin camino al tubo, se queda con el primero, como antes.
         assert_eq!(ac.feature_unit, 5);
+    }
+
+    /// ***** "A +52 NO SUENA FUERTE" (03-10): el PCM pasa por DOS unidades de
+    /// volumen. El tubo (IT 2) -> FU 6 (el volumen del PCM) -> MEZCLADOR 8 (con
+    /// el microfono, el retorno) -> FU 9 (otra, detras). El fader va a la 6, la
+    /// mas cerca del tubo; la 9 sale como OTRA del camino, para ponerla a 0 dB.
+    /// La del microfono (5) no sale en ninguna de las dos.
+    #[test]
+    fn la_segunda_unidad_detras_del_mezclador_sale_como_otra() {
+        let base = config_auricular();
+        let mut v = [0u8; 96];
+        v[..71].copy_from_slice(&base[..71]);
+        let extra: [u8; 19] = [
+            // MIXER_UNIT id 8: 2 entradas (6 y 5), y lo demas del descriptor (9 + 1)
+            9, DESC_CS_INTERFACE, AC_MIXER_UNIT, 8, 2, 6, 5, 2, 0,
+            // FEATURE_UNIT id 9 <- 8: maestro mute+vol, iFeature (10)
+            10, DESC_CS_INTERFACE, AC_FEATURE_UNIT, 9, 8, 1, 0x03, 0x00, 0x00, 0,
+        ];
+        v[71..90].copy_from_slice(&extra);
+        v[90..96].copy_from_slice(&base[71..77]);
+        v[2] = 96;
+        let c = &v[..96];
+        assert_eq!(find_audio_control(c).unwrap().feature_unit, 6, "el fader, en la del PCM");
+        let (otras, n) = otras_de_reproduccion(c);
+        assert_eq!(n, 1);
+        assert_eq!(otras[0].unwrap().feature_unit, 9, "la de detras del mezclador");
+    }
+
+    /// Con una sola unidad en el camino, no hay OTRAS.
+    #[test]
+    fn con_una_sola_no_hay_otras() {
+        assert_eq!(otras_de_reproduccion(&config_auricular()).1, 0);
+        assert_eq!(otras_de_reproduccion(&config_tipica()).1, 0);
     }
 
     /// Un aparato sin Feature Unit existe, y la respuesta correcta es `None`:
