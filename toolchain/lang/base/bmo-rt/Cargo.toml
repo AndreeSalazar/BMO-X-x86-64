@@ -6,3 +6,17 @@ description = "BMO Runtime — la libc de BMO: crt0, heap, string y printf enlaz
 
 [dependencies]
 bmo-abi = { path = "../../../../platform/abi/bmo-abi" }
+# El monton (la lista de libres): puro, en `platform/shared` para que Ring 3
+# lo enlace sin esta herramienta (03-10). Aqui se le pone el respaldo de
+# syscalls.
+bmo-monton = { path = "../../../../platform/shared/bmo-monton" }
+
+# `libc` (por defecto): los nombres de C (`malloc`, `fopen`, `memcpy`...),
+# el `_start` de `crt0` y el `#[global_allocator]` -- lo que enlaza un `.bex`
+# de C. Sin ella (`default-features = false`), `bmo-rt` es una biblioteca de
+# Rust que no exporta nada: su formato o sus ficheros sin pisar el `malloc` de
+# nadie. (El monton, que es lo que pedia Ring 3, ya no hace falta sacarlo de
+# aqui: vive en `bmo-monton`.)
+[features]
+default = ["libc"]
+libc = []

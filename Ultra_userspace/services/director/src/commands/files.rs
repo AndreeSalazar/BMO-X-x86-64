@@ -564,6 +564,10 @@ fn modo_del_save(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Option<Aft
 }
 
 pub(crate) fn save(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
+    // `save siempre` / `save siempre off` (03-10): guardar solo, armado.
+    if let Some(a) = super::save_siempre::orden(dsk, p, arg) {
+        return a;
+    }
     // `save auto`, `save manual`, `save modo`: el modo, no un fichero con ese
     // nombre.
     if let Some(a) = modo_del_save(dsk, p, arg) {

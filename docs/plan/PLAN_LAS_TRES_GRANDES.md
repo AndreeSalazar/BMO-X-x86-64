@@ -575,3 +575,95 @@ donde dos `&mut` del mismo estado pueden chocar.
 
 La regla: nada de la fila 7 empieza sin la fila 5 hecha (encender nucleos con
 42 sitios que suponen uno solo seria buscar fallos a ciegas).
+
+---
+
+# 6. DONDE ESTAMOS -- LA ESCALERA HASTA JUGAR (03-10)
+
+> El propietario: *"no olvides anotar donde estamos para avanzar"*, y
+> *"vamos a EXPRIMIR luego los FPS hasta que esten estables; eso es posible
+> porque es mi kernel"*. Esta es la escalera, de abajo arriba; se actualiza
+> con cada corrida del metal (la ultima: 02-10, tanda53 de
+> [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md)).
+
+```text
+   nivel                                          donde se ve que esta hecho
+   1  cargar el .exe y sus 24 DLL                 SYSPROTO: "4793 funcion(es)
+                                                  resueltas; codigo SELLADO"
+   2  arrancar por dentro: CRT, hilos, ficheros,  el DIARIO pasa de los
+      Galaxy, red                                 DllMain al bucle del juego
+   3  montar D3D12: dispositivo, firmas, PSO      <- AQUI (02-10): murio en
+                                                  los primeros PSO
+   4  la ventana y el primer Present              CreateWindowEx en el
+                                                  DIARIO; una ventana
+   5  la pantalla de carga y el MENU              los .archive leidos; el
+                                                  menu en la pantalla
+   6  dibujar en la 3060 de verdad                los sombreadores del juego
+                                                  por el emisor sm86, no en
+                                                  la CPU
+   7  velocidad: los 6 nucleos y los hilos de     H1 [RING 0] (seccion 4)
+      verdad
+   8  sonido, mando y guardar partida             A2 [RING 0]; la entrada;
+                                                  un save del juego
+   9  EXPRIMIR: los FPS ESTABLES                  FRAPS-X: el fotograma
+                                                  peor y los bajos del 1 %
+                                                  y del 0,1 % dentro de su
+                                                  presupuesto
+```
+
+**Estado al 03-10: nivel 3.** Antes giraba sin hacer nada (lo arreglo la
+tanda52: preguntar la hora cede el turno); ahora sus hilos corren y crea
+PSO. Murio porque el monton de PROTON-X no devolvia lo soltado (tanda53, ya
+arreglado: `bmo-monton`). El siguiente paso que el juego YA PIDIO:
+
+- [ ] **N3.1 -- input layouts que no son float de 32 bits** (`tuberia.rs`:
+  UNORM, SNORM, UINT, SINT y half, de 8, 16 y 32 bits): lo ultimo que dijo
+  el metal antes de morir.
+- [x] **N3.2 -- la corrida siguiente con el monton nuevo** (03-10): 2,2 MiB
+  en uso al cargar (antes, 48 MiB llenos al morir): era basura, y ya no
+  mata. Con 1065 PSO creados (163 ms) y 201 recursos.
+- [x] **N4 -- la ventana** (03-10): CreateWindowExA, ShowWindow, su
+  WM_PAINT y SetWindowPos; una ventana de 1898x1064 en el escritorio, NEGRA
+  (el juego aun no presento nada: 0 ExecuteCommandLists, 0 Present).
+
+**Estado al 03-10, segunda corrida: nivel 4.** Lo que lo para ahora, por
+orden (las dos corridas murieron igual: es determinista):
+
+- [ ] **N4.1 -- el puntero NULO**: a los ~11 s, el hilo principal llama a la
+  direccion 0 desde `Cyberpunk2077.exe+0x1d4c6cf` con `rcx = 0` (no es un
+  metodo COM: ahi `rcx` es el objeto). Los unicos nulos que la casa le dio
+  fueron dos GetProcAddress: `crypt32!CryptMsgClose` e
+  `iphlpapi!if_nametoindex`; `CryptMsgClose(NULL)` es una limpieza que
+  Windows acepta y encaja con `rcx = 0` (tras fallar la firma, sin
+  `wintrust.dll`). Sin probar: una llamada a 0 no pasa por el diario. El
+  arreglo y la red: esas dos de verdad, y un GetProcAddress de algo que la
+  casa no tiene de una DLL que si tiene da una TRAMPA con nombre (dice quien
+  es al llamarla y devuelve 0), no un nulo.
+- [ ] **N4.2 -- el fondo de la ventana**: FillRect con cualquier pincel, no
+  solo los de color de sistema.
+- [ ] **N5.1 -- los sombreadores de Cyberpunk** en la casa: recursos mas alla
+  de t0..t31 y s0..s15 (espacios de registro y rangos grandes), las
+  semanticas que el input layout no da con su nombre, y N3.1.
+
+**El nivel 9 es posible por ser el kernel propio**, y no es un deseo: estas
+son las palancas que ningun juego tiene en Windows, cada una medible con
+FRAPS-X antes y despues:
+
+- [ ] **N9.1 -- solo el juego**: con el corriendo, el kernel no hace nada
+  mas que el bus USB y el disco (el escritorio, apartado; ningun servicio de
+  fondo que robe un nucleo).
+- [ ] **N9.2 -- paginas grandes**: la memoria del juego en paginas de 2 MiB
+  (y de 1 GiB, que el Ryzen tiene sin usar): menos fallos de TLB.
+- [ ] **N9.3 -- los hilos del juego en su nucleo**: SetThreadIdealProcessor
+  y las prioridades que pide, respetadas de verdad, con el contrato de
+  tiempo de cada hilo (el COMPAS) vigilado.
+- [ ] **N9.4 -- la 3060 sin capas**: los lotes van del juego a la puerta de
+  la 3060 sin driver de por medio; y a P0 mientras se juega (E-1 de
+  [`PLAN_LA_3060.md`](PLAN_LA_3060.md) la duerme cuando no).
+
+**"Todo el potencial", dicho claro**: el trazado de rayos (RT Overdrive) pide
+los nucleos RT de la 3060 desde nuestro propio emisor, y va al final, detras
+de "se ve el menu" (seccion 0). DLSS es una biblioteca cerrada de NVIDIA
+(`nvngx`) que habla con SU driver: aqui no hay ese driver, asi que no. FSR 3
+si: lo trae el juego en sus DLL (`ffx_*.dll`, ya cargadas el 02-10) y corre
+en cualquier grafica.

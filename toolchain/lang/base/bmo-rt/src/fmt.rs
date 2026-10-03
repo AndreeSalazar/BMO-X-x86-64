@@ -376,7 +376,7 @@ pub unsafe fn cadena<'a>(p: *const u8) -> &'a [u8] {
 ///
 /// # Safety
 /// `buf` tiene `cap` bytes; `fmt` es una cadena C; `args` tiene `n` palabras.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn bmo_snprintf(buf: *mut u8, cap: usize, fmt: *const u8, n: u64, args: *const u64) -> i32 {
     let dst: &mut [u8] = if buf.is_null() { &mut [] } else { core::slice::from_raw_parts_mut(buf, cap) };
     let mut b = Bufer { dst, total: 0 };

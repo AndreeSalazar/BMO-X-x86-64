@@ -104,6 +104,31 @@ fn diario_exe_con_diario_apunta_cada_funcion_una_vez_y_en_orden() {
     assert!(anillo.iter().all(|l| l.split_whitespace().next() == Some(id)), "cada llamada, del hilo {id}: {texto}");
 }
 
+/// **Al morir de panico, el diario se queda con todo** (03-10): lo
+/// apuntado, la foto y el motivo. En el metal (02-10) PROTON-X murio sin
+/// memoria y el diario no tenia ni su final.
+#[test]
+fn el_diario_al_morir_guarda_lo_que_tenia_y_el_motivo() {
+    struct Apagar;
+    impl Drop for Apagar {
+        fn drop(&mut self) {
+            bmo_proton_x_casa::diario::diario(None);
+        }
+    }
+    let uno = uno_a_la_vez();
+    let _apagar = Apagar;
+    let ruta = volumen().join("morir.txt");
+    let _ = std::fs::remove_file(&ruta);
+    bmo_proton_x_casa::diario::diario(Some(b"morir.txt"));
+    let (salio, _, _) = correr_exe(&uno, DIARIO, true, &[]);
+    assert_eq!(salio, 0);
+    bmo_proton_x_casa::diario::al_morir(b"PROTON-X: panico en el cargador: memory allocation of 48 bytes failed\n");
+    let texto = std::fs::read_to_string(&ruta).unwrap();
+    assert!(texto.contains("KERNEL32.dll GetTickCount") || texto.contains(" GetTickCount\n"), "lo apuntado: {texto}");
+    assert!(texto.contains("# EN VIVO"), "la foto: {texto}");
+    assert!(texto.ends_with("# PANICO: PROTON-X: panico en el cargador: memory allocation of 48 bytes failed\n"), "{texto}");
+}
+
 /// **Un hilo que espera DANDO VUELTAS** (02-10): `vueltas.exe` despierta a
 /// un trabajador y lo espera mirando QueryPerformanceCounter en un bucle,
 /// como un motor. Con hilos cooperativos el trabajador no corria nunca;

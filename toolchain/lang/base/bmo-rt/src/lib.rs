@@ -131,8 +131,9 @@ pub mod string;
 pub mod syscall;
 
 /// `_start`, `exit` y `abort`: FUERA de las pruebas, porque en el anfitrion
-/// el arnes de `cargo test` ya trae su arranque y su `exit`.
-#[cfg(not(test))]
+/// el arnes de `cargo test` ya trae su arranque y su `exit`; y solo con la
+/// funcion `libc` (un programa de Rust trae su `_start`).
+#[cfg(all(not(test), feature = "libc"))]
 pub mod crt0;
 
 pub mod ffi;

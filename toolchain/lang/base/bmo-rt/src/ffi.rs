@@ -1,6 +1,6 @@
 //! **Los nombres de C**: lo que un `.bex` enlaza de `bmo-rt`.
 //!
-//! [!] Solo existen en el `.bex` (`cfg_attr(not(test), no_mangle)`). En las
+//! [!] Solo existen en el `.bex` (`cfg_attr(all(not(test), feature = "libc"), no_mangle)`). En las
 //! pruebas del anfitrion no se exportan, y es a proposito: hasta el 03-10 el
 //! `malloc` de aqui sustituia al del anfitrion dentro del binario de pruebas
 //! --que no tiene `KIND_MEMORIA`--, y `cargo test -p bmo-rt` moria con
@@ -28,13 +28,13 @@ fn de(f: *mut Fichero) -> Option<&'static mut Fichero> {
 
 /// Lo que C llama `stdin`: leerlo da fin de fichero (la entrada de BMO-X es
 /// `KIND_INPUT`).
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub static mut stdin: *mut Fichero = unsafe { addr_of_mut!(TABLA.f[0]) };
 /// `stdout`: la consola.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub static mut stdout: *mut Fichero = unsafe { addr_of_mut!(TABLA.f[1]) };
 /// `stderr`: la consola tambien.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub static mut stderr: *mut Fichero = unsafe { addr_of_mut!(TABLA.f[2]) };
 
 /// Cerrar todos los `FILE`: lo escrito llega al disco. Lo llama `exit`.
@@ -44,34 +44,34 @@ pub fn cerrar_todos() {
 
 // -- El monton -------------------------------------------------------------
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn malloc(size: usize) -> *mut u8 {
     heap::malloc(size)
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn free(ptr: *mut u8) {
     heap::free(ptr)
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn calloc(nmemb: usize, size: usize) -> *mut u8 {
     heap::calloc(nmemb, size)
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn realloc(ptr: *mut u8, new_size: usize) -> *mut u8 {
     heap::realloc(ptr, new_size)
 }
 
 // -- Los ficheros ------------------------------------------------------------
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn fopen(ruta: *const u8, modo: *const u8) -> *mut Fichero {
     tabla().abrir(&Kernel, cadena(ruta), cadena(modo))
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn fclose(f: *mut Fichero) -> i32 {
     if tabla().cerrar(&Kernel, f) {
         0
@@ -80,7 +80,7 @@ pub unsafe extern "C" fn fclose(f: *mut Fichero) -> i32 {
     }
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn fread(dst: *mut u8, size: usize, n: usize, f: *mut Fichero) -> usize {
     let (Some(f), Some(total)) = (de(f), size.checked_mul(n)) else { return 0 };
     if size == 0 {
@@ -89,7 +89,7 @@ pub unsafe extern "C" fn fread(dst: *mut u8, size: usize, n: usize, f: *mut Fich
     f.leer(&Kernel, dst, total) / size
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn fwrite(src: *const u8, size: usize, n: usize, f: *mut Fichero) -> usize {
     let (Some(f), Some(total)) = (de(f), size.checked_mul(n)) else { return 0 };
     if size == 0 {
@@ -98,27 +98,27 @@ pub unsafe extern "C" fn fwrite(src: *const u8, size: usize, n: usize, f: *mut F
     f.escribir(&Kernel, src, total) / size
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn fgetc(f: *mut Fichero) -> i32 {
     de(f).map_or(EOF, |f| f.byte(&Kernel))
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn getc(f: *mut Fichero) -> i32 {
     fgetc(f)
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn getchar() -> i32 {
     fgetc(stdin)
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn ungetc(c: i32, f: *mut Fichero) -> i32 {
     de(f).map_or(EOF, |f| f.devolver(c))
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn fgets(s: *mut u8, n: i32, f: *mut Fichero) -> *mut u8 {
     let leido = n > 0 && de(f).is_some_and(|f| f.linea(&Kernel, s, n as usize));
     if leido {
@@ -128,7 +128,7 @@ pub unsafe extern "C" fn fgets(s: *mut u8, n: i32, f: *mut Fichero) -> *mut u8 {
     }
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn fputc(c: i32, f: *mut Fichero) -> i32 {
     let b = c as u8;
     if de(f).is_some_and(|f| f.escribir(&Kernel, &b, 1) == 1) {
@@ -138,17 +138,17 @@ pub unsafe extern "C" fn fputc(c: i32, f: *mut Fichero) -> i32 {
     }
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn putc(c: i32, f: *mut Fichero) -> i32 {
     fputc(c, f)
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn putchar(c: i32) -> i32 {
     fputc(c, stdout)
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn fputs(s: *const u8, f: *mut Fichero) -> i32 {
     let c = cadena(s);
     if de(f).is_some_and(|f| f.escribir(&Kernel, c.as_ptr(), c.len()) == c.len()) {
@@ -158,7 +158,7 @@ pub unsafe extern "C" fn fputs(s: *const u8, f: *mut Fichero) -> i32 {
     }
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn puts(s: *const u8) -> i32 {
     if fputs(s, stdout) == EOF {
         return EOF;
@@ -166,17 +166,17 @@ pub unsafe extern "C" fn puts(s: *const u8) -> i32 {
     fputc(b'\n' as i32, stdout)
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn fseek(f: *mut Fichero, desp: i64, desde: i32) -> i32 {
     de(f).map_or(-1, |f| f.saltar(&Kernel, desp, desde))
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn ftell(f: *mut Fichero) -> i64 {
     de(f).map_or(-1, |f| f.donde())
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn rewind(f: *mut Fichero) {
     if let Some(f) = de(f) {
         f.saltar(&Kernel, 0, 0);
@@ -184,17 +184,17 @@ pub unsafe extern "C" fn rewind(f: *mut Fichero) {
     }
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn feof(f: *mut Fichero) -> i32 {
     de(f).is_some_and(|f| f.al_final()) as i32
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn ferror(f: *mut Fichero) -> i32 {
     de(f).is_some_and(|f| f.con_error()) as i32
 }
 
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn clearerr(f: *mut Fichero) {
     if let Some(f) = de(f) {
         f.limpiar();
@@ -202,7 +202,7 @@ pub unsafe extern "C" fn clearerr(f: *mut Fichero) {
 }
 
 /// `fflush(NULL)` baja todos.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn fflush(f: *mut Fichero) -> i32 {
     if f.is_null() {
         let t = tabla();
@@ -246,7 +246,7 @@ impl AFichero {
 
 /// `fprintf(f, fmt, ...)` con la convencion de BMO: `n` argumentos en un
 /// arreglo de palabras (ver `fmt`). Devuelve los bytes escritos.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn bmo_fprintf(f: *mut Fichero, fmt: *const u8, n: u64, args: *const u64) -> i32 {
     let Some(f) = de(f) else { return -1 };
     let mut s = AFichero { f, t: [0; 256], k: 0, total: 0 };
@@ -256,7 +256,7 @@ pub unsafe extern "C" fn bmo_fprintf(f: *mut Fichero, fmt: *const u8, n: u64, ar
 }
 
 /// `printf(fmt, ...)`: a `stdout`, sin tope de largo.
-#[cfg_attr(not(test), no_mangle)]
+#[cfg_attr(all(not(test), feature = "libc"), no_mangle)]
 pub unsafe extern "C" fn bmo_printf(fmt: *const u8, n: u64, args: *const u64) -> i32 {
     bmo_fprintf(stdout, fmt, n, args)
 }

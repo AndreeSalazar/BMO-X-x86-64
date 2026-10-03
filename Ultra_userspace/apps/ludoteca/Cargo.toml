@@ -9,6 +9,9 @@ name = "ludoteca"
 path = "src/main.rs"
 
 [dependencies]
+# El monton (03-10): la lista de libres sobre UN bloque, con su handle
+# (`bmo_monton::Region`). Puro: Ring 3 lo enlaza (L8).
+bmo-monton = { path = "../../../platform/shared/bmo-monton" }
 bmo-userland = { path = "../../userland" }
 # Las lineas JUEGO / FICHERO / MOTOR y el camino de cada juego (J0).
 bmo-ludoteca = { path = "../../../platform/shared/bmo-ludoteca" }

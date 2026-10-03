@@ -1186,3 +1186,33 @@ tres del save.
    [ ] la tabla de PROCESOS son las 8 fichas del kernel (una historia, no la
        lista de lo vivo): lo que acabo sigue hasta que llega otro
 ```
+
+# SAVE SIEMPRE: CABINA GUARDA SOLA MIENTRAS SE TESTEA (2026-10-03)
+
+Pedido: *"automatizar la escritura en save mode"*, con las tres respuestas:
+al acabar un programa, cada poco mientras corre, al arrancar; y que quede
+ARMADO tras reiniciar, como `save mode`.
+
+```text
+   save siempre        lo arma (datos/siempre.txt); `save siempre off` lo desarma
+   al arrancar         el `save` entero; y si datos/vivo.txt no acaba en
+                       "# ACABO", la vez anterior se colgo con un programa
+                       corriendo: va a datos/colgado.txt y CABINA dice cual
+   al lanzar, y        datos/vivo.txt: lo que escribio el programa (una vez
+   cada 30 s           por linea, con su xN) y las filas de CABINA desde que
+                       se lanzo, DIRECTO al fichero (sin pintarlo)
+   al acabar           (termino, murio o ^C) el ultimo vivo con "# ACABO" y el
+                       `save` entero con su copia con fecha
+```
+
+- **Por que el vivo no pasa por la pantalla**, al reves que el `save`: el
+  informe entero son mas de 400 filas y el anillo de CABINA guarda 200.
+  Pintarlo cada 30 s enterraria lo que el programa esta diciendo, que es lo
+  que se guarda. El vivo se compone en `bmo_registro::vivo` (con banco); el
+  `save` entero sigue siendo el de siempre, pintado.
+- **Lo que NO cubre**: un programa que se lleva la pantalla (`presta`,
+  DOOM) para el bucle del escritorio; con el, solo el save del final. Y si
+  el kernel entero se congela, lo que queda es el ultimo vivo: hasta 30 s
+  viejo.
+- El DIARIO de PROTON-X es otra cosa y se lee al lado: lo escribe PROTON-X,
+  funcion a funcion. El vivo dice lo que dijo el juego y lo que se tecleo.

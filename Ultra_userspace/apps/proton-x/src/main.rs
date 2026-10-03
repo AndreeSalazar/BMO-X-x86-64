@@ -67,7 +67,8 @@ use bmo_userland as bmo;
 static MONTON: monton::Monton = monton::Monton::vacio();
 
 /// El monton del cargador y de la casa (P0.4a: el `.exe` ya no pasa por el).
-const PARA_MONTON: u64 = 48 << 20;
+/// 64 MiB, el tope de un bloque; desde el 03-10 lo soltado se reusa.
+const PARA_MONTON: u64 = 64 << 20;
 /// Lo que se lee del principio del `.exe` para juzgarlo: sus cabeceras.
 const CABECERAS: u64 = 64 << 10;
 
@@ -495,7 +496,7 @@ fn censo(ruta: &[u8]) -> ! {
         fin("sin memoria para el censo")
     };
     // SAFETY: el bloque es de este proceso y no se suelta nunca (forget).
-    unsafe { MONTON.poner(bloque.base() as usize, 16 << 20) };
+    unsafe { MONTON.poner(bloque.base() as usize, 16 << 20, bloque.handle()) };
     core::mem::forget(bloque);
     // La carpeta del `.exe`: donde viven las DLL del juego.
     let dir: Vec<u8> = match ruta.iter().rposition(|&c| c == b'/') {
@@ -934,7 +935,7 @@ pub extern "C" fn _start() -> ! {
         bmo::salir();
     };
     // SAFETY: el bloque es de este proceso y no se suelta nunca (forget).
-    unsafe { MONTON.poner(bloque.base() as usize, PARA_MONTON as usize) };
+    unsafe { MONTON.poner(bloque.base() as usize, PARA_MONTON as usize, bloque.handle()) };
     core::mem::forget(bloque);
     if con_diario {
         bmo_proton_x_casa::diario::diario(Some(RUTA_DIARIO));
@@ -1083,7 +1084,7 @@ pub extern "C" fn _start() -> ! {
         }
     }
     di(&format!(
-        "PROTON-X: {nombre}: {} B, PE32+ x86-64; en {:#x} (el enlazador queria {:#x}); {} DLL del juego; {} funcion(es) resueltas; codigo SELLADO, datos sin X; monton {} B\n",
+        "PROTON-X: {nombre}: {} B, PE32+ x86-64; en {:#x} (el enlazador queria {:#x}); {} DLL del juego; {} funcion(es) resueltas; codigo SELLADO, datos sin X; monton {} B en uso\n",
         mide,
         base,
         exe.pe.base,
@@ -1225,7 +1226,11 @@ fn panico(info: &core::panic::PanicInfo) -> ! {
     if let Some(l) = info.location() {
         let _ = core::fmt::write(&mut t, format_args!(" ({}:{})", l.file(), l.line()));
     }
-    let _ = core::fmt::write(&mut t, format_args!("; monton {} B\n", MONTON.gastado()));
+    let _ = core::fmt::write(&mut t, format_args!("; monton {} B en uso (pico {}) de {}\n", MONTON.gastado(), MONTON.pico(), MONTON.medida()));
     di(core::str::from_utf8(&t.b[..t.n]).unwrap_or("PROTON-X: panico en el cargador\n"));
+    // Y al DIARIO, si esta encendido (03-10): lo apuntado, la ultima foto del
+    // pulso y este motivo, sin pedir memoria. En el metal (02-10) el panico
+    // se llevo el diario sin su final.
+    bmo_proton_x_casa::diario::al_morir(&t.b[..t.n]);
     bmo::salir();
 }

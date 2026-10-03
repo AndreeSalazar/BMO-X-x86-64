@@ -791,12 +791,17 @@ pub extern "C" fn _start() -> ! {
     // ** EL SEGUNDO SYSCALL, TOMADO UNA VEZ. Si el kernel dice que no, el bucle
     // gira como giraba y la barra lo dice. Ver `Tick::tomar_latido`.
     dsk.tick.tomar_latido();
+    // `save siempre` armado: el save del arranque, y el aviso si la vez
+    // anterior se quedo colgada (03-10).
+    commands::save_siempre::al_arrancar(&mut dsk, &p);
     loop {
         // -- Termino el programa que se lanzo? Entonces, a guardarlo --
         //
         // 71 lineas que estaban aqui dentro. Se fueron ENTERAS a
         // `watch.rs`, sin tocar una coma de su logica.
-        watch_run(&mut dsk.out.run, &dsk.out.console, &mut dsk.out.grid);
+        let acabo = watch_run(&mut dsk.out.run, &dsk.out.console, &mut dsk.out.grid);
+        // `save siempre` (03-10): el vivo cada 30 s, y el save al acabar.
+        commands::save_siempre::vuelta(&mut dsk, &p, acabo);
 
         // ** MURIO ALGO? Entonces la autopsia ya esta escrita, y se guarda.
         //
@@ -1092,6 +1097,9 @@ pub extern "C" fn _start() -> ! {
                             // camino de error, que es el que nadie prueba a
                             // mano (patron 29).
                             repintar_escritorio(&p, &mut dsk, "pantalla devuelta");
+                            // El programa que se llevo la pantalla acabo:
+                            // `save siempre` guarda (03-10).
+                            commands::save_siempre::vuelta(&mut dsk, &p, true);
                         }
                         None => {
                             bmo::consola(

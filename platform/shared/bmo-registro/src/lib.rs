@@ -23,6 +23,7 @@
 #![cfg_attr(not(test), no_std)]
 
 pub mod serie;
+pub mod vivo;
 
 pub use serie::Serie;
 

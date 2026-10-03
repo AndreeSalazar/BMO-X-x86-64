@@ -2681,6 +2681,18 @@ buscar comparando estos dos arranques. "Apagar" y esperar 15-30 s sigue
 siendo lo que nunca fallo; "Reiniciar" no corta la corriente de la tarjeta.
 
 
+### La electricidad de la 3060, a voluntad (pedido 03-10, para refinar)
+
+El propietario, con Cyberpunk ya creando PSO: *"mejora un poco mas mi GPU,
+que tenga control de despertar electricidad; eso vamos a refinarlo luego"*.
+Hoy la 3060 se despierta entera para `save mode` y se queda en P0 (el informe
+del 02-10: "P0, a todo lo que da").
+
+- [ ] **E-1 -- dormirla y despertarla a voluntad**: una orden que la lleve al
+  P-state mas bajo (o al reposo del GSP-RM) cuando nada la usa, y la despierte
+  al lanzar algo que dibuje; con lo que cuesta cada camino (ms y vatios), en
+  CABINA. Ver `gspreposo` y `gspapagar`, que ya existen.
+
 ## 4. Lo que NO se hace nunca
 
 - Cargar el GSP sin la IOMMU encendida.

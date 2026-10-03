@@ -583,7 +583,7 @@ fn cabecera(s: &mut Output) {
 }
 
 /// `AAAA-MM-DD HH:MM` de la placa, o 0 si no sabe que dia es.
-fn fecha_en(out: &mut [u8; 24]) -> usize {
+pub(crate) fn fecha_en(out: &mut [u8; 24]) -> usize {
     let Some(f) = bmo_rtc::desempaquetar(bmo::info(bmo::INFO_FECHA)) else {
         return 0;
     };
