@@ -334,6 +334,11 @@ pub(crate) fn dispatch(
     g: &Gathered,
 ) -> Option<([u8; PATH_MAX], usize)> {
     for &c in &g.keys[..g.nt] {
+        // ** LA BIENVENIDA se minimiza con cualquier tecla; solo ESC se queda
+        // aqui; las demas siguen, que no se pierda la primera letra.
+        if crate::desktop::bienvenida::tecla(c) {
+            continue;
+        }
         // ** EL EDITOR DE ASPECTO se queda con TODAS las teclas mientras esta
         // abierto: sus flechas no son del historial de Ejecutar. ESC lo cierra.
         if crate::desktop::aspecto::activo() {

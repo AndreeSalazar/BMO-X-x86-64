@@ -219,6 +219,7 @@ pub(crate) fn quitar_capas(p: &bmo::Pantalla) {
     crate::desktop::captura::capa_quitar(p);
     globo::quitar(p);
     crate::scene::pastilla::quitar(p);
+    crate::scene::bienvenida::quitar(p);
     crate::scene::brillo::quitar(p);
     crate::scene::transicion::quitar(p);
 }

@@ -47,6 +47,10 @@ pub struct Estilo {
     /// Una FOTO de fondo (BICO, BMP o QOI) que tapa el degradado. Vacia = el
     /// degradado de siempre.
     pub fondo_imagen: Ruta,
+    /// **La BIENVENIDA**: al llegar al escritorio suena "El emisor salta" con
+    /// su panel de 8 bits, que se minimiza en la pastilla. `no` = se llega en
+    /// silencio, como antes (y sin armar el tubo de audio).
+    pub bienvenida: bool,
 }
 
 /// Lo mas larga que puede ser una ruta del fichero.
@@ -286,6 +290,7 @@ impl Estilo {
         w.si_no(b"memoria", self.memoria);
         w.si_no(b"vatios", self.vatios);
         w.si_no(b"reloj", self.reloj);
+        w.si_no(b"bienvenida", self.bienvenida);
         w.pega(b"fondo_imagen = ");
         w.pega(if self.fondo_imagen.vacia() { b"no" } else { self.fondo_imagen.bytes() });
         w.pega(b"\n");
@@ -313,6 +318,7 @@ impl Estilo {
             b"vatios" => self.vatios = sn()?,
             b"memoria" => self.memoria = sn()?,
             b"cpu" => self.cpu = sn()?,
+            b"bienvenida" => self.bienvenida = sn()?,
             // `no` devuelve el degradado: es la forma de quitar la foto sin
             // borrar la linea.
             b"fondo_imagen" => {
@@ -341,6 +347,7 @@ mod pruebas {
         memoria: true,
         cpu: true,
         fondo_imagen: Ruta::VACIA,
+        bienvenida: true,
     };
 
     #[test]
@@ -384,6 +391,21 @@ mod pruebas {
         let inf = e.aplicar(b"barra_fondo = #101018  # casi negro\n");
         assert_eq!(inf.fallos(), &[]);
         assert_eq!(e.barra_fondo, 0x0010_1018);
+    }
+
+    /// La bienvenida se apaga con una linea, y se guarda como se leyo.
+    #[test]
+    fn la_bienvenida_se_apaga_y_se_guarda() {
+        let mut e = BASE;
+        assert!(e.bienvenida, "de serie, se llega con musica");
+        let inf = e.aplicar(b"bienvenida = no   # llegar en silencio\n");
+        assert_eq!(inf.fallos(), &[]);
+        assert!(!e.bienvenida);
+        let mut buf = [0u8; 1024];
+        let n = e.escribir(&mut buf);
+        let mut leido = BASE;
+        leido.aplicar(&buf[..n]);
+        assert!(!leido.bienvenida);
     }
 
     /// *** UN FICHERO ROTO NO ROMPE NADA: cada linea mala dice su numero y su
@@ -443,6 +465,7 @@ mod pruebas {
         e.barra_flotante = false;
         e.barra_hueco = 11;
         e.vatios = false;
+        e.bienvenida = false;
         e.fondo_imagen = Ruta::de(b"sys/fondo.qoi").unwrap();
         let mut buf = [0u8; 1024];
         let n = e.escribir(&mut buf);
@@ -450,7 +473,7 @@ mod pruebas {
         let inf = leido.aplicar(&buf[..n]);
         assert_eq!(inf.fallos(), &[], "{}", String::from_utf8_lossy(&buf[..n]));
         assert_eq!(leido, e);
-        assert_eq!(inf.aplicadas, 12, "las doce claves, todas");
+        assert_eq!(inf.aplicadas, 13, "las trece claves, todas");
     }
 
     #[test]
