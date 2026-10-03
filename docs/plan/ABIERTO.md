@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 60 planes
+# LO QUE FALTA -- las casillas abiertas de los 61 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   543 casillas ABIERTAS en 51 planes
-   386 hechas
+   551 casillas ABIERTAS en 52 planes
+   387 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -203,6 +203,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0a REFERENCIA, no suelo: Windows quieto 2 minutos, Package Power = ___ W
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
+
+## [`PLAN_COBOL_MAESTRO.md`](PLAN_COBOL_MAESTRO.md) -- 8 abiertas, 1 hechas
+
+*PLAN COBOL MAESTRO -- un FRONTEND bien hecho, y el x86-64 aparte*
+
+- [ ] CM1 -- los fallos que el espejo ya muestra. El MOVE que no trunca
+- [ ] CM2 -- el parser de TOKENS como principal (0.2). Sentencias que
+- [ ] CM3 -- la SEMANTICA, en el frontend. Un crate agnostico que
+- ... y 5 mas
 
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 8 hechas
 

@@ -1,0 +1,16 @@
+      * PIC X, STRING e INSPECT.
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEXTO.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  A          PIC X(4) VALUE "BANK".
+       01  B          PIC X(3) VALUE "CAT".
+       01  C          PIC X(10) VALUE SPACES.
+       01  N          PIC X(7) VALUE "  12 34".
+       PROCEDURE DIVISION.
+           STRING A DELIMITED BY SIZE " " DELIMITED BY SIZE
+               B DELIMITED BY SIZE INTO C.
+           DISPLAY C.
+           INSPECT N REPLACING LEADING SPACE BY ZERO.
+           DISPLAY N.
+           STOP RUN.
