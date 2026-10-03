@@ -1264,6 +1264,20 @@ pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (`arg1 != 0`) o descallar. Con rampa: no es un corte seco.
 pub const AUDIO_MANDO_MUDO: u64 = 2;
+/// **EL OIDO** (`PLAN_EL_SONIDO.md` S4f, 03-10): el perfil de quien escucha,
+/// que el maestro aplica a TODO antes de la ganancia y el limite. Cada orden
+/// devuelve el perfil que quedo, empaquetado como `INFO_AUDIO_OIDO`.
+/// El balance: `arg1` de -100 (solo izquierda) a +100 (solo derecha).
+pub const AUDIO_MANDO_BALANCE: u64 = 3;
+/// Mono (`arg1 != 0`): los dos lados sumados, para quien oye por uno.
+pub const AUDIO_MANDO_MONO: u64 = 4;
+/// Los tres tonos, en dB enteros de -12 a +12: estante a 100 Hz, campana a
+/// 1 kHz, estante a 3,5 kHz.
+pub const AUDIO_MANDO_GRAVES: u64 = 5;
+pub const AUDIO_MANDO_MEDIOS: u64 = 6;
+pub const AUDIO_MANDO_AGUDOS: u64 = 7;
+/// Todo el oido a plano.
+pub const AUDIO_MANDO_PLANO: u64 = 8;
 
 /// Prestar el banco del fondo: `arg1` = la VA de un bloque propio. Arma el
 /// tubo. `Ok` lleva los bytes del banco (0 = no se acepto).

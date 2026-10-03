@@ -37,7 +37,11 @@
 //! limitador de mezcla, y aqui sale gratis porque las muestras llegan
 //! intercaladas.
 
+use crate::oido::{Oido, Perfil};
 use crate::{q16_a_db, Ganancia, Limite, Medidor, MilesimasDb, DB, MAX_DB_MAESTRO, MIN_DB};
+
+/// Los canales de una trama que la etapa sabe llevar juntos (un 7.1 cabe).
+const TRAMA_MAX: usize = 8;
 
 /// **Lo que la rampa se mueve por bloque** en la zona donde se oye: 1 dB. Un
 /// bloque del tubo es 1 ms, asi que subir 12 dB tarda 12 ms -- mas rapido de
@@ -93,6 +97,10 @@ pub struct Maestro {
     medidores: [Medidor; 2],
     /// La reduccion mas honda de la ventana, en Q16.16 (65536 = ninguna).
     pozo: u32,
+    /// **El oido** (2026-10-03): el perfil de quien escucha, ANTES de la
+    /// ganancia y del limite, para que el limite sujete tambien lo que el
+    /// tono suba. En plano no toca nada.
+    oido: Oido,
 }
 
 impl Maestro {
@@ -113,7 +121,19 @@ impl Maestro {
             limite: Limite::inmediato(por_segundo).con_relajo_ms(por_segundo, RELAJO_MS),
             medidores: [Medidor::nuevo(); 2],
             pozo: 1 << 16,
+            oido: Oido::nuevo(hz),
         }
+    }
+
+    /// **El perfil del oido.** Si no cambio, no hace nada: el kernel lo pone
+    /// en cada trama.
+    pub fn oido(&mut self, p: Perfil) {
+        self.oido.poner(p);
+    }
+
+    /// El oido, para quien quiera mostrar que tiene puesto.
+    pub fn oido_actual(&self) -> &Oido {
+        &self.oido
     }
 
     /// **El mando**: a donde tiene que ir la ganancia y si calla. No se aplica
@@ -136,7 +156,7 @@ impl Maestro {
     /// **En reposo = un cable.** A 0 dB, sin rampa por delante y sin nada que
     /// el limite tenga que soltar. En reposo, [`Maestro::pasar`] mide y no toca.
     pub fn en_reposo(&self) -> bool {
-        !self.mudo && self.objetivo == 0 && self.actual == 0 && self.limite.reduccion_db() == 0
+        !self.mudo && self.objetivo == 0 && self.actual == 0 && self.limite.reduccion_db() == 0 && self.oido.en_reposo()
     }
 
     /// Un paso de la rampa: devuelve la ganancia de antes y la de despues.
@@ -172,15 +192,33 @@ impl Maestro {
         let f0 = Ganancia::db_hasta(antes, MAX_DB_MAESTRO).factor_q16() as i64;
         let f1 = Ganancia::db_hasta(despues, MAX_DB_MAESTRO).factor_q16() as i64;
         let tramas = (muestras.len() / canales).max(1) as i64;
-        for (i, m) in muestras.iter_mut().enumerate() {
-            let k = (i / canales) as i64;
+        let mut t = [0i32; TRAMA_MAX];
+        for (k, trozo) in muestras.chunks_mut(canales).enumerate() {
             // La cuesta: de f0 a f1 a lo largo del bloque. En la ultima trama
             // ya se esta en f1, que es desde donde sale el bloque siguiente.
-            let f = f0 + (f1 - f0) * (k + 1) / tramas;
-            let x = ((*m as i64 * f) >> 16) as i32;
+            let f = f0 + (f1 - f0) * (k as i64 + 1) / tramas;
+            let c = trozo.len().min(TRAMA_MAX);
+            for (a, &m) in t.iter_mut().zip(trozo.iter()) {
+                *a = m as i32;
+            }
+            self.trama(&mut t[..c], c == canales, f);
+            for (m, &y) in trozo.iter_mut().zip(t.iter()) {
+                *m = y as i16;
+            }
+        }
+    }
+
+    /// **Una trama por la etapa**, en su sitio: el oido (si la trama esta
+    /// entera), la ganancia `f`, el limite y el medidor. Sale en 16 bits.
+    fn trama(&mut self, t: &mut [i32], entera: bool, f: i64) {
+        if entera && !self.oido.en_reposo() {
+            self.oido.trama(t);
+        }
+        for (j, v) in t.iter_mut().enumerate() {
+            let x = ((*v as i64 * f) >> 16).clamp(i32::MIN as i64, i32::MAX as i64) as i32;
             let y = self.limite.muestra(x);
-            *m = y;
-            self.medidores[(i % canales) & 1].mirar_uno(y as i32);
+            *v = y as i32;
+            self.medidores[j & 1].mirar_uno(y as i32);
             if self.limite.reduccion < self.pozo {
                 self.pozo = self.limite.reduccion;
             }
@@ -201,15 +239,14 @@ impl Maestro {
         let f0 = Ganancia::db_hasta(antes, MAX_DB_MAESTRO).factor_q16() as i64;
         let f1 = Ganancia::db_hasta(despues, MAX_DB_MAESTRO).factor_q16() as i64;
         let tramas = (n / canales).max(1) as i64;
-        for i in 0..n {
-            let k = (i / canales) as i64;
-            let f = f0 + (f1 - f0) * (k + 1) / tramas;
-            let x = ((acc[i] as i64 * f) >> 16).clamp(i32::MIN as i64, i32::MAX as i64) as i32;
-            let y = self.limite.muestra(x);
-            salida[i] = y;
-            self.medidores[(i % canales) & 1].mirar_uno(y as i32);
-            if self.limite.reduccion < self.pozo {
-                self.pozo = self.limite.reduccion;
+        let mut t = [0i32; TRAMA_MAX];
+        for (k, (entra, sale)) in acc[..n].chunks(canales).zip(salida[..n].chunks_mut(canales)).enumerate() {
+            let f = f0 + (f1 - f0) * (k as i64 + 1) / tramas;
+            let c = entra.len().min(TRAMA_MAX);
+            t[..c].copy_from_slice(&entra[..c]);
+            self.trama(&mut t[..c], c == canales, f);
+            for (s, &y) in sale.iter_mut().zip(t.iter()) {
+                *s = y as i16;
             }
         }
     }

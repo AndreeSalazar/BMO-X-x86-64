@@ -586,6 +586,13 @@ pub unsafe fn hay() -> bool {
     APP.hay() || FONDO.hay()
 }
 
+/// `INFO_AUDIO_FONDO`: `[0..16)` canales del fondo que suenan | `[16..32)` lo
+/// agachado ahora (`i16`, 1/256 dB) | `[48..64)` pid del banco (0 = apagado).
+pub fn info_fondo() -> u64 {
+    let i = FONDO.info();
+    (i & 0xFFFF) | (((agachado() as i16 as u16) as u64) << 16) | (i & (0xFFFF << 48))
+}
+
 /// `INFO_AUDIO_VOCES`, del atril de la APP.
 pub fn info() -> u64 {
     APP.info()

@@ -142,6 +142,9 @@ pub(super) fn audio_mando(arg0: u64, arg1: u64) -> BmoStatus {
                 maestro::callar(arg1 != 0);
                 BmoStatus::ok_value((arg1 != 0) as u64)
             }
+            // ** EL OIDO (03-10): balance, mono y los tres tonos, aplicados a
+            // todo lo que suena. Devuelve el perfil que quedo.
+            3..=8 => BmoStatus::ok_value(maestro::oido(arg0, arg1 as i64)),
             _ => BmoStatus::err(ERROR_INVALID_ARGUMENT),
         }
 }

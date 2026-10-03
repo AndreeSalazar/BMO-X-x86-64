@@ -70,6 +70,7 @@
 use core::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, AtomicU8, Ordering};
 
 use bmo_amplificador::maestro::Maestro;
+use bmo_amplificador::oido::Perfil;
 
 use crate::ring0::cabina;
 
@@ -133,6 +134,38 @@ pub fn mover(db: i32) -> i32 {
 /// aparato es un corte seco y ademas no todos lo tienen.
 pub fn callar(si: bool) {
     MUDO.store(si, Ordering::SeqCst);
+}
+
+/// **El OIDO** (03-10): el perfil de quien escucha, empaquetado
+/// (`Perfil::empaquetar`). Lo escribe el escritorio, lo lee el bus en cada
+/// trama. `0` es el plano.
+static OIDO: AtomicU64 = AtomicU64::new(0);
+
+/// **El escritorio mueve un mando del oido.** `que`: 3 balance (-100..100),
+/// 4 mono (0/1), 5 graves, 6 medios, 7 agudos (dB, -12..12), 8 todo plano.
+/// Devuelve el perfil que quedo, empaquetado.
+pub fn oido(que: u64, valor: i64) -> u64 {
+    let mut p = Perfil::desempaquetar(OIDO.load(Ordering::SeqCst));
+    let v = valor.clamp(-1000, 1000) as i32;
+    match que {
+        3 => p.balance = v,
+        4 => p.mono = v != 0,
+        5 => p.graves = v,
+        6 => p.medios = v,
+        7 => p.agudos = v,
+        8 => p = Perfil::PLANO,
+        _ => {}
+    }
+    let x = p.recortado().empaquetar();
+    OIDO.store(x, Ordering::SeqCst);
+    x
+}
+
+/// `INFO_AUDIO_OIDO`: `[0..40)` el perfil empaquetado | bit 48: el TONO se
+/// aplica a la frecuencia del tubo (44,1 o 48 kHz; mono y balance siempre).
+pub fn info_oido() -> u64 {
+    let hz = super::audio::tubo().map(|t| t.frecuencia).unwrap_or(0);
+    OIDO.load(Ordering::SeqCst) | (((hz == 44_100 || hz == 48_000) as u64) << 48)
 }
 
 // ===================================================================
@@ -205,6 +238,7 @@ unsafe fn etapa(hz: u32, canales: u8) -> &'static mut Maestro {
     }
     let (_, _, m) = ETAPA.as_mut().unwrap();
     m.pedir(DIGITAL_DB.load(Ordering::SeqCst), MUDO.load(Ordering::SeqCst));
+    m.oido(Perfil::desempaquetar(OIDO.load(Ordering::SeqCst)));
     m
 }
 

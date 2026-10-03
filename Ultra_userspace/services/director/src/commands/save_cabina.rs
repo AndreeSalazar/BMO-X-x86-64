@@ -484,6 +484,24 @@ fn report_maestro(s: &mut Output) {
     fila_db(s, b"limite", (lim >> 32) & 0xFFFF,
             b"lo MAS que bajo en la ultima ventana; pasado de -6 dB, subir el fader APLASTA");
     fila(s, b"ventanas", lim >> 48, b"", b"del medidor, cerradas (da la vuelta en 65536): si no sube, no mide");
+    // ** EL OIDO (03-10): lo que el maestro aplica ANTES de la ganancia.
+    let o = bmo::info(bmo::INFO_AUDIO_OIDO);
+    let b = |d: u32| ((o >> d) & 0xFF) as u8 as i8 as i64;
+    let db = |v: i64| ((v * 256) as i16 as u16) as u64;
+    let bal = b(0);
+    let lado: &[u8] = if bal < 0 { b" % a la izquierda" } else if bal > 0 { b" % a la derecha" } else { b"" };
+    fila(s, b"oido balance", bal.unsigned_abs(), lado,
+         b"-100 solo izquierda .. +100 solo derecha; 0 al centro");
+    fila(s, b"oido mono", (o >> 8) & 1, b"", b"1 = los dos lados sumados, para quien oye por uno");
+    fila_db(s, b"oido graves", db(b(16)), b"estante a 100 Hz");
+    fila_db(s, b"oido medios", db(b(24)), b"campana a 1 kHz");
+    fila_db(s, b"oido agudos", db(b(32)), b"estante a 3,5 kHz: lo que se pierde primero, y lo que hace entender una voz");
+    fila(s, b"oido tono aplica", (o >> 48) & 1, b"", b"1 = el tubo va a 44,1 o 48 kHz; si no, solo mono y balance");
+    // ** Y EL FONDO (03-10): la musica del escritorio y su agache.
+    let f = bmo::info(bmo::INFO_AUDIO_FONDO);
+    fila(s, b"fondo pid", f >> 48, b"", b"quien presto el banco del fondo; 0 = apagado (`fondo`)");
+    fila(s, b"fondo canales", f & 0xFFFF, b"", b"bit n = canal n que suena; de 8 en adelante, AVISOS");
+    fila_db(s, b"fondo agachado", (f >> 16) & 0xFFFF, b"lo que el agache baja la musica AHORA: -15 bajo un aviso, -8 con la app");
 }
 
 /// **QUE FORMATOS DECLARA EL APARATO, Y CUAL SE COGIO** (2026-09-22).
