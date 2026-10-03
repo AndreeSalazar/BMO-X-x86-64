@@ -515,7 +515,7 @@ fn libro(cv: &mut Canvas, v: &Vista) {
     if v.libro.is_empty() {
         cv.text(x0, y, b"aun nada: los movimientos de esta sesion se apuntan aqui", TENUE, 1);
     }
-    cv.text_fit(x0, alto() - 30, b"el libro vive en la memoria del motor mientras el escritorio vive; guardarlo en el disco es BC4", TENUE, w);
+    cv.text_fit(x0, alto() - 30, b"el motor guarda el libro en bankcat.dat tras cada movimiento (BC4), y lo carga al nacer", TENUE, w);
 }
 
 /// Una tarjeta de lo que AUN no hay: su titulo y un parrafo, partido al

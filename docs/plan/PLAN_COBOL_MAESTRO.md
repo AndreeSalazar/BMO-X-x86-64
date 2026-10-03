@@ -117,7 +117,8 @@ y una semantica que diga que no a lo que no es COBOL.
 - [ ] **CM7 -- los ficheros como el estandar.** `ORGANIZATION IS LINE
       SEQUENTIAL` para el texto y `SEQUENTIAL` para registros fijos, y la
       conversion de texto a numero del `READ` marcada como EXTENSION de BMO
-      (o fuera). Con `EXTEND` e `I-O` (3.1, 3.2) es BC4 de BANK CAT.
+      (o fuera). Con `EXTEND` e `I-O` (3.1, 3.2) mejora BC4 de BANK CAT, que
+      hoy guarda su libro reescribiendolo entero (03-10).
       **Como se sabe:** `cierre.cob` y `batch.cob` en IGUAL.
 - [ ] **CM8 -- lo que lleva un banco**, en el orden de PLAN_BANCA: `CALL` y
       `LINKAGE` (6.2, 6.3), `SORT` (5.1), ficheros indexados (fase 4),

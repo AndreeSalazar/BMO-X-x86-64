@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   551 casillas ABIERTAS en 52 planes
+   550 casillas ABIERTAS en 52 planes
    387 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -402,14 +402,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 6. ENTREGAR EN CERO. Mover el borrado del devolver al entregar, UNA
 - ... y 1 mas
 
-## [`PLAN_BANK_CAT.md`](PLAN_BANK_CAT.md) -- 3 abiertas, 3 hechas
-
-*PLAN BANK CAT -- la cartera de CAB, llevada por COBOL (F5)*
-
-- [ ] BC4 -- el libro en el DISCO. Hoy el motor lo lleva en memoria.
-- [ ] BC5 -- entre amigos, por HERMES (pide H6): un movimiento firmado
-- [ ] BC6 -- el CAJERO (decision D1 del propietario).
-
 ## [`PLAN_EL_SILICIO.md`](PLAN_EL_SILICIO.md) -- 3 abiertas, 5 hechas
 
 *PLAN EL SILICIO*
@@ -440,6 +432,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] A1 -- SET_INTERFACE -- ⛔ EL RYZEN LO NEGO. Corregido el 26-08, sin ejecutar
 - [ ] A1 SET_INTERFACE EL METAL LO NEGO; corregido 26-08
+
+## [`PLAN_BANK_CAT.md`](PLAN_BANK_CAT.md) -- 2 abiertas, 3 hechas
+
+*PLAN BANK CAT -- la cartera de CAB, llevada por COBOL (F5)*
+
+- [ ] BC5 -- entre amigos, por HERMES (pide H6): un movimiento firmado
+- [ ] BC6 -- el CAJERO (decision D1 del propietario).
 
 ## [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md) -- 2 abiertas, 4 hechas
 
