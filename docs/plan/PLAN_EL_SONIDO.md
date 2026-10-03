@@ -886,9 +886,15 @@ el 3D por voz del atril del fondo; `globo::avisar` usa ya error y hecho.
 test` en `bmo-fondo` escribe `demo_voz_3d.wav` con el mismo mezclador del
 kernel.
 
-[!] Lo que falta: que "llega" y "se va" se MUEVAN en el metal (en la maqueta
-se mueven; aqui estan quietos en su sitio: hace falta que el escritorio mande
-`situar` durante el sonido), y el compilador: el que compila TODO hoy corre
+**Y se MUEVEN (03-10, de noche)**: `avisos::ruta` dice por donde va cada
+aviso ("llega" de -150 a -15 grados en 380 ms, "se va" de 10 a 165 en 480),
+y `desktop::musica::mover`, en cada vuelta del bucle, le manda su sitio cada
+16 ms mientras suena (y mientras se mueva, el bucle no se duerme). El
+orquestador lleva retardo, volumen y sombra por sus rampas, asi que el camino
+sale continuo: prueba `llega_se_mueve_sin_saltos`, con el mezclador del
+kernel (pasa por la izquierda, acaba delante, ningun salto).
+
+[!] Lo que falta: el compilador: el que compila TODO hoy corre
 en Windows (`build.ps1`); en BMO-X sonara cuando compile dentro (H14 de
 PLAN_HERMES, MAQUETA en BMO-X).
 

@@ -66,7 +66,24 @@ struct Estado {
     /// Sube con cada cambio que se ve (pieza, volumen, pausa): la PASTILLA lo
     /// mira para asomarse y decirlo.
     cambios: u32,
+    /// **Los avisos que se MUEVEN** (lo que llega, lo que se va): su canal,
+    /// su ruta, cuando empezo y cuando se mando el ultimo sitio.
+    moviendo: [Option<Movimiento>; 4],
 }
+
+/// Un aviso que va de un sitio a otro mientras suena.
+#[derive(Clone, Copy)]
+struct Movimiento {
+    canal: u64,
+    ruta: &'static [(u32, i16)],
+    desde: u64,
+    ultimo: u64,
+}
+
+/// Cada cuanto se manda el sitio de un aviso que se mueve: unas 60 veces
+/// por segundo. El orquestador lleva retardo, volumen y sombra por sus
+/// rampas entre un sitio y el siguiente, asi que el camino sale continuo.
+const MOVER_MS: u64 = 16;
 
 static mut ESTADO: Estado = Estado {
     memoria: None,
@@ -80,6 +97,7 @@ static mut ESTADO: Estado = Estado {
     compuso_ms: 0,
     pausada: false,
     cambios: 0,
+    moviendo: [None; 4],
 };
 
 fn estado() -> &'static mut Estado {
@@ -265,7 +283,44 @@ pub(crate) fn avisar(a: Aviso) {
     // izquierda, lo que llega de detras (`avisos::angulo`).
     if f.tocar(canal, desde, n, 256, false) {
         f.situar(canal, 256, avisos::angulo(a));
+        // ** Y SI SE MUEVE, se apunta: `mover` le manda su sitio mientras suena.
+        let ruta = avisos::ruta(a);
+        if ruta.len() > 1 {
+            let ahora = bmo::ciclos();
+            let sitio = e.moviendo.iter().position(|m| m.map(|m| m.canal == canal).unwrap_or(true)).unwrap_or(0);
+            e.moviendo[sitio] = Some(Movimiento { canal, ruta, desde: ahora, ultimo: ahora });
+        }
     }
+}
+
+/// **Mueve los avisos que se mueven.** Lo llama el bucle en cada vuelta y
+/// devuelve si queda alguno por mover: mientras lo haya, el bucle no se
+/// duerme (es un tercio de segundo, y sin esto "llega" se quedaria quieto).
+pub(crate) fn mover() -> bool {
+    let e = estado();
+    if e.moviendo.iter().all(Option::is_none) {
+        return false;
+    }
+    let por_ms = (bmo::info(bmo::INFO_TSC_HZ) / 1000).max(1);
+    let ahora = bmo::ciclos();
+    let mut queda = false;
+    for hueco in e.moviendo.iter_mut() {
+        let Some(m) = hueco.as_mut() else { continue };
+        let ms = ahora.wrapping_sub(m.desde) / por_ms;
+        let fin = m.ruta.last().map(|p| p.0 as u64).unwrap_or(0);
+        if ahora.wrapping_sub(m.ultimo) / por_ms >= MOVER_MS || ms >= fin {
+            if let Some(f) = e.fondo.as_ref() {
+                f.situar(m.canal, 256, avisos::en_la_ruta(m.ruta, ms.min(fin) as u32));
+            }
+            m.ultimo = ahora;
+        }
+        if ms >= fin || e.fondo.is_none() {
+            *hueco = None;
+        } else {
+            queda = true;
+        }
+    }
+    queda
 }
 
 /// Lo que suena: la pieza, el volumen y lo que tardo en componerse.
