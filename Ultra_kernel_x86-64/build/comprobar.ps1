@@ -1,0 +1,242 @@
+# comprobar.ps1 -- lo que `bmo.ps1` comprueba ANTES de construir: el contrato,
+# PROTON-X y el banco de pruebas (2026-10-03: sale de `bmo.ps1`, tal cual).
+#
+# ** Por que es un fichero: con `bmo.ps1 -Paralelo` esto lo corre la ventana
+# VERIFICAR mientras la ventana COMPILAR construye; sin `-Paralelo`, `bmo.ps1`
+# lo sigue corriendo primero, como siempre. El mismo texto en los dos caminos:
+# si estuviera copiado, un dia uno de los dos comprobaria menos y nadie lo
+# veria.
+#
+# [!] Se carga con punto y usa lo de quien lo carga: `$raiz` (la raiz del
+# repo), `$Rapido`, y `Titulo`, `Bien` y `Muere`. Deja `$py`, `$sello` y
+# `$selloD` para el final de `bmo.ps1`.
+
+# -- 0. EL CONTRATO, QUE ES MAS BARATO QUE EL BANCO ---------------------
+#
+# Va PRIMERO porque tarda medio segundo y puede decir que no a la clase de fallo
+# mas cara del arbol: algo que entra en la superficie sin pagar el peaje. Un
+# numero de operacion mal escrito no falla al compilar ni al cargar -- **hace
+# otra cosa**, y el banco de pruebas no lo ve.
+#
+# ** Y VIVE AQUI Y NO EN `build.ps1` A PROPOSITO. Aquel fichero lleva cuatro
+# avisos escritos de su propia mano --*"el siguiente guardian NO se agrega:
+# primero se parte este fichero"*-- y el censo modular lo respalda con el
+# numero. Meterlo alli habria sido agregar un guardian mientras se ignora el que
+# ya existe.
+#
+# [!] Ademas es su sitio por lo que ESTE guion es: `build.ps1` CONSTRUYE; esto
+# COMPRUEBA ANTES. Un contrato se comprueba, no se construye.
+$contrato = Join-Path $raiz 'toolchain\tools\contrato\contrato.py'
+if (-not (Test-Path $contrato)) { Muere 'guardian MUERTO: falta toolchain\tools\contrato\contrato.py' }
+$py = (Get-Command python -ErrorAction SilentlyContinue)
+if ($py) {
+    Titulo 'El contrato de compatibilidad'
+    $env:PYTHONIOENCODING = 'utf-8'
+    # La AUTOPRUEBA primero: una regla que no sabe decir que no, no protege nada.
+    $salida = & $py.Source $contrato --autoprueba
+    if ($LASTEXITCODE -ne 0) { $salida | ForEach-Object { Write-Host "   $_" }; Muere 'las reglas del contrato no saben decir que NO' }
+    $salida | Where-Object { $_ -match 'clean:' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
+    $salida = & $py.Source $contrato --check
+    if ($LASTEXITCODE -ne 0) { $salida | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }; Muere 'algo entro en la superficie sin pagar el peaje' }
+    $salida | Where-Object { $_ -match 'clean:|\[i\]' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
+    # EL SELLO DE VALKYRIE. Se GUARDA aqui y se imprime al final, no aqui:
+    # una firma va debajo de lo que firma. Si el guardian no lo emitio, esto
+    # se queda vacio y el final lo dice -- no se fabrica.
+    $sello  = ($salida | Where-Object { $_ -match '^sello: ' })         -replace '^sello: ',''
+    $selloD = ($salida | Where-Object { $_ -match '^sello-detalle: ' }) -replace '^sello-detalle: ',''
+} else {
+    Write-Host '   [!] python no encontrado: el contrato NO se comprueba' -ForegroundColor Yellow
+}
+
+# -- 0b. PROTON-X: QUE LO QUE SE PRUEBA SEA LO QUE SE DA -------------------
+#
+# Tambien medio segundo, y por eso aqui y no en `build.ps1` (el mismo motivo
+# que el contrato: aquel fichero pide partirse antes de sumar guardianes).
+# Nacio el 28-09 de dos tropiezos: dos codigos de error publicos pararon ESTE
+# guion en el contrato, y cada `.exe` de prueba tenia que entrar a mano en
+# tres sitios (HACER.txt, ejemplos.ps1, el banco). Ver su cabecera.
+$protonx = Join-Path $raiz 'toolchain\tools\proton-x\proton_x.py'
+if (-not (Test-Path $protonx)) { Muere 'guardian MUERTO: falta toolchain\tools\proton-x\proton_x.py' }
+if ($py) {
+    Titulo 'PROTON-X: lo que se prueba es lo que se da'
+    $salida = & $py.Source $protonx --autoprueba
+    if ($LASTEXITCODE -ne 0) { $salida | ForEach-Object { Write-Host "   $_" }; Muere 'las reglas de PROTON-X no saben decir que NO' }
+    $salida | Where-Object { $_ -match 'clean:' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
+    $salida = & $py.Source $protonx --check
+    if ($LASTEXITCODE -ne 0) { $salida | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }; Muere 'PROTON-X: un .exe, un nombre o un numero no esta donde tiene que estar' }
+    $salida | Where-Object { $_ -match 'clean:' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
+}
+
+# -- 1. EL BANCO, ANTES QUE NADA ----------------------------------------
+#
+# Se corre primero porque es lo mas barato que puede decir que no. El banco de
+# `bmo-c-front` EJECUTA los programas en el emulador: no comprueba que
+# compilen, comprueba que hagan lo que dicen.
+if (-not $Rapido) {
+    Titulo 'Banco de pruebas (anfitrion)'
+    Push-Location $raiz
+    try {
+        # ** ESTA LISTA ERA DE SIETE, Y LO QUE FALTABA NO ERA POCO.
+        #
+        # Es a mano, y por tanto tiene el mismo fallo que vigila el guardian de
+        # opcodes de `build.ps1`: *"un guardian con lista tiene el mismo fallo
+        # que vigila"*. Se le habian quedado fuera doce crates con casillas
+        # escritas que nadie corria.
+        #
+        #   17-08  los SEIS del almacenamiento     118 casillas
+        #          aqui vive la ventana de escritura --la que deja fuera la
+        #          particion de arranque-- y el empaquetado de TRIM, donde
+        #          equivocarse no da un fallo: hace que el disco olvide
+        #          sectores que si importaban.
+        #
+        #   18-08  las SEIS de MAQUETA             134 casillas
+        #          el nieto calcula donde cae cada caja, y una cuenta mal
+        #          puesta no da un error -- **pinta el escritorio torcido**, y
+        #          eso ninguna compilacion lo caza.
+        #
+        #   18-08  `bmo-cobol-front`                226 casillas
+        #          ** LA MAS GORDA QUE FALTABA, y la que mas duele: es el
+        #          hermano de `bmo-c-front`, que si estaba desde el primer dia.
+        #          Ahi dentro vive el banco que EJECUTA los programas en el
+        #          emulador -- el mismo que descubrio que `IF` ejecutaba las
+        #          dos ramas. Y ahi estan ahora las nueve de `calcgui`, que son
+        #          las unicas que comprueban que un motor de COBOL lanzado por
+        #          el escritorio contesta la cuenta que se le pidio.
+        #   24-08  *** SE ACABO LA LISTA, Y ESTE ES EL MOTIVO
+        #
+        #          Al meter `bmo-cripto` toco anadirlo a mano, y de paso se
+        #          conto lo que la lista se estaba dejando fuera:
+        #
+        #            en el workspace   56 crates
+        #            en la lista       20
+        #            sin ejecutar     911 filas que EXISTEN Y PASAN
+        #
+        #          El banco cantaba 1315. El numero de verdad era 2226: se
+        #          callaba el 41%. Y lo que faltaba no era relleno -- eran
+        #          `bmo-inti-front` (274) y `bmo-inti-x86-64` (256), o sea
+        #          **INTI ENTERO**, la pieza mas nueva y la que mas se toca.
+        #
+        #          ** Es el mismo fallo que tuvo el guardian del contrato, que
+        #          leia dos ficheros de `syscall/` POR NOMBRE y se quedo ciego
+        #          cuando la carpeta paso a tener once. La forma se repite:
+        #
+        #            una lista escrita a mano no se queda obsoleta de golpe,
+        #            se queda obsoleta cada vez que alguien no se acuerda.
+        #
+        #          Asi que el banco ya no lleva lista: **le pregunta al
+        #          workspace**. Un crate nuevo entra probado por defecto en vez
+        #          de quedarse fuera por defecto, que es al reves de como
+        #          estaba y es la unica diferencia que importa.
+        #
+        # [!] Y lo que NO se puede probar aqui se dice con su razon, no se
+        #     omite en silencio. Omitir en silencio es como empezo esto.
+        $noSePueden = @{
+            'bmo-kernel' = 'binario bare-metal: enlazado como test, `panic_impl` sale dos veces'
+        }
+        $antes = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $meta = (cargo metadata --no-deps --format-version 1 2>$null | Out-String | ConvertFrom-Json)
+        $ErrorActionPreference = $antes
+        $paquetes = $meta.packages | ForEach-Object { $_.name } |
+                    Where-Object { -not $noSePueden.ContainsKey($_) } | Sort-Object
+        # ** UNA SOLA LLAMADA A CARGO, NO OCHENTA Y DOS (2026-09-21).
+        #
+        # El bucle de antes hacia `cargo test -q -p <crate>` por cada paquete.
+        # Cada llamada resuelve el workspace entero antes de ejecutar nada
+        # --0,2-0,5 s-- y con 82 paquetes son 15-25 s de cargo decidiendo que
+        # no hay nada que compilar. Medido con la marca de tiempo de cada
+        # renglon: el banco tardaba 154 s y 108 eran UN crate (el emulador
+        # sin optimizar, arreglado en `Cargo.toml` con `profile.dev.package`),
+        # y de los 46 restantes, la mitad era este arranque repetido.
+        #
+        # Ahora es `cargo test --workspace --exclude bmo-kernel` UNA vez, y las
+        # cifras por crate se sacan de lo que cargo imprime: cada binario de
+        # pruebas se anuncia con `Running ... (target/.../deps/<crate>-<hash>)`
+        # o `Doc-tests <crate>`, y cierra con `test result: ok. N passed; M
+        # failed`. El nombre va con guion bajo en la ruta y con guion en el
+        # paquete; se casan por eso. Lo que se ve en pantalla es lo MISMO que
+        # antes, crate por crate, y muere por lo mismo: una roja o un crate
+        # que no compilo. `--no-fail-fast` es para que una roja no tape a las
+        # demas: se ven todas en la misma vuelta.
+        $antes = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        # `-q` va DETRAS del `--`: es el binario de pruebas el que calla (puntos en
+        # vez de nombres); cargo sigue anunciando cada binario, que es lo que
+        # se necesita para saber de que crate es cada `test result`.
+        #
+        # [!] Los anuncios van por STDERR y los resultados por STDOUT, y mezclar
+        # los dos canales con `2>&1` los DESORDENA (la primera version conto
+        # 298 filas a bmo-ciudad y 7 a bmo-c-x86-64: un instrumento que
+        # miente). Se capturan aparte y se casan POR ORDEN: cargo corre los
+        # binarios en secuencia, asi que el anuncio i-esimo es del resultado
+        # i-esimo. Si las cuentas no cuadran, se muere en vez de adivinar.
+        # [!] Y por `cmd`, no por PowerShell: `2>fichero` en PowerShell 5.1
+        # envuelve cada linea de stderr en un ErrorRecord y la PARTE al ancho de
+        # la consola, con lo que un `Running tests/x.rs (ruta)` pierde la ruta.
+        # `cmd` escribe los bytes tal cual.
+        $errBanco = Join-Path $env:TEMP 'bmo_banco_err.txt'
+        $salida = (& cmd /c ('cargo test --workspace --exclude bmo-kernel --no-fail-fast -- -q 2>"' + $errBanco + '"') | Out-String)
+        $ErrorActionPreference = $antes
+        $anuncios = Get-Content $errBanco | Where-Object {
+            $_ -match '^\s*Running ' -or $_ -match '^\s*Doc-tests '
+        }
+        $resultados = ($salida -split "`r?`n") | Where-Object { $_ -match 'test result: ' }
+        $porCrate = @{}
+        foreach ($p in $paquetes) { $porCrate[$p] = @{ pasadas = 0; rojas = 0 } }
+        $porRuta = @{}
+        foreach ($p in $paquetes) { $porRuta[($p -replace '-', '_')] = $p }
+        $compilo = -not ([regex]::IsMatch((Get-Content $errBanco | Out-String), '(?m)^error'))
+        if ($compilo -and $anuncios.Count -ne $resultados.Count) {
+            Muere "banco: cargo anuncio $($anuncios.Count) binarios y contesto $($resultados.Count) resultados -- no se puede decir de quien es cada fila"
+        }
+        $sinPropietario = 0
+        for ($i = 0; $i -lt $anuncios.Count; $i++) {
+            $a = $anuncios[$i]
+            $crate = $null
+            if ($a -match 'Running .*[\\/]build[\\/]([A-Za-z0-9_\-]+)[\\/][0-9a-f]{16}[\\/]out[\\/]') {
+                # La carpeta del binario lleva el nombre del PAQUETE (con
+                # guiones): vale igual para `lib` que para los de `tests/`.
+                if ($porCrate.ContainsKey($Matches[1])) { $crate = $Matches[1] }
+            } elseif ($a -match 'Running .*[\\/]deps[\\/]([A-Za-z0-9_]+?)-[0-9a-f]{16}') {
+                if ($porRuta.ContainsKey($Matches[1])) { $crate = $porRuta[$Matches[1]] }
+            } elseif ($a -match '^\s*Doc-tests ([A-Za-z0-9_]+)') {
+                if ($porRuta.ContainsKey($Matches[1])) { $crate = $porRuta[$Matches[1]] }
+            }
+            if (-not $crate) { $sinPropietario++; continue }
+            if ($resultados[$i] -match 'test result: \w+\. (\d+) passed; (\d+) failed') {
+                $porCrate[$crate].pasadas += [int]$Matches[1]
+                $porCrate[$crate].rojas += [int]$Matches[2]
+            }
+        }
+        if ($sinPropietario -gt 0) { Muere "banco: $sinPropietario binario(s) de pruebas sin crate conocido" }
+        $rojasTotal = ($porCrate.Values | ForEach-Object { $_.rojas } | Measure-Object -Sum).Sum
+        if ($rojasTotal -gt 0 -or -not $compilo) {
+            # Lo que dijo el compilador (stderr) y lo que dijeron las filas (stdout).
+            Get-Content $errBanco | Where-Object { $_ -notmatch '^\s*(Running|Doc-tests|Compiling|Finished)' } | ForEach-Object { Write-Host $_ }
+            Write-Host $salida
+            $malos = ($porCrate.Keys | Where-Object { $porCrate[$_].rojas -gt 0 } | Sort-Object) -join ', '
+            Muere "banco: $rojasTotal rojas ($malos), compilo=$compilo"
+        }
+        $total = 0
+        $sinBanco = @()
+        foreach ($p in $paquetes) {
+            $n = $porCrate[$p].pasadas
+            if ($n -eq 0) { $sinBanco += $p; continue }
+            $total += $n
+            Bien "$p -- $n filas"
+        }
+        Bien "$total filas en total, ninguna roja  ($($paquetes.Count) crates preguntados)"
+        if ($sinBanco.Count -gt 0) {
+            # [-] No mata, pero se VE. Un crate sin una sola prueba compila y no
+            #     promete nada; que salga en la lista es lo que impide que se
+            #     quede asi para siempre sin que nadie lo note.
+            Write-Host "   [-] $($sinBanco.Count) crates compilan y no tienen ni una prueba:" -ForegroundColor Yellow
+            Write-Host "       $($sinBanco -join ', ')" -ForegroundColor Yellow
+        }
+        foreach ($k in $noSePueden.Keys) {
+            Write-Host "   [-] $k no se prueba aqui -- $($noSePueden[$k])" -ForegroundColor Yellow
+        }
+    } finally { Pop-Location }
+} else {
+    Write-Host "   (banco saltado: -Rapido)" -ForegroundColor Yellow
+}

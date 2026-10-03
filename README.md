@@ -419,6 +419,23 @@ testing yesterday's kernel without noticing.
 > The script refuses an NTFS volume rather than reporting a false success, so
 > pointing it at a Ventoy payload partition fails loudly instead of quietly.
 
+**Three windows instead of one: `-Paralelo`.** Both commands take it:
+
+```powershell
+.\desplegar.ps1 -Si -Arranque A -Datos A -Paralelo
+```
+
+| window | what it does |
+|---|---|
+| **COMPILAR** (new) | `build.ps1 -BuildOnly -SinGuardianes`: toolchain, Ring 3, kernel, the `.efi` and the `.bex` into `staging` |
+| **VERIFICAR** (new) | `build\verificar.ps1`: the contract, PROTON-X, the test bench and every guardian of `build.ps1` |
+| the one you typed in | waits for both, says how they are going, and **only if both end well** copies `staging` to the drives (`build.ps1 -SoloDiscos`, with every check of `build\discos.ps1` intact) |
+
+The checks and the build no longer wait for each other, so the time is the
+slowest of the two instead of their sum. If one fails, nothing touches a drive:
+the main window stops, names it, and that window stays open with the reason.
+Without `-Paralelo` everything runs in one window, in order, as always.
+
 ### 3. Turn Secure Boot off first.
 
 **This is the one that will waste your evening otherwise.** `BOOTX64.EFI` is not
