@@ -224,6 +224,81 @@ Cyberpunk 2077".** Queda escrito para cuando se retome: J0 (el formato y el
 crate), luego MD5/HKDF/HTTP/JSON, luego el TLS. Nada de esto se toca hasta
 que el propietario lo reabra.
 
+## 3c. LAS TIENDAS, UNA POR UNA: hasta donde se puede (03-10)
+
+El propietario: *"la LUDOTECA tendria API de Steam, GOG y otros mas, hasta
+donde se puedan, para tener validacion en RED por completo, como lo hizo Linux
+donde llega -- pero ojo, no soy Linux"*. Y sobre la red: *"BMO-X es ultra
+celoso en RED; si es algo mas complejo, la ANTENA lleva todo el peso"*
+(`PLAN_LA_RED_SOLA.md`, seccion 0 y D1).
+
+**Lo que Linux hace, y lo que aqui se toma.** En Linux las tiendas llegan por
+tres caminos: el cliente OFICIAL (Steam para Linux), un cliente LIBRE que
+habla el protocolo de la tienda (Heroic con `heroic-gogdl` para GOG,
+`legendary` para Epic y `nile` para Amazon; `DepotDownloader`/SteamKit2 para
+los depots de Steam), y el lanzador de Windows metido en Wine (Lutris, para
+Ubisoft, EA o Battle.net). BMO-X toma SOLO el del medio, y lo pone en la
+ANTENA, en Rust y escrito en casa: esos clientes libres se LEEN para saber el
+protocolo (como se leyo `heroic-gogdl` en la seccion 3b) y no se copia ni una
+linea -- son GPL y la regla es la independencia extrema. El tercer camino no
+existe aqui: no hay Wine.
+
+```text
+   ANTENA (Rust, su TLS, su navegador)          BMO-X (celoso)
+   -----------------------------------          ------------------------------
+   el login de cada tienda, en SU navegador     nunca ve un login ni un token
+   los tokens, el TLS, el HTTP, el JSON         recibe LINEAS: JUEGO, FICHERO,
+   la descarga desde el CDN de la tienda          MOTOR (`bmo-ludoteca`, J0)
+   la comprobacion de la TIENDA (md5, sha1)     la comprobacion de la CASA:
+                                                  sha256 de cada fichero, otra
+                                                  vez, al llegar (`FICHERO`)
+```
+
+**La validacion por completo** son tres sumas en fila y ninguna se salta:
+la de la tienda en cada trozo (en la antena), la sha256 de la casa en cada
+fichero (en la antena, que la escribe en la linea `FICHERO`), y la MISMA
+sha256 otra vez en BMO-X antes de que el fichero toque ESTRATOS. Una antena
+que mienta no cuela un byte: BMO-X recalcula. Y el DRM se mira, no se salta:
+`rayosx` ya lee lo que importa un `.exe` (J-R); un juego que importa la
+biblioteca de su lanzador (`steam_api64.dll`, la de EOS de Epic...) necesita
+ese lanzador para arrancar, y queda PENDIENTE con ese motivo dicho.
+
+| tienda | la LISTA (que tienes) | la DESCARGA | sumas de la tienda | DRM | hasta donde |
+|---|---|---|---|---|---|
+| **GOG** | `embed.gog.com/user/data/games`, OAuth de Galaxy (3b) | content-system v2, trozos zlib (3b) | md5 por trozo | NINGUNO | ENTERA: lista, descarga y juego. La primera, por eso |
+| **itch.io** | API OFICIAL de servidor con clave del propietario (`itch.io/docs/api/serverside`: las claves de descarga que posees) | la URL de descarga de cada `upload` con esa clave | las del paquete | casi siempre ninguno | ENTERA, y es la mas limpia: API publica y documentada |
+| **Steam** | Web API OFICIAL: `IPlayerService/GetOwnedGames` con la clave del propietario y su steamid (`developer.valvesoftware.com/wiki/Steam_Web_API`) | solo por el protocolo de su cliente (lo que hace `DepotDownloader`/SteamKit2 con TU cuenta): depots cifrados con su llave, que solo da si el juego es tuyo | sha1 por trozo | Steamworks en casi todos | LA LISTA si. La descarga despues, y solo para los juegos que `rayosx` diga que NO importan `steam_api`: los demas necesitan el cliente de Steam corriendo y quedan PENDIENTES |
+| **Epic** | lo que hace `legendary`: el codigo del navegador cambiado por una sesion, y la biblioteca de la cuenta | manifiestos y trozos de su CDN (el formato nuevo, ChunksV5, tiene variantes cifradas: `legendary` 0.21 ya lo lee) | sha1 por trozo | EOS o token de propiedad en muchos | LA LISTA si; la descarga, juego a juego, como Steam |
+| **Amazon** | lo que hace `nile` (Heroic): el dispositivo registrado por el navegador y los derechos de la cuenta | manifiestos de su CDN | sha256 (por confirmar al escribirlo) | varia | LA LISTA si; la descarga, como Epic |
+| **Humble** | sin API oficial: la biblioteca de la cuenta por la sesion del navegador | enlaces DRM-free firmados | md5 y sha1 de cada fichero | NINGUNO en lo DRM-free | posible, pero sin API publica: se hace el ultimo y se dice |
+| **Ubisoft, EA, Battle.net, Microsoft, Rockstar** | sin API publica para esto | solo con su lanzador de Windows | -- | su lanzador | NO, con este motivo: Linux tambien los mete en Wine con su lanzador. Lo que si: lo que YA esta en tus discos (como Cyberpunk en D:) sale en la LUDOTECA por `catalogo` |
+
+[!] Lo marcado "lo que hace `legendary`/`nile`" se leyo de su documentacion
+publica el 03-10; los hosts y los campos exactos se leen de su codigo el dia
+que se escriba cada tienda, como se hizo con GOG en la 3b, y se apuntan aqui.
+Ningun client_id, token ni clave entra al repositorio.
+
+**Los escalones** (detras de J2, que es GOG):
+
+- [ ] **J2b -- itch.io, la API oficial.** En la antena: la clave que el
+      propietario crea en su cuenta de itch, guardada SOLO en la antena; la
+      lista de lo que posee a lineas `JUEGO`. **Como se sabe:** `LUDOTECA`
+      a la antena devuelve tus juegos de itch con su tienda `itch`, y el
+      banco pasa con respuestas grabadas.
+- [ ] **J2c -- Steam, la LISTA.** `GetOwnedGames` con la clave y el steamid
+      del propietario, en la antena; cada juego sale con su camino segun
+      `rayosx` cuando este en disco, y PENDIENTE (con "pide el cliente de
+      Steam") si no se puede. **Como se sabe:** tus juegos de Steam en F4,
+      cada uno con su camino o su motivo.
+- [ ] **J2d -- Epic y Amazon, la LISTA.** Igual, por sus sesiones de
+      navegador en la antena. **Como se sabe:** los juegos gratis de Epic
+      que reclamaste salen en F4.
+- [ ] **J3b -- descargar de una segunda tienda.** Despues de J3 (GOG): itch
+      primero (sin DRM). Steam, Epic y Amazon solo para los juegos que
+      `rayosx` deje pasar. **Como se sabe:** un juego de itch arranca en
+      BMO-X con los ficheros que trajo la antena, y su sha256 cuadro dos
+      veces.
+
 ## 4. Lo que NO se hace
 
 - Ni Wine, ni Proton, ni una capa Win32 general. **Cambiado el 27-09 por el

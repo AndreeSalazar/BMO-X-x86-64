@@ -17,6 +17,9 @@ members = [
     "apps/taller",
     # La LUDOTECA (F4): tus juegos de todas las tiendas. PLAN_LA_LUDOTECA, J1.
     "apps/ludoteca",
+    # HERMES (F3): mensajes, tertulias, la ONDA y las jaulas, en una sola
+    # maquina. PLAN_HERMES, H5.
+    "apps/hermes",
 ]
 resolver = "2"
 

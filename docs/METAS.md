@@ -129,7 +129,8 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | meta | estado | motivo / lo que falta |
 |---|---|---|
 | La RTL8168 recibe en metal; la red es familia propia | **HECHA** 13-09 | `ring0/red`, 5 -> 14 tramas, malas 0 |
-| Transmitir con el DMA contado (RED TX E0-E3) | **HECHA** en codigo | `plan/PLAN_RED_TX.md`; falta la foto del ARP contestado |
+| Transmitir con el DMA contado (RED TX E0-E3) | **HECHA** 14-09 | `plan/PLAN_RED_TX.md`: `red prueba` PASA en el Ryzen (el router contesto el ARP), DHCP CONCEDIDA y ping al router y a internet el mismo dia |
+| **LA RED SOLA**: que sepa, que se maneje y que avise, sin Google | ABIERTA 03-10 | `plan/PLAN_LA_RED_SOLA.md` RS0-RS10: hoy la red va a mano (un pase de 60 s por orden, DHCP sin renovar, nadie vuelve a conectar si el cable vuelve). El VIGIA (`bmo-red-sola`, puro y con banco), el pase que se sostiene, `red = si` en el fichero, el piloto y los avisos, MSI, la IOMMU para la tarjeta, y encima HERMES (H4, H6, H11). BMO-X CELOSO: solo habla con el router, su DNS, la ANTENA y sus amigos; lo de fuera (Google, las tiendas, su navegador) lo lleva la ANTENA (D1, decidido 03-10). Y "con fuerza": el gigabit y la red en su propio nucleo (RS5b, RS5c) |
 | El muro IOMMU, el ping que contesta, firmas sobre UDP (E4-E6) | ABIERTA | `plan/PLAN_RED_TX.md`; `bmo-pila` espera encima |
 | G5: TCP propio contra la antena (`red hola`) | ABIERTA (metal) | en codigo desde el 18-09; espera el Ryzen |
 | CLOUD LOCAL: el movil es la antena, BMO-X la pantalla | ABIERTA | `plan/PLAN_CLOUD_LOCAL.md`, 45 sueltas, el plan mas largo. La antena Android esta TERMINADA (HONOR navega solo); lo que falta es BMO-X: S1 (pl_mpeg), N3, P0 |

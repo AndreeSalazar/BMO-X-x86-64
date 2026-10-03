@@ -12,7 +12,14 @@
 //!    0x1E personal diario <ruta en D:>   PROTON-X con su diario, como tecleado
 //!    0x1E apps/<algo>.bex [args]          un programa de apps/ o sys/
 //!    0x1E sys/<algo>.bex [args]
+//!    0x1E fondo <n>                       la pieza `n` de la musica de fondo
+//!                                         (la ONDA de HERMES, 03-10)
+//!    0x1E aviso <nombre>                  un aviso encima de la musica (el
+//!                                         ZUMBIDO de HERMES)
 //! ```
+//!
+//! ** La musica es del ESCRITORIO y no de la app: por eso HERMES la PIDE y no
+//! la toca. Cerrar HERMES no la corta, y la PASTILLA la sigue mandando.
 //!
 //! Lista BLANCA: cualquier otra cosa se dice en la salida y no se hace. Una
 //! app ya podia lanzar programas ella misma (`bmo::ejecutar`), asi que esto
@@ -82,6 +89,10 @@ pub(crate) enum Que<'a> {
     Diario(&'a [u8]),
     /// Un `.bex` de `apps/` o `sys/`, con lo que lleve detras.
     Programa(&'a [u8]),
+    /// La pieza `n` de `bmo_fondo::PIEZAS`.
+    Fondo(usize),
+    /// Un aviso encima de la musica.
+    Aviso(bmo_fondo::Aviso),
     /// Fuera de la lista blanca.
     No,
 }
@@ -89,6 +100,21 @@ pub(crate) enum Que<'a> {
 pub(crate) fn juzgar(l: &[u8]) -> Que<'_> {
     if let Some(r) = l.strip_prefix(b"personal diario ") {
         return if r.is_empty() { Que::No } else { Que::Diario(r) };
+    }
+    if let Some(n) = l.strip_prefix(b"fondo ") {
+        let ok = !n.is_empty() && n.len() <= 3 && n.iter().all(u8::is_ascii_digit);
+        let i = n.iter().fold(0usize, |a, &c| a * 10 + (c - b'0') as usize);
+        return if ok && i < bmo_fondo::PIEZAS.len() { Que::Fondo(i) } else { Que::No };
+    }
+    if let Some(n) = l.strip_prefix(b"aviso ") {
+        // Solo los que una app tiene por que pedir: llamar, hecho, mal.
+        return match n {
+            b"zumbido" => Que::Aviso(bmo_fondo::Aviso::Zumbido),
+            b"mensaje" => Que::Aviso(bmo_fondo::Aviso::Mensaje),
+            b"hecho" => Que::Aviso(bmo_fondo::Aviso::Hecho),
+            b"error" => Que::Aviso(bmo_fondo::Aviso::Error),
+            _ => Que::No,
+        };
     }
     let programa = l.split(|&c| c == b' ').next().unwrap_or(l);
     let de_casa = programa.starts_with(b"apps/") || programa.starts_with(b"sys/");
@@ -135,10 +161,30 @@ pub(crate) fn atender(dsk: &mut Desktop, p: &bmo::Pantalla) {
         Que::Programa(l) => {
             crate::scene::abrir::pedir(&[l]);
         }
+        Que::Fondo(i) => {
+            let g = &mut dsk.out.grid;
+            match crate::desktop::musica::tocar(i) {
+                Ok(()) => {
+                    g.text(b"  de fondo: ");
+                    g.text(bmo_fondo::PIEZAS[i].nombre.as_bytes());
+                    g.text(b"\n");
+                }
+                Err(f) => {
+                    g.with_ink(INK_ERR);
+                    g.text(b"  ");
+                    g.text(f.texto());
+                    g.text(b"\n");
+                    g.with_ink(INK_PLAIN);
+                }
+            }
+        }
+        // Un aviso suena con el fondo encendido (ver `musica::avisar`); sin
+        // el, la app ya lo dijo con la vista (el zumbido sacude igual).
+        Que::Aviso(a) => crate::desktop::musica::avisar(a),
         Que::No => {
             let g = &mut dsk.out.grid;
             g.with_ink(INK_ERR);
-            g.text(b"  no: solo `personal diario <ruta>` o un .bex de apps/ o sys/\n");
+            g.text(b"  no: solo `personal diario <ruta>`, un .bex de apps/ o sys/, `fondo <n>` o `aviso <nombre>`\n");
             g.with_ink(INK_PLAIN);
         }
     }

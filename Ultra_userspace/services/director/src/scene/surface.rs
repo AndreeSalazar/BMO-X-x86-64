@@ -731,7 +731,8 @@ impl Surface {
 /// ** LAS APPS SIN MARCO (01-10): su ventana es un borde vivo de un pixel y
 /// tres botones que asoman (ver `Chrome::sin_marco`). Se decide por el
 /// programa, no por la app: el marco es cosa del escritorio.
-const SIN_MARCO: [&[u8]; 1] = [b"ludoteca.bex"];
+/// HERMES (F3, 03-10) tambien: es la otra cara de la maqueta.
+const SIN_MARCO: [&[u8]; 2] = [b"ludoteca.bex", b"hermes.bex"];
 
 /// El programa de `tid` es de los [`SIN_MARCO`]? Lo mismo que mira F4 para
 /// saber si la LUDOTECA ya esta abierta: el nombre que el kernel apunto al

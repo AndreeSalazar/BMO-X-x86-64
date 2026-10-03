@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 56 planes
+# LO QUE FALTA -- las casillas abiertas de los 57 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   511 casillas ABIERTAS en 47 planes
-   371 hechas
+   527 casillas ABIERTAS en 48 planes
+   372 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -51,14 +51,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
 - ... y 43 mas
 
-## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 29 abiertas, 13 hechas
+## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 33 abiertas, 13 hechas
 
 *PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
 
 - [ ] J2 -- la antena pide la lista a GOG, EN RUST. Cambiado el 29-09
 - [ ] J3 -- traer los DATOS de un juego nativo. El WAD o PAK de un juego
-- [ ] J4a -- el emisor en el PC. Un script (ffmpeg captura la ventana del
-- ... y 26 mas
+- [ ] J2b -- itch.io, la API oficial. En la antena: la clave que el
+- ... y 30 mas
 
 ## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 23 abiertas, 10 hechas
 
@@ -132,15 +132,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 11 mas
 
-## [`PLAN_HERMES.md`](PLAN_HERMES.md) -- 14 abiertas, 2 hechas
-
-*PLAN HERMES -- F3 de BMO-X: dos BMO-X que se hablan, sin servidor de nadie*
-
-- [ ] H4 -- la PUERTA HERMES. Un servicio que nace con RED (y nada mas),
-- [ ] H5 -- la app en F3, en una sola maquina. sys/hermes.bex
-- [ ] H6 -- texto entre dos BMO-X en la LAN. Pide G5 en el metal. **Como
-- ... y 11 mas
-
 ## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 13 abiertas, 7 hechas
 
 *DIRECTOR -- de compositor a administrador*
@@ -148,6 +139,24 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] el DIRECTOR le dice el hueco: una ranura de buzon con bit propio
 - [ ] la app puede REEMPLAZAR su superficie: hoy una segunda oferta del
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
+- ... y 10 mas
+
+## [`PLAN_HERMES.md`](PLAN_HERMES.md) -- 13 abiertas, 2 hechas
+
+*PLAN HERMES -- F3 de BMO-X: dos BMO-X que se hablan, sin servidor de nadie*
+
+- [ ] H4 -- la PUERTA HERMES. Un servicio que nace con RED (y nada mas),
+- [ ] H6 -- texto entre dos BMO-X en la LAN. Pide G5 en el metal. **Como
+- [ ] H7 -- los emojis se pintan. bmo-dibujo aprende UTF-8 y un atlas
+- ... y 10 mas
+
+## [`PLAN_LA_RED_SOLA.md`](PLAN_LA_RED_SOLA.md) -- 13 abiertas, 1 hechas
+
+*PLAN LA RED SOLA -- la red que sabe, que se maneja y que avisa, sin Google*
+
+- [ ] RS0 -- la tanda del Ryzen que ya espera. G4 (red dns), G5 (`red
+- [ ] RS1 -- EL VIGIA, puro y con banco. platform/shared/bmo-red-sola,
+- [ ] RS2 -- el pase que se SOSTIENE (Ring 0, chico y con motivo). Un
 - ... y 10 mas
 
 ## [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) -- 12 abiertas, 4 hechas

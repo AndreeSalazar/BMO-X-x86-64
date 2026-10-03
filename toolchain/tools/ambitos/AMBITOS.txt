@@ -163,3 +163,6 @@ taller           (0)
 # 2026-09-30: el frontend de TITAN++ (`toolchain/lang/titan`), el lenguaje
 # para CONSTRUIR. Nace aqui, con el nivel 0 de su escalera.
 titan            (0) 
+# 2026-10-03: HERMES, la app de F3 (`Ultra_userspace/apps/hermes`) y su
+# protocolo (`platform/shared/bmo-hermes`). Nace aqui, con H5.
+hermes           (0) 
