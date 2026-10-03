@@ -653,8 +653,79 @@ MIENTRAS suena la de ahora: cambiar no deja hueco.
 
 No es la ONDA de HERMES: ni ficheros, ni listas, ni MP3 (M2 de
 `PLAN_MEDIOS.md`). Es la misma partitura de la maqueta, compuesta en la
-maquina. Y la PASTILLA de la maqueta (la notificacion escondida con pausa y
-volumen) todavia es solo de la maqueta: aqui se manda por `fondo`.
+maquina.
+
+### Y la PASTILLA, en el escritorio de verdad (03-10, por la tarde)
+
+`scene/pastilla.rs` y `desktop/pastilla.rs`: con el fondo sonando, una rayita
+de neon arriba en el centro que LATE con el medidor del maestro (lo que de
+verdad sale por el cable); asoma con rebote al acercar el raton o al cambiar
+de pieza, volumen o pausa; con un clic se abre: la onda en vivo, los
+medidores izquierdo y derecho con su pico, pausa, siguiente, volumen y una
+recomendacion (la siguiente de las tranquilas: del catalogo, sin inventar
+amigos). No es una ventana: no quita el foco, y un clic fuera sigue su
+camino. La pausa es de radio --la voz sigue en su bucle, callada por la
+rampa-- porque el orquestador no dice por donde va una voz. [!] Con un juego
+a pantalla completa el escritorio no pinta y la pastilla tampoco; la musica
+sigue y se agacha sola.
+
+| que | afirma | como se cae |
+|---|---|---|
+| `fondo` | aparece la rayita arriba y late con la musica | quieta: el medidor no llega (`ventanas` del `save`) |
+| raton arriba al centro | asoma con el nombre, pausa y siguiente | no asoma: `CERCA` o el centro mal medido |
+| clic en ella | se abre con la onda y los medidores moviendose | rastro al cerrarla: la capa no devolvio lo que tapaba |
+| pausa, +, -, siguiente, la recomendacion | hacen eso, y la pastilla lo dice | el clic se va a la ventana de debajo |
+
+## [ ] S4f -- EL OIDO: el perfil de quien escucha, en todo lo que suena (2026-10-03)
+
+> Codigo HECHO el 03-10; la casilla se cierra cuando el metal conteste la tabla
+> de abajo.
+
+El propietario: *"vamos a mejorar el audifono, eso es para que se aplique en
+general, y control y mas cosas [...] audio profesional"*. El documento ya
+decia dos cosas que deciden el como: el propietario es duro de oido, y su
+audifono tiene DOS transductores (seccion 3.5). Lo que se haga por el oido
+va en la etapa que pasa TODO: el MAESTRO.
+
+| mando | que hace | para que |
+|---|---|---|
+| **agudos** -12..+12 dB | estante a 3,5 kHz | lo primero que se pierde, y lo que hace ENTENDER una voz |
+| **medios** -12..+12 dB | campana a 1 kHz (Q 0,7) | el cuerpo de la voz |
+| **graves** -12..+12 dB | estante a 100 Hz | el golpe; bajarlo aclara |
+| **balance** -100..+100 | atenua el lado contrario, por rampa | quien oye mejor por un oido |
+| **mono** | suma los dos lados | que no se pierda lo que la mezcla puso solo en el otro |
+
+En `bmo-amplificador::oido`, dentro del `Maestro`: ANTES de la ganancia y del
+limite, asi que lo que el tono suba tambien lo sujeta el limite.
+
+* **En plano es un cable**: las pruebas de siempre del maestro siguen
+  pasando bit a bit.
+* **Sin coma flotante**: los coeficientes salen de una tabla por dB entero
+  (las formulas del *Audio EQ Cookbook*), a 44,1 y 48 kHz. Fuera de esas
+  frecuencias el tono no se aplica, y `oido` y el `save` lo dicen.
+* **Sin el soplido de los filtros graves**: el estado lleva 8 bits de mas y
+  el resto de cada redondeo vuelve a la muestra siguiente. Prueba
+  `tras_un_golpe_el_silencio_es_silencio` (graves a +12: tras un golpe, un
+  segundo de silencio es CERO).
+* Una banda que se enciende empieza de cero; el balance va por rampa.
+* 5 pruebas: las tablas contra la respuesta en doble, el tono a sus
+  frecuencias, el silencio, mono y balance, y el plano.
+
+El mando: cinco ordenes nuevas en la puerta del maestro (`AUDIO_MANDO_BALANCE`
+.. `AUDIO_MANDO_PLANO`, 3..8), solo el escritorio, y `INFO_AUDIO_OIDO` (0xC8)
+para leerlo. En Ejecutar, `oido` (y `oido voz`, `oido musica`, `oido plano`,
+`oido agudos N`, `oido balance N`, `oido mono si`), y en el `save`, sus filas
+junto a las del maestro (y las del FONDO: `INFO_AUDIO_FONDO`, 0xC9).
+
+### Lo que el metal tiene que contestar
+
+| que | afirma | como se cae |
+|---|---|---|
+| `oido voz` con DOOM o el fondo sonando | las voces y los platillos mas claros, sin clic al ponerlo | clic: una banda arranco con memoria vieja |
+| `oido graves 12`, y silencio | un silencio limpio, sin soplido | soplido: el redondeo del estante grave |
+| `oido mono si` | lo de un lado suena en los dos | -- |
+| `oido balance 100` | todo a la derecha, por una rampa corta | un golpe al cambiar |
+| `oido plano` | el maestro vuelve al cable (`estado 1` y nada que hacer) | -- |
 
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 
@@ -796,7 +867,10 @@ para su propietario no esta terminado, por muchos canales que tenga.
 # 5. LO QUE ESTE PLAN **NO** PROMETE
 
 * **No es un DAW.** No hay edicion, ni pistas, ni efectos (reverberacion,
-  ecualizador, compresor multibanda). El "como DaVinci" de este plan es la
+  ecualizador, compresor multibanda). *(Corregido el 03-10: hay TRES mandos
+  de tono fijos, los de un amplificador de alta fidelidad, en el OIDO (S4f),
+  porque lo pidio el propietario y el sonido de esta casa es personal. Sigue
+  sin haber efectos que se enchufen ni se encadenen.)* El "como DaVinci" de este plan es la
   GANANCIA con medidor y limitador, que es una pieza concreta; el resto de
   DaVinci es otro programa.
 * **No hay decodificadores aqui.** MP3, AAC, Opus y compania son otro trabajo
