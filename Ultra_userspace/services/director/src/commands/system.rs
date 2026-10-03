@@ -1074,6 +1074,7 @@ pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         dsk.out.grid.text(b"  smp stop     los duerme. [!] sin IPI NO vuelven\n");
         dsk.out.grid.text(b"  smp tropezar el obrero 1 falla a proposito: la maquina tiene que seguir\n");
         dsk.out.grid.text(b"  F11 dice en que esta cada nucleo y cual gira en vacio\n");
+        dsk.out.grid.text(b"  F7 (CPU): cada nucleo con sus hilos, y A todos  S parar  M medir\n");
     }
     paint_status(&p, &dsk.run_box, "smp", INK_DIM);
     dsk.field.n = 0;
