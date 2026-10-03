@@ -104,8 +104,6 @@ fn diario_exe_con_diario_apunta_cada_funcion_una_vez_y_en_orden() {
     assert!(anillo.iter().all(|l| l.split_whitespace().next() == Some(id)), "cada llamada, del hilo {id}: {texto}");
 }
 
-const VUELTAS: &[u8] = include_bytes!("../../../proton-x/prueba/vueltas.exe");
-
 /// **Un hilo que espera DANDO VUELTAS** (02-10): `vueltas.exe` despierta a
 /// un trabajador y lo espera mirando QueryPerformanceCounter en un bucle,
 /// como un motor. Con hilos cooperativos el trabajador no corria nunca;

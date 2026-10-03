@@ -74,6 +74,8 @@ const TANDA14: &[u8] = include_bytes!("../../proton-x/prueba/tanda14.exe");
 const TANDA4M: &[u8] = include_bytes!("../../proton-x/prueba/tanda4m.exe");
 const TANDA14B: &[u8] = include_bytes!("../../proton-x/prueba/tanda14b.exe");
 const TANDA15: &[u8] = include_bytes!("../../proton-x/prueba/tanda15.exe");
+/// 02-10: el hilo que espera dando vueltas (`de_hoy.rs`).
+const VUELTAS: &[u8] = include_bytes!("../../proton-x/prueba/vueltas.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");
