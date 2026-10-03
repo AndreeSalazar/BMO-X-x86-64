@@ -1,0 +1,385 @@
+<title>BANK CAT de BMO-X</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* MAQUETA de BANK CAT (F5), 2026-10-03. La misma familia que
+   maqueta_hermes.html: su paleta, sus letras, su riel. Lo que es de ejemplo
+   (los amigos, los movimientos) se dice abajo, en "Lo que es de ejemplo". */
+:root {
+  --negro: #05060A;
+  --fondo: #080A10;
+  --panel: #0B0E15;
+  --panel2: #10141D;
+  --linea: #1B2130;
+  --texto: #C9D3DB;
+  --tenue: #6E7A89;
+  --blanco: #F2F7F9;
+  --cian: #5EF2E6;
+  --rosa: #FF2E88;
+  --azul: #3DA5FF;
+  --verde: #4DE38F;
+  --ambar: #FFC24D;
+  --oro: #FFD45E;
+  --oro2: #C98A1B;
+  --rojo: #FF4F5E;
+  --gris: #9AA2B4;
+  --morado: #A55DFF;
+  --f-pixel: "Silkscreen", "Courier New", monospace;
+  --f-texto: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--negro); color: var(--texto); }
+body { font-family: var(--f-texto); font-size: 14px; line-height: 1.45; padding: 16px 16px 40px; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.pix { font-family: var(--f-pixel); letter-spacing: .04em; }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+.cabecera { max-width: 1240px; margin: 0 auto 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.cabecera h1 { margin: 0; font-family: var(--f-pixel); font-weight: 700; font-size: 18px; color: var(--blanco); letter-spacing: .06em; }
+.cabecera p { margin: 0; color: var(--tenue); }
+.tecla { margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--oro); border-radius: 10px; color: var(--blanco); box-shadow: 0 0 18px #ffd45e22; }
+.tecla kbd { font-family: var(--f-mono); font-size: 12px; padding: 2px 7px; border-radius: 5px; background: var(--panel2); border: 1px solid #2A3245; border-bottom-width: 3px; }
+
+.ventana { max-width: 1240px; margin: 0 auto; border: 1px solid var(--linea); border-radius: 14px; overflow: hidden; background: var(--fondo); }
+.barra { display: flex; align-items: center; gap: 12px; padding: 7px 14px; background: var(--negro); border-bottom: 1px solid var(--linea); }
+.barra b { font-family: var(--f-pixel); color: var(--blanco); letter-spacing: .08em; }
+.barra span { color: var(--tenue); font-size: 13px; }
+.barra .x { margin-left: auto; color: var(--gris); }
+
+.app { display: grid; grid-template-columns: 64px 250px 1fr 290px; min-height: 640px; }
+.riel { background: var(--negro); border-right: 1px solid var(--linea); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
+.riel .sello { color: var(--oro); font-family: var(--f-pixel); font-size: 11px; margin-bottom: 4px; }
+.burbuja { position: relative; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #10131B; border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); color: color-mix(in srgb, var(--c) 75%, #000); transition: border-radius .2s, background .2s; }
+.burbuja svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.burbuja:hover { color: var(--c); }
+.burbuja[aria-current="true"] { border-radius: 13px; background: color-mix(in srgb, var(--c) 20%, #05060A); border-color: var(--c); color: var(--c); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 35%, transparent); }
+.burbuja[aria-current="true"]::before { content: ""; position: absolute; left: -10px; top: 10px; bottom: 10px; width: 4px; border-radius: 2px; background: var(--blanco); }
+
+.lista { background: var(--panel); border-right: 1px solid var(--linea); display: flex; flex-direction: column; }
+.lista h2 { margin: 0; padding: 18px 16px 14px; font-size: 15px; color: var(--blanco); border-bottom: 1px solid var(--linea); }
+.rotulo { padding: 14px 16px 6px; font-size: 11px; letter-spacing: .14em; color: var(--tenue); text-transform: uppercase; }
+.fila { display: flex; gap: 10px; align-items: center; margin: 2px 8px; padding: 8px; border-radius: 10px; }
+.fila.sel { background: #10202A; }
+.cara { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #05060A; font-weight: 700; background: var(--c); flex: none; }
+.fila b { display: block; color: var(--blanco); font-weight: 500; }
+.fila small { color: var(--tenue); }
+.fila .num { margin-left: auto; font-size: 12px; }
+.pie { margin-top: auto; padding: 12px 16px; border-top: 1px solid var(--linea); display: flex; gap: 10px; align-items: center; }
+.pie small { color: var(--tenue); display: block; }
+
+.centro { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.cab { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-bottom: 1px solid var(--linea); position: relative; }
+.cab::after { content: ""; position: absolute; left: 0; bottom: -1px; width: 40%; height: 2px; background: linear-gradient(90deg, var(--oro), transparent); }
+.cab b { color: var(--blanco); }
+.cab span { color: var(--tenue); }
+.pildora { margin-left: auto; padding: 2px 10px; border-radius: 11px; border: 1px solid var(--c); color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); font-size: 12px; font-weight: 600; }
+.cuerpo { padding: 20px; overflow: auto; flex: 1; }
+.oculto { display: none !important; }
+
+/* ** LA CARTERA: el gato hucha y el saldo. */
+.cartera { display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: center; }
+.saldo .pix { color: var(--tenue); font-size: 11px; }
+.saldo .cifra { font-family: var(--f-mono); font-size: 44px; color: var(--oro); line-height: 1.1; text-shadow: 0 0 22px #ffd45e33; }
+.saldo .cifra small { font-size: 18px; color: var(--ambar); }
+.saldo p { color: var(--tenue); margin: 6px 0 16px; }
+.botones { display: flex; gap: 10px; flex-wrap: wrap; }
+.boton { padding: 9px 16px; border-radius: 10px; border: 1px solid var(--c, var(--linea)); background: color-mix(in srgb, var(--c, #1B2130) 14%, var(--panel)); color: var(--blanco); font-weight: 600; }
+.boton:hover { background: color-mix(in srgb, var(--c, #1B2130) 26%, var(--panel)); }
+
+.gato-caja { position: relative; height: 290px; }
+#gato { width: 260px; height: 290px; overflow: visible; }
+#gato .t { stroke: var(--cian); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+#gato .oro { fill: var(--oro); stroke: var(--oro2); stroke-width: 2; }
+#gato .pata { transform-origin: 84px 176px; animation: saluda 1.6s ease-in-out infinite; }
+#gato.rico .pata { animation-duration: .45s; }
+#gato.triste .pata { animation: none; transform: rotate(18deg); }
+@keyframes saluda { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(16deg); } }
+#gato .ojos-normal, #gato .ojos-moneda, #gato .ojos-triste { transition: opacity .15s; }
+#gato .ojos-moneda, #gato .ojos-triste { opacity: 0; }
+#gato.rico .ojos-normal, #gato.triste .ojos-normal { opacity: 0; }
+#gato.rico .ojos-moneda { opacity: 1; }
+#gato.triste .ojos-triste { opacity: 1; }
+#gato .parpado { animation: parpadea 4s infinite; transform-origin: center; transform-box: fill-box; }
+@keyframes parpadea { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+#gato .monoculo { transform-origin: 156px 112px; }
+#gato.rico .monoculo { animation: salta .5s ease-out; }
+@keyframes salta { 0% { transform: translateY(0); } 40% { transform: translateY(-14px) rotate(-12deg); } 100% { transform: translateY(0); } }
+#gato .cola { transform-origin: 196px 250px; animation: cola 3s ease-in-out infinite; }
+@keyframes cola { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(8deg); } }
+.moneda-cae { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #FFF1B8, var(--oro) 45%, var(--oro2)); border: 1px solid var(--oro2); left: 120px; top: -30px; animation: cae .7s cubic-bezier(.5, 0, .9, .5) forwards; }
+@keyframes cae { to { top: 34px; transform: scaleX(.3); opacity: 0; } }
+.lagrima { position: absolute; left: 112px; top: 120px; width: 6px; height: 9px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: var(--azul); animation: gota 1s ease-in forwards; }
+@keyframes gota { to { top: 175px; opacity: 0; } }
+
+.tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 22px; }
+.tarjeta { border: 1px solid var(--linea); border-radius: 12px; background: #0D1118; padding: 14px; }
+.tarjeta h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: .14em; color: var(--tenue); text-transform: uppercase; font-weight: 500; }
+.tarjeta p { margin: 0; }
+.par { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.par span:first-child { color: var(--tenue); }
+
+table { width: 100%; border-collapse: collapse; }
+td, th { padding: 8px 6px; border-bottom: 1px solid var(--linea); text-align: left; }
+th { color: var(--tenue); font-weight: 500; font-size: 12px; }
+td.mas { color: var(--verde); text-align: right; }
+td.menos { color: var(--rojo); text-align: right; }
+pre.cobol { margin: 0; padding: 14px; border-radius: 12px; background: #06080C; border: 1px solid var(--linea); color: #B9C4D0; font-family: var(--f-mono); font-size: 12.5px; overflow: auto; }
+pre.cobol .k { color: var(--azul); }
+pre.cobol .n { color: var(--oro); }
+pre.cobol .c { color: var(--tenue); }
+
+.oferta { display: flex; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--linea); border-radius: 12px; margin-bottom: 10px; background: #0D1118; }
+.oferta .que { flex: 1; }
+.oferta .que small { color: var(--tenue); display: block; }
+.precio { font-family: var(--f-mono); color: var(--oro); }
+
+.candado { border: 1px dashed var(--ambar); border-radius: 12px; padding: 16px; background: #1A140622; }
+.candado h3 { margin: 0 0 8px; color: var(--ambar); }
+.opcion { display: grid; grid-template-columns: 26px 1fr; gap: 8px; padding: 10px 0; border-top: 1px solid var(--linea); }
+.opcion b { color: var(--blanco); }
+.si { color: var(--verde); } .no { color: var(--rojo); }
+
+.panel { background: var(--panel); border-left: 1px solid var(--linea); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+.notas { max-width: 1240px; margin: 18px auto 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.notas section { border: 1px solid var(--linea); border-radius: 12px; padding: 14px; background: var(--panel); }
+.notas h2 { margin: 0 0 8px; font-family: var(--f-pixel); font-size: 13px; color: var(--blanco); }
+.notas p, .notas li { color: var(--texto); }
+.notas ul { margin: 0; padding-left: 18px; }
+
+@media (max-width: 1100px) { .app { grid-template-columns: 64px 220px 1fr; } .panel { display: none; } }
+@media (max-width: 760px) { .app { grid-template-columns: 56px 1fr; } .lista { display: none; } .cartera { grid-template-columns: 1fr; } }
+</style>
+
+<header class="cabecera">
+  <h1>BMO-X</h1>
+  <p>Maqueta de BANK CAT, 03-10: la cartera de CAB, llevada por COBOL</p>
+  <div class="tecla"><kbd>F5</kbd> BANK CAT</div>
+</header>
+
+<div class="ventana">
+  <div class="barra"><b>BANK CAT</b><span>sys/bankcat.bex &middot; el libro: F:/bankcat/libro.dat</span><span class="x">&#x2715;</span></div>
+  <div class="app">
+    <nav class="riel" aria-label="Secciones de BANK CAT">
+      <div class="sello">CAB</div>
+      <button class="burbuja" style="--c: var(--oro)" data-sec="cartera" aria-label="Cartera" aria-current="true">
+        <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 14h2"/></svg></button>
+      <button class="burbuja" style="--c: var(--cian)" data-sec="mover" aria-label="Mover">
+        <svg viewBox="0 0 24 24"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg></button>
+      <button class="burbuja" style="--c: var(--rosa)" data-sec="mercado" aria-label="Mercado">
+        <svg viewBox="0 0 24 24"><path d="M4 9l2-5h12l2 5M4 9v11h16V9M4 9h16M9 20v-6h6v6"/></svg></button>
+      <button class="burbuja" style="--c: var(--azul)" data-sec="libro" aria-label="El libro (COBOL)">
+        <svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 9h8M8 13h8M8 17h5"/></svg></button>
+      <button class="burbuja" style="--c: var(--ambar)" data-sec="cajero" aria-label="Cajero">
+        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M12 13v5M10 16l2 2 2-2"/></svg></button>
+      <button class="burbuja" style="--c: var(--gris)" data-sec="reglas" aria-label="Reglas">
+        <svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></button>
+    </nav>
+
+    <aside class="lista">
+      <h2 id="titulo-lista">Cartera</h2>
+      <div class="rotulo">tus monederos</div>
+      <div class="fila sel"><div class="cara" style="--c: var(--oro)">$</div><div><b>CAB</b><small>la moneda de la casa</small></div><span class="num mono" id="saldo-lista">1.250,00</span></div>
+      <div class="fila"><div class="cara" style="--c: var(--morado)">L</div><div><b>Fichas LUDOTECA</b><small>ganadas jugando</small></div><span class="num mono">320</span></div>
+      <div class="rotulo">amigos (de ejemplo)</div>
+      <div class="fila"><div class="cara" style="--c: var(--cian)">N</div><div><b>nova</b><small>te mando 50,00 CAB</small></div></div>
+      <div class="fila"><div class="cara" style="--c: var(--azul)">O</div><div><b>orbe</b><small>vende una piel de gato</small></div></div>
+      <div class="fila"><div class="cara" style="--c: var(--ambar)">F</div><div><b>faro</b><small>le debes una partida</small></div></div>
+      <div class="pie"><div class="cara" style="--c: var(--oro)">B</div><div><b style="color:var(--blanco)">BMO-X (tu)</b><small class="mono">cuenta 0001 &middot; tu huella</small></div></div>
+    </aside>
+
+    <main class="centro">
+      <div class="cab"><b id="titulo">Cartera</b><span id="sub">lo tuyo, al centimo</span><span class="pildora" style="--c: var(--verde)" id="pildora">libro cuadrado</span></div>
+
+      <div class="cuerpo" data-ver="cartera">
+        <div class="cartera">
+          <div class="gato-caja" id="gato-caja">
+            <!-- EL GATO HUCHA: el gato de BMO-X hecho alcancia (maneki-neko):
+                 la ranura en la cabeza, el monoculo de banquero, la pajarita,
+                 la pata que llama a la suerte y la moneda CAB en la otra. -->
+            <svg id="gato" viewBox="0 0 260 290" aria-label="El gato de BANK CAT">
+              <g class="cola"><path class="t" d="M196 250c40 0 52-44 26-58-14-8-26 6-16 16"/></g>
+              <!-- cuerpo -->
+              <path class="t" d="M80 168c-14 30-14 70 4 92h96c18-22 18-62 4-92"/>
+              <path class="t" d="M110 260v-24M150 260v-24"/>
+              <!-- cabeza con orejas -->
+              <path class="t" d="M70 120c0-30 22-48 60-48s60 18 60 48-24 50-60 50-60-20-60-50z"/>
+              <path class="t" d="M80 92l-6-42 34 26M180 92l6-42-34 26"/>
+              <!-- LA RANURA de la hucha -->
+              <rect x="114" y="66" width="32" height="6" rx="3" fill="#05060A" stroke="#FFD45E" stroke-width="2"/>
+              <!-- ojos: normal, de moneda (rico) y tristes -->
+              <g class="ojos-normal"><rect class="parpado" x="94" y="112" width="22" height="5" rx="2" fill="#5EF2E6"/><rect class="parpado" x="144" y="112" width="22" height="5" rx="2" fill="#5EF2E6"/></g>
+              <g class="ojos-moneda"><circle class="oro" cx="105" cy="114" r="11"/><circle class="oro" cx="155" cy="114" r="11"/>
+                <text x="105" y="119" text-anchor="middle" font-family="IBM Plex Mono" font-size="13" font-weight="700" fill="#8A5A00">C</text>
+                <text x="155" y="119" text-anchor="middle" font-family="IBM Plex Mono" font-size="13" font-weight="700" fill="#8A5A00">C</text></g>
+              <g class="ojos-triste"><path class="t" d="M94 110l20 6M166 110l-20 6"/><path class="t" d="M98 122q7 6 14 0M148 122q7 6 14 0"/></g>
+              <!-- el monoculo, con su cadena -->
+              <g class="monoculo"><circle cx="155" cy="114" r="16" fill="none" stroke="#FFD45E" stroke-width="3"/><path d="M170 120c10 14 8 30 0 44" stroke="#C98A1B" stroke-width="2" fill="none" stroke-dasharray="3 3"/></g>
+              <!-- hocico y bigotes -->
+              <path class="t" d="M124 134l6 5 6-5M130 139v5M122 148q8 6 16 0"/>
+              <path class="t" d="M80 136l-26-4M80 144l-26 6M180 136l26-4M180 144l26 6"/>
+              <!-- la pajarita -->
+              <path d="M130 172l-16-9v18zM130 172l16-9v18z" fill="#FF2E88"/><circle cx="130" cy="172" r="4" fill="#FF2E88"/>
+              <!-- la pata que llama, que saluda -->
+              <g class="pata"><path class="t" d="M84 176c-20-10-34-30-36-50-1-12 6-20 16-19 10 1 14 11 10 20-2 5-6 8-10 9"/><path class="t" d="M50 112l3 5M58 106l1 6M67 108l-2 5"/></g>
+              <!-- la otra pata con su moneda CAB -->
+              <path class="t" d="M178 172c14 4 20 18 14 28"/>
+              <circle class="oro" cx="194" cy="210" r="22"/>
+              <circle cx="194" cy="210" r="16" fill="none" stroke="#C98A1B" stroke-width="1.5"/>
+              <text x="194" y="215" text-anchor="middle" font-family="Silkscreen" font-size="12" fill="#6B4300">CAB</text>
+            </svg>
+          </div>
+          <div class="saldo">
+            <div class="pix">tu saldo</div>
+            <div class="cifra" id="saldo">1.250,00 <small>CAB</small></div>
+            <p>Sin decimales de mentira: el libro guarda centimos enteros (<span class="mono">PIC S9(13)V99 COMP-3</span>). 19,99 x 3 es 59,97, no 59,969999.</p>
+            <div class="botones">
+              <button class="boton" style="--c: var(--verde)" id="recibir">Recibir 50,00</button>
+              <button class="boton" style="--c: var(--rosa)" id="enviar">Enviar 19,99</button>
+              <button class="boton" style="--c: var(--cian)" id="tres">3 x 19,99</button>
+            </div>
+          </div>
+        </div>
+        <div class="tarjetas">
+          <div class="tarjeta"><h3>el gato dice</h3><p id="frase">"Miau. Cada centimo, apuntado dos veces."</p></div>
+          <div class="tarjeta"><h3>este mes</h3><div class="par"><span>entro</span><span class="mono si" id="entro">+ 300,00</span></div><div class="par"><span>salio</span><span class="mono no" id="salio">- 49,95</span></div></div>
+          <div class="tarjeta"><h3>el libro</h3><div class="par"><span>asientos</span><span class="mono" id="asientos">12</span></div><div class="par"><span>cuadra</span><span class="mono si">debe = haber</span></div></div>
+        </div>
+      </div>
+
+      <div class="cuerpo oculto" data-ver="mover">
+        <div class="tarjetas" style="margin-top:0">
+          <div class="tarjeta"><h3>enviar a un amigo</h3>
+            <div class="par"><span>a</span><span>nova (huella 7F3A 9C21)</span></div>
+            <div class="par"><span>cuanto</span><span class="mono" style="color:var(--oro)">25,00 CAB</span></div>
+            <div class="par"><span>por</span><span>HERMES, cifrado de punta a punta</span></div>
+            <p style="margin-top:10px;color:var(--tenue)">Se firma con TU clave y el amigo lo apunta en SU libro. Los dos libros tienen que decir lo mismo: si no, el gato no lo da por hecho.</p>
+            <div class="botones" style="margin-top:12px"><button class="boton" style="--c: var(--cian)">Firmar y mandar</button></div>
+          </div>
+          <div class="tarjeta"><h3>pedir</h3><p>Un cobro es un mensaje de HERMES con un importe. El otro dice si o no; nada sale solo.</p></div>
+        </div>
+      </div>
+
+      <div class="cuerpo oculto" data-ver="mercado">
+        <div class="oferta"><div class="cara" style="--c: var(--azul)">O</div><div class="que"><b>Piel de gato "atardecer"</b><small>orbe la vende &middot; para tu escritorio</small></div><span class="precio">40,00 CAB</span><button class="boton" style="--c: var(--rosa)">Cambiar</button></div>
+        <div class="oferta"><div class="cara" style="--c: var(--cian)">N</div><div class="que"><b>100 fichas de la LUDOTECA</b><small>nova las cambia</small></div><span class="precio">12,50 CAB</span><button class="boton" style="--c: var(--rosa)">Cambiar</button></div>
+        <div class="oferta"><div class="cara" style="--c: var(--ambar)">F</div><div class="que"><b>Una pieza de la ONDA, compuesta a medida</b><small>faro la hace</small></div><span class="precio">75,00 CAB</span><button class="boton" style="--c: var(--rosa)">Cambiar</button></div>
+        <p style="color:var(--tenue)">Un cambio es de DOS lados a la vez (entrega contra pago): o pasan la cosa y los CAB, o no pasa nada. Es el "syncpoint" de CICS, y ESTRATOS ya lo tiene en el fondo.</p>
+      </div>
+
+      <div class="cuerpo oculto" data-ver="libro">
+        <table>
+          <thead><tr><th>n</th><th>cuando</th><th>concepto</th><th style="text-align:right">importe</th></tr></thead>
+          <tbody id="asientos-tabla">
+            <tr><td class="mono">0010</td><td>03-10 21:04</td><td>de nova</td><td class="mono mas">+ 50,00</td></tr>
+            <tr><td class="mono">0011</td><td>03-10 21:20</td><td>a faro: una partida</td><td class="mono menos">- 19,99</td></tr>
+            <tr><td class="mono">0012</td><td>03-10 21:31</td><td>fichas LUDOTECA</td><td class="mono menos">- 29,96</td></tr>
+          </tbody>
+        </table>
+        <h3 style="margin:20px 0 8px;font-size:12px;letter-spacing:.14em;color:var(--tenue)">ASI LO APUNTA EL COBOL (esbozo)</h3>
+<pre class="cobol"><span class="c">      * LIBRO.COB -- un asiento: o entra entero, o no entra</span>
+       <span class="k">IDENTIFICATION DIVISION</span>.
+       <span class="k">PROGRAM-ID</span>. LIBRO.
+       <span class="k">DATA DIVISION</span>.
+       <span class="k">WORKING-STORAGE SECTION</span>.
+       01  SALDO        <span class="k">PIC</span> S9(13)V99 <span class="k">COMP-3</span> <span class="k">VALUE</span> <span class="n">1250.00</span>.
+       01  IMPORTE      <span class="k">PIC</span> S9(13)V99 <span class="k">COMP-3</span>.
+       <span class="k">PROCEDURE DIVISION</span>.
+           <span class="k">MOVE</span> <span class="n">19.99</span> <span class="k">TO</span> IMPORTE
+           <span class="k">MULTIPLY</span> <span class="n">3</span> <span class="k">BY</span> IMPORTE
+           <span class="k">SUBTRACT</span> IMPORTE <span class="k">FROM</span> SALDO
+               <span class="k">ON SIZE ERROR</span> <span class="k">DISPLAY</span> "NO: NO CABE"
+           <span class="k">END-SUBTRACT</span>
+           <span class="k">DISPLAY</span> "SALDO: " SALDO
+           <span class="k">STOP RUN</span>.</pre>
+      </div>
+
+      <div class="cuerpo oculto" data-ver="cajero">
+        <div class="candado">
+          <h3>Comprar CAB con dinero de verdad: decision del propietario</h3>
+          <p>Como el <b>Platinum</b> de Warframe: el dinero entra en UN sentido. Compras CAB, los usas y los cambias con otros; los CAB no vuelven a ser dinero. Asi es moneda de juego, no dinero.</p>
+          <div class="opcion"><span class="si">&#x2713;</span><div><b>El pago lo hace la ANTENA, no BMO-X.</b> El movil paga por una tienda o pasarela; BMO-X nunca ve una tarjeta ni habla con un banco. Le llega un recibo firmado y lo apunta.</div></div>
+          <div class="opcion"><span class="si">&#x2713;</span><div><b>Precio, impuestos y devoluciones, por escrito.</b> Vender moneda de juego tiene reglas en cada pais; van en las condiciones antes del primer centimo.</div></div>
+          <div class="opcion"><span class="no">&#x2715;</span><div><b>Cambiar CAB por dinero (sacar), no.</b> Eso ya es dinero electronico: licencias, identidad de cada usuario, contra el blanqueo. Fuera de BANK CAT.</div></div>
+        </div>
+      </div>
+
+      <div class="cuerpo oculto" data-ver="reglas">
+        <div class="tarjetas" style="margin-top:0">
+          <div class="tarjeta"><h3>1. partida doble</h3><p>Cada movimiento son dos asientos que suman cero. Si el libro no cuadra, el gato se niega a abrir.</p></div>
+          <div class="tarjeta"><h3>2. nada se borra</h3><p>Un error se corrige con otro asiento, como en un banco. El libro solo crece.</p></div>
+          <div class="tarjeta"><h3>3. sin servidor de nadie</h3><p>Los CAB entre amigos van por HERMES y quedan en los DOS libros, firmados.</p></div>
+          <div class="tarjeta"><h3>4. centimos enteros</h3><p>Nada de coma flotante: COBOL y su COMP-3.</p></div>
+        </div>
+      </div>
+    </main>
+
+    <aside class="panel">
+      <div class="tarjeta"><h3>el gato hucha</h3><p>Recibe y le salen monedas en los ojos y salta el monoculo; pagas y se le cae una lagrima. Si el libro no cuadra, se tapa los ojos.</p></div>
+      <div class="tarjeta"><h3>quien lleva la cuenta</h3>
+        <div class="par"><span>el libro</span><span>COBOL</span></div>
+        <div class="par"><span>los numeros</span><span class="mono">COMP-3</span></div>
+        <div class="par"><span>guardado</span><span>ESTRATOS</span></div>
+        <div class="par"><span>entre amigos</span><span>HERMES</span></div>
+        <div class="par"><span>pagos</span><span style="color:var(--ambar)">la ANTENA (D1)</span></div>
+      </div>
+      <div class="tarjeta"><h3>la red</h3><p>BANK CAT no tiene red propia: lo que sale, sale por HERMES. Celoso, como todo BMO-X.</p></div>
+    </aside>
+  </div>
+</div>
+
+<div class="notas">
+  <section><h2>Lo que es de ejemplo</h2><ul><li>Los amigos (nova, orbe, faro), sus huellas y las ofertas.</li><li>Los asientos del libro y el saldo inicial.</li><li>El programa COBOL es un esbozo de como se veria.</li></ul></section>
+  <section><h2>Lo que ya existe</h2><ul><li>BMO COBOL: compila a x86-64 con decimales exactos y COMP-3.</li><li>HERMES (F3) y su cifrado, y ESTRATOS.</li></ul></section>
+  <section><h2>Lo que decide el propietario</h2><ul><li>D1: comprar CAB con dinero (solo de entrada, por la ANTENA).</li><li>D2: las teclas. F5 abre BANK CAT y la RED se muda a F6 (hoy F5 escribe `red` y F6 escribe `smp`).</li><li>BANK CAT es para LUEGO: esta maqueta es la idea, para aplicar COBOL honesto.</li></ul></section>
+</div>
+
+<script>
+// Centimos ENTEROS, como el COBOL: BigInt, nunca coma flotante.
+let saldo = 125000n, entro = 30000n, salio = 4995n, asientos = 12;
+const $ = s => document.querySelector(s);
+const fmt = c => { const s = c < 0n ? "-" : ""; c = c < 0n ? -c : c; const e = (c / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."); return s + e + "," + (c % 100n).toString().padStart(2, "0"); };
+const FRASES_RICO = ['"Miau! Al libro, y por partida doble."', '"Purr... huele a interes compuesto."', '"Esto va derecho a la ranura."'];
+const FRASES_TRISTE = ['"Snif. Apuntado: no se borra."', '"Que no se acabe el atun, eh."', '"Pagar tambien es cuadrar."'];
+function pinta() {
+  $("#saldo").innerHTML = fmt(saldo) + " <small>CAB</small>";
+  $("#saldo-lista").textContent = fmt(saldo);
+  $("#entro").textContent = "+ " + fmt(entro);
+  $("#salio").textContent = "- " + fmt(salio);
+  $("#asientos").textContent = asientos;
+}
+function humor(clase, frase) {
+  const g = $("#gato");
+  g.classList.remove("rico", "triste"); void g.getBoundingClientRect(); g.classList.add(clase);
+  $("#frase").textContent = frase[Math.floor(Math.random() * frase.length)];
+  clearTimeout(humor.t); humor.t = setTimeout(() => g.classList.remove(clase), 1400);
+}
+function apunta(concepto, c) {
+  const tr = document.createElement("tr");
+  const n = String(++asientos).padStart(4, "0");
+  tr.innerHTML = `<td class="mono">${n}</td><td>ahora</td><td>${concepto}</td><td class="mono ${c > 0n ? "mas" : "menos"}">${c > 0n ? "+ " : "- "}${fmt(c > 0n ? c : -c)}</td>`;
+  $("#asientos-tabla").appendChild(tr);
+}
+$("#recibir").onclick = () => {
+  saldo += 5000n; entro += 5000n; apunta("de nova", 5000n); pinta(); humor("rico", FRASES_RICO);
+  for (let k = 0; k < 3; k++) setTimeout(() => { const m = document.createElement("div"); m.className = "moneda-cae"; $("#gato-caja").appendChild(m); setTimeout(() => m.remove(), 800); }, k * 160);
+};
+function pagar(c, concepto) {
+  if (saldo < c) { $("#frase").textContent = '"NO: no cabe. El gato no fia."'; return; }
+  saldo -= c; salio += c; apunta(concepto, -c); pinta(); humor("triste", FRASES_TRISTE);
+  const l = document.createElement("div"); l.className = "lagrima"; $("#gato-caja").appendChild(l); setTimeout(() => l.remove(), 1000);
+}
+$("#enviar").onclick = () => pagar(1999n, "a faro");
+$("#tres").onclick = () => pagar(1999n * 3n, "3 x 19,99 = " + fmt(1999n * 3n));
+const SECS = { cartera: ["Cartera", "lo tuyo, al centimo", "libro cuadrado", "--verde"], mover: ["Mover", "enviar y pedir, por HERMES", "sin red: H6", "--azul"], mercado: ["Mercado", "cambiar con amigos", "de ejemplo", "--rosa"], libro: ["El libro", "lo lleva COBOL", "partida doble", "--azul"], cajero: ["Cajero", "comprar CAB con dinero", "decision D1", "--ambar"], reglas: ["Reglas", "lo que el gato no negocia", "4 reglas", "--gris"] };
+document.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => {
+  const s = b.dataset.sec, [t, sub, p, c] = SECS[s];
+  document.querySelectorAll("[data-sec]").forEach(x => x.setAttribute("aria-current", x === b));
+  document.querySelectorAll("[data-ver]").forEach(v => v.classList.toggle("oculto", v.dataset.ver !== s));
+  $("#titulo").textContent = t; $("#titulo-lista").textContent = t; $("#sub").textContent = sub;
+  $("#pildora").textContent = p; $("#pildora").style.setProperty("--c", `var(${c})`);
+});
+pinta();
+</script>
