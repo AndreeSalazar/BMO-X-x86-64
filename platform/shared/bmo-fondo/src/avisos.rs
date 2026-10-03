@@ -6,7 +6,19 @@
 
 use bmo_amplificador::{Ganancia, Limite, MilesimasDb};
 
+use crate::neko::Maullido;
 use crate::sintesis::{inc_hz, inc_midi, Forma, Nota, Timbre, HZ};
+
+/// **El tema de los avisos** (como los esquemas de sonido de Windows): los
+/// mismos avisos, con la misma regla de que, donde y cuanto, y otra voz.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tema {
+    /// La voz de BMO-X de siempre: senos, triangulos, cuadradas.
+    Clasico,
+    /// **NEKO PHONK** (S4h): el gato y el cencerro. "nya" para un mensaje,
+    /// un bufido para un error, un ronroneo para lo que llega.
+    Neko,
+}
 
 /// **Que avisa.**
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -114,6 +126,24 @@ fn nivel(a: Aviso) -> MilesimasDb {
     }
 }
 
+/// El nivel de cada aviso NEKO, para que tambien lleguen a -6 dBFS de pico.
+fn nivel_neko(a: Aviso) -> MilesimasDb {
+    match a {
+        Aviso::Arranque => -1613,
+        Aviso::Zumbido => -1408,
+        Aviso::Mensaje => -1408,
+        Aviso::Conecta => -3174,
+        Aviso::Juez => -1408,
+        Aviso::Captura => 1869,
+        Aviso::Error => -2074,
+        Aviso::Advertencia => -1101,
+        Aviso::Pregunta => -2944,
+        Aviso::Hecho => -128,
+        Aviso::Llega => -1382,
+        Aviso::SeVa => -3635,
+    }
+}
+
 /// Cuantas notas lleva el aviso mas grande.
 const MAX_NOTAS: usize = 6;
 
@@ -195,16 +225,98 @@ fn notas(a: Aviso) -> ([Nota; MAX_NOTAS], usize) {
 
 /// Cuantas muestras mide un aviso: hasta que calla su ultima nota.
 pub fn muestras(a: Aviso) -> usize {
-    let (n, k) = notas(a);
+    muestras_en(a, Tema::Clasico)
+}
+
+/// Cuantas muestras mide un aviso en un tema.
+pub fn muestras_en(a: Aviso, tema: Tema) -> usize {
+    let (n, k) = notas_en(a, tema);
     n[..k].iter().map(|x| x.inicio + x.largo as i64).max().unwrap_or(0) as usize
 }
 
 /// **Compone el aviso en `fuera`** desde el principio. Devuelve las muestras
 /// escritas: el aviso entero, o lo que quepa.
 pub fn componer(a: Aviso, fuera: &mut [i16]) -> usize {
-    let (mut n, k) = notas(a);
-    let largo = muestras(a).min(fuera.len());
-    let nivel = Ganancia::db(nivel(a));
+    componer_en(a, Tema::Clasico, fuera)
+}
+
+/// Las notas de un aviso en un tema.
+fn notas_en(a: Aviso, tema: Tema) -> ([Nota; MAX_NOTAS], usize) {
+    match tema {
+        Tema::Clasico => notas(a),
+        Tema::Neko => notas_neko(a),
+    }
+}
+
+/// **Los avisos NEKO PHONK**: la misma intencion que los clasicos, con el
+/// gato y el cencerro. Volumenes en 1/256 dB, antes del nivel de cada uno.
+fn notas_neko(a: Aviso) -> ([Nota; MAX_NOTAS], usize) {
+    let mut n = [Nota::NADA; MAX_NOTAS];
+    let mut k = 0;
+    let mut poner = |x: Nota| {
+        n[k] = x;
+        k += 1;
+    };
+    let cencerro = |t: i64, m: i32| Nota::cencerro(t, inc_midi(m), -2_000, 0);
+    match a {
+        // El arranque: un 808, el motivo del cencerro en frigia, y "nya".
+        Aviso::Arranque => {
+            poner(Nota::ochocientos(0, inc_midi(38), HZ * 700 / 1000, -1_000, 0));
+            for (j, m) in [74, 75, 77, 86].into_iter().enumerate() {
+                poner(cencerro(ms(120) * j as i64, m));
+            }
+            poner(Nota::maullido(ms(500), Maullido::Nya, 0, 0, 0));
+        }
+        // Un amigo te zumba: tres "nya" seguidos, cada uno mas alto.
+        Aviso::Zumbido => {
+            for j in 0..3 {
+                poner(Nota::maullido(ms(110) * j as i64, Maullido::Nya, 2 * j as i32, 0, 0));
+            }
+        }
+        Aviso::Mensaje => poner(Nota::maullido(0, Maullido::Nya, 0, 0, 0)),
+        Aviso::Conecta => poner(Nota::maullido(0, Maullido::Mrrp, 0, 0, 0)),
+        // El juez borra: un bufido, y el cencerro que cae.
+        Aviso::Juez => {
+            poner(Nota::bufido(0, HZ * 350 / 1000, 0));
+            poner(cencerro(ms(200), 62));
+        }
+        Aviso::Captura => {
+            poner(Nota::golpe(0, Forma::Plato, 0));
+            poner(Nota::maullido(ms(40), Maullido::Nya, 5, -2_000, 0));
+        }
+        // El error: el gato enfadado, y un 808 grave debajo.
+        Aviso::Error => {
+            poner(Nota::bufido(0, HZ * 320 / 1000, 0));
+            poner(Nota::ochocientos(0, inc_midi(33), HZ * 420 / 1000, -1_500, 0));
+        }
+        // Ojo: un "mrr" grave y corto.
+        Aviso::Advertencia => poner(Nota::maullido(0, Maullido::Mrrp, -7, 0, 0)),
+        Aviso::Pregunta => poner(Nota::maullido(0, Maullido::Pregunta, 0, 0, 0)),
+        // Hecho: un "nya" contento y el cencerro que sube.
+        Aviso::Hecho => {
+            poner(Nota::maullido(0, Maullido::Nya, 5, 0, 0));
+            for (j, m) in [74, 77, 81].into_iter().enumerate() {
+                poner(cencerro(ms(140) + ms(70) * j as i64, m));
+            }
+        }
+        // Llega: un ronroneo que crece, y "nya" al llegar.
+        Aviso::Llega => {
+            poner(Nota::ronroneo(0, HZ * 420 / 1000, 0));
+            poner(Nota::maullido(ms(330), Maullido::Nya, 7, -2_000, 0));
+        }
+        Aviso::SeVa => poner(Nota::maullido(0, Maullido::Triste, 0, 0, 0)),
+    }
+    (n, k)
+}
+
+/// **Compone el aviso en un tema**, en `fuera`, desde el principio.
+pub fn componer_en(a: Aviso, tema: Tema, fuera: &mut [i16]) -> usize {
+    let (mut n, k) = notas_en(a, tema);
+    let largo = muestras_en(a, tema).min(fuera.len());
+    let nivel = Ganancia::db(match tema {
+        Tema::Clasico => nivel(a),
+        Tema::Neko => nivel_neko(a),
+    });
     let mut limite = Limite::inmediato(HZ);
     for (s, x) in fuera[..largo].iter_mut().enumerate() {
         let mut suma = 0i32;

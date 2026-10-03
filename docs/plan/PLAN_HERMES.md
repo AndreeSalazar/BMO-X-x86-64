@@ -565,7 +565,8 @@ Antes de la red, la cara y la jaula. Antes del metal, el anfitrion.
       maestro, y el OIDO (S4f) para todo lo que suena. Y el 3D (S7, global
       y por voz) y la VOZ DE BMO-X (S4g): la maqueta la muestra en la ONDA,
       con la cabeza vista desde arriba y el compilador que se oye cruzar.
-      Falta el metal.
+      Y el NEKO PHONK (S4h): el tema del gato para los avisos y la lista
+      "neko phonk" en la ONDA. Falta el metal.
       **Como se sabe:**
       en el Ryzen suena un WAV, se cierra HERMES, se abre DOOM II y sigue
       sonando sin cortes; la PASTILLA lo pausa sin que el juego pierda una

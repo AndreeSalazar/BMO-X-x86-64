@@ -32,7 +32,7 @@
 
 use core::ptr::addr_of_mut;
 
-use bmo_fondo::avisos::{self, AVISOS};
+use bmo_fondo::avisos::{self, Tema, AVISOS};
 use bmo_fondo::{Aviso, Compositor, Mezcla, PIEZAS, TRANQUILAS};
 use bmo_userland as bmo;
 
@@ -69,6 +69,8 @@ struct Estado {
     /// **Los avisos que se MUEVEN** (lo que llega, lo que se va): su canal,
     /// su ruta, cuando empezo y cuando se mando el ultimo sitio.
     moviendo: [Option<Movimiento>; 4],
+    /// **El tema de los avisos**: el clasico o el NEKO PHONK (`fondo tema`).
+    tema: Tema,
 }
 
 /// Un aviso que va de un sitio a otro mientras suena.
@@ -98,6 +100,7 @@ static mut ESTADO: Estado = Estado {
     pausada: false,
     cambios: 0,
     moviendo: [None; 4],
+    tema: Tema::Clasico,
 };
 
 fn estado() -> &'static mut Estado {
@@ -150,16 +153,45 @@ fn preparar() -> Result<(), Fallo> {
     if e.memoria.is_none() {
         e.memoria = Some(bmo::Memoria::request(BANCO as u64).ok_or(Fallo::Memoria)?);
     }
+    componer_avisos();
     let m = e.memoria.as_ref().ok_or(Fallo::Memoria)?;
+    e.fondo = Some(bmo::Fondo::prestar(m.base()).ok_or(Fallo::Banco)?);
+    Ok(())
+}
+
+/// Compone los avisos del tema de ahora en su sitio del banco.
+fn componer_avisos() {
+    let e = estado();
+    let Some(m) = e.memoria.as_ref() else { return };
     let mut desde = AVISOS_DESDE;
     for (i, a) in AVISOS.iter().enumerate() {
-        let n = avisos::muestras(*a);
-        let hecho = avisos::componer(*a, muestras(m, desde, n));
+        let n = avisos::muestras_en(*a, e.tema);
+        // Lo que no cabe en su MiB no se escribe: mejor un aviso que falta
+        // que uno que pisa fuera del banco.
+        if desde + 2 * n > BANCO {
+            e.avisos[i] = (0, 0);
+            continue;
+        }
+        let hecho = avisos::componer_en(*a, e.tema, muestras(m, desde, n));
         e.avisos[i] = (desde as u32, hecho as u32);
         desde += (2 * n + 1) & !1;
     }
-    e.fondo = Some(bmo::Fondo::prestar(m.base()).ok_or(Fallo::Banco)?);
-    Ok(())
+}
+
+/// **El tema de los avisos**: el clasico o el NEKO PHONK. Si el fondo suena,
+/// se vuelven a componer ya; si no, al encenderlo.
+pub(crate) fn tema(t: Tema) {
+    let e = estado();
+    e.tema = t;
+    if e.memoria.is_some() {
+        componer_avisos();
+    }
+    e.cambios = e.cambios.wrapping_add(1);
+}
+
+/// El tema que hay puesto.
+pub(crate) fn tema_actual() -> Tema {
+    estado().tema
 }
 
 /// **Toca la pieza `i`** (de [`PIEZAS`]): se compone en el sitio libre y

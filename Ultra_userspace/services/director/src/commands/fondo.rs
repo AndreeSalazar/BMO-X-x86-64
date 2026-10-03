@@ -12,7 +12,8 @@
 //!                        zumbido, juez, captura, arranque, error,
 //!                        advertencia, pregunta, hecho, llega, seva): para
 //!                        OIR como se agacha la musica y de donde viene
-//!    fondo lista         las diez piezas
+//!    fondo lista         las piezas (las de ambiente y las del NEKO PHONK)
+//!    fondo tema neko     los avisos con el gato y el cencerro (o `clasico`)
 //!    fondo apagar        la apaga y suelta el banco y el tubo
 //! ```
 
@@ -71,6 +72,17 @@ pub(crate) fn fondo(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After 
             return After::Settle;
         }
         b"siguiente" | b"sig" => musica::siguiente(),
+        b"tema neko" | b"tema neko phonk" | b"neko" => {
+            musica::tema(bmo_fondo::avisos::Tema::Neko);
+            s.text(b"  avisos NEKO PHONK: nya, mrrp, el bufido del error, el ronroneo de lo que llega\n");
+            s.text(b"  (y la musica neko: `fondo neko drift`, `fondo gato de neon`, `fondo nyan de medianoche`)\n");
+            return After::Settle;
+        }
+        b"tema clasico" | b"clasico" => {
+            musica::tema(bmo_fondo::avisos::Tema::Clasico);
+            s.text(b"  avisos clasicos de BMO-X\n");
+            return After::Settle;
+        }
         b"" => match musica::que_suena() {
             Some(_) => Ok(()),
             None => musica::siguiente(),
@@ -121,6 +133,10 @@ pub(crate) fn fondo(dsk: &mut Desktop, _p: &bmo::Pantalla, arg: &[u8]) -> After 
             s.text(b", compuesta aqui en ");
             s.dec(ms);
             s.text(b" ms)\n  se agacha sola bajo un aviso o un juego. `fondo siguiente`, `fondo vol N`, `fondo apagar`\n");
+            s.text(match musica::tema_actual() {
+                bmo_fondo::avisos::Tema::Neko => b"  avisos: NEKO PHONK (`fondo tema clasico` para volver)\n".as_slice(),
+                bmo_fondo::avisos::Tema::Clasico => b"  avisos: clasicos (`fondo tema neko` para el gato)\n".as_slice(),
+            });
         }
         (Ok(()), None) => s.text(b"  no suena nada\n"),
         (Err(f), _) => {
