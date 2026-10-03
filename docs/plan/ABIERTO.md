@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 56 planes
+# LO QUE FALTA -- las casillas abiertas de los 57 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   508 casillas ABIERTAS en 47 planes
+   519 casillas ABIERTAS en 48 planes
    365 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -166,6 +166,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M0b-2 -- lo que queda del papeleo, SI la medida lo pide. Quedan dos
 - [ ] M0c -- los 112 ticks del match de INFO. El rechazo por campo
 - [ ] M1b -- CUANTO CUESTA REVOCAR UNA PAGINA, y va ANTES de M1. La seccion
+- ... y 8 mas
+
+## [`PLAN_LA_RED_SOLA.md`](PLAN_LA_RED_SOLA.md) -- 11 abiertas, 0 hechas
+
+*PLAN LA RED SOLA -- la red que sabe, que se maneja y que avisa, sin Google*
+
+- [ ] RS0 -- la tanda del Ryzen que ya espera. G4 (red dns), G5 (`red
+- [ ] RS1 -- EL VIGIA, puro y con banco. platform/shared/bmo-red-sola,
+- [ ] RS2 -- el pase que se SOSTIENE (Ring 0, chico y con motivo). Un
 - ... y 8 mas
 
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
