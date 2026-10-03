@@ -288,6 +288,37 @@ pub fn escribir(dst: &mut [u8], p: &Pedido) -> Result<usize, Rechazo> {
     Ok(i)
 }
 
+/// **Lee UN pedido**, del lado de la ANTENA (AO0 de `PLAN_LA_ANTENA_AOT.md`,
+/// 03-10): el espejo de [`escribir`], para que la antena en Rust juzgue con
+/// el MISMO crate con el que BMO-X escribe. Con o sin `\n` (y `\r\n`).
+///
+/// ** Mas estricto que `leer`: un pedido no tiene espacios de sobra, ni
+/// campos de mas. Lo que no es exactamente uno de los cuatro es un rechazo,
+/// y la antena cuelga sin contestar (no hay "NO" de cortesia para quien no
+/// habla ANTENA/1).
+pub fn leer_pedido(linea: &[u8]) -> Result<Pedido<'_>, Rechazo> {
+    let linea = linea.strip_suffix(b"\n").unwrap_or(linea);
+    let linea = linea.strip_suffix(b"\r").unwrap_or(linea);
+    if linea.len() > LINEA_MAX {
+        return Err(Rechazo::Largo);
+    }
+    if !linea.iter().all(|&c| (0x20..=0x7E).contains(&c)) {
+        return Err(Rechazo::NoAscii);
+    }
+    let (verbo, resto) = partir(linea);
+    match verbo {
+        b"HOLA" if resto == VERSION => Ok(Pedido::Hola),
+        b"HOLA" => Err(Rechazo::Version),
+        b"LISTA" if resto.is_empty() && !linea.ends_with(b" ") => Ok(Pedido::Lista),
+        b"LISTA" => Err(Rechazo::Campos),
+        b"PIDE" if id_valido(resto) => Ok(Pedido::Pide(resto)),
+        b"PIDE" => Err(Rechazo::Id),
+        b"PAGINA" if url_valida(resto) => Ok(Pedido::Pagina(resto)),
+        b"PAGINA" => Err(Rechazo::Url),
+        _ => Err(Rechazo::Verbo),
+    }
+}
+
 /// **Junta bytes de TCP en lineas.** Una linea demasiado larga se dice UNA vez y
 /// se tira hasta el siguiente `\n`: una antena rota no bloquea la conversacion.
 pub struct Lineas {
@@ -757,5 +788,48 @@ mod pruebas {
         c.oir(b"VIDEO 0 mpeg1 640x360").unwrap();
         c.bytes(usize::MAX >> 1).unwrap_err();
         assert_eq!(c.fase(), Fase::Cerrada);
+    }
+
+    #[test]
+    fn el_pedido_leido_es_el_pedido_escrito() {
+        // El MISMO crate a los dos lados del cable: lo que BMO-X escribe, la
+        // antena lo lee igual, byte a byte.
+        let pedidos = [Pedido::Hola, Pedido::Lista, Pedido::Pide(b"v12"), Pedido::Pide(b"p1"), Pedido::Pagina(b"https://es.wikipedia.org/wiki/Gato")];
+        for p in pedidos {
+            let mut b = [0u8; LINEA_MAX + 2];
+            let n = escribir(&mut b, &p).unwrap();
+            assert_eq!(leer_pedido(&b[..n]), Ok(p), "{:?}", p);
+        }
+        assert_eq!(leer_pedido(b"LISTA\r\n"), Ok(Pedido::Lista), "CRLF vale");
+    }
+
+    #[test]
+    fn el_pedido_que_no_es_exacto_se_rechaza() {
+        assert_eq!(leer_pedido(b"HOLA ANTENA/2"), Err(Rechazo::Version));
+        assert_eq!(leer_pedido(b"HOLA ANTENA/1 "), Err(Rechazo::Version), "un espacio de mas");
+        assert_eq!(leer_pedido(b"HOLA"), Err(Rechazo::Version));
+        assert_eq!(leer_pedido(b"LISTA "), Err(Rechazo::Campos));
+        assert_eq!(leer_pedido(b"LISTA todo"), Err(Rechazo::Campos));
+        assert_eq!(leer_pedido(b"PIDE ../etc/passwd"), Err(Rechazo::Id));
+        assert_eq!(leer_pedido(b"PIDE V1"), Err(Rechazo::Id), "el id es en minusculas");
+        assert_eq!(leer_pedido(b"PIDE v1 v2"), Err(Rechazo::Id));
+        assert_eq!(leer_pedido(b"PIDE "), Err(Rechazo::Id));
+        assert_eq!(leer_pedido(b"PAGINA file:///sdcard/x"), Err(Rechazo::Url));
+        assert_eq!(leer_pedido(b"PAGINA https://a b"), Err(Rechazo::Url));
+        assert_eq!(leer_pedido(b"GET / HTTP/1.1"), Err(Rechazo::Verbo), "un navegador que se equivoca de puerta");
+        assert_eq!(leer_pedido(b"lista"), Err(Rechazo::Verbo));
+        assert_eq!(leer_pedido(b"PIDE v1\x00"), Err(Rechazo::NoAscii));
+        assert_eq!(leer_pedido(&[b'A'; LINEA_MAX + 1]), Err(Rechazo::Largo));
+    }
+
+    #[test]
+    fn ningun_pedido_hostil_tumba_al_lector() {
+        // Todo lo de un byte y de dos: o es un pedido, o es un rechazo.
+        for a in 0..=255u8 {
+            let _ = leer_pedido(&[a]);
+            for b in 0..=255u8 {
+                let _ = leer_pedido(&[a, b]);
+            }
+        }
     }
 }

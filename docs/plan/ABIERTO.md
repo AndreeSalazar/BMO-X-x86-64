@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   542 casillas ABIERTAS en 50 planes
+   541 casillas ABIERTAS en 50 planes
    382 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -285,15 +285,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
 - ... y 3 mas
 
-## [`PLAN_LA_ANTENA_AOT.md`](PLAN_LA_ANTENA_AOT.md) -- 6 abiertas, 0 hechas
-
-*PLAN LA ANTENA AOT -- el HONOR, optimizado al extremo y en un lenguaje de verdad nativo*
-
-- [ ] AO0 -- el banco de la antena, en Rust y en el anfitrion. Un crate
-- [ ] AO1 -- el binario en el HONOR (Fase A). `cargo build --target
-- [ ] AO2 -- la app chica (AA0, Fase B). El envoltorio de Kotlin con la
-- ... y 3 mas
-
 ## [`PLAN_RED_TX.md`](PLAN_RED_TX.md) -- 6 abiertas, 8 hechas
 
 *PLAN RED TX -- transmitir, con el DMA contado y el cable detras de un grifo*
@@ -337,6 +328,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D0 -- EL METRO (codigo HECHO 2026-09-23; se cierra con el primer numero)
 - [ ] D1 -- ASINCRONO + WAIT: cero congelones
 - [ ] D3 -- DMA directo al bloque prestado + PRD multiples
+- ... y 2 mas
+
+## [`PLAN_LA_ANTENA_AOT.md`](PLAN_LA_ANTENA_AOT.md) -- 5 abiertas, 0 hechas
+
+*PLAN LA ANTENA AOT -- el HONOR, optimizado al extremo y en un lenguaje de verdad nativo*
+
+- [ ] AO1 -- el binario en el HONOR (Fase A). `cargo build --target
+- [ ] AO2 -- la app chica (AA0, Fase B). El envoltorio de Kotlin con la
+- [ ] AO3 -- el ESPEJO con MPEG-1 (es S6, con lo que BMO-X ya sabe
 - ... y 2 mas
 
 ## [`PLAN_LA_CARA_VIAJA.md`](PLAN_LA_CARA_VIAJA.md) -- 5 abiertas, 2 hechas

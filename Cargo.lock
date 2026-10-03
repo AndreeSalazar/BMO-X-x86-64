@@ -50,6 +50,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-antena-movil"
+version = "0.1.0"
+dependencies = [
+ "bmo-antena",
+]
+
+[[package]]
 name = "bmo-audio"
 version = "1.0.0"
 
