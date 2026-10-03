@@ -156,19 +156,16 @@ casa).
       por la `Conversacion` de BMO-X; y `cliente.py` charla con ella sin
       cambiar nada. Falta: `PAGINA` contesta NO (navegar es de AO2), y
       `lamina_juez.py` sigue vivo mientras `antena.py` exista.
-- [~] **AO1 -- el binario en el HONOR (Fase A).** `cargo build --target
+- [ ] **AO1 -- el binario en el HONOR (Fase A).** `cargo build --target
       aarch64-linux-android` con el NDK, copiado a Termux y arrancado por
       `arrancar.sh`. **Como se sabe:** `red hola <ip-del-movil>` desde BMO-X
       contesta `HOLA ANTENA/1 <nombre>` con la antena en Rust, y `top` en el
       movil muestra un proceso en vez de Python + ffmpeg.
-      [~] **03-10:** sin NDK hace falta menos: un binario ESTATICO
-      `aarch64-unknown-linux-musl` corre en Termux tal cual (el nucleo de
-      Android es Linux). `rustup target add aarch64-unknown-linux-musl` y
-      `CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=rust-lld cargo build -p
-      bmo-antena-movil --release --target aarch64-unknown-linux-musl`: 465 KiB,
-      sin libc del sistema. En el movil: `cp antena ~/antena && chmod +x
-      ~/antena` y `ANTENA=rust bash arrancar.sh <IP>`. [!] NO probado en el
-      HONOR todavia.
+      [!] **03-10, decision del propietario: "todo es x86-64".** Este
+      repositorio solo construye para x86-64 (`ARQUITECTURA.md`, guardian
+      `isa`): ni un binario ni un target de otra CPU. La antena en Rust se
+      construye y se prueba en x86-64 (el PC de casa puede ser la antena);
+      el movil sigue con `antena.py` mientras tanto.
 - [ ] **AO2 -- la app chica (AA0, Fase B).** El envoltorio de Kotlin con la
       WebView del sistema, el servicio que no se duerme y MediaProjection;
       el resto, la biblioteca de Rust por JNI. El codigo, en el repositorio

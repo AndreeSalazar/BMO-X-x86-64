@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   541 casillas ABIERTAS en 50 planes
+   542 casillas ABIERTAS en 50 planes
    381 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -330,6 +330,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D3 -- DMA directo al bloque prestado + PRD multiples
 - ... y 2 mas
 
+## [`PLAN_LA_ANTENA_AOT.md`](PLAN_LA_ANTENA_AOT.md) -- 5 abiertas, 0 hechas
+
+*PLAN LA ANTENA AOT -- el HONOR, optimizado al extremo y en un lenguaje de verdad nativo*
+
+- [ ] AO1 -- el binario en el HONOR (Fase A). `cargo build --target
+- [ ] AO2 -- la app chica (AA0, Fase B). El envoltorio de Kotlin con la
+- [ ] AO3 -- el ESPEJO con MPEG-1 (es S6, con lo que BMO-X ya sabe
+- ... y 2 mas
+
 ## [`PLAN_LA_CARA_VIAJA.md`](PLAN_LA_CARA_VIAJA.md) -- 5 abiertas, 2 hechas
 
 *PLAN: LA CARA VIAJA*
@@ -364,15 +373,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Paso 0b -- el lanzador que inyecta en el juego
 - [ ] Paso 1 -- las DLL del juego y las que llegan tarde
 - [ ] Paso 2 -- las vigiladas, con sus datos
-- ... y 1 mas
-
-## [`PLAN_LA_ANTENA_AOT.md`](PLAN_LA_ANTENA_AOT.md) -- 4 abiertas, 0 hechas
-
-*PLAN LA ANTENA AOT -- el HONOR, optimizado al extremo y en un lenguaje de verdad nativo*
-
-- [ ] AO2 -- la app chica (AA0, Fase B). El envoltorio de Kotlin con la
-- [ ] AO3 -- el ESPEJO con MPEG-1 (es S6, con lo que BMO-X ya sabe
-- [ ] AO4 -- el modo CRUDO. Despues de RS5b y RS5c: YUV sin codec por la
 - ... y 1 mas
 
 ## [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](PLAN_LA_RAM_SALE_DEL_KERNEL.md) -- 4 abiertas, 3 hechas
