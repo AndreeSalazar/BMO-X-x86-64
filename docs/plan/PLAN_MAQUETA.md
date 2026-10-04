@@ -438,6 +438,43 @@ tironea --. Y lo que se ve en la foto del anfitrion es lo que pinta el Ryzen.
 de `animation` en `value.rs` y `LA_MAQUETA_EXIGE.md` 3d): lo que sigue siendo
 verdad es que **en el aparato no se maqueta nada**.
 
+## 6h. EL ESCRITORIO CON VIDA (2026-10-04)
+
+El propietario: *"que TODOS tengan vida y epico, y tambien la barra lateral
+tenga animaciones especiales y unicas"*. La misma curva que una transicion
+compilada (`bmo_pinta::curva`, el `cubic-bezier` en enteros), ahora en el
+escritorio escrito a mano. Todo se mueve por EVENTO --cambia el foco, cambia
+el minuto, se pulsa Tab, se marca un icono--, nunca en bucle: en reposo el
+escritorio sigue sin pintar nada.
+
+```
+   [x] V1  EL RELOJ DE LA VIDA: cada animacion es un `Paso` (cuando empezo,
+           cuanto dura); `vida::anima()` pide fotograma cada ~16 ms mientras
+           viva alguno, y nada despues
+           -> `Ultra_userspace/services/director/src/scene/vida.rs`
+   [x] V2  LA BARRA: la marca de la ventana de delante VIAJA de ficha a ficha
+           con rebote (460 ms) y se estira un poco al ir; el reloj RUEDA al
+           cambiar el minuto: la hora vieja sube y se apaga, la nueva entra
+           desde abajo, recortadas a su franja (420 ms)
+           -> `Ultra_userspace/services/director/src/scene/barra_viva.rs`
+   [x] V3  ALT+TAB: se abre creciendo del 92 % al 100 % con rebote y lo de
+           dentro se enciende al llegar (300 ms); en cada Tab la marca se
+           DESLIZA a la fila nueva y la letra de cada fila se enciende segun
+           la marca pasa (240 ms)
+           -> `Ultra_userspace/services/director/src/scene/switcher.rs`
+   [x] V4  LA REJILLA: la marca de un icono BROTA desde el centro de la
+           celda con rebote (280 ms)
+           -> `Ultra_userspace/services/director/src/scene/launcher.rs`
+   [ ] V5  LAS VENTANAS: abrir, cerrar y minimizar con su transicion (hoy
+           aparecen de golpe), por el mismo `Paso`
+           -> `Ultra_userspace/services/director/src/desktop/`
+```
+
+Visto en el anfitrion, fotograma a fotograma (tiras de cada movimiento con el
+reloj de `vida` puesto a mano). [!] No se ha visto en el Ryzen: lo que falta
+saber alli es si ~16 ms por fotograma se sostienen con el repintado de la
+tarjeta de Alt+Tab (guarda y devuelve lo de debajo en cada fotograma).
+
 ## 6g. LA VARA DE MEDIR: HERMES ENTERO EN MAQUETA (2026-10-04)
 
 El propietario, con la pantalla del CANAL de HERMES delante: *"para llegar a

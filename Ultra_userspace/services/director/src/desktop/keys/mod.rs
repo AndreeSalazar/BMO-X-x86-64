@@ -210,8 +210,9 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
         }
         dsk.win.switcher_painted = false;
         // Lo de debajo se acaba de devolver desde el modelo del escritorio:
-        // lo que el conmutador guardo ya no hace falta.
-        scene::switcher::olvidar();
+        // lo que el conmutador guardo ya no hace falta, y la proxima vez se
+        // abre otra vez creciendo.
+        scene::switcher::cerrar();
         // En una pantalla estrecha el conmutador pisa el panel, y `scene_color`
         // solo sabe su fondo: lo escrito encima se da por perdido.
         if bx < scene::lateral::margen() {

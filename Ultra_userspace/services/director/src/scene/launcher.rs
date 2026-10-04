@@ -1,6 +1,7 @@
 //! **EL LANZADOR: dar clic y ya.**
 //!
-//! [consumo] NADA      no corre en reposo por su cuenta: pinta cuando el
+//! [consumo] LATE      solo los ~280 ms en que brota la marca de un icono
+//!                     (`scene::vida`); quieto, NADA: pinta cuando el
 //!                     compositor se lo pide, y el compositor solo pinta si
 //!                     algo cambio (L6h)
 //!
@@ -56,6 +57,7 @@
 use bmo_userland as bmo;
 
 use super::double_click::DoubleClick;
+use super::vida::{self, Paso, REBOTE};
 use super::{acento, fino};
 
 /// Cuantas apps caben en el escritorio. Doce es lo que entra en una fila y
@@ -301,7 +303,13 @@ pub fn paint_una(p: &bmo::Pantalla, l: &Launcher, i: usize) {
     let marcada = l.sel == Some(i);
     if marcada {
         let (x, y, w, h) = ((cx + 4) as i32, y0 as i32, (CELL_W - 8) as i32, (CELL_H - 6) as i32);
-        p.caja_redonda(x, y, w, h, 12, super::tema_gen::MARCA_FONDO);
+        // La pastilla BROTA desde el centro de la celda con rebote: del 60 %
+        // a su medida, pasandose un pelo. El acento, cuando ya ha llegado.
+        let k = brota(i);
+        let (bw, bh) = (vida::entre(w * 6 / 10, w, k).min(CELL_W as i32 - 2), vida::entre(h * 6 / 10, h, k).min(h));
+        // (Se pasa solo a lo ancho: a lo alto ya llena la celda, y lo que
+        // saliera de ella no lo devolveria nadie.)
+        p.caja_redonda(x + (w - bw) / 2, y + (h - bh) / 2, bw, bh, 12, super::tema_gen::MARCA_FONDO);
         // Y el acento, como una raya corta bajo el nombre: dice "esta" sin
         // enmarcar nada.
         p.caja_redonda(x + w / 2 - 9, y + h - 5, 18, 2, 1, acento());
@@ -336,6 +344,55 @@ pub fn paint_una(p: &bmo::Pantalla, l: &Launcher, i: usize) {
     let width = p.medir(visible, estilo).max(0) as u32;
     let tx = cx + CELL_W.saturating_sub(width) / 2;
     fino::texto(p, tx, cy + ICON_PX + 4, 22, visible, if marcada { fino::TINTA } else { NOMBRE_TINTA }, estilo);
+}
+
+// ** LA VIDA (04-10): marcar un icono no es encender un rectangulo, es que
+// la pastilla BROTE desde el centro. Una sola a la vez: la ultima marcada.
+const BROTA_MS: u32 = 280;
+
+struct Pop {
+    celda: Option<usize>,
+    paso: Paso,
+    movia: bool,
+}
+
+static mut POP: Pop = Pop { celda: None, paso: Paso::QUIETO, movia: false };
+
+fn pop() -> &'static mut Pop {
+    // SAFETY: el escritorio es un solo hilo; solo lo toca la rejilla.
+    unsafe { &mut *core::ptr::addr_of_mut!(POP) }
+}
+
+/// Cuanto ha brotado la pastilla de la celda `i` (milesimas; el rebote pasa
+/// de 1000). La primera vez que se pinta una marcada nueva, empieza.
+fn brota(i: usize) -> i32 {
+    let b = pop();
+    if b.celda != Some(i) {
+        b.celda = Some(i);
+        b.paso = Paso::empezar(BROTA_MS);
+        b.movia = true;
+    }
+    b.paso.k(REBOTE)
+}
+
+/// **Un fotograma de vida**: si la pastilla esta brotando, repinta su celda
+/// y la devuelve (quien llama apunta que hay que repintar lo de encima).
+/// Tambien el fotograma de despues de acabar, que es el quieto.
+pub(crate) fn vivir(p: &bmo::Pantalla, l: &Launcher) -> Option<(u32, u32, u32, u32)> {
+    let b = pop();
+    if l.sel.is_none() {
+        // Sin marcada, la proxima que se marque brota otra vez.
+        b.celda = None;
+        b.movia = false;
+        return None;
+    }
+    let vivo = b.paso.vivo();
+    let pide = vivo || b.movia;
+    b.movia = vivo;
+    let i = b.celda.filter(|&i| pide && l.sel == Some(i))?;
+    paint_una(p, l, i);
+    let (cx, cy, cw, ch) = l.celda(p, i);
+    Some((cx, cy.saturating_sub(4), cw, ch))
 }
 
 /// La letra de los nombres de la rejilla.

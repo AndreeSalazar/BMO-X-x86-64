@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   572 casillas ABIERTAS en 53 planes
-   406 hechas
+   573 casillas ABIERTAS en 53 planes
+   410 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -77,14 +77,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 19 mas
 
-## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 19 abiertas, 19 hechas
+## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 20 abiertas, 23 hechas
 
 *PLAN MAQUETA*
 
 - [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
 - [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
 - [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
-- ... y 16 mas
+- ... y 17 mas
 
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 
