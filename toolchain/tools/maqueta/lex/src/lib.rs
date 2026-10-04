@@ -108,6 +108,8 @@ pub enum Kind {
     /// `(` and `)`: only `linear-gradient(...)` opens one.
     LParen,
     RParen,
+    /// `@`: only `@estado` (04-10) uses it.
+    At,
 
     // -- facts this generation cannot classify ---------------------------
     /// A byte that fits no rule, or an unterminated string or comment.
@@ -144,6 +146,7 @@ impl Kind {
             Kind::Pct => "`%`",
             Kind::LParen => "`(`",
             Kind::RParen => "`)`",
+            Kind::At => "`@`",
             Kind::Unknown => "byte desconocido",
             Kind::NonAscii => "byte fuera de ASCII",
         }
@@ -363,6 +366,17 @@ impl<'a> Lexer<'a> {
             return Mode::Style;
         }
         let one = |k: Kind| -> Option<Kind> { Some(k) };
+        // `-.55` and `-1`: a NEGATIVE number (04-10), for the control points
+        // of `cubic-bezier(...)`. Whether a minus is allowed where it lands is
+        // the father's call: a negative width is refused there, by name.
+        if self.at(0) == b'-' && (self.at(1).is_ascii_digit() || (self.at(1) == b'.' && self.at(2).is_ascii_digit())) {
+            let mut n = 1 + self.run_from(1, |c| c.is_ascii_digit());
+            if self.at(n) == b'.' && self.at(n + 1).is_ascii_digit() {
+                n += 1 + self.run_from(n + 1, |c| c.is_ascii_digit());
+            }
+            self.emit(Kind::Number, n);
+            return Mode::Style;
+        }
         // `.14` is a number, not a class: a class name never starts with a
         // digit, in CSS either.
         if self.at(0) == b'.' && self.at(1).is_ascii_digit() {
@@ -380,6 +394,7 @@ impl<'a> Lexer<'a> {
             b'%' => one(Kind::Pct),
             b'(' => one(Kind::LParen),
             b')' => one(Kind::RParen),
+            b'@' => one(Kind::At),
             _ => None,
         };
         if let Some(k) = single {

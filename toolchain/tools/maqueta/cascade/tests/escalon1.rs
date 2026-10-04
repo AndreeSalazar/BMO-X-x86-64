@@ -104,3 +104,29 @@ fn lo_que_se_rechaza_dice_por_que() {
     assert!(rechazo(".a{padding:1px 2px 3px 4px 5px}").contains("cuatro"));
     assert!(rechazo(".a{background:#000000 linear-gradient(90deg, #000000, #FFFFFF)}").contains("UNA cosa"));
 }
+
+#[test]
+fn transition_como_css() {
+    let t = one(".a{transition: 240ms ease-in-out}").transicion.expect("dicha");
+    assert_eq!((t.ms, t.retraso, t.curva), (240, 0, [420, 0, 580, 1000]));
+    let t = one(".a{transition: all .3s cubic-bezier(.68, -.55, .27, 1.55) 50ms}").transicion.unwrap();
+    assert_eq!((t.ms, t.retraso, t.curva), (300, 50, [680, -550, 270, 1550]));
+    assert_eq!(one(".a{transition: 100ms}").transicion.unwrap().curva, [250, 100, 250, 1000], "sin curva, `ease`, como CSS");
+    assert!(rechazo(".a{transition: width 1s}").contains("no es parte"));
+    assert!(rechazo(".a{transition: 1s ease, 2s linear}").contains("una sola"));
+    assert!(rechazo(".a{transition: 1s cubic-bezier(2, 0, 1, 1)}").contains("de 0 a 1"));
+    assert!(rechazo(".a{width:-4px}").contains("negativo"));
+}
+
+#[test]
+fn los_estados_se_leen_y_se_abren() {
+    let src = "<maqueta><div class=\"a\"></div></maqueta><style>.a{width:10px} @estado grande { .a{width:90px} } @estado chico { .a{width:2px} }</style>";
+    let doc = parse(src.as_bytes()).unwrap();
+    assert_eq!(doc.estados(), vec!["grande".to_string(), "chico".to_string()]);
+    let ancho = |e: Option<&str>| cascade(&doc.en_estado(e)).unwrap().root.children[0].style.width;
+    assert_eq!(ancho(None), Some(10));
+    assert_eq!(ancho(Some("grande")), Some(90));
+    assert_eq!(ancho(Some("chico")), Some(2));
+    assert!(rechazo("@media x { .a{width:1px} }").contains("@estado"));
+    assert!(rechazo("@estado reposo { .a{width:1px} }").contains("no se declara"));
+}

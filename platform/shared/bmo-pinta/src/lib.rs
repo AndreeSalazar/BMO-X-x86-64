@@ -607,3 +607,52 @@ pub fn pincelada(l: &mut impl Lienzo, f: &mut impl Fuente, p: &bmo_maqueta_cara:
 
 #[cfg(test)]
 mod pruebas;
+
+// ---------------------------------------------------------------------------
+// LA CURVA DE UNA TRANSICION (P3, 04-10)
+// ---------------------------------------------------------------------------
+
+/// **La curva de una transicion**: el `cubic-bezier(x1, y1, x2, y2)` de CSS
+/// (puntos en milesimas), evaluado en `x` (el tiempo, 0..=1000). Devuelve
+/// cuanto se ha avanzado (milesimas): puede pasar de 1000 o bajar de 0 --
+/// es el REBOTE (`cubic-bezier(.34, 1.56, .64, 1)`).
+///
+/// En enteros y sin tablas: se busca el parametro `s` cuya `x` es la pedida
+/// (biseccion, 24 pasos en 1/2^20) y se devuelve su `y`. Lo usan el
+/// anfitrion (las fotos de una transicion) y el escritorio (la transicion de
+/// verdad): la MISMA cuenta en los dos, como todo el pintor.
+pub fn curva(c: [i32; 4], x: i32) -> i32 {
+    let x = x.clamp(0, 1000) as i64;
+    if x == 0 {
+        return 0;
+    }
+    if x == 1000 {
+        return 1000;
+    }
+    // Con los dos puntos en la diagonal (`linear`), la `y` de cada `s` ES su
+    // `x`: la curva es la recta, exacta, sin cuentas que redondear.
+    if c[0] == c[1] && c[2] == c[3] {
+        return x as i32;
+    }
+    const UNO: i64 = 1 << 20;
+    // B(s) de un eje, con P0 = 0 y P3 = 1000, s en 1/2^20.
+    let b = |p1: i64, p2: i64, s: i64| -> i64 {
+        let u = UNO - s;
+        // 3 u^2 s p1 + 3 u s^2 p2 + s^3 * 1000, todo / UNO^3
+        let t1 = 3 * p1 * (u * u / UNO) * s / UNO;
+        let t2 = 3 * p2 * u * (s * s / UNO) / UNO;
+        let t3 = 1000 * (s * s / UNO) * s / UNO;
+        (t1 + t2 + t3 + UNO / 2) / UNO
+    };
+    let (x1, y1, x2, y2) = (c[0] as i64, c[1] as i64, c[2] as i64, c[3] as i64);
+    let (mut lo, mut hi) = (0i64, UNO);
+    for _ in 0..24 {
+        let mid = (lo + hi) / 2;
+        if b(x1, x2, mid) < x {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    b(y1, y2, (lo + hi) / 2) as i32
+}

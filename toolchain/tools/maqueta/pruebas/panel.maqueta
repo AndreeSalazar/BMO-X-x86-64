@@ -1,0 +1,47 @@
+<!--
+   EL PANEL -- la primera maqueta con ESTADOS y TRANSICION (P3, 04-10).
+
+   En REPOSO es una pastilla cerrada: el icono, el nombre y la cifra en una
+   fila. En `abierta` es una tarjeta: en columna, la cifra en grande, el
+   borde de oro y su resplandor. Cada estado se maqueta ENTERO y se juzga
+   (lo que no cabe en uno de los dos, no compila), y la transicion solo
+   mezcla las cajas ya calculadas: en el aparato no se maqueta nada.
+
+   La curva es `cubic-bezier(.34, 1.56, .64, 1)`: se pasa un poco y vuelve,
+   el rebote de los frameworks -- y es CSS. Todas con la MISMA curva y
+   escalonadas (0, 40 y 80 ms): con curvas distintas, a mitad de camino el
+   nombre se montaba encima del icono.
+
+      maqueta --foto --estado abierta panel.maqueta abierta.png
+      maqueta --foto --tira reposo abierta 8 panel.maqueta tira.png
+-->
+<maqueta class="m">
+  <div class="tarjeta">
+    <div class="burbuja"></div>
+    <span class="nombre">Cartera</span>
+    <span class="cifra">1.250,00</span>
+  </div>
+</maqueta>
+<style>
+  .m        { width:380px; height:240px; padding:20px; background-color:#05060A }
+  .tarjeta  { display:flex; flex-direction:row; align-items:center; gap:12px;
+              width:236px; height:28px; padding:14px 18px; border-radius:28px;
+              background-color:#101418; border:1px solid #2B2250;
+              transition: 520ms cubic-bezier(.34, 1.56, .64, 1) }
+  .burbuja  { width:28px; height:28px; border-radius:14px; background-color:#FFD45E;
+              transition: 520ms cubic-bezier(.34, 1.56, .64, 1) }
+  .nombre   { font-size:13px; font-weight:500; color:#A6A2C0;
+              transition: 520ms cubic-bezier(.34, 1.56, .64, 1) 40ms }
+  .cifra    { font-size:15px; font-weight:600; color:#F3EEE4;
+              transition: 520ms cubic-bezier(.34, 1.56, .64, 1) 80ms }
+
+  @estado abierta {
+    .tarjeta { flex-direction:column; align-items:start; gap:10px;
+               width:300px; height:150px; padding:22px; border-radius:18px;
+               background-color:#14182A; border:1px solid #C8A86B;
+               box-shadow: 0 0 22px #FFD45E40 }
+    .burbuja { width:44px; height:44px; border-radius:13px }
+    .nombre  { color:#C8A86B }
+    .cifra   { font-size:40px; color:#FFD45E }
+  }
+</style>

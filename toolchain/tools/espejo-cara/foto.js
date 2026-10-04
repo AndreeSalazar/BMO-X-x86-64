@@ -5,7 +5,8 @@
 //   node foto.js <maqueta.html> <selector> <salida.png> [--clic <selector>]... [--medidas]
 //   node foto.js <fichero.maqueta> maqueta <salida.png> --maqueta
 //
-// Con --maqueta las piezas (`<usa src="...">`) se componen con Shadow DOM.
+// Con --maqueta las piezas (`<usa src="...">`) se componen con Shadow DOM,
+// y `--estado abierta` abre ese bloque `@estado` (si no, se ve el reposo).
 //
 // Con --maqueta el fichero es un `.maqueta` de MAQUETA 2, y el navegador lo
 // lee con lo minimo para leerlo COMO MAQUETA: sin margenes, `<maqueta>` como
@@ -27,6 +28,23 @@ const path = require('path');
 // letra la carga el documento: las fuentes valen tambien en la sombra).
 const SOMBRA = '<style>:host{display:block} maqueta{display:inline-block;width:max-content} island{display:block} usa{display:block}' +
   ' *{font-family:"IBM Plex Sans",sans-serif;line-height:normal;box-sizing:content-box;border-style:solid;border-width:0} span{display:block}</style>';
+
+// `--estado abierta` (P3): el navegador no conoce `@estado` y se salta el
+// bloque entero -- lo que ve es el REPOSO. Para ver otro estado, su bloque se
+// abre en su sitio: es lo mismo que hace MAQUETA (las reglas del estado, en
+// su orden, detras de las del reposo).
+function abrirEstado(texto, nombre) {
+  const re = new RegExp('@estado\\s+' + nombre + '\\s*\\{');
+  const m = re.exec(texto);
+  if (!m) return texto;
+  let i = m.index + m[0].length, nivel = 1;
+  while (i < texto.length && nivel > 0) {
+    if (texto[i] === '{') nivel++;
+    else if (texto[i] === '}') nivel--;
+    i++;
+  }
+  return texto.slice(0, m.index) + texto.slice(m.index + m[0].length, i - 1) + texto.slice(i);
+}
 
 function componer(texto, dir, hondo) {
   if (hondo > 8) throw new Error('piezas demasiado hondas (o un ciclo)');
@@ -62,7 +80,10 @@ function componer(texto, dir, hondo) {
   // no salen de ella y las de la principal no entran. Y `<usa .../>` se
   // reescribe a `<usa ...></usa>`: en HTML una etiqueta propia NO se cierra
   // sola, y el navegador meteria a los hermanos de detras dentro de ella.
-  const cuerpo = comoMaqueta ? componer(fs.readFileSync(html, 'utf8'), path.dirname(html), 0) : fs.readFileSync(html, 'utf8');
+  const ie = resto.indexOf('--estado');
+  const original = fs.readFileSync(html, 'utf8');
+  const fuente = comoMaqueta && ie >= 0 ? abrirEstado(original, resto[ie + 1]) : original;
+  const cuerpo = comoMaqueta ? componer(fuente, path.dirname(html), 0) : fuente;
   fs.writeFileSync(tmp, '<!doctype html><html><head><meta charset="utf-8">' + reset + '</head><body>' + cuerpo + '</body></html>');
   await p.goto('file://' + tmp);
   await p.waitForTimeout(900);

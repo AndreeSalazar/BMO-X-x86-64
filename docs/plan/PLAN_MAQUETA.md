@@ -396,14 +396,22 @@ tiene se sabe al correr. Con piezas, una FILA es una maqueta de medida fija
            CUANTOS lo da TITAN++ o Rust al correr; el COMO, la pieza. El
            emisor A genera la pieza una vez y un bucle de `y = i * paso`
            -> `toolchain/tools/maqueta/compone/` y `emit/src/rust.rs`
-   [ ] P3  ESTADOS: la principal declara estados (reposo, abierta,
-           expandida) y CADA UNO se maqueta entero en el anfitrion; el
-           veredicto juzga todos. Pasar de uno a otro es interpolar dos
-           listas de cajas YA calculadas (sitio, medida, color): se mueve sin
-           maquetar nada en el aparato
-           -> `toolchain/tools/maqueta/compone/` (los estados) y
-              `platform/shared/bmo-pinta` (la interpolacion, la misma en los
-              tres sitios)
+   [x] P3a ESTADOS EN EL ANFITRION: `@estado nombre { ... }` y
+           `transition` (las curvas de CSS, `cubic-bezier` con rebote). Cada
+           estado se maqueta ENTERO y se juzga; la transicion mezcla cajas ya
+           maquetadas y empareja por lo que cada caja ES. Fotos de cada
+           estado y tiras de la transicion; el navegador abre el estado
+           (`foto.js --estado`): `pruebas/panel.maqueta`, reposo 99,44 %,
+           abierta 97,25 %
+           -> `toolchain/tools/maqueta/compone/src/transicion.rs`,
+              `platform/shared/bmo-pinta` (`curva`)
+   [ ] P3b EL ESCRITORIO LA PINTA: el emisor A genera las cajas de cada
+           estado y la mezcla en el aparato (con `bmo_pinta::curva`), y el
+           realce del puntero pasa a ser un estado mas
+           -> `toolchain/tools/maqueta/emit/src/rust.rs`
+   [ ] P3c LA CARA CON ESTADOS: la CARA que viaja lleva sus estados, para
+           que una app los pinte sin codigo generado
+           -> `platform/shared/bmo-maqueta-cara/`
    [ ] P4  EMOJIS DE LA CASA: dibujados como `<svg>` con la pluma de la casa,
            INSPIRADOS en los famosos, no traidos (la regla del propietario:
            sin objetos de terceros). TITAN++ decide cual va con cada codigo
@@ -419,8 +427,8 @@ no cabe en "abierta" no compila), y la animacion sin recalcular la
 maquetacion en la maquina -- el navegador si la recalcula, y por eso a veces
 tironea --. Y lo que se ve en la foto del anfitrion es lo que pinta el Ryzen.
 
-[!] La seccion 7 dice *"MAQUETA compila una imagen QUIETA"*. Con P3 deja de
-ser verdad dicho asi, y se reescribe cuando P3 exista: lo que sigue siendo
+[x] *"MAQUETA compila una imagen QUIETA"* se reescribio con P3a (el rechazo
+de `animation` en `value.rs` y `LA_MAQUETA_EXIGE.md` 3d): lo que sigue siendo
 verdad es que **en el aparato no se maqueta nada**.
 
 ## 6e. DE QUIEN SE TOMA CADA IDEA (2026-10-04)

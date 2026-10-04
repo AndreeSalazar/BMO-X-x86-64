@@ -553,6 +553,7 @@ dependencies = [
  "bmo-maqueta-layout",
  "bmo-maqueta-node",
  "bmo-maqueta-verdict",
+ "bmo-pinta",
 ]
 
 [[package]]

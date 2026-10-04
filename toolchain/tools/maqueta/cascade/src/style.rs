@@ -23,7 +23,7 @@
 //! at is `tema/tema.maqueta`. That is the Arch bargain the whole project is
 //! built on: nothing implicit, and the explicit thing is one readable line.
 
-use bmo_maqueta_node::{Decl, Keyword, Prop, Value};
+use bmo_maqueta_node::{Decl, Keyword, Prop, Transicion, Value};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Display {
@@ -122,6 +122,8 @@ pub struct Style {
     /// `stroke-linecap: round` y `stroke-linejoin: round`, dichos.
     pub round_cap: bool,
     pub round_join: bool,
+    // -- P3 (04-10): como va esta caja de un estado a otro. `None` = de golpe.
+    pub transicion: Option<Transicion>,
 }
 
 impl Style {
@@ -206,6 +208,7 @@ impl Style {
             }
             (Prop::StrokeLinecap, Value::Word(Keyword::Round)) => self.round_cap = true,
             (Prop::StrokeLinejoin, Value::Word(Keyword::Round)) => self.round_join = true,
+            (Prop::Transition, Value::Transicion(t)) => self.transicion = Some(t),
 
             // The father checked every shape before this generation saw it, so
             // no other pairing exists. Ignoring rather than panicking keeps a

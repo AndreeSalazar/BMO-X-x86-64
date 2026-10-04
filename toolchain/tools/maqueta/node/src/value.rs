@@ -128,6 +128,8 @@ pub enum Prop {
     BorderRightColor,
     BorderBottomColor,
     BorderLeftColor,
+    // the motion (P3, 04-10): how this box goes from one state to another.
+    Transition,
 }
 
 /// The four sides, in CSS order (top, right, bottom, left).
@@ -196,6 +198,7 @@ impl Prop {
             b"border-right-color" => Prop::BorderRightColor,
             b"border-bottom-color" => Prop::BorderBottomColor,
             b"border-left-color" => Prop::BorderLeftColor,
+            b"transition" => Prop::Transition,
             _ => return None,
         })
     }
@@ -242,6 +245,7 @@ impl Prop {
             Prop::BorderRightColor => "border-right-color",
             Prop::BorderBottomColor => "border-bottom-color",
             Prop::BorderLeftColor => "border-left-color",
+            Prop::Transition => "transition",
         }
     }
 
@@ -305,6 +309,7 @@ impl Prop {
             Prop::StrokeWidth => Shape::Fine,
             Prop::StrokeLinecap | Prop::StrokeLinejoin => Shape::Words(&[Keyword::Round]),
             Prop::Padding | Prop::BorderWidth => Shape::OneToFourPx,
+            Prop::Transition => Shape::Transition,
             Prop::Color => Shape::Color,
             Prop::Display => Shape::Words(&[Keyword::Block, Keyword::Flex]),
             Prop::FlexDirection => Shape::Words(&[Keyword::Row, Keyword::Column]),
@@ -347,6 +352,32 @@ pub enum Shape {
     ColorOrNone,
     /// A number that may carry a decimal (`1.5`), in `viewBox` units.
     Fine,
+    /// `240ms ease-in-out`, `.3s cubic-bezier(.34,1.56,.64,1) 50ms`.
+    Transition,
+}
+
+/// **Como va una caja de un estado a otro**: cuanto tarda, cuanto espera y
+/// con que curva (los cuatro puntos de un `cubic-bezier` de CSS, en
+/// milesimas: `x1 y1 x2 y2`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Transicion {
+    pub ms: u32,
+    pub retraso: u32,
+    pub curva: [i32; 4],
+}
+
+impl Transicion {
+    /// Las curvas con nombre de CSS, con sus puntos de la especificacion.
+    pub fn curva_de(nombre: &[u8]) -> Option<[i32; 4]> {
+        Some(match nombre {
+            b"linear" => [0, 0, 1000, 1000],
+            b"ease" => [250, 100, 250, 1000],
+            b"ease-in" => [420, 0, 1000, 1000],
+            b"ease-out" => [0, 0, 580, 1000],
+            b"ease-in-out" => [420, 0, 580, 1000],
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -426,6 +457,7 @@ pub enum Value {
     Nothing,
     /// A fine number, in 1/64 units.
     Fine(u32),
+    Transicion(Transicion),
 }
 
 // ------------------------------------------------------------------------
@@ -472,10 +504,13 @@ pub fn known_rejection(name: &[u8]) -> Option<(&'static str, &'static str)> {
              dentro de otra, o sea maquetacion.",
             "meter el texto en su `<span>` y colocarlo con `justify-content`.",
         ),
-        b"transition" | b"animation" | b"transform" => (
-            "MAQUETA compila una imagen QUIETA. Lo que se mueve es codigo, y esa \
-             frontera es lo que impide que esto acabe siendo un navegador.",
-            "Rust, en el bucle de fotograma del compositor.",
+        b"animation" | b"transform" | b"@keyframes" => (
+            "en el aparato no se maqueta NADA: cada estado se maqueta entero al \
+             compilar y se juzga. Una animacion por fotogramas o una transformacion \
+             libre pedirian maquetar en ejecucion.",
+            "estados y transiciones: `@estado abierta { ... }` y `transition: 240ms \
+             ease` en la caja. Lo que vive de verdad (un juego, un grafico) es Rust \
+             o TITAN++.",
         ),
         b"margin" | b"margin-top" | b"margin-left" | b"margin-right" | b"margin-bottom" => (
             "los margenes verticales de CSS se FUNDEN entre hermanos (dos de 10px pegados dan 10, no 20), y MAQUETA no va a implementar esa regla. Aceptarla sin fundirlos haria que el fichero se viera distinto en el navegador que en el Ryzen, que es justo lo que el guardian de la cascada existe para impedir.",
