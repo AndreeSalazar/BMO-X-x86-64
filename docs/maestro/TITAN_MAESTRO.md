@@ -1009,6 +1009,33 @@ codigo). Son el SUELO de E0, no una victoria sobre nadie: hasta el nivel 3 no
 hay nada que calcular al correr. Desde ahi es un trinquete, como para C e INTI:
 instrucciones, accesos y bytes solo bajan, y la salida no cambia nunca.
 
+### 7.4 El frontend y su juez no saben de maquinas: lo que viaja es un FORMATO (04-10)
+
+El propietario, con el nivel 8: *"el juez y INTI son agnosticos ... se van a
+juzgar solo basado en arquitecturas, y van a emitir de forma precisa para
+entregar al CPU y GPU ... TITAN++ no pierde tiempo; INTI y VERRANO tienen su
+juez para emitir preciso"*. Tiene sentido, y el reparto queda asi:
+
+```text
+   TITAN++  frontend + juez + calc      NO SABE DE MAQUINAS: el texto, la IR
+                                         propia, el prestamo, el calculo
+                                         exacto. Un test de ir.rs falla si
+                                         nombra un registro (ya existe)
+            |                     |
+            v  formato CPU        v  formato GPU
+   INTI     la CPU x86-64, preciso      VERRANO / spirv   la 3060, preciso
+            con SU juez                 con SU juez (SPIR-V -> SASS ya
+                                         tiene el suyo)
+```
+
+**El matiz que lo hace funcionar: lo que viaja es un FORMATO, no un cerebro
+compartido** (la regla de la casa, 7.1). Para la GPU el formato ya existe:
+SPIR-V. Para la CPU, el contrato hacia INTI **esta por definir** -- y no se
+inventa antes de tiempo: mientras todo valor se sepa al compilar, el emisor E0
+de TITAN++ solo escribe resultados y la salida (`task::exit`), y no hay nada
+que entregar a INTI. El dia que algo venga de fuera (E1), ese contrato se
+escribe, se mide en el metro y se decide con el propietario.
+
 ---
 
 ## 8. La 3060: computo masivo
@@ -1714,3 +1741,33 @@ ANFITRION el 04-10** (`take`, 18 palabras):
 - 🟡 en el emulador; el banco corre un banco con interes redondeado a la vista,
   una ordenacion prestada sin copia y una nave entregada.
 
+**NIVEL 8 -- CASOS CON DATOS, HECHO EN EL ANFITRION el 04-10** (`enum`,
+`match`, 20 palabras):
+
+```text
+   enum Forma                 los casos que puede tener un valor, cada uno
+       Circulo(dec)           con los datos que LLEVA (o ninguno)
+       Rect(dec, dec)
+       Nada
+   Circulo(2.0), Nada         construir: el nombre del caso, sin `Forma::`
+                              (un caso se llama igual en todo el fichero)
+   match f                    una rama por caso; `Circulo(r)` nombra lo que
+       Circulo(r)             el caso lleva, y `r` vive en su rama
+           ...
+```
+
+- **Exhaustivo y sin `_`**: un `match` que no cubre un caso es T0078, y dice
+  cual falta; un `_` es T0079. El dia que el enum crece, cada `match` que no
+  lo mira deja de compilar y dice DONDE -- el `switch` de C lo deja caer
+  callado.
+- **Sin null y sin excepciones**: lo que puede salir mal es un caso
+  (`Hecho(dec(9, 2))` / `Falta(dec(9, 2))`), y la precision de COBOL del
+  nivel 7 llega hasta el dato de cada caso.
+- En la IR, un `match` es el valor leido UNA vez en un local oculto y una
+  cadena de preguntas `es Circulo?`; la ULTIMA rama no pregunta, porque la
+  exhaustividad ya se demostro. El juez y el calculo no cambian de forma:
+  ven ramas, como un `if`.
+- **F1**: un `enum` es un CRISTAL (sus caras son los casos) y un `match`, una
+  estrella doble (varios caminos, uno encendido).
+- 🟡 en el emulador; el banco corre formas con su area, un semaforo y un
+  cobro que dice por que no.

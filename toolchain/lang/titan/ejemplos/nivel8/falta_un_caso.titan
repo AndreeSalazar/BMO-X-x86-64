@@ -1,0 +1,16 @@
+# espera: T0078
+# un `match` cubre TODOS los casos: el dia que el enum crece, cada match que no lo mira deja de compilar
+mod main "un caso olvidado"
+
+enum Luz
+    Verde
+    Ambar
+    Rojo
+
+fn main()
+    let luz = Ambar
+    match luz
+        Verde
+            print("pasa")
+        Rojo
+            print("espera")

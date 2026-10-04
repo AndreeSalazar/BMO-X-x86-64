@@ -47,3 +47,5 @@ toolchain/lang/titan/ejemplos/nivel6/factura.titan 64 0 337 a0cb86da3245728f
 toolchain/lang/titan/ejemplos/nivel6/ordenar.titan 43 0 222 a33d16b80908e3f2
 toolchain/lang/titan/ejemplos/nivel7/banco.titan 66 0 335 5e19e6aba3874aae
 toolchain/lang/titan/ejemplos/nivel7/ordena_prestada.titan 20 0 109 c544dacc97fcdc31
+toolchain/lang/titan/ejemplos/nivel8/formas.titan 42 0 223 a8f6bd864fa2900d
+toolchain/lang/titan/ejemplos/nivel8/pago.titan 46 0 236 ee3c78592e524eaf

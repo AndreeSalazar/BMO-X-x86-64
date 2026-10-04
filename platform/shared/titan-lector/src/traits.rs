@@ -12,10 +12,12 @@
 //!    changes  `x = ...` lines          how fast the rings turn
 //!    writes   `print(...)`             a BEAM to the console: it SENDS
 //!    calls    other calls              its comets
-//!    ifs      `if` / `else if`         a DOUBLE STAR: two ways, one lit
+//!    ifs      `if` / `else if`, and    a DOUBLE STAR: two ways, one lit
+//!             `match` (level 8)
 //!    loops    `while` / `for`          a BELT of rocks that goes round
 //!    returns  `return`                 its comets come back CARRYING a value
-//!    types    `type`                   a CRYSTAL: a value with facets (fields)
+//!    types    `type` / `enum`          a CRYSTAL: a value with facets (fields,
+//!                                      or the cases of an enum)
 //! ```
 //!
 //! [!] This is a QUICK READING of the lines, not the compiler: it does not
@@ -36,13 +38,13 @@ pub struct Traits {
     pub changes: u8,
     pub writes: u8,
     pub calls: u8,
-    /// The decisions: each `if` and each `else if` (level 3).
+    /// The decisions: each `if` and each `else if` (level 3), each `match` (8).
     pub ifs: u8,
     /// What repeats: each `while` and each `for` (level 4).
     pub loops: u8,
     /// What it gives back: each `return` (level 5).
     pub returns: u8,
-    /// Its records: each `type` (level 6).
+    /// Its records and enums: each `type` (level 6) and `enum` (level 8).
     pub types: u8,
     /// Lines of body (not blank, not comment, not header).
     pub lines: u16,
@@ -86,9 +88,9 @@ pub fn scan(text: &[u8]) -> Traits {
         t.lines = t.lines.saturating_add(1);
         if line.starts_with(b"fn ") {
             bump(&mut t.fns);
-        } else if line.starts_with(b"type ") {
+        } else if line.starts_with(b"type ") || line.starts_with(b"enum ") {
             bump(&mut t.types);
-        } else if line.starts_with(b"if ") || line.starts_with(b"else if ") {
+        } else if line.starts_with(b"if ") || line.starts_with(b"else if ") || line.starts_with(b"match ") {
             bump(&mut t.ifs);
         } else if line.starts_with(b"while ") || line.starts_with(b"for ") {
             bump(&mut t.loops);
@@ -145,6 +147,12 @@ mod tests {
     fn every_type_is_a_crystal() {
         let t = scan(b"mod a \"x\"\ntype Nave\n    x: dec\ntype Roca\n    r: int\nfn main()\n    print(1)\n");
         assert_eq!((t.types, t.fns, t.writes), (2, 1, 1));
+    }
+
+    #[test]
+    fn an_enum_is_a_crystal_and_a_match_a_decision() {
+        let t = scan(b"mod a \"x\"\nenum Luz\n    Verde\n    Rojo\nfn main()\n    let l = Verde\n    match l\n        Verde\n            print(1)\n        Rojo\n            print(2)\n");
+        assert_eq!((t.types, t.ifs, t.writes), (1, 1, 2));
     }
 
     #[test]

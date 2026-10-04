@@ -1,0 +1,29 @@
+# espera: BIEN
+# sale: Circulo(2.0) mide 12.56
+# sale: Rect(3.5, 2) mide 7.0
+# sale: Nada mide 0
+# sale: total: 19.56
+# un `enum` dice que FORMAS puede tener un valor, y cada una lleva sus datos
+mod main "areas sin preguntar dos veces"
+
+enum Forma
+    Circulo(dec)
+    Rect(dec, dec)
+    Nada
+
+fn area(f: Forma) -> dec
+    match f
+        Circulo(r)
+            return 3.14 * r * r
+        Rect(ancho, alto)
+            return ancho * alto
+        Nada
+            return 0
+
+fn main()
+    let formas = [Circulo(2.0), Rect(3.5, 2), Nada]
+    let mut total = 0.00
+    for f in formas
+        print(f, " mide ", area(f))
+        total = total + area(f)
+    print("total: ", total)

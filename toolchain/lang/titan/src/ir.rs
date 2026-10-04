@@ -50,7 +50,7 @@
 //! reaches for it later (T0058). Today it is a line of the IR; with `take`
 //! (level 7) it is the point where the value is given back.
 
-use crate::tree::{Expr, Mode, Program, Stmt, Ty, TypeDef};
+use crate::tree::{EnumDef, Expr, Mode, Program, Stmt, Ty, TypeDef};
 
 /// A whole module, ready to emit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,6 +63,8 @@ pub struct Module {
     pub entry: usize,
     /// The `type`s of the file, as written (level 6).
     pub types: Vec<TypeDef>,
+    /// The `enum`s of the file, as written (level 8).
+    pub enums: Vec<EnumDef>,
     /// Set by the calculation (`calc.rs`, level 4): the WHOLE program, run
     /// when compiling -- what it writes, in order, every value already a
     /// constant. Until something comes from outside, this is all the program
@@ -168,6 +170,15 @@ pub enum Value {
     Lend(Mode, usize, At),
     /// `round(x, n)`: the rounding WRITTEN (7).
     Round(Box<Value>, u32, At),
+    /// The case `v` of the enum `e`, carrying these values (8): `Circulo(2.0)`,
+    /// `Nada`.
+    Variant(usize, usize, Vec<Value>, At),
+    /// Is this value the case `v` of the enum `e`? A yes/no: the question
+    /// each arm of a `match` asks (8).
+    Is(Box<Value>, usize, usize, At),
+    /// The value number `k` the case `v` of the enum `e` carries: what a
+    /// `Circulo(r)` of a `match` names `r` (8). Only read where `Is` said yes.
+    Payload(Box<Value>, usize, usize, usize, At),
 }
 
 impl Value {
@@ -189,7 +200,10 @@ impl Value {
             | Value::Record(_, _, a)
             | Value::Len(_, a)
             | Value::Lend(_, _, a)
-            | Value::Round(_, _, a) => *a,
+            | Value::Round(_, _, a)
+            | Value::Variant(_, _, _, a)
+            | Value::Is(_, _, _, a)
+            | Value::Payload(_, _, _, _, a) => *a,
         }
     }
 
@@ -198,12 +212,12 @@ impl Value {
     pub fn reads(&self, out: &mut Vec<(usize, At)>) {
         match self {
             Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) => {}
-            Value::Table(items, _) | Value::Record(_, items, _) => {
+            Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => {
                 for i in items {
                     i.reads(out);
                 }
             }
-            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) => v.reads(out),
+            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) | Value::Is(v, _, _, _) | Value::Payload(v, _, _, _, _) => v.reads(out),
             Value::Lend(_, l, a) => out.push((*l, *a)),
             Value::Index(b, i, _) => {
                 b.reads(out);
@@ -261,7 +275,11 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
     match e {
         Expr::Int { value, line, col } => Value::Int(*value, (*line, *col)),
         Expr::Text { value, line, col } => Value::Text(value.clone(), (*line, *col)),
-        Expr::Name { name, line, col } => Value::Local(local_of(locals, name), (*line, *col)),
+        // `Nada`: a case with nothing to carry is a value by its name (8).
+        Expr::Name { name, line, col } => match p.case(name) {
+            Some((e, v)) => Value::Variant(e, v, Vec::new(), (*line, *col)),
+            None => Value::Local(local_of(locals, name), (*line, *col)),
+        },
         Expr::Bool { value, line, col } => Value::Bool(*value, (*line, *col)),
         Expr::Not { value: v, line, col } => Value::Not(Box::new(value(v, locals)), (*line, *col)),
         Expr::Bin { op, left, right, line, col } => {
@@ -269,6 +287,10 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
         }
         Expr::Neg { value: v, line, col } => Value::Neg(Box::new(value(v, locals)), (*line, *col)),
         Expr::Call { callee, args, line, col } if callee == "len" => Value::Len(Box::new(value(&args[0], locals)), (*line, *col)),
+        Expr::Call { callee, args, line, col } if p.case(callee).is_some() => {
+            let (e, v) = p.case(callee).expect("the guard");
+            Value::Variant(e, v, args.iter().map(|a| value(a, locals)).collect(), (*line, *col))
+        }
         Expr::Call { callee, args, line, col } => {
             let func = p.functions.iter().position(|f| &f.name == callee).expect("check: every call goes somewhere");
             Value::Call(func, args.iter().map(|a| value(a, locals)).collect(), (*line, *col))
@@ -516,6 +538,66 @@ impl Lowering<'_> {
                     self.close_scope(exit);
                     at = exit;
                 }
+                Stmt::Match { value: v, arms, line, col } => {
+                    // ** THE MATCH (level 8): the value is read ONCE into a
+                    // hidden local, and each arm asks "is it this case?" in
+                    // order. The LAST arm asks nothing: `check` proved the
+                    // arms cover every case, so when the others said no, it
+                    // can only be this one.
+                    //
+                    //    b0   %m = forma            (its type: the enum, `calc` judges it)
+                    //         si %m es Circulo -> b1, sino -> b2
+                    //    b1   r = dato 0 de %m      Circulo(r) and its block
+                    //         salta b3
+                    //    b2   ... Nada              the last: no question
+                    //         salta b3
+                    //    b3   muere %m
+                    let here = (*line, *col);
+                    self.hidden += 1;
+                    let v = value(v, &mut self.locals, self.p);
+                    let enum_name = self.p.case(&arms[0].case).map(|(e, _)| self.p.enums[e].name.clone()).expect("check: every arm is a case");
+                    self.open_scope(here);
+                    let m = local_of(&mut self.locals, &format!("#m{}", self.hidden));
+                    self.born(m);
+                    let vat = v.at();
+                    self.blocks[at].ops.push(Op::Let { local: m, value: v, mutable: false, ty: Some(Ty::Named(enum_name)), at: vat });
+                    let mut ends = Vec::new();
+                    for (k, arm) in arms.iter().enumerate() {
+                        let (e, c) = self.p.case(&arm.case).expect("check: every arm is a case");
+                        let arm_at = (arm.line, arm.col);
+                        let body = if k + 1 == arms.len() {
+                            at
+                        } else {
+                            let b = self.open();
+                            self.blocks[at].end = End::Branch { cond: Value::Is(Box::new(Value::Local(m, arm_at)), e, c, arm_at), then: b, other: b, at: arm_at };
+                            b
+                        };
+                        self.open_scope(arm_at);
+                        for (j, (name, l, cl)) in arm.binds.iter().enumerate() {
+                            let local = local_of(&mut self.locals, name);
+                            self.born(local);
+                            let data = Value::Payload(Box::new(Value::Local(m, (*l, *cl))), e, c, j, (*l, *cl));
+                            self.blocks[body].ops.push(Op::Let { local, value: data, mutable: false, ty: None, at: (*l, *cl) });
+                        }
+                        let end = self.stmts(&arm.body, body);
+                        self.close_scope(end);
+                        ends.push(end);
+                        if k + 1 < arms.len() {
+                            // The "no" of this arm's question: where the next one asks.
+                            let next = self.open();
+                            if let End::Branch { other, .. } = &mut self.blocks[at].end {
+                                *other = next;
+                            }
+                            at = next;
+                        }
+                    }
+                    let join = self.open();
+                    for end in ends {
+                        self.blocks[end].end = End::Jump(join);
+                    }
+                    self.close_scope(join);
+                    at = join;
+                }
                 Stmt::Break { .. } | Stmt::Continue { .. } => {
                     self.leave(at);
                     let lp = self.loops.last_mut().expect("parse: a jump is inside a loop");
@@ -555,6 +637,7 @@ pub fn lower(p: &Program) -> Module {
         functions,
         entry: p.functions.iter().position(|f| f.name == "main").expect("check: there is a main"),
         types: p.types.clone(),
+        enums: p.enums.clone(),
         flat: None,
     }
 }
@@ -641,6 +724,10 @@ fn show(v: &Value) -> String {
         Value::Len(v, _) => format!("len({})", show(v)),
         Value::Lend(m, l, _) => format!("{} %{}", m.word(), l),
         Value::Round(v, n, _) => format!("round({}, {})", show(v), n),
+        Value::Variant(e, v, args, _) if args.is_empty() => format!("E{}.{}", e, v),
+        Value::Variant(e, v, args, _) => format!("E{}.{}({})", e, v, args.iter().map(show).collect::<Vec<_>>().join(", ")),
+        Value::Is(x, e, v, _) => format!("{} es E{}.{}", show(x), e, v),
+        Value::Payload(x, e, v, k, _) => format!("dato {} de {} (E{}.{})", k, show(x), e, v),
     }
 }
 

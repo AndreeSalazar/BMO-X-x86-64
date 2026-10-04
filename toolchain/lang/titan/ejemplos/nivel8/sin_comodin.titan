@@ -1,0 +1,16 @@
+# espera: T0079
+# `_` no existe: un comodin taparia el caso que se agregue luego
+mod main "un comodin que esconde"
+
+enum Luz
+    Verde
+    Ambar
+    Rojo
+
+fn main()
+    let luz = Rojo
+    match luz
+        Verde
+            print("pasa")
+        _
+            print("otra cosa")

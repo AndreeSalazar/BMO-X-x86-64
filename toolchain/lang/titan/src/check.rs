@@ -7,11 +7,13 @@
 //! -- are not judged here: that is the checker's (`juez.rs`), on the IR,
 //! because it is the same question the borrow checker asks.
 //!
-//! There are two kinds of callee: `print` (the library's) and a `fn` of the
-//! file, called without arguments.
+//! There are three kinds of callee: the library's (`print`, `len`), a `fn`
+//! of the file, and -- level 8 -- a CASE of an `enum`: `Circulo(2.0)` builds a
+//! value, it does not run anything. And the `match` is judged here too: every
+//! arm a case of ONE enum, none twice, and ALL of them (T0078, T0079).
 
 use crate::message::{Code, Message};
-use crate::tree::{Expr, Mode, Program, Stmt, Ty};
+use crate::tree::{Arm, Expr, Mode, Program, Stmt, Ty};
 
 /// What the library gives in level 0.
 const LIBRARY: [&str; 2] = ["print", "len"];
@@ -57,6 +59,7 @@ pub fn check(p: &Program) -> Result<(), Message> {
         ));
     }
     types(p)?;
+    enums(p)?;
     for f in &p.functions {
         params(p, f)?;
         let mut lines = Vec::new();
@@ -73,6 +76,7 @@ pub fn check(p: &Program) -> Result<(), Message> {
                     exprs.extend(c.args.iter().filter(|a| !matches!(a, Expr::Lend { .. })));
                 }
                 Stmt::Let(l) => {
+                    not_a_case(p, &l.name, l.line, l.col)?;
                     if LIBRARY.contains(&l.name.as_str()) || p.functions.iter().any(|g| g.name == l.name) {
                         return Err(Message::new(
                             Code::Taken,
@@ -89,6 +93,7 @@ pub fn check(p: &Program) -> Result<(), Message> {
                 Stmt::If(i) => exprs.push(&i.cond),
                 Stmt::While(w) => exprs.push(&w.cond),
                 Stmt::For(fo) => {
+                    not_a_case(p, &fo.var, fo.var_at.0, fo.var_at.1)?;
                     if LIBRARY.contains(&fo.var.as_str()) || p.functions.iter().any(|g| g.name == fo.var) {
                         return Err(Message::new(
                             Code::Taken,
@@ -106,6 +111,10 @@ pub fn check(p: &Program) -> Result<(), Message> {
                     }
                 }
                 Stmt::Break { .. } | Stmt::Continue { .. } => {}
+                Stmt::Match { value, arms, line, col } => {
+                    arms_cover(p, arms, *line, *col)?;
+                    exprs.push(value);
+                }
                 Stmt::SetAt { path, value, .. } => {
                     for st in path {
                         if let crate::tree::Step::Index(i) = st {
@@ -149,6 +158,7 @@ pub fn check(p: &Program) -> Result<(), Message> {
                 }
                 records(p, e)?;
                 lends_only_in_calls(p, e)?;
+                bare_cases(p, e)?;
             }
         }
     }
@@ -163,6 +173,7 @@ fn params(p: &Program, f: &crate::tree::Function) -> Result<(), Message> {
     }
     for (i, a) in f.params.iter().enumerate() {
         known_ty(p, &a.ty, a.line, a.col)?;
+        not_a_case(p, &a.name, a.line, a.col)?;
         let twice = f.params[..i].iter().any(|b| b.name == a.name);
         let taken = LIBRARY.contains(&a.name.as_str()) || p.functions.iter().any(|g| g.name == a.name);
         if twice || taken {
@@ -332,14 +343,214 @@ fn lends_only_in_calls(p: &Program, e: &Expr) -> Result<(), Message> {
     }
 }
 
+/// ** THE ENUMS (level 8). One name each, never a function's or a type's;
+/// every case named ONCE in the whole file -- so a bare `Nada` says which
+/// enum it is, with no `Forma::` in front; the values each case carries of a
+/// type that exists; and none that contains itself (a value, not a pointer).
+fn enums(p: &Program) -> Result<(), Message> {
+    let builtin = ["int", "text", "bool", "dec"];
+    for (i, e) in p.enums.iter().enumerate() {
+        let clash = p.enums[..i].iter().any(|o| o.name == e.name) || p.types.iter().any(|t| t.name == e.name) || p.functions.iter().any(|f| f.name == e.name) || builtin.contains(&e.name.as_str());
+        if clash {
+            return Err(Message::new(Code::Taken, e.line, e.col, &format!("`{}` ya es el nombre de otra cosa", e.name), "un nombre dice UNA cosa", "llama al enum de otra forma"));
+        }
+        for (k, c) in e.cases.iter().enumerate() {
+            let other_case = e.cases[..k].iter().any(|d| d.name == c.name) || p.enums[..i].iter().flat_map(|o| &o.cases).any(|d| d.name == c.name);
+            let other = p.functions.iter().any(|f| f.name == c.name) || p.types.iter().any(|t| t.name == c.name) || p.enums.iter().any(|o| o.name == c.name) || LIBRARY.contains(&c.name.as_str()) || builtin.contains(&c.name.as_str());
+            if other_case || other {
+                return Err(Message::new(
+                    Code::Taken,
+                    c.line,
+                    c.col,
+                    &if other_case { format!("el caso `{}` ya esta en otro sitio", c.name) } else { format!("`{}` ya es el nombre de otra cosa", c.name) },
+                    "un caso se escribe SOLO, sin el enum delante (`Nada`, no `Forma::Nada`): por eso su nombre es unico en todo el fichero",
+                    "llama al caso de otra forma",
+                ));
+            }
+            for f in &c.fields {
+                known_ty(p, f, c.line, c.col)?;
+            }
+        }
+    }
+    for e in &p.enums {
+        let mut seen = Vec::new();
+        let inside = e.cases.iter().find(|c| c.fields.iter().any(|f| {
+            seen.clear();
+            holds_name(p, f, &e.name, &mut seen)
+        }));
+        if let Some(c) = inside {
+            return Err(Message::new(
+                Code::Case,
+                c.line,
+                c.col,
+                &format!("`enum {}` se contiene a si mismo", e.name),
+                &format!("su caso `{}` lleva otro `{}` dentro, que lleva otro, y otro: un valor sin fin", c.name, e.name),
+                "un valor de TITAN++ guarda valores, no punteros: saca ese dato del caso",
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Does `t` hold a value of the type or enum `target`, directly or inside?
+fn holds_name(p: &Program, t: &Ty, target: &str, seen: &mut Vec<String>) -> bool {
+    match t {
+        Ty::Named(n) if n == target => true,
+        Ty::Named(n) if !seen.contains(n) => {
+            seen.push(n.clone());
+            p.types.iter().find(|d| &d.name == n).is_some_and(|d| d.fields.iter().any(|f| holds_name(p, &f.ty, target, seen)))
+                || p.enums.iter().find(|d| &d.name == n).is_some_and(|d| d.cases.iter().flat_map(|c| &c.fields).any(|f| holds_name(p, f, target, seen)))
+        }
+        Ty::Table(inner, _) => holds_name(p, inner, target, seen),
+        _ => false,
+    }
+}
+
+/// A value's name that is a case's: T0055 -- `let Nada = 3` would make
+/// `Nada` two things.
+fn not_a_case(p: &Program, name: &str, line: usize, col: usize) -> Result<(), Message> {
+    match p.case(name) {
+        Some((e, _)) => Err(Message::new(
+            Code::Taken,
+            line,
+            col,
+            &format!("`{}` ya es un caso de `enum {}`", name, p.enums[e].name),
+            &format!("un nombre dice UNA cosa: si fuera las dos, quien lee `{}` no sabria si es el caso o el valor", name),
+            &format!("llama al valor de otra forma: {}", name.to_lowercase()),
+        )),
+        None => Ok(()),
+    }
+}
+
+/// T0068 for a case: it carries `want` values and is given `got`.
+fn carries(p: &Program, e: usize, v: usize, got: usize, line: usize, col: usize) -> Message {
+    let case = &p.enums[e].cases[v];
+    let tys: Vec<String> = case.fields.iter().map(Ty::name).collect();
+    let n = case.fields.len();
+    Message::new(
+        Code::Args,
+        line,
+        col,
+        &format!("`{}` lleva {} valor{}, y aqui se le {} {}", case.name, n, if n == 1 { "" } else { "es" }, if got == 1 { "da" } else { "dan" }, got),
+        &format!("su linea {} dice: {}{}", case.line, case.name, if tys.is_empty() { String::new() } else { format!("({})", tys.join(", ")) }),
+        &if n == 0 { case.name.clone() } else { format!("{}({})", case.name, vec!["..."; n].join(", ")) },
+    )
+}
+
+/// A case that carries values, written bare (`Circulo` with no parentheses),
+/// is a value missing its parts: T0068.
+fn bare_cases(p: &Program, e: &Expr) -> Result<(), Message> {
+    match e {
+        Expr::Name { name, line, col } => match p.case(name) {
+            Some((k, v)) if !p.enums[k].cases[v].fields.is_empty() => Err(carries(p, k, v, 0, *line, *col)),
+            _ => Ok(()),
+        },
+        Expr::Bin { left, right, .. } | Expr::Index { base: left, index: right, .. } => {
+            bare_cases(p, left)?;
+            bare_cases(p, right)
+        }
+        Expr::Neg { value, .. } | Expr::Not { value, .. } | Expr::Repeat { item: value, .. } | Expr::Field { base: value, .. } | Expr::Round { value, .. } => bare_cases(p, value),
+        Expr::Table { items, .. } | Expr::Call { args: items, .. } => items.iter().try_for_each(|i| bare_cases(p, i)),
+        Expr::Record { fields, .. } => fields.iter().try_for_each(|(_, v)| bare_cases(p, v)),
+        Expr::Int { .. } | Expr::Text { .. } | Expr::Bool { .. } | Expr::Dec { .. } | Expr::Lend { .. } => Ok(()),
+    }
+}
+
+/// ** THE ARMS OF A `match` (level 8): each one a case of the SAME enum,
+/// none twice, each taking as many names as its case carries values -- and
+/// ALL the cases there. A case left out is T0078: the day someone adds
+/// `Triangulo` to `Forma`, every `match` that does not say what to do with it
+/// stops compiling and says WHERE. C's `switch` lets it fall through in
+/// silence; a `_` would too, so TITAN++ has none.
+fn arms_cover(p: &Program, arms: &[Arm], line: usize, col: usize) -> Result<(), Message> {
+    let mut of: Option<usize> = None;
+    for (i, a) in arms.iter().enumerate() {
+        let Some((e, v)) = p.case(&a.case) else {
+            let near = p.enums.iter().flat_map(|d| &d.cases).map(|c| c.name.as_str()).min_by_key(|k| distance(k, &a.case)).filter(|k| distance(k, &a.case) <= 2);
+            return Err(Message::new(
+                Code::Case,
+                a.line,
+                a.col,
+                &format!("`{}` no es un caso de ningun `enum`", a.case),
+                "cada rama de un `match` empieza por un caso: el nombre de uno de los que el `enum` dice",
+                &match near {
+                    Some(k) => format!("quisiste decir `{}`?", k),
+                    None => "escribe uno de los casos del enum".to_string(),
+                },
+            ));
+        };
+        let def = &p.enums[e];
+        match of {
+            Some(first) if first != e => {
+                return Err(Message::new(
+                    Code::Case,
+                    a.line,
+                    a.col,
+                    &format!("`{}` es de `enum {}`, y este `match` es de `enum {}`", a.case, def.name, p.enums[first].name),
+                    "un `match` mira UN valor, y un valor es de un solo enum",
+                    &format!("escribe los casos de `enum {}`: {}", p.enums[first].name, p.enums[first].cases.iter().map(|c| c.name.as_str()).collect::<Vec<_>>().join(", ")),
+                ));
+            }
+            _ => of = Some(e),
+        }
+        if let Some(prev) = arms[..i].iter().find(|b| b.case == a.case) {
+            return Err(Message::new(
+                Code::Case,
+                a.line,
+                a.col,
+                &format!("el caso `{}` esta dos veces en este `match`", a.case),
+                &format!("la primera rama esta en la linea {}: esta no correria nunca", prev.line),
+                "junta las dos en una",
+            ));
+        }
+        let case = &def.cases[v];
+        if a.binds.len() != case.fields.len() {
+            let n = case.fields.len();
+            let names = ["a", "b", "c", "d", "e", "f"];
+            return Err(Message::new(
+                Code::Case,
+                a.line,
+                a.col,
+                &format!("`{}` lleva {} valor{}, y esta rama le pone {} nombre{}", case.name, n, if n == 1 { "" } else { "es" }, a.binds.len(), if a.binds.len() == 1 { "" } else { "s" }),
+                &format!("su linea {} dice: {}{}", case.line, case.name, if n == 0 { String::new() } else { format!("({})", case.fields.iter().map(Ty::name).collect::<Vec<_>>().join(", ")) }),
+                &if n == 0 { case.name.clone() } else { format!("{}({})", case.name, (0..n).map(|k| names.get(k).copied().unwrap_or("x")).collect::<Vec<_>>().join(", ")) },
+            ));
+        }
+        for (k, (name, l, c)) in a.binds.iter().enumerate() {
+            not_a_case(p, name, *l, *c)?;
+            if a.binds[..k].iter().any(|b| &b.0 == name) || LIBRARY.contains(&name.as_str()) || p.functions.iter().any(|g| &g.name == name) {
+                return Err(Message::new(Code::Taken, *l, *c, &format!("`{}` ya es el nombre de otra cosa", name), "un nombre dice UNA cosa: cada valor del caso, el suyo", "llama a este valor de otra forma"));
+            }
+        }
+    }
+    let e = of.expect("parse: a match has an arm");
+    let def = &p.enums[e];
+    let missing: Vec<&str> = def.cases.iter().filter(|c| !arms.iter().any(|a| a.case == c.name)).map(|c| c.name.as_str()).collect();
+    if !missing.is_empty() {
+        let first = def.cases.iter().find(|c| c.name == missing[0]).expect("listed above");
+        let pattern = if first.fields.is_empty() { first.name.clone() } else { format!("{}({})", first.name, vec!["x"; first.fields.len()].join(", ")) };
+        return Err(Message::new(
+            Code::Missing,
+            line,
+            col,
+            &if missing.len() == 1 { format!("este `match` no dice que hacer con `{}`", missing[0]) } else { format!("este `match` no dice que hacer con {}", missing.iter().map(|m| format!("`{}`", m)).collect::<Vec<_>>().join(", ")) },
+            &format!("`enum {}` (linea {}) tiene {} casos, y un `match` los cubre TODOS: el que falta caeria donde nadie lo penso", def.name, def.line, def.cases.len()),
+            &format!("agrega su rama:
+             {}
+                 ...", pattern),
+        ));
+    }
+    Ok(())
+}
+
 fn unknown_type(p: &Program, name: &str, line: usize, col: usize) -> Message {
-    let near = p.types.iter().map(|t| t.name.as_str()).min_by_key(|k| distance(k, name)).filter(|k| distance(k, name) <= 2);
+    let near = p.types.iter().map(|t| t.name.as_str()).chain(p.enums.iter().map(|e| e.name.as_str())).min_by_key(|k| distance(k, name)).filter(|k| distance(k, name) <= 2);
     Message::new(
         Code::Unknown,
         line,
         col,
         &format!("el tipo `{}` no existe", name),
-        "los tipos son int, text, bool, dec, las tablas [T; n] y los `type` de este fichero",
+        "los tipos son int, text, bool, dec, las tablas [T; n] y los `type` y `enum` de este fichero",
         &match near {
             Some(k) => format!("quisiste decir `{}`?", k),
             None => format!("declaralo arriba: type {}\n             x: dec", name),
@@ -350,7 +561,7 @@ fn unknown_type(p: &Program, name: &str, line: usize, col: usize) -> Message {
 /// Every named type a `Ty` mentions exists.
 fn known_ty(p: &Program, t: &Ty, line: usize, col: usize) -> Result<(), Message> {
     match t {
-        Ty::Named(n) if !p.types.iter().any(|d| &d.name == n) => Err(unknown_type(p, n, line, col)),
+        Ty::Named(n) if !p.types.iter().any(|d| &d.name == n) && !p.enums.iter().any(|d| &d.name == n) => Err(unknown_type(p, n, line, col)),
         Ty::Table(inner, _) => known_ty(p, inner, line, col),
         _ => Ok(()),
     }
@@ -372,19 +583,8 @@ fn types(p: &Program) -> Result<(), Message> {
         }
     }
     // A type that contains itself, directly or through others.
-    fn holds(p: &Program, t: &Ty, target: &str, seen: &mut Vec<String>) -> bool {
-        match t {
-            Ty::Named(n) if n == target => true,
-            Ty::Named(n) if !seen.contains(n) => {
-                seen.push(n.clone());
-                p.types.iter().find(|d| &d.name == n).is_some_and(|d| d.fields.iter().any(|f| holds(p, &f.ty, target, seen)))
-            }
-            Ty::Table(inner, _) => holds(p, inner, target, seen),
-            _ => false,
-        }
-    }
     for t in &p.types {
-        if let Some(f) = t.fields.iter().find(|f| holds(p, &f.ty, &t.name, &mut Vec::new())) {
+        if let Some(f) = t.fields.iter().find(|f| holds_name(p, &f.ty, &t.name, &mut Vec::new())) {
             return Err(Message::new(
                 Code::Field,
                 f.line,
@@ -401,6 +601,23 @@ fn types(p: &Program) -> Result<(), Message> {
 /// A call to `callee` with `n` values: does it exist, does it take `n`, and
 /// -- if it is used AS A VALUE -- does it give one back.
 fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value: bool) -> Result<(), Message> {
+    if let Some((e, v)) = p.case(callee) {
+        let case = &p.enums[e].cases[v];
+        if case.fields.len() != n {
+            return Err(carries(p, e, v, n, line, col));
+        }
+        if !as_value {
+            return Err(Message::new(
+                Code::Result,
+                line,
+                col,
+                &format!("`{}(...)` es un valor, y aqui esta solo en su linea", callee),
+                &format!("un caso de `enum {}` no hace nada: CONSTRUYE un valor, y un valor que nadie guarda se pierde", p.enums[e].name),
+                &format!("guardalo: let forma = {}(...)", callee),
+            ));
+        }
+        return Ok(());
+    }
     let own = p.functions.iter().find(|g| g.name == callee);
     if own.is_none() && !LIBRARY.contains(&callee) {
         let known = LIBRARY.iter().copied().chain(p.functions.iter().map(|g| g.name.as_str()));
@@ -410,7 +627,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             line,
             col,
             &format!("`{}` no existe", callee),
-            "no es una `fn` de este fichero ni de la biblioteca (la biblioteca, hoy, es `print` y `len`)",
+"no es una `fn` de este fichero, ni un caso de sus `enum`, ni de la biblioteca (la biblioteca, hoy, es `print` y `len`)",
             &match near {
                 Some(k) => format!("quisiste decir `{}`?", k),
                 None => format!("define `fn {}()` en este fichero, o usa `print`", callee),
@@ -467,6 +684,11 @@ fn flat<'a>(body: &'a [Stmt], out: &mut Vec<&'a Stmt>) {
             }
             Stmt::While(w) => flat(&w.body, out),
             Stmt::For(f) => flat(&f.body, out),
+            Stmt::Match { arms, .. } => {
+                for a in arms {
+                    flat(&a.body, out);
+                }
+            }
             _ => {}
         }
     }
@@ -494,6 +716,7 @@ fn calls_of(body: &[Stmt]) -> Vec<(&str, usize, usize)> {
                 exprs.extend(f.over.as_ref());
             }
             Stmt::Return { value: Some(v), .. } => exprs.push(v),
+            Stmt::Match { value, .. } => exprs.push(value),
             Stmt::SetAt { path, value, .. } => {
                 for st in path {
                     if let crate::tree::Step::Index(i) = st {

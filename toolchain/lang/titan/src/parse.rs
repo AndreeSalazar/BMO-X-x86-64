@@ -41,7 +41,7 @@
 
 use crate::lex::{Kind, Token};
 use crate::message::{Code, Message};
-use crate::tree::{Call, Expr, For, Function, If, Let, Mode, Param, Program, Step, Stmt, Ty, TypeDef, While};
+use crate::tree::{Arm, Call, Case, EnumDef, Expr, For, Function, If, Let, Mode, Param, Program, Step, Stmt, Ty, TypeDef, While};
 use crate::words::{self, LEVEL_NOW};
 
 struct Parser<'a> {
@@ -105,7 +105,7 @@ impl<'a> Parser<'a> {
         match &tok.kind {
             Kind::Word(w) => {
                 let level = words::find(w).map(|x| x.level).unwrap_or(0);
-                (level > LEVEL_NOW).then(|| not_yet(tok, &format!("`{}`", w), level, "por ahora: llamadas, `let`, `let mut`, `if` / `else`, `while`, `for` y `fn` con `return`"))
+                (level > LEVEL_NOW).then(|| not_yet(tok, &format!("`{}`", w), level, "por ahora: llamadas, `let`, `if`, bucles, `fn` con `return`, `type`, `enum` y `match`, en un solo fichero"))
             }
             Kind::Number(n) if n.contains('.') && LEVEL_NOW < 6 => Some(not_yet(tok, "un decimal", 6, "por ahora, numeros enteros: los decimales EXACTOS (dec) llegan con los tipos")),
             Kind::Sym("->") if LEVEL_NOW < 5 => Some(not_yet(tok, "una funcion que devuelve algo", 5, "por ahora, `fn nombre()` sin `->`")),
@@ -264,6 +264,106 @@ impl<'a> Parser<'a> {
             Kind::Name(n) if LEVEL_NOW >= 6 => Ok(Ty::Named(n.clone())),
             _ => Err(self.expected(t, "un tipo: int, text, bool, dec, [int; 3] o el nombre de un `type`", example)),
         }
+    }
+
+    /// `enum NAME` and its cases, one per line: `Circulo(dec)`, `Nada` (8).
+    fn enumdef(&mut self) -> Result<EnumDef, Message> {
+        let tok = self.next();
+        let name_tok = self.next();
+        let Kind::Name(name) = &name_tok.kind else {
+            return Err(self.expected(name_tok, "el nombre del enum", "enum Forma"));
+        };
+        let end = self.next();
+        if end.kind != Kind::Newline {
+            return Err(self.expected(end, "el final de la linea", &format!("enum {}\n             Circulo(dec)", name)));
+        }
+        if self.peek().kind != Kind::Indent {
+            return Err(Message::new(
+                Code::EmptyBody,
+                tok.line,
+                tok.col,
+                &format!("`enum {}` no tiene casos", name),
+                "debajo de un `enum` van sus casos, uno por linea y sangrados: Nombre o Nombre(tipos)",
+                &format!("enum {}\n             Circulo(dec)\n             Nada", name),
+            ));
+        }
+        self.next();
+        let mut cases = Vec::new();
+        while self.peek().kind != Kind::Dedent && self.peek().kind != Kind::End {
+            let c = self.next();
+            let Kind::Name(cname) = &c.kind else {
+                return Err(self.expected(c, "el nombre de un caso", "Circulo(dec)  o  Nada"));
+            };
+            let mut fields = Vec::new();
+            if self.peek().kind == Kind::Sym("(") {
+                self.next();
+                loop {
+                    fields.push(self.ty(&format!("{}(dec)", cname))?);
+                    let sep = self.next();
+                    match sep.kind {
+                        Kind::Sym(",") => continue,
+                        Kind::Sym(")") => break,
+                        _ => return Err(self.expected(sep, "`,` o `)`", &format!("{}(dec, dec)", cname))),
+                    }
+                }
+            }
+            self.end_of_line()?;
+            cases.push(Case { name: cname.clone(), fields, line: c.line, col: c.col });
+        }
+        self.next();
+        Ok(EnumDef { name: name.clone(), line: tok.line, col: tok.col, cases })
+    }
+
+    /// `match VALUE` and its arms: `Caso` or `Caso(a, b)`, each with its
+    /// block. No `_`: every case is written (level 8).
+    fn match_statement(&mut self, tok: &Token) -> Result<Stmt, Message> {
+        let value = self.expr()?;
+        let end = self.next();
+        if end.kind != Kind::Newline {
+            return Err(self.expected(end, "el final de la linea", "match forma\n             Circulo(r)\n                 print(r)"));
+        }
+        if self.peek().kind != Kind::Indent {
+            return Err(Message::new(Code::EmptyBody, tok.line, tok.col, "este `match` no tiene casos", "debajo van sus casos, cada uno con su bloque", "match forma\n             Circulo(r)\n                 print(r)"));
+        }
+        self.next();
+        let mut arms = Vec::new();
+        while self.peek().kind != Kind::Dedent && self.peek().kind != Kind::End {
+            let c = self.next();
+            let Kind::Name(case) = &c.kind else {
+                return Err(self.expected(c, "el nombre de un caso", "Circulo(r)  o  Nada"));
+            };
+            if case == "_" {
+                return Err(Message::new(
+                    Code::Case,
+                    c.line,
+                    c.col,
+                    "`_` no existe en TITAN++: cada caso se escribe",
+                    "un comodin tapa el caso que se agregue luego: el `match` compilaria y ese caso caeria donde nadie lo penso",
+                    "escribe una rama por cada caso que quede",
+                ));
+            }
+            let mut binds = Vec::new();
+            if self.peek().kind == Kind::Sym("(") {
+                self.next();
+                loop {
+                    let b = self.next();
+                    let Kind::Name(bn) = &b.kind else {
+                        return Err(self.expected(b, "el nombre que toma un dato del caso", &format!("{}(r)", case)));
+                    };
+                    binds.push((bn.clone(), b.line, b.col));
+                    let sep = self.next();
+                    match sep.kind {
+                        Kind::Sym(",") => continue,
+                        Kind::Sym(")") => break,
+                        _ => return Err(self.expected(sep, "`,` o `)`", &format!("{}(a, b)", case))),
+                    }
+                }
+            }
+            let body = self.block(c, &format!("el caso `{}`", case), &format!("{}\n                 print(\"...\")", case))?;
+            arms.push(Arm { case: case.clone(), binds, body, line: c.line, col: c.col });
+        }
+        self.next();
+        Ok(Stmt::Match { value, arms, line: tok.line, col: tok.col })
     }
 
     /// `type NAME` and its fields, one per line, sangrados (level 6).
@@ -437,6 +537,9 @@ impl<'a> Parser<'a> {
         let tok = self.next();
         if tok.kind == Kind::Word("if") && LEVEL_NOW >= 3 {
             return self.if_statement(tok);
+        }
+        if tok.kind == Kind::Word("match") && LEVEL_NOW >= 8 {
+            return self.match_statement(tok);
         }
         if tok.kind == Kind::Word("return") && LEVEL_NOW >= 5 {
             let value = if self.peek().kind == Kind::Newline { None } else { Some(self.expr()?) };
@@ -840,12 +943,14 @@ pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
     let (module, purpose) = p.header()?;
     let mut functions = Vec::new();
     let mut types = Vec::new();
+    let mut enums = Vec::new();
     loop {
         let tok = p.peek();
         match &tok.kind {
             Kind::End => break,
             Kind::Word("fn") => functions.push(p.function()?),
             Kind::Word("type") if LEVEL_NOW >= 6 => types.push(p.typedef()?),
+            Kind::Word("enum") if LEVEL_NOW >= 8 => enums.push(p.enumdef()?),
             Kind::Indent => {
                 return Err(Message::new(
                     Code::BadIndent,
@@ -858,10 +963,10 @@ pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
             }
             _ => {
                 return Err(p.ladder(tok).unwrap_or_else(|| {
-                    p.expected(tok, "una `fn` o un `type`", "arriba del todo solo van funciones y tipos: fn main() y su cuerpo debajo")
+                    p.expected(tok, "una `fn`, un `type` o un `enum`", "arriba del todo solo van funciones y tipos: fn main() y su cuerpo debajo")
                 }))
             }
         }
     }
-    Ok(Program { module, purpose, functions, types })
+    Ok(Program { module, purpose, functions, types, enums })
 }

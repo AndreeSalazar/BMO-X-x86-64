@@ -19,6 +19,8 @@
 //!    level 7   lend and give: `fn f(mut t: [int; 5])` called `f(mut t)`, and
 //!              `take`; and COBOL's precision: `dec(7, 2)`, `let x: T = v`,
 //!              and `round(x, 2)` -- the rounding is WRITTEN
+//!    level 8   `enum` with cases that carry data, and `match`, which has to
+//!              cover EVERY case (no `_` to hide one)
 //! ```
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,6 +31,26 @@ pub struct Program {
     pub functions: Vec<Function>,
     /// `type Nave` and its fields (level 6).
     pub types: Vec<TypeDef>,
+    /// `enum Forma` and its cases (level 8).
+    pub enums: Vec<EnumDef>,
+}
+
+/// `enum Forma` and, below it, one case per line: `Circulo(dec)`, `Nada`
+/// (level 8). A case carries the values its parentheses say, in order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnumDef {
+    pub name: String,
+    pub line: usize,
+    pub col: usize,
+    pub cases: Vec<Case>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Case {
+    pub name: String,
+    pub fields: Vec<Ty>,
+    pub line: usize,
+    pub col: usize,
 }
 
 /// `type Nave` and, below it, one field per line: `x: dec` (level 6).
@@ -151,6 +173,19 @@ pub enum Stmt {
     /// `a[i] = v`, `nave.x = v`, `a[i].x = v`: a part of a value changes
     /// (level 6). The whole value needs `mut`, as for `a = v`.
     SetAt { name: String, path: Vec<Step>, value: Expr, line: usize, col: usize },
+    /// `match VALUE` and one arm per case (level 8).
+    Match { value: Expr, arms: Vec<Arm>, line: usize, col: usize },
+}
+
+/// `Circulo(r)` and its block: the case, the names its data take in the
+/// block, and the block.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Arm {
+    pub case: String,
+    pub binds: Vec<(String, usize, usize)>,
+    pub body: Vec<Stmt>,
+    pub line: usize,
+    pub col: usize,
 }
 
 /// One step into a value: a cell of a table or a field of a record.
@@ -328,25 +363,38 @@ impl Stmt {
             Stmt::If(i) => i.line,
             Stmt::While(w) => w.line,
             Stmt::For(f) => f.line,
-            Stmt::Break { line, .. } | Stmt::Continue { line, .. } | Stmt::Return { line, .. } | Stmt::SetAt { line, .. } => *line,
+            Stmt::Break { line, .. } | Stmt::Continue { line, .. } | Stmt::Return { line, .. } | Stmt::SetAt { line, .. } | Stmt::Match { line, .. } => *line,
         }
     }
 }
 
 impl Program {
+    /// The case called `name`: (its enum, its place in it). Case names are
+    /// unique in the whole file (`check`), so a bare `Nada` says which (8).
+    pub fn case(&self, name: &str) -> Option<(usize, usize)> {
+        self.enums.iter().enumerate().find_map(|(e, d)| d.cases.iter().position(|c| c.name == name).map(|v| (e, v)))
+    }
+
     /// The tree as text, for `titan arbol`: what the frontend understood.
     pub fn show(&self) -> String {
         let mut s = format!("mod {}  \"{}\"\n", self.module, self.purpose);
+        for e in &self.enums {
+            s += &format!("{:<43} linea {}\n", format!("  enum {}", e.name), e.line);
+            for c in &e.cases {
+                let f: Vec<String> = c.fields.iter().map(Ty::name).collect();
+                s += &format!("{:<43} linea {}\n", format!("    {}{}", c.name, if f.is_empty() { String::new() } else { format!("({})", f.join(", ")) }), c.line);
+            }
+        }
         for t in &self.types {
-            s += &format!("{:<44}linea {}\n", format!("  type {}", t.name), t.line);
+            s += &format!("{:<43} linea {}\n", format!("  type {}", t.name), t.line);
             for fl in &t.fields {
-                s += &format!("{:<44}linea {}\n", format!("    {}: {}", fl.name, fl.ty.name()), fl.line);
+                s += &format!("{:<43} linea {}\n", format!("    {}: {}", fl.name, fl.ty.name()), fl.line);
             }
         }
         for f in &self.functions {
             let params: Vec<String> = f.params.iter().map(|p| format!("{}{}{}: {}", p.mode.word(), if p.mode == Mode::Copy { "" } else { " " }, p.name, p.ty.name())).collect();
             let ret = f.ret.as_ref().map(|t| format!(" -> {}", t.name())).unwrap_or_default();
-            s += &format!("{:<44}linea {}\n", format!("  fn {}({}){}", f.name, params.join(", "), ret), f.line);
+            s += &format!("{:<43} linea {}\n", format!("  fn {}({}){}", f.name, params.join(", "), ret), f.line);
             show_body(&f.body, 1, &mut s);
         }
         s
@@ -369,6 +417,7 @@ fn show_body(body: &[Stmt], depth: usize, s: &mut String) {
                 Some(t) => format!("{}for {} in {}", pad, f.var, t.show()),
                 None => format!("{}for {} in range({}, {})", pad, f.var, f.from.show(), f.to.show()),
             },
+            Stmt::Match { value, .. } => format!("{}match {}", pad, value.show()),
             Stmt::SetAt { name, path, value, .. } => format!("{}{}{} = {}", pad, name, path.iter().map(|st| match st {
                 Step::Index(e) => format!("[{}]", e.show()),
                 Step::Field(f, _, _) => format!(".{}", f),
@@ -378,7 +427,7 @@ fn show_body(body: &[Stmt], depth: usize, s: &mut String) {
             Stmt::Return { value: Some(v), .. } => format!("{}return {}", pad, v.show()),
             Stmt::Return { value: None, .. } => format!("{}return", pad),
         };
-        *s += &format!("{:<44}linea {}\n", text, st.line());
+        *s += &format!("{:<43} linea {}\n", text, st.line());
         match st {
             Stmt::If(i) => {
                 show_body(&i.then, depth + 1, s);
@@ -389,6 +438,13 @@ fn show_body(body: &[Stmt], depth: usize, s: &mut String) {
             }
             Stmt::While(w) => show_body(&w.body, depth + 1, s),
             Stmt::For(f) => show_body(&f.body, depth + 1, s),
+            Stmt::Match { arms, .. } => {
+                for a in arms {
+                    let b: Vec<&str> = a.binds.iter().map(|x| x.0.as_str()).collect();
+                    *s += &format!("{}    {}{}\n", pad, a.case, if b.is_empty() { String::new() } else { format!("({})", b.join(", ")) });
+                    show_body(&a.body, depth + 2, s);
+                }
+            }
             _ => {}
         }
     }

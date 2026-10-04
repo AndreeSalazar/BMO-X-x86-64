@@ -113,6 +113,9 @@ const BANCO: &[(&str, &str)] = &[
     // Nivel 7 (04-10): prestar y entregar, y la precision de COBOL.
     ("titan", "toolchain/lang/titan/ejemplos/nivel7/banco.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel7/ordena_prestada.titan"),
+    // Nivel 8 (04-10): enum con datos y match exhaustivo.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel8/formas.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel8/pago.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]

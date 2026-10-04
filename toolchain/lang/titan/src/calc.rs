@@ -51,7 +51,31 @@
 
 use crate::ir::{At, End, Function, Module, Op, PathStep, Value};
 use crate::message::{Code, Message};
-use crate::tree::{show_dec, Ty, TypeDef};
+use crate::tree::{show_dec, EnumDef, Ty, TypeDef};
+
+/// What a value needs to be classed or shown: the `type`s and the `enum`s of
+/// the file (levels 6 and 8). Indexed, it is a `type`.
+#[derive(Clone, Copy)]
+pub struct Defs<'a> {
+    pub types: &'a [TypeDef],
+    pub enums: &'a [EnumDef],
+}
+
+/// No `type` and no `enum`: enough to show a number.
+const NONE: Defs<'static> = Defs { types: &[], enums: &[] };
+
+impl std::ops::Index<usize> for Defs<'_> {
+    type Output = TypeDef;
+    fn index(&self, t: usize) -> &TypeDef {
+        &self.types[t]
+    }
+}
+
+impl Module {
+    pub fn defs(&self) -> Defs<'_> {
+        Defs { types: &self.types, enums: &self.enums }
+    }
+}
 
 /// A value, calculated.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,16 +88,18 @@ pub enum Const {
     Table(Vec<Const>),
     /// A record of the type with this index, its fields in declared order.
     Record(usize, Vec<Const>),
+    /// The case `v` of the enum `e`, and the values it carries (level 8).
+    Variant(usize, usize, Vec<Const>),
 }
 
 impl Const {
     /// As `print` writes it. Inside a table or a record a text goes quoted,
     /// so `["a, b"]` and `["a", "b"]` never read the same.
-    pub fn show(&self, types: &[TypeDef]) -> String {
+    pub fn show(&self, types: Defs) -> String {
         self.show_in(types, false)
     }
 
-    fn show_in(&self, types: &[TypeDef], inside: bool) -> String {
+    fn show_in(&self, types: Defs, inside: bool) -> String {
         match self {
             Const::Int(n) => n.to_string(),
             Const::Text(t) if inside => format!("{:?}", t),
@@ -85,6 +111,14 @@ impl Const {
                 let def = &types[*t];
                 let fields: Vec<String> = def.fields.iter().zip(items).map(|(f, v)| format!("{}: {}", f.name, v.show_in(types, true))).collect();
                 format!("{} {{ {} }}", def.name, fields.join(", "))
+            }
+            Const::Variant(e, v, items) => {
+                let case = &types.enums[*e].cases[*v].name;
+                if items.is_empty() {
+                    case.clone()
+                } else {
+                    format!("{}({})", case, items.iter().map(|i| i.show_in(types, true)).collect::<Vec<_>>().join(", "))
+                }
             }
         }
     }
@@ -99,10 +133,12 @@ pub enum Class {
     Dec,
     Table(Box<Class>, usize),
     Record(usize),
+    /// A value of the enum with this index: one of its cases (level 8).
+    Enum(usize),
 }
 
 impl Class {
-    fn name(&self, types: &[TypeDef]) -> String {
+    fn name(&self, types: Defs) -> String {
         match self {
             Class::Int => "un numero (int)".into(),
             Class::Text => "un texto".into(),
@@ -110,10 +146,11 @@ impl Class {
             Class::Dec => "un decimal (dec)".into(),
             Class::Table(c, n) => format!("una tabla [{}; {}]", c.short(types), n),
             Class::Record(t) => format!("un {}", types[*t].name),
+            Class::Enum(e) => format!("un {}", types.enums[*e].name),
         }
     }
 
-    fn short(&self, types: &[TypeDef]) -> String {
+    fn short(&self, types: Defs) -> String {
         match self {
             Class::Int => "int".into(),
             Class::Text => "text".into(),
@@ -121,6 +158,7 @@ impl Class {
             Class::Dec => "dec".into(),
             Class::Table(c, n) => format!("[{}; {}]", c.short(types), n),
             Class::Record(t) => types[*t].name.clone(),
+            Class::Enum(e) => types.enums[*e].name.clone(),
         }
     }
 
@@ -130,14 +168,17 @@ impl Class {
 }
 
 /// The class a type of the text says.
-fn of_ty(t: &Ty, types: &[TypeDef]) -> Class {
+fn of_ty(t: &Ty, types: Defs) -> Class {
     match t {
         Ty::Int => Class::Int,
         Ty::Text => Class::Text,
         Ty::Bool => Class::Bool,
         Ty::Dec | Ty::DecP(..) => Class::Dec,
         Ty::Table(inner, n) => Class::Table(Box::new(of_ty(inner, types)), *n),
-        Ty::Named(n) => Class::Record(types.iter().position(|d| &d.name == n).expect("check: the type exists")),
+        Ty::Named(n) => match types.types.iter().position(|d| &d.name == n) {
+            Some(t) => Class::Record(t),
+            None => Class::Enum(types.enums.iter().position(|d| &d.name == n).expect("check: the type exists")),
+        },
     }
 }
 
@@ -149,7 +190,7 @@ fn fits(want: &Class, got: &Class) -> bool {
 }
 
 /// T0071: a value of the wrong class where something says one.
-fn wrong(at: At, want: &Class, got: &Class, types: &[TypeDef], what: &str, how: &str) -> Message {
+fn wrong(at: At, want: &Class, got: &Class, types: Defs, what: &str, how: &str) -> Message {
     Message::new(Code::WrongType, at.0, at.1, &format!("aqui va {}, y llega {}", want.name(types), got.name(types)), what, how)
 }
 
@@ -209,7 +250,7 @@ pub const SCALE: u32 = 18;
 /// in reading order, and a local that dies (`Drop`) forgets its class: the
 /// next one with that name is another value.
 fn classes(f: &Function, m: &Module) -> Result<(), Message> {
-    let types = &m.types;
+    let types = m.defs();
     let mut known: Vec<Option<Class>> = vec![None; f.locals.len()];
     for (l, t) in &f.params {
         known[*l] = Some(of_ty(t, types));
@@ -223,6 +264,11 @@ fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                     // DECLARED, and the local is of that type from then on.
                     if let Some(t) = ty {
                         let want = of_ty(t, types);
+                        if !fits(&want, &c) && f.locals[*local].name.starts_with("#m") {
+                            // The hidden local of a `match` (level 8): its arms
+                            // are the cases of one enum, so that is what it reads.
+                            return Err(wrong(value.at(), &want, &c, types, &format!("los casos de este `match` son los de `enum {}`", want.short(types)), "dale al `match` un valor de ese enum, o escribe los casos del enum que tiene"));
+                        }
                         if !fits(&want, &c) {
                             return Err(wrong(value.at(), &want, &c, types, &format!("`{}` se declaro `{}`", f.locals[*local].name, t.name()), "dale un valor de esa clase, o cambia el tipo declarado"));
                         }
@@ -320,11 +366,11 @@ fn step_class(c: &Class, st: &PathStep, known: &[Option<Class>], m: &Module, at:
         PathStep::Index(i) => {
             let ic = class(i, known, m)?;
             if ic != Class::Int {
-                return Err(wrong(i.at(), &Class::Int, &ic, &m.types, "una celda se pide con su numero: 0, 1, 2...", "a[0]"));
+                return Err(wrong(i.at(), &Class::Int, &ic, m.defs(), "una celda se pide con su numero: 0, 1, 2...", "a[0]"));
             }
             match c {
                 Class::Table(inner, _) => Ok((**inner).clone()),
-                other => Err(Message::new(Code::Mixed, at.0, at.1, &format!("{} no tiene celdas", other.name(&m.types)), "`[...]` pide una celda, y solo una tabla las tiene", "usa `[i]` sobre una tabla: [1, 2, 3][0]")),
+                other => Err(Message::new(Code::Mixed, at.0, at.1, &format!("{} no tiene celdas", other.name(m.defs())), "`[...]` pide una celda, y solo una tabla las tiene", "usa `[i]` sobre una tabla: [1, 2, 3][0]")),
             }
         }
         PathStep::Field(name, fat) => field_class(c, name, *fat, m),
@@ -334,11 +380,11 @@ fn step_class(c: &Class, st: &PathStep, known: &[Option<Class>], m: &Module, at:
 /// The class of the field `name` of a value of class `c`, or T0073.
 fn field_class(c: &Class, name: &str, at: At, m: &Module) -> Result<Class, Message> {
     let Class::Record(t) = c else {
-        return Err(Message::new(Code::Field, at.0, at.1, &format!("{} no tiene campos", c.name(&m.types)), "`.campo` pide un campo, y solo un registro (un `type`) los tiene", "usa `.x` sobre un registro: nave.x"));
+        return Err(Message::new(Code::Field, at.0, at.1, &format!("{} no tiene campos", c.name(m.defs())), "`.campo` pide un campo, y solo un registro (un `type`) los tiene", "usa `.x` sobre un registro: nave.x"));
     };
-    let def = &m.types[*t];
+    let def = &m.defs()[*t];
     match def.fields.iter().find(|f| f.name == name) {
-        Some(f) => Ok(of_ty(&f.ty, &m.types)),
+        Some(f) => Ok(of_ty(&f.ty, m.defs())),
         None => Err(Message::new(
             Code::Field,
             at.0,
@@ -374,7 +420,7 @@ fn args_fit(func: usize, args: &[Value], _at: At, known: &[Option<Class>], m: &M
     let g = &m.functions[func];
     for ((a, (l, t)), mode) in args.iter().zip(&g.params).zip(&g.modes) {
         let got = class(a, known, m)?;
-        let want = of_ty(t, &m.types);
+        let want = of_ty(t, m.defs());
         // Lent to be changed: the SAME class, since what comes back goes in
         // the caller's own local (an int lent as a dec would come back a dec).
         let ok = if *mode == crate::tree::Mode::Mut { want == got } else { fits(&want, &got) };
@@ -383,7 +429,7 @@ fn args_fit(func: usize, args: &[Value], _at: At, known: &[Option<Class>], m: &M
                 a.at(),
                 &want,
                 &got,
-                &m.types,
+                m.defs(),
                 &format!("`{}` pide `{}: {}` (su linea {})", g.name, g.locals[*l].name, t.name(), g.line),
                 "TITAN++ no convierte solo: dale un valor de esa clase",
             ));
@@ -394,7 +440,7 @@ fn args_fit(func: usize, args: &[Value], _at: At, known: &[Option<Class>], m: &M
 
 /// The class of a value, or the NO that says why it has none.
 pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Message> {
-    let types = &m.types;
+    let types = m.defs();
     Ok(match v {
         Value::Int(..) => Class::Int,
         Value::Text(..) => Class::Text,
@@ -443,6 +489,22 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
             }
             Class::Record(*t)
         }
+        Value::Variant(e, v, items, _) => {
+            let case = &types.enums[*e].cases[*v];
+            for (k, (want_ty, item)) in case.fields.iter().zip(items).enumerate() {
+                let got = class(item, known, m)?;
+                let want = of_ty(want_ty, types);
+                if !fits(&want, &got) {
+                    return Err(wrong(item.at(), &want, &got, types, &format!("el dato {} de `{}` es `{}` (linea {})", k + 1, case.name, want_ty.name(), case.line), "dale un valor de esa clase"));
+                }
+            }
+            Class::Enum(*e)
+        }
+        Value::Is(inner, e, _, at) => match class(inner, known, m)? {
+            Class::Enum(k) if k == *e => Class::Bool,
+            other => return Err(wrong(*at, &Class::Enum(*e), &other, types, &format!("los casos de este `match` son los de `enum {}`", types.enums[*e].name), "dale al `match` un valor de ese enum")),
+        },
+        Value::Payload(_, e, v, k, _) => of_ty(&types.enums[*e].cases[*v].fields[*k], types),
         Value::Len(inner, at) => match class(inner, known, m)? {
             Class::Table(..) => Class::Int,
             other => {
@@ -610,7 +672,7 @@ impl Run<'_> {
         // local ever takes must fit it (COBOL's PIC, level 7).
         let mut decl: Vec<Option<Ty>> = vec![None; f.locals.len()];
         for ((l, t), a) in f.params.iter().zip(args) {
-            known[*l] = Some(fit_into(a, Some(t), &m.types, at)?);
+            known[*l] = Some(fit_into(a, Some(t), m.defs(), at)?);
             decl[*l] = Some(t.clone());
         }
         let mut b = 0;
@@ -621,7 +683,7 @@ impl Run<'_> {
                 match op {
                     Op::Let { local, value, ty, at, .. } => {
                         let v = self.ev(value, &mut known)?;
-                        known[*local] = Some(fit_into(v, ty.as_ref(), &m.types, *at)?);
+                        known[*local] = Some(fit_into(v, ty.as_ref(), m.defs(), *at)?);
                         decl[*local] = ty.clone();
                     }
                     Op::Set { local, value, at } => {
@@ -631,7 +693,7 @@ impl Run<'_> {
                             (Some(Const::Dec(_, s)), Const::Int(n)) if decl[*local].is_none() => to_dec(n, *s, value.at())?,
                             (_, v) => v,
                         };
-                        known[*local] = Some(fit_into(v, decl[*local].as_ref(), &m.types, *at)?);
+                        known[*local] = Some(fit_into(v, decl[*local].as_ref(), m.defs(), *at)?);
                     }
                     Op::SetAt { local, path, value, at } => {
                         let v = self.ev(value, &mut known)?;
@@ -643,14 +705,14 @@ impl Run<'_> {
                             });
                         }
                         let mut whole = known[*local].take().expect("juez: the local has a value");
-                        set_in(&mut whole, &steps, v, &m.types, *at)?;
-                        known[*local] = Some(fit_into(whole, decl[*local].as_ref(), &m.types, *at)?);
+                        set_in(&mut whole, &steps, v, m.defs(), *at)?;
+                        known[*local] = Some(fit_into(whole, decl[*local].as_ref(), m.defs(), *at)?);
                     }
                     Op::Write { parts, at } => {
                         let mut out = Vec::with_capacity(parts.len());
                         for p in parts {
                             let c = self.ev(p, &mut known)?;
-                            out.push(Value::Text(c.show(&m.types), p.at()));
+                            out.push(Value::Text(c.show(m.defs()), p.at()));
                         }
                         self.flat.push(Op::Write { parts: out, at: *at });
                     }
@@ -666,7 +728,7 @@ impl Run<'_> {
                     break match v {
                         Some(v) => {
                             let c = self.ev(v, &mut known)?;
-                            Some(fit_into(c, f.ret.as_ref(), &m.types, v.at())?)
+                            Some(fit_into(c, f.ret.as_ref(), m.defs(), v.at())?)
                         }
                         None => None,
                     }
@@ -707,7 +769,7 @@ impl Run<'_> {
 
     /// A value, calculated -- running the calls inside it.
     fn ev(&mut self, v: &Value, known: &mut Vec<Option<Const>>) -> Result<Const, Message> {
-        let types = &self.m.types;
+        let types = self.m.defs();
         Ok(match v {
             Value::Int(n, _) => Const::Int(*n),
             Value::Text(t, _) => Const::Text(t.clone()),
@@ -755,6 +817,22 @@ impl Run<'_> {
                 }
                 Const::Record(*t, vals)
             }
+            Value::Variant(e, v, items, at) => {
+                let mut vals = Vec::with_capacity(items.len());
+                for (ty, i) in types.enums[*e].cases[*v].fields.iter().zip(items) {
+                    let c = self.ev(i, known)?;
+                    vals.push(fit_into(c, Some(ty), types, *at)?);
+                }
+                Const::Variant(*e, *v, vals)
+            }
+            Value::Is(inner, e, v, _) => match self.ev(inner, known)? {
+                Const::Variant(k, w, _) => Const::Bool(k == *e && w == *v),
+                _ => unreachable!("classes: a match reads a value of its enum"),
+            },
+            Value::Payload(inner, _, _, k, _) => match self.ev(inner, known)? {
+                Const::Variant(_, _, mut items) => items.swap_remove(*k),
+                _ => unreachable!("classes: a match reads a value of its enum"),
+            },
             Value::Len(inner, _) => match self.ev(inner, known)? {
                 Const::Table(items) => Const::Int(items.len() as i64),
                 _ => unreachable!("classes: only a table has cells"),
@@ -793,7 +871,7 @@ impl Run<'_> {
 /// COBOL's SIZE ERROR, but never ignored: COBOL cuts it in silence unless the
 /// author wrote ON SIZE ERROR; TITAN++ does not compile. Tables and records
 /// go cell by cell, field by field.
-fn fit_into(c: Const, ty: Option<&Ty>, types: &[TypeDef], at: At) -> Result<Const, Message> {
+fn fit_into(c: Const, ty: Option<&Ty>, types: Defs, at: At) -> Result<Const, Message> {
     match (c, ty) {
         (Const::Int(n), Some(Ty::Dec)) => Ok(Const::Dec(n, 0)),
         (c @ (Const::Int(_) | Const::Dec(..)), Some(Ty::DecP(p, s))) => {
@@ -832,6 +910,10 @@ fn fit_into(c: Const, ty: Option<&Ty>, types: &[TypeDef], at: At) -> Result<Cons
             let fields = &types[t].fields;
             items.into_iter().zip(fields).map(|(i, f)| fit_into(i, Some(&f.ty), types, at)).collect::<Result<Vec<_>, _>>().map(|v| Const::Record(t, v))
         }
+        (Const::Variant(e, v, items), _) => {
+            let fields = &types.enums[e].cases[v].fields;
+            items.into_iter().zip(fields).map(|(i, f)| fit_into(i, Some(f), types, at)).collect::<Result<Vec<_>, _>>().map(|x| Const::Variant(e, v, x))
+        }
         (c, _) => Ok(c),
     }
 }
@@ -841,14 +923,14 @@ fn fit_into(c: Const, ty: Option<&Ty>, types: &[TypeDef], at: At) -> Result<Cons
 fn round_to(c: Const, n: u32, at: At) -> Result<Const, Message> {
     let (d, s) = parts(&c);
     if s <= n {
-        return dec_result(d * pow10(n - s), n, at, &c.show(&[]));
+        return dec_result(d * pow10(n - s), n, at, &c.show(NONE));
     }
     let q = pow10(s - n);
     let (mut r, rem) = (d / q, d % q);
     if rem.abs() * 2 >= q {
         r += d.signum();
     }
-    dec_result(r, n, at, &c.show(&[]))
+    dec_result(r, n, at, &c.show(NONE))
 }
 
 /// The cell `idx` of `table`, or T0072.
@@ -873,7 +955,7 @@ fn outside(i: i64, len: usize, at: At) -> Message {
 
 /// `whole` with the part at `steps` changed to `v`. A step is a cell (the
 /// index, already calculated) or a field (by name).
-fn set_in(whole: &mut Const, steps: &[Result<&str, (Const, At)>], v: Const, types: &[TypeDef], at: At) -> Result<(), Message> {
+fn set_in(whole: &mut Const, steps: &[Result<&str, (Const, At)>], v: Const, types: Defs, at: At) -> Result<(), Message> {
     let Some((first, rest)) = steps.split_first() else {
         let v = match (&*whole, v) {
             (Const::Dec(_, s), Const::Int(n)) => to_dec(n, *s, at)?,
@@ -956,7 +1038,7 @@ fn dec_result(d: i128, s: u32, at: At, what: &str) -> Result<Const, Message> {
 
 /// The four operations with at least one `dec`: exact, or a NO.
 fn decimal(op: &str, a: Const, b: Const, at: At, lenient: bool) -> Result<Const, Message> {
-    let what = format!("{} {} {}", a.show(&[]), op, b.show(&[]));
+    let what = format!("{} {} {}", a.show(NONE), op, b.show(NONE));
     let ((da, sa), (db, sb)) = (parts(&a), parts(&b));
     match op {
         "+" | "-" => {
@@ -1046,6 +1128,8 @@ fn same(a: &Const, b: &Const) -> bool {
             x == y
         }
         (Const::Table(x), Const::Table(y)) | (Const::Record(_, x), Const::Record(_, y)) => x.len() == y.len() && x.iter().zip(y).all(|(p, q)| same(p, q)),
+        // The same case, carrying the same values: Circulo(2.0) == Circulo(2.00).
+        (Const::Variant(e, v, x), Const::Variant(f, w, y)) => e == f && v == w && x.iter().zip(y).all(|(p, q)| same(p, q)),
         _ => a == b,
     }
 }
@@ -1056,14 +1140,14 @@ fn constant(c: &Const, at: At) -> Value {
         Const::Text(t) => Value::Text(t.clone(), at),
         Const::Bool(b) => Value::Bool(*b, at),
         Const::Dec(d, s) => Value::Dec(*d, *s, at),
-        other => Value::Text(other.show(&[]), at),
+        other => Value::Text(other.show(NONE), at),
     }
 }
 
 /// A kind that the first pass should have stopped: said, never invented.
 fn unclassed(at: At, a: &Const) -> Message {
     let _ = constant;
-    Message::new(Code::Mixed, at.0, at.1, &format!("aqui no cabe {}", a.show(&[])), "el calculo encontro una clase que la primera pasada no vio", "esto es un fallo del compilador: avisa con este programa")
+    Message::new(Code::Mixed, at.0, at.1, &format!("aqui no cabe {}", a.show(NONE)), "el calculo encontro una clase que la primera pasada no vio", "esto es un fallo del compilador: avisa con este programa")
 }
 
 fn overflow(at: At, what: &str) -> Message {
@@ -1255,6 +1339,33 @@ mod tests {
         assert_eq!(printed("mod main \"x\"\nfn main()\n    let p: dec(7, 2) = round(1.255, 2)\n    print(p, \" \", round(10.00 / 3, 2), \" \", round(-2.345, 2), \" \", round(7 / 2, 0))\n"), ["1.26 3.33 -2.35 4"]);
         // A `mut` dec(7, 2) keeps its type at every change.
         assert_eq!(run("mod main \"x\"\nfn main()\n    let mut saldo: dec(5, 2) = 900.00\n    saldo = saldo * 200\n    print(saldo)\n").unwrap_err().code, Code::Size);
+    }
+
+    /// Level 8: a case carries its data, `match` takes it out, and every
+    /// rule of the cases has its NO.
+    #[test]
+    fn enums_carry_their_data_and_match_covers_every_case() {
+        const FORMA: &str = "mod main \"x\"\nenum Forma\n    Circulo(dec)\n    Rect(dec, dec)\n    Nada\n";
+        let src = format!("{}fn area(f: Forma) -> dec\n    match f\n        Circulo(r)\n            return 3 * r * r\n        Rect(a, b)\n            return a * b\n        Nada\n            return 0\nfn main()\n    for f in [Circulo(1.5), Rect(2, 2.5), Nada]\n        print(f, \" \", area(f))\n    print(Circulo(2.0) == Circulo(2), \" \", Nada == Circulo(1.0))\n", FORMA);
+        assert_eq!(printed(&src), ["Circulo(1.5) 6.75", "Rect(2, 2.5) 5.0", "Nada 0", "true false"]);
+        let code = |body: &str| crate::lower(&format!("{}{}", FORMA, body)).unwrap_err().code;
+        // A case left out, and a case that is not one.
+        assert_eq!(code("fn main()\n    let f = Nada\n    match f\n        Circulo(r)\n            print(r)\n        Nada\n            print(0)\n"), Code::Missing);
+        assert_eq!(code("fn main()\n    let f = Nada\n    match f\n        Cuadrado\n            print(0)\n"), Code::Case);
+        // Twice, or with the wrong number of names.
+        assert_eq!(code("fn main()\n    let f = Nada\n    match f\n        Nada\n            print(0)\n        Nada\n            print(1)\n"), Code::Case);
+        assert_eq!(code("fn main()\n    let f = Nada\n    match f\n        Circulo\n            print(0)\n        Rect(a, b)\n            print(a)\n        Nada\n            print(1)\n"), Code::Case);
+        // A case with data, bare; a case alone on its line; a value named like a case.
+        assert_eq!(code("fn main()\n    let f = Circulo\n    print(f)\n"), Code::Args);
+        assert_eq!(code("fn main()\n    Circulo(1.0)\n"), Code::Result);
+        assert_eq!(code("fn main()\n    let Nada = 1\n    print(Nada)\n"), Code::Taken);
+        // The data of a case, and the value of a match, of their class.
+        assert_eq!(code("fn main()\n    print(Circulo(\"dos\"))\n"), Code::WrongType);
+        assert_eq!(code("fn main()\n    match 3\n        Circulo(r)\n            print(r)\n        Rect(a, b)\n            print(a)\n        Nada\n            print(0)\n"), Code::WrongType);
+        // What an arm names lives in its arm.
+        assert_eq!(code("fn main()\n    let f = Circulo(1.0)\n    match f\n        Circulo(r)\n            print(r)\n        Rect(a, b)\n            print(a)\n        Nada\n            print(0)\n    print(r)\n"), Code::Gone);
+        // An enum that holds itself would never end.
+        assert_eq!(crate::lower("mod main \"x\"\nenum Lista\n    Vacia\n    Uno(int, Lista)\nfn main()\n    print(1)\n").unwrap_err().code, Code::Case);
     }
 
     #[test]

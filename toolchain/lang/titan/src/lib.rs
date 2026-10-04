@@ -90,13 +90,13 @@ mod tests {
 
     #[test]
     fn a_word_of_a_higher_level_says_which_level() {
-        let e = compile("mod main \"x\"\nfn main()\n    match x\n").unwrap_err();
+        let e = compile("mod main \"x\"\nfn main()\n    trait Dibuja\n").unwrap_err();
         assert_eq!(e.code, Code::NotYet);
-        assert_eq!(e.what, "`match` llega en el nivel 8 (casos con datos)");
+        assert_eq!(e.what, "`trait` llega en el nivel 10 (comportamientos)");
         let e = compile("mod main \"x\"\nfn f(x: f32)\n    print(1)\nfn main()\n    f(1)\n").unwrap_err();
         assert_eq!(e.what, "el tipo `f32` llega en el nivel 11 (la 3060)");
-        let e = compile("mod main \"x\"\nfn main()\n    enum Estado\n").unwrap_err();
-        assert_eq!(e.what, "`enum` llega en el nivel 8 (casos con datos)");
+        let e = compile("mod main \"x\"\nfn main()\n    use nave\n").unwrap_err();
+        assert_eq!(e.what, "`use` llega en el nivel 9 (varios ficheros)");
     }
 
     #[test]

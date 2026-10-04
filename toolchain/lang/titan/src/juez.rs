@@ -215,12 +215,12 @@ fn given_away(f: &Function, l: usize, at: At, given: At) -> Message {
 fn lends(v: &Value, out: &mut Vec<(Mode, usize, At)>) {
     match v {
         Value::Lend(m, l, at) => out.push((*m, *l, *at)),
-        Value::Call(_, args, _) | Value::Table(args, _) | Value::Record(_, args, _) => args.iter().for_each(|a| lends(a, out)),
+        Value::Call(_, args, _) | Value::Table(args, _) | Value::Record(_, args, _) | Value::Variant(_, _, args, _) => args.iter().for_each(|a| lends(a, out)),
         Value::Bin(_, a, b, _) | Value::Index(a, b, _) => {
             lends(a, out);
             lends(b, out);
         }
-        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) => lends(a, out),
+        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) => lends(a, out),
         Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::Local(..) => {}
     }
 }
@@ -264,12 +264,12 @@ fn calls_args<'v>(v: &'v Value, out: &mut Vec<&'v [Value]>) {
             out.push(args);
             args.iter().for_each(|a| calls_args(a, out));
         }
-        Value::Table(items, _) | Value::Record(_, items, _) => items.iter().for_each(|a| calls_args(a, out)),
+        Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => items.iter().for_each(|a| calls_args(a, out)),
         Value::Bin(_, a, b, _) | Value::Index(a, b, _) => {
             calls_args(a, out);
             calls_args(b, out);
         }
-        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) => calls_args(a, out),
+        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) => calls_args(a, out),
         _ => {}
     }
 }

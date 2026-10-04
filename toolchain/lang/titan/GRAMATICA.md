@@ -62,10 +62,10 @@ fn main()
 
 Una de las 25 palabras de un nivel que aun no existe no es un error de
 sintaxis cualquiera: es **T0040**, y dice en que nivel llega (el ejemplo ya es
-del frontend de hoy, que va por el nivel 7):
+del frontend de hoy, que va por el nivel 8):
 
 ```text
-   match estado     T0040  `match` llega en el nivel 8 (casos con datos)
+   use nave         T0040  `use` llega en el nivel 9 (varios ficheros)
    fn f(x: f32)     T0040  el tipo `f32` llega en el nivel 11 (la 3060)
 ```
 
@@ -481,6 +481,74 @@ no compila**. Si hay que redondear, `round` lo dice a la vista.
 
 ---
 
+## Nivel 8 -- casos con datos (20 palabras: + `enum match`) -- 04-10
+
+```text
+# formas.titan
+enum Forma
+    Circulo(dec)            # un caso que LLEVA un valor
+    Rect(dec, dec)          # ... o dos
+    Nada                    # ... o ninguno
+
+fn area(f: Forma) -> dec
+    match f
+        Circulo(r)          # r es el dec que lleva el Circulo
+            return 3.14 * r * r
+        Rect(ancho, alto)
+            return ancho * alto
+        Nada
+            return 0
+
+fn main()
+    for f in [Circulo(2.0), Rect(3.5, 2), Nada]
+        print(f, " mide ", area(f))      # Circulo(2.0) mide 12.56
+```
+
+### Lo que se escribe
+
+```text
+   enum NOMBRE          y debajo, sangrados, sus casos: uno por linea
+     Caso               un caso sin datos
+     Caso(T, T...)      un caso que lleva valores, de esos tipos
+   Caso(v, ...)         CONSTRUYE un valor del enum (sin `Forma::` delante:
+   Caso                 el nombre de un caso es unico en todo el fichero)
+   match VALOR          y debajo, una rama por caso, cada una con su bloque
+     Caso(a, b)         la rama nombra los valores que el caso lleva; esos
+                        nombres viven en su bloque y mueren al cerrarse
+   a == b               dos valores de un enum son iguales si son el mismo
+                        caso con los mismos valores
+```
+
+**Un `match` cubre TODOS los casos, y no hay `_`.** El dia que alguien agrega
+`Triangulo` a `Forma`, cada `match` que no dice que hacer con el deja de
+compilar y dice DONDE (T0078). El `switch` de C deja caer el caso nuevo en
+silencio; un comodin `_` haria lo mismo, por eso TITAN++ no lo tiene (T0079).
+
+**Sin null y sin excepciones**: lo que puede salir mal es un CASO
+(`Hecho(dec)` / `Falta(dec)`), y el `match` obliga a mirarlo antes de usar el
+valor. Un caso lleva valores, no punteros: un enum que se contiene a si mismo
+no termina nunca (T0079).
+
+### Las reglas, y quien las dice
+
+```text
+   LOS NOMBRES
+     un caso que no existe, de otro enum, dos veces en    T0079
+     el mismo `match`, con mas o menos nombres que
+     valores lleva, o un `_`
+     un `match` al que le falta un caso                    T0078
+     un caso con datos escrito sin ellos (`Circulo`)       T0068
+     un caso solo en su linea: construye y nadie guarda    T0069
+     un valor llamado como un caso (`let Nada = 1`)        T0055
+   EL JUEZ
+     un nombre de una rama leido fuera de ella             T0058
+   EL CALCULO
+     un `match` sobre un valor que no es de su enum, o     T0071
+     un caso con un valor de otra clase
+```
+
+---
+
 ## Los codigos
 
 | codigo | que |
@@ -521,6 +589,8 @@ no compila**. Si hay que redondear, `round` lo dice a la vista.
 | T0075 | se lee lo que se entrego con `take` (el juez) |
 | T0076 | el mismo valor prestado dos veces, o prestado y leido, en una llamada (el juez: la regla de FORTRAN) |
 | T0077 | `mut` / `take` en la llamada que no cuadran con el parametro, o fuera de una llamada (los nombres) |
+| T0078 | un `match` que no cubre todos los casos de su enum (los nombres) |
+| T0079 | una rama de `match` que no vale: un caso que no existe, de otro enum, repetido, con mas o menos nombres, o un `_`; o un enum que se contiene a si mismo (los nombres) |
 
 ## El banco: lo que dice cada ejemplo de si mismo
 
