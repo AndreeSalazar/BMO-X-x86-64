@@ -60,12 +60,19 @@ pub fn sobre(fondo: Color, c: Color, alfa: u8) -> Color {
 }
 
 /// Raiz cuadrada entera, por abajo.
+///
+/// ** Newton empieza en `2^ceil(bits/2)`, que ya es >= la raiz: 3 a 5
+/// vueltas. Empezaba en `n` -- unas 30 vueltas por pixel --, y era el 90 % de
+/// lo que costaba un borde redondo (medido 04-10: 1,4 ms un anillo de
+/// 300 x 140). Desde cualquier inicio >= la raiz, Newton baja hasta el MISMO
+/// suelo: el resultado no cambia, solo cuanto cuesta llegar.
 fn raiz(n: u64) -> u64 {
     if n < 2 {
         return n;
     }
-    let mut x = n;
-    let mut y = (x + 1) / 2;
+    let bits = 64 - n.leading_zeros();
+    let mut x = 1u64 << bits.div_ceil(2);
+    let mut y = (x + n / x) / 2;
     while y < x {
         x = y;
         y = (x + n / x) / 2;
@@ -81,7 +88,12 @@ fn al_borde(px: i32, py: i32, x: i32, y: i32, w: i32, h: i32, r: i32) -> i32 {
     let qx = ((2 * px + 1 - cx2).abs() * 8) - (w - 2 * r) * 8;
     let qy = ((2 * py + 1 - cy2).abs() * 8) - (h - 2 * r) * 8;
     let (mx, my) = (qx.max(0) as i64, qy.max(0) as i64);
-    let fuera = raiz((mx * mx + my * my) as u64) as i32;
+    // En un tramo RECTO una de las dos es cero, y la distancia es la otra:
+    // sin raiz. Solo las esquinas la necesitan.
+    let fuera = match (mx, my) {
+        (0, m) | (m, 0) => m as i32,
+        _ => raiz((mx * mx + my * my) as u64) as i32,
+    };
     fuera + qx.max(qy).min(0) - r * 16
 }
 
@@ -133,15 +145,34 @@ pub fn borde(l: &mut impl Lienzo, x: i32, y: i32, w: i32, h: i32, r: i32, grosor
     for py in y..y + h {
         // En las filas de en medio solo hay borde en los laterales.
         let medio = py >= y + banda && py < y + h - banda;
+        let tinta_en = |px: i32| {
+            let fuera = tinta(al_borde(px, py, x, y, w, h, r));
+            let dentro = if wi > 0 && hi > 0 { tinta(al_borde(px, py, xi, yi, wi, hi, ri)) } else { 0 };
+            fuera.saturating_sub(dentro)
+        };
         let mut px = x;
         while px < x + w {
-            if medio && px == x + banda {
+            if px == x + banda && x + banda < x + w - banda {
+                if !medio {
+                    // ** El TRAMO RECTO de arriba o de abajo: entre las dos
+                    // curvas las dos distancias solo dependen de la fila
+                    // (`[x + banda, x + w - banda)` es recto por fuera Y por
+                    // dentro), asi que la tinta se calcula UNA vez y la fila
+                    // va de un tiron. Los mismos pixeles que uno a uno.
+                    let n = w - 2 * banda;
+                    let a = tinta_en(px);
+                    if a >= 255 {
+                        l.rect(px, py, n, 1, c);
+                    } else if a > 0 {
+                        for k in 0..n {
+                            l.mezclar(px + k, py, c, a as u8);
+                        }
+                    }
+                }
                 px = x + w - banda;
                 continue;
             }
-            let fuera = tinta(al_borde(px, py, x, y, w, h, r));
-            let dentro = if wi > 0 && hi > 0 { tinta(al_borde(px, py, xi, yi, wi, hi, ri)) } else { 0 };
-            let a = fuera.saturating_sub(dentro);
+            let a = tinta_en(px);
             if a >= 255 {
                 l.rect(px, py, 1, 1, c);
             } else if a > 0 {
@@ -161,7 +192,25 @@ pub fn resplandor(l: &mut impl Lienzo, x: i32, y: i32, w: i32, h: i32, r: i32, a
     let c = argb & 0x00FF_FFFF;
     let r = r.clamp(0, w.min(h) / 2);
     for py in y - n..y + h + n {
-        for px in x - n..x + w + n {
+        // Lo de DENTRO de la caja no brilla (la caja lo tapa): se salta sin
+        // medir distancias. En las filas de en medio, la caja entera; en las
+        // de sus curvas, lo que hay entre ellas.
+        let (salta0, salta1) = if py >= y + r && py < y + h - r {
+            (x, x + w)
+        } else if py >= y && py < y + h {
+            (x + r, x + w - r)
+        } else {
+            (0, 0)
+        };
+        let mut px = x - n;
+        while px < x + w + n {
+            if px == salta0 && salta0 < salta1 {
+                px = salta1;
+                continue;
+            }
+            let aqui = px;
+            px += 1;
+            let px = aqui;
             let d = al_borde(px, py, x, y, w, h, r);
             if d <= 0 {
                 continue;

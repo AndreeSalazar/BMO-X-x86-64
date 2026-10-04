@@ -127,3 +127,21 @@ fn la_letra_cae_en_su_caja_como_en_el_navegador() {
     let filas: Vec<i32> = (0..30).filter(|&y| (0..80).any(|x| im.en(x, y) != 0)).collect();
     assert_eq!(*filas.last().unwrap(), 2 + 15 - 1, "la ultima fila con tinta es la de encima de la base");
 }
+
+/// La raiz rapida da EXACTAMENTE el suelo de la raiz: cada numero hasta dos
+/// millones, los cuadrados y sus vecinos hasta 2^40, y los bordes de u64.
+#[test]
+fn la_raiz_rapida_es_la_raiz_exacta() {
+    let bien = |n: u64, r: u64| r * r <= n && (r + 1).checked_mul(r + 1).map_or(true, |q| q > n);
+    for n in 0..2_000_000u64 {
+        assert!(bien(n, super::raiz(n)), "{n}");
+    }
+    for k in 1..(1u64 << 20) {
+        for n in [k * k - 1, k * k, k * k + 1] {
+            assert!(bien(n, super::raiz(n)), "{n}");
+        }
+    }
+    for n in [u64::MAX, u64::MAX - 1, 1 << 63, (1 << 62) + 7] {
+        assert!(bien(n, super::raiz(n)), "{n}");
+    }
+}
