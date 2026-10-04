@@ -893,6 +893,44 @@ montado):
 | Supr, Supr sobre `roca.titan` | la primera pide confirmar (parpadea en rojo), la segunda lo quita; `vuelve 2` en F12 lo trae | se quita a la primera |
 | clic derecho en una fila | el menu de cuatro entradas; Esc lo cierra sin cerrar F1 | Esc cierra F1: el menu no se quedo la tecla |
 
+### 8.11 L6: la solapa ESPACIO -- cada nodo, un astro (04-10)
+
+El propietario: *"un tab simple pero que muestren todos los nodos dinamicos,
+unicos y divertidos, que son representantes del espacio, como el centauro del
+espacio"*. Arriba del lienzo, dos solapas: **GRAFO** (lo de siempre) y
+**ESPACIO** (`space.rs`); `[t]` cambia de una a otra.
+
+```text
+   el paquete (Titan.toml)   EL CENTAURO, una constelacion: las cuatro patas son
+                             BMO-X; el torso y el arco, TITAN++ (TITAN_MAESTRO
+                             6b.6, dibujado)
+   un modulo                 un PLANETA propio: color, anillo, medida y giro
+                             salen de su NOMBRE (FNV-1a): dos nunca iguales, y
+                             cada uno siempre el mismo. Sus lunas: lo que usa
+   la 3060                   un PULSAR, dos haces que giran
+   el DIRECTOR               una ESTACION, con sus paneles y su luz
+   una dependencia           un ASTEROIDE
+   un modulo en fallo        una SUPERNOVA roja que respira
+   un cable                  una ruta de luz, y la cometa que baja por ella
+```
+
+- **No decide nada**: los astros estan donde el `[layout]` pone los nodos, asi
+  que un clic, arrastrar y el EXPLORER funcionan igual en las dos solapas.
+- **Solo se mueve si lo miras y lo tocas** (el reloj de las cometas, 20 s
+  despues del ultimo toque): en reposo, el cielo se queda quieto y F1 duerme.
+- **Sin coma flotante**: `core` no tiene `sin`; un cuarto de onda vive en una
+  tabla de 17 numeros. El halo es REDONDO y propio (`halo`): el `glow` del
+  lienzo es cuadrado, hecho para las cajas del grafo -- lo cazo la CAMARA
+  (`cara-taller` saca ahora `espacio.png` y `grafo.png`).
+- **La pila**: `taller` sigue cabiendo (`pila.py --ring3`).
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1, `t` | el CENTAURO arriba, un planeta por modulo, el pulsar y la estacion; abajo, la leyenda | la solapa no cambia: la `t` no llega |
+| mover el raton | las lunas giran, las estrellas titilan, las cometas bajan | todo quieto: el latido de 33 ms no llega |
+| 20 s sin tocar | el cielo se queda quieto | sigue moviendose: F1 no descansa |
+| clic en un planeta | su fichero se enciende en el EXPLORER | no pasa nada: el clic no cae en su caja |
+
 ---
 
 Ver [`PLAN_AUTOHOSPEDAJE.md`](en_pausa/PLAN_AUTOHOSPEDAJE.md) (el mismo trabajo desde el

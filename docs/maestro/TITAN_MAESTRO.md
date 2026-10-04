@@ -1168,6 +1168,8 @@ problema dicho). El resto espera al compilador.
                  (L1-L4; el comprobador es el del ejemplo hasta T4)
                  y el EXPLORER que organiza el disco: nuevo, renombrar,
                  quitar, mover, plegar, el orden propio (L5, 04-10)   EXISTE
+                 y la solapa ESPACIO: el centauro, un planeta por
+                 modulo, el pulsar de la 3060 (L6, 04-10)             EXISTE
    CABINA        el NO del kernel, para quien mira la maquina entera  EXISTE
    el puente     el NO del kernel llevado a su nodo en F1             J3-J4
    `titan`       new / check / build / run / test (4.1)               FALTA

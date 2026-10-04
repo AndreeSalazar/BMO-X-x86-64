@@ -44,6 +44,7 @@ mod canvas;
 mod explorer;
 mod faults;
 mod player;
+mod space;
 mod store;
 mod view;
 mod window;
@@ -53,6 +54,7 @@ use bmo_userland as bmo;
 use canvas::Canvas;
 use explorer::{Click, Drop, Edit, EditKind, Entry, Menu, Ui, Zone};
 use player::Player;
+use space::Tab;
 use store::{Origin, Store};
 use view::{Camera, Scene, LEVELS, NODE_H, NODE_W};
 use window::{Input, Window};
@@ -283,6 +285,8 @@ pub extern "C" fn _start() -> ! {
     let mut cam = fit(&store.loaded.graph);
     let mut drag = Drag::None;
     let mut ui = Ui::new();
+    // GRAFO or ESPACIO: the same nodes, two ways of seeing them (`space.rs`).
+    let mut tab = Tab::Graph;
     // The last click on a disk row: (when, which), for the double click.
     let mut last_click: (u32, Option<usize>) = (0, None);
     let clock = Clock { hz: bmo::info(bmo::INFO_TSC_HZ) };
@@ -417,6 +421,11 @@ pub extern "C" fn _start() -> ! {
                         dirty = true;
                         continue;
                     }
+                    if let Some(t) = space::tab_at(x, y) {
+                        tab = t;
+                        dirty = true;
+                        continue;
+                    }
                     let g = &store.loaded.graph;
                     drag = match view::hit(g, &cam, x, y) {
                         Some(id) => {
@@ -485,6 +494,10 @@ pub extern "C" fn _start() -> ! {
                         b'\r' | b'\n' if folder => store.toggle(i),
                         _ => {}
                     }
+                    dirty = true;
+                }
+                Input::Char(b't' | b'T') => {
+                    tab = if tab == Tab::Graph { Tab::Space } else { Tab::Graph };
                     dirty = true;
                 }
                 Input::Char(b'e' | b'E') => {
@@ -564,7 +577,11 @@ pub extern "C" fn _start() -> ! {
             };
             let covered = splash && veil == Some(1000);
             if !covered {
-                view::draw(&mut canvas, &scene);
+                match tab {
+                    Tab::Graph => view::draw(&mut canvas, &scene),
+                    Tab::Space => space::draw(&mut canvas, &scene),
+                }
+                space::tabs(&mut canvas, tab);
                 explorer::draw(&mut canvas, &store, &ui, shown.selected, now);
                 match drag {
                     Drag::File(id, x0, y0) if ptr.inside && dragged(x0, y0, ptr.x, ptr.y) => {

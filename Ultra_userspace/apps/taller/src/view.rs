@@ -557,6 +557,12 @@ fn overlay(c: &mut Canvas, g: &Graph, s: &Script, p: &Player, cam: &Camera, now_
     }
 }
 
+/// The title bar alone: the SPACE tab (`space.rs`) wears the same one.
+pub(crate) fn title(c: &mut Canvas, sc: &Scene) {
+    let none = Script::new();
+    title_bar(c, sc.script.unwrap_or(&none), sc.player, sc.script.is_some(), sc.origin);
+}
+
 fn title_bar(c: &mut Canvas, s: &Script, p: &Player, has_script: bool, origin: &[u8]) {
     let w = c.w;
     c.gradient(0, 0, w, TOP, 0x0005_0716, 0x000C_0A24);
@@ -681,7 +687,7 @@ fn help(c: &mut Canvas, x: i32, top: i32) {
     c.text(
         x,
         top + PANEL - 22,
-        b"[espacio] pausa [n] paso [r] repite [+-] zoom [0] encuadra [e] error  arrastra: mueve  fichero sobre otro: cuelga  [Esc] sale",
+        b"[espacio] pausa [n] paso [r] repite [+-] zoom [0] encuadra [e] error [t] ESPACIO  fichero sobre un nodo: cuelga  [Esc] sale",
         DIM,
         1,
     );

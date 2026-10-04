@@ -5,7 +5,8 @@
 //! en el repositorio: lo que se ve aqui es lo que pinta el Ryzen.
 //!
 //! `cara-taller <carpeta>` deja `arbol.png`, `escribiendo.png`, `menu.png` y
-//! `arrastre.png`, del ancho de la columna.
+//! `arrastre.png`, del ancho de la columna, y `espacio.png` y `grafo.png`, la
+//! ventana entera con cada solapa.
 
 #[path = "../../../../../Ultra_userspace/apps/taller/src/canvas.rs"]
 #[allow(dead_code)]
@@ -22,6 +23,9 @@ mod faults;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/explorer.rs"]
 #[allow(dead_code)]
 mod explorer;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/space.rs"]
+#[allow(dead_code)]
+mod space;
 
 /// Lo que `explorer.rs` lee de la tienda (la de verdad, `store.rs`, habla con
 /// el kernel): los mismos campos y los mismos dos metodos.
@@ -184,5 +188,33 @@ fn main() {
     let s = ship.unwrap();
     let y = (0..h as i32).find(|&y| explorer::drop_at(&store, &ui, &cam, s, 120, y) == Some(explorer::Drop::Before(main))).unwrap_or(0);
     pinta(&store, &ui, Some((s, 120, y)), "arrastre");
-    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png");
+    // La ventana entera, con cada solapa: el mismo grafo, dos miradas.
+    let cam = view::Camera::fit(&store.loaded.graph, w as i32, h as i32);
+    let player = player::Player::new();
+    let marks = faults::collect(&store.loaded, None);
+    let ship_node = store.loaded.graph.find(b"ship");
+    for (tab, nombre) in [(space::Tab::Space, "espacio"), (space::Tab::Graph, "grafo")] {
+        let scene = view::Scene {
+            graph: &store.loaded.graph,
+            script: None,
+            player: &player,
+            cam: &cam,
+            now_ms: 5000,
+            selected: ship_node,
+            origin: b"asteroids",
+            sky: None,
+            flow_ms: Some(5000),
+            faults: &marks,
+        };
+        let mut px = vec![0u32; w * h];
+        let mut cv = canvas::Canvas::new(px.as_mut_ptr(), w as u32, h as u32);
+        match tab {
+            space::Tab::Space => space::draw(&mut cv, &scene),
+            space::Tab::Graph => view::draw(&mut cv, &scene),
+        }
+        space::tabs(&mut cv, tab);
+        explorer::draw(&mut cv, &store, &ui, ship_node, 0);
+        guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
+    }
+    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png espacio.png grafo.png");
 }
