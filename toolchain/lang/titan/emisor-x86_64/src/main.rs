@@ -5,6 +5,9 @@
 //!    titan arbol FICHERO.titan              el arbol que entendio el frontend
 //!    titan ir    FICHERO.titan              lo que recibe el emisor
 //!    titan build FICHERO.titan [-o X.bex]   el .bex, que ya paso el gate
+//!    titan juez  X.bex [--concede a,b]      EL JUEZ DEL KERNEL, en el PC: lee
+//!                                           el certificado del .bex y lo
+//!                                           compara con lo pedido y lo dado
 //! ```
 //!
 //! ** Vive en el crate del EMISOR desde T3 (2026-10-04) por el mismo motivo
@@ -22,7 +25,7 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-const USE: &str = "uso: titan check|arbol|ir FICHERO.titan\n     titan build FICHERO.titan [-o SALIDA.bex]";
+const USE: &str = "uso: titan check|arbol|ir FICHERO.titan\n     titan build FICHERO.titan [-o SALIDA.bex]\n     titan juez X.bex [--concede screen,input,...]";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -30,6 +33,9 @@ fn main() -> ExitCode {
         eprintln!("{}", USE);
         return ExitCode::from(2);
     };
+    if order == "juez" {
+        return kernel_judge(file, &args[2..]);
+    }
     let out = match args.get(2).map(String::as_str) {
         None => None,
         Some("-o") if order == "build" => match args.get(3) {
@@ -88,6 +94,78 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         other => fail(&format!("no conozco `{}` (check, arbol, ir, build)", other)),
+    }
+}
+
+/// **What the kernel's load gate will do (J2), done on the PC**: the
+/// certificate of the `.bex`, against the `[permissions]` it asked for and
+/// what the process would be granted (`--concede`). It never grants: it says
+/// whether the three agree, and if not, WHICH door and WHICH line.
+fn kernel_judge(file: &str, rest: &[String]) -> ExitCode {
+    use bmo_titan_contrato::certificate::{judge, Certificate, Verdict};
+    use bmo_titan_contrato::{Permission, Permissions};
+    let bytes = match std::fs::read(file) {
+        Ok(b) => b,
+        Err(e) => return fail(&format!("no pude leer {}: {}", file, e)),
+    };
+    if !bmo_verify::verify(&bytes).is_ok() {
+        return fail(&format!("{} no pasa el gate: no es un .bex", file));
+    }
+    let Some(text) = bmo_verify::declaracion::manifiesto(&bytes) else {
+        println!("{}: no trae manifiesto -- no es de TITAN++; el kernel lo juzga solo por sus capabilities, como a todos", file);
+        return ExitCode::SUCCESS;
+    };
+    let cert = match Certificate::read(text) {
+        Ok(c) => c,
+        Err(e) => {
+            println!("{}: el certificado no se lee ({:?}): no nombra nada, y el kernel juzga igual", file, e);
+            return ExitCode::from(1);
+        }
+    };
+    // What it asked for: the [permissions] of its own manifest.
+    let mut asked = Permissions::NONE;
+    let mut inside = false;
+    for line in String::from_utf8_lossy(text).lines() {
+        let l = line.trim();
+        if l.starts_with('[') {
+            inside = l == "[permissions]";
+        } else if inside && !l.starts_with('#') {
+            if let Some((k, v)) = l.split_once('=') {
+                if let Some(p) = Permission::ALL.into_iter().find(|p| p.key() == k.trim()) {
+                    if v.trim() != "false" {
+                        asked = asked.with(p);
+                    }
+                }
+            }
+        }
+    }
+    let mut granted = Permissions::NONE;
+    if let [flag, list] = rest {
+        if flag == "--concede" {
+            for k in list.split(',') {
+                match Permission::ALL.into_iter().find(|p| p.key() == k.trim()) {
+                    Some(p) => granted = granted.with(p),
+                    None => return fail(&format!("`{}` no es un permiso (screen, input, sound, gpu, disk, net)", k)),
+                }
+            }
+        }
+    }
+    for u in cert.uses() {
+        println!("  usa {:<8} desde la linea {}", u.door.key(), u.line);
+    }
+    match judge(&cert, asked, granted) {
+        Verdict::Agrees => {
+            println!("de acuerdo: lo que dice que usa, lo que pidio y lo que se le da cuadran");
+            ExitCode::SUCCESS
+        }
+        Verdict::Unasked(u) => {
+            println!("NO: dice que usa `{}` (linea {}) y su manifiesto no lo pidio: este .bex no salio de un compilador honesto", u.door.key(), u.line);
+            ExitCode::from(1)
+        }
+        Verdict::Ungranted(u) => {
+            println!("NO: pidio `{}` y no se le concede: la puerta dira que no en la linea {}", u.door.key(), u.line);
+            ExitCode::from(1)
+        }
     }
 }
 

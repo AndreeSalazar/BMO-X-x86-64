@@ -10,9 +10,35 @@
 //! builds of the same source give the same file byte by byte, or "this is the
 //! `.bex` I audited" can no longer be said. For the same reason `fuente` is
 //! the file NAME and never the path of the machine that compiled it.
+//!
+//! ** And it carries the CERTIFICATE (J1, TITAN_MAESTRO 6b.3): every door of
+//! BMO-X the program goes through and the line that opens it, taken from the
+//! IR that EL JUEZ already judged. The kernel's load gate reads it with the
+//! same code (`bmo_titan_contrato::certificate`) and compares; it never
+//! GRANTS by it -- it NAMES by it.
 
-use crate::ir::Module;
+use crate::ir::{Module, Op};
 use crate::words::LEVEL_NOW;
+use bmo_titan_contrato::{Certificate, Door};
+
+/// The certificate of a judged module: the doors, in source order.
+pub fn certificate(m: &Module) -> Certificate {
+    let mut uses: Vec<(usize, Door)> = Vec::new();
+    for f in &m.functions {
+        for op in f.blocks.iter().flat_map(|b| &b.ops) {
+            if let Op::Write { at, .. } = op {
+                // `print`: the console of the program's own task.
+                uses.push((at.0, Door::Console));
+            }
+        }
+    }
+    uses.sort_by_key(|u| u.0);
+    let mut c = Certificate::new();
+    for (line, door) in uses {
+        c.add(door, line.min(u16::MAX as usize) as u16);
+    }
+    c
+}
 
 /// The TOML that goes in the annex.
 pub fn manifest(m: &Module, source_name: &str) -> String {
@@ -29,7 +55,12 @@ pub fn manifest(m: &Module, source_name: &str) -> String {
     // U2, from the first `.bex`: the section is there and says what it asks.
     // Level 0 asks nothing -- writing on the console of one's own task is not
     // a permission -- and saying "nothing" is not the same as not saying.
-    t.push_str("# el nivel 0 no pide ninguno: escribir en la consola de la propia tarea no es un permiso\n");
+    t.push_str("# los niveles 0 y 1 no piden ninguno: escribir en la consola de la propia tarea no es un permiso\n");
+    let mut buf = [0u8; 4096];
+    if let Ok(n) = certificate(m).write(&mut buf) {
+        t.push('\n');
+        t.push_str(core::str::from_utf8(&buf[..n]).unwrap_or(""));
+    }
     t
 }
 
@@ -61,5 +92,17 @@ mod tests {
         assert!(t.contains("que_hace = \"dice \\\"hola\\\"\"\n"), "{}", t);
         assert!(t.contains("fuente = \"hola.titan\"\n") && t.contains("[permissions]"), "{}", t);
         assert_eq!(t, manifest(&m, "hola.titan"), "the same source, the same bytes");
+    }
+
+    #[test]
+    fn the_certificate_names_every_print_line_and_reads_back() {
+        let m = crate::lower("mod main \"x\"\nfn main()\n    let a = 2\n    print(a)\n    otra()\nfn otra()\n    print(\"b\")\n").unwrap();
+        let t = manifest(&m, "x.titan");
+        assert!(t.contains("[certificado]") && t.contains("console = [4, 7]"), "{}", t);
+        let c = Certificate::read(t.as_bytes()).unwrap();
+        assert_eq!(c.line_of(Door::Console), Some(4));
+        // The console needs nothing: the kernel's judge has nothing to add.
+        use bmo_titan_contrato::{certificate::judge, Permissions, Verdict};
+        assert_eq!(judge(&c, Permissions::NONE, Permissions::NONE), Verdict::Agrees);
     }
 }

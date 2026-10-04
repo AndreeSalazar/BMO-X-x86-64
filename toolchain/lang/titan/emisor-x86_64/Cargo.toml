@@ -25,6 +25,9 @@ bmo-abi = { path = "../../../../platform/abi/bmo-abi" }
 # EL GATE. Ningun .bex se escribe sin pasar por aqui (CONTRIBUTING: "do not add
 # another path around it"). TITAN++ ademas se obliga a declarar lo que es.
 bmo-verify = { path = "../../../forge/bmo-verify" }
+# El certificado de los dos jueces: `titan juez` lo lee de un .bex con el
+# mismo codigo que usara la puerta de carga del kernel (J2).
+bmo-titan-contrato = { path = "../../../../platform/shared/titan-contrato" }
 
 [lib]
 name = "bmo_titan_x86_64"

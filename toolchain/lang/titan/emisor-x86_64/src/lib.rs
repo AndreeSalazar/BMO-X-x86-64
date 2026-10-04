@@ -174,6 +174,26 @@ mod tests {
         assert!(t.contains("lenguaje = \"titan\"") && t.contains("fuente = \"hola.titan\""), "{}", t);
     }
 
+    /// ** THE TWO JUDGES, end to end: the compiler certifies, the kernel's
+    /// judge reads the certificate out of the `.bex` -- and a `.bex` whose
+    /// certificate was changed after compiling (it now claims the NET, which
+    /// its manifest never asked for) is caught, with the line it names.
+    #[test]
+    fn a_forged_certificate_is_caught_by_the_kernel_s_judge() {
+        use bmo_titan_contrato::certificate::{judge, Certificate, Door, Use, Verdict};
+        use bmo_titan_contrato::Permissions;
+        let m = bmo_titan_front::lower("mod main \"x\"\nfn main()\n    print(\"hola\")\n").unwrap();
+        let honest = bmo_titan_front::manifest::manifest(&m, "x.titan");
+        let e = emit(&m).unwrap();
+        let read = |bex: &[u8]| Certificate::read(bmo_verify::declaracion::manifiesto(bex).unwrap()).unwrap();
+        let good = package(&e, &honest).unwrap();
+        assert_eq!(judge(&read(&good), Permissions::NONE, Permissions::NONE), Verdict::Agrees);
+        let forged = honest.replace("console = [3]", "console = [3]\nnet = [3]");
+        assert_ne!(forged, honest);
+        let bad = package(&e, &forged).unwrap();
+        assert_eq!(judge(&read(&bad), Permissions::NONE, Permissions::NONE), Verdict::Unasked(Use { door: Door::Net, line: 3 }));
+    }
+
     #[test]
     fn a_source_with_a_no_writes_nothing() {
         match build("mod main \"x\"\nfn otra()\n    print(\"a\")\n", "x.titan") {

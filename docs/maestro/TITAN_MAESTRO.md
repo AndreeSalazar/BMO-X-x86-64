@@ -811,6 +811,26 @@ Sin fechas (LEY 24). Y el orden importa: J2 antes que J4, porque un NO que
 llega a un nodo sin que la puerta lo haya comprobado seria una explicacion sin
 juicio detras.
 
+**Donde esta, el 04-10:**
+
+```text
+   J1  HECHO en el anfitrion. `bmo_titan_contrato::certificate`: la forma,
+       quien la escribe y quien la lee, `no_std` y sin monton. El compilador la
+       saca de la IR que EL JUEZ ya juzgo (`manifest::certificate`) y viaja en
+       el MANIFIESTO del .bex, como `[certificado]`, firmada con el codigo. Un
+       anexo propio de BEF2 es cambiar el formato (Ring 0, del propietario):
+       hasta entonces va ahi, que el cargador ya salta. Hasta 16 lineas por
+       puerta, las primeras, y las demas se cuentan: el kernel lo lee en cada
+       carga y no puede crecer con el programa
+   J2  EL JUICIO, ESCRITO Y PROBADO; FALTA CABLEARLO. `certificate::judge`
+       compara certificado / pedido / concedido y solo sabe decir "de
+       acuerdo" o NO con puerta y linea -- nunca concede. `titan juez X.bex
+       [--concede ...]` lo hace HOY en el PC, y una prueba le pasa un .bex
+       FALSIFICADO (dice usar la red sin pedirla) y lo caza. Llevarlo a la
+       puerta de carga es una llamada en Ring 0: del propietario
+   J3-J4  sin empezar
+```
+
 ### 6b.6 El centauro
 
 Las PATAS (BMO-X) deciden donde se puede pisar: que memoria es de quien, que
@@ -1107,13 +1127,16 @@ problema dicho). El resto espera al compilador.
    el contrato           titan-contrato: grafo, eventos, 4 partes   EXISTE
    T1  texto -> arbol    `titan check`, mensajes de 4 partes        NIVEL 0 HECHO
                          (toolchain/lang/titan, 30-09)
-   T2  tipos             `dec`, tablas, "ya lo entregaste"          FALTA
+   T2  tipos             numero y texto, y su mezcla es un NO        EN CURSO
+                         (calc.rs, nivel 1); faltan `dec`, tablas
    T3  IR + emisor       NIVEL 0 HECHO en el anfitrion (04-10):     EN CURSO
                          IR propia (src/ir.rs) + emisor propio
                          (emisor-x86_64/, `titan build`), SIN el de
                          INTI. Falta verlo en el Ryzen, y el .bo con
                          bmo-enlazar llega cuando llame a INTI
-   T4  borrow checker    la ley de exclusividad (el modelo 2)       FALTA
+   T4  borrow checker    EL JUEZ existe (juez.rs, nivel 1): cada     EN CURSO
+                         local en UN estado por punto, sobre la IR;
+                         falta la ley de exclusividad (el modelo 2)
    T5  gpu fn            SPIR-V -> SASS, el prestamo a la 3060      FALTA
    T6  dentro de F1      el compilador en el taller, `titan run`    FALTA
 ```

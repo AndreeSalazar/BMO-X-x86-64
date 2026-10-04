@@ -33,6 +33,9 @@
 //!            begins and returns, a value TAKEN for good, a CONFLICT, a
 //!            permission DENIED. F1 animates them one by one
 //!    diag    the 4-part message: what, where, why, how to fix
+//!    cert    the CERTIFICATE: what the program uses of BMO-X and from which
+//!            line, written by the compiler and read by the kernel's load
+//!            gate with this same code -- the paper of the two judges (6b)
 //! ```
 //!
 //! Until the real front exists (T0 needs the owner's grammar), `sample` builds
@@ -47,10 +50,12 @@
 #[cfg(test)]
 extern crate std;
 
+pub mod certificate;
 pub mod event;
 pub mod graph;
 pub mod sample;
 
+pub use certificate::{Certificate, Door, Use, Verdict};
 pub use event::{Diagnostic, Event, EventKind, Mode, Place, Script, ScriptError, MAX_DIAGS, MAX_EVENTS};
 pub use graph::{Edge, Graph, GraphError, Lang, Node, NodeId, NodeKind, Permission, Permissions, MAX_EDGES, MAX_NODES};
 
