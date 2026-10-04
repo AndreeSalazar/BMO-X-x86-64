@@ -431,6 +431,40 @@ tironea --. Y lo que se ve en la foto del anfitrion es lo que pinta el Ryzen.
 de `animation` en `value.rs` y `LA_MAQUETA_EXIGE.md` 3d): lo que sigue siendo
 verdad es que **en el aparato no se maqueta nada**.
 
+## 6g. LA VARA DE MEDIR: HERMES ENTERO EN MAQUETA (2026-10-04)
+
+El propietario, con la pantalla del CANAL de HERMES delante: *"para llegar a
+esto que se necesitan MAS? no para tener igual a CSS sino TODO"*. La medida no
+es CSS: es poder escribir ESA pantalla como `.maqueta`. Lo que le falta, por
+lo que se ve en ella:
+
+```
+   [ ] H1  REPETIR + DATOS (es P2): la lista de amigos y la rejilla de videos.
+           La fila es una pieza; el cuantos y lo de dentro (nombre, color,
+           cifras) lo dan TITAN++ o Rust al correr
+           -> `toolchain/tools/maqueta/compone/`
+   [ ] H2  EL TEXTO QUE SE CORTA EN EL APARATO (`text-overflow: ellipsis`):
+           `4 videos . 13 min . siguie...` -- el dato no se conoce al compilar
+           -> `platform/shared/bmo-pinta` (medir y cortar con la letra)
+   [ ] H3  PARTIR LINEAS AL COMPILAR: el parrafo de la columna. El texto SI se
+           conoce: se parte en el anfitrion y el veredicto mira que quepa
+           -> `toolchain/tools/maqueta/layout/src/measure.rs`
+   [ ] H4  IMAGENES: `<imagen src="gato.qoi">` (QOI y BMP ya los lee
+           `platform/shared/bmo-imagen`) y huecos de imagen que llenan los
+           datos (las miniaturas)
+   [ ] H5  `position: relative`: el punto verde sobre el avatar, la duracion
+           sobre la miniatura, el `1` rojo del carril
+           -> `toolchain/tools/maqueta/layout/src/flow.rs`
+   [ ] H6  `border-radius: 50%` (los avatares) y la rejilla (`grid` o
+           `flex-wrap`): la de dos columnas de videos
+   [ ] H7  DESPLAZAR: todo maquetado al compilar; el aparato mueve UN numero y
+           recorta, y la barra la pinta la maqueta
+   [ ] H8  los estados en el aparato (es P3b): el icono activo, el realce de
+           una fila
+```
+
+Los iconos (y el `check` de "Siguiendo") ya estan: son `<svg>`.
+
 ## 6e. DE QUIEN SE TOMA CADA IDEA (2026-10-04)
 
 El propietario: *"MAQUETA, que framework inspirado puede tener todo eso? por
