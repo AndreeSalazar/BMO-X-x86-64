@@ -40,6 +40,7 @@
 #![no_main]
 
 mod art;
+mod aspecto;
 mod astros;
 mod canvas;
 mod explorer;
@@ -48,6 +49,7 @@ mod guia;
 mod player;
 mod space;
 mod store;
+mod tema_gen;
 mod view;
 mod window;
 

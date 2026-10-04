@@ -32,6 +32,12 @@ mod astros;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/guia.rs"]
 #[allow(dead_code)]
 mod guia;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/aspecto.rs"]
+#[allow(dead_code)]
+mod aspecto;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/tema_gen.rs"]
+#[allow(dead_code)]
+mod tema_gen;
 
 /// Lo que `explorer.rs` lee de la tienda (la de verdad, `store.rs`, habla con
 /// el kernel): los mismos campos y los mismos dos metodos.

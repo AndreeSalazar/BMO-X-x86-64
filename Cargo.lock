@@ -249,6 +249,7 @@ dependencies = [
  "bmo-huesped",
  "bmo-imagen",
  "bmo-letra",
+ "bmo-pinta",
  "bmo-titan-contrato",
  "bmo-titan-lector",
 ]

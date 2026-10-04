@@ -31,15 +31,12 @@
 //! lives in a table of 17 numbers.
 
 use crate::canvas::Canvas;
-use crate::view::{ACCENT, BAD, BG, BLUE, DIM, GOOD, INK, TITLE, VIOLET};
+pub use crate::aspecto::{AMBER, CYAN};
+use crate::aspecto::{ACCENT, BAD, BG, BLUE, DIM, GOLD, GOOD, GREY, INK, TITLE, VIOLET};
 use bmo_dibujo::{mezclar, Color, Lienzo};
 use bmo_titan_contrato::{Edge, Graph, NodeKind};
 use bmo_titan_lector::{FileEntry, Traits};
 
-/// The amber of change: the `mut` element, here and in the graph's loans.
-pub const AMBER: Color = 0x00FF_B84B;
-/// The cyan of a `use`.
-pub const CYAN: Color = 0x0036_C4D8;
 
 // -- A sine without floats -------------------------------------------------
 
@@ -231,6 +228,25 @@ pub fn planet(c: &mut Canvas, x: i32, y: i32, base: i32, name: &[u8], tr: Traits
     // The emitter: its `print`, packets leaving toward the console (up).
     if tr.writes > 0 {
         emitter(c, x, y - r, tr.writes.min(4) as i32, t);
+    }
+    // The double stars: its `if`, each a pair -- two ways, one lit.
+    if tr.ifs > 0 {
+        double_star(c, x + r + 6, y + r / 2 + 4, tr.ifs.min(3) as i32, t);
+    }
+}
+
+/// **A DOUBLE STAR**: what DECIDES. Two stars turning round each other, the
+/// two ways of an `if`: one shines gold (the way that runs), the other is a
+/// grey ember (the dead side: the compiler decided it never runs, and it left
+/// no byte in the `.bex`). One pair per decision, up to three.
+pub fn double_star(c: &mut Canvas, x: i32, y: i32, n: i32, t: i32) {
+    for k in 0..n {
+        let (cx, cy) = (x + k * 9, y + k * 7);
+        let a = t / 14 + k * 23;
+        let (dx, dy) = (5 * cos64(a) / 1000, 3 * sin64(a) / 1000);
+        c.disc(cx - dx, cy - dy, 1, GREY);
+        halo(c, cx + dx, cy + dy, 2, 6, GOLD, 200);
+        c.disc(cx + dx, cy + dy, 2, mezclar(GOLD, INK, 1, 2));
     }
 }
 

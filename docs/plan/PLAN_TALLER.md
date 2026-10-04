@@ -1034,6 +1034,64 @@ un ciclo"*).
 | tirar del pin de abajo de `rock` hasta `ship` | cable cian; al soltar, `rock.titan` tiene `use ship` y el cable se queda | el nodo se mueve: el clic no cayo en el pin |
 | tirar de `ship` hasta `physics` | rojo, con su motivo; al soltar no se escribe nada | se escribe: `plan` no se miro |
 
+### 8.14 L9: APARIENCIA y LOGICA, cortadas; MAQUETA viste a F1; el `if` se ve (04-10)
+
+El propietario: *"si es para mejorar apariencia usa MAQUETA, MAQUETA ya tiene
+mejoras ... pero divide bien en apariencia y la logica de TITAN++"*. El corte,
+dicho como una regla que se comprueba:
+
+```text
+   LOGICA       lo que el paquete ES y lo que se le puede hacer
+                titan-lector, titan-contrato, el compilador, store.rs.
+                NI UN COLOR: `titan-lector` tiene una prueba
+                (`the_logic_names_no_look`) que falla si su codigo
+                nombra un color, un pixel o un pintor
+
+   APARIENCIA   como se DIBUJA
+                aspecto/titan.maqueta   los colores, como los lee MAQUETA
+                src/tema_gen.rs         generado de el (`maqueta --paleta`),
+                                        nunca a mano
+                src/aspecto.rs          los PAPELES (BG, INK, CYAN...), las
+                                        medidas y las piezas SUAVES de
+                                        MAQUETA 2 (`bmo-pinta`): caja
+                                        redonda, borde, resplandor, degradado
+                view, space, astros,    los pintores: LEEN la logica y no
+                guia, explorer          deciden nada de ella
+```
+
+- **Las piezas suaves son las de MAQUETA, no unas de F1**: `bmo-pinta` es el
+  pintor de MAQUETA 2 (04-10, "nitidez de matematica"), el mismo que corre el
+  escritorio y la foto del anfitrion. F1 solo escribe el ADAPTADOR (`Soft`):
+  su lienzo contestando las dos preguntas del pintor. Un nodo, una ficha, una
+  solapa y una etiqueta tienen ahora el borde de una curva exacta.
+- **La paleta de F1 es la de TITAN++, no la del gato**: vive al lado de la app
+  (`aspecto/titan.maqueta`) y no en el tema de la casa, para que `.accent` no
+  pelee por ser el ojo del gato alli y la luz cian aqui.
+- **El nivel 3 en el cielo**: `Traits::ifs` cuenta cada `if` y `else if`, y el
+  planeta lleva una **ESTRELLA DOBLE** por decision: dos estrellas que giran,
+  una dorada (el camino que corre) y una brasa gris (el lado MUERTO: el
+  compilador lo decidio y no dejo bytes). La semilla `ship` decide si le queda
+  combustible; ELEMENTOS tiene su ficha y la GUIA lo cuenta.
+- **ELEMENTOS en fichas horizontales**: la figura viva a la izquierda, el que y
+  el porque a la derecha, tres columnas. Con cinco, los porques se cortaban
+  (visto con la camara).
+
+[!] **La LETRA de la casa (`bmo-letra`, proporcional y suave) NO entra
+todavia**, y no por gusto: un glifo nuevo cuesta ~13 KiB de pila
+(`userland/src/pantalla/verde/fina.rs` lo midio) y el marco mas hondo de F1
+va por ~57 KiB de los 64 KiB de Ring 3 (`pila.py`: 57 296). Entra el dia que
+ese marco baje; hasta entonces, la 8x16.
+
+**Visto con la CAMARA**: `grafo.png` (nodos redondos con su resplandor, la
+etiqueta del pin y la solapa suaves), `elementos.png` (13 fichas, la ESTRELLA
+DOBLE entre ellas), `cielo.png` (`ship: ... 1 if (doble)`) y `guia.png`.
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| abrir F1 en el GRAFO | nodos con esquinas redondas y suaves, sin escalera | esquinas cuadradas: `aspecto.rs` no esta en el binario |
+| escribir un `if` en `ship.titan` y guardar | en CIELO, `ship` gana una estrella doble dorada | nada cambia: el latido no relee, o `Traits::ifs` no cuenta |
+| cambiar un color en `titan.maqueta` y regenerar | F1 entero cambia ese papel, sin tocar Rust | hay que tocar Rust: alguien escribio el color fuera de `aspecto.rs` |
+
 ---
 
 Ver [`PLAN_AUTOHOSPEDAJE.md`](en_pausa/PLAN_AUTOHOSPEDAJE.md) (el mismo trabajo desde el

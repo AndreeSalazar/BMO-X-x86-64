@@ -45,3 +45,45 @@ pub use hang::{HangError, Plan, Sink};
 pub use package::{read_package, read_package_into, Fetch, FileEntry, Loaded, Problem, ProblemKind, Say, Source};
 pub use text::Path;
 pub use traits::Traits;
+
+/// ** THE CUT BETWEEN LOGIC AND LOOK (the owner, 04-10: "divide bien en
+/// apariencia y la logica de TITAN++"), as a test anyone can run: this crate
+/// says what a package IS -- its tree, its traits, the gestures on it -- and
+/// never how it is drawn. A colour, a pixel or a painter named here is the
+/// look leaking into the logic; it belongs in F1's `aspecto.rs`. Comments
+/// may talk about drawing (they say who reads what); the CODE may not.
+#[cfg(test)]
+mod the_logic_names_no_look {
+    const SOURCES: [(&str, &str); 14] = [
+        ("edit.rs", include_str!("edit.rs")),
+        ("explorer.rs", include_str!("explorer.rs")),
+        ("hang.rs", include_str!("hang.rs")),
+        ("header.rs", include_str!("header.rs")),
+        ("library.rs", include_str!("library.rs")),
+        ("manifest.rs", include_str!("manifest.rs")),
+        ("organize.rs", include_str!("organize.rs")),
+        ("package.rs", include_str!("package.rs")),
+        ("seed.rs", include_str!("seed.rs")),
+        ("text.rs", include_str!("text.rs")),
+        ("traits.rs", include_str!("traits.rs")),
+        ("wire.rs", include_str!("wire.rs")),
+        ("lib.rs", include_str!("lib.rs")),
+        ("../Cargo.toml", include_str!("../Cargo.toml")),
+    ];
+
+    #[test]
+    fn no_colour_no_pixel_no_painter() {
+        for (name, src) in SOURCES {
+            let code = src.split("#[cfg(test)]\nmod ").next().unwrap_or("");
+            for line in code.lines().filter(|l| {
+                let t = l.trim_start();
+                !(t.starts_with("//") || t.starts_with('#'))
+            }) {
+                let low = line.to_ascii_lowercase();
+                for word in ["color", "colour", "0x00", "rgb", "pixel", "bmo_dibujo", "bmo-dibujo", "bmo_pinta", "bmo-pinta"] {
+                    assert!(!low.contains(word), "{} names the look (`{}`): {}", name, word, line.trim());
+                }
+            }
+        }
+    }
+}

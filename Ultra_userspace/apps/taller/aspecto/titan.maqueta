@@ -1,0 +1,62 @@
+<!--
+   TITAN -- la paleta de F1 (el TALLER), en un sitio.
+
+   No es una paleta nueva: son los colores que F1 ya llevaba sueltos en
+   `src/view.rs` y `src/astros.rs` (los del logo de TITAN++, PLAN_TALLER 8.8:
+   una noche azul, azul electrico que va a violeta, luz que BRILLA en vez de
+   lineas que bordean). Se sacaron aqui el 2026-10-04 por la misma razon que
+   `toolchain/tools/maqueta/tema/tema.maqueta` existe: un color que solo vive
+   en una constante de Rust es un color que el siguiente panel reinventa.
+
+   ** POR QUE VIVE AL LADO DE LA APP Y NO EN EL TEMA DE LA CASA
+
+   El escritorio lleva los colores del GATO (el cian del ojo, el violeta de la
+   ciudad). F1 es el taller de TITAN++ y lleva los de TITAN++. Son dos caras
+   con dos paletas, y meterlas en un fichero las haria pelear por los nombres
+   (`.accent` es el ojo del gato alli, y el cian de la luz aqui).
+
+   ** LA APARIENCIA, APARTE DE LA LOGICA (el propietario, 04-10: "divide bien
+   en apariencia y la logica de TITAN++"). Este fichero es la mitad de la
+   apariencia que se puede leer sin Rust: lo que se pinta de que color. La
+   otra mitad -- las piezas suaves de MAQUETA 2 (`bmo-pinta`) y las medidas --
+   esta en `src/aspecto.rs`. La logica (`titan-lector`, `titan-contrato`,
+   el compilador) no nombra ni un color, y una prueba lo vigila.
+
+   Se regenera con:
+      cargo run -p bmo-maqueta --bin maqueta -- --paleta \
+          Ultra_userspace/apps/taller/aspecto/titan.maqueta \
+          Ultra_userspace/apps/taller/src/tema_gen.rs
+-->
+<maqueta>
+  <style>
+    /* -- el fondo: la noche -------------------------------------------- */
+    .canvas     { background-color:#030510 }   /* detras de todo */
+    .grid       { color:#121A3C }              /* los puntos de la reticula */
+    .bar        { background-color:#06091A }   /* la barra del titulo, los rotulos */
+
+    /* -- un nodo: cuerpo oscuro, borde de su color, cabecera de luz ------ */
+    .node       { background-color:#090E26; border-color:#222E6A }
+    .picked     { background-color:#101A46 }   /* la fila elegida */
+
+    /* -- la tinta ------------------------------------------------------- */
+    .ink        { color:#E9EEFF }              /* lo que se esta leyendo */
+    .ink-dim    { color:#7884B4 }              /* todo lo demas */
+    .title      { color:#AFC3FF }              /* los rotulos */
+
+    /* -- la luz: los dos extremos del anillo del logo ------------------- */
+    .blue       { color:#3D6BFF }
+    .violet     { color:#8C52FF }
+    .accent     { color:#70D6FF }              /* esto se puede tocar */
+
+    /* -- lo que dice el JUEZ -------------------------------------------- */
+    .good       { color:#52E0A0 }              /* salio bien; la 3060 */
+    .bad        { color:#FF4D6A }              /* un NO */
+    .grey       { color:#505878 }              /* lo entregado: ya no esta */
+
+    /* -- las clases de cable y de valor: un color, UNA cosa ------------- */
+    .cable      { color:#5A7CDA; border-color:#354C9A }   /* el nucleo y su halo */
+    .use        { color:#36C4D8 }              /* un `use`: depende de otro */
+    .mut        { color:#FFB84B }              /* un `mut`: lo que cambia */
+    .decide     { color:#F2E27A }              /* un `if`: el camino que corre */
+  </style>
+</maqueta>

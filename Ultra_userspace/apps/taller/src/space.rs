@@ -27,6 +27,7 @@
 
 use crate::astros::{self, cable, cable_of, centaur, halo, hash, pulsar, station, supernova, traits_of};
 use crate::canvas::Canvas;
+use crate::aspecto as look;
 use crate::view::{Buf, Camera, Scene, ACCENT, BAD, BAR, BG, BLUE, DIM, EDGE, INK, LEFT, NODE_H, NODE_W, PANEL, TITLE, TOP, VIOLET};
 use bmo_titan_contrato::Graph;
 use bmo_titan_lector::FileEntry;
@@ -98,11 +99,15 @@ pub fn tab_at(now: Tab, x: i32, y: i32) -> Option<Tab> {
 /// The strips, drawn on top of whatever tab is showing.
 pub fn tabs(c: &mut Canvas, now: Tab) {
     strips(now, |_, label, x, w, on| {
-        c.rect(x, TAB_Y, w, TAB_H, if on { 0x0010_1A46 } else { BAR });
-        c.frame(x, TAB_Y, w, TAB_H, 1, if on { ACCENT } else { EDGE });
+        // A soft tab (MAQUETA 2's pieces, `aspecto.rs`): the one that is on
+        // glows a little and wears the ring's gradient.
         if on {
-            c.gradient(x + 1, TAB_Y + TAB_H - 2, w - 2, 2, BLUE, VIOLET);
+            look::shine(c, x, TAB_Y, w, TAB_H, look::R_TAB, 6, ACCENT, 90);
+            look::band(c, x, TAB_Y, w, TAB_H, look::R_TAB, look::SEL, mezclar(VIOLET, BG, 1, 3), false);
+        } else {
+            look::card(c, x, TAB_Y, w, TAB_H, look::R_TAB, BAR);
         }
+        look::edge(c, x, TAB_Y, w, TAB_H, look::R_TAB, 1, if on { ACCENT } else { EDGE });
         let lw = label.len() as i32 * 8;
         c.text(x + (w - lw) / 2, TAB_Y + 2, label, if on { INK } else { DIM }, 1);
     });
@@ -317,9 +322,10 @@ fn legend(c: &mut Canvas, sc: &Scene) {
             if tr.lines == 0 {
                 line.s("protoplaneta -- todavia no tiene cuerpo");
             } else {
-                line.num(tr.fns as u32).s(" fn (su medida)   ").num(tr.lets as u32).s(" let (lunas)   ");
-                line.num(tr.muts as u32).s(" mut (anillos, ").num(tr.changes as u32).s(" cambios)   ");
-                line.num(tr.writes as u32).s(" print (paquetes)   ").num(tr.calls as u32).s(" llamadas (cometas)");
+                line.num(tr.fns as u32).s(" fn (medida)  ").num(tr.lets as u32).s(" let (lunas)  ");
+                line.num(tr.muts as u32).s(" mut (anillos, ").num(tr.changes as u32).s(" cambios)  ");
+                line.num(tr.writes as u32).s(" print (paquetes)  ").num(tr.calls as u32).s(" llamadas (cometas)  ");
+                line.num(tr.ifs as u32).s(" if (doble)");
             }
         }
         Some((_, n)) => {

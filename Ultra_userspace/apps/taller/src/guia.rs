@@ -8,7 +8,8 @@
 //! catalogue shows is what the package will look like, never a second drawing
 //! that could drift away from the first.
 
-use crate::astros::{self, cable, centaur, emitter, protoplanet, pulsar, station, supernova, Cable, AMBER, CYAN};
+use crate::aspecto::{self as look, GOLD};
+use crate::astros::{self, cable, centaur, double_star, emitter, protoplanet, pulsar, station, supernova, Cable, AMBER, CYAN};
 use crate::canvas::Canvas;
 use crate::view::{BG, BLUE, DIM, EDGE, GOOD, INK, LEFT, PANEL, TITLE, TOP, VIOLET};
 use bmo_dibujo::{mezclar, Color, Lienzo};
@@ -24,10 +25,10 @@ struct Card {
 }
 
 const fn traits(fns: u8, lets: u8, muts: u8, changes: u8, writes: u8, calls: u8) -> Traits {
-    Traits { fns, lets, muts, changes, writes, calls, lines: 9 }
+    Traits { fns, lets, muts, changes, writes, calls, ifs: 0, lines: 9 }
 }
 
-const CARDS: [Card; 12] = [
+const CARDS: [Card; 13] = [
     Card {
         name: b"EL CENTAURO",
         is: b"el paquete: su Titan.toml",
@@ -74,18 +75,28 @@ const CARDS: [Card; 12] = [
         draw: |c, x, y, t| astros::planet(c, x, y, 14, b"physics", traits(2, 0, 0, 0, 0, 2), t),
     },
     Card {
+        name: b"ESTRELLA DOBLE",
+        is: b"sus if: decide",
+        why: b"dos caminos, uno brilla: el compilador decide cual al compilar y el otro no deja bytes",
+        color: GOLD,
+        draw: |c, x, y, t| {
+            astros::planet(c, x - 14, y, 14, b"semaforo", traits(1, 1, 0, 0, 1, 0), t);
+            double_star(c, x + 18, y + 4, 2, t);
+        },
+    },
+    Card {
         name: b"LAZO FUERTE",
         is: b"mod: el padre declara",
         why: b"trenzado y grueso: es el arbol, quien es de quien",
         color: VIOLET,
-        draw: |c, x, y, t| cable(c, (x - 60, y - 16), (x + 60, y + 16), Cable::Mod, t, true, 4),
+        draw: |c, x, y, t| cable(c, (x - 44, y - 22), (x + 44, y + 22), Cable::Mod, t, true, 4),
     },
     Card {
         name: b"CONECTOR",
         is: b"use: depende de otro modulo",
         why: b"luz cian: una dependencia SOLO baja; hacia arriba seria un ciclo y no compila",
         color: CYAN,
-        draw: |c, x, y, t| cable(c, (x - 60, y - 16), (x + 60, y + 16), Cable::Use, t + 300, true, 4),
+        draw: |c, x, y, t| cable(c, (x - 44, y - 22), (x + 44, y + 22), Cable::Use, t + 300, true, 4),
     },
     Card {
         name: b"PULSAR",
@@ -136,32 +147,37 @@ fn lines(s: &[u8], max: usize, n: usize, mut f: impl FnMut(usize, &[u8])) {
     }
 }
 
-/// ELEMENTOS: the catalogue, four columns by three rows, in reading order.
+/// ELEMENTOS: the catalogue, in reading order, three columns: each card has
+/// its figure ALIVE on the left and what it is and why on the right, so the
+/// why has room to be said whole.
 pub fn elements(c: &mut Canvas, t: i32) {
     let (x0, y0) = (LEFT + 16, TOP + 40);
-    let (cols, gap) = (4, 12);
+    let (cols, gap) = (3, 10);
+    let rows = (CARDS.len() as i32 + cols - 1) / cols;
     let w = (c.w - x0 - 16 - gap * (cols - 1)) / cols;
-    let h = (c.h - y0 - 12 - gap * 2) / 3;
+    let h = (c.h - y0 - 12 - gap * (rows - 1)) / rows;
+    let fig_w = 112;
     for (k, card) in CARDS.iter().enumerate() {
         let (col, row) = (k as i32 % cols, k as i32 / cols);
         let (x, y) = (x0 + col * (w + gap), y0 + row * (h + gap));
-        c.rect(x, y, w, h, mezclar(BG, 0x0010_1A46, 1, 2));
-        c.frame(x, y, w, h, 1, EDGE);
-        c.rect(x, y, 3, h, card.color);
-        // The figure, alive, in the top half.
-        let fig_h = h * 46 / 100;
-        (card.draw)(c, x + w / 2, y + fig_h / 2 + 6, t);
-        c.rect(x + 10, y + fig_h + 6, w - 20, 1, EDGE);
-        let mut ty = y + fig_h + 12;
-        c.text(x + 12, ty, card.name, card.color, 1);
+        // A soft card (MAQUETA 2's pieces): night, a thread of its colour.
+        look::card(c, x, y, w, h, look::R_CARD, mezclar(BG, look::SEL, 1, 2));
+        look::edge(c, x, y, w, h, look::R_CARD, 1, mezclar(card.color, EDGE, 1, 3));
+        look::card(c, x + 1, y + look::R_CARD, 3, h - 2 * look::R_CARD, 1, card.color);
+        // The figure, alive, on the left; a thin line, and the words.
+        (card.draw)(c, x + fig_w / 2 + 4, y + h / 2, t);
+        c.rect(x + fig_w, y + 10, 1, h - 20, EDGE);
+        let tx = x + fig_w + 10;
+        let chars = ((x + w - 10 - tx) / 8) as usize;
+        let mut ty = y + 8;
+        c.text(tx, ty, card.name, card.color, 1);
         ty += 18;
-        let chars = ((w - 24) / 8) as usize;
-        lines(card.is, chars, 1, |_, l| {
-            c.text(x + 12, ty, l, INK, 1);
+        lines(card.is, chars, 2, |i, l| {
+            c.text(tx, ty + i as i32 * 16, l, INK, 1);
         });
-        ty += 18;
-        lines(card.why, chars, ((y + h - ty - 4) / 16).max(1) as usize, |i, l| {
-            c.text(x + 12, ty + i as i32 * 16, l, DIM, 1);
+        ty += if card.is.len() > chars { 34 } else { 18 };
+        lines(card.why, chars, ((y + h - ty - 2) / 16).max(1) as usize, |i, l| {
+            c.text(tx, ty + i as i32 * 16, l, DIM, 1);
         });
     }
 }
@@ -173,9 +189,9 @@ const GUIDE: [(&[u8], [&[u8]; 4]); 6] = [
         b"1  LA VERDAD ES EL TEXTO",
         [
             b"Lo que se compila es el .titan y el Titan.toml.",
-            b"GRAFO, CIELO y ELEMENTOS son maneras de VERLO:",
-            b"se borran y el programa sigue igual. Por eso",
-            b"titan build funciona sin F1.",
+            b"GRAFO, CIELO y ELEMENTOS son maneras de VERLO.",
+            b"La LOGICA (lector, juez) no nombra un color; el",
+            b"ASPECTO sale de titan.maqueta, con MAQUETA.",
         ],
     ),
     (
@@ -183,8 +199,8 @@ const GUIDE: [(&[u8], [&[u8]; 4]); 6] = [
         [
             b"Guardas un .titan: ESTRATOS sube su generacion,",
             b"F1 la mira en cada latido y relee el paquete.",
-            b"Un let mut nuevo y aparece su anillo; un print",
-            b"nuevo y el planeta empieza a enviar paquetes.",
+            b"Un let mut nuevo: su anillo. Un print: paquetes.",
+            b"Un if: su estrella doble, dos caminos, uno brilla.",
         ],
     ),
     (

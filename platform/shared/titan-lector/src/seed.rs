@@ -62,8 +62,11 @@ pub const FILES: &[(&str, &str)] = &[
          fn avanza()\n\
          \x20   let mut x = 100\n\
          \x20   let mut combustible = 50\n\
-         \x20   x = x + 3\n\
-         \x20   combustible = combustible - 1\n\
+         \x20   if combustible > 0\n\
+         \x20       x = x + 3\n\
+         \x20       combustible = combustible - 1\n\
+         \x20   else\n\
+         \x20       print(\"sin combustible: la nave flota\")\n\
          \x20   print(\"nave en \", x, \" con \", combustible)\n",
     ),
     (
@@ -113,7 +116,7 @@ mod tests {
     fn the_bodies_give_each_node_traits_of_its_own() {
         let t = |p: &str| crate::traits::scan(FILES.iter().find(|f| f.0 == p).unwrap().1.as_bytes());
         let ship = t("titan/asteroids/src/ship.titan");
-        assert_eq!((ship.muts, ship.changes, ship.writes), (2, 2, 1));
+        assert_eq!((ship.muts, ship.changes, ship.writes, ship.ifs), (2, 2, 2, 1));
         let rock = t("titan/asteroids/src/rock.titan");
         assert_eq!((rock.lets, rock.muts, rock.writes), (3, 0, 0));
         let physics = t("titan/asteroids/src/physics.titan");
