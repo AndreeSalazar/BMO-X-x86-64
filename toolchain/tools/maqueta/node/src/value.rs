@@ -114,6 +114,8 @@ pub enum Prop {
     TextTransform,
     /// H3 (04-10): `normal` = un PARRAFO, partido en lineas al compilar.
     WhiteSpace,
+    /// H7 (04-10): `auto` = la caja se DESPLAZA (lo de dentro pasa de su alto).
+    OverflowY,
     // the finish (MAQUETA 2)
     BoxShadow,
     BackgroundImage,
@@ -193,6 +195,7 @@ impl Prop {
             b"line-height" => Prop::LineHeight,
             b"text-transform" => Prop::TextTransform,
             b"white-space" => Prop::WhiteSpace,
+            b"overflow-y" => Prop::OverflowY,
             b"box-shadow" => Prop::BoxShadow,
             b"background-image" => Prop::BackgroundImage,
             b"stroke" => Prop::Stroke,
@@ -243,6 +246,7 @@ impl Prop {
             Prop::LineHeight => "line-height",
             Prop::TextTransform => "text-transform",
             Prop::WhiteSpace => "white-space",
+            Prop::OverflowY => "overflow-y",
             Prop::BoxShadow => "box-shadow",
             Prop::BackgroundImage => "background-image",
             Prop::Stroke => "stroke",
@@ -317,6 +321,7 @@ impl Prop {
             Prop::LetterSpacing => Shape::Em,
             Prop::TextTransform => Shape::Words(&[Keyword::Uppercase, Keyword::None]),
             Prop::WhiteSpace => Shape::Words(&[Keyword::Normal, Keyword::Nowrap]),
+            Prop::OverflowY => Shape::Words(&[Keyword::Auto, Keyword::Visible]),
             Prop::BoxShadow => Shape::Shadow,
             Prop::BackgroundImage => Shape::Gradient,
             Prop::BackgroundColor
@@ -421,6 +426,10 @@ pub enum Keyword {
     Normal,
     /// `white-space: nowrap`: una sola linea (lo de siempre en MAQUETA).
     Nowrap,
+    /// `overflow-y: auto` (H7): se desplaza.
+    Auto,
+    /// `overflow-y: visible`: lo de siempre (no se desplaza).
+    Visible,
     /// `border-radius: 50%` (H6): la mitad del lado corto -- un circulo en
     /// una caja cuadrada. El unico porcentaje que hay.
     Mitad,
@@ -442,6 +451,8 @@ impl Keyword {
             b"relative" => Keyword::Relative,
             b"normal" => Keyword::Normal,
             b"nowrap" => Keyword::Nowrap,
+            b"auto" => Keyword::Auto,
+            b"visible" => Keyword::Visible,
             b"uppercase" => Keyword::Uppercase,
             b"none" => Keyword::None,
             b"round" => Keyword::Round,
@@ -464,6 +475,8 @@ impl Keyword {
             Keyword::Relative => "relative",
             Keyword::Normal => "normal",
             Keyword::Nowrap => "nowrap",
+            Keyword::Auto => "auto",
+            Keyword::Visible => "visible",
             Keyword::Mitad => "50%",
             Keyword::Uppercase => "uppercase",
             Keyword::None => "none",

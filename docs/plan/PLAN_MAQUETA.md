@@ -534,8 +534,14 @@ lo que se ve en ella:
            columnas="2">`; `LISTA_<ID>.fila(i)` da la columna y la fila
            -> `pruebas/video.maqueta`, `pruebas/videos.maqueta`
            [!] `flex-wrap` para cajas fijas sigue sin estar
-   [ ] H7  DESPLAZAR: todo maquetado al compilar; el aparato mueve UN numero y
-           recorta, y la barra la pinta la maqueta
+   [x] H7  DESPLAZAR: `overflow-y: auto` con `height` y fondo liso. Lo de
+           dentro se maqueta y se juzga entero; `desplazar_<id>(p, ox, oy,
+           desde)` limpia la ventana, pinta corrido y recortado, y la barra
+           (`DESPLAZA_<ID>`, `max()`). Foto y aparato, de la misma cuenta
+           (`emit/src/desplaza.rs`). `pruebas/biblioteca.maqueta`
+           [!] una lista de datos DENTRO de una ventana la pinta la app con
+           `pintar_en` recortado a la ventana; `pintar_en` no repinta la
+           ventana (despues, `desplazar_<id>` con su `desde`)
    [x] H8  los estados en el aparato: el realce de una fila con su
            transicion (P3d); el icono activo es un `@estado` (P3b)
            -> `pruebas/amigo.maqueta` (la fila se ilumina en 180 ms)

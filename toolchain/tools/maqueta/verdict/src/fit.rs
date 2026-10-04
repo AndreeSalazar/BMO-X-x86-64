@@ -24,7 +24,14 @@ fn walk(f: &Frame, canvas: &Rect, out: &mut Vec<Error>) {
         } else {
             (&f.content, "su padre")
         };
-        if !c.rect.inside(limite) {
+        // H7: dentro de una caja que se DESPLAZA, lo de dentro puede pasar de
+        // su alto (para eso se desplaza); de ancho y por arriba, no.
+        let dentro = if f.style.desplaza && c.style.position != Position::Absolute {
+            c.rect.x >= limite.x && c.rect.right() <= limite.right() && c.rect.y >= limite.y
+        } else {
+            c.rect.inside(limite)
+        };
+        if !dentro {
             out.push(fuera(c, limite, quien));
         }
         walk(c, canvas, out);
@@ -32,7 +39,41 @@ fn walk(f: &Frame, canvas: &Rect, out: &mut Vec<Error>) {
     cabe_el_texto(f, out);
     el_hueco(f, out);
     el_parrafo(f, out);
+    se_desplaza(f, out);
     no_esta_vacia(f, out);
+}
+
+/// * J. UNA CAJA QUE SE DESPLAZA (H7): el aparato mueve UN numero y recorta,
+/// sin maquetar. Para eso la ventana tiene que decir su alto (`height`) y su
+/// fondo liso (`background-color`, con el que se limpia en cada paso), y lo
+/// de dentro escribe con la letra de la casa (la de pixel no se recorta).
+fn se_desplaza(f: &Frame, out: &mut Vec<Error>) {
+    if !f.style.desplaza {
+        return;
+    }
+    let mut falta = Vec::new();
+    if f.style.height.is_none() {
+        falta.push("un `height` (el alto de la ventana)");
+    }
+    if f.style.background.is_none() || f.style.gradient.is_some() {
+        falta.push("un `background-color` liso (con el se limpia la ventana al desplazar)");
+    }
+    fn pixel(f: &Frame) -> bool {
+        (f.text.is_some() && f.style.font_size.is_none()) || f.children.iter().any(pixel)
+    }
+    if f.children.iter().any(pixel) {
+        falta.push("lo de dentro con `font-size` (la letra de pixel no se recorta)");
+    }
+    if !falta.is_empty() {
+        out.push(Error::new(
+            f.span,
+            &format!("esta caja se desplaza (`overflow-y: auto`) y necesita {}", falta.join(", ")),
+            "lo de dentro se maqueta y se juzga ENTERO al compilar; en el aparato se \
+             limpia la ventana, se pinta corrido `desde` pixeles y se recorta. Para \
+             eso la ventana tiene que decirlo todo.",
+            "dar a la caja su `height` y su `background-color`.",
+        ));
+    }
 }
 
 /// * E. UN PARRAFO (H3): `white-space: normal` parte el texto en lineas AL

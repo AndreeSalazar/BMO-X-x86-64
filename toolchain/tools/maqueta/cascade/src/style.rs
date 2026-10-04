@@ -115,6 +115,9 @@ pub struct Style {
     pub uppercase: bool,
     /// `white-space: normal` (H3): un parrafo, partido en lineas de `width`.
     pub parrafo: bool,
+    /// `overflow-y: auto` (H7): lo de dentro puede pasar de su alto, y se
+    /// desplaza.
+    pub desplaza: bool,
     // -- MAQUETA 2: the finish.
     /// The glow: reach in px and `0xAARRGGBB`.
     pub shadow: Option<(u32, u32)>,
@@ -209,6 +212,7 @@ impl Style {
             (Prop::LineHeight, Value::Px(n)) => self.line_height = Some(n),
             (Prop::TextTransform, Value::Word(k)) => self.uppercase = k == Keyword::Uppercase,
             (Prop::WhiteSpace, Value::Word(k)) => self.parrafo = k == Keyword::Normal,
+            (Prop::OverflowY, Value::Word(k)) => self.desplaza = k == Keyword::Auto,
             (Prop::BoxShadow, Value::Shadow { reach, argb }) => self.shadow = Some((reach, argb)),
             (Prop::BackgroundImage, Value::Gradient { vertical, from, to }) => {
                 self.gradient = Some((from, to, vertical))

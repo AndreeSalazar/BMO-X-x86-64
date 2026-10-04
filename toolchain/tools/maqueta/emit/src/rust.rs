@@ -50,16 +50,23 @@ pub fn modulo(origen: &str, l: &Laid) -> String {
 pub fn modulo_con_datos(origen: &str, l: &Laid, colores: &[(String, u32)]) -> String {
     let podada = podar_listas(l);
     let datos = Datos::de(&podada, colores);
-    let ordenes = lista(&podada);
+    // Lo de dentro de una ventana que se desplaza (H7) se pinta aparte.
+    let ordenes = lista(&crate::desplaza::podar(&podada));
+    let ventanas: Vec<String> = crate::desplaza::cajas(&podada)
+        .iter()
+        .enumerate()
+        .map(|(k, f)| format!("desplazar_{}(p, ox, oy, 0{});", nombre_ventana(f, k), if datos.hay() { ", d" } else { "" }))
+        .collect();
     let mut s = String::new();
     cabecera(&mut s, origen, l);
     datos.estaticos(&mut s);
     datos.cabecera(&mut s);
     listas(&mut s, l);
-    pintar(&mut s, &ordenes, &datos);
+    pintar(&mut s, &ordenes, &datos, &ventanas);
     pintar_en(&mut s, &ordenes, &datos);
     realce(&mut s, &ordenes, &datos);
     realce_animado(&mut s, &podada, &datos);
+    desplazamientos(&mut s, &podada, &datos);
     golpe(&mut s, l);
     islas(&mut s, l);
     s
@@ -445,7 +452,7 @@ fn area(t: &Trazo) -> Rect {
 //  Los cuatro pintados
 // ------------------------------------------------------------------------
 
-fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos) {
+fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos, ventanas: &[String]) {
     let _ = writeln!(
         s,
         "/// Pinta la maquetacion entera con su esquina superior izquierda en\n\
@@ -463,6 +470,9 @@ fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos) {
             ultimo = o.de.clone();
         }
         let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, "None"));
+    }
+    for v in ventanas {
+        let _ = writeln!(s, "    {v}");
     }
     s.push_str("}\n\n");
 }
@@ -645,6 +655,99 @@ fn realce_animado(s: &mut String, l: &Laid, d: &Datos) {
         s.push_str("        return;\n    }\n");
     }
     s.push_str("}\n\n");
+}
+
+/// El nombre de una ventana en el codigo: su `id`, o su numero.
+fn nombre_ventana(f: &bmo_maqueta_layout::Frame, k: usize) -> String {
+    match &f.id {
+        Some(id) => id.to_ascii_lowercase().replace(['.', '-'], "_"),
+        None => k.to_string(),
+    }
+}
+
+/// ** H7 (04-10): LAS VENTANAS QUE SE DESPLAZAN. Por cada una, su medida
+/// (`DESPLAZA_<ID>`) y `desplazar_<id>(p, ox, oy, desde)`: limpia la ventana,
+/// pinta lo de dentro corrido y recortado, y la barra. La MISMA cuenta que la
+/// foto (`desplaza.rs`).
+fn desplazamientos(s: &mut String, l: &Laid, d: &Datos) {
+    use crate::desplaza;
+    let cajas = desplaza::cajas(l);
+    if cajas.is_empty() {
+        return;
+    }
+    s.push_str(
+        "// == LO QUE SE DESPLAZA (H7) =========================================\n\
+         //\n\
+         // Lo de dentro se maqueto y se juzgo ENTERO; aqui se mueve UN numero.\n\
+         // `pintar` lo deja en su arranque (desde 0); para moverlo, el aparato\n\
+         // llama a `desplazar_<id>` con lo que haya bajado (hasta `max()`).\n\
+         \n\
+         /// Una ventana: donde esta, cuanto se ve (`h`) y cuanto hay (`total`).\n\
+         #[derive(Clone, Copy)]\n\
+         pub struct Desplaza {\n\
+         \x20   pub x: u32,\n\
+         \x20   pub y: u32,\n\
+         \x20   pub w: u32,\n\
+         \x20   pub h: u32,\n\
+         \x20   pub total: u32,\n\
+         }\n\
+         \n\
+         impl Desplaza {\n\
+         \x20   /// Lo mas que se puede bajar.\n\
+         \x20   pub const fn max(&self) -> u32 {\n\
+         \x20       self.total.saturating_sub(self.h)\n\
+         \x20   }\n\
+         }\n\
+         \n",
+    );
+    for (k, f) in cajas.iter().enumerate() {
+        let nombre = nombre_ventana(f, k);
+        let mayus = nombre.to_ascii_uppercase();
+        let v = desplaza::ventana(f);
+        let total = desplaza::total(f);
+        let fondo = f.style.background.unwrap_or(0);
+        let _ = writeln!(
+            s,
+            "pub const DESPLAZA_{mayus}: Desplaza = Desplaza {{ x: {}, y: {}, w: {}, h: {}, total: {total} }};\n\n\
+             /// **La ventana `{nombre}` bajada `desde` pixeles** (H7).\n\
+             pub fn desplazar_{nombre}(p: &bmo::Pantalla, ox: u32, oy: u32, desde: u32{}) {{\n\
+             \x20   let desde = desde.min(DESPLAZA_{mayus}.max());\n\
+             \x20   p.pieza(&bmo::Pieza::Caja {{ x: {}, y: {}, w: {}, h: {}, r: {}, c: 0x{fondo:08X} }}, ox as i32, oy as i32, None);\n\
+             \x20   let limite = Recorte::nuevo(ox as i32 + {}, oy as i32 + {}, {}, {});\n\
+             \x20   let (ox0, oy0) = (ox as i32, oy as i32);\n\
+             \x20   let (ox, oy) = (ox0, oy0 - desde as i32);\n\
+             \x20   let _ = (ox, oy, limite);",
+            v.x, v.y, v.w, v.h,
+            d.param(),
+            v.x, v.y, v.w, v.h, desplaza::radio(f),
+            v.x, v.y, v.w, v.h,
+        );
+        if d.hay() {
+            s.push_str("    let _ = d;\n");
+        }
+        for o in desplaza::contenido(f, l.canvas) {
+            let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, "Some(limite)"));
+        }
+        // La barra: la misma cuenta que `desplaza::barra`, con `desde` de
+        // verdad.
+        if let Some(b0) = desplaza::barra(f, 0) {
+            let pista = v.h - 6;
+            let _ = writeln!(
+                s,
+                "    let y = {} + desde * {} / {};\n\
+                 \x20   p.pieza(&bmo::Pieza::Caja {{ x: {}, y: y as i32, w: {}, h: {}, r: {}, c: 0x{:08X} }}, ox0, oy0, None);",
+                b0.y,
+                pista - b0.h,
+                total - v.h,
+                b0.x,
+                b0.w,
+                b0.h,
+                b0.w / 2,
+                desplaza::color_barra(f)
+            );
+        }
+        s.push_str("}\n\n");
+    }
 }
 
 // ------------------------------------------------------------------------

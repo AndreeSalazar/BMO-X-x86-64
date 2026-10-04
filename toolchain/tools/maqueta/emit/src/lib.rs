@@ -50,3 +50,4 @@ pub mod bef;
 /// verdad, para que el ESPEJO de cara la compare con el navegador.
 pub mod foto;
 pub mod movimiento;
+pub mod desplaza;
