@@ -16,6 +16,7 @@
 //!    acento         = #60A5FA
 //!    barra_flotante = si
 //!    barra_hueco    = 6          # de 0 a 12
+//!    marco          = fino       # o `hacker`
 //! ```
 //!
 //! ## ** Lo que NO hace un fichero roto
@@ -51,6 +52,37 @@ pub struct Estilo {
     /// su panel de 8 bits, que se minimiza en la pastilla. `no` = se llega en
     /// silencio, como antes (y sin armar el tubo de audio).
     pub bienvenida: bool,
+    /// **Como se viste una ventana** (04-10). Ver [`Marco`].
+    pub marco: Marco,
+}
+
+/// **El vestido de las ventanas.** Los dos los pidio el propietario, en dos
+/// fechas, y ninguno sustituye al otro: se elige.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Marco {
+    /// (04-10) *"elegancia, la de Francia"*: la barra limpia, el filete del
+    /// acento que se apaga en los extremos, botones redondos y suaves.
+    Fino,
+    /// (25-09) *"estilo hacker futurista"*: scanlines en la barra, esquinas
+    /// HUD, la linea del acento con su cursor y los segmentos inclinados.
+    Hacker,
+}
+
+impl Marco {
+    pub fn nombre(self) -> &'static [u8] {
+        match self {
+            Marco::Fino => b"fino",
+            Marco::Hacker => b"hacker",
+        }
+    }
+
+    pub fn de(v: &[u8]) -> Option<Marco> {
+        match v {
+            b"fino" | b"FINO" | b"Fino" => Some(Marco::Fino),
+            b"hacker" | b"HACKER" | b"Hacker" => Some(Marco::Hacker),
+            _ => None,
+        }
+    }
 }
 
 /// Lo mas larga que puede ser una ruta del fichero.
@@ -102,6 +134,8 @@ pub enum Motivo {
     SiNo,
     /// Una ruta de mas de `RUTA_MAX` o con caracteres raros.
     Ruta,
+    /// Se esperaba `fino` o `hacker`.
+    Marco,
 }
 
 impl Motivo {
@@ -114,6 +148,7 @@ impl Motivo {
             Motivo::FueraDeRango => "numero fuera de su rango",
             Motivo::SiNo => "ahi va `si` o `no`",
             Motivo::Ruta => "una ruta va sin espacios y con 40 letras como mucho",
+            Motivo::Marco => "ahi va `fino` o `hacker`",
         }
     }
 }
@@ -291,6 +326,9 @@ impl Estilo {
         w.si_no(b"vatios", self.vatios);
         w.si_no(b"reloj", self.reloj);
         w.si_no(b"bienvenida", self.bienvenida);
+        w.pega(b"marco = ");
+        w.pega(self.marco.nombre());
+        w.pega(b"\n");
         w.pega(b"fondo_imagen = ");
         w.pega(if self.fondo_imagen.vacia() { b"no" } else { self.fondo_imagen.bytes() });
         w.pega(b"\n");
@@ -319,6 +357,7 @@ impl Estilo {
             b"memoria" => self.memoria = sn()?,
             b"cpu" => self.cpu = sn()?,
             b"bienvenida" => self.bienvenida = sn()?,
+            b"marco" => self.marco = Marco::de(v).ok_or(Motivo::Marco)?,
             // `no` devuelve el degradado: es la forma de quitar la foto sin
             // borrar la linea.
             b"fondo_imagen" => {
@@ -348,6 +387,7 @@ mod pruebas {
         cpu: true,
         fondo_imagen: Ruta::VACIA,
         bienvenida: true,
+        marco: Marco::Fino,
     };
 
     #[test]
@@ -406,6 +446,20 @@ mod pruebas {
         let mut leido = BASE;
         leido.aplicar(&buf[..n]);
         assert!(!leido.bienvenida);
+    }
+
+    /// El vestido de las ventanas se elige con una palabra, y una que no es
+    /// ninguna de las dos no pisa el que habia.
+    #[test]
+    fn el_marco_se_elige_y_uno_malo_no_pisa() {
+        let mut e = BASE;
+        assert_eq!(e.aplicar(b"marco = hacker  # el de septiembre\n").fallos(), &[]);
+        assert_eq!(e.marco, Marco::Hacker);
+        let inf = e.aplicar(b"marco = barroco\n");
+        assert_eq!(inf.fallos()[0].motivo, Motivo::Marco);
+        assert_eq!(e.marco, Marco::Hacker);
+        e.aplicar(b"marco = fino\n");
+        assert_eq!(e.marco, Marco::Fino);
     }
 
     /// *** UN FICHERO ROTO NO ROMPE NADA: cada linea mala dice su numero y su
@@ -467,13 +521,14 @@ mod pruebas {
         e.vatios = false;
         e.bienvenida = false;
         e.fondo_imagen = Ruta::de(b"sys/fondo.qoi").unwrap();
+        e.marco = Marco::Hacker;
         let mut buf = [0u8; 1024];
         let n = e.escribir(&mut buf);
         let mut leido = Estilo { acento: 0, barra_hueco: 0, ..BASE };
         let inf = leido.aplicar(&buf[..n]);
         assert_eq!(inf.fallos(), &[], "{}", String::from_utf8_lossy(&buf[..n]));
         assert_eq!(leido, e);
-        assert_eq!(inf.aplicadas, 13, "las trece claves, todas");
+        assert_eq!(inf.aplicadas, 14, "las catorce claves, todas");
     }
 
     #[test]

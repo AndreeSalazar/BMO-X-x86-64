@@ -56,6 +56,11 @@ pub(crate) fn apagar() {
 pub(crate) fn poner(dsk: &Desktop, p: &bmo::Pantalla, tapado: bool) {
     let e = estado();
     let Some(v) = e.ventana else { return };
+    // ** Con el marco FINO no hay neon alrededor del foco: el foco lo dice
+    // el borde tenido del acento y el filete de la barra (`Chrome`).
+    if fino() {
+        return;
+    }
     let ahora = bmo::ciclos();
     let ms = ahora.wrapping_sub(e.desde) / e.por_ms.max(1);
     let Some(caja) = crate::desktop::foco::caja(dsk, v) else { return };
@@ -73,7 +78,13 @@ pub(crate) fn anima() -> bool {
     let e = estado();
     let ahora = bmo::ciclos();
     // Solo el DESTELLO pide fotogramas; el borde vivo va en los del cuarto.
-    e.ventana.is_some()
+    !fino()
+        && e.ventana.is_some()
         && ahora.wrapping_sub(e.desde) < DURA_MS * e.por_ms
         && ahora.wrapping_sub(e.pintado) >= FOTOGRAMA_MS * e.por_ms
+}
+
+/// El marco fino no lleva neon. Ver `bmo_config::Marco`.
+fn fino() -> bool {
+    crate::scene::estilo::estilo().marco == bmo_config::Marco::Fino
 }

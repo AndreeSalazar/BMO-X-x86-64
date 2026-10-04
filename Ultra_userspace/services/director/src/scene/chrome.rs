@@ -667,7 +667,7 @@ impl Chrome {
         }
         // ** EL BORDE DE FOCO: el de la ventana a la que van las teclas es del
         // acento; los demas, del color de su ventana (que dice CUAL es).
-        let edge = if self.foco { super::acento() } else { edge };
+        let edge = self.borde_de_foco(edge);
         // ** LA VENTANA, REDONDA DE VERDAD (25-09): radio 10, las cuatro
         // esquinas suavizadas contra el escritorio, el borde de 1 px CONSTANTE
         // y la barra de titulo con la curva de DENTRO. Antes: la curva corrida
@@ -683,10 +683,53 @@ impl Chrome {
             cuerpo,
             &|px, py| super::background_at(px, py, alto),
         );
-        self.paint_hacker(p, edge, title_bg, acento);
+        if fino() {
+            self.paint_fino(p, title_bg, acento);
+        } else {
+            self.paint_hacker(p, edge, title_bg, acento);
+        }
 
         self.paint_buttons(p, title_bg);
         self.paint_corner_grip(p, edge);
+    }
+
+    /// El borde de la ventana segun tenga el foco o no. Con el marco `fino`
+    /// el foco TINE el borde del acento en vez de pintarlo de neon: se sabe
+    /// cual es sin que grite. Una sola cuenta para `paint_chrome` y
+    /// `paint_vivo`, que pintan el mismo pixel.
+    fn borde_de_foco(&self, edge: u32) -> u32 {
+        match (self.foco, fino()) {
+            (false, _) => edge,
+            (true, false) => super::acento(),
+            (true, true) => mezcla_c(edge, super::acento(), 120),
+        }
+    }
+
+    /// ** EL MARCO FINO (04-10, *"elegancia, la de Francia"*). Lo que hace es
+    /// QUITAR: ni scanlines, ni esquinas HUD, ni segmentos. Queda la barra
+    /// lisa y, debajo, un FILETE: la raya que separa la barra del cuerpo se
+    /// enciende del acento en el centro y se apaga hacia los dos extremos,
+    /// como el filete de una pagina bien compuesta. Sin el foco, el filete es
+    /// apenas un pelo mas claro que la barra.
+    ///
+    /// Todo dentro del rectangulo de la ventana, como el hacker: el borrado
+    /// no cambia.
+    fn paint_fino(&self, p: &bmo::Pantalla, title_bg: u32, acento: u32) {
+        let (x, y, w) = (self.x, self.y, self.width);
+        let largo = w.saturating_sub(2);
+        if largo < 4 {
+            return;
+        }
+        let centro = if self.foco { mezcla_c(title_bg, acento, 170) } else { mezcla_c(title_bg, INK, 40) };
+        let mitad = (largo / 2) as i32;
+        let (fx, fy) = ((x + 1) as i32, (y + TITLE_H - 1) as i32);
+        p.pieza(&bmo::Pieza::Degradado { x: fx, y: fy, w: mitad, h: 1, r: 0, de: title_bg, a: centro, vertical: false }, 0, 0, None);
+        p.pieza(
+            &bmo::Pieza::Degradado { x: fx + mitad, y: fy, w: largo as i32 - mitad, h: 1, r: 0, de: centro, a: title_bg, vertical: false },
+            0,
+            0,
+            None,
+        );
     }
 
     /// ** EL ESTILO HACKER (2026-09-25, pedido: *"todo hyprland estilo
@@ -769,9 +812,54 @@ impl Chrome {
         }
     }
 
+    /// ** UN BOTON FINO: el icono con pluma suave (la de `bmo-pinta`) a media
+    /// voz, y al senalarlo un disco redondo detras -- el de cerrar, de un rojo
+    /// burdeos, que sigue siendo el unico rojo que dice "esto destruye".
+    ///
+    /// Empieza devolviendo su caja al fondo de la barra: el disco y la pluma
+    /// MEZCLAN sus bordes, y un boton se repinta encima de si mismo cada vez
+    /// que el puntero entra o sale.
+    #[allow(clippy::too_many_arguments)]
+    fn paint_boton_fino(p: &bmo::Pantalla, b: Button, bx: u32, by: u32, height: u32, fondo: u32, encima: bool, maximizada: bool) {
+        p.rect(bx, by, BTN_SIDE, height, fondo);
+        let (cx, cy) = ((bx + BTN_SIDE / 2) as i32, (by + height / 2) as i32);
+        if encima {
+            let disco = if b == Button::Close { FINO_CERRAR } else { mezcla_c(fondo, INK, 36) };
+            p.caja_redonda(cx - 10, cy - 10, 20, 20, 10, disco);
+        }
+        let tinta = if encima { if b == Button::Close { 0x00FF_FFFF } else { INK } } else { mezcla_c(fondo, INK, 170) };
+        // En 1/64 de pixel, por el centro de los pixeles.
+        let c = |dx: i32, dy: i32| (cx * 64 + 32 + dx * 16, cy * 64 + 32 + dy * 16);
+        let pluma = 84;
+        match b {
+            Button::Minimize => {
+                let raya: &[(i32, i32)] = &[c(-18, 0), c(18, 0)];
+                p.pieza(&bmo::Pieza::Trazo { caminos: &[raya], cerrados: &[false], grosor64: pluma, c: tinta }, 0, 0, None);
+            }
+            Button::Maximize => {
+                if maximizada {
+                    p.borde_redondo(cx - 4, cy - 2, 7, 7, 2, 1, tinta);
+                    let atras: &[(i32, i32)] = &[c(-4, -10), c(-4, -18), c(18, -18), c(18, 4), c(10, 4)];
+                    p.pieza(&bmo::Pieza::Trazo { caminos: &[atras], cerrados: &[false], grosor64: 64, c: tinta }, 0, 0, None);
+                } else {
+                    p.borde_redondo(cx - 5, cy - 5, 10, 10, 2, 1, tinta);
+                }
+            }
+            Button::Close => {
+                let a: &[(i32, i32)] = &[c(-16, -16), c(16, 16)];
+                let b2: &[(i32, i32)] = &[c(-16, 16), c(16, -16)];
+                p.pieza(&bmo::Pieza::Trazo { caminos: &[a, b2], cerrados: &[false, false], grosor64: pluma, c: tinta }, 0, 0, None);
+            }
+        }
+    }
+
     /// Un boton, en su caja: el fondo (realzado si hace falta) y su icono.
     #[allow(clippy::too_many_arguments)]
     fn paint_boton(p: &bmo::Pantalla, b: Button, bx: u32, by: u32, height: u32, fondo: u32, encima: bool, maximizada: bool) {
+        if fino() {
+            Self::paint_boton_fino(p, b, bx, by, height, fondo, encima, maximizada);
+            return;
+        }
         {
             let realce = if encima {
                 if b == Button::Close { CLOSE_HOVER } else { BTN_HOVER }
@@ -845,10 +933,8 @@ impl Chrome {
         let r = if self.sin_marco { 0 } else { super::borde::R_VENTANA };
         let base = if self.sin_marco {
             if self.foco { mezcla_c(super::acento(), 0, 120) } else { mezcla_c(edge, 0, 60) }
-        } else if self.foco {
-            super::acento()
         } else {
-            edge
+            self.borde_de_foco(edge)
         };
         if self.sin_marco {
             self.paint_borde(p, base);
@@ -862,7 +948,8 @@ impl Chrome {
             p.rect(x, y + r, 1, h - 2 * r, base);
             p.rect(x + w - 1, y + r, 1, h - 2 * r, base);
         }
-        if !vivo {
+        // Con el marco fino no corren luces: el borde quieto ES el marco.
+        if !vivo || fino() {
             return;
         }
         let (x, y, w, h) = (self.x, self.y, self.width, self.height);
@@ -926,6 +1013,16 @@ impl Chrome {
         if self.is_maximized() || self.sin_marco {
             return;
         }
+        if fino() {
+            // Tres puntos en diagonal, del color del borde a media voz: se ve
+            // que se puede estirar sin que parezca un rasguno.
+            let (ex, ey) = ((self.x + self.width) as i32 - 7, (self.y + self.height) as i32 - 7);
+            let tinta = mezcla_c(color, INK, 60);
+            for (dx, dy) in [(0, -8), (-4, -4), (-8, 0), (0, -4), (-4, 0), (0, 0)] {
+                p.caja_redonda(ex + dx - 1, ey + dy - 1, 2, 2, 1, tinta);
+            }
+            return;
+        }
         for k in 0..3u32 {
             let d = 4 + k * 4;
             p.rect(self.x + self.width - 4 - d, self.y + self.height - 6 - k * 4, d, 2, color);
@@ -939,6 +1036,14 @@ fn chrome_gap(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32, color: u32) {
     p.rect(x, y + h - 1, w, 1, color);
     p.rect(x, y, 1, h, color);
     p.rect(x + w - 1, y, 1, h, color);
+}
+
+/// El rojo de cerrar del marco fino: un burdeos, no el rojo de alarma.
+const FINO_CERRAR: u32 = 0x00A8_3242;
+
+/// Esta puesto el marco fino? Ver `bmo_config::Marco`.
+fn fino() -> bool {
+    super::estilo::estilo().marco == bmo_config::Marco::Fino
 }
 
 /// `a` hacia `b`, `t` de 255. La mezcla de siempre, con el orden de `globo`.

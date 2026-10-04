@@ -40,7 +40,7 @@ static mut ANTES: Estilo = estilo::POR_DEFECTO;
 static mut AVISO: &str = "";
 
 /// Los ajustes, en el orden en que se ven.
-const CAMPOS: [&str; 11] = [
+const CAMPOS: [&str; 12] = [
     "barra_flotante",
     "barra_hueco",
     "acento",
@@ -52,6 +52,8 @@ const CAMPOS: [&str; 11] = [
     "memoria",
     "vatios",
     "reloj",
+    // El vestido de las ventanas (04-10): `fino` o `hacker`.
+    "marco",
 ];
 
 /// Acentos: vivos, para una linea o un punto.
@@ -101,7 +103,14 @@ fn cambiar(e: &mut Estilo, campo: usize, d: isize) {
         7 => e.cpu = !e.cpu,
         8 => e.memoria = !e.memoria,
         9 => e.vatios = !e.vatios,
-        _ => e.reloj = !e.reloj,
+        10 => e.reloj = !e.reloj,
+        // Dos vestidos: cualquier flecha pasa al otro.
+        _ => {
+            e.marco = match e.marco {
+                bmo_config::Marco::Fino => bmo_config::Marco::Hacker,
+                bmo_config::Marco::Hacker => bmo_config::Marco::Fino,
+            }
+        }
     }
 }
 
@@ -140,7 +149,12 @@ fn valor(e: &Estilo, campo: usize, dst: &mut [u8; 8]) -> usize {
         7 => si(e.cpu, dst),
         8 => si(e.memoria, dst),
         9 => si(e.vatios, dst),
-        _ => si(e.reloj, dst),
+        10 => si(e.reloj, dst),
+        _ => {
+            let n = e.marco.nombre();
+            dst[..n.len()].copy_from_slice(n);
+            n.len()
+        }
     }
 }
 

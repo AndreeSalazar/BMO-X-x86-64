@@ -351,6 +351,14 @@ director, que no tiene monton, y no enlazaba. Ahora las apps con monton
 piden `bmo-letra-monton`: el MISMO `lib.rs`, en otro paquete. Ver su
 `Cargo.toml`.
 
+**Y el marco de las ventanas (04-10)**: `marco = fino` (por defecto) o
+`marco = hacker` en `sys/director.cfg`, y en vivo con `aspecto`. El fino
+QUITA (scanlines, esquinas HUD, segmentos, el neon que corre): deja la barra
+lisa, un filete del acento que se apaga hacia los extremos, botones redondos
+con pluma suave y el burdeos de cerrar. Todo dentro del rectangulo de la
+ventana, asi que el modelo de borrado (`scene_color`) no cambia. El hacker de
+25-09 sigue entero a una linea: no se borro lo que se pidio antes.
+
 ## ⚠ LAS CASILLAS MENTIAN, Y SE RECONTARON EL 2026-08-24
 
 Los cinco escalones de la cadena figuraban SIN HACER y estaban hechos, con su
