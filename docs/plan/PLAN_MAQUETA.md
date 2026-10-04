@@ -392,10 +392,12 @@ tiene se sabe al correr. Con piezas, una FILA es una maqueta de medida fija
            -> `toolchain/tools/maqueta/compone/src/lib.rs`
            el navegador compone igual (Shadow DOM en `foto.js`) y mide lo
            mismo: `pruebas/escaparate.maqueta`, 788 x 276 los dos
-   [ ] P2  REPETIR: `<repite pieza="fila" eje="column" paso="34">`. El
-           CUANTOS lo da TITAN++ o Rust al correr; el COMO, la pieza. El
-           emisor A genera la pieza una vez y un bucle de `y = i * paso`
-           -> `toolchain/tools/maqueta/compone/` y `emit/src/rust.rs`
+   [x] P2  REPETIR: `<usa id="amigos" src="amigo.maqueta" repite="6"
+           entre="4"/>`. Se maqueta y se juzga con todas; el CUANTOS lo da
+           Rust al correr (`LISTA_AMIGOS.fila(i)`), el COMO la pieza
+           -> `toolchain/tools/maqueta/compone/src/lib.rs`, `emit/src/rust.rs`
+           `pruebas/amigos.maqueta`; pintada en el anfitrion con datos de
+           verdad compilando el modulo generado contra `bmo-userland`
    [x] P3a ESTADOS EN EL ANFITRION: `@estado nombre { ... }` y
            `transition` (las curvas de CSS, `cubic-bezier` con rebote). Cada
            estado se maqueta ENTERO y se juzga; la transicion mezcla cajas ya
@@ -495,13 +497,16 @@ es CSS: es poder escribir ESA pantalla como `.maqueta`. Lo que le falta, por
 lo que se ve en ella:
 
 ```
-   [ ] H1  REPETIR + DATOS (es P2): la lista de amigos y la rejilla de videos.
-           La fila es una pieza; el cuantos y lo de dentro (nombre, color,
-           cifras) lo dan TITAN++ o Rust al correr
-           -> `toolchain/tools/maqueta/compone/`
-   [ ] H2  EL TEXTO QUE SE CORTA EN EL APARATO (`text-overflow: ellipsis`):
-           `4 videos . 13 min . siguie...` -- el dato no se conoce al compilar
-           -> `platform/shared/bmo-pinta` (medir y cortar con la letra)
+   [x] H1  REPETIR + DATOS (con P2): la fila lleva `{nombre|muestra}` y
+           `--dato-color`; su modulo sale con `Datos`, `MUESTRA` y
+           `pintar(.., d)`. La lista de amigos ya se escribe asi
+           (`pruebas/amigo.maqueta`). La rejilla de videos espera a H6
+           -> `node/src/markup.rs`, `node/src/variables.rs`, `emit/src/rust.rs`
+   [x] H2  EL TEXTO QUE SE CORTA EN EL APARATO: `p.pieza_cabe` corta con
+           `...` a la caja del hueco, la que se juzgo (comprobacion D)
+           -> `platform/shared/bmo-pinta` (`letra_cabe`),
+              `Ultra_userspace/userland/src/pantalla/verde/fina.rs`
+           [!] HERMES todavia no usa estos modulos, y no se vio en el Ryzen
    [ ] H3  PARTIR LINEAS AL COMPILAR: el parrafo de la columna. El texto SI se
            conoce: se parte en el anfitrion y el veredicto mira que quepa
            -> `toolchain/tools/maqueta/layout/src/measure.rs`

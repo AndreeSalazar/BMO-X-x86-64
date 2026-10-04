@@ -40,7 +40,7 @@ const HONDO: usize = 8;
 
 /// **Resuelve las variables**: devuelve los tokens de estilo sin los bloques
 /// `:root` y con cada `var(...)` sustituido.
-pub fn resolver(src: &[u8], toks: &[Token], errors: &mut Vec<Error>) -> Vec<Token> {
+pub fn resolver(src: &[u8], toks: &[Token], datos: &mut Vec<(String, u32)>, errors: &mut Vec<Error>) -> Vec<Token> {
     let mut tabla: HashMap<Vec<u8>, Vec<Token>> = HashMap::new();
     let mut resto = Vec::with_capacity(toks.len());
     let mut i = 0;
@@ -75,9 +75,54 @@ pub fn resolver(src: &[u8], toks: &[Token], errors: &mut Vec<Error>) -> Vec<Toke
         resto.push(toks[i]);
         i += 1;
     }
+    colores_de_dato(src, &resto, &tabla, datos, errors);
     let mut fuera = Vec::with_capacity(resto.len());
     sustituir(src, &resto, &tabla, 0, &mut fuera, errors);
     fuera
+}
+
+/// ** LOS COLORES QUE LLEGAN AL EJECUTAR (H1, 04-10): `--dato-color: #4DE38F`.
+///
+/// El valor es la MUESTRA: lo que se juzga, lo que sale en la foto y en el
+/// navegador. El emisor la reconoce por su valor en lo que pinta y pone el
+/// dato en su sitio -- y para que reconocer no sea adivinar, la muestra NO
+/// puede salir en el fichero de ninguna otra forma (ni escrita a mano ni en
+/// otra variable). Si sale, se rechaza y se pide otra.
+fn colores_de_dato(src: &[u8], resto: &[Token], tabla: &HashMap<Vec<u8>, Vec<Token>>, datos: &mut Vec<(String, u32)>, errors: &mut Vec<Error>) {
+    let mut nombres: Vec<&Vec<u8>> = tabla.keys().filter(|k| k.starts_with(b"--dato-")).collect();
+    nombres.sort();
+    for n in nombres {
+        let valor = &tabla[n];
+        let nombre = String::from_utf8_lossy(&n[7..]).into_owned();
+        let es_color = valor.len() == 1 && valor[0].kind == Kind::Color && valor[0].text(src).len() == 6;
+        let campo_ok = nombre.bytes().next().is_some_and(|b| b.is_ascii_lowercase())
+            && nombre.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+        if !es_color || !campo_ok {
+            errors.push(Error::new(
+                span_of(valor.first().unwrap_or(&resto[0])),
+                &format!("`--dato-{nombre}` tiene que ser un color `#RRGGBB` con nombre en minusculas"),
+                "una variable `--dato-*` es un COLOR que llega al ejecutar; su valor es \
+                 la muestra, y su nombre sale como campo de Rust.",
+                "por ejemplo `--dato-color: #4DE38F`.",
+            ));
+            continue;
+        }
+        let hex = valor[0].text(src).to_ascii_uppercase();
+        let otra = |t: &&Token| t.kind == Kind::Color && t.text(src).to_ascii_uppercase() == hex;
+        let choca = resto.iter().find(otra).or_else(|| tabla.iter().filter(|(k, _)| *k != n).flat_map(|(_, v)| v.iter()).find(otra));
+        if let Some(t) = choca {
+            errors.push(Error::new(
+                span_of(t),
+                &format!("`#{}` es la muestra de `--dato-{nombre}` y sale aqui tambien", String::from_utf8_lossy(&hex)),
+                "el emisor reconoce el dato por su muestra: si el mismo color sale de \
+                 otra forma, no sabria cual de los dos llega al ejecutar.",
+                "dar a la muestra un color que no use nadie mas (uno cercano vale).",
+            ));
+            continue;
+        }
+        let v = String::from_utf8_lossy(&hex).chars().fold(0u32, |a, c| (a << 4) | c.to_digit(16).unwrap_or(0));
+        datos.push((nombre, v));
+    }
 }
 
 /// Lee un bloque `:root { ... }` desde el token siguiente a `{`. Devuelve

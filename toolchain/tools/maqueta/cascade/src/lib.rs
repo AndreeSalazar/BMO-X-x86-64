@@ -56,6 +56,9 @@ pub struct Styled {
     pub d: Option<String>,
     /// `<usa src>`: la pieza, carried untouched.
     pub src: Option<String>,
+    /// `<usa repite>` y el hueco `{nombre}` (P2, H1), carried untouched.
+    pub repite: Option<bmo_maqueta_node::Repite>,
+    pub hueco: Option<String>,
     /// Only ever set on the root.
     pub canvas: Option<(u32, u32)>,
     pub style: Style,
@@ -179,6 +182,8 @@ fn settle(
         text: node.text.clone(),
         view_box: node.view_box,
         src: node.src.clone(),
+        repite: node.repite,
+        hueco: node.hueco.clone(),
         d: node.d.clone(),
         canvas: match (node.width, node.height) {
             (Some(w), Some(h)) => Some((w, h)),

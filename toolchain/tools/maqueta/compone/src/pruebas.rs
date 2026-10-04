@@ -114,3 +114,39 @@ fn cada_estado_se_maqueta_y_se_juzga() {
     let f = compilar_estados_con(Path::new("p.maqueta"), &leer).err().expect("no cabe en abierta");
     assert!(f.render().contains("en el estado `abierta`"), "{}", f.render());
 }
+
+// -- LAS LISTAS (P2) -------------------------------------------------------
+
+#[test]
+fn una_lista_se_maqueta_con_todas_sus_filas_y_las_nombra() {
+    let principal = "<maqueta class=\"m\"><usa id=\"l\" src=\"fila.maqueta\" repite=\"3\" entre=\"4\"/></maqueta>\
+<style>.m{width:200px; height:100px; display:flex; flex-direction:column; padding:4px}</style>";
+    let leer = disco(&[("principal.maqueta", principal), ("fila.maqueta", FILA)]);
+    let l = compilar_con(Path::new("principal.maqueta"), &leer).unwrap_or_else(|f| panic!("{}", f.render()));
+    let usa = l.all().into_iter().find(|f| f.tag == Tag::Usa).expect("el usa");
+    assert_eq!((usa.rect.w, usa.rect.h), (120, 3 * 24 + 2 * 4), "tres filas y dos huecos");
+    assert_eq!(usa.children.len(), 3);
+    let ys: Vec<i32> = usa.children.iter().map(|f| f.rect.y).collect();
+    assert_eq!(ys, vec![4, 32, 60], "cada una `alto + entre` mas abajo");
+    let ids: Vec<&str> = l.hits().iter().map(|h| h.0).collect();
+    assert_eq!(ids, vec!["l", "l.0.nombre", "l.1.nombre", "l.2.nombre"]);
+}
+
+#[test]
+fn una_lista_que_no_cabe_entera_no_compila() {
+    // Seis filas de 24 no caben en 100: se juzga lo peor, que esten todas.
+    let principal = "<maqueta class=\"m\"><usa id=\"l\" src=\"fila.maqueta\" repite=\"6\"/></maqueta>\
+<style>.m{width:200px; height:100px; display:flex; flex-direction:column}</style>";
+    let leer = disco(&[("principal.maqueta", principal), ("fila.maqueta", FILA)]);
+    let f = compilar_con(Path::new("principal.maqueta"), &leer).err().expect("no cabe");
+    assert!(f.render().contains("se sale"), "{}", f.render());
+}
+
+#[test]
+fn una_lista_necesita_id() {
+    let principal = "<maqueta class=\"m\"><usa src=\"fila.maqueta\" repite=\"2\"/></maqueta>\
+<style>.m{width:200px; height:100px; display:flex; flex-direction:column}</style>";
+    let leer = disco(&[("principal.maqueta", principal), ("fila.maqueta", FILA)]);
+    let f = compilar_con(Path::new("principal.maqueta"), &leer).err().expect("sin id");
+    assert!(f.render().contains("una lista necesita `id`"), "{}", f.render());
+}

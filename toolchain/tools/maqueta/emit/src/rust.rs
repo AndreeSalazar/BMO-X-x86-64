@@ -30,15 +30,242 @@ use crate::orden::{lista, Estado, Orden, Trazo};
 /// como se tecleo el comando **no se puede comparar**, y comparar es lo unico
 /// que impide que la cara pintada y su `.maqueta` se separen.
 pub fn modulo(origen: &str, l: &Laid) -> String {
-    let ordenes = lista(l);
+    modulo_con_datos(origen, l, &[])
+}
+
+/// **El modulo de una maqueta con DATOS y LISTAS** (P2/H1/H2, 04-10).
+///
+/// ```text
+///    una pieza con huecos        `Datos` (un campo por `{nombre}` y por
+///    (`{nombre}`, `--dato-*`)    `--dato-*`), su `MUESTRA`, y `pintar(.., d)`
+///                                con lo que llega al ejecutar: el texto se
+///                                corta con `...` a su caja (`pieza_cabe`)
+///    una maqueta con listas      `LISTA_<ID>`: donde va cada fila. La fila la
+///    (`<usa repite>`)            pinta su propio modulo, tantas veces como
+///                                datos haya: aqui NO se pintan las muestras
+/// ```
+///
+/// `colores` son los `--dato-*` del fichero (`Document::datos`). Sin datos
+/// ni listas, el mismo modulo de siempre, byte a byte.
+pub fn modulo_con_datos(origen: &str, l: &Laid, colores: &[(String, u32)]) -> String {
+    let podada = podar_listas(l);
+    let datos = Datos::de(&podada, colores);
+    let ordenes = lista(&podada);
     let mut s = String::new();
     cabecera(&mut s, origen, l);
-    pintar(&mut s, &ordenes);
-    pintar_en(&mut s, &ordenes);
-    realce(&mut s, &ordenes);
+    datos.cabecera(&mut s);
+    listas(&mut s, l);
+    pintar(&mut s, &ordenes, &datos);
+    pintar_en(&mut s, &ordenes, &datos);
+    realce(&mut s, &ordenes, &datos);
     golpe(&mut s, l);
     islas(&mut s, l);
     s
+}
+
+/// Lleva DATOS esta maqueta (sin contar los de las filas de sus listas, que
+/// son de la fila)?
+pub fn tiene_datos(l: &Laid, colores: &[(String, u32)]) -> bool {
+    Datos::de(&podar_listas(l), colores).hay()
+}
+
+/// La maquetacion sin las filas de las listas: las pinta el aparato con sus
+/// datos, no aqui con las muestras.
+fn podar_listas(l: &Laid) -> Laid {
+    fn ir(f: &mut bmo_maqueta_layout::Frame) {
+        if f.repite.is_some() {
+            f.children.clear();
+        }
+        f.children.iter_mut().for_each(ir);
+    }
+    let mut p = l.clone();
+    ir(&mut p.root);
+    p
+}
+
+// ------------------------------------------------------------------------
+//  Los datos (H1/H2)
+// ------------------------------------------------------------------------
+
+/// Un texto que llega al ejecutar: donde empieza (su `text_at`), su campo,
+/// hasta donde puede llegar y su muestra.
+struct Hueco {
+    x: i32,
+    y: i32,
+    nombre: String,
+    max: u32,
+    muestra: String,
+}
+
+#[derive(Default)]
+struct Datos {
+    huecos: Vec<Hueco>,
+    colores: Vec<(String, u32)>,
+}
+
+impl Datos {
+    fn de(l: &Laid, colores: &[(String, u32)]) -> Datos {
+        let mut huecos = Vec::new();
+        for f in l.all() {
+            if let (Some(nombre), Some(t), Some(m)) = (&f.hueco, f.text_at, &f.text) {
+                let max = (f.content.right() - t.x as i64).max(0) as u32;
+                huecos.push(Hueco { x: t.x, y: t.y, nombre: nombre.clone(), max, muestra: m.clone() });
+            }
+        }
+        Datos { huecos, colores: colores.to_vec() }
+    }
+
+    fn hay(&self) -> bool {
+        !self.huecos.is_empty() || !self.colores.is_empty()
+    }
+
+    /// `, d: &Datos` en las firmas de un modulo con datos.
+    fn param(&self) -> &'static str {
+        if self.hay() { ", d: &Datos" } else { "" }
+    }
+
+    fn hueco(&self, t: &Trazo) -> Option<&Hueco> {
+        match t {
+            Trazo::Letra { r, .. } => self.huecos.iter().find(|h| h.x == r.x && h.y == r.y),
+            _ => None,
+        }
+    }
+
+    /// Los campos de texto, sin repetir (un campo puede salir dos veces).
+    fn textos(&self) -> Vec<&Hueco> {
+        let mut v: Vec<&Hueco> = Vec::new();
+        for h in &self.huecos {
+            if !v.iter().any(|o| o.nombre == h.nombre) {
+                v.push(h);
+            }
+        }
+        v
+    }
+
+    /// Cada muestra de color, cambiada por su dato: `0x00RRGGBB` es
+    /// `d.campo`, y con alfa (un resplandor), `(0xAA000000 | d.campo)`. La
+    /// muestra no sale de otra forma en el fichero (lo comprueba el padre).
+    fn colores(&self, linea: String) -> String {
+        let mut s = linea;
+        for (nombre, v) in &self.colores {
+            let rgb = format!("{v:06X}");
+            let mut fuera = String::with_capacity(s.len());
+            let mut resto = s.as_str();
+            while let Some(k) = resto.find("0x") {
+                let (antes, desde) = resto.split_at(k);
+                fuera.push_str(antes);
+                let lit = desde.get(..10).unwrap_or("");
+                let es = lit.len() == 10
+                    && lit[2..].bytes().all(|b| b.is_ascii_hexdigit())
+                    && lit[4..] == rgb
+                    && !desde[10..].bytes().next().is_some_and(|b| b.is_ascii_alphanumeric() || b == b'_');
+                if es {
+                    let alfa = &lit[2..4];
+                    if alfa == "00" {
+                        let _ = write!(fuera, "d.{nombre}");
+                    } else {
+                        let _ = write!(fuera, "(0x{alfa}00_0000 | d.{nombre})");
+                    }
+                    resto = &desde[10..];
+                } else {
+                    fuera.push_str("0x");
+                    resto = &desde[2..];
+                }
+            }
+            fuera.push_str(resto);
+            s = fuera;
+        }
+        s
+    }
+
+    fn cabecera(&self, s: &mut String) {
+        if !self.hay() {
+            return;
+        }
+        let textos = self.textos();
+        let vida = if textos.is_empty() { "" } else { "<'a>" };
+        s.push_str(
+            "// == LOS DATOS (H1) ==================================================\n\
+             //\n\
+             // Lo que llega al ejecutar. La maqueta se juzgo con la MUESTRA; lo que\n\
+             // se juzga de un dato es su caja, y el texto que no quepa se corta con\n\
+             // `...` en el aparato (`Pantalla::pieza_cabe`), sin maquetar nada.\n\
+             \n",
+        );
+        let _ = writeln!(s, "/// Lo que pinta esta pieza y no se sabia al compilar.
+#[derive(Clone, Copy)]
+pub struct Datos{vida} {{");
+        for h in &textos {
+            let _ = writeln!(s, "    /// `{{{}}}`: se corta a {} px.
+    pub {}: &'a [u8],", h.nombre, h.max, h.nombre);
+        }
+        for (n, _) in &self.colores {
+            let _ = writeln!(s, "    /// `--dato-{n}`: un color `0x00RRGGBB`.
+    pub {n}: u32,");
+        }
+        s.push_str("}
+
+");
+        let _ = write!(s, "/// La muestra: con lo que se maqueto, se juzgo y sale en la foto.
+pub const MUESTRA: Datos{} = Datos {{ ", if textos.is_empty() { "" } else { "<'static>" });
+        let mut campos: Vec<String> = textos.iter().map(|h| format!("{}: b{:?}", h.nombre, h.muestra)).collect();
+        campos.extend(self.colores.iter().map(|(n, v)| format!("{n}: 0x{v:08X}")));
+        let _ = writeln!(s, "{} }};
+", campos.join(", "));
+    }
+}
+
+/// Las listas (`<usa repite>`): donde va cada fila.
+fn listas(s: &mut String, l: &Laid) {
+    let ls: Vec<_> = l.all().into_iter().filter(|f| f.repite.is_some()).collect();
+    if ls.is_empty() {
+        return;
+    }
+    s.push_str(
+        "// == LAS LISTAS (P2) =================================================\n\
+         //\n\
+         // La fila es su propia pieza (su modulo, con sus `Datos`); aqui solo se\n\
+         // dice DONDE va cada una. Cuantas hay lo dice quien pinta, hasta `max`:\n\
+         // la maqueta se juzgo con todas.\n\
+         \n\
+         /// Una lista: la primera fila en `(x, y)`, cada una `paso` mas abajo.\n\
+         #[derive(Clone, Copy)]\n\
+         pub struct Lista {\n\
+         \x20   pub x: u32,\n\
+         \x20   pub y: u32,\n\
+         \x20   pub ancho: u32,\n\
+         \x20   pub alto_fila: u32,\n\
+         \x20   pub paso: u32,\n\
+         \x20   pub max: usize,\n\
+         }\n\
+         \n\
+         impl Lista {\n\
+         \x20   /// Donde va la fila `i`, relativo al origen.\n\
+         \x20   pub const fn fila(&self, i: usize) -> (u32, u32) {\n\
+         \x20       (self.x, self.y + i as u32 * self.paso)\n\
+         \x20   }\n\
+         }\n\
+         \n",
+    );
+    for f in ls {
+        let r = f.repite.expect("filtrado arriba");
+        let alto = (f.rect.h - r.entre * (r.veces - 1)) / r.veces;
+        let id = f.id.as_deref().unwrap_or("lista").to_ascii_uppercase().replace(['.', '-'], "_");
+        let _ = writeln!(
+            s,
+            "/// `{}`: hasta {} filas de {}x{alto}.
+pub const LISTA_{id}: Lista = Lista {{ x: {}, y: {}, ancho: {}, alto_fila: {alto}, paso: {}, max: {} }};
+",
+            f.src.as_deref().unwrap_or("?"),
+            r.veces,
+            f.rect.w,
+            f.rect.x,
+            f.rect.y,
+            f.rect.w,
+            alto + r.entre,
+            r.veces
+        );
+    }
 }
 
 fn cabecera(s: &mut String, origen: &str, l: &Laid) {
@@ -118,6 +345,19 @@ fn pieza_literal(p: &bmo_pinta::Pieza) -> String {
     }
 }
 
+/// La llamada que pinta este trazo, con su dato si lleva (H1).
+fn llamada_con(t: &Trazo, d: &Datos, limite: &str) -> String {
+    let l = match (d.hueco(t), t.con_pieza(pieza_literal)) {
+        (Some(h), Some(l)) => {
+            let l = l.replacen(&format!("texto: b{:?}", h.muestra), &format!("texto: d.{}", h.nombre), 1);
+            format!("p.pieza_cabe(&{l}, {}, ox as i32, oy as i32, {limite});", h.max)
+        }
+        (None, Some(l)) => format!("p.pieza(&{l}, ox as i32, oy as i32, {limite});"),
+        _ => llamada(t),
+    };
+    d.colores(l)
+}
+
 /// La llamada que pinta este trazo, sin recortar.
 fn llamada(t: &Trazo) -> String {
     if let Some(l) = t.con_pieza(pieza_literal) {
@@ -145,25 +385,30 @@ fn area(t: &Trazo) -> Rect {
 //  Los cuatro pintados
 // ------------------------------------------------------------------------
 
-fn pintar(s: &mut String, ordenes: &[Orden]) {
-    s.push_str(
+fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos) {
+    let _ = writeln!(
+        s,
         "/// Pinta la maquetacion entera con su esquina superior izquierda en\n\
          /// `(ox, oy)`. El orden es el del fichero, que ES el orden de pintado.\n\
-         pub fn pintar(p: &bmo::Pantalla, ox: u32, oy: u32) {\n",
+         pub fn pintar(p: &bmo::Pantalla, ox: u32, oy: u32{}) {{",
+        d.param()
     );
+    if d.hay() {
+        s.push_str("    let _ = d;\n");
+    }
     let mut ultimo = String::new();
     for o in ordenes.iter().filter(|o| o.estado == Estado::Reposo) {
         if o.de != ultimo {
             let _ = writeln!(s, "    // {}", o.de);
             ultimo = o.de.clone();
         }
-        let _ = writeln!(s, "    {}", llamada(&o.trazo));
+        let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, "None"));
     }
     s.push_str("}\n\n");
 }
 
 /// ** El pintado RECORTADO, que es lo que hace barato reparar un danio.
-fn pintar_en(s: &mut String, ordenes: &[Orden]) {
+fn pintar_en(s: &mut String, ordenes: &[Orden], d: &Datos) {
     s.push_str(
         "/// Repinta SOLO lo que cae dentro de `(cx, cy, cw, ch)`, en coordenadas\n\
          /// de pantalla. Para devolver el fondo de un area sin repintarlo todo.\n\
@@ -179,9 +424,12 @@ fn pintar_en(s: &mut String, ordenes: &[Orden]) {
          ///\n\
          /// Los rectangulos se RECORTAN; el texto entra entero o no entra, porque\n\
          /// medio glifo no se puede pintar.\n\
-         pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32, ch: u32) {\n\
-         \x20   let limite = Recorte::nuevo(cx as i32, cy as i32, cw as i32, ch as i32);\n",
+         pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32, ch: u32",
     );
+    let _ = writeln!(s, "{}) {{\n    let limite = Recorte::nuevo(cx as i32, cy as i32, cw as i32, ch as i32);", d.param());
+    if d.hay() {
+        s.push_str("    let _ = d;\n");
+    }
     let reposo: Vec<&Orden> = ordenes.iter().filter(|o| o.estado == Estado::Reposo).collect();
     if reposo.is_empty() {
         s.push_str("    let _ = (p, ox, oy, limite);\n");
@@ -199,13 +447,13 @@ fn pintar_en(s: &mut String, ordenes: &[Orden]) {
         );
         match &o.trazo {
             Trazo::Rect { color, .. } => {
-                let _ = writeln!(
-                    s,
+                let linea = format!(
                     "    let c = {caja}.interseccion(&limite);\n\
                      \x20   if !c.vacio() {{\n\
                      \x20       p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x{color:08X});\n\
                      \x20   }}"
                 );
+                let _ = writeln!(s, "{}", d.colores(linea));
             }
             Trazo::Texto { texto, color, .. } => {
                 let _ = writeln!(
@@ -219,13 +467,9 @@ fn pintar_en(s: &mut String, ordenes: &[Orden]) {
             // Las suaves, enteras pero RECORTADAS al pintar: un borde suave
             // mezclado dos veces se oscurece.
             otro => {
-                if let Some(l) = otro.con_pieza(pieza_literal) {
-                    let _ = writeln!(
-                        s,
-                        "    if !{caja}.interseccion(&limite).vacio() {{\n\
-                         \x20       p.pieza(&{l}, ox as i32, oy as i32, Some(limite));\n\
-                         \x20   }}"
-                    );
+                if otro.con_pieza(pieza_literal).is_some() {
+                    let l = llamada_con(otro, d, "Some(limite)");
+                    let _ = writeln!(s, "    if !{caja}.interseccion(&limite).vacio() {{\n        {l}\n    }}");
                 }
             }
         }
@@ -237,12 +481,17 @@ fn pintar_en(s: &mut String, ordenes: &[Orden]) {
 ///
 /// ** No recoloca nada, porque no puede: el padre no deja que una regla `:hover`
 /// toque mas que pintura. Por eso cuesta un rect y no un recalculo.
-fn realce(s: &mut String, ordenes: &[Orden]) {
-    s.push_str(
+fn realce(s: &mut String, ordenes: &[Orden], d: &Datos) {
+    let _ = writeln!(
+        s,
         "/// Repinta la caja `id` con sus colores de `:hover`. Llamalo cuando el\n\
          /// puntero entre, y `pintar` cuando salga.\n\
-         pub fn realce(p: &bmo::Pantalla, ox: u32, oy: u32, id: &str) {\n",
+         pub fn realce(p: &bmo::Pantalla, ox: u32, oy: u32, id: &str{}) {{",
+        d.param()
     );
+    if d.hay() {
+        s.push_str("    let _ = d;\n");
+    }
     let encima: Vec<&Orden> = ordenes.iter().filter(|o| o.estado == Estado::Encima).collect();
     if encima.is_empty() {
         s.push_str("    let _ = (p, ox, oy, id);\n");
@@ -257,7 +506,7 @@ fn realce(s: &mut String, ordenes: &[Orden]) {
             let _ = writeln!(s, "    if id == {:?} {{", o.de.trim_start_matches('#'));
             abierto = o.de.clone();
         }
-        let _ = writeln!(s, "        {}", llamada(&o.trazo));
+        let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, "None"));
     }
     if !abierto.is_empty() {
         s.push_str("        return;\n    }\n");
@@ -378,7 +627,14 @@ fn islas(s: &mut String, l: &Laid) {
 /// `.maqueta` declara `@estado`, las transiciones entre todos, pintadas en
 /// el aparato par a par (`movimiento`). Sin estados, EXACTAMENTE `modulo`.
 pub fn modulo_con_estados(origen: &str, reposo: &Laid, otros: &[(String, Laid)]) -> String {
-    let mut s = modulo(origen, reposo);
+    modulo_entero(origen, reposo, otros, &[])
+}
+
+/// **El modulo entero**: datos y listas (`modulo_con_datos`) y, si los hay,
+/// estados. [!] Una pieza con DATOS no lleva estados todavia (es P3c): quien
+/// llama lo rechaza antes.
+pub fn modulo_entero(origen: &str, reposo: &Laid, otros: &[(String, Laid)], colores: &[(String, u32)]) -> String {
+    let mut s = modulo_con_datos(origen, reposo, colores);
     if otros.is_empty() {
         return s;
     }

@@ -66,6 +66,12 @@ pub struct Node {
     pub d: Option<String>,
     /// `<usa src="...">`: la pieza que va aqui, relativa a este fichero.
     pub src: Option<String>,
+    /// `<usa repite="8" entre="4">` (P2): la pieza, hasta N veces en columna.
+    pub repite: Option<Repite>,
+    /// `{nombre|muestra}` (H1): el texto llega al ejecutar. `text` lleva la
+    /// muestra (la que se maqueta, se juzga y sale en la foto) y esto el
+    /// nombre del dato.
+    pub hueco: Option<String>,
     pub children: Vec<Node>,
     pub span: Span,
 }
@@ -83,10 +89,38 @@ impl Node {
             view_box: None,
             d: None,
             src: None,
+            repite: None,
+            hueco: None,
             children: Vec::new(),
             span,
         }
     }
+}
+
+/// **Una LISTA** (P2, 04-10): `<usa src="fila.maqueta" repite="8" entre="4"/>`.
+/// La pieza es la FILA; cuantas hay lo dice el aparato al correr, hasta
+/// `veces`. Se maqueta y se juzga con TODAS (lo peor que puede pasar), en
+/// columna, `entre` pixeles una de otra.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Repite {
+    pub veces: u32,
+    pub entre: u32,
+}
+
+/// Lo mas largo que se deja una lista.
+pub const MAX_REPITE: u32 = 64;
+
+/// **Un hueco de datos** en un texto: `{nombre}` o `{nombre|muestra}`. El
+/// nombre en minusculas (`[a-z][a-z0-9_]*`): sale como campo de Rust.
+pub fn hueco(t: &str) -> Option<(&str, &str)> {
+    let dentro = t.strip_prefix('{')?.strip_suffix('}')?;
+    let (nombre, muestra) = match dentro.split_once('|') {
+        Some((n, m)) => (n.trim(), m.trim()),
+        None => (dentro.trim(), dentro.trim()),
+    };
+    let ok = nombre.bytes().next().is_some_and(|b| b.is_ascii_lowercase())
+        && nombre.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+    ok.then_some((nombre, muestra))
 }
 
 /// One declaration, named and with its value resolved to integers.
@@ -127,6 +161,11 @@ pub struct Rule {
 pub struct Document {
     pub root: Node,
     pub rules: Vec<Rule>,
+    /// Los COLORES que llegan al ejecutar (H1): `:root { --dato-color:
+    /// #4DE38F }`. El nombre sin `--dato-`, y su muestra (la que se juzga y
+    /// sale en la foto). La muestra no puede salir en el fichero de otra
+    /// forma: asi el emisor la reconoce sin adivinar.
+    pub datos: Vec<(String, u32)>,
 }
 
 impl Document {
@@ -150,6 +189,7 @@ impl Document {
     /// que veria un navegador con ese bloque `@estado` abierto.
     pub fn en_estado(&self, estado: Option<&str>) -> Document {
         Document {
+            datos: self.datos.clone(),
             root: self.root.clone(),
             rules: self
                 .rules
@@ -176,12 +216,13 @@ pub fn parse(src: &[u8]) -> Result<Document, Vec<Error>> {
 
     // `:root` y `var(--x)` se resuelven ANTES de leer reglas: lo que llega a
     // `style::parse` es lo mismo que si el valor se hubiera escrito a mano.
-    let style_toks = variables::resolver(src, &style_toks, &mut errors);
+    let mut datos = Vec::new();
+    let style_toks = variables::resolver(src, &style_toks, &mut datos, &mut errors);
     let rules = style::parse(src, &style_toks, &mut errors);
     let root = markup::parse(src, &markup_toks, &mut errors);
 
     match root {
-        Some(root) if errors.is_empty() => Ok(Document { root, rules }),
+        Some(root) if errors.is_empty() => Ok(Document { root, rules, datos }),
         Some(_) => Err(errors),
         None => {
             if errors.is_empty() {

@@ -263,6 +263,15 @@ pub fn letra(l: &mut impl Lienzo, f: &mut impl Fuente, x: i32, y: i32, alto: i32
     f.escribir(s, e, x, base, |px, py, a| l.mezclar(px, py, c, a))
 }
 
+/// **Una letra que llega al ejecutar** (un hueco de MAQUETA, `{nombre}`; H2):
+/// como [`letra`], pero cortada a `max` pixeles con `...` si no cabe. Lo que
+/// no se conoce al compilar no se pudo juzgar; la caja donde va, si.
+#[allow(clippy::too_many_arguments)]
+pub fn letra_cabe(l: &mut impl Lienzo, f: &mut impl Fuente, x: i32, y: i32, alto: i32, s: &[u8], c: Color, e: Estilo, max: i32) -> i32 {
+    let base = y + bmo_letra::base_en_caja(e.px, alto);
+    f.escribir_cabe(s, e, x, base, max, |px, py, a| l.mezclar(px, py, c, a))
+}
+
 /// La distancia (1/64 px) del punto `p` al segmento `a`-`b`.
 fn distancia(p: (i32, i32), a: (i32, i32), b: (i32, i32)) -> i32 {
     let (px, py) = ((p.0 - a.0) as i64, (p.1 - a.1) as i64);

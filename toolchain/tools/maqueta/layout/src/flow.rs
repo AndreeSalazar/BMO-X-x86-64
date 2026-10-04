@@ -85,6 +85,8 @@ pub fn place(b: &Styled, border: Rect) -> Frame {
         text: b.text.clone(),
         view_box: b.view_box,
         src: b.src.clone(),
+        repite: b.repite,
+        hueco: b.hueco.clone(),
         d: b.d.clone(),
         style: b.style,
         hover: b.hover,

@@ -23,9 +23,16 @@
 //! Los `id` de una pieza puesta en un `<usa id="p">` salen como `p.boton`: la
 //! misma pieza dos veces no choca consigo misma en la tabla de golpeo.
 //!
-//! ## Lo que no hace (todavia)
+//! ## Las listas (P2, 04-10)
 //!
-//! Repetir una pieza N veces con N de la ejecucion. Los ESTADOS se compilan
+//! `<usa id="amigos" src="amigo.maqueta" repite="6" entre="4"/>`: la pieza
+//! hasta 6 veces en columna. Se maqueta y se juzga con TODAS (lo peor que
+//! puede pasar), y se injertan todas con sus ids numerados
+//! (`amigos.0.fila`). Cuantas hay de verdad lo dice el aparato: el emisor
+//! saca `LISTA_AMIGOS` y no pinta las filas, que pinta el modulo de la fila
+//! con sus datos.
+//!
+//! Los ESTADOS se compilan
 //! aqui (`compilar_estados`); la transicion entre ellos se empareja y se
 //! mezcla trazo a trazo en `emit` (`movimiento.rs`). Ver
 //! `docs/plan/PLAN_MAQUETA.md`, seccion 6d.
@@ -159,7 +166,22 @@ fn una(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>, pila: &mut Vec<Path
         }
         // Una pieza va siempre en SU reposo: sus estados son suyos (P3b).
         let pieza = una(&camino, leer, pila, None)?;
-        let (w, h) = pieza.canvas;
+        // ** UNA LISTA (P2): la fila, `veces` veces en columna. Se maqueta y
+        // se juzga con TODAS: lo peor que puede pasar es que esten todas.
+        let (w, h) = match nodo.repite {
+            Some(r) => (pieza.canvas.0, pieza.canvas.1 * r.veces + r.entre * (r.veces - 1)),
+            None => pieza.canvas,
+        };
+        if nodo.repite.is_some() && nodo.id.is_none() {
+            errores.push(Error::new(
+                nodo.span,
+                "una lista necesita `id`",
+                "es como la encuentra el aparato (sale como `LISTA_<ID>` en el \
+                 codigo generado), y como se nombran sus filas: `id.0.boton`, \
+                 `id.1.boton`...",
+                "por ejemplo `<usa id=\"amigos\" src=\"amigo.maqueta\" repite=\"8\"/>`.",
+            ));
+        }
         let s = &mut nodo.style;
         let dijo = |v: Option<u32>, real: u32| v.is_some_and(|v| v != real);
         if dijo(s.width, w) || dijo(s.height, h) {
@@ -246,9 +268,25 @@ fn bajar<'a>(n: &'a mut Styled, camino: &[usize]) -> &'a mut Styled {
 fn injertar(f: &mut Frame, piezas: &mut HashMap<usize, Laid>) {
     if f.tag == Tag::Usa {
         if let Some(p) = piezas.remove(&f.span.start) {
-            let mut raiz = p.root;
-            correr(&mut raiz, f.rect.x, f.rect.y, f.id.as_deref());
-            f.children = vec![raiz];
+            match f.repite {
+                // Una lista: la fila en cada sitio, nombrada con su numero.
+                Some(r) => {
+                    let paso = (p.canvas.1 + r.entre) as i32;
+                    f.children = (0..r.veces)
+                        .map(|k| {
+                            let mut fila = p.root.clone();
+                            let prefijo = format!("{}.{k}", f.id.as_deref().unwrap_or("lista"));
+                            correr(&mut fila, f.rect.x, f.rect.y + k as i32 * paso, Some(&prefijo));
+                            fila
+                        })
+                        .collect();
+                }
+                None => {
+                    let mut raiz = p.root;
+                    correr(&mut raiz, f.rect.x, f.rect.y, f.id.as_deref());
+                    f.children = vec![raiz];
+                }
+            }
         }
         return;
     }

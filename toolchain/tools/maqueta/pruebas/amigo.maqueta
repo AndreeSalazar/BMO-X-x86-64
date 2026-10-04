@@ -1,0 +1,39 @@
+<!--
+   UN AMIGO -- la FILA de la lista de amigos de HERMES
+   (`docs/arte/maqueta_hermes.html`), como pieza con DATOS (H1, 04-10).
+
+   Lo que llega al ejecutar va marcado y con su MUESTRA:
+
+      {nombre|Ana Lopez}        un texto: se maqueta y se juzga con la
+                                muestra; en el aparato se corta con `...` a
+                                su caja (por eso la caja dice su `width`)
+      --dato-color: #4DE38E     un color: la muestra es la que se ve en la
+                                foto; el emisor la cambia por el dato
+
+   La fila se compila y se juzga SOLA; `amigos.maqueta` la repite.
+-->
+<maqueta>
+  <style>
+    :root     { --dato-color: #4DE38E; --dato-estado: #3FD07A }
+    .fila     { display:flex; flex-direction:row; gap:12px; align-items:center;
+                width:260px; height:48px; padding:0 10px 0 10px;
+                border-radius:10px; background-color:#10151F }
+    .cara     { width:34px; height:34px; border-radius:17px;
+                background-color:var(--dato-color) }
+    .textos   { display:flex; flex-direction:column; gap:2px }
+    .nombre   { width:170px; font-size:14px; font-weight:600; line-height:18px;
+                color:#F2F7F9 }
+    .nota     { width:170px; font-size:12px; line-height:16px; color:#7C8796 }
+    .punto    { width:8px; height:8px; border-radius:4px;
+                background-color:var(--dato-estado) }
+  </style>
+
+  <div class="fila" id="fila">
+    <div class="cara"></div>
+    <div class="textos">
+      <span class="nombre">{nombre|Ana Lopez}</span>
+      <span class="nota">{nota|jugando a DOOM}</span>
+    </div>
+    <div class="punto"></div>
+  </div>
+</maqueta>

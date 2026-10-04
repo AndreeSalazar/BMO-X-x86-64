@@ -147,6 +147,20 @@ impl Pantalla {
         let _ = con_letra(|l| bmo_pinta::pieza(&mut pincel, l, pz, ox, oy));
     }
 
+    /// **Una pieza con un dato dentro** (H2): si es una `Pieza::Letra`, su
+    /// texto llega al ejecutar (un hueco `{nombre}` de MAQUETA) y se corta a
+    /// `max` pixeles con `...`; cualquier otra se pinta como [`Self::pieza`].
+    pub fn pieza_cabe(&self, pz: &Pieza, max: i32, ox: i32, oy: i32, limite: Option<Recorte>) {
+        let Pieza::Letra { x, y, alto, texto, c, px, peso, espacio, mayusculas } = *pz else {
+            return self.pieza(pz, ox, oy, limite);
+        };
+        let e = bmo_pinta::estilo(px, peso, espacio, mayusculas);
+        let (_, cy, _, h) = bmo_pinta::caja_de(pz);
+        let (x, y) = (x + ox, y + oy);
+        let Some(mut pincel) = self.pincel(x - 2, cy + oy, max + 4, h, limite) else { return };
+        let _ = con_letra(|l| bmo_pinta::letra_cabe(&mut pincel, l, x, y, alto, texto, c, e, max));
+    }
+
     /// **Una pieza a medio camino** entre `a` y `b` (P3b): `k` milesimas de
     /// avance (`bmo::avance`). Es lo que pinta, en cada fotograma, una
     /// transicion que genera MAQUETA -- la misma mezcla que la foto del

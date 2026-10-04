@@ -181,7 +181,15 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let codigo = bmo_maqueta_emit::rust::modulo_con_estados(&procedencia(&entrada), &puesto, &otros);
+    // ** Con sus DATOS (H1): los colores `--dato-*` del fichero; los huecos
+    // de texto los lleva la maquetacion.
+    let colores = std::fs::read(&entrada).ok().and_then(|f| bmo_maqueta_node::parse(&f).ok()).map(|d| d.datos).unwrap_or_default();
+    let con_datos = bmo_maqueta_emit::rust::tiene_datos(&puesto, &colores);
+    if con_datos && !otros.is_empty() {
+        eprintln!("maqueta: {entrada} tiene datos y estados a la vez; una pieza con datos no lleva estados todavia (P3c).");
+        return ExitCode::FAILURE;
+    }
+    let codigo = bmo_maqueta_emit::rust::modulo_entero(&procedencia(&entrada), &puesto, &otros, &colores);
     if let Err(e) = std::fs::write(&salida, codigo) {
         eprintln!("maqueta: no puedo escribir {salida}: {e}");
         return ExitCode::from(2);
