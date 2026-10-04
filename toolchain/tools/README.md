@@ -32,6 +32,7 @@ decoracion**, y un obrero que juzga es un obrero que un dia se niega a trabajar.
 | [`avisos`](avisos/) | los avisos del compilador SUBEN |
 | [`fases`](fases/) | un fichero de BMO C pierde su `[fase]`, o sea donde APARECE su fallo |
 | [`ambitos`](ambitos/) | un commit usa un ambito que no esta en `AMBITOS.txt` |
+| [`titan-leyes`](titan-leyes/) | una de las **leyes de TITAN++** pierde quien la hace cumplir (su test se borra o se ignora, el ultimo programa de su NO se va), o su texto cambia sin `--sellar` con motivo; o el codigo, la GRAMATICA y el banco dejan de decir lo mismo (04-10) |
 | [`censo-neutro`](censo-neutro/) | el censo del neutro y el codigo no dicen lo mismo. Ver [`NEUTRO/CENSO.txt`](../../NEUTRO/CENSO.txt) |
 | [`perfil-placa`](perfil-placa/) | el perfil de la placa y los rodeos que se le hacen no cuadran |
 | [`perfil`](perfil/) | un perfil expone a un fichero que no existe |

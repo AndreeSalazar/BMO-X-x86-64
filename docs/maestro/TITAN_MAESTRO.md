@@ -1561,6 +1561,14 @@ cada uno con su entrada al final de esta seccion y su gramatica en
 el f32 solo en la GPU, y el permiso del `Titan.toml`, que se estudio y es
 posible.
 
+**LAS LEYES** (04-10, el propietario: *"guardian estricto, que no se altere,
+con reglas y porque"*): lo que TITAN++ promete --las 25 palabras, los codigos
+fijos, sin float en la CPU, nada redondeado en silencio, el match entero, la
+cabecera que dice la verdad...-- vive en
+`toolchain/tools/titan-leyes/LEYES.txt`, cada ley con su PORQUE y quien la
+hace cumplir. El guardian `titan-leyes` corre en el build: una ley que pierde
+su prueba, o cuyo texto cambia sin `--sellar "el motivo"`, para el build.
+
 **La respuesta corta: con 16 palabras ya se escribe cualquier algoritmo; con
 20, un JSON; con 23, una app; con 25, la 3060.** Lo que va de 16 a 25 no da
 potencia de calculo: da ORDEN (tipos, casos, modulos) y SEGURIDAD (prestamos,

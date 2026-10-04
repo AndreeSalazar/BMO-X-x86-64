@@ -1,0 +1,121 @@
+# LEYES DE TITAN++ -- lo que el lenguaje NO cambia sin una decision del propietario.
+#
+# El propietario, 04-10: *"tener guardian estricto el TITAN++ que no se altere,
+# con reglas y porque"*. Cada ley dice TRES cosas, y el guardian
+# (`titan_leyes.py`) comprueba las tres en cada build:
+#
+#     ley       lo que el lenguaje promete, en una linea
+#     porque    por que lo promete: de donde viene, que fallo evita
+#     cumple    QUIEN la hace cumplir hoy, y tiene que seguir vivo:
+#                   test RUTA FUNCION   un test que existe y no esta ignorado
+#                   ejemplo T00NN       un programa del banco que provoca ese NO
+#
+# ** Una ley no se escribe aqui para adornar: si su `cumple` desaparece (el test
+# se borra, se ignora, o el ultimo ejemplo de ese codigo se va), el build para.
+# Y si el TEXTO de una ley cambia, tambien: el sello de abajo es la huella de
+# todas, y moverlo es `titan_leyes.py --sellar "el motivo"`, que deja el
+# motivo en la HISTORIA. Una ley se cambia a la vista, nunca de paso.
+
+[LEYES]
+
+L01 las 25 palabras no crecen: ninguna entra sin su nivel, y no hay una 26
+    porque TITAN_MAESTRO 4.4: una palabra entra solo si quita una confusion; un lenguaje que crece de paso se vuelve C++
+    cumple test toolchain/lang/titan/src/words.rs titan_guardian_25_words_under_the_ceiling_and_the_ladder_adds_up
+
+L02 un codigo de error no cambia de numero ni de sentido
+    porque quien busco "T0062" ayer tiene que encontrar lo mismo hoy; un codigo que se mueve miente en cada mensaje viejo
+    cumple test toolchain/lang/titan/src/message.rs every_code_has_its_own_number_and_they_do_not_move
+
+L03 todo NO dice sus cuatro partes: QUE, DONDE, POR QUE y COMO
+    porque TITAN_MAESTRO 6.8, L4: en rustc explicar el NO es el 42 % del comprobador; un NO sin COMO deja al que aprende solo
+    cumple test toolchain/lang/titan/tests/banco.rs every_level_passes_whole_and_every_code_is_seen
+
+L04 cada nivel tiene su banco y pasa ENTERO; un programa BIEN corre y escribe lo que dice
+    porque TITAN_MAESTRO 14.14: un nivel esta hecho cuando sus programas HACEN lo que dicen, no cuando compilan
+    cumple test toolchain/lang/titan/emisor-x86_64/tests/banco.rs every_bien_program_of_every_level_runs_and_prints_what_it_says
+
+L05 el frontend no nombra ninguna maquina
+    porque TITAN_MAESTRO 7.4: TITAN++ juzga sin arquitectura; INTI emite para la CPU y VERRANO para la GPU, cada uno con su juez
+    cumple test toolchain/lang/titan/src/ir.rs the_ir_names_no_machine
+
+L06 en la CPU no hay float: se cuenta con `dec`, exacto
+    porque el propietario, 04-10: "evita la float, siempre decimal"; en base 2, 0.1 + 0.2 no es 0.3, y el dinero no se aproxima
+    cumple test toolchain/lang/titan/src/calc.rs dec_is_exact_and_never_a_float
+
+L07 nada se redondea en silencio: una division que no es exacta es NO, y redondear se ESCRIBE con round
+    porque COBOL (2b.1): el dinero no se redondea solo; el que lee tiene que ver donde se pierde un centimo
+    cumple ejemplo T0062
+
+L08 desbordar es un error, nunca una vuelta a empezar
+    porque la regla 1 de INTI y la de Ada: un numero que da la vuelta es un fallo que nadie ve hasta que cuesta caro
+    cumple ejemplo T0060
+
+L09 un valor que no cabe en su dec(p, s) es NO: el SIZE ERROR de COBOL, sin ON SIZE ERROR que olvidar
+    porque COBOL corta callado si no se escribe la clausula; TITAN++ no compila
+    cumple ejemplo T0074
+
+L10 un texto y un numero no se mezclan solos
+    porque JavaScript: "a" + 1 es "a1" y nadie lo pidio (TITAN_MAESTRO 14.13)
+    cumple ejemplo T0063
+
+L11 una condicion es un si-o-no, y nada mas
+    porque en C el 0 es NO y en Python tambien "": una condicion que adivina es una pregunta con trampa
+    cumple ejemplo T0065
+
+L12 un nombre dice UNA cosa: sin sombra, sin un valor llamado como una fn, un caso o un modulo
+    porque "una sola forma": quien lee `x` tiene que saber cual es sin mirar mas arriba
+    cumple ejemplo T0055
+
+L13 un `mut` que no cambia nunca es NO
+    porque es una promesa rota: el que lee espera un cambio que no llega
+    cumple ejemplo T0057
+
+L14 un valor no se presta dos veces en una llamada, ni se presta y se lee
+    porque la regla de oro de FORTRAN (2b.2), DEMOSTRADA: dos nombres para una memoria es el agujero que C tapa con restrict y una plegaria
+    cumple ejemplo T0076
+
+L15 lo que le pasa a un valor se dice en los DOS lados: f(mut x) y fn f(mut n)
+    porque quien lee la llamada sabe que le puede pasar a x sin abrir la fn; f(&x) de C solo dice "quiza"
+    cumple ejemplo T0077
+
+L16 un `match` cubre TODOS los casos, y no hay `_`
+    porque el dia que el enum crece, cada match que no lo mira deja de compilar y dice donde; un comodin lo dejaria caer callado
+    cumple ejemplo T0078
+
+L17 un indice fuera de su tabla es NO
+    porque leer la memoria de otro es el fallo mas viejo de C
+    cumple ejemplo T0072
+
+L18 un programa que no termina es NO
+    porque se corre entero al compilar: un bucle sin salida se ve antes de que exista el .bex
+    cumple ejemplo T0066
+
+L19 la cabecera dice la verdad: usar sin `use` es NO, y un `use` sin usar tambien
+    porque U3: el compilador compara lo que el modulo dice con lo que de verdad llama; F1 dibuja ese mismo cable
+    cumple ejemplo T0080
+
+L20 las capas solo bajan: un ciclo de modulos es NO
+    porque la ley L8 de la casa, dentro del compilador: un ciclo hace de todo el paquete un solo bloque
+    cumple ejemplo T0084
+
+L21 sin herencia: un trait es el tipo de un PARAMETRO, nunca de un let, un campo o un resultado
+    porque TITAN_MAESTRO 14.13: composicion y trait, no jerarquias
+    cumple ejemplo T0087
+
+L22 un generico se juzga contra su trait, y lo que falta se dice en la llamada, en una frase
+    porque TITAN_MAESTRO 14.13: nunca un muro de errores de plantilla como en C++
+    cumple ejemplo T0085
+
+L23 un fichero es UN modulo y dice que hace en su primera linea
+    porque U3: quien abre un fichero sabe que es sin leerlo entero; sin esa linea, no compila
+    cumple ejemplo T0001
+
+L24 el mismo fuente da el mismo .bex, byte a byte
+    porque U4: "este es el .bex que audite" solo se puede decir si se puede reconstruir
+    cumple test toolchain/lang/titan/emisor-x86_64/tests/banco.rs the_same_source_gives_the_same_bex
+
+[SELLO]
+16a5580ebef2ee0e784dd84f9f9ef59d2514f7aafcf4e93a686a1c47001e0bcf
+
+[HISTORIA]
+2026-10-04  16a5580ebef2  24 leyes  nacen las 24 leyes de los niveles 0-10, pedidas por el propietario

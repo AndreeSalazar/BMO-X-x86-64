@@ -57,6 +57,14 @@ Guardian 'Validating the x86-64 emitters do not get worse' `
     'toolchain\tools\metro\metro.py' 'el metro del emisor' `
     'metro: un emisor emite mas, o una salida cambio (ver arriba)'
 
+# ** LAS LEYES DE TITAN++ (2026-10-04), pedidas por el propietario: "que no se
+# altere, con reglas y porque". Cada ley con su motivo y QUIEN la hace cumplir
+# (un test vivo o un programa del banco); el texto no cambia sin `--sellar`
+# con su motivo. Ver toolchain/tools/titan-leyes/LEYES.txt.
+Guardian 'Validating the laws of TITAN++ are kept' `
+    'toolchain\tools\titan-leyes\titan_leyes.py' 'las leyes de TITAN++' `
+    'titan-leyes: una ley de TITAN++ perdio quien la cumple, o cambio sin sellar (ver arriba)'
+
 # ---------------------------------------------------------------------------
 # ** EL QUINTO GUARDIAN: LAS CITAS A DOCUMENTOS (2026-08-17).
 #

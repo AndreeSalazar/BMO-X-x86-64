@@ -11,6 +11,11 @@ Decidido por el propietario el **2026-09-30**:
    el primer hola   en la CONSOLA (F12), como INTI; la ventana, despues
 ```
 
+**Las reglas de abajo no cambian de paso**: las que el lenguaje promete estan
+en `toolchain/tools/titan-leyes/LEYES.txt`, cada una con su porque y el test o
+el programa que la hace cumplir, y el build para si una pierde su prueba o su
+texto cambia sin sellarse con un motivo.
+
 ## La escalera de un vistazo
 
 | nivel | palabras nuevas | lo que deja escribir | sus codigos |
