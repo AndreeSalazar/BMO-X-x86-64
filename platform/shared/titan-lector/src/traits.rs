@@ -13,6 +13,7 @@
 //!    writes   `print(...)`             a BEAM to the console: it SENDS
 //!    calls    other calls              its comets
 //!    ifs      `if` / `else if`         a DOUBLE STAR: two ways, one lit
+//!    loops    `while` / `for`          a BELT of rocks that goes round
 //! ```
 //!
 //! [!] This is a QUICK READING of the lines, not the compiler: it does not
@@ -35,12 +36,14 @@ pub struct Traits {
     pub calls: u8,
     /// The decisions: each `if` and each `else if` (level 3).
     pub ifs: u8,
+    /// What repeats: each `while` and each `for` (level 4).
+    pub loops: u8,
     /// Lines of body (not blank, not comment, not header).
     pub lines: u16,
 }
 
 impl Traits {
-    pub const NONE: Traits = Traits { fns: 0, lets: 0, muts: 0, changes: 0, writes: 0, calls: 0, ifs: 0, lines: 0 };
+    pub const NONE: Traits = Traits { fns: 0, lets: 0, muts: 0, changes: 0, writes: 0, calls: 0, ifs: 0, loops: 0, lines: 0 };
 }
 
 fn bump(n: &mut u8) {
@@ -79,6 +82,8 @@ pub fn scan(text: &[u8]) -> Traits {
             bump(&mut t.fns);
         } else if line.starts_with(b"if ") || line.starts_with(b"else if ") {
             bump(&mut t.ifs);
+        } else if line.starts_with(b"while ") || line.starts_with(b"for ") {
+            bump(&mut t.loops);
         } else if line.starts_with(b"let mut ") {
             bump(&mut t.muts);
         } else if line.starts_with(b"let ") {
@@ -105,13 +110,19 @@ mod tests {
     #[test]
     fn it_counts_what_the_body_does_and_not_the_header() {
         let t = scan(b"mod main \"x\"\nuse ship\nmod rock\n\n# nada\nfn main()\n    let a = 1\n    let mut n = 0\n    n = n + a\n    print(n)\n    saluda()\nfn saluda()\n    print(\"hola\")\n");
-        assert_eq!(t, Traits { fns: 2, lets: 1, muts: 1, changes: 1, writes: 2, calls: 1, ifs: 0, lines: 8 });
+        assert_eq!(t, Traits { fns: 2, lets: 1, muts: 1, changes: 1, writes: 2, calls: 1, ifs: 0, loops: 0, lines: 8 });
     }
 
     #[test]
     fn every_if_and_else_if_is_a_decision_and_a_plain_else_is_not() {
         let t = scan(b"mod a \"x\"\nfn main()\n    let v = 3\n    if v > 5\n        print(\"a\")\n    else if v > 1\n        print(\"b\")\n    else\n        print(\"c\")\n");
         assert_eq!((t.ifs, t.writes, t.lets), (2, 3, 1));
+    }
+
+    #[test]
+    fn every_while_and_for_is_a_loop() {
+        let t = scan(b"mod a \"x\"\nfn main()\n    for i in range(3)\n        let mut n = 0\n        while n < i\n            n = n + 1\n");
+        assert_eq!((t.loops, t.muts, t.changes), (2, 1, 1));
     }
 
     #[test]

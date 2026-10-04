@@ -10,6 +10,8 @@
 //!    level 2   `mut`: a value that changes -- `let mut n = 0`, `n = n + 1`
 //!    level 3   `if` / `else`: a body splits in two; `true`, `false`, the
 //!              comparisons and `and` `or` `not`: a value that is YES or NO
+//!    level 4   `while`, `for NAME in range(...)`, `break`, `continue`: a
+//!              body that REPEATS
 //! ```
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,6 +43,36 @@ pub enum Stmt {
     /// `if COND` and its block, and maybe `else` and its block. An
     /// `else if` is an `else` whose block is one `if` (level 3).
     If(If),
+    /// `while COND` and its block (level 4).
+    While(While),
+    /// `for NAME in range(TO)` or `range(FROM, TO)` and its block (level 4).
+    For(For),
+    /// `break`: out of the innermost loop (level 4).
+    Break { line: usize, col: usize },
+    /// `continue`: to the next turn of the innermost loop (level 4).
+    Continue { line: usize, col: usize },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct While {
+    pub cond: Expr,
+    pub line: usize,
+    pub col: usize,
+    pub body: Vec<Stmt>,
+}
+
+/// `for i in range(from, to)`: `i` takes `from`, `from + 1` ... `to - 1`, a
+/// NEW value each turn -- it is not a `mut`, and nobody else may change it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct For {
+    pub var: String,
+    pub var_at: (usize, usize),
+    /// `range(n)` is `range(0, n)`.
+    pub from: Expr,
+    pub to: Expr,
+    pub line: usize,
+    pub col: usize,
+    pub body: Vec<Stmt>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -124,6 +156,9 @@ impl Stmt {
             Stmt::Call(c) => c.line,
             Stmt::Let(l) | Stmt::Set(l) => l.line,
             Stmt::If(i) => i.line,
+            Stmt::While(w) => w.line,
+            Stmt::For(f) => f.line,
+            Stmt::Break { line, .. } | Stmt::Continue { line, .. } => *line,
         }
     }
 }
@@ -151,14 +186,23 @@ fn show_body(body: &[Stmt], depth: usize, s: &mut String) {
             Stmt::Let(l) => format!("{}let {}{} = {}", pad, if l.mutable { "mut " } else { "" }, l.name, l.value.show()),
             Stmt::Set(l) => format!("{}{} = {}", pad, l.name, l.value.show()),
             Stmt::If(i) => format!("{}if {}", pad, i.cond.show()),
+            Stmt::While(w) => format!("{}while {}", pad, w.cond.show()),
+            Stmt::For(f) => format!("{}for {} in range({}, {})", pad, f.var, f.from.show(), f.to.show()),
+            Stmt::Break { .. } => format!("{}break", pad),
+            Stmt::Continue { .. } => format!("{}continue", pad),
         };
         *s += &format!("{:<44}linea {}\n", text, st.line());
-        if let Stmt::If(i) = st {
-            show_body(&i.then, depth + 1, s);
-            if !i.other.is_empty() {
-                *s += &format!("{}else\n", pad);
-                show_body(&i.other, depth + 1, s);
+        match st {
+            Stmt::If(i) => {
+                show_body(&i.then, depth + 1, s);
+                if !i.other.is_empty() {
+                    *s += &format!("{}else\n", pad);
+                    show_body(&i.other, depth + 1, s);
+                }
             }
+            Stmt::While(w) => show_body(&w.body, depth + 1, s),
+            Stmt::For(f) => show_body(&f.body, depth + 1, s),
+            _ => {}
         }
     }
 }

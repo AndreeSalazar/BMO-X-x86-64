@@ -82,18 +82,52 @@ pub fn judge(m: &Module) -> Result<(), Message> {
 }
 
 /// ** THE WALK (TITAN_MAESTRO 6.8, step 3): one state per block, the state at
-/// its entrance being the meeting of every way in. The blocks are in reading
-/// order and every jump goes down (`ir.rs`), so walking them in order meets
-/// every way into a block before the block: one pass is the fixed point. The
-/// day `while` brings a jump UP (level 4), this loop repeats until nothing
-/// changes -- and nothing else here moves.
+/// its entrance being the meeting of every way in.
+///
+/// Level 3 could do it in one pass: every jump went down. **Level 4 brings the
+/// first jump UP** (the end of a loop goes back to its question), so a block
+/// can be entered from below, by a way that has not been walked yet. The walk
+/// becomes the fixed point the comment of level 3 promised:
+///
+/// ```text
+///    1. walk every block, again and again, moving only the ENTRANCES, until
+///       a whole round changes none of them (no NO is said here: a state
+///       seen half way is not a state yet)
+///    2. walk once more with the entrances that no longer move, and judge
+/// ```
+///
+/// It always stops: `meet` only ever takes away (alive on both, or not; a
+/// change on either side stays a change), and there is a finite amount to take.
 fn judge_fn(f: &Function) -> Result<(), Message> {
-    let mut entry: Vec<Option<Vec<State>>> = vec![None; f.blocks.len()];
+    let n = f.blocks.len();
+    let mut entry: Vec<Option<Vec<State>>> = vec![None; n];
     entry[0] = Some(vec![State::Unborn; f.locals.len()]);
+    for _round in 0..n * 4 + 8 {
+        let mut moved = false;
+        for i in 0..n {
+            let Some(mut state) = entry[i].clone() else { continue };
+            for op in &f.blocks[i].ops {
+                // Silent: a NO here would be about a state that may still move.
+                let _ = step(f, op, &mut state);
+            }
+            for t in f.blocks[i].end.targets() {
+                let next = match &entry[t] {
+                    None => state.clone(),
+                    Some(other) => other.iter().zip(&state).map(|(a, b)| meet(*a, *b)).collect(),
+                };
+                if entry[t].as_ref() != Some(&next) {
+                    entry[t] = Some(next);
+                    moved = true;
+                }
+            }
+        }
+        if !moved {
+            break;
+        }
+    }
     for (i, b) in f.blocks.iter().enumerate() {
-        // No way leads here: nothing in it can run, nothing in it is judged
-        // twice. (Today every block has a way in; this is the honest default.)
-        let Some(mut state) = entry[i].take() else { continue };
+        // No way leads here (a line after a `break`): nothing in it runs.
+        let Some(mut state) = entry[i].clone() else { continue };
         for op in &b.ops {
             step(f, op, &mut state)?;
         }
@@ -107,12 +141,6 @@ fn judge_fn(f: &Function) -> Result<(), Message> {
                 }
             }
             End::Jump(_) => {}
-        }
-        for t in b.end.targets() {
-            entry[t] = Some(match entry[t].take() {
-                None => state.clone(),
-                Some(other) => other.iter().zip(&state).map(|(a, b)| meet(*a, *b)).collect(),
-            });
         }
     }
     Ok(())
@@ -183,6 +211,16 @@ fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
         // `x = ...`
         (State::Unborn, None) => return Err(no_value(f, l, at)),
         (State::Dead { born, scope }, None) => return Err(gone(f, l, at, born, scope)),
+        (State::Alive { since, mutable: false, .. }, None) if is_turn(f, l) => {
+            return Err(Message::new(
+                Code::NotMut,
+                at.0,
+                at.1,
+                &format!("`{}` no se puede cambiar", name),
+                &format!("es la vuelta del `for` de la linea {}: la pone el bucle en cada vuelta, y nadie mas la cambia", since),
+                &format!("para saltar vueltas, `continue`; para un valor que si cambia, otro nombre: let mut otro = {}", name),
+            ))
+        }
         (State::Alive { since, mutable: false, .. }, None) => {
             return Err(Message::new(
                 Code::NotMut,
@@ -223,6 +261,13 @@ fn never(f: &Function, l: usize, since: usize, at: At) -> Message {
     )
 }
 
+/// The local is the turn of a `for`: its `let` takes the hidden count.
+fn is_turn(f: &Function, l: usize) -> bool {
+    f.blocks.iter().flat_map(|b| &b.ops).any(|op| {
+        matches!(op, Op::Let { local, value: crate::ir::Value::Local(c, _), .. } if *local == l && f.locals[*c].name.starts_with("#i"))
+    })
+}
+
 /// T0058: it was born inside a block that already closed.
 fn gone(f: &Function, l: usize, at: At, born: usize, scope: At) -> Message {
     let name = &f.locals[l].name;
@@ -256,7 +301,7 @@ fn no_value(f: &Function, l: usize, at: At) -> Message {
         .iter()
         .flat_map(|b| &b.ops)
         .filter_map(|op| match op {
-            Op::Let { local, .. } if *local != l => Some(f.locals[*local].name.as_str()),
+            Op::Let { local, .. } if *local != l && !f.locals[*local].name.starts_with('#') => Some(f.locals[*local].name.as_str()),
             _ => None,
         })
         .min_by_key(|k| distance(k, name))
@@ -331,6 +376,26 @@ mod tests {
         // The condition is a read like any other.
         let e = verdict("mod main \"x\"\nfn main()\n    if vidas > 0\n        print(\"a\")\n").unwrap_err();
         assert_eq!(e.code, Code::NoValue);
+    }
+
+    #[test]
+    fn a_loop_turns_until_its_states_stop_moving() {
+        // Changed only inside the loop: it is a change (the way back counts).
+        assert!(verdict("mod main \"x\"\nfn main()\n    let mut n = 0\n    while n < 3\n        n = n + 1\n    print(n)\n").is_ok());
+        // Born in the body: born again at every turn, no shadowing.
+        assert!(verdict("mod main \"x\"\nfn main()\n    for i in range(3)\n        let doble = i * 2\n        print(doble)\n").is_ok());
+        // ...and gone after the loop, like any block.
+        let e = verdict("mod main \"x\"\nfn main()\n    for i in range(3)\n        let doble = i * 2\n    print(doble)\n").unwrap_err();
+        assert_eq!(e.code, Code::Gone);
+        // The loop's own `i` is not a `mut`.
+        let e = verdict("mod main \"x\"\nfn main()\n    for i in range(3)\n        i = 7\n").unwrap_err();
+        assert_eq!(e.code, Code::NotMut);
+    }
+
+    #[test]
+    fn break_and_continue_close_the_blocks_they_leave() {
+        let src = "mod main \"x\"\nfn main()\n    let mut n = 0\n    while true\n        let paso = 2\n        n = n + paso\n        if n > 5\n            let fin = n\n            print(fin)\n            break\n    print(n)\n";
+        assert!(verdict(src).is_ok(), "{:?}", verdict(src));
     }
 
     #[test]

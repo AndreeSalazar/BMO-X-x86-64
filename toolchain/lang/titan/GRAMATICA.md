@@ -62,11 +62,11 @@ fn main()
 
 Una de las 25 palabras de un nivel que aun no existe no es un error de
 sintaxis cualquiera: es **T0040**, y dice en que nivel llega (el ejemplo ya es
-del frontend de hoy, que va por el nivel 3):
+del frontend de hoy, que va por el nivel 4):
 
 ```text
-   while ...        T0040  `while` llega en el nivel 4 (repetir)
    return           T0040  `return` llega en el nivel 5 (funciones con resultado)
+   type Nave        T0040  `type` llega en el nivel 6 (registros)
 ```
 
 ---
@@ -225,6 +225,60 @@ el `(muerto: ...)` del lado que no corre.
 
 ---
 
+## Nivel 4 -- repetir (15 palabras: + `for in while break continue`) -- 04-10
+
+```text
+# tabla_del_siete.titan
+mod main "la tabla del siete"
+
+fn main()
+    let mut suma = 0
+    for i in range(1, 6)
+        print("7 x ", i, " = ", 7 * i)
+        suma = suma + 7 * i
+    print("la tabla suma ", suma)
+```
+
+### Las piezas nuevas
+
+```text
+   while COND            y debajo su bloque: se repite mientras COND sea true
+   for i in range(N)     i vale 0, 1 ... N-1, una vuelta cada uno
+   for i in range(A, B)  i vale A, A+1 ... B-1
+   break                 corta el bucle de dentro
+   continue              salta a la vuelta siguiente
+```
+
+`i` es NUEVO en cada vuelta y lo pone el bucle: no es un `mut`, y cambiarlo
+es T0056 (el COMO dice: para saltar vueltas, `continue`). `range` cuenta con
+numeros, y su final se lee UNA vez, antes de la primera vuelta. Recorrer una
+tabla (`for p in planetas`) llega con las tablas (nivel 6).
+
+### Las reglas, y quien las dice
+
+```text
+   LA GRAMATICA
+     `break` / `continue` fuera de un bucle            T0067
+   EL JUEZ -- ahora con el primer salto HACIA ARRIBA
+     el final de un bucle vuelve a su pregunta: el juez recorre los bloques
+     hasta que ninguna entrada se mueve (el punto fijo que el nivel 3
+     prometio), y despues juzga. Lo que nace en la vuelta muere con ella, y
+     `break` / `continue` cierran los bloques que dejan atras
+   EL CALCULO -- el programa ENTERO, corrido al compilar
+     nada viene de fuera todavia, asi que no se calcula linea a linea (una
+     linea dentro de un `for` vale otra cosa en cada vuelta): se CORRE el
+     programa, cada llamada, cada `if`, cada vuelta, y el .bex es lo que
+     escribe. Un millon de pasos y sigue                T0066
+       un `while` sin salida se dice al compilar, en su linea
+```
+
+`titan ir` lo muestra entero: los bloques con su salto hacia arriba
+(`salta b1`) y, abajo, *lo que escribe, CORRIDO al compilar*. El dia que algo
+venga de fuera (el teclado), esa parte ira a la maquina como codigo de verdad
+(E1, TITAN_MAESTRO 7.3).
+
+---
+
 ## Los codigos
 
 | codigo | que |
@@ -253,6 +307,8 @@ el `(muerto: ...)` del lado que no corre.
 | T0063 | un texto con un numero: no se suman ni se convierten solos (el calculo) |
 | T0064 | un `mut` que cambiaria de clase: numero, texto o si-o-no (el calculo) |
 | T0065 | se pedia un si-o-no y llego otra cosa: `if vidas`, `not 3` (el calculo) |
+| T0066 | el programa sigue corriendo despues de un millon de pasos: un bucle sin salida (el calculo) |
+| T0067 | `break` o `continue` fuera de un bucle (la gramatica) |
 
 ## El banco: lo que dice cada ejemplo de si mismo
 

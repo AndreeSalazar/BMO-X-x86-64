@@ -1,0 +1,17 @@
+# espera: BIEN
+# sale: 5
+# sale: 4
+# sale: 2
+# sale: 1
+# sale: despegue
+# `continue` salta a la vuelta siguiente: el 3 no se dice (es de mala suerte)
+mod main "la cuenta atras del centauro"
+
+fn main()
+    let mut t = 6
+    while t > 1
+        t = t - 1
+        if t == 3
+            continue
+        print(t)
+    print("despegue")

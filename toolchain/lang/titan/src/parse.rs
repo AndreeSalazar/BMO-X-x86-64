@@ -9,6 +9,9 @@
 //!    block    :=  NEWLINE INDENT stmt+ DEDENT
 //!    stmt     :=  call | `let` [`mut`] NAME `=` expr | NAME `=` expr   NEWLINE
 //!              |  `if` expr block [ `else` ( block | if ) ]          (level 3)
+//!              |  `while` expr block                                (level 4)
+//!              |  `for` NAME `in` `range` `(` expr [`,` expr] `)` block
+//!              |  `break` | `continue`        (inside a loop: T0067)
 //!    call     :=  NAME `(` [ expr { `,` expr } ] `)`
 //!    expr     :=  and { `or` and }                                  (level 3)
 //!    and      :=  not { `and` not }
@@ -34,12 +37,15 @@
 
 use crate::lex::{Kind, Token};
 use crate::message::{Code, Message};
-use crate::tree::{Call, Expr, Function, If, Let, Program, Stmt};
+use crate::tree::{Call, Expr, For, Function, If, Let, Program, Stmt, While};
 use crate::words::{self, LEVEL_NOW};
 
 struct Parser<'a> {
     t: &'a [Token],
     at: usize,
+    /// How many loops enclose the statement being read: `break` and
+    /// `continue` need one (T0067).
+    loops: usize,
 }
 
 /// "`x` llega en el nivel N (what it is)": the NO of the ladder.
@@ -95,7 +101,7 @@ impl<'a> Parser<'a> {
         match &tok.kind {
             Kind::Word(w) => {
                 let level = words::find(w).map(|x| x.level).unwrap_or(0);
-                (level > LEVEL_NOW).then(|| not_yet(tok, &format!("`{}`", w), level, "por ahora: llamadas, `let`, `let mut` e `if` / `else`"))
+                (level > LEVEL_NOW).then(|| not_yet(tok, &format!("`{}`", w), level, "por ahora: llamadas, `let`, `let mut`, `if` / `else`, `while` y `for`"))
             }
             Kind::Number(n) if n.contains('.') => Some(not_yet(tok, "un decimal", 6, "por ahora, numeros enteros: los decimales EXACTOS (dec) llegan con los tipos")),
             Kind::Sym("->") => Some(not_yet(tok, "una funcion que devuelve algo", 5, "por ahora, `fn nombre()` sin `->`")),
@@ -212,11 +218,87 @@ impl<'a> Parser<'a> {
         Ok(Stmt::If(If { cond, line: if_tok.line, col: if_tok.col, then, other, else_at }))
     }
 
-    /// One line of a body: a call, a `let`, `name = value`, or an `if`.
+    /// `while COND` and its block; the `while` token is already taken.
+    fn while_statement(&mut self, tok: &Token) -> Result<Stmt, Message> {
+        let cond = self.expr()?;
+        if self.peek().kind == Kind::Sym("=") {
+            let eq = self.peek();
+            return Err(self.expected(eq, "una condicion", "para comparar se escribe `==`: `=` da un valor, `==` pregunta si es igual"));
+        }
+        self.loops += 1;
+        let body = self.block(tok, "este `while`", "while vidas > 0\n             vidas = vidas - 1");
+        self.loops -= 1;
+        Ok(Stmt::While(While { cond, line: tok.line, col: tok.col, body: body? }))
+    }
+
+    /// `for NAME in range(TO)` / `range(FROM, TO)` and its block.
+    fn for_statement(&mut self, tok: &Token) -> Result<Stmt, Message> {
+        let name_tok = self.next();
+        let Kind::Name(var) = &name_tok.kind else {
+            return Err(self.ladder(name_tok).unwrap_or_else(|| self.expected(name_tok, "el nombre de la vuelta", "for i in range(10)")));
+        };
+        let in_tok = self.next();
+        if in_tok.kind != Kind::Word("in") {
+            return Err(self.expected(in_tok, "`in`", &format!("for {} in range(10)", var)));
+        }
+        let what = self.next();
+        if what.kind != Kind::Name("range".into()) || self.peek().kind != Kind::Sym("(") {
+            return Err(match &what.kind {
+                Kind::Name(_) => not_yet(what, "recorrer una tabla con `for`", 6, &format!("por ahora, los numeros: for {} in range(10)", var)),
+                _ => self.ladder(what).unwrap_or_else(|| self.expected(what, "`range(...)`", &format!("for {} in range(10)", var))),
+            });
+        }
+        self.next();
+        let first = self.expr()?;
+        let sep = self.next();
+        let (from, to) = match sep.kind {
+            Kind::Sym(")") => (Expr::Int { value: 0, line: what.line, col: what.col }, first),
+            Kind::Sym(",") => {
+                let second = self.expr()?;
+                let close = self.next();
+                if close.kind != Kind::Sym(")") {
+                    return Err(self.expected(close, "`)`", "range(desde, hasta)"));
+                }
+                (first, second)
+            }
+            _ => return Err(self.expected(sep, "`,` o `)`", "range(10)  o  range(1, 11)")),
+        };
+        self.loops += 1;
+        let body = self.block(tok, "este `for`", &format!("for {} in range(10)\n             print({})", var, var));
+        self.loops -= 1;
+        Ok(Stmt::For(For { var: var.clone(), var_at: (name_tok.line, name_tok.col), from, to, line: tok.line, col: tok.col, body: body? }))
+    }
+
+    /// `break` / `continue`: only inside a loop (T0067).
+    fn jump_statement(&mut self, tok: &Token) -> Result<Stmt, Message> {
+        let word = if tok.kind == Kind::Word("break") { "break" } else { "continue" };
+        if self.loops == 0 {
+            return Err(Message::new(
+                Code::OutsideLoop,
+                tok.line,
+                tok.col,
+                &format!("`{}` fuera de un bucle", word),
+                &format!("`{}` {} la vuelta de un `while` o de un `for`, y esta linea no esta dentro de ninguno", word, if word == "break" { "corta" } else { "salta a la siguiente" }),
+                "ponlo dentro del bloque de un `while` o un `for`; para acabar una funcion antes, `return` llega en el nivel 5",
+            ));
+        }
+        self.end_of_line()?;
+        Ok(if word == "break" { Stmt::Break { line: tok.line, col: tok.col } } else { Stmt::Continue { line: tok.line, col: tok.col } })
+    }
+
+    /// One line of a body: a call, a `let`, `name = value`, an `if` or a loop.
     fn statement(&mut self) -> Result<Stmt, Message> {
         let tok = self.next();
         if tok.kind == Kind::Word("if") && LEVEL_NOW >= 3 {
             return self.if_statement(tok);
+        }
+        if LEVEL_NOW >= 4 {
+            match tok.kind {
+                Kind::Word("while") => return self.while_statement(tok),
+                Kind::Word("for") => return self.for_statement(tok),
+                Kind::Word("break" | "continue") => return self.jump_statement(tok),
+                _ => {}
+            }
         }
         if tok.kind == Kind::Word("else") && LEVEL_NOW >= 3 {
             return Err(self.expected(tok, "una llamada, un `let` o un `if`", "un `else` va justo debajo del bloque de su `if`, al mismo margen que el `if`"));
@@ -400,7 +482,7 @@ impl<'a> Parser<'a> {
 }
 
 pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
-    let mut p = Parser { t: tokens, at: 0 };
+    let mut p = Parser { t: tokens, at: 0, loops: 0 };
     let (module, purpose) = p.header()?;
     let mut functions = Vec::new();
     loop {

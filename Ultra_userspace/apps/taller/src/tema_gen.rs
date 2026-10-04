@@ -35,3 +35,4 @@ pub const CABLE_BORDE: u32 = 0x0035_4C9A;
 pub const USE: u32 = 0x0036_C4D8;
 pub const MUT: u32 = 0x00FF_B84B;
 pub const DECIDE: u32 = 0x00F2_E27A;
+pub const LOOP: u32 = 0x00B2_8CFF;

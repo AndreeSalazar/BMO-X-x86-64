@@ -101,6 +101,9 @@ const BANCO: &[(&str, &str)] = &[
     ("titan", "toolchain/lang/titan/ejemplos/nivel2/constelacion.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel3/semaforo.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel3/calculadora.titan"),
+    // Nivel 4 (04-10): bucles, corridos enteros al compilar.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel4/tabla_del_siete.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel4/primos.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]

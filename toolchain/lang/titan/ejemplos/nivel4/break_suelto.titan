@@ -1,0 +1,8 @@
+# espera: T0067
+# `break` corta un bucle, y aqui no hay ninguno
+mod main "un break perdido"
+
+fn main()
+    let vidas = 3
+    if vidas > 0
+        break

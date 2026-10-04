@@ -61,6 +61,11 @@ pub struct Module {
     pub functions: Vec<Function>,
     /// Where the program starts: the index of `main` in `functions`.
     pub entry: usize,
+    /// Set by the calculation (`calc.rs`, level 4): the WHOLE program, run
+    /// when compiling -- what it writes, in order, every value already a
+    /// constant. Until something comes from outside, this is all the program
+    /// does, and it is what the emitter writes. `None` before `calc`.
+    pub flat: Option<Vec<Op>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -189,11 +194,29 @@ fn value(e: &Expr, locals: &mut Vec<Local>) -> Value {
     }
 }
 
-/// Lowers one function: its blocks grow as `if`s split them.
+/// A loop being lowered: where `break` and `continue` go, and how deep the
+/// scopes were when its body opened (what a jump out of it must close).
+struct Loop {
+    /// Blocks that end in `break`: patched to the exit once it exists.
+    breaks: Vec<usize>,
+    /// Blocks that end in `continue`: patched to the next turn.
+    conts: Vec<usize>,
+    /// `scopes.len()` when the body's scope opened.
+    depth: usize,
+}
+
+/// Lowers one function: its blocks grow as `if`s split them and loops turn.
 struct Lowering<'p> {
     p: &'p Program,
     locals: Vec<Local>,
     blocks: Vec<Block>,
+    /// The open blocks of the TEXT (the fn's body, an `if`, a loop): who opened
+    /// it, and what was born in it so far. The fn's own body has no opener and
+    /// closes with no `Drop`.
+    scopes: Vec<(Option<At>, Vec<usize>)>,
+    loops: Vec<Loop>,
+    /// A number for each `for`, so its hidden locals never meet another's.
+    hidden: usize,
 }
 
 impl Lowering<'_> {
@@ -206,17 +229,46 @@ impl Lowering<'_> {
         self.p.functions.iter().position(|f| f.name == name).expect("check: every call goes somewhere")
     }
 
-    /// Lowers `body` starting in block `at`; returns the block where it ends.
-    /// `scope` is the `if`/`else` that opened it (None for the fn's own body):
-    /// what is born directly in it dies when it closes.
-    fn body(&mut self, body: &[Stmt], mut at: usize, scope: Option<At>) -> usize {
-        let mut born = Vec::new();
+    fn open_scope(&mut self, opener: At) {
+        self.scopes.push((Some(opener), Vec::new()));
+    }
+
+    /// The scope closes at the end of block `at`: what was born in it dies.
+    fn close_scope(&mut self, at: usize) {
+        let (opener, born) = self.scopes.pop().expect("a scope was opened");
+        if let Some(opener) = opener {
+            for local in born {
+                self.blocks[at].ops.push(Op::Drop { local, at: opener });
+            }
+        }
+    }
+
+    fn born(&mut self, local: usize) {
+        self.scopes.last_mut().expect("the fn's scope").1.push(local);
+    }
+
+    /// `break` / `continue` at the end of `at`: every scope of the loop's body
+    /// (and deeper) closes on THIS path too, innermost first.
+    fn leave(&mut self, at: usize) {
+        let depth = self.loops.last().expect("parse: a jump is inside a loop").depth;
+        for k in (depth..self.scopes.len()).rev() {
+            if let Some(opener) = self.scopes[k].0 {
+                for &local in &self.scopes[k].1.clone() {
+                    self.blocks[at].ops.push(Op::Drop { local, at: opener });
+                }
+            }
+        }
+    }
+
+    /// Lowers `body` in the current scope, starting in block `at`; returns
+    /// the block where it ends.
+    fn stmts(&mut self, body: &[Stmt], mut at: usize) -> usize {
         for st in body {
             match st {
                 Stmt::Let(l) => {
                     let v = value(&l.value, &mut self.locals);
                     let local = local_of(&mut self.locals, &l.name);
-                    born.push(local);
+                    self.born(local);
                     self.blocks[at].ops.push(Op::Let { local, value: v, mutable: l.mutable, at: (l.line, l.col) });
                 }
                 Stmt::Set(l) => {
@@ -236,12 +288,17 @@ impl Lowering<'_> {
                     let cond = value(&i.cond, &mut self.locals);
                     let here = (i.line, i.col);
                     let then = self.open();
-                    let then_end = self.body(&i.then, then, Some(here));
+                    self.open_scope(here);
+                    let then_end = self.stmts(&i.then, then);
+                    self.close_scope(then_end);
                     let (other, other_end) = if i.other.is_empty() {
                         (None, None)
                     } else {
                         let b = self.open();
-                        (Some(b), Some(self.body(&i.other, b, Some(i.else_at))))
+                        self.open_scope(i.else_at);
+                        let e = self.stmts(&i.other, b);
+                        self.close_scope(e);
+                        (Some(b), Some(e))
                     };
                     let join = self.open();
                     self.blocks[then_end].end = End::Jump(join);
@@ -251,11 +308,89 @@ impl Lowering<'_> {
                     self.blocks[at].end = End::Branch { cond, then, other: other.unwrap_or(join), at: here };
                     at = join;
                 }
-            }
-        }
-        if let Some(scope) = scope {
-            for local in born {
-                self.blocks[at].ops.push(Op::Drop { local, at: scope });
+                Stmt::While(w) => {
+                    let here = (w.line, w.col);
+                    let head = self.open();
+                    self.blocks[at].end = End::Jump(head);
+                    let cond = value(&w.cond, &mut self.locals);
+                    let body = self.open();
+                    self.loops.push(Loop { breaks: Vec::new(), conts: Vec::new(), depth: self.scopes.len() });
+                    self.open_scope(here);
+                    let end = self.stmts(&w.body, body);
+                    self.close_scope(end);
+                    let lp = self.loops.pop().expect("pushed above");
+                    // The jump UP: the next turn starts at the question.
+                    self.blocks[end].end = End::Jump(head);
+                    let exit = self.open();
+                    self.blocks[head].end = End::Branch { cond, then: body, other: exit, at: here };
+                    for b in lp.breaks {
+                        self.blocks[b].end = End::Jump(exit);
+                    }
+                    for b in lp.conts {
+                        self.blocks[b].end = End::Jump(head);
+                    }
+                    at = exit;
+                }
+                Stmt::For(f) => {
+                    let here = (f.line, f.col);
+                    // Two hidden locals, named so no program can write them:
+                    // where the count stops (read ONCE, before the first
+                    // turn), and the count itself.
+                    self.hidden += 1;
+                    let (fin_name, count_name) = (format!("#fin{}", self.hidden), format!("#i{}", self.hidden));
+                    let to = value(&f.to, &mut self.locals);
+                    let from = value(&f.from, &mut self.locals);
+                    // The loop's own scope: the hidden two die at its exit.
+                    self.open_scope(here);
+                    let fin = local_of(&mut self.locals, &fin_name);
+                    let count = local_of(&mut self.locals, &count_name);
+                    self.born(fin);
+                    self.born(count);
+                    self.blocks[at].ops.push(Op::Let { local: fin, value: to, mutable: false, at: f.to.at() });
+                    self.blocks[at].ops.push(Op::Let { local: count, value: from, mutable: true, at: f.from.at() });
+                    let head = self.open();
+                    self.blocks[at].end = End::Jump(head);
+                    let body = self.open();
+                    self.loops.push(Loop { breaks: Vec::new(), conts: Vec::new(), depth: self.scopes.len() });
+                    // The body's scope: `i` is born at every turn, from the
+                    // count, and dies at the end of it.
+                    self.open_scope(here);
+                    let var = local_of(&mut self.locals, &f.var);
+                    self.born(var);
+                    self.blocks[body].ops.push(Op::Let { local: var, value: Value::Local(count, f.var_at), mutable: false, at: f.var_at });
+                    let end = self.stmts(&f.body, body);
+                    self.close_scope(end);
+                    let lp = self.loops.pop().expect("pushed above");
+                    let step = self.open();
+                    self.blocks[end].end = End::Jump(step);
+                    let next = Value::Bin("+", Box::new(Value::Local(count, here)), Box::new(Value::Int(1, here)), here);
+                    self.blocks[step].ops.push(Op::Set { local: count, value: next, at: here });
+                    // The jump UP.
+                    self.blocks[step].end = End::Jump(head);
+                    let exit = self.open();
+                    let cond = Value::Bin("<", Box::new(Value::Local(count, here)), Box::new(Value::Local(fin, here)), here);
+                    self.blocks[head].end = End::Branch { cond, then: body, other: exit, at: here };
+                    for b in lp.breaks {
+                        self.blocks[b].end = End::Jump(exit);
+                    }
+                    for b in lp.conts {
+                        self.blocks[b].end = End::Jump(step);
+                    }
+                    self.close_scope(exit);
+                    at = exit;
+                }
+                Stmt::Break { .. } | Stmt::Continue { .. } => {
+                    self.leave(at);
+                    let lp = self.loops.last_mut().expect("parse: a jump is inside a loop");
+                    if matches!(st, Stmt::Break { .. }) {
+                        lp.breaks.push(at);
+                    } else {
+                        lp.conts.push(at);
+                    }
+                    // What follows a jump in the same block is never reached:
+                    // it goes in a block of its own, with no way in.
+                    at = self.open();
+                }
             }
         }
         at
@@ -270,9 +405,9 @@ pub fn lower(p: &Program) -> Module {
         .functions
         .iter()
         .map(|f| {
-            let mut l = Lowering { p, locals: Vec::new(), blocks: Vec::new() };
+            let mut l = Lowering { p, locals: Vec::new(), blocks: Vec::new(), scopes: vec![(None, Vec::new())], loops: Vec::new(), hidden: 0 };
             let first = l.open();
-            l.body(&f.body, first, None);
+            l.stmts(&f.body, first);
             Function { name: f.name.clone(), line: f.line, locals: l.locals, blocks: l.blocks }
         })
         .collect();
@@ -281,6 +416,7 @@ pub fn lower(p: &Program) -> Module {
         purpose: p.purpose.clone(),
         functions,
         entry: p.functions.iter().position(|f| f.name == "main").expect("check: there is a main"),
+        flat: None,
     }
 }
 
@@ -288,6 +424,19 @@ impl Module {
     /// The IR as text, for `titan ir`: what the emitter will receive.
     pub fn show(&self) -> String {
         let mut s = format!("mod {}  \"{}\"   entra por f{}\n", self.name, self.purpose, self.entry);
+        let tail = match &self.flat {
+            Some(flat) => {
+                let mut t = format!("\nlo que escribe, CORRIDO al compilar ({} escrituras): es lo que hace el .bex\n", flat.len());
+                for op in flat {
+                    if let Op::Write { parts, at } = op {
+                        let p: Vec<String> = parts.iter().map(show).collect();
+                        t += &format!("    linea {:<4} escribe {}\n", at.0, p.join(", "));
+                    }
+                }
+                t
+            }
+            None => String::new(),
+        };
         for (i, f) in self.functions.iter().enumerate() {
             let locals: Vec<String> = f.locals.iter().enumerate().map(|(k, l)| format!("%{}={}", k, l.name)).collect();
             s += &format!("f{} {}   {}\n", i, f.name, locals.join(" "));
@@ -309,12 +458,11 @@ impl Module {
                 s += &match &b.end {
                     End::Return => "    vuelve\n".to_string(),
                     End::Jump(t) => format!("    salta   b{}\n", t),
-                    End::Branch { cond: c @ Value::Bool(..), then, other, .. } => format!("    si {} -> b{}, sino -> b{}   (decidido al compilar)\n", show(c), then, other),
                     End::Branch { cond, then, other, .. } => format!("    si {} -> b{}, sino -> b{}\n", show(cond), then, other),
                 };
             }
         }
-        s
+        s + &tail
     }
 }
 

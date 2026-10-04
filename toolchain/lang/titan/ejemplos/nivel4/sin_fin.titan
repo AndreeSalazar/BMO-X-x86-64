@@ -1,0 +1,9 @@
+# espera: T0066
+# nada viene de fuera: se corre al compilar, y este bucle no acaba nunca
+mod main "un bucle sin salida"
+
+fn main()
+    let mut n = 1
+    while n > 0
+        n = n + 1
+        n = n - 1

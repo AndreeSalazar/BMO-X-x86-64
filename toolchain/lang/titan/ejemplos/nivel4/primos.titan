@@ -1,0 +1,27 @@
+# espera: BIEN
+# sale: primo 2
+# sale: primo 3
+# sale: primo 5
+# sale: primo 7
+# sale: primo 11
+# sale: primo 13
+# sale: primo 17
+# sale: primo 19
+# sale: 8 primos hasta 20
+# buscar: un `while` dentro de un `for`, y `break` en cuanto ya se sabe
+mod main "los primos, buscados"
+
+fn main()
+    let mut cuantos = 0
+    for n in range(2, 21)
+        let mut d = 2
+        let mut primo = true
+        while d * d <= n
+            if n % d == 0
+                primo = false
+                break
+            d = d + 1
+        if primo
+            print("primo ", n)
+            cuantos = cuantos + 1
+    print(cuantos, " primos hasta 20")

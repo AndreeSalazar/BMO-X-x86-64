@@ -8,15 +8,22 @@
 //!    (esto)
 //! ```
 //!
-//! ## Lo que sale, entero
+//! ## Lo que sale, entero (nivel 4, 2026-10-04)
 //!
 //! ```text
-//!    _start   call main            el arranque: lo primero del codigo,
-//!             EXIT                 la entrada es el byte 0
-//!    f0       escribe / call fK    una funcion: su bloque, en orden
-//!             ret
-//!    f1 ...
+//!    escribe "..."     lo que el programa escribe, en orden: el calculo
+//!    escribe "..."     (`calc.rs`) ya lo CORRIO entero al compilar --
+//!    ...               cada llamada, cada `if`, cada vuelta de cada bucle
+//!    EXIT              y el `.bex` hace exactamente eso
 //! ```
+//!
+//! ** Hasta el nivel 3 salian funciones con `call`/`ret` y bloques con
+//! `jmp`. Con bucles eso ya no alcanza: una linea dentro de un `for` escribe
+//! otra cosa en cada vuelta, y no hay un valor por linea que emitir. Mientras
+//! nada venga de fuera, el programa ENTERO se sabe al compilar, y lo que se
+//! emite es su resultado (`Module::flat`). El camino de bloques (`emit_blocks`)
+//! se queda: es el de E1, el dia que una parte del programa tenga que correr de
+//! verdad en la maquina (TITAN_MAESTRO 7.3).
 //!
 //! ** Los textos viajan como INMEDIATOS dentro del codigo, de ocho en ocho
 //! bytes por la puerta (`bmo_lower::console::write_const`): sin constantes,
@@ -104,6 +111,45 @@ fn next_of(f: &Function, i: usize) -> Result<Option<usize>, String> {
 /// ya esta dentro de los textos que se escriben. Lo unico que no puede pasar
 /// es una parte sin calcular: se dice (`Unfolded`) en vez de inventarle bytes.
 pub fn emit(m: &Module) -> Result<Emitted, String> {
+    match &m.flat {
+        Some(flat) => emit_flat(flat),
+        None => emit_blocks(m),
+    }
+}
+
+/// Una escritura ya calculada, como texto: lo que `print` deja en la consola.
+fn text_of(parts: &[Value], at: (usize, usize)) -> Result<String, String> {
+    let mut text = String::new();
+    for p in parts {
+        match p {
+            Value::Int(n, _) => text.push_str(&n.to_string()),
+            Value::Text(t, _) => text.push_str(t),
+            Value::Bool(b, _) => text.push_str(if *b { "true" } else { "false" }),
+            _ => return Err(format!("linea {}: una parte de print llego sin calcular", at.0)),
+        }
+    }
+    // `print` ends its line: ONE write, because the kernel flushes a console
+    // line at its `\n`.
+    text.push('\n');
+    Ok(text)
+}
+
+/// E0 entero: lo que el programa escribe, y EXIT.
+fn emit_flat(flat: &[Op]) -> Result<Emitted, String> {
+    let mut code = Vec::new();
+    for op in flat {
+        if let Op::Write { parts, at } = op {
+            console::write_const(&mut code, text_of(parts, *at)?.as_bytes());
+        }
+    }
+    task::exit(&mut code);
+    Ok(Emitted { code, starts: vec![0] })
+}
+
+/// El camino de BLOQUES: funciones con `call`/`ret` y saltos donde hace falta.
+/// Hoy solo lo toma un modulo sin `flat` (el calculo no lo corrio); es el
+/// esqueleto de E1, y un valor sin calcular aqui se dice, no se inventa.
+fn emit_blocks(m: &Module) -> Result<Emitted, String> {
     let mut code = Vec::new();
     // (campo rel32, funcion destino): se resuelven AL FINAL, porque una
     // funcion puede llamar a otra que esta mas abajo.
@@ -126,21 +172,7 @@ pub fn emit(m: &Module) -> Result<Emitted, String> {
             at[i] = code.len();
             for op in &b.ops {
                 match op {
-                    Op::Write { parts, at } => {
-                        let mut text = String::new();
-                        for p in parts {
-                            match p {
-                                Value::Int(n, _) => text.push_str(&n.to_string()),
-                                Value::Text(t, _) => text.push_str(t),
-                                Value::Bool(b, _) => text.push_str(if *b { "true" } else { "false" }),
-                                _ => return Err(format!("linea {}: una parte de print llego sin calcular", at.0)),
-                            }
-                        }
-                        // `print` ends its line: ONE write, because the kernel
-                        // flushes a console line at its `\n`.
-                        text.push('\n');
-                        console::write_const(&mut code, text.as_bytes());
-                    }
+                    Op::Write { parts, at } => console::write_const(&mut code, text_of(parts, *at)?.as_bytes()),
                     // Already inside the texts that use it (calc.rs); and a
                     // value that dies leaves nothing to free: it never had a
                     // place outside the texts.
@@ -207,21 +239,25 @@ pub fn build(src: &str, source_name: &str) -> Result<Vec<u8>, Failure> {
 mod tests {
     use super::*;
 
+    /// ** El programa ENTERO, corrido al compilar: las llamadas y las vueltas
+    /// ya no dejan `call` ni `jmp`, solo lo que escriben, en su orden.
     #[test]
-    fn the_start_calls_main_even_when_main_is_not_first() {
-        let m = bmo_titan_front::lower("mod main \"x\"\nfn otra()\n    print(\"a\")\nfn main()\n    otra()\n").unwrap();
+    fn calls_and_loops_leave_only_what_they_write() {
+        let m = bmo_titan_front::lower("mod main \"x\"\nfn otra()\n    print(\"a\")\nfn main()\n    for i in range(2)\n        otra()\n    print(\"fin\")\n").unwrap();
         let e = emit(&m).unwrap();
-        // call rel32 at byte 0: its target is the start of main (f1).
-        assert_eq!(e.code[0], 0xE8);
-        let rel = i32::from_le_bytes(e.code[1..5].try_into().unwrap()) as i64;
-        assert_eq!((5 + rel) as usize, e.starts[1]);
+        let has = |w: &[u8]| e.code.windows(w.len()).filter(|x| *x == w).count();
+        assert_ne!(e.code[0], 0xE8, "no call: the program starts by writing");
+        assert_eq!(has(b"a\n"), 2, "two turns, two writes");
+        assert_eq!(has(b"fin\n"), 1);
     }
 
     #[test]
-    fn every_function_ends_in_ret() {
+    fn every_program_ends_in_exit() {
         let m = bmo_titan_front::lower("mod main \"x\"\nfn main()\n    print(\"a\")\n").unwrap();
         let e = emit(&m).unwrap();
-        assert_eq!(*e.code.last().unwrap(), 0xC3);
+        let mut exit = Vec::new();
+        task::exit(&mut exit);
+        assert!(e.code.ends_with(&exit));
     }
 
     #[test]

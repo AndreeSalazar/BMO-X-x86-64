@@ -62,7 +62,20 @@ pub fn check(p: &Program) -> Result<(), Message> {
         for st in lines {
             let c = match st {
                 Stmt::Call(c) => c,
-                Stmt::If(_) => continue,
+                Stmt::If(_) | Stmt::While(_) | Stmt::Break { .. } | Stmt::Continue { .. } | Stmt::Set(_) => continue,
+                Stmt::For(f) => {
+                    if LIBRARY.contains(&f.var.as_str()) || p.functions.iter().any(|g| g.name == f.var) {
+                        return Err(Message::new(
+                            Code::Taken,
+                            f.var_at.0,
+                            f.var_at.1,
+                            &format!("`{}` ya es el nombre de una funcion", f.var),
+                            &format!("un nombre dice UNA cosa: si fuera las dos, `{0}()` y `{0}` se confundirian al leer", f.var),
+                            "llama a la vuelta de otra forma: for i in range(...)",
+                        ));
+                    }
+                    continue;
+                }
                 Stmt::Let(l) => {
                     if LIBRARY.contains(&l.name.as_str()) || p.functions.iter().any(|g| g.name == l.name) {
                         return Err(Message::new(
@@ -76,7 +89,6 @@ pub fn check(p: &Program) -> Result<(), Message> {
                     }
                     continue;
                 }
-                Stmt::Set(_) => continue,
             };
             let own = p.functions.iter().any(|g| g.name == c.callee);
             if own && !c.args.is_empty() {
@@ -109,14 +121,19 @@ pub fn check(p: &Program) -> Result<(), Message> {
     endless(p)
 }
 
-/// Every line of a body, the ones inside `if` and `else` included, in
-/// reading order (the `if` line itself too).
+/// Every line of a body, the ones inside `if`, `else` and loops included, in
+/// reading order (the `if` and loop lines themselves too).
 fn flat<'a>(body: &'a [Stmt], out: &mut Vec<&'a Stmt>) {
     for st in body {
         out.push(st);
-        if let Stmt::If(i) = st {
-            flat(&i.then, out);
-            flat(&i.other, out);
+        match st {
+            Stmt::If(i) => {
+                flat(&i.then, out);
+                flat(&i.other, out);
+            }
+            Stmt::While(w) => flat(&w.body, out),
+            Stmt::For(f) => flat(&f.body, out),
+            _ => {}
         }
     }
 }
@@ -139,7 +156,9 @@ fn calls_of(body: &[Stmt]) -> Vec<&Call> {
 /// nothing outside it changes, so every call of it decides EXACTLY as the
 /// first one did: if the call back happens once, it happens always; if it
 /// never happens, it is a line that does nothing. Either way, a NO -- and the
-/// rule moves the day a call can carry a value (level 5).
+/// rule moves the day a call can carry a value (level 5). A loop (level 4)
+/// does not change it either: the call back inside a `while` still starts
+/// the same function from scratch.
 
 fn endless(p: &Program) -> Result<(), Message> {
     let own = |name: &str| p.functions.iter().position(|f| f.name == name);

@@ -1627,3 +1627,25 @@ and or not`, 10 palabras; `GRAMATICA.md` lo cuenta entero):
 🟡 igual que los niveles de antes: el banco corre en el emulador; el Ryzen,
 cuando se despliegue.
 
+**NIVEL 4 -- REPETIR, HECHO EN EL ANFITRION el 04-10** (`for in while break
+continue`, 15 palabras):
+
+```text
+   la IR      el primer salto HACIA ARRIBA: el final de un bucle vuelve a su
+              pregunta. Un `for` lleva dos locales ocultos (`#i`, `#fin`) que
+              ningun programa puede nombrar; `break` y `continue` cierran los
+              bloques que dejan atras antes de saltar
+   el JUEZ    el punto fijo que el nivel 3 prometio: recorre los bloques hasta
+              que ninguna entrada se mueve, y despues juzga
+   el CALCULO el programa ENTERO, corrido al compilar (cada llamada, cada
+              vuelta): `Module::flat` es lo que escribe. Un millon de pasos y
+              sigue: T0066, un bucle sin salida dicho en su linea
+   el EMISOR  escribe lo que el programa escribe, y EXIT: sin `call`, sin
+              `jmp`. En el metro las seis filas de TITAN++ BAJARON (hola, de
+              11 a 9 instrucciones) y entraron dos del nivel 4
+```
+
+- En F1 un bucle es un **CINTURON** de rocas que da vueltas (`Traits::loops`),
+  lila (`.loop` en `titan.maqueta`); la semilla `physics` cuenta tres cuadros.
+- 🟡 como siempre: el banco corre en el emulador, no en el Ryzen.
+

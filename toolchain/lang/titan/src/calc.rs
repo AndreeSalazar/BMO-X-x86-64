@@ -92,12 +92,24 @@ impl Class {
 /// `Value::Text` or `Value::Bool`; the blocks that never run are `dead`.
 pub fn fold(m: &Module) -> Result<Module, Message> {
     let mut out = m.clone();
-    for f in &mut out.functions {
+    for f in &out.functions {
         classes(f)?;
-        values(f)?;
     }
+    let mut r = Run { m, steps: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0) };
+    r.call(m.entry)?;
+    for (f, seen) in out.functions.iter_mut().zip(&r.seen) {
+        for (b, &s) in f.blocks.iter_mut().zip(seen) {
+            b.dead = !s;
+        }
+    }
+    out.flat = Some(r.flat);
     Ok(out)
 }
+
+/// How far the calculation goes before it says the program does not end
+/// (T0066). A million steps is a table of multiplication a thousand times
+/// over; a `while true` with no `break` reaches it in a blink.
+pub const STEPS: u64 = 1_000_000;
 
 /// The first pass: the class of every local and every value, in EVERY block.
 /// The blocks are in reading order, and a local that dies (`Drop`) forgets
@@ -107,7 +119,22 @@ fn classes(f: &Function) -> Result<(), Message> {
     for b in &f.blocks {
         for op in &b.ops {
             match op {
-                Op::Let { local, value, .. } => known[*local] = Some(class(value, &known)?),
+                Op::Let { local, value, at, .. } => {
+                    let c = class(value, &known)?;
+                    // The hidden two of a `for` (`#i`, `#fin`): `range`
+                    // counts with numbers.
+                    if f.locals[*local].name.starts_with('#') && c != Class::Int {
+                        return Err(Message::new(
+                            Code::Mixed,
+                            at.0,
+                            at.1,
+                            &format!("`range` cuenta con numeros, y aqui hay {}", c.name()),
+                            "un `for` da vueltas de un numero al siguiente: un texto o un si-o-no no tienen siguiente",
+                            "for i in range(10)  o  for i in range(1, 11)",
+                        ));
+                    }
+                    known[*local] = Some(c);
+                }
                 Op::Set { local, value, at } => {
                     let c = class(value, &known)?;
                     // ** A `mut` changes its VALUE, never its kind: a number
@@ -254,47 +281,91 @@ pub fn class(v: &Value, known: &[Option<Class>]) -> Result<Class, Message> {
     })
 }
 
-/// The second pass: the values, along the ONE way the program goes. Every
-/// condition is known here, so every `if` is decided; the live blocks form a
-/// single path, in reading order, and the rest are marked dead.
-fn values(f: &mut Function) -> Result<(), Message> {
-    let mut known: Vec<Option<Const>> = vec![None; f.locals.len()];
-    let mut live = vec![false; f.blocks.len()];
-    live[0] = true;
-    for i in 0..f.blocks.len() {
-        if !live[i] {
-            f.blocks[i].dead = true;
-            continue;
+/// ** THE SECOND PASS: THE PROGRAM, RUN WHEN COMPILING.
+///
+/// Until something comes from outside (the keyboard, a file), every value of
+/// a program is known before it runs -- with loops too: a `for` of ten turns
+/// is ten known turns. So the calculation does not fold each line once (a
+/// line inside a loop has a different value at every turn): it RUNS the
+/// program, from `main`, through every call, every `if` and every turn, and
+/// keeps what it writes. That list (`Module::flat`) is what the `.bex` does.
+///
+/// ```text
+///    a block never entered   is DEAD (`Block::dead`): no byte, no door
+///    a value that overflows, /0, a division not whole
+///                            a NO at its line, as in levels 1-3 -- but only
+///                            if the program really gets there
+///    STEPS steps and still going
+///                            T0066: a loop that does not end (or not in a
+///                            million steps), said at its line
+/// ```
+///
+/// [!] The day something comes from outside, part of the program can no longer
+/// be run here, and that part goes to the machine as real code (E1 of the
+/// emitter, TITAN_MAESTRO 7.3). This is the floor, E0, made whole.
+struct Run<'m> {
+    m: &'m Module,
+    steps: u64,
+    flat: Vec<Op>,
+    /// Which blocks of which function some run entered.
+    seen: Vec<Vec<bool>>,
+    /// The last question a loop asked: where T0066 points.
+    last_turn: At,
+}
+
+impl Run<'_> {
+    fn tick(&mut self) -> Result<(), Message> {
+        self.steps += 1;
+        if self.steps > STEPS {
+            let at = self.last_turn;
+            return Err(Message::new(
+                Code::NoEnd,
+                at.0,
+                at.1,
+                &format!("este bucle sigue dando vueltas despues de {} pasos", STEPS),
+                "nada de este programa viene de fuera todavia, asi que se corre entero al compilar; y aqui no acaba: o le falta su `break`, o su condicion nunca se hace false",
+                "revisa que la condicion cambie dentro del bucle (n = n + 1) o pon un `break`; un bucle de juego que espera al teclado llega cuando haya entrada",
+            ));
         }
-        let b = &mut f.blocks[i];
-        for op in &mut b.ops {
-            match op {
-                Op::Let { local, value, .. } | Op::Set { local, value, .. } => {
-                    let c = eval(value, &known)?;
-                    *value = constant(&c, value.at());
-                    known[*local] = Some(c);
+        Ok(())
+    }
+
+    fn call(&mut self, func: usize) -> Result<(), Message> {
+        let m = self.m;
+        let f = &m.functions[func];
+        let mut known: Vec<Option<Const>> = vec![None; f.locals.len()];
+        let mut b = 0;
+        loop {
+            self.seen[func][b] = true;
+            for op in &f.blocks[b].ops {
+                self.tick()?;
+                match op {
+                    Op::Let { local, value, .. } | Op::Set { local, value, .. } => known[*local] = Some(eval(value, &known)?),
+                    Op::Write { parts, at } => {
+                        let parts = parts.iter().map(|p| eval(p, &known).map(|c| constant(&c, p.at()))).collect::<Result<_, _>>()?;
+                        self.flat.push(Op::Write { parts, at: *at });
+                    }
+                    Op::Call { func, .. } => self.call(*func)?,
+                    Op::Drop { local, .. } => known[*local] = None,
                 }
-                Op::Write { parts, .. } => {
-                    for p in parts.iter_mut() {
-                        let c = eval(p, &known)?;
-                        *p = constant(&c, p.at());
+            }
+            self.tick()?;
+            b = match &f.blocks[b].end {
+                End::Return => return Ok(()),
+                End::Jump(t) => *t,
+                End::Branch { cond, then, other, at } => {
+                    if *then < b || *other < b || f.blocks.iter().skip(b).any(|x| x.end.targets().contains(&b)) {
+                        self.last_turn = *at;
+                    }
+                    if matches!(eval(cond, &known)?, Const::Bool(true)) {
+                        *then
+                    } else {
+                        *other
                     }
                 }
-                Op::Call { .. } => {}
-                Op::Drop { local, .. } => known[*local] = None,
-            }
-        }
-        match &mut b.end {
-            End::Return => {}
-            End::Jump(t) => live[*t] = true,
-            End::Branch { cond, then, other, .. } => {
-                let yes = matches!(eval(cond, &known)?, Const::Bool(true));
-                *cond = Value::Bool(yes, cond.at());
-                live[if yes { *then } else { *other }] = true;
-            }
+            };
         }
     }
-    Ok(())
 }
 
 fn constant(c: &Const, at: At) -> Value {
@@ -407,11 +478,10 @@ mod tests {
 
     fn printed(src: &str) -> Vec<String> {
         let m = run(src).unwrap();
-        m.functions[m.entry]
-            .blocks
+        m.flat
+            .as_ref()
+            .expect("calc runs the program")
             .iter()
-            .filter(|b| !b.dead)
-            .flat_map(|b| &b.ops)
             .filter_map(|op| match op {
                 Op::Write { parts, .. } => Some(
                     parts
@@ -472,6 +542,22 @@ mod tests {
         assert_eq!(code("mod main \"x\"\nfn main()\n    print(1 == \"1\")\n"), Code::Mixed);
         assert_eq!(code("mod main \"x\"\nfn main()\n    print(\"a\" < \"b\")\n"), Code::Mixed);
         assert_eq!(code("mod main \"x\"\nfn main()\n    let mut ok = true\n    ok = 1\n"), Code::Retype);
+    }
+
+    #[test]
+    fn loops_are_run_turn_by_turn_when_compiling() {
+        let src = "mod main \"x\"\nfn main()\n    for i in range(1, 4)\n        print(i, \" x 3 = \", i * 3)\n    let mut n = 10\n    while n > 0\n        n = n - 4\n        if n < 5\n            continue\n        print(\"n \", n)\n    print(\"fin \", n)\n";
+        assert_eq!(printed(src), ["1 x 3 = 3", "2 x 3 = 6", "3 x 3 = 9", "n 6", "fin -2"]);
+    }
+
+    #[test]
+    fn a_loop_that_does_not_end_is_said_at_its_line() {
+        let e = run("mod main \"x\"\nfn main()\n    let mut n = 0\n    while n >= 0\n        n = n + 1\n").unwrap_err();
+        assert_eq!((e.code, e.line), (Code::NoEnd, 4));
+        // A `while true` with its `break` ends.
+        assert_eq!(printed("mod main \"x\"\nfn main()\n    let mut n = 1\n    while true\n        n = n * 2\n        if n > 100\n            break\n    print(n)\n"), ["128"]);
+        // `range` counts with numbers.
+        assert_eq!(run("mod main \"x\"\nfn main()\n    for i in range(\"tres\")\n        print(i)\n").unwrap_err().code, Code::Mixed);
     }
 
     #[test]

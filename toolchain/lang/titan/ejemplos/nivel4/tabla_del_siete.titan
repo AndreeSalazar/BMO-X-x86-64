@@ -1,0 +1,16 @@
+# espera: BIEN
+# sale: 7 x 1 = 7
+# sale: 7 x 2 = 14
+# sale: 7 x 3 = 21
+# sale: 7 x 4 = 28
+# sale: 7 x 5 = 35
+# sale: la tabla suma 105
+# un `for` cuenta solo: `i` es nuevo en cada vuelta y nadie mas lo cambia
+mod main "la tabla del siete"
+
+fn main()
+    let mut suma = 0
+    for i in range(1, 6)
+        print("7 x ", i, " = ", 7 * i)
+        suma = suma + 7 * i
+    print("la tabla suma ", suma)
