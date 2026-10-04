@@ -250,3 +250,47 @@ Los escalones, de menos a mas:
 
 La regla de la LUDOTECA sigue: GOG primero (sin DRM), y nada de terceros
 dentro de la casa.
+
+# 6. LOS QUE YA LO HICIERON: QUE LEER, PARA QUE CASILLA (03-10)
+
+D3D12 no se aprende solo de la documentacion de Microsoft: otros ya lo
+tradujeron a otra cosa, con codigo abierto, y cada traduccion muestra DONDE
+esta lo dificil. Se LEE para entender; no se copia codigo (las licencias
+mandan, y la casa es nuestra). La regla de siempre: lo que se aprenda de
+ahi entra con su prueba en el banco, no de memoria.
+
+```text
+   fuente                         que es                       para que casilla
+   DirectX-Specs (Microsoft)      la especificacion de D3D12:   todas: es la ley
+                                  root signatures, barreras,    (el ESPEJO de la
+                                  heaps, ExecuteIndirect...      semantica a medias)
+   DXIL.rst y DXC (Microsoft)     el formato DXIL y cada        N5.x: cada
+                                  OperacionD3d con su firma     OperacionD3d nueva
+   vkd3d-proton (Valve)           D3D12 sobre Vulkan: lo que    N5.4 bindless,
+                                  Proton usa para Cyberpunk     N5.17 ExecuteIndirect,
+                                  en Linux. Lo mas cercano a    los heaps de
+                                  la casa; tiene arreglos por   descriptores; y que
+                                  juego (LGPL: leer, no copiar) hace Cyberpunk raro
+   dxil-spirv (Valve)             DXIL a SPIR-V, el de          el estructurador
+                                  vkd3d-proton: su              ("bucle con mas de
+                                  estructurador de bucles       una salida"), olas,
+                                                                bindless
+   vkd3d / vkd3d-shader (Wine)    DXBC y DXIL leidos, HLSL      sm5.rs, dxbc.rs
+   DXVK (D3D9/10/11 sobre Vulkan) lo de antes de DX12           D3D11 para Witcher 3
+                                                                y Baldur's Gate 3
+   Mesa: Dozen (dzn)              Vulkan SOBRE D3D12: el        que promete D3D12 de
+                                  camino al reves; dice que     verdad (lo que un
+                                  da D3D12 y que no             juego puede esperar)
+   Mesa: el d3d12 de Gallium y    OpenGL sobre D3D12, y su      como se ESCRIBE un
+   nir_to_dxil (Microsoft)        compilador NIR -> DXIL        DXIL valido (pruebas)
+   Mesa: NVK y NAK                Vulkan para NVIDIA, Ampere    la 3060 (N6): las
+                                  incluida; NAK emite SASS      palabras de SM86 de
+                                  de SM86                       proton-x-sm86
+   open-gpu-doc y                 las clases de la 3060         N6: los metodos de
+   open-gpu-kernel-modules        (AMPERE_B, el QMD...)         la clase 3D
+   (NVIDIA)
+```
+
+El orden en que sirven: para Cyberpunk HOY, vkd3d-proton y dxil-spirv (el
+bindless, el estructurador y ExecuteIndirect son exactamente sus
+problemas); para N6, NAK y open-gpu-doc; para la escalera DX11, DXVK.
