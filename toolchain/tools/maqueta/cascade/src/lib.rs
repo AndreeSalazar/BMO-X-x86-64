@@ -54,6 +54,8 @@ pub struct Styled {
     /// `<svg viewBox>` and `<path d>`, carried untouched (MAQUETA 2).
     pub view_box: Option<[u32; 4]>,
     pub d: Option<String>,
+    /// `<usa src>`: la pieza, carried untouched.
+    pub src: Option<String>,
     /// Only ever set on the root.
     pub canvas: Option<(u32, u32)>,
     pub style: Style,
@@ -176,6 +178,7 @@ fn settle(
         island: node.island.clone(),
         text: node.text.clone(),
         view_box: node.view_box,
+        src: node.src.clone(),
         d: node.d.clone(),
         canvas: match (node.width, node.height) {
             (Some(w), Some(h)) => Some((w, h)),

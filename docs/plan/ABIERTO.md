@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   552 casillas ABIERTAS en 52 planes
-   400 hechas
+   555 casillas ABIERTAS en 52 planes
+   401 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -26,7 +26,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 10 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
-- [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 14 de 17 hechas, faltan 3
 - [`PLAN_SEGURIDAD.md`](PLAN_SEGURIDAD.md) -- 26 de 32 hechas, faltan 6
 
 ---
@@ -294,6 +293,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
 - ... y 3 mas
 
+## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 6 abiertas, 15 hechas
+
+*PLAN MAQUETA*
+
+- [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
+- [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
+- [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
+- ... y 3 mas
+
 ## [`PLAN_RED_TX.md`](PLAN_RED_TX.md) -- 6 abiertas, 8 hechas
 
 *PLAN RED TX -- transmitir, con el DMA contado y el cable detras de un grifo*
@@ -417,14 +425,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
 - [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
 - [ ] S7 -- LOS CARRILES: 4 u 8 invocaciones por instruccion
-
-## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 3 abiertas, 14 hechas
-
-*PLAN MAQUETA*
-
-- [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
-- [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
-- [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 
 ## [`PLAN_NAVEGAR.md`](PLAN_NAVEGAR.md) -- 3 abiertas, 7 hechas
 

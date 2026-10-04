@@ -369,9 +369,59 @@ maquetas de `docs/arte/`: cada declaracion pasada por el compilador de verdad
            -> `toolchain/tools/maqueta/node/src/variables.rs`
 ```
 
-Lo que NO se persigue, y es una decision: `animation`, `transition` y
-`transform` (lo que vive es Rust), `font-family` (la letra de la casa) y
-`margin` (seccion 3b de `LA_MAQUETA_EXIGE.md`).
+Lo que NO se persigue con propiedades, y es una decision: `font-family` (la
+letra de la casa) y `margin` (seccion 3b de `LA_MAQUETA_EXIGE.md`). La
+animacion SI, pero no como CSS: ver 6d.
+
+## 6d. LAS PIEZAS: MAQUETA COMPUESTA, CON ESTADOS (2026-10-04)
+
+El propietario: *"podemos tener multiples maqueta_1 hasta el infinito con que
+sea abstraido por la maqueta principal que se encarga de hacer animacion,
+colorido, expansion... MAQUETA y TITAN++, eso es todo"*.
+
+Y es la salida de la frontera que la seccion 2 dejo escrita: **el escritorio
+esta hecho de LISTAS**, y una lista no se podia maquetar porque cuantos hijos
+tiene se sabe al correr. Con piezas, una FILA es una maqueta de medida fija
+--se compila y se juzga sola-- y repetirla N veces en el aparato es
+`y = i * paso`: no hace falta un motor de maquetacion.
+
+```
+   [x] P1  COMPONER: `<usa src="fila.maqueta"/>`. La pieza se compila y se
+           juzga SOLA y se injerta maquetada; sus reglas no salen; sus ids
+           salen con el del `<usa>` delante
+           -> `toolchain/tools/maqueta/compone/src/lib.rs`
+           el navegador compone igual (Shadow DOM en `foto.js`) y mide lo
+           mismo: `pruebas/escaparate.maqueta`, 788 x 276 los dos
+   [ ] P2  REPETIR: `<repite pieza="fila" eje="column" paso="34">`. El
+           CUANTOS lo da TITAN++ o Rust al correr; el COMO, la pieza. El
+           emisor A genera la pieza una vez y un bucle de `y = i * paso`
+           -> `toolchain/tools/maqueta/compone/` y `emit/src/rust.rs`
+   [ ] P3  ESTADOS: la principal declara estados (reposo, abierta,
+           expandida) y CADA UNO se maqueta entero en el anfitrion; el
+           veredicto juzga todos. Pasar de uno a otro es interpolar dos
+           listas de cajas YA calculadas (sitio, medida, color): se mueve sin
+           maquetar nada en el aparato
+           -> `toolchain/tools/maqueta/compone/` (los estados) y
+              `platform/shared/bmo-pinta` (la interpolacion, la misma en los
+              tres sitios)
+   [ ] P4  EMOJIS DE LA CASA: dibujados como `<svg>` con la pluma de la casa,
+           INSPIRADOS en los famosos, no traidos (la regla del propietario:
+           sin objetos de terceros). TITAN++ decide cual va con cada codigo
+           Unicode; MAQUETA los pinta nitidos a cualquier talla
+           -> `toolchain/tools/maqueta/pruebas/` (las piezas) y la tabla en
+              TITAN++
+```
+
+★ **La ventaja, dicha con precision** (CSS SI anima: `animation`,
+`transition`, `@keyframes`; las maquetas de `docs/arte/` lo usan 61 veces).
+Lo que CSS no tiene es esto: cada estado VERIFICADO al compilar (un texto que
+no cabe en "abierta" no compila), y la animacion sin recalcular la
+maquetacion en la maquina -- el navegador si la recalcula, y por eso a veces
+tironea --. Y lo que se ve en la foto del anfitrion es lo que pinta el Ryzen.
+
+[!] La seccion 7 dice *"MAQUETA compila una imagen QUIETA"*. Con P3 deja de
+ser verdad dicho asi, y se reescribe cuando P3 exista: lo que sigue siendo
+verdad es que **en el aparato no se maqueta nada**.
 
 ⚠ **La estimacion de la conversacion estaba mal, y lo destapo la medida**:
 contando NOMBRES de propiedad salia un 58,5 % "hoy". Era el 37,52 %:

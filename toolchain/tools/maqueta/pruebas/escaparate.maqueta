@@ -1,0 +1,19 @@
+<!--
+   ESCAPARATE -- la primera maqueta COMPUESTA (04-10).
+
+   No dibuja nada propio salvo el fondo: pone la misma pieza dos veces.
+   `tarjeta.maqueta` se compila y se juzga SOLA (su veredicto, sus reglas), y
+   aqui es una caja de la medida que ella calculo. Sus ids salen como
+   `izq.recibir` y `der.recibir`: la misma pieza dos veces no choca consigo
+   misma en la tabla de golpeo.
+
+   Es tambien la prueba del navegador: `foto.js --maqueta` compone las piezas
+   con Shadow DOM, que aisla los estilos igual que MAQUETA.
+-->
+<maqueta>
+  <usa id="izq" src="tarjeta.maqueta"/>
+  <usa id="der" src="tarjeta.maqueta"/>
+</maqueta>
+<style>
+  maqueta { display:flex; flex-direction:row; gap:16px; padding:16px; background-color:#05060A }
+</style>

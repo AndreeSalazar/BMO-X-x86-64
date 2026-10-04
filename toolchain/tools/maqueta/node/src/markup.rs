@@ -294,6 +294,24 @@ fn attribute(
                 )),
             }
         }
+        b"src" if node.tag == Tag::Usa => {
+            let ok = val.ends_with(b".maqueta")
+                && !val.starts_with(b"/")
+                && val.iter().all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/'))
+                && !val.windows(2).any(|w| w == b"..");
+            if ok {
+                node.src = Some(String::from_utf8_lossy(&val).into_owned());
+            } else {
+                errors.push(Error::new(
+                    vspan,
+                    "`src` es el camino de una pieza: `fila.maqueta`",
+                    "relativo a ESTE fichero, sin `..` ni `/` delante: una maqueta solo \
+                     compone piezas de su carpeta o de debajo, y asi se sabe siempre de \
+                     donde sale lo que se pinta.",
+                    "por ejemplo `src=\"piezas/fila.maqueta\"`.",
+                ));
+            }
+        }
         b"d" if node.tag == Tag::Path => {
             let d = String::from_utf8_lossy(&val).into_owned();
             if bmo_letra::svg::camino(&d).is_empty() {
@@ -318,8 +336,8 @@ fn attribute(
                 "la lista de atributos esta CERRADA. Un atributo que se acepta y no \
                  se lee es una linea que parece hacer algo y no hace nada.",
                 "`class`, `id`, `nombre` (solo en `<island>`), `ancho`/`alto` \
-                 (solo en `<maqueta>`), `viewBox` (solo en `<svg>`) y `d` (solo en \
-                 `<path>`).",
+                 (solo en `<maqueta>`), `viewBox` (solo en `<svg>`), `d` (solo en \
+                 `<path>`) y `src` (solo en `<usa>`).",
             ));
         }
     }
@@ -381,6 +399,14 @@ fn close_tag(
 
 /// Hang a finished node on its parent, or on the root list if there is none.
 fn attach(stack: &mut [Node], roots: &mut Vec<Node>, node: Node, errors: &mut Vec<Error>) {
+    if node.tag == Tag::Usa && node.src.is_none() {
+        errors.push(Error::new(
+            node.span,
+            "este `<usa>` no dice que pieza usa",
+            "`<usa>` pone aqui otra maqueta, y sin `src` no hay cual.",
+            "`<usa src=\"fila.maqueta\"/>`.",
+        ));
+    }
     match stack.last_mut() {
         Some(parent) => {
             // Un `<path>` solo va en un `<svg>`, y un `<svg>` solo lleva
@@ -408,6 +434,10 @@ fn attach(stack: &mut [Node], roots: &mut Vec<Node>, node: Node, errors: &mut Ve
                         Tag::Island => {
                             "una isla la rellena OTRO proceso: lo que hubiera dentro \
                              no lo pintaria nadie."
+                        }
+                        Tag::Usa => {
+                            "lo de dentro de un `<usa>` es la pieza, y la pieza se \
+                             escribe en SU fichero: aqui no se pinta nada mas."
                         }
                         _ => {
                             "un `<span>` lleva texto. Meter cajas dentro es flujo en \
@@ -443,6 +473,15 @@ fn add_text(stack: &mut [Node], raw: &[u8], span: Span, errors: &mut Vec<Error>)
     };
     if !node.children.is_empty() {
         errors.push(mixed(span));
+        return;
+    }
+    if node.tag == Tag::Usa {
+        errors.push(Error::new(
+            span,
+            "un `<usa>` no lleva texto",
+            "el texto de una pieza va en el fichero de la pieza.",
+            "dejarlo vacio: `<usa src=\"fila.maqueta\"/>`.",
+        ));
         return;
     }
     if node.tag == Tag::Island {

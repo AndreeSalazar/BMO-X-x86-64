@@ -51,6 +51,7 @@ alguien edito uno de los dos a mano.
 | 03-10 | BANK CAT, cartera | 92,04 % | 94,85 % | la letra de la casa (`bmo-letra`), el gato trazo a trazo de su SVG, las medidas del navegador |
 | 03-10 | HERMES, mensajes (antes) | 86,94 % | 90,54 % | la letra de 8 x 16 y las medidas de antes |
 | 03-10 | HERMES, mensajes | 88,09 % | 91,09 % | la letra de la casa y las columnas de la maqueta (35 / 69 / 236 / 265) |
+| 04-10 | PIEZAS, `pruebas/escaparate.maqueta` (la tarjeta dos veces, con `<usa>`) | 91,67 % | 93,56 % | el navegador compone con Shadow DOM y mide 788 x 276, lo mismo que MAQUETA |
 | 04-10 | MAQUETA 2, `pruebas/tarjeta.maqueta` | 89,97 % | 92,25 % | la foto del anfitrion (`maqueta --foto`) contra `foto.js ... --maqueta`: la misma fuente de verdad, dos pintores |
 
 Lo que falta para el 100 % y NO se va a hacer: la maqueta pone amigos,

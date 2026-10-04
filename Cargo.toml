@@ -359,6 +359,7 @@ members = [
     "toolchain/tools/maqueta/layout",
     "toolchain/tools/maqueta/verdict",
     "toolchain/tools/maqueta/emit",
+    "toolchain/tools/maqueta/compone",
     "toolchain/tools/maqueta/cli",
 
     # -- FORGE (pipeline de compilacion) -----------------------------

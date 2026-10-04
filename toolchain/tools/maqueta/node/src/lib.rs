@@ -64,6 +64,8 @@ pub struct Node {
     /// `<path d="...">`: the SVG path, as written. Checked here (it has to
     /// read), flattened later.
     pub d: Option<String>,
+    /// `<usa src="...">`: la pieza que va aqui, relativa a este fichero.
+    pub src: Option<String>,
     pub children: Vec<Node>,
     pub span: Span,
 }
@@ -80,6 +82,7 @@ impl Node {
             text: None,
             view_box: None,
             d: None,
+            src: None,
             children: Vec::new(),
             span,
         }

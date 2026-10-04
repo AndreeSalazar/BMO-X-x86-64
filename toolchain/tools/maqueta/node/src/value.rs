@@ -28,6 +28,10 @@ pub enum Tag {
     Island,
     Svg,
     Path,
+    /// `<usa src="fila.maqueta"/>` (04-10): una PIEZA, otra maqueta compilada
+    /// sola y puesta aqui. Para esta maqueta es una caja hoja de la medida que
+    /// la pieza calculo; dentro no se ve nada de ella.
+    Usa,
 }
 
 impl Tag {
@@ -39,6 +43,7 @@ impl Tag {
             b"island" => Some(Tag::Island),
             b"svg" => Some(Tag::Svg),
             b"path" => Some(Tag::Path),
+            b"usa" => Some(Tag::Usa),
             _ => None,
         }
     }
@@ -51,6 +56,7 @@ impl Tag {
             Tag::Island => "island",
             Tag::Svg => "svg",
             Tag::Path => "path",
+            Tag::Usa => "usa",
         }
     }
 

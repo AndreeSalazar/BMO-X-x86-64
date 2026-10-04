@@ -85,15 +85,24 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    let cascada = match bmo_maqueta_cascade::cascade(&doc) {
-        Ok(c) => c,
-        Err(e) => return fallo(&entrada, &src, &e),
+    // ** Por COMPONE siempre (04-10): una maqueta sin `<usa>` sale igual que
+    // antes (lo prueba `sin_piezas_es_lo_de_siempre`), y una con piezas
+    // compila cada una SOLA antes de ponerla. El fallo se cuenta en el
+    // fichero donde esta, que puede ser una pieza y no este.
+    let _ = doc;
+    let puesto = match bmo_maqueta_compone::compilar(std::path::Path::new(&entrada)) {
+        Ok(l) => l,
+        Err(f) => {
+            eprint!("{}", f.render());
+            eprintln!(
+                "maqueta: {} reparo{} en {}, no se ha escrito nada.",
+                f.errores.len(),
+                if f.errores.len() == 1 { "" } else { "s" },
+                f.fichero
+            );
+            return ExitCode::FAILURE;
+        }
     };
-    let puesto = bmo_maqueta_layout::lay(&cascada);
-    let reparos = bmo_maqueta_verdict::judge(&puesto, &cascada);
-    if !reparos.is_empty() {
-        return fallo(&entrada, &src, &reparos);
-    }
 
     if let Some(por_la_cara) = foto {
         let im = if por_la_cara {

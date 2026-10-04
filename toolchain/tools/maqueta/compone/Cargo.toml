@@ -1,0 +1,15 @@
+[package]
+name = "bmo-maqueta-compone"
+version = "0.1.0"
+edition = "2021"
+description = "MAQUETA: compone una maqueta con sus PIEZAS (`<usa src>`), cada una compilada y juzgada sola. Un CONSUMIDOR de la cadena, como emit."
+license = "Apache-2.0"
+
+# Un CONSUMIDOR: lee ficheros (la cadena no lee ninguno) y llama a las cinco
+# generaciones por cada pieza. Nadie de la cadena sabe que existe.
+[dependencies]
+bmo-maqueta-node = { path = "../node" }
+bmo-maqueta-cascade = { path = "../cascade" }
+bmo-maqueta-layout = { path = "../layout" }
+bmo-maqueta-verdict = { path = "../verdict" }
+bmo-maqueta-diag = { path = "../diag" }

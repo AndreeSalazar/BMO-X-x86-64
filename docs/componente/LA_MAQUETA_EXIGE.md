@@ -88,6 +88,7 @@ declara con medida; una ventana que debe ajustarse a su contenido, no.
 | `<island>` | el hueco que rellena otro proceso | atributo `nombre`, obligatorio y unico |
 | `<svg>` | **MAQUETA 2 (04-10)**: un dibujo, con su `viewBox` | solo lleva `<path>`; su pluma y su relleno se dicen en SU regla (`stroke`, `fill`...) |
 | `<path>` | un camino de SVG, atributo `d` | solo dentro de `<svg>`. `M L H V C S Q T Z` y minusculas; sin arcos `A` |
+| `<usa>` | **(04-10)** una PIEZA: otra maqueta, puesta aqui | atributo `src`, obligatorio; vacia. Ver abajo |
 
 Los **nodos de texto sueltos** son validos dentro de `<div>` y `<span>`, como en
 HTML. Se miden **al compilar**: con la letra de la casa (`bmo-letra`, el MISMO
@@ -96,8 +97,34 @@ de pixel) si no. **No se parten en lineas**: si no caben, es error (comprobacion
 B de la seccion 7).
 
 Atributos aceptados: `class`, `id`, `nombre` (solo en `<island>`), `ancho`/`alto`
-(solo en `<maqueta>`), `viewBox` (solo en `<svg>`) y `d` (solo en `<path>`).
-**Cualquier otro atributo es un error.**
+(solo en `<maqueta>`), `viewBox` (solo en `<svg>`), `d` (solo en `<path>`) y
+`src` (solo en `<usa>`). **Cualquier otro atributo es un error.**
+
+### `<usa src="fila.maqueta"/>`: las piezas (04-10)
+
+El propietario: *"multiples maqueta_1 hasta el infinito, abstraidas por la
+maqueta principal"*. Una maqueta pone otra dentro, y la ley es la de siempre --
+**una pieza no sabe que tiene padre**:
+
+1. La pieza se compila **SOLA**: su cascada, su maquetacion, su veredicto. Sus
+   reglas no salen de ella y las de la principal no entran.
+2. Para la principal, `<usa>` es una caja **hoja** de la medida que la pieza
+   calculo. Ponerle otra medida, `padding` o borde es error: una pieza mide lo
+   que mide. Colocarla (flex, `position`, `left`/`top`) si se puede.
+3. Despues de juzgar la principal, la pieza se **injerta** ya maquetada en su
+   sitio. Los emisores reciben un arbol y no saben de piezas.
+4. Los `id` de dentro salen con el del `<usa>` delante: `<usa id="izq">` da
+   `izq.recibir`. La misma pieza dos veces sin `id` propio es error (choca en
+   la tabla de golpeo).
+
+`src` es relativo al fichero, sin `..` ni `/` delante. Un ciclo (una pieza que
+por otras se contiene) es error, y mas de 8 niveles tambien. Un fallo dentro de
+una pieza se cuenta en SU fichero. Vive en `toolchain/tools/maqueta/compone/`.
+
+★ En el navegador, `foto.js --maqueta` compone igual: cada pieza entra con
+**Shadow DOM**, que es el mismo aislamiento dicho en HTML. Medido con
+`pruebas/escaparate.maqueta` (la tarjeta dos veces): el navegador la mide
+**788 x 276, lo mismo que MAQUETA**, y se parece un 93,56 %.
 
 ★ **Por que un dibujo es `<svg>` y no pixeles** (04-10): un icono son
 MATEMATICAS -- rectas y curvas --, y el compilador las aplana en el anfitrion
