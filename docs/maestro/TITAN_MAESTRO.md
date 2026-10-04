@@ -454,7 +454,8 @@ estructura: **dibuja la que el compilador ya comprueba**.
    el titulo "Hola Mundo"         la linea que dice que hace (U3)
    `source` dentro del nodo       el texto del .titan
    los puertos in / out           out = sus `use`; in = quien lo usa
-   el EXPLORER (nodes/)           src/ y el Titan.toml
+   el EXPLORER (nodes/)           la carpeta del paquete TAL CUAL esta en el
+                                  disco, en el orden del propietario (8.10)
    F5 Run                         titan build (y pedir al ESCRITORIO lanzar)
    Tab Templates                  titan new con plantillas
    Ctrl+Shift+P Commands          la consola del TALLER
@@ -1142,6 +1143,8 @@ problema dicho). El resto espera al compilador.
    F1 (TALLER)   el grafo, el comprobador animado, los errores en rojo que
                  guian (ERROR 1/n + el camino), [e] al siguiente      EXISTE
                  (L1-L4; el comprobador es el del ejemplo hasta T4)
+                 y el EXPLORER que organiza el disco: nuevo, renombrar,
+                 quitar, mover, plegar, el orden propio (L5, 04-10)   EXISTE
    CABINA        el NO del kernel, para quien mira la maquina entera  EXISTE
    el puente     el NO del kernel llevado a su nodo en F1             J3-J4
    `titan`       new / check / build / run / test (4.1)               FALTA

@@ -79,17 +79,23 @@ pub struct Problem {
 }
 
 /// A small writer into one line of text.
-pub(crate) struct Say {
+pub struct Say {
     b: [u8; 72],
     n: usize,
 }
 
+impl Default for Say {
+    fn default() -> Say {
+        Say::new()
+    }
+}
+
 impl Say {
-    pub(crate) fn new() -> Say {
+    pub fn new() -> Say {
         Say { b: [0; 72], n: 0 }
     }
 
-    pub(crate) fn t(mut self, s: &[u8]) -> Say {
+    pub fn t(mut self, s: &[u8]) -> Say {
         for &c in s {
             if self.n < self.b.len() {
                 self.b[self.n] = c;
@@ -99,7 +105,7 @@ impl Say {
         self
     }
 
-    pub(crate) fn num(self, v: usize) -> Say {
+    pub fn num(self, v: usize) -> Say {
         let mut d = [0u8; 20];
         let (mut k, mut v) = (0, v);
         loop {
@@ -114,7 +120,7 @@ impl Say {
         self.t(&d[..k])
     }
 
-    pub(crate) fn done(self) -> Line {
+    pub fn done(self) -> Line {
         Text::new(core::str::from_utf8(&self.b[..self.n]).unwrap_or("?"))
     }
 }

@@ -169,10 +169,42 @@ pub fn remove_child(text: &[u8], child: &[u8], out: &mut [u8]) -> Result<usize, 
     Err(EditError::NotDeclared)
 }
 
+/// The module's OWN name, in its first line: `mod rock "..."` -> `mod roca
+/// "..."`, into `out`. What it does, its `use`, its children and its body go
+/// out as they came in (the EXPLORER renames a file and its module together:
+/// a `.titan` is called like its module, or the reader says it does not match).
+pub fn rename_module(text: &[u8], new: &[u8], out: &mut [u8]) -> Result<usize, EditError> {
+    let (r, t, _) = header_lines(text).next().ok_or(EditError::NoHeader)?;
+    let rest = after_word(t, b"mod").ok_or(EditError::NoHeader)?;
+    let old = rest.split(|c| c.is_ascii_whitespace() || *c == b'"').next().unwrap_or(b"");
+    if old.is_empty() {
+        return Err(EditError::NoHeader);
+    }
+    // Where the old name sits inside the line, in bytes of the whole text.
+    let line = &text[r.start..r.end];
+    let word = line.windows(3).position(|w| w == b"mod").ok_or(EditError::NoHeader)?;
+    let at = r.start + word + 3 + line[word + 3..].iter().position(|c| !c.is_ascii_whitespace()).ok_or(EditError::NoHeader)?;
+    let mut o = Out { buf: out, n: 0 };
+    o.put(&text[..at])?;
+    o.put(new)?;
+    o.put(&text[at + old.len()..])?;
+    Ok(o.n)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::header;
+
+    #[test]
+    fn renaming_a_module_touches_only_its_own_name() {
+        let t = "\nmod rock \"una roca\"\nuse ship\nmod tiny\n\nfn main() {}\n";
+        let mut out = [0u8; 256];
+        let n = rename_module(t.as_bytes(), b"roca", &mut out).unwrap();
+        assert_eq!(&out[..n], "\nmod roca \"una roca\"\nuse ship\nmod tiny\n\nfn main() {}\n".as_bytes());
+        assert_eq!(header::parse(&out[..n]).unwrap().name.as_bytes(), b"roca");
+        assert_eq!(rename_module(b"use x\n", b"y", &mut out).err(), Some(EditError::NoHeader));
+    }
 
     fn add(text: &str, child: &str, path: Option<&str>) -> std::string::String {
         let mut out = [0u8; 512];

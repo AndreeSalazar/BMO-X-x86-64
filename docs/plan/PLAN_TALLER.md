@@ -797,6 +797,102 @@ trazo sale de una raiz entera.
 | ademas un `use ufo` en physics | ERROR 1/2 en main y 2/2 en physics, y el camino rojo entre los dos | sin camino, o numeros al reves |
 | `e` | la camara salta al siguiente error y lo selecciona | no pasa nada: la `e` no llega como letra |
 
+### 8.10 L5: el EXPLORER organiza el DISCO, a la manera del propietario (04-10)
+
+El propietario: *"que TALLER tenga motivos de existencia, su EXPLORER unico que
+puedan organizar carpetas, archivos, todo"*, inspirado en VS Code, y *"tener
+absoluto control de organizar a mi manera en archivos sin tener que pelear con
+orden de A hasta la Z ... PERSONALIZAR TODO"*. Eligio las cuatro acciones:
+nuevo archivo / carpeta, renombrar, quitar y carpetas plegables.
+
+**La columna organiza el DISCO; el lienzo organiza los MODULOS.**
+
+```text
+   ARCHIVOS        [+][+]    nuevo archivo, nueva carpeta (donde esta lo elegido)
+     v docs                  TODO lo que hay en la carpeta del paquete, no solo
+         LEEME.txt           lo que nombra un `mod`
+     v src
+         main.titan          un modulo: el clic enciende su nodo
+         ufo.titan           un .titan que nadie declara: en gris
+       > physics             una carpeta plegada (la flecha la abre)
+     Titan.toml
+```
+
+**Listar sin tocar el cursor de F12.** Se iba a pedir una pregunta nueva en
+Ring 0 y NO hizo falta: el objeto `KIND_DIRECTORIO` (01-10, nacido para
+PROTON-X) ya lista ESTRATOS con un handle POR PROCESO (`bmo::Directorio`), y
+F1 abre UNA carpeta cada vez (son ocho para todo el sistema). Lo de FAT32 con
+el mismo nombre (`titan/` guarda los `.bex` de T3) se salta. Cero cambios en
+Ring 0.
+
+**El orden es del propietario, no de la A a la Z.** Arrastrar una fila sobre
+otra de la MISMA carpeta la pone delante (mitad de arriba) o detras (mitad de
+abajo), y queda en `Titan.toml`, al lado de `[layout]` (TITAN_MAESTRO 13.5: el
+nodo principal guarda la vista):
+
+```toml
+[explorer]                       # carpeta = sus hijos, en el orden elegido
+"." = ["docs", "src", "Titan.toml"]
+"src" = ["main.titan", "ship.titan"]
+
+[explorer.folded]                # las carpetas que se quedan cerradas
+"src/physics" = true
+```
+
+Lo que nadie coloco va detras, en el orden del DISCO (el de creacion): lo
+nuevo sale al final de su carpeta. Un renombre conserva el sitio (cuelga del
+elemento, no del nombre viejo).
+
+**Los gestos, y lo que arrastran de su modulo** (`titan-lector::organize`,
+probado en el anfitrion con un ESTRATOS en memoria):
+
+| gesto | como | en el disco | y en las cabeceras |
+|---|---|---|---|
+| nuevo archivo | `[+]`, menu, y se escribe el nombre en la fila | `crear_desde` | un `.titan` nace con `mod x "..."`; si habia un modulo elegido, ese lo declara (`mod x in "..."` si cargo no lo buscaria ahi) |
+| nueva carpeta | `[+]` de carpeta, o menu | `crear_carpeta` | -- |
+| renombrar | doble clic, menu, o F2 si el escritorio la deja pasar (F1-F10 son suyas) | `renombrar` | su `mod rock` -> `mod roca`, y el del padre |
+| quitar | Supr dos veces (la primera pregunta, 3 s), o menu | `quitar` (queda en el historial) | el padre deja de declararlo; `Titan.toml` y `src/main.titan` no se quitan |
+| mover a carpeta | soltarlo sobre una carpeta (o en ARCHIVOS: la raiz) | leer + `crear_desde` + `quitar` | el padre pasa a `mod x in "nueva/ruta.titan"` |
+| ordenar | soltarlo entre dos hermanos | -- | `[explorer]` de `Titan.toml` |
+| plegar | la flecha, Enter, izquierda / derecha | -- | `[explorer.folded]` |
+| declarar | soltar un `.titan` gris sobre un NODO del lienzo | -- | ese modulo lo declara |
+
+[!] **Cambia un gesto de L2 (8.7)**: soltar un fichero sobre OTRA FILA ya no lo
+cuelga: ahora ordena o mueve en el disco. Colgar (cambiar quien lo declara) se
+hace soltandolo sobre un NODO del lienzo, que ya lo hacia. Sin ESTRATOS (el
+ejemplo en memoria) la columna sigue siendo el arbol declarado y L2 sigue
+igual.
+
+**Lo que NO reescribe, a proposito**: los `use rock` de OTROS ficheros (seria
+leer y escribir el paquete entero por un nombre), los hijos que un modulo
+guarda en la carpeta de su nombre, y los `mod ... in` que pasaban por una
+carpeta renombrada. Salen en PROBLEMAS con sus nombres y el lienzo los pinta en
+rojo; la segunda linea de la nota lo dice. Moviendo CARPETAS: todavia no (la
+nota lo dice). Y nada se pierde: cada gesto dice su `vuelve N`.
+
+**Lo medido**: `taller` pasa a 56.368 B de pila de 65.536 (`pila.py --ring3`,
+eran 55.696). El arbol (~8 KiB) vive en un bloque prestado, no en la pila: un
+`Tree` son solo enteros, asi que cualquier byte es uno valido.
+
+**Visto con la CAMARA** (ahora en el repositorio:
+`toolchain/tools/espejo-cara`, `cargo run -p bmo-espejo-cara --bin cara-taller
+-- <carpeta>`, pinta `explorer.rs` de verdad sobre un ESTRATOS en memoria):
+cazo el cursor del nombre dibujado a mitad del texto y la segunda linea de la
+nota cortada.
+
+**Como se mira en el Ryzen** (despues de `build.ps1` y desplegar, con ESTRATOS
+montado):
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1 | ARCHIVOS muestra `Titan.toml` y `src` con sus ficheros, y los dos botones `[+]` | solo salen los modulos: `Directorio` no abrio la carpeta (CABINA, `dir`) |
+| `[+]` con `ship.titan` elegido, `wing.titan`, Enter | `wing.titan` en `src`, un nodo `wing` colgando de `ship`, y la nota con su `vuelve 2` | el nombre no llega: las letras no van al buzon mientras se escribe |
+| arrastrar `rock.titan` sobre la mitad de arriba de `main.titan` | sale una linea azul delante de `main`; al soltar, `rock` queda delante y `Titan.toml` tiene `[explorer]` | se cuelga en vez de ordenarse: es el binario de antes |
+| clic en la flecha de `physics` | se pliega; tras cerrar y abrir F1 sigue plegada | se abre otra vez: `[explorer.folded]` no se escribio |
+| doble clic en `rock.titan`, `roca.titan`, Enter | `roca.titan` en su sitio, el nodo `roca`, y PROBLEMAS con los `use rock` de `ship` y `physics` | el nodo desaparece: no se reescribio la cabecera |
+| Supr, Supr sobre `roca.titan` | la primera pide confirmar (parpadea en rojo), la segunda lo quita; `vuelve 2` en F12 lo trae | se quita a la primera |
+| clic derecho en una fila | el menu de cuatro entradas; Esc lo cierra sin cerrar F1 | Esc cierra F1: el menu no se quedo la tecla |
+
 ---
 
 Ver [`PLAN_AUTOHOSPEDAJE.md`](en_pausa/PLAN_AUTOHOSPEDAJE.md) (el mismo trabajo desde el

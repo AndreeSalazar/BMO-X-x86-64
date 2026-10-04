@@ -249,6 +249,8 @@ dependencies = [
  "bmo-huesped",
  "bmo-imagen",
  "bmo-letra",
+ "bmo-titan-contrato",
+ "bmo-titan-lector",
 ]
 
 [[package]]

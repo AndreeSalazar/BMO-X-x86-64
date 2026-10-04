@@ -12,6 +12,8 @@
 //!    edit       one `mod` line in or out of a header, the rest untouched
 //!    hang       a file under another parent: two headers, no file moves
 //!    seed       `asteroids` as files, for F1 to write the first time
+//!    explorer   the package as it IS on disk, in the order the owner chose
+//!    organize   the EXPLORER's gestures, carrying each `.titan`'s module along
 //! ```
 //!
 //! It is the smallest piece of the future front (`titan-front`): it knows the
@@ -25,14 +27,16 @@
 extern crate std;
 
 pub mod edit;
+pub mod explorer;
 pub mod hang;
 pub mod header;
 pub mod library;
 pub mod manifest;
+pub mod organize;
 pub mod package;
 pub mod seed;
 pub mod text;
 
 pub use hang::{HangError, Plan, Sink};
-pub use package::{read_package, read_package_into, Fetch, FileEntry, Loaded, Problem, ProblemKind, Source};
+pub use package::{read_package, read_package_into, Fetch, FileEntry, Loaded, Problem, ProblemKind, Say, Source};
 pub use text::Path;
