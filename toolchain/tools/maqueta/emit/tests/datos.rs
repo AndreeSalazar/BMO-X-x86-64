@@ -34,7 +34,7 @@ fn el_texto_del_dato_se_corta_a_su_caja_y_el_color_es_el_dato() {
     let (l, colores, _) = juzgar(AMIGO);
     let g = rust::modulo_con_datos("pruebas/amigo.maqueta", &l, &colores);
     assert!(g.contains("p.pieza_cabe(&bmo::Pieza::Letra {") && g.contains("texto: d.nombre"), "{g}");
-    assert!(g.contains(", 170, ox as i32"), "el ancho de su caja: {g}");
+    assert!(g.contains(", 190, ox as i32"), "el ancho de su caja: {g}");
     assert!(g.contains("c: d.color"), "{g}");
     // La muestra sale en `MUESTRA` y en ningun sitio de lo que se pinta.
     let pintar = &g[g.find("pub fn pintar(").expect("pintar")..];

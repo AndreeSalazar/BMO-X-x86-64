@@ -13,3 +13,5 @@ bmo-maqueta-cascade = { path = "../cascade" }
 bmo-maqueta-layout = { path = "../layout" }
 bmo-maqueta-verdict = { path = "../verdict" }
 bmo-maqueta-diag = { path = "../diag" }
+# H4: las imagenes se leen con el MISMO lector que el aparato.
+bmo-imagen = { path = "../../../../platform/shared/bmo-imagen" }

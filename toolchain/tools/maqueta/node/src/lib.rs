@@ -100,11 +100,32 @@ impl Node {
 /// **Una LISTA** (P2, 04-10): `<usa src="fila.maqueta" repite="8" entre="4"/>`.
 /// La pieza es la FILA; cuantas hay lo dice el aparato al correr, hasta
 /// `veces`. Se maqueta y se juzga con TODAS (lo peor que puede pasar), en
-/// columna, `entre` pixeles una de otra.
+/// columna, `entre` pixeles una de otra. Con `columnas="2"` (H6) es una
+/// REJILLA: de izquierda a derecha y bajando, `entre` en los dos sentidos.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Repite {
     pub veces: u32,
     pub entre: u32,
+    pub columnas: u32,
+}
+
+impl Repite {
+    /// Cuantas filas de rejilla salen con todas.
+    pub fn filas(&self) -> u32 {
+        self.veces.div_ceil(self.columnas.max(1))
+    }
+
+    /// Lo que mide entera, con piezas de `(w, h)`.
+    pub fn medida(&self, (w, h): (u32, u32)) -> (u32, u32) {
+        let (c, f) = (self.columnas.max(1).min(self.veces), self.filas());
+        (c * w + self.entre * (c - 1), f * h + self.entre * (f - 1))
+    }
+
+    /// Donde va la pieza `k`, relativo a la lista.
+    pub fn sitio(&self, k: u32, (w, h): (u32, u32)) -> (u32, u32) {
+        let c = self.columnas.max(1);
+        ((k % c) * (w + self.entre), (k / c) * (h + self.entre))
+    }
 }
 
 /// Lo mas largo que se deja una lista.

@@ -132,6 +132,40 @@ pub fn caja(l: &mut impl Lienzo, x: i32, y: i32, w: i32, h: i32, r: i32, c: Colo
     }
 }
 
+/// **Una imagen** (H4): `w x h` pixeles `0xAARRGGBB` --el alfa es un BIT,
+/// como los da `bmo-imagen`: lo transparente no se toca--, recortada a una
+/// caja de radio `r` con el borde de la curva suavizado (un avatar redondo).
+///
+/// Si `px` no mide `w * h` no se pinta NADA: un dato que no casa con su caja
+/// no se estira ni se corta a ciegas.
+pub fn imagen(l: &mut impl Lienzo, x: i32, y: i32, w: i32, h: i32, r: i32, px: &[u32]) {
+    if w <= 0 || h <= 0 || px.len() != (w as usize) * (h as usize) {
+        return;
+    }
+    let r = r.clamp(0, w.min(h) / 2);
+    for j in 0..h {
+        let fila = &px[(j * w) as usize..((j + 1) * w) as usize];
+        let curva = r > 0 && (j < r || j >= h - r);
+        for (i, &c) in fila.iter().enumerate() {
+            let i = i as i32;
+            if c >> 24 == 0 {
+                continue;
+            }
+            let rgb = c & 0x00FF_FFFF;
+            if curva && (i < r || i >= w - r) {
+                let a = tinta(al_borde(x + i, y + j, x, y, w, h, r));
+                if a >= 255 {
+                    l.rect(x + i, y + j, 1, 1, rgb);
+                } else if a > 0 {
+                    l.mezclar(x + i, y + j, rgb, a as u8);
+                }
+            } else {
+                l.rect(x + i, y + j, 1, 1, rgb);
+            }
+        }
+    }
+}
+
 /// **Un borde** de `grosor` pixeles alrededor de una caja redonda (lo de
 /// dentro no se toca): la diferencia de dos curvas, suavizada en las dos.
 pub fn borde(l: &mut impl Lienzo, x: i32, y: i32, w: i32, h: i32, r: i32, grosor: i32, c: Color) {
@@ -424,6 +458,9 @@ pub enum Pieza<'a> {
     /// Polilineas de 1/64 px, con la pluma redonda de `grosor64`.
     Trazo { caminos: &'a [&'a [(i32, i32)]], cerrados: &'a [bool], grosor64: i32, c: Color },
     Relleno { caminos: &'a [&'a [(i32, i32)]], c: Color },
+    /// Una imagen (H4): `w x h` pixeles `0xAARRGGBB` con el alfa de un BIT
+    /// (como los da `bmo-imagen`), recortada a una caja de radio `r`.
+    Imagen { x: i32, y: i32, w: i32, h: i32, r: i32, px: &'a [u32] },
 }
 
 /// El estilo de la letra de una pieza.
@@ -496,6 +533,7 @@ pub fn pieza(l: &mut impl Lienzo, f: &mut impl Fuente, p: &Pieza, ox: i32, oy: i
             }
         }
         Pieza::Relleno { caminos, c } => relleno(&mut l, caminos, c),
+        Pieza::Imagen { x, y, w, h, r, px } => imagen(&mut l, x, y, w, h, r, px),
     }
 }
 
@@ -503,7 +541,7 @@ pub fn pieza(l: &mut impl Lienzo, f: &mut impl Fuente, p: &Pieza, ox: i32, oy: i
 /// que su borde suave o su resplandor se salen.
 pub fn caja_de(p: &Pieza) -> (i32, i32, i32, i32) {
     match *p {
-        Pieza::Caja { x, y, w, h, .. } | Pieza::Borde { x, y, w, h, .. } | Pieza::Degradado { x, y, w, h, .. } => (x, y, w, h),
+        Pieza::Caja { x, y, w, h, .. } | Pieza::Borde { x, y, w, h, .. } | Pieza::Degradado { x, y, w, h, .. } | Pieza::Imagen { x, y, w, h, .. } => (x, y, w, h),
         Pieza::Resplandor { x, y, w, h, alcance, .. } => (x - alcance, y - alcance, w + 2 * alcance, h + 2 * alcance),
         // La letra puede asomar por arriba (acentos) y por abajo.
         Pieza::Letra { x, y, alto, px, .. } => (x - 2, y - px as i32 / 2, 4096, alto + px as i32),

@@ -1,0 +1,35 @@
+<!--
+   EL PERFIL -- H4 y H5 juntos (04-10): una IMAGEN de verdad, recortada en
+   circulo, con el punto de estado anclado a ella.
+
+      <imagen src="gato.qoi"/>   los pixeles se leen al compilar con el
+                                 lector del aparato (`bmo-imagen`) y van
+                                 DENTRO del codigo generado (`static
+                                 IMAGEN_0`). Mide lo que mide la imagen.
+      border-radius: 50%         el recorte en circulo, con la curva suave
+-->
+<maqueta>
+  <style>
+    .perfil  { display:flex; flex-direction:row; gap:14px; align-items:center;
+               padding:14px 18px 14px 14px; border-radius:14px; background-color:#0D1118 }
+    .cara    { position:relative; width:48px; height:48px }
+    .foto    { border-radius:50% }
+    .estado  { position:absolute; right:0; bottom:0; width:12px; height:12px;
+               border-radius:50%; border-width:2px; border-color:#0D1118;
+               background-color:#3FD07A }
+    .textos  { display:flex; flex-direction:column; gap:2px }
+    .nombre  { font-size:15px; font-weight:600; line-height:20px; color:#F2F7F9 }
+    .nota    { font-size:12px; line-height:16px; color:#7C8796 }
+  </style>
+
+  <div class="perfil">
+    <div class="cara">
+      <imagen class="foto" src="gato.qoi"/>
+      <div class="estado"></div>
+    </div>
+    <div class="textos">
+      <span class="nombre">BMO-X</span>
+      <span class="nota">en linea, sin Google</span>
+    </div>
+  </div>
+</maqueta>

@@ -107,7 +107,7 @@ fn intrinsic(b: &Styled) -> Size {
     let flow: Vec<&Styled> = b
         .children
         .iter()
-        .filter(|c| c.style.position == Position::Static)
+        .filter(|c| c.style.position != Position::Absolute)
         .collect();
 
     if flow.is_empty() {

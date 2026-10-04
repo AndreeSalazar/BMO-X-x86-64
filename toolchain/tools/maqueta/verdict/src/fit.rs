@@ -41,7 +41,8 @@ fn walk(f: &Frame, canvas: &Rect, out: &mut Vec<Error>) {
 /// empieza a la izquierda. Un texto centrado se mueve con lo que mide, y lo
 /// que mide no se sabe.
 fn el_hueco(f: &Frame, out: &mut Vec<Error>) {
-    let Some(nombre) = &f.hueco else { return };
+    // Solo los huecos de TEXTO: una `<imagen dato>` mide lo que dice su caja.
+    let (Some(nombre), Some(_)) = (&f.hueco, &f.text) else { return };
     let mut falta = Vec::new();
     if f.style.width.is_none() {
         falta.push("un `width` (el ancho donde se corta)");

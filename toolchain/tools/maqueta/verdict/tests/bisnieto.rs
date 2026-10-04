@@ -173,7 +173,7 @@ fn una_absoluta_sin_left_ni_top_cae_en_un_cero_que_nadie_eligio() {
         "<maqueta ancho=\"100\" alto=\"100\"><div class=\"f\"></div></maqueta>\
          <style>.f{position:absolute;width:10px;height:10px}</style>",
     );
-    assert!(v.contains("tiene que decir `left` y `top`"));
+    assert!(v.contains("tiene que decir donde va en los dos ejes"), "{v}");
     assert!(v.contains("no es una decision de nadie"));
 }
 

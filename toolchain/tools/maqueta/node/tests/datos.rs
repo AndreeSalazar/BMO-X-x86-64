@@ -53,7 +53,7 @@ fn una_lista_tiene_tope_y_entre_sin_repite_no_es_nada() {
     let e = errs("<maqueta><usa src=\"fila.maqueta\" repite=\"0\"/></maqueta>");
     assert!(e.contains("de 1 a 64"), "{e}");
     let e = errs("<maqueta><usa src=\"fila.maqueta\" entre=\"4\"/></maqueta>");
-    assert!(e.contains("dice `entre` pero no `repite`"), "{e}");
+    assert!(e.contains("dice `entre` o `columnas` pero no `repite`"), "{e}");
 }
 
 #[test]

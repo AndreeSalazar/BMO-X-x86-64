@@ -15,6 +15,7 @@ pub fn check(laid: &Laid, out: &mut Vec<Error>) {
     for f in laid.all() {
         gap_sin_flex(f, out);
         absoluta_sin_sitio(f, out);
+        relativa_que_se_mueve(f, out);
         texto_sin_color(f, out);
     }
 }
@@ -39,16 +40,39 @@ fn absoluta_sin_sitio(f: &Frame, out: &mut Vec<Error>) {
     if f.style.position != Position::Absolute {
         return;
     }
-    if f.style.left.is_some() && f.style.top.is_some() {
+    let s = &f.style;
+    if (s.left.is_some() || s.right.is_some()) && (s.top.is_some() || s.bottom.is_some()) {
         return;
     }
     out.push(Error::new(
         f.span,
-        "una caja absoluta tiene que decir `left` y `top`",
+        "una caja absoluta tiene que decir donde va en los dos ejes",
         "salirse del flujo es renunciar a que alguien te coloque. Sin las dos \
          coordenadas la caja cae en el 0 que puso el compilador, que no es una \
          decision de nadie.",
-        "`left` y `top` en pixeles, contra el lienzo.",
+        "`left` o `right`, y `top` o `bottom`, en pixeles, contra su ancla: la \
+         caja `position:relative` (o absoluta) mas cercana por arriba, o el lienzo.",
+    ));
+}
+
+/// I. (H5, 04-10) Una `relative` que pide moverse.
+///
+/// En CSS, `relative` con `top`/`left` corre la caja SIN mover a sus vecinas:
+/// se pinta en un sitio y ocupa otro. Aqui `relative` solo hace de ANCLA de sus
+/// absolutas, y una caja que se pinta donde no esta es justo lo que el
+/// veredicto existe para no tener.
+fn relativa_que_se_mueve(f: &Frame, out: &mut Vec<Error>) {
+    let s = &f.style;
+    if s.position != Position::Relative || (s.left.is_none() && s.top.is_none() && s.right.is_none() && s.bottom.is_none()) {
+        return;
+    }
+    out.push(Error::new(
+        f.span,
+        "una caja `relative` no se corre con `top`/`left`/`right`/`bottom`",
+        "aqui `position:relative` solo es el ANCLA de las absolutas de dentro. \
+         Correrla la pintaria en un sitio y la dejaria ocupando otro.",
+        "quitar las coordenadas; si tenia que ir en otro sitio, moverla en el \
+         flujo (`padding`, `gap`) o hacerla absoluta.",
     ));
 }
 

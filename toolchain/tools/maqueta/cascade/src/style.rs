@@ -67,6 +67,8 @@ pub enum Position {
     #[default]
     Static,
     Absolute,
+    /// H5 (04-10): en su sitio del flujo, y ANCLA de sus absolutas.
+    Relative,
 }
 
 /// Every one of the sixteen properties, resolved.
@@ -90,6 +92,9 @@ pub struct Style {
     /// `None` = ese lado no se pinta (aunque ocupe su grosor).
     pub border_color: [Option<u32>; 4],
     pub border_radius: u32,
+    /// `border-radius: 50%` (H6): la caja lo resuelve al maquetar, con su
+    /// medida (`layout`); despues `border_radius` ya lleva el numero.
+    pub radio_mitad: bool,
     pub display: Display,
     pub direction: Direction,
     pub gap: u32,
@@ -98,6 +103,8 @@ pub struct Style {
     pub position: Position,
     pub left: Option<u32>,
     pub top: Option<u32>,
+    pub right: Option<u32>,
+    pub bottom: Option<u32>,
     // -- MAQUETA 2: the letter. `font_size` None = the 8x16 pixel letter.
     pub font_size: Option<u32>,
     /// 400, 500, 600, 700 (0 = not said: 400).
@@ -155,10 +162,16 @@ impl Style {
             (p, Value::Px(n)) if p.lado().is_some() => self.border_width[p.lado().unwrap_or(0)] = n,
             (p, Value::Color(c)) if p.lado().is_some() => self.border_color[p.lado().unwrap_or(0)] = Some(c),
             (p, Value::Nothing) if p.lado().is_some() => self.border_color[p.lado().unwrap_or(0)] = None,
-            (Prop::BorderRadius, Value::Px(n)) => self.border_radius = n,
+            (Prop::BorderRadius, Value::Px(n)) => {
+                self.border_radius = n;
+                self.radio_mitad = false;
+            }
+            (Prop::BorderRadius, Value::Word(Keyword::Mitad)) => self.radio_mitad = true,
             (Prop::Gap, Value::Px(n)) => self.gap = n,
             (Prop::Left, Value::Px(n)) => self.left = Some(n),
             (Prop::Top, Value::Px(n)) => self.top = Some(n),
+            (Prop::Right, Value::Px(n)) => self.right = Some(n),
+            (Prop::Bottom, Value::Px(n)) => self.bottom = Some(n),
 
             (Prop::Display, Value::Word(Keyword::Block)) => self.display = Display::Block,
             (Prop::Display, Value::Word(Keyword::Flex)) => self.display = Display::Flex,
@@ -184,6 +197,9 @@ impl Style {
             }
             (Prop::Position, Value::Word(Keyword::Absolute)) => {
                 self.position = Position::Absolute
+            }
+            (Prop::Position, Value::Word(Keyword::Relative)) => {
+                self.position = Position::Relative
             }
             (Prop::FontSize, Value::Px(n)) => self.font_size = Some(n),
             (Prop::FontWeight, Value::Weight(w)) => self.font_weight = w,

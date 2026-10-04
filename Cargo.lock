@@ -548,6 +548,7 @@ dependencies = [
 name = "bmo-maqueta-compone"
 version = "0.1.0"
 dependencies = [
+ "bmo-imagen",
  "bmo-maqueta-cascade",
  "bmo-maqueta-diag",
  "bmo-maqueta-layout",

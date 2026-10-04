@@ -41,6 +41,9 @@ pub enum Trazo {
     Linea { caminos: Vec<Vec<(i32, i32)>>, cerrados: Vec<bool>, grosor64: i32, color: u32 },
     /// Un `<path>` con `fill`.
     Relleno { caminos: Vec<Vec<(i32, i32)>>, color: u32 },
+    /// Una `<imagen>` (H4): sus pixeles, recortados al radio de su caja.
+    /// `dato` = llega al ejecutar (estos pixeles son su muestra).
+    Imagen { r: Rect, radio: u32, px: std::sync::Arc<[u32]>, dato: Option<String> },
 }
 
 impl Trazo {
@@ -106,6 +109,10 @@ impl Trazo {
             Trazo::Relleno { caminos, color } => {
                 let v: Vec<&[(i32, i32)]> = caminos.iter().map(|c| c.as_slice()).collect();
                 Some(f(&Pieza::Relleno { caminos: &v, c: *color }))
+            }
+            Trazo::Imagen { r, radio, px, .. } => {
+                let (x, y, w, h) = caja(r);
+                Some(f(&Pieza::Imagen { x, y, w, h, r: *radio as i32, px }))
             }
         }
     }
@@ -176,6 +183,8 @@ pub enum Ranura {
     Lado(u8),
     /// El borde suave (va ENCIMA del fondo).
     Borde,
+    /// Los pixeles de una `<imagen>` (H4), encima de su caja.
+    Imagen,
     Texto,
     Relleno(u16),
     Linea(u16),
@@ -283,6 +292,10 @@ pub fn trazos_de_estilo(f: &Frame, s: &bmo_maqueta_layout::Style, suave: bool) -
                 push(Trazo::Borde { r: f.rect, radio, grosor, color });
             }
         }
+    }
+    if let (bmo_maqueta_node::Tag::Imagen, Some(px)) = (f.tag, &f.imagen) {
+        en!(Ranura::Imagen);
+        push(Trazo::Imagen { r: f.rect, radio, px: px.clone(), dato: f.hueco.clone() });
     }
     if let (Some(t), Some(r), Some(color)) = (&f.text, f.text_at, s.color) {
         en!(Ranura::Texto);

@@ -150,3 +150,66 @@ fn una_lista_necesita_id() {
     let f = compilar_con(Path::new("principal.maqueta"), &leer).err().expect("sin id");
     assert!(f.render().contains("una lista necesita `id`"), "{}", f.render());
 }
+
+// -- LA REJILLA (H6) y LAS IMAGENES (H4) -------------------------------------
+
+#[test]
+fn una_rejilla_va_de_izquierda_a_derecha_y_baja() {
+    let principal = "<maqueta class=\"m\"><usa id=\"g\" src=\"fila.maqueta\" repite=\"3\" columnas=\"2\" entre=\"4\"/></maqueta>\
+<style>.m{width:300px; height:100px; display:flex; flex-direction:column}</style>";
+    let leer = disco(&[("principal.maqueta", principal), ("fila.maqueta", FILA)]);
+    let l = compilar_con(Path::new("principal.maqueta"), &leer).unwrap_or_else(|f| panic!("{}", f.render()));
+    let usa = l.all().into_iter().find(|f| f.tag == Tag::Usa).expect("el usa");
+    assert_eq!((usa.rect.w, usa.rect.h), (2 * 120 + 4, 2 * 24 + 4), "dos columnas, dos filas");
+    let sitios: Vec<(i32, i32)> = usa.children.iter().map(|f| (f.rect.x, f.rect.y)).collect();
+    assert_eq!(sitios, vec![(0, 0), (124, 0), (0, 28)]);
+}
+
+/// Un QOI de `w x h` de un solo color, escrito a mano.
+fn qoi(w: u32, h: u32) -> Vec<u8> {
+    let mut b = b"qoif".to_vec();
+    b.extend_from_slice(&w.to_be_bytes());
+    b.extend_from_slice(&h.to_be_bytes());
+    b.extend_from_slice(&[4, 0]);
+    for _ in 0..w * h {
+        b.extend_from_slice(&[0xFF, 0x4D, 0xE3, 0x8E, 0xFF]);
+    }
+    b.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0, 1]);
+    b
+}
+
+fn disco_con_imagen(principal: &str, img: Vec<u8>) -> impl Fn(&Path) -> Option<Vec<u8>> {
+    let principal = principal.as_bytes().to_vec();
+    move |p: &Path| match p.to_str() {
+        Some("a.maqueta") => Some(principal.clone()),
+        Some("i.qoi") => Some(img.clone()),
+        _ => None,
+    }
+}
+
+#[test]
+fn una_imagen_mide_lo_que_mide_y_lleva_sus_pixeles() {
+    let principal = "<maqueta class=\"m\"><imagen src=\"i.qoi\"/></maqueta><style>.m{display:flex}</style>";
+    let l = compilar_con(Path::new("a.maqueta"), &disco_con_imagen(principal, qoi(5, 3))).unwrap_or_else(|f| panic!("{}", f.render()));
+    let im = l.all().into_iter().find(|f| f.tag == Tag::Imagen).expect("la imagen");
+    assert_eq!((im.rect.w, im.rect.h), (5, 3));
+    let px = im.imagen.as_ref().expect("sus pixeles");
+    assert_eq!(px.len(), 15);
+    assert_eq!(px[0], 0xFF4D_E38E);
+}
+
+#[test]
+fn una_imagen_embebida_grande_es_un_dato() {
+    let principal = "<maqueta class=\"m\"><imagen src=\"i.qoi\"/></maqueta><style>.m{display:flex}</style>";
+    let f = compilar_con(Path::new("a.maqueta"), &disco_con_imagen(principal, qoi(200, 2))).err().expect("demasiado grande");
+    let t = f.render().split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(t.contains("una foto grande es un DATO"), "{t}");
+}
+
+#[test]
+fn una_imagen_no_se_estira() {
+    let principal = "<maqueta class=\"m\"><imagen class=\"i\" src=\"i.qoi\"/></maqueta><style>.m{display:flex} .i{width:10px}</style>";
+    let f = compilar_con(Path::new("a.maqueta"), &disco_con_imagen(principal, qoi(5, 3))).err().expect("no escala");
+    let t = f.render().split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(t.contains("BMO-X no escala"), "{t}");
+}

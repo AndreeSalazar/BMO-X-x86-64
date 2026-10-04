@@ -294,6 +294,37 @@ fn attribute(
                 )),
             }
         }
+        b"src" if node.tag == Tag::Imagen => {
+            let ok = (val.ends_with(b".qoi") || val.ends_with(b".bmp") || val.ends_with(b".png"))
+                && !val.starts_with(b"/")
+                && val.iter().all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/'))
+                && !val.windows(2).any(|w| w == b"..");
+            if ok {
+                node.src = Some(String::from_utf8_lossy(&val).into_owned());
+            } else {
+                errors.push(Error::new(
+                    vspan,
+                    "`src` de una imagen es un `.qoi`, `.bmp` o `.png` de esta carpeta o de debajo",
+                    "la lee el compilador (con `bmo-imagen`, el mismo lector del aparato) y \
+                     sus pixeles van DENTRO del codigo generado: sin `..` ni `/` delante, \
+                     se sabe siempre de donde salen.",
+                    "por ejemplo `<imagen src=\"iconos/gato.qoi\"/>`.",
+                ));
+            }
+        }
+        b"dato" if node.tag == Tag::Imagen => {
+            let s = String::from_utf8_lossy(&val).into_owned();
+            if crate::hueco(&format!("{{{s}}}")).is_some_and(|(n, _)| n == s) {
+                node.hueco = Some(s);
+            } else {
+                errors.push(Error::new(
+                    vspan,
+                    "`dato` es el nombre del campo, en minusculas",
+                    "sale como campo de Rust en `Datos`: los pixeles que llegan al ejecutar.",
+                    "por ejemplo `<imagen dato=\"miniatura\"/>`.",
+                ));
+            }
+        }
         b"src" if node.tag == Tag::Usa => {
             let ok = val.ends_with(b".maqueta")
                 && !val.starts_with(b"/")
@@ -313,26 +344,36 @@ fn attribute(
             }
         }
         // ** LA LISTA (P2): la pieza, hasta `repite` veces en columna.
-        b"repite" | b"entre" if node.tag == Tag::Usa => {
+        b"repite" | b"entre" | b"columnas" if node.tag == Tag::Usa => {
             let es_repite = name == b"repite";
+            let es_columnas = name == b"columnas";
             let n = parse_u32(&val);
             let ok = match n {
                 Some(n) if es_repite => (1..=crate::MAX_REPITE).contains(&n),
+                Some(n) if es_columnas => (1..=16).contains(&n),
                 Some(n) => n <= 256,
                 None => false,
             };
             if !ok {
                 errors.push(Error::new(
                     vspan,
-                    if es_repite { "`repite` es cuantas filas caben como mucho: de 1 a 64" } else { "`entre` son los pixeles entre fila y fila: de 0 a 256" },
+                    if es_repite {
+                        "`repite` es cuantas filas caben como mucho: de 1 a 64"
+                    } else if es_columnas {
+                        "`columnas` es cuantas piezas van por fila de la rejilla: de 1 a 16"
+                    } else {
+                        "`entre` son los pixeles entre fila y fila: de 0 a 256"
+                    },
                     "la lista se maqueta y se juzga con TODAS sus filas (lo peor que \
                      puede pasar); cuantas hay de verdad lo dice el aparato al correr.",
                     "por ejemplo `<usa src=\"fila.maqueta\" repite=\"8\" entre=\"4\"/>`.",
                 ));
             } else {
-                let r = node.repite.get_or_insert(crate::Repite { veces: 0, entre: 0 });
+                let r = node.repite.get_or_insert(crate::Repite { veces: 0, entre: 0, columnas: 1 });
                 if es_repite {
                     r.veces = n.unwrap_or(0);
+                } else if es_columnas {
+                    r.columnas = n.unwrap_or(1);
                 } else {
                     r.entre = n.unwrap_or(0);
                 }
@@ -363,7 +404,8 @@ fn attribute(
                  se lee es una linea que parece hacer algo y no hace nada.",
                 "`class`, `id`, `nombre` (solo en `<island>`), `ancho`/`alto` \
                  (solo en `<maqueta>`), `viewBox` (solo en `<svg>`), `d` (solo en \
-                 `<path>`), y `src`, `repite` y `entre` (solo en `<usa>`).",
+                 `<path>`), `src`, `repite`, `entre` y `columnas` (en `<usa>`), y `src` y \
+                 `dato` (en `<imagen>`).",
             ));
         }
     }
@@ -428,10 +470,19 @@ fn attach(stack: &mut [Node], roots: &mut Vec<Node>, node: Node, errors: &mut Ve
     if node.tag == Tag::Usa && node.repite.is_some_and(|r| r.veces == 0) {
         errors.push(Error::new(
             node.span,
-            "este `<usa>` dice `entre` pero no `repite`",
+            "este `<usa>` dice `entre` o `columnas` pero no `repite`",
             "`entre` es el hueco entre las filas de una lista; sin `repite` no hay \
              filas.",
             "`<usa src=\"fila.maqueta\" repite=\"8\" entre=\"4\"/>`.",
+        ));
+    }
+    if node.tag == Tag::Imagen && node.src.is_none() && node.hueco.is_none() {
+        errors.push(Error::new(
+            node.span,
+            "esta `<imagen>` no dice de donde salen sus pixeles",
+            "o de un fichero (`src`, se embebe al compilar) o del aparato al correr \
+             (`dato`, un campo de `Datos`).",
+            "`<imagen src=\"gato.qoi\"/>` o `<imagen dato=\"miniatura\" src=\"muestra.qoi\"/>`.",
         ));
     }
     if node.tag == Tag::Usa && node.src.is_none() {
@@ -474,6 +525,7 @@ fn attach(stack: &mut [Node], roots: &mut Vec<Node>, node: Node, errors: &mut Ve
                             "lo de dentro de un `<usa>` es la pieza, y la pieza se \
                              escribe en SU fichero: aqui no se pinta nada mas."
                         }
+                        Tag::Imagen => "una imagen son sus pixeles: no lleva nada dentro.",
                         _ => {
                             "un `<span>` lleva texto. Meter cajas dentro es flujo en \
                              linea, y eso no esta implementado."
@@ -508,6 +560,15 @@ fn add_text(stack: &mut [Node], raw: &[u8], span: Span, errors: &mut Vec<Error>)
     };
     if !node.children.is_empty() {
         errors.push(mixed(span));
+        return;
+    }
+    if node.tag == Tag::Imagen {
+        errors.push(Error::new(
+            span,
+            "una `<imagen>` no lleva texto",
+            "son sus pixeles; el texto va en su propio `<span>`.",
+            "dejarla vacia: `<imagen src=\"gato.qoi\"/>`.",
+        ));
         return;
     }
     if node.tag == Tag::Usa {

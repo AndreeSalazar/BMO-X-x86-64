@@ -53,6 +53,7 @@ pub fn modulo_con_datos(origen: &str, l: &Laid, colores: &[(String, u32)]) -> St
     let ordenes = lista(&podada);
     let mut s = String::new();
     cabecera(&mut s, origen, l);
+    datos.estaticos(&mut s);
     datos.cabecera(&mut s);
     listas(&mut s, l);
     pintar(&mut s, &ordenes, &datos);
@@ -101,6 +102,11 @@ struct Hueco {
 struct Datos {
     huecos: Vec<Hueco>,
     colores: Vec<(String, u32)>,
+    /// Las `<imagen dato>`: campo, ancho, alto, y sus pixeles de muestra.
+    fotos: Vec<(String, u32, u32, std::sync::Arc<[u32]>)>,
+    /// TODOS los pixeles que se embeben (fijos y muestras), en orden: el
+    /// `static IMAGEN_n` de cada uno.
+    pixeles: Vec<std::sync::Arc<[u32]>>,
 }
 
 impl Datos {
@@ -112,11 +118,42 @@ impl Datos {
                 huecos.push(Hueco { x: t.x, y: t.y, nombre: nombre.clone(), max, muestra: m.clone() });
             }
         }
-        Datos { huecos, colores: colores.to_vec() }
+        let mut fotos: Vec<(String, u32, u32, std::sync::Arc<[u32]>)> = Vec::new();
+        let mut pixeles: Vec<std::sync::Arc<[u32]>> = Vec::new();
+        for f in l.all() {
+            if let (bmo_maqueta_node::Tag::Imagen, Some(px)) = (f.tag, &f.imagen) {
+                if !pixeles.iter().any(|p| std::sync::Arc::ptr_eq(p, px)) {
+                    pixeles.push(px.clone());
+                }
+                if let Some(n) = &f.hueco {
+                    if !fotos.iter().any(|(o, ..)| o == n) {
+                        fotos.push((n.clone(), f.rect.w, f.rect.h, px.clone()));
+                    }
+                }
+            }
+        }
+        Datos { huecos, colores: colores.to_vec(), fotos, pixeles }
     }
 
     fn hay(&self) -> bool {
-        !self.huecos.is_empty() || !self.colores.is_empty()
+        !self.huecos.is_empty() || !self.colores.is_empty() || !self.fotos.is_empty()
+    }
+
+    /// El numero del `static IMAGEN_n` de estos pixeles.
+    fn imagen(&self, px: &std::sync::Arc<[u32]>) -> usize {
+        self.pixeles.iter().position(|p| std::sync::Arc::ptr_eq(p, px)).unwrap_or(0)
+    }
+
+    /// Los `static IMAGEN_n`: los pixeles que se embeben, de 8 en 8 por linea.
+    fn estaticos(&self, s: &mut String) {
+        for (k, px) in self.pixeles.iter().enumerate() {
+            let _ = writeln!(s, "/// Pixeles `0xAARRGGBB` (el alfa es un bit), embebidos al compilar (H4).\nstatic IMAGEN_{k}: [u32; {}] = [", px.len());
+            for trozo in px.chunks(8) {
+                let v: Vec<String> = trozo.iter().map(|c| format!("0x{c:08X}")).collect();
+                let _ = writeln!(s, "    {},", v.join(", "));
+            }
+            s.push_str("];\n\n");
+        }
     }
 
     /// `, d: &Datos` en las firmas de un modulo con datos.
@@ -183,7 +220,7 @@ impl Datos {
             return;
         }
         let textos = self.textos();
-        let vida = if textos.is_empty() { "" } else { "<'a>" };
+        let vida = if textos.is_empty() && self.fotos.is_empty() { "" } else { "<'a>" };
         s.push_str(
             "// == LOS DATOS (H1) ==================================================\n\
              //\n\
@@ -192,26 +229,26 @@ impl Datos {
              // `...` en el aparato (`Pantalla::pieza_cabe`), sin maquetar nada.\n\
              \n",
         );
-        let _ = writeln!(s, "/// Lo que pinta esta pieza y no se sabia al compilar.
-#[derive(Clone, Copy)]
-pub struct Datos{vida} {{");
+        let _ = writeln!(s, "/// Lo que pinta esta pieza y no se sabia al compilar.\n#[derive(Clone, Copy)]\npub struct Datos{vida} {{");
         for h in &textos {
-            let _ = writeln!(s, "    /// `{{{}}}`: se corta a {} px.
-    pub {}: &'a [u8],", h.nombre, h.max, h.nombre);
+            let _ = writeln!(s, "    /// `{{{}}}`: se corta a {} px.\n    pub {}: &'a [u8],", h.nombre, h.max, h.nombre);
         }
         for (n, _) in &self.colores {
-            let _ = writeln!(s, "    /// `--dato-{n}`: un color `0x00RRGGBB`.
-    pub {n}: u32,");
+            let _ = writeln!(s, "    /// `--dato-{n}`: un color `0x00RRGGBB`.\n    pub {n}: u32,");
         }
-        s.push_str("}
-
-");
-        let _ = write!(s, "/// La muestra: con lo que se maqueto, se juzgo y sale en la foto.
-pub const MUESTRA: Datos{} = Datos {{ ", if textos.is_empty() { "" } else { "<'static>" });
+        for (n, w, h, _) in &self.fotos {
+            let _ = writeln!(s, "    /// `<imagen dato=\"{n}\">`: {w}x{h} pixeles `0xAARRGGBB`. Si no miden eso, no se pinta.\n    pub {n}: &'a [u32],");
+        }
+        s.push_str("}\n\n");
+        let _ = write!(
+            s,
+            "/// La muestra: con lo que se maqueto, se juzgo y sale en la foto.\npub const MUESTRA: Datos{} = Datos {{ ",
+            if vida.is_empty() { "" } else { "<'static>" }
+        );
         let mut campos: Vec<String> = textos.iter().map(|h| format!("{}: b{:?}", h.nombre, h.muestra)).collect();
         campos.extend(self.colores.iter().map(|(n, v)| format!("{n}: 0x{v:08X}")));
-        let _ = writeln!(s, "{} }};
-", campos.join(", "));
+        campos.extend(self.fotos.iter().map(|(n, _, _, px)| format!("{n}: &IMAGEN_{}", self.imagen(px))));
+        let _ = writeln!(s, "{} }};\n", campos.join(", "));
     }
 }
 
@@ -237,33 +274,40 @@ fn listas(s: &mut String, l: &Laid) {
          \x20   pub alto_fila: u32,\n\
          \x20   pub paso: u32,\n\
          \x20   pub max: usize,\n\
+         \x20   /// Una rejilla (H6): cuantas por fila, y cada una `paso_x` a la derecha.\n\
+         \x20   pub columnas: usize,\n\
+         \x20   pub paso_x: u32,\n\
          }\n\
          \n\
          impl Lista {\n\
-         \x20   /// Donde va la fila `i`, relativo al origen.\n\
+         \x20   /// Donde va la pieza `i`, relativo al origen.\n\
          \x20   pub const fn fila(&self, i: usize) -> (u32, u32) {\n\
-         \x20       (self.x, self.y + i as u32 * self.paso)\n\
+         \x20       let c = if self.columnas == 0 { 1 } else { self.columnas };\n\
+         \x20       (self.x + (i % c) as u32 * self.paso_x, self.y + (i / c) as u32 * self.paso)\n\
          \x20   }\n\
          }\n\
          \n",
     );
     for f in ls {
         let r = f.repite.expect("filtrado arriba");
-        let alto = (f.rect.h - r.entre * (r.veces - 1)) / r.veces;
+        let (filas, cols) = (r.filas(), r.columnas.max(1).min(r.veces));
+        let alto = (f.rect.h - r.entre * (filas - 1)) / filas;
+        let ancho = (f.rect.w - r.entre * (cols - 1)) / cols;
         let id = f.id.as_deref().unwrap_or("lista").to_ascii_uppercase().replace(['.', '-'], "_");
+        let que = if cols > 1 { format!("en {cols} columnas, ") } else { String::new() };
         let _ = writeln!(
             s,
-            "/// `{}`: hasta {} filas de {}x{alto}.
-pub const LISTA_{id}: Lista = Lista {{ x: {}, y: {}, ancho: {}, alto_fila: {alto}, paso: {}, max: {} }};
-",
+            "/// `{}`: hasta {} piezas de {ancho}x{alto}, {que}{}x{} con todas.\n\
+             pub const LISTA_{id}: Lista = Lista {{ x: {}, y: {}, ancho: {ancho}, alto_fila: {alto}, paso: {}, max: {}, columnas: {cols}, paso_x: {} }};\n",
             f.src.as_deref().unwrap_or("?"),
             r.veces,
             f.rect.w,
+            f.rect.h,
             f.rect.x,
             f.rect.y,
-            f.rect.w,
             alto + r.entre,
-            r.veces
+            r.veces,
+            ancho + r.entre
         );
     }
 }
@@ -342,11 +386,24 @@ fn pieza_literal(p: &bmo_pinta::Pieza) -> String {
             cerrados
         ),
         Pieza::Relleno { caminos: cs, c } => format!("bmo::Pieza::Relleno {{ caminos: {}, c: 0x{c:08X} }}", caminos(cs)),
+        // Los pixeles los pone quien sabe de donde salen (`llamada_con`): un
+        // `static IMAGEN_n` o un dato.
+        Pieza::Imagen { x, y, w, h, r, .. } => format!("bmo::Pieza::Imagen {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, px: {PX} }}"),
     }
 }
 
+/// Donde van los pixeles de una imagen en su literal.
+const PX: &str = "__PIXELES__";
+
 /// La llamada que pinta este trazo, con su dato si lleva (H1).
 fn llamada_con(t: &Trazo, d: &Datos, limite: &str) -> String {
+    if let (Trazo::Imagen { px, dato, .. }, Some(l)) = (t, t.con_pieza(pieza_literal)) {
+        let de = match dato {
+            Some(n) => format!("d.{n}"),
+            None => format!("&IMAGEN_{}", d.imagen(px)),
+        };
+        return format!("p.pieza(&{}, ox as i32, oy as i32, {limite});", l.replace(PX, &de));
+    }
     let l = match (d.hueco(t), t.con_pieza(pieza_literal)) {
         (Some(h), Some(l)) => {
             let l = l.replacen(&format!("texto: b{:?}", h.muestra), &format!("texto: d.{}", h.nombre), 1);
@@ -361,7 +418,9 @@ fn llamada_con(t: &Trazo, d: &Datos, limite: &str) -> String {
 /// La llamada que pinta este trazo, sin recortar.
 fn llamada(t: &Trazo) -> String {
     if let Some(l) = t.con_pieza(pieza_literal) {
-        return format!("p.pieza(&{l}, ox as i32, oy as i32, None);");
+        // [!] Una imagen en una TRANSICION todavia no (P3c): `&[]` no pinta
+        // nada, y la CLI no deja llegar aqui una maqueta con imagenes y estados.
+        return format!("p.pieza(&{}, ox as i32, oy as i32, None);", l.replace(PX, "&[]"));
     }
     match t {
         Trazo::Rect { r, color } => format!(

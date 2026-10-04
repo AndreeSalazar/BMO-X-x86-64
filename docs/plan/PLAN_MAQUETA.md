@@ -510,14 +510,25 @@ lo que se ve en ella:
    [ ] H3  PARTIR LINEAS AL COMPILAR: el parrafo de la columna. El texto SI se
            conoce: se parte en el anfitrion y el veredicto mira que quepa
            -> `toolchain/tools/maqueta/layout/src/measure.rs`
-   [ ] H4  IMAGENES: `<imagen src="gato.qoi">` (QOI y BMP ya los lee
-           `platform/shared/bmo-imagen`) y huecos de imagen que llenan los
-           datos (las miniaturas)
-   [ ] H5  `position: relative`: el punto verde sobre el avatar, la duracion
-           sobre la miniatura, el `1` rojo del carril
+   [x] H4  IMAGENES: `<imagen src="gato.qoi"/>` (QOI, BMP o PNG, con el
+           lector del aparato) embebida como `static IMAGEN_n` (hasta
+           128x128: una foto grande es un dato), e `<imagen dato="miniatura"/>`
+           que llega al ejecutar (`&[u32]` en `Datos`). Mide lo que mide (no se
+           escala) y se recorta a su `border-radius` con la curva suave
+           (`bmo_pinta::Pieza::Imagen`)
+           -> `toolchain/tools/maqueta/compone/src/lib.rs`, `emit/src/rust.rs`,
+              `platform/shared/bmo-pinta`; `pruebas/perfil.maqueta`
+           [!] la CARA que viaja (BEF) todavia no lleva imagenes, ni una
+           imagen tiene transicion (P3c)
+   [x] H5  `position: relative` como ANCLA de sus absolutas (y una absoluta
+           tambien lo es, como en CSS), con `right` y `bottom`. Una
+           `relative` no se corre (comprobacion I)
            -> `toolchain/tools/maqueta/layout/src/flow.rs`
-   [ ] H6  `border-radius: 50%` (los avatares) y la rejilla (`grid` o
-           `flex-wrap`): la de dos columnas de videos
+   [x] H6  `border-radius: 50%` (el unico porcentaje: la mitad del lado
+           corto, resuelto al maquetar) y la REJILLA de datos: `<usa repite="4"
+           columnas="2">`; `LISTA_<ID>.fila(i)` da la columna y la fila
+           -> `pruebas/video.maqueta`, `pruebas/videos.maqueta`
+           [!] `flex-wrap` para cajas fijas sigue sin estar
    [ ] H7  DESPLAZAR: todo maquetado al compilar; el aparato mueve UN numero y
            recorta, y la barra la pinta la maqueta
    [ ] H8  los estados en el aparato (es P3b): el icono activo, el realce de

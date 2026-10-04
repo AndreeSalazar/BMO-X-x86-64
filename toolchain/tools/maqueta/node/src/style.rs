@@ -437,6 +437,16 @@ fn read_value(
         }
     }
     match prop.shape() {
+        // `border-radius: 50%` (H6): el circulo, que la caja resuelve al saber
+        // su medida. Ningun otro porcentaje: ver `measure`.
+        Shape::OnePx
+            if prop == Prop::BorderRadius
+                && toks.get(*i).is_some_and(|t| t.kind == Kind::Number && t.text(src) == b"50")
+                && toks.get(*i + 1).is_some_and(|t| t.kind == Kind::Pct) =>
+        {
+            *i += 2;
+            Some(Value::Word(Keyword::Mitad))
+        }
         Shape::OnePx => measure(src, toks, i, prop, errors).map(Value::Px),
         Shape::OneToFourPx => {
             let mut v = Vec::with_capacity(4);
@@ -808,7 +818,8 @@ fn measure(
                 span_of(&u),
                 "unidad no soportada -- `%`",
                 "los porcentajes exigen conocer el contenedor, y en MAQUETA una pieza \
-                 no sabe que tiene padre (L7).",
+                 no sabe que tiene padre (L7). El unico que hay es `border-radius: \
+                 50%`, el circulo: ese se mide contra la PROPIA caja.",
                 "un pixel exacto, o `display:flex` en el padre repartiendo con `gap`.",
             ));
             None

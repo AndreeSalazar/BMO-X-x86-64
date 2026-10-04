@@ -32,6 +32,10 @@ pub enum Tag {
     /// sola y puesta aqui. Para esta maqueta es una caja hoja de la medida que
     /// la pieza calculo; dentro no se ve nada de ella.
     Usa,
+    /// `<imagen src="gato.qoi"/>` o `<imagen dato="miniatura"/>` (H4, 04-10):
+    /// pixeles, de un fichero (embebidos al compilar) o del aparato al correr.
+    /// Mide lo que mide la imagen; es una hoja.
+    Imagen,
 }
 
 impl Tag {
@@ -44,6 +48,7 @@ impl Tag {
             b"svg" => Some(Tag::Svg),
             b"path" => Some(Tag::Path),
             b"usa" => Some(Tag::Usa),
+            b"imagen" => Some(Tag::Imagen),
             _ => None,
         }
     }
@@ -57,6 +62,7 @@ impl Tag {
             Tag::Svg => "svg",
             Tag::Path => "path",
             Tag::Usa => "usa",
+            Tag::Imagen => "imagen",
         }
     }
 
@@ -97,6 +103,9 @@ pub enum Prop {
     Position,
     Left,
     Top,
+    /// H5 (04-10): desde el borde derecho / de abajo de su ancla.
+    Right,
+    Bottom,
     // the letter (MAQUETA 2): measured on the host with `bmo-letra`
     FontSize,
     FontWeight,
@@ -174,6 +183,8 @@ impl Prop {
             b"position" => Prop::Position,
             b"left" => Prop::Left,
             b"top" => Prop::Top,
+            b"right" => Prop::Right,
+            b"bottom" => Prop::Bottom,
             b"font-size" => Prop::FontSize,
             b"font-weight" => Prop::FontWeight,
             b"letter-spacing" => Prop::LetterSpacing,
@@ -221,6 +232,8 @@ impl Prop {
             Prop::Position => "position",
             Prop::Left => "left",
             Prop::Top => "top",
+            Prop::Right => "right",
+            Prop::Bottom => "bottom",
             Prop::FontSize => "font-size",
             Prop::FontWeight => "font-weight",
             Prop::LetterSpacing => "letter-spacing",
@@ -284,6 +297,8 @@ impl Prop {
             | Prop::Gap
             | Prop::Left
             | Prop::Top
+            | Prop::Right
+            | Prop::Bottom
             | Prop::FontSize
             | Prop::LineHeight
             | Prop::PaddingTop
@@ -325,7 +340,7 @@ impl Prop {
                 Keyword::Center,
                 Keyword::End,
             ]),
-            Prop::Position => Shape::Words(&[Keyword::Absolute]),
+            Prop::Position => Shape::Words(&[Keyword::Absolute, Keyword::Relative]),
         }
     }
 }
@@ -392,9 +407,14 @@ pub enum Keyword {
     SpaceBetween,
     Stretch,
     Absolute,
+    /// H5 (04-10): no se mueve; es el ANCLA de sus absolutas.
+    Relative,
     Uppercase,
     None,
     Round,
+    /// `border-radius: 50%` (H6): la mitad del lado corto -- un circulo en
+    /// una caja cuadrada. El unico porcentaje que hay.
+    Mitad,
 }
 
 impl Keyword {
@@ -410,6 +430,7 @@ impl Keyword {
             b"space-between" => Keyword::SpaceBetween,
             b"stretch" => Keyword::Stretch,
             b"absolute" => Keyword::Absolute,
+            b"relative" => Keyword::Relative,
             b"uppercase" => Keyword::Uppercase,
             b"none" => Keyword::None,
             b"round" => Keyword::Round,
@@ -429,6 +450,8 @@ impl Keyword {
             Keyword::SpaceBetween => "space-between",
             Keyword::Stretch => "stretch",
             Keyword::Absolute => "absolute",
+            Keyword::Relative => "relative",
+            Keyword::Mitad => "50%",
             Keyword::Uppercase => "uppercase",
             Keyword::None => "none",
             Keyword::Round => "round",

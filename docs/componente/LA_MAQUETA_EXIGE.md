@@ -88,7 +88,8 @@ declara con medida; una ventana que debe ajustarse a su contenido, no.
 | `<island>` | el hueco que rellena otro proceso | atributo `nombre`, obligatorio y unico |
 | `<svg>` | **MAQUETA 2 (04-10)**: un dibujo, con su `viewBox` | solo lleva `<path>`; su pluma y su relleno se dicen en SU regla (`stroke`, `fill`...) |
 | `<path>` | un camino de SVG, atributo `d` | solo dentro de `<svg>`. `M L H V C S Q T Z` y minusculas; sin arcos `A` |
-| `<usa>` | **(04-10)** una PIEZA: otra maqueta, puesta aqui | atributo `src`, obligatorio; vacia. Con `repite` (y `entre`), una LISTA. Ver abajo |
+| `<usa>` | **(04-10)** una PIEZA: otra maqueta, puesta aqui | atributo `src`, obligatorio; vacia. Con `repite` (y `entre`, `columnas`), una LISTA o una REJILLA. Ver abajo |
+| `<imagen>` | **(H4, 04-10)** pixeles | `src` (`.qoi`, `.bmp`, `.png`: se embebe, hasta 128x128) o `dato` (llega al ejecutar). Mide lo que mide; sin `padding` ni borde; se recorta a su `border-radius` |
 
 Los **nodos de texto sueltos** son validos dentro de `<div>` y `<span>`, como en
 HTML. Se miden **al compilar**: con la letra de la casa (`bmo-letra`, el MISMO
@@ -98,8 +99,8 @@ B de la seccion 7).
 
 Atributos aceptados: `class`, `id`, `nombre` (solo en `<island>`), `ancho`/`alto`
 (solo en `<maqueta>`), `viewBox` (solo en `<svg>`), `d` (solo en `<path>`) y
-`src`, `repite` y `entre` (solo en `<usa>`). **Cualquier otro atributo es un
-error.**
+`src`, `repite`, `entre` y `columnas` (en `<usa>`), y `src` y `dato` (en
+`<imagen>`). **Cualquier otro atributo es un error.**
 
 ### `<usa src="fila.maqueta"/>`: las piezas (04-10)
 
@@ -159,6 +160,14 @@ Y el modulo de la fila sale con `pub struct Datos`, `pub const MUESTRA` y
   mano ni en otra variable): el emisor reconoce el dato por su muestra, y asi
   reconocer no es adivinar. Si choca, se pide otra muestra.
 - Una pieza con datos **no lleva estados todavia** (es P3c).
+- **Una rejilla** (H6): `<usa id="videos" src="video.maqueta" repite="4"
+  columnas="2" entre="16"/>` va de izquierda a derecha y baja, `entre` en los
+  dos sentidos. `LISTA_VIDEOS.fila(i)` da la columna y la fila de cada una.
+- **Una imagen de dato** (H4): `<imagen dato="miniatura"/>` sale en `Datos`
+  como `miniatura: &[u32]` (`ancho x alto` pixeles `0xAARRGGBB`); si no miden
+  eso, no se pinta -- un dato que no casa con su caja no se estira. Sin
+  `src` de muestra, la caja dice su `width` y `height` y la foto pinta un
+  damero.
 
 Ejemplo entero: `pruebas/amigo.maqueta` (la fila) y `pruebas/amigos.maqueta`
 (la lista). [!] El navegador (`foto.js`) todavia no repite filas ni lee los
@@ -400,9 +409,18 @@ no cambia ni un pixel: su codigo generado sale identico).
 
 | propiedad | valores | nota |
 |---|---|---|
-| `position` | `absolute` | relativa al ancestro `<maqueta>`, no al padre |
-| `left` | `Npx` | obligatoria con `position:absolute` |
-| `top` | `Npx` | obligatoria con `position:absolute` |
+| `position` | `absolute`, `relative` (H5) | una absoluta va contra su ANCLA: la caja de relleno de la posicionada (`relative` o `absolute`) mas cercana por arriba, o el lienzo |
+| `left` / `right` | `Npx` | una de las dos, obligatoria con `position:absolute` |
+| `top` / `bottom` | `Npx` | una de las dos, obligatoria con `position:absolute` |
+
+★ (04-10) **`relative` solo ANCLA**: no se corre con `top`/`left`. En CSS
+correrla la pinta en un sitio y la deja ocupando otro; aqui es error
+(comprobacion I). El punto de estado de un avatar es `relative` en la cara y
+`absolute; right:0; bottom:0` en el punto.
+
+★ (04-10) **`border-radius: 50%`** es el unico porcentaje: la mitad del lado
+corto de la PROPIA caja (un circulo si es cuadrada). Se resuelve al maquetar,
+cuando la caja ya tiene medida; no depende del padre, asi que no rompe L7.
 
 ⚠ `position:absolute` **es la unica puerta trasera del sistema** y esta aqui
 porque los paneles del escritorio se colocan asi. Es tambien la unica forma de
@@ -525,6 +543,10 @@ pantalla estando mal. El mensaje da los dos numeros.
 
 **C.** Ninguna caja mide cero. Casi siempre es una propiedad olvidada, y como no
 pinta ni ocupa sitio, no hay forma de notarlo mirando la pantalla.
+
+**I.** (H5, 04-10) **Una `relative` no se corre** con `top`/`left`/`right`/
+`bottom`: solo ancla. (Esta en `idle.rs`, con la H: una absoluta dice donde va
+en los dos ejes.)
 
 **D.** (04-10) **Un hueco de datos (`{nombre}`) dice su caja entera**: `width`,
 `font-size` y el texto a la izquierda. Su texto no se puede juzgar (llega al
