@@ -1170,6 +1170,9 @@ problema dicho). El resto espera al compilador.
                  quitar, mover, plegar, el orden propio (L5, 04-10)   EXISTE
                  y la solapa ESPACIO: el centauro, un planeta por
                  modulo, el pulsar de la 3060 (L6, 04-10)             EXISTE
+                 y cada nodo es lo que su cuerpo HACE, en vivo (L7);
+                 CIELO 3D, ELEMENTOS, GUIA; pines UE5: tirar un
+                 cable escribe un `use` (L8)                          EXISTE
    CABINA        el NO del kernel, para quien mira la maquina entera  EXISTE
    el puente     el NO del kernel llevado a su nodo en F1             J3-J4
    `titan`       new / check / build / run / test (4.1)               FALTA

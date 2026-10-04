@@ -224,5 +224,36 @@ fn main() {
         explorer::draw(&mut cv, &store, &ui, ship_node, 0);
         guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
     }
+    // GRAFO con dos cables en la mano (UE5): uno que se puede soltar y uno
+    // que cerraria un ciclo, rojo y con su motivo.
+    for (nombre, from, to) in [("cable_bien", "rock", "ship"), ("cable_ciclo", "ship", "physics")] {
+        let scene = view::Scene {
+            graph: &store.loaded.graph,
+            script: None,
+            player: &player,
+            cam: &cam,
+            now_ms: 5000,
+            selected: None,
+            origin: b"asteroids",
+            sky: None,
+            flow_ms: None,
+            faults: &marks,
+            files: store.loaded.files(),
+            turn: 96,
+        };
+        let mut px = vec![0u32; w * h];
+        let mut cv = canvas::Canvas::new(px.as_mut_ptr(), w as u32, h as u32);
+        view::draw(&mut cv, &scene);
+        space::tabs(&mut cv, space::Tab::Graph);
+        let g = &store.loaded.graph;
+        let (a, b) = (g.find(from.as_bytes()).unwrap(), g.find(to.as_bytes()).unwrap());
+        let (bx, by, bw, bh) = view::node_rect(&cam, g.node(b).unwrap());
+        let (x, y) = (bx + bw / 2, by + bh / 2);
+        let note = bmo_titan_lector::wire::plan(&store.loaded, a, b).map_err(|e| bmo_titan_lector::wire::note(Err(e), from.as_bytes(), to.as_bytes()).unwrap());
+        let why = note.as_ref().map(|_| ()).map_err(|l| l.as_bytes());
+        view::draw_wire(&mut cv, g, &cam, a, x, y, Some(why));
+        explorer::draw(&mut cv, &store, &ui, None, 0);
+        guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
+    }
     println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png");
 }

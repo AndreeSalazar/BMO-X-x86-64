@@ -15,6 +15,7 @@
 //!    explorer   the package as it IS on disk, in the order the owner chose
 //!    organize   the EXPLORER's gestures, carrying each `.titan`'s module along
 //!    traits     what each module's BODY does: how F1 draws its node, live
+//!    wire       a cable pulled in F1 is a `use` written (and a cycle, refused)
 //! ```
 //!
 //! It is the smallest piece of the future front (`titan-front`): it knows the
@@ -38,6 +39,7 @@ pub mod package;
 pub mod seed;
 pub mod text;
 pub mod traits;
+pub mod wire;
 
 pub use hang::{HangError, Plan, Sink};
 pub use package::{read_package, read_package_into, Fetch, FileEntry, Loaded, Problem, ProblemKind, Say, Source};

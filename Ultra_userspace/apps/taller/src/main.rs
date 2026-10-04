@@ -104,6 +104,9 @@ enum Drag {
     Item(usize, i32, i32),
     /// The 3D sky, grabbed at this x with this turn: dragging turns it.
     Turn(i32, u32),
+    /// A cable pulled from this node's OUT pin (UE5 style): let go on a node,
+    /// it is a `use` written.
+    Wire(NodeId),
 }
 
 /// Far enough from where the button went down to be a drag and not a click:
@@ -117,6 +120,15 @@ fn dragged(x0: i32, y0: i32, x: i32, y: i32) -> bool {
 /// declared or hung, by `explorer::drop_at`.
 fn drop_file(store: &mut Store, ui: &Ui, cam: &Camera, grab: Drag, x: i32, y: i32) -> bool {
     match grab {
+        // A cable let go on a node: the `use` is written (or the note says
+        // why not); let go on nothing, it just vanishes.
+        Drag::Wire(from) => match view::hit(&store.loaded.graph, cam, x, y) {
+            Some(to) => {
+                store.wire(from, to);
+                true
+            }
+            None => true,
+        },
         Drag::File(id, x0, y0) if dragged(x0, y0, x, y) => match explorer::drop_target(store, ui, cam, x, y) {
             Some(t) if t != id => {
                 store.hang(id, t);
@@ -452,6 +464,13 @@ pub extern "C" fn _start() -> ! {
                         _ => continue,
                     }
                     let g = &store.loaded.graph;
+                    // An OUT pin first: pulling from it is a cable, not a move.
+                    if let Some(from) = view::pin_at(g, &cam, x, y) {
+                        shown.selected = Some(from);
+                        drag = Drag::Wire(from);
+                        dirty = true;
+                        continue;
+                    }
                     drag = match view::hit(g, &cam, x, y) {
                         Some(id) => {
                             // Picking a node in the canvas lights its file on the left.
@@ -550,7 +569,7 @@ pub extern "C" fn _start() -> ! {
             if ptr.inside {
                 dirty |= drop_file(&mut store, &ui, &cam, drag, ptr.x, ptr.y);
             }
-            dirty |= matches!(drag, Drag::File(..) | Drag::Item(..));
+            dirty |= matches!(drag, Drag::File(..) | Drag::Item(..) | Drag::Wire(..));
             drag = Drag::None;
         }
         if ptr.inside {
@@ -573,7 +592,7 @@ pub extern "C" fn _start() -> ! {
                     dirty = true;
                 }
                 // The ghost follows the pointer.
-                Drag::File(..) | Drag::Item(..) => dirty = true,
+                Drag::File(..) | Drag::Item(..) | Drag::Wire(..) => dirty = true,
                 Drag::None => {}
             }
         }
@@ -624,6 +643,17 @@ pub extern "C" fn _start() -> ! {
                     }
                     Drag::Item(i, x0, y0) if ptr.inside && dragged(x0, y0, ptr.x, ptr.y) => {
                         explorer::draw_drag_item(&mut canvas, &store, &ui, &cam, i, ptr.x, ptr.y);
+                    }
+                    Drag::Wire(from) if ptr.inside && tab == Tab::Graph => {
+                        // Over a node: green if it can be let go, red with why.
+                        let target = view::hit(&store.loaded.graph, &cam, ptr.x, ptr.y);
+                        let verdict = target.map(|to| {
+                            let r = store.wire_plan(from, to);
+                            let name = |id| store.loaded.graph.node(id).map(|n| n.name).unwrap_or(bmo_titan_contrato::Text::new("?"));
+                            r.map_err(|e| bmo_titan_lector::wire::note(Err(e), name(from).as_bytes(), name(to).as_bytes()))
+                        });
+                        let why = verdict.as_ref().map(|v| v.as_ref().map(|_| ()).map_err(|l| l.as_ref().map_or(&b""[..], |l| l.as_bytes())));
+                        view::draw_wire(&mut canvas, &store.loaded.graph, &cam, from, ptr.x, ptr.y, why);
                     }
                     _ => {}
                 }

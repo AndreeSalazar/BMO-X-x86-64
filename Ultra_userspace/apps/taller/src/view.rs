@@ -279,7 +279,7 @@ pub fn draw(c: &mut Canvas, sc: &Scene) {
     }
     grid(c, cam);
     let current = s.events().get(p.index).map(|e| e.kind);
-    cables(c, g, p, cam, current, sc.flow_ms);
+    cables(c, g, sc.files, p, cam, current, sc.flow_ms);
     let (clock, lively) = (sc.flow_ms.unwrap_or(sc.now_ms), sc.flow_ms.is_some());
     crate::faults::draw_under(c, g, cam, sc.faults, clock, lively);
     for (i, n) in g.nodes().iter().enumerate() {
@@ -322,7 +322,7 @@ fn grid(c: &mut Canvas, cam: &Camera) {
 const FLOW_MS: u32 = 1800;
 const TAIL: u32 = 220;
 
-fn cables(c: &mut Canvas, g: &Graph, p: &Player, cam: &Camera, current: Option<EventKind>, flow_ms: Option<u32>) {
+fn cables(c: &mut Canvas, g: &Graph, files: &[bmo_titan_lector::FileEntry], p: &Player, cam: &Camera, current: Option<EventKind>, flow_ms: Option<u32>) {
     for (i, e) in g.edges().iter().enumerate() {
         let Some(k) = cable(g, cam, e.from, e.to) else { continue };
         let lent = p.loans.iter().flatten().find(|l| l.from == e.from && l.to == e.to);
@@ -333,15 +333,20 @@ fn cables(c: &mut Canvas, g: &Graph, p: &Player, cam: &Camera, current: Option<E
             }
             _ => false,
         };
+        // At rest a cable wears the colour of its CLASS -- mod, use, 3060,
+        // sistema -- fixed, the same in every tab (`astros::Cable`): the
+        // colour SAYS what it is, nobody picks it. A loan in play wears its
+        // own, over it.
+        let class = crate::astros::cable_of(g, files, e);
         let (color, thick) = match lent {
             Some(_) if to_gpu => (GOOD, 3),
             Some(l) if l.mode == Mode::Mut => (MUT, 3),
             Some(_) => (ACCENT, 3),
             None if travelling => (INK, 2),
-            None => (CABLE_CORE, 1),
+            None => (mezclar(class.color(), CABLE_CORE, 2, 3), class.thick() - 1),
         };
         // Every cable shines a little; a busy one shines in its own colour.
-        let halo = if lent.is_some() || travelling { color } else { CABLE };
+        let halo = if lent.is_some() || travelling { color } else { mezclar(class.color(), CABLE, 1, 2) };
         c.curve_glow(k, halo, color, thick, 3);
         // The arrow head: the used node is below.
         c.disc(k[3].0, k[3].1, 3, color);
@@ -383,6 +388,58 @@ fn pulse(c: &mut Canvas, k: &[Vertice; 4], u: u32) {
     }
 }
 
+/// The PINS of a node, the Unreal Engine 5 way: IN on top (where the cables
+/// that use it arrive), OUT below (where it pulls its own `use` from).
+pub fn in_pin(cam: &Camera, n: &Node) -> Vertice {
+    let (x, y, w, _) = node_rect(cam, n);
+    (x + w / 2, y)
+}
+
+pub fn out_pin(cam: &Camera, n: &Node) -> Vertice {
+    let (x, y, w, h) = node_rect(cam, n);
+    (x + w / 2, y + h)
+}
+
+/// The OUT pin under (x, y): only a module has one (it has a header to write
+/// the `use` in).
+pub fn pin_at(g: &Graph, cam: &Camera, x: i32, y: i32) -> Option<NodeId> {
+    let r = (9 * cam.zoom / 1000).max(7);
+    g.nodes().iter().enumerate().find_map(|(i, n)| {
+        let (px, py) = out_pin(cam, n);
+        (n.kind == NodeKind::Module && (px - x).abs() <= r && (py - y).abs() <= r).then_some(NodeId(i as u8))
+    })
+}
+
+/// A pin: a ring, filled when something is plugged in, and its little arrow.
+fn pin(c: &mut Canvas, (x, y): Vertice, r: i32, color: Color, plugged: bool) {
+    c.disc(x, y, r + 1, BODY);
+    c.disc(x, y, r, color);
+    if !plugged {
+        c.disc(x, y, r - 2, BODY);
+    }
+    // The arrow: down, the way every `mod` and `use` goes.
+    c.rect(x - 1, y + r + 1, 3, 1, color);
+    c.rect(x, y + r + 2, 1, 1, color);
+}
+
+/// The cable being pulled from `from`'s OUT pin to the pointer: in the colour
+/// of a `use` if it can be let go there, red and with the reason if not.
+pub fn draw_wire(c: &mut Canvas, g: &Graph, cam: &Camera, from: NodeId, x: i32, y: i32, verdict: Option<Result<(), &[u8]>>) {
+    let Some(n) = g.node(from) else { return };
+    let a = out_pin(cam, n);
+    let ok = !matches!(verdict, Some(Err(_)));
+    let color = if ok { crate::astros::CYAN } else { BAD };
+    let dy = ((y - a.1).abs() / 2).max(30);
+    c.curve_glow([a, (a.0, a.1 + dy), (x, y - dy), (x, y)], mezclar(color, CABLE, 1, 2), color, 2, 3);
+    c.disc(x, y, 4, color);
+    if let Some(Err(why)) = verdict {
+        let w = why.len() as i32 * 8 + 12;
+        c.rect(x + 12, y + 10, w, 20, BAR);
+        c.frame(x + 12, y + 10, w, 20, 1, BAD);
+        c.text(x + 18, y + 12, why, BAD, 1);
+    }
+}
+
 fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: Option<EventKind>, now_ms: u32) {
     let (x, y, w, h) = node_rect(cam, n);
     if x + w < 0 || y + h < TOP || x >= c.w || y >= c.h - PANEL {
@@ -402,6 +459,16 @@ fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: 
     // A line of light under the header, and a thin border of the header's hue.
     c.rect(x, y + head_h, w, 1, mezclar(INK, right, 1, 3));
     c.frame(x, y, w, h, 1, if alarm { BAD } else { mezclar(left, EDGE, 1, 2) });
+    // Its pins: IN if anything uses it, OUT if it is a module (it can pull).
+    let r = (5 * cam.zoom / 1000).max(3);
+    if n.kind != NodeKind::Root {
+        let used = g.edges().iter().any(|e| e.to == id);
+        pin(c, in_pin(cam, n), r, if used { INK } else { DIM }, used);
+    }
+    if n.kind == NodeKind::Module {
+        let uses = g.edges().iter().any(|e| e.from == id);
+        pin(c, out_pin(cam, n), r, crate::astros::CYAN, uses);
+    }
     if cam.zoom < 750 {
         // Too small for text: only the name, if it fits.
         c.text_fit(x + 4, y + head_h + 2, n.name.as_bytes(), INK, w - 8);
@@ -692,7 +759,7 @@ fn help(c: &mut Canvas, x: i32, top: i32) {
     c.text(
         x,
         top + PANEL - 22,
-        b"[espacio] pausa [n] paso [r] repite [+-] zoom [0] encuadra [e] error [t] ESPACIO  fichero sobre un nodo: cuelga  [Esc] sale",
+        b"[espacio] pausa [n] paso [r] repite [+-] zoom [0] encuadra [e] error [t] ESPACIO  pin de abajo a otro nodo: use  [Esc] sale",
         DIM,
         1,
     );

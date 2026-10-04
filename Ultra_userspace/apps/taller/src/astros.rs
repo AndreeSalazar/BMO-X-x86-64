@@ -142,14 +142,6 @@ impl Cable {
             _ => 2,
         }
     }
-    pub fn name(self) -> &'static [u8] {
-        match self {
-            Cable::Mod => b"mod",
-            Cable::Use => b"use",
-            Cable::Gpu => b"3060",
-            Cable::System => b"sistema",
-        }
-    }
 }
 
 /// The class of a cable: the 3060 and the DIRECTOR by where it goes; between

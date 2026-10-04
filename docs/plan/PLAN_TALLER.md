@@ -403,7 +403,8 @@ el compilador ya comprueba.
           frontend de TITAN++ hasta T2 (sabe leer `mod` y `use`)
    [ ] 9  el texto del nodo se EDITA y se guarda en su .titan; `titan check`
           marca el nodo que no compila
-   [ ] 10 dibujar un cable escribe un `use`; uno hacia arriba se rechaza
+   [x] 10 dibujar un cable escribe un `use`; uno hacia arriba se rechaza
+          HECHO en el anfitrion el 04-10 (8.13): del pin OUT a otro nodo
    [ ] 11 F5: `titan build`, y el .bex se le ofrece al ESCRITORIO
 ```
 
@@ -995,6 +996,43 @@ a proposito: el cuerpo no estaba decidido.
 | arrastrar el cielo | gira con el raton | se mueve el lienzo: el arrastre no se quedo |
 | F12: poner `let mut n = 0` y `n = n + 1` a `rock.titan` | en el latido siguiente `rock` estrena un anillo ambar que gira | no cambia: el latido no relee |
 | `t` otra vez, y otra | ELEMENTOS con doce tarjetas que se mueven; GUIA con sus seis puntos | -- |
+
+### 8.13 L8: GRAFO con pines, a lo Unreal Engine 5 -- un cable es un `use` (04-10)
+
+El propietario: *"un estilo de Unreal Engine 5 en nodos, que tienen como para
+agarrar los cables, pero los cables se pueden colorear pero tambien te limita
+para no tener que pelear ... solo colores que ya estan conectados"*.
+
+```text
+   cada nodo         un pin IN arriba (lleno si alguien lo usa) y, si es un
+                     modulo, un pin OUT abajo (lleno si usa a alguien)
+   tirar del OUT     un cable en la mano, hasta otro nodo:
+                       cian       se puede soltar
+                       ROJO       no, y dice por que, ANTES de soltar
+   soltarlo          se escribe `use <nodo>` en la cabecera del modulo
+                     (titan-lector::wire + edit::add_use); el latido
+                     siguiente lo relee y el cable ya es del texto
+   los colores       los da la CLASE, fijos (astros::Cable): mod violeta,
+                     use cian, 3060 verde, sistema azul. Nadie elige un
+                     color: el color dice lo que es el cable
+```
+
+- **Se rechaza donde lo rechazaria el compilador** (U3, las dependencias solo
+  bajan): un cable que cierra un ciclo, uno que ya existe, uno hacia el
+  paquete, uno desde algo que no es un modulo. Probado en el anfitrion con un
+  ESTRATOS en memoria (`wire::tests`).
+- `use gpu` sin `gpu` en `[permissions]` se escribe y sale en PROBLEMAS (U2):
+  el lector ya lo decia, y el cable no lo esconde.
+- Es el **escalon 10** de 8.4, hecho.
+
+**Visto con la CAMARA**: `cable_bien.png` (rock -> ship, cian) y
+`cable_ciclo.png` (ship -> physics, rojo: *"physics ya depende de ship: seria
+un ciclo"*).
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| tirar del pin de abajo de `rock` hasta `ship` | cable cian; al soltar, `rock.titan` tiene `use ship` y el cable se queda | el nodo se mueve: el clic no cayo en el pin |
+| tirar de `ship` hasta `physics` | rojo, con su motivo; al soltar no se escribe nada | se escribe: `plan` no se miro |
 
 ---
 

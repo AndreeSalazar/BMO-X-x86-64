@@ -213,6 +213,30 @@ impl Store {
         self.detail = None;
     }
 
+    /// Could a cable be pulled from `from` to `to`? Touches no disk: asked
+    /// while the cable is still in the hand, to paint it green or red.
+    pub fn wire_plan(&self, from: NodeId, to: NodeId) -> Result<(), bmo_titan_lector::wire::WireError> {
+        bmo_titan_lector::wire::plan(&self.loaded, from, to)
+    }
+
+    /// **A cable let go is a `use` written** (escalon 10, `PLAN_TALLER` 8.13):
+    /// one header saved with one more name; the next beat reads it back.
+    pub fn wire(&mut self, from: NodeId, to: NodeId) {
+        let r = (|| {
+            let root = self.root().ok_or(bmo_titan_lector::wire::WireError::Read)?;
+            let block = bmo::Memoria::request(HANG_BUF as u64).ok_or(bmo_titan_lector::wire::WireError::Read)?;
+            // SAFETY: as in `write`: our block, HANG_BUF bytes, two halves
+            // that do not overlap, alive until the end of this closure.
+            let all = unsafe { core::slice::from_raw_parts_mut(block.base(), HANG_BUF) };
+            let (text, out) = all.split_at_mut(READ_BUF);
+            bmo_titan_lector::wire::wire(&mut Disk { block: &block, len: HANG_BUF }, root.as_bytes(), &self.loaded, from, to, text, out)
+        })();
+        let name = |id| self.loaded.graph.node(id).map(|n| n.name).unwrap_or(bmo_titan_contrato::Text::new("?"));
+        let done = r.is_ok();
+        self.note = bmo_titan_lector::wire::note(r, name(from).as_bytes(), name(to).as_bytes()).map(|l| (l, done));
+        self.detail = None;
+    }
+
     /// Says one thing in the EXPLORER's note, with a second line if any.
     pub fn say(&mut self, line: Line, detail: Option<Line>, ok: bool) {
         self.note = Some((line, ok));
