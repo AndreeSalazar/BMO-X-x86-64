@@ -16,6 +16,8 @@
 
 use std::process::ExitCode;
 
+mod cobertura;
+
 fn main() -> ExitCode {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
 
@@ -30,6 +32,12 @@ fn main() -> ExitCode {
     // parser y los diagnosticos son los mismos, y un segundo binario habria
     // acabado con su propia copia de `procedencia()` -- el fallo que un
     // guardian ya cazo el 18-08.
+    // ** `--cobertura`: cuanto del CSS de una maqueta HTML acepta MAQUETA,
+    // declaracion a declaracion y con el compilador de verdad. Ver
+    // `cobertura.rs`.
+    if args.first().map(String::as_str) == Some("--cobertura") {
+        return cobertura(&args[1..]);
+    }
     let solo_paleta = args.first().map(|a| a == "--paleta").unwrap_or(false);
     if solo_paleta {
         args.remove(0);
@@ -48,7 +56,7 @@ fn main() -> ExitCode {
     }
     let mut args = args.into_iter();
     let (Some(entrada), Some(salida)) = (args.next(), args.next()) else {
-        eprintln!("uso: maqueta [--paleta | --foto | --foto-cara] <entrada.maqueta> <salida.rs | salida.png>");
+        eprintln!("uso: maqueta [--paleta | --foto | --foto-cara] <entrada.maqueta> <salida.rs | salida.png>\n     maqueta --cobertura <maqueta.html>...");
         return ExitCode::from(2);
     };
 
@@ -201,4 +209,44 @@ fn fallo(entrada: &str, src: &[u8], errores: &[bmo_maqueta_diag::Error]) -> Exit
         if errores.len() == 1 { "" } else { "s" }
     );
     ExitCode::FAILURE
+}
+
+/// `--cobertura a.html b.html ...`: cada maqueta y la suma.
+fn cobertura(ficheros: &[String]) -> ExitCode {
+    if ficheros.is_empty() {
+        eprintln!("uso: maqueta --cobertura <maqueta.html>...");
+        return ExitCode::from(2);
+    }
+    let (mut total, mut bien) = (0, 0);
+    let mut suma: std::collections::HashMap<String, (usize, String)> = std::collections::HashMap::new();
+    for f in ficheros {
+        let html = match std::fs::read_to_string(f) {
+            Ok(h) => h,
+            Err(e) => {
+                eprintln!("maqueta: no puedo leer {f}: {e}");
+                return ExitCode::from(2);
+            }
+        };
+        let inf = cobertura::medir(&html);
+        println!(
+            "{f}: {} de {} declaraciones = {}   ({} plantillas de JS, fuera)",
+            inf.aceptadas,
+            inf.total,
+            cobertura::por_ciento(inf.aceptadas, inf.total),
+            inf.plantillas
+        );
+        total += inf.total;
+        bien += inf.aceptadas;
+        for (p, n, m) in inf.rechazos {
+            let e = suma.entry(p).or_insert((0, m));
+            e.0 += n;
+        }
+    }
+    println!("\nCOBERTURA: {bien} de {total} = {}\n\nlo que falta, lo mas usado primero:", cobertura::por_ciento(bien, total));
+    let mut v: Vec<_> = suma.into_iter().collect();
+    v.sort_by(|a, b| b.1 .0.cmp(&a.1 .0).then(a.0.cmp(&b.0)));
+    for (p, (n, m)) in v.iter().take(30) {
+        println!("  {n:>4}  {p:<22} {m}");
+    }
+    ExitCode::SUCCESS
 }

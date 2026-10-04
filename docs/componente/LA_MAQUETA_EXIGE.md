@@ -117,12 +117,14 @@ que MAQUETA no hace, y por eso **estan prohibidas**, no reinterpretadas.
 
 ## 3. LAS PROPIEDADES -- LISTA CERRADA
 
-**Veintiocho** (contadas en `value.rs`, 04-10). Las **dieciseis** primeras se
+**Cuarenta** (contadas en `value.rs`, 04-10, escalon 1), y **seis atajos** que
+se expanden en ellas (seccion 3c). Las **dieciseis** primeras se
 eligieron **contando** lo que `scene/` hace de verdad, no lo que CSS ofrece.
 `border-radius` entro al medir la raiz y descubrir que ya estaba implementada;
 `margin` **salio** al escribir el nieto -- ver seccion 3b.
 
-Las **doce** de MAQUETA 2 (la letra, el acabado, el dibujo) entraron con la
+Las **doce** de MAQUETA 2 (la letra, el acabado, el dibujo) y las **doce** de
+los lados (escalon 1: `padding-*`, `border-*-width`, `border-*-color`) entraron con la
 misma regla dicha al reves: **no se acepta una propiedad que la casa no sepa
 pintar igual en los tres sitios** -- el codigo generado (emisor A), la CARA
 que viaja (emisor B) y la foto del anfitrion. Las tres salen de UN pintor,
@@ -140,17 +142,55 @@ por prudencia.
 |---|---|---|
 | `width` | `Npx` | |
 | `height` | `Npx` | |
-| `padding` | `Npx` o cuatro `Npx` | arriba derecha abajo izquierda, como CSS |
+| `padding` | de uno a cuatro `Npx` | como CSS: `a`, `a b`, `a b c`, `a b c d` |
+| `padding-top`, `-right`, `-bottom`, `-left` | `Npx` | un lado; el atajo escrito despues lo pisa |
 
 ### La pintura
 
 | propiedad | valores | nota |
 |---|---|---|
-| `background-color` | `#RRGGBB` | |
+| `background-color` | `#RRGGBB` o `transparent` | |
 | `color` | `#RRGGBB` | el color del texto de ESTE nodo, no de sus hijos |
-| `border-width` | `Npx` | un solo grosor, los cuatro lados |
-| `border-color` | `#RRGGBB` | |
+| `border-width` | de uno a cuatro `Npx` | como `padding` |
+| `border-color` | `#RRGGBB` o `transparent` | los cuatro lados |
+| `border-top-width`... `border-left-width` | `Npx` | un lado |
+| `border-top-color`... `border-left-color` | `#RRGGBB` o `transparent` | un lado; `transparent` ocupa y no pinta |
 | `border-radius` | `Npx` | ★ ver abajo: **ya existe**, con su limite |
+
+### 3c. Los atajos y las variables (escalon 1, 04-10)
+
+`maqueta --cobertura` (seccion 8) paso cada declaracion de las dos maquetas de
+`docs/arte/` por el compilador: entraba el **37,52 %**. Lo que mas faltaba no
+eran propiedades nuevas: era ESCRIBIR las que ya habia como las escribe
+cualquiera. Con esto entra el **56,46 %**.
+
+| atajo | se expande en | lo que exige |
+|---|---|---|
+| `background` | `background-color` y `background-image` | UNA cosa: `#RRGGBB`, `linear-gradient(...)`, `transparent` o `none` |
+| `border` | `border-width` (los 4) y `border-color` | `1px solid #RRGGBB`, o `none`, o `0` |
+| `border-top`... `border-left` | ese lado | lo mismo, para un lado |
+
+★ **Los tres del borde son OBLIGATORIOS.** En CSS lo que falta toma un valor
+de serie que nadie vio escribir: sin grosor, `medium` (3 px); sin estilo,
+`none` (no se ve); sin color, `currentColor`. Cualquiera de los tres haria
+que la maqueta se viera distinta en el navegador. `dashed` y `dotted` se
+rechazan: el borde de la casa es una raya llena.
+
+★ **Un atajo PISA sus largas**, como en CSS: `background: #fff` quita el
+degradado que hubiera, y `padding: 8px` despues de `padding-left: 20px` deja
+los cuatro en 8. Se expanden en el padre, asi que la cascada solo ve largas y
+"gana la ultima" sigue siendo verdad.
+
+**Un borde distinto por lado** se pinta lado a lado (arriba y abajo de punta a
+punta, los lados entre medias): con 1 px, la raya bajo una fila, es el dibujo de
+CSS. Con radio, sombra o degradado se RECHAZA (comprobacion K): las piezas
+suaves pintan un anillo constante.
+
+**Las variables**: `:root { --oro: #FFD45E }` y `var(--oro)`, tambien con
+reserva (`var(--oro, #FFD45E)`). Se sustituyen ANTES de leer reglas
+(`node/src/variables.rs`): es una tabla de constantes, no un interprete. Una
+variable definida FUERA de `:root` se rechaza -- en CSS se heredaria a los
+hijos, y aqui no hay herencia --, y en `:root` solo van variables.
 
 ### 3b. ⚠ `margin` SALIO de la lista, al escribir el nieto
 
@@ -456,6 +496,26 @@ pintado, para que un cambio se vea como un diff y no como un fallo de test:
 **Determinismo obligatorio**: misma entrada, mismos bytes de salida. Sin mapas
 sin ordenar, sin direcciones, sin fechas.
 
+### La cobertura: cuanto CSS de una maqueta compila (escalon 1)
+
+```
+   maqueta --cobertura docs/arte/maqueta_bankcat.html docs/arte/maqueta_hermes.html
+```
+
+Saca CADA declaracion de la maqueta HTML (reglas, `@media` y `style="..."`), la
+mete en una caja con las variables de `:root` que use, y se la da al padre.
+Lo que compila, cuenta; lo que no, sale agrupado por propiedad con el motivo.
+Las plantillas de JavaScript (`${...}`) no son CSS y no cuentan.
+
+| fecha | cobertura | que cambio |
+|---|---|---|
+| 04-10 | 37,52 % | antes del escalon 1 |
+| 04-10 | 56,46 % | atajos, lados, padding de 2 y 3, `transparent`, `var()` |
+
+⚠ La primera estimacion se hizo contando NOMBRES de propiedad y dio 58,5 %
+"hoy": contaba `padding: 8px 12px` como aceptada porque `padding` existia. El
+compilador la rechazaba. Medido declaracion a declaracion, era el 37,52 %.
+
 ### La foto: el oraculo de lo que se VE (MAQUETA 2)
 
 Los rects no dicen si la sombra, el degradado o la letra salieron bien. Para
@@ -558,6 +618,8 @@ en una propiedad, y ninguna parece grave sola.
 | `:hover`, `:active` | es **conducta**, no maquetacion | v2, y sin tocar el layout |
 | `grid` | `flex` cubre lo medido en `scene/` | cuando algo real lo pida |
 | `float`, `z-index`, `overflow` | no hay caso en el arbol | cuando lo haya |
+| `border: ... dashed`, `currentColor` | una raya llena; el color de la letra puede no estar dicho | -- |
+| variables fuera de `:root` | se heredarian, y no hay herencia | nunca en v1 |
 | `margin` | sus margenes se FUNDEN en CSS y aqui no | cuando se implemente la fusion |
 | `@media` | una sola pantalla | cuando haya dos |
 | salto de linea automatico | esconderia la comprobacion 3 | nunca |

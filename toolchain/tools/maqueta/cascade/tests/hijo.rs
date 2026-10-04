@@ -127,7 +127,7 @@ fn the_defaults_are_the_ones_css_uses() {
     assert_eq!(s.justify, Justify::Start);
     assert_eq!(s.padding, [0, 0, 0, 0]);
     assert_eq!(s.background, None, "una caja sin fondo no pinta nada");
-    assert_eq!(s.border_width, 0);
+    assert_eq!(s.border_width, [0; 4]);
 }
 
 #[test]
@@ -263,11 +263,17 @@ fn the_system_theme_compiles() {
 
     let boxed = wearing("box");
     assert_eq!(boxed.background, Some(0x1A1631));
-    assert_eq!(boxed.border_color, Some(0x3A3163));
-    assert_eq!(boxed.border_width, 1);
+    assert_eq!(boxed.border_color, [Some(0x3A3163); 4]);
+    assert_eq!(boxed.border_width, [1; 4]);
+
+    // Lo fino (04-10): la tarjeta flotante y sus tintas.
+    let fino = wearing("fino");
+    assert_eq!(fino.background, Some(0x110E24));
+    assert_eq!(fino.border_color, [Some(0xC8A86B); 4], "el hilo de laton");
+    assert_eq!(wearing("marfil").color, Some(0xF3EEE4));
 
     // On its own the theme has no markup, so every rule looks unused from here
     // -- which is exactly what a palette meant for OTHER files should look like.
-    assert_eq!(c.dead_rules.len(), 9, "las nueve reglas del tema");
+    assert_eq!(c.dead_rules.len(), 14, "las catorce reglas del tema (nueve de siempre y cinco de lo fino)");
     assert!(c.orphan_classes.is_empty());
 }

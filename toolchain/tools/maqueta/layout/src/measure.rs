@@ -65,8 +65,8 @@ pub struct Size {
 /// Padding plus border, horizontally and vertically.
 pub fn frame(b: &Styled) -> (u32, u32) {
     let p = b.style.padding;
-    let d = b.style.border_width * 2;
-    (p[1] + p[3] + d, p[0] + p[2] + d)
+    let d = b.style.border_width;
+    (p[1] + p[3] + d[1] + d[3], p[0] + p[2] + d[0] + d[2])
 }
 
 /// The content size this box settles on: what it declared, or what it needs.

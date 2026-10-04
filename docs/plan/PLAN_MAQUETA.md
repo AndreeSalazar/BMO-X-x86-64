@@ -344,6 +344,40 @@ suave y dibujo vectorial -- **sin dejar de ser un compilador que rechaza**.
 Medido contra Chromium con `pruebas/tarjeta.maqueta`: **parecido 92,25 %**
 (igual 89,97 %). Nada de esto se probo en el Ryzen todavia: es anfitrion.
 
+## 6c. IGUALAR A CSS, MEDIDO Y NO CONTADO (2026-10-04)
+
+El propietario: *"cuanto falta para llegar a ser igual o mejor que CSS?"* y
+*"dale, vamos a igualar"*. La medida es `maqueta --cobertura` sobre las dos
+maquetas de `docs/arte/`: cada declaracion pasada por el compilador de verdad
+(ver `LA_MAQUETA_EXIGE.md` seccion 8).
+
+```
+   [x] E1  los atajos y los lados: `background`, `border`, `border-<lado>`,
+           `padding-*`, `border-*-width/color`, padding de 2 y 3 valores,
+           `transparent`, y `var(--x)` de `:root`
+           -> `toolchain/tools/maqueta/node/src/variables.rs`, `style.rs`
+           37,52 % -> 56,46 % (+18,94), medido
+   [ ] E2  lo que mas falta ahora, por usos: `display:grid` (117),
+           `flex` (58), `opacity` (56), `width`/`border-radius` en `%`
+           (35 + 27: los circulos de `50%`), `overflow` (35), `min/max-width`
+           (55), `position:relative` (29), `text-align` (21)
+           -> `toolchain/tools/maqueta/node/src/value.rs` (la lista) y el
+              nieto (`layout/`) para `grid` y `flex`
+   [ ] E3  las variables que las maquetas definen POR CAJA (`--c` en un
+           `style="..."`, 44 + 22 rechazos): hoy se rechazan porque en CSS se
+           heredan. Decidir si entran como constantes de UNA caja
+           -> `toolchain/tools/maqueta/node/src/variables.rs`
+```
+
+Lo que NO se persigue, y es una decision: `animation`, `transition` y
+`transform` (lo que vive es Rust), `font-family` (la letra de la casa) y
+`margin` (seccion 3b de `LA_MAQUETA_EXIGE.md`).
+
+⚠ **La estimacion de la conversacion estaba mal, y lo destapo la medida**:
+contando NOMBRES de propiedad salia un 58,5 % "hoy". Era el 37,52 %:
+`padding: 8px 12px` contaba porque `padding` existia, y el padre lo
+rechazaba.
+
 [!] **La trampa que salio al darle la letra al escritorio**: Cargo junta las
 `features` por PAQUETE en cada compilacion, y `build.ps1` compila todo Ring 3
 de una vez -- asi que el `alloc` que piden HERMES y BANK CAT le llegaba al

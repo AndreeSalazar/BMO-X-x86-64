@@ -33,8 +33,8 @@ use crate::{Frame, Rect};
 
 /// Lay one box out inside the border box its parent decided for it.
 pub fn place(b: &Styled, border: Rect) -> Frame {
-    let inset = b.style.border_width as i32 + b.style.padding[3] as i32;
-    let inset_top = b.style.border_width as i32 + b.style.padding[0] as i32;
+    let inset = b.style.border_width[3] as i32 + b.style.padding[3] as i32;
+    let inset_top = b.style.border_width[0] as i32 + b.style.padding[0] as i32;
     let (fw, fh) = frame(b);
     let content = Rect {
         x: border.x + inset,

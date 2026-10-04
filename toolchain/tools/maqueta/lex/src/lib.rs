@@ -390,6 +390,14 @@ impl<'a> Lexer<'a> {
             self.hash();
             return Mode::Style;
         }
+        // `--oro`: el nombre de una variable de CSS (MAQUETA 2, 04-10). Es un
+        // nombre como otro cualquiera; que solo exista en `:root` y dentro de
+        // `var(...)` lo decide el padre.
+        if self.at(0) == b'-' && self.at(1) == b'-' && is_name(self.at(2)) {
+            let n = self.run_of(is_name);
+            self.emit(Kind::Ident, n);
+            return Mode::Style;
+        }
         self.word_or_unknown(self.at(0));
         Mode::Style
     }

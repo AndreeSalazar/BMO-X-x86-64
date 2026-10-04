@@ -108,9 +108,46 @@ pub enum Prop {
     /// dibujar con la misma o la regla mentiria.
     StrokeLinecap,
     StrokeLinejoin,
+    // the sides (MAQUETA 2, escalon 1): a padding and a border per side,
+    // because the maquetas draw a row's separator as `border-bottom`.
+    PaddingTop,
+    PaddingRight,
+    PaddingBottom,
+    PaddingLeft,
+    BorderTopWidth,
+    BorderRightWidth,
+    BorderBottomWidth,
+    BorderLeftWidth,
+    BorderTopColor,
+    BorderRightColor,
+    BorderBottomColor,
+    BorderLeftColor,
 }
 
+/// The four sides, in CSS order (top, right, bottom, left).
+pub const LADOS: [&str; 4] = ["top", "right", "bottom", "left"];
+
 impl Prop {
+    /// The padding of side `k` (CSS order).
+    pub fn padding_de(k: usize) -> Prop {
+        [Prop::PaddingTop, Prop::PaddingRight, Prop::PaddingBottom, Prop::PaddingLeft][k]
+    }
+
+    /// The border width of side `k`.
+    pub fn grosor_de(k: usize) -> Prop {
+        [Prop::BorderTopWidth, Prop::BorderRightWidth, Prop::BorderBottomWidth, Prop::BorderLeftWidth][k]
+    }
+
+    /// The border colour of side `k`.
+    pub fn color_de(k: usize) -> Prop {
+        [Prop::BorderTopColor, Prop::BorderRightColor, Prop::BorderBottomColor, Prop::BorderLeftColor][k]
+    }
+
+    /// Which side a per-side property speaks of, if it is one.
+    pub fn lado(self) -> Option<usize> {
+        (0..4).find(|&k| self == Prop::padding_de(k) || self == Prop::grosor_de(k) || self == Prop::color_de(k))
+    }
+
     pub fn from_name(b: &[u8]) -> Option<Prop> {
         Some(match b {
             b"width" => Prop::Width,
@@ -141,6 +178,18 @@ impl Prop {
             b"fill" => Prop::Fill,
             b"stroke-linecap" => Prop::StrokeLinecap,
             b"stroke-linejoin" => Prop::StrokeLinejoin,
+            b"padding-top" => Prop::PaddingTop,
+            b"padding-right" => Prop::PaddingRight,
+            b"padding-bottom" => Prop::PaddingBottom,
+            b"padding-left" => Prop::PaddingLeft,
+            b"border-top-width" => Prop::BorderTopWidth,
+            b"border-right-width" => Prop::BorderRightWidth,
+            b"border-bottom-width" => Prop::BorderBottomWidth,
+            b"border-left-width" => Prop::BorderLeftWidth,
+            b"border-top-color" => Prop::BorderTopColor,
+            b"border-right-color" => Prop::BorderRightColor,
+            b"border-bottom-color" => Prop::BorderBottomColor,
+            b"border-left-color" => Prop::BorderLeftColor,
             _ => return None,
         })
     }
@@ -175,6 +224,18 @@ impl Prop {
             Prop::Fill => "fill",
             Prop::StrokeLinecap => "stroke-linecap",
             Prop::StrokeLinejoin => "stroke-linejoin",
+            Prop::PaddingTop => "padding-top",
+            Prop::PaddingRight => "padding-right",
+            Prop::PaddingBottom => "padding-bottom",
+            Prop::PaddingLeft => "padding-left",
+            Prop::BorderTopWidth => "border-top-width",
+            Prop::BorderRightWidth => "border-right-width",
+            Prop::BorderBottomWidth => "border-bottom-width",
+            Prop::BorderLeftWidth => "border-left-width",
+            Prop::BorderTopColor => "border-top-color",
+            Prop::BorderRightColor => "border-right-color",
+            Prop::BorderBottomColor => "border-bottom-color",
+            Prop::BorderLeftColor => "border-left-color",
         }
     }
 
@@ -196,6 +257,10 @@ impl Prop {
                 | Prop::BackgroundImage
                 | Prop::Stroke
                 | Prop::Fill
+                | Prop::BorderTopColor
+                | Prop::BorderRightColor
+                | Prop::BorderBottomColor
+                | Prop::BorderLeftColor
         )
     }
 
@@ -205,23 +270,36 @@ impl Prop {
         match self {
             Prop::Width
             | Prop::Height
-            | Prop::BorderWidth
             | Prop::BorderRadius
             | Prop::Gap
             | Prop::Left
             | Prop::Top
             | Prop::FontSize
-            | Prop::LineHeight => Shape::OnePx,
+            | Prop::LineHeight
+            | Prop::PaddingTop
+            | Prop::PaddingRight
+            | Prop::PaddingBottom
+            | Prop::PaddingLeft
+            | Prop::BorderTopWidth
+            | Prop::BorderRightWidth
+            | Prop::BorderBottomWidth
+            | Prop::BorderLeftWidth => Shape::OnePx,
             Prop::FontWeight => Shape::Weight,
             Prop::LetterSpacing => Shape::Em,
             Prop::TextTransform => Shape::Words(&[Keyword::Uppercase, Keyword::None]),
             Prop::BoxShadow => Shape::Shadow,
             Prop::BackgroundImage => Shape::Gradient,
+            Prop::BackgroundColor
+            | Prop::BorderColor
+            | Prop::BorderTopColor
+            | Prop::BorderRightColor
+            | Prop::BorderBottomColor
+            | Prop::BorderLeftColor => Shape::ColorOrClear,
             Prop::Stroke | Prop::Fill => Shape::ColorOrNone,
             Prop::StrokeWidth => Shape::Fine,
             Prop::StrokeLinecap | Prop::StrokeLinejoin => Shape::Words(&[Keyword::Round]),
-            Prop::Padding => Shape::OneOrFourPx,
-            Prop::BackgroundColor | Prop::Color | Prop::BorderColor => Shape::Color,
+            Prop::Padding | Prop::BorderWidth => Shape::OneToFourPx,
+            Prop::Color => Shape::Color,
             Prop::Display => Shape::Words(&[Keyword::Block, Keyword::Flex]),
             Prop::FlexDirection => Shape::Words(&[Keyword::Row, Keyword::Column]),
             Prop::JustifyContent => Shape::Words(&[
@@ -244,8 +322,12 @@ impl Prop {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Shape {
     OnePx,
-    OneOrFourPx,
+    /// One to four lengths, as CSS reads them: `a` (all), `a b` (vertical,
+    /// horizontal), `a b c` (top, horizontal, bottom), `a b c d`.
+    OneToFourPx,
     Color,
+    /// A colour, or `transparent` (paint nothing).
+    ColorOrClear,
     Words(&'static [Keyword]),
     /// `400`, `500`, `600`, `700` (or `normal`, `bold`).
     Weight,
@@ -389,13 +471,9 @@ pub fn known_rejection(name: &[u8]) -> Option<(&'static str, &'static str)> {
              frontera es lo que impide que esto acabe siendo un navegador.",
             "Rust, en el bucle de fotograma del compositor.",
         ),
-        b"margin" | b"margin-top" | b"margin-left" => (
-            "los margenes verticales de CSS se FUNDEN entre hermanos (dos de 10px              pegados dan 10, no 20), y MAQUETA no va a implementar esa regla.              Aceptarla sin fundirlos haria que el fichero se viera distinto en el              navegador que en el Ryzen, que es justo lo que el guardian de la              cascada existe para impedir.",
-            "`gap` dentro de un `display:flex`, o `padding` en el contenedor. Las              dos cubren todos los casos contados en `scene/`.",
-        ),
-        b"border" => (
-            "el atajo mezcla grosor, estilo y color, y de los tres solo existen dos.",
-            "`border-width` y `border-color`, por separado.",
+        b"margin" | b"margin-top" | b"margin-left" | b"margin-right" | b"margin-bottom" => (
+            "los margenes verticales de CSS se FUNDEN entre hermanos (dos de 10px pegados dan 10, no 20), y MAQUETA no va a implementar esa regla. Aceptarla sin fundirlos haria que el fichero se viera distinto en el navegador que en el Ryzen, que es justo lo que el guardian de la cascada existe para impedir.",
+            "`gap` dentro de un `display:flex`, o `padding` en el contenedor. Las dos cubren todos los casos contados en `scene/`.",
         ),
         b"grid" | b"grid-template-columns" | b"grid-template-rows" | b"grid-area" => (
             "`grid` no esta: `flex` cubre todo lo que hace `scene/` hoy, contado.",

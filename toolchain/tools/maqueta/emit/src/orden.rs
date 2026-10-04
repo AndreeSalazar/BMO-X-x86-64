@@ -169,22 +169,50 @@ fn trazos_de(f: &Frame, estado: Estado, de: &str, out: &mut Vec<Orden>) {
         push(Trazo::Resplandor { r: f.rect, radio, alcance, argb });
     }
     if !suave {
-        if let Some(color) = s.border_color {
-            if s.border_width > 0 {
-                push(Trazo::Rect { r: f.rect, color });
+        match s.borde_uniforme() {
+            Some((d, borde)) => {
+                if let (Some(color), true) = (borde, d > 0) {
+                    push(Trazo::Rect { r: f.rect, color });
+                }
+                if let Some(color) = s.background {
+                    // Con el borde transparente el fondo llega hasta fuera,
+                    // como en CSS (`background-clip: border-box`).
+                    let d = if borde.is_some() { d } else { 0 };
+                    push(Trazo::Rect {
+                        r: Rect {
+                            x: f.rect.x + d as i32,
+                            y: f.rect.y + d as i32,
+                            w: f.rect.w.saturating_sub(d * 2),
+                            h: f.rect.h.saturating_sub(d * 2),
+                        },
+                        color,
+                    });
+                }
             }
-        }
-        if let Some(color) = s.background {
-            let d = s.border_width;
-            push(Trazo::Rect {
-                r: Rect {
-                    x: f.rect.x + d as i32,
-                    y: f.rect.y + d as i32,
-                    w: f.rect.w.saturating_sub(d * 2),
-                    h: f.rect.h.saturating_sub(d * 2),
-                },
-                color,
-            });
+            // ** UN BORDE DISTINTO POR LADO (escalon 1): el fondo entero y
+            // encima cada lado, un `rect` por lado. Arriba y abajo de punta a
+            // punta; los lados, entre los dos. Con 1 px -- lo que usan las
+            // maquetas, la raya bajo una fila -- es exactamente el dibujo de
+            // CSS; con grosores grandes y colores distintos, CSS corta la
+            // esquina en diagonal y aqui no (ver `LA_MAQUETA_EXIGE.md`).
+            None => {
+                if let Some(color) = s.background {
+                    push(Trazo::Rect { r: f.rect, color });
+                }
+                let [t, r, b, l] = s.border_width;
+                let (x, y, w, h) = (f.rect.x, f.rect.y, f.rect.w, f.rect.h);
+                let lados = [
+                    (0, Rect { x, y, w, h: t }),
+                    (2, Rect { x, y: y + h as i32 - b as i32, w, h: b }),
+                    (3, Rect { x, y: y + t as i32, w: l, h: h.saturating_sub(t + b) }),
+                    (1, Rect { x: x + w as i32 - r as i32, y: y + t as i32, w: r, h: h.saturating_sub(t + b) }),
+                ];
+                for (k, rr) in lados {
+                    if let (Some(color), true) = (s.border_color[k], rr.w > 0 && rr.h > 0) {
+                        push(Trazo::Rect { r: rr, color });
+                    }
+                }
+            }
         }
     } else {
         // El fondo va por debajo del borde entero, como en CSS
@@ -195,9 +223,11 @@ fn trazos_de(f: &Frame, estado: Estado, de: &str, out: &mut Vec<Orden>) {
         } else if let Some(color) = s.background {
             push(Trazo::Caja { r: f.rect, radio, color });
         }
-        if let Some(color) = s.border_color {
-            if s.border_width > 0 {
-                push(Trazo::Borde { r: f.rect, radio, grosor: s.border_width, color });
+        // Suave quiere el borde IGUAL en los cuatro lados: uno distinto con
+        // radio lo rechaza el veredicto (K), asi que aqui solo llega el igual.
+        if let Some((grosor, Some(color))) = s.borde_uniforme() {
+            if grosor > 0 {
+                push(Trazo::Borde { r: f.rect, radio, grosor, color });
             }
         }
     }

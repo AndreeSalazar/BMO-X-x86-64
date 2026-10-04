@@ -38,6 +38,7 @@
 pub mod markup;
 pub mod style;
 pub mod value;
+pub mod variables;
 
 use bmo_maqueta_diag::{Error, Span};
 use bmo_maqueta_lex::{lex, Kind, Token};
@@ -131,6 +132,9 @@ pub fn parse(src: &[u8]) -> Result<Document, Vec<Error>> {
     let mut errors = Vec::new();
     let (markup_toks, style_toks) = split(&toks, &mut errors);
 
+    // `:root` y `var(--x)` se resuelven ANTES de leer reglas: lo que llega a
+    // `style::parse` es lo mismo que si el valor se hubiera escrito a mano.
+    let style_toks = variables::resolver(src, &style_toks, &mut errors);
     let rules = style::parse(src, &style_toks, &mut errors);
     let root = markup::parse(src, &markup_toks, &mut errors);
 

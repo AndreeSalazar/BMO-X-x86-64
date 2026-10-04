@@ -84,8 +84,11 @@ pub struct Style {
     pub background: Option<u32>,
     /// `None` = nobody said. See the module header: there is no default.
     pub color: Option<u32>,
-    pub border_width: u32,
-    pub border_color: Option<u32>,
+    /// top, right, bottom, left (escalon 1: `border-bottom` es la raya que
+    /// separa dos filas en las maquetas).
+    pub border_width: [u32; 4],
+    /// `None` = ese lado no se pinta (aunque ocupe su grosor).
+    pub border_color: [Option<u32>; 4],
     pub border_radius: u32,
     pub display: Display,
     pub direction: Direction,
@@ -122,6 +125,14 @@ pub struct Style {
 }
 
 impl Style {
+    /// **El borde, si es el MISMO en los cuatro lados**: su grosor y su color.
+    /// `None` si algun lado difiere -- entonces se pinta lado a lado.
+    pub fn borde_uniforme(&self) -> Option<(u32, Option<u32>)> {
+        let w = self.border_width[0];
+        let c = self.border_color[0];
+        (self.border_width.iter().all(|&x| x == w) && self.border_color.iter().all(|&x| x == c)).then_some((w, c))
+    }
+
     /// Fold one declaration in. Later calls overwrite earlier ones, which is the
     /// whole of MAQUETA's cascade: **last wins**. What makes that safe is the
     /// guardian in `guard.rs`.
@@ -131,9 +142,17 @@ impl Style {
             (Prop::Height, Value::Px(n)) => self.height = Some(n),
             (Prop::Padding, Value::Px4(v)) => self.padding = v,
             (Prop::BackgroundColor, Value::Color(c)) => self.background = Some(c),
+            (Prop::BackgroundColor, Value::Nothing) => self.background = None,
             (Prop::Color, Value::Color(c)) => self.color = Some(c),
-            (Prop::BorderWidth, Value::Px(n)) => self.border_width = n,
-            (Prop::BorderColor, Value::Color(c)) => self.border_color = Some(c),
+            (Prop::BorderWidth, Value::Px4(v)) => self.border_width = v,
+            (Prop::BorderColor, Value::Color(c)) => self.border_color = [Some(c); 4],
+            (Prop::BorderColor, Value::Nothing) => self.border_color = [None; 4],
+            (p, Value::Px(n)) if p.lado().is_some() && matches!(p, Prop::PaddingTop | Prop::PaddingRight | Prop::PaddingBottom | Prop::PaddingLeft) => {
+                self.padding[p.lado().unwrap_or(0)] = n
+            }
+            (p, Value::Px(n)) if p.lado().is_some() => self.border_width[p.lado().unwrap_or(0)] = n,
+            (p, Value::Color(c)) if p.lado().is_some() => self.border_color[p.lado().unwrap_or(0)] = Some(c),
+            (p, Value::Nothing) if p.lado().is_some() => self.border_color[p.lado().unwrap_or(0)] = None,
             (Prop::BorderRadius, Value::Px(n)) => self.border_radius = n,
             (Prop::Gap, Value::Px(n)) => self.gap = n,
             (Prop::Left, Value::Px(n)) => self.left = Some(n),
@@ -173,6 +192,7 @@ impl Style {
             (Prop::BackgroundImage, Value::Gradient { vertical, from, to }) => {
                 self.gradient = Some((from, to, vertical))
             }
+            (Prop::BackgroundImage, Value::Nothing) => self.gradient = None,
             (Prop::Stroke, Value::Color(c)) => self.stroke = Some(c),
             (Prop::Stroke, Value::Nothing) => self.stroke = None,
             (Prop::StrokeWidth, Value::Fine(w)) => self.stroke_width = w,

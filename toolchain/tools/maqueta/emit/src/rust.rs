@@ -354,17 +354,17 @@ fn islas(s: &mut String, l: &Laid) {
     for f in con_fondo {
         let n = f.island.as_deref().expect("filtrado arriba");
         let fondo = f.style.background.expect("filtrado arriba");
-        let d = f.style.border_width;
+        let [t, r, b, l] = f.style.border_width;
         let _ = writeln!(
             s,
             "    if nombre == {n:?} {{\n\
              \x20       p.rect(ox + {}, oy + {}, {}, {}, 0x{fondo:08X});\n\
              \x20       return;\n\
              \x20   }}",
-            f.rect.x + d as i32,
-            f.rect.y + d as i32,
-            f.rect.w.saturating_sub(d * 2),
-            f.rect.h.saturating_sub(d * 2),
+            f.rect.x + l as i32,
+            f.rect.y + t as i32,
+            f.rect.w.saturating_sub(l + r),
+            f.rect.h.saturating_sub(t + b),
         );
     }
     s.push_str("}\n");
