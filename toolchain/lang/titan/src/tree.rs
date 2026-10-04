@@ -12,6 +12,8 @@
 //!              comparisons and `and` `or` `not`: a value that is YES or NO
 //!    level 4   `while`, `for NAME in range(...)`, `break`, `continue`: a
 //!              body that REPEATS
+//!    level 5   `fn f(a: int) -> int` and `return`: a function that takes
+//!              values and gives one back -- and a call is a value
 //! ```
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,7 +29,41 @@ pub struct Function {
     pub name: String,
     pub line: usize,
     pub col: usize,
+    /// `(a: int, b: text)` (level 5).
+    pub params: Vec<Param>,
+    /// `-> int`: what it gives back; `None`, nothing (level 5).
+    pub ret: Option<Ty>,
     pub body: Vec<Stmt>,
+}
+
+/// The classes of value a parameter or a result can say, in level 5. `f32`,
+/// `dec` and the tables arrive with the types (level 6): they are TYPES, not
+/// words, and spend no ceiling (TITAN_MAESTRO 14.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ty {
+    Int,
+    Text,
+    Bool,
+}
+
+impl Ty {
+    pub fn name(self) -> &'static str {
+        match self {
+            Ty::Int => "int",
+            Ty::Text => "text",
+            Ty::Bool => "bool",
+        }
+    }
+}
+
+/// `n: int`: a value the caller gives. It does not change (to lend one so the
+/// function changes it is `mut`, level 7).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Param {
+    pub name: String,
+    pub ty: Ty,
+    pub line: usize,
+    pub col: usize,
 }
 
 /// One line of a body.
@@ -51,6 +87,8 @@ pub enum Stmt {
     Break { line: usize, col: usize },
     /// `continue`: to the next turn of the innermost loop (level 4).
     Continue { line: usize, col: usize },
+    /// `return` or `return VALUE` (level 5).
+    Return { value: Option<Expr>, line: usize, col: usize },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -121,6 +159,8 @@ pub enum Expr {
     Neg { value: Box<Expr>, line: usize, col: usize },
     /// `not a` (level 3).
     Not { value: Box<Expr>, line: usize, col: usize },
+    /// `doble(3)`: what a function gives back (level 5).
+    Call { callee: String, args: Vec<Expr>, line: usize, col: usize },
 }
 
 impl Expr {
@@ -132,7 +172,8 @@ impl Expr {
             | Expr::Bool { line, col, .. }
             | Expr::Bin { line, col, .. }
             | Expr::Neg { line, col, .. }
-            | Expr::Not { line, col, .. } => (*line, *col),
+            | Expr::Not { line, col, .. }
+            | Expr::Call { line, col, .. } => (*line, *col),
         }
     }
 
@@ -146,6 +187,10 @@ impl Expr {
             Expr::Bin { op, left, right, .. } => format!("({} {} {})", left.show(), op, right.show()),
             Expr::Neg { value, .. } => format!("-{}", value.show()),
             Expr::Not { value, .. } => format!("not {}", value.show()),
+            Expr::Call { callee, args, .. } => {
+                let a: Vec<String> = args.iter().map(Expr::show).collect();
+                format!("{}({})", callee, a.join(", "))
+            }
         }
     }
 }
@@ -158,7 +203,7 @@ impl Stmt {
             Stmt::If(i) => i.line,
             Stmt::While(w) => w.line,
             Stmt::For(f) => f.line,
-            Stmt::Break { line, .. } | Stmt::Continue { line, .. } => *line,
+            Stmt::Break { line, .. } | Stmt::Continue { line, .. } | Stmt::Return { line, .. } => *line,
         }
     }
 }
@@ -168,7 +213,9 @@ impl Program {
     pub fn show(&self) -> String {
         let mut s = format!("mod {}  \"{}\"\n", self.module, self.purpose);
         for f in &self.functions {
-            s += &format!("{:<44}linea {}\n", format!("  fn {}()", f.name), f.line);
+            let params: Vec<String> = f.params.iter().map(|p| format!("{}: {}", p.name, p.ty.name())).collect();
+            let ret = f.ret.map(|t| format!(" -> {}", t.name())).unwrap_or_default();
+            s += &format!("{:<44}linea {}\n", format!("  fn {}({}){}", f.name, params.join(", "), ret), f.line);
             show_body(&f.body, 1, &mut s);
         }
         s
@@ -190,6 +237,8 @@ fn show_body(body: &[Stmt], depth: usize, s: &mut String) {
             Stmt::For(f) => format!("{}for {} in range({}, {})", pad, f.var, f.from.show(), f.to.show()),
             Stmt::Break { .. } => format!("{}break", pad),
             Stmt::Continue { .. } => format!("{}continue", pad),
+            Stmt::Return { value: Some(v), .. } => format!("{}return {}", pad, v.show()),
+            Stmt::Return { value: None, .. } => format!("{}return", pad),
         };
         *s += &format!("{:<44}linea {}\n", text, st.line());
         match st {

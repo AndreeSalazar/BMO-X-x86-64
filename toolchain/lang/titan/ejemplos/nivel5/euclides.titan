@@ -1,0 +1,28 @@
+# espera: BIEN
+# sale: mcd(48, 18) = 6
+# sale: mcd(1071, 462) = 21
+# sale: 17 es primo: true
+# sale: 21 es primo: false
+# el maximo comun divisor de Euclides (300 a. C.) y una funcion que responde si o no
+mod main "Euclides y los primos"
+
+fn mcd(a: int, b: int) -> int
+    if b == 0
+        return a
+    return mcd(b, a % b)
+
+fn es_primo(n: int) -> bool
+    if n < 2
+        return false
+    let mut d = 2
+    while d * d <= n
+        if n % d == 0
+            return false
+        d = d + 1
+    return true
+
+fn main()
+    print("mcd(48, 18) = ", mcd(48, 18))
+    print("mcd(1071, 462) = ", mcd(1071, 462))
+    print("17 es primo: ", es_primo(17))
+    print("21 es primo: ", es_primo(21))

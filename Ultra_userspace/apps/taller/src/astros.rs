@@ -224,6 +224,13 @@ pub fn planet(c: &mut Canvas, x: i32, y: i32, base: i32, name: &[u8], tr: Traits
             let (px, py) = (x + rx * cos64(b) / 1000, y + ry * sin64(b) / 1000);
             c.light(px, py, white(200 - tail as u32 * 30));
         }
+        // With `return` (level 5) the call comes back CARRYING a value: a
+        // bright head on the comet.
+        if tr.returns > 0 {
+            let (hx, hy) = (x + rx * cos64(a) / 1000, y + ry * sin64(a) / 1000);
+            halo(c, hx, hy, 1, 4, GOLD, 180);
+            c.disc(hx, hy, 1, INK);
+        }
     }
     // The emitter: its `print`, packets leaving toward the console (up).
     if tr.writes > 0 {

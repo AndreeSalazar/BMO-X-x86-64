@@ -25,7 +25,7 @@ struct Card {
 }
 
 const fn traits(fns: u8, lets: u8, muts: u8, changes: u8, writes: u8, calls: u8) -> Traits {
-    Traits { fns, lets, muts, changes, writes, calls, ifs: 0, loops: 0, lines: 9 }
+    Traits { fns, lets, muts, changes, writes, calls, ifs: 0, loops: 0, returns: calls, lines: 9 }
 }
 
 const CARDS: [Card; 14] = [
@@ -70,7 +70,7 @@ const CARDS: [Card; 14] = [
     Card {
         name: b"COMETAS",
         is: b"sus llamadas a otras fn",
-        why: b"dan la vuelta y vuelven: una llamada sale y regresa a su sitio",
+        why: b"dan la vuelta y vuelven: una llamada sale y regresa; con return vuelve CARGADA, con la cabeza encendida",
         color: TITLE,
         draw: |c, x, y, t| astros::planet(c, x, y, 14, b"physics", traits(2, 0, 0, 0, 0, 2), t),
     },

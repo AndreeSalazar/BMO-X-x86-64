@@ -1,0 +1,18 @@
+# espera: BIEN
+# sale: 1! = 1
+# sale: 2! = 2
+# sale: 3! = 6
+# sale: 4! = 24
+# sale: 5! = 120
+# sale: 6! = 720
+# una funcion que se llama a si misma, con su caso de parada: la recursion
+mod main "el factorial, recursivo"
+
+fn factorial(n: int) -> int
+    if n <= 1
+        return 1
+    return n * factorial(n - 1)
+
+fn main()
+    for i in range(1, 7)
+        print(i, "! = ", factorial(i))

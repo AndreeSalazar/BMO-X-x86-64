@@ -41,3 +41,5 @@ toolchain/lang/titan/ejemplos/nivel3/calculadora.titan 37 0 194 dd118d64af246ac3
 toolchain/lang/titan/ejemplos/nivel3/semaforo.titan 34 0 180 cdaf2dedfc9dd621
 toolchain/lang/titan/ejemplos/nivel4/primos.titan 67 0 368 753dbec4fae0456f
 toolchain/lang/titan/ejemplos/nivel4/tabla_del_siete.titan 55 0 295 2b3ec7fcdb3a50b0
+toolchain/lang/titan/ejemplos/nivel5/euclides.titan 45 0 237 fe85cb363949f162
+toolchain/lang/titan/ejemplos/nivel5/factorial.titan 40 0 225 fd885f66be1e5083

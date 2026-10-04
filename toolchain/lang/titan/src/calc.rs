@@ -40,6 +40,7 @@
 //! not divide when `d` is 0), for the same reason.
 
 use crate::ir::{At, End, Function, Module, Op, Value};
+use crate::tree::Ty;
 use crate::message::{Code, Message};
 
 /// A value, calculated.
@@ -93,10 +94,23 @@ impl Class {
 pub fn fold(m: &Module) -> Result<Module, Message> {
     let mut out = m.clone();
     for f in &out.functions {
-        classes(f)?;
+        classes(f, m)?;
     }
-    let mut r = Run { m, steps: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0) };
-    r.call(m.entry)?;
+    // ** The run goes in a thread of its OWN, with a big stack: a recursion
+    // of DEPTH calls is a rule of the language (T0066), never a stack that
+    // bursts inside the compiler. The memory is only reserved, not used.
+    let r = std::thread::scope(|sc| {
+        std::thread::Builder::new()
+            .stack_size(STACK)
+            .spawn_scoped(sc, || {
+                let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0) };
+                r.call(m.entry, Vec::new(), (m.functions[m.entry].line, 1)).map(|_| r)
+            })
+            .expect("a thread for the run")
+            .join()
+            .expect("the run does not panic")
+    });
+    let r = r?;
     for (f, seen) in out.functions.iter_mut().zip(&r.seen) {
         for (b, &s) in f.blocks.iter_mut().zip(seen) {
             b.dead = !s;
@@ -111,16 +125,41 @@ pub fn fold(m: &Module) -> Result<Module, Message> {
 /// over; a `while true` with no `break` reaches it in a blink.
 pub const STEPS: u64 = 1_000_000;
 
+/// How deep calls may nest while running (level 5): a recursion that goes
+/// further is said, not a stack that bursts inside the compiler.
+pub const DEPTH: usize = 10_000;
+
+/// The stack of the thread the run goes in: room for DEPTH calls, even in a
+/// debug build.
+const STACK: usize = 512 << 20;
+
+/// The class a type of the text says.
+fn of_ty(t: Ty) -> Class {
+    match t {
+        Ty::Int => Class::Int,
+        Ty::Text => Class::Text,
+        Ty::Bool => Class::Bool,
+    }
+}
+
+/// T0071: a value of the wrong class where a parameter or a result says one.
+fn wrong(at: At, want: Class, got: Class, what: &str, how: &str) -> Message {
+    Message::new(Code::WrongType, at.0, at.1, &format!("aqui va {}, y llega {}", want.name(), got.name()), what, how)
+}
+
 /// The first pass: the class of every local and every value, in EVERY block.
 /// The blocks are in reading order, and a local that dies (`Drop`) forgets
 /// its class: the next one with that name is another value.
-fn classes(f: &Function) -> Result<(), Message> {
+fn classes(f: &Function, m: &Module) -> Result<(), Message> {
     let mut known: Vec<Option<Class>> = vec![None; f.locals.len()];
+    for &(l, t) in &f.params {
+        known[l] = Some(of_ty(t));
+    }
     for b in &f.blocks {
         for op in &b.ops {
             match op {
                 Op::Let { local, value, at, .. } => {
-                    let c = class(value, &known)?;
+                    let c = class(value, &known, m)?;
                     // The hidden two of a `for` (`#i`, `#fin`): `range`
                     // counts with numbers.
                     if f.locals[*local].name.starts_with('#') && c != Class::Int {
@@ -136,7 +175,7 @@ fn classes(f: &Function) -> Result<(), Message> {
                     known[*local] = Some(c);
                 }
                 Op::Set { local, value, at } => {
-                    let c = class(value, &known)?;
+                    let c = class(value, &known, m)?;
                     // ** A `mut` changes its VALUE, never its kind: a number
                     // stays a number (Python lets `x = 5` become `x = "hola"`;
                     // the checker could not say what x is).
@@ -155,15 +194,22 @@ fn classes(f: &Function) -> Result<(), Message> {
                 }
                 Op::Write { parts, .. } => {
                     for p in parts {
-                        class(p, &known)?;
+                        class(p, &known, m)?;
                     }
                 }
-                Op::Call { .. } => {}
+                Op::Call { func, args, at } => args_fit(*func, args, *at, &known, m)?,
                 Op::Drop { local, .. } => known[*local] = None,
             }
         }
+        if let End::Return(Some(v)) = &b.end {
+            let got = class(v, &known, m)?;
+            let want = of_ty(f.ret.expect("check: a return with a value is in a fn with ->"));
+            if got != want {
+                return Err(wrong(v.at(), want, got, &format!("`fn {}` promete `-> {}` en su linea {}", f.name, f.ret.map(|t| t.name()).unwrap_or(""), f.line), "devuelve un valor de esa clase, o cambia lo que promete la primera linea"));
+            }
+        }
         if let End::Branch { cond, at, .. } = &b.end {
-            let c = class(cond, &known)?;
+            let c = class(cond, &known, m)?;
             if c != Class::Bool {
                 return Err(Message::new(
                     Code::NotBool,
@@ -190,21 +236,45 @@ fn written(v: &Value, f: &Function) -> String {
         Value::Bin(op, l, r, _) => format!("{} {} {}", written(l, f), op, written(r, f)),
         Value::Neg(v, _) => format!("-{}", written(v, f)),
         Value::Not(v, _) => format!("not {}", written(v, f)),
+        Value::Call(_, args, _) => format!("f({})", args.iter().map(|a| written(a, f)).collect::<Vec<_>>().join(", ")),
     }
 }
 
+/// The values given to a call, each against the class its parameter says.
+fn args_fit(func: usize, args: &[Value], at: At, known: &[Option<Class>], m: &Module) -> Result<(), Message> {
+    let g = &m.functions[func];
+    for (a, &(l, t)) in args.iter().zip(&g.params) {
+        let got = class(a, known, m)?;
+        if got != of_ty(t) {
+            return Err(wrong(
+                a.at(),
+                of_ty(t),
+                got,
+                &format!("`{}` pide `{}: {}` (su linea {})", g.name, g.locals[l].name, t.name(), g.line),
+                "TITAN++ no convierte solo: dale un valor de esa clase",
+            ));
+        }
+    }
+    let _ = at;
+    Ok(())
+}
+
 /// The class of a value, or the NO that says why it has none.
-pub fn class(v: &Value, known: &[Option<Class>]) -> Result<Class, Message> {
+pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Message> {
     Ok(match v {
+        Value::Call(func, args, at) => {
+            args_fit(*func, args, *at, known, m)?;
+            of_ty(m.functions[*func].ret.expect("check: a call used as a value gives one back"))
+        }
         Value::Int(..) => Class::Int,
         Value::Text(..) => Class::Text,
         Value::Bool(..) => Class::Bool,
         Value::Local(l, _) => known[*l].expect("juez: every local read has a value"),
-        Value::Neg(inner, at) => match class(inner, known)? {
+        Value::Neg(inner, at) => match class(inner, known, m)? {
             Class::Int => Class::Int,
             c => return Err(Message::new(Code::Mixed, at.0, at.1, &format!("{} no tiene signo", c.name()), &format!("aqui hay {} con un `-` delante", c.name()), "el `-` va delante de un numero")),
         },
-        Value::Not(inner, at) => match class(inner, known)? {
+        Value::Not(inner, at) => match class(inner, known, m)? {
             Class::Bool => Class::Bool,
             c => {
                 return Err(Message::new(
@@ -218,7 +288,7 @@ pub fn class(v: &Value, known: &[Option<Class>]) -> Result<Class, Message> {
             }
         },
         Value::Bin(op, l, r, at) => {
-            let (a, b) = (class(l, known)?, class(r, known)?);
+            let (a, b) = (class(l, known, m)?, class(r, known, m)?);
             match (*op, a, b) {
                 ("+" | "-" | "*" | "/" | "%", Class::Int, Class::Int) => Class::Int,
                 ("+", Class::Text, Class::Text) => Class::Text,
@@ -306,6 +376,8 @@ pub fn class(v: &Value, known: &[Option<Class>]) -> Result<Class, Message> {
 struct Run<'m> {
     m: &'m Module,
     steps: u64,
+    /// How many calls are open right now.
+    depth: usize,
     flat: Vec<Op>,
     /// Which blocks of which function some run entered.
     seen: Vec<Vec<bool>>,
@@ -330,41 +402,103 @@ impl Run<'_> {
         Ok(())
     }
 
-    fn call(&mut self, func: usize) -> Result<(), Message> {
+    /// Runs `func` with these values; what it gives back, if anything.
+    fn call(&mut self, func: usize, args: Vec<Const>, at: At) -> Result<Option<Const>, Message> {
         let m = self.m;
         let f = &m.functions[func];
+        if self.depth >= DEPTH {
+            return Err(Message::new(
+                Code::NoEnd,
+                at.0,
+                at.1,
+                &format!("las llamadas se anidan mas de {} veces", DEPTH),
+                &format!("`{}` se sigue llamando sin llegar a su caso de parada: o no lo tiene, o el valor que se le pasa no se acerca a el", f.name),
+                "revisa el `if` que la para y que cada llamada se acerque a el (cuenta(n - 1) hasta n == 0)",
+            ));
+        }
+        self.depth += 1;
         let mut known: Vec<Option<Const>> = vec![None; f.locals.len()];
+        for (&(l, _), a) in f.params.iter().zip(args) {
+            known[l] = Some(a);
+        }
         let mut b = 0;
-        loop {
+        let result = loop {
             self.seen[func][b] = true;
             for op in &f.blocks[b].ops {
                 self.tick()?;
                 match op {
-                    Op::Let { local, value, .. } | Op::Set { local, value, .. } => known[*local] = Some(eval(value, &known)?),
+                    Op::Let { local, value, .. } | Op::Set { local, value, .. } => known[*local] = Some(self.ev(value, &known)?),
                     Op::Write { parts, at } => {
-                        let parts = parts.iter().map(|p| eval(p, &known).map(|c| constant(&c, p.at()))).collect::<Result<_, _>>()?;
-                        self.flat.push(Op::Write { parts, at: *at });
+                        let mut out = Vec::with_capacity(parts.len());
+                        for p in parts {
+                            let c = self.ev(p, &known)?;
+                            out.push(constant(&c, p.at()));
+                        }
+                        self.flat.push(Op::Write { parts: out, at: *at });
                     }
-                    Op::Call { func, .. } => self.call(*func)?,
+                    Op::Call { func, args, at } => {
+                        let vals = args.iter().map(|a| self.ev(a, &known)).collect::<Result<Vec<_>, _>>()?;
+                        self.call(*func, vals, *at)?;
+                    }
                     Op::Drop { local, .. } => known[*local] = None,
                 }
             }
             self.tick()?;
             b = match &f.blocks[b].end {
-                End::Return => return Ok(()),
+                End::Return(v) => break match v {
+                    Some(v) => Some(self.ev(v, &known)?),
+                    None => None,
+                },
                 End::Jump(t) => *t,
                 End::Branch { cond, then, other, at } => {
                     if *then < b || *other < b || f.blocks.iter().skip(b).any(|x| x.end.targets().contains(&b)) {
                         self.last_turn = *at;
                     }
-                    if matches!(eval(cond, &known)?, Const::Bool(true)) {
+                    if matches!(self.ev(cond, &known)?, Const::Bool(true)) {
                         *then
                     } else {
                         *other
                     }
                 }
             };
-        }
+        };
+        self.depth -= 1;
+        Ok(result)
+    }
+
+    /// A value, calculated -- running the calls inside it.
+    fn ev(&mut self, v: &Value, known: &[Option<Const>]) -> Result<Const, Message> {
+        Ok(match v {
+            Value::Int(n, _) => Const::Int(*n),
+            Value::Text(t, _) => Const::Text(t.clone()),
+            Value::Bool(b, _) => Const::Bool(*b),
+            Value::Local(l, _) => known[*l].clone().expect("juez: every local read has a value"),
+            Value::Call(func, args, at) => {
+                let vals = args.iter().map(|a| self.ev(a, known)).collect::<Result<Vec<_>, _>>()?;
+                self.call(*func, vals, *at)?.expect("check: a call used as a value gives one back")
+            }
+            Value::Neg(inner, at) => match self.ev(inner, known)? {
+                Const::Int(n) => n.checked_neg().map(Const::Int).ok_or_else(|| overflow(*at, &format!("-({})", n)))?,
+                other => return Err(unclassed(*at, &other)),
+            },
+            Value::Not(inner, at) => match self.ev(inner, known)? {
+                Const::Bool(b) => Const::Bool(!b),
+                other => return Err(unclassed(*at, &other)),
+            },
+            // `and` / `or` stop as soon as they know.
+            Value::Bin(op @ ("and" | "or"), l, r, at) => match self.ev(l, known)? {
+                Const::Bool(a) if (*op == "and") != a => Const::Bool(a),
+                Const::Bool(_) => match self.ev(r, known)? {
+                    b @ Const::Bool(_) => b,
+                    other => return Err(unclassed(*at, &other)),
+                },
+                other => return Err(unclassed(*at, &other)),
+            },
+            Value::Bin(op, l, r, at) => {
+                let (a, b) = (self.ev(l, known)?, self.ev(r, known)?);
+                binop(op, a, b, *at)?
+            }
+        })
     }
 }
 
@@ -381,44 +515,18 @@ fn unclassed(at: At, a: &Const) -> Message {
     Message::new(Code::Mixed, at.0, at.1, &format!("aqui no cabe {}", a.class().name()), "el calculo encontro una clase que la primera pasada no vio", "esto es un fallo del compilador: avisa con este programa")
 }
 
-pub fn eval(v: &Value, known: &[Option<Const>]) -> Result<Const, Message> {
-    match v {
-        Value::Int(n, _) => Ok(Const::Int(*n)),
-        Value::Text(t, _) => Ok(Const::Text(t.clone())),
-        Value::Bool(b, _) => Ok(Const::Bool(*b)),
-        Value::Local(l, _) => Ok(known[*l].clone().expect("juez: every local read has a value")),
-        Value::Neg(inner, at) => match eval(inner, known)? {
-            Const::Int(n) => n.checked_neg().map(Const::Int).ok_or_else(|| overflow(*at, &format!("-({})", n))),
-            other => Err(unclassed(*at, &other)),
-        },
-        Value::Not(inner, at) => match eval(inner, known)? {
-            Const::Bool(b) => Ok(Const::Bool(!b)),
-            other => Err(unclassed(*at, &other)),
-        },
-        // `and` / `or` stop as soon as they know: the right side is not
-        // calculated when the left already decided.
-        Value::Bin(op @ ("and" | "or"), l, r, at) => match eval(l, known)? {
-            Const::Bool(a) if (*op == "and") != a => Ok(Const::Bool(a)),
-            Const::Bool(_) => match eval(r, known)? {
-                b @ Const::Bool(_) => Ok(b),
-                other => Err(unclassed(*at, &other)),
-            },
-            other => Err(unclassed(*at, &other)),
-        },
-        Value::Bin(op, l, r, at) => {
-            let (a, b) = (eval(l, known)?, eval(r, known)?);
-            match (*op, &a, &b) {
-                ("==", _, _) => Ok(Const::Bool(a == b)),
-                ("!=", _, _) => Ok(Const::Bool(a != b)),
-                ("<", Const::Int(x), Const::Int(y)) => Ok(Const::Bool(x < y)),
-                ("<=", Const::Int(x), Const::Int(y)) => Ok(Const::Bool(x <= y)),
-                (">", Const::Int(x), Const::Int(y)) => Ok(Const::Bool(x > y)),
-                (">=", Const::Int(x), Const::Int(y)) => Ok(Const::Bool(x >= y)),
-                (_, Const::Int(x), Const::Int(y)) => int(op, *x, *y, *at),
-                ("+", Const::Text(x), Const::Text(y)) => Ok(Const::Text(format!("{}{}", x, y))),
-                _ => Err(unclassed(*at, &a)),
-            }
-        }
+/// Two values and an operator: comparisons, arithmetic, texts joined.
+fn binop(op: &str, a: Const, b: Const, at: At) -> Result<Const, Message> {
+    match (op, &a, &b) {
+        ("==", _, _) => Ok(Const::Bool(a == b)),
+        ("!=", _, _) => Ok(Const::Bool(a != b)),
+        ("<", Const::Int(x), Const::Int(y)) => Ok(Const::Bool(x < y)),
+        ("<=", Const::Int(x), Const::Int(y)) => Ok(Const::Bool(x <= y)),
+        (">", Const::Int(x), Const::Int(y)) => Ok(Const::Bool(x > y)),
+        (">=", Const::Int(x), Const::Int(y)) => Ok(Const::Bool(x >= y)),
+        (_, Const::Int(x), Const::Int(y)) => int(op, *x, *y, at),
+        ("+", Const::Text(x), Const::Text(y)) => Ok(Const::Text(format!("{}{}", x, y))),
+        _ => Err(unclassed(at, &a)),
     }
 }
 
@@ -558,6 +666,19 @@ mod tests {
         assert_eq!(printed("mod main \"x\"\nfn main()\n    let mut n = 1\n    while true\n        n = n * 2\n        if n > 100\n            break\n    print(n)\n"), ["128"]);
         // `range` counts with numbers.
         assert_eq!(run("mod main \"x\"\nfn main()\n    for i in range(\"tres\")\n        print(i)\n").unwrap_err().code, Code::Mixed);
+    }
+
+    #[test]
+    fn calls_carry_values_and_recursion_runs_with_its_stop() {
+        let src = "mod main \"x\"\nfn fact(n: int) -> int\n    if n <= 1\n        return 1\n    return n * fact(n - 1)\nfn par(n: int) -> bool\n    return n % 2 == 0\nfn main()\n    print(fact(10), \" \", par(fact(3)))\n";
+        assert_eq!(printed(src), ["3628800 true"]);
+        // A deep but finite recursion runs: 5000 calls nested.
+        assert_eq!(printed("mod main \"x\"\nfn suma(n: int) -> int\n    if n == 0\n        return 0\n    return n + suma(n - 1)\nfn main()\n    print(suma(5000))\n"), ["12502500"]);
+        // One that never stops is said, not a compiler that bursts.
+        assert_eq!(run("mod main \"x\"\nfn f(n: int) -> int\n    return f(n + 1)\nfn main()\n    print(f(0))\n").unwrap_err().code, Code::NoEnd);
+        // The class of each value given is the one its parameter says.
+        assert_eq!(run("mod main \"x\"\nfn f(n: int) -> int\n    return n\nfn main()\n    print(f(true))\n").unwrap_err().code, Code::WrongType);
+        assert_eq!(run("mod main \"x\"\nfn f(n: int) -> text\n    return n\nfn main()\n    print(f(1))\n").unwrap_err().code, Code::WrongType);
     }
 
     #[test]

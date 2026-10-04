@@ -99,7 +99,7 @@ fn patch(code: &mut [u8], field: usize, target: usize) {
 /// `Branch` the calculation already turned into `true` / `false`.
 fn next_of(f: &Function, i: usize) -> Result<Option<usize>, String> {
     Ok(match &f.blocks[i].end {
-        End::Return => None,
+        End::Return(_) => None,
         End::Jump(t) => Some(*t),
         End::Branch { cond: Value::Bool(yes, _), then, other, .. } => Some(if *yes { *then } else { *other }),
         End::Branch { at, .. } => return Err(format!("linea {}: un `if` llego sin decidir", at.0)),

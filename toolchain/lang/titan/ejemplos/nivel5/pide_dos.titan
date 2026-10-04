@@ -1,0 +1,11 @@
+# espera: T0068
+# `mcd` pide dos valores, y aqui se le da uno
+mod main "a mcd le falta un valor"
+
+fn mcd(a: int, b: int) -> int
+    if b == 0
+        return a
+    return mcd(b, a % b)
+
+fn main()
+    print(mcd(48))

@@ -1649,3 +1649,25 @@ continue`, 15 palabras):
   lila (`.loop` en `titan.maqueta`); la semilla `physics` cuenta tres cuadros.
 - 🟡 como siempre: el banco corre en el emulador, no en el Ryzen.
 
+**NIVEL 5 -- FUNCIONES CON RESULTADO, HECHO EN EL ANFITRION el 04-10**
+(`return`, 16 palabras): **ya se escribe cualquier algoritmo**.
+
+```text
+   fn mcd(a: int, b: int) -> int    parametros con tipo (int, text, bool) y
+       if b == 0                    lo que devuelve; una llamada ES un valor
+           return a
+       return mcd(b, a % b)         y la recursion, con su caso de parada
+```
+
+- **Nombres**: aridad (T0068), lo que no devuelve nada usado como valor y el
+  `return` que no cuadra (T0069). **T0053 se mueve, como prometio**: queda
+  solo para ciclos de fn SIN parametros; los demas los juzga correrlos.
+- **Juez**: los parametros nacen vivos y no cambian; un camino sin `return` en
+  una fn que lo prometio es T0070.
+- **Calculo**: la clase de cada valor pasado y devuelto (T0071); la recursion
+  se corre al compilar en un hilo con pila propia, y mas de 10 000 llamadas
+  anidadas es T0066 -- una regla del lenguaje, no una pila que revienta.
+- **F1**: los cometas (las llamadas) vuelven CARGADOS -- la cabeza encendida --
+  cuando el modulo tiene `return`.
+- 🟡 en el emulador; el banco corre factorial, Euclides y Fibonacci.
+

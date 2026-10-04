@@ -101,7 +101,12 @@ pub fn judge(m: &Module) -> Result<(), Message> {
 fn judge_fn(f: &Function) -> Result<(), Message> {
     let n = f.blocks.len();
     let mut entry: Vec<Option<Vec<State>>> = vec![None; n];
-    entry[0] = Some(vec![State::Unborn; f.locals.len()]);
+    let mut first = vec![State::Unborn; f.locals.len()];
+    // The parameters arrive with their value (level 5), and do not change.
+    for &(l, _) in &f.params {
+        first[l] = State::Alive { since: f.line, at: (f.line, 1), mutable: false, changed: false };
+    }
+    entry[0] = Some(first);
     for _round in 0..n * 4 + 8 {
         let mut moved = false;
         for i in 0..n {
@@ -132,7 +137,29 @@ fn judge_fn(f: &Function) -> Result<(), Message> {
             step(f, op, &mut state)?;
         }
         match &b.end {
-            End::Return => never_changed(f, &state)?,
+            End::Return(v) => {
+                if let Some(v) = v {
+                    let mut reads = Vec::new();
+                    v.reads(&mut reads);
+                    for (l, at) in reads {
+                        usable(f, &state, l, at)?;
+                    }
+                } else if let Some(t) = f.ret {
+                    // ** A way that reaches the end of a function that
+                    // promised a value, with none to give: T0070. Only a way
+                    // that can be WALKED counts (a line after a `return` has
+                    // no way in), so an `if` that returns on both sides is fine.
+                    return Err(Message::new(
+                        Code::MissingReturn,
+                        f.line,
+                        1,
+                        &format!("`fn {}` promete un {} y hay un camino que llega al final sin `return`", f.name, t.name()),
+                        "si una condicion no se cumple, la funcion se acaba sin dar nada: el que llama se quedaria sin su valor",
+                        &format!("pon un `return` al final de `fn {}`, para el caso que falta", f.name),
+                    ));
+                }
+                never_changed(f, &state)?;
+            }
             End::Branch { cond, .. } => {
                 let mut reads = Vec::new();
                 cond.reads(&mut reads);
@@ -176,7 +203,12 @@ fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
             }
             None
         }
-        Op::Call { .. } => None,
+        Op::Call { args, .. } => {
+            for a in args {
+                a.reads(&mut reads);
+            }
+            None
+        }
         Op::Drop { local, at } => {
             // The block closes: a `mut` born in it had its whole life to
             // change, and that life is over.
@@ -211,6 +243,16 @@ fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
         // `x = ...`
         (State::Unborn, None) => return Err(no_value(f, l, at)),
         (State::Dead { born, scope }, None) => return Err(gone(f, l, at, born, scope)),
+        (State::Alive { .. }, None) if f.params.iter().any(|p| p.0 == l) => {
+            return Err(Message::new(
+                Code::NotMut,
+                at.0,
+                at.1,
+                &format!("`{}` no se puede cambiar", name),
+                &format!("es un parametro de `fn {}`: llega de quien llama, y aqui solo se lee", f.name),
+                &format!("usa otro nombre para el valor que cambia: let mut otro = {} (prestarlo para cambiarlo es `mut`, nivel 7)", name),
+            ))
+        }
         (State::Alive { since, mutable: false, .. }, None) if is_turn(f, l) => {
             return Err(Message::new(
                 Code::NotMut,
@@ -396,6 +438,18 @@ mod tests {
     fn break_and_continue_close_the_blocks_they_leave() {
         let src = "mod main \"x\"\nfn main()\n    let mut n = 0\n    while true\n        let paso = 2\n        n = n + paso\n        if n > 5\n            let fin = n\n            print(fin)\n            break\n    print(n)\n";
         assert!(verdict(src).is_ok(), "{:?}", verdict(src));
+    }
+
+    #[test]
+    fn a_function_that_promises_a_value_gives_it_on_every_way() {
+        // Both sides of the `if` return: the line after has no way in.
+        assert!(verdict("mod main \"x\"\nfn signo(n: int) -> int\n    if n < 0\n        return -1\n    else\n        return 1\nfn main()\n    print(signo(3))\n").is_ok());
+        let e = verdict("mod main \"x\"\nfn signo(n: int) -> int\n    if n < 0\n        return -1\nfn main()\n    print(signo(3))\n").unwrap_err();
+        assert_eq!((e.code, e.line), (Code::MissingReturn, 2));
+        // A parameter arrives alive and does not change.
+        let e = verdict("mod main \"x\"\nfn f(n: int) -> int\n    n = 2\n    return n\nfn main()\n    print(f(1))\n").unwrap_err();
+        assert_eq!(e.code, Code::NotMut);
+        assert!(e.why.contains("parametro"), "{}", e.why);
     }
 
     #[test]

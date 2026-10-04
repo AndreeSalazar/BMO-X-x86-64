@@ -1,0 +1,9 @@
+# espera: T0071
+# `doble` pide un int, y se le da un texto: TITAN++ no convierte solo
+mod main "el doble de un texto"
+
+fn doble(n: int) -> int
+    return n * 2
+
+fn main()
+    print(doble("cuatro"))

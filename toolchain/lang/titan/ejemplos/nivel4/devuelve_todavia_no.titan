@@ -1,8 +1,0 @@
-# espera: T0040
-# `return` es del nivel 5: la escalera se sube de uno en uno
-mod main "devuelve"
-
-fn main()
-    let vidas = 3
-    print(vidas)
-    return

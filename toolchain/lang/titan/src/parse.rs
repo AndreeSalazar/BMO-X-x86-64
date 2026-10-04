@@ -5,13 +5,16 @@
 //! ```text
 //!    file     :=  header  function*
 //!    header   :=  `mod` NAME TEXT NEWLINE
-//!    function :=  `fn` NAME `(` `)` block
+//!    function :=  `fn` NAME `(` [ param { `,` param } ] `)` [ `->` type ] block
+//!    param    :=  NAME `:` type                                     (level 5)
+//!    type     :=  `int` | `text` | `bool`     (f32, dec, tables: level 6)
 //!    block    :=  NEWLINE INDENT stmt+ DEDENT
 //!    stmt     :=  call | `let` [`mut`] NAME `=` expr | NAME `=` expr   NEWLINE
 //!              |  `if` expr block [ `else` ( block | if ) ]          (level 3)
 //!              |  `while` expr block                                (level 4)
 //!              |  `for` NAME `in` `range` `(` expr [`,` expr] `)` block
 //!              |  `break` | `continue`        (inside a loop: T0067)
+//!              |  `return` [ expr ]                                 (level 5)
 //!    call     :=  NAME `(` [ expr { `,` expr } ] `)`
 //!    expr     :=  and { `or` and }                                  (level 3)
 //!    and      :=  not { `and` not }
@@ -20,6 +23,7 @@
 //!    sum      :=  term { (`+` | `-`) term }
 //!    term     :=  unary { (`*` | `/` | `%`) unary }
 //!    unary    :=  `-` unary | NUMBER | TEXT | NAME | `true` | `false` | `(` expr `)`
+//!              |  NAME `(` [ expr { `,` expr } ] `)`     a call is a value (5)
 //! ```
 //!
 //! ** One comparison at a time: `a < b < c` is a NO (T0030) and says how to
@@ -37,7 +41,7 @@
 
 use crate::lex::{Kind, Token};
 use crate::message::{Code, Message};
-use crate::tree::{Call, Expr, For, Function, If, Let, Program, Stmt, While};
+use crate::tree::{Call, Expr, For, Function, If, Let, Param, Program, Stmt, Ty, While};
 use crate::words::{self, LEVEL_NOW};
 
 struct Parser<'a> {
@@ -101,10 +105,10 @@ impl<'a> Parser<'a> {
         match &tok.kind {
             Kind::Word(w) => {
                 let level = words::find(w).map(|x| x.level).unwrap_or(0);
-                (level > LEVEL_NOW).then(|| not_yet(tok, &format!("`{}`", w), level, "por ahora: llamadas, `let`, `let mut`, `if` / `else`, `while` y `for`"))
+                (level > LEVEL_NOW).then(|| not_yet(tok, &format!("`{}`", w), level, "por ahora: llamadas, `let`, `let mut`, `if` / `else`, `while`, `for` y `fn` con `return`"))
             }
             Kind::Number(n) if n.contains('.') => Some(not_yet(tok, "un decimal", 6, "por ahora, numeros enteros: los decimales EXACTOS (dec) llegan con los tipos")),
-            Kind::Sym("->") => Some(not_yet(tok, "una funcion que devuelve algo", 5, "por ahora, `fn nombre()` sin `->`")),
+            Kind::Sym("->") if LEVEL_NOW < 5 => Some(not_yet(tok, "una funcion que devuelve algo", 5, "por ahora, `fn nombre()` sin `->`")),
             Kind::Sym("==" | "!=" | "<" | "<=" | ">" | ">=") if LEVEL_NOW < 3 => Some(not_yet(tok, "comparar", 3, "por ahora, se calcula con + - * / %")),
             _ => None,
         }
@@ -153,19 +157,61 @@ impl<'a> Parser<'a> {
         if open.kind != Kind::Sym("(") {
             return Err(self.expected(open, "`(`", &format!("fn {}()", name)));
         }
-        let close = self.next();
-        if close.kind != Kind::Sym(")") {
-            return Err(match close.kind {
-                Kind::Name(_) => not_yet(close, "una funcion con parametros", 5, &format!("por ahora, fn {}()", name)),
-                _ => self.expected(close, "`)`", &format!("fn {}()", name)),
-            });
+        let mut params: Vec<Param> = Vec::new();
+        if self.peek().kind != Kind::Sym(")") {
+            loop {
+                let p = self.next();
+                let Kind::Name(pname) = &p.kind else {
+                    return Err(match p.kind {
+                        Kind::Word("mut" | "take") => not_yet(p, "prestar o entregar un parametro", 7, &format!("por ahora, `{0}(n: int)`: el valor llega y no cambia", name)),
+                        _ => self.ladder(p).unwrap_or_else(|| self.expected(p, "el nombre de un parametro", &format!("fn {}(n: int)", name))),
+                    });
+                };
+                if LEVEL_NOW < 5 {
+                    return Err(not_yet(p, "una funcion con parametros", 5, &format!("por ahora, fn {}()", name)));
+                }
+                let colon = self.next();
+                if colon.kind != Kind::Sym(":") {
+                    return Err(self.expected(colon, "`:` y el tipo", &format!("fn {}({}: int)", name, pname)));
+                }
+                let ty = self.ty(&format!("fn {}({}: int)", name, pname))?;
+                params.push(Param { name: pname.clone(), ty, line: p.line, col: p.col });
+                let sep = self.next();
+                match sep.kind {
+                    Kind::Sym(",") => continue,
+                    Kind::Sym(")") => break,
+                    _ => return Err(self.expected(sep, "`,` o `)`", &format!("fn {}(a: int, b: int)", name))),
+                }
+            }
+        } else {
+            self.next();
+        }
+        let mut ret = None;
+        if self.peek().kind == Kind::Sym("->") && LEVEL_NOW >= 5 {
+            self.next();
+            ret = Some(self.ty(&format!("fn {}() -> int", name))?);
         }
         let end = self.peek();
         if end.kind != Kind::Newline {
             return Err(self.ladder(end).unwrap_or_else(|| self.expected(end, "el final de la linea", &format!("fn {}() y el cuerpo debajo, sangrado", name))));
         }
+        let _ = fn_tok;
         let body = self.block(fn_tok, &format!("`fn {}()`", name), &format!("fn {}()\n             print(\"hola\")", name))?;
-        Ok(Function { name: name.clone(), line: fn_tok.line, col: fn_tok.col, body })
+        Ok(Function { name: name.clone(), line: fn_tok.line, col: fn_tok.col, params, ret, body })
+    }
+
+    /// `int`, `text` or `bool` (level 5); `f32`, `dec` and the tables say
+    /// which level brings them.
+    fn ty(&mut self, example: &str) -> Result<Ty, Message> {
+        let t = self.next();
+        match &t.kind {
+            Kind::Name(n) if n == "int" => Ok(Ty::Int),
+            Kind::Name(n) if n == "text" => Ok(Ty::Text),
+            Kind::Name(n) if n == "bool" => Ok(Ty::Bool),
+            Kind::Name(n) if n == "f32" || n == "dec" => Err(not_yet(t, &format!("el tipo `{}`", n), 6, "por ahora: int, text o bool")),
+            Kind::Sym("[") => Err(not_yet(t, "una tabla", 6, "por ahora: int, text o bool")),
+            _ => Err(self.expected(t, "un tipo: int, text o bool", example)),
+        }
     }
 
     /// NEWLINE INDENT stmt+ DEDENT: the body of whatever `opener` opens (a
@@ -291,6 +337,11 @@ impl<'a> Parser<'a> {
         let tok = self.next();
         if tok.kind == Kind::Word("if") && LEVEL_NOW >= 3 {
             return self.if_statement(tok);
+        }
+        if tok.kind == Kind::Word("return") && LEVEL_NOW >= 5 {
+            let value = if self.peek().kind == Kind::Newline { None } else { Some(self.expr()?) };
+            self.end_of_line()?;
+            return Ok(Stmt::Return { value, line: tok.line, col: tok.col });
         }
         if LEVEL_NOW >= 4 {
             match tok.kind {
@@ -475,6 +526,24 @@ impl<'a> Parser<'a> {
             },
             Kind::Text(t) => Ok(Expr::Text { value: t.clone(), line: tok.line, col: tok.col }),
             Kind::Word(w @ ("true" | "false")) if LEVEL_NOW >= 3 => Ok(Expr::Bool { value: *w == "true", line: tok.line, col: tok.col }),
+            Kind::Name(n) if self.peek().kind == Kind::Sym("(") && LEVEL_NOW >= 5 => {
+                self.next();
+                let mut args = Vec::new();
+                if self.peek().kind == Kind::Sym(")") {
+                    self.next();
+                } else {
+                    loop {
+                        args.push(self.expr()?);
+                        let sep = self.next();
+                        match sep.kind {
+                            Kind::Sym(",") => continue,
+                            Kind::Sym(")") => break,
+                            _ => return Err(self.ladder(sep).unwrap_or_else(|| self.expected(sep, "`,` o `)`", &format!("{}(a, b)", n)))),
+                        }
+                    }
+                }
+                Ok(Expr::Call { callee: n.clone(), args, line: tok.line, col: tok.col })
+            }
             Kind::Name(n) => Ok(Expr::Name { name: n.clone(), line: tok.line, col: tok.col }),
             _ => Err(self.ladder(tok).unwrap_or_else(|| self.expected(tok, "un valor: un numero, un texto o un nombre", "let area = 3 * 4"))),
         }

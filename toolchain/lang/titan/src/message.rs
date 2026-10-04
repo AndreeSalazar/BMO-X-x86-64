@@ -45,10 +45,14 @@ pub enum Code {
     NotBool,
     NoEnd,
     OutsideLoop,
+    Args,
+    Result,
+    MissingReturn,
+    WrongType,
 }
 
 impl Code {
-    pub const ALL: [Code; 26] = [
+    pub const ALL: [Code; 30] = [
         Code::NoHeader,
         Code::Tab,
         Code::BadIndent,
@@ -75,6 +79,10 @@ impl Code {
         Code::NotBool,
         Code::NoEnd,
         Code::OutsideLoop,
+        Code::Args,
+        Code::Result,
+        Code::MissingReturn,
+        Code::WrongType,
     ];
 
     pub fn number(self) -> u16 {
@@ -105,6 +113,10 @@ impl Code {
             Code::NotBool => 65,
             Code::NoEnd => 66,
             Code::OutsideLoop => 67,
+            Code::Args => 68,
+            Code::Result => 69,
+            Code::MissingReturn => 70,
+            Code::WrongType => 71,
         }
     }
 
@@ -154,7 +166,7 @@ mod tests {
     #[test]
     fn every_code_has_its_own_number_and_they_do_not_move() {
         let numbers: Vec<u16> = Code::ALL.iter().map(|c| c.number()).collect();
-        assert_eq!(numbers, [1, 10, 12, 20, 21, 22, 30, 31, 40, 50, 51, 52, 53, 54, 55, 56, 60, 61, 62, 63, 57, 64, 58, 65, 66, 67]);
+        assert_eq!(numbers, [1, 10, 12, 20, 21, 22, 30, 31, 40, 50, 51, 52, 53, 54, 55, 56, 60, 61, 62, 63, 57, 64, 58, 65, 66, 67, 68, 69, 70, 71]);
         assert_eq!(Code::BadIndent.label(), "T0012");
     }
 

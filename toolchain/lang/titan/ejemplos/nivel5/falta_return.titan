@@ -1,0 +1,10 @@
+# espera: T0070
+# si `n` no es negativo, la funcion se acaba sin dar su valor
+mod main "un signo a medias"
+
+fn signo(n: int) -> int
+    if n < 0
+        return -1
+
+fn main()
+    print(signo(5))

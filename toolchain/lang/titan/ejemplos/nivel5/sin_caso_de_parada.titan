@@ -1,0 +1,11 @@
+# espera: T0066
+# `baja` se llama a si misma y nunca llega a pararse: su `if` mira el lado equivocado
+mod main "una recursion que no para"
+
+fn baja(n: int) -> int
+    if n > 1000000
+        return n
+    return baja(n - 1)
+
+fn main()
+    print(baja(10))

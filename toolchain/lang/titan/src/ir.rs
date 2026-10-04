@@ -50,7 +50,7 @@
 //! reaches for it later (T0058). Today it is a line of the IR; with `take`
 //! (level 7) it is the point where the value is given back.
 
-use crate::tree::{Expr, Program, Stmt};
+use crate::tree::{Expr, Program, Stmt, Ty};
 
 /// A whole module, ready to emit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,7 +74,12 @@ pub struct Function {
     /// The line of its `fn`, so a NO from below can still point at the text.
     pub line: usize,
     /// Every name the body uses for a value, numbered in order of first use.
+    /// The parameters come first, in their order.
     pub locals: Vec<Local>,
+    /// Its parameters: the local each one is, and its class (level 5).
+    pub params: Vec<(usize, Ty)>,
+    /// What it gives back, if anything (level 5).
+    pub ret: Option<Ty>,
     pub blocks: Vec<Block>,
 }
 
@@ -106,8 +111,9 @@ pub enum Op {
     /// Write these values on the console, one after another, and end the
     /// line: `print(...)`. The one door of BMO-X level 1 uses.
     Write { parts: Vec<Value>, at: At },
-    /// Call the function with this index.
-    Call { func: usize, at: At },
+    /// Call the function with this index, with these values (its result, if
+    /// it has one, is dropped: a call on its own line).
+    Call { func: usize, args: Vec<Value>, at: At },
     /// The block that gave birth to this local closes here: it dies. `at` is
     /// the `if` (or `else`) whose block closes.
     Drop { local: usize, at: At },
@@ -125,12 +131,14 @@ pub enum Value {
     Bin(&'static str, Box<Value>, Box<Value>, At),
     Neg(Box<Value>, At),
     Not(Box<Value>, At),
+    /// What the function with this index gives back for these values (5).
+    Call(usize, Vec<Value>, At),
 }
 
 impl Value {
     pub fn at(&self) -> At {
         match self {
-            Value::Int(_, a) | Value::Text(_, a) | Value::Bool(_, a) | Value::Local(_, a) | Value::Bin(_, _, _, a) | Value::Neg(_, a) | Value::Not(_, a) => *a,
+            Value::Int(_, a) | Value::Text(_, a) | Value::Bool(_, a) | Value::Local(_, a) | Value::Bin(_, _, _, a) | Value::Neg(_, a) | Value::Not(_, a) | Value::Call(_, _, a) => *a,
         }
     }
 
@@ -145,14 +153,20 @@ impl Value {
                 r.reads(out);
             }
             Value::Neg(v, _) | Value::Not(v, _) => v.reads(out),
+            Value::Call(_, args, _) => {
+                for a in args {
+                    a.reads(out);
+                }
+            }
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum End {
-    /// Back to whoever called. For `main`, the end of the program.
-    Return,
+    /// Back to whoever called, with the value the function gives back if it
+    /// has one. For `main`, the end of the program.
+    Return(Option<Value>),
     /// On to that block.
     Jump(usize),
     /// `if`: to `then` if `cond` is true, to `other` if not. `at` is the `if`.
@@ -163,7 +177,7 @@ impl End {
     /// The blocks this end can go to.
     pub fn targets(&self) -> Vec<usize> {
         match self {
-            End::Return => Vec::new(),
+            End::Return(_) => Vec::new(),
             End::Jump(b) => vec![*b],
             End::Branch { then, other, .. } => vec![*then, *other],
         }
@@ -180,7 +194,8 @@ fn local_of(locals: &mut Vec<Local>, name: &str) -> usize {
     }
 }
 
-fn value(e: &Expr, locals: &mut Vec<Local>) -> Value {
+fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
+    let value = |e: &Expr, locals: &mut Vec<Local>| value(e, locals, p);
     match e {
         Expr::Int { value, line, col } => Value::Int(*value, (*line, *col)),
         Expr::Text { value, line, col } => Value::Text(value.clone(), (*line, *col)),
@@ -191,6 +206,10 @@ fn value(e: &Expr, locals: &mut Vec<Local>) -> Value {
             Value::Bin(*op, Box::new(value(left, locals)), Box::new(value(right, locals)), (*line, *col))
         }
         Expr::Neg { value: v, line, col } => Value::Neg(Box::new(value(v, locals)), (*line, *col)),
+        Expr::Call { callee, args, line, col } => {
+            let func = p.functions.iter().position(|f| &f.name == callee).expect("check: every call goes somewhere");
+            Value::Call(func, args.iter().map(|a| value(a, locals)).collect(), (*line, *col))
+        }
     }
 }
 
@@ -221,7 +240,7 @@ struct Lowering<'p> {
 
 impl Lowering<'_> {
     fn open(&mut self) -> usize {
-        self.blocks.push(Block { ops: Vec::new(), end: End::Return, dead: false });
+        self.blocks.push(Block { ops: Vec::new(), end: End::Return(None), dead: false });
         self.blocks.len() - 1
     }
 
@@ -266,26 +285,33 @@ impl Lowering<'_> {
         for st in body {
             match st {
                 Stmt::Let(l) => {
-                    let v = value(&l.value, &mut self.locals);
+                    let v = value(&l.value, &mut self.locals, self.p);
                     let local = local_of(&mut self.locals, &l.name);
                     self.born(local);
                     self.blocks[at].ops.push(Op::Let { local, value: v, mutable: l.mutable, at: (l.line, l.col) });
                 }
                 Stmt::Set(l) => {
-                    let v = value(&l.value, &mut self.locals);
+                    let v = value(&l.value, &mut self.locals, self.p);
                     let local = local_of(&mut self.locals, &l.name);
                     self.blocks[at].ops.push(Op::Set { local, value: v, at: (l.line, l.col) });
                 }
                 Stmt::Call(c) if c.callee == "print" => {
-                    let parts = c.args.iter().map(|a| value(a, &mut self.locals)).collect();
+                    let parts = c.args.iter().map(|a| value(a, &mut self.locals, self.p)).collect();
                     self.blocks[at].ops.push(Op::Write { parts, at: (c.line, c.col) });
                 }
                 Stmt::Call(c) => {
                     let func = self.index(&c.callee);
-                    self.blocks[at].ops.push(Op::Call { func, at: (c.line, c.col) });
+                    let args = c.args.iter().map(|a| value(a, &mut self.locals, self.p)).collect();
+                    self.blocks[at].ops.push(Op::Call { func, args, at: (c.line, c.col) });
+                }
+                Stmt::Return { value: v, .. } => {
+                    let v = v.as_ref().map(|e| value(e, &mut self.locals, self.p));
+                    self.blocks[at].end = End::Return(v);
+                    // What follows a `return` is never reached.
+                    at = self.open();
                 }
                 Stmt::If(i) => {
-                    let cond = value(&i.cond, &mut self.locals);
+                    let cond = value(&i.cond, &mut self.locals, self.p);
                     let here = (i.line, i.col);
                     let then = self.open();
                     self.open_scope(here);
@@ -312,7 +338,7 @@ impl Lowering<'_> {
                     let here = (w.line, w.col);
                     let head = self.open();
                     self.blocks[at].end = End::Jump(head);
-                    let cond = value(&w.cond, &mut self.locals);
+                    let cond = value(&w.cond, &mut self.locals, self.p);
                     let body = self.open();
                     self.loops.push(Loop { breaks: Vec::new(), conts: Vec::new(), depth: self.scopes.len() });
                     self.open_scope(here);
@@ -338,8 +364,8 @@ impl Lowering<'_> {
                     // turn), and the count itself.
                     self.hidden += 1;
                     let (fin_name, count_name) = (format!("#fin{}", self.hidden), format!("#i{}", self.hidden));
-                    let to = value(&f.to, &mut self.locals);
-                    let from = value(&f.from, &mut self.locals);
+                    let to = value(&f.to, &mut self.locals, self.p);
+                    let from = value(&f.from, &mut self.locals, self.p);
                     // The loop's own scope: the hidden two die at its exit.
                     self.open_scope(here);
                     let fin = local_of(&mut self.locals, &fin_name);
@@ -406,9 +432,10 @@ pub fn lower(p: &Program) -> Module {
         .iter()
         .map(|f| {
             let mut l = Lowering { p, locals: Vec::new(), blocks: Vec::new(), scopes: vec![(None, Vec::new())], loops: Vec::new(), hidden: 0 };
+            let params = f.params.iter().map(|a| (local_of(&mut l.locals, &a.name), a.ty)).collect();
             let first = l.open();
             l.stmts(&f.body, first);
-            Function { name: f.name.clone(), line: f.line, locals: l.locals, blocks: l.blocks }
+            Function { name: f.name.clone(), line: f.line, locals: l.locals, params, ret: f.ret, blocks: l.blocks }
         })
         .collect();
     Module {
@@ -451,12 +478,16 @@ impl Module {
                             let p: Vec<String> = parts.iter().map(show).collect();
                             format!("    escribe {}\n", p.join(", "))
                         }
-                        Op::Call { func, .. } => format!("    llama   f{} ({})\n", func, self.functions[*func].name),
+                        Op::Call { func, args, .. } => {
+                            let a: Vec<String> = args.iter().map(show).collect();
+                            format!("    llama   f{} ({})({})\n", func, self.functions[*func].name, a.join(", "))
+                        }
                         Op::Drop { local, at } => format!("    muere   %{} ({}, al cerrarse el bloque de la linea {})\n", local, f.locals[*local].name, at.0),
                     };
                 }
                 s += &match &b.end {
-                    End::Return => "    vuelve\n".to_string(),
+                    End::Return(None) => "    vuelve\n".to_string(),
+                    End::Return(Some(v)) => format!("    vuelve con {}\n", show(v)),
                     End::Jump(t) => format!("    salta   b{}\n", t),
                     End::Branch { cond, then, other, .. } => format!("    si {} -> b{}, sino -> b{}\n", show(cond), then, other),
                 };
@@ -475,6 +506,10 @@ fn show(v: &Value) -> String {
         Value::Bin(op, l, r, _) => format!("({} {} {})", show(l), op, show(r)),
         Value::Neg(v, _) => format!("-{}", show(v)),
         Value::Not(v, _) => format!("not {}", show(v)),
+        Value::Call(f, args, _) => {
+            let a: Vec<String> = args.iter().map(show).collect();
+            format!("f{}({})", f, a.join(", "))
+        }
     }
 }
 

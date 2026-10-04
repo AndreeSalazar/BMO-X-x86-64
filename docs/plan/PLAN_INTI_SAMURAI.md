@@ -137,6 +137,34 @@ ventana (`ventana`) y de VERRANO (`cubo`). Quitarlas antes de que su runtime
 se vaya solo perderia esas pruebas sin ganar nada. Salen el dia del corte 4,
 con su relevo en TITAN++.
 
+## 3.2 PROPUESTA (04-10): el decimal de Grace Hopper, al estilo del Ryzen
+
+El propietario: *"lo mejor es que lleve el estilo de COBOL que Grace Hopper hizo,
+para que la CPU calcule sin problemas en decimal ... la CPU ES ULTRA PRECISA"*.
+
+La idea es buena, con un matiz de SILICIO:
+
+```text
+   COBOL en un mainframe   decimal EN HARDWARE (z/Architecture): por eso alli
+                           el BCD es rapido
+   el Ryzen (x86-64)       NO tiene decimal en hardware; el modo de 64 bits
+                           incluso quito DAA/DAS. Un BCD empaquetado aqui es
+                           software -- mas lento que un entero
+   PUNTO FIJO              un ENTERO con la escala dicha al compilar:
+                           `decimal(7,2)` se guarda en centimos, cabe en un
+                           registro, se suma con UNA instruccion y es EXACTO.
+                           La semantica de COBOL (digitos declarados, nunca se
+                           redondea a escondidas) a la velocidad del entero
+   float (IEEE)            rapido (SSE/AVX) pero inexacto en decimales
+                           (0.1 + 0.2): para la GPU de TITAN++ (f32), no para
+                           la precision del samurai
+```
+
+**La propuesta**: el decimal de INTI es de PUNTO FIJO, con la escala en el
+tipo; el decimal de runtime (coeficiente y escala que cambian, 16 bytes) se fue
+a TITAN++ con `pleno` (D2). No choca con D2: son dos cosas distintas. Queda
+escrita para que el propietario diga si; no se ha tocado codigo.
+
 ---
 
 # 4. LA ESCALERA

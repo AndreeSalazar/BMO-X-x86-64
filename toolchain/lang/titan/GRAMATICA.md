@@ -62,11 +62,11 @@ fn main()
 
 Una de las 25 palabras de un nivel que aun no existe no es un error de
 sintaxis cualquiera: es **T0040**, y dice en que nivel llega (el ejemplo ya es
-del frontend de hoy, que va por el nivel 4):
+del frontend de hoy, que va por el nivel 5):
 
 ```text
-   return           T0040  `return` llega en el nivel 5 (funciones con resultado)
    type Nave        T0040  `type` llega en el nivel 6 (registros)
+   fn f(take n: int) T0040  prestar o entregar llega en el nivel 7
 ```
 
 ---
@@ -279,6 +279,65 @@ venga de fuera (el teclado), esa parte ira a la maquina como codigo de verdad
 
 ---
 
+## Nivel 5 -- funciones con resultado (16 palabras: + `return`) -- 04-10
+
+```text
+# euclides.titan
+mod main "Euclides y los primos"
+
+fn mcd(a: int, b: int) -> int
+    if b == 0
+        return a
+    return mcd(b, a % b)
+
+fn main()
+    print("mcd(48, 18) = ", mcd(48, 18))
+```
+
+**Con esto ya se escribe cualquier algoritmo** (TITAN_MAESTRO 14.14): valores
+que entran, uno que sale, y una funcion que se llama a si misma.
+
+### Las piezas nuevas
+
+```text
+   fn f(a: int, b: text)    parametros, cada uno con su tipo
+   -> int                   lo que devuelve: int, text o bool
+   return VALOR             lo da y se acaba la funcion
+   return                   se acaba, en una fn sin `->`
+   f(3)                     una llamada ES un valor: let x = f(3), f(3) + 1
+```
+
+`int`, `text` y `bool` son TIPOS, no palabras (no gastan techo). `f32`, `dec`
+y las tablas llegan con los tipos (nivel 6); prestar un parametro para
+cambiarlo (`mut`) o entregarlo (`take`), en el nivel 7. Hasta entonces un
+parametro llega y SOLO se lee.
+
+### Las reglas, y quien las dice
+
+```text
+   LOS NOMBRES (check.rs)
+     una llamada con mas o menos valores de los que pide   T0068
+       y el POR QUE copia la linea de la fn que los pide
+     usar como valor algo que no devuelve nada (`print`,   T0069
+     una fn sin `->`), o un `return` que no cuadra con
+     lo que promete la primera linea
+     T0053 se queda SOLO para ciclos de fn sin parametros: una que recibe
+     un valor puede decidir distinto en cada llamada, y si para o no lo
+     dice CORRERLA
+   EL JUEZ
+     los parametros nacen vivos y no cambian              T0056
+     un camino que llega al final de una fn que prometio  T0070
+     un valor, sin `return` (un `if` que devuelve en sus
+     dos lados esta bien: lo de detras no tiene camino)
+   EL CALCULO
+     cada valor que se pasa, de la clase que pide su      T0071
+     parametro; lo que se devuelve, de la que promete
+     la recursion se CORRE al compilar, como los bucles: mas de 10 000
+     llamadas anidadas es T0066 (su caso de parada no llega)
+```
+
+---
+
 ## Los codigos
 
 | codigo | que |
@@ -295,7 +354,7 @@ venga de fuera (el teclado), esa parte ira a la maquina como codigo de verdad
 | T0050 | no hay `fn main()` |
 | T0051 | se llama a algo que no existe |
 | T0052 | una funcion definida dos veces |
-| T0053 | las llamadas vuelven a una funcion y no terminan nunca (sin parametros, ni un `if` las para) |
+| T0053 | un ciclo de fn SIN parametros: vuelve siempre igual y no termina nunca |
 | T0054 | un nombre se lee antes de que un `let` le de valor (el juez) |
 | T0055 | un nombre que ya tiene valor, o que es de una funcion (el juez / los nombres) |
 | T0056 | se cambia un valor sin `mut` (el juez) |
@@ -309,6 +368,10 @@ venga de fuera (el teclado), esa parte ira a la maquina como codigo de verdad
 | T0065 | se pedia un si-o-no y llego otra cosa: `if vidas`, `not 3` (el calculo) |
 | T0066 | el programa sigue corriendo despues de un millon de pasos: un bucle sin salida (el calculo) |
 | T0067 | `break` o `continue` fuera de un bucle (la gramatica) |
+| T0068 | una llamada con mas o menos valores de los que pide la fn (los nombres) |
+| T0069 | se usa como valor algo que no devuelve nada, o un `return` que no cuadra con su `->` (los nombres) |
+| T0070 | una fn que promete un valor tiene un camino sin `return` (el juez) |
+| T0071 | un valor de otra clase donde un parametro o un `->` dicen una (el calculo) |
 
 ## El banco: lo que dice cada ejemplo de si mismo
 

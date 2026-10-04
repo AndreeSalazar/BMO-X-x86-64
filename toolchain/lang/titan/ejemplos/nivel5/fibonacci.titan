@@ -1,0 +1,49 @@
+# espera: BIEN
+# sale: 0 1 1 2 3 5 8 13 21 34
+# sale: el centauro cuenta 55 estrellas
+# texto que crece con un `mut`, y una funcion con dos parametros
+mod main "la espiral del centauro"
+
+fn fib(n: int) -> int
+    if n < 2
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+fn con_espacio(a: text, b: text) -> text
+    if a == ""
+        return b
+    return a + " " + b
+
+fn main()
+    let mut linea = ""
+    for i in range(10)
+        linea = con_espacio(linea, digitos(fib(i)))
+    print(linea)
+    print("el centauro cuenta ", fib(10), " estrellas")
+
+fn digitos(n: int) -> text
+    if n < 10
+        return cifra(n)
+    # (n - n % 10) / 10 siempre es exacto: TITAN++ no redondea a escondidas
+    return digitos((n - n % 10) / 10) + cifra(n % 10)
+
+fn cifra(n: int) -> text
+    if n == 0
+        return "0"
+    if n == 1
+        return "1"
+    if n == 2
+        return "2"
+    if n == 3
+        return "3"
+    if n == 4
+        return "4"
+    if n == 5
+        return "5"
+    if n == 6
+        return "6"
+    if n == 7
+        return "7"
+    if n == 8
+        return "8"
+    return "9"

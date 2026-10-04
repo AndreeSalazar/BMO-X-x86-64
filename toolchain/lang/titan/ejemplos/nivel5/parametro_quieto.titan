@@ -1,0 +1,10 @@
+# espera: T0056
+# un parametro llega de quien llama y aqui solo se lee
+mod main "un parametro que se quiere cambiar"
+
+fn cuenta(n: int) -> int
+    n = n + 1
+    return n
+
+fn main()
+    print(cuenta(1))
