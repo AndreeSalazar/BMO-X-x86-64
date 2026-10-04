@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 62 planes
+# LO QUE FALTA -- las casillas abiertas de los 63 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   564 casillas ABIERTAS en 53 planes
+   572 casillas ABIERTAS en 54 planes
    405 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -211,6 +211,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0a REFERENCIA, no suelo: Windows quieto 2 minutos, Package Power = ___ W
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
+
+## [`PLAN_INTI_SAMURAI.md`](PLAN_INTI_SAMURAI.md) -- 8 abiertas, 0 hechas
+
+*PLAN INTI SAMURAI -- INTI corta para la CPU; las apps se van a TITAN++*
+
+- [ ] 1 D1-D4 escritas por el propietario en este fichero
+- [ ] 2 el build y el metro: ventana, musica, cubo y navegar fuera de
+- [ ] 3 perfil pleno da un NO con codigo y motivo (el CONGELADO de D4)
+- ... y 5 mas
 
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 8 hechas
 

@@ -929,6 +929,22 @@ no le roba el trabajo.** Cada lenguaje exprime lo suyo:
               (F1, modulos, 25 palabras)
 ```
 
+**Y el mismo dia, la vuelta de tuerca** (el propietario: *"en INTI vamos a
+eliminar las influencias para crear app ... que EMITA al CPU a nivel EXTREMO,
+que CORTE sin piedad como samurai; y TITAN++ solo enfocara en GPU al extremo,
+y tendra que controlar al VERRANO"*):
+
+```text
+   INTI       el SAMURAI de la CPU. Pierde lo que es de app (el perfil
+              `pleno`, los objetos, el monton, la superficie, la lamina,
+              VERRANO): el inventario y el plan de corte estan en
+              docs/plan/PLAN_INTI_SAMURAI.md. Nada se ha cortado todavia
+   TITAN++    el CENTAURO de la GPU. Su extremo es la 3060: `gpu fn` sobre
+              tablas (computo, IA) y MANDAR A VERRANO (dibujar). Las apps
+              se construyen en el; lo que hoy hace `runtime/verrano.inti` en
+              INTI pasa a ser de TITAN++
+```
+
 ### 7.1 El emisor PROPIO de TITAN++: chico, correcto, sin carrera
 
 Lo que TITAN++ escribe por si mismo -- sus `if`, sus bucles, sus llamadas, el
@@ -955,9 +971,9 @@ prohibe (*contratos y formatos, nunca cerebros*).
 
 | para | llama a | por |
 |---|---|---|
+| computo masivo, IA -- SU EXTREMO | **la 3060** | `gpu fn` -> SPIR-V -> SASS (seccion 8) |
+| dibujar con la 3060 -- LO MANDA EL | **VERRANO** | la lamina de VERRANO (`platform/shared/verrano/src/lamina.rs`): hoy la escribe `runtime/verrano.inti` en INTI; pasa a TITAN++ |
 | la CPU al nivel del ASM (lo caliente) | **INTI** | compilacion separada: `.bo` + `bmo-enlazar` (HECHA para C, C++ e INTI) |
-| computo masivo, IA | **la 3060** | `gpu fn` -> SPIR-V -> SASS (seccion 8) |
-| dibujar con la 3060 | **VERRANO** | la API de dibujo de Ring 3 |
 | ventana, teclado, raton, disco, sonido, red | **REX / bmo-userland** | los dos syscalls |
 
 [!] INTI todavia no declara funciones AJENAS (`externo`, en ESPERA en METAS).
@@ -976,7 +992,16 @@ TITAN++, falta esa palabra.
    E2  nivel 5 (return)     llamadas con valores; y LLAMAR A INTI por .bo +
                             bmo-enlazar: el camino de lo caliente
    E3  T5 (gpu fn)          las tablas y las funciones elementales, a la 3060
+                            -- EL EXTREMO de TITAN++ (el foco del 04-10)
+   E4  VERRANO              TITAN++ escribe la lamina de VERRANO: lo que hoy
+                            hace runtime/verrano.inti, con el prestamo del
+                            bloque juzgado por el comprobador (U1)
 ```
+
+[!] **El tope de E3 no es el lenguaje: es el driver.** SPIR-V -> SASS con su
+juez ya existe; LANZAR computo en la 3060 (la QMD y el banco constante 0 de
+ga10x) falta, y es Ring 0 -- del propietario. Hasta entonces una `gpu fn` se
+compila y se juzga, pero no corre.
 
 **La vara: el metro del emisor** (`toolchain/tools/metro`). TITAN++ entro el
 04-10 con seis programas de los niveles 0-3 (`hola`: 11 instrucciones, 58 B de
@@ -1247,10 +1272,10 @@ problema dicho). El resto espera al compilador.
 ### 14.9 A quien llama (seccion 7)
 
 ```text
+   la 3060   SU EXTREMO: computo masivo e IA (gpu fn)
+   VERRANO   dibujar con la 3060: lo manda TITAN++
    INTI      la CPU al nivel del ASM: lo caliente (.bo + bmo-enlazar)
    el suyo   su propio pegamento, con su emisor chico (7.1)
-   la 3060   computo masivo e IA (gpu fn)
-   VERRANO   dibujar con la 3060
    REX       ventana, entrada, disco, sonido, red -- por las DOS puertas
 ```
 
