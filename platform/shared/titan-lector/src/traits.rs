@@ -1,0 +1,129 @@
+//! **THE TRAITS OF A MODULE** -- what its BODY does, at a glance: how many
+//! values it names, how many of them change, how many times it writes on the
+//! console, whom it calls. F1 draws each node by these, so a node is not a
+//! box with a name: it is what the module DOES, and it changes shape the
+//! moment the file is saved (the owner, 04-10: "cuando el programador cambia,
+//! todo el nodo se cambia en tiempo real en la forma que representa").
+//!
+//! ```text
+//!    fn       its functions            the size of the planet
+//!    let      values with a name       its moons
+//!    mut      values that change       its RINGS, turning (the `mut` element)
+//!    changes  `x = ...` lines          how fast the rings turn
+//!    writes   `print(...)`             a BEAM to the console: it SENDS
+//!    calls    other calls              its comets
+//!    ifs      `if` / `else if`         a DOUBLE STAR: two ways, one lit
+//! ```
+//!
+//! [!] This is a QUICK READING of the lines, not the compiler: it does not
+//! judge, it counts. Whether a program is right is `titan check`'s (and, with
+//! T6, the compiler inside F1). It never says a module is good; it says what
+//! it looks like.
+//!
+//! [layer] PURE: no allocator, no `unsafe`; it reads the bytes F1 already
+//! fetched for the header, so it costs no extra read.
+
+use crate::text::{lines, trim};
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Traits {
+    pub fns: u8,
+    pub lets: u8,
+    pub muts: u8,
+    pub changes: u8,
+    pub writes: u8,
+    pub calls: u8,
+    /// The decisions: each `if` and each `else if` (level 3).
+    pub ifs: u8,
+    /// Lines of body (not blank, not comment, not header).
+    pub lines: u16,
+}
+
+impl Traits {
+    pub const NONE: Traits = Traits { fns: 0, lets: 0, muts: 0, changes: 0, writes: 0, calls: 0, ifs: 0, lines: 0 };
+}
+
+fn bump(n: &mut u8) {
+    *n = n.saturating_add(1);
+}
+
+fn is_name_start(c: u8) -> bool {
+    c.is_ascii_alphabetic() || c == b'_'
+}
+
+/// The name at the start of `s`, if any, and the rest after it.
+fn name(s: &[u8]) -> Option<(&[u8], &[u8])> {
+    if !s.first().copied().is_some_and(is_name_start) {
+        return None;
+    }
+    let end = s.iter().position(|&c| !(c.is_ascii_alphanumeric() || c == b'_')).unwrap_or(s.len());
+    Some((&s[..end], trim(&s[end..])))
+}
+
+/// Counts what a `.titan` does. The header (`mod`, `use`, at the margin
+/// before the first `fn`) is not body.
+pub fn scan(text: &[u8]) -> Traits {
+    let mut t = Traits::NONE;
+    let mut body = false;
+    for (_, raw) in lines(text) {
+        let line = trim(raw);
+        if line.is_empty() || line.starts_with(b"#") {
+            continue;
+        }
+        if !body && (line.starts_with(b"mod ") || line.starts_with(b"use ")) {
+            continue;
+        }
+        body = true;
+        t.lines = t.lines.saturating_add(1);
+        if line.starts_with(b"fn ") {
+            bump(&mut t.fns);
+        } else if line.starts_with(b"if ") || line.starts_with(b"else if ") {
+            bump(&mut t.ifs);
+        } else if line.starts_with(b"let mut ") {
+            bump(&mut t.muts);
+        } else if line.starts_with(b"let ") {
+            bump(&mut t.lets);
+        } else if let Some((word, rest)) = name(line) {
+            if rest.starts_with(b"(") {
+                if word == b"print" {
+                    bump(&mut t.writes);
+                } else {
+                    bump(&mut t.calls);
+                }
+            } else if rest.starts_with(b"=") && !rest.starts_with(b"==") {
+                bump(&mut t.changes);
+            }
+        }
+    }
+    t
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_counts_what_the_body_does_and_not_the_header() {
+        let t = scan(b"mod main \"x\"\nuse ship\nmod rock\n\n# nada\nfn main()\n    let a = 1\n    let mut n = 0\n    n = n + a\n    print(n)\n    saluda()\nfn saluda()\n    print(\"hola\")\n");
+        assert_eq!(t, Traits { fns: 2, lets: 1, muts: 1, changes: 1, writes: 2, calls: 1, ifs: 0, lines: 8 });
+    }
+
+    #[test]
+    fn every_if_and_else_if_is_a_decision_and_a_plain_else_is_not() {
+        let t = scan(b"mod a \"x\"\nfn main()\n    let v = 3\n    if v > 5\n        print(\"a\")\n    else if v > 1\n        print(\"b\")\n    else\n        print(\"c\")\n");
+        assert_eq!((t.ifs, t.writes, t.lets), (2, 3, 1));
+    }
+
+    #[test]
+    fn a_comparison_is_not_a_change_and_a_header_alone_is_empty() {
+        assert_eq!(scan(b"mod a \"x\"\nfn main()\n    x == 1\n").changes, 0);
+        assert_eq!(scan(b"mod a \"x\"\nuse b\n"), Traits::NONE);
+    }
+
+    #[test]
+    fn saving_the_file_changes_the_traits() {
+        let before = scan(b"mod a \"x\"\nfn main()\n    print(\"a\")\n");
+        let after = scan(b"mod a \"x\"\nfn main()\n    let mut n = 0\n    n = n + 1\n    print(n)\n");
+        assert_eq!((before.muts, after.muts, after.changes), (0, 1, 1));
+    }
+}

@@ -25,6 +25,10 @@
 //!        hangs there. Two headers are rewritten; the file does not move
 //!    L3  the look of TITAN++ (`art.rs`): the logo opens the workshop, and
 //!        the graph lives in a starry sky of the logo's colours
+//!    L5  the EXPLORER organizes the DISK, VS Code style: every folder and
+//!        file of the package, in the owner's order (not A to Z), folds, new
+//!        file / folder, rename, remove, move -- each `.titan` carrying its
+//!        module along (`titan-lector::organize`, `PLAN_TALLER` 8.10)
 //! ```
 //!
 //! The checker's events still come from `bmo-titan-contrato::sample`, and only
@@ -36,19 +40,25 @@
 #![no_main]
 
 mod art;
+mod aspecto;
+mod astros;
 mod canvas;
 mod explorer;
 mod faults;
+mod guia;
 mod player;
+mod space;
 mod store;
+mod tema_gen;
 mod view;
 mod window;
 
 use bmo_titan_contrato::{sample, Graph, NodeId, Script};
 use bmo_userland as bmo;
 use canvas::Canvas;
-use explorer::Click;
+use explorer::{Click, Drop, Edit, EditKind, Entry, Menu, Ui, Zone};
 use player::Player;
+use space::Tab;
 use store::{Origin, Store};
 use view::{Camera, Scene, LEVELS, NODE_H, NODE_W};
 use window::{Input, Window};
@@ -58,6 +68,20 @@ const HEIGHT: u32 = 760;
 
 /// Left mouse button, in the event's and the pointer's button byte.
 const BUTTON: u8 = 1;
+/// The right one: the EXPLORER's menu.
+const RIGHT_BUTTON: u8 = 2;
+/// Two clicks on the same row within this long: rename it (VS Code).
+const DOUBLE_MS: u32 = 450;
+/// A first Supr waits this long for the second one.
+const CONFIRM_MS: u32 = 3_000;
+
+// The cooked codes of the kernel's keyboard map (`<bmo/entrada.h>`).
+const KEY_UP: u8 = 0x80;
+const KEY_DOWN: u8 = 0x81;
+const KEY_LEFT: u8 = 0x82;
+const KEY_RIGHT: u8 = 0x83;
+const KEY_SUPR: u8 = 0x86;
+const KEY_F2: u8 = 0x8A;
 
 /// The pulse on the cables stops this long after the last touch: at rest, F1
 /// goes back to sleeping (the house's rule -- if it does nothing, it spends
@@ -76,8 +100,15 @@ enum Drag {
     Node(NodeId, i32, i32),
     /// The canvas itself, grabbed at this screen point with this camera.
     Canvas(i32, i32, Camera),
-    /// A file of the EXPLORER, grabbed at this screen point.
+    /// A declared file of the EXPLORER (no disk tree), grabbed at this point.
     File(NodeId, i32, i32),
+    /// An item of the disk tree, grabbed at this screen point.
+    Item(usize, i32, i32),
+    /// The 3D sky, grabbed at this x with this turn: dragging turns it.
+    Turn(i32, u32),
+    /// A cable pulled from this node's OUT pin (UE5 style): let go on a node,
+    /// it is a `use` written.
+    Wire(NodeId),
 }
 
 /// Far enough from where the button went down to be a drag and not a click:
@@ -86,18 +117,123 @@ fn dragged(x0: i32, y0: i32, x: i32, y: i32) -> bool {
     (x - x0).abs() + (y - y0).abs() > 4
 }
 
-/// A file let go at (x, y): it hangs under the file or node there, if any.
-fn drop_file(store: &mut Store, cam: &Camera, grab: Drag, x: i32, y: i32) -> bool {
-    let Drag::File(id, x0, y0) = grab else { return false };
-    if !dragged(x0, y0, x, y) {
-        return false;
-    }
-    match explorer::drop_target(store, cam, x, y) {
-        Some(t) if t != id => {
-            store.hang(id, t);
+/// Something of the EXPLORER let go at (x, y). A declared file (no disk
+/// tree) hangs under the file or node there; a disk item is placed, moved,
+/// declared or hung, by `explorer::drop_at`.
+fn drop_file(store: &mut Store, ui: &Ui, cam: &Camera, grab: Drag, x: i32, y: i32) -> bool {
+    match grab {
+        // A cable let go on a node: the `use` is written (or the note says
+        // why not); let go on nothing, it just vanishes.
+        Drag::Wire(from) => match view::hit(&store.loaded.graph, cam, x, y) {
+            Some(to) => {
+                store.wire(from, to);
+                true
+            }
+            None => true,
+        },
+        Drag::File(id, x0, y0) if dragged(x0, y0, x, y) => match explorer::drop_target(store, ui, cam, x, y) {
+            Some(t) if t != id => {
+                store.hang(id, t);
+                true
+            }
+            _ => false,
+        },
+        Drag::Item(i, x0, y0) if dragged(x0, y0, x, y) => {
+            match explorer::drop_at(store, ui, cam, i, x, y) {
+                Some(Drop::Before(t)) => store.place(i, t, false),
+                Some(Drop::After(t)) => store.place(i, t, true),
+                Some(Drop::Into(f)) => store.move_into(i, f),
+                Some(Drop::Node(n)) => match explorer::node_of(store, i) {
+                    Some(child) if child == n => return false,
+                    Some(child) => store.hang(child, n),
+                    None => store.declare(i, n),
+                },
+                None => return false,
+            }
             true
         }
         _ => false,
+    }
+}
+
+/// Starts typing a new name in the folder of the pick (VS Code: the folder
+/// itself if a folder is picked). A folded folder opens to show the box --
+/// on screen only: what is folded on disk is the owner's, not the box's.
+fn begin_new(store: &mut Store, ui: &mut Ui, folder_kind: bool) {
+    let Some(t) = store.tree.as_deref_mut() else { return };
+    let folder = t.folder_for(ui.picked);
+    if let Some(f) = folder.filter(|&f| t.is_folded(f)) {
+        t.toggle(f);
+    }
+    let kind = if folder_kind { EditKind::NewFolder(folder) } else { EditKind::NewFile(folder) };
+    ui.edit = Some(Edit::new(kind, b""));
+    ui.menu = None;
+}
+
+/// Starts renaming `i`, with its name in the box.
+fn begin_rename(store: &Store, ui: &mut Ui, i: usize) {
+    if let Some(t) = store.tree.as_deref() {
+        ui.edit = Some(Edit::new(EditKind::Rename(i), t.name(i)));
+        ui.menu = None;
+    }
+}
+
+/// The first Supr asks; the second, within `CONFIRM_MS`, removes.
+fn ask_remove(store: &mut Store, ui: &mut Ui, i: usize, now: u32) {
+    match ui.confirm {
+        Some((j, until)) if j == i && now.wrapping_sub(until) > u32::MAX / 2 => {
+            ui.confirm = None;
+            store.remove(i);
+        }
+        _ => {
+            ui.confirm = Some((i, now.wrapping_add(CONFIRM_MS)));
+            let name = store.tree.as_deref().map(|t| bmo_titan_lector::Say::new().t(b"Supr otra vez para quitar ").t(t.name(i)).done());
+            if let Some(line) = name {
+                store.say(line, Some(bmo_titan_contrato::Line::new("no se pierde: vuelve en F12 lo trae")), false);
+            }
+        }
+    }
+}
+
+/// What a key does while a name is being typed. Esc lets it go; Enter makes
+/// it; nothing typed here reaches the canvas.
+fn typing(c: u8, store: &mut Store, ui: &mut Ui) {
+    let Some(mut e) = ui.edit else { return };
+    match c {
+        0x1B => {
+            ui.edit = None;
+            return;
+        }
+        0x08 | 0x7F => e.len = e.len.saturating_sub(1),
+        b'\r' | b'\n' => {
+            ui.edit = None;
+            let name = e.get();
+            match e.kind {
+                EditKind::NewFile(folder) => {
+                    // Picked a module? The new `.titan` is born declared by it.
+                    let declarer = ui.picked.and_then(|p| explorer::node_of(store, p));
+                    store.create(folder, name, false, declarer);
+                }
+                EditKind::NewFolder(folder) => store.create(folder, name, true, None),
+                EditKind::Rename(i) => store.rename(i, name),
+            }
+            return;
+        }
+        0x20..=0x7E => e.push(c),
+        _ => {}
+    }
+    ui.edit = Some(e);
+}
+
+/// An entry of the right button's menu, on the item it was opened on.
+fn menu_entry(e: Entry, item: Option<usize>, store: &mut Store, ui: &mut Ui, now: u32) {
+    ui.picked = item.or(ui.picked);
+    match (e, item) {
+        (Entry::NewFile, _) => begin_new(store, ui, false),
+        (Entry::NewFolder, _) => begin_new(store, ui, true),
+        (Entry::Rename, Some(i)) => begin_rename(store, ui, i),
+        (Entry::Remove, Some(i)) => ask_remove(store, ui, i, now),
+        _ => {}
     }
 }
 
@@ -166,6 +302,14 @@ pub extern "C" fn _start() -> ! {
     let mut canvas = Canvas::new(win.px, win.w, win.h);
     let mut cam = fit(&store.loaded.graph);
     let mut drag = Drag::None;
+    let mut ui = Ui::new();
+    // GRAFO or ESPACIO: the same nodes, two ways of seeing them (`space.rs`).
+    let mut tab = Tab::Graph;
+    // How far the 3D sky has turned (1024ths): it turns by itself while F1 is
+    // lively, and by hand when the sky is dragged.
+    let mut turn: u32 = 96;
+    // The last click on a disk row: (when, which), for the double click.
+    let mut last_click: (u32, Option<usize>) = (0, None);
     let clock = Clock { hz: bmo::info(bmo::INFO_TSC_HZ) };
     let mut last = clock.now_ms();
     let opened = last;
@@ -188,12 +332,29 @@ pub extern "C" fn _start() -> ! {
         // The selection survives by NAME: node ids of the old graph mean
         // nothing in the new one, names do.
         let keep = shown.selected.and_then(|id| store.loaded.graph.node(id)).map(|n| n.name);
+        // The pick of the disk tree survives by PATH, for the same reason.
+        let keep_item = ui.picked.and_then(|i| store.tree.as_deref().and_then(|t| t.path_of(i)));
         if store.refresh() {
             shown = Shown::of(&store.loaded.graph);
             shown.selected = keep.and_then(|n| store.loaded.graph.find(n.as_bytes()));
+            ui.picked = keep_item.and_then(|p| store.tree.as_deref().and_then(|t| t.find(p.as_bytes())));
+            // Indices of the old tree mean nothing in the new one.
+            if ui.edit.take().is_some() {
+                store.say(bmo_titan_contrato::Line::new("ESTRATOS cambio mientras escribias: no se guardo"), None, false);
+            }
+            ui.menu = None;
+            ui.confirm = None;
             drag = Drag::None;
             dirty = true;
         }
+        if let Some((_, until)) = ui.confirm {
+            if now.wrapping_sub(until) < u32::MAX / 2 {
+                ui.confirm = None;
+                store.note = None;
+            }
+        }
+        // The caret blinks and a doomed row flashes: draw while they are there.
+        dirty |= ui.edit.is_some() || ui.confirm.is_some();
 
         let veil = if splash { art::splash_at(now.wrapping_sub(opened)) } else { None };
         splash = veil.is_some();
@@ -209,31 +370,114 @@ pub extern "C" fn _start() -> ! {
                 continue;
             }
             match input {
+                // The menu is on top of everything: a click is ITS click, and
+                // anywhere else only closes it.
+                Input::Mouse { down: true, .. } if ui.menu.is_some() => {
+                    if let (Some(m), Input::Mouse { x, y, buttons, .. }) = (ui.menu.take(), input) {
+                        if buttons & BUTTON != 0 {
+                            if let Some(e) = m.hit(x, y) {
+                                menu_entry(e, m.item, &mut store, &mut ui, now);
+                            }
+                        }
+                    }
+                    dirty = true;
+                }
+                Input::Mouse { x, y, buttons, down: true } if buttons & RIGHT_BUTTON != 0 && x < view::LEFT => {
+                    let item = match explorer::click(&store, &ui, x, y) {
+                        Some(Click::Item(i, _)) => Some(i),
+                        _ => None,
+                    };
+                    if store.tree.as_deref().is_some_and(|t| !t.is_empty()) {
+                        ui.picked = item.or(ui.picked);
+                        ui.menu = Some(Menu { x: (x + 2).min(view::LEFT - 40), y, item });
+                        dirty = true;
+                    }
+                }
                 Input::Mouse { x, y, buttons, down: true } if buttons & BUTTON != 0 => {
+                    // A click away from the box makes the name, as VS Code does.
+                    if ui.edit.is_some() && !matches!(explorer::click(&store, &ui, x, y), Some(Click::Typing)) {
+                        typing(b'\r', &mut store, &mut ui);
+                        dirty = true;
+                    }
                     if x < view::LEFT {
-                        // The EXPLORER: a file can be dragged, nothing else.
+                        // The EXPLORER: a row can be dragged, nothing else.
                         drag = Drag::None;
-                        match explorer::click(&store, x, y) {
+                        match explorer::click(&store, &ui, x, y) {
                             Some(Click::Package(i)) => {
                                 store.choose(i);
                                 shown = Shown::of(&store.loaded.graph);
                                 cam = fit(&store.loaded.graph);
+                                ui = Ui::new();
                             }
                             Some(Click::File(id)) => {
                                 shown.selected = Some(id);
                                 cam = look_at(&store.loaded.graph, id, cam.zoom).unwrap_or(cam);
                                 drag = Drag::File(id, x, y);
                             }
+                            Some(Click::Item(i, Zone::Arrow)) => {
+                                ui.picked = Some(i);
+                                store.toggle(i);
+                            }
+                            Some(Click::Item(i, Zone::Body)) => {
+                                let double = last_click.1 == Some(i) && now.wrapping_sub(last_click.0) < DOUBLE_MS;
+                                last_click = (now, Some(i));
+                                ui.picked = Some(i);
+                                ui.confirm = None;
+                                if double {
+                                    begin_rename(&store, &mut ui, i);
+                                } else {
+                                    drag = Drag::Item(i, x, y);
+                                }
+                                // A module lights its node, and the canvas goes to it.
+                                if let Some(id) = explorer::node_of(&store, i) {
+                                    shown.selected = Some(id);
+                                    cam = look_at(&store.loaded.graph, id, cam.zoom).unwrap_or(cam);
+                                }
+                            }
+                            Some(Click::NewFile) => begin_new(&mut store, &mut ui, false),
+                            Some(Click::NewFolder) => begin_new(&mut store, &mut ui, true),
+                            Some(Click::Typing) => {}
                             None => continue,
                         }
                         dirty = true;
                         continue;
                     }
+                    if let Some(t) = space::tab_at(tab, x, y) {
+                        tab = t;
+                        dirty = true;
+                        continue;
+                    }
+                    match tab {
+                        Tab::Graph => {}
+                        // In the sky a click picks the nearest star, and
+                        // dragging turns the sky: the nodes stay where the
+                        // [layout] puts them.
+                        Tab::Sky => {
+                            let look = space::Look { graph: &store.loaded.graph, files: store.loaded.files(), cam: &cam, turn };
+                            if let Some(id) = space::hit_sky(&look, WIDTH as i32, HEIGHT as i32, x, y) {
+                                shown.selected = Some(id);
+                                ui.picked = explorer::item_of(&store, id);
+                            }
+                            drag = Drag::Turn(x, turn);
+                            dirty = true;
+                            continue;
+                        }
+                        // The pages are to read.
+                        _ => continue,
+                    }
                     let g = &store.loaded.graph;
+                    // An OUT pin first: pulling from it is a cable, not a move.
+                    if let Some(from) = view::pin_at(g, &cam, x, y) {
+                        shown.selected = Some(from);
+                        drag = Drag::Wire(from);
+                        dirty = true;
+                        continue;
+                    }
                     drag = match view::hit(g, &cam, x, y) {
                         Some(id) => {
                             // Picking a node in the canvas lights its file on the left.
                             shown.selected = Some(id);
+                            ui.picked = explorer::item_of(&store, id);
                             dirty = true;
                             let (wx, wy) = cam.to_world(x, y);
                             let n = g.node(id).map(|n| (n.x, n.y)).unwrap_or((wx, wy));
@@ -243,10 +487,65 @@ pub extern "C" fn _start() -> ! {
                     };
                 }
                 Input::Mouse { x, y, down: false, .. } => {
-                    dirty |= drop_file(&mut store, &cam, drag, x, y) || matches!(drag, Drag::File(..));
+                    dirty |= drop_file(&mut store, &ui, &cam, drag, x, y) || matches!(drag, Drag::File(..) | Drag::Item(..));
                     drag = Drag::None;
                 }
                 Input::Mouse { .. } => {}
+                // While a name is typed, every key is the box's.
+                Input::Char(c) if ui.edit.is_some() => {
+                    typing(c, &mut store, &mut ui);
+                    dirty = true;
+                }
+                Input::Char(0x1B) if ui.menu.is_some() => {
+                    ui.menu = None;
+                    dirty = true;
+                }
+                Input::Char(0x1B) if ui.confirm.is_some() => {
+                    ui.confirm = None;
+                    store.note = None;
+                    dirty = true;
+                }
+                Input::Char(KEY_SUPR) => {
+                    if let Some(i) = ui.picked {
+                        ask_remove(&mut store, &mut ui, i, now);
+                        dirty = true;
+                    }
+                }
+                Input::Char(KEY_F2) => {
+                    if let Some(i) = ui.picked {
+                        begin_rename(&store, &mut ui, i);
+                        dirty = true;
+                    }
+                }
+                Input::Char(k @ (KEY_UP | KEY_DOWN)) => {
+                    if let Some(i) = explorer::next_row(&store, ui.picked, k == KEY_DOWN) {
+                        ui.picked = Some(i);
+                        if let Some(id) = explorer::node_of(&store, i) {
+                            shown.selected = Some(id);
+                        }
+                        dirty = true;
+                    }
+                }
+                Input::Char(k @ (KEY_LEFT | KEY_RIGHT | b'\r' | b'\n')) if ui.picked.is_some() && store.tree.is_some() => {
+                    // Left folds (or goes up to the folder), right opens, Enter flips.
+                    let i = ui.picked.unwrap_or(0);
+                    let (folder, folded, parent) = match store.tree.as_deref() {
+                        Some(t) => (t.is_folder(i), t.is_folded(i), t.parent(i)),
+                        None => (false, false, None),
+                    };
+                    match k {
+                        KEY_LEFT if folder && !folded => store.toggle(i),
+                        KEY_LEFT => ui.picked = parent.or(ui.picked),
+                        KEY_RIGHT if folder && folded => store.toggle(i),
+                        b'\r' | b'\n' if folder => store.toggle(i),
+                        _ => {}
+                    }
+                    dirty = true;
+                }
+                Input::Char(b't' | b'T') => {
+                    tab = tab.next();
+                    dirty = true;
+                }
                 Input::Char(b'e' | b'E') => {
                     // The next fault of the path: select it and go there.
                     let current = shown.script.as_ref().and_then(|s| s.events().get(shown.player.index)).map(|e| e.kind);
@@ -270,9 +569,9 @@ pub extern "C" fn _start() -> ! {
             // The release event never came: let go where the pointer is (if
             // it is still ours), or nowhere.
             if ptr.inside {
-                dirty |= drop_file(&mut store, &cam, drag, ptr.x, ptr.y);
+                dirty |= drop_file(&mut store, &ui, &cam, drag, ptr.x, ptr.y);
             }
-            dirty |= matches!(drag, Drag::File(..));
+            dirty |= matches!(drag, Drag::File(..) | Drag::Item(..) | Drag::Wire(..));
             drag = Drag::None;
         }
         if ptr.inside {
@@ -290,8 +589,12 @@ pub extern "C" fn _start() -> ! {
                     cam.y = from.y - (ptr.y - sy) * 1000 / from.zoom;
                     dirty = true;
                 }
+                Drag::Turn(sx, from) => {
+                    turn = from.wrapping_add((ptr.x - sx) as u32 * 2);
+                    dirty = true;
+                }
                 // The ghost follows the pointer.
-                Drag::File(..) => dirty = true,
+                Drag::File(..) | Drag::Item(..) | Drag::Wire(..) => dirty = true,
                 Drag::None => {}
             }
         }
@@ -306,6 +609,10 @@ pub extern "C" fn _start() -> ! {
         let seen = ptr.view as u64 == bmo::SUP_VISTA_SE_VE;
         let flowing = seen && !splash && now.wrapping_sub(touched) < FLOW_REST_MS;
         dirty |= flowing;
+        // The sky turns by itself while lively: one turn every 48 s.
+        if flowing && tab == Tab::Sky && !matches!(drag, Drag::Turn(..)) {
+            turn = turn.wrapping_add(dt * 1024 / 48_000);
+        }
         if dirty && seen {
             let name = store.packages().get(store.chosen).map(|p| p.0.as_bytes());
             let current = shown.script.as_ref().and_then(|s| s.events().get(shown.player.index)).map(|e| e.kind);
@@ -321,15 +628,36 @@ pub extern "C" fn _start() -> ! {
                 sky,
                 flow_ms: flowing.then_some(now),
                 faults: &marks,
+                files: store.loaded.files(),
+                turn,
             };
             let covered = splash && veil == Some(1000);
             if !covered {
-                view::draw(&mut canvas, &scene);
-                explorer::draw(&mut canvas, &store, shown.selected);
-                if let Drag::File(id, x0, y0) = drag {
-                    if ptr.inside && dragged(x0, y0, ptr.x, ptr.y) {
-                        explorer::draw_drag(&mut canvas, &store, &cam, id, ptr.x, ptr.y);
+                match tab {
+                    Tab::Graph => view::draw(&mut canvas, &scene),
+                    space_tab => space::draw(&mut canvas, &scene, space_tab),
+                }
+                space::tabs(&mut canvas, tab);
+                explorer::draw(&mut canvas, &store, &ui, shown.selected, now);
+                match drag {
+                    Drag::File(id, x0, y0) if ptr.inside && dragged(x0, y0, ptr.x, ptr.y) => {
+                        explorer::draw_drag(&mut canvas, &store, &ui, &cam, id, ptr.x, ptr.y);
                     }
+                    Drag::Item(i, x0, y0) if ptr.inside && dragged(x0, y0, ptr.x, ptr.y) => {
+                        explorer::draw_drag_item(&mut canvas, &store, &ui, &cam, i, ptr.x, ptr.y);
+                    }
+                    Drag::Wire(from) if ptr.inside && tab == Tab::Graph => {
+                        // Over a node: green if it can be let go, red with why.
+                        let target = view::hit(&store.loaded.graph, &cam, ptr.x, ptr.y);
+                        let verdict = target.map(|to| {
+                            let r = store.wire_plan(from, to);
+                            let name = |id| store.loaded.graph.node(id).map(|n| n.name).unwrap_or(bmo_titan_contrato::Text::new("?"));
+                            r.map_err(|e| bmo_titan_lector::wire::note(Err(e), name(from).as_bytes(), name(to).as_bytes()))
+                        });
+                        let why = verdict.as_ref().map(|v| v.as_ref().map(|_| ()).map_err(|l| l.as_ref().map_or(&b""[..], |l| l.as_bytes())));
+                        view::draw_wire(&mut canvas, &store.loaded.graph, &cam, from, ptr.x, ptr.y, why);
+                    }
+                    _ => {}
                 }
             }
             if let (true, Some(a), Some(l)) = (splash, veil, logo.as_ref()) {
@@ -376,6 +704,8 @@ fn key(c: u8, shown: &mut Shown, cam: &mut Camera, g: &Graph) -> bool {
             *cam = Camera::centered(LEVELS[j], cx, cy, WIDTH as i32, HEIGHT as i32);
         }
         (b'0', _) => *cam = fit(g),
+        // Esc closes F1 -- unless a name is being typed or a menu is open:
+        // those take it first (see the loop).
         (0x1B, _) => {
             say("TALLER: cerrado con Esc\n");
             bmo::salir();

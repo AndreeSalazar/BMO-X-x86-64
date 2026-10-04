@@ -3,20 +3,22 @@ name = "bmo-titan-front"
 version = "0.1.0"
 edition = "2021"
 authors = ["BMO Project"]
-description = "TITAN++ -- el lenguaje para construir sobre BMO-X. Frontend: de texto a arbol."
+description = "TITAN++ -- el lenguaje para construir sobre BMO-X. Frontend: de texto a arbol, y del arbol a su IR propia."
 
 # -- Lo que enlaza, y lo que NO ------------------------------------
 #
-# Nada. Como INTI: cada lenguaje es un pipeline individual y completo (regla 2
-# del proyecto -- "contratos y formatos, NUNCA cerebros"), y en su primer paso
-# NO emite bytes: entra texto y sale un arbol. Atar el frontend a la forma del
-# emisor antes de tener nada que emitir es el orden que este proyecto evita.
+# Un CONTRATO y nada mas. Como INTI: cada lenguaje es un pipeline individual y
+# completo (regla 2 del proyecto -- "contratos y formatos, NUNCA cerebros"), y
+# el frontend NO emite bytes. Lo unico de fuera es la FORMA del certificado de
+# los dos jueces (TITAN_MAESTRO 6b.3): el compilador lo escribe con el mismo
+# codigo con el que la puerta de carga del kernel lo leera (J2).
 [dependencies]
+bmo-titan-contrato = { path = "../../../platform/shared/titan-contrato" }
 
 [lib]
 name = "bmo_titan_front"
 path = "src/lib.rs"
 
-[[bin]]
-name = "titan"
-path = "src/bin/titan.rs"
+# La orden `titan` NO vive aqui desde T3: produce bytes de UNA maquina, y este
+# crate tiene prohibido nombrar ninguna. Esta en `emisor-x86_64/` (como `inti`
+# vive en el emisor de INTI).

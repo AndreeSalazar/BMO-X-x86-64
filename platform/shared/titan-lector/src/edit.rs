@@ -15,8 +15,12 @@
 //!
 //! The new line goes after the LAST line of the header that already says
 //! `mod` or `use`, so the header stays together at the top.
+//!
+//! The header is found by the compiler's rule (`header.rs`): blank lines and
+//! comment-only lines (`#`) before it or between its lines are skipped -- and,
+//! like every other byte, copied out untouched.
 
-use crate::text::{after_word, commas, trim};
+use crate::text::{after_word, commas, is_comment, trim};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum EditError {
@@ -51,11 +55,12 @@ fn raw_lines(text: &[u8]) -> impl Iterator<Item = Raw> + '_ {
 }
 
 /// The header's lines, from its first one: `(line, trimmed text, is first)`.
+/// Blank and comment-only lines are not header lines (the compiler's rule).
 fn header_lines(text: &[u8]) -> impl Iterator<Item = (Raw, &[u8], bool)> + '_ {
     let mut seen = false;
     raw_lines(text).filter_map(move |r| {
         let t = trim(&text[r.start..r.end]);
-        if t.is_empty() {
+        if t.is_empty() || is_comment(t) {
             return None;
         }
         let first = !seen;
@@ -169,10 +174,144 @@ pub fn remove_child(text: &[u8], child: &[u8], out: &mut [u8]) -> Result<usize, 
     Err(EditError::NotDeclared)
 }
 
+/// Adds `name` to the header's `use`: to the end of the first `use` line if
+/// there is one (`use ship` -> `use ship, gpu`), or as a new `use name` line
+/// right under the module's first line. What a cable drawn in F1 writes
+/// (`wire.rs`).
+pub fn add_use(text: &[u8], name: &[u8], out: &mut [u8]) -> Result<usize, EditError> {
+    let mut first = None;
+    for (r, t, is_first) in header_lines(text) {
+        if is_first {
+            if after_word(t, b"mod").is_none() {
+                return Err(EditError::NoHeader);
+            }
+            first = Some(r);
+            continue;
+        }
+        if let Some(rest) = after_word(t, b"use") {
+            if commas(rest).any(|n| n == name) {
+                // Already there: the text is the truth, nothing to write.
+                let mut o = Out { buf: out, n: 0 };
+                o.put(text)?;
+                return Ok(o.n);
+            }
+            // The end of this line, before its `\r` if it has one.
+            let line = &text[r.start..r.end];
+            let end = r.start + line.len() - if line.ends_with(b"\r") { 1 } else { 0 };
+            let mut o = Out { buf: out, n: 0 };
+            o.put(&text[..end])?;
+            o.put(b", ")?;
+            o.put(name)?;
+            o.put(&text[end..])?;
+            return Ok(o.n);
+        }
+        if after_word(t, b"mod").is_none() {
+            break;
+        }
+    }
+    let r = first.ok_or(EditError::NoHeader)?;
+    let nl = newline(text);
+    let mut o = Out { buf: out, n: 0 };
+    o.put(&text[..r.next])?;
+    if r.next == r.end {
+        o.put(nl)?;
+    }
+    o.put(b"use ")?;
+    o.put(name)?;
+    o.put(nl)?;
+    o.put(&text[r.next..])?;
+    Ok(o.n)
+}
+
+/// The module's OWN name, in its first line: `mod rock "..."` -> `mod roca
+/// "..."`, into `out`. What it does, its `use`, its children and its body go
+/// out as they came in (the EXPLORER renames a file and its module together:
+/// a `.titan` is called like its module, or the reader says it does not match).
+pub fn rename_module(text: &[u8], new: &[u8], out: &mut [u8]) -> Result<usize, EditError> {
+    let (r, t, _) = header_lines(text).next().ok_or(EditError::NoHeader)?;
+    let rest = after_word(t, b"mod").ok_or(EditError::NoHeader)?;
+    let old = rest.split(|c| c.is_ascii_whitespace() || *c == b'"').next().unwrap_or(b"");
+    if old.is_empty() {
+        return Err(EditError::NoHeader);
+    }
+    // Where the old name sits inside the line, in bytes of the whole text.
+    let line = &text[r.start..r.end];
+    let word = line.windows(3).position(|w| w == b"mod").ok_or(EditError::NoHeader)?;
+    let at = r.start + word + 3 + line[word + 3..].iter().position(|c| !c.is_ascii_whitespace()).ok_or(EditError::NoHeader)?;
+    let mut o = Out { buf: out, n: 0 };
+    o.put(&text[..at])?;
+    o.put(new)?;
+    o.put(&text[at + old.len()..])?;
+    Ok(o.n)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::header;
+
+    /// `ejemplos/nivel0/hola.titan`, as the compiler's bench has it: three
+    /// comment lines before `mod`.
+    const HOLA: &[u8] = b"# espera: BIEN\n# sale: hola\n# el primer programa: un modulo que dice que hace, y main que saluda\nmod main \"saluda\"\n\nfn main()\n    print(\"hola\")\n";
+
+    #[test]
+    fn a_leading_comment_is_skipped_and_copied_untouched_by_every_edit() {
+        let mut out = [0u8; 512];
+        let n = add_child(HOLA, b"ship", None, &mut out).unwrap();
+        assert_eq!(&out[..n], &b"# espera: BIEN\n# sale: hola\n# el primer programa: un modulo que dice que hace, y main que saluda\nmod main \"saluda\"\nmod ship\n\nfn main()\n    print(\"hola\")\n"[..]);
+        let with = &out[..n].to_vec();
+        let n = remove_child(with, b"ship", &mut out).unwrap();
+        assert_eq!(&out[..n], HOLA);
+        let n = add_use(HOLA, b"gpu", &mut out).unwrap();
+        assert_eq!(&out[..n], &b"# espera: BIEN\n# sale: hola\n# el primer programa: un modulo que dice que hace, y main que saluda\nmod main \"saluda\"\nuse gpu\n\nfn main()\n    print(\"hola\")\n"[..]);
+        let n = rename_module(HOLA, b"inicio", &mut out).unwrap();
+        assert_eq!(&out[..n], &b"# espera: BIEN\n# sale: hola\n# el primer programa: un modulo que dice que hace, y main que saluda\nmod inicio \"saluda\"\n\nfn main()\n    print(\"hola\")\n"[..]);
+        assert_eq!(header::parse(&out[..n]).unwrap().name.as_bytes(), b"inicio");
+    }
+
+    #[test]
+    fn a_comment_inside_the_header_neither_ends_it_nor_moves() {
+        let mut out = [0u8; 256];
+        let t = b"mod p \"x\"\n# los hijos:\nmod ship\n# lo que usa:\nuse a\n\nfn main()\n";
+        // The new `mod` goes after the LAST header line, past the comments.
+        let n = add_child(t, b"rock", None, &mut out).unwrap();
+        assert_eq!(&out[..n], &b"mod p \"x\"\n# los hijos:\nmod ship\n# lo que usa:\nuse a\nmod rock\n\nfn main()\n"[..]);
+        // The `use` line under a comment is still the header's.
+        let n = add_use(t, b"b", &mut out).unwrap();
+        assert_eq!(&out[..n], &b"mod p \"x\"\n# los hijos:\nmod ship\n# lo que usa:\nuse a, b\n\nfn main()\n"[..]);
+        let n = remove_child(t, b"ship", &mut out).unwrap();
+        assert_eq!(&out[..n], &b"mod p \"x\"\n# los hijos:\n# lo que usa:\nuse a\n\nfn main()\n"[..]);
+        // A commented-out `mod` is not a child.
+        assert_eq!(remove_child(b"mod p \"x\"\n# mod ship\n", b"ship", &mut out), Err(EditError::NotDeclared));
+        // Only comments: no header, as before.
+        assert_eq!(rename_module(b"# nada\n", b"a", &mut out), Err(EditError::NoHeader));
+    }
+
+    #[test]
+    fn a_use_joins_the_use_line_or_opens_one_under_the_first_line() {
+        let mut out = [0u8; 256];
+        let n = add_use(b"mod p \"x\"\nuse ship\nmod collide\n\nfn main()\n", b"gpu", &mut out).unwrap();
+        assert_eq!(&out[..n], b"mod p \"x\"\nuse ship, gpu\nmod collide\n\nfn main()\n");
+        let n = add_use(b"mod p \"x\"\nmod collide\n", b"ship", &mut out).unwrap();
+        assert_eq!(&out[..n], b"mod p \"x\"\nuse ship\nmod collide\n");
+        let n = add_use(b"mod p \"x\"\r\nuse a\r\n", b"b", &mut out).unwrap();
+        assert_eq!(&out[..n], b"mod p \"x\"\r\nuse a, b\r\n");
+        // Already there: the same bytes.
+        let n = add_use(b"mod p \"x\"\nuse a\n", b"a", &mut out).unwrap();
+        assert_eq!(&out[..n], b"mod p \"x\"\nuse a\n");
+        let h = header::parse(b"mod p \"x\"\nuse ship, gpu\nmod collide\n").unwrap();
+        assert_eq!(h.uses().len(), 2);
+    }
+
+    #[test]
+    fn renaming_a_module_touches_only_its_own_name() {
+        let t = "\nmod rock \"una roca\"\nuse ship\nmod tiny\n\nfn main() {}\n";
+        let mut out = [0u8; 256];
+        let n = rename_module(t.as_bytes(), b"roca", &mut out).unwrap();
+        assert_eq!(&out[..n], "\nmod roca \"una roca\"\nuse ship\nmod tiny\n\nfn main() {}\n".as_bytes());
+        assert_eq!(header::parse(&out[..n]).unwrap().name.as_bytes(), b"roca");
+        assert_eq!(rename_module(b"use x\n", b"y", &mut out).err(), Some(EditError::NoHeader));
+    }
 
     fn add(text: &str, child: &str, path: Option<&str>) -> std::string::String {
         let mut out = [0u8; 512];

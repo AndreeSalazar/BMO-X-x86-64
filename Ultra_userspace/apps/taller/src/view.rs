@@ -15,56 +15,19 @@
 //! ** THE LOOK is the logo's (`docs/arte/titan.jpg`, `PLAN_TALLER` 8.8): a
 //! blue night, electric blue going to violet, light that GLOWS instead of
 //! lines that border. F1 is TITAN++'s workshop and wears TITAN++'s colours;
-//! the desktop keeps the cat's (`Los colores del gato`).
+//! the desktop keeps the cat's (`Los colores del gato`). The colours live in
+//! `aspecto/titan.maqueta` and the soft pieces are MAQUETA 2's (`aspecto.rs`).
 
 use crate::canvas::Canvas;
 use crate::player::{duration, Player, TRAVEL_MS};
 use bmo_dibujo::{mezclar, Color, Lienzo, Vertice};
 use bmo_titan_contrato::{EventKind, Graph, Lang, Mode, Node, NodeId, NodeKind, Permission, Script, MAX_NODES};
 
-/// A node, in world pixels.
-pub const NODE_W: i32 = 240;
-pub const NODE_H: i32 = 104;
-/// The title bar, the EXPLORER column and the bottom panel, in screen pixels.
-pub const TOP: i32 = 28;
-pub const LEFT: i32 = 250;
-pub const PANEL: i32 = 132;
-/// Zoom levels, in thousandths.
-pub const LEVELS: [i32; 6] = [500, 750, 1000, 1250, 1500, 2000];
-
-// The colours of TITAN++, taken from its logo; shared with the EXPLORER.
-pub(crate) const BG: Color = 0x0003_0510;
-const DOT: Color = 0x0012_1A3C;
-const BODY: Color = 0x0009_0E26;
-pub(crate) const EDGE: Color = 0x0022_2E6A;
-pub(crate) const BAR: Color = 0x0006_091A;
-pub(crate) const TITLE: Color = 0x00AF_C3FF;
-pub(crate) const INK: Color = 0x00E9_EEFF;
-pub(crate) const DIM: Color = 0x0078_84B4;
-const CABLE: Color = 0x0035_4C9A;
-const CABLE_CORE: Color = 0x005A_7CDA;
-pub(crate) const ACCENT: Color = 0x0070_D6FF;
-/// The two ends of every gradient: the logo's ring.
-pub(crate) const BLUE: Color = 0x003D_6BFF;
-pub(crate) const VIOLET: Color = 0x008C_52FF;
-/// The row picked in the EXPLORER.
-pub(crate) const SEL: Color = 0x0010_1A46;
-const MUT: Color = 0x00FF_B84B;
-pub(crate) const BAD: Color = 0x00FF_4D6A;
-pub(crate) const GOOD: Color = 0x0052_E0A0;
-const GREY: Color = 0x0050_5878;
-
-/// A thin line of the ring's gradient: blue to violet and back to blue.
-pub(crate) fn ring_line(c: &mut Canvas, x: i32, y: i32, w: i32) {
-    c.gradient(x, y, w / 2, 1, BLUE, VIOLET);
-    c.gradient(x + w / 2, y, w - w / 2, 1, VIOLET, BLUE);
-}
-
-/// A picked row of a list: a dark blue band with a bar of light on its left.
-pub(crate) fn picked_row(c: &mut Canvas, x: i32, y: i32, w: i32, h: i32) {
-    c.rect(x, y, w, h, SEL);
-    c.rect(x, y, 2, h, ACCENT);
-}
+// The look -- colours, measures and the soft pieces -- is `aspecto.rs`'s:
+// this file draws with it and decides nothing about it.
+pub use crate::aspecto::{LEFT, LEVELS, NODE_H, NODE_W, PANEL, TOP};
+pub(crate) use crate::aspecto::{picked_row, ring_line, ACCENT, BAD, BAR, BG, BLUE, DIM, EDGE, GOOD, INK, TITLE, VIOLET};
+use crate::aspecto::{self as look, AMBER as MUT, BODY, CABLE_CORE, CABLE_HALO as CABLE, CYAN, DOT, GREY};
 
 /// World -> screen: `(world - cam) * zoom / 1000`, right of the EXPLORER and
 /// below the title bar.
@@ -261,6 +224,11 @@ pub struct Scene<'a> {
     pub flow_ms: Option<u32>,
     /// The nodes in fault (`faults.rs`), in the order of their path.
     pub faults: &'a crate::faults::Marks,
+    /// The files the package was read from: their depth and their TRAITS,
+    /// what the SPACE tabs draw each node by (`astros.rs`).
+    pub files: &'a [bmo_titan_lector::FileEntry],
+    /// How far the 3D sky has turned, in 1024ths of a turn (`space.rs`).
+    pub turn: u32,
 }
 
 /// One whole frame of the canvas. The EXPLORER is drawn after, on its own.
@@ -274,7 +242,7 @@ pub fn draw(c: &mut Canvas, sc: &Scene) {
     }
     grid(c, cam);
     let current = s.events().get(p.index).map(|e| e.kind);
-    cables(c, g, p, cam, current, sc.flow_ms);
+    cables(c, g, sc.files, p, cam, current, sc.flow_ms);
     let (clock, lively) = (sc.flow_ms.unwrap_or(sc.now_ms), sc.flow_ms.is_some());
     crate::faults::draw_under(c, g, cam, sc.faults, clock, lively);
     for (i, n) in g.nodes().iter().enumerate() {
@@ -282,7 +250,7 @@ pub fn draw(c: &mut Canvas, sc: &Scene) {
         if sc.selected == Some(id) {
             // Picked: a brighter, wider halo, drawn under the node.
             let (x, y, w, h) = node_rect(cam, n);
-            c.glow(x, y, w, h, ACCENT, 9, 55);
+            look::shine(c, x, y, w, h, look::r_at(look::R_NODE, cam.zoom), 14, ACCENT, 170);
         }
         node(c, g, cam, id, n, current, sc.now_ms);
     }
@@ -317,7 +285,7 @@ fn grid(c: &mut Canvas, cam: &Camera) {
 const FLOW_MS: u32 = 1800;
 const TAIL: u32 = 220;
 
-fn cables(c: &mut Canvas, g: &Graph, p: &Player, cam: &Camera, current: Option<EventKind>, flow_ms: Option<u32>) {
+fn cables(c: &mut Canvas, g: &Graph, files: &[bmo_titan_lector::FileEntry], p: &Player, cam: &Camera, current: Option<EventKind>, flow_ms: Option<u32>) {
     for (i, e) in g.edges().iter().enumerate() {
         let Some(k) = cable(g, cam, e.from, e.to) else { continue };
         let lent = p.loans.iter().flatten().find(|l| l.from == e.from && l.to == e.to);
@@ -328,15 +296,20 @@ fn cables(c: &mut Canvas, g: &Graph, p: &Player, cam: &Camera, current: Option<E
             }
             _ => false,
         };
+        // At rest a cable wears the colour of its CLASS -- mod, use, 3060,
+        // sistema -- fixed, the same in every tab (`astros::Cable`): the
+        // colour SAYS what it is, nobody picks it. A loan in play wears its
+        // own, over it.
+        let class = crate::astros::cable_of(g, files, e);
         let (color, thick) = match lent {
             Some(_) if to_gpu => (GOOD, 3),
             Some(l) if l.mode == Mode::Mut => (MUT, 3),
             Some(_) => (ACCENT, 3),
             None if travelling => (INK, 2),
-            None => (CABLE_CORE, 1),
+            None => (mezclar(class.color(), CABLE_CORE, 2, 3), class.thick() - 1),
         };
         // Every cable shines a little; a busy one shines in its own colour.
-        let halo = if lent.is_some() || travelling { color } else { CABLE };
+        let halo = if lent.is_some() || travelling { color } else { mezclar(class.color(), CABLE, 1, 2) };
         c.curve_glow(k, halo, color, thick, 3);
         // The arrow head: the used node is below.
         c.disc(k[3].0, k[3].1, 3, color);
@@ -378,6 +351,55 @@ fn pulse(c: &mut Canvas, k: &[Vertice; 4], u: u32) {
     }
 }
 
+/// The PINS of a node, the Unreal Engine 5 way: IN on top (where the cables
+/// that use it arrive), OUT below (where it pulls its own `use` from).
+pub fn in_pin(cam: &Camera, n: &Node) -> Vertice {
+    let (x, y, w, _) = node_rect(cam, n);
+    (x + w / 2, y)
+}
+
+pub fn out_pin(cam: &Camera, n: &Node) -> Vertice {
+    let (x, y, w, h) = node_rect(cam, n);
+    (x + w / 2, y + h)
+}
+
+/// The OUT pin under (x, y): only a module has one (it has a header to write
+/// the `use` in).
+pub fn pin_at(g: &Graph, cam: &Camera, x: i32, y: i32) -> Option<NodeId> {
+    let r = (9 * cam.zoom / 1000).max(7);
+    g.nodes().iter().enumerate().find_map(|(i, n)| {
+        let (px, py) = out_pin(cam, n);
+        (n.kind == NodeKind::Module && (px - x).abs() <= r && (py - y).abs() <= r).then_some(NodeId(i as u8))
+    })
+}
+
+/// A pin: a ring, filled when something is plugged in, and its little arrow.
+fn pin(c: &mut Canvas, (x, y): Vertice, r: i32, color: Color, plugged: bool) {
+    c.disc(x, y, r + 1, BODY);
+    c.disc(x, y, r, color);
+    if !plugged {
+        c.disc(x, y, r - 2, BODY);
+    }
+    // The arrow: down, the way every `mod` and `use` goes.
+    c.rect(x - 1, y + r + 1, 3, 1, color);
+    c.rect(x, y + r + 2, 1, 1, color);
+}
+
+/// The cable being pulled from `from`'s OUT pin to the pointer: in the colour
+/// of a `use` if it can be let go there, red and with the reason if not.
+pub fn draw_wire(c: &mut Canvas, g: &Graph, cam: &Camera, from: NodeId, x: i32, y: i32, verdict: Option<Result<(), &[u8]>>) {
+    let Some(n) = g.node(from) else { return };
+    let a = out_pin(cam, n);
+    let ok = !matches!(verdict, Some(Err(_)));
+    let color = if ok { CYAN } else { BAD };
+    let dy = ((y - a.1).abs() / 2).max(30);
+    c.curve_glow([a, (a.0, a.1 + dy), (x, y - dy), (x, y)], mezclar(color, CABLE, 1, 2), color, 2, 3);
+    c.disc(x, y, 4, color);
+    if let Some(Err(why)) = verdict {
+        look::pill(c, x + 12, y + 10, why, BAD, BAR);
+    }
+}
+
 fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: Option<EventKind>, now_ms: u32) {
     let (x, y, w, h) = node_rect(cam, n);
     if x + w < 0 || y + h < TOP || x >= c.w || y >= c.h - PANEL {
@@ -389,14 +411,28 @@ fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: 
         _ => false,
     } && blink(now_ms);
     let (left, right, label) = header_of(n);
-    // The node glows in its own colour (red while it is the one in trouble).
-    c.glow(x, y, w, h, if alarm { BAD } else { mezclar(left, right, 1, 2) }, 6, if alarm { 60 } else { 28 });
-    c.rect(x, y, w, h, BODY);
+    let round = look::r_at(look::R_NODE, cam.zoom);
+    // The node glows in its own colour (red while it is the one in trouble):
+    // a soft light around a rounded card, MAQUETA 2's pieces (`aspecto.rs`).
+    look::shine(c, x, y, w, h, round, 7, if alarm { BAD } else { look::half(left, right) }, if alarm { 150 } else { 70 });
+    look::card(c, x, y, w, h, round, BODY);
     let head_h = (22 * cam.zoom / 1000).max(8);
-    c.gradient(x, y, w, head_h, left, right);
+    // The header: the gradient with the card's top corners, square below.
+    look::band(c, x, y, w, head_h + round, round, left, right, false);
+    c.rect(x, y + head_h, w, round, BODY);
     // A line of light under the header, and a thin border of the header's hue.
-    c.rect(x, y + head_h, w, 1, mezclar(INK, right, 1, 3));
-    c.frame(x, y, w, h, 1, if alarm { BAD } else { mezclar(left, EDGE, 1, 2) });
+    c.rect(x + 1, y + head_h, w - 2, 1, mezclar(INK, right, 1, 3));
+    look::edge(c, x, y, w, h, round, 1, if alarm { BAD } else { mezclar(left, EDGE, 1, 2) });
+    // Its pins: IN if anything uses it, OUT if it is a module (it can pull).
+    let r = (5 * cam.zoom / 1000).max(3);
+    if n.kind != NodeKind::Root {
+        let used = g.edges().iter().any(|e| e.to == id);
+        pin(c, in_pin(cam, n), r, if used { INK } else { DIM }, used);
+    }
+    if n.kind == NodeKind::Module {
+        let uses = g.edges().iter().any(|e| e.from == id);
+        pin(c, out_pin(cam, n), r, CYAN, uses);
+    }
     if cam.zoom < 750 {
         // Too small for text: only the name, if it fits.
         c.text_fit(x + 4, y + head_h + 2, n.name.as_bytes(), INK, w - 8);
@@ -455,10 +491,7 @@ fn permissions(c: &mut Canvas, g: &Graph, x: i32, y: i32, w: i32, current: Optio
 }
 
 fn chip(c: &mut Canvas, x: i32, y: i32, text: &[u8], color: Color) {
-    let w = text.len() as i32 * 8 + 10;
-    c.rect(x, y, w, 18, BAR);
-    c.frame(x, y, w, 18, 1, color);
-    c.text(x + 5, y + 1, text, color, 1);
+    look::pill(c, x, y, text, color, BAR);
 }
 
 /// The values on each node while a loan is open, and the taken ones.
@@ -555,6 +588,12 @@ fn overlay(c: &mut Canvas, g: &Graph, s: &Script, p: &Player, cam: &Camera, now_
             }
         }
     }
+}
+
+/// The title bar alone: the SPACE tab (`space.rs`) wears the same one.
+pub(crate) fn title(c: &mut Canvas, sc: &Scene) {
+    let none = Script::new();
+    title_bar(c, sc.script.unwrap_or(&none), sc.player, sc.script.is_some(), sc.origin);
 }
 
 fn title_bar(c: &mut Canvas, s: &Script, p: &Player, has_script: bool, origin: &[u8]) {
@@ -681,7 +720,7 @@ fn help(c: &mut Canvas, x: i32, top: i32) {
     c.text(
         x,
         top + PANEL - 22,
-        b"[espacio] pausa [n] paso [r] repite [+-] zoom [0] encuadra [e] error  arrastra: mueve  fichero sobre otro: cuelga  [Esc] sale",
+        b"[espacio] pausa [n] paso [r] repite [+-] zoom [0] encuadra [e] error [t] ESPACIO  pin de abajo a otro nodo: use  [Esc] sale",
         DIM,
         1,
     );

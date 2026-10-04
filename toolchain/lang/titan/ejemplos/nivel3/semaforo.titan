@@ -1,0 +1,22 @@
+# espera: BIEN
+# sale: el semaforo esta en ambar
+# sale: frena si puedes
+# sale: cruzar: false
+# un `if` con su `else if` y su `else`: un solo camino, decidido al compilar
+mod main "un semaforo que decide"
+
+fn main()
+    let segundos = 47
+    let mut color = "verde"
+    if segundos > 50
+        color = "rojo"
+    else if segundos > 40
+        color = "ambar"
+    print("el semaforo esta en ", color)
+    if color == "rojo"
+        print("para")
+    else if color == "ambar"
+        print("frena si puedes")
+    else
+        print("pasa")
+    print("cruzar: ", color == "verde")

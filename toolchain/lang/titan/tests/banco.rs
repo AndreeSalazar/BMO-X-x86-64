@@ -2,16 +2,20 @@
 //! `ejemplos/nivelN/` says in its first line what it expects --
 //!
 //! ```text
-//!    # espera: BIEN      the frontend accepts it
+//!    # espera: BIEN      the frontend accepts it (and the emitter's bench
+//!                        RUNS it and compares its `# sale:` lines)
 //!    # espera: T0040     the frontend says NO, with exactly this code
 //! ```
 //!
-//! -- and a level is done only when its list passes WHOLE, with every code of
-//! the language used at least once: a NO that no example provokes is a NO
-//! nobody has seen.
+//! -- through the WHOLE frontend: tree, names, the checker (`juez.rs`) and the
+//! calculation (`calc.rs`). A level is done only when its list passes whole,
+//! and every code of the language is provoked by some example of some level:
+//! a NO that no example provokes is a NO nobody has seen.
 
-use bmo_titan_front::{compile, Code};
+use bmo_titan_front::{lower, Code};
 use std::path::Path;
+
+const LEVELS: [&str; 4] = ["nivel0", "nivel1", "nivel2", "nivel3"];
 
 fn bench(level: &str) -> Vec<(String, String, String)> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ejemplos").join(level);
@@ -36,27 +40,30 @@ fn bench(level: &str) -> Vec<(String, String, String)> {
 }
 
 #[test]
-fn level_0_the_whole_list_passes_and_every_code_is_seen() {
+fn every_level_passes_whole_and_every_code_is_seen() {
     let mut seen = Vec::new();
-    let mut bien = 0;
-    for (name, want, src) in bench("nivel0") {
-        match (want.as_str(), compile(&src)) {
-            ("BIEN", Ok(_)) => bien += 1,
-            ("BIEN", Err(m)) => panic!("{} should compile:\n{}", name, m.render(&name, &src)),
-            (code, Ok(_)) => panic!("{} should say {} and it compiled", name, code),
-            (code, Err(m)) => {
-                assert_eq!(m.code.label(), code, "{}:\n{}", name, m.render(&name, &src));
-                let r = m.render(&name, &src);
-                for part in ["QUE      ", "DONDE    ", "POR QUE  ", "COMO     "] {
-                    assert!(r.contains(part), "{}: without {}", name, part.trim());
+    for level in LEVELS {
+        let mut bien = 0;
+        for (name, want, src) in bench(level) {
+            let name = format!("{}/{}", level, name);
+            match (want.as_str(), lower(&src)) {
+                ("BIEN", Ok(_)) => bien += 1,
+                ("BIEN", Err(m)) => panic!("{} should compile:\n{}", name, m.render(&name, &src)),
+                (code, Ok(_)) => panic!("{} should say {} and it compiled", name, code),
+                (code, Err(m)) => {
+                    assert_eq!(m.code.label(), code, "{}:\n{}", name, m.render(&name, &src));
+                    let r = m.render(&name, &src);
+                    for part in ["QUE      ", "DONDE    ", "POR QUE  ", "COMO     "] {
+                        assert!(r.contains(part), "{}: without {}", name, part.trim());
+                    }
+                    assert!(m.line >= 1 && m.line <= src.lines().count() + 1, "{}: line {}", name, m.line);
+                    seen.push(m.code);
                 }
-                assert!(m.line >= 1 && m.line <= src.lines().count() + 1, "{}: line {}", name, m.line);
-                seen.push(m.code);
             }
         }
+        assert!(bien >= 2, "{} has its programs that compile", level);
     }
-    assert!(bien >= 2, "level 0 has its programs that compile");
     for code in Code::ALL {
-        assert!(seen.contains(&code), "no example of level 0 provokes {}", code.label());
+        assert!(seen.contains(&code), "no example provokes {}", code.label());
     }
 }

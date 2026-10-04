@@ -1,0 +1,10 @@
+# espera: BIEN
+# sale: area: 12
+# el primer calculo: dos valores con nombre y su producto
+mod main "calcula el area de un rectangulo"
+
+fn main()
+    let ancho = 3
+    let alto = 4
+    let area = ancho * alto
+    print("area: ", area)

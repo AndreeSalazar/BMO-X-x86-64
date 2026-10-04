@@ -1,0 +1,18 @@
+# espera: BIEN
+# sale: hola, centauro del espacio
+# sale: patas: 4, torso: 1, en total 5
+# sale: 190 estrellas entre 5 son 38 cada una, y 190 % 7 deja 1
+# sale: a 3 de cero: -3
+# textos que se suman, la precedencia de la escuela, el resto, y un negativo
+mod main "el centauro cuenta sus estrellas"
+
+fn main()
+    let saludo = "hola, " + "centauro del espacio"
+    print(saludo)
+    let patas = 4
+    let torso = 1
+    print("patas: ", patas, ", torso: ", torso, ", en total ", patas + torso)
+    let estrellas = 120 + 35 * 2
+    let cada_una = estrellas / 5
+    print(estrellas, " estrellas entre 5 son ", cada_una, " cada una, y ", estrellas, " % 7 deja ", estrellas % 7)
+    print("a 3 de cero: ", -(patas - torso))

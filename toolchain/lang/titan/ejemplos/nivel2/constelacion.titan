@@ -1,0 +1,19 @@
+# espera: BIEN
+# sale: estrellas: * * * *
+# sale: brillo total: 26
+# un texto que crece y un numero que acumula, los dos con `mut`
+mod main "dibuja una constelacion"
+
+fn main()
+    let mut cielo = "estrellas:"
+    let mut brillo = 0
+    cielo = cielo + " *"
+    brillo = brillo + 5
+    cielo = cielo + " *"
+    brillo = brillo + 7
+    cielo = cielo + " *"
+    brillo = brillo + 3
+    cielo = cielo + " *"
+    brillo = brillo + 11
+    print(cielo)
+    print("brillo total: ", brillo)

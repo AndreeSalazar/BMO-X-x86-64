@@ -1,0 +1,7 @@
+# espera: T0057
+# un `mut` que nunca cambia promete algo que no pasa: se quita el mut
+mod main "cuenta"
+
+fn main()
+    let mut vueltas = 0
+    print(vueltas)

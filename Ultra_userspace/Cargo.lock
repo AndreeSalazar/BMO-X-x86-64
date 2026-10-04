@@ -59,6 +59,7 @@ name = "bmo-app-taller"
 version = "0.1.0"
 dependencies = [
  "bmo-dibujo",
+ "bmo-pinta",
  "bmo-titan-contrato",
  "bmo-titan-lector",
  "bmo-userland",

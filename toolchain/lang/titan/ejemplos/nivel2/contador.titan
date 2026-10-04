@@ -1,0 +1,21 @@
+# espera: BIEN
+# sale: el centauro da 3 vueltas al sol
+# sale: y junta 60 de energia
+# sale: estado: en orbita
+# contar y acumular: `let mut`, y el mismo nombre a la izquierda y a la derecha
+mod main "el centauro cuenta sus vueltas"
+
+fn main()
+    let mut vueltas = 0
+    let mut energia = 0
+    vueltas = vueltas + 1
+    energia = energia + vueltas * 10
+    vueltas = vueltas + 1
+    energia = energia + vueltas * 10
+    vueltas = vueltas + 1
+    energia = energia + vueltas * 10
+    print("el centauro da ", vueltas, " vueltas al sol")
+    print("y junta ", energia, " de energia")
+    let mut estado = "en tierra"
+    estado = "en orbita"
+    print("estado: ", estado)

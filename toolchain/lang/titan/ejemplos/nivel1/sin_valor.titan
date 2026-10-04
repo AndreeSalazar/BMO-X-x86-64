@@ -1,0 +1,7 @@
+# espera: T0054
+# se lee antes de que un `let` le de valor: un cuerpo se lee de arriba abajo
+mod main "calcula"
+
+fn main()
+    print(area)
+    let area = 12

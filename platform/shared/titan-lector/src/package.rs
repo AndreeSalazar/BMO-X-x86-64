@@ -27,6 +27,7 @@
 use crate::header::{self, HeaderError};
 use crate::manifest::{self, ManifestError};
 use crate::text::{default_place, Path};
+use crate::traits::Traits;
 use bmo_titan_contrato::sample::{DIRECTOR_NAME, DIRECTOR_PURPOSE, GPU_NAME, GPU_PURPOSE, ROOT_PURPOSE};
 use bmo_titan_contrato::{Graph, GraphError, Lang, Line, Name, Node, NodeId, NodeKind, Permission, Text, MAX_EDGES, MAX_NODES};
 
@@ -79,17 +80,23 @@ pub struct Problem {
 }
 
 /// A small writer into one line of text.
-pub(crate) struct Say {
+pub struct Say {
     b: [u8; 72],
     n: usize,
 }
 
+impl Default for Say {
+    fn default() -> Say {
+        Say::new()
+    }
+}
+
 impl Say {
-    pub(crate) fn new() -> Say {
+    pub fn new() -> Say {
         Say { b: [0; 72], n: 0 }
     }
 
-    pub(crate) fn t(mut self, s: &[u8]) -> Say {
+    pub fn t(mut self, s: &[u8]) -> Say {
         for &c in s {
             if self.n < self.b.len() {
                 self.b[self.n] = c;
@@ -99,7 +106,7 @@ impl Say {
         self
     }
 
-    pub(crate) fn num(self, v: usize) -> Say {
+    pub fn num(self, v: usize) -> Say {
         let mut d = [0u8; 20];
         let (mut k, mut v) = (0, v);
         loop {
@@ -114,7 +121,7 @@ impl Say {
         self.t(&d[..k])
     }
 
-    pub(crate) fn done(self) -> Line {
+    pub fn done(self) -> Line {
         Text::new(core::str::from_utf8(&self.b[..self.n]).unwrap_or("?"))
     }
 }
@@ -156,10 +163,12 @@ pub struct FileEntry {
     pub parent: NodeId,
     /// Steps under `Titan.toml` in the declared tree: 0 for it, 1 for main.
     pub depth: u8,
+    /// What its body does (`traits.rs`): how F1 draws its node, live.
+    pub traits: Traits,
 }
 
 impl FileEntry {
-    const EMPTY: FileEntry = FileEntry { path: Path::EMPTY, node: NodeId(0), parent: NodeId(0), depth: 0 };
+    const EMPTY: FileEntry = FileEntry { path: Path::EMPTY, node: NodeId(0), parent: NodeId(0), depth: 0, traits: Traits::NONE };
 }
 
 pub struct Loaded {
@@ -233,9 +242,9 @@ impl Loaded {
         }
     }
 
-    fn file(&mut self, path: Path, node: NodeId, parent: NodeId, depth: usize) {
+    fn file(&mut self, path: Path, node: NodeId, parent: NodeId, depth: usize, traits: Traits) {
         if self.n_files < MAX_NODES {
-            self.files[self.n_files] = FileEntry { path, node, parent, depth: depth as u8 };
+            self.files[self.n_files] = FileEntry { path, node, parent, depth: depth as u8, traits };
             self.n_files += 1;
         }
     }
@@ -347,7 +356,7 @@ pub fn read_package_into<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8], ou
         out.problem(ProblemKind::Full, b"", b"");
         return;
     };
-    out.file(Path::new(&[b"Titan.toml"]).unwrap_or(Path::EMPTY), root_id, root_id, 0);
+    out.file(Path::new(&[b"Titan.toml"]).unwrap_or(Path::EMPTY), root_id, root_id, 0, Traits::NONE);
 
     // -- the modules, following `mod` from src/main.titan ------------------
     let empty = Text::new("");
@@ -408,7 +417,7 @@ pub fn read_package_into<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8], ou
             out.problem(ProblemKind::Full, h.name.as_bytes(), b"");
             continue;
         };
-        out.file(file, id, p.parent, p.depth);
+        out.file(file, id, p.parent, p.depth, crate::traits::scan(&buf[..n]));
         max_depth = max_depth.max(p.depth);
         edge(out, p.parent, id);
 

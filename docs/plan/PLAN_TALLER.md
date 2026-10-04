@@ -403,7 +403,8 @@ el compilador ya comprueba.
           frontend de TITAN++ hasta T2 (sabe leer `mod` y `use`)
    [ ] 9  el texto del nodo se EDITA y se guarda en su .titan; `titan check`
           marca el nodo que no compila
-   [ ] 10 dibujar un cable escribe un `use`; uno hacia arriba se rechaza
+   [x] 10 dibujar un cable escribe un `use`; uno hacia arriba se rechaza
+          HECHO en el anfitrion el 04-10 (8.13): del pin OUT a otro nodo
    [ ] 11 F5: `titan build`, y el .bex se le ofrece al ESCRITORIO
 ```
 
@@ -796,6 +797,300 @@ trazo sale de una raiz entera.
 | F12: `renombra titan/asteroids/src/rock.titan roca.titan` | `main` en rojo con ERROR, su onda, `main.titan` en rojo | el problema sale en la lista pero ningun nodo se enciende |
 | ademas un `use ufo` en physics | ERROR 1/2 en main y 2/2 en physics, y el camino rojo entre los dos | sin camino, o numeros al reves |
 | `e` | la camara salta al siguiente error y lo selecciona | no pasa nada: la `e` no llega como letra |
+
+### 8.10 L5: el EXPLORER organiza el DISCO, a la manera del propietario (04-10)
+
+El propietario: *"que TALLER tenga motivos de existencia, su EXPLORER unico que
+puedan organizar carpetas, archivos, todo"*, inspirado en VS Code, y *"tener
+absoluto control de organizar a mi manera en archivos sin tener que pelear con
+orden de A hasta la Z ... PERSONALIZAR TODO"*. Eligio las cuatro acciones:
+nuevo archivo / carpeta, renombrar, quitar y carpetas plegables.
+
+**La columna organiza el DISCO; el lienzo organiza los MODULOS.**
+
+```text
+   ARCHIVOS        [+][+]    nuevo archivo, nueva carpeta (donde esta lo elegido)
+     v docs                  TODO lo que hay en la carpeta del paquete, no solo
+         LEEME.txt           lo que nombra un `mod`
+     v src
+         main.titan          un modulo: el clic enciende su nodo
+         ufo.titan           un .titan que nadie declara: en gris
+       > physics             una carpeta plegada (la flecha la abre)
+     Titan.toml
+```
+
+**Listar sin tocar el cursor de F12.** Se iba a pedir una pregunta nueva en
+Ring 0 y NO hizo falta: el objeto `KIND_DIRECTORIO` (01-10, nacido para
+PROTON-X) ya lista ESTRATOS con un handle POR PROCESO (`bmo::Directorio`), y
+F1 abre UNA carpeta cada vez (son ocho para todo el sistema). Lo de FAT32 con
+el mismo nombre (`titan/` guarda los `.bex` de T3) se salta. Cero cambios en
+Ring 0.
+
+**El orden es del propietario, no de la A a la Z.** Arrastrar una fila sobre
+otra de la MISMA carpeta la pone delante (mitad de arriba) o detras (mitad de
+abajo), y queda en `Titan.toml`, al lado de `[layout]` (TITAN_MAESTRO 13.5: el
+nodo principal guarda la vista):
+
+```toml
+[explorer]                       # carpeta = sus hijos, en el orden elegido
+"." = ["docs", "src", "Titan.toml"]
+"src" = ["main.titan", "ship.titan"]
+
+[explorer.folded]                # las carpetas que se quedan cerradas
+"src/physics" = true
+```
+
+Lo que nadie coloco va detras, en el orden del DISCO (el de creacion): lo
+nuevo sale al final de su carpeta. Un renombre conserva el sitio (cuelga del
+elemento, no del nombre viejo).
+
+**Los gestos, y lo que arrastran de su modulo** (`titan-lector::organize`,
+probado en el anfitrion con un ESTRATOS en memoria):
+
+| gesto | como | en el disco | y en las cabeceras |
+|---|---|---|---|
+| nuevo archivo | `[+]`, menu, y se escribe el nombre en la fila | `crear_desde` | un `.titan` nace con `mod x "..."`; si habia un modulo elegido, ese lo declara (`mod x in "..."` si cargo no lo buscaria ahi) |
+| nueva carpeta | `[+]` de carpeta, o menu | `crear_carpeta` | -- |
+| renombrar | doble clic, menu, o F2 si el escritorio la deja pasar (F1-F10 son suyas) | `renombrar` | su `mod rock` -> `mod roca`, y el del padre |
+| quitar | Supr dos veces (la primera pregunta, 3 s), o menu | `quitar` (queda en el historial) | el padre deja de declararlo; `Titan.toml` y `src/main.titan` no se quitan |
+| mover a carpeta | soltarlo sobre una carpeta (o en ARCHIVOS: la raiz) | leer + `crear_desde` + `quitar` | el padre pasa a `mod x in "nueva/ruta.titan"` |
+| ordenar | soltarlo entre dos hermanos | -- | `[explorer]` de `Titan.toml` |
+| plegar | la flecha, Enter, izquierda / derecha | -- | `[explorer.folded]` |
+| declarar | soltar un `.titan` gris sobre un NODO del lienzo | -- | ese modulo lo declara |
+
+[!] **Cambia un gesto de L2 (8.7)**: soltar un fichero sobre OTRA FILA ya no lo
+cuelga: ahora ordena o mueve en el disco. Colgar (cambiar quien lo declara) se
+hace soltandolo sobre un NODO del lienzo, que ya lo hacia. Sin ESTRATOS (el
+ejemplo en memoria) la columna sigue siendo el arbol declarado y L2 sigue
+igual.
+
+**Lo que NO reescribe, a proposito**: los `use rock` de OTROS ficheros (seria
+leer y escribir el paquete entero por un nombre), los hijos que un modulo
+guarda en la carpeta de su nombre, y los `mod ... in` que pasaban por una
+carpeta renombrada. Salen en PROBLEMAS con sus nombres y el lienzo los pinta en
+rojo; la segunda linea de la nota lo dice. Moviendo CARPETAS: todavia no (la
+nota lo dice). Y nada se pierde: cada gesto dice su `vuelve N`.
+
+**Lo medido**: `taller` pasa a 56.368 B de pila de 65.536 (`pila.py --ring3`,
+eran 55.696). El arbol (~8 KiB) vive en un bloque prestado, no en la pila: un
+`Tree` son solo enteros, asi que cualquier byte es uno valido.
+
+**Visto con la CAMARA** (ahora en el repositorio:
+`toolchain/tools/espejo-cara`, `cargo run -p bmo-espejo-cara --bin cara-taller
+-- <carpeta>`, pinta `explorer.rs` de verdad sobre un ESTRATOS en memoria):
+cazo el cursor del nombre dibujado a mitad del texto y la segunda linea de la
+nota cortada.
+
+**Como se mira en el Ryzen** (despues de `build.ps1` y desplegar, con ESTRATOS
+montado):
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1 | ARCHIVOS muestra `Titan.toml` y `src` con sus ficheros, y los dos botones `[+]` | solo salen los modulos: `Directorio` no abrio la carpeta (CABINA, `dir`) |
+| `[+]` con `ship.titan` elegido, `wing.titan`, Enter | `wing.titan` en `src`, un nodo `wing` colgando de `ship`, y la nota con su `vuelve 2` | el nombre no llega: las letras no van al buzon mientras se escribe |
+| arrastrar `rock.titan` sobre la mitad de arriba de `main.titan` | sale una linea azul delante de `main`; al soltar, `rock` queda delante y `Titan.toml` tiene `[explorer]` | se cuelga en vez de ordenarse: es el binario de antes |
+| clic en la flecha de `physics` | se pliega; tras cerrar y abrir F1 sigue plegada | se abre otra vez: `[explorer.folded]` no se escribio |
+| doble clic en `rock.titan`, `roca.titan`, Enter | `roca.titan` en su sitio, el nodo `roca`, y PROBLEMAS con los `use rock` de `ship` y `physics` | el nodo desaparece: no se reescribio la cabecera |
+| Supr, Supr sobre `roca.titan` | la primera pide confirmar (parpadea en rojo), la segunda lo quita; `vuelve 2` en F12 lo trae | se quita a la primera |
+| clic derecho en una fila | el menu de cuatro entradas; Esc lo cierra sin cerrar F1 | Esc cierra F1: el menu no se quedo la tecla |
+
+### 8.11 L6: la solapa ESPACIO -- cada nodo, un astro (04-10)
+
+El propietario: *"un tab simple pero que muestren todos los nodos dinamicos,
+unicos y divertidos, que son representantes del espacio, como el centauro del
+espacio"*. Arriba del lienzo, dos solapas: **GRAFO** (lo de siempre) y
+**ESPACIO** (`space.rs`); `[t]` cambia de una a otra.
+
+```text
+   el paquete (Titan.toml)   EL CENTAURO, una constelacion: las cuatro patas son
+                             BMO-X; el torso y el arco, TITAN++ (TITAN_MAESTRO
+                             6b.6, dibujado)
+   un modulo                 un PLANETA propio: color, anillo, medida y giro
+                             salen de su NOMBRE (FNV-1a): dos nunca iguales, y
+                             cada uno siempre el mismo. Sus lunas: lo que usa
+   la 3060                   un PULSAR, dos haces que giran
+   el DIRECTOR               una ESTACION, con sus paneles y su luz
+   una dependencia           un ASTEROIDE
+   un modulo en fallo        una SUPERNOVA roja que respira
+   un cable                  una ruta de luz, y la cometa que baja por ella
+```
+
+- **No decide nada**: los astros estan donde el `[layout]` pone los nodos, asi
+  que un clic, arrastrar y el EXPLORER funcionan igual en las dos solapas.
+- **Solo se mueve si lo miras y lo tocas** (el reloj de las cometas, 20 s
+  despues del ultimo toque): en reposo, el cielo se queda quieto y F1 duerme.
+- **Sin coma flotante**: `core` no tiene `sin`; un cuarto de onda vive en una
+  tabla de 17 numeros. El halo es REDONDO y propio (`halo`): el `glow` del
+  lienzo es cuadrado, hecho para las cajas del grafo -- lo cazo la CAMARA
+  (`cara-taller` saca ahora `espacio.png` y `grafo.png`).
+- **La pila**: `taller` sigue cabiendo (`pila.py --ring3`).
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1, `t` | el CENTAURO arriba, un planeta por modulo, el pulsar y la estacion; abajo, la leyenda | la solapa no cambia: la `t` no llega |
+| mover el raton | las lunas giran, las estrellas titilan, las cometas bajan | todo quieto: el latido de 33 ms no llega |
+| 20 s sin tocar | el cielo se queda quieto | sigue moviendose: F1 no descansa |
+| clic en un planeta | su fichero se enciende en el EXPLORER | no pasa nada: el clic no cae en su caja |
+
+### 8.12 L7: el nodo es lo que HACE, en vivo; y ESPACIO con sus solapas (04-10)
+
+El propietario: *"los nodos tienen que tener algo unico que representan, pero
+tambien cuando el programador cambia, todo el nodo se cambia en tiempo real en
+la forma que representa: el mut, el que envia paquetes, el que representa
+conectores fuertes"*, *"en VS Code es 2D, pero en 3D lo esconde"*, y *"que en
+ese cuadro tengan solapas para tener ideas de las guias y porque, con lineas y
+que sean ordenadas"*.
+
+**Los RASGOS** (`titan-lector::traits`): al leer cada `.titan` (los mismos
+bytes que ya se traian para la cabecera, cero lecturas de mas) se cuenta lo
+que su CUERPO hace -- `fn`, `let`, `let mut`, `x = ...`, `print`, llamadas.
+Viajan en cada `FileEntry`, y como F1 relee el paquete cuando sube la
+generacion de ESTRATOS, **guardar el fichero cambia el astro en el latido
+siguiente**. [!] Es una lectura rapida, no el compilador: cuenta, no juzga.
+
+```text
+   fn       la medida del planeta        let      sus LUNAS, quietas
+   let mut  ANILLOS ambar que giran      x = ...  mas rapido giran
+   print    un EMISOR: paquetes que suben hacia la consola
+   llamadas COMETAS                      sin cuerpo  un PROTOPLANETA
+```
+
+**Los cables tienen CLASE, y la clase da el color, FIJO** (*"colores que te
+limitan para no tener que pelear"*): `mod` violeta trenzado (el lazo fuerte:
+quien declara a quien), `use` cian (depende de el), verde la 3060, azul el
+sistema. El mismo color en todas las solapas (`astros::Cable`).
+
+**ESPACIO tiene tres solapas** (`t` las recorre todas):
+
+```text
+   CIELO 3D    el paquete en perspectiva, con suelo de luz: la hondura es lo
+               hondo que esta cada modulo en el arbol declarado (el metal --
+               3060, DIRECTOR -- al fondo). Gira solo mientras F1 esta vivo;
+               arrastrar el cielo lo gira a mano; clic en un astro lo elige y
+               abajo se lee lo que es, contado de sus rasgos
+   ELEMENTOS   doce tarjetas: cada elemento ANIMADO con el mismo pintor del
+               cielo (`astros.rs`: el catalogo no puede mentir), que es y por
+               que se ve asi
+   GUIA        seis porques numerados, en dos columnas con sus lineas: la
+               verdad es el texto, del texto al astro en vivo, los dos jueces,
+               los colores, por que 3D, las teclas
+```
+
+3D con enteros: girar sobre el eje vertical, inclinar hacia el ojo y dividir
+por la distancia; un seno de 64 pasos con el paso de en medio interpolado
+(1024 por vuelta) para que el giro lento no salte; los lejanos primero, y los
+NOMBRES en una segunda pasada para que un planeta cercano no tape el nombre de
+uno lejano (lo cazo la camara).
+
+**La semilla `asteroids` tiene cuerpos** desde hoy (TITAN++ de los niveles
+0-2): cada nodo del primer paquete se ve distinto. Antes eran solo cabeceras,
+a proposito: el cuerpo no estaba decidido.
+
+**Lo medido**: `taller` 57.264 B de pila de 65.536 (`pila.py --ring3`).
+**Visto con la CAMARA**: `cara-taller` saca `cielo.png`, `elementos.png` y
+`guia.png`.
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1, `t` | CIELO 3D: el centauro, los planetas sobre un suelo de luz, girando | plano: la solapa es la de antes |
+| arrastrar el cielo | gira con el raton | se mueve el lienzo: el arrastre no se quedo |
+| F12: poner `let mut n = 0` y `n = n + 1` a `rock.titan` | en el latido siguiente `rock` estrena un anillo ambar que gira | no cambia: el latido no relee |
+| `t` otra vez, y otra | ELEMENTOS con doce tarjetas que se mueven; GUIA con sus seis puntos | -- |
+
+### 8.13 L8: GRAFO con pines, a lo Unreal Engine 5 -- un cable es un `use` (04-10)
+
+El propietario: *"un estilo de Unreal Engine 5 en nodos, que tienen como para
+agarrar los cables, pero los cables se pueden colorear pero tambien te limita
+para no tener que pelear ... solo colores que ya estan conectados"*.
+
+```text
+   cada nodo         un pin IN arriba (lleno si alguien lo usa) y, si es un
+                     modulo, un pin OUT abajo (lleno si usa a alguien)
+   tirar del OUT     un cable en la mano, hasta otro nodo:
+                       cian       se puede soltar
+                       ROJO       no, y dice por que, ANTES de soltar
+   soltarlo          se escribe `use <nodo>` en la cabecera del modulo
+                     (titan-lector::wire + edit::add_use); el latido
+                     siguiente lo relee y el cable ya es del texto
+   los colores       los da la CLASE, fijos (astros::Cable): mod violeta,
+                     use cian, 3060 verde, sistema azul. Nadie elige un
+                     color: el color dice lo que es el cable
+```
+
+- **Se rechaza donde lo rechazaria el compilador** (U3, las dependencias solo
+  bajan): un cable que cierra un ciclo, uno que ya existe, uno hacia el
+  paquete, uno desde algo que no es un modulo. Probado en el anfitrion con un
+  ESTRATOS en memoria (`wire::tests`).
+- `use gpu` sin `gpu` en `[permissions]` se escribe y sale en PROBLEMAS (U2):
+  el lector ya lo decia, y el cable no lo esconde.
+- Es el **escalon 10** de 8.4, hecho.
+
+**Visto con la CAMARA**: `cable_bien.png` (rock -> ship, cian) y
+`cable_ciclo.png` (ship -> physics, rojo: *"physics ya depende de ship: seria
+un ciclo"*).
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| tirar del pin de abajo de `rock` hasta `ship` | cable cian; al soltar, `rock.titan` tiene `use ship` y el cable se queda | el nodo se mueve: el clic no cayo en el pin |
+| tirar de `ship` hasta `physics` | rojo, con su motivo; al soltar no se escribe nada | se escribe: `plan` no se miro |
+
+### 8.14 L9: APARIENCIA y LOGICA, cortadas; MAQUETA viste a F1; el `if` se ve (04-10)
+
+El propietario: *"si es para mejorar apariencia usa MAQUETA, MAQUETA ya tiene
+mejoras ... pero divide bien en apariencia y la logica de TITAN++"*. El corte,
+dicho como una regla que se comprueba:
+
+```text
+   LOGICA       lo que el paquete ES y lo que se le puede hacer
+                titan-lector, titan-contrato, el compilador, store.rs.
+                NI UN COLOR: `titan-lector` tiene una prueba
+                (`the_logic_names_no_look`) que falla si su codigo
+                nombra un color, un pixel o un pintor
+
+   APARIENCIA   como se DIBUJA
+                aspecto/titan.maqueta   los colores, como los lee MAQUETA
+                src/tema_gen.rs         generado de el (`maqueta --paleta`),
+                                        nunca a mano
+                src/aspecto.rs          los PAPELES (BG, INK, CYAN...), las
+                                        medidas y las piezas SUAVES de
+                                        MAQUETA 2 (`bmo-pinta`): caja
+                                        redonda, borde, resplandor, degradado
+                view, space, astros,    los pintores: LEEN la logica y no
+                guia, explorer          deciden nada de ella
+```
+
+- **Las piezas suaves son las de MAQUETA, no unas de F1**: `bmo-pinta` es el
+  pintor de MAQUETA 2 (04-10, "nitidez de matematica"), el mismo que corre el
+  escritorio y la foto del anfitrion. F1 solo escribe el ADAPTADOR (`Soft`):
+  su lienzo contestando las dos preguntas del pintor. Un nodo, una ficha, una
+  solapa y una etiqueta tienen ahora el borde de una curva exacta.
+- **La paleta de F1 es la de TITAN++, no la del gato**: vive al lado de la app
+  (`aspecto/titan.maqueta`) y no en el tema de la casa, para que `.accent` no
+  pelee por ser el ojo del gato alli y la luz cian aqui.
+- **El nivel 3 en el cielo**: `Traits::ifs` cuenta cada `if` y `else if`, y el
+  planeta lleva una **ESTRELLA DOBLE** por decision: dos estrellas que giran,
+  una dorada (el camino que corre) y una brasa gris (el lado MUERTO: el
+  compilador lo decidio y no dejo bytes). La semilla `ship` decide si le queda
+  combustible; ELEMENTOS tiene su ficha y la GUIA lo cuenta.
+- **ELEMENTOS en fichas horizontales**: la figura viva a la izquierda, el que y
+  el porque a la derecha, tres columnas. Con cinco, los porques se cortaban
+  (visto con la camara).
+
+[!] **La LETRA de la casa (`bmo-letra`, proporcional y suave) NO entra
+todavia**, y no por gusto: un glifo nuevo cuesta ~13 KiB de pila
+(`userland/src/pantalla/verde/fina.rs` lo midio) y el marco mas hondo de F1
+va por ~57 KiB de los 64 KiB de Ring 3 (`pila.py`: 57 296). Entra el dia que
+ese marco baje; hasta entonces, la 8x16.
+
+**Visto con la CAMARA**: `grafo.png` (nodos redondos con su resplandor, la
+etiqueta del pin y la solapa suaves), `elementos.png` (13 fichas, la ESTRELLA
+DOBLE entre ellas), `cielo.png` (`ship: ... 1 if (doble)`) y `guia.png`.
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| abrir F1 en el GRAFO | nodos con esquinas redondas y suaves, sin escalera | esquinas cuadradas: `aspecto.rs` no esta en el binario |
+| escribir un `if` en `ship.titan` y guardar | en CIELO, `ship` gana una estrella doble dorada | nada cambia: el latido no relee, o `Traits::ifs` no cuenta |
+| cambiar un color en `titan.maqueta` y regenerar | F1 entero cambia ese papel, sin tocar Rust | hay que tocar Rust: alguien escribio el color fuera de `aspecto.rs` |
 
 ---
 

@@ -9,8 +9,12 @@
 //!                                                                where it lives
 //! ```
 //!
-//! The first line that is not blank IS the module's name and its one line of
-//! purpose; without it the file is refused (U3: a module says what it does).
+//! The first line that is not blank NOR a comment IS the module's name and its
+//! one line of purpose; without it the file is refused (U3: a module says what
+//! it does). A line that is only a comment (`#` to its end) carries nothing,
+//! before the header or inside it: the SAME rule as the compiler
+//! (`toolchain/lang/titan/GRAMATICA.md`, nivel 0), so a file the compiler
+//! accepts is never a red node in F1.
 //! `mod a, b` (no quote) declares children, which live in files of their own,
 //! where cargo would put them (`text::default_place`). `mod a in "path"` puts
 //! one anywhere in the package: the PARENT says where its child is, so the
@@ -18,7 +22,7 @@
 //! (the owner, 29-09). `in` is already one of the 25 words: no word is added.
 //! Everything else is the body, and the body is the grammar's (T0) -- not this.
 
-use crate::text::{after_word, commas, is_name, is_package_path, lines, quoted, trim};
+use crate::text::{after_word, commas, is_comment, is_name, is_package_path, lines, quoted, trim};
 use bmo_titan_contrato::{Line, Name, Text};
 
 pub const MAX_CHILDREN: usize = 16;
@@ -107,7 +111,7 @@ pub fn parse(text: &[u8]) -> Result<Header, HeaderError> {
     }
     let mut first = true;
     for (n, line) in lines(text) {
-        if line.is_empty() {
+        if line.is_empty() || is_comment(line) {
             continue;
         }
         if first {
@@ -190,6 +194,21 @@ mod tests {
         assert_eq!(parse(b"mod ship\n").err(), Some(HeaderError::NoHeader));
         assert_eq!(parse(b"use ship\nmod a \"x\"\n").err(), Some(HeaderError::NoHeader));
         assert_eq!(parse(b"\n\n").err(), Some(HeaderError::NoHeader));
+    }
+
+    /// ** The compiler's rule: comments before the header and between its
+    /// lines carry nothing. This is `ejemplos/nivel0/hola.titan`, whole.
+    #[test]
+    fn comments_before_and_inside_the_header_are_skipped_as_the_compiler_does() {
+        let hola = b"# espera: BIEN\n# sale: hola\n# el primer programa: un modulo que dice que hace, y main que saluda\nmod main \"saluda\"\n\nfn main()\n    print(\"hola\")\n";
+        let h = parse(hola).unwrap();
+        assert_eq!((h.name.as_bytes(), h.purpose.as_bytes()), (&b"main"[..], &b"saluda"[..]));
+        let h = parse(b"\n  # una nota sangrada\r\nmod p \"x\"\r\n# lo que usa:\r\nuse ship\r\n#mod falso\r\nmod collide\r\n").unwrap();
+        assert_eq!((h.uses().len(), h.children().len()), (1, 1));
+        // Only comments is still a file without a header.
+        assert_eq!(parse(b"# nada\n\n# mas nada\n").err(), Some(HeaderError::NoHeader));
+        // And a line ERROR still counts its comment lines: line 3 is `use Rock`.
+        assert_eq!(parse(b"# c\nmod p \"x\"\nuse Rock\n").err(), Some(HeaderError::BadLine(3)));
     }
 
     #[test]

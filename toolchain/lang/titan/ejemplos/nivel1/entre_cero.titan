@@ -1,0 +1,7 @@
+# espera: T0061
+# entre cero no hay numero que valga
+mod main "calcula"
+
+fn main()
+    let nadie = 0
+    print(10 / nadie)

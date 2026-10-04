@@ -249,6 +249,9 @@ dependencies = [
  "bmo-huesped",
  "bmo-imagen",
  "bmo-letra",
+ "bmo-pinta",
+ "bmo-titan-contrato",
+ "bmo-titan-lector",
 ]
 
 [[package]]
@@ -799,12 +802,26 @@ version = "0.1.0"
 [[package]]
 name = "bmo-titan-front"
 version = "0.1.0"
+dependencies = [
+ "bmo-titan-contrato",
+]
 
 [[package]]
 name = "bmo-titan-lector"
 version = "0.1.0"
 dependencies = [
  "bmo-titan-contrato",
+]
+
+[[package]]
+name = "bmo-titan-x86-64"
+version = "0.1.0"
+dependencies = [
+ "bmo-abi",
+ "bmo-lower",
+ "bmo-titan-contrato",
+ "bmo-titan-front",
+ "bmo-verify",
 ]
 
 [[package]]

@@ -1,6 +1,0 @@
-# espera: T0040
-# `let` es del nivel 1: la escalera se sube de uno en uno
-mod main "calcula"
-
-fn main()
-    let x = 1

@@ -454,7 +454,8 @@ estructura: **dibuja la que el compilador ya comprueba**.
    el titulo "Hola Mundo"         la linea que dice que hace (U3)
    `source` dentro del nodo       el texto del .titan
    los puertos in / out           out = sus `use`; in = quien lo usa
-   el EXPLORER (nodes/)           src/ y el Titan.toml
+   el EXPLORER (nodes/)           la carpeta del paquete TAL CUAL esta en el
+                                  disco, en el orden del propietario (8.10)
    F5 Run                         titan build (y pedir al ESCRITORIO lanzar)
    Tab Templates                  titan new con plantillas
    Ctrl+Shift+P Commands          la consola del TALLER
@@ -489,8 +490,10 @@ medida no.
 ```text
    la ventana de F1               PLAN_TALLER, casilla 1 (ABIERTA)
    el autohospedaje               PLAN_AUTOHOSPEDAJE (APARCADO)
-   memoria dinamica en Ring 3     un asignador compartido en bmo-userland:
-                                  hoy solo PROTON-X tiene #[global_allocator]
+   memoria dinamica en Ring 3     un asignador compartido: desde el 03-10
+                                  existe `bmo-monton` y lo usan PROTON-X,
+                                  HERMES, BANK CAT y LUDOTECA (corregido el
+                                  04-10: aqui decia "solo PROTON-X")
 ```
 
 Hasta entonces el compilador corre en el anfitrion, como todos los demas hoy.
@@ -808,6 +811,26 @@ Sin fechas (LEY 24). Y el orden importa: J2 antes que J4, porque un NO que
 llega a un nodo sin que la puerta lo haya comprobado seria una explicacion sin
 juicio detras.
 
+**Donde esta, el 04-10:**
+
+```text
+   J1  HECHO en el anfitrion. `bmo_titan_contrato::certificate`: la forma,
+       quien la escribe y quien la lee, `no_std` y sin monton. El compilador la
+       saca de la IR que EL JUEZ ya juzgo (`manifest::certificate`) y viaja en
+       el MANIFIESTO del .bex, como `[certificado]`, firmada con el codigo. Un
+       anexo propio de BEF2 es cambiar el formato (Ring 0, del propietario):
+       hasta entonces va ahi, que el cargador ya salta. Hasta 16 lineas por
+       puerta, las primeras, y las demas se cuentan: el kernel lo lee en cada
+       carga y no puede crecer con el programa
+   J2  EL JUICIO, ESCRITO Y PROBADO; FALTA CABLEARLO. `certificate::judge`
+       compara certificado / pedido / concedido y solo sabe decir "de
+       acuerdo" o NO con puerta y linea -- nunca concede. `titan juez X.bex
+       [--concede ...]` lo hace HOY en el PC, y una prueba le pasa un .bex
+       FALSIFICADO (dice usar la red sin pedirla) y lo caza. Llevarlo a la
+       puerta de carga es una llamada en Ring 0: del propietario
+   J3-J4  sin empezar
+```
+
 ### 6b.6 El centauro
 
 Las PATAS (BMO-X) deciden donde se puede pisar: que memoria es de quien, que
@@ -1104,10 +1127,19 @@ problema dicho). El resto espera al compilador.
    el contrato           titan-contrato: grafo, eventos, 4 partes   EXISTE
    T1  texto -> arbol    `titan check`, mensajes de 4 partes        NIVEL 0 HECHO
                          (toolchain/lang/titan, 30-09)
-   T2  tipos             `dec`, tablas, "ya lo entregaste"          FALTA
-   T3  IR + emisor       un .bo por emisor-x86_64, bmo-enlazar      FALTA
-                         (la casa ya enlaza C, C++ e INTI asi)
-   T4  borrow checker    la ley de exclusividad (el modelo 2)       FALTA
+   T2  tipos             numero y texto, y su mezcla es un NO        EN CURSO
+                         (calc.rs, nivel 1); faltan `dec`, tablas
+   T3  IR + emisor       NIVELES 0-3 HECHOS en el anfitrion (04-10): EN CURSO
+                         IR propia (src/ir.rs) con BLOQUES desde el
+                         nivel 3 + emisor propio
+                         (emisor-x86_64/, `titan build`), SIN el de
+                         INTI. Falta verlo en el Ryzen, y el .bo con
+                         bmo-enlazar llega cuando llame a INTI
+   T4  borrow checker    EL JUEZ existe (juez.rs, niveles 1-3): cada  EN CURSO
+                         local en UN estado por punto, sobre la IR;
+                         desde el nivel 3 RECORRE el grafo de bloques
+                         y junta los caminos (T0058, lo que nace en un
+                         bloque muere con el); falta la exclusividad
    T5  gpu fn            SPIR-V -> SASS, el prestamo a la 3060      FALTA
    T6  dentro de F1      el compilador en el taller, `titan run`    FALTA
 ```
@@ -1137,6 +1169,16 @@ problema dicho). El resto espera al compilador.
    F1 (TALLER)   el grafo, el comprobador animado, los errores en rojo que
                  guian (ERROR 1/n + el camino), [e] al siguiente      EXISTE
                  (L1-L4; el comprobador es el del ejemplo hasta T4)
+                 y el EXPLORER que organiza el disco: nuevo, renombrar,
+                 quitar, mover, plegar, el orden propio (L5, 04-10)   EXISTE
+                 y la solapa ESPACIO: el centauro, un planeta por
+                 modulo, el pulsar de la 3060 (L6, 04-10)             EXISTE
+                 y cada nodo es lo que su cuerpo HACE, en vivo (L7);
+                 CIELO 3D, ELEMENTOS, GUIA; pines UE5: tirar un
+                 cable escribe un `use` (L8)                          EXISTE
+                 y la APARIENCIA aparte de la LOGICA: la paleta en
+                 titan.maqueta, las piezas suaves de MAQUETA 2; un
+                 `if` es una estrella doble (L9, 04-10)               EXISTE
    CABINA        el NO del kernel, para quien mira la maquina entera  EXISTE
    el puente     el NO del kernel llevado a su nodo en F1             J3-J4
    `titan`       new / check / build / run / test (4.1)               FALTA
@@ -1443,6 +1485,58 @@ existe dice cual la trae (`let` -> T0040, nivel 1). Y **el TITAN guardian**: la
 prueba de `words.rs` exige las 25 palabras, el techo de 30 y que cada nivel
 sume lo que dice la tabla de arriba.
 
-Lo siguiente del nivel 0 es T3: que ese `hola` salga en la CONSOLA del Ryzen
-(decidido el 30-09; la ventana, despues). Todo lo demas se sube desde ahi.
+**NIVEL 0 -- T3 HECHO EN EL ANFITRION el 04-10** (`emisor-x86_64/`,
+`bmo-titan-x86-64`, la orden `titan`):
+
+```text
+   texto -> arbol -> IR (src/ir.rs, sin maquina: una prueba lo vigila)
+         -> bytes (los textos como inmediatos por la puerta de bmo-lower,
+            la secuencia que hello-bex ya corrio en el metal)
+         -> .bex con su MANIFIESTO (lenguaje, nivel, modulo, que hace,
+            [permissions]) por `exige_manifiesto`: nunca un binario mudo
+```
+
+- **Sin el emisor de INTI** (el propietario, 04-10: INTI se reduce a la
+  PRECISION, sin apoyo; TITAN++ lleva lo suyo). Lo compartido es de la casa:
+  `bmo-lower`, `bmo-abi`, `bmo-verify`.
+- **El banco CORRE**: cada programa BIEN se construye, se carga como lo carga
+  el kernel y se ejecuta en el emulador; su consola tiene que ser la de sus
+  lineas `# sale:`. El mismo fuente da el mismo `.bex`, byte a byte.
+- **T0053**, regla nueva: en el nivel 0 no hay `if`, asi que una llamada que
+  vuelve sobre si misma (`main -> main`, `a -> b -> a`) no termina nunca y en
+  la maquina seria una tarea muerta por la pila. Se dice al compilar.
+
+[!] **Falta el metal**: `build.ps1` despliega `titan/hola.bex` y
+`titan/dos.bex`; en el Ryzen, `run titan/hola.bex` en F12 tiene que escribir
+`hola`. Hasta esa foto es 🟡. La ventana, despues.
+
+**NIVEL 3 -- DECIDIR, HECHO EN EL ANFITRION el 04-10** (`if else true false
+and or not`, 10 palabras; `GRAMATICA.md` lo cuenta entero):
+
+```text
+   la IR      un `if` parte el cuerpo en BLOQUES (b0 si -> b1, sino -> b2;
+              los dos saltan a b3), todos los saltos van hacia ABAJO, y
+              `muere %n` marca donde se cierra un bloque (el StorageDead de
+              rustc)
+   el JUEZ    deja de ser una lista y RECORRE: un estado por bloque, y donde
+              dos caminos se juntan vale lo cierto en LOS DOS (`meet`). Lo
+              que nace en un bloque muere con el: T0058
+   el CALCULO dos pasadas. CLASES en todos los bloques (un `if` pregunta SI o
+              NO: T0065). VALORES solo por el camino que corre: cada `if` se
+              DECIDE al compilar, el otro lado queda MUERTO -- no se calcula
+              (`if d != 0` guarda `10 / d`), no deja bytes y el certificado
+              no nombra sus puertas
+   el EMISOR  `jmp rel32` donde hace falta y nada donde el destino es el
+              bloque de al lado; ni un byte de un bloque muerto (una prueba
+              busca el texto del lado muerto en el codigo y no lo encuentra)
+```
+
+- **T0053 no se mueve, y ahora sabe por que**: una `fn` no recibe nada hasta
+  el nivel 5, asi que cada vuelta decide igual que la primera; si vuelve una
+  vez, vuelve siempre. Un `if` no la salva; los parametros, si.
+- **Se compara de dos en dos** (`1 < x < 9` es T0030 y el COMO escribe la
+  forma buena) y `if x = 3` dice que para preguntar es `==`.
+
+🟡 igual que los niveles de antes: el banco corre en el emulador; el Ryzen,
+cuando se despliegue.
 

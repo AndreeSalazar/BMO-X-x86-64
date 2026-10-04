@@ -269,6 +269,10 @@ members = [
     # TITAN++ -- el lenguaje para CONSTRUIR (docs/maestro/TITAN_MAESTRO.md).
     # Como INTI, primero de texto a arbol: el nivel 0 de su escalera (14.14).
     "toolchain/lang/titan",
+    # Su emisor, partido como el de INTI y por el mismo motivo -- pero SIN el
+    # de INTI: cada lenguaje su IR y su emisor (T3, 2026-10-04). Aqui vive la
+    # orden `titan`.
+    "toolchain/lang/titan/emisor-x86_64",
     # La regla de disposicion de un agregado: la comparten los frontends y el
     # ABI, sin dependencias y sin maquina (2026-09-18).
     "toolchain/lang/disposicion",

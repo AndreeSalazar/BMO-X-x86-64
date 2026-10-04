@@ -209,7 +209,8 @@ mod tests {
         let mut d = Disk::seed();
         let collide_before = String::from(d.get("titan/asteroids/src/physics/collide.titan"));
         drop_on(&mut d, "collide", "main").unwrap();
-        assert!(d.get("titan/asteroids/src/main.titan").ends_with("mod ship, rock, physics\nmod collide in \"src/physics/collide.titan\"\n"));
+        // Under the last header line, before the body (which goes as it was).
+        assert!(d.get("titan/asteroids/src/main.titan").contains("mod ship, rock, physics\nmod collide in \"src/physics/collide.titan\"\n\nfn main()"));
         assert!(!d.get("titan/asteroids/src/physics.titan").contains("mod collide"));
         assert_eq!(d.get("titan/asteroids/src/physics/collide.titan"), collide_before);
         let l = d.read();

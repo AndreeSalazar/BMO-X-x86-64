@@ -14,6 +14,11 @@ bmo-letra = { path = "../../../platform/shared/bmo-letra" }
 bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
 bmo-bankcat = { path = "../../../platform/shared/bmo-bankcat" }
 bmo-fondo = { path = "../../../platform/shared/bmo-fondo" }
+# TALLER (F1) pintado en el anfitrion: su contrato y su lector, los mismos.
+bmo-titan-contrato = { path = "../../../platform/shared/titan-contrato" }
+bmo-titan-lector = { path = "../../../platform/shared/titan-lector" }
+# ... y su APARIENCIA: las piezas suaves de MAQUETA 2 (`aspecto.rs`).
+bmo-pinta = { path = "../../../platform/shared/bmo-pinta" }
 # Lo minimo de `bmo-userland` para que el codigo de la app compile en el
 # anfitrion: la letra de 8 x 16 (la MISMA tabla, incluida) y el medidor.
 bmo-userland = { path = "huesped", package = "bmo-huesped" }
@@ -29,3 +34,7 @@ path = "src/bin/cara_bankcat.rs"
 [[bin]]
 name = "cara-hermes"
 path = "src/bin/cara_hermes.rs"
+
+[[bin]]
+name = "cara-taller"
+path = "src/bin/cara_taller.rs"

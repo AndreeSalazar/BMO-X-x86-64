@@ -16,7 +16,14 @@
 //!    lex       de texto a piezas. No conoce la gramatica
 //!    tree      la forma de un programa. Cero decisiones
 //!    parse     la gramatica del nivel de hoy; lo de arriba dice en que nivel llega
-//!    check     los nombres: `main`, una vez cada fn, y que cada llamada exista
+//!    check     los nombres: `main`, una vez cada fn, que cada llamada exista
+//!              y que ninguna vuelva sobre si misma (T0053)
+//!    ir        lo que el programa HACE, sin maquina: la IR PROPIA (T3)
+//!    juez      EL BORROW CHECKER, sobre la IR: cada local, en cada punto, en
+//!              UN estado; hoy nace y vive (nivel 1), luego se presta y se
+//!              entrega (nivel 7) y lo presta el kernel (U1)
+//!    calc      lo que se sabe al compilar se calcula al compilar: exacto, o NO
+//!    manifest  lo que el `.bex` dira de si mismo (lo escribe el frontend)
 //! ```
 //!
 //! ## Lo que hay hoy: el NIVEL 0 de la escalera (TITAN_MAESTRO 14.14)
@@ -28,13 +35,19 @@
 //!        print("hola")
 //! ```
 //!
-//! Entra el texto, sale el arbol o UN mensaje de 4 partes. No emite bytes
-//! todavia: el emisor llega con T3, y el primer `.bex` escribira en la consola
-//! (decidido el 30-09). Cada nivel entra el dia que su banco
-//! (`ejemplos/nivelN/`) pasa entero.
+//! Entra el texto, sale el arbol o UN mensaje de 4 partes, y del arbol la IR.
+//! **Este crate no emite bytes, y no puede**: los bytes son del emisor
+//! (`emisor-x86_64/`, T3), que es el unico que nombra una maquina y el que
+//! tiene la orden `titan`. El primer `.bex` escribe en la consola (decidido el
+//! 30-09). Cada nivel entra el dia que su banco (`ejemplos/nivelN/`) pasa
+//! entero.
 
+pub mod calc;
 pub mod check;
 pub mod indent;
+pub mod ir;
+pub mod juez;
+pub mod manifest;
 pub mod lex;
 pub mod message;
 pub mod parse;
@@ -52,6 +65,15 @@ pub fn compile(src: &str) -> Result<Program, Message> {
     Ok(program)
 }
 
+/// Texto -> IR juzgada y calculada: lo que recibe el emisor. Despues del
+/// arbol, EL JUEZ (`juez.rs`) dice si cada valor existe y puede lo que se le
+/// pide; despues, `calc.rs` lo calcula. Cada paso, su primer NO.
+pub fn lower(src: &str) -> Result<ir::Module, Message> {
+    let m = ir::lower(&compile(src)?);
+    juez::judge(&m)?;
+    calc::fold(&m)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,17 +83,18 @@ mod tests {
         let p = compile("mod main \"saluda\"\n\nfn main()\n    print(\"hola\")\n").unwrap();
         assert_eq!((p.module.as_str(), p.purpose.as_str()), ("main", "saluda"));
         assert_eq!(p.functions.len(), 1);
-        assert_eq!(p.functions[0].body[0].callee, "print");
-        assert_eq!(p.functions[0].body[0].args, ["hola"]);
+        let tree::Stmt::Call(c) = &p.functions[0].body[0] else { panic!() };
+        assert_eq!(c.callee, "print");
+        assert_eq!(c.args.len(), 1);
     }
 
     #[test]
     fn a_word_of_a_higher_level_says_which_level() {
-        let e = compile("mod main \"x\"\nfn main()\n    let x = 1\n").unwrap_err();
-        assert_eq!(e.code, Code::NotYet);
-        assert_eq!(e.what, "`let` llega en el nivel 1 (calcular)");
         let e = compile("mod main \"x\"\nfn main()\n    while x\n").unwrap_err();
+        assert_eq!(e.code, Code::NotYet);
         assert_eq!(e.what, "`while` llega en el nivel 4 (repetir)");
+        let e = compile("mod main \"x\"\nfn main()\n    print(1)\n    return\n").unwrap_err();
+        assert_eq!(e.what, "`return` llega en el nivel 5 (funciones con resultado)");
     }
 
     #[test]

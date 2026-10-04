@@ -2,7 +2,7 @@
 name = "bmo-titan-contrato"
 version = "0.1.0"
 edition = "2021"
-description = "TITAN++: the shapes the compiler and F1 share -- the graph, the 4-part diagnostics and the borrow checker's events. Pure, tested on the host."
+description = "TITAN++: the shapes the compiler, F1 and the kernel share -- the graph, the 4-part diagnostics, the borrow checker's events and the certificate of the two judges. Pure, tested on the host."
 license = "Apache-2.0"
 
 # No dependencies, on purpose. The compiler front (toolchain) WRITES these

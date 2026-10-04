@@ -14,6 +14,10 @@ bmo-userland = { path = "../../userland" }
 bmo-titan-contrato = { path = "../../../platform/shared/titan-contrato" }
 # Clipping, lines and curves: the same rasterizer as the kernel and the desktop.
 bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
+# THE LOOK (04-10): MAQUETA 2's soft pieces -- rounded boxes, borders, glow
+# and gradients with a mathematically exact edge. No heap, no `unsafe`: the
+# same painter as the desktop and the host's photo (`src/aspecto.rs`).
+bmo-pinta = { path = "../../../platform/shared/bmo-pinta" }
 # Reads a package following `mod` (section 8.6). Knows no kernel: the store
 # hands it ESTRATOS through a `Source`.
 bmo-titan-lector = { path = "../../../platform/shared/titan-lector" }
