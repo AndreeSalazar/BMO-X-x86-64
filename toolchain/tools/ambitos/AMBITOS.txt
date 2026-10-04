@@ -172,3 +172,7 @@ bankcat          (4)
 # vez -- las piezas que comparten (la `piezas.rs` de HERMES, que usan BANK CAT
 # y la LUDOTECA). Lo de una sola app va con su nombre.
 apps             (1)  
+# 2026-10-04: los PLANES (`docs/plan/`): su estado, su orden y lo que cambia
+# en ellos por decision del propietario (`EL_ORDEN.md`, `en_pausa/`). Lo de
+# un componente va con el suyo; esto es el mapa de lo que falta.
+plan             (1)
