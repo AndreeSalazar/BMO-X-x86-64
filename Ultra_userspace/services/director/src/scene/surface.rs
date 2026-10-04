@@ -544,13 +544,13 @@ impl Surface {
         if self.chrome.sin_marco {
             return;
         }
-        p.rect(self.chrome.x + 10, self.chrome.y + 10, 8, 8, acento());
+        super::fino::punto(p, self.chrome.x + 12, self.chrome.y, acento());
         // El titulo es el TID, porque es lo unico que el DIRECTOR sabe de esta
         // app con certeza: el nombre lo pondria quien la lanzo, y lanzar y
         // componer son dos cosas distintas. Ver el paso 3 del plan.
         let mut n = [0u8; 12];
         let length = tid_text(self.tid, &mut n);
-        p.texto_bytes(self.chrome.x + 26, self.chrome.y + 7, &n[..length], INK);
+        super::fino::titulo(p, self.chrome.x + 28, self.chrome.y, &n[..length], INK, b"", INK);
     }
 
     /// **La secuencia que la app publico ahora mismo.** La lee FRAPS-X: cada

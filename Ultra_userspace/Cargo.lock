@@ -16,7 +16,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-bankcat",
  "bmo-dibujo",
- "bmo-letra",
+ "bmo-letra-monton",
  "bmo-monton",
  "bmo-userland",
 ]
@@ -27,7 +27,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-dibujo",
  "bmo-fondo",
- "bmo-letra",
+ "bmo-letra-monton",
  "bmo-monton",
  "bmo-userland",
 ]
@@ -136,11 +136,19 @@ name = "bmo-letra"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-letra-monton"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-ludoteca"
 version = "0.1.0"
 dependencies = [
  "bmo-cripto",
 ]
+
+[[package]]
+name = "bmo-maqueta-cara"
+version = "1.0.0"
 
 [[package]]
 name = "bmo-medida-coste"
@@ -173,6 +181,14 @@ name = "bmo-pila"
 version = "0.1.0"
 dependencies = [
  "bmo-cripto",
+]
+
+[[package]]
+name = "bmo-pinta"
+version = "0.1.0"
+dependencies = [
+ "bmo-letra",
+ "bmo-maqueta-cara",
 ]
 
 [[package]]
@@ -281,6 +297,8 @@ name = "bmo-userland"
 version = "2.0.0"
 dependencies = [
  "bmo-dibujo",
+ "bmo-letra",
+ "bmo-pinta",
  "bmo-puerta-red",
 ]
 

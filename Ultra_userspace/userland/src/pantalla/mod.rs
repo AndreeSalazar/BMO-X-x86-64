@@ -14,6 +14,9 @@
 //!                                   pero le dice al rojo CUANTO -> APARATO
 //!    verde.rs     LAS LETRAS        `punto` encima de `punto`. Si falla, se ve
 //!                                   -> NADA
+//!    verde/fina.rs  LO FINO         dentro del VERDE: las piezas suaves de
+//!                                   MAQUETA 2 y la letra de la casa, por el
+//!                                   pintor compartido (`bmo-pinta`)
 //! ```
 //!
 //! *** Y la prueba de que el corte es el bueno estaba escrita **dentro del
@@ -43,6 +46,7 @@ mod roja;
 mod verde;
 
 pub use amarilla::{Volcado, Volcador};
+pub use verde::fina::{entre, letra_vaciados, Estilo, Peso, Pieza};
 pub use roja::{volcador_caja, VOLCADOR_ARMAR, VOLCADOR_CAJA, VOLCADOR_COMO_VA, VOLCADOR_ESPERAR, VOLCADOR_SOLTAR};
 pub use verde::{glyph_bits, GLIFO_ALTO, GLIFO_ANCHO};
 
@@ -158,6 +162,37 @@ impl Pantalla {
                 cajas: 0,
                 modo: Volcador::Ninguno,
             }),
+            rayo: crate::sin_gpu::rayo::Rayo::nuevo(),
+            por_gpu: core::cell::Cell::new(false),
+            pendiente: core::cell::Cell::new(false),
+            rayo_gpu: crate::sin_gpu::rayo::Rayo::nuevo(),
+        })
+    }
+
+    /// **Una pantalla de MEMORIA, sin kernel**: el lienzo y el panel son el
+    /// mismo bufer que se pasa, y no hay capability (`cap` 0). Es para el
+    /// ARNES del anfitrion (`toolchain/tools/espejo-cara`, `cara-escritorio`):
+    /// el escritorio pinta con SU codigo sobre esto y se saca la foto. En la
+    /// maquina no la llama nadie -- alli la pantalla se reclama con
+    /// [`Pantalla::claim`].
+    ///
+    /// `None` si el bufer no cabe `ancho * alto` pixeles.
+    pub fn en_memoria(px: &'static mut [u32], ancho: u32, alto: u32) -> Option<Self> {
+        if (px.len() as u64) < ancho as u64 * alto as u64 {
+            return None;
+        }
+        let base = px.as_mut_ptr();
+        Some(Self {
+            cap: 0,
+            lienzo: base,
+            panel: base,
+            ancho,
+            alto,
+            stride: ancho,
+            formato: 0,
+            bytes: px.len() as u64 * 4,
+            sucio: core::cell::Cell::new(crate::sin_gpu::sucio::Sucias::nueva()),
+            volcado: core::cell::Cell::new(Volcado { fotogramas: 0, bytes: 0, peor: 0, ultimo: 0, cajas: 0, modo: Volcador::Ninguno }),
             rayo: crate::sin_gpu::rayo::Rayo::nuevo(),
             por_gpu: core::cell::Cell::new(false),
             pendiente: core::cell::Cell::new(false),

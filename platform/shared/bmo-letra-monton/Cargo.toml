@@ -1,0 +1,32 @@
+[package]
+name = "bmo-letra-monton"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "LA LETRA de la casa CON monton (la cache Letra, la pluma y el lector de SVG), para las apps de Ring 3. El MISMO codigo que bmo-letra, en otro paquete."
+license = "Apache-2.0"
+
+# ** POR QUE EXISTE UN PAQUETE QUE NO TIENE CODIGO PROPIO (04-10).
+#
+# Cargo junta las `features` POR PAQUETE en cada compilacion: si HERMES pide
+# `bmo-letra` con `alloc` y el DIRECTOR la pide sin ella, y `build.ps1` los
+# compila en la misma llamada, el director recibe `alloc` -- y un binario sin
+# monton que enlaza `alloc` no compila ("no global memory allocator found").
+# Se vio al darle la letra al escritorio.
+#
+# Dos paquetes no se juntan nunca. Asi que las apps con monton piden ESTE
+# (renombrado a `bmo-letra` en su Cargo.toml, y su codigo no cambia) y el
+# escritorio, `bmo-pinta` y `bmo-userland` piden `bmo-letra` sin `alloc`. El
+# codigo es UNO: este paquete compila el `lib.rs` de `bmo-letra`, no una
+# copia. Las pruebas corren alli, no aqui (serian las mismas dos veces).
+[lib]
+name = "bmo_letra"
+path = "../bmo-letra/src/lib.rs"
+test = false
+doctest = false
+
+[dependencies]
+
+[features]
+default = ["alloc"]
+alloc = []

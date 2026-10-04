@@ -42,7 +42,7 @@ impl Lienzo for Foto {
     fn mezclar(&mut self, x: i32, y: i32, c: u32, alfa: u8) {
         if x >= 0 && y >= 0 && (x as u32) < self.ancho && (y as u32) < self.alto {
             let k = (y as u32 * self.ancho + x as u32) as usize;
-            self.px[k] = bmo_pinta::entre(self.px[k], c, (alfa as u32 * 256 + 127) / 255);
+            self.px[k] = bmo_pinta::sobre(self.px[k], c, alfa);
         }
     }
 }

@@ -62,6 +62,11 @@
 
 use crate::*;
 
+/// **LO FINO** (04-10): la letra de la casa y las piezas suaves de MAQUETA 2,
+/// por el pintor compartido. Es verde por lo mismo que esto: `punto` encima
+/// de `punto`. Ver su cabecera.
+pub(super) mod fina;
+
 /// La fuente 8x16 de BMO, la MISMA que pinta el kernel.
 ///
 /// Aqui hay 4 KiB de tabla duplicada. Sale del mismo generador

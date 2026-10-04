@@ -16,4 +16,7 @@ bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
 # El WRAPPER del motor: los importes en centimos y el saldo en castellano.
 bmo-bankcat = { path = "../../../platform/shared/bmo-bankcat" }
 # LA LETRA de las maquetas (03-10): proporcional y suave, trazos de la casa.
-bmo-letra = { path = "../../../platform/shared/bmo-letra" }
+# Con monton (`Letra`, `pluma`, SVG): el paquete `bmo-letra-monton`, que es
+# el MISMO codigo que `bmo-letra` con `alloc`. Ver su Cargo.toml: si se pide
+# `bmo-letra` con `alloc` aqui, el director (sin monton) deja de compilar.
+bmo-letra = { package = "bmo-letra-monton", path = "../../../platform/shared/bmo-letra-monton" }

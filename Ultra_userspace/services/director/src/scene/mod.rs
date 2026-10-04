@@ -30,6 +30,9 @@ pub(crate) mod calc_gen;
 /// confesado en su propia cabecera. Ya no hay copia.
 pub(crate) mod tema_gen;
 pub(crate) mod switcher;
+// LO FINO (04-10): la tarjeta, el rotulo, el filete y la marca de lo que
+// flota encima, con la letra de la casa y los colores de `.fino`.
+pub(crate) mod fino;
 /// El pedido de ABRIR: lo hace la biblioteca y lo atiende el teclado. Vivia en `desktop` (L8).
 pub(crate) mod abrir;
 pub(crate) mod data;

@@ -186,14 +186,8 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &CabinaWindow) {
 
     let tx = c.chrome.x + 16;
     // El bloque de acento del titulo: el ojo del gato, en chico.
-    p.rect(tx, c.chrome.y + 9, 8, 8, CYAN);
-    let px = p.texto(tx + 16, c.chrome.y + 8, "CABINA", INK);
-    let px = p.texto(
-        px + 2 * bmo::GLIFO_ANCHO,
-        c.chrome.y + 8,
-        "lo que el kernel ve",
-        CYAN_DIM,
-    );
+    super::fino::punto(p, tx, c.chrome.y, CYAN);
+    let px = super::fino::titulo(p, tx + 16, c.chrome.y, b"CABINA", INK, b"lo que el kernel ve", CYAN_DIM);
 
     // ** LA FECHA Y LA HORA, en el titulo.
     //
@@ -208,7 +202,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &CabinaWindow) {
     let mut seal = [0u8; 24];
     let sn = date_at(&mut seal);
     if sn > 0 {
-        p.texto_bytes(px + 2 * bmo::GLIFO_ANCHO, c.chrome.y + 8, &seal[..sn], CYAN_DIM);
+        super::fino::texto(p, px + 16, c.chrome.y, TITLE_H - 1, &seal[..sn], CYAN_DIM, super::fino::SUBTITULO);
     }
 
     let mut ty = c.chrome.y + TITLE_H + 8;

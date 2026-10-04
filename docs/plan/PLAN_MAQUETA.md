@@ -331,15 +331,25 @@ suave y dibujo vectorial -- **sin dejar de ser un compilador que rechaza**.
    [x] M4  un pintor para los tres sitios: `platform/shared/bmo-pinta`
            (no_std). El codigo generado, la CARA v2 y la foto del anfitrion
            lo llaman a el, y un test compara los pixeles byte a byte
-   [ ] M5  el escritorio lo usa: `Pantalla` implementa `Lienzo`, y el codigo
-           que emite MAQUETA 2 compila en el director
-           [!] hoy el emisor A escribe `p.pieza(..)` y el director todavia
-               no la tiene: una cara SUAVE generada no compila alli. Las
-               caras planas (calc.rs) salen identicas a antes
+   [x] M5  el escritorio lo usa: `Pantalla::pieza`, `letra` y `medir`
+           (`userland/src/pantalla/verde/fina.rs`), sin monton: la letra es
+           una `LetraFija` estatica con cerrojo. Comprobado: la tarjeta
+           generada (32 `p.pieza`) compila en el director sin un aviso, y
+           un test pinta la pantalla y la foto del anfitrion IGUALES
+           [!] y lo que lo pide no es una cara generada todavia: es
+               `scene/fino.rs` a mano (el conmutador, la rejilla, los
+               titulos, el reloj). Nada de esto se vio en el Ryzen aun
 ```
 
 Medido contra Chromium con `pruebas/tarjeta.maqueta`: **parecido 92,25 %**
 (igual 89,97 %). Nada de esto se probo en el Ryzen todavia: es anfitrion.
+
+[!] **La trampa que salio al darle la letra al escritorio**: Cargo junta las
+`features` por PAQUETE en cada compilacion, y `build.ps1` compila todo Ring 3
+de una vez -- asi que el `alloc` que piden HERMES y BANK CAT le llegaba al
+director, que no tiene monton, y no enlazaba. Ahora las apps con monton
+piden `bmo-letra-monton`: el MISMO `lib.rs`, en otro paquete. Ver su
+`Cargo.toml`.
 
 ## ⚠ LAS CASILLAS MENTIAN, Y SE RECONTARON EL 2026-08-24
 

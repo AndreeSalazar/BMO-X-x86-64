@@ -47,6 +47,18 @@ pub fn entre(b: Color, a: Color, t: u32) -> Color {
     c(16) | c(8) | c(0)
 }
 
+/// **`c` sobre `fondo` con `alfa` de 255**: la UNICA mezcla de la casa. La
+/// usan la pantalla del escritorio y la foto del anfitrion, para que el
+/// borde suave salga igual en los dos -- un redondeo distinto en cada lado
+/// seria un pixel distinto en cada borde.
+pub fn sobre(fondo: Color, c: Color, alfa: u8) -> Color {
+    match alfa {
+        0 => fondo,
+        255 => c,
+        _ => entre(fondo, c, (alfa as u32 * 256 + 127) / 255),
+    }
+}
+
 /// Raiz cuadrada entera, por abajo.
 fn raiz(n: u64) -> u64 {
     if n < 2 {

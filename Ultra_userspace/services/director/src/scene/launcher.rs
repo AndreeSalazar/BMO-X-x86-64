@@ -56,7 +56,7 @@
 use bmo_userland as bmo;
 
 use super::double_click::DoubleClick;
-use super::{acento, BG_TOP, INK};
+use super::{acento, fino};
 
 /// Cuantas apps caben en el escritorio. Doce es lo que entra en una fila y
 /// media a 1080p; pasado eso hace falta una rejilla con scroll, y eso es otra
@@ -133,9 +133,9 @@ pub struct Launcher {
     doble: DoubleClick,
 }
 
-/// El realce de la celda marcada. Un relleno tenue, no un marco: un borde de
-/// un pixel alrededor de un icono transparente se lee como suciedad.
-const SEL_BG: u32 = 0x001B_4A48;
+// El realce de la celda marcada: un relleno tenue, no un marco -- un borde de
+// un pixel alrededor de un icono transparente se lee como suciedad. Desde el
+// 04-10 es la `.marca` de `tema.maqueta`, redonda (ver `paint_una`).
 
 impl Launcher {
     /// Recorre `apps\`, se queda con los `.bex` y le saca el icono a cada uno.
@@ -284,9 +284,27 @@ pub fn paint_una(p: &bmo::Pantalla, l: &Launcher, i: usize) {
     }
     let (cx, cy) = l.cell(p, i);
     let app = &l.apps[i];
-    if l.sel == Some(i) {
-        p.rect(cx + 2, cy - 4, CELL_W - 4, CELL_H - 8, SEL_BG);
-        p.rect(cx + 2, cy - 4, CELL_W - 4, 1, acento());
+    // ** LA CELDA SE DEVUELVE A SI MISMA (04-10). La marca redonda y la letra
+    // de la casa MEZCLAN su borde con lo que hay debajo, y esta funcion se
+    // llama encima de si misma (`uncover` repinta la rejilla entera a cada
+    // borrado): sin esto, cada vuelta oscureceria los bordes hasta dejarlos
+    // en escalera. El fondo es el del escritorio (`background_at`, foto o
+    // degradado): lo que haya encima --una ventana-- lo devuelve el cierre
+    // del fotograma, como ya hacia con los iconos.
+    let (y0, alto) = (cy.saturating_sub(4), CELL_H);
+    p.marcar(cx, y0, CELL_W, alto);
+    for fy in y0..y0 + alto {
+        for fx in cx..cx + CELL_W {
+            p.punto_ya_marcado(fx, fy, super::background_at(fx, fy, p.alto));
+        }
+    }
+    let marcada = l.sel == Some(i);
+    if marcada {
+        let (x, y, w, h) = ((cx + 4) as i32, y0 as i32, (CELL_W - 8) as i32, (CELL_H - 6) as i32);
+        p.caja_redonda(x, y, w, h, 12, super::tema_gen::MARCA_FONDO);
+        // Y el acento, como una raya corta bajo el nombre: dice "esta" sin
+        // enmarcar nada.
+        p.caja_redonda(x + w / 2 - 9, y + h - 5, 18, 2, 1, acento());
     }
     // El icono, centrado en la celda.
     let ix = cx + (CELL_W - ICON_PX) / 2;
@@ -296,16 +314,36 @@ pub fn paint_una(p: &bmo::Pantalla, l: &Launcher, i: usize) {
         paint_default(p, ix, cy, app.name());
     }
     // El nombre debajo, centrado y SIN el `.bex`: la extension es la misma
-    // en todos, asi que ocupa sitio y no distingue nada.
-    let visible = without_extension(app.name());
-    let width = visible.len() as u32 * 8;
-    let tx = if width < CELL_W {
-        cx + (CELL_W - width) / 2
-    } else {
-        cx
-    };
-    p.texto_bytes(tx, cy + ICON_PX + 6, visible, INK);
+    // en todos, asi que ocupa sitio y no distingue nada. Medido con la letra
+    // que lo pinta (era `len * 8`); si no cabe, se corta con `..`.
+    let estilo = if marcada { NOMBRE_FIRME } else { NOMBRE };
+    let mut visible = without_extension(app.name());
+    let cabe = CELL_W as i32 - 10;
+    let mut corto = [0u8; 40];
+    if p.medir(visible, estilo) > cabe {
+        let mut n = visible.len().min(corto.len() - 2);
+        while n > 1 {
+            corto[..n].copy_from_slice(&visible[..n]);
+            corto[n] = b'.';
+            corto[n + 1] = b'.';
+            if p.medir(&corto[..n + 2], estilo) <= cabe {
+                break;
+            }
+            n -= 1;
+        }
+        visible = &corto[..n + 2];
+    }
+    let width = p.medir(visible, estilo).max(0) as u32;
+    let tx = cx + CELL_W.saturating_sub(width) / 2;
+    fino::texto(p, tx, cy + ICON_PX + 4, 22, visible, if marcada { fino::TINTA } else { NOMBRE_TINTA }, estilo);
 }
+
+/// La letra de los nombres de la rejilla.
+const NOMBRE: bmo::Estilo = bmo::Estilo::normal(13);
+const NOMBRE_FIRME: bmo::Estilo = bmo::Estilo::media(13);
+/// Sobre el escritorio el nombre va un punto mas apagado que el marfil: lo
+/// que manda en la rejilla son los iconos.
+const NOMBRE_TINTA: u32 = 0x00DD_D8D0;
 
 /// **Repinta la rejilla entera devolviendo antes el fondo de cada celda.**
 ///
@@ -362,14 +400,14 @@ fn paint_pixels(p: &bmo::Pantalla, x: u32, y: u32, px: &[u32; PIXELS]) {
 /// El icono de quien no trae icono: un cuadro de color con su inicial.
 fn paint_default(p: &bmo::Pantalla, x: u32, y: u32, name: &[u8]) {
     let color = color_from(name);
-    p.rect(x, y, ICON_PX, ICON_PX, color);
-    // Un borde mas claro arriba y mas oscuro abajo: dos rectangulos y el cuadro
-    // deja de parecer un agujero.
-    p.rect(x, y, ICON_PX, 1, lighten(color));
-    p.rect(x, y + ICON_PX - 1, ICON_PX, 1, BG_TOP);
-    let initial = upper(name.first().copied().unwrap_or(b'?'));
-    // `glifo_escala` a 2 mide 16x16; centrarlo es restar la mitad.
-    p.glifo_escala(x + ICON_PX / 2 - 8, y + ICON_PX / 2 - 8, initial, 0x00FF_FFFF, 2);
+    // Un cuadro redondo con su inicial: un pelo mas claro arriba, para que
+    // no parezca un agujero.
+    let (xi, yi, lado) = (x as i32, y as i32, ICON_PX as i32);
+    p.pieza(&bmo::Pieza::Degradado { x: xi, y: yi, w: lado, h: lado, r: 8, de: lighten(color), a: color, vertical: true }, 0, 0, None);
+    let initial = [upper(name.first().copied().unwrap_or(b'?'))];
+    let e = bmo::Estilo::negrita(18);
+    let w = p.medir(&initial, e);
+    p.letra_en_caja(xi + (lado - w) / 2, yi, lado, &initial, 0x00FF_FFFF, e);
 }
 
 /// Un color estable a partir del nombre.

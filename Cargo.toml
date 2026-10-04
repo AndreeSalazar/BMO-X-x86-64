@@ -70,6 +70,7 @@ members = [
     # LA LETRA (2026-10-03): la de las maquetas, proporcional y suave, con
     # trazos de la casa. La usan HERMES y BANK CAT; se prueba aqui.
     "platform/shared/bmo-letra",
+    "platform/shared/bmo-letra-monton",
     # EL PINTOR (04-10): caja redonda, resplandor, degradado, letra y trazos de
     # SVG, sin monton. Uno para el escritorio, las apps y MAQUETA.
     "platform/shared/bmo-pinta",

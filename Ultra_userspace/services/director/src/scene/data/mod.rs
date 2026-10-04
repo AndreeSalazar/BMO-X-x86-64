@@ -1225,9 +1225,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
         &iconos::paleta(DATA_TITLE, DATA_TITLE),
         DATA_TITLE_BG,
     );
-    let px = p.texto(tx + 22, c.chrome.y + 8, "ESTRATOS", DATA_TITLE);
-    let px = px + 2 * bmo::GLIFO_ANCHO;
-    let _ = px;
+    super::fino::titulo(p, tx + 22, c.chrome.y, b"ESTRATOS", DATA_TITLE, b"", DATA_TITLE);
     // ** LAS SOLAPAS, COMO LAS DE UN NAVEGADOR (01-10). El propietario: *"vamos
     // a cambiar ... pestania todo eso como navegador, asi como esta es feo"*.
     // Ver `pintar_solapas`.

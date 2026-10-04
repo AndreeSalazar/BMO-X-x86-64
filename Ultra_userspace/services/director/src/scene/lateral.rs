@@ -696,13 +696,20 @@ fn reloj(p: &bmo::Pantalla, pl: &Plano) {
     unsafe { MINUTO = minuto };
     let dos = |v: u8| [b'0' + v / 10, b'0' + v % 10];
     p.rect(pl.x0, pl.reloj_y, pl.iw, bmo::GLIFO_ALTO, estilo().barra_fondo);
-    let x = p.texto_bytes(pl.x0, pl.reloj_y, &dos(f.hora), INK);
-    let x = p.texto(x, pl.reloj_y, ":", INK);
-    p.texto_bytes(x, pl.reloj_y, &dos(f.minuto), INK);
+    // ** Con la letra de la casa (04-10): la hora en medio cuerpo firme y el
+    // dia chico y en perla, alineados por la base -- dos tallas que se
+    // leen como una sola linea, no como dos campos. Caben en la misma franja
+    // de 16 que se limpia arriba, asi que el borrado no cambia.
+    let hora = dos(f.hora);
+    let min = dos(f.minuto);
+    let hhmm = [hora[0], hora[1], b':', min[0], min[1]];
+    let base = (pl.reloj_y + 13) as i32;
+    p.letra(pl.x0 as i32, base, &hhmm, INK, bmo::Estilo::media(16));
     // El dia, pegado a la derecha: `22/09`.
     let dia = dos(f.dia);
     let mes = dos(f.mes);
     let fecha = [dia[0], dia[1], b'/', mes[0], mes[1]];
-    let fx = (pl.x0 + pl.iw).saturating_sub(5 * bmo::GLIFO_ANCHO);
-    p.texto_bytes(fx, pl.reloj_y, &fecha, INK_DIM);
+    let e = bmo::Estilo::normal(12);
+    let fx = (pl.x0 + pl.iw) as i32 - p.medir(&fecha, e);
+    p.letra(fx, base, &fecha, super::tema_gen::PERLA, e);
 }

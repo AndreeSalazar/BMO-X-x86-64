@@ -22,3 +22,10 @@ bmo-dibujo = { path = "../../platform/shared/bmo-dibujo" }
 # kernel la lee con la misma aritmetica con la que Ring 3 la escribe, y dos
 # copias de una forma son como se consigue que un indice valga dos cosas.
 bmo-puerta-red = { path = "../../platform/shared/bmo-puerta-red" }
+# ** Y la TERCERA y la CUARTA (04-10), por el mismo argumento: `bmo-pinta` es
+# la aritmetica de una caja redonda, un resplandor, un degradado y un trazo
+# de SVG -- sin `unsafe`, sin monton --, y `bmo-letra` la de la letra de la
+# casa. El escritorio pinta con el MISMO codigo que hace la foto de la
+# maqueta en el anfitrion, y por eso las dos salen iguales.
+bmo-pinta = { path = "../../platform/shared/bmo-pinta" }
+bmo-letra = { path = "../../platform/shared/bmo-letra", default-features = false }

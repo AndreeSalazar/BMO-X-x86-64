@@ -23,12 +23,43 @@ use bmo_userland as bmo;
 use super::*;
 use crate::ventana::Ventana;
 
-const SW_BG: u32 = 0x001A_1631;
-const SW_EDGE: u32 = 0x004A_3F80;
-const SW_SEL: u32 = 0x001B_4A48;
+// ** LA CARA (04-10): la ventanita es una TARJETA de `fino.rs` -- la
+// curva, la sombra y el hilo de laton --, con la letra de la casa. Era un
+// marco de dos pixeles con `> ` delante de la elegida: se leia como una
+// consola. Las medidas, en pixeles:
+//
+//    margen 24 | el rotulo (base a 30) | el filete (a 42) | las filas (de
+//    34, desde 52) | el filete | el modo y la ayuda (dos lineas de 20) | 16
+const SW_W: u32 = 400;
+const MARGEN: u32 = 24;
+const ROW_H: u32 = 34;
+const FILAS_Y: u32 = 52;
+const PIE_H: u32 = 20;
+/// Las filas que caben; si hay mas ventanas, la ultima dice cuantas faltan.
+const MAX_FILAS: usize = 10;
 
-const ROW_H: u32 = bmo::GLIFO_ALTO + 8;
-const SW_W: u32 = 420;
+/// Lo que habia debajo, para repintar sin mezclar dos veces: la tarjeta con
+/// su sombra, del alto que tiene con [`MAX_FILAS`].
+const GUARDADO: usize = ((SW_W + 2 * fino::HALO) * (FILAS_Y + MAX_FILAS as u32 * ROW_H + 16 + 2 * PIE_H + 16 + 2 * fino::HALO)) as usize;
+
+struct Debajo {
+    px: [u32; GUARDADO],
+    caja: (u32, u32, u32, u32),
+    puesto: bool,
+}
+
+static mut DEBAJO: Debajo = Debajo { px: [0; GUARDADO], caja: (0, 0, 0, 0), puesto: false };
+
+fn debajo() -> &'static mut Debajo {
+    // SAFETY: el director es un solo hilo, y esto solo lo toca el conmutador.
+    unsafe { &mut *core::ptr::addr_of_mut!(DEBAJO) }
+}
+
+/// **Olvida lo guardado** sin devolverlo: lo de debajo ya no es lo que se
+/// guardo (se pinto una ventana encima, o se repinto todo al soltar Alt).
+pub(crate) fn olvidar() {
+    debajo().puesto = false;
+}
 
 /// El nombre de cada ventana.
 ///
@@ -57,9 +88,9 @@ pub(crate) fn name(id: u8) -> &'static str {
 /// corto que el pintado y deja una franja de la ventanita pegada en el
 /// escritorio hasta el siguiente repintado.
 fn run_box(p: &bmo::Pantalla, count: usize) -> (u32, u32, u32, u32) {
-    // Dos filas ademas de la lista: el modo y la ayuda de las flechas.
-    let height = ROW_H * count as u32 + ROW_H * 2 + 16;
-    let width = SW_W.min(p.ancho.saturating_sub(40));
+    let filas = count.min(MAX_FILAS) as u32;
+    let height = FILAS_Y + ROW_H * filas + 16 + 2 * PIE_H + 16;
+    let width = SW_W.min(p.ancho.saturating_sub(40 + 2 * fino::HALO));
     (
         (p.ancho.saturating_sub(width)) / 2,
         (p.alto.saturating_sub(height)) / 2,
@@ -74,31 +105,47 @@ pub(crate) fn paint(p: &bmo::Pantalla, lista: &[u8], pointed_at: usize, modo: &s
         return;
     }
     let (x, y, width, height) = run_box(p, lista.len());
+    guardar(p, (x, y, width, height));
 
-    p.rect(x, y, width, height, SW_EDGE);
-    p.rect(x + 2, y + 2, width - 4, height - 4, SW_BG);
+    fino::tarjeta(p, x, y, width, height);
+    let dentro = width - 2 * MARGEN;
+    fino::rotulo(p, x + MARGEN, y + 30, b"Ventanas");
+    fino::filete(p, x + MARGEN, y + 42, dentro);
 
-    let mut fy = y + 10;
-    for (i, &v) in lista.iter().enumerate() {
+    // Si no caben todas, la ventana marcada SIEMPRE se ve: la lista corre
+    // para que quede dentro, y la ultima fila dice cuantas faltan.
+    let caben = lista.len().min(MAX_FILAS);
+    let desde = if pointed_at >= caben { pointed_at + 1 - caben } else { 0 };
+    let mut fy = y + FILAS_Y;
+    for (i, &v) in lista.iter().enumerate().skip(desde).take(caben) {
         if i == pointed_at {
-            // El resaltado va de borde a borde: una barra a media anchura se
-            // lee como "hay mas columnas" y no las hay.
-            p.rect(x + 6, fy - 2, width - 12, ROW_H, SW_SEL);
+            // La marca va de borde a borde: una a media anchura se lee como
+            // "hay mas columnas" y no las hay.
+            fino::marca(p, x + MARGEN - 8, fy + 2, dentro + 16, ROW_H - 4, acento());
+            fino::texto(p, x + MARGEN + 18, fy, ROW_H, name(v).as_bytes(), fino::TINTA, fino::CUERPO_FIRME);
+        } else {
+            fino::texto(p, x + MARGEN + 18, fy, ROW_H, name(v).as_bytes(), fino::TENUE, fino::CUERPO);
         }
-        let color = if i == pointed_at { INK } else { INK_DIM };
-        let mark = if i == pointed_at { "> " } else { "  " };
-        let nx = p.texto(x + 14, fy + 2, mark, color);
-        p.texto(nx, fy + 2, name(v), color);
         fy += ROW_H;
     }
+    if lista.len() > caben {
+        let mut n = [0u8; 16];
+        let k = cuantas_mas(&mut n, lista.len() - caben);
+        let w = p.medir(&n[..k], fino::PIE) as u32;
+        fino::texto(p, x + width - MARGEN - w, fy - ROW_H, ROW_H, &n[..k], fino::TENUE, fino::PIE);
+    }
+    fy += 8;
+    fino::filete(p, x + MARGEN, fy, dentro);
+    fy += 8;
 
     // El modo, abajo: sin esto no hay forma de saber por que el foco se
     // comporta distinto de lo que esperabas. Y con el la tecla que lo cambia:
     // un modo que se lee pero no se toca invita a pensar que esta averiado.
-    let mx = p.texto(x + 14, fy + 4, "modo: ", INK_DIM);
-    let mx = p.texto(mx, fy + 4, modo, acento());
-    p.texto(mx, fy + 4, "   (Ctrl+Tab)", INK_DIM);
-    fy += ROW_H;
+    let mx = x + MARGEN;
+    let mx = mx + fino::texto(p, mx, fy, PIE_H, b"modo  ", fino::TENUE, fino::PIE);
+    let mx = mx + fino::texto(p, mx, fy, PIE_H, modo.as_bytes(), acento(), fino::PIE);
+    fino::texto(p, mx, fy, PIE_H, b"    Ctrl+Tab", fino::TENUE, fino::PIE);
+    fy += PIE_H;
 
     // ** Las flechas se anuncian AQUI y no en el pie de cada ventana.
     //
@@ -107,13 +154,76 @@ pub(crate) fn paint(p: &bmo::Pantalla, lista: &[u8], pointed_at: usize, modo: &s
     // de CABINA seria una linea mas que se lee una vez y se olvida, y ademas
     // habria que repetirla en las tres ventanas -- tres sitios que actualizar
     // cuando el atajo cambie.
-    let hx = p.texto(x + 14, fy + 4, "Ctrl+flechas: ", INK_DIM);
-    let hx = p.texto(hx, fy + 4, "encajar", INK);
-    let hx = p.texto(hx, fy + 4, "   +Shift: ", INK_DIM);
-    p.texto(hx, fy + 4, "mover", INK);
+    let hx = x + MARGEN;
+    let hx = hx + fino::texto(p, hx, fy, PIE_H, b"Ctrl+flechas  ", fino::TENUE, fino::PIE);
+    let hx = hx + fino::texto(p, hx, fy, PIE_H, b"encajar", fino::TINTA, fino::PIE);
+    let hx = hx + fino::texto(p, hx, fy, PIE_H, b"     +Shift  ", fino::TENUE, fino::PIE);
+    fino::texto(p, hx, fy, PIE_H, b"mover", fino::TINTA, fino::PIE);
+}
+
+/// `+N mas`, sin formato (no hay `alloc`). Devuelve cuantos bytes.
+fn cuantas_mas(b: &mut [u8; 16], n: usize) -> usize {
+    let mut k = 0;
+    b[k] = b'+';
+    k += 1;
+    let mut d = [0u8; 8];
+    let (mut m, mut j) = (n.min(9_999_999), 0);
+    loop {
+        d[j] = b'0' + (m % 10) as u8;
+        j += 1;
+        m /= 10;
+        if m == 0 {
+            break;
+        }
+    }
+    while j > 0 {
+        j -= 1;
+        b[k] = d[j];
+        k += 1;
+    }
+    for &c in b" mas" {
+        b[k] = c;
+        k += 1;
+    }
+    k
+}
+
+/// **Devuelve lo de debajo y guarda lo nuevo.** La tarjeta MEZCLA su borde y
+/// su sombra con lo que hay: repintarla encima de si misma (cada Tab) los
+/// oscureceria. Asi cada pintado empieza sobre lo que habia antes del
+/// primero.
+fn guardar(p: &bmo::Pantalla, (x, y, w, h): (u32, u32, u32, u32)) {
+    let d = debajo();
+    if d.puesto {
+        let (gx, gy, gw, gh) = d.caja;
+        p.marcar(gx, gy, gw, gh);
+        for fy in 0..gh {
+            for fx in 0..gw {
+                p.punto_ya_marcado(gx + fx, gy + fy, d.px[(fy * gw + fx) as usize]);
+            }
+        }
+    }
+    let (gx, gy) = (x.saturating_sub(fino::HALO), y.saturating_sub(fino::HALO));
+    let gw = (w + 2 * fino::HALO).min(p.ancho.saturating_sub(gx));
+    let gh = (h + 2 * fino::HALO).min(p.alto.saturating_sub(gy));
+    if (gw * gh) as usize > GUARDADO {
+        d.puesto = false;
+        return;
+    }
+    p.sincronizar_lectura();
+    for fy in 0..gh {
+        for fx in 0..gw {
+            d.px[(fy * gw + fx) as usize] = p.read(gx + fx, gy + fy);
+        }
+    }
+    d.caja = (gx, gy, gw, gh);
+    d.puesto = true;
 }
 
 /// Que rectangulo ocupo, para poder borrarlo despues.
 pub(crate) fn area(p: &bmo::Pantalla, count: usize) -> (u32, u32, u32, u32) {
-    run_box(p, count)
+    // Con la sombra: lo que se borra al soltar Alt es todo lo que se pinto.
+    let (x, y, w, h) = run_box(p, count);
+    let (gx, gy) = (x.saturating_sub(fino::HALO), y.saturating_sub(fino::HALO));
+    (gx, gy, (w + 2 * fino::HALO).min(p.ancho.saturating_sub(gx)), (h + 2 * fino::HALO).min(p.alto.saturating_sub(gy)))
 }

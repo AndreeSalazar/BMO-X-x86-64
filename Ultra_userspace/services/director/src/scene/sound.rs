@@ -534,9 +534,8 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &SoundWindow, panel: &Panel) {
 
     let s = sitio(c);
     let l = leer();
-    p.rect(s.tx, c.chrome.y + 9, 8, 8, SND_TITLE);
-    let px = p.texto(s.tx + 16, c.chrome.y + 8, "Sonido", INK);
-    p.texto(px + 2 * bmo::GLIFO_ANCHO, c.chrome.y + 8, "maestro", INK_DIM);
+    super::fino::punto(p, s.tx, c.chrome.y, SND_TITLE);
+    super::fino::titulo(p, s.tx + 16, c.chrome.y, b"Sonido", INK, b"maestro", INK_DIM);
 
     cabecera(p, &s, &l);
 

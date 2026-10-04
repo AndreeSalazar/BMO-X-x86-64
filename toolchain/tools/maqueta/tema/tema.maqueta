@@ -49,5 +49,16 @@
     .field      { background-color:#110E22 }   /* donde se escribe */
     .taskbar    { background-color:#09080F; border-width:1px; border-color:#2B2250 }   /* el panel: negro, pelo violeta */
     .bg-top     { background-color:#161236 }   /* el cielo del escritorio: la noche de la ciudad */
+
+    /* -- lo fino (2026-10-04): lo que flota encima, con elegancia ---- */
+    /* El propietario: "elegancia, la de Francia". No es otra paleta: es la
+       misma noche, un punto mas honda, con dos cosas que no gritan -- un
+       hilo de laton por borde y el marfil por tinta. La elegancia es lo que
+       se QUITA: ni neon, ni marcos de dos pixeles, ni blanco de pantalla. */
+    .fino       { background-color:#110E24; border-width:1px; border-color:#C8A86B }   /* la tarjeta: noche honda, hilo de laton */
+    .marca      { background-color:#231D47 }   /* la fila elegida, sin gritar */
+    .marfil     { color:#F3EEE4 }   /* la tinta de lo fino: marfil, no blanco */
+    .perla      { color:#A6A2C0 }   /* lo secundario */
+    .laton      { color:#C8A86B }   /* los rotulos: laton, en versalitas espaciadas */
   </style>
 </maqueta>

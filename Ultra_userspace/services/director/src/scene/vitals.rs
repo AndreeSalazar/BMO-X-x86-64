@@ -533,16 +533,18 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &VitalsWindow, vueltas: u32, consumo: 
     c.chrome.paint_buttons(p, VIT_TITLE_BG);
 
     let tx = c.chrome.x + 16;
-    p.rect(tx, c.chrome.y + 9, 8, 8, VIT_CYAN);
-    let px = p.texto(tx + 16, c.chrome.y + 8, "VITALES", INK);
-    p.texto(
-        px + 2 * bmo::GLIFO_ANCHO,
-        c.chrome.y + 8,
+    super::fino::punto(p, tx, c.chrome.y, VIT_CYAN);
+    super::fino::titulo(
+        p,
+        tx + 16,
+        c.chrome.y,
+        b"VITALES",
+        INK,
         match c.solapa {
-            Solapa::Cpu => "a que va y que gasta",
-            Solapa::Memoria => "quien se la esta comiendo",
-            Solapa::Procesos => "lo que corre, y su boton de finalizar",
-            Solapa::Red => "la tarjeta, el cable y lo que llega",
+            Solapa::Cpu => b"a que va y que gasta",
+            Solapa::Memoria => b"quien se la esta comiendo",
+            Solapa::Procesos => b"lo que corre, y su boton de finalizar",
+            Solapa::Red => b"la tarjeta, el cable y lo que llega",
         },
         VIT_CYAN_DIM,
     );

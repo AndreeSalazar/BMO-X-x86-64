@@ -390,6 +390,9 @@ if ctrl && (0x80..=0x83).contains(&c) {
     // arriba, asi que el destrozo se repara solo; lo que hay que
     // arreglar es lo que se ve MIENTRAS.
     if moved && dsk.win.switcher_painted {
+        // Lo que el conmutador guardo de debajo ya no esta: encima se acaba
+        // de pintar la ventana. Se guarda de nuevo, sin devolver lo viejo.
+        scene::switcher::olvidar();
         scene::switcher::paint(
             &p,
             dsk.win.focus.lista(),
