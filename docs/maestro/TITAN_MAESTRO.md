@@ -911,19 +911,78 @@ sorpresa verifique?"*
 
 ---
 
-## 7. A quien llama TITAN++, y como
+## 7. A quien llama TITAN++, y como -- y quien habla con la CPU (04-10)
 
-TITAN++ **no toca hardware**:
+**Decidido por el propietario el 2026-10-04**, despues de preguntar *"que
+potencial es TITAN++?"*: **INTI es el que habla con la CPU; TITAN++ le llama,
+no le roba el trabajo.** Cada lenguaje exprime lo suyo:
+
+```text
+   INTI       la CPU al nivel del ASM: registros, AVX2 por intrinsecos de
+              tabla (INTI_MAESTRO 13.7), la instruccion exacta, la
+              PRECISION sin apoyo. Su liston: >= 85% de ASM a mano sin SIMD
+              (INTI_MAESTRO 13.8), medido en el metro
+   TITAN++    lo que se CONSTRUYE encima: apps, juegos, IA, herramientas.
+              Su fuerza no es la instruccion: es la 3060 (miles de hilos),
+              las tablas como valor (los tensores de la IA), la seguridad
+              DEMOSTRADA con el kernel (los dos jueces, 6b) y construir rapido
+              (F1, modulos, 25 palabras)
+```
+
+### 7.1 El emisor PROPIO de TITAN++: chico, correcto, sin carrera
+
+Lo que TITAN++ escribe por si mismo -- sus `if`, sus bucles, sus llamadas, el
+pegamento de una app -- tambien tiene que hacerse instrucciones, y alguien
+tiene que emitirlo. Lo emite **su emisor propio** (`toolchain/lang/titan/
+emisor-x86_64`), y ese emisor **no compite con INTI**:
+
+```text
+   lo que SI hace    correcto y decente: lo que se sabe al compilar ya va
+                     calculado (calc.rs), el lado muerto de un `if` no deja
+                     bytes, un `jmp` solo donde hace falta
+   lo que NO hace    asignacion de registros fina, SIMD, la instruccion exacta.
+                     Eso es de INTI. Si una parte de una app TITAN++ necesita
+                     la velocidad del silicio, se escribe en INTI y TITAN++ la
+                     llama (abajo)
+```
+
+Se descarto la otra forma (que TITAN++ escribiera INTI y el compilador de INTI
+lo bajara todo): ataria TITAN++ a la gramatica de INTI, sus mensajes apuntarian
+al INTI generado y no al `.titan`, y es un cerebro compartido -- lo que la casa
+prohibe (*contratos y formatos, nunca cerebros*).
+
+### 7.2 A quien llama
 
 | para | llama a | por |
 |---|---|---|
-| CPU y sistema | **INTI** | compilacion separada: `.bo` + `bmo-enlazar` (HECHA para C, C++ e INTI) |
+| la CPU al nivel del ASM (lo caliente) | **INTI** | compilacion separada: `.bo` + `bmo-enlazar` (HECHA para C, C++ e INTI) |
+| computo masivo, IA | **la 3060** | `gpu fn` -> SPIR-V -> SASS (seccion 8) |
 | dibujar con la 3060 | **VERRANO** | la API de dibujo de Ring 3 |
 | ventana, teclado, raton, disco, sonido, red | **REX / bmo-userland** | los dos syscalls |
 
 [!] INTI todavia no declara funciones AJENAS (`externo`, en ESPERA en METAS).
 Para que TITAN++ llame a INTI basta lo que ya hay; para que INTI llame a
 TITAN++, falta esa palabra.
+
+### 7.3 La escalera del emisor, y la vara que la mide
+
+```text
+   E0  HECHO (niveles 0-3)  todo valor se sabe al compilar: el .bex solo
+                            escribe resultados; ni un byte del lado muerto
+   E1  nivel 4 (while/for)  los primeros valores AL CORRER: una IR con
+                            temporales y bucles de verdad, y un PRESUPUESTO de
+                            plegado (un bucle de mil millones de vueltas no se
+                            calcula al compilar: se emite)
+   E2  nivel 5 (return)     llamadas con valores; y LLAMAR A INTI por .bo +
+                            bmo-enlazar: el camino de lo caliente
+   E3  T5 (gpu fn)          las tablas y las funciones elementales, a la 3060
+```
+
+**La vara: el metro del emisor** (`toolchain/tools/metro`). TITAN++ entro el
+04-10 con seis programas de los niveles 0-3 (`hola`: 11 instrucciones, 58 B de
+codigo). Son el SUELO de E0, no una victoria sobre nadie: hasta el nivel 3 no
+hay nada que calcular al correr. Desde ahi es un trinquete, como para C e INTI:
+instrucciones, accesos y bytes solo bajan, y la salida no cambia nunca.
 
 ---
 
@@ -1005,9 +1064,10 @@ El asistente de IA dentro de BMO-X sigue **APARCADO** (METAS cat. 2).
        modulos. Los mensajes ya en cuatro partes
    T2  tipos (con `dec` y las tablas de 2b) + "ya lo entregaste" (paso A) + la
        linea de cada modulo y sus `use` (U3)
-   T3  la IR propia (6.8, L1) y `titan build`: un .bo por el emisor-x86_64,
-       enlazado con bmo-enlazar, con los [permissions] en el .bex (U2). Un
-       "hola" en una ventana, visto en el Ryzen
+   T3  la IR propia (6.8, L1) y `titan build` por SU emisor (chico, 7.1),
+       con los [permissions] en el .bex (U2); el .bo + bmo-enlazar llega
+       cuando TITAN++ llame a INTI (7.3, E2). Un "hola" en una ventana, visto
+       en el Ryzen
    T4  la ley de exclusividad (paso B): el modelo 2 entero
    T5  `gpu fn` -> SPIR-V -> SASS, y el prestamo a la 3060 (U1)
                                    pide: lanzar computo en ga10x
@@ -1187,7 +1247,9 @@ problema dicho). El resto espera al compilador.
 ### 14.9 A quien llama (seccion 7)
 
 ```text
-   INTI      la CPU y el sistema
+   INTI      la CPU al nivel del ASM: lo caliente (.bo + bmo-enlazar)
+   el suyo   su propio pegamento, con su emisor chico (7.1)
+   la 3060   computo masivo e IA (gpu fn)
    VERRANO   dibujar con la 3060
    REX       ventana, entrada, disco, sonido, red -- por las DOS puertas
 ```
