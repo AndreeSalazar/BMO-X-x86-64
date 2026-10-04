@@ -64,14 +64,54 @@ pub fn compilar(ruta: &Path) -> Result<Laid, Fallo> {
 /// Lo mismo, con quien lee los ficheros: las pruebas leen de memoria.
 pub fn compilar_con(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>) -> Result<Laid, Fallo> {
     let mut pila = Vec::new();
-    una(ruta, leer, &mut pila)
+    una(ruta, leer, &mut pila, None)
+}
+
+/// **Una maqueta en TODOS sus estados** (P3): el reposo y cada `@estado`,
+/// cada uno maquetado ENTERO y juzgado. Un texto que no cabe en "abierta" no
+/// compila, aunque en el reposo quepa.
+pub struct Estados {
+    pub reposo: Laid,
+    pub otros: Vec<(String, Laid)>,
+}
+
+impl Estados {
+    /// El estado por su nombre (`reposo` incluido).
+    pub fn de(&self, nombre: &str) -> Option<&Laid> {
+        if nombre == "reposo" {
+            return Some(&self.reposo);
+        }
+        self.otros.iter().find(|(n, _)| n == nombre).map(|(_, l)| l)
+    }
+}
+
+pub fn compilar_estados(ruta: &Path) -> Result<Estados, Fallo> {
+    compilar_estados_con(ruta, &|p: &Path| std::fs::read(p).ok())
+}
+
+pub fn compilar_estados_con(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>) -> Result<Estados, Fallo> {
+    let reposo = compilar_con(ruta, leer)?;
+    let fuente = leer(ruta).unwrap_or_default();
+    let nombres = parse(&fuente).map(|d| d.estados()).unwrap_or_default();
+    let mut otros = Vec::new();
+    for n in nombres {
+        let mut pila = Vec::new();
+        let l = una(ruta, leer, &mut pila, Some(&n)).map_err(|mut f| {
+            for e in &mut f.errores {
+                e.title = format!("en el estado `{n}`: {}", e.title);
+            }
+            f
+        })?;
+        otros.push((n, l));
+    }
+    Ok(Estados { reposo, otros })
 }
 
 fn fallo(ruta: &Path, fuente: &[u8], errores: Vec<Error>) -> Fallo {
     Fallo { fichero: ruta.display().to_string(), fuente: fuente.to_vec(), errores }
 }
 
-fn una(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>, pila: &mut Vec<PathBuf>) -> Result<Laid, Fallo> {
+fn una(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>, pila: &mut Vec<PathBuf>, estado: Option<&str>) -> Result<Laid, Fallo> {
     let Some(fuente) = leer(ruta) else {
         return Err(Fallo {
             fichero: ruta.display().to_string(),
@@ -79,7 +119,7 @@ fn una(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>, pila: &mut Vec<Path
             errores: vec![Error::new(Span::new(0, 0, 1, 1), "no se puede leer este fichero", "no existe, o no se deja leer.", "revisar el camino.")],
         });
     };
-    let doc = parse(&fuente).map_err(|e| fallo(ruta, &fuente, e))?;
+    let doc = parse(&fuente).map_err(|e| fallo(ruta, &fuente, e))?.en_estado(estado);
     let mut c = cascade(&doc).map_err(|e| fallo(ruta, &fuente, e))?;
 
     // Cada `<usa>`: su pieza, compilada sola, y su medida puesta en la hoja.
@@ -115,7 +155,8 @@ fn una(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>, pila: &mut Vec<Path
             ));
             continue;
         }
-        let pieza = una(&camino, leer, pila)?;
+        // Una pieza va siempre en SU reposo: sus estados son suyos (P3b).
+        let pieza = una(&camino, leer, pila, None)?;
         let (w, h) = pieza.canvas;
         let s = &mut nodo.style;
         let dijo = |v: Option<u32>, real: u32| v.is_some_and(|v| v != real);
@@ -236,6 +277,8 @@ fn correr(f: &mut Frame, dx: i32, dy: i32, prefijo: Option<&str>) {
         correr(c, dx, dy, prefijo);
     }
 }
+
+pub mod transicion;
 
 #[cfg(test)]
 mod pruebas;

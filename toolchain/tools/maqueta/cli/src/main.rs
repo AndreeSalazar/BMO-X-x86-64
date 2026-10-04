@@ -38,6 +38,25 @@ fn main() -> ExitCode {
     if args.first().map(String::as_str) == Some("--cobertura") {
         return cobertura(&args[1..]);
     }
+    // ** P3 (04-10): `--estado abierta` pinta ESE estado; `--tira reposo
+    // abierta 8` pinta 8 fotogramas de la transicion, uno debajo de otro.
+    let mut estado: Option<String> = None;
+    let mut tira: Option<(String, String, u32)> = None;
+    if let Some(k) = args.iter().position(|a| a == "--estado") {
+        if k + 1 < args.len() {
+            estado = Some(args.remove(k + 1));
+        }
+        args.remove(k);
+    }
+    if let Some(k) = args.iter().position(|a| a == "--tira") {
+        if k + 3 < args.len() {
+            let n = args.remove(k + 3).parse().unwrap_or(8u32).clamp(2, 60);
+            let b = args.remove(k + 2);
+            let a = args.remove(k + 1);
+            tira = Some((a, b, n));
+        }
+        args.remove(k);
+    }
     let solo_paleta = args.first().map(|a| a == "--paleta").unwrap_or(false);
     if solo_paleta {
         args.remove(0);
@@ -90,7 +109,31 @@ fn main() -> ExitCode {
     // compila cada una SOLA antes de ponerla. El fallo se cuenta en el
     // fichero donde esta, que puede ser una pieza y no este.
     let _ = doc;
-    let puesto = match bmo_maqueta_compone::compilar(std::path::Path::new(&entrada)) {
+    let compilado = if estado.is_some() || tira.is_some() {
+        bmo_maqueta_compone::compilar_estados(std::path::Path::new(&entrada)).and_then(|e| {
+            if let Some((a, b, n)) = &tira {
+                let (Some(la), Some(lb)) = (e.de(a), e.de(b)) else {
+                    eprintln!("maqueta: no hay estado `{a}` o `{b}` en {entrada}");
+                    std::process::exit(2);
+                };
+                std::process::exit(match tira_png(&salida, la, lb, *n) {
+                    true => 0,
+                    false => 2,
+                });
+            }
+            let n = estado.as_deref().unwrap_or("reposo");
+            match e.de(n) {
+                Some(l) => Ok(l.clone()),
+                None => {
+                    eprintln!("maqueta: no hay estado `{n}` en {entrada}");
+                    std::process::exit(2);
+                }
+            }
+        })
+    } else {
+        bmo_maqueta_compone::compilar(std::path::Path::new(&entrada))
+    };
+    let puesto = match compilado {
         Ok(l) => l,
         Err(f) => {
             eprint!("{}", f.render());
@@ -258,4 +301,27 @@ fn cobertura(ficheros: &[String]) -> ExitCode {
         println!("  {n:>4}  {p:<22} {m}");
     }
     ExitCode::SUCCESS
+}
+
+/// `--tira a b n`: `n` fotogramas de la transicion de `a` a `b`, de 0 al
+/// final, uno debajo de otro con una raya entre medias.
+fn tira_png(salida: &str, a: &bmo_maqueta_layout::Laid, b: &bmo_maqueta_layout::Laid, n: u32) -> bool {
+    use bmo_maqueta_compone::transicion;
+    let total = transicion::duracion(b).max(1);
+    let fotos: Vec<_> = (0..n).map(|k| bmo_maqueta_emit::foto::foto(&transicion::en(a, b, total * k / (n - 1)))).collect();
+    let ancho = fotos.iter().map(|f| f.ancho).max().unwrap_or(1);
+    let alto: u32 = fotos.iter().map(|f| f.alto + 4).sum();
+    let mut px = vec![0x0030_3040u32; (ancho * alto) as usize];
+    let mut y0 = 0;
+    for f in &fotos {
+        for y in 0..f.alto {
+            for x in 0..f.ancho {
+                px[((y0 + y) * ancho + x) as usize] = f.px[(y * f.ancho + x) as usize];
+            }
+        }
+        y0 += f.alto + 4;
+    }
+    let im = bmo_maqueta_emit::foto::Foto { ancho, alto, px };
+    println!("maqueta: transicion de {total} ms en {n} fotogramas");
+    png(salida, &im) == ExitCode::SUCCESS
 }

@@ -43,7 +43,7 @@ pub mod variables;
 use bmo_maqueta_diag::{Error, Span};
 use bmo_maqueta_lex::{lex, Kind, Token};
 
-pub use value::{Keyword, Prop, Shape, Tag, Value};
+pub use value::{Keyword, Prop, Shape, Tag, Transicion, Value};
 
 /// One box, named. **No parent, no siblings** -- see the module header.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -116,6 +116,9 @@ pub struct Rule {
     /// where half the selectors hover and half do not has no single meaning, and
     /// a meaning that has to be explained twice is one this compiler refuses.
     pub hover: bool,
+    /// `@estado abierta { ... }` (04-10): la regla solo vale en ese estado.
+    /// `None` = la del reposo, que vale en todos.
+    pub estado: Option<String>,
 }
 
 /// What a `.maqueta` file is, once named: a tree and a list of rules, side by
@@ -124,6 +127,42 @@ pub struct Rule {
 pub struct Document {
     pub root: Node,
     pub rules: Vec<Rule>,
+}
+
+impl Document {
+    /// **Los estados que declara el fichero**, en el orden en que aparecen.
+    /// El reposo no esta: es el de partida, el que no tiene `@estado`.
+    pub fn estados(&self) -> Vec<String> {
+        let mut v: Vec<String> = Vec::new();
+        for r in &self.rules {
+            if let Some(e) = &r.estado {
+                if !v.contains(e) {
+                    v.push(e.clone());
+                }
+            }
+        }
+        v
+    }
+
+    /// **El documento tal como es EN un estado**: las reglas del reposo y,
+    /// en su sitio, las de ese estado. Asi la cascada no sabe que existen
+    /// los estados: "gana la ultima" lo resuelve igual que siempre, y es lo
+    /// que veria un navegador con ese bloque `@estado` abierto.
+    pub fn en_estado(&self, estado: Option<&str>) -> Document {
+        Document {
+            root: self.root.clone(),
+            rules: self
+                .rules
+                .iter()
+                .filter(|r| r.estado.is_none() || r.estado.as_deref() == estado)
+                .cloned()
+                .map(|mut r| {
+                    r.estado = None;
+                    r
+                })
+                .collect(),
+        }
+    }
 }
 
 /// Name everything in a source file.

@@ -14,10 +14,23 @@ use bmo_maqueta_lex::{Kind, Token};
 
 use crate::markup::span_of;
 
+// Los valores que se leen aparte (04-10): los ATAJOS que se expanden en
+// largas, y la TRANSICION de un estado a otro. Hijos de este modulo: ven lo
+// privado de aqui (`color`, `measure`, `skip_value`...) sin abrirlo a nadie.
+mod atajos;
+mod transicion;
+
+use atajos::Atajo;
+use transicion::transicion;
+
 pub fn parse(src: &[u8], toks: &[Token], errors: &mut Vec<Error>) -> Vec<Rule> {
     let mut rules = Vec::new();
     let mut i = 0usize;
     while i < toks.len() {
+        if toks[i].kind == Kind::At {
+            estado(src, toks, &mut i, errors, &mut rules);
+            continue;
+        }
         match rule(src, toks, &mut i, errors) {
             Some(r) => rules.push(r),
             None => {
@@ -130,7 +143,91 @@ fn rule(src: &[u8], toks: &[Token], i: &mut usize, errors: &mut Vec<Error>) -> O
         decls,
         span: span_of(&start),
         hover,
+        estado: None,
     })
+}
+
+/// **`@estado abierta { .panel { ... } }`** (04-10): las reglas de un
+/// ESTADO. Cada estado se maqueta entero en el anfitrion y se juzga; pasar de
+/// uno a otro es interpolar cajas ya calculadas (`transition`). Un navegador
+/// no conoce `@estado` y se salta el bloque: lo que ve es el reposo, y
+/// `foto.js --estado` abre el bloque para ver los demas.
+fn estado(src: &[u8], toks: &[Token], i: &mut usize, errors: &mut Vec<Error>, rules: &mut Vec<Rule>) {
+    let at = toks[*i];
+    *i += 1;
+    let palabra = toks.get(*i).filter(|t| t.kind == Kind::Ident).map(|t| t.text(src).to_vec());
+    let nombre = toks.get(*i + 1).filter(|t| t.kind == Kind::Ident).map(|t| t.text(src).to_vec());
+    let abre = toks.get(*i + 2).is_some_and(|t| t.kind == Kind::LBrace);
+    let (Some(b"estado"), Some(nombre), true) = (palabra.as_deref(), nombre, abre) else {
+        errors.push(Error::new(
+            span_of(&at),
+            "la unica regla con `@` es `@estado nombre { ... }`",
+            "`@media`, `@keyframes` y las demas son de un navegador que cambia en \
+             ejecucion. Aqui cada ESTADO se maqueta y se juzga al compilar.",
+            "`@estado abierta { .panel { width: 320px } }`.",
+        ));
+        // Saltar el bloque entero, con lo que lleve dentro.
+        let mut nivel = 0;
+        while let Some(t) = toks.get(*i) {
+            *i += 1;
+            match t.kind {
+                Kind::LBrace => nivel += 1,
+                Kind::RBrace => {
+                    nivel -= 1;
+                    if nivel <= 0 {
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        return;
+    };
+    if nombre == b"reposo" {
+        errors.push(Error::new(
+            span_of(&at),
+            "`reposo` es el estado de partida y no se declara",
+            "las reglas de fuera de todo `@estado` SON el reposo; un bloque con ese \
+             nombre diria lo mismo dos veces.",
+            "sacar las reglas del bloque.",
+        ));
+    }
+    let nombre = String::from_utf8_lossy(&nombre).into_owned();
+    *i += 3;
+    loop {
+        match toks.get(*i).map(|t| t.kind) {
+            Some(Kind::RBrace) => {
+                *i += 1;
+                return;
+            }
+            None => {
+                errors.push(Error::new(span_of(&at), "el `@estado` se abrio y no se cerro", "falta su `}`.", "cerrar el bloque."));
+                return;
+            }
+            Some(Kind::At) => {
+                errors.push(Error::new(
+                    span_of(&toks[*i]),
+                    "un `@estado` no va dentro de otro",
+                    "un estado es una foto de la maqueta entera; uno dentro de otro no \
+                     tiene foto.",
+                    "ponerlos uno detras de otro.",
+                ));
+                return;
+            }
+            _ => match rule(src, toks, i, errors) {
+                Some(mut r) => {
+                    r.estado = Some(nombre.clone());
+                    rules.push(r);
+                }
+                None => {
+                    while *i < toks.len() && toks[*i].kind != Kind::RBrace {
+                        *i += 1;
+                    }
+                    *i += 1;
+                }
+            },
+        }
+    }
 }
 
 /// `:hover`, y nada mas. Devuelve si lo habia.
@@ -309,198 +406,6 @@ fn cuatro(v: &[u32]) -> [u32; 4] {
     }
 }
 
-/// Los atajos que se expanden en propiedades largas.
-#[derive(Clone, Copy)]
-enum Atajo {
-    Background,
-    /// `border` (los cuatro lados) o `border-<lado>` (uno).
-    Border(Option<usize>),
-}
-
-impl Atajo {
-    fn de(nombre: &[u8]) -> Option<Atajo> {
-        Some(match nombre {
-            b"background" => Atajo::Background,
-            b"border" => Atajo::Border(None),
-            b"border-top" => Atajo::Border(Some(0)),
-            b"border-right" => Atajo::Border(Some(1)),
-            b"border-bottom" => Atajo::Border(Some(2)),
-            b"border-left" => Atajo::Border(Some(3)),
-            _ => return None,
-        })
-    }
-
-    fn leer(self, src: &[u8], toks: &[Token], i: &mut usize, span: bmo_maqueta_diag::Span, errors: &mut Vec<Error>) -> Vec<(Prop, Value)> {
-        match self {
-            Atajo::Background => fondo(src, toks, i, span, errors),
-            Atajo::Border(lado) => borde(src, toks, i, lado, span, errors),
-        }
-    }
-}
-
-/// `background: #RRGGBB | transparent | none | linear-gradient(...)`.
-///
-/// Como en CSS, el atajo pone las DOS largas: un color quita el degradado
-/// que hubiera, y un degradado quita el color.
-fn fondo(src: &[u8], toks: &[Token], i: &mut usize, span: bmo_maqueta_diag::Span, errors: &mut Vec<Error>) -> Vec<(Prop, Value)> {
-    let Some(t) = toks.get(*i).copied() else { return Vec::new() };
-    let mut v = Vec::new();
-    if t.kind == Kind::Ident && (t.text(src) == b"transparent" || t.text(src) == b"none") {
-        *i += 1;
-        v.push((Prop::BackgroundColor, Value::Nothing));
-        v.push((Prop::BackgroundImage, Value::Nothing));
-    } else if t.kind == Kind::Ident && t.text(src) == b"linear-gradient" {
-        if let Some(g) = gradient(src, toks, i, errors) {
-            v.push((Prop::BackgroundColor, Value::Nothing));
-            v.push((Prop::BackgroundImage, g));
-        }
-    } else if let Some(c) = color(src, toks, i, Prop::BackgroundColor, errors) {
-        v.push((Prop::BackgroundColor, Value::Color(c)));
-        v.push((Prop::BackgroundImage, Value::Nothing));
-    } else {
-        return Vec::new();
-    }
-    if at_value_start(toks, *i) {
-        errors.push(Error::new(
-            span,
-            "`background` lleva UNA cosa: un color, un degradado, o `none`",
-            "las capas de fondo de CSS (imagen encima de color, posicion, repeticion) piden pintar varias veces la misma caja, y una caja aqui es una pieza.",
-            "elegir una: el color ya mezclado, o el degradado.",
-        ));
-        skip_value(toks, i);
-        return Vec::new();
-    }
-    v
-}
-
-/// `border[-lado]: <grosor> solid <color>`, o `none`, o `0`.
-///
-/// ** Los tres son OBLIGATORIOS, y no por capricho: en CSS el que falta
-/// toma su valor de serie -- grosor `medium` (3 px), estilo `none` (no se
-/// ve) y color `currentColor` --, y ninguno de los tres es algo que el
-/// autor haya visto escribir. Sin uno, el navegador dibujaria otra cosa.
-fn borde(
-    src: &[u8],
-    toks: &[Token],
-    i: &mut usize,
-    lado: Option<usize>,
-    span: bmo_maqueta_diag::Span,
-    errors: &mut Vec<Error>,
-) -> Vec<(Prop, Value)> {
-    let nombre = match lado {
-        None => "border".to_string(),
-        Some(k) => format!("border-{}", value::LADOS[k]),
-    };
-    let lados: Vec<usize> = match lado {
-        None => vec![0, 1, 2, 3],
-        Some(k) => vec![k],
-    };
-    let grosores = |w: u32| -> Vec<(Prop, Value)> {
-        match lado {
-            None => vec![(Prop::BorderWidth, Value::Px4([w; 4]))],
-            Some(k) => vec![(Prop::grosor_de(k), Value::Px(w))],
-        }
-    };
-    let (mut grosor, mut solido, mut color_v): (Option<u32>, bool, Option<Value>) = (None, false, None);
-    let mut nada = false;
-    while let Some(t) = toks.get(*i).copied() {
-        if matches!(t.kind, Kind::Semi | Kind::RBrace) {
-            break;
-        }
-        match t.kind {
-            Kind::Number => match measure(src, toks, i, Prop::BorderWidth, errors) {
-                Some(w) => grosor = Some(w),
-                None => return Vec::new(),
-            },
-            Kind::Color => match color(src, toks, i, Prop::BorderColor, errors) {
-                Some(c) => color_v = Some(Value::Color(c)),
-                None => return Vec::new(),
-            },
-            Kind::Ident => {
-                let w = t.text(src);
-                match w {
-                    b"solid" => {
-                        solido = true;
-                        *i += 1;
-                    }
-                    b"none" => {
-                        nada = true;
-                        *i += 1;
-                    }
-                    b"transparent" => {
-                        color_v = Some(Value::Nothing);
-                        *i += 1;
-                    }
-                    b"dashed" | b"dotted" | b"double" | b"groove" | b"ridge" | b"inset" | b"outset" => {
-                        errors.push(Error::new(
-                            span_of(&t),
-                            &format!("estilo de borde no soportado -- `{}`", String::from_utf8_lossy(w)),
-                            "el borde de la casa es una raya llena; las rayas a trozos se dibujarian distinto en cada esquina que en el navegador.",
-                            "`solid`.",
-                        ));
-                        skip_value(toks, i);
-                        return Vec::new();
-                    }
-                    b"currentColor" | b"currentcolor" => {
-                        errors.push(Error::new(
-                            span_of(&t),
-                            "`currentColor` no existe aqui",
-                            "el color de la letra de una caja no siempre esta dicho (no hay herencia ni color de serie), y un borde no puede depender de algo que quiza no existe.",
-                            "escribir el color: `#RRGGBB` o `var(--nombre)`.",
-                        ));
-                        skip_value(toks, i);
-                        return Vec::new();
-                    }
-                    _ => match color(src, toks, i, Prop::BorderColor, errors) {
-                        Some(c) => color_v = Some(Value::Color(c)),
-                        None => return Vec::new(),
-                    },
-                }
-            }
-            _ => {
-                errors.push(Error::new(
-                    span_of(&t),
-                    &format!("`{nombre}` no entiende {}", t.kind.name()),
-                    "un borde es grosor, estilo y color.",
-                    "por ejemplo `1px solid #2B2250`.",
-                ));
-                skip_value(toks, i);
-                return Vec::new();
-            }
-        }
-    }
-    // `none` o `0` a secas: sin borde.
-    if nada || (grosor == Some(0) && !solido && color_v.is_none()) {
-        return grosores(0);
-    }
-    let falta = match (grosor, solido, color_v) {
-        (None, _, _) => Some("el grosor (`1px`): sin el, el navegador pone `medium`, 3 px"),
-        (_, false, _) => Some("`solid`: sin el, el navegador pone `none` y el borde no se ve"),
-        (_, _, None) => Some("el color: sin el, el navegador usa el de la letra, que aqui puede no estar dicho"),
-        _ => None,
-    };
-    if let Some(que) = falta {
-        errors.push(Error::new(
-            span,
-            &format!("a `{nombre}` le falta {que}"),
-            "en un atajo de CSS, lo que no se escribe toma un valor de serie que nadie vio escribir, y la maqueta se veria distinta en el navegador.",
-            "escribir los tres: `1px solid #2B2250`.",
-        ));
-        return Vec::new();
-    }
-    let mut v = grosores(grosor.unwrap_or(0));
-    let c = color_v.unwrap_or(Value::Nothing);
-    match lado {
-        None => v.push((Prop::BorderColor, c)),
-        Some(_) => {
-            for &k in &lados {
-                v.push((Prop::color_de(k), c));
-            }
-        }
-    }
-    v
-}
-
 fn read_value(
     src: &[u8],
     toks: &[Token],
@@ -609,6 +514,7 @@ fn read_value(
             None
         }
         Shape::Shadow => shadow(src, toks, i, errors),
+        Shape::Transition => transicion(src, toks, i, errors),
         Shape::Gradient => {
             if toks.get(*i).is_some_and(|t| t.kind == Kind::Ident && t.text(src) == b"none") {
                 *i += 1;
@@ -706,6 +612,9 @@ fn hex(h: &[u8]) -> u32 {
 
 /// A number with an optional decimal part, in 1/64 units (`1.5` -> 96).
 fn decimal(t: &[u8]) -> Option<u32> {
+    if t.first() == Some(&b'-') {
+        return None;
+    }
     let (ent, frac) = match t.iter().position(|&c| c == b'.') {
         Some(k) => (&t[..k], &t[k + 1..]),
         None => (t, &b""[..]),
@@ -831,6 +740,18 @@ fn measure(
         return None;
     }
     let digits = t.text(src);
+    if digits.first() == Some(&b'-') {
+        errors.push(Error::new(
+            span_of(&t),
+            &format!("`{}` no puede ser negativo", prop.name()),
+            "una medida de caja es una talla o una distancia hacia dentro: en \
+             negativo, una caja se meteria encima de su vecina.",
+            "un numero de pixeles desde cero.",
+        ));
+        *i += 1;
+        skip_value(toks, i);
+        return None;
+    }
     if digits.contains(&b'.') {
         errors.push(Error::new(
             span_of(&t),

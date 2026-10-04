@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   564 casillas ABIERTAS en 53 planes
-   402 hechas
+   565 casillas ABIERTAS en 53 planes
+   404 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -176,6 +176,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M1b -- CUANTO CUESTA REVOCAR UNA PAGINA, y va ANTES de M1. La seccion
 - ... y 8 mas
 
+## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 11 abiertas, 18 hechas
+
+*PLAN MAQUETA*
+
+- [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
+- [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
+- [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
+- ... y 8 mas
+
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 
 *PLAN LA DEUDA -- lo que el arbol debe, medido el 2026-09-17*
@@ -183,15 +192,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D2a -- un TRINQUETE. static mut declarados en
 - [ ] D2b -- el reparto, por fichero, cuando SMP se retome. No antes: sin
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
-- ... y 7 mas
-
-## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 10 abiertas, 16 hechas
-
-*PLAN MAQUETA*
-
-- [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
-- [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
-- [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 7 mas
 
 ## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 10 abiertas, 9 hechas

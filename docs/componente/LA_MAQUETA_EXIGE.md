@@ -184,6 +184,45 @@ por prudencia.
 | `border-top-color`... `border-left-color` | `#RRGGBB` o `transparent` | un lado; `transparent` ocupa y no pinta |
 | `border-radius` | `Npx` | ★ ver abajo: **ya existe**, con su limite |
 
+### 3d. Los ESTADOS y la TRANSICION (P3, 04-10)
+
+```
+   .tarjeta { width:236px; transition: 520ms cubic-bezier(.34, 1.56, .64, 1) }
+   @estado abierta {
+     .tarjeta { width:300px; box-shadow: 0 0 22px #FFD45E40 }
+   }
+```
+
+- **`@estado nombre { reglas }`**: las reglas de ese estado. El reposo son las
+  de fuera de todo bloque (y no se declara). Cada estado se maqueta **ENTERO**
+  en el anfitrion y **se juzga**: un texto que no cabe en `abierta` no
+  compila, aunque en el reposo quepa. El error dice en que estado.
+- **`transition: <tiempo> [<curva>] [<espera>]`**, UNA por caja: `ms` o `s`;
+  `linear`, `ease` (la de serie, como CSS), `ease-in`, `ease-out`,
+  `ease-in-out` o `cubic-bezier(x1, y1, x2, y2)` -- con las `y` por encima de 1
+  es el REBOTE, y sigue siendo CSS. Vale la de la caja en el estado de LLEGADA,
+  como en CSS. Sin `transition`, la caja cambia de golpe.
+- **Pasar de un estado a otro es mezclar cajas YA maquetadas**
+  (`compone/src/transicion.rs`): el sitio, la medida, los colores, el radio,
+  el borde, el resplandor y la talla de la letra. Lo que no se puede mezclar
+  (un color que aparece) salta a mitad, como hace CSS con lo discreto. **En
+  el aparato no se maqueta nada.** Una caja que cambia de fila a columna, o
+  que pasa a absoluta, tambien se mueve suave: se empareja por lo que ES, no
+  por su sitio en la lista.
+- La curva es `bmo_pinta::curva`, en enteros: la misma cuenta en el anfitrion
+  y en el escritorio.
+- Un navegador no conoce `@estado` y se salta el bloque: ve el reposo.
+  `foto.js --estado abierta` abre el bloque, y asi se compara cada estado.
+  Medido con `pruebas/panel.maqueta`: reposo 99,44 %, abierta 97,25 %.
+
+```
+   maqueta --foto --estado abierta panel.maqueta abierta.png
+   maqueta --foto --tira reposo abierta 8 panel.maqueta tira.png
+```
+
+[!] Hoy esto es del ANFITRION (las fotos de cada estado y de la transicion).
+El escritorio pintando la transicion es P3b de `PLAN_MAQUETA.md`.
+
 ### 3c. Los atajos y las variables (escalon 1, 04-10)
 
 `maqueta --cobertura` (seccion 8) paso cada declaracion de las dos maquetas de
@@ -649,6 +688,7 @@ en una propiedad, y ninguna parece grave sola.
 | variables fuera de `:root` | se heredarian, y no hay herencia | nunca en v1 |
 | `margin` | sus margenes se FUNDEN en CSS y aqui no | cuando se implemente la fusion |
 | `@media` | una sola pantalla | cuando haya dos |
+| `@keyframes`, `animation`, `transform` | piden maquetar en ejecucion | nunca: estados + `transition` (3d), o Rust |
 | salto de linea automatico | esconderia la comprobacion 3 | nunca |
 | `<h1>`, `<p>`, `<button>`... | prometen semantica que no existe | nunca |
 | script de cualquier clase | esto es un compilador | nunca |

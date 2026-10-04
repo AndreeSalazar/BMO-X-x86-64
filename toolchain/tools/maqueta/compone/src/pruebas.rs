@@ -93,3 +93,66 @@ fn sin_piezas_es_lo_de_siempre() {
     let c = cascade(&doc).unwrap();
     assert_eq!(l, lay(&c));
 }
+
+// -- P3a: los estados y la transicion --------------------------------------
+
+const PANEL: &str = "<maqueta class=\"m\"><div class=\"c\"><span class=\"t\">Hola</span></div></maqueta>\
+<style>.m{width:300px; height:200px} .c{width:100px; height:40px; background-color:#000000; transition: 400ms linear}\
+.t{font-size:13px; color:#FFFFFF}\
+@estado abierta { .c{width:260px; height:160px; background-color:#FFFFFF} }</style>";
+
+#[test]
+fn cada_estado_se_maqueta_y_se_juzga() {
+    let leer = disco(&[("p.maqueta", PANEL)]);
+    let e = compilar_estados_con(Path::new("p.maqueta"), &leer).unwrap_or_else(|f| panic!("{}", f.render()));
+    let caja = |l: &Laid| l.all()[1].rect;
+    assert_eq!(caja(&e.reposo).w, 100);
+    assert_eq!(caja(e.de("abierta").expect("el estado")).w, 260);
+    // Un estado donde no cabe: no compila, y el error dice cual.
+    let malo = PANEL.replace("width:260px; height:160px", "width:400px; height:160px");
+    let leer = disco(&[("p.maqueta", malo.as_str())]);
+    let f = compilar_estados_con(Path::new("p.maqueta"), &leer).err().expect("no cabe en abierta");
+    assert!(f.render().contains("en el estado `abierta`"), "{}", f.render());
+}
+
+#[test]
+fn la_transicion_va_de_uno_a_otro() {
+    let leer = disco(&[("p.maqueta", PANEL)]);
+    let e = compilar_estados_con(Path::new("p.maqueta"), &leer).unwrap();
+    let b = e.de("abierta").unwrap();
+    assert_eq!(transicion::duracion(b), 400);
+    let w = |ms| transicion::en(&e.reposo, b, ms).all()[1].rect.w;
+    assert_eq!(w(0), 100);
+    assert_eq!(w(200), 180, "a la mitad, en lineal, a la mitad");
+    assert_eq!(w(400), 260);
+    assert_eq!(w(9999), 260, "despues del final, el final");
+    let fondo = transicion::en(&e.reposo, b, 200).all()[1].style.background;
+    assert_eq!(fondo, Some(0x808080), "el color, mezclado");
+    assert_eq!(transicion::en(&e.reposo, b, 400), b.clone(), "al final ES el estado de llegada");
+}
+
+#[test]
+fn el_rebote_se_pasa_y_vuelve() {
+    let src = PANEL.replace("400ms linear", "400ms cubic-bezier(.34, 1.56, .64, 1)");
+    let leer = disco(&[("p.maqueta", src.as_str())]);
+    let e = compilar_estados_con(Path::new("p.maqueta"), &leer).unwrap();
+    let b = e.de("abierta").unwrap();
+    let anchos: Vec<u32> = (0..=40).map(|k| transicion::en(&e.reposo, b, k * 10).all()[1].rect.w).collect();
+    assert!(anchos.iter().any(|&w| w > 260), "se pasa de largo: {anchos:?}");
+    assert_eq!(*anchos.last().unwrap(), 260, "y acaba donde tiene que acabar");
+}
+
+#[test]
+fn una_caja_que_cambia_de_sitio_en_la_lista_se_empareja_por_lo_que_es() {
+    // En `fuera` la primera caja pasa a absoluta: en la lista de hijos va al
+    // final, y aun asi se mezcla consigo misma.
+    let src = "<maqueta class=\"m\"><div class=\"a\"></div><div class=\"b\"></div></maqueta>\
+<style>.m{width:300px; height:200px; display:flex; flex-direction:column} .a{width:50px; height:20px; background-color:#FF0000; transition: 100ms linear} .b{width:60px; height:20px; background-color:#00FF00}\
+@estado fuera { .a{position:absolute; left:200px; top:150px} }</style>";
+    let leer = disco(&[("p.maqueta", src)]);
+    let e = compilar_estados_con(Path::new("p.maqueta"), &leer).unwrap_or_else(|f| panic!("{}", f.render()));
+    let b = e.de("fuera").unwrap();
+    let mitad = transicion::en(&e.reposo, b, 50);
+    let roja = mitad.all().into_iter().find(|f| f.style.background == Some(0xFF0000)).expect("la roja");
+    assert_eq!((roja.rect.x, roja.rect.y), (100, 75), "a medio camino entre (0, 0) y (200, 150)");
+}

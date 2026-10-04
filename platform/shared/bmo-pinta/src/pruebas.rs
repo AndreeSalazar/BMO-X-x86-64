@@ -145,3 +145,30 @@ fn la_raiz_rapida_es_la_raiz_exacta() {
         assert!(bien(n, super::raiz(n)), "{n}");
     }
 }
+
+/// Las curvas de CSS: los extremos, la recta, la simetria de `ease-in-out`,
+/// y el rebote que pasa de 1.
+#[test]
+fn las_curvas_de_css() {
+    let lineal = [0, 0, 1000, 1000];
+    for x in (0..=1000).step_by(50) {
+        assert!((curva(lineal, x) - x).abs() <= 2, "{x}");
+    }
+    let suave = [420, 0, 580, 1000];
+    assert_eq!(curva(suave, 0), 0);
+    assert_eq!(curva(suave, 1000), 1000);
+    assert!((curva(suave, 500) - 500).abs() <= 2, "{}", curva(suave, 500));
+    for x in (0..=500).step_by(25) {
+        assert!((curva(suave, x) + curva(suave, 1000 - x) - 1000).abs() <= 3, "simetria en {x}");
+    }
+    assert!(curva(suave, 100) < 100, "empieza despacio");
+    // `ease` en el 25 %: la especificacion da ~0,409 (las tablas de los
+    // navegadores coinciden).
+    assert!((curva([250, 100, 250, 1000], 250) - 409).abs() <= 6, "{}", curva([250, 100, 250, 1000], 250));
+    let rebote = [340, 1560, 640, 1000];
+    let pico = (0..=1000).map(|x| curva(rebote, x)).max().unwrap();
+    assert!(pico > 1050, "el rebote se pasa: {pico}");
+    for x in 0..1000 {
+        assert!(curva(lineal, x) <= curva(lineal, x + 1));
+    }
+}
