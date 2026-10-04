@@ -1002,7 +1002,7 @@ fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x
                 }
                 let (f, u, v, b) = (ranura[2] as u32, (ranura[2] >> 32) as u32, ranura[3] as u32, (ranura[3] >> 32) as u32);
                 let borde = core::array::from_fn(|c| ((b >> (8 * c)) & 0xFF) as f32 / 255.0);
-                return Muestreador::de_descriptor(f, u, v, borde).map_err(aviso).ok();
+                return Muestreador::de_descriptor(f, u, v, borde, ranura[0] as u32).map_err(aviso).ok();
             }
             Muestreador::de_estatico(donde::estatico(firma, l)?).map_err(aviso).ok()
         })

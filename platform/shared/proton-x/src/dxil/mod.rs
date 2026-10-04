@@ -40,6 +40,8 @@ mod enteros;
 mod olas;
 /// El interprete de un `Programa` (partido de `programa.rs`, 03-10).
 mod interprete;
+/// 03-10: Gather y SampleCmp (las sombras).
+mod sombras;
 /// N5.10: los arrays (alloca, GEP, load, store y las tablas globales).
 mod arreglos;
 

@@ -41,7 +41,7 @@ fn muestras() -> Vec<Muestra> {
                 _ => Direccion::Borde,
             };
             let hex = |s: &str| u32::from_str_radix(s.trim_start_matches("0x"), 16).unwrap();
-            Muestra { linea: l.to_string(), m: Muestreador { filtro, u: d, v: d, borde: [0.0, 0.5, 1.0, 1.0] }, u: c[2].parse().unwrap(), v: c[3].parse().unwrap(), bits: [hex(c[8]), hex(c[9]), hex(c[10]), hex(c[11])] }
+            Muestra { linea: l.to_string(), m: Muestreador { filtro, u: d, v: d, borde: [0.0, 0.5, 1.0, 1.0], comparacion: 0 }, u: c[2].parse().unwrap(), v: c[3].parse().unwrap(), bits: [hex(c[8]), hex(c[9]), hex(c[10]), hex(c[11])] }
         })
         .collect()
 }

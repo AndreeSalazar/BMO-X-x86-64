@@ -12,8 +12,11 @@
 //!    locale       en-US: GetUserDefaultLCID/LocaleName/UILanguage,
 //!                 GetThreadUILanguage, GetUserGeoID, IsValidLocale,
 //!                 IsValidCodePage, GetCPInfo, LocaleNameToLCID,
-//!                 LCIDToLocaleName, ResolveLocaleName, EnumSystemLocalesW,
-//!                 GetStringTypeW/A/ExA
+//!                 LCIDToLocaleName, ResolveLocaleName, EnumSystemLocalesW/Ex,
+//!                 IsValidLocaleName, GetStringTypeW/A/ExA
+//!    cargador     GetCurrentPackageId (sin paquete), SetDefaultDllDirectories,
+//!                 AddDllDirectory, RemoveDllDirectory (03-10: Cyberpunk las
+//!                 pedia por GetProcAddress y recibia NULL)
 //!    consola      GetConsoleWindow AllocConsole SetConsoleCtrlHandler
 //!                 SetConsoleMode SetConsoleTextAttribute SetConsoleTitleA
 //!                 AreFileApisANSI; OutputDebugStringA/W (sin depurador: nada)
@@ -406,6 +409,43 @@ extern "win64" fn enum_system_locales_w(f: u64, _banderas: u32) -> i32 {
     1
 }
 
+/// `EnumSystemLocalesEx(f, banderas, lparam, reservado)` (03-10: Cyberpunk
+/// la pide por GetProcAddress y daba NULL): f(L"en-US", LOCALE_WINDOWS,
+/// lparam), el unico locale de la casa.
+extern "win64" fn enum_system_locales_ex(f: u64, _banderas: u32, lparam: u64, _reservado: u64) -> i32 {
+    if f == 0 {
+        kernel32::poner_error(ERROR_INVALID_PARAMETER);
+        return 0;
+    }
+    let w: alloc::vec::Vec<u16> = EN_US.encode_utf16().chain([0]).collect();
+    // SAFETY: la funcion del `.exe`: BOOL CALLBACK f(LPWSTR, DWORD, LPARAM).
+    let f = unsafe { core::mem::transmute::<u64, extern "win64" fn(*const u16, u32, u64) -> i32>(f) };
+    f(w.as_ptr(), 1, lparam);
+    1
+}
+
+/// `IsValidLocaleName(nombre)`: el de la casa (en-US, en cualquier
+/// mayuscula, o "en") y el invariante ("").
+extern "win64" fn is_valid_locale_name(n: *const u16) -> i32 {
+    if n.is_null() {
+        return 0;
+    }
+    let t = alloc::string::String::from_utf16_lossy(&crate::crt::cadena_w(n as u64)).to_ascii_lowercase();
+    matches!(t.as_str(), "" | "en" | "en-us") as i32
+}
+
+/// `GetCurrentPackageId` y sus hermanas: un `.exe` de escritorio no tiene
+/// paquete (APPMODEL_ERROR_NO_PACKAGE), como en Windows fuera de la tienda.
+extern "win64" fn sin_paquete(_a: u64, _b: u64) -> i32 {
+    15700
+}
+
+/// `AddDllDirectory(ruta)`: la casa carga sus DLL de donde las tiene; la
+/// galleta solo tiene que no ser 0.
+extern "win64" fn add_dll_directory(_ruta: *const u16) -> u64 {
+    1
+}
+
 const CT_CTYPE1: u32 = 1;
 
 /// Las banderas C1_* de un caracter.
@@ -523,6 +563,11 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "LCIDToLocaleName" => dir!(lcid_to_locale_name),
         "ResolveLocaleName" => dir!(resolve_locale_name),
         "EnumSystemLocalesW" => dir!(enum_system_locales_w),
+        "EnumSystemLocalesEx" => dir!(enum_system_locales_ex),
+        "IsValidLocaleName" => dir!(is_valid_locale_name),
+        "GetCurrentPackageId" | "GetCurrentPackageFullName" | "GetCurrentPackageFamilyName" => dir!(sin_paquete),
+        "SetDefaultDllDirectories" | "RemoveDllDirectory" => dir!(uno),
+        "AddDllDirectory" => dir!(add_dll_directory),
         "GetStringTypeW" => dir!(get_string_type_w),
         "GetStringTypeA" | "GetStringTypeExA" => dir!(get_string_type_a),
         "GetConsoleWindow" => dir!(get_console_window),
@@ -553,5 +598,23 @@ mod pruebas {
         assert_eq!(out[1] & 0x84, 0x84);
         assert_eq!(out[2] & 0x48, 0x48);
         assert_eq!(out[3] & 0x102, 0x102, "e con tilde: minuscula y letra");
+    }
+
+    /// 03-10: lo del cargador y los locales por nombre que Cyberpunk pedia.
+    #[test]
+    fn el_paquete_los_directorios_y_los_locales_por_nombre() {
+        let w = |t: &str| -> alloc::vec::Vec<u16> { t.encode_utf16().chain([0]).collect() };
+        assert_eq!(sin_paquete(0, 0), 15700, "APPMODEL_ERROR_NO_PACKAGE");
+        assert_ne!(add_dll_directory(w("C:\\x").as_ptr()), 0);
+        assert_eq!([is_valid_locale_name(w("en-US").as_ptr()), is_valid_locale_name(w("EN-us").as_ptr()), is_valid_locale_name(w("").as_ptr()), is_valid_locale_name(w("fr-FR").as_ptr())], [1, 1, 1, 0]);
+        extern "win64" fn uno(n: *const u16, banderas: u32, lparam: u64) -> i32 {
+            // SAFETY: el `u64` de la prueba de abajo.
+            unsafe { *(lparam as *mut u64) += 1 };
+            assert_eq!((alloc::string::String::from_utf16_lossy(&crate::crt::cadena_w(n as u64)), banderas), (alloc::string::String::from("en-US"), 1));
+            1
+        }
+        let mut vistos = 0u64;
+        assert_eq!(enum_system_locales_ex(uno as usize as u64, 0, &mut vistos as *mut u64 as u64, 0), 1);
+        assert_eq!(vistos, 1);
     }
 }

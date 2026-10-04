@@ -40,7 +40,7 @@ fn el_enlace_da_a_cada_espacio_su_ranura() {
         _ => 0x00FF_0000,
     };
     let pix: Vec<[u32; 1]> = en.ranuras.texturas.iter().map(|&x| [color(x)]).collect();
-    let m = Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4] };
+    let m = Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4], comparacion: 0 };
     let mue: Vec<Option<Muestreador>> = en.ranuras.muestreadores.iter().map(|_| Some(m)).collect();
     let cb = [0u8; 16];
     let (mut sal, mut regs) = (vec![[0f32; 4]; en.ps.salidas], Vec::new());
@@ -333,4 +333,41 @@ fn un_cbuffer_se_lee_con_fila_calculada() {
         let k = (i & 7) as f32;
         assert_eq!(sal[0], [k + 0.5, 2.0 * k + 0.5, 3.0 * k + 0.5, 4.0 * k + 0.5], "i = {i}");
     }
+}
+
+const SOMBRAS_PS: &[u8] = include_bytes!("../prueba/sombras.dxil");
+
+/// *** `sombras.hlsl` (de `dxc`): SampleCmpLevelZero (el PCF de 2x2, con
+/// LESS y referencia 0.5 sobre 0.2 0.8 / 0.4 0.6: pasan dos de cuatro, a
+/// pesos iguales en el centro: 0.5), GatherRed (los cuatro rojos, en el
+/// orden de D3D) y firstbitlow/high y countbits de 88 (0b1011000).
+#[test]
+fn las_sombras_comparan_y_gather_junta() {
+    use crate::dxil::programa::compilar;
+    use crate::textura::{Direccion, Filtro, Muestreador, Recursos, Textura};
+    let ps = compilar(&dxil::leer(SOMBRAS_PS).unwrap()).unwrap();
+    // 2x2 RGBA8: el rojo de cada texel (de arriba a la izquierda, por filas).
+    let rojos = [51u32, 204, 102, 153];
+    let pix: Vec<u32> = rojos.iter().map(|&r| 0xFF00_0000 | r).collect();
+    let tex = Textura::rgba(&pix, 2, 2, false);
+    let reg = |v: &[crate::dxil::programa::Lugar], r: u32| v.iter().position(|l| l.registro == r).unwrap();
+    let mut texturas = vec![None, None];
+    texturas[reg(&ps.ranuras.texturas, 0)] = Some(tex);
+    texturas[reg(&ps.ranuras.texturas, 1)] = Some(tex);
+    let mut mues = vec![None, None];
+    mues[reg(&ps.ranuras.muestreadores, 0)] = Some(Muestreador { filtro: Filtro::Lineal, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 2 });
+    mues[reg(&ps.ranuras.muestreadores, 1)] = Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0 });
+    let rec = Recursos { texturas: &texturas, muestreadores: &mues, buferes: &[] };
+    let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
+    ps.correr_con(&[[0.0; 4], [0.5, 0.5, 0.0, 0.0], [f32::from_bits(88), 0.0, 0.0, 0.0]], &[], &rec, &mut sal, &mut regs);
+    let r = |k: usize| rojos[k] as f32 / 255.0;
+    // Gather: x (0,1), y (1,1), z (1,0), w (0,0).
+    let g = r(2) + r(3) * 10.0 + r(1) * 100.0 + r(0) * 1000.0;
+    assert_eq!(sal[0][0], 0.5, "el PCF: dos de cuatro");
+    assert!((sal[0][1] - g).abs() < 1e-3, "{} vs {g}", sal[0][1]);
+    assert_eq!(sal[0][2..], [3.0 + 6.0 * 100.0, 3.0], "firstbitlow 3, firstbithigh 6, countbits 3");
+    // En la esquina de arriba a la izquierda, sujeto: los cuatro son el
+    // (0,0) = 0.2, y 0.5 < 0.2 no pasa.
+    ps.correr_con(&[[0.0; 4], [0.0, 0.0, 0.0, 0.0], [f32::from_bits(0), 0.0, 0.0, 0.0]], &[], &rec, &mut sal, &mut regs);
+    assert_eq!(sal[0][0], 0.0);
 }

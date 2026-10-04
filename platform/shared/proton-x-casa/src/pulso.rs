@@ -27,6 +27,7 @@
 
 use alloc::string::String;
 use core::cell::UnsafeCell;
+use core::sync::atomic::{AtomicU64, Ordering};
 
 use crate::plataforma;
 
@@ -76,6 +77,18 @@ static CUENTAS: Global = Global(UnsafeCell::new(Cuentas {
 fn cuentas() -> &'static mut Cuentas {
     // SAFETY: ver `Global`; nadie guarda la referencia.
     unsafe { &mut *CUENTAS.0.get() }
+}
+
+/// La casilla que vigila el pulso (N4.4): la que valia 0 en el salto a 0 de
+/// la corrida anterior. `0` = ninguna.
+static VIGILADA: AtomicU64 = AtomicU64::new(0);
+
+/// **Vigilar una casilla** de la imagen: cada foto dice cuanto vale y a
+/// donde apunta. La pone la app al arrancar, si el informe anterior trae un
+/// salto a 0 (`bmo_proton_x::nulo`). Tiene que ser memoria de la imagen,
+/// que vive lo que el proceso.
+pub fn vigilar(dir: u64) {
+    VIGILADA.store(dir, Ordering::Relaxed);
 }
 
 /// Al empezar un `.exe`: todo a cero y el reloj en marcha.
@@ -148,6 +161,17 @@ pub(crate) fn texto(ahora: u64) -> String {
         k.listas,
         k.presents
     ));
+    let v = VIGILADA.load(Ordering::Relaxed);
+    if v != 0 {
+        // SAFETY: `vigilar` solo recibe casillas de la imagen, que no se
+        // suelta; se lee sin alinear por si acaso.
+        let x = unsafe { core::ptr::read_unaligned(v as *const u64) };
+        t.push_str(&alloc::format!(
+            "# la casilla del salto a 0 ({}): vale {}\n",
+            donde(v),
+            if x == 0 { String::from("0 (todavia nula)") } else { donde(x) }
+        ));
+    }
     t.push_str("# hilos (id, su funcion de arranque, en que esta, y su ultima llamada <- quien la hizo):\n");
     for l in crate::hilos::describir() {
         t.push_str("#   ");

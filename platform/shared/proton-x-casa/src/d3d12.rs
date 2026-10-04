@@ -496,7 +496,9 @@ extern "win64" fn create_sampler(_this: u64, desc: *const u8, handle: u64) {
         let w = |o: usize| (desc.add(o) as *const u32).read_unaligned();
         let borde = (0..4).fold(0u64, |a, k| a | ((f32::from_bits(w(28 + 4 * k)).clamp(0.0, 1.0) * 255.0 + 0.5) as u64) << (8 * k));
         let r = handle as *mut u64;
-        r.write(0);
+        // La palabra 0 (el recurso de un SRV) lleva aqui la ComparisonFunc
+        // (+24): la de los muestreadores de sombras (03-10).
+        r.write(w(24) as u64);
         r.add(1).write(DESC_MUESTREADOR);
         r.add(2).write(w(0) as u64 | (w(4) as u64) << 32);
         r.add(3).write(w(8) as u64 | borde << 32);

@@ -52,6 +52,8 @@
 extern crate alloc;
 
 mod cargador;
+mod el_nulo;
+mod en_vivo;
 mod entorno_windows;
 mod la3060;
 mod monton;
@@ -75,6 +77,13 @@ const CABECERAS: u64 = 64 << 10;
 
 fn di(s: &str) {
     bmo::consola(s);
+}
+
+/// [`di`], y la misma linea en el DIARIO (04-10): lo del arranque que hay
+/// que leer despues no puede depender de las 200 lineas de la consola.
+fn di_y_diario(s: &str) {
+    di(s);
+    bmo_proton_x_casa::diario::apuntar_arranque(s);
 }
 
 fn fin(motivo: &str) -> ! {
@@ -1045,7 +1054,14 @@ pub extern "C" fn _start() -> ! {
         }
         // P0.4b.7: lo que falta se APUNTA y se sigue con el siguiente: un
         // viaje al metal dice TODO lo que falta, no solo lo de la primera DLL.
-        match resolver(img, &imps, bmo_proton_x_casa::tabla) {
+        // 04-10: una DLL que el juego carga EN VIVO no lo para por lo que la
+        // casa no tiene: eso va con TRAMPA (`en_vivo::resolver`).
+        let r = if m.en_vivo {
+            en_vivo::resolver(m, img, &imps)
+        } else {
+            resolver(img, &imps, bmo_proton_x_casa::tabla)
+        };
+        match r {
             Ok(()) => {}
             Err(bmo_proton_x::Fallo::Faltan(v)) => {
                 faltan.extend(v.into_iter().map(|i| (m.nombre.clone(), i)))
@@ -1093,6 +1109,8 @@ pub extern "C" fn _start() -> ! {
         funciones,
         MONTON.gastado()
     ));
+    // N4.4: si la corrida anterior murio saltando a 0, que era esa casilla.
+    el_nulo::mirar(&modulos);
     // P4d: su directorio actual es el suyo (`window` para `window/x.exe`).
     bmo_proton_x_casa::ficheros::poner_directorio(
         nombre.rsplit_once('/').map(|(d, _)| d).unwrap_or(""),

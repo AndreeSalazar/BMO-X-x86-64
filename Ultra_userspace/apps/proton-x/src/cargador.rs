@@ -37,6 +37,9 @@ pub(crate) struct Modulo {
     pub primera: usize,
     /// Donde quedo (la VA de su RVA 0; los tramos, seguidos).
     pub base: u64,
+    /// Entro porque el juego la carga EN VIVO (`en_vivo.rs`), o la pide una
+    /// de esas: lo que la casa no tiene se le da con TRAMPA, no la para.
+    pub en_vivo: bool,
 }
 
 impl Modulo {
@@ -59,7 +62,7 @@ impl Modulo {
     }
 }
 
-fn junto(dir: &[u8], dll: &str) -> Vec<u8> {
+pub(crate) fn junto(dir: &[u8], dll: &str) -> Vec<u8> {
     let mut r = dir.to_vec();
     r.extend_from_slice(dll.as_bytes());
     r
@@ -107,6 +110,7 @@ fn visitar(dll: &str, dir: &[u8], lista: &mut Vec<Modulo>, vistos: &mut Vec<Stri
         tramos,
         primera: 0,
         base: 0,
+        en_vivo: false,
     });
 }
 
@@ -130,12 +134,22 @@ pub(crate) fn declarar_y_colocar(
         pe,
         tramos,
         primera: 0,
-        base: 0
+        base: 0,
+        en_vivo: false
     }];
     let mut vistos: Vec<String> =
         alloc::vec![String::from(nombre.rsplit('/').next().unwrap_or(&nombre))];
     for d in pedidas(ruta, &dir).0 {
         visitar(&d, &dir, &mut modulos, &mut vistos);
+    }
+    // 04-10: y las que el .exe carga EN VIVO (LoadLibrary), si estan junto
+    // a el: la imagen se declara de una vez (ver `en_vivo.rs`).
+    let estaticos = modulos.len();
+    for d in crate::en_vivo::pedidas_en_vivo(ruta, &modulos[0].pe, &dir, &vistos) {
+        visitar(&d, &dir, &mut modulos, &mut vistos);
+    }
+    for m in &mut modulos[estaticos..] {
+        m.en_vivo = true;
     }
 
     tiempos.cabeceras = ahora_ns() - t0;

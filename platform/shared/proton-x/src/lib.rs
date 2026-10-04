@@ -46,6 +46,7 @@ pub mod dll;
 pub mod donde;
 pub mod dxbc;
 pub mod dxil;
+pub mod en_vivo;
 pub mod ficheros;
 pub mod formato;
 pub mod pcm;
@@ -64,6 +65,7 @@ pub mod hora;
 pub mod lote;
 pub mod mates;
 pub mod mezcla;
+pub mod nulo;
 pub mod mensajes;
 pub mod monton;
 pub mod nativo;
@@ -146,3 +148,5 @@ mod pruebas_saltos;
 mod pruebas_espacios;
 #[cfg(test)]
 mod pruebas_pixeles;
+#[cfg(test)]
+mod pruebas_nulo;

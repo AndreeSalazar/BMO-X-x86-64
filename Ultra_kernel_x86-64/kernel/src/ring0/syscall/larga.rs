@@ -34,9 +34,6 @@ use core::sync::atomic::{AtomicU64, Ordering};
 const LARGA_US: u64 = 2_000;
 
 static PEOR: AtomicU64 = AtomicU64::new(0);
-static ULTIMA: AtomicU64 = AtomicU64::new(0);
-/// El TSC en que acabo la ULTIMA larga.
-static ULTIMA_FIN: AtomicU64 = AtomicU64::new(0);
 
 /// El TSC al entrar.
 #[inline(always)]
@@ -63,8 +60,9 @@ pub fn acaba(t0: u64, op: u64, clase: u32, tid: u32) {
 fn apuntar(ciclos: u64, hz: u64, fin: u64, op: u64, clase: u32, tid: u32) {
     let us = (ciclos as u128 * 1_000_000 / hz as u128).min(u32::MAX as u128) as u64;
     let v = (op & 0xFFFF) | ((tid as u64 & 0xFF) << 16) | ((clase as u64 & 0xFF) << 24) | (us << 32);
-    ULTIMA.store(v, Ordering::Relaxed);
-    ULTIMA_FIN.store(fin, Ordering::Relaxed);
+    // La ULTIMA larga vive en el bus (`dev::usb::bus::apuntar_puerta`), que
+    // es quien la lee: la dependencia baja (syscall -> dev), no sube (L8b).
+    crate::ring0::dev::usb::bus::apuntar_puerta(v, fin);
     if us > PEOR.load(Ordering::Relaxed) >> 32 {
         PEOR.store(v, Ordering::Relaxed);
     }
@@ -75,12 +73,3 @@ pub fn peor() -> u64 {
     PEOR.load(Ordering::Relaxed)
 }
 
-/// La ULTIMA puerta larga, si acabo despues de `desde` (TSC): la que estaba
-/// corriendo mientras el bus esperaba. 0 si no hubo ninguna.
-pub fn ultima_desde(desde: u64) -> u64 {
-    if ULTIMA_FIN.load(Ordering::Relaxed) >= desde {
-        ULTIMA.load(Ordering::Relaxed)
-    } else {
-        0
-    }
-}

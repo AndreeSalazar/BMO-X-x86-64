@@ -170,6 +170,15 @@ impl Programa {
                         Lectura::Medidas => rec.medidas(t, b(nivel)),
                         Lectura::Bufer(modo) => rec.cargar_bufer(t, modo, b(c[0]), b(c[1])),
                         Lectura::MedidasBufer(modo) => rec.medidas_bufer(t, modo),
+                        Lectura::Junta { canal } => rec.juntar(t, s, f, canal as usize, desp).map(f32::to_bits),
+                        Lectura::Compara => [rec.comparar(t, s, f, regs[nivel as usize], desp).to_bits(); 4],
+                        Lectura::JuntaCompara { canal } => {
+                            // Cada texel contra la referencia, con la funcion del muestreador.
+                            let g = rec.juntar(t, s, f, canal as usize, desp);
+                            let m = rec.muestreadores.get(s as usize).copied().flatten();
+                            let fun = m.map_or(4, |m| if m.comparacion == 0 { 4 } else { m.comparacion });
+                            g.map(|x| if (crate::trama::Profundidad { funcion: fun, escribir: false }).pasa(regs[nivel as usize], x) { 1.0f32.to_bits() } else { 0 })
+                        }
                     };
                     for (k, v) in x.into_iter().enumerate() {
                         regs[d as usize + k] = f32::from_bits(v);

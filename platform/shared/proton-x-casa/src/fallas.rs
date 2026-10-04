@@ -135,6 +135,26 @@ macro_rules! fallas {
     ($i:ident; $($s:literal)*) => { [$(falla::<$i, $s> as *const () as usize as u64),*] };
 }
 
+fn de<const I: usize>() -> [u64; com::HUECOS] {
+    fallas!(I; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59
+        60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87)
+}
+
+macro_rules! por_indice {
+    ($i:expr; $($n:literal)*) => {
+        match $i {
+            $($n => de::<$n>(),)*
+            _ => [0; com::HUECOS],
+        }
+    };
+}
+
+/// Las direcciones de las fallas de la interfaz `i` (para el censo del ABI:
+/// un hueco es una falla si tiene ESTA, no si su fila existe).
+pub(crate) fn direcciones(i: usize) -> [u64; com::HUECOS] {
+    por_indice!(i; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)
+}
+
 /// **Poner las fallas documentadas de `I`** en su vtabla (antes de los
 /// metodos que la casa hace, que mandan).
 pub(crate) fn aplicar<const I: usize>(v: &mut [u64]) {

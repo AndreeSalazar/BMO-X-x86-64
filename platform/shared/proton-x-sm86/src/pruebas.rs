@@ -264,7 +264,7 @@ fn el_pixel_de_hellotexture_es_un_tex() {
     let t: Vec<u32> = (0..64u32).map(|k| (k * 37 & 0xFF) | (k * 91 & 0xFF) << 8 | (255 - k * 3) << 16 | 0xFF << 24).collect();
     let tx = [Some(Textura::rgba(&t, 8, 8, false))];
     for filtro in [Filtro::Punto, Filtro::Lineal] {
-        let ms = [Some(Muestreador { filtro, u: Direccion::Repetir, v: Direccion::Espejo, borde: [0.0; 4] })];
+        let ms = [Some(Muestreador { filtro, u: Direccion::Repetir, v: Direccion::Espejo, borde: [0.0; 4], comparacion: 0 })];
         let rec = Recursos { texturas: &tx, muestreadores: &ms, buferes: &[] };
         let mu = |asa: u32, u: f32, v: f32| {
             assert_eq!(asa, bmo_gpu_ga10x::texturas::asa(0, 0), "el asa de la textura 0");
@@ -306,7 +306,7 @@ fn la_tabla_del_metal_es_la_de_la_casa() {
     let tx = Textura::rgba(&t, 4, 4, false);
     for (m, &(lineal, modo)) in pr::MUESTREADORES.iter().enumerate() {
         let d = [Direccion::Repetir, Direccion::Espejo, Direccion::Sujetar, Direccion::Borde][modo as usize - 1];
-        let mu = Muestreador { filtro: if lineal { Filtro::Lineal } else { Filtro::Punto }, u: d, v: d, borde: pr::BORDE };
+        let mu = Muestreador { filtro: if lineal { Filtro::Lineal } else { Filtro::Punto }, u: d, v: d, borde: pr::BORDE, comparacion: 0 };
         for (k, &(u, v)) in pr::PUNTOS.iter().enumerate() {
             let c = tx.muestrear(&mu, u, v).map(|x| (x * 255.0 + 0.5) as u32);
             assert_eq!(c[0] | c[1] << 8 | c[2] << 16 | c[3] << 24, pr::ESPERADO[m][k], "{} ({u}, {v})", pr::NOMBRES[m]);

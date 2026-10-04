@@ -233,6 +233,20 @@ pub fn diario(ruta: Option<&[u8]>) {
     }
 }
 
+/// **Una linea del ARRANQUE en el diario** (04-10), con `# ` delante: lo que
+/// el cargador decide antes de la entrada (las DLL en vivo, sus trampas, el
+/// lector del nulo). La consola guarda las ultimas 200 lineas y esas eran
+/// las primeras en perderse; el diario se guarda entero.
+pub fn apuntar_arranque(linea: &str) {
+    let e = estado();
+    if e.ruta.is_none() {
+        return;
+    }
+    e.texto.extend_from_slice(b"# ");
+    e.texto.extend_from_slice(linea.trim_end().as_bytes());
+    e.texto.push(b'\n');
+}
+
 /// Si el diario esta encendido (`personal diario ...`): lo que solo se
 /// cuenta al investigar (los NO de la memoria) sale solo entonces.
 pub(crate) fn encendido() -> bool {

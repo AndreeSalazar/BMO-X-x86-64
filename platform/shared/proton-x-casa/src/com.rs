@@ -335,6 +335,63 @@ pub fn vtabla<const I: usize>(metodos: &[(usize, u64)]) -> *const u64 {
     cache[I]
 }
 
+/// **Que es un hueco de una vtabla** (el censo del ABI, 03-10).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Hueco {
+    /// La casa lo hace.
+    Hace,
+    /// Una falla documentada (`fallas.rs`): el HRESULT de Windows sin esa
+    /// funcion, dicho.
+    Falla,
+    /// Un `falta`: dice cual es y sale.
+    Falta,
+}
+
+macro_rules! faltas_por_indice {
+    ($i:expr; $($n:literal)*) => {
+        match $i {
+            $($n => faltas_de::<$n>(),)*
+            _ => [0; HUECOS],
+        }
+    };
+}
+
+/// **El censo del ABI**: de cada interfaz cuya vtabla ya se armo (la casa
+/// crea cada una la primera vez que da un objeto de ella), su nombre y lo
+/// que es cada metodo, por hueco. Lo usa `tests/abi.rs` para escribir
+/// `docs/maestro/D3D12_MAESTRO.md`.
+pub fn censo() -> Vec<(&'static str, Vec<(&'static str, Hueco)>)> {
+    // SAFETY: un hilo; solo se lee.
+    let cache = unsafe { &*VTABLAS.0.get() };
+    let mut v = Vec::new();
+    for (i, &vt) in cache.iter().enumerate() {
+        if vt.is_null() {
+            continue;
+        }
+        let faltas = faltas_por_indice!(i; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28);
+        let fallas = crate::fallas::direcciones(i);
+        let metodos = INTERFACES[i].metodos;
+        let huecos = metodos
+            .iter()
+            .enumerate()
+            .map(|(h, &m)| {
+                // SAFETY: la vtabla de la casa mide lo que su lista de metodos.
+                let d = unsafe { vt.add(h).read() };
+                let estado = if d == faltas[h] {
+                    Hueco::Falta
+                } else if d == fallas[h] {
+                    Hueco::Falla
+                } else {
+                    Hueco::Hace
+                };
+                (m, estado)
+            })
+            .collect();
+        v.push((INTERFACES[i].nombre, huecos));
+    }
+    v
+}
+
 /// **Un objeto nuevo** de la interfaz `I`, con una referencia.
 pub fn nuevo<T>(interfaz: usize, vt: *const u64, t: T) -> *mut Com<T> {
     let p = Box::leak(Box::new(Com { vtabla: vt, interfaz: interfaz as u32, refs: 1, t }));

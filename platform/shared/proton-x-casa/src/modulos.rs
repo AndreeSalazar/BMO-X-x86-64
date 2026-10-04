@@ -372,6 +372,16 @@ extern "win64" fn get_proc_address(h: u64, n: *const u8) -> u64 {
         });
     }
     let Some(dll) = dll_de(h) else {
+        // 03-10: un handle que no es de ninguna DLL (un LoadLibrary que dio
+        // NULL, y el `.exe` pregunta igual): NULL, como en Windows, y al
+        // diario con el nombre -- Cyberpunk salta a 0 desde una ranura que
+        // se lleno asi o con un NULL del sistema.
+        if (n as u64) >= 0x1_0000 {
+            // SAFETY: lo que promete el `.exe`.
+            if let Some(x) = unsafe { estrecha(n) } {
+                crate::diario::nota(&alloc::format!("GetProcAddress({h:#x}, \"{x}\"): ese handle no es de ninguna DLL; el .exe recibe NULL"));
+            }
+        }
         if h == kernel32::base_imagen() {
             aviso("GetProcAddress sobre el propio .exe: sus exportaciones no se leen todavia");
             kernel32::poner_error(ERROR_PROC_NOT_FOUND);

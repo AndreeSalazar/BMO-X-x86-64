@@ -2016,3 +2016,19 @@ constante (las luces, los huesos). De `luces.hlsl`, con el mismo `dxc`:
 Reproducible (comprobado dos veces). sha256:
 
    625a7ae63dd668c68e8293393b877156f8804fc8b2f389bd85e5ccf8cf19b140  luces.dxil
+
+sombras.dxil -- SampleCmpLevelZero, GatherRed y las de bits (03-10)
+
+Lo que pidio la octava corrida de Cyberpunk (OperacionD3d 65, 73 y 32) y
+sus hermanas: el PCF de un mapa de sombras, el Gather del canal rojo, y
+firstbitlow, firstbithigh y countbits. De `sombras.hlsl` (aqui al lado),
+con el mismo `dxc` de Linux (1.9, 4946-9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo sombras.dxil sombras.hlsl
+
+Reproducible (comprobado dos veces). sha256:
+
+   b882497995ccd00b3f5b89fd7085b7385acf435fb0f516b61ca92f8decb7842c  sombras.dxil
+
+`dxc -dumpbin`: sampleCmpLevelZero (65), textureGather (73) y unaryBits
+31, 32 y 33. El banco (`pruebas_espacios.rs`) lo corre en una 2x2.

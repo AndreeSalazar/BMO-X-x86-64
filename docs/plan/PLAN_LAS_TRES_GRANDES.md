@@ -697,10 +697,21 @@ ventana (`SetWindowPos`) y arranca los hilos de **Bink** (la entrada en
 video). Todavia 0 ExecuteCommandLists y 0 Present: no dibujo nada. Despues
 cayo con un fallo de Ring 3 (en `datos/fallos.txt`, pendiente de leer):
 
-- [ ] **N4.4 -- el fallo de Ring 3**: un salto a 0 por `call [rip+..]`
+- [x] **N4.4 -- el fallo de Ring 3** (04-10, falta verlo en el metal):
+  era `ffxDispatch` de `amd_fidelityfx_dx12.dll`, cargada en vivo; ver la
+  undecima corrida. Un salto a 0 por `call [rip+..]`
   desde `Cyberpunk2077.exe+0x1d4c6cf` (ranura `+0x35848f8`), igual en la
   quinta y la sexta corrida. Tapados los dos sospechosos (retrasada sin
   DLL, NULL del sistema): la proxima corrida dice cual era.
+  **Desde el 03-10 (novena corrida)** PROTON-X lo explica solo al arrancar
+  (`apps/proton-x/src/el_nulo.rs`, la parte pura en `bmo_proton_x::nulo`):
+  lee `datos/fallos.txt`, saca la casilla del `ff 15` de antes del retorno,
+  comprueba que esos bytes siguen en la imagen, y dice en SYSPROTO su
+  seccion, si es una importacion (y cual) o una variable, y CADA
+  instruccion del `.exe` que la apunta (lee, escribe, llama); de las que
+  escriben, el nombre que se paso en `rdx` (el de un GetProcAddress) y la
+  importacion llamada justo antes. Y el pulso la VIGILA: cada foto del
+  diario dice cuanto vale.
 - [x] **N4.5 -- el sonido del juego** (03-10, falta oirlo en el metal):
   WASAPI en la casa (A1.1 a A1.5 y A1.8 de la seccion 3): el
   `MMDeviceEnumerator`, un aparato de salida, `IAudioClient3` por evento, lo
@@ -744,6 +755,70 @@ IsValidLocaleName, Get/SetFileInformationByHandle...). Sus sombreadores
 pidieron OperacionD3d 10 (isfinite: hechos 8 a 11, isnan/isinf/isfinite/
 isnormal), los arrays (N5.10, hecho) y el operando no constante (el de los
 cbuffers, hecho; el bindless dira su nombre).
+
+**Estado al 03-10, octava corrida: el mismo salto a 0** (a los 33 s, en
+el hilo de la VENTANA, tid 7; `call [rip+..]` desde `+0x1d4c6cf`). La casa
+ya da lo que el diario dijo que daba NULL: GetCurrentPackageId (sin
+paquete), SetDefaultDllDirectories, AddDllDirectory, RemoveDllDirectory,
+EnumSystemLocalesEx, IsValidLocaleName; y apunta al diario los
+GetProcAddress sobre un handle que no es de ninguna DLL (antes, NULL
+callado). Los sombreadores dijeron sus nombres: bindless (createHandle con
+registro calculado, N5.4), las de bits (32: firstbitlow; hechas 30 a 34),
+SampleCmpLevelZero (65) y TextureGather (73) -- hechos, con GatherCmp y
+SampleCmp: el PCF de 2x2 de las sombras --, un UAV en el de pixeles
+(N5.3c) y "un bucle con mas de una salida" (el estructurador). Y el
+muestreador ANISOTROPICO, que se NEGABA (las texturas salian negras), se
+lee lineal; el de comparacion guarda su funcion.
+
+**Estado al 03-10, novena corrida: con `smp all`, lo mismo.** El mismo
+salto a 0 (a los 53 s, tid 7, `+0x1d4c6cf`). Era lo esperado: los
+nucleos que levanta `smp all` solo hacen faenas del kernel (`plat/smp/
+crew.rs`: *"ni tareas de Ring 3 corriendo en otro nucleo"*); el juego, la
+casa y el interprete de sombreadores son Ring 3 y corren en el BSP. El
+100 % de CPU es UN nucleo. Lo que lo cambiaria: obreros de Ring 3 (repartir
+la trama por franjas entre los nucleos) o la 3060 (N6). La pista nueva del
+SYSPROTO: justo antes de la ventana del tid 8 el juego pide
+`Wtsapi32.dll`, y la casa no la tiene (tambien `nvapi64.dll`,
+`amd_fidelityfx_dx12`, `GFSDK_Aftermath_Lib.x64.dll`); la proxima corrida,
+con `el_nulo.rs`, dice si la casilla es de una de ellas.
+
+**Estado al 04-10, decima corrida: el lector del nulo CALLO.** El mismo
+salto a 0 (a los 66 s, tid 7), y en el SYSPROTO ni una linea de
+`el_nulo.rs`: el parser lee bien ese `fallos.txt` (probado con el del
+metal), asi que no se abrio el fichero o el build no llego. La primera
+version callaba si no podia leer: ahora dice SIEMPRE que miro y que salio
+(el codigo del NO al abrir, o que el informe no acaba en un salto a 0), y
+lee primero las autopsias que el KERNEL guarda de este arranque (`bmo::
+autopsia_*`): con dos lanzamientos en el mismo arranque no depende del
+disco. Del pulso: 23 enlaces distintos, 21 se corren; un hilo (4204) da
+vueltas con Enter/LeaveCriticalSection.
+
+**Estado al 04-10, undecima corrida: EL NULO TIENE NOMBRE.** El lector
+lo dijo: la casilla `Cyberpunk2077.exe+0x35848f8` es una variable de
+`.data`, la llenan en `+0x1d4df09` con `GetProcAddress(h, "ffxDispatch")`,
+y la llaman cinco sitios sin mirar si es nula. Es la API de FSR 3.1 de
+AMD, en `amd_fidelityfx_dx12.dll`: el juego hace
+`LoadLibrary("amd_fidelityfx_dx12")` y la casa le daba NULL porque solo
+cargaba las DLL de la tabla de importaciones. El arreglo, de raiz
+(`apps/proton-x/src/en_vivo.rs` y `bmo_proton_x::en_vivo`): al arrancar
+se cargan TAMBIEN las DLL de la carpeta del `.exe` que el `.exe` nombra en
+sus datos (con o sin `.dll`, ASCII o UTF-16) y que se pueden resolver
+enteras; la que no, se dice con lo que le falta y no se carga. LoadLibrary
+ya las encuentra (`modulos::por_nombre` busca en las propias).
+
+**Estado al 04-10, duodecima corrida: entraron tres, no la de FSR.** Con
+la carga en vivo entraron `galaxy64.dll`, `GameServicesGOG.dll` y
+`PxPvdSDK_x64.dll` (27 DLL del juego), pero `amd_fidelityfx_dx12` siguio
+dando NULL y el mismo salto a 0 (a los 33 s). Lo que decidio el cargador no
+se vio: la consola guarda las ultimas 200 lineas y las de "en vivo" eran las
+primeras. Lo mas probable: le faltaba alguna funcion de la casa y la regla
+"entera o nada" la dejo fuera. Ahora (1) a una DLL en vivo lo que la casa
+no tiene se le da con TRAMPA con nombre (`tabla_o_trampa`; 256 trampas),
+y solo la para una DLL del juego que no este; (2) se dicen tambien las
+`.dll` de la carpeta que el `.exe` NO nombra; (3) todo eso y el lector del
+nulo van ademas al DIARIO (`diario::apuntar_arranque`), que se guarda
+entero. Y `datos/fallos.txt` no se abre desde PROTON-X (codigo 28, no
+esta): el lector tiro de las autopsias del kernel.
 
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:
@@ -829,6 +904,22 @@ la proxima corrida del metal dice cual pesa mas:
   (`Destino::pixeles` vacio). Probado por las puertas de Windows: un mapa
   de sombras D32 (`tests/gbuffer.rs`). La 3060 no lo toma todavia (sin
   back buffer que darle a la puerta): por la CPU.
+- [ ] **N5.13 -- las INSTANCIAS** (`DrawInstanced` con mas de una): hoy se
+  dibuja una (lo dice). El follaje, la gente y los coches de Cyberpunk son
+  instancias; pide SV_InstanceID de verdad y los buferes POR INSTANCIA.
+- [ ] **N5.14 -- los buferes de vertices de mas de una ranura**
+  (`IASetVertexBuffers` 1..15): hoy solo la 0.
+- [ ] **N5.15 -- el RECORTE** contra el plano cercano: el triangulo que lo
+  cruza hoy no se pinta (en 3D de cerca falta suelo y pared).
+- [ ] **N5.16 -- render targets de floats** (R32, RGBA16F de verdad): hoy
+  se pintan en 8 bits o no se pintan; el HDR de Cyberpunk vive ahi.
+- [ ] **N5.17 -- ExecuteIndirect y ExecuteBundle**: hoy se saltan.
+
+El ABI entero (que hace cada hueco de las 28 interfaces, que es falla
+documentada y que falta) esta en `docs/maestro/D3D12_MAESTRO.md`, y lo
+escribe una prueba (`proton-x-casa/tests/abi.rs`): 465 huecos, 0 faltan.
+La ESCALERA de juegos (los DirectX-Graphics-Samples, Cyberpunk, The
+Witcher 3, y por que DX9 y Left 4 Dead 2 no) esta en su seccion 5.
 - [x] **N5.9 -- SV_Position en el de pixeles** (03-10): `Enlace::pos_ps`
   dice que entrada es; la trama pone en ella (x + 0.5, y + 0.5, z, w) de
   cada pixel (la w de recorte, con perspectiva: la de D3D, no la 1/w de

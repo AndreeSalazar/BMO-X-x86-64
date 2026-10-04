@@ -396,6 +396,13 @@ pub enum Lectura {
     Bufer(crate::bufer::Modo),
     /// N5.3: `GetDimensions` de un bufer: sus elementos (o bytes).
     MedidasBufer(crate::bufer::Modo),
+    /// 03-10: `Gather` (el canal de los cuatro texeles del cuadro de 2x2).
+    Junta { canal: u8 },
+    /// 03-10: `SampleCmp` / `SampleCmpLevelZero`: la referencia va en
+    /// `nivel`; el resultado (0..1), en los cuatro.
+    Compara,
+    /// 03-10: `GatherCmp`: los cuatro texeles, cada uno comparado.
+    JuntaCompara { canal: u8 },
 }
 
 impl Programa {
@@ -950,6 +957,10 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
     if let Some(v) = super::olas::de_un_carril(c, op, args) {
         return v;
     }
+    // Gather y SampleCmp (las sombras): `sombras.rs`.
+    if let Some(v) = super::sombras::de(c, op, args) {
+        return v;
+    }
     Ok(match op {
         DX_LOAD_INPUT | DX_STORE_OUTPUT => {
             if !matches!(c.valores.get(arg(2)?), Some(Valor::Entero(_))) {
@@ -1128,10 +1139,10 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
         // da uno (sus bits); las demas, float a float.
         _ if crate::mates::Mate::de_dxil(op).is_some() => {
             let f = crate::mates::Mate::de_dxil(op).unwrap_or(crate::mates::Mate::Frac);
-            let a = if f == crate::mates::Mate::F16aF32 { super::estructura::bits(c, arg(1)?)? } else { c.float(arg(1)?)? };
+            let a = if f.lee_entero() { super::estructura::bits(c, arg(1)?)? } else { c.float(arg(1)?)? };
             let d = c.registro(0.0)?;
             c.ops.push(Op::Mate { d, a, f });
-            if f == crate::mates::Mate::F32aF16 {
+            if f.da_entero() {
                 Valor::Bits(d)
             } else if f.da_booleano() {
                 Valor::Bool(d)
