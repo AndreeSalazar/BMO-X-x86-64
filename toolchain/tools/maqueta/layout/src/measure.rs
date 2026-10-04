@@ -48,12 +48,44 @@ pub fn texto(s: &Style, t: &str) -> (u32, u32) {
     match estilo(s) {
         Some(e) => {
             use bmo_letra::Fuente;
-            let w = LETRA.with(|l| l.borrow_mut().medir(t.as_bytes(), e)).max(0) as u32;
             let h = s.line_height.unwrap_or(bmo_letra::alto_normal(e.px) as u32);
-            (w, h)
+            let ls = lineas(s, t);
+            let w = ls.iter().map(|l| LETRA.with(|f| f.borrow_mut().medir(l.as_bytes(), e)).max(0) as u32).max().unwrap_or(0);
+            (w, h * ls.len().max(1) as u32)
         }
         None => (t.len() as u32 * GLIFO_ANCHO, GLIFO_ALTO),
     }
+}
+
+/// **Las lineas de un texto** (H3). Un parrafo (`white-space: normal`, con
+/// `width` y `font-size`) se parte por los espacios en lineas que caben en
+/// su `width`, con la MISMA letra que lo pinta: la ultima palabra que no cabe
+/// baja a la siguiente, como en el navegador. Cualquier otro texto es UNA
+/// linea. Lo usan la maquetacion (cuanto mide) y el emisor (que pinta).
+///
+/// [!] Una palabra mas larga que el ancho se queda entera en su linea, y el
+/// veredicto (B) la caza: no se parten palabras.
+pub fn lineas(s: &Style, t: &str) -> Vec<String> {
+    let (Some(e), Some(ancho), true) = (estilo(s), s.width, s.parrafo) else {
+        return vec![t.to_string()];
+    };
+    use bmo_letra::Fuente;
+    let mide = |x: &str| LETRA.with(|f| f.borrow_mut().medir(x.as_bytes(), e)).max(0) as u32;
+    let mut out: Vec<String> = Vec::new();
+    let mut linea = String::new();
+    for palabra in t.split_whitespace() {
+        let prueba = if linea.is_empty() { palabra.to_string() } else { format!("{linea} {palabra}") };
+        if linea.is_empty() || mide(&prueba) <= ancho {
+            linea = prueba;
+        } else {
+            out.push(std::mem::take(&mut linea));
+            linea = palabra.to_string();
+        }
+    }
+    if !linea.is_empty() || out.is_empty() {
+        out.push(linea);
+    }
+    out
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

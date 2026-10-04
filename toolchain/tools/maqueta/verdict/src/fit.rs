@@ -31,7 +31,37 @@ fn walk(f: &Frame, canvas: &Rect, out: &mut Vec<Error>) {
     }
     cabe_el_texto(f, out);
     el_hueco(f, out);
+    el_parrafo(f, out);
     no_esta_vacia(f, out);
+}
+
+/// * E. UN PARRAFO (H3): `white-space: normal` parte el texto en lineas AL
+/// COMPILAR, con la letra que lo pinta, contra el `width` de su caja. Sin
+/// ancho no hay contra que partir, y sin `font-size` la letra de pixel no se
+/// parte. Un dato (`{nombre}`) llega al ejecutar: no se puede partir, se corta.
+fn el_parrafo(f: &Frame, out: &mut Vec<Error>) {
+    if !f.style.parrafo || f.text.is_none() {
+        return;
+    }
+    let mut falta = Vec::new();
+    if f.style.width.is_none() {
+        falta.push("un `width` (contra el que se parte)");
+    }
+    if f.style.font_size.is_none() {
+        falta.push("un `font-size` (se parte con la letra de la casa)");
+    }
+    if f.hueco.is_some() {
+        falta.push("un texto que se conozca al compilar (un dato no se parte: se corta)");
+    }
+    if !falta.is_empty() {
+        out.push(Error::new(
+            f.span,
+            &format!("este parrafo necesita {}", falta.join(", ")),
+            "un parrafo se parte en lineas AL COMPILAR, por los espacios, con la \
+             misma letra que lo pinta: el aparato no parte nada.",
+            "dar a la caja su `width` y su `font-size`.",
+        ));
+    }
 }
 
 /// * D. UN HUECO DE DATOS (H1): el texto llega al ejecutar, y lo que no se

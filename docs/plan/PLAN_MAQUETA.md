@@ -415,9 +415,11 @@ tiene se sabe al correr. Con piezas, una FILA es una maqueta de medida fija
            en el director
            -> `toolchain/tools/maqueta/emit/src/movimiento.rs`, `rust.rs`
            [!] ninguna ventana lo usa todavia, y no se vio en el Ryzen
-   [ ] P3d EL REALCE COMO ESTADO: que `:hover` sea un estado mas, con su
-           transicion, en vez de un cambio de golpe
-           -> `toolchain/tools/maqueta/emit/src/rust.rs` (`realce`)
+   [x] P3d EL REALCE COMO ESTADO: una caja con `:hover` y `transition` sale
+           con `realce_dura(id)` y `realce_en(p, ox, oy, id, ms, sale)`, que
+           mezclan pieza a pieza con la MISMA mezcla de P3b y repintan lo de
+           dentro encima. Sin `transition`, nada nuevo (es H8)
+           -> `toolchain/tools/maqueta/emit/src/rust.rs` (`realce_animado`)
    [ ] P3c LA CARA CON ESTADOS: la CARA que viaja lleva sus estados, para
            que una app los pinte sin codigo generado
            -> `platform/shared/bmo-maqueta-cara/`
@@ -507,8 +509,11 @@ lo que se ve en ella:
            -> `platform/shared/bmo-pinta` (`letra_cabe`),
               `Ultra_userspace/userland/src/pantalla/verde/fina.rs`
            [!] HERMES todavia no usa estos modulos, y no se vio en el Ryzen
-   [ ] H3  PARTIR LINEAS AL COMPILAR: el parrafo de la columna. El texto SI se
-           conoce: se parte en el anfitrion y el veredicto mira que quepa
+   [x] H3  PARTIR LINEAS AL COMPILAR: `white-space: normal` con `width` y
+           `font-size`; se parte por los espacios con la letra que lo pinta
+           (`measure::lineas`) y sale una letra por linea. `pruebas/nota.maqueta`:
+           el navegador la mide igual (236x156, 5 lineas), 86,63 % parecida
+           (la diferencia es la letra de reserva del navegador)
            -> `toolchain/tools/maqueta/layout/src/measure.rs`
    [x] H4  IMAGENES: `<imagen src="gato.qoi"/>` (QOI, BMP o PNG, con el
            lector del aparato) embebida como `static IMAGEN_n` (hasta
@@ -531,8 +536,9 @@ lo que se ve en ella:
            [!] `flex-wrap` para cajas fijas sigue sin estar
    [ ] H7  DESPLAZAR: todo maquetado al compilar; el aparato mueve UN numero y
            recorta, y la barra la pinta la maqueta
-   [ ] H8  los estados en el aparato (es P3b): el icono activo, el realce de
-           una fila
+   [x] H8  los estados en el aparato: el realce de una fila con su
+           transicion (P3d); el icono activo es un `@estado` (P3b)
+           -> `pruebas/amigo.maqueta` (la fila se ilumina en 180 ms)
 ```
 
 Los iconos (y el `check` de "Siguiendo") ya estan: son `<svg>`.

@@ -1,0 +1,25 @@
+<!--
+   LA NOTA -- un PARRAFO (H3, 04-10): la tarjeta "QUE ES" de la columna de
+   HERMES (`docs/arte/maqueta_hermes.html`).
+
+   `white-space: normal` es lo que el navegador hace siempre; aqui hay que
+   pedirlo, y entonces el compilador parte el texto en lineas por los
+   espacios, con la MISMA letra que lo pinta, contra el `width` de la caja.
+   La caja mide lo que miden sus lineas, y el aparato no parte nada.
+-->
+<maqueta>
+  <style>
+    .nota    { display:flex; flex-direction:column; gap:10px; padding:14px;
+               border-radius:12px; background-color:#0D1118;
+               border-width:1px; border-color:#1B2130 }
+    .rotulo  { font-size:11px; font-weight:500; letter-spacing:.14em;
+               text-transform:uppercase; line-height:16px; color:#6E7A89 }
+    .texto   { width:206px; white-space:normal; font-size:14px; line-height:20px;
+               color:#C9D3DB }
+  </style>
+
+  <div class="nota">
+    <span class="rotulo">que es</span>
+    <span class="texto">La compone el ESCRITORIO en este procesador, pasa por el MAESTRO y sale por el auricular USB. Sin cuentas, sin anuncios, sin algoritmo.</span>
+  </div>
+</maqueta>

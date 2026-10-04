@@ -113,6 +113,8 @@ pub struct Style {
     pub letter_spacing: i32,
     pub line_height: Option<u32>,
     pub uppercase: bool,
+    /// `white-space: normal` (H3): un parrafo, partido en lineas de `width`.
+    pub parrafo: bool,
     // -- MAQUETA 2: the finish.
     /// The glow: reach in px and `0xAARRGGBB`.
     pub shadow: Option<(u32, u32)>,
@@ -206,6 +208,7 @@ impl Style {
             (Prop::LetterSpacing, Value::Em(e)) => self.letter_spacing = e,
             (Prop::LineHeight, Value::Px(n)) => self.line_height = Some(n),
             (Prop::TextTransform, Value::Word(k)) => self.uppercase = k == Keyword::Uppercase,
+            (Prop::WhiteSpace, Value::Word(k)) => self.parrafo = k == Keyword::Normal,
             (Prop::BoxShadow, Value::Shadow { reach, argb }) => self.shadow = Some((reach, argb)),
             (Prop::BackgroundImage, Value::Gradient { vertical, from, to }) => {
                 self.gradient = Some((from, to, vertical))

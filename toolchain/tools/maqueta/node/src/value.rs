@@ -112,6 +112,8 @@ pub enum Prop {
     LetterSpacing,
     LineHeight,
     TextTransform,
+    /// H3 (04-10): `normal` = un PARRAFO, partido en lineas al compilar.
+    WhiteSpace,
     // the finish (MAQUETA 2)
     BoxShadow,
     BackgroundImage,
@@ -190,6 +192,7 @@ impl Prop {
             b"letter-spacing" => Prop::LetterSpacing,
             b"line-height" => Prop::LineHeight,
             b"text-transform" => Prop::TextTransform,
+            b"white-space" => Prop::WhiteSpace,
             b"box-shadow" => Prop::BoxShadow,
             b"background-image" => Prop::BackgroundImage,
             b"stroke" => Prop::Stroke,
@@ -239,6 +242,7 @@ impl Prop {
             Prop::LetterSpacing => "letter-spacing",
             Prop::LineHeight => "line-height",
             Prop::TextTransform => "text-transform",
+            Prop::WhiteSpace => "white-space",
             Prop::BoxShadow => "box-shadow",
             Prop::BackgroundImage => "background-image",
             Prop::Stroke => "stroke",
@@ -312,6 +316,7 @@ impl Prop {
             Prop::FontWeight => Shape::Weight,
             Prop::LetterSpacing => Shape::Em,
             Prop::TextTransform => Shape::Words(&[Keyword::Uppercase, Keyword::None]),
+            Prop::WhiteSpace => Shape::Words(&[Keyword::Normal, Keyword::Nowrap]),
             Prop::BoxShadow => Shape::Shadow,
             Prop::BackgroundImage => Shape::Gradient,
             Prop::BackgroundColor
@@ -412,6 +417,10 @@ pub enum Keyword {
     Uppercase,
     None,
     Round,
+    /// `white-space: normal` (H3): el texto se parte en lineas.
+    Normal,
+    /// `white-space: nowrap`: una sola linea (lo de siempre en MAQUETA).
+    Nowrap,
     /// `border-radius: 50%` (H6): la mitad del lado corto -- un circulo en
     /// una caja cuadrada. El unico porcentaje que hay.
     Mitad,
@@ -431,6 +440,8 @@ impl Keyword {
             b"stretch" => Keyword::Stretch,
             b"absolute" => Keyword::Absolute,
             b"relative" => Keyword::Relative,
+            b"normal" => Keyword::Normal,
+            b"nowrap" => Keyword::Nowrap,
             b"uppercase" => Keyword::Uppercase,
             b"none" => Keyword::None,
             b"round" => Keyword::Round,
@@ -451,6 +462,8 @@ impl Keyword {
             Keyword::Stretch => "stretch",
             Keyword::Absolute => "absolute",
             Keyword::Relative => "relative",
+            Keyword::Normal => "normal",
+            Keyword::Nowrap => "nowrap",
             Keyword::Mitad => "50%",
             Keyword::Uppercase => "uppercase",
             Keyword::None => "none",

@@ -382,6 +382,13 @@ suave. Lo que se elige es como se escribe, no con que.
 | `letter-spacing` | `.14em` (o `0`) | en `em`: crece con la letra |
 | `line-height` | `Npx` | la caja de la linea; la base cae donde la pone un navegador |
 | `text-transform` | `uppercase` \| `none` | los rotulos de las tarjetas |
+| `white-space` | `normal` \| `nowrap` | **(H3)** `normal` = un PARRAFO: se parte por los espacios AL COMPILAR, con la letra que lo pinta, contra su `width` (obligatorio, con `font-size`). Sin el, una linea, como siempre (comprobacion E) |
+
+★ (H8, 04-10) **Un `:hover` con `transition`** no cambia de golpe en el
+aparato: el modulo saca `realce_dura(id)` y `realce_en(p, ox, oy, id, ms,
+sale)`, que mezclan el reposo y el realce pieza a pieza con la curva de la
+caja (la misma mezcla que una transicion de estado) y repintan lo de dentro
+encima. Las reglas `:hover`, como siempre, al final del `<style>`.
 
 ### El acabado (MAQUETA 2)
 
@@ -543,6 +550,10 @@ pantalla estando mal. El mensaje da los dos numeros.
 
 **C.** Ninguna caja mide cero. Casi siempre es una propiedad olvidada, y como no
 pinta ni ocupa sitio, no hay forma de notarlo mirando la pantalla.
+
+**E.** (H3, 04-10) **Un parrafo dice su `width` y su `font-size`**, y no es
+un dato: se parte al compilar, contra ese ancho; un dato no se parte, se
+corta.
 
 **I.** (H5, 04-10) **Una `relative` no se corre** con `top`/`left`/`right`/
 `bottom`: solo ancla. (Esta en `idle.rs`, con la H: una absoluta dice donde va

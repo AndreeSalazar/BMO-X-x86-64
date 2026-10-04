@@ -59,6 +59,7 @@ pub fn modulo_con_datos(origen: &str, l: &Laid, colores: &[(String, u32)]) -> St
     pintar(&mut s, &ordenes, &datos);
     pintar_en(&mut s, &ordenes, &datos);
     realce(&mut s, &ordenes, &datos);
+    realce_animado(&mut s, &podada, &datos);
     golpe(&mut s, l);
     islas(&mut s, l);
     s
@@ -568,6 +569,79 @@ fn realce(s: &mut String, ordenes: &[Orden], d: &Datos) {
         let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, "None"));
     }
     if !abierto.is_empty() {
+        s.push_str("        return;\n    }\n");
+    }
+    s.push_str("}\n\n");
+}
+
+/// ** H8 (04-10): EL REALCE CON SU TRANSICION. Una caja con `:hover` y
+/// `transition` no cambia de golpe: se mezcla pieza a pieza con su curva,
+/// como una transicion de estado (P3b), y con la MISMA mezcla. Sin ninguna
+/// caja asi, no se emite nada (los modulos de siempre no cambian).
+fn realce_animado(s: &mut String, l: &Laid, d: &Datos) {
+    let cajas: Vec<_> = l
+        .all()
+        .into_iter()
+        .filter(|f| f.id.is_some() && f.hover.is_some() && f.style.transicion.is_some())
+        .collect();
+    if cajas.is_empty() {
+        return;
+    }
+    s.push_str(
+        "/// Lo que tarda el realce de `id` en entrar (o en salir), en ms. 0 si\n\
+         /// cambia de golpe (su caja no dijo `transition`).\n\
+         pub fn realce_dura(id: &str) -> u32 {\n\
+         \x20   match id {\n",
+    );
+    let mut pares = Vec::new();
+    for f in &cajas {
+        let mut encima = (*f).clone();
+        encima.style = f.hover.expect("filtrado arriba");
+        encima.children.clear();
+        let mut quieta = (*f).clone();
+        quieta.children.clear();
+        let entra = crate::movimiento::pares_caja(&quieta, &encima);
+        let sale = crate::movimiento::pares_caja(&encima, &quieta);
+        let id = f.id.clone().expect("filtrado arriba");
+        let _ = writeln!(s, "        {id:?} => {},", crate::movimiento::duracion(&entra));
+        // Lo de DENTRO de la caja, quieto y encima: repintar su fondo lo
+        // taparia.
+        let dentro: Vec<Orden> = f
+            .children
+            .iter()
+            .flat_map(|c| lista(&Laid { root: c.clone(), canvas: l.canvas }))
+            .filter(|o| o.estado == Estado::Reposo)
+            .collect();
+        pares.push((id, entra, sale, dentro));
+    }
+    let _ = writeln!(
+        s,
+        "        _ => 0,\n    }}\n}}\n\n\
+         /// **El realce de `id` a los `ms` de empezar** a entrar (o a salir, con\n\
+         /// `sale`), mezclado pieza a pieza con la curva de su `transition` (H8).\n\
+         /// Pasado [`realce_dura`] pinta el final. Quien llama pide fotogramas\n\
+         /// MIENTRAS dure y devuelve antes lo de debajo (`pintar_en`): las piezas\n\
+         /// suaves mezclan con lo que hay.\n\
+         pub fn realce_en(p: &bmo::Pantalla, ox: u32, oy: u32, id: &str, ms: u32, sale: bool{}) {{",
+        d.param()
+    );
+    s.push_str("    let _ = (p, ox, oy, ms, sale);\n");
+    if d.hay() {
+        s.push_str("    let _ = d;\n");
+    }
+    for (id, entra, sale, dentro) in pares {
+        let _ = writeln!(s, "    if id == {id:?} {{\n        if !sale {{");
+        for par in &entra {
+            s.push_str(&d.colores(par_rust(par)));
+        }
+        s.push_str("        } else {\n");
+        for par in &sale {
+            s.push_str(&d.colores(par_rust(par)));
+        }
+        s.push_str("        }\n");
+        for o in &dentro {
+            let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, "None"));
+        }
         s.push_str("        return;\n    }\n");
     }
     s.push_str("}\n\n");

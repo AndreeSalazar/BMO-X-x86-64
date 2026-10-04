@@ -186,6 +186,8 @@ pub enum Ranura {
     /// Los pixeles de una `<imagen>` (H4), encima de su caja.
     Imagen,
     Texto,
+    /// La linea `k` (desde la segunda) de un parrafo (H3).
+    Renglon(u16),
     Relleno(u16),
     Linea(u16),
 }
@@ -300,15 +302,26 @@ pub fn trazos_de_estilo(f: &Frame, s: &bmo_maqueta_layout::Style, suave: bool) -
     if let (Some(t), Some(r), Some(color)) = (&f.text, f.text_at, s.color) {
         en!(Ranura::Texto);
         match s.font_size.and_then(|p| u8::try_from(p).ok()) {
-            Some(px) => push(Trazo::Letra {
-                r,
-                texto: t.clone(),
-                color,
-                px,
-                peso: if s.font_weight == 0 { 400 } else { s.font_weight },
-                espacio: s.letter_spacing,
-                mayusculas: s.uppercase,
-            }),
+            Some(px) => {
+                // Un parrafo (H3): una letra por linea, partido con la MISMA
+                // regla que lo midio (`measure::lineas`).
+                let ls = bmo_maqueta_layout::measure::lineas(&s, t);
+                let alto = r.h / ls.len().max(1) as u32;
+                for (k, linea) in ls.into_iter().enumerate() {
+                    if k > 0 {
+                        en!(Ranura::Renglon(k as u16));
+                    }
+                    push(Trazo::Letra {
+                        r: Rect { x: r.x, y: r.y + (k as u32 * alto) as i32, w: r.w, h: alto },
+                        texto: linea,
+                        color,
+                        px,
+                        peso: if s.font_weight == 0 { 400 } else { s.font_weight },
+                        espacio: s.letter_spacing,
+                        mayusculas: s.uppercase,
+                    });
+                }
+            }
             None => push(Trazo::Texto { r, texto: t.clone(), color }),
         }
     }

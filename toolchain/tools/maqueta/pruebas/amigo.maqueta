@@ -14,6 +14,9 @@
    punto de estado ANCLADO a ella (`position: relative` en la cara, y el punto
    `absolute` abajo a la derecha, con `right` y `bottom`).
 
+   Y al pasar el raton se ILUMINA con su `transition` (H8): el realce se
+   mezcla pieza a pieza en el aparato (`realce_en`), no cambia de golpe.
+
    La fila se compila y se juzga SOLA; `amigos.maqueta` la repite.
 -->
 <maqueta>
@@ -21,7 +24,9 @@
     :root     { --dato-color: #4DE38E; --dato-estado: #3FD07A }
     .fila     { display:flex; flex-direction:row; gap:12px; align-items:center;
                 width:260px; height:48px; padding:0 10px 0 10px;
-                border-radius:10px; background-color:#10151F }
+                border-radius:10px; background-color:#10151F;
+                border-width:1px; border-color:#10151F;
+                transition: 180ms ease-out }
     .cara     { position:relative; width:34px; height:34px; border-radius:50%;
                 background-color:var(--dato-color) }
     .estado   { position:absolute; right:0; bottom:0; width:10px; height:10px;
@@ -31,6 +36,7 @@
     .nombre   { width:190px; font-size:14px; font-weight:600; line-height:18px;
                 color:#F2F7F9 }
     .nota     { width:190px; font-size:12px; line-height:16px; color:#7C8796 }
+    .fila:hover { background-color:#1B2333; border-color:#4DE38F }
   </style>
 
   <div class="fila" id="fila">
