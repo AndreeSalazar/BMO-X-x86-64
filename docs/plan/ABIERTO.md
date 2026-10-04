@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   555 casillas ABIERTAS en 52 planes
-   401 hechas
+   559 casillas ABIERTAS en 52 planes
+   402 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -185,6 +185,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
 - ... y 7 mas
 
+## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 10 abiertas, 16 hechas
+
+*PLAN MAQUETA*
+
+- [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
+- [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
+- [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
+- ... y 7 mas
+
 ## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 10 abiertas, 9 hechas
 
 *PLAN DEL TALLER -- F1 de BMO-X*
@@ -291,15 +300,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Y1.1 subir el bInterval del raton a Ring 0 y a Ring 3. Sin ese
 - [ ] Y1.2 que BUS_PERIOD_MS salga del minimo de los aparatos vivos y no
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
-- ... y 3 mas
-
-## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 6 abiertas, 15 hechas
-
-*PLAN MAQUETA*
-
-- [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
-- [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
-- [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 3 mas
 
 ## [`PLAN_RED_TX.md`](PLAN_RED_TX.md) -- 6 abiertas, 8 hechas

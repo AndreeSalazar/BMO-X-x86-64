@@ -440,6 +440,7 @@ dependencia de ninguno.
 | Next.js | lo que corre al CONSTRUIR separado de lo que corre en el cliente; rutas por fichero | anfitrion contra aparato; pantallas como ficheros, quiza |
 | Elm | errores del compilador que explican | el "por que" y el "en su lugar" de cada error |
 | Tailwind | los tokens de estilo en un sitio | `tema.maqueta` |
+| WPF (XAML + C#) | la cara en un fichero declarativo y la logica en otro lenguaje; `UserControl`, `DataTemplate`, `VisualStateManager` | MAQUETA + TITAN++; `<usa>` (P1), repetir (P2), estados (P3) -- pero con la maquetacion hecha AL COMPILAR y sin runtime de .NET |
 
 **Lo que NO se toma**, aunque venga en los mismos: el DOM virtual de React
 (comparar arboles en cada fotograma es el coste que MAQUETA evita
@@ -465,6 +466,46 @@ animacion es CPU y vatios. Por eso cada pieza que anime lleva su letrero
 no un bucle eterno de adorno. Que todo PUEDA tener vida no quiere decir que
 todo se mueva a la vez: la elegancia de 04-10 es, sobre todo, lo que se
 quita.
+
+## 6f. MAQUETA EN LA 3060: `maqueta.bsf` Y LA CARA COMO DATOS (2026-10-04)
+
+El propietario: *"se puede convertir en VRAM para mi GPU... un poco como
+.bsf?"*. Si, y con la regla del BSF dicha por el: *"la GPU no compila nada;
+de un fotograma a otro solo cambian los datos"*.
+
+```
+   maqueta.bsf   los PROGRAMAS del pintor, UNA vez para todo el sistema (como
+                 `platform/drivers/gpu/ga10x/sombreadores/cubo.bsf`): caja
+                 suave, borde, resplandor, degradado, letra de una textura,
+                 trazo de SVG
+   la CARA       los DATOS de cada maqueta: la lista de trazos que ya viaja
+                 (609 bytes la tarjeta), en la VRAM como buffer de
+                 INSTANCIAS -- una orden pinta la cara entera
+```
+
+La interfaz del BSF ya describe buffers como *"bytes fijos + paso del arreglo
+sin medida"*: la forma exacta de la CARA. Y con P3, los estados son buffers en
+la VRAM y cada fotograma cambia un numero.
+
+```
+   [x] G0  los pixeles a la VRAM por el motor de copia (el volcado por la
+           3060, 25-09) -> `Ultra_userspace/userland/src/pantalla/roja.rs`
+   [ ] G1  el formato del lado GPU: la CARA como buffer de instancias en la
+           interfaz del BSF. Papel y pruebas en el anfitrion, sin tarjeta
+           -> `toolchain/lang/spirv/bsf/` y `platform/shared/bmo-maqueta-cara/`
+   [ ] G2  el primer programa: cajas lisas y degradados, a mano como el del
+           cubo, contra el backend CPU de VERRANO
+           -> `platform/shared/verrano/` y `platform/drivers/gpu/ga10x/`
+   [ ] G3  esquinas suaves, resplandor y letra -- cuando existan V3 (las
+           constantes), M3 (las texturas) y E3 (el emisor SPIR-V a SM86)
+           -> `docs/plan/PLAN_VERRANO.md`, `docs/plan/PLAN_LA_LENGUA_DE_LA_3060.md`
+   [ ] G4  los estados de P3 en la VRAM: la CPU manda un numero por fotograma
+```
+
+La regla no cambia: **la foto de la 3060 tiene que salir igual que la de
+`bmo-pinta`**, y el pintor de la CPU es el juez. [!] Hoy el emisor SM86 esta en
+E1 (solo juzga el subconjunto) y el SASS del cubo se escribio A MANO: G2 se
+escribe a mano igual, o espera a E3. Nada de esto se probo en el Ryzen.
 
 ⚠ **La estimacion de la conversacion estaba mal, y lo destapo la medida**:
 contando NOMBRES de propiedad salia un 58,5 % "hoy". Era el 37,52 %:
