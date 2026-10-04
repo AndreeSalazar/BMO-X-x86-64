@@ -1,0 +1,10 @@
+# espera: T0069
+# `saluda` no dice `->`: hace algo, pero no da nada que guardar
+mod main "un saludo que se quiere sumar"
+
+fn saluda(nombre: text)
+    print("hola, ", nombre)
+
+fn main()
+    let x = saluda("centauro")
+    print(x)

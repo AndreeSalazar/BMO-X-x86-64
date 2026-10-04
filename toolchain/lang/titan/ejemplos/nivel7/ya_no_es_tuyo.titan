@@ -1,0 +1,11 @@
+# espera: T0075
+# `take` la entrego: despues ya no hay nada que leer
+mod main "leer lo que se entrego"
+
+fn guarda(take t: [int; 3]) -> int
+    return t[0] + t[1] + t[2]
+
+fn main()
+    let t = [1, 2, 3]
+    print(guarda(take t))
+    print(t[0])

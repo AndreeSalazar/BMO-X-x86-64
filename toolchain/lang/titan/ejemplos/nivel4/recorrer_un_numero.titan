@@ -1,0 +1,8 @@
+# espera: T0063
+# `for ... in` recorre las celdas de una tabla (nivel 6), y un numero no tiene celdas
+mod main "recorre algo que no es una tabla"
+
+fn main()
+    let planetas = 8
+    for p in planetas
+        print(p)

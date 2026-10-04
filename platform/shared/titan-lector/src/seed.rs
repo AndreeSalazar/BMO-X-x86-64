@@ -86,8 +86,9 @@ pub const FILES: &[(&str, &str)] = &[
          \n\
          fn paso()\n\
          \x20   let mut t = 0\n\
-         \x20   t = t + 16\n\
-         \x20   print(\"fotograma: \", t, \" ms\")\n\
+         \x20   for cuadro in range(3)\n\
+         \x20       t = t + 16\n\
+         \x20       print(\"fotograma \", cuadro, \": \", t, \" ms\")\n\
          \x20   choques()\n\
          \n\
          fn choques()\n\
@@ -120,7 +121,7 @@ mod tests {
         let rock = t("titan/asteroids/src/rock.titan");
         assert_eq!((rock.lets, rock.muts, rock.writes), (3, 0, 0));
         let physics = t("titan/asteroids/src/physics.titan");
-        assert_eq!((physics.fns, physics.writes, physics.calls), (2, 2, 1));
+        assert_eq!((physics.fns, physics.writes, physics.calls, physics.loops), (2, 2, 1, 1));
         assert_eq!(t("titan/asteroids/src/physics/collide.titan").lines, 0);
     }
 

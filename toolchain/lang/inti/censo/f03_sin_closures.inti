@@ -8,7 +8,7 @@
 #
 # Lo que SI hay: una funcion como valor. `f = media` guarda la funcion, `f(x)`
 # la llama. Es lo que hace C, y basta para una tabla de operaciones.
-perfil pleno
+perfil llano
 
 funcion principal
     funcion dentro() devuelve numero

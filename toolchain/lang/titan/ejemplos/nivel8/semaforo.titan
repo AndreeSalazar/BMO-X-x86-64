@@ -1,0 +1,33 @@
+# espera: BIEN
+# sale: Verde: pasa
+# sale: Ambar: frena
+# sale: Rojo: espera
+# sale: Verde: pasa
+# casos sin datos: un semaforo que no puede estar en un color que no existe
+mod main "un semaforo de tres colores"
+
+enum Luz
+    Verde
+    Ambar
+    Rojo
+
+fn siguiente(l: Luz) -> Luz
+    match l
+        Verde
+            return Ambar
+        Ambar
+            return Rojo
+        Rojo
+            return Verde
+
+fn main()
+    let mut luz = Verde
+    for i in range(4)
+        match luz
+            Verde
+                print(luz, ": pasa")
+            Ambar
+                print(luz, ": frena")
+            Rojo
+                print(luz, ": espera")
+        luz = siguiente(luz)

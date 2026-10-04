@@ -1,0 +1,15 @@
+# espera: T0079
+# una rama toma los datos que su caso lleva: ni uno mas, ni uno menos
+mod main "un rectangulo con tres lados"
+
+enum Forma
+    Circulo(dec)
+    Rect(dec, dec)
+
+fn main()
+    let f = Rect(2, 3)
+    match f
+        Circulo(r)
+            print(r)
+        Rect(a, b, c)
+            print(a * b)

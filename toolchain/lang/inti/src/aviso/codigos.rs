@@ -125,6 +125,15 @@ pub const PERFIL_SIN_BYTES: Codigo = Codigo("E0073");
 /// binario de Ring 0.
 pub const PERFIL_MEZCLADO: Codigo = Codigo("E0076");
 
+/// **`perfil pleno` se fue a TITAN++** (el propietario, 2026-10-04).
+///
+/// INTI es el samurai de la CPU: emite codigo de maquina preciso y nada mas. Lo que
+/// `pleno` traia -- texto, listas, tablas, el decimal, el monton -- es para
+/// construir APPS, y las apps se construyen en TITAN++. No es que el
+/// compilador no sepa (eso es E0073): es que ya no es el trabajo de INTI.
+/// `docs/plan/PLAN_INTI_SAMURAI.md`.
+pub const PLENO_ES_DE_TITAN: Codigo = Codigo("E0077");
+
 /// **Se pidio algo y no llego a un byte** (2026-08-23).
 ///
 /// *** LAS MANOS DESNUDAS DEL GATE. Una llamada sin destino es un `call` a un
@@ -269,6 +278,7 @@ pub const TODOS: &[Codigo] = &[
     NUMERO_ENORME,
     PERFIL_SIN_BYTES,
     PERFIL_MEZCLADO,
+    PLENO_ES_DE_TITAN,
     SIN_LLEGAR_A_BYTES,
     CUESTA_DEMASIADO,
     CAMPO_DESCONOCIDO,

@@ -32,7 +32,7 @@
 
 use crate::canvas::Canvas;
 pub use crate::aspecto::{AMBER, CYAN};
-use crate::aspecto::{ACCENT, BAD, BG, BLUE, DIM, GOLD, GOOD, GREY, INK, TITLE, VIOLET};
+use crate::aspecto::{ACCENT, BAD, BG, BLUE, DIM, GOLD, GOOD, GREY, INK, LILAC, TITLE, VIOLET};
 use bmo_dibujo::{mezclar, Color, Lienzo};
 use bmo_titan_contrato::{Edge, Graph, NodeKind};
 use bmo_titan_lector::{FileEntry, Traits};
@@ -224,14 +224,66 @@ pub fn planet(c: &mut Canvas, x: i32, y: i32, base: i32, name: &[u8], tr: Traits
             let (px, py) = (x + rx * cos64(b) / 1000, y + ry * sin64(b) / 1000);
             c.light(px, py, white(200 - tail as u32 * 30));
         }
+        // With `return` (level 5) the call comes back CARRYING a value: a
+        // bright head on the comet.
+        if tr.returns > 0 {
+            let (hx, hy) = (x + rx * cos64(a) / 1000, y + ry * sin64(a) / 1000);
+            halo(c, hx, hy, 1, 4, GOLD, 180);
+            c.disc(hx, hy, 1, INK);
+        }
     }
     // The emitter: its `print`, packets leaving toward the console (up).
     if tr.writes > 0 {
         emitter(c, x, y - r, tr.writes.min(4) as i32, t);
     }
+    // The crystals: its `type`s -- values with facets.
+    if tr.types > 0 {
+        crystal(c, x - r - 8, y - r / 2, tr.types.min(3) as i32, t);
+    }
+    // The belt: its `while` / `for` -- rocks that go round and round.
+    if tr.loops > 0 {
+        belt(c, x, y, r, tr.loops.min(3) as i32, t);
+    }
     // The double stars: its `if`, each a pair -- two ways, one lit.
     if tr.ifs > 0 {
         double_star(c, x + r + 6, y + r / 2 + 4, tr.ifs.min(3) as i32, t);
+    }
+}
+
+/// **A CRYSTAL**: a `type`. A record is a value with FACETS -- its fields --
+/// and the crystal turns to show them, one face lit at a time.
+pub fn crystal(c: &mut Canvas, x: i32, y: i32, n: i32, t: i32) {
+    for k in 0..n {
+        let (cx, cy) = (x - k * 10, y + k * 9);
+        let a = t / 10 + k * 16;
+        let w = 2 + (4 * cos64(a) / 1000).abs();
+        let top = (cx, cy - 6);
+        let bottom = (cx, cy + 6);
+        let (l, r) = ((cx - w, cy), (cx + w, cy));
+        halo(c, cx, cy, 3, 6, ACCENT, 120);
+        c.line(top, l, ACCENT);
+        c.line(top, r, ACCENT);
+        c.line(l, bottom, mezclar(ACCENT, BG, 1, 2));
+        c.line(r, bottom, mezclar(ACCENT, BG, 1, 2));
+        c.line(l, r, INK);
+    }
+}
+
+/// **A BELT**: what REPEATS. Rocks on a wide, flat orbit, going round and
+/// round -- one ring of rocks per loop, up to three, each turning the other
+/// way from the last (a loop inside a loop turns inside its own turn).
+pub fn belt(c: &mut Canvas, x: i32, y: i32, r: i32, n: i32, t: i32) {
+    for k in 0..n {
+        let rx = r * (22 + k * 4) / 10;
+        let ry = rx / 5 + 2;
+        let dir = if k % 2 == 0 { 1 } else { -1 };
+        for rock in 0..9 {
+            let a = dir * t / (9 + k * 3) + rock * 64 / 9;
+            let (px, py) = (x + rx * cos64(a) / 1000, y + ry * sin64(a) / 1000);
+            // The far half is dim: the planet is in front of it.
+            let near = sin64(a) >= 0;
+            c.disc(px, py, if rock % 3 == 0 { 2 } else { 1 }, if near { LILAC } else { mezclar(LILAC, BG, 1, 3) });
+        }
     }
 }
 

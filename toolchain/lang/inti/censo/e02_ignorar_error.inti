@@ -1,7 +1,7 @@
 # sonda: e02_ignorar_error       espera: E0060
 # fija: ignorar un resultado que puede fallar es error de COMPILACION. No hay
 # `except:` pelado porque no hay nada que tragarse.
-perfil pleno
+perfil llano
 
 funcion divide(a es numero, b es numero) devuelve numero o error
     si b = 0

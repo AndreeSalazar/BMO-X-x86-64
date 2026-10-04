@@ -67,6 +67,7 @@ pub const CABLE_CORE: Color = t::CABLE;
 pub const CYAN: Color = t::USE;
 pub const AMBER: Color = t::MUT;
 pub const GOLD: Color = t::DECIDE;
+pub const LILAC: Color = t::LOOP;
 
 // -- THE MEASURES --------------------------------------------------------
 

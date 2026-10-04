@@ -1,0 +1,26 @@
+# espera: BIEN
+# sale: Nave { nombre: "centauro", x: 0.0, combustible: 50.00 }
+# sale: centauro avanza a 7.5 con 47.00
+# sale: flota: 3 naves, 141.00 de combustible
+# un `type` con campos, una tabla de ellos, y cambiar un campo con `mut`
+mod main "la flota del centauro"
+
+type Nave
+    nombre: text
+    x: dec
+    combustible: dec
+
+fn total(f: [Nave; 3]) -> dec
+    let mut suma = 0.00
+    for n in f
+        suma = suma + n.combustible
+    return suma
+
+fn main()
+    let mut lider = Nave { nombre: "centauro", x: 0.0, combustible: 50.00 }
+    print(lider)
+    lider.x = lider.x + 7.5
+    lider.combustible = lider.combustible - 3
+    print(lider.nombre, " avanza a ", lider.x, " con ", lider.combustible)
+    let flota = [lider, Nave { nombre: "orion", x: 2.0, combustible: 44.00 }, Nave { nombre: "lyra", x: 4.0, combustible: 50.00 }]
+    print("flota: ", len(flota), " naves, ", total(flota), " de combustible")

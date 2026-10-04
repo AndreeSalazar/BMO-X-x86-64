@@ -62,11 +62,11 @@ fn main()
 
 Una de las 25 palabras de un nivel que aun no existe no es un error de
 sintaxis cualquiera: es **T0040**, y dice en que nivel llega (el ejemplo ya es
-del frontend de hoy, que va por el nivel 3):
+del frontend de hoy, que va por el nivel 8):
 
 ```text
-   while ...        T0040  `while` llega en el nivel 4 (repetir)
-   return           T0040  `return` llega en el nivel 5 (funciones con resultado)
+   use nave         T0040  `use` llega en el nivel 9 (varios ficheros)
+   fn f(x: f32)     T0040  el tipo `f32` llega en el nivel 11 (la 3060)
 ```
 
 ---
@@ -225,6 +225,330 @@ el `(muerto: ...)` del lado que no corre.
 
 ---
 
+## Nivel 4 -- repetir (15 palabras: + `for in while break continue`) -- 04-10
+
+```text
+# tabla_del_siete.titan
+mod main "la tabla del siete"
+
+fn main()
+    let mut suma = 0
+    for i in range(1, 6)
+        print("7 x ", i, " = ", 7 * i)
+        suma = suma + 7 * i
+    print("la tabla suma ", suma)
+```
+
+### Las piezas nuevas
+
+```text
+   while COND            y debajo su bloque: se repite mientras COND sea true
+   for i in range(N)     i vale 0, 1 ... N-1, una vuelta cada uno
+   for i in range(A, B)  i vale A, A+1 ... B-1
+   break                 corta el bucle de dentro
+   continue              salta a la vuelta siguiente
+```
+
+`i` es NUEVO en cada vuelta y lo pone el bucle: no es un `mut`, y cambiarlo
+es T0056 (el COMO dice: para saltar vueltas, `continue`). `range` cuenta con
+numeros, y su final se lee UNA vez, antes de la primera vuelta. Recorrer una
+tabla (`for p in planetas`) llega con las tablas (nivel 6).
+
+### Las reglas, y quien las dice
+
+```text
+   LA GRAMATICA
+     `break` / `continue` fuera de un bucle            T0067
+   EL JUEZ -- ahora con el primer salto HACIA ARRIBA
+     el final de un bucle vuelve a su pregunta: el juez recorre los bloques
+     hasta que ninguna entrada se mueve (el punto fijo que el nivel 3
+     prometio), y despues juzga. Lo que nace en la vuelta muere con ella, y
+     `break` / `continue` cierran los bloques que dejan atras
+   EL CALCULO -- el programa ENTERO, corrido al compilar
+     nada viene de fuera todavia, asi que no se calcula linea a linea (una
+     linea dentro de un `for` vale otra cosa en cada vuelta): se CORRE el
+     programa, cada llamada, cada `if`, cada vuelta, y el .bex es lo que
+     escribe. Un millon de pasos y sigue                T0066
+       un `while` sin salida se dice al compilar, en su linea
+```
+
+`titan ir` lo muestra entero: los bloques con su salto hacia arriba
+(`salta b1`) y, abajo, *lo que escribe, CORRIDO al compilar*. El dia que algo
+venga de fuera (el teclado), esa parte ira a la maquina como codigo de verdad
+(E1, TITAN_MAESTRO 7.3).
+
+---
+
+## Nivel 5 -- funciones con resultado (16 palabras: + `return`) -- 04-10
+
+```text
+# euclides.titan
+mod main "Euclides y los primos"
+
+fn mcd(a: int, b: int) -> int
+    if b == 0
+        return a
+    return mcd(b, a % b)
+
+fn main()
+    print("mcd(48, 18) = ", mcd(48, 18))
+```
+
+**Con esto ya se escribe cualquier algoritmo** (TITAN_MAESTRO 14.14): valores
+que entran, uno que sale, y una funcion que se llama a si misma.
+
+### Las piezas nuevas
+
+```text
+   fn f(a: int, b: text)    parametros, cada uno con su tipo
+   -> int                   lo que devuelve: int, text o bool
+   return VALOR             lo da y se acaba la funcion
+   return                   se acaba, en una fn sin `->`
+   f(3)                     una llamada ES un valor: let x = f(3), f(3) + 1
+```
+
+`int`, `text` y `bool` son TIPOS, no palabras (no gastan techo). `f32`, `dec`
+y las tablas llegan con los tipos (nivel 6); prestar un parametro para
+cambiarlo (`mut`) o entregarlo (`take`), en el nivel 7. Hasta entonces un
+parametro llega y SOLO se lee.
+
+### Las reglas, y quien las dice
+
+```text
+   LOS NOMBRES (check.rs)
+     una llamada con mas o menos valores de los que pide   T0068
+       y el POR QUE copia la linea de la fn que los pide
+     usar como valor algo que no devuelve nada (`print`,   T0069
+     una fn sin `->`), o un `return` que no cuadra con
+     lo que promete la primera linea
+     T0053 se queda SOLO para ciclos de fn sin parametros: una que recibe
+     un valor puede decidir distinto en cada llamada, y si para o no lo
+     dice CORRERLA
+   EL JUEZ
+     los parametros nacen vivos y no cambian              T0056
+     un camino que llega al final de una fn que prometio  T0070
+     un valor, sin `return` (un `if` que devuelve en sus
+     dos lados esta bien: lo de detras no tiene camino)
+   EL CALCULO
+     cada valor que se pasa, de la clase que pide su      T0071
+     parametro; lo que se devuelve, de la que promete
+     la recursion se CORRE al compilar, como los bucles: mas de 10 000
+     llamadas anidadas es T0066 (su caso de parada no llega)
+```
+
+---
+
+## Nivel 6 -- los tipos (17 palabras: + `type`) -- 04-10
+
+```text
+# factura.titan
+mod main "una factura que no pierde centimos"
+
+type Linea
+    cosa: text
+    precio: dec
+    cantidad: int
+
+fn importe(l: Linea) -> dec
+    return l.precio * l.cantidad
+
+fn main()
+    let compra = [Linea { cosa: "cafe", precio: 1.75, cantidad: 2 }, ...]
+    let mut total = 0.00
+    for l in compra
+        total = total + importe(l)
+    print("total: ", total)
+```
+
+### Las piezas nuevas
+
+```text
+   dec                 el DECIMAL EXACTO: 12.50, 0.1 + 0.2 = 0.3. Sin float
+   [1, 2, 3]  [0; 10]  una TABLA: una clase, un largo fijo; su tipo [int; 3]
+   t[i]   t[i] = v     una celda (desde la 0), y cambiarla (con `mut`)
+   for x in t          sus celdas, una por vuelta
+   len(t)              cuantas celdas
+   type Nave           un REGISTRO: sus campos debajo, uno por linea
+       x: dec
+   Nave { x: 1.0 }     uno nuevo, con TODOS sus campos (no hay null)
+   n.x   n.x = v       un campo, y cambiarlo (con `mut`)
+```
+
+### `dec` y no float, y por que (el propietario, 04-10)
+
+*"Evita la float, siempre decimal."* Un `dec` es un entero y cuantas de sus
+cifras son decimales: `12.50` es 1250 con 2. **Sumar** alinea los decimales,
+**multiplicar** los suma (`12.50 * 3 = 37.50`, la regla de COBOL) y **dividir**
+da el decimal EXACTO (`10.00 / 4 = 2.50`) -- o un NO si no acaba (`1.0 / 3`,
+T0062): TITAN++ no corta un numero a escondidas. Un `int` entra en un `dec` sin
+perder nada (13 es 13.00); al reves perderia, y no se hace solo. El `%` es de
+enteros.
+
+[!] El x86-64 SI tiene floats en hardware (SSE2 es obligatorio): lo que no
+tiene es BASE 10, y por eso un float se equivoca con `0.1`. `dec` es el numero
+de Grace Hopper a la velocidad de un entero. `f32` es de la 3060 (`gpu fn`,
+nivel 11), y si se pide antes lo dice (T0040).
+
+### Las reglas, y quien las dice
+
+```text
+   LOS NOMBRES
+     un tipo que no existe                              T0051
+     un registro sin un campo, con uno de mas o dos     T0073
+     veces el mismo; un `type` que se contiene a si
+     mismo (un valor sin fin: TITAN++ guarda valores,
+     no punteros)
+   EL JUEZ
+     cambiar una celda o un campo es cambiar el valor:  T0056
+     pide `mut`, y cuenta como el cambio que un `mut`
+     promete
+   EL CALCULO
+     una tabla de UNA clase ([1, 2.5] es de `dec`)       T0071
+     un campo que el registro no tiene                  T0073
+     una celda fuera de su tabla -- se CORRE al         T0072
+     compilar y se ve: en C eso lee memoria de otro
+```
+
+Las tablas y los registros son VALORES: `let b = a` copia. Prestarlos sin
+copiar (`mut`, `take`) es el nivel 7.
+
+---
+
+## Nivel 7 -- prestar y entregar (18 palabras: + `take`), y la PRECISION de COBOL -- 04-10
+
+```text
+# banco.titan
+type Cuenta
+    titular: text
+    saldo: dec(9, 2)
+
+fn interes(saldo: dec(9, 2), tasa: dec(5, 4)) -> dec(9, 2)
+    return round(saldo * tasa, 2)      # el redondeo se ESCRIBE
+
+fn abona(mut c: Cuenta, tasa: dec(5, 4))
+    c.saldo = c.saldo + interes(c.saldo, tasa)
+
+fn main()
+    let mut ana = Cuenta { titular: "ana", saldo: 1250 }
+    abona(mut ana, 0.0225)              # prestada: se ve el cambio al volver
+```
+
+### Prestar y entregar: el borrow checker entero
+
+```text
+   fn f(n: T)           una COPIA: el que llama conserva la suya, intacta
+   fn f(mut n: T)       PRESTADO para cambiarlo: f(mut x), con `let mut x`;
+                        al volver, x tiene lo que f dejo en n -- sin copiar
+   fn f(take n: T)      ENTREGADO: f(take x); despues x ya no es tuyo
+```
+
+**Se dice en los DOS lados** (`f(mut x)`, no solo `fn f(mut n)`): quien lee la
+llamada sabe que le puede pasar a `x` sin abrir la funcion -- en C, `f(&x)` solo
+dice "quiza". Y un `mut` en un parametro que nunca cambia es T0057, como el de
+un `let`: pide una copia.
+
+### La precision de COBOL (el propietario: "precision fuerte para no generar bug")
+
+```text
+   dec(7, 2)            7 cifras, 2 decimales: el PIC 9(5)V99 de COBOL
+   let p: dec(7, 2) = 12.5    el tipo DECLARADO; se guarda 12.50
+   round(x, 2)          el redondeo ESCRITO (el ROUNDED de COBOL: la mitad,
+                        lejos del cero): 1.255 -> 1.26, 10.00 / 3 -> 3.33
+```
+
+Todo valor que va a un `dec(7, 2)` -- un `let` con tipo, un parametro, un
+resultado, un campo -- tiene que CABER: mas cifras que las declaradas es T0074
+(el SIZE ERROR de COBOL), y mas decimales tambien (cortarlos seria perder dinero
+en silencio). COBOL lo corta callado si no se escribe ON SIZE ERROR; **TITAN++
+no compila**. Si hay que redondear, `round` lo dice a la vista.
+
+### Las reglas, y quien las dice
+
+```text
+   LOS NOMBRES
+     `mut` / `take` en la llamada que no cuadran con    T0077
+     el parametro, o fuera de una llamada
+   EL JUEZ
+     leer lo que se entrego con `take`                  T0075
+       (un `let mut` que se entrego puede tomar otro valor: es tuyo otra vez)
+     prestar dos veces el mismo valor en una llamada,   T0076
+     o prestarlo y a la vez leerlo: LA REGLA DE ORO DE
+     FORTRAN (TITAN_MAESTRO 2b.2), demostrada
+     prestar con `mut` lo que no es `let mut`           T0056
+   EL CALCULO
+     un valor que no cabe en su dec(p, s)               T0074
+```
+
+---
+
+## Nivel 8 -- casos con datos (20 palabras: + `enum match`) -- 04-10
+
+```text
+# formas.titan
+enum Forma
+    Circulo(dec)            # un caso que LLEVA un valor
+    Rect(dec, dec)          # ... o dos
+    Nada                    # ... o ninguno
+
+fn area(f: Forma) -> dec
+    match f
+        Circulo(r)          # r es el dec que lleva el Circulo
+            return 3.14 * r * r
+        Rect(ancho, alto)
+            return ancho * alto
+        Nada
+            return 0
+
+fn main()
+    for f in [Circulo(2.0), Rect(3.5, 2), Nada]
+        print(f, " mide ", area(f))      # Circulo(2.0) mide 12.56
+```
+
+### Lo que se escribe
+
+```text
+   enum NOMBRE          y debajo, sangrados, sus casos: uno por linea
+     Caso               un caso sin datos
+     Caso(T, T...)      un caso que lleva valores, de esos tipos
+   Caso(v, ...)         CONSTRUYE un valor del enum (sin `Forma::` delante:
+   Caso                 el nombre de un caso es unico en todo el fichero)
+   match VALOR          y debajo, una rama por caso, cada una con su bloque
+     Caso(a, b)         la rama nombra los valores que el caso lleva; esos
+                        nombres viven en su bloque y mueren al cerrarse
+   a == b               dos valores de un enum son iguales si son el mismo
+                        caso con los mismos valores
+```
+
+**Un `match` cubre TODOS los casos, y no hay `_`.** El dia que alguien agrega
+`Triangulo` a `Forma`, cada `match` que no dice que hacer con el deja de
+compilar y dice DONDE (T0078). El `switch` de C deja caer el caso nuevo en
+silencio; un comodin `_` haria lo mismo, por eso TITAN++ no lo tiene (T0079).
+
+**Sin null y sin excepciones**: lo que puede salir mal es un CASO
+(`Hecho(dec)` / `Falta(dec)`), y el `match` obliga a mirarlo antes de usar el
+valor. Un caso lleva valores, no punteros: un enum que se contiene a si mismo
+no termina nunca (T0079).
+
+### Las reglas, y quien las dice
+
+```text
+   LOS NOMBRES
+     un caso que no existe, de otro enum, dos veces en    T0079
+     el mismo `match`, con mas o menos nombres que
+     valores lleva, o un `_`
+     un `match` al que le falta un caso                    T0078
+     un caso con datos escrito sin ellos (`Circulo`)       T0068
+     un caso solo en su linea: construye y nadie guarda    T0069
+     un valor llamado como un caso (`let Nada = 1`)        T0055
+   EL JUEZ
+     un nombre de una rama leido fuera de ella             T0058
+   EL CALCULO
+     un `match` sobre un valor que no es de su enum, o     T0071
+     un caso con un valor de otra clase
+```
+
+---
+
 ## Los codigos
 
 | codigo | que |
@@ -241,7 +565,7 @@ el `(muerto: ...)` del lado que no corre.
 | T0050 | no hay `fn main()` |
 | T0051 | se llama a algo que no existe |
 | T0052 | una funcion definida dos veces |
-| T0053 | las llamadas vuelven a una funcion y no terminan nunca (sin parametros, ni un `if` las para) |
+| T0053 | un ciclo de fn SIN parametros: vuelve siempre igual y no termina nunca |
 | T0054 | un nombre se lee antes de que un `let` le de valor (el juez) |
 | T0055 | un nombre que ya tiene valor, o que es de una funcion (el juez / los nombres) |
 | T0056 | se cambia un valor sin `mut` (el juez) |
@@ -249,10 +573,24 @@ el `(muerto: ...)` del lado que no corre.
 | T0058 | un nombre que nacio en un bloque que ya se cerro (el juez) |
 | T0060 | un numero que no cabe en 64 bits: desbordar es un error (el calculo) |
 | T0061 | una division o un resto entre cero (el calculo) |
-| T0062 | una division que no da un numero entero (el calculo) |
+| T0062 | una division que no es exacta: 7 / 2 entre ints, o un decimal que no acaba como 1.0 / 3 (el calculo) |
 | T0063 | un texto con un numero: no se suman ni se convierten solos (el calculo) |
 | T0064 | un `mut` que cambiaria de clase: numero, texto o si-o-no (el calculo) |
 | T0065 | se pedia un si-o-no y llego otra cosa: `if vidas`, `not 3` (el calculo) |
+| T0066 | el programa sigue corriendo despues de un millon de pasos: un bucle sin salida (el calculo) |
+| T0067 | `break` o `continue` fuera de un bucle (la gramatica) |
+| T0068 | una llamada con mas o menos valores de los que pide la fn (los nombres) |
+| T0069 | se usa como valor algo que no devuelve nada, o un `return` que no cuadra con su `->` (los nombres) |
+| T0070 | una fn que promete un valor tiene un camino sin `return` (el juez) |
+| T0071 | un valor de otra clase donde un parametro, un `->`, un campo o una tabla dicen una (el calculo) |
+| T0072 | una celda fuera de su tabla: `t[5]` de una `[int; 5]` (el calculo) |
+| T0073 | un campo que el registro no tiene, que le falta o que esta dos veces (los nombres / el calculo) |
+| T0074 | un valor que no cabe en su `dec(p, s)`: mas cifras o mas decimales (el SIZE ERROR de COBOL, el calculo) |
+| T0075 | se lee lo que se entrego con `take` (el juez) |
+| T0076 | el mismo valor prestado dos veces, o prestado y leido, en una llamada (el juez: la regla de FORTRAN) |
+| T0077 | `mut` / `take` en la llamada que no cuadran con el parametro, o fuera de una llamada (los nombres) |
+| T0078 | un `match` que no cubre todos los casos de su enum (los nombres) |
+| T0079 | una rama de `match` que no vale: un caso que no existe, de otro enum, repetido, con mas o menos nombres, o un `_`; o un enum que se contiene a si mismo (los nombres) |
 
 ## El banco: lo que dice cada ejemplo de si mismo
 

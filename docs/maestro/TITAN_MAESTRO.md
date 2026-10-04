@@ -929,6 +929,22 @@ no le roba el trabajo.** Cada lenguaje exprime lo suyo:
               (F1, modulos, 25 palabras)
 ```
 
+**Y el mismo dia, la vuelta de tuerca** (el propietario: *"en INTI vamos a
+eliminar las influencias para crear app ... que EMITA al CPU a nivel EXTREMO,
+que CORTE sin piedad como samurai; y TITAN++ solo enfocara en GPU al extremo,
+y tendra que controlar al VERRANO"*):
+
+```text
+   INTI       el SAMURAI de la CPU. Pierde lo que es de app (el perfil
+              `pleno`, los objetos, el monton, la superficie, la lamina,
+              VERRANO): el inventario y el plan de corte estan en
+              docs/plan/PLAN_INTI_SAMURAI.md. Nada se ha cortado todavia
+   TITAN++    el CENTAURO de la GPU. Su extremo es la 3060: `gpu fn` sobre
+              tablas (computo, IA) y MANDAR A VERRANO (dibujar). Las apps
+              se construyen en el; lo que hoy hace `runtime/verrano.inti` en
+              INTI pasa a ser de TITAN++
+```
+
 ### 7.1 El emisor PROPIO de TITAN++: chico, correcto, sin carrera
 
 Lo que TITAN++ escribe por si mismo -- sus `if`, sus bucles, sus llamadas, el
@@ -955,9 +971,9 @@ prohibe (*contratos y formatos, nunca cerebros*).
 
 | para | llama a | por |
 |---|---|---|
+| computo masivo, IA -- SU EXTREMO | **la 3060** | `gpu fn` -> SPIR-V -> SASS (seccion 8) |
+| dibujar con la 3060 -- LO MANDA EL | **VERRANO** | la lamina de VERRANO (`platform/shared/verrano/src/lamina.rs`): hoy la escribe `runtime/verrano.inti` en INTI; pasa a TITAN++ |
 | la CPU al nivel del ASM (lo caliente) | **INTI** | compilacion separada: `.bo` + `bmo-enlazar` (HECHA para C, C++ e INTI) |
-| computo masivo, IA | **la 3060** | `gpu fn` -> SPIR-V -> SASS (seccion 8) |
-| dibujar con la 3060 | **VERRANO** | la API de dibujo de Ring 3 |
 | ventana, teclado, raton, disco, sonido, red | **REX / bmo-userland** | los dos syscalls |
 
 [!] INTI todavia no declara funciones AJENAS (`externo`, en ESPERA en METAS).
@@ -976,13 +992,49 @@ TITAN++, falta esa palabra.
    E2  nivel 5 (return)     llamadas con valores; y LLAMAR A INTI por .bo +
                             bmo-enlazar: el camino de lo caliente
    E3  T5 (gpu fn)          las tablas y las funciones elementales, a la 3060
+                            -- EL EXTREMO de TITAN++ (el foco del 04-10)
+   E4  VERRANO              TITAN++ escribe la lamina de VERRANO: lo que hoy
+                            hace runtime/verrano.inti, con el prestamo del
+                            bloque juzgado por el comprobador (U1)
 ```
+
+[!] **El tope de E3 no es el lenguaje: es el driver.** SPIR-V -> SASS con su
+juez ya existe; LANZAR computo en la 3060 (la QMD y el banco constante 0 de
+ga10x) falta, y es Ring 0 -- del propietario. Hasta entonces una `gpu fn` se
+compila y se juzga, pero no corre.
 
 **La vara: el metro del emisor** (`toolchain/tools/metro`). TITAN++ entro el
 04-10 con seis programas de los niveles 0-3 (`hola`: 11 instrucciones, 58 B de
 codigo). Son el SUELO de E0, no una victoria sobre nadie: hasta el nivel 3 no
 hay nada que calcular al correr. Desde ahi es un trinquete, como para C e INTI:
 instrucciones, accesos y bytes solo bajan, y la salida no cambia nunca.
+
+### 7.4 El frontend y su juez no saben de maquinas: lo que viaja es un FORMATO (04-10)
+
+El propietario, con el nivel 8: *"el juez y INTI son agnosticos ... se van a
+juzgar solo basado en arquitecturas, y van a emitir de forma precisa para
+entregar al CPU y GPU ... TITAN++ no pierde tiempo; INTI y VERRANO tienen su
+juez para emitir preciso"*. Tiene sentido, y el reparto queda asi:
+
+```text
+   TITAN++  frontend + juez + calc      NO SABE DE MAQUINAS: el texto, la IR
+                                         propia, el prestamo, el calculo
+                                         exacto. Un test de ir.rs falla si
+                                         nombra un registro (ya existe)
+            |                     |
+            v  formato CPU        v  formato GPU
+   INTI     la CPU x86-64, preciso      VERRANO / spirv   la 3060, preciso
+            con SU juez                 con SU juez (SPIR-V -> SASS ya
+                                         tiene el suyo)
+```
+
+**El matiz que lo hace funcionar: lo que viaja es un FORMATO, no un cerebro
+compartido** (la regla de la casa, 7.1). Para la GPU el formato ya existe:
+SPIR-V. Para la CPU, el contrato hacia INTI **esta por definir** -- y no se
+inventa antes de tiempo: mientras todo valor se sepa al compilar, el emisor E0
+de TITAN++ solo escribe resultados y la salida (`task::exit`), y no hay nada
+que entregar a INTI. El dia que algo venga de fuera (E1), ese contrato se
+escribe, se mide en el metro y se decide con el propietario.
 
 ---
 
@@ -1247,10 +1299,10 @@ problema dicho). El resto espera al compilador.
 ### 14.9 A quien llama (seccion 7)
 
 ```text
+   la 3060   SU EXTREMO: computo masivo e IA (gpu fn)
+   VERRANO   dibujar con la 3060: lo manda TITAN++
    INTI      la CPU al nivel del ASM: lo caliente (.bo + bmo-enlazar)
    el suyo   su propio pegamento, con su emisor chico (7.1)
-   la 3060   computo masivo e IA (gpu fn)
-   VERRANO   dibujar con la 3060
    REX       ventana, entrada, disco, sonido, red -- por las DOS puertas
 ```
 
@@ -1602,3 +1654,120 @@ and or not`, 10 palabras; `GRAMATICA.md` lo cuenta entero):
 🟡 igual que los niveles de antes: el banco corre en el emulador; el Ryzen,
 cuando se despliegue.
 
+**NIVEL 4 -- REPETIR, HECHO EN EL ANFITRION el 04-10** (`for in while break
+continue`, 15 palabras):
+
+```text
+   la IR      el primer salto HACIA ARRIBA: el final de un bucle vuelve a su
+              pregunta. Un `for` lleva dos locales ocultos (`#i`, `#fin`) que
+              ningun programa puede nombrar; `break` y `continue` cierran los
+              bloques que dejan atras antes de saltar
+   el JUEZ    el punto fijo que el nivel 3 prometio: recorre los bloques hasta
+              que ninguna entrada se mueve, y despues juzga
+   el CALCULO el programa ENTERO, corrido al compilar (cada llamada, cada
+              vuelta): `Module::flat` es lo que escribe. Un millon de pasos y
+              sigue: T0066, un bucle sin salida dicho en su linea
+   el EMISOR  escribe lo que el programa escribe, y EXIT: sin `call`, sin
+              `jmp`. En el metro las seis filas de TITAN++ BAJARON (hola, de
+              11 a 9 instrucciones) y entraron dos del nivel 4
+```
+
+- En F1 un bucle es un **CINTURON** de rocas que da vueltas (`Traits::loops`),
+  lila (`.loop` en `titan.maqueta`); la semilla `physics` cuenta tres cuadros.
+- 🟡 como siempre: el banco corre en el emulador, no en el Ryzen.
+
+**NIVEL 5 -- FUNCIONES CON RESULTADO, HECHO EN EL ANFITRION el 04-10**
+(`return`, 16 palabras): **ya se escribe cualquier algoritmo**.
+
+```text
+   fn mcd(a: int, b: int) -> int    parametros con tipo (int, text, bool) y
+       if b == 0                    lo que devuelve; una llamada ES un valor
+           return a
+       return mcd(b, a % b)         y la recursion, con su caso de parada
+```
+
+- **Nombres**: aridad (T0068), lo que no devuelve nada usado como valor y el
+  `return` que no cuadra (T0069). **T0053 se mueve, como prometio**: queda
+  solo para ciclos de fn SIN parametros; los demas los juzga correrlos.
+- **Juez**: los parametros nacen vivos y no cambian; un camino sin `return` en
+  una fn que lo prometio es T0070.
+- **Calculo**: la clase de cada valor pasado y devuelto (T0071); la recursion
+  se corre al compilar en un hilo con pila propia, y mas de 10 000 llamadas
+  anidadas es T0066 -- una regla del lenguaje, no una pila que revienta.
+- **F1**: los cometas (las llamadas) vuelven CARGADOS -- la cabeza encendida --
+  cuando el modulo tiene `return`.
+- 🟡 en el emulador; el banco corre factorial, Euclides y Fibonacci.
+
+**NIVEL 6 -- LOS TIPOS, HECHO EN EL ANFITRION el 04-10** (`type`, 17
+palabras): `dec`, las tablas `[T; n]` y los registros.
+
+```text
+   dec        el DECIMAL EXACTO, sin float (el propietario: "evita la float,
+              siempre decimal"): un entero y cuantas cifras son decimales.
+              0.1 + 0.2 = 0.3; 12.50 * 3 = 37.50; 10.00 / 4 = 2.50; y 1.0 / 3
+              es un NO (T0062): no se corta a escondidas
+   tablas     [1, 2, 3], [0; 10], t[i], t[i] = v, for x in t, len(t)
+   registros  type Nave / x: dec ...; Nave { x: 1.0 } con TODOS sus campos;
+              n.x y n.x = v
+   f32        es de la 3060 (gpu fn, nivel 11) y lo dice si se pide antes
+```
+
+- **Una celda fuera de su tabla es T0072 AL COMPILAR**: el programa se corre
+  y se ve -- en C eso lee memoria de otro. Un campo que no existe, T0073.
+- El x86-64 **si** tiene floats en hardware; lo que no tiene es base 10. Por
+  eso la eleccion es `dec`: COBOL (Grace Hopper) a la velocidad del entero.
+- **F1**: un `type` es un CRISTAL facetado junto al planeta.
+- 🟡 en el emulador; el banco corre una factura, la burbuja y una flota.
+
+**NIVEL 7 -- PRESTAR Y ENTREGAR, Y LA PRECISION DE COBOL, HECHO EN EL
+ANFITRION el 04-10** (`take`, 18 palabras):
+
+```text
+   el borrow checker ENTERO (el modelo 2 de 6.4)
+     fn f(mut n: T)  f(mut x)    prestado: f lo cambia EN SU SITIO, sin copia
+     fn f(take n: T) f(take x)   entregado: despues x ya no es tuyo (T0075)
+     la regla de oro de FORTRAN, demostrada: un valor no se presta dos veces
+     en una llamada, ni se presta y se lee (T0076)
+     y se dice en los DOS lados: la llamada dice que le pasa a x (T0077)
+   la precision de COBOL (el propietario: "precision fuerte para no generar bug")
+     dec(7, 2)       las cifras DECLARADAS, el PIC 9(5)V99
+     let p: T = v    el tipo declarado, como el WORKING-STORAGE
+     round(x, 2)     el redondeo ESCRITO, el ROUNDED (la mitad, lejos del cero)
+     un valor que no cabe -- mas cifras o mas decimales -- es T0074, el SIZE
+     ERROR: COBOL lo corta callado sin ON SIZE ERROR; TITAN++ no compila
+```
+
+- Un `mut` en un parametro que nunca cambia es T0057, como el de un `let`.
+- 🟡 en el emulador; el banco corre un banco con interes redondeado a la vista,
+  una ordenacion prestada sin copia y una nave entregada.
+
+**NIVEL 8 -- CASOS CON DATOS, HECHO EN EL ANFITRION el 04-10** (`enum`,
+`match`, 20 palabras):
+
+```text
+   enum Forma                 los casos que puede tener un valor, cada uno
+       Circulo(dec)           con los datos que LLEVA (o ninguno)
+       Rect(dec, dec)
+       Nada
+   Circulo(2.0), Nada         construir: el nombre del caso, sin `Forma::`
+                              (un caso se llama igual en todo el fichero)
+   match f                    una rama por caso; `Circulo(r)` nombra lo que
+       Circulo(r)             el caso lleva, y `r` vive en su rama
+           ...
+```
+
+- **Exhaustivo y sin `_`**: un `match` que no cubre un caso es T0078, y dice
+  cual falta; un `_` es T0079. El dia que el enum crece, cada `match` que no
+  lo mira deja de compilar y dice DONDE -- el `switch` de C lo deja caer
+  callado.
+- **Sin null y sin excepciones**: lo que puede salir mal es un caso
+  (`Hecho(dec(9, 2))` / `Falta(dec(9, 2))`), y la precision de COBOL del
+  nivel 7 llega hasta el dato de cada caso.
+- En la IR, un `match` es el valor leido UNA vez en un local oculto y una
+  cadena de preguntas `es Circulo?`; la ULTIMA rama no pregunta, porque la
+  exhaustividad ya se demostro. El juez y el calculo no cambian de forma:
+  ven ramas, como un `if`.
+- **F1**: un `enum` es un CRISTAL (sus caras son los casos) y un `match`, una
+  estrella doble (varios caminos, uno encendido).
+- 🟡 en el emulador; el banco corre formas con su area, un semaforo y un
+  cobro que dice por que no.

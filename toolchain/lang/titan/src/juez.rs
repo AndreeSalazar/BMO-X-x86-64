@@ -45,7 +45,8 @@
 //! this judge said yes.
 
 use crate::check::distance;
-use crate::ir::{At, End, Function, Module, Op};
+use crate::ir::{At, End, Function, Module, Op, Value};
+use crate::tree::Mode;
 use crate::message::{Code, Message};
 
 /// The state of one local at one point. Grows by level (see the header).
@@ -59,6 +60,10 @@ enum State {
     /// It was born at line `born` inside a block, and that block -- the `if`
     /// or `else` at `scope` -- closed: it is gone (level 3, T0058).
     Dead { born: usize, scope: At },
+    /// GIVEN away with `take` at `at`: it is not ours anymore (level 7,
+    /// T0075 -- the "paso A" of TITAN_MAESTRO 6: "ya lo entregaste"). A `mut`
+    /// one can get a NEW value with `x = ...`, and is ours again.
+    Given { at: At, mutable: bool },
 }
 
 /// Where two ways meet (after an `if`), what is certain on BOTH. A value
@@ -67,6 +72,8 @@ enum State {
 fn meet(a: State, b: State) -> State {
     match (a, b) {
         (State::Alive { since, at, mutable, changed: x }, State::Alive { changed: y, .. }) => State::Alive { since, at, mutable, changed: x || y },
+        // Given on ONE of the ways is enough: maybe it is not ours.
+        (g @ State::Given { .. }, _) | (_, g @ State::Given { .. }) => g,
         (d @ State::Dead { .. }, _) | (_, d @ State::Dead { .. }) => d,
         _ => State::Unborn,
     }
@@ -82,23 +89,92 @@ pub fn judge(m: &Module) -> Result<(), Message> {
 }
 
 /// ** THE WALK (TITAN_MAESTRO 6.8, step 3): one state per block, the state at
-/// its entrance being the meeting of every way in. The blocks are in reading
-/// order and every jump goes down (`ir.rs`), so walking them in order meets
-/// every way into a block before the block: one pass is the fixed point. The
-/// day `while` brings a jump UP (level 4), this loop repeats until nothing
-/// changes -- and nothing else here moves.
+/// its entrance being the meeting of every way in.
+///
+/// Level 3 could do it in one pass: every jump went down. **Level 4 brings the
+/// first jump UP** (the end of a loop goes back to its question), so a block
+/// can be entered from below, by a way that has not been walked yet. The walk
+/// becomes the fixed point the comment of level 3 promised:
+///
+/// ```text
+///    1. walk every block, again and again, moving only the ENTRANCES, until
+///       a whole round changes none of them (no NO is said here: a state
+///       seen half way is not a state yet)
+///    2. walk once more with the entrances that no longer move, and judge
+/// ```
+///
+/// It always stops: `meet` only ever takes away (alive on both, or not; a
+/// change on either side stays a change), and there is a finite amount to take.
 fn judge_fn(f: &Function) -> Result<(), Message> {
-    let mut entry: Vec<Option<Vec<State>>> = vec![None; f.blocks.len()];
-    entry[0] = Some(vec![State::Unborn; f.locals.len()]);
+    let n = f.blocks.len();
+    let mut entry: Vec<Option<Vec<State>>> = vec![None; n];
+    let mut first = vec![State::Unborn; f.locals.len()];
+    // The parameters arrive with their value (level 5), and do not change.
+    for ((l, _), mode) in f.params.iter().zip(&f.modes) {
+        let l = *l;
+        first[l] = match mode {
+            // A copy: only read.
+            Mode::Copy => State::Alive { since: f.line, at: (f.line, 1), mutable: false, changed: false },
+            // Lent to be changed: it must change, or a copy was enough (T0057).
+            Mode::Mut => State::Alive { since: f.line, at: (f.line, 1), mutable: true, changed: false },
+            // Given: it is ours, to change or not.
+            Mode::Take => State::Alive { since: f.line, at: (f.line, 1), mutable: true, changed: true },
+        };
+    }
+    entry[0] = Some(first);
+    for _round in 0..n * 4 + 8 {
+        let mut moved = false;
+        for i in 0..n {
+            let Some(mut state) = entry[i].clone() else { continue };
+            for op in &f.blocks[i].ops {
+                // Silent: a NO here would be about a state that may still move.
+                let _ = step(f, op, &mut state);
+            }
+            for t in f.blocks[i].end.targets() {
+                let next = match &entry[t] {
+                    None => state.clone(),
+                    Some(other) => other.iter().zip(&state).map(|(a, b)| meet(*a, *b)).collect(),
+                };
+                if entry[t].as_ref() != Some(&next) {
+                    entry[t] = Some(next);
+                    moved = true;
+                }
+            }
+        }
+        if !moved {
+            break;
+        }
+    }
     for (i, b) in f.blocks.iter().enumerate() {
-        // No way leads here: nothing in it can run, nothing in it is judged
-        // twice. (Today every block has a way in; this is the honest default.)
-        let Some(mut state) = entry[i].take() else { continue };
+        // No way leads here (a line after a `break`): nothing in it runs.
+        let Some(mut state) = entry[i].clone() else { continue };
         for op in &b.ops {
             step(f, op, &mut state)?;
         }
         match &b.end {
-            End::Return => never_changed(f, &state)?,
+            End::Return(v) => {
+                if let Some(v) = v {
+                    let mut reads = Vec::new();
+                    v.reads(&mut reads);
+                    for (l, at) in reads {
+                        usable(f, &state, l, at)?;
+                    }
+                } else if let Some(t) = &f.ret {
+                    // ** A way that reaches the end of a function that
+                    // promised a value, with none to give: T0070. Only a way
+                    // that can be WALKED counts (a line after a `return` has
+                    // no way in), so an `if` that returns on both sides is fine.
+                    return Err(Message::new(
+                        Code::MissingReturn,
+                        f.line,
+                        1,
+                        &format!("`fn {}` promete un {} y hay un camino que llega al final sin `return`", f.name, t.name()),
+                        "si una condicion no se cumple, la funcion se acaba sin dar nada: el que llama se quedaria sin su valor",
+                        &format!("pon un `return` al final de `fn {}`, para el caso que falta", f.name),
+                    ));
+                }
+                never_changed(f, &state)?;
+            }
             End::Branch { cond, .. } => {
                 let mut reads = Vec::new();
                 cond.reads(&mut reads);
@@ -107,12 +183,6 @@ fn judge_fn(f: &Function) -> Result<(), Message> {
                 }
             }
             End::Jump(_) => {}
-        }
-        for t in b.end.targets() {
-            entry[t] = Some(match entry[t].take() {
-                None => state.clone(),
-                Some(other) => other.iter().zip(&state).map(|(a, b)| meet(*a, *b)).collect(),
-            });
         }
     }
     Ok(())
@@ -124,6 +194,83 @@ fn usable(f: &Function, state: &[State], l: usize, at: At) -> Result<(), Message
         State::Alive { .. } => Ok(()),
         State::Unborn => Err(no_value(f, l, at)),
         State::Dead { born, scope } => Err(gone(f, l, at, born, scope)),
+        State::Given { at: given, .. } => Err(given_away(f, l, at, given)),
+    }
+}
+
+/// T0075: it was given away with `take`.
+fn given_away(f: &Function, l: usize, at: At, given: At) -> Message {
+    let name = &f.locals[l].name;
+    Message::new(
+        Code::Given,
+        at.0,
+        at.1,
+        &format!("`{}` ya no es tuyo", name),
+        &format!("lo entregaste con `take` en la linea {}: quien lo recibio se lo quedo, y aqui ya no hay nada que leer", given.0),
+        &format!("si lo necesitas despues, prestalo en vez de entregarlo (`mut {}`), o da una copia (`{}` sin `take`)", name, name),
+    )
+}
+
+/// The `mut x` / `take x` inside a value, in reading order.
+fn lends(v: &Value, out: &mut Vec<(Mode, usize, At)>) {
+    match v {
+        Value::Lend(m, l, at) => out.push((*m, *l, *at)),
+        Value::Call(_, args, _) | Value::Table(args, _) | Value::Record(_, args, _) | Value::Variant(_, _, args, _) => args.iter().for_each(|a| lends(a, out)),
+        Value::Bin(_, a, b, _) | Value::Index(a, b, _) => {
+            lends(a, out);
+            lends(b, out);
+        }
+        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) => lends(a, out),
+        Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::Local(..) => {}
+    }
+}
+
+/// ** THE LAW OF EXCLUSIVITY, in one call (level 7) -- FORTRAN's golden rule
+/// (TITAN_MAESTRO 2b.2), PROVED instead of promised: a value lent to be
+/// changed (`mut`) or given (`take`) goes to the call ONCE, and is not also
+/// read by another value of the same call. `swap(mut a, mut a)` and
+/// `f(mut a, a)` would make two names for one memory -- the hole C fills with
+/// `restrict` and a prayer. T0076.
+fn exclusive(f: &Function, args: &[Value]) -> Result<(), Message> {
+    for (i, a) in args.iter().enumerate() {
+        let Value::Lend(mode, l, at) = a else { continue };
+        for (j, b) in args.iter().enumerate() {
+            if i == j {
+                continue;
+            }
+            let mut reads = Vec::new();
+            b.reads(&mut reads);
+            if reads.iter().any(|(r, _)| r == l) {
+                let name = &f.locals[*l].name;
+                let twice = matches!(b, Value::Lend(_, k, _) if k == l);
+                return Err(Message::new(
+                    Code::Alias,
+                    at.0,
+                    at.1,
+                    &if twice { format!("`{}` se presta dos veces en la misma llamada", name) } else { format!("`{}` se {} y a la vez se lee en la misma llamada", name, if *mode == Mode::Mut { "presta para cambiarlo" } else { "entrega" }) },
+                    "dos nombres para la misma memoria en una llamada: lo que uno cambia el otro lo ve a medias (la regla de oro de FORTRAN, y aqui DEMOSTRADA)",
+                    &format!("haz una copia antes: let copia = {}, y pasa la copia en el otro lugar", name),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Every call inside a value: its arguments, to judge their exclusivity.
+fn calls_args<'v>(v: &'v Value, out: &mut Vec<&'v [Value]>) {
+    match v {
+        Value::Call(_, args, _) => {
+            out.push(args);
+            args.iter().for_each(|a| calls_args(a, out));
+        }
+        Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => items.iter().for_each(|a| calls_args(a, out)),
+        Value::Bin(_, a, b, _) | Value::Index(a, b, _) => {
+            calls_args(a, out);
+            calls_args(b, out);
+        }
+        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) => calls_args(a, out),
+        _ => {}
     }
 }
 
@@ -134,12 +281,24 @@ fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
     // the right is judged as it was.
     let mut reads = Vec::new();
     let define = match op {
-        Op::Let { local, value, mutable, at } => {
+        Op::Let { local, value, mutable, at, .. } => {
             value.reads(&mut reads);
             Some((*local, *at, Some(*mutable)))
         }
         Op::Set { local, value, at } => {
             value.reads(&mut reads);
+            Some((*local, *at, None))
+        }
+        // `a[i] = v`: the whole local changes, for the checker -- it needs
+        // `mut`, and it counts as the change a `mut` promised.
+        Op::SetAt { local, path, value, at } => {
+            for st in path {
+                if let crate::ir::PathStep::Index(i) = st {
+                    i.reads(&mut reads);
+                }
+            }
+            value.reads(&mut reads);
+            reads.push((*local, *at));
             Some((*local, *at, None))
         }
         Op::Write { parts, .. } => {
@@ -148,7 +307,12 @@ fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
             }
             None
         }
-        Op::Call { .. } => None,
+        Op::Call { args, .. } => {
+            for a in args {
+                a.reads(&mut reads);
+            }
+            None
+        }
         Op::Drop { local, at } => {
             // The block closes: a `mut` born in it had its whole life to
             // change, and that life is over.
@@ -164,12 +328,40 @@ fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
     for (l, at) in reads {
         usable(f, state, l, at)?;
     }
+    // Level 7: the exclusivity of each call, and then what lending and
+    // giving do -- `mut x` is the change a `mut` promised, `take x` gives it.
+    let mut values: Vec<&Value> = Vec::new();
+    match op {
+        Op::Let { value, .. } | Op::Set { value, .. } => values.push(value),
+        Op::SetAt { value, .. } => values.push(value),
+        Op::Write { parts, .. } => values.extend(parts),
+        Op::Call { args, .. } => {
+            exclusive(f, args)?;
+            values.extend(args);
+        }
+        Op::Drop { .. } => {}
+    }
+    let mut lent = Vec::new();
+    for v in &values {
+        let mut calls = Vec::new();
+        calls_args(v, &mut calls);
+        for args in calls {
+            exclusive(f, args)?;
+        }
+        lends(v, &mut lent);
+    }
+    for (mode, l, at) in lent {
+        lend(f, state, mode, l, at)?;
+    }
     let Some((l, at, how)) = define else { return Ok(()) };
     let name = &f.locals[l].name;
     state[l] = match (state[l], how) {
         // `let` / `let mut`: it is born -- also where a block-scoped one of
         // the same name died before (they never live at the same time).
-        (State::Unborn | State::Dead { .. }, Some(mutable)) => State::Alive { since: at.0, at, mutable, changed: false },
+        (State::Unborn | State::Dead { .. } | State::Given { .. }, Some(mutable)) => State::Alive { since: at.0, at, mutable, changed: false },
+        // A `mut` given away gets a NEW value: it is ours again.
+        (State::Given { mutable: true, .. }, None) => State::Alive { since: at.0, at, mutable: true, changed: true },
+        (State::Given { at: given, .. }, None) => return Err(given_away(f, l, at, given)),
         (State::Alive { since, .. }, Some(_)) => {
             return Err(Message::new(
                 Code::Taken,
@@ -183,6 +375,26 @@ fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
         // `x = ...`
         (State::Unborn, None) => return Err(no_value(f, l, at)),
         (State::Dead { born, scope }, None) => return Err(gone(f, l, at, born, scope)),
+        (State::Alive { mutable: false, .. }, None) if f.params.iter().any(|p| p.0 == l) => {
+            return Err(Message::new(
+                Code::NotMut,
+                at.0,
+                at.1,
+                &format!("`{}` no se puede cambiar", name),
+                &format!("es un parametro de `fn {}` que llega como COPIA: cambiarla no cambiaria nada del que llama", f.name),
+                &format!("para cambiar el del que llama, pidelo prestado: fn {}(mut {}: ...), y llamala con mut; para un valor tuyo, let mut otro = {}", f.name, name, name),
+            ))
+        }
+        (State::Alive { since, mutable: false, .. }, None) if is_turn(f, l) => {
+            return Err(Message::new(
+                Code::NotMut,
+                at.0,
+                at.1,
+                &format!("`{}` no se puede cambiar", name),
+                &format!("es la vuelta del `for` de la linea {}: la pone el bucle en cada vuelta, y nadie mas la cambia", since),
+                &format!("para saltar vueltas, `continue`; para un valor que si cambia, otro nombre: let mut otro = {}", name),
+            ))
+        }
         (State::Alive { since, mutable: false, .. }, None) => {
             return Err(Message::new(
                 Code::NotMut,
@@ -213,6 +425,17 @@ fn never_changed(f: &Function, state: &[State]) -> Result<(), Message> {
 
 fn never(f: &Function, l: usize, since: usize, at: At) -> Message {
     let name = &f.locals[l].name;
+    if f.params.iter().any(|p| p.0 == l) {
+        // A parameter lent with `mut` that the function never changes.
+        return Message::new(
+            Code::NeverChanged,
+            since,
+            at.1,
+            &format!("`fn {}` pide `{}` prestado para cambiarlo, y no lo cambia nunca", f.name, name),
+            "`mut` en un parametro promete al que llama \"te lo voy a cambiar\": si no pasa, quien lee la llamada se preocupa por nada",
+            &format!("recibelo como copia: fn {}({}: ...), y llamala sin `mut`", f.name, name),
+        );
+    }
     Message::new(
         Code::NeverChanged,
         since,
@@ -221,6 +444,38 @@ fn never(f: &Function, l: usize, since: usize, at: At) -> Message {
         &format!("en `fn {}()` ninguna linea le da otro valor: el `mut` promete algo que no pasa", f.name),
         &format!("quita el `mut`: let {} = ...", name),
     )
+}
+
+/// `mut x` / `take x` given to a call (level 7). Lending to be changed needs
+/// a `let mut` -- and IS the change it promised; giving away leaves nothing.
+fn lend(f: &Function, state: &mut [State], mode: Mode, l: usize, at: At) -> Result<(), Message> {
+    let name = &f.locals[l].name;
+    match (mode, state[l]) {
+        (Mode::Mut, State::Alive { since, mutable: false, .. }) => Err(Message::new(
+            Code::NotMut,
+            at.0,
+            at.1,
+            &format!("`{}` no se puede prestar para cambiarlo", name),
+            &format!("su `let` de la linea {} no dice `mut`: prestarlo con `mut` es dejar que otro lo cambie", since),
+            &format!("declaralo asi en la linea {}: let mut {} = ...", since, name),
+        )),
+        (Mode::Mut, State::Alive { since, at: born, .. }) => {
+            state[l] = State::Alive { since, at: born, mutable: true, changed: true };
+            Ok(())
+        }
+        (Mode::Take, State::Alive { mutable, .. }) => {
+            state[l] = State::Given { at, mutable };
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+/// The local is the turn of a `for`: its `let` takes the hidden count.
+fn is_turn(f: &Function, l: usize) -> bool {
+    f.blocks.iter().flat_map(|b| &b.ops).any(|op| {
+        matches!(op, Op::Let { local, value: crate::ir::Value::Local(c, _), .. } if *local == l && f.locals[*c].name.starts_with("#i"))
+    })
 }
 
 /// T0058: it was born inside a block that already closed.
@@ -256,7 +511,7 @@ fn no_value(f: &Function, l: usize, at: At) -> Message {
         .iter()
         .flat_map(|b| &b.ops)
         .filter_map(|op| match op {
-            Op::Let { local, .. } if *local != l => Some(f.locals[*local].name.as_str()),
+            Op::Let { local, .. } if *local != l && !f.locals[*local].name.starts_with('#') => Some(f.locals[*local].name.as_str()),
             _ => None,
         })
         .min_by_key(|k| distance(k, name))
@@ -331,6 +586,70 @@ mod tests {
         // The condition is a read like any other.
         let e = verdict("mod main \"x\"\nfn main()\n    if vidas > 0\n        print(\"a\")\n").unwrap_err();
         assert_eq!(e.code, Code::NoValue);
+    }
+
+    #[test]
+    fn a_loop_turns_until_its_states_stop_moving() {
+        // Changed only inside the loop: it is a change (the way back counts).
+        assert!(verdict("mod main \"x\"\nfn main()\n    let mut n = 0\n    while n < 3\n        n = n + 1\n    print(n)\n").is_ok());
+        // Born in the body: born again at every turn, no shadowing.
+        assert!(verdict("mod main \"x\"\nfn main()\n    for i in range(3)\n        let doble = i * 2\n        print(doble)\n").is_ok());
+        // ...and gone after the loop, like any block.
+        let e = verdict("mod main \"x\"\nfn main()\n    for i in range(3)\n        let doble = i * 2\n    print(doble)\n").unwrap_err();
+        assert_eq!(e.code, Code::Gone);
+        // The loop's own `i` is not a `mut`.
+        let e = verdict("mod main \"x\"\nfn main()\n    for i in range(3)\n        i = 7\n").unwrap_err();
+        assert_eq!(e.code, Code::NotMut);
+    }
+
+    #[test]
+    fn break_and_continue_close_the_blocks_they_leave() {
+        let src = "mod main \"x\"\nfn main()\n    let mut n = 0\n    while true\n        let paso = 2\n        n = n + paso\n        if n > 5\n            let fin = n\n            print(fin)\n            break\n    print(n)\n";
+        assert!(verdict(src).is_ok(), "{:?}", verdict(src));
+    }
+
+    #[test]
+    fn a_function_that_promises_a_value_gives_it_on_every_way() {
+        // Both sides of the `if` return: the line after has no way in.
+        assert!(verdict("mod main \"x\"\nfn signo(n: int) -> int\n    if n < 0\n        return -1\n    else\n        return 1\nfn main()\n    print(signo(3))\n").is_ok());
+        let e = verdict("mod main \"x\"\nfn signo(n: int) -> int\n    if n < 0\n        return -1\nfn main()\n    print(signo(3))\n").unwrap_err();
+        assert_eq!((e.code, e.line), (Code::MissingReturn, 2));
+        // A parameter arrives alive and does not change.
+        let e = verdict("mod main \"x\"\nfn f(n: int) -> int\n    n = 2\n    return n\nfn main()\n    print(f(1))\n").unwrap_err();
+        assert_eq!(e.code, Code::NotMut);
+        assert!(e.why.contains("parametro"), "{}", e.why);
+    }
+
+    #[test]
+    fn take_gives_it_away_and_mut_lends_it_to_be_changed() {
+        let base = "mod main \"x\"\nfn quema(take t: [int; 2]) -> int\n    return t[0]\nfn sube(mut t: [int; 2])\n    t[0] = t[0] + 1\n";
+        // Given away: reading it after is T0075.
+        let e = verdict(&format!("{}fn main()\n    let t = [1, 2]\n    print(quema(take t))\n    print(t)\n", base)).unwrap_err();
+        assert_eq!((e.code, e.line), (Code::Given, 9));
+        // Lent: needs `let mut`, and is the change it promised.
+        assert!(verdict(&format!("{}fn main()\n    let mut t = [1, 2]\n    sube(mut t)\n    print(t)\n", base)).is_ok());
+        let e = verdict(&format!("{}fn main()\n    let t = [1, 2]\n    sube(mut t)\n", base)).unwrap_err();
+        assert_eq!(e.code, Code::NotMut);
+        // A `mut` given away gets a new value and is ours again.
+        assert!(verdict(&format!("{}fn main()\n    let mut t = [1, 2]\n    print(quema(take t))\n    t = [3, 4]\n    print(t)\n", base)).is_ok());
+    }
+
+    #[test]
+    fn one_value_is_not_lent_twice_in_one_call() {
+        let base = "mod main \"x\"\nfn par(mut a: [int; 1], mut b: [int; 1])\n    a[0] = b[0]\n    b[0] = 1\nfn uno(mut a: [int; 1], n: int)\n    a[0] = n\n";
+        let e = verdict(&format!("{}fn main()\n    let mut t = [5]\n    par(mut t, mut t)\n", base)).unwrap_err();
+        assert_eq!(e.code, Code::Alias);
+        let e = verdict(&format!("{}fn main()\n    let mut t = [5]\n    uno(mut t, t[0])\n", base)).unwrap_err();
+        assert_eq!(e.code, Code::Alias);
+        // Two different values: fine.
+        assert!(verdict(&format!("{}fn main()\n    let mut t = [5]\n    let mut u = [6]\n    par(mut t, mut u)\n    print(t, u)\n", base)).is_ok());
+    }
+
+    #[test]
+    fn a_mut_parameter_that_never_changes_is_a_no() {
+        let e = verdict("mod main \"x\"\nfn ve(mut t: [int; 1]) -> int\n    return t[0]\nfn main()\n    let mut t = [1]\n    print(ve(mut t))\n").unwrap_err();
+        assert_eq!(e.code, Code::NeverChanged);
+        assert!(e.how.contains("copia"), "{}", e.how);
     }
 
     #[test]

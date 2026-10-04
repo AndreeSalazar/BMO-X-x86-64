@@ -1,4 +1,5 @@
-# sonda: r03_division            espera: E1003 en ejecucion
+# sonda: r03_division            espera: E0077
+# era `E1003 en ejecucion` -- escrita en `pleno`, que se fue a TITAN++ el 2026-10-04 (PLAN_INTI_SAMURAI.md)
 # regla 3: dividir entre cero atrapa, entero y decimal.
 perfil pleno
 

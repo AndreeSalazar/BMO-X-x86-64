@@ -1,0 +1,28 @@
+# espera: BIEN
+# sale: cafe x 2 = 3.50
+# sale: pan x 3 = 2.70
+# sale: queso x 1 = 4.25
+# sale: total: 10.45
+# sale: con 21% de IVA: 12.6445
+# sale: entre 4 amigos: 3.161125
+# el dinero en `dec`: exacto, sin float, y nada se redondea solo
+mod main "una factura que no pierde centimos"
+
+type Linea
+    cosa: text
+    precio: dec
+    cantidad: int
+
+fn importe(l: Linea) -> dec
+    return l.precio * l.cantidad
+
+fn main()
+    let compra = [Linea { cosa: "cafe", precio: 1.75, cantidad: 2 }, Linea { cosa: "pan", precio: 0.90, cantidad: 3 }, Linea { cosa: "queso", precio: 4.25, cantidad: 1 }]
+    let mut total = 0.00
+    for l in compra
+        print(l.cosa, " x ", l.cantidad, " = ", importe(l))
+        total = total + importe(l)
+    print("total: ", total)
+    let con_iva = total * 1.21
+    print("con 21% de IVA: ", con_iva)
+    print("entre 4 amigos: ", con_iva / 4)

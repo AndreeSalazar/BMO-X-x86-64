@@ -101,6 +101,21 @@ const BANCO: &[(&str, &str)] = &[
     ("titan", "toolchain/lang/titan/ejemplos/nivel2/constelacion.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel3/semaforo.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel3/calculadora.titan"),
+    // Nivel 4 (04-10): bucles, corridos enteros al compilar.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel4/tabla_del_siete.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel4/primos.titan"),
+    // Nivel 5 (04-10): recursion, corrida entera al compilar.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel5/factorial.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel5/euclides.titan"),
+    // Nivel 6 (04-10): dec exacto, tablas y registros.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel6/factura.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel6/ordenar.titan"),
+    // Nivel 7 (04-10): prestar y entregar, y la precision de COBOL.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel7/banco.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel7/ordena_prestada.titan"),
+    // Nivel 8 (04-10): enum con datos y match exhaustivo.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel8/formas.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel8/pago.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]

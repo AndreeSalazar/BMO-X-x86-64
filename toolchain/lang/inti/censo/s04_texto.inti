@@ -1,4 +1,5 @@
-# sonda: s04_texto         espera: COMPILA
+# sonda: s04_texto         espera: E0077
+# era `COMPILA` -- escrita en `pleno`, que se fue a TITAN++ el 2026-10-04 (PLAN_INTI_SAMURAI.md)
 # fija: comillas dobles, interpolacion, y los cinco escapes
 perfil pleno
 

@@ -1,0 +1,9 @@
+# espera: T0056
+# la vuelta de un `for` la pone el bucle: no es un `mut`
+mod main "una vuelta que se quiere saltar"
+
+fn main()
+    for i in range(10)
+        if i == 2
+            i = 5
+        print(i)

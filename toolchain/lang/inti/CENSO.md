@@ -39,18 +39,18 @@ esperando a su fase.
 
 | sonda | que fija | espera |
 |---|---|---|
-| `s01_esqueleto` | `perfil` + `principal` | **COMPILA** |
+| `s01_esqueleto` | `perfil` + `principal` | `E0077` -- era **COMPILA**; `pleno` se fue a TITAN++ (04-10) |
 | `s02_sin_perfil` | no hay perfil por defecto | `E0001` |
 | `s03_tabulador` | el tabulador no es una alternativa a los 4 espacios | `E0010` |
-| `s04_texto` | comillas dobles, interpolacion, los cinco escapes | **COMPILA** |
+| `s04_texto` | comillas dobles, interpolacion, los cinco escapes | `E0077` -- era **COMPILA**; `pleno` se fue a TITAN++ (04-10) |
 | `s05_comilla_simple` | la comilla simple no existe | `E0011` |
 
 ## Valores
 
 | sonda | que fija | espera |
 |---|---|---|
-| `v01_numero_exacto` | ★ `0.1 + 0.2` da `0.3` | **COMPILA** + salida `0.3` |
-| `v02_division` | `/` divide, `entre` da cociente entero | **COMPILA** + `2.5` y `2` |
+| `v01_numero_exacto` | ★ `0.1 + 0.2` da `0.3` | `E0077` -- era **COMPILA** + salida `0.3`; `pleno` se fue a TITAN++ (04-10) |
+| `v02_division` | `/` divide, `entre` da cociente entero | `E0077` -- era **COMPILA** + `2.5` y `2`; `pleno` se fue a TITAN++ (04-10) |
 | `v03_sin_nulo` | no hay nulo: `quiza T` hay que mirarlo | `E0021` |
 | `v04_sin_veracidad` (⚠ NO COMPILABA hasta el 21-08: usaba `lista`, que es palabra clave) | `si` exige `logico`; `if lista:` no existe | `E0040` |
 | `v05_sin_conversion` | `"23" + 1` no se convierte solo | `E0022` |
@@ -62,9 +62,9 @@ esperando a su fase.
 | sonda | que fija | espera |
 |---|---|---|
 | `c01_fija` | sin `cambiante` no se reasigna | `E0030` |
-| `c02_cambiante` | con `cambiante`, si | **COMPILA** |
-| `c03_comparar` | `=` compara / `no es` / `es un` | **COMPILA** |
-| `c04_bucles` | las tres formas de `repite` y el rango que excluye el final | **COMPILA** |
+| `c02_cambiante` | con `cambiante`, si | `E0077` -- era **COMPILA**; `pleno` se fue a TITAN++ (04-10) |
+| `c03_comparar` | `=` compara / `no es` / `es un` | `E0077` -- era **COMPILA**; `pleno` se fue a TITAN++ (04-10) |
+| `c04_bucles` | las tres formas de `repite` y el rango que excluye el final | `E0077` -- era **COMPILA**; `pleno` se fue a TITAN++ (04-10) |
 | `c05_muta_iterando` | ★ borrar mientras se itera **no compila** | `E0050` |
 
 ## Funciones y registros
@@ -72,17 +72,17 @@ esperando a su fase.
 | sonda | que fija | espera |
 |---|---|---|
 | `f01_funcion` | funcion con tipos, `devuelve`, `de` como llamada | **E0135** hasta el runtime de listas (26-09: `para cada` sobre una lista no se bajaba y el bucle se saltaba entero; ahora se dice) |
-| `f02_defecto_congelado` | ★ el defecto se congela: la sorpresa 1 de Python no existe | **COMPILA**, la lista no se acumula |
+| `f02_defecto_congelado` | ★ el defecto se congela: la sorpresa 1 de Python no existe | `E0077` -- era **COMPILA**, la lista no se acumula; `pleno` se fue a TITAN++ (04-10) |
 | `f03_sin_closures` | ★ no hay funciones anidadas ni anonimas: el *late binding* no existe **por ausencia** | `E0101` |
 | `f04_parametro_fijo` | un parametro no se cambia dentro | `E0033` |
-| `f05_registro` | campos, defecto, construccion posicional y por nombre | **COMPILA** |
+| `f05_registro` | campos, defecto, construccion posicional y por nombre | `E0077` -- era **COMPILA**; `pleno` se fue a TITAN++ (04-10) |
 | `f06_sin_herencia` | no hay herencia | `E0100` |
 
 ## Errores
 
 | sonda | que fija | espera |
 |---|---|---|
-| `e01_error_como_dato` | las tres formas: mirar, `o si no` valor, `o si no` bloque | **COMPILA** |
+| `e01_error_como_dato` | las tres formas: mirar, `o si no` valor, `o si no` bloque | `E0077` -- era **COMPILA**; `pleno` se fue a TITAN++ (04-10) |
 | `e02_ignorar_error` | ★★ **ignorar un error es error de COMPILACION** | `E0060` |
 
 ## Perfiles -- la frontera de la seccion 1.4 del maestro
@@ -92,11 +92,11 @@ esperando a su fase.
 | `p01_llano` | un driver de verdad: puertos, `bits_y`, `crudo` | **COMPILA** |
 | `p02_llano_sin_lista` | en `llano` no hay lista: crece, pide monton | `E0070` |
 | `p03_llano_sin_numero` | en `llano` hay que decir el medida | `E0020` |
-| `p04_crudo_en_pleno` | `crudo` no existe en `pleno` | `E0071` |
+| `p04_crudo_en_pleno` | `crudo` no existe en `pleno` | `E0077` -- era `E0071`; `pleno` se fue a TITAN++ (04-10) |
 | `p05_paralelo_mutable` | ★★ lo que cruza esta congelado, o no cruza | `E0080` |
 | `p06_puerta` | ★★ la puerta se llama sin `crudo`: al otro lado hay un kernel que comprueba | **COMPILA** |
 | `p07_puerto_sin_crudo` | un puerto **si** lo necesita: al otro lado no hay nadie | `E0072` |
-| `p08_biblioteca_no_reservada` | ★ `escribe` e `invoca` **no son palabras clave**: se pueden redefinir | **COMPILA** |
+| `p08_biblioteca_no_reservada` | ★ `escribe` e `invoca` **no son palabras clave**: se pueden redefinir | `E0077` -- era **COMPILA**; `pleno` se fue a TITAN++ (04-10) |
 
 ## Las reglas que se ven desde el fuente
 
@@ -105,7 +105,7 @@ esperando a su fase.
 | `r01_desborde` | 1 -- desbordar atrapa | `E1001` en ejecucion |
 | `r01b_cociente` | 1 -- **`-2^63 entre -1` no cabe**, y se escribe como division | `E1001` en ejecucion |
 | `r02_indice` | 2 -- indice constante fuera de rango **no compila** | `E0090` |
-| `r03_division` | 3 -- dividir entre cero atrapa | `E1003` |
+| `r03_division` | 3 -- dividir entre cero atrapa | `E0077` -- era `E1003`; `pleno` se fue a TITAN++ (04-10) |
 | `r04_sin_valor` | 4 -- ★ leer sin inicializar **no se puede escribir** | `E0031` |
 | `r07_desplaza` | 7 -- desplazar de mas da cero, con aviso | **COMPILA** + `A2007` + `0` |
 | `r09_medidas` | 9 -- medidas exactos | **COMPILA** |

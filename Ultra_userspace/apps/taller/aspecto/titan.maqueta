@@ -58,5 +58,6 @@
     .use        { color:#36C4D8 }              /* un `use`: depende de otro */
     .mut        { color:#FFB84B }              /* un `mut`: lo que cambia */
     .decide     { color:#F2E27A }              /* un `if`: el camino que corre */
+    .loop       { color:#B28CFF }              /* un `while` / `for`: lo que repite */
   </style>
 </maqueta>

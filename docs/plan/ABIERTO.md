@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 62 planes
+# LO QUE FALTA -- las casillas abiertas de los 63 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   567 casillas ABIERTAS en 53 planes
-   418 hechas
+   573 casillas ABIERTAS en 54 planes
+   420 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -300,6 +300,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Y1.1 subir el bInterval del raton a Ring 0 y a Ring 3. Sin ese
 - [ ] Y1.2 que BUS_PERIOD_MS salga del minimo de los aparatos vivos y no
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
+- ... y 3 mas
+
+## [`PLAN_INTI_SAMURAI.md`](PLAN_INTI_SAMURAI.md) -- 6 abiertas, 2 hechas
+
+*PLAN INTI SAMURAI -- INTI corta para la CPU; las apps se van a TITAN++*
+
+- [ ] 2 el build y el metro: ventana, musica, cubo y navegar fuera de
+- [ ] 4 fuera el runtime de app (objetos, monton, superficie, lamina,
+- [ ] 5 el emisor pierde los caminos del monton y de los objetos; los docs
 - ... y 3 mas
 
 ## [`PLAN_RED_TX.md`](PLAN_RED_TX.md) -- 6 abiertas, 8 hechas

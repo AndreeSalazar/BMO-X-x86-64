@@ -24,16 +24,21 @@ use bmo_titan_contrato::{Certificate, Door};
 /// The certificate of a judged module: the doors, in source order.
 pub fn certificate(m: &Module) -> Certificate {
     let mut uses: Vec<(usize, Door)> = Vec::new();
-    for f in &m.functions {
-        // A dead block never runs: it opens no door (`Block::dead`).
-        for op in f.blocks.iter().filter(|b| !b.dead).flat_map(|b| &b.ops) {
-            if let Op::Write { at, .. } = op {
-                // `print`: the console of the program's own task.
-                uses.push((at.0, Door::Console));
-            }
+    // What the program really does (`Module::flat`, run when compiling): a
+    // line that never runs opens no door, and a line inside a loop opens it
+    // ONCE in the certificate, however many turns it writes.
+    let ops: Vec<&Op> = match &m.flat {
+        Some(flat) => flat.iter().collect(),
+        None => m.functions.iter().flat_map(|f| f.blocks.iter().filter(|b| !b.dead).flat_map(|b| &b.ops)).collect(),
+    };
+    for op in ops {
+        if let Op::Write { at, .. } = op {
+            // `print`: the console of the program's own task.
+            uses.push((at.0, Door::Console));
         }
     }
     uses.sort_by_key(|u| u.0);
+    uses.dedup();
     let mut c = Certificate::new();
     for (line, door) in uses {
         c.add(door, line.min(u16::MAX as usize) as u16);
@@ -56,7 +61,7 @@ pub fn manifest(m: &Module, source_name: &str) -> String {
     // U2, from the first `.bex`: the section is there and says what it asks.
     // Level 0 asks nothing -- writing on the console of one's own task is not
     // a permission -- and saying "nothing" is not the same as not saying.
-    t.push_str("# los niveles 0 a 3 no piden ninguno: escribir en la consola de la propia tarea no es un permiso\n");
+    t.push_str("# los niveles 0 a 4 no piden ninguno: escribir en la consola de la propia tarea no es un permiso\n");
     let mut buf = [0u8; 4096];
     if let Ok(n) = certificate(m).write(&mut buf) {
         t.push('\n');

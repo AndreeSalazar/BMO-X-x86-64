@@ -1,8 +1,0 @@
-# espera: T0040
-# `while` es del nivel 4: la escalera se sube de uno en uno
-mod main "repite"
-
-fn main()
-    let mut vidas = 3
-    while vidas > 0
-        vidas = vidas - 1

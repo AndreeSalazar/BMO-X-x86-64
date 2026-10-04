@@ -6,7 +6,7 @@
 # clave (`lista de T`), igual que `para` lo era en la tabla de la maquina. Daba
 # tres errores de sintaxis y nadie lo veia, porque el test del censo solo miraba
 # margenes y comillas: nunca preguntaba si la sonda se LEE.
-perfil pleno
+perfil llano
 
 funcion principal
     cosas = [1, 2, 3]

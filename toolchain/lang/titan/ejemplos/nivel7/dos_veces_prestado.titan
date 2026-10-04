@@ -1,0 +1,12 @@
+# espera: T0076
+# la regla de oro de FORTRAN, demostrada: un valor no se presta dos veces en una llamada
+mod main "dos nombres para una tabla"
+
+fn copia(mut a: [int; 2], mut b: [int; 2])
+    a[0] = b[0]
+    b[1] = a[1]
+
+fn main()
+    let mut t = [1, 2]
+    copia(mut t, mut t)
+    print(t)

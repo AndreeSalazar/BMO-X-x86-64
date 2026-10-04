@@ -110,6 +110,24 @@ pub fn comprobar(
     informe.arquitecturas = maquinas.iter().map(|x| x.nombre().to_string()).collect();
     let mut avisos_del_perfil: Vec<Aviso> = Vec::new();
 
+    // *** EL SAMURAI (2026-10-04): `pleno` se fue a TITAN++. Va lo PRIMERO,
+    // antes de juzgar nada: lo que se diga despues de un fichero `pleno`
+    // hablaria de un programa que INTI ya no construye.
+    if m.perfil == Perfil::Pleno || m.piezas.iter().any(|p| p.perfil == Perfil::Pleno) {
+        avisos_del_perfil.push(
+            Aviso::nuevo(
+                codigos::PLENO_ES_DE_TITAN,
+                "`perfil pleno` ya no es de INTI: las apps se construyen en TITAN++.".to_string(),
+                m.sitio_perfil,
+            )
+            .con_habia(
+                "INTI es el samurai de la CPU: emite codigo de maquina preciso y nada mas. Texto, listas, tablas, el decimal y el monton son para apps, y las apps son de TITAN++ (PLAN_INTI_SAMURAI.md).".to_string(),
+            )
+            .con_hacer("escribe `perfil llano`, o escribe la app en TITAN++"),
+        );
+        return Cosecha::con(informe, avisos_del_perfil);
+    }
+
     // ** LO PRIMERO: sabe este compilador bajar este perfil a bytes?
     //
     // Va antes de mirar nada porque no es una regla del programa, es una del

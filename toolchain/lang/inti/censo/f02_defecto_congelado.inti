@@ -1,4 +1,5 @@
-# sonda: f02_defecto_congelado   espera: COMPILA + la lista NO se acumula
+# sonda: f02_defecto_congelado   espera: E0077
+# era `COMPILA + la lista NO se acumula` -- escrita en `pleno`, que se fue a TITAN++ el 2026-10-04 (PLAN_INTI_SAMURAI.md)
 # fija: el valor por defecto se CONGELA al declarar la funcion. La sorpresa
 # numero 1 de Python no puede existir; intentar anadirle algo es E0032.
 perfil pleno

@@ -1,0 +1,29 @@
+# espera: BIEN
+# sale: cobrado 120.50, queda 379.50
+# sale: rechazado: faltan 20.50
+# sale: el resultado guarda su caso: true
+# sin null y sin excepciones: lo que puede salir mal es un CASO, y el `match` obliga a mirarlo
+mod main "un cobro que dice por que no"
+
+enum Cobro
+    Hecho(dec(9, 2))
+    Falta(dec(9, 2))
+
+fn cobra(saldo: dec(9, 2), importe: dec(9, 2)) -> Cobro
+    if importe > saldo
+        return Falta(importe - saldo)
+    return Hecho(saldo - importe)
+
+fn cuenta(c: Cobro, importe: dec(9, 2))
+    match c
+        Hecho(queda)
+            print("cobrado ", importe, ", queda ", queda)
+        Falta(cuanto)
+            print("rechazado: faltan ", cuanto)
+
+fn main()
+    let saldo: dec(9, 2) = 500.00
+    cuenta(cobra(saldo, 120.50), 120.50)
+    let mal = cobra(100.00, 120.50)
+    cuenta(mal, 120.50)
+    print("el resultado guarda su caso: ", mal == Falta(20.5))

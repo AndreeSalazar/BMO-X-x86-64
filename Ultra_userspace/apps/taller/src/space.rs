@@ -325,7 +325,7 @@ fn legend(c: &mut Canvas, sc: &Scene) {
                 line.num(tr.fns as u32).s(" fn (medida)  ").num(tr.lets as u32).s(" let (lunas)  ");
                 line.num(tr.muts as u32).s(" mut (anillos, ").num(tr.changes as u32).s(" cambios)  ");
                 line.num(tr.writes as u32).s(" print (paquetes)  ").num(tr.calls as u32).s(" llamadas (cometas)  ");
-                line.num(tr.ifs as u32).s(" if (doble)");
+                line.num(tr.ifs as u32).s(" if  ").num(tr.loops as u32).s(" bucles  ").num(tr.returns as u32).s(" return");
             }
         }
         Some((_, n)) => {

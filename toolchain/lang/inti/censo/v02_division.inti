@@ -1,4 +1,5 @@
-# sonda: v02_division         espera: COMPILA + SALIDA "2.5" y "2"
+# sonda: v02_division         espera: E0077
+# era `COMPILA + SALIDA "2.5" y "2"` -- escrita en `pleno`, que se fue a TITAN++ el 2026-10-04 (PLAN_INTI_SAMURAI.md)
 # fija: `/` divide de verdad, `entre` da cociente entero. Nombres distintos,
 # no dos simbolos que se parecen.
 perfil pleno

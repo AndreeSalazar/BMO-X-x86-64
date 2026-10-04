@@ -1,0 +1,19 @@
+# espera: BIEN
+# sale: antes: [5, 2, 9, 1, 7]
+# sale: despues: [1, 2, 5, 7, 9]
+# sale: el mayor es 9, en la celda 4
+# ordenar una tabla: la burbuja, celda a celda, con `mut`
+mod main "la burbuja del centauro"
+
+fn main()
+    let mut t = [5, 2, 9, 1, 7]
+    print("antes: ", t)
+    let n = len(t)
+    for i in range(n)
+        for j in range(n - 1 - i)
+            if t[j] > t[j + 1]
+                let menor = t[j + 1]
+                t[j + 1] = t[j]
+                t[j] = menor
+    print("despues: ", t)
+    print("el mayor es ", t[n - 1], ", en la celda ", n - 1)

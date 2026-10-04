@@ -38,7 +38,7 @@ fn says(src: &str) -> String {
 
 #[test]
 fn every_bien_program_of_every_level_runs_and_prints_what_it_says() {
-    for level in ["nivel0", "nivel1", "nivel2", "nivel3"] {
+    for level in ["nivel0", "nivel1", "nivel2", "nivel3", "nivel4", "nivel5", "nivel6", "nivel7", "nivel8"] {
         let ran = run_level(level);
         assert!(ran >= 2, "{} has programs that run", level);
     }

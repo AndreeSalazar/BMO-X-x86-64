@@ -43,10 +43,24 @@ pub enum Code {
     Retype,
     Gone,
     NotBool,
+    NoEnd,
+    OutsideLoop,
+    Args,
+    Result,
+    MissingReturn,
+    WrongType,
+    Outside,
+    Field,
+    Size,
+    Given,
+    Alias,
+    Mode,
+    Missing,
+    Case,
 }
 
 impl Code {
-    pub const ALL: [Code; 24] = [
+    pub const ALL: [Code; 38] = [
         Code::NoHeader,
         Code::Tab,
         Code::BadIndent,
@@ -71,6 +85,20 @@ impl Code {
         Code::Retype,
         Code::Gone,
         Code::NotBool,
+        Code::NoEnd,
+        Code::OutsideLoop,
+        Code::Args,
+        Code::Result,
+        Code::MissingReturn,
+        Code::WrongType,
+        Code::Outside,
+        Code::Field,
+        Code::Size,
+        Code::Given,
+        Code::Alias,
+        Code::Mode,
+        Code::Missing,
+        Code::Case,
     ];
 
     pub fn number(self) -> u16 {
@@ -99,6 +127,20 @@ impl Code {
             Code::Retype => 64,
             Code::Gone => 58,
             Code::NotBool => 65,
+            Code::NoEnd => 66,
+            Code::OutsideLoop => 67,
+            Code::Args => 68,
+            Code::Result => 69,
+            Code::MissingReturn => 70,
+            Code::WrongType => 71,
+            Code::Outside => 72,
+            Code::Field => 73,
+            Code::Size => 74,
+            Code::Given => 75,
+            Code::Alias => 76,
+            Code::Mode => 77,
+            Code::Missing => 78,
+            Code::Case => 79,
         }
     }
 
@@ -148,7 +190,7 @@ mod tests {
     #[test]
     fn every_code_has_its_own_number_and_they_do_not_move() {
         let numbers: Vec<u16> = Code::ALL.iter().map(|c| c.number()).collect();
-        assert_eq!(numbers, [1, 10, 12, 20, 21, 22, 30, 31, 40, 50, 51, 52, 53, 54, 55, 56, 60, 61, 62, 63, 57, 64, 58, 65]);
+        assert_eq!(numbers, [1, 10, 12, 20, 21, 22, 30, 31, 40, 50, 51, 52, 53, 54, 55, 56, 60, 61, 62, 63, 57, 64, 58, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]);
         assert_eq!(Code::BadIndent.label(), "T0012");
     }
 

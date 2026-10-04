@@ -8,8 +8,8 @@
 //! catalogue shows is what the package will look like, never a second drawing
 //! that could drift away from the first.
 
-use crate::aspecto::{self as look, GOLD};
-use crate::astros::{self, cable, centaur, double_star, emitter, protoplanet, pulsar, station, supernova, Cable, AMBER, CYAN};
+use crate::aspecto::{self as look, GOLD, LILAC};
+use crate::astros::{self, belt, cable, centaur, crystal, double_star, emitter, protoplanet, pulsar, station, supernova, Cable, AMBER, CYAN};
 use crate::canvas::Canvas;
 use crate::view::{BG, BLUE, DIM, EDGE, GOOD, INK, LEFT, PANEL, TITLE, TOP, VIOLET};
 use bmo_dibujo::{mezclar, Color, Lienzo};
@@ -25,10 +25,10 @@ struct Card {
 }
 
 const fn traits(fns: u8, lets: u8, muts: u8, changes: u8, writes: u8, calls: u8) -> Traits {
-    Traits { fns, lets, muts, changes, writes, calls, ifs: 0, lines: 9 }
+    Traits { fns, lets, muts, changes, writes, calls, ifs: 0, loops: 0, returns: calls, types: 0, lines: 9 }
 }
 
-const CARDS: [Card; 13] = [
+const CARDS: [Card; 15] = [
     Card {
         name: b"EL CENTAURO",
         is: b"el paquete: su Titan.toml",
@@ -70,7 +70,7 @@ const CARDS: [Card; 13] = [
     Card {
         name: b"COMETAS",
         is: b"sus llamadas a otras fn",
-        why: b"dan la vuelta y vuelven: una llamada sale y regresa a su sitio",
+        why: b"dan la vuelta y vuelven: una llamada sale y regresa; con return vuelve CARGADA, con la cabeza encendida",
         color: TITLE,
         draw: |c, x, y, t| astros::planet(c, x, y, 14, b"physics", traits(2, 0, 0, 0, 0, 2), t),
     },
@@ -82,6 +82,26 @@ const CARDS: [Card; 13] = [
         draw: |c, x, y, t| {
             astros::planet(c, x - 14, y, 14, b"semaforo", traits(1, 1, 0, 0, 1, 0), t);
             double_star(c, x + 18, y + 4, 2, t);
+        },
+    },
+    Card {
+        name: b"CINTURON",
+        is: b"sus while y for: repite",
+        why: b"rocas que dan la vuelta sin parar; un bucle dentro de otro gira al reves, dentro del suyo",
+        color: LILAC,
+        draw: |c, x, y, t| {
+            astros::planet(c, x, y, 14, b"fisica", traits(1, 0, 1, 1, 0, 0), t);
+            belt(c, x, y, 14, 2, t);
+        },
+    },
+    Card {
+        name: b"CRISTAL",
+        is: b"sus type: registros",
+        why: b"un valor con caras, sus campos: gira y enciende una cara cada vez; tablas y dec exactos van dentro",
+        color: CYAN,
+        draw: |c, x, y, t| {
+            astros::planet(c, x + 10, y, 14, b"flota", traits(1, 1, 0, 0, 0, 0), t);
+            crystal(c, x - 18, y - 4, 2, t);
         },
     },
     Card {
