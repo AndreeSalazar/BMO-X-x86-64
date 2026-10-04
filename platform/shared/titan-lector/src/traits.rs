@@ -11,7 +11,8 @@
 //!    mut      values that change       its RINGS, turning (the `mut` element)
 //!    changes  `x = ...` lines          how fast the rings turn
 //!    writes   `print(...)`             a BEAM to the console: it SENDS
-//!    calls    other calls              its comets
+//!    calls    other calls, and         its comets
+//!             `ship.f()` (level 9)
 //!    ifs      `if` / `else if`, and    a DOUBLE STAR: two ways, one lit
 //!             `match` (level 8)
 //!    loops    `while` / `for`          a BELT of rocks that goes round
@@ -86,6 +87,8 @@ pub fn scan(text: &[u8]) -> Traits {
         }
         body = true;
         t.lines = t.lines.saturating_add(1);
+        // `pub fn`, `pub type`, `pub enum` (level 9) count as what they are.
+        let line = line.strip_prefix(b"pub ").unwrap_or(line);
         if line.starts_with(b"fn ") {
             bump(&mut t.fns);
         } else if line.starts_with(b"type ") || line.starts_with(b"enum ") {
@@ -101,7 +104,11 @@ pub fn scan(text: &[u8]) -> Traits {
         } else if line.starts_with(b"let ") {
             bump(&mut t.lets);
         } else if let Some((word, rest)) = name(line) {
-            if rest.starts_with(b"(") {
+            // `ship.avanza()` (level 9): a call into another module.
+            let into = rest.strip_prefix(b".").and_then(name).filter(|(_, r)| r.starts_with(b"("));
+            if into.is_some() {
+                bump(&mut t.calls);
+            } else if rest.starts_with(b"(") {
                 if word == b"print" {
                     bump(&mut t.writes);
                 } else {
@@ -147,6 +154,12 @@ mod tests {
     fn every_type_is_a_crystal() {
         let t = scan(b"mod a \"x\"\ntype Nave\n    x: dec\ntype Roca\n    r: int\nfn main()\n    print(1)\n");
         assert_eq!((t.types, t.fns, t.writes), (2, 1, 1));
+    }
+
+    #[test]
+    fn what_is_pub_counts_as_what_it_is() {
+        let t = scan(b"mod a \"x\"\npub type Nave\n    x: dec\npub fn f()\n    print(1)\nfn g()\n    print(2)\n");
+        assert_eq!((t.types, t.fns, t.writes), (1, 2, 2));
     }
 
     #[test]

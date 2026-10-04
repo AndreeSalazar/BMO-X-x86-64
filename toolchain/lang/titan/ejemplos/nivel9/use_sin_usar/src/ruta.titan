@@ -1,0 +1,5 @@
+mod ruta "la ruta de la nave"
+use nave
+
+pub fn viaja()
+    print("viaja sola")

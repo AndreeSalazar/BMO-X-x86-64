@@ -10,7 +10,7 @@
 //! that sneaks in without its level, or a 31st, stops `cargo test` here.
 
 /// The level this frontend understands today. Everything above says "not yet".
-pub const LEVEL_NOW: u8 = 8;
+pub const LEVEL_NOW: u8 = 9;
 
 /// The ceiling (TITAN_MAESTRO 4.4). A new word gets in only if it removes a
 /// confusion, and it goes through here.

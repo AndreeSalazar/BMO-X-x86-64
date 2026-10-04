@@ -41,7 +41,7 @@
 
 use crate::lex::{Kind, Token};
 use crate::message::{Code, Message};
-use crate::tree::{Arm, Call, Case, EnumDef, Expr, For, Function, If, Let, Mode, Param, Program, Step, Stmt, Ty, TypeDef, While};
+use crate::tree::{Arm, Call, Case, Child, EnumDef, Expr, For, Function, If, Let, Mode, Param, Program, Step, Stmt, Ty, TypeDef, Use, While};
 use crate::words::{self, LEVEL_NOW};
 
 struct Parser<'a> {
@@ -83,6 +83,20 @@ impl<'a> Parser<'a> {
         &self.t[self.at.min(self.t.len() - 1)]
     }
 
+    /// The token `k` places ahead, without taking it.
+    fn ahead(&self, k: usize) -> &'a Token {
+        &self.t[(self.at + k).min(self.t.len() - 1)]
+    }
+
+    /// `x.y` starts here (a module's name, a dot, a name): what level 9
+    /// writes to reach into another module. `ship.avanza(...)`.
+    fn qualified(&self) -> Option<String> {
+        match (&self.peek().kind, &self.ahead(1).kind) {
+            (Kind::Sym("."), Kind::Name(n)) if LEVEL_NOW >= 9 => Some(n.clone()),
+            _ => None,
+        }
+    }
+
     fn next(&mut self) -> &'a Token {
         let tok = self.peek();
         self.at += 1;
@@ -105,7 +119,7 @@ impl<'a> Parser<'a> {
         match &tok.kind {
             Kind::Word(w) => {
                 let level = words::find(w).map(|x| x.level).unwrap_or(0);
-                (level > LEVEL_NOW).then(|| not_yet(tok, &format!("`{}`", w), level, "por ahora: llamadas, `let`, `if`, bucles, `fn` con `return`, `type`, `enum` y `match`, en un solo fichero"))
+                (level > LEVEL_NOW).then(|| not_yet(tok, &format!("`{}`", w), level, "por ahora: llamadas, `let`, `if`, bucles, `fn` con `return`, `type`, `enum`, `match` y paquetes de varios ficheros (`mod`, `use`, `pub`)"))
             }
             Kind::Number(n) if n.contains('.') && LEVEL_NOW < 6 => Some(not_yet(tok, "un decimal", 6, "por ahora, numeros enteros: los decimales EXACTOS (dec) llegan con los tipos")),
             Kind::Sym("->") if LEVEL_NOW < 5 => Some(not_yet(tok, "una funcion que devuelve algo", 5, "por ahora, `fn nombre()` sin `->`")),
@@ -204,7 +218,7 @@ impl<'a> Parser<'a> {
         }
         let _ = fn_tok;
         let body = self.block(fn_tok, &format!("`fn {}()`", name), &format!("fn {}()\n             print(\"hola\")", name))?;
-        Ok(Function { name: name.clone(), line: fn_tok.line, col: fn_tok.col, params, ret, body })
+        Ok(Function { name: name.clone(), public: false, line: fn_tok.line, col: fn_tok.col, params, ret, body })
     }
 
     /// A type: `int`, `text`, `bool`, `dec`, `[T; n]` or the name of a
@@ -261,7 +275,15 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Ty::Table(Box::new(inner), n))
             }
-            Kind::Name(n) if LEVEL_NOW >= 6 => Ok(Ty::Named(n.clone())),
+            Kind::Name(n) if LEVEL_NOW >= 6 => match self.qualified() {
+                // `ship.Nave`: a type of another module (level 9).
+                Some(inner) => {
+                    self.next();
+                    self.next();
+                    Ok(Ty::Named(format!("{}.{}", n, inner)))
+                }
+                None => Ok(Ty::Named(n.clone())),
+            },
             _ => Err(self.expected(t, "un tipo: int, text, bool, dec, [int; 3] o el nombre de un `type`", example)),
         }
     }
@@ -311,7 +333,7 @@ impl<'a> Parser<'a> {
             cases.push(Case { name: cname.clone(), fields, line: c.line, col: c.col });
         }
         self.next();
-        Ok(EnumDef { name: name.clone(), line: tok.line, col: tok.col, cases })
+        Ok(EnumDef { name: name.clone(), public: false, line: tok.line, col: tok.col, cases })
     }
 
     /// `match VALUE` and its arms: `Caso` or `Caso(a, b)`, each with its
@@ -331,6 +353,15 @@ impl<'a> Parser<'a> {
             let c = self.next();
             let Kind::Name(case) = &c.kind else {
                 return Err(self.expected(c, "el nombre de un caso", "Circulo(r)  o  Nada"));
+            };
+            // `forma.Circulo(r)`: a case of an enum of another module (9).
+            let case = &match self.qualified() {
+                Some(inner) => {
+                    self.next();
+                    self.next();
+                    format!("{}.{}", case, inner)
+                }
+                None => case.clone(),
             };
             if case == "_" {
                 return Err(Message::new(
@@ -403,7 +434,7 @@ impl<'a> Parser<'a> {
             fields.push(Param { name: fname.clone(), ty, mode: Mode::Copy, line: f.line, col: f.col });
         }
         self.next();
-        Ok(TypeDef { name: name.clone(), line: tok.line, col: tok.col, fields })
+        Ok(TypeDef { name: name.clone(), public: false, line: tok.line, col: tok.col, fields })
     }
 
     /// NEWLINE INDENT stmt+ DEDENT: the body of whatever `opener` opens (a
@@ -597,6 +628,15 @@ impl<'a> Parser<'a> {
                 _ => self.expected(tok, "una llamada, un `let` o un `if`", "print(\"hola\")  o  let area = 3 * 4"),
             });
         };
+        // `ship.avanza(...)`: a call into another module (level 9).
+        let callee = &match self.qualified() {
+            Some(inner) if self.ahead(2).kind == Kind::Sym("(") => {
+                self.next();
+                self.next();
+                format!("{}.{}", callee, inner)
+            }
+            _ => callee.clone(),
+        };
         let mut open = self.next();
         if matches!(open.kind, Kind::Sym("[") | Kind::Sym(".")) && LEVEL_NOW >= 6 {
             // `a[i] = v`, `nave.x = v`: a part of a value changes.
@@ -766,7 +806,21 @@ impl<'a> Parser<'a> {
 
     fn primary(&mut self) -> Result<Expr, Message> {
         let tok = self.next();
-        match &tok.kind {
+        // `ship.avanza(...)` and `ship.Nave { ... }`: into another module
+        // (level 9), read as ONE name from here on. A bare `forma.Nada` stays
+        // a field here; the package (`paquete.rs`) knows `forma` is a module.
+        let joined;
+        let kind = match &tok.kind {
+            Kind::Name(m) if self.qualified().is_some() && matches!(self.ahead(2).kind, Kind::Sym("(") | Kind::Sym("{")) => {
+                let inner = self.qualified().expect("the guard");
+                self.next();
+                self.next();
+                joined = Kind::Name(format!("{}.{}", m, inner));
+                &joined
+            }
+            k => k,
+        };
+        match kind {
             Kind::Sym("(") => {
                 let e = self.expr()?;
                 let close = self.next();
@@ -938,19 +992,104 @@ impl Parser<'_> {
     }
 }
 
+impl Parser<'_> {
+    /// The lines of the header after its first (level 9), in any order and
+    /// as many as needed: `use a, b` and `mod a, b` / `mod a in "path"`. The
+    /// SAME grammar titan-lector reads for F1 (`header.rs`), so a file the
+    /// compiler accepts is never a red node in the graph.
+    fn header_lines(&mut self) -> Result<(Vec<Use>, Vec<Child>), Message> {
+        let (mut uses, mut children) = (Vec::new(), Vec::new());
+        while LEVEL_NOW >= 9 && matches!(self.peek().kind, Kind::Word("use") | Kind::Word("mod")) {
+            let word = self.next();
+            loop {
+                let n = self.next();
+                let name = match &n.kind {
+                    Kind::Name(x) if x.starts_with(|c: char| c.is_ascii_lowercase()) => x.clone(),
+                    // `use gpu`: the 3060's node in F1. `gpu` is a word (of
+                    // level 11, `gpu fn`), and here it names that node.
+                    Kind::Word("gpu") if word.kind == Kind::Word("use") => "gpu".to_string(),
+                    _ => return Err(self.expected(n, "el nombre de un modulo, en minusculas", if word.kind == Kind::Word("use") { "use nave, roca" } else { "mod nave, roca" })),
+                };
+                if word.kind == Kind::Word("use") {
+                    uses.push(Use { name, line: n.line, col: n.col });
+                } else if let Kind::Text(_) = self.peek().kind {
+                    let t = self.peek();
+                    return Err(Message::new(
+                        Code::Expected,
+                        t.line,
+                        t.col,
+                        &format!("`mod {}` con un texto detras es OTRA cabecera", name),
+                        "un fichero es UN modulo: su cabecera es la primera linea, y debajo solo van sus hijos y sus `use`",
+                        &format!("para decir donde vive un hijo: mod {} in \"carpeta/{}.titan\"", name, name),
+                    ));
+                } else if self.peek().kind == Kind::Word("in") {
+                    self.next();
+                    let path_tok = self.next();
+                    let Kind::Text(path) = &path_tok.kind else {
+                        return Err(self.expected(path_tok, "la ruta del fichero, entre comillas", &format!("mod {} in \"reglas/{}.titan\"", name, name)));
+                    };
+                    children.push(Child { name, path: Some(path.clone()), line: n.line, col: n.col });
+                } else {
+                    children.push(Child { name, path: None, line: n.line, col: n.col });
+                }
+                let sep = self.next();
+                match sep.kind {
+                    Kind::Sym(",") => continue,
+                    Kind::Newline => break,
+                    _ => return Err(self.expected(sep, "`,` o el final de la linea", "use nave, roca")),
+                }
+            }
+        }
+        Ok((uses, children))
+    }
+}
+
 pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
     let mut p = Parser { t: tokens, at: 0, loops: 0 };
     let (module, purpose) = p.header()?;
+    let (uses, children) = p.header_lines()?;
     let mut functions = Vec::new();
     let mut types = Vec::new();
     let mut enums = Vec::new();
     loop {
         let tok = p.peek();
+        // `pub fn`, `pub type`, `pub enum` (level 9): seen from outside.
+        let public = tok.kind == Kind::Word("pub") && LEVEL_NOW >= 9;
+        if public {
+            p.next();
+            let next = p.peek();
+            if !matches!(next.kind, Kind::Word("fn") | Kind::Word("type") | Kind::Word("enum")) {
+                return Err(p.expected(next, "una `fn`, un `type` o un `enum` detras de `pub`", "pub fn avanza()"));
+            }
+        }
+        let tok = p.peek();
         match &tok.kind {
             Kind::End => break,
-            Kind::Word("fn") => functions.push(p.function()?),
-            Kind::Word("type") if LEVEL_NOW >= 6 => types.push(p.typedef()?),
-            Kind::Word("enum") if LEVEL_NOW >= 8 => enums.push(p.enumdef()?),
+            Kind::Word("fn") => {
+                let mut f = p.function()?;
+                f.public = public;
+                functions.push(f);
+            }
+            Kind::Word("type") if LEVEL_NOW >= 6 => {
+                let mut t = p.typedef()?;
+                t.public = public;
+                types.push(t);
+            }
+            Kind::Word("enum") if LEVEL_NOW >= 8 => {
+                let mut e = p.enumdef()?;
+                e.public = public;
+                enums.push(e);
+            }
+            Kind::Word("use" | "mod") if LEVEL_NOW >= 9 => {
+                return Err(Message::new(
+                    Code::Expected,
+                    tok.line,
+                    tok.col,
+                    "esta linea es de la cabecera, y la cabecera va arriba",
+                    "un modulo dice quien es, sus hijos y con quien habla ANTES de su primera `fn`: quien abre el fichero lo ve sin bajar",
+                    "subela justo debajo de la linea `mod ... \"...\"`",
+                ))
+            }
             Kind::Indent => {
                 return Err(Message::new(
                     Code::BadIndent,
@@ -968,5 +1107,5 @@ pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
             }
         }
     }
-    Ok(Program { module, purpose, functions, types, enums })
+    Ok(Program { module, purpose, functions, types, enums, uses, children })
 }

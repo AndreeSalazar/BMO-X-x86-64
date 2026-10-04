@@ -116,6 +116,9 @@ const BANCO: &[(&str, &str)] = &[
     // Nivel 8 (04-10): enum con datos y match exhaustivo.
     ("titan", "toolchain/lang/titan/ejemplos/nivel8/formas.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel8/pago.titan"),
+    // Nivel 9 (04-10): paquetes de varios ficheros, con `mod`, `use` y `pub`.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel9/flota/src/main.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel9/tienda/src/main.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -153,9 +156,16 @@ fn compilar(lenguaje: &str, ruta: &Path, rel: &str, fuente: &str) -> Result<Vec<
         "inti" => bmo_inti_x86_64::cadena::compilar(fuente, rel, &bmo_mods::Roots::find())
             .map(|c| c.bytes)
             .map_err(|e| e.to_string()),
-        // TITAN++ por su cadena entera (`build`: frontend, juez, calculo,
-        // emisor y el gate del manifiesto), con el nombre del fichero.
-        "titan" => bmo_titan_x86_64::build(fuente, &nombre).map_err(|e| format!("{e:?}")),
+        // TITAN++ por su cadena entera (`build_package`: frontend, juez,
+        // calculo, emisor y el gate del manifiesto). Un PAQUETE (nivel 9)
+        // empieza en la carpeta de encima de la del fichero, como en F1; un
+        // fichero solo es un paquete de un modulo, con el mismo manifiesto.
+        "titan" => {
+            let carpeta = ruta.parent().map(|p| p.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string()).unwrap_or_default();
+            let base = ruta.parent().and_then(Path::parent).map(Path::to_path_buf).unwrap_or_default();
+            bmo_titan_x86_64::build_package(&format!("{carpeta}/{nombre}"), fuente, &mut |p| std::fs::read_to_string(base.join(p)).ok())
+                .map_err(|e| format!("{e:?}"))
+        }
         otro => Err(format!("lenguaje desconocido `{otro}`")),
     }
 }

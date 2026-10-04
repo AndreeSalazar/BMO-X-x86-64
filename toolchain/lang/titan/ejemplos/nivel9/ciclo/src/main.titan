@@ -1,0 +1,7 @@
+# espera: T0084
+# las capas solo BAJAN: nave usa a ruta y ruta usa a nave
+mod main "dos modulos que se llaman entre si"
+mod nave, ruta
+
+fn main()
+    nave.avanza()

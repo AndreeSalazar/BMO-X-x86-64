@@ -1,0 +1,5 @@
+mod nave "la nave"
+use ruta
+
+pub fn avanza()
+    ruta.sigue()

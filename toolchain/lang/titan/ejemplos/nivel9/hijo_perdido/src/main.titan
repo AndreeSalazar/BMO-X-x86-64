@@ -1,0 +1,7 @@
+# espera: T0083
+# `mod motor` promete un fichero src/motor.titan, y no esta
+mod main "un hijo que no existe"
+mod motor
+
+fn main()
+    motor.arranca()

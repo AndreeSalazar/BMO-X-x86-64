@@ -57,10 +57,15 @@ pub enum Code {
     Mode,
     Missing,
     Case,
+    Undeclared,
+    Unused,
+    Private,
+    NoModule,
+    Cycle,
 }
 
 impl Code {
-    pub const ALL: [Code; 38] = [
+    pub const ALL: [Code; 43] = [
         Code::NoHeader,
         Code::Tab,
         Code::BadIndent,
@@ -99,6 +104,11 @@ impl Code {
         Code::Mode,
         Code::Missing,
         Code::Case,
+        Code::Undeclared,
+        Code::Unused,
+        Code::Private,
+        Code::NoModule,
+        Code::Cycle,
     ];
 
     pub fn number(self) -> u16 {
@@ -141,6 +151,11 @@ impl Code {
             Code::Mode => 77,
             Code::Missing => 78,
             Code::Case => 79,
+            Code::Undeclared => 80,
+            Code::Unused => 81,
+            Code::Private => 82,
+            Code::NoModule => 83,
+            Code::Cycle => 84,
         }
     }
 
@@ -160,11 +175,14 @@ pub struct Message {
     pub col: usize,
     pub why: String,
     pub how: String,
+    /// The file of the package the NO is in (level 9): its path from the
+    /// package, set when the message is located (`paquete.rs`).
+    pub file: Option<String>,
 }
 
 impl Message {
     pub fn new(code: Code, line: usize, col: usize, what: &str, why: &str, how: &str) -> Message {
-        Message { code, what: what.into(), line, col, why: why.into(), how: how.into() }
+        Message { code, what: what.into(), line, col, why: why.into(), how: how.into(), file: None }
     }
 
     /// The four parts, with the source line and a caret under the spot.
@@ -190,7 +208,7 @@ mod tests {
     #[test]
     fn every_code_has_its_own_number_and_they_do_not_move() {
         let numbers: Vec<u16> = Code::ALL.iter().map(|c| c.number()).collect();
-        assert_eq!(numbers, [1, 10, 12, 20, 21, 22, 30, 31, 40, 50, 51, 52, 53, 54, 55, 56, 60, 61, 62, 63, 57, 64, 58, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]);
+        assert_eq!(numbers, [1, 10, 12, 20, 21, 22, 30, 31, 40, 50, 51, 52, 53, 54, 55, 56, 60, 61, 62, 63, 57, 64, 58, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84]);
         assert_eq!(Code::BadIndent.label(), "T0012");
     }
 

@@ -1,0 +1,7 @@
+# espera: T0080
+# un modulo dice ARRIBA con quien habla: `ruta` llama a `nave` y su cabecera no lo dice
+mod main "un cable sin dibujar"
+mod nave, ruta
+
+fn main()
+    ruta.viaja()

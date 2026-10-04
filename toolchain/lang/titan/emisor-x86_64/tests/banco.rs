@@ -13,19 +13,26 @@
 //! (`toolchain/lang/titan/tests/banco.rs`); here a NO must write nothing.
 
 use bmo_lower::emu::{cargar_bex, run};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-fn examples(level: &str) -> Vec<(String, String, String)> {
+/// Every example of a level: (name, what it expects, its root's text, the
+/// folder its paths start from, its root's path from there). A FOLDER is a
+/// package (level 9), its root `src/main.titan`.
+fn examples(level: &str) -> Vec<(String, String, String, PathBuf, String)> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("ejemplos").join(level);
     let mut out = Vec::new();
     for entry in std::fs::read_dir(&dir).expect("the bench folder") {
         let path = entry.unwrap().path();
-        if path.extension().and_then(|e| e.to_str()) != Some("titan") {
+        let (base, root) = if path.is_dir() {
+            (path.clone(), "src/main.titan".to_string())
+        } else if path.extension().and_then(|e| e.to_str()) == Some("titan") {
+            (dir.clone(), path.file_name().unwrap().to_string_lossy().into_owned())
+        } else {
             continue;
-        }
-        let src = std::fs::read_to_string(&path).unwrap();
+        };
+        let src = std::fs::read_to_string(base.join(&root)).unwrap();
         let want = src.lines().next().and_then(|l| l.strip_prefix("# espera: ")).unwrap().trim().to_string();
-        out.push((path.file_name().unwrap().to_string_lossy().into_owned(), want, src));
+        out.push((path.file_name().unwrap().to_string_lossy().into_owned(), want, src, base, root));
     }
     out.sort();
     out
@@ -38,7 +45,7 @@ fn says(src: &str) -> String {
 
 #[test]
 fn every_bien_program_of_every_level_runs_and_prints_what_it_says() {
-    for level in ["nivel0", "nivel1", "nivel2", "nivel3", "nivel4", "nivel5", "nivel6", "nivel7", "nivel8"] {
+    for level in ["nivel0", "nivel1", "nivel2", "nivel3", "nivel4", "nivel5", "nivel6", "nivel7", "nivel8", "nivel9"] {
         let ran = run_level(level);
         assert!(ran >= 2, "{} has programs that run", level);
     }
@@ -46,8 +53,8 @@ fn every_bien_program_of_every_level_runs_and_prints_what_it_says() {
 
 fn run_level(level: &str) -> usize {
     let mut ran = 0;
-    for (name, want, src) in examples(level) {
-        let built = bmo_titan_x86_64::build(&src, &name);
+    for (name, want, src, dir, root) in examples(level) {
+        let built = bmo_titan_x86_64::build_package(&root, &src, &mut |p| std::fs::read_to_string(dir.join(p)).ok());
         if want != "BIEN" {
             assert!(built.is_err(), "{}: a NO program must write no .bex", name);
             continue;

@@ -1,0 +1,7 @@
+# espera: T0081
+# el otro lado de U3: un `use` que no lleva nada es una dependencia que no existe
+mod main "un cable a ninguna parte"
+mod nave, ruta
+
+fn main()
+    ruta.viaja()

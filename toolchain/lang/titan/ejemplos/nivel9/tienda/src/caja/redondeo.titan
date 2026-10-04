@@ -1,0 +1,4 @@
+mod redondeo "lleva un importe a centimos, a la vista"
+
+pub fn centimos(x: dec) -> dec(9, 2)
+    return round(x, 2)

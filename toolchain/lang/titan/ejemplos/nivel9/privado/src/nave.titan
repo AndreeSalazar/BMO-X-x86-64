@@ -1,0 +1,4 @@
+mod nave "la nave"
+
+fn gasto()
+    print("6.00")

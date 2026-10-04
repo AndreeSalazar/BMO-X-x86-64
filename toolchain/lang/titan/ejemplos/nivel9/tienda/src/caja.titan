@@ -1,0 +1,11 @@
+mod caja "suma la compra y le pone el iva"
+mod redondeo
+
+pub fn total(precios: [dec; 3]) -> dec(9, 2)
+    let mut s = 0.000
+    for p in precios
+        s = s + p
+    return redondeo.centimos(s)
+
+pub fn con_iva(importe: dec(9, 2)) -> dec(9, 2)
+    return redondeo.centimos(importe * 1.21)

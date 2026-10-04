@@ -1771,3 +1771,35 @@ ANFITRION el 04-10** (`take`, 18 palabras):
   estrella doble (varios caminos, uno encendido).
 - 🟡 en el emulador; el banco corre formas con su area, un semaforo y un
   cobro que dice por que no.
+
+**NIVEL 9 -- VARIOS FICHEROS, HECHO EN EL ANFITRION el 04-10** (`mod`, `use`,
+`pub`, 23 palabras):
+
+```text
+   la cabecera       mod nave "que hace"   quien es (la primera linea)
+                     mod a, b              sus hijos, donde cargo los pondria
+                     mod a in "x/a.titan"  ... o donde el PADRE diga
+                     use nave, gpu         con quien habla
+   el cuerpo         pub fn / type / enum  lo que se ve desde fuera
+                     nave.salta(mut c)     modulo.cosa: fn, tipo, registro, caso
+```
+
+- **U3 la cumple el compilador, en los dos sentidos**: llamar a un modulo que
+  la cabecera no dice es T0080, y un `use` del que no se usa nada es T0081.
+  Lo que no es `pub` no se llama desde fuera (T0082). Un `mod` sin su
+  fichero, T0083. Y **las capas solo bajan**: un ciclo de `use` es T0084, con
+  el camino escrito -- la ley L8, que hoy vigilan guardianes de Python sobre
+  el Rust, dentro del compilador.
+- **El mismo arbol que F1**: los ficheros se encuentran como los encuentra
+  titan-lector (siguiendo `mod`, nunca listando carpetas), y la semilla de F1
+  (`asteroids`) compila entera.
+- **Como**: `paquete.rs` lee los ficheros, comprueba la cabecera contra el
+  cuerpo, da a cada cosa su nombre entero (`nave.salta`) y junta los modulos en
+  UN programa. Los nombres, el juez y el calculo no cambian: no saben que habia
+  varios ficheros. Las lineas se cuentan seguidas por el paquete (el mapa de
+  fuentes de rustc) y cada NO vuelve a su fichero y su linea.
+- [!] El certificado del `.bex` nombra la linea en la cuenta del PAQUETE: para
+  un `print` fuera de main todavia no dice el fichero. Se arregla cuando el
+  certificado sepa de ficheros.
+- 🟡 en el emulador; el banco corre una flota repartida en tres modulos y una
+  caja con un hijo en su carpeta (`caja/redondeo.titan`).

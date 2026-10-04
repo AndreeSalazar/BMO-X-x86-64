@@ -1,0 +1,17 @@
+mod nave "una nave: su combustible y sus saltos"
+
+pub type Nave
+    nombre: text
+    combustible: dec(5, 2)
+    saltos: int
+
+pub fn nueva(nombre: text, combustible: dec(5, 2)) -> Nave
+    return Nave { nombre: nombre, combustible: combustible, saltos: 0 }
+
+pub fn salta(mut n: Nave)
+    n.combustible = n.combustible - gasto()
+    n.saltos = n.saltos + 1
+
+# sin `pub`: es de nave, y nave puede cambiarlo sin romper a nadie
+fn gasto() -> dec(5, 2)
+    return 6.00

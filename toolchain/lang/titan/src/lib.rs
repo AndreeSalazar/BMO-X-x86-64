@@ -16,6 +16,8 @@
 //!    lex       de texto a piezas. No conoce la gramatica
 //!    tree      la forma de un programa. Cero decisiones
 //!    parse     la gramatica del nivel de hoy; lo de arriba dice en que nivel llega
+//!    paquete   varios ficheros, UN programa (nivel 9): sigue los `mod`, compara
+//!              cada `use` con lo que de verdad se llama, `pub`, sin ciclos
 //!    check     los nombres: `main`, una vez cada fn, que cada llamada exista
 //!              y que ninguna vuelva sobre si misma (T0053)
 //!    ir        lo que el programa HACE, sin maquina: la IR PROPIA (T3)
@@ -50,6 +52,7 @@ pub mod juez;
 pub mod manifest;
 pub mod lex;
 pub mod message;
+pub mod paquete;
 pub mod parse;
 pub mod tree;
 pub mod words;
@@ -57,21 +60,40 @@ pub mod words;
 pub use message::{Code, Message};
 pub use tree::Program;
 
-/// El frontend entero: texto -> arbol comprobado, o el primer NO.
+/// El frontend entero: texto -> arbol comprobado, o el primer NO. Un fichero
+/// solo es un paquete de un modulo: si dice `mod hijo`, el hijo no esta.
 pub fn compile(src: &str) -> Result<Program, Message> {
-    let tokens = lex::lex(src)?;
-    let program = parse::parse(&tokens)?;
-    check::check(&program)?;
-    Ok(program)
+    compile_package("main.titan", src, &mut |_| None)
 }
 
 /// Texto -> IR juzgada y calculada: lo que recibe el emisor. Despues del
 /// arbol, EL JUEZ (`juez.rs`) dice si cada valor existe y puede lo que se le
 /// pide; despues, `calc.rs` lo calcula. Cada paso, su primer NO.
 pub fn lower(src: &str) -> Result<ir::Module, Message> {
-    let m = ir::lower(&compile(src)?);
-    juez::judge(&m)?;
-    calc::fold(&m)
+    lower_package("main.titan", src, &mut |_| None)
+}
+
+/// ** UN PAQUETE (nivel 9): el fichero raiz (`root`, su ruta desde el
+/// paquete, y su texto), y `read` para los demas, por su ruta desde el
+/// paquete. Los modulos se juntan en UN programa (`paquete.rs`) y desde ahi
+/// todo es como con un fichero. El NO llega con su fichero (`Message::file`)
+/// y su linea en el.
+pub fn compile_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<Program, Message> {
+    let pkg = paquete::load(root, src, read)?;
+    let program = paquete::join(&pkg)?;
+    check::check(&program).map_err(|m| pkg.locate(m))?;
+    Ok(program)
+}
+
+/// El paquete hasta la IR juzgada y calculada.
+pub fn lower_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<ir::Module, Message> {
+    let pkg = paquete::load(root, src, read)?;
+    let program = paquete::join(&pkg)?;
+    let at = |m: Message| pkg.locate(m);
+    check::check(&program).map_err(at)?;
+    let m = ir::lower(&program);
+    juez::judge(&m).map_err(at)?;
+    calc::fold(&m).map_err(at)
 }
 
 #[cfg(test)]
@@ -95,8 +117,8 @@ mod tests {
         assert_eq!(e.what, "`trait` llega en el nivel 10 (comportamientos)");
         let e = compile("mod main \"x\"\nfn f(x: f32)\n    print(1)\nfn main()\n    f(1)\n").unwrap_err();
         assert_eq!(e.what, "el tipo `f32` llega en el nivel 11 (la 3060)");
-        let e = compile("mod main \"x\"\nfn main()\n    use nave\n").unwrap_err();
-        assert_eq!(e.what, "`use` llega en el nivel 9 (varios ficheros)");
+        let e = compile("mod main \"x\"\nfn main()\n    gpu suma\n").unwrap_err();
+        assert_eq!(e.what, "`gpu` llega en el nivel 11 (la 3060)");
     }
 
     #[test]

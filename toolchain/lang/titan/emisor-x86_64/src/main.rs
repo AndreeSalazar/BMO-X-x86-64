@@ -10,6 +10,9 @@
 //!                                           compara con lo pedido y lo dado
 //! ```
 //!
+//! Desde el nivel 9 el FICHERO es la raiz de un paquete: `titan check
+//! flota/src/main.titan` sigue sus `mod` desde `flota/`, como F1.
+//!
 //! ** Vive en el crate del EMISOR desde T3 (2026-10-04) por el mismo motivo
 //! que `inti`: `build` produce bytes de UNA maquina, y el frontend tiene
 //! prohibido nombrar ninguna.
@@ -48,28 +51,33 @@ fn main() -> ExitCode {
         Ok(s) => s,
         Err(e) => return fail(&format!("no pude leer {}: {}", file, e)),
     };
+    // ** EL PAQUETE (nivel 9): sus rutas empiezan en la carpeta de encima de
+    // la del fichero (`asteroids/` para `asteroids/src/main.titan`), como en
+    // F1. Un fichero que no dice `mod hijo` es un paquete de un modulo.
+    let (dir, root) = package_of(file);
+    let mut read = |p: &str| std::fs::read_to_string(dir.join(p)).ok();
 
     match order.as_str() {
         "check" | "arbol" | "ir" => {
-            let p = match bmo_titan_front::compile(&src) {
+            let p = match bmo_titan_front::compile_package(&root, &src, &mut read) {
                 Ok(p) => p,
-                Err(m) => return no(&m, file, &src, false),
+                Err(m) => return no(&m, &dir, &root, &src, false),
             };
             match order.as_str() {
                 "check" => {
                     // `check` judges the whole frontend: tree, names, the
                     // checker and the calculation -- not only the tree.
-                    if let Err(m) = bmo_titan_front::lower(&src) {
-                        return no(&m, file, &src, false);
+                    if let Err(m) = bmo_titan_front::lower_package(&root, &src, &mut read) {
+                        return no(&m, &dir, &root, &src, false);
                     }
                     let calls: usize = p.functions.iter().map(|f| lines(&f.body)).sum();
                     let plural = if calls == 1 { "linea" } else { "lineas" };
                     println!("bien  {}  -- mod {}, {} fn, {} {}", file, p.module, p.functions.len(), calls, plural);
                 }
                 "arbol" => print!("{}", p.show()),
-                _ => match bmo_titan_front::lower(&src) {
+                _ => match bmo_titan_front::lower_package(&root, &src, &mut read) {
                     Ok(m) => print!("{}", m.show()),
-                    Err(m) => return no(&m, file, &src, false),
+                    Err(m) => return no(&m, &dir, &root, &src, false),
                 },
             }
             ExitCode::SUCCESS
@@ -77,10 +85,9 @@ fn main() -> ExitCode {
         "build" => {
             // El NOMBRE del fichero va al manifiesto, nunca la ruta de esta
             // maquina: dos builds del mismo fuente dan los mismos bytes.
-            let name = Path::new(file).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            let bex = match bmo_titan_x86_64::build(&src, &name) {
+            let bex = match bmo_titan_x86_64::build_package(&root, &src, &mut read) {
                 Ok(b) => b,
-                Err(bmo_titan_x86_64::Failure::Source(m)) => return no(&m, file, &src, true),
+                Err(bmo_titan_x86_64::Failure::Source(m)) => return no(&m, &dir, &root, &src, true),
                 Err(bmo_titan_x86_64::Failure::Gate(why)) => {
                     // No es un fallo del programa: es de este compilador.
                     return fail(&format!("el .bex no paso el gate ({}): es un fallo del compilador, no de {}", why, file));
@@ -169,8 +176,25 @@ fn kernel_judge(file: &str, rest: &[String]) -> ExitCode {
     }
 }
 
-fn no(m: &bmo_titan_front::Message, file: &str, src: &str, building: bool) -> ExitCode {
-    print!("{}", m.render(file, src));
+/// Where a package starts, and the root's path from there: the folder above
+/// the file's (`asteroids/` for `asteroids/src/main.titan`).
+fn package_of(file: &str) -> (PathBuf, String) {
+    let full = std::fs::canonicalize(file).unwrap_or_else(|_| PathBuf::from(file));
+    let name = full.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    match full.parent() {
+        Some(here) => match (here.parent(), here.file_name()) {
+            (Some(up), Some(d)) => (up.to_path_buf(), format!("{}/{}", d.to_string_lossy(), name)),
+            _ => (here.to_path_buf(), name),
+        },
+        None => (PathBuf::from("."), name),
+    }
+}
+
+/// The NO, drawn on the file of the package it is in.
+fn no(m: &bmo_titan_front::Message, dir: &Path, root: &str, src: &str, building: bool) -> ExitCode {
+    let file = m.file.clone().unwrap_or_else(|| root.to_string());
+    let text = if file == root { src.to_string() } else { std::fs::read_to_string(dir.join(&file)).unwrap_or_default() };
+    print!("{}", m.render(&file, &text));
     if building {
         println!("no se ha escrito nada.");
     }

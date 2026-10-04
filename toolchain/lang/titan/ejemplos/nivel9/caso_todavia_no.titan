@@ -1,0 +1,6 @@
+# espera: T0040
+# `trait` (comportamientos) es del nivel 10: la escalera se sube de uno en uno
+mod main "un caso que aun no existe"
+
+fn main()
+    trait Dibuja

@@ -110,18 +110,24 @@ impl Const {
             Const::Record(t, items) => {
                 let def = &types[*t];
                 let fields: Vec<String> = def.fields.iter().zip(items).map(|(f, v)| format!("{}: {}", f.name, v.show_in(types, true))).collect();
-                format!("{} {{ {} }}", def.name, fields.join(", "))
+                format!("{} {{ {} }}", short(&def.name), fields.join(", "))
             }
             Const::Variant(e, v, items) => {
-                let case = &types.enums[*e].cases[*v].name;
+                let case = short(&types.enums[*e].cases[*v].name);
                 if items.is_empty() {
-                    case.clone()
+                    case.to_string()
                 } else {
                     format!("{}({})", case, items.iter().map(|i| i.show_in(types, true)).collect::<Vec<_>>().join(", "))
                 }
             }
         }
     }
+}
+
+/// A name as `print` writes it: without the module it comes from (level 9:
+/// `nave.Nave` of the package is just `Nave` on the console).
+fn short(name: &str) -> &str {
+    name.rsplit('.').next().unwrap_or(name)
 }
 
 /// What a value IS, without knowing which one: the first pass.

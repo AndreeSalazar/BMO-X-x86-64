@@ -1,0 +1,18 @@
+# espera: BIEN
+# sale: centauro sale con 50.00
+# sale: tras 3 saltos: 32.00
+# sale: orion: Atracada
+# sale: centauro: Viajando(3)
+# un paquete: main tiene dos hijos, y cada uno guarda lo suyo detras de `pub`
+mod main "una flota repartida en modulos"
+mod nave, puerto
+
+fn main()
+    let mut c = nave.nueva("centauro", 50.00)
+    print(c.nombre, " sale con ", c.combustible)
+    for i in range(3)
+        nave.salta(mut c)
+    print("tras 3 saltos: ", c.combustible)
+    let o = nave.nueva("orion", 10.00)
+    print(o.nombre, ": ", puerto.estado(o))
+    print(c.nombre, ": ", puerto.estado(c))

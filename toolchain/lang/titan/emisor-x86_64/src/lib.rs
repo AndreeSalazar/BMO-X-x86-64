@@ -229,7 +229,15 @@ pub enum Failure {
 /// La cadena entera: texto -> `.bex`. `source_name` es el NOMBRE del fichero
 /// (va al manifiesto), no su ruta.
 pub fn build(src: &str, source_name: &str) -> Result<Vec<u8>, Failure> {
-    let m = bmo_titan_front::lower(src).map_err(Failure::Source)?;
+    build_package(source_name, src, &mut |_| None)
+}
+
+/// A PACKAGE to a `.bex` (level 9): the root file (its path from the package
+/// and its text), and `read` for the files its `mod`s name. The manifest
+/// names the root.
+pub fn build_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<Vec<u8>, Failure> {
+    let source_name = root.rsplit('/').next().unwrap_or(root);
+    let m = bmo_titan_front::lower_package(root, src, read).map_err(Failure::Source)?;
     let manifest = bmo_titan_front::manifest::manifest(&m, source_name);
     let e = emit(&m).map_err(Failure::Gate)?;
     package(&e, &manifest).map_err(Failure::Gate)

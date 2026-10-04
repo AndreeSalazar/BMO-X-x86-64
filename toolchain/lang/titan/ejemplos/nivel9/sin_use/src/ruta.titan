@@ -1,0 +1,4 @@
+mod ruta "la ruta de la nave"
+
+pub fn viaja()
+    nave.avanza()

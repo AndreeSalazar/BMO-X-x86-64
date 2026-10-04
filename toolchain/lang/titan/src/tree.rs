@@ -21,6 +21,9 @@
 //!              and `round(x, 2)` -- the rounding is WRITTEN
 //!    level 8   `enum` with cases that carry data, and `match`, which has to
 //!              cover EVERY case (no `_` to hide one)
+//!    level 9   a PACKAGE: the header says the children (`mod ship`) and the
+//!              connections (`use ship`); `pub` says what is seen from
+//!              outside; `ship.avanza()` calls into another module
 //! ```
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,6 +36,28 @@ pub struct Program {
     pub types: Vec<TypeDef>,
     /// `enum Forma` and its cases (level 8).
     pub enums: Vec<EnumDef>,
+    /// `use ship, gpu`: the modules this one talks to (level 9).
+    pub uses: Vec<Use>,
+    /// `mod ship, rock` / `mod rules in "x/r.titan"`: its children (level 9).
+    pub children: Vec<Child>,
+}
+
+/// One name of a `use` line (level 9).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Use {
+    pub name: String,
+    pub line: usize,
+    pub col: usize,
+}
+
+/// One child of a `mod` line of the header, and where it lives if the line
+/// says (`mod rules in "reglas/juego.titan"`), the path from the package (9).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Child {
+    pub name: String,
+    pub path: Option<String>,
+    pub line: usize,
+    pub col: usize,
 }
 
 /// `enum Forma` and, below it, one case per line: `Circulo(dec)`, `Nada`
@@ -40,6 +65,8 @@ pub struct Program {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnumDef {
     pub name: String,
+    /// `pub enum`: other modules may name it (level 9).
+    pub public: bool,
     pub line: usize,
     pub col: usize,
     pub cases: Vec<Case>,
@@ -57,6 +84,8 @@ pub struct Case {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeDef {
     pub name: String,
+    /// `pub type`: other modules may name it (level 9).
+    pub public: bool,
     pub line: usize,
     pub col: usize,
     pub fields: Vec<Param>,
@@ -65,6 +94,8 @@ pub struct TypeDef {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
     pub name: String,
+    /// `pub fn`: other modules may call it (level 9).
+    pub public: bool,
     pub line: usize,
     pub col: usize,
     /// `(a: int, b: text)` (level 5).

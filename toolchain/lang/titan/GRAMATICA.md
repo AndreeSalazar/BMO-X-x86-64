@@ -62,7 +62,7 @@ fn main()
 
 Una de las 25 palabras de un nivel que aun no existe no es un error de
 sintaxis cualquiera: es **T0040**, y dice en que nivel llega (el ejemplo ya es
-del frontend de hoy, que va por el nivel 8):
+del frontend de hoy, que va por el nivel 9):
 
 ```text
    use nave         T0040  `use` llega en el nivel 9 (varios ficheros)
@@ -549,6 +549,95 @@ no termina nunca (T0079).
 
 ---
 
+## Nivel 9 -- varios ficheros (23 palabras: + `mod use pub`) -- 04-10
+
+```text
+flota/
+   src/main.titan       mod main "una flota repartida en modulos"
+                        mod nave, puerto          <- sus HIJOS
+   src/nave.titan       mod nave "una nave: su combustible y sus saltos"
+   src/puerto.titan     mod puerto "dice donde esta cada nave"
+                        use nave                  <- con quien HABLA
+```
+
+```text
+# src/nave.titan
+mod nave "una nave: su combustible y sus saltos"
+
+pub type Nave                     # pub: se ve desde fuera
+    nombre: text
+    combustible: dec(5, 2)
+    saltos: int
+
+pub fn salta(mut n: Nave)
+    n.combustible = n.combustible - gasto()
+    n.saltos = n.saltos + 1
+
+fn gasto() -> dec(5, 2)           # sin pub: es de nave, y solo de nave
+    return 6.00
+
+# src/main.titan
+fn main()
+    let mut c = nave.nueva("centauro", 50.00)
+    nave.salta(mut c)             # modulo.cosa
+```
+
+### La cabecera, entera
+
+```text
+   mod NOMBRE "que hace"      la PRIMERA linea: quien es (sin ella, T0001)
+   mod a, b                   sus hijos: viven en a.titan y b.titan, junto a
+                              main.titan si el padre es main, y si no en la
+                              carpeta del padre (physics.titan -> physics/a.titan)
+   mod a in "x/a.titan"       un hijo donde el PADRE diga (ruta desde el paquete)
+   use a, b                   con quien habla: un modulo del paquete, o un nodo
+                              de BMO-X (`gpu`, `director`)
+```
+
+Va arriba, antes de la primera `fn`, en cualquier orden: quien abre el fichero
+sabe quien es y de quien depende sin bajar. Es la MISMA gramatica que lee F1
+(`titan-lector`), asi que el grafo que dibuja F1 y el programa que compila
+`titan` son el mismo arbol.
+
+### Lo que se escribe en el cuerpo
+
+```text
+   pub fn / pub type / pub enum    lo que se ve desde fuera; lo demas es del modulo
+   nave.salta(mut c)               llamar a una fn de otro modulo
+   nave.Nave { ... }  n: nave.Nave un tipo de otro modulo
+   forma.Circulo(2.0), forma.Nada  un caso de otro modulo (y en un `match`)
+```
+
+Se llega a un HIJO (`mod`) o a lo que se `use`, y nada mas. El paquete se
+compila con su fichero raiz: `titan check flota/src/main.titan`. Un fichero
+sin hijos es un paquete de un modulo: todo lo de los niveles 0-8 sigue igual.
+
+### Las reglas, y quien las dice
+
+```text
+   EL PAQUETE (U3: "la cabecera se compara con lo que de verdad se llama")
+     llamar a un modulo que no es hijo ni esta en `use`   T0080
+     un `use` del que no se usa nada                      T0081
+     llamar a algo que no es `pub`                        T0082
+     `mod a` y no hay fichero, o el fichero dice otro      T0083
+     nombre en su primera linea
+     un ciclo: a usa b y b usa a, o un hijo que usa a su   T0084
+     padre (las capas solo BAJAN, la ley L8)
+     un `use` de un modulo que no existe                  T0051
+     dos modulos con el mismo nombre                      T0052
+     un valor llamado como un modulo                      T0055
+```
+
+Cada NO dice su FICHERO y su linea en el: las lineas del paquete se cuentan
+seguidas, como el mapa de fuentes de rustc, y el mensaje se devuelve a su sitio.
+
+[!] Dibujar un cable en F1 escribe un `use`, y hasta que el cuerpo llame a
+algo de ese modulo `titan check` dice T0081 (y el nodo saldra rojo el dia que
+el compilador viva dentro de F1, T6). Es a proposito: el cable dice una
+dependencia, y una dependencia que no existe es la mentira que U3 prohibe.
+
+---
+
 ## Los codigos
 
 | codigo | que |
@@ -591,6 +680,11 @@ no termina nunca (T0079).
 | T0077 | `mut` / `take` en la llamada que no cuadran con el parametro, o fuera de una llamada (los nombres) |
 | T0078 | un `match` que no cubre todos los casos de su enum (los nombres) |
 | T0079 | una rama de `match` que no vale: un caso que no existe, de otro enum, repetido, con mas o menos nombres, o un `_`; o un enum que se contiene a si mismo (los nombres) |
+| T0080 | se usa un modulo que no es hijo ni esta en la cabecera con `use` (el paquete) |
+| T0081 | un `use` del que no se usa nada (el paquete) |
+| T0082 | se llama a algo de otro modulo que no es `pub` (el paquete) |
+| T0083 | `mod hijo` sin su fichero, o un fichero que dice otro nombre (el paquete) |
+| T0084 | un ciclo entre modulos: las capas solo bajan (el paquete) |
 
 ## El banco: lo que dice cada ejemplo de si mismo
 

@@ -1,0 +1,11 @@
+# espera: BIEN
+# sale: total: 16.82
+# sale: con iva: 20.35
+# un hijo con hijo propio: caja vive en src/caja.titan y redondeo en src/caja/redondeo.titan
+mod main "una caja que cobra sin perder un centimo"
+mod caja
+
+fn main()
+    let total = caja.total([12.50, 3.333, 0.99])
+    print("total: ", total)
+    print("con iva: ", caja.con_iva(total))

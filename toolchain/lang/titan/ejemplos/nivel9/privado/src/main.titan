@@ -1,0 +1,7 @@
+# espera: T0082
+# lo que un modulo no marca `pub` es suyo: desde fuera no se llama
+mod main "una puerta cerrada"
+mod nave
+
+fn main()
+    nave.gasto()

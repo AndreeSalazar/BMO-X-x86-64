@@ -1,0 +1,4 @@
+mod nave "la nave"
+
+pub fn avanza()
+    print("avanza")

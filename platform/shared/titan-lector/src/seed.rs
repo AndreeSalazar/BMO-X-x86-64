@@ -59,7 +59,7 @@ pub const FILES: &[(&str, &str)] = &[
         "titan/asteroids/src/ship.titan",
         "mod ship \"la nave: se mueve y dispara\"\n\
          \n\
-         fn avanza()\n\
+         pub fn avanza()\n\
          \x20   let mut x = 100\n\
          \x20   let mut combustible = 50\n\
          \x20   if combustible > 0\n\
@@ -89,6 +89,7 @@ pub const FILES: &[(&str, &str)] = &[
          \x20   for cuadro in range(3)\n\
          \x20       t = t + 16\n\
          \x20       print(\"fotograma \", cuadro, \": \", t, \" ms\")\n\
+         \x20   ship.avanza()\n\
          \x20   choques()\n\
          \n\
          fn choques()\n\
@@ -121,7 +122,7 @@ mod tests {
         let rock = t("titan/asteroids/src/rock.titan");
         assert_eq!((rock.lets, rock.muts, rock.writes), (3, 0, 0));
         let physics = t("titan/asteroids/src/physics.titan");
-        assert_eq!((physics.fns, physics.writes, physics.calls, physics.loops), (2, 2, 1, 1));
+        assert_eq!((physics.fns, physics.writes, physics.calls, physics.loops), (2, 2, 2, 1));
         assert_eq!(t("titan/asteroids/src/physics/collide.titan").lines, 0);
     }
 

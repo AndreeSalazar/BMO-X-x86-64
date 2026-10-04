@@ -1,0 +1,8 @@
+mod ruta "la ruta"
+use nave
+
+pub fn sigue()
+    print("sigue")
+
+pub fn vuelve()
+    nave.avanza()

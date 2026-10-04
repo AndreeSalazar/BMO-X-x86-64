@@ -1,0 +1,11 @@
+mod puerto "dice donde esta cada nave"
+use nave
+
+pub enum Estado
+    Atracada
+    Viajando(int)
+
+pub fn estado(n: nave.Nave) -> Estado
+    if n.saltos == 0
+        return Atracada
+    return Viajando(n.saltos)

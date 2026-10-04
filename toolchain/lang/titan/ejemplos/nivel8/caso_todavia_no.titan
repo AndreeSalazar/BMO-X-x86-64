@@ -1,6 +1,0 @@
-# espera: T0040
-# `use` (varios ficheros) es del nivel 9: la escalera se sube de uno en uno
-mod main "un caso que aun no existe"
-
-fn main()
-    use nave
