@@ -162,7 +162,7 @@ fn comprobacion_1_un_magico_que_no_es() {
 #[test]
 fn comprobacion_1_una_version_que_no_entiendo() {
     let mut b = buena();
-    b[cabecera::VERSION..cabecera::VERSION + 2].copy_from_slice(&2u16.to_le_bytes());
+    b[cabecera::VERSION..cabecera::VERSION + 2].copy_from_slice(&(VERSION + 1).to_le_bytes());
     assert_eq!(leer(&b, 1920, 1080).unwrap_err(), Falta::OtraVersion);
 }
 

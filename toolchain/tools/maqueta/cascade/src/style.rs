@@ -95,6 +95,30 @@ pub struct Style {
     pub position: Position,
     pub left: Option<u32>,
     pub top: Option<u32>,
+    // -- MAQUETA 2: the letter. `font_size` None = the 8x16 pixel letter.
+    pub font_size: Option<u32>,
+    /// 400, 500, 600, 700 (0 = not said: 400).
+    pub font_weight: u16,
+    /// Thousandths of an em.
+    pub letter_spacing: i32,
+    pub line_height: Option<u32>,
+    pub uppercase: bool,
+    // -- MAQUETA 2: the finish.
+    /// The glow: reach in px and `0xAARRGGBB`.
+    pub shadow: Option<(u32, u32)>,
+    /// Two colours and the axis (`true` = top to bottom).
+    pub gradient: Option<(u32, u32, bool)>,
+    // -- MAQUETA 2: the drawing (on `<svg>`).
+    pub stroke: Option<u32>,
+    /// In 1/64 of a `viewBox` unit; 0 = not said (1 unit).
+    pub stroke_width: u32,
+    pub fill: Option<u32>,
+    /// Si el `<svg>` declaro `fill` (aunque sea `none`): sin declararlo, el
+    /// navegador rellena de NEGRO, y la regla no puede mentir.
+    pub fill_said: bool,
+    /// `stroke-linecap: round` y `stroke-linejoin: round`, dichos.
+    pub round_cap: bool,
+    pub round_join: bool,
 }
 
 impl Style {
@@ -140,6 +164,28 @@ impl Style {
             (Prop::Position, Value::Word(Keyword::Absolute)) => {
                 self.position = Position::Absolute
             }
+            (Prop::FontSize, Value::Px(n)) => self.font_size = Some(n),
+            (Prop::FontWeight, Value::Weight(w)) => self.font_weight = w,
+            (Prop::LetterSpacing, Value::Em(e)) => self.letter_spacing = e,
+            (Prop::LineHeight, Value::Px(n)) => self.line_height = Some(n),
+            (Prop::TextTransform, Value::Word(k)) => self.uppercase = k == Keyword::Uppercase,
+            (Prop::BoxShadow, Value::Shadow { reach, argb }) => self.shadow = Some((reach, argb)),
+            (Prop::BackgroundImage, Value::Gradient { vertical, from, to }) => {
+                self.gradient = Some((from, to, vertical))
+            }
+            (Prop::Stroke, Value::Color(c)) => self.stroke = Some(c),
+            (Prop::Stroke, Value::Nothing) => self.stroke = None,
+            (Prop::StrokeWidth, Value::Fine(w)) => self.stroke_width = w,
+            (Prop::Fill, Value::Color(c)) => {
+                self.fill = Some(c);
+                self.fill_said = true;
+            }
+            (Prop::Fill, Value::Nothing) => {
+                self.fill = None;
+                self.fill_said = true;
+            }
+            (Prop::StrokeLinecap, Value::Word(Keyword::Round)) => self.round_cap = true,
+            (Prop::StrokeLinejoin, Value::Word(Keyword::Round)) => self.round_join = true,
 
             // The father checked every shape before this generation saw it, so
             // no other pairing exists. Ignoring rather than panicking keeps a

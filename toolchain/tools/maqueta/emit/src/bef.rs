@@ -132,7 +132,10 @@ pub fn escribir(ordenes: &[Orden], golpes: &[Golpe], ancho: i64, alto: i64) -> R
     let mut trazos: Vec<[u8; cara::TRAZO]> = Vec::with_capacity(ordenes.len());
 
     for o in ordenes {
-        let r = o.trazo.area();
+        let Some(d) = de_cada_clase(&o.trazo) else {
+            return Err(NoCabe::Rect { de: o.de.clone(), x: 0, y: 0, w: -1, h: -1 });
+        };
+        let r = d.caja;
         let (x, y, w, h) = (r.x as i64, r.y as i64, r.w as i64, r.h as i64);
         let (Some(xi), Some(yi), Some(wu), Some(hu)) =
             (i16_de(x), i16_de(y), u16_de(w), u16_de(h))
@@ -140,10 +143,7 @@ pub fn escribir(ordenes: &[Orden], golpes: &[Golpe], ancho: i64, alto: i64) -> R
             return Err(NoCabe::Rect { de: o.de.clone(), x, y, w, h });
         };
 
-        let (clase, color, cadena) = match &o.trazo {
-            Trazo::Rect { color, .. } => (cara::CLASE_RECT, *color, &[][..]),
-            Trazo::Texto { texto, color, .. } => (cara::CLASE_TEXTO, *color, texto.as_bytes()),
-        };
+        let (clase, color, cadena) = (d.clase, d.color, d.datos.as_slice());
         let (off, len) = cad.mete(cadena);
 
         let mut t = [0u8; cara::TRAZO];
@@ -159,9 +159,9 @@ pub fn escribir(ordenes: &[Orden], golpes: &[Golpe], ancho: i64, alto: i64) -> R
         pon_u32(&mut t, cara::trazo::COLOR, color);
         pon_u16(&mut t, cara::trazo::CAD_OFF, off);
         pon_u16(&mut t, cara::trazo::CAD_LEN, len);
-        // El reservado se queda en cero porque el array nace en cero. Se dice
-        // aqui y no se escribe: escribir un cero que ya esta invita a que
-        // alguien lo cambie por otra cosa sin subir la version.
+        // En RECT y TEXTO el EXTRA se queda en cero (era el reservado de la
+        // version 1); las clases suaves llevan ahi lo suyo.
+        pon_u16(&mut t, cara::trazo::EXTRA, d.extra);
         trazos.push(t);
     }
 
@@ -219,6 +219,90 @@ pub fn escribir(ordenes: &[Orden], golpes: &[Golpe], ancho: i64, alto: i64) -> R
     }
     out.extend_from_slice(&cad.bytes);
     Ok(out)
+}
+
+/// Lo que un trazo escribe en su fila: clase, caja, color, `EXTRA` y datos.
+struct DeLaClase {
+    clase: u8,
+    caja: bmo_maqueta_layout::Rect,
+    color: u32,
+    extra: u16,
+    datos: Vec<u8>,
+}
+
+/// **Cada trazo, en el plano de la version 2.** `None` si algo no cabe en
+/// su campo (un radio de mas de 255, un camino de mas de 2047 px).
+fn de_cada_clase(t: &Trazo) -> Option<DeLaClase> {
+    let byte = |v: u32| u8::try_from(v).ok().map(u16::from);
+    Some(match t {
+        Trazo::Rect { r, color } => DeLaClase { clase: cara::CLASE_RECT, caja: *r, color: *color, extra: 0, datos: Vec::new() },
+        Trazo::Texto { r, texto, color } => {
+            DeLaClase { clase: cara::CLASE_TEXTO, caja: *r, color: *color, extra: 0, datos: texto.as_bytes().to_vec() }
+        }
+        Trazo::Caja { r, radio, color } => DeLaClase { clase: cara::CLASE_CAJA, caja: *r, color: *color, extra: u16::try_from(*radio).ok()?, datos: Vec::new() },
+        Trazo::Borde { r, radio, grosor, color } => {
+            DeLaClase { clase: cara::CLASE_BORDE, caja: *r, color: *color, extra: byte(*radio)? | byte(*grosor)? << 8, datos: Vec::new() }
+        }
+        Trazo::Resplandor { r, radio, alcance, argb } => {
+            DeLaClase { clase: cara::CLASE_RESPLANDOR, caja: *r, color: *argb, extra: byte(*radio)? | byte(*alcance)? << 8, datos: Vec::new() }
+        }
+        Trazo::Degradado { r, radio, de, a, vertical } => {
+            let radio = u16::try_from(*radio).ok().filter(|&r| r < 0x8000)?;
+            DeLaClase { clase: cara::CLASE_DEGRADADO, caja: *r, color: *de, extra: radio | (*vertical as u16) << 15, datos: a.to_le_bytes().to_vec() }
+        }
+        Trazo::Letra { r, texto, color, px, peso, espacio, mayusculas } => {
+            let p = match peso {
+                500 => 1,
+                600 => 2,
+                700 => 3,
+                _ => 0,
+            };
+            let e = (*espacio / 10).clamp(0, 63) as u16;
+            let extra = (*px as u16 & 0x7F) | p << 7 | (*mayusculas as u16) << 9 | e << 10;
+            DeLaClase { clase: cara::CLASE_LETRA, caja: *r, color: *color, extra, datos: texto.as_bytes().to_vec() }
+        }
+        Trazo::Linea { caminos, cerrados, grosor64, color } => {
+            let (caja, datos) = puntos(caminos, cerrados)?;
+            DeLaClase { clase: cara::CLASE_LINEA, caja, color: *color, extra: u16::try_from(grosor64 / 4).ok()?, datos }
+        }
+        Trazo::Relleno { caminos, color } => {
+            let cerrados = vec![true; caminos.len()];
+            let (caja, datos) = puntos(caminos, &cerrados)?;
+            DeLaClase { clase: cara::CLASE_RELLENO, caja, color: *color, extra: 0, datos }
+        }
+    })
+}
+
+/// Los puntos de unos caminos (1/64 px, en el lienzo) en el plano de la
+/// version 2: su caja en pixeles, y los pares en 1/16 RELATIVOS a ella.
+fn puntos(caminos: &[Vec<(i32, i32)>], cerrados: &[bool]) -> Option<(bmo_maqueta_layout::Rect, Vec<u8>)> {
+    let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
+    for c in caminos {
+        for &(x, y) in c {
+            x0 = x0.min(x);
+            y0 = y0.min(y);
+            x1 = x1.max(x);
+            y1 = y1.max(y);
+        }
+    }
+    if x0 > x1 {
+        return None;
+    }
+    let (px0, py0) = (x0.div_euclid(64), y0.div_euclid(64));
+    let (px1, py1) = ((x1 + 63).div_euclid(64), (y1 + 63).div_euclid(64));
+    let caja = bmo_maqueta_layout::Rect { x: px0, y: py0, w: (px1 - px0).max(1) as u32, h: (py1 - py0).max(1) as u32 };
+    let mut d = Vec::new();
+    for (k, c) in caminos.iter().enumerate() {
+        d.extend_from_slice(&cara::puntos::SEPARA.to_le_bytes());
+        d.extend_from_slice(&(cerrados.get(k).copied().unwrap_or(false) as i16).to_le_bytes());
+        for &(x, y) in c {
+            let rx = i16::try_from((x - px0 * 64) / 4).ok()?;
+            let ry = i16::try_from((y - py0 * 64) / 4).ok()?;
+            d.extend_from_slice(&rx.to_le_bytes());
+            d.extend_from_slice(&ry.to_le_bytes());
+        }
+    }
+    Some((caja, d))
 }
 
 fn pon_u16(b: &mut [u8], i: usize, v: u16) {

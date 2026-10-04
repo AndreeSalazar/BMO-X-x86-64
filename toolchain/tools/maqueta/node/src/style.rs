@@ -339,27 +339,86 @@ fn read_value(
             }
             Some(Value::Px4(four))
         }
-        Shape::Color => {
+        Shape::Color => color(src, toks, i, prop, errors).map(Value::Color),
+        Shape::Weight => {
             let t = *toks.get(*i)?;
-            if t.kind == Kind::Color {
-                *i += 1;
-                let hex = t.text(src);
-                let mut n = 0u32;
-                for &c in hex {
-                    n = (n << 4) | (c as char).to_digit(16).unwrap_or(0);
+            let n = match t.kind {
+                Kind::Number => decimal(t.text(src)).map(|v| (v / 64) as u16),
+                Kind::Ident if t.text(src) == b"normal" => Some(400),
+                Kind::Ident if t.text(src) == b"bold" => Some(700),
+                _ => None,
+            };
+            *i += 1;
+            match n {
+                Some(w @ (400 | 500 | 600 | 700)) => Some(Value::Weight(w)),
+                _ => {
+                    errors.push(Error::new(
+                        span_of(&t),
+                        "`font-weight` quiere 400, 500, 600 o 700",
+                        "la letra de la casa tiene esos cuatro pesos de pluma; un peso \
+                         que no existe se pintaria con otro y la maqueta mentiria.",
+                        "`400` (normal), `500` (los nombres), `600` o `700` (negrita).",
+                    ));
+                    skip_value(toks, i);
+                    None
                 }
-                return Some(Value::Color(n));
+            }
+        }
+        Shape::Em => {
+            let t = *toks.get(*i)?;
+            if t.kind == Kind::Number {
+                let v = decimal(t.text(src));
+                *i += 1;
+                let unidad = toks.get(*i).filter(|u| u.kind == Kind::Ident).map(|u| u.text(src).to_vec());
+                match (v, unidad.as_deref()) {
+                    (Some(v), Some(b"em")) => {
+                        *i += 1;
+                        return Some(Value::Em((v * 1000 / 64) as i32));
+                    }
+                    (Some(0), _) => return Some(Value::Em(0)),
+                    _ => {}
+                }
             }
             errors.push(Error::new(
                 span_of(&t),
-                &format!("`{}` quiere un color `#RRGGBB`", prop.name()),
-                "no hay nombres de color, ni `rgb()`, ni `rgba()`: el pixel de BMO-X \
-                 es `u32` en `0x00RRGGBB` y no hay mezcla alfa.",
-                "por ejemplo `#182434`. La paleta del sistema esta en \
-                 `toolchain/tools/maqueta/tema/tema.maqueta`.",
+                &format!("`{}` quiere una medida en `em`", prop.name()),
+                "el espacio entre letras crece con la letra: `.14em` de una de 11 px \
+                 no es lo mismo que de una de 40.",
+                "por ejemplo `.14em`, o `0`.",
             ));
             skip_value(toks, i);
             None
+        }
+        Shape::Shadow => shadow(src, toks, i, errors),
+        Shape::Gradient => gradient(src, toks, i, errors),
+        Shape::ColorOrNone => {
+            let t = *toks.get(*i)?;
+            if t.kind == Kind::Ident && t.text(src) == b"none" {
+                *i += 1;
+                return Some(Value::Nothing);
+            }
+            color(src, toks, i, prop, errors).map(Value::Color)
+        }
+        Shape::Fine => {
+            let t = *toks.get(*i)?;
+            let v = if t.kind == Kind::Number { decimal(t.text(src)) } else { None };
+            *i += 1;
+            if toks.get(*i).is_some_and(|u| u.kind == Kind::Ident && u.text(src) == b"px") {
+                *i += 1;
+            }
+            match v {
+                Some(v) => Some(Value::Fine(v)),
+                None => {
+                    errors.push(Error::new(
+                        span_of(&t),
+                        &format!("`{}` quiere un numero", prop.name()),
+                        "el grosor del trazo, en unidades del `viewBox` (como en SVG).",
+                        "por ejemplo `2` o `1.5`.",
+                    ));
+                    skip_value(toks, i);
+                    None
+                }
+            }
         }
         Shape::Words(allowed) => {
             let t = *toks.get(*i)?;
@@ -397,6 +456,136 @@ fn read_value(
     }
 }
 
+/// `#RRGGBB` (a solid colour). An eight-digit colour is only for shadows.
+fn color(src: &[u8], toks: &[Token], i: &mut usize, prop: Prop, errors: &mut Vec<Error>) -> Option<u32> {
+    let t = *toks.get(*i)?;
+    if t.kind == Kind::Color && t.text(src).len() == 6 {
+        *i += 1;
+        return Some(hex(t.text(src)));
+    }
+    errors.push(Error::new(
+        span_of(&t),
+        &format!("`{}` quiere un color `#RRGGBB`", prop.name()),
+        "no hay nombres de color, ni `rgb()`, ni `rgba()`: un color solido es \
+         `0x00RRGGBB`. La transparencia (`#RRGGBBAA`) es solo de `box-shadow`.",
+        "por ejemplo `#182434`. La paleta del sistema esta en \
+         `toolchain/tools/maqueta/tema/tema.maqueta`.",
+    ));
+    skip_value(toks, i);
+    None
+}
+
+fn hex(h: &[u8]) -> u32 {
+    h.iter().fold(0u32, |n, &c| (n << 4) | (c as char).to_digit(16).unwrap_or(0))
+}
+
+/// A number with an optional decimal part, in 1/64 units (`1.5` -> 96).
+fn decimal(t: &[u8]) -> Option<u32> {
+    let (ent, frac) = match t.iter().position(|&c| c == b'.') {
+        Some(k) => (&t[..k], &t[k + 1..]),
+        None => (t, &b""[..]),
+    };
+    let mut e: u64 = 0;
+    for &c in ent {
+        e = e.checked_mul(10)?.checked_add((c - b'0') as u64)?;
+    }
+    let (mut f, mut d) = (0u64, 1u64);
+    for &c in frac.iter().take(6) {
+        f = f * 10 + (c - b'0') as u64;
+        d *= 10;
+    }
+    u32::try_from(e * 64 + (f * 64 + d / 2) / d).ok()
+}
+
+/// `box-shadow: 0 0 14px #5EF2E659` -- only the glow, no offset.
+fn shadow(src: &[u8], toks: &[Token], i: &mut usize, errors: &mut Vec<Error>) -> Option<Value> {
+    let start = *toks.get(*i)?;
+    let mal = |errors: &mut Vec<Error>, t: &Token| {
+        errors.push(Error::new(
+            span_of(t),
+            "`box-shadow` quiere `0 0 Npx #RRGGBBAA`",
+            "solo el RESPLANDOR alrededor de la caja: sin desplazamiento (una sombra \
+             corrida promete una luz que el escritorio no tiene) y un color con su \
+             fuerza en las dos ultimas cifras.",
+            "por ejemplo `0 0 14px #FFD45E59` (el oro al 35 %).",
+        ));
+    };
+    for _ in 0..2 {
+        match toks.get(*i) {
+            Some(t) if t.kind == Kind::Number && t.text(src) == b"0" => *i += 1,
+            _ => {
+                mal(errors, &start);
+                skip_value(toks, i);
+                return None;
+            }
+        }
+    }
+    let reach = measure(src, toks, i, Prop::BoxShadow, errors)?;
+    match toks.get(*i) {
+        Some(t) if t.kind == Kind::Color => {
+            *i += 1;
+            let h = t.text(src);
+            let argb = if h.len() == 8 { (hex(&h[6..]) << 24) | hex(&h[..6]) } else { 0xFF00_0000 | hex(h) };
+            Some(Value::Shadow { reach, argb })
+        }
+        _ => {
+            mal(errors, &start);
+            skip_value(toks, i);
+            None
+        }
+    }
+}
+
+/// `linear-gradient(90deg, #A, #B)` or `180deg`: two colours, one axis.
+fn gradient(src: &[u8], toks: &[Token], i: &mut usize, errors: &mut Vec<Error>) -> Option<Value> {
+    let start = *toks.get(*i)?;
+    let mut leer = || -> Option<Value> {
+        let f = toks.get(*i)?;
+        if f.kind != Kind::Ident || f.text(src) != b"linear-gradient" {
+            return None;
+        }
+        *i += 1;
+        (toks.get(*i)?.kind == Kind::LParen).then_some(())?;
+        *i += 1;
+        let ang = toks.get(*i)?;
+        let vertical = match ang.text(src) {
+            b"90" => false,
+            b"180" => true,
+            _ => return None,
+        };
+        *i += 1;
+        (toks.get(*i)?.text(src) == b"deg").then_some(())?;
+        *i += 1;
+        let mut c = [0u32; 2];
+        for k in 0..2 {
+            (toks.get(*i)?.kind == Kind::Comma).then_some(())?;
+            *i += 1;
+            let t = toks.get(*i)?;
+            (t.kind == Kind::Color && t.text(src).len() == 6).then_some(())?;
+            c[k] = hex(t.text(src));
+            *i += 1;
+        }
+        (toks.get(*i)?.kind == Kind::RParen).then_some(())?;
+        *i += 1;
+        Some(Value::Gradient { vertical, from: c[0], to: c[1] })
+    };
+    match leer() {
+        Some(v) => Some(v),
+        None => {
+            errors.push(Error::new(
+                span_of(&start),
+                "`background-image` quiere `linear-gradient(90deg, #RRGGBB, #RRGGBB)`",
+                "un degradado de DOS colores en un eje: `90deg` de izquierda a derecha, \
+                 `180deg` de arriba abajo. Mas paradas o angulos sueltos son un motor \
+                 de pintura, no una maqueta.",
+                "por ejemplo `linear-gradient(90deg, #FFD45E, #080A10)`.",
+            ));
+            skip_value(toks, i);
+            None
+        }
+    }
+}
+
 /// A number followed by `px`. The only unit there is.
 fn measure(
     src: &[u8],
@@ -417,6 +606,17 @@ fn measure(
         return None;
     }
     let digits = t.text(src);
+    if digits.contains(&b'.') {
+        errors.push(Error::new(
+            span_of(&t),
+            &format!("`{}` quiere pixeles ENTEROS", prop.name()),
+            "las cajas caen en pixel entero: medio pixel de caja es un borde borroso.",
+            "redondear al pixel.",
+        ));
+        *i += 1;
+        skip_value(toks, i);
+        return None;
+    }
     let mut n: u32 = 0;
     let mut overflow = false;
     for &c in digits {

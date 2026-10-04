@@ -12,3 +12,5 @@ license = "Apache-2.0"
 bmo-maqueta-cascade = { path = "../cascade" }
 bmo-maqueta-node = { path = "../node" }
 bmo-maqueta-diag = { path = "../diag" }
+# MAQUETA 2: el texto se mide con la letra de la casa, la MISMA que lo pinta.
+bmo-letra = { path = "../../../../platform/shared/bmo-letra" }

@@ -44,6 +44,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod dibujo;
 pub mod fit;
 pub mod idle;
 pub mod names;
@@ -76,6 +77,7 @@ pub fn judge(laid: &Laid, cascaded: &Cascaded) -> Vec<Error> {
     fit::check(laid, &mut out);
     names::check(laid, cascaded, &mut out);
     idle::check(laid, &mut out);
+    dibujo::check(laid, &mut out);
     out.sort_by_key(|e| (e.span.start, e.span.len));
     out
 }

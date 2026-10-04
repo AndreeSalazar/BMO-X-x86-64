@@ -259,3 +259,19 @@ fn una_maquetacion_sana_no_da_ni_un_reparo() {
          .t{width:40px;height:16px;color:#E6EDF6} .i{width:100px;height:30px}</style>",
     );
 }
+
+// -- K. el dibujo (MAQUETA 2, 04-10) -------------------------------------------
+
+#[test]
+fn un_svg_sin_fill_no_compila_porque_el_navegador_lo_pintaria_negro() {
+    let src = "<maqueta><style>.i{width:22px;height:22px;stroke:#FFFFFF;stroke-linecap:round;stroke-linejoin:round}</style><div><svg class=\"i\" viewBox=\"0 0 24 24\"><path d=\"M4 8h14\"/></svg></div></maqueta>";
+    let e = veredicto(src);
+    assert!(e.contains("no dice su `fill`"), "{e}");
+}
+
+#[test]
+fn una_pluma_sin_round_no_compila() {
+    let src = "<maqueta><style>.i{width:22px;height:22px;stroke:#FFFFFF;fill:none}</style><div><svg class=\"i\" viewBox=\"0 0 24 24\"><path d=\"M4 8h14\"/></svg></div></maqueta>";
+    let e = veredicto(src);
+    assert!(e.contains("no es redonda"), "{e}");
+}

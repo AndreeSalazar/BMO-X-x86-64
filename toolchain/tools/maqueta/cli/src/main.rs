@@ -34,9 +34,21 @@ fn main() -> ExitCode {
     if solo_paleta {
         args.remove(0);
     }
+    // ** `--foto` (MAQUETA 2): la cara PINTADA a PNG, con el pintor y la
+    // letra de verdad -- la mitad que el ESPEJO de cara compara con el
+    // navegador. `--foto-cara`: lo mismo, pero pasando por los BYTES que
+    // viajan (emisor B), para ver que no se pierde nada por el camino.
+    let foto = match args.first().map(String::as_str) {
+        Some("--foto") => Some(false),
+        Some("--foto-cara") => Some(true),
+        _ => None,
+    };
+    if foto.is_some() {
+        args.remove(0);
+    }
     let mut args = args.into_iter();
     let (Some(entrada), Some(salida)) = (args.next(), args.next()) else {
-        eprintln!("uso: maqueta [--paleta] <entrada.maqueta> <salida.rs>");
+        eprintln!("uso: maqueta [--paleta | --foto | --foto-cara] <entrada.maqueta> <salida.rs | salida.png>");
         return ExitCode::from(2);
     };
 
@@ -75,6 +87,30 @@ fn main() -> ExitCode {
         return fallo(&entrada, &src, &reparos);
     }
 
+    if let Some(por_la_cara) = foto {
+        let im = if por_la_cara {
+            let ordenes = bmo_maqueta_emit::orden::lista(&puesto);
+            let golpes = bmo_maqueta_emit::orden::golpes(&puesto);
+            let bytes = match bmo_maqueta_emit::bef::escribir(&ordenes, &golpes, puesto.canvas.0 as i64, puesto.canvas.1 as i64) {
+                Ok(b) => b,
+                Err(e) => {
+                    eprintln!("maqueta: la cara no cabe en su formato: {e:?}");
+                    return ExitCode::from(1);
+                }
+            };
+            match bmo_maqueta_emit::foto::foto_cara(&bytes) {
+                Some(im) => im,
+                None => {
+                    eprintln!("maqueta: la cara escrita no se deja leer");
+                    return ExitCode::from(1);
+                }
+            }
+        } else {
+            bmo_maqueta_emit::foto::foto(&puesto)
+        };
+        return png(&salida, &im);
+    }
+
     let codigo = bmo_maqueta_emit::rust::modulo(&procedencia(&entrada), &puesto);
     if let Err(e) = std::fs::write(&salida, codigo) {
         eprintln!("maqueta: no puedo escribir {salida}: {e}");
@@ -89,6 +125,32 @@ fn main() -> ExitCode {
         puesto.islands().len()
     );
     ExitCode::SUCCESS
+}
+
+/// Escribe la foto como PNG, con el codificador de la casa (`bmo-imagen`).
+fn png(salida: &str, im: &bmo_maqueta_emit::foto::Foto) -> ExitCode {
+    use bmo_imagen::png_escribir as pe;
+    let mut crudo = vec![0u8; pe::crudo(im.ancho, im.alto)];
+    let mut taller = vec![0u32; bmo_imagen::deflar::TALLER];
+    let mut dst = vec![0u8; pe::cota(im.ancho, im.alto)];
+    let ancho = im.ancho;
+    let mut pixel = |x: u32, y: u32| im.px[(y * ancho + x) as usize];
+    match pe::codificar(im.ancho, im.alto, &mut pixel, &mut crudo, &mut taller, &mut dst) {
+        Ok(n) => match std::fs::write(salida, &dst[..n]) {
+            Ok(()) => {
+                println!("maqueta: foto {}x{} -> {salida}", im.ancho, im.alto);
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("maqueta: no puedo escribir {salida}: {e}");
+                ExitCode::from(2)
+            }
+        },
+        Err(e) => {
+            eprintln!("maqueta: el PNG no sale: {}", e.motivo());
+            ExitCode::from(1)
+        }
+    }
 }
 
 /// **De donde salio esta cara, dicho igual lo escriba quien lo escriba.**

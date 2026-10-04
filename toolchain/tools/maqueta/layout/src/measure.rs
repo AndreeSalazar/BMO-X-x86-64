@@ -12,9 +12,49 @@
 //! preview beats convenience of the author -- that trade is the whole reason the
 //! tags are HTML's in the first place.
 
-use bmo_maqueta_cascade::{Direction, Display, Position, Styled};
+use bmo_maqueta_cascade::{Direction, Display, Position, Style, Styled};
+use bmo_maqueta_node::Tag;
 
 use crate::{GLIFO_ALTO, GLIFO_ANCHO};
+
+/// **La letra de una caja**, si dijo `font-size` (MAQUETA 2): la de la casa,
+/// la MISMA que la pinta en el aparato. Sin `font-size`, la de 8 x 16.
+pub fn estilo(s: &Style) -> Option<bmo_letra::Estilo> {
+    let px = u8::try_from(s.font_size?).ok()?;
+    let e = match s.font_weight {
+        500 => bmo_letra::Estilo::media(px),
+        600 | 700 => bmo_letra::Estilo::negrita(px),
+        _ => bmo_letra::Estilo::normal(px),
+    };
+    let e = e.espaciado(s.letter_spacing);
+    Some(if s.uppercase { e.mayusculas() } else { e })
+}
+
+thread_local! {
+    /// La cache de la letra del compilador. Medir es rasterizar una vez cada
+    /// glifo: con la cache, cada letra se mide UNA vez por compilacion.
+    static LETRA: core::cell::RefCell<bmo_letra::Letra> = core::cell::RefCell::new(bmo_letra::Letra::nueva());
+}
+
+/// **Lo que mide el texto de una caja**: con la letra de la casa (su ancho,
+/// medido glifo a glifo, y la altura de linea: `line-height` o la normal), o
+/// con la de 8 x 16 (`len * 8`, 16) si la caja no dijo `font-size`.
+///
+/// ** Antes esto era SOLO `len * 8`, y su cabecera decia que esa aritmetica
+/// era "el cimiento" del compilador. Lo sigue siendo, con otra forma: la letra
+/// nueva tambien se mide en el ANFITRION, al compilar, y con el mismo codigo
+/// que la pinta. El aparato no mide nada.
+pub fn texto(s: &Style, t: &str) -> (u32, u32) {
+    match estilo(s) {
+        Some(e) => {
+            use bmo_letra::Fuente;
+            let w = LETRA.with(|l| l.borrow_mut().medir(t.as_bytes(), e)).max(0) as u32;
+            let h = s.line_height.unwrap_or(bmo_letra::alto_normal(e.px) as u32);
+            (w, h)
+        }
+        None => (t.len() as u32 * GLIFO_ANCHO, GLIFO_ALTO),
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Size {
@@ -51,15 +91,15 @@ pub fn outer_size(b: &Styled) -> Size {
 /// What the box needs if nothing constrains it -- CSS's `max-content`.
 fn intrinsic(b: &Styled) -> Size {
     if let Some(t) = &b.text {
-        // * The measurement that makes this whole compiler possible. The font is
-        // a fixed-width bitmap, so text is arithmetic and not a rendering
-        // problem: no shaping, no kerning, no fallback, no line breaking. And
-        // `len()` is the character count because the father already refused
-        // every byte above 0x7F.
-        return Size {
-            w: t.len() as u32 * GLIFO_ANCHO,
-            h: GLIFO_ALTO,
-        };
+        // * The measurement that makes this whole compiler possible: text is
+        // measured HERE, on the host, so the device never lays anything out.
+        // See `texto`.
+        let (w, h) = texto(&b.style, t);
+        return Size { w, h };
+    }
+    // A drawing is as big as it says: its paths do not push.
+    if b.tag == Tag::Svg {
+        return Size { w: 0, h: 0 };
     }
 
     // Absolutely positioned children are out of the flow, so they contribute

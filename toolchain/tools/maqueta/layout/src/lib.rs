@@ -82,6 +82,9 @@ pub struct Frame {
     pub id: Option<String>,
     pub island: Option<String>,
     pub text: Option<String>,
+    /// `<svg viewBox>` and `<path d>` (MAQUETA 2): carried, never read here.
+    pub view_box: Option<[u32; 4]>,
+    pub d: Option<String>,
     /// Carried, not read: this generation never looks at a colour.
     pub style: Style,
     /// ** Carried and never read EITHER -- and that is the proof that `:hover`

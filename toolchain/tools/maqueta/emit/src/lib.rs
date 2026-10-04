@@ -30,7 +30,7 @@
 //! ```text
 //!    rust.rs    HECHO      codigo, para compilar dentro del servicio
 //!    bef.rs     escalon 8  un recurso, para cambiar la cara SIN recompilar
-//!    ppm.rs     escalon 9  el reflejo, con el rasterizador de verdad
+//!    foto.rs    04-10      el reflejo: la cara pintada con el pintor de verdad
 //! ```
 
 #![forbid(unsafe_code)]
@@ -46,3 +46,6 @@ pub mod rust;
 /// **El emisor B**: la cara como BYTES, para cambiarla sin recompilar. Hermano
 /// de [`rust`] y con la misma regla -- traduce, no decide. Ver su cabecera.
 pub mod bef;
+/// **La FOTO** (MAQUETA 2): la cara pintada en el anfitrion con el pintor de
+/// verdad, para que el ESPEJO de cara la compare con el navegador.
+pub mod foto;

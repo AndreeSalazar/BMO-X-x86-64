@@ -312,6 +312,35 @@ estan en castellano.
    [~] 9   `<island>` a una superficie BSUP  (parsea y viaja; falta el otro lado)
 ```
 
+## 6b. MAQUETA 2: LA CARA BONITA (2026-10-04)
+
+El propietario (04-10): *"TITAN++ es para apps mas pesadas, pero si quieren
+una interfaz bonita, con MAQUETA sobran"*. Asi que MAQUETA aprende a pintar
+lo que hace bonita una interfaz -- letra de verdad, sombra, degradado, radio
+suave y dibujo vectorial -- **sin dejar de ser un compilador que rechaza**.
+
+```
+   [x] M1  la letra: font-size, font-weight, letter-spacing, line-height,
+           text-transform. Mide en el anfitrion con `bmo-letra` (la misma
+           que pinta), asi que el veredicto B ya no adivina con `len * 8`
+   [x] M2  el acabado: box-shadow `0 0 Npx #RRGGBBAA` (resplandor) y
+           background-image `linear-gradient(90|180deg, #A, #B)`
+   [x] M3  el dibujo: `<svg viewBox>` + `<path d>` con stroke, fill y pluma
+           redonda; el camino se aplana en el anfitrion a 1/16 de pixel y
+           viaja como puntos, no como texto que alguien tenga que parsear
+   [x] M4  un pintor para los tres sitios: `platform/shared/bmo-pinta`
+           (no_std). El codigo generado, la CARA v2 y la foto del anfitrion
+           lo llaman a el, y un test compara los pixeles byte a byte
+   [ ] M5  el escritorio lo usa: `Pantalla` implementa `Lienzo`, y el codigo
+           que emite MAQUETA 2 compila en el director
+           [!] hoy el emisor A escribe `p.pieza(..)` y el director todavia
+               no la tiene: una cara SUAVE generada no compila alli. Las
+               caras planas (calc.rs) salen identicas a antes
+```
+
+Medido contra Chromium con `pruebas/tarjeta.maqueta`: **parecido 92,25 %**
+(igual 89,97 %). Nada de esto se probo en el Ryzen todavia: es anfitrion.
+
 ## ⚠ LAS CASILLAS MENTIAN, Y SE RECONTARON EL 2026-08-24
 
 Los cinco escalones de la cadena figuraban SIN HACER y estaban hechos, con su

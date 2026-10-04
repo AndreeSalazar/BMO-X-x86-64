@@ -59,7 +59,9 @@ pub enum Kind {
     // -- both modes ------------------------------------------------------
     /// `div`, `class`, `flex-direction`, `space-between`
     Ident,
-    /// `72`, `0`. Never carries a unit: `72px` is `Number` then `Ident`.
+    /// `72`, `0`, `1.5`, `.14`. Never carries a unit: `72px` is `Number`
+    /// then `Ident`. The decimal point is MAQUETA 2 (04-10): `letter-spacing:
+    /// .14em` and `stroke-width: 1.5` are the maquetas' own numbers.
     Number,
 
     // -- markup mode -----------------------------------------------------
@@ -95,13 +97,17 @@ pub enum Kind {
     Colon,
     /// `;`
     Semi,
-    /// `#` followed by exactly six hex digits. The span covers the six.
+    /// `#` followed by exactly six hex digits, or eight (`#RRGGBBAA`, the
+    /// alpha a shadow needs). The span covers the digits.
     Color,
     /// A `#` that is not a colour. Kept distinct so the father can say
     /// "id selectors do not exist here" instead of "unexpected byte".
     Hash,
     /// `%`. Exists only so the rejection can name what it saw.
     Pct,
+    /// `(` and `)`: only `linear-gradient(...)` opens one.
+    LParen,
+    RParen,
 
     // -- facts this generation cannot classify ---------------------------
     /// A byte that fits no rule, or an unterminated string or comment.
@@ -136,6 +142,8 @@ impl Kind {
             Kind::Color => "color",
             Kind::Hash => "`#`",
             Kind::Pct => "`%`",
+            Kind::LParen => "`(`",
+            Kind::RParen => "`)`",
             Kind::Unknown => "byte desconocido",
             Kind::NonAscii => "byte fuera de ASCII",
         }
@@ -355,6 +363,13 @@ impl<'a> Lexer<'a> {
             return Mode::Style;
         }
         let one = |k: Kind| -> Option<Kind> { Some(k) };
+        // `.14` is a number, not a class: a class name never starts with a
+        // digit, in CSS either.
+        if self.at(0) == b'.' && self.at(1).is_ascii_digit() {
+            let n = 1 + self.run_from(1, |c| c.is_ascii_digit());
+            self.emit(Kind::Number, n);
+            return Mode::Style;
+        }
         let single = match self.at(0) {
             b'.' => one(Kind::Dot),
             b',' => one(Kind::Comma),
@@ -363,6 +378,8 @@ impl<'a> Lexer<'a> {
             b':' => one(Kind::Colon),
             b';' => one(Kind::Semi),
             b'%' => one(Kind::Pct),
+            b'(' => one(Kind::LParen),
+            b')' => one(Kind::RParen),
             _ => None,
         };
         if let Some(k) = single {
@@ -386,8 +403,11 @@ impl<'a> Lexer<'a> {
     /// MAQUETA does not have -- is the father's problem.
     fn hash(&mut self) {
         let hex = (1..7).all(|k| is_hex(self.at(k)));
+        let hex8 = hex && is_hex(self.at(7)) && is_hex(self.at(8)) && !is_name(self.at(9));
         let ends = !is_name(self.at(7));
-        if hex && ends {
+        if hex8 {
+            self.emit_inner(Kind::Color, 1, 8, 9);
+        } else if hex && ends {
             self.emit_inner(Kind::Color, 1, 6, 7);
         } else {
             self.emit(Kind::Hash, 1);
@@ -417,7 +437,10 @@ impl<'a> Lexer<'a> {
             let n = self.run_of(|c| c > 0x7F);
             self.emit(Kind::NonAscii, n);
         } else if b.is_ascii_digit() {
-            let n = self.run_of(|c| c.is_ascii_digit());
+            let mut n = self.run_of(|c| c.is_ascii_digit());
+            if self.at(n) == b'.' && self.at(n + 1).is_ascii_digit() {
+                n += 1 + self.run_from(n + 1, |c| c.is_ascii_digit());
+            }
             self.emit(Kind::Number, n);
         } else if b.is_ascii_alphabetic() || b == b'_' {
             let n = self.run_of(is_name);
@@ -425,6 +448,15 @@ impl<'a> Lexer<'a> {
         } else {
             self.emit(Kind::Unknown, 1);
         }
+    }
+
+    /// How many bytes from `cursor + desde` satisfy `f`.
+    fn run_from(&self, desde: usize, f: impl Fn(u8) -> bool) -> usize {
+        let mut n = 0;
+        while self.i + desde + n < self.src.len() && f(self.src[self.i + desde + n]) {
+            n += 1;
+        }
+        n
     }
 
     /// How many bytes from the cursor satisfy `f`.

@@ -9,3 +9,10 @@ license = "Apache-2.0"
 # Sin dependencias y `no_std` (con `alloc`, para la cache de glifos): la usan
 # las apps de Ring 3 y se prueba en el anfitrion, igual que `bmo-dibujo`.
 [dependencies]
+
+# `alloc` (por defecto): la cache con monton (`Letra`), la pluma y el lector
+# de SVG, para las apps. Sin ella queda `LetraFija`: la del ESCRITORIO, que
+# no tiene monton.
+[features]
+default = ["alloc"]
+alloc = []

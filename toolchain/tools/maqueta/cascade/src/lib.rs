@@ -51,6 +51,9 @@ pub struct Styled {
     pub id: Option<String>,
     pub island: Option<String>,
     pub text: Option<String>,
+    /// `<svg viewBox>` and `<path d>`, carried untouched (MAQUETA 2).
+    pub view_box: Option<[u32; 4]>,
+    pub d: Option<String>,
     /// Only ever set on the root.
     pub canvas: Option<(u32, u32)>,
     pub style: Style,
@@ -172,6 +175,8 @@ fn settle(
         id: node.id.clone(),
         island: node.island.clone(),
         text: node.text.clone(),
+        view_box: node.view_box,
+        d: node.d.clone(),
         canvas: match (node.width, node.height) {
             (Some(w), Some(h)) => Some((w, h)),
             _ => None,

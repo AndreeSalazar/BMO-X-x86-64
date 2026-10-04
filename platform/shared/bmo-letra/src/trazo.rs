@@ -1,10 +1,15 @@
 //! **El idioma de los trazos**, leido: de `"L 10 0 10 -70 ; O 38 -35 28 35"`
 //! a segmentos en 1/16 de centesima de eme (ver `glifos.rs`).
 
-use alloc::vec::Vec;
+use crate::pila::Pila;
+
+/// Los trozos que caben en una letra: la `@` (tres arcos y un palo) usa ~130.
+pub const MAX_TROZOS: usize = 320;
+
+pub type Trozos = Pila<Trozo, MAX_TROZOS>;
 
 /// Un segmento de pluma, o un punto (`a == b`, con la pluma algo mas gorda).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct Trozo {
     pub a: (i32, i32),
     pub b: (i32, i32),
@@ -36,8 +41,8 @@ pub fn coseno(a: i32) -> i32 {
 }
 
 /// Los numeros de una orden, en 1/16.
-fn numeros<'a>(it: &mut core::iter::Peekable<impl Iterator<Item = &'a str>>) -> Vec<i32> {
-    let mut v = Vec::new();
+fn numeros<'a>(it: &mut core::iter::Peekable<impl Iterator<Item = &'a str>>) -> Pila<i32, 64> {
+    let mut v = Pila::nueva(0);
     while let Some(t) = it.peek() {
         match t.parse::<i32>() {
             Ok(n) => {
@@ -51,7 +56,7 @@ fn numeros<'a>(it: &mut core::iter::Peekable<impl Iterator<Item = &'a str>>) -> 
 }
 
 /// Los puntos de un arco (todo en 1/16): un segmento cada ~3 centesimas.
-fn arco(cx: i32, cy: i32, rx: i32, ry: i32, a0: i32, a1: i32, out: &mut Vec<Trozo>) {
+fn arco(cx: i32, cy: i32, rx: i32, ry: i32, a0: i32, a1: i32, out: &mut Trozos) {
     let largo = (a1 - a0).abs() * rx.max(ry) / 16;
     let pasos = (largo / 170).clamp(4, 120);
     let punto = |a: i32| (cx + rx * coseno(a) / 32768, cy - ry * seno(a) / 32768);
@@ -64,21 +69,22 @@ fn arco(cx: i32, cy: i32, rx: i32, ry: i32, a0: i32, a1: i32, out: &mut Vec<Troz
 }
 
 /// **Lee** unos trazos y los deja en `out`.
-pub fn leer(out: &mut Vec<Trozo>, s: &str) {
+pub fn leer(out: &mut Trozos, s: &str) {
     leer_en(out, s, 0, 0)
 }
 
 /// Lee unos trazos corridos `(dx, dy)` centesimas: los acentos se escriben
 /// alrededor de (0, 0) y se ponen donde caen.
-pub fn leer_en(out: &mut Vec<Trozo>, s: &str, dx: i32, dy: i32) {
+pub fn leer_en(out: &mut Trozos, s: &str, dx: i32, dy: i32) {
     let (dx, dy) = (dx * 16, dy * 16);
     let mut it = s.split_ascii_whitespace().peekable();
     while let Some(orden) = it.next() {
         let n = numeros(&mut it);
+        let n = n.as_slice();
         match orden {
             "L" => {
-                for par in n.chunks_exact(2).collect::<Vec<_>>().windows(2) {
-                    out.push(Trozo { a: (par[0][0] + dx, par[0][1] + dy), b: (par[1][0] + dx, par[1][1] + dy), punto: false });
+                for k in (2..n.len().saturating_sub(1)).step_by(2) {
+                    out.push(Trozo { a: (n[k - 2] + dx, n[k - 1] + dy), b: (n[k] + dx, n[k + 1] + dy), punto: false });
                 }
             }
             "A" if n.len() == 6 => arco(n[0] + dx, n[1] + dy, n[2], n[3], n[4] / 16, n[5] / 16, out),
@@ -94,7 +100,7 @@ pub fn leer_en(out: &mut Vec<Trozo>, s: &str, dx: i32, dy: i32) {
 pub fn valido(s: &str) -> Result<(), alloc::string::String> {
     let mut it = s.split_ascii_whitespace().peekable();
     while let Some(orden) = it.next() {
-        let n = numeros(&mut it).len();
+        let n = numeros(&mut it).as_slice().len();
         let bien = match orden {
             "L" => n >= 4 && n % 2 == 0,
             "A" => n == 6,

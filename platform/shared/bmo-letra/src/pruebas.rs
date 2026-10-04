@@ -134,3 +134,33 @@ fn rellenar_un_cuadrado_da_su_area() {
     svg::rellenar(&[vec![(0, 0), (96, 0), (96, 64), (0, 64)]], |x, _, a| medio.push((x, a)));
     assert_eq!(medio, vec![(0, 255), (1, 127)]);
 }
+
+/// Lo que pinta una fuente: cada pixel con su tinta, en orden.
+fn huella(f: &mut impl Fuente, s: &[u8], e: Estilo) -> std::vec::Vec<(i32, i32, u8)> {
+    let mut v = std::vec::Vec::new();
+    f.escribir(s, e, 3, 40, |x, y, a| v.push((x, y, a)));
+    v
+}
+
+#[test]
+fn la_fija_pinta_lo_mismo_que_la_del_monton() {
+    let mut l = Letra::nueva();
+    let mut f: Box<LetraFija<65536, 1024>> = Box::new(LetraFija::nueva());
+    for e in [Estilo::normal(13), Estilo::negrita(14), Estilo::media(11).espaciado(140).mayusculas(), Estilo::normal(40)] {
+        let s = "Cartera: 1.250,00 CAB -- \u{f1}and\u{fa} @&%".as_bytes();
+        assert_eq!(huella(&mut l, s, e), huella(&mut *f, s, e));
+        assert_eq!(l.medir(s, e), f.medir(s, e));
+    }
+    assert_eq!(f.vaciados, 0);
+}
+
+#[test]
+fn la_fija_chica_se_vacia_y_sigue_pintando_bien() {
+    // 8 KiB de tinta y 64 ranuras: una frase de 40 px no cabe entera.
+    let mut l = Letra::nueva();
+    let mut f: Box<LetraFija<8192, 64>> = Box::new(LetraFija::nueva());
+    let s = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789";
+    let e = Estilo::normal(40);
+    assert_eq!(huella(&mut l, s, e), huella(&mut *f, s, e));
+    assert!(f.vaciados > 0, "tenia que vaciarse");
+}

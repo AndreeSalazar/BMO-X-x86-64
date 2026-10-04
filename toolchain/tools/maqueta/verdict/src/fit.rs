@@ -5,7 +5,7 @@
 
 use bmo_maqueta_cascade::Position;
 use bmo_maqueta_diag::Error;
-use bmo_maqueta_layout::{Frame, Laid, Rect, GLIFO_ALTO, GLIFO_ANCHO};
+use bmo_maqueta_layout::{Frame, Laid, Rect, GLIFO_ANCHO};
 
 pub fn check(laid: &Laid, out: &mut Vec<Error>) {
     let canvas = Rect {
@@ -68,34 +68,33 @@ fn cabe_el_texto(f: &Frame, out: &mut Vec<Error>) {
     if t.is_empty() {
         return;
     }
-    let ancho = t.len() as u32 * GLIFO_ANCHO;
+    // La MISMA medida que la maquetacion: la letra de la casa (si la caja
+    // dijo `font-size`) o la de pixel. Medir aqui con otra regla seria un
+    // juez que mira otra cosa que la que se pinta.
+    let (ancho, alto) = bmo_maqueta_layout::measure::texto(&f.style, t);
+    let como = if f.style.font_size.is_some() {
+        "con la letra de la casa".to_string()
+    } else {
+        format!("{} letras x {GLIFO_ANCHO}", t.len())
+    };
     if ancho > f.content.w {
         out.push(Error::new(
             f.span,
-            &format!(
-                "el texto no cabe -- mide {ancho} px ({} letras x {GLIFO_ANCHO}) y la \
-                 caja da {} px",
-                t.len(),
-                f.content.w
-            ),
-            "la fuente de BMO-X no parte palabras ni reajusta lineas, asi que las \
-             letras que sobran se pintan por encima del borde. Un navegador lo \
-             esconde y aqui se ve, y por eso es la comprobacion que mas vale: es el \
-             unico fallo que queda BONITO en pantalla estando mal.",
-            &format!(
-                "un `width` de {ancho} px o mas, menos `padding`, o menos texto.",
-            ),
+            &format!("el texto no cabe -- mide {ancho} px ({como}) y la caja da {} px", f.content.w),
+            "BMO-X no parte palabras ni reajusta lineas, asi que las letras que \
+             sobran se pintan por encima del borde. Un navegador lo esconde y aqui \
+             se ve, y por eso es la comprobacion que mas vale: es el unico fallo que \
+             queda BONITO en pantalla estando mal.",
+            &format!("un `width` de {ancho} px o mas, menos `padding`, o menos texto."),
         ));
     }
-    if GLIFO_ALTO > f.content.h {
+    if alto > f.content.h {
         out.push(Error::new(
             f.span,
-            &format!(
-                "el texto no cabe de alto -- una linea son {GLIFO_ALTO} px y la caja da {}",
-                f.content.h
-            ),
-            "la fuente mide lo que mide y no se escala: hay una sola, de mapa de bits.",
-            &format!("un `height` de {GLIFO_ALTO} px o mas."),
+            &format!("el texto no cabe de alto -- una linea son {alto} px y la caja da {}", f.content.h),
+            "la linea mide su `line-height` (o la de la letra de pixel, 16), y no se \
+             escala para entrar.",
+            &format!("un `height` de {alto} px o mas."),
         ));
     }
 }

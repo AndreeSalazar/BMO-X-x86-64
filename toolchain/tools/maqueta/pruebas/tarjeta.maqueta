@@ -1,0 +1,58 @@
+<!--
+   LA TARJETA -- piezas de BANK CAT (`docs/arte/maqueta_bankcat.html`) en
+   MAQUETA 2 (04-10): esquinas redondas, el rotulo espaciado, la letra de la
+   casa, los botones, la burbuja que brilla con su icono de SVG y la raya de
+   oro que se apaga.
+
+   Es la prueba de la regla: este MISMO fichero se abre en un navegador
+   (`toolchain/tools/espejo-cara/foto.js ... --maqueta`) y se pinta con
+   `maqueta --foto`; el ESPEJO de cara dice cuanto se parecen.
+
+   Los colores con `color-mix` de la maqueta van ya mezclados: un color de
+   MAQUETA es el que se ve, sin cuentas en el aparato.
+-->
+<maqueta>
+  <style>
+    .lienzo   { display:flex; flex-direction:column; gap:16px; padding:20px;
+                background-color:#080A10 }
+    .tarjeta  { display:flex; flex-direction:column; gap:8px; width:300px;
+                padding:14px; background-color:#0D1118; border-width:1px;
+                border-color:#1B2130; border-radius:12px }
+    .rotulo   { font-size:11px; font-weight:500; letter-spacing:.14em;
+                text-transform:uppercase; line-height:16px; color:#6E7A89 }
+    .cuerpo   { font-size:14px; line-height:20px; color:#C9D3DB }
+    .botones  { display:flex; flex-direction:row; gap:10px }
+    .boton    { padding:9px 16px 9px 16px; border-width:1px; border-radius:10px;
+                font-size:14px; font-weight:600; line-height:20px; color:#F2F7F9 }
+    .recibir  { background-color:#142C26; border-color:#4DE38F }
+    .enviar   { background-color:#2D1225; border-color:#FF2E88 }
+    .fila     { display:flex; flex-direction:row; gap:16px; align-items:center }
+    .burbuja  { display:flex; justify-content:center; align-items:center;
+                width:42px; height:42px; border-width:1px; border-color:#FFD45E;
+                border-radius:13px; background-color:#372F1B;
+                box-shadow:0 0 14px #FFD45E59 }
+    .icono    { width:22px; height:22px; stroke:#FFD45E; stroke-width:2;
+                fill:none; stroke-linecap:round; stroke-linejoin:round }
+    .raya     { width:330px; height:2px;
+                background-image:linear-gradient(90deg, #FFD45E, #080A10) }
+    .cifra    { font-size:44px; line-height:48px; color:#FFD45E }
+  </style>
+
+  <div class="lienzo">
+    <div class="tarjeta">
+      <span class="rotulo">el libro</span>
+      <span class="cuerpo">Cada centimo, apuntado dos veces.</span>
+      <div class="botones">
+        <div class="boton recibir" id="recibir">Recibir 50,00</div>
+        <div class="boton enviar" id="enviar">Enviar 19,99</div>
+      </div>
+    </div>
+    <div class="fila">
+      <div class="burbuja" id="cartera">
+        <svg class="icono" viewBox="0 0 24 24"><path d="M6 6h12q3 0 3 3v7q0 3-3 3H6q-3 0-3-3V9q0-3 3-3zM3 10h18M16 14h2"/></svg>
+      </div>
+      <span class="cifra">1.250,00</span>
+    </div>
+    <div class="raya"></div>
+  </div>
+</maqueta>

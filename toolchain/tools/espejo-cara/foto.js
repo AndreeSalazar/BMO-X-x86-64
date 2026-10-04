@@ -3,6 +3,13 @@
 // el ESPEJO de COBOL.
 //
 //   node foto.js <maqueta.html> <selector> <salida.png> [--clic <selector>]... [--medidas]
+//   node foto.js <fichero.maqueta> maqueta <salida.png> --maqueta
+//
+// Con --maqueta el fichero es un `.maqueta` de MAQUETA 2, y el navegador lo
+// lee con lo minimo para leerlo COMO MAQUETA: sin margenes, `<maqueta>` como
+// caja que mide lo que su arbol, y la letra mas parecida a la de la casa
+// (Plex, como en las maquetas). Es la REGLA del ESPEJO; la otra foto la hace
+// `maqueta --foto`.
 //
 // Hace la foto SOLO del elemento (`.ventana` en las maquetas de apps), a
 // 1300 x 860, tras esperar a que la maqueta se asiente. Con --medidas
@@ -21,7 +28,13 @@ const path = require('path');
   const p = await b.newPage({ viewport: { width: 1300, height: 860 } });
   // Las maquetas son un trozo de HTML: se envuelve en un documento.
   const tmp = path.join(require('os').tmpdir(), 'espejo-cara-' + process.pid + '.html');
-  fs.writeFileSync(tmp, '<!doctype html><html><head><meta charset="utf-8"></head><body>' + fs.readFileSync(html, 'utf8') + '</body></html>');
+  const comoMaqueta = resto.includes('--maqueta');
+  const reset = comoMaqueta
+    ? '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">' +
+      '<style>html,body{margin:0;padding:0;background:#000} maqueta{display:inline-block} island{display:block}' +
+      ' *{font-family:"IBM Plex Sans",sans-serif;line-height:normal;box-sizing:content-box;border-style:solid;border-width:0} span{display:block}</style>'
+    : '';
+  fs.writeFileSync(tmp, '<!doctype html><html><head><meta charset="utf-8">' + reset + '</head><body>' + fs.readFileSync(html, 'utf8') + '</body></html>');
   await p.goto('file://' + tmp);
   await p.waitForTimeout(900);
   for (let i = 0; i < resto.length; i++) {

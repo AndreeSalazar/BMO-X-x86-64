@@ -4,7 +4,7 @@
 //! turned into Rust enums, and that is not a formality:
 //!
 //! > There is no `Tag` value for `h1`. There is no `Prop` value for
-//! > `box-shadow`. **The father cannot represent them.**
+//! > `z-index`. **The father cannot represent them.**
 //!
 //! So rejecting them is not an opinion this generation holds -- it is a naming
 //! failure, which is structural. Opinions live in `verdict/`. The difference is
@@ -13,14 +13,21 @@
 
 use bmo_maqueta_diag::{Error, Span};
 
-/// The five tags. `<style>` is not here: the lexer eats it and its contents
+/// The tags. `<style>` is not here: the lexer eats it and its contents
 /// become rules, so it never reaches the tree.
+///
+/// ** `<svg>` and `<path>` (MAQUETA 2, 04-10): a drawing is MATHS, not
+/// pixels. The path is the SVG `d` of the maqueta, the compiler flattens its
+/// curves on the host, exactly, and the device only inks segments. Being
+/// real SVG, the browser draws the same file: the ruler still works.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Tag {
     Maqueta,
     Div,
     Span,
     Island,
+    Svg,
+    Path,
 }
 
 impl Tag {
@@ -30,6 +37,8 @@ impl Tag {
             b"div" => Some(Tag::Div),
             b"span" => Some(Tag::Span),
             b"island" => Some(Tag::Island),
+            b"svg" => Some(Tag::Svg),
+            b"path" => Some(Tag::Path),
             _ => None,
         }
     }
@@ -40,6 +49,8 @@ impl Tag {
             Tag::Div => "div",
             Tag::Span => "span",
             Tag::Island => "island",
+            Tag::Svg => "svg",
+            Tag::Path => "path",
         }
     }
 
@@ -48,10 +59,16 @@ impl Tag {
     pub fn takes_boxes(self) -> bool {
         matches!(self, Tag::Maqueta | Tag::Div)
     }
+
+    /// Only `<svg>` takes `<path>`s, and a `<path>` goes nowhere else.
+    pub fn takes_paths(self) -> bool {
+        matches!(self, Tag::Svg)
+    }
 }
 
-/// The sixteen properties. Counted from what `scene/` actually does, not from
-/// what CSS offers.
+/// The properties. The first sixteen were counted from what `scene/` does;
+/// the rest (MAQUETA 2, 04-10) from what the app maquetas actually use --
+/// `docs/arte/maqueta_bankcat.html` and `maqueta_hermes.html`, measured.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Prop {
     // the box
@@ -74,6 +91,23 @@ pub enum Prop {
     Position,
     Left,
     Top,
+    // the letter (MAQUETA 2): measured on the host with `bmo-letra`
+    FontSize,
+    FontWeight,
+    LetterSpacing,
+    LineHeight,
+    TextTransform,
+    // the finish (MAQUETA 2)
+    BoxShadow,
+    BackgroundImage,
+    // the drawing (MAQUETA 2): on `<svg>`, for its `<path>`s
+    Stroke,
+    StrokeWidth,
+    Fill,
+    /// Solo `round`: la pluma de la casa es redonda, y el navegador tiene que
+    /// dibujar con la misma o la regla mentiria.
+    StrokeLinecap,
+    StrokeLinejoin,
 }
 
 impl Prop {
@@ -95,6 +129,18 @@ impl Prop {
             b"position" => Prop::Position,
             b"left" => Prop::Left,
             b"top" => Prop::Top,
+            b"font-size" => Prop::FontSize,
+            b"font-weight" => Prop::FontWeight,
+            b"letter-spacing" => Prop::LetterSpacing,
+            b"line-height" => Prop::LineHeight,
+            b"text-transform" => Prop::TextTransform,
+            b"box-shadow" => Prop::BoxShadow,
+            b"background-image" => Prop::BackgroundImage,
+            b"stroke" => Prop::Stroke,
+            b"stroke-width" => Prop::StrokeWidth,
+            b"fill" => Prop::Fill,
+            b"stroke-linecap" => Prop::StrokeLinecap,
+            b"stroke-linejoin" => Prop::StrokeLinejoin,
             _ => return None,
         })
     }
@@ -117,6 +163,18 @@ impl Prop {
             Prop::Position => "position",
             Prop::Left => "left",
             Prop::Top => "top",
+            Prop::FontSize => "font-size",
+            Prop::FontWeight => "font-weight",
+            Prop::LetterSpacing => "letter-spacing",
+            Prop::LineHeight => "line-height",
+            Prop::TextTransform => "text-transform",
+            Prop::BoxShadow => "box-shadow",
+            Prop::BackgroundImage => "background-image",
+            Prop::Stroke => "stroke",
+            Prop::StrokeWidth => "stroke-width",
+            Prop::Fill => "fill",
+            Prop::StrokeLinecap => "stroke-linecap",
+            Prop::StrokeLinejoin => "stroke-linejoin",
         }
     }
 
@@ -130,7 +188,14 @@ impl Prop {
     pub fn es_pintura(self) -> bool {
         matches!(
             self,
-            Prop::BackgroundColor | Prop::Color | Prop::BorderColor | Prop::BorderRadius
+            Prop::BackgroundColor
+                | Prop::Color
+                | Prop::BorderColor
+                | Prop::BorderRadius
+                | Prop::BoxShadow
+                | Prop::BackgroundImage
+                | Prop::Stroke
+                | Prop::Fill
         )
     }
 
@@ -144,7 +209,17 @@ impl Prop {
             | Prop::BorderRadius
             | Prop::Gap
             | Prop::Left
-            | Prop::Top => Shape::OnePx,
+            | Prop::Top
+            | Prop::FontSize
+            | Prop::LineHeight => Shape::OnePx,
+            Prop::FontWeight => Shape::Weight,
+            Prop::LetterSpacing => Shape::Em,
+            Prop::TextTransform => Shape::Words(&[Keyword::Uppercase, Keyword::None]),
+            Prop::BoxShadow => Shape::Shadow,
+            Prop::BackgroundImage => Shape::Gradient,
+            Prop::Stroke | Prop::Fill => Shape::ColorOrNone,
+            Prop::StrokeWidth => Shape::Fine,
+            Prop::StrokeLinecap | Prop::StrokeLinejoin => Shape::Words(&[Keyword::Round]),
             Prop::Padding => Shape::OneOrFourPx,
             Prop::BackgroundColor | Prop::Color | Prop::BorderColor => Shape::Color,
             Prop::Display => Shape::Words(&[Keyword::Block, Keyword::Flex]),
@@ -172,6 +247,18 @@ pub enum Shape {
     OneOrFourPx,
     Color,
     Words(&'static [Keyword]),
+    /// `400`, `500`, `600`, `700` (or `normal`, `bold`).
+    Weight,
+    /// `.14em` (or `0`): thousandths of the font size.
+    Em,
+    /// `0 0 14px #RRGGBBAA`: only the glow around a box, no offset.
+    Shadow,
+    /// `linear-gradient(90deg, #RRGGBB, #RRGGBB)`, or `180deg`: two colours.
+    Gradient,
+    /// A colour, or `none`.
+    ColorOrNone,
+    /// A number that may carry a decimal (`1.5`), in `viewBox` units.
+    Fine,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -186,6 +273,9 @@ pub enum Keyword {
     SpaceBetween,
     Stretch,
     Absolute,
+    Uppercase,
+    None,
+    Round,
 }
 
 impl Keyword {
@@ -201,6 +291,9 @@ impl Keyword {
             b"space-between" => Keyword::SpaceBetween,
             b"stretch" => Keyword::Stretch,
             b"absolute" => Keyword::Absolute,
+            b"uppercase" => Keyword::Uppercase,
+            b"none" => Keyword::None,
+            b"round" => Keyword::Round,
             _ => return None,
         })
     }
@@ -217,6 +310,9 @@ impl Keyword {
             Keyword::SpaceBetween => "space-between",
             Keyword::Stretch => "stretch",
             Keyword::Absolute => "absolute",
+            Keyword::Uppercase => "uppercase",
+            Keyword::None => "none",
+            Keyword::Round => "round",
         }
     }
 }
@@ -230,6 +326,18 @@ pub enum Value {
     Px4([u32; 4]),
     Color(u32),
     Word(Keyword),
+    /// `font-weight`: 400 to 700.
+    Weight(u16),
+    /// Thousandths of an em.
+    Em(i32),
+    /// The glow: how far it reaches, and `0xAARRGGBB` (alpha = strength).
+    Shadow { reach: u32, argb: u32 },
+    /// Two colours, left to right (`90deg`) or top to bottom (`180deg`).
+    Gradient { vertical: bool, from: u32, to: u32 },
+    /// `none` for `stroke` and `fill`.
+    Nothing,
+    /// A fine number, in 1/64 units.
+    Fine(u32),
 }
 
 // ------------------------------------------------------------------------
@@ -245,16 +353,11 @@ pub enum Value {
 /// understand* -- just leaves people stuck.
 pub fn known_rejection(name: &[u8]) -> Option<(&'static str, &'static str)> {
     Some(match name {
-        b"box-shadow" => (
-            "una sombra necesita mezcla alfa, y el rasterizador esta en el escalon 2 \
-             (triangulo). La mezcla es el escalon 4.",
-            "`scene/mod.rs` pinta las sombras de ventana con dos capas de color \
-             solido. Si hace falta aqui, se declaran con dos `<div>`.",
-        ),
         b"opacity" | b"filter" | b"backdrop-filter" => (
-            "no hay mezcla alfa: el pixel de BMO-X es `u32` en `0x00RRGGBB` y el \
-             canal alto no se lee.",
-            "elegir el color ya mezclado, o esperar al escalon 4 del rasterizador.",
+            "transparentar una caja ENTERA obliga a pintarla aparte y mezclarla \
+             encima, en el aparato. La mezcla que si hay es la del borde (letra, \
+             esquina, trazo) y la de `box-shadow`.",
+            "elegir el color ya mezclado: `#RRGGBB` resuelto al escribirlo.",
         ),
         b"z-index" => (
             "no hay capas: las cajas se pintan en el orden en que estan escritas.",
@@ -270,11 +373,11 @@ pub fn known_rejection(name: &[u8]) -> Option<(&'static str, &'static str)> {
              de las dos cosas.",
             "`display:flex` con `flex-direction:row`.",
         ),
-        b"font-family" | b"font-size" | b"font-weight" | b"font" | b"line-height" => (
-            "hay UNA fuente, de mapa de bits y ancho fijo. Que ese sea el caso es lo \
-             que hace posible medir texto al compilar (`len * GLIFO_ANCHO`), asi que \
-             no es una carencia: es el cimiento.",
-            "nada. La medida del texto no se elige.",
+        b"font-family" | b"font" => (
+            "hay UNA letra, la de la casa (`bmo-letra`): trazos propios, sin \
+             fuentes de nadie. Elegir familia seria traer otra.",
+            "`font-size`, `font-weight`, `letter-spacing`, `line-height` y \
+             `text-transform`: lo que de verdad cambia una letra.",
         ),
         b"text-align" => (
             "no esta implementada, y no es gratis: alinear texto es colocar una caja \
@@ -333,8 +436,8 @@ pub fn unknown_tag(span: Span, name: &[u8]) -> Error {
         span,
         &format!("etiqueta no soportada -- `<{n}>`"),
         "la lista de etiquetas esta CERRADA, y lo que no esta en ella no compila.",
-        "`<maqueta>`, `<div>`, `<span>`, `<island>` o `<style>`. La lista entera \
-         esta en la seccion 2 de `LA_MAQUETA_EXIGE.md`.",
+        "`<maqueta>`, `<div>`, `<span>`, `<island>`, `<svg>`, `<path>` o \
+         `<style>`. La lista entera esta en la seccion 2 de `LA_MAQUETA_EXIGE.md`.",
     )
 }
 
@@ -346,8 +449,8 @@ pub fn unknown_prop(span: Span, name: &[u8]) -> Error {
     Error::new(
         span,
         &format!("propiedad no soportada -- `{n}`"),
-        "la lista de propiedades esta CERRADA: diecisiete, contadas sobre lo que el \
-         escritorio hace de verdad hoy.",
+        "la lista de propiedades esta CERRADA: contadas sobre lo que el escritorio \
+         y las maquetas de las apps hacen de verdad.",
         "la lista entera esta en la seccion 3 de `LA_MAQUETA_EXIGE.md`. Agregar una \
          empieza por anadirla ahi.",
     )

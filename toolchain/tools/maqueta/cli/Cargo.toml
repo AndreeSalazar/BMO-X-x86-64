@@ -16,3 +16,5 @@ bmo-maqueta-layout = { path = "../layout" }
 bmo-maqueta-verdict = { path = "../verdict" }
 bmo-maqueta-emit = { path = "../emit" }
 bmo-maqueta-diag = { path = "../diag" }
+# `--foto`: la cara pintada a PNG con el escritor de la casa.
+bmo-imagen = { path = "../../../../platform/shared/bmo-imagen" }

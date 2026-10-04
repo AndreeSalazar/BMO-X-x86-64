@@ -152,27 +152,42 @@ fn an_invented_tag_gets_the_closed_list() {
 
 #[test]
 fn a_real_css_property_gets_a_real_reason_and_a_way_out() {
-    let e = errs("<maqueta><div></div></maqueta><style>.a{box-shadow:0 2px}</style>");
-    assert!(e.contains("propiedad no soportada -- `box-shadow`"));
-    assert!(e.contains("mezcla alfa"), "tiene que decir POR QUE:\n{e}");
-    assert!(e.contains("escalon 4"));
-    assert!(e.contains("dos `<div>`"), "y que hacer en su lugar:\n{e}");
+    let e = errs("<maqueta><div></div></maqueta><style>.a{opacity:0}</style>");
+    assert!(e.contains("propiedad no soportada -- `opacity`"));
+    assert!(e.contains("en el aparato"), "tiene que decir POR QUE:\n{e}");
+    assert!(e.contains("color ya mezclado"), "y que hacer en su lugar:\n{e}");
+}
+
+/// ** MAQUETA 2 (04-10): la sombra ENTRA, pero solo la que el escritorio
+/// puede pintar sin mentir -- el resplandor, sin desplazamiento.
+#[test]
+fn a_shadow_with_an_offset_is_refused_with_the_reason() {
+    let e = errs("<maqueta><div></div></maqueta><style>.a{box-shadow:0 2px 4px #000000}</style>");
+    assert!(e.contains("`box-shadow` quiere `0 0 Npx #RRGGBBAA`"), "{e}");
+    assert!(e.contains("sin desplazamiento"), "{e}");
 }
 
 #[test]
-fn the_font_rejection_says_the_limit_is_the_foundation_not_a_gap() {
-    // This one matters: someone will read "no font-size" as poverty, when it is
-    // the reason compile-time text measurement is possible at all.
-    let e = errs("<maqueta><div></div></maqueta><style>.a{font-size:12px}</style>");
-    assert!(e.contains("ancho fijo"));
-    assert!(e.contains("cimiento"), "no puede sonar a carencia:\n{e}");
+fn the_font_rejection_names_the_house_letter() {
+    // MAQUETA 2: `font-size` y los suyos ENTRAN (la letra de la casa se mide
+    // al compilar con el mismo codigo que la pinta). Lo que no entra es ELEGIR
+    // otra familia.
+    let e = errs("<maqueta><div></div></maqueta><style>.a{font-family:Plex}</style>");
+    assert!(e.contains("la de la casa"), "{e}");
+    assert!(e.contains("`font-size`"), "y que si existe:\n{e}");
+}
+
+#[test]
+fn a_weight_that_the_letter_does_not_have_is_refused() {
+    let e = errs("<maqueta><div></div></maqueta><style>.a{font-weight:300}</style>");
+    assert!(e.contains("400, 500, 600 o 700"), "{e}");
 }
 
 #[test]
 fn an_invented_property_gets_the_closed_list() {
     let e = errs("<maqueta><div></div></maqueta><style>.a{ancho-total:4px}</style>");
     assert!(e.contains("propiedad no soportada -- `ancho-total`"));
-    assert!(e.contains("diecisiete"));
+    assert!(e.contains("CERRADA"));
 }
 
 #[test]

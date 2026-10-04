@@ -281,6 +281,33 @@ fn attribute(
                 }
             }
         }
+        b"viewBox" if node.tag == Tag::Svg => {
+            let n: Vec<Option<u32>> = val.split(|b| b.is_ascii_whitespace() || *b == b',').filter(|w| !w.is_empty()).map(parse_u32).collect();
+            match n.as_slice() {
+                [Some(a), Some(b), Some(c), Some(d)] if *c > 0 && *d > 0 => node.view_box = Some([*a, *b, *c, *d]),
+                _ => errors.push(Error::new(
+                    vspan,
+                    "un `viewBox` son cuatro enteros: x, y, ancho y alto",
+                    "son las coordenadas propias del dibujo; el compilador las lleva a la \
+                     caja del `<svg>`.",
+                    "por ejemplo `viewBox=\"0 0 24 24\"`.",
+                )),
+            }
+        }
+        b"d" if node.tag == Tag::Path => {
+            let d = String::from_utf8_lossy(&val).into_owned();
+            if bmo_letra::svg::camino(&d).is_empty() {
+                errors.push(Error::new(
+                    vspan,
+                    "este camino no se puede leer",
+                    "un `d` de SVG con `M L H V C S Q T Z` (y sus minusculas). Los arcos \
+                     `A` no estan: en las maquetas no hay ninguno.",
+                    "por ejemplo `d=\"M4 8h14l-4-4\"`.",
+                ));
+            } else {
+                node.d = Some(d);
+            }
+        }
         other => {
             errors.push(Error::new(
                 span_of(&name_tok),
@@ -290,8 +317,9 @@ fn attribute(
                 ),
                 "la lista de atributos esta CERRADA. Un atributo que se acepta y no \
                  se lee es una linea que parece hacer algo y no hace nada.",
-                "`class`, `id`, `nombre` (solo en `<island>`) y `ancho`/`alto` \
-                 (solo en `<maqueta>`).",
+                "`class`, `id`, `nombre` (solo en `<island>`), `ancho`/`alto` \
+                 (solo en `<maqueta>`), `viewBox` (solo en `<svg>`) y `d` (solo en \
+                 `<path>`).",
             ));
         }
     }
@@ -355,6 +383,23 @@ fn close_tag(
 fn attach(stack: &mut [Node], roots: &mut Vec<Node>, node: Node, errors: &mut Vec<Error>) {
     match stack.last_mut() {
         Some(parent) => {
+            // Un `<path>` solo va en un `<svg>`, y un `<svg>` solo lleva
+            // `<path>`s: un dibujo es matematica, no flujo de cajas.
+            if node.tag == Tag::Path || parent.tag == Tag::Svg {
+                if node.tag != Tag::Path || !parent.tag.takes_paths() {
+                    errors.push(Error::new(
+                        node.span,
+                        &format!("`<{}>` no puede ir dentro de `<{}>`", node.tag.name(), parent.tag.name()),
+                        "un `<svg>` es un dibujo: dentro solo lleva sus `<path>`, y un \
+                         `<path>` solo tiene sentido dentro de su `<svg>` (es quien dice \
+                         su `viewBox` y su trazo).",
+                        "poner los `<path>` dentro del `<svg>`, y las cajas fuera.",
+                    ));
+                    return;
+                }
+                parent.children.push(node);
+                return;
+            }
             if !parent.tag.takes_boxes() {
                 errors.push(Error::new(
                     node.span,

@@ -49,9 +49,15 @@ pub fn place(b: &Styled, border: Rect) -> Frame {
         .filter(|c| c.style.position == Position::Static)
         .collect();
 
-    let mut placed: Vec<Frame> = match b.style.display {
-        Display::Flex => flex(b, &flow, content),
-        Display::Block => block(&flow, content),
+    // Un `<svg>` es una hoja: sus `<path>` caen todos en su caja y su
+    // `viewBox` dice el resto (MAQUETA 2).
+    let mut placed: Vec<Frame> = if b.tag == bmo_maqueta_node::Tag::Svg {
+        b.children.iter().map(|c| place(c, content)).collect()
+    } else {
+        match b.style.display {
+            Display::Flex => flex(b, &flow, content),
+            Display::Block => block(&flow, content),
+        }
     };
 
     // * Absolutely positioned boxes are placed against the canvas, and that is
@@ -59,7 +65,7 @@ pub fn place(b: &Styled, border: Rect) -> Frame {
     // ancestor, MAQUETA has no `position:relative`, so there never is one and
     // the anchor is always the initial containing block. Same behaviour, arrived
     // at by having fewer parts.
-    for c in b.children.iter().filter(|c| c.style.position == Position::Absolute) {
+    for c in b.children.iter().filter(|c| c.style.position == Position::Absolute && b.tag != bmo_maqueta_node::Tag::Svg) {
         let o = outer_size(c);
         placed.push(place(
             c,
@@ -77,6 +83,8 @@ pub fn place(b: &Styled, border: Rect) -> Frame {
         id: b.id.clone(),
         island: b.island.clone(),
         text: b.text.clone(),
+        view_box: b.view_box,
+        d: b.d.clone(),
         style: b.style,
         hover: b.hover,
         rect: border,
@@ -100,8 +108,7 @@ pub fn place(b: &Styled, border: Rect) -> Frame {
 /// `bx + CALC_BTN/2 - GLIFO_ANCHO/2` by hand, once per label.
 fn donde_el_texto(b: &Styled, content: Rect) -> Option<Rect> {
     let t = b.text.as_ref()?;
-    let w = t.len() as u32 * crate::GLIFO_ANCHO;
-    let h = crate::GLIFO_ALTO;
+    let (w, h) = crate::measure::texto(&b.style, t);
     if b.style.display != Display::Flex {
         return Some(Rect { x: content.x, y: content.y, w, h });
     }

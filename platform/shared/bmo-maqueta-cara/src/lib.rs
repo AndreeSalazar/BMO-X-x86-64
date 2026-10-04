@@ -70,7 +70,12 @@ pub const MAGICO: u32 = u32::from_le_bytes(*b"CARA");
 ///
 /// [!] Se compara por IGUALDAD y no por "mayor o igual". Un lector que acepte
 /// versiones futuras esta prometiendo entender algo que todavia no existe.
-pub const VERSION: u16 = 1;
+///
+/// ** La 2 (04-10, MAQUETA 2): las piezas SUAVES -- caja redonda, borde,
+/// resplandor, degradado, la letra de la casa y los caminos de SVG. El plano
+/// es el mismo; el campo reservado del trazo pasa a llevar lo de cada clase
+/// (`trazo::EXTRA`), y una cara de la 1 ya no se abre: se vuelve a emitir.
+pub const VERSION: u16 = 2;
 
 /// Bytes de la cabecera.
 pub const CABECERA: usize = 20;
@@ -104,8 +109,10 @@ pub mod trazo {
     pub const COLOR: usize = 10;
     pub const CAD_OFF: usize = 14;
     pub const CAD_LEN: usize = 16;
-    /// Tiene que ser CERO.
-    pub const RESERVADO: usize = 18;
+    /// Lo de cada clase (radio, grosor, estilo de la letra). En `RECT` y
+    /// `TEXTO` tiene que ser CERO: era el reservado de la version 1.
+    pub const EXTRA: usize = 18;
+    pub const RESERVADO: usize = EXTRA;
 }
 
 /// Offsets dentro de un golpe.
@@ -120,8 +127,35 @@ pub mod golpe {
 
 /// Un rectangulo macizo.
 pub const CLASE_RECT: u8 = 0;
-/// Letras.
+/// Letras de PIXEL (8 x 16).
 pub const CLASE_TEXTO: u8 = 1;
+/// Caja de esquinas redondas. `EXTRA` = radio.
+pub const CLASE_CAJA: u8 = 2;
+/// Borde de una caja redonda. `EXTRA` = radio | grosor << 8.
+pub const CLASE_BORDE: u8 = 3;
+/// Resplandor alrededor de la caja. `COLOR` = `0xAARRGGBB` (el alfa es la
+/// fuerza); `EXTRA` = radio | alcance << 8.
+pub const CLASE_RESPLANDOR: u8 = 4;
+/// Degradado. `COLOR` = el de un lado; los datos (4 bytes) = el del otro;
+/// `EXTRA` = radio | vertical << 15.
+pub const CLASE_DEGRADADO: u8 = 5;
+/// La letra de la casa. Los datos = el texto; `H` = su `line-height`;
+/// `EXTRA` = talla (7 bits) | peso << 7 (0..=3: 400, 500, 600, 700) |
+/// mayusculas << 9 | espacio << 10 (centesimas de eme, 0..=63).
+pub const CLASE_LETRA: u8 = 6;
+/// Un camino con pluma. Los datos = sus puntos (ver [`puntos`]); `EXTRA` =
+/// el grosor, en 1/16 de pixel.
+pub const CLASE_LINEA: u8 = 7;
+/// Un camino relleno (par-impar). Los datos = sus puntos.
+pub const CLASE_RELLENO: u8 = 8;
+
+/// **Los puntos de un camino**, en los datos de una `LINEA` o un `RELLENO`:
+/// pares `(i16 x, i16 y)` en 1/16 de pixel, RELATIVOS a la esquina del
+/// trazo, y antes de cada subcamino un separador `(i16::MIN, cerrado)`.
+pub mod puntos {
+    /// El primer campo de un separador.
+    pub const SEPARA: i16 = i16::MIN;
+}
 
 /// Se pinta siempre.
 pub const ESTADO_REPOSO: u8 = 0;
@@ -156,6 +190,11 @@ pub enum Falta {
     /// El lienzo es de ancho o alto cero: no se puede pintar nada y **todo rect
     /// se saldria**, o sea que el error de verdad seria el de al lado.
     LienzoVacio,
+    /// Una clase de trazo que esta version no tiene.
+    ClaseDesconocida,
+    /// Los datos de un trazo no tienen la forma de su clase (un degradado sin
+    /// su segundo color, un camino partido o con un punto fuera de su caja).
+    DatosMal,
 }
 
 /// Una cara ya comprobada. **Solo se construye pasando por [`leer`]**, asi que
@@ -198,8 +237,13 @@ pub struct Pincelada<'a> {
     pub w: u16,
     pub h: u16,
     pub color: u32,
-    /// Las letras. Vacio si `clase` es [`CLASE_RECT`].
+    /// Las letras (`TEXTO` y `LETRA`). Vacio en las demas.
     pub texto: &'a [u8],
+    /// Lo de cada clase (ver las `CLASE_*`).
+    pub extra: u16,
+    /// Los datos del trazo en el bloque de cadenas, YA COMPROBADOS contra su
+    /// clase: el texto, el segundo color, o los puntos.
+    pub datos: &'a [u8],
 }
 
 /// Una region que se puede pulsar.
@@ -320,7 +364,11 @@ pub fn leer(bytes: &[u8], pantalla_ancho: u16, pantalla_alto: u16) -> Result<Car
     // escritorio" seria falso a medias: no lo tumba, pero lo ensucia.
     for i in 0..n_trazos {
         let b = trazos_off + i * TRAZO;
-        if u16_en(bytes, b + trazo::RESERVADO) != Some(0) {
+        let clase = *bytes.get(b + trazo::CLASE).ok_or(Falta::LasCuentasNoCaben)?;
+        if clase > CLASE_RELLENO {
+            return Err(Falta::ClaseDesconocida);
+        }
+        if (clase == CLASE_RECT || clase == CLASE_TEXTO) && u16_en(bytes, b + trazo::EXTRA) != Some(0) {
             return Err(Falta::ReservadoSucio);
         }
         let off = u16_en(bytes, b + trazo::CAD_OFF).ok_or(Falta::LasCuentasNoCaben)? as usize;
@@ -331,6 +379,13 @@ pub fn leer(bytes: &[u8], pantalla_ancho: u16, pantalla_alto: u16) -> Result<Car
         let w = u16_en(bytes, b + trazo::W).ok_or(Falta::LasCuentasNoCaben)?;
         let h = u16_en(bytes, b + trazo::H).ok_or(Falta::LasCuentasNoCaben)?;
         cara.rect_dentro(x, y, w, h)?;
+        // -- La forma de los datos, por clase ---------------------------------
+        let datos = cara.cadena(off, len);
+        match clase {
+            CLASE_DEGRADADO if len != 4 => return Err(Falta::DatosMal),
+            CLASE_LINEA | CLASE_RELLENO => puntos_validos(datos, w, h)?,
+            _ => {}
+        }
     }
     for i in 0..n_golpes {
         let b = golpes_off + i * GOLPE;
@@ -411,11 +466,13 @@ impl<'a> Cara<'a> {
             w: u16_en(self.bytes, b + trazo::W)?,
             h: u16_en(self.bytes, b + trazo::H)?,
             color: u32_en(self.bytes, b + trazo::COLOR)?,
-            texto: if clase == CLASE_TEXTO {
+            texto: if clase == CLASE_TEXTO || clase == CLASE_LETRA {
                 self.cadena(off, len)
             } else {
                 &[]
             },
+            extra: u16_en(self.bytes, b + trazo::EXTRA)?,
+            datos: self.cadena(off, len),
         })
     }
 
@@ -434,6 +491,50 @@ impl<'a> Cara<'a> {
             h: u16_en(self.bytes, b + golpe::H)?,
             nombre: self.cadena(off, len),
         })
+    }
+}
+
+/// Los puntos de un camino: pares enteros, el primero un separador, y cada
+/// punto DENTRO de la caja de su trazo (en 1/16 de pixel).
+fn puntos_validos(d: &[u8], w: u16, h: u16) -> Result<(), Falta> {
+    if d.is_empty() || d.len() % 4 != 0 {
+        return Err(Falta::DatosMal);
+    }
+    let (wm, hm) = (w as i32 * 16, h as i32 * 16);
+    for (k, par) in d.chunks_exact(4).enumerate() {
+        let x = i16::from_le_bytes([par[0], par[1]]);
+        let y = i16::from_le_bytes([par[2], par[3]]);
+        if x == puntos::SEPARA {
+            if y != 0 && y != 1 {
+                return Err(Falta::DatosMal);
+            }
+            continue;
+        }
+        if k == 0 || x < 0 || y < 0 || x as i32 > wm || y as i32 > hm {
+            return Err(Falta::DatosMal);
+        }
+    }
+    Ok(())
+}
+
+/// **Recorre los subcaminos** de los datos (ya comprobados) de una `LINEA`
+/// o un `RELLENO`: `f(cerrado, puntos)`, con los puntos en 1/16 de pixel
+/// relativos al trazo, como pares de `i16` sin decodificar.
+pub fn subcaminos<'a>(datos: &'a [u8], mut f: impl FnMut(bool, &'a [u8])) {
+    let mut ini = 0;
+    let mut cerrado = false;
+    let pares = datos.len() / 4;
+    for k in 0..=pares {
+        let separa = k == pares || i16::from_le_bytes([datos[k * 4], datos[k * 4 + 1]]) == puntos::SEPARA;
+        if separa {
+            if k > ini {
+                f(cerrado, &datos[ini * 4..k * 4]);
+            }
+            if k < pares {
+                cerrado = datos[k * 4 + 2] == 1;
+            }
+            ini = k + 1;
+        }
     }
 }
 

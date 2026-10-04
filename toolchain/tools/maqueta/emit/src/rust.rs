@@ -83,8 +83,46 @@ fn cabecera(s: &mut String, origen: &str, l: &Laid) {
 //  Un trazo, escrito
 // ------------------------------------------------------------------------
 
+/// **Una pieza suave escrita en Rust**, para `bmo::Pieza` (la `Pieza` de
+/// `bmo-pinta`, que `bmo-userland` reexporta).
+fn pieza_literal(p: &bmo_pinta::Pieza) -> String {
+    use bmo_pinta::Pieza;
+    let caminos = |c: &[&[(i32, i32)]]| -> String {
+        let v: Vec<String> = c
+            .iter()
+            .map(|s| format!("&[{}]", s.iter().map(|(x, y)| format!("({x}, {y})")).collect::<Vec<_>>().join(", ")))
+            .collect();
+        format!("&[{}]", v.join(", "))
+    };
+    match *p {
+        Pieza::Caja { x, y, w, h, r, c } => format!("bmo::Pieza::Caja {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, c: 0x{c:08X} }}"),
+        Pieza::Borde { x, y, w, h, r, grosor, c } => {
+            format!("bmo::Pieza::Borde {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, grosor: {grosor}, c: 0x{c:08X} }}")
+        }
+        Pieza::Resplandor { x, y, w, h, r, alcance, argb } => {
+            format!("bmo::Pieza::Resplandor {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, alcance: {alcance}, argb: 0x{argb:08X} }}")
+        }
+        Pieza::Degradado { x, y, w, h, r, de, a, vertical } => format!(
+            "bmo::Pieza::Degradado {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, de: 0x{de:08X}, a: 0x{a:08X}, vertical: {vertical} }}"
+        ),
+        Pieza::Letra { x, y, alto, texto, c, px, peso, espacio, mayusculas } => format!(
+            "bmo::Pieza::Letra {{ x: {x}, y: {y}, alto: {alto}, texto: b{:?}, c: 0x{c:08X}, px: {px}, peso: {peso}, espacio: {espacio}, mayusculas: {mayusculas} }}",
+            String::from_utf8_lossy(texto)
+        ),
+        Pieza::Trazo { caminos: cs, cerrados, grosor64, c } => format!(
+            "bmo::Pieza::Trazo {{ caminos: {}, cerrados: &{:?}, grosor64: {grosor64}, c: 0x{c:08X} }}",
+            caminos(cs),
+            cerrados
+        ),
+        Pieza::Relleno { caminos: cs, c } => format!("bmo::Pieza::Relleno {{ caminos: {}, c: 0x{c:08X} }}", caminos(cs)),
+    }
+}
+
 /// La llamada que pinta este trazo, sin recortar.
 fn llamada(t: &Trazo) -> String {
+    if let Some(l) = t.con_pieza(pieza_literal) {
+        return format!("p.pieza(&{l}, ox as i32, oy as i32, None);");
+    }
     match t {
         Trazo::Rect { r, color } => format!(
             "p.rect(ox + {}, oy + {}, {}, {}, 0x{color:08X});",
@@ -94,6 +132,8 @@ fn llamada(t: &Trazo) -> String {
             "p.texto(ox + {}, oy + {}, {texto:?}, 0x{color:08X});",
             r.x, r.y
         ),
+        // Las suaves salieron arriba, por `con_pieza`.
+        _ => String::new(),
     }
 }
 
@@ -175,6 +215,18 @@ fn pintar_en(s: &mut String, ordenes: &[Orden]) {
                      \x20   }}",
                     r.x, r.y
                 );
+            }
+            // Las suaves, enteras pero RECORTADAS al pintar: un borde suave
+            // mezclado dos veces se oscurece.
+            otro => {
+                if let Some(l) = otro.con_pieza(pieza_literal) {
+                    let _ = writeln!(
+                        s,
+                        "    if !{caja}.interseccion(&limite).vacio() {{\n\
+                         \x20       p.pieza(&{l}, ox as i32, oy as i32, Some(limite));\n\
+                         \x20   }}"
+                    );
+                }
             }
         }
     }

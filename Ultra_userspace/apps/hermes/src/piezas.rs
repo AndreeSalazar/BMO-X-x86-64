@@ -197,6 +197,7 @@ pub fn flecha(cv: &mut Canvas, x: i32, cy: i32, w: i32, h: i32, dir: i32, c: Col
 // ---------------------------------------------------------------------------
 
 pub use bmo_letra::Estilo;
+use bmo_letra::Fuente;
 
 /// La cache de glifos de la app. La app es UN hilo: solo se toca desde el
 /// bucle que pinta.

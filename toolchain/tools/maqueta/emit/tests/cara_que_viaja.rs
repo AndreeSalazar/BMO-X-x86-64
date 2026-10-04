@@ -87,6 +87,7 @@ fn la_cara_de_la_calculadora_va_y_vuelve() {
                 assert_eq!(p.color, *color);
                 assert_eq!(p.texto, texto.as_bytes(), "las letras del trazo {i}");
             }
+            otro => panic!("la calculadora solo tiene rect y letra de pixel, y salio {otro:?}"),
         }
     }
 }
@@ -165,6 +166,63 @@ fn la_cara_de_la_calculadora_corrompida_no_tumba_al_lector() {
             }
             b[i] = v;
             let _ = cara::leer(&b, 1920, 1080);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MAQUETA 2 (04-10): la cara SUAVE -- radio, resplandor, degradado, la letra
+// de la casa y un camino de SVG -- tambien viaja sin perder un pixel.
+// ---------------------------------------------------------------------------
+
+const TARJETA: &str = include_str!("../../pruebas/tarjeta.maqueta");
+
+#[test]
+fn la_tarjeta_trae_todas_las_piezas_suaves() {
+    let l = compilar(TARJETA);
+    let o = orden::lista(&l);
+    let hay = |f: fn(&orden::Trazo) -> bool| o.iter().any(|x| f(&x.trazo));
+    assert!(hay(|t| matches!(t, orden::Trazo::Caja { .. })), "caja redonda");
+    assert!(hay(|t| matches!(t, orden::Trazo::Borde { .. })), "borde redondo");
+    assert!(hay(|t| matches!(t, orden::Trazo::Resplandor { .. })), "resplandor");
+    assert!(hay(|t| matches!(t, orden::Trazo::Degradado { .. })), "degradado");
+    assert!(hay(|t| matches!(t, orden::Trazo::Letra { mayusculas: true, .. })), "el rotulo");
+    assert!(hay(|t| matches!(t, orden::Trazo::Linea { .. })), "el icono");
+}
+
+#[test]
+fn la_cara_suave_que_viaja_pinta_los_mismos_pixeles() {
+    let l = compilar(TARJETA);
+    let ordenes = orden::lista(&l);
+    let golpes = orden::golpes(&l);
+    let (w, h) = lienzo(&l);
+    let bytes = bef::escribir(&ordenes, &golpes, w, h).expect("la tarjeta tiene que caber");
+    let directa = bmo_maqueta_emit::foto::foto(&l);
+    let viajada = bmo_maqueta_emit::foto::foto_cara(&bytes).expect("la cara escrita se tiene que leer");
+    assert_eq!((directa.ancho, directa.alto), (viajada.ancho, viajada.alto));
+    let distintos = directa.px.iter().zip(&viajada.px).filter(|(a, b)| a != b).count();
+    assert_eq!(distintos, 0, "la cara perdio {distintos} pixeles al viajar");
+    // Y no es una foto negra: hay oro (la cifra) y verde (el boton).
+    assert!(directa.px.iter().any(|&c| c == 0x00FF_D45E));
+    assert!(directa.px.iter().any(|&c| c == 0x004D_E38F));
+}
+
+#[test]
+fn una_cara_suave_corrompida_no_tumba_al_lector() {
+    let l = compilar(TARJETA);
+    let (w, h) = lienzo(&l);
+    let bytes = bef::escribir(&orden::lista(&l), &orden::golpes(&l), w, h).unwrap();
+    // Cada byte, cambiado de tres formas: el lector dice que no o lee, pero
+    // nunca revienta, y lo que lee se pinta sin escribir fuera.
+    for i in 0..bytes.len() {
+        for v in [0u8, 0xFF, bytes[i] ^ 0x5A] {
+            let mut b = bytes.clone();
+            b[i] = v;
+            let _ = cara::leer(&b, u16::MAX, u16::MAX);
+            // Pintarla entera cada vez es caro: una de cada 37 se pinta.
+            if i % 37 == 0 {
+                let _ = bmo_maqueta_emit::foto::foto_cara(&b);
+            }
         }
     }
 }

@@ -107,6 +107,15 @@ pub fn dentro(ordenes: &[Orden], estado: Estado, limite: Rect) -> Vec<Orden> {
                         color: *color,
                     }
                 }
+                // Las piezas suaves tambien: enteras o nada. Quien las pinta
+                // las RECORTA al pintar (`bmo_pinta::Recortado`), porque su
+                // borde suave mezclado dos veces se oscurece.
+                otro => {
+                    if !cruza(otro.area(), limite) {
+                        return None;
+                    }
+                    otro.clone()
+                }
             };
             Some(Orden {
                 trazo,

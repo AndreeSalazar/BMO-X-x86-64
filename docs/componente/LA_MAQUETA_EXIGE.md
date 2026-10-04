@@ -86,13 +86,24 @@ declara con medida; una ventana que debe ajustarse a su contenido, no.
 | `<div>` | caja generica | el 95% de todo |
 | `<span>` | caja en linea, contiene texto | no acepta hijos |
 | `<island>` | el hueco que rellena otro proceso | atributo `nombre`, obligatorio y unico |
+| `<svg>` | **MAQUETA 2 (04-10)**: un dibujo, con su `viewBox` | solo lleva `<path>`; su pluma y su relleno se dicen en SU regla (`stroke`, `fill`...) |
+| `<path>` | un camino de SVG, atributo `d` | solo dentro de `<svg>`. `M L H V C S Q T Z` y minusculas; sin arcos `A` |
 
 Los **nodos de texto sueltos** son validos dentro de `<div>` y `<span>`, como en
-HTML. Se miden con `len * GLIFO_ANCHO` y **no se parten en lineas**: si no caben,
-es error (comprobacion B de la seccion 7).
+HTML. Se miden **al compilar**: con la letra de la casa (`bmo-letra`, el MISMO
+codigo que la pinta) si la caja dice `font-size`, o con `len * GLIFO_ANCHO` (la
+de pixel) si no. **No se parten en lineas**: si no caben, es error (comprobacion
+B de la seccion 7).
 
 Atributos aceptados: `class`, `id`, `nombre` (solo en `<island>`), `ancho`/`alto`
-(solo en `<maqueta>`). **Cualquier otro atributo es un error.**
+(solo en `<maqueta>`), `viewBox` (solo en `<svg>`) y `d` (solo en `<path>`).
+**Cualquier otro atributo es un error.**
+
+★ **Por que un dibujo es `<svg>` y no pixeles** (04-10): un icono son
+MATEMATICAS -- rectas y curvas --, y el compilador las aplana en el anfitrion
+(a 1/16 de pixel) con el lector de caminos de la casa. El aparato solo entinta
+tramos con su pluma redonda y suave. Y siendo SVG de verdad, el navegador
+dibuja el mismo fichero: la regla sigue en pie.
 
 ★ **Por que `<div>` y `<span>` y no `<caja>` y `<texto>`**: son las dos unicas
 etiquetas de HTML que *no prometen semantica* -- literalmente "caja generica sin
@@ -106,9 +117,16 @@ que MAQUETA no hace, y por eso **estan prohibidas**, no reinterpretadas.
 
 ## 3. LAS PROPIEDADES -- LISTA CERRADA
 
-**Dieciseis.** Elegidas **contando** lo que `scene/` hace de verdad hoy, no lo
-que CSS ofrece. `border-radius` entro al medir la raiz y descubrir que ya estaba
-implementada; `margin` **salio** al escribir el nieto -- ver seccion 3b.
+**Veintiocho** (contadas en `value.rs`, 04-10). Las **dieciseis** primeras se
+eligieron **contando** lo que `scene/` hace de verdad, no lo que CSS ofrece.
+`border-radius` entro al medir la raiz y descubrir que ya estaba implementada;
+`margin` **salio** al escribir el nieto -- ver seccion 3b.
+
+Las **doce** de MAQUETA 2 (la letra, el acabado, el dibujo) entraron con la
+misma regla dicha al reves: **no se acepta una propiedad que la casa no sepa
+pintar igual en los tres sitios** -- el codigo generado (emisor A), la CARA
+que viaja (emisor B) y la foto del anfitrion. Las tres salen de UN pintor,
+`platform/shared/bmo-pinta`, y un test compara sus pixeles byte a byte.
 
 ⚠ Y el numero estuvo mal dos veces mientras vivio solo en prosa: dijo
 "diecisiete" con dieciseis en la tabla, y "dieciocho" con diecisiete. **Lo
@@ -191,6 +209,41 @@ cobrandose una pieza el primer dia.
 | `justify-content` | `start` \| `center` \| `end` \| `space-between` | eje principal |
 | `align-items` | `stretch` \| `start` \| `center` \| `end` | eje cruzado. Por defecto **`stretch`**, como CSS |
 
+### La letra (MAQUETA 2, 04-10)
+
+La letra es UNA, la de la casa (`bmo-letra`): trazos propios, proporcional,
+suave. Lo que se elige es como se escribe, no con que.
+
+| propiedad | valores | nota |
+|---|---|---|
+| `font-size` | `Npx` | sin ella, la letra de pixel de 8 x 16 (la de siempre) |
+| `font-weight` | `400` \| `500` \| `600` \| `700` (o `normal`, `bold`) | los cuatro pesos de la pluma |
+| `letter-spacing` | `.14em` (o `0`) | en `em`: crece con la letra |
+| `line-height` | `Npx` | la caja de la linea; la base cae donde la pone un navegador |
+| `text-transform` | `uppercase` \| `none` | los rotulos de las tarjetas |
+
+### El acabado (MAQUETA 2)
+
+| propiedad | valores | nota |
+|---|---|---|
+| `box-shadow` | `0 0 Npx #RRGGBBAA` | SOLO el resplandor, sin desplazamiento; el alfa es su fuerza |
+| `background-image` | `linear-gradient(90deg \| 180deg, #A, #B)` | dos colores, un eje, dentro de la caja redonda |
+
+Con `border-radius`, `box-shadow` o un degradado, la caja se pinta con las
+piezas SUAVES (`bmo-pinta`): cada pixel del borde lleva la tinta exacta que la
+curva le cubre. Sin ninguna de las tres, se pinta como siempre (la calculadora
+no cambia ni un pixel: su codigo generado sale identico).
+
+### El dibujo (MAQUETA 2, en la regla del `<svg>`)
+
+| propiedad | valores | nota |
+|---|---|---|
+| `stroke` | `#RRGGBB` \| `none` | la pluma de sus `<path>` |
+| `stroke-width` | `2`, `1.5` | en unidades del `viewBox`, como SVG |
+| `fill` | `#RRGGBB` \| `none` | **obligatoria** de decir: sin ella el navegador rellena de negro |
+| `stroke-linecap` | `round` | la pluma de la casa es redonda; el navegador tiene que usar la misma |
+| `stroke-linejoin` | `round` | igual |
+
 ### La colocacion absoluta
 
 | propiedad | valores | nota |
@@ -210,17 +263,21 @@ comprobacion 2 para ese nodo. **Usarla es declarar que sabes lo que haces.**
 
 **Solo `px`, y solo enteros.** El `0` puede ir sin unidad.
 
-No hay `%`, `auto`, `em`, `rem`, `vh`, `vw`, `fr`, `calc()`, decimales ni
-negativos.
+No hay `%`, `auto`, `rem`, `vh`, `vw`, `fr`, `calc()` ni negativos. Las dos
+excepciones de MAQUETA 2 son de la LETRA y del DIBUJO, nunca de una caja:
+`letter-spacing` va en `em` (crece con la letra) y `stroke-width` admite un
+decimal (`1.5`, en unidades del `viewBox`). Una caja cae SIEMPRE en pixel
+entero: medio pixel de caja es un borde borroso.
 
 ★ **Y esto no es pobreza, es L7**: `%` y `auto` exigen que una pieza conozca el
 medida de su contenedor, y en MAQUETA *un padre no sabe que tiene padre*. La
 jerarquia elige el subconjunto; ver la seccion 4 de `PLAN_MAQUETA.md`.
 
 **Los colores son `#RRGGBB`.** No hay nombres (`red`), ni `rgb()`, ni `rgba()`,
-ni `transparent`. El pixel de BMO-X es `u32` en `0x00RRGGBB` y **no hay mezcla
-alfa**: el rasterizador esta en el escalon 2 y la mezcla es el 4. El dia que
-llegue el escalon 4, `rgba()` entra aqui -- y no antes.
+ni `transparent`, ni `color-mix()`: un color de MAQUETA es el que SE VE, ya
+mezclado al escribirlo. La unica transparencia es la del resplandor
+(`box-shadow: 0 0 Npx #RRGGBBAA`): la mezcla que si hay (04-10) es la de los
+bordes suaves y la del resplandor, hecha por `bmo-pinta`.
 
 ---
 
@@ -287,7 +344,7 @@ encuentre en la pasada, no el primero.
 
 ---
 
-## 7. EL VEREDICTO: LAS DIEZ COMPROBACIONES
+## 7. EL VEREDICTO: LAS COMPROBACIONES (A..K)
 
 Vive en `bmo-maqueta-verdict` (bisnieto). Corre sobre los rects **ya calculados**,
 o sea que no repite aritmetica: la mira.
@@ -339,6 +396,19 @@ nada; la diferencia es que alli no te lo dice nadie.
 
 **H.** Ninguna `position:absolute` sin `left` y `top`.
 
+### El dibujo se puede pintar (`dibujo.rs`, MAQUETA 2)
+
+**K.** Todo `<svg>` trae `viewBox`; todo `<path>` dice su `fill` (aunque sea
+`none`); y si lleva `stroke`, lleva `stroke-linecap:round` y
+`stroke-linejoin:round`. La pluma de la casa es redonda -- es la unica que el
+pintor sabe hacer exacta --, y un navegador que pintara puntas cuadradas
+dibujaria OTRA cosa que la app. Se exige escrito para que la regla y la pieza
+digan lo mismo.
+
+Y **B** dejo de medir con `len * 8`: mide con la letra de verdad
+(`bmo-letra`, la misma que pinta), en el anfitrion. Con la cuenta vieja daba
+"no cabe" a textos que cabian, y "cabe" a los que no.
+
 ### Todas son errores, y sigue sin haber avisos
 
 Tambien F, G, I y J, que no rompen ninguna imagen. Es la regla que ordena el
@@ -385,6 +455,28 @@ pintado, para que un cambio se vea como un diff y no como un fallo de test:
 
 **Determinismo obligatorio**: misma entrada, mismos bytes de salida. Sin mapas
 sin ordenar, sin direcciones, sin fechas.
+
+### La foto: el oraculo de lo que se VE (MAQUETA 2)
+
+Los rects no dicen si la sombra, el degradado o la letra salieron bien. Para
+eso, la maqueta se fotografia **dos veces en el anfitrion** y una en el
+navegador:
+
+```
+   maqueta --foto      x.maqueta x.png        el pintor sobre el arbol maquetado
+   maqueta --foto-cara x.maqueta x.png        el pintor sobre la CARA v2 (bytes)
+   foto.js x.maqueta maqueta x_nav.png --maqueta   el navegador, en TU PC
+   espejo-cara comparar x_nav.png x.png
+```
+
+Las dos primeras tienen que ser **identicas byte a byte** (test
+`la_cara_suave_que_viaja_pinta_los_mismos_pixeles`). Lo destapo a la primera:
+el icono salia distinto en 94 pixeles porque el camino directo usaba 1/64 de
+pixel y la CARA 1/16. Ahora los dos aplanan a 1/16.
+
+Medido el 04-10 con `pruebas/tarjeta.maqueta` (letra, sombra, degradado,
+radio y un icono svg): **igual 89,97 %, parecido 92,25 %** contra Chromium.
+Lo que falta es la letra -- la de la casa no es Plex, y no tiene que serlo.
 
 ---
 

@@ -42,9 +42,12 @@
 
 #![cfg_attr(not(test), no_std)]
 
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
 mod glifos;
+mod pila;
+#[cfg(feature = "alloc")]
 pub mod svg;
 mod trazo;
 
@@ -53,9 +56,8 @@ pub use glifos::Acento;
 /// giros de las maquetas (`rotate(16deg)`).
 pub use trazo::{coseno, seno};
 
-use alloc::vec;
-use alloc::vec::Vec;
-use trazo::Trozo;
+use pila::Pila;
+use trazo::{Trozo, Trozos};
 
 /// El peso de la pluma.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -253,19 +255,19 @@ fn realce(t: i32) -> u8 {
 }
 
 /// Un trazo ya en pixeles: el segmento y su radio (1/64 px).
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 struct Linea {
     a: (i32, i32),
     b: (i32, i32),
     r: i32,
 }
 
-/// **La tinta de unos trazos**, en la caja que los cubre: `(x0, y0, w, h,
-/// alfas)`. Cada pixel lleva la del trazo que mas lo cubre (dos trazos que
-/// se cruzan no se suman: la tinta no se pinta dos veces).
-fn rasterizar(lineas: &[Linea]) -> (i32, i32, i32, i32, Vec<u8>) {
+type Lineas = Pila<Linea, { trazo::MAX_TROZOS }>;
+
+/// La caja de pixeles que cubren unos trazos: `(x0, y0, w, h)`.
+fn caja(lineas: &[Linea]) -> (i32, i32, i32, i32) {
     if lineas.is_empty() {
-        return (0, 0, 0, 0, Vec::new());
+        return (0, 0, 0, 0);
     }
     let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
     for l in lineas {
@@ -276,8 +278,14 @@ fn rasterizar(lineas: &[Linea]) -> (i32, i32, i32, i32, Vec<u8>) {
     }
     let (px0, py0) = ((x0 - 32).div_euclid(64), (y0 - 32).div_euclid(64));
     let (px1, py1) = ((x1 + 32).div_euclid(64) + 1, (y1 + 32).div_euclid(64) + 1);
-    let (w, h) = (px1 - px0, py1 - py0);
-    let mut alfa = vec![0u8; (w * h) as usize];
+    (px0, py0, px1 - px0, py1 - py0)
+}
+
+/// **La tinta de unos trazos** en `alfa` (la caja de [`caja`], `w * h`, a
+/// cero). Cada pixel lleva la del trazo que mas lo cubre (dos trazos que se
+/// cruzan no se suman: la tinta no se pinta dos veces).
+fn pintar_en(lineas: &[Linea], (px0, py0, w, h): (i32, i32, i32, i32), alfa: &mut [u8]) {
+    let (px1, py1) = (px0 + w, py0 + h);
     for l in lineas {
         let lx0 = ((l.a.0.min(l.b.0) - l.r - 32).div_euclid(64)).max(px0);
         let ly0 = ((l.a.1.min(l.b.1) - l.r - 32).div_euclid(64)).max(py0);
@@ -298,13 +306,14 @@ fn rasterizar(lineas: &[Linea]) -> (i32, i32, i32, i32, Vec<u8>) {
             }
         }
     }
-    (px0, py0, w, h, alfa)
 }
 
 /// **Una linea de pluma redonda** por unos puntos (en 1/64 de pixel), de
 /// `grosor64` de ancho, suavizada: el gato de BANK CAT y los iconos de la
 /// maqueta. `pon(x, y, alfa)` recibe cada pixel con su tinta.
+#[cfg(feature = "alloc")]
 pub fn pluma(puntos: &[(i32, i32)], grosor64: i32, cerrada: bool, mut pon: impl FnMut(i32, i32, u8)) {
+    use alloc::vec::Vec;
     let r = (grosor64 / 2).max(16);
     let mut lineas: Vec<Linea> = puntos.windows(2).map(|p| Linea { a: p[0], b: p[1], r }).collect();
     if cerrada && puntos.len() > 2 {
@@ -313,12 +322,14 @@ pub fn pluma(puntos: &[(i32, i32)], grosor64: i32, cerrada: bool, mut pon: impl 
     if puntos.len() == 1 {
         lineas.push(Linea { a: puntos[0], b: puntos[0], r });
     }
-    let (x0, y0, w, h, alfa) = rasterizar(&lineas);
-    for j in 0..h {
-        for i in 0..w {
-            let a = alfa[(j * w + i) as usize];
+    let c = caja(&lineas);
+    let mut alfa = alloc::vec![0u8; (c.2 * c.3) as usize];
+    pintar_en(&lineas, c, &mut alfa);
+    for j in 0..c.3 {
+        for i in 0..c.2 {
+            let a = alfa[(j * c.2 + i) as usize];
             if a != 0 {
-                pon(x0 + i, y0 + j, a);
+                pon(c.0 + i, c.1 + j, a);
             }
         }
     }
@@ -326,7 +337,8 @@ pub fn pluma(puntos: &[(i32, i32)], grosor64: i32, cerrada: bool, mut pon: impl 
 
 /// Los puntos de un arco de elipse (centro y radios en 1/64 de pixel; de
 /// `a0` a `a1` grados, 0 a la derecha y 90 ARRIBA), para [`pluma`].
-pub fn arco(cx: i32, cy: i32, rx: i32, ry: i32, a0: i32, a1: i32, out: &mut Vec<(i32, i32)>) {
+#[cfg(feature = "alloc")]
+pub fn arco(cx: i32, cy: i32, rx: i32, ry: i32, a0: i32, a1: i32, out: &mut alloc::vec::Vec<(i32, i32)>) {
     let largo = (a1 - a0).abs() * rx.max(ry) / 64;
     let pasos = (largo / 160).clamp(6, 180);
     for k in 0..=pasos {
@@ -336,21 +348,8 @@ pub fn arco(cx: i32, cy: i32, rx: i32, ry: i32, a0: i32, a1: i32, out: &mut Vec<
 }
 
 // ---------------------------------------------------------------------------
-// LOS GLIFOS RASTERIZADOS, y la cache
+// UNA LETRA HECHA TRAZOS EN PIXELES
 // ---------------------------------------------------------------------------
-
-/// Un glifo hecho pixeles: su caja respecto a la pluma (x a la derecha del
-/// origen, y respecto a la base) y su tinta.
-#[derive(Clone, Debug)]
-pub struct Imagen {
-    pub x: i32,
-    pub y: i32,
-    pub w: i32,
-    pub h: i32,
-    /// Lo que avanza la pluma, en 1/64 de pixel.
-    pub avance64: i32,
-    pub alfa: Vec<u8>,
-}
 
 /// Cuartos de pixel: el glifo se rasteriza en cuatro posiciones, y cada letra
 /// cae en la suya. Sin esto, redondear cada letra al pixel entero hace que
@@ -360,23 +359,17 @@ const FASES: usize = 4;
 /// El aire que se le agrega a cada letra, en 1/16 de centesima de eme.
 const AIRE16: i32 = 48;
 
-struct Talla {
-    px: u8,
-    peso: Peso,
-    alt: Alturas,
-    hechos: [u64; 4 * FASES],
-    glifos: Vec<Option<Imagen>>,
-}
-
-/// **La letra con su cache.** Una por app.
-pub struct Letra {
-    tallas: Vec<Talla>,
-}
-
-impl Default for Letra {
-    fn default() -> Self {
-        Letra::nueva()
-    }
+/// Un glifo ya en pixeles, PRESTADO de una cache: su caja respecto a la
+/// pluma (x a la derecha del origen, y respecto a la base) y su tinta.
+#[derive(Clone, Copy, Debug)]
+pub struct Glifo<'a> {
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+    /// Lo que avanza la pluma, en 1/64 de pixel.
+    pub avance64: i32,
+    pub alfa: &'a [u8],
 }
 
 /// De un texto (Latin-1 o UTF-8 de dos bytes) a bytes Latin-1.
@@ -428,49 +421,86 @@ fn partes(c: u8) -> Option<(glifos::Glifo, Option<(Acento, bool, i32)>)> {
 }
 
 /// Los trozos de un acento, en centesimas de eme.
-fn acento(a: Acento, mayuscula: bool, c: i32, out: &mut Vec<Trozo>) {
+fn acento(a: Acento, mayuscula: bool, c: i32, out: &mut Trozos) {
     let alto = if mayuscula { -84 } else { -64 };
-    let mut t = Vec::new();
     match a {
-        Acento::Agudo => trazo::leer_en(&mut t, "L 0 0 9 -13", c - 4, alto + 4),
-        Acento::Grave => trazo::leer_en(&mut t, "L 9 0 0 -13", c - 5, alto + 4),
-        Acento::Tilde => trazo::leer_en(&mut t, "A -5 0 5 4 180 0 ; A 5 0 5 4 180 360", c, alto - 2),
-        Acento::Dieresis => trazo::leer_en(&mut t, "P -8 0 ; P 8 0", c, alto - 2),
-        Acento::Cedilla => trazo::leer_en(&mut t, "L 0 0 0 7 ; A -1 12 6 5 80 -170", c, 0),
+        Acento::Agudo => trazo::leer_en(out, "L 0 0 9 -13", c - 4, alto + 4),
+        Acento::Grave => trazo::leer_en(out, "L 9 0 0 -13", c - 5, alto + 4),
+        Acento::Tilde => trazo::leer_en(out, "A -5 0 5 4 180 0 ; A 5 0 5 4 180 360", c, alto - 2),
+        Acento::Dieresis => trazo::leer_en(out, "P -8 0 ; P 8 0", c, alto - 2),
+        Acento::Cedilla => trazo::leer_en(out, "L 0 0 0 7 ; A -1 12 6 5 80 -170", c, 0),
     }
-    out.extend(t);
 }
 
-impl Letra {
-    pub const fn nueva() -> Letra {
-        Letra { tallas: Vec::new() }
+/// La mayuscula de un byte Latin-1 (con las acentuadas).
+fn mayuscula(c: u8) -> u8 {
+    match c {
+        b'a'..=b'z' => c - 32,
+        0xE0..=0xFE if c != 0xF7 => c - 32,
+        _ => c,
     }
+}
 
-    fn talla(&mut self, px: u8, peso: Peso) -> usize {
-        if let Some(k) = self.tallas.iter().position(|t| t.px == px && t.peso == peso) {
-            return k;
+/// **Los trazos de `c` ya en pixeles** (1/64), en `lineas`, y lo que avanza
+/// la pluma. Lo comun a las dos caches.
+fn trazar(px: u8, peso: Peso, c: u8, fase: usize, lineas: &mut Lineas) -> Option<i32> {
+    let alt = Alturas::de(px, peso);
+    let fase64 = (fase % FASES) as i32 * 16;
+    let (gl, acento_de) = match partes(c) {
+        Some(p) => p,
+        None => partes(b'?')?,
+    };
+    let mut trozos: Trozos = Pila::nueva(Trozo::default());
+    trazo::leer(&mut trozos, gl.trazos);
+    if let Some((a, may, centro)) = acento_de {
+        acento(a, may, centro, &mut trozos);
+    }
+    // El aire entre letras: tres centesimas mas que el dibujo (repartidas a
+    // los dos lados) y, en las tallas chicas, un poco mas aun. Es lo que
+    // hace un navegador al encajar una letra de 12 px: si no, `lm` se
+    // pega y la palabra se lee como una mancha.
+    let corre16 = peso.holgura16() / 2 + AIRE16 / 2;
+    let r = alt.pluma64 / 2;
+    lineas.clear();
+    for t in trozos.as_slice() {
+        let p = |q: (i32, i32)| (alt.x(q.0 + corre16) + fase64, alt.y(q.1));
+        let r = if t.punto { (r * 13 / 10).max(54) } else { r };
+        lineas.push(Linea { a: p(t.a), b: p(t.b), r });
+    }
+    // EL ENCAJE EN X: el palo mas largo de la letra (la `l`, los de la
+    // `H`, el de la `d`) se corre lo justo para que su borde izquierdo
+    // caiga en el borde de un pixel. Sin esto, un palo de 1,7 px centrado
+    // en un pixel entero son DOS columnas a medias: gris, no tinta. Solo
+    // en tallas chicas: a partir de 3 px de pluma ya no se nota.
+    if alt.pluma64 < 192 {
+        let palo = lineas.as_slice().iter().filter(|l| l.a.0 == l.b.0 && l.a.1 != l.b.1).max_by_key(|l| (l.a.1 - l.b.1).abs()).copied();
+        if let Some(p) = palo {
+            let resto = (p.a.0 - p.r).rem_euclid(64);
+            let corre = if resto >= 32 { 64 - resto } else { -resto };
+            for l in lineas.as_mut_slice() {
+                l.a.0 += corre;
+                l.b.0 += corre;
+            }
         }
-        let mut glifos = Vec::new();
-        glifos.resize_with(256 * FASES, || None);
-        self.tallas.push(Talla { px, peso, alt: Alturas::de(px, peso), hechos: [0; 4 * FASES], glifos });
-        self.tallas.len() - 1
     }
+    let chica = (15 - alt.px).max(0) * 3;
+    Some(alt.x(gl.avance * 16 + peso.holgura16() + AIRE16) + chica)
+}
 
+// ---------------------------------------------------------------------------
+// LA FUENTE: medir y escribir, sea cual sea la cache
+// ---------------------------------------------------------------------------
+
+/// **Una letra con su cache**: [`Letra`] (con monton, para las apps) o
+/// [`LetraFija`] (sin monton, para el escritorio). Medir y escribir son los
+/// mismos para las dos.
+pub trait Fuente {
     /// **El glifo de `c`** en esta talla y peso, desplazado `fase` cuartos de
     /// pixel. `None` si la letra no existe (ni siquiera como '?').
-    pub fn glifo(&mut self, c: u8, px: u8, peso: Peso, fase: usize) -> Option<&Imagen> {
-        let k = self.talla(px, peso);
-        let i = fase % FASES * 256 + c as usize;
-        let t = &mut self.tallas[k];
-        if t.hechos[i / 64] & (1 << (i % 64)) == 0 {
-            t.hechos[i / 64] |= 1 << (i % 64);
-            t.glifos[i] = Talla::hacer(&t.alt, peso, c, (fase % FASES) as i32 * 16);
-        }
-        self.tallas[k].glifos[i].as_ref()
-    }
+    fn glifo(&mut self, c: u8, px: u8, peso: Peso, fase: usize) -> Option<Glifo<'_>>;
 
     /// **Lo que mide** un texto, en pixeles.
-    pub fn medir(&mut self, s: &[u8], e: Estilo) -> i32 {
+    fn medir(&mut self, s: &[u8], e: Estilo) -> i32 {
         let mut pluma64 = 0;
         let mut n = 0;
         for c in (Letras { s, i: 0 }) {
@@ -490,7 +520,7 @@ impl Letra {
 
     /// **Escribe** `s` con la base en la fila `base` y empezando en `x`.
     /// `pon(x, y, alfa)` recibe cada pixel con tinta. Devuelve el ancho.
-    pub fn escribir(&mut self, s: &[u8], e: Estilo, x: i32, base: i32, mut pon: impl FnMut(i32, i32, u8)) -> i32 {
+    fn escribir(&mut self, s: &[u8], e: Estilo, x: i32, base: i32, mut pon: impl FnMut(i32, i32, u8)) -> i32 {
         let mut pluma64 = x * 64;
         let mut n = 0;
         for c in (Letras { s, i: 0 }) {
@@ -517,7 +547,7 @@ impl Letra {
 
     /// **Escribe recortado**: si no cabe en `max` pixeles, lo que quepa y
     /// tres puntos (el `text-overflow: ellipsis` de la maqueta).
-    pub fn escribir_cabe(&mut self, s: &[u8], e: Estilo, x: i32, base: i32, max: i32, mut pon: impl FnMut(i32, i32, u8)) -> i32 {
+    fn escribir_cabe(&mut self, s: &[u8], e: Estilo, x: i32, base: i32, max: i32, mut pon: impl FnMut(i32, i32, u8)) -> i32 {
         if self.medir(s, e) <= max {
             return self.escribir(s, e, x, base, pon);
         }
@@ -535,60 +565,180 @@ impl Letra {
     }
 }
 
-/// La mayuscula de un byte Latin-1 (con las acentuadas).
-fn mayuscula(c: u8) -> u8 {
-    match c {
-        b'a'..=b'z' => c - 32,
-        0xE0..=0xFE if c != 0xF7 => c - 32,
-        _ => c,
+// ---------------------------------------------------------------------------
+// LA CACHE CON MONTON (las apps)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "alloc")]
+mod con_monton {
+    use super::*;
+    use alloc::vec::Vec;
+
+    struct Hecho {
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        avance64: i32,
+        alfa: Vec<u8>,
+    }
+
+    struct Talla {
+        px: u8,
+        peso: Peso,
+        hechos: [u64; 4 * FASES],
+        glifos: Vec<Option<Hecho>>,
+    }
+
+    /// **La letra con su cache, en el monton.** Una por app.
+    pub struct Letra {
+        tallas: Vec<Talla>,
+    }
+
+    impl Default for Letra {
+        fn default() -> Self {
+            Letra::nueva()
+        }
+    }
+
+    impl Letra {
+        pub const fn nueva() -> Letra {
+            Letra { tallas: Vec::new() }
+        }
+
+        fn talla(&mut self, px: u8, peso: Peso) -> usize {
+            if let Some(k) = self.tallas.iter().position(|t| t.px == px && t.peso == peso) {
+                return k;
+            }
+            let mut glifos = Vec::new();
+            glifos.resize_with(256 * FASES, || None);
+            self.tallas.push(Talla { px, peso, hechos: [0; 4 * FASES], glifos });
+            self.tallas.len() - 1
+        }
+    }
+
+    impl Fuente for Letra {
+        fn glifo(&mut self, c: u8, px: u8, peso: Peso, fase: usize) -> Option<Glifo<'_>> {
+            let k = self.talla(px, peso);
+            let i = fase % FASES * 256 + c as usize;
+            let t = &mut self.tallas[k];
+            if t.hechos[i / 64] & (1 << (i % 64)) == 0 {
+                t.hechos[i / 64] |= 1 << (i % 64);
+                let mut lineas: Lineas = Pila::nueva(Linea::default());
+                t.glifos[i] = trazar(px, peso, c, fase, &mut lineas).map(|avance64| {
+                    let cj = caja(lineas.as_slice());
+                    let mut alfa = alloc::vec![0u8; (cj.2 * cj.3) as usize];
+                    pintar_en(lineas.as_slice(), cj, &mut alfa);
+                    Hecho { x: cj.0, y: cj.1, w: cj.2, h: cj.3, avance64, alfa }
+                });
+            }
+            self.tallas[k].glifos[i].as_ref().map(|h| Glifo { x: h.x, y: h.y, w: h.w, h: h.h, avance64: h.avance64, alfa: &h.alfa })
+        }
     }
 }
 
-impl Talla {
-    fn hacer(alt: &Alturas, peso: Peso, c: u8, fase64: i32) -> Option<Imagen> {
-        let (gl, acento_de) = match partes(c) {
-            Some(p) => p,
-            None => partes(b'?')?,
-        };
-        let mut trozos = Vec::new();
-        trazo::leer(&mut trozos, gl.trazos);
-        if let Some((a, may, centro)) = acento_de {
-            acento(a, may, centro, &mut trozos);
-        }
-        // El aire entre letras: tres centesimas mas que el dibujo (repartidas a
-        // los dos lados) y, en las tallas chicas, un poco mas aun. Es lo que
-        // hace un navegador al encajar una letra de 12 px: si no, `lm` se
-        // pega y la palabra se lee como una mancha.
-        let corre16 = peso.holgura16() / 2 + AIRE16 / 2;
-        let r = alt.pluma64 / 2;
-        let mut lineas: Vec<Linea> = trozos
-            .iter()
-            .map(|t| {
-                let p = |q: (i32, i32)| (alt.x(q.0 + corre16) + fase64, alt.y(q.1));
-                let r = if t.punto { (r * 13 / 10).max(54) } else { r };
-                Linea { a: p(t.a), b: p(t.b), r }
-            })
-            .collect();
-        // EL ENCAJE EN X: el palo mas largo de la letra (la `l`, los de la
-        // `H`, el de la `d`) se corre lo justo para que su borde izquierdo
-        // caiga en el borde de un pixel. Sin esto, un palo de 1,7 px centrado
-        // en un pixel entero son DOS columnas a medias: gris, no tinta. Solo
-        // en tallas chicas: a partir de 3 px de pluma ya no se nota.
-        if alt.pluma64 < 192 {
-            let palo = lineas.iter().filter(|l| l.a.0 == l.b.0 && l.a.1 != l.b.1).max_by_key(|l| (l.a.1 - l.b.1).abs());
-            if let Some(p) = palo {
-                let resto = (p.a.0 - p.r).rem_euclid(64);
-                let corre = if resto >= 32 { 64 - resto } else { -resto };
-                for l in lineas.iter_mut() {
-                    l.a.0 += corre;
-                    l.b.0 += corre;
-                }
+#[cfg(feature = "alloc")]
+pub use con_monton::Letra;
+
+// ---------------------------------------------------------------------------
+// LA CACHE SIN MONTON (el escritorio)
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Copy)]
+struct Ranura {
+    /// 0 = vacia; si no, `1 + px << 16 | peso << 12 | fase << 8 | c`.
+    clave: u32,
+    x: i16,
+    y: i16,
+    w: u16,
+    h: u16,
+    avance64: i32,
+    desde: u32,
+}
+
+const VACIA: Ranura = Ranura { clave: 0, x: 0, y: 0, w: 0, h: 0, avance64: 0, desde: 0 };
+
+/// **La letra con su cache FIJA**: `B` bytes de tinta y `S` ranuras (una
+/// potencia de dos), dentro de la propia estructura. Para quien no tiene
+/// monton: el ESCRITORIO la tiene en un `static`.
+///
+/// Cuando se llena (de tinta, o de ranuras a mas de tres cuartos) se vacia
+/// ENTERA y se vuelve a llenar con lo que se pida: un fotograma algo mas
+/// caro, y ninguna escritura fuera.
+pub struct LetraFija<const B: usize, const S: usize> {
+    tinta: [u8; B],
+    usada: usize,
+    ranuras: [Ranura; S],
+    llenas: usize,
+    /// Las veces que se vacio: si sube cada fotograma, la cache es chica.
+    pub vaciados: u32,
+}
+
+impl<const B: usize, const S: usize> Default for LetraFija<B, S> {
+    fn default() -> Self {
+        Self::nueva()
+    }
+}
+
+impl<const B: usize, const S: usize> LetraFija<B, S> {
+    pub const fn nueva() -> Self {
+        LetraFija { tinta: [0; B], usada: 0, ranuras: [VACIA; S], llenas: 0, vaciados: 0 }
+    }
+
+    fn vaciar(&mut self) {
+        self.ranuras = [VACIA; S];
+        self.usada = 0;
+        self.llenas = 0;
+        self.vaciados = self.vaciados.wrapping_add(1);
+    }
+
+    fn buscar(&self, clave: u32) -> (usize, bool) {
+        let mut i = (clave.wrapping_mul(0x9E37_79B1) >> 7) as usize & (S - 1);
+        loop {
+            let r = &self.ranuras[i];
+            if r.clave == clave {
+                return (i, true);
             }
+            if r.clave == 0 {
+                return (i, false);
+            }
+            i = (i + 1) & (S - 1);
         }
-        let (x, y, w, h, alfa) = rasterizar(&lineas);
-        let chica = (15 - alt.px).max(0) * 3;
-        let avance64 = alt.x(gl.avance * 16 + peso.holgura16() + AIRE16) + chica;
-        Some(Imagen { x, y, w, h, avance64, alfa })
+    }
+}
+
+impl<const B: usize, const S: usize> Fuente for LetraFija<B, S> {
+    fn glifo(&mut self, c: u8, px: u8, peso: Peso, fase: usize) -> Option<Glifo<'_>> {
+        let p = match peso {
+            Peso::Normal => 0u32,
+            Peso::Media => 1,
+            Peso::Negrita => 2,
+        };
+        let clave = 1 + ((px as u32) << 16 | p << 12 | ((fase % FASES) as u32) << 8 | c as u32);
+        let (mut i, esta) = self.buscar(clave);
+        if !esta {
+            let mut lineas: Lineas = Pila::nueva(Linea::default());
+            let avance64 = trazar(px, peso, c, fase, &mut lineas)?;
+            let cj = caja(lineas.as_slice());
+            let n = (cj.2 * cj.3) as usize;
+            if n > B {
+                return None;
+            }
+            if self.usada + n > B || (self.llenas + 1) * 4 > S * 3 {
+                self.vaciar();
+                i = self.buscar(clave).0;
+            }
+            let desde = self.usada;
+            let alfa = &mut self.tinta[desde..desde + n];
+            alfa.fill(0);
+            pintar_en(lineas.as_slice(), cj, alfa);
+            self.usada += n;
+            self.llenas += 1;
+            self.ranuras[i] = Ranura { clave, x: cj.0 as i16, y: cj.1 as i16, w: cj.2 as u16, h: cj.3 as u16, avance64, desde: desde as u32 };
+        }
+        let r = self.ranuras[i];
+        let n = r.w as usize * r.h as usize;
+        Some(Glifo { x: r.x as i32, y: r.y as i32, w: r.w as i32, h: r.h as i32, avance64: r.avance64, alfa: &self.tinta[r.desde as usize..r.desde as usize + n] })
     }
 }
 

@@ -1,0 +1,14 @@
+[package]
+name = "bmo-pinta"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "EL PINTOR de las caras: cajas redondas suaves, resplandor, degradado, letra y trazos de SVG, sobre cualquier lienzo (app, escritorio, anfitrion). Sin monton."
+
+# `no_std` y SIN monton: lo usan el ESCRITORIO (que no tiene `alloc`), las
+# apps y el compilador de MAQUETA en el anfitrion. Un solo pintor para los
+# tres, como `bmo-dibujo` es un solo recorte.
+[dependencies]
+bmo-letra = { path = "../bmo-letra", default-features = false }
+# Para pintar una CARA que viaja (version 2) sin pasar por nada mas.
+bmo-maqueta-cara = { path = "../bmo-maqueta-cara" }

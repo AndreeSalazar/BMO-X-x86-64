@@ -23,6 +23,10 @@ bmo-dibujo = { path = "../../../../platform/shared/bmo-dibujo" }
 # tuviera los suyos serian dos formatos con el mismo nombre -- y un formato mal
 # empaquetado no da un fallo, da algo peor: se lee mal y nadie se entera.
 bmo-maqueta-cara = { path = "../../../../platform/shared/bmo-maqueta-cara" }
+# MAQUETA 2: las piezas suaves, el mismo pintor que el aparato; y el lector de
+# caminos de SVG, para aplanarlos aqui.
+bmo-pinta = { path = "../../../../platform/shared/bmo-pinta" }
+bmo-letra = { path = "../../../../platform/shared/bmo-letra" }
 
 [dev-dependencies]
 bmo-maqueta-cascade = { path = "../cascade" }

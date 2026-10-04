@@ -512,6 +512,7 @@ dependencies = [
 name = "bmo-maqueta"
 version = "0.1.0"
 dependencies = [
+ "bmo-imagen",
  "bmo-maqueta-cascade",
  "bmo-maqueta-diag",
  "bmo-maqueta-emit",
@@ -544,18 +545,21 @@ name = "bmo-maqueta-emit"
 version = "0.1.0"
 dependencies = [
  "bmo-dibujo",
+ "bmo-letra",
  "bmo-maqueta-cara",
  "bmo-maqueta-cascade",
  "bmo-maqueta-diag",
  "bmo-maqueta-layout",
  "bmo-maqueta-node",
  "bmo-maqueta-verdict",
+ "bmo-pinta",
 ]
 
 [[package]]
 name = "bmo-maqueta-layout"
 version = "0.1.0"
 dependencies = [
+ "bmo-letra",
  "bmo-maqueta-cascade",
  "bmo-maqueta-diag",
  "bmo-maqueta-node",
@@ -569,6 +573,7 @@ version = "0.1.0"
 name = "bmo-maqueta-node"
 version = "0.1.0"
 dependencies = [
+ "bmo-letra",
  "bmo-maqueta-diag",
  "bmo-maqueta-lex",
 ]
@@ -653,6 +658,14 @@ version = "0.1.0"
 dependencies = [
  "bmo-cripto",
  "bmo-hostile",
+]
+
+[[package]]
+name = "bmo-pinta"
+version = "0.1.0"
+dependencies = [
+ "bmo-letra",
+ "bmo-maqueta-cara",
 ]
 
 [[package]]

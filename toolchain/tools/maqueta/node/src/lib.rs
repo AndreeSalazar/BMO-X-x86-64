@@ -58,6 +58,11 @@ pub struct Node {
     pub height: Option<u32>,
     /// Text content. A node has text or children, never both.
     pub text: Option<String>,
+    /// `<svg viewBox="0 0 24 24">`: the drawing's own coordinates.
+    pub view_box: Option<[u32; 4]>,
+    /// `<path d="...">`: the SVG path, as written. Checked here (it has to
+    /// read), flattened later.
+    pub d: Option<String>,
     pub children: Vec<Node>,
     pub span: Span,
 }
@@ -72,6 +77,8 @@ impl Node {
             width: None,
             height: None,
             text: None,
+            view_box: None,
+            d: None,
             children: Vec::new(),
             span,
         }
