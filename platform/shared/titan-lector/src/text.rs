@@ -9,6 +9,13 @@ pub fn lines(text: &[u8]) -> impl Iterator<Item = (usize, &[u8])> {
     text.split(|&c| c == b'\n').enumerate().map(|(i, l)| (i + 1, trim(l)))
 }
 
+/// A line (already trimmed) that is only a comment: `#` to its end. The
+/// compiler's rule (`toolchain/lang/titan/GRAMATICA.md`, nivel 0): such a
+/// line carries nothing, before the header or inside it.
+pub fn is_comment(line: &[u8]) -> bool {
+    line.first() == Some(&b'#')
+}
+
 pub fn trim(s: &[u8]) -> &[u8] {
     let start = s.iter().position(|c| !c.is_ascii_whitespace()).unwrap_or(s.len());
     let end = s.iter().rposition(|c| !c.is_ascii_whitespace()).map(|i| i + 1).unwrap_or(start);

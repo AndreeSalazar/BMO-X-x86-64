@@ -15,8 +15,12 @@
 //!
 //! The new line goes after the LAST line of the header that already says
 //! `mod` or `use`, so the header stays together at the top.
+//!
+//! The header is found by the compiler's rule (`header.rs`): blank lines and
+//! comment-only lines (`#`) before it or between its lines are skipped -- and,
+//! like every other byte, copied out untouched.
 
-use crate::text::{after_word, commas, trim};
+use crate::text::{after_word, commas, is_comment, trim};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum EditError {
@@ -51,11 +55,12 @@ fn raw_lines(text: &[u8]) -> impl Iterator<Item = Raw> + '_ {
 }
 
 /// The header's lines, from its first one: `(line, trimmed text, is first)`.
+/// Blank and comment-only lines are not header lines (the compiler's rule).
 fn header_lines(text: &[u8]) -> impl Iterator<Item = (Raw, &[u8], bool)> + '_ {
     let mut seen = false;
     raw_lines(text).filter_map(move |r| {
         let t = trim(&text[r.start..r.end]);
-        if t.is_empty() {
+        if t.is_empty() || is_comment(t) {
             return None;
         }
         let first = !seen;
@@ -244,6 +249,43 @@ pub fn rename_module(text: &[u8], new: &[u8], out: &mut [u8]) -> Result<usize, E
 mod tests {
     use super::*;
     use crate::header;
+
+    /// `ejemplos/nivel0/hola.titan`, as the compiler's bench has it: three
+    /// comment lines before `mod`.
+    const HOLA: &[u8] = b"# espera: BIEN\n# sale: hola\n# el primer programa: un modulo que dice que hace, y main que saluda\nmod main \"saluda\"\n\nfn main()\n    print(\"hola\")\n";
+
+    #[test]
+    fn a_leading_comment_is_skipped_and_copied_untouched_by_every_edit() {
+        let mut out = [0u8; 512];
+        let n = add_child(HOLA, b"ship", None, &mut out).unwrap();
+        assert_eq!(&out[..n], &b"# espera: BIEN\n# sale: hola\n# el primer programa: un modulo que dice que hace, y main que saluda\nmod main \"saluda\"\nmod ship\n\nfn main()\n    print(\"hola\")\n"[..]);
+        let with = &out[..n].to_vec();
+        let n = remove_child(with, b"ship", &mut out).unwrap();
+        assert_eq!(&out[..n], HOLA);
+        let n = add_use(HOLA, b"gpu", &mut out).unwrap();
+        assert_eq!(&out[..n], &b"# espera: BIEN\n# sale: hola\n# el primer programa: un modulo que dice que hace, y main que saluda\nmod main \"saluda\"\nuse gpu\n\nfn main()\n    print(\"hola\")\n"[..]);
+        let n = rename_module(HOLA, b"inicio", &mut out).unwrap();
+        assert_eq!(&out[..n], &b"# espera: BIEN\n# sale: hola\n# el primer programa: un modulo que dice que hace, y main que saluda\nmod inicio \"saluda\"\n\nfn main()\n    print(\"hola\")\n"[..]);
+        assert_eq!(header::parse(&out[..n]).unwrap().name.as_bytes(), b"inicio");
+    }
+
+    #[test]
+    fn a_comment_inside_the_header_neither_ends_it_nor_moves() {
+        let mut out = [0u8; 256];
+        let t = b"mod p \"x\"\n# los hijos:\nmod ship\n# lo que usa:\nuse a\n\nfn main()\n";
+        // The new `mod` goes after the LAST header line, past the comments.
+        let n = add_child(t, b"rock", None, &mut out).unwrap();
+        assert_eq!(&out[..n], &b"mod p \"x\"\n# los hijos:\nmod ship\n# lo que usa:\nuse a\nmod rock\n\nfn main()\n"[..]);
+        // The `use` line under a comment is still the header's.
+        let n = add_use(t, b"b", &mut out).unwrap();
+        assert_eq!(&out[..n], &b"mod p \"x\"\n# los hijos:\nmod ship\n# lo que usa:\nuse a, b\n\nfn main()\n"[..]);
+        let n = remove_child(t, b"ship", &mut out).unwrap();
+        assert_eq!(&out[..n], &b"mod p \"x\"\n# los hijos:\n# lo que usa:\nuse a\n\nfn main()\n"[..]);
+        // A commented-out `mod` is not a child.
+        assert_eq!(remove_child(b"mod p \"x\"\n# mod ship\n", b"ship", &mut out), Err(EditError::NotDeclared));
+        // Only comments: no header, as before.
+        assert_eq!(rename_module(b"# nada\n", b"a", &mut out), Err(EditError::NoHeader));
+    }
 
     #[test]
     fn a_use_joins_the_use_line_or_opens_one_under_the_first_line() {
