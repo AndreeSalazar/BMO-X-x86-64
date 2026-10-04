@@ -1,6 +1,0 @@
-# espera: T0040
-# `type` (un registro con campos) es del nivel 6: la escalera se sube de uno en uno
-mod main "una nave con campos"
-
-fn main()
-    type Nave

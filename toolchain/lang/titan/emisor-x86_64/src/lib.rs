@@ -176,7 +176,7 @@ fn emit_blocks(m: &Module) -> Result<Emitted, String> {
                     // Already inside the texts that use it (calc.rs); and a
                     // value that dies leaves nothing to free: it never had a
                     // place outside the texts.
-                    Op::Let { .. } | Op::Set { .. } | Op::Drop { .. } => {}
+                    Op::Let { .. } | Op::Set { .. } | Op::SetAt { .. } | Op::Drop { .. } => {}
                     Op::Call { func, .. } => calls.push((call_rel32(&mut code), *func)),
                 }
             }

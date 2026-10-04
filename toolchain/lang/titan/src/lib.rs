@@ -90,9 +90,11 @@ mod tests {
 
     #[test]
     fn a_word_of_a_higher_level_says_which_level() {
-        let e = compile("mod main \"x\"\nfn main()\n    type Nave\n").unwrap_err();
+        let e = compile("mod main \"x\"\nfn main()\n    match x\n").unwrap_err();
         assert_eq!(e.code, Code::NotYet);
-        assert_eq!(e.what, "`type` llega en el nivel 6 (registros)");
+        assert_eq!(e.what, "`match` llega en el nivel 8 (casos con datos)");
+        let e = compile("mod main \"x\"\nfn f(x: f32)\n    print(1)\nfn main()\n    f(1)\n").unwrap_err();
+        assert_eq!(e.what, "el tipo `f32` llega en el nivel 11 (la 3060)");
         let e = compile("mod main \"x\"\nfn f(take n: int)\n    print(n)\nfn main()\n    f(1)\n").unwrap_err();
         assert_eq!(e.what, "prestar o entregar un parametro llega en el nivel 7 (prestar y entregar)");
     }

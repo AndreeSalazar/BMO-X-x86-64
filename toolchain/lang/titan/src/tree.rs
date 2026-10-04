@@ -14,6 +14,8 @@
 //!              body that REPEATS
 //!    level 5   `fn f(a: int) -> int` and `return`: a function that takes
 //!              values and gives one back -- and a call is a value
+//!    level 6   the TYPES: `dec` (exact decimal, no float), tables `[int; 3]`
+//!              with `a[i]` and `for x in a`, and `type Nave` with fields
 //! ```
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,6 +24,17 @@ pub struct Program {
     pub module: String,
     pub purpose: String,
     pub functions: Vec<Function>,
+    /// `type Nave` and its fields (level 6).
+    pub types: Vec<TypeDef>,
+}
+
+/// `type Nave` and, below it, one field per line: `x: dec` (level 6).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeDef {
+    pub name: String,
+    pub line: usize,
+    pub col: usize,
+    pub fields: Vec<Param>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,22 +49,37 @@ pub struct Function {
     pub body: Vec<Stmt>,
 }
 
-/// The classes of value a parameter or a result can say, in level 5. `f32`,
-/// `dec` and the tables arrive with the types (level 6): they are TYPES, not
-/// words, and spend no ceiling (TITAN_MAESTRO 14.2).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The type of a parameter, a result or a field. Types are not words and
+/// spend no ceiling (TITAN_MAESTRO 14.2).
+///
+/// ** `dec` and not `f32` on the CPU (the owner, 04-10: "evita la float,
+/// siempre decimal"). A `dec` is an exact decimal: an integer and how many of
+/// its digits are decimals, so `0.1 + 0.2` is `0.3` and money never rounds by
+/// itself. The x86-64 DOES have floats in hardware; what it lacks is base 10,
+/// and that is why a float gets `0.1` wrong. `f32` is the 3060's (`gpu fn`,
+/// level 11), and it says so if asked for before.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ty {
     Int,
     Text,
     Bool,
+    /// The exact decimal (level 6).
+    Dec,
+    /// `[int; 3]`: a table of exactly that many (level 6).
+    Table(Box<Ty>, usize),
+    /// A `type` of the file, by name (level 6).
+    Named(String),
 }
 
 impl Ty {
-    pub fn name(self) -> &'static str {
+    pub fn name(&self) -> String {
         match self {
-            Ty::Int => "int",
-            Ty::Text => "text",
-            Ty::Bool => "bool",
+            Ty::Int => "int".into(),
+            Ty::Text => "text".into(),
+            Ty::Bool => "bool".into(),
+            Ty::Dec => "dec".into(),
+            Ty::Table(t, n) => format!("[{}; {}]", t.name(), n),
+            Ty::Named(n) => n.clone(),
         }
     }
 }
@@ -89,6 +117,16 @@ pub enum Stmt {
     Continue { line: usize, col: usize },
     /// `return` or `return VALUE` (level 5).
     Return { value: Option<Expr>, line: usize, col: usize },
+    /// `a[i] = v`, `nave.x = v`, `a[i].x = v`: a part of a value changes
+    /// (level 6). The whole value needs `mut`, as for `a = v`.
+    SetAt { name: String, path: Vec<Step>, value: Expr, line: usize, col: usize },
+}
+
+/// One step into a value: a cell of a table or a field of a record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Step {
+    Index(Expr),
+    Field(String, usize, usize),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,6 +146,9 @@ pub struct For {
     /// `range(n)` is `range(0, n)`.
     pub from: Expr,
     pub to: Expr,
+    /// `for x in tabla` (level 6): the turns are its cells, and `from`/`to`
+    /// say nothing.
+    pub over: Option<Expr>,
     pub line: usize,
     pub col: usize,
     pub body: Vec<Stmt>,
@@ -161,6 +202,33 @@ pub enum Expr {
     Not { value: Box<Expr>, line: usize, col: usize },
     /// `doble(3)`: what a function gives back (level 5).
     Call { callee: String, args: Vec<Expr>, line: usize, col: usize },
+    /// `12.50`: an exact decimal -- the digits as an integer, and how many of
+    /// them are decimals (level 6). Never a float.
+    Dec { digits: i64, scale: u32, line: usize, col: usize },
+    /// `[1, 2, 3]` (level 6).
+    Table { items: Vec<Expr>, line: usize, col: usize },
+    /// `[0; 10]`: ten cells of the same value (level 6).
+    Repeat { item: Box<Expr>, count: usize, line: usize, col: usize },
+    /// `a[i]` (level 6).
+    Index { base: Box<Expr>, index: Box<Expr>, line: usize, col: usize },
+    /// `nave.x` (level 6).
+    Field { base: Box<Expr>, name: String, line: usize, col: usize },
+    /// `Nave { x: 1.0, fuel: 12.50 }` (level 6).
+    Record { name: String, fields: Vec<(String, Expr)>, line: usize, col: usize },
+}
+
+/// A decimal as it is written: `1250` with scale 2 is `12.50`.
+pub fn show_dec(digits: i64, scale: u32) -> String {
+    let neg = digits < 0;
+    let abs = digits.unsigned_abs().to_string();
+    let s = if scale == 0 {
+        abs
+    } else {
+        let padded = format!("{:0>width$}", abs, width = scale as usize + 1);
+        let cut = padded.len() - scale as usize;
+        format!("{}.{}", &padded[..cut], &padded[cut..])
+    };
+    if neg { format!("-{}", s) } else { s }
 }
 
 impl Expr {
@@ -173,7 +241,13 @@ impl Expr {
             | Expr::Bin { line, col, .. }
             | Expr::Neg { line, col, .. }
             | Expr::Not { line, col, .. }
-            | Expr::Call { line, col, .. } => (*line, *col),
+            | Expr::Call { line, col, .. }
+            | Expr::Dec { line, col, .. }
+            | Expr::Table { line, col, .. }
+            | Expr::Repeat { line, col, .. }
+            | Expr::Index { line, col, .. }
+            | Expr::Field { line, col, .. }
+            | Expr::Record { line, col, .. } => (*line, *col),
         }
     }
 
@@ -191,6 +265,14 @@ impl Expr {
                 let a: Vec<String> = args.iter().map(Expr::show).collect();
                 format!("{}({})", callee, a.join(", "))
             }
+            Expr::Dec { digits, scale, .. } => show_dec(*digits, *scale),
+            Expr::Table { items, .. } => format!("[{}]", items.iter().map(Expr::show).collect::<Vec<_>>().join(", ")),
+            Expr::Repeat { item, count, .. } => format!("[{}; {}]", item.show(), count),
+            Expr::Index { base, index, .. } => format!("{}[{}]", base.show(), index.show()),
+            Expr::Field { base, name, .. } => format!("{}.{}", base.show(), name),
+            Expr::Record { name, fields, .. } => {
+                format!("{} {{ {} }}", name, fields.iter().map(|(k, v)| format!("{}: {}", k, v.show())).collect::<Vec<_>>().join(", "))
+            }
         }
     }
 }
@@ -203,7 +285,7 @@ impl Stmt {
             Stmt::If(i) => i.line,
             Stmt::While(w) => w.line,
             Stmt::For(f) => f.line,
-            Stmt::Break { line, .. } | Stmt::Continue { line, .. } | Stmt::Return { line, .. } => *line,
+            Stmt::Break { line, .. } | Stmt::Continue { line, .. } | Stmt::Return { line, .. } | Stmt::SetAt { line, .. } => *line,
         }
     }
 }
@@ -212,9 +294,15 @@ impl Program {
     /// The tree as text, for `titan arbol`: what the frontend understood.
     pub fn show(&self) -> String {
         let mut s = format!("mod {}  \"{}\"\n", self.module, self.purpose);
+        for t in &self.types {
+            s += &format!("{:<44}linea {}\n", format!("  type {}", t.name), t.line);
+            for fl in &t.fields {
+                s += &format!("{:<44}linea {}\n", format!("    {}: {}", fl.name, fl.ty.name()), fl.line);
+            }
+        }
         for f in &self.functions {
             let params: Vec<String> = f.params.iter().map(|p| format!("{}: {}", p.name, p.ty.name())).collect();
-            let ret = f.ret.map(|t| format!(" -> {}", t.name())).unwrap_or_default();
+            let ret = f.ret.as_ref().map(|t| format!(" -> {}", t.name())).unwrap_or_default();
             s += &format!("{:<44}linea {}\n", format!("  fn {}({}){}", f.name, params.join(", "), ret), f.line);
             show_body(&f.body, 1, &mut s);
         }
@@ -234,7 +322,14 @@ fn show_body(body: &[Stmt], depth: usize, s: &mut String) {
             Stmt::Set(l) => format!("{}{} = {}", pad, l.name, l.value.show()),
             Stmt::If(i) => format!("{}if {}", pad, i.cond.show()),
             Stmt::While(w) => format!("{}while {}", pad, w.cond.show()),
-            Stmt::For(f) => format!("{}for {} in range({}, {})", pad, f.var, f.from.show(), f.to.show()),
+            Stmt::For(f) => match &f.over {
+                Some(t) => format!("{}for {} in {}", pad, f.var, t.show()),
+                None => format!("{}for {} in range({}, {})", pad, f.var, f.from.show(), f.to.show()),
+            },
+            Stmt::SetAt { name, path, value, .. } => format!("{}{}{} = {}", pad, name, path.iter().map(|st| match st {
+                Step::Index(e) => format!("[{}]", e.show()),
+                Step::Field(f, _, _) => format!(".{}", f),
+            }).collect::<String>(), value.show()),
             Stmt::Break { .. } => format!("{}break", pad),
             Stmt::Continue { .. } => format!("{}continue", pad),
             Stmt::Return { value: Some(v), .. } => format!("{}return {}", pad, v.show()),

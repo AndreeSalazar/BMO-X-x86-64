@@ -1,0 +1,7 @@
+# espera: T0040
+# `enum` y `match` (casos con datos) son del nivel 8: la escalera se sube de uno en uno
+mod main "un caso que aun no existe"
+
+fn main()
+    let estado = 1
+    match estado

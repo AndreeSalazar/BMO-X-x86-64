@@ -43,3 +43,5 @@ toolchain/lang/titan/ejemplos/nivel4/primos.titan 67 0 368 753dbec4fae0456f
 toolchain/lang/titan/ejemplos/nivel4/tabla_del_siete.titan 55 0 295 2b3ec7fcdb3a50b0
 toolchain/lang/titan/ejemplos/nivel5/euclides.titan 45 0 237 fe85cb363949f162
 toolchain/lang/titan/ejemplos/nivel5/factorial.titan 40 0 225 fd885f66be1e5083
+toolchain/lang/titan/ejemplos/nivel6/factura.titan 64 0 337 a0cb86da3245728f
+toolchain/lang/titan/ejemplos/nivel6/ordenar.titan 43 0 222 a33d16b80908e3f2

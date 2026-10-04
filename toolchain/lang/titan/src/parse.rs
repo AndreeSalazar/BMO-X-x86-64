@@ -41,7 +41,7 @@
 
 use crate::lex::{Kind, Token};
 use crate::message::{Code, Message};
-use crate::tree::{Call, Expr, For, Function, If, Let, Param, Program, Stmt, Ty, While};
+use crate::tree::{Call, Expr, For, Function, If, Let, Param, Program, Step, Stmt, Ty, TypeDef, While};
 use crate::words::{self, LEVEL_NOW};
 
 struct Parser<'a> {
@@ -107,7 +107,7 @@ impl<'a> Parser<'a> {
                 let level = words::find(w).map(|x| x.level).unwrap_or(0);
                 (level > LEVEL_NOW).then(|| not_yet(tok, &format!("`{}`", w), level, "por ahora: llamadas, `let`, `let mut`, `if` / `else`, `while`, `for` y `fn` con `return`"))
             }
-            Kind::Number(n) if n.contains('.') => Some(not_yet(tok, "un decimal", 6, "por ahora, numeros enteros: los decimales EXACTOS (dec) llegan con los tipos")),
+            Kind::Number(n) if n.contains('.') && LEVEL_NOW < 6 => Some(not_yet(tok, "un decimal", 6, "por ahora, numeros enteros: los decimales EXACTOS (dec) llegan con los tipos")),
             Kind::Sym("->") if LEVEL_NOW < 5 => Some(not_yet(tok, "una funcion que devuelve algo", 5, "por ahora, `fn nombre()` sin `->`")),
             Kind::Sym("==" | "!=" | "<" | "<=" | ">" | ">=") if LEVEL_NOW < 3 => Some(not_yet(tok, "comparar", 3, "por ahora, se calcula con + - * / %")),
             _ => None,
@@ -200,18 +200,84 @@ impl<'a> Parser<'a> {
         Ok(Function { name: name.clone(), line: fn_tok.line, col: fn_tok.col, params, ret, body })
     }
 
-    /// `int`, `text` or `bool` (level 5); `f32`, `dec` and the tables say
-    /// which level brings them.
+    /// A type: `int`, `text`, `bool`, `dec`, `[T; n]` or the name of a
+    /// `type` of the file (level 6). `f32` is the 3060's, and says so.
     fn ty(&mut self, example: &str) -> Result<Ty, Message> {
         let t = self.next();
         match &t.kind {
             Kind::Name(n) if n == "int" => Ok(Ty::Int),
             Kind::Name(n) if n == "text" => Ok(Ty::Text),
             Kind::Name(n) if n == "bool" => Ok(Ty::Bool),
-            Kind::Name(n) if n == "f32" || n == "dec" => Err(not_yet(t, &format!("el tipo `{}`", n), 6, "por ahora: int, text o bool")),
-            Kind::Sym("[") => Err(not_yet(t, "una tabla", 6, "por ahora: int, text o bool")),
-            _ => Err(self.expected(t, "un tipo: int, text o bool", example)),
+            Kind::Name(n) if n == "dec" && LEVEL_NOW >= 6 => Ok(Ty::Dec),
+            Kind::Name(n) if n == "f32" || n == "f64" => Err(not_yet(
+                t,
+                &format!("el tipo `{}`", n),
+                11,
+                "en la CPU TITAN++ cuenta EXACTO con `dec` (sin float: 0.1 + 0.2 es 0.3); el float es de la 3060, con `gpu fn`",
+            )),
+            Kind::Sym("[") if LEVEL_NOW >= 6 => {
+                let inner = self.ty(example)?;
+                let semi = self.next();
+                if semi.kind != Kind::Sym(";") {
+                    return Err(self.expected(semi, "`;` y cuantas celdas", "[int; 3]"));
+                }
+                let count = self.next();
+                let n = match &count.kind {
+                    Kind::Number(c) if !c.contains('.') => c.parse::<usize>().ok().filter(|&k| k > 0),
+                    _ => None,
+                };
+                let Some(n) = n else {
+                    return Err(self.expected(count, "cuantas celdas: un numero entero mayor que 0", "[int; 3]"));
+                };
+                let close = self.next();
+                if close.kind != Kind::Sym("]") {
+                    return Err(self.expected(close, "`]`", "[int; 3]"));
+                }
+                Ok(Ty::Table(Box::new(inner), n))
+            }
+            Kind::Name(n) if LEVEL_NOW >= 6 => Ok(Ty::Named(n.clone())),
+            _ => Err(self.expected(t, "un tipo: int, text, bool, dec, [int; 3] o el nombre de un `type`", example)),
         }
+    }
+
+    /// `type NAME` and its fields, one per line, sangrados (level 6).
+    fn typedef(&mut self) -> Result<TypeDef, Message> {
+        let tok = self.next();
+        let name_tok = self.next();
+        let Kind::Name(name) = &name_tok.kind else {
+            return Err(self.expected(name_tok, "el nombre del tipo", "type Nave"));
+        };
+        let end = self.next();
+        if end.kind != Kind::Newline {
+            return Err(self.expected(end, "el final de la linea", &format!("type {}\n             x: dec", name)));
+        }
+        if self.peek().kind != Kind::Indent {
+            return Err(Message::new(
+                Code::EmptyBody,
+                tok.line,
+                tok.col,
+                &format!("`type {}` no tiene campos", name),
+                "debajo de un `type` van sus campos, uno por linea y sangrados: nombre: tipo",
+                &format!("type {}\n             x: dec", name),
+            ));
+        }
+        self.next();
+        let mut fields = Vec::new();
+        while self.peek().kind != Kind::Dedent && self.peek().kind != Kind::End {
+            let f = self.next();
+            let Kind::Name(fname) = &f.kind else {
+                return Err(self.expected(f, "el nombre de un campo", "x: dec"));
+            };
+            let colon = self.next();
+            if colon.kind != Kind::Sym(":") {
+                return Err(self.expected(colon, "`:` y el tipo", &format!("{}: dec", fname)));
+            }
+            let ty = self.ty(&format!("{}: dec", fname))?;
+            self.end_of_line()?;
+            fields.push(Param { name: fname.clone(), ty, line: f.line, col: f.col });
+        }
+        self.next();
+        Ok(TypeDef { name: name.clone(), line: tok.line, col: tok.col, fields })
     }
 
     /// NEWLINE INDENT stmt+ DEDENT: the body of whatever `opener` opens (a
@@ -287,13 +353,21 @@ impl<'a> Parser<'a> {
         if in_tok.kind != Kind::Word("in") {
             return Err(self.expected(in_tok, "`in`", &format!("for {} in range(10)", var)));
         }
-        let what = self.next();
-        if what.kind != Kind::Name("range".into()) || self.peek().kind != Kind::Sym("(") {
-            return Err(match &what.kind {
-                Kind::Name(_) => not_yet(what, "recorrer una tabla con `for`", 6, &format!("por ahora, los numeros: for {} in range(10)", var)),
-                _ => self.ladder(what).unwrap_or_else(|| self.expected(what, "`range(...)`", &format!("for {} in range(10)", var))),
-            });
+        let is_range = self.peek().kind == Kind::Name("range".into()) && self.t.get(self.at + 1).map(|t| &t.kind) == Some(&Kind::Sym("("));
+        if !is_range {
+            if LEVEL_NOW < 6 {
+                let what = self.peek();
+                return Err(not_yet(what, "recorrer una tabla con `for`", 6, &format!("por ahora, los numeros: for {} in range(10)", var)));
+            }
+            // `for x in tabla` (level 6): its cells, one per turn.
+            let table = self.expr()?;
+            self.loops += 1;
+            let body = self.block(tok, "este `for`", &format!("for {} in tabla\n             print({})", var, var));
+            self.loops -= 1;
+            let zero = Expr::Int { value: 0, line: tok.line, col: tok.col };
+            return Ok(Stmt::For(For { var: var.clone(), var_at: (name_tok.line, name_tok.col), from: zero.clone(), to: zero, over: Some(table), line: tok.line, col: tok.col, body: body? }));
         }
+        let what = self.next();
         self.next();
         let first = self.expr()?;
         let sep = self.next();
@@ -312,7 +386,7 @@ impl<'a> Parser<'a> {
         self.loops += 1;
         let body = self.block(tok, "este `for`", &format!("for {} in range(10)\n             print({})", var, var));
         self.loops -= 1;
-        Ok(Stmt::For(For { var: var.clone(), var_at: (name_tok.line, name_tok.col), from, to, line: tok.line, col: tok.col, body: body? }))
+        Ok(Stmt::For(For { var: var.clone(), var_at: (name_tok.line, name_tok.col), from, to, over: None, line: tok.line, col: tok.col, body: body? }))
     }
 
     /// `break` / `continue`: only inside a loop (T0067).
@@ -388,7 +462,36 @@ impl<'a> Parser<'a> {
                 _ => self.expected(tok, "una llamada, un `let` o un `if`", "print(\"hola\")  o  let area = 3 * 4"),
             });
         };
-        let open = self.next();
+        let mut open = self.next();
+        if matches!(open.kind, Kind::Sym("[") | Kind::Sym(".")) && LEVEL_NOW >= 6 {
+            // `a[i] = v`, `nave.x = v`: a part of a value changes.
+            let mut path = Vec::new();
+            loop {
+                match open.kind {
+                    Kind::Sym("[") => {
+                        let i = self.expr()?;
+                        let close = self.next();
+                        if close.kind != Kind::Sym("]") {
+                            return Err(self.expected(close, "`]`", &format!("{}[0] = ...", callee)));
+                        }
+                        path.push(Step::Index(i));
+                    }
+                    Kind::Sym(".") => {
+                        let f = self.next();
+                        let Kind::Name(fname) = &f.kind else {
+                            return Err(self.expected(f, "el nombre de un campo", &format!("{}.x = ...", callee)));
+                        };
+                        path.push(Step::Field(fname.clone(), f.line, f.col));
+                    }
+                    Kind::Sym("=") => break,
+                    _ => return Err(self.expected(open, "`=`", &format!("{}[0] = 5", callee))),
+                }
+                open = self.next();
+            }
+            let value = self.expr()?;
+            self.end_of_line()?;
+            return Ok(Stmt::SetAt { name: callee.clone(), path, value, line: tok.line, col: tok.col });
+        }
         if open.kind == Kind::Sym("=") {
             // `name = value`: the grammar knows it; whether it may change is
             // the checker's (`juez.rs`, T0056).
@@ -499,12 +602,36 @@ impl<'a> Parser<'a> {
     }
 
     fn unary(&mut self) -> Result<Expr, Message> {
+        if self.peek().kind == Kind::Sym("-") {
+            let tok = self.next();
+            let value = self.unary()?;
+            return Ok(Expr::Neg { value: Box::new(value), line: tok.line, col: tok.col });
+        }
+        let mut e = self.primary()?;
+        // `a[i]`, `nave.x`, `a[i].x` (level 6).
+        while LEVEL_NOW >= 6 && matches!(self.peek().kind, Kind::Sym("[") | Kind::Sym(".")) {
+            let tok = self.next();
+            if tok.kind == Kind::Sym("[") {
+                let index = self.expr()?;
+                let close = self.next();
+                if close.kind != Kind::Sym("]") {
+                    return Err(self.expected(close, "`]`", "planetas[0]"));
+                }
+                e = Expr::Index { base: Box::new(e), index: Box::new(index), line: tok.line, col: tok.col };
+            } else {
+                let f = self.next();
+                let Kind::Name(name) = &f.kind else {
+                    return Err(self.expected(f, "el nombre de un campo", "nave.x"));
+                };
+                e = Expr::Field { base: Box::new(e), name: name.clone(), line: f.line, col: f.col };
+            }
+        }
+        Ok(e)
+    }
+
+    fn primary(&mut self) -> Result<Expr, Message> {
         let tok = self.next();
         match &tok.kind {
-            Kind::Sym("-") => {
-                let value = self.unary()?;
-                Ok(Expr::Neg { value: Box::new(value), line: tok.line, col: tok.col })
-            }
             Kind::Sym("(") => {
                 let e = self.expr()?;
                 let close = self.next();
@@ -524,6 +651,67 @@ impl<'a> Parser<'a> {
                     "usa un numero mas chico; los numeros mas grandes y exactos llegan con los tipos",
                 )),
             },
+            Kind::Number(n) if LEVEL_NOW >= 6 => self.dec(n, tok),
+            Kind::Sym("[") if LEVEL_NOW >= 6 => {
+                if self.peek().kind == Kind::Sym("]") {
+                    let close = self.peek();
+                    return Err(self.expected(close, "las celdas de la tabla", "[1, 2, 3]  o  [0; 10]: una tabla vacia no dice de que es"));
+                }
+                let first = self.expr()?;
+                if self.peek().kind == Kind::Sym(";") {
+                    self.next();
+                    let count = self.next();
+                    let n = match &count.kind {
+                        Kind::Number(c) if !c.contains('.') => c.parse::<usize>().ok().filter(|&k| k > 0),
+                        _ => None,
+                    };
+                    let Some(n) = n else {
+                        return Err(self.expected(count, "cuantas celdas: un numero entero mayor que 0", "[0; 10]"));
+                    };
+                    let close = self.next();
+                    if close.kind != Kind::Sym("]") {
+                        return Err(self.expected(close, "`]`", "[0; 10]"));
+                    }
+                    return Ok(Expr::Repeat { item: Box::new(first), count: n, line: tok.line, col: tok.col });
+                }
+                let mut items = vec![first];
+                loop {
+                    let sep = self.next();
+                    match sep.kind {
+                        Kind::Sym(",") => items.push(self.expr()?),
+                        Kind::Sym("]") => break,
+                        _ => return Err(self.expected(sep, "`,` o `]`", "[1, 2, 3]")),
+                    }
+                }
+                Ok(Expr::Table { items, line: tok.line, col: tok.col })
+            }
+            Kind::Name(n) if self.peek().kind == Kind::Sym("{") && LEVEL_NOW >= 6 => {
+                // `Nave { x: 1.0, fuel: 12.50 }`
+                self.next();
+                let mut fields = Vec::new();
+                if self.peek().kind != Kind::Sym("}") {
+                    loop {
+                        let f = self.next();
+                        let Kind::Name(fname) = &f.kind else {
+                            return Err(self.expected(f, "el nombre de un campo", &format!("{} {{ x: 1.0 }}", n)));
+                        };
+                        let colon = self.next();
+                        if colon.kind != Kind::Sym(":") {
+                            return Err(self.expected(colon, "`:` y el valor", &format!("{} {{ {}: 1.0 }}", n, fname)));
+                        }
+                        fields.push((fname.clone(), self.expr()?));
+                        let sep = self.next();
+                        match sep.kind {
+                            Kind::Sym(",") => continue,
+                            Kind::Sym("}") => break,
+                            _ => return Err(self.expected(sep, "`,` o `}`", &format!("{} {{ x: 1.0, y: 2.0 }}", n))),
+                        }
+                    }
+                } else {
+                    self.next();
+                }
+                Ok(Expr::Record { name: n.clone(), fields, line: tok.line, col: tok.col })
+            }
             Kind::Text(t) => Ok(Expr::Text { value: t.clone(), line: tok.line, col: tok.col }),
             Kind::Word(w @ ("true" | "false")) if LEVEL_NOW >= 3 => Ok(Expr::Bool { value: *w == "true", line: tok.line, col: tok.col }),
             Kind::Name(n) if self.peek().kind == Kind::Sym("(") && LEVEL_NOW >= 5 => {
@@ -550,15 +738,46 @@ impl<'a> Parser<'a> {
     }
 }
 
+impl Parser<'_> {
+    /// `12.50` -> 1250 with scale 2: an exact decimal, never a float. A
+    /// number without a dot stays an `int`.
+    fn dec(&self, n: &str, tok: &Token) -> Result<Expr, Message> {
+        let too_big = || {
+            Message::new(
+                Code::Overflow,
+                tok.line,
+                tok.col,
+                &format!("{} no cabe en un numero", n),
+                "un `int` o un `dec` de TITAN++ ocupa 64 bits (sus cifras, con los decimales dentro), y desbordar es un error",
+                "usa un numero mas chico, o menos decimales",
+            )
+        };
+        let Some((whole, frac)) = n.split_once('.') else {
+            return n.parse::<i64>().map(|value| Expr::Int { value, line: tok.line, col: tok.col }).map_err(|_| too_big());
+        };
+        if whole.is_empty() || frac.is_empty() || frac.contains('.') {
+            return Err(self.expected(tok, "un numero: 12 o 12.50", "un decimal lleva cifras a los dos lados de un solo punto"));
+        }
+        let scale = frac.len() as u32;
+        let digits = format!("{}{}", whole, frac).parse::<i64>().map_err(|_| too_big())?;
+        if scale > 18 {
+            return Err(too_big());
+        }
+        Ok(Expr::Dec { digits, scale, line: tok.line, col: tok.col })
+    }
+}
+
 pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
     let mut p = Parser { t: tokens, at: 0, loops: 0 };
     let (module, purpose) = p.header()?;
     let mut functions = Vec::new();
+    let mut types = Vec::new();
     loop {
         let tok = p.peek();
         match &tok.kind {
             Kind::End => break,
             Kind::Word("fn") => functions.push(p.function()?),
+            Kind::Word("type") if LEVEL_NOW >= 6 => types.push(p.typedef()?),
             Kind::Indent => {
                 return Err(Message::new(
                     Code::BadIndent,
@@ -571,10 +790,10 @@ pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
             }
             _ => {
                 return Err(p.ladder(tok).unwrap_or_else(|| {
-                    p.expected(tok, "una `fn`", "arriba del todo solo van funciones: fn main() y su cuerpo debajo")
+                    p.expected(tok, "una `fn` o un `type`", "arriba del todo solo van funciones y tipos: fn main() y su cuerpo debajo")
                 }))
             }
         }
     }
-    Ok(Program { module, purpose, functions })
+    Ok(Program { module, purpose, functions, types })
 }

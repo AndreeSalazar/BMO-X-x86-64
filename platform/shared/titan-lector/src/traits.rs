@@ -15,6 +15,7 @@
 //!    ifs      `if` / `else if`         a DOUBLE STAR: two ways, one lit
 //!    loops    `while` / `for`          a BELT of rocks that goes round
 //!    returns  `return`                 its comets come back CARRYING a value
+//!    types    `type`                   a CRYSTAL: a value with facets (fields)
 //! ```
 //!
 //! [!] This is a QUICK READING of the lines, not the compiler: it does not
@@ -41,12 +42,14 @@ pub struct Traits {
     pub loops: u8,
     /// What it gives back: each `return` (level 5).
     pub returns: u8,
+    /// Its records: each `type` (level 6).
+    pub types: u8,
     /// Lines of body (not blank, not comment, not header).
     pub lines: u16,
 }
 
 impl Traits {
-    pub const NONE: Traits = Traits { fns: 0, lets: 0, muts: 0, changes: 0, writes: 0, calls: 0, ifs: 0, loops: 0, returns: 0, lines: 0 };
+    pub const NONE: Traits = Traits { fns: 0, lets: 0, muts: 0, changes: 0, writes: 0, calls: 0, ifs: 0, loops: 0, returns: 0, types: 0, lines: 0 };
 }
 
 fn bump(n: &mut u8) {
@@ -83,6 +86,8 @@ pub fn scan(text: &[u8]) -> Traits {
         t.lines = t.lines.saturating_add(1);
         if line.starts_with(b"fn ") {
             bump(&mut t.fns);
+        } else if line.starts_with(b"type ") {
+            bump(&mut t.types);
         } else if line.starts_with(b"if ") || line.starts_with(b"else if ") {
             bump(&mut t.ifs);
         } else if line.starts_with(b"while ") || line.starts_with(b"for ") {
@@ -115,7 +120,7 @@ mod tests {
     #[test]
     fn it_counts_what_the_body_does_and_not_the_header() {
         let t = scan(b"mod main \"x\"\nuse ship\nmod rock\n\n# nada\nfn main()\n    let a = 1\n    let mut n = 0\n    n = n + a\n    print(n)\n    saluda()\nfn saluda()\n    print(\"hola\")\n");
-        assert_eq!(t, Traits { fns: 2, lets: 1, muts: 1, changes: 1, writes: 2, calls: 1, ifs: 0, loops: 0, returns: 0, lines: 8 });
+        assert_eq!(t, Traits { fns: 2, lets: 1, muts: 1, changes: 1, writes: 2, calls: 1, ifs: 0, loops: 0, returns: 0, types: 0, lines: 8 });
     }
 
     #[test]
@@ -134,6 +139,12 @@ mod tests {
     fn every_return_is_counted() {
         let t = scan(b"mod a \"x\"\nfn f(n: int) -> int\n    if n < 1\n        return 1\n    return n * f(n - 1)\n");
         assert_eq!((t.returns, t.calls, t.ifs), (2, 0, 1));
+    }
+
+    #[test]
+    fn every_type_is_a_crystal() {
+        let t = scan(b"mod a \"x\"\ntype Nave\n    x: dec\ntype Roca\n    r: int\nfn main()\n    print(1)\n");
+        assert_eq!((t.types, t.fns, t.writes), (2, 1, 1));
     }
 
     #[test]

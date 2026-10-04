@@ -1671,3 +1671,24 @@ continue`, 15 palabras):
   cuando el modulo tiene `return`.
 - 🟡 en el emulador; el banco corre factorial, Euclides y Fibonacci.
 
+**NIVEL 6 -- LOS TIPOS, HECHO EN EL ANFITRION el 04-10** (`type`, 17
+palabras): `dec`, las tablas `[T; n]` y los registros.
+
+```text
+   dec        el DECIMAL EXACTO, sin float (el propietario: "evita la float,
+              siempre decimal"): un entero y cuantas cifras son decimales.
+              0.1 + 0.2 = 0.3; 12.50 * 3 = 37.50; 10.00 / 4 = 2.50; y 1.0 / 3
+              es un NO (T0062): no se corta a escondidas
+   tablas     [1, 2, 3], [0; 10], t[i], t[i] = v, for x in t, len(t)
+   registros  type Nave / x: dec ...; Nave { x: 1.0 } con TODOS sus campos;
+              n.x y n.x = v
+   f32        es de la 3060 (gpu fn, nivel 11) y lo dice si se pide antes
+```
+
+- **Una celda fuera de su tabla es T0072 AL COMPILAR**: el programa se corre
+  y se ve -- en C eso lee memoria de otro. Un campo que no existe, T0073.
+- El x86-64 **si** tiene floats en hardware; lo que no tiene es base 10. Por
+  eso la eleccion es `dec`: COBOL (Grace Hopper) a la velocidad del entero.
+- **F1**: un `type` es un CRISTAL facetado junto al planeta.
+- 🟡 en el emulador; el banco corre una factura, la burbuja y una flota.
+

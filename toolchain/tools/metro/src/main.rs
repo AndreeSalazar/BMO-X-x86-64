@@ -107,6 +107,9 @@ const BANCO: &[(&str, &str)] = &[
     // Nivel 5 (04-10): recursion, corrida entera al compilar.
     ("titan", "toolchain/lang/titan/ejemplos/nivel5/factorial.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel5/euclides.titan"),
+    // Nivel 6 (04-10): dec exacto, tablas y registros.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel6/factura.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel6/ordenar.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]

@@ -1,0 +1,10 @@
+# espera: T0072
+# se corre al compilar y se ve: la celda 5 no existe en una tabla de 5 (0 a 4)
+mod main "una celda de mas"
+
+fn main()
+    let t = [10, 20, 30, 40, 50]
+    let mut suma = 0
+    for i in range(6)
+        suma = suma + t[i]
+    print(suma)

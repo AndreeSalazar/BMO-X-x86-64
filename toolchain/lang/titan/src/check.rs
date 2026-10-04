@@ -14,7 +14,7 @@ use crate::message::{Code, Message};
 use crate::tree::{Expr, Program, Stmt, Ty};
 
 /// What the library gives in level 0.
-const LIBRARY: [&str; 1] = ["print"];
+const LIBRARY: [&str; 2] = ["print", "len"];
 
 /// The distance between two names, in edits: to say "did you mean".
 pub(crate) fn distance(a: &str, b: &str) -> usize {
@@ -56,6 +56,7 @@ pub fn check(p: &Program) -> Result<(), Message> {
             "fn main()\n             print(\"hola\")",
         ));
     }
+    types(p)?;
     for f in &p.functions {
         params(p, f)?;
         let mut lines = Vec::new();
@@ -97,10 +98,21 @@ pub fn check(p: &Program) -> Result<(), Message> {
                     }
                     exprs.push(&fo.from);
                     exprs.push(&fo.to);
+                    if let Some(t) = &fo.over {
+                        exprs.push(t);
+                    }
                 }
                 Stmt::Break { .. } | Stmt::Continue { .. } => {}
+                Stmt::SetAt { path, value, .. } => {
+                    for st in path {
+                        if let crate::tree::Step::Index(i) = st {
+                            exprs.push(i);
+                        }
+                    }
+                    exprs.push(value);
+                }
                 Stmt::Return { value, line, col } => {
-                    match (value, f.ret) {
+                    match (value, &f.ret) {
                         (Some(_), None) => {
                             return Err(Message::new(
                                 Code::Result,
@@ -118,7 +130,7 @@ pub fn check(p: &Program) -> Result<(), Message> {
                                 *col,
                                 &format!("`fn {}` devuelve un {}, y este `return` no da ninguno", f.name, t.name()),
                                 &format!("su primera linea promete `-> {}`: cada salida tiene que cumplirlo", t.name()),
-                                &format!("return {}", match t { Ty::Int => "0", Ty::Text => "\"\"", Ty::Bool => "false" }),
+                                &format!("return {}", match t { Ty::Int => "0", Ty::Text => "\"\"", Ty::Bool => "false", Ty::Dec => "0.0", _ => "..." }),
                             ));
                         }
                         (Some(v), Some(_)) => exprs.push(v),
@@ -132,15 +144,21 @@ pub fn check(p: &Program) -> Result<(), Message> {
                 for (callee, n, line, col) in calls {
                     target(p, callee, n, line, col, true)?;
                 }
+                records(p, e)?;
             }
         }
     }
     endless(p)
 }
 
-/// A function's parameters: one name each, and never a function's name.
+/// A function's parameters: one name each, never a function's name, and of
+/// a type that exists.
 fn params(p: &Program, f: &crate::tree::Function) -> Result<(), Message> {
+    if let Some(t) = &f.ret {
+        known_ty(p, t, f.line, f.col)?;
+    }
     for (i, a) in f.params.iter().enumerate() {
+        known_ty(p, &a.ty, a.line, a.col)?;
         let twice = f.params[..i].iter().any(|b| b.name == a.name);
         let taken = LIBRARY.contains(&a.name.as_str()) || p.functions.iter().any(|g| g.name == a.name);
         if twice || taken {
@@ -171,8 +189,139 @@ fn calls_in<'a>(e: &'a Expr, out: &mut Vec<(&'a str, usize, usize, usize)>) {
             calls_in(right, out);
         }
         Expr::Neg { value, .. } | Expr::Not { value, .. } => calls_in(value, out),
-        Expr::Int { .. } | Expr::Text { .. } | Expr::Name { .. } | Expr::Bool { .. } => {}
+        Expr::Int { .. } | Expr::Text { .. } | Expr::Name { .. } | Expr::Bool { .. } | Expr::Dec { .. } => {}
+        Expr::Table { items, .. } => {
+            for i in items {
+                calls_in(i, out);
+            }
+        }
+        Expr::Repeat { item, .. } | Expr::Field { base: item, .. } => calls_in(item, out),
+        Expr::Index { base, index, .. } => {
+            calls_in(base, out);
+            calls_in(index, out);
+        }
+        Expr::Record { fields, .. } => {
+            for (_, v) in fields {
+                calls_in(v, out);
+            }
+        }
     }
+}
+
+/// Every `Nave { ... }` inside a value: the type exists, and it names each
+/// of its fields exactly once (T0073).
+fn records(p: &Program, e: &Expr) -> Result<(), Message> {
+    match e {
+        Expr::Record { name, fields, line, col } => {
+            let Some(t) = p.types.iter().find(|t| &t.name == name) else {
+                return Err(unknown_type(p, name, *line, *col));
+            };
+            for (i, (k, v)) in fields.iter().enumerate() {
+                if !t.fields.iter().any(|f| &f.name == k) {
+                    return Err(Message::new(
+                        Code::Field,
+                        *line,
+                        *col,
+                        &format!("`{}` no tiene un campo `{}`", name, k),
+                        &format!("los campos de `type {}` (linea {}) son: {}", name, t.line, t.fields.iter().map(|f| f.name.as_str()).collect::<Vec<_>>().join(", ")),
+                        "escribe uno de esos, o agregalo al `type`",
+                    ));
+                }
+                if fields[..i].iter().any(|(j, _)| j == k) {
+                    return Err(Message::new(Code::Field, *line, *col, &format!("el campo `{}` esta dos veces", k), "un campo, un valor", "deja uno"));
+                }
+                records(p, v)?;
+            }
+            if let Some(missing) = t.fields.iter().find(|f| !fields.iter().any(|(k, _)| k == &f.name)) {
+                return Err(Message::new(
+                    Code::Field,
+                    *line,
+                    *col,
+                    &format!("a `{}` le falta el campo `{}`", name, missing.name),
+                    "un registro nace ENTERO: un campo sin valor seria un valor que nadie dio (TITAN++ no tiene null)",
+                    &format!("dale su valor: {}: ...", missing.name),
+                ));
+            }
+            Ok(())
+        }
+        Expr::Bin { left, right, .. } => {
+            records(p, left)?;
+            records(p, right)
+        }
+        Expr::Neg { value, .. } | Expr::Not { value, .. } | Expr::Repeat { item: value, .. } | Expr::Field { base: value, .. } => records(p, value),
+        Expr::Index { base, index, .. } => {
+            records(p, base)?;
+            records(p, index)
+        }
+        Expr::Table { items, .. } | Expr::Call { args: items, .. } => items.iter().try_for_each(|i| records(p, i)),
+        Expr::Int { .. } | Expr::Text { .. } | Expr::Name { .. } | Expr::Bool { .. } | Expr::Dec { .. } => Ok(()),
+    }
+}
+
+fn unknown_type(p: &Program, name: &str, line: usize, col: usize) -> Message {
+    let near = p.types.iter().map(|t| t.name.as_str()).min_by_key(|k| distance(k, name)).filter(|k| distance(k, name) <= 2);
+    Message::new(
+        Code::Unknown,
+        line,
+        col,
+        &format!("el tipo `{}` no existe", name),
+        "los tipos son int, text, bool, dec, las tablas [T; n] y los `type` de este fichero",
+        &match near {
+            Some(k) => format!("quisiste decir `{}`?", k),
+            None => format!("declaralo arriba: type {}\n             x: dec", name),
+        },
+    )
+}
+
+/// Every named type a `Ty` mentions exists.
+fn known_ty(p: &Program, t: &Ty, line: usize, col: usize) -> Result<(), Message> {
+    match t {
+        Ty::Named(n) if !p.types.iter().any(|d| &d.name == n) => Err(unknown_type(p, n, line, col)),
+        Ty::Table(inner, _) => known_ty(p, inner, line, col),
+        _ => Ok(()),
+    }
+}
+
+/// The `type`s of the file: one name each, never a function's; every field
+/// once, of a type that exists; and none that contains itself (a value that
+/// holds itself would never end: TITAN++ keeps values, not pointers).
+fn types(p: &Program) -> Result<(), Message> {
+    for (i, t) in p.types.iter().enumerate() {
+        if p.types[..i].iter().any(|u| u.name == t.name) || p.functions.iter().any(|f| f.name == t.name) || ["int", "text", "bool", "dec"].contains(&t.name.as_str()) {
+            return Err(Message::new(Code::Taken, t.line, t.col, &format!("`{}` ya es el nombre de otra cosa", t.name), "un nombre dice UNA cosa", "llama al tipo de otra forma"));
+        }
+        for (k, f) in t.fields.iter().enumerate() {
+            if t.fields[..k].iter().any(|g| g.name == f.name) {
+                return Err(Message::new(Code::Field, f.line, f.col, &format!("`type {}` tiene dos campos `{}`", t.name, f.name), "un campo, un nombre", "llama a uno de otra forma"));
+            }
+            known_ty(p, &f.ty, f.line, f.col)?;
+        }
+    }
+    // A type that contains itself, directly or through others.
+    fn holds(p: &Program, t: &Ty, target: &str, seen: &mut Vec<String>) -> bool {
+        match t {
+            Ty::Named(n) if n == target => true,
+            Ty::Named(n) if !seen.contains(n) => {
+                seen.push(n.clone());
+                p.types.iter().find(|d| &d.name == n).is_some_and(|d| d.fields.iter().any(|f| holds(p, &f.ty, target, seen)))
+            }
+            Ty::Table(inner, _) => holds(p, inner, target, seen),
+            _ => false,
+        }
+    }
+    for t in &p.types {
+        if let Some(f) = t.fields.iter().find(|f| holds(p, &f.ty, &t.name, &mut Vec::new())) {
+            return Err(Message::new(
+                Code::Field,
+                f.line,
+                f.col,
+                &format!("`type {}` se contiene a si mismo", t.name),
+                &format!("su campo `{}` lleva otro `{}` dentro, que lleva otro, y otro: un valor sin fin", f.name, t.name),
+                "un registro guarda valores, no punteros: saca ese campo, o guarda solo lo que hace falta de el",
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// A call to `callee` with `n` values: does it exist, does it take `n`, and
@@ -187,7 +336,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             line,
             col,
             &format!("`{}` no existe", callee),
-            "no es una `fn` de este fichero ni de la biblioteca (la biblioteca, hoy, es `print`)",
+            "no es una `fn` de este fichero ni de la biblioteca (la biblioteca, hoy, es `print` y `len`)",
             &match near {
                 Some(k) => format!("quisiste decir `{}`?", k),
                 None => format!("define `fn {}()` en este fichero, o usa `print`", callee),
@@ -195,6 +344,13 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
         ));
     }
     let Some(g) = own else {
+        if callee == "len" {
+            // `len(tabla)`: how many cells; one value in, an `int` out.
+            if n != 1 {
+                return Err(Message::new(Code::Args, line, col, &format!("`len` pide 1 valor, y aqui se le dan {}", n), "`len` dice cuantas celdas tiene UNA tabla", "len(planetas)"));
+            }
+            return Ok(());
+        }
         // `print`: any number of values, and it gives nothing back.
         if as_value {
             return Err(Message::new(Code::Result, line, col, "`print` no devuelve nada", "escribe en la consola y ya: no hay un valor que guardar o sumar", "llamalo en su propia linea: print(...)"));
@@ -261,8 +417,17 @@ fn calls_of(body: &[Stmt]) -> Vec<(&str, usize, usize)> {
             Stmt::For(f) => {
                 exprs.push(&f.from);
                 exprs.push(&f.to);
+                exprs.extend(f.over.as_ref());
             }
             Stmt::Return { value: Some(v), .. } => exprs.push(v),
+            Stmt::SetAt { path, value, .. } => {
+                for st in path {
+                    if let crate::tree::Step::Index(i) = st {
+                        exprs.push(i);
+                    }
+                }
+                exprs.push(value);
+            }
             _ => {}
         }
         for e in exprs {

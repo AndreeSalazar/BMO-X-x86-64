@@ -144,7 +144,7 @@ fn judge_fn(f: &Function) -> Result<(), Message> {
                     for (l, at) in reads {
                         usable(f, &state, l, at)?;
                     }
-                } else if let Some(t) = f.ret {
+                } else if let Some(t) = &f.ret {
                     // ** A way that reaches the end of a function that
                     // promised a value, with none to give: T0070. Only a way
                     // that can be WALKED counts (a line after a `return` has
@@ -195,6 +195,18 @@ fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
         }
         Op::Set { local, value, at } => {
             value.reads(&mut reads);
+            Some((*local, *at, None))
+        }
+        // `a[i] = v`: the whole local changes, for the checker -- it needs
+        // `mut`, and it counts as the change a `mut` promised.
+        Op::SetAt { local, path, value, at } => {
+            for st in path {
+                if let crate::ir::PathStep::Index(i) = st {
+                    i.reads(&mut reads);
+                }
+            }
+            value.reads(&mut reads);
+            reads.push((*local, *at));
             Some((*local, *at, None))
         }
         Op::Write { parts, .. } => {

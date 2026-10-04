@@ -1,0 +1,7 @@
+# espera: T0062
+# 10 entre 3 da 3.333... y no acaba: TITAN++ no corta un numero a escondidas
+mod main "un reparto que no cuadra"
+
+fn main()
+    let premio = 10.00
+    print(premio / 3)

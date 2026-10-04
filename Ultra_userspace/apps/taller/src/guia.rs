@@ -9,7 +9,7 @@
 //! that could drift away from the first.
 
 use crate::aspecto::{self as look, GOLD, LILAC};
-use crate::astros::{self, belt, cable, centaur, double_star, emitter, protoplanet, pulsar, station, supernova, Cable, AMBER, CYAN};
+use crate::astros::{self, belt, cable, centaur, crystal, double_star, emitter, protoplanet, pulsar, station, supernova, Cable, AMBER, CYAN};
 use crate::canvas::Canvas;
 use crate::view::{BG, BLUE, DIM, EDGE, GOOD, INK, LEFT, PANEL, TITLE, TOP, VIOLET};
 use bmo_dibujo::{mezclar, Color, Lienzo};
@@ -25,10 +25,10 @@ struct Card {
 }
 
 const fn traits(fns: u8, lets: u8, muts: u8, changes: u8, writes: u8, calls: u8) -> Traits {
-    Traits { fns, lets, muts, changes, writes, calls, ifs: 0, loops: 0, returns: calls, lines: 9 }
+    Traits { fns, lets, muts, changes, writes, calls, ifs: 0, loops: 0, returns: calls, types: 0, lines: 9 }
 }
 
-const CARDS: [Card; 14] = [
+const CARDS: [Card; 15] = [
     Card {
         name: b"EL CENTAURO",
         is: b"el paquete: su Titan.toml",
@@ -92,6 +92,16 @@ const CARDS: [Card; 14] = [
         draw: |c, x, y, t| {
             astros::planet(c, x, y, 14, b"fisica", traits(1, 0, 1, 1, 0, 0), t);
             belt(c, x, y, 14, 2, t);
+        },
+    },
+    Card {
+        name: b"CRISTAL",
+        is: b"sus type: registros",
+        why: b"un valor con caras, sus campos: gira y enciende una cara cada vez; tablas y dec exactos van dentro",
+        color: CYAN,
+        draw: |c, x, y, t| {
+            astros::planet(c, x + 10, y, 14, b"flota", traits(1, 1, 0, 0, 0, 0), t);
+            crystal(c, x - 18, y - 4, 2, t);
         },
     },
     Card {

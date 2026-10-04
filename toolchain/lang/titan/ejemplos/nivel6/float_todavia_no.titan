@@ -1,0 +1,9 @@
+# espera: T0040
+# en la CPU TITAN++ cuenta exacto con `dec`; el float es de la 3060 (gpu fn, nivel 11)
+mod main "un float pedido en la CPU"
+
+fn mitad(x: f32) -> f32
+    return x
+
+fn main()
+    print(1)

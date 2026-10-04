@@ -1,8 +1,0 @@
-# espera: T0040
-# recorrer una tabla con `for` llega con las tablas (nivel 6)
-mod main "recorre algo que aun no existe"
-
-fn main()
-    let planetas = 8
-    for p in planetas
-        print(p)

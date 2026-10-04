@@ -62,11 +62,11 @@ fn main()
 
 Una de las 25 palabras de un nivel que aun no existe no es un error de
 sintaxis cualquiera: es **T0040**, y dice en que nivel llega (el ejemplo ya es
-del frontend de hoy, que va por el nivel 5):
+del frontend de hoy, que va por el nivel 6):
 
 ```text
-   type Nave        T0040  `type` llega en el nivel 6 (registros)
    fn f(take n: int) T0040  prestar o entregar llega en el nivel 7
+   match estado     T0040  `match` llega en el nivel 8 (casos con datos)
 ```
 
 ---
@@ -338,6 +338,82 @@ parametro llega y SOLO se lee.
 
 ---
 
+## Nivel 6 -- los tipos (17 palabras: + `type`) -- 04-10
+
+```text
+# factura.titan
+mod main "una factura que no pierde centimos"
+
+type Linea
+    cosa: text
+    precio: dec
+    cantidad: int
+
+fn importe(l: Linea) -> dec
+    return l.precio * l.cantidad
+
+fn main()
+    let compra = [Linea { cosa: "cafe", precio: 1.75, cantidad: 2 }, ...]
+    let mut total = 0.00
+    for l in compra
+        total = total + importe(l)
+    print("total: ", total)
+```
+
+### Las piezas nuevas
+
+```text
+   dec                 el DECIMAL EXACTO: 12.50, 0.1 + 0.2 = 0.3. Sin float
+   [1, 2, 3]  [0; 10]  una TABLA: una clase, un largo fijo; su tipo [int; 3]
+   t[i]   t[i] = v     una celda (desde la 0), y cambiarla (con `mut`)
+   for x in t          sus celdas, una por vuelta
+   len(t)              cuantas celdas
+   type Nave           un REGISTRO: sus campos debajo, uno por linea
+       x: dec
+   Nave { x: 1.0 }     uno nuevo, con TODOS sus campos (no hay null)
+   n.x   n.x = v       un campo, y cambiarlo (con `mut`)
+```
+
+### `dec` y no float, y por que (el propietario, 04-10)
+
+*"Evita la float, siempre decimal."* Un `dec` es un entero y cuantas de sus
+cifras son decimales: `12.50` es 1250 con 2. **Sumar** alinea los decimales,
+**multiplicar** los suma (`12.50 * 3 = 37.50`, la regla de COBOL) y **dividir**
+da el decimal EXACTO (`10.00 / 4 = 2.50`) -- o un NO si no acaba (`1.0 / 3`,
+T0062): TITAN++ no corta un numero a escondidas. Un `int` entra en un `dec` sin
+perder nada (13 es 13.00); al reves perderia, y no se hace solo. El `%` es de
+enteros.
+
+[!] El x86-64 SI tiene floats en hardware (SSE2 es obligatorio): lo que no
+tiene es BASE 10, y por eso un float se equivoca con `0.1`. `dec` es el numero
+de Grace Hopper a la velocidad de un entero. `f32` es de la 3060 (`gpu fn`,
+nivel 11), y si se pide antes lo dice (T0040).
+
+### Las reglas, y quien las dice
+
+```text
+   LOS NOMBRES
+     un tipo que no existe                              T0051
+     un registro sin un campo, con uno de mas o dos     T0073
+     veces el mismo; un `type` que se contiene a si
+     mismo (un valor sin fin: TITAN++ guarda valores,
+     no punteros)
+   EL JUEZ
+     cambiar una celda o un campo es cambiar el valor:  T0056
+     pide `mut`, y cuenta como el cambio que un `mut`
+     promete
+   EL CALCULO
+     una tabla de UNA clase ([1, 2.5] es de `dec`)       T0071
+     un campo que el registro no tiene                  T0073
+     una celda fuera de su tabla -- se CORRE al         T0072
+     compilar y se ve: en C eso lee memoria de otro
+```
+
+Las tablas y los registros son VALORES: `let b = a` copia. Prestarlos sin
+copiar (`mut`, `take`) es el nivel 7.
+
+---
+
 ## Los codigos
 
 | codigo | que |
@@ -362,7 +438,7 @@ parametro llega y SOLO se lee.
 | T0058 | un nombre que nacio en un bloque que ya se cerro (el juez) |
 | T0060 | un numero que no cabe en 64 bits: desbordar es un error (el calculo) |
 | T0061 | una division o un resto entre cero (el calculo) |
-| T0062 | una division que no da un numero entero (el calculo) |
+| T0062 | una division que no es exacta: 7 / 2 entre ints, o un decimal que no acaba como 1.0 / 3 (el calculo) |
 | T0063 | un texto con un numero: no se suman ni se convierten solos (el calculo) |
 | T0064 | un `mut` que cambiaria de clase: numero, texto o si-o-no (el calculo) |
 | T0065 | se pedia un si-o-no y llego otra cosa: `if vidas`, `not 3` (el calculo) |
@@ -371,7 +447,9 @@ parametro llega y SOLO se lee.
 | T0068 | una llamada con mas o menos valores de los que pide la fn (los nombres) |
 | T0069 | se usa como valor algo que no devuelve nada, o un `return` que no cuadra con su `->` (los nombres) |
 | T0070 | una fn que promete un valor tiene un camino sin `return` (el juez) |
-| T0071 | un valor de otra clase donde un parametro o un `->` dicen una (el calculo) |
+| T0071 | un valor de otra clase donde un parametro, un `->`, un campo o una tabla dicen una (el calculo) |
+| T0072 | una celda fuera de su tabla: `t[5]` de una `[int; 5]` (el calculo) |
+| T0073 | un campo que el registro no tiene, que le falta o que esta dos veces (los nombres / el calculo) |
 
 ## El banco: lo que dice cada ejemplo de si mismo
 

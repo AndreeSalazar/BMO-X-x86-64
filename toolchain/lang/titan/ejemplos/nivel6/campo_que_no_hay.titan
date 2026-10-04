@@ -1,0 +1,11 @@
+# espera: T0073
+# `Nave` no tiene `velocidad`: sus campos son nombre y x
+mod main "un campo inventado"
+
+type Nave
+    nombre: text
+    x: dec
+
+fn main()
+    let n = Nave { nombre: "centauro", x: 1.0 }
+    print(n.velocidad)
