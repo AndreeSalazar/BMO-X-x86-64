@@ -46,6 +46,7 @@ pub mod dll;
 pub mod donde;
 pub mod dxbc;
 pub mod dxil;
+pub mod en_vivo;
 pub mod ficheros;
 pub mod formato;
 pub mod pcm;

@@ -59,7 +59,7 @@ impl Modulo {
     }
 }
 
-fn junto(dir: &[u8], dll: &str) -> Vec<u8> {
+pub(crate) fn junto(dir: &[u8], dll: &str) -> Vec<u8> {
     let mut r = dir.to_vec();
     r.extend_from_slice(dll.as_bytes());
     r
@@ -135,6 +135,11 @@ pub(crate) fn declarar_y_colocar(
     let mut vistos: Vec<String> =
         alloc::vec![String::from(nombre.rsplit('/').next().unwrap_or(&nombre))];
     for d in pedidas(ruta, &dir).0 {
+        visitar(&d, &dir, &mut modulos, &mut vistos);
+    }
+    // 04-10: y las que el .exe carga EN VIVO (LoadLibrary), si estan junto
+    // a el: la imagen se declara de una vez (ver `en_vivo.rs`).
+    for d in crate::en_vivo::pedidas_en_vivo(ruta, &modulos[0].pe, &dir, &vistos) {
         visitar(&d, &dir, &mut modulos, &mut vistos);
     }
 

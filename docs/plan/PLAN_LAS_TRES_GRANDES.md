@@ -697,7 +697,9 @@ ventana (`SetWindowPos`) y arranca los hilos de **Bink** (la entrada en
 video). Todavia 0 ExecuteCommandLists y 0 Present: no dibujo nada. Despues
 cayo con un fallo de Ring 3 (en `datos/fallos.txt`, pendiente de leer):
 
-- [ ] **N4.4 -- el fallo de Ring 3**: un salto a 0 por `call [rip+..]`
+- [x] **N4.4 -- el fallo de Ring 3** (04-10, falta verlo en el metal):
+  era `ffxDispatch` de `amd_fidelityfx_dx12.dll`, cargada en vivo; ver la
+  undecima corrida. Un salto a 0 por `call [rip+..]`
   desde `Cyberpunk2077.exe+0x1d4c6cf` (ranura `+0x35848f8`), igual en la
   quinta y la sexta corrida. Tapados los dos sospechosos (retrasada sin
   DLL, NULL del sistema): la proxima corrida dice cual era.
@@ -790,6 +792,19 @@ lee primero las autopsias que el KERNEL guarda de este arranque (`bmo::
 autopsia_*`): con dos lanzamientos en el mismo arranque no depende del
 disco. Del pulso: 23 enlaces distintos, 21 se corren; un hilo (4204) da
 vueltas con Enter/LeaveCriticalSection.
+
+**Estado al 04-10, undecima corrida: EL NULO TIENE NOMBRE.** El lector
+lo dijo: la casilla `Cyberpunk2077.exe+0x35848f8` es una variable de
+`.data`, la llenan en `+0x1d4df09` con `GetProcAddress(h, "ffxDispatch")`,
+y la llaman cinco sitios sin mirar si es nula. Es la API de FSR 3.1 de
+AMD, en `amd_fidelityfx_dx12.dll`: el juego hace
+`LoadLibrary("amd_fidelityfx_dx12")` y la casa le daba NULL porque solo
+cargaba las DLL de la tabla de importaciones. El arreglo, de raiz
+(`apps/proton-x/src/en_vivo.rs` y `bmo_proton_x::en_vivo`): al arrancar
+se cargan TAMBIEN las DLL de la carpeta del `.exe` que el `.exe` nombra en
+sus datos (con o sin `.dll`, ASCII o UTF-16) y que se pueden resolver
+enteras; la que no, se dice con lo que le falta y no se carga. LoadLibrary
+ya las encuentra (`modulos::por_nombre` busca en las propias).
 
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:

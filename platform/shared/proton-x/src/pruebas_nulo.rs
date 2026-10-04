@@ -101,3 +101,25 @@ fn la_cadena_si_parece_un_nombre() {
     assert_eq!(cadena_en(&img, 40), None);
     assert_eq!(cadena_en(&img, 1000), None);
 }
+
+#[test]
+fn las_dll_que_el_juego_nombra() {
+    use crate::en_vivo::{nombrados, tallo};
+    use alloc::string::String;
+    let mut datos: Vec<u8> = Vec::new();
+    // Como lo pide Cyberpunk: LoadLibraryA("amd_fidelityfx_dx12"), sin .dll.
+    datos.extend_from_slice(b"\0\0amd_fidelityfx_dx12\0ffxDispatch\0");
+    // Con ruta y extension, en UTF-16.
+    for c in "bin\\x64\\Sl.Common.DLL\0".bytes() {
+        datos.extend_from_slice(&[c, 0]);
+    }
+    // Dentro de otra palabra no cuenta.
+    datos.extend_from_slice(b"no_nvngx_dlss_aqui\0");
+    let c: Vec<String> = ["AMD_FidelityFX_DX12.dll", "sl.common.dll", "nvngx_dlss.dll", "otra.dll"]
+        .iter()
+        .map(|s| String::from(*s))
+        .collect();
+    let mut cedidas = 0;
+    assert_eq!(nombrados(&datos, &c, &mut || cedidas += 1), [true, true, false, false]);
+    assert_eq!(tallo("X.Dll"), "x");
+}

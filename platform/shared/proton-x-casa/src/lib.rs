@@ -463,6 +463,13 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     Some(r)
 }
 
+/// **Tiene la casa esta funcion?** Sin efectos (ni diario ni imagenes):
+/// el cargador lo pregunta ANTES de `empezar`, para decidir si una DLL del
+/// juego que se carga en vivo se puede resolver entera (04-10).
+pub fn la_casa_tiene(dll: &str, f: &Funcion) -> bool {
+    tabla_casa(dll, f).is_some()
+}
+
 /// **La tabla, para la casa misma**: la funcion de verdad, sin trampolin
 /// (lo que la casa se llama a si misma no va al diario).
 pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
