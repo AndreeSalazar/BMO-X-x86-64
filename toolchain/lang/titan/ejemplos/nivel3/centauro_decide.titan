@@ -1,0 +1,17 @@
+# espera: BIEN
+# sale: el centauro apunta al norte
+# sale: flechas: 2
+# lo que nace dentro de un bloque vive en su bloque; lo de fuera cambia dentro
+mod main "el centauro decide a donde apunta"
+
+fn main()
+    let mut flechas = 3
+    let noche = true
+    if noche and flechas > 0
+        let rumbo = "norte"
+        print("el centauro apunta al ", rumbo)
+        flechas = flechas - 1
+    else
+        let rumbo = "sur"
+        print("el centauro descansa mirando al ", rumbo)
+    print("flechas: ", flechas)

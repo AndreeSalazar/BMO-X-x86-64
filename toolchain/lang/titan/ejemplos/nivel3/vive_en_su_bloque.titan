@@ -1,0 +1,10 @@
+# espera: T0058
+# `premio` nace dentro del `if` y muere al cerrarse: fuera ya no existe
+mod main "un premio que se pierde"
+
+fn main()
+    let puntos = 120
+    if puntos > 100
+        let premio = "estrella"
+        print("ganaste una ", premio)
+    print("tu premio: ", premio)

@@ -1,6 +1,6 @@
 //! # TITAN++ para x86-64 -- de la IR a bytes, y al `.bex`
 //!
-//! T3 de `docs/maestro/TITAN_MAESTRO.md` (seccion 12), con los niveles 0 y 1:
+//! T3 de `docs/maestro/TITAN_MAESTRO.md` (seccion 12), con los niveles 0 a 3:
 //!
 //! ```text
 //!    bmo-titan-front      texto -> arbol -> IR       no nombra ninguna maquina
@@ -30,11 +30,28 @@
 //! - **No pasa por `bmo-enlazar` todavia.** TITAN_MAESTRO T3 dice "un `.bo`";
 //!   el nivel 0 no llama a nada de fuera, asi que un objeto no tendria que
 //!   resolver ningun simbolo. El `.bo` llega el dia que TITAN++ llame a INTI.
-//! - **No hay asignador de registros, ni valores**: el nivel 0 no tiene ninguno.
+//! - **No hay asignador de registros, ni valores**: hasta el nivel 3 todo valor
+//!   se sabe al compilar (`calc.rs`), asi que no hay ninguno que guardar.
+//!
+//! ## Los bloques (nivel 3)
+//!
+//! Un `if` parte la funcion en bloques. Al emisor le llegan DECIDIDOS: la
+//! condicion ya es `true` o `false`, y el lado que no corre viene marcado
+//! `dead` -- **no deja ni un byte**. Lo que queda es un camino:
+//!
+//! ```text
+//!    Branch(true/false)   un `jmp` al lado que corre, o nada si es el siguiente
+//!    Jump                 un `jmp`, o nada si el destino es el siguiente
+//!    bloque muerto        nada: ni bytes, ni puerta en el certificado
+//! ```
+//!
+//! ** Un `jmp` que nadie salta no se escribe: con los muertos fuera, casi
+//! todos los saltos caen al bloque de al lado. El nivel 4 (`while`) traera el
+//! primer salto HACIA ARRIBA, y la misma lista de parches lo resuelve.
 
 use bmo_abi::bef2;
 use bmo_lower::{console, task};
-use bmo_titan_front::ir::{End, Module, Op, Value};
+use bmo_titan_front::ir::{End, Function, Module, Op, Value};
 use bmo_titan_front::Message;
 
 /// Lo que sale de emitir un modulo.
@@ -57,6 +74,31 @@ fn ret(code: &mut Vec<u8>) {
     code.push(0xC3);
 }
 
+/// `jmp rel32` con el destino por parchear: devuelve donde va el campo.
+fn jmp_rel32(code: &mut Vec<u8>) -> usize {
+    code.push(0xE9);
+    let field = code.len();
+    code.extend_from_slice(&[0; 4]);
+    field
+}
+
+/// Patches a rel32 field so it lands on `target`.
+fn patch(code: &mut [u8], field: usize, target: usize) {
+    let rel = target as i64 - (field as i64 + 4);
+    code[field..field + 4].copy_from_slice(&(rel as i32).to_le_bytes());
+}
+
+/// The block that runs after block `i`, when it is decided: a `Jump`, or a
+/// `Branch` the calculation already turned into `true` / `false`.
+fn next_of(f: &Function, i: usize) -> Result<Option<usize>, String> {
+    Ok(match &f.blocks[i].end {
+        End::Return => None,
+        End::Jump(t) => Some(*t),
+        End::Branch { cond: Value::Bool(yes, _), then, other, .. } => Some(if *yes { *then } else { *other }),
+        End::Branch { at, .. } => return Err(format!("linea {}: un `if` llego sin decidir", at.0)),
+    })
+}
+
 /// IR -> bytes. La IR llega JUZGADA y CALCULADA (`juez.rs`, `calc.rs`): en el
 /// nivel 1 cada valor ya es una constante, y un `let` no deja bytes -- su valor
 /// ya esta dentro de los textos que se escriben. Lo unico que no puede pasar
@@ -75,7 +117,13 @@ pub fn emit(m: &Module) -> Result<Emitted, String> {
     let mut starts = Vec::with_capacity(m.functions.len());
     for f in &m.functions {
         starts.push(code.len());
-        for b in &f.blocks {
+        // Where each block of this function starts, and the jumps into them.
+        let mut at = vec![usize::MAX; f.blocks.len()];
+        let mut jumps: Vec<(usize, usize)> = Vec::new();
+        let live: Vec<usize> = (0..f.blocks.len()).filter(|&i| !f.blocks[i].dead).collect();
+        for (k, &i) in live.iter().enumerate() {
+            let b = &f.blocks[i];
+            at[i] = code.len();
             for op in &b.ops {
                 match op {
                     Op::Write { parts, at } => {
@@ -84,6 +132,7 @@ pub fn emit(m: &Module) -> Result<Emitted, String> {
                             match p {
                                 Value::Int(n, _) => text.push_str(&n.to_string()),
                                 Value::Text(t, _) => text.push_str(t),
+                                Value::Bool(b, _) => text.push_str(if *b { "true" } else { "false" }),
                                 _ => return Err(format!("linea {}: una parte de print llego sin calcular", at.0)),
                             }
                         }
@@ -92,20 +141,30 @@ pub fn emit(m: &Module) -> Result<Emitted, String> {
                         text.push('\n');
                         console::write_const(&mut code, text.as_bytes());
                     }
-                    // Already inside the texts that use it (calc.rs).
-                    Op::Let { .. } | Op::Set { .. } => {}
+                    // Already inside the texts that use it (calc.rs); and a
+                    // value that dies leaves nothing to free: it never had a
+                    // place outside the texts.
+                    Op::Let { .. } | Op::Set { .. } | Op::Drop { .. } => {}
                     Op::Call { func, .. } => calls.push((call_rel32(&mut code), *func)),
                 }
             }
-            match b.end {
-                End::Return => ret(&mut code),
+            match next_of(f, i)? {
+                None => ret(&mut code),
+                // Falls into the next block written: no byte.
+                Some(t) if live.get(k + 1) == Some(&t) => {}
+                Some(t) => jumps.push((jmp_rel32(&mut code), t)),
             }
+        }
+        for (field, t) in jumps {
+            if at[t] == usize::MAX {
+                return Err(format!("`fn {}`: un salto a un bloque muerto", f.name));
+            }
+            patch(&mut code, field, at[t]);
         }
     }
 
     for (field, k) in calls {
-        let rel = starts[k] as i64 - (field as i64 + 4);
-        code[field..field + 4].copy_from_slice(&(rel as i32).to_le_bytes());
+        patch(&mut code, field, starts[k]);
     }
     Ok(Emitted { code, starts })
 }
@@ -192,6 +251,18 @@ mod tests {
         assert_ne!(forged, honest);
         let bad = package(&e, &forged).unwrap();
         assert_eq!(judge(&read(&bad), Permissions::NONE, Permissions::NONE), Verdict::Unasked(Use { door: Door::Net, line: 3 }));
+    }
+
+    /// ** What never runs leaves no byte: the dead side of a decided `if`
+    /// is not in the code -- its text is nowhere in the `.bex`.
+    #[test]
+    fn the_dead_side_of_an_if_leaves_no_byte() {
+        let src = "mod main \"x\"\nfn main()\n    if 2 > 1\n        print(\"VIVO\")\n    else\n        print(\"MUERTO\")\n";
+        let e = emit(&bmo_titan_front::lower(src).unwrap()).unwrap();
+        let has = |w: &[u8]| e.code.windows(w.len()).any(|x| x == w);
+        // write_const carries texts eight bytes at a time: "VIVO\n" fits in one.
+        assert!(has(b"VIVO\n"), "the live side is there");
+        assert!(!has(b"MUERTO"[..4].as_ref()), "the dead side left bytes");
     }
 
     #[test]

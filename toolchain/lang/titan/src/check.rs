@@ -11,7 +11,7 @@
 //! file, called without arguments.
 
 use crate::message::{Code, Message};
-use crate::tree::{Program, Stmt};
+use crate::tree::{Call, Program, Stmt};
 
 /// What the library gives in level 0.
 const LIBRARY: [&str; 1] = ["print"];
@@ -57,9 +57,12 @@ pub fn check(p: &Program) -> Result<(), Message> {
         ));
     }
     for f in &p.functions {
-        for st in &f.body {
+        let mut lines = Vec::new();
+        flat(&f.body, &mut lines);
+        for st in lines {
             let c = match st {
                 Stmt::Call(c) => c,
+                Stmt::If(_) => continue,
                 Stmt::Let(l) => {
                     if LIBRARY.contains(&l.name.as_str()) || p.functions.iter().any(|g| g.name == l.name) {
                         return Err(Message::new(
@@ -106,19 +109,37 @@ pub fn check(p: &Program) -> Result<(), Message> {
     endless(p)
 }
 
-/// ** A CALL THAT COMES BACK TO ITSELF NEVER ENDS -- in level 0.
-///
-/// There is no `if` yet, so nothing can decide to stop: `a -> b -> a` goes
-/// round until the stack runs out, and on the machine that is a task killed
-/// by a fault, not a message. Saying it here costs a walk of the calls; saying
-/// it there costs a reboot to read a photo. The day `if` arrives (level 3) this
-/// rule has to learn which calls are behind one -- and it says so in its COMO.
-fn call_of(st: &Stmt) -> Option<&crate::tree::Call> {
-    match st {
-        Stmt::Call(c) => Some(c),
-        _ => None,
+/// Every line of a body, the ones inside `if` and `else` included, in
+/// reading order (the `if` line itself too).
+fn flat<'a>(body: &'a [Stmt], out: &mut Vec<&'a Stmt>) {
+    for st in body {
+        out.push(st);
+        if let Stmt::If(i) = st {
+            flat(&i.then, out);
+            flat(&i.other, out);
+        }
     }
 }
+
+/// The calls of a body, the ones behind an `if` included.
+fn calls_of(body: &[Stmt]) -> Vec<&Call> {
+    let mut lines = Vec::new();
+    flat(body, &mut lines);
+    lines.into_iter().filter_map(|st| if let Stmt::Call(c) = st { Some(c) } else { None }).collect()
+}
+
+/// ** A CALL THAT COMES BACK TO ITSELF NEVER ENDS -- and an `if` does not
+/// change that, until level 5.
+///
+/// Level 0 had no `if`, so nothing could decide to stop: `a -> b -> a` goes
+/// round until the stack runs out, and on the machine that is a task killed
+/// by a fault, not a message. Level 3 brings `if`, and this rule was written
+/// knowing it would have to ask "is the call behind one?". The answer, said
+/// precisely: IT DOES NOT MATTER YET. A `fn` takes nothing until level 5, and
+/// nothing outside it changes, so every call of it decides EXACTLY as the
+/// first one did: if the call back happens once, it happens always; if it
+/// never happens, it is a line that does nothing. Either way, a NO -- and the
+/// rule moves the day a call can carry a value (level 5).
 
 fn endless(p: &Program) -> Result<(), Message> {
     let own = |name: &str| p.functions.iter().position(|f| f.name == name);
@@ -129,7 +150,7 @@ fn endless(p: &Program) -> Result<(), Message> {
         let mut stack = vec![(start, 0usize)];
         let mut seen = vec![false; p.functions.len()];
         while let Some(&(at, next)) = stack.last() {
-            let calls: Vec<usize> = p.functions[at].body.iter().filter_map(|st| call_of(st)).filter_map(|c| own(&c.callee)).collect();
+            let calls: Vec<usize> = calls_of(&p.functions[at].body).into_iter().filter_map(|c| own(&c.callee)).collect();
             if next >= calls.len() {
                 stack.pop();
                 path.pop();
@@ -138,7 +159,7 @@ fn endless(p: &Program) -> Result<(), Message> {
             stack.last_mut().unwrap().1 += 1;
             let to = calls[next];
             if to == start {
-                let call = p.functions[at].body.iter().filter_map(|st| call_of(st)).filter(|c| own(&c.callee).is_some()).nth(next).unwrap();
+                let call = calls_of(&p.functions[at].body).into_iter().filter(|c| own(&c.callee).is_some()).nth(next).unwrap();
                 let mut names: Vec<&str> = path.iter().map(|&i| p.functions[i].name.as_str()).collect();
                 names.push(&f.name);
                 let what = if names.len() == 2 {
@@ -151,8 +172,8 @@ fn endless(p: &Program) -> Result<(), Message> {
                     call.line,
                     call.col,
                     &what,
-                    "en el nivel 0 no hay `if`: nada puede decidir parar, y la vuelta sigue hasta que se acaba la pila",
-                    &format!("quita la llamada a `{}()` de esta linea; decidir cuando parar llega en el nivel 3", call.callee),
+                    "una `fn` no recibe nada hasta el nivel 5: cada vuelta decide igual que la primera, asi que ni un `if` la para -- si vuelve una vez, vuelve siempre",
+                    &format!("quita la llamada a `{}()` de esta linea; una vuelta que se para sola llega con los parametros (nivel 5) y con `while` (nivel 4)", call.callee),
                 ));
             }
             if !seen[to] {

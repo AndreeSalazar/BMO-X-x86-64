@@ -25,7 +25,8 @@ use bmo_titan_contrato::{Certificate, Door};
 pub fn certificate(m: &Module) -> Certificate {
     let mut uses: Vec<(usize, Door)> = Vec::new();
     for f in &m.functions {
-        for op in f.blocks.iter().flat_map(|b| &b.ops) {
+        // A dead block never runs: it opens no door (`Block::dead`).
+        for op in f.blocks.iter().filter(|b| !b.dead).flat_map(|b| &b.ops) {
             if let Op::Write { at, .. } = op {
                 // `print`: the console of the program's own task.
                 uses.push((at.0, Door::Console));
@@ -55,7 +56,7 @@ pub fn manifest(m: &Module, source_name: &str) -> String {
     // U2, from the first `.bex`: the section is there and says what it asks.
     // Level 0 asks nothing -- writing on the console of one's own task is not
     // a permission -- and saying "nothing" is not the same as not saying.
-    t.push_str("# los niveles 0 y 1 no piden ninguno: escribir en la consola de la propia tarea no es un permiso\n");
+    t.push_str("# los niveles 0 a 3 no piden ninguno: escribir en la consola de la propia tarea no es un permiso\n");
     let mut buf = [0u8; 4096];
     if let Ok(n) = certificate(m).write(&mut buf) {
         t.push('\n');
@@ -92,6 +93,12 @@ mod tests {
         assert!(t.contains("que_hace = \"dice \\\"hola\\\"\"\n"), "{}", t);
         assert!(t.contains("fuente = \"hola.titan\"\n") && t.contains("[permissions]"), "{}", t);
         assert_eq!(t, manifest(&m, "hola.titan"), "the same source, the same bytes");
+    }
+
+    #[test]
+    fn a_print_that_never_runs_opens_no_door() {
+        let m = crate::lower("mod main \"x\"\nfn main()\n    if false\n        print(\"nunca\")\n    print(\"si\")\n").unwrap();
+        assert!(manifest(&m, "x.titan").contains("console = [5]"), "{}", manifest(&m, "x.titan"));
     }
 
     #[test]

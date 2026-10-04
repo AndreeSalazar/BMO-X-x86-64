@@ -28,9 +28,27 @@
 //!    emitter the bytes
 //! ```
 //!
-//! Level 1 keeps a function as ONE block (there is no `if` to split it):
-//! `let` defines a local, `print` writes, a call calls. The shape is already
-//! the one the checker walks when blocks are many.
+//! Levels 1 and 2 kept a function as ONE block. Level 3 splits it: an `if`
+//! ENDS its block with a `Branch`, each side is a block of its own, and both
+//! `Jump` to the block that follows. The blocks go in the order a reader
+//! meets them, and every jump goes DOWN (no loops until level 4): whoever
+//! walks them in order has seen every way into a block before entering it.
+//!
+//! ```text
+//!    b0   ... the lines before the if
+//!         si (vidas > 0) -> b1, sino -> b2
+//!    b1   ... the if's block           muere %3   (what was born in it)
+//!         salta b3
+//!    b2   ... the else's block
+//!         salta b3
+//!    b3   ... the lines after
+//! ```
+//!
+//! ** `Drop`: where a block-scoped value DIES -- what rustc's MIR calls
+//! `StorageDead`. Something born inside an `if` lives in its block and dies
+//! when the block closes; the checker reads the `Drop` and says so if anyone
+//! reaches for it later (T0058). Today it is a line of the IR; with `take`
+//! (level 7) it is the point where the value is given back.
 
 use crate::tree::{Expr, Program, Stmt};
 
@@ -64,6 +82,11 @@ pub struct Local {
 pub struct Block {
     pub ops: Vec<Op>,
     pub end: End,
+    /// Set by the calculation (`calc.rs`): no run of the program reaches
+    /// this block -- the `if` that leads here was decided the other way when
+    /// compiling. The emitter writes no byte for it, and the certificate
+    /// names no door from it: what never runs asks for nothing.
+    pub dead: bool,
 }
 
 /// Where in the text: line and column, as an editor counts.
@@ -80,6 +103,9 @@ pub enum Op {
     Write { parts: Vec<Value>, at: At },
     /// Call the function with this index.
     Call { func: usize, at: At },
+    /// The block that gave birth to this local closes here: it dies. `at` is
+    /// the `if` (or `else`) whose block closes.
+    Drop { local: usize, at: At },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,15 +114,18 @@ pub enum Value {
     Text(String, At),
     /// What the local holds at that point.
     Local(usize, At),
-    /// `+ - * / %`.
-    Bin(char, Box<Value>, Box<Value>, At),
+    /// `true` / `false`.
+    Bool(bool, At),
+    /// `+ - * / %`, `== != < <= > >=`, `and` `or`.
+    Bin(&'static str, Box<Value>, Box<Value>, At),
     Neg(Box<Value>, At),
+    Not(Box<Value>, At),
 }
 
 impl Value {
     pub fn at(&self) -> At {
         match self {
-            Value::Int(_, a) | Value::Text(_, a) | Value::Local(_, a) | Value::Bin(_, _, _, a) | Value::Neg(_, a) => *a,
+            Value::Int(_, a) | Value::Text(_, a) | Value::Bool(_, a) | Value::Local(_, a) | Value::Bin(_, _, _, a) | Value::Neg(_, a) | Value::Not(_, a) => *a,
         }
     }
 
@@ -104,21 +133,36 @@ impl Value {
     /// judges.
     pub fn reads(&self, out: &mut Vec<(usize, At)>) {
         match self {
-            Value::Int(..) | Value::Text(..) => {}
+            Value::Int(..) | Value::Text(..) | Value::Bool(..) => {}
             Value::Local(l, a) => out.push((*l, *a)),
             Value::Bin(_, l, r, _) => {
                 l.reads(out);
                 r.reads(out);
             }
-            Value::Neg(v, _) => v.reads(out),
+            Value::Neg(v, _) | Value::Not(v, _) => v.reads(out),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum End {
     /// Back to whoever called. For `main`, the end of the program.
     Return,
+    /// On to that block.
+    Jump(usize),
+    /// `if`: to `then` if `cond` is true, to `other` if not. `at` is the `if`.
+    Branch { cond: Value, then: usize, other: usize, at: At },
+}
+
+impl End {
+    /// The blocks this end can go to.
+    pub fn targets(&self) -> Vec<usize> {
+        match self {
+            End::Return => Vec::new(),
+            End::Jump(b) => vec![*b],
+            End::Branch { then, other, .. } => vec![*then, *other],
+        }
+    }
 }
 
 fn local_of(locals: &mut Vec<Local>, name: &str) -> usize {
@@ -136,6 +180,8 @@ fn value(e: &Expr, locals: &mut Vec<Local>) -> Value {
         Expr::Int { value, line, col } => Value::Int(*value, (*line, *col)),
         Expr::Text { value, line, col } => Value::Text(value.clone(), (*line, *col)),
         Expr::Name { name, line, col } => Value::Local(local_of(locals, name), (*line, *col)),
+        Expr::Bool { value, line, col } => Value::Bool(*value, (*line, *col)),
+        Expr::Not { value: v, line, col } => Value::Not(Box::new(value(v, locals)), (*line, *col)),
         Expr::Bin { op, left, right, line, col } => {
             Value::Bin(*op, Box::new(value(left, locals)), Box::new(value(right, locals)), (*line, *col))
         }
@@ -143,42 +189,98 @@ fn value(e: &Expr, locals: &mut Vec<Local>) -> Value {
     }
 }
 
+/// Lowers one function: its blocks grow as `if`s split them.
+struct Lowering<'p> {
+    p: &'p Program,
+    locals: Vec<Local>,
+    blocks: Vec<Block>,
+}
+
+impl Lowering<'_> {
+    fn open(&mut self) -> usize {
+        self.blocks.push(Block { ops: Vec::new(), end: End::Return, dead: false });
+        self.blocks.len() - 1
+    }
+
+    fn index(&self, name: &str) -> usize {
+        self.p.functions.iter().position(|f| f.name == name).expect("check: every call goes somewhere")
+    }
+
+    /// Lowers `body` starting in block `at`; returns the block where it ends.
+    /// `scope` is the `if`/`else` that opened it (None for the fn's own body):
+    /// what is born directly in it dies when it closes.
+    fn body(&mut self, body: &[Stmt], mut at: usize, scope: Option<At>) -> usize {
+        let mut born = Vec::new();
+        for st in body {
+            match st {
+                Stmt::Let(l) => {
+                    let v = value(&l.value, &mut self.locals);
+                    let local = local_of(&mut self.locals, &l.name);
+                    born.push(local);
+                    self.blocks[at].ops.push(Op::Let { local, value: v, mutable: l.mutable, at: (l.line, l.col) });
+                }
+                Stmt::Set(l) => {
+                    let v = value(&l.value, &mut self.locals);
+                    let local = local_of(&mut self.locals, &l.name);
+                    self.blocks[at].ops.push(Op::Set { local, value: v, at: (l.line, l.col) });
+                }
+                Stmt::Call(c) if c.callee == "print" => {
+                    let parts = c.args.iter().map(|a| value(a, &mut self.locals)).collect();
+                    self.blocks[at].ops.push(Op::Write { parts, at: (c.line, c.col) });
+                }
+                Stmt::Call(c) => {
+                    let func = self.index(&c.callee);
+                    self.blocks[at].ops.push(Op::Call { func, at: (c.line, c.col) });
+                }
+                Stmt::If(i) => {
+                    let cond = value(&i.cond, &mut self.locals);
+                    let here = (i.line, i.col);
+                    let then = self.open();
+                    let then_end = self.body(&i.then, then, Some(here));
+                    let (other, other_end) = if i.other.is_empty() {
+                        (None, None)
+                    } else {
+                        let b = self.open();
+                        (Some(b), Some(self.body(&i.other, b, Some(i.else_at))))
+                    };
+                    let join = self.open();
+                    self.blocks[then_end].end = End::Jump(join);
+                    if let Some(e) = other_end {
+                        self.blocks[e].end = End::Jump(join);
+                    }
+                    self.blocks[at].end = End::Branch { cond, then, other: other.unwrap_or(join), at: here };
+                    at = join;
+                }
+            }
+        }
+        if let Some(scope) = scope {
+            for local in born {
+                self.blocks[at].ops.push(Op::Drop { local, at: scope });
+            }
+        }
+        at
+    }
+}
+
 /// From a tree whose FUNCTION names are checked to the IR. It does not judge
 /// values: a name used before its `let` is still a local here, and the
 /// checker says what is wrong with it.
 pub fn lower(p: &Program) -> Module {
-    let index = |name: &str| p.functions.iter().position(|f| f.name == name);
     let functions = p
         .functions
         .iter()
         .map(|f| {
-            let mut locals = Vec::new();
-            let ops = f
-                .body
-                .iter()
-                .map(|st| match st {
-                    Stmt::Let(l) => {
-                        let v = value(&l.value, &mut locals);
-                        Op::Let { local: local_of(&mut locals, &l.name), value: v, mutable: l.mutable, at: (l.line, l.col) }
-                    }
-                    Stmt::Set(l) => {
-                        let v = value(&l.value, &mut locals);
-                        Op::Set { local: local_of(&mut locals, &l.name), value: v, at: (l.line, l.col) }
-                    }
-                    Stmt::Call(c) if c.callee == "print" => {
-                        Op::Write { parts: c.args.iter().map(|a| value(a, &mut locals)).collect(), at: (c.line, c.col) }
-                    }
-                    Stmt::Call(c) => Op::Call { func: index(&c.callee).expect("check: every call goes somewhere"), at: (c.line, c.col) },
-                })
-                .collect();
-            Function { name: f.name.clone(), line: f.line, locals, blocks: vec![Block { ops, end: End::Return }] }
+            let mut l = Lowering { p, locals: Vec::new(), blocks: Vec::new() };
+            let first = l.open();
+            l.body(&f.body, first, None);
+            Function { name: f.name.clone(), line: f.line, locals: l.locals, blocks: l.blocks }
         })
         .collect();
     Module {
         name: p.module.clone(),
         purpose: p.purpose.clone(),
         functions,
-        entry: index("main").expect("check: there is a main"),
+        entry: p.functions.iter().position(|f| f.name == "main").expect("check: there is a main"),
     }
 }
 
@@ -190,7 +292,7 @@ impl Module {
             let locals: Vec<String> = f.locals.iter().enumerate().map(|(k, l)| format!("%{}={}", k, l.name)).collect();
             s += &format!("f{} {}   {}\n", i, f.name, locals.join(" "));
             for (j, b) in f.blocks.iter().enumerate() {
-                s += &format!("  b{}\n", j);
+                s += &format!("  b{}{}\n", j, if b.dead { "   (muerto: ninguna ejecucion llega aqui, y no deja bytes)" } else { "" });
                 for op in &b.ops {
                     s += &match op {
                         Op::Let { local, value, mutable: true, .. } => format!("    %{} = {}   (mut)\n", local, show(value)),
@@ -201,10 +303,14 @@ impl Module {
                             format!("    escribe {}\n", p.join(", "))
                         }
                         Op::Call { func, .. } => format!("    llama   f{} ({})\n", func, self.functions[*func].name),
+                        Op::Drop { local, at } => format!("    muere   %{} ({}, al cerrarse el bloque de la linea {})\n", local, f.locals[*local].name, at.0),
                     };
                 }
-                s += match b.end {
-                    End::Return => "    vuelve\n",
+                s += &match &b.end {
+                    End::Return => "    vuelve\n".to_string(),
+                    End::Jump(t) => format!("    salta   b{}\n", t),
+                    End::Branch { cond: c @ Value::Bool(..), then, other, .. } => format!("    si {} -> b{}, sino -> b{}   (decidido al compilar)\n", show(c), then, other),
+                    End::Branch { cond, then, other, .. } => format!("    si {} -> b{}, sino -> b{}\n", show(cond), then, other),
                 };
             }
         }
@@ -216,9 +322,11 @@ fn show(v: &Value) -> String {
     match v {
         Value::Int(n, _) => n.to_string(),
         Value::Text(t, _) => format!("{:?}", t),
+        Value::Bool(b, _) => b.to_string(),
         Value::Local(l, _) => format!("%{}", l),
         Value::Bin(op, l, r, _) => format!("({} {} {})", show(l), op, show(r)),
         Value::Neg(v, _) => format!("-{}", show(v)),
+        Value::Not(v, _) => format!("not {}", show(v)),
     }
 }
 
@@ -250,6 +358,21 @@ mod tests {
         value.reads(&mut r);
         assert_eq!(r, [(0, (4, 16))]);
         assert!(m.show().contains("%1 = (%0 * 4)"), "{}", m.show());
+    }
+
+    #[test]
+    fn an_if_splits_the_body_into_blocks_that_only_jump_down() {
+        let m = ir("mod main \"x\"\nfn main()\n    let v = 3\n    if v > 0\n        let r = \"si\"\n        print(r)\n    else\n        print(\"no\")\n    print(\"fin\")\n");
+        let f = &m.functions[0];
+        assert_eq!(f.blocks.len(), 4, "{}", m.show());
+        assert!(matches!(f.blocks[0].end, End::Branch { then: 1, other: 2, .. }));
+        assert_eq!((f.blocks[1].end.clone(), f.blocks[2].end.clone()), (End::Jump(3), End::Jump(3)));
+        // What was born in the if's block dies when it closes.
+        assert!(matches!(f.blocks[1].ops.last(), Some(Op::Drop { local: 1, at: (4, 5) })), "{}", m.show());
+        for (i, b) in f.blocks.iter().enumerate() {
+            assert!(b.end.targets().iter().all(|&t| t > i), "b{} jumps up", i);
+        }
+        assert!(m.show().contains("si (%0 > 0) -> b1, sino -> b2"), "{}", m.show());
     }
 
     #[test]

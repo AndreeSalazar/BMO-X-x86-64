@@ -1,0 +1,8 @@
+# espera: T0065
+# un `if` pregunta SI o NO: un numero solo no es una pregunta
+mod main "una condicion a medias"
+
+fn main()
+    let vidas = 3
+    if vidas
+        print("sigue")

@@ -1,0 +1,19 @@
+# espera: BIEN
+# sale: 84 / 0: no se divide entre cero
+# sale: 84 / 4 = 21
+# sale: par y grande: true
+# `if d != 0` guarda la division: el lado que no corre no se calcula
+mod main "una calculadora que no se rompe"
+
+fn main()
+    let a = 84
+    let cero = 0
+    if cero != 0
+        print(a, " / 0 = ", a / cero)
+    else
+        print(a, " / 0: no se divide entre cero")
+    let d = 4
+    if d != 0 and a % d == 0
+        print(a, " / ", d, " = ", a / d)
+    let par = a % 2 == 0
+    print("par y grande: ", par and not (a < 50))

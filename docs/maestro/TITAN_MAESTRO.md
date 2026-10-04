@@ -1129,14 +1129,17 @@ problema dicho). El resto espera al compilador.
                          (toolchain/lang/titan, 30-09)
    T2  tipos             numero y texto, y su mezcla es un NO        EN CURSO
                          (calc.rs, nivel 1); faltan `dec`, tablas
-   T3  IR + emisor       NIVEL 0 HECHO en el anfitrion (04-10):     EN CURSO
-                         IR propia (src/ir.rs) + emisor propio
+   T3  IR + emisor       NIVELES 0-3 HECHOS en el anfitrion (04-10): EN CURSO
+                         IR propia (src/ir.rs) con BLOQUES desde el
+                         nivel 3 + emisor propio
                          (emisor-x86_64/, `titan build`), SIN el de
                          INTI. Falta verlo en el Ryzen, y el .bo con
                          bmo-enlazar llega cuando llame a INTI
-   T4  borrow checker    EL JUEZ existe (juez.rs, nivel 1): cada     EN CURSO
+   T4  borrow checker    EL JUEZ existe (juez.rs, niveles 1-3): cada  EN CURSO
                          local en UN estado por punto, sobre la IR;
-                         falta la ley de exclusividad (el modelo 2)
+                         desde el nivel 3 RECORRE el grafo de bloques
+                         y junta los caminos (T0058, lo que nace en un
+                         bloque muere con el); falta la exclusividad
    T5  gpu fn            SPIR-V -> SASS, el prestamo a la 3060      FALTA
    T6  dentro de F1      el compilador en el taller, `titan run`    FALTA
 ```
@@ -1503,4 +1506,34 @@ sume lo que dice la tabla de arriba.
 [!] **Falta el metal**: `build.ps1` despliega `titan/hola.bex` y
 `titan/dos.bex`; en el Ryzen, `run titan/hola.bex` en F12 tiene que escribir
 `hola`. Hasta esa foto es 🟡. La ventana, despues.
+
+**NIVEL 3 -- DECIDIR, HECHO EN EL ANFITRION el 04-10** (`if else true false
+and or not`, 10 palabras; `GRAMATICA.md` lo cuenta entero):
+
+```text
+   la IR      un `if` parte el cuerpo en BLOQUES (b0 si -> b1, sino -> b2;
+              los dos saltan a b3), todos los saltos van hacia ABAJO, y
+              `muere %n` marca donde se cierra un bloque (el StorageDead de
+              rustc)
+   el JUEZ    deja de ser una lista y RECORRE: un estado por bloque, y donde
+              dos caminos se juntan vale lo cierto en LOS DOS (`meet`). Lo
+              que nace en un bloque muere con el: T0058
+   el CALCULO dos pasadas. CLASES en todos los bloques (un `if` pregunta SI o
+              NO: T0065). VALORES solo por el camino que corre: cada `if` se
+              DECIDE al compilar, el otro lado queda MUERTO -- no se calcula
+              (`if d != 0` guarda `10 / d`), no deja bytes y el certificado
+              no nombra sus puertas
+   el EMISOR  `jmp rel32` donde hace falta y nada donde el destino es el
+              bloque de al lado; ni un byte de un bloque muerto (una prueba
+              busca el texto del lado muerto en el codigo y no lo encuentra)
+```
+
+- **T0053 no se mueve, y ahora sabe por que**: una `fn` no recibe nada hasta
+  el nivel 5, asi que cada vuelta decide igual que la primera; si vuelve una
+  vez, vuelve siempre. Un `if` no la salva; los parametros, si.
+- **Se compara de dos en dos** (`1 < x < 9` es T0030 y el COMO escribe la
+  forma buena) y `if x = 3` dice que para preguntar es `==`.
+
+🟡 igual que los niveles de antes: el banco corre en el emulador; el Ryzen,
+cuando se despliegue.
 

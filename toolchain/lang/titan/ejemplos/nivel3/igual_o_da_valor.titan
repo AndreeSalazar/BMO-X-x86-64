@@ -1,0 +1,8 @@
+# espera: T0030
+# `=` da un valor; para preguntar si es igual se escribe `==`
+mod main "pregunta con un solo igual"
+
+fn main()
+    let vidas = 3
+    if vidas = 3
+        print("tres")

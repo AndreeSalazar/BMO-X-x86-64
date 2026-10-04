@@ -62,7 +62,7 @@ fn main() -> ExitCode {
                     if let Err(m) = bmo_titan_front::lower(&src) {
                         return no(&m, file, &src, false);
                     }
-                    let calls: usize = p.functions.iter().map(|f| f.body.len()).sum();
+                    let calls: usize = p.functions.iter().map(|f| lines(&f.body)).sum();
                     let plural = if calls == 1 { "linea" } else { "lineas" };
                     println!("bien  {}  -- mod {}, {} fn, {} {}", file, p.module, p.functions.len(), calls, plural);
                 }
@@ -180,4 +180,14 @@ fn no(m: &bmo_titan_front::Message, file: &str, src: &str, building: bool) -> Ex
 fn fail(why: &str) -> ExitCode {
     eprintln!("titan: {}", why);
     ExitCode::from(2)
+}
+
+/// The lines of a body, the ones inside `if` and `else` included.
+fn lines(body: &[bmo_titan_front::tree::Stmt]) -> usize {
+    body.iter()
+        .map(|st| match st {
+            bmo_titan_front::tree::Stmt::If(i) => 1 + lines(&i.then) + lines(&i.other),
+            _ => 1,
+        })
+        .sum()
 }

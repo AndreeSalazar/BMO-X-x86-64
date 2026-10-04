@@ -62,11 +62,11 @@ fn main()
 
 Una de las 25 palabras de un nivel que aun no existe no es un error de
 sintaxis cualquiera: es **T0040**, y dice en que nivel llega (el ejemplo ya es
-del frontend de hoy, que va por el nivel 2):
+del frontend de hoy, que va por el nivel 3):
 
 ```text
-   if vidas         T0040  `if` llega en el nivel 3 (decidir)
    while ...        T0040  `while` llega en el nivel 4 (repetir)
+   return           T0040  `return` llega en el nivel 5 (funciones con resultado)
 ```
 
 ---
@@ -151,7 +151,81 @@ fn main()
 cambio (L5 de TITAN_MAESTRO 6.8, lo que Rust tuvo que parchear con los
 "prestamos en dos fases").
 
-### Los codigos
+---
+
+## Nivel 3 -- decidir (10 palabras: + `if else true false and or not`) -- 04-10
+
+```text
+# semaforo.titan
+mod main "un semaforo que decide"
+
+fn main()
+    let segundos = 47
+    let mut color = "verde"
+    if segundos > 50
+        color = "rojo"
+    else if segundos > 40
+        color = "ambar"
+    print("el semaforo esta en ", color)
+    print("cruzar: ", color == "verde")
+```
+
+### Las piezas nuevas
+
+```text
+   if COND           y debajo, SANGRADO, su bloque
+   else              al MISMO margen que su `if`, y debajo su bloque
+   else if COND      una cadena: el primero que es true, y ninguno mas
+   true  false       un si-o-no: la tercera clase de valor
+   == != < <= > >=   comparar: dan un si-o-no
+   and  or  not      unir y dar la vuelta, con PALABRAS (no && || !)
+```
+
+La fuerza, de menos a mas: `or`, `and`, `not`, una comparacion, `+ -`,
+`* / %`, y el `-` de delante. `not vidas > 0` es `not (vidas > 0)`.
+
+### Las reglas, y quien las dice
+
+```text
+   LA GRAMATICA (parse.rs)
+     se compara de dos en dos                          T0030
+       `1 < x < 9` se lee distinto en Python y en C:
+       se escribe `1 < x and x < 9`
+     `if x = 3` no pregunta: `=` da un valor            T0030
+       y el COMO lo dice: para preguntar, `==`
+   EL JUEZ (juez.rs) -- ahora RECORRE bloques
+     lo que nace en un bloque vive en su bloque        T0058
+       y el COMO dice como sacarlo: `let mut` antes,
+       y dentro solo `x = ...`
+     donde dos caminos se juntan, vale lo cierto en LOS DOS: un `mut`
+     cambiado en un solo lado CUENTA como cambiado (T0057 no salta)
+   EL CALCULO (calc.rs) -- dos pasadas
+     CLASES, en TODOS los bloques (tambien los que no corren):
+       un `if` pregunta SI o NO: `if vidas` es un NO   T0065
+       `not 3`, `vidas and escudo`                      T0065
+       1 == "1" (nunca son iguales: pregunta trampa)   T0063
+       "a" < "b" (el orden de los textos depende del
+       idioma; hoy solo == y !=)                        T0063
+     VALORES, solo por el camino que corre:
+       cada `if` se DECIDE al compilar (nada viene de fuera todavia)
+       el lado que no corre esta MUERTO: no se calcula, no deja bytes,
+       y el certificado no nombra sus puertas
+       por eso `if d != 0` guarda `10 / d`, y `and` / `or` paran en
+       cuanto saben: `d != 0 and 10 / d > 1` no divide si d es 0
+```
+
+**T0053 sigue en pie, y ahora dice por que.** Una `fn` no recibe nada hasta el
+nivel 5: cada vuelta decide IGUAL que la primera. Si la llamada de vuelta pasa
+una vez, pasa siempre; si no pasa nunca, sobra. Un `if` no la salva -- los
+parametros si.
+
+`titan ir` lo muestra entero: los bloques (`b0`, `b1`...), el `si ... -> b1,
+sino -> b2   (decidido al compilar)`, el `muere %2` donde se cierra un bloque y
+el `(muerto: ...)` del lado que no corre.
+
+---
+
+## Los codigos
 
 | codigo | que |
 |---|---|
@@ -167,18 +241,20 @@ cambio (L5 de TITAN_MAESTRO 6.8, lo que Rust tuvo que parchear con los
 | T0050 | no hay `fn main()` |
 | T0051 | se llama a algo que no existe |
 | T0052 | una funcion definida dos veces |
-| T0053 | las llamadas vuelven a una funcion y no terminan nunca (sin `if`, nada las para) |
+| T0053 | las llamadas vuelven a una funcion y no terminan nunca (sin parametros, ni un `if` las para) |
 | T0054 | un nombre se lee antes de que un `let` le de valor (el juez) |
 | T0055 | un nombre que ya tiene valor, o que es de una funcion (el juez / los nombres) |
 | T0056 | se cambia un valor sin `mut` (el juez) |
 | T0057 | un `mut` que no cambia nunca (el juez) |
+| T0058 | un nombre que nacio en un bloque que ya se cerro (el juez) |
 | T0060 | un numero que no cabe en 64 bits: desbordar es un error (el calculo) |
 | T0061 | una division o un resto entre cero (el calculo) |
 | T0062 | una division que no da un numero entero (el calculo) |
 | T0063 | un texto con un numero: no se suman ni se convierten solos (el calculo) |
-| T0064 | un `mut` que cambiaria de clase: numero a texto o al reves (el calculo) |
+| T0064 | un `mut` que cambiaria de clase: numero, texto o si-o-no (el calculo) |
+| T0065 | se pedia un si-o-no y llego otra cosa: `if vidas`, `not 3` (el calculo) |
 
-### El banco: lo que dice cada ejemplo de si mismo
+## El banco: lo que dice cada ejemplo de si mismo
 
 ```text
    # espera: BIEN        compila...
@@ -191,7 +267,7 @@ Las lineas `# sale:` las comprueba el banco del emisor
 cargador del kernel y lo CORRE en el emulador. Un nivel esta hecho cuando sus
 programas HACEN lo que dicen, no cuando compilan.
 
-### Del texto al `.bex` (T3, 2026-10-04)
+## Del texto al `.bex` (T3, 2026-10-04)
 
 ```text
    titan check hola.titan              bien, o el mensaje de 4 partes

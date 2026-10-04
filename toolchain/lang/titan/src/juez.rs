@@ -27,7 +27,13 @@
 //!           value: TITAN++ has no shadowing -- "una sola forma")
 //!    T0056  `x = v` on a local that is not `mut`
 //!    T0057  a `mut` that never changes: the promise is broken (level 2)
+//!    T0058  a local read after the block it was born in closed (level 3)
 //! ```
+//!
+//! ** Level 3 makes it a WALK, not a list: an `if` splits the body into
+//! blocks, and at the block after it two ways meet. What is certain there is
+//! what is certain on BOTH ways (`meet`): that is the step that turns a list
+//! of checks into a borrow checker.
 //!
 //! ** THE TWO JUDGES (6b). This judge sees INSIDE the program, before it runs,
 //! once: its NO is final -- the program never exists. What it cannot see --
@@ -39,7 +45,7 @@
 //! this judge said yes.
 
 use crate::check::distance;
-use crate::ir::{At, Function, Module, Op};
+use crate::ir::{At, End, Function, Module, Op};
 use crate::message::{Code, Message};
 
 /// The state of one local at one point. Grows by level (see the header).
@@ -50,6 +56,20 @@ enum State {
     /// It has its value since `since`; `mutable` if `let mut`, and `changed`
     /// once a `x = ...` changed it (a `mut` that never changes is a NO).
     Alive { since: usize, at: At, mutable: bool, changed: bool },
+    /// It was born at line `born` inside a block, and that block -- the `if`
+    /// or `else` at `scope` -- closed: it is gone (level 3, T0058).
+    Dead { born: usize, scope: At },
+}
+
+/// Where two ways meet (after an `if`), what is certain on BOTH. A value
+/// from before the `if` is alive on both sides, and changed if EITHER side
+/// changed it; what was born inside one side died when that side closed.
+fn meet(a: State, b: State) -> State {
+    match (a, b) {
+        (State::Alive { since, at, mutable, changed: x }, State::Alive { changed: y, .. }) => State::Alive { since, at, mutable, changed: x || y },
+        (d @ State::Dead { .. }, _) | (_, d @ State::Dead { .. }) => d,
+        _ => State::Unborn,
+    }
 }
 
 /// The whole module, function by function. The first NO stops it, like the
@@ -61,87 +81,162 @@ pub fn judge(m: &Module) -> Result<(), Message> {
     Ok(())
 }
 
+/// ** THE WALK (TITAN_MAESTRO 6.8, step 3): one state per block, the state at
+/// its entrance being the meeting of every way in. The blocks are in reading
+/// order and every jump goes down (`ir.rs`), so walking them in order meets
+/// every way into a block before the block: one pass is the fixed point. The
+/// day `while` brings a jump UP (level 4), this loop repeats until nothing
+/// changes -- and nothing else here moves.
 fn judge_fn(f: &Function) -> Result<(), Message> {
-    let mut state = vec![State::Unborn; f.locals.len()];
-    // One block today; when blocks are many, this walk becomes the fixed point
-    // over the graph (6.8, step 3), and `state` one per block.
-    for b in &f.blocks {
+    let mut entry: Vec<Option<Vec<State>>> = vec![None; f.blocks.len()];
+    entry[0] = Some(vec![State::Unborn; f.locals.len()]);
+    for (i, b) in f.blocks.iter().enumerate() {
+        // No way leads here: nothing in it can run, nothing in it is judged
+        // twice. (Today every block has a way in; this is the honest default.)
+        let Some(mut state) = entry[i].take() else { continue };
         for op in &b.ops {
-            // Reads come BEFORE the definition they feed (L5 of 6.8: what is
-            // only read is evaluated before a change begins): in `n = n + 1`
-            // the `n` on the right is judged as it was.
-            let mut reads = Vec::new();
-            let define = match op {
-                Op::Let { local, value, mutable, at } => {
-                    value.reads(&mut reads);
-                    Some((*local, *at, Some(*mutable)))
-                }
-                Op::Set { local, value, at } => {
-                    value.reads(&mut reads);
-                    Some((*local, *at, None))
-                }
-                Op::Write { parts, .. } => {
-                    for p in parts {
-                        p.reads(&mut reads);
-                    }
-                    None
-                }
-                Op::Call { .. } => None,
-            };
-            for (l, at) in reads {
-                if state[l] == State::Unborn {
-                    return Err(no_value(f, l, at));
+            step(f, op, &mut state)?;
+        }
+        match &b.end {
+            End::Return => never_changed(f, &state)?,
+            End::Branch { cond, .. } => {
+                let mut reads = Vec::new();
+                cond.reads(&mut reads);
+                for (l, at) in reads {
+                    usable(f, &state, l, at)?;
                 }
             }
-            let Some((l, at, how)) = define else { continue };
-            let name = &f.locals[l].name;
-            state[l] = match (state[l], how) {
-                // `let` / `let mut`: it is born.
-                (State::Unborn, Some(mutable)) => State::Alive { since: at.0, at, mutable, changed: false },
-                (State::Alive { since, .. }, Some(_)) => {
-                    return Err(Message::new(
-                        Code::Taken,
-                        at.0,
-                        at.1,
-                        &format!("`{}` ya tiene valor", name),
-                        &format!("se lo dio el `let` de la linea {}: un nombre, un valor (TITAN++ no tapa un nombre con otro)", since),
-                        &format!("si tiene que cambiar, `let mut {}` arriba y aqui `{} = ...`", name, name),
-                    ))
-                }
-                // `x = ...`
-                (State::Unborn, None) => return Err(no_value(f, l, at)),
-                (State::Alive { since, mutable: false, .. }, None) => {
-                    return Err(Message::new(
-                        Code::NotMut,
-                        at.0,
-                        at.1,
-                        &format!("`{}` no se puede cambiar", name),
-                        &format!("su `let` de la linea {} no dice `mut`: un valor sin `mut` no cambia nunca", since),
-                        &format!("si tiene que cambiar, declaralo asi en la linea {}: let mut {} = ...", since, name),
-                    ))
-                }
-                (State::Alive { since, at: born, mutable: true, .. }, None) => State::Alive { since, at: born, mutable: true, changed: true },
-            };
+            End::Jump(_) => {}
         }
-    }
-    // ** A `mut` that never changes is a NO, not a warning: `mut` is a promise
-    // to whoever reads ("this one moves"), and a promise nobody keeps makes
-    // every `mut` worth less. Rust only warns; TITAN++ says it, because the
-    // reader -- and later the borrow checker -- trusts the word.
-    for (l, st) in state.iter().enumerate() {
-        if let State::Alive { since, at, mutable: true, changed: false } = *st {
-            let name = &f.locals[l].name;
-            return Err(Message::new(
-                Code::NeverChanged,
-                since,
-                at.1,
-                &format!("`{}` dice `mut` y no cambia nunca", name),
-                &format!("en `fn {}()` ninguna linea le da otro valor: el `mut` promete algo que no pasa", f.name),
-                &format!("quita el `mut`: let {} = ...", name),
-            ));
+        for t in b.end.targets() {
+            entry[t] = Some(match entry[t].take() {
+                None => state.clone(),
+                Some(other) => other.iter().zip(&state).map(|(a, b)| meet(*a, *b)).collect(),
+            });
         }
     }
     Ok(())
+}
+
+/// A read of `l` at `at`: it must be alive.
+fn usable(f: &Function, state: &[State], l: usize, at: At) -> Result<(), Message> {
+    match state[l] {
+        State::Alive { .. } => Ok(()),
+        State::Unborn => Err(no_value(f, l, at)),
+        State::Dead { born, scope } => Err(gone(f, l, at, born, scope)),
+    }
+}
+
+/// One operation, judged against the state it finds, and the state it leaves.
+fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
+    // Reads come BEFORE the definition they feed (L5 of 6.8: what is only
+    // read is evaluated before a change begins): in `n = n + 1` the `n` on
+    // the right is judged as it was.
+    let mut reads = Vec::new();
+    let define = match op {
+        Op::Let { local, value, mutable, at } => {
+            value.reads(&mut reads);
+            Some((*local, *at, Some(*mutable)))
+        }
+        Op::Set { local, value, at } => {
+            value.reads(&mut reads);
+            Some((*local, *at, None))
+        }
+        Op::Write { parts, .. } => {
+            for p in parts {
+                p.reads(&mut reads);
+            }
+            None
+        }
+        Op::Call { .. } => None,
+        Op::Drop { local, at } => {
+            // The block closes: a `mut` born in it had its whole life to
+            // change, and that life is over.
+            if let State::Alive { mutable: true, changed: false, since, at: born } = state[*local] {
+                return Err(never(f, *local, since, born));
+            }
+            if let State::Alive { since, .. } = state[*local] {
+                state[*local] = State::Dead { born: since, scope: *at };
+            }
+            return Ok(());
+        }
+    };
+    for (l, at) in reads {
+        usable(f, state, l, at)?;
+    }
+    let Some((l, at, how)) = define else { return Ok(()) };
+    let name = &f.locals[l].name;
+    state[l] = match (state[l], how) {
+        // `let` / `let mut`: it is born -- also where a block-scoped one of
+        // the same name died before (they never live at the same time).
+        (State::Unborn | State::Dead { .. }, Some(mutable)) => State::Alive { since: at.0, at, mutable, changed: false },
+        (State::Alive { since, .. }, Some(_)) => {
+            return Err(Message::new(
+                Code::Taken,
+                at.0,
+                at.1,
+                &format!("`{}` ya tiene valor", name),
+                &format!("se lo dio el `let` de la linea {}: un nombre, un valor (TITAN++ no tapa un nombre con otro)", since),
+                &format!("si tiene que cambiar, `let mut {}` arriba y aqui `{} = ...`", name, name),
+            ))
+        }
+        // `x = ...`
+        (State::Unborn, None) => return Err(no_value(f, l, at)),
+        (State::Dead { born, scope }, None) => return Err(gone(f, l, at, born, scope)),
+        (State::Alive { since, mutable: false, .. }, None) => {
+            return Err(Message::new(
+                Code::NotMut,
+                at.0,
+                at.1,
+                &format!("`{}` no se puede cambiar", name),
+                &format!("su `let` de la linea {} no dice `mut`: un valor sin `mut` no cambia nunca", since),
+                &format!("si tiene que cambiar, declaralo asi en la linea {}: let mut {} = ...", since, name),
+            ))
+        }
+        (State::Alive { since, at: born, mutable: true, .. }, None) => State::Alive { since, at: born, mutable: true, changed: true },
+    };
+    Ok(())
+}
+
+/// ** A `mut` that never changes is a NO, not a warning: `mut` is a promise
+/// to whoever reads ("this one moves"), and a promise nobody keeps makes
+/// every `mut` worth less. Rust only warns; TITAN++ says it, because the
+/// reader -- and later the borrow checker -- trusts the word.
+fn never_changed(f: &Function, state: &[State]) -> Result<(), Message> {
+    for (l, st) in state.iter().enumerate() {
+        if let State::Alive { since, at, mutable: true, changed: false } = *st {
+            return Err(never(f, l, since, at));
+        }
+    }
+    Ok(())
+}
+
+fn never(f: &Function, l: usize, since: usize, at: At) -> Message {
+    let name = &f.locals[l].name;
+    Message::new(
+        Code::NeverChanged,
+        since,
+        at.1,
+        &format!("`{}` dice `mut` y no cambia nunca", name),
+        &format!("en `fn {}()` ninguna linea le da otro valor: el `mut` promete algo que no pasa", f.name),
+        &format!("quita el `mut`: let {} = ...", name),
+    )
+}
+
+/// T0058: it was born inside a block that already closed.
+fn gone(f: &Function, l: usize, at: At, born: usize, scope: At) -> Message {
+    let name = &f.locals[l].name;
+    Message::new(
+        Code::Gone,
+        at.0,
+        at.1,
+        &format!("`{}` ya no existe aqui", name),
+        &format!(
+            "nacio en la linea {}, dentro del bloque que abre la linea {}, y murio al cerrarse: lo que nace en un bloque vive en su bloque",
+            born, scope.0
+        ),
+        &format!("si lo necesitas despues, dale valor ANTES del bloque (let mut {} = ...) y dentro solo cambialo: {} = ...", name, name),
+    )
 }
 
 /// T0054, with the best "why" there is: a `let` further down (the reading
@@ -216,6 +311,26 @@ mod tests {
         assert!(verdict("mod main \"x\"\nfn main()\n    let mut n = 0\n    n = n + 1\n    print(n)\n").is_ok());
         let e = verdict("mod main \"x\"\nfn main()\n    let mut n = 0\n    print(n)\n").unwrap_err();
         assert_eq!((e.code, e.line), (Code::NeverChanged, 3));
+    }
+
+    #[test]
+    fn what_is_born_in_a_block_dies_with_it() {
+        let e = verdict("mod main \"x\"\nfn main()\n    if true\n        let r = 1\n        print(r)\n    print(r)\n").unwrap_err();
+        assert_eq!((e.code, e.line), (Code::Gone, 6));
+        assert!(e.why.contains("linea 4") && e.why.contains("linea 3"), "{}", e.why);
+        // Two sides, the same name: they never live at the same time.
+        assert!(verdict("mod main \"x\"\nfn main()\n    if true\n        let r = 1\n        print(r)\n    else\n        let r = 2\n        print(r)\n").is_ok());
+    }
+
+    #[test]
+    fn where_two_ways_meet_a_change_on_either_counts() {
+        assert!(verdict("mod main \"x\"\nfn main()\n    let mut n = 0\n    if n == 0\n        n = 5\n    print(n)\n").is_ok());
+        // A `mut` born in a block that never changes there: said when it dies.
+        let e = verdict("mod main \"x\"\nfn main()\n    if true\n        let mut k = 1\n        print(k)\n").unwrap_err();
+        assert_eq!((e.code, e.line), (Code::NeverChanged, 4));
+        // The condition is a read like any other.
+        let e = verdict("mod main \"x\"\nfn main()\n    if vidas > 0\n        print(\"a\")\n").unwrap_err();
+        assert_eq!(e.code, Code::NoValue);
     }
 
     #[test]

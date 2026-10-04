@@ -1,0 +1,8 @@
+# espera: T0030
+# `1 < x < 9` se lee de dos maneras segun el lenguaje: TITAN++ pide decir cual
+mod main "una comparacion encadenada"
+
+fn main()
+    let x = 5
+    if 1 < x < 9
+        print("dentro")
