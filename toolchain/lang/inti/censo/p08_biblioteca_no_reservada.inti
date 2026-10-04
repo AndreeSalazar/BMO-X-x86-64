@@ -1,4 +1,5 @@
-# sonda: p08_biblioteca_no_reservada   espera: COMPILA
+# sonda: p08_biblioteca_no_reservada   espera: E0077
+# era `COMPILA` -- escrita en `pleno`, que se fue a TITAN++ el 2026-10-04 (PLAN_INTI_SAMURAI.md)
 # fija: `escribe`, `guarda`, `cuenta` e `invoca` NO son palabras clave: son
 # biblioteca, y se pueden redefinir. Un lenguaje se juzga por lo que RESERVA.
 perfil pleno

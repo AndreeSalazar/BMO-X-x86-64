@@ -1,7 +1,7 @@
 # sonda: v03_sin_nulo         espera: E0021
 # fija: no hay nulo. Un valor que puede faltar es `quiza T` y no se puede
 # usar sin mirarlo.
-perfil pleno
+perfil llano
 
 funcion busca(nombre es texto) devuelve quiza numero
     devuelve nada

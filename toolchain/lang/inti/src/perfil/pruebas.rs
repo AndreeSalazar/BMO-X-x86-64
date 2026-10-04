@@ -132,49 +132,14 @@ fn en_llano_no_hay_tareas() {
     assert_eq!(c, vec!["E0070"]);
 }
 
-/// *** Y LO MISMO EN `pleno` YA NO DICE NADA DE NADA (2026-08-23).
+/// *** EL SAMURAI (2026-10-04): `perfil pleno` se fue a TITAN++.
 ///
-/// Esta prueba exigia `E0073` --*"el compilador no sabe bajar `pleno` a bytes
-/// todavia"*-- y llevaba escrito su propio final: *"el dia que llegue, esta
-/// lista se queda vacia y la prueba falla, que es como tiene que enterarse"*.
-///
-/// **Se entero.** `lista de numero`, un literal de texto y un `numero` bajan los
-/// tres, asi que no queda nada que decir: ni del programa, ni del compilador.
-///
-/// ** Y es la primera vez que un fuente de `pleno` sale LIMPIO. No porque se
-/// aflojara el criterio --el gate es mas estricto que ayer: mira las piezas en
-/// vez de la etiqueta y ademas rechaza lo que no llega a un byte-- sino porque
-/// las piezas que este fuente usa ya estan.
+/// Aqui vivian `en_pleno_todo_eso_vale` y `las_cuatro_piezas_de_pleno_bajan`:
+/// probaban que texto, lista, tabla y `numero` bajaban a bytes. Bajaban -- y
+/// eso ya no es trabajo de INTI. Ahora un `pleno` da `E0077`, y SOLO ese: lo
+/// que se dijera despues hablaria de un programa que INTI ya no construye.
 #[test]
-fn en_pleno_todo_eso_vale() {
-    let c = codigos_de(
-        "perfil pleno
-
-         funcion media(notas es lista de numero) devuelve numero
-             saludo = \"hola\"
-             devuelve 0
-",
-    );
-    assert!(c.is_empty(), "en `pleno` esto ya no tiene nada que decir: {c:?}");
-}
-
-/// *** LAS CUATRO PIEZAS DE `pleno` BAJAN A BYTES (2026-08-23).
-///
-/// Esta prueba se llamaba `en_pleno_lo_unico_que_queda_es_la_tabla` y exigia que
-/// `tabla` diera `E0073`. Se puso roja el mismo dia: era la ultima.
-///
-/// ```text
-///    texto    literal en RoData, `a + b` a `junta`, monton montado
-///    lista    literal, indice con Regla 2, `agrega` y `sitio_de`
-///    numero   16 bytes, coeficiente + escala, `a + b` a `suma`
-///    tabla    hash FNV-1a y sonda lineal        <- la ultima
-/// ```
-///
-/// ** Y el gate no se aflojo para llegar aqui: hoy mira las PIEZAS en vez de la
-/// etiqueta, ademas rechaza lo que no llega a un byte, y exige que el perfil
-/// declarado cuadre con el resultante. Es mas estricto que ayer.
-#[test]
-fn las_cuatro_piezas_de_pleno_bajan() {
+fn pleno_se_fue_a_titan() {
     let c = codigos_de(
         "perfil pleno
 
@@ -182,21 +147,20 @@ funcion f(indice es tabla de texto a entero64, notas es lista de numero, saludo 
     devuelve
 ",
     );
-    assert!(c.is_empty(), "ya no queda ninguna pieza sin bajar: {c:?}");
+    assert_eq!(c, ["E0077"], "pleno es de TITAN++ y nada mas que decir");
 }
 
 // ===================================================================
 //  `crudo`
 // ===================================================================
 
-/// OJO: desde el 22-08 TODO fuente de `pleno` trae ademas `E0073` -- el
-/// compilador no sabe bajar ese perfil a bytes todavia. Se mira que `E0071`
-/// este, no que sea el unico: exigir la lista exacta ataria esta prueba a una
-/// limitacion temporal del compilador, que no es lo que prueba.
+/// `crudo` en `pleno` era `E0071`. Con `pleno` fuera (2026-10-04), lo que se
+/// dice es lo primero: `E0077`. `E0071` queda escrito para quien lea un
+/// binario viejo, y no lo provoca ningun fuente nuevo.
 #[test]
-fn crudo_no_existe_en_pleno() {
+fn crudo_en_pleno_ahora_es_pleno_fuera() {
     let c = codigos_de("perfil pleno\n\nfuncion principal\n    crudo\n        espera()\n");
-    assert!(c.contains(&"E0071"), "{:?}", c);
+    assert_eq!(c, ["E0077"], "{:?}", c);
 }
 
 /// La regla que decide: `crudo` no marca "bajo nivel", marca "aqui nadie
@@ -483,18 +447,11 @@ funcion saluda devuelve entero64
         &[],
         &crate::tablas::Modulos::por_defecto(),
     );
-    // [!] E0076 y no E0074: el 74 ya estaba ocupado por `CUESTA_DEMASIADO`.
-    // El choque se colo el mismo dia que entro esta regla y lo saco la prueba
-    // `ninguno_se_queda_fuera_de_la_lista` -- no un lector.
-    assert!(c.codigos().contains(&"E0076"), "{:?}", c.codigos());
-    // Y dice CUAL la rompe, que es lo unico accionable del aviso.
-    let texto = c.pintar("usuario.inti");
-    assert!(texto.contains("saludos/cortesia.inti"), "{}", texto);
-
-    // *** Y EL BINARIO SE DECLARA `pleno`, no `llano`. Es la otra mitad de P2:
-    // el manifiesto dice lo que el binario ES, no lo que su autor escribio --
-    // porque quien lee ese campo es el cargador, para decidir Ring 0.
-    assert_eq!(c.valor.perfil_resultante, "pleno");
+    // *** Desde el 2026-10-04 (el samurai) una pieza `pleno` ya no "mezcla":
+    // no entra. Lo que era E0076 -- el binario sale con otro perfil -- es ahora
+    // E0077, porque `pleno` no es de INTI. E0076 sigue vivo para el dia que
+    // haya otro perfil que mezclar.
+    assert_eq!(c.codigos(), ["E0077"], "{:?}", c.codigos());
 }
 
 /// Y al reves NO se dice nada: un `pleno` que trae piezas `llano` sale `pleno`,
@@ -536,8 +493,9 @@ funcion mide(a es natural64) devuelve natural64
         &[],
         &crate::tablas::Modulos::por_defecto(),
     );
-    assert!(!c.codigos().contains(&"E0074"), "{:?}", c.codigos());
-    assert_eq!(c.valor.perfil_resultante, "pleno");
+    // Desde el 2026-10-04 el fichero `pleno` es lo que no entra (E0077); sus
+    // piezas `llano` no tienen culpa de nada.
+    assert_eq!(c.codigos(), ["E0077"], "{:?}", c.codigos());
 }
 
 /// **La pieza se lleva escrito el perfil que declaro para si misma.**

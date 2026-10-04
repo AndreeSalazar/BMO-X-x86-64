@@ -1,4 +1,5 @@
-# sonda: c02_cambiante        espera: COMPILA
+# sonda: c02_cambiante        espera: E0077
+# era `COMPILA` -- escrita en `pleno`, que se fue a TITAN++ el 2026-10-04 (PLAN_INTI_SAMURAI.md)
 perfil pleno
 
 funcion principal

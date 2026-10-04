@@ -1,4 +1,5 @@
-# sonda: p04_crudo_en_pleno      espera: E0071
+# sonda: p04_crudo_en_pleno      espera: E0077
+# era `E0071` -- escrita en `pleno`, que se fue a TITAN++ el 2026-10-04 (PLAN_INTI_SAMURAI.md)
 # fija: `crudo` no existe en `pleno`. La ventana sin comprobar es del perfil
 # de sistema, y ahi se cuenta y se puede exigir firmada.
 perfil pleno

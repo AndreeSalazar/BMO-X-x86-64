@@ -319,6 +319,9 @@ fn ningun_analisis_deja_escribir_un_bex_cuando_denuncia() {
 ///
 /// Que una sonda del corpus se compruebe SOLO por dentro es la misma clase de
 /// hueco que tenia el propio censo: se prueba el camino que no usa nadie.
+///
+/// ** Desde el 2026-10-04 (el samurai) la sonda declara `E0077`: `pleno` se
+/// fue a TITAN++, y eso es lo primero que se dice de un fichero `pleno`.
 #[test]
 fn una_sonda_del_censo_da_su_codigo_por_la_linea_de_ordenes() {
     let sonda = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -328,8 +331,8 @@ fn una_sonda_del_censo_da_su_codigo_por_la_linea_de_ordenes() {
     let (bien, _, err) = compila(&[sonda.to_str().unwrap(), "-c"]);
     assert!(!bien, "una sonda que declara un error no puede compilar");
     assert!(
-        err.contains("E0071"),
-        "la sonda declara E0071 y la consola dice:\n{}",
+        err.contains("E0077"),
+        "la sonda declara E0077 y la consola dice:\n{}",
         err
     );
 }

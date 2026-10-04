@@ -1,4 +1,5 @@
-# sonda: s01_esqueleto     espera: COMPILA
+# sonda: s01_esqueleto     espera: E0077
+# era `COMPILA` -- escrita en `pleno`, que se fue a TITAN++ el 2026-10-04 (PLAN_INTI_SAMURAI.md)
 # fija: perfil obligatorio + principal como punto de entrada
 perfil pleno
 

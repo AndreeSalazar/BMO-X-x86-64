@@ -2,7 +2,7 @@
 # (26-09) Decia COMPILA, y compilaba A MEDIAS: `para cada n en numeros` no se
 # bajaba y el bucle se saltaba entero. Vuelve a COMPILA el dia del runtime de
 # listas. El censo lo cazo al primer intento, que es para lo que existe.
-perfil pleno
+perfil llano
 
 funcion media(numeros es lista de numero) devuelve numero
     si esta_vacia(numeros)

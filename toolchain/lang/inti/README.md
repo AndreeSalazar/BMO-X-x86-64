@@ -10,6 +10,15 @@
 > por `.\bmo.ps1` el 2026-09-12. El estado de las tres
 > frases que lo definen, con lo que falta, esta en [`ESTADO.md`](ESTADO.md).
 
+## ⚔ 2026-10-04 -- EL SAMURAI: `perfil pleno` se fue a TITAN++
+
+Decidido por el propietario: **INTI emite a la CPU, preciso, y nada mas.** Lo
+que era de apps se va a TITAN++. Hoy `perfil pleno` da **E0077** (congelado);
+el runtime de app (objetos, monton, superficie, lamina, VERRANO) sale despues,
+cuando TITAN++ tenga su relevo. Lo que se queda, lo que sale y por que:
+[`PLAN_INTI_SAMURAI.md`](../../../docs/plan/PLAN_INTI_SAMURAI.md). Lo de abajo
+sobre "dos perfiles" es historia hasta ese corte.
+
 ## ⭐ 2026-09-12 -- la primera HERRAMIENTA, y tres fallos del emisor que llevaban ahi desde siempre
 
 **`ejemplos/bico.inti`** convierte `datos/foto.bmp` y `datos/foto.qoi` a

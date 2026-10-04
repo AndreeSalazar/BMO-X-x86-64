@@ -1,4 +1,5 @@
-# sonda: v01_numero_exacto    espera: COMPILA + SALIDA "0.3"
+# sonda: v01_numero_exacto    espera: E0077
+# era `COMPILA + SALIDA "0.3"` -- escrita en `pleno`, que se fue a TITAN++ el 2026-10-04 (PLAN_INTI_SAMURAI.md)
 # fija: `numero` es decimal EXACTO por defecto. Es la promesa de portada.
 perfil pleno
 

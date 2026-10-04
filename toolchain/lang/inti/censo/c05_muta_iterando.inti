@@ -1,7 +1,7 @@
 # sonda: c05_muta_iterando    espera: E0050
 # fija: no se puede modificar la coleccion que se recorre. El bug clasico de
 # borrar mientras se itera aqui NO COMPILA.
-perfil pleno
+perfil llano
 
 funcion principal
     cambiante notas = [1, 2, 3]

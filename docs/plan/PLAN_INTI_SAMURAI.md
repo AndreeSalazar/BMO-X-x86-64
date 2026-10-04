@@ -107,19 +107,50 @@ ya demostro en el metal.
        motivo, y el codigo sigue ahi) y borrar despues; o borrar de una vez
 ```
 
-La recomendacion es **congelar primero** (D4): un `perfil pleno` que diga *"INTI
-ya no hace apps: eso es TITAN++"* con su codigo de error es un corte limpio que
-se ve, y el borrado viene despues, cuando nada lo use.
+La recomendacion era **congelar primero** (D4).
+
+## 3.1 Lo que DECIDIO el propietario (2026-10-04)
+
+> *"con INTI en navegar le trasladamos a TITAN++, que sepa manejar eso ...
+> INTI solo ira UNICAMENTE en CPU puro, para x86-64 preciso ... el decimal
+> exacto es para TITAN++ ... los ficheros, bico y png se quedan, y perfil
+> pleno se va por TITAN++"*
+
+```text
+   D1  navegar se PORTA a TITAN++. Hasta que TITAN++ pueda (tipos, tablas,
+       la superficie), navegar.inti se queda donde esta y sigue en el build:
+       el escritorio la lanza desde el ANTENISTA (`apps/navegar.ibx`)
+   D2  el decimal exacto es de TITAN++ (`dec`, 2b.1). INTI aporta su
+       precision sin el: enteros de medida exacta que ATRAPAN al desbordar,
+       flotantes IEEE dichos por escrito y ni un comportamiento indefinido.
+       El decimal es aritmetica de software para el dinero de las apps
+   D3  los ficheros, bico.inti y png.inti SE QUEDAN: leer lo que escribio
+       otro sin desbordar un bufer es seguridad de sistema
+   D4  `perfil pleno` se va a TITAN++: CONGELADO hoy (E0077), borrado en el
+       escalon 4-5
+```
+
+[!] **Por que ventana, musica y cubo no salen del build HOY** (y el escalon 2
+se movio detras del 4): las tres son `perfil llano` y **siguen compilando**, y
+hoy son las UNICAS pruebas en el metal del audio USB (`musica`), de la
+ventana (`ventana`) y de VERRANO (`cubo`). Quitarlas antes de que su runtime
+se vaya solo perderia esas pruebas sin ganar nada. Salen el dia del corte 4,
+con su relevo en TITAN++.
 
 ---
 
 # 4. LA ESCALERA
 
 ```text
-   [ ] 1  D1-D4 escritas por el propietario en este fichero
+   [x] 1  D1-D4 escritas por el propietario en este fichero (3.1, 04-10)
+   [x] 3  `perfil pleno` da un NO con codigo y motivo (el CONGELADO de D4)
+          HECHO el 04-10: E0077 en `src/perfil`, lo primero que se dice;
+          las 13 sondas del censo que necesitaban `pleno` declaran E0077 (y
+          dicen lo que esperaban antes), las otras 14 pasaron a `llano` y
+          cumplen lo mismo; 243 + 269 pruebas en verde
    [ ] 2  el build y el metro: ventana, musica, cubo y navegar fuera de
-          ejemplos.ps1 y del banco del metro, cada uno con su motivo
-   [ ] 3  `perfil pleno` da un NO con codigo y motivo (el CONGELADO de D4)
+          ejemplos.ps1 y del banco del metro, cada uno con su motivo --
+          JUNTO con el 4, cuando TITAN++ tenga su relevo (3.1)
    [ ] 4  fuera el runtime de app (objetos, monton, superficie, lamina,
           entrada, letra, verrano) y sus secciones de modulos.toml, con sus
           pruebas (la de `tests/fuente.rs` incluida: bmo-fontgen deja de
