@@ -303,14 +303,14 @@ fn ojos_vivos(p: &bmo::Pantalla, x0: u32, y0: u32, fondo: u32, forzar: bool) {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Ficha {
     pub(crate) v: Ventana,
-    pub(crate) nombre: &'static str,
+    pub(crate) nombre: &'static [u8],
     pub(crate) color: u32,
     pub(crate) activa: bool,
     pub(crate) minimizada: bool,
 }
 
 impl Ficha {
-    pub(crate) const VACIA: Ficha = Ficha { v: Ventana::Run, nombre: "", color: 0, activa: false, minimizada: false };
+    pub(crate) const VACIA: Ficha = Ficha { v: Ventana::Run, nombre: b"", color: 0, activa: false, minimizada: false };
 }
 
 /// Ejecutar, ESTRATOS, CABINA y las apps: 3 + `surface::MAX`, y aire.
@@ -368,7 +368,7 @@ fn pintar_fichas(p: &bmo::Pantalla, pl: &Plano) {
     let (lista, n) = unsafe { (&*addr_of!(FICHAS), FICHAS_N) };
     let mut vistas = [super::barra_viva::Vista { nombre: b"", color: 0, activa: false, minimizada: false }; MAX_FICHAS];
     for (v, f) in vistas.iter_mut().zip(lista[..n].iter()) {
-        *v = super::barra_viva::Vista { nombre: f.nombre.as_bytes(), color: f.color, activa: f.activa, minimizada: f.minimizada };
+        *v = super::barra_viva::Vista { nombre: f.nombre, color: f.color, activa: f.activa, minimizada: f.minimizada };
     }
     let sitio = super::barra_viva::Sitio { x0: pl.x0, iw: pl.iw, y0: pl.fichas_y, fila: FILA, alto: FICHA_H, max: pl.fichas_max };
     super::barra_viva::pintar_fichas(p, sitio, &vistas[..n], estilo().barra_fondo, INK, INK_DIM);

@@ -456,7 +456,7 @@ fn paint_pixels(p: &bmo::Pantalla, x: u32, y: u32, px: &[u32; PIXELS]) {
 
 /// El icono de quien no trae icono: un cuadro de color con su inicial.
 fn paint_default(p: &bmo::Pantalla, x: u32, y: u32, name: &[u8]) {
-    let color = color_from(name);
+    let color = color_de(name);
     // Un cuadro redondo con su inicial: un pelo mas claro arriba, para que
     // no parezca un agujero.
     let (xi, yi, lado) = (x as i32, y as i32, ICON_PX as i32);
@@ -473,7 +473,7 @@ fn paint_default(p: &bmo::Pantalla, x: u32, y: u32, name: &[u8]) {
 /// mismo -- que es todo lo que se le pide. Se fija el brillo para que la
 /// inicial blanca se lea encima: un hash suelto produce amarillos donde no se
 /// ve nada.
-fn color_from(name: &[u8]) -> u32 {
+pub(crate) fn color_de(name: &[u8]) -> u32 {
     let mut h: u32 = 2166136261;
     for &b in name {
         h ^= b as u32;

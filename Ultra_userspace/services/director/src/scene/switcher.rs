@@ -152,10 +152,10 @@ pub(crate) fn vivir(p: &bmo::Pantalla) {
 /// de `Ventana`, donde el `match` es EXHAUSTIVO --sin `_`-- y una ventana
 /// nueva no compila hasta que tiene el suyo. Aqui solo queda la traduccion
 /// desde el id que guarda la politica, y el `?` que ya no puede pasar.
-pub(crate) fn name(id: u8) -> &'static str {
+pub(crate) fn name(id: u8) -> &'static [u8] {
     match Ventana::de_id(id) {
-        Some(v) => v.nombre(),
-        None => "?",
+        Some(v) => v.rotulo(),
+        None => b"?",
     }
 }
 
@@ -270,7 +270,7 @@ fn pintar(p: &bmo::Pantalla) {
         let cerca = (1000 - (fila - aqui).abs()).clamp(0, 1000);
         let e = if cerca > 500 { fino::CUERPO_FIRME } else { fino::CUERPO };
         let tinta = bmo::entre_color(fino::TENUE, fino::TINTA, cerca);
-        fino::texto(p, x + MARGEN + 18, fy, ROW_H, name(w).as_bytes(), c(tinta), e);
+        fino::texto(p, x + MARGEN + 18, fy, ROW_H, name(w), c(tinta), e);
         fy += ROW_H;
     }
     if lista.len() > caben {
