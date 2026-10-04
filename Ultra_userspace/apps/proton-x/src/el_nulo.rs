@@ -6,8 +6,8 @@
 //!                     no un requisito para arrancar
 //! [riesgo]  AJENO     el informe es de OTRA corrida: se comprueba que los
 //!                     bytes del `call` siguen donde estaban antes de creerlo
-//! [consumo] NADA      una vez, y solo si `datos/fallos.txt` acaba en un
-//!                     salto a 0 por `call [rip+..]`
+//! [consumo] NADA      una vez al arrancar; el escaneo del codigo, solo si
+//!                     el ultimo fallo fue un salto a 0 por `call [rip+..]`
 //!
 //! La autopsia del kernel conoce el `.bex` y no el `.exe`: dice "salto a 0
 //! desde 0x1001d4c6cf" y los bytes de antes (`ff 15 ..`). PROTON-X si conoce
@@ -40,13 +40,30 @@ const FALLOS: &[u8] = b"datos/fallos.txt";
 /// Un informe de autopsias son cuatro fallos de una docena de renglones.
 const TOPE: u64 = 64 << 10;
 
-fn leer_informe() -> Option<String> {
-    let a = bmo::Archivo::leer_de(FALLOS).ok()?;
+/// El informe del DISCO (la corrida anterior, aunque se reiniciara), o el
+/// codigo del NO.
+fn del_disco() -> Result<String, u32> {
+    let a = bmo::Archivo::leer_de(FALLOS)?;
     let n = a.size().min(TOPE) as usize;
     let mut v = alloc::vec![0u8; n];
     let k = a.read(&mut v);
     v.truncate(k);
-    Some(String::from_utf8_lossy(&v).into_owned())
+    Ok(String::from_utf8_lossy(&v).into_owned())
+}
+
+/// Las autopsias que el KERNEL guarda de este arranque (las 4 ultimas), en
+/// el mismo formato que el fichero y en su orden: la mas reciente, al final.
+fn del_kernel() -> String {
+    let mut t = String::new();
+    let mut buf = [0u8; 96];
+    for i in (0..bmo::autopsia_disponibles()).rev() {
+        for f in 0..bmo::autopsia_renglones(i) {
+            let n = bmo::autopsia_linea(i, f, &mut buf);
+            t.push_str(&String::from_utf8_lossy(&buf[..n]));
+            t.push('\n');
+        }
+    }
+    t
 }
 
 fn modulo_de(modulos: &[Modulo], dir: u64) -> Option<(&Modulo, u32)> {
@@ -63,9 +80,34 @@ fn corto(m: &Modulo) -> &str {
 /// **Mirar el informe y decirlo.** Antes de la entrada del `.exe`, con todo
 /// colocado y resuelto.
 pub(crate) fn mirar(modulos: &[Modulo]) {
-    let Some(texto) = leer_informe() else { return };
-    let Some(s) = nulo::del_informe(&texto) else { return };
-    di("PROTON-X: el ultimo fallo de datos/fallos.txt fue un SALTO A 0 por `call [rip+..]`; se mira aqui (N4.4)\n");
+    // ** Se dice SIEMPRE que se miro, y que salio (metal 04-10: la primera
+    // version callaba si no podia leer, y la corrida no dijo nada).
+    // Primero el kernel (este arranque); si no tiene, el disco.
+    let (s, de) = match nulo::del_informe(&del_kernel()) {
+        Some(s) => (s, "las autopsias del kernel de este arranque"),
+        None => match del_disco() {
+            Err(c) => {
+                di(&format!(
+                    "PROTON-X: el lector del nulo (N4.4): datos/fallos.txt no se abre (codigo {c}) y el kernel no tiene un salto a 0 de este arranque\n"
+                ));
+                return;
+            }
+            Ok(t) => match nulo::del_informe(&t) {
+                Some(s) => (s, "datos/fallos.txt"),
+                None => {
+                    di(&format!(
+                        "PROTON-X: el lector del nulo (N4.4): datos/fallos.txt ({} B) no acaba en un salto a 0 por `call [rip+..]`\n",
+                        t.len()
+                    ));
+                    return;
+                }
+            },
+        },
+    };
+    di(&format!(
+        "PROTON-X: el lector del nulo (N4.4): en {de} hay un SALTO A 0 por `call [rip+..]` (retorno {:#x}, casilla {:#x}); se mira aqui\n",
+        s.retorno, s.casilla
+    ));
     let (Some((mr, rr)), Some((mc, rc))) = (modulo_de(modulos, s.retorno), modulo_de(modulos, s.casilla)) else {
         di(&format!(
             "PROTON-X:   el retorno {:#x} o la casilla {:#x} caen fuera de esta imagen: era otro programa\n",

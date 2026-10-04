@@ -780,6 +780,17 @@ SYSPROTO: justo antes de la ventana del tid 8 el juego pide
 `amd_fidelityfx_dx12`, `GFSDK_Aftermath_Lib.x64.dll`); la proxima corrida,
 con `el_nulo.rs`, dice si la casilla es de una de ellas.
 
+**Estado al 04-10, decima corrida: el lector del nulo CALLO.** El mismo
+salto a 0 (a los 66 s, tid 7), y en el SYSPROTO ni una linea de
+`el_nulo.rs`: el parser lee bien ese `fallos.txt` (probado con el del
+metal), asi que no se abrio el fichero o el build no llego. La primera
+version callaba si no podia leer: ahora dice SIEMPRE que miro y que salio
+(el codigo del NO al abrir, o que el informe no acaba en un salto a 0), y
+lee primero las autopsias que el KERNEL guarda de este arranque (`bmo::
+autopsia_*`): con dos lanzamientos en el mismo arranque no depende del
+disco. Del pulso: 23 enlaces distintos, 21 se corren; un hilo (4204) da
+vueltas con Enter/LeaveCriticalSection.
+
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:
 
