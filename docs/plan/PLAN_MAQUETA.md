@@ -392,10 +392,12 @@ tiene se sabe al correr. Con piezas, una FILA es una maqueta de medida fija
            -> `toolchain/tools/maqueta/compone/src/lib.rs`
            el navegador compone igual (Shadow DOM en `foto.js`) y mide lo
            mismo: `pruebas/escaparate.maqueta`, 788 x 276 los dos
-   [ ] P2  REPETIR: `<repite pieza="fila" eje="column" paso="34">`. El
-           CUANTOS lo da TITAN++ o Rust al correr; el COMO, la pieza. El
-           emisor A genera la pieza una vez y un bucle de `y = i * paso`
-           -> `toolchain/tools/maqueta/compone/` y `emit/src/rust.rs`
+   [x] P2  REPETIR: `<usa id="amigos" src="amigo.maqueta" repite="6"
+           entre="4"/>`. Se maqueta y se juzga con todas; el CUANTOS lo da
+           Rust al correr (`LISTA_AMIGOS.fila(i)`), el COMO la pieza
+           -> `toolchain/tools/maqueta/compone/src/lib.rs`, `emit/src/rust.rs`
+           `pruebas/amigos.maqueta`; pintada en el anfitrion con datos de
+           verdad compilando el modulo generado contra `bmo-userland`
    [x] P3a ESTADOS EN EL ANFITRION: `@estado nombre { ... }` y
            `transition` (las curvas de CSS, `cubic-bezier` con rebote). Cada
            estado se maqueta ENTERO y se juzga; la transicion mezcla cajas ya
@@ -403,12 +405,19 @@ tiene se sabe al correr. Con piezas, una FILA es una maqueta de medida fija
            estado y tiras de la transicion; el navegador abre el estado
            (`foto.js --estado`): `pruebas/panel.maqueta`, reposo 99,44 %,
            abierta 97,25 %
-           -> `toolchain/tools/maqueta/compone/src/transicion.rs`,
+           -> `toolchain/tools/maqueta/compone/src/lib.rs` (los estados),
               `platform/shared/bmo-pinta` (`curva`)
-   [ ] P3b EL ESCRITORIO LA PINTA: el emisor A genera las cajas de cada
-           estado y la mezcla en el aparato (con `bmo_pinta::curva`), y el
-           realce del puntero pasa a ser un estado mas
-           -> `toolchain/tools/maqueta/emit/src/rust.rs`
+   [x] P3b EL ESCRITORIO LA PINTA: `movimiento.rs` empareja las piezas de
+           cada caja en los dos estados (un resplandor que aparece nace en la
+           caja de salida; lo que no casa salta a mitad); el modulo generado
+           trae `pintar_transicion` con `p.pieza_entre`; la tira del
+           anfitrion sale de los MISMOS pares. El modulo del panel compila
+           en el director
+           -> `toolchain/tools/maqueta/emit/src/movimiento.rs`, `rust.rs`
+           [!] ninguna ventana lo usa todavia, y no se vio en el Ryzen
+   [ ] P3d EL REALCE COMO ESTADO: que `:hover` sea un estado mas, con su
+           transicion, en vez de un cambio de golpe
+           -> `toolchain/tools/maqueta/emit/src/rust.rs` (`realce`)
    [ ] P3c LA CARA CON ESTADOS: la CARA que viaja lleva sus estados, para
            que una app los pinte sin codigo generado
            -> `platform/shared/bmo-maqueta-cara/`
@@ -430,6 +439,92 @@ tironea --. Y lo que se ve en la foto del anfitrion es lo que pinta el Ryzen.
 [x] *"MAQUETA compila una imagen QUIETA"* se reescribio con P3a (el rechazo
 de `animation` en `value.rs` y `LA_MAQUETA_EXIGE.md` 3d): lo que sigue siendo
 verdad es que **en el aparato no se maqueta nada**.
+
+## 6h. EL ESCRITORIO CON VIDA (2026-10-04)
+
+El propietario: *"que TODOS tengan vida y epico, y tambien la barra lateral
+tenga animaciones especiales y unicas"*. La misma curva que una transicion
+compilada (`bmo_pinta::curva`, el `cubic-bezier` en enteros), ahora en el
+escritorio escrito a mano. Todo se mueve por EVENTO --cambia el foco, cambia
+el minuto, se pulsa Tab, se marca un icono--, nunca en bucle: en reposo el
+escritorio sigue sin pintar nada.
+
+```
+   [x] V1  EL RELOJ DE LA VIDA: cada animacion es un `Paso` (cuando empezo,
+           cuanto dura); `vida::anima()` pide fotograma cada ~16 ms mientras
+           viva alguno, y nada despues
+           -> `Ultra_userspace/services/director/src/scene/vida.rs`
+   [x] V2  LA BARRA: la marca de la ventana de delante VIAJA de ficha a ficha
+           con rebote (460 ms) y se estira un poco al ir; el reloj RUEDA al
+           cambiar el minuto: la hora vieja sube y se apaga, la nueva entra
+           desde abajo, recortadas a su franja (420 ms)
+           -> `Ultra_userspace/services/director/src/scene/barra_viva.rs`
+   [x] V3  ALT+TAB: se abre creciendo del 92 % al 100 % con rebote y lo de
+           dentro se enciende al llegar (300 ms); en cada Tab la marca se
+           DESLIZA a la fila nueva y la letra de cada fila se enciende segun
+           la marca pasa (240 ms)
+           -> `Ultra_userspace/services/director/src/scene/switcher.rs`
+   [x] V4  LA REJILLA: la marca de un icono BROTA desde el centro de la
+           celda con rebote (280 ms)
+           -> `Ultra_userspace/services/director/src/scene/launcher.rs`
+   [ ] V5  LAS VENTANAS: abrir, cerrar y minimizar con su transicion (hoy
+           aparecen de golpe), por el mismo `Paso`
+           -> `Ultra_userspace/services/director/src/desktop/`
+   [x] V6  CADA APP CON SU NOMBRE: el titulo, la ficha y Alt+Tab dicen TALLER
+           o DOOM (el programa que el kernel apunto), no `tid 16` ni `App 1`;
+           la ficha lleva el color de su icono
+           -> `Ultra_userspace/services/director/src/scene/nombre_app.rs`
+   [x] V7  F3 Y F4 CON LAS PIEZAS DE LA CASA: la LUDOTECA deja la letra de
+           pixel (salvo en su maquina recreativa, que es una arcade) y
+           escribe con la de las maquetas, como HERMES; JUGAR, las etiquetas
+           y los brillos, redondos; HERMES cambia sus marcos en pico por
+           `piezas::marco`. Los rotulos de pixel de HERMES se quedan: son los
+           de su maqueta (Silkscreen)
+           -> `Ultra_userspace/apps/hermes/src/piezas.rs` (compartida),
+              `Ultra_userspace/apps/ludoteca/src/pintar.rs`
+```
+
+Visto en el anfitrion, fotograma a fotograma (tiras de cada movimiento con el
+reloj de `vida` puesto a mano). [!] No se ha visto en el Ryzen: lo que falta
+saber alli es si ~16 ms por fotograma se sostienen con el repintado de la
+tarjeta de Alt+Tab (guarda y devuelve lo de debajo en cada fotograma).
+
+## 6g. LA VARA DE MEDIR: HERMES ENTERO EN MAQUETA (2026-10-04)
+
+El propietario, con la pantalla del CANAL de HERMES delante: *"para llegar a
+esto que se necesitan MAS? no para tener igual a CSS sino TODO"*. La medida no
+es CSS: es poder escribir ESA pantalla como `.maqueta`. Lo que le falta, por
+lo que se ve en ella:
+
+```
+   [x] H1  REPETIR + DATOS (con P2): la fila lleva `{nombre|muestra}` y
+           `--dato-color`; su modulo sale con `Datos`, `MUESTRA` y
+           `pintar(.., d)`. La lista de amigos ya se escribe asi
+           (`pruebas/amigo.maqueta`). La rejilla de videos espera a H6
+           -> `node/src/markup.rs`, `node/src/variables.rs`, `emit/src/rust.rs`
+   [x] H2  EL TEXTO QUE SE CORTA EN EL APARATO: `p.pieza_cabe` corta con
+           `...` a la caja del hueco, la que se juzgo (comprobacion D)
+           -> `platform/shared/bmo-pinta` (`letra_cabe`),
+              `Ultra_userspace/userland/src/pantalla/verde/fina.rs`
+           [!] HERMES todavia no usa estos modulos, y no se vio en el Ryzen
+   [ ] H3  PARTIR LINEAS AL COMPILAR: el parrafo de la columna. El texto SI se
+           conoce: se parte en el anfitrion y el veredicto mira que quepa
+           -> `toolchain/tools/maqueta/layout/src/measure.rs`
+   [ ] H4  IMAGENES: `<imagen src="gato.qoi">` (QOI y BMP ya los lee
+           `platform/shared/bmo-imagen`) y huecos de imagen que llenan los
+           datos (las miniaturas)
+   [ ] H5  `position: relative`: el punto verde sobre el avatar, la duracion
+           sobre la miniatura, el `1` rojo del carril
+           -> `toolchain/tools/maqueta/layout/src/flow.rs`
+   [ ] H6  `border-radius: 50%` (los avatares) y la rejilla (`grid` o
+           `flex-wrap`): la de dos columnas de videos
+   [ ] H7  DESPLAZAR: todo maquetado al compilar; el aparato mueve UN numero y
+           recorta, y la barra la pinta la maqueta
+   [ ] H8  los estados en el aparato (es P3b): el icono activo, el realce de
+           una fila
+```
+
+Los iconos (y el `check` de "Siguiendo") ya estan: son `<svg>`.
 
 ## 6e. DE QUIEN SE TOMA CADA IDEA (2026-10-04)
 

@@ -74,12 +74,44 @@ pub fn foto(l: &Laid) -> Foto {
     let mut im = Foto::nueva(l.canvas.0, l.canvas.1);
     let mut letra = bmo_letra::Letra::nueva();
     for o in lista(l).iter().filter(|o| o.estado == Estado::Reposo) {
-        match &o.trazo {
-            Trazo::Rect { r, color } => im.rect(r.x, r.y, r.w as i32, r.h as i32, *color),
-            Trazo::Texto { r, texto, color } => im.texto(r.x, r.y, texto.as_bytes(), *color),
-            otro => {
-                otro.con_pieza(|p| bmo_pinta::pieza(&mut im, &mut letra, p, 0, 0));
+        un_trazo(&mut im, &mut letra, &o.trazo);
+    }
+    im
+}
+
+fn un_trazo(im: &mut Foto, letra: &mut bmo_letra::Letra, t: &Trazo) {
+    match t {
+        Trazo::Rect { r, color } => im.rect(r.x, r.y, r.w as i32, r.h as i32, *color),
+        Trazo::Texto { r, texto, color } => im.texto(r.x, r.y, texto.as_bytes(), *color),
+        otro => {
+            otro.con_pieza(|p| bmo_pinta::pieza(im, letra, p, 0, 0));
+        }
+    }
+}
+
+/// **La foto de una transicion a los `ms`** (P3b), pintada PAR a PAR con
+/// `bmo_pinta::entre_piezas`: la misma mezcla que hace el escritorio. Es el
+/// oraculo del codigo generado.
+pub fn foto_en(pares: &[crate::movimiento::Par], lienzo: (u32, u32), ms: u32) -> Foto {
+    let mut im = Foto::nueva(lienzo.0, lienzo.1);
+    let mut letra = bmo_letra::Letra::nueva();
+    for p in pares {
+        let k = bmo_pinta::avance(ms, p.retraso, p.dura, p.curva);
+        let llegada = k.clamp(0, 1000) >= 500;
+        match (&p.a, &p.b) {
+            (Some(Trazo::Texto { r: ra, texto, color: ca }), Some(Trazo::Texto { r: rb, color: cb, .. })) => {
+                let (x, y) = (bmo_pinta::entre_i(ra.x, rb.x, k), bmo_pinta::entre_i(ra.y, rb.y, k));
+                im.texto(x, y, texto.as_bytes(), bmo_pinta::entre_color(*ca, *cb, k));
             }
+            (Some(a), Some(b)) => {
+                let hecho = a.con_pieza_o_caja(|pa| b.con_pieza_o_caja(|pb| bmo_pinta::pieza(&mut im, &mut letra, &bmo_pinta::entre_piezas(pa, pb, k), 0, 0)));
+                if hecho.flatten().is_none() {
+                    un_trazo(&mut im, &mut letra, if llegada { b } else { a });
+                }
+            }
+            (Some(a), None) if !llegada => un_trazo(&mut im, &mut letra, a),
+            (None, Some(b)) if llegada => un_trazo(&mut im, &mut letra, b),
+            _ => {}
         }
     }
     im

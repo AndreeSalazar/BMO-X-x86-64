@@ -26,7 +26,7 @@
 use crate::canvas::Canvas;
 use crate::charla::Mensaje;
 use crate::mates::{azar, coseno, entre, fase, seno};
-use crate::piezas::{caja, cara, negrita, pildora, punto, redonda, rotulo, t_grande, ancho_txt, txt, txt_cabe};
+use crate::piezas::{caja, cara, marco, negrita, pildora, punto, redonda, rotulo, t_grande, ancho_txt, txt, txt_cabe};
 use bmo_dibujo::{mezclar, Color, Lienzo};
 use bmo_fondo::{Estilo, PIEZAS};
 use bmo_userland as bmo;
@@ -373,7 +373,7 @@ pub fn pintar(cv: &mut Canvas, v: &Vista) {
             let a = (700 - t) * 120 / 700;
             let (x, w) = (X_CENTRO, ancho_centro());
             cv.glow(x + 4, BARRA + 4, w - 8, suelo() - BARRA - 8, ROSA, 4, a);
-            cv.frame(x, BARRA, w, suelo() - BARRA, 2, mezclar(ROSA, FONDO, a * 2, 256));
+            marco(cv, x, BARRA, w, suelo() - BARRA, 12, 2, mezclar(ROSA, FONDO, a * 2, 256));
         }
     }
 }
@@ -418,7 +418,8 @@ fn riel(cv: &mut Canvas, v: &Vista) {
         if elegida {
             // Una caja redonda que brilla, y su pastilla blanca al borde.
             let entra = llega(v.ms, v.desde_sec, 0, 220) as u32;
-            cv.glow(x, y, w, h, color, 4, 30 * entra / 256);
+            // El brillo es REDONDO como la caja (era un cuadrado de luz).
+            crate::piezas::sombra(cv, x, y, w, h, 13, color, 6, 110 * entra / 256);
             caja(cv, x, y, w, h, 13, mezclar(color, NEGRO, 52, 256), mezclar(color, NEGRO, 200, 256));
             redonda(cv, 0, y + 8, 4, h - 16, 2, BLANCO);
         } else {
@@ -757,8 +758,8 @@ fn muro(cv: &mut Canvas, v: &Vista, x0: i32) {
         let ancho_v = (coseno(f).abs() * cw / 256).max(1);
         let xv = x + (cw - ancho_v) / 2;
         if f < 64 {
-            cv.rect(xv, y, ancho_v, ch, PANEL2);
-            cv.frame(xv, y, ancho_v, ch, 2, mezclar(MORADO, FONDO, 120, 256));
+            redonda(cv, xv, y, ancho_v, ch, 10, PANEL2);
+            marco(cv, xv, y, ancho_v, ch, 10, 2, mezclar(MORADO, FONDO, 120, 256));
             if ancho_v > 30 {
                 t_grande(cv, xv + ancho_v / 2 - 8, y + ch / 2 - 16, b"H", MORADO, 2);
             }
@@ -801,7 +802,7 @@ fn postal(cv: &mut Canvas, x: i32, y: i32, w: i32, h: i32, semilla: u32, ms: u32
             cv.blend(px - k, py - k / 3, BLANCO, (10 - k) as u32 * 20, 256);
         }
     }
-    cv.frame(x, y, w, h, 1, LINEA);
+    marco(cv, x, y, w, h, 10, 1, LINEA);
 }
 
 /// **El CANAL**: se enciende como una tele vieja -- una raya, se abre, y
@@ -857,8 +858,8 @@ fn paginas(cv: &mut Canvas, v: &Vista, x0: i32) {
     let tw = titulo.len() as i32 * 8 * 4;
     t_grande(cv, x0 + 20 + (w - tw) / 2, y, titulo, AMBAR, 4);
     let (bx, bw) = (x0 + 20 + w / 8, w * 3 / 4);
-    cv.rect(bx, y + 80, bw, 40, PANEL2);
-    cv.frame(bx, y + 80, bw, 40, 2, mezclar(AMBAR, FONDO, 140, 256));
+    redonda(cv, bx, y + 80, bw, 40, 20, PANEL2);
+    marco(cv, bx, y + 80, bw, 40, 20, 2, mezclar(AMBAR, FONDO, 140, 256));
     let dir = b"hermes://tu/inicio";
     let n = ((v.ms.wrapping_sub(v.desde_sec) / 60) as usize).min(dir.len());
     let fin = txt(cv, bx + 14, y + 92, &dir[..n], BLANCO);
@@ -872,8 +873,7 @@ fn paginas(cv: &mut Canvas, v: &Vista, x0: i32) {
         let ay = ay + (256 - t) * 30 / 256;
         let encima = v.puntero.map_or(false, |(px, py)| dentro(px, py, (ax, ay, aw, ah)));
         let c = SECCIONES[s].1;
-        cv.rect(ax, ay, aw, ah, if encima { PANEL2 } else { PANEL });
-        cv.frame(ax, ay, aw, ah, 1, mezclar(c, FONDO, t as u32, 256));
+        caja(cv, ax, ay, aw, ah, 10, if encima { PANEL2 } else { PANEL }, mezclar(c, FONDO, t as u32, 256));
         txt(cv, ax + 14, ay + 16, nombre, mezclar(c, FONDO, t as u32, 256));
         txt(cv, ax + 14, ay + 40, b"atajo: un clic", TENUE);
     }
@@ -897,12 +897,12 @@ fn envios(cv: &mut Canvas, v: &Vista, x0: i32) {
         let x = x0 + 20 + k as i32 * (pw + 24);
         let encendido = t > 200 + k as u32 * 350;
         let c = if encendido { VERDE } else { LINEA };
-        cv.rect(x, y, pw, 110, if encendido { mezclar(VERDE, FONDO, 30, 256) } else { PANEL });
-        cv.frame(x, y, pw, 110, 2, c);
+        redonda(cv, x, y, pw, 110, 12, if encendido { mezclar(VERDE, FONDO, 30, 256) } else { PANEL });
+        marco(cv, x, y, pw, 110, 12, 2, c);
         if encendido {
             let destello = 256u32.saturating_sub((t - 200 - k as u32 * 350) * 256 / 300);
             if destello > 0 {
-                cv.glow(x, y, pw, 110, VERDE, 6, destello * 60 / 256);
+                crate::piezas::sombra(cv, x, y, pw, 110, 12, VERDE, 8, destello * 150 / 256);
             }
         }
         let mut d = [0u8; 2];

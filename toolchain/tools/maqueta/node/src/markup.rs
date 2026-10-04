@@ -312,6 +312,32 @@ fn attribute(
                 ));
             }
         }
+        // ** LA LISTA (P2): la pieza, hasta `repite` veces en columna.
+        b"repite" | b"entre" if node.tag == Tag::Usa => {
+            let es_repite = name == b"repite";
+            let n = parse_u32(&val);
+            let ok = match n {
+                Some(n) if es_repite => (1..=crate::MAX_REPITE).contains(&n),
+                Some(n) => n <= 256,
+                None => false,
+            };
+            if !ok {
+                errors.push(Error::new(
+                    vspan,
+                    if es_repite { "`repite` es cuantas filas caben como mucho: de 1 a 64" } else { "`entre` son los pixeles entre fila y fila: de 0 a 256" },
+                    "la lista se maqueta y se juzga con TODAS sus filas (lo peor que \
+                     puede pasar); cuantas hay de verdad lo dice el aparato al correr.",
+                    "por ejemplo `<usa src=\"fila.maqueta\" repite=\"8\" entre=\"4\"/>`.",
+                ));
+            } else {
+                let r = node.repite.get_or_insert(crate::Repite { veces: 0, entre: 0 });
+                if es_repite {
+                    r.veces = n.unwrap_or(0);
+                } else {
+                    r.entre = n.unwrap_or(0);
+                }
+            }
+        }
         b"d" if node.tag == Tag::Path => {
             let d = String::from_utf8_lossy(&val).into_owned();
             if bmo_letra::svg::camino(&d).is_empty() {
@@ -337,7 +363,7 @@ fn attribute(
                  se lee es una linea que parece hacer algo y no hace nada.",
                 "`class`, `id`, `nombre` (solo en `<island>`), `ancho`/`alto` \
                  (solo en `<maqueta>`), `viewBox` (solo en `<svg>`), `d` (solo en \
-                 `<path>`) y `src` (solo en `<usa>`).",
+                 `<path>`), y `src`, `repite` y `entre` (solo en `<usa>`).",
             ));
         }
     }
@@ -399,6 +425,15 @@ fn close_tag(
 
 /// Hang a finished node on its parent, or on the root list if there is none.
 fn attach(stack: &mut [Node], roots: &mut Vec<Node>, node: Node, errors: &mut Vec<Error>) {
+    if node.tag == Tag::Usa && node.repite.is_some_and(|r| r.veces == 0) {
+        errors.push(Error::new(
+            node.span,
+            "este `<usa>` dice `entre` pero no `repite`",
+            "`entre` es el hueco entre las filas de una lista; sin `repite` no hay \
+             filas.",
+            "`<usa src=\"fila.maqueta\" repite=\"8\" entre=\"4\"/>`.",
+        ));
+    }
     if node.tag == Tag::Usa && node.src.is_none() {
         errors.push(Error::new(
             node.span,
@@ -494,6 +529,24 @@ fn add_text(stack: &mut [Node], raw: &[u8], span: Span, errors: &mut Vec<Error>)
         return;
     }
     let s = String::from_utf8_lossy(raw).trim().to_string();
+    // ** UN HUECO (H1): `{nombre|muestra}` es TODO el texto de su caja.
+    if s.contains('{') || s.contains('}') {
+        match crate::hueco(&s) {
+            Some((nombre, muestra)) if node.text.is_none() => {
+                node.hueco = Some(nombre.to_string());
+                node.text = Some(muestra.to_string());
+            }
+            _ => errors.push(Error::new(
+                span,
+                "un hueco de datos es `{nombre}` o `{nombre|muestra}`, y es TODO el texto de su caja",
+                "el texto que llega al ejecutar va en su propia caja, con su nombre \
+                 en minusculas (sale como campo de Rust). La muestra es lo que se \
+                 maqueta, se juzga y sale en la foto.",
+                "por ejemplo `<span class=\"nombre\">{nombre|Ana Lopez}</span>`.",
+            )),
+        }
+        return;
+    }
     match &mut node.text {
         Some(t) => {
             t.push(' ');

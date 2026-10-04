@@ -55,6 +55,16 @@ impl Trazo {
         }
     }
 
+    /// La pieza del pintor de este trazo, y un `Rect` como CAJA de radio 0
+    /// (los mismos pixeles): lo que pide una transicion, que lo mezcla todo
+    /// como piezas. `None` solo para la letra de pixel.
+    pub fn con_pieza_o_caja<R>(&self, f: impl FnOnce(&bmo_pinta::Pieza) -> R) -> Option<R> {
+        match self {
+            Trazo::Rect { r, color } => Some(f(&bmo_pinta::Pieza::Caja { x: r.x, y: r.y, w: r.w as i32, h: r.h as i32, r: 0, c: *color })),
+            otro => otro.con_pieza(f),
+        }
+    }
+
     /// **La pieza del pintor** que describe este trazo (las suaves), prestada
     /// el tiempo de `f`. `None` para los de siempre (rect y letra de pixel).
     pub fn con_pieza<R>(&self, f: impl FnOnce(&bmo_pinta::Pieza) -> R) -> Option<R> {
@@ -148,13 +158,50 @@ fn trazos_de(f: &Frame, estado: Estado, de: &str, out: &mut Vec<Orden>) {
         return;
     }
 
-    let mut push = |trazo| {
-        out.push(Orden {
-            trazo,
-            de: de.to_string(),
-            estado,
-        })
-    };
+    for (_, trazo) in trazos_de_estilo(f, &s, es_suave(&s)) {
+        out.push(Orden { trazo, de: de.to_string(), estado });
+    }
+}
+
+/// **Donde va cada trazo de una caja** (P3b): lo que permite emparejar los
+/// trazos de la MISMA caja en dos estados. El orden de la enumeracion es el
+/// de pintado.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
+pub enum Ranura {
+    Brillo,
+    /// El borde plano de los cuatro lados iguales (va DEBAJO del fondo).
+    BordePlano,
+    Fondo,
+    /// Un lado de un borde plano distinto por lado.
+    Lado(u8),
+    /// El borde suave (va ENCIMA del fondo).
+    Borde,
+    Texto,
+    Relleno(u16),
+    Linea(u16),
+}
+
+/// Una caja con radio, resplandor o degradado se pinta con las piezas SUAVES.
+pub fn es_suave(s: &bmo_maqueta_layout::Style) -> bool {
+    s.border_radius > 0 || s.shadow.is_some() || s.gradient.is_some()
+}
+
+/// **Los trazos de una caja con un estilo**, cada uno en su ranura. `suave`
+/// se puede FORZAR (P3b): para mezclar una caja plana con una redonda, las
+/// dos se describen con piezas suaves -- una caja de radio 0 pinta los mismos
+/// pixeles que su rect.
+pub fn trazos_de_estilo(f: &Frame, s: &bmo_maqueta_layout::Style, suave: bool) -> Vec<(Ranura, Trazo)> {
+    let s = *s;
+    let mut out: Vec<(Ranura, Trazo)> = Vec::new();
+    // La ranura de lo que se empuja ahora: una `Cell` para que el cierre que
+    // empuja y quien la cambia no se pisen.
+    let ranura = std::cell::Cell::new(Ranura::Brillo);
+    let mut push = |trazo: Trazo| out.push((ranura.get(), trazo));
+    macro_rules! en {
+        ($r:expr) => {
+            ranura.set($r)
+        };
+    }
 
     // El borde primero y el fondo encima: dos rects concentricos, que es como
     // lo escribe `calc.rs` a mano. Cuatro tiras darian el mismo dibujo y cuatro
@@ -162,19 +209,21 @@ fn trazos_de(f: &Frame, estado: Estado, de: &str, out: &mut Vec<Orden>) {
     // ** MAQUETA 2: una caja con radio, resplandor o degradado se pinta con
     // las piezas SUAVES. Sin nada de eso, exactamente como antes (la
     // calculadora no cambia ni un pixel).
-    let suave = s.border_radius > 0 || s.shadow.is_some() || s.gradient.is_some();
     let radio = s.border_radius;
 
     if let Some((alcance, argb)) = s.shadow {
+        en!(Ranura::Brillo);
         push(Trazo::Resplandor { r: f.rect, radio, alcance, argb });
     }
     if !suave {
         match s.borde_uniforme() {
             Some((d, borde)) => {
                 if let (Some(color), true) = (borde, d > 0) {
+                    en!(Ranura::BordePlano);
                     push(Trazo::Rect { r: f.rect, color });
                 }
                 if let Some(color) = s.background {
+                    en!(Ranura::Fondo);
                     // Con el borde transparente el fondo llega hasta fuera,
                     // como en CSS (`background-clip: border-box`).
                     let d = if borde.is_some() { d } else { 0 };
@@ -197,6 +246,7 @@ fn trazos_de(f: &Frame, estado: Estado, de: &str, out: &mut Vec<Orden>) {
             // esquina en diagonal y aqui no (ver `LA_MAQUETA_EXIGE.md`).
             None => {
                 if let Some(color) = s.background {
+                    en!(Ranura::Fondo);
                     push(Trazo::Rect { r: f.rect, color });
                 }
                 let [t, r, b, l] = s.border_width;
@@ -209,6 +259,7 @@ fn trazos_de(f: &Frame, estado: Estado, de: &str, out: &mut Vec<Orden>) {
                 ];
                 for (k, rr) in lados {
                     if let (Some(color), true) = (s.border_color[k], rr.w > 0 && rr.h > 0) {
+                        en!(Ranura::Lado(k as u8));
                         push(Trazo::Rect { r: rr, color });
                     }
                 }
@@ -218,6 +269,7 @@ fn trazos_de(f: &Frame, estado: Estado, de: &str, out: &mut Vec<Orden>) {
         // El fondo va por debajo del borde entero, como en CSS
         // (`background-clip: border-box`): asi no queda una costura oscura
         // entre las dos curvas suaves.
+        en!(Ranura::Fondo);
         if let Some((de, a, vertical)) = s.gradient {
             push(Trazo::Degradado { r: f.rect, radio, de, a, vertical });
         } else if let Some(color) = s.background {
@@ -227,11 +279,13 @@ fn trazos_de(f: &Frame, estado: Estado, de: &str, out: &mut Vec<Orden>) {
         // radio lo rechaza el veredicto (K), asi que aqui solo llega el igual.
         if let Some((grosor, Some(color))) = s.borde_uniforme() {
             if grosor > 0 {
+                en!(Ranura::Borde);
                 push(Trazo::Borde { r: f.rect, radio, grosor, color });
             }
         }
     }
     if let (Some(t), Some(r), Some(color)) = (&f.text, f.text_at, s.color) {
+        en!(Ranura::Texto);
         match s.font_size.and_then(|p| u8::try_from(p).ok()) {
             Some(px) => push(Trazo::Letra {
                 r,
@@ -248,18 +302,22 @@ fn trazos_de(f: &Frame, estado: Estado, de: &str, out: &mut Vec<Orden>) {
     // Un dibujo: sus caminos, con la pluma y el relleno del `<svg>` (como en
     // SVG: primero el relleno, luego el trazo).
     if let Some(vb) = f.view_box {
-        for d in f.children.iter().filter_map(|c| c.d.as_deref()) {
+        for (k, d) in f.children.iter().filter_map(|c| c.d.as_deref()).enumerate() {
             let (caminos, cerrados) = aplanar(d, vb, f.content);
             if let Some(color) = s.fill {
+                en!(Ranura::Relleno(k as u16));
                 push(Trazo::Relleno { caminos: caminos.clone(), color });
             }
             if let Some(color) = s.stroke {
+                en!(Ranura::Linea(k as u16));
                 let sw = if s.stroke_width == 0 { 64 } else { s.stroke_width } as i64;
                 let grosor64 = (sw * f.content.w as i64 / vb[2].max(1) as i64) as i32;
                 push(Trazo::Linea { caminos, cerrados, grosor64, color });
             }
         }
     }
+    drop(push);
+    out
 }
 
 /// **Un `<path>` aplanado** a la caja de su `<svg>`: sus curvas en tramos

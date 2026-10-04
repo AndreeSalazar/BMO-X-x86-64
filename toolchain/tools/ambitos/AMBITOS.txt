@@ -167,4 +167,8 @@ titan            (0)
 # protocolo (`platform/shared/bmo-hermes`). Nace aqui, con H5.
 hermes           (5) 
 antena           (2) 
-bankcat          (4) 
+bankcat          (4)
+# 2026-10-04: un cambio que toca VARIAS apps de `Ultra_userspace/apps` a la
+# vez -- las piezas que comparten (la `piezas.rs` de HERMES, que usan BANK CAT
+# y la LUDOTECA). Lo de una sola app va con su nombre.
+apps             (1)  

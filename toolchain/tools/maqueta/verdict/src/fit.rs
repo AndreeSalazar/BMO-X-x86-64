@@ -30,7 +30,38 @@ fn walk(f: &Frame, canvas: &Rect, out: &mut Vec<Error>) {
         walk(c, canvas, out);
     }
     cabe_el_texto(f, out);
+    el_hueco(f, out);
     no_esta_vacia(f, out);
+}
+
+/// * D. UN HUECO DE DATOS (H1): el texto llega al ejecutar, y lo que no se
+/// conoce no se puede juzgar. Lo que SI se juzga es su caja -- y para que el
+/// aparato pueda cortar con `...` sin maquetar nada, la caja tiene que
+/// decirlo todo: su ancho (`width`), su letra (`font-size`) y que el texto
+/// empieza a la izquierda. Un texto centrado se mueve con lo que mide, y lo
+/// que mide no se sabe.
+fn el_hueco(f: &Frame, out: &mut Vec<Error>) {
+    let Some(nombre) = &f.hueco else { return };
+    let mut falta = Vec::new();
+    if f.style.width.is_none() {
+        falta.push("un `width` (el ancho donde se corta)");
+    }
+    if f.style.font_size.is_none() {
+        falta.push("un `font-size` (se corta con la letra de la casa)");
+    }
+    if f.text_at.is_some_and(|t| t.x != f.content.x) {
+        falta.push("el texto a la izquierda (centrado se moveria con lo que mide)");
+    }
+    if !falta.is_empty() {
+        out.push(Error::new(
+            f.span,
+            &format!("el hueco `{{{nombre}}}` necesita {}", falta.join(", ")),
+            "su texto llega al ejecutar y no se pudo juzgar. Lo que se juzga es su \
+             caja: el aparato escribe ahi y corta con `...` lo que no quepa, sin \
+             maquetar nada.",
+            "dar a la caja del hueco su `width` y su `font-size`, sin centrar el texto.",
+        ));
+    }
 }
 
 /// A. Una caja fuera de su sitio.

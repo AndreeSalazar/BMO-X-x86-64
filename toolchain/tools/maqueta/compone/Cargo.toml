@@ -13,5 +13,3 @@ bmo-maqueta-cascade = { path = "../cascade" }
 bmo-maqueta-layout = { path = "../layout" }
 bmo-maqueta-verdict = { path = "../verdict" }
 bmo-maqueta-diag = { path = "../diag" }
-# La CURVA de una transicion: la misma cuenta que usara el escritorio.
-bmo-pinta = { path = "../../../../platform/shared/bmo-pinta" }

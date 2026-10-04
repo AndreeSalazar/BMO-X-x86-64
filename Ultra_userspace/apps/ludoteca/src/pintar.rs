@@ -17,6 +17,7 @@ use crate::canvas::Canvas;
 use crate::catalogo::Catalogo;
 use crate::iconos;
 use crate::mates::{azar, entre, fase, onda, seno};
+use crate::piezas::{self as pz, Estilo};
 use crate::tiendas::PUESTOS;
 use bmo_dibujo::{mezclar, Color, Lienzo};
 use alloc::vec::Vec;
@@ -182,10 +183,48 @@ fn redondo(cv: &mut Canvas, x: i32, y: i32, w: i32, h: i32, r: i32, c: Color) {
     }
 }
 
-/// Texto "negrita": la misma letra dos veces, corrida un pixel.
+// ** LA LETRA DE LA CASA (04-10). La LUDOTECA escribia con la letra de PIXEL
+// de 8 x 16 del escritorio, y la "negrita" era esa letra dos veces corrida un
+// pixel: se leia como una terminal al lado de HERMES, que ya escribe con la
+// de las maquetas. Ahora las dos con la misma (`piezas.rs`, compartida con
+// HERMES y BANK CAT). La UNICA letra de pixel que queda es la de la maquina
+// recreativa: es una arcade, y alli si toca.
+
+/// **Negrita** de la casa, en la caja de 16 de las cuentas de siempre (o de
+/// `16 * escala`, para lo grande). Devuelve el ancho.
 fn negrita(cv: &mut Canvas, x: i32, y: i32, s: &[u8], c: Color, escala: i32) -> i32 {
-    cv.text(x + 1, y, s, c, escala);
-    cv.text(x, y, s, c, escala)
+    if escala <= 1 {
+        pz::negrita(cv, x, y, s, c)
+    } else {
+        pz::texto(cv, x, y, 16 * escala, s, c, Estilo::negrita((12 * escala).clamp(12, 48) as u8))
+    }
+}
+
+/// **Texto del cuerpo** de la casa (lo que era `cv.text(.., 1)`).
+fn txt(cv: &mut Canvas, x: i32, y: i32, s: &[u8], c: Color) -> i32 {
+    pz::txt(cv, x, y, s, c)
+}
+
+/// **El titulo del juego**, grande (lo que era la letra de pixel a 2 o 3).
+fn grande(cv: &mut Canvas, x: i32, y: i32, s: &[u8], c: Color, escala: i32) -> i32 {
+    pz::texto(cv, x, y, 16 * escala, s, c, Estilo::negrita(if escala >= 3 { 40 } else { 28 }))
+}
+
+/// **La inicial** de una cara redonda, centrada en `(cx, cy)`.
+fn inicial(cv: &mut Canvas, cx: i32, cy: i32, ini: u8, c: Color) {
+    let e = Estilo::negrita(14);
+    let w = pz::medir(&[ini], e);
+    pz::texto(cv, cx - w / 2, cy - 9, 18, &[ini], c, e);
+}
+
+/// **Una etiqueta** (`PIEZA`): su texto oscuro sobre su color, redonda.
+/// Devuelve el ancho.
+fn etiqueta(cv: &mut Canvas, x: i32, y: i32, s: &[u8], c: Color, tinta: Color) -> i32 {
+    let e = Estilo::negrita(10).espaciado(80);
+    let w = pz::medir(s, e) + 12;
+    redondo(cv, x, y, w, 16, 8, c);
+    pz::texto(cv, x + 6, y, 16, s, tinta, e);
+    w
 }
 
 /// Un circulo de luz que se suma a lo que hay (las burbujas del estandarte).
@@ -312,9 +351,9 @@ fn canales(cv: &mut Canvas, v: &Vista) {
         (Some(_), true) => b"logo oficial: listo",
         (Some(_), false) => b"insignia propia",
     };
-    cv.text(RIEL + 16, CABECERA + 14, rotulo, mezclar(BLANCO, p.fondo, 170, 256), 1);
+    txt(cv, RIEL + 16, CABECERA + 14, rotulo, mezclar(BLANCO, p.fondo, 170, 256));
     // Los canales: uno por juego.
-    cv.text(RIEL + 16, Y_CANALES, b"JUEGOS", TENUE, 1);
+    pz::rotulo(cv, RIEL + 16, Y_CANALES, b"JUEGOS", TENUE);
     for (k, &i) in v.visibles.iter().enumerate() {
         let (x, y, w, h) = caja_canal(k);
         if y + h > alto() - 120 {
@@ -326,14 +365,14 @@ fn canales(cv: &mut Canvas, v: &Vista) {
             redondo(cv, x, y, w, h, 5, if elegido { ELEGIDO } else { ENCIMA });
         }
         let j = &v.cat.l.juegos[i];
-        cv.text(x + 8, y + 9, b"#", GRIS, 1);
+        txt(cv, x + 8, y + 9, b"#", GRIS);
         let mut nombre = [0u8; 40];
         let n = como_canal(&j.titulo, &mut nombre);
         let tinta = if elegido { BLANCO } else { TENUE };
         if elegido {
             negrita(cv, x + 26, y + 9, &nombre[..n.min(22)], tinta, 1);
         } else {
-            cv.text(x + 26, y + 9, &nombre[..n.min(22)], tinta, 1);
+            txt(cv, x + 26, y + 9, &nombre[..n.min(22)], tinta);
         }
         // PROTON-X lleva su punto vivo: es lo que se esta construyendo.
         if v.cat.camino(i) == Camino::ProtonX {
@@ -342,8 +381,8 @@ fn canales(cv: &mut Canvas, v: &Vista) {
         }
     }
     if v.visibles.is_empty() {
-        cv.text(RIEL + 16, Y_CANALES + 28, b"nada de esta tienda", GRIS, 1);
-        cv.text(RIEL + 16, Y_CANALES + 48, b"todavia", GRIS, 1);
+        txt(cv, RIEL + 16, Y_CANALES + 28, b"nada de esta tienda", GRIS);
+        txt(cv, RIEL + 16, Y_CANALES + 48, b"todavia", GRIS);
     }
     // Quien eres: el gato de BMO-X, y a que juegas.
     let yp = alto() - 56;
@@ -355,7 +394,7 @@ fn canales(cv: &mut Canvas, v: &Vista) {
     cv.disc(RIEL + 44, yp + 42, 4, NEON);
     negrita(cv, RIEL + 58, yp + 12, b"BMO-X", BLANCO, 1);
     let jugando: &[u8] = v.visibles.get(v.sel).map_or(b"en la LUDOTECA", |&i| v.cat.l.juegos[i].titulo.as_bytes());
-    cv.text_fit(RIEL + 58, yp + 30, jugando, TENUE, CANALES - 70);
+    pz::txt_cabe(cv, RIEL + 58, yp + 30, jugando, TENUE, CANALES - 70);
 }
 
 /// El nombre del canal de delante, como se escribe tras `#`.
@@ -369,18 +408,19 @@ fn centro(cv: &mut Canvas, v: &Vista) {
     cv.rect(X_CENTRO, 0, w_centro(), alto(), FONDO_CENTRO);
     let elegido = v.visibles.get(v.sel).copied();
     // La cabecera del canal.
-    cv.text(X_CENTRO + 18, 16, b"#", GRIS, 1);
+    txt(cv, X_CENTRO + 18, 16, b"#", GRIS);
     let mut nombre = [0u8; 40];
     let n = elegido.map_or(0, |i| como_canal(&v.cat.l.juegos[i].titulo, &mut nombre));
     let k = negrita(cv, X_CENTRO + 36, 16, if n > 0 { &nombre[..n] } else { b"bienvenida" }, BLANCO, 1);
     cv.rect(X_CENTRO + 48 + k, 12, 1, 24, BORDE);
     if let Some(i) = elegido {
         let (t, c) = camino_texto(v.cat.camino(i));
-        let w = cv.text(X_CENTRO + 60 + k, 16, t, c, 1);
-        cv.text(X_CENTRO + 60 + k + w, 16, b" . ", TENUE, 1);
-        cv.text(X_CENTRO + 84 + k + w, 16, v.cat.l.juegos[i].tienda.nombre().as_bytes(), TENUE, 1);
+        let x = X_CENTRO + 60 + k;
+        let x = x + txt(cv, x, 16, t, c);
+        let x = x + txt(cv, x, 16, b"  .  ", TENUE);
+        txt(cv, x, 16, v.cat.l.juegos[i].tienda.nombre().as_bytes(), TENUE);
     }
-    cv.text(X_CENTRO + w_centro() - 40, 16, b"F4", GRIS, 1);
+    txt(cv, X_CENTRO + w_centro() - 40, 16, b"F4", GRIS);
     // El gato de BMO-X en medio de la cabecera, en su cajita.
     let gx = X_CENTRO + w_centro() / 2 + 40;
     redondo(cv, gx - 4, 6, 34, 36, 6, OSCURO);
@@ -406,13 +446,14 @@ fn centro(cv: &mut Canvas, v: &Vista) {
     // La pastilla del camino.
     if let Some(c) = camino {
         let (t, tc) = camino_texto(c);
-        let w = (t.len() + tienda.len() + 3) as i32 * 8 + 20;
+        let w = pz::ancho_txt(t) + pz::ancho_txt(b"  .  ") + pz::ancho_txt(tienda.as_bytes()) + 38;
         redondo(cv, hx + 28, hy + 26, w, 24, 12, 0x0010_2A22);
         let r = 3 + onda(v.ms, 1800) / 128;
         cv.disc(hx + 40, hy + 38, r, tc);
-        let k = cv.text(hx + 50, hy + 30, t, tc, 1);
-        cv.text(hx + 50 + k, hy + 30, b" . ", TENUE, 1);
-        cv.text(hx + 74 + k, hy + 30, tienda.as_bytes(), BLANCO, 1);
+        let x = hx + 50;
+        let x = x + txt(cv, x, hy + 30, t, tc);
+        let x = x + txt(cv, x, hy + 30, b"  .  ", TENUE);
+        txt(cv, x, hy + 30, tienda.as_bytes(), BLANCO);
     }
     // El titulo: se revela letra a letra al elegirlo, y cada 4,2 s da glitch.
     let revela = (v.ms.wrapping_sub(v.desde_juego).min(600) * 256 / 600) as usize;
@@ -422,37 +463,40 @@ fn centro(cv: &mut Canvas, v: &Vista) {
     let g = v.ms % 4200;
     if (3780..3990).contains(&g) || revela < 200 {
         let d = 2 + (azar(v.ms / 40) % 4) as i32;
-        cv.text(hx + 28 - d, ty, &titulo[..cuantas], ROSA, escala);
-        cv.text(hx + 28 + d, ty, &titulo[..cuantas], AZUL, escala);
+        grande(cv, hx + 28 - d, ty, &titulo[..cuantas], ROSA, escala);
+        grande(cv, hx + 28 + d, ty, &titulo[..cuantas], AZUL, escala);
     }
-    cv.text(hx + 29, ty, &titulo[..cuantas], 0x00C8_FFD8, escala);
-    cv.text(hx + 28, ty, &titulo[..cuantas], 0x00C8_FFD8, escala);
+    grande(cv, hx + 28, ty, &titulo[..cuantas], 0x00C8_FFD8, escala);
     // JUGAR: un liquido que corre por dentro.
     let (bx, by, bw, bh) = caja_jugar();
     let puede = elegido.is_some_and(|i| v.cat.orden(i).is_some());
     if puede {
         let corre = fase(v.ms, 1400);
+        // Columna a columna, recortada a una caja de radio 10: el liquido
+        // corre DENTRO de la pastilla, no en un rectangulo con las esquinas
+        // tapadas.
+        let r = 10;
         for i in 0..bw {
             let t = ((i * 256 / bw + corre) % 256 - 128).abs() * 2;
-            cv.rect(bx + i, by, 1, bh, mezclar(0x00A8_FFCC, NEON, (t / 3) as u32, 256));
-        }
-        // Las esquinas redondas: se recortan con el fondo.
-        for (cx, cy) in [(bx, by), (bx + bw - 1, by), (bx, by + bh - 1), (bx + bw - 1, by + bh - 1)] {
-            cv.put(cx, cy, 0x000A_1A2C);
+            let d = i.min(bw - 1 - i);
+            let dentro = if d < r { r - pz::raiz(((r * r) - (r - d) * (r - d)).max(0) as u64) as i32 } else { 0 };
+            cv.rect(bx + i, by + dentro, 1, bh - 2 * dentro, mezclar(0x00A8_FFCC, NEON, (t / 3) as u32, 256));
         }
         let encima = v.puntero.is_some_and(|(px, py)| dentro(px, py, (bx, by, bw, bh)));
         if encima {
-            cv.glow(bx, by, bw, bh, NEON, 6, 45);
+            pz::sombra(cv, bx, by, bw, bh, 10, NEON, 8, 120);
         }
-        negrita(cv, bx + (bw - 5 * 8 * 2) / 2, by + 5, b"JUGAR", OSCURO, 2);
+        let e = Estilo::negrita(20).espaciado(120);
+        pz::texto(cv, bx + (bw - pz::medir(b"JUGAR", e)) / 2, by, bh, b"JUGAR", OSCURO, e);
     } else {
-        redondo(cv, bx, by, bw, bh, 8, BORDE);
+        redondo(cv, bx, by, bw, bh, 10, BORDE);
         let t: &[u8] = if elegido.is_some() { b"PENDIENTE" } else { b"--" };
-        cv.text(bx + (bw - t.len() as i32 * 8) / 2, by + 13, t, TENUE, 1);
+        let e = Estilo::media(14).espaciado(80);
+        pz::texto(cv, bx + (bw - pz::medir(t, e)) / 2, by, bh, t, TENUE, e);
     }
     if let Some(i) = elegido {
         if let Some(o) = v.cat.orden(i) {
-            cv.text_fit(bx + bw + 16, by + 13, o.as_bytes(), TENUE, hw - bw - 280);
+            pz::txt_cabe(cv, bx + bw + 16, by + 13, o.as_bytes(), TENUE, hw - bw - 280);
         }
     }
 
@@ -470,17 +514,16 @@ fn centro(cv: &mut Canvas, v: &Vista) {
         let yy = y + dy;
         let tinta = |c: Color| mezclar(c, FONDO_CENTRO, entra as u32, 256);
         cv.disc(X_CENTRO + 40, yy + 18, 18, tinta(mezclar(*c, 0x0010_2A30, 150, 256)));
-        negrita(cv, X_CENTRO + 36, yy + 10, &[*ini], tinta(BLANCO), 1);
+        inicial(cv, X_CENTRO + 40, yy + 18, *ini, tinta(BLANCO));
         let w = negrita(cv, X_CENTRO + 72, yy + 2, quien, tinta(mezclar(*c, NEON, 90, 256)), 1);
-        redondo(cv, X_CENTRO + 80 + w, yy + 2, 44, 16, 3, tinta(NEON));
-        cv.text(X_CENTRO + 82 + w, yy + 2, b"PIEZA", tinta(OSCURO), 1);
-        cv.text(X_CENTRO + 136 + w, yy + 2, b"hoy", tinta(TENUE), 1);
-        cv.text_fit(X_CENTRO + 72, yy + 22, texto, tinta(TEXTO), w_centro() - 100);
+        let e = etiqueta(cv, X_CENTRO + 80 + w, yy + 2, b"PIEZA", tinta(NEON), tinta(OSCURO));
+        txt(cv, X_CENTRO + 88 + w + e, yy + 2, b"hoy", tinta(TENUE));
+        pz::txt_cabe(cv, X_CENTRO + 72, yy + 22, texto, tinta(TEXTO), w_centro() - 100);
         y += 52;
     }
     // Lo que contesto el escritorio a JUGAR.
     if !v.aviso.is_empty() {
-        cv.text_fit(X_CENTRO + 72, y + 4, v.aviso, NEON, w_centro() - 100);
+        pz::txt_cabe(cv, X_CENTRO + 72, y + 4, v.aviso, NEON, w_centro() - 100);
         y += 28;
     }
 
@@ -494,8 +537,8 @@ fn centro(cv: &mut Canvas, v: &Vista) {
         cv.disc(X_CENTRO + 40, yy + 18, 18, OSCURO);
         gato(cv, X_CENTRO + 40 - 15, yy, 5, BLANCO, NEON);
         let w = negrita(cv, X_CENTRO + 72, yy + 2, b"BMO-X", NEON, 1);
-        cv.text(X_CENTRO + 80 + w, yy + 2, b"hoy", TENUE, 1);
-        cv.text_fit(X_CENTRO + 72, yy + 22, texto, TEXTO, w_centro() - 100);
+        txt(cv, X_CENTRO + 80 + w, yy + 2, b"hoy", TENUE);
+        pz::txt_cabe(cv, X_CENTRO + 72, yy + 22, texto, TEXTO, w_centro() - 100);
         yy += 44;
     }
 
@@ -505,25 +548,25 @@ fn centro(cv: &mut Canvas, v: &Vista) {
         let s = seno(fase(v.ms + k * 150, 1200)).max(0) * 4 / 256;
         cv.disc(X_CENTRO + 24 + k as i32 * 8, yb + 6 - s, 2, TENUE);
     }
-    cv.text(X_CENTRO + 52, yb - 2, b"el juez espera la suma de la tienda...", TENUE, 1);
+    txt(cv, X_CENTRO + 52, yb - 2, b"el juez espera la suma de la tienda...", TENUE);
     // ** LA CAJA DE ESCRIBIR (01-10): "/" o un clic, y se escribe en el canal.
     let (ex, ey, ew, eh) = caja_escribir();
     if v.escribiendo {
         redondo(cv, ex - 1, ey - 1, ew + 2, eh + 2, 9, NEON);
         redondo(cv, ex, ey, ew, eh, 8, 0x0010_2238);
-        let w = cv.text_fit(ex + 16, ey + 12, v.borrador, BLANCO, ew - 220);
+        let w = pz::txt_cabe(cv, ex + 16, ey + 12, v.borrador, BLANCO, ew - 220);
         if (v.ms / 500) % 2 == 0 {
             cv.rect(ex + 16 + w + 2, ey + 10, 2, 20, NEON);
         }
-        cv.text(ex + ew - 190, ey + 12, b"Enter manda  Esc sale", TENUE, 1);
+        txt(cv, ex + ew - 190, ey + 12, b"Enter manda  Esc sale", TENUE);
     } else {
         redondo(cv, ex, ey, ew, eh, 8, 0x0010_2238);
         let encima = v.puntero.is_some_and(|(px, py)| dentro(px, py, (ex, ey, ew, eh)));
         let mut t = Vec::new();
         t.extend_from_slice(b"/  escribe en #");
         t.extend_from_slice(&nombre_canal(v));
-        cv.text_fit(ex + 16, ey + 12, &t, if encima { TEXTO } else { TENUE }, ew / 2);
-        cv.text(ex + ew - 400, ey + 12, b"ENTER juega   T tienda   Esc cierra", TENUE, 1);
+        pz::txt_cabe(cv, ex + 16, ey + 12, &t, if encima { TEXTO } else { TENUE }, ew / 2);
+        txt(cv, ex + ew - 400, ey + 12, b"ENTER juega   T tienda   Esc cierra", TENUE);
     }
 }
 
@@ -563,7 +606,7 @@ fn piezas(cv: &mut Canvas, v: &Vista) {
     let mut y = 20;
     for (k, (nombre, ini, c, estado, hace)) in lista.iter().enumerate() {
         if k == 0 || k == 4 {
-            cv.text(x_piezas() + 16, y + 8, if k == 0 { b"TRABAJANDO - 4" } else { b"ESPERANDO - 2" }, TENUE, 1);
+            pz::rotulo(cv, x_piezas() + 16, y + 8, if k == 0 { b"TRABAJANDO - 4" } else { b"ESPERANDO - 2" }, TENUE);
             y += 34;
         }
         let encima = v.puntero.is_some_and(|(px, py)| dentro(px, py, (x_piezas() + 8, y, PIEZAS - 16, 44)));
@@ -571,13 +614,13 @@ fn piezas(cv: &mut Canvas, v: &Vista) {
             redondo(cv, x_piezas() + 8, y, PIEZAS - 16, 44, 5, ENCIMA);
         }
         cv.disc(x_piezas() + 32, y + 22, 16, mezclar(*c, 0x0010_2A30, 150, 256));
-        negrita(cv, x_piezas() + 28, y + 14, &[*ini], BLANCO, 1);
+        inicial(cv, x_piezas() + 32, y + 22, *ini, BLANCO);
         cv.disc(x_piezas() + 44, y + 34, 6, FONDO_CANALES);
         let vivo = *estado == VERDE;
         let r = if vivo { 3 + onda(v.ms + k as u32 * 300, 1600) / 128 } else { 4 };
         cv.disc(x_piezas() + 44, y + 34, r, *estado);
         negrita(cv, x_piezas() + 58, y + 6, nombre, TEXTO, 1);
-        cv.text_fit(x_piezas() + 58, y + 24, hace, TENUE, PIEZAS - 66);
+        pz::txt_cabe(cv, x_piezas() + 58, y + 24, hace, TENUE, PIEZAS - 66);
         y += 48;
     }
     estado(cv, v);
@@ -588,16 +631,16 @@ fn estado(cv: &mut Canvas, v: &Vista) {
     let (x, y, w, h) = (x_piezas() + 8, alto() - 112, PIEZAS - 16, 100);
     redondo(cv, x, y, w, h, 6, NEON);
     redondo(cv, x + 1, y + 1, w - 2, h - 2, 5, OSCURO);
-    cv.text(x + 10, y + 8, b"LUDOTECA 01", NEON, 1);
+    pz::rotulo(cv, x + 10, y + 6, b"LUDOTECA 01", NEON);
     cv.rect(x + 10, y + 26, w - 20, 1, BORDE);
     let mut n = [0u8; 8];
     let k = crate::fmt_num(v.cat.l.juegos.len() as u64, &mut n);
-    let a = cv.text(x + 10, y + 34, b"JUEGOS: ", TENUE, 1);
-    cv.text(x + 10 + a, y + 34, &n[..k], TEXTO, 1);
-    let a = cv.text(x + 10, y + 52, b"PROTON-X: ", TENUE, 1);
-    cv.text(x + 10 + a, y + 52, if v.proton { b"listo" } else { b"falta" }, TEXTO, 1);
-    let a = cv.text(x + 10, y + 70, b"ESTRATOS: ", TENUE, 1);
-    cv.text(x + 10 + a, y + 70, if v.estratos { b"montado" } else { b"sin montar" }, TEXTO, 1);
+    let a = txt(cv, x + 10, y + 34, b"JUEGOS: ", TENUE);
+    txt(cv, x + 10 + a, y + 34, &n[..k], TEXTO);
+    let a = txt(cv, x + 10, y + 52, b"PROTON-X: ", TENUE);
+    txt(cv, x + 10 + a, y + 52, if v.proton { b"listo" } else { b"falta" }, TEXTO);
+    let a = txt(cv, x + 10, y + 70, b"ESTRATOS: ", TENUE);
+    txt(cv, x + 10 + a, y + 70, if v.estratos { b"montado" } else { b"sin montar" }, TEXTO);
     // Un cursor que parpadea, como una terminal viva.
     if (v.ms / 500) % 2 == 0 {
         cv.rect(x + w - 18, y + 72, 8, 12, NEON);

@@ -17,3 +17,6 @@ bmo-userland = { path = "../../userland" }
 bmo-ludoteca = { path = "../../../platform/shared/bmo-ludoteca" }
 # El mismo rasterizador que el kernel, el escritorio y el TALLER.
 bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
+# LA LETRA DE LA CASA (04-10): la de las maquetas, la misma que HERMES. Con
+# monton, por eso el paquete `bmo-letra-monton` (ver el Cargo.toml de HERMES).
+bmo-letra = { package = "bmo-letra-monton", path = "../../../platform/shared/bmo-letra-monton" }

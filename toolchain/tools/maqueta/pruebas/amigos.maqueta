@@ -1,0 +1,24 @@
+<!--
+   LOS AMIGOS -- la primera LISTA de MAQUETA (P2, 04-10).
+
+   La fila es `amigo.maqueta`, con sus datos. Aqui se dice DONDE va la lista
+   y cuantas filas caben como mucho; cuantas hay lo dice el aparato al correr.
+   Se maqueta y se juzga con las seis: si caben seis, caben las que haya.
+
+   En el codigo generado sale `LISTA_AMIGOS` (donde va cada fila); cada fila
+   la pinta `amigo::pintar(p, x, y, &Datos { .. })`.
+-->
+<maqueta>
+  <style>
+    .panel   { display:flex; flex-direction:column; gap:12px; padding:16px;
+               border-radius:14px; background-color:#0A0D14;
+               border-width:1px; border-color:#1B2130 }
+    .rotulo  { font-size:11px; font-weight:500; letter-spacing:.14em;
+               text-transform:uppercase; line-height:16px; color:#6E7A89 }
+  </style>
+
+  <div class="panel">
+    <span class="rotulo">amigos en linea</span>
+    <usa id="amigos" src="amigo.maqueta" repite="6" entre="4"/>
+  </div>
+</maqueta>

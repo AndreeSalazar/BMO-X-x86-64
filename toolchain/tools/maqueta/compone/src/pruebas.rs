@@ -115,44 +115,38 @@ fn cada_estado_se_maqueta_y_se_juzga() {
     assert!(f.render().contains("en el estado `abierta`"), "{}", f.render());
 }
 
+// -- LAS LISTAS (P2) -------------------------------------------------------
+
 #[test]
-fn la_transicion_va_de_uno_a_otro() {
-    let leer = disco(&[("p.maqueta", PANEL)]);
-    let e = compilar_estados_con(Path::new("p.maqueta"), &leer).unwrap();
-    let b = e.de("abierta").unwrap();
-    assert_eq!(transicion::duracion(b), 400);
-    let w = |ms| transicion::en(&e.reposo, b, ms).all()[1].rect.w;
-    assert_eq!(w(0), 100);
-    assert_eq!(w(200), 180, "a la mitad, en lineal, a la mitad");
-    assert_eq!(w(400), 260);
-    assert_eq!(w(9999), 260, "despues del final, el final");
-    let fondo = transicion::en(&e.reposo, b, 200).all()[1].style.background;
-    assert_eq!(fondo, Some(0x808080), "el color, mezclado");
-    assert_eq!(transicion::en(&e.reposo, b, 400), b.clone(), "al final ES el estado de llegada");
+fn una_lista_se_maqueta_con_todas_sus_filas_y_las_nombra() {
+    let principal = "<maqueta class=\"m\"><usa id=\"l\" src=\"fila.maqueta\" repite=\"3\" entre=\"4\"/></maqueta>\
+<style>.m{width:200px; height:100px; display:flex; flex-direction:column; padding:4px}</style>";
+    let leer = disco(&[("principal.maqueta", principal), ("fila.maqueta", FILA)]);
+    let l = compilar_con(Path::new("principal.maqueta"), &leer).unwrap_or_else(|f| panic!("{}", f.render()));
+    let usa = l.all().into_iter().find(|f| f.tag == Tag::Usa).expect("el usa");
+    assert_eq!((usa.rect.w, usa.rect.h), (120, 3 * 24 + 2 * 4), "tres filas y dos huecos");
+    assert_eq!(usa.children.len(), 3);
+    let ys: Vec<i32> = usa.children.iter().map(|f| f.rect.y).collect();
+    assert_eq!(ys, vec![4, 32, 60], "cada una `alto + entre` mas abajo");
+    let ids: Vec<&str> = l.hits().iter().map(|h| h.0).collect();
+    assert_eq!(ids, vec!["l", "l.0.nombre", "l.1.nombre", "l.2.nombre"]);
 }
 
 #[test]
-fn el_rebote_se_pasa_y_vuelve() {
-    let src = PANEL.replace("400ms linear", "400ms cubic-bezier(.34, 1.56, .64, 1)");
-    let leer = disco(&[("p.maqueta", src.as_str())]);
-    let e = compilar_estados_con(Path::new("p.maqueta"), &leer).unwrap();
-    let b = e.de("abierta").unwrap();
-    let anchos: Vec<u32> = (0..=40).map(|k| transicion::en(&e.reposo, b, k * 10).all()[1].rect.w).collect();
-    assert!(anchos.iter().any(|&w| w > 260), "se pasa de largo: {anchos:?}");
-    assert_eq!(*anchos.last().unwrap(), 260, "y acaba donde tiene que acabar");
+fn una_lista_que_no_cabe_entera_no_compila() {
+    // Seis filas de 24 no caben en 100: se juzga lo peor, que esten todas.
+    let principal = "<maqueta class=\"m\"><usa id=\"l\" src=\"fila.maqueta\" repite=\"6\"/></maqueta>\
+<style>.m{width:200px; height:100px; display:flex; flex-direction:column}</style>";
+    let leer = disco(&[("principal.maqueta", principal), ("fila.maqueta", FILA)]);
+    let f = compilar_con(Path::new("principal.maqueta"), &leer).err().expect("no cabe");
+    assert!(f.render().contains("se sale"), "{}", f.render());
 }
 
 #[test]
-fn una_caja_que_cambia_de_sitio_en_la_lista_se_empareja_por_lo_que_es() {
-    // En `fuera` la primera caja pasa a absoluta: en la lista de hijos va al
-    // final, y aun asi se mezcla consigo misma.
-    let src = "<maqueta class=\"m\"><div class=\"a\"></div><div class=\"b\"></div></maqueta>\
-<style>.m{width:300px; height:200px; display:flex; flex-direction:column} .a{width:50px; height:20px; background-color:#FF0000; transition: 100ms linear} .b{width:60px; height:20px; background-color:#00FF00}\
-@estado fuera { .a{position:absolute; left:200px; top:150px} }</style>";
-    let leer = disco(&[("p.maqueta", src)]);
-    let e = compilar_estados_con(Path::new("p.maqueta"), &leer).unwrap_or_else(|f| panic!("{}", f.render()));
-    let b = e.de("fuera").unwrap();
-    let mitad = transicion::en(&e.reposo, b, 50);
-    let roja = mitad.all().into_iter().find(|f| f.style.background == Some(0xFF0000)).expect("la roja");
-    assert_eq!((roja.rect.x, roja.rect.y), (100, 75), "a medio camino entre (0, 0) y (200, 150)");
+fn una_lista_necesita_id() {
+    let principal = "<maqueta class=\"m\"><usa src=\"fila.maqueta\" repite=\"2\"/></maqueta>\
+<style>.m{width:200px; height:100px; display:flex; flex-direction:column}</style>";
+    let leer = disco(&[("principal.maqueta", principal), ("fila.maqueta", FILA)]);
+    let f = compilar_con(Path::new("principal.maqueta"), &leer).err().expect("sin id");
+    assert!(f.render().contains("una lista necesita `id`"), "{}", f.render());
 }

@@ -303,14 +303,14 @@ fn ojos_vivos(p: &bmo::Pantalla, x0: u32, y0: u32, fondo: u32, forzar: bool) {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Ficha {
     pub(crate) v: Ventana,
-    pub(crate) nombre: &'static str,
+    pub(crate) nombre: &'static [u8],
     pub(crate) color: u32,
     pub(crate) activa: bool,
     pub(crate) minimizada: bool,
 }
 
 impl Ficha {
-    pub(crate) const VACIA: Ficha = Ficha { v: Ventana::Run, nombre: "", color: 0, activa: false, minimizada: false };
+    pub(crate) const VACIA: Ficha = Ficha { v: Ventana::Run, nombre: b"", color: 0, activa: false, minimizada: false };
 }
 
 /// Ejecutar, ESTRATOS, CABINA y las apps: 3 + `surface::MAX`, y aire.
@@ -334,6 +334,8 @@ pub(crate) fn fichas(lista: &[Ficha]) {
         FICHAS_N = n;
         FICHAS_SUCIAS = true;
     }
+    // La marca de la de delante VIAJA si cambio de fila (`barra_viva`).
+    super::barra_viva::delante(lista[..n].iter().position(|f| f.activa).map(|k| k as u32));
 }
 
 /// **Sobre que ficha esta el puntero**, si sobre alguna. La misma geometria que
@@ -360,26 +362,16 @@ pub(crate) fn en_la_tira(x: u32) -> bool {
 }
 
 fn pintar_fichas(p: &bmo::Pantalla, pl: &Plano) {
-    let e = estilo();
+    // ** Con la marca que VIAJA y la letra de la casa (04-10): ver
+    // `barra_viva`. Los tres estados de siempre: la de delante con su marca
+    // y una raya de su color, la minimizada con el punto apagado.
     let (lista, n) = unsafe { (&*addr_of!(FICHAS), FICHAS_N) };
-    let alto = pl.fichas_max * FILA;
-    p.rect(pl.x0 - 6, pl.fichas_y, pl.iw + 12, alto, e.barra_fondo);
-    for (k, f) in lista[..n.min(pl.fichas_max as usize)].iter().enumerate() {
-        let y = pl.fichas_y + k as u32 * FILA;
-        // Tres estados y tres aspectos, los mismos de las fichas de arriba: la
-        // de delante con su fondo y una raya de su color, la minimizada con el
-        // punto apagado.
-        if f.activa {
-            p.rect(pl.x0 - 6, y, pl.iw + 12, FICHA_H, 0x0018_1433);
-            p.rect(pl.x0 - 6, y + 4, 2, FICHA_H - 8, f.color);
-        }
-        let punto = if f.minimizada { INK_DIM } else { f.color };
-        p.rect(pl.x0 + 2, y + (FICHA_H - 8) / 2, 8, 8, punto);
-        let tinta = if f.minimizada { INK_DIM } else { INK };
-        let cabe = ((pl.iw - 18) / bmo::GLIFO_ANCHO) as usize;
-        let t = &f.nombre[..f.nombre.len().min(cabe)];
-        p.texto(pl.x0 + 18, y + (FICHA_H - bmo::GLIFO_ALTO) / 2, t, tinta);
+    let mut vistas = [super::barra_viva::Vista { nombre: b"", color: 0, activa: false, minimizada: false }; MAX_FICHAS];
+    for (v, f) in vistas.iter_mut().zip(lista[..n].iter()) {
+        *v = super::barra_viva::Vista { nombre: f.nombre, color: f.color, activa: f.activa, minimizada: f.minimizada };
     }
+    let sitio = super::barra_viva::Sitio { x0: pl.x0, iw: pl.iw, y0: pl.fichas_y, fila: FILA, alto: FICHA_H, max: pl.fichas_max };
+    super::barra_viva::pintar_fichas(p, sitio, &vistas[..n], estilo().barra_fondo, INK, INK_DIM);
 }
 
 // ===================================================================
@@ -422,6 +414,8 @@ static mut PREV_TSC: u64 = 0;
 static mut PREV_REPOSO: u64 = 0;
 /// El minuto que dice el reloj pintado; `u16::MAX` obliga a pintarlo.
 static mut MINUTO: u16 = u16::MAX;
+/// La hora pintada, para que la rueda sepa cual se va.
+static mut HHMM: [u8; 5] = [b' '; 5];
 
 /// Lo pintado se da por perdido: el fondo se repinto debajo. La vuelta
 /// siguiente pinta el panel entero, y la luz y el vol vuelven a pintarse.
@@ -476,7 +470,10 @@ pub(crate) fn latido(p: &bmo::Pantalla, mw: Option<u64>, l: &Lectura) {
             MINUTO = u16::MAX;
         }
     }
-    if unsafe { FICHAS_SUCIAS } {
+    // Las fichas: si cambiaron, o mientras su marca viaja (y el fotograma
+    // de despues, el que la deja en su sitio).
+    let viaja = super::barra_viva::fichas_se_mueven();
+    if unsafe { FICHAS_SUCIAS } || viaja {
         unsafe { FICHAS_SUCIAS = false };
         pintar_fichas(p, &pl);
     }
@@ -690,26 +687,30 @@ fn reloj(p: &bmo::Pantalla, pl: &Plano) {
         return;
     };
     let minuto = f.hora as u16 * 60 + f.minuto as u16;
-    if unsafe { MINUTO } == minuto {
+    // ** EL RELOJ QUE RUEDA (04-10): al cambiar el minuto, la hora vieja sube
+    // y se apaga y la nueva entra desde abajo (`barra_viva`). Mientras rueda
+    // se repinta en cada fotograma; quieto, solo cuando cambia el minuto.
+    let rueda = super::barra_viva::reloj_se_mueve();
+    if unsafe { MINUTO } == minuto && !rueda {
         return;
     }
-    unsafe { MINUTO = minuto };
     let dos = |v: u8| [b'0' + v / 10, b'0' + v % 10];
-    p.rect(pl.x0, pl.reloj_y, pl.iw, bmo::GLIFO_ALTO, estilo().barra_fondo);
-    // ** Con la letra de la casa (04-10): la hora en medio cuerpo firme y el
-    // dia chico y en perla, alineados por la base -- dos tallas que se
-    // leen como una sola linea, no como dos campos. Caben en la misma franja
-    // de 16 que se limpia arriba, asi que el borrado no cambia.
     let hora = dos(f.hora);
     let min = dos(f.minuto);
     let hhmm = [hora[0], hora[1], b':', min[0], min[1]];
-    let base = (pl.reloj_y + 13) as i32;
-    p.letra(pl.x0 as i32, base, &hhmm, INK, bmo::Estilo::media(16));
+    if unsafe { MINUTO } != minuto {
+        // La primera vez (o tras repintar el panel entero) no rueda: aparece.
+        if unsafe { MINUTO } != u16::MAX {
+            super::barra_viva::rueda_minuto(unsafe { HHMM });
+        }
+        unsafe {
+            MINUTO = minuto;
+            HHMM = hhmm;
+        }
+    }
     // El dia, pegado a la derecha: `22/09`.
     let dia = dos(f.dia);
     let mes = dos(f.mes);
     let fecha = [dia[0], dia[1], b'/', mes[0], mes[1]];
-    let e = bmo::Estilo::normal(12);
-    let fx = (pl.x0 + pl.iw) as i32 - p.medir(&fecha, e);
-    p.letra(fx, base, &fecha, super::tema_gen::PERLA, e);
+    super::barra_viva::pintar_reloj(p, pl.x0, pl.reloj_y, pl.iw, bmo::GLIFO_ALTO, &hhmm, &fecha, estilo().barra_fondo, INK, super::tema_gen::PERLA);
 }

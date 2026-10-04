@@ -30,7 +30,10 @@
 pub mod flow;
 pub mod measure;
 
-use bmo_maqueta_cascade::{Cascaded, Style, Styled};
+use bmo_maqueta_cascade::{Cascaded, Styled};
+/// El estilo de una caja, como lo lleva cada `Frame`: quien lea un `Frame`
+/// tiene que poder nombrar su estilo sin depender de la cascada.
+pub use bmo_maqueta_cascade::Style;
 use bmo_maqueta_diag::Span;
 use bmo_maqueta_node::Tag;
 
@@ -87,6 +90,9 @@ pub struct Frame {
     pub d: Option<String>,
     /// `<usa src>`: la pieza que se injerta aqui DESPUES de maquetar.
     pub src: Option<String>,
+    /// `<usa repite>` (P2) y el hueco `{nombre}` (H1): carried.
+    pub repite: Option<bmo_maqueta_node::Repite>,
+    pub hueco: Option<String>,
     /// Carried, not read: this generation never looks at a colour.
     pub style: Style,
     /// ** Carried and never read EITHER -- and that is the proof that `:hover`

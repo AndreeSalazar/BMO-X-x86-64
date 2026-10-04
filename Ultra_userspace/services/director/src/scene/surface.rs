@@ -169,8 +169,10 @@ pub(crate) struct Surface {
     base: u64,
     /// Lo que el KERNEL dijo que presto. El tope de todo lo que se lee.
     bytes: u64,
-    /// Quien la ofrecio. Es el titulo de la ventana y la identidad de la app.
+    /// Quien la ofrecio. Es la identidad de la app.
     pub(crate) tid: u32,
+    /// Como se llama (lo que el kernel apunto al lanzarla): su titulo.
+    pub(crate) nombre: super::nombre_app::Nombre,
     /// La ultima secuencia que se PEGO. Empieza al reves de la primera lectura
     /// para que el primer fotograma se pinte siempre.
     stuck: u32,
@@ -228,6 +230,7 @@ impl Surface {
             base,
             bytes,
             tid,
+            nombre: super::nombre_app::Nombre::de(tid),
             // Cualquier valor distinto del que hay: asi el primer `compose`
             // pinta sin tener que llevar ademas un "es la primera vez".
             //
@@ -545,12 +548,16 @@ impl Surface {
             return;
         }
         super::fino::punto(p, self.chrome.x + 12, self.chrome.y, acento());
-        // El titulo es el TID, porque es lo unico que el DIRECTOR sabe de esta
-        // app con certeza: el nombre lo pondria quien la lanzo, y lanzar y
-        // componer son dos cosas distintas. Ver el paso 3 del plan.
+        // El titulo es el NOMBRE del programa (04-10: decia `tid 16`), con el
+        // tid detras en tenue: el nombre para leer, el tid para CABINA. Si el
+        // kernel no lo apunto, el tid solo, que es lo unico seguro.
         let mut n = [0u8; 12];
         let length = tid_text(self.tid, &mut n);
-        super::fino::titulo(p, self.chrome.x + 28, self.chrome.y, &n[..length], INK, b"", INK);
+        let (x, y) = (self.chrome.x + 28, self.chrome.y);
+        match self.nombre.texto() {
+            b"" => super::fino::titulo(p, x, y, &n[..length], INK, b"", INK),
+            nombre => super::fino::titulo(p, x, y, nombre, INK, &n[..length], super::fino::TENUE),
+        };
     }
 
     /// **La secuencia que la app publico ahora mismo.** La lee FRAPS-X: cada
@@ -757,19 +764,9 @@ const SIN_MARCO: [&[u8]; 3] = [b"ludoteca.bex", b"hermes.bex", b"bankcat.bex"];
 /// saber si la LUDOTECA ya esta abierta: el nombre que el kernel apunto al
 /// lanzarlo.
 fn sin_marco(tid: u32) -> bool {
-    for k in 0..64u64 {
-        let quien = bmo::info(bmo::INFO_PROG_QUIEN | (k << 8));
-        if quien == 0 {
-            break;
-        }
-        if (quien >> 16) & 0xFFFF != tid as u64 {
-            continue;
-        }
-        let mut texto = [0u8; 40];
-        let t = bmo::info_texto(bmo::INFO_TXT_PROG_NOMBRE | (k << 8), &mut texto).min(texto.len());
-        return SIN_MARCO.iter().any(|n| texto[..t].ends_with(n));
-    }
-    false
+    let mut texto = [0u8; 40];
+    let t = super::nombre_app::programa(tid, &mut texto);
+    t > 0 && SIN_MARCO.iter().any(|n| texto[..t].ends_with(n))
 }
 
 fn tid_text(tid: u32, dst: &mut [u8; 12]) -> usize {
@@ -1112,6 +1109,7 @@ impl Table {
         match Surface::new(p, handle, base, bytes, tid) {
             Some(s) => {
                 let (w, h) = (s.chrome.width, s.chrome.height);
+                super::nombre_app::apuntar(gap, s.nombre);
                 self.sup[gap] = Some(s);
                 Adopcion::Nacio { hueco: gap, tid, ancho: w, alto: h }
             }

@@ -34,7 +34,7 @@
 
 use bmo_userland as bmo;
 
-use super::tema_gen::{FINO_BORDE, FINO_FONDO, LATON, MARCA_FONDO, MARFIL, PERLA};
+use super::tema_gen::{FINO_BORDE, FINO_FONDO, MARCA_FONDO, MARFIL, PERLA};
 
 /// El radio de una tarjeta.
 pub(crate) const RADIO: i32 = 14;
@@ -73,9 +73,10 @@ pub(crate) fn tarjeta(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32) {
     p.pieza(&bmo::Pieza::Borde { x, y, w, h, r: RADIO, grosor: 1, c: hilo() }, 0, 0, None);
 }
 
-/// **El rotulo** con la base en `y`. Devuelve el ancho.
-pub(crate) fn rotulo(p: &bmo::Pantalla, x: u32, y: u32, texto: &[u8]) -> u32 {
-    p.letra(x as i32, y as i32, texto, LATON, ROTULO).max(0) as u32
+/// **El rotulo** con la base en `y`, en laton (o en lo que `tinta` diga
+/// mientras se enciende). Devuelve el ancho.
+pub(crate) fn rotulo(p: &bmo::Pantalla, x: u32, y: u32, texto: &[u8], tinta: u32) -> u32 {
+    p.letra(x as i32, y as i32, texto, tinta, ROTULO).max(0) as u32
 }
 
 /// **El filete**: una raya de un pixel que se enciende en el centro y se
@@ -85,14 +86,6 @@ pub(crate) fn filete(p: &bmo::Pantalla, x: u32, y: u32, w: u32) {
     let (x, y) = (x as i32, y as i32);
     p.pieza(&bmo::Pieza::Degradado { x, y, w: mitad, h: 1, r: 0, de: FINO_FONDO, a: hilo(), vertical: false }, 0, 0, None);
     p.pieza(&bmo::Pieza::Degradado { x: x + mitad, y, w: w as i32 - mitad, h: 1, r: 0, de: hilo(), a: FINO_FONDO, vertical: false }, 0, 0, None);
-}
-
-/// **La marca** de lo elegido en `(x, y, w, h)`: la pastilla y el punto del
-/// acento a la izquierda, centrado en la fila.
-pub(crate) fn marca(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32, acento: u32) {
-    let (x, y, w, h) = (x as i32, y as i32, w as i32, h as i32);
-    p.caja_redonda(x, y, w, h, 9, MARCA_FONDO);
-    p.caja_redonda(x + 12, y + h / 2 - 3, 6, 6, 3, acento);
 }
 
 /// **Un texto en su caja**, con la base puesta donde la pondria el

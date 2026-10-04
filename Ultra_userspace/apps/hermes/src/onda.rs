@@ -4,7 +4,7 @@
 
 use crate::canvas::Canvas;
 use crate::mates::{coseno, fase, onda, seno};
-use crate::piezas::{t_grande, ancho_txt, txt, txt_cabe};
+use crate::piezas::{caja, t_grande, ancho_txt, txt, txt_cabe};
 use crate::pintar::{suelo, ancho_centro, llega, nivel, Vista, BLANCO, CABECERA, CIAN, FONDO, GRIS, LIMA, LINEA, NEGRO, PANEL2, ROSA, TENUE, TEXTO, AMBAR, AZUL, MORADO, VERDE};
 use bmo_dibujo::{mezclar, Color, Lienzo};
 use bmo_fondo::{Estilo, PIEZAS};
@@ -118,8 +118,7 @@ pub(crate) fn la_onda(cv: &mut Canvas, v: &Vista, x0: i32) {
         if fx + fw > tx + tw {
             break;
         }
-        cv.rect(fx, fy, fw, 22, mezclar(color, FONDO, 36, 256));
-        cv.frame(fx, fy, fw, 22, 1, mezclar(color, FONDO, 120, 256));
+        caja(cv, fx, fy, fw, 22, 11, mezclar(color, FONDO, 36, 256), mezclar(color, FONDO, 120, 256));
         let fin = txt(cv, fx + 8, fy + 3, ficha, TEXTO);
         if kk == 0 {
             txt(cv, fx + 8 + fin, fy + 3, b" pulsos", TENUE);

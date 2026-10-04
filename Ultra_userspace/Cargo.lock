@@ -37,6 +37,7 @@ name = "bmo-app-ludoteca"
 version = "0.1.0"
 dependencies = [
  "bmo-dibujo",
+ "bmo-letra-monton",
  "bmo-ludoteca",
  "bmo-monton",
  "bmo-userland",

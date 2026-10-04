@@ -32,3 +32,5 @@ bmo-letra = { path = "../../../../platform/shared/bmo-letra" }
 bmo-maqueta-cascade = { path = "../cascade" }
 bmo-maqueta-verdict = { path = "../verdict" }
 bmo-maqueta-diag = { path = "../diag" }
+# Las pruebas de la transicion compilan los estados con quien los compone.
+bmo-maqueta-compone = { path = "../compone" }

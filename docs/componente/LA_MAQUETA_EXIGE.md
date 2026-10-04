@@ -88,7 +88,7 @@ declara con medida; una ventana que debe ajustarse a su contenido, no.
 | `<island>` | el hueco que rellena otro proceso | atributo `nombre`, obligatorio y unico |
 | `<svg>` | **MAQUETA 2 (04-10)**: un dibujo, con su `viewBox` | solo lleva `<path>`; su pluma y su relleno se dicen en SU regla (`stroke`, `fill`...) |
 | `<path>` | un camino de SVG, atributo `d` | solo dentro de `<svg>`. `M L H V C S Q T Z` y minusculas; sin arcos `A` |
-| `<usa>` | **(04-10)** una PIEZA: otra maqueta, puesta aqui | atributo `src`, obligatorio; vacia. Ver abajo |
+| `<usa>` | **(04-10)** una PIEZA: otra maqueta, puesta aqui | atributo `src`, obligatorio; vacia. Con `repite` (y `entre`), una LISTA. Ver abajo |
 
 Los **nodos de texto sueltos** son validos dentro de `<div>` y `<span>`, como en
 HTML. Se miden **al compilar**: con la letra de la casa (`bmo-letra`, el MISMO
@@ -98,7 +98,8 @@ B de la seccion 7).
 
 Atributos aceptados: `class`, `id`, `nombre` (solo en `<island>`), `ancho`/`alto`
 (solo en `<maqueta>`), `viewBox` (solo en `<svg>`), `d` (solo en `<path>`) y
-`src` (solo en `<usa>`). **Cualquier otro atributo es un error.**
+`src`, `repite` y `entre` (solo en `<usa>`). **Cualquier otro atributo es un
+error.**
 
 ### `<usa src="fila.maqueta"/>`: las piezas (04-10)
 
@@ -125,6 +126,44 @@ una pieza se cuenta en SU fichero. Vive en `toolchain/tools/maqueta/compone/`.
 **Shadow DOM**, que es el mismo aislamiento dicho en HTML. Medido con
 `pruebas/escaparate.maqueta` (la tarjeta dos veces): el navegador la mide
 **788 x 276, lo mismo que MAQUETA**, y se parece un 93,56 %.
+
+### `<usa repite="6" entre="4">`: las LISTAS, y los DATOS (P2/H1/H2, 04-10)
+
+Una lista es la misma pieza --la FILA-- hasta `repite` veces en columna,
+`entre` pixeles una de otra (`repite` de 1 a 64, `entre` de 0 a 256). Lleva
+`id` obligatorio: sus filas salen como `amigos.0.fila`, `amigos.1.fila`...
+
+- **Se maqueta y se juzga con TODAS las filas**: lo peor que puede pasar. Si
+  caben seis, caben las que haya.
+- **Cuantas hay lo dice el aparato al correr**, hasta el tope. En el codigo
+  generado de la principal sale `LISTA_<ID>` (donde va cada fila: `x`, `y`,
+  `paso`, `max`, y `fila(i)`), y la principal NO pinta las filas: las pinta
+  el modulo de la fila, una vez por dato.
+
+Lo que llega al ejecutar se marca EN LA FILA, siempre con su **muestra** (lo
+que se maqueta, se juzga y sale en la foto):
+
+| En la pieza | Que es | En el codigo generado |
+|---|---|---|
+| `<span>{nombre\|Ana Lopez}</span>` | un texto: es TODO el texto de su caja; nombre en minusculas | `Datos { nombre: &[u8], .. }`; se pinta con `p.pieza_cabe(.., max, ..)`, que corta con `...` a su caja |
+| `:root { --dato-color: #4DE38E }` | un color; se usa con `var(--dato-color)` | `Datos { color: u32, .. }`; donde se pintaba la muestra va `d.color` (con alfa, `(0xAA000000 \| d.color)`) |
+
+Y el modulo de la fila sale con `pub struct Datos`, `pub const MUESTRA` y
+`pintar(p, ox, oy, d: &Datos)`. Las reglas, todas con su motivo:
+
+- **La caja de un hueco dice su `width` y su `font-size`, y el texto va a la
+  izquierda** (comprobacion D). El texto no se conoce y no se puede juzgar;
+  lo que se juzga es su caja, y asi el aparato corta sin maquetar nada.
+  Centrado se moveria con lo que mide.
+- **La muestra de un color no puede salir en el fichero de otra forma** (ni a
+  mano ni en otra variable): el emisor reconoce el dato por su muestra, y asi
+  reconocer no es adivinar. Si choca, se pide otra muestra.
+- Una pieza con datos **no lleva estados todavia** (es P3c).
+
+Ejemplo entero: `pruebas/amigo.maqueta` (la fila) y `pruebas/amigos.maqueta`
+(la lista). [!] El navegador (`foto.js`) todavia no repite filas ni lee los
+huecos: muestra `{nombre|Ana Lopez}` tal cual. El espejo de las listas esta
+por hacer.
 
 ★ **Por que un dibujo es `<svg>` y no pixeles** (04-10): un icono son
 MATEMATICAS -- rectas y curvas --, y el compilador las aplana en el anfitrion
@@ -202,9 +241,11 @@ por prudencia.
   `ease-in-out` o `cubic-bezier(x1, y1, x2, y2)` -- con las `y` por encima de 1
   es el REBOTE, y sigue siendo CSS. Vale la de la caja en el estado de LLEGADA,
   como en CSS. Sin `transition`, la caja cambia de golpe.
-- **Pasar de un estado a otro es mezclar cajas YA maquetadas**
-  (`compone/src/transicion.rs`): el sitio, la medida, los colores, el radio,
-  el borde, el resplandor y la talla de la letra. Lo que no se puede mezclar
+- **Pasar de un estado a otro es mezclar PIEZAS ya maquetadas**
+  (`emit/src/movimiento.rs` las empareja; `bmo_pinta::entre_piezas` las
+  mezcla): el sitio, la medida, los colores, el radio, el borde, el
+  resplandor y la talla de la letra. Un resplandor que aparece nace de
+  alcance 0 en la caja de salida y crece con ella. Lo que no se puede mezclar
   (un color que aparece) salta a mitad, como hace CSS con lo discreto. **En
   el aparato no se maqueta nada.** Una caja que cambia de fila a columna, o
   que pasa a absoluta, tambien se mueve suave: se empareja por lo que ES, no
@@ -220,8 +261,13 @@ por prudencia.
    maqueta --foto --tira reposo abierta 8 panel.maqueta tira.png
 ```
 
-[!] Hoy esto es del ANFITRION (las fotos de cada estado y de la transicion).
-El escritorio pintando la transicion es P3b de `PLAN_MAQUETA.md`.
+**En el escritorio (P3b)**: el modulo generado lleva `ESTADOS`,
+`duracion(de, a)`, `pintar_estado` y `pintar_transicion(p, ox, oy, de, a,
+ms)`, que pinta cada par con `p.pieza_entre`. La tira del anfitrion
+(`--tira`) sale de los MISMOS pares: es el oraculo del codigo generado, y sus
+extremos son los dos estados pixel a pixel (test). [!] Comprobado que el
+modulo del panel compila en el director; ninguna ventana lo usa todavia y no
+se ha visto en el Ryzen.
 
 ### 3c. Los atajos y las variables (escalon 1, 04-10)
 
@@ -480,6 +526,11 @@ pantalla estando mal. El mensaje da los dos numeros.
 **C.** Ninguna caja mide cero. Casi siempre es una propiedad olvidada, y como no
 pinta ni ocupa sitio, no hay forma de notarlo mirando la pantalla.
 
+**D.** (04-10) **Un hueco de datos (`{nombre}`) dice su caja entera**: `width`,
+`font-size` y el texto a la izquierda. Su texto no se puede juzgar (llega al
+ejecutar); lo que se juzga es la caja donde el aparato lo corta con `...`. La
+muestra si se juzga con B, para que la foto sea honrada.
+
 ### Los nombres responden (`names.rs`)
 
 **D.** Todo `id` es unico -- es la clave de la tabla de golpeo, y con dos iguales
@@ -641,6 +692,11 @@ calcula mal -- y emite ademas su alto. Rust la repite con el `+=` de siempre.
 
 Un `.maqueta` cuyo numero de hijos dependa de algo que no esta en el fichero es
 un error, no una funcionalidad pendiente.
+
+★ **Y `<usa repite>` (04-10) no cruza esta frontera: la escribe.** Lo que esta
+en el fichero es el TOPE (`repite="6"`), y con el se maqueta y se juzga; el
+numero de verdad sigue siendo de Rust, que llama al modulo de la fila con cada
+dato en `LISTA_<ID>.fila(i)`. Ver la seccion 2.
 
 ---
 

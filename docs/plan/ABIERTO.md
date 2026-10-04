@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   572 casillas ABIERTAS en 54 planes
-   405 hechas
+   578 casillas ABIERTAS en 54 planes
+   415 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -104,6 +104,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
 - ... y 14 mas
 
+## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 17 abiertas, 28 hechas
+
+*PLAN MAQUETA*
+
+- [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
+- [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
+- [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
+- ... y 14 mas
+
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas
 
 *PLAN MEDIOS -- VLC como objetivo, medido contra lo que hay*
@@ -174,15 +183,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M0b-2 -- lo que queda del papeleo, SI la medida lo pide. Quedan dos
 - [ ] M0c -- los 112 ticks del match de INFO. El rechazo por campo
 - [ ] M1b -- CUANTO CUESTA REVOCAR UNA PAGINA, y va ANTES de M1. La seccion
-- ... y 8 mas
-
-## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 11 abiertas, 18 hechas
-
-*PLAN MAQUETA*
-
-- [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
-- [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
-- [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 8 mas
 
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas

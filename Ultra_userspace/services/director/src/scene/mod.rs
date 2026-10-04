@@ -33,6 +33,11 @@ pub(crate) mod switcher;
 // LO FINO (04-10): la tarjeta, el rotulo, el filete y la marca de lo que
 // flota encima, con la letra de la casa y los colores de `.fino`.
 pub(crate) mod fino;
+// LA VIDA (04-10): el reloj comun de las animaciones del escritorio, y la de
+// la barra lateral (la marca que viaja y el reloj que rueda).
+pub(crate) mod vida;
+pub(crate) mod nombre_app;
+pub(crate) mod barra_viva;
 /// El pedido de ABRIR: lo hace la biblioteca y lo atiende el teclado. Vivia en `desktop` (L8).
 pub(crate) mod abrir;
 pub(crate) mod data;

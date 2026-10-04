@@ -370,7 +370,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         };
         pon(Ficha {
             v: Ventana::Run,
-            nombre: "Ejecutar",
+            nombre: b"Ejecutar",
             color: acento(),
             activa: dsk.win.visible && dsk.win.top_before == Ventana::Run,
             minimizada: !dsk.win.visible,
@@ -380,7 +380,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         if dsk.win.data_open {
             pon(Ficha {
                 v: Ventana::Data,
-                nombre: "ESTRATOS",
+                nombre: b"ESTRATOS",
                 color: 0x0034_D399,
                 activa: dsk.win.top_before == Ventana::Data,
                 minimizada: dsk.win.data.chrome.minimized,
@@ -396,7 +396,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         // es la puerta, no el recordatorio.
         pon(Ficha {
             v: Ventana::Cabina,
-            nombre: "CABINA",
+            nombre: b"CABINA",
             color: 0x00F5_9E0B,
             activa: dsk.win.cabina_open && dsk.win.top_before == Ventana::Cabina,
             minimizada: !dsk.win.cabina_open,
@@ -408,10 +408,11 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         let (fichas, k) = dsk.table.fichas();
         for &hueco in &fichas[..k] {
             let v = Ventana::App(hueco as u8);
+            // Con su nombre y el color de su icono (04-10: decia `App 1`).
             pon(Ficha {
                 v,
-                nombre: v.nombre(),
-                color: 0x0060_A5FA,
+                nombre: v.rotulo(),
+                color: scene::nombre_app::del_hueco(hueco).map_or(0x0060_A5FA, |n| n.color),
                 activa: dsk.win.focus.actual() == Some(v),
                 minimizada: dsk.table.minimizada(hueco),
             });
@@ -424,6 +425,12 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // y cuatro veces por segundo la muestra de sus instrumentos.
     if dsk.tick.will_paint && !fs {
         scene::lateral::latido(&p, dsk.tick.consumo.ultimo.map(|c| c.mw_paquete), &dsk.tick.lectura_pulso());
+        // ** LA VIDA (04-10): la marca de la rejilla que brota. Debajo de las
+        // ventanas: si alguna tapa la celda, el cierre del fotograma la
+        // devuelve encima (`devolver`).
+        if let Some((cx, cy, cw, ch)) = scene::launcher::vivir(&p, &dsk.launcher) {
+            scene::dirty::apuntar(cx, cy, cw, ch);
+        }
         // Y el MAESTRO: su indicador al pie del panel y, si su ventana esta
         // abierta, su medidor. Se mira a su propio ritmo, no al del panel.
         crate::desktop::sonido::latido(dsk, &p);
@@ -607,6 +614,11 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // guarda lo que tapa, y lo que tapa tiene que incluir la capa. --
     // Y el globo del puntero, DEBAJO de las dos, y el destello del foco
     // debajo de todo: se quitan los ultimos, al reves.
+    // ** LA VIDA (04-10): Alt+Tab abriendose o con la marca viajando. Encima
+    // de las ventanas y de las apps, debajo de las capas.
+    if dsk.tick.will_paint && dsk.win.switcher_painted {
+        scene::switcher::vivir(&p);
+    }
     if dsk.tick.will_paint {
         crate::desktop::transicion::poner(dsk, &p, fs);
         crate::desktop::brillo::poner(dsk, &p, fs);
@@ -618,6 +630,8 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         // lee sobre cualquier cosa, un juego a pantalla completa incluido.
         crate::desktop::fraps::poner(&p);
         crate::desktop::fraps::pinto();
+        // El fotograma de vida esta pintado: el siguiente espera uno entero.
+        scene::vida::pinto();
     }
 
     // -- El cursor del raton, ENCIMA de todo y lo ultimo --

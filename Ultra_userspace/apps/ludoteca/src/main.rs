@@ -30,6 +30,11 @@ mod entrada;
 mod iconos;
 mod mates;
 mod pintar;
+/// Las piezas de la maqueta (04-10): la letra de la casa y las cajas
+/// suaves, las MISMAS que HERMES y BANK CAT, sin copia.
+#[path = "../../hermes/src/piezas.rs"]
+#[allow(dead_code)]
+mod piezas;
 mod tiendas;
 
 /// La ventana y el lienzo son los del TALLER (F1): las mismas piezas, sin copia.
