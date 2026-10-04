@@ -24,6 +24,9 @@
 //!    level 9   a PACKAGE: the header says the children (`mod ship`) and the
 //!              connections (`use ship`); `pub` says what is seen from
 //!              outside; `ship.avanza()` calls into another module
+//!    level 10  `trait Forma` says what a value KNOWS how to do (its fn, no
+//!              body); `trait Forma for Circulo` is how Circulo does it; and
+//!              `fn mide(f: Forma)` takes ANY value that does it
 //! ```
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,6 +43,41 @@ pub struct Program {
     pub uses: Vec<Use>,
     /// `mod ship, rock` / `mod rules in "x/r.titan"`: its children (level 9).
     pub children: Vec<Child>,
+    /// `trait Forma` and the fn it promises (level 10).
+    pub traits: Vec<TraitDef>,
+    /// `trait Forma for Circulo` and how Circulo keeps it (level 10).
+    pub impls: Vec<Impl>,
+}
+
+/// `trait Forma` and, below it, what a value of it KNOWS how to do: each fn
+/// with no body, its first value of the trait itself (level 10).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraitDef {
+    pub name: String,
+    pub public: bool,
+    pub line: usize,
+    pub col: usize,
+    pub methods: Vec<Sig>,
+}
+
+/// A fn without a body: what a trait promises.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Sig {
+    pub name: String,
+    pub params: Vec<Param>,
+    pub ret: Option<Ty>,
+    pub line: usize,
+    pub col: usize,
+}
+
+/// `trait Forma for Circulo` and its fn: how the type keeps the trait (10).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Impl {
+    pub trait_name: String,
+    pub ty: Ty,
+    pub line: usize,
+    pub col: usize,
+    pub functions: Vec<Function>,
 }
 
 /// One name of a `use` line (level 9).

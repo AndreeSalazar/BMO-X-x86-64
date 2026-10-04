@@ -119,6 +119,9 @@ const BANCO: &[(&str, &str)] = &[
     // Nivel 9 (04-10): paquetes de varios ficheros, con `mod`, `use` y `pub`.
     ("titan", "toolchain/lang/titan/ejemplos/nivel9/flota/src/main.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel9/tienda/src/main.titan"),
+    // Nivel 10 (04-10): `trait`, lo que un valor sabe hacer.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel10/formas.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel10/motor/src/main.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]

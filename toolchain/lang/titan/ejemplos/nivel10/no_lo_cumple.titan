@@ -1,0 +1,23 @@
+# espera: T0085
+# `mide` pide algo que cumpla Forma, y Roca no dice como: se oye en la llamada, en una frase
+mod main "una roca que no se sabe medir"
+
+trait Forma
+    fn area(f: Forma) -> dec
+
+type Circulo
+    r: dec
+
+type Roca
+    peso: dec
+
+trait Forma for Circulo
+    fn area(c: Circulo) -> dec
+        return 3.14 * c.r * c.r
+
+fn mide(f: Forma)
+    print(area(f))
+
+fn main()
+    mide(Circulo { r: 1.0 })
+    mide(Roca { peso: 9.5 })

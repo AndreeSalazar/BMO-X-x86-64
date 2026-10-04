@@ -1,0 +1,6 @@
+# espera: T0040
+# `gpu` (la 3060) es del nivel 11: la escalera se sube de uno en uno
+mod main "un caso que aun no existe"
+
+fn main()
+    gpu suma

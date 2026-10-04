@@ -50,7 +50,7 @@
 //! reaches for it later (T0058). Today it is a line of the IR; with `take`
 //! (level 7) it is the point where the value is given back.
 
-use crate::tree::{EnumDef, Expr, Mode, Program, Stmt, Ty, TypeDef};
+use crate::tree::{EnumDef, Expr, Mode, Program, Stmt, TraitDef, Ty, TypeDef};
 
 /// A whole module, ready to emit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +65,9 @@ pub struct Module {
     pub types: Vec<TypeDef>,
     /// The `enum`s of the file, as written (level 8).
     pub enums: Vec<EnumDef>,
+    /// The `trait`s (level 10), and which type keeps which: (trait, type).
+    pub traits: Vec<TraitDef>,
+    pub impls: Vec<(String, String)>,
     /// Set by the calculation (`calc.rs`, level 4): the WHOLE program, run
     /// when compiling -- what it writes, in order, every value already a
     /// constant. Until something comes from outside, this is all the program
@@ -88,6 +91,10 @@ pub struct Function {
     /// What it gives back, if anything (level 5).
     pub ret: Option<Ty>,
     pub blocks: Vec<Block>,
+    /// A fn of a TRAIT (level 10): it has no body of its own, and a call to
+    /// it runs the fn of the type of its first value -- (type, function).
+    /// `None` for every fn with a body.
+    pub dispatch: Option<Vec<(String, usize)>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -270,6 +277,15 @@ fn local_of(locals: &mut Vec<Local>, name: &str) -> usize {
     }
 }
 
+/// The function a call goes to: a fn of the program, or -- after them, in
+/// order -- the fn of a trait (level 10).
+fn func_index(p: &Program, name: &str) -> usize {
+    p.functions.iter().position(|f| f.name == name).unwrap_or_else(|| {
+        let k = p.traits.iter().flat_map(|t| &t.methods).position(|s| s.name == name).expect("check: every call goes somewhere");
+        p.functions.len() + k
+    })
+}
+
 fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
     let value = |e: &Expr, locals: &mut Vec<Local>| value(e, locals, p);
     match e {
@@ -292,7 +308,7 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
             Value::Variant(e, v, args.iter().map(|a| value(a, locals)).collect(), (*line, *col))
         }
         Expr::Call { callee, args, line, col } => {
-            let func = p.functions.iter().position(|f| &f.name == callee).expect("check: every call goes somewhere");
+            let func = func_index(p, callee);
             Value::Call(func, args.iter().map(|a| value(a, locals)).collect(), (*line, *col))
         }
         Expr::Dec { digits, scale, line, col } => Value::Dec(*digits, *scale, (*line, *col)),
@@ -347,7 +363,7 @@ impl Lowering<'_> {
     }
 
     fn index(&self, name: &str) -> usize {
-        self.p.functions.iter().position(|f| f.name == name).expect("check: every call goes somewhere")
+        func_index(self.p, name)
     }
 
     fn open_scope(&mut self, opener: At) {
@@ -628,9 +644,36 @@ pub fn lower(p: &Program) -> Module {
             let params = f.params.iter().map(|a| (local_of(&mut l.locals, &a.name), a.ty.clone())).collect();
             let first = l.open();
             l.stmts(&f.body, first);
-            Function { name: f.name.clone(), line: f.line, locals: l.locals, params, modes: f.params.iter().map(|a| a.mode).collect(), ret: f.ret.clone(), blocks: l.blocks }
+            Function { name: f.name.clone(), line: f.line, locals: l.locals, params, modes: f.params.iter().map(|a| a.mode).collect(), ret: f.ret.clone(), blocks: l.blocks, dispatch: None }
         })
-        .collect();
+        .collect::<Vec<_>>();
+    // ** The fn of each trait (level 10): no body, and a table -- for each
+    // type that keeps the trait, the fn that is ITS way (`area<Circulo>`).
+    let mut functions = functions;
+    for t in &p.traits {
+        for s in &t.methods {
+            let table = p
+                .impls
+                .iter()
+                .filter(|i| i.trait_name == t.name)
+                .map(|i| {
+                    let name = crate::comportamiento::instance(&s.name, &i.ty);
+                    (i.ty.name(), p.functions.iter().position(|f| f.name == name).expect("comportamiento: every fn of a trait ... for is a fn"))
+                })
+                .collect();
+            let locals = s.params.iter().map(|a| Local { name: a.name.clone() }).collect();
+            functions.push(Function {
+                name: s.name.clone(),
+                line: s.line,
+                locals,
+                params: s.params.iter().enumerate().map(|(k, a)| (k, a.ty.clone())).collect(),
+                modes: s.params.iter().map(|a| a.mode).collect(),
+                ret: s.ret.clone(),
+                blocks: vec![Block { ops: Vec::new(), end: End::Return(None), dead: false }],
+                dispatch: Some(table),
+            });
+        }
+    }
     Module {
         name: p.module.clone(),
         purpose: p.purpose.clone(),
@@ -638,6 +681,8 @@ pub fn lower(p: &Program) -> Module {
         entry: p.functions.iter().position(|f| f.name == "main").expect("check: there is a main"),
         types: p.types.clone(),
         enums: p.enums.clone(),
+        traits: p.traits.clone(),
+        impls: p.impls.iter().map(|i| (i.trait_name.clone(), i.ty.name())).collect(),
         flat: None,
     }
 }

@@ -1,0 +1,5 @@
+mod pieza "lo que una pieza del motor sabe hacer"
+
+pub trait Pieza
+    fn vueltas(p: Pieza, segundos: int) -> int
+    fn nombre(p: Pieza) -> text

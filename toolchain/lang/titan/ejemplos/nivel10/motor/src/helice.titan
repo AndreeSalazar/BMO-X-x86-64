@@ -1,0 +1,11 @@
+mod helice "una helice: dos vueltas por pala y por segundo"
+use pieza
+
+pub type Helice
+    palas: int
+
+trait pieza.Pieza for Helice
+    fn vueltas(h: Helice, segundos: int) -> int
+        return 2 * h.palas * segundos
+    fn nombre(h: Helice) -> text
+        return "helice"

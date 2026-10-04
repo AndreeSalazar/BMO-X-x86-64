@@ -1,0 +1,14 @@
+mod rueda "una rueda: dos vueltas por segundo"
+use pieza
+
+pub type Rueda
+    radio: int
+
+pub fn nueva() -> Rueda
+    return Rueda { radio: 30 }
+
+trait pieza.Pieza for Rueda
+    fn vueltas(r: Rueda, segundos: int) -> int
+        return 2 * segundos
+    fn nombre(r: Rueda) -> text
+        return "rueda"

@@ -82,7 +82,8 @@ fn meet(a: State, b: State) -> State {
 /// The whole module, function by function. The first NO stops it, like the
 /// rest of the frontend: one right message is worth ten that follow from it.
 pub fn judge(m: &Module) -> Result<(), Message> {
-    for f in &m.functions {
+    // A trait's fn has no body to judge: each type's fn is judged as its own.
+    for f in m.functions.iter().filter(|f| f.dispatch.is_none()) {
         judge_fn(f)?;
     }
     Ok(())

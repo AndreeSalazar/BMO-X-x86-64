@@ -18,6 +18,8 @@
 //!    parse     la gramatica del nivel de hoy; lo de arriba dice en que nivel llega
 //!    paquete   varios ficheros, UN programa (nivel 9): sigue los `mod`, compara
 //!              cada `use` con lo que de verdad se llama, `pub`, sin ciclos
+//!    comportamiento  los `trait` (nivel 10): lo que un valor SABE hacer, y
+//!              cada `trait X for T` hecho fn del programa (`area<Circulo>`)
 //!    check     los nombres: `main`, una vez cada fn, que cada llamada exista
 //!              y que ninguna vuelva sobre si misma (T0053)
 //!    ir        lo que el programa HACE, sin maquina: la IR PROPIA (T3)
@@ -46,6 +48,7 @@
 
 pub mod calc;
 pub mod check;
+pub mod comportamiento;
 pub mod indent;
 pub mod ir;
 pub mod juez;
@@ -80,7 +83,8 @@ pub fn lower(src: &str) -> Result<ir::Module, Message> {
 /// y su linea en el.
 pub fn compile_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<Program, Message> {
     let pkg = paquete::load(root, src, read)?;
-    let program = paquete::join(&pkg)?;
+    let mut program = paquete::join(&pkg)?;
+    comportamiento::expand(&mut program).map_err(|m| pkg.locate(m))?;
     check::check(&program).map_err(|m| pkg.locate(m))?;
     Ok(program)
 }
@@ -88,8 +92,9 @@ pub fn compile_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Opti
 /// El paquete hasta la IR juzgada y calculada.
 pub fn lower_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<ir::Module, Message> {
     let pkg = paquete::load(root, src, read)?;
-    let program = paquete::join(&pkg)?;
+    let mut program = paquete::join(&pkg)?;
     let at = |m: Message| pkg.locate(m);
+    comportamiento::expand(&mut program).map_err(at)?;
     check::check(&program).map_err(at)?;
     let m = ir::lower(&program);
     juez::judge(&m).map_err(at)?;
@@ -112,13 +117,11 @@ mod tests {
 
     #[test]
     fn a_word_of_a_higher_level_says_which_level() {
-        let e = compile("mod main \"x\"\nfn main()\n    trait Dibuja\n").unwrap_err();
+        let e = compile("mod main \"x\"\nfn main()\n    gpu suma\n").unwrap_err();
         assert_eq!(e.code, Code::NotYet);
-        assert_eq!(e.what, "`trait` llega en el nivel 10 (comportamientos)");
+        assert_eq!(e.what, "`gpu` llega en el nivel 11 (la 3060)");
         let e = compile("mod main \"x\"\nfn f(x: f32)\n    print(1)\nfn main()\n    f(1)\n").unwrap_err();
         assert_eq!(e.what, "el tipo `f32` llega en el nivel 11 (la 3060)");
-        let e = compile("mod main \"x\"\nfn main()\n    gpu suma\n").unwrap_err();
-        assert_eq!(e.what, "`gpu` llega en el nivel 11 (la 3060)");
     }
 
     #[test]

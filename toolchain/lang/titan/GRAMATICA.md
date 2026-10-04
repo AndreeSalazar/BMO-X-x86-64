@@ -11,6 +11,23 @@ Decidido por el propietario el **2026-09-30**:
    el primer hola   en la CONSOLA (F12), como INTI; la ventana, despues
 ```
 
+## La escalera de un vistazo
+
+| nivel | palabras nuevas | lo que deja escribir | sus codigos |
+|---|---|---|---|
+| 0 | `fn` | un programa que saluda: `print`, fn sin argumentos | T0001-T0053 |
+| 1 | `let` | valores con nombre y el calculo exacto | T0054, T0055, T0060-T0063 |
+| 2 | `mut` | valores que cambian | T0056, T0057, T0064 |
+| 3 | `if else true false and or not` | decidir | T0058, T0065 |
+| 4 | `for in while break continue` | repetir | T0066, T0067 |
+| 5 | `return` | funciones con parametros y resultado | T0068-T0070 |
+| 6 | `type` | `dec` exacto, tablas `[T; n]`, registros | T0071-T0073 |
+| 7 | `take` | prestar (`mut`) y entregar (`take`); `dec(p, s)` y `round` de COBOL | T0074-T0077 |
+| 8 | `enum match` | casos con datos, y un `match` que los cubre todos | T0078, T0079 |
+| 9 | `mod use pub` | paquetes de varios ficheros | T0080-T0084 |
+| 10 | `trait` | lo que un valor sabe hacer, y fn para cualquiera que lo sepa | T0085-T0087 |
+| 11 | `gpu` | la 3060 | (todavia no) |
+
 ---
 
 ## Nivel 0 -- un programa que saluda (1 palabra: `fn`)
@@ -62,7 +79,7 @@ fn main()
 
 Una de las 25 palabras de un nivel que aun no existe no es un error de
 sintaxis cualquiera: es **T0040**, y dice en que nivel llega (el ejemplo ya es
-del frontend de hoy, que va por el nivel 9):
+del frontend de hoy, que va por el nivel 10):
 
 ```text
    use nave         T0040  `use` llega en el nivel 9 (varios ficheros)
@@ -638,6 +655,80 @@ dependencia, y una dependencia que no existe es la mentira que U3 prohibe.
 
 ---
 
+## Nivel 10 -- comportamientos (24 palabras: + `trait`) -- 04-10
+
+```text
+# formas.titan
+trait Forma                        # lo que una forma SABE hacer
+    fn area(f: Forma) -> dec       #   (fn sin cuerpo; su primer valor, del trait)
+    fn nombre(f: Forma) -> text
+
+type Circulo
+    r: dec
+
+trait Forma for Circulo            # COMO lo hace un Circulo
+    fn area(c: Circulo) -> dec
+        return 3.14 * c.r * c.r
+    fn nombre(c: Circulo) -> text
+        return "Circulo"
+
+fn describe(f: Forma)              # CUALQUIER valor que cumpla Forma
+    print("un ", nombre(f), ": ", area(f))
+```
+
+### Lo que se escribe
+
+```text
+   trait NOMBRE                 y debajo, sus fn SIN cuerpo: lo que promete.
+     fn f(x: NOMBRE, ...) -> T  El primer valor de cada una es del trait
+   trait NOMBRE for TIPO        y debajo, las MISMAS fn con su cuerpo: como
+                                las cumple TIPO (un type, un enum, int, dec,
+                                text o bool). Todas, y ninguna mas
+   fn g(x: NOMBRE)              un parametro de un trait: recibe cualquier
+                                valor que lo cumpla
+   f(x)                         una llamada como cualquier otra: el TIPO del
+                                primer valor elige que fn corre
+```
+
+Sin herencia (composicion y trait, TITAN_MAESTRO 14.13) y sin palabras
+nuevas: no hay `impl` ni `self`, `for` ya era palabra, y el valor es un
+parametro como los demas. Con `mut` y `take` igual que en cualquier fn:
+`fn crece(mut x: Crece)` presta el valor y vuelve cambiado.
+
+**Un generico se juzga UNA vez, contra su trait** (como Rust, no como las
+plantillas de C++): dentro de `describe`, `f` solo sabe lo que Forma promete.
+Quien llama `describe(roca)` con una Roca que no lo cumple lo oye EN LA
+LLAMADA, en una frase (T0085), nunca desde dentro de `describe`.
+
+**Un trait es el tipo de un PARAMETRO** (y del primer valor de sus fn), nunca
+de un `let`, un campo, una tabla o un resultado: dice QUE sabe hacer un valor,
+no cual es (T0087).
+
+Entre modulos, como todo lo demas: `pub trait Pieza` en `pieza.titan`, y en
+otro `trait pieza.Pieza for Rueda` y `pieza.vueltas(p, 2)`.
+
+### Las reglas, y quien las dice
+
+```text
+   EL COMPORTAMIENTO
+     un `trait ... for` al que le falta una fn, le sobra    T0086
+     una, o una tiene otra firma; una fn de trait que
+     no recibe primero un valor del trait
+     el mismo `trait ... for` dos veces                     T0052
+     un trait donde no va un parametro entero              T0087
+     una fn de trait con el nombre de otra cosa             T0055
+   EL CALCULO
+     un valor que no cumple el trait que pide el            T0085
+     parametro: se dice en la llamada
+     un campo de un valor del que solo se sabe su trait     T0073
+```
+
+[!] Hoy el calculo, que conoce todos los valores, elige la fn de cada llamada.
+El dia que algo venga de fuera (E1), cada llamada se decidira por su tipo al
+compilar -- sin coste, como promete C++. El lenguaje no cambia por eso.
+
+---
+
 ## Los codigos
 
 | codigo | que |
@@ -685,6 +776,9 @@ dependencia, y una dependencia que no existe es la mentira que U3 prohibe.
 | T0082 | se llama a algo de otro modulo que no es `pub` (el paquete) |
 | T0083 | `mod hijo` sin su fichero, o un fichero que dice otro nombre (el paquete) |
 | T0084 | un ciclo entre modulos: las capas solo bajan (el paquete) |
+| T0085 | un valor que no cumple el trait que pide un parametro: se dice en la llamada (el calculo) |
+| T0086 | un `trait ... for` que no cumple su trait: le falta una fn, le sobra, o tiene otra firma (el comportamiento) |
+| T0087 | un trait donde solo va un parametro entero: en un `let`, un campo, una tabla o un resultado (el comportamiento) |
 
 ## El banco: lo que dice cada ejemplo de si mismo
 
@@ -693,6 +787,11 @@ dependencia, y una dependencia que no existe es la mentira que U3 prohibe.
    # sale: hola          ...y al CORRER escribe exactamente esto, linea a linea
    # espera: T0053       NO compila, con este codigo, y no escribe ningun .bex
 ```
+
+Un ejemplo es un fichero (`ejemplos/nivel8/formas.titan`) o, desde el nivel 9,
+una CARPETA: un paquete, cuyo `src/main.titan` lleva esas lineas
+(`ejemplos/nivel9/flota/`). Si el NO esta en otro fichero del paquete, el
+banco lo dibuja sobre ese fichero.
 
 Las lineas `# sale:` las comprueba el banco del emisor
 (`emisor-x86_64/tests/banco.rs`): construye el `.bex`, lo carga como el
@@ -705,6 +804,8 @@ programas HACEN lo que dicen, no cuando compilan.
    titan check hola.titan              bien, o el mensaje de 4 partes
    titan ir    hola.titan              la IR propia: lo que recibe el emisor
    titan build hola.titan -o hola.bex  el .bex, con su manifiesto, por el gate
+   titan check flota/src/main.titan    un PAQUETE (nivel 9): sigue sus `mod`
+                                       desde `flota/`, como F1
 ```
 
 En la maquina: `run titan/hola.bex` en la consola (F12). `build.ps1` deja

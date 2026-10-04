@@ -1803,3 +1803,33 @@ ANFITRION el 04-10** (`take`, 18 palabras):
   certificado sepa de ficheros.
 - 🟡 en el emulador; el banco corre una flota repartida en tres modulos y una
   caja con un hijo en su carpeta (`caja/redondeo.titan`).
+
+**NIVEL 10 -- COMPORTAMIENTOS, HECHO EN EL ANFITRION el 04-10** (`trait`,
+24 palabras):
+
+```text
+   trait Forma                    lo que una forma SABE hacer: fn sin cuerpo
+       fn area(f: Forma) -> dec
+   trait Forma for Circulo        como lo hace Circulo: las mismas fn, con
+       fn area(c: Circulo) -> dec cuerpo -- sin `impl` ni `self`, que no
+           return 3.14 * c.r * c.r estan entre las 25; `for` ya era palabra
+   fn mide(f: Forma) -> dec       cualquier valor que lo cumpla
+       return area(f)             el tipo del primer valor elige la fn
+```
+
+- **Sin herencia**: composicion y trait, lo que 14.13 tomo de C++ y de Rust.
+- **Un generico se juzga UNA vez, contra su trait** (Rust, no las plantillas
+  de C++): dentro de `mide`, `f` solo sabe lo que Forma promete, y un tipo que
+  no lo cumple se dice EN LA LLAMADA, en una frase (T0085) -- la promesa de
+  14.13: "un generico dice que le falta, en una frase".
+- Un `trait ... for` cumple TODO su trait y nada mas (T0086); un trait es el
+  tipo de un PARAMETRO, nunca de un `let`, un campo o un resultado (T0087).
+- Cumplen trait los `type`, los `enum` y los tipos de la casa (int, dec, text,
+  bool), y los trait cruzan modulos como todo: `trait pieza.Pieza for Rueda`.
+- **Como**: `comportamiento.rs` comprueba los trait y hace de cada fn de un
+  `trait X for T` una fn del programa (`area<Circulo>`); la IR da a cada fn de
+  un trait su tabla (tipo -> fn), y hoy el calculo, que conoce todos los
+  valores, elige. Con E1 la eleccion se hara por tipo al compilar: sin coste.
+- **F1**: un `trait` es un CRISTAL, como un `type`.
+- 🟡 en el emulador; el banco corre formas que se miden y un motor con piezas
+  que se cambian, repartido en cuatro modulos.

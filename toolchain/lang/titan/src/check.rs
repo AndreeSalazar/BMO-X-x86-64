@@ -18,6 +18,16 @@ use crate::tree::{Arm, Expr, Mode, Program, Stmt, Ty};
 /// What the library gives in level 0.
 const LIBRARY: [&str; 2] = ["print", "len"];
 
+/// The fn a trait promises, by its name (level 10): what `area(f)` calls.
+fn method<'p>(p: &'p Program, name: &str) -> Option<&'p crate::tree::Sig> {
+    p.traits.iter().flat_map(|t| &t.methods).find(|s| s.name == name)
+}
+
+/// A name that can be CALLED: the library's, a fn, or a trait's fn.
+fn callable(p: &Program, name: &str) -> bool {
+    LIBRARY.contains(&name) || p.functions.iter().any(|g| g.name == name) || method(p, name).is_some()
+}
+
 /// The distance between two names, in edits: to say "did you mean".
 pub(crate) fn distance(a: &str, b: &str) -> usize {
     let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
@@ -77,7 +87,7 @@ pub fn check(p: &Program) -> Result<(), Message> {
                 }
                 Stmt::Let(l) => {
                     not_a_case(p, &l.name, l.line, l.col)?;
-                    if LIBRARY.contains(&l.name.as_str()) || p.functions.iter().any(|g| g.name == l.name) {
+                    if callable(p, &l.name) {
                         return Err(Message::new(
                             Code::Taken,
                             l.line,
@@ -94,7 +104,7 @@ pub fn check(p: &Program) -> Result<(), Message> {
                 Stmt::While(w) => exprs.push(&w.cond),
                 Stmt::For(fo) => {
                     not_a_case(p, &fo.var, fo.var_at.0, fo.var_at.1)?;
-                    if LIBRARY.contains(&fo.var.as_str()) || p.functions.iter().any(|g| g.name == fo.var) {
+                    if callable(p, &fo.var) {
                         return Err(Message::new(
                             Code::Taken,
                             fo.var_at.0,
@@ -175,7 +185,7 @@ fn params(p: &Program, f: &crate::tree::Function) -> Result<(), Message> {
         known_ty(p, &a.ty, a.line, a.col)?;
         not_a_case(p, &a.name, a.line, a.col)?;
         let twice = f.params[..i].iter().any(|b| b.name == a.name);
-        let taken = LIBRARY.contains(&a.name.as_str()) || p.functions.iter().any(|g| g.name == a.name);
+        let taken = callable(p, &a.name);
         if twice || taken {
             return Err(Message::new(
                 Code::Taken,
@@ -281,7 +291,7 @@ fn records(p: &Program, e: &Expr) -> Result<(), Message> {
 /// opening the function -- C's `f(&t)` only says "maybe". T0077 otherwise, and
 /// for a `mut x` / `take x` anywhere but as the value of a call.
 fn modes(p: &Program, args: &[Expr], callee: &str) -> Result<(), Message> {
-    let params = p.functions.iter().find(|g| g.name == callee).map(|g| &g.params);
+    let params = p.functions.iter().find(|g| g.name == callee).map(|g| &g.params).or_else(|| method(p, callee).map(|s| &s.params));
     for (i, a) in args.iter().enumerate() {
         let want = params.and_then(|ps| ps.get(i)).map(|x| x.mode).unwrap_or(Mode::Copy);
         let (got, at) = match a {
@@ -561,7 +571,7 @@ fn unknown_type(p: &Program, name: &str, line: usize, col: usize) -> Message {
 /// Every named type a `Ty` mentions exists.
 fn known_ty(p: &Program, t: &Ty, line: usize, col: usize) -> Result<(), Message> {
     match t {
-        Ty::Named(n) if !p.types.iter().any(|d| &d.name == n) && !p.enums.iter().any(|d| &d.name == n) => Err(unknown_type(p, n, line, col)),
+        Ty::Named(n) if !p.types.iter().any(|d| &d.name == n) && !p.enums.iter().any(|d| &d.name == n) && !p.traits.iter().any(|d| &d.name == n) => Err(unknown_type(p, n, line, col)),
         Ty::Table(inner, _) => known_ty(p, inner, line, col),
         _ => Ok(()),
     }
@@ -618,9 +628,20 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
         }
         return Ok(());
     }
+    if let Some(s) = method(p, callee) {
+        // A trait's fn (level 10): as many values as it promises.
+        if s.params.len() != n {
+            let want: Vec<String> = s.params.iter().map(|a| format!("{}: {}", a.name, a.ty.name())).collect();
+            return Err(Message::new(Code::Args, line, col, &format!("`{}` pide {} valores, y aqui se le dan {}", callee, s.params.len(), n), &format!("su trait lo dice en la linea {}: fn {}({})", s.line, callee, want.join(", ")), &format!("{}({})", callee, s.params.iter().map(|a| a.name.as_str()).collect::<Vec<_>>().join(", "))));
+        }
+        if as_value && s.ret.is_none() {
+            return Err(Message::new(Code::Result, line, col, &format!("`{}` no devuelve nada, y aqui se usa como un valor", callee), &format!("su trait no dice `->` en la linea {}", s.line), &format!("llamala en su propia linea: {}(...)", callee)));
+        }
+        return Ok(());
+    }
     let own = p.functions.iter().find(|g| g.name == callee);
     if own.is_none() && !LIBRARY.contains(&callee) {
-        let known = LIBRARY.iter().copied().chain(p.functions.iter().map(|g| g.name.as_str()));
+        let known = LIBRARY.iter().copied().chain(p.functions.iter().filter(|g| !g.name.contains('<')).map(|g| g.name.as_str())).chain(p.traits.iter().flat_map(|t| t.methods.iter().map(|s| s.name.as_str())));
         let near = known.min_by_key(|k| distance(k, callee)).filter(|k| distance(k, callee) <= 3);
         return Err(Message::new(
             Code::Unknown,

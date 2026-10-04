@@ -209,6 +209,9 @@ struct Items {
     enums: Vec<(String, bool)>,
     /// A case, and whether its enum is `pub`.
     cases: Vec<(String, bool)>,
+    traits: Vec<(String, bool)>,
+    /// A fn a trait promises, and whether the trait is `pub` (level 10).
+    methods: Vec<(String, bool)>,
 }
 
 fn items(p: &Program) -> Items {
@@ -217,6 +220,8 @@ fn items(p: &Program) -> Items {
         types: p.types.iter().map(|t| (t.name.clone(), t.public)).collect(),
         enums: p.enums.iter().map(|e| (e.name.clone(), e.public)).collect(),
         cases: p.enums.iter().flat_map(|e| e.cases.iter().map(move |c| (c.name.clone(), e.public))).collect(),
+        traits: p.traits.iter().map(|t| (t.name.clone(), t.public)).collect(),
+        methods: p.traits.iter().flat_map(|t| t.methods.iter().map(move |m| (m.name.clone(), t.public))).collect(),
     }
 }
 
@@ -231,6 +236,8 @@ enum Want {
     Type,
     /// `x.Y` alone, or an arm of a `match`: a case.
     Case,
+    /// `trait x.Forma for T`: a trait (level 10).
+    Trait,
 }
 
 struct Resolver<'p> {
@@ -256,10 +263,11 @@ impl Resolver<'_> {
         let it = &self.items[m];
         let has = |l: &[(String, bool)]| l.iter().any(|x| x.0 == name);
         match want {
-            Want::Call => has(&it.fns) || has(&it.cases),
+            Want::Call => has(&it.fns) || has(&it.cases) || has(&it.methods),
             Want::Record => has(&it.types),
-            Want::Type => has(&it.types) || has(&it.enums),
+            Want::Type => has(&it.types) || has(&it.enums) || has(&it.traits),
             Want::Case => has(&it.cases),
+            Want::Trait => has(&it.traits),
         }
     }
 
@@ -298,13 +306,14 @@ impl Resolver<'_> {
         let it = &self.items[j];
         let find = |l: &[(String, bool)]| l.iter().find(|e| e.0 == y).map(|e| e.1);
         let public = match want {
-            Want::Call => find(&it.fns).or(find(&it.cases)),
+            Want::Call => find(&it.fns).or(find(&it.cases)).or(find(&it.methods)),
             Want::Record => find(&it.types),
-            Want::Type => find(&it.types).or(find(&it.enums)),
+            Want::Type => find(&it.types).or(find(&it.enums)).or(find(&it.traits)),
             Want::Case => find(&it.cases),
+            Want::Trait => find(&it.traits),
         };
         let Some(public) = public else {
-            let all: Vec<&str> = [&it.fns, &it.types, &it.enums, &it.cases].iter().flat_map(|l| l.iter().map(|e| e.0.as_str())).collect();
+            let all: Vec<&str> = [&it.fns, &it.types, &it.enums, &it.cases, &it.traits, &it.methods].iter().flat_map(|l| l.iter().map(|e| e.0.as_str())).collect();
             let near = all.iter().copied().min_by_key(|k| distance(k, y)).filter(|k| distance(k, y) <= 2);
             return Err(Message::new(
                 Code::Unknown,
@@ -514,6 +523,8 @@ fn join_inner(pkg: &Package) -> Result<Program, Message> {
     out.functions.clear();
     out.types.clear();
     out.enums.clear();
+    out.traits.clear();
+    out.impls.clear();
     for (m, f) in pkg.files.iter().enumerate() {
         let mut p = f.program.clone();
         {
@@ -521,7 +532,7 @@ fn join_inner(pkg: &Package) -> Result<Program, Message> {
             // like a module, or (in a module) like one of its own functions
             // or cases, would make `x` two things to whoever reads it.
             let mut named = Vec::new();
-            for g in &p.functions {
+            for g in p.functions.iter().chain(p.impls.iter().flat_map(|i| &i.functions)) {
                 named.extend(g.params.iter().map(|a| (a.name.clone(), a.line, a.col)));
                 values_named(&g.body, &mut named);
             }
@@ -565,9 +576,39 @@ fn join_inner(pkg: &Package) -> Result<Program, Message> {
             }
             e.name = format!("{}{}", prefix, e.name);
         }
+        // Level 10: a trait's name and its fn get the whole name, like a fn;
+        // a `trait ... for` names its trait and its type from where it is,
+        // and keeps its fn's short names -- they say WHICH fn of the trait.
+        for t in &mut p.traits {
+            for s in &mut t.methods {
+                for a in &mut s.params {
+                    r.ty(m, &mut a.ty, (a.line, a.col))?;
+                }
+                if let Some(rt) = &mut s.ret {
+                    r.ty(m, rt, (s.line, s.col))?;
+                }
+                s.name = format!("{}{}", prefix, s.name);
+            }
+            t.name = format!("{}{}", prefix, t.name);
+        }
+        for i in &mut p.impls {
+            i.trait_name = r.resolve(m, &i.trait_name, Want::Trait, (i.line, i.col))?;
+            r.ty(m, &mut i.ty, (i.line, i.col))?;
+            for g in &mut i.functions {
+                for a in &mut g.params {
+                    r.ty(m, &mut a.ty, (a.line, a.col))?;
+                }
+                if let Some(t) = &mut g.ret {
+                    r.ty(m, t, (g.line, g.col))?;
+                }
+                r.body(m, &mut g.body)?;
+            }
+        }
         out.functions.extend(p.functions);
         out.types.extend(p.types);
         out.enums.extend(p.enums);
+        out.traits.extend(p.traits);
+        out.impls.extend(p.impls);
     }
     // ** A `use` that nothing uses: the header says a connection the body
     // does not have (U3, the other half). F1 would draw a cable to nowhere.

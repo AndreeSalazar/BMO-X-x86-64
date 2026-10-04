@@ -1,0 +1,16 @@
+# espera: BIEN
+# sale: rueda gira 4 vueltas
+# sale: helice gira 12 vueltas
+# sale: total: 16
+# un motor con piezas que se cambian: el trait vive en su modulo, y cada pieza lo cumple en el suyo
+mod main "un motor con piezas que se cambian"
+mod pieza, rueda, helice
+
+fn arranca(p: pieza.Pieza, segundos: int) -> int
+    let v = pieza.vueltas(p, segundos)
+    print(pieza.nombre(p), " gira ", v, " vueltas")
+    return v
+
+fn main()
+    let total = arranca(rueda.nueva(), 2) + arranca(helice.Helice { palas: 3 }, 2)
+    print("total: ", total)

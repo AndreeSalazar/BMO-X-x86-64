@@ -1,0 +1,17 @@
+# espera: T0086
+# un `trait ... for` cumple TODO lo que el trait promete: aqui falta `nombre`
+mod main "una forma a medias"
+
+trait Forma
+    fn area(f: Forma) -> dec
+    fn nombre(f: Forma) -> text
+
+type Cuadrado
+    lado: dec
+
+trait Forma for Cuadrado
+    fn area(q: Cuadrado) -> dec
+        return q.lado * q.lado
+
+fn main()
+    print("nada")

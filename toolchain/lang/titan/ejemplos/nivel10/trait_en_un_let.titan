@@ -1,0 +1,17 @@
+# espera: T0087
+# un trait dice QUE sabe hacer un valor, no cual es: va de tipo de un PARAMETRO, nunca de un `let`
+mod main "un trait donde va un tipo"
+
+trait Forma
+    fn area(f: Forma) -> dec
+
+type Circulo
+    r: dec
+
+trait Forma for Circulo
+    fn area(c: Circulo) -> dec
+        return 3.14 * c.r * c.r
+
+fn main()
+    let f: Forma = Circulo { r: 1.0 }
+    print(area(f))

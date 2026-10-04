@@ -62,10 +62,13 @@ pub enum Code {
     Private,
     NoModule,
     Cycle,
+    NotImpl,
+    BadImpl,
+    TraitPlace,
 }
 
 impl Code {
-    pub const ALL: [Code; 43] = [
+    pub const ALL: [Code; 46] = [
         Code::NoHeader,
         Code::Tab,
         Code::BadIndent,
@@ -109,6 +112,9 @@ impl Code {
         Code::Private,
         Code::NoModule,
         Code::Cycle,
+        Code::NotImpl,
+        Code::BadImpl,
+        Code::TraitPlace,
     ];
 
     pub fn number(self) -> u16 {
@@ -156,6 +162,9 @@ impl Code {
             Code::Private => 82,
             Code::NoModule => 83,
             Code::Cycle => 84,
+            Code::NotImpl => 85,
+            Code::BadImpl => 86,
+            Code::TraitPlace => 87,
         }
     }
 
@@ -208,7 +217,7 @@ mod tests {
     #[test]
     fn every_code_has_its_own_number_and_they_do_not_move() {
         let numbers: Vec<u16> = Code::ALL.iter().map(|c| c.number()).collect();
-        assert_eq!(numbers, [1, 10, 12, 20, 21, 22, 30, 31, 40, 50, 51, 52, 53, 54, 55, 56, 60, 61, 62, 63, 57, 64, 58, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84]);
+        assert_eq!(numbers, [1, 10, 12, 20, 21, 22, 30, 31, 40, 50, 51, 52, 53, 54, 55, 56, 60, 61, 62, 63, 57, 64, 58, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87]);
         assert_eq!(Code::BadIndent.label(), "T0012");
     }
 

@@ -41,7 +41,7 @@
 
 use crate::lex::{Kind, Token};
 use crate::message::{Code, Message};
-use crate::tree::{Arm, Call, Case, Child, EnumDef, Expr, For, Function, If, Let, Mode, Param, Program, Step, Stmt, Ty, TypeDef, Use, While};
+use crate::tree::{Arm, Call, Case, Child, EnumDef, Expr, For, Function, If, Impl, Let, Mode, Param, Program, Sig, Step, Stmt, TraitDef, Ty, TypeDef, Use, While};
 use crate::words::{self, LEVEL_NOW};
 
 struct Parser<'a> {
@@ -119,7 +119,7 @@ impl<'a> Parser<'a> {
         match &tok.kind {
             Kind::Word(w) => {
                 let level = words::find(w).map(|x| x.level).unwrap_or(0);
-                (level > LEVEL_NOW).then(|| not_yet(tok, &format!("`{}`", w), level, "por ahora: llamadas, `let`, `if`, bucles, `fn` con `return`, `type`, `enum`, `match` y paquetes de varios ficheros (`mod`, `use`, `pub`)"))
+                (level > LEVEL_NOW).then(|| not_yet(tok, &format!("`{}`", w), level, "por ahora: llamadas, `let`, `if`, bucles, `fn` con `return`, `type`, `enum`, `match`, paquetes (`mod`, `use`, `pub`) y `trait`"))
             }
             Kind::Number(n) if n.contains('.') && LEVEL_NOW < 6 => Some(not_yet(tok, "un decimal", 6, "por ahora, numeros enteros: los decimales EXACTOS (dec) llegan con los tipos")),
             Kind::Sym("->") if LEVEL_NOW < 5 => Some(not_yet(tok, "una funcion que devuelve algo", 5, "por ahora, `fn nombre()` sin `->`")),
@@ -162,6 +162,16 @@ impl<'a> Parser<'a> {
     }
 
     fn function(&mut self) -> Result<Function, Message> {
+        let fn_tok = self.peek();
+        let sig = self.signature()?;
+        let name = &sig.name;
+        let body = self.block(fn_tok, &format!("`fn {}()`", name), &format!("fn {}()\n             print(\"hola\")", name))?;
+        Ok(Function { name: sig.name, public: false, line: sig.line, col: sig.col, params: sig.params, ret: sig.ret, body })
+    }
+
+    /// `fn name(params) -> T` up to the end of its line: a function's first
+    /// line, and all a trait promises (level 10).
+    fn signature(&mut self) -> Result<Sig, Message> {
         let fn_tok = self.next();
         let name_tok = self.next();
         let Kind::Name(name) = &name_tok.kind else {
@@ -216,9 +226,78 @@ impl<'a> Parser<'a> {
         if end.kind != Kind::Newline {
             return Err(self.ladder(end).unwrap_or_else(|| self.expected(end, "el final de la linea", &format!("fn {}() y el cuerpo debajo, sangrado", name))));
         }
-        let _ = fn_tok;
-        let body = self.block(fn_tok, &format!("`fn {}()`", name), &format!("fn {}()\n             print(\"hola\")", name))?;
-        Ok(Function { name: name.clone(), public: false, line: fn_tok.line, col: fn_tok.col, params, ret, body })
+        Ok(Sig { name: name.clone(), params, ret, line: fn_tok.line, col: fn_tok.col })
+    }
+
+    /// `trait Forma` and its fn without body, or `trait Forma for Circulo`
+    /// and its fn with body (level 10). No `impl`, no `self`: `for` is
+    /// already a word, and the value is a parameter like any other.
+    fn trait_item(&mut self) -> Result<Result<TraitDef, Impl>, Message> {
+        let tok = self.next();
+        let name_tok = self.next();
+        let Kind::Name(first) = &name_tok.kind else {
+            return Err(self.expected(name_tok, "el nombre del trait", "trait Forma"));
+        };
+        // `forma.Forma`: a trait of another module (level 9).
+        let name = match self.qualified() {
+            Some(inner) => {
+                self.next();
+                self.next();
+                format!("{}.{}", first, inner)
+            }
+            None => first.clone(),
+        };
+        let ty = if self.peek().kind == Kind::Word("for") {
+            self.next();
+            Some(self.ty(&format!("trait {} for Circulo", name))?)
+        } else {
+            None
+        };
+        let end = self.next();
+        if end.kind != Kind::Newline {
+            return Err(self.expected(end, "el final de la linea", &format!("trait {}\n             fn area(f: {}) -> dec", name, name)));
+        }
+        if self.peek().kind != Kind::Indent {
+            return Err(Message::new(
+                Code::EmptyBody,
+                tok.line,
+                tok.col,
+                &format!("`trait {}` no tiene ninguna fn", name),
+                "debajo de un `trait` van sus fn, sangradas: sin cuerpo las que promete, con cuerpo las de un `trait ... for` tipo",
+                &format!("trait {}\n             fn area(f: {}) -> dec", name, name),
+            ));
+        }
+        self.next();
+        let (mut methods, mut functions) = (Vec::new(), Vec::new());
+        while self.peek().kind != Kind::Dedent && self.peek().kind != Kind::End {
+            let f = self.peek();
+            if f.kind != Kind::Word("fn") {
+                return Err(self.expected(f, "una `fn`", "dentro de un `trait` solo van sus fn"));
+            }
+            if ty.is_some() {
+                functions.push(self.function()?);
+            } else {
+                let sig = self.signature()?;
+                self.next();
+                if self.peek().kind == Kind::Indent {
+                    let b = self.peek();
+                    return Err(Message::new(
+                        Code::Expected,
+                        b.line,
+                        b.col,
+                        &format!("`fn {}` de `trait {}` no lleva cuerpo", sig.name, name),
+                        "un `trait` dice QUE se sabe hacer; COMO lo hace cada tipo va en su `trait ... for`",
+                        &format!("pon el cuerpo en: trait {} for Circulo\n             fn {}(...)", name, sig.name),
+                    ));
+                }
+                methods.push(sig);
+            }
+        }
+        self.next();
+        Ok(match ty {
+            Some(ty) => Err(Impl { trait_name: name, ty, line: tok.line, col: tok.col, functions }),
+            None => Ok(TraitDef { name, public: false, line: tok.line, col: tok.col, methods }),
+        })
     }
 
     /// A type: `int`, `text`, `bool`, `dec`, `[T; n]` or the name of a
@@ -1051,6 +1130,7 @@ pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
     let mut functions = Vec::new();
     let mut types = Vec::new();
     let mut enums = Vec::new();
+    let (mut traits, mut impls) = (Vec::new(), Vec::new());
     loop {
         let tok = p.peek();
         // `pub fn`, `pub type`, `pub enum` (level 9): seen from outside.
@@ -1058,8 +1138,8 @@ pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
         if public {
             p.next();
             let next = p.peek();
-            if !matches!(next.kind, Kind::Word("fn") | Kind::Word("type") | Kind::Word("enum")) {
-                return Err(p.expected(next, "una `fn`, un `type` o un `enum` detras de `pub`", "pub fn avanza()"));
+            if !matches!(next.kind, Kind::Word("fn") | Kind::Word("type") | Kind::Word("enum") | Kind::Word("trait")) {
+                return Err(p.expected(next, "una `fn`, un `type`, un `enum` o un `trait` detras de `pub`", "pub fn avanza()"));
             }
         }
         let tok = p.peek();
@@ -1080,6 +1160,23 @@ pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
                 e.public = public;
                 enums.push(e);
             }
+            Kind::Word("trait") if LEVEL_NOW >= 10 => match p.trait_item()? {
+                Ok(mut t) => {
+                    t.public = public;
+                    traits.push(t);
+                }
+                Err(i) if public => {
+                    return Err(Message::new(
+                        Code::Expected,
+                        i.line,
+                        i.col,
+                        "`pub` va en el `trait`, no en su `trait ... for`",
+                        "quien ve el trait ve sus fn; un `trait ... for` dice como las cumple un tipo, y no se nombra desde fuera",
+                        &format!("quita el `pub`: trait {} for {}", i.trait_name, i.ty.name()),
+                    ))
+                }
+                Err(i) => impls.push(i),
+            },
             Kind::Word("use" | "mod") if LEVEL_NOW >= 9 => {
                 return Err(Message::new(
                     Code::Expected,
@@ -1107,5 +1204,5 @@ pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
             }
         }
     }
-    Ok(Program { module, purpose, functions, types, enums, uses, children })
+    Ok(Program { module, purpose, functions, types, enums, uses, children, traits, impls })
 }

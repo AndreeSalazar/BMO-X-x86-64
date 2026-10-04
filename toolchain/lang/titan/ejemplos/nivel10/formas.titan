@@ -1,0 +1,59 @@
+# espera: BIEN
+# sale: un Circulo: 12.56
+# sale: un Cuadrado: 9.00
+# sale: el mas grande mide 12.56
+# sale: centauro crece hasta 2
+# `trait` dice lo que una forma SABE hacer; cada tipo dice COMO, y `mide` vale para todas
+mod main "formas que se saben medir"
+
+trait Forma
+    fn area(f: Forma) -> dec
+    fn nombre(f: Forma) -> text
+
+type Circulo
+    r: dec
+
+type Cuadrado
+    lado: dec
+
+trait Forma for Circulo
+    fn area(c: Circulo) -> dec
+        return 3.14 * c.r * c.r
+    fn nombre(c: Circulo) -> text
+        return "Circulo"
+
+trait Forma for Cuadrado
+    fn area(q: Cuadrado) -> dec
+        return q.lado * q.lado
+    fn nombre(q: Cuadrado) -> text
+        return "Cuadrado"
+
+fn describe(f: Forma) -> dec
+    print("un ", nombre(f), ": ", area(f))
+    return area(f)
+
+trait Crece
+    fn crece(mut x: Crece)
+
+type Nave
+    nombre: text
+    nivel: int
+
+trait Crece for Nave
+    fn crece(mut n: Nave)
+        n.nivel = n.nivel + 1
+
+fn sube(mut x: Crece)
+    crece(mut x)
+
+fn main()
+    let a = describe(Circulo { r: 2.0 })
+    let b = describe(Cuadrado { lado: 3.00 })
+    if a > b
+        print("el mas grande mide ", a)
+    else
+        print("el mas grande mide ", b)
+    let mut n = Nave { nombre: "centauro", nivel: 0 }
+    sube(mut n)
+    sube(mut n)
+    print(n.nombre, " crece hasta ", n.nivel)

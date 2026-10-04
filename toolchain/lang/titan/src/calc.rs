@@ -51,7 +51,7 @@
 
 use crate::ir::{At, End, Function, Module, Op, PathStep, Value};
 use crate::message::{Code, Message};
-use crate::tree::{show_dec, EnumDef, Ty, TypeDef};
+use crate::tree::{show_dec, EnumDef, TraitDef, Ty, TypeDef};
 
 /// What a value needs to be classed or shown: the `type`s and the `enum`s of
 /// the file (levels 6 and 8). Indexed, it is a `type`.
@@ -59,10 +59,13 @@ use crate::tree::{show_dec, EnumDef, Ty, TypeDef};
 pub struct Defs<'a> {
     pub types: &'a [TypeDef],
     pub enums: &'a [EnumDef],
+    /// The traits, and which type keeps which (level 10).
+    pub traits: &'a [TraitDef],
+    pub impls: &'a [(String, String)],
 }
 
 /// No `type` and no `enum`: enough to show a number.
-const NONE: Defs<'static> = Defs { types: &[], enums: &[] };
+const NONE: Defs<'static> = Defs { types: &[], enums: &[], traits: &[], impls: &[] };
 
 impl std::ops::Index<usize> for Defs<'_> {
     type Output = TypeDef;
@@ -73,7 +76,7 @@ impl std::ops::Index<usize> for Defs<'_> {
 
 impl Module {
     pub fn defs(&self) -> Defs<'_> {
-        Defs { types: &self.types, enums: &self.enums }
+        Defs { types: &self.types, enums: &self.enums, traits: &self.traits, impls: &self.impls }
     }
 }
 
@@ -141,6 +144,9 @@ pub enum Class {
     Record(usize),
     /// A value of the enum with this index: one of its cases (level 8).
     Enum(usize),
+    /// ANY value whose type keeps the trait with this index: what a
+    /// parameter `f: Forma` is inside its fn (level 10).
+    Trait(usize),
 }
 
 impl Class {
@@ -153,6 +159,7 @@ impl Class {
             Class::Table(c, n) => format!("una tabla [{}; {}]", c.short(types), n),
             Class::Record(t) => format!("un {}", types[*t].name),
             Class::Enum(e) => format!("un {}", types.enums[*e].name),
+            Class::Trait(k) => format!("algo que cumple `trait {}`", types.traits[*k].name),
         }
     }
 
@@ -165,6 +172,7 @@ impl Class {
             Class::Table(c, n) => format!("[{}; {}]", c.short(types), n),
             Class::Record(t) => types[*t].name.clone(),
             Class::Enum(e) => types.enums[*e].name.clone(),
+            Class::Trait(k) => types.traits[*k].name.clone(),
         }
     }
 
@@ -183,7 +191,10 @@ fn of_ty(t: &Ty, types: Defs) -> Class {
         Ty::Table(inner, n) => Class::Table(Box::new(of_ty(inner, types)), *n),
         Ty::Named(n) => match types.types.iter().position(|d| &d.name == n) {
             Some(t) => Class::Record(t),
-            None => Class::Enum(types.enums.iter().position(|d| &d.name == n).expect("check: the type exists")),
+            None => match types.enums.iter().position(|d| &d.name == n) {
+                Some(e) => Class::Enum(e),
+                None => Class::Trait(types.traits.iter().position(|d| &d.name == n).expect("check: the type exists")),
+            },
         },
     }
 }
@@ -205,7 +216,8 @@ fn wrong(at: At, want: &Class, got: &Class, types: Defs, what: &str, how: &str) 
 /// are `dead`.
 pub fn fold(m: &Module) -> Result<Module, Message> {
     let mut out = m.clone();
-    for f in &out.functions {
+    // A trait's fn has no body: each type's fn is judged as its own.
+    for f in out.functions.iter().filter(|f| f.dispatch.is_none()) {
         classes(f, m)?;
     }
     // ** The run goes in a thread of its OWN, with a big stack: a recursion
@@ -383,8 +395,47 @@ fn step_class(c: &Class, st: &PathStep, known: &[Option<Class>], m: &Module, at:
     }
 }
 
+/// Does a value of class `c` keep the trait `k`? Its type has a
+/// `trait ... for` of it (level 10).
+fn keeps(c: &Class, k: usize, d: Defs) -> bool {
+    let ty = match c {
+        Class::Int => "int".to_string(),
+        Class::Dec => "dec".to_string(),
+        Class::Text => "text".to_string(),
+        Class::Bool => "bool".to_string(),
+        Class::Record(t) => d.types[*t].name.clone(),
+        Class::Enum(e) => d.enums[*e].name.clone(),
+        Class::Table(..) | Class::Trait(_) => return false,
+    };
+    d.impls.iter().any(|(t, i)| t == &d.traits[k].name && i == &ty)
+}
+
+/// The type a value IS, by name: what picks the fn of a trait it runs.
+fn type_of(c: &Const, d: Defs) -> String {
+    match c {
+        Const::Int(_) => "int".into(),
+        Const::Dec(..) => "dec".into(),
+        Const::Text(_) => "text".into(),
+        Const::Bool(_) => "bool".into(),
+        Const::Record(t, _) => d.types[*t].name.clone(),
+        Const::Variant(e, ..) => d.enums[*e].name.clone(),
+        Const::Table(_) => "tabla".into(),
+    }
+}
+
 /// The class of the field `name` of a value of class `c`, or T0073.
 fn field_class(c: &Class, name: &str, at: At, m: &Module) -> Result<Class, Message> {
+    if let Class::Trait(k) = c {
+        let t = &m.traits[*k];
+        return Err(Message::new(
+            Code::Field,
+            at.0,
+            at.1,
+            &format!("de algo que cumple `trait {}` no se conoce el campo `{}`", t.name, name),
+            &format!("puede ser cualquier tipo que cumpla {}: de el solo se sabe lo que el trait promete (linea {}), sus fn", t.name, t.line),
+            &format!("pidelo con una fn del trait: agrega `fn {}(x: {}) -> ...` a `trait {}`", name, t.name, t.name),
+        ));
+    }
     let Class::Record(t) = c else {
         return Err(Message::new(Code::Field, at.0, at.1, &format!("{} no tiene campos", c.name(m.defs())), "`.campo` pide un campo, y solo un registro (un `type`) los tiene", "usa `.x` sobre un registro: nave.x"));
     };
@@ -427,6 +478,24 @@ fn args_fit(func: usize, args: &[Value], _at: At, known: &[Option<Class>], m: &M
     for ((a, (l, t)), mode) in args.iter().zip(&g.params).zip(&g.modes) {
         let got = class(a, known, m)?;
         let want = of_ty(t, m.defs());
+        // ** A parameter of a TRAIT (level 10): any value whose type keeps
+        // it -- said HERE, at the call, in one sentence (T0085), never from
+        // inside the generic fn.
+        if let Class::Trait(k) = want {
+            if got == want || keeps(&got, k, m.defs()) {
+                continue;
+            }
+            let t = &m.traits[k].name;
+            let ty = got.short(m.defs());
+            return Err(Message::new(
+                Code::NotImpl,
+                a.at().0,
+                a.at().1,
+                &format!("{} no cumple `trait {}`", ty, t),
+                &format!("`{}` pide `{}: {}` (su linea {}): cualquier valor que sepa hacer lo que {} promete, y {} no dice como", g.name, g.locals[*l].name, t, g.line, t, ty),
+                &format!("dile como: trait {} for {}, con sus fn ({})", t, ty, m.traits[k].methods.iter().map(|s| s.name.rsplit('.').next().unwrap_or(&s.name)).collect::<Vec<_>>().join(", ")),
+            ));
+        }
         // Lent to be changed: the SAME class, since what comes back goes in
         // the caller's own local (an int lent as a dec would come back a dec).
         let ok = if *mode == crate::tree::Mode::Mut { want == got } else { fits(&want, &got) };
@@ -662,6 +731,14 @@ impl Run<'_> {
     fn call(&mut self, func: usize, args: Vec<Const>, at: At) -> Result<(Option<Const>, Vec<Const>), Message> {
         let m = self.m;
         let f = &m.functions[func];
+        // ** A trait's fn (level 10): the type of the first value picks
+        // which fn runs. Every value is known here, so the pick is exact;
+        // `classes` already proved the type keeps the trait.
+        if let Some(table) = &f.dispatch {
+            let ty = type_of(&args[0], m.defs());
+            let target = table.iter().find(|(t, _)| *t == ty).map(|(_, k)| *k).expect("classes: the type keeps the trait");
+            return self.call(target, args, at);
+        }
         if self.depth >= DEPTH {
             return Err(Message::new(
                 Code::NoEnd,

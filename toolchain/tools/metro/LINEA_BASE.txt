@@ -36,6 +36,8 @@ toolchain/lang/inti/sondas/ventana.inti 2183 793 16776 52f287b1b72f3aa2
 toolchain/lang/titan/ejemplos/nivel0/dos_saludos.titan 23 0 123 caa792b9f02ae7df
 toolchain/lang/titan/ejemplos/nivel0/hola.titan 9 0 52 7488197ad38aaaa7
 toolchain/lang/titan/ejemplos/nivel1/centauro.titan 63 0 321 816cd108e0ffdcb2
+toolchain/lang/titan/ejemplos/nivel10/formas.titan 51 0 265 3e932a0c025ec0a6
+toolchain/lang/titan/ejemplos/nivel10/motor/src/main.titan 34 0 180 36be6f246c208e76
 toolchain/lang/titan/ejemplos/nivel2/constelacion.titan 26 0 137 38be7e5ae74f5090
 toolchain/lang/titan/ejemplos/nivel3/calculadora.titan 37 0 194 dd118d64af246ac3
 toolchain/lang/titan/ejemplos/nivel3/semaforo.titan 34 0 180 cdaf2dedfc9dd621

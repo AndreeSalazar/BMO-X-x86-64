@@ -17,8 +17,8 @@
 //!             `match` (level 8)
 //!    loops    `while` / `for`          a BELT of rocks that goes round
 //!    returns  `return`                 its comets come back CARRYING a value
-//!    types    `type` / `enum`          a CRYSTAL: a value with facets (fields,
-//!                                      or the cases of an enum)
+//!    types    `type` / `enum` /        a CRYSTAL: a value with facets (fields,
+//!             `trait` (level 10)       the cases of an enum, what a trait can do)
 //! ```
 //!
 //! [!] This is a QUICK READING of the lines, not the compiler: it does not
@@ -91,7 +91,7 @@ pub fn scan(text: &[u8]) -> Traits {
         let line = line.strip_prefix(b"pub ").unwrap_or(line);
         if line.starts_with(b"fn ") {
             bump(&mut t.fns);
-        } else if line.starts_with(b"type ") || line.starts_with(b"enum ") {
+        } else if line.starts_with(b"type ") || line.starts_with(b"enum ") || line.starts_with(b"trait ") {
             bump(&mut t.types);
         } else if line.starts_with(b"if ") || line.starts_with(b"else if ") || line.starts_with(b"match ") {
             bump(&mut t.ifs);
@@ -154,6 +154,12 @@ mod tests {
     fn every_type_is_a_crystal() {
         let t = scan(b"mod a \"x\"\ntype Nave\n    x: dec\ntype Roca\n    r: int\nfn main()\n    print(1)\n");
         assert_eq!((t.types, t.fns, t.writes), (2, 1, 1));
+    }
+
+    #[test]
+    fn a_trait_is_a_crystal_and_its_fn_are_fn() {
+        let t = scan(b"mod a \"x\"\ntrait Forma\n    fn area(f: Forma) -> dec\ntrait Forma for Circulo\n    fn area(c: Circulo) -> dec\n        return c.r\n");
+        assert_eq!((t.types, t.fns, t.returns), (2, 2, 1));
     }
 
     #[test]
