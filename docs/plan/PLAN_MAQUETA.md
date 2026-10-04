@@ -423,6 +423,49 @@ tironea --. Y lo que se ve en la foto del anfitrion es lo que pinta el Ryzen.
 ser verdad dicho asi, y se reescribe cuando P3 exista: lo que sigue siendo
 verdad es que **en el aparato no se maqueta nada**.
 
+## 6e. DE QUIEN SE TOMA CADA IDEA (2026-10-04)
+
+El propietario: *"MAQUETA, que framework inspirado puede tener todo eso? por
+motivos TODOS, hasta Next.js"* y *"con todo eso INSPIRACION... que TODOS
+tengan vida"*. La regla es la de la casa: **la esencia, no el codigo**. Ni una
+dependencia de ninguno.
+
+| de | su idea | en MAQUETA |
+|---|---|---|
+| Svelte | el framework es un COMPILADOR y desaparece al compilar | el pariente mas cercano: MAQUETA ya es eso |
+| SwiftUI | animar es pasar de un estado a otro; el sistema interpola los dos | P3, tal cual |
+| Figma | componentes con variantes; *Smart Animate* entre dos frames | `<usa>` (P1) y los estados (P3) |
+| Flutter | pinta TODO con su motor; las restricciones bajan, las medidas suben | `bmo-pinta`; "una pieza mide lo que mide" |
+| Vue | un fichero con su plantilla y su estilo de ambito propio | un `.maqueta`; el Shadow DOM de la regla |
+| Next.js | lo que corre al CONSTRUIR separado de lo que corre en el cliente; rutas por fichero | anfitrion contra aparato; pantallas como ficheros, quiza |
+| Elm | errores del compilador que explican | el "por que" y el "en su lugar" de cada error |
+| Tailwind | los tokens de estilo en un sitio | `tema.maqueta` |
+
+**Lo que NO se toma**, aunque venga en los mismos: el DOM virtual de React
+(comparar arboles en cada fotograma es el coste que MAQUETA evita
+calculando antes), la hidratacion de Next.js (aqui no hay nada que
+"despertar") y los arboles de dependencias de npm.
+
+### Cuanta memoria come una maqueta: medido
+
+| maqueta | cajas | la CARA (lo que viaja) | sus pixeles en pantalla |
+|---|---|---|---|
+| `calc.maqueta` | 28 | 2.041 bytes | 574 KB |
+| `tarjeta.maqueta` | 14 | 609 bytes | 361 KB |
+| `escaparate.maqueta` (dos piezas) | 31 | 1.084 bytes | 870 KB |
+
+La descripcion de una cara es unas **800 veces** mas chica que lo que pinta.
+No hay arbol vivo, ni motor de maquetacion, ni script: hay una lista de cajas
+ya calculadas. Con P3, cada ESTADO es otra lista asi (del orden de 1 KB por
+tarjeta).
+
+[!] **Lo que SI cuesta la vida, y no es RAM**: cada fotograma de una
+animacion es CPU y vatios. Por eso cada pieza que anime lleva su letrero
+`[consumo]` (L6h): animar cuando algo cambia -- un clic, un estado nuevo --,
+no un bucle eterno de adorno. Que todo PUEDA tener vida no quiere decir que
+todo se mueva a la vez: la elegancia de 04-10 es, sobre todo, lo que se
+quita.
+
 ⚠ **La estimacion de la conversacion estaba mal, y lo destapo la medida**:
 contando NOMBRES de propiedad salia un 58,5 % "hoy". Era el 37,52 %:
 `padding: 8px 12px` contaba porque `padding` existia, y el padre lo
