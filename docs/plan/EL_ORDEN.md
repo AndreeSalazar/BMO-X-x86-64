@@ -40,6 +40,10 @@ Paso dos veces en septiembre y las dos las cazo mirar el metal, no una prueba.
 NO es prioridad.** Es el ultimo. Lo que arrastraba consigo --medir el ancho de
 memoria, `exp` en INTI-- baja con el, salvo lo que sirva a otra cosa.
 
+[!] **Cambiado por el propietario el 2026-10-04**: la IA personal es la PRIMERA
+app de la F2 (donde viven y se prueban las apps construidas), y se construye en
+TITAN++ cuando el lenguaje llegue a los niveles 9-11. Ver la seccion 6.
+
 ---
 
 # 2. 🔴 CRITICO -- lo que hace falsa una promesa que el sistema ya hace
@@ -261,10 +265,13 @@ miran juntos.
 
 ---
 
-# 6. ⚫ EL ULTIMO, por decision del propietario
+# 6. ⏳ LA PRIMERA APP DE LA F2, por decision del propietario (antes: el ultimo)
 
-**[`PLAN_EL_ASISTENTE.md`](en_pausa/PLAN_EL_ASISTENTE.md)** -- 13 abiertas. *"El
-asistente IA no lo necesitamos, eso es el ultimo."*
+**[`PLAN_EL_ASISTENTE.md`](en_pausa/PLAN_EL_ASISTENTE.md)** -- 13 abiertas. El
+10-09: *"El asistente IA no lo necesitamos, eso es el ultimo."* El 04-10 cambia:
+*"la F2 es la que va a vivir los resultados de test, pruebas y uso de apps ...
+y el primero de todos es construir una IA personal"*. Espera a TITAN++
+(niveles 9, 10 y 11): se construye EN el, con el trio debajo.
 
 Se queda escrito entero y no se archiva, porque **dos de sus casillas sirven a
 otras cosas**:

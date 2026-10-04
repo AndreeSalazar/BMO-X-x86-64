@@ -1,8 +1,29 @@
 # PLAN EL ASISTENTE -- un ayudante que corre DENTRO de BMO-X
 
-> Estado: **APARCADO** -- decision del propietario (2026-09-10, `EL_ORDEN.md`): *"el asistente de IA NO es prioridad, es el ultimo"*. Lo que arrastraba (exp en INTI, ancho de memoria) baja con el salvo lo que sirva a otra cosa.
+> Estado: **ESPERA** -- a TITAN++ (niveles 9, 10 y 11): por decision del propietario del 2026-10-04 es la PRIMERA app de la F2, y se construye en TITAN++ cuando el lenguaje llegue a varios ficheros, comportamientos y `gpu fn`. Antes: APARCADO, "el ultimo" (2026-09-10).
 >
 > Datos actualizados el 2026-09-21 (seccion 9, "System One"): el plan sigue aparcado; lo que cambia es que hay un escalon ANTES del motor de inferencia que no necesita ni GPU ni ancho de memoria, y que el `save` ya escribe su entrada (`informe/DATOS.TXT`).
+
+> ** DECISION DEL PROPIETARIO (2026-10-04), que cambia el orden del 10-09:
+> *"el trio es suficiente ... la F2 es la que va a vivir los resultados de
+> test, pruebas y uso de apps que se construyo, y el primero de todos es
+> construir una IA personal"*. El reparto queda:
+>
+> ```text
+>    F1  el TALLER        donde se construye
+>    F2  donde se VIVE    las apps construidas corren, se prueban y muestran
+>                         sus resultados; la PRIMERA, esta IA personal
+>    el trio              TITAN++ la logica de la app, INTI lo caliente de la
+>                         CPU (AVX2), la 3060 por `gpu fn` (TITAN_MAESTRO 7)
+> ```
+>
+> Lo que eso pide, dicho ahora para que no sorprenda: (1) la IA SI usa floats
+> (f16 / f32): redondear es parte de como funciona un modelo. El `dec` exacto
+> sigue siendo la regla de todo lo que debe cuadrar; el float vive encerrado en
+> `gpu` (nivel 11). (2) Lanzar computo en la 3060 es Ring 0, del propietario;
+> hasta entonces una IA chica corre en la CPU con INTI. (3) "Te hace caso en
+> todo" pasa por la autoridad que se da al nacer (abajo): cada orden que toque
+> la maquina pide su permiso.
 
 > ** Idea del propietario (2026-10-03), anotada SIN cambiar el estado: *"la F2
 > creo que es tener mi IA personal JARVIS, pero ese puede estar prendido
@@ -13,7 +34,7 @@
 > microfono que HERMES H12 (`docs/plan/PLAN_HERMES.md`): una pieza para los
 > dos. Y "te hace caso en todo" pasa por la regla de las jaulas de HERMES: la
 > autoridad se da al nacer y nunca se hereda (`task/autoridad.rs`), asi que
-> cada orden que toque la maquina pide su permiso. Sigue APARCADO.
+> cada orden que toque la maquina pide su permiso. Seguia APARCADO (hasta el 04-10, arriba).
 
 > Escrito el 2026-08-23, el dia que entraron AVX2 y el monton grande.
 >
