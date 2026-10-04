@@ -56,6 +56,36 @@ pub fn redonda(cv: &mut Canvas, x: i32, y: i32, w: i32, h: i32, r: i32, c: Color
     }
 }
 
+/// **Un marco redondo** de `t` pixeles, sin relleno (lo que era `cv.frame`,
+/// que dejaba las esquinas en pico). Los lados son tiras; las cuatro
+/// esquinas se MEZCLAN pixel a pixel segun cuanto las cubre el anillo, en
+/// dieciseisavos: por fuera y por dentro.
+pub fn marco(cv: &mut Canvas, x: i32, y: i32, w: i32, h: i32, r: i32, t: i32, c: Color) {
+    if w <= 0 || h <= 0 || t <= 0 {
+        return;
+    }
+    let r = r.min(w / 2).min(h / 2).max(t);
+    cv.rect(x + r, y, w - 2 * r, t, c);
+    cv.rect(x + r, y + h - t, w - 2 * r, t, c);
+    cv.rect(x, y + r, t, h - 2 * r, c);
+    cv.rect(x + w - t, y + r, t, h - 2 * r, c);
+    let (fuera, dentro) = (r * 16, (r - t) * 16);
+    for dy in 0..r {
+        for dx in 0..r {
+            // El centro del pixel respecto al centro de la esquina.
+            let (px, py) = (r * 16 - dx * 16 - 8, r * 16 - dy * 16 - 8);
+            let d = raiz((px * px + py * py) as u64) as i32;
+            let a = (8 - (d - fuera)).clamp(0, 16).min((8 + (d - dentro)).clamp(0, 16)) as u32;
+            if a == 0 {
+                continue;
+            }
+            for (qx, qy) in [(x + dx, y + dy), (x + w - 1 - dx, y + dy), (x + dx, y + h - 1 - dy), (x + w - 1 - dx, y + h - 1 - dy)] {
+                cv.blend(qx, qy, c, a, 16);
+            }
+        }
+    }
+}
+
 /// **Una tarjeta**: caja redonda con su borde de un pixel.
 pub fn caja(cv: &mut Canvas, x: i32, y: i32, w: i32, h: i32, r: i32, relleno: Color, borde: Color) {
     redonda(cv, x, y, w, h, r, borde);
@@ -290,6 +320,10 @@ pub fn sombra(cv: &mut Canvas, x: i32, y: i32, w: i32, h: i32, r: i32, c: Color,
     let (cx2, cy2) = (2 * x + w, 2 * y + h);
     for py in y - d..y + h + d {
         for px in x - d..x + w + d {
+            // Dentro de la caja no hay sombra que pintar: sin la raiz.
+            if (px >= x + r && px < x + w - r && py >= y && py < y + h) || (py >= y + r && py < y + h - r && px >= x && px < x + w) {
+                continue;
+            }
             // La distancia (en medios pixeles) al borde de la caja redonda.
             let qx = ((2 * px + 1 - cx2).abs() - w + 2 * r).max(0);
             let qy = ((2 * py + 1 - cy2).abs() - h + 2 * r).max(0);

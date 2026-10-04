@@ -8,7 +8,7 @@
 
 ```text
    573 casillas ABIERTAS en 53 planes
-   410 hechas
+   412 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -77,7 +77,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 19 mas
 
-## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 20 abiertas, 23 hechas
+## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 20 abiertas, 25 hechas
 
 *PLAN MAQUETA*
 

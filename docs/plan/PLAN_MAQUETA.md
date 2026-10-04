@@ -468,6 +468,18 @@ escritorio sigue sin pintar nada.
    [ ] V5  LAS VENTANAS: abrir, cerrar y minimizar con su transicion (hoy
            aparecen de golpe), por el mismo `Paso`
            -> `Ultra_userspace/services/director/src/desktop/`
+   [x] V6  CADA APP CON SU NOMBRE: el titulo, la ficha y Alt+Tab dicen TALLER
+           o DOOM (el programa que el kernel apunto), no `tid 16` ni `App 1`;
+           la ficha lleva el color de su icono
+           -> `Ultra_userspace/services/director/src/scene/nombre_app.rs`
+   [x] V7  F3 Y F4 CON LAS PIEZAS DE LA CASA: la LUDOTECA deja la letra de
+           pixel (salvo en su maquina recreativa, que es una arcade) y
+           escribe con la de las maquetas, como HERMES; JUGAR, las etiquetas
+           y los brillos, redondos; HERMES cambia sus marcos en pico por
+           `piezas::marco`. Los rotulos de pixel de HERMES se quedan: son los
+           de su maqueta (Silkscreen)
+           -> `Ultra_userspace/apps/hermes/src/piezas.rs` (compartida),
+              `Ultra_userspace/apps/ludoteca/src/pintar.rs`
 ```
 
 Visto en el anfitrion, fotograma a fotograma (tiras de cada movimiento con el
