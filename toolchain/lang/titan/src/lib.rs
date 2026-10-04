@@ -96,7 +96,8 @@ pub fn lower_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option
     let at = |m: Message| pkg.locate(m);
     comportamiento::expand(&mut program).map_err(at)?;
     check::check(&program).map_err(at)?;
-    let m = ir::lower(&program);
+    let mut m = ir::lower(&program);
+    m.permissions = pkg.permissions;
     juez::judge(&m).map_err(at)?;
     calc::fold(&m).map_err(at)
 }

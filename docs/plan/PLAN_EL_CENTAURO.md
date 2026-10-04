@@ -111,13 +111,13 @@ que entre.
 
 # 3. LAS CASILLAS
 
-## [ ] G0 -- EL PERMISO (D3), antes que nada
+## [x] G0 -- EL PERMISO (D3), antes que nada -- HECHO el 04-10
 
-- [ ] `paquete.rs` lee el `Titan.toml` del paquete con `titan_lector::manifest::parse`
-- [ ] `use gpu` sin `gpu` en `[permissions]`: un NO con su codigo (lo mismo que F1)
-- [ ] el `.bex` copia en `[permissions]` lo que pide el `Titan.toml`
-- [ ] el certificado nombra `Door::Gpu` en la linea de cada llamada a una `gpu fn`
-- [ ] `titan juez` lo compara (ya sabe): un banco con `--concede` y sin el
+- [x] `paquete.rs` lee el `Titan.toml` del paquete con `titan_lector::manifest::parse` (solo junto a `src/`, como F1); uno que no se lee es T0089
+- [x] `use gpu` / `use director` sin su permiso en `[permissions]`: T0088 (los mismos pares que F1)
+- [x] el `.bex` copia en `[permissions]` lo que pide el `Titan.toml` (test `a_package_carries_the_permissions_its_titan_toml_asks_for` del emisor)
+- [x] la ley L25 en `toolchain/tools/titan-leyes/LEYES.txt`
+- Lo que pide una `gpu fn` para existir (el certificado con `Door::Gpu`, y `titan juez` con y sin `--concede gpu`) pasa a G1.
 
 ## [ ] G1 -- EL FRONTEND: `gpu fn` y el f32 (D1, D2, D4)
 
@@ -125,7 +125,9 @@ que entre.
 - [ ] la regla D2: fuera de una `gpu fn`, un `f32` solo se guarda o se pasa; `round(x, n)` lo vuelve `dec`
 - [ ] dentro de una `gpu fn`: solo f32, int y bool, sin `print`, sin tablas, sin llamadas a fn de CPU
 - [ ] la aplicacion ELEMENTAL: `suma(xs, ys)` con tablas de igual largo da una tabla
-- [ ] sin permiso `gpu`, una `gpu fn` no compila (G0)
+- [ ] sin permiso `gpu`, una `gpu fn` no compila (como `use gpu`, T0088)
+- [ ] el certificado nombra `Door::Gpu` en la linea de cada llamada a una `gpu fn`
+- [ ] `titan juez` lo compara: un banco con `--concede gpu` (de acuerdo) y sin el (`Ungranted`)
 - [ ] los codigos nuevos, cada uno con su programa roto en `ejemplos/nivel11/`
 
 ## [ ] G2 -- EL FORMATO: TITAN++ escribe SPIR-V (D5)

@@ -14,6 +14,10 @@ description = "TITAN++ -- el lenguaje para construir sobre BMO-X. Frontend: de t
 # codigo con el que la puerta de carga del kernel lo leera (J2).
 [dependencies]
 bmo-titan-contrato = { path = "../../../platform/shared/titan-contrato" }
+# El `Titan.toml` se lee con el MISMO lector que F1 (nivel 11, G0 de
+# PLAN_EL_CENTAURO): una sola gramatica del manifiesto, nunca dos que se
+# separen. Puro, sin monton: lo mismo que ya es el contrato.
+bmo-titan-lector = { path = "../../../platform/shared/titan-lector" }
 
 [lib]
 name = "bmo_titan_front"

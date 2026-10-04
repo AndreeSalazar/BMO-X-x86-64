@@ -114,8 +114,13 @@ L24 el mismo fuente da el mismo .bex, byte a byte
     porque U4: "este es el .bex que audite" solo se puede decir si se puede reconstruir
     cumple test toolchain/lang/titan/emisor-x86_64/tests/banco.rs the_same_source_gives_the_same_bex
 
+L25 lo que un programa usa de BMO-X lo PIDE su Titan.toml, y el .bex lo lleva escrito
+    porque U2: el kernel concede o no, y el certificado dice desde que linea; un permiso que no se pide no se puede negar a tiempo
+    cumple ejemplo T0088
+
 [SELLO]
-16a5580ebef2ee0e784dd84f9f9ef59d2514f7aafcf4e93a686a1c47001e0bcf
+96dd4cf4896122123db153cf4c0ba018c36be032f8cf3c65c71e14e3dbc91453
 
 [HISTORIA]
 2026-10-04  16a5580ebef2  24 leyes  nacen las 24 leyes de los niveles 0-10, pedidas por el propietario
+2026-10-04  96dd4cf48961  25 leyes  L25: el permiso del Titan.toml (U2), con la casilla G0 de PLAN_EL_CENTAURO

@@ -1,0 +1,6 @@
+[package]
+name = "sin_permiso"
+
+[permissions]
+screen = true
+gpu = false

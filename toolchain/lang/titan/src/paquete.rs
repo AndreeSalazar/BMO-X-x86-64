@@ -43,10 +43,13 @@
 
 use crate::check::distance;
 use crate::message::{Code, Message};
+use bmo_titan_contrato::{Permission, Permissions};
 use crate::tree::{Arm, Expr, Program, Step, Stmt, Ty};
 
-/// The two nodes of BMO-X a header may `use` (F1 draws them).
-pub const SYSTEM: [&str; 2] = ["gpu", "director"];
+/// The two nodes of BMO-X a header may `use` (F1 draws them), and the
+/// permission of the `Titan.toml` each one needs -- the same pairs as
+/// titan-lector's `package.rs` (U2).
+pub const SYSTEM: [(&str, Permission); 2] = [("gpu", Permission::Gpu), ("director", Permission::Screen)];
 
 /// More files than this is a `mod` that goes round, not a package.
 const MAX_FILES: usize = 64;
@@ -65,6 +68,9 @@ pub struct File {
 /// module that says `mod` of it.
 pub struct Package {
     pub files: Vec<File>,
+    /// What its `Titan.toml` asks for (U2). A package without one asks for
+    /// nothing; a file alone is such a package.
+    pub permissions: Permissions,
 }
 
 impl Package {
@@ -122,7 +128,14 @@ fn default_place(parent: &str, root: bool, child: &str) -> String {
 /// Reads the package from its root file, following every `mod`. `read` gives
 /// a file by its path from the package, or `None` if it is not there.
 pub fn load(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<Package, Message> {
-    let mut pkg = Package { files: Vec::new() };
+    let mut pkg = Package { files: Vec::new(), permissions: Permissions::NONE };
+    // ** THE MANIFEST (U2, level 11 G0): a package is `Titan.toml` + `src/`,
+    // as F1 reads it; only a root in `src/` has one next to its folder.
+    if root.starts_with("src/") {
+        if let Some(text) = read("Titan.toml") {
+            pkg.permissions = manifest(&text)?;
+        }
+    }
     let mut next_base = 0;
     let mut add = |pkg: &mut Package, path: String, src: String| -> Result<usize, Message> {
         let base = next_base;
@@ -188,6 +201,32 @@ pub fn load(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>)
         i += 1;
     }
     Ok(pkg)
+}
+
+/// The permissions a `Titan.toml` asks for, read by titan-lector's own
+/// parser: the manifest F1 shows and the one the compiler obeys are one.
+fn manifest(text: &str) -> Result<Permissions, Message> {
+    use bmo_titan_lector::manifest::{parse, ManifestError};
+    parse(text.as_bytes()).map(|m| m.permissions).map_err(|e| {
+        let (line, what) = match e {
+            ManifestError::NoName => (1, "`[package]` no dice su `name`, o no es un nombre del lenguaje".to_string()),
+            ManifestError::BadLine(n) => (n, format!("la linea {} no es `[seccion]`, `clave = valor` ni un comentario `#`", n)),
+            ManifestError::TooManyPositions => (1, "`[layout]` tiene mas posiciones que nodos caben en el grafo".to_string()),
+        };
+        let mut m = Message::new(
+            Code::BadManifest,
+            line,
+            1,
+            &format!("el Titan.toml no se entiende: {}", what),
+            "el manifiesto dice que es el paquete y que PIDE (U2); uno que no se lee no pide nada con certeza, y nada se adivina",
+            "[package]
+             name = \"mi_app\"
+             [permissions]
+             gpu = \"compute\"",
+        );
+        m.file = Some("Titan.toml".to_string());
+        m
+    })
 }
 
 /// One file, its lines counted from `base`.
@@ -491,7 +530,22 @@ fn join_inner(pkg: &Package) -> Result<Program, Message> {
             if f.program.uses[..k].iter().any(|v| v.name == u.name) {
                 return Err(Message::new(Code::Twice, u.line, u.col, &format!("`use {}` esta dos veces", u.name), "un cable, una vez", "deja uno"));
             }
-            if SYSTEM.contains(&u.name.as_str()) {
+            if let Some((_, need)) = SYSTEM.iter().find(|s| s.0 == u.name) {
+                // ** U2 in the compiler: talking to the 3060 or to the screen
+                // needs the manifest to ASK for it -- the rule F1 already
+                // draws (`NoPermission` of titan-lector), now a NO here too.
+                if !pkg.permissions.allows(*need) {
+                    return Err(Message::new(
+                        Code::NoPermission,
+                        u.line,
+                        u.col,
+                        &format!("`use {}` y el Titan.toml no pide `{}`", u.name, need.key()),
+                        "lo que un programa usa de BMO-X lo PIDE su manifiesto (U2): el kernel lo concede o no, y el certificado del .bex dice desde que linea",
+                        &format!("pidelo en el Titan.toml del paquete:
+             [permissions]
+             {} = true", need.key()),
+                    ));
+                }
                 continue;
             }
             match names.iter().position(|n| n == &u.name) {
@@ -500,7 +554,7 @@ fn join_inner(pkg: &Package) -> Result<Program, Message> {
                 }
                 Some(j) => reach[i].push(j),
                 None => {
-                    let known: Vec<&str> = names.iter().map(String::as_str).chain(SYSTEM).collect();
+                    let known: Vec<&str> = names.iter().map(String::as_str).chain(SYSTEM.iter().map(|s| s.0)).collect();
                     let near = known.iter().copied().min_by_key(|k| distance(k, &u.name)).filter(|k| distance(k, &u.name) <= 2);
                     return Err(Message::new(
                         Code::Unknown,
@@ -720,8 +774,12 @@ mod tests {
 
     #[test]
     fn the_system_nodes_and_the_names_of_a_package() {
-        // `use gpu` is a declaration: nothing to call in it yet.
-        assert!(lower(&[("src/main.titan", "mod main \"x\"\nuse gpu\n\nfn main()\n    print(1)\n")]).is_ok());
+        // `use gpu` is a declaration: nothing to call in it yet -- and it
+        // needs its Titan.toml to ask for the 3060 (U2).
+        let gpu = "mod main \"x\"\nuse gpu\n\nfn main()\n    print(1)\n";
+        let asks = lower(&[("src/main.titan", gpu), ("Titan.toml", "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n")]).unwrap();
+        assert!(asks.permissions.allows(bmo_titan_contrato::Permission::Gpu));
+        assert_eq!(lower(&[("src/main.titan", gpu)]).unwrap_err().code, Code::NoPermission);
         let code = |files: &[(&str, &str)]| lower(files).unwrap_err().code;
         // A `use` of a module that is not there.
         assert_eq!(code(&[("src/main.titan", "mod main \"x\"\nuse naves\n\nfn main()\n    print(1)\n")]), Code::Unknown);

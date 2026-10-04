@@ -1,0 +1,6 @@
+[package]
+name = "con_permiso"
+
+[permissions]
+screen = true
+gpu = "compute"

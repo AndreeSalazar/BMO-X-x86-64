@@ -68,6 +68,9 @@ pub struct Module {
     /// The `trait`s (level 10), and which type keeps which: (trait, type).
     pub traits: Vec<TraitDef>,
     pub impls: Vec<(String, String)>,
+    /// What the package's `Titan.toml` asks for (U2): it travels to the
+    /// `.bex` manifest. Set by `lower_package`; nothing for a file alone.
+    pub permissions: bmo_titan_contrato::Permissions,
     /// Set by the calculation (`calc.rs`, level 4): the WHOLE program, run
     /// when compiling -- what it writes, in order, every value already a
     /// constant. Until something comes from outside, this is all the program
@@ -683,6 +686,7 @@ pub fn lower(p: &Program) -> Module {
         enums: p.enums.clone(),
         traits: p.traits.clone(),
         impls: p.impls.iter().map(|i| (i.trait_name.clone(), i.ty.name())).collect(),
+        permissions: bmo_titan_contrato::Permissions::NONE,
         flat: None,
     }
 }

@@ -268,6 +268,16 @@ mod tests {
         assert!(e.code.ends_with(&exit));
     }
 
+    /// ** U2 (level 11, G0): what the package's Titan.toml asks for travels
+    /// to the `.bex` manifest, where `titan juez` and the kernel read it.
+    #[test]
+    fn a_package_carries_the_permissions_its_titan_toml_asks_for() {
+        let files = [("src/main.titan", "mod main \"x\"\nuse gpu\n\nfn main()\n    print(1)\n"), ("Titan.toml", "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\nnet = false\n")];
+        let bex = build_package(files[0].0, files[0].1, &mut |p| files.iter().find(|f| f.0 == p).map(|f| f.1.to_string())).unwrap();
+        let t = core::str::from_utf8(bmo_verify::declaracion::manifiesto(&bex).unwrap()).unwrap().to_string();
+        assert!(t.contains("[permissions]") && t.contains("gpu = true") && !t.contains("net ="), "{}", t);
+    }
+
     #[test]
     fn a_built_bex_carries_its_manifest_and_passes_the_gate() {
         let bex = build("mod main \"saluda\"\nfn main()\n    print(\"hola\")\n", "hola.titan").unwrap();

@@ -29,7 +29,7 @@ texto cambia sin sellarse con un motivo.
 | 6 | `type` | `dec` exacto, tablas `[T; n]`, registros | T0071-T0073 |
 | 7 | `take` | prestar (`mut`) y entregar (`take`); `dec(p, s)` y `round` de COBOL | T0074-T0077 |
 | 8 | `enum match` | casos con datos, y un `match` que los cubre todos | T0078, T0079 |
-| 9 | `mod use pub` | paquetes de varios ficheros | T0080-T0084 |
+| 9 | `mod use pub` | paquetes de varios ficheros, con su `Titan.toml` (U2) | T0080-T0084, T0088, T0089 |
 | 10 | `trait` | lo que un valor sabe hacer, y fn para cualquiera que lo sepa | T0085-T0087 |
 | 11 | `gpu` | la 3060 | todavia no: su plan es `docs/plan/PLAN_EL_CENTAURO.md` |
 
@@ -648,7 +648,16 @@ sin hijos es un paquete de un modulo: todo lo de los niveles 0-8 sigue igual.
      un `use` de un modulo que no existe                  T0051
      dos modulos con el mismo nombre                      T0052
      un valor llamado como un modulo                      T0055
+   EL MANIFIESTO (U2, desde el 04-10)
+     `use gpu` / `use director` sin que el Titan.toml     T0088
+     pida `gpu` / `screen`
+     un Titan.toml que no se lee                          T0089
 ```
+
+**El `Titan.toml`** va junto a `src/` (como lo lee F1) y se lee con el mismo
+lector que F1. Lo que pide viaja al `.bex`, a su `[permissions]`: es lo que
+`titan juez` y el kernel comparan con lo que el programa usa. Un fichero suelto
+no tiene manifiesto, asi que no pide nada.
 
 Cada NO dice su FICHERO y su linea en el: las lineas del paquete se cuentan
 seguidas, como el mapa de fuentes de rustc, y el mensaje se devuelve a su sitio.
@@ -784,6 +793,8 @@ compilar -- sin coste, como promete C++. El lenguaje no cambia por eso.
 | T0085 | un valor que no cumple el trait que pide un parametro: se dice en la llamada (el calculo) |
 | T0086 | un `trait ... for` que no cumple su trait: le falta una fn, le sobra, o tiene otra firma (el comportamiento) |
 | T0087 | un trait donde solo va un parametro entero: en un `let`, un campo, una tabla o un resultado (el comportamiento) |
+| T0088 | se usa un nodo de BMO-X (`gpu`, `director`) que el Titan.toml no pide (el paquete, U2) |
+| T0089 | un Titan.toml que no se lee: una linea que no es seccion, clave o comentario (el paquete) |
 
 ## El banco: lo que dice cada ejemplo de si mismo
 

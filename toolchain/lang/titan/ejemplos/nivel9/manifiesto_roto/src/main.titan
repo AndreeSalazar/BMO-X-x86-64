@@ -1,0 +1,6 @@
+# espera: T0089
+# un Titan.toml que no se lee no pide nada con certeza: su linea 5 no es `clave = valor`
+mod main "un manifiesto mal escrito"
+
+fn main()
+    print("hola")

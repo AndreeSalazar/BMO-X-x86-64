@@ -61,7 +61,14 @@ pub fn manifest(m: &Module, source_name: &str) -> String {
     // U2, from the first `.bex`: the section is there and says what it asks.
     // Level 0 asks nothing -- writing on the console of one's own task is not
     // a permission -- and saying "nothing" is not the same as not saying.
-    t.push_str("# los niveles 0 a 4 no piden ninguno: escribir en la consola de la propia tarea no es un permiso\n");
+    t.push_str("# escribir en la consola de la propia tarea no es un permiso; lo demas lo pide el Titan.toml del paquete\n");
+    // What the package asks for, in the contract's order: the same build,
+    // the same bytes.
+    for p in bmo_titan_contrato::Permission::ALL {
+        if m.permissions.allows(p) {
+            t.push_str(&format!("{} = true\n", p.key()));
+        }
+    }
     let mut buf = [0u8; 4096];
     if let Ok(n) = certificate(m).write(&mut buf) {
         t.push('\n');

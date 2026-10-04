@@ -1,0 +1,8 @@
+# espera: BIEN
+# sale: pide la 3060 y la pantalla, y su .bex lo dice
+# el Titan.toml PIDE, y la cabecera usa lo pedido: el .bex lleva esos permisos a su manifiesto
+mod main "un paquete que pide lo que usa"
+use gpu, director
+
+fn main()
+    print("pide la 3060 y la pantalla, y su .bex lo dice")

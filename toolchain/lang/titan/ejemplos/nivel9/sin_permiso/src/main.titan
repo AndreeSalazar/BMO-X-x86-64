@@ -1,0 +1,7 @@
+# espera: T0088
+# lo que un programa usa de BMO-X lo PIDE su Titan.toml (U2): aqui habla con la 3060 y no la pide
+mod main "una gpu que nadie pidio"
+use gpu
+
+fn main()
+    print("hola")
