@@ -1,0 +1,7 @@
+# espera: T0055
+# un nombre, un valor: TITAN++ no tapa un nombre con otro
+mod main "calcula"
+
+fn main()
+    let total = 10
+    let total = 20

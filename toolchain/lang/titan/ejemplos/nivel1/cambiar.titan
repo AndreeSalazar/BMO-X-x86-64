@@ -1,0 +1,7 @@
+# espera: T0056
+# sin `mut`, un valor no cambia nunca (y `mut` llega en el nivel 2)
+mod main "calcula"
+
+fn main()
+    let vidas = 3
+    vidas = 2

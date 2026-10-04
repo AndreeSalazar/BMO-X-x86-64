@@ -1,0 +1,6 @@
+# espera: T0040
+# `mut` es del nivel 2: la escalera se sube de uno en uno
+mod main "cuenta"
+
+fn main()
+    let mut vueltas = 0

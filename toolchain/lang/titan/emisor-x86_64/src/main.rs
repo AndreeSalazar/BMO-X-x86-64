@@ -51,12 +51,20 @@ fn main() -> ExitCode {
             };
             match order.as_str() {
                 "check" => {
+                    // `check` judges the whole frontend: tree, names, the
+                    // checker and the calculation -- not only the tree.
+                    if let Err(m) = bmo_titan_front::lower(&src) {
+                        return no(&m, file, &src, false);
+                    }
                     let calls: usize = p.functions.iter().map(|f| f.body.len()).sum();
-                    let plural = if calls == 1 { "llamada" } else { "llamadas" };
+                    let plural = if calls == 1 { "linea" } else { "lineas" };
                     println!("bien  {}  -- mod {}, {} fn, {} {}", file, p.module, p.functions.len(), calls, plural);
                 }
                 "arbol" => print!("{}", p.show()),
-                _ => print!("{}", bmo_titan_front::ir::lower(&p).show()),
+                _ => match bmo_titan_front::lower(&src) {
+                    Ok(m) => print!("{}", m.show()),
+                    Err(m) => return no(&m, file, &src, false),
+                },
             }
             ExitCode::SUCCESS
         }

@@ -1,0 +1,6 @@
+# espera: T0062
+# 7 / 2 no es 3: TITAN++ no redondea a escondidas
+mod main "reparte"
+
+fn main()
+    print(7 / 2)

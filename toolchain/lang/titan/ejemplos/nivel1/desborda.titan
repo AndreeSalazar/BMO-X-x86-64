@@ -1,0 +1,7 @@
+# espera: T0060
+# desbordar es un error, no una vuelta a empezar
+mod main "calcula"
+
+fn main()
+    let enorme = 9223372036854775807
+    print(enorme + 1)

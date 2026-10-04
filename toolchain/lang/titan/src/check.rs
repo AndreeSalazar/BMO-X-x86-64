@@ -1,18 +1,23 @@
-//! `check` -- the names: is there a `main`, is every function defined once,
-//! does every call go somewhere, and does none of them come back to itself
-//! (T0053, `endless`). It knows the tree and nothing of text.
+//! `check` -- the names of FUNCTIONS: is there a `main`, is every function
+//! defined once, does every call go somewhere, does none of them come back to
+//! itself (T0053, `endless`), and no `let` takes a function's name (T0055).
+//! It knows the tree and nothing of text.
 //!
-//! In level 0 there are only two kinds of callee: `print` (the library's) and
-//! a `fn` of the file, called without arguments.
+//! The names of VALUES -- has `area` got a value at this line, can it change
+//! -- are not judged here: that is the checker's (`juez.rs`), on the IR,
+//! because it is the same question the borrow checker asks.
+//!
+//! There are two kinds of callee: `print` (the library's) and a `fn` of the
+//! file, called without arguments.
 
 use crate::message::{Code, Message};
-use crate::tree::Program;
+use crate::tree::{Program, Stmt};
 
 /// What the library gives in level 0.
 const LIBRARY: [&str; 1] = ["print"];
 
 /// The distance between two names, in edits: to say "did you mean".
-fn distance(a: &str, b: &str) -> usize {
+pub(crate) fn distance(a: &str, b: &str) -> usize {
     let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
     let mut row: Vec<usize> = (0..=b.len()).collect();
     for i in 1..=a.len() {
@@ -52,7 +57,24 @@ pub fn check(p: &Program) -> Result<(), Message> {
         ));
     }
     for f in &p.functions {
-        for c in &f.body {
+        for st in &f.body {
+            let c = match st {
+                Stmt::Call(c) => c,
+                Stmt::Let(l) => {
+                    if LIBRARY.contains(&l.name.as_str()) || p.functions.iter().any(|g| g.name == l.name) {
+                        return Err(Message::new(
+                            Code::Taken,
+                            l.line,
+                            l.col,
+                            &format!("`{}` ya es el nombre de una funcion", l.name),
+                            &format!("un nombre dice UNA cosa: si fuera las dos, `{0}()` y `{0}` se confundirian al leer", l.name),
+                            &format!("llama al valor de otra forma: let {}_valor = ...", l.name),
+                        ));
+                    }
+                    continue;
+                }
+                Stmt::Set(_) => continue,
+            };
             let own = p.functions.iter().any(|g| g.name == c.callee);
             if own && !c.args.is_empty() {
                 return Err(Message::new(
@@ -72,7 +94,7 @@ pub fn check(p: &Program) -> Result<(), Message> {
                     c.line,
                     c.col,
                     &format!("`{}` no existe", c.callee),
-                    "no es una `fn` de este fichero ni de la biblioteca (en el nivel 0, la biblioteca es `print`)",
+                    "no es una `fn` de este fichero ni de la biblioteca (la biblioteca, hoy, es `print`)",
                     &match near {
                         Some(k) => format!("quisiste decir `{}`?", k),
                         None => format!("define `fn {}()` en este fichero, o usa `print`", c.callee),
@@ -91,6 +113,13 @@ pub fn check(p: &Program) -> Result<(), Message> {
 /// by a fault, not a message. Saying it here costs a walk of the calls; saying
 /// it there costs a reboot to read a photo. The day `if` arrives (level 3) this
 /// rule has to learn which calls are behind one -- and it says so in its COMO.
+fn call_of(st: &Stmt) -> Option<&crate::tree::Call> {
+    match st {
+        Stmt::Call(c) => Some(c),
+        _ => None,
+    }
+}
+
 fn endless(p: &Program) -> Result<(), Message> {
     let own = |name: &str| p.functions.iter().position(|f| f.name == name);
     for (start, f) in p.functions.iter().enumerate() {
@@ -100,7 +129,7 @@ fn endless(p: &Program) -> Result<(), Message> {
         let mut stack = vec![(start, 0usize)];
         let mut seen = vec![false; p.functions.len()];
         while let Some(&(at, next)) = stack.last() {
-            let calls: Vec<usize> = p.functions[at].body.iter().filter_map(|c| own(&c.callee)).collect();
+            let calls: Vec<usize> = p.functions[at].body.iter().filter_map(|st| call_of(st)).filter_map(|c| own(&c.callee)).collect();
             if next >= calls.len() {
                 stack.pop();
                 path.pop();
@@ -109,7 +138,7 @@ fn endless(p: &Program) -> Result<(), Message> {
             stack.last_mut().unwrap().1 += 1;
             let to = calls[next];
             if to == start {
-                let call = p.functions[at].body.iter().filter(|c| own(&c.callee).is_some()).nth(next).unwrap();
+                let call = p.functions[at].body.iter().filter_map(|st| call_of(st)).filter(|c| own(&c.callee).is_some()).nth(next).unwrap();
                 let mut names: Vec<&str> = path.iter().map(|&i| p.functions[i].name.as_str()).collect();
                 names.push(&f.name);
                 let what = if names.len() == 2 {

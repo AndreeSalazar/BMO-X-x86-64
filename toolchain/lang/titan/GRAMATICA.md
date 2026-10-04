@@ -61,12 +61,61 @@ fn main()
 ### Lo que el nivel 0 dice que TODAVIA NO
 
 Una de las 25 palabras de un nivel que aun no existe no es un error de
-sintaxis cualquiera: es **T0040**, y dice en que nivel llega:
+sintaxis cualquiera: es **T0040**, y dice en que nivel llega (el ejemplo ya es
+del frontend de hoy, que va por el nivel 1):
 
 ```text
-   let x = 1        T0040  `let` llega en el nivel 1 (calcular)
+   let mut x = 1    T0040  `mut` llega en el nivel 2 (contar)
    while ...        T0040  `while` llega en el nivel 4 (repetir)
 ```
+
+---
+
+## Nivel 1 -- calcular (2 palabras: `fn`, `let`) -- 04-10
+
+```text
+# centauro.titan
+mod main "el centauro cuenta sus estrellas"
+
+fn main()
+    let patas = 4
+    let torso = 1
+    let estrellas = 120 + 35 * 2
+    print("patas: ", patas, ", en total ", patas + torso)
+    print(estrellas / 5, " cada una, y sobran ", estrellas % 7)
+```
+
+### Las piezas nuevas
+
+```text
+   let           let NOMBRE = VALOR      un nombre para un valor
+   valor         un numero entero, un "texto", un nombre con valor,
+                 y + - * / % con parentesis, y un - delante
+   print         ahora escribe numeros y textos: print("area: ", area)
+```
+
+La precedencia es la de la escuela: `*` `/` `%` antes que `+` `-`, y los
+parentesis primero. `+` entre dos textos los pone uno detras del otro.
+
+### Las reglas, y quien las dice
+
+```text
+   EL JUEZ (juez.rs, el borrow checker) -- que puede cada nombre en cada linea
+     un nombre se lee DESPUES de su `let`             si no, T0054
+     un nombre, un valor (no se tapa con otro `let`)  si no, T0055
+     sin `mut` no cambia nunca                        si no, T0056
+                                                      (`mut` llega en el nivel 2)
+   EL CALCULO (calc.rs) -- lo que se sabe al compilar se calcula al compilar
+     64 bits, y desbordar es un ERROR                 T0060
+     entre cero, ni / ni %                            T0061
+     una division que no da entera es un NO:          T0062
+       7 / 2 no es 3; el resto es 7 % 2, y los
+       decimales EXACTOS (dec) llegan con los tipos
+     un texto con un numero no se suma ni convierte   T0063
+```
+
+En el nivel 1 todo valor se sabe antes de correr (todavia no se lee nada de
+fuera), asi que el `.bex` ya lleva los resultados: `titan ir` los muestra.
 
 ### Los codigos
 
@@ -85,6 +134,13 @@ sintaxis cualquiera: es **T0040**, y dice en que nivel llega:
 | T0051 | se llama a algo que no existe |
 | T0052 | una funcion definida dos veces |
 | T0053 | las llamadas vuelven a una funcion y no terminan nunca (sin `if`, nada las para) |
+| T0054 | un nombre se lee antes de que un `let` le de valor (el juez) |
+| T0055 | un nombre que ya tiene valor, o que es de una funcion (el juez / los nombres) |
+| T0056 | se cambia un valor sin `mut` (el juez) |
+| T0060 | un numero que no cabe en 64 bits: desbordar es un error (el calculo) |
+| T0061 | una division o un resto entre cero (el calculo) |
+| T0062 | una division que no da un numero entero (el calculo) |
+| T0063 | un texto con un numero: no se suman ni se convierten solos (el calculo) |
 
 ### El banco: lo que dice cada ejemplo de si mismo
 

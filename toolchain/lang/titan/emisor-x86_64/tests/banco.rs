@@ -37,9 +37,16 @@ fn says(src: &str) -> String {
 }
 
 #[test]
-fn level_0_every_bien_program_runs_and_prints_what_it_says() {
+fn every_bien_program_of_every_level_runs_and_prints_what_it_says() {
+    for level in ["nivel0", "nivel1"] {
+        let ran = run_level(level);
+        assert!(ran >= 2, "{} has programs that run", level);
+    }
+}
+
+fn run_level(level: &str) -> usize {
     let mut ran = 0;
-    for (name, want, src) in examples("nivel0") {
+    for (name, want, src) in examples(level) {
         let built = bmo_titan_x86_64::build(&src, &name);
         if want != "BIEN" {
             assert!(built.is_err(), "{}: a NO program must write no .bex", name);
@@ -53,7 +60,7 @@ fn level_0_every_bien_program_runs_and_prints_what_it_says() {
         assert_eq!(m.console, expected, "{}: the console", name);
         ran += 1;
     }
-    assert!(ran >= 2, "level 0 has programs that run");
+    ran
 }
 
 /// ** The same source gives the same bytes: the `.bex` can be audited and

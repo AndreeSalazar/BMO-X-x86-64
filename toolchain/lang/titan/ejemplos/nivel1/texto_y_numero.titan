@@ -1,0 +1,7 @@
+# espera: T0063
+# "vidas: " + 3 no es "vidas: 3": TITAN++ no convierte solo
+mod main "calcula"
+
+fn main()
+    let vidas = 3
+    print("vidas: " + vidas)

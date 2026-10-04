@@ -1,6 +1,6 @@
 //! # TITAN++ para x86-64 -- de la IR a bytes, y al `.bex`
 //!
-//! T3 de `docs/maestro/TITAN_MAESTRO.md` (seccion 12), con el nivel 0:
+//! T3 de `docs/maestro/TITAN_MAESTRO.md` (seccion 12), con los niveles 0 y 1:
 //!
 //! ```text
 //!    bmo-titan-front      texto -> arbol -> IR       no nombra ninguna maquina
@@ -34,7 +34,7 @@
 
 use bmo_abi::bef2;
 use bmo_lower::{console, task};
-use bmo_titan_front::ir::{End, Module, Op};
+use bmo_titan_front::ir::{End, Module, Op, Value};
 use bmo_titan_front::Message;
 
 /// Lo que sale de emitir un modulo.
@@ -57,9 +57,11 @@ fn ret(code: &mut Vec<u8>) {
     code.push(0xC3);
 }
 
-/// IR -> bytes. No puede fallar: la IR ya esta comprobada, y en el nivel 0
-/// todo lo que dice tiene bytes detras.
-pub fn emit(m: &Module) -> Emitted {
+/// IR -> bytes. La IR llega JUZGADA y CALCULADA (`juez.rs`, `calc.rs`): en el
+/// nivel 1 cada valor ya es una constante, y un `let` no deja bytes -- su valor
+/// ya esta dentro de los textos que se escriben. Lo unico que no puede pasar
+/// es una parte sin calcular: se dice (`Unfolded`) en vez de inventarle bytes.
+pub fn emit(m: &Module) -> Result<Emitted, String> {
     let mut code = Vec::new();
     // (campo rel32, funcion destino): se resuelven AL FINAL, porque una
     // funcion puede llamar a otra que esta mas abajo.
@@ -76,8 +78,23 @@ pub fn emit(m: &Module) -> Emitted {
         for b in &f.blocks {
             for op in &b.ops {
                 match op {
-                    Op::Write(text) => console::write_const(&mut code, text.as_bytes()),
-                    Op::Call(k) => calls.push((call_rel32(&mut code), *k)),
+                    Op::Write { parts, at } => {
+                        let mut text = String::new();
+                        for p in parts {
+                            match p {
+                                Value::Int(n, _) => text.push_str(&n.to_string()),
+                                Value::Text(t, _) => text.push_str(t),
+                                _ => return Err(format!("linea {}: una parte de print llego sin calcular", at.0)),
+                            }
+                        }
+                        // `print` ends its line: ONE write, because the kernel
+                        // flushes a console line at its `\n`.
+                        text.push('\n');
+                        console::write_const(&mut code, text.as_bytes());
+                    }
+                    // Already inside the texts that use it (calc.rs).
+                    Op::Let { .. } | Op::Set { .. } => {}
+                    Op::Call { func, .. } => calls.push((call_rel32(&mut code), *func)),
                 }
             }
             match b.end {
@@ -90,7 +107,7 @@ pub fn emit(m: &Module) -> Emitted {
         let rel = starts[k] as i64 - (field as i64 + 4);
         code[field..field + 4].copy_from_slice(&(rel as i32).to_le_bytes());
     }
-    Emitted { code, starts }
+    Ok(Emitted { code, starts })
 }
 
 /// Bytes + manifiesto -> el `.bex`, que ya paso el gate.
@@ -123,7 +140,8 @@ pub enum Failure {
 pub fn build(src: &str, source_name: &str) -> Result<Vec<u8>, Failure> {
     let m = bmo_titan_front::lower(src).map_err(Failure::Source)?;
     let manifest = bmo_titan_front::manifest::manifest(&m, source_name);
-    package(&emit(&m), &manifest).map_err(Failure::Gate)
+    let e = emit(&m).map_err(Failure::Gate)?;
+    package(&e, &manifest).map_err(Failure::Gate)
 }
 
 #[cfg(test)]
@@ -133,7 +151,7 @@ mod tests {
     #[test]
     fn the_start_calls_main_even_when_main_is_not_first() {
         let m = bmo_titan_front::lower("mod main \"x\"\nfn otra()\n    print(\"a\")\nfn main()\n    otra()\n").unwrap();
-        let e = emit(&m);
+        let e = emit(&m).unwrap();
         // call rel32 at byte 0: its target is the start of main (f1).
         assert_eq!(e.code[0], 0xE8);
         let rel = i32::from_le_bytes(e.code[1..5].try_into().unwrap()) as i64;
@@ -143,7 +161,7 @@ mod tests {
     #[test]
     fn every_function_ends_in_ret() {
         let m = bmo_titan_front::lower("mod main \"x\"\nfn main()\n    print(\"a\")\n").unwrap();
-        let e = emit(&m);
+        let e = emit(&m).unwrap();
         assert_eq!(*e.code.last().unwrap(), 0xC3);
     }
 
