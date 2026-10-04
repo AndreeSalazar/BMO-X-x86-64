@@ -32,7 +32,7 @@ use bmo_proton_x::Permiso;
 use bmo_userland as bmo;
 
 use crate::cargador::Modulo;
-use crate::di;
+use crate::di_y_diario as di;
 
 /// Donde deja el director las autopsias (`services/director/src/main.rs`).
 const FALLOS: &[u8] = b"datos/fallos.txt";

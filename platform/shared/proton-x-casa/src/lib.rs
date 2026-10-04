@@ -470,6 +470,17 @@ pub fn la_casa_tiene(dll: &str, f: &Funcion) -> bool {
     tabla_casa(dll, f).is_some()
 }
 
+/// **Para una DLL del juego cargada EN VIVO** (04-10): lo de la tabla, o
+/// una TRAMPA con nombre (`true`) si la casa no la tiene. Una DLL que el
+/// juego carga con LoadLibrary no puede impedir que arranque por una
+/// funcion que quiza ni llame: si la llama, la trampa lo dice.
+pub fn tabla_o_trampa(dll: &str, f: &Funcion) -> Option<(u64, bool)> {
+    if let Some(d) = tabla(dll, f) {
+        return Some((d, false));
+    }
+    trampas::trampa(dll, &alloc::format!("{f}")).map(|d| (d, true))
+}
+
 /// **La tabla, para la casa misma**: la funcion de verdad, sin trampolin
 /// (lo que la casa se llama a si misma no va al diario).
 pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {

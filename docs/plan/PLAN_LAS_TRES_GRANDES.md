@@ -806,6 +806,20 @@ sus datos (con o sin `.dll`, ASCII o UTF-16) y que se pueden resolver
 enteras; la que no, se dice con lo que le falta y no se carga. LoadLibrary
 ya las encuentra (`modulos::por_nombre` busca en las propias).
 
+**Estado al 04-10, duodecima corrida: entraron tres, no la de FSR.** Con
+la carga en vivo entraron `galaxy64.dll`, `GameServicesGOG.dll` y
+`PxPvdSDK_x64.dll` (27 DLL del juego), pero `amd_fidelityfx_dx12` siguio
+dando NULL y el mismo salto a 0 (a los 33 s). Lo que decidio el cargador no
+se vio: la consola guarda las ultimas 200 lineas y las de "en vivo" eran las
+primeras. Lo mas probable: le faltaba alguna funcion de la casa y la regla
+"entera o nada" la dejo fuera. Ahora (1) a una DLL en vivo lo que la casa
+no tiene se le da con TRAMPA con nombre (`tabla_o_trampa`; 256 trampas),
+y solo la para una DLL del juego que no este; (2) se dicen tambien las
+`.dll` de la carpeta que el `.exe` NO nombra; (3) todo eso y el lector del
+nulo van ademas al DIARIO (`diario::apuntar_arranque`), que se guarda
+entero. Y `datos/fallos.txt` no se abre desde PROTON-X (codigo 28, no
+esta): el lector tiro de las autopsias del kernel.
+
 **Lo que dijo de sus sombreadores** (SYSPROTO, cada texto una vez), y su
 casilla:
 
