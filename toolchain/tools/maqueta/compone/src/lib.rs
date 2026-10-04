@@ -25,8 +25,10 @@
 //!
 //! ## Lo que no hace (todavia)
 //!
-//! Repetir una pieza N veces con N de la ejecucion, y los ESTADOS con su
-//! animacion. Ver `docs/plan/PLAN_MAQUETA.md`, seccion 6d.
+//! Repetir una pieza N veces con N de la ejecucion. Los ESTADOS se compilan
+//! aqui (`compilar_estados`); la transicion entre ellos se empareja y se
+//! mezcla trazo a trazo en `emit` (`movimiento.rs`). Ver
+//! `docs/plan/PLAN_MAQUETA.md`, seccion 6d.
 
 #![forbid(unsafe_code)]
 
@@ -277,8 +279,6 @@ fn correr(f: &mut Frame, dx: i32, dy: i32, prefijo: Option<&str>) {
         correr(c, dx, dy, prefijo);
     }
 }
-
-pub mod transicion;
 
 #[cfg(test)]
 mod pruebas;

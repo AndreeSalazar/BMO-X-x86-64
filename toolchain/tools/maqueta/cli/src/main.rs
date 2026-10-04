@@ -171,7 +171,17 @@ fn main() -> ExitCode {
         return png(&salida, &im);
     }
 
-    let codigo = bmo_maqueta_emit::rust::modulo(&procedencia(&entrada), &puesto);
+    // ** Con sus ESTADOS (P3b): si el `.maqueta` declara `@estado`, el modulo
+    // lleva sus transiciones; si no, sale EXACTAMENTE como siempre.
+    let otros = match bmo_maqueta_compone::compilar_estados(std::path::Path::new(&entrada)) {
+        Ok(e) => e.otros,
+        Err(f) => {
+            eprint!("{}", f.render());
+            eprintln!("maqueta: un estado no compila en {}, no se ha escrito nada.", f.fichero);
+            return ExitCode::FAILURE;
+        }
+    };
+    let codigo = bmo_maqueta_emit::rust::modulo_con_estados(&procedencia(&entrada), &puesto, &otros);
     if let Err(e) = std::fs::write(&salida, codigo) {
         eprintln!("maqueta: no puedo escribir {salida}: {e}");
         return ExitCode::from(2);
@@ -306,9 +316,13 @@ fn cobertura(ficheros: &[String]) -> ExitCode {
 /// `--tira a b n`: `n` fotogramas de la transicion de `a` a `b`, de 0 al
 /// final, uno debajo de otro con una raya entre medias.
 fn tira_png(salida: &str, a: &bmo_maqueta_layout::Laid, b: &bmo_maqueta_layout::Laid, n: u32) -> bool {
-    use bmo_maqueta_compone::transicion;
-    let total = transicion::duracion(b).max(1);
-    let fotos: Vec<_> = (0..n).map(|k| bmo_maqueta_emit::foto::foto(&transicion::en(a, b, total * k / (n - 1)))).collect();
+    // ** PAR A PAR (P3b): la misma mezcla de piezas que hace el escritorio,
+    // asi que la tira es el oraculo del codigo generado.
+    use bmo_maqueta_emit::{foto, movimiento};
+    let pares = movimiento::pares(a, b);
+    let total = movimiento::duracion(&pares).max(1);
+    let lienzo = (a.canvas.0.max(b.canvas.0), a.canvas.1.max(b.canvas.1));
+    let fotos: Vec<_> = (0..n).map(|k| foto::foto_en(&pares, lienzo, total * k / (n - 1))).collect();
     let ancho = fotos.iter().map(|f| f.ancho).max().unwrap_or(1);
     let alto: u32 = fotos.iter().map(|f| f.alto + 4).sum();
     let mut px = vec![0x0030_3040u32; (ancho * alto) as usize];

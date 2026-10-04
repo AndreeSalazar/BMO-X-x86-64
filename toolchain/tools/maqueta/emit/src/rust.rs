@@ -369,3 +369,123 @@ fn islas(s: &mut String, l: &Laid) {
     }
     s.push_str("}\n");
 }
+
+// ------------------------------------------------------------------------
+//  Los estados y sus transiciones (P3b, 04-10)
+// ------------------------------------------------------------------------
+
+/// **El modulo con sus ESTADOS**: lo de siempre (el reposo) y, si el
+/// `.maqueta` declara `@estado`, las transiciones entre todos, pintadas en
+/// el aparato par a par (`movimiento`). Sin estados, EXACTAMENTE `modulo`.
+pub fn modulo_con_estados(origen: &str, reposo: &Laid, otros: &[(String, Laid)]) -> String {
+    let mut s = modulo(origen, reposo);
+    if otros.is_empty() {
+        return s;
+    }
+    let mut todos: Vec<(&str, &Laid)> = vec![("reposo", reposo)];
+    todos.extend(otros.iter().map(|(n, l)| (n.as_str(), l)));
+    let mut pares_de = Vec::new();
+    for (i, (na, la)) in todos.iter().enumerate() {
+        for (j, (nb, lb)) in todos.iter().enumerate() {
+            if i != j {
+                pares_de.push((*na, *nb, crate::movimiento::pares(la, lb)));
+            }
+        }
+    }
+    let nombres: Vec<String> = todos.iter().map(|(n, _)| format!("{n:?}")).collect();
+    let _ = write!(
+        s,
+        "\n// == LOS ESTADOS (P3) ================================================\n\
+         //\n\
+         // Cada estado se maqueto ENTERO en el anfitrion y se juzgo. Aqui no se\n\
+         // maqueta nada: una transicion mezcla, par a par, piezas ya calculadas\n\
+         // (`bmo_pinta::entre_piezas`), con la curva de cada caja\n\
+         // (`bmo_pinta::avance`). La foto de la transicion del anfitrion\n\
+         // (`maqueta --foto --tira`) sale de los MISMOS pares: es su oraculo.\n\
+         \n\
+         pub const ESTADOS: [&str; {}] = [{}];\n\
+         \n\
+         /// Lo que tarda ir de `de` a `a`, en ms. 0 si no hay tal transicion.\n\
+         pub fn duracion(de: &str, a: &str) -> u32 {{\n\
+         \x20   match (de, a) {{\n",
+        nombres.len(),
+        nombres.join(", ")
+    );
+    for (a, b, pares) in &pares_de {
+        let _ = writeln!(s, "        ({a:?}, {b:?}) => {},", crate::movimiento::duracion(pares));
+    }
+    s.push_str(
+        "        _ => 0,\n    }\n}\n\n\
+         /// **Pinta la transicion de `de` a `a` a los `ms` de empezar.** Pasado\n\
+         /// [`duracion`], pinta `a` tal cual. Quien llama pide fotogramas\n\
+         /// MIENTRAS dure y devuelve el fondo antes de cada uno: las piezas\n\
+         /// suaves mezclan con lo que hay debajo.\n\
+         pub fn pintar_transicion(p: &bmo::Pantalla, ox: u32, oy: u32, de: &str, a: &str, ms: u32) {\n\
+         \x20   match (de, a) {\n",
+    );
+    for (k, (a, b, _)) in pares_de.iter().enumerate() {
+        let _ = writeln!(s, "        ({a:?}, {b:?}) => transicion_{k}(p, ox, oy, ms),");
+    }
+    s.push_str(
+        "        _ => {}\n    }\n}\n\n\
+         /// **Pinta un estado entero**: el reposo es `pintar`; los demas, el final\n\
+         /// de ir a ellos desde el reposo.\n\
+         pub fn pintar_estado(p: &bmo::Pantalla, ox: u32, oy: u32, estado: &str) {\n\
+         \x20   if estado == \"reposo\" {\n\
+         \x20       pintar(p, ox, oy);\n\
+         \x20   } else {\n\
+         \x20       pintar_transicion(p, ox, oy, \"reposo\", estado, u32::MAX);\n\
+         \x20   }\n\
+         }\n",
+    );
+    for (k, (a, b, pares)) in pares_de.iter().enumerate() {
+        let _ = write!(s, "\n/// De `{a}` a `{b}`.\nfn transicion_{k}(p: &bmo::Pantalla, ox: u32, oy: u32, ms: u32) {{\n    let _ = (p, ox, oy, ms);\n");
+        for par in pares {
+            s.push_str(&par_rust(par));
+        }
+        s.push_str("}\n");
+    }
+    s
+}
+
+/// Un par, en Rust: mezclado si se puede, y si no, el que toca a esa altura.
+fn par_rust(par: &crate::movimiento::Par) -> String {
+    use crate::movimiento::Par;
+    let Par { a, b, retraso, dura, curva, de } = par;
+    let k = format!(
+        "bmo::avance(ms, {retraso}, {dura}, [{}, {}, {}, {}])",
+        curva[0], curva[1], curva[2], curva[3]
+    );
+    let mut s = format!("    // {de}\n");
+    let pieza = |t: &Trazo| t.con_pieza_o_caja(pieza_literal);
+    match (a, b) {
+        (Some(Trazo::Texto { r: ra, texto, color: ca }), Some(Trazo::Texto { r: rb, color: cb, .. })) => {
+            let _ = writeln!(
+                s,
+                "    {{\n        let k = {k};\n        p.texto((ox as i32 + bmo::entre_i({}, {}, k)) as u32, (oy as i32 + bmo::entre_i({}, {}, k)) as u32, {texto:?}, bmo::entre_color(0x{ca:08X}, 0x{cb:08X}, k));\n    }}",
+                ra.x, rb.x, ra.y, rb.y
+            );
+        }
+        (Some(ta), Some(tb)) => match (pieza(ta), pieza(tb)) {
+            (Some(la), Some(lb)) => {
+                let _ = writeln!(s, "    p.pieza_entre(&{la}, &{lb}, {k}, ox as i32, oy as i32);");
+            }
+            _ => {
+                let _ = writeln!(
+                    s,
+                    "    if {k}.clamp(0, 1000) >= 500 {{\n        {}\n    }} else {{\n        {}\n    }}",
+                    llamada(tb),
+                    llamada(ta)
+                );
+            }
+        },
+        (Some(ta), None) => {
+            let _ = writeln!(s, "    if {k}.clamp(0, 1000) < 500 {{\n        {}\n    }}", llamada(ta));
+        }
+        (None, Some(tb)) => {
+            let _ = writeln!(s, "    if {k}.clamp(0, 1000) >= 500 {{\n        {}\n    }}", llamada(tb));
+        }
+        (None, None) => {}
+    }
+    s
+}

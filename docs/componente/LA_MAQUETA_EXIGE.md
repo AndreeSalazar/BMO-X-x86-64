@@ -202,9 +202,11 @@ por prudencia.
   `ease-in-out` o `cubic-bezier(x1, y1, x2, y2)` -- con las `y` por encima de 1
   es el REBOTE, y sigue siendo CSS. Vale la de la caja en el estado de LLEGADA,
   como en CSS. Sin `transition`, la caja cambia de golpe.
-- **Pasar de un estado a otro es mezclar cajas YA maquetadas**
-  (`compone/src/transicion.rs`): el sitio, la medida, los colores, el radio,
-  el borde, el resplandor y la talla de la letra. Lo que no se puede mezclar
+- **Pasar de un estado a otro es mezclar PIEZAS ya maquetadas**
+  (`emit/src/movimiento.rs` las empareja; `bmo_pinta::entre_piezas` las
+  mezcla): el sitio, la medida, los colores, el radio, el borde, el
+  resplandor y la talla de la letra. Un resplandor que aparece nace de
+  alcance 0 en la caja de salida y crece con ella. Lo que no se puede mezclar
   (un color que aparece) salta a mitad, como hace CSS con lo discreto. **En
   el aparato no se maqueta nada.** Una caja que cambia de fila a columna, o
   que pasa a absoluta, tambien se mueve suave: se empareja por lo que ES, no
@@ -220,8 +222,13 @@ por prudencia.
    maqueta --foto --tira reposo abierta 8 panel.maqueta tira.png
 ```
 
-[!] Hoy esto es del ANFITRION (las fotos de cada estado y de la transicion).
-El escritorio pintando la transicion es P3b de `PLAN_MAQUETA.md`.
+**En el escritorio (P3b)**: el modulo generado lleva `ESTADOS`,
+`duracion(de, a)`, `pintar_estado` y `pintar_transicion(p, ox, oy, de, a,
+ms)`, que pinta cada par con `p.pieza_entre`. La tira del anfitrion
+(`--tira`) sale de los MISMOS pares: es el oraculo del codigo generado, y sus
+extremos son los dos estados pixel a pixel (test). [!] Comprobado que el
+modulo del panel compila en el director; ninguna ventana lo usa todavia y no
+se ha visto en el Ryzen.
 
 ### 3c. Los atajos y las variables (escalon 1, 04-10)
 

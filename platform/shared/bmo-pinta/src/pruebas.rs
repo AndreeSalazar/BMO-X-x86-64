@@ -172,3 +172,30 @@ fn las_curvas_de_css() {
         assert!(curva(lineal, x) <= curva(lineal, x + 1));
     }
 }
+
+/// Mezclar piezas: en 0 es la de salida, en 1000 la de llegada, y en medio
+/// la medida y el color a medias.
+#[test]
+fn una_pieza_a_medio_camino() {
+    let a = Pieza::Caja { x: 0, y: 0, w: 100, h: 40, r: 20, c: 0x000000 };
+    let b = Pieza::Caja { x: 20, y: 10, w: 300, h: 140, r: 10, c: 0xFFFFFF };
+    assert_eq!(entre_piezas(&a, &b, 0), a);
+    assert_eq!(entre_piezas(&a, &b, 1000), b);
+    assert_eq!(entre_piezas(&a, &b, 500), Pieza::Caja { x: 10, y: 5, w: 200, h: 90, r: 15, c: 0x808080 });
+    // El rebote se pasa de medida, pero no de color.
+    match entre_piezas(&a, &b, 1100) {
+        Pieza::Caja { w, c, .. } => {
+            assert_eq!(w, 320);
+            assert_eq!(c, 0xFFFFFF);
+        }
+        _ => unreachable!(),
+    }
+    // De clases distintas: salta a mitad.
+    let r = Pieza::Resplandor { x: 0, y: 0, w: 1, h: 1, r: 0, alcance: 4, argb: 0 };
+    assert_eq!(entre_piezas(&a, &r, 499), a);
+    assert_eq!(entre_piezas(&a, &r, 500), r);
+    assert_eq!(avance(0, 0, 400, [0, 0, 1000, 1000]), 0);
+    assert_eq!(avance(200, 0, 400, [0, 0, 1000, 1000]), 500);
+    assert_eq!(avance(150, 100, 100, [0, 0, 1000, 1000]), 500, "con espera");
+    assert_eq!(avance(1, 0, 0, [0, 0, 1000, 1000]), 1000, "sin transicion, de golpe");
+}

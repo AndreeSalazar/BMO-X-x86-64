@@ -656,3 +656,82 @@ pub fn curva(c: [i32; 4], x: i32) -> i32 {
     }
     b(y1, y2, (lo + hi) / 2) as i32
 }
+
+/// **Cuanto ha avanzado** una caja a los `ms` de empezar su transicion
+/// (milesimas; con un rebote pasa de 1000): espera `retraso`, tarda `dura` y
+/// sigue la `curva`. Sin transicion (`dura == 0`), de golpe.
+pub fn avance(ms: u32, retraso: u32, dura: u32, c: [i32; 4]) -> i32 {
+    if ms <= retraso {
+        return if dura == 0 && ms > 0 { 1000 } else { 0 };
+    }
+    if dura == 0 {
+        return 1000;
+    }
+    let x = ((ms - retraso) as u64 * 1000 / dura as u64).min(1000) as i32;
+    curva(c, x)
+}
+
+/// Un entero de `a` a `b`, `p` milesimas (puede pasarse: el rebote).
+pub fn entre_i(a: i32, b: i32, p: i32) -> i32 {
+    a + ((b as i64 - a as i64) * p as i64 / 1000) as i32
+}
+
+/// Un color (`0xAARRGGBB` o `0x00RRGGBB`) de `a` a `b`, canal a canal. Un
+/// color no se pasa de largo: `p` se recorta a 0..=1000.
+pub fn entre_color(a: u32, b: u32, p: i32) -> u32 {
+    let p = p.clamp(0, 1000) as u32;
+    let c = |s: u32| (((a >> s & 255) * (1000 - p) + (b >> s & 255) * p + 500) / 1000) << s;
+    c(24) | c(16) | c(8) | c(0)
+}
+
+/// **Una pieza a medio camino** entre `a` y `b` (P3b, 04-10): `p` milesimas
+/// de avance (el sitio, la medida y la talla se pasan con el rebote; los
+/// colores no). Las dos tienen que ser de la MISMA clase -- el emisor las
+/// empareja asi --; si no, o si son caminos (que no se mezclan), la que toca
+/// a esa altura: la de salida hasta la mitad, la de llegada desde ella.
+pub fn entre_piezas<'a>(a: &Pieza<'a>, b: &Pieza<'a>, p: i32) -> Pieza<'a> {
+    let i = |x: i32, y: i32| entre_i(x, y, p);
+    let u = |x: i32, y: i32| entre_i(x, y, p).max(0);
+    let col = |x: u32, y: u32| entre_color(x, y, p);
+    match (*a, *b) {
+        (Pieza::Caja { x, y, w, h, r, c }, Pieza::Caja { x: x2, y: y2, w: w2, h: h2, r: r2, c: c2 }) => {
+            Pieza::Caja { x: i(x, x2), y: i(y, y2), w: u(w, w2), h: u(h, h2), r: u(r, r2), c: col(c, c2) }
+        }
+        (Pieza::Borde { x, y, w, h, r, grosor, c }, Pieza::Borde { x: x2, y: y2, w: w2, h: h2, r: r2, grosor: g2, c: c2 }) => Pieza::Borde {
+            x: i(x, x2),
+            y: i(y, y2),
+            w: u(w, w2),
+            h: u(h, h2),
+            r: u(r, r2),
+            grosor: entre_i(grosor, g2, p.clamp(0, 1000)).max(0),
+            c: col(c, c2),
+        },
+        (Pieza::Resplandor { x, y, w, h, r, alcance, argb }, Pieza::Resplandor { x: x2, y: y2, w: w2, h: h2, r: r2, alcance: a2, argb: g2 }) => {
+            Pieza::Resplandor { x: i(x, x2), y: i(y, y2), w: u(w, w2), h: u(h, h2), r: u(r, r2), alcance: u(alcance, a2), argb: col(argb, g2) }
+        }
+        (Pieza::Degradado { x, y, w, h, r, de, a: hasta, vertical }, Pieza::Degradado { x: x2, y: y2, w: w2, h: h2, r: r2, de: de2, a: a2, .. }) => {
+            Pieza::Degradado { x: i(x, x2), y: i(y, y2), w: u(w, w2), h: u(h, h2), r: u(r, r2), de: col(de, de2), a: col(hasta, a2), vertical }
+        }
+        (Pieza::Letra { x, y, alto, texto, c, px, peso, espacio, mayusculas }, Pieza::Letra { x: x2, y: y2, alto: al2, c: c2, px: px2, peso: pe2, espacio: e2, mayusculas: m2, .. }) => {
+            let medio = p.clamp(0, 1000) >= 500;
+            Pieza::Letra {
+                x: i(x, x2),
+                y: i(y, y2),
+                alto: u(alto, al2),
+                texto,
+                c: col(c, c2),
+                px: entre_i(px as i32, px2 as i32, p).clamp(4, 200) as u8,
+                peso: if medio { pe2 } else { peso },
+                espacio: i(espacio, e2),
+                mayusculas: if medio { m2 } else { mayusculas },
+            }
+        }
+        _ => {
+            if p.clamp(0, 1000) >= 500 {
+                *b
+            } else {
+                *a
+            }
+        }
+    }
+}

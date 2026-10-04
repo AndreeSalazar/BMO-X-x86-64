@@ -49,3 +49,4 @@ pub mod bef;
 /// **La FOTO** (MAQUETA 2): la cara pintada en el anfitrion con el pintor de
 /// verdad, para que el ESPEJO de cara la compare con el navegador.
 pub mod foto;
+pub mod movimiento;

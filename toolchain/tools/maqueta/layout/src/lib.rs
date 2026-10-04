@@ -30,7 +30,10 @@
 pub mod flow;
 pub mod measure;
 
-use bmo_maqueta_cascade::{Cascaded, Style, Styled};
+use bmo_maqueta_cascade::{Cascaded, Styled};
+/// El estilo de una caja, como lo lleva cada `Frame`: quien lea un `Frame`
+/// tiene que poder nombrar su estilo sin depender de la cascada.
+pub use bmo_maqueta_cascade::Style;
 use bmo_maqueta_diag::Span;
 use bmo_maqueta_node::Tag;
 

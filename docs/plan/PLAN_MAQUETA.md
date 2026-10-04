@@ -403,12 +403,19 @@ tiene se sabe al correr. Con piezas, una FILA es una maqueta de medida fija
            estado y tiras de la transicion; el navegador abre el estado
            (`foto.js --estado`): `pruebas/panel.maqueta`, reposo 99,44 %,
            abierta 97,25 %
-           -> `toolchain/tools/maqueta/compone/src/transicion.rs`,
+           -> `toolchain/tools/maqueta/compone/src/lib.rs` (los estados),
               `platform/shared/bmo-pinta` (`curva`)
-   [ ] P3b EL ESCRITORIO LA PINTA: el emisor A genera las cajas de cada
-           estado y la mezcla en el aparato (con `bmo_pinta::curva`), y el
-           realce del puntero pasa a ser un estado mas
-           -> `toolchain/tools/maqueta/emit/src/rust.rs`
+   [x] P3b EL ESCRITORIO LA PINTA: `movimiento.rs` empareja las piezas de
+           cada caja en los dos estados (un resplandor que aparece nace en la
+           caja de salida; lo que no casa salta a mitad); el modulo generado
+           trae `pintar_transicion` con `p.pieza_entre`; la tira del
+           anfitrion sale de los MISMOS pares. El modulo del panel compila
+           en el director
+           -> `toolchain/tools/maqueta/emit/src/movimiento.rs`, `rust.rs`
+           [!] ninguna ventana lo usa todavia, y no se vio en el Ryzen
+   [ ] P3d EL REALCE COMO ESTADO: que `:hover` sea un estado mas, con su
+           transicion, en vez de un cambio de golpe
+           -> `toolchain/tools/maqueta/emit/src/rust.rs` (`realce`)
    [ ] P3c LA CARA CON ESTADOS: la CARA que viaja lleva sus estados, para
            que una app los pinte sin codigo generado
            -> `platform/shared/bmo-maqueta-cara/`

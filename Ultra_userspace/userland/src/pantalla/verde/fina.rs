@@ -45,7 +45,7 @@ use bmo_letra::{Fuente, LetraFija};
 use bmo_pinta::{Color, Lienzo};
 
 pub use bmo_letra::{Estilo, Peso};
-pub use bmo_pinta::{entre, Pieza};
+pub use bmo_pinta::{avance, entre, entre_color, entre_i, Pieza};
 
 use crate::pantalla::Pantalla;
 
@@ -145,6 +145,14 @@ impl Pantalla {
         }
         let Some(mut pincel) = self.pincel(x + ox, y + oy, w, h, limite) else { return };
         let _ = con_letra(|l| bmo_pinta::pieza(&mut pincel, l, pz, ox, oy));
+    }
+
+    /// **Una pieza a medio camino** entre `a` y `b` (P3b): `k` milesimas de
+    /// avance (`bmo::avance`). Es lo que pinta, en cada fotograma, una
+    /// transicion que genera MAQUETA -- la misma mezcla que la foto del
+    /// anfitrion.
+    pub fn pieza_entre(&self, a: &Pieza, b: &Pieza, k: i32, ox: i32, oy: i32) {
+        self.pieza(&bmo_pinta::entre_piezas(a, b, k), ox, oy, None);
     }
 
     /// **La letra de la casa**, con la BASE de su linea en `y` y empezando en
