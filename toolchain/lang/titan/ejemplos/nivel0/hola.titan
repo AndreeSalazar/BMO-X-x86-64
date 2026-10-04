@@ -1,4 +1,5 @@
 # espera: BIEN
+# sale: hola
 # el primer programa: un modulo que dice que hace, y main que saluda
 mod main "saluda"
 

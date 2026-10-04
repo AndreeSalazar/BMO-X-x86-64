@@ -807,6 +807,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-titan-x86-64"
+version = "0.1.0"
+dependencies = [
+ "bmo-abi",
+ "bmo-lower",
+ "bmo-titan-front",
+ "bmo-verify",
+]
+
+[[package]]
 name = "bmo-trim"
 version = "0.1.0"
 

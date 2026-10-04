@@ -3,7 +3,7 @@ name = "bmo-titan-front"
 version = "0.1.0"
 edition = "2021"
 authors = ["BMO Project"]
-description = "TITAN++ -- el lenguaje para construir sobre BMO-X. Frontend: de texto a arbol."
+description = "TITAN++ -- el lenguaje para construir sobre BMO-X. Frontend: de texto a arbol, y del arbol a su IR propia."
 
 # -- Lo que enlaza, y lo que NO ------------------------------------
 #
@@ -17,6 +17,6 @@ description = "TITAN++ -- el lenguaje para construir sobre BMO-X. Frontend: de t
 name = "bmo_titan_front"
 path = "src/lib.rs"
 
-[[bin]]
-name = "titan"
-path = "src/bin/titan.rs"
+# La orden `titan` NO vive aqui desde T3: produce bytes de UNA maquina, y este
+# crate tiene prohibido nombrar ninguna. Esta en `emisor-x86_64/` (como `inti`
+# vive en el emisor de INTI).

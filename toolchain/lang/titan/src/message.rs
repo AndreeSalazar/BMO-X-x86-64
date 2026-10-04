@@ -31,10 +31,11 @@ pub enum Code {
     NoMain,
     Unknown,
     Twice,
+    Endless,
 }
 
 impl Code {
-    pub const ALL: [Code; 12] = [
+    pub const ALL: [Code; 13] = [
         Code::NoHeader,
         Code::Tab,
         Code::BadIndent,
@@ -47,6 +48,7 @@ impl Code {
         Code::NoMain,
         Code::Unknown,
         Code::Twice,
+        Code::Endless,
     ];
 
     pub fn number(self) -> u16 {
@@ -63,6 +65,7 @@ impl Code {
             Code::NoMain => 50,
             Code::Unknown => 51,
             Code::Twice => 52,
+            Code::Endless => 53,
         }
     }
 
@@ -112,7 +115,7 @@ mod tests {
     #[test]
     fn every_code_has_its_own_number_and_they_do_not_move() {
         let numbers: Vec<u16> = Code::ALL.iter().map(|c| c.number()).collect();
-        assert_eq!(numbers, [1, 10, 12, 20, 21, 22, 30, 31, 40, 50, 51, 52]);
+        assert_eq!(numbers, [1, 10, 12, 20, 21, 22, 30, 31, 40, 50, 51, 52, 53]);
         assert_eq!(Code::BadIndent.label(), "T0012");
     }
 

@@ -1,5 +1,6 @@
 //! `check` -- the names: is there a `main`, is every function defined once,
-//! and does every call go somewhere. It knows the tree and nothing of text.
+//! does every call go somewhere, and does none of them come back to itself
+//! (T0053, `endless`). It knows the tree and nothing of text.
 //!
 //! In level 0 there are only two kinds of callee: `print` (the library's) and
 //! a `fn` of the file, called without arguments.
@@ -77,6 +78,58 @@ pub fn check(p: &Program) -> Result<(), Message> {
                         None => format!("define `fn {}()` en este fichero, o usa `print`", c.callee),
                     },
                 ));
+            }
+        }
+    }
+    endless(p)
+}
+
+/// ** A CALL THAT COMES BACK TO ITSELF NEVER ENDS -- in level 0.
+///
+/// There is no `if` yet, so nothing can decide to stop: `a -> b -> a` goes
+/// round until the stack runs out, and on the machine that is a task killed
+/// by a fault, not a message. Saying it here costs a walk of the calls; saying
+/// it there costs a reboot to read a photo. The day `if` arrives (level 3) this
+/// rule has to learn which calls are behind one -- and it says so in its COMO.
+fn endless(p: &Program) -> Result<(), Message> {
+    let own = |name: &str| p.functions.iter().position(|f| f.name == name);
+    for (start, f) in p.functions.iter().enumerate() {
+        // Depth-first from `start`, remembering the path: a call back to
+        // `start` is the cycle, written with the names the author typed.
+        let mut path = vec![start];
+        let mut stack = vec![(start, 0usize)];
+        let mut seen = vec![false; p.functions.len()];
+        while let Some(&(at, next)) = stack.last() {
+            let calls: Vec<usize> = p.functions[at].body.iter().filter_map(|c| own(&c.callee)).collect();
+            if next >= calls.len() {
+                stack.pop();
+                path.pop();
+                continue;
+            }
+            stack.last_mut().unwrap().1 += 1;
+            let to = calls[next];
+            if to == start {
+                let call = p.functions[at].body.iter().filter(|c| own(&c.callee).is_some()).nth(next).unwrap();
+                let mut names: Vec<&str> = path.iter().map(|&i| p.functions[i].name.as_str()).collect();
+                names.push(&f.name);
+                let what = if names.len() == 2 {
+                    format!("`{}` se llama a si misma y no termina nunca", f.name)
+                } else {
+                    format!("las llamadas vuelven a `{}` ({}) y no terminan nunca", f.name, names.join(" -> "))
+                };
+                return Err(Message::new(
+                    Code::Endless,
+                    call.line,
+                    call.col,
+                    &what,
+                    "en el nivel 0 no hay `if`: nada puede decidir parar, y la vuelta sigue hasta que se acaba la pila",
+                    &format!("quita la llamada a `{}()` de esta linea; decidir cuando parar llega en el nivel 3", call.callee),
+                ));
+            }
+            if !seen[to] {
+                seen[to] = true;
+                path.push(to);
+                stack.push((to, 0));
             }
         }
     }

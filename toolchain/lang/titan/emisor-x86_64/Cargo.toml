@@ -1,0 +1,41 @@
+[package]
+name = "bmo-titan-x86-64"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "TITAN++ para x86-64: de su IR a bytes y al .bex. El unico crate de TITAN++ que nombra una maquina, y el de la orden `titan`."
+
+# -- Por que es un CRATE APARTE (T3, 2026-10-04) ---------------------
+#
+# Por la misma frontera que INTI: el frontend tiene PROHIBIDO nombrar una
+# maquina (`ir.rs` lo comprueba con una prueba) y un emisor la nombra en cada
+# linea. La frontera no es una convencion: es el arbol de directorios.
+#
+# ** Y lo que NO enlaza: el emisor de INTI. TITAN++ tiene su IR y su emisor;
+# INTI se queda con la suya, enfocada en la precision, sin cargar con nadie.
+# Lo que se comparte es de la CASA y no de un lenguaje: los bytes de la puerta
+# (`bmo-lower`), el formato (`bmo-abi`) y el gate (`bmo-verify`).
+[dependencies]
+bmo-titan-front = { path = ".." }
+# La puerta: `console::write_const` y `task::exit`, la secuencia que
+# `tools/hello-bex` ya corrio en el metal. Sin semantica de ningun lenguaje.
+bmo-lower = { path = "../../../forge/bmo-lower" }
+# El contenedor BEF2.
+bmo-abi = { path = "../../../../platform/abi/bmo-abi" }
+# EL GATE. Ningun .bex se escribe sin pasar por aqui (CONTRIBUTING: "do not add
+# another path around it"). TITAN++ ademas se obliga a declarar lo que es.
+bmo-verify = { path = "../../../forge/bmo-verify" }
+
+[lib]
+name = "bmo_titan_x86_64"
+path = "src/lib.rs"
+
+# La orden de TITAN_MAESTRO 4.1, hoy: check, arbol, ir y build.
+[[bin]]
+name = "titan"
+path = "src/main.rs"
+
+[dev-dependencies]
+# El banco EJECUTA el .bex: un `print` que escribe otra cosa se ve igual que
+# uno bueno en un volcado; solo se distinguen corriendolo.
+bmo-lower = { path = "../../../forge/bmo-lower", features = ["emulator"] }

@@ -84,3 +84,28 @@ sintaxis cualquiera: es **T0040**, y dice en que nivel llega:
 | T0050 | no hay `fn main()` |
 | T0051 | se llama a algo que no existe |
 | T0052 | una funcion definida dos veces |
+| T0053 | las llamadas vuelven a una funcion y no terminan nunca (sin `if`, nada las para) |
+
+### El banco: lo que dice cada ejemplo de si mismo
+
+```text
+   # espera: BIEN        compila...
+   # sale: hola          ...y al CORRER escribe exactamente esto, linea a linea
+   # espera: T0053       NO compila, con este codigo, y no escribe ningun .bex
+```
+
+Las lineas `# sale:` las comprueba el banco del emisor
+(`emisor-x86_64/tests/banco.rs`): construye el `.bex`, lo carga como el
+cargador del kernel y lo CORRE en el emulador. Un nivel esta hecho cuando sus
+programas HACEN lo que dicen, no cuando compilan.
+
+### Del texto al `.bex` (T3, 2026-10-04)
+
+```text
+   titan check hola.titan              bien, o el mensaje de 4 partes
+   titan ir    hola.titan              la IR propia: lo que recibe el emisor
+   titan build hola.titan -o hola.bex  el .bex, con su manifiesto, por el gate
+```
+
+En la maquina: `run titan/hola.bex` en la consola (F12). `build.ps1` deja
+`titan/hola.bex` y `titan/dos.bex` en el disco.

@@ -45,7 +45,8 @@ $dataBase = Join-Path $root 'staging\BMO-DATA'
 # `capturas\` es donde Impr Pant deja las suyas (2026-09-22), por lo mismo.
 # `window\` es donde van los .exe de WINDOWS que corre PROTON-X (2026-09-27, lo
 # pidio el propietario: "asi entran los .exe, organizado"). Seis letras: 8.3.
-foreach ($d in @('sys', 'cobol', 'c', 'ada', 'inti', 'datos', 'apps', 'informe', 'capturas', 'window')) {
+# `titan\` (2026-10-04): los .bex de TITAN++, desde su primer `hola` (T3).
+foreach ($d in @('sys', 'cobol', 'c', 'ada', 'inti', 'titan', 'datos', 'apps', 'informe', 'capturas', 'window')) {
     New-Item -ItemType Directory -Path (Join-Path $dataBase $d) -Force | Out-Null
 }
 # * Y dentro de cobol\, un nivel por carpeta. Ver el bloque de $cobolEjemplos
@@ -629,7 +630,11 @@ function Compilar-Ejemplos {
     # Solo pueden ir por aqui los frontends que saben escribir un objeto -- hoy
     # C y C++. COBOL y Ada tienen emisor propio y todavia no (E6 y E7), asi que
     # NO se les pasa la bandera: van por donde iban.
-    param($ejemplos, $crate, $etiqueta, $patron, $dataBase, $repo, [switch]$PorObjeto)
+    #
+    # ** `-Orden` (T3 de TITAN++, 2026-10-04): la herramienta de TITAN++ va como
+    # cargo -- `titan build FICHERO -o SALIDA` --, y la orden va DELANTE del
+    # fuente. Sin `-Orden` la llamada es la de siempre, byte a byte.
+    param($ejemplos, $crate, $etiqueta, $patron, $dataBase, $repo, [switch]$PorObjeto, [string]$Orden = '')
     foreach ($e in $ejemplos) {
         $tallo = [System.IO.Path]::GetFileNameWithoutExtension($e.out)
         if ($tallo.Length -gt 8) { Fail ($e.out + ': el tallo no cabe en 8.3') }
@@ -652,7 +657,9 @@ function Compilar-Ejemplos {
             Remove-Item $bo -ErrorAction SilentlyContinue
             if ($fallo -ne 0) { Fail ('no enlazo ' + $e.src) }
         } else {
-            $out = & (Obrero $crate) (Join-Path $repo $e.src) -o $dst 2>&1
+            $delante = @()
+            if ($Orden) { $delante = @($Orden) }
+            $out = & (Obrero $crate) @delante (Join-Path $repo $e.src) -o $dst 2>&1
             $out | ForEach-Object {
                 if ($_ -match $patron) { Write-Host ('    [' + $etiqueta + '] ' + $_) -ForegroundColor DarkGray }
             }
@@ -832,6 +839,16 @@ try {
         # `apps/`, con DOOM, porque es una APP y no una sonda.
         @{ src = 'Ultra_userspace\apps\navegar\navegar.inti'; out = 'navegar.ibx'; dir = 'apps' }
     ) 'bmo-inti-x86-64' 'inti' 'ok:|error|aviso' $dataBase $repo
+
+    Step 'Building TITAN++ programs...'
+    # ** `run titan/hola.bex` (T3, 2026-10-04): el PRIMER .bex de TITAN++, y
+    # escribe en la consola (decidido el 30-09; la ventana, despues). Su propio
+    # emisor --no el de INTI--, la puerta de `bmo-lower` y el gate con
+    # manifiesto. `.bex` y no `.ibx`: el `.ibx` es el compromiso de INTI.
+    Compilar-Ejemplos @(
+        @{ src = 'toolchain\lang\titan\ejemplos\nivel0\hola.titan'; out = 'hola.bex'; dir = 'titan' },
+        @{ src = 'toolchain\lang\titan\ejemplos\nivel0\dos_saludos.titan'; out = 'dos.bex'; dir = 'titan' }
+    ) 'bmo-titan-x86-64' 'titan' 'ok:|T00|no se ha' $dataBase $repo -Orden 'build'
 
     # -- Las dos imagenes que `bico.ibx` convierte ------------------------
     #

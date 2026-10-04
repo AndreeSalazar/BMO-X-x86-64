@@ -489,8 +489,10 @@ medida no.
 ```text
    la ventana de F1               PLAN_TALLER, casilla 1 (ABIERTA)
    el autohospedaje               PLAN_AUTOHOSPEDAJE (APARCADO)
-   memoria dinamica en Ring 3     un asignador compartido en bmo-userland:
-                                  hoy solo PROTON-X tiene #[global_allocator]
+   memoria dinamica en Ring 3     un asignador compartido: desde el 03-10
+                                  existe `bmo-monton` y lo usan PROTON-X,
+                                  HERMES, BANK CAT y LUDOTECA (corregido el
+                                  04-10: aqui decia "solo PROTON-X")
 ```
 
 Hasta entonces el compilador corre en el anfitrion, como todos los demas hoy.
@@ -1105,8 +1107,11 @@ problema dicho). El resto espera al compilador.
    T1  texto -> arbol    `titan check`, mensajes de 4 partes        NIVEL 0 HECHO
                          (toolchain/lang/titan, 30-09)
    T2  tipos             `dec`, tablas, "ya lo entregaste"          FALTA
-   T3  IR + emisor       un .bo por emisor-x86_64, bmo-enlazar      FALTA
-                         (la casa ya enlaza C, C++ e INTI asi)
+   T3  IR + emisor       NIVEL 0 HECHO en el anfitrion (04-10):     EN CURSO
+                         IR propia (src/ir.rs) + emisor propio
+                         (emisor-x86_64/, `titan build`), SIN el de
+                         INTI. Falta verlo en el Ryzen, y el .bo con
+                         bmo-enlazar llega cuando llame a INTI
    T4  borrow checker    la ley de exclusividad (el modelo 2)       FALTA
    T5  gpu fn            SPIR-V -> SASS, el prestamo a la 3060      FALTA
    T6  dentro de F1      el compilador en el taller, `titan run`    FALTA
@@ -1443,6 +1448,28 @@ existe dice cual la trae (`let` -> T0040, nivel 1). Y **el TITAN guardian**: la
 prueba de `words.rs` exige las 25 palabras, el techo de 30 y que cada nivel
 sume lo que dice la tabla de arriba.
 
-Lo siguiente del nivel 0 es T3: que ese `hola` salga en la CONSOLA del Ryzen
-(decidido el 30-09; la ventana, despues). Todo lo demas se sube desde ahi.
+**NIVEL 0 -- T3 HECHO EN EL ANFITRION el 04-10** (`emisor-x86_64/`,
+`bmo-titan-x86-64`, la orden `titan`):
+
+```text
+   texto -> arbol -> IR (src/ir.rs, sin maquina: una prueba lo vigila)
+         -> bytes (los textos como inmediatos por la puerta de bmo-lower,
+            la secuencia que hello-bex ya corrio en el metal)
+         -> .bex con su MANIFIESTO (lenguaje, nivel, modulo, que hace,
+            [permissions]) por `exige_manifiesto`: nunca un binario mudo
+```
+
+- **Sin el emisor de INTI** (el propietario, 04-10: INTI se reduce a la
+  PRECISION, sin apoyo; TITAN++ lleva lo suyo). Lo compartido es de la casa:
+  `bmo-lower`, `bmo-abi`, `bmo-verify`.
+- **El banco CORRE**: cada programa BIEN se construye, se carga como lo carga
+  el kernel y se ejecuta en el emulador; su consola tiene que ser la de sus
+  lineas `# sale:`. El mismo fuente da el mismo `.bex`, byte a byte.
+- **T0053**, regla nueva: en el nivel 0 no hay `if`, asi que una llamada que
+  vuelve sobre si misma (`main -> main`, `a -> b -> a`) no termina nunca y en
+  la maquina seria una tarea muerta por la pila. Se dice al compilar.
+
+[!] **Falta el metal**: `build.ps1` despliega `titan/hola.bex` y
+`titan/dos.bex`; en el Ryzen, `run titan/hola.bex` en F12 tiene que escribir
+`hola`. Hasta esa foto es 🟡. La ventana, despues.
 

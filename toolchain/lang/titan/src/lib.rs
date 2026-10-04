@@ -16,7 +16,10 @@
 //!    lex       de texto a piezas. No conoce la gramatica
 //!    tree      la forma de un programa. Cero decisiones
 //!    parse     la gramatica del nivel de hoy; lo de arriba dice en que nivel llega
-//!    check     los nombres: `main`, una vez cada fn, y que cada llamada exista
+//!    check     los nombres: `main`, una vez cada fn, que cada llamada exista
+//!              y que ninguna vuelva sobre si misma (T0053)
+//!    ir        lo que el programa HACE, sin maquina: la IR PROPIA (T3)
+//!    manifest  lo que el `.bex` dira de si mismo (lo escribe el frontend)
 //! ```
 //!
 //! ## Lo que hay hoy: el NIVEL 0 de la escalera (TITAN_MAESTRO 14.14)
@@ -28,13 +31,17 @@
 //!        print("hola")
 //! ```
 //!
-//! Entra el texto, sale el arbol o UN mensaje de 4 partes. No emite bytes
-//! todavia: el emisor llega con T3, y el primer `.bex` escribira en la consola
-//! (decidido el 30-09). Cada nivel entra el dia que su banco
-//! (`ejemplos/nivelN/`) pasa entero.
+//! Entra el texto, sale el arbol o UN mensaje de 4 partes, y del arbol la IR.
+//! **Este crate no emite bytes, y no puede**: los bytes son del emisor
+//! (`emisor-x86_64/`, T3), que es el unico que nombra una maquina y el que
+//! tiene la orden `titan`. El primer `.bex` escribe en la consola (decidido el
+//! 30-09). Cada nivel entra el dia que su banco (`ejemplos/nivelN/`) pasa
+//! entero.
 
 pub mod check;
 pub mod indent;
+pub mod ir;
+pub mod manifest;
 pub mod lex;
 pub mod message;
 pub mod parse;
@@ -50,6 +57,12 @@ pub fn compile(src: &str) -> Result<Program, Message> {
     let program = parse::parse(&tokens)?;
     check::check(&program)?;
     Ok(program)
+}
+
+/// Texto -> IR: lo que recibe el emisor. El mismo camino que `compile`, y un
+/// paso mas que no puede fallar.
+pub fn lower(src: &str) -> Result<ir::Module, Message> {
+    compile(src).map(|p| ir::lower(&p))
 }
 
 #[cfg(test)]

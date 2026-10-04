@@ -1,4 +1,6 @@
 # espera: BIEN
+# sale: hola desde saluda
+# sale: hola otra vez
 # una fn propia, llamada desde main; varios textos en un print; comentarios
 mod main "saluda dos veces"
 

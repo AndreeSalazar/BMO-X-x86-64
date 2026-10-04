@@ -1,0 +1,13 @@
+# espera: T0053
+# dos funciones que se llaman la una a la otra: sin `if`, nada las para
+mod main "saluda sin fin"
+
+fn main()
+    saluda()
+
+fn saluda()
+    print("hola")
+    despide()
+
+fn despide()
+    saluda()
