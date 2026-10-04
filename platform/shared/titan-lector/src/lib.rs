@@ -14,6 +14,7 @@
 //!    seed       `asteroids` as files, for F1 to write the first time
 //!    explorer   the package as it IS on disk, in the order the owner chose
 //!    organize   the EXPLORER's gestures, carrying each `.titan`'s module along
+//!    traits     what each module's BODY does: how F1 draws its node, live
 //! ```
 //!
 //! It is the smallest piece of the future front (`titan-front`): it knows the
@@ -36,7 +37,9 @@ pub mod organize;
 pub mod package;
 pub mod seed;
 pub mod text;
+pub mod traits;
 
 pub use hang::{HangError, Plan, Sink};
 pub use package::{read_package, read_package_into, Fetch, FileEntry, Loaded, Problem, ProblemKind, Say, Source};
 pub use text::Path;
+pub use traits::Traits;

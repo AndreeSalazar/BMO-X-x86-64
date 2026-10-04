@@ -5,8 +5,8 @@
 //! en el repositorio: lo que se ve aqui es lo que pinta el Ryzen.
 //!
 //! `cara-taller <carpeta>` deja `arbol.png`, `escribiendo.png`, `menu.png` y
-//! `arrastre.png`, del ancho de la columna, y `espacio.png` y `grafo.png`, la
-//! ventana entera con cada solapa.
+//! `arrastre.png`, del ancho de la columna, y la ventana entera con cada
+//! solapa: `grafo.png`, `cielo.png`, `elementos.png` y `guia.png`.
 
 #[path = "../../../../../Ultra_userspace/apps/taller/src/canvas.rs"]
 #[allow(dead_code)]
@@ -26,6 +26,12 @@ mod explorer;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/space.rs"]
 #[allow(dead_code)]
 mod space;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/astros.rs"]
+#[allow(dead_code)]
+mod astros;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/guia.rs"]
+#[allow(dead_code)]
+mod guia;
 
 /// Lo que `explorer.rs` lee de la tienda (la de verdad, `store.rs`, habla con
 /// el kernel): los mismos campos y los mismos dos metodos.
@@ -193,7 +199,7 @@ fn main() {
     let player = player::Player::new();
     let marks = faults::collect(&store.loaded, None);
     let ship_node = store.loaded.graph.find(b"ship");
-    for (tab, nombre) in [(space::Tab::Space, "espacio"), (space::Tab::Graph, "grafo")] {
+    for (tab, nombre) in [(space::Tab::Sky, "cielo"), (space::Tab::Elements, "elementos"), (space::Tab::Guide, "guia"), (space::Tab::Graph, "grafo")] {
         let scene = view::Scene {
             graph: &store.loaded.graph,
             script: None,
@@ -205,16 +211,18 @@ fn main() {
             sky: None,
             flow_ms: Some(5000),
             faults: &marks,
+            files: store.loaded.files(),
+            turn: 96,
         };
         let mut px = vec![0u32; w * h];
         let mut cv = canvas::Canvas::new(px.as_mut_ptr(), w as u32, h as u32);
         match tab {
-            space::Tab::Space => space::draw(&mut cv, &scene),
             space::Tab::Graph => view::draw(&mut cv, &scene),
+            t => space::draw(&mut cv, &scene, t),
         }
         space::tabs(&mut cv, tab);
         explorer::draw(&mut cv, &store, &ui, ship_node, 0);
         guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
     }
-    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png espacio.png grafo.png");
+    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png");
 }

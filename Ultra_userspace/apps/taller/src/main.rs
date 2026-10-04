@@ -40,9 +40,11 @@
 #![no_main]
 
 mod art;
+mod astros;
 mod canvas;
 mod explorer;
 mod faults;
+mod guia;
 mod player;
 mod space;
 mod store;
@@ -100,6 +102,8 @@ enum Drag {
     File(NodeId, i32, i32),
     /// An item of the disk tree, grabbed at this screen point.
     Item(usize, i32, i32),
+    /// The 3D sky, grabbed at this x with this turn: dragging turns it.
+    Turn(i32, u32),
 }
 
 /// Far enough from where the button went down to be a drag and not a click:
@@ -287,6 +291,9 @@ pub extern "C" fn _start() -> ! {
     let mut ui = Ui::new();
     // GRAFO or ESPACIO: the same nodes, two ways of seeing them (`space.rs`).
     let mut tab = Tab::Graph;
+    // How far the 3D sky has turned (1024ths): it turns by itself while F1 is
+    // lively, and by hand when the sky is dragged.
+    let mut turn: u32 = 96;
     // The last click on a disk row: (when, which), for the double click.
     let mut last_click: (u32, Option<usize>) = (0, None);
     let clock = Clock { hz: bmo::info(bmo::INFO_TSC_HZ) };
@@ -421,10 +428,28 @@ pub extern "C" fn _start() -> ! {
                         dirty = true;
                         continue;
                     }
-                    if let Some(t) = space::tab_at(x, y) {
+                    if let Some(t) = space::tab_at(tab, x, y) {
                         tab = t;
                         dirty = true;
                         continue;
+                    }
+                    match tab {
+                        Tab::Graph => {}
+                        // In the sky a click picks the nearest star, and
+                        // dragging turns the sky: the nodes stay where the
+                        // [layout] puts them.
+                        Tab::Sky => {
+                            let look = space::Look { graph: &store.loaded.graph, files: store.loaded.files(), cam: &cam, turn };
+                            if let Some(id) = space::hit_sky(&look, WIDTH as i32, HEIGHT as i32, x, y) {
+                                shown.selected = Some(id);
+                                ui.picked = explorer::item_of(&store, id);
+                            }
+                            drag = Drag::Turn(x, turn);
+                            dirty = true;
+                            continue;
+                        }
+                        // The pages are to read.
+                        _ => continue,
                     }
                     let g = &store.loaded.graph;
                     drag = match view::hit(g, &cam, x, y) {
@@ -497,7 +522,7 @@ pub extern "C" fn _start() -> ! {
                     dirty = true;
                 }
                 Input::Char(b't' | b'T') => {
-                    tab = if tab == Tab::Graph { Tab::Space } else { Tab::Graph };
+                    tab = tab.next();
                     dirty = true;
                 }
                 Input::Char(b'e' | b'E') => {
@@ -543,6 +568,10 @@ pub extern "C" fn _start() -> ! {
                     cam.y = from.y - (ptr.y - sy) * 1000 / from.zoom;
                     dirty = true;
                 }
+                Drag::Turn(sx, from) => {
+                    turn = from.wrapping_add((ptr.x - sx) as u32 * 2);
+                    dirty = true;
+                }
                 // The ghost follows the pointer.
                 Drag::File(..) | Drag::Item(..) => dirty = true,
                 Drag::None => {}
@@ -559,6 +588,10 @@ pub extern "C" fn _start() -> ! {
         let seen = ptr.view as u64 == bmo::SUP_VISTA_SE_VE;
         let flowing = seen && !splash && now.wrapping_sub(touched) < FLOW_REST_MS;
         dirty |= flowing;
+        // The sky turns by itself while lively: one turn every 48 s.
+        if flowing && tab == Tab::Sky && !matches!(drag, Drag::Turn(..)) {
+            turn = turn.wrapping_add(dt * 1024 / 48_000);
+        }
         if dirty && seen {
             let name = store.packages().get(store.chosen).map(|p| p.0.as_bytes());
             let current = shown.script.as_ref().and_then(|s| s.events().get(shown.player.index)).map(|e| e.kind);
@@ -574,12 +607,14 @@ pub extern "C" fn _start() -> ! {
                 sky,
                 flow_ms: flowing.then_some(now),
                 faults: &marks,
+                files: store.loaded.files(),
+                turn,
             };
             let covered = splash && veil == Some(1000);
             if !covered {
                 match tab {
                     Tab::Graph => view::draw(&mut canvas, &scene),
-                    Tab::Space => space::draw(&mut canvas, &scene),
+                    space_tab => space::draw(&mut canvas, &scene, space_tab),
                 }
                 space::tabs(&mut canvas, tab);
                 explorer::draw(&mut canvas, &store, &ui, shown.selected, now);

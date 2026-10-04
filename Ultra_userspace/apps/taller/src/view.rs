@@ -261,6 +261,11 @@ pub struct Scene<'a> {
     pub flow_ms: Option<u32>,
     /// The nodes in fault (`faults.rs`), in the order of their path.
     pub faults: &'a crate::faults::Marks,
+    /// The files the package was read from: their depth and their TRAITS,
+    /// what the SPACE tabs draw each node by (`astros.rs`).
+    pub files: &'a [bmo_titan_lector::FileEntry],
+    /// How far the 3D sky has turned, in 1024ths of a turn (`space.rs`).
+    pub turn: u32,
 }
 
 /// One whole frame of the canvas. The EXPLORER is drawn after, on its own.

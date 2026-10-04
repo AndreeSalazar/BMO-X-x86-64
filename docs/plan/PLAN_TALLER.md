@@ -931,6 +931,71 @@ espacio"*. Arriba del lienzo, dos solapas: **GRAFO** (lo de siempre) y
 | 20 s sin tocar | el cielo se queda quieto | sigue moviendose: F1 no descansa |
 | clic en un planeta | su fichero se enciende en el EXPLORER | no pasa nada: el clic no cae en su caja |
 
+### 8.12 L7: el nodo es lo que HACE, en vivo; y ESPACIO con sus solapas (04-10)
+
+El propietario: *"los nodos tienen que tener algo unico que representan, pero
+tambien cuando el programador cambia, todo el nodo se cambia en tiempo real en
+la forma que representa: el mut, el que envia paquetes, el que representa
+conectores fuertes"*, *"en VS Code es 2D, pero en 3D lo esconde"*, y *"que en
+ese cuadro tengan solapas para tener ideas de las guias y porque, con lineas y
+que sean ordenadas"*.
+
+**Los RASGOS** (`titan-lector::traits`): al leer cada `.titan` (los mismos
+bytes que ya se traian para la cabecera, cero lecturas de mas) se cuenta lo
+que su CUERPO hace -- `fn`, `let`, `let mut`, `x = ...`, `print`, llamadas.
+Viajan en cada `FileEntry`, y como F1 relee el paquete cuando sube la
+generacion de ESTRATOS, **guardar el fichero cambia el astro en el latido
+siguiente**. [!] Es una lectura rapida, no el compilador: cuenta, no juzga.
+
+```text
+   fn       la medida del planeta        let      sus LUNAS, quietas
+   let mut  ANILLOS ambar que giran      x = ...  mas rapido giran
+   print    un EMISOR: paquetes que suben hacia la consola
+   llamadas COMETAS                      sin cuerpo  un PROTOPLANETA
+```
+
+**Los cables tienen CLASE, y la clase da el color, FIJO** (*"colores que te
+limitan para no tener que pelear"*): `mod` violeta trenzado (el lazo fuerte:
+quien declara a quien), `use` cian (depende de el), verde la 3060, azul el
+sistema. El mismo color en todas las solapas (`astros::Cable`).
+
+**ESPACIO tiene tres solapas** (`t` las recorre todas):
+
+```text
+   CIELO 3D    el paquete en perspectiva, con suelo de luz: la hondura es lo
+               hondo que esta cada modulo en el arbol declarado (el metal --
+               3060, DIRECTOR -- al fondo). Gira solo mientras F1 esta vivo;
+               arrastrar el cielo lo gira a mano; clic en un astro lo elige y
+               abajo se lee lo que es, contado de sus rasgos
+   ELEMENTOS   doce tarjetas: cada elemento ANIMADO con el mismo pintor del
+               cielo (`astros.rs`: el catalogo no puede mentir), que es y por
+               que se ve asi
+   GUIA        seis porques numerados, en dos columnas con sus lineas: la
+               verdad es el texto, del texto al astro en vivo, los dos jueces,
+               los colores, por que 3D, las teclas
+```
+
+3D con enteros: girar sobre el eje vertical, inclinar hacia el ojo y dividir
+por la distancia; un seno de 64 pasos con el paso de en medio interpolado
+(1024 por vuelta) para que el giro lento no salte; los lejanos primero, y los
+NOMBRES en una segunda pasada para que un planeta cercano no tape el nombre de
+uno lejano (lo cazo la camara).
+
+**La semilla `asteroids` tiene cuerpos** desde hoy (TITAN++ de los niveles
+0-2): cada nodo del primer paquete se ve distinto. Antes eran solo cabeceras,
+a proposito: el cuerpo no estaba decidido.
+
+**Lo medido**: `taller` 57.264 B de pila de 65.536 (`pila.py --ring3`).
+**Visto con la CAMARA**: `cara-taller` saca `cielo.png`, `elementos.png` y
+`guia.png`.
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1, `t` | CIELO 3D: el centauro, los planetas sobre un suelo de luz, girando | plano: la solapa es la de antes |
+| arrastrar el cielo | gira con el raton | se mueve el lienzo: el arrastre no se quedo |
+| F12: poner `let mut n = 0` y `n = n + 1` a `rock.titan` | en el latido siguiente `rock` estrena un anillo ambar que gira | no cambia: el latido no relee |
+| `t` otra vez, y otra | ELEMENTOS con doce tarjetas que se mueven; GUIA con sus seis puntos | -- |
+
 ---
 
 Ver [`PLAN_AUTOHOSPEDAJE.md`](en_pausa/PLAN_AUTOHOSPEDAJE.md) (el mismo trabajo desde el
