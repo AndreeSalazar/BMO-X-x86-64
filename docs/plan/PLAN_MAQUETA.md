@@ -447,6 +447,30 @@ dependencia de ninguno.
 calculando antes), la hidratacion de Next.js (aqui no hay nada que
 "despertar") y los arboles de dependencias de npm.
 
+### Cuanta CPU come pintar una cara: medido (04-10)
+
+La cara ENTERA pintada por `bmo-pinta` con la letra ya en su cache (como en el
+escritorio), en un Xeon de 2,8 GHz del anfitrion -- NO en el Ryzen 5 5600X, que
+es mas rapido y no se ha medido:
+
+| cara | antes | despues | de un fotograma de 60 Hz |
+|---|---|---|---|
+| `calc.maqueta` (cajas planas) | 55 us | 68 us (ruido) | 0,4 % |
+| `tarjeta.maqueta` (suave) | 3.065 us | **462 us** | 2,8 % |
+| `escaparate.maqueta` (dos tarjetas) | 6.217 us | **981 us** | 5,9 % |
+
+Lo que costaba era la RAIZ: Newton empezaba en `n` (unas 30 vueltas por
+pixel) y ademas se calculaba en los tramos RECTOS, donde la distancia es la
+otra coordenada tal cual. Ahora empieza en `2^ceil(bits/2)` (3 a 5 vueltas),
+los tramos rectos no la piden, el borde pinta su tramo recto por filas y el
+resplandor se salta lo que la caja tapa. **Los mismos pixeles byte a byte**
+(las fotos de la tarjeta y del escaparate, y el test de la pantalla contra la
+foto), y la raiz rapida probada contra la exacta en millones de numeros.
+
+[!] Para P3 (animar repintando) el 5,9 % todavia es mucho por fotograma: el
+camino es no repintar (G4: los estados en la VRAM), o repintar solo la caja
+que cambia.
+
 ### Cuanta memoria come una maqueta: medido
 
 | maqueta | cajas | la CARA (lo que viaja) | sus pixeles en pantalla |

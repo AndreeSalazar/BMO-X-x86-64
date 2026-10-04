@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 61 planes
+# LO QUE FALTA -- las casillas abiertas de los 62 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   558 casillas ABIERTAS en 52 planes
+   563 casillas ABIERTAS en 53 planes
    403 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -319,6 +319,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S-FIRMA-5 -- exige_firma() = true. Lo ultimo, y **no antes de que
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
 - ... y 3 mas
+
+## [`PLAN_BMO_ATENTO.md`](PLAN_BMO_ATENTO.md) -- 5 abiertas, 0 hechas
+
+*PLAN BMO ATENTO -- el sistema que se fija en lo que haces, y se adelanta*
+
+- [ ] A1 -- LAS CUENTAS. Abrir una app, enfocar una ventana, una orden de
+- [ ] A2 -- VERLAS Y BORRARLAS. atento en Ejecutar muestra las cuentas;
+- [ ] A3 -- LA REJILLA SE ORDENA SOLA, por lo que mas abres a esta hora
+- ... y 2 mas
 
 ## [`PLAN_CODEGEN.md`](PLAN_CODEGEN.md) -- 5 abiertas, 4 hechas
 
