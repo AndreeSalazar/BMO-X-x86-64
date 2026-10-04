@@ -90,9 +90,9 @@ mod tests {
 
     #[test]
     fn a_word_of_a_higher_level_says_which_level() {
-        let e = compile("mod main \"x\"\nfn main()\n    let mut x = 1\n").unwrap_err();
+        let e = compile("mod main \"x\"\nfn main()\n    if x\n").unwrap_err();
         assert_eq!(e.code, Code::NotYet);
-        assert_eq!(e.what, "`mut` llega en el nivel 2 (contar)");
+        assert_eq!(e.what, "`if` llega en el nivel 3 (decidir)");
         let e = compile("mod main \"x\"\nfn main()\n    while x\n").unwrap_err();
         assert_eq!(e.what, "`while` llega en el nivel 4 (repetir)");
     }

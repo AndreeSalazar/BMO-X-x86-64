@@ -1,0 +1,7 @@
+# espera: T0040
+# `if` es del nivel 3: la escalera se sube de uno en uno
+mod main "decide"
+
+fn main()
+    let mut vidas = 3
+    if vidas

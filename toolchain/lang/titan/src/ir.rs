@@ -71,8 +71,8 @@ pub type At = (usize, usize);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Op {
-    /// The local gets its value: `let x = ...`.
-    Let { local: usize, value: Value, at: At },
+    /// The local gets its value: `let x = ...`; `mutable` if `let mut`.
+    Let { local: usize, value: Value, mutable: bool, at: At },
     /// The local is given a new value: `x = ...` (needs `mut`, level 2).
     Set { local: usize, value: Value, at: At },
     /// Write these values on the console, one after another, and end the
@@ -159,7 +159,7 @@ pub fn lower(p: &Program) -> Module {
                 .map(|st| match st {
                     Stmt::Let(l) => {
                         let v = value(&l.value, &mut locals);
-                        Op::Let { local: local_of(&mut locals, &l.name), value: v, at: (l.line, l.col) }
+                        Op::Let { local: local_of(&mut locals, &l.name), value: v, mutable: l.mutable, at: (l.line, l.col) }
                     }
                     Stmt::Set(l) => {
                         let v = value(&l.value, &mut locals);
@@ -193,6 +193,7 @@ impl Module {
                 s += &format!("  b{}\n", j);
                 for op in &b.ops {
                     s += &match op {
+                        Op::Let { local, value, mutable: true, .. } => format!("    %{} = {}   (mut)\n", local, show(value)),
                         Op::Let { local, value, .. } => format!("    %{} = {}\n", local, show(value)),
                         Op::Set { local, value, .. } => format!("    %{} := {}\n", local, show(value)),
                         Op::Write { parts, .. } => {

@@ -14,6 +14,8 @@
 //!           rest. Nothing is ever rounded in silence (2b.1)
 //!    T0063  a text with a number: "a" + 1 is not "a1" (JavaScript's most
 //!           famous fault, 14.13). Texts add to texts; print takes both
+//!    T0064  a `mut` that would change KIND: `n = "hola"` after `let mut n = 0`
+//!           (level 2: a value changes, its class never does)
 //! ```
 //!
 //! It runs AFTER the checker (`juez.rs`): every local it reads has a value by
@@ -48,8 +50,28 @@ pub fn fold(m: &Module) -> Result<Module, Message> {
         for b in &mut f.blocks {
             for op in &mut b.ops {
                 match op {
-                    Op::Let { local, value, .. } | Op::Set { local, value, .. } => {
+                    Op::Let { local, value, .. } => {
                         let c = eval(value, &known)?;
+                        *value = constant(&c, value.at());
+                        known[*local] = Some(c);
+                    }
+                    Op::Set { local, value, at } => {
+                        let c = eval(value, &known)?;
+                        // ** A `mut` changes its VALUE, never its kind: a
+                        // number stays a number (Python lets `x = 5` become
+                        // `x = "hola"`; the checker could not say what x is).
+                        if let Some(old) = &known[*local] {
+                            if kind(old) != kind(&c) {
+                                return Err(Message::new(
+                                    Code::Retype,
+                                    at.0,
+                                    at.1,
+                                    &format!("aqui `{}` pasaria de {} a {}", f.locals[*local].name, kind(old), kind(&c)),
+                                    "un `mut` cambia de valor, no de clase: el que lee tiene que saber siempre que es",
+                                    "dale un valor de la misma clase, o usa otro nombre para el nuevo",
+                                ));
+                            }
+                        }
                         *value = constant(&c, value.at());
                         known[*local] = Some(c);
                     }

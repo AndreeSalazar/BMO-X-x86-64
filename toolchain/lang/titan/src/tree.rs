@@ -7,6 +7,7 @@
 //! ```text
 //!    level 0   a module that says what it does, functions, calls with texts
 //!    level 1   `let`: a name for a value, and values that are calculated
+//!    level 2   `mut`: a value that changes -- `let mut n = 0`, `n = n + 1`
 //! ```
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,10 +46,12 @@ pub struct Call {
     pub args: Vec<Expr>,
 }
 
-/// `let NAME = VALUE` (and `NAME = VALUE`, the same shape).
+/// `let [mut] NAME = VALUE` (and `NAME = VALUE`, the same shape).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Let {
     pub name: String,
+    /// `let mut`: it may change later. Always false for `NAME = VALUE`.
+    pub mutable: bool,
     pub line: usize,
     pub col: usize,
     pub value: Expr,
@@ -110,7 +113,7 @@ impl Program {
                         let args: Vec<String> = c.args.iter().map(Expr::show).collect();
                         format!("    {}({})", c.callee, args.join(", "))
                     }
-                    Stmt::Let(l) => format!("    let {} = {}", l.name, l.value.show()),
+                    Stmt::Let(l) => format!("    let {}{} = {}", if l.mutable { "mut " } else { "" }, l.name, l.value.show()),
                     Stmt::Set(l) => format!("    {} = {}", l.name, l.value.show()),
                 };
                 s += &format!("{:<44}linea {}\n", text, st.line());

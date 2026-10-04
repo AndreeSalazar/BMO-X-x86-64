@@ -62,10 +62,10 @@ fn main()
 
 Una de las 25 palabras de un nivel que aun no existe no es un error de
 sintaxis cualquiera: es **T0040**, y dice en que nivel llega (el ejemplo ya es
-del frontend de hoy, que va por el nivel 1):
+del frontend de hoy, que va por el nivel 2):
 
 ```text
-   let mut x = 1    T0040  `mut` llega en el nivel 2 (contar)
+   if vidas         T0040  `if` llega en el nivel 3 (decidir)
    while ...        T0040  `while` llega en el nivel 4 (repetir)
 ```
 
@@ -117,6 +117,40 @@ parentesis primero. `+` entre dos textos los pone uno detras del otro.
 En el nivel 1 todo valor se sabe antes de correr (todavia no se lee nada de
 fuera), asi que el `.bex` ya lleva los resultados: `titan ir` los muestra.
 
+---
+
+## Nivel 2 -- contar (3 palabras: `fn`, `let`, `mut`) -- 04-10
+
+```text
+mod main "el centauro cuenta sus vueltas"
+
+fn main()
+    let mut vueltas = 0
+    vueltas = vueltas + 1
+    print("vueltas: ", vueltas)
+```
+
+```text
+   let mut NOMBRE = VALOR    un valor que puede cambiar
+   NOMBRE = VALOR            le da otro valor (solo si es `mut`)
+```
+
+### Lo que juzga EL JUEZ, y por que
+
+```text
+   cambiar sin `mut`                  T0056  y el COMO dice en que linea poner el mut
+   un `mut` que no cambia nunca       T0057  es un NO, no un aviso: `mut` es una
+                                             promesa al que lee ("este se mueve"),
+                                             y una promesa que nadie cumple le
+                                             quita valor a todos los `mut`
+   cambiar de CLASE                   T0064  un `mut` cambia de valor, no de clase:
+                                             `vidas = "ninguna"` tras `let mut vidas = 3`
+```
+
+`n = n + 1` es lo de siempre: lo de la derecha se lee ANTES de que empiece el
+cambio (L5 de TITAN_MAESTRO 6.8, lo que Rust tuvo que parchear con los
+"prestamos en dos fases").
+
 ### Los codigos
 
 | codigo | que |
@@ -137,10 +171,12 @@ fuera), asi que el `.bex` ya lleva los resultados: `titan ir` los muestra.
 | T0054 | un nombre se lee antes de que un `let` le de valor (el juez) |
 | T0055 | un nombre que ya tiene valor, o que es de una funcion (el juez / los nombres) |
 | T0056 | se cambia un valor sin `mut` (el juez) |
+| T0057 | un `mut` que no cambia nunca (el juez) |
 | T0060 | un numero que no cabe en 64 bits: desbordar es un error (el calculo) |
 | T0061 | una division o un resto entre cero (el calculo) |
 | T0062 | una division que no da un numero entero (el calculo) |
 | T0063 | un texto con un numero: no se suman ni se convierten solos (el calculo) |
+| T0064 | un `mut` que cambiaria de clase: numero a texto o al reves (el calculo) |
 
 ### El banco: lo que dice cada ejemplo de si mismo
 

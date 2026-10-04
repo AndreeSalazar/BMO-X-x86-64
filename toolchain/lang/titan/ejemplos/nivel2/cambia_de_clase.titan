@@ -1,0 +1,8 @@
+# espera: T0064
+# un `mut` cambia de valor, no de clase: un numero sigue siendo un numero
+mod main "cuenta"
+
+fn main()
+    let mut vidas = 3
+    vidas = "ninguna"
+    print(vidas)

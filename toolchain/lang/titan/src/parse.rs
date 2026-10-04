@@ -6,7 +6,7 @@
 //!    file     :=  header  function*
 //!    header   :=  `mod` NAME TEXT NEWLINE
 //!    function :=  `fn` NAME `(` `)` NEWLINE INDENT stmt+ DEDENT
-//!    stmt     :=  call | `let` NAME `=` expr | NAME `=` expr      NEWLINE
+//!    stmt     :=  call | `let` [`mut`] NAME `=` expr | NAME `=` expr   NEWLINE
 //!    call     :=  NAME `(` [ expr { `,` expr } ] `)`
 //!    expr     :=  term { (`+` | `-`) term }
 //!    term     :=  unary { (`*` | `/` | `%`) unary }
@@ -170,6 +170,10 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) -> Result<Stmt, Message> {
         let tok = self.next();
         if tok.kind == Kind::Word("let") {
+            let mutable = self.peek().kind == Kind::Word("mut");
+            if mutable {
+                self.next();
+            }
             let name_tok = self.next();
             let Kind::Name(name) = &name_tok.kind else {
                 return Err(self.ladder(name_tok).unwrap_or_else(|| self.expected(name_tok, "el nombre del valor", "let area = 3 * 4")));
@@ -180,7 +184,7 @@ impl<'a> Parser<'a> {
             }
             let value = self.expr()?;
             self.end_of_line()?;
-            return Ok(Stmt::Let(Let { name: name.clone(), line: name_tok.line, col: name_tok.col, value }));
+            return Ok(Stmt::Let(Let { name: name.clone(), mutable, line: name_tok.line, col: name_tok.col, value }));
         }
         if let Some(m) = self.ladder(tok) {
             return Err(m);
@@ -205,7 +209,7 @@ impl<'a> Parser<'a> {
             // the checker's (`juez.rs`, T0056).
             let value = self.expr()?;
             self.end_of_line()?;
-            return Ok(Stmt::Set(Let { name: callee.clone(), line: tok.line, col: tok.col, value }));
+            return Ok(Stmt::Set(Let { name: callee.clone(), mutable: false, line: tok.line, col: tok.col, value }));
         }
         if open.kind != Kind::Sym("(") {
             return Err(self.ladder(open).unwrap_or_else(|| self.expected(open, "`(` despues del nombre", &format!("{}(\"...\")", callee))));

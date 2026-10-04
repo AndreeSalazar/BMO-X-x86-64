@@ -15,7 +15,7 @@
 use bmo_titan_front::{lower, Code};
 use std::path::Path;
 
-const LEVELS: [&str; 2] = ["nivel0", "nivel1"];
+const LEVELS: [&str; 3] = ["nivel0", "nivel1", "nivel2"];
 
 fn bench(level: &str) -> Vec<(String, String, String)> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("ejemplos").join(level);
