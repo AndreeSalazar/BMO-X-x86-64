@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 63 planes
+# LO QUE FALTA -- las casillas abiertas de los 64 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   576 casillas ABIERTAS en 54 planes
-   417 hechas
+   588 casillas ABIERTAS en 55 planes
+   427 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -27,6 +27,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 10 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_SEGURIDAD.md`](PLAN_SEGURIDAD.md) -- 26 de 32 hechas, faltan 6
+- [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 35 de 45 hechas, faltan 10
 
 ---
 
@@ -77,6 +78,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 19 mas
 
+## [`PLAN_FASE.md`](PLAN_FASE.md) -- 19 abiertas, 3 hechas
+
+*PLAN FASE -- el escritorio que se TRANSFORMA*
+
+- [ ] F4 -- REPLEGARSE. Al salir de FASE, las placas se van (hoy la
+- [ ] F5 -- EL PANEL IZQUIERDO TAMBIEN SE ARMA. Sus secciones como placas
+- [ ] F6 -- LO DATA-DENSE. Graficos circulares (la carga por nucleo, los
+- ... y 16 mas
+
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 
 *El plan de la AUTO-CURACION: de informar a actuar*
@@ -102,15 +112,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
 - [ ] E3 -- el compositor al compas de la pantalla
 - [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
-- ... y 14 mas
-
-## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 17 abiertas, 28 hechas
-
-*PLAN MAQUETA*
-
-- [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
-- [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
-- [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 14 mas
 
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas
@@ -192,6 +193,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D2a -- un TRINQUETE. static mut declarados en
 - [ ] D2b -- el reparto, por fichero, cuando SMP se retome. No antes: sin
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
+- ... y 7 mas
+
+## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 10 abiertas, 35 hechas
+
+*PLAN MAQUETA*
+
+- [ ] 7 ficheros dorados como oraculo -> toolchain/tools/maqueta/pruebas/calc.dorado
+- [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
+- [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 7 mas
 
 ## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 9 abiertas, 10 hechas

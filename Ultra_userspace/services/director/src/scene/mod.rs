@@ -37,6 +37,7 @@ pub(crate) mod fino;
 // la barra lateral (la marca que viaja y el reloj que rueda).
 pub(crate) mod vida;
 pub(crate) mod nombre_app;
+pub(crate) mod tactico;
 pub(crate) mod barra_viva;
 /// El pedido de ABRIR: lo hace la biblioteca y lo atiende el teclado. Vivia en `desktop` (L8).
 pub(crate) mod abrir;

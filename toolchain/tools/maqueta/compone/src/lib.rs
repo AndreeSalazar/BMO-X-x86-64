@@ -169,7 +169,7 @@ fn una(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>, pila: &mut Vec<Path
         // ** UNA LISTA (P2): la fila, `veces` veces en columna. Se maqueta y
         // se juzga con TODAS: lo peor que puede pasar es que esten todas.
         let (w, h) = match nodo.repite {
-            Some(r) => (pieza.canvas.0, pieza.canvas.1 * r.veces + r.entre * (r.veces - 1)),
+            Some(r) => r.medida(pieza.canvas),
             None => pieza.canvas,
         };
         if nodo.repite.is_some() && nodo.id.is_none() {
@@ -207,6 +207,21 @@ fn una(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>, pila: &mut Vec<Path
         piezas.insert(nodo.span.start, pieza);
     }
     pila.pop();
+
+    // ** LAS IMAGENES (H4): se leen aqui, con el lector del aparato, y su
+    // caja mide lo que miden ellas.
+    let mut imagenes: HashMap<usize, std::sync::Arc<[u32]>> = HashMap::new();
+    let mut usos = Vec::new();
+    recoger_tag(&mut c.root, Tag::Imagen, &mut usos);
+    for u in usos {
+        let nodo = bajar(&mut c.root, &u);
+        match imagen(nodo, &dir, leer) {
+            Ok(px) => {
+                imagenes.insert(nodo.span.start, px);
+            }
+            Err(e) => errores.push(e),
+        }
+    }
     if !errores.is_empty() {
         return Err(fallo(ruta, &fuente, errores));
     }
@@ -217,6 +232,7 @@ fn una(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>, pila: &mut Vec<Path
         return Err(fallo(ruta, &fuente, juicio));
     }
     injertar(&mut l.root, &mut piezas);
+    poner_imagenes(&mut l.root, &imagenes);
 
     // Dos `id` iguales despues de injertar: la tabla de golpeo no sabria a
     // quien contestar.
@@ -244,17 +260,101 @@ fn una(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>, pila: &mut Vec<Path
 
 /// Los caminos (por indices de hijo) hasta cada `<usa>`.
 fn recoger(n: &mut Styled, out: &mut Vec<Vec<usize>>) {
-    fn ir(n: &Styled, camino: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
-        if n.tag == Tag::Usa {
+    recoger_tag(n, Tag::Usa, out)
+}
+
+/// Los caminos (por indices de hijo) hasta cada caja de la etiqueta `tag`.
+fn recoger_tag(n: &mut Styled, tag: Tag, out: &mut Vec<Vec<usize>>) {
+    fn ir(n: &Styled, tag: Tag, camino: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
+        if n.tag == tag {
             out.push(camino.clone());
         }
         for (k, c) in n.children.iter().enumerate() {
             camino.push(k);
-            ir(c, camino, out);
+            ir(c, tag, camino, out);
             camino.pop();
         }
     }
-    ir(n, &mut Vec::new(), out);
+    ir(n, tag, &mut Vec::new(), out);
+}
+
+/// El lado mas grande de una imagen EMBEBIDA: lo que se mete en el codigo
+/// generado. Un icono o un avatar caben; una foto grande es un DATO.
+pub const IMAGEN_MAX: u32 = 128;
+
+/// **Los pixeles de una `<imagen>`**, y su medida puesta en la caja.
+fn imagen(nodo: &mut Styled, dir: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>) -> Result<std::sync::Arc<[u32]>, Error> {
+    let (span, src, es_dato) = (nodo.span, nodo.src.clone(), nodo.hueco.is_some());
+    let s = &mut nodo.style;
+    let mal = |titulo: &str, por: &str, en: &str| Err(Error::new(span, titulo, por, en));
+    if s.padding != [0; 4] || s.border_width != [0; 4] {
+        return mal(
+            "una `<imagen>` no lleva `padding` ni borde",
+            "su caja SON sus pixeles; un relleno o un borde los descolocaria.",
+            "ponerlo en un `<div>` alrededor.",
+        );
+    }
+    let (px, w, h) = match src {
+        Some(src) => {
+            let Some(bytes) = leer(&dir.join(&src)) else {
+                return mal(&format!("no se puede leer `{src}`"), "la imagen se lee al compilar, relativa a este fichero.", "revisar el camino.");
+            };
+            let m = match bmo_imagen::medir(&bytes) {
+                Ok(m) => m,
+                Err(e) => return mal(&format!("`{src}` no es una imagen que se sepa leer ({e:?})"), "se lee con `bmo-imagen`: QOI, BMP o PNG.", "convertirla a `.qoi`."),
+            };
+            let mut px = vec![0u32; (m.ancho * m.alto) as usize];
+            let mut taller = vec![0u8; bmo_imagen::TALLER];
+            if let Err(e) = bmo_imagen::decodificar_con(&bytes, &mut px, &mut taller) {
+                return mal(&format!("`{src}` no se deja leer entera ({e:?})"), "un fichero roto no se embebe a medias.", "volver a exportarla.");
+            }
+            (px, m.ancho, m.alto)
+        }
+        // Un dato sin muestra: la caja dice su medida y la foto pinta un
+        // damero apagado, para que se vea que ahi va algo.
+        None => {
+            let (Some(w), Some(h)) = (s.width, s.height) else {
+                return mal(
+                    "una `<imagen dato>` sin muestra tiene que decir su `width` y su `height`",
+                    "los pixeles llegan al ejecutar; la caja es lo que se juzga, y tiene \
+                     que tener medida. Con `src` de muestra, mide lo que la muestra.",
+                    "por ejemplo `.mini { width:220px; height:124px }`.",
+                );
+            };
+            let damero = (0..w * h).map(|k| if ((k % w) / 8 + (k / w) / 8) % 2 == 0 { 0xFF2A_3242 } else { 0xFF22_2936 }).collect();
+            (damero, w, h)
+        }
+    };
+    let dijo = |v: Option<u32>, real: u32| v.is_some_and(|v| v != real);
+    if dijo(s.width, w) || dijo(s.height, h) {
+        return mal(
+            &format!("la imagen mide {w}x{h}, y su caja pide otra medida"),
+            "BMO-X no escala: una imagen se pinta pixel a pixel, y estirarla haria \
+             que lo juzgado no fuera lo pintado.",
+            "quitar `width`/`height`, o exportar la imagen a la medida.",
+        );
+    }
+    if !es_dato && (w > IMAGEN_MAX || h > IMAGEN_MAX) {
+        return mal(
+            &format!("la imagen mide {w}x{h}: embebida, como mucho {IMAGEN_MAX}x{IMAGEN_MAX}"),
+            "sus pixeles van DENTRO del codigo generado. Un icono o un avatar caben; \
+             una foto grande es un DATO, que llega al ejecutar.",
+            "`<imagen dato=\"foto\" src=\"muestra.qoi\"/>`, o una imagen mas chica.",
+        );
+    }
+    s.width = Some(w);
+    s.height = Some(h);
+    Ok(px.into())
+}
+
+/// Pone a cada `<imagen>` maquetada sus pixeles.
+fn poner_imagenes(f: &mut Frame, imagenes: &HashMap<usize, std::sync::Arc<[u32]>>) {
+    if f.tag == Tag::Imagen && f.imagen.is_none() {
+        f.imagen = imagenes.get(&f.span.start).cloned();
+    }
+    for c in &mut f.children {
+        poner_imagenes(c, imagenes);
+    }
 }
 
 fn bajar<'a>(n: &'a mut Styled, camino: &[usize]) -> &'a mut Styled {
@@ -271,12 +371,12 @@ fn injertar(f: &mut Frame, piezas: &mut HashMap<usize, Laid>) {
             match f.repite {
                 // Una lista: la fila en cada sitio, nombrada con su numero.
                 Some(r) => {
-                    let paso = (p.canvas.1 + r.entre) as i32;
                     f.children = (0..r.veces)
                         .map(|k| {
                             let mut fila = p.root.clone();
                             let prefijo = format!("{}.{k}", f.id.as_deref().unwrap_or("lista"));
-                            correr(&mut fila, f.rect.x, f.rect.y + k as i32 * paso, Some(&prefijo));
+                            let (dx, dy) = r.sitio(k, p.canvas);
+                            correr(&mut fila, f.rect.x + dx as i32, f.rect.y + dy as i32, Some(&prefijo));
                             fila
                         })
                         .collect();

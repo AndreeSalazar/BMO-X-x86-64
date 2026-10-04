@@ -24,14 +24,85 @@ fn walk(f: &Frame, canvas: &Rect, out: &mut Vec<Error>) {
         } else {
             (&f.content, "su padre")
         };
-        if !c.rect.inside(limite) {
+        // H7: dentro de una caja que se DESPLAZA, lo de dentro puede pasar de
+        // su alto (para eso se desplaza); de ancho y por arriba, no.
+        let dentro = if f.style.desplaza && c.style.position != Position::Absolute {
+            c.rect.x >= limite.x && c.rect.right() <= limite.right() && c.rect.y >= limite.y
+        } else {
+            c.rect.inside(limite)
+        };
+        if !dentro {
             out.push(fuera(c, limite, quien));
         }
         walk(c, canvas, out);
     }
     cabe_el_texto(f, out);
     el_hueco(f, out);
+    el_parrafo(f, out);
+    se_desplaza(f, out);
     no_esta_vacia(f, out);
+}
+
+/// * J. UNA CAJA QUE SE DESPLAZA (H7): el aparato mueve UN numero y recorta,
+/// sin maquetar. Para eso la ventana tiene que decir su alto (`height`) y su
+/// fondo liso (`background-color`, con el que se limpia en cada paso), y lo
+/// de dentro escribe con la letra de la casa (la de pixel no se recorta).
+fn se_desplaza(f: &Frame, out: &mut Vec<Error>) {
+    if !f.style.desplaza {
+        return;
+    }
+    let mut falta = Vec::new();
+    if f.style.height.is_none() {
+        falta.push("un `height` (el alto de la ventana)");
+    }
+    if f.style.background.is_none() || f.style.gradient.is_some() {
+        falta.push("un `background-color` liso (con el se limpia la ventana al desplazar)");
+    }
+    fn pixel(f: &Frame) -> bool {
+        (f.text.is_some() && f.style.font_size.is_none()) || f.children.iter().any(pixel)
+    }
+    if f.children.iter().any(pixel) {
+        falta.push("lo de dentro con `font-size` (la letra de pixel no se recorta)");
+    }
+    if !falta.is_empty() {
+        out.push(Error::new(
+            f.span,
+            &format!("esta caja se desplaza (`overflow-y: auto`) y necesita {}", falta.join(", ")),
+            "lo de dentro se maqueta y se juzga ENTERO al compilar; en el aparato se \
+             limpia la ventana, se pinta corrido `desde` pixeles y se recorta. Para \
+             eso la ventana tiene que decirlo todo.",
+            "dar a la caja su `height` y su `background-color`.",
+        ));
+    }
+}
+
+/// * E. UN PARRAFO (H3): `white-space: normal` parte el texto en lineas AL
+/// COMPILAR, con la letra que lo pinta, contra el `width` de su caja. Sin
+/// ancho no hay contra que partir, y sin `font-size` la letra de pixel no se
+/// parte. Un dato (`{nombre}`) llega al ejecutar: no se puede partir, se corta.
+fn el_parrafo(f: &Frame, out: &mut Vec<Error>) {
+    if !f.style.parrafo || f.text.is_none() {
+        return;
+    }
+    let mut falta = Vec::new();
+    if f.style.width.is_none() {
+        falta.push("un `width` (contra el que se parte)");
+    }
+    if f.style.font_size.is_none() {
+        falta.push("un `font-size` (se parte con la letra de la casa)");
+    }
+    if f.hueco.is_some() {
+        falta.push("un texto que se conozca al compilar (un dato no se parte: se corta)");
+    }
+    if !falta.is_empty() {
+        out.push(Error::new(
+            f.span,
+            &format!("este parrafo necesita {}", falta.join(", ")),
+            "un parrafo se parte en lineas AL COMPILAR, por los espacios, con la \
+             misma letra que lo pinta: el aparato no parte nada.",
+            "dar a la caja su `width` y su `font-size`.",
+        ));
+    }
 }
 
 /// * D. UN HUECO DE DATOS (H1): el texto llega al ejecutar, y lo que no se
@@ -41,7 +112,8 @@ fn walk(f: &Frame, canvas: &Rect, out: &mut Vec<Error>) {
 /// empieza a la izquierda. Un texto centrado se mueve con lo que mide, y lo
 /// que mide no se sabe.
 fn el_hueco(f: &Frame, out: &mut Vec<Error>) {
-    let Some(nombre) = &f.hueco else { return };
+    // Solo los huecos de TEXTO: una `<imagen dato>` mide lo que dice su caja.
+    let (Some(nombre), Some(_)) = (&f.hueco, &f.text) else { return };
     let mut falta = Vec::new();
     if f.style.width.is_none() {
         falta.push("un `width` (el ancho donde se corta)");

@@ -10,6 +10,13 @@
       --dato-color: #4DE38E     un color: la muestra es la que se ve en la
                                 foto; el emisor la cambia por el dato
 
+   Y la cara es la de HERMES (H5/H6): redonda con `border-radius: 50%`, y el
+   punto de estado ANCLADO a ella (`position: relative` en la cara, y el punto
+   `absolute` abajo a la derecha, con `right` y `bottom`).
+
+   Y al pasar el raton se ILUMINA con su `transition` (H8): el realce se
+   mezcla pieza a pieza en el aparato (`realce_en`), no cambia de golpe.
+
    La fila se compila y se juzga SOLA; `amigos.maqueta` la repite.
 -->
 <maqueta>
@@ -17,23 +24,26 @@
     :root     { --dato-color: #4DE38E; --dato-estado: #3FD07A }
     .fila     { display:flex; flex-direction:row; gap:12px; align-items:center;
                 width:260px; height:48px; padding:0 10px 0 10px;
-                border-radius:10px; background-color:#10151F }
-    .cara     { width:34px; height:34px; border-radius:17px;
+                border-radius:10px; background-color:#10151F;
+                border-width:1px; border-color:#10151F;
+                transition: 180ms ease-out }
+    .cara     { position:relative; width:34px; height:34px; border-radius:50%;
                 background-color:var(--dato-color) }
-    .textos   { display:flex; flex-direction:column; gap:2px }
-    .nombre   { width:170px; font-size:14px; font-weight:600; line-height:18px;
-                color:#F2F7F9 }
-    .nota     { width:170px; font-size:12px; line-height:16px; color:#7C8796 }
-    .punto    { width:8px; height:8px; border-radius:4px;
+    .estado   { position:absolute; right:0; bottom:0; width:10px; height:10px;
+                border-radius:50%; border-width:2px; border-color:#10151F;
                 background-color:var(--dato-estado) }
+    .textos   { display:flex; flex-direction:column; gap:2px }
+    .nombre   { width:190px; font-size:14px; font-weight:600; line-height:18px;
+                color:#F2F7F9 }
+    .nota     { width:190px; font-size:12px; line-height:16px; color:#7C8796 }
+    .fila:hover { background-color:#1B2333; border-color:#4DE38F }
   </style>
 
   <div class="fila" id="fila">
-    <div class="cara"></div>
+    <div class="cara"><div class="estado"></div></div>
     <div class="textos">
       <span class="nombre">{nombre|Ana Lopez}</span>
       <span class="nota">{nota|jugando a DOOM}</span>
     </div>
-    <div class="punto"></div>
   </div>
 </maqueta>

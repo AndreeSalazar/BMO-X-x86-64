@@ -93,6 +93,9 @@ pub struct Frame {
     /// `<usa repite>` (P2) y el hueco `{nombre}` (H1): carried.
     pub repite: Option<bmo_maqueta_node::Repite>,
     pub hueco: Option<String>,
+    /// `<imagen>` (H4): sus pixeles `0xAARRGGBB`, `ancho x alto` de la caja.
+    /// Los pone `compone` despues de maquetar (los lee del fichero).
+    pub imagen: Option<std::sync::Arc<[u32]>>,
     /// Carried, not read: this generation never looks at a colour.
     pub style: Style,
     /// ** Carried and never read EITHER -- and that is the proof that `:hover`

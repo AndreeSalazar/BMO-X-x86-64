@@ -74,7 +74,7 @@ pub(crate) fn activo() -> bool {
 /// Abre el editor: apunta el estilo de ahora para poder deshacer, y lo muestra.
 pub(crate) fn abrir(dsk: &mut Desktop, p: &bmo::Pantalla) {
     unsafe {
-        *addr_of_mut!(ANTES) = *estilo::estilo();
+        *addr_of_mut!(ANTES) = *estilo::configurado();
         CAMPO = 0;
         AVISO = "";
     }
@@ -104,12 +104,12 @@ fn cambiar(e: &mut Estilo, campo: usize, d: isize) {
         8 => e.memoria = !e.memoria,
         9 => e.vatios = !e.vatios,
         10 => e.reloj = !e.reloj,
-        // Dos vestidos: cualquier flecha pasa al otro.
+        // Tres vestidos, en rueda: fino, hacker y FASE (04-10).
         _ => {
-            e.marco = match e.marco {
-                bmo_config::Marco::Fino => bmo_config::Marco::Hacker,
-                bmo_config::Marco::Hacker => bmo_config::Marco::Fino,
-            }
+            use bmo_config::Marco::{Fase, Fino, Hacker};
+            let rueda = [Fino, Hacker, Fase];
+            let i = rueda.iter().position(|&m| m == e.marco).unwrap_or(0) as isize;
+            e.marco = rueda[(i + d.signum()).rem_euclid(3) as usize];
         }
     }
 }
@@ -160,7 +160,7 @@ fn valor(e: &Estilo, campo: usize, dst: &mut [u8; 8]) -> usize {
 
 /// Escribe la lista en la rejilla y repinta el escritorio con el estilo de ahora.
 fn mostrar(dsk: &mut Desktop, p: &bmo::Pantalla) {
-    let e = *estilo::estilo();
+    let e = *estilo::configurado();
     let campo = unsafe { CAMPO };
     let g = &mut dsk.out.grid;
     g.clear();
@@ -199,7 +199,7 @@ fn mostrar(dsk: &mut Desktop, p: &bmo::Pantalla) {
 /// Guarda el estilo de ahora en `sys/director.cfg`.
 fn guardar() -> &'static str {
     let mut buf = [0u8; 1024];
-    let n = estilo::estilo().escribir(&mut buf);
+    let n = estilo::configurado().escribir(&mut buf);
     let Ok(a) = bmo::Archivo::create(estilo::RUTA) else {
         return "no se pudo abrir sys/director.cfg para escribir";
     };
@@ -214,15 +214,25 @@ fn guardar() -> &'static str {
 /// **Las teclas mientras el editor esta abierto.** Se las queda todas: con el
 /// editor delante, una flecha no es del historial de Ejecutar.
 pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) {
-    let mut e = *estilo::estilo();
+    let mut e = *estilo::configurado();
     let campo = unsafe { CAMPO };
     unsafe { AVISO = "" };
     match c {
         0x80 => unsafe { CAMPO = (campo + CAMPOS.len() - 1) % CAMPOS.len() },
         0x81 | b'\t' => unsafe { CAMPO = (campo + 1) % CAMPOS.len() },
         0x82 | 0x83 => {
+            let antes = e.marco;
             cambiar(&mut e, campo, if c == 0x83 { 1 } else { -1 });
             estilo::poner(e);
+            // ** Entrar en el MODO FASE es TRANSFORMARSE (04-10): la barra
+            // tactica se arma placa a placa, y el panel se repinta en los
+            // colores del gato.
+            if e.marco != antes {
+                if e.marco == bmo_config::Marco::Fase {
+                    crate::scene::tactico::transformar();
+                }
+                crate::scene::lateral::olvidar();
+            }
         }
         b'\r' | b'\n' => unsafe { AVISO = guardar() },
         0x1B => {
@@ -240,7 +250,7 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) {
     }
     // Lo guardado pasa a ser el punto al que ESC vuelve.
     if unsafe { AVISO }.starts_with("guardado") {
-        unsafe { *addr_of_mut!(ANTES) = *estilo::estilo() };
+        unsafe { *addr_of_mut!(ANTES) = *estilo::configurado() };
     }
     mostrar(dsk, p);
 }

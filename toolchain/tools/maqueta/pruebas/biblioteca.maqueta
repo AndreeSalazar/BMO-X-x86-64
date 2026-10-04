@@ -1,0 +1,41 @@
+<!--
+   LA BIBLIOTECA -- una VENTANA que se desplaza (H7, 04-10): la lista de la
+   ONDA de HERMES (`docs/arte/maqueta_hermes.html`).
+
+   `overflow-y: auto` con `height`: lo de dentro (ocho pistas) se maqueta y
+   se juzga ENTERO, aunque pase del alto. En el aparato se mueve UN numero:
+   `desplazar_lista(p, ox, oy, desde)` limpia la ventana con su fondo, pinta
+   lo de dentro corrido y recortado, y la barra encima. `pintar` la deja en
+   su arranque.
+-->
+<maqueta>
+  <style>
+    .panel   { display:flex; flex-direction:column; gap:10px; padding:14px;
+               border-radius:14px; background-color:#0A0D14 }
+    .rotulo  { font-size:11px; font-weight:500; letter-spacing:.14em;
+               text-transform:uppercase; line-height:16px; color:#6E7A89 }
+    .lista   { display:flex; flex-direction:column; gap:6px; width:240px; height:200px;
+               padding:4px 12px 4px 4px; overflow-y:auto; background-color:#0D1118;
+               border-radius:10px }
+    .pista   { display:flex; flex-direction:row; gap:10px; align-items:center;
+               height:40px; padding:0 8px 0 8px; border-radius:8px; background-color:#141A26 }
+    .disco   { width:26px; height:26px; border-radius:50%; background-color:#2D6E5A }
+    .textos  { display:flex; flex-direction:column; gap:1px }
+    .titulo  { font-size:13px; font-weight:600; line-height:17px; color:#F2F7F9 }
+    .nota    { font-size:11px; line-height:14px; color:#7C8796 }
+  </style>
+
+  <div class="panel">
+    <span class="rotulo">tu biblioteca</span>
+    <div class="lista" id="lista">
+      <div class="pista"><div class="disco"></div><div class="textos"><span class="titulo">Kernel a medianoche</span><span class="nota">88 pulsos</span></div></div>
+      <div class="pista"><div class="disco"></div><div class="textos"><span class="titulo">Ring 0</span><span class="nota">104 pulsos</span></div></div>
+      <div class="pista"><div class="disco"></div><div class="textos"><span class="titulo">La ciudad de neon</span><span class="nota">96 pulsos</span></div></div>
+      <div class="pista"><div class="disco"></div><div class="textos"><span class="titulo">Compilando</span><span class="nota">120 pulsos</span></div></div>
+      <div class="pista"><div class="disco"></div><div class="textos"><span class="titulo">Pasillos de ladrillo</span><span class="nota">132 pulsos</span></div></div>
+      <div class="pista"><div class="disco"></div><div class="textos"><span class="titulo">La llave azul</span><span class="nota">140 pulsos</span></div></div>
+      <div class="pista"><div class="disco"></div><div class="textos"><span class="titulo">Sierra al atardecer</span><span class="nota">76 pulsos</span></div></div>
+      <div class="pista"><div class="disco"></div><div class="textos"><span class="titulo">Ocho bits por pixel</span><span class="nota">150 pulsos</span></div></div>
+    </div>
+  </div>
+</maqueta>

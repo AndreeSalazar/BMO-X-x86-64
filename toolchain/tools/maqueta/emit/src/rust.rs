@@ -50,14 +50,23 @@ pub fn modulo(origen: &str, l: &Laid) -> String {
 pub fn modulo_con_datos(origen: &str, l: &Laid, colores: &[(String, u32)]) -> String {
     let podada = podar_listas(l);
     let datos = Datos::de(&podada, colores);
-    let ordenes = lista(&podada);
+    // Lo de dentro de una ventana que se desplaza (H7) se pinta aparte.
+    let ordenes = lista(&crate::desplaza::podar(&podada));
+    let ventanas: Vec<String> = crate::desplaza::cajas(&podada)
+        .iter()
+        .enumerate()
+        .map(|(k, f)| format!("desplazar_{}(p, ox, oy, 0{});", nombre_ventana(f, k), if datos.hay() { ", d" } else { "" }))
+        .collect();
     let mut s = String::new();
     cabecera(&mut s, origen, l);
+    datos.estaticos(&mut s);
     datos.cabecera(&mut s);
     listas(&mut s, l);
-    pintar(&mut s, &ordenes, &datos);
+    pintar(&mut s, &ordenes, &datos, &ventanas);
     pintar_en(&mut s, &ordenes, &datos);
     realce(&mut s, &ordenes, &datos);
+    realce_animado(&mut s, &podada, &datos);
+    desplazamientos(&mut s, &podada, &datos);
     golpe(&mut s, l);
     islas(&mut s, l);
     s
@@ -101,6 +110,11 @@ struct Hueco {
 struct Datos {
     huecos: Vec<Hueco>,
     colores: Vec<(String, u32)>,
+    /// Las `<imagen dato>`: campo, ancho, alto, y sus pixeles de muestra.
+    fotos: Vec<(String, u32, u32, std::sync::Arc<[u32]>)>,
+    /// TODOS los pixeles que se embeben (fijos y muestras), en orden: el
+    /// `static IMAGEN_n` de cada uno.
+    pixeles: Vec<std::sync::Arc<[u32]>>,
 }
 
 impl Datos {
@@ -112,11 +126,42 @@ impl Datos {
                 huecos.push(Hueco { x: t.x, y: t.y, nombre: nombre.clone(), max, muestra: m.clone() });
             }
         }
-        Datos { huecos, colores: colores.to_vec() }
+        let mut fotos: Vec<(String, u32, u32, std::sync::Arc<[u32]>)> = Vec::new();
+        let mut pixeles: Vec<std::sync::Arc<[u32]>> = Vec::new();
+        for f in l.all() {
+            if let (bmo_maqueta_node::Tag::Imagen, Some(px)) = (f.tag, &f.imagen) {
+                if !pixeles.iter().any(|p| std::sync::Arc::ptr_eq(p, px)) {
+                    pixeles.push(px.clone());
+                }
+                if let Some(n) = &f.hueco {
+                    if !fotos.iter().any(|(o, ..)| o == n) {
+                        fotos.push((n.clone(), f.rect.w, f.rect.h, px.clone()));
+                    }
+                }
+            }
+        }
+        Datos { huecos, colores: colores.to_vec(), fotos, pixeles }
     }
 
     fn hay(&self) -> bool {
-        !self.huecos.is_empty() || !self.colores.is_empty()
+        !self.huecos.is_empty() || !self.colores.is_empty() || !self.fotos.is_empty()
+    }
+
+    /// El numero del `static IMAGEN_n` de estos pixeles.
+    fn imagen(&self, px: &std::sync::Arc<[u32]>) -> usize {
+        self.pixeles.iter().position(|p| std::sync::Arc::ptr_eq(p, px)).unwrap_or(0)
+    }
+
+    /// Los `static IMAGEN_n`: los pixeles que se embeben, de 8 en 8 por linea.
+    fn estaticos(&self, s: &mut String) {
+        for (k, px) in self.pixeles.iter().enumerate() {
+            let _ = writeln!(s, "/// Pixeles `0xAARRGGBB` (el alfa es un bit), embebidos al compilar (H4).\nstatic IMAGEN_{k}: [u32; {}] = [", px.len());
+            for trozo in px.chunks(8) {
+                let v: Vec<String> = trozo.iter().map(|c| format!("0x{c:08X}")).collect();
+                let _ = writeln!(s, "    {},", v.join(", "));
+            }
+            s.push_str("];\n\n");
+        }
     }
 
     /// `, d: &Datos` en las firmas de un modulo con datos.
@@ -183,7 +228,7 @@ impl Datos {
             return;
         }
         let textos = self.textos();
-        let vida = if textos.is_empty() { "" } else { "<'a>" };
+        let vida = if textos.is_empty() && self.fotos.is_empty() { "" } else { "<'a>" };
         s.push_str(
             "// == LOS DATOS (H1) ==================================================\n\
              //\n\
@@ -192,26 +237,26 @@ impl Datos {
              // `...` en el aparato (`Pantalla::pieza_cabe`), sin maquetar nada.\n\
              \n",
         );
-        let _ = writeln!(s, "/// Lo que pinta esta pieza y no se sabia al compilar.
-#[derive(Clone, Copy)]
-pub struct Datos{vida} {{");
+        let _ = writeln!(s, "/// Lo que pinta esta pieza y no se sabia al compilar.\n#[derive(Clone, Copy)]\npub struct Datos{vida} {{");
         for h in &textos {
-            let _ = writeln!(s, "    /// `{{{}}}`: se corta a {} px.
-    pub {}: &'a [u8],", h.nombre, h.max, h.nombre);
+            let _ = writeln!(s, "    /// `{{{}}}`: se corta a {} px.\n    pub {}: &'a [u8],", h.nombre, h.max, h.nombre);
         }
         for (n, _) in &self.colores {
-            let _ = writeln!(s, "    /// `--dato-{n}`: un color `0x00RRGGBB`.
-    pub {n}: u32,");
+            let _ = writeln!(s, "    /// `--dato-{n}`: un color `0x00RRGGBB`.\n    pub {n}: u32,");
         }
-        s.push_str("}
-
-");
-        let _ = write!(s, "/// La muestra: con lo que se maqueto, se juzgo y sale en la foto.
-pub const MUESTRA: Datos{} = Datos {{ ", if textos.is_empty() { "" } else { "<'static>" });
+        for (n, w, h, _) in &self.fotos {
+            let _ = writeln!(s, "    /// `<imagen dato=\"{n}\">`: {w}x{h} pixeles `0xAARRGGBB`. Si no miden eso, no se pinta.\n    pub {n}: &'a [u32],");
+        }
+        s.push_str("}\n\n");
+        let _ = write!(
+            s,
+            "/// La muestra: con lo que se maqueto, se juzgo y sale en la foto.\npub const MUESTRA: Datos{} = Datos {{ ",
+            if vida.is_empty() { "" } else { "<'static>" }
+        );
         let mut campos: Vec<String> = textos.iter().map(|h| format!("{}: b{:?}", h.nombre, h.muestra)).collect();
         campos.extend(self.colores.iter().map(|(n, v)| format!("{n}: 0x{v:08X}")));
-        let _ = writeln!(s, "{} }};
-", campos.join(", "));
+        campos.extend(self.fotos.iter().map(|(n, _, _, px)| format!("{n}: &IMAGEN_{}", self.imagen(px))));
+        let _ = writeln!(s, "{} }};\n", campos.join(", "));
     }
 }
 
@@ -237,33 +282,40 @@ fn listas(s: &mut String, l: &Laid) {
          \x20   pub alto_fila: u32,\n\
          \x20   pub paso: u32,\n\
          \x20   pub max: usize,\n\
+         \x20   /// Una rejilla (H6): cuantas por fila, y cada una `paso_x` a la derecha.\n\
+         \x20   pub columnas: usize,\n\
+         \x20   pub paso_x: u32,\n\
          }\n\
          \n\
          impl Lista {\n\
-         \x20   /// Donde va la fila `i`, relativo al origen.\n\
+         \x20   /// Donde va la pieza `i`, relativo al origen.\n\
          \x20   pub const fn fila(&self, i: usize) -> (u32, u32) {\n\
-         \x20       (self.x, self.y + i as u32 * self.paso)\n\
+         \x20       let c = if self.columnas == 0 { 1 } else { self.columnas };\n\
+         \x20       (self.x + (i % c) as u32 * self.paso_x, self.y + (i / c) as u32 * self.paso)\n\
          \x20   }\n\
          }\n\
          \n",
     );
     for f in ls {
         let r = f.repite.expect("filtrado arriba");
-        let alto = (f.rect.h - r.entre * (r.veces - 1)) / r.veces;
+        let (filas, cols) = (r.filas(), r.columnas.max(1).min(r.veces));
+        let alto = (f.rect.h - r.entre * (filas - 1)) / filas;
+        let ancho = (f.rect.w - r.entre * (cols - 1)) / cols;
         let id = f.id.as_deref().unwrap_or("lista").to_ascii_uppercase().replace(['.', '-'], "_");
+        let que = if cols > 1 { format!("en {cols} columnas, ") } else { String::new() };
         let _ = writeln!(
             s,
-            "/// `{}`: hasta {} filas de {}x{alto}.
-pub const LISTA_{id}: Lista = Lista {{ x: {}, y: {}, ancho: {}, alto_fila: {alto}, paso: {}, max: {} }};
-",
+            "/// `{}`: hasta {} piezas de {ancho}x{alto}, {que}{}x{} con todas.\n\
+             pub const LISTA_{id}: Lista = Lista {{ x: {}, y: {}, ancho: {ancho}, alto_fila: {alto}, paso: {}, max: {}, columnas: {cols}, paso_x: {} }};\n",
             f.src.as_deref().unwrap_or("?"),
             r.veces,
             f.rect.w,
+            f.rect.h,
             f.rect.x,
             f.rect.y,
-            f.rect.w,
             alto + r.entre,
-            r.veces
+            r.veces,
+            ancho + r.entre
         );
     }
 }
@@ -342,11 +394,24 @@ fn pieza_literal(p: &bmo_pinta::Pieza) -> String {
             cerrados
         ),
         Pieza::Relleno { caminos: cs, c } => format!("bmo::Pieza::Relleno {{ caminos: {}, c: 0x{c:08X} }}", caminos(cs)),
+        // Los pixeles los pone quien sabe de donde salen (`llamada_con`): un
+        // `static IMAGEN_n` o un dato.
+        Pieza::Imagen { x, y, w, h, r, .. } => format!("bmo::Pieza::Imagen {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, px: {PX} }}"),
     }
 }
 
+/// Donde van los pixeles de una imagen en su literal.
+const PX: &str = "__PIXELES__";
+
 /// La llamada que pinta este trazo, con su dato si lleva (H1).
 fn llamada_con(t: &Trazo, d: &Datos, limite: &str) -> String {
+    if let (Trazo::Imagen { px, dato, .. }, Some(l)) = (t, t.con_pieza(pieza_literal)) {
+        let de = match dato {
+            Some(n) => format!("d.{n}"),
+            None => format!("&IMAGEN_{}", d.imagen(px)),
+        };
+        return format!("p.pieza(&{}, ox as i32, oy as i32, {limite});", l.replace(PX, &de));
+    }
     let l = match (d.hueco(t), t.con_pieza(pieza_literal)) {
         (Some(h), Some(l)) => {
             let l = l.replacen(&format!("texto: b{:?}", h.muestra), &format!("texto: d.{}", h.nombre), 1);
@@ -361,7 +426,9 @@ fn llamada_con(t: &Trazo, d: &Datos, limite: &str) -> String {
 /// La llamada que pinta este trazo, sin recortar.
 fn llamada(t: &Trazo) -> String {
     if let Some(l) = t.con_pieza(pieza_literal) {
-        return format!("p.pieza(&{l}, ox as i32, oy as i32, None);");
+        // [!] Una imagen en una TRANSICION todavia no (P3c): `&[]` no pinta
+        // nada, y la CLI no deja llegar aqui una maqueta con imagenes y estados.
+        return format!("p.pieza(&{}, ox as i32, oy as i32, None);", l.replace(PX, "&[]"));
     }
     match t {
         Trazo::Rect { r, color } => format!(
@@ -385,7 +452,7 @@ fn area(t: &Trazo) -> Rect {
 //  Los cuatro pintados
 // ------------------------------------------------------------------------
 
-fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos) {
+fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos, ventanas: &[String]) {
     let _ = writeln!(
         s,
         "/// Pinta la maquetacion entera con su esquina superior izquierda en\n\
@@ -403,6 +470,9 @@ fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos) {
             ultimo = o.de.clone();
         }
         let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, "None"));
+    }
+    for v in ventanas {
+        let _ = writeln!(s, "    {v}");
     }
     s.push_str("}\n\n");
 }
@@ -512,6 +582,172 @@ fn realce(s: &mut String, ordenes: &[Orden], d: &Datos) {
         s.push_str("        return;\n    }\n");
     }
     s.push_str("}\n\n");
+}
+
+/// ** H8 (04-10): EL REALCE CON SU TRANSICION. Una caja con `:hover` y
+/// `transition` no cambia de golpe: se mezcla pieza a pieza con su curva,
+/// como una transicion de estado (P3b), y con la MISMA mezcla. Sin ninguna
+/// caja asi, no se emite nada (los modulos de siempre no cambian).
+fn realce_animado(s: &mut String, l: &Laid, d: &Datos) {
+    let cajas: Vec<_> = l
+        .all()
+        .into_iter()
+        .filter(|f| f.id.is_some() && f.hover.is_some() && f.style.transicion.is_some())
+        .collect();
+    if cajas.is_empty() {
+        return;
+    }
+    s.push_str(
+        "/// Lo que tarda el realce de `id` en entrar (o en salir), en ms. 0 si\n\
+         /// cambia de golpe (su caja no dijo `transition`).\n\
+         pub fn realce_dura(id: &str) -> u32 {\n\
+         \x20   match id {\n",
+    );
+    let mut pares = Vec::new();
+    for f in &cajas {
+        let mut encima = (*f).clone();
+        encima.style = f.hover.expect("filtrado arriba");
+        encima.children.clear();
+        let mut quieta = (*f).clone();
+        quieta.children.clear();
+        let entra = crate::movimiento::pares_caja(&quieta, &encima);
+        let sale = crate::movimiento::pares_caja(&encima, &quieta);
+        let id = f.id.clone().expect("filtrado arriba");
+        let _ = writeln!(s, "        {id:?} => {},", crate::movimiento::duracion(&entra));
+        // Lo de DENTRO de la caja, quieto y encima: repintar su fondo lo
+        // taparia.
+        let dentro: Vec<Orden> = f
+            .children
+            .iter()
+            .flat_map(|c| lista(&Laid { root: c.clone(), canvas: l.canvas }))
+            .filter(|o| o.estado == Estado::Reposo)
+            .collect();
+        pares.push((id, entra, sale, dentro));
+    }
+    let _ = writeln!(
+        s,
+        "        _ => 0,\n    }}\n}}\n\n\
+         /// **El realce de `id` a los `ms` de empezar** a entrar (o a salir, con\n\
+         /// `sale`), mezclado pieza a pieza con la curva de su `transition` (H8).\n\
+         /// Pasado [`realce_dura`] pinta el final. Quien llama pide fotogramas\n\
+         /// MIENTRAS dure y devuelve antes lo de debajo (`pintar_en`): las piezas\n\
+         /// suaves mezclan con lo que hay.\n\
+         pub fn realce_en(p: &bmo::Pantalla, ox: u32, oy: u32, id: &str, ms: u32, sale: bool{}) {{",
+        d.param()
+    );
+    s.push_str("    let _ = (p, ox, oy, ms, sale);\n");
+    if d.hay() {
+        s.push_str("    let _ = d;\n");
+    }
+    for (id, entra, sale, dentro) in pares {
+        let _ = writeln!(s, "    if id == {id:?} {{\n        if !sale {{");
+        for par in &entra {
+            s.push_str(&d.colores(par_rust(par)));
+        }
+        s.push_str("        } else {\n");
+        for par in &sale {
+            s.push_str(&d.colores(par_rust(par)));
+        }
+        s.push_str("        }\n");
+        for o in &dentro {
+            let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, "None"));
+        }
+        s.push_str("        return;\n    }\n");
+    }
+    s.push_str("}\n\n");
+}
+
+/// El nombre de una ventana en el codigo: su `id`, o su numero.
+fn nombre_ventana(f: &bmo_maqueta_layout::Frame, k: usize) -> String {
+    match &f.id {
+        Some(id) => id.to_ascii_lowercase().replace(['.', '-'], "_"),
+        None => k.to_string(),
+    }
+}
+
+/// ** H7 (04-10): LAS VENTANAS QUE SE DESPLAZAN. Por cada una, su medida
+/// (`DESPLAZA_<ID>`) y `desplazar_<id>(p, ox, oy, desde)`: limpia la ventana,
+/// pinta lo de dentro corrido y recortado, y la barra. La MISMA cuenta que la
+/// foto (`desplaza.rs`).
+fn desplazamientos(s: &mut String, l: &Laid, d: &Datos) {
+    use crate::desplaza;
+    let cajas = desplaza::cajas(l);
+    if cajas.is_empty() {
+        return;
+    }
+    s.push_str(
+        "// == LO QUE SE DESPLAZA (H7) =========================================\n\
+         //\n\
+         // Lo de dentro se maqueto y se juzgo ENTERO; aqui se mueve UN numero.\n\
+         // `pintar` lo deja en su arranque (desde 0); para moverlo, el aparato\n\
+         // llama a `desplazar_<id>` con lo que haya bajado (hasta `max()`).\n\
+         \n\
+         /// Una ventana: donde esta, cuanto se ve (`h`) y cuanto hay (`total`).\n\
+         #[derive(Clone, Copy)]\n\
+         pub struct Desplaza {\n\
+         \x20   pub x: u32,\n\
+         \x20   pub y: u32,\n\
+         \x20   pub w: u32,\n\
+         \x20   pub h: u32,\n\
+         \x20   pub total: u32,\n\
+         }\n\
+         \n\
+         impl Desplaza {\n\
+         \x20   /// Lo mas que se puede bajar.\n\
+         \x20   pub const fn max(&self) -> u32 {\n\
+         \x20       self.total.saturating_sub(self.h)\n\
+         \x20   }\n\
+         }\n\
+         \n",
+    );
+    for (k, f) in cajas.iter().enumerate() {
+        let nombre = nombre_ventana(f, k);
+        let mayus = nombre.to_ascii_uppercase();
+        let v = desplaza::ventana(f);
+        let total = desplaza::total(f);
+        let fondo = f.style.background.unwrap_or(0);
+        let _ = writeln!(
+            s,
+            "pub const DESPLAZA_{mayus}: Desplaza = Desplaza {{ x: {}, y: {}, w: {}, h: {}, total: {total} }};\n\n\
+             /// **La ventana `{nombre}` bajada `desde` pixeles** (H7).\n\
+             pub fn desplazar_{nombre}(p: &bmo::Pantalla, ox: u32, oy: u32, desde: u32{}) {{\n\
+             \x20   let desde = desde.min(DESPLAZA_{mayus}.max());\n\
+             \x20   p.pieza(&bmo::Pieza::Caja {{ x: {}, y: {}, w: {}, h: {}, r: {}, c: 0x{fondo:08X} }}, ox as i32, oy as i32, None);\n\
+             \x20   let limite = Recorte::nuevo(ox as i32 + {}, oy as i32 + {}, {}, {});\n\
+             \x20   let (ox0, oy0) = (ox as i32, oy as i32);\n\
+             \x20   let (ox, oy) = (ox0, oy0 - desde as i32);\n\
+             \x20   let _ = (ox, oy, limite);",
+            v.x, v.y, v.w, v.h,
+            d.param(),
+            v.x, v.y, v.w, v.h, desplaza::radio(f),
+            v.x, v.y, v.w, v.h,
+        );
+        if d.hay() {
+            s.push_str("    let _ = d;\n");
+        }
+        for o in desplaza::contenido(f, l.canvas) {
+            let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, "Some(limite)"));
+        }
+        // La barra: la misma cuenta que `desplaza::barra`, con `desde` de
+        // verdad.
+        if let Some(b0) = desplaza::barra(f, 0) {
+            let pista = v.h - 6;
+            let _ = writeln!(
+                s,
+                "    let y = {} + desde * {} / {};\n\
+                 \x20   p.pieza(&bmo::Pieza::Caja {{ x: {}, y: y as i32, w: {}, h: {}, r: {}, c: 0x{:08X} }}, ox0, oy0, None);",
+                b0.y,
+                pista - b0.h,
+                total - v.h,
+                b0.x,
+                b0.w,
+                b0.h,
+                b0.w / 2,
+                desplaza::color_barra(f)
+            );
+        }
+        s.push_str("}\n\n");
+    }
 }
 
 // ------------------------------------------------------------------------

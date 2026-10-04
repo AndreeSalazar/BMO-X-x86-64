@@ -1,0 +1,43 @@
+<!--
+   UN VIDEO -- la pieza de la rejilla del CANAL de HERMES
+   (`docs/arte/maqueta_hermes.html`), con DATOS (H1) y lo de H5/H6:
+
+      la miniatura    una IMAGEN que llega al ejecutar (H4): `<imagen
+                      dato="miniatura"/>`, con su medida y recortada a su
+                      radio; en la foto, un damero (no trae muestra)
+      la duracion     ANCLADA a la miniatura: `position:relative` en ella, y
+                      la pastilla `absolute` abajo a la derecha
+      el canal        su cara redonda (`border-radius: 50%`)
+-->
+<maqueta>
+  <style>
+    :root      { --dato-color: #7A4DFF }
+    .video     { display:flex; flex-direction:column; gap:8px; width:220px }
+    .mini      { position:relative; width:220px; height:124px; border-radius:10px;
+                 background-color:var(--dato-color) }
+    .foto      { width:220px; height:124px; border-radius:10px }
+    .dura      { position:absolute; right:6px; bottom:6px; width:34px; padding:1px 6px 1px 6px;
+                 border-radius:6px; background-color:#05060A;
+                 font-size:11px; font-weight:600; line-height:16px; color:#F2F7F9 }
+    .pie       { display:flex; flex-direction:row; gap:8px }
+    .canal     { width:24px; height:24px; border-radius:50%; background-color:#2A3242 }
+    .textos    { display:flex; flex-direction:column; gap:2px }
+    .titulo    { width:188px; font-size:13px; font-weight:600; line-height:18px;
+                 color:#F2F7F9 }
+    .meta      { width:188px; font-size:11px; line-height:16px; color:#7C8796 }
+  </style>
+
+  <div class="video" id="video">
+    <div class="mini">
+      <imagen class="foto" dato="miniatura"/>
+      <span class="dura">{duracion|12:04}</span>
+    </div>
+    <div class="pie">
+      <div class="canal"></div>
+      <div class="textos">
+        <span class="titulo">{titulo|Kernel a medianoche}</span>
+        <span class="meta">{meta|4 videos . 13 min}</span>
+      </div>
+    </div>
+  </div>
+</maqueta>

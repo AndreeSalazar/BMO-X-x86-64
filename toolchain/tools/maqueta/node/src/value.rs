@@ -32,6 +32,10 @@ pub enum Tag {
     /// sola y puesta aqui. Para esta maqueta es una caja hoja de la medida que
     /// la pieza calculo; dentro no se ve nada de ella.
     Usa,
+    /// `<imagen src="gato.qoi"/>` o `<imagen dato="miniatura"/>` (H4, 04-10):
+    /// pixeles, de un fichero (embebidos al compilar) o del aparato al correr.
+    /// Mide lo que mide la imagen; es una hoja.
+    Imagen,
 }
 
 impl Tag {
@@ -44,6 +48,7 @@ impl Tag {
             b"svg" => Some(Tag::Svg),
             b"path" => Some(Tag::Path),
             b"usa" => Some(Tag::Usa),
+            b"imagen" => Some(Tag::Imagen),
             _ => None,
         }
     }
@@ -57,6 +62,7 @@ impl Tag {
             Tag::Svg => "svg",
             Tag::Path => "path",
             Tag::Usa => "usa",
+            Tag::Imagen => "imagen",
         }
     }
 
@@ -97,12 +103,19 @@ pub enum Prop {
     Position,
     Left,
     Top,
+    /// H5 (04-10): desde el borde derecho / de abajo de su ancla.
+    Right,
+    Bottom,
     // the letter (MAQUETA 2): measured on the host with `bmo-letra`
     FontSize,
     FontWeight,
     LetterSpacing,
     LineHeight,
     TextTransform,
+    /// H3 (04-10): `normal` = un PARRAFO, partido en lineas al compilar.
+    WhiteSpace,
+    /// H7 (04-10): `auto` = la caja se DESPLAZA (lo de dentro pasa de su alto).
+    OverflowY,
     // the finish (MAQUETA 2)
     BoxShadow,
     BackgroundImage,
@@ -174,11 +187,15 @@ impl Prop {
             b"position" => Prop::Position,
             b"left" => Prop::Left,
             b"top" => Prop::Top,
+            b"right" => Prop::Right,
+            b"bottom" => Prop::Bottom,
             b"font-size" => Prop::FontSize,
             b"font-weight" => Prop::FontWeight,
             b"letter-spacing" => Prop::LetterSpacing,
             b"line-height" => Prop::LineHeight,
             b"text-transform" => Prop::TextTransform,
+            b"white-space" => Prop::WhiteSpace,
+            b"overflow-y" => Prop::OverflowY,
             b"box-shadow" => Prop::BoxShadow,
             b"background-image" => Prop::BackgroundImage,
             b"stroke" => Prop::Stroke,
@@ -221,11 +238,15 @@ impl Prop {
             Prop::Position => "position",
             Prop::Left => "left",
             Prop::Top => "top",
+            Prop::Right => "right",
+            Prop::Bottom => "bottom",
             Prop::FontSize => "font-size",
             Prop::FontWeight => "font-weight",
             Prop::LetterSpacing => "letter-spacing",
             Prop::LineHeight => "line-height",
             Prop::TextTransform => "text-transform",
+            Prop::WhiteSpace => "white-space",
+            Prop::OverflowY => "overflow-y",
             Prop::BoxShadow => "box-shadow",
             Prop::BackgroundImage => "background-image",
             Prop::Stroke => "stroke",
@@ -284,6 +305,8 @@ impl Prop {
             | Prop::Gap
             | Prop::Left
             | Prop::Top
+            | Prop::Right
+            | Prop::Bottom
             | Prop::FontSize
             | Prop::LineHeight
             | Prop::PaddingTop
@@ -297,6 +320,8 @@ impl Prop {
             Prop::FontWeight => Shape::Weight,
             Prop::LetterSpacing => Shape::Em,
             Prop::TextTransform => Shape::Words(&[Keyword::Uppercase, Keyword::None]),
+            Prop::WhiteSpace => Shape::Words(&[Keyword::Normal, Keyword::Nowrap]),
+            Prop::OverflowY => Shape::Words(&[Keyword::Auto, Keyword::Visible]),
             Prop::BoxShadow => Shape::Shadow,
             Prop::BackgroundImage => Shape::Gradient,
             Prop::BackgroundColor
@@ -325,7 +350,7 @@ impl Prop {
                 Keyword::Center,
                 Keyword::End,
             ]),
-            Prop::Position => Shape::Words(&[Keyword::Absolute]),
+            Prop::Position => Shape::Words(&[Keyword::Absolute, Keyword::Relative]),
         }
     }
 }
@@ -392,9 +417,22 @@ pub enum Keyword {
     SpaceBetween,
     Stretch,
     Absolute,
+    /// H5 (04-10): no se mueve; es el ANCLA de sus absolutas.
+    Relative,
     Uppercase,
     None,
     Round,
+    /// `white-space: normal` (H3): el texto se parte en lineas.
+    Normal,
+    /// `white-space: nowrap`: una sola linea (lo de siempre en MAQUETA).
+    Nowrap,
+    /// `overflow-y: auto` (H7): se desplaza.
+    Auto,
+    /// `overflow-y: visible`: lo de siempre (no se desplaza).
+    Visible,
+    /// `border-radius: 50%` (H6): la mitad del lado corto -- un circulo en
+    /// una caja cuadrada. El unico porcentaje que hay.
+    Mitad,
 }
 
 impl Keyword {
@@ -410,6 +448,11 @@ impl Keyword {
             b"space-between" => Keyword::SpaceBetween,
             b"stretch" => Keyword::Stretch,
             b"absolute" => Keyword::Absolute,
+            b"relative" => Keyword::Relative,
+            b"normal" => Keyword::Normal,
+            b"nowrap" => Keyword::Nowrap,
+            b"auto" => Keyword::Auto,
+            b"visible" => Keyword::Visible,
             b"uppercase" => Keyword::Uppercase,
             b"none" => Keyword::None,
             b"round" => Keyword::Round,
@@ -429,6 +472,12 @@ impl Keyword {
             Keyword::SpaceBetween => "space-between",
             Keyword::Stretch => "stretch",
             Keyword::Absolute => "absolute",
+            Keyword::Relative => "relative",
+            Keyword::Normal => "normal",
+            Keyword::Nowrap => "nowrap",
+            Keyword::Auto => "auto",
+            Keyword::Visible => "visible",
+            Keyword::Mitad => "50%",
             Keyword::Uppercase => "uppercase",
             Keyword::None => "none",
             Keyword::Round => "round",

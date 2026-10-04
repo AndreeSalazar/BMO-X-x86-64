@@ -74,6 +74,14 @@ fn recorrer(fa: &Frame, llegada: &HashMap<Vec<usize>, &Frame>, camino: &mut Vec<
     camino.pop();
 }
 
+/// **Los pares de UNA caja** entre dos estilos (H8): el reposo y el
+/// `:hover` de la misma caja, que tienen la misma geometria.
+pub fn pares_caja(fa: &Frame, fb: &Frame) -> Vec<Par> {
+    let mut out = Vec::new();
+    caja(fa, fb, &mut out);
+    out
+}
+
 fn caja(fa: &Frame, fb: &Frame, out: &mut Vec<Par>) {
     let suave = es_suave(&fa.style) || es_suave(&fb.style);
     let mut ranuras: BTreeMap<Ranura, (Option<Trazo>, Option<Trazo>)> = BTreeMap::new();

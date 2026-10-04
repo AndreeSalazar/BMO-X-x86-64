@@ -31,8 +31,15 @@ use bmo_maqueta_cascade::{Align, Direction, Display, Justify, Position, Styled};
 use crate::measure::{content_size, frame, outer_size};
 use crate::{Frame, Rect};
 
-/// Lay one box out inside the border box its parent decided for it.
+/// Lay one box out inside the border box its parent decided for it. La raiz
+/// es su propia ancla (el lienzo).
 pub fn place(b: &Styled, border: Rect) -> Frame {
+    colocar(b, border, border)
+}
+
+/// Como [`place`], con el ANCLA de las absolutas de dentro (H5): la caja de
+/// relleno de la `position:relative` mas cercana por arriba, o el lienzo.
+fn colocar(b: &Styled, border: Rect, ancla: Rect) -> Frame {
     let inset = b.style.border_width[3] as i32 + b.style.padding[3] as i32;
     let inset_top = b.style.border_width[0] as i32 + b.style.padding[0] as i32;
     let (fw, fh) = frame(b);
@@ -46,36 +53,57 @@ pub fn place(b: &Styled, border: Rect) -> Frame {
     let flow: Vec<&Styled> = b
         .children
         .iter()
-        .filter(|c| c.style.position == Position::Static)
+        .filter(|c| c.style.position != Position::Absolute)
         .collect();
+    // Una caja POSICIONADA (`relative`, o `absolute`) es el ancla de lo de
+    // dentro: su caja de RELLENO, como en CSS (dentro del borde, con el
+    // `padding`).
+    let ancla = if b.style.position != Position::Static {
+        let [t, r, bo, l] = b.style.border_width;
+        Rect { x: border.x + l as i32, y: border.y + t as i32, w: border.w.saturating_sub(l + r), h: border.h.saturating_sub(t + bo) }
+    } else {
+        ancla
+    };
 
     // Un `<svg>` es una hoja: sus `<path>` caen todos en su caja y su
     // `viewBox` dice el resto (MAQUETA 2).
     let mut placed: Vec<Frame> = if b.tag == bmo_maqueta_node::Tag::Svg {
-        b.children.iter().map(|c| place(c, content)).collect()
+        b.children.iter().map(|c| colocar(c, content, ancla)).collect()
     } else {
         match b.style.display {
-            Display::Flex => flex(b, &flow, content),
-            Display::Block => block(&flow, content),
+            Display::Flex => flex(b, &flow, content, ancla),
+            Display::Block => block(&flow, content, ancla),
         }
     };
 
-    // * Absolutely positioned boxes are placed against the canvas, and that is
-    // not a simplification: CSS anchors them to the nearest *positioned*
-    // ancestor, MAQUETA has no `position:relative`, so there never is one and
-    // the anchor is always the initial containing block. Same behaviour, arrived
-    // at by having fewer parts.
+    // * Absolutely positioned boxes are placed against their ANCHOR, as in
+    // CSS: the padding box of the nearest `position:relative` ancestor (H5,
+    // 04-10), or the canvas if there is none -- which was the only case before
+    // `relative` existed. `right` and `bottom` count from the far edges.
     for c in b.children.iter().filter(|c| c.style.position == Position::Absolute && b.tag != bmo_maqueta_node::Tag::Svg) {
         let o = outer_size(c);
-        placed.push(place(
-            c,
-            Rect {
-                x: c.style.left.unwrap_or(0) as i32,
-                y: c.style.top.unwrap_or(0) as i32,
-                w: o.w,
-                h: o.h,
-            },
-        ));
+        let s = &c.style;
+        let x = match (s.left, s.right) {
+            (Some(l), _) => ancla.x + l as i32,
+            (None, Some(r)) => ancla.x + ancla.w as i32 - r as i32 - o.w as i32,
+            (None, None) => ancla.x,
+        };
+        let y = match (s.top, s.bottom) {
+            (Some(t), _) => ancla.y + t as i32,
+            (None, Some(bo)) => ancla.y + ancla.h as i32 - bo as i32 - o.h as i32,
+            (None, None) => ancla.y,
+        };
+        placed.push(colocar(c, Rect { x, y, w: o.w, h: o.h }, ancla));
+    }
+
+    // `border-radius: 50%` (H6): ahora que la caja tiene medida.
+    let mut style = b.style;
+    let mut hover = b.hover;
+    if style.radio_mitad {
+        style.border_radius = border.w.min(border.h) / 2;
+    }
+    if let Some(h) = hover.as_mut().filter(|h| h.radio_mitad) {
+        h.border_radius = border.w.min(border.h) / 2;
     }
 
     Frame {
@@ -87,9 +115,10 @@ pub fn place(b: &Styled, border: Rect) -> Frame {
         src: b.src.clone(),
         repite: b.repite,
         hueco: b.hueco.clone(),
+        imagen: None,
         d: b.d.clone(),
-        style: b.style,
-        hover: b.hover,
+        style,
+        hover,
         rect: border,
         content,
         text_at: donde_el_texto(b, content),
@@ -140,20 +169,20 @@ fn donde_el_texto(b: &Styled, content: Rect) -> Option<Rect> {
 }
 
 /// Children stack downwards, each filling the width unless it named one.
-fn block(flow: &[&Styled], content: Rect) -> Vec<Frame> {
+fn block(flow: &[&Styled], content: Rect, ancla: Rect) -> Vec<Frame> {
     let mut y = content.y;
     let mut out = Vec::with_capacity(flow.len());
     for c in flow {
         let (fw, _) = frame(c);
         let w = c.style.width.map(|w| w + fw).unwrap_or(content.w);
         let h = outer_size(c).h;
-        out.push(place(c, Rect { x: content.x, y, w, h }));
+        out.push(colocar(c, Rect { x: content.x, y, w, h }, ancla));
         y += h as i32;
     }
     out
 }
 
-fn flex(b: &Styled, flow: &[&Styled], content: Rect) -> Vec<Frame> {
+fn flex(b: &Styled, flow: &[&Styled], content: Rect, ancla: Rect) -> Vec<Frame> {
     if flow.is_empty() {
         return Vec::new();
     }
@@ -229,7 +258,7 @@ fn flex(b: &Styled, flow: &[&Styled], content: Rect) -> Vec<Frame> {
                 h: main_len,
             }
         };
-        out.push(place(c, r));
+        out.push(colocar(c, r, ancla));
         main += main_len as i64 + gap as i64 + between;
     }
     out

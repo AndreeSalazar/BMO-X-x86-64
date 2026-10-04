@@ -82,7 +82,7 @@ pub(crate) fn alternar() {
 
 /// El aire entre el panel y el borde de la pantalla: el `barra_hueco` del
 /// estilo si flota, y nada si es una tira pegada.
-fn hueco() -> u32 {
+pub(crate) fn hueco() -> u32 {
     let e = estilo();
     if e.barra_flotante {
         e.barra_hueco.min(12)

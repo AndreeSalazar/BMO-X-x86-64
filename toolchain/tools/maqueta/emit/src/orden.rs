@@ -41,6 +41,9 @@ pub enum Trazo {
     Linea { caminos: Vec<Vec<(i32, i32)>>, cerrados: Vec<bool>, grosor64: i32, color: u32 },
     /// Un `<path>` con `fill`.
     Relleno { caminos: Vec<Vec<(i32, i32)>>, color: u32 },
+    /// Una `<imagen>` (H4): sus pixeles, recortados al radio de su caja.
+    /// `dato` = llega al ejecutar (estos pixeles son su muestra).
+    Imagen { r: Rect, radio: u32, px: std::sync::Arc<[u32]>, dato: Option<String> },
 }
 
 impl Trazo {
@@ -106,6 +109,10 @@ impl Trazo {
             Trazo::Relleno { caminos, color } => {
                 let v: Vec<&[(i32, i32)]> = caminos.iter().map(|c| c.as_slice()).collect();
                 Some(f(&Pieza::Relleno { caminos: &v, c: *color }))
+            }
+            Trazo::Imagen { r, radio, px, .. } => {
+                let (x, y, w, h) = caja(r);
+                Some(f(&Pieza::Imagen { x, y, w, h, r: *radio as i32, px }))
             }
         }
     }
@@ -176,7 +183,11 @@ pub enum Ranura {
     Lado(u8),
     /// El borde suave (va ENCIMA del fondo).
     Borde,
+    /// Los pixeles de una `<imagen>` (H4), encima de su caja.
+    Imagen,
     Texto,
+    /// La linea `k` (desde la segunda) de un parrafo (H3).
+    Renglon(u16),
     Relleno(u16),
     Linea(u16),
 }
@@ -284,18 +295,33 @@ pub fn trazos_de_estilo(f: &Frame, s: &bmo_maqueta_layout::Style, suave: bool) -
             }
         }
     }
+    if let (bmo_maqueta_node::Tag::Imagen, Some(px)) = (f.tag, &f.imagen) {
+        en!(Ranura::Imagen);
+        push(Trazo::Imagen { r: f.rect, radio, px: px.clone(), dato: f.hueco.clone() });
+    }
     if let (Some(t), Some(r), Some(color)) = (&f.text, f.text_at, s.color) {
         en!(Ranura::Texto);
         match s.font_size.and_then(|p| u8::try_from(p).ok()) {
-            Some(px) => push(Trazo::Letra {
-                r,
-                texto: t.clone(),
-                color,
-                px,
-                peso: if s.font_weight == 0 { 400 } else { s.font_weight },
-                espacio: s.letter_spacing,
-                mayusculas: s.uppercase,
-            }),
+            Some(px) => {
+                // Un parrafo (H3): una letra por linea, partido con la MISMA
+                // regla que lo midio (`measure::lineas`).
+                let ls = bmo_maqueta_layout::measure::lineas(&s, t);
+                let alto = r.h / ls.len().max(1) as u32;
+                for (k, linea) in ls.into_iter().enumerate() {
+                    if k > 0 {
+                        en!(Ranura::Renglon(k as u16));
+                    }
+                    push(Trazo::Letra {
+                        r: Rect { x: r.x, y: r.y + (k as u32 * alto) as i32, w: r.w, h: alto },
+                        texto: linea,
+                        color,
+                        px,
+                        peso: if s.font_weight == 0 { 400 } else { s.font_weight },
+                        espacio: s.letter_spacing,
+                        mayusculas: s.uppercase,
+                    });
+                }
+            }
             None => push(Trazo::Texto { r, texto: t.clone(), color }),
         }
     }

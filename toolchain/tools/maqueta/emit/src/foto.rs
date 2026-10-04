@@ -73,10 +73,31 @@ impl Foto {
 pub fn foto(l: &Laid) -> Foto {
     let mut im = Foto::nueva(l.canvas.0, l.canvas.1);
     let mut letra = bmo_letra::Letra::nueva();
-    for o in lista(l).iter().filter(|o| o.estado == Estado::Reposo) {
+    for o in lista(&crate::desplaza::podar(l)).iter().filter(|o| o.estado == Estado::Reposo) {
         un_trazo(&mut im, &mut letra, &o.trazo);
     }
+    // H7: lo de dentro de cada ventana, recortado y en su arranque (desde 0),
+    // y su barra -- la misma cuenta que el aparato.
+    for f in crate::desplaza::cajas(l) {
+        desplazado(&mut im, &mut letra, f, l.canvas, 0);
+    }
     im
+}
+
+/// **Una ventana desplazada `desde` pixeles** (H7): limpia, lo de dentro
+/// corrido y recortado, y la barra.
+pub fn desplazado(im: &mut Foto, letra: &mut bmo_letra::Letra, f: &bmo_maqueta_layout::Frame, lienzo: (u32, u32), desde: u32) {
+    use crate::desplaza;
+    let v = desplaza::ventana(f);
+    bmo_pinta::caja(im, v.x, v.y, v.w as i32, v.h as i32, desplaza::radio(f), f.style.background.unwrap_or(0));
+    let mut r = bmo_pinta::Recortado { dentro: im, x0: v.x, y0: v.y, x1: v.x + v.w as i32, y1: v.y + v.h as i32 };
+    let desde = desde.min(desplaza::maximo(f));
+    for o in desplaza::contenido(f, lienzo) {
+        o.trazo.con_pieza(|p| bmo_pinta::pieza(&mut r, letra, p, 0, -(desde as i32)));
+    }
+    if let Some(b) = desplaza::barra(f, desde) {
+        bmo_pinta::caja(im, b.x, b.y, b.w as i32, b.h as i32, (b.w / 2) as i32, desplaza::color_barra(f));
+    }
 }
 
 fn un_trazo(im: &mut Foto, letra: &mut bmo_letra::Letra, t: &Trazo) {

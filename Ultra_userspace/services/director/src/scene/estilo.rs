@@ -42,17 +42,49 @@ pub(crate) const POR_DEFECTO: Estilo = Estilo {
 pub(crate) const RUTA: &[u8] = b"sys/director.cfg";
 const TOPE: usize = 4096;
 
+/// Lo CONFIGURADO: lo que dice `sys/director.cfg` y lo que el editor de
+/// aspecto cambia y guarda.
 static mut ESTILO: Estilo = POR_DEFECTO;
+/// Lo VISTO: lo configurado, con los colores del MODO FASE encima si toca. Es
+/// lo que lee todo el escritorio; asi FASE no se cuela en el `.cfg`.
+static mut VISTO: Estilo = POR_DEFECTO;
 static mut INFORME: Informe = Informe::VACIO;
 static mut LEIDO: bool = false;
 
+/// **El estilo que se ve**: el configurado, con el MODO FASE aplicado.
 pub(crate) fn estilo() -> &'static Estilo {
+    unsafe { &*addr_of!(VISTO) }
+}
+
+/// **El estilo configurado**, sin los colores de FASE: el que se edita y se
+/// guarda.
+pub(crate) fn configurado() -> &'static Estilo {
     unsafe { &*addr_of!(ESTILO) }
 }
 
 /// Cambia el estilo en vivo. Lo usa el editor de aspecto; quien llame repinta.
 pub(crate) fn poner(e: Estilo) {
-    unsafe { *addr_of_mut!(ESTILO) = e };
+    unsafe {
+        *addr_of_mut!(ESTILO) = e;
+        *addr_of_mut!(VISTO) = visto(e);
+    }
+}
+
+/// ** EL MODO FASE (04-10): el acento, el panel y su filo pasan a los colores
+/// del gato de `tema.maqueta` (`.fase`: su cian, y el magenta para el glitch). Las ventanas leen el acento, asi que sus marcos
+/// tambien. El fondo del escritorio y los colores propios de cada ventana no
+/// cambian: dicen QUE es cada cosa, no son tema.
+fn visto(e: Estilo) -> Estilo {
+    use super::tema_gen::{FASE_BORDE, FASE_CIAN, FASE_FONDO};
+    if e.marco != bmo_config::Marco::Fase {
+        return e;
+    }
+    Estilo { acento: FASE_CIAN, barra_fondo: FASE_FONDO, barra_borde: FASE_BORDE, ..e }
+}
+
+/// Esta puesto el MODO FASE?
+pub(crate) fn fase() -> bool {
+    estilo().marco == bmo_config::Marco::Fase
 }
 
 /// Lee `sys/director.cfg`. Si no esta, se queda lo de siempre: no tener fichero
@@ -66,6 +98,7 @@ pub(crate) fn cargar() {
     let inf = e.aplicar(&buf[..n]);
     unsafe {
         *addr_of_mut!(ESTILO) = e;
+        *addr_of_mut!(VISTO) = visto(e);
         *addr_of_mut!(INFORME) = inf;
         LEIDO = true;
     }

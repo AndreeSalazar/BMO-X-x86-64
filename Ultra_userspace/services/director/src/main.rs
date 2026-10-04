@@ -600,6 +600,7 @@ pub(crate) fn repintar_escritorio(
     estado: &str,
 ) {
     scene::paint_background(p);
+    scene::tactico::olvidar();
     scene::launcher::paint(p, &dsk.launcher);
     dsk.win.taskbar_dirty = true;
     paint_run_box(p, &dsk.run_box);

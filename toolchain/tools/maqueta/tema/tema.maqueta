@@ -60,5 +60,17 @@
     .marfil     { color:#F3EEE4 }   /* la tinta de lo fino: marfil, no blanco */
     .perla      { color:#A6A2C0 }   /* lo secundario */
     .laton      { color:#C8A86B }   /* los rotulos: laton, en versalitas espaciadas */
+
+    /* -- el MODO FASE (2026-10-04): cuando el escritorio se TRANSFORMA ---- */
+    /* El propietario: "elegante pero transformers e intimidante", y despues
+       "con color de acuerdo al gato que tengo, pero con glitch". Los colores
+       son los del gato del fondo: el CIAN holografico de su cuerpo y sus ojos,
+       y el MAGENTA del neon de la ciudad. Las placas son casi negras con un
+       filo de holograma; el glitch es el magenta corrido contra el cian. */
+    .fase       { background-color:#05070D; border-width:1px; border-color:#1C4E66 }   /* la placa: noche negra, filo de holograma */
+    .fase-cian  { color:#5EE8FF }   /* el acento de FASE: el cian del gato */
+    .fase-neon  { color:#FF2E88 }   /* el glitch y lo que pide mirar: el magenta del neon */
+    .fase-tinta { color:#EAF7FF }   /* la tinta: blanco de holograma */
+    .fase-tenue { color:#7F96AE }   /* lo secundario: niebla azul */
   </style>
 </maqueta>

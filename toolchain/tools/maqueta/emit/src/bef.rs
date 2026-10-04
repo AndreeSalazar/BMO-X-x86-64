@@ -265,6 +265,9 @@ fn de_cada_clase(t: &Trazo) -> Option<DeLaClase> {
             let (caja, datos) = puntos(caminos, cerrados)?;
             DeLaClase { clase: cara::CLASE_LINEA, caja, color: *color, extra: u16::try_from(grosor64 / 4).ok()?, datos }
         }
+        // La CARA que viaja todavia no lleva pixeles (H4 es del emisor de
+        // Rust): una imagen no cabe en su formato, y se dice.
+        Trazo::Imagen { .. } => return None,
         Trazo::Relleno { caminos, color } => {
             let cerrados = vec![true; caminos.len()];
             let (caja, datos) = puntos(caminos, &cerrados)?;
