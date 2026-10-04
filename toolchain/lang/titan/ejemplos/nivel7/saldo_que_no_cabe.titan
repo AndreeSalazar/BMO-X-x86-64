@@ -1,0 +1,8 @@
+# espera: T0074
+# el SIZE ERROR de COBOL: 900.00 * 200 no cabe en dec(7, 2) (hasta 99999.99)
+mod main "un saldo que desborda sus cifras"
+
+fn main()
+    let mut saldo: dec(7, 2) = 900.00
+    saldo = saldo * 200
+    print(saldo)

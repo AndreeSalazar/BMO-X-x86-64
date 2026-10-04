@@ -110,6 +110,9 @@ const BANCO: &[(&str, &str)] = &[
     // Nivel 6 (04-10): dec exacto, tablas y registros.
     ("titan", "toolchain/lang/titan/ejemplos/nivel6/factura.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel6/ordenar.titan"),
+    // Nivel 7 (04-10): prestar y entregar, y la precision de COBOL.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel7/banco.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel7/ordena_prestada.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]

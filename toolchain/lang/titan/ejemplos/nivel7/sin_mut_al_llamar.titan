@@ -1,0 +1,14 @@
+# espera: T0077
+# lo que le puede pasar a un valor se dice en los DOS lados: `ordena` lo cambia, asi que se presta con `mut`
+mod main "un prestamo sin decir"
+
+fn ordena(mut t: [int; 2])
+    if t[0] > t[1]
+        let m = t[0]
+        t[0] = t[1]
+        t[1] = m
+
+fn main()
+    let mut t = [2, 1]
+    ordena(t)
+    print(t)

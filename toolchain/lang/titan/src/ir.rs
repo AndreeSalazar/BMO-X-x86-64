@@ -50,7 +50,7 @@
 //! reaches for it later (T0058). Today it is a line of the IR; with `take`
 //! (level 7) it is the point where the value is given back.
 
-use crate::tree::{Expr, Program, Stmt, Ty, TypeDef};
+use crate::tree::{Expr, Mode, Program, Stmt, Ty, TypeDef};
 
 /// A whole module, ready to emit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -80,6 +80,9 @@ pub struct Function {
     pub locals: Vec<Local>,
     /// Its parameters: the local each one is, and its class (level 5).
     pub params: Vec<(usize, Ty)>,
+    /// How each parameter arrives: copied, lent (`mut`) or given (`take`)
+    /// (level 7), in the order of `params`.
+    pub modes: Vec<Mode>,
     /// What it gives back, if anything (level 5).
     pub ret: Option<Ty>,
     pub blocks: Vec<Block>,
@@ -106,8 +109,9 @@ pub type At = (usize, usize);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Op {
-    /// The local gets its value: `let x = ...`; `mutable` if `let mut`.
-    Let { local: usize, value: Value, mutable: bool, at: At },
+    /// The local gets its value: `let x = ...`; `mutable` if `let mut`; `ty`
+    /// if the type is declared (`let x: dec(7, 2) = ...`, level 7).
+    Let { local: usize, value: Value, mutable: bool, ty: Option<Ty>, at: At },
     /// The local is given a new value: `x = ...` (needs `mut`, level 2).
     Set { local: usize, value: Value, at: At },
     /// Write these values on the console, one after another, and end the
@@ -160,6 +164,10 @@ pub enum Value {
     Record(usize, Vec<Value>, At),
     /// `len(a)`: how many cells (6).
     Len(Box<Value>, At),
+    /// The local itself, lent (`mut`) or given (`take`) to a call (7).
+    Lend(Mode, usize, At),
+    /// `round(x, n)`: the rounding WRITTEN (7).
+    Round(Box<Value>, u32, At),
 }
 
 impl Value {
@@ -179,7 +187,9 @@ impl Value {
             | Value::Index(_, _, a)
             | Value::Field(_, _, a)
             | Value::Record(_, _, a)
-            | Value::Len(_, a) => *a,
+            | Value::Len(_, a)
+            | Value::Lend(_, _, a)
+            | Value::Round(_, _, a) => *a,
         }
     }
 
@@ -193,7 +203,8 @@ impl Value {
                     i.reads(out);
                 }
             }
-            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) => v.reads(out),
+            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) => v.reads(out),
+            Value::Lend(_, l, a) => out.push((*l, *a)),
             Value::Index(b, i, _) => {
                 b.reads(out);
                 i.reads(out);
@@ -263,6 +274,8 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
             Value::Call(func, args.iter().map(|a| value(a, locals)).collect(), (*line, *col))
         }
         Expr::Dec { digits, scale, line, col } => Value::Dec(*digits, *scale, (*line, *col)),
+        Expr::Lend { mode, name, line, col } => Value::Lend(*mode, local_of(locals, name), (*line, *col)),
+        Expr::Round { value: v, digits, line, col } => Value::Round(Box::new(value(v, locals)), *digits, (*line, *col)),
         Expr::Table { items, line, col } => Value::Table(items.iter().map(|i| value(i, locals)).collect(), (*line, *col)),
         Expr::Repeat { item, count, line, col } => Value::Repeat(Box::new(value(item, locals)), *count, (*line, *col)),
         Expr::Index { base, index, line, col } => Value::Index(Box::new(value(base, locals)), Box::new(value(index, locals)), (*line, *col)),
@@ -355,7 +368,7 @@ impl Lowering<'_> {
                     let v = value(&l.value, &mut self.locals, self.p);
                     let local = local_of(&mut self.locals, &l.name);
                     self.born(local);
-                    self.blocks[at].ops.push(Op::Let { local, value: v, mutable: l.mutable, at: (l.line, l.col) });
+                    self.blocks[at].ops.push(Op::Let { local, value: v, mutable: l.mutable, ty: l.ty.clone(), at: (l.line, l.col) });
                 }
                 Stmt::Set(l) => {
                     let v = value(&l.value, &mut self.locals, self.p);
@@ -454,7 +467,7 @@ impl Lowering<'_> {
                     let table = over.map(|t| {
                         let l = local_of(&mut self.locals, &table_name);
                         self.born(l);
-                        self.blocks[at].ops.push(Op::Let { local: l, value: t, mutable: false, at: here });
+                        self.blocks[at].ops.push(Op::Let { local: l, value: t, mutable: false, ty: None, at: here });
                         l
                     });
                     let fin = local_of(&mut self.locals, &fin_name);
@@ -466,8 +479,8 @@ impl Lowering<'_> {
                         None => to,
                     };
                     let (to_at, from_at) = if table.is_some() { (here, here) } else { (f.to.at(), f.from.at()) };
-                    self.blocks[at].ops.push(Op::Let { local: fin, value: to, mutable: false, at: to_at });
-                    self.blocks[at].ops.push(Op::Let { local: count, value: from, mutable: true, at: from_at });
+                    self.blocks[at].ops.push(Op::Let { local: fin, value: to, mutable: false, ty: None, at: to_at });
+                    self.blocks[at].ops.push(Op::Let { local: count, value: from, mutable: true, ty: None, at: from_at });
                     let head = self.open();
                     self.blocks[at].end = End::Jump(head);
                     let body = self.open();
@@ -481,7 +494,7 @@ impl Lowering<'_> {
                         Some(t) => Value::Index(Box::new(Value::Local(t, f.var_at)), Box::new(Value::Local(count, f.var_at)), f.var_at),
                         None => Value::Local(count, f.var_at),
                     };
-                    self.blocks[body].ops.push(Op::Let { local: var, value: turn, mutable: false, at: f.var_at });
+                    self.blocks[body].ops.push(Op::Let { local: var, value: turn, mutable: false, ty: None, at: f.var_at });
                     let end = self.stmts(&f.body, body);
                     self.close_scope(end);
                     let lp = self.loops.pop().expect("pushed above");
@@ -533,7 +546,7 @@ pub fn lower(p: &Program) -> Module {
             let params = f.params.iter().map(|a| (local_of(&mut l.locals, &a.name), a.ty.clone())).collect();
             let first = l.open();
             l.stmts(&f.body, first);
-            Function { name: f.name.clone(), line: f.line, locals: l.locals, params, ret: f.ret.clone(), blocks: l.blocks }
+            Function { name: f.name.clone(), line: f.line, locals: l.locals, params, modes: f.params.iter().map(|a| a.mode).collect(), ret: f.ret.clone(), blocks: l.blocks }
         })
         .collect();
     Module {
@@ -626,6 +639,8 @@ fn show(v: &Value) -> String {
         Value::Field(b, n, _) => format!("{}.{}", show(b), n),
         Value::Record(t, items, _) => format!("T{} {{ {} }}", t, items.iter().map(show).collect::<Vec<_>>().join(", ")),
         Value::Len(v, _) => format!("len({})", show(v)),
+        Value::Lend(m, l, _) => format!("{} %{}", m.word(), l),
+        Value::Round(v, n, _) => format!("round({}, {})", show(v), n),
     }
 }
 

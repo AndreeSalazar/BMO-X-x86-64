@@ -62,11 +62,11 @@ fn main()
 
 Una de las 25 palabras de un nivel que aun no existe no es un error de
 sintaxis cualquiera: es **T0040**, y dice en que nivel llega (el ejemplo ya es
-del frontend de hoy, que va por el nivel 6):
+del frontend de hoy, que va por el nivel 7):
 
 ```text
-   fn f(take n: int) T0040  prestar o entregar llega en el nivel 7
    match estado     T0040  `match` llega en el nivel 8 (casos con datos)
+   fn f(x: f32)     T0040  el tipo `f32` llega en el nivel 11 (la 3060)
 ```
 
 ---
@@ -414,6 +414,73 @@ copiar (`mut`, `take`) es el nivel 7.
 
 ---
 
+## Nivel 7 -- prestar y entregar (18 palabras: + `take`), y la PRECISION de COBOL -- 04-10
+
+```text
+# banco.titan
+type Cuenta
+    titular: text
+    saldo: dec(9, 2)
+
+fn interes(saldo: dec(9, 2), tasa: dec(5, 4)) -> dec(9, 2)
+    return round(saldo * tasa, 2)      # el redondeo se ESCRIBE
+
+fn abona(mut c: Cuenta, tasa: dec(5, 4))
+    c.saldo = c.saldo + interes(c.saldo, tasa)
+
+fn main()
+    let mut ana = Cuenta { titular: "ana", saldo: 1250 }
+    abona(mut ana, 0.0225)              # prestada: se ve el cambio al volver
+```
+
+### Prestar y entregar: el borrow checker entero
+
+```text
+   fn f(n: T)           una COPIA: el que llama conserva la suya, intacta
+   fn f(mut n: T)       PRESTADO para cambiarlo: f(mut x), con `let mut x`;
+                        al volver, x tiene lo que f dejo en n -- sin copiar
+   fn f(take n: T)      ENTREGADO: f(take x); despues x ya no es tuyo
+```
+
+**Se dice en los DOS lados** (`f(mut x)`, no solo `fn f(mut n)`): quien lee la
+llamada sabe que le puede pasar a `x` sin abrir la funcion -- en C, `f(&x)` solo
+dice "quiza". Y un `mut` en un parametro que nunca cambia es T0057, como el de
+un `let`: pide una copia.
+
+### La precision de COBOL (el propietario: "precision fuerte para no generar bug")
+
+```text
+   dec(7, 2)            7 cifras, 2 decimales: el PIC 9(5)V99 de COBOL
+   let p: dec(7, 2) = 12.5    el tipo DECLARADO; se guarda 12.50
+   round(x, 2)          el redondeo ESCRITO (el ROUNDED de COBOL: la mitad,
+                        lejos del cero): 1.255 -> 1.26, 10.00 / 3 -> 3.33
+```
+
+Todo valor que va a un `dec(7, 2)` -- un `let` con tipo, un parametro, un
+resultado, un campo -- tiene que CABER: mas cifras que las declaradas es T0074
+(el SIZE ERROR de COBOL), y mas decimales tambien (cortarlos seria perder dinero
+en silencio). COBOL lo corta callado si no se escribe ON SIZE ERROR; **TITAN++
+no compila**. Si hay que redondear, `round` lo dice a la vista.
+
+### Las reglas, y quien las dice
+
+```text
+   LOS NOMBRES
+     `mut` / `take` en la llamada que no cuadran con    T0077
+     el parametro, o fuera de una llamada
+   EL JUEZ
+     leer lo que se entrego con `take`                  T0075
+       (un `let mut` que se entrego puede tomar otro valor: es tuyo otra vez)
+     prestar dos veces el mismo valor en una llamada,   T0076
+     o prestarlo y a la vez leerlo: LA REGLA DE ORO DE
+     FORTRAN (TITAN_MAESTRO 2b.2), demostrada
+     prestar con `mut` lo que no es `let mut`           T0056
+   EL CALCULO
+     un valor que no cabe en su dec(p, s)               T0074
+```
+
+---
+
 ## Los codigos
 
 | codigo | que |
@@ -450,6 +517,10 @@ copiar (`mut`, `take`) es el nivel 7.
 | T0071 | un valor de otra clase donde un parametro, un `->`, un campo o una tabla dicen una (el calculo) |
 | T0072 | una celda fuera de su tabla: `t[5]` de una `[int; 5]` (el calculo) |
 | T0073 | un campo que el registro no tiene, que le falta o que esta dos veces (los nombres / el calculo) |
+| T0074 | un valor que no cabe en su `dec(p, s)`: mas cifras o mas decimales (el SIZE ERROR de COBOL, el calculo) |
+| T0075 | se lee lo que se entrego con `take` (el juez) |
+| T0076 | el mismo valor prestado dos veces, o prestado y leido, en una llamada (el juez: la regla de FORTRAN) |
+| T0077 | `mut` / `take` en la llamada que no cuadran con el parametro, o fuera de una llamada (los nombres) |
 
 ## El banco: lo que dice cada ejemplo de si mismo
 

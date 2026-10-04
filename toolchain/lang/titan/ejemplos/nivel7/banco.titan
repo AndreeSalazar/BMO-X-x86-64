@@ -1,0 +1,30 @@
+# espera: BIEN
+# sale: ana tiene 1250.00
+# sale: tras el interes: 1278.13
+# sale: tras pagar 99.99: 1178.14
+# sale: el interes redondeado a la vista: 28.1250 -> 28.13
+# precision de COBOL: cada saldo declara sus cifras (dec(9, 2)) y el redondeo se ESCRIBE
+mod main "un banco que no pierde un centimo"
+
+type Cuenta
+    titular: text
+    saldo: dec(9, 2)
+
+fn interes(saldo: dec(9, 2), tasa: dec(5, 4)) -> dec(9, 2)
+    # 1250.00 * 0.0225 = 28.125: tres decimales, y el saldo guarda dos
+    return round(saldo * tasa, 2)
+
+fn abona(mut c: Cuenta, tasa: dec(5, 4))
+    c.saldo = c.saldo + interes(c.saldo, tasa)
+
+fn paga(mut c: Cuenta, importe: dec(9, 2))
+    c.saldo = c.saldo - importe
+
+fn main()
+    let mut ana = Cuenta { titular: "ana", saldo: 1250 }
+    print(ana.titular, " tiene ", ana.saldo)
+    abona(mut ana, 0.0225)
+    print("tras el interes: ", ana.saldo)
+    paga(mut ana, 99.99)
+    print("tras pagar 99.99: ", ana.saldo)
+    print("el interes redondeado a la vista: ", 1250.00 * 0.0225, " -> ", interes(1250.00, 0.0225))

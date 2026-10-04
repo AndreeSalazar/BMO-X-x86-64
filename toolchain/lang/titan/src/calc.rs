@@ -135,7 +135,7 @@ fn of_ty(t: &Ty, types: &[TypeDef]) -> Class {
         Ty::Int => Class::Int,
         Ty::Text => Class::Text,
         Ty::Bool => Class::Bool,
-        Ty::Dec => Class::Dec,
+        Ty::Dec | Ty::DecP(..) => Class::Dec,
         Ty::Table(inner, n) => Class::Table(Box::new(of_ty(inner, types)), *n),
         Ty::Named(n) => Class::Record(types.iter().position(|d| &d.name == n).expect("check: the type exists")),
     }
@@ -168,7 +168,7 @@ pub fn fold(m: &Module) -> Result<Module, Message> {
         std::thread::Builder::new()
             .stack_size(STACK)
             .spawn_scoped(sc, || {
-                let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0) };
+                let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0 };
                 r.call(m.entry, Vec::new(), (m.functions[m.entry].line, 1)).map(|_| r)
             })
             .expect("a thread for the run")
@@ -217,8 +217,17 @@ fn classes(f: &Function, m: &Module) -> Result<(), Message> {
     for b in &f.blocks {
         for op in &b.ops {
             match op {
-                Op::Let { local, value, at, .. } => {
-                    let c = class(value, &known, m)?;
+                Op::Let { local, value, at, ty, .. } => {
+                    let mut c = class(value, &known, m)?;
+                    // `let x: T = v` (level 7): the value must fit the type
+                    // DECLARED, and the local is of that type from then on.
+                    if let Some(t) = ty {
+                        let want = of_ty(t, types);
+                        if !fits(&want, &c) {
+                            return Err(wrong(value.at(), &want, &c, types, &format!("`{}` se declaro `{}`", f.locals[*local].name, t.name()), "dale un valor de esa clase, o cambia el tipo declarado"));
+                        }
+                        c = want;
+                    }
                     // The hidden count of a `for` (`#i`, `#fin`): `range`
                     // counts with whole numbers.
                     let name = &f.locals[*local].name;
@@ -363,10 +372,13 @@ fn written(v: &Value, f: &Function) -> String {
 /// The values given to a call, each against the class its parameter says.
 fn args_fit(func: usize, args: &[Value], _at: At, known: &[Option<Class>], m: &Module) -> Result<(), Message> {
     let g = &m.functions[func];
-    for (a, (l, t)) in args.iter().zip(&g.params) {
+    for ((a, (l, t)), mode) in args.iter().zip(&g.params).zip(&g.modes) {
         let got = class(a, known, m)?;
         let want = of_ty(t, &m.types);
-        if !fits(&want, &got) {
+        // Lent to be changed: the SAME class, since what comes back goes in
+        // the caller's own local (an int lent as a dec would come back a dec).
+        let ok = if *mode == crate::tree::Mode::Mut { want == got } else { fits(&want, &got) };
+        if !ok {
             return Err(wrong(
                 a.at(),
                 &want,
@@ -388,7 +400,11 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
         Value::Text(..) => Class::Text,
         Value::Bool(..) => Class::Bool,
         Value::Dec(..) => Class::Dec,
-        Value::Local(l, _) => known[*l].clone().expect("juez: every local read has a value"),
+        Value::Local(l, _) | Value::Lend(_, l, _) => known[*l].clone().expect("juez: every local read has a value"),
+        Value::Round(inner, _, at) => match class(inner, known, m)? {
+            c if c.number() => Class::Dec,
+            c => return Err(Message::new(Code::Mixed, at.0, at.1, &format!("`round` redondea un numero, y aqui hay {}", c.name(types)), "solo un numero tiene decimales que redondear", "round(total / 3, 2)")),
+        },
         Value::Call(func, args, at) => {
             args_fit(*func, args, *at, known, m)?;
             of_ty(m.functions[*func].ret.as_ref().expect("check: a call used as a value gives one back"), types)
@@ -551,6 +567,9 @@ struct Run<'m> {
     seen: Vec<Vec<bool>>,
     /// The last question a loop asked: where T0066 points.
     last_turn: At,
+    /// Inside a `round(...)`: a division that does not end is carried to
+    /// SCALE decimals, for `round` to cut where it SAYS (level 7).
+    lenient: u32,
 }
 
 impl Run<'_> {
@@ -570,8 +589,9 @@ impl Run<'_> {
         Ok(())
     }
 
-    /// Runs `func` with these values; what it gives back, if anything.
-    fn call(&mut self, func: usize, args: Vec<Const>, at: At) -> Result<Option<Const>, Message> {
+    /// Runs `func` with these values: what it gives back, if anything, and
+    /// how its parameters ended (what a `mut` one gives back to the caller).
+    fn call(&mut self, func: usize, args: Vec<Const>, at: At) -> Result<(Option<Const>, Vec<Const>), Message> {
         let m = self.m;
         let f = &m.functions[func];
         if self.depth >= DEPTH {
@@ -586,8 +606,12 @@ impl Run<'_> {
         }
         self.depth += 1;
         let mut known: Vec<Option<Const>> = vec![None; f.locals.len()];
+        // The types DECLARED (a parameter's, a `let x: T`'s): every value the
+        // local ever takes must fit it (COBOL's PIC, level 7).
+        let mut decl: Vec<Option<Ty>> = vec![None; f.locals.len()];
         for ((l, t), a) in f.params.iter().zip(args) {
-            known[*l] = Some(widen(a, &of_ty(t, &m.types)));
+            known[*l] = Some(fit_into(a, Some(t), &m.types, at)?);
+            decl[*l] = Some(t.clone());
         }
         let mut b = 0;
         let result = loop {
@@ -595,40 +619,43 @@ impl Run<'_> {
             for op in &f.blocks[b].ops {
                 self.tick()?;
                 match op {
-                    Op::Let { local, value, .. } => known[*local] = Some(self.ev(value, &known)?),
-                    Op::Set { local, value, .. } => {
-                        let v = self.ev(value, &known)?;
+                    Op::Let { local, value, ty, at, .. } => {
+                        let v = self.ev(value, &mut known)?;
+                        known[*local] = Some(fit_into(v, ty.as_ref(), &m.types, *at)?);
+                        decl[*local] = ty.clone();
+                    }
+                    Op::Set { local, value, at } => {
+                        let v = self.ev(value, &mut known)?;
                         // 13 into a `dec` of 2 decimals is 13.00.
                         let v = match (&known[*local], v) {
-                            (Some(Const::Dec(_, s)), Const::Int(n)) => to_dec(n, *s, value.at())?,
+                            (Some(Const::Dec(_, s)), Const::Int(n)) if decl[*local].is_none() => to_dec(n, *s, value.at())?,
                             (_, v) => v,
                         };
-                        known[*local] = Some(v);
+                        known[*local] = Some(fit_into(v, decl[*local].as_ref(), &m.types, *at)?);
                     }
                     Op::SetAt { local, path, value, at } => {
-                        let v = self.ev(value, &known)?;
+                        let v = self.ev(value, &mut known)?;
                         let mut steps = Vec::with_capacity(path.len());
                         for st in path {
                             steps.push(match st {
-                                PathStep::Index(i) => Err((self.ev(i, &known)?, i.at())),
+                                PathStep::Index(i) => Err((self.ev(i, &mut known)?, i.at())),
                                 PathStep::Field(name, _) => Ok(name.as_str()),
                             });
                         }
                         let mut whole = known[*local].take().expect("juez: the local has a value");
                         set_in(&mut whole, &steps, v, &m.types, *at)?;
-                        known[*local] = Some(whole);
+                        known[*local] = Some(fit_into(whole, decl[*local].as_ref(), &m.types, *at)?);
                     }
                     Op::Write { parts, at } => {
                         let mut out = Vec::with_capacity(parts.len());
                         for p in parts {
-                            let c = self.ev(p, &known)?;
+                            let c = self.ev(p, &mut known)?;
                             out.push(Value::Text(c.show(&m.types), p.at()));
                         }
                         self.flat.push(Op::Write { parts: out, at: *at });
                     }
                     Op::Call { func, args, at } => {
-                        let vals = args.iter().map(|a| self.ev(a, &known)).collect::<Result<Vec<_>, _>>()?;
-                        self.call(*func, vals, *at)?;
+                        self.call_with(*func, args, *at, &mut known)?;
                     }
                     Op::Drop { local, .. } => known[*local] = None,
                 }
@@ -638,8 +665,8 @@ impl Run<'_> {
                 End::Return(v) => {
                     break match v {
                         Some(v) => {
-                            let c = self.ev(v, &known)?;
-                            Some(widen(c, &of_ty(f.ret.as_ref().expect("check"), &m.types)))
+                            let c = self.ev(v, &mut known)?;
+                            Some(fit_into(c, f.ret.as_ref(), &m.types, v.at())?)
                         }
                         None => None,
                     }
@@ -649,7 +676,7 @@ impl Run<'_> {
                     if *then < b || *other < b || f.blocks.iter().skip(b).any(|x| x.end.targets().contains(&b)) {
                         self.last_turn = *at;
                     }
-                    if matches!(self.ev(cond, &known)?, Const::Bool(true)) {
+                    if matches!(self.ev(cond, &mut known)?, Const::Bool(true)) {
                         *then
                     } else {
                         *other
@@ -658,21 +685,41 @@ impl Run<'_> {
             };
         };
         self.depth -= 1;
+        let finals = f.params.iter().map(|(l, _)| known[*l].clone().unwrap_or(Const::Bool(false))).collect();
+        Ok((result, finals))
+    }
+
+    /// A call from a frame: the values given, the call run, and then what
+    /// lending and giving do to the caller's locals -- a `mut` one gets back
+    /// what the function left in it; a `take` one is gone.
+    fn call_with(&mut self, func: usize, args: &[Value], at: At, known: &mut Vec<Option<Const>>) -> Result<Option<Const>, Message> {
+        let vals = args.iter().map(|a| self.ev(a, known)).collect::<Result<Vec<_>, _>>()?;
+        let (result, finals) = self.call(func, vals, at)?;
+        for (a, back) in args.iter().zip(finals) {
+            match a {
+                Value::Lend(crate::tree::Mode::Mut, l, _) => known[*l] = Some(back),
+                Value::Lend(crate::tree::Mode::Take, l, _) => known[*l] = None,
+                _ => {}
+            }
+        }
         Ok(result)
     }
 
     /// A value, calculated -- running the calls inside it.
-    fn ev(&mut self, v: &Value, known: &[Option<Const>]) -> Result<Const, Message> {
+    fn ev(&mut self, v: &Value, known: &mut Vec<Option<Const>>) -> Result<Const, Message> {
         let types = &self.m.types;
         Ok(match v {
             Value::Int(n, _) => Const::Int(*n),
             Value::Text(t, _) => Const::Text(t.clone()),
             Value::Bool(b, _) => Const::Bool(*b),
             Value::Dec(d, s, _) => Const::Dec(*d, *s),
-            Value::Local(l, _) => known[*l].clone().expect("juez: every local read has a value"),
-            Value::Call(func, args, at) => {
-                let vals = args.iter().map(|a| self.ev(a, known)).collect::<Result<Vec<_>, _>>()?;
-                self.call(*func, vals, *at)?.expect("check: a call used as a value gives one back")
+            Value::Local(l, _) | Value::Lend(_, l, _) => known[*l].clone().expect("juez: every local read has a value"),
+            Value::Call(func, args, at) => self.call_with(*func, args, *at, known)?.expect("check: a call used as a value gives one back"),
+            Value::Round(inner, n, at) => {
+                self.lenient += 1;
+                let c = self.ev(inner, known);
+                self.lenient -= 1;
+                round_to(c?, *n, *at)?
             }
             Value::Table(items, _) => {
                 let vals = items.iter().map(|i| self.ev(i, known)).collect::<Result<Vec<_>, _>>()?;
@@ -700,11 +747,11 @@ impl Run<'_> {
                 }
                 _ => unreachable!("classes: only a record has fields"),
             },
-            Value::Record(t, items, _) => {
+            Value::Record(t, items, at) => {
                 let mut vals = Vec::with_capacity(items.len());
                 for (f, i) in types[*t].fields.iter().zip(items) {
                     let c = self.ev(i, known)?;
-                    vals.push(widen(c, &of_ty(&f.ty, types)));
+                    vals.push(fit_into(c, Some(&f.ty), types, *at)?);
                 }
                 Const::Record(*t, vals)
             }
@@ -732,19 +779,76 @@ impl Run<'_> {
             },
             Value::Bin(op, l, r, at) => {
                 let (a, b) = (self.ev(l, known)?, self.ev(r, known)?);
-                binop(op, a, b, *at)?
+                binop(op, a, b, *at, self.lenient > 0)?
             }
         })
     }
 }
 
-/// A value going where a class is said: an `int` that goes to a `dec` becomes
-/// one (13 is 13 with no decimals). Everything else, as it came.
-fn widen(c: Const, to: &Class) -> Const {
-    match (c, to) {
-        (Const::Int(n), Class::Dec) => Const::Dec(n, 0),
-        (c, _) => c,
+/// ** A VALUE GOING WHERE A TYPE IS SAID -- COBOL's PIC, enforced.
+///
+/// An `int` that goes to a `dec` becomes one (13 is 13 with no decimals). A
+/// `dec(7, 2)` takes a value with AT MOST 2 decimals (padded to 2: 12.5 is
+/// 12.50) and at most 5 digits before the point -- anything else is T0074,
+/// COBOL's SIZE ERROR, but never ignored: COBOL cuts it in silence unless the
+/// author wrote ON SIZE ERROR; TITAN++ does not compile. Tables and records
+/// go cell by cell, field by field.
+fn fit_into(c: Const, ty: Option<&Ty>, types: &[TypeDef], at: At) -> Result<Const, Message> {
+    match (c, ty) {
+        (Const::Int(n), Some(Ty::Dec)) => Ok(Const::Dec(n, 0)),
+        (c @ (Const::Int(_) | Const::Dec(..)), Some(Ty::DecP(p, s))) => {
+            let (d, sc) = parts(&c);
+            let shown = c.show(types);
+            if sc > *s {
+                // More decimals than declared: only if the extra ones are 0.
+                let (t, ts) = trim(d, sc, *s);
+                if ts > *s {
+                    return Err(Message::new(
+                        Code::Size,
+                        at.0,
+                        at.1,
+                        &format!("{} tiene mas decimales de los que caben en dec({}, {})", shown, p, s),
+                        &format!("dec({}, {}) guarda {} decimales, y cortar los otros seria perder dinero en silencio", p, s, s),
+                        &format!("redondea a la vista: round(..., {}), o declara mas decimales", s),
+                    ));
+                }
+                return fit_into(Const::Dec(i64::try_from(t).unwrap_or(0), ts), ty, types, at);
+            }
+            let padded = d * pow10(s - sc);
+            if padded.abs() >= pow10(*p) {
+                return Err(Message::new(
+                    Code::Size,
+                    at.0,
+                    at.1,
+                    &format!("{} no cabe en dec({}, {}): llega hasta {}", shown, p, s, show_dec(i64::try_from(pow10(*p) - 1).unwrap_or(i64::MAX), *s)),
+                    "el SIZE ERROR de COBOL: un numero mas grande que sus cifras declaradas. COBOL lo corta callado si no pones ON SIZE ERROR; TITAN++ no compila",
+                    &format!("declara mas cifras: dec({}, {})", p + 1, s),
+                ));
+            }
+            Ok(Const::Dec(i64::try_from(padded).unwrap_or(0), *s))
+        }
+        (Const::Table(items), Some(Ty::Table(inner, _))) => items.into_iter().map(|i| fit_into(i, Some(inner), types, at)).collect::<Result<Vec<_>, _>>().map(Const::Table),
+        (Const::Record(t, items), _) => {
+            let fields = &types[t].fields;
+            items.into_iter().zip(fields).map(|(i, f)| fit_into(i, Some(&f.ty), types, at)).collect::<Result<Vec<_>, _>>().map(|v| Const::Record(t, v))
+        }
+        (c, _) => Ok(c),
     }
+}
+
+/// `round(x, n)`: to `n` decimals, half away from zero -- COBOL's ROUNDED
+/// (2.345 -> 2.35, -2.345 -> -2.35). Written, never silent.
+fn round_to(c: Const, n: u32, at: At) -> Result<Const, Message> {
+    let (d, s) = parts(&c);
+    if s <= n {
+        return dec_result(d * pow10(n - s), n, at, &c.show(&[]));
+    }
+    let q = pow10(s - n);
+    let (mut r, rem) = (d / q, d % q);
+    if rem.abs() * 2 >= q {
+        r += d.signum();
+    }
+    dec_result(r, n, at, &c.show(&[]))
 }
 
 /// The cell `idx` of `table`, or T0072.
@@ -851,7 +955,7 @@ fn dec_result(d: i128, s: u32, at: At, what: &str) -> Result<Const, Message> {
 }
 
 /// The four operations with at least one `dec`: exact, or a NO.
-fn decimal(op: &str, a: Const, b: Const, at: At) -> Result<Const, Message> {
+fn decimal(op: &str, a: Const, b: Const, at: At, lenient: bool) -> Result<Const, Message> {
     let what = format!("{} {} {}", a.show(&[]), op, b.show(&[]));
     let ((da, sa), (db, sb)) = (parts(&a), parts(&b));
     match op {
@@ -879,13 +983,19 @@ fn decimal(op: &str, a: Const, b: Const, at: At) -> Result<Const, Message> {
                     return dec_result(n / den, s, at, &what);
                 }
             }
+            if lenient {
+                // Inside `round`: carried to SCALE decimals (cut, not
+                // rounded), and `round` decides where it ends. Cutting at 18
+                // never changes a rounding to fewer decimals.
+                return dec_result(num * pow10(SCALE) / den, SCALE, at, &what);
+            }
             Err(Message::new(
                 Code::Inexact,
                 at.0,
                 at.1,
                 &format!("{} no da un decimal exacto", what),
                 &format!("sus decimales no acaban en {} cifras (como 1 / 3 = 0.333...): TITAN++ no corta un numero a escondidas", SCALE),
-                "multiplica antes de dividir, o reparte lo que sobra a mano: el dinero no se redondea solo",
+                "si hay que redondear, se ESCRIBE: round(a / b, 2) -- el redondeo de COBOL (ROUNDED), visible",
             ))
         }
         _ => Err(unclassed(at, &a)),
@@ -893,7 +1003,7 @@ fn decimal(op: &str, a: Const, b: Const, at: At) -> Result<Const, Message> {
 }
 
 /// Two values and an operator: comparisons, arithmetic, texts joined.
-fn binop(op: &str, a: Const, b: Const, at: At) -> Result<Const, Message> {
+fn binop(op: &str, a: Const, b: Const, at: At, lenient: bool) -> Result<Const, Message> {
     let numbers = matches!(a, Const::Int(_) | Const::Dec(..)) && matches!(b, Const::Int(_) | Const::Dec(..));
     let dec = numbers && (matches!(a, Const::Dec(..)) || matches!(b, Const::Dec(..)));
     if numbers && matches!(op, "==" | "!=" | "<" | "<=" | ">" | ">=") {
@@ -908,7 +1018,15 @@ fn binop(op: &str, a: Const, b: Const, at: At) -> Result<Const, Message> {
         }));
     }
     if dec {
-        return decimal(op, a, b, at);
+        return decimal(op, a, b, at, lenient);
+    }
+    // Inside `round`, 7 / 2 between ints is the exact 3.5, to be rounded.
+    if lenient && op == "/" {
+        if let (Const::Int(x), Const::Int(y)) = (&a, &b) {
+            if *y != 0 && x % y != 0 {
+                return decimal(op, a, b, at, lenient);
+            }
+        }
     }
     match (op, &a, &b) {
         ("==", _, _) => Ok(Const::Bool(same(&a, &b))),
@@ -1122,6 +1240,21 @@ mod tests {
         assert_eq!(run("mod main \"x\"\ntype P\n    x: int\nfn main()\n    let p = P { x: 1 }\n    print(p.y)\n").unwrap_err().code, Code::Field);
         // One class per table.
         assert_eq!(run("mod main \"x\"\nfn main()\n    print([1, \"dos\"])\n").unwrap_err().code, Code::WrongType);
+    }
+
+    #[test]
+    fn mut_gives_back_the_changes_and_cobol_precision_is_enforced() {
+        let src = "mod main \"x\"\nfn ordena(mut t: [int; 3])\n    for i in range(3)\n        for j in range(2 - i)\n            if t[j] > t[j + 1]\n                let m = t[j + 1]\n                t[j + 1] = t[j]\n                t[j] = m\nfn main()\n    let mut t = [3, 1, 2]\n    ordena(mut t)\n    print(t)\n";
+        assert_eq!(printed(src), ["[1, 2, 3]"]);
+        // dec(7, 2): padded to its decimals; COBOL's PIC.
+        assert_eq!(printed("mod main \"x\"\nfn main()\n    let precio: dec(7, 2) = 12.5\n    print(precio)\n"), ["12.50"]);
+        // SIZE ERROR: too many digits, or too many decimals -- never cut.
+        assert_eq!(run("mod main \"x\"\nfn main()\n    let p: dec(5, 2) = 1234.5\n    print(p)\n").unwrap_err().code, Code::Size);
+        assert_eq!(run("mod main \"x\"\nfn main()\n    let p: dec(7, 2) = 1.255\n    print(p)\n").unwrap_err().code, Code::Size);
+        // ... unless the rounding is WRITTEN: COBOL's ROUNDED, half away from zero.
+        assert_eq!(printed("mod main \"x\"\nfn main()\n    let p: dec(7, 2) = round(1.255, 2)\n    print(p, \" \", round(10.00 / 3, 2), \" \", round(-2.345, 2), \" \", round(7 / 2, 0))\n"), ["1.26 3.33 -2.35 4"]);
+        // A `mut` dec(7, 2) keeps its type at every change.
+        assert_eq!(run("mod main \"x\"\nfn main()\n    let mut saldo: dec(5, 2) = 900.00\n    saldo = saldo * 200\n    print(saldo)\n").unwrap_err().code, Code::Size);
     }
 
     #[test]

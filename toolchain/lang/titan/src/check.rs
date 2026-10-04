@@ -11,7 +11,7 @@
 //! file, called without arguments.
 
 use crate::message::{Code, Message};
-use crate::tree::{Expr, Program, Stmt, Ty};
+use crate::tree::{Expr, Mode, Program, Stmt, Ty};
 
 /// What the library gives in level 0.
 const LIBRARY: [&str; 2] = ["print", "len"];
@@ -67,7 +67,10 @@ pub fn check(p: &Program) -> Result<(), Message> {
             match st {
                 Stmt::Call(c) => {
                     target(p, &c.callee, c.args.len(), c.line, c.col, false)?;
-                    exprs.extend(&c.args);
+                    modes(p, &c.args, &c.callee)?;
+                    // The values themselves: `modes` looked at them as values
+                    // given; a lent one has no call inside.
+                    exprs.extend(c.args.iter().filter(|a| !matches!(a, Expr::Lend { .. })));
                 }
                 Stmt::Let(l) => {
                     if LIBRARY.contains(&l.name.as_str()) || p.functions.iter().any(|g| g.name == l.name) {
@@ -145,6 +148,7 @@ pub fn check(p: &Program) -> Result<(), Message> {
                     target(p, callee, n, line, col, true)?;
                 }
                 records(p, e)?;
+                lends_only_in_calls(p, e)?;
             }
         }
     }
@@ -189,7 +193,8 @@ fn calls_in<'a>(e: &'a Expr, out: &mut Vec<(&'a str, usize, usize, usize)>) {
             calls_in(right, out);
         }
         Expr::Neg { value, .. } | Expr::Not { value, .. } => calls_in(value, out),
-        Expr::Int { .. } | Expr::Text { .. } | Expr::Name { .. } | Expr::Bool { .. } | Expr::Dec { .. } => {}
+        Expr::Int { .. } | Expr::Text { .. } | Expr::Name { .. } | Expr::Bool { .. } | Expr::Dec { .. } | Expr::Lend { .. } => {}
+        Expr::Round { value, .. } => calls_in(value, out),
         Expr::Table { items, .. } => {
             for i in items {
                 calls_in(i, out);
@@ -254,6 +259,75 @@ fn records(p: &Program, e: &Expr) -> Result<(), Message> {
             records(p, index)
         }
         Expr::Table { items, .. } | Expr::Call { args: items, .. } => items.iter().try_for_each(|i| records(p, i)),
+        Expr::Int { .. } | Expr::Text { .. } | Expr::Name { .. } | Expr::Bool { .. } | Expr::Dec { .. } | Expr::Lend { .. } => Ok(()),
+        Expr::Round { value, .. } => records(p, value),
+    }
+}
+
+/// ** HOW EACH VALUE GOES TO A CALL (level 7), said at BOTH ends: a parameter
+/// `mut t` is called `f(mut t)`, a `take t`, `f(take t)`, and a plain one with
+/// the plain value. The reader of the CALL sees what can happen to `t` without
+/// opening the function -- C's `f(&t)` only says "maybe". T0077 otherwise, and
+/// for a `mut x` / `take x` anywhere but as the value of a call.
+fn modes(p: &Program, args: &[Expr], callee: &str) -> Result<(), Message> {
+    let params = p.functions.iter().find(|g| g.name == callee).map(|g| &g.params);
+    for (i, a) in args.iter().enumerate() {
+        let want = params.and_then(|ps| ps.get(i)).map(|x| x.mode).unwrap_or(Mode::Copy);
+        let (got, at) = match a {
+            Expr::Lend { mode, line, col, .. } => (*mode, (*line, *col)),
+            other => (Mode::Copy, other.at()),
+        };
+        if want != got {
+            let pname = params.and_then(|ps| ps.get(i)).map(|x| x.name.as_str()).unwrap_or("?");
+            let how = match (want, a) {
+                (Mode::Copy, Expr::Lend { name, .. }) => format!("{}(... {} ...): sin `{}`", callee, name, got.word()),
+                (_, Expr::Name { name, .. }) => format!("{}(... {} {} ...)", callee, want.word(), name),
+                _ => format!("`{} x` va con el nombre de un valor: {}({} tabla)", want.word(), callee, want.word()),
+            };
+            return Err(Message::new(
+                Code::Mode,
+                at.0,
+                at.1,
+                &match want {
+                    Mode::Copy => format!("`{}` recibe `{}` como copia, y aqui se le {}", callee, pname, if got == Mode::Mut { "presta para cambiarlo" } else { "entrega" }),
+                    Mode::Mut => format!("`{}` cambia su `{}`: hay que PRESTARSELO con `mut`", callee, pname),
+                    Mode::Take => format!("`{}` se QUEDA su `{}`: hay que entregarselo con `take`", callee, pname),
+                },
+                "lo que le puede pasar a un valor se dice en los DOS lados, en la fn y en la llamada: quien lee la llamada lo ve sin abrir la fn",
+                &how,
+            ));
+        }
+        if !matches!(a, Expr::Lend { .. }) {
+            lends_only_in_calls(p, a)?;
+        }
+    }
+    Ok(())
+}
+
+/// A `mut x` / `take x` that is not the value of a call is T0077; and every
+/// call inside a value has its modes checked.
+fn lends_only_in_calls(p: &Program, e: &Expr) -> Result<(), Message> {
+    match e {
+        Expr::Lend { mode, name, line, col } => Err(Message::new(
+            Code::Mode,
+            *line,
+            *col,
+            &format!("`{} {}` solo va como valor de una llamada", mode.word(), name),
+            "prestar o entregar es algo que se le hace a una LLAMADA: f(mut t). Fuera de una, no hay a quien",
+            &format!("escribe el nombre solo: {}", name),
+        )),
+        Expr::Call { callee, args, .. } => modes(p, args, callee),
+        Expr::Bin { left, right, .. } => {
+            lends_only_in_calls(p, left)?;
+            lends_only_in_calls(p, right)
+        }
+        Expr::Neg { value, .. } | Expr::Not { value, .. } | Expr::Repeat { item: value, .. } | Expr::Field { base: value, .. } | Expr::Round { value, .. } => lends_only_in_calls(p, value),
+        Expr::Index { base, index, .. } => {
+            lends_only_in_calls(p, base)?;
+            lends_only_in_calls(p, index)
+        }
+        Expr::Table { items, .. } => items.iter().try_for_each(|i| lends_only_in_calls(p, i)),
+        Expr::Record { fields, .. } => fields.iter().try_for_each(|(_, v)| lends_only_in_calls(p, v)),
         Expr::Int { .. } | Expr::Text { .. } | Expr::Name { .. } | Expr::Bool { .. } | Expr::Dec { .. } => Ok(()),
     }
 }

@@ -41,7 +41,7 @@
 
 use crate::lex::{Kind, Token};
 use crate::message::{Code, Message};
-use crate::tree::{Call, Expr, For, Function, If, Let, Param, Program, Step, Stmt, Ty, TypeDef, While};
+use crate::tree::{Call, Expr, For, Function, If, Let, Mode, Param, Program, Step, Stmt, Ty, TypeDef, While};
 use crate::words::{self, LEVEL_NOW};
 
 struct Parser<'a> {
@@ -160,12 +160,19 @@ impl<'a> Parser<'a> {
         let mut params: Vec<Param> = Vec::new();
         if self.peek().kind != Kind::Sym(")") {
             loop {
-                let p = self.next();
+                let mut p = self.next();
+                // `mut n: T` / `take n: T` (level 7): lent or given.
+                let mode = match p.kind {
+                    Kind::Word("mut") if LEVEL_NOW >= 7 => Mode::Mut,
+                    Kind::Word("take") if LEVEL_NOW >= 7 => Mode::Take,
+                    Kind::Word("mut" | "take") => return Err(not_yet(p, "prestar o entregar un parametro", 7, &format!("por ahora, `{0}(n: int)`: el valor llega y no cambia", name))),
+                    _ => Mode::Copy,
+                };
+                if mode != Mode::Copy {
+                    p = self.next();
+                }
                 let Kind::Name(pname) = &p.kind else {
-                    return Err(match p.kind {
-                        Kind::Word("mut" | "take") => not_yet(p, "prestar o entregar un parametro", 7, &format!("por ahora, `{0}(n: int)`: el valor llega y no cambia", name)),
-                        _ => self.ladder(p).unwrap_or_else(|| self.expected(p, "el nombre de un parametro", &format!("fn {}(n: int)", name))),
-                    });
+                    return Err(self.ladder(p).unwrap_or_else(|| self.expected(p, "el nombre de un parametro", &format!("fn {}(n: int)", name))));
                 };
                 if LEVEL_NOW < 5 {
                     return Err(not_yet(p, "una funcion con parametros", 5, &format!("por ahora, fn {}()", name)));
@@ -175,7 +182,7 @@ impl<'a> Parser<'a> {
                     return Err(self.expected(colon, "`:` y el tipo", &format!("fn {}({}: int)", name, pname)));
                 }
                 let ty = self.ty(&format!("fn {}({}: int)", name, pname))?;
-                params.push(Param { name: pname.clone(), ty, line: p.line, col: p.col });
+                params.push(Param { name: pname.clone(), ty, mode, line: p.line, col: p.col });
                 let sep = self.next();
                 match sep.kind {
                     Kind::Sym(",") => continue,
@@ -208,6 +215,25 @@ impl<'a> Parser<'a> {
             Kind::Name(n) if n == "int" => Ok(Ty::Int),
             Kind::Name(n) if n == "text" => Ok(Ty::Text),
             Kind::Name(n) if n == "bool" => Ok(Ty::Bool),
+            Kind::Name(n) if n == "dec" && LEVEL_NOW >= 7 && self.peek().kind == Kind::Sym("(") => {
+                // `dec(7, 2)`: COBOL's PIC 9(5)V99 -- the digits DECLARED.
+                self.next();
+                let num = |p: &mut Self| -> Option<u32> {
+                    let t = p.next();
+                    match &t.kind {
+                        Kind::Number(c) if !c.contains('.') => c.parse::<u32>().ok(),
+                        _ => None,
+                    }
+                };
+                let digits = num(self);
+                let comma = self.next().kind == Kind::Sym(",");
+                let scale = num(self);
+                let close = self.next().kind == Kind::Sym(")");
+                match (digits, comma, scale, close) {
+                    (Some(d), true, Some(sc), true) if (1..=18).contains(&d) && sc <= d => Ok(Ty::DecP(d, sc)),
+                    _ => Err(self.expected(t, "dec(cifras, decimales): de 1 a 18 cifras, y los decimales dentro de ellas", "dec(7, 2): hasta 99999.99")),
+                }
+            }
             Kind::Name(n) if n == "dec" && LEVEL_NOW >= 6 => Ok(Ty::Dec),
             Kind::Name(n) if n == "f32" || n == "f64" => Err(not_yet(
                 t,
@@ -274,7 +300,7 @@ impl<'a> Parser<'a> {
             }
             let ty = self.ty(&format!("{}: dec", fname))?;
             self.end_of_line()?;
-            fields.push(Param { name: fname.clone(), ty, line: f.line, col: f.col });
+            fields.push(Param { name: fname.clone(), ty, mode: Mode::Copy, line: f.line, col: f.col });
         }
         self.next();
         Ok(TypeDef { name: name.clone(), line: tok.line, col: tok.col, fields })
@@ -437,13 +463,19 @@ impl<'a> Parser<'a> {
             let Kind::Name(name) = &name_tok.kind else {
                 return Err(self.ladder(name_tok).unwrap_or_else(|| self.expected(name_tok, "el nombre del valor", "let area = 3 * 4")));
             };
+            // `let precio: dec(7, 2) = ...` (level 7): the type DECLARED.
+            let mut ty = None;
+            if self.peek().kind == Kind::Sym(":") && LEVEL_NOW >= 7 {
+                self.next();
+                ty = Some(self.ty(&format!("let {}: dec(7, 2) = 0.00", name))?);
+            }
             let eq = self.next();
             if eq.kind != Kind::Sym("=") {
                 return Err(self.ladder(eq).unwrap_or_else(|| self.expected(eq, "`=`", &format!("let {} = 3 * 4", name))));
             }
             let value = self.expr()?;
             self.end_of_line()?;
-            return Ok(Stmt::Let(Let { name: name.clone(), mutable, line: name_tok.line, col: name_tok.col, value }));
+            return Ok(Stmt::Let(Let { name: name.clone(), ty, mutable, line: name_tok.line, col: name_tok.col, value }));
         }
         if let Some(m) = self.ladder(tok) {
             return Err(m);
@@ -497,7 +529,7 @@ impl<'a> Parser<'a> {
             // the checker's (`juez.rs`, T0056).
             let value = self.expr()?;
             self.end_of_line()?;
-            return Ok(Stmt::Set(Let { name: callee.clone(), mutable: false, line: tok.line, col: tok.col, value }));
+            return Ok(Stmt::Set(Let { name: callee.clone(), ty: None, mutable: false, line: tok.line, col: tok.col, value }));
         }
         if open.kind != Kind::Sym("(") {
             return Err(self.ladder(open).unwrap_or_else(|| self.expected(open, "`(` despues del nombre", &format!("{}(\"...\")", callee))));
@@ -730,7 +762,19 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
+                if n == "round" && LEVEL_NOW >= 7 {
+                    return self.round(tok, args);
+                }
                 Ok(Expr::Call { callee: n.clone(), args, line: tok.line, col: tok.col })
+            }
+            // `mut t` / `take t` as a value given to a call (level 7).
+            Kind::Word(w @ ("mut" | "take")) if LEVEL_NOW >= 7 => {
+                let name_tok = self.next();
+                let Kind::Name(name) = &name_tok.kind else {
+                    return Err(self.expected(name_tok, &format!("el nombre de lo que se {}", if *w == "mut" { "presta" } else { "entrega" }), &format!("ordena({} tabla)", w)));
+                };
+                let mode = if *w == "mut" { Mode::Mut } else { Mode::Take };
+                Ok(Expr::Lend { mode, name: name.clone(), line: tok.line, col: tok.col })
             }
             Kind::Name(n) => Ok(Expr::Name { name: n.clone(), line: tok.line, col: tok.col }),
             _ => Err(self.ladder(tok).unwrap_or_else(|| self.expected(tok, "un valor: un numero, un texto o un nombre", "let area = 3 * 4"))),
@@ -739,6 +783,30 @@ impl<'a> Parser<'a> {
 }
 
 impl Parser<'_> {
+    /// `round(x, 2)`: two values, and the second a whole number of decimals
+    /// written right there -- how much is rounded is never calculated.
+    fn round(&self, tok: &Token, mut args: Vec<Expr>) -> Result<Expr, Message> {
+        if args.len() != 2 {
+            return Err(Message::new(Code::Args, tok.line, tok.col, &format!("`round` pide 2 valores, y aqui se le dan {}", args.len()), "el numero, y con cuantos decimales queda", "round(total / 3, 2)"));
+        }
+        let digits = match &args[1] {
+            Expr::Int { value, .. } if (0..=18).contains(value) => *value as u32,
+            other => {
+                let (l, c) = other.at();
+                return Err(Message::new(
+                    Code::WrongType,
+                    l,
+                    c,
+                    "el segundo valor de `round` va escrito: cuantos decimales, de 0 a 18",
+                    "cuanto se redondea se DICE en el texto, no se calcula: quien lee tiene que verlo",
+                    "round(total, 2)",
+                ));
+            }
+        };
+        let value = args.swap_remove(0);
+        Ok(Expr::Round { value: Box::new(value), digits, line: tok.line, col: tok.col })
+    }
+
     /// `12.50` -> 1250 with scale 2: an exact decimal, never a float. A
     /// number without a dot stays an `int`.
     fn dec(&self, n: &str, tok: &Token) -> Result<Expr, Message> {

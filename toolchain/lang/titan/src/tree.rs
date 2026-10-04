@@ -16,6 +16,9 @@
 //!              values and gives one back -- and a call is a value
 //!    level 6   the TYPES: `dec` (exact decimal, no float), tables `[int; 3]`
 //!              with `a[i]` and `for x in a`, and `type Nave` with fields
+//!    level 7   lend and give: `fn f(mut t: [int; 5])` called `f(mut t)`, and
+//!              `take`; and COBOL's precision: `dec(7, 2)`, `let x: T = v`,
+//!              and `round(x, 2)` -- the rounding is WRITTEN
 //! ```
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +68,10 @@ pub enum Ty {
     Bool,
     /// The exact decimal (level 6).
     Dec,
+    /// `dec(7, 2)`: an exact decimal with its digits DECLARED -- 7 in all, 2
+    /// of them decimals, COBOL's `PIC 9(5)V99` (level 7). A value that does not
+    /// fit is a NO, never a silent cut.
+    DecP(u32, u32),
     /// `[int; 3]`: a table of exactly that many (level 6).
     Table(Box<Ty>, usize),
     /// A `type` of the file, by name (level 6).
@@ -78,20 +85,44 @@ impl Ty {
             Ty::Text => "text".into(),
             Ty::Bool => "bool".into(),
             Ty::Dec => "dec".into(),
+            Ty::DecP(p, sc) => format!("dec({}, {})", p, sc),
             Ty::Table(t, n) => format!("[{}; {}]", t.name(), n),
             Ty::Named(n) => n.clone(),
         }
     }
 }
 
-/// `n: int`: a value the caller gives. It does not change (to lend one so the
-/// function changes it is `mut`, level 7).
+/// `n: int`: a value the caller gives -- copied, and only read. `mut n: T`:
+/// LENT, the function changes the caller's own; `take n: T`: GIVEN, the caller
+/// no longer has it (level 7).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Param {
     pub name: String,
     pub ty: Ty,
+    pub mode: Mode,
     pub line: usize,
     pub col: usize,
+}
+
+/// How a value goes to a function (level 7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    /// A copy: the caller keeps its own, untouched.
+    Copy,
+    /// Lent to be changed: `mut`. The caller sees the changes when it returns.
+    Mut,
+    /// Given for good: `take`. The caller no longer has it.
+    Take,
+}
+
+impl Mode {
+    pub fn word(self) -> &'static str {
+        match self {
+            Mode::Copy => "",
+            Mode::Mut => "mut",
+            Mode::Take => "take",
+        }
+    }
 }
 
 /// One line of a body.
@@ -174,10 +205,13 @@ pub struct Call {
     pub args: Vec<Expr>,
 }
 
-/// `let [mut] NAME = VALUE` (and `NAME = VALUE`, the same shape).
+/// `let [mut] NAME [: TYPE] = VALUE` (and `NAME = VALUE`, the same shape).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Let {
     pub name: String,
+    /// `let precio: dec(7, 2) = ...`: the type DECLARED, as COBOL declares
+    /// every field (level 7). Every value it ever takes must fit it.
+    pub ty: Option<Ty>,
     /// `let mut`: it may change later. Always false for `NAME = VALUE`.
     pub mutable: bool,
     pub line: usize,
@@ -215,6 +249,11 @@ pub enum Expr {
     Field { base: Box<Expr>, name: String, line: usize, col: usize },
     /// `Nave { x: 1.0, fuel: 12.50 }` (level 6).
     Record { name: String, fields: Vec<(String, Expr)>, line: usize, col: usize },
+    /// `mut t` / `take t` as a value given to a call (level 7): the local
+    /// itself is lent or given, not a copy of it.
+    Lend { mode: Mode, name: String, line: usize, col: usize },
+    /// `round(x, 2)`: the rounding WRITTEN, COBOL's `ROUNDED` (level 7).
+    Round { value: Box<Expr>, digits: u32, line: usize, col: usize },
 }
 
 /// A decimal as it is written: `1250` with scale 2 is `12.50`.
@@ -247,7 +286,9 @@ impl Expr {
             | Expr::Repeat { line, col, .. }
             | Expr::Index { line, col, .. }
             | Expr::Field { line, col, .. }
-            | Expr::Record { line, col, .. } => (*line, *col),
+            | Expr::Record { line, col, .. }
+            | Expr::Lend { line, col, .. }
+            | Expr::Round { line, col, .. } => (*line, *col),
         }
     }
 
@@ -273,6 +314,8 @@ impl Expr {
             Expr::Record { name, fields, .. } => {
                 format!("{} {{ {} }}", name, fields.iter().map(|(k, v)| format!("{}: {}", k, v.show())).collect::<Vec<_>>().join(", "))
             }
+            Expr::Lend { mode, name, .. } => format!("{} {}", mode.word(), name),
+            Expr::Round { value, digits, .. } => format!("round({}, {})", value.show(), digits),
         }
     }
 }
@@ -301,7 +344,7 @@ impl Program {
             }
         }
         for f in &self.functions {
-            let params: Vec<String> = f.params.iter().map(|p| format!("{}: {}", p.name, p.ty.name())).collect();
+            let params: Vec<String> = f.params.iter().map(|p| format!("{}{}{}: {}", p.mode.word(), if p.mode == Mode::Copy { "" } else { " " }, p.name, p.ty.name())).collect();
             let ret = f.ret.as_ref().map(|t| format!(" -> {}", t.name())).unwrap_or_default();
             s += &format!("{:<44}linea {}\n", format!("  fn {}({}){}", f.name, params.join(", "), ret), f.line);
             show_body(&f.body, 1, &mut s);

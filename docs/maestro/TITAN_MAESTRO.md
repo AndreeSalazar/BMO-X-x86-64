@@ -1692,3 +1692,25 @@ palabras): `dec`, las tablas `[T; n]` y los registros.
 - **F1**: un `type` es un CRISTAL facetado junto al planeta.
 - 🟡 en el emulador; el banco corre una factura, la burbuja y una flota.
 
+**NIVEL 7 -- PRESTAR Y ENTREGAR, Y LA PRECISION DE COBOL, HECHO EN EL
+ANFITRION el 04-10** (`take`, 18 palabras):
+
+```text
+   el borrow checker ENTERO (el modelo 2 de 6.4)
+     fn f(mut n: T)  f(mut x)    prestado: f lo cambia EN SU SITIO, sin copia
+     fn f(take n: T) f(take x)   entregado: despues x ya no es tuyo (T0075)
+     la regla de oro de FORTRAN, demostrada: un valor no se presta dos veces
+     en una llamada, ni se presta y se lee (T0076)
+     y se dice en los DOS lados: la llamada dice que le pasa a x (T0077)
+   la precision de COBOL (el propietario: "precision fuerte para no generar bug")
+     dec(7, 2)       las cifras DECLARADAS, el PIC 9(5)V99
+     let p: T = v    el tipo declarado, como el WORKING-STORAGE
+     round(x, 2)     el redondeo ESCRITO, el ROUNDED (la mitad, lejos del cero)
+     un valor que no cabe -- mas cifras o mas decimales -- es T0074, el SIZE
+     ERROR: COBOL lo corta callado sin ON SIZE ERROR; TITAN++ no compila
+```
+
+- Un `mut` en un parametro que nunca cambia es T0057, como el de un `let`.
+- 🟡 en el emulador; el banco corre un banco con interes redondeado a la vista,
+  una ordenacion prestada sin copia y una nave entregada.
+

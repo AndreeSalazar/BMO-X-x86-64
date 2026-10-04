@@ -1,0 +1,23 @@
+# espera: BIEN
+# sale: orion se hunde con 44.00 de combustible
+# sale: la flota sigue con centauro
+# `take` entrega la nave: quien la recibe se la queda, y el que llama ya no la tiene
+mod main "una nave que se entrega"
+
+type Nave
+    nombre: text
+    combustible: dec(5, 2)
+
+fn hunde(take n: Nave) -> text
+    return n.nombre
+
+fn combustible(n: Nave) -> dec(5, 2)
+    return n.combustible
+
+fn main()
+    let lider = Nave { nombre: "centauro", combustible: 50 }
+    let vieja = Nave { nombre: "orion", combustible: 44 }
+    let queda = combustible(vieja)
+    let quien = hunde(take vieja)
+    print(quien, " se hunde con ", queda, " de combustible")
+    print("la flota sigue con ", lider.nombre)

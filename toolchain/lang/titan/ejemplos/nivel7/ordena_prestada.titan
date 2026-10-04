@@ -1,0 +1,26 @@
+# espera: BIEN
+# sale: [1, 2, 4, 7, 9]
+# sale: [9, 7, 4, 2, 1]
+# `mut` presta la tabla: la funcion la ordena EN SU SITIO, sin copiarla, y se ve al volver
+mod main "ordenar sin copiar"
+
+fn ordena(mut t: [int; 5])
+    for i in range(5)
+        for j in range(4 - i)
+            if t[j] > t[j + 1]
+                let m = t[j + 1]
+                t[j + 1] = t[j]
+                t[j] = m
+
+fn da_la_vuelta(mut t: [int; 5])
+    for i in range(2)
+        let m = t[i]
+        t[i] = t[4 - i]
+        t[4 - i] = m
+
+fn main()
+    let mut t = [7, 2, 9, 1, 4]
+    ordena(mut t)
+    print(t)
+    da_la_vuelta(mut t)
+    print(t)
