@@ -621,6 +621,7 @@ dependencies = [
  "bmo-inti-x86-64",
  "bmo-lower",
  "bmo-mods",
+ "bmo-titan-x86-64",
 ]
 
 [[package]]

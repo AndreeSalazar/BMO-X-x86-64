@@ -33,3 +33,9 @@ toolchain/lang/inti/ejemplos/cubo.inti 989 435 32888 cbf29ce484222325
 toolchain/lang/inti/ejemplos/musica.inti 428 143 22377 031a8f1d4e77e2bb
 toolchain/lang/inti/sondas/pulso.inti 667750 126986 5050 9961033a811a7779
 toolchain/lang/inti/sondas/ventana.inti 2183 793 16776 52f287b1b72f3aa2
+toolchain/lang/titan/ejemplos/nivel0/dos_saludos.titan 27 0 135 caa792b9f02ae7df
+toolchain/lang/titan/ejemplos/nivel0/hola.titan 11 0 58 7488197ad38aaaa7
+toolchain/lang/titan/ejemplos/nivel1/centauro.titan 65 0 327 816cd108e0ffdcb2
+toolchain/lang/titan/ejemplos/nivel2/constelacion.titan 28 0 143 38be7e5ae74f5090
+toolchain/lang/titan/ejemplos/nivel3/calculadora.titan 39 0 200 dd118d64af246ac3
+toolchain/lang/titan/ejemplos/nivel3/semaforo.titan 36 0 186 cdaf2dedfc9dd621

@@ -90,6 +90,17 @@ const BANCO: &[(&str, &str)] = &[
     ("inti", "toolchain/lang/inti/ejemplos/musica.inti"),
     ("inti", "toolchain/lang/inti/ejemplos/cubo.inti"),
     ("inti", "Ultra_userspace/apps/navegar/navegar.inti"),
+    // ** TITAN++ entro el 04-10, con sus programas BIEN de los niveles 0-3.
+    // Hasta el nivel 3 todo valor se sabe al compilar y el `.bex` solo
+    // escribe resultados: sus numeros son el SUELO (E0), no una victoria
+    // sobre nadie. Estan aqui para que cada escalon del emisor (E1, los
+    // registros, con el nivel 4) se mida desde el primer dia.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel0/hola.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel0/dos_saludos.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel1/centauro.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel2/constelacion.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel3/semaforo.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel3/calculadora.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -127,6 +138,9 @@ fn compilar(lenguaje: &str, ruta: &Path, rel: &str, fuente: &str) -> Result<Vec<
         "inti" => bmo_inti_x86_64::cadena::compilar(fuente, rel, &bmo_mods::Roots::find())
             .map(|c| c.bytes)
             .map_err(|e| e.to_string()),
+        // TITAN++ por su cadena entera (`build`: frontend, juez, calculo,
+        // emisor y el gate del manifiesto), con el nombre del fichero.
+        "titan" => bmo_titan_x86_64::build(fuente, &nombre).map_err(|e| format!("{e:?}")),
         otro => Err(format!("lenguaje desconocido `{otro}`")),
     }
 }
@@ -337,7 +351,7 @@ fn main() {
                 exit(1);
             }
             let aviso = if bajaron > 0 { format!("; {bajaron} bajaron: fija con --fijar") } else { String::new() };
-            println!("clean: metro del emisor -- {} programas (C, C++, COBOL, Ada, INTI), {pasos} instrucciones, {accesos} accesos a memoria, {codigo} B de codigo, ninguna salida cambio{aviso}", medidas.len());
+            println!("clean: metro del emisor -- {} programas (C, C++, COBOL, Ada, INTI, TITAN++), {pasos} instrucciones, {accesos} accesos a memoria, {codigo} B de codigo, ninguna salida cambio{aviso}", medidas.len());
         }
         _ => {
             println!("{:<58} {:>12} {:>9} {:>9}  salida", "programa", "pasos", "accesos", "codigo");
