@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   574 casillas ABIERTAS en 55 planes
+   588 casillas ABIERTAS en 55 planes
    427 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -77,6 +77,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A4 -- los CARRILES de la 3060: una carpeta que no mezcla
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 19 mas
+
+## [`PLAN_FASE.md`](PLAN_FASE.md) -- 19 abiertas, 3 hechas
+
+*PLAN FASE -- el escritorio que se TRANSFORMA*
+
+- [ ] F4 -- REPLEGARSE. Al salir de FASE, las placas se van (hoy la
+- [ ] F5 -- EL PANEL IZQUIERDO TAMBIEN SE ARMA. Sus secciones como placas
+- [ ] F6 -- LO DATA-DENSE. Graficos circulares (la carga por nucleo, los
+- ... y 16 mas
 
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 
@@ -364,15 +373,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D0 -- EL METRO (codigo HECHO 2026-09-23; se cierra con el primer numero)
 - [ ] D1 -- ASINCRONO + WAIT: cero congelones
 - [ ] D3 -- DMA directo al bloque prestado + PRD multiples
-- ... y 2 mas
-
-## [`PLAN_FASE.md`](PLAN_FASE.md) -- 5 abiertas, 3 hechas
-
-*PLAN FASE -- el escritorio que se TRANSFORMA*
-
-- [ ] F4 -- REPLEGARSE. Al salir de FASE, las placas se van (hoy la
-- [ ] F5 -- EL PANEL IZQUIERDO TAMBIEN SE ARMA. Sus secciones como placas
-- [ ] F6 -- LO DATA-DENSE. Graficos circulares (la carga por nucleo, los
 - ... y 2 mas
 
 ## [`PLAN_LA_ANTENA_AOT.md`](PLAN_LA_ANTENA_AOT.md) -- 5 abiertas, 0 hechas

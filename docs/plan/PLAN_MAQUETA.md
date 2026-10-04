@@ -491,6 +491,17 @@ reloj de `vida` puesto a mano). [!] No se ha visto en el Ryzen: lo que falta
 saber alli es si ~16 ms por fotograma se sostienen con el repintado de la
 tarjeta de Alt+Tab (guarda y devuelve lo de debajo en cada fotograma).
 
+## 6i. EL ESCRITORIO QUE SE TRANSFORMA, EN MAQUETA (2026-10-04)
+
+La peticion entera del propietario -- que TODO se mueva, que cada ventana se
+abra y se cierre como piezas de transformers, el glitch con los colores del
+gato, los modos ESCRITORIO, CABINA y JUEGO, el FUI -- esta anotada en
+[`PLAN_FASE.md`](PLAN_FASE.md): secciones 5 a 8, con lo que MAQUETA tiene que
+aprender (M1-M14: `transform`, entrar y salir, el escalon, el glitch, las
+esquinas cortadas, los datos que ruedan, el dial, la grafica, la placa que se
+parte, los modos como tema, las barras en maqueta, el presupuesto en el
+veredicto, el espejo de lo que se mueve y la GPU).
+
 ## 6g. LA VARA DE MEDIR: HERMES ENTERO EN MAQUETA (2026-10-04)
 
 El propietario, con la pantalla del CANAL de HERMES delante: *"para llegar a
