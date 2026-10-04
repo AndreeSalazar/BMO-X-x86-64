@@ -26,7 +26,7 @@ Decidido por el propietario el **2026-09-30**:
 | 8 | `enum match` | casos con datos, y un `match` que los cubre todos | T0078, T0079 |
 | 9 | `mod use pub` | paquetes de varios ficheros | T0080-T0084 |
 | 10 | `trait` | lo que un valor sabe hacer, y fn para cualquiera que lo sepa | T0085-T0087 |
-| 11 | `gpu` | la 3060 | (todavia no) |
+| 11 | `gpu` | la 3060 | todavia no: su plan es `docs/plan/PLAN_EL_CENTAURO.md` |
 
 ---
 

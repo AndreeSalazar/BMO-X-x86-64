@@ -271,7 +271,8 @@ miran juntos.
 10-09: *"El asistente IA no lo necesitamos, eso es el ultimo."* El 04-10 cambia:
 *"la F2 es la que va a vivir los resultados de test, pruebas y uso de apps ...
 y el primero de todos es construir una IA personal"*. Espera a TITAN++
-(niveles 9, 10 y 11): se construye EN el, con el trio debajo.
+nivel 11 ([`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md); el 9 y el 10 ya
+estan): se construye EN el, con el trio debajo.
 
 Se queda escrito entero y no se archiva, porque **dos de sus casillas sirven a
 otras cosas**:

@@ -1,6 +1,6 @@
 # PLAN EL ASISTENTE -- un ayudante que corre DENTRO de BMO-X
 
-> Estado: **ESPERA** -- a TITAN++ (niveles 9, 10 y 11): por decision del propietario del 2026-10-04 es la PRIMERA app de la F2, y se construye en TITAN++ cuando el lenguaje llegue a varios ficheros, comportamientos y `gpu fn`. Antes: APARCADO, "el ultimo" (2026-09-10).
+> Estado: **ESPERA** -- a TITAN++ nivel 11 (`gpu fn`, PLAN_EL_CENTAURO.md; los niveles 9 y 10 ya estan): por decision del propietario del 2026-10-04 es la PRIMERA app de la F2, y se construye en TITAN++. Antes: APARCADO, "el ultimo" (2026-09-10).
 >
 > Datos actualizados el 2026-09-21 (seccion 9, "System One"): el plan sigue aparcado; lo que cambia es que hay un escalon ANTES del motor de inferencia que no necesita ni GPU ni ancho de memoria, y que el `save` ya escribe su entrada (`informe/DATOS.TXT`).
 

@@ -1553,6 +1553,14 @@ NIVEL A NIVEL, y cada nivel agrega pocas palabras y ya sirve para algo.
 | 10 | `trait` | 24 | comportamientos compartidos: un motor con piezas que se cambian |
 | 11 | `gpu` | 25 | **computo en la 3060** |
 
+**EL ESTADO, al 04-10**: los niveles **0 a 10 estan HECHOS** en el
+anfitrion (amarillo: su banco corre en el emulador; en el Ryzen, todavia no),
+cada uno con su entrada al final de esta seccion y su gramatica en
+`toolchain/lang/titan/GRAMATICA.md`. El **11** tiene su plan:
+[`PLAN_EL_CENTAURO.md`](../plan/PLAN_EL_CENTAURO.md) -- funciones elementales,
+el f32 solo en la GPU, y el permiso del `Titan.toml`, que se estudio y es
+posible.
+
 **La respuesta corta: con 16 palabras ya se escribe cualquier algoritmo; con
 20, un JSON; con 23, una app; con 25, la 3060.** Lo que va de 16 a 25 no da
 potencia de calculo: da ORDEN (tipos, casos, modulos) y SEGURIDAD (prestamos,
