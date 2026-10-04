@@ -425,6 +425,8 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // y cuatro veces por segundo la muestra de sus instrumentos.
     if dsk.tick.will_paint && !fs {
         scene::lateral::latido(&p, dsk.tick.consumo.ultimo.map(|c| c.mw_paquete), &dsk.tick.lectura_pulso());
+        // ** EL MODO FASE (04-10): la barra tactica de la derecha.
+        scene::tactico::latido(&p, dsk.tick.consumo.ultimo.map(|c| c.mw_paquete));
         // ** LA VIDA (04-10): la marca de la rejilla que brota. Debajo de las
         // ventanas: si alguna tapa la celda, el cierre del fotograma la
         // devuelve encima (`devolver`).

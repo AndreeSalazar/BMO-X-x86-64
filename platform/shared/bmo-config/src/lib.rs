@@ -56,8 +56,8 @@ pub struct Estilo {
     pub marco: Marco,
 }
 
-/// **El vestido de las ventanas.** Los dos los pidio el propietario, en dos
-/// fechas, y ninguno sustituye al otro: se elige.
+/// **El vestido de las ventanas.** Los tres los pidio el propietario, en tres
+/// momentos, y ninguno sustituye al otro: se elige.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Marco {
     /// (04-10) *"elegancia, la de Francia"*: la barra limpia, el filete del
@@ -66,6 +66,11 @@ pub enum Marco {
     /// (25-09) *"estilo hacker futurista"*: scanlines en la barra, esquinas
     /// HUD, la linea del acento con su cursor y los segmentos inclinados.
     Hacker,
+    /// (04-10) *"elegante pero transformers e intimidante, todo rojo"*: el
+    /// MODO FASE. La geometria de `Fino`, la paleta roja de `tema.maqueta`
+    /// (`.fase`), y una SEGUNDA barra a la derecha con el estado tactico. Al
+    /// elegirlo, el escritorio se transforma: las placas llegan una a una.
+    Fase,
 }
 
 impl Marco {
@@ -73,6 +78,7 @@ impl Marco {
         match self {
             Marco::Fino => b"fino",
             Marco::Hacker => b"hacker",
+            Marco::Fase => b"fase",
         }
     }
 
@@ -80,6 +86,7 @@ impl Marco {
         match v {
             b"fino" | b"FINO" | b"Fino" => Some(Marco::Fino),
             b"hacker" | b"HACKER" | b"Hacker" => Some(Marco::Hacker),
+            b"fase" | b"FASE" | b"Fase" => Some(Marco::Fase),
             _ => None,
         }
     }
@@ -148,7 +155,7 @@ impl Motivo {
             Motivo::FueraDeRango => "numero fuera de su rango",
             Motivo::SiNo => "ahi va `si` o `no`",
             Motivo::Ruta => "una ruta va sin espacios y con 40 letras como mucho",
-            Motivo::Marco => "ahi va `fino` o `hacker`",
+            Motivo::Marco => "ahi va `fino`, `hacker` o `fase`",
         }
     }
 }
@@ -449,7 +456,7 @@ mod pruebas {
     }
 
     /// El vestido de las ventanas se elige con una palabra, y una que no es
-    /// ninguna de las dos no pisa el que habia.
+    /// ninguna de las tres no pisa el que habia.
     #[test]
     fn el_marco_se_elige_y_uno_malo_no_pisa() {
         let mut e = BASE;
@@ -460,6 +467,9 @@ mod pruebas {
         assert_eq!(e.marco, Marco::Hacker);
         e.aplicar(b"marco = fino\n");
         assert_eq!(e.marco, Marco::Fino);
+        e.aplicar(b"marco = fase\n");
+        assert_eq!(e.marco, Marco::Fase, "el MODO FASE");
+        assert_eq!(Marco::Fase.nombre(), b"fase", "y se escribe como se lee");
     }
 
     /// *** UN FICHERO ROTO NO ROMPE NADA: cada linea mala dice su numero y su

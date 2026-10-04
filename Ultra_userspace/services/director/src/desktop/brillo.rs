@@ -86,5 +86,5 @@ pub(crate) fn anima() -> bool {
 
 /// El marco fino no lleva neon. Ver `bmo_config::Marco`.
 fn fino() -> bool {
-    crate::scene::estilo::estilo().marco == bmo_config::Marco::Fino
+    crate::scene::estilo::estilo().marco != bmo_config::Marco::Hacker
 }

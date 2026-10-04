@@ -164,12 +164,20 @@ pub(crate) fn area_util(p: &bmo::Pantalla) -> (u32, u32, u32, u32) {
     // Sin barra de arriba desde el HUD 5: la pantalla entera menos el panel de
     // la izquierda y los huecos.
     let izq = super::lateral::margen();
+    // Y en el MODO FASE, la barra tactica de la derecha (04-10).
+    let der = super::tactico::margen();
     (
         izq + HUECO,
         HUECO,
-        p.ancho.saturating_sub(izq + 2 * HUECO),
+        p.ancho.saturating_sub(izq + der + 2 * HUECO),
         p.alto.saturating_sub(2 * HUECO),
     )
+}
+
+/// **Lo mas a la derecha que llega una ventana**: el ancho de la pantalla
+/// menos la columna de la barra tactica, si esta (MODO FASE, 04-10).
+fn ancho_util(p: &bmo::Pantalla) -> u32 {
+    p.ancho.saturating_sub(super::tactico::margen())
 }
 
 /// **Lo mas a la izquierda que puede estar una ventana**: la columna de la
@@ -198,7 +206,7 @@ impl Chrome {
     ) -> Self {
         let width = (p.ancho * pct_w / 100)
             .max(min_w)
-            .min(p.ancho.saturating_sub(16 + tope_izq()));
+            .min(ancho_util(p).saturating_sub(16 + tope_izq()));
         let height = (p.alto * pct_h / 100)
             .max(min_h)
             .min(p.alto.saturating_sub(16));
@@ -207,7 +215,7 @@ impl Chrome {
             // pantalla: centrarla en la pantalla la deja corrida hacia el panel,
             // y con el al lado parece descolocada. (Era el mismo cuidado con la
             // barra de arriba, en vertical, cuando la habia.)
-            x: tope_izq() + p.ancho.saturating_sub(tope_izq() + width) / 2,
+            x: tope_izq() + ancho_util(p).saturating_sub(tope_izq() + width) / 2,
             y: p.alto.saturating_sub(height) / 2,
             width,
             height,
@@ -240,10 +248,10 @@ impl Chrome {
     /// Se recorta contra el panel: una app puede pedir una superficie mas grande
     /// que la pantalla, y una ventana que no cabe no se puede ni agarrar.
     pub(crate) fn for_content(p: &bmo::Pantalla, width: u32, height: u32) -> Self {
-        let width = (width + 2).min(p.ancho.saturating_sub(16 + tope_izq())).max(3 * BTN_SIDE + 16);
+        let width = (width + 2).min(ancho_util(p).saturating_sub(16 + tope_izq())).max(3 * BTN_SIDE + 16);
         let height = (height + TITLE_H + 1).min(p.alto.saturating_sub(16));
         Self {
-            x: tope_izq() + p.ancho.saturating_sub(tope_izq() + width) / 2,
+            x: tope_izq() + ancho_util(p).saturating_sub(tope_izq() + width) / 2,
             y: p.alto.saturating_sub(height) / 2,
             width,
             height,
@@ -450,7 +458,7 @@ impl Chrome {
         if let Some((ax, ay)) = self.drag {
             let nx = px
                 .saturating_sub(ax)
-                .min(p.ancho.saturating_sub(self.width))
+                .min(ancho_util(p).saturating_sub(self.width))
                 .max(tope_izq());
             // Sin barra de arriba, el techo es el borde: el asa nunca sale de
             // la pantalla, y eso es lo que la deja volver a coger.
@@ -467,7 +475,7 @@ impl Chrome {
         if self.resizing {
             let na = (px.saturating_sub(self.x) + 1)
                 .max(self.min_w)
-                .min(p.ancho.saturating_sub(self.x));
+                .min(ancho_util(p).saturating_sub(self.x));
             let nl = (py.saturating_sub(self.y) + 1)
                 .max(self.min_h)
                 .min(p.alto.saturating_sub(self.y));
@@ -509,7 +517,7 @@ impl Chrome {
         let (nx, ny) = match heading {
             Heading::Left => (self.x.saturating_sub(KEY_STEP).max(tope_izq()), self.y),
             Heading::Right => (
-                (self.x + KEY_STEP).min(p.ancho.saturating_sub(self.width)),
+                (self.x + KEY_STEP).min(ancho_util(p).saturating_sub(self.width)),
                 self.y,
             ),
             Heading::Up => (
@@ -627,13 +635,13 @@ impl Chrome {
     /// Hace falta al restaurar una minimizada y al cambiar de resolucion: una
     /// geometria guardada puede haber dejado de ser valida mientras no se veia.
     pub(crate) fn fit(&mut self, p: &bmo::Pantalla) {
-        let libre = p.ancho.saturating_sub(tope_izq());
+        let libre = ancho_util(p).saturating_sub(tope_izq());
         self.width = self.width.min(libre).max(self.min_w.min(libre));
         self.height = self
             .height
             .min(p.alto)
             .max(self.min_h.min(p.alto));
-        self.x = self.x.min(p.ancho.saturating_sub(self.width)).max(tope_izq());
+        self.x = self.x.min(ancho_util(p).saturating_sub(self.width)).max(tope_izq());
         self.y = self.y.min(p.alto.saturating_sub(self.height));
     }
 
@@ -1043,7 +1051,7 @@ const FINO_CERRAR: u32 = 0x00A8_3242;
 
 /// Esta puesto el marco fino? Ver `bmo_config::Marco`.
 fn fino() -> bool {
-    super::estilo::estilo().marco == bmo_config::Marco::Fino
+    super::estilo::estilo().marco != bmo_config::Marco::Hacker
 }
 
 /// `a` hacia `b`, `t` de 255. La mezcla de siempre, con el orden de `globo`.
