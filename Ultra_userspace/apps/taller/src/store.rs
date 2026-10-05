@@ -157,12 +157,45 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn open() -> Store {
-        let mut s = Store { origin: Origin::Memory(""), library: None, chosen: 0, loaded: Loaded::new(), note: None, tree: tree_block(), detail: None };
+    /// ** THE STORE, IN A BLOCK OF ITS OWN (05-10). A `Store` is ~13 KiB --
+    /// a `Loaded` of 10 and a `Library` of 2.5 -- and it lived in `_start`'s
+    /// frame, with a copy on the way out of `open`: half of Ring 3's 64 KiB
+    /// stack (`pila.py --ring3` said NO the day the nodes learned what they
+    /// print). Built field by field in a borrowed block, it is on no stack at
+    /// all; the block is never given back, like the tree's.
+    pub fn open() -> Option<&'static mut Store> {
+        let block = bmo::Memoria::request(core::mem::size_of::<Store>() as u64)?;
+        let p = block.base() as *mut Store;
+        core::mem::forget(block);
+        // SAFETY: the block is ours, mapped, page-aligned (more than `Store`'s
+        // alignment) and at least `size_of::<Store>()` bytes; every field is
+        // written before the reference is made, each through its own place
+        // (no `Store` value is ever formed on the stack: `EMPTY` is copied
+        // from `.rodata`); and the block is never given back (`forget`), so
+        // the reference lives as long as F1.
+        let s = unsafe {
+            use core::ptr::addr_of_mut;
+            addr_of_mut!((*p).origin).write(Origin::Memory(""));
+            addr_of_mut!((*p).library).write(None);
+            addr_of_mut!((*p).chosen).write(0);
+            addr_of_mut!((*p).loaded).write(EMPTY);
+            addr_of_mut!((*p).note).write(None);
+            addr_of_mut!((*p).tree).write(tree_block());
+            addr_of_mut!((*p).detail).write(None);
+            &mut *p
+        };
+        s.start();
+        Some(s)
+    }
+
+    /// The first read: ESTRATOS mounted, the library (seeded if missing), the
+    /// chosen package -- or the sample in memory, and why.
+    fn start(&mut self) {
+        let s = self;
         s.loaded.show(sample::asteroids_graph());
         if bmo::info(bmo::INFO_ES_MONTADO) == 0 {
             s.origin = Origin::Memory("ESTRATOS no esta montado: ejemplo en memoria");
-            return s;
+            return;
         }
         if library_text().is_none() {
             if let Err(path) = seed_library() {
@@ -170,12 +203,11 @@ impl Store {
                 bmo::consola(path);
                 bmo::consola(" en ESTRATOS\n");
                 s.origin = Origin::Memory("no se pudo sembrar ESTRATOS: ejemplo en memoria");
-                return s;
+                return;
             }
-            bmo::consola("TALLER: sembre titan/asteroids en ESTRATOS\n");
+            bmo::consola("TALLER: sembre la biblioteca (asteroids, hola) en ESTRATOS\n");
         }
         s.read_all();
-        s
     }
 
     /// Reads again if ESTRATOS changed since the last read. `true` if it did.
@@ -235,6 +267,52 @@ impl Store {
         let done = r.is_ok();
         self.note = bmo_titan_lector::wire::note(r, name(from).as_bytes(), name(to).as_bytes()).map(|l| (l, done));
         self.detail = None;
+    }
+
+    /// **A master node of the TAB placed** (`PLAN_TALLER` 8.15): its file, its
+    /// row in `[layout]` at `(x, y)` and `mod` in main -- three versions, one
+    /// gesture. The name it got, to pick it when the next beat reads it back.
+    pub fn place_master(&mut self, i: usize, x: i32, y: i32) -> Option<bmo_titan_contrato::Name> {
+        use bmo_titan_lector::maestros::{self, PlaceError};
+        let m = maestros::MASTERS.get(i)?;
+        let r = (|| {
+            let root = self.root().ok_or(PlaceError::Read)?;
+            let block = bmo::Memoria::request(2 * GESTURE_HALF as u64).ok_or(PlaceError::TooBig)?;
+            // SAFETY: as in `gesture`: our block, 2 * GESTURE_HALF bytes, two
+            // halves that do not overlap, alive until the end of this closure.
+            let all = unsafe { core::slice::from_raw_parts_mut(block.base(), 2 * GESTURE_HALF) };
+            let (text, out) = all.split_at_mut(GESTURE_HALF);
+            maestros::place(&mut Disk { block: &block, len: 2 * GESTURE_HALF }, root.as_bytes(), &self.loaded, m, x, y, text, out)
+        })();
+        let name = r.ok().map(|p| p.name);
+        let (line, ok) = maestros::note(r, m.name.as_bytes());
+        self.say(line, None, ok);
+        name
+    }
+
+    /// **The text of a file of the package, into the editor's block** (the
+    /// code of a node, edited in place: `editor.rs`). Its length, or `None`
+    /// if it is not there or does not fit.
+    pub fn read_text(&self, rel: &[u8], block: &bmo::Memoria, cap: usize) -> Option<usize> {
+        let root = self.root()?;
+        let full = bmo_titan_lector::Path::new(&[root.as_bytes(), b"/", rel])?;
+        match Estratos.fetch(full.as_bytes(), text_block(block, cap)) {
+            Fetch::Found(n) => Some(n),
+            _ => None,
+        }
+    }
+
+    /// Saves the first `len` bytes of the editor's block as `rel`: ONE version
+    /// of ESTRATOS (`vuelve 1` undoes it). The next beat reads it back and the
+    /// node changes, like any other write.
+    pub fn save_text(&mut self, rel: &[u8], block: &bmo::Memoria, len: usize) -> bool {
+        let Some(root) = self.root() else { return false };
+        let Some(full) = bmo_titan_lector::Path::new(&[root.as_bytes(), b"/", rel]) else { return false };
+        let ok = bmo::estratos::guardar_desde(full.as_bytes(), block.handle(), 0, len as u64) != 0;
+        let s = bmo_titan_lector::Say::new();
+        let line = if ok { s.t(b"guardado ").t(rel).t(b"; vuelve 1 lo deshace") } else { s.t(b"ESTRATOS no guardo ").t(rel) };
+        self.say(line.done(), None, ok);
+        ok
     }
 
     /// Says one thing in the EXPLORER's note, with a second line if any.
@@ -371,6 +449,17 @@ impl Store {
     pub fn root(&self) -> Option<bmo_titan_lector::Path> {
         self.packages().get(self.chosen).map(|p| p.1)
     }
+}
+
+/// An empty read: what a `Store` starts with, copied from `.rodata`.
+const EMPTY: Loaded = Loaded::new();
+
+/// The editor's block as bytes: the first `cap` of it.
+pub fn text_block(block: &bmo::Memoria, cap: usize) -> &mut [u8] {
+    // SAFETY: the block is ours, mapped and at least `cap` bytes (the caller
+    // asked for `cap`); bytes have no invalid values; and only one slice of it
+    // is alive at a time -- `main.rs` makes one per key or frame and drops it.
+    unsafe { core::slice::from_raw_parts_mut(block.base(), cap) }
 }
 
 /// A block for the tree. Every field of a `Tree` is an integer, so ANY bytes

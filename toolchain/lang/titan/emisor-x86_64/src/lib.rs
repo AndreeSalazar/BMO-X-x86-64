@@ -56,9 +56,11 @@
 //! todos los saltos caen al bloque de al lado. El nivel 4 (`while`) traera el
 //! primer salto HACIA ARRIBA, y la misma lista de parches lo resuelve.
 
+mod e1;
+
 use bmo_abi::bef2;
 use bmo_lower::{console, task};
-use bmo_titan_front::ir::{End, Function, Module, Op, Value};
+use bmo_titan_front::ir::{Module, Op, Value};
 use bmo_titan_front::Message;
 
 /// Lo que sale de emitir un modulo.
@@ -69,43 +71,6 @@ pub struct Emitted {
     pub starts: Vec<usize>,
 }
 
-/// `call rel32` con el destino por parchear: devuelve donde va el campo.
-fn call_rel32(code: &mut Vec<u8>) -> usize {
-    code.push(0xE8);
-    let field = code.len();
-    code.extend_from_slice(&[0; 4]);
-    field
-}
-
-fn ret(code: &mut Vec<u8>) {
-    code.push(0xC3);
-}
-
-/// `jmp rel32` con el destino por parchear: devuelve donde va el campo.
-fn jmp_rel32(code: &mut Vec<u8>) -> usize {
-    code.push(0xE9);
-    let field = code.len();
-    code.extend_from_slice(&[0; 4]);
-    field
-}
-
-/// Patches a rel32 field so it lands on `target`.
-fn patch(code: &mut [u8], field: usize, target: usize) {
-    let rel = target as i64 - (field as i64 + 4);
-    code[field..field + 4].copy_from_slice(&(rel as i32).to_le_bytes());
-}
-
-/// The block that runs after block `i`, when it is decided: a `Jump`, or a
-/// `Branch` the calculation already turned into `true` / `false`.
-fn next_of(f: &Function, i: usize) -> Result<Option<usize>, String> {
-    Ok(match &f.blocks[i].end {
-        End::Return(_) => None,
-        End::Jump(t) => Some(*t),
-        End::Branch { cond: Value::Bool(yes, _), then, other, .. } => Some(if *yes { *then } else { *other }),
-        End::Branch { at, .. } => return Err(format!("linea {}: un `if` llego sin decidir", at.0)),
-    })
-}
-
 /// IR -> bytes. La IR llega JUZGADA y CALCULADA (`juez.rs`, `calc.rs`): en el
 /// nivel 1 cada valor ya es una constante, y un `let` no deja bytes -- su valor
 /// ya esta dentro de los textos que se escriben. Lo unico que no puede pasar
@@ -113,7 +78,9 @@ fn next_of(f: &Function, i: usize) -> Result<Option<usize>, String> {
 pub fn emit(m: &Module) -> Result<Emitted, String> {
     match &m.flat {
         Some(flat) => emit_flat(flat),
-        None => emit_blocks(m),
+        // E1 (`docs/plan/PLAN_LA_ENTRADA.md`): the program reads from outside,
+        // so it was not run when compiling -- it is emitted to run (`e1/mod.rs`).
+        None => e1::emit(m),
     }
 }
 
@@ -146,61 +113,6 @@ fn emit_flat(flat: &[Op]) -> Result<Emitted, String> {
     Ok(Emitted { code, starts: vec![0] })
 }
 
-/// El camino de BLOQUES: funciones con `call`/`ret` y saltos donde hace falta.
-/// Hoy solo lo toma un modulo sin `flat` (el calculo no lo corrio); es el
-/// esqueleto de E1, y un valor sin calcular aqui se dice, no se inventa.
-fn emit_blocks(m: &Module) -> Result<Emitted, String> {
-    let mut code = Vec::new();
-    // (campo rel32, funcion destino): se resuelven AL FINAL, porque una
-    // funcion puede llamar a otra que esta mas abajo.
-    let mut calls: Vec<(usize, usize)> = Vec::new();
-
-    // -- El arranque: llamar a main y salir. `EXIT` no vuelve; `task::exit`
-    // deja detras la red de seguridad (`pause`/`jmp`) por si algun dia volviera.
-    calls.push((call_rel32(&mut code), m.entry));
-    task::exit(&mut code);
-
-    let mut starts = Vec::with_capacity(m.functions.len());
-    for f in &m.functions {
-        starts.push(code.len());
-        // Where each block of this function starts, and the jumps into them.
-        let mut at = vec![usize::MAX; f.blocks.len()];
-        let mut jumps: Vec<(usize, usize)> = Vec::new();
-        let live: Vec<usize> = (0..f.blocks.len()).filter(|&i| !f.blocks[i].dead).collect();
-        for (k, &i) in live.iter().enumerate() {
-            let b = &f.blocks[i];
-            at[i] = code.len();
-            for op in &b.ops {
-                match op {
-                    Op::Write { parts, at } => console::write_const(&mut code, text_of(parts, *at)?.as_bytes()),
-                    // Already inside the texts that use it (calc.rs); and a
-                    // value that dies leaves nothing to free: it never had a
-                    // place outside the texts.
-                    Op::Let { .. } | Op::Set { .. } | Op::SetAt { .. } | Op::Drop { .. } => {}
-                    Op::Call { func, .. } => calls.push((call_rel32(&mut code), *func)),
-                }
-            }
-            match next_of(f, i)? {
-                None => ret(&mut code),
-                // Falls into the next block written: no byte.
-                Some(t) if live.get(k + 1) == Some(&t) => {}
-                Some(t) => jumps.push((jmp_rel32(&mut code), t)),
-            }
-        }
-        for (field, t) in jumps {
-            if at[t] == usize::MAX {
-                return Err(format!("`fn {}`: un salto a un bloque muerto", f.name));
-            }
-            patch(&mut code, field, at[t]);
-        }
-    }
-
-    for (field, k) in calls {
-        patch(&mut code, field, starts[k]);
-    }
-    Ok(Emitted { code, starts })
-}
-
 /// Bytes + manifiesto -> el `.bex`, que ya paso el gate.
 ///
 /// ** `exige_manifiesto` y no solo `verify`: es estrictamente mas fuerte (llama
@@ -230,6 +142,22 @@ pub enum Failure {
 /// (va al manifiesto), no su ruta.
 pub fn build(src: &str, source_name: &str) -> Result<Vec<u8>, Failure> {
     build_package(source_name, src, &mut |_| None)
+}
+
+/// ** EL ORACULO DE E1: el mismo paquete, emitido SIEMPRE para correr en la
+/// maquina (E1), aunque no lea de fuera: sin correrlo al compilar
+/// (`lower_package_unfolded`), asi que un NO que el calculo encuentra
+/// corriendo (T0060, T0072...) lo tiene que encontrar la maquina, en la
+/// misma linea.
+/// Lo usa la prueba que compara E1 con el calculo (`tests/e1.rs`): lo que
+/// escriben los dos tiene que ser lo mismo, letra a letra. No es un camino
+/// del build: un programa que no lee sale por E0.
+pub fn build_package_e1(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<Vec<u8>, Failure> {
+    let source_name = root.rsplit('/').next().unwrap_or(root);
+    let m = bmo_titan_front::lower_package_unfolded(root, src, read).map_err(Failure::Source)?;
+    let manifest = bmo_titan_front::manifest::manifest(&m, source_name);
+    let e = e1::emit(&m).map_err(Failure::Gate)?;
+    package(&e, &manifest).map_err(Failure::Gate)
 }
 
 /// A PACKAGE to a `.bex` (level 9): the root file (its path from the package

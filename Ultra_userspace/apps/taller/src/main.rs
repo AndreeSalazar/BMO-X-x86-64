@@ -43,12 +43,15 @@ mod art;
 mod aspecto;
 mod astros;
 mod canvas;
+mod editor;
 mod explorer;
 mod faults;
 mod guia;
+mod iconos;
 mod player;
 mod space;
 mod store;
+mod tab;
 mod tema_gen;
 mod view;
 mod window;
@@ -82,6 +85,9 @@ const KEY_LEFT: u8 = 0x82;
 const KEY_RIGHT: u8 = 0x83;
 const KEY_SUPR: u8 = 0x86;
 const KEY_F2: u8 = 0x8A;
+
+/// The editor's block: the biggest file of a node it opens (`editor.rs`).
+const EDIT_CAP: usize = 16 * 1024;
 
 /// The pulse on the cables stops this long after the last touch: at rest, F1
 /// goes back to sleeping (the house's rule -- if it does nothing, it spends
@@ -225,16 +231,54 @@ fn typing(c: u8, store: &mut Store, ui: &mut Ui) {
     ui.edit = Some(e);
 }
 
-/// An entry of the right button's menu, on the item it was opened on.
-fn menu_entry(e: Entry, item: Option<usize>, store: &mut Store, ui: &mut Ui, now: u32) {
+/// An entry of the right button's menu, on the item it was opened on. `Some`:
+/// the item whose code to open in the editor (`main` owns the editor).
+fn menu_entry(e: Entry, item: Option<usize>, store: &mut Store, ui: &mut Ui, now: u32) -> Option<usize> {
     ui.picked = item.or(ui.picked);
     match (e, item) {
+        (Entry::Edit, Some(i)) => return Some(i),
         (Entry::NewFile, _) => begin_new(store, ui, false),
         (Entry::NewFolder, _) => begin_new(store, ui, true),
         (Entry::Rename, Some(i)) => begin_rename(store, ui, i),
         (Entry::Remove, Some(i)) => ask_remove(store, ui, i, now),
         _ => {}
     }
+    None
+}
+
+/// **The code of a node, in the editor** (`editor.rs`): the file `rel` of the
+/// package, read into the editor's block (asked once, kept: F1 opens it
+/// again and again). The one open before is saved first.
+fn open_code(store: &mut Store, mem: &mut Option<bmo::Memoria>, open: &mut Option<editor::Editor>, rel: bmo_titan_lector::Path) {
+    close_code(store, mem, open);
+    if mem.is_none() {
+        *mem = bmo::Memoria::request(EDIT_CAP as u64);
+    }
+    let Some(m) = mem.as_ref() else {
+        store.say(bmo_titan_contrato::Line::new("no hay memoria para el editor"), None, false);
+        return;
+    };
+    let file = store.loaded.files().iter().find(|f| f.path.as_bytes() == rel.as_bytes());
+    let name = file.and_then(|f| store.loaded.graph.node(f.node)).map(|n| n.name).unwrap_or(bmo_titan_contrato::Text::new("?"));
+    match store.read_text(rel.as_bytes(), m, EDIT_CAP) {
+        Some(n) => *open = Some(editor::Editor::open(rel, name, n)),
+        None => store.say(bmo_titan_contrato::Line::new("no pude leerlo en ESTRATOS, o no cabe en el editor"), None, false),
+    }
+}
+
+/// Saves what the editor has (if anything changed) and closes it.
+fn close_code(store: &mut Store, mem: &Option<bmo::Memoria>, open: &mut Option<editor::Editor>) {
+    if let (Some(e), Some(m)) = (open.as_mut(), mem.as_ref()) {
+        if e.dirty && store.save_text(e.rel.as_bytes(), m, e.len) {
+            e.saved();
+        }
+    }
+    *open = None;
+}
+
+/// The code of disk item `i`, if a node comes from it.
+fn code_of(store: &Store, i: usize) -> Option<bmo_titan_lector::Path> {
+    store.tree.as_deref().and_then(|t| t.path_of(i)).filter(|_| explorer::has_code(store, i))
 }
 
 /// Milliseconds since boot, from the TSC.
@@ -297,7 +341,10 @@ pub extern "C" fn _start() -> ! {
         art::backdrop(px, &art::Sky { w: WIDTH as i32, h: HEIGHT as i32, area });
         &*px
     });
-    let mut store = Store::open();
+    let Some(mut store) = Store::open() else {
+        say("TALLER: NO -- sin memoria para la tienda del paquete\n");
+        bmo::salir();
+    };
     let mut shown = Shown::of(&store.loaded.graph);
     let mut canvas = Canvas::new(win.px, win.w, win.h);
     let mut cam = fit(&store.loaded.graph);
@@ -310,6 +357,15 @@ pub extern "C" fn _start() -> ! {
     let mut turn: u32 = 96;
     // The last click on a disk row: (when, which), for the double click.
     let mut last_click: (u32, Option<usize>) = (0, None);
+    // The TAB of master nodes, while it is open (`tab.rs`, PLAN_TALLER 8.15),
+    // and the node it just placed: picked when the next beat reads it back.
+    let mut palette: Option<tab::Palette> = None;
+    let mut placed: Option<bmo_titan_contrato::Name> = None;
+    // The code of a node, open in the editor, and the block it lives in.
+    let mut code: Option<editor::Editor> = None;
+    let mut code_mem: Option<bmo::Memoria> = None;
+    // The last click on a node of the GRAPH: (when, which), for the double click.
+    let mut last_node: (u32, Option<NodeId>) = (0, None);
     let clock = Clock { hz: bmo::info(bmo::INFO_TSC_HZ) };
     let mut last = clock.now_ms();
     let opened = last;
@@ -337,6 +393,9 @@ pub extern "C" fn _start() -> ! {
         if store.refresh() {
             shown = Shown::of(&store.loaded.graph);
             shown.selected = keep.and_then(|n| store.loaded.graph.find(n.as_bytes()));
+            if let Some(n) = placed.take() {
+                shown.selected = store.loaded.graph.find(n.as_bytes()).or(shown.selected);
+            }
             ui.picked = keep_item.and_then(|p| store.tree.as_deref().and_then(|t| t.find(p.as_bytes())));
             // Indices of the old tree mean nothing in the new one.
             if ui.edit.take().is_some() {
@@ -354,7 +413,7 @@ pub extern "C" fn _start() -> ! {
             }
         }
         // The caret blinks and a doomed row flashes: draw while they are there.
-        dirty |= ui.edit.is_some() || ui.confirm.is_some();
+        dirty |= ui.edit.is_some() || ui.confirm.is_some() || code.is_some();
 
         let veil = if splash { art::splash_at(now.wrapping_sub(opened)) } else { None };
         splash = veil.is_some();
@@ -370,13 +429,52 @@ pub extern "C" fn _start() -> ! {
                 continue;
             }
             match input {
+                // The editor takes every key while it is open: Esc saves and
+                // closes it (and does not close F1).
+                Input::Char(c) if code.is_some() => {
+                    let mut close = false;
+                    if let (Some(e), Some(m)) = (code.as_mut(), code_mem.as_ref()) {
+                        close = matches!(e.key(store::text_block(m, EDIT_CAP), c, now), editor::Act::Close);
+                    }
+                    if close {
+                        close_code(&mut store, &code_mem, &mut code);
+                    }
+                    dirty = true;
+                }
+                // The TAB is on top of everything while it is open: every key
+                // is its own (Esc closes IT, not F1), and a click outside it
+                // only closes it.
+                Input::Char(c) if palette.is_some() => {
+                    if let Some(p) = palette.as_mut() {
+                        match p.key(c, KEY_UP, KEY_DOWN) {
+                            tab::Act::Stay => {}
+                            tab::Act::Close => palette = None,
+                            tab::Act::Place(i) => {
+                                let (x, y) = p.at;
+                                placed = store.place_master(i, x, y);
+                                palette = None;
+                            }
+                        }
+                    }
+                    dirty = true;
+                }
+                Input::Mouse { x, y, buttons, down: true } if palette.is_some() => {
+                    let stays = buttons & BUTTON != 0 && palette.as_mut().is_some_and(|p| p.click(WIDTH as i32, HEIGHT as i32, x, y));
+                    if !stays {
+                        palette = None;
+                    }
+                    dirty = true;
+                }
+                Input::Mouse { .. } if palette.is_some() => {}
                 // The menu is on top of everything: a click is ITS click, and
                 // anywhere else only closes it.
                 Input::Mouse { down: true, .. } if ui.menu.is_some() => {
                     if let (Some(m), Input::Mouse { x, y, buttons, .. }) = (ui.menu.take(), input) {
                         if buttons & BUTTON != 0 {
                             if let Some(e) = m.hit(x, y) {
-                                menu_entry(e, m.item, &mut store, &mut ui, now);
+                                if let Some(rel) = menu_entry(e, m.item, &mut store, &mut ui, now).and_then(|i| code_of(&store, i)) {
+                                    open_code(&mut store, &mut code_mem, &mut code, rel);
+                                }
                             }
                         }
                     }
@@ -389,7 +487,24 @@ pub extern "C" fn _start() -> ! {
                     };
                     if store.tree.as_deref().is_some_and(|t| !t.is_empty()) {
                         ui.picked = item.or(ui.picked);
-                        ui.menu = Some(Menu { x: (x + 2).min(view::LEFT - 40), y, item });
+                        let code = item.is_some_and(|i| explorer::has_code(&store, i));
+                        ui.menu = Some(Menu { x: (x + 2).min(view::LEFT - 40), y, item, code });
+                        dirty = true;
+                    }
+                }
+                // The right button on a NODE of the GRAPH: the same menu as its
+                // file in the EXPLORER, with `Editar codigo` first.
+                Input::Mouse { x, y, buttons, down: true } if buttons & RIGHT_BUTTON != 0 && tab == Tab::Graph => {
+                    let (ex, ey, ew, eh) = editor::frame(WIDTH as i32, HEIGHT as i32);
+                    let on_editor = code.is_some() && x >= ex && x < ex + ew && y >= ey && y < ey + eh;
+                    if let Some(id) = view::hit(&store.loaded.graph, &cam, x, y).filter(|_| !on_editor) {
+                        let item = explorer::item_of(&store, id);
+                        shown.selected = Some(id);
+                        if item.is_some() {
+                            ui.picked = item;
+                            let code = item.is_some_and(|i| explorer::has_code(&store, i));
+                            ui.menu = Some(Menu { x: x.min(WIDTH as i32 - 200), y: y.min(HEIGHT as i32 - 140), item, code });
+                        }
                         dirty = true;
                     }
                 }
@@ -404,6 +519,7 @@ pub extern "C" fn _start() -> ! {
                         drag = Drag::None;
                         match explorer::click(&store, &ui, x, y) {
                             Some(Click::Package(i)) => {
+                                close_code(&mut store, &code_mem, &mut code);
                                 store.choose(i);
                                 shown = Shown::of(&store.loaded.graph);
                                 cam = fit(&store.loaded.graph);
@@ -473,7 +589,26 @@ pub extern "C" fn _start() -> ! {
                         dirty = true;
                         continue;
                     }
-                    drag = match view::hit(g, &cam, x, y) {
+                    // A click inside the editor is the editor's.
+                    if code.is_some() {
+                        let (ex, ey, ew, eh) = editor::frame(WIDTH as i32, HEIGHT as i32);
+                        if x >= ex && x < ex + ew && y >= ey && y < ey + eh {
+                            continue;
+                        }
+                    }
+                    let hit = view::hit(g, &cam, x, y);
+                    // Two clicks on a node: its code, in the editor.
+                    if let Some(id) = hit.filter(|&id| last_node.1 == Some(id) && now.wrapping_sub(last_node.0) < DOUBLE_MS) {
+                        last_node = (0, None);
+                        if let Some(rel) = store.loaded.file_of(id).map(|f| f.path) {
+                            open_code(&mut store, &mut code_mem, &mut code, rel);
+                        }
+                        dirty = true;
+                        continue;
+                    }
+                    last_node = (now, hit);
+                    let g = &store.loaded.graph;
+                    drag = match hit {
                         Some(id) => {
                             // Picking a node in the canvas lights its file on the left.
                             shown.selected = Some(id);
@@ -494,6 +629,17 @@ pub extern "C" fn _start() -> ! {
                 // While a name is typed, every key is the box's.
                 Input::Char(c) if ui.edit.is_some() => {
                     typing(c, &mut store, &mut ui);
+                    dirty = true;
+                }
+                // TAB, over the GRAPH or the SKY: the master nodes (Houdini).
+                // The node will go where the mouse is now, centred on it.
+                Input::Char(b'\t') if matches!(tab, Tab::Graph | Tab::Sky) => {
+                    let p = win.pointer();
+                    let on_canvas = tab == Tab::Graph && p.inside && p.x >= view::LEFT && p.y >= view::TOP && p.y < HEIGHT as i32 - view::PANEL;
+                    let (sx, sy) = if on_canvas { (p.x, p.y) } else { view::canvas_center(WIDTH as i32, HEIGHT as i32) };
+                    let (wx, wy) = cam.to_world(sx, sy);
+                    palette = Some(tab::Palette::open((wx - NODE_W / 2, wy - NODE_H / 2)));
+                    ui.menu = None;
                     dirty = true;
                 }
                 Input::Char(0x1B) if ui.menu.is_some() => {
@@ -562,6 +708,19 @@ pub extern "C" fn _start() -> ! {
                     dirty |= key(c, &mut shown, &mut cam, &store.loaded.graph);
                 }
             }
+        }
+
+        // The editor saves on its own once the keys stop: the node changes
+        // the next beat, while the owner looks at it.
+        if code.as_ref().is_some_and(|e| e.due(now)) {
+            if let (Some(e), Some(m)) = (code.as_mut(), code_mem.as_ref()) {
+                if store.save_text(e.rel.as_bytes(), m, e.len) {
+                    e.saved();
+                } else {
+                    e.last_key = now;
+                }
+            }
+            dirty = true;
         }
 
         let ptr = win.pointer();
@@ -659,6 +818,12 @@ pub extern "C" fn _start() -> ! {
                     }
                     _ => {}
                 }
+            }
+            if let (false, Some(e), Some(m)) = (covered, code.as_mut(), code_mem.as_ref()) {
+                editor::draw(&mut canvas, e, store::text_block(m, EDIT_CAP), now);
+            }
+            if let (false, Some(p)) = (covered, palette.as_ref()) {
+                tab::draw(&mut canvas, p, flowing.then_some(now).unwrap_or(0) as i32);
             }
             if let (true, Some(a), Some(l)) = (splash, veil, logo.as_ref()) {
                 art::splash(&mut canvas, l, a);

@@ -1,6 +1,6 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 66 planes
+# LO QUE FALTA -- las casillas abiertas de los 67 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
@@ -24,10 +24,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 9 de 10 hechas, faltan 1
 - [`PLAN_EL_AISLAMIENTO.md`](PLAN_EL_AISLAMIENTO.md) -- 4 de 5 hechas, faltan 1
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
+- [`PLAN_LA_ENTRADA.md`](PLAN_LA_ENTRADA.md) -- 9 de 11 hechas, faltan 2
 - [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 10 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
-- [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 30 de 35 hechas, faltan 5
+- [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 32 de 35 hechas, faltan 3
+- [`PLAN_LISTAS_Y_MAPAS.md`](PLAN_LISTAS_Y_MAPAS.md) -- 9 de 12 hechas, faltan 3
 - [`PLAN_SEGURIDAD.md`](PLAN_SEGURIDAD.md) -- 26 de 32 hechas, faltan 6
+- [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 25 de 32 hechas, faltan 7
 - [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 35 de 45 hechas, faltan 10
 
 ---
@@ -88,15 +91,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] F6 -- LO DATA-DENSE. Graficos circulares (la carga por nucleo, los
 - ... y 16 mas
 
-## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 18 abiertas, 2 hechas
-
-*PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
-
-- [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
-- [ ] E3 -- el compositor al compas de la pantalla
-- [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
-- ... y 15 mas
-
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 
 *El plan de la AUTO-CURACION: de informar a actuar*
@@ -131,15 +125,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] el tubo abre (A1) <- lo unico que bloquea M1, y es un ARRANQUE
 - [ ] M1 WAV dias despues del tubo
 - [ ] M2 MP3 (= A5) media tarde de comprobar la coma flotante antes
-- ... y 13 mas
-
-## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 16 abiertas, 10 hechas
-
-*PLAN DEL TALLER -- F1 de BMO-X*
-
-- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
-- [ ] 3 taller.bex DIBUJA una ventana con su rejilla y su cursor,
-- [ ] 4 y LEE TECLAS por el buzon de entrada, con el
 - ... y 13 mas
 
 ## [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) -- 15 abiertas, 14 hechas
@@ -286,6 +271,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A5a -- las cinco que ya se pueden decidir al compilar (contador,
 - ... y 4 mas
 
+## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 7 abiertas, 25 hechas
+
+*PLAN DEL TALLER -- F1 de BMO-X*
+
+- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
+- [ ] 5 los comandos que la ls, cat, escribir. Y los que la
+- [ ] 6 compilar hola.ada el frontend de Ada dentro del mismo
+- ... y 4 mas
+
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas
 
 *PLAN EL ENLAZADOR -- la pieza que madura a CINCO lenguajes a la vez*
@@ -365,15 +359,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] emit_program son 357 lineas dentro de mod.rs, y hace TRES cosas:
 - [ ] emit_stmt son 175 lineas y un match de sentencias. Es hermano de
 - [ ] parser/preprocessor.rs son 1.204 lineas y es el otro monolito.
-- ... y 2 mas
-
-## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 5 abiertas, 30 hechas
-
-*PLAN EL CENTAURO -- TITAN++ nivel 11: gpu fn a la 3060*
-
-- [ ] G4 -- EN LA 3060 (Ring 0, del propietario)
-- [ ] LANZAR computo: la QMD y el banco constante 0 (ga10x)
-- [ ] el mismo programa del banco, con sus celdas calculadas por la 3060 y comparadas con el oraculo
 - ... y 2 mas
 
 ## [`PLAN_EL_SEMAFORO_COMPLETO.md`](PLAN_EL_SEMAFORO_COMPLETO.md) -- 5 abiertas, 4 hechas
@@ -457,6 +442,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 6. ENTREGAR EN CERO. Mover el borrado del devolver al entregar, UNA
 - ... y 1 mas
 
+## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 3 abiertas, 32 hechas
+
+*PLAN EL CENTAURO -- TITAN++ nivel 11: gpu fn a la 3060*
+
+- [ ] G4 -- EN LA 3060 (Ring 0, del propietario)
+- [ ] LANZAR computo: la QMD y el banco constante 0 (ga10x)
+- [ ] el mismo programa del banco, con sus celdas calculadas por la 3060 y comparadas con el oraculo
+
 ## [`PLAN_EL_SILICIO.md`](PLAN_EL_SILICIO.md) -- 3 abiertas, 5 hechas
 
 *PLAN EL SILICIO*
@@ -472,6 +465,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
 - [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
 - [ ] S7 -- LOS CARRILES: 4 u 8 invocaciones por instruccion
+
+## [`PLAN_LISTAS_Y_MAPAS.md`](PLAN_LISTAS_Y_MAPAS.md) -- 3 abiertas, 9 hechas
+
+*PLAN LISTAS Y MAPAS -- lo que CRECE mientras el programa corre*
+
+- [ ] L9 -- un INDICE POR HASH para los mapas de E1, en toolchain/lang/titan/emisor-x86_64/src/e1/cole
+- [ ] L10 -- la copia del ULTIMO uso convertida en entrega (D2): let b = a sin volver a leer a mueve e
+- [ ] L11 -- del PROPIETARIO: las leyes nuevas de listas y mapas con --sellar (toolchain/tools/titan-l
 
 ## [`PLAN_NAVEGAR.md`](PLAN_NAVEGAR.md) -- 3 abiertas, 7 hechas
 
@@ -501,6 +502,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] X5b -- el depth buffer. Para lo que NO es convexo (dos objetos que
 - [ ] X6 -- mas huellas. Las 360 de la vuelta, generadas en Windows por
+
+## [`PLAN_LA_ENTRADA.md`](PLAN_LA_ENTRADA.md) -- 2 abiertas, 9 hechas
+
+*PLAN LA ENTRADA -- TITAN++ lee de fuera, y una parte del programa corre de verdad*
+
+- [ ] R8 -- el PRESUPUESTO de plegado (7.3): un bucle sin lee() que pasa de STEPS se EMITE en vez de d
+- [ ] R10 -- del PROPIETARIO: las leyes nuevas de lee() y numero(t), con --sellar (toolchain/tools/tit
 
 ## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 2 abiertas, 8 hechas
 

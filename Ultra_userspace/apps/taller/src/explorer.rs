@@ -128,19 +128,23 @@ impl Edit {
 /// The entries of the right button's menu.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Entry {
+    /// The code of the file, in the editor (`editor.rs`): only on a file a
+    /// node comes from -- a `.titan` or the `Titan.toml`.
+    Edit,
     NewFile,
     NewFolder,
     Rename,
     Remove,
 }
 
-const MENU: [(Entry, &[u8]); 4] = [
+const MENU: [(Entry, &[u8]); 5] = [
+    (Entry::Edit, b"Editar codigo  2 clics"),
     (Entry::NewFile, b"Nuevo archivo"),
     (Entry::NewFolder, b"Nueva carpeta"),
     (Entry::Rename, b"Renombrar   F2"),
     (Entry::Remove, b"Quitar      Supr"),
 ];
-const MENU_W: i32 = 150;
+const MENU_W: i32 = 196;
 
 #[derive(Clone, Copy)]
 pub struct Menu {
@@ -148,15 +152,22 @@ pub struct Menu {
     pub y: i32,
     /// The item it was opened on; `None` = the empty part of the column.
     pub item: Option<usize>,
+    /// The item has code to edit (a node comes from it): `Editar` shows.
+    pub code: bool,
 }
 
 impl Menu {
-    fn entries(&self) -> usize {
-        if self.item.is_some() {
-            4
-        } else {
-            2
+    /// The entries it shows: `Editar` first on code, the rest on an item,
+    /// and only `Nuevo` on the empty part of the column.
+    fn list(&self) -> &'static [(Entry, &'static [u8])] {
+        match (self.item, self.code) {
+            (Some(_), true) => &MENU,
+            (Some(_), false) => &MENU[1..],
+            (None, _) => &MENU[1..3],
         }
+    }
+    fn entries(&self) -> usize {
+        self.list().len()
     }
     fn rect(&self) -> (i32, i32, i32, i32) {
         (self.x, self.y, MENU_W, self.entries() as i32 * ROW + 8)
@@ -167,7 +178,7 @@ impl Menu {
         if x < mx || x >= mx + w || y < my + 4 || y >= my + h - 4 {
             return None;
         }
-        MENU.get(((y - my - 4) / ROW) as usize).filter(|_| ((y - my - 4) / ROW) < self.entries() as i32).map(|e| e.0)
+        self.list().get(((y - my - 4) / ROW) as usize).map(|e| e.0)
     }
 }
 
@@ -343,6 +354,12 @@ pub fn node_of(store: &Store, i: usize) -> Option<NodeId> {
     store.loaded.files().iter().find(|f| f.depth > 0 && f.path.as_bytes() == rel.as_bytes()).map(|f| f.node)
 }
 
+/// Does a node come from disk item `i`? Then it has code to edit.
+pub fn has_code(store: &Store, i: usize) -> bool {
+    let Some(rel) = tree(store).and_then(|t| t.path_of(i)) else { return false };
+    store.loaded.files().iter().any(|f| f.path.as_bytes() == rel.as_bytes())
+}
+
 /// The disk item of a node's file (the canvas picked it: light its row).
 pub fn item_of(store: &Store, node: NodeId) -> Option<usize> {
     let f = store.loaded.file_of(node)?;
@@ -496,7 +513,7 @@ fn menu(c: &mut Canvas, m: &Menu) {
     c.glow(x, y, w, h, VIOLET, 6, 60);
     c.rect(x, y, w, h, BG);
     c.frame(x, y, w, h, 1, ACCENT);
-    for (k, (_, label)) in MENU.iter().take(m.entries()).enumerate() {
+    for (k, (_, label)) in m.list().iter().enumerate() {
         c.text(x + 10, y + 4 + k as i32 * ROW + 1, label, INK, 1);
     }
 }

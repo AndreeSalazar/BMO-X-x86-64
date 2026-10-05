@@ -65,6 +65,14 @@ Guardian 'Validating the laws of TITAN++ are kept' `
     'toolchain\tools\titan-leyes\titan_leyes.py' 'las leyes de TITAN++' `
     'titan-leyes: una ley de TITAN++ perdio quien la cumple, o cambio sin sellar (ver arriba)'
 
+# ** LOS NODOS MAESTROS DE LA TAB (2026-10-05, PLAN_TALLER 8.15): la TAB de F1
+# ofrece los programas BIEN del banco de TITAN++, copiados a una tabla de
+# titan-lector. Un catalogo a mano mentiria pronto; este dice NO si la tabla y
+# el banco dejan de decir lo mismo. Ver toolchain/tools/maestros/maestros.py.
+Guardian 'Validating the TAB of F1 offers exactly the bench of TITAN++' `
+    'toolchain\tools\maestros\maestros.py' 'los nodos maestros de la TAB' `
+    'maestros: maestros_gen.rs y el banco no dicen lo mismo (python toolchain/tools/maestros/maestros.py lo regenera)'
+
 # ---------------------------------------------------------------------------
 # ** EL QUINTO GUARDIAN: LAS CITAS A DOCUMENTOS (2026-08-17).
 #

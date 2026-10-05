@@ -1,0 +1,7 @@
+# espera: T0079
+# `Hay` y `NoHay` los dan `get` y `pop`: un Hay escrito a mano diria que hay algo sin haberlo buscado
+mod main "un Hay inventado"
+
+fn main()
+    let x = Hay(3)
+    print(x)

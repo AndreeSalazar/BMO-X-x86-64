@@ -40,6 +40,12 @@ toolchain/lang/titan/ejemplos/nivel10/formas.titan 51 0 265 3e932a0c025ec0a6
 toolchain/lang/titan/ejemplos/nivel10/motor/src/main.titan 34 0 180 36be6f246c208e76
 toolchain/lang/titan/ejemplos/nivel11/activa/src/main.titan 66 0 335 ad3c85df63fda75f
 toolchain/lang/titan/ejemplos/nivel11/mezcla/src/main.titan 24 0 139 ac980c01fdd85e0e
+toolchain/lang/titan/ejemplos/nivel12/adivina.titan 1010 168 2166 b7cb1a531854d3fd
+toolchain/lang/titan/ejemplos/nivel12/hasta_fin.titan 815 113 1794 dc5cd9badca78e5e
+toolchain/lang/titan/ejemplos/nivel12/la_cuenta.titan 7678 2885 7690 c1e9be94259b4a5c
+toolchain/lang/titan/ejemplos/nivel12/pregunta.titan 124 10 568 7f77ffd465b11ed8
+toolchain/lang/titan/ejemplos/nivel13/agenda.titan 2559 761 6924 92051366aef5cbdd
+toolchain/lang/titan/ejemplos/nivel13/mundo.titan 36 0 195 0e17b9ee9847b5ea
 toolchain/lang/titan/ejemplos/nivel2/constelacion.titan 26 0 137 38be7e5ae74f5090
 toolchain/lang/titan/ejemplos/nivel3/calculadora.titan 37 0 194 dd118d64af246ac3
 toolchain/lang/titan/ejemplos/nivel3/semaforo.titan 34 0 180 cdaf2dedfc9dd621

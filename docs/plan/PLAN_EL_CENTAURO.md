@@ -161,9 +161,9 @@ automatice y no tenga que perder el tiempo en adivinar"*. Las dos mitades:
 - [ ] LANZAR computo: la QMD y el banco constante 0 (ga10x)
 - [ ] el mismo programa del banco, con sus celdas calculadas por la 3060 y comparadas con el oraculo
 
-## [ ] G5 -- LOS PAPELES
+## [x] G5 -- LOS PAPELES -- HECHO el 05-10
 
-- [ ] GRAMATICA nivel 11 y sus codigos; TITAN_MAESTRO, la entrada del nivel 11 y 14.14 al dia
+- [x] GRAMATICA nivel 11 y sus codigos (T0090, T0091 y el T0040 del f64, en `toolchain/lang/titan/GRAMATICA.md`); TITAN_MAESTRO (`docs/maestro/TITAN_MAESTRO.md`), la entrada del nivel 11 y 14.14 al dia
 
 ---
 

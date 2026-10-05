@@ -1,0 +1,8 @@
+# espera: T0077
+# `push` CAMBIA su lista: se le presta con `mut`, y se dice en la llamada
+mod main "un push sin prestar"
+
+fn main()
+    let mut l: [int] = []
+    push(l, 1)
+    print(l)
