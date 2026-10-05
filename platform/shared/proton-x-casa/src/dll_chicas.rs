@@ -6,7 +6,8 @@
 //!    winmm      timeGetTime, timeBeginPeriod/EndPeriod, timeGetDevCaps
 //!    shlwapi    PathFileExistsW, PathRemoveFileSpecW
 //!    shell32    SHGetFolderPathW, SHGetSpecialFolderPathW,
-//!               SHGetKnownFolderPath (las carpetas, del entorno), ShellExecuteA
+//!               SHGetKnownFolderPath (las carpetas, del entorno), ShellExecuteA,
+//!               CommandLineToArgvW (E1.1 de la ESCALERA, 05-10)
 //!    ntdll      NtQueryInformationProcess, RtlRunOnceExecuteOnce,
 //!               RtlUTF8ToUnicodeN (y RtlUnwind, que ya era de kernel32)
 //!    gdi32      GetStockObject
@@ -39,6 +40,7 @@ const TIMERR_NOCANDO: u32 = 97;
 const ERROR_DEVICE_NOT_CONNECTED: u32 = 1167;
 const ERROR_INSUFFICIENT_BUFFER: u32 = 122;
 const ERROR_INVALID_PARAMETER: u32 = 87;
+const ERROR_NOT_ENOUGH_MEMORY: u32 = 8;
 
 // -- winmm ------------------------------------------------------------------------------
 
@@ -653,6 +655,45 @@ extern "win64" fn if_nametoindex(_nombre: *const u8) -> u32 {
     0
 }
 
+/// `CommandLineToArgvW(linea, *argc)` (shell32): la linea partida como la
+/// parte el CRT (`bmo_proton_x::proceso::argumentos`: el programa hasta su
+/// comilla, y las reglas de las barras y las comillas). Con la linea VACIA,
+/// un solo argumento, la ruta del `.exe` (asi lo documenta Windows). Todo en
+/// UN bloque de LocalAlloc -- los punteros y, detras, las cadenas -- que el
+/// `.exe` suelta con UN LocalFree. El `DXSample` de Microsoft lee asi sus
+/// argumentos (E1.1 de la ESCALERA, 05-10).
+extern "win64" fn command_line_to_argv_w(linea: *const u16, argc: *mut i32) -> u64 {
+    if argc.is_null() {
+        kernel32::poner_error(ERROR_INVALID_PARAMETER);
+        return 0;
+    }
+    let l = if linea.is_null() { Vec::new() } else { crate::crt::cadena_w(linea as u64) };
+    let args = if l.is_empty() {
+        alloc::vec![proceso::ruta_exe()]
+    } else {
+        bmo_proton_x::proceso::argumentos(&alloc::string::String::from_utf16_lossy(&l))
+    };
+    let anchas: Vec<Vec<u16>> = args.iter().map(|a| a.encode_utf16().chain([0]).collect()).collect();
+    let punteros = (anchas.len() + 1) * 8;
+    let total = punteros + anchas.iter().map(|a| a.len() * 2).sum::<usize>();
+    let Some(bloque) = memoria::pedir_del_proceso(total as u64) else {
+        kernel32::poner_error(ERROR_NOT_ENOUGH_MEMORY);
+        return 0;
+    };
+    let mut cadena = bloque + punteros as u64;
+    // SAFETY: `total` bytes recien pedidos: los punteros y las cadenas caben.
+    unsafe {
+        for (k, a) in anchas.iter().enumerate() {
+            ((bloque + k as u64 * 8) as *mut u64).write(cadena);
+            core::ptr::copy_nonoverlapping(a.as_ptr(), cadena as *mut u16, a.len());
+            cadena += a.len() as u64 * 2;
+        }
+        ((bloque + anchas.len() as u64 * 8) as *mut u64).write(0);
+        argc.write(anchas.len() as i32);
+    }
+    bloque
+}
+
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "timeGetTime" => dir!(time_get_time),
@@ -664,6 +705,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "SHGetSpecialFolderPathW" => dir!(sh_get_special_folder_path_w),
         "SHGetKnownFolderPath" => dir!(sh_get_known_folder_path),
         "ShellExecuteA" => dir!(shell_execute_a),
+        "CommandLineToArgvW" => dir!(command_line_to_argv_w),
         "GetStockObject" => dir!(get_stock_object),
         "CallNtPowerInformation" => dir!(call_nt_power_information),
         "InternetGetConnectedState" => dir!(internet_get_connected_state),

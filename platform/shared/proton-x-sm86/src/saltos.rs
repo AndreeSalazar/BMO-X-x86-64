@@ -74,7 +74,7 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
             v[4] = Some(nivel);
         }
         Op::Si { c } | Op::RomperSi { c, .. } | Op::Descarta { c } => v[0] = Some(c),
-        Op::LeeIndexado { i, .. } | Op::ConstantesEn { i, .. } => v[0] = Some(i),
+        Op::LeeIndexado { i, .. } | Op::ConstantesEn { i, .. } | Op::EligeTextura { i, .. } => v[0] = Some(i),
         Op::EscribeIndexado { i, s, .. } => {
             v[0] = Some(i);
             v[1] = Some(s);
@@ -113,7 +113,8 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         | Op::Entera { d, .. }
         | Op::Convierte { d, .. }
         | Op::LeeIndexado { d, .. } => uno(d),
-        Op::Salida { .. } | Op::Descarta { .. } | Op::EscribeIndexado { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
+        // EligeTextura no escribe registros: escoge la textura de la lectura de detras.
+        Op::Salida { .. } | Op::Descarta { .. } | Op::EscribeIndexado { .. } | Op::EligeTextura { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
     }
 }
 

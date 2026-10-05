@@ -49,9 +49,21 @@ struct Estado {
     entorno_w: Vec<Vec<u16>>,
     env_a: Vec<u64>,
     env_w: Vec<u64>,
+    /// `_environ` y `_wenviron`: las variables cuya DIRECCION dan
+    /// __p__environ y __p__wenviron (apuntan a `env_a` y `env_w`).
+    environ: u64,
+    wenviron: u64,
+    /// `_acmdln`: la linea de ordenes en estrecho (con su 0), y la variable
+    /// cuya DIRECCION da __p__acmdln.
+    acmdln_a: Vec<u8>,
+    acmdln: u64,
     /// Lo que se registro con _crt_atexit: corre al salir, al reves.
     al_salir: Vec<u64>,
     commode: i32,
+    fmode: i32,
+    /// Los manejadores puestos con `signal`, por su numero de C (hasta
+    /// SIGABRT, 22).
+    manejadores: [u64; 23],
     tl_atexit: u64,
 }
 
@@ -70,8 +82,14 @@ static ESTADO: Global = Global(UnsafeCell::new(Estado {
     entorno_w: Vec::new(),
     env_a: Vec::new(),
     env_w: Vec::new(),
+    environ: 0,
+    wenviron: 0,
+    acmdln_a: Vec::new(),
+    acmdln: 0,
     al_salir: Vec::new(),
     commode: 0,
+    fmode: 0,
+    manejadores: [0; 23],
     tl_atexit: 0,
 }));
 
@@ -93,8 +111,14 @@ pub(crate) fn reiniciar() {
     e.entorno_w.clear();
     e.env_a.clear();
     e.env_w.clear();
+    e.environ = 0;
+    e.wenviron = 0;
+    e.acmdln_a.clear();
+    e.acmdln = 0;
     e.al_salir.clear();
     e.commode = 0;
+    e.fmode = 0;
+    e.manejadores = [0; 23];
     e.tl_atexit = 0;
 }
 
@@ -131,6 +155,8 @@ pub(crate) fn preparar_entorno() {
     }
     e.env_a = e.entorno_a.iter().map(|v| v.as_ptr() as u64).chain([0]).collect();
     e.env_w = e.entorno_w.iter().map(|v| v.as_ptr() as u64).chain([0]).collect();
+    e.environ = e.env_a.as_ptr() as u64;
+    e.wenviron = e.env_w.as_ptr() as u64;
 }
 
 /// **Una variable del entorno DEL CRT** (getenv y los suyos): la copia que
@@ -235,6 +261,38 @@ extern "win64" fn configthreadlocale(_n: i32) -> i32 {
 
 extern "win64" fn p_commode() -> *mut i32 {
     &mut estado().commode
+}
+
+/// `__p__environ` y `__p__wenviron` (E1.1 de la ESCALERA, 05-10: el arranque
+/// de mingw-w64 sobre el UCRT los lee): la DIRECCION de `_environ` y
+/// `_wenviron`, la copia del entorno del CRT (`preparar_entorno`).
+extern "win64" fn p_environ() -> *mut u64 {
+    preparar_entorno();
+    &mut estado().environ
+}
+
+extern "win64" fn p_wenviron() -> *mut u64 {
+    preparar_entorno();
+    &mut estado().wenviron
+}
+
+/// `__p__acmdln`: la DIRECCION de `_acmdln`, la linea de ordenes entera en
+/// estrecho (lo que no es ASCII, `?`, como el entorno). El arranque de
+/// mingw-w64 la parte para el `lpCmdLine` de WinMain.
+extern "win64" fn p_acmdln() -> *mut u64 {
+    let e = estado();
+    if e.acmdln_a.is_empty() {
+        e.acmdln_a = proceso::linea().chars().map(|c| if c.is_ascii() { c as u8 } else { b'?' }).chain([0]).collect();
+        e.acmdln = e.acmdln_a.as_ptr() as u64;
+    }
+    &mut e.acmdln
+}
+
+/// `__p__fmode`: la DIRECCION de `_fmode`, el modo de los ficheros que se
+/// abren sin `t` ni `b`. Empieza en 0 (texto, como el UCRT). Lo que se
+/// escriba ahi se guarda; los ficheros de la casa todavia no lo miran.
+extern "win64" fn p_fmode() -> *mut i32 {
+    &mut estado().fmode
 }
 
 // -- La salida -----------------------------------------------------------------------------
@@ -691,6 +749,28 @@ pub(crate) extern "win64" fn seh_filter_exe(_codigo: u32, _punteros: u64) -> i32
     EXCEPTION_CONTINUE_SEARCH
 }
 
+const SIG_ERR: u64 = u64::MAX;
+/// Los numeros que acepta `signal` en el UCRT: SIGINT, SIGILL, SIGABRT_COMPAT,
+/// SIGFPE, SIGSEGV, SIGTERM, SIGBREAK y SIGABRT.
+const LOS_DE_C: [usize; 8] = [2, 4, 6, 8, 11, 15, 21, 22];
+
+/// `signal(numero, manejador)`: guarda el manejador y devuelve el de antes
+/// (SIG_DFL, 0, al empezar); un numero que el UCRT no acepta, SIG_ERR y
+/// EINVAL. Lo que NO hace todavia, dicho: la casa no LLAMA nunca a un
+/// manejador (`seh_filter_exe` sigue diciendo CONTINUE_SEARCH), y lo avisa
+/// la primera vez que se pone uno que no es SIG_DFL ni SIG_IGN.
+extern "win64" fn signal(numero: i32, manejador: u64) -> u64 {
+    let n = numero as usize;
+    if !LOS_DE_C.contains(&n) {
+        crate::crt_cadenas::poner_errno(crate::crt_cadenas::EINVAL);
+        return SIG_ERR;
+    }
+    if manejador > 1 {
+        crate::aviso("signal: el manejador se guarda, pero la casa todavia no lo llama nunca");
+    }
+    core::mem::replace(&mut estado().manejadores[n], manejador)
+}
+
 
 /// Si `dll` es del CRT: la suya, `vcruntime140.dll` o un API set `api-ms-win-crt-*`.
 pub(crate) fn es_del_crt(dll: &str) -> bool {
@@ -724,6 +804,11 @@ fn esta(n: &str) -> Option<u64> {
         "_set_new_mode" | "_set_fmode" | "_callnewh" => dir!(cero),
         "_configthreadlocale" => dir!(configthreadlocale),
         "__p__commode" => dir!(p_commode),
+        "__p__environ" => dir!(p_environ),
+        "__p__wenviron" => dir!(p_wenviron),
+        "__p__acmdln" => dir!(p_acmdln),
+        "__p__fmode" => dir!(p_fmode),
+        "signal" => dir!(signal),
         "_crt_atexit" => dir!(crt_atexit),
         "exit" => dir!(exit),
         "_exit" | "_Exit" => dir!(exit_rapido),

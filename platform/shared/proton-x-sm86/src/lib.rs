@@ -826,7 +826,8 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             Op::Div { .. } => return Err(NoEmite::Operacion(i)),
             // 02-10: arrays, cubos, 3D, mips, Load y GetDimensions: en la
             // CPU todavia (la 3060 lee aqui un TEX 2D de nivel 0).
-            Op::Lee { .. } => return Err(NoEmite::Operacion(i)),
+            // N5.4: elegir la textura al correr, la 3060 todavia no.
+            Op::Lee { .. } | Op::EligeTextura { .. } => return Err(NoEmite::Operacion(i)),
             // N5.6: sin, cos, exp2, log2... (MUFU) todavia no: va por la CPU.
             Op::Mate { .. } => return Err(NoEmite::Operacion(i)),
             // N5.7: `discard` (el KILL de la 3060) todavia no: va por la CPU.

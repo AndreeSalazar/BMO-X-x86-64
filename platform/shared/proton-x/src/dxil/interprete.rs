@@ -54,6 +54,8 @@ impl Programa {
         // Donde empieza cada bucle abierto (la forma ya se comprobo).
         let mut bucles = [0usize; ANIDADO_MAXIMO];
         let mut hondo = 0usize;
+        // N5.4: la textura que eligio el ultimo `EligeTextura`.
+        let mut elegida: Option<crate::textura::Textura> = None;
         let mut pc = 0usize;
         while let Some(op) = self.ops.get(pc) {
             pc += 1;
@@ -156,11 +158,29 @@ impl Programa {
                     let (x, y) = (regs[a as usize], regs[b as usize]);
                     regs[d as usize] = if x.is_nan() || y > x { y } else { x };
                 }
+                Op::EligeTextura { i, rango } => elegida = rec.dinamica(rango, bits(regs, i)),
                 Op::Muestra { d, t, s, u, v } => {
+                    let (unica, solo);
+                    let (rec, t) = if t == super::programa::DINAMICA {
+                        unica = [elegida];
+                        solo = crate::textura::Recursos { texturas: &unica, muestreadores: rec.muestreadores, buferes: &[], dinamicas: None };
+                        (&solo, 0)
+                    } else {
+                        (rec, t)
+                    };
                     let c = rec.muestrear(t, s, regs[u as usize], regs[v as usize]);
                     regs[d as usize..d as usize + 4].copy_from_slice(&c);
                 }
                 Op::Lee { d, t, s, como, c, nivel, desp } => {
+                    // La ELEGIDA, en la ranura 0 de unos recursos de una.
+                    let (unica, solo);
+                    let (rec, t) = if t == super::programa::DINAMICA {
+                        unica = [elegida];
+                        solo = crate::textura::Recursos { texturas: &unica, muestreadores: rec.muestreadores, buferes: &[], dinamicas: None };
+                        (&solo, 0)
+                    } else {
+                        (rec, t)
+                    };
                     let f = c.map(|r| regs[r as usize]);
                     let b = |r: Reg| regs[r as usize].to_bits();
                     let x = match como {

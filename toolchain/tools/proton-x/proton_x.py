@@ -21,7 +21,10 @@ viera a tiempo:
   PX1  huellas    un `.exe` de `prueba/` cuya sha256 no esta en HACER.txt
                   (se rehizo y no se apunto, o se apunto otro)
   PX2  volumen    un `.exe` de `prueba/` que `ejemplos.ps1` no copia a
-                  `window/` (no llega al Ryzen)
+                  `window/` (no llega al Ryzen). Desde el 05-10 vale tambien
+                  copiarlo a SU carpeta, `window/<muestra>/`, con el bucle
+                  `foreach ($muestra in @(...))`: las muestras de Microsoft
+                  leen sus `.cso` de su carpeta y todas los llaman igual
   PX3  banco      un `.exe` de `prueba/` que ninguna prueba del anfitrion
                   corre (`include_bytes!` en `proton-x-casa/tests/`)
   PX4  sin copia  una cabecera de licencia ajena (Wine, DXVK, vkd3d, LGPL,
@@ -68,6 +71,9 @@ def px1_huellas(exes, hacer):
 def px2_volumen(nombres, ejemplos):
     m = re.search(r"foreach \(\$exe in @\(([^)]*)\)\)", ejemplos)
     copiados = set(re.findall(r"'([^']+\.(?:exe|dll))'", m.group(1))) if m else set()
+    # Las que van a SU carpeta: el nombre sin `.exe` (window/<muestra>/<muestra>.exe).
+    m = re.search(r"foreach \(\$muestra in @\(([^)]*)\)\)", ejemplos)
+    copiados |= set(n + ".exe" for n in re.findall(r"'([^'.]+)'", m.group(1))) if m else set()
     return ["PX2 %s: ejemplos.ps1 no lo copia a window/" % n for n in sorted(nombres) if n not in copiados]
 
 
@@ -196,6 +202,7 @@ def autoprueba():
         ("PX1", px1_huellas({"a.exe": b"x"}, "sha256: " + "0" * 64)),
         ("PX2", px2_volumen(["b.exe"], "foreach ($exe in @('a.exe')) {")),
         ("PX2", px2_volumen(["b.dll"], "foreach ($exe in @('a.exe', 'c.dll')) {")),
+        ("PX2", px2_volumen(["d.exe"], "foreach ($exe in @('a.exe')) {\nforeach ($muestra in @('e')) {")),
         ("PX3", px3_banco(["b.exe"], 'include_bytes!("../../proton-x/prueba/a.exe")')),
         ("PX4", px4_sin_copia({"x.rs": "// Copyright 2018 Philip Rebohle (dxvk)\n"})),
         ("PX4", px4_sin_copia({"x.rs": "/* SPDX-License-Identifier: LGPL-2.1 */"})),
@@ -208,6 +215,7 @@ def autoprueba():
     # Y lo bueno NO se rechaza: una regla que dice que no a todo tampoco protege.
     buenos = [
         ("PX1", px1_huellas({"a.exe": b"x"}, hashlib.sha256(b"x").hexdigest())),
+        ("PX2", px2_volumen(["a.exe", "e.exe"], "foreach ($exe in @('a.exe')) {\nforeach ($muestra in @('e')) {")),
         ("PX4", px4_sin_copia({"x.rs": "// Asi la describen Wine, vkd3d y DXVK (dxbc_checksum)."})),
         ("PX6", px6_sin_numero_publico({"f": "const ERROR_FILE_NOT_FOUND: u32 = 2;"})),
         ("PX7", px7_lo_que_se_da({"f": 'extern "win64" fn dada() {}\n"Dada" => dir!(dada),'})),

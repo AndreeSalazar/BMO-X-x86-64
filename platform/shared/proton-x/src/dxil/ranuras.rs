@@ -35,6 +35,11 @@ pub struct Ranuras {
     pub muestreadores: Vec<Lugar>,
     /// Los cbuffers (N5.2): b0 ya no es el unico.
     pub cbuffers: Vec<Lugar>,
+    /// N5.4 (05-10): los rangos de texturas que se leen con el registro
+    /// CALCULADO (`g_txMats[i]`, bindless): su espacio y su PRIMER registro.
+    /// No ocupan ranura de textura: la textura se busca al correr
+    /// (`Op::EligeTextura`, `textura::Dinamicas`).
+    pub dinamicas: Vec<Lugar>,
 }
 
 /// **Lo que [`Ranuras::unir`] devuelve**: por ranura de las otras, su
@@ -44,6 +49,7 @@ pub struct Mapa {
     pub texturas: Vec<u8>,
     pub muestreadores: Vec<u8>,
     pub cbuffers: Vec<u8>,
+    pub dinamicas: Vec<u8>,
 }
 
 impl Ranuras {
@@ -51,8 +57,9 @@ impl Ranuras {
         if let Some(i) = v.iter().position(|&x| x == l) {
             return Ok(i as u8);
         }
-        if v.len() >= 256 {
-            return Err(NoPrograma::Forma("un sombreador con mas de 256 texturas o muestreadores distintos"));
+        // 255 se reserva: es la textura ELEGIDA al correr (`DINAMICA`).
+        if v.len() >= 255 {
+            return Err(NoPrograma::Forma("un sombreador con mas de 255 texturas o muestreadores distintos"));
         }
         v.push(l);
         Ok((v.len() - 1) as u8)
@@ -73,9 +80,14 @@ impl Ranuras {
         Self::de(&mut self.cbuffers, Lugar { espacio, registro, vista: 0 })
     }
 
+    /// N5.4: el rango dinamico que empieza en `registro` de `espacio`.
+    pub fn dinamica(&mut self, espacio: u32, registro: u32) -> Result<u8, NoPrograma> {
+        Self::de(&mut self.dinamicas, Lugar { espacio, registro, vista: 0 })
+    }
+
     /// **Las de la etapa `vista`**: todas pasan a ser de ella.
     pub fn de_la_etapa(mut self, vista: u32) -> Ranuras {
-        for l in self.texturas.iter_mut().chain(self.muestreadores.iter_mut()).chain(self.cbuffers.iter_mut()) {
+        for l in self.texturas.iter_mut().chain(self.muestreadores.iter_mut()).chain(self.cbuffers.iter_mut()).chain(self.dinamicas.iter_mut()) {
             l.vista = vista;
         }
         self
@@ -86,7 +98,12 @@ impl Ranuras {
     /// ranura de `otras`, su ranura aqui: lo que pide [`Programa::renumerar`].
     pub fn unir(&mut self, otras: &Ranuras) -> Result<Mapa, NoPrograma> {
         let sumar = |v: &mut Vec<Lugar>, de: &[Lugar]| de.iter().map(|&l| Self::de(v, l)).collect::<Result<Vec<u8>, _>>();
-        Ok(Mapa { texturas: sumar(&mut self.texturas, &otras.texturas)?, muestreadores: sumar(&mut self.muestreadores, &otras.muestreadores)?, cbuffers: sumar(&mut self.cbuffers, &otras.cbuffers)? })
+        Ok(Mapa {
+            texturas: sumar(&mut self.texturas, &otras.texturas)?,
+            muestreadores: sumar(&mut self.muestreadores, &otras.muestreadores)?,
+            cbuffers: sumar(&mut self.cbuffers, &otras.cbuffers)?,
+            dinamicas: sumar(&mut self.dinamicas, &otras.dinamicas)?,
+        })
     }
 }
 
@@ -100,9 +117,13 @@ impl Programa {
         for op in &mut self.ops {
             match op {
                 Op::Muestra { t, s, .. } | Op::Lee { t, s, .. } => {
-                    *t = a(&m.texturas, *t);
+                    // La ELEGIDA no es una ranura: la dice el `EligeTextura` de antes.
+                    if *t != super::programa::DINAMICA {
+                        *t = a(&m.texturas, *t);
+                    }
                     *s = a(&m.muestreadores, *s);
                 }
+                Op::EligeTextura { rango, .. } => *rango = a(&m.dinamicas, *rango),
                 Op::Constantes { cb, .. } | Op::ConstantesEn { cb, .. } => *cb = a(&m.cbuffers, *cb),
                 _ => {}
             }

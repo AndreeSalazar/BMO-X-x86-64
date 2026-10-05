@@ -33,6 +33,7 @@ pub(crate) const EACCES: i32 = 13;
 pub(crate) const EBADF: i32 = 9;
 pub(crate) const EEXIST: i32 = 17;
 const STRUNCATE: i32 = 80;
+const EILSEQ: i32 = 42;
 /// `_TRUNCATE`: "lo que quepa".
 pub(crate) const TRUNCATE: usize = usize::MAX;
 
@@ -759,6 +760,52 @@ extern "win64" fn mb_cur_max() -> i32 {
     1
 }
 
+// -- Un byte, un caracter: la locale "C" (05-10, E1.1 de la ESCALERA) -----------
+//
+// La casa esta en la locale "C" (`___lc_codepage_func` da 0 y MB_CUR_MAX 1):
+// cada byte es UN caracter, y su valor es el del caracter ancho (0..=255),
+// como hace el UCRT en "C". El arranque de mingw-w64 y su libstdc++ las
+// importan.
+
+/// `_ismbblead(c)`: en una locale de un byte, ningun byte empieza un caracter
+/// de dos.
+extern "win64" fn ismbblead(_c: u32) -> i32 {
+    0
+}
+
+/// `mbrtowc(pwc, s, n, estado)`: un byte, un caracter. `s` NULL reinicia y da
+/// 0; `n` 0 da (size_t)-2 (incompleto); el byte 0 da 0; los demas, 1.
+extern "win64" fn mbrtowc(pwc: *mut u16, s: *const u8, n: usize, _estado: u64) -> usize {
+    if s.is_null() {
+        return 0;
+    }
+    if n == 0 {
+        return usize::MAX - 1;
+    }
+    // SAFETY: `s` tiene al menos un byte (`n` > 0), lo promete el `.exe`.
+    let b = unsafe { *s };
+    if !pwc.is_null() {
+        // SAFETY: lo promete el `.exe`.
+        unsafe { *pwc = b as u16 };
+    }
+    usize::from(b != 0)
+}
+
+/// `wcrtomb(s, wc, estado)`: el caracter de vuelta a UN byte. `s` NULL da 1
+/// (el estado inicial); uno que no cabe en un byte, (size_t)-1 y EILSEQ.
+extern "win64" fn wcrtomb(s: *mut u8, wc: u16, _estado: u64) -> usize {
+    if s.is_null() {
+        return 1;
+    }
+    if wc > 0xFF {
+        poner_errno(EILSEQ);
+        return usize::MAX;
+    }
+    // SAFETY: lo promete el `.exe`: cabe un byte.
+    unsafe { *s = wc as u8 };
+    1
+}
+
 struct Nombres([u64; 6]);
 // SAFETY: solo se lee.
 unsafe impl Sync for Nombres {}
@@ -771,6 +818,9 @@ extern "win64" fn lc_locale_name() -> *const u64 {
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "_errno" => dir!(errno),
+        "_ismbblead" => dir!(ismbblead),
+        "mbrtowc" => dir!(mbrtowc),
+        "wcrtomb" => dir!(wcrtomb),
         "_set_invalid_parameter_handler" => dir!(set_invalid_parameter_handler),
         "_get_invalid_parameter_handler" => dir!(get_invalid_parameter_handler),
         "_set_thread_local_invalid_parameter_handler" => dir!(set_thread_local_invalid_parameter_handler),

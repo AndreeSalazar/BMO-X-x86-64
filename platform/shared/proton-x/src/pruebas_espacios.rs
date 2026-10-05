@@ -48,7 +48,7 @@ fn el_enlace_da_a_cada_espacio_su_ranura() {
         let c = color(lugar);
         let esperado = [(c & 0xFF) as f32 / 255.0, ((c >> 8) & 0xFF) as f32 / 255.0, ((c >> 16) & 0xFF) as f32 / 255.0, 0.0];
         let tex: Vec<Option<Textura>> = (0..pix.len()).map(|i| (i == k).then(|| Textura::rgba(&pix[i], 1, 1, false))).collect();
-        let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &[] };
+        let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &[], dinamicas: None };
         en.ps.correr_con(&[[0.0; 4], [0.5, 0.5, 0.0, 0.0]], &cb, &rec, &mut sal, &mut regs);
         assert_eq!(sal[0], esperado, "solo la textura de {lugar:?}");
     }
@@ -61,8 +61,8 @@ fn el_enlace_da_a_cada_espacio_su_ranura() {
 fn unir_ranuras_renumera_las_del_de_pixeles() {
     use crate::dxil::programa::{Lugar, Programa, Ranuras};
     let l = |espacio, registro, vista| Lugar { espacio, registro, vista };
-    let mut todas = Ranuras { texturas: vec![l(0, 0, 1), l(1, 5, 0)], muestreadores: vec![l(0, 0, 1)], cbuffers: vec![l(0, 0, 1)] };
-    let ps = Ranuras { texturas: vec![l(0, 0, 5), l(1, 5, 0)], muestreadores: vec![l(0, 0, 5)], cbuffers: vec![l(0, 3, 5)] };
+    let mut todas = Ranuras { texturas: vec![l(0, 0, 1), l(1, 5, 0)], muestreadores: vec![l(0, 0, 1)], cbuffers: vec![l(0, 0, 1)], dinamicas: vec![] };
+    let ps = Ranuras { texturas: vec![l(0, 0, 5), l(1, 5, 0)], muestreadores: vec![l(0, 0, 5)], cbuffers: vec![l(0, 3, 5)], dinamicas: vec![] };
     let m = todas.unir(&ps).unwrap();
     assert_eq!(m.texturas, [2, 1], "el t0 del pixel es otro; el t5 sin etapa, el mismo");
     assert_eq!((m.muestreadores.as_slice(), m.cbuffers.as_slice()), (&[1u8][..], &[1u8][..]));
@@ -159,7 +159,7 @@ fn un_pixel_de_dxc_lee_los_tres_buferes() {
         _ => Bufer { bytes: &crudo, formato: 0, paso: 0, elementos: 6 },
     };
     let buf: Vec<Option<Bufer>> = ps.ranuras.texturas.iter().map(|&l| Some(bufer(l))).collect();
-    let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &buf };
+    let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &buf, dinamicas: None };
     let i = [2u32, 1, 8, 0].map(f32::from_bits);
     let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
     ps.correr_con(&[[0.0; 4], i], &[], &rec, &mut sal, &mut regs);
@@ -357,7 +357,7 @@ fn las_sombras_comparan_y_gather_junta() {
     let mut mues = vec![None, None];
     mues[reg(&ps.ranuras.muestreadores, 0)] = Some(Muestreador { filtro: Filtro::Lineal, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 2 });
     mues[reg(&ps.ranuras.muestreadores, 1)] = Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0 });
-    let rec = Recursos { texturas: &texturas, muestreadores: &mues, buferes: &[] };
+    let rec = Recursos { texturas: &texturas, muestreadores: &mues, buferes: &[], dinamicas: None };
     let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
     ps.correr_con(&[[0.0; 4], [0.5, 0.5, 0.0, 0.0], [f32::from_bits(88), 0.0, 0.0, 0.0]], &[], &rec, &mut sal, &mut regs);
     let r = |k: usize| rojos[k] as f32 / 255.0;
@@ -370,4 +370,50 @@ fn las_sombras_comparan_y_gather_junta() {
     // (0,0) = 0.2, y 0.5 < 0.2 no pasa.
     ps.correr_con(&[[0.0; 4], [0.0, 0.0, 0.0, 0.0], [f32::from_bits(0), 0.0, 0.0, 0.0]], &[], &rec, &mut sal, &mut regs);
     assert_eq!(sal[0][0], 0.0);
+}
+
+const INDICE_PS: &[u8] = include_bytes!("../prueba/indice.dxil");
+
+/// *** N5.4 (05-10): `indice.hlsl` (de `dxc`) lee DOS arrays de texturas con
+/// el registro CALCULADO de su cbuffer -- `m[i]`, sin medida (bindless) desde
+/// t5 de space1, y `f[j]`, t1..t3 --. No ocupan ranuras: el enlace los
+/// apunta como rangos dinamicos (su espacio y su primer registro), y al
+/// correr se busca cada textura por su registro ABSOLUTO. Con cada (i, j),
+/// sale exactamente la suma de esas dos, y no la de otras.
+#[test]
+fn un_array_de_texturas_con_el_registro_calculado_lee_la_de_su_indice() {
+    use crate::donde::VISTA_PIXELES;
+    use crate::dxil::programa::Lugar;
+    use crate::lote::{self, ElementoIa};
+    use crate::textura::{Dinamicas, Direccion, Filtro, Muestreador, Recursos, Textura};
+    let (vs, ps) = (dxil::leer(TEXTURA_VS).unwrap(), dxil::leer(INDICE_PS).unwrap());
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let en = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]).unwrap();
+    let l = |espacio, registro| Lugar { espacio, registro, vista: VISTA_PIXELES };
+    assert!(en.ranuras.texturas.is_empty(), "ninguna textura fija: {:?}", en.ranuras.texturas);
+    let mut d = en.ranuras.dinamicas.clone();
+    d.sort_by_key(|x| (x.espacio, x.registro));
+    assert_eq!(d, [l(0, 1), l(1, 5)], "los dos rangos, por su primer registro");
+
+    // Un color por (espacio, registro), de 1x1, que la prueba "busca".
+    let color = |espacio: u32, registro: u32| (registro * 16 + espacio * 3) & 0xFF;
+    let pixeles: &'static [[u32; 1]] = alloc::boxed::Box::leak((0..64u32).map(|k| [color(k / 32, k % 32)]).collect::<Vec<_>>().into_boxed_slice());
+    let dinamicas = en.ranuras.dinamicas.clone();
+    let buscar = move |rango: u8, registro: u32| -> Option<Textura<'static>> {
+        let base = dinamicas.get(rango as usize)?;
+        (registro < 32).then(|| Textura::rgba(&pixeles[(base.espacio * 32 + registro) as usize], 1, 1, false))
+    };
+    let m = Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4], comparacion: 0 };
+    let mue: Vec<Option<Muestreador>> = en.ranuras.muestreadores.iter().map(|_| Some(m)).collect();
+    let rec = Recursos { texturas: &[], muestreadores: &mue, buferes: &[], dinamicas: Some(Dinamicas(&buscar)) };
+    let (mut sal, mut regs) = (vec![[0f32; 4]; en.ps.salidas], Vec::new());
+    for (i, j) in [(0u32, 0u32), (1, 2), (7, 1), (3, 0)] {
+        let mut cb = [0u8; 16];
+        cb[..4].copy_from_slice(&i.to_le_bytes());
+        cb[4..8].copy_from_slice(&j.to_le_bytes());
+        en.ps.correr_con(&[[0.0; 4], [0.5, 0.5, 0.0, 0.0]], &cb, &rec, &mut sal, &mut regs);
+        // El rojo de cada una (RGBA de 1x1: el canal R es el byte bajo).
+        let r = (color(1, 5 + i) + color(0, 1 + j)) as f32 / 255.0;
+        assert_eq!(sal[0][0], r, "m[{i}] (t{}, space1) + f[{j}] (t{})", 5 + i, 1 + j);
+    }
 }

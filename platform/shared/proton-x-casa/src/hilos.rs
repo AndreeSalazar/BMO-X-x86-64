@@ -655,6 +655,17 @@ fn hilo_de(h: u64) -> Option<usize> {
     }
 }
 
+/// `GetThreadId(h)`: el id (de Windows) del hilo de un handle, tambien el
+/// pseudo-handle de GetCurrentThread; 0 y ERROR_INVALID_HANDLE si no es de
+/// un hilo (E1.1 de la ESCALERA, 05-10: lo importa el `.exe` de
+/// `D3D12HelloWindow` compilado con mingw-w64).
+extern "win64" fn get_thread_id(h: u64) -> u32 {
+    id_de(h).unwrap_or_else(|| {
+        kernel32::poner_error(ERROR_INVALID_HANDLE);
+        0
+    })
+}
+
 pub(crate) extern "win64" fn get_exit_code_thread(h: u64, codigo: *mut u32) -> i32 {
     let Some(n) = hilo_de(h) else {
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
@@ -1037,6 +1048,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "CreateThread" => dir!(create_thread),
         "ExitThread" => dir!(exit_thread),
         "GetExitCodeThread" => dir!(get_exit_code_thread),
+        "GetThreadId" => dir!(get_thread_id),
         "ResumeThread" => dir!(resume_thread),
         "GetCurrentThread" => dir!(get_current_thread),
         "TlsAlloc" => dir!(tls_alloc),

@@ -475,9 +475,90 @@ extern "win64" fn om_set_blend_factor(this: u64, f: *const f32) {
 
 extern "win64" fn om_set_stencil_ref(_this: u64, _r: u32) {}
 
-extern "win64" fn execute_bundle(_this: u64, _b: u64) {
-    aviso("ExecuteBundle: los bundles aun no corren en la casa: se salta");
+/// Lo de `bundle` que se PUSO (no es lo de serie), encima de `base`: lo que
+/// un bundle hereda de la lista que lo llama y lo que deja de vuelta.
+fn encima(base: &Estado, bundle: &Estado) -> Estado {
+    let mut e = base.clone();
+    if bundle.pso != 0 {
+        e.pso = bundle.pso;
+    }
+    if bundle.raiz != 0 {
+        e.raiz = bundle.raiz;
+    }
+    for k in 0..16 {
+        if bundle.cbv[k] != 0 {
+            e.cbv[k] = bundle.cbv[k];
+        }
+        if bundle.tablas[k] != 0 {
+            e.tablas[k] = bundle.tablas[k];
+        }
+    }
+    if bundle.raiz32.0 != crate::cbuffers::Palabras::default().0 {
+        e.raiz32 = bundle.raiz32.clone();
+    }
+    if bundle.topologia != 0 {
+        e.topologia = bundle.topologia;
+    }
+    if bundle.vertices.va != 0 {
+        e.vertices = bundle.vertices;
+    }
+    if bundle.indices.va != 0 {
+        e.indices = bundle.indices;
+    }
+    if bundle.factor_mezcla.is_some() {
+        e.factor_mezcla = bundle.factor_mezcla;
+    }
+    e
 }
+
+/// `ExecuteBundle(this, bundle)` (N5.17, la mitad; E1.6 de la ESCALERA,
+/// 05-10): lo grabado en el bundle entra en ESTA lista, en su sitio. Con las
+/// reglas de herencia de D3D12:
+///
+/// ```text
+///    lo que el bundle no puede poner      render targets, viewport y tijera:
+///                                         los de la lista que lo llama
+///    lo que el bundle no puso             la raiz, sus argumentos, los
+///                                         vertices: tambien los de la lista
+///    lo que el bundle deja puesto         PSO, topologia, raiz, vertices...:
+///                                         vuelve a la lista al acabar
+/// ```
+///
+/// "Lo que puso" se lee como lo que no es de serie (un 0): un bundle que
+/// pone a proposito un valor de serie encima de uno de la lista no se
+/// distingue, y no se ha visto en ningun `.exe`.
+extern "win64" fn execute_bundle(this: u64, b: u64) {
+    // SAFETY: `this` y `b` son Listas de la casa (b, un bundle cerrado).
+    let (l, bundle) = unsafe { (crate::d3d12::lista(this), crate::d3d12::lista(b)) };
+    if bundle.tipo != LISTA_BUNDLE || l.tipo != LISTA_DIRECTA || bundle.abierta {
+        aviso("ExecuteBundle de algo que no es un bundle cerrado en una lista directa: en Windows es un error, y no se hace");
+        return;
+    }
+    for o in &bundle.ordenes {
+        let o = match o {
+            Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado } => {
+                let mut e = encima(&l.estado, estado);
+                // Lo que un bundle no puede poner nunca.
+                e.viewport = l.estado.viewport;
+                e.tijera = l.estado.tijera;
+                (e.rtv, e.rtv_otros, e.dsv, e.rtv_sub, e.dsv_sub) = (l.estado.rtv, l.estado.rtv_otros, l.estado.dsv, l.estado.rtv_sub, l.estado.dsv_sub);
+                Orden::Dibujar { estado: e, cuantos: *cuantos, instancias: *instancias, primero: *primero, base: *base, indexado: *indexado }
+            }
+            // Limpiar, copiar y las consultas no se graban en un bundle.
+            _ => {
+                aviso("ExecuteBundle: una orden que un bundle no puede grabar (limpiar, copiar, consultas); no se hace");
+                continue;
+            }
+        };
+        l.ordenes.push(o);
+    }
+    let fin = encima(&l.estado, &bundle.estado);
+    l.estado = fin;
+}
+
+/// D3D12_COMMAND_LIST_TYPE: DIRECT y BUNDLE.
+const LISTA_DIRECTA: u32 = 0;
+const LISTA_BUNDLE: u32 = 1;
 
 /// Los `SetCompute*`: el computo no corre todavia (Dispatch lo dice), asi
 /// que lo que se le da a su raiz no tiene a quien llegar. Cuatro formas.

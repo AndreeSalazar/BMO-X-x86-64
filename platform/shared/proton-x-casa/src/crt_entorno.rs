@@ -36,6 +36,7 @@ struct Estado {
     ctime_a: [u8; 32],
     ctime_w: [u16; 32],
     timezone: i32,
+    daylight: i32,
 }
 
 struct Global(UnsafeCell<Estado>);
@@ -48,6 +49,7 @@ static ESTADO: Global = Global(UnsafeCell::new(Estado {
     ctime_a: [0; 32],
     ctime_w: [0; 32],
     timezone: 0,
+    daylight: 0,
 }));
 
 fn estado() -> &'static mut Estado {
@@ -59,6 +61,7 @@ pub(crate) fn reiniciar() {
     let e = estado();
     e.entorno_a.clear();
     e.entorno_w.clear();
+    e.daylight = 0;
 }
 
 // -- El entorno ------------------------------------------------------------------------------
@@ -286,6 +289,24 @@ extern "win64" fn timezone() -> *mut i32 {
     &mut estado().timezone
 }
 
+/// `__daylight`: la DIRECCION de `_daylight`, si la zona tiene horario de
+/// verano. La de la casa es UTC (ver `__tzname`): 0.
+extern "win64" fn daylight() -> *mut i32 {
+    &mut estado().daylight
+}
+
+/// `rand_s(*r)` (E1.1 de la ESCALERA, 05-10): un numero al azar de 32 bits,
+/// del MISMO generador que SystemFunction036 y BCryptGenRandom
+/// (`sistema::process_prng`). NULL: EINVAL, sin tocar nada.
+extern "win64" fn rand_s(r: *mut u32) -> i32 {
+    if r.is_null() {
+        crate::crt_cadenas::poner_errno(crate::crt_cadenas::EINVAL);
+        return crate::crt_cadenas::EINVAL;
+    }
+    crate::sistema::process_prng(r as *mut u8, 4);
+    0
+}
+
 static UTC: [u8; 4] = *b"UTC\0";
 struct Tz([*const u8; 2]);
 // SAFETY: solo se lee.
@@ -465,6 +486,15 @@ extern "win64" fn abort() -> ! {
     (plataforma().salir)(3)
 }
 
+/// `_wassert(expresion, fichero, linea)`: un `assert` que fallo (E2.2 de la
+/// ESCALERA, 05-10: lo importa DynamicIndexing). Como el UCRT: dice la
+/// expresion, el fichero y la linea, y acaba como `abort()` (codigo 3).
+extern "win64" fn wassert(expresion: *const u16, fichero: *const u16, linea: u32) -> ! {
+    let ancha = |p: *const u16| if p.is_null() { alloc::string::String::new() } else { alloc::string::String::from_utf16_lossy(&crt::cadena_w(p as u64)) };
+    aviso(&alloc::format!("Assertion failed: {}, file {}, line {linea}", ancha(expresion), ancha(fichero)));
+    (plataforma().salir)(3)
+}
+
 /// `_invoke_watson`: un parametro invalido sin manejador; Windows acaba el
 /// proceso con STATUS_INVALID_CRUNTIME_PARAMETER.
 extern "win64" fn invoke_watson(_e: u64, _f: u64, _fi: u64, _l: u32, _r: u64) -> ! {
@@ -626,6 +656,8 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "_ctime64" => dir!(ctime64),
         "_wctime64" => dir!(wctime64),
         "__timezone" => dir!(timezone),
+        "__daylight" => dir!(daylight),
+        "rand_s" => dir!(rand_s),
         "__tzname" => dir!(tzname),
         "_fullpath" => dir!(fullpath),
         "_wfullpath" => dir!(wfullpath),
@@ -635,6 +667,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "_getpid" => dir!(getpid),
         "_beginthreadex" => dir!(beginthreadex),
         "abort" => dir!(abort),
+        "_wassert" => dir!(wassert),
         "_invoke_watson" => dir!(invoke_watson),
         "_amsg_exit" => dir!(amsg_exit),
         "_purecall" => dir!(purecall),

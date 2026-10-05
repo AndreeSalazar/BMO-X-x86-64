@@ -2032,3 +2032,106 @@ Reproducible (comprobado dos veces). sha256:
 
 `dxc -dumpbin`: sampleCmpLevelZero (65), textureGather (73) y unaryBits
 31, 32 y 33. El banco (`pruebas_espacios.rs`) lo corre en una 2x2.
+
+hwindow.exe -- D3D12HelloWindow de Microsoft, el .exe DE VERDAD (05-10)
+
+E1.1 de la ESCALERA (docs/plan/PLAN_LA_ESCALERA_PROTON_X.md): la muestra
+`D3D12HelloWorld/src/HelloWindow` de DirectX-Graphics-Samples (licencia MIT,
+Copyright (c) Microsoft; el texto en muestras/LICENSE-MIT.txt), compilada de
+su fuente SIN cambiarla. Lo que solo acepta MSVC lo pone el puente
+`muestras/antes.h` (-include), que no cambia lo que hace la muestra. En la
+nube, con mingw-w64 sobre el UCRT (el mismo CRT que Cyberpunk:
+api-ms-win-crt-*), g++-mingw-w64-x86-64-win32 13.2.0 y mingw-w64-x86-64-dev
+11.0.1 de Ubuntu, y las cabeceras de DirectX-Headers y DirectXMath (MIT):
+
+   sh muestras/construir.sh DIRECTORIO_DE_TRABAJO
+
+Los tres commits estan fijados en el script. Reproducible: dos directorios
+de trabajo distintos dan el mismo .exe, y no lleva ninguna ruta de la
+maquina que lo hizo (comprobado). sha256:
+
+   65e01b1cec65b451dea8c3a287159cac653aa2ff4574e95ab6be63c5b1f543cd  hwindow.exe
+
+En Windows corre tal cual: una ventana de 1280x720 limpia al azul
+{0.0, 0.2, 0.4}. El juez del banco (`tests/corre/muestras.rs`): cada pixel
+de cada Present es R 0x00 G 0x33 B 0x66, lo que dicen las reglas de D3D12
+para ese color en R8G8B8A8_UNORM.
+
+htriang.exe, htexture.exe, hcbuffer.exe, hframes.exe, hbundles.exe -- los
+demas Hello de Microsoft, con sus sombreadores (05-10)
+
+E1.2 a E1.6 de la ESCALERA: HelloTriangle, HelloTexture, HelloConstBuffers,
+HelloFrameBuffering y HelloBundles de D3D12HelloWorld, con el MISMO script y
+las mismas herramientas que hwindow.exe. Los que nombran un IID como simbolo
+(d3dx12, en HelloTexture) lo toman de `muestras/guids.cpp`, en una biblioteca
+que el enlazador solo usa si hace falta (hwindow.exe sale igual con ella).
+
+Sus sombreadores: cada muestra lee shaders_VSMain.cso y shaders_PSMain.cso de
+SU carpeta (en el volumen, window/<muestra>/; aqui, muestras/<muestra>/). Su
+proyecto de Visual Studio los compila con DXC al construir, y el script hace
+lo mismo con DXC=:
+
+   dxc -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo shaders_VSMain.cso shaders.hlsl
+   dxc -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo shaders_PSMain.cso shaders.hlsl
+
+El DXC: v1.8.2505 de microsoft/DirectXShaderCompiler (9efbb6c3, el mismo
+commit que el de las publicaciones de Microsoft de sombras.dxil), compilado
+de su fuente en la nube (`ninja dxc`; dice libdxcompiler 1.9 dev 1-9efbb6c3).
+Ningun .cso lleva rutas de la maquina (comprobado). Reproducibles: el script
+dos veces da los mismos bytes. sha256:
+
+   f791d48d302ff296cf33f040a5d3adbd3658a9ac44b7be7ed1a9b6db0da1151f  htriang.exe
+   e5e3fc464762b45ada6aebf738098d8214e18f5753f8f723cc39270515499128  htexture.exe
+   af6f45797e6f52e768f4802f32bd66b247acf00b9cee698d72e7ce228fb33cff  hcbuffer.exe
+   c8848e0c226f452d50fb89071627eba975d0cc98e045c8c21701fa5b6dc47775  hframes.exe
+   79e7ecc9b0366c7400a65ed6da09720bef0eb00be128c9faf4f038ade6fe42b0  hbundles.exe
+   24a1f5aa760c27e488ef7cbe91d4d8f11658e04db2f3154fd153f6ecfa8c003c  htriang/shaders_VSMain.cso (y hframes/, hbundles/)
+   25b51a675ed87a71b30779784061b7090abfde0ca33a5b25f1160e7a74478bc1  htriang/shaders_PSMain.cso (y hframes/, hbundles/)
+   d0b29cf7b6a7c5e7abd1fa3e9939ec606413029e17977a983623187c1cfb0ba4  htexture/shaders_VSMain.cso
+   f1ec419a8a9681a3c6c4bdf015548644ac3aae212ce18406810274d505621b00  htexture/shaders_PSMain.cso
+   82d28059194bbeb4bfb41975b720cc2fd0cb90a02fa18e1c7a5cc87bc50b6c3c  hcbuffer/shaders_VSMain.cso
+   e3db15a8146be5b06cc4d9ae29e4b171b9ef71306dda6b5041bb7c762fe7d73e  hcbuffer/shaders_PSMain.cso
+
+Los jueces (`tests/corre/muestras.rs`), de lo que fija D3D12: el triangulo
+con cada canal a 2 o menos de lo exacto y el fondo exacto (htriang); el
+tablero de PUNTO bit a bit (htexture); el triangulo corrido lo que dice el
+cbuffer en cada fotograma (hcbuffer); y bit a bit el de htriang con dos
+fotogramas en vuelo (hframes) y desde un bundle (hbundles).
+
+dynindex.exe -- D3D12DynamicIndexing de Microsoft: el BINDLESS (05-10)
+
+E2.2 de la ESCALERA (N5.4 de LAS_TRES_GRANDES): `Samples/Desktop/
+D3D12DynamicIndexing` con el mismo script (`construir.sh`), su fuente sin
+tocar. El puente gana `muestras/pix3.h` (los marcadores de PIX, vacios, como
+sin USE_PIX) y tres cosas de MSVC en `antes.h`: `min`/`max` sueltos, y `L#x`
+(el nombre de una variable como cadena ancha, para SetName). Sus dos .cso,
+con DXC (los del proyecto: -Tvs_6_0 -E"VSMain" y -Tps_6_0 -E"PSMain", -Zi
+-Qembed_debug); y su malla, `occcity.bin`, de la carpeta de la muestra (MIT,
+como la muestra). Todo en window/dynindex/ y aqui en muestras/dynindex/.
+Reproducible, sin rutas de la maquina. sha256:
+
+   490915561a470b887e46345aa7ad1f870289a1228b8abec05a2b57fbebb7c194  dynindex.exe
+   9d84bfc416790813563733de65460611ec199b27cc03dd5ebbb5d00850a58648  dynindex/shader_mesh_simple_vert.cso
+   8475c804f93f45a170181e3b0073f8ca15d7eb8244c9b6be35f5009a114c1f8a  dynindex/shader_mesh_dynamic_indexing_pixel.cso
+   7e2ef2e708a636b4d46d3bfc8103431a0ee9d3916234a19072af8aaf09a832f2  dynindex/occcity.bin
+
+El juez (`tests/corre/muestras.rs`): el tono medio de cada franja con color
+sube de las ciudades de cerca (rojo, material 0) a las del fondo (violeta,
+material 119), y salen los seis tramos del arcoiris. Probado que dice NO: con
+el indice atascado en un registro, el tono queda plano y falla.
+
+indice.dxil -- dos arrays de texturas con el registro CALCULADO (05-10)
+
+N5.4 en el crate puro, sin muestra: `m[]` sin medida (bindless, desde t5 de
+space1) y `f[3]` (t1..t3), leidos con los indices de un cbuffer. De
+`indice.hlsl` (aqui al lado), con el DXC de la nube (v1.8.2505, 9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo indice.dxil indice.hlsl
+
+Reproducible (comprobado dos veces), sin rutas. sha256:
+
+   095b8eb685e6d9c3f942021e39139c0555c496cfeefafd92aa72892dfb9c03ac  indice.dxil
+
+`dxc -dumpbin`: dos createHandle con el indice calculado (%7 y %16), de los
+rangos 0 (m, t5 space1, unbounded) y 1 (f, t1, 3). El banco
+(`pruebas_espacios.rs`) lo corre con cuatro pares (i, j).

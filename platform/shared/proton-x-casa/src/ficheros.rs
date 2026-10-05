@@ -373,6 +373,35 @@ fn create_file_dentro(
     abrir(a)
 }
 
+/// `CREATEFILE2_EXTENDED_PARAMETERS`: dwSize, atributos, banderas, las de
+/// seguridad (SQOS), la seguridad y la plantilla. 32 bytes en x64.
+#[repr(C)]
+struct Extendidos {
+    tam: u32,
+    atributos: u32,
+    banderas: u32,
+    sqos: u32,
+    seguridad: u64,
+    plantilla: u64,
+}
+
+/// `CreateFile2(nombre, acceso, compartir, disposicion, *extendidos)`: la de
+/// Windows 8 en adelante, que junta en `extendidos` lo que CreateFileW lleva
+/// suelto (atributos | banderas | SQOS, la seguridad y la plantilla). Sin
+/// `extendidos`, todo a 0; con un `dwSize` que no es el suyo,
+/// ERROR_INVALID_PARAMETER. El `ReadDataFromFile` de las muestras de
+/// Microsoft lee asi sus `.cso` (E1.2 a E1.6 de la ESCALERA, 05-10).
+extern "win64" fn create_file_2(nombre: *const u16, acceso: u32, compartir: u32, disposicion: u32, extendidos: *const Extendidos) -> u64 {
+    // SAFETY: lo que promete el `.exe` (o NULL).
+    let e = unsafe { extendidos.as_ref() };
+    if e.is_some_and(|e| e.tam as usize != core::mem::size_of::<Extendidos>()) {
+        kernel32::poner_error(ERROR_INVALID_PARAMETER);
+        return NO_VALE;
+    }
+    let (banderas, seguridad, plantilla) = e.map_or((0, 0, 0), |e| (e.atributos | e.banderas | e.sqos, e.seguridad, e.plantilla));
+    create_file_w(nombre, acceso, compartir, seguridad, disposicion, banderas, plantilla)
+}
+
 /// `CreateFileA`: la misma, con la ruta en ASCII.
 extern "win64" fn create_file_a(
     nombre: *const u8,
@@ -658,6 +687,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "CreateFileW" => dir!(create_file_w),
         "CreateFileA" => dir!(create_file_a),
+        "CreateFile2" => dir!(create_file_2),
         "ReadFile" => dir!(read_file),
         "SetFilePointerEx" => dir!(set_file_pointer_ex),
         "SetFilePointer" => dir!(set_file_pointer),
