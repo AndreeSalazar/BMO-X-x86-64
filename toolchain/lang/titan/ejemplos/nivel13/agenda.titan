@@ -1,0 +1,40 @@
+# espera: BIEN
+# entra: Ada
+# entra: Grace
+# entra: Ada
+# entra: Linus
+# entra: fin
+# sale: nombres, uno por linea; fin para terminar
+# sale: 4 apuntados, 3 distintos
+# sale: Ada: 2
+# sale: Grace: 1
+# sale: Linus: 1
+# sale: el ultimo fue Linus
+# una lista que CRECE con lo tecleado y un mapa que cuenta: nadie sabia al compilar cuantos serian
+mod main "la agenda que cuenta"
+
+fn main()
+    print("nombres, uno por linea; fin para terminar")
+    let mut todos: [text] = []
+    let mut veces: {text: int} = {}
+    let mut nombre = lee()
+    while nombre != "fin"
+        push(mut todos, nombre)
+        match get(veces, nombre)
+            Hay(n)
+                put(mut veces, nombre, n + 1)
+            NoHay
+                put(mut veces, nombre, 1)
+        nombre = lee()
+    print(len(todos), " apuntados, ", len(veces), " distintos")
+    for k in veces
+        match get(veces, k)
+            Hay(n)
+                print(k, ": ", n)
+            NoHay
+                print(k, ": ?")
+    match pop(mut todos)
+        Hay(u)
+            print("el ultimo fue ", u)
+        NoHay
+            print("no se apunto nadie")

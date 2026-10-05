@@ -75,9 +75,11 @@ pub fn certificate(m: &Module) -> Certificate {
     c
 }
 
-/// The calls to a `gpu fn` inside a value: (line, the GPU's door).
+/// The doors opened INSIDE a value: a call to a `gpu fn` (the GPU's), and
+/// `lee()` (E1: the program's own console, the same door `print` writes by).
 fn gpu_calls(v: &Value, m: &Module, out: &mut Vec<(usize, Door)>) {
     match v {
+        Value::Read(at) => out.push((at.0, Door::Console)),
         Value::Call(f, args, at) => {
             if m.functions[*f].gpu {
                 out.push((at.0, Door::Gpu));

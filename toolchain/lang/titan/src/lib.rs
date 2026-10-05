@@ -60,6 +60,7 @@ pub mod lex;
 pub mod message;
 pub mod paquete;
 pub mod parse;
+pub mod prelude;
 pub mod tree;
 pub mod words;
 
@@ -87,6 +88,7 @@ pub fn lower(src: &str) -> Result<ir::Module, Message> {
 pub fn compile_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<Program, Message> {
     let pkg = paquete::load(root, src, read)?;
     let mut program = paquete::join(&pkg)?;
+    prelude::add(&mut program).map_err(|m| pkg.locate(m))?;
     comportamiento::expand(&mut program).map_err(|m| pkg.locate(m))?;
     gpu::check(&program, pkg.permissions).map_err(|m| pkg.locate(m))?;
     check::check(&program).map_err(|m| pkg.locate(m))?;
@@ -100,10 +102,21 @@ pub fn lower_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option
 
 /// `lower_package`, con QUIEN corre las `gpu fn` (nivel 11, G3): el emisor da
 /// el oraculo de spirv; sin el, el calculo corre cada hilo con f32.
-pub fn lower_package_with(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>, device: Option<&mut dyn calc::Device>) -> Result<ir::Module, Message> {
+pub fn lower_package_with(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>, mut device: Option<&mut dyn calc::Device>) -> Result<ir::Module, Message> {
+    lowered(root, src, read, &mut |m| calc::fold_with(m, device.take()))
+}
+
+/// `lower_package` SIN correrlo: las clases juzgadas, cada bloque vivo, sin
+/// `flat` -- lo que E1 emite aunque el programa no lea (su oraculo).
+pub fn lower_package_unfolded(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<ir::Module, Message> {
+    lowered(root, src, read, &mut |m| calc::unfolded(m))
+}
+
+fn lowered(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>, last: &mut dyn FnMut(&ir::Module) -> Result<ir::Module, Message>) -> Result<ir::Module, Message> {
     let pkg = paquete::load(root, src, read)?;
     let mut program = paquete::join(&pkg)?;
     let at = |m: Message| pkg.locate(m);
+    prelude::add(&mut program).map_err(at)?;
     comportamiento::expand(&mut program).map_err(at)?;
     gpu::check(&program, pkg.permissions).map_err(at)?;
     check::check(&program).map_err(at)?;
@@ -111,7 +124,7 @@ pub fn lower_package_with(root: &str, src: &str, read: &mut dyn FnMut(&str) -> O
     m.permissions = pkg.permissions;
     m.sources = pkg.sources();
     juez::judge(&m).map_err(at)?;
-    calc::fold_with(&m, device).map_err(at)
+    last(&m).map_err(at)
 }
 
 #[cfg(test)]

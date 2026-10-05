@@ -125,6 +125,16 @@ const BANCO: &[(&str, &str)] = &[
     // Nivel 11 (04-10): gpu fn, una celda por hilo de la 3060 (G1).
     ("titan", "toolchain/lang/titan/ejemplos/nivel11/mezcla/src/main.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel11/activa/src/main.titan"),
+    // Nivel 12 (05-10): lo que viene de fuera -- E1, el primer codigo de
+    // TITAN++ que corre DE VERDAD en la maquina (PLAN_LA_ENTRADA).
+    ("titan", "toolchain/lang/titan/ejemplos/nivel12/pregunta.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel12/hasta_fin.titan"),
+    // `numero(t)` y el programa ENTERO al correr: dec, casos, llamadas.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel12/adivina.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel12/la_cuenta.titan"),
+    // Nivel 13 (05-10): listas y mapas -- el primer valor en el monton.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel13/agenda.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel13/mundo.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -200,7 +210,11 @@ fn medir(lenguaje: &str, rel: &str) -> Result<Medida, String> {
     let ruta = raiz().join(rel);
     let fuente = std::fs::read_to_string(&ruta).map_err(|e| format!("no se lee: {e}"))?;
     let bex = compilar(lenguaje, &ruta, rel, &fuente)?;
-    let maquina = bmo_lower::emu::cargar_bex(&bex)?;
+    let mut maquina = bmo_lower::emu::cargar_bex(&bex)?;
+    // Nivel 12 de TITAN++ (05-10): un programa que LEE corre con lo que su
+    // ejemplo dice que se teclea (`# entra:`), igual que en su banco.
+    let entra: String = fuente.lines().filter_map(|l| l.strip_prefix("# entra: ")).map(|l| format!("{l}\n")).collect();
+    maquina.poner_entrada(&entra);
     let m = std::panic::catch_unwind(move || bmo_lower::emu::run(maquina, LIMITE))
         .map_err(|_| format!("no termina en {LIMITE} instrucciones o el emulador no sabe una"))?;
     if !m.exited {
@@ -305,7 +319,11 @@ fn caliente(rel: &str, salida: Option<&str>) {
     let ruta = raiz().join(rel);
     let fuente = std::fs::read_to_string(&ruta).expect("leer el fuente");
     let bex = compilar(lenguaje, &ruta, rel, &fuente).expect("compilar");
-    let maquina = bmo_lower::emu::cargar_bex(&bex).expect("cargar");
+    let mut maquina = bmo_lower::emu::cargar_bex(&bex).expect("cargar");
+    // y teclea lo que dice el ejemplo, como `medir`: sin eso, un programa que
+    // lee espera para siempre
+    let entra: String = fuente.lines().filter_map(|l| l.strip_prefix("# entra: ")).map(|l| format!("{l}\n")).collect();
+    maquina.poner_entrada(&entra);
     let codigo = maquina.code.clone();
     let mut cuentas: BTreeMap<usize, u64> = BTreeMap::new();
     let m = bmo_lower::emu::run_con(maquina, LIMITE, |rip| *cuentas.entry(rip).or_default() += 1);

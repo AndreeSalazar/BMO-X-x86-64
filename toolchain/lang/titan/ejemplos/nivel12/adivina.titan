@@ -1,0 +1,32 @@
+# espera: BIEN
+# entra: 50
+# entra: setenta
+# entra: 80
+# entra:   73
+# sale: adivina el numero (de 1 a 100)
+# sale: mas alto
+# sale: eso no es un numero: setenta
+# sale: mas bajo
+# sale: si! era 73, y lo sacaste en 3 intentos
+# `numero(t)` da un CASO: Es(n) si lo tecleado es un numero, NoEs si no -- y el `match` obliga a mirar los dos
+mod main "adivina el numero"
+
+fn main()
+    let secreto = 73
+    print("adivina el numero (de 1 a 100)")
+    let mut intentos = 0
+    let mut acertado = false
+    while not acertado
+        let t = lee()
+        match numero(t)
+            Es(n)
+                intentos = intentos + 1
+                if n < secreto
+                    print("mas alto")
+                else if n > secreto
+                    print("mas bajo")
+                else
+                    acertado = true
+            NoEs
+                print("eso no es un numero: ", t)
+    print("si! era ", secreto, ", y lo sacaste en ", intentos, " intentos")

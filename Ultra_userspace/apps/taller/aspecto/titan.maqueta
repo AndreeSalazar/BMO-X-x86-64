@@ -59,5 +59,10 @@
     .mut        { color:#FFB84B }              /* un `mut`: lo que cambia */
     .decide     { color:#F2E27A }              /* un `if`: el camino que corre */
     .loop       { color:#B28CFF }              /* un `while` / `for`: lo que repite */
+
+    /* -- la TAB: los nodos maestros (PLAN_TALLER 8.15) ------------------ */
+    .tab        { background-color:#070B21; border-color:#2C3C8C }   /* la caja, sobre el grafo */
+    .tab-fila   { color:#C9D4FF }              /* el nombre de un nodo de la lista */
+    .tab-elegida { background-color:#16246A }  /* el nodo elegido: el que Enter pone */
   </style>
 </maqueta>

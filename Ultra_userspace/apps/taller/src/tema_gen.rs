@@ -36,3 +36,7 @@ pub const USE: u32 = 0x0036_C4D8;
 pub const MUT: u32 = 0x00FF_B84B;
 pub const DECIDE: u32 = 0x00F2_E27A;
 pub const LOOP: u32 = 0x00B2_8CFF;
+pub const TAB_FONDO: u32 = 0x0007_0B21;
+pub const TAB_BORDE: u32 = 0x002C_3C8C;
+pub const TAB_FILA: u32 = 0x00C9_D4FF;
+pub const TAB_ELEGIDA_FONDO: u32 = 0x0016_246A;

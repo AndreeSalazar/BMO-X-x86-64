@@ -68,7 +68,10 @@ pub fn formatear_i64(code: &mut Vec<u8>) {
     x86::neg_r64(code, RAX);
     x86::patch_jump(code, non_negative);
 
-    emit_digits(code, 10, false);
+    // Los digitos de la MAGNITUD, sin signo: `neg` de i64::MIN da i64::MIN,
+    // que sin signo es 2^63 -- justo su magnitud. Con `idiv` salian restos
+    // negativos y basura (lo encontro la prueba al azar de TITAN++ E1).
+    emit_digits(code, 10, true);
 
     // El signo va al final del bucle porque va DELANTE en el texto.
     x86::test_r64_r64(code, R10, R10);
@@ -371,7 +374,7 @@ mod tests {
 
     #[test]
     fn signed_decimal_covers_sign_zero_and_limits() {
-        for value in [0i64, 7, 42, -1, -42, 1_000_000, i64::MAX, i64::MIN + 1] {
+        for value in [0i64, 7, 42, -1, -42, 1_000_000, i64::MAX, i64::MIN + 1, i64::MIN] {
             let out = run_with_rax(write_i64, value as u64);
             assert_eq!(out, value.to_string(), "valor {value}");
         }

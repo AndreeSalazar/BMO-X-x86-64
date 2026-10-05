@@ -1,0 +1,7 @@
+# espera: T0068
+# `lee` no pide nada: trae lo que se teclea
+mod main "le da a lee un valor"
+
+fn main()
+    let a = lee("nombre")
+    print(a)

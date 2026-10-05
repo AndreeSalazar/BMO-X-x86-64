@@ -1,0 +1,6 @@
+# espera: T0069
+# una linea tecleada que nadie guarda se pierde nada mas llegar
+mod main "lee y no guarda"
+
+fn main()
+    lee()

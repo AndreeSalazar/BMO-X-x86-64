@@ -5,6 +5,7 @@
 //!
 //! ```text
 //!    # espera: BIEN
+//!    # entra: Ada           (level 12) one line per line TYPED for it
 //!    # sale: hola            one line per line the console must show
 //! ```
 //!
@@ -38,6 +39,11 @@ fn examples(level: &str) -> Vec<(String, String, String, PathBuf, String)> {
     out
 }
 
+/// What the bench types for it (level 12, `lee()`): its `# entra:` lines.
+fn types(src: &str) -> String {
+    src.lines().filter_map(|l| l.strip_prefix("# entra: ")).map(|l| format!("{}\n", l)).collect()
+}
+
 /// What the example says the console shows: its `# sale:` lines, in order.
 fn says(src: &str) -> String {
     src.lines().filter_map(|l| l.strip_prefix("# sale: ")).map(|l| format!("{}\n", l)).collect()
@@ -45,7 +51,7 @@ fn says(src: &str) -> String {
 
 #[test]
 fn every_bien_program_of_every_level_runs_and_prints_what_it_says() {
-    for level in ["nivel0", "nivel1", "nivel2", "nivel3", "nivel4", "nivel5", "nivel6", "nivel7", "nivel8", "nivel9", "nivel10", "nivel11"] {
+    for level in ["nivel0", "nivel1", "nivel2", "nivel3", "nivel4", "nivel5", "nivel6", "nivel7", "nivel8", "nivel9", "nivel10", "nivel11", "nivel12", "nivel13"] {
         let ran = run_level(level);
         assert!(ran >= 2, "{} has programs that run", level);
     }
@@ -62,7 +68,9 @@ fn run_level(level: &str) -> usize {
         let bex = built.unwrap_or_else(|e| panic!("{}: {:?}", name, e));
         let expected = says(&src);
         assert!(!expected.is_empty(), "{}: a BIEN program says what it prints (`# sale:`)", name);
-        let m = run(cargar_bex(&bex).unwrap_or_else(|e| panic!("{}: {}", name, e)), 100_000);
+        let mut m = cargar_bex(&bex).unwrap_or_else(|e| panic!("{}: {}", name, e));
+        m.poner_entrada(&types(&src));
+        let m = run(m, 2_000_000);
         assert!(m.exited, "{}: the program did not reach EXIT", name);
         assert_eq!(m.console, expected, "{}: the console", name);
         ran += 1;

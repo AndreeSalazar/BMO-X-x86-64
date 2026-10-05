@@ -985,10 +985,19 @@ TITAN++, falta esa palabra.
 ```text
    E0  HECHO (niveles 0-3)  todo valor se sabe al compilar: el .bex solo
                             escribe resultados; ni un byte del lado muerto
-   E1  nivel 4 (while/for)  los primeros valores AL CORRER: una IR con
-                            temporales y bucles de verdad, y un PRESUPUESTO de
-                            plegado (un bucle de mil millones de vueltas no se
-                            calcula al compilar: se emite)
+   E1  HECHO (nivel 12)     el 05-10 (docs/plan/PLAN_LA_ENTRADA.md): un
+                            programa que LEE (`lee()`, `numero(t)`) se emite
+                            ENTERO para correr de verdad
+                            (`emisor-x86_64/src/e1/mod.rs`): dec exacto (en
+                            128 bits donde el calculo, `e1/ancho.rs`), tablas,
+                            registros, casos, llamadas con valores, mut/take,
+                            traits, y (nivel 13) listas y mapas en un MONTON
+                            propio que suelta lo que muere
+                            (`e1/monton.rs`); lo que solo falla al correr
+                            ATRAPA con su linea. La vara: el calculo, programa
+                            a programa y al azar, y al acabar NADA pedido sin
+                            soltar. Queda del propietario: el PRESUPUESTO de
+                            plegado (R8), porque cambia una ley
    E2  nivel 5 (return)     llamadas con valores; y LLAMAR A INTI por .bo +
                             bmo-enlazar: el camino de lo caliente
    E3  T5 (gpu fn)          las tablas y las funciones elementales, a la 3060
@@ -1552,14 +1561,17 @@ NIVEL A NIVEL, y cada nivel agrega pocas palabras y ya sirve para algo.
 | 9 | `mod use pub` | 23 | varios ficheros: **una app o un juego de verdad**, y F1 los muestra como grafo |
 | 10 | `trait` | 24 | comportamientos compartidos: un motor con piezas que se cambian |
 | 11 | `gpu` | 25 | **computo en la 3060** |
+| 12 | ninguna (`lee()`, `numero(t)`) | 25 | lo que viene de FUERA: preguntar y contestar -- el programa corre de verdad en la maquina (E1) |
+| 13 | ninguna (`[T]`, `{K: V}`, `push`, `get`...) | 25 | lo que CRECE: listas y mapas -- **una agenda, un inventario, un mundo de bloques** |
 
-**EL ESTADO, al 04-10**: los niveles **0 a 10 estan HECHOS** en el
+**EL ESTADO, al 05-10**: los niveles **0 a 13 estan HECHOS** en el
 anfitrion (amarillo: su banco corre en el emulador; en el Ryzen, todavia no),
-cada uno con su entrada al final de esta seccion y su gramatica en
-`toolchain/lang/titan/GRAMATICA.md`. El **11** tiene su plan:
-[`PLAN_EL_CENTAURO.md`](../plan/PLAN_EL_CENTAURO.md) -- funciones elementales,
-el f32 solo en la GPU, y el permiso del `Titan.toml`, que se estudio y es
-posible.
+cada uno con su gramatica en `toolchain/lang/titan/GRAMATICA.md`. Del **11**
+queda LANZAR en la 3060 (G4 de
+[`PLAN_EL_CENTAURO.md`](../plan/PLAN_EL_CENTAURO.md), Ring 0, del
+propietario); el **12** es [`PLAN_LA_ENTRADA.md`](../plan/PLAN_LA_ENTRADA.md)
+y el **13** [`PLAN_LISTAS_Y_MAPAS.md`](../plan/PLAN_LISTAS_Y_MAPAS.md). Los
+dos ultimos no traen palabra: las 25 se quedan en 25.
 
 **LAS LEYES** (04-10, el propietario: *"guardian estricto, que no se altere,
 con reglas y porque"*): lo que TITAN++ promete --las 25 palabras, los codigos
@@ -1568,6 +1580,13 @@ cabecera que dice la verdad...-- vive en
 `toolchain/tools/titan-leyes/LEYES.txt`, cada ley con su PORQUE y quien la
 hace cumplir. El guardian `titan-leyes` corre en el build: una ley que pierde
 su prueba, o cuyo texto cambia sin `--sellar "el motivo"`, para el build.
+
+**El banco es tambien el CURSO** (05-10): cada programa `BIEN` de un modulo es
+un NODO MAESTRO de la TAB de F1 (`PLAN_TALLER` 8.15) -- su familia es su nivel,
+su porque su comentario, su prueba sus lineas `# sale:`. Escribir un ejemplo
+nuevo en `ejemplos/nivelN/` lo pone en la TAB solo (`toolchain/tools/maestros`,
+guardian en el build), y `tests/maestros.rs` comprueba que cada uno, puesto en
+el paquete de otro, sigue compilando.
 
 **La respuesta corta: con 16 palabras ya se escribe cualquier algoritmo; con
 20, un JSON; con 23, una app; con 25, la 3060.** Lo que va de 16 a 25 no da

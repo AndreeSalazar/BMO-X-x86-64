@@ -6,7 +6,9 @@
 //!
 //! `cara-taller <carpeta>` deja `arbol.png`, `escribiendo.png`, `menu.png` y
 //! `arrastre.png`, del ancho de la columna, y la ventana entera con cada
-//! solapa: `grafo.png`, `cielo.png`, `elementos.png` y `guia.png`.
+//! solapa: `grafo.png`, `cielo.png`, `elementos.png` y `guia.png`. Y la TAB de
+//! los nodos maestros (`PLAN_TALLER` 8.15): `tab.png`, abierta con la ficha de
+//! un nodo, y `tab_filtro.png`, escribiendo "match".
 
 #[path = "../../../../../Ultra_userspace/apps/taller/src/canvas.rs"]
 #[allow(dead_code)]
@@ -35,6 +37,15 @@ mod guia;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/aspecto.rs"]
 #[allow(dead_code)]
 mod aspecto;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/editor.rs"]
+#[allow(dead_code)]
+mod editor;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/iconos.rs"]
+#[allow(dead_code)]
+mod iconos;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/tab.rs"]
+#[allow(dead_code)]
+mod tab;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/tema_gen.rs"]
 #[allow(dead_code)]
 mod tema_gen;
@@ -187,7 +198,7 @@ fn main() {
     pinta(&store, &ui, None, "escribiendo");
 
     ui.edit = None;
-    ui.menu = Some(Menu { x: 120, y: 330, item: ship });
+    ui.menu = Some(Menu { x: 120, y: 330, item: ship, code: true });
     pinta(&store, &ui, None, "menu");
 
     ui.menu = None;
@@ -261,5 +272,137 @@ fn main() {
         explorer::draw(&mut cv, &store, &ui, None, 0);
         guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
     }
-    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png");
+    // La TAB sobre el GRAFO: abierta con las flechas en `semaforo` (nivel 3),
+    // y filtrando "match" (quedan los del nivel 8 y los que lo nombran).
+    let (up, down) = (0x80, 0x81);
+    let scene = view::Scene {
+        graph: &store.loaded.graph,
+        script: None,
+        player: &player,
+        cam: &cam,
+        now_ms: 5000,
+        selected: None,
+        origin: b"asteroids",
+        sky: None,
+        flow_ms: Some(5000),
+        faults: &marks,
+        files: store.loaded.files(),
+        turn: 96,
+    };
+    for (nombre, teclas) in [("tab", &[down; 8][..]), ("tab_filtro", &[b'm', b'a', b't', b'c', b'h', down, down][..])] {
+        let mut paleta = tab::Palette::open((0, 0));
+        for &k in teclas {
+            paleta.key(k, up, down);
+        }
+        let mut px = vec![0u32; w * h];
+        let mut cv = canvas::Canvas::new(px.as_mut_ptr(), w as u32, h as u32);
+        view::draw(&mut cv, &scene);
+        space::tabs(&mut cv, space::Tab::Graph);
+        explorer::draw(&mut cv, &store, &ui, None, 0);
+        tab::draw(&mut cv, &paleta, 5000);
+        guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
+    }
+    // El clic derecho en un NODO del grafo: el menu de su fichero, con
+    // `Editar codigo` arriba.
+    {
+        let scene = view::Scene {
+            graph: &store.loaded.graph,
+            script: None,
+            player: &player,
+            cam: &cam,
+            now_ms: 5000,
+            selected: store.loaded.graph.find(b"main"),
+            origin: b"asteroids",
+            sky: None,
+            flow_ms: Some(5000),
+            faults: &marks,
+            files: store.loaded.files(),
+            turn: 96,
+        };
+        let main_item = store.tree.as_deref().unwrap().find(b"src/main.titan");
+        let mut ui2 = Ui::new();
+        ui2.picked = main_item;
+        ui2.menu = Some(Menu { x: 700, y: 250, item: main_item, code: true });
+        let mut px = vec![0u32; w * h];
+        let mut cv = canvas::Canvas::new(px.as_mut_ptr(), w as u32, h as u32);
+        view::draw(&mut cv, &scene);
+        space::tabs(&mut cv, space::Tab::Graph);
+        explorer::draw(&mut cv, &store, &ui2, scene.selected, 0);
+        guardar(&format!("{out}/menu_nodo.png"), &px, w, h, w);
+    }
+    // HOLA: el paquete mas chico, un nodo que imprime -- su impresora dice
+    // lo que sale, "hola mundo". Y luego el EDITOR: doble clic en el nodo,
+    // se escribe " desde BMO-X" dentro del texto, y al guardar el nodo dice
+    // lo nuevo.
+    {
+        let hola = read_package(&mut disco, b"titan/hola", &mut buf);
+        let cam = view::Camera::fit(&hola.graph, w as i32, h as i32);
+        let marks = faults::collect(&hola, None);
+        let scene = view::Scene {
+            graph: &hola.graph,
+            script: None,
+            player: &player,
+            cam: &cam,
+            now_ms: 5000,
+            selected: hola.graph.find(b"main"),
+            origin: b"hola",
+            sky: None,
+            flow_ms: Some(5000),
+            faults: &marks,
+            files: hola.files(),
+            turn: 96,
+        };
+        let mut px = vec![0u32; w * h];
+        let mut cv = canvas::Canvas::new(px.as_mut_ptr(), w as u32, h as u32);
+        view::draw(&mut cv, &scene);
+        space::tabs(&mut cv, space::Tab::Graph);
+        guardar(&format!("{out}/hola.png"), &px, w, h, w);
+
+        let rel = Path::new(&[b"src/main.titan"]).unwrap();
+        let src = seed::FILES.iter().find(|f| f.0 == "titan/hola/src/main.titan").unwrap().1.as_bytes();
+        let mut text = vec![0u8; 16 * 1024];
+        text[..src.len()].copy_from_slice(src);
+        let mut ed = editor::Editor::open(rel, Name::new("main"), src.len());
+        let k = &editor::KEYS;
+        for key in [k.down, k.down, k.down, k.end, k.left, k.left] {
+            ed.key(&mut text, key, 0);
+        }
+        for &ch in b" desde BMO-X" {
+            ed.key(&mut text, ch, 0);
+        }
+        for (nombre, guardado) in [("editor", false), ("editor_guardado", true)] {
+            if guardado {
+                // lo que hace `store.save_text`: ESTRATOS toma la version y
+                // el latido siguiente relee el paquete
+                let slot = disco.0.iter_mut().find(|(p, _)| p == "titan/hola/src/main.titan").unwrap();
+                slot.1 = Some(text[..ed.len].to_vec());
+                ed.saved();
+            }
+            let hola = read_package(&mut disco, b"titan/hola", &mut buf);
+            let marks = faults::collect(&hola, None);
+            let cam = view::Camera { x: 300, y: -20, zoom: 1000 };
+            let scene = view::Scene {
+                graph: &hola.graph,
+                script: None,
+                player: &player,
+                cam: &cam,
+                now_ms: 5000,
+                selected: hola.graph.find(b"main"),
+                origin: b"hola",
+                sky: None,
+                flow_ms: Some(5000),
+                faults: &marks,
+                files: hola.files(),
+                turn: 96,
+            };
+            let mut px = vec![0u32; w * h];
+            let mut cv = canvas::Canvas::new(px.as_mut_ptr(), w as u32, h as u32);
+            view::draw(&mut cv, &scene);
+            space::tabs(&mut cv, space::Tab::Graph);
+            editor::draw(&mut cv, &mut ed, &text, 0);
+            guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
+        }
+    }
+    println!("ok: {out}/hola.png editor.png editor_guardado.png menu_nodo.png");
+    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png tab.png tab_filtro.png");
 }
