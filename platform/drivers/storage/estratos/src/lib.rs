@@ -62,6 +62,9 @@ pub mod carpeta;
 /// que sube el techo de los 96 bytes que caben dentro de un nodo.
 pub mod flujo;
 pub mod espacio;
+/// LA MEZCLA POR NODOS (PLAN_LAS_RAMAS R2): base, A y B dentro, lo que queda
+/// y los choques fuera. Pura: no toca un sector.
+pub mod mezcla;
 pub mod objects;
 pub mod read;
 pub use escritura::{Fase, Rechazo, Transaccion};

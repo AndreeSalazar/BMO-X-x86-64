@@ -86,7 +86,10 @@ modulo es su nodo.
 
 ## 3. Las decisiones del propietario
 
-**PENDIENTES.** Cada una con su recomendada.
+**DECIDIDAS el 05-10, las tres (a)** (el propietario: *"D1 A, D2 A, D3 A, me
+encanta la A"*): una rama es una MARCA; un estrato de mezcla guarda DOS
+padres (formato v2, escrito antes en `ESTRATOS.md` y probado en imagenes);
+un choque lo resuelve una PERSONA en F1. Queda D4 (seccion 4b).
 
 ### D1 -- que es una rama
 
@@ -119,6 +122,53 @@ modulo es su nodo.
                     trabajo sin que nadie lo vea
 ```
 
+## 4b. Nodos ULTRA independientes: independizar es una DECISION
+
+El propietario, al decidir D1-D3: *"esos nodos sean independiente [...] ese
+nodo que aun hereda, se corte por completo la herencia [...] otros que nace con
+dependencias el ultimo es independiente dependiendo de la decision"*.
+
+Hay DOS independencias, y una ya esta garantizada:
+
+```text
+   LO QUE ES       independiente SIEMPRE, ya hoy: nada se sobreescribe, asi
+                   que cambiar un nodo NO puede cambiar otro. Un cambio es un
+                   nodo nuevo; el de antes sigue entero
+   DONDE VIVE      COMPARTIDO a veces: una copia de una plantilla, o dos
+                   versiones del mismo fichero, apuntan a los MISMOS bloques
+                   hasta que algo cambia. Esto es lo que "aun hereda"
+```
+
+**Independizar** corta lo segundo: los bloques del nodo se escriben aparte,
+en su sitio propio. El `BlockPtr` cambia su DONDE (`lba`, `off`) y conserva
+su QUE (`hash`), asi que para la mezcla (`mezcla.rs`) y para la historia es
+el mismo nodo; solo deja de compartir disco con nadie.
+
+```text
+   cuesta         los bytes del nodo, otra vez (compartir era gratis)
+   da             que un sector malo no se lleve a dos nodos a la vez; que se
+                  pueda sacar o mover el nodo sin arrastrar a otro; y que en
+                  F1 se VEA: un nodo que comparte lleva un cable fino hasta
+                  con quien comparte, y al independizarlo el cable se CORTA
+   no da          independencia de LO QUE ES: esa ya la tenia
+```
+
+### D4 -- cuando nace un nodo de una copia o de una rama
+
+```text
+   (a) RECOMENDADA  nace COMPARTIENDO, y se independiza cuando una persona lo
+                    decide (en F1, sobre el nodo, o en F12): gratis hasta que
+                    importa, y la decision queda a la vista
+   (b)              nace YA independiente: cada copia escribe sus bytes. Nunca
+                    comparte nada, pero copiar una plantilla de un GiB cuesta
+                    un GiB
+```
+
+[!] Saber CON QUIEN comparte un nodo es comparar los bloques de su arbol con
+los de los otros: ESTRATOS no lleva cuentas de referencias (el espacio es una
+resta, `ESTRATOS.md` tramo 4), asi que es una busqueda, no un numero guardado.
+Para una carpeta en pantalla es barato; para un volumen entero, otra cosa.
+
 ## 4. Plantillas
 
 Una plantilla es una CARPETA de ESTRATOS que se copia para empezar algo: un
@@ -141,11 +191,14 @@ de una lista escrita. Copiar una carpeta entera es C4 de `ESTRATOS.md`.
 ## 5. Los escalones
 
 - [x] R1 -- HECHO el 05-10: la GUIA de ESTRATOS en F1 (sub-solapa GUIA de ESTRATOS, `Ultra_userspace/apps/taller/src/strata_guide.rs`): las 39 puertas que existen, en 4 familias, con QUE y POR QUE, generadas del contrato por `toolchain/tools/estratos-guia/guia.py` (`--check` en el build). Tres puertas del contrato ganaron su linea propia para que la guia pudiera explicarlas
-- [ ] R2 -- la MEZCLA PURA en `bmo-estratos`: base, A y B como listas de (ruta, nodo) -> lo que sale y los choques, con la tabla de la seccion 2 como pruebas en el anfitrion
-- [ ] R3 -- las decisiones D1-D3 del propietario, escritas aqui (seccion 3)
+- [x] R2 -- HECHO el 05-10: la MEZCLA PURA (`platform/drivers/storage/estratos/src/mezcla.rs`): base, A y B como listas de (ruta, nodo) -> `Queda` o `Choque`, comparando el QUE (el BLAKE3) y no el DONDE, rutas sin distinguir mayusculas como las entradas, y `base()` para el ultimo estrato comun; 6 pruebas en el anfitrion con la tabla de la seccion 2 fila a fila; compila sin `std`
+- [x] R3 -- las decisiones D1-D3 del propietario, las tres (a), el 05-10 (seccion 3). D4 pendiente (seccion 4b)
 - [ ] R4 -- el gesto MEZCLAR en el kernel (`ES_GESTO_*`): construir el arbol de lo que sale con los nodos ya escritos (no copia bytes) y publicarlo como UN estrato; con D2 (a), formato v2 en imagenes antes que en F:
 - [ ] R5 -- la MEZCLA en F1: las dos cadenas que se juntan en la solapa HISTORIA, y cada choque como un nodo partido que se pulsa (D3)
 - [ ] R6 -- PLANTILLAS: la carpeta `plantillas/`, su LEEME por plantilla, la guia que las cuenta, y "usar" = copiar la carpeta (pide C4 de `platform/drivers/storage/estratos/ESTRATOS.md`)
+- [ ] R8 -- INDEPENDIZAR puro (seccion 4b): dados los bloques de dos nodos, cuales comparten; con sus pruebas en el anfitrion
+- [ ] R9 -- el gesto INDEPENDIZAR en el kernel: reescribir los bloques compartidos de un nodo en su sitio propio y publicar UN estrato (el QUE no cambia)
+- [ ] R10 -- en F1, en tiempo real: el cable fino de "comparte con" y el corte al independizar
 - [ ] R7 -- del PROPIETARIO: las leyes de la mezcla (que nunca se pierde un nodo sin que una persona lo vea) con `--sellar`
 
 ## 6. Lo que este plan NO es

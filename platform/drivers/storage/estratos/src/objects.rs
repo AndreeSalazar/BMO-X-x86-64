@@ -430,7 +430,7 @@ impl Entrada {
 
 /// Minuscula en Latin-1: ASCII mas el bloque acentuado (0xC0-0xDE), saltandose
 /// 0xD7, que es el signo de multiplicar y no una letra.
-fn baja(c: u8) -> u8 {
+pub(crate) fn baja(c: u8) -> u8 {
     if c >= b'A' && c <= b'Z' { return c + 32; }
     if c >= 0xC0 && c <= 0xDE && c != 0xD7 { return c + 32; }
     c
