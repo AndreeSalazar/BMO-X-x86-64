@@ -141,7 +141,7 @@ corrige aqui.
    D5 (b)   sin SQLite: el idioma es TITAN++ y el suelo es ESTRATOS
 ```
 
-### D6 -- donde viven los verbos (PENDIENTE)
+### D6 -- donde viven los verbos (DECIDIDA el 05-10: a, SERVIDO)
 
 ```text
    (a) RECOMENDADA  en un MODULO de la biblioteca, `estratos`, que el
@@ -152,6 +152,14 @@ corrige aqui.
    (b)              sueltos, como push y get: mas corto, pero obliga a
                     buscar nombres que no choquen con los de las colecciones
 ```
+
+El propietario: *"es mejor que ESTRATOS te deje servido y eso en F1"*. O sea
+(a), y con una precision que lo mejora: `estratos` NO es un fichero del
+paquete ni de la biblioteca de TITAN++, lo SIRVE el kernel, el mismo para
+todos los programas. En F1 se ve asi: un nodo propio, en el neon de ESTRATOS,
+con sus verbos como pines (los que LEEN y los que ESCRIBEN, separados por D7),
+y el `use estratos` de un modulo es un cable hasta el. La maqueta, con la
+historia como nodos unicos: `docs/arte/maqueta_taller_estratos.html`.
 
 ### D7 -- quien puede usar los verbos (DECIDIDA el 05-10)
 
@@ -244,7 +252,8 @@ Solo se anima con la ventana a la vista y sin tapar, como V5.
 
 ## 7. Los escalones
 
-- [x] Q0 -- las decisiones: D1-D4 (a), D5 (b) y D7 (la frontera), el 05-10 (seccion 4). D6 queda pendiente
+- [x] Q0 -- las decisiones: D1-D4 (a), D5 (b), D6 (a, servido) y D7 (la frontera), el 05-10 (seccion 4)
+- [x] Q0b -- la MAQUETA de ESTRATOS en F1 (`docs/arte/maqueta_taller_estratos.html`): el nodo servido con sus verbos, el resultado con su `:origen`, y la historia como nodos unicos que se verifican, se apagan en un plan de limpieza y se restablecen. Es la regla con que se medira la cara de verdad (Q8), como la de HERMES
 - [ ] Q1 -- la COMPRENSION en el frontend y el calculo (E0): `[e for x in l if c]`, varios `for` (el JOIN) y `{k: v for ...}`, con su tipo deducido de `e`; un nivel nuevo en `toolchain/lang/titan/GRAMATICA.md`, con su BIEN y sus NO en los dos bancos
 - [ ] Q2 -- la comprension en E1 (`toolchain/lang/titan/emisor-x86_64/src/e1/coleccion.rs`): un bucle que llena una lista o un mapa en el monton; el oraculo E0 == E1 y el azar la cubren como a las listas
 - [ ] Q3 -- el INDICE POR HASH: es L9 de `docs/plan/PLAN_LISTAS_Y_MAPAS.md`

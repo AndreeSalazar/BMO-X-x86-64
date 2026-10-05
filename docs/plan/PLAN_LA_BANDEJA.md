@@ -127,6 +127,13 @@ pide que el compilador de C viva dentro del .bex (el escalon 6 de
 cerca. Hasta entonces, un resultado construido fuera entra con su `:origen`
 igual: dice de donde salio aunque no saliera de F1.
 
+**Y cada nodo, UNICO** (el propietario: *"en NODOS por completo tienen que
+tener representacion unicas en mi TALLER"*): sea del tipo que sea, lleva un
+sello sacado del hash de lo que representa, como los astros de la solapa
+ESPACIO (`Ultra_userspace/apps/taller/src/astros.rs`). Dos nodos distintos no
+se pintan igual nunca, y uno que cambia de contenido cambia de cara. Asi se ve
+en la maqueta: `docs/arte/maqueta_taller_estratos.html`.
+
 El propietario ya lo probo y espera bugs de sorpresa: se anotan en la seccion
 8, con lo que se vio, y se arreglan antes de crecer.
 
@@ -141,6 +148,8 @@ El propietario ya lo probo y espera bugs de sorpresa: se anotan en la seccion
 - [ ] B6 -- INDEPENDIENTES (seccion 4): construir escribe un nodo NUEVO con `:origen`; F2 pinta el cable de un resultado a sus fuentes y al reves
 - [ ] B7 -- F12, el VOLUMEN con control total: verificar el volumen entero, la historia, marcar, volver, y limpiar con su lista (Q7 y C3), con los nodos animados unicos de `docs/plan/PLAN_LOS_DATOS.md` (Q8)
 - [ ] B8 -- F1, TODOS nodos: el tipo de nodo C (sus #include como cables), el resultado y el recurso, junto a los de TITAN++
+- [x] B8a -- la MAQUETA de F1 con ESTRATOS servido, C entre TITAN++, el resultado con su `:origen` y cada nodo con su sello unico: `docs/arte/maqueta_taller_estratos.html` (05-10)
+- [ ] B8b -- el ESPEJO de esa maqueta: `cara-taller` (`toolchain/tools/espejo-cara/src/bin/cara_taller.rs`) pinta con el codigo de verdad lo que la maqueta dibuja, y `foto.js` hace la foto de la regla
 - [ ] B9 -- los bugs de sorpresa que vea el propietario al probar F1 (seccion 8), cada uno arreglado con su prueba
 
 ## 7. Lo que este plan NO es
