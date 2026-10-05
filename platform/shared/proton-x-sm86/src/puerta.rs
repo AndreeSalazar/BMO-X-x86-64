@@ -314,6 +314,12 @@ impl Puerta {
         if !l.reglas.mezcla.trivial() {
             return Err(String::from("el lote mezcla (o escribe solo algunos canales): la 3060 no lo sabe todavia"));
         }
+        // 05-10: el stencil vive en la RAM de la casa (un byte por texel del
+        // DSV) y la receta no lo lleva: ese lote, por la CPU (y `despues`
+        // da por muerta la Z de la 3060 si el lote tambien la usa).
+        if l.reglas.stencil.is_some() {
+            return Err(String::from("el lote usa STENCIL: la 3060 no lo prueba ni lo escribe todavia (su plano vive en la RAM de la casa)"));
+        }
         if l.reglas.profundidad.is_some() && !self.z_a_la_3060 {
             return Err(String::from(
                 "el lote usa Z y la 3060 no dibuja con Z sobre un color PITCH (el back buffer en tu RAM): sin la sombra en bloque del kernel fue Xid 69 y el canal GR MUERTO hasta reiniciar",

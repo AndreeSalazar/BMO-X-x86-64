@@ -60,6 +60,7 @@ pub mod resumen;
 pub mod seh;
 pub mod sm5;
 pub mod sombras;
+pub mod stencil;
 pub mod hilos;
 pub mod hora;
 pub mod lote;

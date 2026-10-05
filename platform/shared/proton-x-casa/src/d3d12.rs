@@ -63,6 +63,9 @@ pub(crate) enum Orden {
     /// profundidad, los bits del float). `sub`: el subrecurso de la vista y
     /// su rebanada 3D << 32 (ver `d3d12_vistas`); 0, el de siempre.
     Limpiar { recurso: u64, sub: u64, pixel: u32 },
+    /// 05-10: ClearDepthStencilView con CLEAR_FLAG_STENCIL: el plano de
+    /// stencil de la vista, a `valor` (ver `d3d12_stencil`).
+    LimpiarStencil { recurso: u64, sub: u64, valor: u8 },
     /// N5.16 (05-10): limpiar un render target de FLOAT (cuatro palabras
     /// por texel, ya cuantizadas a su formato). Se hace al ejecutarse, no se
     /// apunta como la de arriba: esa guarda UNA palabra.
@@ -321,7 +324,8 @@ pub(crate) fn recurso_forma(forma: Forma, cadena: bool, banderas: u32) -> Option
     let almacen = Almacen::de(forma.formato);
     let color = matches!(almacen, Almacen::Rgba8 | Almacen::Bgra8);
     let prestable = cadena || (color && subs.len() == 1 && total <= crate::memoria::TEXTURA_PRESTABLE);
-    let datos = crate::memoria::pedir_pixeles(total.max(4), prestable)?;
+    // 05-10: con stencil, su plano va detras (`d3d12_stencil`).
+    let datos = crate::memoria::pedir_pixeles((total + crate::d3d12_stencil::bytes_de_mas(&forma, total)).max(4), prestable)?;
     let pixeles = match almacen {
         Almacen::Bloques(_) => Pixeles::ninguno(),
         // N5.16: un float de 2-4 canales son cuatro palabras por texel.
@@ -796,13 +800,14 @@ extern "C" {
 }
 
 const CLEAR_FLAG_DEPTH: u32 = 1;
+const CLEAR_FLAG_STENCIL: u32 = 2;
 
-pub(crate) extern "win64" fn clear_depth_stencil_view(this: u64, handle: u64, banderas: u32, bits: u32, _stencil: u8, n: u32, _rects: *const u8) {
+pub(crate) extern "win64" fn clear_depth_stencil_view(this: u64, handle: u64, banderas: u32, bits: u32, stencil: u8, n: u32, _rects: *const u8) {
     if n != 0 {
         aviso("ClearDepthStencilView con rectangulos: todavia limpia solo el recurso entero");
         return;
     }
-    if handle == 0 || banderas & CLEAR_FLAG_DEPTH == 0 {
+    if handle == 0 || banderas & (CLEAR_FLAG_DEPTH | CLEAR_FLAG_STENCIL) == 0 {
         return;
     }
     // SAFETY: el descriptor es una ranura de la casa (CreateDepthStencilView).
@@ -812,7 +817,15 @@ pub(crate) extern "win64" fn clear_depth_stencil_view(this: u64, handle: u64, ba
         return;
     }
     // SAFETY: `this` es una Lista de la casa.
-    unsafe { de::<Lista>(this) }.ordenes.push(Orden::Limpiar { recurso, sub, pixel: bits });
+    let l = unsafe { de::<Lista>(this) };
+    if banderas & CLEAR_FLAG_DEPTH != 0 {
+        l.ordenes.push(Orden::Limpiar { recurso, sub, pixel: bits });
+    }
+    // 05-10: el stencil (antes se tiraba): su byte llega por la pila, tal
+    // cual (el puente solo toca r9).
+    if banderas & CLEAR_FLAG_STENCIL != 0 {
+        l.ordenes.push(Orden::LimpiarStencil { recurso, sub, valor: stencil });
+    }
 }
 
 /// `ID3D12Resource2::GetDesc1(this, ret)`: el D3D12_RESOURCE_DESC1 (64 B): el

@@ -102,6 +102,8 @@ const HDR_EXE: &[u8] = include_bytes!("../../proton-x/prueba/hdr.exe");
 const UAVPIXEL_EXE: &[u8] = include_bytes!("../../proton-x/prueba/uavpixel.exe");
 // N5.16b (05-10): los floats de un canal, sus UAV y DepthClipEnable = FALSE.
 const FLOTANTE1_EXE: &[u8] = include_bytes!("../../proton-x/prueba/flotante1.exe");
+// 05-10: el stencil (la fila de la tabla 7.2 de la ESCALERA).
+const STENCIL_EXE: &[u8] = include_bytes!("../../proton-x/prueba/stencil.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

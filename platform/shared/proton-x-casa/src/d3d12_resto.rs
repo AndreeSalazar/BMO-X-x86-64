@@ -83,7 +83,7 @@ pub(crate) fn lista() -> [(usize, u64); 32] {
         (17, dir!(copy_resource)),
         (19, dir!(resolve_subresource)),
         (23, dir!(om_set_blend_factor)),
-        (24, dir!(om_set_stencil_ref)),
+        (24, dir!(crate::d3d12_stencil::om_set_stencil_ref)),
         (27, dir!(execute_bundle)),
         (29, dir!(set_compute_root_signature)),
         (31, dir!(set_compute_root_descriptor_table)),
@@ -515,8 +515,6 @@ extern "win64" fn om_set_blend_factor(this: u64, f: *const f32) {
     unsafe { crate::d3d12::lista(this).estado.factor_mezcla = (!f.is_null()).then(|| [f.read_unaligned(), f.add(1).read_unaligned(), f.add(2).read_unaligned(), f.add(3).read_unaligned()]) };
 }
 
-extern "win64" fn om_set_stencil_ref(_this: u64, _r: u32) {}
-
 /// Lo de `bundle` que se PUSO (no es lo de serie), encima de `base`: lo que
 /// un bundle hereda de la lista que lo llama y lo que deja de vuelta.
 fn encima(base: &Estado, bundle: &Estado) -> Estado {
@@ -551,6 +549,9 @@ fn encima(base: &Estado, bundle: &Estado) -> Estado {
     }
     if bundle.factor_mezcla.is_some() {
         e.factor_mezcla = bundle.factor_mezcla;
+    }
+    if bundle.stencil_ref != [0; 2] {
+        e.stencil_ref = bundle.stencil_ref;
     }
     e
 }
@@ -946,6 +947,7 @@ pub(crate) fn ejecutar(o: &Orden) {
         // SAFETY: comprobado al apuntar: cuatro bytes de un bufer de la casa.
         Orden::Escribir { dst, valor } => unsafe { (dst as *mut u32).write_unaligned(valor) },
         Orden::LimpiarUav { ref ranura, valores, crudo } => limpiar_uav(ranura, valores, crudo),
+        Orden::LimpiarStencil { recurso, sub, valor } => crate::d3d12_stencil::limpiar(recurso, sub, valor),
         Orden::Despachar { ref estado, grupos } => crate::computo::despachar(estado, grupos),
         Orden::Indirecto { ref estado, firma, max, args, args_off, cuenta, cuenta_off } => indirecto(estado, firma, max, args, args_off, cuenta, cuenta_off),
         _ => {}
@@ -968,6 +970,8 @@ fn copiar_entero(dst: u64, src: u64) {
                 // guardan igual: mismas medidas por dentro.
                 (Some(td), Some(ts)) if td.almacen.elemento() == ts.almacen.elemento() && td.subs == ts.subs => {
                     let n: u64 = ts.subs.iter().map(|x| x.bytes()).sum();
+                    // 05-10: y el plano de stencil detras, si los dos lo tienen.
+                    let n = n + crate::d3d12_stencil::bytes_de_mas(&ts.forma, n).min(crate::d3d12_stencil::bytes_de_mas(&td.forma, n));
                     // SAFETY: las dos memorias de texturas de la casa, de `n` bytes.
                     unsafe { core::ptr::copy(ts.datos as *const u8, td.datos as *mut u8, n as usize) };
                 }

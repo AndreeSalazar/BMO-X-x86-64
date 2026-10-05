@@ -2502,3 +2502,61 @@ dos de B: el UAV de float se ve nulo y no se limpia; los dos de C con
 FALSE: recortaba igual) y sale con 6; A2 (R16F, ya de N5.16) y C con TRUE
 (N5.15) ya decian bien. Y sin cuantizar al escribir el UAV (solo eso
 quitado), el segundo de B sale MAL: el CS leia 0.125 + 2^-16.
+stencil_vs.dxil, stencil_ps.dxil -- los de stencil.exe (05-10)
+
+El STENCIL (la fila de la tabla 7.2 de docs/plan/PLAN_LA_ESCALERA_PROTON_X.md):
+`stencil.hlsl` (aqui al lado): VSCuadro (la posicion de un bufer de
+vertices, a z = 0.5: sin cuentas enteras, asi que el nativo lo traduce y no
+hay aviso) y PSColor (el color de cuatro constantes de la raiz; sus bytes
+son los de hdr_color.dxil: el mismo sombreador). Con el mismo `dxc`:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo stencil_vs.dxil stencil.hlsl
+   dxc -T ps_6_0 -E PSColor -Fo stencil_ps.dxil stencil.hlsl
+
+   57b9278402b5525350c94969c6b426d0087b118ada5e7c905916bccaae0fca77  stencil_vs.dxil
+   ec4179122fe80bf7b7346408be529c9580272678168a1b11c2cf195e091389e2  stencil_ps.dxil
+
+stencil.exe -- el STENCIL de D3D12, juzgado (05-10)
+
+NUESTRO, no de Microsoft: `stencil.cpp` (aqui al lado), de consola, con los
+dos .dxil dentro (`.incbin`). Cuatro destinos RGBA8 de 64 x 64, cada uno con
+su DSV, y un cuadro de pantalla completa (y el mismo girado: sus caras son
+las de DETRAS):
+
+   A  D24S8: REPLACE 1 (de OMSetStencilRef) marca la mitad izquierda
+      pintando rojo; EQUAL 1 pinta de verde la pantalla entera: verde SOLO
+      a la izquierda, la derecha negra (lo limpio).
+   B  D24S8 limpio SOLO de stencil a 0xFD: INCR_SAT dos veces en todo y otra
+      a la izquierda (0xFF: satura, no da la vuelta); REPLACE 0 con la
+      mascara de ESCRITURA 0x0F a la derecha (0xF0); la sonda azul compara
+      con la mascara de LECTURA 0x0F (0x30: el nibble bajo, 0).
+   C  D32_FLOAT_S8X24_UINT limpio a 0x10: INCR con la cara de delante a la
+      izquierda (0x11), DECR con la de detras a la derecha (0x0F).
+   D  R24G8_TYPELESS con vista D24S8 y dibujos de SOLO profundidad (sin
+      render target ni sombreador de pixeles): REPLACE 3 a la izquierda, Z
+      0.5 arriba; luego EQUAL 3 con Z LESS: falla el stencil (INVERT: 0xFF a
+      la derecha), falla la Z (INCR_SAT: 4 arriba a la izquierda), pasan las
+      dos (ZERO: 0 abajo a la izquierda).
+
+El stencil se lee por el COLOR (leer el plano 1 con CopyTextureRegion la
+casa todavia no lo hace): sondas EQUAL a pantalla completa, cada una
+escribiendo en blanco SOLO su canal (R, G o B). Lo esperado son bits
+escritos a mano en el `.cpp`, con su cuenta. Dice `bien` 5 veces y sale con
+el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con stencil.cpp y los
+dos .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c stencil.cpp -o stencil.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o stencil.exe stencil.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   2ae976dc684fe5ea71f31f48704c15257d62fdbf7f9d242b060a3fc24f4daa94  stencil.exe
+
+El banco (`tests/corre/muestras.rs`, el_stencil_recorta_como_en_windows):
+los 5 `bien`, sale con 0 y NINGUN aviso. Probado que dice NO: con la casa
+de antes (14e6b7eb4: el PSO lo apuntaba y no lo usaba) sale con 4, y A, B,
+C y D MAL (A: la derecha verde, ff00ff00 en vez de ff000000; B y D: las
+tres sondas pasan en todo, 00ffffff; C: 0000ffff), con el aviso "con
+stencil: se apunta, y no se usa todavia".

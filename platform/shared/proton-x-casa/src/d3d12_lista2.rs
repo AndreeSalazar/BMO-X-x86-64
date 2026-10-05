@@ -17,7 +17,8 @@
 //!                                     limpiezas de su BeginningAccess CLEAR
 //!    5  RSSetShadingRate(Image)       nada (VRS anunciado como NO)
 //!    7  Barrier                       nada: la cola de la casa es sincrona
-//!    8  OMSetFrontAndBackStencilRef   nada (sin stencil todavia)
+//!    8  OMSetFrontAndBackStencilRef   una referencia de stencil a cada
+//!                                     cara (05-10, `d3d12_stencil`)
 //!    9  RSSetDepthBias, IASetIndexBufferStripCutValue   nada
 //! ```
 //!
@@ -48,7 +49,7 @@ pub(crate) fn lista() -> [(usize, u64); 16] {
         (77, dir!(nada)),
         (78, dir!(nada)),
         (80, dir!(nada)),
-        (81, dir!(nada)),
+        (81, dir!(crate::d3d12_stencil::om_set_front_and_back_stencil_ref)),
         (82, dir!(nada)),
         (83, dir!(nada)),
     ]
@@ -116,7 +117,8 @@ const LIMPIAR: u32 = 2;
 /// D3D12_RENDER_PASS_RENDER_TARGET_DESC (88 B): cpuDescriptor +0,
 /// BeginningAccess +8 (Type +0, ClearValue +4: Format, Color[4]),
 /// EndingAccess +32. D3D12_RENDER_PASS_DEPTH_STENCIL_DESC (168 B):
-/// cpuDescriptor +0, DepthBeginningAccess +8 (Depth en +8 de ella).
+/// cpuDescriptor +0, DepthBeginningAccess +8 (Depth en +8 de ella) y
+/// StencilBeginningAccess +32 (Stencil, un byte, en +12 de ella).
 const RT: usize = 88;
 
 /// **`BeginRenderPass(this, n, destinos, profundidad, banderas)`**: lo que
@@ -140,9 +142,13 @@ extern "win64" fn begin_render_pass(this: u64, n: u32, destinos: *const u8, prof
     } else {
         // SAFETY: un D3D12_RENDER_PASS_DEPTH_STENCIL_DESC del `.exe`.
         let (cpu, tipo, bits) = unsafe { ((profundidad as *const u64).read_unaligned(), (profundidad.add(8) as *const u32).read_unaligned(), (profundidad.add(16) as *const u32).read_unaligned()) };
-        if tipo == LIMPIAR {
-            // CLEAR_FLAG_DEPTH, y los BITS del float (la casa es soft-float).
-            d3d12::clear_depth_stencil_view(this, cpu, 1, bits, 0, 0, core::ptr::null());
+        // SAFETY: el mismo desc: el acceso de entrada del stencil.
+        let (tipo_s, stencil) = unsafe { ((profundidad.add(32) as *const u32).read_unaligned(), profundidad.add(44).read()) };
+        // CLEAR_FLAG_DEPTH (1) y STENCIL (2, desde el 05-10), y los BITS
+        // del float (la casa es soft-float).
+        let banderas = (tipo == LIMPIAR) as u32 | ((tipo_s == LIMPIAR) as u32) << 1;
+        if banderas != 0 {
+            d3d12::clear_depth_stencil_view(this, cpu, banderas, bits, stencil, 0, core::ptr::null());
         }
         cpu
     };

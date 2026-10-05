@@ -558,10 +558,16 @@ en una conversacion.
                                           de 1 se recorta (sin monitor HDR);
                                           un R32_UINT de destino, aun no
                                           (aviso)
-   el stencil y AlphaToCoverage           se apuntan y no se usan: un juego
-                                          que recorta con stencil pinta de
-                                          mas (lo dice un aviso al crear el
-                                          PSO)
+   el stencil (05-10, N5.12b)             ya recorta, con las reglas de D3D12
+                                          (`stencil.exe`); sus lotes van por
+                                          la CPU (la 3060 no lo sabe: lo
+                                          dice), y el plano 1 no se lee con
+                                          CopyTextureRegion todavia
+   AlphaToCoverage                        se apunta y no se usa (lo dice un
+                                          aviso al crear el PSO): con
+                                          SampleDesc.Count 1 no cubre nada,
+                                          no hay muestras que tapar; cuenta
+                                          cuando haya MSAA
    un UAV en un sombreador de DIBUJO      desde el 05-10 se escribe (N5.3d,
                                           uavpixel.exe), por el interprete y
                                           por la CPU (la 3060 no lo lleva: lo

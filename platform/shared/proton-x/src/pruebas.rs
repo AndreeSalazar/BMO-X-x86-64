@@ -220,11 +220,11 @@ pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32, z: bool, descarte: u32) -> 
     let b0 = cb_de(f);
     let cb = lote::juntar_constantes(&enlace.constantes, |_| Some(&b0[..]));
     let (w, h) = (bmo_cubo::referencia::ANCHO, bmo_cubo::referencia::ALTO);
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte, antihorario: false, profundidad: z.then_some(trama::Profundidad { funcion: 2, escribir: true }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte, antihorario: false, profundidad: z.then_some(trama::Profundidad { funcion: 2, escribir: true }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
     let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, uavs: None };
     let mut px = vec![bmo_cubo::FONDO; (w * h) as usize];
     let mut zs = vec![1.0f32.to_bits(); (w * h) as usize];
-    let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true, z: z.then_some(&mut zs[..]), cadena: false, otros: &mut [], flotante: None };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true, z: z.then_some(&mut zs[..]), cadena: false, otros: &mut [], flotante: None, stencil: None };
     let cuenta = lote::en_cpu(&l, &mut d).unwrap();
     (px, cuenta)
 }
@@ -260,8 +260,8 @@ pub(crate) fn triangulo(w: [f32; 3], atributo: [f32; 3], horario: bool) -> Vec<t
 
 fn pinta(v: &[trama::Sombreado], descarte: u32, antihorario: bool) -> (Vec<u32>, trama::Cuenta) {
     let mut px = vec![0u32; 64];
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte, antihorario, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
-    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: None, cadena: false, otros: &mut [], flotante: None };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte, antihorario, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: None, cadena: false, otros: &mut [], flotante: None, stencil: None };
     let c = trama::dibujar(&reglas, v, &[[0, 1, 2]], &mut d, None, |e, c| {
         c[0] = e[0];
         true
@@ -326,8 +326,8 @@ fn la_trama_recorta_contra_el_plano_cercano() {
     let m12 = s([-0.25, -1.25, 0.0, 1.0], 0.75);
     let a_mano = [v[0].clone(), m01.clone(), m12.clone(), v[0].clone(), m12, v[2].clone()];
     let mut px2 = vec![0u32; 64];
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
-    let mut d = trama::Destino { pixeles: &mut px2, ancho: 8, alto: 8, bgra: true, z: None, cadena: false, otros: &mut [], flotante: None };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+    let mut d = trama::Destino { pixeles: &mut px2, ancho: 8, alto: 8, bgra: true, z: None, cadena: false, otros: &mut [], flotante: None, stencil: None };
     let c2 = trama::dibujar(&reglas, &a_mano, &[[0, 1, 2], [3, 4, 5]], &mut d, None, |e, c| {
         c[0] = e[0];
         true

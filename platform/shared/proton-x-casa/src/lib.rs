@@ -76,6 +76,8 @@ pub mod pulso;
 pub mod d3d12_lista2;
 pub mod fallas;
 pub mod d3d12_resto;
+/// 05-10: el plano de stencil, su limpieza y su referencia.
+pub mod d3d12_stencil;
 mod computo;
 /// E2.7 (05-10): las consultas de oclusion y la predicacion.
 mod consultas;

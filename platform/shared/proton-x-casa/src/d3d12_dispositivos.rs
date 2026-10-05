@@ -280,7 +280,10 @@ unsafe fn pso_de_flujo(p: *const u8, n: usize) -> Result<[u8; PSO], &'static str
             7 => (8, 32, Some(88)),
             8 => (4, 328, Some(120)),
             9 => (4, 4, Some(448)),
-            10 | 26 => (4, 44, Some(452)),
+            // 05-10: el 26 es DEPTH_STENCIL2 (d3d12.h) y el RASTERIZER1 es el
+            // 27; antes el 26 se leia como rasterizador y el flujo se torcia.
+            10 | 27 => (4, 44, Some(452)),
+            26 => (4, 60, None),
             11 => (4, 52, Some(496)),
             12 => (8, 16, Some(552)),
             13 => (4, 4, Some(568)),
@@ -311,16 +314,18 @@ unsafe fn pso_de_flujo(p: *const u8, n: usize) -> Result<[u8; PSO], &'static str
             }
             // D3D12_DEPTH_STENCIL_DESC1: el de siempre y DepthBoundsTestEnable.
             (21, _) => d[496..548].copy_from_slice(&q[..52]),
+            // D3D12_DEPTH_STENCIL_DESC2: las mascaras van en cada cara.
+            (26, _) => d[496..548].copy_from_slice(&crate::d3d12_stencil::desc2_a_desc(q)?),
             // D3D12_VIEW_INSTANCING_DESC: una vista (o ninguna) es lo de siempre.
             (22, _) if u32::from_le_bytes([q[0], q[1], q[2], q[3]]) > 1 => return Err("CreatePipelineState con varias vistas (view instancing): todavia no"),
             _ => {}
         }
-        if tipo == 26 {
+        if tipo == 27 {
             // D3D12_RASTERIZER_DESC1: el DepthBias es un float; la casa no lo usa.
             let f = f32::from_le_bytes([q[12], q[13], q[14], q[15]]);
             d[464..468].copy_from_slice(&(f as i32).to_le_bytes());
         }
-        profundidad_dicha |= matches!(tipo, 11 | 21);
+        profundidad_dicha |= matches!(tipo, 11 | 21 | 26);
         o = (fin + 7) & !7;
     }
     // Sin formato de profundidad ni subobjeto que la pida, no hay prueba.

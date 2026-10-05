@@ -185,3 +185,9 @@ cp "$AQUI/../flotante1.cpp" "$AQUI"/../flotante1_*.dxil .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c flotante1.cpp -o flotante1.o
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o flotante1.exe flotante1.o -ld3d12
 sha256sum flotante1.exe
+# 05-10: el juez del STENCIL, NUESTRO (`../stencil.cpp`, con sus dos
+# sombreadores de `../stencil_*.dxil` dentro).
+cp "$AQUI/../stencil.cpp" "$AQUI"/../stencil_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c stencil.cpp -o stencil.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o stencil.exe stencil.o -ld3d12
+sha256sum stencil.exe

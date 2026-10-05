@@ -278,6 +278,8 @@ pub struct Pso {
     pub mezcla: Result<[bmo_proton_x::mezcla::Mezcla; 8], &'static str>,
     /// La prueba de profundidad (P3c4), si `DepthEnable`.
     pub profundidad: Option<trama::Profundidad>,
+    /// 05-10: el stencil, si `StencilEnable` (la referencia la pone la lista).
+    pub stencil: Option<bmo_proton_x::stencil::Stencil>,
 }
 
 
@@ -350,9 +352,9 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
     // DepthStencilState (+496): DepthEnable +0, DepthWriteMask +4 (1 ALL),
     // DepthFunc +8, StencilEnable +12.
     let profundidad = (u32_de(d, 496) != 0).then(|| trama::Profundidad { funcion: u32_de(d, 504), escribir: u32_de(d, 500) == 1 });
-    if u32_de(d, 508) != 0 {
-        aviso("CreateGraphicsPipelineState con stencil: se apunta, y no se usa todavia");
-    }
+    // 05-10: el stencil (StencilEnable +12, mascaras +16, caras +20 y +36),
+    // que antes se apuntaba y no se usaba: ver `bmo_proton_x::stencil`.
+    let stencil = bmo_proton_x::stencil::Stencil::de_desc(core::slice::from_raw_parts(d.add(496), 52))?;
     // BlendState (+120): AlphaToCoverageEnable +0, IndependentBlendEnable
     // +4, y RenderTarget[i] desde +8, de 40 bytes (`mezcla::Mezcla::de_desc`).
     // Sin IndependentBlendEnable, el 0 vale para todos.
@@ -396,6 +398,7 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
         compilado,
         mezcla,
         profundidad,
+        stencil,
         descarte: u32_de(d, 452 + 4),
         antihorario: u32_de(d, 452 + 8) != 0,
         // D3D12_RASTERIZER_DESC.DepthClipEnable (+24).
@@ -623,6 +626,9 @@ pub struct Estado {
     pub rtv_otros: [(u64, u64); 7],
     /// El recurso de profundidad (OMSetRenderTargets), o 0.
     pub dsv: u64,
+    /// 05-10: la referencia de stencil de delante y de detras
+    /// (`OMSetStencilRef`, `OMSetFrontAndBackStencilRef`); 0 de serie.
+    pub stencil_ref: [u8; 2],
     /// 02-10: el subrecurso de cada vista (y su rebanada 3D << 32): ver
     /// `d3d12_vistas`. 0, el de siempre.
     pub rtv_sub: u64,
@@ -944,6 +950,19 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // hace quien dibuje este lote.
     let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 && e.dsv_sub == 0 { tomar_limpieza(e.dsv) } else { None };
     let limpiar_rt = if e.rtv_sub == 0 && !solo_z { tomar_limpieza(e.rtv) } else { None };
+    // 05-10: el plano de stencil del DSV, si el PSO lo enciende y lo hay (un
+    // D32 no tiene: como en D3D, ni prueba ni escritura).
+    let plano = match (pso.stencil, e.dsv) {
+        (Some(_), dsv) if dsv != 0 => match crate::d3d12_stencil::plano(dsv, e.dsv_sub) {
+            Some((s, w, h)) if (w, h) == (ancho, alto) => Some(s),
+            Some(_) => {
+                aviso("Draw: el plano de stencil no mide lo que el render target: se dibuja sin el");
+                None
+            }
+            None => None,
+        },
+        _ => None,
+    };
     let lote = Lote {
         recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: Some(bmo_proton_x::textura::Dinamicas(&buscar)) },
         limpiar_z,
@@ -956,7 +975,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         topologia,
         cb: &cb,
         // N5.16b: DepthClipEnable = FALSE viaja en un bit del descarte.
-        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte | if pso.recorte_z { 0 } else { trama::SIN_RECORTE_Z }, antihorario: pso.antihorario, profundidad: pso.profundidad, mezcla, z_del_sombreador: false },
+        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte | if pso.recorte_z { 0 } else { trama::SIN_RECORTE_Z }, antihorario: pso.antihorario, profundidad: pso.profundidad, mezcla, z_del_sombreador: false, stencil: pso.stencil.filter(|_| plano.is_some()).map(|s| s.con_referencia(e.stencil_ref)) },
         oclusion: crate::consultas::hay_abierta(),
         otros: &flujos[1..],
         instancias,
@@ -1010,7 +1029,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             }
         }
     }
-    let mut destino = trama::Destino { pixeles, ancho, alto, bgra, z, cadena, otros: &mut otros, flotante };
+    let mut destino = trama::Destino { pixeles, ancho, alto, bgra, z, cadena, otros: &mut otros, flotante, stencil: plano };
     let r = (plataforma().dibujar)(&lote, &mut destino);
     // P3b4c.9 Z1: donde quedo este dibujo (la pantalla o la RAM) es donde
     // queda el fotograma: lo lee `Present`.

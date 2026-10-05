@@ -17,6 +17,8 @@
 //!    +  la PROFUNDIDAD (P3c4): z / w al rango del viewport, LINEAL en
 //!       pantalla (como D3D), la prueba antes del sombreador de pixeles, y
 //!       escrita si pasa y el PSO lo pide
+//!    +  el STENCIL (05-10, `stencil.rs`): su prueba con la de profundidad,
+//!       la cara por el giro, y la operacion que toca a cada resultado
 //! ```
 //!
 //! **Un atributo igual en los tres vertices es ESE valor**, sin cuentas: la
@@ -67,6 +69,10 @@ pub struct Reglas {
     /// 03-10: el de pixeles escribe SV_Depth: la prueba de profundidad va
     /// DESPUES de el, con la suya (en `colores[PROFUNDIDAD][0]`).
     pub z_del_sombreador: bool,
+    /// 05-10: el stencil del PSO (`StencilEnable`) con las referencias de
+    /// la lista, o `None`. Sin `Destino::stencil` no se hace (D3D: sin
+    /// plano de stencil la prueba pasa y no se escribe nada).
+    pub stencil: Option<crate::stencil::Stencil>,
 }
 
 /// **`DepthClipEnable = FALSE`** (N5.16b, 05-10), un bit de
@@ -129,6 +135,9 @@ pub struct Destino<'a, 'o> {
     /// si `pixeles` mide UNA palabra por texel (un R32_FLOAT, como lo guarda
     /// la casa), solo el r; lo que no trae se lee (0, 0, 1), como su formato.
     pub flotante: Option<u32>,
+    /// 05-10: el plano de stencil del DSV (un byte por texel, del mismo
+    /// `ancho * alto`), o `None`: un D32 sin stencil, o sin DSV.
+    pub stencil: Option<&'a mut [u8]>,
 }
 
 /// **Otro render target** del mismo dibujo (N5.8): sus pixeles y su orden
@@ -163,8 +172,8 @@ pub struct Cuenta {
     /// N5.7: pixeles que el sombreador TIRO (`discard`, `clip`): pasaron la
     /// prueba de profundidad y no escribieron nada.
     pub tirados: u64,
-    /// E2.7 (05-10): pixeles que PASARON la prueba de profundidad (la de
-    /// stencil la casa aun no la hace) y que el sombreador no tiro, escriban
+    /// E2.7 (05-10): pixeles que PASARON la prueba de profundidad (y la de
+    /// stencil, desde el 05-10) y que el sombreador no tiro, escriban
     /// color o no: lo que cuenta una consulta de OCLUSION de D3D12.
     pub pasan: u64,
     /// P3b4c.9 Z1: el dibujo quedo EN LA PANTALLA (la 3060, directo), no en
@@ -315,6 +324,7 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
     // una (un R32F, como lo guarda la casa); lo dice lo que mide.
     let palabras = |n: usize| if n >= 4 * texeles { 4 } else { 1 };
     let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= texeles));
+    let plantilla = reglas.stencil.filter(|_| destino.stencil.as_ref().is_some_and(|s| s.len() >= texeles));
     let (mw, mh) = (vw * 0.5, vh * 0.5);
     let (ox, oy) = (vx + mw, vy + mh);
     // El rectangulo donde se puede pintar: viewport, tijera y destino.
@@ -410,6 +420,8 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
             inv_w.swap(1, 2);
         }
         let v = [v[o[0]], v[o[1]], v[o[2]]];
+        // 05-10: la cara de stencil de este triangulo, por su giro.
+        let cara = plantilla.map(|s| if delante { s.delante } else { s.detras });
         // La profundidad de cada vertice, ya en el rango del viewport (sin
         // recorte en z puede salirse: la prueba la sujeta, abajo).
         let zv: [f32; 3] = core::array::from_fn(|k| zmin + v[k].pos[2] * inv_w[k] * (zmax - zmin));
@@ -444,7 +456,16 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
                 let i = (py * ancho + px) as usize;
                 let mut z_nueva = None;
                 let mut z_tarde = None;
-                if let (Some(p), Some(zs)) = (prueba.filter(|_| !reglas.z_del_sombreador), destino.z.as_deref_mut()) {
+                // 05-10: el stencil, con la profundidad, y los dos ANTES del
+                // de pixeles (`fallo`: la operacion de stencil de un pixel que
+                // NO se pinta) -- salvo con UAV y sin [earlydepthstencil]
+                // (`tarde`): entonces el de pixeles corre en todos y los dos se
+                // prueban DESPUES, como en D3D.
+                let mut fallo = match (cara, destino.stencil.as_deref()) {
+                    (Some(c), Some(s)) if !tarde && !c.prueba(s[i]) => Some(c.falla),
+                    _ => None,
+                };
+                if let (None, Some(p), Some(zs)) = (fallo, prueba.filter(|_| !reglas.z_del_sombreador), destino.z.as_deref_mut()) {
                     // Lineal en pantalla: los pesos de las aristas, sin w.
                     let s = (e[0] + e[1] + e[2]) as f32;
                     let (b1, b2) = (e[1] as f32 / s, e[2] as f32 / s);
@@ -452,15 +473,36 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
                     if tarde {
                         z_tarde = Some(z);
                     } else if !p.pasa(z, f32::from_bits(zs[i])) {
-                        cuenta.tapados += 1;
-                        continue;
+                        fallo = Some(cara.map_or(crate::stencil::KEEP, |c| c.falla_z));
                     } else if p.escribir && efectos.temprana {
                         zs[i] = z.to_bits();
                     } else if p.escribir {
                         z_nueva = Some(z.to_bits());
                     }
                 }
-                cuenta.pixeles += 1;
+                // [earlydepthstencil]: el stencil se ESCRIBE ya, como la
+                // profundidad de arriba (un `discard` ya no lo deshace), y lo
+                // que no pasa no corre el de pixeles.
+                if efectos.temprana {
+                    if let (Some(c), Some(s)) = (cara, destino.stencil.as_deref_mut()) {
+                        s[i] = c.aplicar(fallo.unwrap_or(c.pasa), s[i]);
+                    }
+                    if fallo.is_some() {
+                        cuenta.tapados += 1;
+                        continue;
+                    }
+                }
+                match fallo {
+                    // Su operacion de stencil vale solo si el de pixeles no
+                    // lo tira (ver `stencil.rs`): si cambiaria algo, se corre.
+                    Some(op) => {
+                        cuenta.tapados += 1;
+                        if !cara.is_some_and(|c| c.cambia(op)) {
+                            continue;
+                        }
+                    }
+                    None => cuenta.pixeles += 1,
+                }
                 if !plano {
                     // Con perspectiva: los pesos de pantalla sobre w.
                     let b = [e[0] as f32 * inv_w[0], e[1] as f32 * inv_w[1], e[2] as f32 * inv_w[2]];
@@ -493,15 +535,32 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
                     }
                 };
                 let Some((colores, pixel)) = pixel else {
-                    cuenta.tirados += 1;
+                    if fallo.is_none() {
+                        cuenta.tirados += 1;
+                    }
                     continue;
                 };
+                if let (Some(op), Some(c), Some(s)) = (fallo, cara, destino.stencil.as_deref_mut()) {
+                    s[i] = c.aplicar(op, s[i]);
+                    continue;
+                }
+                // `tarde` (UAV sin [earlydepthstencil]): el stencil, ahora.
+                if let (true, Some(c), Some(s)) = (tarde, cara, destino.stencil.as_deref_mut()) {
+                    if !c.prueba(s[i]) {
+                        cuenta.tapados += 1;
+                        s[i] = c.aplicar(c.falla, s[i]);
+                        continue;
+                    }
+                }
                 // SV_Depth: la prueba, ahora, con la Z del sombreador (D3D la
                 // recorta al rango del viewport); con UAV, con la de la trama.
                 let z_despues = if reglas.z_del_sombreador { Some(colores[PROFUNDIDAD][0].clamp(zmin.min(zmax), zmin.max(zmax))) } else { z_tarde };
                 if let (Some(z), Some(p), Some(zs)) = (z_despues, prueba, destino.z.as_deref_mut()) {
                     if !p.pasa(z, f32::from_bits(zs[i])) {
                         cuenta.tapados += 1;
+                        if let (Some(c), Some(s)) = (cara, destino.stencil.as_deref_mut()) {
+                            s[i] = c.aplicar(c.falla_z, s[i]);
+                        }
                         continue;
                     }
                     if p.escribir {
@@ -511,6 +570,10 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
                 cuenta.pasan += 1;
                 if let (Some(z), Some(zs)) = (z_nueva, destino.z.as_deref_mut()) {
                     zs[i] = z;
+                }
+                // Con [earlydepthstencil] ya se escribio arriba.
+                if let (false, Some(c), Some(s)) = (efectos.temprana, cara, destino.stencil.as_deref_mut()) {
+                    s[i] = c.aplicar(c.pasa, s[i]);
                 }
                 // El render target `k`: el pixel nuevo, o mezclado con el que esta.
                 let poner = |k: usize, p: &mut u32| {

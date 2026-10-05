@@ -42,10 +42,10 @@ fn poner(en: &Enlace, uavs: &mut [Option<Uav<'static>>], registro: u32, u: Uav<'
 /// hay; lo que cuenta la trama.
 fn dibujar(en: &Enlace, uavs: &RefCell<Vec<Option<Uav<'static>>>>, z: Option<f32>) -> trama::Cuenta {
     let profundidad = z.map(|_| trama::Profundidad { funcion: 2, escribir: true });
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
     let l = Lote { enlace: en, entradas: &[], vertices: &[], paso: 0, ids: &[0, 1, 2, 3, 4, 5], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, uavs: Some(uavs) };
     let (mut px, mut zs) = (vec![0u32; 64], vec![z.unwrap_or(1.0).to_bits(); 64]);
-    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: z.map(|_| &mut zs[..]), cadena: false, otros: &mut [], flotante: None };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: z.map(|_| &mut zs[..]), cadena: false, otros: &mut [], flotante: None, stencil: None };
     lote::en_cpu(&l, &mut d).unwrap()
 }
 
@@ -110,4 +110,51 @@ fn la_profundidad_va_despues_salvo_con_earlydepthstencil() {
     assert!(!enlace(CUENTA).ps.computo.temprana);
     let (n, c) = cuenta(TEMPRANA, true);
     assert_eq!((n, c.tapados, c.sombreados), (0, 64, 0), "temprana: {c:?}");
+}
+
+/// El cuadro con `ps` (que suma 1 en el contador de B) y un STENCIL de una
+/// cara con `funcion` y las operaciones `falla` y `pasa` (referencia 1),
+/// sobre un plano a 0 y sin Z: el contador, la cuenta y el plano.
+fn con_stencil(ps: &[u8], funcion: u8, falla: u8, pasa: u8) -> (u32, trama::Cuenta, Vec<u8>) {
+    use crate::stencil::{Cara, Stencil, KEEP};
+    let en = enlace(ps);
+    let c = memoria(1);
+    let mut v: Vec<Option<Uav>> = (0..en.ranuras.uavs.len()).map(|_| None).collect();
+    poner(&en, &mut v, 2, Uav { bytes: c, formato: 0, paso: 0, elementos: 1, contador: None });
+    let uavs = RefCell::new(v);
+    let cara = Cara { falla, falla_z: KEEP, pasa, funcion, lectura: 0xFF, escritura: 0xFF, referencia: 1 };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: Some(Stencil { delante: cara, detras: cara }) };
+    let l = Lote { enlace: &en, entradas: &[], vertices: &[], paso: 0, ids: &[0, 1, 2, 3, 4, 5], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, uavs: Some(&uavs) };
+    let (mut px, mut plano) = (vec![0u32; 64], vec![0u8; 64]);
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros: &mut [], flotante: None, stencil: Some(&mut plano) };
+    let cuenta = lote::en_cpu(&l, &mut d).unwrap();
+    let v = uavs.into_inner();
+    let b = &v[en.ranuras.uavs.iter().position(|l| l.registro == 2).unwrap()].as_ref().unwrap().bytes;
+    (u32::from_le_bytes([b[0], b[1], b[2], b[3]]), cuenta, plano)
+}
+
+/// *** El STENCIL con UAV (al juntar N5.3d y N5.12b, 05-10): como la
+/// profundidad, el stencil va DESPUES del sombreador si escribe UAV (todos
+/// suman y el que no pasa hace su operacion de fallo), y ANTES con
+/// `[earlydepthstencil]` (no corre el que no pasa; su operacion ya se
+/// escribio). La de paso es INCR a proposito: aplicada dos veces daria 2.
+#[test]
+fn el_stencil_con_uav_va_despues_salvo_con_earlydepthstencil() {
+    use crate::stencil::{INCR, INCR_SAT, KEEP};
+    const EQUAL: u8 = 3;
+    const ALWAYS: u8 = 8;
+    // Falla (EQUAL 1 contra 0): tarde, los 64 suman y quedan a 1 (INCR_SAT).
+    let (n, c, p) = con_stencil(CUENTA, EQUAL, INCR_SAT, KEEP);
+    assert_eq!((n, c.tapados, c.pasan), (64, 64, 0), "tarde, falla: {c:?}");
+    assert!(p.iter().all(|&b| b == 1), "tarde, falla: {p:?}");
+    // Falla con [earlydepthstencil]: ninguno corre, y el fallo ya esta escrito.
+    let (n, c, p) = con_stencil(TEMPRANA, EQUAL, INCR_SAT, KEEP);
+    assert_eq!((n, c.tapados, c.sombreados), (0, 64, 0), "temprana, falla: {c:?}");
+    assert!(p.iter().all(|&b| b == 1), "temprana, falla: {p:?}");
+    // Pasa (ALWAYS): los 64 suman y INCR se aplica UNA vez, en los dos modos.
+    for ps in [CUENTA, TEMPRANA] {
+        let (n, c, p) = con_stencil(ps, ALWAYS, KEEP, INCR);
+        assert_eq!((n, c.pasan), (64, 64), "pasa: {c:?}");
+        assert!(p.iter().all(|&b| b == 1), "INCR una vez: {p:?}");
+    }
 }

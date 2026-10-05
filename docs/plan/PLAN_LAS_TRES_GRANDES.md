@@ -975,6 +975,34 @@ la proxima corrida del metal dice cual pesa mas:
   (`Destino::pixeles` vacio). Probado por las puertas de Windows: un mapa
   de sombras D32 (`tests/gbuffer.rs`). La 3060 no lo toma todavia (sin
   back buffer que darle a la puerta): por la CPU.
+- [x] **N5.12b -- el STENCIL** (05-10, `proton-x/src/stencil.rs`, `prueba/stencil.exe`):
+  las mascaras de luz y las calcomanias de Cyberpunk. Antes el PSO lo
+  apuntaba y no lo usaba (un aviso), y un juego que recorta con stencil
+  pintaba de mas. Ahora, con las reglas de D3D12: StencilEnable, las
+  mascaras de lectura y escritura, las dos caras (la del giro del
+  triangulo) con sus tres operaciones (fallo, fallo de Z, pasa) y su
+  funcion; las ocho operaciones; la referencia de `OMSetStencilRef` (y
+  `OMSetFrontAndBackStencilRef`, una por cara), enmascarada para comparar
+  y entera para REPLACE; la prueba con la de Z (antes del de pixeles, y la
+  de Z despues si hay SV_Depth), tambien en los dibujos de solo
+  profundidad; un pixel TIRADO no cambia el stencil. El plano: un byte por
+  texel DETRAS de la profundidad en D24S8, D32S8X24 y sus TYPELESS
+  (`proton-x-casa/src/d3d12_stencil.rs`); ClearDepthStencilView con
+  CLEAR_FLAG_STENCIL (y BeginRenderPass) lo limpia. Juez: `stencil.exe`
+  (`tests/corre/muestras.rs`: 5 `bien`, ningun aviso; con la casa de antes
+  A, B, C y D salen MAL) y las pruebas de `stencil.rs` en la trama.
+  **Lo que puede fallar, dicho:** (1) la 3060 no lo sabe: un lote con
+  stencil va por la CPU (la puerta lo dice una vez), y si ademas usa Z, la
+  de la 3060 deja de estar viva (como con cualquier lote de Z por la CPU);
+  (2) el juez lo LEE por el color: leer el plano 1 con CopyTextureRegion no
+  esta (su huella R8 no se ha medido contra Windows; CopyResource si lo
+  copia entero); (3) SV_StencilRef (el de pixeles da la referencia) no: la casa
+  anuncia `PSSpecifiedStencilRefSupported` NO; (4) el subobjeto
+  DEPTH_STENCIL2 de un flujo (el 26, que la casa leia como RASTERIZER1,
+  que es el 27: el flujo se torcia) ya se lee, pero con mascaras DISTINTAS
+  en cada cara el PSO no se crea (lo dice).
+  **Queda:** AlphaToCoverage, que con `SampleDesc.Count` 1 no cubre nada
+  (sin MSAA no hay muestras que tapar): sigue apuntado y dicho.
 - [x] **N5.13 -- las INSTANCIAS** (05-10, con N5.14): el follaje, la
   gente, los coches. Antes un `DrawInstanced` dibujaba UNA y solo se leia la ranura 0. Ahora: las 16
   ranuras de `IASetVertexBuffers` (y quitarlas con NULL), los elementos POR

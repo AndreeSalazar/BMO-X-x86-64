@@ -621,6 +621,26 @@ fn n5_16b_los_floats_de_un_canal_sus_uav_y_sin_recorte_en_z() {
     assert!(texto.ends_with("flotante1.exe: los floats de un canal, sus UAV y DepthClipEnable son los de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
+/// **El STENCIL** (05-10, la fila de la tabla 7.2 de la ESCALERA): marcar
+/// con REPLACE y pintar solo alli con EQUAL; INCR_SAT y las mascaras de
+/// lectura y escritura; la cara de delante y la de detras (en un D32S8X24);
+/// y dibujos de SOLO profundidad con las tres operaciones (fallo de stencil,
+/// de Z y las dos que pasan) en un R24G8 TYPELESS. Leido por el color con
+/// sondas EQUAL. Antes el PSO lo apuntaba y no lo usaba: A, B, C y D, MAL.
+#[test]
+fn el_stencil_recorta_como_en_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, STENCIL_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Ningun aviso: el cuadro viene de un bufer de vertices (sin cuentas
+    // enteras) y todo lo que pide el juez la casa lo hace.
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert!(avisos.is_empty(), "ningun aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 5, "{texto}");
+    assert!(texto.ends_with("stencil.exe: el stencil de D3D12 es el de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
 /// **E2.3b -- D3D12nBodyGravity** (05-10, `Samples/Desktop`, MIT): el
 /// COMPUTO de verdad (10.000 particulas, la barrera DENTRO de un bucle, en
 /// SU hilo y su cola de computo, con vallas entre las dos colas) y un

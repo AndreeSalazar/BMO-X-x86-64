@@ -35,6 +35,7 @@ cualquiera es una diferencia.
 | `hdr.exe` | render targets de float: RGBA16F, R11G11B10F, leidos como textura (N5.16) | 4 | `hdr.exe: los render targets de float son los de Windows` | uno: `PROTON-X: un PSO con texturas: ... (el codigo nativo aun no muestrea)` |
 | `uavpixel.exe` | UAV escritos desde un DIBUJO: textura por pixel, `InterlockedAdd`, `RWBuffer` desde el de vertices (N5.3d) | 4 | `uavpixel.exe: los UAV de un dibujo son los de Windows` | dos: `PROTON-X: un PSO cuyo sombreador lee o escribe un UAV: ...` y, de la puerta de la 3060, `PROTON-X: este lote va por la CPU: sus sombreadores leen o escriben UAV ...` (una vez) |
 | `flotante1.exe` | render targets de UN float (R32F, R16F), UAV de un RGBA16F, DepthClipEnable = FALSE (N5.16b) | 10 | `flotante1.exe: los floats de un canal, sus UAV y DepthClipEnable son los de Windows` | uno: `PROTON-X: un PSO con texturas: ...` |
+| `stencil.exe` | el STENCIL: REPLACE/EQUAL, INCR_SAT y las mascaras, las dos caras, solo profundidad (N5.12b) | 5 | `stencil.exe: el stencil de D3D12 es el de Windows` | ninguno por la CPU; con la 3060 despierta, los de la puerta, una vez cada uno: `este lote va por la CPU: el lote usa STENCIL ...` y `... mezcla (o escribe solo algunos canales) ...` (las sondas) |
 
 **Lo que el banco NO puede ver y el Ryzen si** (por eso cuentan):
 
