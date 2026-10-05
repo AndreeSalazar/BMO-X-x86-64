@@ -505,11 +505,11 @@ en una conversacion.
                                           enteras van interpretados (lo dice
                                           un aviso); Cyberpunk, lejos de sus
                                           fotogramas
-   el HDR (N5.16, 05-10)                  los de 2-4 canales ya son float;
-                                          quedan R32F como render target y
-                                          los UAV de un RGBA16F (aviso), y
-                                          al presentar lo de mas de 1 se
-                                          recorta (sin monitor HDR)
+   el HDR (N5.16 y N5.16b, 05-10)         los de 1 a 4 canales y sus UAV ya
+                                          son float; al presentar lo de mas
+                                          de 1 se recorta (sin monitor HDR);
+                                          un R32_UINT de destino, aun no
+                                          (aviso)
    el stencil y AlphaToCoverage           se apuntan y no se usan: un juego
                                           que recorta con stencil pinta de
                                           mas (lo dice un aviso al crear el
@@ -529,8 +529,10 @@ en una conversacion.
    cubo                                   dice)
    ClearUnorderedAccessView con           limpia la vista entera (lo dice)
    rectangulos
-   DepthClipEnable = FALSE                recorta igual (no lo dice: es lo
-                                          que casi todos usan)
+   DepthClipEnable = FALSE                N5.16b (05-10): sin recorte en z,
+                                          la Z sujeta, en la CPU; la 3060
+                                          recorta siempre: esos lotes, por la
+                                          CPU (lo dice la puerta)
    un SRV estructurado en la RAIZ de un   el paso sale de `dx.resources`; un
    sombreador sin metadatos (SM5, DXBC)   SM5 no los trae como DXIL: se lee
                                           crudo, mal, y NO lo dice todavia

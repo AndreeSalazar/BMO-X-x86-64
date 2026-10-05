@@ -748,10 +748,16 @@ pub(crate) extern "win64" fn clear_render_target_view(this: u64, handle: u64, co
     // SAFETY: el descriptor guarda un Recurso de la casa.
     let formato = unsafe { de::<Recurso>(recurso).formato };
     let [r, g, b, a] = c.map(unorm8);
-    // En memoria, R8G8B8A8 es R,G,B,A y B8G8R8A8 es B,G,R,A; un float, R.
+    // En memoria, R8G8B8A8 es R,G,B,A y B8G8R8A8 es B,G,R,A; un float, R
+    // (N5.16b: cuantizado al formato de la vista: un R16_FLOAT de un
+    // R16_TYPELESS es un half).
     let pixel = match Almacen::de(formato) {
         Almacen::Bgra8 => a << 24 | r << 16 | g << 8 | b,
-        Almacen::Flotante => c[0].to_bits(),
+        Almacen::Flotante => {
+            // SAFETY: la ranura del descriptor (4 palabras; ver arriba).
+            let vista = crate::d3d12_vistas::leer(unsafe { core::slice::from_raw_parts(handle as *const u64, 4) }).0 .1;
+            bmo_proton_x::formato_ia::cuantizar(if vista != 0 { vista } else { formato }, c)[0].to_bits()
+        }
         Almacen::Bloques(_) => {
             aviso("ClearRenderTargetView de una textura BC: en Windows es un error");
             return;

@@ -998,9 +998,9 @@ la proxima corrida del metal dice cual pesa mas:
   una banda de guarda de 64 pantallas para x e y. Antes no se pintaba
   (en 3D de cerca faltaba suelo y pared; nBodyGravity lo decia). Juez:
   `proton-x/src/pruebas.rs` (los mismos pixeles que recortado a mano, y en
-  cada pixel el atributo de la cuenta en f64 del triangulo ENTERO). Queda:
-  `DepthClipEnable = FALSE` (sin recorte en z, la Z sujeta), que hoy
-  recorta igual.
+  cada pixel el atributo de la cuenta en f64 del triangulo ENTERO).
+  `DepthClipEnable = FALSE` (sin recorte en z, la Z sujeta) ya no recorta
+  igual: hecho con N5.16b (abajo, `flotante1.exe`, C).
 - [x] **N5.16 -- render targets de floats de 2 a 4 canales** (05-10, `prueba/hdr.exe`):
   RGBA16F, RG16F, RGBA32F, R11G11B10F y R10G10B10A2 se guardan en FLOAT
   (cuatro palabras por texel, `Almacen::Flotantes4`), se mezclan en float
@@ -1016,12 +1016,35 @@ la proxima corrida del metal dice cual pesa mas:
   es de 8 bits, y un lote en float va por la CPU (lo dice un aviso); (3)
   cuatro palabras por texel son 4 veces la memoria de un RGBA8 (un RGBA16F
   de 1080p son 33 MB, no 8).
-- [ ] **N5.16b -- lo que queda de los floats** (`proton-x-casa/src/tuberia.rs`):
-  un render target de UN canal (R32_FLOAT, R16_FLOAT: hoy "todavia no"),
-  los UAV y ClearUnorderedAccessView sobre una textura de float de 2-4
-  canales (hoy un aviso y nada), y la 3060 pintando en float (su puerta).
-  **Como se sabe:** `hdr.exe` con un cuarto destino R32F y un CS que
-  escriba en el RGBA16F, bit a bit.
+- [x] **N5.16b -- lo que quedaba de los floats, y DepthClipEnable = FALSE** (05-10, `prueba/flotante1.exe`):
+  (1) un render target de UN float: R32_FLOAT (y la vista R16_FLOAT de un
+  R16_TYPELESS) se guarda en UNA palabra por texel (`Almacen::Flotante`,
+  la de la profundidad), se mezcla en float y se cuantiza a su vista
+  (`tuberia::como_se_pinta`; la trama sabe cuantas palabras por lo que
+  mide el destino); ClearRenderTargetView cuantizado a la vista; la copia
+  y el SRV ya eran exactos. Un R16_FLOAT de verdad ya era float desde
+  N5.16 (cuatro palabras). (2) Los UAV de una textura de float de 2-4
+  canales: `bufer::CUATRO_FLOATS` (un bit del formato de la vista): el CS
+  lee los cuatro f32 tal cual y escribe cuantizado al formato de la vista;
+  ClearUnorderedAccessViewFloat/Uint en ese formato. (3) `DepthClipEnable
+  = FALSE`: el PSO lo lee (`RasterizerState` +24) y llega a la trama como
+  el bit `trama::SIN_RECORTE_Z` del descarte: sin recorte contra el plano
+  cercano ni el lejano (la banda de x e y sigue), y la Z SUJETA al
+  viewport [MinDepth, MaxDepth] antes de la prueba. Juez: `flotante1.exe`
+  (`tests/corre/muestras.rs`, n5_16b: 10 `bien`, bit a bit; con la casa de
+  antes, 6 MAL) y dos pruebas de la trama (`pruebas_pixeles.rs`) y una del
+  UAV (`bufer.rs`).
+  **Lo que puede fallar, dicho:** (1) la 3060 no pinta en float ni sin
+  recorte en z: esos lotes van por la CPU (lo dice la puerta, una vez);
+  (2) un render target R32_UINT/R32_SINT (o un UAV R32_UINT sobre un
+  R11G11B10F, el truco de leer con tipo) sigue en "todavia no", con su
+  aviso; (3) la vista R16_FLOAT de un R16_TYPELESS se pinta, pero leerla de
+  vuelta con una copia aun no (la casa no sabe si sus floats son un D16 o
+  un half); (4) SV_Position.z en el de pixeles, sin recorte, va SIN sujetar
+  (como el FragCoord de Vulkan con depthClamp; si D3D lo sujetara, un
+  sombreador que la lea veria otra cosa).
+  **Queda:** la 3060 pintando en float y sin recorte en z (su puerta es de
+  8 bits y su receta recorta siempre).
 - [x] **N5.17 -- ExecuteIndirect y ExecuteBundle** (05-10). ExecuteBundle
   corre desde E1.6 de la ESCALERA (HelloBundles, bit a bit), y
   ExecuteIndirect desde E2.4 (D3D12ExecuteIndirect): se apunta con el

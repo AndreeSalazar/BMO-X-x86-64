@@ -2438,3 +2438,67 @@ enteros: se interpreta). Probado que dice NO: con la casa de ANTES
 (su aviso, "lo que escribe se pierde"): la textura seguia en 0xDEADBEEF y el
 bufer en 0xFFFFFFFF. Y en el banco del crate (`src/pruebas_uav.rs`), B da 1
 y no 64 si la trama guarda la memoria del ultimo pixel con UAV.
+flotante1_vs.dxil, flotante1_rampa.dxil, flotante1_color.dxil,
+flotante1_lee.dxil, flotante1_escribe.dxil, flotante1_uav.dxil -- los de
+flotante1.exe (05-10)
+
+N5.16b: `flotante1.hlsl` (aqui al lado): VSCuadro (el cuadro de pantalla
+completa de SV_VertexID, como el de hdr), VSRampa (el mismo con la z de
+-0.5 a 1.5: cruza el plano cercano y el lejano), PSColor (cuatro
+constantes de la raiz), PSLee (un render target de float LEIDO como
+textura, por el color), CSEscribe (lee y escribe un RWTexture2D de
+RGBA16F) y CSLee (lo lee a un RWStructuredBuffer<float4>). Con el mismo
+`dxc` de Linux que los demas:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo flotante1_vs.dxil flotante1.hlsl
+   dxc -T vs_6_0 -E VSRampa -Fo flotante1_rampa.dxil flotante1.hlsl
+   dxc -T ps_6_0 -E PSColor -Fo flotante1_color.dxil flotante1.hlsl
+   dxc -T ps_6_0 -E PSLee -Fo flotante1_lee.dxil flotante1.hlsl
+   dxc -T cs_6_0 -E CSEscribe -Fo flotante1_escribe.dxil flotante1.hlsl
+   dxc -T cs_6_0 -E CSLee -Fo flotante1_uav.dxil flotante1.hlsl
+
+   024b0d8e4f6780e5f9ed724fccaa11aee60e6f632e2241bbcbc91e00dc9a4d58  flotante1_vs.dxil
+   bd7d39bc543c27641ab47d5238fbc2e614842c48539df40df4839a42b5088393  flotante1_rampa.dxil
+   ec4179122fe80bf7b7346408be529c9580272678168a1b11c2cf195e091389e2  flotante1_color.dxil
+   22b0ef2e22bab2a122c8513b3656f34cacaa05b7bccad37c54c9b6315a9f67e5  flotante1_lee.dxil
+   1fa0e8bc54e187622e32caab7ec4f792255dbe2663c3c3187dc4c6478f4eb441  flotante1_escribe.dxil
+   38d019bfd6663e6616f6d575651187acd55547b62a171132da2b5d9ecd315a15  flotante1_uav.dxil
+
+(El de vertices y PSColor salen igual que hdr_vs.dxil y hdr_color.dxil:
+son el mismo codigo.)
+
+flotante1.exe -- N5.16b: lo que quedaba de los floats, juzgado (05-10)
+
+NUESTRO, no de Microsoft: `flotante1.cpp` (aqui al lado), de consola, con
+los seis .dxil dentro (`.incbin`). Destinos de 16 x 16: A1, un R32_FLOAT
+limpio a -0.5 con la mitad derecha SUMADA dos veces (2 + 2^-19: en half se
+perderia); A2, un R16_FLOAT con dos sumas de -2.5 (-4.25); A3, A1 leido
+como textura por -4 en otro R32F; B, un RWTexture2D de RGBA16F limpio con
+ClearUnorderedAccessViewFloat, escrito por un CS (el 2^-16 que suma no cabe
+en el half de 0.125: se pierde al escribir) y leido half a half y, por
+otro CS, float a float; C, una rampa que cruza el plano cercano y el lejano
+con la Z del viewport en [0.25, 0.75], la Z limpia a 0.875 y LESS: con
+DepthClipEnable = FALSE se pinta entera y la Z se SUJETA (0.25 y 0.75)
+antes de la prueba; con TRUE, solo las columnas 4 a 11. Lo esperado son
+bits escritos a mano en el `.cpp`, con su cuenta al lado; la unica Z que
+una GPU no da exacta (la de dentro de la rampa) se mira a 2^-12. Dice
+`bien` 10 veces y sale con el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con flotante1.cpp y los seis .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c flotante1.cpp -o flotante1.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o flotante1.exe flotante1.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   2fb54c6b706a83e1ea4a7b6d425e3e31da1026417c1239753d5324410b8e959b  flotante1.exe
+
+El banco (`tests/corre/muestras.rs`, n5_16b): los 10 `bien`, sale con 0,
+y un solo aviso (el cuadro sale de SV_VertexID con enteros: se interpreta).
+Probado que dice NO: con la casa de ANTES (568a4a453, N5.16) salen MAL
+seis (A1 y A3: "Draw sobre un render target de un solo float (R32)"; los
+dos de B: el UAV de float se ve nulo y no se limpia; los dos de C con
+FALSE: recortaba igual) y sale con 6; A2 (R16F, ya de N5.16) y C con TRUE
+(N5.15) ya decian bien. Y sin cuantizar al escribir el UAV (solo eso
+quitado), el segundo de B sale MAL: el CS leia 0.125 + 2^-16.

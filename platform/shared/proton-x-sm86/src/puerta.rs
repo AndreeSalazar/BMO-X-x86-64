@@ -173,6 +173,8 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         1 => Descarte::Ninguna,
         2 => Descarte::Delanteras,
         3 => Descarte::Traseras,
+        // N5.16b: la receta de la 3060 recorta siempre en z.
+        d if d & bmo_proton_x::trama::SIN_RECORTE_Z != 0 => return Err(String::from("DepthClipEnable = FALSE: la receta de la 3060 recorta en z siempre (no lo apaga todavia)")),
         d => return Err(format!("un modo de descarte que no es de D3D12 ({d})")),
     };
     let z = r.profundidad.map(|p| Z { funcion: p.funcion, escribir: p.escribir, limpiar: limpiar_z });

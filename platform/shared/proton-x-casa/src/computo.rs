@@ -79,8 +79,9 @@ const UAV_TEXTURA_2D: u32 = 4;
 
 /// **Un UAV de TEXTURA** (N5.3c, 05-10: `RWTexture2D`, el post-proceso): la
 /// memoria de su subresource, texel a texel, en el formato en que la casa
-/// la GUARDA (8 bits por canal, o un float de 32: un RGBA16F se guarda en 8
-/// bits, como sus dibujos, hasta N5.16).
+/// la GUARDA (8 bits por canal, un float de 32 o, N5.16b, los cuatro floats
+/// de un RGBA16F, R11G11B10F...: se escriben cuantizados al formato de la
+/// vista, `bufer::CUATRO_FLOATS`).
 fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'static>> {
     use crate::subrecursos::Almacen;
     if dimension != UAV_TEXTURA_1D && dimension != UAV_TEXTURA_2D {
@@ -100,9 +101,15 @@ fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'
             aviso("Dispatch o Draw: un UAV de una textura de bloques: en Windows es un error; se ve nulo");
             return None;
         }
+        // N5.16b: la vista de float de su formato (o la de su TYPELESS); otra
+        // (un R32_UINT sobre un R11G11B10F, el truco de leer con tipo) no.
         Almacen::Flotantes4 => {
-            aviso("Dispatch o Draw: un UAV de una textura de float de 4 canales (HDR): todavia no (N5.16 a medias); se ve nulo");
-            return None;
+            let vista = if formato_vista != 0 { formato_vista } else { formato };
+            if Almacen::nativo(vista) != Almacen::nativo(formato) {
+                aviso("Dispatch o Draw: un UAV de una textura de float con una vista de otro formato (un R32_UINT sobre un R11G11B10F...): todavia no; se ve nulo");
+                return None;
+            }
+            Almacen::nativo(vista) | bmo_proton_x::bufer::CUATRO_FLOATS
         }
     };
     if r[3] == 0 {

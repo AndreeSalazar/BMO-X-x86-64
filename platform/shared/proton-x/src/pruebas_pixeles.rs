@@ -255,3 +255,69 @@ fn un_render_target_de_float_guarda_mas_de_uno_y_suma_en_float() {
         assert_eq!(leido(&otro, k), [0.0, 1.0, f32::INFINITY, 1.0], "texel {k}: el R11G11B10F, sin mezcla");
     }
 }
+
+/// *** N5.16b: un render target de UN float guardado en UNA palabra por
+/// texel (un R32_FLOAT, como lo guarda la casa): suma en float de 32 bits
+/// (2^-20 no se pierde, como se perderia en half) y lo que no trae se lee
+/// (0, 0, 1). Y un R16_FLOAT en una palabra (la vista de un R16_TYPELESS),
+/// cuantizado a half.
+#[test]
+fn un_render_target_de_un_float_guarda_una_palabra_y_suma_en_float() {
+    let v: Vec<trama::Sombreado> = [[-1.0f32, -1.0], [-1.0, 3.0], [3.0, -1.0]].iter().map(|&[x, y]| trama::Sombreado { pos: [x, y, 0.5, 1.0], atributos: Vec::new() }).collect();
+    let suma = crate::mezcla::Mezcla { encendida: true, origen: 2, destino: 2, origen_a: 2, destino_a: 2, ..crate::mezcla::Mezcla::NINGUNA };
+    let mut mezcla = crate::mezcla::Mezclas::NINGUNA;
+    mezcla.rt[0] = suma;
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 2.0, 2.0, 0.0, 1.0], tijera: [0, 0, 2, 2], descarte: 1, antihorario: false, profundidad: None, mezcla, z_del_sombreador: false };
+    let (mut px, mut otro) = (vec![(-0.5f32).to_bits(); 4], vec![0u32; 4]);
+    let mut otros = [trama::Otro { pixeles: Some(&mut otro), bgra: false, flotante: Some(54) }];
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 2, alto: 2, bgra: false, z: None, cadena: false, otros: &mut otros, flotante: Some(41) };
+    for _ in 0..2 {
+        trama::dibujar(&reglas, &v, &[[0, 1, 2]], &mut d, None, |_, s| {
+            s[0] = [1.25 + 1.0 / 1048576.0, 7.0, 7.0, 7.0];
+            s[1] = [1.0 + 1.0 / 4096.0, 7.0, 7.0, 7.0];
+            true
+        });
+    }
+    assert_eq!(px, [0x4000_0008; 4], "-0.5 + 2 (1.25 + 2^-20) = 2 + 2^-19, en f32");
+    assert_eq!(otro, [1.0f32.to_bits(); 4], "R16F: 1 + 2^-12 no cabe en half");
+}
+
+/// *** N5.16b: `DepthClipEnable = FALSE` (`trama::SIN_RECORTE_Z`). Un cuadro
+/// cuya z va de -0.5 (izquierda) a 1.5 (derecha) en un viewport de Z
+/// [0.25, 0.75]: con recorte se pintan las columnas 2..5 (z en [0, 1]); sin
+/// el, las ocho, y la Z SUJETA al viewport antes de la prueba: 0.25 a la
+/// izquierda, 0.75 a la derecha (pasan contra 0.875, que sin sujetar no).
+#[test]
+fn sin_recorte_en_z_la_z_se_sujeta_al_viewport() {
+    let s = |x: f32, y: f32| trama::Sombreado { pos: [x, y, 0.5 + x, 1.0], atributos: Vec::new() };
+    let v = [s(-1.0, 1.0), s(1.0, 1.0), s(-1.0, -1.0), s(1.0, -1.0)];
+    let pinta = |descarte: u32| {
+        let (mut px, mut z) = (vec![0u32; 64], vec![0.875f32.to_bits(); 64]);
+        let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.25, 0.75], tijera: [0, 0, 8, 8], descarte, antihorario: false, profundidad: Some(trama::Profundidad { funcion: 2, escribir: true }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
+        let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: Some(&mut z), cadena: false, otros: &mut [], flotante: None };
+        let c = trama::dibujar(&reglas, &v, &[[0, 1, 2], [2, 1, 3]], &mut d, None, |_, c| {
+            c[0] = [1.0; 4];
+            true
+        });
+        (px, z.iter().map(|&b| f32::from_bits(b)).collect::<Vec<f32>>(), c)
+    };
+    let (px, z, c) = pinta(1);
+    assert_eq!(c.recortados, 2, "{c:?}");
+    for (i, (&p, &z)) in px.iter().zip(&z).enumerate() {
+        let x = i % 8;
+        let dentro = (2..6).contains(&x);
+        assert_eq!(p != 0, dentro, "con recorte, la columna {x}");
+        if !dentro {
+            assert_eq!(z, 0.875);
+        }
+    }
+    let (px, z, c) = pinta(1 | trama::SIN_RECORTE_Z);
+    assert_eq!((c.recortados, c.pixeles), (0, 64), "{c:?}");
+    assert!(px.iter().all(|&p| p == u32::MAX));
+    for (i, &z) in z.iter().enumerate() {
+        // La cuenta: 0.25 + 0.5 z, con z = (x + 0.5) / 4 - 0.5.
+        let x = (i % 8) as f32;
+        assert_eq!(z, (0.25 + 0.5 * ((x + 0.5) / 4.0 - 0.5)).clamp(0.25, 0.75), "columna {x}");
+    }
+    assert_eq!((z[0], z[7]), (0.25, 0.75), "sujeta");
+}

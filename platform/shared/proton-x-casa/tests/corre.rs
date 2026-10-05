@@ -100,6 +100,8 @@ const VISTAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/vistas.exe");
 const HDR_EXE: &[u8] = include_bytes!("../../proton-x/prueba/hdr.exe");
 // 05-10: los UAV escritos desde un DIBUJO (de pixeles y de vertices).
 const UAVPIXEL_EXE: &[u8] = include_bytes!("../../proton-x/prueba/uavpixel.exe");
+// N5.16b (05-10): los floats de un canal, sus UAV y DepthClipEnable = FALSE.
+const FLOTANTE1_EXE: &[u8] = include_bytes!("../../proton-x/prueba/flotante1.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

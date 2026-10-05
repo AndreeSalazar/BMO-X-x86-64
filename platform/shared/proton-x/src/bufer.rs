@@ -20,6 +20,10 @@
 //!    fuera         lo que cae fuera de la vista se lee como 0
 //!    textura       N5.3c (05-10), RWTexture2D: el texel (x, y), en el
 //!                  formato de la vista (`paso` es el ancho)
+//!    en floats     N5.16b (05-10): el formato con [`CUATRO_FLOATS`]: cada
+//!                  elemento son cuatro f32 (como guarda la casa un RGBA16F,
+//!                  un R11G11B10F...), leidos tal cual y escritos
+//!                  cuantizados al formato de la vista
 //! ```
 
 /// **Como se direcciona** un bufer: lo dice el sombreador (su `ResKind`).
@@ -33,6 +37,13 @@ pub enum Modo {
     /// `paso` y los texels (ancho por alto) en `elementos`.
     Textura,
 }
+
+/// **Un bit del formato de una vista** (N5.16b, 05-10): sus elementos son
+/// CUATRO f32 (16 bytes), ya cuantizados al formato de los bits bajos; es
+/// como guarda la casa las texturas de float (`Almacen::Flotantes4`). Se
+/// leen tal cual y se escriben cuantizados (`formato_ia::cuantizar`): lo que
+/// el sombreador lee de vuelta es lo que leeria en la GPU.
+pub const CUATRO_FLOATS: u32 = 0x1_0000;
 
 /// **Un bufer, visto por un SRV**: sus bytes desde el primer elemento de la
 /// vista, y lo que dice la vista.
@@ -69,6 +80,13 @@ impl Bufer<'_> {
                 Some(t) => self.cargar(Modo::Tipado, t, 0),
                 None => [0; 4],
             },
+            Modo::Tipado if self.formato & CUATRO_FLOATS != 0 => {
+                if i < self.elementos {
+                    self.palabras(16 * i as u64, 16 * i as u64 + 16)
+                } else {
+                    [0; 4]
+                }
+            }
             Modo::Tipado => {
                 let Some(f) = crate::formato_ia::forma(self.formato) else { return [0; 4] };
                 let (n, o) = (f.bytes as usize, i as usize * f.bytes as usize);
@@ -229,6 +247,20 @@ impl Uav<'_> {
             },
             m => (m, i),
         };
+        // N5.16b: en cuatro floats, lo de la mascara sobre lo de antes, y
+        // cuantizado al formato de la vista.
+        if modo == Modo::Tipado && self.formato & CUATRO_FLOATS != 0 {
+            let o = 16 * i as usize;
+            if i >= self.elementos || o + 16 > self.bytes.len() {
+                return;
+            }
+            let antes = vista.cargar(Modo::Tipado, i, 0);
+            let w: [f32; 4] = core::array::from_fn(|k| f32::from_bits(if mascara & (1 << k) != 0 { v[k] } else { antes[k] }));
+            for (k, x) in crate::formato_ia::cuantizar(self.formato & !CUATRO_FLOATS, w).iter().enumerate() {
+                self.bytes[o + 4 * k..o + 4 * k + 4].copy_from_slice(&x.to_bits().to_le_bytes());
+            }
+            return;
+        }
         if modo == Modo::Tipado && canales_de_32(self.formato).is_none() {
             let Some(f) = crate::formato_ia::forma(self.formato) else { return };
             let n = f.bytes as usize;
@@ -293,6 +325,20 @@ mod pruebas {
         let mut t = Uav { bytes: &mut c, formato: 41, paso: 0, elementos: 4, contador: None }; // R32_FLOAT
         t.escribir(Modo::Tipado, 2, 0, [5, 6, 7, 8], 0xF);
         assert_eq!(t.cargar(Modo::Crudo, 8, 0), [5, 0, 0, 0], "un R32: una palabra por elemento");
+    }
+
+    /// N5.16b: una textura RGBA16F guardada en cuatro f32 por texel: se lee
+    /// tal cual y se escribe cuantizada a half (1 + 2^-12 es 1: no cabe), con
+    /// lo que la mascara deja de antes.
+    #[test]
+    fn un_uav_en_cuatro_floats_escribe_cuantizado_a_su_formato() {
+        let mut b = bytes(&[1.5f32, -2.0, 0.25, 1.0, 0.0, 0.0, 0.0, 0.0].map(f32::to_bits));
+        let mut u = Uav { bytes: &mut b, formato: 10 | CUATRO_FLOATS, paso: 2, elementos: 2, contador: None };
+        assert_eq!(u.cargar(Modo::Textura, 0, 0), [1.5f32, -2.0, 0.25, 1.0].map(f32::to_bits));
+        u.escribir(Modo::Textura, 1, 0, [1.0 + 1.0 / 4096.0, 70000.0, -3.5, 9.0].map(f32::to_bits), 0b0111);
+        assert_eq!(u.cargar(Modo::Textura, 1, 0), [1.0, f32::INFINITY, -3.5, 0.0].map(f32::to_bits), "a half, y el alfa de antes");
+        u.escribir(Modo::Textura, 2, 0, [0; 4], 0xF); // fuera: se pierde
+        assert_eq!(u.cargar(Modo::Textura, 0, 1), [0; 4]);
     }
 
     #[test]

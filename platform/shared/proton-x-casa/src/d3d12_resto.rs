@@ -749,27 +749,35 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool) {
     }
     // SAFETY: un Recurso de la casa (lo dice su ranura).
     let formato = unsafe { de::<Recurso>(r[0]) }.formato;
-    let texel = match Almacen::de(formato) {
+    // N5.16b: los cuatro floats de un RGBA16F, R11G11B10F...: el valor en el
+    // formato de la vista (la Uint, sus bits tal cual; la Float, convertido)
+    // y leido de vuelta, como lo guarda la casa. Los demas, una palabra.
+    let (texel, k): ([u32; 4], usize) = match Almacen::de(formato) {
         Almacen::Rgba8 | Almacen::Bgra8 => {
             let f = if Almacen::de(formato) == Almacen::Bgra8 { 87 } else { 28 };
             let e = bmo_proton_x::formato_ia::empaquetar(f, v, crudo).unwrap_or_default();
-            u32::from_le_bytes([e[0], e[1], e[2], e[3]])
+            ([u32::from_le_bytes([e[0], e[1], e[2], e[3]]), 0, 0, 0], 1)
         }
-        Almacen::Flotante => v[0],
+        Almacen::Flotante => ([v[0], 0, 0, 0], 1),
         Almacen::Bloques(_) => {
             aviso("ClearUnorderedAccessView de una textura de bloques: en Windows es un error");
             return;
         }
         Almacen::Flotantes4 => {
-            aviso("ClearUnorderedAccessView de una textura de float de 4 canales (HDR): todavia no (N5.16 a medias); no se limpia");
-            return;
+            let ((_, vista, _), _) = crate::d3d12_vistas::leer(r);
+            let f = Almacen::nativo(if vista != 0 { vista } else { formato });
+            let Some(e) = bmo_proton_x::formato_ia::empaquetar(f, v, crudo) else {
+                aviso("ClearUnorderedAccessView de una textura de float con una vista que la casa aun no escribe: no se limpia");
+                return;
+            };
+            (bmo_proton_x::formato_ia::leer(f, &e).map(f32::to_bits), 4)
         }
     };
     if r[3] == 0 {
         crate::tuberia::olvidar_limpieza(r[0]);
     }
     match crate::tuberia::destino(r[0], r[3]) {
-        Some((px, _, _)) => px.fill(texel),
+        Some((px, _, _)) => px.chunks_exact_mut(k).for_each(|t| t.copy_from_slice(&texel[..k])),
         None => aviso("ClearUnorderedAccessView de un subrecurso que la textura no tiene"),
     }
 }

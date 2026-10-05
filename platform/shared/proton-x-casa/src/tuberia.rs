@@ -258,6 +258,9 @@ pub struct Pso {
     /// D3D12_CULL_MODE: 1 ninguna, 2 delante, 3 detras.
     pub descarte: u32,
     pub antihorario: bool,
+    /// N5.16b: `RasterizerState.DepthClipEnable` (FALSE: sin recorte en z,
+    /// la Z sujeta al viewport; `trama::SIN_RECORTE_Z`).
+    pub recorte_z: bool,
     pub topologia: u32,
     /// Los formatos de sus render targets (`RTVFormats`, N5.8: hasta 8) y
     /// cuantos son (`NumRenderTargets`).
@@ -395,6 +398,8 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
         profundidad,
         descarte: u32_de(d, 452 + 4),
         antihorario: u32_de(d, 452 + 8) != 0,
+        // D3D12_RASTERIZER_DESC.DepthClipEnable (+24).
+        recorte_z: u32_de(d, 452 + 24) != 0,
         topologia: u32_de(d, 572),
         formatos_rt,
         n_rt,
@@ -817,15 +822,11 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     let solo_z = pso.n_rt == 0 || e.rtv == 0;
     // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
     let mut rt = (!solo_z).then(|| unsafe { de::<crate::d3d12::Recurso>(e.rtv) });
-    // 02-10: lo que la casa guarda en 8 bits por canal; N5.16 (05-10), los
-    // de float (RGBA16F, R11G11B10F...) en float, cuantizados al formato de
-    // su vista (el del PSO).
-    let (bgra, flotante) = match rt.as_ref().map(|r| Almacen::de(r.formato)) {
-        Some(Almacen::Bgra8) => (true, None),
-        Some(Almacen::Rgba8) | None => (false, None),
-        Some(Almacen::Flotantes4) => (false, Some(Almacen::nativo(pso.formatos_rt[0]))),
-        Some(_) => {
-            aviso("Draw sobre un render target de un solo float (R32) o BC: todavia no");
+    let (bgra, flotante) = match rt.as_ref().map(|r| como_se_pinta(r.formato, pso.formatos_rt[0])) {
+        Some(Some(c)) => c,
+        None => (false, None),
+        Some(None) => {
+            aviso("Draw sobre un render target de un solo float que no es R32_FLOAT ni R16_FLOAT (un R32_UINT...) o BC: todavia no");
             return;
         }
     };
@@ -954,7 +955,8 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         ids: &ids,
         topologia,
         cb: &cb,
-        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad, mezcla, z_del_sombreador: false },
+        // N5.16b: DepthClipEnable = FALSE viaja en un bit del descarte.
+        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte | if pso.recorte_z { 0 } else { trama::SIN_RECORTE_Z }, antihorario: pso.antihorario, profundidad: pso.profundidad, mezcla, z_del_sombreador: false },
         oclusion: crate::consultas::hay_abierta(),
         otros: &flujos[1..],
         instancias,
@@ -988,16 +990,11 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             aviso("Draw con el mismo recurso en dos render targets: en Windows es un error, y no se dibuja");
             return;
         }
-        // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
         let k = otros.len() + 1;
-        let (bgra, flotante) = match Almacen::de(unsafe { de::<crate::d3d12::Recurso>(r) }.formato) {
-            Almacen::Bgra8 => (true, None),
-            Almacen::Rgba8 => (false, None),
-            Almacen::Flotantes4 => (false, Some(Almacen::nativo(pso.formatos_rt[k]))),
-            _ => {
-                aviso("Draw sobre un render target (de los 1..8) de un solo float (R32) o BC: todavia no");
-                return;
-            }
+        // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
+        let Some((bgra, flotante)) = como_se_pinta(unsafe { de::<crate::d3d12::Recurso>(r) }.formato, pso.formatos_rt[k]) else {
+            aviso("Draw sobre un render target (de los 1..8) de un solo float que no es R32_FLOAT ni R16_FLOAT, o BC: todavia no");
+            return;
         };
         if sub == 0 {
             aplicar_limpieza(r);
@@ -1029,6 +1026,22 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         Err(NoDibuja::IndiceFuera(_)) => aviso("Draw: un indice que pasa del bufer de vertices"),
         Err(NoDibuja::SinVertices) => aviso("Draw sin vertices que leer"),
     }
+}
+
+/// **Como se pinta un render target** de formato `formato` con la vista
+/// `vista` (la del PSO): `(bgra, flotante)` de `trama::Destino`, o `None` si
+/// todavia no se sabe. 02-10: lo de 8 bits por canal; N5.16 (05-10), los de
+/// float de 2 a 4 canales (RGBA16F, R11G11B10F...) en float, cuantizados al
+/// formato de su vista; N5.16b, los de UN float que la casa guarda en una
+/// palabra (un R32_FLOAT, o la vista R16_FLOAT de un R16_TYPELESS).
+fn como_se_pinta(formato: u32, vista: u32) -> Option<(bool, Option<u32>)> {
+    Some(match Almacen::de(formato) {
+        Almacen::Bgra8 => (true, None),
+        Almacen::Rgba8 => (false, None),
+        Almacen::Flotantes4 => (false, Some(Almacen::nativo(vista))),
+        Almacen::Flotante if matches!(vista, 41 | 54) => (false, Some(vista)),
+        _ => return None,
+    })
 }
 
 /// **Las texturas y los muestreadores que ve un dibujo**, por RANURA del

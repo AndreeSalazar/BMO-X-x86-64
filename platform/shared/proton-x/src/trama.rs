@@ -32,7 +32,9 @@
 //! linea recta en el espacio de recorte: la perspectiva sale igual. Contra
 //! x e y no hace falta (la tijera corta), salvo lo que pasa de una BANDA de
 //! guarda de 64 veces la pantalla, para que las cuentas enteras no se
-//! desborden.
+//! desborden. N5.16b (05-10): con `DepthClipEnable = FALSE` (el bit
+//! [`SIN_RECORTE_Z`] del descarte) NO se recorta contra esos dos planos: la
+//! Z se SUJETA al rango del viewport antes de la prueba, como en D3D12.
 
 use alloc::vec::Vec;
 
@@ -53,7 +55,8 @@ pub struct Sombreado {
 pub struct Reglas {
     pub viewport: [f32; 6],
     pub tijera: [i32; 4],
-    /// D3D12_CULL_MODE: 1 ninguna, 2 las de delante, 3 las de detras.
+    /// D3D12_CULL_MODE: 1 ninguna, 2 las de delante, 3 las de detras; con
+    /// el bit [`SIN_RECORTE_Z`] si el PSO apaga el recorte en z.
     pub descarte: u32,
     /// `FrontCounterClockwise`: la cara de delante es la antihoraria.
     pub antihorario: bool,
@@ -65,6 +68,14 @@ pub struct Reglas {
     /// DESPUES de el, con la suya (en `colores[PROFUNDIDAD][0]`).
     pub z_del_sombreador: bool,
 }
+
+/// **`DepthClipEnable = FALSE`** (N5.16b, 05-10), un bit de
+/// [`Reglas::descarte`]: sin recorte contra el plano cercano ni el lejano, y
+/// la Z sujeta a `[zmin, zmax]` del viewport antes de la prueba (D3D12). Va
+/// en el descarte y no en un campo nuevo para que quien mire el modo de
+/// descarte entero (la puerta de la 3060, que recorta siempre) lo vea y
+/// diga que no, en vez de recortar callado.
+pub const SIN_RECORTE_Z: u32 = 0x100;
 
 /// La prueba de profundidad: `D3D12_COMPARISON_FUNC` (1 nunca, 2 menor,
 /// 3 igual, 4 menor o igual, 5 mayor, 6 distinto, 7 mayor o igual, 8
@@ -114,7 +125,9 @@ pub struct Destino<'a, 'o> {
     /// N5.16 (05-10): el render target 0 es de FLOAT: `pixeles` lleva cuatro
     /// palabras por texel (los bits de r, g, b y a en f32), y cada color se
     /// mezcla en float y se cuantiza a ESTE formato (DXGI) al escribirlo,
-    /// para que valga lo que en la GPU (`formato_ia::cuantizar`).
+    /// para que valga lo que en la GPU (`formato_ia::cuantizar`). N5.16b:
+    /// si `pixeles` mide UNA palabra por texel (un R32_FLOAT, como lo guarda
+    /// la casa), solo el r; lo que no trae se lee (0, 0, 1), como su formato.
     pub flotante: Option<u32>,
 }
 
@@ -191,10 +204,11 @@ fn entre(a: &Sombreado, b: &Sombreado, t: f32) -> Sombreado {
 }
 
 /// **Recortar un triangulo** (Sutherland-Hodgman): el poligono que queda
-/// dentro de todos los planos, en el orden de sus vertices (vacio si nada).
-fn recortar(v: [&Sombreado; 3]) -> Vec<Sombreado> {
+/// dentro de todos los planos desde `desde` (0; 2 sin el cercano ni el
+/// lejano, N5.16b), en el orden de sus vertices (vacio si nada).
+fn recortar(v: [&Sombreado; 3], desde: usize) -> Vec<Sombreado> {
     let mut poli: Vec<Sombreado> = v.iter().map(|&s| s.clone()).collect();
-    for plano in 0..6 {
+    for plano in desde..6 {
         if poli.len() < 3 {
             return Vec::new();
         }
@@ -297,6 +311,9 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
     let tarde = efectos.uav && !efectos.temprana && !reglas.z_del_sombreador;
     let [vx, vy, vw, vh, zmin, zmax] = reglas.viewport;
     let texeles = destino.ancho as usize * destino.alto as usize;
+    // Palabras por texel de un render target de float (N5.16b): cuatro, o
+    // una (un R32F, como lo guarda la casa); lo dice lo que mide.
+    let palabras = |n: usize| if n >= 4 * texeles { 4 } else { 1 };
     let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= texeles));
     let (mw, mh) = (vw * 0.5, vh * 0.5);
     let (ox, oy) = (vx + mw, vy + mh);
@@ -326,6 +343,9 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
     let n = vertices.len();
     let mut extra: Vec<Sombreado> = Vec::new();
     let mut lista: Vec<[usize; 3]> = Vec::with_capacity(tris.len());
+    // N5.16b: con DepthClipEnable = FALSE, los planos de z no cuentan (la
+    // banda de x e y si: sigue dejando fuera lo de detras del ojo).
+    let desde = if reglas.descarte & SIN_RECORTE_Z != 0 { 2 } else { 0 };
     for t in tris {
         let Some(v) = t.iter().map(|&i| vertices.get(i)).collect::<Option<Vec<_>>>() else {
             cuenta.descartados += 1;
@@ -335,12 +355,12 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
             cuenta.descartados += 1;
             continue;
         }
-        if v.iter().all(|v| planos(&v.pos).iter().all(|&d| d >= 0.0) && v.pos[3] > 0.0) {
+        if v.iter().all(|v| planos(&v.pos)[desde..].iter().all(|&d| d >= 0.0) && v.pos[3] > 0.0) {
             lista.push(*t);
             continue;
         }
         cuenta.recortados += 1;
-        let poli = recortar([v[0], v[1], v[2]]);
+        let poli = recortar([v[0], v[1], v[2]], desde);
         if poli.len() < 3 {
             cuenta.descartados += 1;
             continue;
@@ -372,7 +392,7 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
         let area = arista(x[0], y[0], x[1], y[1], x[2], y[2]);
         // En pantalla (y hacia abajo), area > 0 es sentido HORARIO.
         let delante = if reglas.antihorario { area < 0 } else { area > 0 };
-        let fuera = match reglas.descarte {
+        let fuera = match reglas.descarte & !SIN_RECORTE_Z {
             2 => delante,
             3 => !delante,
             _ => false,
@@ -390,7 +410,8 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
             inv_w.swap(1, 2);
         }
         let v = [v[o[0]], v[o[1]], v[o[2]]];
-        // La profundidad de cada vertice, ya en el rango del viewport.
+        // La profundidad de cada vertice, ya en el rango del viewport (sin
+        // recorte en z puede salirse: la prueba la sujeta, abajo).
         let zv: [f32; 3] = core::array::from_fn(|k| zmin + v[k].pos[2] * inv_w[k] * (zmax - zmin));
         cuenta.dibujados += 1;
         let n = v[0].atributos.len().min(v[1].atributos.len()).min(v[2].atributos.len());
@@ -497,10 +518,11 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
                     *p = if m.trivial() { pixel[k] } else { empaquetar(m.aplicar(colores[k], desempaquetar(*p, bgra[k]), mezclas.factor), bgra[k]) };
                 };
                 // N5.16: el de un render target de float, en float: mezclado
-                // con el que esta y cuantizado a su formato.
+                // con el que esta y cuantizado a su formato. N5.16b: con una
+                // palabra por texel (R32F), el r; lo demas se lee (0, 0, 1).
                 let poner_f = |k: usize, f: u32, t: &mut [u32]| {
                     let m = &mezclas.rt[k];
-                    let d = [f32::from_bits(t[0]), f32::from_bits(t[1]), f32::from_bits(t[2]), f32::from_bits(t[3])];
+                    let d: [f32; 4] = core::array::from_fn(|c| t.get(c).map_or(if c == 3 { 1.0 } else { 0.0 }, |&w| f32::from_bits(w)));
                     let c = if m.trivial() { colores[k] } else { m.aplicar(colores[k], d, mezclas.factor) };
                     for (w, x) in t.iter_mut().zip(crate::formato_ia::cuantizar(f, c)) {
                         *w = x.to_bits();
@@ -509,7 +531,8 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
                 // N5.12: sin render target (solo profundidad), `pixeles` va vacio.
                 match destino.flotante {
                     Some(f) => {
-                        if let Some(t) = destino.pixeles.get_mut(4 * i..4 * i + 4) {
+                        let w = palabras(destino.pixeles.len());
+                        if let Some(t) = destino.pixeles.get_mut(w * i..w * i + w) {
                             poner_f(0, f, t);
                         }
                     }
@@ -522,7 +545,8 @@ pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tr
                 for (k, o) in destino.otros.iter_mut().take(n_rt - 1).enumerate() {
                     match (o.flotante, o.pixeles.as_deref_mut()) {
                         (Some(f), Some(p)) => {
-                            if let Some(t) = p.get_mut(4 * i..4 * i + 4) {
+                            let w = palabras(p.len());
+                            if let Some(t) = p.get_mut(w * i..w * i + w) {
                                 poner_f(k + 1, f, t);
                             }
                         }

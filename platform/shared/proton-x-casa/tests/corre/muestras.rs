@@ -598,6 +598,25 @@ fn los_uav_de_un_dibujo_quedan_escritos() {
     assert!(texto.ends_with("uavpixel.exe: los UAV de un dibujo son los de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
+/// **N5.16b -- lo que quedaba de los floats** (05-10, `prueba/flotante1.cpp`,
+/// nuestro, de consola). A: un R32F y un R16F con sumas, de mas de 1 y
+/// negativos, y el R32F leido como textura; B: un RWTexture2D de RGBA16F
+/// limpio con ClearUnorderedAccessViewFloat, escrito por un CS (cuantizado
+/// a half) y leido por otro; C: una rampa que cruza el plano cercano y el
+/// lejano con DepthClipEnable FALSE (la Z sujeta al viewport) y TRUE. Lo que
+/// tiene que salir, bits escritos a mano en el `.cpp`.
+#[test]
+fn n5_16b_los_floats_de_un_canal_sus_uav_y_sin_recorte_en_z() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, FLOTANTE1_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 10, "{texto}");
+    assert!(texto.ends_with("flotante1.exe: los floats de un canal, sus UAV y DepthClipEnable son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
 /// **E2.3b -- D3D12nBodyGravity** (05-10, `Samples/Desktop`, MIT): el
 /// COMPUTO de verdad (10.000 particulas, la barrera DENTRO de un bucle, en
 /// SU hilo y su cola de computo, con vallas entre las dos colas) y un

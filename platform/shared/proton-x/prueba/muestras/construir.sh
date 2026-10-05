@@ -178,3 +178,10 @@ cp "$AQUI/../uavpixel.cpp" "$AQUI"/../uavpixel_*.dxil .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c uavpixel.cpp -o uavpixel.o
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o uavpixel.exe uavpixel.o -ld3d12
 sha256sum uavpixel.exe
+# N5.16b: el juez de los floats de un canal, de sus UAV y de DepthClipEnable
+# = FALSE, NUESTRO (`../flotante1.cpp`, con sus seis sombreadores de
+# `../flotante1_*.dxil` dentro).
+cp "$AQUI/../flotante1.cpp" "$AQUI"/../flotante1_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c flotante1.cpp -o flotante1.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o flotante1.exe flotante1.o -ld3d12
+sha256sum flotante1.exe
