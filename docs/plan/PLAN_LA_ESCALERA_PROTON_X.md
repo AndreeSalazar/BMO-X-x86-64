@@ -161,10 +161,12 @@ dice si el arreglo de `ffxDispatch` (`d16a29d`) funciono (E0.4).
   `proton-x-casa/src/compilador.rs`). **Como se sabe:** `hwindow.exe` en el
   arbol, su sha256 en `prueba/HACER.txt`, `proton_x.py` y
   `procedencia --check` en verde.
-- [x] **E1.1 -- HelloWindow** (05-10, en el banco; falta verlo en el metal
-  y en Windows). Solo la cadena de intercambio, un Clear, una valla y
-  Present. La capa: la cadena de un `.exe` de Microsoft (D5.7 de
-  LAS_TRES_GRANDES, a medias). Pidio 12 funciones que la casa no tenia, y
+- [x] **E1.1 -- HelloWindow** (05-10: en el banco, y el MISMO dia en el
+  metal y en Windows, dicho por el propietario: *"ya cumplen las 2
+  peticiones: lo que en Windows funciona, funciona normal en BMO-X"*).
+  Solo la cadena de intercambio, un Clear, una valla y Present. La capa:
+  la cadena de un `.exe` de Microsoft (D5.7 de LAS_TRES_GRANDES, a
+  medias). Pidio 12 funciones que la casa no tenia, y
   ya las tiene: `GetThreadId`, `CommandLineToArgvW`, `mbrtowc`, `wcrtomb`,
   `_ismbblead`, `__p__environ`, `__p__wenviron`, `__p__acmdln`,
   `__p__fmode`, `signal` (guarda, no llama, y lo dice), `__daylight` y
@@ -172,24 +174,52 @@ dice si el arreglo de `ffxDispatch` (`d16a29d`) funciono (E0.4).
   1280x720 y en cada uno CADA pixel R 0x00 G 0x33 B 0x66, lo que fija D3D12
   para {0.0, 0.2, 0.4} en R8G8B8A8_UNORM; y las doce, una a una, con los
   casos que muerden. En el metal: `run sys/proton-x.bex window/hwindow.exe`,
-  una ventana azul.
-- [ ] **E1.2 -- HelloTriangle, el `.exe` de verdad.** Lo que el cubo no
-  pide: `d3dx12.h`, ComPtr, el CRT de C++ de MSVC y el HLSL compilado en
-  marcha con `D3DCompileFromFile` (SM5; la casa da su `.cso`, E1.0). **Como
-  se sabe:** su huella, igual.
-- [ ] **E1.3 -- HelloTexture, el `.exe` de verdad.** Hoy solo el camino a
-  mano (`tests/textura.rs`). **Como se sabe:** su huella, igual (el
-  muestreador es de PUNTO: bit a bit).
-- [ ] **E1.4 -- HelloConstBuffers.** Un cbuffer en un monton UPLOAD con `Map`
-  PERSISTENTE que el `.exe` escribe en cada fotograma (D2.3). **Como se
-  sabe:** las huellas de dos fotogramas distintos, iguales a las de Windows.
-- [ ] **E1.5 -- HelloFrameBuffering.** Varios fotogramas en vuelo, una valla
-  por fotograma (D5.2). **Como se sabe:** su huella, y el pulso dice que no
-  se espera de mas (ni un hilo parado en una valla que ya llego).
-- [ ] **E1.6 -- HelloBundles.** `ExecuteBundle` (la mitad de N5.17).
-  **Como se sabe:** su huella, igual, y el aviso de "se salta" ya no sale.
+  una ventana azul -- visto.
+Lo que dijeron E1.2 a E1.6 al hacerlas (05-10): las muestras de hoy ya NO
+compilan en marcha. Su proyecto de Visual Studio compila con DXC (SM 6.0)
+al construir, y el `.exe` lee `shaders_VSMain.cso` y `shaders_PSMain.cso` de
+su carpeta. DXC es de Microsoft y de codigo abierto: se compila en la nube
+en el commit fijado (`muestras/construir.sh`, con `DXC=`), y sin Windows.
+Cada muestra vive en su carpeta del volumen, `window/<muestra>/` (todas
+llaman igual a sus `.cso`): `ejemplos.ps1` la copia asi, y el guardian PX2
+lo sabe desde hoy. Las cinco pedian a la casa UNA sola funcion, la misma:
+`CreateFile2` (con ella leen sus `.cso`).
+
+- [x] **E1.2 -- HelloTriangle, el `.exe` de verdad** (05-10, en el banco;
+  falta verlo en el metal). Lo que el cubo no pide: `d3dx12.h`, ComPtr, el
+  CRT de C++, y sus `.cso` de DXC. **Como se sabe:** `tests/corre/
+  muestras.rs`: 30 Present iguales; fuera del triangulo (a mas de 1 pixel
+  del borde) EXACTAMENTE el azul; dentro, rojo, verde y azul interpolados
+  con las baricentricas, cada canal a 2 o menos de lo exacto (el margen de
+  R3: la interpolacion y el paso a 8 bits); y 51200 pixeles dentro, +-1 %.
+- [x] **E1.3 -- HelloTexture, el `.exe` de verdad** (05-10, en el banco;
+  falta verlo en el metal). El tablero de 256x256 que el `.exe` hace en la
+  CPU, subido con UpdateSubresources, y un muestreador de PUNTO. **Como se
+  sabe:** bit a bit: cada pixel de dentro es EXACTAMENTE el negro o el
+  blanco del cuadro de su UV (salvo a menos de 0.05 texeles de una raya).
+  Un aviso, y es de velocidad: un PSO que muestrea va por el interprete.
+- [x] **E1.4 -- HelloConstBuffers** (05-10, en el banco; falta verlo en el
+  metal). Un cbuffer en un monton UPLOAD con `Map` PERSISTENTE que el `.exe`
+  escribe antes de cada fotograma (D2.3). **Como se sabe:** cada fotograma
+  distinto, y en el 0, el 15 y el 29 el triangulo de E1.2 corrido
+  (n + 1) * 0.005, con el mismo juez.
+- [x] **E1.5 -- HelloFrameBuffering** (05-10, en el banco; falta verlo en el
+  metal). Dos fotogramas en vuelo, un allocator y una valla por fotograma
+  (D5.2). **Como se sabe:** cada Present, bit a bit, el de E1.2.
+- [x] **E1.6 -- HelloBundles** (05-10, en el banco; falta verlo en el
+  metal). `ExecuteBundle`, que la casa se SALTABA (la mitad de N5.17): ya
+  corre, con las reglas de herencia de D3D12 (render targets, viewport y
+  tijera de la lista que lo llama; lo que el bundle deja puesto, de vuelta a
+  ella). **Como se sabe:** cada Present, bit a bit, el de E1.2.
 
 ## E2 -- una casilla abierta, una muestra (`Samples/Desktop/`, MIT)
+
+Medido el 05-10 en el commit fijado: las siete compilan sus sombreadores con
+DXC al construir, como E1, asi que se fabrican en la nube igual. Lo nuevo
+que piden al compilarlas: `pix3.h` (los marcadores de PIX; sin `USE_PIX` son
+macros vacias, y un `pix3.h` minimo en el puente basta), y DynamicIndexing y
+Multithreading, sus datos (`occcity.bin`, texturas) de la carpeta de la
+muestra.
 
 - [ ] **E2.1 -- D3D12Multithreading.** Listas de ordenes grabadas desde
   varios hilos (H2.7), con sus mapas de sombras (N5.12, hecho). **Como se

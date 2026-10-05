@@ -174,3 +174,242 @@ fn e1_1_las_doce_que_pidio_hellowindow_hacen_lo_de_windows() {
     munmap(mem, hilo_mem);
     *DICHO.lock().unwrap() = Vec::new();
 }
+
+// -- E1.2 a E1.6: los Hello con sombreadores --------------------------------------
+//
+// Las cinco leen `shaders_VSMain.cso` y `shaders_PSMain.cso` de su carpeta (los
+// compilo DXC al construir, `prueba/muestras/construir.sh`), asi que cada una
+// vive en SU carpeta del volumen: `window/<nombre>/`. Las cinco dibujan el
+// MISMO triangulo -- (0, 0.25 a), (0.25, -0.25 a), (-0.25, -0.25 a), con a =
+// 1280/720 -- sobre el mismo azul de E1.1.
+
+const ANCHO: u32 = 1280;
+const ALTO: u32 = 720;
+const AZUL: u32 = 0x00_00_33_66;
+
+/// Correr la muestra `nombre` (`window/<nombre>/<nombre>.exe`, con sus `.cso`
+/// copiados de `prueba/muestras/<nombre>/`) hasta `presentes` Present,
+/// guardando los pixeles de los de `fotos`. Devuelve (salio, lo dicho, las
+/// huellas de cada Present, las fotos).
+fn correr_muestra(exe: &[u8], nombre: &'static str, presentes: u32, fotos: &[u32]) -> (u32, String, Vec<u64>, Vec<(u32, Vec<u32>, u32, u32)>) {
+    let uno = uno_a_la_vez();
+    let dir = volumen().join("window").join(nombre);
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for cso in ["shaders_VSMain.cso", "shaders_PSMain.cso"] {
+        std::fs::copy(format!("../proton-x/prueba/muestras/{nombre}/{cso}"), dir.join(cso)).unwrap();
+    }
+    let ruta: &'static str = Box::leak(format!("window/{nombre}/{nombre}.exe").into_boxed_str());
+    *NOMBRE.lock().unwrap() = (ruta, "");
+    TOPE_PRESENTES.store(presentes, Ordering::SeqCst);
+    *GUARDAR_FOTOS.lock().unwrap() = fotos.to_vec();
+    let (salio, dicho, _) = correr_exe(&uno, exe, true, &[]);
+    TOPE_PRESENTES.store(1000, Ordering::SeqCst);
+    GUARDAR_FOTOS.lock().unwrap().clear();
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let vistas = VISTAS.lock().unwrap().clone();
+    let f = core::mem::take(&mut *FOTOS.lock().unwrap());
+    (salio, String::from_utf8_lossy(&dicho).into_owned(), vistas, f)
+}
+
+/// Los tres vertices del triangulo en pixeles (x a la derecha, y hacia abajo),
+/// corrido `dx` en coordenadas de recorte, con las cuentas en f32 como el `.exe`.
+fn triangulo(dx: f32) -> [(f64, f64); 3] {
+    let a = ANCHO as f32 / ALTO as f32;
+    let v = [(0.0f32, 0.25 * a), (0.25, -0.25 * a), (-0.25, -0.25 * a)];
+    v.map(|(x, y)| (((x + dx + 1.0) * 0.5 * ANCHO as f32) as f64, ((1.0 - y) * 0.5 * ALTO as f32) as f64))
+}
+
+/// Las coordenadas baricentricas del centro del pixel `(i, j)` en `t`.
+fn baricentricas(t: &[(f64, f64); 3], i: u32, j: u32) -> [f64; 3] {
+    let (px, py) = (i as f64 + 0.5, j as f64 + 0.5);
+    let [(x0, y0), (x1, y1), (x2, y2)] = *t;
+    let area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+    let l1 = ((px - x0) * (y2 - y0) - (x2 - x0) * (py - y0)) / area;
+    let l2 = ((x1 - x0) * (py - y0) - (px - x0) * (y1 - y0)) / area;
+    [1.0 - l1 - l2, l1, l2]
+}
+
+/// Lo minimo de las tres, en pixeles: > 0 dentro, < 0 fuera. La distancia del
+/// centro del pixel al lado mas cercano.
+fn distancia_al_borde(t: &[(f64, f64); 3], i: u32, j: u32) -> f64 {
+    let (px, py) = (i as f64 + 0.5, j as f64 + 0.5);
+    let mut d = f64::MAX;
+    for k in 0..3 {
+        let (ax, ay) = t[k];
+        let (bx, by) = t[(k + 1) % 3];
+        let (cx, cy) = t[(k + 2) % 3];
+        let largo = ((bx - ax).powi(2) + (by - ay).powi(2)).sqrt();
+        let lado = |x: f64, y: f64| ((bx - ax) * (y - ay) - (by - ay) * (x - ax)) / largo;
+        // El signo de dentro es el del tercer vertice.
+        let s = lado(cx, cy).signum();
+        d = d.min(s * lado(px, py));
+    }
+    d
+}
+
+/// **El juez del triangulo de colores** (R3 del plan): lo que D3D12 FIJA, y su
+/// margen donde lo deja.
+///
+/// ```text
+///    fuera (a mas de 1 pixel del borde)   EXACTAMENTE el azul de E1.1
+///    dentro (a mas de 1 pixel del borde)  rojo, verde y azul interpolados con
+///                                         las baricentricas (w = 1: lineal),
+///                                         cada canal a 2 o menos de lo exacto
+///                                         (el margen: la interpolacion y el
+///                                         paso a UNORM de 8 bits)
+///    cuantos dentro                       el area, 51200 pixeles, +-1 %
+/// ```
+fn juzgar_triangulo(px: &[u32], dx: f32) {
+    let t = triangulo(dx);
+    let (mut dentro, mut mal) = (0u32, Vec::new());
+    for j in 0..ALTO {
+        for i in 0..ANCHO {
+            let p = px[(j * ANCHO + i) as usize] & 0x00FF_FFFF;
+            if p != AZUL {
+                dentro += 1;
+            }
+            let d = distancia_al_borde(&t, i, j);
+            if d < -1.0 && p != AZUL {
+                mal.push(format!("({i},{j}) fuera y no es el azul: {p:06x}"));
+            } else if d > 1.0 {
+                let l = baricentricas(&t, i, j);
+                let esperado = l.map(|x| (x * 255.0).round() as i32);
+                let visto = [(p >> 16 & 0xFF) as i32, (p >> 8 & 0xFF) as i32, (p & 0xFF) as i32];
+                if (0..3).any(|c| (visto[c] - esperado[c]).abs() > 2) {
+                    mal.push(format!("({i},{j}) dentro: {visto:?}, se esperaba {esperado:?}"));
+                }
+            }
+            if mal.len() > 8 {
+                panic!("el triangulo no es el de D3D12: {mal:#?}");
+            }
+        }
+    }
+    assert!(mal.is_empty(), "el triangulo no es el de D3D12: {mal:#?}");
+    assert!((dentro as i64 - 51200).abs() <= 512, "{dentro} pixeles dentro; el area son 51200");
+}
+
+/// **E1.2 -- HelloTriangle**: un vertex buffer, una root signature vacia, un
+/// PSO con sus dos `.cso` de DXC (SM 6.0), y DrawInstanced(3, 1). Lo que pide
+/// de mas sobre E1.1: CreateFile2 (lee los `.cso`) y el dibujo de verdad.
+#[test]
+fn e1_2_hellotriangle_dibuja_el_triangulo_de_colores_de_d3d12() {
+    let (salio, texto, vistas, fotos) = correr_muestra(HTRIANG, "htriang", 30, &[0, 29]);
+    assert_eq!(salio, 0xF00D, "presento hasta el tope del banco: {texto}");
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte");
+    assert_eq!(vistas.len(), 30);
+    assert!(vistas.iter().all(|&v| v == vistas[0]), "la misma imagen en cada Present");
+    assert_ne!(vistas[0], huella_lisa(AZUL, ANCHO, ALTO), "no es solo el azul: hay triangulo");
+    for (_, px, w, h) in &fotos {
+        assert_eq!((*w, *h), (ANCHO, ALTO));
+        juzgar_triangulo(px, 0.0);
+    }
+}
+
+/// **E1.5 -- HelloFrameBuffering**: el MISMO triangulo con dos fotogramas en
+/// vuelo (un allocator y una valla por fotograma). El juez: cada Present es,
+/// bit a bit, el de HelloTriangle.
+#[test]
+fn e1_5_helloframebuffering_da_bit_a_bit_el_triangulo_de_hellotriangle() {
+    let (_, _, triangulo, _) = correr_muestra(HTRIANG, "htriang", 2, &[]);
+    let (salio, texto, vistas, _) = correr_muestra(HFRAMES, "hframes", 30, &[]);
+    assert_eq!(salio, 0xF00D, "{texto}");
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte");
+    assert_eq!(vistas.len(), 30);
+    assert!(vistas.iter().all(|&v| v == triangulo[0]), "cada Present, el de HelloTriangle");
+}
+
+/// **E1.6 -- HelloBundles**: el MISMO triangulo, pero grabado una vez en un
+/// BUNDLE y ejecutado con ExecuteBundle en cada fotograma (la mitad de N5.17).
+/// El juez: cada Present es, bit a bit, el de HelloTriangle.
+#[test]
+fn e1_6_hellobundles_da_bit_a_bit_el_triangulo_de_hellotriangle() {
+    let (_, _, triangulo, _) = correr_muestra(HTRIANG, "htriang", 2, &[]);
+    let (salio, texto, vistas, _) = correr_muestra(HBUNDLES, "hbundles", 30, &[]);
+    assert_eq!(salio, 0xF00D, "{texto}");
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte");
+    assert_eq!(vistas.len(), 30);
+    assert!(vistas.iter().all(|&v| v == triangulo[0]), "cada Present, el de HelloTriangle");
+}
+
+/// **E1.4 -- HelloConstBuffers**: el triangulo corrido por un cbuffer en un
+/// monton UPLOAD con Map PERSISTENTE, que el `.exe` escribe ANTES de cada
+/// fotograma: `offset.x += 0.005` (en f32). El juez: el fotograma n es el
+/// triangulo de E1.2 corrido (n + 1) * 0.005, con el mismo margen.
+#[test]
+fn e1_4_helloconstbuffers_corre_el_triangulo_lo_que_dice_su_cbuffer() {
+    let (salio, texto, vistas, fotos) = correr_muestra(HCBUFFER, "hcbuffer", 30, &[0, 15, 29]);
+    assert_eq!(salio, 0xF00D, "{texto}");
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte");
+    assert_eq!(vistas.len(), 30);
+    assert!(vistas.windows(2).all(|v| v[0] != v[1]), "cada fotograma, otro sitio");
+    for (n, px, _, _) in &fotos {
+        let mut dx = 0.0f32;
+        for _ in 0..=*n {
+            dx += 0.005;
+        }
+        juzgar_triangulo(px, dx);
+    }
+}
+
+/// **E1.3 -- HelloTexture**: el triangulo con UV (0.5, 0), (1, 1), (0, 1) y una
+/// textura de 256x256 que el `.exe` hace en la CPU: un tablero de 8x8 cuadros
+/// de 32 texeles, NEGRO donde la columna y la fila del cuadro tienen la misma
+/// paridad, BLANCO donde no. Subida con UpdateSubresources (CopyTextureRegion
+/// de un monton UPLOAD), un SRV en un monton SHADER_VISIBLE y un muestreador
+/// estatico de PUNTO.
+///
+/// **El juez, bit a bit:** con PUNTO no se mezcla nada, asi que cada pixel de
+/// dentro (a mas de 1 pixel del borde) es EXACTAMENTE 0x000000 o 0xFFFFFF, el
+/// del cuadro de su UV -- salvo a menos de 0.05 texeles de una raya del
+/// tablero, donde el UV interpolado puede caer de un lado o del otro. Fuera,
+/// exactamente el azul.
+#[test]
+fn e1_3_hellotexture_muestrea_el_tablero_por_punto_bit_a_bit() {
+    let (salio, texto, vistas, fotos) = correr_muestra(HTEXTURE, "htexture", 10, &[9]);
+    assert_eq!(salio, 0xF00D, "{texto}");
+    // El UNICO aviso, y es de velocidad, no de lo que se ve: un PSO que
+    // muestrea va por el interprete, no por el codigo nativo (P3b3b).
+    assert_eq!(
+        texto,
+        "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)\n",
+        "ni otro aviso ni un hueco que falte"
+    );
+    assert!(vistas.iter().all(|&v| v == vistas[0]), "la misma imagen en cada Present");
+    let t = triangulo(0.0);
+    let uv = [(0.5f64, 0.0f64), (1.0, 1.0), (0.0, 1.0)];
+    let (px, _, _) = (&fotos[0].1, fotos[0].2, fotos[0].3);
+    let (mut negros, mut blancos, mut mal) = (0u32, 0u32, Vec::new());
+    for j in 0..ALTO {
+        for i in 0..ANCHO {
+            let p = px[(j * ANCHO + i) as usize] & 0x00FF_FFFF;
+            let d = distancia_al_borde(&t, i, j);
+            if d < -1.0 && p != AZUL {
+                mal.push(format!("({i},{j}) fuera y no es el azul: {p:06x}"));
+            } else if d > 1.0 {
+                let l = baricentricas(&t, i, j);
+                let u = (l[0] * uv[0].0 + l[1] * uv[1].0 + l[2] * uv[2].0) * 256.0;
+                let v = (l[0] * uv[0].1 + l[1] * uv[1].1 + l[2] * uv[2].1) * 256.0;
+                let raya = |x: f64| ((x / 32.0).round() * 32.0 - x).abs() < 0.05;
+                if raya(u) || raya(v) {
+                    continue;
+                }
+                let (ci, cj) = ((u as u32).min(255) / 32, (v as u32).min(255) / 32);
+                let esperado = if ci % 2 == cj % 2 { 0x000000 } else { 0xFFFFFF };
+                match p {
+                    0x000000 => negros += 1,
+                    0xFFFFFF => blancos += 1,
+                    _ => {}
+                }
+                if p != esperado {
+                    mal.push(format!("({i},{j}) uv ({:.3},{:.3}): {p:06x}, se esperaba {esperado:06x}", u / 256.0, v / 256.0));
+                }
+            }
+            if mal.len() > 8 {
+                panic!("el tablero no es el de D3D12: {mal:#?}");
+            }
+        }
+    }
+    assert!(mal.is_empty(), "el tablero no es el de D3D12: {mal:#?}");
+    assert!(negros > 10_000 && blancos > 10_000, "los dos colores del tablero: {negros} negros, {blancos} blancos");
+}

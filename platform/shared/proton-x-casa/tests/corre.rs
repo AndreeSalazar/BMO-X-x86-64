@@ -79,6 +79,13 @@ const VUELTAS: &[u8] = include_bytes!("../../proton-x/prueba/vueltas.exe");
 /// E1.1 de la ESCALERA (05-10): `D3D12HelloWindow` de Microsoft, el `.exe`
 /// de verdad compilado de su fuente (`prueba/muestras/HACER.txt`).
 const HWINDOW: &[u8] = include_bytes!("../../proton-x/prueba/hwindow.exe");
+/// E1.2 a E1.6 (05-10): los demas Hello de Microsoft, cada uno en su carpeta
+/// del volumen con sus `.cso` (`tests/corre/muestras.rs`).
+const HTRIANG: &[u8] = include_bytes!("../../proton-x/prueba/htriang.exe");
+const HTEXTURE: &[u8] = include_bytes!("../../proton-x/prueba/htexture.exe");
+const HCBUFFER: &[u8] = include_bytes!("../../proton-x/prueba/hcbuffer.exe");
+const HFRAMES: &[u8] = include_bytes!("../../proton-x/prueba/hframes.exe");
+const HBUNDLES: &[u8] = include_bytes!("../../proton-x/prueba/hbundles.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");
@@ -212,6 +219,12 @@ static VISTAS: Mutex<Vec<u64>> = Mutex::new(Vec::new());
 /// muestras de Microsoft solo salen cerrando su ventana (WM_CLOSE), que en
 /// BMO-X es la X del escritorio: la que la pone, la devuelve a 1000.
 static TOPE_PRESENTES: AtomicU32 = AtomicU32::new(1000);
+/// Los Present (0, 1...) de los que el banco guarda los PIXELES, no solo la
+/// huella: un juez que mira la imagen (E1.2 de la ESCALERA, 05-10). Lo pone
+/// la prueba; `correr_exe` vacia lo guardado.
+static GUARDAR_FOTOS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+/// `(present, pixeles 0x00RRGGBB, ancho, alto)` de cada uno de esos.
+static FOTOS: Mutex<Vec<(u32, Vec<u32>, u32, u32)>> = Mutex::new(Vec::new());
 
 /// **El guion del buzon.** Cada `evento` saca el siguiente; un 0 del guion es
 /// "ahora no hay nada", y se gasta. Asi se ve lo que hace `GetMessageW` cuando
@@ -242,12 +255,16 @@ fn mostrar(_s: &Superficie) -> bool {
 /// su tecla de salir) tampoco cuelga el banco: a los mil Present (o a los de
 /// [`TOPE_PRESENTES`]), fuera con 0xF00D.
 fn presentar(s: &Superficie) {
-    if PRESENTADAS.fetch_add(1, Ordering::SeqCst) >= TOPE_PRESENTES.load(Ordering::SeqCst) {
+    let n = PRESENTADAS.fetch_add(1, Ordering::SeqCst);
+    if n >= TOPE_PRESENTES.load(Ordering::SeqCst) {
         salir(0xF00D);
     }
     // SAFETY: la superficie es un Vec de PANTALLA (ver `superficie`), vivo.
     let px = unsafe { core::slice::from_raw_parts(s.pixeles, (s.stride * s.alto) as usize) };
     VISTAS.lock().unwrap().push(bmo_cubo::referencia::huella(px));
+    if GUARDAR_FOTOS.lock().unwrap().contains(&n) {
+        FOTOS.lock().unwrap().push((n, px.to_vec(), s.ancho, s.alto));
+    }
 }
 
 fn evento(_s: &Superficie) -> u64 {
@@ -473,6 +490,7 @@ fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: 
     DICHO.lock().unwrap().clear();
     PANTALLA.lock().unwrap().clear();
     VISTAS.lock().unwrap().clear();
+    FOTOS.lock().unwrap().clear();
     for c in [&MOSTRADAS, &PRESENTADAS, &DORMIDAS, &SELLADOS, &SOLTADOS] {
         c.store(0, Ordering::SeqCst);
     }

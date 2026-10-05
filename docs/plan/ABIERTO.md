@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   620 casillas ABIERTAS en 57 planes
-   462 hechas
+   615 casillas ABIERTAS en 57 planes
+   467 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -88,15 +88,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] F6 -- LO DATA-DENSE. Graficos circulares (la carga por nucleo, los
 - ... y 16 mas
 
-## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 19 abiertas, 5 hechas
-
-*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
-
-- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
-- [ ] E1.2 -- HelloTriangle, el .exe de verdad. Lo que el cubo no
-- [ ] E1.3 -- HelloTexture, el .exe de verdad. Hoy solo el camino a
-- ... y 16 mas
-
 ## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 18 abiertas, 2 hechas
 
 *PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
@@ -158,6 +149,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] **P2.2 -- RESCHEDULE FORZADO: una tarea que se duerme suelta el CPU en el
 - [ ] P2.3 -- el kernel publica el TIEMPO DE CPU de una tarea. Hoy
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
+- ... y 11 mas
+
+## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 14 abiertas, 10 hechas
+
+*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
+
+- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
+- [ ] E2.1 -- D3D12Multithreading. Listas de ordenes grabadas desde
+- [ ] E2.2 -- D3D12DynamicIndexing. El indice dinamico de descriptores
 - ... y 11 mas
 
 ## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 13 abiertas, 7 hechas

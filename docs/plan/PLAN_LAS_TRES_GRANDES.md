@@ -921,6 +921,8 @@ la proxima corrida del metal dice cual pesa mas:
 - [ ] **N5.16 -- render targets de floats** (R32, RGBA16F de verdad): hoy
   se pintan en 8 bits o no se pintan; el HDR de Cyberpunk vive ahi.
 - [ ] **N5.17 -- ExecuteIndirect y ExecuteBundle**: hoy se saltan.
+  ExecuteBundle corre desde el 05-10 (E1.6 de la ESCALERA, HelloBundles,
+  bit a bit; falta verlo en Cyberpunk); queda ExecuteIndirect (E2.4).
 
 El ABI entero (que hace cada hueco de las 28 interfaces, que es falla
 documentada y que falta) esta en `docs/maestro/D3D12_MAESTRO.md`, y lo

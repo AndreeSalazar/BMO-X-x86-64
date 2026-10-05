@@ -6,10 +6,18 @@
 # (api-ms-win-crt-*). Reproducible: los mismos commits dan el mismo .exe,
 # byte a byte (su sha256 esta en ../HACER.txt).
 #
-#   sh construir.sh DIRECTORIO_DE_TRABAJO
+#   DXC=/ruta/a/dxc sh construir.sh DIRECTORIO_DE_TRABAJO
 #
 # Pide: git, y los paquetes de Ubuntu g++-mingw-w64-x86-64-win32 (13.2.0) y
-# mingw-w64-x86-64-dev (11.0.1). Deja hwindow.exe en el directorio de trabajo.
+# mingw-w64-x86-64-dev (11.0.1). Deja los .exe en el directorio de trabajo.
+#
+# Los sombreadores: las muestras leen shaders_VSMain.cso y shaders_PSMain.cso,
+# que su proyecto de Visual Studio compila con DXC al construir
+# (`dxc -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug`). Con DXC=, este script
+# los hace igual, en <directorio>/<muestra>/. El DXC de la casa: v1.8.2505
+# (9efbb6c3), el de las publicaciones de Microsoft, o compilado de su fuente
+# en ese commit (`cmake -G Ninja -C cmake/caches/PredefinedParams.cmake
+# -DHLSL_INCLUDE_TESTS=OFF -DSPIRV_BUILD_TESTS=OFF`, y `ninja dxc`).
 set -eu
 
 DGS=e5975f9b0744fc5096dd593ed72bf8f5c004164f      # microsoft/DirectX-Graphics-Samples, 2026-09-23
@@ -43,17 +51,44 @@ construir() {
     printf '#include <d3dx12.h>\n' > "$1/include/d3dx12/d3dx12.h"
     printf '#include <d3dcompiler.h>\n' > "$1/include/D3Dcompiler.h"
     cp "$AQUI/antes.h" "$1/include/antes.h"
+    cp "$AQUI/guids.cpp" "$1/zz_guids.cpp"
     (
         cd "$1"
         for f in *.cpp; do
             [ "$f" = stdafx.cpp ] && continue
+            # Los IID (guids.cpp) sin el puente: solo las cabeceras.
+            puente="-include include/antes.h"
+            [ "$f" = zz_guids.cpp ] && puente=""
             $G -specs=../ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -fpermissive \
-                -DUNICODE -D_UNICODE -include include/antes.h -I. -Iinclude \
+                -DUNICODE -D_UNICODE $puente -I. -Iinclude \
                 -I../dxh/include/directx -I../dxh/include -I../dxm/Inc -c "$f" -o "${f%.cpp}.o" 2>/dev/null
         done
+        # Los IID en una biblioteca: el enlazador solo la usa si algo los
+        # pide, y un .exe que no los pide sale igual que sin ella.
+        x86_64-w64-mingw32-ar rcD libguids.a zz_guids.o
         $G -specs=../ucrt.specs -mwindows -static -static-libgcc -static-libstdc++ -s \
-            -Wl,--no-insert-timestamp -o "../$2" *.o -ld3d12 -ldxgi -luser32 -lshell32
+            -Wl,--no-insert-timestamp -o "../$2" $(ls *.o | grep -v zz_guids) -L. -lguids -ld3d12 -ldxgi -luser32 -lshell32
     )
     sha256sum "$2"
+    # Sus .cso, si hay DXC y la muestra los lee.
+    if [ -n "${DXC:-}" ] && [ -f "dgs/Samples/Desktop/D3D12HelloWorld/src/$1/shaders.hlsl" ]; then
+        m=${2%.exe}
+        rm -rf "$m" && mkdir -p "$m"
+        cp "dgs/Samples/Desktop/D3D12HelloWorld/src/$1/shaders.hlsl" "$m/"
+        (
+            cd "$m"
+            "$DXC" -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo shaders_VSMain.cso shaders.hlsl
+            "$DXC" -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo shaders_PSMain.cso shaders.hlsl
+            rm shaders.hlsl
+        )
+        sha256sum "$m"/*.cso
+    fi
 }
+# Los Hello de D3D12HelloWorld (E1 de la escalera), con nombres de 8.3: el
+# FAT32 de BMO-X busca asi.
 construir HelloWindow hwindow.exe
+construir HelloTriangle htriang.exe
+construir HelloTexture htexture.exe
+construir HelloConstBuffers hcbuffer.exe
+construir HelloFrameBuffering hframes.exe
+construir HelloBundles hbundles.exe

@@ -2056,3 +2056,44 @@ En Windows corre tal cual: una ventana de 1280x720 limpia al azul
 {0.0, 0.2, 0.4}. El juez del banco (`tests/corre/muestras.rs`): cada pixel
 de cada Present es R 0x00 G 0x33 B 0x66, lo que dicen las reglas de D3D12
 para ese color en R8G8B8A8_UNORM.
+
+htriang.exe, htexture.exe, hcbuffer.exe, hframes.exe, hbundles.exe -- los
+demas Hello de Microsoft, con sus sombreadores (05-10)
+
+E1.2 a E1.6 de la ESCALERA: HelloTriangle, HelloTexture, HelloConstBuffers,
+HelloFrameBuffering y HelloBundles de D3D12HelloWorld, con el MISMO script y
+las mismas herramientas que hwindow.exe. Los que nombran un IID como simbolo
+(d3dx12, en HelloTexture) lo toman de `muestras/guids.cpp`, en una biblioteca
+que el enlazador solo usa si hace falta (hwindow.exe sale igual con ella).
+
+Sus sombreadores: cada muestra lee shaders_VSMain.cso y shaders_PSMain.cso de
+SU carpeta (en el volumen, window/<muestra>/; aqui, muestras/<muestra>/). Su
+proyecto de Visual Studio los compila con DXC al construir, y el script hace
+lo mismo con DXC=:
+
+   dxc -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo shaders_VSMain.cso shaders.hlsl
+   dxc -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo shaders_PSMain.cso shaders.hlsl
+
+El DXC: v1.8.2505 de microsoft/DirectXShaderCompiler (9efbb6c3, el mismo
+commit que el de las publicaciones de Microsoft de sombras.dxil), compilado
+de su fuente en la nube (`ninja dxc`; dice libdxcompiler 1.9 dev 1-9efbb6c3).
+Ningun .cso lleva rutas de la maquina (comprobado). Reproducibles: el script
+dos veces da los mismos bytes. sha256:
+
+   f791d48d302ff296cf33f040a5d3adbd3658a9ac44b7be7ed1a9b6db0da1151f  htriang.exe
+   e5e3fc464762b45ada6aebf738098d8214e18f5753f8f723cc39270515499128  htexture.exe
+   af6f45797e6f52e768f4802f32bd66b247acf00b9cee698d72e7ce228fb33cff  hcbuffer.exe
+   c8848e0c226f452d50fb89071627eba975d0cc98e045c8c21701fa5b6dc47775  hframes.exe
+   79e7ecc9b0366c7400a65ed6da09720bef0eb00be128c9faf4f038ade6fe42b0  hbundles.exe
+   24a1f5aa760c27e488ef7cbe91d4d8f11658e04db2f3154fd153f6ecfa8c003c  htriang/shaders_VSMain.cso (y hframes/, hbundles/)
+   25b51a675ed87a71b30779784061b7090abfde0ca33a5b25f1160e7a74478bc1  htriang/shaders_PSMain.cso (y hframes/, hbundles/)
+   d0b29cf7b6a7c5e7abd1fa3e9939ec606413029e17977a983623187c1cfb0ba4  htexture/shaders_VSMain.cso
+   f1ec419a8a9681a3c6c4bdf015548644ac3aae212ce18406810274d505621b00  htexture/shaders_PSMain.cso
+   82d28059194bbeb4bfb41975b720cc2fd0cb90a02fa18e1c7a5cc87bc50b6c3c  hcbuffer/shaders_VSMain.cso
+   e3db15a8146be5b06cc4d9ae29e4b171b9ef71306dda6b5041bb7c762fe7d73e  hcbuffer/shaders_PSMain.cso
+
+Los jueces (`tests/corre/muestras.rs`), de lo que fija D3D12: el triangulo
+con cada canal a 2 o menos de lo exacto y el fondo exacto (htriang); el
+tablero de PUNTO bit a bit (htexture); el triangulo corrido lo que dice el
+cbuffer en cada fotograma (hcbuffer); y bit a bit el de htriang con dos
+fotogramas en vuelo (hframes) y desde un bundle (hbundles).
