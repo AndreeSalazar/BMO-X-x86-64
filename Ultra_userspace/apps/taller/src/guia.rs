@@ -25,7 +25,7 @@ struct Card {
 }
 
 const fn traits(fns: u8, lets: u8, muts: u8, changes: u8, writes: u8, calls: u8) -> Traits {
-    Traits { fns, lets, muts, changes, writes, calls, ifs: 0, loops: 0, returns: calls, types: 0, lines: 9 }
+    Traits { fns, lets, muts, changes, writes, calls, ifs: 0, loops: 0, returns: calls, types: 0, lines: 9, says: bmo_titan_lector::Said::NONE }
 }
 
 const CARDS: [Card; 15] = [
@@ -255,8 +255,8 @@ const GUIDE: [(&[u8], [&[u8]; 4]); 6] = [
         [
             b"[t] la solapa siguiente   [e] el siguiente error",
             b"[TAB] los nodos maestros  [+][-][0] zoom  [Esc] sale",
-            b"EXPLORER: doble clic renombra, Supr quita,",
-            b"clic derecho el menu, arrastrar ordena o mueve.",
+            b"NODO: 2 clics abre su codigo, se guarda solo;",
+            b"clic derecho su menu. EXPLORER: 2 clics renombra.",
         ],
     ),
 ];

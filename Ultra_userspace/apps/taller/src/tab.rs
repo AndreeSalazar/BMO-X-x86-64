@@ -186,7 +186,7 @@ pub fn draw(c: &mut Canvas, p: &Palette, t: i32) {
     // -- the search field ------------------------------------------------
     let mut idx = [0u8; COUNT];
     let n = p.shown(&mut idx);
-    let w = look::pill(c, bx + 12, by + 14, b"TAB", ACCENT, mezclar(TAB_BOX, ACCENT, 1, 6));
+    let w = look::pill(c, bx + 12, by + 14, b"TAB", ACCENT, mezclar(ACCENT, TAB_BOX, 1, 6));
     let (fx, fw) = (bx + 12 + w + 8, bw - w - 156);
     look::card(c, fx, by + 10, fw, 26, 8, mezclar(TAB_BOX, BG, 1, 2));
     look::edge(c, fx, by + 10, fw, 26, 8, 1, if p.len > 0 { ACCENT } else { EDGE });
@@ -281,7 +281,7 @@ fn card(c: &mut Canvas, m: &Master, x: i32, y: i32, w: i32, h: i32, t: i32) {
             break;
         }
         let col = word_color(word);
-        px += look::pill(c, px, cy - 1, word.as_bytes(), col, mezclar(TAB_BOX, col, 1, 7)) + 6;
+        px += look::pill(c, px, cy - 1, word.as_bytes(), col, mezclar(col, TAB_BOX, 1, 6)) + 6;
     }
     cy += 28;
     for perm in Permission::ALL {

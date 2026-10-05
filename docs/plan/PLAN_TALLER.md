@@ -1202,3 +1202,64 @@ TAB no inventa un catalogo que pueda mentir:
 | escribir `match` | quedan los nodos del nivel 8 (y los que lo nombran en su porque) | no filtra, o filtra solo por nombre |
 | Enter sobre `semaforo` | aparece el nodo; `src/semaforo.titan` existe y `main` dice `mod semaforo` | aparece y no esta en el disco: no se guardo |
 | `titan check` del paquete | bien | NO: el nodo no vino del banco, o se renombro mal |
+
+### 8.16 L11: el nodo se EDITA en su sitio; cada uno con su FORMA; `hola` imprime a la vista (05-10, HECHO)
+
+El propietario, 05-10: *"formas de nodos unicos que representan, y cuando le
+doy click a los nodos en grafos tengan click derecho o doble click para
+modificar escrituras en tiempo real ... el ejemplo de hola mundo, es simple,
+pero en la que imprime, el nodo de imprimir o logo de impresora, mas facil"*.
+
+```text
+   la FORMA         la cabecera de cada nodo lleva, de derecha a izquierda,
+                    lo que HACE (`iconos.rs`): PLAY en main, la IMPRESORA si
+                    escribe, el ROMBO si decide, el BUCLE si repite, el
+                    CRISTAL si tiene tipos, el ANILLO si algo cambia, la CAJA
+                    si nombra valores, la FLECHA si llama, el GANCHO si
+                    devuelve, el CHIP en la 3060. Mismo color que en el CIELO
+   la IMPRESORA     el cuerpo del nodo dice lo que imprime: el texto EXACTO
+                    si todos los argumentos son textos escritos ahi
+                    (`print("hola mundo")` -> "hola mundo"), y los argumentos
+                    tal cual si algo se calcula. Lo lee el lector
+                    (`traits::Said`), y una prueba del compilador comprueba
+                    que lo que el nodo dice es lo que el programa imprime
+   la CONSOLA       el panel de abajo, sin guion: el primer print de cada
+                    nodo, con el mismo criterio
+   2 CLICS          en un nodo abren su CODIGO en un panel a la derecha (el
+                    grafo sigue a la vista): colores de TITAN++, la sangria
+                    sigue sola con Enter, TAB son 4 espacios (un tabulador es
+                    T0010). Se GUARDA SOLO al parar de escribir (~1 s): una
+                    version de ESTRATOS, el latido relee y el nodo cambia
+                    -- su impresora, sus formas -- mientras se mira. Esc
+                    guarda y cierra
+   CLIC DERECHO     en un nodo: el menu de su fichero, con `Editar codigo`
+                    arriba (renombrar, quitar, nuevo: lo de siempre)
+   HOLA             la semilla siembra un segundo paquete, `titan/hola`: un
+                    nodo, `print("hola mundo")`. El mas chico que hay
+```
+
+** Lo que NO hace todavia, dicho para que nadie lo busque: **correr** el
+programa editado dentro de BMO-X. La consola LEE el texto (lo que un `print`
+de textos escritos imprime es ese texto); lo que se calcula lo calcula el
+compilador, y el compilador vive en el anfitrion (`titan build`) -- correrlo
+dentro de F1 es el autohospedaje (T6, `PLAN_AUTOHOSPEDAJE`). El
+`titan/hola.bex` del FAT32 se compila del banco en cada build, no de lo que se
+edita en F1: lanzarlo desde aqui mostraria otro programa, y por eso no se hace.
+
+** La pila, de paso: la tienda (`Store`, ~13 KiB) salio de la pila de `_start`
+a un bloque propio, construida campo a campo: F1 baja de 57.840 a 40.032 de
+65.536 (`pila.py --ring3`).
+
+- [x] E1 -- la forma: `Ultra_userspace/apps/taller/src/iconos.rs` (los iconos) y su uso en la cabecera de cada nodo en `Ultra_userspace/apps/taller/src/view.rs`
+- [x] E2 -- la impresora: `Said` en `platform/shared/titan-lector/src/traits.rs` (con sus pruebas) y la prueba cruzada `what_the_printer_on_the_node_says_is_what_the_program_prints` en `toolchain/lang/titan/tests/maestros.rs`
+- [x] E3 -- el editor: `Ultra_userspace/apps/taller/src/editor.rs`; leer y guardar en `Ultra_userspace/apps/taller/src/store.rs` (`read_text`, `save_text`); 2 clics, clic derecho y autoguardado en `Ultra_userspace/apps/taller/src/main.rs`; `Editar codigo` en el menu de `Ultra_userspace/apps/taller/src/explorer.rs`
+- [x] E4 -- hola: el paquete en `platform/shared/titan-lector/src/seed.rs` (solo en una biblioteca NUEVA: una que ya existe no se toca en silencio; el nodo `hola` tambien esta en la TAB)
+- [x] E5 -- la camara: `toolchain/tools/espejo-cara/src/bin/cara_taller.rs` saca `hola.png`, `menu_nodo.png`, `editor.png` y `editor_guardado.png`
+- [ ] E6 -- correr lo editado dentro de BMO-X: espera al compilador dentro de F1 (T6, `docs/plan/en_pausa/PLAN_AUTOHOSPEDAJE.md`)
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| abrir `hola` en F1 | un nodo `main` con PLAY e IMPRESORA, y `"hola mundo"`; la CONSOLA dice `> hola mundo` | sin impresora: `Traits::writes` no cuenta, o el nodo no lee sus rasgos |
+| 2 clics en `main`, cambiar el texto, esperar 1 s | el panel dice `guardado`, el nodo y la CONSOLA dicen lo nuevo | dice `escribiendo...` siempre: `guardar_desde` fallo (CABINA, F11) |
+| clic derecho en un nodo | el menu, con `Editar codigo` arriba | nada: el nodo no tiene fichero en el disco (el ejemplo en memoria) |
+| `vuelve 1` en F12 | el texto de antes, y el nodo con el | -- |

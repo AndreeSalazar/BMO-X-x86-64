@@ -89,3 +89,43 @@ fn every_master_placed_in_the_seed_still_compiles() {
     assert!(d.0.contains_key(format!("{ROOT}/src/semaforo_2.titan").as_bytes()));
     compile(&d).unwrap_or_else(|m| panic!("semaforo + semaforo_2: {:?} {}", m.code, m.what));
 }
+
+/// What the node in F1 says it prints (`titan_lector::traits::Said`, the
+/// PRINTER on the node) is what the compiler prints when it runs the
+/// program: the reader only says it when every argument is a written text,
+/// and then the two agree -- for the seed's `hola` and for every master.
+#[test]
+fn what_the_printer_on_the_node_says_is_what_the_program_prints() {
+    use bmo_titan_front::ir::{Op, Value};
+    let printed = |src: &str| -> Vec<String> {
+        let m = lower_package("src/main.titan", src, &mut |_| None).unwrap_or_else(|e| panic!("{:?} {}", e.code, e.what));
+        m.flat
+            .unwrap()
+            .iter()
+            .filter_map(|op| match op {
+                Op::Write { parts, .. } => Some(parts.iter().map(|p| if let Value::Text(t, _) = p { t.clone() } else { String::from("\u{0}") }).collect()),
+                _ => None,
+            })
+            .collect()
+    };
+    let hola = bmo_titan_lector::seed::FILES.iter().find(|f| f.0 == "titan/hola/src/main.titan").unwrap().1;
+    assert_eq!(printed(hola), ["hola mundo"]);
+    let mut checked = 0;
+    for src in MASTERS.iter().filter(|m| m.asks == bmo_titan_contrato::Permissions::NONE).map(|m| m.source).chain([hola]) {
+        let said = bmo_titan_lector::traits::scan(src.as_bytes()).says;
+        if !said.exact {
+            continue;
+        }
+        let said = String::from_utf8(said.as_bytes().to_vec()).unwrap();
+        let lines = printed(src);
+        assert!(lines.iter().any(|l| if_cut(l, &said)), "the node says `{said}` and the program prints {lines:?}");
+        checked += 1;
+    }
+    // hola, and the masters that print a written text first (most print what
+    // they calculate: there the node shows the arguments as written).
+    assert!(checked >= 3, "the printer showed an exact text only {checked} times");
+}
+
+fn if_cut(line: &str, said: &str) -> bool {
+    line == said || (said.len() == bmo_titan_lector::traits::SAID && line.starts_with(said))
+}

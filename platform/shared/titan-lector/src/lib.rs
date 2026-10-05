@@ -47,7 +47,7 @@ pub mod wire;
 pub use hang::{HangError, Plan, Sink};
 pub use package::{read_package, read_package_into, Fetch, FileEntry, Loaded, Problem, ProblemKind, Say, Source};
 pub use text::Path;
-pub use traits::Traits;
+pub use traits::{Said, Traits};
 
 /// ** THE CUT BETWEEN LOGIC AND LOOK (the owner, 04-10: "divide bien en
 /// apariencia y la logica de TITAN++"), as a test anyone can run: this crate
