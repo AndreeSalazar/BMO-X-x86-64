@@ -1894,3 +1894,15 @@ HECHO EN EL ANFITRION el 05-10:**
   lleva SUS celdas. Probado bit a bit contra el f32 de Rust, con NaN y con
   los dos lados de cada `if`.
 - Lo que falta del nivel 11: G4, correr en la 3060 de verdad (Ring 0).
+
+**EL JUEZ QUE NO HACE ADIVINAR (05-10)** -- el propietario: *"el mismo SPIR-V
+original, pero que el juez tenga algo que automatice y no tenga que perder el
+tiempo en adivinar"*:
+
+- **DONDE**: el SPIR-V se describe solo con las instrucciones de depuracion de
+  la especificacion (`OpLine`), y un NO del juez de spirv se lee en el `.titan`
+  -- fichero, linea, columna --, no en una palabra del binario.
+- **SI ESTA BIEN**: en cada build, una bateria de bordes (NaN, infinitos,
+  subnormales, -0, maximos, 0.1) y las celdas reales del programa pasan por el
+  oraculo y por el calculo; distinto en un solo bit, no hay `.bex`. Leyes L30
+  y L31.

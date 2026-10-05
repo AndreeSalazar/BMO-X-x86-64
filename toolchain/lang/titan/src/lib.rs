@@ -109,6 +109,7 @@ pub fn lower_package_with(root: &str, src: &str, read: &mut dyn FnMut(&str) -> O
     check::check(&program).map_err(at)?;
     let mut m = ir::lower(&program);
     m.permissions = pkg.permissions;
+    m.sources = pkg.sources();
     juez::judge(&m).map_err(at)?;
     calc::fold_with(&m, device).map_err(at)
 }

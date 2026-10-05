@@ -73,11 +73,23 @@ pub struct Package {
     pub permissions: Permissions,
 }
 
-impl Package {
-    /// The file a package-wide line is in, and its own line there.
-    fn place(&self, line: usize) -> Option<(usize, usize)> {
-        let k = self.files.iter().rposition(|f| f.base < line || (f.base == 0 && line == 0))?;
-        Some((k, line - self.files[k].base))
+/// ** THE PACKAGE'S MAP OF LINES: each file and the line its count starts
+/// at. It travels in the IR (`ir::Module::sources`), so whoever receives the
+/// module -- the SPIR-V writer, the certificate -- can turn a package-wide
+/// line back into its file and its own line.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Sources(pub Vec<(String, usize)>);
+
+impl Sources {
+    /// The file a package-wide line is in (its index), and its own line.
+    pub fn place(&self, line: usize) -> Option<(usize, usize)> {
+        let k = self.0.iter().rposition(|f| f.1 < line || (f.1 == 0 && line == 0))?;
+        Some((k, line - self.0[k].1))
+    }
+
+    /// The path of the file at index `k`.
+    pub fn path(&self, k: usize) -> &str {
+        &self.0[k].0
     }
 
     /// The message with its file and its own line -- and every "linea N" in
@@ -85,7 +97,7 @@ impl Package {
     pub fn locate(&self, mut m: Message) -> Message {
         let Some((k, line)) = self.place(m.line) else { return m };
         m.line = line;
-        m.file = Some(self.files[k].path.clone());
+        m.file = Some(self.0[k].0.clone());
         for text in [&mut m.what, &mut m.why, &mut m.how] {
             *text = self.lines_in(text, k);
         }
@@ -102,12 +114,23 @@ impl Package {
             let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
             match rest[..digits].parse::<usize>().ok().and_then(|n| self.place(n)) {
                 Some((k, line)) if k == here => out += &line.to_string(),
-                Some((k, line)) => out += &format!("{} de {}", line, self.files[k].path),
+                Some((k, line)) => out += &format!("{} de {}", line, self.0[k].0),
                 None => out += &rest[..digits],
             }
             rest = &rest[digits..];
         }
         out + rest
+    }
+}
+
+impl Package {
+    /// Its map of lines (see `Sources`).
+    pub fn sources(&self) -> Sources {
+        Sources(self.files.iter().map(|f| (f.path.clone(), f.base)).collect())
+    }
+
+    pub fn locate(&self, m: Message) -> Message {
+        self.sources().locate(m)
     }
 }
 

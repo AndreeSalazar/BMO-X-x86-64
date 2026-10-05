@@ -8,7 +8,7 @@
 
 ```text
    593 casillas ABIERTAS en 56 planes
-   453 hechas
+   457 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -26,7 +26,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 10 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
-- [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 26 de 31 hechas, faltan 5
+- [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 30 de 35 hechas, faltan 5
 - [`PLAN_SEGURIDAD.md`](PLAN_SEGURIDAD.md) -- 26 de 32 hechas, faltan 6
 - [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 35 de 45 hechas, faltan 10
 
@@ -358,7 +358,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] parser/preprocessor.rs son 1.204 lineas y es el otro monolito.
 - ... y 2 mas
 
-## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 5 abiertas, 26 hechas
+## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 5 abiertas, 30 hechas
 
 *PLAN EL CENTAURO -- TITAN++ nivel 11: gpu fn a la 3060*
 

@@ -147,6 +147,15 @@ que entre.
 - [x] el banco `nivel11` (paquetes con su `Titan.toml`) corre en el emulador y compara su salida
 - [x] el metro con dos programas del nivel 11 (`mezcla`, `activa`)
 
+## [x] G2b -- EL JUEZ QUE NO HACE ADIVINAR -- HECHO el 05-10
+
+El propietario: *"el mismo SPIR-V original, pero que el juez tenga algo que
+automatice y no tenga que perder el tiempo en adivinar"*. Las dos mitades:
+
+- [x] DONDE: el SPIR-V lleva su mapa al fuente con las instrucciones de depuracion de la especificacion (`OpString`, `OpSource`, `OpName`, `OpLine` antes de cada operacion, con la linea del FICHERO); un NO del juez de spirv sale como `src/main.titan, linea 3, columna 20 (gpu fn ...)` (test `the_judge_says_where_in_the_titan_file`). La IR lleva el mapa de lineas del paquete (`ir::Module::sources`)
+- [x] SI ESTA BIEN: en cada build, cada gpu fn pasa una BATERIA de bordes (0, -0, 0.1, subnormales, normales minimos, maximos, NaN, infinitos; el producto entero hasta 4096 casos) por el oraculo y por el calculo (`calc::run_gpu`), y las celdas REALES del programa tambien; si no dan los mismos bits (o los dos NaN), no hay `.bex`, y el NO dice la entrada y las dos salidas (test `a_disagreement_is_caught_with_its_input_and_both_answers`)
+- [x] las leyes L30 y L31
+
 ## [ ] G4 -- EN LA 3060 (Ring 0, del propietario)
 
 - [ ] LANZAR computo: la QMD y el banco constante 0 (ga10x)

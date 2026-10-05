@@ -71,6 +71,9 @@ pub struct Module {
     /// What the package's `Titan.toml` asks for (U2): it travels to the
     /// `.bex` manifest. Set by `lower_package`; nothing for a file alone.
     pub permissions: bmo_titan_contrato::Permissions,
+    /// The package's map of lines: every `At` here is package-wide, and this
+    /// turns it back into its file and its own line (level 11, G2+).
+    pub sources: crate::paquete::Sources,
     /// Set by the calculation (`calc.rs`, level 4): the WHOLE program, run
     /// when compiling -- what it writes, in order, every value already a
     /// constant. Until something comes from outside, this is all the program
@@ -728,6 +731,7 @@ pub fn lower(p: &Program) -> Module {
         traits: p.traits.clone(),
         impls: p.impls.iter().map(|i| (i.trait_name.clone(), i.ty.name())).collect(),
         permissions: bmo_titan_contrato::Permissions::NONE,
+        sources: crate::paquete::Sources::default(),
         flat: None,
     }
 }

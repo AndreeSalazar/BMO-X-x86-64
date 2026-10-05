@@ -812,6 +812,13 @@ una gpu fn es pura, asi que da lo mismo bit a bit), y lo juzga el juez de spirv
 Si no pasa, el fallo es del escritor, y no hay `.bex`. `titan spirv
 mezcla/src/main.titan -o carpeta` deja cada gpu fn como `.spv`.
 
+**El juez no hace adivinar** (05-10): si el juez de spirv dice que no, lo dice
+en el `.titan` (`src/main.titan, linea 3, columna 20`), porque el SPIR-V lleva
+su mapa al fuente (`OpLine`). Y en cada build, sin escribir un test, cada gpu
+fn pasa una bateria de bordes -- 0, -0, NaN, infinitos, subnormales, los
+maximos, 0.1 -- y sus celdas reales por el oraculo y por el calculo: si no dan
+los mismos bits, no hay `.bex`.
+
 **Los resultados los da el oraculo de spirv** (G3): `titan build` corre cada
 gpu fn en el interprete de spirv, sobre el SPIR-V escrito, y el `.bex` lleva
 esas celdas. `titan check` e `ir` las calculan con f32 de precision simple;

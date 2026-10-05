@@ -269,6 +269,28 @@ pub fn fold_with(m: &Module, device: Option<&mut dyn Device>) -> Result<Module, 
     Ok(out)
 }
 
+/// ** A `gpu fn` run by the CALCULATION on given cells (level 11): an f32 by
+/// its bits, a bool as 0 or 1 -- the same cells a `Device` gets. It is the
+/// reference the oracle of spirv is measured against at every build, cell by
+/// cell, so that nobody has to guess whether the two agree.
+pub fn run_gpu(m: &Module, func: usize, cells: &[Vec<u32>]) -> Result<Vec<u32>, Message> {
+    let f = &m.functions[func];
+    let n = cells.first().map(|c| c.len()).unwrap_or(0);
+    let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0, device: None };
+    let mut out = Vec::with_capacity(n);
+    for i in 0..n {
+        let args = f.params.iter().zip(cells).map(|((_, t), c)| if *t == Ty::Bool { Const::Bool(c[i] != 0) } else { Const::F32(c[i]) }).collect();
+        let (result, _) = r.call(func, args, (f.line, 1))?;
+        out.push(match result {
+            Some(Const::F32(b)) => b,
+            Some(Const::Bool(b)) => b as u32,
+            _ => 0,
+        });
+        r.steps = 0;
+    }
+    Ok(out)
+}
+
 /// How far the calculation goes before it says the program does not end
 /// (T0066). A million steps is a table of multiplication a thousand times
 /// over; a `while true` with no `break` reaches it in a blink.

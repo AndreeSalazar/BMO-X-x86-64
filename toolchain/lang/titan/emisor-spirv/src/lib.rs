@@ -32,6 +32,21 @@
 //! en los dos lados). Y sale codigo en linea recta: lo que el emisor de SASS
 //! de la 3060 (E3, PLAN_LA_LENGUA_DE_LA_3060) ya traduce.
 //!
+//! ** EL JUEZ NO HACE ADIVINAR (el propietario, 05-10: *"algo que automatice
+//! y no tenga que perder el tiempo en adivinar"*), en dos mitades:
+//!
+//! ```text
+//!    DONDE      el SPIR-V lleva su mapa al fuente con las instrucciones de
+//!               depuracion de la especificacion (OpString + OpLine): el
+//!               mismo SPIR-V, que se describe solo. Si el juez dice NO, se
+//!               lee `src/main.titan, linea 5, columna 12`, no "palabra 213"
+//!    SI ESTA    en CADA build, sin escribir un test: cada gpu fn pasa una
+//!    BIEN       BATERIA de bordes (0, -0, NaN, infinitos, subnormales, los
+//!               maximos, 0.1...) por el oraculo y por el calculo, y las
+//!               celdas reales del programa tambien; si no dan los mismos
+//!               bits, no hay .bex, y el NO dice la entrada y las dos salidas
+//! ```
+//!
 //! El algoritmo: la IR de una gpu fn es un grafo sin ciclos con los bloques en
 //! orden. Se recorren en ese orden; cada bloque lleva su PREDICADO ("este
 //! camino es el que corre") y el valor de cada nombre; donde dos caminos se
@@ -53,6 +68,9 @@ pub enum Kind {
 pub struct Kernel {
     pub name: String,
     pub words: Vec<u32>,
+    /// El fichero del paquete donde esta la gpu fn, y su linea alli.
+    pub file: String,
+    pub line: usize,
     /// La clase de cada valor, en el orden de sus ranuras (0, 1, ...).
     pub params: Vec<Kind>,
     /// La del resultado, en la ranura `params.len()`.
@@ -82,7 +100,8 @@ pub fn kernels(m: &Module) -> Result<Vec<Kernel>, String> {
     let mut out = Vec::new();
     for (i, f) in m.functions.iter().enumerate().filter(|(_, f)| f.gpu) {
         let k = write(m, i).map_err(|e| format!("`gpu fn {}`: {}", f.name, e.0))?;
-        judge(&k).map_err(|e| format!("`gpu fn {}`: el juez de spirv dijo que no -- {}", f.name, e))?;
+        judge(&k).map_err(|e| format!("el juez de spirv dijo que no -- {}", e))?;
+        verify(m, i, &k)?;
         out.push(k);
     }
     Ok(out)
@@ -107,6 +126,7 @@ const BUILTIN_GLOBAL_INVOCATION_ID: u32 = 28;
 const CLASS_INPUT: u32 = 1;
 const CLASS_UNIFORM: u32 = 2;
 const CLASS_FUNCTION_NONE: u32 = 0;
+const SOURCE_UNKNOWN: u32 = 0;
 
 fn ins(buf: &mut Vec<u32>, opcode: u16, operands: &[u32]) {
     buf.push(((operands.len() as u32 + 1) << 16) | opcode as u32);
@@ -130,6 +150,10 @@ pub struct Failure(pub String);
 
 struct Writer {
     next: u32,
+    /// El `OpString` del fichero, el mapa de lineas y la ultima `OpLine`.
+    file: u32,
+    sources: bmo_titan_front::paquete::Sources,
+    last: (usize, usize),
     decorations: Vec<u32>,
     globals: Vec<u32>,
     body: Vec<u32>,
@@ -185,6 +209,19 @@ impl Writer {
         i
     }
 
+    /// ** DONDE (la primera mitad del juez que no hace adivinar): antes de
+    /// las instrucciones de un valor, la `OpLine` de su sitio en el `.titan`,
+    /// con la linea del FICHERO (no la del paquete). Una sola por sitio.
+    fn line(&mut self, at: bmo_titan_front::ir::At) {
+        if at == self.last {
+            return;
+        }
+        self.last = at;
+        let line = self.sources.place(at.0).map(|(_, l)| l).unwrap_or(at.0);
+        let file = self.file;
+        ins(&mut self.body, op::OpLine, &[file, line as u32, at.1 as u32]);
+    }
+
     /// Una instruccion de valor en el cuerpo: su resultado.
     fn value(&mut self, opcode: u16, ty: u32, operands: &[u32]) -> u32 {
         let i = self.id();
@@ -224,23 +261,28 @@ fn kind_of(t: &bmo_titan_front::tree::Ty) -> Result<Kind, Failure> {
 }
 
 fn eval(w: &mut Writer, v: &Value, env: &Env) -> Result<(u32, Kind), Failure> {
+    w.line(v.at());
     Ok(match v {
         Value::F32(bits, _) => (w.float_const(*bits), Kind::F32),
         Value::Bool(b, _) => (w.bool_const(*b), Kind::Bool),
         Value::Local(l, _) => *env.get(l).ok_or_else(|| Failure(format!("el nombre %{} se lee sin valor: el juez tenia que haberlo dicho", l)))?,
-        Value::Neg(x, _) => {
+        Value::Neg(x, at) => {
             let (x, k) = eval(w, x, env)?;
+            w.line(*at);
             let t = w.float;
             (w.value(op::OpFNegate, t, &[x]), k)
         }
-        Value::Not(x, _) => {
+        Value::Not(x, at) => {
             let (x, _) = eval(w, x, env)?;
+            w.line(*at);
             let t = w.boolean;
             (w.value(op::OpLogicalNot, t, &[x]), Kind::Bool)
         }
-        Value::Bin(o, l, r, _) => {
+        Value::Bin(o, l, r, at) => {
             let (a, ka) = eval(w, l, env)?;
             let (b, _) = eval(w, r, env)?;
+            // Su sitio, justo antes de SU instruccion: los operandos dejaron el suyo.
+            w.line(*at);
             let (f, bo) = (w.float, w.boolean);
             match (*o, ka) {
                 ("+", Kind::F32) => (w.value(op::OpFAdd, f, &[a, b]), Kind::F32),
@@ -273,8 +315,13 @@ pub fn write(m: &Module, func: usize) -> Result<Kernel, Failure> {
     }
     let params: Vec<Kind> = f.params.iter().map(|(_, t)| kind_of(t)).collect::<Result<_, _>>()?;
     let ret = kind_of(f.ret.as_ref().ok_or_else(|| Failure(format!("`{}` no devuelve nada", f.name)))?)?;
-    let mut w = Writer { next: 1, decorations: Vec::new(), globals: Vec::new(), body: Vec::new(), float: 0, uint: 0, boolean: 0, floats: HashMap::new(), uints: HashMap::new(), bools: [None, None] };
+    let (file_k, fn_line) = m.sources.place(f.line).unwrap_or((0, f.line));
+    let file_path = if m.sources.0.is_empty() { "main.titan".to_string() } else { m.sources.path(file_k).to_string() };
+    let mut w = Writer { next: 1, file: 0, sources: m.sources.clone(), last: (0, 0), decorations: Vec::new(), globals: Vec::new(), body: Vec::new(), float: 0, uint: 0, boolean: 0, floats: HashMap::new(), uints: HashMap::new(), bools: [None, None] };
 
+    // -- el fichero, para las OpLine ----------------------------------------------
+    w.file = w.id();
+    let file_id = w.file;
     // -- los tipos de siempre ------------------------------------------------------
     let void = w.id();
     w.global(op::OpTypeVoid, &[void]);
@@ -331,6 +378,7 @@ pub fn write(m: &Module, func: usize) -> Result<Kernel, Failure> {
     let main = w.id();
     let label = w.id();
     let zero = w.uint_const(0);
+    w.line((f.line, 1));
     let x_ptr = w.value(op::OpAccessChain, p_in_u, &[gid, zero]);
     let cell = w.value(op::OpLoad, uint, &[x_ptr]);
     let mut env: Env = HashMap::new();
@@ -367,6 +415,15 @@ pub fn write(m: &Module, func: usize) -> Result<Kernel, Failure> {
     entry.push(gid);
     ins(&mut words, op::OpEntryPoint, &entry);
     ins(&mut words, op::OpExecutionMode, &[main, MODE_LOCAL_SIZE, 1, 1, 1]);
+    // La depuracion: el fichero de la gpu fn, y el lenguaje (desconocido para
+    // la especificacion: TITAN++ no esta en su lista, y no se inventa uno).
+    let mut s = vec![file_id];
+    s.extend(string(&file_path));
+    ins(&mut words, op::OpString, &s);
+    ins(&mut words, op::OpSource, &[SOURCE_UNKNOWN, 0, file_id]);
+    let mut nm = vec![main];
+    nm.extend(string(&f.name));
+    ins(&mut words, op::OpName, &nm);
     words.extend(&w.decorations);
     words.extend(&w.globals);
     ins(&mut words, op::OpFunction, &[void, main, CLASS_FUNCTION_NONE, fn_void]);
@@ -375,7 +432,7 @@ pub fn write(m: &Module, func: usize) -> Result<Kernel, Failure> {
     ins(&mut words, op::OpReturn, &[]);
     ins(&mut words, op::OpFunctionEnd, &[]);
     words[3] = w.next;
-    Ok(Kernel { name: f.name.clone(), words, params, ret })
+    Ok(Kernel { name: f.name.clone(), words, file: file_path, line: fn_line, params, ret })
 }
 
 /// La gpu fn en LINEA RECTA: cada bloque con su predicado, cada nombre elegido
@@ -469,8 +526,100 @@ fn straight(w: &mut Writer, f: &Function, entry_env: Env) -> Result<u32, Failure
 pub fn judge(k: &Kernel) -> Result<bmo_spirv_sm86::Fit, String> {
     let bytes = k.bytes();
     let mut ids = vec![0u32; k.words[3] as usize + 16];
-    let m = bmo_spirv_front::read(&bytes, &mut ids).map_err(|e| format!("lector: {}", e))?;
-    bmo_spirv_sm86::check(&m, bmo_spirv_front::Stage::GLCompute).map_err(|r| format!("{}", r))
+    let m = bmo_spirv_front::read(&bytes, &mut ids).map_err(|e| k.at(e.word, &format!("el lector de spirv: {}", e)))?;
+    bmo_spirv_sm86::check(&m, bmo_spirv_front::Stage::GLCompute).map_err(|r| k.at(r.word, &format!("{}", r)))
+}
+
+impl Kernel {
+    /// ** DONDE: la ultima `OpLine` antes de la palabra `word` -- el sitio del
+    /// `.titan` que escribio esa instruccion. Sin ninguna (una declaracion
+    /// global), la linea de la gpu fn.
+    pub fn source_of(&self, word: usize) -> (usize, usize) {
+        let mut at = (self.line, 1);
+        let mut i = 5;
+        while i < self.words.len() && i <= word {
+            let n = ((self.words[i] >> 16) as usize).max(1);
+            if (self.words[i] & 0xffff) as u16 == op::OpLine && n == 4 {
+                at = (self.words[i + 2] as usize, self.words[i + 3] as usize);
+            }
+            i += n;
+        }
+        at
+    }
+
+    /// Un NO del juez, dicho en el `.titan`: fichero, linea, columna.
+    fn at(&self, word: usize, why: &str) -> String {
+        let (l, c) = self.source_of(word);
+        format!("{}, linea {}, columna {} (gpu fn `{}`): {}", self.file, l, c, self.name, why)
+    }
+}
+
+/// ** SI ESTA BIEN (la segunda mitad): las celdas que mas fallan en una cuenta
+/// de coma flotante, y por que cada una.
+const BORDES: [f32; 18] = [
+    0.0, -0.0,                       // el signo del cero: 1/0 y 1/-0 no son lo mismo
+    1.0, -1.0, 0.5, -2.5, 3.0,       // los de todos los dias
+    0.1,                             // el que no cabe en base 2
+    1.0e-38, f32::MIN_POSITIVE,      // los normales mas chicos
+    1.0e-45, -1.0e-45,               // los subnormales: donde se pierde precision
+    f32::MAX, f32::MIN, 1.0e30,      // los que desbordan al sumar
+    f32::NAN, f32::INFINITY, f32::NEG_INFINITY,
+];
+
+/// Las entradas de la bateria para una gpu fn: el producto entero si cabe en
+/// 4096 casos; si no, cada valor recorre los bordes a su propio paso.
+fn battery(params: &[Kind]) -> Vec<Vec<u32>> {
+    let column = |k: Kind| -> Vec<u32> { if k == Kind::F32 { BORDES.iter().map(|x| x.to_bits()).collect() } else { vec![0, 1] } };
+    let columns: Vec<Vec<u32>> = params.iter().map(|k| column(*k)).collect();
+    let total: usize = columns.iter().map(|c| c.len()).product();
+    let mut cells: Vec<Vec<u32>> = vec![Vec::new(); params.len()];
+    if total <= 4096 {
+        for i in 0..total {
+            let mut rest = i;
+            for (j, c) in columns.iter().enumerate() {
+                cells[j].push(c[rest % c.len()]);
+                rest /= c.len();
+            }
+        }
+    } else {
+        for i in 0..4096 {
+            for (j, c) in columns.iter().enumerate() {
+                cells[j].push(c[(i * (2 * j + 1) + j) % c.len()]);
+            }
+        }
+    }
+    cells
+}
+
+/// Los mismos bits, o los dos NaN: la 3060 no promete la carga de un NaN.
+fn same_cell(a: u32, b: u32, k: Kind) -> bool {
+    a == b || (k == Kind::F32 && f32::from_bits(a).is_nan() && f32::from_bits(b).is_nan())
+}
+
+/// **La comparacion de cada build**: estas celdas por el oraculo y por el
+/// calculo; la primera que no da lo mismo, dicha con la entrada y las dos
+/// salidas.
+fn compare(m: &Module, func: usize, k: &Kernel, cells: &[Vec<u32>], what: &str) -> Result<Vec<u32>, String> {
+    let oracle = run(k, cells)?;
+    let calc = bmo_titan_front::calc::run_gpu(m, func, cells).map_err(|e| format!("el calculo: {}", e.what))?;
+    for (i, (a, b)) in oracle.iter().zip(&calc).enumerate() {
+        if !same_cell(*a, *b, k.ret) {
+            let show = |bits: u32, kind: Kind| if kind == Kind::F32 { format!("{:?}", f32::from_bits(bits)) } else { (bits != 0).to_string() };
+            let input: Vec<String> = cells.iter().zip(&k.params).map(|(c, kind)| show(c[i], *kind)).collect();
+            return Err(format!(
+                "{}, linea {} (gpu fn `{}`): con {} ({}) el oraculo de spirv da {} y el calculo {} -- una cuenta, dos respuestas: no hay .bex",
+                k.file, k.line, k.name, what, input.join(", "), show(*a, k.ret), show(*b, k.ret)
+            ));
+        }
+    }
+    Ok(oracle)
+}
+
+/// **La bateria de bordes** de una gpu fn, por el oraculo y por el calculo.
+pub fn verify(m: &Module, func: usize, k: &Kernel) -> Result<usize, String> {
+    let cells = battery(&k.params);
+    compare(m, func, k, &cells, "la bateria de bordes")?;
+    Ok(cells.first().map(|c| c.len()).unwrap_or(0))
 }
 
 /// **El oraculo (G3)**: la gpu fn corrida por el interprete de spirv, una
@@ -505,9 +654,11 @@ impl bmo_titan_front::calc::Device for Oracle {
         if !self.written.contains_key(&func) {
             let k = write(m, func).map_err(|e| e.0)?;
             judge(&k).map_err(|e| format!("el juez de spirv dijo que no: {}", e))?;
+            verify(m, func, &k)?;
             self.written.insert(func, k);
         }
-        run(&self.written[&func], &cells)
+        // Las celdas REALES del programa, por el oraculo y por el calculo.
+        compare(m, func, &self.written[&func], &cells, "las celdas del programa")
     }
 }
 
@@ -576,6 +727,49 @@ mod tests {
         let ran = bmo_titan_front::lower_package_with("src/main.titan", src, &mut read, Some(&mut oracle)).unwrap();
         assert_eq!(oracle.written.len(), 1, "the oracle wrote and ran the gpu fn");
         assert_eq!(plain.flat, ran.flat);
+    }
+
+    /// ** DONDE: cada instruccion sabe su sitio del `.titan`; y un modulo que
+    /// el juez rechaza (aqui, roto a mano: una division que da un entero) se
+    /// dice en la linea y la columna de la division, no en una palabra.
+    #[test]
+    fn the_judge_says_where_in_the_titan_file() {
+        let src = "mod main \"x\"\ngpu fn mezcla(a: f32, b: f32) -> f32\n    return (a + b) / 2.0\nfn main()\n    let xs: [f32; 1] = [1.0]\n    let r = mezcla(xs, xs)\n    print(round(r[0], 1))\n";
+        let mut k = kernel(src, "mezcla");
+        assert_eq!(k.file, "src/main.titan");
+        // La division, `/` en la linea 3, columna 20.
+        let mut i = 5;
+        let (mut div, mut uint) = (0, 0);
+        while i < k.words.len() {
+            let n = (k.words[i] >> 16) as usize;
+            match (k.words[i] & 0xffff) as u16 {
+                o if o == op::OpFDiv => div = i,
+                o if o == op::OpTypeInt => uint = k.words[i + 1],
+                _ => {}
+            }
+            i += n.max(1);
+        }
+        assert_eq!(k.source_of(div), (3, 20));
+        k.words[div + 1] = uint;
+        let why = judge(&k).unwrap_err();
+        assert!(why.starts_with("src/main.titan, linea 3, columna 20 (gpu fn `mezcla`)"), "{}", why);
+    }
+
+    /// ** SI ESTA BIEN: la bateria tiene sus bordes, y una cuenta que el
+    /// oraculo y el calculo no dan igual se ATRAPA, con la entrada y las dos
+    /// salidas (aqui, el SPIR-V de una gpu fn medido contra el calculo de otra).
+    #[test]
+    fn a_disagreement_is_caught_with_its_input_and_both_answers() {
+        assert_eq!(battery(&[Kind::F32, Kind::F32])[0].len(), BORDES.len() * BORDES.len());
+        assert_eq!(battery(&[Kind::F32, Kind::Bool])[0].len(), BORDES.len() * 2);
+        let src = "mod main \"x\"\ngpu fn suma(a: f32, b: f32) -> f32\n    return a + b\ngpu fn resta(a: f32, b: f32) -> f32\n    return a - b\nfn main()\n    print(1)\n";
+        let m = module(src);
+        let suma = m.functions.iter().position(|f| f.name == "suma").unwrap();
+        let resta = m.functions.iter().position(|f| f.name == "resta").unwrap();
+        let k = write(&m, suma).unwrap();
+        assert!(verify(&m, suma, &k).is_ok());
+        let why = verify(&m, resta, &k).unwrap_err();
+        assert!(why.contains("el oraculo de spirv da") && why.contains("y el calculo") && why.contains("no hay .bex"), "{}", why);
     }
 
     #[test]
