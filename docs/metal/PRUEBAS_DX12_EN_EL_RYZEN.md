@@ -30,11 +30,11 @@ cualquiera es una diferencia.
 | .exe | que juzga | `bien` | ultima linea | avisos que SI se esperan |
 |---|---|---|---|---|
 | `computo.exe` | el computo: memoria compartida y barrera (E2.3a) | 4 | `computo.exe: el computo de D3D12 es el de Windows` | ninguno |
-| `instancias.exe` | instancias, tres ranuras de vertices, dibujar sin bufer (N5.13) | 3 | `instancias.exe: las instancias de D3D12 son las de Windows` | uno: `... cuentas ENTERAS ...: sus sombreadores se interpretan` |
+| `instancias.exe` | instancias, tres ranuras de vertices, dibujar sin bufer (N5.13) | 3 | `instancias.exe: las instancias de D3D12 son las de Windows` | ninguno (desde X1, 05-10: sus enteros van traducidos) |
 | `vistas.exe` | vistas en la raiz, UAV de textura, RWBuffer con tipo, ClearUAV (N5.3b/c) | 7 | `vistas.exe: las vistas de D3D12 son las de Windows` | ninguno |
-| `hdr.exe` | render targets de float: RGBA16F, R11G11B10F, leidos como textura (N5.16) | 4 | `hdr.exe: los render targets de float son los de Windows` | uno: `... cuentas ENTERAS ...` |
-| `uavpixel.exe` | UAV escritos desde un DIBUJO: textura por pixel, `InterlockedAdd`, `RWBuffer` desde el de vertices (N5.3d) | 4 | `uavpixel.exe: los UAV de un dibujo son los de Windows` | dos: `... cuentas ENTERAS ...` y, de la puerta de la 3060, `PROTON-X: este lote va por la CPU: sus sombreadores leen o escriben UAV ...` (una vez) |
-| `flotante1.exe` | render targets de UN float (R32F, R16F), UAV de un RGBA16F, DepthClipEnable = FALSE (N5.16b) | 10 | `flotante1.exe: los floats de un canal, sus UAV y DepthClipEnable son los de Windows` | uno: `... cuentas ENTERAS ...` |
+| `hdr.exe` | render targets de float: RGBA16F, R11G11B10F, leidos como textura (N5.16) | 4 | `hdr.exe: los render targets de float son los de Windows` | uno: `PROTON-X: un PSO con texturas: ... (el codigo nativo aun no muestrea)` |
+| `uavpixel.exe` | UAV escritos desde un DIBUJO: textura por pixel, `InterlockedAdd`, `RWBuffer` desde el de vertices (N5.3d) | 4 | `uavpixel.exe: los UAV de un dibujo son los de Windows` | dos: `PROTON-X: un PSO cuyo sombreador lee o escribe un UAV: ...` y, de la puerta de la 3060, `PROTON-X: este lote va por la CPU: sus sombreadores leen o escriben UAV ...` (una vez) |
+| `flotante1.exe` | render targets de UN float (R32F, R16F), UAV de un RGBA16F, DepthClipEnable = FALSE (N5.16b) | 10 | `flotante1.exe: los floats de un canal, sus UAV y DepthClipEnable son los de Windows` | uno: `PROTON-X: un PSO con texturas: ...` |
 
 **Lo que el banco NO puede ver y el Ryzen si** (por eso cuentan):
 

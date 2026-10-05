@@ -987,8 +987,9 @@ la proxima corrida del metal dice cual pesa mas:
   con sus 16. Juez: `prueba/instancias.cpp` (NUESTRO, de consola), en el
   banco (`tests/corre/muestras.rs`) pixel a pixel; probado que dice NO sin
   el bucle de instancias y sin el StepRate. Queda: la 3060 (esos lotes van
-  por la CPU) y que el traductor a x86-64 de los de dibujo sepa las cuentas
-  enteras (SV_InstanceID a float las tiene: hoy se interpretan).
+  por la CPU). Las cuentas enteras de SV_InstanceID ya las traduce a
+  x86-64 el de los dibujos (05-10, la VELOCIDAD: ESCALERA seccion 5):
+  `instancias.exe` ya no dice ni un aviso.
 - [x] **N5.14 -- los buferes de vertices de mas de una ranura** (05-10):
   las 16, con N5.13 (arriba), y el mismo juez.
 - [x] **N5.15 -- el RECORTE** contra el plano cercano y el lejano (05-10):

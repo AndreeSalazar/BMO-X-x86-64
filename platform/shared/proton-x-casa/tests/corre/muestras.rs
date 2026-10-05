@@ -532,10 +532,11 @@ fn n5_13_las_instancias_y_las_ranuras_de_vertices_dan_los_pixeles_de_la_cuenta()
     let (salio, dicho, _) = correr_exe(&uno, INSTANCIAS, true, &[]);
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
-    // Un aviso, y es el que tiene que ser: SV_InstanceID a float es una
-    // cuenta ENTERA, y el traductor a x86-64 de los de dibujo aun no las sabe.
-    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
-    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    // Ni un aviso (la VELOCIDAD, 05-10): SV_InstanceID a float y los
+    // desplazamientos de SV_VertexID son cuentas ENTERAS, y el traductor a
+    // x86-64 de los de dibujo ya las sabe (antes: "un PSO cuyo sombreador
+    // salta o hace cuentas ENTERAS ... se interpretan").
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 3, "{texto}");
     assert!(texto.ends_with("instancias.exe: las instancias de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
@@ -568,10 +569,12 @@ fn n5_16_los_render_targets_de_float_guardan_lo_que_pasa_de_uno() {
     let (salio, dicho, _) = correr_exe(&uno, HDR_EXE, true, &[]);
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
-    // Un aviso, y es el que tiene que ser: el cuadro sale de SV_VertexID con
-    // desplazamientos de enteros, que el codigo nativo aun no sabe.
+    // Un aviso, y es el que tiene que ser: PSLee LEE el render target como
+    // textura, y el codigo nativo aun no muestrea. El cuadro de SV_VertexID
+    // (desplazamientos de enteros) ya se traduce (la VELOCIDAD, 05-10: antes
+    // decia "un PSO cuyo sombreador salta o hace cuentas ENTERAS").
     let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
-    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    assert_eq!(avisos, ["PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)"], "un aviso, dicho una vez: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
     assert!(texto.ends_with("hdr.exe: los render targets de float son los de Windows\r\n[salio 0x0]"), "{texto}");
 }
@@ -589,10 +592,11 @@ fn los_uav_de_un_dibujo_quedan_escritos() {
     let (salio, dicho, _) = correr_exe(&uno, UAVPIXEL_EXE, true, &[]);
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
-    // Un aviso: el cuadro sale de SV_VertexID con enteros (y escribe un
-    // UAV): se interpreta. Ninguno de UAV perdidos.
+    // Un aviso: sus sombreadores escriben UAV, y eso no se traduce a x86
+    // (X1 traduce los enteros, no los UAV): se interpretan. Ninguno de UAV
+    // perdidos.
     let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
-    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador lee o escribe un UAV: sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
     assert!(texto.contains("  bien  B, InterlockedAdd en un RWByteAddressBuffer de la raiz: 512 pixeles cubiertos"), "{texto}");
     assert!(texto.ends_with("uavpixel.exe: los UAV de un dibujo son los de Windows\r\n[salio 0x0]"), "{texto}");
@@ -612,7 +616,7 @@ fn n5_16b_los_floats_de_un_canal_sus_uav_y_sin_recorte_en_z() {
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
     let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
-    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    assert_eq!(avisos, ["PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)"], "un aviso, dicho una vez: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 10, "{texto}");
     assert!(texto.ends_with("flotante1.exe: los floats de un canal, sus UAV y DepthClipEnable son los de Windows\r\n[salio 0x0]"), "{texto}");
 }

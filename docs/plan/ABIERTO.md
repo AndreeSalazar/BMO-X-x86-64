@@ -8,7 +8,7 @@
 
 ```text
    603 casillas ABIERTAS en 59 planes
-   516 hechas
+   517 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -118,7 +118,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 14 mas
 
-## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 16 abiertas, 15 hechas
+## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 16 abiertas, 16 hechas
 
 *PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
 

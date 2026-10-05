@@ -424,6 +424,51 @@ paso de nBodyGravity, de 73 s a uno o dos. Su juez es el interprete, bit a
 bit, y la fisica en f64. No es que la CPU dibuje: es calcular lo que el
 juego pide mientras la 3060 no corre computo (N6).
 
+- [x] **X1 -- la VELOCIDAD de los DIBUJOS: los que saltan, traducidos**
+  (`platform/shared/proton-x/src/nativo.rs`, 05-10, en el banco; falta
+  verlo en el metal). Un VS o un PS con `si`, bucles, enteros,
+  comparaciones, conversiones, `discard` o arrays de registros se
+  INTERPRETABA (el aviso "un PSO cuyo sombreador salta o hace cuentas
+  ENTERAS"): asi irian casi todos los de Cyberpunk. Ahora `nativo::compilar`
+  los traduce con el cuerpo del COMPUTO (`nativo_computo`, el mismo codigo
+  y el mismo juez) y una entrada de nueve instrucciones que habla la
+  llamada de los dibujos y le pone un `Contexto` a medias en la pila; la
+  casa los llama igual, y el PS dice al volver si se tiro (`DESCARTADO`).
+  Y en los DOS caminos, el MXCSR solo se carga si su control es otro: un
+  `ldmxcsr` que lo cambia costaba en el Xeon del banco unos 50 ns por
+  llamada (el VSId, de 33 a 87), y en BMO-X quien llama es soft-float y
+  su control es siempre el de D3D. **Como se sabe:**
+  `proton-x-casa/tests/nativo/saltos.rs`, contra el interprete BIT A BIT
+  (las salidas y si el pixel queda): los VS y PS de `instancias.exe` y
+  `hdr.exe` (20.000 casos al azar cada uno, con el cbuffer, y los ids de 0 a
+  63); los PS de `dxc` con saltos (anidado, enteros con `switch`, division
+  por un cbuffer con n = 0, -1 e i32::MIN, `clip`/`discard`, arrays) y
+  `mientras`; los de `ejemplos` y seis de `fxc`; y cada operacion entera,
+  comparacion y conversion sobre 52 x 52 valores raros (NaN, -0, lo que no
+  cabe en un i32 o un u32, desplazamientos de 32 o mas). Probado que dice
+  NO: con un `shl` de 64 bits en vez de 32, 324 distintos. Y el MXCSR por
+  los dos caminos con cuatro de quien llama (hacia cero, DAZ+FTZ, el de
+  D3D con banderas). En el banco de `.exe`: `instancias.exe`, ni un aviso;
+  `hdr.exe`, solo el de texturas (su PSLee). **Medido** (100.000
+  llamadas, la mejor de cinco rondas, el Xeon del banco COMPARTIDO: los
+  numeros bailan): sin optimizar, VSCuadro 5 veces el interprete, VSId 6-7,
+  VSInst 3.5, division (un bucle) 17-18, anidado (dos bucles) 45; en
+  `--release` (alli el interprete es Rust CON SSE; en el metal es
+  soft-float, asi que esto es lo de menos) 1.6, 1.5, 1.3, 2.6 y 7. Los
+  `.exe` de 64 x 64 no lo notan (0,13-0,19 s, ruido).
+  **Lo que puede fallar, dicho:** (1) un bucle que no acaba cuelga el
+  traducido como cuelga el interprete (no hay tope en ninguno); (2) las
+  banderas de excepcion del MXCSR de quien llama se quedan con las del
+  sombreador cuando su control es el de D3D (un juego podria leerlas con
+  `_statusfp`; sus propias cuentas ya las ponen a cada rato); (3) la entrada pone SOLO cuatro campos del
+  `Contexto`: lo que lea otros (ids, vistas, compartida, barreras) no se
+  traduce como dibujo (`con_saltos` lo mira; y su prueba,
+  `pruebas_saltos.rs`). **Queda:** los que MUESTREAN (DynamicIndexing, el
+  PSLee de `hdr.exe`, casi todos los PS de un juego: el aviso de texturas
+  sigue), la matematica (`Mate`: exp, log, sin), los cbuffers con fila
+  calculada (`ConstantesEn`: luces, huesos; falta pasarle al codigo la
+  medida del cbuffer) y verlo en el Ryzen.
+
 **LA CPU GUIA, LA 3060 DIBUJA.** El propietario (05-10): *"que la CPU no
 tiene que ser la que dibuje, sino que tenga el mapa por via de RAM y que le
 guie a la GPU constantemente"*. Es como trabaja todo driver de verdad, y en
@@ -500,11 +545,14 @@ en una conversacion.
                                           que el banco no usa
    los .cso de nombre largo               no se encuentran en FAT32 (7.1)
    la VELOCIDAD                           el computo traducido va 50 veces
-                                          el interprete; los sombreadores de
-                                          DIBUJO con saltos o cuentas
-                                          enteras van interpretados (lo dice
-                                          un aviso); Cyberpunk, lejos de sus
-                                          fotogramas
+                                          el interprete, y desde X1 (05-10)
+                                          los de DIBUJO con saltos o cuentas
+                                          enteras tambien van traducidos (3
+                                          a 45 veces en el banco); siguen
+                                          interpretados los que muestrean,
+                                          la matematica y los cbuffers con
+                                          fila calculada (lo dice un aviso);
+                                          Cyberpunk, lejos de sus fotogramas
    el HDR (N5.16 y N5.16b, 05-10)         los de 1 a 4 canales y sus UAV ya
                                           son float; al presentar lo de mas
                                           de 1 se recorta (sin monitor HDR);

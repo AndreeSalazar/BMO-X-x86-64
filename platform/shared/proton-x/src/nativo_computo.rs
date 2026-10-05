@@ -12,7 +12,8 @@
 //! nBodyGravity hace 10.000 x 10.000 interacciones por paso: el interprete,
 //! a 1,4 millones por segundo sin optimizar, tardaria 73 s en cada uno. Esto
 //! es lo de `nativo.rs` (el x86 sin saltos de los dibujos) con lo que el
-//! computo necesita:
+//! computo necesita (y desde la VELOCIDAD, 05-10, tambien el cuerpo de los
+//! dibujos que SALTAN: `nativo.rs` le pone delante su llamada):
 //!
 //! ```text
 //!    la llamada   rdi = los registros del hilo (f32), rsi = el [`Contexto`],
@@ -78,10 +79,12 @@ pub struct Contexto {
 }
 
 const C_IDS: i32 = 0;
-const C_REANUDAR: i32 = 40;
-const C_COMPARTIDA: i32 = 48;
-const C_ENTRADAS: i32 = 56;
-const C_SALIDAS: i32 = 64;
+// Estos cuatro, tambien de `nativo.rs`: el VS o el PS con saltos se traduce
+// con esto, y su entrada pone un `Contexto` a medias en la pila (solo estos).
+pub(crate) const C_REANUDAR: i32 = 40;
+pub(crate) const C_COMPARTIDA: i32 = 48;
+pub(crate) const C_ENTRADAS: i32 = 56;
+pub(crate) const C_SALIDAS: i32 = 64;
 const C_SRV: i32 = 72;
 const C_UAV: i32 = C_SRV + VISTA * VISTAS as i32;
 /// Lo que mide una [`Vista`].
@@ -101,9 +104,6 @@ const V_CONTADOR: i32 = 24;
 pub const ACABO: u32 = 0;
 pub const BARRERA: u32 = 1;
 pub const DESCARTADO: u32 = 2;
-
-/// El MXCSR de D3D: todas las excepciones tapadas, al mas cercano.
-const MXCSR_D3D: u32 = 0x1F80;
 
 // Los registros de x86-64 (su numero en ModRM, con el bit 3 en REX).
 const RAX: u8 = 0;
@@ -438,10 +438,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
         e.push(r);
     }
     e.b.extend_from_slice(&[0x48, 0x83, 0xEC, 0x10]); // sub rsp, 16
-    e.b.extend_from_slice(&[0x0F, 0xAE, 0x1C, 0x24]); // stmxcsr [rsp]
-    e.b.extend_from_slice(&[0xC7, 0x44, 0x24, 0x04]); // mov dword [rsp+4], imm32
-    e.b.extend_from_slice(&MXCSR_D3D.to_le_bytes());
-    e.b.extend_from_slice(&[0x0F, 0xAE, 0x54, 0x24, 0x04]); // ldmxcsr [rsp+4]
+    crate::nativo::mxcsr_al_entrar(&mut e.b); // el de D3D, si no lo es ya
     e.rr(None, true, &[0x89], RDI, REGS); // mov rbx, rdi
     e.rr(None, true, &[0x89], RSI, CTX); // mov r12, rsi
     e.rr(None, true, &[0x89], RDX, CB); // mov r13, rdx
@@ -906,7 +903,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
         e.parchear(s, fin);
     }
     // Epilogo: el MXCSR de quien llamo, y los cinco.
-    e.b.extend_from_slice(&[0x0F, 0xAE, 0x14, 0x24]); // ldmxcsr [rsp]
+    crate::nativo::mxcsr_al_salir(&mut e.b);
     e.b.extend_from_slice(&[0x48, 0x83, 0xC4, 0x10]); // add rsp, 16
     for r in [R15, R14, R13, R12, RBX] {
         e.pop(r);

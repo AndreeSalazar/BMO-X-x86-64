@@ -28,13 +28,13 @@ use bmo_proton_x::{nativo, trama};
 
 use crate::{aviso, plataforma};
 
-/// `fn(registros, entradas, cbuffer, salidas)`: solo punteros, el ABI entero
-/// que el Rust soft-float de Ring 3 sabe llamar.
 /// La firma de un sombreador de computo traducido (`nativo_computo`): el
 /// ABI de System V. Vive aqui y no en `bmo-proton-x`, que es puro.
 pub(crate) type FuncionComputo = unsafe extern "sysv64" fn(*mut f32, *mut bmo_proton_x::nativo_computo::Contexto, *const u8) -> u32;
 
-type Sombreador = extern "sysv64" fn(*mut f32, *const [f32; 4], *const u8, *mut [f32; 4]);
+/// `fn(registros, entradas, cbuffer, salidas) -> QUEDA o DESCARTADO`: solo
+/// punteros, el ABI entero que el Rust soft-float de Ring 3 sabe llamar.
+type Sombreador = extern "sysv64" fn(*mut f32, *const [f32; 4], *const u8, *mut [f32; 4]) -> u32;
 
 struct Traducido {
     /// El `Enlace` de su PSO (los PSO no se liberan: su direccion vale).
@@ -183,10 +183,9 @@ pub fn dibujar(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, 
         rp.clear();
         rp.extend_from_slice(&en.ps.iniciales);
         if ent.len() >= en.ps.entradas && sal.len() >= en.ps.salidas {
-            // Lo traducido no tiene `Op::Descarta` (`nativo` no lo traduce):
-            // el pixel siempre queda.
-            fp(rp.as_mut_ptr(), ent.as_ptr(), cbp, sal.as_mut_ptr());
-            true
+            // La VELOCIDAD (05-10): lo traducido ya puede tener `discard`
+            // (por el cuerpo del computo), y lo dice al volver.
+            fp(rp.as_mut_ptr(), ent.as_ptr(), cbp, sal.as_mut_ptr()) != nativo::DESCARTADO
         } else {
             en.ps.correr(ent, cb, sal, &mut rp)
         }
