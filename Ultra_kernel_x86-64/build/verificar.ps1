@@ -36,6 +36,13 @@ function Muere($m)  { Write-Host "   [X] $m" -ForegroundColor Red; exit 1 }
 
 Write-Host 'BMO-X -- VERIFICAR (a la vez que la ventana COMPILAR)' -ForegroundColor White
 
+# [!] La RUTA del sello se guarda ANTES: PowerShell no distingue mayusculas en
+# las variables, y `$Sello` (el parametro, la ruta) y `$sello` (el texto que
+# deja `comprobar.ps1`) son LA MISMA. Sin esto, la linea de abajo borraba la
+# ruta, `comprobar.ps1` le metia "BMO-X Engine [V-ABI ...]" y el `Set-Content`
+# del final buscaba una carpeta con ese nombre (05-10, en `bmo.ps1 -Paralelo`).
+$rutaSello = $Sello
+
 # Lo de `bmo.ps1`: el contrato, PROTON-X y el banco. Deja `$sello`.
 $sello = ''
 $selloD = ''
@@ -46,8 +53,8 @@ $selloD = ''
 . (Join-Path $PSScriptRoot 'guardianes.ps1')
 . (Join-Path $PSScriptRoot 'contrato.ps1')
 
-if ($Sello) {
-    Set-Content -LiteralPath $Sello -Value @("$sello", "$selloD") -Encoding Ascii
+if ($rutaSello) {
+    Set-Content -LiteralPath $rutaSello -Value @("$sello", "$selloD") -Encoding Ascii
 }
 Tiempos
 Write-Host '  === TODO VERIFICADO ===' -ForegroundColor Green
