@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 69 planes
+# LO QUE FALTA -- las casillas abiertas de los 70 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   615 casillas ABIERTAS en 60 planes
-   514 hechas
+   624 casillas ABIERTAS en 61 planes
+   515 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -225,6 +225,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
 - [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 7 mas
+
+## [`PLAN_LA_BANDEJA.md`](PLAN_LA_BANDEJA.md) -- 9 abiertas, 1 hechas
+
+*PLAN LA BANDEJA -- F2 donde viven TODOS los archivos, F12 el volumen, F1 todo nodos*
+
+- [ ] B1 -- F2 abre LOS ARCHIVOS: una app propia como el TALLER (sys/archivos.bex), que el DIRECTOR la
+- [ ] B2 -- el GLOBO, en el MISMO commit que B1 (una linea de SABIAS tiene que ser verdad el dia que s
+- [ ] B3 -- LA BANDEJA (seccion 3): los discos que el kernel lee, con su perfil y su rango; el NVMe CE
+- ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 

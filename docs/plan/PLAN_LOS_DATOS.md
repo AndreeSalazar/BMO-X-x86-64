@@ -153,6 +153,27 @@ corrige aqui.
                     buscar nombres que no choquen con los de las colecciones
 ```
 
+### D7 -- quien puede usar los verbos (DECIDIDA el 05-10)
+
+`VALKYRIE-ABI/FRONTERA.txt` deja `ES_` fuera de la superficie de una app:
+*"ESTRATOS y su explorador -- un navegador de ficheros, no una app
+cualquiera"*. La misma tabla dice como se cruza: a la vista y escribiendo por
+que. El propietario lo decidio asi (E3 de `docs/plan/PLAN_LA_BANDEJA.md`):
+
+```text
+   LEER       list, history, verify, load   CUALQUIER programa de TITAN++:
+                                            sus puertas no conceden nada
+   ESCRIBIR   save, mark, back, forget,     solo lo que se lanza desde F1
+              rename, clean                 (el TALLER) o F2 (LOS ARCHIVOS):
+                                            son el explorador que la
+                                            frontera ya preve
+```
+
+El comprobador de TITAN++ no puede saber desde donde se lanzara un programa,
+asi que esto lo hace cumplir el que lanza (el DIRECTOR al abrir el `.bex`),
+no el compilador. Se escribe en la fila `ES_` de la frontera el dia que Q6
+exista, con este motivo.
+
 ## 5. Los verbos de TITAN++ sobre ESTRATOS
 
 La propuesta, cada verbo sobre una puerta que YA existe:
@@ -216,13 +237,14 @@ y sus astros). Se juntan:
    el verbo         pulsar un nodo y RESTABLECER = back(n) hasta el
 ```
 
-Vive en la ventana de Datos (`Ultra_userspace/services/director/src/scene/data/mod.rs`),
+Vive en F12, la ventana de Datos, que pasa a ser el VOLUMEN con control total
+(`Ultra_userspace/services/director/src/scene/data/mod.rs`, y B7 de `docs/plan/PLAN_LA_BANDEJA.md`),
 junto a lo que queda de la maqueta animada de ESTRATOS (V6 de `ESTRATOS.md`).
 Solo se anima con la ventana a la vista y sin tapar, como V5.
 
 ## 7. Los escalones
 
-- [x] Q0 -- las decisiones: D1-D4 (a) y D5 (b), el 05-10 (seccion 4). D6 queda pendiente
+- [x] Q0 -- las decisiones: D1-D4 (a), D5 (b) y D7 (la frontera), el 05-10 (seccion 4). D6 queda pendiente
 - [ ] Q1 -- la COMPRENSION en el frontend y el calculo (E0): `[e for x in l if c]`, varios `for` (el JOIN) y `{k: v for ...}`, con su tipo deducido de `e`; un nivel nuevo en `toolchain/lang/titan/GRAMATICA.md`, con su BIEN y sus NO en los dos bancos
 - [ ] Q2 -- la comprension en E1 (`toolchain/lang/titan/emisor-x86_64/src/e1/coleccion.rs`): un bucle que llena una lista o un mapa en el monton; el oraculo E0 == E1 y el azar la cubren como a las listas
 - [ ] Q3 -- el INDICE POR HASH: es L9 de `docs/plan/PLAN_LISTAS_Y_MAPAS.md`
