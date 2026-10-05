@@ -460,6 +460,11 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
             other => return Err(wrong(*at, &Class::Enum(*e), &other, types, &format!("los casos de este `match` son los de `enum {}`", types.enums[*e].name), "dale al `match` un valor de ese enum")),
         },
         Value::Payload(_, e, v, k, _) => of_ty(&types.enums[*e].cases[*v].fields[*k], types),
+        // `numero(t)` (the prelude): it reads a TEXT, and gives its case.
+        Value::Number(inner, e, at) => match class(inner, known, m)? {
+            Class::Text => Class::Enum(*e),
+            other => return Err(wrong(*at, &Class::Text, &other, types, "`numero` mira si UN TEXTO es un numero entero", "numero(linea), con la linea que trae lee()")),
+        },
         Value::Len(inner, at) => match class(inner, known, m)? {
             Class::Table(..) => Class::Int,
             other => {
@@ -563,6 +568,17 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
                         &format!("{} y {} no se comparan", a.name(types), b.name(types)),
                         "nunca son iguales, y TITAN++ no convierte solo: 1 == \"1\" seria una pregunta con trampa",
                         "compara cosas de la misma clase",
+                    ))
+                }
+                // `numero(t)` usado como si fuera el int: su caso esta sin mirar
+                _ if [&a, &b].iter().any(|c| matches!(c, Class::Enum(e) if types.enums[*e].name.rsplit('.').next() == Some(crate::prelude::NUMERO))) => {
+                    return Err(Message::new(
+                        Code::Mixed,
+                        at.0,
+                        at.1,
+                        &format!("{} y {} no se pueden `{}`", a.name(types), b.name(types), op),
+                        "`numero(t)` no da un int: da un CASO, Es(n) o NoEs, porque lo tecleado puede no ser un numero",
+                        "mira el caso con match: en `Es(n)` n ya es el int; en `NoEs` di que no lo era",
                     ))
                 }
                 _ => {

@@ -129,6 +129,9 @@ const BANCO: &[(&str, &str)] = &[
     // TITAN++ que corre DE VERDAD en la maquina (PLAN_LA_ENTRADA).
     ("titan", "toolchain/lang/titan/ejemplos/nivel12/pregunta.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel12/hasta_fin.titan"),
+    // `numero(t)` y el programa ENTERO al correr: dec, casos, llamadas.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel12/adivina.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel12/la_cuenta.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -313,7 +316,11 @@ fn caliente(rel: &str, salida: Option<&str>) {
     let ruta = raiz().join(rel);
     let fuente = std::fs::read_to_string(&ruta).expect("leer el fuente");
     let bex = compilar(lenguaje, &ruta, rel, &fuente).expect("compilar");
-    let maquina = bmo_lower::emu::cargar_bex(&bex).expect("cargar");
+    let mut maquina = bmo_lower::emu::cargar_bex(&bex).expect("cargar");
+    // y teclea lo que dice el ejemplo, como `medir`: sin eso, un programa que
+    // lee espera para siempre
+    let entra: String = fuente.lines().filter_map(|l| l.strip_prefix("# entra: ")).map(|l| format!("{l}\n")).collect();
+    maquina.poner_entrada(&entra);
     let codigo = maquina.code.clone();
     let mut cuentas: BTreeMap<usize, u64> = BTreeMap::new();
     let m = bmo_lower::emu::run_con(maquina, LIMITE, |rip| *cuentas.entry(rip).or_default() += 1);

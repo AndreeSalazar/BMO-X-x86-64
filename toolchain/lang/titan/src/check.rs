@@ -18,7 +18,7 @@ use crate::tree::{Arm, Expr, Mode, Program, Stmt, Ty};
 
 /// What the library gives: `print` (level 0), `len` (6), and `lee` -- the
 /// line typed on the program's own console (E1, `docs/plan/PLAN_LA_ENTRADA.md`).
-const LIBRARY: [&str; 3] = ["print", "len", "lee"];
+const LIBRARY: [&str; 4] = ["print", "len", "lee", "numero"];
 
 /// The fn a trait promises, by its name (level 10): what `area(f)` calls.
 fn method<'p>(p: &'p Program, name: &str) -> Option<&'p crate::tree::Sig> {
@@ -650,7 +650,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             line,
             col,
             &format!("`{}` no existe", callee),
-"no es una `fn` de este fichero, ni un caso de sus `enum`, ni de la biblioteca (la biblioteca, hoy, es `print`, `len` y `lee`)",
+"no es una `fn` de este fichero, ni un caso de sus `enum`, ni de la biblioteca (la biblioteca, hoy, es `print`, `len`, `lee` y `numero`)",
             &match near {
                 Some(k) => format!("quisiste decir `{}`?", k),
                 None => format!("define `fn {}()` en este fichero, o usa `print`", callee),
@@ -666,6 +666,16 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             }
             if !as_value {
                 return Err(Message::new(Code::Result, line, col, "`lee()` trae una linea, y aqui nadie la guarda", "lo que se teclea se perderia nada mas llegar", "guardala: let linea = lee()"));
+            }
+            return Ok(());
+        }
+        if callee == "numero" {
+            // `numero(t)`: the case of the prelude -- Es(n) or NoEs.
+            if n != 1 {
+                return Err(Message::new(Code::Args, line, col, &format!("`numero` pide 1 valor, y aqui se le dan {}", n), "`numero` dice si UN texto es un numero entero", "match numero(linea)"));
+            }
+            if !as_value {
+                return Err(Message::new(Code::Result, line, col, "`numero(...)` da un caso, y aqui nadie lo mira", "Es(n) o NoEs: lo que dice se perderia", "match numero(linea)"));
             }
             return Ok(());
         }

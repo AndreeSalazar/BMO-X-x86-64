@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   593 casillas ABIERTAS en 57 planes
-   480 hechas
+   591 casillas ABIERTAS en 57 planes
+   483 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -24,6 +24,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 9 de 10 hechas, faltan 1
 - [`PLAN_EL_AISLAMIENTO.md`](PLAN_EL_AISLAMIENTO.md) -- 4 de 5 hechas, faltan 1
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
+- [`PLAN_LA_ENTRADA.md`](PLAN_LA_ENTRADA.md) -- 9 de 11 hechas, faltan 2
 - [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 10 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 32 de 35 hechas, faltan 3
@@ -422,15 +423,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Paso 2 -- las vigiladas, con sus datos
 - ... y 1 mas
 
-## [`PLAN_LA_ENTRADA.md`](PLAN_LA_ENTRADA.md) -- 4 abiertas, 6 hechas
-
-*PLAN LA ENTRADA -- TITAN++ lee de fuera, y una parte del programa corre de verdad*
-
-- [ ] R6 -- numero(t) y su caso (D3), y dec al correr con fmt.rs
-- [ ] R7 -- llamadas con valores al correr (nivel 5), tablas y registros (6), prestamos (7): el resto 
-- [ ] R8 -- el PRESUPUESTO de plegado (7.3): un bucle sin lee() que pasa de STEPS se EMITE en vez de d
-- ... y 1 mas
-
 ## [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](PLAN_LA_RAM_SALE_DEL_KERNEL.md) -- 4 abiertas, 3 hechas
 
 *LA RAM SALE DEL KERNEL -- que parte es agnostica, medido*
@@ -501,6 +493,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] X5b -- el depth buffer. Para lo que NO es convexo (dos objetos que
 - [ ] X6 -- mas huellas. Las 360 de la vuelta, generadas en Windows por
+
+## [`PLAN_LA_ENTRADA.md`](PLAN_LA_ENTRADA.md) -- 2 abiertas, 9 hechas
+
+*PLAN LA ENTRADA -- TITAN++ lee de fuera, y una parte del programa corre de verdad*
+
+- [ ] R8 -- el PRESUPUESTO de plegado (7.3): un bucle sin lee() que pasa de STEPS se EMITE en vez de d
+- [ ] R10 -- del PROPIETARIO: las leyes nuevas de lee() y numero(t), con --sellar (toolchain/tools/tit
 
 ## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 2 abiertas, 8 hechas
 

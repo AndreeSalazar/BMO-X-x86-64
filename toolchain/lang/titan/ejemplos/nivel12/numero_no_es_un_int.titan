@@ -1,0 +1,7 @@
+# espera: T0063
+# `numero` no da un int: da un CASO, porque lo tecleado puede no ser un numero -- hay que mirarlo con match
+mod main "suma lo tecleado sin mirarlo"
+
+fn main()
+    let n = numero(lee())
+    print(n + 1)

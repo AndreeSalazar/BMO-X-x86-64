@@ -833,7 +833,7 @@ del propietario.
 
 ---
 
-## Nivel 12 -- lo que viene de fuera (25 palabras: + ninguna; `lee()`) -- 05-10, E1 de PLAN_LA_ENTRADA
+## Nivel 12 -- lo que viene de fuera (25 palabras: + ninguna; `lee()` y `numero(t)`) -- 05-10, E1 de PLAN_LA_ENTRADA
 
 ```text
 # pregunta.titan
@@ -857,10 +857,11 @@ calculo CORRIA el programa al compilar y el `.bex` solo escribia lo que salia.
 Con `lee()` eso ya no se puede: lo tecleado no se sabe al compilar. Asi que un
 programa que lee se JUZGA entero al compilar -- sus clases, sus prestamos --
 y se EMITE para correr de verdad en la maquina (E1 del emisor,
-`emisor-x86_64/src/e1.rs`). Un programa que no lee sale igual que siempre.
+`emisor-x86_64/src/e1/mod.rs`). Un programa que no lee sale igual que siempre.
 
 ```text
-   lee()               una linea, como texto (hasta 127 bytes)
+   lee()               una linea, como texto (126 bytes como mucho: una mas
+                       larga es un NO T0060, nunca un corte callado)
    lee() + 1           NO T0063: un texto no se suma a un numero, ni tecleado
    if lee() ...        NO T0065: un si/no se pregunta como a cualquier texto
    lee()  (suelta)     NO T0069: lo tecleado se perderia nada mas llegar
@@ -874,10 +875,63 @@ enteros que no es exacta (T0062). El programa escribe el NO con su linea --
 `print` calcula todas sus partes ANTES de escribir: un NO nunca deja media
 linea delante.
 
-**Lo que E1 todavia no emite lo dice al compilar**, con el escalon de
-`docs/plan/PLAN_LA_ENTRADA.md` donde llega: el `dec` al correr y `numero(t)`
-(R6), llamadas con valores, tablas, registros y casos (R7). Nunca un `.bex`
-que haga otra cosa.
+### `numero(t)`: lo tecleado, como numero -- un CASO, no un int
+
+```text
+# adivina.titan (el corazon)
+    let t = lee()
+    match numero(t)
+        Es(n)
+            if n < secreto
+                print("mas alto")
+            ...
+        NoEs
+            print("eso no es un numero: ", t)
+```
+
+**`numero(t)` da `Es(n)` si el texto ES un entero, y `NoEs` si no** -- el
+caso del nivel 8, y el `match` obliga a mirar los dos: sin null, sin
+excepcion, sin un 0 inventado (decision D3 del propietario, 05-10). La regla
+es una sola, la misma al compilar y al correr (`src/prelude.rs`):
+
+```text
+   "42", "  42 ", "+7", "-0"      Es: blancos alrededor, un signo, cifras
+   "4x", "", "-", "1 2", "12.5"   NoEs: un entero, y nada mas
+   "9223372036854775808"          NoEs: no cabe en 64 bits
+   numero(lee()) + 1              NO T0063: un caso no se suma; mira el caso
+```
+
+`Numero`, `Es` y `NoEs` los pone el preludio SOLO si el programa llama a
+`numero`; un programa que ya usa esos nombres para lo suyo y llama a `numero`
+da T0055.
+
+### El programa entero corre en la maquina
+
+E1 emite TODO lo de los niveles 0 a 10 -- `dec` exacto, tablas, registros,
+casos, llamadas con valores, `mut` y `take`, `round`, `dec(p, s)`, traits --
+para que un valor tecleado llegue a cualquier sitio del lenguaje. Y lo que el
+calculo veria corriendo, la maquina lo ve corriendo, con su linea:
+
+```text
+   T0060   no cabe en 64 bits (un int, las cifras de un dec, un texto de mas
+           de 248 bytes, una linea tecleada de mas de 126)
+   T0061   / o % por cero
+   T0062   una division que no acaba exacta (7 / 2 entre int, 1.0 / 3)
+   T0072   una celda que no esta en la tabla (t[i] con i tecleado)
+   T0074   el PIC: un numero que no cabe en su dec(p, s)
+   T0066   las llamadas se anidan mas de lo que cabe en la pila: el NO sale
+           en la linea de la LLAMADA, como lo dice el calculo
+```
+
+**La vara de E1 es el calculo** (`emisor-x86_64/tests/e1.rs`): cada programa
+BIEN del banco se emite TAMBIEN por E1 y tiene que escribir lo mismo, letra a
+letra; cada NO del banco que el calculo encuentra corriendo, E1 lo encuentra
+con el mismo codigo y en la misma linea; y miles de cuentas al azar con
+numeros tecleados (`E1_AZAR=semilla,casos`) dan lo mismo en los dos. Donde el
+calculo hace un paso en 128 bits, E1 tambien (`emisor-x86_64/src/e1/ancho.rs`).
+
+Un bucle SIN fin que no lee sigue siendo T0066 al compilar: el presupuesto de
+plegado (R8) cambia una ley, y las leyes las sella el propietario.
 
 ---
 

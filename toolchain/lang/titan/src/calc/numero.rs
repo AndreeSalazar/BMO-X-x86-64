@@ -86,18 +86,39 @@ pub(super) fn decimal(op: &str, a: Const, b: Const, at: At, lenient: bool) -> Re
             // a / b = (da / 10^sa) / (db / 10^sb) = da * 10^sb / (db * 10^sa).
             // The fewest decimals (at least those of the two) that make it
             // EXACT -- or a NO: 1.0 / 3 never ends, and is not cut in silence.
+            //
+            // ** By LONG DIVISION, one decimal per turn (05-10): `num * 10^s`
+            // went past 128 bits with big numbers and the compiler burst
+            // instead of saying T0060 -- a random test of E1 found it. The
+            // quotient only grows, so once it no longer fits a `dec` it never
+            // will: that is T0060. E1 divides the same way (`h_div`).
             let (num, den) = (da * pow10(sb), db * pow10(sa));
-            for s in sa.max(sb)..=SCALE {
-                let n = num * pow10(s);
-                if n % den == 0 {
-                    return dec_result(n / den, s, at, &what);
+            let neg = (num < 0) != (den < 0);
+            let (n, d) = (num.unsigned_abs(), den.unsigned_abs());
+            let (mut q, mut r) = (n / d, n % d);
+            let signed = |q: u128| if neg { -(q as i128) } else { q as i128 };
+            let s0 = sa.max(sb);
+            let mut s = 0;
+            loop {
+                if s >= s0 && r == 0 {
+                    return dec_result(signed(q), s, at, &what);
                 }
+                if s == SCALE {
+                    break;
+                }
+                if q > i64::MAX as u128 + 1 {
+                    return Err(overflow(at, &what));
+                }
+                s += 1;
+                let t = r * 10;
+                q = q * 10 + t / d;
+                r = t % d;
             }
             if lenient {
                 // Inside `round`: carried to SCALE decimals (cut, not
                 // rounded), and `round` decides where it ends. Cutting at 18
                 // never changes a rounding to fewer decimals.
-                return dec_result(num * pow10(SCALE) / den, SCALE, at, &what);
+                return dec_result(signed(q), SCALE, at, &what);
             }
             Err(Message::new(
                 Code::Inexact,
@@ -151,7 +172,7 @@ pub(super) fn binop(op: &str, a: Const, b: Const, at: At, lenient: bool) -> Resu
     // Inside `round`, 7 / 2 between ints is the exact 3.5, to be rounded.
     if lenient && op == "/" {
         if let (Const::Int(x), Const::Int(y)) = (&a, &b) {
-            if *y != 0 && x % y != 0 {
+            if *y != 0 && x.wrapping_rem(*y) != 0 {
                 return decimal(op, a, b, at, lenient);
             }
         }
@@ -223,7 +244,8 @@ pub(super) fn int(op: &str, x: i64, y: i64, at: At) -> Result<Const, Message> {
                 "comprueba el divisor antes: if d != 0  (y el otro lado del if no se calcula)",
             ))
         }
-        "/" if x % y != 0 => {
+        // wrapping_rem: i64::MIN % -1 es 0 (y `%` de Rust revienta ahi)
+        "/" if x.wrapping_rem(y) != 0 => {
             return Err(Message::new(
                 Code::Inexact,
                 at.0,
@@ -234,7 +256,7 @@ pub(super) fn int(op: &str, x: i64, y: i64, at: At) -> Result<Const, Message> {
             ))
         }
         "/" => x.checked_div(y),
-        "%" => x.checked_rem(y),
+        "%" => Some(x.wrapping_rem(y)),
         _ => None,
     };
     r.map(Const::Int).ok_or_else(|| overflow(at, &what))

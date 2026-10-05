@@ -112,13 +112,14 @@ compilar**. Al correr, **atrapa**: escribe el NO con su linea del `.titan`
 - [x] R0 -- las decisiones D1-D3 del propietario, escritas aqui (seccion 3): las tres (a), el 05-10
 - [x] R1 -- HECHO el 05-10 (sin permiso: ver la correccion de la seccion 3) -- `lee()` en el frontend: libreria (`toolchain/lang/titan/src/check.rs`), clase texto, pide `input` (`toolchain/lang/titan/src/gpu.rs` y el permiso como `use gpu`), sin `lee()` en una `gpu fn`; GRAMATICA y su codigo de error si falta el permiso
 - [x] R2 -- HECHO el 05-10 (`Module::reads_outside` en `toolchain/lang/titan/src/ir.rs`; pruebas en `toolchain/lang/titan/tests/entrada.rs`) -- SABIDO o AL CORRER en `toolchain/lang/titan/src/calc.rs`: un programa con `lee()` no se corre al compilar; las clases y el juez si
-- [x] R3 -- HECHO el 05-10 en `toolchain/lang/titan/emisor-x86_64/src/e1.rs` (pruebas en `toolchain/lang/titan/emisor-x86_64/tests/e1.rs`; un `print` calcula sus partes antes de escribir) -- el emisor E1 en `toolchain/lang/titan/emisor-x86_64/src/lib.rs`: textos (literal y tecleado), `print` mezclado, `int` en la pila con `jo` que atrapa, `if`, `while`, `for` -- el subconjunto de los niveles 0-4
+- [x] R3 -- HECHO el 05-10 en `toolchain/lang/titan/emisor-x86_64/src/e1/mod.rs` (pruebas en `toolchain/lang/titan/emisor-x86_64/tests/e1.rs`; un `print` calcula sus partes antes de escribir) -- el emisor E1 en `toolchain/lang/titan/emisor-x86_64/src/lib.rs`: textos (literal y tecleado), `print` mezclado, `int` en la pila con `jo` que atrapa, `if`, `while`, `for` -- el subconjunto de los niveles 0-4
 - [x] R4 -- HECHO el 05-10, y el metro tambien teclea (`toolchain/tools/metro/src/main.rs`) -- el banco TECLEA: lineas `# entra:` en `toolchain/lang/titan/ejemplos/` que el banco del emisor (`toolchain/lang/titan/emisor-x86_64/tests/banco.rs`) da por `poner_entrada`, y compara las `# sale:`
 - [x] R5 -- HECHO el 05-10: el NIVEL 12, "lo que viene de fuera" (0 palabras nuevas), con `toolchain/lang/titan/ejemplos/nivel12/pregunta.titan` y `hasta_fin.titan` en los dos bancos y en el metro (`toolchain/tools/metro/LINEA_BASE.txt`). `adivina` espera a `numero(t)` (R6)
-- [ ] R6 -- `numero(t)` y su caso (D3), y `dec` al correr con `fmt.rs`
-- [ ] R7 -- llamadas con valores al correr (nivel 5), tablas y registros (6), prestamos (7): el resto de la escalera, nivel a nivel
+- [x] R6 -- HECHO el 05-10: `numero(t)` y su caso `Es(n)` / `NoEs` (D3), con UNA regla al compilar y al correr (`toolchain/lang/titan/src/prelude.rs`; en la maquina `toolchain/lang/titan/emisor-x86_64/src/e1/escribe.rs`), y el `dec` exacto al correr (`toolchain/lang/titan/emisor-x86_64/src/e1/numero.rs`, en 128 bits en `toolchain/lang/titan/emisor-x86_64/src/e1/ancho.rs`); `adivina` y `la_cuenta` en `toolchain/lang/titan/ejemplos/nivel12/`
+- [x] R7 -- HECHO el 05-10: llamadas con valores (nivel 5), tablas y registros (6), mut/take, round y `dec(p, s)` (7), casos (8), traits (10) al correr -- las formas en `toolchain/lang/titan/emisor-x86_64/src/e1/forma.rs`, los valores en `toolchain/lang/titan/emisor-x86_64/src/e1/valor.rs`; los dos oraculos y el azar contra el calculo en `toolchain/lang/titan/emisor-x86_64/tests/e1.rs`
 - [ ] R8 -- el PRESUPUESTO de plegado (7.3): un bucle sin `lee()` que pasa de STEPS se EMITE en vez de dar T0066
-- [ ] R9 -- los papeles: `docs/maestro/TITAN_MAESTRO.md` 7.3 (E1 hecho), `toolchain/lang/titan/GRAMATICA.md`, y las leyes nuevas con `--sellar` del propietario (`toolchain/tools/titan-leyes/LEYES.txt`)
+- [x] R9 -- HECHO el 05-10: los papeles, `docs/maestro/TITAN_MAESTRO.md` 7.3 (E1 hecho) y el nivel 12 de `toolchain/lang/titan/GRAMATICA.md` (`numero(t)` y lo que atrapa al correr)
+- [ ] R10 -- del PROPIETARIO: las leyes nuevas de `lee()` y `numero(t)`, con `--sellar` (`toolchain/tools/titan-leyes/LEYES.txt`); y R8 con ellas, si lo quiere
 
 | se hace | si esta bien | si falla |
 |---|---|---|
@@ -134,3 +135,34 @@ compilar**. Al correr, **atrapa**: escribe el NO con su linea del `.titan`
 - **No es la ventana ni el raton** para TITAN++: eso es REX y viene despues.
   La primera entrada es la consola, porque la forja ya la sabe leer.
 - **No toca INTI.** Si D2 sale (b), este plan se reescribe antes de R3.
+
+## 7. Lo que encontro el azar, y se arreglo (05-10)
+
+La prueba que compara E1 con el calculo con cuentas AL AZAR
+(`toolchain/lang/titan/emisor-x86_64/tests/e1.rs`) no solo midio a E1: encontro
+fallos que llevaban tiempo escondidos, en los dos lados.
+
+| encontro | donde | ahora |
+|---|---|---|
+| el CALCULO revento (no dijo NO) dividiendo dos `dec` grandes: `num * 10^s` pasaba de 128 bits | `toolchain/lang/titan/src/calc/numero.rs` | division larga, una cifra por vuelta: T0060 cuando no cabe |
+| el CALCULO revento con `i64::MIN % -1` | `toolchain/lang/titan/src/calc/numero.rs` | da 0, que es lo que vale (E1 ya lo daba) |
+| E1 decia T0060 donde el calculo llegaba al numero: alinear, multiplicar y dividir en 64 bits | `toolchain/lang/titan/emisor-x86_64/src/e1/ancho.rs` | los pasos en 128 bits, como el calculo |
+| escribir `i64::MIN` sacaba basura (`idiv` despues de `neg`), en la forja: lo usan C y COBOL | `toolchain/forge/bmo-lower/src/fmt.rs` | los digitos sin signo de la magnitud |
+| una linea tecleada de mas de 127 bytes se cortaba callada | `toolchain/lang/titan/emisor-x86_64/src/e1/escribe.rs` | NO T0060 |
+
+**El metro** (`toolchain/tools/metro/LINEA_BASE.txt`), dicho entero: E1
+general guarda cada valor en memoria, y aun asi `pregunta` y `hasta_fin`
+ejecutan MENOS que con el E1 de textos e int (129 -> 124 y 828 -> 815
+instrucciones; los mismos accesos), porque lo ESCRITO de un `print` va en una
+sola escritura de constantes y `lee()` llena su local sin copia. Sus BYTES de
+codigo SUBEN (442 -> 568 y 1.436 -> 1.794): es el NO de la linea larga, que
+antes no existia porque se cortaba callada -- CORRECTO va antes que MEDIDO.
+Para que pese poco, un NO que sale en varias lineas se escribe una vez y cada
+sitio salta a el con su linea (`toolchain/lang/titan/emisor-x86_64/src/e1/mod.rs`,
+`write_traps`), y una subrutina de numeros solo mira `r10 != 0` en el camino
+bueno. `adivina` y `la_cuenta` entran en el metro.
+
+Los limites de E1 que el calculo no tiene, dichos: un texto guarda 248 bytes,
+`lee()` trae 126, y las llamadas abiertas caben en 48 KiB de pila. Pasarlos es
+un NO con su linea, nunca otra cosa.
+

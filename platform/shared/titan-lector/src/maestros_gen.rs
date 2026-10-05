@@ -26,7 +26,7 @@ pub static FAMILIES: [&str; 13] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 30;
+pub const COUNT: usize = 32;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -340,6 +340,17 @@ pub static MASTERS: [Master; COUNT] = [
         source: "# sale: 2.00\n# sale: 2.00\n# sale: 2.00\n# sale: 2.25\n# una gpu fn se escribe para UNA celda; con tablas de 4, son 4 hilos de la 3060\nmod main \"la 3060 mezcla dos tablas\"\n\ngpu fn mezcla(a: f32, b: f32) -> f32\n    return (a + b) / 2.0\n\nfn main()\n    let xs: [f32; 4] = [1.0, 2.0, 3.0, 4.0]\n    let ys: [f32; 4] = [3.0, 2.0, 1.0, 0.5]\n    let c = mezcla(xs, ys)\n    for x in c\n        print(round(x, 2))\n",
     },
     Master {
+        name: "adivina",
+        level: 12,
+        why: "`numero(t)` da un CASO: Es(n) si lo tecleado es un numero, NoEs si no -- y el `match` obliga a mirar los dos",
+        says: "adivina el numero",
+        words: &["fn", "let", "mut", "if", "else", "not", "while", "match"],
+        asks: Permissions::NONE,
+        typed: &["50", "setenta", "80", "  73"],
+        out: &["adivina el numero (de 1 a 100)", "mas alto", "eso no es un numero: setenta", "mas bajo", "si! era 73, y lo sacaste en 3 intentos"],
+        source: "# entra: 50\n# entra: setenta\n# entra: 80\n# entra:   73\n# sale: adivina el numero (de 1 a 100)\n# sale: mas alto\n# sale: eso no es un numero: setenta\n# sale: mas bajo\n# sale: si! era 73, y lo sacaste en 3 intentos\n# `numero(t)` da un CASO: Es(n) si lo tecleado es un numero, NoEs si no -- y el `match` obliga a mirar los dos\nmod main \"adivina el numero\"\n\nfn main()\n    let secreto = 73\n    print(\"adivina el numero (de 1 a 100)\")\n    let mut intentos = 0\n    let mut acertado = false\n    while not acertado\n        let t = lee()\n        match numero(t)\n            Es(n)\n                intentos = intentos + 1\n                if n < secreto\n                    print(\"mas alto\")\n                else if n > secreto\n                    print(\"mas bajo\")\n                else\n                    acertado = true\n            NoEs\n                print(\"eso no es un numero: \", t)\n    print(\"si! era \", secreto, \", y lo sacaste en \", intentos, \" intentos\")\n",
+    },
+    Master {
         name: "hasta_fin",
         level: 12,
         why: "un `while` que para cuando LO TECLEADO lo dice: nadie sabia al compilar cuantas vueltas daria",
@@ -349,6 +360,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &["pan", "leche", "huevos", "fin"],
         out: &["apunta lo que falta; fin para terminar", "1: pan", "2: leche", "3: huevos", "son 3 cosas"],
         source: "# entra: pan\n# entra: leche\n# entra: huevos\n# entra: fin\n# sale: apunta lo que falta; fin para terminar\n# sale: 1: pan\n# sale: 2: leche\n# sale: 3: huevos\n# sale: son 3 cosas\n# un `while` que para cuando LO TECLEADO lo dice: nadie sabia al compilar cuantas vueltas daria\nmod main \"la lista de la compra\"\n\nfn main()\n    print(\"apunta lo que falta; fin para terminar\")\n    let mut n = 0\n    let mut cosa = lee()\n    while cosa != \"fin\"\n        n = n + 1\n        print(n, \": \", cosa)\n        cosa = lee()\n    print(\"son \", n, \" cosas\")\n",
+    },
+    Master {
+        name: "la_cuenta",
+        level: 12,
+        why: "lo tecleado entra al dinero exacto: 3 cafes de 1.80 son 5.40, y el reparto se redondea A LA VISTA, nunca a escondidas",
+        says: "la cuenta del bar",
+        words: &["fn", "let", "if", "else", "return", "round", "match"],
+        asks: Permissions::NONE,
+        typed: &["3", "2", "4"],
+        out: &["cafes?", "tostadas?", "entre cuantos?", "cafes 5.40, tostadas 4.70", "total 10.10, con IVA 11.11", "toca a 2.78 cada uno (redondeado: lo dice el round)"],
+        source: "# entra: 3\n# entra: 2\n# entra: 4\n# sale: cafes?\n# sale: tostadas?\n# sale: entre cuantos?\n# sale: cafes 5.40, tostadas 4.70\n# sale: total 10.10, con IVA 11.11\n# sale: toca a 2.78 cada uno (redondeado: lo dice el round)\n# lo tecleado entra al dinero exacto: 3 cafes de 1.80 son 5.40, y el reparto se redondea A LA VISTA, nunca a escondidas\nmod main \"la cuenta del bar\"\n\nfn pide(que: text) -> int\n    print(que, \"?\")\n    match numero(lee())\n        Es(n)\n            return n\n        NoEs\n            return 0\n\nfn main()\n    let cafes = pide(\"cafes\")\n    let tostadas = pide(\"tostadas\")\n    let gente = pide(\"entre cuantos\")\n    let c = cafes * 1.80\n    let t = tostadas * 2.35\n    print(\"cafes \", c, \", tostadas \", t)\n    let total = c + t\n    let con_iva = round(total * 1.10, 2)\n    print(\"total \", total, \", con IVA \", con_iva)\n    if gente > 0\n        print(\"toca a \", round(con_iva / gente, 2), \" cada uno (redondeado: lo dice el round)\")\n    else\n        print(\"nadie paga?\")\n",
     },
     Master {
         name: "pregunta",

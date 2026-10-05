@@ -79,7 +79,7 @@ pub fn emit(m: &Module) -> Result<Emitted, String> {
     match &m.flat {
         Some(flat) => emit_flat(flat),
         // E1 (`docs/plan/PLAN_LA_ENTRADA.md`): the program reads from outside,
-        // so it was not run when compiling -- it is emitted to run (`e1.rs`).
+        // so it was not run when compiling -- it is emitted to run (`e1/mod.rs`).
         None => e1::emit(m),
     }
 }
@@ -142,6 +142,22 @@ pub enum Failure {
 /// (va al manifiesto), no su ruta.
 pub fn build(src: &str, source_name: &str) -> Result<Vec<u8>, Failure> {
     build_package(source_name, src, &mut |_| None)
+}
+
+/// ** EL ORACULO DE E1: el mismo paquete, emitido SIEMPRE para correr en la
+/// maquina (E1), aunque no lea de fuera: sin correrlo al compilar
+/// (`lower_package_unfolded`), asi que un NO que el calculo encuentra
+/// corriendo (T0060, T0072...) lo tiene que encontrar la maquina, en la
+/// misma linea.
+/// Lo usa la prueba que compara E1 con el calculo (`tests/e1.rs`): lo que
+/// escriben los dos tiene que ser lo mismo, letra a letra. No es un camino
+/// del build: un programa que no lee sale por E0.
+pub fn build_package_e1(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<Vec<u8>, Failure> {
+    let source_name = root.rsplit('/').next().unwrap_or(root);
+    let m = bmo_titan_front::lower_package_unfolded(root, src, read).map_err(Failure::Source)?;
+    let manifest = bmo_titan_front::manifest::manifest(&m, source_name);
+    let e = e1::emit(&m).map_err(Failure::Gate)?;
+    package(&e, &manifest).map_err(Failure::Gate)
 }
 
 /// A PACKAGE to a `.bex` (level 9): the root file (its path from the package

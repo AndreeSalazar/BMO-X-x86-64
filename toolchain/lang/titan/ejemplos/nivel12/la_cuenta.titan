@@ -1,0 +1,35 @@
+# espera: BIEN
+# entra: 3
+# entra: 2
+# entra: 4
+# sale: cafes?
+# sale: tostadas?
+# sale: entre cuantos?
+# sale: cafes 5.40, tostadas 4.70
+# sale: total 10.10, con IVA 11.11
+# sale: toca a 2.78 cada uno (redondeado: lo dice el round)
+# lo tecleado entra al dinero exacto: 3 cafes de 1.80 son 5.40, y el reparto se redondea A LA VISTA, nunca a escondidas
+mod main "la cuenta del bar"
+
+fn pide(que: text) -> int
+    print(que, "?")
+    match numero(lee())
+        Es(n)
+            return n
+        NoEs
+            return 0
+
+fn main()
+    let cafes = pide("cafes")
+    let tostadas = pide("tostadas")
+    let gente = pide("entre cuantos")
+    let c = cafes * 1.80
+    let t = tostadas * 2.35
+    print("cafes ", c, ", tostadas ", t)
+    let total = c + t
+    let con_iva = round(total * 1.10, 2)
+    print("total ", total, ", con IVA ", con_iva)
+    if gente > 0
+        print("toca a ", round(con_iva / gente, 2), " cada uno (redondeado: lo dice el round)")
+    else
+        print("nadie paga?")

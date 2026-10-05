@@ -197,6 +197,9 @@ pub enum Value {
     /// The value number `k` the case `v` of the enum `e` carries: what a
     /// `Circulo(r)` of a `match` names `r` (8). Only read where `Is` said yes.
     Payload(Box<Value>, usize, usize, usize, At),
+    /// `numero(t)`: the case of `enum Numero` (the prelude, `prelude.rs`) --
+    /// `Es(n)` if the text is a whole number, `NoEs` if not. The enum's index.
+    Number(Box<Value>, usize, At),
     /// `lee()`: the line typed on the program's own console, as a text (E1,
     /// `docs/plan/PLAN_LA_ENTRADA.md`). Known only WHEN IT RUNS: a module
     /// that reads is not run when compiling (`calc.rs`), it is emitted.
@@ -227,6 +230,7 @@ impl Value {
             | Value::Variant(_, _, _, a)
             | Value::Is(_, _, _, a)
             | Value::Payload(_, _, _, _, a)
+            | Value::Number(_, _, a)
             | Value::Read(a) => *a,
         }
     }
@@ -241,7 +245,7 @@ impl Value {
                     i.reads(out);
                 }
             }
-            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) | Value::Is(v, _, _, _) | Value::Payload(v, _, _, _, _) => v.reads(out),
+            Value::Repeat(v, _, _) | Value::Field(v, _, _) | Value::Len(v, _) | Value::Round(v, _, _) | Value::Is(v, _, _, _) | Value::Payload(v, _, _, _, _) | Value::Number(v, _, _) => v.reads(out),
             Value::Lend(_, l, a) => out.push((*l, *a)),
             Value::Index(b, i, _) => {
                 b.reads(out);
@@ -280,7 +284,7 @@ impl Value {
             Value::Read(_) => true,
             Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Local(..) | Value::Lend(..) => false,
             Value::Bin(_, a, b, _) | Value::Index(a, b, _) => a.from_outside() || b.from_outside(),
-            Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) => a.from_outside(),
+            Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) => a.from_outside(),
             Value::Call(_, items, _) | Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => items.iter().any(Value::from_outside),
         }
     }
@@ -369,6 +373,10 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
         }
         Expr::Neg { value: v, line, col } => Value::Neg(Box::new(value(v, locals)), (*line, *col)),
         Expr::Call { callee, line, col, .. } if callee == "lee" => Value::Read((*line, *col)),
+        Expr::Call { callee, args, line, col } if callee == "numero" => {
+            let e = p.enums.iter().position(|e| e.name == crate::prelude::NUMERO).expect("prelude: numero brings its enum");
+            Value::Number(Box::new(value(&args[0], locals)), e, (*line, *col))
+        }
         Expr::Call { callee, args, line, col } if callee == "len" => Value::Len(Box::new(value(&args[0], locals)), (*line, *col)),
         Expr::Call { callee, args, line, col } if p.case(callee).is_some() => {
             let (e, v) = p.case(callee).expect("the guard");
@@ -856,6 +864,7 @@ fn show(v: &Value) -> String {
         Value::Record(t, items, _) => format!("T{} {{ {} }}", t, items.iter().map(show).collect::<Vec<_>>().join(", ")),
         Value::Len(v, _) => format!("len({})", show(v)),
         Value::Read(_) => "lee()".to_string(),
+        Value::Number(v, _, _) => format!("numero({})", show(v)),
         Value::Lend(m, l, _) => format!("{} %{}", m.word(), l),
         Value::Round(v, n, _) => format!("round({}, {})", show(v), n),
         Value::F32(b, _) => format!("{}f32", f32::from_bits(*b)),
