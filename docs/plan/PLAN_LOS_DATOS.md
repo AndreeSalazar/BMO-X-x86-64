@@ -188,7 +188,7 @@ lleva INTI (Q8), que es quien habla por registro.
    INTI        el mismo bucle con SIMD cuando el metro lo pida (Q8)
    kernel      save: los bloques nuevos, FLUSH, superbloque, FLUSH
                  = UN estrato; load: trae los bloques en tramos grandes
-   disco       la cache encendida no engana: el commit pide el FLUSH
+   disco       con la cache encendida, un OK no es guardado: el commit pide el FLUSH
 ```
 
 ## 7. ULTRACRAFT: el primer cliente
