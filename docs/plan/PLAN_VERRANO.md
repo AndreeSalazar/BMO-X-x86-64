@@ -729,3 +729,79 @@ exactamente lo que el juez aprobo, y para que GPU se hizo.
   ata por hash.
 - **La capa 5 del BSF** (`deep`) no mira aun los modulos de vertice y de
   pixel: el lector de SPIR-V solo sabe de `GLCompute`.
+
+## 4. LA CARA COMUN: DX12 y Vulkan entran, VERRANO sale (pedido 05-10)
+
+> El propietario (05-10): *"PROTON-X considerare que es espia y VERRANO se
+> llevara lo mejor de Vulkan y DX12 con el fin de que pueda eliminar toda
+> las basuras y sea ... cara de DX12 o Vulkan como intermedio para que el
+> CPU y GPU con .bex (CPU) y .bsf (GPU) ambos formatos que se lleve TODO el
+> paquete uno solo para ejecutar una sola vez ... no pierda el tiempo sino
+> que el cuello de botella serian ambos y no mi kernel"*.
+
+```text
+   el juego (.exe)          habla D3D12 (o Vulkan): lo de Microsoft o
+                            Khronos, con sus diez versiones de cada cosa
+   PROTON-X, el ESPIA       lee lo que el juego pide -- cada PSO, cada
+                            dibujo, cada cola -- y lo DICE en VERRANO; no
+                            dibuja el mismo
+   VERRANO, la cara comun   una API chica: lo mejor de las dos, sin lo
+                            repetido (Device1..Device14 son UNA cosa aqui)
+   el PAQUETE, una vez      cada sombreador se traduce UNA vez a sus dos
+                            destinos: .bex (x86-64, el codigo de la CPU: lo
+                            que ya hace el JIT de PROTON-X) y .bsf (SASS de
+                            la 3060, con su SPIR-V/DXIL de origen y su hash);
+                            se guarda en el disco por hash y la siguiente
+                            vez se carga sin traducir nada
+   la CPU y la GPU          ejecutan el paquete; el kernel PREPARA (memoria,
+                            IOMMU, el canal) y se aparta: no esta en el
+                            camino de cada dibujo
+```
+
+**Por que es la forma buena (y no una idea nueva que choque):** la regla de
+este plan ya es "la GPU NO COMPILA NADA: los programas viajan ya traducidos
+en el BSF" (seccion 0) y "Vulkan se TRADUCE a VERRANO, no al reves" (seccion
+3). Lo que el pedido anade es que DX12 entre por la MISMA puerta, que el
+codigo de la CPU viaje en el mismo paquete (.bex), y que el kernel salga del
+camino de cada dibujo. Es lo que hacen las caches de sombreadores de DXVK y
+vkd3d-proton, pero en el formato de la casa.
+
+**Hoy, medido:** en el metal del 29-09 cada lote de la 3060 costaba 264 us
+de kernel contra 36 us de la tarjeta (`docs/plan/PLAN_PROTON_X.md`, Z1): HOY
+el cuello de botella SI es el kernel. VC4 es lo que lo quita.
+
+- [ ] **VC1 -- el PAQUETE de un sombreador** (`platform/shared/verrano`):
+  .bex + .bsf de un PSO de D3D12, traducido UNA vez, con la clave = hash
+  del codigo de origen + el estado del PSO que cambia el codigo + la
+  version del traductor; en el volumen de datos. **Como se sabe:** la
+  segunda corrida de `bmox12.exe` traduce CERO sombreadores (un contador en
+  la cabina) y da las mismas huellas.
+- [ ] **VC2 -- PROTON-X habla VERRANO** (`platform/shared/proton-x-casa/src/tuberia.rs`):
+  Draw y Dispatch se vuelven fotogramas de VERRANO en vez de llamar a la
+  trama a mano; la trama queda como el backend CPU (el juez). **Como se
+  sabe:** todos los jueces de `prueba/` (hdr, stencil, olas...) dicen lo
+  mismo por la nueva puerta.
+- [ ] **VC3 -- la cara de Vulkan** (`platform/drivers/gpu/rdna4/PLAN_VULKAN.md`):
+  un `vulkan-1.dll` en la casa que dice lo suyo en el MISMO VERRANO; el
+  SPIR-V ya entra por `toolchain/lang/spirv`. Despues de VC2: Vulkan no se
+  empieza hasta que DX12 hable VERRANO. **Como se sabe:** una muestra de
+  Khronos (o la que se elija con `rayosx`) con su huella.
+- [ ] **VC4 -- el kernel fuera del camino** (`Ultra_kernel_x86-64/kernel/src/ring0/dev/gpu_trabajo/cubo.rs`):
+  el canal de la 3060 (GPFIFO y USERD) en memoria de la app, detras de la
+  IOMMU, y el timbre (doorbell) tocado desde Ring 3; el kernel lo crea por
+  RPC al GSP-RM y no vuelve a entrar por dibujo. Es Ring 0: se decide con
+  el propietario. Pide antes G0 (el GSP 10 de 10) y E7 (el vigilante).
+  **Como se sabe:** en el metal, el coste del kernel por lote cae de
+  ~264 us a casi cero, y los fps de `bmox12.exe` suben.
+
+**Lo que puede fallar, dicho:**
+- Cyberpunk crea MILES de PSO: la primera vez cada uno se traduce (tirones
+  en la primera partida); la cache lo quita de la segunda en adelante.
+- Lo que el traductor a SASS aun no sabe (hoy un subconjunto; el computo no
+  llega todavia) va por la CPU: el paquete puede salir solo con .bex.
+- Si el traductor cambia, la cache vieja no vale: por eso la version va en
+  la clave, y se borra sola.
+- El paquete de un juego comprado es SUYO y de esta maquina: no se reparte.
+- Sin el kernel en medio, un sombreador que cuelga la 3060 no lo para nadie
+  si no existe E7: VC4 no va antes que el vigilante.
+
