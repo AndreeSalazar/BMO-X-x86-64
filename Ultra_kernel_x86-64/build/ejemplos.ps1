@@ -48,11 +48,10 @@ $dataBase = Join-Path $root 'staging\BMO-DATA'
 foreach ($d in @('sys', 'cobol', 'c', 'ada', 'inti', 'titan', 'datos', 'apps', 'informe', 'capturas', 'window')) {
     New-Item -ItemType Directory -Path (Join-Path $dataBase $d) -Force | Out-Null
 }
-# * Y dentro de cobol\, un nivel por carpeta. Ver el bloque de $cobolEjemplos
-# para por que el nombre es el numero a secas.
-foreach ($n in 1..10) {
-    New-Item -ItemType Directory -Path (Join-Path $dataBase ('cobol\' + $n)) -Force | Out-Null
-}
+# * Y dentro de cobol\, un nivel por carpeta (ver el bloque de $cobolEjemplos
+# para por que el nombre es el numero a secas). Esas las crea
+# `Compilar-Ejemplos`, una por fila: aqui habia `1..10` escrito a mano, y el
+# 03-10 llego `cobol\11` (BankCat) sin que nadie lo subiera a 11.
 $compositorBex = Join-Path $dataBase 'sys\d.bex'
 Push-Location (Split-Path -Parent $root)
 try {
@@ -651,7 +650,16 @@ function Compilar-Ejemplos {
     foreach ($e in $ejemplos) {
         $tallo = [System.IO.Path]::GetFileNameWithoutExtension($e.out)
         if ($tallo.Length -gt 8) { Fail ($e.out + ': el tallo no cabe en 8.3') }
-        $dst = Join-Path (Join-Path $dataBase $e.dir) $e.out
+        # ** La carpeta la crea la FILA, no una lista aparte (05-10). Habia un
+        # `1..10` para `cobol\N`; el 03-10 entro `cobol\11` (BankCat) y
+        # `libro.cob` no pudo escribirse. Y como el `Fail` de un fichero cargado
+        # con punto no paraba el build (ver `Fail` en comun.ps1), DESDE ESE DIA
+        # todo lo que va detras de COBOL --Ada, C++, C, INTI, TITAN++, los
+        # iconos, los datos y DOOM-- se dejo de construir sin que nadie lo
+        # viera, y el build dijo COMPLETE.
+        $carpeta = Join-Path $dataBase $e.dir
+        New-Item -ItemType Directory -Path $carpeta -Force | Out-Null
+        $dst = Join-Path $carpeta $e.out
         if ($PorObjeto) {
             # El `.bo` es intermedio y no vive en el espejo: lo que se despliega
             # es el programa, no la unidad con la que se hizo.
