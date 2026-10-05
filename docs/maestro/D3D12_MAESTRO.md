@@ -229,23 +229,50 @@ respuesta, con lo que la casa es hoy:
                  cientos de juegos de 64 bits
 ```
 
-Los escalones, de menos a mas:
+**Rehecha el 05-10: Cyberpunk deja de ser el escalon 2 y pasa a ser la
+VARA DE MEDIR.** La escalera del 03-10 iba de "los DirectX-Graphics-Samples"
+a Cyberpunk sin nada en medio, y decia que HelloTriangle y HelloTexture "ya
+pasan". Medido en el arbol, no era asi: el triangulo es `cubo12.exe`
+(nuestro), y de HelloTexture solo corre su CAMINO llamado a mano desde Rust
+(`proton-x-casa/tests/textura.rs`). Ningun `.exe` de Microsoft ha corrido en
+PROTON-X. Cada muro de Cyberpunk mezcla cinco capas (Win32, D3D12, DXIL, DLL
+de otros, rendimiento) y su codigo es cerrado: un solo nulo (`ffxDispatch`)
+costo diez corridas en el metal.
+
+La escalera entera, con sus reglas, sus casillas y la de LAS_TRES_GRANDES
+que prueba cada escalon, vive en
+[`PLAN_LA_ESCALERA_PROTON_X.md`](../plan/PLAN_LA_ESCALERA_PROTON_X.md). En
+corto, de menos a mas, UNA capa nueva por escalon y cada uno con la huella
+de su fotograma en Windows como juez:
 
 ```text
-   1  los DirectX-Graphics-Samples de Microsoft (gratis, 64 bits, sin DRM):
-      HelloTriangle y HelloTexture ya pasan; despues Bundles,
-      Multithreading, nBodyGravity (el COMPUTO y los UAV) y el ModelViewer
-      de MiniEngine (sombras, G-buffer, post-proceso). Se compilan una vez
-      en Windows y van al banco
-   2  Cyberpunk 2077 (GOG, DX12): el norte. Cada corrida dice lo que falta
-   3  lo que tiene el propietario, por medir (`dumpbin` en Windows dice la
-      API y los bits antes de intentarlo):
-        The Witcher 3 (GOG, 64 bits): DX11 y, desde la 4.0, DX12. Con DX12
-          es el escalon natural despues de Cyberpunk (el mismo estudio)
-        Baldur's Gate 3 (GOG, 64 bits): Vulkan y DX11; sin DX12. Espera a
-          D3D11 sobre la casa (o a Vulkan)
-        Alien: Isolation (Epic): DX11; la tienda de Epic y su lanzador,
-          por medir
+   E0  lo que ya hay: la base Win32 (hola..seh, tandas 1 a 48), el ABI
+       contado y el cubo (`cubo12.exe`) igual que en la 3060
+   E1  los Hello de Microsoft, el .exe DE VERDAD (MIT): Window, Triangle,
+       Texture, ConstBuffers, FrameBuffering, Bundles
+   E2  una casilla abierta, una muestra: Multithreading (H2.7),
+       DynamicIndexing (N5.4, el bindless), nBodyGravity (N5.5, el
+       COMPUTO), ExecuteIndirect (N5.17), SM6WaveIntrinsics (las olas),
+       HDR (N5.16), PredicationQueries (D5.5)
+   E3  el jefe intermedio: el ModelViewer de MiniEngine (MIT): un Cyberpunk
+       en miniatura con el codigo a la vista
+   E4  un motor ABIERTO con D3D12, por elegir con `rayosx`: Godot 4, Wicked
+       Engine o RBDOOM-3-BFG
+   E5  un juego CERRADO mas chico que Cyberpunk, de los del propietario
+   FINAL  Cyberpunk 2077 (GOG, DX12): el norte. Una corrida por escalon
+       cerrado, para ver hasta donde llega ya; no una por muro
+```
+
+Lo que tiene el propietario, por medir (`rayosx` en Windows dice la API y
+los bits antes de intentarlo), y donde cae:
+
+```text
+   The Witcher 3 (GOG, 64 bits)     DX11 y, desde la 4.0, DX12. Con DX12, el
+                                    candidato de E5 (el mismo estudio)
+   Baldur's Gate 3 (GOG, 64 bits)   Vulkan y DX11; sin DX12. Espera a D3D11
+                                    sobre la casa (o a Vulkan)
+   Alien: Isolation (Epic)          DX11; la tienda de Epic y su lanzador,
+                                    por medir
 ```
 
 La regla de la LUDOTECA sigue: GOG primero (sin DRM), y nada de terceros

@@ -2680,6 +2680,27 @@ driver de Windows VIVO al reiniciar, y la "tercera pista" de R3 se puede
 buscar comparando estos dos arranques. "Apagar" y esperar 15-30 s sigue
 siendo lo que nunca fallo; "Reiniciar" no corta la corriente de la tarjeta.
 
+- [ ] **G0 -- EL PISO: el GSP despierta 10 de 10** (pedido el 05-10: *"mi
+  GPU se despierta lo que le da la gana"*). Hasta hoy el `0x15` del booter no
+  tenia casilla: estaba escrito aqui y no salia en `ABIERTO.md`. Lo que ya
+  CAYO: H1 (el BSI, 25-09), W2 con ErP y apagando (29-09), H3 (la cache, el
+  `wbinvd` se queda). El patron del malo, siempre el mismo: GSP MAILBOX0/1
+  `0xBADF1002` (el booter dejo el falcon del GSP con su PLM cerrado) y la
+  WPR2 extendida. Lo que QUEDA, una variable por arranque y con la autopsia
+  que ya existe:
+  1. **W2 paso 1** (sin codigo): el inicio rapido de Windows apagado
+     (`powercfg /h off`), ErP puesto, y de Windows a BMO-X APAGAR, no
+     Reiniciar. Nunca se probo.
+  2. **H2, el tiempo** (sin codigo): los us del booter, que la autopsia ya
+     toma, en una tabla de buenos contra malos.
+  3. **H4, la imagen** (codigo chico, solo lectura): el BLAKE3 de la imagen
+     del GSP-RM JUSTO antes de soltar al booter; hoy solo se mira al cargar.
+  **Como se sabe:** diez arranques seguidos, viniendo de Windows y de BMO-X,
+  con el GSP-RM arriba en los diez (la fila `despierto` de `cabina`), y la
+  tabla de buenos y malos aqui con la variable que lo decidio. Es el piso de
+  la mitad 3060 de [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md)
+  (su regla R8).
+
 
 ### La electricidad de la 3060, a voluntad (pedido 03-10, para refinar)
 
