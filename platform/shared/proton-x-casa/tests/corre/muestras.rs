@@ -495,3 +495,22 @@ fn e2_2_dynamicindexing_cada_ciudad_lee_su_material_por_indice_dinamico() {
     assert!(franjas.last().unwrap().1 < 0.1 && franjas[0].1 > 0.8, "de rojo (cerca) a violeta (fondo): {franjas:?}");
     assert!(tramos.iter().all(|&n| n >= 1000), "los seis tramos del arcoiris: {tramos:?}");
 }
+
+/// **E2.3a, el COMPUTO** (N5.5, 05-10): `computo.exe` (`prueba/computo.cpp`,
+/// de consola) corre su CS de 64 hilos con memoria compartida y una barrera
+/// dos veces, en la cola DIRECTA (constantes en la raiz) y en una de COMPUTO
+/// que la espera con una valla (CBV en la raiz), y compara los 2 x 1024
+/// floats con su cuenta, bit a bit. El juez es el `.exe`: en Windows dice lo
+/// mismo. Probado que dice NO: con la barrera quitada del interprete, la
+/// mitad de cada grupo lee la compartida antes de que la escriban (128
+/// elementos distintos en cada Dispatch, y sale con 2).
+#[test]
+fn e2_3a_el_computo_con_memoria_compartida_y_barrera_da_los_bits_de_la_cuenta() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, COMPUTO, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
+    assert!(texto.ends_with("computo.exe: el computo de D3D12 es el de Windows\r\n[salio 0x0]"), "{texto}");
+}

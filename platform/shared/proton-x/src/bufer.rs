@@ -85,6 +85,69 @@ impl Bufer<'_> {
     }
 }
 
+/// **Un bufer visto por un UAV** (N5.5, 05-10): sus bytes, que el computo
+/// LEE y ESCRIBE (`RWStructuredBuffer`, `RWByteAddressBuffer`, `RWBuffer`).
+#[derive(Debug)]
+pub struct Uav<'a> {
+    pub bytes: &'a mut [u8],
+    /// El DXGI_FORMAT de una vista con tipo (0 si no tiene).
+    pub formato: u32,
+    /// El paso de una vista estructurada (0 si no lo es).
+    pub paso: u32,
+    /// Los elementos de la vista (en una cruda, palabras de 4 bytes).
+    pub elementos: u32,
+}
+
+/// Los formatos con 32 bits por canal (float, uint y sint de 4, 3, 2 y 1
+/// canales): los que un `RWBuffer` con tipo escribe aqui tal cual, palabra a
+/// palabra. Los demas (UNORM, 16 bits...) piden convertir: todavia no.
+fn canales_de_32(formato: u32) -> Option<usize> {
+    match formato {
+        2..=4 => Some(4),
+        6..=8 => Some(3),
+        16..=18 => Some(2),
+        41..=43 => Some(1),
+        _ => None,
+    }
+}
+
+impl Uav<'_> {
+    /// Lo que se lee de el, con las reglas de un SRV ([`Bufer::cargar`]).
+    pub fn cargar(&self, modo: Modo, i: u32, desp: u32) -> [u32; 4] {
+        Bufer { bytes: self.bytes, formato: self.formato, paso: self.paso, elementos: self.elementos }.cargar(modo, i, desp)
+    }
+
+    /// **`Store`**: los canales de `v` que dice `mascara` (bit 0 el primero),
+    /// en el elemento `i` (en uno crudo, el byte `i`) y `desp` bytes dentro de
+    /// el en uno estructurado. Fuera de la vista no se escribe nada (D3D12:
+    /// una escritura fuera de un UAV se pierde).
+    pub fn escribir(&mut self, modo: Modo, i: u32, desp: u32, v: [u32; 4], mascara: u8) {
+        let (desde, hasta, canales) = match modo {
+            Modo::Estructurado if self.paso == 0 || i >= self.elementos => return,
+            Modo::Estructurado => {
+                let base = i as u64 * self.paso as u64;
+                (base + desp as u64, base + self.paso as u64, 4)
+            }
+            Modo::Crudo => (i as u64 + desp as u64, self.elementos as u64 * 4, 4),
+            Modo::Tipado => {
+                let Some(n) = canales_de_32(self.formato) else { return };
+                if i >= self.elementos {
+                    return;
+                }
+                let base = i as u64 * 4 * n as u64;
+                (base, base + 4 * n as u64, n)
+            }
+        };
+        let hasta = hasta.min(self.bytes.len() as u64);
+        for (k, palabra) in v.iter().enumerate().take(canales) {
+            let o = desde + 4 * k as u64;
+            if mascara & (1 << k) != 0 && o + 4 <= hasta {
+                self.bytes[o as usize..o as usize + 4].copy_from_slice(&palabra.to_le_bytes());
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -92,6 +155,21 @@ mod pruebas {
 
     fn bytes(v: &[u32]) -> Vec<u8> {
         v.iter().flat_map(|x| x.to_le_bytes()).collect()
+    }
+
+    #[test]
+    fn un_uav_escribe_lo_de_su_mascara_y_nada_fuera_de_su_vista() {
+        let mut b = bytes(&[0; 8]);
+        let mut u = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 2 };
+        u.escribir(Modo::Estructurado, 1, 0, [1, 2, 3, 4], 0b0101);
+        u.escribir(Modo::Estructurado, 2, 0, [9; 4], 0xF); // fuera: se pierde
+        u.escribir(Modo::Estructurado, 0, 8, [7, 8, 9, 9], 0xF); // del 8 al 16: dos
+        assert_eq!(u.cargar(Modo::Estructurado, 1, 0), [1, 0, 3, 0]);
+        assert_eq!(u.cargar(Modo::Estructurado, 0, 0), [0, 0, 7, 8], "no pisa el elemento de al lado");
+        let mut c = bytes(&[0; 4]);
+        let mut t = Uav { bytes: &mut c, formato: 41, paso: 0, elementos: 4 }; // R32_FLOAT
+        t.escribir(Modo::Tipado, 2, 0, [5, 6, 7, 8], 0xF);
+        assert_eq!(t.cargar(Modo::Crudo, 8, 0), [5, 0, 0, 0], "un R32: una palabra por elemento");
     }
 
     #[test]

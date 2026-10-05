@@ -159,7 +159,10 @@ pub(crate) unsafe fn uav(d: *const u8) -> Result<Vista, &'static str> {
     let (formato, dimension) = (u32_(d, 0), u32_(d, 4));
     let mut v = Vista { dimension, formato, mapeo: MAPEO, ..Vista::default() };
     match dimension {
-        1 => v.elemento = u64_(d, 8),
+        // D3D12_BUFFER_UAV (N5.5, 05-10): FirstElement, NumElements,
+        // StructureByteStride, CounterOffsetInBytes y Flags (RAW = 1), como el
+        // SRV de bufer: el computo lo escribe.
+        1 => (v.elemento, v.elementos, v.paso, v.crudo) = (u64_(d, 8), u32_(d, 16), u32_(d, 20), u32_(d, 32) & 1 != 0),
         2 | 4 => v.mip = u32_(d, 8),
         3 | 5 => (v.mip, v.capa) = (u32_(d, 8), u32_(d, 12)),
         6 => {}

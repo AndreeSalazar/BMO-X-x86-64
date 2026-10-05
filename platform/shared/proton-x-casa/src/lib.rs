@@ -76,6 +76,7 @@ pub mod pulso;
 pub mod d3d12_lista2;
 pub mod fallas;
 pub mod d3d12_resto;
+mod computo;
 pub mod dxgi_resto;
 pub mod d3d12_capacidades;
 pub mod d3d12_dispositivos;

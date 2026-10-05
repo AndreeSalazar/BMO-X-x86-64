@@ -184,6 +184,16 @@ Cada muestra vive en su carpeta del volumen, `window/<muestra>/` (todas
 llaman igual a sus `.cso`): `ejemplos.ps1` la copia asi, y el guardian PX2
 lo sabe desde hoy. Las cinco pedian a la casa UNA sola funcion, la misma:
 `CreateFile2` (con ella leen sus `.cso`).
+**Lo que dijo el METAL (05-10, el propietario con `dynindex.exe`):** el
+`.exe` arranca y aborta (`terminate called after throwing an instance of
+'std::exception'`, sale con 3): no encuentra `shader_mesh_simple_vert.cso`.
+No es la casa: el FAT32 de BMO-X busca por el nombre CORTO (8.3) y se salta
+las entradas de nombre largo (`fat32/src/buscar.rs`), y los `.cso` de las
+muestras tienen nombres largos -- tambien los de E1.2 a E1.6
+(`shaders_VSMain.cso`). Dos salidas: la carpeta de la muestra en `D:`
+(NTFS, solo lectura, que si lee nombres largos), o que el FAT32 los lea
+(Ring 0: se decide con el propietario). Los `.exe` nuestros no lo sufren:
+`computo.exe` lleva su sombreador dentro.
 
 - [x] **E1.2 -- HelloTriangle, el `.exe` de verdad** (05-10, en el banco;
   falta verlo en el metal). Lo que el cubo no pide: `d3dx12.h`, ComPtr, el
@@ -237,12 +247,28 @@ muestra.
   atascado. La imagen, a ojo, es la de la captura de Microsoft. Bit a bit
   no se puede (muestreo LINEAL): falta la de Windows a 1280x720 para
   compararla con su margen.
-- [ ] **E2.3 -- D3D12nBodyGravity.** El COMPUTO (N5.5), los UAV (N5.3c), la
-  cola de computo y la valla entre colas (D5.1, D5.2). Por confirmar con su
-  fuente antes de empezar: si dibuja las particulas con un geometry shader;
-  si la casa no lo tiene, es una casilla mas, y se dice aqui. **Como se
-  sabe:** su huella tras N pasos, con su margen (R3): son floats sumados en
-  otro orden que la 3060, y eso no da los mismos bits.
+- [x] **E2.3a -- el COMPUTO, con un juez nuestro** (05-10, en el banco;
+  falta verlo en el metal y en Windows). Antes de nBodyGravity, su capa
+  sola (R1): `prueba/computo.exe` (`computo.cpp`, de consola) corre un CS
+  de 64 hilos que se pasan sus datos por la memoria COMPARTIDA con una
+  BARRERA en medio, dos veces: en la cola directa (constantes en la raiz) y
+  en una cola de COMPUTO que la espera con una VALLA (un CBV en la raiz). La
+  casa ya lo corre: N5.5 en el crate (el interprete se para en cada barrera
+  y sigue grupo a grupo) y en la casa (`SetComputeRoot*`, `Dispatch`
+  apuntado y corrido al ejecutar, los UAV de bufer de las tablas). **Como
+  se sabe:** el `.exe` compara los 2 x 1024 floats con su cuenta, BIT A BIT
+  (todo exacto en float: la 3060 tiene que dar lo mismo), y en Windows dice
+  lo mismo; probado que dice NO sin la barrera.
+- [ ] **E2.3b -- D3D12nBodyGravity.** Confirmado con su fuente (05-10):
+  dibuja las 10.000 particulas con un GEOMETRY SHADER (`ParticleDraw_GS.cso`,
+  un punto a un cuadro) que la casa no tiene: es su casilla. Calcula en
+  UN hilo suyo (`ThreadCount` = 1) con su cola de computo y vallas entre
+  colas (D5.1, D5.2), y pregunta `D3D12_OPTIONS12` (las barreras nuevas)
+  con ThrowIfFailed: la casa tiene que contestar, y con
+  `EnhancedBarriersSupported` = FALSE va por las de siempre. Pide tambien
+  los UAV que faltan (N5.3c). **Como se sabe:** su huella tras N pasos, con
+  su margen (R3): son floats sumados en otro orden que la 3060, y eso no da
+  los mismos bits.
 - [ ] **E2.4 -- D3D12ExecuteIndirect.** `ExecuteIndirect` (la otra mitad de
   N5.17) y su culling por computo (pide E2.3). **Como se sabe:** su huella,
   igual, con el culling encendido y apagado.
@@ -307,13 +333,13 @@ se mide con R5: una corrida por escalon cerrado.
    casilla de LAS_TRES_GRANDES             su escalon
    D5.7   la cadena de intercambio          E1.1
    D2.3   Map persistente (UPLOAD)          E1.4
-   D5.2   vallas                            E1.5, E2.3
+   D5.2   vallas                            E1.5, E2.3a (entre colas), E2.3b
    N5.17  ExecuteBundle / ExecuteIndirect   E1.6, E2.4
    H2.7   listas desde varios hilos         E2.1
    N5.4   el indice dinamico (bindless)     E2.2
-   N5.5   el COMPUTO                        E2.3
-   N5.3c  los UAV                           E2.3
-   D5.1   la cola de computo                E2.3
+   N5.5   el COMPUTO                        E2.3a (hecho), E2.3b
+   N5.3c  los UAV                           E2.3a (de bufer), E2.3b
+   D5.1   la cola de computo                E2.3a (hecho), E2.3b
    D4.3   las olas de verdad                E2.5
    N5.16  render targets de float           E2.6
    D5.5   consultas                         E2.7

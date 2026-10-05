@@ -40,6 +40,8 @@ pub struct Ranuras {
     /// No ocupan ranura de textura: la textura se busca al correr
     /// (`Op::EligeTextura`, `textura::Dinamicas`).
     pub dinamicas: Vec<Lugar>,
+    /// N5.5 (05-10): los UAV de bufer que lee o escribe el computo.
+    pub uavs: Vec<Lugar>,
 }
 
 /// **Lo que [`Ranuras::unir`] devuelve**: por ranura de las otras, su
@@ -50,6 +52,7 @@ pub struct Mapa {
     pub muestreadores: Vec<u8>,
     pub cbuffers: Vec<u8>,
     pub dinamicas: Vec<u8>,
+    pub uavs: Vec<u8>,
 }
 
 impl Ranuras {
@@ -80,6 +83,11 @@ impl Ranuras {
         Self::de(&mut self.cbuffers, Lugar { espacio, registro, vista: 0 })
     }
 
+    /// N5.5: la del UAV.
+    pub fn uav(&mut self, espacio: u32, registro: u32) -> Result<u8, NoPrograma> {
+        Self::de(&mut self.uavs, Lugar { espacio, registro, vista: 0 })
+    }
+
     /// N5.4: el rango dinamico que empieza en `registro` de `espacio`.
     pub fn dinamica(&mut self, espacio: u32, registro: u32) -> Result<u8, NoPrograma> {
         Self::de(&mut self.dinamicas, Lugar { espacio, registro, vista: 0 })
@@ -87,7 +95,7 @@ impl Ranuras {
 
     /// **Las de la etapa `vista`**: todas pasan a ser de ella.
     pub fn de_la_etapa(mut self, vista: u32) -> Ranuras {
-        for l in self.texturas.iter_mut().chain(self.muestreadores.iter_mut()).chain(self.cbuffers.iter_mut()).chain(self.dinamicas.iter_mut()) {
+        for l in self.texturas.iter_mut().chain(self.muestreadores.iter_mut()).chain(self.cbuffers.iter_mut()).chain(self.dinamicas.iter_mut()).chain(self.uavs.iter_mut()) {
             l.vista = vista;
         }
         self
@@ -103,6 +111,7 @@ impl Ranuras {
             muestreadores: sumar(&mut self.muestreadores, &otras.muestreadores)?,
             cbuffers: sumar(&mut self.cbuffers, &otras.cbuffers)?,
             dinamicas: sumar(&mut self.dinamicas, &otras.dinamicas)?,
+            uavs: sumar(&mut self.uavs, &otras.uavs)?,
         })
     }
 }
@@ -124,6 +133,7 @@ impl Programa {
                     *s = a(&m.muestreadores, *s);
                 }
                 Op::EligeTextura { rango, .. } => *rango = a(&m.dinamicas, *rango),
+                Op::EscribeUav { u, .. } | Op::LeeUav { u, .. } => *u = a(&m.uavs, *u),
                 Op::Constantes { cb, .. } | Op::ConstantesEn { cb, .. } => *cb = a(&m.cbuffers, *cb),
                 _ => {}
             }

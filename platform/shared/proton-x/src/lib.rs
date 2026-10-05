@@ -147,6 +147,8 @@ mod pruebas_saltos;
 #[cfg(test)]
 mod pruebas_espacios;
 #[cfg(test)]
+mod pruebas_computo;
+#[cfg(test)]
 mod pruebas_pixeles;
 #[cfg(test)]
 mod pruebas_nulo;

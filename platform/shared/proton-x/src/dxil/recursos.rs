@@ -109,6 +109,19 @@ pub fn de_psv0(p: &[u8]) -> Option<Vec<Recurso>> {
     Some(v)
 }
 
+/// **Los hilos de un grupo** (N5.5, 05-10): `[numthreads(x, y, z)]` de un
+/// sombreador de computo. La PSV0 lo trae desde su `PSVRuntimeInfo2` (36
+/// bytes de la cabecera, y luego x, y, z); antes, o en otra etapa (la de la
+/// cabecera, en su byte 24, no es 5), [0; 3]. Medido con dxc 1.9:
+/// `computo.dxil` da 52 bytes de cabecera, etapa 5 y (64, 1, 1).
+pub fn hilos_de_psv0(p: &[u8]) -> [u32; 3] {
+    let cabecera = u32_en(p, 0).unwrap_or(0) as usize;
+    if cabecera < 48 || p.get(4 + 24) != Some(&5) {
+        return [0; 3];
+    }
+    [u32_en(p, 4 + 36).unwrap_or(0), u32_en(p, 4 + 40).unwrap_or(0), u32_en(p, 4 + 44).unwrap_or(0)]
+}
+
 /// **El recurso `rango` de la clase `clase`** (lo que dice `createHandle`).
 pub fn rango(recursos: &[Recurso], clase: u8, rango: u32) -> Option<Recurso> {
     recursos.iter().filter(|r| r.clase == clase).nth(rango as usize).copied()

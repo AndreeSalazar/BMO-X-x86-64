@@ -110,6 +110,13 @@ const DX_SAMPLE_GRAD: i64 = 63;
 const DX_TEXTURE_LOAD: i64 = 66;
 const DX_GET_DIMENSIONS: i64 = 72;
 const DX_BUFFER_LOAD: i64 = 68;
+// N5.5 (05-10): el computo.
+const DX_BUFFER_STORE: i64 = 69;
+const DX_BARRIER: i64 = 80;
+const DX_THREAD_ID: i64 = 93;
+const DX_GROUP_ID: i64 = 94;
+const DX_THREAD_ID_IN_GROUP: i64 = 95;
+const DX_FLATTENED_THREAD_ID_IN_GROUP: i64 = 96;
 const DX_DISCARD: i64 = 82;
 /// Las filas de 16 bytes que puede tener un cbuffer en D3D (64 KiB).
 const FILAS_DE_D3D: u16 = 4096;
@@ -174,6 +181,25 @@ pub enum Op {
     /// esa. Va justo delante de cada una: dos arrays en el mismo sombreador
     /// no se pisan.
     EligeTextura { i: Reg, rango: u8 },
+    /// N5.5 (05-10): un id del hilo de computo, en bits: `que` 0
+    /// SV_DispatchThreadID, 1 SV_GroupID, 2 SV_GroupThreadID (su componente
+    /// `c`), 3 SV_GroupIndex.
+    IdHilo { d: Reg, que: u8, c: u8 },
+    /// N5.5: `GroupMemoryBarrierWithGroupSync` y su familia: ningun hilo del
+    /// grupo sigue hasta que todos llegan aqui (el interprete PARA el hilo y
+    /// corre los demas).
+    Barrera,
+    /// N5.5: la memoria compartida del GRUPO (`groupshared`): la palabra
+    /// `base + i` (de `n`; fuera, 0 al leer y nada al escribir).
+    LeeCompartida { d: Reg, base: u32, n: u32, i: Reg },
+    EscribeCompartida { base: u32, n: u32, i: Reg, s: Reg },
+    /// N5.5: `bufferStore` al UAV de la ranura `u`: el elemento `i`, `desp`
+    /// bytes dentro de el (estructurado), los canales de `v` que dice
+    /// `mascara`.
+    EscribeUav { u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg, v: [Reg; 4], mascara: u8 },
+    /// N5.5: `bufferLoad` de un UAV (`RWStructuredBuffer`...): como
+    /// `Lectura::Bufer`, pero del UAV `u`.
+    LeeUav { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg },
     /// 02-10: leer una textura con lo que `Muestra` (2D, la mip de la
     /// vista) no dice: `Sample` con mas coordenadas (arrays, cubos, 3D) o
     /// desplazado, `SampleLevel`, `SampleBias` y `SampleGrad` (sin su sesgo
@@ -387,6 +413,18 @@ pub struct Programa {
     /// (03-10, N5.1): el `t` y el `s` de [`Op::Lee`] y [`Op::Muestra`] son
     /// su POSICION aqui, no un registro.
     pub ranuras: Ranuras,
+    /// N5.5: lo de un sombreador de computo.
+    pub computo: Computo,
+}
+
+/// **Lo de un sombreador de computo** (N5.5, 05-10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Computo {
+    /// Los hilos de un grupo (`[numthreads(x, y, z)]`); [0; 3] si no es de
+    /// computo.
+    pub hilos: [u32; 3],
+    /// Las palabras de 4 bytes de su memoria compartida (`groupshared`).
+    pub compartida: u32,
 }
 
 /// **Como lee una textura** [`Op::Lee`].
@@ -419,7 +457,7 @@ impl Programa {
     /// N5.12: el que no hace nada (el de pixeles de un PSO sin el: solo
     /// profundidad, las sombras).
     pub fn vacio() -> Programa {
-        Programa { ops: Vec::new(), iniciales: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, ranuras: Ranuras::default() }
+        Programa { ops: Vec::new(), iniciales: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, ranuras: Ranuras::default(), computo: Computo::default() }
     }
 
     /// **Correr el sombreador una vez.** `entradas` y `salidas` por el id del
@@ -635,6 +673,13 @@ pub(super) enum Valor {
     /// como se direcciona.
     Bufer(u8, crate::bufer::Modo),
     Muestreador(u8),
+    /// N5.5: el handle de un UAV de bufer: su ranura y como se direcciona.
+    Uav(u8, crate::bufer::Modo),
+    /// N5.5: un array `groupshared`: `n` palabras desde la `base` de la
+    /// memoria compartida del grupo, si son enteros, y su tipo.
+    Compartida { base: u32, n: u32, enteros: bool, tipo: u32 },
+    /// N5.5: un puntero dentro de el: el indice, en un registro.
+    PunteroCompartido { base: u32, n: u32, i: Reg, enteros: bool },
     /// Una funcion del modulo (su indice en `funciones`).
     Funcion(usize),
     /// N5.10: un array (`alloca` o global): sus `n` registros desde `base`
@@ -699,6 +744,8 @@ pub(super) struct Compilador {
     /// constantes enteras que hicieron falta como registro.
     pub(super) bloques: super::estructura::Bloques,
     pub(super) literales: Vec<(u32, Reg)>,
+    /// N5.5: las palabras de memoria compartida ya repartidas.
+    pub(super) compartida: u32,
 }
 
 impl Compilador {
@@ -779,7 +826,7 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     let tipos = tipos(m);
     let floats = tipos_float(m);
     let anchos = super::enteros::anchos(m);
-    let mut c = Compilador { valores: Vec::new(), iniciales: Vec::new(), ops: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, recursos: s.recursos.clone(), ranuras: Ranuras::default(), bloques: Default::default(), literales: Vec::new() };
+    let mut c = Compilador { valores: Vec::new(), iniciales: Vec::new(), ops: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, recursos: s.recursos.clone(), ranuras: Ranuras::default(), bloques: Default::default(), literales: Vec::new(), compartida: 0 };
 
     // 1. Los globales, en el orden de sus registros (N5.10: las variables,
     //    apuntadas para cuando esten sus iniciales).
@@ -838,7 +885,7 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     }
     // E6b: con saltos, el grafo de bloques vuelve a ser `si` y bucles.
     super::estructura::armar(&mut c)?;
-    Ok(Programa { ops: c.ops, iniciales: c.iniciales, entradas: c.entradas, salidas: c.salidas, lee: c.lee, filas_cb: c.filas_cb, ranuras: c.ranuras })
+    Ok(Programa { ops: c.ops, iniciales: c.iniciales, entradas: c.entradas, salidas: c.salidas, lee: c.lee, filas_cb: c.filas_cb, ranuras: c.ranuras, computo: Computo { hilos: s.hilos, compartida: c.compartida } })
 }
 
 /// Lee operandos de un registro de instruccion: relativos o absolutos, y si
@@ -1015,6 +1062,41 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                 Valor::Nada
             }
         }
+        // N5.5: los ids del hilo de computo.
+        DX_THREAD_ID | DX_GROUP_ID | DX_THREAD_ID_IN_GROUP | DX_FLATTENED_THREAD_ID_IN_GROUP => {
+            let que = (op - DX_THREAD_ID) as u8;
+            let comp = if op == DX_FLATTENED_THREAD_ID_IN_GROUP { 0 } else { c.entero(arg(1)?)? };
+            if !(0..3).contains(&comp) {
+                return Err(NoPrograma::Forma("un id de hilo con un componente que no es x, y ni z"));
+            }
+            let d = c.registro(0.0)?;
+            c.ops.push(Op::IdHilo { d, que, c: comp as u8 });
+            Valor::Bits(d)
+        }
+        // N5.5: la barrera del grupo (con cualquier modo: la de la memoria
+        // del grupo, la de los UAV, o las dos; todas esperan a todos).
+        DX_BARRIER => {
+            c.ops.push(Op::Barrera);
+            Valor::Nada
+        }
+        // N5.5: `bufferStore(uav, coord0, coord1, v0, v1, v2, v3, mascara)`.
+        DX_BUFFER_STORE => {
+            let Some(Valor::Uav(u, modo)) = c.valores.get(arg(1)?).copied() else {
+                return Err(NoPrograma::Forma("BufferStore sin el handle de un UAV de bufer"));
+            };
+            let cero = super::estructura::literal(c, 0)?;
+            let i = super::estructura::bits(c, arg(2)?)?;
+            let desp = if matches!(c.valores.get(arg(3)?), Some(Valor::Indefinido) | None) { cero } else { super::estructura::bits(c, arg(3)?)? };
+            let mut v = [cero; 4];
+            for (k, r) in v.iter_mut().enumerate() {
+                if !matches!(c.valores.get(arg(4 + k)?), Some(Valor::Indefinido) | None) {
+                    *r = super::estructura::bits(c, arg(4 + k)?)?;
+                }
+            }
+            let mascara = c.entero(arg(8)?)? as u8;
+            c.ops.push(Op::EscribeUav { u, modo, i, desp, v, mascara });
+            Valor::Nada
+        }
         // N5.7: `discard(i1 c)`; `clip(x)` llega como `discard(x < 0)`, y un
         // `discard` a secas, con un `i1 true` (un literal).
         DX_DISCARD => {
@@ -1061,7 +1143,13 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                     }
                 }
                 3 => Valor::Muestreador(c.ranuras.muestreador(espacio, registro)?),
-                _ => return Err(NoPrograma::Forma("un UAV (RWTexture, RWBuffer...): todavia no")),
+                // N5.5: los UAV de BUFER (RWStructuredBuffer, RWByteAddress
+                // Buffer, RWBuffer); los de textura, todavia no.
+                1 => match super::recursos::rango(&c.recursos, 1, rango as u32).and_then(|r| r.modo_de_bufer()) {
+                    Some(modo) => Valor::Uav(c.ranuras.uav(espacio, registro)?, modo),
+                    None => return Err(NoPrograma::Forma("un UAV de TEXTURA (RWTexture2D...): todavia no (N5.3c)")),
+                },
+                _ => return Err(NoPrograma::Forma("un createHandle de una clase que no existe")),
             }
         }
         DX_CBUFFER_LOAD_LEGACY => {
@@ -1134,8 +1222,17 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
         DX_BUFFER_LOAD => {
             // (srv, indice, desplazamiento): el desplazamiento solo lo trae
             // uno estructurado; en los demas es `undef`.
+            // N5.5: de un UAV (RWStructuredBuffer leido), por su lado.
+            if let Some(Valor::Uav(u, modo)) = c.valores.get(arg(1)?).copied() {
+                let cero = super::estructura::literal(c, 0)?;
+                let i = super::estructura::bits(c, arg(2)?)?;
+                let desp = if matches!(c.valores.get(arg(3)?), Some(Valor::Indefinido) | None) { cero } else { super::estructura::bits(c, arg(3)?)? };
+                let d = cuatro(c)?;
+                c.ops.push(Op::LeeUav { d, u, modo, i, desp });
+                return Ok(if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) });
+            }
             let Some(Valor::Bufer(t, modo)) = c.valores.get(arg(1)?).copied() else {
-                return Err(NoPrograma::Forma("BufferLoad sin el handle de un bufer (un UAV: todavia no)"));
+                return Err(NoPrograma::Forma("BufferLoad sin el handle de un bufer"));
             };
             let cero = super::estructura::literal(c, 0)?;
             let indice = super::estructura::bits(c, arg(2)?)?;

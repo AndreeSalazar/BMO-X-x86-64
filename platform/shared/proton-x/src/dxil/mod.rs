@@ -29,6 +29,9 @@ pub mod bits;
 pub mod programa;
 /// Los recursos de un sombreador con su espacio, de su PSV0 (03-10).
 pub mod ranuras;
+/// El COMPUTO en la CPU: un Dispatch, grupo a grupo y barrera a barrera
+/// (N5.5, 05-10).
+pub mod computo;
 pub mod recursos;
 /// E6 (02-10): programas de muestra con `si` y bucles (el banco del emisor).
 pub mod ejemplos;
@@ -138,6 +141,10 @@ pub struct Sombreador {
     /// Sus recursos con su espacio (de la parte PSV0, 03-10); vacio si no la
     /// trae (FXC no la pone).
     pub recursos: Vec<recursos::Recurso>,
+    /// N5.5 (05-10): los hilos de un grupo de un sombreador de COMPUTO
+    /// (`[numthreads(x, y, z)]`), de su PSV0; [0; 3] si no es de computo o
+    /// no lo dice.
+    pub hilos: [u32; 3],
 }
 
 fn u32_en(d: &[u8], o: usize) -> Option<u32> {
@@ -314,6 +321,7 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
     let mut partes = Vec::with_capacity(n);
     let (mut entradas, mut salidas, mut programa, mut shex) = (Vec::new(), Vec::new(), None, None);
     let mut tabla = Vec::new();
+    let mut hilos = [0u32; 3];
     for i in 0..n {
         let o = u32_en(d, 32 + 4 * i).ok_or(NoSombreador::Contenedor("una parte sin desplazamiento"))? as usize;
         let cc: [u8; 4] = d.get(o..o + 4).and_then(|b| b.try_into().ok()).ok_or(NoSombreador::Contenedor("una parte fuera"))?;
@@ -326,7 +334,10 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
             b"OSGN" => salidas = firma(p, false)?,
             b"DXIL" => programa = Some(p),
             b"SHEX" | b"SHDR" => shex = Some(p),
-            b"PSV0" => tabla = recursos::de_psv0(p).ok_or(NoSombreador::Contenedor("una PSV0 que no se lee"))?,
+            b"PSV0" => {
+                tabla = recursos::de_psv0(p).ok_or(NoSombreador::Contenedor("una PSV0 que no se lee"))?;
+                hilos = recursos::hilos_de_psv0(p);
+            }
             _ => {}
         }
         partes.push(cc);
@@ -340,7 +351,7 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
             return Err(NoSombreador::Contenedor("SHEX con una medida que no cuadra"));
         }
         let modulo = Modulo { productor: String::new(), funciones: Vec::new(), bloques: Vec::new() };
-        return Ok(Sombreador { etapa: etapa(version), modelo: ((version >> 4) & 0xF, version & 0xF), entradas, salidas, partes, modulo, sm5: Some(t), recursos: tabla });
+        return Ok(Sombreador { etapa: etapa(version), modelo: ((version >> 4) & 0xF, version & 0xF), entradas, salidas, partes, modulo, sm5: Some(t), recursos: tabla, hilos });
     }
     let p = programa.ok_or(NoSombreador::SinDxil)?;
     // Cabecera del programa: version (etapa << 16 | mayor << 4 | menor), medida
@@ -362,5 +373,6 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
         modulo: modulo(bloques)?,
         sm5: None,
         recursos: tabla,
+        hilos,
     })
 }

@@ -119,3 +119,11 @@ construir $D dynindex.exe
 sombreador $D dynindex shader_mesh_simple_vert vs_6_0 VSMain shader_mesh_simple_vert
 sombreador $D dynindex shader_mesh_dynamic_indexing_pixel ps_6_0 PSMain shader_mesh_dynamic_indexing_pixel
 datos $D dynindex occcity.bin
+
+# E2.3a: el juez del COMPUTO, NUESTRO y no de Microsoft (`../computo.cpp`,
+# de consola, con su CS de `../computo.dxil` dentro por `.incbin`): las
+# mismas cabeceras y el mismo UCRT que las muestras.
+cp "$AQUI/../computo.cpp" "$AQUI/../computo.dxil" .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c computo.cpp -o computo.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o computo.exe computo.o -ld3d12
+sha256sum computo.exe

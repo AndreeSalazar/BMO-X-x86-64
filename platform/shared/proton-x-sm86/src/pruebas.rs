@@ -150,7 +150,7 @@ fn cada_operacion_emitida_da_los_bits_de_la_casa() {
     let mut iniciales = std::vec![0.0f32; 42];
     iniciales[40] = 0.75;
     iniciales[41] = -3.5;
-    let p = Programa { ops: ops.into_iter().chain(salidas).collect(), iniciales, entradas: 1, salidas: 5, lee: 1, filas_cb: 1, ranuras: Default::default() };
+    let p = Programa { ops: ops.into_iter().chain(salidas).collect(), iniciales, entradas: 1, salidas: 5, lee: 1, filas_cb: 1, ranuras: Default::default(), computo: Default::default() };
     let e = emitir(&p, TECHO).unwrap();
     assert_eq!(e.mufus, 2);
     let raros = [0.0f32, -0.0, 1.0, -1.0, 2.5, -7.25, 1.0e-40, -1.0e-40, f32::INFINITY, f32::NEG_INFINITY, f32::NAN, 3.0e38, 0.3];

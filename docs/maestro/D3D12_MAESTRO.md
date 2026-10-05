@@ -158,10 +158,12 @@ Cada fila es un `aviso` de la casa, con la casilla del plan
 Cyberpunk:
 
 ```text
-   Dispatch (el COMPUTO): se dice y se salta          N5.5  la luz, las sombras
-                                                            y el post-proceso
-   un UAV (RWTexture, RWBuffer), y los SRV/UAV de      N5.3b/c
-   la raiz: el sombreador no los ve
+   Dispatch (el COMPUTO): corre en la CPU desde el     N5.5  la luz, las sombras
+   05-10 (E2.3a), con memoria compartida, barreras           y el post-proceso
+   y UAV de bufer; la 3060 aun no
+   un UAV de TEXTURA (RWTexture), un UAV en el de      N5.3b/c
+   pixeles, ClearUnorderedAccessView y los SRV/UAV
+   de la raiz: el sombreador no los ve
    Draw con varias INSTANCIAS: dibuja una              (nueva) el follaje, la
                                                             gente, los coches
    IASetVertexBuffers fuera de la ranura 0             (nueva) las mallas con

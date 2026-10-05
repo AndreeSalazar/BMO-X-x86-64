@@ -828,6 +828,8 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             // CPU todavia (la 3060 lee aqui un TEX 2D de nivel 0).
             // N5.4: elegir la textura al correr, la 3060 todavia no.
             Op::Lee { .. } | Op::EligeTextura { .. } => return Err(NoEmite::Operacion(i)),
+            // N5.5: el computo, todavia no en la 3060 (va por la CPU).
+            Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } => return Err(NoEmite::Operacion(i)),
             // N5.6: sin, cos, exp2, log2... (MUFU) todavia no: va por la CPU.
             Op::Mate { .. } => return Err(NoEmite::Operacion(i)),
             // N5.7: `discard` (el KILL de la 3060) todavia no: va por la CPU.

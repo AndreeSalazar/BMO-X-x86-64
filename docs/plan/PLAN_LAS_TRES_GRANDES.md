@@ -961,6 +961,21 @@ La ESCALERA de juegos (por que DX9 y Left 4 Dead 2 no) esta en su seccion
   post-proceso; sin el, la imagen sale pero a medias. Primero en la CPU
   (el mismo interprete, con UAV de N5.3c y `SV_DispatchThreadID`), luego
   en la 3060.
+  **En la CPU ya (05-10, E2.3a de la ESCALERA):** el CS se compila al crear
+  el PSO (`dxil::computo::preparar`; `numthreads` de la PSV0), y `Dispatch`
+  se apunta en la lista con el estado de COMPUTO (su raiz es otra que la
+  de dibujo: `SetComputeRootSignature`, tablas, CBV y constantes) y corre
+  al ejecutarla: grupo a grupo, cada hilo hasta su BARRERA
+  (`GroupMemoryBarrierWithGroupSync`: el interprete se para y sigue), con
+  la memoria COMPARTIDA del grupo (`groupshared`, addrspace 3), los cuatro
+  ids del hilo y los UAV de BUFER de las tablas (`bufferStore` y
+  `bufferLoad`: estructurados, crudos y tipados de 32 bits por canal). Una
+  cola de computo y la valla entre colas, tambien. Probado con
+  `prueba/computo.dxil` en el crate y con `computo.exe` en el banco, bit a
+  bit. Queda: los UAV de TEXTURA y
+  `ClearUnorderedAccessView` (N5.3c), las vistas en la RAIZ (N5.3b), las
+  atomicas, y la 3060 (el emisor no lo sabe: va por la CPU, y cada grupo
+  en un hilo es lo siguiente de EXPRIMIR).
 - [ ] **N6.1 -- a la 3060 lo que hoy va a la CPU**: SV_VertexID y
   SV_InstanceID, los formatos de vertice que no son float de 32 bits
   (`proton-x-sm86/src/pso.rs`, `NoVa::Entrada`: el pegamento los convierte

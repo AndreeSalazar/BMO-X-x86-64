@@ -904,6 +904,7 @@ fn los_opcodes_nativos_son_los_de_las_filas_sse_de_inti() {
         lee: 0,
         filas_cb: 0,
         ranuras: Default::default(),
+        computo: Default::default(),
     };
     let b = crate::nativo::compilar(&p).expect("sin texturas: se traduce");
     let (m, a) = (b.windows(3).position(|w| w == [0xF3, 0x0F, MULSS]).unwrap(), b.windows(3).position(|w| w == [0xF3, 0x0F, ADDSS]).unwrap());

@@ -12,6 +12,50 @@ use alloc::vec::Vec;
 
 use super::programa::{raiz, saturar, Lectura, Op, Programa, Reg, ANIDADO_MAXIMO};
 
+/// **Donde se paro un hilo** (N5.5, 05-10): en una barrera, para seguir
+/// cuando lleguen los demas del grupo. Un pixel nunca se para.
+#[derive(Clone, Copy)]
+pub struct Pausa {
+    pc: usize,
+    bucles: [usize; ANIDADO_MAXIMO],
+    hondo: usize,
+    /// El rango y el registro del ultimo `EligeTextura` (N5.4): tras la
+    /// barrera se vuelve a buscar la misma textura.
+    elige: Option<(u8, u32)>,
+}
+
+impl Pausa {
+    /// La de un hilo que empieza.
+    pub const AL_EMPEZAR: Pausa = Pausa { pc: 0, bucles: [0; ANIDADO_MAXIMO], hondo: 0, elige: None };
+}
+
+/// **Por que se paro** un hilo.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Paro {
+    /// Acabo: si el pixel QUEDA (`false`, si un `Descarta` lo tiro).
+    Fin(bool),
+    /// Llego a una `Barrera`: sigue con [`Programa::correr_desde`].
+    Barrera,
+}
+
+/// **Los ids de un hilo de computo** (N5.5): SV_DispatchThreadID,
+/// SV_GroupID, SV_GroupThreadID y SV_GroupIndex.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Ids {
+    pub despacho: [u32; 3],
+    pub grupo: [u32; 3],
+    pub en_grupo: [u32; 3],
+    pub indice: u32,
+}
+
+/// **Lo que ve un hilo de computo** ademas de lo de un pixel: sus ids, la
+/// memoria compartida de su grupo y los UAV del despacho (por ranura).
+pub struct Grupo<'a, 'b> {
+    pub ids: Ids,
+    pub compartida: &'a mut [u32],
+    pub uavs: &'a mut [Option<crate::bufer::Uav<'b>>],
+}
+
 impl Programa {
     /// Desde el `Si` (o el `SiNo`) `i`: el indice tras su `SiNo` (si
     /// `hasta_sino`) o tras su `FinSi`.
@@ -50,13 +94,26 @@ impl Programa {
     pub fn correr_con(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) -> bool {
         regs.clear();
         regs.extend_from_slice(&self.iniciales);
-        let bits = |regs: &Vec<f32>, r: Reg| regs[r as usize].to_bits();
+        let mut p = Pausa::AL_EMPEZAR;
+        match self.correr_desde(&mut p, entradas, cb, rec, salidas, regs, None) {
+            Paro::Fin(queda) => queda,
+            // Una barrera fuera del computo no espera a nadie.
+            Paro::Barrera => true,
+        }
+    }
+
+    /// **Correr un hilo desde `p`** (N5.5): hasta el final, o hasta una
+    /// `Barrera` si es de computo (`grupo`); `p` queda donde se paro. Los
+    /// registros, `regs`, son los del hilo: quien llama los guarda entre
+    /// una barrera y la siguiente.
+    #[allow(clippy::too_many_arguments)]
+    pub fn correr_desde(&self, p: &mut Pausa, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut [f32], mut grupo: Option<&mut Grupo>) -> Paro {
+        let bits = |regs: &[f32], r: Reg| regs[r as usize].to_bits();
         // Donde empieza cada bucle abierto (la forma ya se comprobo).
-        let mut bucles = [0usize; ANIDADO_MAXIMO];
-        let mut hondo = 0usize;
-        // N5.4: la textura que eligio el ultimo `EligeTextura`.
-        let mut elegida: Option<crate::textura::Textura> = None;
-        let mut pc = 0usize;
+        let Pausa { mut pc, mut bucles, mut hondo, mut elige } = *p;
+        // N5.4: la textura que eligio el ultimo `EligeTextura` (la de antes
+        // de la barrera, si el hilo viene de una).
+        let mut elegida: Option<crate::textura::Textura> = elige.and_then(|(r, k)| rec.dinamica(r, k));
         while let Some(op) = self.ops.get(pc) {
             pc += 1;
             match *op {
@@ -95,7 +152,50 @@ impl Programa {
                 Op::Continuar => pc = bucles[hondo - 1],
                 Op::Descarta { c } => {
                     if bits(regs, c) != 0 {
-                        return false;
+                        return Paro::Fin(false);
+                    }
+                }
+                // N5.5: el computo.
+                Op::IdHilo { d, que, c } => {
+                    let v = grupo.as_deref().map_or(0, |g| match que {
+                        0 => g.ids.despacho[c as usize],
+                        1 => g.ids.grupo[c as usize],
+                        2 => g.ids.en_grupo[c as usize],
+                        _ => g.ids.indice,
+                    });
+                    regs[d as usize] = f32::from_bits(v);
+                }
+                Op::Barrera => {
+                    if grupo.is_some() {
+                        *p = Pausa { pc, bucles, hondo, elige };
+                        return Paro::Barrera;
+                    }
+                }
+                Op::LeeCompartida { d, base, n, i } => {
+                    let k = bits(regs, i);
+                    let v = grupo.as_deref().and_then(|g| (k < n).then(|| g.compartida.get((base + k) as usize).copied()).flatten()).unwrap_or(0);
+                    regs[d as usize] = f32::from_bits(v);
+                }
+                Op::EscribeCompartida { base, n, i, s } => {
+                    let (k, v) = (bits(regs, i), bits(regs, s));
+                    if let Some(x) = grupo.as_deref_mut().filter(|_| k < n).and_then(|g| g.compartida.get_mut((base + k) as usize)) {
+                        *x = v;
+                    }
+                }
+                Op::EscribeUav { u, modo, i, desp, v, mascara } => {
+                    let (k, o, v) = (bits(regs, i), bits(regs, desp), v.map(|r| bits(regs, r)));
+                    if let Some(Some(x)) = grupo.as_deref_mut().and_then(|g| g.uavs.get_mut(u as usize)) {
+                        x.escribir(modo, k, o, v, mascara);
+                    }
+                }
+                Op::LeeUav { d, u, modo, i, desp } => {
+                    let (k, o) = (bits(regs, i), bits(regs, desp));
+                    let v = match grupo.as_deref().and_then(|g| g.uavs.get(u as usize)) {
+                        Some(Some(x)) => x.cargar(modo, k, o),
+                        _ => [0; 4],
+                    };
+                    for (j, w) in v.into_iter().enumerate() {
+                        regs[d as usize + j] = f32::from_bits(w);
                     }
                 }
                 Op::ConstantesEn { d, fila, filas, i, .. } => {
@@ -158,7 +258,10 @@ impl Programa {
                     let (x, y) = (regs[a as usize], regs[b as usize]);
                     regs[d as usize] = if x.is_nan() || y > x { y } else { x };
                 }
-                Op::EligeTextura { i, rango } => elegida = rec.dinamica(rango, bits(regs, i)),
+                Op::EligeTextura { i, rango } => {
+                    elige = Some((rango, bits(regs, i)));
+                    elegida = rec.dinamica(rango, bits(regs, i));
+                }
                 Op::Muestra { d, t, s, u, v } => {
                     let (unica, solo);
                     let (rec, t) = if t == super::programa::DINAMICA {
@@ -206,6 +309,7 @@ impl Programa {
                 }
             }
         }
-        true
+        *p = Pausa { pc, bucles, hondo, elige };
+        Paro::Fin(true)
     }
 }

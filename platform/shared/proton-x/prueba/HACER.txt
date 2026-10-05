@@ -2135,3 +2135,51 @@ Reproducible (comprobado dos veces), sin rutas. sha256:
 `dxc -dumpbin`: dos createHandle con el indice calculado (%7 y %16), de los
 rangos 0 (m, t5 space1, unbounded) y 1 (f, t1, 3). El banco
 (`pruebas_espacios.rs`) lo corre con cuatro pares (i, j).
+
+computo.dxil -- un sombreador de COMPUTO con memoria compartida (05-10)
+
+N5.5 en el crate puro: `computo.hlsl` (aqui al lado), [numthreads(64, 1,
+1)]: cada hilo copia su elemento de un StructuredBuffer a la memoria
+COMPARTIDA del grupo (groupshared, addrspace 3), espera en la barrera
+(GroupMemoryBarrierWithGroupSync) y escribe en un RWStructuredBuffer el de
+su espejo (63 - gi) por la escala del cbuffer, con grupo * 1000 + hilo en la
+w; los de dt.x >= n no escriben. Con el DXC de la nube (v1.8.2505,
+9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSMain -Fo computo.dxil computo.hlsl
+
+Reproducible (comprobado dos veces), sin rutas. sha256:
+
+   bd01fa63cb6826164de10b4f81fd68a7c80ec51dcc6830dfb384fbd72d523ce0  computo.dxil
+
+Lo corre `pruebas_computo.rs` (el Dispatch en el crate, con un control
+negativo: sin la barrera, el espejo lee huecos) y va DENTRO de computo.exe.
+
+computo.exe -- E2.3a de la ESCALERA: el COMPUTO de D3D12, juzgado (05-10)
+
+NUESTRO, no de Microsoft: `computo.cpp` (aqui al lado), de consola, con el
+CS de computo.dxil dentro (`.incbin`). Lo corre dos veces: en la cola
+DIRECTA, con la tabla (SRV t0 + UAV u0) y dos constantes en la raiz (n =
+250, escala = 2), y en una cola de COMPUTO que espera a la directa con una
+valla, con un CBV en la raiz (n = 256, escala = -0.5); la directa espera a
+la de computo para copiar lo escrito a un bufer READBACK. Compara los 2 x
+1024 floats con su cuenta, BIT A BIT (todo exacto en float: la 3060 tiene
+que dar lo mismo). Dice `bien` 4 veces y sale con el numero de fallos; en
+Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras, DirectX-Headers
+adbd6f3b, y el mismo UCRT), en un directorio con computo.cpp y
+computo.dxil:
+
+   G=x86_64-w64-mingw32-g++-win32
+   $G -dumpspecs | sed 's/-lmsvcrt/-lucrt/g' > ucrt.specs
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c computo.cpp -o computo.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o computo.exe computo.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   f0032487c2379245336700aed7ceaa755b92863570b2ae136e1a432c2980cb7c  computo.exe
+
+El banco (`tests/corre/muestras.rs`, e2_3a): los 4 `bien`, ni un aviso y
+sale con 0. Probado que dice NO: con la barrera quitada del interprete, 128
+elementos distintos en cada Dispatch y sale con 2.

@@ -83,16 +83,16 @@ pub(crate) fn lista() -> [(usize, u64); 32] {
         (23, dir!(om_set_blend_factor)),
         (24, dir!(om_set_stencil_ref)),
         (27, dir!(execute_bundle)),
-        (29, dir!(de_computo1)),
-        (31, dir!(de_computo2)),
-        (33, dir!(de_computo3)),
+        (29, dir!(set_compute_root_signature)),
+        (31, dir!(set_compute_root_descriptor_table)),
+        (33, dir!(set_compute_root_32bit_constant)),
         (34, dir!(root_32bit_constant)),
-        (35, dir!(de_computo4)),
+        (35, dir!(set_compute_root_32bit_constants)),
         (36, dir!(root_32bit_constants)),
-        (37, dir!(de_computo2)),
-        (39, dir!(de_computo2)),
+        (37, dir!(set_compute_root_constant_buffer_view)),
+        (39, dir!(compute_root_vista)),
         (40, dir!(root_descriptor)),
-        (41, dir!(de_computo2)),
+        (41, dir!(compute_root_vista)),
         (42, dir!(root_descriptor)),
         (45, dir!(so_set_targets)),
         (49, dir!(clear_uav)),
@@ -142,11 +142,12 @@ pub(crate) fn reiniciar() {
     unsafe { (*COMPUTOS.0.get()).clear() };
 }
 
-/// Un PSO de computo: su root signature y su sombreador, guardados. La casa
-/// aun no corre computo (Dispatch lo dice).
+/// Un PSO de computo: su root signature y su sombreador, y (N5.5, 05-10) el
+/// sombreador ya compilado y con sus cbuffers aplanados, o por que no.
 pub struct Computo {
     pub raiz: u64,
     pub cs: Vec<u8>,
+    pub preparado: Result<bmo_proton_x::dxil::computo::DeComputo, alloc::string::String>,
 }
 
 /// `CreateComputePipelineState(this, desc, riid, pp)`:
@@ -166,8 +167,13 @@ extern "win64" fn create_compute_pipeline_state(_this: u64, desc: *const u8, rii
     }
     // SAFETY: `n` bytes del sombreador, del `.exe`.
     let cs = unsafe { core::slice::from_raw_parts(cs as *const u8, n) }.to_vec();
+    // N5.5: compilar al CREAR (lo de DXVK: al cargar, no al dibujar).
+    let preparado = bmo_proton_x::dxil::computo::preparar(&cs);
+    if let Err(m) = &preparado {
+        aviso(&alloc::format!("CreateComputePipelineState: {m}; sus Dispatch no se haran"));
+    }
     let vt = vtabla::<{ com::PSO }>(&[(8, dir!(get_cached_blob))]);
-    let obj = nuevo(com::PSO, vt, Computo { raiz, cs }) as u64;
+    let obj = nuevo(com::PSO, vt, Computo { raiz, cs, preparado }) as u64;
     // SAFETY: ver `Computos`.
     unsafe { (*COMPUTOS.0.get()).push(obj) };
     dar(pp, obj)
@@ -425,12 +431,15 @@ extern "win64" fn get_type(this: u64) -> u32 {
 
 /// `ClearState(this, pso)`: el estado como recien creada, con ese PSO.
 extern "win64" fn clear_state(this: u64, pso: u64) {
-    let pso = if es_computo(pso) { 0 } else { pso };
-    l(this).estado = Estado { pso, ..Estado::default() };
+    (l(this).estado, l(this).computo) = crate::d3d12::estados_al_empezar(pso);
 }
 
-extern "win64" fn dispatch(_this: u64, _x: u32, _y: u32, _z: u32) {
-    aviso("Dispatch: el computo de D3D12 aun no corre en la casa: se salta");
+/// `Dispatch(this, x, y, z)` (N5.5, 05-10): se APUNTA con el estado de
+/// computo de ahora, y lo corre `computo::despachar` al ejecutar la lista.
+extern "win64" fn dispatch(this: u64, x: u32, y: u32, z: u32) {
+    let l = l(this);
+    let estado = l.computo.clone();
+    l.ordenes.push(Orden::Despachar { estado, grupos: [x, y, z] });
 }
 
 /// `(base, bytes)` del bufer `r`, o `None` si no es un bufer de la casa.
@@ -560,12 +569,43 @@ extern "win64" fn execute_bundle(this: u64, b: u64) {
 const LISTA_DIRECTA: u32 = 0;
 const LISTA_BUNDLE: u32 = 1;
 
-/// Los `SetCompute*`: el computo no corre todavia (Dispatch lo dice), asi
-/// que lo que se le da a su raiz no tiene a quien llegar. Cuatro formas.
-extern "win64" fn de_computo1(_this: u64, _a: u64) {}
-extern "win64" fn de_computo2(_this: u64, _a: u32, _b: u64) {}
-extern "win64" fn de_computo3(_this: u64, _a: u32, _b: u32, _c: u32) {}
-extern "win64" fn de_computo4(_this: u64, _a: u32, _b: u32, _c: *const u8, _d: u32) {}
+/// **Los `SetCompute*`** (N5.5, 05-10): lo mismo que su `SetGraphics*`, pero
+/// sobre el estado de COMPUTO de la lista (en D3D12 son dos raices
+/// distintas). Se cambian de sitio un momento, y el de dibujo hace su trabajo.
+fn en_computo(this: u64, f: impl FnOnce()) {
+    let l = l(this);
+    core::mem::swap(&mut l.estado, &mut l.computo);
+    f();
+    let l = self::l(this);
+    core::mem::swap(&mut l.estado, &mut l.computo);
+}
+
+extern "win64" fn set_compute_root_signature(this: u64, raiz: u64) {
+    en_computo(this, || crate::d3d12::set_graphics_root_signature(this, raiz));
+}
+
+extern "win64" fn set_compute_root_descriptor_table(this: u64, parametro: u32, handle: u64) {
+    en_computo(this, || crate::d3d12::set_graphics_root_descriptor_table(this, parametro, handle));
+}
+
+extern "win64" fn set_compute_root_constant_buffer_view(this: u64, parametro: u32, va: u64) {
+    en_computo(this, || crate::d3d12::set_graphics_root_constant_buffer_view(this, parametro, va));
+}
+
+extern "win64" fn set_compute_root_32bit_constant(this: u64, parametro: u32, valor: u32, desde: u32) {
+    en_computo(this, || root_32bit_constant(this, parametro, valor, desde));
+}
+
+extern "win64" fn set_compute_root_32bit_constants(this: u64, parametro: u32, n: u32, datos: *const u8, desde: u32) {
+    en_computo(this, || root_32bit_constants(this, parametro, n, datos, desde));
+}
+
+/// `SetComputeRootShaderResourceView` y `...UnorderedAccessView`: la raiz de
+/// computo aun no guarda vistas directas (las de las TABLAS si): lo dice, y
+/// el Dispatch las leera como nulas.
+extern "win64" fn compute_root_vista(_this: u64, _parametro: u32, _va: u64) {
+    aviso("SetComputeRootShaderResourceView/UnorderedAccessView: una vista en la RAIZ de computo aun no se guarda (en una tabla, si); el Dispatch la vera nula");
+}
 
 /// `SetGraphicsRoot32BitConstant(this, parametro, valor, desde)` (N5.2).
 extern "win64" fn root_32bit_constant(this: u64, parametro: u32, valor: u32, desde: u32) {
@@ -653,6 +693,7 @@ pub(crate) fn ejecutar(o: &Orden) {
         Orden::Resolver { monton, desde, n, bufer: b, off } => resolver(monton, desde, n, b, off),
         // SAFETY: comprobado al apuntar: cuatro bytes de un bufer de la casa.
         Orden::Escribir { dst, valor } => unsafe { (dst as *mut u32).write_unaligned(valor) },
+        Orden::Despachar { ref estado, grupos } => crate::computo::despachar(estado, grupos),
         _ => {}
     }
 }

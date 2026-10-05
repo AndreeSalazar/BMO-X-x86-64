@@ -979,11 +979,11 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
 /// Lo que no esta -- ni en una tabla puesta ni en los samplers estaticos --
 /// se lee como nulo, como en Windows con un descriptor nulo.
 /// Lo que ve un dibujo, por ranura: cada SRV es una textura o un bufer.
-type Vistos = (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, Vec<Option<bmo_proton_x::textura::Muestreador>>, Vec<Option<bmo_proton_x::bufer::Bufer<'static>>>);
+pub(crate) type Vistos = (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, Vec<Option<bmo_proton_x::textura::Muestreador>>, Vec<Option<bmo_proton_x::bufer::Bufer<'static>>>);
 
 /// La ranura `i` de la tabla del parametro `k` (4 palabras), si el `.exe`
 /// puso esa tabla.
-fn descriptor_de(tablas: &[u64; 16], k: usize, i: u64) -> Option<&'static [u64]> {
+pub(crate) fn descriptor_de(tablas: &[u64; 16], k: usize, i: u64) -> Option<&'static [u64]> {
     let base = *tablas.get(k)?;
     if base == 0 {
         return None;
@@ -1009,7 +1009,7 @@ fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::d
     textura_de_srv(ranura).map_err(aviso).ok()
 }
 
-fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
+pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
     use bmo_proton_x::donde::{self, RANGO_MUESTREADOR, RANGO_SRV};
     use bmo_proton_x::textura::Muestreador;
     let descriptor = |k: usize, i: u64| descriptor_de(tablas, k, i);

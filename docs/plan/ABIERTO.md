@@ -8,7 +8,7 @@
 
 ```text
    614 casillas ABIERTAS en 57 planes
-   468 hechas
+   469 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -169,13 +169,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] H7 -- los emojis se pintan. bmo-dibujo aprende UTF-8 y un atlas
 - ... y 10 mas
 
-## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 13 abiertas, 11 hechas
+## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 13 abiertas, 12 hechas
 
 *PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
 
 - [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
 - [ ] E2.1 -- D3D12Multithreading. Listas de ordenes grabadas desde
-- [ ] E2.3 -- D3D12nBodyGravity. El COMPUTO (N5.5), los UAV (N5.3c), la
+- [ ] E2.3b -- D3D12nBodyGravity. Confirmado con su fuente (05-10):
 - ... y 10 mas
 
 ## [`PLAN_LA_RED_SOLA.md`](PLAN_LA_RED_SOLA.md) -- 13 abiertas, 1 hechas

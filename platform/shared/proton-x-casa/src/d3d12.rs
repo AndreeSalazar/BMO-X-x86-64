@@ -82,6 +82,9 @@ pub(crate) enum Orden {
     /// Tanda 48: escribir un `u32` en una direccion de un bufer de la casa
     /// (WriteBufferImmediate).
     Escribir { dst: u64, valor: u32 },
+    /// N5.5 (05-10): un `Dispatch(x, y, z)`, con el estado de COMPUTO de la
+    /// lista tal como estaba al pedirlo (ver `computo.rs`).
+    Despachar { estado: Estado, grupos: [u32; 3] },
 }
 
 pub struct Lista {
@@ -91,6 +94,9 @@ pub struct Lista {
     pub(crate) estado: Estado,
     /// D3D12_COMMAND_LIST_TYPE (GetType, tanda 47).
     pub(crate) tipo: u32,
+    /// N5.5 (05-10): el estado de COMPUTO, aparte del de dibujo como en
+    /// D3D12: su PSO, su root signature y lo que se le dio (`SetCompute*`).
+    pub(crate) computo: Estado,
 }
 
 pub struct Monton {
@@ -417,9 +423,18 @@ pub(crate) extern "win64" fn create_command_list(_this: u64, _mascara: u32, tipo
     m.extend_from_slice(&crate::d3d12_resto::lista());
     m.extend_from_slice(&crate::d3d12_lista2::lista());
     let vt = vtabla::<{ com::LIST }>(&m);
-    let pso = if crate::d3d12_resto::es_computo(pso) { 0 } else { pso };
-    let estado = Estado { pso, ..Estado::default() };
-    dar(pp, nuevo(com::LIST, vt, Lista { ordenes: Vec::new(), abierta: true, estado, tipo }) as u64)
+    let (estado, computo) = estados_al_empezar(pso);
+    dar(pp, nuevo(com::LIST, vt, Lista { ordenes: Vec::new(), abierta: true, estado, tipo, computo }) as u64)
+}
+
+/// El estado de dibujo y el de computo de una lista recien creada o
+/// reiniciada con `pso`: el PSO va al suyo.
+pub(crate) fn estados_al_empezar(pso: u64) -> (Estado, Estado) {
+    if crate::d3d12_resto::es_computo(pso) {
+        (Estado::default(), Estado { pso, ..Estado::default() })
+    } else {
+        (Estado { pso, ..Estado::default() }, Estado::default())
+    }
 }
 
 /// `D3D12_DESCRIPTOR_HEAP_DESC`: Type +0, NumDescriptors +4, Flags +8.
@@ -521,7 +536,7 @@ extern "win64" fn list_reset(this: u64, _asignador: u64, pso: u64) -> i32 {
     let l = unsafe { de::<Lista>(this) };
     l.ordenes.clear();
     l.abierta = true;
-    l.estado = Estado { pso, ..Estado::default() };
+    (l.estado, l.computo) = estados_al_empezar(pso);
     S_OK
 }
 
@@ -561,8 +576,11 @@ extern "win64" fn rs_set_scissor_rects(this: u64, n: u32, r: *const i32) {
 }
 
 extern "win64" fn set_pipeline_state(this: u64, pso: u64) {
-    // Uno de computo no se dibuja: el grafico de antes sigue (tanda 47).
+    // Uno de computo no se dibuja: el grafico de antes sigue (tanda 47), y
+    // va al estado de computo (N5.5).
     if crate::d3d12_resto::es_computo(pso) {
+        // SAFETY: `this` es una Lista de la casa.
+        unsafe { lista(this).computo.pso = pso };
         return;
     }
     // SAFETY: `this` es una Lista de la casa.
@@ -570,7 +588,7 @@ extern "win64" fn set_pipeline_state(this: u64, pso: u64) {
 }
 
 /// Cambiar de root signature borra lo que se le habia dado a la anterior.
-extern "win64" fn set_graphics_root_signature(this: u64, raiz: u64) {
+pub(crate) extern "win64" fn set_graphics_root_signature(this: u64, raiz: u64) {
     // SAFETY: `this` es una Lista de la casa.
     let e = unsafe { &mut lista(this).estado };
     if e.raiz != raiz {
@@ -581,7 +599,7 @@ extern "win64" fn set_graphics_root_signature(this: u64, raiz: u64) {
 }
 
 /// `SetGraphicsRootConstantBufferView(this, parametro, direccion)`.
-extern "win64" fn set_graphics_root_constant_buffer_view(this: u64, parametro: u32, va: u64) {
+pub(crate) extern "win64" fn set_graphics_root_constant_buffer_view(this: u64, parametro: u32, va: u64) {
     // SAFETY: `this` es una Lista de la casa.
     let e = unsafe { &mut lista(this).estado };
     match e.cbv.get_mut(parametro as usize) {
@@ -671,7 +689,7 @@ extern "win64" fn resource_barrier(_this: u64, _n: u32, _barreras: *const u8) {}
 extern "win64" fn set_descriptor_heaps(_this: u64, _n: u32, _montones: *const u64) {}
 
 /// `SetGraphicsRootDescriptorTable(this, parametro, handle GPU)`.
-extern "win64" fn set_graphics_root_descriptor_table(this: u64, parametro: u32, handle: u64) {
+pub(crate) extern "win64" fn set_graphics_root_descriptor_table(this: u64, parametro: u32, handle: u64) {
     // SAFETY: `this` es una Lista de la casa.
     let e = unsafe { &mut lista(this).estado };
     match e.tablas.get_mut(parametro as usize) {
