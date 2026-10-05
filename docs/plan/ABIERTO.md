@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 68 planes
+# LO QUE FALTA -- las casillas abiertas de los 69 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   604 casillas ABIERTAS en 59 planes
+   615 casillas ABIERTAS en 60 planes
    513 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -197,6 +197,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M0b-2 -- lo que queda del papeleo, SI la medida lo pide. Quedan dos
 - [ ] M0c -- los 112 ticks del match de INFO. El rechazo por campo
 - [ ] M1b -- CUANTO CUESTA REVOCAR UNA PAGINA, y va ANTES de M1. La seccion
+- ... y 8 mas
+
+## [`PLAN_LOS_DATOS.md`](PLAN_LOS_DATOS.md) -- 11 abiertas, 0 hechas
+
+*PLAN LOS DATOS -- SQL redefinido por la casa: preguntar y guardar sin SQL*
+
+- [ ] Q0 -- las decisiones D1-D5 del propietario, escritas aqui (seccion 3)
+- [ ] Q1 -- la COMPRENSION en el frontend y el calculo (E0): [e for x in l if c], varios for (el JOIN)
+- [ ] Q2 -- la comprension en E1 (toolchain/lang/titan/emisor-x86_64/src/e1/coleccion.rs): un bucle qu
 - ... y 8 mas
 
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
