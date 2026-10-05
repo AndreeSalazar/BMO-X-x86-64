@@ -167,7 +167,8 @@ pub(crate) fn despachar(e: &Estado, grupos: [u32; 3]) {
         // SAFETY: `f` es la traduccion de este programa (`registrar_computo`
         // al crear el PSO), en el bloque sellado de ahora: un Dispatch no
         // cede el turno, asi que nadie lo cambia mientras corre.
-        unsafe { bmo_proton_x::nativo_computo::despachar(&p.programa, f, grupos, &cb, &buferes, &mut uavs) };
+        let mut llamar = |r: *mut f32, c: *mut bmo_proton_x::nativo_computo::Contexto, b: *const u8| unsafe { f(r, c, b) };
+        bmo_proton_x::nativo_computo::despachar(&p.programa, &mut llamar, grupos, &cb, &buferes, &mut uavs);
         return;
     }
     let rec = bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: None };
