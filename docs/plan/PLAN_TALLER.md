@@ -1101,3 +1101,80 @@ prefijos que deciden la seccion 2),
 [`EL_ORQUESTAL.md`](../identidad/EL_ORQUESTAL.md) (por que la autoridad no
 viaja) y [`PLAN_REX.md`](PLAN_REX.md) (las cabeceras de las que se copia la
 forma).
+
+### 8.15 L10: la TAB de los NODOS MAESTROS -- a lo Houdini y Blender (05-10, PLAN)
+
+El propietario, 05-10: *"cuando termine ahi me dejas las TAB elegante, en ellas
+el estilo de Houdini con Blender que muestran opciones totales de NODOS maestro
+ya hechos como ejemplos y porque, como tutoriales y pruebas"*.
+
+**Esto es el plan; ni una linea esta escrita.** Lo que toma de cada uno:
+
+```text
+   Houdini     TAB en el editor de nodos: una lista que se FILTRA mientras se
+               escribe, y Enter pone el nodo donde esta el raton
+   Blender     el menu de AGREGAR por familias (Shift+A), y sus plantillas:
+               cosas ya hechas para partir de ellas
+   lo de casa  cada nodo maestro trae su PORQUE y su PRUEBA: no es un ejemplo
+               cualquiera, es uno que compila, corre y escribe lo que dice
+```
+
+** LA IDEA QUE LO HACE FACIL Y HONESTO: LOS NODOS MAESTROS SON EL BANCO. Cada
+programa `BIEN` de `toolchain/lang/titan/ejemplos/nivelN/` ya es un nodo
+maestro: el compilador lo acepta, el banco del emisor lo CORRE en el emulador y
+compara sus lineas `# sale:`, y su comentario dice por que existe. Asi que la
+TAB no inventa un catalogo que pueda mentir:
+
+```text
+   el nodo           el programa del banco, hecho modulo del paquete
+   su familia        su NIVEL: saludar, calcular, decidir, repetir ...
+                     la 3060 -- la TAB, en orden, ES el curso de TITAN++
+   su porque         el comentario de su segunda linea
+   lo que trae       las palabras de su nivel (fichas: `if`, `match`, `gpu`)
+   su prueba         sus lineas `# sale:`: lo que escribe al correr, y que
+                     dos bancos comprueban en cada build
+   su astro          sus RASGOS (`titan-lector::traits`) sobre su texto: la
+                     misma figura que tendra en el cielo, antes de ponerlo
+```
+
+**Lo que se ve** (APARIENCIA: `aspecto/titan.maqueta` y un pintor `tab.rs`):
+
+```text
+   TAB         se abre sobre el GRAFO (y sobre el CIELO): una caja redonda con
+               un campo de busqueda arriba; Esc o TAB la cierran
+   la lista    a la izquierda, por familias (el nivel, con su numero y su
+               nombre); cada fila, el nombre del nodo y que hace en una linea
+   la ficha    a la derecha, el nodo elegido: su astro VIVO (`astros.rs`), su
+               porque, sus fichas de palabras y su prueba (`# sale:`), como en
+               ELEMENTOS
+   escribir    filtra por nombre, palabra o porque ("match", "dinero", "3060")
+   Enter       lo pone en el paquete, donde estaba el raton
+```
+
+**Lo que hace** (LOGICA: `titan-lector`, sin un color, como manda
+`the_logic_names_no_look`):
+
+```text
+   poner un nodo   escribe `src/<nombre>.titan` -- el programa, con su
+                   cabecera renombrada al nombre del nodo -- y `mod <nombre>`
+                   en la cabecera de `main`; si el nombre ya esta, `_2`. El
+                   latido siguiente lo relee, como un cable (8.13)
+   la regla        lo que se pone COMPILA: viene del banco, y el banco pasa
+```
+
+### Las casillas
+
+- [ ] M1 -- el generador: `toolchain/tools/maestros` lee los programas `BIEN` de `toolchain/lang/titan/ejemplos/` y escribe `platform/shared/titan-lector/src/maestros_gen.rs` (una tabla constante: nombre, nivel, porque, palabras, fuente, salida); generado, nunca a mano, como `tema_gen.rs`
+- [ ] M2 -- su guardian: `maestros.py --check` en `Ultra_kernel_x86-64/build/guardianes.ps1`: la tabla y el banco dicen lo mismo (un ejemplo nuevo entra en la TAB solo, uno borrado sale)
+- [ ] M3 -- la logica: `titan-lector` filtra (nombre, palabra, porque) y PLANEA el poner (el fichero nuevo y la linea `mod`), con pruebas sobre un ESTRATOS en memoria como `wire::tests`
+- [ ] M4 -- la apariencia: las clases `.tab`, `.tab-fila`, `.tab-elegida` en `Ultra_userspace/apps/taller/aspecto/titan.maqueta`, `tema_gen.rs` regenerado, y el pintor `Ultra_userspace/apps/taller/src/tab.rs` con las piezas suaves de `aspecto.rs`
+- [ ] M5 -- las teclas: TAB, escribir, flechas, Enter, Esc, en `Ultra_userspace/apps/taller/src/view.rs`
+- [ ] M6 -- la pila: `pila.py --ring3` sigue por debajo de 65.536 con la TAB abierta (la tabla es constante: va en `.rodata`, no en la pila)
+- [ ] M7 -- la camara: `cara-taller` saca `tab.png` (abierta, con una ficha) y `tab_filtro.png` (filtrando "match")
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1, en el GRAFO, TAB | la caja con las familias del nivel 0 al 11 y la ficha del primero | no se abre: la tecla no llega a `view.rs` |
+| escribir `match` | quedan los nodos del nivel 8 (y los que lo nombran en su porque) | no filtra, o filtra solo por nombre |
+| Enter sobre `semaforo` | aparece el nodo; `src/semaforo.titan` existe y `main` dice `mod semaforo` | aparece y no esta en el disco: no se guardo |
+| `titan check` del paquete | bien | NO: el nodo no vino del banco, o se renombro mal |
