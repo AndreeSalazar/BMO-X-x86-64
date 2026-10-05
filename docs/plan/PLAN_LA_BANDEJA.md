@@ -149,6 +149,12 @@ El propietario ya lo probo y espera bugs de sorpresa: se anotan en la seccion
 - [ ] B7 -- F12, el VOLUMEN con control total: verificar el volumen entero, la historia, marcar, volver, y limpiar con su lista (Q7 y C3), con los nodos animados unicos de `docs/plan/PLAN_LOS_DATOS.md` (Q8)
 - [ ] B8 -- F1, TODOS nodos: el tipo de nodo C (sus #include como cables), el resultado y el recurso, junto a los de TITAN++
 - [x] B8a -- la MAQUETA de F1 con ESTRATOS servido, C entre TITAN++, el resultado con su `:origen` y cada nodo con su sello unico: `docs/arte/maqueta_taller_estratos.html` (05-10)
+- [ ] B8 por partes, en el orden de la casa (lo que no toca nada, primero), decidido el 05-10 al pedir el propietario *"a aplicar, empezando por el orden"*:
+  - [x] T1 -- HECHO el 05-10: cada nodo del GRAFO lleva su SELLO en la cabecera (`seal` en `Ultra_userspace/apps/taller/src/astros.rs`), de su nombre y la suma de sus bytes (`FileEntry::sum` en `platform/shared/titan-lector/src/package.rs`, con su prueba: tocar un fichero mueve solo su suma); visto con `cara-taller`
+  - [ ] T2 -- la solapa ESTRATOS: la historia como nodos unicos, las marcadas brillando, RESTABLECER = `volver(n)`
+  - [ ] T3 -- `use estratos` como nodo SERVIDO en el GRAFO, con sus verbos como pines
+  - [ ] T4 -- los nodos de C, con sus `#include` como cables
+  - [ ] T5 -- los cables de `:origen` de un resultado a sus fuentes (pide B6)
 - [ ] B8b -- el ESPEJO de esa maqueta: `cara-taller` (`toolchain/tools/espejo-cara/src/bin/cara_taller.rs`) pinta con el codigo de verdad lo que la maqueta dibuja, y `foto.js` hace la foto de la regla
 - [ ] B9 -- los bugs de sorpresa que vea el propietario al probar F1 (seccion 8), cada uno arreglado con su prueba
 

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   625 casillas ABIERTAS en 61 planes
-   517 hechas
+   630 casillas ABIERTAS en 61 planes
+   518 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -145,6 +145,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
 
+## [`PLAN_LA_BANDEJA.md`](PLAN_LA_BANDEJA.md) -- 15 abiertas, 3 hechas
+
+*PLAN LA BANDEJA -- F2 donde viven TODOS los archivos, F12 el volumen, F1 todo nodos*
+
+- [ ] B1 -- F2 abre LOS ARCHIVOS: una app propia como el TALLER (sys/archivos.bex), que el DIRECTOR la
+- [ ] B2 -- el GLOBO, en el MISMO commit que B1 (una linea de SABIAS tiene que ser verdad el dia que s
+- [ ] B3 -- LA BANDEJA (seccion 3): los discos que el kernel lee, con su perfil y su rango; el NVMe CE
+- ... y 12 mas
+
 ## [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) -- 14 abiertas, 1 hechas
 
 *PLAN EL PLAZO -- V-Sync, VBlank y la deuda de planificacion*
@@ -207,15 +216,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Q2 -- la comprension en E1 (toolchain/lang/titan/emisor-x86_64/src/e1/coleccion.rs): un bucle qu
 - [ ] Q3 -- el INDICE POR HASH: es L9 de docs/plan/PLAN_LISTAS_Y_MAPAS.md
 - ... y 8 mas
-
-## [`PLAN_LA_BANDEJA.md`](PLAN_LA_BANDEJA.md) -- 10 abiertas, 2 hechas
-
-*PLAN LA BANDEJA -- F2 donde viven TODOS los archivos, F12 el volumen, F1 todo nodos*
-
-- [ ] B1 -- F2 abre LOS ARCHIVOS: una app propia como el TALLER (sys/archivos.bex), que el DIRECTOR la
-- [ ] B2 -- el GLOBO, en el MISMO commit que B1 (una linea de SABIAS tiene que ser verdad el dia que s
-- [ ] B3 -- LA BANDEJA (seccion 3): los discos que el kernel lee, con su perfil y su rango; el NVMe CE
-- ... y 7 mas
 
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 

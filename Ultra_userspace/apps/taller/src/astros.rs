@@ -158,6 +158,51 @@ pub fn cable_of(g: &Graph, files: &[FileEntry], e: &Edge) -> Cable {
     }
 }
 
+/// The number a node's SEAL grows from: its name, mixed with the sum of its
+/// file's bytes (`titan_lector::package::sum`) when it came from one. Two
+/// nodes never share it, and saving a file changes it.
+pub fn seal_seed(files: &[FileEntry], node: bmo_titan_contrato::NodeId, name: &[u8]) -> u32 {
+    let sum = files.iter().find(|f| f.node == node).map_or(0, |f| f.sum);
+    hash(name) ^ sum.rotate_left(13)
+}
+
+/// **THE SEAL** of a node (`docs/plan/PLAN_LA_BANDEJA.md`, section 5, and the
+/// mockup `docs/arte/maqueta_taller_estratos.html`): an uneven polygon of 5 to
+/// 9 points, a dotted ring and a core, all from ONE number. The same number
+/// draws the same seal on the Ryzen and in the host's camera; another number,
+/// another seal.
+pub fn seal(c: &mut Canvas, x: i32, y: i32, r: i32, seed: u32, color: Color) {
+    let mut s = seed | 1;
+    let mut next = move || {
+        s ^= s << 13;
+        s ^= s >> 17;
+        s ^= s << 5;
+        s
+    };
+    let n = 5 + (next() % 5) as i32;
+    let turn = (next() % 64) as i32;
+    let mut pts = [(0i32, 0i32); 9];
+    for i in 0..n {
+        let a = turn + i * 64 / n + (next() % 3) as i32;
+        let rr = r * (72 + (next() % 33) as i32) / 100;
+        pts[i as usize] = (x + rr * cos64(a) / 1000, y + rr * sin64(a) / 1000);
+    }
+    for i in 0..n as usize {
+        c.line(pts[i], pts[(i + 1) % n as usize], color);
+    }
+    // The ring: which of its 16 dots are lit is part of the number too.
+    let (ring, dots) = (r * 45 / 100, next());
+    if ring >= 3 {
+        for k in 0..16 {
+            if dots >> k & 1 == 1 {
+                let a = k * 4;
+                c.put(x + ring * cos64(a) / 1000, y + ring * sin64(a) / 1000, mezclar(color, BG, 2, 3));
+            }
+        }
+    }
+    c.disc(x, y, (r / 6).max(1), color);
+}
+
 /// The traits of a node's file, if it came from one.
 pub fn traits_of(files: &[FileEntry], node: bmo_titan_contrato::NodeId) -> Traits {
     files.iter().find(|f| f.node == node).map_or(Traits::NONE, |f| f.traits)

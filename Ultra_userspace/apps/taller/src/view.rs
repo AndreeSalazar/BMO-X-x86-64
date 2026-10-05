@@ -253,7 +253,8 @@ pub fn draw(c: &mut Canvas, sc: &Scene) {
             let (x, y, w, h) = node_rect(cam, n);
             look::shine(c, x, y, w, h, look::r_at(look::R_NODE, cam.zoom), 14, ACCENT, 170);
         }
-        node(c, g, cam, id, n, current, sc.now_ms, crate::astros::traits_of(sc.files, id));
+        let seed = crate::astros::seal_seed(sc.files, id, n.name.as_bytes());
+        node(c, g, cam, id, n, current, sc.now_ms, crate::astros::traits_of(sc.files, id), seed);
     }
     chips(c, g, p, cam);
     crate::faults::draw_over(c, g, cam, sc.faults, clock, lively);
@@ -402,7 +403,7 @@ pub fn draw_wire(c: &mut Canvas, g: &Graph, cam: &Camera, from: NodeId, x: i32, 
 }
 
 #[allow(clippy::too_many_arguments)]
-fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: Option<EventKind>, now_ms: u32, tr: bmo_titan_lector::Traits) {
+fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: Option<EventKind>, now_ms: u32, tr: bmo_titan_lector::Traits, seed: u32) {
     let (x, y, w, h) = node_rect(cam, n);
     if x + w < 0 || y + h < TOP || x >= c.w || y >= c.h - PANEL {
         return;
@@ -442,7 +443,13 @@ fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: 
     }
     let scale = if cam.zoom >= 1500 { 2 } else { 1 };
     let line = 16 * scale;
-    c.text_fit(x + 8, y + (head_h - 16).max(0) / 2, label.as_bytes(), INK, w - 16);
+    // ** Its SEAL first, at the left of the header: its own face, from its
+    // name and the sum of its bytes (`astros::seal`) -- two nodes are never
+    // drawn alike, and saving the file changes it.
+    let seal_r = ((head_h - 4) / 2).clamp(4, 10);
+    crate::astros::seal(c, x + 6 + seal_r, y + head_h / 2, seal_r, seed, INK);
+    let lx = x + 10 + 2 * seal_r;
+    c.text_fit(lx, y + (head_h - 16).max(0) / 2, label.as_bytes(), INK, w - (lx - x) - 8);
     // ** Its SHAPE, in the header, right to left: where the program starts
     // (main), the 3060's chip, and what the module DOES (`iconos.rs`) --
     // print, decide, repeat, crystal, change, value, call, return. They
@@ -461,7 +468,7 @@ fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: 
         (Icon::Return, tr.returns > 0),
     ];
     let s = (head_h - 6).clamp(8, 16);
-    let floor = x + 16 + label.len() as i32 * 8;
+    let floor = lx + 8 + label.len() as i32 * 8;
     let mut ix = x + w - s - 8;
     for (icon, on) in shapes {
         if on && ix >= floor {
