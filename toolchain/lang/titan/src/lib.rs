@@ -20,6 +20,8 @@
 //!              cada `use` con lo que de verdad se llama, `pub`, sin ciclos
 //!    comportamiento  los `trait` (nivel 10): lo que un valor SABE hacer, y
 //!              cada `trait X for T` hecho fn del programa (`area<Circulo>`)
+//!    gpu       lo que puede ser una `gpu fn` (nivel 11): una celda por hilo,
+//!              f32 y bool, y el permiso `gpu` del Titan.toml
 //!    check     los nombres: `main`, una vez cada fn, que cada llamada exista
 //!              y que ninguna vuelva sobre si misma (T0053)
 //!    ir        lo que el programa HACE, sin maquina: la IR PROPIA (T3)
@@ -49,6 +51,7 @@
 pub mod calc;
 pub mod check;
 pub mod comportamiento;
+pub mod gpu;
 pub mod indent;
 pub mod ir;
 pub mod juez;
@@ -85,6 +88,7 @@ pub fn compile_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Opti
     let pkg = paquete::load(root, src, read)?;
     let mut program = paquete::join(&pkg)?;
     comportamiento::expand(&mut program).map_err(|m| pkg.locate(m))?;
+    gpu::check(&program, pkg.permissions).map_err(|m| pkg.locate(m))?;
     check::check(&program).map_err(|m| pkg.locate(m))?;
     Ok(program)
 }
@@ -95,6 +99,7 @@ pub fn lower_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option
     let mut program = paquete::join(&pkg)?;
     let at = |m: Message| pkg.locate(m);
     comportamiento::expand(&mut program).map_err(at)?;
+    gpu::check(&program, pkg.permissions).map_err(at)?;
     check::check(&program).map_err(at)?;
     let mut m = ir::lower(&program);
     m.permissions = pkg.permissions;
@@ -118,11 +123,10 @@ mod tests {
 
     #[test]
     fn a_word_of_a_higher_level_says_which_level() {
-        let e = compile("mod main \"x\"\nfn main()\n    gpu suma\n").unwrap_err();
+        // The ladder is whole at level 11: what is left "not yet" is f64.
+        let e = compile("mod main \"x\"\nfn f(x: f64)\n    print(1)\nfn main()\n    print(1)\n").unwrap_err();
         assert_eq!(e.code, Code::NotYet);
-        assert_eq!(e.what, "`gpu` llega en el nivel 11 (la 3060)");
-        let e = compile("mod main \"x\"\nfn f(x: f32)\n    print(1)\nfn main()\n    f(1)\n").unwrap_err();
-        assert_eq!(e.what, "el tipo `f32` llega en el nivel 11 (la 3060)");
+        assert_eq!(e.what, "el tipo `f64` todavia no existe");
     }
 
     #[test]

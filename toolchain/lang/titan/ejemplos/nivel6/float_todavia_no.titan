@@ -1,8 +1,8 @@
 # espera: T0040
-# en la CPU TITAN++ cuenta exacto con `dec`; el float es de la 3060 (gpu fn, nivel 11)
+# en la CPU TITAN++ cuenta exacto con `dec`, y la 3060 en f32: un f64 no tiene sitio en ninguno de los dos
 mod main "un float pedido en la CPU"
 
-fn mitad(x: f32) -> f32
+fn mitad(x: f64) -> f64
     return x
 
 fn main()

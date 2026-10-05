@@ -93,6 +93,8 @@ pub enum Const {
     Record(usize, Vec<Const>),
     /// The case `v` of the enum `e`, and the values it carries (level 8).
     Variant(usize, usize, Vec<Const>),
+    /// An f32 by its bits (level 11): what a `gpu fn` counts with.
+    F32(u32),
 }
 
 impl Const {
@@ -109,6 +111,7 @@ impl Const {
             Const::Text(t) => t.clone(),
             Const::Bool(b) => b.to_string(),
             Const::Dec(d, s) => show_dec(*d, *s),
+            Const::F32(b) => format!("{}", f32::from_bits(*b)),
             Const::Table(items) => format!("[{}]", items.iter().map(|i| i.show_in(types, true)).collect::<Vec<_>>().join(", ")),
             Const::Record(t, items) => {
                 let def = &types[*t];
@@ -147,6 +150,9 @@ pub enum Class {
     /// ANY value whose type keeps the trait with this index: what a
     /// parameter `f: Forma` is inside its fn (level 10).
     Trait(usize),
+    /// The 3060's number (level 11): it counts inside a `gpu fn`; outside,
+    /// it is kept or passed, and `round` makes it a `dec` (D2).
+    F32,
 }
 
 impl Class {
@@ -160,6 +166,7 @@ impl Class {
             Class::Record(t) => format!("un {}", types[*t].name),
             Class::Enum(e) => format!("un {}", types.enums[*e].name),
             Class::Trait(k) => format!("algo que cumple `trait {}`", types.traits[*k].name),
+            Class::F32 => "un f32 (el numero de la 3060)".into(),
         }
     }
 
@@ -173,6 +180,7 @@ impl Class {
             Class::Record(t) => types[*t].name.clone(),
             Class::Enum(e) => types.enums[*e].name.clone(),
             Class::Trait(k) => types.traits[*k].name.clone(),
+            Class::F32 => "f32".into(),
         }
     }
 
@@ -188,6 +196,7 @@ fn of_ty(t: &Ty, types: Defs) -> Class {
         Ty::Text => Class::Text,
         Ty::Bool => Class::Bool,
         Ty::Dec | Ty::DecP(..) => Class::Dec,
+        Ty::F32 => Class::F32,
         Ty::Table(inner, n) => Class::Table(Box::new(of_ty(inner, types)), *n),
         Ty::Named(n) => match types.types.iter().position(|d| &d.name == n) {
             Some(t) => Class::Record(t),
@@ -275,6 +284,25 @@ fn classes(f: &Function, m: &Module) -> Result<(), Message> {
     }
     for b in &f.blocks {
         for op in &b.ops {
+            // ** D2 (level 11): outside a `gpu fn`, an f32 is kept or
+            // passed, never counted, compared or printed.
+            if !f.gpu {
+                match op {
+                    Op::Let { value, .. } | Op::Set { value, .. } => cpu_f32(value, &known, m)?,
+                    Op::SetAt { value, .. } => cpu_f32(value, &known, m)?,
+                    Op::Call { args, .. } => args.iter().try_for_each(|a| cpu_f32(a, &known, m))?,
+                    Op::Write { parts, .. } => {
+                        for p in parts {
+                            cpu_f32(p, &known, m)?;
+                            let c = class(p, &known, m)?;
+                            if holds_f32(&c, types) {
+                                return Err(f32_here(p.at(), "se imprime", "un f32 es la cuenta de la 3060, con sus redondeos de base 2: lo que se muestra en la CPU es un `dec`, y el redondeo se escribe"));
+                            }
+                        }
+                    }
+                    Op::Drop { .. } => {}
+                }
+            }
             match op {
                 Op::Let { local, value, at, ty, .. } => {
                     let mut c = class(value, &known, m)?;
@@ -282,6 +310,11 @@ fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                     // DECLARED, and the local is of that type from then on.
                     if let Some(t) = ty {
                         let want = of_ty(t, types);
+                        // D4 (level 11): a number becomes f32 only where a
+                        // type DECLARES it: `let xs: [f32; 4] = [1.0, ...]`.
+                        if into_f32(&want, &c) {
+                            c = want.clone();
+                        }
                         if !fits(&want, &c) && f.locals[*local].name.starts_with("#m") {
                             // The hidden local of a `match` (level 8): its arms
                             // are the cases of one enum, so that is what it reads.
@@ -350,8 +383,18 @@ fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                         class(p, &known, m)?;
                     }
                 }
+                Op::Call { func, args, at } if m.functions[*func].gpu => {
+                    gpu_call(*func, args, *at, &known, m)?;
+                }
                 Op::Call { func, args, at } => args_fit(*func, args, *at, &known, m)?,
                 Op::Drop { local, .. } => known[*local] = None,
+            }
+        }
+        if !f.gpu {
+            match &b.end {
+                End::Return(Some(v)) => cpu_f32(v, &known, m)?,
+                End::Branch { cond, .. } => cpu_f32(cond, &known, m)?,
+                _ => {}
             }
         }
         if let End::Return(Some(v)) = &b.end {
@@ -395,6 +438,97 @@ fn step_class(c: &Class, st: &PathStep, known: &[Option<Class>], m: &Module, at:
     }
 }
 
+/// D4: may a value of class `got` become `want` by a DECLARED type? A number
+/// into an f32, cell by cell into a table of f32.
+fn into_f32(want: &Class, got: &Class) -> bool {
+    match (want, got) {
+        (Class::F32, Class::Int | Class::Dec) => true,
+        (Class::Table(w, n), Class::Table(g, k)) => n == k && into_f32(w, g),
+        _ => false,
+    }
+}
+
+/// Is there an f32 in a value of this class (a cell, a field)?
+fn holds_f32(c: &Class, d: Defs) -> bool {
+    match c {
+        Class::F32 => true,
+        Class::Table(inner, _) => holds_f32(inner, d),
+        Class::Record(t) => d.types[*t].fields.iter().any(|f| holds_f32(&of_ty(&f.ty, d), d)),
+        _ => false,
+    }
+}
+
+/// T0091: an f32 used on the CPU (D2).
+fn f32_here(at: At, how: &str, why: &str) -> Message {
+    Message::new(
+        Code::F32Cpu,
+        at.0,
+        at.1,
+        &format!("aqui un f32 {} en la CPU", how),
+        why,
+        "en la CPU un f32 se guarda o se pasa a otra gpu fn; para usarlo, se vuelve dec a la vista: round(x, 2)",
+    )
+}
+
+/// ** D2 on the CPU: an f32 is never counted or compared here. `round(x, n)`
+/// is the door out, so what it takes is not judged as a count -- only what
+/// is inside it.
+fn cpu_f32(v: &Value, known: &[Option<Class>], m: &Module) -> Result<(), Message> {
+    match v {
+        Value::Bin(op, l, r, at) => {
+            if class(l, known, m)? == Class::F32 || class(r, known, m)? == Class::F32 {
+                let how = if matches!(*op, "==" | "!=" | "<" | "<=" | ">" | ">=") { "se compara" } else { "se cuenta" };
+                return Err(f32_here(*at, how, "la CPU cuenta con dec exacto (la regla de la casa, PLAN_EL_CENTAURO D2): el f32 cuenta dentro de una gpu fn, en la 3060"));
+            }
+            cpu_f32(l, known, m)?;
+            cpu_f32(r, known, m)
+        }
+        Value::Neg(x, at) | Value::Not(x, at) => {
+            if class(x, known, m)? == Class::F32 {
+                return Err(f32_here(*at, "se cuenta", "la CPU cuenta con dec exacto (PLAN_EL_CENTAURO D2): el f32 cuenta en la 3060"));
+            }
+            cpu_f32(x, known, m)
+        }
+        Value::Round(x, _, _) | Value::Repeat(x, _, _) | Value::Field(x, _, _) | Value::Len(x, _) | Value::Is(x, _, _, _) | Value::Payload(x, _, _, _, _) => cpu_f32(x, known, m),
+        Value::Index(b, i, _) => {
+            cpu_f32(b, known, m)?;
+            cpu_f32(i, known, m)
+        }
+        Value::Call(_, items, _) | Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => items.iter().try_for_each(|x| cpu_f32(x, known, m)),
+        _ => Ok(()),
+    }
+}
+
+/// The class of a call to a `gpu fn` (level 11, D1): with values, its
+/// result; with TABLES of n cells -- all of the same n -- n results, one per
+/// thread.
+fn gpu_call(func: usize, args: &[Value], at: At, known: &[Option<Class>], m: &Module) -> Result<Class, Message> {
+    let g = &m.functions[func];
+    let ret = of_ty(g.ret.as_ref().expect("gpu: a gpu fn gives a value"), m.defs());
+    let got: Vec<Class> = args.iter().map(|a| class(a, known, m)).collect::<Result<_, _>>()?;
+    let wants: Vec<Class> = g.params.iter().map(|(_, t)| of_ty(t, m.defs())).collect();
+    if got.iter().zip(&wants).all(|(c, w)| c == w) {
+        return Ok(ret);
+    }
+    let n = match got.first() {
+        Some(Class::Table(_, n)) => *n,
+        _ => 0,
+    };
+    let cells = got.iter().zip(&wants).all(|(c, w)| matches!(c, Class::Table(inner, k) if *k == n && **inner == *w));
+    if n > 0 && cells {
+        return Ok(Class::Table(Box::new(ret), n));
+    }
+    let want: Vec<String> = wants.iter().map(|w| w.short(m.defs())).collect();
+    Err(Message::new(
+        Code::WrongType,
+        at.0,
+        at.1,
+        &format!("`{}` se aplica a valores ({}) o a tablas de esos valores, todas del mismo largo", g.name, want.join(", ")),
+        &format!("aqui llega: {}", got.iter().map(|c| c.short(m.defs())).collect::<Vec<_>>().join(", ")),
+        &format!("una celda de cada tabla por hilo: {}(xs, ys) con xs, ys de [f32; n]", g.name),
+    ))
+}
+
 /// Does a value of class `c` keep the trait `k`? Its type has a
 /// `trait ... for` of it (level 10).
 fn keeps(c: &Class, k: usize, d: Defs) -> bool {
@@ -405,6 +539,7 @@ fn keeps(c: &Class, k: usize, d: Defs) -> bool {
         Class::Bool => "bool".to_string(),
         Class::Record(t) => d.types[*t].name.clone(),
         Class::Enum(e) => d.enums[*e].name.clone(),
+        Class::F32 => "f32".to_string(),
         Class::Table(..) | Class::Trait(_) => return false,
     };
     d.impls.iter().any(|(t, i)| t == &d.traits[k].name && i == &ty)
@@ -419,6 +554,7 @@ fn type_of(c: &Const, d: Defs) -> String {
         Const::Bool(_) => "bool".into(),
         Const::Record(t, _) => d.types[*t].name.clone(),
         Const::Variant(e, ..) => d.enums[*e].name.clone(),
+        Const::F32(_) => "f32".into(),
         Const::Table(_) => "tabla".into(),
     }
 }
@@ -521,11 +657,13 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
         Value::Text(..) => Class::Text,
         Value::Bool(..) => Class::Bool,
         Value::Dec(..) => Class::Dec,
+        Value::F32(..) => Class::F32,
         Value::Local(l, _) | Value::Lend(_, l, _) => known[*l].clone().expect("juez: every local read has a value"),
         Value::Round(inner, _, at) => match class(inner, known, m)? {
-            c if c.number() => Class::Dec,
+            c if c.number() || c == Class::F32 => Class::Dec,
             c => return Err(Message::new(Code::Mixed, at.0, at.1, &format!("`round` redondea un numero, y aqui hay {}", c.name(types)), "solo un numero tiene decimales que redondear", "round(total / 3, 2)")),
         },
+        Value::Call(func, args, at) if m.functions[*func].gpu => gpu_call(*func, args, *at, known, m)?,
         Value::Call(func, args, at) => {
             args_fit(*func, args, *at, known, m)?;
             of_ty(m.functions[*func].ret.as_ref().expect("check: a call used as a value gives one back"), types)
@@ -587,7 +725,7 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
             }
         },
         Value::Neg(inner, at) => match class(inner, known, m)? {
-            c if c.number() => c,
+            c if c.number() || c == Class::F32 => c,
             c => return Err(Message::new(Code::Mixed, at.0, at.1, &format!("{} no tiene signo", c.name(types)), &format!("aqui hay {} con un `-` delante", c.name(types)), "el `-` va delante de un numero")),
         },
         Value::Not(inner, at) => match class(inner, known, m)? {
@@ -603,6 +741,27 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
                 ))
             }
         },
+        Value::Bin(op, l, r, at) if class(l, known, m)? == Class::F32 || class(r, known, m)? == Class::F32 => {
+            // ** f32 with f32 only (level 11): in the 3060 every number is
+            // one; a dec or an int never becomes f32 without a declaration.
+            let (a, b) = (class(l, known, m)?, class(r, known, m)?);
+            if a != b {
+                let other = if a == Class::F32 { b } else { a };
+                return Err(Message::new(
+                    Code::Mixed,
+                    at.0,
+                    at.1,
+                    &format!("un f32 y {} no se mezclan", other.name(types)),
+                    "un f32 redondea en base 2 y un dec es exacto: juntarlos callados perderia lo exacto sin decirlo",
+                    "dentro de una gpu fn todo es f32; en la CPU, el dec entra a f32 por un tipo declarado: let xs: [f32; 4] = ...",
+                ));
+            }
+            match *op {
+                "+" | "-" | "*" | "/" => Class::F32,
+                "==" | "!=" | "<" | "<=" | ">" | ">=" => Class::Bool,
+                _ => return Err(Message::new(Code::Mixed, at.0, at.1, &format!("dos f32 no se pueden `{}`", op), "un f32 tiene + - * / y se compara; el resto `%` es de enteros", "a - b * floor(a / b) cuando llegue; hoy, ints para el resto")),
+            }
+        }
         Value::Bin(op, l, r, at) => {
             let (a, b) = (class(l, known, m)?, class(r, known, m)?);
             let numbers = a.number() && b.number();
@@ -839,6 +998,21 @@ impl Run<'_> {
     /// what the function left in it; a `take` one is gone.
     fn call_with(&mut self, func: usize, args: &[Value], at: At, known: &mut Vec<Option<Const>>) -> Result<Option<Const>, Message> {
         let vals = args.iter().map(|a| self.ev(a, known)).collect::<Result<Vec<_>, _>>()?;
+        // ** A `gpu fn` applied to TABLES (level 11, D1): one cell of each
+        // per thread -- here, one call per cell, in order. The 3060 runs
+        // them at once; the result is the same, cell by cell.
+        if self.m.functions[func].gpu && vals.iter().any(|v| matches!(v, Const::Table(_))) {
+            let n = match &vals[0] {
+                Const::Table(items) => items.len(),
+                _ => 0,
+            };
+            let mut out = Vec::with_capacity(n);
+            for i in 0..n {
+                let cell: Vec<Const> = vals.iter().map(|v| if let Const::Table(items) = v { items[i].clone() } else { v.clone() }).collect();
+                out.push(self.call(func, cell, at)?.0.expect("gpu: a gpu fn gives a value"));
+            }
+            return Ok(Some(Const::Table(out)));
+        }
         let (result, finals) = self.call(func, vals, at)?;
         for (a, back) in args.iter().zip(finals) {
             match a {
@@ -858,6 +1032,7 @@ impl Run<'_> {
             Value::Text(t, _) => Const::Text(t.clone()),
             Value::Bool(b, _) => Const::Bool(*b),
             Value::Dec(d, s, _) => Const::Dec(*d, *s),
+            Value::F32(b, _) => Const::F32(*b),
             Value::Local(l, _) | Value::Lend(_, l, _) => known[*l].clone().expect("juez: every local read has a value"),
             Value::Call(func, args, at) => self.call_with(*func, args, *at, known)?.expect("check: a call used as a value gives one back"),
             Value::Round(inner, n, at) => {
@@ -921,6 +1096,7 @@ impl Run<'_> {
                 _ => unreachable!("classes: only a table has cells"),
             },
             Value::Neg(inner, at) => match self.ev(inner, known)? {
+                Const::F32(b) => Const::F32((-f32::from_bits(b)).to_bits()),
                 Const::Int(n) => n.checked_neg().map(Const::Int).ok_or_else(|| overflow(*at, &format!("-({})", n)))?,
                 Const::Dec(d, s) => d.checked_neg().map(|d| Const::Dec(d, s)).ok_or_else(|| overflow(*at, &format!("-({})", show_dec(d, s))))?,
                 other => return Err(unclassed(*at, &other)),
@@ -957,6 +1133,10 @@ impl Run<'_> {
 fn fit_into(c: Const, ty: Option<&Ty>, types: Defs, at: At) -> Result<Const, Message> {
     match (c, ty) {
         (Const::Int(n), Some(Ty::Dec)) => Ok(Const::Dec(n, 0)),
+        // D4: the exact decimal, rounded ONCE to the nearest f32, where the
+        // declared type says so.
+        (Const::Int(n), Some(Ty::F32)) => Ok(Const::F32((n as f32).to_bits())),
+        (Const::Dec(d, s), Some(Ty::F32)) => Ok(Const::F32(show_dec(d, s).parse::<f32>().unwrap_or(f32::NAN).to_bits())),
         (c @ (Const::Int(_) | Const::Dec(..)), Some(Ty::DecP(p, s))) => {
             let (d, sc) = parts(&c);
             let shown = c.show(types);
@@ -1004,6 +1184,9 @@ fn fit_into(c: Const, ty: Option<&Ty>, types: Defs, at: At) -> Result<Const, Mes
 /// `round(x, n)`: to `n` decimals, half away from zero -- COBOL's ROUNDED
 /// (2.345 -> 2.35, -2.345 -> -2.35). Written, never silent.
 fn round_to(c: Const, n: u32, at: At) -> Result<Const, Message> {
+    if let Const::F32(b) = c {
+        return round_f32(f32::from_bits(b), n, at);
+    }
     let (d, s) = parts(&c);
     if s <= n {
         return dec_result(d * pow10(n - s), n, at, &c.show(NONE));
@@ -1014,6 +1197,31 @@ fn round_to(c: Const, n: u32, at: At) -> Result<Const, Message> {
         r += d.signum();
     }
     dec_result(r, n, at, &c.show(NONE))
+}
+
+/// ** `round(x, n)` of an f32 -- THE door from the 3060 to the CPU (D2).
+/// The f32's value is EXACT in decimal (a binary fraction ends), so it is
+/// written out whole and rounded at `n` digits half away from zero, as every
+/// `round` of TITAN++. NaN and infinity are not numbers: a NO.
+fn round_f32(v: f32, n: u32, at: At) -> Result<Const, Message> {
+    if !v.is_finite() {
+        return Err(Message::new(
+            Code::Inexact,
+            at.0,
+            at.1,
+            &format!("`round` recibe {} de la 3060, y eso no es un numero", v),
+            "un f32 que dividio entre cero, o desbordo, queda en infinito o NaN: no hay decimal que lo diga",
+            "comprueba el divisor dentro de la gpu fn: if d != 0.0",
+        ));
+    }
+    // 150 decimals hold every f32 exactly (its smallest step is 2^-149).
+    let s = format!("{:.150}", (v as f64).abs());
+    let (whole, frac) = s.split_once('.').unwrap_or((&s, ""));
+    let keep = &frac[..(n as usize).min(frac.len())];
+    let up = frac.as_bytes().get(n as usize).is_some_and(|d| *d >= b'5');
+    let digits: i128 = format!("{}{}", whole, keep).parse::<i128>().map_err(|_| overflow(at, &format!("round({}, {})", v, n)))?;
+    let r = (digits + up as i128) * if v < 0.0 { -1 } else { 1 };
+    dec_result(r, n, at, &format!("round({}, {})", v, n))
 }
 
 /// The cell `idx` of `table`, or T0072.
@@ -1169,6 +1377,24 @@ fn decimal(op: &str, a: Const, b: Const, at: At, lenient: bool) -> Result<Const,
 
 /// Two values and an operator: comparisons, arithmetic, texts joined.
 fn binop(op: &str, a: Const, b: Const, at: At, lenient: bool) -> Result<Const, Message> {
+    // ** Two f32 (level 11): IEEE single precision, as the 3060 counts --
+    // each operation rounded once, no fused steps.
+    if let (Const::F32(x), Const::F32(y)) = (&a, &b) {
+        let (x, y) = (f32::from_bits(*x), f32::from_bits(*y));
+        return Ok(match op {
+            "+" => Const::F32((x + y).to_bits()),
+            "-" => Const::F32((x - y).to_bits()),
+            "*" => Const::F32((x * y).to_bits()),
+            "/" => Const::F32((x / y).to_bits()),
+            "==" => Const::Bool(x == y),
+            "!=" => Const::Bool(x != y),
+            "<" => Const::Bool(x < y),
+            "<=" => Const::Bool(x <= y),
+            ">" => Const::Bool(x > y),
+            ">=" => Const::Bool(x >= y),
+            _ => return Err(unclassed(at, &a)),
+        });
+    }
     let numbers = matches!(a, Const::Int(_) | Const::Dec(..)) && matches!(b, Const::Int(_) | Const::Dec(..));
     let dec = numbers && (matches!(a, Const::Dec(..)) || matches!(b, Const::Dec(..)));
     if numbers && matches!(op, "==" | "!=" | "<" | "<=" | ">" | ">=") {

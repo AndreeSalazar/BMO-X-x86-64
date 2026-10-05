@@ -1,0 +1,5 @@
+[package]
+name = "mezcla"
+
+[permissions]
+gpu = "compute"

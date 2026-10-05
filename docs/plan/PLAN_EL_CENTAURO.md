@@ -119,16 +119,18 @@ que entre.
 - [x] la ley L25 en `toolchain/tools/titan-leyes/LEYES.txt`
 - Lo que pide una `gpu fn` para existir (el certificado con `Door::Gpu`, y `titan juez` con y sin `--concede gpu`) pasa a G1.
 
-## [ ] G1 -- EL FRONTEND: `gpu fn` y el f32 (D1, D2, D4)
+## [x] G1 -- EL FRONTEND: `gpu fn` y el f32 (D1, D2, D4) -- HECHO el 04-10
 
-- [ ] `gpu fn` en el parser (la palabra 25), y `f32` como tipo SOLO del nivel 11
-- [ ] la regla D2: fuera de una `gpu fn`, un `f32` solo se guarda o se pasa; `round(x, n)` lo vuelve `dec`
-- [ ] dentro de una `gpu fn`: solo f32, int y bool, sin `print`, sin tablas, sin llamadas a fn de CPU
-- [ ] la aplicacion ELEMENTAL: `suma(xs, ys)` con tablas de igual largo da una tabla
-- [ ] sin permiso `gpu`, una `gpu fn` no compila (como `use gpu`, T0088)
-- [ ] el certificado nombra `Door::Gpu` en la linea de cada llamada a una `gpu fn`
-- [ ] `titan juez` lo compara: un banco con `--concede gpu` (de acuerdo) y sin el (`Ungranted`)
-- [ ] los codigos nuevos, cada uno con su programa roto en `ejemplos/nivel11/`
+- [x] `gpu fn` en el parser (la palabra 25), y `f32` como tipo del nivel 11 (`f64` sigue sin sitio: T0040)
+- [x] la regla D2: fuera de una `gpu fn`, un `f32` solo se guarda o se pasa; `round(x, n)` lo vuelve `dec` (T0091, `calc.rs`)
+- [x] dentro de una `gpu fn`: f32 y bool, sin `print`, tablas, textos, llamadas ni bucles (T0090, `src/gpu.rs`); los numeros escritos alli son f32
+- [x] D4: un numero entra a f32 solo por un tipo declarado (`let xs: [f32; n] = ...`)
+- [x] la aplicacion ELEMENTAL: `mezcla(xs, ys)` con tablas de igual largo da una tabla
+- [x] sin permiso `gpu`, una `gpu fn` no compila (como `use gpu`, T0088)
+- [x] el certificado nombra `Door::Gpu` en la linea de cada llamada a una `gpu fn`
+- [x] `titan juez` lo compara: con `gpu` concedido, de acuerdo; sin el, `Ungranted` (test `a_gpu_call_is_named_in_the_certificate_and_judged` del emisor)
+- [x] los codigos nuevos, cada uno con su programa roto en `ejemplos/nivel11/`; las leyes L26 y L27
+- Hoy cada hilo lo corre el calculo, en la CPU, con f32 IEEE de precision simple (cada operacion redondeada una vez); G2 y G3 lo llevan a SPIR-V y a su oraculo.
 
 ## [ ] G2 -- EL FORMATO: TITAN++ escribe SPIR-V (D5)
 

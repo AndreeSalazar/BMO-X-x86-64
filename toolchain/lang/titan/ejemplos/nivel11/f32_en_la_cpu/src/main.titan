@@ -1,0 +1,12 @@
+# espera: T0091
+# en la CPU un f32 se guarda o se pasa: sumarlo aqui seria contar en base 2 donde la casa cuenta exacto
+mod main "un f32 que se cuenta en la CPU"
+
+gpu fn doble(x: f32) -> f32
+    return x * 2.0
+
+fn main()
+    let xs: [f32; 2] = [1.0, 2.0]
+    let d = doble(xs)
+    let total = d[0] + d[1]
+    print(round(total, 2))

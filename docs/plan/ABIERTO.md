@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   610 casillas ABIERTAS en 56 planes
-   432 hechas
+   601 casillas ABIERTAS en 56 planes
+   442 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -68,15 +68,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3 -- las constantes. La matriz en un buffer y el programa de
 - [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
 - ... y 20 mas
-
-## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 22 abiertas, 5 hechas
-
-*PLAN EL CENTAURO -- TITAN++ nivel 11: gpu fn a la 3060*
-
-- [ ] G1 -- EL FRONTEND: gpu fn y el f32 (D1, D2, D4)
-- [ ] gpu fn en el parser (la palabra 25), y f32 como tipo SOLO del nivel 11
-- [ ] la regla D2: fuera de una gpu fn, un f32 solo se guarda o se pasa; round(x, n) lo vuelve dec
-- ... y 19 mas
 
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 22 abiertas, 6 hechas
 
@@ -157,6 +148,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] el DIRECTOR le dice el hueco: una ranura de buzon con bit propio
 - [ ] la app puede REEMPLAZAR su superficie: hoy una segunda oferta del
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
+- ... y 10 mas
+
+## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 13 abiertas, 15 hechas
+
+*PLAN EL CENTAURO -- TITAN++ nivel 11: gpu fn a la 3060*
+
+- [ ] G2 -- EL FORMATO: TITAN++ escribe SPIR-V (D5)
+- [ ] emisor-spirv: una gpu fn -> un modulo GLCompute (buffers de entrada y salida, GlobalInvocationId
+- [ ] el SPIR-V que sale pasa validate_stage(GLCompute) y bmo-spirv-sm86::check -- si no, es un fallo 
 - ... y 10 mas
 
 ## [`PLAN_HERMES.md`](PLAN_HERMES.md) -- 13 abiertas, 2 hechas

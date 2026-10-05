@@ -278,6 +278,23 @@ mod tests {
         assert!(t.contains("[permissions]") && t.contains("gpu = true") && !t.contains("net ="), "{}", t);
     }
 
+    /// ** U2 and U1's first half (level 11): a call to a `gpu fn` opens the
+    /// GPU's door in the certificate, at its line, and the kernel's judge on
+    /// the PC agrees only when `gpu` is asked AND granted.
+    #[test]
+    fn a_gpu_call_is_named_in_the_certificate_and_judged() {
+        use bmo_titan_contrato::certificate::{judge, Certificate, Door, Verdict};
+        use bmo_titan_contrato::{Permission, Permissions};
+        let main = "mod main \"x\"\n\ngpu fn d(x: f32) -> f32\n    return x * 2.0\n\nfn main()\n    let xs: [f32; 2] = [1.0, 2.0]\n    let r = d(xs)\n    print(round(r[0], 1))\n";
+        let files = [("src/main.titan", main), ("Titan.toml", "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n")];
+        let bex = build_package(files[0].0, files[0].1, &mut |p| files.iter().find(|f| f.0 == p).map(|f| f.1.to_string())).unwrap();
+        let cert = Certificate::read(bmo_verify::declaracion::manifiesto(&bex).unwrap()).unwrap();
+        assert_eq!(cert.line_of(Door::Gpu), Some(8));
+        let asked = Permissions::NONE.with(Permission::Gpu);
+        assert_eq!(judge(&cert, asked, asked), Verdict::Agrees);
+        assert!(matches!(judge(&cert, asked, Permissions::NONE), Verdict::Ungranted(u) if u.door == Door::Gpu && u.line == 8));
+    }
+
     #[test]
     fn a_built_bex_carries_its_manifest_and_passes_the_gate() {
         let bex = build("mod main \"saluda\"\nfn main()\n    print(\"hola\")\n", "hola.titan").unwrap();

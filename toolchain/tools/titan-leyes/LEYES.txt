@@ -118,9 +118,18 @@ L25 lo que un programa usa de BMO-X lo PIDE su Titan.toml, y el .bex lo lleva es
     porque U2: el kernel concede o no, y el certificado dice desde que linea; un permiso que no se pide no se puede negar a tiempo
     cumple ejemplo T0088
 
+L26 en la CPU un f32 se guarda o se pasa, nunca se cuenta, se compara ni se imprime; vuelve a dec con round, a la vista
+    porque PLAN_EL_CENTAURO D2, decision del propietario: "en la CPU, siempre dec"; el f32 cuenta en la 3060, con sus redondeos de base 2
+    cumple ejemplo T0091
+
+L27 una gpu fn es UNA celda de la 3060: f32 y bool, cada valor una copia, siempre con resultado, sin consola
+    porque PLAN_EL_CENTAURO D1: funciones elementales, como FORTRAN; un hilo por celda, y lo que un hilo no puede hacer no se escribe
+    cumple ejemplo T0090
+
 [SELLO]
-96dd4cf4896122123db153cf4c0ba018c36be032f8cf3c65c71e14e3dbc91453
+45b5f497dae3ff488bc5c65c3f3f6d39830040d9bb5c1f8234b516a70b009669
 
 [HISTORIA]
 2026-10-04  16a5580ebef2  24 leyes  nacen las 24 leyes de los niveles 0-10, pedidas por el propietario
 2026-10-04  96dd4cf48961  25 leyes  L25: el permiso del Titan.toml (U2), con la casilla G0 de PLAN_EL_CENTAURO
+2026-10-05  45b5f497dae3  27 leyes  L26 y L27: el f32 en la GPU (D2) y la gpu fn de una celda (D1), con G1 de PLAN_EL_CENTAURO

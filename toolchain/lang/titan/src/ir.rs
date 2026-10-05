@@ -94,6 +94,8 @@ pub struct Function {
     /// What it gives back, if anything (level 5).
     pub ret: Option<Ty>,
     pub blocks: Vec<Block>,
+    /// A `gpu fn` (level 11): it counts in f32, one cell per thread.
+    pub gpu: bool,
     /// A fn of a TRAIT (level 10): it has no body of its own, and a call to
     /// it runs the fn of the type of its first value -- (type, function).
     /// `None` for every fn with a body.
@@ -180,6 +182,9 @@ pub enum Value {
     Lend(Mode, usize, At),
     /// `round(x, n)`: the rounding WRITTEN (7).
     Round(Box<Value>, u32, At),
+    /// An f32, by its bits (level 11): every number written inside a `gpu
+    /// fn`, and what `let xs: [f32; n] = ...` turns a `dec` into.
+    F32(u32, At),
     /// The case `v` of the enum `e`, carrying these values (8): `Circulo(2.0)`,
     /// `Nada`.
     Variant(usize, usize, Vec<Value>, At),
@@ -211,6 +216,7 @@ impl Value {
             | Value::Len(_, a)
             | Value::Lend(_, _, a)
             | Value::Round(_, _, a)
+            | Value::F32(_, a)
             | Value::Variant(_, _, _, a)
             | Value::Is(_, _, _, a)
             | Value::Payload(_, _, _, _, a) => *a,
@@ -221,7 +227,7 @@ impl Value {
     /// judges.
     pub fn reads(&self, out: &mut Vec<(usize, At)>) {
         match self {
-            Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) => {}
+            Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) => {}
             Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => {
                 for i in items {
                     i.reads(out);
@@ -277,6 +283,22 @@ fn local_of(locals: &mut Vec<Local>, name: &str) -> usize {
             locals.push(Local { name: name.to_string() });
             locals.len() - 1
         }
+    }
+}
+
+/// The numbers written inside a `gpu fn`, made f32 (level 11): the exact
+/// decimal, rounded ONCE to the nearest f32 -- the declaration `gpu fn` says
+/// where the rounding is, as `dec(7, 2)` says the digits.
+fn to_f32(v: &mut Value) {
+    match v {
+        Value::Int(n, at) => *v = Value::F32((*n as f32).to_bits(), *at),
+        Value::Dec(d, s, at) => *v = Value::F32(crate::tree::show_dec(*d, *s).parse::<f32>().unwrap_or(f32::NAN).to_bits(), *at),
+        Value::Bin(_, l, r, _) => {
+            to_f32(l);
+            to_f32(r);
+        }
+        Value::Neg(x, _) | Value::Not(x, _) => to_f32(x),
+        _ => {}
     }
 }
 
@@ -647,7 +669,25 @@ pub fn lower(p: &Program) -> Module {
             let params = f.params.iter().map(|a| (local_of(&mut l.locals, &a.name), a.ty.clone())).collect();
             let first = l.open();
             l.stmts(&f.body, first);
-            Function { name: f.name.clone(), line: f.line, locals: l.locals, params, modes: f.params.iter().map(|a| a.mode).collect(), ret: f.ret.clone(), blocks: l.blocks, dispatch: None }
+            let mut blocks = l.blocks;
+            if f.gpu {
+                // ** Inside a `gpu fn` the 3060 counts in f32: every number
+                // written there IS one (`2.0`, `0.5`, `1`).
+                for b in &mut blocks {
+                    for op in &mut b.ops {
+                        match op {
+                            Op::Let { value, .. } | Op::Set { value, .. } => to_f32(value),
+                            _ => {}
+                        }
+                    }
+                    match &mut b.end {
+                        End::Return(Some(v)) => to_f32(v),
+                        End::Branch { cond, .. } => to_f32(cond),
+                        _ => {}
+                    }
+                }
+            }
+            Function { name: f.name.clone(), line: f.line, locals: l.locals, params, modes: f.params.iter().map(|a| a.mode).collect(), ret: f.ret.clone(), blocks, gpu: f.gpu, dispatch: None }
         })
         .collect::<Vec<_>>();
     // ** The fn of each trait (level 10): no body, and a table -- for each
@@ -673,6 +713,7 @@ pub fn lower(p: &Program) -> Module {
                 modes: s.params.iter().map(|a| a.mode).collect(),
                 ret: s.ret.clone(),
                 blocks: vec![Block { ops: Vec::new(), end: End::Return(None), dead: false }],
+                gpu: false,
                 dispatch: Some(table),
             });
         }
@@ -773,6 +814,7 @@ fn show(v: &Value) -> String {
         Value::Len(v, _) => format!("len({})", show(v)),
         Value::Lend(m, l, _) => format!("{} %{}", m.word(), l),
         Value::Round(v, n, _) => format!("round({}, {})", show(v), n),
+        Value::F32(b, _) => format!("{}f32", f32::from_bits(*b)),
         Value::Variant(e, v, args, _) if args.is_empty() => format!("E{}.{}", e, v),
         Value::Variant(e, v, args, _) => format!("E{}.{}({})", e, v, args.iter().map(show).collect::<Vec<_>>().join(", ")),
         Value::Is(x, e, v, _) => format!("{} es E{}.{}", show(x), e, v),

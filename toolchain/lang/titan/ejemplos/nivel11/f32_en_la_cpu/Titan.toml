@@ -1,0 +1,5 @@
+[package]
+name = "f32_en_la_cpu"
+
+[permissions]
+gpu = "compute"

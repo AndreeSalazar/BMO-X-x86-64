@@ -1,0 +1,17 @@
+# espera: BIEN
+# sale: 2.00
+# sale: 2.00
+# sale: 2.00
+# sale: 2.25
+# una gpu fn se escribe para UNA celda; con tablas de 4, son 4 hilos de la 3060
+mod main "la 3060 mezcla dos tablas"
+
+gpu fn mezcla(a: f32, b: f32) -> f32
+    return (a + b) / 2.0
+
+fn main()
+    let xs: [f32; 4] = [1.0, 2.0, 3.0, 4.0]
+    let ys: [f32; 4] = [3.0, 2.0, 1.0, 0.5]
+    let c = mezcla(xs, ys)
+    for x in c
+        print(round(x, 2))

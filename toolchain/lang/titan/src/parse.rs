@@ -166,7 +166,7 @@ impl<'a> Parser<'a> {
         let sig = self.signature()?;
         let name = &sig.name;
         let body = self.block(fn_tok, &format!("`fn {}()`", name), &format!("fn {}()\n             print(\"hola\")", name))?;
-        Ok(Function { name: sig.name, public: false, line: sig.line, col: sig.col, params: sig.params, ret: sig.ret, body })
+        Ok(Function { name: sig.name, public: false, gpu: false, line: sig.line, col: sig.col, params: sig.params, ret: sig.ret, body })
     }
 
     /// `fn name(params) -> T` up to the end of its line: a function's first
@@ -328,6 +328,17 @@ impl<'a> Parser<'a> {
                 }
             }
             Kind::Name(n) if n == "dec" && LEVEL_NOW >= 6 => Ok(Ty::Dec),
+            Kind::Name(n) if n == "f32" && LEVEL_NOW >= 11 => Ok(Ty::F32),
+            // ** f64 has no place (PLAN_EL_CENTAURO D2): the 3060 counts in
+            // f32, the CPU in `dec`. It is the last "not yet" of the ladder.
+            Kind::Name(n) if n == "f64" && LEVEL_NOW >= 11 => Err(Message::new(
+                Code::NotYet,
+                t.line,
+                t.col,
+                "el tipo `f64` todavia no existe",
+                "la 3060 cuenta en f32 y la CPU en `dec` exacto (PLAN_EL_CENTAURO, D2): un f64 no tiene sitio en ninguno de los dos",
+                "dentro de una `gpu fn`, f32; en la CPU, dec",
+            )),
             Kind::Name(n) if n == "f32" || n == "f64" => Err(not_yet(
                 t,
                 &format!("el tipo `{}`", n),
@@ -1138,8 +1149,17 @@ pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
         if public {
             p.next();
             let next = p.peek();
-            if !matches!(next.kind, Kind::Word("fn") | Kind::Word("type") | Kind::Word("enum") | Kind::Word("trait")) {
+            if !matches!(next.kind, Kind::Word("fn") | Kind::Word("type") | Kind::Word("enum") | Kind::Word("trait") | Kind::Word("gpu")) {
                 return Err(p.expected(next, "una `fn`, un `type`, un `enum` o un `trait` detras de `pub`", "pub fn avanza()"));
+            }
+        }
+        // `gpu fn` (level 11): a fn of the 3060.
+        let gpu = p.peek().kind == Kind::Word("gpu") && LEVEL_NOW >= 11;
+        if gpu {
+            p.next();
+            let next = p.peek();
+            if next.kind != Kind::Word("fn") {
+                return Err(p.expected(next, "`fn` detras de `gpu`", "gpu fn mezcla(a: f32, b: f32) -> f32"));
             }
         }
         let tok = p.peek();
@@ -1148,6 +1168,7 @@ pub fn parse(tokens: &[Token]) -> Result<Program, Message> {
             Kind::Word("fn") => {
                 let mut f = p.function()?;
                 f.public = public;
+                f.gpu = gpu;
                 functions.push(f);
             }
             Kind::Word("type") if LEVEL_NOW >= 6 => {

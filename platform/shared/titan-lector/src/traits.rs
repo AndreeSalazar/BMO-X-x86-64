@@ -87,8 +87,10 @@ pub fn scan(text: &[u8]) -> Traits {
         }
         body = true;
         t.lines = t.lines.saturating_add(1);
-        // `pub fn`, `pub type`, `pub enum` (level 9) count as what they are.
+        // `pub fn`, `pub type`, `pub enum` (level 9) count as what they are,
+        // and so does a `gpu fn` (level 11): it is a fn of the program.
         let line = line.strip_prefix(b"pub ").unwrap_or(line);
+        let line = line.strip_prefix(b"gpu ").unwrap_or(line);
         if line.starts_with(b"fn ") {
             bump(&mut t.fns);
         } else if line.starts_with(b"type ") || line.starts_with(b"enum ") || line.starts_with(b"trait ") {
@@ -160,6 +162,12 @@ mod tests {
     fn a_trait_is_a_crystal_and_its_fn_are_fn() {
         let t = scan(b"mod a \"x\"\ntrait Forma\n    fn area(f: Forma) -> dec\ntrait Forma for Circulo\n    fn area(c: Circulo) -> dec\n        return c.r\n");
         assert_eq!((t.types, t.fns, t.returns), (2, 2, 1));
+    }
+
+    #[test]
+    fn a_gpu_fn_is_a_fn() {
+        let t = scan(b"mod a \"x\"\ngpu fn d(x: f32) -> f32\n    return x\npub gpu fn e(x: f32) -> f32\n    return x\n");
+        assert_eq!((t.fns, t.returns), (2, 2));
     }
 
     #[test]

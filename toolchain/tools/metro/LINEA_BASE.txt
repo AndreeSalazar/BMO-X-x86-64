@@ -38,6 +38,8 @@ toolchain/lang/titan/ejemplos/nivel0/hola.titan 9 0 52 7488197ad38aaaa7
 toolchain/lang/titan/ejemplos/nivel1/centauro.titan 63 0 321 816cd108e0ffdcb2
 toolchain/lang/titan/ejemplos/nivel10/formas.titan 51 0 265 3e932a0c025ec0a6
 toolchain/lang/titan/ejemplos/nivel10/motor/src/main.titan 34 0 180 36be6f246c208e76
+toolchain/lang/titan/ejemplos/nivel11/activa/src/main.titan 66 0 335 ad3c85df63fda75f
+toolchain/lang/titan/ejemplos/nivel11/mezcla/src/main.titan 24 0 139 ac980c01fdd85e0e
 toolchain/lang/titan/ejemplos/nivel2/constelacion.titan 26 0 137 38be7e5ae74f5090
 toolchain/lang/titan/ejemplos/nivel3/calculadora.titan 37 0 194 dd118d64af246ac3
 toolchain/lang/titan/ejemplos/nivel3/semaforo.titan 34 0 180 cdaf2dedfc9dd621

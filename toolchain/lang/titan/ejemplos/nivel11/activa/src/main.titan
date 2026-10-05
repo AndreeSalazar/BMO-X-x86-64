@@ -1,0 +1,26 @@
+# espera: BIEN
+# sale: 0.1 + 0.2 en la 3060, a 9 decimales: 0.300000012
+# sale: el mismo, redondeado a 2: 0.30
+# sale: en la CPU, con dec: 0.3
+# sale: activa: 0.000 1.500 0.000
+# el f32 cuenta en la 3060, con sus redondeos de base 2; vuelve a la CPU con round, a la vista
+mod main "lo que la 3060 redondea, dicho en voz alta"
+
+gpu fn suma(a: f32, b: f32) -> f32
+    return a + b
+
+gpu fn activa(x: f32) -> f32
+    if x > 0.0
+        return x
+    return 0.0
+
+fn main()
+    let a: [f32; 1] = [0.1]
+    let b: [f32; 1] = [0.2]
+    let s = suma(a, b)
+    print("0.1 + 0.2 en la 3060, a 9 decimales: ", round(s[0], 9))
+    print("el mismo, redondeado a 2: ", round(s[0], 2))
+    print("en la CPU, con dec: ", 0.1 + 0.2)
+    let xs: [f32; 3] = [-2.0, 1.5, 0.0]
+    let r = activa(xs)
+    print("activa: ", round(r[0], 3), " ", round(r[1], 3), " ", round(r[2], 3))

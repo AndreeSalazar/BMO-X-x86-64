@@ -1,0 +1,9 @@
+# espera: T0040
+# `f64` no tiene sitio: la 3060 cuenta en f32 y la CPU en dec (PLAN_EL_CENTAURO, D2)
+mod main "un tipo que aun no existe"
+
+fn mide(x: f64)
+    print("nada")
+
+fn main()
+    print("nada")

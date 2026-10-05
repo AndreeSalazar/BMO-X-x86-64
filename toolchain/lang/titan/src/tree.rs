@@ -27,6 +27,9 @@
 //!    level 10  `trait Forma` says what a value KNOWS how to do (its fn, no
 //!              body); `trait Forma for Circulo` is how Circulo does it; and
 //!              `fn mide(f: Forma)` takes ANY value that does it
+//!    level 11  `gpu fn mezcla(a: f32, b: f32) -> f32`: written for ONE
+//!              cell, applied to tables of n cells it is n threads of the
+//!              3060; `f32` lives there (PLAN_EL_CENTAURO, D1 and D2)
 //! ```
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -134,6 +137,8 @@ pub struct Function {
     pub name: String,
     /// `pub fn`: other modules may call it (level 9).
     pub public: bool,
+    /// `gpu fn`: it runs on the 3060, one cell per thread (level 11).
+    pub gpu: bool,
     pub line: usize,
     pub col: usize,
     /// `(a: int, b: text)` (level 5).
@@ -163,6 +168,9 @@ pub enum Ty {
     /// of them decimals, COBOL's `PIC 9(5)V99` (level 7). A value that does not
     /// fit is a NO, never a silent cut.
     DecP(u32, u32),
+    /// The 3060's number (level 11): only inside a `gpu fn` does it count;
+    /// outside, it is kept or passed, and `round` makes it a `dec`.
+    F32,
     /// `[int; 3]`: a table of exactly that many (level 6).
     Table(Box<Ty>, usize),
     /// A `type` of the file, by name (level 6).
@@ -177,6 +185,7 @@ impl Ty {
             Ty::Bool => "bool".into(),
             Ty::Dec => "dec".into(),
             Ty::DecP(p, sc) => format!("dec({}, {})", p, sc),
+            Ty::F32 => "f32".into(),
             Ty::Table(t, n) => format!("[{}; {}]", t.name(), n),
             Ty::Named(n) => n.clone(),
         }

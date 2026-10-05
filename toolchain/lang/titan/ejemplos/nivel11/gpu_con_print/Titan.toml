@@ -1,0 +1,5 @@
+[package]
+name = "gpu_con_print"
+
+[permissions]
+gpu = "compute"

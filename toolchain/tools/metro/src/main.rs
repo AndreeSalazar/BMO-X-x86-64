@@ -122,6 +122,9 @@ const BANCO: &[(&str, &str)] = &[
     // Nivel 10 (04-10): `trait`, lo que un valor sabe hacer.
     ("titan", "toolchain/lang/titan/ejemplos/nivel10/formas.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel10/motor/src/main.titan"),
+    // Nivel 11 (04-10): gpu fn, una celda por hilo de la 3060 (G1).
+    ("titan", "toolchain/lang/titan/ejemplos/nivel11/mezcla/src/main.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel11/activa/src/main.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]

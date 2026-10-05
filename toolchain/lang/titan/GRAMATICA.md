@@ -31,7 +31,7 @@ texto cambia sin sellarse con un motivo.
 | 8 | `enum match` | casos con datos, y un `match` que los cubre todos | T0078, T0079 |
 | 9 | `mod use pub` | paquetes de varios ficheros, con su `Titan.toml` (U2) | T0080-T0084, T0088, T0089 |
 | 10 | `trait` | lo que un valor sabe hacer, y fn para cualquiera que lo sepa | T0085-T0087 |
-| 11 | `gpu` | la 3060 | todavia no: su plan es `docs/plan/PLAN_EL_CENTAURO.md` |
+| 11 | `gpu` | la 3060: `gpu fn`, una celda por hilo; `f32` vive alli | T0090, T0091 (el plan: `docs/plan/PLAN_EL_CENTAURO.md`) |
 
 ---
 
@@ -743,6 +743,75 @@ compilar -- sin coste, como promete C++. El lenguaje no cambia por eso.
 
 ---
 
+## Nivel 11 -- la 3060 (25 palabras: + `gpu`) -- 04-10, G1 de PLAN_EL_CENTAURO
+
+```text
+# mezcla/src/main.titan            (y su Titan.toml pide gpu = "compute")
+gpu fn mezcla(a: f32, b: f32) -> f32     # se escribe para UNA celda
+    return (a + b) / 2.0
+
+fn main()
+    let xs: [f32; 4] = [1.0, 2.0, 3.0, 4.0]   # el tipo DECLARADO dice el redondeo
+    let ys: [f32; 4] = [3.0, 2.0, 1.0, 0.5]
+    let c = mezcla(xs, ys)                    # tablas de 4: cuatro hilos
+    for x in c
+        print(round(x, 2))                    # y vuelve a dec, a la vista
+```
+
+### Lo que se escribe
+
+```text
+   gpu fn f(a: f32, ...) -> f32    una fn de la 3060: valores f32 o bool, cada
+                                   uno una COPIA, y un resultado f32 o bool
+   f(x)                            con valores: un hilo
+   f(xs, ys)                       con TABLAS del mismo largo: un hilo por
+                                   celda, y una tabla de resultados
+   let xs: [f32; n] = [...]        un numero entra a f32 SOLO por un tipo
+                                   declarado (D4): ahi se redondea, una vez
+   round(x, 2)                     la puerta de vuelta: el f32 se escribe
+                                   entero en decimal y se redondea como todo
+                                   round de TITAN++ (la mitad, lejos del cero)
+```
+
+**Dentro de una `gpu fn`** todo numero es f32 (`2.0`, `1`), y hay `let`,
+`if` / `else` y `return` con `+ - * /` y comparaciones. No hay `print` (la 3060
+no tiene consola), tablas, textos, registros, llamadas ni bucles: el bucle de
+una gpu fn ES la tabla. Las llamadas y los bucles dentro de un hilo llegan con
+el escritor de SPIR-V (G2).
+
+**En la CPU** (D2, la regla de la casa): un f32 se GUARDA o se PASA a otra gpu
+fn, y nada mas -- ni se suma, ni se compara, ni se imprime. Para usarlo, se
+vuelve dec con `round`. Un f32 y un dec no se mezclan nunca solos.
+
+**El permiso**: una `gpu fn` necesita que el Titan.toml pida `gpu` (U2), y cada
+llamada a una gpu fn queda en el certificado del `.bex` con su linea: es lo que
+`titan juez --concede gpu` y el kernel comparan.
+
+### Las reglas, y quien las dice
+
+```text
+   LA GPU (gpu.rs)
+     una gpu fn con print, tablas, textos, llamadas,      T0090
+     bucles, valores mut / take, o sin resultado
+     una gpu fn sin `gpu` en el Titan.toml                T0088
+   EL CALCULO
+     un f32 contado, comparado o impreso en la CPU        T0091
+     un f32 y un dec juntos                               T0063
+     tablas de distinto largo, o un dec donde va un f32   T0071
+     sin tipo declarado
+     `round` de un infinito o un NaN de la 3060           T0062
+   LA ESCALERA
+     `f64`: no tiene sitio (la 3060 cuenta en f32 y la    T0040
+     CPU en dec)
+```
+
+[!] Hoy el calculo corre cada hilo en la CPU con f32 IEEE de precision simple
+-- cada operacion redondeada una vez, como la 3060 --, y el `.bex` lleva los
+resultados. Que lo escriba SPIR-V y lo juzgue el juez de spirv es G2; que los
+calcule el oraculo de spirv, G3; que corra en la 3060, G4 (Ring 0).
+
+---
+
 ## Los codigos
 
 | codigo | que |
@@ -755,7 +824,7 @@ compilar -- sin coste, como promete C++. El lenguaje no cambia por eso.
 | T0022 | una `\` en un texto que no es `\"`, `\\` ni `\n` |
 | T0030 | se esperaba otra cosa en ese sitio |
 | T0031 | una funcion sin cuerpo |
-| T0040 | una palabra de un nivel que aun no existe |
+| T0040 | lo que todavia no existe: una palabra de un nivel que no llego, o el tipo `f64` |
 | T0050 | no hay `fn main()` |
 | T0051 | se llama a algo que no existe |
 | T0052 | una funcion definida dos veces |
@@ -795,6 +864,8 @@ compilar -- sin coste, como promete C++. El lenguaje no cambia por eso.
 | T0087 | un trait donde solo va un parametro entero: en un `let`, un campo, una tabla o un resultado (el comportamiento) |
 | T0088 | se usa un nodo de BMO-X (`gpu`, `director`) que el Titan.toml no pide (el paquete, U2) |
 | T0089 | un Titan.toml que no se lee: una linea que no es seccion, clave o comentario (el paquete) |
+| T0090 | una `gpu fn` que no es una celda de la 3060: print, tablas, textos, llamadas, bucles, mut / take, o sin resultado (la gpu) |
+| T0091 | un f32 contado, comparado o impreso en la CPU: alli se guarda o se pasa, y vuelve con `round` (el calculo, D2) |
 
 ## El banco: lo que dice cada ejemplo de si mismo
 

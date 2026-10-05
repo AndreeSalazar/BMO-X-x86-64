@@ -1,0 +1,12 @@
+# espera: T0090
+# la 3060 no tiene consola: una gpu fn devuelve su celda, y la CPU la escribe
+mod main "una gpu fn que quiere hablar"
+
+gpu fn doble(x: f32) -> f32
+    print("doblando")
+    return x * 2.0
+
+fn main()
+    let xs: [f32; 2] = [1.0, 2.0]
+    let d = doble(xs)
+    print(round(d[0], 2))

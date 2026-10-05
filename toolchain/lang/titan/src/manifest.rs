@@ -17,7 +17,7 @@
 //! same code (`bmo_titan_contrato::certificate`) and compares; it never
 //! GRANTS by it -- it NAMES by it.
 
-use crate::ir::{Module, Op};
+use crate::ir::{End, Module, Op, Value};
 use crate::words::LEVEL_NOW;
 use bmo_titan_contrato::{Certificate, Door};
 
@@ -37,6 +37,35 @@ pub fn certificate(m: &Module) -> Certificate {
             uses.push((at.0, Door::Console));
         }
     }
+    // ** The 3060 (level 11): every call to a `gpu fn` from a block that
+    // runs opens the door of the GPU, at its line. A call in a block no run
+    // reaches asks for nothing.
+    for f in m.functions.iter().filter(|f| !f.gpu) {
+        for b in f.blocks.iter().filter(|b| !b.dead) {
+            let mut values: Vec<&Value> = Vec::new();
+            for op in &b.ops {
+                match op {
+                    Op::Let { value, .. } | Op::Set { value, .. } | Op::SetAt { value, .. } => values.push(value),
+                    Op::Write { parts, .. } => values.extend(parts),
+                    Op::Call { func, args, at } => {
+                        if m.functions[*func].gpu {
+                            uses.push((at.0, Door::Gpu));
+                        }
+                        values.extend(args);
+                    }
+                    Op::Drop { .. } => {}
+                }
+            }
+            match &b.end {
+                End::Return(Some(v)) => values.push(v),
+                End::Branch { cond, .. } => values.push(cond),
+                _ => {}
+            }
+            for v in values {
+                gpu_calls(v, m, &mut uses);
+            }
+        }
+    }
     uses.sort_by_key(|u| u.0);
     uses.dedup();
     let mut c = Certificate::new();
@@ -44,6 +73,25 @@ pub fn certificate(m: &Module) -> Certificate {
         c.add(door, line.min(u16::MAX as usize) as u16);
     }
     c
+}
+
+/// The calls to a `gpu fn` inside a value: (line, the GPU's door).
+fn gpu_calls(v: &Value, m: &Module, out: &mut Vec<(usize, Door)>) {
+    match v {
+        Value::Call(f, args, at) => {
+            if m.functions[*f].gpu {
+                out.push((at.0, Door::Gpu));
+            }
+            args.iter().for_each(|a| gpu_calls(a, m, out));
+        }
+        Value::Bin(_, a, b, _) | Value::Index(a, b, _) => {
+            gpu_calls(a, m, out);
+            gpu_calls(b, m, out);
+        }
+        Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) => gpu_calls(a, m, out),
+        Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => items.iter().for_each(|a| gpu_calls(a, m, out)),
+        _ => {}
+    }
 }
 
 /// The TOML that goes in the annex.

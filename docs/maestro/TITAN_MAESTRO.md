@@ -1849,3 +1849,31 @@ ANFITRION el 04-10** (`take`, 18 palabras):
 - **F1**: un `trait` es un CRISTAL, como un `type`.
 - 🟡 en el emulador; el banco corre formas que se miden y un motor con piezas
   que se cambian, repartido en cuatro modulos.
+
+**NIVEL 11 -- LA 3060, EL FRONTEND (G1 de PLAN_EL_CENTAURO), HECHO EN EL
+ANFITRION el 04-10** (`gpu`, las 25 palabras):
+
+```text
+   gpu fn mezcla(a: f32, b: f32) -> f32   una celda; con tablas, un hilo por celda
+       return (a + b) / 2.0
+   let xs: [f32; 4] = [1.0, 2.0, 3.0, 4.0] el tipo declarado dice el redondeo (D4)
+   let c = mezcla(xs, ys)                  cuatro hilos
+   print(round(c[0], 2))                   la puerta de vuelta a la CPU (D2)
+```
+
+- **Las decisiones del propietario**: funciones ELEMENTALES (D1) y el f32 solo
+  en la GPU (D2): en la CPU se guarda o se pasa, y vuelve a dec con `round`
+  (T0091). Una gpu fn es una celda: f32 y bool, copia, con resultado, sin
+  consola ni tablas (T0090).
+- **El permiso, de punta a punta (U2)**: la gpu fn pide `gpu` en el
+  Titan.toml (T0088), el `.bex` lo lleva en `[permissions]` y el certificado
+  nombra `Door::Gpu` en cada llamada; `titan juez` dice de acuerdo con
+  `--concede gpu` y `Ungranted` sin el.
+- **El banco lo muestra**: 0.1 + 0.2 en la 3060 da 0.300000012 a 9 decimales
+  -- el redondeo de base 2 a la vista -- y la CPU, con dec, 0.3 exacto.
+- La escalera esta ENTERA: lo unico que sigue sin sitio es `f64` (T0040).
+- [!] Hoy cada hilo lo corre el calculo en la CPU, con f32 IEEE de precision
+  simple. Lo que falta: que TITAN++ ESCRIBA SPIR-V y lo juzgue el juez de
+  spirv (G2), que el oraculo de spirv de los resultados (G3), y correr en la
+  3060 (G4, Ring 0 del propietario).
+- 🟡 en el emulador.

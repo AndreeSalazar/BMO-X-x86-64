@@ -1,0 +1,5 @@
+[package]
+name = "activa"
+
+[permissions]
+gpu = "compute"
