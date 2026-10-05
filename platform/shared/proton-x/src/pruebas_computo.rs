@@ -196,3 +196,20 @@ fn el_cs_de_execute_indirect_deja_pasar_solo_lo_que_cae_dentro() {
     assert_eq!(&salida[..24], &ordenes[..24], "la 0, en el indice 0");
     assert_eq!(&salida[24..], &[0xEE; 24], "nada mas");
 }
+
+/// *** N5.3b: el PASO de cada bufer estructurado sale de `dx.resources`
+/// (una vista en la raiz no lo lleva). Medido con lo que declaran sus HLSL:
+/// el float4 de `computo.hlsl` (16), la Particle de nBodyGravity (dos
+/// float4: 32) y las ordenes de ExecuteIndirect (uint2 + uint4: 24).
+#[test]
+fn el_paso_de_los_estructurados_sale_de_sus_metadatos() {
+    let pasos = |cs: &[u8]| crate::dxil::computo::preparar(cs).unwrap().programa.ranuras.pasos;
+    let mut c = pasos(include_bytes!("../prueba/computo.dxil"));
+    c.sort_unstable();
+    assert_eq!(c, [(false, 0, 0, 16), (true, 0, 0, 16)]);
+    let mut n = pasos(include_bytes!("../prueba/muestras/nbody/nBodyGravityCS.cso"));
+    n.sort_unstable();
+    assert_eq!(n, [(false, 0, 0, 32), (true, 0, 0, 32)]);
+    let i = pasos(include_bytes!("../prueba/muestras/indirect/compute.cso"));
+    assert!(i.contains(&(false, 0, 1, 24)) && i.contains(&(true, 0, 0, 24)), "{i:?}");
+}

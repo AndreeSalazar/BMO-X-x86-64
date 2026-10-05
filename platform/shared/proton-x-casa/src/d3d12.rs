@@ -85,6 +85,9 @@ pub(crate) enum Orden {
     Predicar { dir: u64, op: u32 },
     /// Como `Bytes`, de AtomicCopyBufferUINT(64): la predicacion no la salta.
     Atomica { dst: u64, src: u64, n: u64 },
+    /// N5.3c (05-10): ClearUnorderedAccessViewUint (`crudo`) o Float, con
+    /// la ranura de la vista copiada al apuntarla (`d3d12_resto::limpiar_uav`).
+    LimpiarUav { ranura: [u64; 4], valores: [u32; 4], crudo: bool },
     Resolver { monton: u64, desde: u32, n: u32, bufer: u64, off: u64 },
     /// Tanda 48: escribir un `u32` en una direccion de un bufer de la casa
     /// (WriteBufferImmediate).

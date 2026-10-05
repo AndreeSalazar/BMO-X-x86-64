@@ -2297,3 +2297,46 @@ Reproducible (comprobado en dos directorios), sin rutas. sha256:
 El banco (`tests/corre/muestras.rs`, n5_19): los 3 `bien` y sale con 0.
 Probado que dice NO: sin el bucle de instancias (180 pixeles distintos en
 A) y sin el StepRate (252).
+
+vistas_raiz.dxil, vistas_imagen.dxil, vistas_lee.dxil -- los de vistas.exe (05-10)
+
+N5.3b y N5.3c: `vistas.hlsl` (aqui al lado): CSRaiz (un SRV estructurado de
+32 bytes, un UAV estructurado y uno crudo, todos en la RAIZ), CSImagen (un
+RWTexture2D con GetDimensions) y CSLee (esa textura leida como UAV, a un
+RWBuffer con tipo). Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSRaiz -Fo vistas_raiz.dxil vistas.hlsl
+   dxc -T cs_6_0 -E CSImagen -Fo vistas_imagen.dxil vistas.hlsl
+   dxc -T cs_6_0 -E CSLee -Fo vistas_lee.dxil vistas.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   17e4c5d6222026beaf9b4739af299997655f12c813af96c9c98d8b07d081b44f  vistas_raiz.dxil
+   b373ad9af36d8c890f8c318058a8558445476d27339ba32ce51fa3aead73d663  vistas_imagen.dxil
+   da7541961d0336d679bf7f19052bc530745241a2b565131e1b44383fd31b81f4  vistas_lee.dxil
+
+Van DENTRO de vistas.exe.
+
+vistas.exe -- N5.3b y N5.3c: las VISTAS de D3D12, juzgadas (05-10)
+
+NUESTRO, no de Microsoft: `vistas.cpp` (aqui al lado), de consola, con los
+tres .dxil dentro (`.incbin`). A, las vistas en la RAIZ; B, un RWTexture2D
+de 16 x 16 con sus medidas; C, esa textura leida como UAV a un RWBuffer con
+tipo R8G8B8A8_UNORM; D, ClearUnorderedAccessViewUint de un bufer crudo y
+...Float de una textura UNORM. Todo leido y comparado con su cuenta, bit a
+bit. Dice `bien` 7 veces y sale con el numero de fallos; en Windows dice lo
+mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con vistas.cpp y los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c vistas.cpp -o vistas.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o vistas.exe vistas.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   67bc459b8a49928b345c9cc181d5bfd0c8ebec2e60cb28efb6a32b9a9b777acf  vistas.exe
+
+El banco (`tests/corre/muestras.rs`, n5_3c): los 7 `bien` y sale con 0.
+Probado que dice NO: con el paso de los estructurados mal (A), sin la
+limpieza (las dos D) y con la textura traspuesta (B).

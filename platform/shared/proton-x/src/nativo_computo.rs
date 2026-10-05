@@ -367,7 +367,7 @@ impl Emisor {
                 self.campo(R10, false, vista, V_ELEMENTOS);
                 self.b.extend_from_slice(&[0x49, 0xC1, 0xE2, 0x02]); // shl r10, 2
             }
-            Modo::Tipado => return None,
+            Modo::Tipado | Modo::Textura => return None,
         }
         // hasta = min(hasta, bytes)
         self.campo(R11, true, vista, V_BYTES);
@@ -384,7 +384,7 @@ impl Emisor {
 fn escritos(op: &Op, mut f: impl FnMut(Reg)) {
     let cuatro = |d: Reg, f: &mut dyn FnMut(Reg)| (0..4).for_each(|k| f(d + k));
     match *op {
-        Op::Constantes { d, .. } | Op::ConstantesEn { d, .. } | Op::Muestra { d, .. } | Op::Lee { d, .. } | Op::LeeUav { d, .. } => cuatro(d, &mut f),
+        Op::Constantes { d, .. } | Op::ConstantesEn { d, .. } | Op::Muestra { d, .. } | Op::Lee { d, .. } | Op::LeeUav { d, .. } | Op::MedidasUav { d, .. } => cuatro(d, &mut f),
         Op::Entrada { d, .. }
         | Op::EntradaDe { d, .. }
         | Op::Mul { d, .. }
@@ -889,7 +889,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                 e.guardar(d, RAX);
             }
             // Lo que no sabe: por el interprete.
-            Op::Mate { .. } | Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } | Op::ConstantesEn { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return None,
+            Op::Mate { .. } | Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } | Op::ConstantesEn { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::MedidasUav { .. } => return None,
         }
     }
     if !sis.is_empty() || !bucles.is_empty() {

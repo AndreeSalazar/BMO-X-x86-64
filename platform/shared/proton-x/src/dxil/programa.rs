@@ -108,6 +108,7 @@ const DX_SAMPLE_BIAS: i64 = 61;
 const DX_SAMPLE_LEVEL: i64 = 62;
 const DX_SAMPLE_GRAD: i64 = 63;
 const DX_TEXTURE_LOAD: i64 = 66;
+const DX_TEXTURE_STORE: i64 = 67;
 const DX_GET_DIMENSIONS: i64 = 72;
 const DX_BUFFER_LOAD: i64 = 68;
 // N5.5 (05-10): el computo.
@@ -206,6 +207,9 @@ pub enum Op {
     /// N5.5: `bufferLoad` de un UAV (`RWStructuredBuffer`...): como
     /// `Lectura::Bufer`, pero del UAV `u`.
     LeeUav { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg },
+    /// N5.3c (05-10): `GetDimensions` de un UAV: sus elementos (de un bufer)
+    /// o su ancho y su alto (de una textura), como enteros.
+    MedidasUav { d: Reg, u: u8, modo: crate::bufer::Modo },
     /// E2.4 (05-10): `bufferUpdateCounter`: sube (`inc` 1) o baja (-1) el
     /// contador oculto del UAV `u`; `d` el de antes al subir, el de despues
     /// al bajar (lo de D3D). `Append` es esto y un `bufferStore` en ese
@@ -895,6 +899,11 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     for (k, ops) in globales {
         c.valores[k] = super::arreglos::global(&mut c, ops, &tipos, &floats, &anchos)?;
     }
+    // N5.3b (05-10): el paso de cada bufer estructurado, de `dx.resources`.
+    c.ranuras.pasos = super::recursos::pasos_estructurados(m, |i| match c.valores.get(i) {
+        Some(Valor::Entero(v)) => Some(*v),
+        _ => None,
+    });
     // 3. El cuerpo: el primer FUNCTION_BLOCK es el de la primera funcion
     //    definida (la entrada: sin argumentos).
     if funciones.iter().filter(|f| !f.declarada).count() != 1 {
@@ -1128,6 +1137,24 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             c.ops.push(Op::EscribeUav { u, modo, i, desp, v, mascara });
             Valor::Nada
         }
+        // N5.3c: `textureStore(uav, coord0, coord1, coord2, v0..v3, mascara)`:
+        // el texel (x, y) de un RWTexture2D (la z, en las de 3D: todavia no).
+        DX_TEXTURE_STORE => {
+            let Some(Valor::Uav(u, crate::bufer::Modo::Textura)) = c.valores.get(arg(1)?).copied() else {
+                return Err(NoPrograma::Forma("TextureStore sin el handle de un UAV de textura"));
+            };
+            let cero = super::estructura::literal(c, 0)?;
+            let (i, desp) = (super::estructura::bits(c, arg(2)?)?, super::estructura::bits(c, arg(3)?)?);
+            let mut v = [cero; 4];
+            for (k, r) in v.iter_mut().enumerate() {
+                if !matches!(c.valores.get(arg(5 + k)?), Some(Valor::Indefinido) | None) {
+                    *r = super::estructura::bits(c, arg(5 + k)?)?;
+                }
+            }
+            let mascara = c.entero(arg(9)?)? as u8;
+            c.ops.push(Op::EscribeUav { u, modo: crate::bufer::Modo::Textura, i, desp, v, mascara });
+            Valor::Nada
+        }
         // E2.4: `bufferUpdateCounter(uav, inc)`.
         DX_BUFFER_UPDATE_COUNTER => {
             let Some(Valor::Uav(u, _)) = c.valores.get(arg(1)?).copied() else {
@@ -1202,10 +1229,12 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                 }
                 3 => Valor::Muestreador(c.ranuras.muestreador(espacio, registro)?),
                 // N5.5: los UAV de BUFER (RWStructuredBuffer, RWByteAddress
-                // Buffer, RWBuffer); los de textura, todavia no.
-                1 => match super::recursos::rango(&c.recursos, 1, rango as u32).and_then(|r| r.modo_de_bufer()) {
-                    Some(modo) => Valor::Uav(c.ranuras.uav(espacio, registro)?, modo),
-                    None => return Err(NoPrograma::Forma("un UAV de TEXTURA (RWTexture2D...): todavia no (N5.3c)")),
+                // Buffer, RWBuffer); N5.3c (05-10), los de TEXTURA de una o
+                // dos dimensiones (RWTexture1D, RWTexture2D).
+                1 => match super::recursos::rango(&c.recursos, 1, rango as u32).map(|r| (r.modo_de_bufer(), r.especie)) {
+                    Some((Some(modo), _)) => Valor::Uav(c.ranuras.uav(espacio, registro)?, modo),
+                    Some((None, 1 | 2)) => Valor::Uav(c.ranuras.uav(espacio, registro)?, crate::bufer::Modo::Textura),
+                    _ => return Err(NoPrograma::Forma("un UAV de TEXTURA 3D, de array o de cubo: todavia no (N5.3c)")),
                 },
                 _ => return Err(NoPrograma::Forma("un createHandle de una clase que no existe")),
             }
@@ -1266,6 +1295,13 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             }
         }
         DX_TEXTURE_LOAD => {
+            // N5.3c: de un UAV de textura: el texel (x, y), sin mip.
+            if let Some(Valor::Uav(u, modo @ crate::bufer::Modo::Textura)) = c.valores.get(arg(1)?).copied() {
+                let (i, desp) = (super::estructura::bits(c, arg(3)?)?, super::estructura::bits(c, arg(4)?)?);
+                let d = cuatro(c)?;
+                c.ops.push(Op::LeeUav { d, u, modo, i, desp });
+                return Ok(if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) });
+            }
             // (srv, mip o muestra, coord0..2, offset0..2).
             let Some(t) = textura(c, arg(1)?) else {
                 return Err(NoPrograma::Forma("TextureLoad sin el handle de una textura (un UAV o un bufer: todavia no)"));
@@ -1310,7 +1346,13 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                     c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::MedidasBufer(modo), c: [cero; 4], nivel: cero, desp: [0; 3] });
                     return Ok(Valor::CuatroEnteros(d));
                 }
-                _ => return Err(NoPrograma::Forma("GetDimensions de algo que no es una textura ni un bufer (un UAV: todavia no)")),
+                // N5.3c: de un UAV.
+                Some(Valor::Uav(u, modo)) => {
+                    let d = cuatro(c)?;
+                    c.ops.push(Op::MedidasUav { d, u, modo });
+                    return Ok(Valor::CuatroEnteros(d));
+                }
+                _ => return Err(NoPrograma::Forma("GetDimensions de algo que no es una textura, un bufer ni un UAV")),
             };
             let nivel = super::estructura::bits(c, arg(2)?)?;
             let cero = super::estructura::literal(c, 0)?;

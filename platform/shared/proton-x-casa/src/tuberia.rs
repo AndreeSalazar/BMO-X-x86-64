@@ -598,7 +598,8 @@ pub struct Vista {
 pub struct Estado {
     pub pso: u64,
     pub raiz: u64,
-    /// La direccion dada a cada parametro CBV de la raiz, por su indice.
+    /// La direccion dada a cada parametro DESCRIPTOR de la raiz (CBV, y
+    /// desde N5.3b SRV y UAV), por su indice.
     pub cbv: [u64; 16],
     /// Las constantes de 32 bits de la raiz (`SetGraphicsRoot32BitConstants`,
     /// N5.2), las de todos sus parametros una tras otra: ver `cbuffers`.
@@ -914,7 +915,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // (sus SRV y samplers, en las ranuras a las que apuntan) y de los
     // samplers estaticos de la firma. Por RANURA (03-10, N5.1): cada lugar
     // (espacio, registro, etapa) que leen, buscado en la firma.
-    let (texturas, muestreadores, buferes) = recursos_del_dibujo(firma, &e.tablas, &en.ranuras);
+    let (texturas, muestreadores, buferes) = recursos_del_dibujo(firma, &e.tablas, &e.cbv, &en.ranuras);
     // N5.4 (05-10): las texturas de los arrays con el registro CALCULADO,
     // buscadas cuando un pixel las pide y GUARDADAS: una vez por textura
     // distinta del dibujo, no por pixel. Un millon de descriptores (el
@@ -1057,13 +1058,20 @@ fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::d
     textura_de_srv(ranura).map_err(aviso).ok()
 }
 
-pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
+pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
     use bmo_proton_x::donde::{self, RANGO_MUESTREADOR, RANGO_SRV};
     use bmo_proton_x::textura::Muestreador;
     let descriptor = |k: usize, i: u64| descriptor_de(tablas, k, i);
     // N5.3: cada SRV, a su sitio: una textura, o un bufer en la misma ranura.
     let (mut tex, mut buf) = (Vec::with_capacity(ranuras.texturas.len()), Vec::with_capacity(ranuras.texturas.len()));
     for &l in &ranuras.texturas {
+        // N5.3b (05-10): un SRV en la RAIZ (siempre un bufer, crudo o
+        // estructurado: D3D12 no deja otros ahi).
+        if let Some(k) = donde::en_raiz(firma, bmo_proton_x::raiz::SRV, l) {
+            tex.push(None);
+            buf.push(bufer_de_raiz(raiz[k], ranuras.paso(false, l)).map(|(bytes, paso, elementos)| bmo_proton_x::bufer::Bufer { bytes, formato: 0, paso, elementos }));
+            continue;
+        }
         let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor(k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0);
         let es_bufer = ranura.is_some_and(|r| crate::d3d12_vistas::leer(r).0 .0 == crate::d3d12_vistas::SRV_BUFER);
         tex.push(ranura.filter(|_| !es_bufer).and_then(|r| textura_de_srv(r).map_err(aviso).ok()));
@@ -1086,6 +1094,23 @@ pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &b
         })
         .collect();
     (tex, mue, buf)
+}
+
+/// **Lo que ve una vista en la RAIZ** (N5.3b, 05-10): desde su direccion
+/// hasta el final de su bufer de la casa (la vista no dice cuanto), con el
+/// paso que declara el sombreador (sin el, cruda: palabras de 4 bytes).
+/// `(bytes, paso, elementos)`, o `None` (y se ve nula) si la direccion no es
+/// de un bufer de la casa.
+pub(crate) fn bufer_de_raiz(va: u64, paso: Option<u32>) -> Option<(&'static [u8], u32, u32)> {
+    if va == 0 {
+        return None;
+    }
+    let Some(bytes) = resolver_hasta(va, usize::MAX) else {
+        aviso("una vista en la RAIZ con una direccion que no es de un bufer de la casa (se ve nula)");
+        return None;
+    };
+    let paso = paso.unwrap_or(0);
+    Some((bytes, paso, (bytes.len() / paso.max(4) as usize) as u32))
 }
 
 /// **El bufer que lee un SRV de bufer** (N5.3): sus bytes desde el primer

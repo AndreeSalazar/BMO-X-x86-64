@@ -540,6 +540,23 @@ fn n5_13_las_instancias_y_las_ranuras_de_vertices_dan_los_pixeles_de_la_cuenta()
     assert!(texto.ends_with("instancias.exe: las instancias de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
+/// **N5.3b y N5.3c, las VISTAS** (05-10): `vistas.exe` (`prueba/vistas.cpp`,
+/// de consola) corre tres CS: con todo en la RAIZ (un SRV estructurado de
+/// 32 bytes, un UAV estructurado y uno crudo), con un RWTexture2D y su
+/// GetDimensions, y leyendo esa textura como UAV a un RWBuffer con tipo
+/// UNORM; y las dos ClearUnorderedAccessView. Todo comparado bit a bit con
+/// su cuenta. El juez es el `.exe`: en Windows dice lo mismo.
+#[test]
+fn n5_3c_las_vistas_en_la_raiz_y_los_uav_de_textura_dan_los_bits_de_la_cuenta() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, VISTAS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 7, "{texto}");
+    assert!(texto.ends_with("vistas.exe: las vistas de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
 /// **E2.3b -- D3D12nBodyGravity** (05-10, `Samples/Desktop`, MIT): el
 /// COMPUTO de verdad (10.000 particulas, la barrera DENTRO de un bucle, en
 /// SU hilo y su cola de computo, con vallas entre las dos colas) y un

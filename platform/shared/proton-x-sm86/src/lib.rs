@@ -829,7 +829,7 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             // N5.4: elegir la textura al correr, la 3060 todavia no.
             Op::Lee { .. } | Op::EligeTextura { .. } => return Err(NoEmite::Operacion(i)),
             // N5.5: el computo, todavia no en la 3060 (va por la CPU).
-            Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } => return Err(NoEmite::Operacion(i)),
+            Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } => return Err(NoEmite::Operacion(i)),
             // E2.3b: el sombreador de geometria, igual (va por la CPU).
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
             // E2.4: el contador de un UAV, igual.

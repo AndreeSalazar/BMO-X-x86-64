@@ -92,13 +92,13 @@ pub(crate) fn lista() -> [(usize, u64); 32] {
         (35, dir!(set_compute_root_32bit_constants)),
         (36, dir!(root_32bit_constants)),
         (37, dir!(set_compute_root_constant_buffer_view)),
-        (39, dir!(compute_root_vista)),
-        (40, dir!(root_descriptor)),
-        (41, dir!(compute_root_vista)),
-        (42, dir!(root_descriptor)),
+        (39, dir!(set_compute_root_constant_buffer_view)),
+        (40, dir!(root_vista)),
+        (41, dir!(set_compute_root_constant_buffer_view)),
+        (42, dir!(root_vista)),
         (45, dir!(so_set_targets)),
-        (49, dir!(clear_uav)),
-        (50, dir!(clear_uav)),
+        (49, dir!(clear_uav_uint)),
+        (50, dir!(clear_uav_float)),
         (51, dir!(discard_resource)),
         (52, dir!(begin_query)),
         (53, dir!(end_query)),
@@ -635,12 +635,6 @@ extern "win64" fn set_compute_root_32bit_constants(this: u64, parametro: u32, n:
     en_computo(this, || root_32bit_constants(this, parametro, n, datos, desde));
 }
 
-/// `SetComputeRootShaderResourceView` y `...UnorderedAccessView`: la raiz de
-/// computo aun no guarda vistas directas (las de las TABLAS si): lo dice, y
-/// el Dispatch las leera como nulas.
-extern "win64" fn compute_root_vista(_this: u64, _parametro: u32, _va: u64) {
-    aviso("SetComputeRootShaderResourceView/UnorderedAccessView: una vista en la RAIZ de computo aun no se guarda (en una tabla, si); el Dispatch la vera nula");
-}
 
 /// `SetGraphicsRoot32BitConstant(this, parametro, valor, desde)` (N5.2).
 extern "win64" fn root_32bit_constant(this: u64, parametro: u32, valor: u32, desde: u32) {
@@ -673,8 +667,12 @@ fn constantes_de_raiz(this: u64, parametro: u32, desde: u32, valores: &[u32]) {
     }
 }
 
-extern "win64" fn root_descriptor(_this: u64, _parametro: u32, _va: u64) {
-    aviso("SetGraphicsRootShaderResourceView/UnorderedAccessView: el sombreador de la casa aun no los ve");
+/// `SetGraphicsRootShaderResourceView` y `...UnorderedAccessView` (N5.3b,
+/// 05-10): la direccion, en su parametro, como la de un CBV en la raiz (los
+/// de computo, igual, por `set_compute_root_constant_buffer_view`). La lee
+/// quien dibuje o despache (`tuberia::bufer_de_raiz`).
+extern "win64" fn root_vista(this: u64, parametro: u32, va: u64) {
+    crate::d3d12::set_graphics_root_constant_buffer_view(this, parametro, va);
 }
 
 extern "win64" fn so_set_targets(_this: u64, _desde: u32, n: u32, _v: *const u8) {
@@ -683,8 +681,93 @@ extern "win64" fn so_set_targets(_this: u64, _desde: u32, n: u32, _v: *const u8)
     }
 }
 
-extern "win64" fn clear_uav(_this: u64, _gpu: u64, _cpu: u64, _r: u64, _v: *const u32, _n: u32, _rects: *const u8) {
-    aviso("ClearUnorderedAccessView: aun no; el recurso queda como estaba");
+/// `ClearUnorderedAccessViewUint(this, gpu, cpu, recurso, valores, n, rects)`
+/// (N5.3c, 05-10): los bits bajos de cada valor, sin convertir.
+#[allow(clippy::too_many_arguments)]
+extern "win64" fn clear_uav_uint(this: u64, _gpu: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, _rects: *const u8) {
+    apuntar_limpiar_uav(this, cpu, recurso, v, n, true);
+}
+
+/// `ClearUnorderedAccessViewFloat`: los valores son floats, convertidos al
+/// formato de la vista (un UNORM satura).
+#[allow(clippy::too_many_arguments)]
+extern "win64" fn clear_uav_float(this: u64, _gpu: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, _rects: *const u8) {
+    apuntar_limpiar_uav(this, cpu, recurso, v, n, false);
+}
+
+/// Se APUNTA con la ranura de la vista (la del descriptor de CPU, que D3D12
+/// pide en un monton que no ve el sombreador: puede cambiar antes de
+/// ejecutar la lista) y se hace al ejecutarla.
+fn apuntar_limpiar_uav(this: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, crudo: bool) {
+    if cpu == 0 || v.is_null() {
+        aviso("ClearUnorderedAccessView sin descriptor o sin valores: en Windows es un error, y no se hace");
+        return;
+    }
+    // SAFETY: el descriptor de CPU es una ranura de un monton de la casa.
+    let ranura: [u64; 4] = core::array::from_fn(|k| unsafe { (cpu as *const u64).add(k).read() });
+    if ranura[1] != crate::d3d12::DESC_UAV || ranura[0] == 0 || ranura[0] != recurso {
+        aviso("ClearUnorderedAccessView de algo que no es un UAV de ese recurso: en Windows es un error, y no se hace");
+        return;
+    }
+    if n != 0 {
+        aviso("ClearUnorderedAccessView con rectangulos: se limpia la vista entera");
+    }
+    // SAFETY: cuatro valores del `.exe`.
+    let valores = core::array::from_fn(|k| unsafe { v.add(k).read_unaligned() });
+    l(this).ordenes.push(Orden::LimpiarUav { ranura, valores, crudo });
+}
+
+/// **Limpiar un UAV**, al ejecutarse: un bufer (crudo o estructurado, cada
+/// palabra con el primer valor, como dice D3D12; con tipo, cada elemento en
+/// su formato) o el subrecurso de una textura (en como la guarda la casa).
+fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool) {
+    use crate::subrecursos::Almacen;
+    let ((dimension, _, _), _) = crate::d3d12_vistas::leer(r);
+    if dimension == 1 {
+        let b = crate::d3d12_vistas::leer_bufer(r);
+        let Some(base) = crate::d3d12::base_de_bufer(r[0]) else { return };
+        let elemento = if b.crudo || b.paso != 0 {
+            v[0].to_le_bytes().to_vec()
+        } else {
+            match bmo_proton_x::formato_ia::empaquetar(b.formato, v, crudo) {
+                Some(e) => e,
+                None => {
+                    aviso("ClearUnorderedAccessView de un bufer con un formato que la casa aun no escribe: no se hace");
+                    return;
+                }
+            }
+        };
+        let medida = if b.paso != 0 { b.paso as u64 } else { elemento.len() as u64 };
+        let Some(bytes) = crate::tuberia::resolver_hasta(base + b.primero * medida, (b.elementos as u64 * medida) as usize) else { return };
+        // SAFETY: la memoria de un bufer de la casa (`resolver_hasta` dijo
+        // cuanta); la cola es sincrona: nadie mas la toca ahora.
+        let bytes = unsafe { core::slice::from_raw_parts_mut(bytes.as_ptr() as *mut u8, bytes.len()) };
+        for x in bytes.chunks_exact_mut(elemento.len()) {
+            x.copy_from_slice(&elemento);
+        }
+        return;
+    }
+    // SAFETY: un Recurso de la casa (lo dice su ranura).
+    let formato = unsafe { de::<Recurso>(r[0]) }.formato;
+    let texel = match Almacen::de(formato) {
+        Almacen::Rgba8 | Almacen::Bgra8 => {
+            let f = if Almacen::de(formato) == Almacen::Bgra8 { 87 } else { 28 };
+            let e = bmo_proton_x::formato_ia::empaquetar(f, v, crudo).unwrap_or_default();
+            u32::from_le_bytes([e[0], e[1], e[2], e[3]])
+        }
+        Almacen::Flotante => v[0],
+        Almacen::Bloques(_) => {
+            aviso("ClearUnorderedAccessView de una textura de bloques: en Windows es un error");
+            return;
+        }
+    };
+    if r[3] == 0 {
+        crate::tuberia::olvidar_limpieza(r[0]);
+    }
+    match crate::tuberia::destino(r[0], r[3]) {
+        Some((px, _, _)) => px.fill(texel),
+        None => aviso("ClearUnorderedAccessView de un subrecurso que la textura no tiene"),
+    }
 }
 
 extern "win64" fn discard_resource(_this: u64, _r: u64, _region: *const u8) {}
@@ -827,7 +910,11 @@ fn indirecto(estado: &Estado, firma: u64, max: u32, args: u64, args_off: u64, cu
                     Some(c) => *c = v[0] as u64 | (v[1] as u64) << 32,
                     None => aviso("ExecuteIndirect: un CBV a un parametro mas alla de los que la casa guarda"),
                 },
-                _ => aviso("ExecuteIndirect: un SRV o un UAV en la raiz: todavia no (N5.3b); el sombreador lo vera nulo"),
+                // N5.3b: un SRV o un UAV en la raiz, como un CBV.
+                _ => match e.cbv.get_mut(a[1] as usize) {
+                    Some(c) => *c = v[0] as u64 | (v[1] as u64) << 32,
+                    None => aviso("ExecuteIndirect: un SRV o un UAV a un parametro mas alla de los que la casa guarda"),
+                },
             }
             o += medida;
         }
@@ -846,6 +933,7 @@ pub(crate) fn ejecutar(o: &Orden) {
         Orden::Resolver { monton, desde, n, bufer: b, off } => resolver(monton, desde, n, b, off),
         // SAFETY: comprobado al apuntar: cuatro bytes de un bufer de la casa.
         Orden::Escribir { dst, valor } => unsafe { (dst as *mut u32).write_unaligned(valor) },
+        Orden::LimpiarUav { ref ranura, valores, crudo } => limpiar_uav(ranura, valores, crudo),
         Orden::Despachar { ref estado, grupos } => crate::computo::despachar(estado, grupos),
         Orden::Indirecto { ref estado, firma, max, args, args_off, cuenta, cuenta_off } => indirecto(estado, firma, max, args, args_off, cuenta, cuenta_off),
         _ => {}

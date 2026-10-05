@@ -157,3 +157,10 @@ cp "$AQUI/../instancias.cpp" "$AQUI"/../instancias_*.dxil .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c instancias.cpp -o instancias.o
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o instancias.exe instancias.o -ld3d12
 sha256sum instancias.exe
+
+# N5.3b y N5.3c: el juez de las VISTAS, NUESTRO (`../vistas.cpp`, con sus
+# tres CS de `../vistas_*.dxil` dentro).
+cp "$AQUI/../vistas.cpp" "$AQUI"/../vistas_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c vistas.cpp -o vistas.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o vistas.exe vistas.o -ld3d12
+sha256sum vistas.exe

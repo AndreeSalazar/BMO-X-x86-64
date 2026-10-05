@@ -266,6 +266,18 @@ impl Programa {
                         }
                     }
                 }
+                Op::MedidasUav { d, u, modo } => {
+                    let v = match &x {
+                        Extra::Grupo(g) => match g.uavs.get(u as usize) {
+                            Some(Some(w)) => crate::bufer::Bufer { bytes: w.bytes, formato: w.formato, paso: w.paso, elementos: w.elementos }.medidas(modo),
+                            _ => [0; 4],
+                        },
+                        _ => [0; 4],
+                    };
+                    for (j, w) in v.into_iter().enumerate() {
+                        regs[d as usize + j] = f32::from_bits(w);
+                    }
+                }
                 Op::LeeUav { d, u, modo, i, desp } => {
                     let (k, o) = (bits(regs, i), bits(regs, desp));
                     let v = match &x {

@@ -80,6 +80,8 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
             v[0] = Some(i);
             v[1] = Some(s);
         }
+        // N5.3c: no lee registros.
+        Op::MedidasUav { .. } => {}
         Op::LeeUav { i, desp, .. } => {
             v[0] = Some(i);
             v[1] = Some(desp);
@@ -109,7 +111,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         Op::Entrada { d, .. } => ([Some(d), None, None, None], true),
         Op::Constantes { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], true),
         Op::ConstantesEn { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
-        Op::Muestra { d, .. } | Op::Lee { d, .. } | Op::LeeUav { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
+        Op::Muestra { d, .. } | Op::Lee { d, .. } | Op::LeeUav { d, .. } | Op::MedidasUav { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
         Op::IdHilo { d, .. } | Op::LeeCompartida { d, .. } | Op::Contador { d, .. } => ([Some(d), None, None, None], false),
         Op::EntradaDe { d, .. } => ([Some(d), None, None, None], true),
         Op::Mul { d, .. }

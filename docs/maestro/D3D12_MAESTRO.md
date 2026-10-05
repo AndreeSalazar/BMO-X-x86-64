@@ -163,20 +163,18 @@ Cyberpunk:
    y UAV de bufer, y traducido a x86-64 (E2.3b);
    la 3060 aun no
    ExecuteIndirect: desde el 05-10 (E2.4), con el      N5.17 el culling de
-   contador de los UAV; sin vistas en la raiz,               la GPU
-   rayos ni malla
+   contador de los UAV; sin rayos ni malla                   la GPU
    las consultas de OCLUSION y SetPredication:         D5.5  el culling por
    desde el 05-10 (E2.7), contadas en la CPU; las            oclusion
    de estadisticas dan ceros
    el sombreador de GEOMETRIA: en la CPU desde el      N5.18 particulas,
    05-10 (E2.3b); sin vertice calculado, adyacencia,         siluetas
    puntos o lineas de salida ni stream output
-   un UAV de TEXTURA (RWTexture), un UAV en el de      N5.3b/c
-   pixeles, ClearUnorderedAccessView y los SRV/UAV
-   de la raiz: el sombreador no los ve
+   un UAV en el de PIXELES, y los de textura 3D o de   N5.3c
+   array: el sombreador no los ve (en el computo, los
+   de textura 2D, con tipo y en la raiz, desde el 05-10)
    render targets de floats (R32) y HDR de 16 bits     (nueva) se pintan en 8
    como 8 bits                                              bits o no se pintan
-   ClearUnorderedAccessView: no hace nada              N5.3c
    stencil y AlphaToCoverage: se apuntan, no se usan   (nueva)
    topologias que no son triangulos (lineas, puntos)   (nueva) con un GS, ya
    sin un GS que las haga triangulos                        (E2.3b)

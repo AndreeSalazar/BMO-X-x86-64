@@ -94,6 +94,8 @@ const INDIRECT: &[u8] = include_bytes!("../../proton-x/prueba/indirect.exe");
 const PREDICA: &[u8] = include_bytes!("../../proton-x/prueba/predica.exe");
 /// N5.13 y N5.14 (05-10): las instancias y los buferes de vertices de varias ranuras.
 const INSTANCIAS: &[u8] = include_bytes!("../../proton-x/prueba/instancias.exe");
+/// N5.3b y N5.3c (05-10): las vistas en la raiz, los UAV de textura y con tipo, y ClearUnorderedAccessView.
+const VISTAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/vistas.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

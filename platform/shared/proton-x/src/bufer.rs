@@ -18,6 +18,8 @@
 //!                  dentro de SU elemento
 //!    crudo         ByteAddressBuffer: 4 palabras desde el byte i
 //!    fuera         lo que cae fuera de la vista se lee como 0
+//!    textura       N5.3c (05-10), RWTexture2D: el texel (x, y), en el
+//!                  formato de la vista (`paso` es el ancho)
 //! ```
 
 /// **Como se direcciona** un bufer: lo dice el sombreador (su `ResKind`).
@@ -26,6 +28,10 @@ pub enum Modo {
     Tipado,
     Estructurado,
     Crudo,
+    /// N5.3c (05-10): un UAV de TEXTURA de una o dos dimensiones
+    /// (`RWTexture2D<float4>`): `i` es la x y `desp` la y; el ancho va en
+    /// `paso` y los texels (ancho por alto) en `elementos`.
+    Textura,
 }
 
 /// **Un bufer, visto por un SRV**: sus bytes desde el primer elemento de la
@@ -59,6 +65,10 @@ impl Bufer<'_> {
     /// bits; un entero, el).
     pub fn cargar(&self, modo: Modo, i: u32, desp: u32) -> [u32; 4] {
         match modo {
+            Modo::Textura => match self.texel(i, desp) {
+                Some(t) => self.cargar(Modo::Tipado, t, 0),
+                None => [0; 4],
+            },
             Modo::Tipado => {
                 let Some(f) = crate::formato_ia::forma(self.formato) else { return [0; 4] };
                 let (n, o) = (f.bytes as usize, i as usize * f.bytes as usize);
@@ -76,9 +86,17 @@ impl Bufer<'_> {
         }
     }
 
-    /// **`GetDimensions`**: los elementos (en uno crudo, los bytes).
+    /// El texel `(x, y)` de una textura, si cae dentro.
+    fn texel(&self, x: u32, y: u32) -> Option<u32> {
+        let ancho = self.paso.max(1);
+        (x < self.paso && y < self.elementos / ancho).then(|| y * ancho + x)
+    }
+
+    /// **`GetDimensions`**: los elementos (en uno crudo, los bytes; en una
+    /// textura, su ancho y su alto).
     pub fn medidas(&self, modo: Modo) -> [u32; 4] {
         match modo {
+            Modo::Textura => [self.paso, self.elementos / self.paso.max(1), 0, 0],
             Modo::Crudo => [self.elementos.saturating_mul(4), 0, 0, 0],
             _ => [self.elementos, 0, 0, 0],
         }
@@ -144,7 +162,34 @@ impl Uav<'_> {
     /// el en uno estructurado. Fuera de la vista no se escribe nada (D3D12:
     /// una escritura fuera de un UAV se pierde).
     pub fn escribir(&mut self, modo: Modo, i: u32, desp: u32, v: [u32; 4], mascara: u8) {
+        let vista = Bufer { bytes: self.bytes, formato: self.formato, paso: self.paso, elementos: self.elementos };
+        // N5.3c: una textura es el tipado de su texel; un tipado que no es de
+        // 32 bits por canal, su elemento ENTERO en su formato (`empaquetar`,
+        // con lo que la mascara deja de antes).
+        let (modo, i) = match modo {
+            Modo::Textura => match vista.texel(i, desp) {
+                Some(t) => (Modo::Tipado, t),
+                None => return,
+            },
+            m => (m, i),
+        };
+        if modo == Modo::Tipado && canales_de_32(self.formato).is_none() {
+            let Some(f) = crate::formato_ia::forma(self.formato) else { return };
+            let n = f.bytes as usize;
+            let o = i as usize * n;
+            if i >= self.elementos || o + n > self.bytes.len() {
+                return;
+            }
+            let antes = vista.cargar(Modo::Tipado, i, 0);
+            let w: [u32; 4] = core::array::from_fn(|k| if mascara & (1 << k) != 0 { v[k] } else { antes[k] });
+            let enteros = matches!(f.clase, crate::formato_ia::Clase::Uint | crate::formato_ia::Clase::Sint);
+            if let Some(e) = crate::formato_ia::empaquetar(self.formato, w, enteros) {
+                self.bytes[o..o + n].copy_from_slice(&e);
+            }
+            return;
+        }
         let (desde, hasta, canales) = match modo {
+            Modo::Textura => return,
             Modo::Estructurado if self.paso == 0 || i >= self.elementos => return,
             Modo::Estructurado => {
                 let base = i as u64 * self.paso as u64;

@@ -83,6 +83,13 @@ pub fn en_tabla(f: &Firma, tipo: u32, l: Lugar) -> Option<(usize, u64)> {
     None
 }
 
+/// **La vista en la RAIZ de `l`** (N5.3b, 05-10): el parametro de tipo
+/// `tipo` (`raiz::SRV` o `raiz::UAV`, `Set*RootShaderResourceView` y
+/// `...UnorderedAccessView`) con su registro y su espacio, si lo hay.
+pub fn en_raiz(f: &Firma, tipo: u32, l: Lugar) -> Option<usize> {
+    f.parametros.iter().position(|p| p.tipo == tipo && lo_ve(p.visibilidad, l) && matches!(p.carga, Carga::Descriptor { registro, espacio } if (espacio, registro) == (l.espacio, l.registro)))
+}
+
 /// **Donde esta un cbuffer** (N5.2): tres sitios posibles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cb {

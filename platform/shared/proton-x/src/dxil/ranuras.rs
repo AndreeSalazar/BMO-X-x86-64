@@ -42,6 +42,10 @@ pub struct Ranuras {
     pub dinamicas: Vec<Lugar>,
     /// N5.5 (05-10): los UAV de bufer que lee o escribe el computo.
     pub uavs: Vec<Lugar>,
+    /// N5.3b (05-10): el PASO de cada bufer estructurado que declara, de sus
+    /// metadatos: `(uav, espacio, registro, paso)`. Lo necesita quien lo da
+    /// desde la RAIZ (esa vista no lo lleva). Ver [`Ranuras::paso`].
+    pub pasos: Vec<(bool, u32, u32, u32)>,
 }
 
 /// **Lo que [`Ranuras::unir`] devuelve**: por ranura de las otras, su
@@ -93,6 +97,12 @@ impl Ranuras {
         Self::de(&mut self.dinamicas, Lugar { espacio, registro, vista: 0 })
     }
 
+    /// **El paso del bufer estructurado** (SRV, o UAV con `uav`) de `l`, si
+    /// lo declara.
+    pub fn paso(&self, uav: bool, l: Lugar) -> Option<u32> {
+        self.pasos.iter().find(|p| (p.0, p.1, p.2) == (uav, l.espacio, l.registro)).map(|p| p.3)
+    }
+
     /// **Las de la etapa `vista`**: todas pasan a ser de ella.
     pub fn de_la_etapa(mut self, vista: u32) -> Ranuras {
         for l in self.texturas.iter_mut().chain(self.muestreadores.iter_mut()).chain(self.cbuffers.iter_mut()).chain(self.dinamicas.iter_mut()).chain(self.uavs.iter_mut()) {
@@ -106,6 +116,11 @@ impl Ranuras {
     /// ranura de `otras`, su ranura aqui: lo que pide [`Programa::renumerar`].
     pub fn unir(&mut self, otras: &Ranuras) -> Result<Mapa, NoPrograma> {
         let sumar = |v: &mut Vec<Lugar>, de: &[Lugar]| de.iter().map(|&l| Self::de(v, l)).collect::<Result<Vec<u8>, _>>();
+        for p in &otras.pasos {
+            if !self.pasos.contains(p) {
+                self.pasos.push(*p);
+            }
+        }
         Ok(Mapa {
             texturas: sumar(&mut self.texturas, &otras.texturas)?,
             muestreadores: sumar(&mut self.muestreadores, &otras.muestreadores)?,
@@ -133,7 +148,7 @@ impl Programa {
                     *s = a(&m.muestreadores, *s);
                 }
                 Op::EligeTextura { rango, .. } => *rango = a(&m.dinamicas, *rango),
-                Op::EscribeUav { u, .. } | Op::LeeUav { u, .. } | Op::Contador { u, .. } => *u = a(&m.uavs, *u),
+                Op::EscribeUav { u, .. } | Op::LeeUav { u, .. } | Op::MedidasUav { u, .. } | Op::Contador { u, .. } => *u = a(&m.uavs, *u),
                 Op::Constantes { cb, .. } | Op::ConstantesEn { cb, .. } => *cb = a(&m.cbuffers, *cb),
                 _ => {}
             }

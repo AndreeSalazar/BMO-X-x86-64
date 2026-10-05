@@ -121,7 +121,7 @@ pub fn por_que_no(p: &Programa) -> Option<&'static str> {
         Op::Mate { .. } => Some("usa la matematica (exp, log, sin...)"),
         Op::Descarta { .. } => Some("tira pixeles (discard)"),
         Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => Some("indexa un array"),
-        Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::Contador { .. } => Some("es de computo"),
+        Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } => Some("es de computo"),
         Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => Some("es de geometria"),
         _ => None,
     })
@@ -223,7 +223,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
             // N5.10: los arrays, por el interprete.
             Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => return None,
             // N5.5: el computo, por el interprete.
-            Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } => return None,
+            Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } => return None,
             // E2.3b: el sombreador de geometria, por el interprete.
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return None,
             // E2.4: el contador de un UAV, por el interprete.

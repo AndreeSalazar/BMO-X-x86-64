@@ -868,11 +868,23 @@ la proxima corrida del metal dice cual pesa mas:
   la vista, 0) y la casa guarda en la ranura del SRV el paso, los elementos
   y si es crudo. Probado con `prueba/buferes.dxil`. Corren en la CPU (el
   emisor de la 3060 aun no los sabe: N6.1).
-- [ ] **N5.3b -- los SRV en la RAIZ** (`SetGraphicsRootShaderResourceView`):
-  hoy se dicen y se tiran. El crudo sale solo; el estructurado necesita su
-  paso, que esta en los metadatos `dx.resources` del DXIL (no en la PSV0).
-- [ ] **N5.3c -- los UAV** (RWTexture, RWBuffer) en el de pixeles: escribir
-  desde un sombreador. Texto: "un UAV ... todavia no".
+- [x] **N5.3b -- los SRV en la RAIZ** (05-10): `Set{Graphics,Compute}Root
+  ShaderResourceView` y `...UnorderedAccessView` (y sus argumentos de
+  ExecuteIndirect) guardan su direccion como un CBV de la raiz, y quien
+  dibuja o despacha la lee hasta el final de su bufer
+  (`tuberia::bufer_de_raiz`). El PASO del estructurado sale de los
+  metadatos `dx.resources` del DXIL (`recursos::pasos_estructurados`,
+  `Ranuras::paso`): probado con computo.dxil, nBodyGravity y
+  ExecuteIndirect (16, 32 y 24). Juez: `prueba/vistas.cpp` (A).
+- [~] **N5.3c -- los UAV** (05-10): en el COMPUTO ya, los de TEXTURA de una
+  y dos dimensiones (`RWTexture2D`: `textureStore`, su lectura y
+  `GetDimensions`, `bufer::Modo::Textura`), los `RWBuffer` con tipo de
+  cualquier formato (`formato_ia::empaquetar`) y
+  `ClearUnorderedAccessViewUint` y `...Float` (buferes y texturas). Juez:
+  `prueba/vistas.cpp` (B, C y D), bit a bit; dice NO sin el paso, sin la
+  limpieza y con la textura mal direccionada. Queda: los UAV en el de
+  PIXELES (escribir desde un dibujo), los de textura 3D o de array, y la
+  limpieza con rectangulos (hoy, la vista entera).
 - [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
   no es una constante. Hoy el sombreador no compila (y lo dice: "createHandle
   con un registro CALCULADO"); pide que la ranura sea un RANGO y no un

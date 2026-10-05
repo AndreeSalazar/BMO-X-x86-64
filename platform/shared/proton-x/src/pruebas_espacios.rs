@@ -61,8 +61,8 @@ fn el_enlace_da_a_cada_espacio_su_ranura() {
 fn unir_ranuras_renumera_las_del_de_pixeles() {
     use crate::dxil::programa::{Lugar, Programa, Ranuras};
     let l = |espacio, registro, vista| Lugar { espacio, registro, vista };
-    let mut todas = Ranuras { texturas: vec![l(0, 0, 1), l(1, 5, 0)], muestreadores: vec![l(0, 0, 1)], cbuffers: vec![l(0, 0, 1)], dinamicas: vec![], uavs: vec![] };
-    let ps = Ranuras { texturas: vec![l(0, 0, 5), l(1, 5, 0)], muestreadores: vec![l(0, 0, 5)], cbuffers: vec![l(0, 3, 5)], dinamicas: vec![], uavs: vec![] };
+    let mut todas = Ranuras { texturas: vec![l(0, 0, 1), l(1, 5, 0)], muestreadores: vec![l(0, 0, 1)], cbuffers: vec![l(0, 0, 1)], dinamicas: vec![], uavs: vec![], pasos: vec![] };
+    let ps = Ranuras { texturas: vec![l(0, 0, 5), l(1, 5, 0)], muestreadores: vec![l(0, 0, 5)], cbuffers: vec![l(0, 3, 5)], dinamicas: vec![], uavs: vec![], pasos: vec![] };
     let m = todas.unir(&ps).unwrap();
     assert_eq!(m.texturas, [2, 1], "el t0 del pixel es otro; el t5 sin etapa, el mismo");
     assert_eq!((m.muestreadores.as_slice(), m.cbuffers.as_slice()), (&[1u8][..], &[1u8][..]));
