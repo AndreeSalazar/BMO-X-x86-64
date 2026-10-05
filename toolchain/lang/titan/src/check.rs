@@ -17,8 +17,48 @@ use crate::message::{Code, Message};
 use crate::tree::{Arm, Expr, Mode, Program, Stmt, Ty};
 
 /// What the library gives: `print` (level 0), `len` (6), and `lee` -- the
-/// line typed on the program's own console (E1, `docs/plan/PLAN_LA_ENTRADA.md`).
-const LIBRARY: [&str; 4] = ["print", "len", "lee", "numero"];
+/// line typed on the program's own console (E1, `docs/plan/PLAN_LA_ENTRADA.md`)
+/// -- and the lists and maps of level 13 (`docs/plan/PLAN_LISTAS_Y_MAPAS.md`).
+const LIBRARY: [&str; 10] = ["print", "len", "lee", "numero", "push", "pop", "put", "get", "has", "remove"];
+
+/// The library's fn of lists and maps (level 13): how many values each takes,
+/// whether it CHANGES its first one (then it goes lent: `push(mut l, x)`), and
+/// whether it gives a value back.
+const COLLECTIONS: [(&str, usize, bool, bool); 6] = [
+    ("push", 2, true, false),
+    ("pop", 1, true, true),
+    ("put", 3, true, false),
+    ("remove", 2, true, false),
+    ("get", 2, false, true),
+    ("has", 2, false, true),
+];
+
+fn collection(name: &str) -> Option<(usize, bool, bool)> {
+    COLLECTIONS.iter().find(|c| c.0 == name).map(|c| (c.1, c.2, c.3))
+}
+
+/// `mut nave.carga` or `mut t[i]`: a PART of a value lent -- what the library
+/// of lists and maps accepts as its first value (level 13). The `mut x` it
+/// starts from, if it is one.
+pub(crate) fn lent_root(e: &Expr) -> Option<&Expr> {
+    match e {
+        Expr::Lend { .. } => Some(e),
+        Expr::Field { base, .. } | Expr::Index { base, .. } => lent_root(base),
+        _ => None,
+    }
+}
+
+/// The indexes inside a lent part (`mut t[i + 1].x`): values like any other.
+fn lent_indexes<'a>(e: &'a Expr, out: &mut Vec<&'a Expr>) {
+    match e {
+        Expr::Field { base, .. } => lent_indexes(base, out),
+        Expr::Index { base, index, .. } => {
+            lent_indexes(base, out);
+            out.push(index);
+        }
+        _ => {}
+    }
+}
 
 /// The fn a trait promises, by its name (level 10): what `area(f)` calls.
 fn method<'p>(p: &'p Program, name: &str) -> Option<&'p crate::tree::Sig> {
@@ -84,8 +124,28 @@ pub fn check(p: &Program) -> Result<(), Message> {
                     target(p, &c.callee, c.args.len(), c.line, c.col, false)?;
                     modes(p, &c.args, &c.callee)?;
                     // The values themselves: `modes` looked at them as values
-                    // given; a lent one has no call inside.
-                    exprs.extend(c.args.iter().filter(|a| !matches!(a, Expr::Lend { .. })));
+                    // given; a lent one has no call inside (a lent PART has
+                    // its indexes, level 13).
+                    for a in &c.args {
+                        if lent_root(a).is_some() {
+                            lent_indexes(a, &mut exprs);
+                        } else {
+                            exprs.push(a);
+                        }
+                    }
+                }
+                // `let x = pop(mut l)` (level 13): `pop` may stand alone as
+                // the value of a `let` or an `=` -- it changes `l` AND gives.
+                Stmt::Let(l) | Stmt::Set(l) if matches!(&l.value, Expr::Call { callee, .. } if callee == "pop") => {
+                    let Expr::Call { callee, args, line, col } = &l.value else { unreachable!("the guard") };
+                    if matches!(st, Stmt::Let(_)) {
+                        not_a_case(p, &l.name, l.line, l.col)?;
+                    }
+                    target(p, callee, args.len(), *line, *col, true)?;
+                    modes(p, args, callee)?;
+                    for a in args {
+                        lent_indexes(a, &mut exprs);
+                    }
                 }
                 Stmt::Let(l) => {
                     not_a_case(p, &l.name, l.line, l.col)?;
@@ -125,7 +185,18 @@ pub fn check(p: &Program) -> Result<(), Message> {
                 Stmt::Break { .. } | Stmt::Continue { .. } => {}
                 Stmt::Match { value, arms, line, col } => {
                     arms_cover(p, arms, *line, *col)?;
-                    exprs.push(value);
+                    // `match pop(mut l)` (level 13): pop may also stand alone
+                    // as the value a match looks at
+                    match value {
+                        Expr::Call { callee, args, line, col } if callee == "pop" => {
+                            target(p, callee, args.len(), *line, *col, true)?;
+                            modes(p, args, callee)?;
+                            for a in args {
+                                lent_indexes(a, &mut exprs);
+                            }
+                        }
+                        _ => exprs.push(value),
+                    }
                 }
                 Stmt::SetAt { path, value, .. } => {
                     for st in path {
@@ -166,6 +237,16 @@ pub fn check(p: &Program) -> Result<(), Message> {
                 let mut calls = Vec::new();
                 calls_in(e, &mut calls);
                 for (callee, n, line, col) in calls {
+                    if callee == "pop" {
+                        return Err(Message::new(
+                            Code::Result,
+                            line,
+                            col,
+                            "`pop` va solo en su linea, o como el valor de un `let` o de un `match`",
+                            "`pop` CAMBIA la lista y a la vez da lo que quito: dentro de otra cuenta, quien lee no veria que la lista cambia ahi",
+                            "let ultimo = pop(mut lista)",
+                        ));
+                    }
                     target(p, callee, n, line, col, true)?;
                 }
                 records(p, e)?;
@@ -233,6 +314,12 @@ fn calls_in<'a>(e: &'a Expr, out: &mut Vec<(&'a str, usize, usize, usize)>) {
                 calls_in(v, out);
             }
         }
+        Expr::Map { items, .. } => {
+            for (k, v) in items {
+                calls_in(k, out);
+                calls_in(v, out);
+            }
+        }
     }
 }
 
@@ -284,6 +371,7 @@ fn records(p: &Program, e: &Expr) -> Result<(), Message> {
         Expr::Table { items, .. } | Expr::Call { args: items, .. } => items.iter().try_for_each(|i| records(p, i)),
         Expr::Int { .. } | Expr::Text { .. } | Expr::Name { .. } | Expr::Bool { .. } | Expr::Dec { .. } | Expr::Lend { .. } => Ok(()),
         Expr::Round { value, .. } => records(p, value),
+        Expr::Map { items, .. } => items.iter().try_for_each(|(k, v)| records(p, k).and_then(|_| records(p, v))),
     }
 }
 
@@ -294,14 +382,23 @@ fn records(p: &Program, e: &Expr) -> Result<(), Message> {
 /// for a `mut x` / `take x` anywhere but as the value of a call.
 fn modes(p: &Program, args: &[Expr], callee: &str) -> Result<(), Message> {
     let params = p.functions.iter().find(|g| g.name == callee).map(|g| &g.params).or_else(|| method(p, callee).map(|s| &s.params));
+    // `push(mut l, x)` (level 13): the library's fn that change their first
+    // value say so at the call, as any fn does.
+    let lib_mut = |i: usize| i == 0 && collection(callee).is_some_and(|c| c.1);
     for (i, a) in args.iter().enumerate() {
-        let want = params.and_then(|ps| ps.get(i)).map(|x| x.mode).unwrap_or(Mode::Copy);
+        let want = params.and_then(|ps| ps.get(i)).map(|x| x.mode).unwrap_or(if lib_mut(i) { Mode::Mut } else { Mode::Copy });
+        // `push(mut nave.carga, x)` (13): a PART of a value, lent to the
+        // library -- the `mut` is said at its start
+        let a = match lent_root(a) {
+            Some(root) if lib_mut(i) && params.is_none() => root,
+            _ => a,
+        };
         let (got, at) = match a {
             Expr::Lend { mode, line, col, .. } => (*mode, (*line, *col)),
             other => (Mode::Copy, other.at()),
         };
         if want != got {
-            let pname = params.and_then(|ps| ps.get(i)).map(|x| x.name.as_str()).unwrap_or("?");
+            let pname = params.and_then(|ps| ps.get(i)).map(|x| x.name.as_str()).unwrap_or(if lib_mut(i) { "lista o mapa" } else { "?" });
             let how = match (want, a) {
                 (Mode::Copy, Expr::Lend { name, .. }) => format!("{}(... {} ...): sin `{}`", callee, name, got.word()),
                 (_, Expr::Name { name, .. }) => format!("{}(... {} {} ...)", callee, want.word(), name),
@@ -351,6 +448,7 @@ fn lends_only_in_calls(p: &Program, e: &Expr) -> Result<(), Message> {
         }
         Expr::Table { items, .. } => items.iter().try_for_each(|i| lends_only_in_calls(p, i)),
         Expr::Record { fields, .. } => fields.iter().try_for_each(|(_, v)| lends_only_in_calls(p, v)),
+        Expr::Map { items, .. } => items.iter().try_for_each(|(k, v)| lends_only_in_calls(p, k).and_then(|_| lends_only_in_calls(p, v))),
         Expr::Int { .. } | Expr::Text { .. } | Expr::Name { .. } | Expr::Bool { .. } | Expr::Dec { .. } => Ok(()),
     }
 }
@@ -454,9 +552,11 @@ fn carries(p: &Program, e: usize, v: usize, got: usize, line: usize, col: usize)
 fn bare_cases(p: &Program, e: &Expr) -> Result<(), Message> {
     match e {
         Expr::Name { name, line, col } => match p.case(name) {
+            Some((k, _)) if crate::prelude::is_opcion(&p.enums[k].name) => Err(library_case(name, *line, *col)),
             Some((k, v)) if !p.enums[k].cases[v].fields.is_empty() => Err(carries(p, k, v, 0, *line, *col)),
             _ => Ok(()),
         },
+        Expr::Map { items, .. } => items.iter().try_for_each(|(k, v)| bare_cases(p, k).and_then(|_| bare_cases(p, v))),
         Expr::Bin { left, right, .. } | Expr::Index { base: left, index: right, .. } => {
             bare_cases(p, left)?;
             bare_cases(p, right)
@@ -466,6 +566,19 @@ fn bare_cases(p: &Program, e: &Expr) -> Result<(), Message> {
         Expr::Record { fields, .. } => fields.iter().try_for_each(|(_, v)| bare_cases(p, v)),
         Expr::Int { .. } | Expr::Text { .. } | Expr::Bool { .. } | Expr::Dec { .. } | Expr::Lend { .. } => Ok(()),
     }
+}
+
+/// T0079: `Hay(3)` or `NoHay` written by the program -- only `get` and `pop`
+/// make them (level 13).
+fn library_case(name: &str, line: usize, col: usize) -> Message {
+    Message::new(
+        Code::Case,
+        line,
+        col,
+        &format!("`{}` lo da la biblioteca, no se escribe", name),
+        "`Hay(v)` y `NoHay` dicen si `get` o `pop` encontraron algo: un `Hay` escrito a mano diria que hay algo sin haberlo buscado",
+        "para un valor que puede faltar, devuelve lo que da get o pop; para mirarlo, match get(m, k)",
+    )
 }
 
 /// ** THE ARMS OF A `match` (level 8): each one a case of the SAME enum,
@@ -574,7 +687,8 @@ fn unknown_type(p: &Program, name: &str, line: usize, col: usize) -> Message {
 fn known_ty(p: &Program, t: &Ty, line: usize, col: usize) -> Result<(), Message> {
     match t {
         Ty::Named(n) if !p.types.iter().any(|d| &d.name == n) && !p.enums.iter().any(|d| &d.name == n) && !p.traits.iter().any(|d| &d.name == n) => Err(unknown_type(p, n, line, col)),
-        Ty::Table(inner, _) => known_ty(p, inner, line, col),
+        Ty::Table(inner, _) | Ty::List(inner) | Ty::Opt(inner) => known_ty(p, inner, line, col),
+        Ty::Map(k, v) => known_ty(p, k, line, col).and_then(|_| known_ty(p, v, line, col)),
         _ => Ok(()),
     }
 }
@@ -613,6 +727,31 @@ fn types(p: &Program) -> Result<(), Message> {
 /// A call to `callee` with `n` values: does it exist, does it take `n`, and
 /// -- if it is used AS A VALUE -- does it give one back.
 fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value: bool) -> Result<(), Message> {
+    if let Some((e, _)) = p.case(callee).filter(|(e, _)| crate::prelude::is_opcion(&p.enums[*e].name)) {
+        let _ = e;
+        return Err(library_case(callee, line, col));
+    }
+    if let Some((want, _, gives)) = collection(callee).filter(|_| !p.functions.iter().any(|g| g.name == callee)) {
+        // The lists and maps of level 13: their values, and what they give.
+        let example = match callee {
+            "push" => "push(mut nombres, \"ana\")",
+            "pop" => "let ultimo = pop(mut nombres)",
+            "put" => "put(mut stock, \"pan\", 3)",
+            "remove" => "remove(mut stock, \"pan\")",
+            "get" => "match get(stock, \"pan\")",
+            _ => "if has(stock, \"pan\")",
+        };
+        if n != want {
+            return Err(Message::new(Code::Args, line, col, &format!("`{}` pide {} valor{}, y aqui se le {} {}", callee, want, if want == 1 { "" } else { "es" }, if n == 1 { "da" } else { "dan" }, n), "es de la biblioteca de listas y mapas (nivel 13)", example));
+        }
+        if as_value && !gives {
+            return Err(Message::new(Code::Result, line, col, &format!("`{}` no devuelve nada, y aqui se usa como un valor", callee), "cambia la lista o el mapa que se le presta: no hay nada que guardar", example));
+        }
+        if !as_value && gives && callee != "pop" {
+            return Err(Message::new(Code::Result, line, col, &format!("`{}(...)` da un valor, y aqui nadie lo mira", callee), "lo que dice se perderia nada mas llegar", example));
+        }
+        return Ok(());
+    }
     if let Some((e, v)) = p.case(callee) {
         let case = &p.enums[e].cases[v];
         if case.fields.len() != n {
@@ -650,7 +789,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             line,
             col,
             &format!("`{}` no existe", callee),
-"no es una `fn` de este fichero, ni un caso de sus `enum`, ni de la biblioteca (la biblioteca, hoy, es `print`, `len`, `lee` y `numero`)",
+"no es una `fn` de este fichero, ni un caso de sus `enum`, ni de la biblioteca (la biblioteca, hoy, es `print`, `len`, `lee`, `numero` y las de listas y mapas: `push`, `pop`, `put`, `get`, `has`, `remove`)",
             &match near {
                 Some(k) => format!("quisiste decir `{}`?", k),
                 None => format!("define `fn {}()` en este fichero, o usa `print`", callee),
@@ -682,7 +821,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
         if callee == "len" {
             // `len(tabla)`: how many cells; one value in, an `int` out.
             if n != 1 {
-                return Err(Message::new(Code::Args, line, col, &format!("`len` pide 1 valor, y aqui se le dan {}", n), "`len` dice cuantas celdas tiene UNA tabla", "len(planetas)"));
+                return Err(Message::new(Code::Args, line, col, &format!("`len` pide 1 valor, y aqui se le dan {}", n), "`len` dice cuantas celdas tiene UNA tabla, lista o mapa", "len(planetas)"));
             }
             return Ok(());
         }

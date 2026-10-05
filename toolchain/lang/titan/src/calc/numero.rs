@@ -194,7 +194,10 @@ pub(super) fn same(a: &Const, b: &Const) -> bool {
             let (x, y, _) = align(a, b);
             x == y
         }
-        (Const::Table(x), Const::Table(y)) | (Const::Record(_, x), Const::Record(_, y)) => x.len() == y.len() && x.iter().zip(y).all(|(p, q)| same(p, q)),
+        (Const::Table(x) | Const::List(_, x), Const::Table(y) | Const::List(_, y)) | (Const::Record(_, x), Const::Record(_, y)) => x.len() == y.len() && x.iter().zip(y).all(|(p, q)| same(p, q)),
+        // Two maps with the same keys, each leading to the same value -- in
+        // any order: {"a": 1, "b": 2} == {"b": 2, "a": 1} (level 13).
+        (Const::Map(_, _, x), Const::Map(_, _, y)) => x.len() == y.len() && x.iter().all(|(k, v)| y.iter().any(|(j, w)| same(k, j) && same(v, w))),
         // The same case, carrying the same values: Circulo(2.0) == Circulo(2.00).
         (Const::Variant(e, v, x), Const::Variant(f, w, y)) => e == f && v == w && x.iter().zip(y).all(|(p, q)| same(p, q)),
         _ => a == b,

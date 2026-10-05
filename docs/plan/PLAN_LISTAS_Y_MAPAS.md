@@ -124,8 +124,9 @@ mapa se recorre en el orden en que entraron sus claves.
                         registros seguidos, sin punteros dentro
    crecer               al llenarse, el doble: un bloque nuevo, copiar,
                         soltar el viejo
-   {K: V}               las entradas en una lista (el orden de D4) y un
-                        indice por hash con sondeo lineal; las claves:
+   {K: V}               las entradas en una lista (el orden de D4); hoy se
+                        buscan recorriendolas, y el indice por hash con
+                        sondeo lineal es L9; las claves:
                         int, text, bool y registros de esos (igualdad y
                         hash campo a campo)
    soltar               en cada `Op::Drop` y al salir de la fn: lo que el
@@ -142,14 +143,17 @@ tiene UN propietario y nadie guarda referencias (TITAN_MAESTRO 14.3).
 ## 5. Los escalones
 
 - [x] L0 -- las decisiones D1-D4 del propietario, escritas aqui (seccion 3): las cuatro (a), el 05-10
-- [ ] L1 -- el FRONTEND: los tipos `[T]` y `{K: V}`, sus literales y las funciones de la biblioteca (`toolchain/lang/titan/src/parse/expr.rs`, `toolchain/lang/titan/src/check.rs`); el juez con copia, prestamo y entrega de una lista (`toolchain/lang/titan/src/juez.rs`), y la copia del ultimo uso convertida en entrega
-- [ ] L2 -- el CALCULO (E0): `Const::List` y `Const::Map` con el orden de D4 (`toolchain/lang/titan/src/calc.rs`), sus clases (`toolchain/lang/titan/src/calc/clase.rs`) y los casos de D3 en el preludio (`toolchain/lang/titan/src/prelude.rs`)
-- [ ] L3 -- el MONTON de E1: pedir bloques con `TASK_OP_MEMORIA_PEDIR` y una lista de libres emitida una vez, como `platform/shared/bmo-monton/src/freelist.rs`, en `toolchain/lang/titan/emisor-x86_64/src/e1/`; su prueba: pedir, soltar y reusar mil veces sin pisar lo vivo
-- [ ] L4 -- LISTAS al correr: el asa de 24 bytes en `toolchain/lang/titan/emisor-x86_64/src/e1/forma.rs`, `push`/`pop`/`len`/`l[i]`/`for`, la copia entera y el soltar en `Op::Drop` (`toolchain/lang/titan/emisor-x86_64/src/e1/valor.rs`)
-- [ ] L5 -- MAPAS al correr: entradas en orden, indice por hash, claves int/text/bool/registro, en `toolchain/lang/titan/emisor-x86_64/src/e1/`
-- [ ] L6 -- las VARAS: los dos oraculos y el azar de `toolchain/lang/titan/emisor-x86_64/tests/e1.rs` con listas y mapas, y una mas: al acabar cada programa, el monton tiene TODO soltado (el emulador cuenta los bloques)
-- [ ] L7 -- el NIVEL 13 en `toolchain/lang/titan/ejemplos/nivel13/`: una agenda, contar palabras, un inventario, y sus NO; en los dos bancos, en el metro (`toolchain/tools/metro/src/main.rs`) y en la TAB (`toolchain/tools/maestros/maestros.py`)
-- [ ] L8 -- los papeles: el nivel 13 de `toolchain/lang/titan/GRAMATICA.md` y `docs/maestro/TITAN_MAESTRO.md`; las leyes nuevas con `--sellar` del propietario (`toolchain/tools/titan-leyes/LEYES.txt`)
+- [x] L1 -- HECHO el 05-10: el FRONTEND -- los tipos `[T]`, `{K: V}` y `Opcion[T]` y sus literales (`toolchain/lang/titan/src/parse.rs`, `toolchain/lang/titan/src/parse/expr.rs`), la biblioteca con su `mut` (`toolchain/lang/titan/src/check.rs`), prestar una PARTE (`push(mut nave.carga, x)`) y `pop` como valor de un `let` o un `match` (`toolchain/lang/titan/src/ir/biblioteca.rs`): `l = push(l, x)`, asi el juez (`toolchain/lang/titan/src/juez.rs`) ve lo de siempre
+- [x] L2 -- HECHO el 05-10: el CALCULO (E0) en `toolchain/lang/titan/src/calc/coleccion.rs` -- `Const::List` y `Const::Map` que guardan el tipo de lo que llevan (un `2` en una `[dec]` es un decimal), el orden de D4, el caso de D3 (`toolchain/lang/titan/src/prelude.rs`) y sus clases (`toolchain/lang/titan/src/calc/clase.rs`); pruebas en `toolchain/lang/titan/tests/listas.rs`
+- [x] L3 -- HECHO el 05-10: el MONTON de E1 (`toolchain/lang/titan/emisor-x86_64/src/e1/monton.rs`) -- trozos de 16 MiB por `TASK_OP_MEMORIA_PEDIR`, bloques a potencia de 2 con lista de libres por medida (lo soltado se reusa), y de quien es cada valor: clonar al copiar, mover desde un sitio de paso, soltar lo que muere
+- [x] L4 -- HECHO el 05-10: LISTAS al correr (`toolchain/lang/titan/emisor-x86_64/src/e1/coleccion.rs`): el asa de 24 bytes (`toolchain/lang/titan/emisor-x86_64/src/e1/forma.rs`), `push` y `pop` EN SU SITIO creciendo al doble, `l[i]` con T0072, `for`, mostrar, comparar, el PIC de `dec(p, s)` dentro, y el soltar en `Op::Drop` y al volver (`toolchain/lang/titan/emisor-x86_64/src/e1/mod.rs`)
+- [x] L5 -- HECHO el 05-10: MAPAS al correr en `toolchain/lang/titan/emisor-x86_64/src/e1/coleccion.rs` -- entradas en el orden en que entraron, claves int/text/bool/registro, `put`/`get`/`has`/`remove`/`for`; buscar una clave es RECORRER las entradas (el indice por hash es L9)
+- [x] L6 -- HECHO el 05-10: las VARAS en `toolchain/lang/titan/emisor-x86_64/tests/e1.rs` -- once programas de listas y mapas por E0 y por E1 con lo mismo escrito (o el mismo NO en la misma linea), el azar de listas y mapas (`E1_AZAR_LISTAS`, 9.000 casos limpios con varias semillas), y el programa mismo dice si al acabar quedo memoria sin soltar (se comprobo quitando un soltar: salta)
+- [x] L7 -- HECHO el 05-10: el NIVEL 13 en `toolchain/lang/titan/ejemplos/nivel13/` -- `agenda.titan` (lee, cuenta y lista), `mundo.titan` (un mundo de bloques con un registro por clave) y tres NO; en los dos bancos, en el metro (`toolchain/tools/metro/src/main.rs`) y en la TAB (`toolchain/tools/maestros/maestros.py`)
+- [x] L8 -- HECHO el 05-10: los papeles -- el nivel 13 de `toolchain/lang/titan/GRAMATICA.md` y la escalera de `docs/maestro/TITAN_MAESTRO.md` (14.14 y 7.3)
+- [ ] L9 -- un INDICE POR HASH para los mapas de E1, en `toolchain/lang/titan/emisor-x86_64/src/e1/coleccion.rs`: hoy `get` recorre las entradas (bien para cientos, lento para un mundo grande); el orden de D4 se queda en las entradas
+- [ ] L10 -- la copia del ULTIMO uso convertida en entrega (D2): `let b = a` sin volver a leer `a` mueve en vez de clonar -- el juez (`toolchain/lang/titan/src/juez.rs`) ya sabe cual es el ultimo
+- [ ] L11 -- del PROPIETARIO: las leyes nuevas de listas y mapas con `--sellar` (`toolchain/tools/titan-leyes/LEYES.txt`)
 
 ## 6. Por que ahora: el primer mundo
 

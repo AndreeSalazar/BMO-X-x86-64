@@ -53,6 +53,7 @@ impl E1<'_> {
                     console::write_buffer(&mut self.code);
                 }
             }
+            Class::List(_) | Class::Map(..) | Class::Opt(_) | Class::Any => self.show_collection(p, c)?,
             Class::Table(inner, n) => {
                 console::write_const(&mut self.code, b"[");
                 if *n > 0 {

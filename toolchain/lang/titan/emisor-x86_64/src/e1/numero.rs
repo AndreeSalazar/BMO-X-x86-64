@@ -36,9 +36,13 @@ impl E1<'_> {
             self.store(t, RAX);
             x86::test_r64_r64(&mut self.code, RAX, RAX);
             let done = self.jcc(if op == "and" { 0x84 } else { 0x85 });
+            // lo que el otro lado calcule con monton se suelta EN su camino:
+            // si no se calcula, no hay nada que soltar
+            let mark = self.owned.len();
             let (pb, _) = self.eval(b)?;
             self.load(pb, RAX);
             self.store(t, RAX);
+            self.drop_owned_from(mark);
             self.here(done);
             return Ok((t, Class::Bool));
         }
@@ -209,6 +213,10 @@ impl E1<'_> {
                 bmo_lower::fmt::write_i64(&mut self.code);
                 self.ret();
             }
+            Helper::Alloc => self.h_alloc(),
+            Helper::Free => self.h_free(),
+            Helper::CloneOf(k) => self.h_clone(k),
+            Helper::DropOf(k) => self.h_drop(k),
         }
     }
 

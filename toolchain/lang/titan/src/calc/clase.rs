@@ -65,6 +65,19 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                         }
                         c = want;
                     }
+                    // `let l = []` (level 13): a list with nothing in it does
+                    // not say what it will hold -- its type has to.
+                    if has_any(&c) {
+                        let what = if matches!(c, Class::Map(..)) { "un mapa vacio, `{}`" } else { "una lista vacia, `[]`" };
+                        return Err(Message::new(
+                            Code::WrongType,
+                            value.at().0,
+                            value.at().1,
+                            &format!("{} no dice de que es", what),
+                            "una lista o un mapa guarda valores de UNA clase, y sin nada dentro no se ve cual: hay que decirla",
+                            &format!("di su tipo: let {}: [text] = []  o  let {}: {{text: int}} = {{}}", f.locals[*local].name, f.locals[*local].name),
+                        ));
+                    }
                     // The hidden count of a `for` (`#i`, `#fin`): `range`
                     // counts with whole numbers.
                     let name = &f.locals[*local].name;
@@ -78,13 +91,13 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                             "for i in range(10)  o  for i in range(1, 11)",
                         ));
                     }
-                    if name.starts_with("#t") && !matches!(c, Class::Table(..)) {
+                    if name.starts_with("#t") && !matches!(c, Class::Table(..) | Class::List(_) | Class::Map(..)) {
                         return Err(Message::new(
                             Code::Mixed,
                             at.0,
                             at.1,
-                            &format!("`for ... in` recorre una tabla, y aqui hay {}", c.name(types)),
-                            "las vueltas de `for x in t` son las celdas de la tabla `t`",
+                            &format!("`for ... in` recorre una tabla, una lista o un mapa, y aqui hay {}", c.name(types)),
+                            "las vueltas de `for x in t` son las celdas de `t` (o, en un mapa, sus claves)",
                             "for x in [1, 2, 3]  o  for i in range(10)",
                         ));
                     }
@@ -170,7 +183,15 @@ pub(super) fn step_class(c: &Class, st: &PathStep, known: &[Option<Class>], m: &
                 return Err(wrong(i.at(), &Class::Int, &ic, m.defs(), "una celda se pide con su numero: 0, 1, 2...", "a[0]"));
             }
             match c {
-                Class::Table(inner, _) => Ok((**inner).clone()),
+                Class::Table(inner, _) | Class::List(inner) => Ok((**inner).clone()),
+                Class::Map(k, _) => Err(Message::new(
+                    Code::Mixed,
+                    at.0,
+                    at.1,
+                    "un mapa no tiene celdas numeradas: sus valores se piden por su clave",
+                    &format!("lo que una clave ({}) lleva puede no estar: `get` lo dice con un caso, Hay(v) o NoHay", k.short(m.defs())),
+                    "match get(mapa, clave)   o   put(mut mapa, clave, valor)",
+                )),
                 other => Err(Message::new(Code::Mixed, at.0, at.1, &format!("{} no tiene celdas", other.name(m.defs())), "`[...]` pide una celda, y solo una tabla las tiene", "usa `[i]` sobre una tabla: [1, 2, 3][0]")),
             }
         }
@@ -192,7 +213,8 @@ pub(super) fn into_f32(want: &Class, got: &Class) -> bool {
 pub(super) fn holds_f32(c: &Class, d: Defs) -> bool {
     match c {
         Class::F32 => true,
-        Class::Table(inner, _) => holds_f32(inner, d),
+        Class::Table(inner, _) | Class::List(inner) | Class::Opt(inner) => holds_f32(inner, d),
+        Class::Map(k, v) => holds_f32(k, d) || holds_f32(v, d),
         Class::Record(t) => d.types[*t].fields.iter().any(|f| holds_f32(&of_ty(&f.ty, d), d)),
         _ => false,
     }
@@ -234,7 +256,8 @@ pub(super) fn cpu_f32(v: &Value, known: &[Option<Class>], m: &Module) -> Result<
             cpu_f32(b, known, m)?;
             cpu_f32(i, known, m)
         }
-        Value::Call(_, items, _) | Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => items.iter().try_for_each(|x| cpu_f32(x, known, m)),
+        Value::Call(_, items, _) | Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) => items.iter().try_for_each(|x| cpu_f32(x, known, m)),
+        Value::Map(items, _) => items.iter().try_for_each(|(k, v)| cpu_f32(k, known, m).and_then(|_| cpu_f32(v, known, m))),
         _ => Ok(()),
     }
 }
@@ -280,7 +303,7 @@ pub(super) fn keeps(c: &Class, k: usize, d: Defs) -> bool {
         Class::Record(t) => d.types[*t].name.clone(),
         Class::Enum(e) => d.enums[*e].name.clone(),
         Class::F32 => "f32".to_string(),
-        Class::Table(..) | Class::Trait(_) => return false,
+        Class::Table(..) | Class::Trait(_) | Class::List(_) | Class::Map(..) | Class::Opt(_) | Class::Any => return false,
     };
     d.impls.iter().any(|(t, i)| t == &d.traits[k].name && i == &ty)
 }
@@ -296,6 +319,8 @@ pub(super) fn type_of(c: &Const, d: Defs) -> String {
         Const::Variant(e, ..) => d.enums[*e].name.clone(),
         Const::F32(_) => "f32".into(),
         Const::Table(_) => "tabla".into(),
+        Const::List(..) => "lista".into(),
+        Const::Map(..) => "mapa".into(),
     }
 }
 
@@ -410,6 +435,8 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
             args_fit(*func, args, *at, known, m)?;
             of_ty(m.functions[*func].ret.as_ref().expect("check: a call used as a value gives one back"), types)
         }
+        // `[]` (level 13): nothing yet -- where it goes says what it holds.
+        Value::Table(items, _) if items.is_empty() => Class::List(Box::new(Class::Any)),
         Value::Table(items, at) => {
             let mut c = class(&items[0], known, m)?;
             for i in &items[1..] {
@@ -421,6 +448,14 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
                     // [1, 2.5]: the whole table is `dec`.
                     c = ci;
                     continue;
+                }
+                // [[1], [2, 3]] (13): tables of one class and two lengths
+                // can only be LISTS of it -- what a `[[int]]` says.
+                if let (Class::Table(a, _) | Class::List(a), Class::Table(b, _) | Class::List(b)) = (&c, &ci) {
+                    if a == b {
+                        c = Class::List(a.clone());
+                        continue;
+                    }
                 }
                 return Err(wrong(i.at(), &c, &ci, types, "las celdas de una tabla son todas de UNA clase", &format!("o todas {}, o una tabla para cada clase", c.short(types))));
             }
@@ -457,18 +492,27 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
         }
         Value::Is(inner, e, _, at) => match class(inner, known, m)? {
             Class::Enum(k) if k == *e => Class::Bool,
+            // `match get(m, k)` (13): Hay and NoHay are of every `Opcion[T]`.
+            Class::Opt(_) if crate::prelude::is_opcion(&types.enums[*e].name) => Class::Bool,
             other => return Err(wrong(*at, &Class::Enum(*e), &other, types, &format!("los casos de este `match` son los de `enum {}`", types.enums[*e].name), "dale al `match` un valor de ese enum")),
         },
+        // The value a `Hay(v)` carries is of the list or map it came from (13).
+        Value::Payload(inner, e, _, _, _) if crate::prelude::is_opcion(&types.enums[*e].name) => match class(inner, known, m)? {
+            Class::Opt(c) => *c,
+            other => unreachable!("classes: an arm of Opcion reads an Opcion, not {:?}", other),
+        },
         Value::Payload(_, e, v, k, _) => of_ty(&types.enums[*e].cases[*v].fields[*k], types),
+        Value::Lib(lib, args, at) => lib_class(*lib, args, *at, known, m)?,
+        Value::Map(items, at) => map_class(items, *at, known, m)?,
         // `numero(t)` (the prelude): it reads a TEXT, and gives its case.
         Value::Number(inner, e, at) => match class(inner, known, m)? {
             Class::Text => Class::Enum(*e),
             other => return Err(wrong(*at, &Class::Text, &other, types, "`numero` mira si UN TEXTO es un numero entero", "numero(linea), con la linea que trae lee()")),
         },
         Value::Len(inner, at) => match class(inner, known, m)? {
-            Class::Table(..) => Class::Int,
+            Class::Table(..) | Class::List(_) | Class::Map(..) => Class::Int,
             other => {
-                return Err(Message::new(Code::Mixed, at.0, at.1, &format!("`len` cuenta las celdas de una tabla, y aqui hay {}", other.name(types)), "solo una tabla tiene celdas que contar", "len([1, 2, 3])"))
+                return Err(Message::new(Code::Mixed, at.0, at.1, &format!("`len` cuenta las celdas de una tabla, una lista o un mapa, y aqui hay {}", other.name(types)), "solo una tabla, una lista o un mapa tienen celdas que contar", "len([1, 2, 3])"))
             }
         },
         Value::Neg(inner, at) => match class(inner, known, m)? {
@@ -533,7 +577,7 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
                     ))
                 }
                 "+" if a == Class::Text && b == Class::Text => Class::Text,
-                "==" | "!=" if a == b || numbers => Class::Bool,
+                "==" | "!=" if a == b || numbers || fits(&a, &b) || fits(&b, &a) => Class::Bool,
                 "<" | "<=" | ">" | ">=" if numbers => Class::Bool,
                 "and" | "or" if a == Class::Bool && b == Class::Bool => Class::Bool,
                 "and" | "or" => {
@@ -594,4 +638,85 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
             }
         }
     })
+}
+
+/// The class of what a fn of lists and maps gives (level 13), and the NO
+/// when its values are not what it works with.
+fn lib_class(lib: Lib, args: &[Value], at: At, known: &[Option<Class>], m: &Module) -> Result<Class, Message> {
+    let types = m.defs();
+    let first = class(&args[0], known, m)?;
+    let arg = |k: usize| class(&args[k], known, m);
+    let not_one = |what: &str, example: &str| Message::new(Code::WrongType, at.0, at.1, &format!("`{}` es de {}, y aqui le llega {}", lib.name(), what, first.name(types)), &format!("`{}` trabaja con {}", lib.name(), what), example);
+    let cell = |want: &Class, got: Class, k: usize, what: &str| -> Result<(), Message> {
+        if fits(want, &got) {
+            return Ok(());
+        }
+        Err(wrong(args[k].at(), want, &got, types, what, "dale un valor de esa clase"))
+    };
+    Ok(match lib {
+        Lib::Push | Lib::Last | Lib::DropLast => {
+            let Class::List(t) = &first else { return Err(not_one("una lista", "push(mut nombres, \"ana\")")) };
+            match lib {
+                Lib::Push => {
+                    cell(t, arg(1)?, 1, &format!("la lista es de {}", t.short(types)))?;
+                    first.clone()
+                }
+                Lib::Last => Class::Opt(t.clone()),
+                _ => first.clone(),
+            }
+        }
+        Lib::Put | Lib::Remove | Lib::Get | Lib::Has => {
+            let Class::Map(k, v) = &first else { return Err(not_one("un mapa", "put(mut stock, \"pan\", 3)")) };
+            cell(k, arg(1)?, 1, &format!("las claves del mapa son de {}", k.short(types)))?;
+            match lib {
+                Lib::Put => {
+                    cell(v, arg(2)?, 2, &format!("los valores del mapa son de {}", v.short(types)))?;
+                    first.clone()
+                }
+                Lib::Remove => first.clone(),
+                Lib::Get => Class::Opt(v.clone()),
+                _ => Class::Bool,
+            }
+        }
+        Lib::Turn => match &first {
+            Class::Table(t, _) | Class::List(t) => (**t).clone(),
+            Class::Map(k, _) => (**k).clone(),
+            other => unreachable!("classes: `#t` is a table, a list or a map, not {:?}", other),
+        },
+    })
+}
+
+/// The class of a map written: its keys of ONE class that can be a key, its
+/// values of ONE class (a decimal among ints makes them all decimals).
+fn map_class(items: &[(Value, Value)], at: At, known: &[Option<Class>], m: &Module) -> Result<Class, Message> {
+    let types = m.defs();
+    let Some((k0, v0)) = items.first() else { return Ok(Class::Map(Box::new(Class::Any), Box::new(Class::Any))) };
+    let (kc, mut vc) = (class(k0, known, m)?, class(v0, known, m)?);
+    if !key_class(&kc, types) {
+        return Err(Message::new(
+            Code::WrongType,
+            k0.at().0,
+            k0.at().1,
+            &format!("{} no puede ser la clave de un mapa", kc.name(types)),
+            "una clave es un int, un text, un bool o un registro de esos: algo con UNA igualdad que nadie discute (1.0 y 1.00 son el mismo decimal, y una lista cambia)",
+            "{\"ana\": 3}  o  {7: \"siete\"}",
+        ));
+    }
+    for (k, v) in &items[1..] {
+        let c = class(k, known, m)?;
+        if c != kc {
+            return Err(wrong(k.at(), &kc, &c, types, "las claves de un mapa son todas de UNA clase", "o todas de esa clase, o otro mapa"));
+        }
+        let c = class(v, known, m)?;
+        if fits(&vc, &c) {
+            continue;
+        }
+        if fits(&c, &vc) {
+            vc = c;
+            continue;
+        }
+        return Err(wrong(v.at(), &vc, &c, types, "los valores de un mapa son todos de UNA clase", "o todos de esa clase, o otro mapa"));
+    }
+    let _ = at;
+    Ok(Class::Map(Box::new(kc), Box::new(vc)))
 }

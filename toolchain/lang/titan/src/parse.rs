@@ -350,9 +350,14 @@ impl<'a> Parser<'a> {
             )),
             Kind::Sym("[") if LEVEL_NOW >= 6 => {
                 let inner = self.ty(example)?;
+                // `[int]`, with no count: a LIST, that grows (level 13).
+                if self.peek().kind == Kind::Sym("]") && LEVEL_NOW >= 13 {
+                    self.next();
+                    return Ok(Ty::List(Box::new(inner)));
+                }
                 let semi = self.next();
                 if semi.kind != Kind::Sym(";") {
-                    return Err(self.expected(semi, "`;` y cuantas celdas", "[int; 3]"));
+                    return Err(self.expected(semi, "`;` y cuantas celdas, o `]` para una lista", "[int; 3]  o  [int]"));
                 }
                 let count = self.next();
                 let n = match &count.kind {
@@ -368,6 +373,30 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Ty::Table(Box::new(inner), n))
             }
+            // `{text: int}`: a MAP, from a key to a value (level 13).
+            Kind::Sym("{") if LEVEL_NOW >= 13 => {
+                let key = self.ty(example)?;
+                let colon = self.next();
+                if colon.kind != Kind::Sym(":") {
+                    return Err(self.expected(colon, "`:` y el tipo de los valores", "{text: int}"));
+                }
+                let value = self.ty(example)?;
+                let close = self.next();
+                if close.kind != Kind::Sym("}") {
+                    return Err(self.expected(close, "`}`", "{text: int}"));
+                }
+                Ok(Ty::Map(Box::new(key), Box::new(value)))
+            }
+            // `Opcion[int]`: what `get` and `pop` give, Hay(v) or NoHay (13).
+            Kind::Name(n) if n == crate::prelude::OPCION && LEVEL_NOW >= 13 && self.peek().kind == Kind::Sym("[") => {
+                self.next();
+                let inner = self.ty(example)?;
+                let close = self.next();
+                if close.kind != Kind::Sym("]") {
+                    return Err(self.expected(close, "`]`", "Opcion[int]"));
+                }
+                Ok(Ty::Opt(Box::new(inner)))
+            }
             Kind::Name(n) if LEVEL_NOW >= 6 => match self.qualified() {
                 // `ship.Nave`: a type of another module (level 9).
                 Some(inner) => {
@@ -377,7 +406,7 @@ impl<'a> Parser<'a> {
                 }
                 None => Ok(Ty::Named(n.clone())),
             },
-            _ => Err(self.expected(t, "un tipo: int, text, bool, dec, [int; 3] o el nombre de un `type`", example)),
+            _ => Err(self.expected(t, "un tipo: int, text, bool, dec, [int; 3], [int], {text: int} o el nombre de un `type`", example)),
         }
     }
 

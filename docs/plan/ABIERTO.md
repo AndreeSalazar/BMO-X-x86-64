@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   599 casillas ABIERTAS en 58 planes
-   484 hechas
+   594 casillas ABIERTAS en 58 planes
+   492 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -28,6 +28,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 10 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 32 de 35 hechas, faltan 3
+- [`PLAN_LISTAS_Y_MAPAS.md`](PLAN_LISTAS_Y_MAPAS.md) -- 9 de 12 hechas, faltan 3
 - [`PLAN_SEGURIDAD.md`](PLAN_SEGURIDAD.md) -- 26 de 32 hechas, faltan 6
 - [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 25 de 32 hechas, faltan 7
 - [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 35 de 45 hechas, faltan 10
@@ -215,15 +216,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0a REFERENCIA, no suelo: Windows quieto 2 minutos, Package Power = ___ W
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
-
-## [`PLAN_LISTAS_Y_MAPAS.md`](PLAN_LISTAS_Y_MAPAS.md) -- 8 abiertas, 1 hechas
-
-*PLAN LISTAS Y MAPAS -- lo que CRECE mientras el programa corre*
-
-- [ ] L1 -- el FRONTEND: los tipos [T] y {K: V}, sus literales y las funciones de la biblioteca (toolc
-- [ ] L2 -- el CALCULO (E0): Const::List y Const::Map con el orden de D4 (toolchain/lang/titan/src/cal
-- [ ] L3 -- el MONTON de E1: pedir bloques con TASK_OP_MEMORIA_PEDIR y una lista de libres emitida una
-- ... y 5 mas
 
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 8 hechas
 
@@ -473,6 +465,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
 - [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
 - [ ] S7 -- LOS CARRILES: 4 u 8 invocaciones por instruccion
+
+## [`PLAN_LISTAS_Y_MAPAS.md`](PLAN_LISTAS_Y_MAPAS.md) -- 3 abiertas, 9 hechas
+
+*PLAN LISTAS Y MAPAS -- lo que CRECE mientras el programa corre*
+
+- [ ] L9 -- un INDICE POR HASH para los mapas de E1, en toolchain/lang/titan/emisor-x86_64/src/e1/cole
+- [ ] L10 -- la copia del ULTIMO uso convertida en entrega (D2): let b = a sin volver a leer a mueve e
+- [ ] L11 -- del PROPIETARIO: las leyes nuevas de listas y mapas con --sellar (toolchain/tools/titan-l
 
 ## [`PLAN_NAVEGAR.md`](PLAN_NAVEGAR.md) -- 3 abiertas, 7 hechas
 

@@ -37,8 +37,10 @@
 //! PLAN_EL_CENTAURO: sin el lanzamiento en Ring 0 no hay donde correrla).
 
 mod ancho;
+mod coleccion;
 mod escribe;
 mod forma;
+mod monton;
 mod numero;
 mod valor;
 
@@ -46,7 +48,7 @@ use crate::Emitted;
 use bmo_lower::x86::{self, RAX, RSI, RDI, R11};
 use bmo_lower::{console, memoria, task};
 use bmo_titan_front::calc::Class;
-use bmo_titan_front::ir::{End, Function, Module, Op, Value};
+use bmo_titan_front::ir::{End, Function, Lib, Module, Op, Value};
 use bmo_titan_front::tree::{Mode, Ty};
 use forma::Forms;
 use std::collections::BTreeMap;
@@ -96,6 +98,12 @@ pub(crate) enum Helper {
     ParseInt,
     WriteQuoted,
     WriteInt,
+    /// El monton (nivel 13, `monton.rs`): pedir y soltar un bloque, y clonar
+    /// y soltar un valor de la clase con ese numero (`E1::kinds`).
+    Alloc,
+    Free,
+    CloneOf(u16),
+    DropOf(u16),
 }
 
 /// Un NO al correr, por escribir: el salto que lleva a el, su linea, y lo
@@ -155,6 +163,11 @@ pub(crate) struct E1<'m> {
     /// Dentro de un `round(...)`: una division que no acaba se lleva a 18
     /// decimales, y `round` corta donde DICE (`calc.rs`, `lenient`).
     pub lenient: u32,
+    /// Los sitios de paso de la operacion en curso con monton dentro: lo
+    /// que nadie se lleve se suelta al acabarla (`monton.rs`).
+    pub owned: Vec<(Place, Class)>,
+    /// Las clases con subrutina de clonar y soltar (`Helper::CloneOf`).
+    pub kinds: Vec<Class>,
 }
 
 /// Lo que E1 no emite: un NO al compilar.
@@ -493,8 +506,8 @@ impl<'m> E1<'m> {
             } else {
                 let from = self.pointer_from(RAX);
                 let to = self.local(*l);
-                let size = self.forms.size(&c);
-                self.copy(to, from, size);
+                // una copia: con monton dentro, entera (D2)
+                self.clone_at(to, from, &c);
                 self.fit(to, t, (f.line, 1))?;
             }
             self.f.known[*l] = Some(c);
@@ -509,6 +522,7 @@ impl<'m> E1<'m> {
             for op in &b.ops {
                 self.f.temp = 0;
                 self.op(op)?;
+                self.drop_owned_from(0);
             }
             self.f.temp = 0;
             match &b.end {
@@ -517,6 +531,15 @@ impl<'m> E1<'m> {
                         let (p, c) = self.eval(v)?;
                         let dst = Place { base: Base::Ptr(-8), off: 0 };
                         self.convert(dst, p, &c, rc, f.ret.as_ref(), v.at())?;
+                    }
+                    // lo que muere al volver: lo calculado y los locales (un
+                    // `mut` prestado es del que llama)
+                    self.drop_owned_from(0);
+                    for l in 0..self.f.known.len() {
+                        if let (Some(c), false) = (self.f.known[l].clone(), self.f.indirect[l]) {
+                            let p = self.local(l);
+                            self.drop_at(p, &c);
+                        }
                     }
                     if !root {
                         self.code.extend_from_slice(&[0x49, 0x81, 0xEF, 0, 0, 0, 0]); // sub r15, imm32
@@ -534,6 +557,7 @@ impl<'m> E1<'m> {
                 }
                 End::Branch { cond, then, other, .. } => {
                     let (p, _) = self.eval(cond)?;
+                    self.drop_owned_from(0);
                     self.load(p, RAX);
                     x86::test_r64_r64(&mut self.code, RAX, RAX);
                     let j = self.jcc(0x84);
@@ -596,8 +620,9 @@ impl<'m> E1<'m> {
                     let lp = self.local(*l);
                     if matches!(pc, Class::Trait(_)) && !matches!(lc, Class::Trait(_)) {
                         // un `mut` hacia un trait: va con su tipo, y vuelve
+                        // se MUEVE al sitio del trait y vuelve movido
                         let t = self.temp(self.forms.size(pc));
-                        self.convert(t, lp, &lc, pc, None, a.at())?;
+                        self.conv(t, lp, &lc, pc, true, a.at())?;
                         back.push((lp, t.at(8), self.forms.size(&lc)));
                         t
                     } else {
@@ -611,6 +636,7 @@ impl<'m> E1<'m> {
                     } else {
                         let t = self.temp(self.forms.size(pc));
                         self.convert(t, p, &c, pc, Some(pt), a.at())?;
+                        self.own(t, pc);
                         t
                     }
                 }
@@ -636,6 +662,9 @@ impl<'m> E1<'m> {
         for (to, from, size) in back {
             self.copy(to, from, size);
         }
+        if let Some((p, c)) = &out {
+            self.own(*p, c);
+        }
         Ok(out)
     }
 
@@ -646,6 +675,15 @@ impl<'m> E1<'m> {
                 let dst = self.local(*local);
                 self.read_into(dst, *at);
                 self.f.known[*local] = Some(Class::Text);
+            }
+            // `l = push(l, x)` y los suyos (nivel 13): EN SU SITIO
+            Op::Set { local, value: Value::Lib(lib @ (Lib::Push | Lib::DropLast | Lib::Put | Lib::Remove), args, at), .. } if matches!(args.first(), Some(Value::Local(l, _)) if l == local) => {
+                self.mutate(*local, *lib, args, *at)?;
+            }
+            // ... y sobre una PARTE: `push(mut nave.carga, x)`
+            Op::SetAt { local, path, value: Value::Lib(lib @ (Lib::Push | Lib::DropLast | Lib::Put | Lib::Remove), args, at), .. } => {
+                let (h, c, ty) = self.path(*local, path, *at)?;
+                self.mutate_at(h, &c, ty, *lib, args, *at)?;
             }
             Op::Let { local, value, ty, at, .. } => {
                 let (p, c) = self.eval(value)?;
@@ -663,6 +701,10 @@ impl<'m> E1<'m> {
                 let want = self.f.known[*local].clone().ok_or("un local sin valor")?;
                 let dst = self.local(*local);
                 let decl = self.f.decl[*local].clone();
+                // con monton dentro: lo nuevo, de la operacion; lo viejo se
+                // suelta (`l = l[0]` no lee lo que ya solto)
+                let p = self.ensure_owned(p, &c);
+                self.drop_at(dst, &want);
                 if want == Class::Dec && c == Class::Int && decl.is_none() {
                     // 13 en un `dec` de 2 decimales es 13.00 (`calc.rs`)
                     self.int_to_dec_like(dst, p, *at);
@@ -673,6 +715,8 @@ impl<'m> E1<'m> {
             Op::SetAt { local, path, value, at } => {
                 let (dst, cell, ty) = self.path(*local, path, *at)?;
                 let (p, c) = self.eval(value)?;
+                let p = self.ensure_owned(p, &c);
+                self.drop_at(dst, &cell);
                 self.convert(dst, p, &c, &cell, ty.as_ref(), *at)?;
             }
             Op::Write { parts, .. } => {
@@ -703,7 +747,13 @@ impl<'m> E1<'m> {
             Op::Call { func, args, at } => {
                 self.call(*func, args, *at)?;
             }
-            Op::Drop { local, .. } => self.f.known[*local] = None,
+            Op::Drop { local, .. } => {
+                if let (Some(c), false) = (self.f.known[*local].clone(), self.f.indirect[*local]) {
+                    let p = self.local(*local);
+                    self.drop_at(p, &c);
+                }
+                self.f.known[*local] = None;
+            }
         }
         Ok(())
     }
@@ -734,7 +784,16 @@ pub fn emit(m: &Module) -> Result<Emitted, String> {
         depth_checks: Vec::new(),
         f: Fun { known: Vec::new(), decl: Vec::new(), slot: Vec::new(), indirect: Vec::new(), locals_end: 16, temp: 0, temp_max: 0 },
         lenient: 0,
+        owned: Vec::new(),
+        kinds: Vec::new(),
     };
+    // ** EL MONTON (nivel 13): `r14` es su estado; cero hasta el primer
+    // bloque. Solo si el programa tiene listas o mapas: los demas no pagan
+    // ni una instruccion.
+    let heap = uses_heap(m);
+    if heap {
+        x86::zero_r32(&mut e.code, monton::R14);
+    }
     // r15: la pila que gastan las llamadas abiertas, empezando por la raiz
     e.code.extend_from_slice(&[0x41, 0xBF, 0, 0, 0, 0]); // mov r15d, imm32
     let root_cost = e.code.len() - 4;
@@ -743,6 +802,17 @@ pub fn emit(m: &Module) -> Result<Emitted, String> {
     e.code.push(0xE8);
     e.calls.push((e.code.len(), m.entry));
     e.code.extend_from_slice(&[0; 4]);
+    if heap {
+        // al acabar NO queda nada pedido: si quedara, se dice
+        x86::test_r64_r64(&mut e.code, monton::R14, monton::R14);
+        let none = e.jcc(0x84);
+        x86::mov_r64_at_reg_disp32(&mut e.code, RAX, monton::R14, monton::LIVE);
+        x86::test_r64_r64(&mut e.code, RAX, RAX);
+        let clean = e.jcc(0x84);
+        console::write_const(&mut e.code, b"NO al correr: quedo memoria del monton sin soltar (fallo del compilador: avisa)\n");
+        e.here(none);
+        e.here(clean);
+    }
     task::exit(&mut e.code);
     let mut starts = vec![usize::MAX; m.functions.len()];
     // solo las fn que alguien puede llamar: una `gpu fn` que nadie llama al
@@ -787,6 +857,13 @@ pub fn emit(m: &Module) -> Result<Emitted, String> {
         x86::patch_jump_to(&mut e.code, field, starts[k]);
     }
     Ok(Emitted { code: e.code, starts: starts.into_iter().map(|s| if s == usize::MAX { 0 } else { s }).collect() })
+}
+
+/// Tiene el programa listas, mapas u `Opcion` (nivel 13)? Entonces usa el
+/// monton.
+fn uses_heap(m: &Module) -> bool {
+    let s = format!("{:?}", (&m.functions, &m.types, &m.enums));
+    ["Lib(", "Map(", "List(", "Opt(", "Table([]"].iter().any(|k| s.contains(k))
 }
 
 /// Las fn a las que se llega desde `main` (y las de los tipos de un trait).
@@ -847,7 +924,11 @@ fn calls_in(v: &Value, out: &mut Vec<usize>) {
             calls_in(b, out);
         }
         Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) => calls_in(a, out),
-        Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => items.iter().for_each(|a| calls_in(a, out)),
+        Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) => items.iter().for_each(|a| calls_in(a, out)),
+        Value::Map(items, _) => items.iter().for_each(|(k, v)| {
+            calls_in(k, out);
+            calls_in(v, out);
+        }),
         Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Local(..) | Value::Lend(..) | Value::Read(..) => {}
     }
 }

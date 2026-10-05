@@ -150,6 +150,12 @@ impl<'a> Parser<'a> {
             Kind::Number(n) if LEVEL_NOW >= 6 => self.dec(n, tok),
             Kind::Sym("[") if LEVEL_NOW >= 6 => {
                 if self.peek().kind == Kind::Sym("]") {
+                    // `[]`: a list with nothing yet (level 13); its type says
+                    // what it will hold: let nombres: [text] = []
+                    if LEVEL_NOW >= 13 {
+                        self.next();
+                        return Ok(Expr::Table { items: Vec::new(), line: tok.line, col: tok.col });
+                    }
                     let close = self.peek();
                     return Err(self.expected(close, "las celdas de la tabla", "[1, 2, 3]  o  [0; 10]: una tabla vacia no dice de que es"));
                 }
@@ -207,6 +213,29 @@ impl<'a> Parser<'a> {
                     self.next();
                 }
                 Ok(Expr::Record { name: n.clone(), fields, line: tok.line, col: tok.col })
+            }
+            // `{"ana": 3, "bo": 5}` or `{}`: a MAP written (level 13).
+            Kind::Sym("{") if LEVEL_NOW >= 13 => {
+                let mut items = Vec::new();
+                if self.peek().kind == Kind::Sym("}") {
+                    self.next();
+                } else {
+                    loop {
+                        let key = self.expr()?;
+                        let colon = self.next();
+                        if colon.kind != Kind::Sym(":") {
+                            return Err(self.expected(colon, "`:` y el valor de esa clave", "{\"ana\": 3}"));
+                        }
+                        items.push((key, self.expr()?));
+                        let sep = self.next();
+                        match sep.kind {
+                            Kind::Sym(",") => continue,
+                            Kind::Sym("}") => break,
+                            _ => return Err(self.expected(sep, "`,` o `}`", "{\"ana\": 3, \"bo\": 5}")),
+                        }
+                    }
+                }
+                Ok(Expr::Map { items, line: tok.line, col: tok.col })
             }
             Kind::Text(t) => Ok(Expr::Text { value: t.clone(), line: tok.line, col: tok.col }),
             Kind::Word(w @ ("true" | "false")) if LEVEL_NOW >= 3 => Ok(Expr::Bool { value: *w == "true", line: tok.line, col: tok.col }),

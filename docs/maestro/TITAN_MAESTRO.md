@@ -991,10 +991,13 @@ TITAN++, falta esa palabra.
                             (`emisor-x86_64/src/e1/mod.rs`): dec exacto (en
                             128 bits donde el calculo, `e1/ancho.rs`), tablas,
                             registros, casos, llamadas con valores, mut/take,
-                            traits; lo que solo falla al correr ATRAPA con su
-                            linea. La vara: el calculo, programa a programa
-                            y al azar. Queda del propietario: el PRESUPUESTO
-                            de plegado (R8), porque cambia una ley
+                            traits, y (nivel 13) listas y mapas en un MONTON
+                            propio que suelta lo que muere
+                            (`e1/monton.rs`); lo que solo falla al correr
+                            ATRAPA con su linea. La vara: el calculo, programa
+                            a programa y al azar, y al acabar NADA pedido sin
+                            soltar. Queda del propietario: el PRESUPUESTO de
+                            plegado (R8), porque cambia una ley
    E2  nivel 5 (return)     llamadas con valores; y LLAMAR A INTI por .bo +
                             bmo-enlazar: el camino de lo caliente
    E3  T5 (gpu fn)          las tablas y las funciones elementales, a la 3060
@@ -1558,14 +1561,17 @@ NIVEL A NIVEL, y cada nivel agrega pocas palabras y ya sirve para algo.
 | 9 | `mod use pub` | 23 | varios ficheros: **una app o un juego de verdad**, y F1 los muestra como grafo |
 | 10 | `trait` | 24 | comportamientos compartidos: un motor con piezas que se cambian |
 | 11 | `gpu` | 25 | **computo en la 3060** |
+| 12 | ninguna (`lee()`, `numero(t)`) | 25 | lo que viene de FUERA: preguntar y contestar -- el programa corre de verdad en la maquina (E1) |
+| 13 | ninguna (`[T]`, `{K: V}`, `push`, `get`...) | 25 | lo que CRECE: listas y mapas -- **una agenda, un inventario, un mundo de bloques** |
 
-**EL ESTADO, al 04-10**: los niveles **0 a 10 estan HECHOS** en el
+**EL ESTADO, al 05-10**: los niveles **0 a 13 estan HECHOS** en el
 anfitrion (amarillo: su banco corre en el emulador; en el Ryzen, todavia no),
-cada uno con su entrada al final de esta seccion y su gramatica en
-`toolchain/lang/titan/GRAMATICA.md`. El **11** tiene su plan:
-[`PLAN_EL_CENTAURO.md`](../plan/PLAN_EL_CENTAURO.md) -- funciones elementales,
-el f32 solo en la GPU, y el permiso del `Titan.toml`, que se estudio y es
-posible.
+cada uno con su gramatica en `toolchain/lang/titan/GRAMATICA.md`. Del **11**
+queda LANZAR en la 3060 (G4 de
+[`PLAN_EL_CENTAURO.md`](../plan/PLAN_EL_CENTAURO.md), Ring 0, del
+propietario); el **12** es [`PLAN_LA_ENTRADA.md`](../plan/PLAN_LA_ENTRADA.md)
+y el **13** [`PLAN_LISTAS_Y_MAPAS.md`](../plan/PLAN_LISTAS_Y_MAPAS.md). Los
+dos ultimos no traen palabra: las 25 se quedan en 25.
 
 **LAS LEYES** (04-10, el propietario: *"guardian estricto, que no se altere,
 con reglas y porque"*): lo que TITAN++ promete --las 25 palabras, los codigos

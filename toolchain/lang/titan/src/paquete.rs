@@ -408,7 +408,11 @@ impl Resolver<'_> {
     fn ty(&mut self, m: usize, t: &mut Ty, at: (usize, usize)) -> Result<(), Message> {
         match t {
             Ty::Named(n) => *n = self.resolve(m, n, Want::Type, at)?,
-            Ty::Table(inner, _) => self.ty(m, inner, at)?,
+            Ty::Table(inner, _) | Ty::List(inner) | Ty::Opt(inner) => self.ty(m, inner, at)?,
+            Ty::Map(k, v) => {
+                self.ty(m, k, at)?;
+                self.ty(m, v, at)?;
+            }
             _ => {}
         }
         Ok(())
@@ -502,6 +506,12 @@ impl Resolver<'_> {
             Expr::Table { items, .. } => {
                 for i in items {
                     self.expr(m, i)?;
+                }
+            }
+            Expr::Map { items, .. } => {
+                for (k, v) in items {
+                    self.expr(m, k)?;
+                    self.expr(m, v)?;
                 }
             }
             Expr::Int { .. } | Expr::Text { .. } | Expr::Bool { .. } | Expr::Dec { .. } | Expr::Lend { .. } => {}

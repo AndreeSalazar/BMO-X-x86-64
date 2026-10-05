@@ -12,6 +12,10 @@
 //!    enum             8 de caso y el mayor de sus casos
 //!    trait            8 de TIPO y el mayor de los tipos que lo cumplen:
 //!                     quien lo recibe no sabe cual es, y lo mira al correr
+//!    [T], {K: V}      24, su ASA: el puntero a sus celdas en el MONTON, cuantas
+//!                     tiene y cuantas caben (nivel 13, `monton.rs`); las
+//!                     celdas de un mapa son sus entradas, clave y valor
+//!    Opcion[T]        8 de caso (Hay 0, NoHay 1) y su T
 //! ```
 //!
 //! La clase la da el frontend (`calc::Class`): aqui no se decide nada de lo
@@ -49,6 +53,21 @@ impl<'m> Forms<'m> {
             Class::Record(t) => self.m.types[*t].fields.iter().map(|f| self.size(&self.class(&f.ty))).sum(),
             Class::Enum(e) => 8 + (0..self.m.enums[*e].cases.len()).map(|v| self.case_size(*e, v)).max().unwrap_or(0),
             Class::Trait(k) => 8 + self.trait_types(*k).iter().map(|(_, c)| self.size(c)).max().unwrap_or(0),
+            Class::List(_) | Class::Map(..) | Class::Any => 24,
+            Class::Opt(inner) => 8 + self.size(inner),
+        }
+    }
+
+    /// Lleva memoria del MONTON dentro (nivel 13)? Entonces copiarlo es
+    /// clonarlo, y al morir se suelta (`monton.rs`).
+    pub fn has_heap(&self, c: &Class) -> bool {
+        match c {
+            Class::List(_) | Class::Map(..) => true,
+            Class::Any | Class::Int | Class::Bool | Class::Dec | Class::Text | Class::F32 => false,
+            Class::Table(inner, _) | Class::Opt(inner) => self.has_heap(inner),
+            Class::Record(t) => self.m.types[*t].fields.iter().any(|f| self.has_heap(&self.class(&f.ty))),
+            Class::Enum(e) => self.m.enums[*e].cases.iter().flat_map(|c| &c.fields).any(|t| self.has_heap(&self.class(t))),
+            Class::Trait(k) => self.trait_types(*k).iter().any(|(_, c)| self.has_heap(c)),
         }
     }
 
@@ -113,17 +132,27 @@ impl<'m> Forms<'m> {
     /// Lleva un `dec(p, s)` dentro? Entonces hay que mirar sus cifras cada
     /// vez que recibe un valor (el PIC de COBOL, T0074).
     pub fn has_decp(&self, t: &Ty) -> bool {
+        self.decp_in(t, &mut Vec::new())
+    }
+
+    /// `has_decp`, sin dar vueltas: un tipo que se contiene por una lista
+    /// (`type Nodo` con `hijos: [Nodo]`, nivel 13) se mira una vez.
+    fn decp_in(&self, t: &Ty, seen: &mut Vec<String>) -> bool {
         match t {
             Ty::DecP(..) => true,
-            Ty::Table(inner, _) => self.has_decp(inner),
-            Ty::Named(n) => match self.class(t) {
-                Class::Record(r) => self.m.types[r].fields.iter().any(|f| self.has_decp(&f.ty)),
-                Class::Enum(e) => self.m.enums[e].cases.iter().flat_map(|c| &c.fields).any(|f| self.has_decp(f)),
-                _ => {
-                    let _ = n;
-                    false
+            Ty::Table(inner, _) | Ty::List(inner) | Ty::Opt(inner) => self.decp_in(inner, seen),
+            Ty::Map(k, v) => self.decp_in(k, seen) || self.decp_in(v, seen),
+            Ty::Named(n) => {
+                if seen.contains(n) {
+                    return false;
                 }
-            },
+                seen.push(n.clone());
+                match self.class(t) {
+                    Class::Record(r) => self.m.types[r].fields.iter().any(|f| self.decp_in(&f.ty, seen)),
+                    Class::Enum(e) => self.m.enums[e].cases.iter().flat_map(|c| &c.fields).any(|f| self.decp_in(f, seen)),
+                    _ => false,
+                }
+            }
             _ => false,
         }
     }

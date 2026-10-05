@@ -132,6 +132,9 @@ const BANCO: &[(&str, &str)] = &[
     // `numero(t)` y el programa ENTERO al correr: dec, casos, llamadas.
     ("titan", "toolchain/lang/titan/ejemplos/nivel12/adivina.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel12/la_cuenta.titan"),
+    // Nivel 13 (05-10): listas y mapas -- el primer valor en el monton.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel13/agenda.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel13/mundo.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]

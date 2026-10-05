@@ -9,7 +9,7 @@ use crate::maestros::Master;
 use bmo_titan_contrato::{Permission, Permissions};
 
 /// El nombre de cada familia: el titulo de su nivel en GRAMATICA.md.
-pub static FAMILIES: [&str; 13] = [
+pub static FAMILIES: [&str; 14] = [
     "un programa que saluda",
     "calcular",
     "contar",
@@ -23,10 +23,11 @@ pub static FAMILIES: [&str; 13] = [
     "comportamientos",
     "la 3060",
     "lo que viene de fuera",
+    "lo que crece",
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 32;
+pub const COUNT: usize = 34;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -382,5 +383,27 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &["Ada"],
         out: &["como te llamas?", "hola Ada!"],
         source: "# entra: Ada\n# sale: como te llamas?\n# sale: hola Ada!\n# el primer programa que PREGUNTA: lo que escribe depende de lo que se teclea, y por eso corre de verdad en la maquina\nmod main \"saluda a quien teclee su nombre\"\n\nfn main()\n    print(\"como te llamas?\")\n    let nombre = lee()\n    print(\"hola \", nombre, \"!\")\n",
+    },
+    Master {
+        name: "agenda",
+        level: 13,
+        why: "una lista que CRECE con lo tecleado y un mapa que cuenta: nadie sabia al compilar cuantos serian",
+        says: "la agenda que cuenta",
+        words: &["fn", "let", "mut", "for", "while", "match"],
+        asks: Permissions::NONE,
+        typed: &["Ada", "Grace", "Ada", "Linus", "fin"],
+        out: &["nombres, uno por linea; fin para terminar", "4 apuntados, 3 distintos", "Ada: 2", "Grace: 1", "Linus: 1", "el ultimo fue Linus"],
+        source: "# entra: Ada\n# entra: Grace\n# entra: Ada\n# entra: Linus\n# entra: fin\n# sale: nombres, uno por linea; fin para terminar\n# sale: 4 apuntados, 3 distintos\n# sale: Ada: 2\n# sale: Grace: 1\n# sale: Linus: 1\n# sale: el ultimo fue Linus\n# una lista que CRECE con lo tecleado y un mapa que cuenta: nadie sabia al compilar cuantos serian\nmod main \"la agenda que cuenta\"\n\nfn main()\n    print(\"nombres, uno por linea; fin para terminar\")\n    let mut todos: [text] = []\n    let mut veces: {text: int} = {}\n    let mut nombre = lee()\n    while nombre != \"fin\"\n        push(mut todos, nombre)\n        match get(veces, nombre)\n            Hay(n)\n                put(mut veces, nombre, n + 1)\n            NoHay\n                put(mut veces, nombre, 1)\n        nombre = lee()\n    print(len(todos), \" apuntados, \", len(veces), \" distintos\")\n    for k in veces\n        match get(veces, k)\n            Hay(n)\n                print(k, \": \", n)\n            NoHay\n                print(k, \": ?\")\n    match pop(mut todos)\n        Hay(u)\n            print(\"el ultimo fue \", u)\n        NoHay\n            print(\"no se apunto nadie\")\n",
+    },
+    Master {
+        name: "mundo",
+        level: 13,
+        why: "un mundo de cubos en chico: cada bloque, por su SITIO -- un mapa cuya clave es un registro",
+        says: "un mundo de bloques",
+        words: &["fn", "let", "mut", "if", "for", "type", "match"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["..~~.", ".#~~.", "##...", "el mundo tiene 7 bloques; agua: 4"],
+        source: "# sale: ..~~.\n# sale: .#~~.\n# sale: ##...\n# sale: el mundo tiene 7 bloques; agua: 4\n# un mundo de cubos en chico: cada bloque, por su SITIO -- un mapa cuya clave es un registro\nmod main \"un mundo de bloques\"\n\ntype Sitio\n    x: int\n    y: int\n\nfn pinta(mundo: {Sitio: text}, alto: int, ancho: int)\n    for y in range(alto)\n        let mut fila = \"\"\n        for x in range(ancho)\n            match get(mundo, Sitio { x: x, y: y })\n                Hay(b)\n                    fila = fila + b\n                NoHay\n                    fila = fila + \".\"\n        print(fila)\n\nfn main()\n    let mut mundo: {Sitio: text} = {}\n    for x in range(2)\n        put(mut mundo, Sitio { x: x, y: 2 }, \"#\")\n    put(mut mundo, Sitio { x: 1, y: 1 }, \"#\")\n    for y in range(2)\n        for x in range(2, 4)\n            put(mut mundo, Sitio { x: x, y: y }, \"~\")\n    pinta(mundo, 3, 5)\n    let mut agua = 0\n    for s in mundo\n        match get(mundo, s)\n            Hay(b)\n                if b == \"~\"\n                    agua = agua + 1\n            NoHay\n                print(\"?\")\n    print(\"el mundo tiene \", len(mundo), \" bloques; agua: \", agua)\n",
     },
 ];

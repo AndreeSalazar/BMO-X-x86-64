@@ -935,6 +935,73 @@ plegado (R8) cambia una ley, y las leyes las sella el propietario.
 
 ---
 
+## Nivel 13 -- lo que crece (25 palabras: + ninguna; `[T]`, `{K: V}` y su biblioteca) -- 05-10, PLAN_LISTAS_Y_MAPAS
+
+```text
+# agenda.titan (el corazon)
+    let mut todos: [text] = []
+    let mut veces: {text: int} = {}
+    let mut nombre = lee()
+    while nombre != "fin"
+        push(mut todos, nombre)
+        match get(veces, nombre)
+            Hay(n)
+                put(mut veces, nombre, n + 1)
+            NoHay
+                put(mut veces, nombre, 1)
+        nombre = lee()
+```
+
+**Una LISTA crece y encoge al correr; un MAPA lleva de una clave a un
+valor.** Se escriben con los simbolos que ya habia, sin palabra nueva
+(decisiones D1-D4 del propietario, 05-10):
+
+```text
+   [int]                 una lista de int        [] vacia, con su tipo dicho
+   {text: int}           un mapa                 {} vacio, {"ana": 3} escrito
+   push(mut l, x)        x al final              l[i], l[i] = v, len(l), for x in l
+   let u = pop(mut l)    el ultimo, como caso: Hay(x) o NoHay -- y la lista lo pierde
+   put(mut m, k, v)      k lleva a v (si estaba, su valor nuevo)
+   get(m, k)             Hay(v) o NoHay           has(m, k): true o false
+   remove(mut m, k)      k ya no esta             for k in m: sus claves, en el orden
+                                                  en que ENTRARON
+   Opcion[int]           el tipo de lo que dan get y pop, para escribirlo:
+                         fn busca(m: {text: int}, k: text) -> Opcion[int]
+```
+
+**Es un VALOR, como todo** (D2): `let b = a` es OTRA lista; `push(mut a, x)`
+cambia solo `a`. Se presta con `mut` -- tambien una PARTE de un valor:
+`push(mut nave.carga, x)` -- y se entrega con `take`, como cualquier valor.
+`[1, 2, 3]` escrito es una tabla hasta que va donde se dice una lista
+(`let l: [int] = [1, 2, 3]`): ahi se vuelve lista, y un `2` en una `[dec]` es
+un decimal.
+
+**Lo que no esta es un CASO** (D3): `get` y `pop` dan `Hay(v)` o `NoHay`, y el
+`match` obliga a mirar los dos. `Hay` y `NoHay` los da la biblioteca: no se
+escriben a mano. La clave de un mapa es un int, un text, un bool o un registro
+de esos (un decimal no: 1.0 y 1.00 son el mismo numero).
+
+```text
+   let l = []              NO T0071: una lista vacia no dice de que es
+   push(l, 1)              NO T0077: push cambia su lista, se le presta: mut l
+   let l: [int] = ...      NO T0056 en push(mut l, 1): sin `let mut` no cambia
+   let x = Hay(3)          NO T0079: Hay lo da la biblioteca
+   m[0]  (un mapa)         NO T0063: sus valores se piden por su clave, con get
+   print(pop(mut l))       NO T0069: pop va solo, o como el valor de un let o un match
+   l[9]  (fuera)           NO T0072, al compilar o al correr
+```
+
+**En la maquina** (E1, `emisor-x86_64/src/e1/coleccion.rs`): una lista es su
+ASA -- puntero, cuantas, cuantas caben -- y sus celdas viven en un MONTON
+propio (`e1/monton.rs`) que crece al doble y suelta lo que muere: un local al
+cerrarse su bloque o al volver su fn, lo viejo de un `=`, lo que una cuenta
+calculo y nadie se quedo. Sin recolector: se suelta donde el juez ya sabe que
+el valor muere. Al acabar no queda NADA pedido -- y si quedara, el programa lo
+dice. La vara, la de siempre: el calculo, programa a programa y al azar
+(`emisor-x86_64/tests/e1.rs`).
+
+---
+
 ## Los codigos
 
 | codigo | que |

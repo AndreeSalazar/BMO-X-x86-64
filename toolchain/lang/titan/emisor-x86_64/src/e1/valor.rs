@@ -59,6 +59,14 @@ impl E1<'_> {
             }
             Value::Call(func, args, at) => self.call(*func, args, *at)?.ok_or_else(|| format!("linea {}: una llamada sin valor usada como valor", at.0))?,
             Value::Round(inner, n, at) => self.round(inner, *n, *at)?,
+            // `[]` (nivel 13): una lista sin nada, el asa a cero
+            Value::Table(items, _) if items.is_empty() => {
+                let t = self.temp(24);
+                for k in 0..3 {
+                    self.store_imm(t.at(8 * k), 0);
+                }
+                (t, Class::List(Box::new(Class::Any)))
+            }
             Value::Table(items, at) => {
                 let c = self.class_of(v)?;
                 let Class::Table(inner, n) = &c else { return Err(format!("linea {}: una tabla sin clase de tabla", at.0)) };
@@ -71,20 +79,29 @@ impl E1<'_> {
                 if **inner == Class::Dec {
                     self.rescale_cells(t, *n, *at);
                 }
+                self.own(t, &c);
                 (t, c)
             }
             Value::Repeat(item, n, _) => {
                 let (p, ic) = self.eval(item)?;
                 let sz = self.forms.size(&ic);
                 let t = self.temp(sz * *n as i32);
+                // cada celda, su COPIA (con monton dentro, entera)
+                let one = ic.clone();
                 self.each_cell(*n, &[(t, sz)], &mut |e, cells| {
-                    e.copy(cells[0], p, sz);
+                    e.clone_at(cells[0], p, &one);
                     Ok(())
                 })?;
-                (t, Class::Table(Box::new(ic), *n))
+                let c = Class::Table(Box::new(ic), *n);
+                self.own(t, &c);
+                (t, c)
             }
             Value::Index(b, i, at) => {
                 let (pb, cb) = self.eval(b)?;
+                if let Class::List(inner) = &cb {
+                    let p = self.list_index(pb, inner, i, *at)?;
+                    return Ok((p, (**inner).clone()));
+                }
                 let Class::Table(inner, n) = cb else { return Err(format!("linea {}: una celda de algo que no es tabla", at.0)) };
                 let p = self.index_place(pb, &inner, n, i, *at)?;
                 (p, *inner)
@@ -103,6 +120,7 @@ impl E1<'_> {
                     let (p, ic) = self.eval(item)?;
                     self.convert(t.at(off), p, &ic, &fc, Some(&fty), *at)?;
                 }
+                self.own(t, &c);
                 (t, c)
             }
             Value::Variant(e, k, items, at) => {
@@ -114,6 +132,7 @@ impl E1<'_> {
                     self.convert(t.at(off), p, &ic, &fc, Some(&fty), *at)?;
                 }
                 self.store_imm(t, *k as i64);
+                self.own(t, &c);
                 (t, c)
             }
             Value::Is(inner, _, k, _) => {
@@ -128,12 +147,24 @@ impl E1<'_> {
                 (t, Class::Bool)
             }
             Value::Payload(inner, e, k, j, _) => {
-                let (p, _) = self.eval(inner)?;
+                let (p, c) = self.eval(inner)?;
+                // `Hay(v)` (nivel 13): su valor, de la clase que trae
+                if let Class::Opt(t) = c {
+                    return Ok((p.at(8), *t));
+                }
                 let (off, fc, _) = self.forms.case_field(*e, *k, *j);
                 (p.at(off), fc)
             }
+            Value::Lib(lib, args, at) => self.lib(*lib, args, *at)?,
+            Value::Map(items, at) => {
+                let c = self.class_of(v)?;
+                (self.map_written(items, &c, *at)?, c)
+            }
             Value::Len(inner, at) => {
-                let (_, c) = self.eval(inner)?;
+                let (p, c) = self.eval(inner)?;
+                if matches!(c, Class::List(_) | Class::Map(..) | Class::Any) {
+                    return Ok((self.len_of(p), Class::Int));
+                }
                 let Class::Table(_, n) = c else { return Err(format!("linea {}: `len` de algo que no es tabla", at.0)) };
                 let t = self.temp(8);
                 self.store_imm(t, n as i64);
@@ -224,6 +255,14 @@ impl E1<'_> {
                     c = fc;
                     ty = Some(fty);
                 }
+                (PathStep::Index(i), Class::List(inner)) => {
+                    p = self.list_index(p, &inner, i, at)?;
+                    c = *inner;
+                    ty = match ty {
+                        Some(Ty::List(it)) => Some(*it),
+                        _ => None,
+                    };
+                }
                 (PathStep::Index(i), Class::Table(inner, n)) => {
                     p = self.index_place(p, &inner, n, i, at)?;
                     c = *inner;
@@ -240,11 +279,46 @@ impl E1<'_> {
 
     /// Un valor de clase `from` a un sitio de clase `to`, y el PIC de su tipo
     /// declarado si lleva un `dec(p, s)`.
+    /// Si `src` es un sitio de paso de la operacion, se MUEVE (sus bytes, y
+    /// ya no se suelta al acabar); si no, se CLONA (nivel 13).
     pub fn convert(&mut self, dst: Place, src: Place, from: &Class, to: &Class, ty: Option<&Ty>, at: (usize, usize)) -> Result<(), String> {
+        let moving = self.take_owned(src);
+        self.conv(dst, src, from, to, moving, at)?;
+        if let Some(t) = ty {
+            if self.forms.has_decp(t) {
+                self.fit(dst, t, at)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// `convert` sin el PIC: `moving` dice si lo de `src` se lleva (sus
+    /// bytes) o se copia entero.
+    pub fn conv(&mut self, dst: Place, src: Place, from: &Class, to: &Class, moving: bool, at: (usize, usize)) -> Result<(), String> {
         match (from, to) {
             (a, b) if a == b => {
-                let size = self.forms.size(to);
-                self.copy(dst, src, size);
+                if moving {
+                    let size = self.forms.size(to);
+                    self.copy(dst, src, size);
+                } else {
+                    self.clone_at(dst, src, to);
+                }
+            }
+            // `[]` y `{}`: el asa a cero, a una lista o un mapa de lo que sea
+            (Class::List(f), Class::List(_)) | (Class::Map(f, _), Class::Map(..)) if **f == Class::Any => self.copy(dst, src, 24),
+            (Class::Table(fi, n), Class::List(ti)) => {
+                let (fi, ti) = ((**fi).clone(), (**ti).clone());
+                self.list_from_table(dst, src, &fi, *n, &ti, moving, at)?;
+            }
+            (Class::List(_), Class::List(_)) | (Class::Map(..), Class::Map(..)) => self.retype_cells(dst, src, from, to, moving, at)?,
+            (Class::Opt(fi), Class::Opt(ti)) => {
+                let (fi, ti) = ((**fi).clone(), (**ti).clone());
+                self.load(src, RAX);
+                self.store(dst, RAX);
+                x86::test_r64_r64(&mut self.code, RAX, RAX);
+                let none = self.jcc(0x85);
+                self.conv(dst.at(8), src.at(8), &fi, &ti, moving, at)?;
+                self.here(none);
             }
             (Class::Int, Class::Dec) => {
                 self.load(src, RAX);
@@ -254,21 +328,15 @@ impl E1<'_> {
             (Class::Table(fi, n), Class::Table(ti, _)) => {
                 let (fs, ts) = (self.forms.size(fi), self.forms.size(ti));
                 let (fi, ti) = ((**fi).clone(), (**ti).clone());
-                self.each_cell(*n, &[(dst, ts), (src, fs)], &mut |e, cells| e.convert(cells[0], cells[1], &fi, &ti, None, at))?;
+                self.each_cell(*n, &[(dst, ts), (src, fs)], &mut |e, cells| e.conv(cells[0], cells[1], &fi, &ti, moving, at))?;
             }
             (c, Class::Trait(_)) if !matches!(c, Class::Trait(_)) => {
                 let name = self.forms.type_name(c).ok_or_else(|| format!("linea {}: este valor no tiene tipo para un trait", at.0))?;
                 let id = self.forms.type_id(&name);
-                let size = self.forms.size(c);
-                self.copy(dst.at(8), src, size);
+                self.conv(dst.at(8), src, c, c, moving, at)?;
                 self.store_imm(dst, id);
             }
             (a, b) => return Err(format!("linea {}: no se pasar {:?} a {:?} al correr", at.0, a, b)),
-        }
-        if let Some(t) = ty {
-            if self.forms.has_decp(t) {
-                self.fit(dst, t, at)?;
-            }
         }
         Ok(())
     }
@@ -293,6 +361,7 @@ impl E1<'_> {
                 let inner = (**inner).clone();
                 self.each_cell(*n, &[(p, sz)], &mut |e, cells| e.fit(cells[0], &inner, at))?;
             }
+            Ty::List(_) | Ty::Map(..) | Ty::Opt(_) => self.fit_collection(p, ty, at)?,
             Ty::Named(_) => match self.forms.class(ty) {
                 Class::Record(t) => {
                     for k in 0..self.m.types[t].fields.len() {
@@ -390,7 +459,7 @@ impl E1<'_> {
         Ok(t)
     }
 
-    fn eq_into(&mut self, pa: Place, ca: &Class, pb: Place, cb: &Class, fails: &mut Vec<usize>, at: (usize, usize)) -> Result<(), String> {
+    pub fn eq_into(&mut self, pa: Place, ca: &Class, pb: Place, cb: &Class, fails: &mut Vec<usize>, at: (usize, usize)) -> Result<(), String> {
         match (ca, cb) {
             (Class::Int, Class::Int) | (Class::Bool, Class::Bool) => {
                 self.load(pa, RAX);
@@ -450,6 +519,7 @@ impl E1<'_> {
                     self.here(next);
                 }
             }
+            (Class::List(_) | Class::Map(..) | Class::Opt(_) | Class::Any, _) | (_, Class::List(_) | Class::Map(..) | Class::Opt(_) | Class::Any) => self.eq_collection(pa, ca, pb, cb, fails, at)?,
             (a, b) => return Err(later(&format!("comparar {:?} con {:?}", a, b), "no hay comparacion de esto al correr", at)),
         }
         let _ = R9;

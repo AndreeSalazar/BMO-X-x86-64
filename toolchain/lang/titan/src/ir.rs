@@ -52,6 +52,9 @@
 
 use crate::tree::{EnumDef, Expr, Mode, Program, Stmt, TraitDef, Ty, TypeDef};
 
+mod biblioteca;
+mod muestra;
+
 /// A whole module, ready to emit.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
@@ -204,6 +207,50 @@ pub enum Value {
     /// `docs/plan/PLAN_LA_ENTRADA.md`). Known only WHEN IT RUNS: a module
     /// that reads is not run when compiling (`calc.rs`), it is emitted.
     Read(At),
+    /// What the library of lists and maps does to its values (level 13,
+    /// `docs/plan/PLAN_LISTAS_Y_MAPAS.md`). The ones that CHANGE a list or a
+    /// map come as `l = push(l, x)`: an `Op::Set`, so the checker already
+    /// knows `l` needs `mut` and that it changed.
+    Lib(Lib, Vec<Value>, At),
+    /// `{"ana": 3}`: a map written, its keys and values in order (13).
+    Map(Vec<(Value, Value)>, At),
+}
+
+/// The library of lists and maps (level 13).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Lib {
+    /// The list with one more at its end: `push(mut l, x)`.
+    Push,
+    /// Its last, as a case -- `Hay(x)` or `NoHay`: what `pop` gives.
+    Last,
+    /// The list without its last: what `pop` leaves (empty stays empty).
+    DropLast,
+    /// The map with this key leading to this value: `put(mut m, k, v)`.
+    Put,
+    /// The map without this key: `remove(mut m, k)`.
+    Remove,
+    /// `get(m, k)`: `Hay(v)` or `NoHay`.
+    Get,
+    /// `has(m, k)`: is the key there?
+    Has,
+    /// Turn `i` of a `for x in ...`: the cell of a table or a list, the KEY
+    /// of a map (in the order they went in, D4).
+    Turn,
+}
+
+impl Lib {
+    pub fn name(self) -> &'static str {
+        match self {
+            Lib::Push => "push",
+            Lib::Last => "ultimo",
+            Lib::DropLast => "sin_ultimo",
+            Lib::Put => "put",
+            Lib::Remove => "remove",
+            Lib::Get => "get",
+            Lib::Has => "has",
+            Lib::Turn => "vuelta",
+        }
+    }
 }
 
 impl Value {
@@ -231,6 +278,8 @@ impl Value {
             | Value::Is(_, _, _, a)
             | Value::Payload(_, _, _, _, a)
             | Value::Number(_, _, a)
+            | Value::Lib(_, _, a)
+            | Value::Map(_, a)
             | Value::Read(a) => *a,
         }
     }
@@ -257,9 +306,15 @@ impl Value {
                 r.reads(out);
             }
             Value::Neg(v, _) | Value::Not(v, _) => v.reads(out),
-            Value::Call(_, args, _) => {
+            Value::Call(_, args, _) | Value::Lib(_, args, _) => {
                 for a in args {
                     a.reads(out);
+                }
+            }
+            Value::Map(items, _) => {
+                for (k, v) in items {
+                    k.reads(out);
+                    v.reads(out);
                 }
             }
         }
@@ -285,7 +340,8 @@ impl Value {
             Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Local(..) | Value::Lend(..) => false,
             Value::Bin(_, a, b, _) | Value::Index(a, b, _) => a.from_outside() || b.from_outside(),
             Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) => a.from_outside(),
-            Value::Call(_, items, _) | Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => items.iter().any(Value::from_outside),
+            Value::Call(_, items, _) | Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) => items.iter().any(Value::from_outside),
+            Value::Map(items, _) => items.iter().any(|(k, v)| k.from_outside() || v.from_outside()),
         }
     }
 }
@@ -378,6 +434,12 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
             Value::Number(Box::new(value(&args[0], locals)), e, (*line, *col))
         }
         Expr::Call { callee, args, line, col } if callee == "len" => Value::Len(Box::new(value(&args[0], locals)), (*line, *col)),
+        // `get(m, k)` / `has(m, k)` (level 13): they read, and change nothing.
+        Expr::Call { callee, args, line, col } if (callee == "get" || callee == "has") && !p.functions.iter().any(|f| &f.name == callee) => {
+            let lib = if callee == "get" { Lib::Get } else { Lib::Has };
+            Value::Lib(lib, args.iter().map(|a| value(a, locals)).collect(), (*line, *col))
+        }
+        Expr::Map { items, line, col } => Value::Map(items.iter().map(|(k, v)| (value(k, locals), value(v, locals))).collect(), (*line, *col)),
         Expr::Call { callee, args, line, col } if p.case(callee).is_some() => {
             let (e, v) = p.case(callee).expect("the guard");
             Value::Variant(e, v, args.iter().map(|a| value(a, locals)).collect(), (*line, *col))
@@ -477,6 +539,19 @@ impl Lowering<'_> {
     fn stmts(&mut self, body: &[Stmt], mut at: usize) -> usize {
         for st in body {
             match st {
+                // `let x = pop(mut l)` (level 13): x gets the last of `l` as a
+                // case, and then `l` loses it -- two lines of the IR.
+                Stmt::Let(l) | Stmt::Set(l) if matches!(&l.value, Expr::Call { callee, .. } if callee == "pop") && !self.p.functions.iter().any(|f| f.name == "pop") => {
+                    let (last, lent, here) = self.popped(&l.value).expect("check: pop takes `mut` and a list");
+                    let local = local_of(&mut self.locals, &l.name);
+                    if matches!(st, Stmt::Let(_)) {
+                        self.born(local);
+                        self.blocks[at].ops.push(Op::Let { local, value: last, mutable: l.mutable, ty: l.ty.clone(), at: (l.line, l.col) });
+                    } else {
+                        self.blocks[at].ops.push(Op::Set { local, value: last, at: (l.line, l.col) });
+                    }
+                    self.drop_last(at, lent, here);
+                }
                 Stmt::Let(l) => {
                     let v = value(&l.value, &mut self.locals, self.p);
                     let local = local_of(&mut self.locals, &l.name);
@@ -488,6 +563,11 @@ impl Lowering<'_> {
                     let local = local_of(&mut self.locals, &l.name);
                     self.blocks[at].ops.push(Op::Set { local, value: v, at: (l.line, l.col) });
                 }
+                // `push(mut l, x)`, `put(mut m, k, v)`, `remove(mut m, k)` and
+                // `pop(mut l)` alone (level 13): `l = push(l, x)` -- the
+                // list CHANGES, as with any `mut` lent to a fn
+                // (`ir/biblioteca.rs`).
+                Stmt::Call(c) if matches!(c.callee.as_str(), "push" | "put" | "remove" | "pop") && !self.p.functions.iter().any(|f| f.name == c.callee) => self.mutator(c, at),
                 Stmt::Call(c) if c.callee == "print" => {
                     let parts = c.args.iter().map(|a| value(a, &mut self.locals, self.p)).collect();
                     self.blocks[at].ops.push(Op::Write { parts, at: (c.line, c.col) });
@@ -604,7 +684,8 @@ impl Lowering<'_> {
                     let var = local_of(&mut self.locals, &f.var);
                     self.born(var);
                     let turn = match table {
-                        Some(t) => Value::Index(Box::new(Value::Local(t, f.var_at)), Box::new(Value::Local(count, f.var_at)), f.var_at),
+                        // a cell of a table or a list, a key of a map (13)
+                        Some(t) => Value::Lib(Lib::Turn, vec![Value::Local(t, f.var_at), Value::Local(count, f.var_at)], f.var_at),
                         None => Value::Local(count, f.var_at),
                     };
                     self.blocks[body].ops.push(Op::Let { local: var, value: turn, mutable: false, ty: None, at: f.var_at });
@@ -645,13 +726,24 @@ impl Lowering<'_> {
                     //    b3   muere %m
                     let here = (*line, *col);
                     self.hidden += 1;
-                    let v = value(v, &mut self.locals, self.p);
+                    // `match pop(mut l)` (13): the last, and then `l` loses it
+                    let popped = self.popped(v);
+                    let (v, popped) = match popped {
+                        Some((last, lent, here)) => (last, Some((lent, here))),
+                        None => (value(v, &mut self.locals, self.p), None),
+                    };
                     let enum_name = self.p.case(&arms[0].case).map(|(e, _)| self.p.enums[e].name.clone()).expect("check: every arm is a case");
                     self.open_scope(here);
                     let m = local_of(&mut self.locals, &format!("#m{}", self.hidden));
                     self.born(m);
                     let vat = v.at();
-                    self.blocks[at].ops.push(Op::Let { local: m, value: v, mutable: false, ty: Some(Ty::Named(enum_name)), at: vat });
+                    // `Opcion` (level 13) is one enum for every kind of value:
+                    // its class is the one the value brings (`Opcion[int]`).
+                    let ty = if crate::prelude::is_opcion(&enum_name) { None } else { Some(Ty::Named(enum_name)) };
+                    self.blocks[at].ops.push(Op::Let { local: m, value: v, mutable: false, ty, at: vat });
+                    if let Some((lent, here)) = popped {
+                        self.drop_last(at, lent, here);
+                    }
                     let mut ends = Vec::new();
                     for (k, arm) in arms.iter().enumerate() {
                         let (e, c) = self.p.case(&arm.case).expect("check: every arm is a case");
@@ -780,98 +872,6 @@ pub fn lower(p: &Program) -> Module {
         permissions: bmo_titan_contrato::Permissions::NONE,
         sources: crate::paquete::Sources::default(),
         flat: None,
-    }
-}
-
-impl Module {
-    /// The IR as text, for `titan ir`: what the emitter will receive.
-    pub fn show(&self) -> String {
-        let mut s = format!("mod {}  \"{}\"   entra por f{}\n", self.name, self.purpose, self.entry);
-        let tail = match &self.flat {
-            Some(flat) => {
-                let mut t = format!("\nlo que escribe, CORRIDO al compilar ({} escrituras): es lo que hace el .bex\n", flat.len());
-                for op in flat {
-                    if let Op::Write { parts, at } = op {
-                        let p: Vec<String> = parts.iter().map(show).collect();
-                        t += &format!("    linea {:<4} escribe {}\n", at.0, p.join(", "));
-                    }
-                }
-                t
-            }
-            None => String::new(),
-        };
-        for (i, f) in self.functions.iter().enumerate() {
-            let locals: Vec<String> = f.locals.iter().enumerate().map(|(k, l)| format!("%{}={}", k, l.name)).collect();
-            s += &format!("f{} {}   {}\n", i, f.name, locals.join(" "));
-            for (j, b) in f.blocks.iter().enumerate() {
-                s += &format!("  b{}{}\n", j, if b.dead { "   (muerto: ninguna ejecucion llega aqui, y no deja bytes)" } else { "" });
-                for op in &b.ops {
-                    s += &match op {
-                        Op::Let { local, value, mutable: true, .. } => format!("    %{} = {}   (mut)\n", local, show(value)),
-                        Op::Let { local, value, .. } => format!("    %{} = {}\n", local, show(value)),
-                        Op::Set { local, value, .. } => format!("    %{} := {}\n", local, show(value)),
-                        Op::Write { parts, .. } => {
-                            let p: Vec<String> = parts.iter().map(show).collect();
-                            format!("    escribe {}\n", p.join(", "))
-                        }
-                        Op::Call { func, args, .. } => {
-                            let a: Vec<String> = args.iter().map(show).collect();
-                            format!("    llama   f{} ({})({})\n", func, self.functions[*func].name, a.join(", "))
-                        }
-                        Op::Drop { local, at } => format!("    muere   %{} ({}, al cerrarse el bloque de la linea {})\n", local, f.locals[*local].name, at.0),
-                        Op::SetAt { local, path, value, .. } => {
-                            let p: String = path
-                                .iter()
-                                .map(|st| match st {
-                                    PathStep::Index(i) => format!("[{}]", show(i)),
-                                    PathStep::Field(n, _) => format!(".{}", n),
-                                })
-                                .collect();
-                            format!("    %{}{} := {}\n", local, p, show(value))
-                        }
-                    };
-                }
-                s += &match &b.end {
-                    End::Return(None) => "    vuelve\n".to_string(),
-                    End::Return(Some(v)) => format!("    vuelve con {}\n", show(v)),
-                    End::Jump(t) => format!("    salta   b{}\n", t),
-                    End::Branch { cond, then, other, .. } => format!("    si {} -> b{}, sino -> b{}\n", show(cond), then, other),
-                };
-            }
-        }
-        s + &tail
-    }
-}
-
-fn show(v: &Value) -> String {
-    match v {
-        Value::Int(n, _) => n.to_string(),
-        Value::Text(t, _) => format!("{:?}", t),
-        Value::Bool(b, _) => b.to_string(),
-        Value::Local(l, _) => format!("%{}", l),
-        Value::Bin(op, l, r, _) => format!("({} {} {})", show(l), op, show(r)),
-        Value::Neg(v, _) => format!("-{}", show(v)),
-        Value::Not(v, _) => format!("not {}", show(v)),
-        Value::Call(f, args, _) => {
-            let a: Vec<String> = args.iter().map(show).collect();
-            format!("f{}({})", f, a.join(", "))
-        }
-        Value::Dec(d, sc, _) => crate::tree::show_dec(*d, *sc),
-        Value::Table(items, _) => format!("[{}]", items.iter().map(show).collect::<Vec<_>>().join(", ")),
-        Value::Repeat(v, n, _) => format!("[{}; {}]", show(v), n),
-        Value::Index(b, i, _) => format!("{}[{}]", show(b), show(i)),
-        Value::Field(b, n, _) => format!("{}.{}", show(b), n),
-        Value::Record(t, items, _) => format!("T{} {{ {} }}", t, items.iter().map(show).collect::<Vec<_>>().join(", ")),
-        Value::Len(v, _) => format!("len({})", show(v)),
-        Value::Read(_) => "lee()".to_string(),
-        Value::Number(v, _, _) => format!("numero({})", show(v)),
-        Value::Lend(m, l, _) => format!("{} %{}", m.word(), l),
-        Value::Round(v, n, _) => format!("round({}, {})", show(v), n),
-        Value::F32(b, _) => format!("{}f32", f32::from_bits(*b)),
-        Value::Variant(e, v, args, _) if args.is_empty() => format!("E{}.{}", e, v),
-        Value::Variant(e, v, args, _) => format!("E{}.{}({})", e, v, args.iter().map(show).collect::<Vec<_>>().join(", ")),
-        Value::Is(x, e, v, _) => format!("{} es E{}.{}", show(x), e, v),
-        Value::Payload(x, e, v, k, _) => format!("dato {} de {} (E{}.{})", k, show(x), e, v),
     }
 }
 

@@ -358,3 +358,114 @@ fn e1_and_the_calculation_agree_on_random_arithmetic() {
     eprintln!("azar: {same} iguales, {traps} con el mismo NO");
     assert!(same > 100 && traps > 30, "the random cases cover both: {same} same, {traps} traps");
 }
+
+/// ** LISTS AND MAPS IN THE MACHINE (level 13, `docs/plan/PLAN_LISTAS_Y_MAPAS.md`,
+/// L6): each program built by the calculation (E0) and FORCED through E1 must
+/// write the same, byte for byte -- and E1 says it if anything of the heap
+/// was left unfreed at the end, so "the same" also means "nothing leaked".
+#[test]
+fn lists_and_maps_run_in_the_machine_as_the_calculation_says() {
+    let programs: &[&str] = &[
+        // push, pop, index, for, a cell changed, len
+        "fn main()\n    let mut l: [int] = []\n    for i in range(10)\n        push(mut l, i * i)\n    print(l, \" \", len(l), \" \", l[3])\n    let u = pop(mut l)\n    match u\n        Hay(x)\n            print(\"saco \", x)\n        NoHay\n            print(\"nada\")\n    l[0] = 100\n    let mut s = 0\n    for x in l\n        s = s + x\n    print(s, \" \", l)\n",
+        // pop until empty, and once more
+        "fn main()\n    let mut l: [text] = [\"a\", \"b\"]\n    for i in range(3)\n        match pop(mut l)\n            Hay(t)\n                print(t)\n            NoHay\n                print(\"vacia \", l)\n",
+        // copies are values: b does not change with a
+        "fn main()\n    let mut a: [int] = [1, 2]\n    let b = a\n    push(mut a, 3)\n    let c = [a, b]\n    print(a, \" \", b, \" \", len(c))\n",
+        // maps: put, replace, get, has, remove, for over keys, written maps, equality
+        "fn main()\n    let mut stock: {text: int} = {}\n    put(mut stock, \"pan\", 3)\n    put(mut stock, \"leche\", 2)\n    put(mut stock, \"pan\", 5)\n    put(mut stock, \"sal\", 1)\n    print(stock, \" \", len(stock), \" \", has(stock, \"leche\"), \" \", has(stock, \"te\"))\n    remove(mut stock, \"leche\")\n    for k in stock\n        match get(stock, k)\n            Hay(n)\n                print(k, \"=\", n)\n            NoHay\n                print(\"?\")\n    let m = {1: \"uno\", 2: \"dos\", 1: \"otra vez uno\"}\n    print(m, \" \", m == {2: \"dos\", 1: \"otra vez uno\"}, \" \", stock == {\"sal\": 1, \"pan\": 5}, \" \", stock == {\"pan\": 5})\n",
+        // decimals keep their type; lists of records with lists inside
+        "type Nave\n    nombre: text\n    carga: [dec]\nfn main()\n    let mut precios: [dec] = [1.5]\n    push(mut precios, 2)\n    print(precios, \" \", precios[1] / 4)\n    let mut flota: [Nave] = []\n    push(mut flota, Nave { nombre: \"a\", carga: [] })\n    push(mut flota, Nave { nombre: \"b\", carga: [1.25, 2] })\n    flota[0].carga = [9.5]\n    let copia = flota\n    flota[1].nombre = \"bb\"\n    print(flota)\n    print(copia == flota, \" \", copia[1].carga == [1.25, 2.00])\n",
+        // through fns: a copy, a mut lent, a list given back, Opcion returned
+        "fn suma(l: [int]) -> int\n    let mut s = 0\n    for x in l\n        s = s + x\n    return s\nfn crece(mut l: [int], n: int)\n    for i in range(n)\n        push(mut l, i)\nfn pares(n: int) -> [int]\n    let mut out: [int] = []\n    for i in range(n)\n        if i % 2 == 0\n            push(mut out, i)\n    return out\nfn busca(m: {text: int}, k: text) -> Opcion[int]\n    return get(m, k)\nfn main()\n    let mut l: [int] = []\n    crece(mut l, 4)\n    print(l, \" \", suma(l), \" \", pares(9))\n    let m = {\"a\": 1}\n    print(busca(m, \"a\"), \" \", busca(m, \"z\"))\n",
+        // lists of lists, many pushes (growth), and a list in a map
+        "fn main()\n    let mut t: [[int]] = []\n    for i in range(4)\n        let mut fila: [int] = []\n        for j in range(i)\n            push(mut fila, j)\n        push(mut t, fila)\n    print(t)\n    let mut big: [int] = []\n    for i in range(1000)\n        push(mut big, i)\n    let mut s = 0\n    for x in big\n        s = s + x\n    print(len(big), \" \", s)\n    let mut por: {text: [int]} = {}\n    put(mut por, \"pares\", [0, 2])\n    put(mut por, \"impares\", [1])\n    put(mut por, \"pares\", [0, 2, 4])\n    print(por)\n",
+        // a table and a repeat into lists; `l = ...` drops the old one
+        "fn main()\n    let mut l: [int] = [0; 5]\n    l = [7, 8]\n    l = [9]\n    push(mut l, 1)\n    let ll: [[int]] = [[1], [2, 3]]\n    print(l, \" \", ll, \" \", ll[1][0], \" \", [] == l)\n",
+        // a tree: a type that holds a list of itself, walked by recursion
+        "type Nodo\n    valor: int\n    hijos: [Nodo]\nfn suma(n: Nodo) -> int\n    let mut s = n.valor\n    for h in n.hijos\n        s = s + suma(h)\n    return s\nfn main()\n    let hoja = Nodo { valor: 3, hijos: [] }\n    let mut raiz = Nodo { valor: 1, hijos: [] }\n    push(mut raiz.hijos, hoja)\n    print(suma(raiz))\n",
+        // an enum that carries a list; a record as the key of a map; take
+        "enum Bolsa\n    Vacia\n    Llena([text])\ntype Punto\n    x: int\n    y: int\nfn cuenta(take b: Bolsa) -> int\n    match b\n        Vacia\n            return 0\n        Llena(cosas)\n            return len(cosas)\nfn main()\n    let b = Llena([\"pan\", \"sal\"])\n    let c = b\n    print(b, \" \", cuenta(take b), \" \", c == Llena([\"pan\", \"sal\"]))\n    let mut mundo: {Punto: text} = {}\n    put(mut mundo, Punto { x: 0, y: 0 }, \"piedra\")\n    put(mut mundo, Punto { x: 1, y: 0 }, \"agua\")\n    put(mut mundo, Punto { x: 0, y: 0 }, \"tierra\")\n    print(mundo, \" \", has(mundo, Punto { x: 1, y: 0 }))\n",
+        // COBOL's PIC inside a list: what goes in must fit
+        "fn main()\n    let mut saldos: [dec(5, 2)] = [1.5]\n    push(mut saldos, 10)\n    print(saldos)\n    push(mut saldos, 1000)\n    print(saldos)\n",
+    ];
+    let mut wrong = Vec::new();
+    for (k, body) in programs.iter().enumerate() {
+        let src = format!("mod main \"listas\"\n\n{body}");
+        let console = |bex: Vec<u8>| {
+            let m = run(cargar_bex(&bex).unwrap(), 50_000_000);
+            (m.console.clone(), m.exited)
+        };
+        let e1 = match bmo_titan_x86_64::build_package_e1("listas.titan", &src, &mut |_| None) {
+            Ok(bex) => console(bex),
+            Err(e) => (format!("E1 no lo emite: {e:?}"), false),
+        };
+        // un NO del calculo (al compilar) es el mismo NO de E1 (al correr),
+        // en la misma linea, despues de lo que ya escribio
+        let same = match bmo_titan_x86_64::build_package("listas.titan", &src, &mut |_| None) {
+            Ok(bex) => console(bex) == e1,
+            Err(bmo_titan_x86_64::Failure::Source(m)) => e1.0.contains(&format!("NO T{:04} al correr, linea {}:", m.code.number(), m.line)),
+            Err(other) => panic!("program {k}: {other:?}"),
+        };
+        if !same {
+            wrong.push(format!("program {k}:\n{src}\n  E1 {:?}", e1));
+        }
+    }
+    assert!(wrong.is_empty(), "{} de {} programas de listas escriben otra cosa por E1:\n{}", wrong.len(), programs.len(), wrong.join("\n"));
+}
+
+/// ** LISTS AND MAPS AT RANDOM: programs of pushes, pops, cells, copies and
+/// map entries, built by the calculation and forced through E1. Either both
+/// write the same, or the NO the calculation gives when compiling is the NO
+/// E1 gives when running -- and nothing of the heap is left (E1 would say).
+/// `E1_AZAR_LISTAS=semilla,casos` to look further.
+#[test]
+fn lists_and_maps_agree_with_the_calculation_at_random() {
+    let env = std::env::var("E1_AZAR_LISTAS").unwrap_or_default();
+    let mut it = env.split(',').map(|x| x.trim().parse::<u64>().ok());
+    let seed = it.next().flatten().filter(|s| *s != 0).unwrap_or(0xC0FF_EE12_3456_789B);
+    let cases = it.next().flatten().unwrap_or(150);
+    let mut r = Rng(seed);
+    let keys = ["\"a\"", "\"b\"", "\"c\"", "\"d\""];
+    let (mut same, mut traps, mut wrong) = (0, 0, Vec::new());
+    for case in 0..cases {
+        let mut body = String::from("fn main()\n    let mut l: [int] = []\n    let mut m: {text: int} = {}\n    let mut ll: [[int]] = []\n");
+        for step in 0..(4 + r.pick(14)) {
+            let n = r.pick(50) as i64 - 10;
+            let k = keys[r.pick(4) as usize];
+            body += &match r.pick(14) {
+                0 | 1 => format!("    push(mut l, {n})\n"),
+                2 => format!("    let x{step} = pop(mut l)\n    match x{step}\n        Hay(v)\n            print(\"pop \", v)\n        NoHay\n            print(\"pop nada\")\n"),
+                3 => format!("    l[{}] = {n}\n", r.pick(5)),
+                4 => format!("    print(l, \" \", len(l))\n"),
+                5 => format!("    put(mut m, {k}, {n})\n"),
+                6 => format!("    remove(mut m, {k})\n"),
+                7 => format!("    match get(m, {k})\n        Hay(v)\n            print({k}, \" \", v)\n        NoHay\n            print({k}, \" no\")\n"),
+                8 => format!("    print(m, \" \", has(m, {k}), \" \", len(m))\n"),
+                9 => "    push(mut ll, l)\n".into(),
+                10 => format!("    let c{step} = l\n    push(mut l, 1)\n    print(c{step} == l, \" \", c{step})\n"),
+                11 => format!("    l = [{n}, {}]\n", n + 1),
+                12 => format!("    let mut s{step} = 0\n    for v in l\n        s{step} = s{step} + v\n    for q in m\n        s{step} = s{step} + 1\n    print(s{step})\n"),
+                _ => format!("    print(ll, \" \", l == [{n}])\n"),
+            };
+        }
+        // los tres cambian al menos una vez: un `mut` que no cambia es un NO
+        body += "    push(mut l, 0)\n    put(mut m, \"z\", 0)\n    push(mut ll, l)\n    print(l, m, ll)\n";
+        let src = format!("mod main \"azar\"\n\n{body}");
+        let e0 = match bmo_titan_x86_64::build_package("azar.titan", &src, &mut |_| None) {
+            Ok(bex) => Ok(run(cargar_bex(&bex).unwrap(), 50_000_000).console.clone()),
+            Err(bmo_titan_x86_64::Failure::Source(m)) => Err(format!("T{:04}", m.code.number())),
+            Err(other) => panic!("case {case}: {other:?}\n{src}"),
+        };
+        let bex = bmo_titan_x86_64::build_package_e1("azar.titan", &src, &mut |_| None).unwrap_or_else(|f| panic!("case {case}: E1 does not build: {f:?}\n{src}"));
+        let out = run(cargar_bex(&bex).unwrap(), 50_000_000).console.clone();
+        match &e0 {
+            Ok(text) if *text == out => same += 1,
+            Err(code) if out.contains(&format!("NO {code} al correr")) => traps += 1,
+            _ => wrong.push(format!("case {case}:\n{src}\n  E0 {:?}\n  E1 {:?}", e0, out)),
+        }
+    }
+    assert!(wrong.is_empty(), "{} de {cases} no coinciden:\n{}", wrong.len(), wrong.iter().take(3).cloned().collect::<Vec<_>>().join("\n"));
+    eprintln!("azar de listas: {same} iguales, {traps} con el mismo NO");
+    assert!(same > 30 && traps > 10, "the random cases cover both: {same} same, {traps} traps");
+}
