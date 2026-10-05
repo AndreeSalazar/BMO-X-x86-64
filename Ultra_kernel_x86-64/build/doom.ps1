@@ -5,7 +5,7 @@
 # de las 1.000 lineas de codigo (L6a), y DOOM es una pieza con nombre propio.
 #
 # Se carga con `.` desde `ejemplos.ps1`, en SU ambito: usa `$repo`,
-# `$dataBase`, `$SinDoom`, `Step`, `Obrero`, `Fail` y `Nuevo-Bico` de alli.
+# `$dataBase`, `$SinDoom`, `Step`, `Obrero`, `Fail` y `Nuevo-Bico` (de `imagenes.ps1`) de alli.
 
 # -- DOOM: OPCIONAL, y fuera del arbol ------------------------
 #
