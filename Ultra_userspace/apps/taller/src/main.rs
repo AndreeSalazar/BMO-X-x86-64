@@ -51,6 +51,7 @@ mod iconos;
 mod player;
 mod space;
 mod store;
+mod strata;
 mod tab;
 mod tema_gen;
 mod view;
@@ -346,6 +347,10 @@ pub extern "C" fn _start() -> ! {
         bmo::salir();
     };
     let mut shown = Shown::of(&store.loaded.graph);
+    // The ESTRATOS tab (`strata.rs`): the history, in a block of its own, and
+    // the generation it was read at.
+    let mut history = store::history_block();
+    let mut history_gen = u64::MAX;
     let mut canvas = Canvas::new(win.px, win.w, win.h);
     let mut cam = fit(&store.loaded.graph);
     let mut drag = Drag::None;
@@ -405,6 +410,19 @@ pub extern "C" fn _start() -> ! {
             ui.confirm = None;
             drag = Drag::None;
             dirty = true;
+        }
+        // The ESTRATOS tab reads the history when it opens and when the
+        // generation moved -- never per frame: `hist_releer` reads the disk.
+        if tab == Tab::Strata {
+            if let Some(h) = history.as_deref_mut() {
+                let g = store::generation();
+                if g != history_gen {
+                    store::read_history(h);
+                    history_gen = g;
+                    dirty = true;
+                }
+                dirty |= h.confirm.is_some();
+            }
         }
         if let Some((_, until)) = ui.confirm {
             if now.wrapping_sub(until) < u32::MAX / 2 {
@@ -578,6 +596,15 @@ pub extern "C" fn _start() -> ! {
                             dirty = true;
                             continue;
                         }
+                        // The history: a click picks a version.
+                        Tab::Strata => {
+                            if let Some(h) = history.as_deref_mut() {
+                                h.picked = strata::hit(&canvas, h, x, y).or(h.picked);
+                                h.confirm = None;
+                            }
+                            dirty = true;
+                            continue;
+                        }
                         // The pages are to read.
                         _ => continue,
                     }
@@ -629,6 +656,34 @@ pub extern "C" fn _start() -> ! {
                 // While a name is typed, every key is the box's.
                 Input::Char(c) if ui.edit.is_some() => {
                     typing(c, &mut store, &mut ui);
+                    dirty = true;
+                }
+                // The ESTRATOS tab: the arrows walk the chain, ENTER twice
+                // restores the picked version, Esc takes the question back.
+                Input::Char(k @ (KEY_LEFT | KEY_RIGHT | b'\r' | b'\n' | 0x1B)) if tab == Tab::Strata => {
+                    if let Some(h) = history.as_deref_mut() {
+                        match k {
+                            KEY_LEFT => h.step(true),
+                            KEY_RIGHT => h.step(false),
+                            0x1B => {
+                                h.confirm = None;
+                                h.said = None;
+                            }
+                            _ => {
+                                if let Some(steps) = strata::enter(h, now) {
+                                    let ok = store::restore(steps);
+                                    h.said = Some(if ok {
+                                        (&b"RESTABLECIDA: un estrato nuevo; lo de en medio sigue en la historia"[..], true)
+                                    } else {
+                                        (&b"NO se pudo restablecer: el volumen no cambio"[..], false)
+                                    });
+                                    if ok {
+                                        h.picked = Some(0);
+                                    }
+                                }
+                            }
+                        }
+                    }
                     dirty = true;
                 }
                 // TAB, over the GRAPH or the SKY: the master nodes (Houdini).
@@ -794,6 +849,13 @@ pub extern "C" fn _start() -> ! {
             if !covered {
                 match tab {
                     Tab::Graph => view::draw(&mut canvas, &scene),
+                    Tab::Strata => {
+                        match history.as_deref() {
+                            Some(h) => strata::draw(&mut canvas, h, sky, now),
+                            None => canvas.clear(aspecto::BG),
+                        }
+                        view::title(&mut canvas, &scene);
+                    }
                     space_tab => space::draw(&mut canvas, &scene, space_tab),
                 }
                 space::tabs(&mut canvas, tab);

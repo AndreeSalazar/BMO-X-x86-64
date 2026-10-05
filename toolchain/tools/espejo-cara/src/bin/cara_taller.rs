@@ -8,7 +8,9 @@
 //! `arrastre.png`, del ancho de la columna, y la ventana entera con cada
 //! solapa: `grafo.png`, `cielo.png`, `elementos.png` y `guia.png`. Y la TAB de
 //! los nodos maestros (`PLAN_TALLER` 8.15): `tab.png`, abierta con la ficha de
-//! un nodo, y `tab_filtro.png`, escribiendo "match".
+//! un nodo, y `tab_filtro.png`, escribiendo "match". Y la solapa ESTRATOS
+//! (`PLAN_LA_BANDEJA` T2) con una historia de EJEMPLO: `estratos.png` y
+//! `estratos_pregunta.png` (el primer ENTER, preguntando).
 
 #[path = "../../../../../Ultra_userspace/apps/taller/src/canvas.rs"]
 #[allow(dead_code)]
@@ -46,6 +48,9 @@ mod iconos;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/tab.rs"]
 #[allow(dead_code)]
 mod tab;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/strata.rs"]
+#[allow(dead_code)]
+mod strata;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/tema_gen.rs"]
 #[allow(dead_code)]
 mod tema_gen;
@@ -241,6 +246,51 @@ fn main() {
         explorer::draw(&mut cv, &store, &ui, ship_node, 0);
         guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
     }
+    // La solapa ESTRATOS (PLAN_LA_BANDEJA T2): una historia de EJEMPLO --
+    // catorce versiones, tres con nombre -- con una elegida, y la misma
+    // con la pregunta del primer ENTER puesta.
+    let mut historia = strata::History::EMPTY;
+    let nombres: [(usize, &str); 3] = [(2, "mundo sano"), (6, "antes del dragon"), (11, "base del mundo")];
+    historia.absent = false;
+    historia.n = 14;
+    for i in 0..historia.n {
+        let minuto = 58 - 4 * i as u8;
+        let f = bmo_rtc::Fecha { anio: 2026, mes: 10, dia: 5, hora: 13, minuto, segundo: (7 * i as u8) % 60 };
+        let v = &mut historia.versions[i];
+        v.when = bmo_rtc::empaquetar(&f);
+        v.who = [7, 12, 9][i % 3];
+        if let Some((_, n)) = nombres.iter().find(|(k, _)| *k == i) {
+            v.name[..n.len()].copy_from_slice(n.as_bytes());
+            v.name_len = n.len();
+        }
+    }
+    historia.picked = Some(6);
+    for (nombre, pregunta) in [("estratos", false), ("estratos_pregunta", true)] {
+        if pregunta {
+            let _ = strata::enter(&mut historia, 5000);
+        }
+        let scene = view::Scene {
+            graph: &store.loaded.graph,
+            script: None,
+            player: &player,
+            cam: &cam,
+            now_ms: 5000,
+            selected: None,
+            origin: b"asteroids",
+            sky: None,
+            flow_ms: None,
+            faults: &marks,
+            files: store.loaded.files(),
+            turn: 96,
+        };
+        let mut px = vec![0u32; w * h];
+        let mut cv = canvas::Canvas::new(px.as_mut_ptr(), w as u32, h as u32);
+        strata::draw(&mut cv, &historia, None, 5000);
+        view::title(&mut cv, &scene);
+        space::tabs(&mut cv, space::Tab::Strata);
+        explorer::draw(&mut cv, &store, &ui, None, 0);
+        guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
+    }
     // GRAFO con dos cables en la mano (UE5): uno que se puede soltar y uno
     // que cerraria un ciclo, rojo y con su motivo.
     for (nombre, from, to) in [("cable_bien", "rock", "ship"), ("cable_ciclo", "ship", "physics")] {
@@ -404,5 +454,5 @@ fn main() {
         }
     }
     println!("ok: {out}/hola.png editor.png editor_guardado.png menu_nodo.png");
-    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png tab.png tab_filtro.png");
+    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png estratos.png estratos_pregunta.png tab.png tab_filtro.png");
 }

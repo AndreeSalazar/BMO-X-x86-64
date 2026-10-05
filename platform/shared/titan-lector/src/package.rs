@@ -165,10 +165,14 @@ pub struct FileEntry {
     pub depth: u8,
     /// What its body does (`traits.rs`): how F1 draws its node, live.
     pub traits: Traits,
+    /// A fingerprint of its BYTES ([`sum`]): F1 draws each node's seal from
+    /// it, so a file that changes changes face (`docs/plan/PLAN_LA_BANDEJA.md`,
+    /// section 5). Not a proof of anything -- ESTRATOS's BLAKE3 is that.
+    pub sum: u32,
 }
 
 impl FileEntry {
-    const EMPTY: FileEntry = FileEntry { path: Path::EMPTY, node: NodeId(0), parent: NodeId(0), depth: 0, traits: Traits::NONE };
+    const EMPTY: FileEntry = FileEntry { path: Path::EMPTY, node: NodeId(0), parent: NodeId(0), depth: 0, traits: Traits::NONE, sum: 0 };
 }
 
 pub struct Loaded {
@@ -242,9 +246,9 @@ impl Loaded {
         }
     }
 
-    fn file(&mut self, path: Path, node: NodeId, parent: NodeId, depth: usize, traits: Traits) {
+    fn file(&mut self, path: Path, node: NodeId, parent: NodeId, depth: usize, traits: Traits, sum: u32) {
         if self.n_files < MAX_NODES {
-            self.files[self.n_files] = FileEntry { path, node, parent, depth: depth as u8, traits };
+            self.files[self.n_files] = FileEntry { path, node, parent, depth: depth as u8, traits, sum };
             self.n_files += 1;
         }
     }
@@ -313,6 +317,12 @@ struct Pending {
     depth: usize,
 }
 
+/// FNV-1a of a file's bytes: the same text, the same number, on every machine
+/// (the host's camera and the Ryzen draw the same seal).
+pub fn sum(bytes: &[u8]) -> u32 {
+    bytes.iter().fold(0x811C_9DC5u32, |h, &b| (h ^ b as u32).wrapping_mul(0x0100_0193))
+}
+
 pub fn read_package<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8]) -> Loaded {
     let mut out = Loaded::new();
     read_package_into(src, root, buf, &mut out);
@@ -331,7 +341,7 @@ pub fn read_package_into<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8], ou
         out.problem(ProblemKind::Full, root, b"");
         return;
     };
-    let manifest = match src.fetch(path.as_bytes(), buf) {
+    let (manifest, manifest_sum) = match src.fetch(path.as_bytes(), buf) {
         Fetch::Missing => {
             out.problem(ProblemKind::NoManifest, b"", b"");
             return;
@@ -341,7 +351,7 @@ pub fn read_package_into<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8], ou
             return;
         }
         Fetch::Found(n) => match manifest::parse(&buf[..n.min(buf.len())]) {
-            Ok(m) => m,
+            Ok(m) => (m, sum(&buf[..n.min(buf.len())])),
             Err(e) => {
                 out.problem(ProblemKind::BadManifest(e), b"", b"");
                 return;
@@ -356,7 +366,7 @@ pub fn read_package_into<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8], ou
         out.problem(ProblemKind::Full, b"", b"");
         return;
     };
-    out.file(Path::new(&[b"Titan.toml"]).unwrap_or(Path::EMPTY), root_id, root_id, 0, Traits::NONE);
+    out.file(Path::new(&[b"Titan.toml"]).unwrap_or(Path::EMPTY), root_id, root_id, 0, Traits::NONE, manifest_sum);
 
     // -- the modules, following `mod` from src/main.titan ------------------
     let empty = Text::new("");
@@ -417,7 +427,7 @@ pub fn read_package_into<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8], ou
             out.problem(ProblemKind::Full, h.name.as_bytes(), b"");
             continue;
         };
-        out.file(file, id, p.parent, p.depth, crate::traits::scan(&buf[..n]));
+        out.file(file, id, p.parent, p.depth, crate::traits::scan(&buf[..n]), sum(&buf[..n]));
         max_depth = max_depth.max(p.depth);
         edge(out, p.parent, id);
 
@@ -569,6 +579,26 @@ pub(crate) mod tests {
         assert_eq!(got.graph.permissions, want.permissions);
         // And so the sample's script fits the graph read from files.
         assert!(sample::script_for(&got.graph).is_some());
+    }
+
+    #[test]
+    fn each_file_carries_the_sum_of_its_bytes_and_a_change_changes_it() {
+        let got = read(&mut Table::seed());
+        let sums: Vec<u32> = got.files().iter().map(|f| f.sum).collect();
+        assert!(sums.iter().all(|&s| s != 0), "{sums:?}");
+        for (i, a) in sums.iter().enumerate() {
+            assert!(!sums[i + 1..].contains(a), "two files with one face: {sums:?}");
+        }
+        // One file touched: its sum moves, the others stay.
+        let (path, text) = *seed::FILES.iter().find(|(p, _)| p.ends_with("collide.titan")).expect("the seed has it");
+        let touched = std::format!("{text}\n");
+        let again = read(&mut Table::seed().put(path, &touched));
+        for (before, after) in got.files().iter().zip(again.files()) {
+            assert_eq!(before.path.as_bytes(), after.path.as_bytes());
+            let moved = before.sum != after.sum;
+            assert_eq!(moved, before.path.as_bytes().ends_with(b"collide.titan"), "{:?}", core::str::from_utf8(before.path.as_bytes()));
+        }
+        assert_eq!(sum(text.as_bytes()), got.files().iter().find(|f| f.path.as_bytes().ends_with(b"collide.titan")).unwrap().sum);
     }
 
     #[test]

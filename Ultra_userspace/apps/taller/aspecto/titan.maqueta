@@ -60,6 +60,9 @@
     .decide     { color:#F2E27A }              /* un `if`: el camino que corre */
     .loop       { color:#B28CFF }              /* un `while` / `for`: lo que repite */
 
+    /* -- ESTRATOS: su neon, en la solapa de la historia (PLAN_LA_BANDEJA T2) */
+    .estratos   { color:#39FF88 }              /* el volumen y cada version */
+
     /* -- la TAB: los nodos maestros (PLAN_TALLER 8.15) ------------------ */
     .tab        { background-color:#070B21; border-color:#2C3C8C }   /* la caja, sobre el grafo */
     .tab-fila   { color:#C9D4FF }              /* el nombre de un nodo de la lista */
