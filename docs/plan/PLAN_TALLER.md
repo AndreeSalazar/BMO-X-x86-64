@@ -268,13 +268,16 @@ Ordenados por la regla de la casa: **lo que no toca nada va primero.**
    [ ] 2b la ventana con REJILLA      `scroll` como modulo reutilizable, de la
                                       forma que ya tiene `scene/historial.rs`
 
-   [ ] 3  taller.bex DIBUJA           una ventana con su rejilla y su cursor,
-                                      sin leer una tecla. Se compara contra
-                                      `scene/consola.rs`, que ya lo hace
+   [x] 3  taller.bex DIBUJA           HECHO de otra forma (29-09, 8.5 B1):
+                                      `sys/taller.bex` dibuja SU ventana y el
+                                      DIRECTOR la compone; no con rejilla de
+                                      terminal, porque F1 se hizo editor de
+                                      nodos (seccion 8)
 
-   [ ] 4  y LEE TECLAS                por el buzon de `entrada`, con el
-                                      historial de `scroll`. Ya es un terminal,
-                                      y todavia no compila nada
+   [x] 4  y LEE TECLAS                HECHO (29-09, 8.5 B1): teclas y raton
+                                      por el buzon de su ventana
+                                      (`Ultra_userspace/apps/taller/src/window.rs`).
+                                      Terminal no es: no hacia falta
 
    [ ] 5  los comandos que la         `ls`, `cat`, `escribir`. Y los que la
           FRONTERA permite            frontera deja fuera SE DICEN, con el
@@ -398,11 +401,13 @@ el compilador ya comprueba.
 ### 8.4 Los escalones del editor (detras del 7)
 
 ```text
-   [ ] 8  el lienzo: los modulos de un paquete como nodos, leidos de src/ y de
-          sus `use`, sin editar nada. Pide: el escalon 3 (dibujar) y el
-          frontend de TITAN++ hasta T2 (sabe leer `mod` y `use`)
+   [x] 8  el lienzo: los modulos de un paquete como nodos, leidos de src/ y de
+          sus `use`, sin editar nada. HECHO (8.6, L1): titan-lector los lee
+          de ESTRATOS siguiendo `mod`, en vivo
    [ ] 9  el texto del nodo se EDITA y se guarda en su .titan; `titan check`
-          marca el nodo que no compila
+          marca el nodo que no compila. A MEDIAS el 05-10 (8.16): se edita,
+          se guarda solo y el nodo cambia; falta que el compilador lo juzgue
+          dentro de F1, y eso espera a T6
    [x] 10 dibujar un cable escribe un `use`; uno hacia arriba se rechaza
           HECHO en el anfitrion el 04-10 (8.13): del pin OUT a otro nodo
    [ ] 11 F5: `titan build`, y el .bex se le ofrece al ESCRITORIO

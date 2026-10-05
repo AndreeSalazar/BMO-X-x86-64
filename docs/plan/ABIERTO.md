@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   594 casillas ABIERTAS en 56 planes
-   469 hechas
+   589 casillas ABIERTAS en 56 planes
+   474 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -26,8 +26,9 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 10 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
-- [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 30 de 35 hechas, faltan 5
+- [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 32 de 35 hechas, faltan 3
 - [`PLAN_SEGURIDAD.md`](PLAN_SEGURIDAD.md) -- 26 de 32 hechas, faltan 6
+- [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 25 de 32 hechas, faltan 7
 - [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 35 de 45 hechas, faltan 10
 
 ---
@@ -205,15 +206,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 7 mas
 
-## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 10 abiertas, 22 hechas
-
-*PLAN DEL TALLER -- F1 de BMO-X*
-
-- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
-- [ ] 3 taller.bex DIBUJA una ventana con su rejilla y su cursor,
-- [ ] 4 y LEE TECLAS por el buzon de entrada, con el
-- ... y 7 mas
-
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 
 *PLAN_VATIOS -- lo que gasta el CPU en reposo, y por que*
@@ -275,6 +267,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A4 -- LAS SUPOSICIONES DE DISPOSICION
 - [ ] A5 -- LA TABLA DEL UB, que era el encargo original
 - [ ] A5a -- las cinco que ya se pueden decidir al compilar (contador,
+- ... y 4 mas
+
+## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 7 abiertas, 25 hechas
+
+*PLAN DEL TALLER -- F1 de BMO-X*
+
+- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
+- [ ] 5 los comandos que la ls, cat, escribir. Y los que la
+- [ ] 6 compilar hola.ada el frontend de Ada dentro del mismo
 - ... y 4 mas
 
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas
@@ -358,15 +359,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] parser/preprocessor.rs son 1.204 lineas y es el otro monolito.
 - ... y 2 mas
 
-## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 5 abiertas, 30 hechas
-
-*PLAN EL CENTAURO -- TITAN++ nivel 11: gpu fn a la 3060*
-
-- [ ] G4 -- EN LA 3060 (Ring 0, del propietario)
-- [ ] LANZAR computo: la QMD y el banco constante 0 (ga10x)
-- [ ] el mismo programa del banco, con sus celdas calculadas por la 3060 y comparadas con el oraculo
-- ... y 2 mas
-
 ## [`PLAN_EL_SEMAFORO_COMPLETO.md`](PLAN_EL_SEMAFORO_COMPLETO.md) -- 5 abiertas, 4 hechas
 
 *PLAN -- EL SEMAFORO COMPLETO: donde el arbol todavia no dice de que color es*
@@ -447,6 +439,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 5. EL CENSO DE LO PERMANENTE. Trinquete de residente en el build:
 - [ ] 6. ENTREGAR EN CERO. Mover el borrado del devolver al entregar, UNA
 - ... y 1 mas
+
+## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 3 abiertas, 32 hechas
+
+*PLAN EL CENTAURO -- TITAN++ nivel 11: gpu fn a la 3060*
+
+- [ ] G4 -- EN LA 3060 (Ring 0, del propietario)
+- [ ] LANZAR computo: la QMD y el banco constante 0 (ga10x)
+- [ ] el mismo programa del banco, con sus celdas calculadas por la 3060 y comparadas con el oraculo
 
 ## [`PLAN_EL_SILICIO.md`](PLAN_EL_SILICIO.md) -- 3 abiertas, 5 hechas
 
