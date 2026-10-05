@@ -109,6 +109,59 @@ pub fn de_psv0(p: &[u8]) -> Option<Vec<Recurso>> {
     Some(v)
 }
 
+/// **Los hilos de un grupo** (N5.5, 05-10): `[numthreads(x, y, z)]` de un
+/// sombreador de computo. La PSV0 lo trae desde su `PSVRuntimeInfo2` (36
+/// bytes de la cabecera, y luego x, y, z); antes, o en otra etapa (la de la
+/// cabecera, en su byte 24, no es 5), [0; 3]. Medido con dxc 1.9:
+/// `computo.dxil` da 52 bytes de cabecera, etapa 5 y (64, 1, 1).
+pub fn hilos_de_psv0(p: &[u8]) -> [u32; 3] {
+    let cabecera = u32_en(p, 0).unwrap_or(0) as usize;
+    if cabecera < 48 || p.get(4 + 24) != Some(&5) {
+        return [0; 3];
+    }
+    [u32_en(p, 4 + 36).unwrap_or(0), u32_en(p, 4 + 40).unwrap_or(0), u32_en(p, 4 + 44).unwrap_or(0)]
+}
+
+/// **Lo de un sombreador de GEOMETRIA** (E2.3b, 05-10), de su PSV0: el
+/// `GSInfo` de la cabecera (`InputPrimitive`, `OutputTopology`) y su
+/// `MaxVertexCount` (16 bits en el byte 26). Medido con dxc 1.9 sobre el GS
+/// de nBodyGravity: punto (1), tira de triangulos (5), 4 vertices.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Geometria {
+    /// D3D_PRIMITIVE de su entrada: 1 punto, 2 linea, 3 triangulo, 6 y 7
+    /// linea y triangulo con adyacencia.
+    pub entrada: u32,
+    /// D3D_PRIMITIVE_TOPOLOGY de su salida: 1 puntos, 3 tira de lineas, 5
+    /// tira de triangulos.
+    pub salida: u32,
+    /// Los vertices que puede emitir, a lo mas (`[maxvertexcount(n)]`).
+    pub maximo: u32,
+}
+
+impl Geometria {
+    /// Los vertices de su primitiva de entrada.
+    pub fn vertices(&self) -> usize {
+        match self.entrada {
+            1 => 1,
+            2 => 2,
+            3 => 3,
+            6 => 4,
+            7 => 6,
+            _ => 0,
+        }
+    }
+}
+
+/// [`Geometria`] de la PSV0 `p`, si es de un GS (la etapa del byte 24 es 2).
+pub fn geometria_de_psv0(p: &[u8]) -> Option<Geometria> {
+    let cabecera = u32_en(p, 0)? as usize;
+    if cabecera < 36 || p.get(4 + 24) != Some(&2) {
+        return None;
+    }
+    let maximo = u32::from(u16::from_le_bytes([*p.get(4 + 26)?, *p.get(4 + 27)?]));
+    Some(Geometria { entrada: u32_en(p, 4)?, salida: u32_en(p, 8)?, maximo })
+}
+
 /// **El recurso `rango` de la clase `clase`** (lo que dice `createHandle`).
 pub fn rango(recursos: &[Recurso], clase: u8, rango: u32) -> Option<Recurso> {
     recursos.iter().filter(|r| r.clase == clase).nth(rango as usize).copied()
@@ -142,4 +195,82 @@ mod pruebas {
         // Dice tener uno de 8 bytes: menos de los 16 que mide.
         assert_eq!(de_psv0(&[0, 0, 0, 0, 1, 0, 0, 0, 8, 0, 0, 0]), None);
     }
+}
+
+/// **El paso de cada bufer ESTRUCTURADO** (N5.3b, 05-10), de los metadatos
+/// `dx.resources` del modulo: `(uav, espacio, registro, paso)`. La PSV0 no lo
+/// trae, y una vista en la RAIZ (`SetGraphicsRootShaderResourceView`) no lo
+/// lleva: solo el sombreador sabe cuanto mide su elemento.
+///
+/// ```text
+///    !dx.resources = !{!{SRVs}, !{UAVs}, !{CBVs}, !{samplers}}
+///    un SRV  !{id, global, nombre, espacio, registro, cuantos, forma, muestras, extra}
+///    un UAV  !{id, global, nombre, espacio, registro, cuantos, forma, coherente,
+///              contador, ROV, extra}
+///    extra   !{etiqueta, valor, ...}: la 1 es el paso del estructurado
+/// ```
+///
+/// Los numeros son constantes del modulo: `entero` dice cuanto vale el
+/// valor `i` (o `None` si no es un entero).
+pub(super) fn pasos_estructurados(m: &super::bits::Bloque, entero: impl Fn(usize) -> Option<i64>) -> Vec<(bool, u32, u32, u32)> {
+    // Los registros de METADATA de LLVM 3.7 que hacen falta aqui.
+    const VALOR: u64 = 2;
+    const NODO: u64 = 3;
+    const NOMBRE: u64 = 4;
+    const NODO_DISTINTO: u64 = 5;
+    const CLASE: u64 = 6;
+    const CON_NOMBRE: u64 = 10;
+    enum Md {
+        Valor(u64),
+        Nodo(Vec<u64>),
+        Otro,
+    }
+    let mut todos: Vec<Md> = Vec::new();
+    let mut raiz = None;
+    let mut nombre = None;
+    for b in m.bloques.iter().filter(|b| b.id == 15) {
+        for r in &b.registros {
+            match r.codigo {
+                NOMBRE => nombre = Some(r.ops.iter().map(|&c| c as u8).collect::<Vec<u8>>()),
+                CON_NOMBRE => {
+                    if nombre.take().as_deref() == Some(b"dx.resources") {
+                        raiz = r.ops.first().copied();
+                    }
+                }
+                CLASE => {}
+                VALOR => todos.push(Md::Valor(r.ops.get(1).copied().unwrap_or(u64::MAX))),
+                NODO | NODO_DISTINTO => todos.push(Md::Nodo(r.ops.clone())),
+                _ => todos.push(Md::Otro),
+            }
+        }
+    }
+    // Dentro de un nodo, cada referencia es su numero + 1 (0, nada).
+    let nodo = |i: u64| match todos.get(i as usize) {
+        Some(Md::Nodo(v)) => Some(v),
+        _ => None,
+    };
+    let dentro = |r: u64| r.checked_sub(1).and_then(nodo);
+    let numero = |r: u64| match r.checked_sub(1).and_then(|i| todos.get(i as usize)) {
+        Some(Md::Valor(v)) => entero(*v as usize),
+        _ => None,
+    };
+    let mut v = Vec::new();
+    let Some(listas) = raiz.and_then(nodo) else { return v };
+    for (k, uav) in [(0usize, false), (1, true)] {
+        let Some(lista) = listas.get(k).and_then(|&r| dentro(r)) else { continue };
+        for &e in lista {
+            let Some(c) = dentro(e) else { continue };
+            let extra = if uav { 10 } else { 8 };
+            let (Some(espacio), Some(registro)) = (c.get(3).and_then(|&x| numero(x)), c.get(4).and_then(|&x| numero(x))) else { continue };
+            let Some(par) = c.get(extra).and_then(|&x| dentro(x)) else { continue };
+            for p in par.chunks_exact(2) {
+                if numero(p[0]) == Some(1) {
+                    if let Some(paso) = numero(p[1]) {
+                        v.push((uav, espacio as u32, registro as u32, paso as u32));
+                    }
+                }
+            }
+        }
+    }
+    v
 }

@@ -420,8 +420,12 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   vaciados de cache de la 3060.
 - [ ] D5.4 -- `ExecuteIndirect` (firmas de ordenes), si D0 lo encuentra: los
   juegos que dibujan "desde la GPU" viven de el.
-- [ ] D5.5 -- Consultas: sellos de tiempo, oclusion, estadisticas;
-  `ResolveQueryData`, `GetTimestampFrequency`.
+- [~] D5.5 -- Consultas: sellos de tiempo, oclusion, estadisticas;
+  `ResolveQueryData`, `GetTimestampFrequency`. 05-10: la OCLUSION (y la
+  binaria) cuenta de verdad y `SetPredication` salta lo que debe (E2.7 de
+  la ESCALERA, `proton-x-casa/src/consultas.rs`); los sellos de tiempo y
+  ResolveQueryData ya estaban. Queda: las estadisticas (dan ceros), que la
+  3060 cuente (hoy esos lotes van por la CPU) y verlo en Cyberpunk.
 - [ ] D5.6 -- La receta de la 3060 a escala: miles de dibujos por lote,
   varios destinos, fusion, estarcido, recortes y ventanas multiples.
   **Como se sabe:** `cubo12` con 10.000 cubos, a sus fps medidos.
@@ -864,11 +868,23 @@ la proxima corrida del metal dice cual pesa mas:
   la vista, 0) y la casa guarda en la ranura del SRV el paso, los elementos
   y si es crudo. Probado con `prueba/buferes.dxil`. Corren en la CPU (el
   emisor de la 3060 aun no los sabe: N6.1).
-- [ ] **N5.3b -- los SRV en la RAIZ** (`SetGraphicsRootShaderResourceView`):
-  hoy se dicen y se tiran. El crudo sale solo; el estructurado necesita su
-  paso, que esta en los metadatos `dx.resources` del DXIL (no en la PSV0).
-- [ ] **N5.3c -- los UAV** (RWTexture, RWBuffer) en el de pixeles: escribir
-  desde un sombreador. Texto: "un UAV ... todavia no".
+- [x] **N5.3b -- los SRV en la RAIZ** (05-10): `Set{Graphics,Compute}Root
+  ShaderResourceView` y `...UnorderedAccessView` (y sus argumentos de
+  ExecuteIndirect) guardan su direccion como un CBV de la raiz, y quien
+  dibuja o despacha la lee hasta el final de su bufer
+  (`tuberia::bufer_de_raiz`). El PASO del estructurado sale de los
+  metadatos `dx.resources` del DXIL (`recursos::pasos_estructurados`,
+  `Ranuras::paso`): probado con computo.dxil, nBodyGravity y
+  ExecuteIndirect (16, 32 y 24). Juez: `prueba/vistas.cpp` (A).
+- [~] **N5.3c -- los UAV** (05-10): en el COMPUTO ya, los de TEXTURA de una
+  y dos dimensiones (`RWTexture2D`: `textureStore`, su lectura y
+  `GetDimensions`, `bufer::Modo::Textura`), los `RWBuffer` con tipo de
+  cualquier formato (`formato_ia::empaquetar`) y
+  `ClearUnorderedAccessViewUint` y `...Float` (buferes y texturas). Juez:
+  `prueba/vistas.cpp` (B, C y D), bit a bit; dice NO sin el paso, sin la
+  limpieza y con la textura mal direccionada. Queda: los UAV en el de
+  PIXELES (escribir desde un dibujo), los de textura 3D o de array, y la
+  limpieza con rectangulos (hoy, la vista entera).
 - [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
   no es una constante. Hoy el sombreador no compila (y lo dice: "createHandle
   con un registro CALCULADO"); pide que la ranura sea un RANGO y no un
@@ -921,18 +937,44 @@ la proxima corrida del metal dice cual pesa mas:
   (`Destino::pixeles` vacio). Probado por las puertas de Windows: un mapa
   de sombras D32 (`tests/gbuffer.rs`). La 3060 no lo toma todavia (sin
   back buffer que darle a la puerta): por la CPU.
-- [ ] **N5.13 -- las INSTANCIAS** (`DrawInstanced` con mas de una): hoy se
-  dibuja una (lo dice). El follaje, la gente y los coches de Cyberpunk son
-  instancias; pide SV_InstanceID de verdad y los buferes POR INSTANCIA.
-- [ ] **N5.14 -- los buferes de vertices de mas de una ranura**
-  (`IASetVertexBuffers` 1..15): hoy solo la 0.
-- [ ] **N5.15 -- el RECORTE** contra el plano cercano: el triangulo que lo
-  cruza hoy no se pinta (en 3D de cerca falta suelo y pared).
+- [x] **N5.13 -- las INSTANCIAS** (05-10, con N5.14): el follaje, la
+  gente, los coches. Antes un `DrawInstanced` dibujaba UNA y solo se leia la ranura 0. Ahora: las 16
+  ranuras de `IASetVertexBuffers` (y quitarlas con NULL), los elementos POR
+  INSTANCIA con su `InstanceDataStepRate` (0: todas leen el primero),
+  `StartInstanceLocation` (mueve lo que se lee por instancia;
+  SV_InstanceID cuenta desde 0), los argumentos de ExecuteIndirect y los
+  bundles, y dibujar SIN bufer de vertices (los que solo leen
+  SV_VertexID: el triangulo de pantalla completa del post-proceso). En el
+  crate, `lote::Flujo` y `Lote::instancias`; en la casa, `Estado::vertices`
+  con sus 16. Juez: `prueba/instancias.cpp` (NUESTRO, de consola), en el
+  banco (`tests/corre/muestras.rs`) pixel a pixel; probado que dice NO sin
+  el bucle de instancias y sin el StepRate. Queda: la 3060 (esos lotes van
+  por la CPU) y que el traductor a x86-64 de los de dibujo sepa las cuentas
+  enteras (SV_InstanceID a float las tiene: hoy se interpretan).
+- [x] **N5.14 -- los buferes de vertices de mas de una ranura** (05-10):
+  las 16, con N5.13 (arriba), y el mismo juez.
+- [x] **N5.15 -- el RECORTE** contra el plano cercano y el lejano (05-10):
+  la trama recorta (Sutherland-Hodgman, `trama::recortar`) lo que cruza
+  un plano y pinta lo que queda, en abanico y en su sitio; los atributos,
+  en linea recta en el espacio de recorte (la perspectiva sale igual), y
+  una banda de guarda de 64 pantallas para x e y. Antes no se pintaba
+  (en 3D de cerca faltaba suelo y pared; nBodyGravity lo decia). Juez:
+  `proton-x/src/pruebas.rs` (los mismos pixeles que recortado a mano, y en
+  cada pixel el atributo de la cuenta en f64 del triangulo ENTERO). Queda:
+  `DepthClipEnable = FALSE` (sin recorte en z, la Z sujeta), que hoy
+  recorta igual.
 - [ ] **N5.16 -- render targets de floats** (R32, RGBA16F de verdad): hoy
   se pintan en 8 bits o no se pintan; el HDR de Cyberpunk vive ahi.
-- [ ] **N5.17 -- ExecuteIndirect y ExecuteBundle**: hoy se saltan.
-  ExecuteBundle corre desde el 05-10 (E1.6 de la ESCALERA, HelloBundles,
-  bit a bit; falta verlo en Cyberpunk); queda ExecuteIndirect (E2.4).
+- [x] **N5.17 -- ExecuteIndirect y ExecuteBundle** (05-10). ExecuteBundle
+  corre desde E1.6 de la ESCALERA (HelloBundles, bit a bit), y
+  ExecuteIndirect desde E2.4 (D3D12ExecuteIndirect): se apunta con el
+  estado de ese momento (el de computo si su firma despacha) y se resuelve
+  al ejecutar la lista, leyendo entonces su cuenta y sus argumentos (DRAW,
+  DRAW_INDEXED, DISPATCH, CBV, constantes y las vistas de vertices e
+  indices), con los cambios de estado vivos para las ordenes de detras. Y
+  el contador de un UAV (`Append`, `Consume`, `IncrementCounter`). Queda:
+  los SRV/UAV en la raiz (N5.3b), los rayos y la malla (se dicen y se
+  para), y verlo en Cyberpunk.
 
 El ABI entero (que hace cada hueco de las 28 interfaces, que es falla
 documentada y que falta) esta en `docs/maestro/D3D12_MAESTRO.md`, y lo
@@ -961,6 +1003,42 @@ La ESCALERA de juegos (por que DX9 y Left 4 Dead 2 no) esta en su seccion
   post-proceso; sin el, la imagen sale pero a medias. Primero en la CPU
   (el mismo interprete, con UAV de N5.3c y `SV_DispatchThreadID`), luego
   en la 3060.
+  **En la CPU ya (05-10, E2.3a de la ESCALERA):** el CS se compila al crear
+  el PSO (`dxil::computo::preparar`; `numthreads` de la PSV0), y `Dispatch`
+  se apunta en la lista con el estado de COMPUTO (su raiz es otra que la
+  de dibujo: `SetComputeRootSignature`, tablas, CBV y constantes) y corre
+  al ejecutarla: grupo a grupo, cada hilo hasta su BARRERA
+  (`GroupMemoryBarrierWithGroupSync`: el interprete se para y sigue), con
+  la memoria COMPARTIDA del grupo (`groupshared`, addrspace 3), los cuatro
+  ids del hilo y los UAV de BUFER de las tablas (`bufferStore` y
+  `bufferLoad`: estructurados, crudos y tipados de 32 bits por canal). Una
+  cola de computo y la valla entre colas, tambien. Probado con
+  `prueba/computo.dxil` en el crate y con `computo.exe` en el banco, bit a
+  bit. Queda: los UAV de TEXTURA y
+  `ClearUnorderedAccessView` (N5.3c), las vistas en la RAIZ (N5.3b), las
+  atomicas, y la 3060 (el emisor no lo sabe: va por la CPU, y cada grupo
+  en un hilo es lo siguiente de EXPRIMIR).
+  **Y TRADUCIDO a x86-64 (05-10, E2.3b):** `bmo_proton_x::nativo_computo`
+  traduce el CS una vez al crear el PSO (saltos, enteros, la compartida,
+  los buferes, y la barrera como un punto donde la funcion vuelve y por
+  donde sigue); 50 veces el interprete. Con el, D3D12nBodyGravity (10.000
+  particulas, la barrera dentro de un bucle) corre en el banco. Su juez
+  (`proton-x-casa/tests/nativo_computo.rs`): el interprete bit a bit, y la
+  fisica en f64. Lo que no traduce (texturas, `mates.rs`, buferes tipados,
+  cbuffers con fila calculada) va por el interprete, que da lo mismo.
+- [x] **N5.18 -- el sombreador de GEOMETRIA** (05-10, E2.3b de la
+  ESCALERA): el GS de nBodyGravity hace de cada punto un cuadro. En el
+  crate: `EntradaDe` (el elemento de un vertice de la primitiva), `Emite` y
+  `Corta`, lo de su PSV0 (primitiva de entrada, topologia de salida,
+  `maxvertexcount`), el enlace VS -> GS -> PS (`lote::enlazar_con_gs`) y
+  las primitivas de un lote (`lote::primitivas`); en la casa, el PSO con
+  GS y los puntos y lineas (solo con GS: la trama pinta triangulos).
+  Probado con los tres de nBodyGravity (`pruebas_geometria.rs`, contra la
+  geometria del cuadro y su degradado; dice NO si el GS lee mal) y con la
+  muestra entera. Queda: un vertice CALCULADO (`input[i]` con `i` en un
+  registro), la adyacencia, emitir puntos o lineas, varios flujos y el
+  stream output, `SV_PrimitiveID` y las instancias de GS, y la 3060 (va por
+  la CPU).
 - [ ] **N6.1 -- a la 3060 lo que hoy va a la CPU**: SV_VertexID y
   SV_InstanceID, los formatos de vertice que no son float de 32 bits
   (`proton-x-sm86/src/pso.rs`, `NoVa::Entrada`: el pegamento los convierte

@@ -40,6 +40,10 @@ private:
 #include <d3dx12.h>
 // Los IID para __uuidof con mingw-w64 (DirectX-Headers los trae para eso).
 #include <dxguids/dxguids.h>
+// `DXGIDeclareAdapterRemovalSupport` (el dxgi1_6.h del SDK de Windows, desde
+// la 1903; la pide nBodyGravity): el de mingw-w64 11 no la declara, y su
+// libdxgi.a si la trae. La misma funcion, la misma llamada.
+extern "C" HRESULT WINAPI DXGIDeclareAdapterRemovalSupport();
 static D3D12_CPU_DESCRIPTOR_HANDLE bmo_puente_cpu;
 static D3D12_GPU_DESCRIPTOR_HANDLE bmo_puente_gpu;
 #define GetCPUDescriptorHandleForHeapStart() GetCPUDescriptorHandleForHeapStart(&bmo_puente_cpu)[0]

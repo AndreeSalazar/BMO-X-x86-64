@@ -69,6 +69,8 @@ pub mod nulo;
 pub mod mensajes;
 pub mod monton;
 pub mod nativo;
+/// E2.3b (05-10): el computo traducido a x86-64, con saltos y barreras.
+pub mod nativo_computo;
 pub mod teb;
 pub mod texto;
 pub mod textura;
@@ -146,6 +148,10 @@ mod pruebas_seh;
 mod pruebas_saltos;
 #[cfg(test)]
 mod pruebas_espacios;
+#[cfg(test)]
+mod pruebas_computo;
+#[cfg(test)]
+mod pruebas_geometria;
 #[cfg(test)]
 mod pruebas_pixeles;
 #[cfg(test)]

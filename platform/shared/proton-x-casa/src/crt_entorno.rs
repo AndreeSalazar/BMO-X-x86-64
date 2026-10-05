@@ -37,6 +37,9 @@ struct Estado {
     ctime_w: [u16; 32],
     timezone: i32,
     daylight: i32,
+    /// La semilla de `rand` de cada hilo, por su numero (E2.3b, 05-10): en
+    /// el UCRT cada hilo tiene la suya y empieza en 1.
+    semillas: Vec<u32>,
 }
 
 struct Global(UnsafeCell<Estado>);
@@ -50,6 +53,7 @@ static ESTADO: Global = Global(UnsafeCell::new(Estado {
     ctime_w: [0; 32],
     timezone: 0,
     daylight: 0,
+    semillas: Vec::new(),
 }));
 
 fn estado() -> &'static mut Estado {
@@ -62,6 +66,7 @@ pub(crate) fn reiniciar() {
     e.entorno_a.clear();
     e.entorno_w.clear();
     e.daylight = 0;
+    e.semillas.clear();
 }
 
 // -- El entorno ------------------------------------------------------------------------------
@@ -305,6 +310,30 @@ extern "win64" fn rand_s(r: *mut u32) -> i32 {
     }
     crate::sistema::process_prng(r as *mut u8, 4);
     0
+}
+
+/// La semilla de `rand` del hilo de ahora (1 si no la ha tocado).
+fn semilla() -> &'static mut u32 {
+    let (s, h) = (&mut estado().semillas, crate::hilos::actual());
+    if s.len() <= h {
+        s.resize(h + 1, 1);
+    }
+    &mut s[h]
+}
+
+/// `srand(semilla)` (E2.3b, 05-10: nBodyGravity coloca sus particulas con
+/// `rand`): la semilla del hilo.
+extern "win64" fn srand(s: u32) {
+    *semilla() = s;
+}
+
+/// `rand()`: el de MSVC, x = x * 214013 + 2531011 y los bits 16..30 (0 a
+/// RAND_MAX, 0x7FFF). Con la misma semilla, la misma serie que en Windows:
+/// las particulas de la muestra caen donde caen alli.
+extern "win64" fn rand() -> i32 {
+    let x = semilla();
+    *x = x.wrapping_mul(214_013).wrapping_add(2_531_011);
+    ((*x >> 16) & 0x7FFF) as i32
 }
 
 static UTC: [u8; 4] = *b"UTC\0";
@@ -658,6 +687,8 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "__timezone" => dir!(timezone),
         "__daylight" => dir!(daylight),
         "rand_s" => dir!(rand_s),
+        "rand" => dir!(rand),
+        "srand" => dir!(srand),
         "__tzname" => dir!(tzname),
         "_fullpath" => dir!(fullpath),
         "_wfullpath" => dir!(wfullpath),

@@ -119,3 +119,48 @@ construir $D dynindex.exe
 sombreador $D dynindex shader_mesh_simple_vert vs_6_0 VSMain shader_mesh_simple_vert
 sombreador $D dynindex shader_mesh_dynamic_indexing_pixel ps_6_0 PSMain shader_mesh_dynamic_indexing_pixel
 datos $D dynindex occcity.bin
+
+# E2.3b: el COMPUTO de verdad (y su hilo, sus colas y su GS). Los cuatro
+# .cso como su proyecto: el CS, y de ParticleDraw.hlsl el VS, el GS y el PS.
+N=D3D12nBodyGravity/src
+rm -rf nbody
+construir $N nbody.exe
+sombreador $N nbody nBodyGravityCS cs_6_0 CSMain nBodyGravityCS
+sombreador $N nbody ParticleDraw vs_6_0 VSParticleDraw ParticleDraw_VS
+sombreador $N nbody ParticleDraw gs_6_0 GSParticleDraw ParticleDraw_GS
+sombreador $N nbody ParticleDraw ps_6_0 PSParticleDraw ParticleDraw_PS
+
+# E2.4: ExecuteIndirect y su culling por computo (Append en un UAV con
+# contador). Sus .cso: los de shaders.hlsl (los hace `construir`) y el CS.
+I=D3D12ExecuteIndirect/src
+rm -rf indirect
+construir $I indirect.exe
+sombreador $I indirect compute cs_6_0 CSMain compute
+
+# E2.7: las consultas de oclusion y la predicacion. Sus .cso, los de
+# shaders.hlsl (los hace `construir`).
+P=D3D12PredicationQueries/src
+rm -rf predica
+construir $P predica.exe
+
+# E2.3a: el juez del COMPUTO, NUESTRO y no de Microsoft (`../computo.cpp`,
+# de consola, con su CS de `../computo.dxil` dentro por `.incbin`): las
+# mismas cabeceras y el mismo UCRT que las muestras.
+cp "$AQUI/../computo.cpp" "$AQUI/../computo.dxil" .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c computo.cpp -o computo.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o computo.exe computo.o -ld3d12
+sha256sum computo.exe
+
+# N5.13: el juez de las INSTANCIAS, NUESTRO tambien (`../instancias.cpp`,
+# con sus tres sombreadores de `../instancias_*.dxil` dentro).
+cp "$AQUI/../instancias.cpp" "$AQUI"/../instancias_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c instancias.cpp -o instancias.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o instancias.exe instancias.o -ld3d12
+sha256sum instancias.exe
+
+# N5.3b y N5.3c: el juez de las VISTAS, NUESTRO (`../vistas.cpp`, con sus
+# tres CS de `../vistas_*.dxil` dentro).
+cp "$AQUI/../vistas.cpp" "$AQUI"/../vistas_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c vistas.cpp -o vistas.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o vistas.exe vistas.o -ld3d12
+sha256sum vistas.exe

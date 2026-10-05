@@ -65,7 +65,7 @@ pub(crate) enum Orden {
     Limpiar { recurso: u64, sub: u64, pixel: u32 },
     /// Un dibujo, con el estado de la lista TAL COMO ESTABA al pedirlo. Los
     /// buferes se leen al ejecutarse, como los lee la GPU.
-    Dibujar { estado: Estado, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool },
+    Dibujar { estado: Estado, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool, primera_instancia: u32 },
     /// Una copia de CopyTextureRegion (02-10: cualquier subrecurso, con su
     /// caja; ver `d3d12_texturas`): de una textura a un bufer (leer), de un
     /// bufer a una textura (subir: `UpdateSubresources` de d3dx12), o entre
@@ -78,10 +78,27 @@ pub(crate) enum Orden {
     Bytes { dst: u64, src: u64, n: u64 },
     Entero { dst: u64, src: u64 },
     Consulta { monton: u64, indice: u32, tipo: u32 },
+    /// E2.7 (05-10, ver `consultas`): el BeginQuery de una consulta de
+    /// oclusion, y SetPredication (`dir`: el u64 que mira, 0 sin
+    /// predicacion; `op`: 0 EQUAL_ZERO, 1 NOT_EQUAL_ZERO).
+    Empezar { monton: u64, indice: u32 },
+    Predicar { dir: u64, op: u32 },
+    /// Como `Bytes`, de AtomicCopyBufferUINT(64): la predicacion no la salta.
+    Atomica { dst: u64, src: u64, n: u64 },
+    /// N5.3c (05-10): ClearUnorderedAccessViewUint (`crudo`) o Float, con
+    /// la ranura de la vista copiada al apuntarla (`d3d12_resto::limpiar_uav`).
+    LimpiarUav { ranura: [u64; 4], valores: [u32; 4], crudo: bool },
     Resolver { monton: u64, desde: u32, n: u32, bufer: u64, off: u64 },
     /// Tanda 48: escribir un `u32` en una direccion de un bufer de la casa
     /// (WriteBufferImmediate).
     Escribir { dst: u64, valor: u32 },
+    /// N5.5 (05-10): un `Dispatch(x, y, z)`, con el estado de COMPUTO de la
+    /// lista tal como estaba al pedirlo (ver `computo.rs`).
+    Despachar { estado: Estado, grupos: [u32; 3] },
+    /// E2.4 (05-10): un `ExecuteIndirect`, con el estado de dibujo (o el de
+    /// computo, si su firma despacha) tal como estaba; sus argumentos y su
+    /// cuenta se LEEN al ejecutarse: los escribe el computo de antes.
+    Indirecto { estado: Estado, firma: u64, max: u32, args: u64, args_off: u64, cuenta: u64, cuenta_off: u64 },
 }
 
 pub struct Lista {
@@ -91,6 +108,9 @@ pub struct Lista {
     pub(crate) estado: Estado,
     /// D3D12_COMMAND_LIST_TYPE (GetType, tanda 47).
     pub(crate) tipo: u32,
+    /// N5.5 (05-10): el estado de COMPUTO, aparte del de dibujo como en
+    /// D3D12: su PSO, su root signature y lo que se le dio (`SetCompute*`).
+    pub(crate) computo: Estado,
 }
 
 pub struct Monton {
@@ -417,9 +437,18 @@ pub(crate) extern "win64" fn create_command_list(_this: u64, _mascara: u32, tipo
     m.extend_from_slice(&crate::d3d12_resto::lista());
     m.extend_from_slice(&crate::d3d12_lista2::lista());
     let vt = vtabla::<{ com::LIST }>(&m);
-    let pso = if crate::d3d12_resto::es_computo(pso) { 0 } else { pso };
-    let estado = Estado { pso, ..Estado::default() };
-    dar(pp, nuevo(com::LIST, vt, Lista { ordenes: Vec::new(), abierta: true, estado, tipo }) as u64)
+    let (estado, computo) = estados_al_empezar(pso);
+    dar(pp, nuevo(com::LIST, vt, Lista { ordenes: Vec::new(), abierta: true, estado, tipo, computo }) as u64)
+}
+
+/// El estado de dibujo y el de computo de una lista recien creada o
+/// reiniciada con `pso`: el PSO va al suyo.
+pub(crate) fn estados_al_empezar(pso: u64) -> (Estado, Estado) {
+    if crate::d3d12_resto::es_computo(pso) {
+        (Estado::default(), Estado { pso, ..Estado::default() })
+    } else {
+        (Estado { pso, ..Estado::default() }, Estado::default())
+    }
 }
 
 /// `D3D12_DESCRIPTOR_HEAP_DESC`: Type +0, NumDescriptors +4, Flags +8.
@@ -521,7 +550,7 @@ extern "win64" fn list_reset(this: u64, _asignador: u64, pso: u64) -> i32 {
     let l = unsafe { de::<Lista>(this) };
     l.ordenes.clear();
     l.abierta = true;
-    l.estado = Estado { pso, ..Estado::default() };
+    (l.estado, l.computo) = estados_al_empezar(pso);
     S_OK
 }
 
@@ -561,8 +590,11 @@ extern "win64" fn rs_set_scissor_rects(this: u64, n: u32, r: *const i32) {
 }
 
 extern "win64" fn set_pipeline_state(this: u64, pso: u64) {
-    // Uno de computo no se dibuja: el grafico de antes sigue (tanda 47).
+    // Uno de computo no se dibuja: el grafico de antes sigue (tanda 47), y
+    // va al estado de computo (N5.5).
     if crate::d3d12_resto::es_computo(pso) {
+        // SAFETY: `this` es una Lista de la casa.
+        unsafe { lista(this).computo.pso = pso };
         return;
     }
     // SAFETY: `this` es una Lista de la casa.
@@ -570,7 +602,7 @@ extern "win64" fn set_pipeline_state(this: u64, pso: u64) {
 }
 
 /// Cambiar de root signature borra lo que se le habia dado a la anterior.
-extern "win64" fn set_graphics_root_signature(this: u64, raiz: u64) {
+pub(crate) extern "win64" fn set_graphics_root_signature(this: u64, raiz: u64) {
     // SAFETY: `this` es una Lista de la casa.
     let e = unsafe { &mut lista(this).estado };
     if e.raiz != raiz {
@@ -581,7 +613,7 @@ extern "win64" fn set_graphics_root_signature(this: u64, raiz: u64) {
 }
 
 /// `SetGraphicsRootConstantBufferView(this, parametro, direccion)`.
-extern "win64" fn set_graphics_root_constant_buffer_view(this: u64, parametro: u32, va: u64) {
+pub(crate) extern "win64" fn set_graphics_root_constant_buffer_view(this: u64, parametro: u32, va: u64) {
     // SAFETY: `this` es una Lista de la casa.
     let e = unsafe { &mut lista(this).estado };
     match e.cbv.get_mut(parametro as usize) {
@@ -596,24 +628,26 @@ extern "win64" fn ia_set_index_buffer(this: u64, v: *const u8) {
     unsafe { lista(this).estado.indices = if v.is_null() { Vista::default() } else { vista(v) } };
 }
 
-/// `D3D12_VERTEX_BUFFER_VIEW` (16 B): direccion +0, bytes +8, paso +12. La
-/// casa dibuja con la ranura 0; las demas se dicen.
+/// `D3D12_VERTEX_BUFFER_VIEW` (16 B): direccion +0, bytes +8, paso +12. N5.13
+/// (05-10): las 16 ranuras, desde `desde`; con `v` nulo, se quitan.
 extern "win64" fn ia_set_vertex_buffers(this: u64, desde: u32, n: u32, v: *const u8) {
-    if desde != 0 || n != 1 {
-        aviso("IASetVertexBuffers fuera de la ranura 0: todavia solo una");
-    }
-    if desde != 0 || n == 0 {
+    if desde as u64 + n as u64 > 16 {
+        aviso("IASetVertexBuffers mas alla de la ranura 15: en Windows es un error, y no se hace");
         return;
     }
     // SAFETY: `this` es una Lista de la casa; `v`, `n` vistas del `.exe` o nula.
-    unsafe { lista(this).estado.vertices = if v.is_null() { Vista::default() } else { vista(v) } };
+    let e = unsafe { &mut lista(this).estado };
+    for i in 0..n as usize {
+        // SAFETY: como arriba: la vista `i` de las `n`.
+        e.vertices[desde as usize + i] = if v.is_null() { Vista::default() } else { unsafe { vista(v.add(16 * i)) } };
+    }
 }
 
 /// Una vista de bufer (de vertices o de indices: la misma forma).
 ///
 /// # Safety
 /// 16 bytes legibles del `.exe`.
-unsafe fn vista(v: *const u8) -> Vista {
+pub(crate) unsafe fn vista(v: *const u8) -> Vista {
     Vista {
         va: (v as *const u64).read_unaligned(),
         bytes: (v.add(8) as *const u32).read_unaligned(),
@@ -647,19 +681,19 @@ pub(crate) extern "win64" fn om_set_render_targets(this: u64, n: u32, handles: *
     }
 }
 
-extern "win64" fn draw_instanced(this: u64, vertices: u32, instancias: u32, primero: u32, _primera_instancia: u32) {
-    dibujar(this, vertices, instancias, primero, 0, false);
+extern "win64" fn draw_instanced(this: u64, vertices: u32, instancias: u32, primero: u32, primera_instancia: u32) {
+    dibujar(this, vertices, instancias, primero, 0, false, primera_instancia);
 }
 
-extern "win64" fn draw_indexed_instanced(this: u64, indices: u32, instancias: u32, primero: u32, base: i32, _primera_instancia: u32) {
-    dibujar(this, indices, instancias, primero, base, true);
+extern "win64" fn draw_indexed_instanced(this: u64, indices: u32, instancias: u32, primero: u32, base: i32, primera_instancia: u32) {
+    dibujar(this, indices, instancias, primero, base, true, primera_instancia);
 }
 
-fn dibujar(this: u64, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool) {
+fn dibujar(this: u64, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool, primera_instancia: u32) {
     // SAFETY: `this` es una Lista de la casa.
     let l = unsafe { lista(this) };
     let estado = l.estado.clone();
-    l.ordenes.push(Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado });
+    l.ordenes.push(Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado, primera_instancia });
 }
 
 /// En la CPU no hay caches de la GPU que vaciar ni estados de memoria que
@@ -671,7 +705,7 @@ extern "win64" fn resource_barrier(_this: u64, _n: u32, _barreras: *const u8) {}
 extern "win64" fn set_descriptor_heaps(_this: u64, _n: u32, _montones: *const u64) {}
 
 /// `SetGraphicsRootDescriptorTable(this, parametro, handle GPU)`.
-extern "win64" fn set_graphics_root_descriptor_table(this: u64, parametro: u32, handle: u64) {
+pub(crate) extern "win64" fn set_graphics_root_descriptor_table(this: u64, parametro: u32, handle: u64) {
     // SAFETY: `this` es una Lista de la casa.
     let e = unsafe { &mut lista(this).estado };
     match e.tablas.get_mut(parametro as usize) {
@@ -946,8 +980,15 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
             aviso("ExecuteCommandLists con una lista sin Close: en Windows es un error, y no se corre");
             continue;
         }
+        // E2.7: toda lista empieza sin consultas abiertas ni predicacion.
+        crate::consultas::al_empezar_lista();
+        let mut saltar = false;
         for o in &l.ordenes {
+            if saltar && crate::consultas::predicable(o) {
+                continue;
+            }
             match o {
+                Orden::Predicar { dir, op } => saltar = crate::consultas::salta(*dir, *op),
                 // ** P3b4c: la limpieza se APUNTA, no se hace: la hace quien
                 // dibuje (la 3060 en su dibujo; la CPU al empezar el suyo), o
                 // quien lea los pixeles antes (Present, CopyTextureRegion).
@@ -959,8 +1000,8 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
                     Some((px, _, _)) => px.fill(*pixel),
                     None => aviso("ClearRenderTargetView/ClearDepthStencilView de un subrecurso que la textura no tiene"),
                 },
-                Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado } => {
-                    tuberia::ejecutar_dibujo(estado, *cuantos, *instancias, *primero, *base, *indexado);
+                Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado, primera_instancia } => {
+                    tuberia::ejecutar_dibujo(estado, *cuantos, *instancias, *primero, *base, *indexado, *primera_instancia);
                 }
                 Orden::Region(c) => {
                     if let Err(m) = crate::d3d12_texturas::hacer(c) {
@@ -970,6 +1011,7 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
                 o => crate::d3d12_resto::ejecutar(o),
             }
         }
+        crate::consultas::al_acabar_lista();
     }
 }
 

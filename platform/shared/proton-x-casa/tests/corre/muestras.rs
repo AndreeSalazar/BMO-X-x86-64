@@ -192,6 +192,11 @@ const AZUL: u32 = 0x00_00_33_66;
 /// guardando los pixeles de los de `fotos`. Devuelve (salio, lo dicho, las
 /// huellas de cada Present, las fotos).
 fn correr_muestra(exe: &[u8], nombre: &'static str, presentes: u32, fotos: &[u32]) -> (u32, String, Vec<u64>, Vec<(u32, Vec<u32>, u32, u32)>) {
+    correr_muestra_con(exe, nombre, presentes, fotos, &[])
+}
+
+/// [`correr_muestra`] con un GUION de entrada (E2.4: una tecla).
+fn correr_muestra_con(exe: &[u8], nombre: &'static str, presentes: u32, fotos: &[u32], guion: &[u64]) -> (u32, String, Vec<u64>, Vec<(u32, Vec<u32>, u32, u32)>) {
     let uno = uno_a_la_vez();
     let dir = volumen().join("window").join(nombre);
     let _ = std::fs::remove_dir_all(&dir);
@@ -205,7 +210,7 @@ fn correr_muestra(exe: &[u8], nombre: &'static str, presentes: u32, fotos: &[u32
     *NOMBRE.lock().unwrap() = (ruta, "");
     TOPE_PRESENTES.store(presentes, Ordering::SeqCst);
     *GUARDAR_FOTOS.lock().unwrap() = fotos.to_vec();
-    let (salio, dicho, _) = correr_exe(&uno, exe, true, &[]);
+    let (salio, dicho, _) = correr_exe(&uno, exe, true, guion);
     TOPE_PRESENTES.store(1000, Ordering::SeqCst);
     GUARDAR_FOTOS.lock().unwrap().clear();
     *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
@@ -494,4 +499,233 @@ fn e2_2_dynamicindexing_cada_ciudad_lee_su_material_por_indice_dinamico() {
     }
     assert!(franjas.last().unwrap().1 < 0.1 && franjas[0].1 > 0.8, "de rojo (cerca) a violeta (fondo): {franjas:?}");
     assert!(tramos.iter().all(|&n| n >= 1000), "los seis tramos del arcoiris: {tramos:?}");
+}
+
+/// **E2.3a, el COMPUTO** (N5.5, 05-10): `computo.exe` (`prueba/computo.cpp`,
+/// de consola) corre su CS de 64 hilos con memoria compartida y una barrera
+/// dos veces, en la cola DIRECTA (constantes en la raiz) y en una de COMPUTO
+/// que la espera con una valla (CBV en la raiz), y compara los 2 x 1024
+/// floats con su cuenta, bit a bit. El juez es el `.exe`: en Windows dice lo
+/// mismo. Probado que dice NO: con la barrera quitada del interprete, la
+/// mitad de cada grupo lee la compartida antes de que la escriban (128
+/// elementos distintos en cada Dispatch, y sale con 2).
+#[test]
+fn e2_3a_el_computo_con_memoria_compartida_y_barrera_da_los_bits_de_la_cuenta() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, COMPUTO, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
+    assert!(texto.ends_with("computo.exe: el computo de D3D12 es el de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **N5.13, las INSTANCIAS** (05-10): `instancias.exe` (`prueba/instancias.cpp`,
+/// de consola) dibuja seis instancias con TRES buferes de vertices (la
+/// esquina por vertice; el sitio, el color y la fila por instancia, con
+/// StepRate 1 y 2, desde la instancia 2) y dos sin bufer de vertices
+/// (SV_VertexID, desde la 5), y compara el destino de 64 x 64 con su
+/// cuenta, pixel a pixel. El juez es el `.exe`: en Windows dice lo mismo.
+#[test]
+fn n5_13_las_instancias_y_las_ranuras_de_vertices_dan_los_pixeles_de_la_cuenta() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, INSTANCIAS, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Un aviso, y es el que tiene que ser: SV_InstanceID a float es una
+    // cuenta ENTERA, y el traductor a x86-64 de los de dibujo aun no las sabe.
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 3, "{texto}");
+    assert!(texto.ends_with("instancias.exe: las instancias de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **N5.3b y N5.3c, las VISTAS** (05-10): `vistas.exe` (`prueba/vistas.cpp`,
+/// de consola) corre tres CS: con todo en la RAIZ (un SRV estructurado de
+/// 32 bytes, un UAV estructurado y uno crudo), con un RWTexture2D y su
+/// GetDimensions, y leyendo esa textura como UAV a un RWBuffer con tipo
+/// UNORM; y las dos ClearUnorderedAccessView. Todo comparado bit a bit con
+/// su cuenta. El juez es el `.exe`: en Windows dice lo mismo.
+#[test]
+fn n5_3c_las_vistas_en_la_raiz_y_los_uav_de_textura_dan_los_bits_de_la_cuenta() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, VISTAS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 7, "{texto}");
+    assert!(texto.ends_with("vistas.exe: las vistas de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **E2.3b -- D3D12nBodyGravity** (05-10, `Samples/Desktop`, MIT): el
+/// COMPUTO de verdad (10.000 particulas, la barrera DENTRO de un bucle, en
+/// SU hilo y su cola de computo, con vallas entre las dos colas) y un
+/// sombreador de GEOMETRIA que hace de cada punto un cuadro con un degradado
+/// redondo. Pidio a la casa: el GS, puntos (POINTLIST), OPTIONS12 contestado
+/// (EnhancedBarriers NO: va por ResourceBarrier), `rand`/`srand`, y que una
+/// espera cumplida ceda el turno (su hilo de computo no soltaria nunca).
+/// Corre su CS TRADUCIDO a x86-64 (`nativo_computo`, 50 veces el
+/// interprete; su juez, `tests/nativo_computo.rs`, bit a bit y contra la
+/// fisica en f64).
+///
+/// **Como se sabe** (R3: el CS suma floats en otro orden que la 3060, asi
+/// que los bits no; lo que la fisica fija, si): tres Present distintos (la
+/// simulacion avanza); en cada uno las DOS nubes, iguales a izquierda y
+/// derecha (las dos mitades salen del mismo `srand(0)`) y centradas; y el
+/// color: en el 0 ROJO (sin aceleracion aun: `velo.w` es 1e-8) y en el 2
+/// tirando a AMARILLO (`velo.w` = |aceleracion| despues de un paso). Dos
+/// avisos y ninguno mas: el VS lee un bufer (por el interprete) y algun
+/// cuadro cruza el plano cercano o el lejano (sin recortar todavia, N5.15).
+#[test]
+fn e2_3b_nbodygravity_simula_en_su_hilo_y_dibuja_con_su_gs() {
+    let (salio, texto, vistas, fotos) = correr_muestra(NBODY, "nbody", 3, &[0, 2]);
+    assert_eq!(salio, 0xF00D, "presento hasta el tope del banco: {texto}");
+    for l in texto.lines() {
+        assert!(
+            l == "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)"
+                || l == "PROTON-X: Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan",
+            "un aviso que no se espera: {l}\n{texto}"
+        );
+    }
+    assert_eq!(vistas.len(), 3);
+    assert!(vistas[0] != vistas[1] && vistas[1] != vistas[2], "cada Present, la simulacion un paso mas: {vistas:?}");
+    let mut verde_por_rojo = Vec::new();
+    for (n, px, w, h) in &fotos {
+        assert_eq!((*w, *h), (ANCHO, ALTO));
+        let fondo = px[0] & 0xFF_FFFF;
+        assert_eq!(fondo, 0x00_00_1A, "foto {n}: el fondo de la muestra, {{0, 0, 0.1}}");
+        let (mut izq, mut der, mut sx, mut sy, mut r, mut g) = (0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
+        for y in 0..*h {
+            for x in 0..*w {
+                let p = px[(y * w + x) as usize] & 0xFF_FFFF;
+                if p == fondo {
+                    continue;
+                }
+                if x < w / 2 {
+                    izq += 1;
+                } else {
+                    der += 1;
+                }
+                (sx, sy) = (sx + x as u64, sy + y as u64);
+                (r, g) = (r + (p >> 16 & 0xFF) as u64, g + (p >> 8 & 0xFF) as u64);
+            }
+        }
+        let n_px = izq + der;
+        assert!(n_px > 200_000, "foto {n}: las nubes, {n_px} pixeles");
+        let simetria = izq as f64 / der as f64;
+        assert!((0.9..1.1).contains(&simetria), "foto {n}: izquierda {izq} y derecha {der}");
+        let (cx, cy) = (sx as f64 / n_px as f64, sy as f64 / n_px as f64);
+        assert!((cx - 640.0).abs() < 20.0 && (cy - 360.0).abs() < 20.0, "foto {n}: el centro ({cx:.1}, {cy:.1})");
+        verde_por_rojo.push(g as f64 / r as f64);
+    }
+    assert!(verde_por_rojo[0] < 0.3, "el Present 0, rojo: G/R {:.3}", verde_por_rojo[0]);
+    assert!(verde_por_rojo[1] > 0.4, "el Present 2, amarillo (ya aceleran): G/R {:.3}", verde_por_rojo[1]);
+}
+
+/// El ESPACIO, pulsado y suelto (su scancode, 0x39: WM_KEYDOWN con VK_SPACE).
+const ESPACIO: [u64; 2] = [1 << 8 | 1 << 9 | 0x39, 1 << 8 | 0x39];
+
+/// **E2.4 -- D3D12ExecuteIndirect** (05-10, `Samples/Desktop`, MIT): 1024
+/// triangulos, cada uno su propia orden INDIRECTA (la direccion de su CBV y
+/// los argumentos de su Draw), y un CS que las CULLEA: `Append` en un UAV con
+/// CONTADOR de las que caen en la franja central, y `ExecuteIndirect` con
+/// ese contador como cuenta. Pidio a la casa: el contador de un UAV (la op
+/// `Contador`, su numero en la ranura del descriptor), `ExecuteIndirect`
+/// (corrido al ejecutar la lista: sus argumentos los escribe el computo de
+/// antes) y `CreateCommandSignature` leida. Los triangulos empiezan a la
+/// izquierda y entran a la franja poco a poco: la cuenta crece.
+///
+/// **Como se sabe** (lo que la propia muestra promete, "su huella, igual,
+/// con el culling encendido y apagado"): dos corridas de 60 Present, una
+/// con culling y otra con el ESPACIO pulsado al empezar (sin culling: las
+/// 1024 ordenes, sin cuenta). DENTRO de la tijera del culling (x de 320 a
+/// 960) las dos dan los MISMOS pixeles, bit a bit; FUERA, con culling, solo
+/// el fondo, y sin el, triangulos. Probado que dice NO: con el contador
+/// atascado, la franja sale vacia.
+#[test]
+fn e2_4_executeindirect_cullea_por_computo_y_dibuja_lo_mismo_dentro() {
+    let (fondo, w) = (0x00_33_66u32, ANCHO);
+    let (salio, texto, _, con) = correr_muestra_con(INDIRECT, "indirect", 60, &[30, 59], &[]);
+    assert_eq!(salio, 0xF00D, "{texto}");
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte");
+    let (salio, texto, _, sin) = correr_muestra_con(INDIRECT, "indirect", 60, &[30, 59], &ESPACIO);
+    assert_eq!((salio, texto.as_str()), (0xF00D, ""));
+    for ((n, a, _, _), (_, b, _, _)) in con.iter().zip(&sin) {
+        let (mut dentro_color, mut fuera_sin) = (0, 0);
+        for (i, (&pa, &pb)) in a.iter().zip(b).enumerate() {
+            let (x, pa, pb) = (i as u32 % w, pa & 0xFF_FFFF, pb & 0xFF_FFFF);
+            if (320..960).contains(&x) {
+                assert_eq!(pa, pb, "Present {n}, pixel ({x}, {}): con culling y sin el, distintos dentro de la franja", i as u32 / w);
+                dentro_color += (pa != fondo) as u32;
+            } else {
+                assert_eq!(pa, fondo, "Present {n}, pixel ({x}, {}): con culling, fuera de la franja solo el fondo", i as u32 / w);
+                fuera_sin += (pb != fondo) as u32;
+            }
+        }
+        assert!(fuera_sin > 10_000, "Present {n}: sin culling hay triangulos fuera de la franja ({fuera_sin})");
+        if *n == 59 {
+            assert!(dentro_color > 10_000, "Present 59: ya han entrado triangulos a la franja ({dentro_color} pixeles)");
+        }
+    }
+}
+
+/// **E2.7 -- D3D12PredicationQueries** (05-10, `Samples/Desktop`, MIT): un
+/// cuadro blanco LEJOS, uno translucido CERCA que pasa por delante, y la
+/// caja del lejano dibujada en una consulta de OCLUSION BINARIA (sin color
+/// ni Z); su resultado, con ResolveQueryData, decide con SetPredication
+/// (EQUAL_ZERO) si el lejano se dibuja en el fotograma SIGUIENTE. Pidio a la
+/// casa contar los pixeles que pasan la profundidad (`Cuenta::pasan`) entre
+/// BeginQuery y EndQuery, y SetPredication de verdad (`consultas.rs`).
+///
+/// **Como se sabe** (la regla de la muestra, fotograma a fotograma): de
+/// cada Present se MIDE donde esta el cuadro cercano (la fila 170, donde
+/// solo esta el) y si tapaba entero al lejano (columnas 480 a 799); el
+/// lejano se dibuja en el Present `n` si y solo si NO lo tapaba en el
+/// `n - 1` (en el 0, nunca: el bufer de la consulta empieza a cero). Y los
+/// colores, exactos: el cercano (alfa 0.65) sobre el blanco, o sobre el
+/// fondo. Probado que dice NO: con SetPredication sin hacer, el lejano sale
+/// desde el Present 0; con la consulta siempre VISIBLE (lo de antes), tambien.
+#[test]
+fn e2_7_predicationqueries_salta_el_cuadro_que_la_oclusion_dice_tapado() {
+    let fotos: Vec<u32> = (0..=34).collect();
+    let (salio, texto, _, fotos) = correr_muestra_con(PREDICA, "predica", 35, &fotos, &[]);
+    assert_eq!(salio, 0xF00D, "{texto}");
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte");
+    assert_eq!(fotos.len(), 35);
+    let w = ANCHO as usize;
+    let fila = |px: &[u32], y: usize| px[y * w..(y + 1) * w].iter().map(|p| p & 0xFF_FFFF).collect::<Vec<u32>>();
+    let (mut tapaba, mut vistos) = (None::<bool>, [0u32; 2]);
+    for (n, px, _, _) in &fotos {
+        // El cercano: sus columnas en la fila 170 (no es ni el fondo ni nada
+        // del lejano, que empieza en la 200).
+        let arriba = fila(px, 170);
+        let cols: Vec<usize> = (0..w).filter(|&x| arriba[x] != 0x00_33_66).collect();
+        let (izq, der) = (*cols.first().expect("el cercano siempre se ve"), *cols.last().unwrap());
+        // El lejano en la fila del centro: dibujado, todo es blanco o el
+        // cercano sobre blanco (rojo a tope: 0.65 + 0.35); si no, el fondo o
+        // el cercano sobre el fondo (rojo 0.65 = 0xA6).
+        let centro = fila(px, 360);
+        let rojos: Vec<u32> = (480..800).map(|x| centro[x] >> 16).collect();
+        let dibujado = rojos.iter().all(|&r| r == 0xFF);
+        assert!(dibujado || rojos.iter().all(|&r| r == 0x00 || r == 0xA6), "Present {n}: el lejano, ni entero ni ausente: {rojos:?}");
+        for x in 480..800 {
+            let p = centro[x];
+            let bajo_el_cercano = (izq..=der).contains(&x);
+            let azul = p & 0xFF;
+            let esperado = match (dibujado, bajo_el_cercano) {
+                (true, true) => 0x59,  // 0.35 * 1 (el blanco)
+                (true, false) => 0xFF, // el blanco solo
+                (false, true) => 0x24, // 0.35 * 0.4 (el fondo)
+                (false, false) => 0x66,
+            };
+            assert_eq!(azul, esperado, "Present {n}, pixel ({x}, 360): {p:#08x}");
+        }
+        match tapaba {
+            None => assert!(!dibujado, "Present 0: el bufer de la consulta empieza a cero, y EQUAL_ZERO lo salta"),
+            Some(t) => assert_eq!(dibujado, !t, "Present {n}: el lejano se dibuja si y solo si el cercano NO lo tapaba en el anterior"),
+        }
+        vistos[dibujado as usize] += 1;
+        tapaba = Some(izq <= 480 && der >= 799);
+    }
+    assert!(vistos[0] > 5 && vistos[1] > 5, "se ven las dos cosas: saltado y dibujado ({vistos:?})");
 }

@@ -108,6 +108,25 @@ pub const MAXSS: u8 = 0x5F;
 
 /// **Traducir un programa a x86-64.** Una funcion entera, independiente de
 /// donde caiga (solo usa sus cuatro punteros): se puede copiar a otro bloque.
+/// **Por que [`compilar`] no traduce `p`**, dicho para quien lo lea (el
+/// aviso de la casa), o `None` si lo traduce. La lista es la de `compilar`.
+pub fn por_que_no(p: &Programa) -> Option<&'static str> {
+    if p.muestrea() {
+        return Some("muestrea una textura");
+    }
+    if p.salta() {
+        return Some("salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones)");
+    }
+    p.ops.iter().find_map(|o| match o {
+        Op::Mate { .. } => Some("usa la matematica (exp, log, sin...)"),
+        Op::Descarta { .. } => Some("tira pixeles (discard)"),
+        Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => Some("indexa un array"),
+        Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } => Some("es de computo"),
+        Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => Some("es de geometria"),
+        _ => None,
+    })
+}
+
 pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
     // Un programa que MUESTREA una textura no se traduce todavia: el
     // muestreo (filtros, direcciones) va por el interprete (`textura`).
@@ -203,6 +222,12 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
             Op::Descarta { .. } => return None,
             // N5.10: los arrays, por el interprete.
             Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => return None,
+            // N5.5: el computo, por el interprete.
+            Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } => return None,
+            // E2.3b: el sombreador de geometria, por el interprete.
+            Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return None,
+            // E2.4: el contador de un UAV, por el interprete.
+            Op::Contador { .. } => return None,
             Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } => unreachable!("mirado arriba: `muestrea`"),
             Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Entera { .. } | Op::Convierte { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => unreachable!("mirado arriba: `salta`"),
         }

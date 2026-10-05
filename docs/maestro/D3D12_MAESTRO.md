@@ -158,22 +158,26 @@ Cada fila es un `aviso` de la casa, con la casilla del plan
 Cyberpunk:
 
 ```text
-   Dispatch (el COMPUTO): se dice y se salta          N5.5  la luz, las sombras
-                                                            y el post-proceso
-   un UAV (RWTexture, RWBuffer), y los SRV/UAV de      N5.3b/c
-   la raiz: el sombreador no los ve
-   Draw con varias INSTANCIAS: dibuja una              (nueva) el follaje, la
-                                                            gente, los coches
-   IASetVertexBuffers fuera de la ranura 0             (nueva) las mallas con
-                                                            varios buferes
-   triangulos que cruzan el plano CERCANO: no se       (nueva) el recorte; en 3D
-   pintan (sin recortar)                                    de cerca, falta suelo
+   Dispatch (el COMPUTO): corre en la CPU desde el     N5.5  la luz, las sombras
+   05-10 (E2.3a), con memoria compartida, barreras           y el post-proceso
+   y UAV de bufer, y traducido a x86-64 (E2.3b);
+   la 3060 aun no
+   ExecuteIndirect: desde el 05-10 (E2.4), con el      N5.17 el culling de
+   contador de los UAV; sin rayos ni malla                   la GPU
+   las consultas de OCLUSION y SetPredication:         D5.5  el culling por
+   desde el 05-10 (E2.7), contadas en la CPU; las            oclusion
+   de estadisticas dan ceros
+   el sombreador de GEOMETRIA: en la CPU desde el      N5.18 particulas,
+   05-10 (E2.3b); sin vertice calculado, adyacencia,         siluetas
+   puntos o lineas de salida ni stream output
+   un UAV en el de PIXELES, y los de textura 3D o de   N5.3c
+   array: el sombreador no los ve (en el computo, los
+   de textura 2D, con tipo y en la raiz, desde el 05-10)
    render targets de floats (R32) y HDR de 16 bits     (nueva) se pintan en 8
    como 8 bits                                              bits o no se pintan
-   ExecuteIndirect y ExecuteBundle: se saltan          (nueva)
-   ClearUnorderedAccessView: no hace nada              N5.3c
    stencil y AlphaToCoverage: se apuntan, no se usan   (nueva)
-   topologias que no son triangulos (lineas, puntos)   (nueva)
+   topologias que no son triangulos (lineas, puntos)   (nueva) con un GS, ya
+   sin un GS que las haga triangulos                        (E2.3b)
    Clear* con rectangulos: limpia el recurso entero
    SetEventOnMultipleFenceCompletion de varias vallas
    D3D12SerializeRootSignature: solo la 1.0;
@@ -184,8 +188,9 @@ Cyberpunk:
 
 Y lo que la casa hace en la CPU y la 3060 todavia no (N6.1): MRT, mezcla,
 discard, SV_Position, SV_Depth, solo profundidad, la matematica, las olas,
-los arrays, el Gather y el SampleCmp. Cada uno, cuando la puerta lo niega, va
-por la CPU (el interprete), que es el juez de la 3060.
+los arrays, el Gather, el SampleCmp y contar los pixeles de una consulta de
+oclusion (E2.7). Cada uno, cuando la puerta lo niega, va por la CPU (el
+interprete), que es el juez de la 3060.
 
 ---
 

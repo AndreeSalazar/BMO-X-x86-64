@@ -35,9 +35,12 @@ pub const RANGO_UAV: u32 = 1;
 pub const RANGO_CBV: u32 = 2;
 pub const RANGO_MUESTREADOR: u32 = 3;
 
-/// `D3D12_SHADER_VISIBILITY`: todas, la de vertices, la de pixeles.
+/// `D3D12_SHADER_VISIBILITY`: todas, la de vertices, la de geometria y la
+/// de pixeles.
 pub const VISTA_TODAS: u32 = 0;
 pub const VISTA_VERTICES: u32 = 1;
+/// E2.3b: la del sombreador de geometria.
+pub const VISTA_GEOMETRIA: u32 = 4;
 pub const VISTA_PIXELES: u32 = 5;
 
 /// `D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND`, y el `cuantos` de un rango sin
@@ -78,6 +81,13 @@ pub fn en_tabla(f: &Firma, tipo: u32, l: Lugar) -> Option<(usize, u64)> {
         }
     }
     None
+}
+
+/// **La vista en la RAIZ de `l`** (N5.3b, 05-10): el parametro de tipo
+/// `tipo` (`raiz::SRV` o `raiz::UAV`, `Set*RootShaderResourceView` y
+/// `...UnorderedAccessView`) con su registro y su espacio, si lo hay.
+pub fn en_raiz(f: &Firma, tipo: u32, l: Lugar) -> Option<usize> {
+    f.parametros.iter().position(|p| p.tipo == tipo && lo_ve(p.visibilidad, l) && matches!(p.carga, Carga::Descriptor { registro, espacio } if (espacio, registro) == (l.espacio, l.registro)))
 }
 
 /// **Donde esta un cbuffer** (N5.2): tres sitios posibles.

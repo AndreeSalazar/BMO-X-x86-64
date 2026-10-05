@@ -22,7 +22,7 @@ fn el_enlace_da_a_cada_espacio_su_ranura() {
     use crate::lote::{self, ElementoIa};
     use crate::textura::{Direccion, Filtro, Muestreador, Recursos, Textura};
     let (vs, ps) = (dxil::leer(TEXTURA_VS).unwrap(), dxil::leer(ESPACIOS_PS).unwrap());
-    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde, por_instancia: None };
     let en = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]).unwrap();
     let l = |espacio, registro| Lugar { espacio, registro, vista: VISTA_PIXELES };
     let mut t = en.ranuras.texturas.clone();
@@ -61,8 +61,8 @@ fn el_enlace_da_a_cada_espacio_su_ranura() {
 fn unir_ranuras_renumera_las_del_de_pixeles() {
     use crate::dxil::programa::{Lugar, Programa, Ranuras};
     let l = |espacio, registro, vista| Lugar { espacio, registro, vista };
-    let mut todas = Ranuras { texturas: vec![l(0, 0, 1), l(1, 5, 0)], muestreadores: vec![l(0, 0, 1)], cbuffers: vec![l(0, 0, 1)], dinamicas: vec![] };
-    let ps = Ranuras { texturas: vec![l(0, 0, 5), l(1, 5, 0)], muestreadores: vec![l(0, 0, 5)], cbuffers: vec![l(0, 3, 5)], dinamicas: vec![] };
+    let mut todas = Ranuras { texturas: vec![l(0, 0, 1), l(1, 5, 0)], muestreadores: vec![l(0, 0, 1)], cbuffers: vec![l(0, 0, 1)], dinamicas: vec![], uavs: vec![], pasos: vec![] };
+    let ps = Ranuras { texturas: vec![l(0, 0, 5), l(1, 5, 0)], muestreadores: vec![l(0, 0, 5)], cbuffers: vec![l(0, 3, 5)], dinamicas: vec![], uavs: vec![], pasos: vec![] };
     let m = todas.unir(&ps).unwrap();
     assert_eq!(m.texturas, [2, 1], "el t0 del pixel es otro; el t5 sin etapa, el mismo");
     assert_eq!((m.muestreadores.as_slice(), m.cbuffers.as_slice()), (&[1u8][..], &[1u8][..]));
@@ -74,6 +74,7 @@ fn unir_ranuras_renumera_las_del_de_pixeles() {
         lee: 0,
         filas_cb: 3,
         ranuras: ps,
+        computo: Default::default(),
     };
     p.renumerar(&m);
     assert!(matches!(p.ops[..], [Op::Muestra { t: 2, s: 1, .. }, Op::Muestra { t: 1, s: 1, .. }, Op::Constantes { cb: 1, .. }]), "{:?}", p.ops);
@@ -98,7 +99,7 @@ fn el_enlace_aplana_los_cbuffers_que_no_son_b0() {
     use crate::dxil::programa::Lugar;
     use crate::lote::{self, Bloque, ElementoIa};
     let (vs, ps) = (dxil::leer(TEXTURA_VS).unwrap(), dxil::leer(CBUFFERS_PS).unwrap());
-    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde, por_instancia: None };
     let en = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]).unwrap();
     let l = |espacio, registro| Lugar { espacio, registro, vista: VISTA_PIXELES };
     let filas: Vec<(Lugar, u16)> = en.ranuras.cbuffers.iter().zip(&en.constantes).map(|(&x, b)| (x, b.filas)).collect();
@@ -250,6 +251,7 @@ fn la_trama_no_escribe_el_pixel_tirado_ni_su_profundidad() {
     });
     assert_eq!(c.pixeles, 28);
     assert!(c.tirados > 0 && c.tirados < 28, "{c:?}");
+    assert_eq!(c.pasan, 28 - c.tirados, "lo tirado no PASA (E2.7: una consulta de oclusion no lo cuenta)");
     let pintados = px.iter().filter(|&&p| p != 0).count() as u64;
     let escritos = z.iter().filter(|&&b| b != 1.0f32.to_bits()).count() as u64;
     assert_eq!((pintados, escritos), (28 - c.tirados, 28 - c.tirados), "{c:?}");
@@ -387,7 +389,7 @@ fn un_array_de_texturas_con_el_registro_calculado_lee_la_de_su_indice() {
     use crate::lote::{self, ElementoIa};
     use crate::textura::{Dinamicas, Direccion, Filtro, Muestreador, Recursos, Textura};
     let (vs, ps) = (dxil::leer(TEXTURA_VS).unwrap(), dxil::leer(INDICE_PS).unwrap());
-    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde, por_instancia: None };
     let en = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]).unwrap();
     let l = |espacio, registro| Lugar { espacio, registro, vista: VISTA_PIXELES };
     assert!(en.ranuras.texturas.is_empty(), "ninguna textura fija: {:?}", en.ranuras.texturas);

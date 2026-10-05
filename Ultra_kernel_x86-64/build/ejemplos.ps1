@@ -219,7 +219,10 @@ try {
     # Y `cubo12.exe` (P3c4, 28-09): el cubo por el camino de BMOX-12 (Factory6, SwapChain3, profundidad, SM5).
     # Y `bmox12.exe` (P3c, 28-09): el BMOX-12 de EPICX sin tocar, compilado en el Windows del propietario.
     # Y `hwindow.exe` (E1.1 de la ESCALERA, 05-10): D3D12HelloWindow de Microsoft, su fuente sin tocar (prueba\muestras).
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll', 'cubo12.exe', 'seh.exe', 'bmox12.exe', 'tanda1.exe', 'tanda2.exe', 'tanda3.exe', 'tanda3b.exe', 'tanda3c.exe', 'tanda4.exe', 'tanda5.exe', 'tanda6.exe', 'tanda7.exe', 'tanda8.exe', 'tanda9.exe', 'tanda10.exe', 'tanda11.exe', 'tanda12.exe', 'tanda13.exe', 'diario.exe', 'tanda14.exe', 'tanda4m.exe', 'tanda14b.exe', 'tanda15.exe', 'tanda16.exe', 'tanda17.exe', 'tanda18.exe', 'tanda19.exe', 'tanda19m.exe', 'tanda20.exe', 'tanda21.exe', 'tanda22.exe', 'tanda22d.dll', 'tanda23.exe', 'tanda24.exe', 'tanda25.exe', 'tanda26.exe', 'tanda27.exe', 'tanda28.exe', 'tanda29.exe', 'tanda30.exe', 'tanda31.exe', 'tanda32.exe', 'tanda33.exe', 'tanda34.exe', 'tanda35.exe', 'tanda36.exe', 'tanda37.exe', 'tanda38.exe', 'tanda39.exe', 'tanda41.exe', 'tanda42.exe', 'tanda43.exe', 'tanda44.exe', 'tanda45.exe', 'tanda46.exe', 'tanda47.exe', 'tanda48.exe', 'vueltas.exe', 'hwindow.exe')) {
+    # Y `computo.exe` (E2.3a de la ESCALERA, 05-10): el COMPUTO de D3D12 (memoria compartida, barrera, dos colas), juzgado por el mismo .exe.
+    # Y `instancias.exe` (N5.13, 05-10): las INSTANCIAS y los buferes de vertices de varias ranuras, juzgados por el mismo .exe.
+    # Y `vistas.exe` (N5.3b y N5.3c, 05-10): las vistas en la RAIZ, los UAV de textura y con tipo, y ClearUnorderedAccessView.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll', 'cubo12.exe', 'seh.exe', 'bmox12.exe', 'tanda1.exe', 'tanda2.exe', 'tanda3.exe', 'tanda3b.exe', 'tanda3c.exe', 'tanda4.exe', 'tanda5.exe', 'tanda6.exe', 'tanda7.exe', 'tanda8.exe', 'tanda9.exe', 'tanda10.exe', 'tanda11.exe', 'tanda12.exe', 'tanda13.exe', 'diario.exe', 'tanda14.exe', 'tanda4m.exe', 'tanda14b.exe', 'tanda15.exe', 'tanda16.exe', 'tanda17.exe', 'tanda18.exe', 'tanda19.exe', 'tanda19m.exe', 'tanda20.exe', 'tanda21.exe', 'tanda22.exe', 'tanda22d.dll', 'tanda23.exe', 'tanda24.exe', 'tanda25.exe', 'tanda26.exe', 'tanda27.exe', 'tanda28.exe', 'tanda29.exe', 'tanda30.exe', 'tanda31.exe', 'tanda32.exe', 'tanda33.exe', 'tanda34.exe', 'tanda35.exe', 'tanda36.exe', 'tanda37.exe', 'tanda38.exe', 'tanda39.exe', 'tanda41.exe', 'tanda42.exe', 'tanda43.exe', 'tanda44.exe', 'tanda45.exe', 'tanda46.exe', 'tanda47.exe', 'tanda48.exe', 'vueltas.exe', 'hwindow.exe', 'computo.exe', 'instancias.exe', 'vistas.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
     $leemeWin = @(
@@ -259,7 +262,7 @@ try {
     # leen sus .cso (y sus datos) de SU carpeta (los Hello los llaman igual
     # todos), cada una en window\<muestra>\ con lo suyo (prueba\muestras\<muestra>).
     # run sys/proton-x.bex window/htriang/htriang.exe
-    foreach ($muestra in @('htriang', 'htexture', 'hcbuffer', 'hframes', 'hbundles', 'dynindex')) {
+    foreach ($muestra in @('htriang', 'htexture', 'hcbuffer', 'hframes', 'hbundles', 'dynindex', 'nbody', 'indirect', 'predica')) {
         $d = Join-Path $dataBase ('window\' + $muestra)
         New-Item -ItemType Directory -Path $d -Force | Out-Null
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $muestra + '.exe')) $d -Force

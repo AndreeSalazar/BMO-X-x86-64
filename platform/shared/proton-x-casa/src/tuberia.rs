@@ -40,7 +40,7 @@ use core::cell::UnsafeCell;
 use alloc::format;
 
 use bmo_proton_x::dxil::{self, Etapa, Sombreador};
-use bmo_proton_x::lote::{enlazar_con, Lote, NoDibuja, Topologia};
+use bmo_proton_x::lote::{enlazar_con_gs, Lote, NoDibuja, Topologia};
 use bmo_proton_x::trama;
 use bmo_proton_x::raiz::{self, Carga, Firma, Parametro, Rango};
 
@@ -303,12 +303,14 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
     if raiz == 0 {
         return Err("CreateGraphicsPipelineState sin root signature");
     }
-    // D3D12_SHADER_BYTECODE de DS +40, HS +56, GS +72: su medida, +8.
-    for o in [40usize, 56, 72] {
+    // D3D12_SHADER_BYTECODE de DS +40, HS +56, GS +72: su medida, +8. El de
+    // GEOMETRIA ya (E2.3b, 05-10: nBodyGravity); dominio y casco, todavia no.
+    for o in [40usize, 56] {
         if u64_de(d, o + 8) != 0 {
-            return Err("CreateGraphicsPipelineState con dominio, casco o geometria: todavia no");
+            return Err("CreateGraphicsPipelineState con dominio o casco (teselado): todavia no");
         }
     }
+    let bytes_gs = if u64_de(d, 72) == 0 || u64_de(d, 80) == 0 { None } else { Some(bytecode(u64_de(d, 72) as *const u8, u64_de(d, 80) as usize, "")?) };
     let bytes_vs = bytecode(u64_de(d, 8) as *const u8, u64_de(d, 16) as usize, "CreateGraphicsPipelineState sin sombreador de vertices")?;
     // N5.12: sin sombreador de pixeles es un dibujo de solo profundidad.
     let bytes_ps = if u64_de(d, 24) == 0 || u64_de(d, 32) == 0 { None } else { Some(bytecode(u64_de(d, 24) as *const u8, u64_de(d, 32) as usize, "")?) };
@@ -328,7 +330,12 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
         let r = (ranura as usize).min(15);
         let desde = if desde == APPEND_ALIGNED { siguiente[r] } else { desde };
         siguiente[r] = desde + bytes;
-        entradas.push(EntradaIa { semantica: cadena_c(u64_de(e, 0) as *const u8), indice: u32_de(e, 8), formato, ranura, desde });
+        // N5.13: InputSlotClass +24 (1, POR INSTANCIA) e InstanceDataStepRate +28.
+        let por_instancia = (u32_de(e, 24) == 1).then(|| u32_de(e, 28));
+        if ranura > 15 {
+            return Err("un input layout con una ranura mas alla de la 15");
+        }
+        entradas.push(EntradaIa { semantica: cadena_c(u64_de(e, 0) as *const u8), indice: u32_de(e, 8), formato, ranura, desde, por_instancia });
     }
     // N5.8 (03-10): hasta 8 render targets (el G-buffer); N5.12: ninguno es
     // un dibujo de solo profundidad (las sombras, el prepaso de Z).
@@ -359,8 +366,9 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
         .map(|v| core::array::from_fn(|i| v[i]));
     // Los sombreadores: leidos, comprobados y compilados UNA vez por (VS, PS,
     // layout); los demas PSO con lo mismo lo comparten (`enlaces.rs`).
-    let (compilado, nuevo) = crate::enlaces::de(bytes_vs, bytes_ps.unwrap_or(&[]), &entradas, || {
+    let (compilado, nuevo) = crate::enlaces::de(bytes_vs, bytes_gs.unwrap_or(&[]), bytes_ps.unwrap_or(&[]), &entradas, || {
         let vs = sombreador(bytes_vs, Etapa::Vertice)?;
+        let gs = bytes_gs.map(|b| sombreador(b, Etapa::Geometria)).transpose()?;
         let ps = bytes_ps.map(|b| sombreador(b, Etapa::Pixel)).transpose()?;
         // Cada elemento del sombreador de vertices tiene que venir del
         // layout, MENOS los valores de sistema (SV_VertexID, SV_InstanceID):
@@ -372,7 +380,7 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
             }
         }
         let nombre = |s: &Sombreador| s.modulo.entrada().map(|f| f.nombre.clone()).unwrap_or_default();
-        Ok(crate::enlaces::Compilado { nombres: (nombre(&vs), ps.as_ref().map(nombre).unwrap_or_default()), enlace: enlazar_con(&vs, ps.as_ref(), &entradas) })
+        Ok(crate::enlaces::Compilado { nombres: (nombre(&vs), ps.as_ref().map(nombre).unwrap_or_default()), enlace: enlazar_con_gs(&vs, gs.as_ref(), ps.as_ref(), &entradas) })
     })?;
     if nuevo {
         if let Err(m) = &compilado.enlace {
@@ -590,13 +598,15 @@ pub struct Vista {
 pub struct Estado {
     pub pso: u64,
     pub raiz: u64,
-    /// La direccion dada a cada parametro CBV de la raiz, por su indice.
+    /// La direccion dada a cada parametro DESCRIPTOR de la raiz (CBV, y
+    /// desde N5.3b SRV y UAV), por su indice.
     pub cbv: [u64; 16],
     /// Las constantes de 32 bits de la raiz (`SetGraphicsRoot32BitConstants`,
     /// N5.2), las de todos sus parametros una tras otra: ver `cbuffers`.
     pub raiz32: crate::cbuffers::Palabras,
     pub topologia: u32,
-    pub vertices: Vista,
+    /// N5.13 (05-10): los buferes de vertices de las 16 ranuras.
+    pub vertices: [Vista; 16],
     pub indices: Vista,
     pub viewport: [f32; 6],
     pub tijera: [i32; 4],
@@ -647,7 +657,11 @@ pub fn dibujos() -> Vec<Dibujo> {
 }
 
 /// **Un dibujo, al ejecutarse**: todo lo que veria, leido y comprobado.
-pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero: u32, base_vertice: i32, indexado: bool) {
+pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero: u32, base_vertice: i32, indexado: bool, primera_instancia: u32) {
+    // D3D12: cero instancias (o cero vertices) no dibuja nada.
+    if instancias == 0 || cuantos == 0 {
+        return;
+    }
     if e.pso == 0 {
         aviso("Draw sin PSO: no se dibuja nada");
         return;
@@ -689,7 +703,7 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
             return;
         }
     }
-    pintar(e, pso, cuantos, instancias, primero, base_vertice, indexado);
+    pintar(e, pso, cuantos, instancias, primero, base_vertice, indexado, primera_instancia);
     // SAFETY: un hilo.
     let v = unsafe { &mut *DIBUJOS.0.get() };
     // Se guardan los primeros: en Ring 3 el monton solo avanza (ver
@@ -713,9 +727,9 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
         instancias,
     };
     // Los vertices: todo el bufer de la ranura 0, a traves del layout.
-    let paso = e.vertices.paso_o_formato as usize;
+    let paso = e.vertices[0].paso_o_formato as usize;
     if paso > 0 {
-        let Some(vb) = resolver(e.vertices.va, e.vertices.bytes as usize) else {
+        let Some(vb) = resolver(e.vertices[0].va, e.vertices[0].bytes as usize) else {
             aviso("IASetVertexBuffers: una direccion que no es de ningun bufer de la casa");
             return;
         };
@@ -769,12 +783,17 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
 
 
 const TRIANGLESTRIP: u32 = 5;
+/// E2.3b: D3D_PRIMITIVE_TOPOLOGY de puntos y lineas (solo con un GS).
+const POINTLIST: u32 = 1;
+const LINELIST: u32 = 2;
+const LINESTRIP: u32 = 3;
 
 /// **Pintar un Draw** (P3b3): el sombreador de vertices por cada vertice que
 /// piden los indices (una vez cada uno), los triangulos por la trama, y el de
 /// pixeles en cada pixel que cubren, sobre el render target. Lo que no sabe
 /// hacer todavia lo dice y NO pinta: nunca un dibujo a medias callado.
-fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool) {
+#[allow(clippy::too_many_arguments)]
+fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool, primera_instancia: u32) {
     let en = match &pso.compilado.enlace {
         Ok(en) => en,
         Err(m) => {
@@ -789,9 +808,6 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             return;
         }
     };
-    if instancias > 1 {
-        aviso("Draw con varias instancias: se dibuja una (no hay datos por instancia todavia)");
-    }
     if e.tijera == [0; 4] {
         aviso("Draw sin RSSetScissorRects: en D3D12 la tijera siempre corta, y vacia no deja pintar nada");
         return;
@@ -842,20 +858,51 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     } else {
         ids.extend(primero..primero + cuantos);
     }
-    let topologia = match e.topologia {
-        TRIANGLELIST => Topologia::Lista,
-        TRIANGLESTRIP => Topologia::Tira,
+    // N5.3c: un UAV en un sombreador de DIBUJO aun no se ve: que no sea
+    // en silencio (lo que escribe se pierde; lo que lee, 0).
+    if !en.ranuras.uavs.is_empty() {
+        aviso("Draw: un sombreador de dibujo lee o escribe un UAV (RWTexture, RWBuffer): todavia no (N5.3c); lo que escribe se pierde y lo que lee es 0");
+    }
+    // E2.3b: puntos y lineas, solo con un GS que los haga triangulos.
+    let topologia = match (e.topologia, en.gs.is_some()) {
+        (TRIANGLELIST, _) => Topologia::Lista,
+        (TRIANGLESTRIP, _) => Topologia::Tira,
+        (POINTLIST, true) => Topologia::Puntos,
+        (LINELIST, true) => Topologia::Lineas,
+        (LINESTRIP, true) => Topologia::TiraDeLineas,
+        (POINTLIST | LINELIST | LINESTRIP, false) => {
+            aviso("Draw de puntos o lineas sin un GS: la trama solo pinta triangulos todavia");
+            return;
+        }
         _ => {
-            aviso("Draw con una topologia que no es de triangulos (lista o tira): todavia no");
+            aviso("Draw con una topologia con adyacencia o de parches: todavia no");
             return;
         }
     };
-    // Los vertices: el bufer de la ranura 0 entero.
-    let paso = e.vertices.paso_o_formato as usize;
-    let Some(vb) = (paso > 0).then(|| resolver(e.vertices.va, e.vertices.bytes as usize)).flatten() else {
-        aviso("Draw sin un bufer de vertices de la casa en la ranura 0");
-        return;
-    };
+    if let Some(g) = &en.gs {
+        if bmo_proton_x::lote::primitivas(&[], topologia, g.info.vertices()).is_none() {
+            aviso("Draw: la topologia no da las primitivas que lee su GS: en Windows es un error, y no se dibuja");
+            return;
+        }
+    }
+    // Los vertices (N5.13): el bufer entero de cada ranura que el input
+    // layout lee. Sin input layout (los que leen SV_VertexID), ninguno.
+    let mut flujos = [bmo_proton_x::lote::Flujo::default(); 16];
+    for el in &pso.entradas {
+        let r = el.ranura as usize;
+        if !flujos[r].bytes.is_empty() {
+            continue;
+        }
+        let v = e.vertices[r];
+        match (v.va != 0).then(|| resolver(v.va, v.bytes as usize)).flatten() {
+            Some(b) => flujos[r] = bmo_proton_x::lote::Flujo { bytes: b, paso: v.paso_o_formato as usize },
+            None => {
+                aviso(&format!("Draw: el input layout lee la ranura {r} y no tiene un bufer de vertices de la casa"));
+                return;
+            }
+        }
+    }
+    let (vb, paso) = (flujos[0].bytes, flujos[0].paso);
     // Las CONSTANTES (N5.2): cada cbuffer que leen, de la raiz o de una
     // tabla, en su sitio del bloque (`cbuffers.rs`).
     // SAFETY: un RootSignature de la casa.
@@ -873,7 +920,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // (sus SRV y samplers, en las ranuras a las que apuntan) y de los
     // samplers estaticos de la firma. Por RANURA (03-10, N5.1): cada lugar
     // (espacio, registro, etapa) que leen, buscado en la firma.
-    let (texturas, muestreadores, buferes) = recursos_del_dibujo(firma, &e.tablas, &en.ranuras);
+    let (texturas, muestreadores, buferes) = recursos_del_dibujo(firma, &e.tablas, &e.cbv, &en.ranuras);
     // N5.4 (05-10): las texturas de los arrays con el registro CALCULADO,
     // buscadas cuando un pixel las pide y GUARDADAS: una vez por textura
     // distinta del dibujo, no por pixel. Un millon de descriptores (el
@@ -903,6 +950,10 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         topologia,
         cb: &cb,
         reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad, mezcla, z_del_sombreador: false },
+        oclusion: crate::consultas::hay_abierta(),
+        otros: &flujos[1..],
+        instancias,
+        primera_instancia,
     };
     // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.
     let z = match (pso.profundidad, e.dsv) {
@@ -961,8 +1012,11 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     if let (0, Some(rt)) = (e.rtv_sub, rt.as_mut()) {
         rt.en_pantalla = r.as_ref().is_ok_and(|c| c.en_pantalla);
     }
+    // E2.7: lo que paso, a las consultas de oclusion abiertas.
+    if let Ok(c) = &r {
+        crate::consultas::sumar(c.pasan);
+    }
     match r {
-        Ok(c) if c.sin_recortar > 0 => aviso("Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan"),
         Ok(_) => {}
         Err(NoDibuja::IndiceFuera(_)) => aviso("Draw: un indice que pasa del bufer de vertices"),
         Err(NoDibuja::SinVertices) => aviso("Draw sin vertices que leer"),
@@ -979,11 +1033,11 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
 /// Lo que no esta -- ni en una tabla puesta ni en los samplers estaticos --
 /// se lee como nulo, como en Windows con un descriptor nulo.
 /// Lo que ve un dibujo, por ranura: cada SRV es una textura o un bufer.
-type Vistos = (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, Vec<Option<bmo_proton_x::textura::Muestreador>>, Vec<Option<bmo_proton_x::bufer::Bufer<'static>>>);
+pub(crate) type Vistos = (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, Vec<Option<bmo_proton_x::textura::Muestreador>>, Vec<Option<bmo_proton_x::bufer::Bufer<'static>>>);
 
 /// La ranura `i` de la tabla del parametro `k` (4 palabras), si el `.exe`
 /// puso esa tabla.
-fn descriptor_de(tablas: &[u64; 16], k: usize, i: u64) -> Option<&'static [u64]> {
+pub(crate) fn descriptor_de(tablas: &[u64; 16], k: usize, i: u64) -> Option<&'static [u64]> {
     let base = *tablas.get(k)?;
     if base == 0 {
         return None;
@@ -1009,13 +1063,20 @@ fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::d
     textura_de_srv(ranura).map_err(aviso).ok()
 }
 
-fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
+pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
     use bmo_proton_x::donde::{self, RANGO_MUESTREADOR, RANGO_SRV};
     use bmo_proton_x::textura::Muestreador;
     let descriptor = |k: usize, i: u64| descriptor_de(tablas, k, i);
     // N5.3: cada SRV, a su sitio: una textura, o un bufer en la misma ranura.
     let (mut tex, mut buf) = (Vec::with_capacity(ranuras.texturas.len()), Vec::with_capacity(ranuras.texturas.len()));
     for &l in &ranuras.texturas {
+        // N5.3b (05-10): un SRV en la RAIZ (siempre un bufer, crudo o
+        // estructurado: D3D12 no deja otros ahi).
+        if let Some(k) = donde::en_raiz(firma, bmo_proton_x::raiz::SRV, l) {
+            tex.push(None);
+            buf.push(bufer_de_raiz(raiz[k], ranuras.paso(false, l)).map(|(bytes, paso, elementos)| bmo_proton_x::bufer::Bufer { bytes, formato: 0, paso, elementos }));
+            continue;
+        }
         let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor(k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0);
         let es_bufer = ranura.is_some_and(|r| crate::d3d12_vistas::leer(r).0 .0 == crate::d3d12_vistas::SRV_BUFER);
         tex.push(ranura.filter(|_| !es_bufer).and_then(|r| textura_de_srv(r).map_err(aviso).ok()));
@@ -1038,6 +1099,23 @@ fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x
         })
         .collect();
     (tex, mue, buf)
+}
+
+/// **Lo que ve una vista en la RAIZ** (N5.3b, 05-10): desde su direccion
+/// hasta el final de su bufer de la casa (la vista no dice cuanto), con el
+/// paso que declara el sombreador (sin el, cruda: palabras de 4 bytes).
+/// `(bytes, paso, elementos)`, o `None` (y se ve nula) si la direccion no es
+/// de un bufer de la casa.
+pub(crate) fn bufer_de_raiz(va: u64, paso: Option<u32>) -> Option<(&'static [u8], u32, u32)> {
+    if va == 0 {
+        return None;
+    }
+    let Some(bytes) = resolver_hasta(va, usize::MAX) else {
+        aviso("una vista en la RAIZ con una direccion que no es de un bufer de la casa (se ve nula)");
+        return None;
+    };
+    let paso = paso.unwrap_or(0);
+    Some((bytes, paso, (bytes.len() / paso.max(4) as usize) as u32))
 }
 
 /// **El bufer que lee un SRV de bufer** (N5.3): sus bytes desde el primer

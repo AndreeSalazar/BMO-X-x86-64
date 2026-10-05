@@ -10,6 +10,8 @@
 //!                 SIN ofrecer: la ventana existe y todavia no se ve
 //!    mostrar      ofrecerla al escritorio (MEM_OP_OFRECER a quien nos lanzo)
 //!    presentar    subir la secuencia: el dibujo esta entero (R-APP4)
+//!                 (05-10: con el CARTEL ROJO encima si la casa aviso de algo,
+//!                 `cartel.rs`; `escribir` le pasa cada linea)
 //!    evento       el siguiente del buzon, o 0
 //!    dormir       4 ms: un .exe esperando teclas no gasta CPU (R21)
 //!    poner_gs     el TEB del hilo de Windows que va a correr (P4):
@@ -396,6 +398,8 @@ pub(crate) fn ahora_ns() -> u64 {
 /// La consola es de lineas: el retorno de carro de Windows pintaria un
 /// caracter de mas. Un `\r` delante de `\n` no se manda.
 fn escribir(bytes: &[u8]) {
+    // 05-10: los avisos de la casa, tambien al cartel rojo de la ventana.
+    super::cartel::oir(bytes);
     let mut desde = 0;
     for (i, &c) in bytes.iter().enumerate() {
         if c == b'\r' && bytes.get(i + 1) == Some(&b'\n') {
@@ -507,6 +511,13 @@ fn mostrar(s: &Superficie) -> bool {
 }
 
 fn presentar(s: &Superficie) {
+    // 05-10: si la casa dijo que algo fue mal, el cartel rojo encima, antes
+    // de que el escritorio vea el fotograma.
+    if super::cartel::cuantos() > 0 {
+        // SAFETY: los pixeles de la superficie: `stride * alto`, nuestros.
+        let px = unsafe { core::slice::from_raw_parts_mut(s.pixeles, s.stride as usize * s.alto as usize) };
+        super::cartel::pintar(px, s.ancho, s.alto, s.stride);
+    }
     let base = base_de(s);
     pon(
         base,

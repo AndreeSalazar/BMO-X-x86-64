@@ -88,7 +88,11 @@ pub(super) fn constante(c: &mut Compilador, codigo: u64, ops: &[u64], tipo: usiz
 }
 
 pub(super) const CST_AGGREGATE: u64 = 7;
+/// El `addrspace` de `groupshared` en DXIL.
+const ESPACIO_COMPARTIDO: u64 = 3;
 pub(super) const CST_DATA: u64 = 22;
+pub(super) const CST_CE_GEP: u64 = 12;
+pub(super) const CST_CE_INBOUNDS_GEP: u64 = 20;
 
 /// **Un global** (`MODULE_CODE_GLOBALVAR`: [tipo, constante | explicito
 /// << 1, inicial + 1, ...]): su array, con el inicial si lo tiene.
@@ -101,6 +105,19 @@ pub(super) fn global(c: &mut Compilador, ops: &[u64], tipos: &[Tipo], floats: &[
     };
     if !matches!(tipos.get(t), Some(Tipo::Arreglo { .. })) {
         return Ok(Valor::Nada);
+    }
+    // N5.5 (05-10): `addrspace(3)` (los bits de arriba de las banderas) es la
+    // memoria COMPARTIDA del grupo (`groupshared`): no son registros del
+    // hilo, sino palabras que ven todos los hilos del grupo.
+    if banderas >> 2 == ESPACIO_COMPARTIDO {
+        let (n, enteros) = forma(tipos, floats, anchos, t)?;
+        let base = c.compartida;
+        // D3D12: 32 KiB de memoria compartida por grupo.
+        if base as usize + n > 8192 {
+            return Err(NoPrograma::Forma("mas de 32 KiB de memoria compartida (groupshared): D3D12 no lo deja"));
+        }
+        c.compartida += n as u32;
+        return Ok(Valor::Compartida { base, n: n as u32, enteros, tipo: t as u32 });
     }
     let v = if inicial == 0 { None } else { c.valores.get(inicial as usize - 1).copied() };
     match v {
@@ -128,8 +145,33 @@ pub(super) fn gep(c: &mut Compilador, o: &mut Operandos, tipos: &[Tipo], floats:
     while o.i < o.ops.len() {
         indices.push(o.con_tipo()?);
     }
-    let Some(Valor::Arreglo { base, n, enteros, tipo }) = c.valores.get(p).copied() else {
-        return Err(NoPrograma::Forma("un getelementptr de algo que no es un array (un puntero de un puntero): todavia no"));
+    let v = apuntar(c, p, &indices, tipos, floats, anchos)?;
+    c.valores.push(v);
+    Ok(())
+}
+
+/// `CST_CODE_CE_GEP` (12) y `CST_CODE_CE_INBOUNDS_GEP` (20): un
+/// getelementptr CONSTANTE (05-10, el `sharedPos[counter + 1]` desenrollado
+/// de nBodyGravity: 384 asi). El registro es [tipo de lo apuntado si la
+/// medida es impar, y pares (tipo, valor)]; los valores, ABSOLUTOS. LLVM
+/// pone los enteros antes que los GEP en el bloque (sus indices ya estan).
+pub(super) fn gep_constante(c: &mut Compilador, ops: &[u64], tipos: &[Tipo], floats: &[bool], anchos: &[u32]) -> Result<Valor, NoPrograma> {
+    let pares = &ops[ops.len() % 2..];
+    let ids: Vec<usize> = pares.chunks_exact(2).map(|par| par[1] as usize).collect();
+    let Some((&p, indices)) = ids.split_first() else {
+        return Err(NoPrograma::Forma("un getelementptr constante sin puntero"));
+    };
+    apuntar(c, p, indices, tipos, floats, anchos)
+}
+
+/// El puntero de un getelementptr: `p` (un array de registros o de la
+/// memoria compartida) por los `indices` (ids de valores).
+fn apuntar(c: &mut Compilador, p: usize, indices: &[usize], tipos: &[Tipo], floats: &[bool], anchos: &[u32]) -> Result<Valor, NoPrograma> {
+    // El array de registros, o (N5.5) el de la memoria compartida.
+    let (compartida, base, n, enteros, tipo) = match c.valores.get(p).copied() {
+        Some(Valor::Arreglo { base, n, enteros, tipo }) => (false, base as u32, n as u32, enteros, tipo),
+        Some(Valor::Compartida { base, n, enteros, tipo }) => (true, base, n, enteros, tipo),
+        _ => return Err(NoPrograma::Forma("un getelementptr de algo que no es un array (un puntero de un puntero): todavia no")),
     };
     // El primero salta arrays enteros: tiene que ser 0.
     if !matches!(indices.first().and_then(|&i| c.valores.get(i)), Some(Valor::Entero(0))) {
@@ -178,15 +220,17 @@ pub(super) fn gep(c: &mut Compilador, o: &mut Operandos, tipos: &[Tipo], floats:
             d
         }
     };
-    c.valores.push(Valor::Puntero { base, n, i, enteros });
-    Ok(())
+    Ok(if compartida { Valor::PunteroCompartido { base, n, i, enteros } } else { Valor::Puntero { base: base as Reg, n: n as u16, i, enteros } })
 }
 
-/// El array y el indice de un puntero (un array solo es su elemento 0).
-fn donde(c: &mut Compilador, p: usize) -> Result<(Reg, u16, Reg, bool), NoPrograma> {
+/// El array y el indice de un puntero (un array solo es su elemento 0), y
+/// si es de la memoria compartida (N5.5).
+fn donde(c: &mut Compilador, p: usize) -> Result<(bool, u32, u32, Reg, bool), NoPrograma> {
     match c.valores.get(p).copied() {
-        Some(Valor::Puntero { base, n, i, enteros }) => Ok((base, n, i, enteros)),
-        Some(Valor::Arreglo { base, n, enteros, .. }) => Ok((base, n, literal(c, 0)?, enteros)),
+        Some(Valor::Puntero { base, n, i, enteros }) => Ok((false, base as u32, n as u32, i, enteros)),
+        Some(Valor::Arreglo { base, n, enteros, .. }) => Ok((false, base as u32, n as u32, literal(c, 0)?, enteros)),
+        Some(Valor::PunteroCompartido { base, n, i, enteros }) => Ok((true, base, n, i, enteros)),
+        Some(Valor::Compartida { base, n, enteros, .. }) => Ok((true, base, n, literal(c, 0)?, enteros)),
         _ => Err(NoPrograma::Forma("un load o un store de algo que no es un array")),
     }
 }
@@ -194,9 +238,9 @@ fn donde(c: &mut Compilador, p: usize) -> Result<(Reg, u16, Reg, bool), NoProgra
 /// `load T, T* p` (20: [puntero con su tipo, tipo, alineacion, volatil]).
 pub(super) fn load(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoPrograma> {
     let p = o.con_tipo()?;
-    let (base, n, i, enteros) = donde(c, p)?;
+    let (compartida, base, n, i, enteros) = donde(c, p)?;
     let d = c.registro(0.0)?;
-    c.ops.push(Op::LeeIndexado { d, base, n, i });
+    c.ops.push(if compartida { Op::LeeCompartida { d, base, n, i } } else { Op::LeeIndexado { d, base: base as Reg, n: n as u16, i } });
     c.valores.push(if enteros { Valor::Bits(d) } else { Valor::Float(d) });
     Ok(())
 }
@@ -205,8 +249,8 @@ pub(super) fn load(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoProgra
 pub(super) fn store(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoPrograma> {
     let p = o.con_tipo()?;
     let v = o.con_tipo()?;
-    let (base, n, i, _) = donde(c, p)?;
+    let (compartida, base, n, i, _) = donde(c, p)?;
     let s = bits(c, v)?;
-    c.ops.push(Op::EscribeIndexado { base, n, i, s });
+    c.ops.push(if compartida { Op::EscribeCompartida { base, n, i, s } } else { Op::EscribeIndexado { base: base as Reg, n: n as u16, i, s } });
     Ok(())
 }

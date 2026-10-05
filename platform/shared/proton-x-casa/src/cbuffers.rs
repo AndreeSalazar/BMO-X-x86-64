@@ -53,8 +53,14 @@ impl Default for Palabras {
 
 /// **El bloque de constantes de un dibujo**, o por que no hay.
 pub(crate) fn del_dibujo(firma: &Firma, e: &Estado, en: &Enlace) -> Result<Cow<'static, [u8]>, String> {
-    let mut trozos: Vec<Cow<'static, [u8]>> = Vec::with_capacity(en.constantes.len());
-    for (l, b) in en.ranuras.cbuffers.iter().zip(&en.constantes) {
+    de_ranuras(firma, e, &en.ranuras.cbuffers, &en.constantes)
+}
+
+/// [`del_dibujo`] con los cbuffers y sus bloques sueltos: lo que tiene
+/// tambien un sombreador de computo (N5.5), que no tiene enlace.
+pub(crate) fn de_ranuras(firma: &Firma, e: &Estado, cbuffers: &[bmo_proton_x::dxil::programa::Lugar], constantes: &[lote::Bloque]) -> Result<Cow<'static, [u8]>, String> {
+    let mut trozos: Vec<Cow<'static, [u8]>> = Vec::with_capacity(constantes.len());
+    for (l, b) in cbuffers.iter().zip(constantes) {
         let quiere = b.filas as usize * 16;
         let nombre = || format!("el cbuffer b{} del espacio {}", l.registro, l.espacio);
         let trozo = match donde::cbuffer(firma, *l) {
@@ -69,12 +75,12 @@ pub(crate) fn del_dibujo(firma: &Firma, e: &Estado, en: &Enlace) -> Result<Cow<'
         trozos.push(trozo.ok_or_else(|| format!("{} no es un bufer de la casa (o no se le dio direccion)", nombre()))?);
     }
     // Uno solo, entero: tal cual, sin copiar (lo de siempre con el b0).
-    if let ([t], [b]) = (trozos.as_slice(), en.constantes.as_slice()) {
+    if let ([t], [b]) = (trozos.as_slice(), constantes) {
         if b.fila == 0 && t.len() >= b.filas as usize * 16 {
             return Ok(t.clone());
         }
     }
-    Ok(Cow::Owned(lote::juntar_constantes(&en.constantes, |i| trozos.get(i).map(|t| &t[..]))))
+    Ok(Cow::Owned(lote::juntar_constantes(constantes, |i| trozos.get(i).map(|t| &t[..]))))
 }
 
 /// La direccion y la medida del CBV de la ranura `i` de la tabla que empieza

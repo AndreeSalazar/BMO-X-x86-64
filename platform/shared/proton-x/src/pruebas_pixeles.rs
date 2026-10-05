@@ -25,7 +25,7 @@ fn cuadro(z: f32, w: f32) -> Vec<u8> {
 }
 
 fn enlace(ps: &[u8]) -> (Enlace, [ElementoIa; 2]) {
-    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde, por_instancia: None };
     let ia = [e("POSITION", 0), e("TEXCOORD", 16)];
     let (vs, ps) = (dxil::leer(TEXTURA_VS).unwrap(), dxil::leer(ps).unwrap());
     (lote::enlazar(&vs, &ps, &ia).unwrap(), ia)
@@ -37,7 +37,7 @@ fn pintar(en: &Enlace, ia: &[ElementoIa], vertices: &[u8]) -> (Vec<u32>, trama::
 
 fn pintar_con(en: &Enlace, ia: &[ElementoIa], vertices: &[u8], otros: &mut [trama::Otro]) -> (Vec<u32>, trama::Cuenta) {
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
-    let l = Lote { enlace: en, entradas: ia, vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO };
+    let l = Lote { enlace: en, entradas: ia, vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0 };
     let mut px = vec![0u32; 64];
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros };
     let c = lote::en_cpu(&l, &mut d).unwrap();
@@ -137,7 +137,7 @@ fn una_salida_que_no_es_sv_target_se_dice() {
     let mut ps = ps;
     ps.salidas[2].sistema = 66;
     ps.salidas[2].semantica = "SV_Coverage".into();
-    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde, por_instancia: None };
     let r = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]);
     assert_eq!(r.err().as_deref(), Some("el sombreador de pixeles escribe SV_Coverage3 (valor de sistema 66): todavia no"));
 }
@@ -184,11 +184,11 @@ fn el_de_pixeles_escribe_su_profundidad() {
     assert_eq!((en.objetivos.as_slice(), en.profundidad_ps), (&[0, trama::PROFUNDIDAD as u8][..], Some(1)));
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: Some(trama::Profundidad { funcion: 2, escribir: true }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
     let vertices = cuadro(0.9, 1.0);
-    let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: Some(0.5f32.to_bits()), limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO };
+    let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: Some(0.5f32.to_bits()), limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0 };
     let (mut px, mut z) = (vec![0u32; 64], vec![0u32; 64]);
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: Some(&mut z), cadena: false, otros: &mut [] };
     let c = lote::en_cpu(&l, &mut d).unwrap();
-    assert_eq!(c.tapados, 32, "{c:?}");
+    assert_eq!((c.tapados, c.pasan), (32, 32), "con SV_Depth, la prueba DESPUES del sombreador: {c:?}");
     for k in 0..64 {
         let x = k % 8;
         if x < 4 {
@@ -197,4 +197,30 @@ fn el_de_pixeles_escribe_su_profundidad() {
             assert_eq!((px[k], f32::from_bits(z[k])), (0, 0.5), "({x}, {})", k / 8);
         }
     }
+}
+
+/// *** E2.7: lo que cuenta una consulta de OCLUSION (`Cuenta::pasan`): los
+/// pixeles que pasan la prueba de profundidad, escriban color o no. Un
+/// triangulo que cubre los 64 pixeles a z = 0.5, sobre una Z con las tres
+/// columnas de la izquierda a 0.25 (delante: LESS no pasa) y el resto a 1:
+/// pasan 40. Sin escribir la Z (como la caja de PredicationQueries), una
+/// segunda vez da lo mismo; escribiendola, la segunda ya no pasa ninguno.
+#[test]
+fn la_trama_cuenta_lo_que_pasa_como_una_consulta_de_oclusion() {
+    let v: Vec<trama::Sombreado> = [[-1.0f32, -1.0], [-1.0, 3.0], [3.0, -1.0]].iter().map(|&[x, y]| trama::Sombreado { pos: [x, y, 0.5, 1.0], atributos: Vec::new() }).collect();
+    let z0: Vec<u32> = (0..64).map(|k| if k % 8 < 3 { 0.25f32 } else { 1.0 }.to_bits()).collect();
+    let pasan = |escribir: bool| {
+        let (mut px, mut z) = (vec![0u32; 64], z0.clone());
+        let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: Some(trama::Profundidad { funcion: 2, escribir }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
+        let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: Some(&mut z), cadena: false, otros: &mut [] };
+        let mut ps = |_: &[[f32; 4]], c: &mut [[f32; 4]; trama::SALIDAS]| {
+            c[0] = [1.0; 4];
+            true
+        };
+        let a = trama::dibujar(&reglas, &v, &[[0, 1, 2]], &mut d, None, &mut ps);
+        let b = trama::dibujar(&reglas, &v, &[[0, 1, 2]], &mut d, None, &mut ps);
+        (a.pasan, a.tapados, b.pasan)
+    };
+    assert_eq!(pasan(false), (40, 24, 40));
+    assert_eq!(pasan(true), (40, 24, 0), "con su Z escrita (0.5), LESS ya no deja pasar 0.5");
 }

@@ -551,7 +551,7 @@ impl Traductor<'_> {
 /// medida) al programa escalar de la casa, con las firmas del sobre.
 pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Result<Programa, NoPrograma> {
     let medida = (palabra(t, 1)? as usize).min(t.len());
-    let p = Programa { ops: Vec::new(), iniciales: Vec::new(), entradas: entradas.len(), salidas: salidas.len(), lee: 0, filas_cb: 0, ranuras: Default::default() };
+    let p = Programa { ops: Vec::new(), iniciales: Vec::new(), entradas: entradas.len(), salidas: salidas.len(), lee: 0, filas_cb: 0, ranuras: Default::default(), computo: Default::default() };
     // E6: si salta, antes de leer nada (lo de antes del primer `if` tambien
     // va a sus variables).
     let variables = salta(t, medida);

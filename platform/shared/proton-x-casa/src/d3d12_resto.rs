@@ -19,8 +19,10 @@
 //!    lista        GetType, ClearState, CopyBufferRegion, CopyResource,
 //!                 ResolveSubresource (una muestra: copiar), Begin/EndQuery y
 //!                 ResolveQueryData, marcadores; lo que el sombreador de la
-//!                 casa aun no ve (computo, constantes de raiz, SRV/UAV de
-//!                 raiz, ExecuteIndirect, predicacion), apuntado y DICHO
+//!                 casa aun no ve (constantes de raiz, SRV/UAV de raiz),
+//!                 apuntado y DICHO. Ya corren: el computo (N5.5),
+//!                 ExecuteIndirect (E2.4) y la oclusion y la predicacion
+//!                 (E2.7, `consultas`)
 //!    recurso      WriteToSubresource, ReadFromSubresource, GetHeapProperties
 //!    otros        GetDesc del monton de descriptores y de la cola,
 //!                 GetCachedBlob del PSO (un blob propio que la casa ignora
@@ -83,20 +85,20 @@ pub(crate) fn lista() -> [(usize, u64); 32] {
         (23, dir!(om_set_blend_factor)),
         (24, dir!(om_set_stencil_ref)),
         (27, dir!(execute_bundle)),
-        (29, dir!(de_computo1)),
-        (31, dir!(de_computo2)),
-        (33, dir!(de_computo3)),
+        (29, dir!(set_compute_root_signature)),
+        (31, dir!(set_compute_root_descriptor_table)),
+        (33, dir!(set_compute_root_32bit_constant)),
         (34, dir!(root_32bit_constant)),
-        (35, dir!(de_computo4)),
+        (35, dir!(set_compute_root_32bit_constants)),
         (36, dir!(root_32bit_constants)),
-        (37, dir!(de_computo2)),
-        (39, dir!(de_computo2)),
-        (40, dir!(root_descriptor)),
-        (41, dir!(de_computo2)),
-        (42, dir!(root_descriptor)),
+        (37, dir!(set_compute_root_constant_buffer_view)),
+        (39, dir!(set_compute_root_constant_buffer_view)),
+        (40, dir!(root_vista)),
+        (41, dir!(set_compute_root_constant_buffer_view)),
+        (42, dir!(root_vista)),
         (45, dir!(so_set_targets)),
-        (49, dir!(clear_uav)),
-        (50, dir!(clear_uav)),
+        (49, dir!(clear_uav_uint)),
+        (50, dir!(clear_uav_float)),
         (51, dir!(discard_resource)),
         (52, dir!(begin_query)),
         (53, dir!(end_query)),
@@ -142,11 +144,15 @@ pub(crate) fn reiniciar() {
     unsafe { (*COMPUTOS.0.get()).clear() };
 }
 
-/// Un PSO de computo: su root signature y su sombreador, guardados. La casa
-/// aun no corre computo (Dispatch lo dice).
+/// Un PSO de computo: su root signature y su sombreador, y (N5.5, 05-10) el
+/// sombreador ya compilado y con sus cbuffers aplanados, o por que no.
 pub struct Computo {
     pub raiz: u64,
     pub cs: Vec<u8>,
+    pub preparado: Result<bmo_proton_x::dxil::computo::DeComputo, alloc::string::String>,
+    /// E2.3b (05-10): donde empieza su traduccion a x86-64 en el bloque
+    /// sellado (`nativo::registrar_computo`), si la hay.
+    pub nativo: Option<usize>,
 }
 
 /// `CreateComputePipelineState(this, desc, riid, pp)`:
@@ -166,8 +172,16 @@ extern "win64" fn create_compute_pipeline_state(_this: u64, desc: *const u8, rii
     }
     // SAFETY: `n` bytes del sombreador, del `.exe`.
     let cs = unsafe { core::slice::from_raw_parts(cs as *const u8, n) }.to_vec();
+    // N5.5: compilar al CREAR (lo de DXVK: al cargar, no al dibujar).
+    let preparado = bmo_proton_x::dxil::computo::preparar(&cs);
+    if let Err(m) = &preparado {
+        aviso(&alloc::format!("CreateComputePipelineState: {m}; sus Dispatch no se haran"));
+    }
+    // E2.3b: y traducido a x86-64, una vez (lo que no se traduce, por el
+    // interprete: da lo mismo, mas despacio).
+    let nativo = preparado.as_ref().ok().and_then(|p| crate::nativo::registrar_computo(&p.programa));
     let vt = vtabla::<{ com::PSO }>(&[(8, dir!(get_cached_blob))]);
-    let obj = nuevo(com::PSO, vt, Computo { raiz, cs }) as u64;
+    let obj = nuevo(com::PSO, vt, Computo { raiz, cs, preparado, nativo }) as u64;
     // SAFETY: ver `Computos`.
     unsafe { (*COMPUTOS.0.get()).push(obj) };
     dar(pp, obj)
@@ -320,10 +334,35 @@ extern "win64" fn create_query_heap(_this: u64, desc: *const u8, riid: *const Gu
     dar(pp, nuevo(com::CONSULTAS, vt, Consultas { paso, datos: alloc::vec![0; n * paso] }) as u64)
 }
 
-/// Una firma de ordenes indirectas: lo que trae (la casa aun no las corre).
+/// Una firma de ordenes indirectas: el paso de una orden y sus argumentos
+/// (`D3D12_INDIRECT_ARGUMENT_DESC`, 16 B cada uno). Las corre
+/// [`indirecto`] (E2.4, 05-10).
 pub struct Firma {
     pub paso: u32,
     pub argumentos: Vec<u8>,
+}
+
+/// D3D12_INDIRECT_ARGUMENT_TYPE.
+const ARG_DRAW: u32 = 0;
+const ARG_DRAW_INDEXED: u32 = 1;
+const ARG_DISPATCH: u32 = 2;
+const ARG_VERTEX_BUFFER_VIEW: u32 = 3;
+const ARG_INDEX_BUFFER_VIEW: u32 = 4;
+const ARG_CONSTANT: u32 = 5;
+const ARG_CONSTANT_BUFFER_VIEW: u32 = 6;
+const ARG_SHADER_RESOURCE_VIEW: u32 = 7;
+const ARG_UNORDERED_ACCESS_VIEW: u32 = 8;
+
+impl Firma {
+    /// Los argumentos, de 4 en 4 palabras: (tipo, y tres de su union).
+    fn args(&self) -> impl Iterator<Item = [u32; 4]> + '_ {
+        self.argumentos.chunks_exact(16).map(|a| core::array::from_fn(|k| u32::from_le_bytes([a[4 * k], a[4 * k + 1], a[4 * k + 2], a[4 * k + 3]])))
+    }
+
+    /// Si despacha (y entonces va con el estado de computo de la lista).
+    fn despacha(&self) -> bool {
+        self.args().any(|a| a[0] == ARG_DISPATCH)
+    }
 }
 
 /// `CreateCommandSignature(this, desc, raiz, riid, pp)`:
@@ -425,12 +464,15 @@ extern "win64" fn get_type(this: u64) -> u32 {
 
 /// `ClearState(this, pso)`: el estado como recien creada, con ese PSO.
 extern "win64" fn clear_state(this: u64, pso: u64) {
-    let pso = if es_computo(pso) { 0 } else { pso };
-    l(this).estado = Estado { pso, ..Estado::default() };
+    (l(this).estado, l(this).computo) = crate::d3d12::estados_al_empezar(pso);
 }
 
-extern "win64" fn dispatch(_this: u64, _x: u32, _y: u32, _z: u32) {
-    aviso("Dispatch: el computo de D3D12 aun no corre en la casa: se salta");
+/// `Dispatch(this, x, y, z)` (N5.5, 05-10): se APUNTA con el estado de
+/// computo de ahora, y lo corre `computo::despachar` al ejecutar la lista.
+extern "win64" fn dispatch(this: u64, x: u32, y: u32, z: u32) {
+    let l = l(this);
+    let estado = l.computo.clone();
+    l.ordenes.push(Orden::Despachar { estado, grupos: [x, y, z] });
 }
 
 /// `(base, bytes)` del bufer `r`, o `None` si no es un bufer de la casa.
@@ -499,8 +541,10 @@ fn encima(base: &Estado, bundle: &Estado) -> Estado {
     if bundle.topologia != 0 {
         e.topologia = bundle.topologia;
     }
-    if bundle.vertices.va != 0 {
-        e.vertices = bundle.vertices;
+    for (v, b) in e.vertices.iter_mut().zip(&bundle.vertices) {
+        if b.va != 0 {
+            *v = *b;
+        }
     }
     if bundle.indices.va != 0 {
         e.indices = bundle.indices;
@@ -536,13 +580,13 @@ extern "win64" fn execute_bundle(this: u64, b: u64) {
     }
     for o in &bundle.ordenes {
         let o = match o {
-            Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado } => {
+            Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado, primera_instancia } => {
                 let mut e = encima(&l.estado, estado);
                 // Lo que un bundle no puede poner nunca.
                 e.viewport = l.estado.viewport;
                 e.tijera = l.estado.tijera;
                 (e.rtv, e.rtv_otros, e.dsv, e.rtv_sub, e.dsv_sub) = (l.estado.rtv, l.estado.rtv_otros, l.estado.dsv, l.estado.rtv_sub, l.estado.dsv_sub);
-                Orden::Dibujar { estado: e, cuantos: *cuantos, instancias: *instancias, primero: *primero, base: *base, indexado: *indexado }
+                Orden::Dibujar { estado: e, cuantos: *cuantos, instancias: *instancias, primero: *primero, base: *base, indexado: *indexado, primera_instancia: *primera_instancia }
             }
             // Limpiar, copiar y las consultas no se graban en un bundle.
             _ => {
@@ -560,12 +604,37 @@ extern "win64" fn execute_bundle(this: u64, b: u64) {
 const LISTA_DIRECTA: u32 = 0;
 const LISTA_BUNDLE: u32 = 1;
 
-/// Los `SetCompute*`: el computo no corre todavia (Dispatch lo dice), asi
-/// que lo que se le da a su raiz no tiene a quien llegar. Cuatro formas.
-extern "win64" fn de_computo1(_this: u64, _a: u64) {}
-extern "win64" fn de_computo2(_this: u64, _a: u32, _b: u64) {}
-extern "win64" fn de_computo3(_this: u64, _a: u32, _b: u32, _c: u32) {}
-extern "win64" fn de_computo4(_this: u64, _a: u32, _b: u32, _c: *const u8, _d: u32) {}
+/// **Los `SetCompute*`** (N5.5, 05-10): lo mismo que su `SetGraphics*`, pero
+/// sobre el estado de COMPUTO de la lista (en D3D12 son dos raices
+/// distintas). Se cambian de sitio un momento, y el de dibujo hace su trabajo.
+fn en_computo(this: u64, f: impl FnOnce()) {
+    let l = l(this);
+    core::mem::swap(&mut l.estado, &mut l.computo);
+    f();
+    let l = self::l(this);
+    core::mem::swap(&mut l.estado, &mut l.computo);
+}
+
+extern "win64" fn set_compute_root_signature(this: u64, raiz: u64) {
+    en_computo(this, || crate::d3d12::set_graphics_root_signature(this, raiz));
+}
+
+extern "win64" fn set_compute_root_descriptor_table(this: u64, parametro: u32, handle: u64) {
+    en_computo(this, || crate::d3d12::set_graphics_root_descriptor_table(this, parametro, handle));
+}
+
+extern "win64" fn set_compute_root_constant_buffer_view(this: u64, parametro: u32, va: u64) {
+    en_computo(this, || crate::d3d12::set_graphics_root_constant_buffer_view(this, parametro, va));
+}
+
+extern "win64" fn set_compute_root_32bit_constant(this: u64, parametro: u32, valor: u32, desde: u32) {
+    en_computo(this, || root_32bit_constant(this, parametro, valor, desde));
+}
+
+extern "win64" fn set_compute_root_32bit_constants(this: u64, parametro: u32, n: u32, datos: *const u8, desde: u32) {
+    en_computo(this, || root_32bit_constants(this, parametro, n, datos, desde));
+}
+
 
 /// `SetGraphicsRoot32BitConstant(this, parametro, valor, desde)` (N5.2).
 extern "win64" fn root_32bit_constant(this: u64, parametro: u32, valor: u32, desde: u32) {
@@ -598,8 +667,12 @@ fn constantes_de_raiz(this: u64, parametro: u32, desde: u32, valores: &[u32]) {
     }
 }
 
-extern "win64" fn root_descriptor(_this: u64, _parametro: u32, _va: u64) {
-    aviso("SetGraphicsRootShaderResourceView/UnorderedAccessView: el sombreador de la casa aun no los ve");
+/// `SetGraphicsRootShaderResourceView` y `...UnorderedAccessView` (N5.3b,
+/// 05-10): la direccion, en su parametro, como la de un CBV en la raiz (los
+/// de computo, igual, por `set_compute_root_constant_buffer_view`). La lee
+/// quien dibuje o despache (`tuberia::bufer_de_raiz`).
+extern "win64" fn root_vista(this: u64, parametro: u32, va: u64) {
+    crate::d3d12::set_graphics_root_constant_buffer_view(this, parametro, va);
 }
 
 extern "win64" fn so_set_targets(_this: u64, _desde: u32, n: u32, _v: *const u8) {
@@ -608,13 +681,108 @@ extern "win64" fn so_set_targets(_this: u64, _desde: u32, n: u32, _v: *const u8)
     }
 }
 
-extern "win64" fn clear_uav(_this: u64, _gpu: u64, _cpu: u64, _r: u64, _v: *const u32, _n: u32, _rects: *const u8) {
-    aviso("ClearUnorderedAccessView: aun no; el recurso queda como estaba");
+/// `ClearUnorderedAccessViewUint(this, gpu, cpu, recurso, valores, n, rects)`
+/// (N5.3c, 05-10): los bits bajos de cada valor, sin convertir.
+#[allow(clippy::too_many_arguments)]
+extern "win64" fn clear_uav_uint(this: u64, _gpu: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, _rects: *const u8) {
+    apuntar_limpiar_uav(this, cpu, recurso, v, n, true);
+}
+
+/// `ClearUnorderedAccessViewFloat`: los valores son floats, convertidos al
+/// formato de la vista (un UNORM satura).
+#[allow(clippy::too_many_arguments)]
+extern "win64" fn clear_uav_float(this: u64, _gpu: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, _rects: *const u8) {
+    apuntar_limpiar_uav(this, cpu, recurso, v, n, false);
+}
+
+/// Se APUNTA con la ranura de la vista (la del descriptor de CPU, que D3D12
+/// pide en un monton que no ve el sombreador: puede cambiar antes de
+/// ejecutar la lista) y se hace al ejecutarla.
+fn apuntar_limpiar_uav(this: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, crudo: bool) {
+    if cpu == 0 || v.is_null() {
+        aviso("ClearUnorderedAccessView sin descriptor o sin valores: en Windows es un error, y no se hace");
+        return;
+    }
+    // SAFETY: el descriptor de CPU es una ranura de un monton de la casa.
+    let ranura: [u64; 4] = core::array::from_fn(|k| unsafe { (cpu as *const u64).add(k).read() });
+    if ranura[1] != crate::d3d12::DESC_UAV || ranura[0] == 0 || ranura[0] != recurso {
+        aviso("ClearUnorderedAccessView de algo que no es un UAV de ese recurso: en Windows es un error, y no se hace");
+        return;
+    }
+    if n != 0 {
+        aviso("ClearUnorderedAccessView con rectangulos: se limpia la vista entera");
+    }
+    // SAFETY: cuatro valores del `.exe`.
+    let valores = core::array::from_fn(|k| unsafe { v.add(k).read_unaligned() });
+    l(this).ordenes.push(Orden::LimpiarUav { ranura, valores, crudo });
+}
+
+/// **Limpiar un UAV**, al ejecutarse: un bufer (crudo o estructurado, cada
+/// palabra con el primer valor, como dice D3D12; con tipo, cada elemento en
+/// su formato) o el subrecurso de una textura (en como la guarda la casa).
+fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool) {
+    use crate::subrecursos::Almacen;
+    let ((dimension, _, _), _) = crate::d3d12_vistas::leer(r);
+    if dimension == 1 {
+        let b = crate::d3d12_vistas::leer_bufer(r);
+        let Some(base) = crate::d3d12::base_de_bufer(r[0]) else { return };
+        let elemento = if b.crudo || b.paso != 0 {
+            v[0].to_le_bytes().to_vec()
+        } else {
+            match bmo_proton_x::formato_ia::empaquetar(b.formato, v, crudo) {
+                Some(e) => e,
+                None => {
+                    aviso("ClearUnorderedAccessView de un bufer con un formato que la casa aun no escribe: no se hace");
+                    return;
+                }
+            }
+        };
+        let medida = if b.paso != 0 { b.paso as u64 } else { elemento.len() as u64 };
+        let Some(bytes) = crate::tuberia::resolver_hasta(base + b.primero * medida, (b.elementos as u64 * medida) as usize) else { return };
+        // SAFETY: la memoria de un bufer de la casa (`resolver_hasta` dijo
+        // cuanta); la cola es sincrona: nadie mas la toca ahora.
+        let bytes = unsafe { core::slice::from_raw_parts_mut(bytes.as_ptr() as *mut u8, bytes.len()) };
+        for x in bytes.chunks_exact_mut(elemento.len()) {
+            x.copy_from_slice(&elemento);
+        }
+        return;
+    }
+    // SAFETY: un Recurso de la casa (lo dice su ranura).
+    let formato = unsafe { de::<Recurso>(r[0]) }.formato;
+    let texel = match Almacen::de(formato) {
+        Almacen::Rgba8 | Almacen::Bgra8 => {
+            let f = if Almacen::de(formato) == Almacen::Bgra8 { 87 } else { 28 };
+            let e = bmo_proton_x::formato_ia::empaquetar(f, v, crudo).unwrap_or_default();
+            u32::from_le_bytes([e[0], e[1], e[2], e[3]])
+        }
+        Almacen::Flotante => v[0],
+        Almacen::Bloques(_) => {
+            aviso("ClearUnorderedAccessView de una textura de bloques: en Windows es un error");
+            return;
+        }
+    };
+    if r[3] == 0 {
+        crate::tuberia::olvidar_limpieza(r[0]);
+    }
+    match crate::tuberia::destino(r[0], r[3]) {
+        Some((px, _, _)) => px.fill(texel),
+        None => aviso("ClearUnorderedAccessView de un subrecurso que la textura no tiene"),
+    }
 }
 
 extern "win64" fn discard_resource(_this: u64, _r: u64, _region: *const u8) {}
 
-extern "win64" fn begin_query(_this: u64, _monton: u64, _tipo: u32, _i: u32) {}
+/// `BeginQuery(this, monton, tipo, indice)` (E2.7): las de OCLUSION se
+/// apuntan y cuentan al ejecutarse (`consultas`); las de estadisticas, aun
+/// no (dan ceros).
+extern "win64" fn begin_query(this: u64, monton: u64, tipo: u32, i: u32) {
+    match tipo {
+        _ if monton == 0 => aviso("BeginQuery sin monton de consultas: en Windows es un error"),
+        crate::consultas::OCLUSION | crate::consultas::BINARIA => l(this).ordenes.push(Orden::Empezar { monton, indice: i }),
+        2 => aviso("BeginQuery de un sello de tiempo: en Windows es un error (solo lleva EndQuery)"),
+        _ => {}
+    }
+}
 
 /// `EndQuery(this, monton, tipo, indice)`: se APUNTA; el resultado se pone al
 /// ejecutarse (un sello de tiempo, entonces).
@@ -631,15 +799,126 @@ extern "win64" fn resolve_query_data(this: u64, monton: u64, _tipo: u32, desde: 
     }
 }
 
-extern "win64" fn set_predication(_this: u64, bufer: u64, _off: u64, _op: u32) {
-    if bufer != 0 {
-        aviso("SetPredication: la casa dibuja siempre (sin predicacion)");
+/// `SetPredication(this, bufer, desplazamiento, op)` (E2.7): se APUNTA; su
+/// u64 se lee al ejecutarse (`consultas`). Lo que Microsoft valida, igual:
+/// un bufer, el desplazamiento multiplo de 8 y dentro, un op de los dos, y
+/// nunca en un bundle.
+extern "win64" fn set_predication(this: u64, b: u64, off: u64, op: u32) {
+    let lista = l(this);
+    if lista.tipo == LISTA_BUNDLE {
+        aviso("SetPredication en un bundle: en Windows es un error, y no se hace");
+        return;
+    }
+    if b == 0 {
+        lista.ordenes.push(Orden::Predicar { dir: 0, op });
+        return;
+    }
+    match bufer(b) {
+        Some((base, bytes)) if op <= 1 && off % 8 == 0 && off.checked_add(8).is_some_and(|f| f <= bytes) => lista.ordenes.push(Orden::Predicar { dir: base + off, op }),
+        _ => aviso("SetPredication de algo que no es un bufer, fuera de el, sin alinear a 8 o con un op que no existe: en Windows es un error, y no se hace"),
     }
 }
 
+/// `ExecuteIndirect(this, firma, max, args, off, cuenta, off_cuenta)` (E2.4,
+/// 05-10; la otra mitad de N5.17): se APUNTA con el estado de ahora (el de
+/// computo si la firma despacha), y [`indirecto`] lo corre al ejecutar la
+/// lista, leyendo entonces los argumentos y la cuenta.
 #[allow(clippy::too_many_arguments)]
-extern "win64" fn execute_indirect(_this: u64, _firma: u64, _max: u32, _args: u64, _off: u64, _cuenta: u64, _off_cuenta: u64) {
-    aviso("ExecuteIndirect: las ordenes indirectas aun no corren en la casa: se saltan");
+extern "win64" fn execute_indirect(this: u64, firma: u64, max: u32, args: u64, off: u64, cuenta: u64, off_cuenta: u64) {
+    if firma == 0 || args == 0 {
+        aviso("ExecuteIndirect sin firma o sin bufer de argumentos: en Windows es un error, y no se hace");
+        return;
+    }
+    let l = l(this);
+    // SAFETY: una firma de la casa (`CreateCommandSignature`).
+    let estado = if unsafe { de::<Firma>(firma) }.despacha() { l.computo.clone() } else { l.estado.clone() };
+    l.ordenes.push(Orden::Indirecto { estado, firma, max, args, args_off: off, cuenta, cuenta_off: off_cuenta });
+}
+
+/// `n` bytes desde `off` del bufer `r` (un Recurso de la casa), si caben.
+fn bytes_de(r: u64, off: u64, n: usize) -> Option<&'static [u8]> {
+    let base = crate::d3d12::base_de_bufer(r)?;
+    crate::tuberia::resolver_hasta(base + off, n).filter(|b| b.len() == n)
+}
+
+/// **Correr un ExecuteIndirect** (E2.4): cuantas ordenes diga la cuenta (o
+/// `max` sin cuenta), cada una `paso` bytes desde `args_off`, y cada
+/// argumento en su orden: los que CAMBIAN el estado (un CBV, constantes,
+/// las vistas de vertices e indices) siguen puestos para las de detras, y
+/// los que DIBUJAN o DESPACHAN lo hacen con el de ese momento.
+#[allow(clippy::too_many_arguments)]
+fn indirecto(estado: &Estado, firma: u64, max: u32, args: u64, args_off: u64, cuenta: u64, cuenta_off: u64) {
+    // SAFETY: una firma de la casa (la apunto `execute_indirect`).
+    let f = unsafe { de::<Firma>(firma) };
+    let n = if cuenta == 0 {
+        max
+    } else {
+        match bytes_de(cuenta, cuenta_off, 4) {
+            Some(b) => max.min(u32::from_le_bytes([b[0], b[1], b[2], b[3]])),
+            None => {
+                aviso("ExecuteIndirect: la cuenta no cae en un bufer de la casa: no se hace");
+                return;
+            }
+        }
+    };
+    let mut e = estado.clone();
+    for k in 0..n as u64 {
+        let mut o = args_off + k * f.paso as u64;
+        for a in f.args() {
+            let palabras = |o: u64, n: usize| bytes_de(args, o, 4 * n).map(|b| (0..n).map(|i| u32::from_le_bytes([b[4 * i], b[4 * i + 1], b[4 * i + 2], b[4 * i + 3]])).collect::<Vec<u32>>());
+            let medida = match a[0] {
+                ARG_DRAW | ARG_VERTEX_BUFFER_VIEW | ARG_INDEX_BUFFER_VIEW => 16,
+                ARG_DRAW_INDEXED => 20,
+                ARG_DISPATCH => 12,
+                ARG_CONSTANT => 4 * a[3] as u64,
+                ARG_CONSTANT_BUFFER_VIEW | ARG_SHADER_RESOURCE_VIEW | ARG_UNORDERED_ACCESS_VIEW => 8,
+                t => {
+                    aviso(&alloc::format!("ExecuteIndirect: un argumento de tipo {t} (rayos o malla): todavia no; se para"));
+                    return;
+                }
+            };
+            let Some(v) = palabras(o, medida as usize / 4) else {
+                aviso("ExecuteIndirect: los argumentos se salen de su bufer: se para");
+                return;
+            };
+            match a[0] {
+                ARG_DRAW => crate::tuberia::ejecutar_dibujo(&e, v[0], v[1], v[2], 0, false, v[3]),
+                ARG_DRAW_INDEXED => crate::tuberia::ejecutar_dibujo(&e, v[0], v[1], v[2], v[3] as i32, true, v[4]),
+                ARG_DISPATCH => crate::computo::despachar(&e, [v[0], v[1], v[2]]),
+                ARG_VERTEX_BUFFER_VIEW | ARG_INDEX_BUFFER_VIEW => {
+                    let b: Vec<u8> = v.iter().flat_map(|x| x.to_le_bytes()).collect();
+                    // SAFETY: 16 bytes de una vista (direccion, bytes, paso o formato).
+                    let vista = unsafe { crate::d3d12::vista(b.as_ptr()) };
+                    match (a[0], e.vertices.get_mut(a[1] as usize)) {
+                        (ARG_INDEX_BUFFER_VIEW, _) => e.indices = vista,
+                        (_, Some(r)) => *r = vista,
+                        (_, None) => aviso("ExecuteIndirect: una vista de vertices mas alla de la ranura 15: en Windows es un error"),
+                    }
+                }
+                ARG_CONSTANT => {
+                    if e.raiz == 0 {
+                        aviso("ExecuteIndirect: constantes sin root signature puesta: se tiran");
+                    } else {
+                        // SAFETY: una RootSignature de la casa (los Set* solo guardan de esas).
+                        let firma_raiz = unsafe { &de::<crate::tuberia::RootSignature>(e.raiz).firma };
+                        if let Err(m) = crate::cbuffers::poner(&mut e, firma_raiz, a[1] as usize, a[2] as usize, &v) {
+                            aviso(m);
+                        }
+                    }
+                }
+                ARG_CONSTANT_BUFFER_VIEW => match e.cbv.get_mut(a[1] as usize) {
+                    Some(c) => *c = v[0] as u64 | (v[1] as u64) << 32,
+                    None => aviso("ExecuteIndirect: un CBV a un parametro mas alla de los que la casa guarda"),
+                },
+                // N5.3b: un SRV o un UAV en la raiz, como un CBV.
+                _ => match e.cbv.get_mut(a[1] as usize) {
+                    Some(c) => *c = v[0] as u64 | (v[1] as u64) << 32,
+                    None => aviso("ExecuteIndirect: un SRV o un UAV a un parametro mas alla de los que la casa guarda"),
+                },
+            }
+            o += medida;
+        }
+    }
 }
 
 /// **Lo que corre una orden de la tanda 47** (lo llama `d3d12::ejecutar_listas`).
@@ -647,12 +926,16 @@ pub(crate) fn ejecutar(o: &Orden) {
     match *o {
         // SAFETY: tramos comprobados al apuntar, de buferes de la casa (que
         // no se liberan).
-        Orden::Bytes { dst, src, n } => unsafe { core::ptr::copy(src as *const u8, dst as *mut u8, n as usize) },
+        Orden::Bytes { dst, src, n } | Orden::Atomica { dst, src, n } => unsafe { core::ptr::copy(src as *const u8, dst as *mut u8, n as usize) },
         Orden::Entero { dst, src } => copiar_entero(dst, src),
         Orden::Consulta { monton, indice, tipo } => consulta(monton, indice, tipo),
+        Orden::Empezar { monton, indice } => crate::consultas::abrir(monton, indice),
         Orden::Resolver { monton, desde, n, bufer: b, off } => resolver(monton, desde, n, b, off),
         // SAFETY: comprobado al apuntar: cuatro bytes de un bufer de la casa.
         Orden::Escribir { dst, valor } => unsafe { (dst as *mut u32).write_unaligned(valor) },
+        Orden::LimpiarUav { ref ranura, valores, crudo } => limpiar_uav(ranura, valores, crudo),
+        Orden::Despachar { ref estado, grupos } => crate::computo::despachar(estado, grupos),
+        Orden::Indirecto { ref estado, firma, max, args, args_off, cuenta, cuenta_off } => indirecto(estado, firma, max, args, args_off, cuenta, cuenta_off),
         _ => {}
     }
 }
@@ -693,9 +976,12 @@ fn consulta(monton: u64, i: u32, tipo: u32) {
     };
     r.fill(0);
     let v: u64 = match tipo {
-        // OCCLUSION y BINARY: VISIBLE. Un 0 haria que el motor no dibujara
-        // lo que no sabe si se ve.
-        0 | 1 => 1,
+        // E2.7: lo que contaron sus dibujos. Sin su BeginQuery, VISIBLE: un 0
+        // haria que el motor no dibujara lo que no se sabe si se ve.
+        crate::consultas::OCLUSION | crate::consultas::BINARIA => crate::consultas::cerrar(monton, i, tipo).unwrap_or_else(|| {
+            aviso("EndQuery de una consulta de oclusion sin su BeginQuery en la misma lista: en Windows es un error; se dice VISIBLE");
+            1
+        }),
         2 => (crate::plataforma().ahora_ns)(),
         _ => 0,
     };

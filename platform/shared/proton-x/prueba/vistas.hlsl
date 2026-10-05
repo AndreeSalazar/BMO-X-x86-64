@@ -1,34 +1,42 @@
-// 02-10: las vistas que no son una 2D de nivel 0 (las que crea Cyberpunk).
-Texture2DArray<float4> capas : register(t0);
-TextureCube<float4> cubo : register(t1);
-Texture3D<float4> volumen : register(t2);
-Texture2D<float4> mips : register(t3);
-Texture2D<uint4> enteros : register(t4);
-SamplerState punto : register(s0);
+// vistas.hlsl -- los sombreadores de vistas.exe (N5.3b y N5.3c de
+// docs/plan/PLAN_LAS_TRES_GRANDES.md, 05-10): las vistas en la RAIZ y los
+// UAV de TEXTURA y con tipo. Cuentas exactas: enteros, y colores k / 255.
 
-struct E { float4 pos : SV_Position; float4 c : TEXCOORD0; nointerpolation int4 i : TEXCOORD1; };
-struct S {
-    float4 a : SV_Target0;
-    float4 b : SV_Target1;
-    float4 v : SV_Target2;
-    float4 l : SV_Target3;
-    float4 d : SV_Target4;
-    float4 m : SV_Target5;
-    float4 o : SV_Target6;
-    float4 n : SV_Target7;
+// A: todo en la RAIZ. Un SRV estructurado de 32 bytes por elemento (el paso
+// sale de los metadatos: la vista de la raiz no lo lleva), un UAV
+// estructurado de 8 y uno crudo.
+struct Par {
+    float4 a;
+    float4 b;
 };
+StructuredBuffer<Par> pares : register(t0);
+RWStructuredBuffer<uint2> sumas : register(u0);
+RWByteAddressBuffer crudo : register(u1);
 
-S pixel(E e) {
-    S s;
-    s.a = capas.Sample(punto, e.c.xyz);
-    s.b = cubo.Sample(punto, e.c.xyz);
-    s.v = volumen.Sample(punto, e.c.xyz);
-    s.l = mips.SampleLevel(punto, e.c.xy, e.c.w);
-    s.d = mips.Load(int3(e.i.xy, e.i.z));
-    uint w, h, n;
-    mips.GetDimensions(e.i.w, w, h, n);
-    s.m = float4(w, h, n, 0);
-    s.o = mips.Sample(punto, e.c.xy, int2(1, -1));
-    s.n = float4(enteros.Load(int3(e.i.xy, 0)));
-    return s;
+[numthreads(8, 1, 1)]
+void CSRaiz(uint i : SV_DispatchThreadID) {
+    Par p = pares[i];
+    sumas[i] = uint2(p.a.x + p.b.y, p.a.w * 2.0);
+    crudo.Store(i * 4, i * 3 + 1);
+}
+
+// B: un RWTexture2D de una tabla, con sus medidas de GetDimensions.
+RWTexture2D<float4> imagen : register(u0, space1);
+
+[numthreads(4, 4, 1)]
+void CSImagen(uint2 xy : SV_DispatchThreadID) {
+    uint w, h;
+    imagen.GetDimensions(w, h);
+    imagen[xy] = float4(xy.x / (float)(w - 1), xy.y / (float)(h - 1), 0.5, 1.0);
+}
+
+// C: la misma textura LEIDA como UAV, a un RWBuffer con tipo (la vista es
+// R8G8B8A8_UNORM: el elemento se escribe en su formato).
+RWTexture2D<float4> fuente : register(u0, space2);
+RWBuffer<float4> destino : register(u1, space2);
+
+[numthreads(4, 4, 1)]
+void CSLee(uint2 xy : SV_DispatchThreadID) {
+    float4 c = fuente[xy];
+    destino[xy.y * 16 + xy.x] = c.bgra;
 }

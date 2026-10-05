@@ -18,6 +18,8 @@
 //!                  dentro de SU elemento
 //!    crudo         ByteAddressBuffer: 4 palabras desde el byte i
 //!    fuera         lo que cae fuera de la vista se lee como 0
+//!    textura       N5.3c (05-10), RWTexture2D: el texel (x, y), en el
+//!                  formato de la vista (`paso` es el ancho)
 //! ```
 
 /// **Como se direcciona** un bufer: lo dice el sombreador (su `ResKind`).
@@ -26,6 +28,10 @@ pub enum Modo {
     Tipado,
     Estructurado,
     Crudo,
+    /// N5.3c (05-10): un UAV de TEXTURA de una o dos dimensiones
+    /// (`RWTexture2D<float4>`): `i` es la x y `desp` la y; el ancho va en
+    /// `paso` y los texels (ancho por alto) en `elementos`.
+    Textura,
 }
 
 /// **Un bufer, visto por un SRV**: sus bytes desde el primer elemento de la
@@ -59,6 +65,10 @@ impl Bufer<'_> {
     /// bits; un entero, el).
     pub fn cargar(&self, modo: Modo, i: u32, desp: u32) -> [u32; 4] {
         match modo {
+            Modo::Textura => match self.texel(i, desp) {
+                Some(t) => self.cargar(Modo::Tipado, t, 0),
+                None => [0; 4],
+            },
             Modo::Tipado => {
                 let Some(f) = crate::formato_ia::forma(self.formato) else { return [0; 4] };
                 let (n, o) = (f.bytes as usize, i as usize * f.bytes as usize);
@@ -76,11 +86,131 @@ impl Bufer<'_> {
         }
     }
 
-    /// **`GetDimensions`**: los elementos (en uno crudo, los bytes).
+    /// El texel `(x, y)` de una textura, si cae dentro.
+    fn texel(&self, x: u32, y: u32) -> Option<u32> {
+        let ancho = self.paso.max(1);
+        (x < self.paso && y < self.elementos / ancho).then(|| y * ancho + x)
+    }
+
+    /// **`GetDimensions`**: los elementos (en uno crudo, los bytes; en una
+    /// textura, su ancho y su alto).
     pub fn medidas(&self, modo: Modo) -> [u32; 4] {
         match modo {
+            Modo::Textura => [self.paso, self.elementos / self.paso.max(1), 0, 0],
             Modo::Crudo => [self.elementos.saturating_mul(4), 0, 0, 0],
             _ => [self.elementos, 0, 0, 0],
+        }
+    }
+}
+
+/// **Un bufer visto por un UAV** (N5.5, 05-10): sus bytes, que el computo
+/// LEE y ESCRIBE (`RWStructuredBuffer`, `RWByteAddressBuffer`, `RWBuffer`).
+#[derive(Debug)]
+pub struct Uav<'a> {
+    pub bytes: &'a mut [u8],
+    /// El DXGI_FORMAT de una vista con tipo (0 si no tiene).
+    pub formato: u32,
+    /// El paso de una vista estructurada (0 si no lo es).
+    pub paso: u32,
+    /// Los elementos de la vista (en una cruda, palabras de 4 bytes).
+    pub elementos: u32,
+    /// E2.4 (05-10): su CONTADOR oculto (`CreateUnorderedAccessView` con
+    /// un `pCounterResource`): lo que mueven `Append`, `Consume`,
+    /// `IncrementCounter` y `DecrementCounter`.
+    pub contador: Option<&'a mut u32>,
+}
+
+/// Los formatos con 32 bits por canal (float, uint y sint de 4, 3, 2 y 1
+/// canales): los que un `RWBuffer` con tipo escribe aqui tal cual, palabra a
+/// palabra. Los demas (UNORM, 16 bits...) piden convertir: todavia no.
+fn canales_de_32(formato: u32) -> Option<usize> {
+    match formato {
+        2..=4 => Some(4),
+        6..=8 => Some(3),
+        16..=18 => Some(2),
+        41..=43 => Some(1),
+        _ => None,
+    }
+}
+
+impl Uav<'_> {
+    /// **`IncrementCounter` (`inc` 1) y `DecrementCounter` (-1)**: suben o
+    /// bajan el contador y devuelven, como D3D, el de ANTES al subir y el de
+    /// DESPUES al bajar. Sin contador, 0 (y nada se mueve).
+    pub fn contar(&mut self, inc: i8) -> u32 {
+        match self.contador.as_deref_mut() {
+            Some(c) => {
+                let antes = *c;
+                *c = c.wrapping_add(inc as i32 as u32);
+                if inc >= 0 {
+                    antes
+                } else {
+                    *c
+                }
+            }
+            None => 0,
+        }
+    }
+
+    /// Lo que se lee de el, con las reglas de un SRV ([`Bufer::cargar`]).
+    pub fn cargar(&self, modo: Modo, i: u32, desp: u32) -> [u32; 4] {
+        Bufer { bytes: self.bytes, formato: self.formato, paso: self.paso, elementos: self.elementos }.cargar(modo, i, desp)
+    }
+
+    /// **`Store`**: los canales de `v` que dice `mascara` (bit 0 el primero),
+    /// en el elemento `i` (en uno crudo, el byte `i`) y `desp` bytes dentro de
+    /// el en uno estructurado. Fuera de la vista no se escribe nada (D3D12:
+    /// una escritura fuera de un UAV se pierde).
+    pub fn escribir(&mut self, modo: Modo, i: u32, desp: u32, v: [u32; 4], mascara: u8) {
+        let vista = Bufer { bytes: self.bytes, formato: self.formato, paso: self.paso, elementos: self.elementos };
+        // N5.3c: una textura es el tipado de su texel; un tipado que no es de
+        // 32 bits por canal, su elemento ENTERO en su formato (`empaquetar`,
+        // con lo que la mascara deja de antes).
+        let (modo, i) = match modo {
+            Modo::Textura => match vista.texel(i, desp) {
+                Some(t) => (Modo::Tipado, t),
+                None => return,
+            },
+            m => (m, i),
+        };
+        if modo == Modo::Tipado && canales_de_32(self.formato).is_none() {
+            let Some(f) = crate::formato_ia::forma(self.formato) else { return };
+            let n = f.bytes as usize;
+            let o = i as usize * n;
+            if i >= self.elementos || o + n > self.bytes.len() {
+                return;
+            }
+            let antes = vista.cargar(Modo::Tipado, i, 0);
+            let w: [u32; 4] = core::array::from_fn(|k| if mascara & (1 << k) != 0 { v[k] } else { antes[k] });
+            let enteros = matches!(f.clase, crate::formato_ia::Clase::Uint | crate::formato_ia::Clase::Sint);
+            if let Some(e) = crate::formato_ia::empaquetar(self.formato, w, enteros) {
+                self.bytes[o..o + n].copy_from_slice(&e);
+            }
+            return;
+        }
+        let (desde, hasta, canales) = match modo {
+            Modo::Textura => return,
+            Modo::Estructurado if self.paso == 0 || i >= self.elementos => return,
+            Modo::Estructurado => {
+                let base = i as u64 * self.paso as u64;
+                (base + desp as u64, base + self.paso as u64, 4)
+            }
+            Modo::Crudo => (i as u64 + desp as u64, self.elementos as u64 * 4, 4),
+            Modo::Tipado => {
+                let Some(n) = canales_de_32(self.formato) else { return };
+                if i >= self.elementos {
+                    return;
+                }
+                let base = i as u64 * 4 * n as u64;
+                (base, base + 4 * n as u64, n)
+            }
+        };
+        let hasta = hasta.min(self.bytes.len() as u64);
+        for (k, palabra) in v.iter().enumerate().take(canales) {
+            let o = desde + 4 * k as u64;
+            if mascara & (1 << k) != 0 && o + 4 <= hasta {
+                self.bytes[o as usize..o as usize + 4].copy_from_slice(&palabra.to_le_bytes());
+            }
         }
     }
 }
@@ -92,6 +222,21 @@ mod pruebas {
 
     fn bytes(v: &[u32]) -> Vec<u8> {
         v.iter().flat_map(|x| x.to_le_bytes()).collect()
+    }
+
+    #[test]
+    fn un_uav_escribe_lo_de_su_mascara_y_nada_fuera_de_su_vista() {
+        let mut b = bytes(&[0; 8]);
+        let mut u = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 2, contador: None };
+        u.escribir(Modo::Estructurado, 1, 0, [1, 2, 3, 4], 0b0101);
+        u.escribir(Modo::Estructurado, 2, 0, [9; 4], 0xF); // fuera: se pierde
+        u.escribir(Modo::Estructurado, 0, 8, [7, 8, 9, 9], 0xF); // del 8 al 16: dos
+        assert_eq!(u.cargar(Modo::Estructurado, 1, 0), [1, 0, 3, 0]);
+        assert_eq!(u.cargar(Modo::Estructurado, 0, 0), [0, 0, 7, 8], "no pisa el elemento de al lado");
+        let mut c = bytes(&[0; 4]);
+        let mut t = Uav { bytes: &mut c, formato: 41, paso: 0, elementos: 4, contador: None }; // R32_FLOAT
+        t.escribir(Modo::Tipado, 2, 0, [5, 6, 7, 8], 0xF);
+        assert_eq!(t.cargar(Modo::Crudo, 8, 0), [5, 0, 0, 0], "un R32: una palabra por elemento");
     }
 
     #[test]
@@ -127,5 +272,20 @@ mod pruebas {
         let c = [0u8, 255, 0, 255];
         let u = Bufer { bytes: &c, formato: 28, paso: 0, elementos: 1 };
         assert_eq!(u.cargar(Modo::Tipado, 0, 0), [0.0f32, 1.0, 0.0, 1.0].map(f32::to_bits));
+    }
+
+    /// E2.4: el contador sube devolviendo el de antes, baja devolviendo el
+    /// de despues; sin contador, 0.
+    #[test]
+    fn el_contador_de_un_uav_sube_y_baja_como_en_d3d() {
+        let mut b = bytes(&[0; 4]);
+        let mut c = 5u32;
+        let mut u = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 1, contador: Some(&mut c) };
+        assert_eq!((u.contar(1), u.contar(1)), (5, 6));
+        assert_eq!(u.contar(-1), 6, "bajar: el de despues");
+        drop(u);
+        assert_eq!(c, 6);
+        let mut sin = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 1, contador: None };
+        assert_eq!(sin.contar(1), 0);
     }
 }

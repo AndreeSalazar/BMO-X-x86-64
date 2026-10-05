@@ -25,6 +25,8 @@
 //!    B8G8R8A8                se da la vuelta: el sombreador ve RGBA
 //! ```
 
+use alloc::vec::Vec;
+
 /// Como se lee cada componente.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Clase {
@@ -202,10 +204,106 @@ pub fn leer(formato: u32, v: &[u8]) -> [f32; 4] {
     x
 }
 
+/// Un float a half (IEEE 754 de 16 bits), redondeando al PAR, como D3D.
+pub fn a_half(x: f32) -> u16 {
+    let b = x.to_bits();
+    let signo = ((b >> 16) & 0x8000) as u16;
+    let e = ((b >> 23) & 0xFF) as i32;
+    let m = b & 0x7F_FFFF;
+    if e == 0xFF {
+        // Infinito, o NaN (con un bit de mantisa, que siga siendo NaN).
+        return signo | 0x7C00 | if m != 0 { 0x200 | (m >> 13) as u16 } else { 0 };
+    }
+    let e = e - 127 + 15;
+    if e >= 0x1F {
+        return signo | 0x7C00;
+    }
+    // Normal, o subnormal (con el 1 escondido a la vista y corrido de mas).
+    let (mant, corre) = if e <= 0 { (m | 0x80_0000, (14 - e) as u32) } else { (m, 13) };
+    if corre > 24 {
+        return signo;
+    }
+    let base = if e <= 0 { 0 } else { (e as u32) << 10 };
+    let resto = mant & ((1 << corre) - 1);
+    let mitad = 1 << (corre - 1);
+    let mut h = base + (mant >> corre);
+    if resto > mitad || (resto == mitad && h & 1 != 0) {
+        h += 1;
+    }
+    signo | h as u16
+}
+
+/// **Un elemento en su formato** (N5.3c, 05-10, lo de `ClearUnorderedAccessView`):
+/// lo contrario de [`leer`]. `v` trae un valor por canal: con `crudo` (la
+/// version Uint de D3D12), los bits bajos de cada uno tal cual, sin
+/// convertir; si no (la Float), los bits de un f32 convertidos a la clase
+/// del formato. `None` si el formato no es uno de estos (o es de floats de
+/// 11 y 10 bits: todavia no).
+pub fn empaquetar(formato: u32, v: [u32; 4], crudo: bool) -> Option<Vec<u8>> {
+    let f = forma(formato)?;
+    let mut v = v;
+    if f.bgra {
+        v.swap(0, 2);
+    }
+    let (mut todo, mut desde) = (0u128, 0u32);
+    for c in 0..4 {
+        let n = f.bits[c] as u32;
+        if n == 0 {
+            continue;
+        }
+        let mascara = if n == 32 { u32::MAX } else { (1u32 << n) - 1 };
+        let x = f32::from_bits(v[c]);
+        let bits = if crudo {
+            v[c] & mascara
+        } else {
+            match (f.clase, n) {
+                (Clase::Float, 32) => v[c],
+                (Clase::Float, 16) => a_half(x) as u32,
+                (Clase::Float, _) => return None,
+                // Saturar (NaN es 0), por el maximo y redondear.
+                (Clase::Unorm, _) => (if x > 0.0 { x.min(1.0) } else { 0.0 } * mascara as f32 + 0.5) as u32,
+                (Clase::Snorm, _) => {
+                    let m = (mascara >> 1) as f32;
+                    let y = if x.is_nan() { 0.0 } else { x.clamp(-1.0, 1.0) * m };
+                    (if y < 0.0 { y - 0.5 } else { y + 0.5 }) as i32 as u32 & mascara
+                }
+                (Clase::Uint, _) => (if x > 0.0 { x } else { 0.0 } as u64).min(mascara as u64) as u32,
+                (Clase::Sint, _) => {
+                    let tope = (mascara >> 1) as i64;
+                    (x as i64).clamp(-tope - 1, tope) as u32 & mascara
+                }
+            }
+        };
+        todo |= (bits as u128) << desde;
+        desde += n;
+    }
+    Some(todo.to_le_bytes()[..f.bytes as usize].to_vec())
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
+    use alloc::vec;
     use alloc::vec::Vec;
+
+    #[test]
+    fn empaquetar_es_lo_contrario_de_leer() {
+        let f = |x: [f32; 4]| x.map(f32::to_bits);
+        // R8G8B8A8_UNORM (28): saturar y redondear; B8G8R8A8 (87): al reves.
+        assert_eq!(empaquetar(28, f([1.0, 0.5, -3.0, 2.0]), false), Some(vec![255, 128, 0, 255]));
+        assert_eq!(empaquetar(87, f([1.0, 0.5, 0.0, 1.0]), false), Some(vec![0, 128, 255, 255]));
+        // R16G16B16A16_FLOAT (10): ida y vuelta exacta en lo que cabe.
+        let h = empaquetar(10, f([1.5, -0.25, 65504.0, 0.0]), false).unwrap();
+        assert_eq!(leer(10, &h), [1.5, -0.25, 65504.0, 0.0]);
+        assert_eq!(a_half(1.0 + 1.0 / 2048.0), 0x3C00, "empate al par: abajo");
+        assert_eq!(a_half(1.0 + 3.0 / 2048.0), 0x3C02, "empate al par: arriba");
+        assert_eq!(a_half(1e-7), 0x0002, "subnormal");
+        // La Uint: los bits bajos, sin convertir (R8G8B8A8_UINT 30).
+        assert_eq!(empaquetar(30, [0x1FF, 2, 3, 4], true), Some(vec![0xFF, 2, 3, 4]));
+        // R32_UINT (42) y R32_FLOAT (41).
+        assert_eq!(empaquetar(42, [0xDEAD_BEEF, 0, 0, 0], true), Some(0xDEAD_BEEFu32.to_le_bytes().to_vec()));
+        assert_eq!(empaquetar(41, f([2.5, 0.0, 0.0, 0.0]), false), Some(2.5f32.to_le_bytes().to_vec()));
+    }
 
     #[test]
     fn floats_de_32_como_siempre() {

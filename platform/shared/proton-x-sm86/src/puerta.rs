@@ -86,6 +86,10 @@ fn bytes(codigo: &[(u64, u64)]) -> Vec<u8> {
 
 /// **Los cuerpos de un PSO**: el emisor, con el ABI de registros.
 pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
+    // E2.3b: el sombreador de geometria corre en la CPU (la 3060, todavia no).
+    if en.gs.is_some() {
+        return Err(NoVa::Entrada("un sombreador de geometria"));
+    }
     let ev = emitir_con(&en.vs, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor("vertice", e))?;
     if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. })) {
         return Err(NoVa::Emisor("vertice", crate::NoEmite::Operacion(0)));
@@ -290,6 +294,15 @@ impl Puerta {
     /// **La receta de este lote**, en `self.caja[..n]`: `Ok(n)`, o por que
     /// no va a la 3060.
     pub fn preparar(&mut self, l: &Lote, b: Blanco) -> Result<usize, String> {
+        // E2.7: con una consulta de oclusion abierta hay que CONTAR los
+        // pixeles que pasan, y la 3060 aun no los cuenta: por la CPU.
+        if l.oclusion {
+            return Err(String::from("hay una consulta de oclusion abierta: la 3060 no cuenta los pixeles que pasan todavia"));
+        }
+        // N5.13: la receta lleva UNA instancia y los elementos por vertice.
+        if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {
+            return Err(String::from("el lote dibuja varias instancias o lee datos por instancia: la 3060 no lo sabe todavia"));
+        }
         // N5.11: la 3060 aun no mezcla (ni enmascara): ese lote, por la CPU.
         if !l.reglas.mezcla.trivial() {
             return Err(String::from("el lote mezcla (o escribe solo algunos canales): la 3060 no lo sabe todavia"));

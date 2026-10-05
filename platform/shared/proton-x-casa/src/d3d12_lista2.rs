@@ -66,7 +66,7 @@ fn l<'a>(this: u64) -> &'a mut Lista {
 fn copia(this: u64, dst: u64, desde_dst: u64, src: u64, desde_src: u64, n: u64) {
     match (d3d12::base_de_bufer(dst), d3d12::base_de_bufer(src)) {
         (Some(d), Some(s)) if crate::tuberia::dentro_de_bufer(d + desde_dst, n as usize) && crate::tuberia::dentro_de_bufer(s + desde_src, n as usize) => {
-            l(this).ordenes.push(Orden::Bytes { dst: d + desde_dst, src: s + desde_src, n });
+            l(this).ordenes.push(Orden::Atomica { dst: d + desde_dst, src: s + desde_src, n });
         }
         _ => aviso("AtomicCopyBuffer: fuera de un bufer de la casa"),
     }

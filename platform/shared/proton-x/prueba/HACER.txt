@@ -2135,3 +2135,208 @@ Reproducible (comprobado dos veces), sin rutas. sha256:
 `dxc -dumpbin`: dos createHandle con el indice calculado (%7 y %16), de los
 rangos 0 (m, t5 space1, unbounded) y 1 (f, t1, 3). El banco
 (`pruebas_espacios.rs`) lo corre con cuatro pares (i, j).
+
+computo.dxil -- un sombreador de COMPUTO con memoria compartida (05-10)
+
+N5.5 en el crate puro: `computo.hlsl` (aqui al lado), [numthreads(64, 1,
+1)]: cada hilo copia su elemento de un StructuredBuffer a la memoria
+COMPARTIDA del grupo (groupshared, addrspace 3), espera en la barrera
+(GroupMemoryBarrierWithGroupSync) y escribe en un RWStructuredBuffer el de
+su espejo (63 - gi) por la escala del cbuffer, con grupo * 1000 + hilo en la
+w; los de dt.x >= n no escriben. Con el DXC de la nube (v1.8.2505,
+9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSMain -Fo computo.dxil computo.hlsl
+
+Reproducible (comprobado dos veces), sin rutas. sha256:
+
+   bd01fa63cb6826164de10b4f81fd68a7c80ec51dcc6830dfb384fbd72d523ce0  computo.dxil
+
+Lo corre `pruebas_computo.rs` (el Dispatch en el crate, con un control
+negativo: sin la barrera, el espejo lee huecos) y va DENTRO de computo.exe.
+
+computo.exe -- E2.3a de la ESCALERA: el COMPUTO de D3D12, juzgado (05-10)
+
+NUESTRO, no de Microsoft: `computo.cpp` (aqui al lado), de consola, con el
+CS de computo.dxil dentro (`.incbin`). Lo corre dos veces: en la cola
+DIRECTA, con la tabla (SRV t0 + UAV u0) y dos constantes en la raiz (n =
+250, escala = 2), y en una cola de COMPUTO que espera a la directa con una
+valla, con un CBV en la raiz (n = 256, escala = -0.5); la directa espera a
+la de computo para copiar lo escrito a un bufer READBACK. Compara los 2 x
+1024 floats con su cuenta, BIT A BIT (todo exacto en float: la 3060 tiene
+que dar lo mismo). Dice `bien` 4 veces y sale con el numero de fallos; en
+Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras, DirectX-Headers
+adbd6f3b, y el mismo UCRT), en un directorio con computo.cpp y
+computo.dxil:
+
+   G=x86_64-w64-mingw32-g++-win32
+   $G -dumpspecs | sed 's/-lmsvcrt/-lucrt/g' > ucrt.specs
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c computo.cpp -o computo.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o computo.exe computo.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   f0032487c2379245336700aed7ceaa755b92863570b2ae136e1a432c2980cb7c  computo.exe
+
+El banco (`tests/corre/muestras.rs`, e2_3a): los 4 `bien`, ni un aviso y
+sale con 0. Probado que dice NO: con la barrera quitada del interprete, 128
+elementos distintos en cada Dispatch y sale con 2.
+
+nbody.exe -- D3D12nBodyGravity de Microsoft: el COMPUTO y el GS (05-10)
+
+E2.3b de la ESCALERA: `Samples/Desktop/D3D12nBodyGravity` con el mismo
+script (`muestras/construir.sh`), su fuente sin tocar. El puente gana UNA
+declaracion en `antes.h`: `DXGIDeclareAdapterRemovalSupport` (del dxgi1_6.h
+del SDK de Windows; el de mingw-w64 11 no la declara y su libdxgi.a si la
+trae); los .exe de antes salen igual, byte a byte. Sus cuatro .cso, con
+DXC, como su proyecto: de nBodyGravityCS.hlsl el CS (-Tcs_6_0
+-E"CSMain"), y de ParticleDraw.hlsl el VS, el GS y el PS (-Tvs_6_0
+-E"VSParticleDraw", -Tgs_6_0 -E"GSParticleDraw", -Tps_6_0
+-E"PSParticleDraw"), todos -Zi -Qembed_debug. Todo en window/nbody/ y aqui
+en muestras/nbody/. Reproducible (comprobado en dos directorios), sin
+rutas de la maquina. sha256:
+
+   a8c766677a491f386b44c93140064a4f5f4c57e847bef27acb43bf2d868db3ce  nbody.exe
+   d6cdc5445bc0379168086e59d6ba0c19258c493ae81cd8dab4f7876df0d7e75a  nbody/nBodyGravityCS.cso
+   138f9b56eb9de4d7fd9f0783dfdf4516484e43a846b2c03834a5a17907c3b7f9  nbody/ParticleDraw_VS.cso
+   c1b9c42ba39a8b185245bdfc243fd29cd276660b0237f92ea7a8548666c033ad  nbody/ParticleDraw_GS.cso
+   116301bd940d646cfdf49fed2c3e85db91ff0c19e6211873917706a123cf0ea9  nbody/ParticleDraw_PS.cso
+
+Los jueces: `tests/corre/muestras.rs` (tres Present distintos, las dos
+nubes simetricas y centradas, rojas en el 0 y amarillas en el 2), y
+`tests/nativo_computo.rs` (su CS traducido a x86-64: los bits del
+interprete, y la fisica en f64 con su margen sobre 2048 particulas como las
+suyas, el `rand` de MSVC con `srand(0)`); `src/pruebas_geometria.rs` (sus
+tres sombreadores de dibujo: el cuadro de cada punto y su degradado).
+
+indirect.exe -- D3D12ExecuteIndirect de Microsoft: el contador y la orden indirecta (05-10)
+
+E2.4 de la ESCALERA: `Samples/Desktop/D3D12ExecuteIndirect` con el mismo
+script (`muestras/construir.sh`), su fuente sin tocar y el puente igual.
+Sus tres .cso, con DXC, como su proyecto: de shaders.hlsl el VS y el PS
+(-Tvs_6_0 -E"VSMain", -Tps_6_0 -E"PSMain") y de compute.hlsl el CS
+(-Tcs_6_0 -E"CSMain"), todos -Zi -Qembed_debug. Todo en window/indirect/ y
+aqui en muestras/indirect/. Reproducible (comprobado en dos directorios),
+sin rutas de la maquina; los .exe y los .cso de antes salen igual, byte a
+byte. sha256:
+
+   a1d7ea4bfb9bc9792584a5ef618d0771db912ee182f495df4728422e79966a3d  indirect.exe
+   b07116e7c8b4858a1b2b03f3eabddb248e84647eace24bd41d4fe9b144f7d940  indirect/shaders_VSMain.cso
+   f6468022abb177dbc3188252fc365fd515fe8f3439cb0e832641cbb6d1cb94b2  indirect/shaders_PSMain.cso
+   cad2dc4084ffd85c6530c311eefab5a31116825bed9cb02196d0fd276a4962cf  indirect/compute.cso
+
+Los jueces: `tests/corre/muestras.rs` (e2_4: 60 Present con el culling y
+otros 60 con el ESPACIO pulsado, sin el; DENTRO de la franja del culling,
+x de 320 a 960, los mismos pixeles bit a bit, y FUERA, con culling, solo el
+fondo; probado que dice NO con el contador atascado: la franja sale vacia),
+y `tests/nativo_computo.rs` (su CS traducido a x86-64: las mismas ordenes,
+en el mismo orden, y el mismo contador que el interprete).
+
+predica.exe -- D3D12PredicationQueries de Microsoft: la oclusion y la predicacion (05-10)
+
+E2.7 de la ESCALERA: `Samples/Desktop/D3D12PredicationQueries` con el
+mismo script (`muestras/construir.sh`), su fuente sin tocar y el puente
+igual. Sus dos .cso, con DXC, como su proyecto: de shaders.hlsl el VS y el
+PS (-Tvs_6_0 -E"VSMain", -Tps_6_0 -E"PSMain"), -Zi -Qembed_debug. Todo en
+window/predica/ y aqui en muestras/predica/. Reproducible (comprobado en
+dos directorios), sin rutas de la maquina. sha256:
+
+   02fb0232c70a452e91f442e54d7f12b3b639bedba30c9533b9ef784678a705bf  predica.exe
+   c50299267a340cfbd33128fef4d1950067cce1e53c2e83ad3a4175dc94487a16  predica/shaders_VSMain.cso
+   cecc7a91b13dd52e9501db1c650f0db0df3ebf3df673f41a698fbd31c9b0288e  predica/shaders_PSMain.cso
+
+El juez: `tests/corre/muestras.rs` (e2_7: 35 Present; en cada uno se mide
+donde esta el cuadro cercano, y el lejano sale si y solo si el cercano NO
+lo tapaba en el anterior, con los colores exactos; probado que dice NO sin
+predicacion y con la consulta siempre VISIBLE). La cuenta exacta de lo que
+pasa, en la trama: `src/pruebas_pixeles.rs`.
+
+instancias_vs.dxil, instancias_id.dxil, instancias_ps.dxil -- los de instancias.exe (05-10)
+
+N5.13: `instancias.hlsl` (aqui al lado): VSInst (la esquina por vertice, el
+sitio, el color y la fila por instancia, y SV_InstanceID en el verde),
+VSId (sin entradas: un rectangulo de SV_VertexID, una banda por instancia)
+y PSColor. Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T vs_6_0 -E VSInst -Fo instancias_vs.dxil instancias.hlsl
+   dxc -T vs_6_0 -E VSId -Fo instancias_id.dxil instancias.hlsl
+   dxc -T ps_6_0 -E PSColor -Fo instancias_ps.dxil instancias.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   8c5ff0fb677adeaa5b29360306d1cd0a206ee081bd8b822e75bb421be7ad9258  instancias_vs.dxil
+   f246c6b05e38e3056ede5f34f6b914308d51d576370a983cd096d06c20b8ed1b  instancias_id.dxil
+   a36007209f2f7294d05dc8e1fedf8def928b8cf22d74972dcee9ac3ccc5b2245  instancias_ps.dxil
+
+Van DENTRO de instancias.exe.
+
+instancias.exe -- N5.13: las INSTANCIAS de D3D12, juzgadas (05-10)
+
+NUESTRO, no de Microsoft: `instancias.cpp` (aqui al lado), de consola, con
+los tres .dxil dentro (`.incbin`). En un destino de 64 x 64: A,
+DrawIndexedInstanced(6, 6, 0, 0, 2) con TRES buferes de vertices (la
+esquina por vertice; el sitio y el color por instancia con StepRate 1; la
+fila por instancia con StepRate 2); B, DrawInstanced(6, 2, 0, 5) SIN
+bufer de vertices (IASetVertexBuffers con NULL). Compara el destino con su
+cuenta, pixel a pixel (cada borde en un borde de pixel, cada color k /
+255). Dice `bien` 3 veces y sale con el numero de fallos; en Windows dice
+lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con instancias.cpp y los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c instancias.cpp -o instancias.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o instancias.exe instancias.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   d165c708d8bfe2f7c48a261d61f59f24adcc930aac79f29520733db08f6cdfbb  instancias.exe
+
+El banco (`tests/corre/muestras.rs`, n5_19): los 3 `bien` y sale con 0.
+Probado que dice NO: sin el bucle de instancias (180 pixeles distintos en
+A) y sin el StepRate (252).
+
+vistas_raiz.dxil, vistas_imagen.dxil, vistas_lee.dxil -- los de vistas.exe (05-10)
+
+N5.3b y N5.3c: `vistas.hlsl` (aqui al lado): CSRaiz (un SRV estructurado de
+32 bytes, un UAV estructurado y uno crudo, todos en la RAIZ), CSImagen (un
+RWTexture2D con GetDimensions) y CSLee (esa textura leida como UAV, a un
+RWBuffer con tipo). Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSRaiz -Fo vistas_raiz.dxil vistas.hlsl
+   dxc -T cs_6_0 -E CSImagen -Fo vistas_imagen.dxil vistas.hlsl
+   dxc -T cs_6_0 -E CSLee -Fo vistas_lee.dxil vistas.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   17e4c5d6222026beaf9b4739af299997655f12c813af96c9c98d8b07d081b44f  vistas_raiz.dxil
+   b373ad9af36d8c890f8c318058a8558445476d27339ba32ce51fa3aead73d663  vistas_imagen.dxil
+   da7541961d0336d679bf7f19052bc530745241a2b565131e1b44383fd31b81f4  vistas_lee.dxil
+
+Van DENTRO de vistas.exe.
+
+vistas.exe -- N5.3b y N5.3c: las VISTAS de D3D12, juzgadas (05-10)
+
+NUESTRO, no de Microsoft: `vistas.cpp` (aqui al lado), de consola, con los
+tres .dxil dentro (`.incbin`). A, las vistas en la RAIZ; B, un RWTexture2D
+de 16 x 16 con sus medidas; C, esa textura leida como UAV a un RWBuffer con
+tipo R8G8B8A8_UNORM; D, ClearUnorderedAccessViewUint de un bufer crudo y
+...Float de una textura UNORM. Todo leido y comparado con su cuenta, bit a
+bit. Dice `bien` 7 veces y sale con el numero de fallos; en Windows dice lo
+mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con vistas.cpp y los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c vistas.cpp -o vistas.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o vistas.exe vistas.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   67bc459b8a49928b345c9cc181d5bfd0c8ebec2e60cb28efb6a32b9a9b777acf  vistas.exe
+
+El banco (`tests/corre/muestras.rs`, n5_3c): los 7 `bien` y sale con 0.
+Probado que dice NO: con el paso de los estructurados mal (A), sin la
+limpieza (las dos D) y con la textura traspuesta (B).

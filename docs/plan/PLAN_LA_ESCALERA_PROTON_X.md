@@ -184,6 +184,16 @@ Cada muestra vive en su carpeta del volumen, `window/<muestra>/` (todas
 llaman igual a sus `.cso`): `ejemplos.ps1` la copia asi, y el guardian PX2
 lo sabe desde hoy. Las cinco pedian a la casa UNA sola funcion, la misma:
 `CreateFile2` (con ella leen sus `.cso`).
+**Lo que dijo el METAL (05-10, el propietario con `dynindex.exe`):** el
+`.exe` arranca y aborta (`terminate called after throwing an instance of
+'std::exception'`, sale con 3): no encuentra `shader_mesh_simple_vert.cso`.
+No es la casa: el FAT32 de BMO-X busca por el nombre CORTO (8.3) y se salta
+las entradas de nombre largo (`fat32/src/buscar.rs`), y los `.cso` de las
+muestras tienen nombres largos -- tambien los de E1.2 a E1.6
+(`shaders_VSMain.cso`). Dos salidas: la carpeta de la muestra en `D:`
+(NTFS, solo lectura, que si lee nombres largos), o que el FAT32 los lea
+(Ring 0: se decide con el propietario). Los `.exe` nuestros no lo sufren:
+`computo.exe` lleva su sombreador dentro.
 
 - [x] **E1.2 -- HelloTriangle, el `.exe` de verdad** (05-10, en el banco;
   falta verlo en el metal). Lo que el cubo no pide: `d3dx12.h`, ComPtr, el
@@ -237,22 +247,76 @@ muestra.
   atascado. La imagen, a ojo, es la de la captura de Microsoft. Bit a bit
   no se puede (muestreo LINEAL): falta la de Windows a 1280x720 para
   compararla con su margen.
-- [ ] **E2.3 -- D3D12nBodyGravity.** El COMPUTO (N5.5), los UAV (N5.3c), la
-  cola de computo y la valla entre colas (D5.1, D5.2). Por confirmar con su
-  fuente antes de empezar: si dibuja las particulas con un geometry shader;
-  si la casa no lo tiene, es una casilla mas, y se dice aqui. **Como se
-  sabe:** su huella tras N pasos, con su margen (R3): son floats sumados en
-  otro orden que la 3060, y eso no da los mismos bits.
-- [ ] **E2.4 -- D3D12ExecuteIndirect.** `ExecuteIndirect` (la otra mitad de
-  N5.17) y su culling por computo (pide E2.3). **Como se sabe:** su huella,
-  igual, con el culling encendido y apagado.
+- [x] **E2.3a -- el COMPUTO, con un juez nuestro** (05-10, en el banco;
+  falta verlo en el metal y en Windows). Antes de nBodyGravity, su capa
+  sola (R1): `prueba/computo.exe` (`computo.cpp`, de consola) corre un CS
+  de 64 hilos que se pasan sus datos por la memoria COMPARTIDA con una
+  BARRERA en medio, dos veces: en la cola directa (constantes en la raiz) y
+  en una cola de COMPUTO que la espera con una VALLA (un CBV en la raiz). La
+  casa ya lo corre: N5.5 en el crate (el interprete se para en cada barrera
+  y sigue grupo a grupo) y en la casa (`SetComputeRoot*`, `Dispatch`
+  apuntado y corrido al ejecutar, los UAV de bufer de las tablas). **Como
+  se sabe:** el `.exe` compara los 2 x 1024 floats con su cuenta, BIT A BIT
+  (todo exacto en float: la 3060 tiene que dar lo mismo), y en Windows dice
+  lo mismo; probado que dice NO sin la barrera.
+- [x] **E2.3b -- D3D12nBodyGravity** (05-10, en el banco; falta verlo en
+  el metal y en Windows). Confirmado con su fuente: dibuja las 10.000
+  particulas con un GEOMETRY SHADER (un punto, un cuadro de cuatro
+  vertices) y calcula en UN hilo suyo con su cola de computo y vallas entre
+  colas. Lo que pidio, y ya tiene la casa: el GS (en el crate: `EntradaDe`,
+  `Emite`, `Corta`, su PSV0, el enlace VS -> GS -> PS y las primitivas; en
+  la casa, el PSO con GS y los puntos), `D3D12_OPTIONS12` contestado
+  (`EnhancedBarriersSupported` NO: va por ResourceBarrier), `rand`/`srand`
+  de MSVC, los `getelementptr` CONSTANTES de su CS (384 lecturas de la
+  compartida), y que una espera cumplida CEDA el turno: con la cola
+  sincrona su hilo de computo nunca esperaba de verdad y el de dibujo no
+  corria. Y su CS, TRADUCIDO a x86-64 (`nativo_computo`): interpretado, un
+  paso de la simulacion eran 73 s; traducido, uno o dos. **Como se sabe:**
+  `tests/corre/muestras.rs`: tres Present distintos, las dos nubes iguales a
+  izquierda y derecha y centradas, rojas en el 0 y amarillas en el 2 (ya
+  aceleran); y `tests/nativo_computo.rs`: su CS traducido da los bits del
+  interprete y, sobre 2048 particulas como las suyas, la FISICA en f64 con
+  su margen (R3: floats sumados en otro orden; lo peor, un 3 % del margen),
+  probado que dice NO con un paso una milesima distinto. Los bits de
+  Windows, no (otro orden de suma). La captura de Microsoft es de mucho
+  despues (las dos nubes ya fundidas en una galaxia): el estilo es el
+  mismo (puntos rojos con su halo, amarillos donde aceleran, el fondo azul
+  oscuro); el momento, no.
+- [x] **E2.4 -- D3D12ExecuteIndirect** (05-10, en el banco; falta verlo en
+  el metal). 1024 triangulos, cada uno su orden INDIRECTA (la direccion de
+  su CBV y su Draw), y un CS que las CULLEA con `Append` en un UAV con
+  CONTADOR. Lo que pidio: el contador de un UAV (la op `Contador`, en el
+  interprete y traducido; su numero viaja en la ranura del descriptor, asi
+  que sobrevive a las copias de descriptores), `ExecuteIndirect` (la otra
+  mitad de N5.17: se apunta y se resuelve al EJECUTAR la lista, porque sus
+  argumentos y su cuenta los escribe el computo de antes) y su firma.
+  Nada mas: ni un aviso. **Como se sabe:** `tests/corre/muestras.rs`: dos
+  corridas de 60 Present, con culling y con el ESPACIO pulsado (sin el):
+  dentro de la franja del culling, los MISMOS pixeles bit a bit; fuera,
+  con culling, solo el fondo; probado que dice NO con el contador atascado.
+  Y su CS traducido da las mismas ordenes y el mismo contador que el
+  interprete (`tests/nativo_computo.rs`).
 - [ ] **E2.5 -- D3D12SM6WaveIntrinsics.** Las olas de verdad (D4.3): hoy son
   "un pixel por ola" (`dxil/olas.rs`). **Como se sabe:** su huella, igual.
 - [ ] **E2.6 -- D3D12HDR.** Render targets de float (N5.16) y la cadena en 10
   o 16 bits con su espacio de color. **Como se sabe:** su huella, igual, en
   el modo de 8 bits y en el de 16.
-- [ ] **E2.7 -- D3D12PredicationQueries.** Consultas de oclusion y
-  predicacion (D5.5). **Como se sabe:** su huella, igual.
+- [x] **E2.7 -- D3D12PredicationQueries** (05-10, en el banco; falta verlo
+  en el metal). Un cuadro blanco lejos, uno translucido cerca que pasa por
+  delante, y la caja del lejano en una consulta de oclusion BINARIA cuyo
+  resultado decide, con `SetPredication`, si el lejano se dibuja en el
+  fotograma siguiente. Lo que pidio: que la trama cuente los pixeles que
+  PASAN la profundidad (`Cuenta::pasan`, escriban color o no),
+  BeginQuery/EndQuery de verdad (se cuentan al ejecutar la lista; una
+  consulta no cruza listas) y `SetPredication` (su u64 se lee al ejecutarse,
+  como dice Microsoft; salta Draw, Dispatch, ExecuteIndirect, copias y
+  limpiezas, y nada mas): `proton-x-casa/src/consultas.rs`. Con una
+  consulta abierta el lote va por la CPU: la 3060 aun no cuenta. Nada mas:
+  ni un aviso. **Como se sabe:** `tests/corre/muestras.rs`: 35 Present, y
+  en cada uno se mide donde esta el cuadro cercano; el lejano sale si y
+  solo si el cercano NO lo tapaba en el anterior, con los colores exactos;
+  probado que dice NO sin predicacion y con la consulta siempre VISIBLE. Y
+  la cuenta exacta en la trama (`src/pruebas_pixeles.rs`).
 
 ## E3 -- el jefe intermedio: MiniEngine (`MiniEngine/ModelViewer`, MIT)
 
@@ -307,16 +371,17 @@ se mide con R5: una corrida por escalon cerrado.
    casilla de LAS_TRES_GRANDES             su escalon
    D5.7   la cadena de intercambio          E1.1
    D2.3   Map persistente (UPLOAD)          E1.4
-   D5.2   vallas                            E1.5, E2.3
-   N5.17  ExecuteBundle / ExecuteIndirect   E1.6, E2.4
+   D5.2   vallas                            E1.5, E2.3a y E2.3b (entre colas)
+   N5.17  ExecuteBundle / ExecuteIndirect   E1.6, E2.4 (hechos)
    H2.7   listas desde varios hilos         E2.1
    N5.4   el indice dinamico (bindless)     E2.2
-   N5.5   el COMPUTO                        E2.3
-   N5.3c  los UAV                           E2.3
-   D5.1   la cola de computo                E2.3
+   N5.5   el COMPUTO                        E2.3a y E2.3b (hechos)
+   N5.3c  los UAV                           E2.3a y E2.3b (los de bufer)
+   D5.1   la cola de computo                E2.3a y E2.3b (hechos)
+   (nueva) el sombreador de geometria       E2.3b (hecho)
    D4.3   las olas de verdad                E2.5
    N5.16  render targets de float           E2.6
-   D5.5   consultas                         E2.7
+   D5.5   consultas                         E2.7 (oclusion y predicacion)
 ```
 
 Una casilla de LAS_TRES_GRANDES se marca cuando pasa su escalon, con "falta
@@ -346,6 +411,15 @@ medido, rapido):
                 VERRANO con TITAN++ encima (la 3060: el BSF ya traducido, la
                 GPU no compila nada) van DONDE el numero de 3 lo diga
 ```
+
+**Lo primero que ya se exprimio (05-10, E2.3b): el COMPUTO traducido a
+x86-64** (`bmo_proton_x::nativo_computo`). Lo de `nativo.rs` (los dibujos
+sin saltos) con lo que el computo pide: saltos de verdad, enteros, la
+memoria compartida, los buferes y la BARRERA (guarda donde va y vuelve; al
+llamarla otra vez, salta detras). 50 veces el interprete en el banco: un
+paso de nBodyGravity, de 73 s a uno o dos. Su juez es el interprete, bit a
+bit, y la fisica en f64. No es que la CPU dibuje: es calcular lo que el
+juego pide mientras la 3060 no corre computo (N6).
 
 **LA CPU GUIA, LA 3060 DIBUJA.** El propietario (05-10): *"que la CPU no
 tiene que ser la que dibuje, sino que tenga el mapa por via de RAM y que le
@@ -381,3 +455,88 @@ la casa ya tiene sus piezas:
   tandas: la casa no lleva ni una linea suya.
 - Las tandas siguen: un muro que no cae en ningun escalon se prueba con una
   tanda, como hasta hoy.
+
+# 7. LO QUE TE PIDO, Y LO QUE PUEDE FALLAR (05-10)
+
+El propietario: *"anota lo que me pidas luego"* y *"anotar que potencial
+fallo es, para saber y asi evitar sorpresa"*. Aqui, para que no se pierda
+en una conversacion.
+
+## 7.1 Lo que te pido (lo decides tu)
+
+- [ ] **Nombres LARGOS en `platform/drivers/storage/fat32/src/buscar.rs`**
+  (Ring 0, en CODEOWNERS: tu permiso). Los `.cso` de las muestras se
+  llaman `shaders_VSMain.cso`: no caben en 8.3 y en el metal no se
+  encuentran. Mientras, se corren desde `D:` (NTFS).
+- [ ] **`opt-level = 3` para `bmo-proton-x` en el `/Cargo.toml` raiz** (en
+  CODEOWNERS: tu permiso). El interprete en debug es lento en el banco (un
+  paso de nBodyGravity eran 73 s antes del computo traducido).
+- [ ] **`SquidRoom.bin` (43 MB) en `platform/shared/proton-x/prueba/muestras`**
+  para E2.1 (Multithreading): sin el, ese escalon no se sube. Iria como
+  `occcity.bin` (E2.2), con su `.gitignore` de `*.bin` abierto.
+- [ ] **Juntar en `main` lo de `docs/plan/PLAN_LAS_TRES_GRANDES.md`** de
+  este trabajo: E2.3, E2.4, E2.7, N5.13 a N5.15, N5.3b y N5.3c (un PR).
+- [ ] **Correr en el Ryzen y en Windows lo de `platform/shared/proton-x/prueba`**
+  (HACER.txt): `computo.exe` dice `bien` 4 veces, `instancias.exe` 3 y
+  `vistas.exe` 7, y salen con 0; `nbody.exe` (las dos nubes que se
+  juntan), `indirect.exe` (lo mismo dentro de la franja con el ESPACIO y
+  sin el) y `predica.exe` (el cuadro blanco se va cuando el rojo lo tapa
+  entero).
+- [ ] **El CARTEL ROJO** (`Ultra_userspace/apps/proton-x/src/cartel.rs`):
+  hoy se queda puesto para siempre desde el primer aviso. Si molesta en un
+  juego, se puede quitar a los diez segundos del ultimo aviso nuevo: tu
+  dices.
+
+## 7.2 Lo que puede fallar (y por que no seria una sorpresa)
+
+```text
+   NADA DE ESTO SE HA VISTO EN EL METAL   todo lo de 05-10 paso en el banco
+                                          del anfitrion; en el Ryzen corre
+                                          con el codigo traducido y la 3060,
+                                          que el banco no usa
+   los .cso de nombre largo               no se encuentran en FAT32 (7.1)
+   la VELOCIDAD                           el computo traducido va 50 veces
+                                          el interprete; los sombreadores de
+                                          DIBUJO con saltos o cuentas
+                                          enteras van interpretados (lo dice
+                                          un aviso); Cyberpunk, lejos de sus
+                                          fotogramas
+   el HDR (N5.16)                         los render targets de float se
+                                          guardan en 8 bits: un RGBA16F
+                                          satura en 1.0, y un UAV de esa
+                                          textura tambien
+   el stencil y AlphaToCoverage           se apuntan y no se usan: un juego
+                                          que recorta con stencil pinta de
+                                          mas (lo dice un aviso al crear el
+                                          PSO)
+   un UAV en un sombreador de DIBUJO      no se ve: lo que escribe se pierde
+                                          (lo dice un aviso, desde hoy; antes
+                                          era en silencio)
+   un UAV de textura 3D, de array o de    el PSO de computo no se crea (lo
+   cubo                                   dice)
+   ClearUnorderedAccessView con           limpia la vista entera (lo dice)
+   rectangulos
+   DepthClipEnable = FALSE                recorta igual (no lo dice: es lo
+                                          que casi todos usan)
+   un SRV estructurado en la RAIZ de un   el paso sale de `dx.resources`; un
+   sombreador sin metadatos (SM5, DXBC)   SM5 no los trae como DXIL: se lee
+                                          crudo, mal, y NO lo dice todavia
+   la consulta de oclusion                sus lotes van por la CPU (la 3060
+                                          aun no cuenta): mas lento, no
+                                          distinto
+   las instancias y los datos por         por la CPU tambien
+   instancia
+   el cartel rojo                         no se ve cuando la 3060 pinta
+                                          DIRECTO en la pantalla (Z1); un
+                                          .exe de GDI que lea su ventana lo
+                                          leeria
+   un .exe hecho con Visual Studio        llama a mas cosas de las que usa
+                                          (el runtime, la telemetria, el
+                                          COM): cada una que falte es un
+                                          aviso y sale en el cartel. Ninguna
+                                          se contesta con un exito mentido
+```
+
+La regla de siempre, y la del propietario: que PROTON-X hable HONESTO.
+Lo que no sabe hacer lo dice (`aviso`), una vez por cosa, en la consola y en
+el cartel rojo; lo que dice que hizo, lo hizo.

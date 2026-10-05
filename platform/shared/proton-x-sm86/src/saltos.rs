@@ -74,7 +74,26 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
             v[4] = Some(nivel);
         }
         Op::Si { c } | Op::RomperSi { c, .. } | Op::Descarta { c } => v[0] = Some(c),
-        Op::LeeIndexado { i, .. } | Op::ConstantesEn { i, .. } | Op::EligeTextura { i, .. } => v[0] = Some(i),
+        Op::LeeIndexado { i, .. } | Op::ConstantesEn { i, .. } | Op::EligeTextura { i, .. } | Op::LeeCompartida { i, .. } => v[0] = Some(i),
+        // N5.5: el computo (la 3060 no lo emite: ver lib.rs).
+        Op::EscribeCompartida { i, s, .. } => {
+            v[0] = Some(i);
+            v[1] = Some(s);
+        }
+        // N5.3c: no lee registros.
+        Op::MedidasUav { .. } => {}
+        Op::LeeUav { i, desp, .. } => {
+            v[0] = Some(i);
+            v[1] = Some(desp);
+        }
+        Op::EscribeUav { i, desp, v: w, .. } => {
+            v[0] = Some(i);
+            v[1] = Some(desp);
+            for k in 0..4 {
+                v[2 + k] = Some(w[k]);
+            }
+        }
+        Op::IdHilo { .. } | Op::Barrera | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::Contador { .. } => {}
         Op::EscribeIndexado { i, s, .. } => {
             v[0] = Some(i);
             v[1] = Some(s);
@@ -92,7 +111,9 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         Op::Entrada { d, .. } => ([Some(d), None, None, None], true),
         Op::Constantes { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], true),
         Op::ConstantesEn { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
-        Op::Muestra { d, .. } | Op::Lee { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
+        Op::Muestra { d, .. } | Op::Lee { d, .. } | Op::LeeUav { d, .. } | Op::MedidasUav { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
+        Op::IdHilo { d, .. } | Op::LeeCompartida { d, .. } | Op::Contador { d, .. } => ([Some(d), None, None, None], false),
+        Op::EntradaDe { d, .. } => ([Some(d), None, None, None], true),
         Op::Mul { d, .. }
         | Op::Add { d, .. }
         | Op::Sub { d, .. }
@@ -114,7 +135,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         | Op::Convierte { d, .. }
         | Op::LeeIndexado { d, .. } => uno(d),
         // EligeTextura no escribe registros: escoge la textura de la lectura de detras.
-        Op::Salida { .. } | Op::Descarta { .. } | Op::EscribeIndexado { .. } | Op::EligeTextura { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
+        Op::Salida { .. } | Op::Descarta { .. } | Op::EscribeIndexado { .. } | Op::EligeTextura { .. } | Op::Barrera | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
     }
 }
 

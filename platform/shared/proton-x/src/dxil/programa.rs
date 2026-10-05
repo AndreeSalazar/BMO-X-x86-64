@@ -108,8 +108,22 @@ const DX_SAMPLE_BIAS: i64 = 61;
 const DX_SAMPLE_LEVEL: i64 = 62;
 const DX_SAMPLE_GRAD: i64 = 63;
 const DX_TEXTURE_LOAD: i64 = 66;
+const DX_TEXTURE_STORE: i64 = 67;
 const DX_GET_DIMENSIONS: i64 = 72;
 const DX_BUFFER_LOAD: i64 = 68;
+// N5.5 (05-10): el computo.
+const DX_BUFFER_STORE: i64 = 69;
+// E2.4 (05-10): el contador de un UAV (Append, Consume, Increment/DecrementCounter).
+const DX_BUFFER_UPDATE_COUNTER: i64 = 70;
+const DX_BARRIER: i64 = 80;
+const DX_THREAD_ID: i64 = 93;
+const DX_GROUP_ID: i64 = 94;
+const DX_THREAD_ID_IN_GROUP: i64 = 95;
+const DX_FLATTENED_THREAD_ID_IN_GROUP: i64 = 96;
+// E2.3b (05-10): el sombreador de geometria.
+const DX_EMIT_STREAM: i64 = 97;
+const DX_CUT_STREAM: i64 = 98;
+const DX_EMIT_THEN_CUT_STREAM: i64 = 99;
 const DX_DISCARD: i64 = 82;
 /// Las filas de 16 bytes que puede tener un cbuffer en D3D (64 KiB).
 const FILAS_DE_D3D: u16 = 4096;
@@ -174,6 +188,43 @@ pub enum Op {
     /// esa. Va justo delante de cada una: dos arrays en el mismo sombreador
     /// no se pisan.
     EligeTextura { i: Reg, rango: u8 },
+    /// N5.5 (05-10): un id del hilo de computo, en bits: `que` 0
+    /// SV_DispatchThreadID, 1 SV_GroupID, 2 SV_GroupThreadID (su componente
+    /// `c`), 3 SV_GroupIndex.
+    IdHilo { d: Reg, que: u8, c: u8 },
+    /// N5.5: `GroupMemoryBarrierWithGroupSync` y su familia: ningun hilo del
+    /// grupo sigue hasta que todos llegan aqui (el interprete PARA el hilo y
+    /// corre los demas).
+    Barrera,
+    /// N5.5: la memoria compartida del GRUPO (`groupshared`): la palabra
+    /// `base + i` (de `n`; fuera, 0 al leer y nada al escribir).
+    LeeCompartida { d: Reg, base: u32, n: u32, i: Reg },
+    EscribeCompartida { base: u32, n: u32, i: Reg, s: Reg },
+    /// N5.5: `bufferStore` al UAV de la ranura `u`: el elemento `i`, `desp`
+    /// bytes dentro de el (estructurado), los canales de `v` que dice
+    /// `mascara`.
+    EscribeUav { u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg, v: [Reg; 4], mascara: u8 },
+    /// N5.5: `bufferLoad` de un UAV (`RWStructuredBuffer`...): como
+    /// `Lectura::Bufer`, pero del UAV `u`.
+    LeeUav { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg },
+    /// N5.3c (05-10): `GetDimensions` de un UAV: sus elementos (de un bufer)
+    /// o su ancho y su alto (de una textura), como enteros.
+    MedidasUav { d: Reg, u: u8, modo: crate::bufer::Modo },
+    /// E2.4 (05-10): `bufferUpdateCounter`: sube (`inc` 1) o baja (-1) el
+    /// contador oculto del UAV `u`; `d` el de antes al subir, el de despues
+    /// al bajar (lo de D3D). `Append` es esto y un `bufferStore` en ese
+    /// indice.
+    Contador { d: Reg, u: u8, inc: i8 },
+    /// E2.3b (05-10): una entrada de un sombreador de GEOMETRIA: el
+    /// componente del elemento `elemento` del vertice `vertice` de su
+    /// primitiva (en las entradas, cada vertice ocupa [`Programa::entradas`]
+    /// elementos seguidos).
+    EntradaDe { d: Reg, vertice: u8, elemento: u8, componente: u8 },
+    /// E2.3b: `EmitStream`: un vertice, con las salidas de ahora, al flujo
+    /// `flujo` (solo el 0 llega a la trama).
+    Emite { flujo: u8 },
+    /// E2.3b: `CutStream`: la tira de ahora se acaba.
+    Corta { flujo: u8 },
     /// 02-10: leer una textura con lo que `Muestra` (2D, la mip de la
     /// vista) no dice: `Sample` con mas coordenadas (arrays, cubos, 3D) o
     /// desplazado, `SampleLevel`, `SampleBias` y `SampleGrad` (sin su sesgo
@@ -387,6 +438,18 @@ pub struct Programa {
     /// (03-10, N5.1): el `t` y el `s` de [`Op::Lee`] y [`Op::Muestra`] son
     /// su POSICION aqui, no un registro.
     pub ranuras: Ranuras,
+    /// N5.5: lo de un sombreador de computo.
+    pub computo: Computo,
+}
+
+/// **Lo de un sombreador de computo** (N5.5, 05-10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Computo {
+    /// Los hilos de un grupo (`[numthreads(x, y, z)]`); [0; 3] si no es de
+    /// computo.
+    pub hilos: [u32; 3],
+    /// Las palabras de 4 bytes de su memoria compartida (`groupshared`).
+    pub compartida: u32,
 }
 
 /// **Como lee una textura** [`Op::Lee`].
@@ -419,7 +482,7 @@ impl Programa {
     /// N5.12: el que no hace nada (el de pixeles de un PSO sin el: solo
     /// profundidad, las sombras).
     pub fn vacio() -> Programa {
-        Programa { ops: Vec::new(), iniciales: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, ranuras: Ranuras::default() }
+        Programa { ops: Vec::new(), iniciales: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, ranuras: Ranuras::default(), computo: Computo::default() }
     }
 
     /// **Correr el sombreador una vez.** `entradas` y `salidas` por el id del
@@ -635,6 +698,13 @@ pub(super) enum Valor {
     /// como se direcciona.
     Bufer(u8, crate::bufer::Modo),
     Muestreador(u8),
+    /// N5.5: el handle de un UAV de bufer: su ranura y como se direcciona.
+    Uav(u8, crate::bufer::Modo),
+    /// N5.5: un array `groupshared`: `n` palabras desde la `base` de la
+    /// memoria compartida del grupo, si son enteros, y su tipo.
+    Compartida { base: u32, n: u32, enteros: bool, tipo: u32 },
+    /// N5.5: un puntero dentro de el: el indice, en un registro.
+    PunteroCompartido { base: u32, n: u32, i: Reg, enteros: bool },
     /// Una funcion del modulo (su indice en `funciones`).
     Funcion(usize),
     /// N5.10: un array (`alloca` o global): sus `n` registros desde `base`
@@ -699,6 +769,8 @@ pub(super) struct Compilador {
     /// constantes enteras que hicieron falta como registro.
     pub(super) bloques: super::estructura::Bloques,
     pub(super) literales: Vec<(u32, Reg)>,
+    /// N5.5: las palabras de memoria compartida ya repartidas.
+    pub(super) compartida: u32,
 }
 
 impl Compilador {
@@ -723,6 +795,9 @@ impl Compilador {
                 }
                 // N5.10: las tablas (`static const float x[4] = {...}`).
                 super::arreglos::CST_AGGREGATE | super::arreglos::CST_DATA => super::arreglos::constante(self, r.codigo, &r.ops, tipo, tipos, tipos_float, anchos)?,
+                // 05-10: un getelementptr constante (a la memoria compartida o a
+                // un array global), con su indice ya sabido.
+                super::arreglos::CST_CE_GEP | super::arreglos::CST_CE_INBOUNDS_GEP => super::arreglos::gep_constante(self, &r.ops, tipos, tipos_float, anchos)?,
                 CST_INTEGER => Valor::Entero(con_signo(r.ops.first().copied().unwrap_or(0))),
                 CST_FLOAT if es_float => {
                     let bits = r.ops.first().copied().unwrap_or(0) as u32;
@@ -779,7 +854,7 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     let tipos = tipos(m);
     let floats = tipos_float(m);
     let anchos = super::enteros::anchos(m);
-    let mut c = Compilador { valores: Vec::new(), iniciales: Vec::new(), ops: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, recursos: s.recursos.clone(), ranuras: Ranuras::default(), bloques: Default::default(), literales: Vec::new() };
+    let mut c = Compilador { valores: Vec::new(), iniciales: Vec::new(), ops: Vec::new(), entradas: 0, salidas: 0, lee: 0, filas_cb: 0, recursos: s.recursos.clone(), ranuras: Ranuras::default(), bloques: Default::default(), literales: Vec::new(), compartida: 0 };
 
     // 1. Los globales, en el orden de sus registros (N5.10: las variables,
     //    apuntadas para cuando esten sus iniciales).
@@ -824,6 +899,11 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     for (k, ops) in globales {
         c.valores[k] = super::arreglos::global(&mut c, ops, &tipos, &floats, &anchos)?;
     }
+    // N5.3b (05-10): el paso de cada bufer estructurado, de `dx.resources`.
+    c.ranuras.pasos = super::recursos::pasos_estructurados(m, |i| match c.valores.get(i) {
+        Some(Valor::Entero(v)) => Some(*v),
+        _ => None,
+    });
     // 3. El cuerpo: el primer FUNCTION_BLOCK es el de la primera funcion
     //    definida (la entrada: sin argumentos).
     if funciones.iter().filter(|f| !f.declarada).count() != 1 {
@@ -838,7 +918,7 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     }
     // E6b: con saltos, el grafo de bloques vuelve a ser `si` y bucles.
     super::estructura::armar(&mut c)?;
-    Ok(Programa { ops: c.ops, iniciales: c.iniciales, entradas: c.entradas, salidas: c.salidas, lee: c.lee, filas_cb: c.filas_cb, ranuras: c.ranuras })
+    Ok(Programa { ops: c.ops, iniciales: c.iniciales, entradas: c.entradas, salidas: c.salidas, lee: c.lee, filas_cb: c.filas_cb, ranuras: c.ranuras, computo: Computo { hilos: s.hilos, compartida: c.compartida } })
 }
 
 /// Lee operandos de un registro de instruccion: relativos o absolutos, y si
@@ -1002,7 +1082,14 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                 c.entradas = c.entradas.max(elemento as usize + 1);
                 c.lee |= 1 << elemento;
                 let d = c.registro(0.0)?;
-                c.ops.push(Op::Entrada { d, elemento, componente });
+                // E2.3b: en un GS, el quinto es el VERTICE de la primitiva
+                // (`input[k]`); en los demas, `undef`.
+                match c.valores.get(arg(4)?) {
+                    Some(Valor::Entero(k)) if (0..6).contains(k) => c.ops.push(Op::EntradaDe { d, vertice: *k as u8, elemento, componente }),
+                    Some(Valor::Entero(_)) => return Err(NoPrograma::Forma("un GS que lee un vertice que su primitiva no tiene")),
+                    Some(Valor::Indefinido) | None => c.ops.push(Op::Entrada { d, elemento, componente }),
+                    _ => return Err(NoPrograma::Forma("un GS que lee la entrada de un vertice CALCULADO: todavia no")),
+                }
                 if enteros {
                     Valor::Bits(d)
                 } else {
@@ -1014,6 +1101,86 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                 c.ops.push(Op::Salida { s, elemento, componente });
                 Valor::Nada
             }
+        }
+        // N5.5: los ids del hilo de computo.
+        DX_THREAD_ID | DX_GROUP_ID | DX_THREAD_ID_IN_GROUP | DX_FLATTENED_THREAD_ID_IN_GROUP => {
+            let que = (op - DX_THREAD_ID) as u8;
+            let comp = if op == DX_FLATTENED_THREAD_ID_IN_GROUP { 0 } else { c.entero(arg(1)?)? };
+            if !(0..3).contains(&comp) {
+                return Err(NoPrograma::Forma("un id de hilo con un componente que no es x, y ni z"));
+            }
+            let d = c.registro(0.0)?;
+            c.ops.push(Op::IdHilo { d, que, c: comp as u8 });
+            Valor::Bits(d)
+        }
+        // N5.5: la barrera del grupo (con cualquier modo: la de la memoria
+        // del grupo, la de los UAV, o las dos; todas esperan a todos).
+        DX_BARRIER => {
+            c.ops.push(Op::Barrera);
+            Valor::Nada
+        }
+        // N5.5: `bufferStore(uav, coord0, coord1, v0, v1, v2, v3, mascara)`.
+        DX_BUFFER_STORE => {
+            let Some(Valor::Uav(u, modo)) = c.valores.get(arg(1)?).copied() else {
+                return Err(NoPrograma::Forma("BufferStore sin el handle de un UAV de bufer"));
+            };
+            let cero = super::estructura::literal(c, 0)?;
+            let i = super::estructura::bits(c, arg(2)?)?;
+            let desp = if matches!(c.valores.get(arg(3)?), Some(Valor::Indefinido) | None) { cero } else { super::estructura::bits(c, arg(3)?)? };
+            let mut v = [cero; 4];
+            for (k, r) in v.iter_mut().enumerate() {
+                if !matches!(c.valores.get(arg(4 + k)?), Some(Valor::Indefinido) | None) {
+                    *r = super::estructura::bits(c, arg(4 + k)?)?;
+                }
+            }
+            let mascara = c.entero(arg(8)?)? as u8;
+            c.ops.push(Op::EscribeUav { u, modo, i, desp, v, mascara });
+            Valor::Nada
+        }
+        // N5.3c: `textureStore(uav, coord0, coord1, coord2, v0..v3, mascara)`:
+        // el texel (x, y) de un RWTexture2D (la z, en las de 3D: todavia no).
+        DX_TEXTURE_STORE => {
+            let Some(Valor::Uav(u, crate::bufer::Modo::Textura)) = c.valores.get(arg(1)?).copied() else {
+                return Err(NoPrograma::Forma("TextureStore sin el handle de un UAV de textura"));
+            };
+            let cero = super::estructura::literal(c, 0)?;
+            let (i, desp) = (super::estructura::bits(c, arg(2)?)?, super::estructura::bits(c, arg(3)?)?);
+            let mut v = [cero; 4];
+            for (k, r) in v.iter_mut().enumerate() {
+                if !matches!(c.valores.get(arg(5 + k)?), Some(Valor::Indefinido) | None) {
+                    *r = super::estructura::bits(c, arg(5 + k)?)?;
+                }
+            }
+            let mascara = c.entero(arg(9)?)? as u8;
+            c.ops.push(Op::EscribeUav { u, modo: crate::bufer::Modo::Textura, i, desp, v, mascara });
+            Valor::Nada
+        }
+        // E2.4: `bufferUpdateCounter(uav, inc)`.
+        DX_BUFFER_UPDATE_COUNTER => {
+            let Some(Valor::Uav(u, _)) = c.valores.get(arg(1)?).copied() else {
+                return Err(NoPrograma::Forma("BufferUpdateCounter sin el handle de un UAV de bufer"));
+            };
+            let inc = c.entero(arg(2)?)?;
+            if inc != 1 && inc != -1 {
+                return Err(NoPrograma::Forma("BufferUpdateCounter con un paso que no es 1 ni -1"));
+            }
+            let d = c.registro(0.0)?;
+            c.ops.push(Op::Contador { d, u, inc: inc as i8 });
+            Valor::Bits(d)
+        }
+        // E2.3b: el GS emite un vertice, corta la tira, o las dos.
+        DX_EMIT_STREAM | DX_CUT_STREAM | DX_EMIT_THEN_CUT_STREAM => {
+            let flujo = c.entero(arg(1)?)?;
+            if !(0..4).contains(&flujo) {
+                return Err(NoPrograma::Forma("un GS con un flujo que no es 0..3"));
+            }
+            if op != DX_CUT_STREAM {
+                c.ops.push(Op::Emite { flujo: flujo as u8 });
+            }
+            if op != DX_EMIT_STREAM {
+                c.ops.push(Op::Corta { flujo: flujo as u8 });
+            }
+            Valor::Nada
         }
         // N5.7: `discard(i1 c)`; `clip(x)` llega como `discard(x < 0)`, y un
         // `discard` a secas, con un `i1 true` (un literal).
@@ -1061,7 +1228,15 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                     }
                 }
                 3 => Valor::Muestreador(c.ranuras.muestreador(espacio, registro)?),
-                _ => return Err(NoPrograma::Forma("un UAV (RWTexture, RWBuffer...): todavia no")),
+                // N5.5: los UAV de BUFER (RWStructuredBuffer, RWByteAddress
+                // Buffer, RWBuffer); N5.3c (05-10), los de TEXTURA de una o
+                // dos dimensiones (RWTexture1D, RWTexture2D).
+                1 => match super::recursos::rango(&c.recursos, 1, rango as u32).map(|r| (r.modo_de_bufer(), r.especie)) {
+                    Some((Some(modo), _)) => Valor::Uav(c.ranuras.uav(espacio, registro)?, modo),
+                    Some((None, 1 | 2)) => Valor::Uav(c.ranuras.uav(espacio, registro)?, crate::bufer::Modo::Textura),
+                    _ => return Err(NoPrograma::Forma("un UAV de TEXTURA 3D, de array o de cubo: todavia no (N5.3c)")),
+                },
+                _ => return Err(NoPrograma::Forma("un createHandle de una clase que no existe")),
             }
         }
         DX_CBUFFER_LOAD_LEGACY => {
@@ -1120,6 +1295,13 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             }
         }
         DX_TEXTURE_LOAD => {
+            // N5.3c: de un UAV de textura: el texel (x, y), sin mip.
+            if let Some(Valor::Uav(u, modo @ crate::bufer::Modo::Textura)) = c.valores.get(arg(1)?).copied() {
+                let (i, desp) = (super::estructura::bits(c, arg(3)?)?, super::estructura::bits(c, arg(4)?)?);
+                let d = cuatro(c)?;
+                c.ops.push(Op::LeeUav { d, u, modo, i, desp });
+                return Ok(if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) });
+            }
             // (srv, mip o muestra, coord0..2, offset0..2).
             let Some(t) = textura(c, arg(1)?) else {
                 return Err(NoPrograma::Forma("TextureLoad sin el handle de una textura (un UAV o un bufer: todavia no)"));
@@ -1134,8 +1316,17 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
         DX_BUFFER_LOAD => {
             // (srv, indice, desplazamiento): el desplazamiento solo lo trae
             // uno estructurado; en los demas es `undef`.
+            // N5.5: de un UAV (RWStructuredBuffer leido), por su lado.
+            if let Some(Valor::Uav(u, modo)) = c.valores.get(arg(1)?).copied() {
+                let cero = super::estructura::literal(c, 0)?;
+                let i = super::estructura::bits(c, arg(2)?)?;
+                let desp = if matches!(c.valores.get(arg(3)?), Some(Valor::Indefinido) | None) { cero } else { super::estructura::bits(c, arg(3)?)? };
+                let d = cuatro(c)?;
+                c.ops.push(Op::LeeUav { d, u, modo, i, desp });
+                return Ok(if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) });
+            }
             let Some(Valor::Bufer(t, modo)) = c.valores.get(arg(1)?).copied() else {
-                return Err(NoPrograma::Forma("BufferLoad sin el handle de un bufer (un UAV: todavia no)"));
+                return Err(NoPrograma::Forma("BufferLoad sin el handle de un bufer"));
             };
             let cero = super::estructura::literal(c, 0)?;
             let indice = super::estructura::bits(c, arg(2)?)?;
@@ -1155,7 +1346,13 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                     c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::MedidasBufer(modo), c: [cero; 4], nivel: cero, desp: [0; 3] });
                     return Ok(Valor::CuatroEnteros(d));
                 }
-                _ => return Err(NoPrograma::Forma("GetDimensions de algo que no es una textura ni un bufer (un UAV: todavia no)")),
+                // N5.3c: de un UAV.
+                Some(Valor::Uav(u, modo)) => {
+                    let d = cuatro(c)?;
+                    c.ops.push(Op::MedidasUav { d, u, modo });
+                    return Ok(Valor::CuatroEnteros(d));
+                }
+                _ => return Err(NoPrograma::Forma("GetDimensions de algo que no es una textura, un bufer ni un UAV")),
             };
             let nivel = super::estructura::bits(c, arg(2)?)?;
             let cero = super::estructura::literal(c, 0)?;
