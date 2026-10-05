@@ -2233,3 +2233,22 @@ x de 320 a 960, los mismos pixeles bit a bit, y FUERA, con culling, solo el
 fondo; probado que dice NO con el contador atascado: la franja sale vacia),
 y `tests/nativo_computo.rs` (su CS traducido a x86-64: las mismas ordenes,
 en el mismo orden, y el mismo contador que el interprete).
+
+predica.exe -- D3D12PredicationQueries de Microsoft: la oclusion y la predicacion (05-10)
+
+E2.7 de la ESCALERA: `Samples/Desktop/D3D12PredicationQueries` con el
+mismo script (`muestras/construir.sh`), su fuente sin tocar y el puente
+igual. Sus dos .cso, con DXC, como su proyecto: de shaders.hlsl el VS y el
+PS (-Tvs_6_0 -E"VSMain", -Tps_6_0 -E"PSMain"), -Zi -Qembed_debug. Todo en
+window/predica/ y aqui en muestras/predica/. Reproducible (comprobado en
+dos directorios), sin rutas de la maquina. sha256:
+
+   02fb0232c70a452e91f442e54d7f12b3b639bedba30c9533b9ef784678a705bf  predica.exe
+   c50299267a340cfbd33128fef4d1950067cce1e53c2e83ad3a4175dc94487a16  predica/shaders_VSMain.cso
+   cecc7a91b13dd52e9501db1c650f0db0df3ebf3df673f41a698fbd31c9b0288e  predica/shaders_PSMain.cso
+
+El juez: `tests/corre/muestras.rs` (e2_7: 35 Present; en cada uno se mide
+donde esta el cuadro cercano, y el lejano sale si y solo si el cercano NO
+lo tapaba en el anterior, con los colores exactos; probado que dice NO sin
+predicacion y con la consulta siempre VISIBLE). La cuenta exacta de lo que
+pasa, en la trama: `src/pruebas_pixeles.rs`.

@@ -631,3 +631,64 @@ fn e2_4_executeindirect_cullea_por_computo_y_dibuja_lo_mismo_dentro() {
         }
     }
 }
+
+/// **E2.7 -- D3D12PredicationQueries** (05-10, `Samples/Desktop`, MIT): un
+/// cuadro blanco LEJOS, uno translucido CERCA que pasa por delante, y la
+/// caja del lejano dibujada en una consulta de OCLUSION BINARIA (sin color
+/// ni Z); su resultado, con ResolveQueryData, decide con SetPredication
+/// (EQUAL_ZERO) si el lejano se dibuja en el fotograma SIGUIENTE. Pidio a la
+/// casa contar los pixeles que pasan la profundidad (`Cuenta::pasan`) entre
+/// BeginQuery y EndQuery, y SetPredication de verdad (`consultas.rs`).
+///
+/// **Como se sabe** (la regla de la muestra, fotograma a fotograma): de
+/// cada Present se MIDE donde esta el cuadro cercano (la fila 170, donde
+/// solo esta el) y si tapaba entero al lejano (columnas 480 a 799); el
+/// lejano se dibuja en el Present `n` si y solo si NO lo tapaba en el
+/// `n - 1` (en el 0, nunca: el bufer de la consulta empieza a cero). Y los
+/// colores, exactos: el cercano (alfa 0.65) sobre el blanco, o sobre el
+/// fondo. Probado que dice NO: con SetPredication sin hacer, el lejano sale
+/// desde el Present 0; con la consulta siempre VISIBLE (lo de antes), tambien.
+#[test]
+fn e2_7_predicationqueries_salta_el_cuadro_que_la_oclusion_dice_tapado() {
+    let fotos: Vec<u32> = (0..=34).collect();
+    let (salio, texto, _, fotos) = correr_muestra_con(PREDICA, "predica", 35, &fotos, &[]);
+    assert_eq!(salio, 0xF00D, "{texto}");
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte");
+    assert_eq!(fotos.len(), 35);
+    let w = ANCHO as usize;
+    let fila = |px: &[u32], y: usize| px[y * w..(y + 1) * w].iter().map(|p| p & 0xFF_FFFF).collect::<Vec<u32>>();
+    let (mut tapaba, mut vistos) = (None::<bool>, [0u32; 2]);
+    for (n, px, _, _) in &fotos {
+        // El cercano: sus columnas en la fila 170 (no es ni el fondo ni nada
+        // del lejano, que empieza en la 200).
+        let arriba = fila(px, 170);
+        let cols: Vec<usize> = (0..w).filter(|&x| arriba[x] != 0x00_33_66).collect();
+        let (izq, der) = (*cols.first().expect("el cercano siempre se ve"), *cols.last().unwrap());
+        // El lejano en la fila del centro: dibujado, todo es blanco o el
+        // cercano sobre blanco (rojo a tope: 0.65 + 0.35); si no, el fondo o
+        // el cercano sobre el fondo (rojo 0.65 = 0xA6).
+        let centro = fila(px, 360);
+        let rojos: Vec<u32> = (480..800).map(|x| centro[x] >> 16).collect();
+        let dibujado = rojos.iter().all(|&r| r == 0xFF);
+        assert!(dibujado || rojos.iter().all(|&r| r == 0x00 || r == 0xA6), "Present {n}: el lejano, ni entero ni ausente: {rojos:?}");
+        for x in 480..800 {
+            let p = centro[x];
+            let bajo_el_cercano = (izq..=der).contains(&x);
+            let azul = p & 0xFF;
+            let esperado = match (dibujado, bajo_el_cercano) {
+                (true, true) => 0x59,  // 0.35 * 1 (el blanco)
+                (true, false) => 0xFF, // el blanco solo
+                (false, true) => 0x24, // 0.35 * 0.4 (el fondo)
+                (false, false) => 0x66,
+            };
+            assert_eq!(azul, esperado, "Present {n}, pixel ({x}, 360): {p:#08x}");
+        }
+        match tapaba {
+            None => assert!(!dibujado, "Present 0: el bufer de la consulta empieza a cero, y EQUAL_ZERO lo salta"),
+            Some(t) => assert_eq!(dibujado, !t, "Present {n}: el lejano se dibuja si y solo si el cercano NO lo tapaba en el anterior"),
+        }
+        vistos[dibujado as usize] += 1;
+        tapaba = Some(izq <= 480 && der >= 799);
+    }
+    assert!(vistos[0] > 5 && vistos[1] > 5, "se ven las dos cosas: saltado y dibujado ({vistos:?})");
+}

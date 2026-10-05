@@ -42,8 +42,8 @@ platform/shared/proton-x/prueba/hwindow.exe (since 2026-10-05) is Microsoft's
 D3D12HelloWindow sample from DirectX-Graphics-Samples, built unmodified from
 its source with platform/shared/proton-x/prueba/muestras/construir.sh; the
 same holds for htriang.exe, htexture.exe, hcbuffer.exe, hframes.exe,
-hbundles.exe, dynindex.exe, nbody.exe (D3D12nBodyGravity) and indirect.exe
-(D3D12ExecuteIndirect), and for the
+hbundles.exe, dynindex.exe, nbody.exe (D3D12nBodyGravity), indirect.exe
+(D3D12ExecuteIndirect) and predica.exe (D3D12PredicationQueries), and for the
 shaders and the occcity.bin mesh under prueba/muestras/ (the samples' own
 data, same license). They contain code from DirectX-Graphics-Samples and
 DirectX-Headers (Microsoft, MIT License; the text is in

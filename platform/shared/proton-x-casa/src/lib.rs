@@ -77,6 +77,8 @@ pub mod d3d12_lista2;
 pub mod fallas;
 pub mod d3d12_resto;
 mod computo;
+/// E2.7 (05-10): las consultas de oclusion y la predicacion.
+mod consultas;
 pub mod dxgi_resto;
 pub mod d3d12_capacidades;
 pub mod d3d12_dispositivos;
@@ -364,6 +366,7 @@ pub unsafe fn empezar(p: Plataforma) {
     memoria::reiniciar();
     com_objeto::reiniciar();
     d3d12_resto::reiniciar();
+    consultas::reiniciar();
     proceso::reiniciar();
     esperas::reiniciar();
     carpetas::reiniciar();

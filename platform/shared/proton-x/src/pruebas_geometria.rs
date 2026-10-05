@@ -73,7 +73,7 @@ fn el_gs_de_nbody_hace_de_cada_punto_un_cuadro_con_su_degradado() {
     poner(7, 3, 1.0);
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 32.0, 32.0, 0.0, 1.0], tijera: [0, 0, 32, 32], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
     let rec = crate::textura::Recursos { texturas: &[None], muestreadores: &[], buferes: &srv, dinamicas: None };
-    let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso: 16, ids: &[0, 1], topologia: Topologia::Puntos, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: rec };
+    let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso: 16, ids: &[0, 1], topologia: Topologia::Puntos, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: rec, oclusion: false };
     let mut px = vec![0x0102_0304u32; 32 * 32];
     let mut d = trama::Destino { pixeles: &mut px, ancho: 32, alto: 32, bgra: false, z: None, cadena: false, otros: &mut [] };
     let c = lote::en_cpu(&l, &mut d).unwrap();

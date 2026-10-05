@@ -78,6 +78,13 @@ pub(crate) enum Orden {
     Bytes { dst: u64, src: u64, n: u64 },
     Entero { dst: u64, src: u64 },
     Consulta { monton: u64, indice: u32, tipo: u32 },
+    /// E2.7 (05-10, ver `consultas`): el BeginQuery de una consulta de
+    /// oclusion, y SetPredication (`dir`: el u64 que mira, 0 sin
+    /// predicacion; `op`: 0 EQUAL_ZERO, 1 NOT_EQUAL_ZERO).
+    Empezar { monton: u64, indice: u32 },
+    Predicar { dir: u64, op: u32 },
+    /// Como `Bytes`, de AtomicCopyBufferUINT(64): la predicacion no la salta.
+    Atomica { dst: u64, src: u64, n: u64 },
     Resolver { monton: u64, desde: u32, n: u32, bufer: u64, off: u64 },
     /// Tanda 48: escribir un `u32` en una direccion de un bufer de la casa
     /// (WriteBufferImmediate).
@@ -968,8 +975,15 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
             aviso("ExecuteCommandLists con una lista sin Close: en Windows es un error, y no se corre");
             continue;
         }
+        // E2.7: toda lista empieza sin consultas abiertas ni predicacion.
+        crate::consultas::al_empezar_lista();
+        let mut saltar = false;
         for o in &l.ordenes {
+            if saltar && crate::consultas::predicable(o) {
+                continue;
+            }
             match o {
+                Orden::Predicar { dir, op } => saltar = crate::consultas::salta(*dir, *op),
                 // ** P3b4c: la limpieza se APUNTA, no se hace: la hace quien
                 // dibuje (la 3060 en su dibujo; la CPU al empezar el suyo), o
                 // quien lea los pixeles antes (Present, CopyTextureRegion).
@@ -992,6 +1006,7 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
                 o => crate::d3d12_resto::ejecutar(o),
             }
         }
+        crate::consultas::al_acabar_lista();
     }
 }
 

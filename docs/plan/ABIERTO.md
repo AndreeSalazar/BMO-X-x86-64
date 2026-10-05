@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   611 casillas ABIERTAS en 57 planes
-   473 hechas
+   609 casillas ABIERTAS en 57 planes
+   474 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -34,14 +34,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 # Los planes VIVOS, el que mas debe primero
 
-## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 91 abiertas, 53 hechas
+## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 90 abiertas, 53 hechas
 
 *PLAN LAS TRES GRANDES -- D3D12 de juego, el sonido del juego y varios nucleos*
 
 - [ ] P0.2 -- Las DURAS que falten, a CERO (una tanda por grupo de arriba).
 - [ ] P0.2g -- DONDE GUARDA EL JUEGO: hoy USERPROFILE (y con el APPDATA,
 - [ ] P0.2h -- El globo de run recomienda smp all para un juego SOLO
-- ... y 88 mas
+- ... y 87 mas
 
 ## [`PLAN_CLOUD_LOCAL.md`](PLAN_CLOUD_LOCAL.md) -- 46 abiertas, 16 hechas
 
@@ -187,15 +187,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 11 abiertas, 14 hechas
-
-*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
-
-- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
-- [ ] E2.1 -- D3D12Multithreading. Listas de ordenes grabadas desde
-- [ ] E2.5 -- D3D12SM6WaveIntrinsics. Las olas de verdad (D4.3): hoy son
-- ... y 8 mas
-
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -212,6 +203,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D2a -- un TRINQUETE. static mut declarados en
 - [ ] D2b -- el reparto, por fichero, cuando SMP se retome. No antes: sin
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
+- ... y 7 mas
+
+## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 10 abiertas, 15 hechas
+
+*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
+
+- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
+- [ ] E2.1 -- D3D12Multithreading. Listas de ordenes grabadas desde
+- [ ] E2.5 -- D3D12SM6WaveIntrinsics. Las olas de verdad (D4.3): hoy son
 - ... y 7 mas
 
 ## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 10 abiertas, 35 hechas

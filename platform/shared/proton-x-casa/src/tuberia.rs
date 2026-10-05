@@ -924,6 +924,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         topologia,
         cb: &cb,
         reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad, mezcla, z_del_sombreador: false },
+        oclusion: crate::consultas::hay_abierta(),
     };
     // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.
     let z = match (pso.profundidad, e.dsv) {
@@ -981,6 +982,10 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // queda el fotograma: lo lee `Present`.
     if let (0, Some(rt)) = (e.rtv_sub, rt.as_mut()) {
         rt.en_pantalla = r.as_ref().is_ok_and(|c| c.en_pantalla);
+    }
+    // E2.7: lo que paso, a las consultas de oclusion abiertas.
+    if let Ok(c) = &r {
+        crate::consultas::sumar(c.pasan);
     }
     match r {
         Ok(c) if c.sin_recortar > 0 => aviso("Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan"),

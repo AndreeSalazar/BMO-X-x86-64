@@ -420,8 +420,12 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   vaciados de cache de la 3060.
 - [ ] D5.4 -- `ExecuteIndirect` (firmas de ordenes), si D0 lo encuentra: los
   juegos que dibujan "desde la GPU" viven de el.
-- [ ] D5.5 -- Consultas: sellos de tiempo, oclusion, estadisticas;
-  `ResolveQueryData`, `GetTimestampFrequency`.
+- [~] D5.5 -- Consultas: sellos de tiempo, oclusion, estadisticas;
+  `ResolveQueryData`, `GetTimestampFrequency`. 05-10: la OCLUSION (y la
+  binaria) cuenta de verdad y `SetPredication` salta lo que debe (E2.7 de
+  la ESCALERA, `proton-x-casa/src/consultas.rs`); los sellos de tiempo y
+  ResolveQueryData ya estaban. Queda: las estadisticas (dan ceros), que la
+  3060 cuente (hoy esos lotes van por la CPU) y verlo en Cyberpunk.
 - [ ] D5.6 -- La receta de la 3060 a escala: miles de dibujos por lote,
   varios destinos, fusion, estarcido, recortes y ventanas multiples.
   **Como se sabe:** `cubo12` con 10.000 cubos, a sus fps medidos.

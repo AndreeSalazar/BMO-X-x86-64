@@ -251,6 +251,7 @@ fn la_trama_no_escribe_el_pixel_tirado_ni_su_profundidad() {
     });
     assert_eq!(c.pixeles, 28);
     assert!(c.tirados > 0 && c.tirados < 28, "{c:?}");
+    assert_eq!(c.pasan, 28 - c.tirados, "lo tirado no PASA (E2.7: una consulta de oclusion no lo cuenta)");
     let pintados = px.iter().filter(|&&p| p != 0).count() as u64;
     let escritos = z.iter().filter(|&&b| b != 1.0f32.to_bits()).count() as u64;
     assert_eq!((pintados, escritos), (28 - c.tirados, 28 - c.tirados), "{c:?}");

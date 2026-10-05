@@ -165,6 +165,9 @@ Cyberpunk:
    ExecuteIndirect: desde el 05-10 (E2.4), con el      N5.17 el culling de
    contador de los UAV; sin vistas en la raiz,               la GPU
    rayos ni malla
+   las consultas de OCLUSION y SetPredication:         D5.5  el culling por
+   desde el 05-10 (E2.7), contadas en la CPU; las            oclusion
+   de estadisticas dan ceros
    el sombreador de GEOMETRIA: en la CPU desde el      N5.18 particulas,
    05-10 (E2.3b); sin vertice calculado, adyacencia,         siluetas
    puntos o lineas de salida ni stream output
@@ -193,8 +196,9 @@ Cyberpunk:
 
 Y lo que la casa hace en la CPU y la 3060 todavia no (N6.1): MRT, mezcla,
 discard, SV_Position, SV_Depth, solo profundidad, la matematica, las olas,
-los arrays, el Gather y el SampleCmp. Cada uno, cuando la puerta lo niega, va
-por la CPU (el interprete), que es el juez de la 3060.
+los arrays, el Gather, el SampleCmp y contar los pixeles de una consulta de
+oclusion (E2.7). Cada uno, cuando la puerta lo niega, va por la CPU (el
+interprete), que es el juez de la 3060.
 
 ---
 

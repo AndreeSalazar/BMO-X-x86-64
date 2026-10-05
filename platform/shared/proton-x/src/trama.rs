@@ -137,6 +137,10 @@ pub struct Cuenta {
     /// N5.7: pixeles que el sombreador TIRO (`discard`, `clip`): pasaron la
     /// prueba de profundidad y no escribieron nada.
     pub tirados: u64,
+    /// E2.7 (05-10): pixeles que PASARON la prueba de profundidad (la de
+    /// stencil la casa aun no la hace) y que el sombreador no tiro, escriban
+    /// color o no: lo que cuenta una consulta de OCLUSION de D3D12.
+    pub pasan: u64,
     /// P3b4c.9 Z1: el dibujo quedo EN LA PANTALLA (la 3060, directo), no en
     /// `Destino::pixeles`: `Present` no tiene nada que copiar.
     pub en_pantalla: bool,
@@ -373,6 +377,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                         z_nueva = Some(z.to_bits());
                     }
                 }
+                cuenta.pasan += 1;
                 if let (Some(z), Some(zs)) = (z_nueva, destino.z.as_deref_mut()) {
                     zs[i] = z;
                 }

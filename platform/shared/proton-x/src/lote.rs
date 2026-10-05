@@ -341,6 +341,10 @@ pub struct Lote<'a> {
     pub limpiar_rt: Option<u32>,
     /// Las texturas y los muestreadores que ven sus sombreadores.
     pub recursos: crate::textura::Recursos<'a>,
+    /// E2.7 (05-10): hay una consulta de OCLUSION abierta: quien dibuje
+    /// tiene que contar los pixeles que pasan ([`trama::Cuenta::pasan`]).
+    /// La trama de la CPU los cuenta siempre; la 3060, aun no.
+    pub oclusion: bool,
 }
 
 /// Por que un ejecutor no dibujo un lote.

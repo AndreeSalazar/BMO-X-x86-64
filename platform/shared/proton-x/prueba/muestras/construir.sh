@@ -137,6 +137,12 @@ rm -rf indirect
 construir $I indirect.exe
 sombreador $I indirect compute cs_6_0 CSMain compute
 
+# E2.7: las consultas de oclusion y la predicacion. Sus .cso, los de
+# shaders.hlsl (los hace `construir`).
+P=D3D12PredicationQueries/src
+rm -rf predica
+construir $P predica.exe
+
 # E2.3a: el juez del COMPUTO, NUESTRO y no de Microsoft (`../computo.cpp`,
 # de consola, con su CS de `../computo.dxil` dentro por `.incbin`): las
 # mismas cabeceras y el mismo UCRT que las muestras.

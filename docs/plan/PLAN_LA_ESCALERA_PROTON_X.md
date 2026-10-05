@@ -301,8 +301,22 @@ muestra.
 - [ ] **E2.6 -- D3D12HDR.** Render targets de float (N5.16) y la cadena en 10
   o 16 bits con su espacio de color. **Como se sabe:** su huella, igual, en
   el modo de 8 bits y en el de 16.
-- [ ] **E2.7 -- D3D12PredicationQueries.** Consultas de oclusion y
-  predicacion (D5.5). **Como se sabe:** su huella, igual.
+- [x] **E2.7 -- D3D12PredicationQueries** (05-10, en el banco; falta verlo
+  en el metal). Un cuadro blanco lejos, uno translucido cerca que pasa por
+  delante, y la caja del lejano en una consulta de oclusion BINARIA cuyo
+  resultado decide, con `SetPredication`, si el lejano se dibuja en el
+  fotograma siguiente. Lo que pidio: que la trama cuente los pixeles que
+  PASAN la profundidad (`Cuenta::pasan`, escriban color o no),
+  BeginQuery/EndQuery de verdad (se cuentan al ejecutar la lista; una
+  consulta no cruza listas) y `SetPredication` (su u64 se lee al ejecutarse,
+  como dice Microsoft; salta Draw, Dispatch, ExecuteIndirect, copias y
+  limpiezas, y nada mas): `proton-x-casa/src/consultas.rs`. Con una
+  consulta abierta el lote va por la CPU: la 3060 aun no cuenta. Nada mas:
+  ni un aviso. **Como se sabe:** `tests/corre/muestras.rs`: 35 Present, y
+  en cada uno se mide donde esta el cuadro cercano; el lejano sale si y
+  solo si el cercano NO lo tapaba en el anterior, con los colores exactos;
+  probado que dice NO sin predicacion y con la consulta siempre VISIBLE. Y
+  la cuenta exacta en la trama (`src/pruebas_pixeles.rs`).
 
 ## E3 -- el jefe intermedio: MiniEngine (`MiniEngine/ModelViewer`, MIT)
 
@@ -367,7 +381,7 @@ se mide con R5: una corrida por escalon cerrado.
    (nueva) el sombreador de geometria       E2.3b (hecho)
    D4.3   las olas de verdad                E2.5
    N5.16  render targets de float           E2.6
-   D5.5   consultas                         E2.7
+   D5.5   consultas                         E2.7 (oclusion y predicacion)
 ```
 
 Una casilla de LAS_TRES_GRANDES se marca cuando pasa su escalon, con "falta

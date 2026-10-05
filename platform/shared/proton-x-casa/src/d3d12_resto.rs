@@ -19,8 +19,10 @@
 //!    lista        GetType, ClearState, CopyBufferRegion, CopyResource,
 //!                 ResolveSubresource (una muestra: copiar), Begin/EndQuery y
 //!                 ResolveQueryData, marcadores; lo que el sombreador de la
-//!                 casa aun no ve (computo, constantes de raiz, SRV/UAV de
-//!                 raiz, ExecuteIndirect, predicacion), apuntado y DICHO
+//!                 casa aun no ve (constantes de raiz, SRV/UAV de raiz),
+//!                 apuntado y DICHO. Ya corren: el computo (N5.5),
+//!                 ExecuteIndirect (E2.4) y la oclusion y la predicacion
+//!                 (E2.7, `consultas`)
 //!    recurso      WriteToSubresource, ReadFromSubresource, GetHeapProperties
 //!    otros        GetDesc del monton de descriptores y de la cola,
 //!                 GetCachedBlob del PSO (un blob propio que la casa ignora
@@ -685,7 +687,17 @@ extern "win64" fn clear_uav(_this: u64, _gpu: u64, _cpu: u64, _r: u64, _v: *cons
 
 extern "win64" fn discard_resource(_this: u64, _r: u64, _region: *const u8) {}
 
-extern "win64" fn begin_query(_this: u64, _monton: u64, _tipo: u32, _i: u32) {}
+/// `BeginQuery(this, monton, tipo, indice)` (E2.7): las de OCLUSION se
+/// apuntan y cuentan al ejecutarse (`consultas`); las de estadisticas, aun
+/// no (dan ceros).
+extern "win64" fn begin_query(this: u64, monton: u64, tipo: u32, i: u32) {
+    match tipo {
+        _ if monton == 0 => aviso("BeginQuery sin monton de consultas: en Windows es un error"),
+        crate::consultas::OCLUSION | crate::consultas::BINARIA => l(this).ordenes.push(Orden::Empezar { monton, indice: i }),
+        2 => aviso("BeginQuery de un sello de tiempo: en Windows es un error (solo lleva EndQuery)"),
+        _ => {}
+    }
+}
 
 /// `EndQuery(this, monton, tipo, indice)`: se APUNTA; el resultado se pone al
 /// ejecutarse (un sello de tiempo, entonces).
@@ -702,9 +714,23 @@ extern "win64" fn resolve_query_data(this: u64, monton: u64, _tipo: u32, desde: 
     }
 }
 
-extern "win64" fn set_predication(_this: u64, bufer: u64, _off: u64, _op: u32) {
-    if bufer != 0 {
-        aviso("SetPredication: la casa dibuja siempre (sin predicacion)");
+/// `SetPredication(this, bufer, desplazamiento, op)` (E2.7): se APUNTA; su
+/// u64 se lee al ejecutarse (`consultas`). Lo que Microsoft valida, igual:
+/// un bufer, el desplazamiento multiplo de 8 y dentro, un op de los dos, y
+/// nunca en un bundle.
+extern "win64" fn set_predication(this: u64, b: u64, off: u64, op: u32) {
+    let lista = l(this);
+    if lista.tipo == LISTA_BUNDLE {
+        aviso("SetPredication en un bundle: en Windows es un error, y no se hace");
+        return;
+    }
+    if b == 0 {
+        lista.ordenes.push(Orden::Predicar { dir: 0, op });
+        return;
+    }
+    match bufer(b) {
+        Some((base, bytes)) if op <= 1 && off % 8 == 0 && off.checked_add(8).is_some_and(|f| f <= bytes) => lista.ordenes.push(Orden::Predicar { dir: base + off, op }),
+        _ => aviso("SetPredication de algo que no es un bufer, fuera de el, sin alinear a 8 o con un op que no existe: en Windows es un error, y no se hace"),
     }
 }
 
@@ -811,9 +837,10 @@ pub(crate) fn ejecutar(o: &Orden) {
     match *o {
         // SAFETY: tramos comprobados al apuntar, de buferes de la casa (que
         // no se liberan).
-        Orden::Bytes { dst, src, n } => unsafe { core::ptr::copy(src as *const u8, dst as *mut u8, n as usize) },
+        Orden::Bytes { dst, src, n } | Orden::Atomica { dst, src, n } => unsafe { core::ptr::copy(src as *const u8, dst as *mut u8, n as usize) },
         Orden::Entero { dst, src } => copiar_entero(dst, src),
         Orden::Consulta { monton, indice, tipo } => consulta(monton, indice, tipo),
+        Orden::Empezar { monton, indice } => crate::consultas::abrir(monton, indice),
         Orden::Resolver { monton, desde, n, bufer: b, off } => resolver(monton, desde, n, b, off),
         // SAFETY: comprobado al apuntar: cuatro bytes de un bufer de la casa.
         Orden::Escribir { dst, valor } => unsafe { (dst as *mut u32).write_unaligned(valor) },
@@ -859,9 +886,12 @@ fn consulta(monton: u64, i: u32, tipo: u32) {
     };
     r.fill(0);
     let v: u64 = match tipo {
-        // OCCLUSION y BINARY: VISIBLE. Un 0 haria que el motor no dibujara
-        // lo que no sabe si se ve.
-        0 | 1 => 1,
+        // E2.7: lo que contaron sus dibujos. Sin su BeginQuery, VISIBLE: un 0
+        // haria que el motor no dibujara lo que no se sabe si se ve.
+        crate::consultas::OCLUSION | crate::consultas::BINARIA => crate::consultas::cerrar(monton, i, tipo).unwrap_or_else(|| {
+            aviso("EndQuery de una consulta de oclusion sin su BeginQuery en la misma lista: en Windows es un error; se dice VISIBLE");
+            1
+        }),
         2 => (crate::plataforma().ahora_ns)(),
         _ => 0,
     };

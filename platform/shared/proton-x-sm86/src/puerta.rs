@@ -294,6 +294,11 @@ impl Puerta {
     /// **La receta de este lote**, en `self.caja[..n]`: `Ok(n)`, o por que
     /// no va a la 3060.
     pub fn preparar(&mut self, l: &Lote, b: Blanco) -> Result<usize, String> {
+        // E2.7: con una consulta de oclusion abierta hay que CONTAR los
+        // pixeles que pasan, y la 3060 aun no los cuenta: por la CPU.
+        if l.oclusion {
+            return Err(String::from("hay una consulta de oclusion abierta: la 3060 no cuenta los pixeles que pasan todavia"));
+        }
         // N5.11: la 3060 aun no mezcla (ni enmascara): ese lote, por la CPU.
         if !l.reglas.mezcla.trivial() {
             return Err(String::from("el lote mezcla (o escribe solo algunos canales): la 3060 no lo sabe todavia"));
