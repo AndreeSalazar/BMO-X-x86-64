@@ -1,0 +1,12 @@
+[package]
+name = "bmo-estratos-mezcla"
+version = "0.1.0"
+edition = "2021"
+description = "Mezcla dos ramas de un volumen ESTRATOS por NODOS, en el anfitrion y sobre imagenes (PLAN_LAS_RAMAS R4b)"
+
+# Una LIBRERIA, como estratos-put: la mezcla se prueba sobre imagenes en el
+# anfitrion antes de que el kernel la tenga como gesto (R4c). La parte que
+# decide es `bmo_estratos::mezcla`, la misma que usara el kernel.
+
+[dependencies]
+bmo-estratos = { path = "../../../platform/drivers/storage/estratos" }

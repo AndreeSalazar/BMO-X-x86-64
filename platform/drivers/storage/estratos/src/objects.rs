@@ -389,6 +389,21 @@ impl Entrada {
         self
     }
 
+    /// **Una entrada con el nombre en BYTES** (Latin-1), tal cual: lo que
+    /// necesita quien rehace una carpeta a partir de otra -- la mezcla
+    /// (`PLAN_LAS_RAMAS` R4b) -- sin pasar por `&str`, que perderia `an~o`.
+    pub fn de_bytes(name: &[u8], nodo: BlockPtr) -> Result<Self, FormatError> {
+        if name.is_empty() || name.len() > NOMBRE_MAX { return Err(FormatError::BadField); }
+        let mut n = [0u8; NOMBRE_MAX];
+        n[..name.len()].copy_from_slice(name);
+        Ok(Self { name: n, nombre_len: name.len(), nodo })
+    }
+
+    /// El nombre en sus BYTES, sin decodificar: el par de [`Entrada::de_bytes`].
+    pub fn nombre_bytes(&self) -> &[u8] {
+        &self.name[..self.nombre_len]
+    }
+
     /// El nombre TAL COMO SE ESCRIBIO. Se conserva aunque las comparaciones
     /// ignoren mayusculas: es lo que espera cualquiera que venga de Windows y
     /// no cuesta nada.

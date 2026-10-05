@@ -1,0 +1,215 @@
+//! Las pruebas de la mezcla, sobre IMAGENES de verdad (un fichero temporal):
+//! la regla de `ESTRATOS.md` -- primero en imagenes, despues en F:.
+
+use super::*;
+use std::fs::{self, File, OpenOptions};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+const BLOQUES: u64 = 4096;
+
+fn id() -> [u8; 32] {
+    es::disk_id(b"TEST MEZCLA", b"SERIE-MEZCLA", BLOQUES)
+}
+
+struct Imagen {
+    ruta: std::path::PathBuf,
+    disco: File,
+    generacion: u64,
+}
+
+impl Drop for Imagen {
+    fn drop(&mut self) {
+        // `BMO_MEZCLA_GUARDA=<carpeta>` deja una copia de cada imagen, para
+        // pasarle `estratos-fmt <imagen> --verificar` (el verificador de
+        // siempre, no uno de esta prueba).
+        if let Some(dir) = std::env::var_os("BMO_MEZCLA_GUARDA") {
+            let _ = fs::copy(&self.ruta, std::path::Path::new(&dir).join(self.ruta.file_name().unwrap()));
+        }
+        let _ = fs::remove_file(&self.ruta);
+    }
+}
+
+/// Un volumen recien formateado: una raiz vacia y su estrato.
+fn imagen(nombre: &str) -> (Imagen, BlockPtr) {
+    let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let ruta = std::env::temp_dir().join(format!("bmo-mezcla-{nombre}-{}-{nonce}.img", std::process::id()));
+    let mut disco = OpenOptions::new().read(true).write(true).create_new(true).open(&ruta).unwrap();
+    disco.set_len(BLOQUES * BLOQUE as u64).unwrap();
+    let raiz = escribir_objeto(&mut disco, 2, &es::escritura::nodo_de_directorio_vacio()).unwrap();
+    let e = Estrato::new(raiz, BlockPtr::NULO, 0, Autor::Herramienta, "formato");
+    let ep = escribir_objeto(&mut disco, 3, &e.encode()).unwrap();
+    let mut sb = Superblock::new(id(), BLOQUES);
+    sb.generation = 1;
+    sb.log_head = 4;
+    sb.estrato = ep;
+    for lba in [es::SUPER_A_BLOCK, es::SUPER_B_BLOCK] {
+        disco.seek(SeekFrom::Start(lba * BLOQUE as u64)).unwrap();
+        disco.write_all(&sb.encode()).unwrap();
+    }
+    disco.sync_all().unwrap();
+    (Imagen { ruta, disco, generacion: 1 }, ep)
+}
+
+fn carpeta(ficheros: &[(&[u8], &[u8])]) -> Carpeta {
+    let mut c = Carpeta::default();
+    for (r, d) in ficheros {
+        c.poner(r, Hijo::Contenido(d.to_vec())).unwrap();
+    }
+    c
+}
+
+/// Publica una version con `padre` elegido (no el de ahora): asi se hacen ramas.
+fn version(img: &mut Imagen, padre: BlockPtr, ficheros: &[(&[u8], &[u8])]) -> BlockPtr {
+    let (g, ep, _, _) = publicar(&mut img.disco, id(), img.generacion, &carpeta(ficheros), |raiz, _| {
+        Estrato::new(raiz, padre, 0, Autor::Herramienta, "")
+    })
+    .unwrap();
+    img.generacion = g;
+    ep
+}
+
+/// Lo que dice cada fichero del arbol de un estrato: (ruta, contenido).
+fn contenido(img: &mut Imagen, estrato: &BlockPtr) -> Vec<(String, Vec<u8>)> {
+    let raiz = leer_estrato(&mut img.disco, estrato).unwrap().raiz;
+    let mut v: Vec<(String, Vec<u8>)> = aplanar(&mut img.disco, &raiz)
+        .unwrap()
+        .into_iter()
+        .map(|h| {
+            let n = leer_nodo(&mut img.disco, &h.nodo).unwrap();
+            let d = leer_flujo(&mut img.disco, n.attr(":datos").unwrap()).unwrap();
+            (String::from_utf8_lossy(&h.ruta).into_owned(), d)
+        })
+        .collect();
+    v.sort();
+    v
+}
+
+fn punta(img: &mut Imagen) -> BlockPtr {
+    abrir(&mut img.disco, id(), img.generacion).unwrap().0.estrato
+}
+
+fn s(r: &str, d: &str) -> (String, Vec<u8>) {
+    (r.to_string(), d.as_bytes().to_vec())
+}
+
+#[test]
+fn mezcla_dos_ramas_por_nodos_con_un_choque_elegido_y_dos_padres() {
+    let (mut img, formato) = imagen("ramas");
+    let base = version(&mut img, formato, &[
+        (b"mundo/a.txt", b"a de la base"),
+        (b"mundo/b.txt", b"b de la base"),
+        (b"leeme", b"igual en todas"),
+        (b"choque.txt", b"base"),
+    ]);
+    // La rama que entra: cambia b y el choque.
+    let rama = version(&mut img, base, &[
+        (b"mundo/a.txt", b"a de la base"),
+        (b"mundo/b.txt", b"b de la RAMA"),
+        (b"leeme", b"igual en todas"),
+        (b"choque.txt", b"lo de la rama"),
+    ]);
+    // La de ahora: cambia a, agrega uno, y tambien el choque.
+    let ahora = version(&mut img, base, &[
+        (b"mundo/a.txt", b"a de AHORA"),
+        (b"mundo/b.txt", b"b de la base"),
+        (b"leeme", b"igual en todas"),
+        (b"choque.txt", b"lo de ahora"),
+        (b"nuevo.txt", b"solo ahora"),
+    ]);
+    assert_eq!(punta(&mut img), ahora);
+    let rama_antes = contenido(&mut img, &rama);
+
+    let mut choques = Vec::new();
+    let r = mezclar(&mut img.disco, id(), img.generacion, &rama, "mezcla de la rama", &mut |c| {
+        choques.push(String::from_utf8_lossy(&c.ruta).into_owned());
+        Eleccion::B
+    })
+    .unwrap();
+    img.generacion = r.generacion;
+
+    assert_eq!(choques, ["choque.txt"], "un choque, y una persona eligio");
+    assert_eq!(contenido(&mut img, &r.estrato), vec![
+        s("choque.txt", "lo de la rama"),
+        s("leeme", "igual en todas"),
+        s("mundo/a.txt", "a de AHORA"),
+        s("mundo/b.txt", "b de la RAMA"),
+        s("nuevo.txt", "solo ahora"),
+    ]);
+    // DOS padres: la punta de antes y la rama.
+    let e = leer_estrato(&mut img.disco, &r.estrato).unwrap();
+    assert_eq!(e.padre, ahora);
+    assert!(e.segundo.unwrap().es(&rama));
+    assert_eq!(punta(&mut img), r.estrato);
+    // Nada se pierde: la rama y la de antes siguen enteras.
+    assert_eq!(contenido(&mut img, &rama), rama_antes);
+    assert_eq!(contenido(&mut img, &ahora).len(), 5);
+}
+
+#[test]
+fn los_ficheros_no_se_copian_la_mezcla_apunta_a_los_mismos_nodos() {
+    // D4 (a): nacen COMPARTIENDO. Solo se escriben carpetas y el estrato.
+    let (mut img, formato) = imagen("compartir");
+    let base = version(&mut img, formato, &[(b"x", b"1"), (b"y", b"2")]);
+    let rama = version(&mut img, base, &[(b"x", b"1"), (b"y", b"2 de la rama")]);
+    let _ahora = version(&mut img, base, &[(b"x", b"1 de ahora"), (b"y", b"2")]);
+    let r = mezclar(&mut img.disco, id(), img.generacion, &rama, "m", &mut |_| Eleccion::A).unwrap();
+    let raiz_rama = leer_estrato(&mut img.disco, &rama).unwrap().raiz;
+    let y_rama = aplanar(&mut img.disco, &raiz_rama).unwrap().into_iter().find(|h| h.ruta == b"y").unwrap();
+    let y_mezcla = aplanar(&mut img.disco, &r.raiz).unwrap().into_iter().find(|h| h.ruta == b"y").unwrap();
+    assert_eq!(y_mezcla.nodo, y_rama.nodo, "el MISMO nodo, en el mismo sitio: no se copio un byte");
+    // Una carpeta raiz (lista + nodo) y el estrato: tres bloques.
+    assert_eq!(r.bloques_nuevos, 3);
+}
+
+#[test]
+fn mezclar_una_rama_que_ya_esta_dentro_no_escribe_nada() {
+    let (mut img, formato) = imagen("dentro");
+    let base = version(&mut img, formato, &[(b"x", b"1")]);
+    let _ahora = version(&mut img, base, &[(b"x", b"2")]);
+    let antes = fs::read(&img.ruta).unwrap();
+    let e = mezclar(&mut img.disco, id(), img.generacion, &base, "m", &mut |_| Eleccion::A).unwrap_err();
+    assert!(e.contains("nada que mezclar"), "{e}");
+    assert_eq!(fs::read(&img.ruta).unwrap(), antes, "ni un byte cambio");
+}
+
+#[test]
+fn la_base_se_encuentra_tambien_por_el_segundo_padre() {
+    // Mezclar dos veces la misma rama: la segunda vez, la base es la rama de
+    // la primera mezcla, alcanzada por el SEGUNDO padre.
+    let (mut img, formato) = imagen("segundo");
+    let base = version(&mut img, formato, &[(b"x", b"1"), (b"y", b"1")]);
+    let rama = version(&mut img, base, &[(b"x", b"1"), (b"y", b"rama 1")]);
+    let _ahora = version(&mut img, base, &[(b"x", b"ahora"), (b"y", b"1")]);
+    let m1 = mezclar(&mut img.disco, id(), img.generacion, &rama, "m1", &mut |_| Eleccion::A).unwrap();
+    img.generacion = m1.generacion;
+    // La rama sigue: un cambio mas, con la rama de antes de padre.
+    let rama2 = version(&mut img, rama, &[(b"x", b"1"), (b"y", b"rama 2")]);
+    // La punta es ahora rama2 (version publica la punta); se vuelve a la mezcla
+    // publicando una version igual a m1 con m1 de padre.
+    let m1_arbol = contenido(&mut img, &m1.estrato);
+    let ficheros: Vec<(Vec<u8>, Vec<u8>)> = m1_arbol.iter().map(|(r, d)| (r.as_bytes().to_vec(), d.clone())).collect();
+    let refs: Vec<(&[u8], &[u8])> = ficheros.iter().map(|(r, d)| (&r[..], &d[..])).collect();
+    let _vuelta = version(&mut img, m1.estrato, &refs);
+    let mut hubo_choque = false;
+    let m2 = mezclar(&mut img.disco, id(), img.generacion, &rama2, "m2", &mut |_| {
+        hubo_choque = true;
+        Eleccion::A
+    })
+    .unwrap();
+    // Con la base bien encontrada (la rama de m1), solo B cambio `y`: sin choque.
+    assert!(!hubo_choque, "la base por el segundo padre evita un choque falso");
+    let c = contenido(&mut img, &m2.estrato);
+    assert!(c.contains(&s("y", "rama 2")) && c.contains(&s("x", "ahora")), "{c:?}");
+}
+
+#[test]
+fn un_nombre_latin1_sobrevive_a_la_mezcla() {
+    let (mut img, formato) = imagen("latin1");
+    let anio: &[u8] = b"a\xF1o.txt";
+    let base = version(&mut img, formato, &[(anio, b"1"), (b"z", b"1")]);
+    let rama = version(&mut img, base, &[(anio, b"1"), (b"z", b"2")]);
+    let _ahora = version(&mut img, base, &[(anio, b"de ahora"), (b"z", b"1")]);
+    let r = mezclar(&mut img.disco, id(), img.generacion, &rama, "m", &mut |_| Eleccion::A).unwrap();
+    let hojas = aplanar(&mut img.disco, &r.raiz).unwrap();
+    assert!(hojas.iter().any(|h| h.ruta == anio), "el nombre en sus bytes, entero");
+}
