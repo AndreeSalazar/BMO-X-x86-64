@@ -752,10 +752,6 @@ pub(crate) extern "win64" fn clear_render_target_view(this: u64, handle: u64, co
             return;
         }
         Almacen::Rgba8 => a << 24 | b << 16 | g << 8 | r,
-        Almacen::Flotantes4 => {
-            aviso("ClearRenderTargetView de un render target de float (HDR): todavia no (N5.16 a medias); no se limpia");
-            return;
-        }
     };
     // SAFETY: `this` es una Lista de la casa.
     let l = unsafe { de::<Lista>(this) };

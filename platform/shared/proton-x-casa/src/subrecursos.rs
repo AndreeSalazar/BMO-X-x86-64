@@ -50,12 +50,6 @@ pub enum Almacen {
     Bgra8,
     /// El float de 32 bits de una profundidad o de un R32: se lee como R.
     Flotante,
-    /// N5.16 (05-10): cuatro floats de 32 bits por texel (16 bytes), los
-    /// de los formatos de FLOAT de color y los de 10 bits (el HDR: RGBA16F,
-    /// R11G11B10F, RGBA32F, RG16F, R10G10B10A2...), ya cuantizados a su
-    /// formato NATIVO ([`Almacen::nativo`]): se leen y se escriben sin
-    /// perder nada, y vuelven a su formato exactos.
-    Flotantes4,
     /// Bloques comprimidos, tal cual llegan.
     Bloques(Bc),
 }
@@ -71,23 +65,7 @@ impl Almacen {
             // R32 (TYPELESS, FLOAT, UINT, SINT), D32, D24S8 y su familia,
             // D32S8X24 y la suya, D16 y R16 TYPELESS: profundidades y floats.
             19..=22 | 39..=47 | 53 | 55 => Almacen::Flotante,
-            // N5.16: los de float y los de 10 bits (y sus TYPELESS).
-            1..=3 | 5 | 6 | 9 | 10 | 15 | 16 | 23 | 24 | 26 | 33 | 34 | 54 => Almacen::Flotantes4,
             _ => Almacen::Rgba8,
-        }
-    }
-
-    /// **El formato con que se cuantiza y se copia** uno de [`Almacen::Flotantes4`]:
-    /// el mismo, o el de float (o UNORM, los de 10 bits) de un TYPELESS.
-    pub fn nativo(formato: u32) -> u32 {
-        match formato {
-            1 => 2,
-            5 => 6,
-            9 => 10,
-            15 => 16,
-            23 => 24,
-            33 => 34,
-            f => f,
         }
     }
 
@@ -95,7 +73,6 @@ impl Almacen {
     pub fn elemento(self) -> (u64, u64) {
         match self {
             Almacen::Bloques(b) => (b.bytes() as u64, 4),
-            Almacen::Flotantes4 => (16, 1),
             _ => (4, 1),
         }
     }
@@ -418,12 +395,10 @@ mod pruebas {
         let (s, total) = disposicion(&forma(&desc(3, 8, 8, 1, 4, 71)));
         assert_eq!(s.iter().map(|x| (x.desde, x.bytes())).collect::<Vec<_>>(), [(0, 32), (32, 8), (40, 8), (48, 8)]);
         assert_eq!(total, 56);
-        // RGBA16F de 4x2, dos capas: por dentro CUATRO floats por texel
-        // (16 bytes, N5.16: el HDR no se aplasta a 8 bits).
+        // RGBA16F de 4x2, dos capas: 4 bytes por texel por dentro (no 8).
         let (s, total) = disposicion(&forma(&desc(3, 4, 2, 2, 1, 10)));
-        assert_eq!((s.len(), s[1].desde, total), (2, 128, 256));
-        assert_eq!(Almacen::de(10), Almacen::Flotantes4);
-        assert_eq!(Almacen::de(28), Almacen::Rgba8);
+        assert_eq!((s.len(), s[1].desde, total), (2, 32, 64));
+        assert_eq!(Almacen::de(10), Almacen::Rgba8);
         assert_eq!(Almacen::de(87), Almacen::Bgra8);
         assert_eq!(Almacen::de(45), Almacen::Flotante);
         assert_eq!(Almacen::de(98), Almacen::Bloques(Bc::Bc7));

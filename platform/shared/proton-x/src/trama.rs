@@ -111,11 +111,6 @@ pub struct Destino<'a, 'o> {
     /// N5.8 (03-10): los render targets 1..8 (el G-buffer): `otros[k]` es
     /// el SV_Target `k + 1`, del mismo `ancho * alto`. `pixeles` es el 0.
     pub otros: &'a mut [Otro<'o>],
-    /// N5.16 (05-10): el render target 0 es de FLOAT: `pixeles` lleva cuatro
-    /// palabras por texel (los bits de r, g, b y a en f32), y cada color se
-    /// mezcla en float y se cuantiza a ESTE formato (DXGI) al escribirlo,
-    /// para que valga lo que en la GPU (`formato_ia::cuantizar`).
-    pub flotante: Option<u32>,
 }
 
 /// **Otro render target** del mismo dibujo (N5.8): sus pixeles y su orden
@@ -124,8 +119,6 @@ pub struct Destino<'a, 'o> {
 pub struct Otro<'a> {
     pub pixeles: Option<&'a mut [u32]>,
     pub bgra: bool,
-    /// N5.16: como [`Destino::flotante`], el de este.
-    pub flotante: Option<u32>,
 }
 
 /// Cuantos render targets puede escribir un dibujo (D3D12: 8).
@@ -273,8 +266,7 @@ pub fn empaquetar(c: [f32; 4], bgra: bool) -> u32 {
 pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, mut ps: impl FnMut(&[[f32; 4]], &mut [[f32; 4]; SALIDAS]) -> bool) -> Cuenta {
     let mut cuenta = Cuenta::default();
     let [vx, vy, vw, vh, zmin, zmax] = reglas.viewport;
-    let texeles = destino.ancho as usize * destino.alto as usize;
-    let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= texeles));
+    let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= destino.pixeles.len()));
     let (mw, mh) = (vw * 0.5, vh * 0.5);
     let (ox, oy) = (vx + mw, vy + mh);
     // El rectangulo donde se puede pintar: viewport, tijera y destino.
@@ -469,42 +461,13 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                     let m = &mezclas.rt[k];
                     *p = if m.trivial() { pixel[k] } else { empaquetar(m.aplicar(colores[k], desempaquetar(*p, bgra[k]), mezclas.factor), bgra[k]) };
                 };
-                // N5.16: el de un render target de float, en float: mezclado
-                // con el que esta y cuantizado a su formato.
-                let poner_f = |k: usize, f: u32, t: &mut [u32]| {
-                    let m = &mezclas.rt[k];
-                    let d = [f32::from_bits(t[0]), f32::from_bits(t[1]), f32::from_bits(t[2]), f32::from_bits(t[3])];
-                    let c = if m.trivial() { colores[k] } else { m.aplicar(colores[k], d, mezclas.factor) };
-                    for (w, x) in t.iter_mut().zip(crate::formato_ia::cuantizar(f, c)) {
-                        *w = x.to_bits();
-                    }
-                };
                 // N5.12: sin render target (solo profundidad), `pixeles` va vacio.
-                match destino.flotante {
-                    Some(f) => {
-                        if let Some(t) = destino.pixeles.get_mut(4 * i..4 * i + 4) {
-                            poner_f(0, f, t);
-                        }
-                    }
-                    None => {
-                        if let Some(p) = destino.pixeles.get_mut(i) {
-                            poner(0, p);
-                        }
-                    }
+                if let Some(p) = destino.pixeles.get_mut(i) {
+                    poner(0, p);
                 }
                 for (k, o) in destino.otros.iter_mut().take(n_rt - 1).enumerate() {
-                    match (o.flotante, o.pixeles.as_deref_mut()) {
-                        (Some(f), Some(p)) => {
-                            if let Some(t) = p.get_mut(4 * i..4 * i + 4) {
-                                poner_f(k + 1, f, t);
-                            }
-                        }
-                        (None, Some(p)) => {
-                            if let Some(p) = p.get_mut(i) {
-                                poner(k + 1, p);
-                            }
-                        }
-                        _ => {}
+                    if let Some(p) = o.pixeles.as_deref_mut().and_then(|p| p.get_mut(i)) {
+                        poner(k + 1, p);
                     }
                 }
             }

@@ -817,15 +817,13 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     let solo_z = pso.n_rt == 0 || e.rtv == 0;
     // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
     let mut rt = (!solo_z).then(|| unsafe { de::<crate::d3d12::Recurso>(e.rtv) });
-    // 02-10: lo que la casa guarda en 8 bits por canal; N5.16 (05-10), los
-    // de float (RGBA16F, R11G11B10F...) en float, cuantizados al formato de
-    // su vista (el del PSO).
-    let (bgra, flotante) = match rt.as_ref().map(|r| Almacen::de(r.formato)) {
-        Some(Almacen::Bgra8) => (true, None),
-        Some(Almacen::Rgba8) | None => (false, None),
-        Some(Almacen::Flotantes4) => (false, Some(Almacen::nativo(pso.formatos_rt[0]))),
+    // 02-10: todo lo que la casa guarda en 8 bits por canal (tambien un
+    // RGBA16F o un R10G10B10A2: se pintan en 8 bits, como se guardan).
+    let bgra = match rt.as_ref().map(|r| Almacen::de(r.formato)) {
+        Some(Almacen::Bgra8) => true,
+        Some(Almacen::Rgba8) | None => false,
         Some(_) => {
-            aviso("Draw sobre un render target de un solo float (R32) o BC: todavia no");
+            aviso("Draw sobre un render target de floats (R32) o BC: todavia no");
             return;
         }
     };
@@ -976,7 +974,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     let mut puestos = alloc::vec![e.rtv];
     for &(r, sub) in e.rtv_otros.iter().take((pso.n_rt as usize).saturating_sub(1)) {
         if r == 0 {
-            otros.push(trama::Otro { pixeles: None, bgra: false, flotante: None });
+            otros.push(trama::Otro { pixeles: None, bgra: false });
             continue;
         }
         // Dos vistas del mismo recurso serian dos `&mut` a la misma memoria.
@@ -985,13 +983,11 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             return;
         }
         // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
-        let k = otros.len() + 1;
-        let (bgra, flotante) = match Almacen::de(unsafe { de::<crate::d3d12::Recurso>(r) }.formato) {
-            Almacen::Bgra8 => (true, None),
-            Almacen::Rgba8 => (false, None),
-            Almacen::Flotantes4 => (false, Some(Almacen::nativo(pso.formatos_rt[k]))),
+        let bgra = match Almacen::de(unsafe { de::<crate::d3d12::Recurso>(r) }.formato) {
+            Almacen::Bgra8 => true,
+            Almacen::Rgba8 => false,
             _ => {
-                aviso("Draw sobre un render target (de los 1..8) de un solo float (R32) o BC: todavia no");
+                aviso("Draw sobre un render target (de los 1..8) de floats (R32) o BC: todavia no");
                 return;
             }
         };
@@ -1001,7 +997,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         match destino(r, sub) {
             Some((p, w, h)) if (w, h) == (ancho, alto) => {
                 puestos.push(r);
-                otros.push(trama::Otro { pixeles: Some(p), bgra, flotante });
+                otros.push(trama::Otro { pixeles: Some(p), bgra });
             }
             _ => {
                 aviso("Draw: un render target (de los 1..8) que no mide lo que el 0, o un subrecurso que no tiene");
@@ -1009,7 +1005,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             }
         }
     }
-    let mut destino = trama::Destino { pixeles, ancho, alto, bgra, z, cadena, otros: &mut otros, flotante };
+    let mut destino = trama::Destino { pixeles, ancho, alto, bgra, z, cadena, otros: &mut otros };
     let r = (plataforma().dibujar)(&lote, &mut destino);
     // P3b4c.9 Z1: donde quedo este dibujo (la pantalla o la RAM) es donde
     // queda el fotograma: lo lee `Present`.
@@ -1165,7 +1161,6 @@ fn textura_de_srv(ranura: &[u64]) -> Result<bmo_proton_x::textura::Textura<'stat
         Almacen::Rgba8 => Como::Rgba8,
         Almacen::Bgra8 => Como::Bgra8,
         Almacen::Flotante => Como::Flotante,
-        Almacen::Flotantes4 => Como::Flotantes4,
         Almacen::Bloques(b) => Como::Bloques(b),
     };
     let total: u64 = t.subs.iter().map(|x| x.bytes()).sum();

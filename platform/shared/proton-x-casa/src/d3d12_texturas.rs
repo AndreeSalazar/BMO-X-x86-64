@@ -9,9 +9,7 @@
 //!    hacia la textura   cada texel NATIVO se pasa a lo interno
 //!                       (`subrecursos::a_interno`); un BC, sus bloques tal cual
 //!    desde la textura   exacto si lo interno es lo nativo (RGBA8, BGRA8, R32,
-//!                       D32, BC) o son los cuatro floats de un formato de
-//!                       float (N5.16: se vuelven a su formato); de lo demas
-//!                       se dice y no se copia
+//!                       D32, BC); de lo demas se dice y no se copia
 //!    entre texturas     lo interno tal cual (mismo almacen)
 //! ```
 //!
@@ -61,9 +59,7 @@ pub(crate) unsafe fn mover(t: &Tex, sub: u32, caja: Caja, l: &Lineal, hacia: boo
         return Err("la memoria de la copia es mas corta que la caja");
     }
     let crudo = l.interno || matches!(t.almacen, Almacen::Bloques(_));
-    // N5.16: los de float, texel a texel en su formato nativo, ida y vuelta.
-    let flotantes = !crudo && t.almacen == Almacen::Flotantes4;
-    if !hacia && !crudo && !flotantes && (bn != 4 || !interno_es_nativo(t.forma.formato)) {
+    if !hacia && !crudo && (bn != 4 || !interno_es_nativo(t.forma.formato)) {
         return Err("leer de vuelta una textura que la casa guarda convertida (no es RGBA8, BGRA8, R32, D32 ni BC): todavia no");
     }
     let rebanada = s.fila * s.filas as u64;
@@ -71,24 +67,7 @@ pub(crate) unsafe fn mover(t: &Tex, sub: u32, caja: Caja, l: &Lineal, hacia: boo
         for f in 0..filas {
             let int = (t.datos + s.desde + (z0 as u64 + z) * rebanada + (f0 + f) * s.fila + c0 * bi) as *mut u8;
             let lin = l.p.add((z * l.capa + f * l.fila) as usize);
-            if flotantes {
-                let nativo = Almacen::nativo(l.formato);
-                for c in 0..cols as usize {
-                    let (lin_c, int_c) = (lin.add(c * bn as usize), int.add(16 * c));
-                    if hacia {
-                        let v = bmo_proton_x::formato_ia::leer(nativo, core::slice::from_raw_parts(lin_c, bn as usize));
-                        for (k, x) in v.iter().enumerate() {
-                            (int_c.add(4 * k) as *mut u32).write_unaligned(x.to_bits());
-                        }
-                    } else {
-                        let v: [u32; 4] = core::array::from_fn(|k| (int_c.add(4 * k) as *const u32).read_unaligned());
-                        let Some(e) = bmo_proton_x::formato_ia::empaquetar(nativo, v, false) else {
-                            return Err("leer de vuelta una textura de float en un formato que la casa aun no escribe");
-                        };
-                        core::ptr::copy_nonoverlapping(e.as_ptr(), lin_c, (bn as usize).min(e.len()));
-                    }
-                }
-            } else if crudo || (!hacia && bn == 4) {
+            if crudo || (!hacia && bn == 4) {
                 let n = (cols * bi) as usize;
                 if hacia {
                     core::ptr::copy(lin, int, n);
