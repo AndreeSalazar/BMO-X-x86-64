@@ -27,7 +27,7 @@ use std::io::{self, Read, Seek, SeekFrom, Write};
 
 use bmo_estratos as es;
 use es::flujo::{plan_de, Arbol};
-use es::mezcla::{self, Sale};
+use es::mezcla;
 use es::objects::{Attr, BlockPtr, Entrada, Nodo, Tipo, ATTR_ENTRADAS, BLOQUE, ENTRADA_LEN, NIVELES_MAX};
 use es::read::Fuente;
 use es::{Autor, Estrato, Superblock, Transaccion, ESTRATO_LEN, SUPER_LEN};
@@ -244,6 +244,7 @@ pub(crate) struct Carpeta {
 
 /// Latin-1 en minusculas, como `Entrada::se_llama`: `Mundo/` y `mundo/` son UNA
 /// carpeta en ESTRATOS.
+#[cfg_attr(not(test), allow(dead_code))]
 fn baja(c: u8) -> u8 {
     if c.is_ascii_uppercase() || ((0xC0..=0xDE).contains(&c) && c != 0xD7) {
         c + 32
@@ -252,11 +253,13 @@ fn baja(c: u8) -> u8 {
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn mismo(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len() && a.iter().zip(b).all(|(&x, &y)| baja(x) == baja(y))
 }
 
 impl Carpeta {
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn poner(&mut self, ruta: &[u8], hijo: Hijo) -> Result<(), String> {
         let (nombre, resto) = match ruta.iter().position(|&c| c == b'/') {
             Some(i) => (&ruta[..i], Some(&ruta[i + 1..])),
@@ -356,20 +359,29 @@ fn abrir<R: Read + Seek>(r: &mut R, disk_id: [u8; 32], generacion: u64) -> Resul
 }
 
 /// **Publica `arbol` como UN estrato nuevo**, con el orden que no pierde datos.
-/// `estrato` recibe la raiz escrita y el estrato de ahora (el padre).
+/// `estrato` recibe la raiz y el estrato de ahora (el padre). Una raiz que es
+/// un nodo que YA esta (nada cambio respecto a A) no gasta mas que el estrato.
 pub(crate) fn publicar<W: Almacen>(
     w: &mut W,
     disk_id: [u8; 32],
     generacion: u64,
-    arbol: &Carpeta,
+    arbol: &Hijo,
     estrato: impl FnOnce(BlockPtr, BlockPtr) -> Estrato,
 ) -> Result<(u64, BlockPtr, BlockPtr, u64), String> {
     let (sb, cual) = abrir(w, disk_id, generacion)?;
-    let bloques = arbol.bloques()? + 1;
+    let bloques = match arbol {
+        Hijo::Carpeta(c) => c.bloques()?,
+        Hijo::Nodo(_) => 0,
+        Hijo::Contenido(_) => return Err("la raiz tiene que ser una carpeta".into()),
+    } + 1;
     let mut t = Transaccion::open(&sb, cual, true).map_err(|e| e.name().to_string())?;
     let base = t.reserve(bloques).map_err(|e| e.name().to_string())?;
     let mut cursor = base;
-    let raiz = arbol.escribir(w, &mut cursor)?;
+    let raiz = match arbol {
+        Hijo::Carpeta(c) => c.escribir(w, &mut cursor)?,
+        Hijo::Nodo(p) => *p,
+        Hijo::Contenido(_) => unreachable!("rechazado arriba"),
+    };
     let e = estrato(raiz, sb.estrato);
     let ep = escribir_objeto(w, cursor, &e.encode())?;
     cursor += 1;
@@ -388,8 +400,27 @@ pub(crate) fn publicar<W: Almacen>(
     Ok((nuevo.generation, ep, raiz, bloques))
 }
 
+/// Las tres raices de una mezcla: la BASE, la de ahora (A) y la que entra (B).
+/// Error si las dos ramas no comparten historia, o si B ya esta dentro de A.
+fn raices<R: Read + Seek>(r: &mut R, ahora: &BlockPtr, otra: &BlockPtr) -> Result<[BlockPtr; 3], String> {
+    let de_a = antepasados(r, ahora, 4096)?;
+    if de_a.iter().any(|p| p.lba == otra.lba && p.off == otra.off) {
+        return Err("nada que mezclar: esa rama ya esta dentro de la de ahora".into());
+    }
+    let de_b = antepasados(r, otra, 4096)?;
+    let llave = |p: &BlockPtr| (p.lba, p.off);
+    let ka: Vec<_> = de_a.iter().map(llave).collect();
+    let kb: Vec<_> = de_b.iter().map(llave).collect();
+    let base_k = mezcla::base(&ka, &kb).ok_or("las dos ramas no comparten historia: sin base no hay mezcla de tres")?;
+    let base = *de_a.iter().find(|p| llave(p) == base_k).ok_or("base perdida")?;
+    Ok([leer_estrato(r, &base)?.raiz, leer_estrato(r, ahora)?.raiz, leer_estrato(r, otra)?.raiz])
+}
+
 /// **MEZCLA la rama `otra` en la punta de ahora** y la publica como UN
 /// estrato de DOS padres. Cada choque se le pregunta a `elegir`.
+///
+/// Mezcla POR CARPETAS (`decide::por_arbol`): baja solo donde los dos lados
+/// cambiaron algo; lo que un solo lado toco entra ENTERO, sin leerlo.
 ///
 /// No escribe nada si: el disco o la generacion no son los esperados, las dos
 /// ramas no comparten historia, o `otra` ya esta dentro de la de ahora.
@@ -403,58 +434,8 @@ pub fn mezclar<W: Almacen>(
 ) -> Result<Resultado, String> {
     let (sb, _) = abrir(disco, disk_id, generacion)?;
     let ahora = sb.estrato;
-    let de_a = antepasados(disco, &ahora, 4096)?;
-    if de_a.iter().any(|p| p.lba == otra.lba && p.off == otra.off) {
-        return Err("nada que mezclar: esa rama ya esta dentro de la de ahora".into());
-    }
-    let de_b = antepasados(disco, otra, 4096)?;
-    let llave = |p: &BlockPtr| (p.lba, p.off);
-    let ka: Vec<_> = de_a.iter().map(llave).collect();
-    let kb: Vec<_> = de_b.iter().map(llave).collect();
-    let base_k = mezcla::base(&ka, &kb).ok_or("las dos ramas no comparten historia: sin base no hay mezcla de tres")?;
-    let base = *de_a.iter().find(|p| llave(p) == base_k).ok_or("base perdida")?;
-
-    let raiz_de = |d: &mut W, p: &BlockPtr| leer_estrato(d, p).map(|e| e.raiz);
-    let (rb, ra, rx) = (raiz_de(disco, &base)?, raiz_de(disco, &ahora)?, raiz_de(disco, otra)?);
-    let (hb, ha, hx) = (aplanar(disco, &rb)?, aplanar(disco, &ra)?, aplanar(disco, &rx)?);
-    let (lb, la, lx) = (lados(&hb), lados(&ha), lados(&hx));
-    // El hash dice QUE; para escribir hace falta DONDE: el puntero del lado
-    // que lo trae (el mismo QUE en dos sitios es el mismo nodo: vale cualquiera).
-    let donde = |ruta: &[u8], hash: &es::Hash| {
-        [&ha, &hx, &hb]
-            .into_iter()
-            .flat_map(|v| v.iter())
-            .find(|h| mismo(&h.ruta, ruta) && h.nodo.hash == *hash)
-            .map(|h| h.nodo)
-    };
-    let mut arbol = Carpeta::default();
-    let mut fallo: Option<String> = None;
-    let cuenta = mezcla::mezclar(&lb, &la, &lx, |s| {
-        if fallo.is_some() {
-            return;
-        }
-        let r = match s {
-            Sale::Queda(ruta, hash) => match donde(ruta, &hash) {
-                Some(p) => arbol.poner(ruta, Hijo::Nodo(p)),
-                None => Err("un nodo decidido no esta en ningun lado".into()),
-            },
-            Sale::Choque { ruta, a, b } => {
-                let a = a.and_then(|h| donde(ruta, &h));
-                let b = b.and_then(|h| donde(ruta, &h));
-                match elegir(&Choque { ruta: ruta.to_vec(), a, b }) {
-                    Eleccion::A => a.map_or(Ok(()), |p| arbol.poner(ruta, Hijo::Nodo(p))),
-                    Eleccion::B => b.map_or(Ok(()), |p| arbol.poner(ruta, Hijo::Nodo(p))),
-                    Eleccion::Quitar => Ok(()),
-                }
-            }
-        };
-        if let Err(e) = r {
-            fallo = Some(e);
-        }
-    });
-    if let Some(e) = fallo {
-        return Err(e);
-    }
+    let [rb, ra, rx] = raices(disco, &ahora, otra)?;
+    let (arbol, cuenta) = decide::por_arbol(disco, rb, ra, rx, elegir)?;
     let (generacion, estrato, raiz, bloques_nuevos) =
         publicar(disco, disk_id, generacion, &arbol, |raiz, padre| Estrato::mezcla(raiz, padre, otra, 0, Autor::Herramienta, motivo))?;
     // Releer: lo publicado es exactamente lo decidido, y el estrato lleva
@@ -463,9 +444,8 @@ pub fn mezclar<W: Almacen>(
     if e.padre != ahora || !e.segundo.is_some_and(|s| s.es(otra)) {
         return Err("releido: el estrato de mezcla no lleva sus dos padres".into());
     }
-    let mut esperado = Vec::new();
-    aplanar_carpeta(&arbol, &mut Vec::new(), &mut esperado);
-    let mut leido: Vec<(Vec<u8>, es::Hash)> = aplanar(disco, &raiz)?.into_iter().map(|h| (h.ruta, h.nodo.hash)).collect();
+    let mut esperado = decide::hojas_de(disco, &arbol)?;
+    let mut leido = decide::sumas(aplanar(disco, &raiz)?);
     esperado.sort();
     leido.sort();
     if esperado != leido {
@@ -474,26 +454,7 @@ pub fn mezclar<W: Almacen>(
     Ok(Resultado { generacion, estrato, raiz, cuenta, bloques_nuevos })
 }
 
-fn lados(v: &[Hoja]) -> Vec<mezcla::Lado<'_>> {
-    v.iter().map(|h| mezcla::Lado { ruta: &h.ruta[..], nodo: h.nodo.hash }).collect()
-}
-
-fn aplanar_carpeta(c: &Carpeta, ruta: &mut Vec<u8>, out: &mut Vec<(Vec<u8>, es::Hash)>) {
-    for (n, h) in &c.hijos {
-        let largo = ruta.len();
-        if largo > 0 {
-            ruta.push(b'/');
-        }
-        ruta.extend_from_slice(n);
-        match h {
-            Hijo::Nodo(p) => out.push((ruta.clone(), p.hash)),
-            Hijo::Contenido(_) => {}
-            Hijo::Carpeta(c) if c.hijos.is_empty() => {}
-            Hijo::Carpeta(c) => aplanar_carpeta(c, ruta, out),
-        }
-        ruta.truncate(largo);
-    }
-}
+mod decide;
 
 #[cfg(test)]
 mod pruebas;

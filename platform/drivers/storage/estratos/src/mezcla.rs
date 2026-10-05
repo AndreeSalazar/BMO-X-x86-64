@@ -29,6 +29,7 @@
 //! cuadratico y sin `alloc` -- bien para los cientos de ficheros de un
 //! paquete; un volumen entero pediria ordenar antes, y se dira cuando llegue.
 
+use crate::objects::Entrada;
 use crate::Hash;
 
 /// Una ruta y el nodo que hay en ella, en uno de los tres arboles.
@@ -117,6 +118,79 @@ pub fn mezclar<'a>(base: &[Lado<'a>], a: &[Lado<'a>], b: &[Lado<'a>], mut f: imp
     }
     for l in base {
         if en(a, l.ruta).is_none() && en(b, l.ruta).is_none() {
+            c.quitadas += 1;
+        }
+    }
+    c
+}
+
+/// Lo que la mezcla POR CARPETA decide para un nombre (`por_carpeta`).
+#[derive(Debug, Clone, Copy)]
+pub enum Paso<'e> {
+    /// Esta entrada va a la carpeta mezclada TAL CUAL. Si es una subcarpeta,
+    /// va ENTERA, con todo lo de dentro, sin bajar a mirarlo.
+    Queda(&'e Entrada),
+    /// Los dos lados la cambiaron distinto. Si las dos son CARPETAS, quien
+    /// llama BAJA y mezcla dentro; si no, es un choque para una persona.
+    /// `None` es "no esta en ese lado".
+    Distintos { base: Option<&'e Entrada>, a: Option<&'e Entrada>, b: Option<&'e Entrada> },
+}
+
+fn en_carpeta<'e>(lista: &'e [Entrada], nombre: &[u8]) -> Option<&'e Entrada> {
+    lista.iter().find(|e| misma(e.nombre_bytes(), nombre))
+}
+
+/// **La mezcla POR CARPETA**: la misma regla de tres que [`mezclar`], pero
+/// sobre las entradas de UNA carpeta en cada arbol, comparando el QUE de cada
+/// nodo (su BLAKE3).
+///
+/// ** POR QUE ES MEJOR QUE APLANAR. Una subcarpeta que solo un lado toco
+/// tiene en el otro el MISMO nodo que en la base: sale entera de un golpe, y
+/// no se lee ni una de sus hojas. Solo se baja donde los DOS lados cambiaron
+/// algo. Cuesta lo que cambio, no lo que hay -- y cada nivel cabe en tres
+/// listas fijas, sin `alloc`: es la forma que puede usar el kernel (R4c).
+///
+/// `cuenta.choques` cuenta aqui los `Distintos` (algunos acabaran siendo
+/// carpetas que se bajan, no choques): el resto, como en [`mezclar`].
+pub fn por_carpeta<'e>(base: &'e [Entrada], a: &'e [Entrada], b: &'e [Entrada], mut f: impl FnMut(Paso<'e>)) -> Cuenta {
+    let mut c = Cuenta::default();
+    let hash = |e: Option<&Entrada>| e.map(|e| e.nodo.hash);
+    let mut decide = |nombre: &[u8], c: &mut Cuenta| {
+        let (e0, ea, eb) = (en_carpeta(base, nombre), en_carpeta(a, nombre), en_carpeta(b, nombre));
+        let (x0, xa, xb) = (hash(e0), hash(ea), hash(eb));
+        let (sale, de) = if xa == xb {
+            (ea, 0)
+        } else if xa == x0 {
+            (eb, 2)
+        } else if xb == x0 {
+            (ea, 1)
+        } else {
+            c.choques += 1;
+            f(Paso::Distintos { base: e0, a: ea, b: eb });
+            return;
+        };
+        match sale {
+            Some(e) => {
+                match de {
+                    1 => c.de_a += 1,
+                    2 => c.de_b += 1,
+                    _ => c.quedan += 1,
+                }
+                f(Paso::Queda(e));
+            }
+            None => c.quitadas += 1,
+        }
+    };
+    for e in a {
+        decide(e.nombre_bytes(), &mut c);
+    }
+    for e in b {
+        if en_carpeta(a, e.nombre_bytes()).is_none() {
+            decide(e.nombre_bytes(), &mut c);
+        }
+    }
+    for e in base {
+        if en_carpeta(a, e.nombre_bytes()).is_none() && en_carpeta(b, e.nombre_bytes()).is_none() {
             c.quitadas += 1;
         }
     }
@@ -220,6 +294,45 @@ mod tests {
         assert_eq!(rutas.len(), 2, "{v:?}");
         assert_eq!(c.de_b, 1, "solo B cambio `mundo`");
         assert_eq!(c.quedan, 1);
+    }
+
+    fn ent(nombre: &str, n: u8) -> Entrada {
+        Entrada::de_bytes(nombre.as_bytes(), crate::objects::BlockPtr { lba: n as u64, off: 0, len: 1, hash: h(n) }).unwrap()
+    }
+
+    #[test]
+    fn por_carpeta_una_subcarpeta_tocada_por_un_lado_sale_entera() {
+        // `mundo/` solo cambio en B: sale el nodo de B ENTERO, sin bajar.
+        let base = [ent("mundo", 1), ent("leeme", 2)];
+        let a = [ent("mundo", 1), ent("leeme", 20)];
+        let b = [ent("mundo", 10), ent("leeme", 2)];
+        let mut v = Vec::new();
+        let c = por_carpeta(&base, &a, &b, |p| v.push(p));
+        let quedan: Vec<(&[u8], u8)> = v.iter().filter_map(|p| match p {
+            Paso::Queda(e) => Some((e.nombre_bytes(), e.nodo.hash[0])),
+            _ => None,
+        }).collect();
+        assert_eq!(quedan, [(&b"mundo"[..], 10), (&b"leeme"[..], 20)]);
+        assert_eq!((c.de_a, c.de_b, c.choques), (1, 1, 0));
+    }
+
+    #[test]
+    fn por_carpeta_lo_que_cambiaron_los_dos_es_distintos_y_quien_llama_decide() {
+        let base = [ent("mundo", 1)];
+        let (a, b) = ([ent("Mundo", 2)], [ent("MUNDO", 3)]);
+        let mut v = Vec::new();
+        por_carpeta(&base, &a, &b, |p| v.push(p));
+        match v.as_slice() {
+            [Paso::Distintos { base: Some(x), a: Some(y), b: Some(z) }] => {
+                assert_eq!((x.nodo.hash[0], y.nodo.hash[0], z.nodo.hash[0]), (1, 2, 3));
+            }
+            otro => panic!("{otro:?}"),
+        }
+        // Quitar de un lado y cambiar del otro: Distintos con un `None`.
+        let solo_b = [ent("mundo", 3)];
+        let mut v = Vec::new();
+        por_carpeta(&base, &[], &solo_b, |p| v.push(p));
+        assert!(matches!(v.as_slice(), [Paso::Distintos { a: None, b: Some(_), .. }]));
     }
 
     #[test]

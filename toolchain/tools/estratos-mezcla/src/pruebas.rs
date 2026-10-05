@@ -60,7 +60,7 @@ fn carpeta(ficheros: &[(&[u8], &[u8])]) -> Carpeta {
 
 /// Publica una version con `padre` elegido (no el de ahora): asi se hacen ramas.
 fn version(img: &mut Imagen, padre: BlockPtr, ficheros: &[(&[u8], &[u8])]) -> BlockPtr {
-    let (g, ep, _, _) = publicar(&mut img.disco, id(), img.generacion, &carpeta(ficheros), |raiz, _| {
+    let (g, ep, _, _) = publicar(&mut img.disco, id(), img.generacion, &Hijo::Carpeta(carpeta(ficheros)), |raiz, _| {
         Estrato::new(raiz, padre, 0, Autor::Herramienta, "")
     })
     .unwrap();
@@ -212,4 +212,96 @@ fn un_nombre_latin1_sobrevive_a_la_mezcla() {
     let r = mezclar(&mut img.disco, id(), img.generacion, &rama, "m", &mut |_| Eleccion::A).unwrap();
     let hojas = aplanar(&mut img.disco, &r.raiz).unwrap();
     assert!(hojas.iter().any(|h| h.ruta == anio), "el nombre en sus bytes, entero");
+}
+
+/// Un volumen al azar: (ruta, contenido), sin repetir rutas.
+type Arbol = Vec<(String, String)>;
+
+fn azar(semilla: u64) -> impl FnMut(u64) -> u64 {
+    let mut s = semilla.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
+    move |n| {
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        s % n
+    }
+}
+
+const CARPETAS: [&str; 5] = ["", "d0/", "d1/", "d0/e/", "d1/f/g/"];
+
+fn editar(base: &Arbol, lado: &str, r: &mut impl FnMut(u64) -> u64) -> Arbol {
+    let mut v = base.clone();
+    for _ in 0..1 + r(4) {
+        match r(5) {
+            // cambiar uno; a veces igual que lo cambiaria el otro lado
+            0 | 1 if !v.is_empty() => {
+                let i = r(v.len() as u64) as usize;
+                v[i].1 = if r(3) == 0 { format!("igual {}", v[i].0) } else { format!("{lado} {}", r(1000)) };
+            }
+            2 if !v.is_empty() => {
+                let i = r(v.len() as u64) as usize;
+                v.remove(i);
+            }
+            _ => {
+                let ruta = format!("{}n{}", CARPETAS[r(5) as usize], r(6));
+                if !v.iter().any(|(p, _)| *p == ruta) {
+                    v.push((ruta.clone(), if r(3) == 0 { format!("igual {ruta}") } else { format!("{lado} nuevo {}", r(1000)) }));
+                }
+            }
+        }
+    }
+    v
+}
+
+fn publicar_arbol(img: &mut Imagen, padre: BlockPtr, a: &Arbol) -> BlockPtr {
+    let f: Vec<(Vec<u8>, Vec<u8>)> = a.iter().map(|(p, d)| (p.as_bytes().to_vec(), d.as_bytes().to_vec())).collect();
+    let refs: Vec<(&[u8], &[u8])> = f.iter().map(|(p, d)| (&p[..], &d[..])).collect();
+    version(img, padre, &refs)
+}
+
+/// ** EL ORACULO: la mezcla POR CARPETAS (la de verdad) y la PLANA (fichero a
+/// fichero) deciden lo mismo, sobre arboles al azar con cambios en los dos
+/// lados -- y despues la mezcla se publica entera y se relee.
+#[test]
+fn por_carpetas_y_plana_deciden_lo_mismo_al_azar() {
+    let semillas = std::env::var("E1_AZAR_MEZCLA").ok().and_then(|v| v.parse().ok()).unwrap_or(60u64);
+    let mut con_choque = 0;
+    for semilla in 1..=semillas {
+        let mut r = azar(semilla);
+        let mut base: Arbol = Vec::new();
+        for i in 0..4 + r(8) {
+            let ruta = format!("{}f{i}", CARPETAS[r(5) as usize]);
+            base.push((ruta, format!("base {i}")));
+        }
+        let (a, b) = (editar(&base, "A", &mut r), editar(&base, "B", &mut r));
+        let (mut img, formato) = imagen(&format!("azar{semilla}"));
+        let pb = publicar_arbol(&mut img, formato, &base);
+        let px = publicar_arbol(&mut img, pb, &b);
+        let pa = publicar_arbol(&mut img, pb, &a);
+        let raiz = |img: &mut Imagen, p: &BlockPtr| leer_estrato(&mut img.disco, p).unwrap().raiz;
+        let (rb, ra, rx) = (raiz(&mut img, &pb), raiz(&mut img, &pa), raiz(&mut img, &px));
+
+        let mut choques = 0;
+        // Las tres respuestas que puede dar una persona, y las dos maneras de
+        // decidir tienen que coincidir con cada una.
+        for eleccion in [Eleccion::A, Eleccion::B, Eleccion::Quitar] {
+            let (arbol, _) = decide::por_arbol(&mut img.disco, rb, ra, rx, &mut |_| {
+                choques += 1;
+                eleccion
+            })
+            .unwrap();
+            let plano = decide::plano(&mut img.disco, rb, ra, rx, &mut |_| eleccion).unwrap();
+            let mut x = decide::hojas_de(&mut img.disco, &arbol).unwrap();
+            let mut y = decide::hojas_de(&mut img.disco, &Hijo::Carpeta(plano)).unwrap();
+            x.sort();
+            y.sort();
+            assert_eq!(x, y, "semilla {semilla}, {eleccion:?}: base {base:?}\nA {a:?}\nB {b:?}");
+        }
+        if choques > 0 {
+            con_choque += 1;
+        }
+        // Y entera: publicada, con sus dos padres, y releida.
+        mezclar(&mut img.disco, id(), img.generacion, &px, "azar", &mut |_| Eleccion::A).unwrap();
+    }
+    assert!(con_choque > 0, "el azar tiene que traer choques, si no no prueba nada");
 }
