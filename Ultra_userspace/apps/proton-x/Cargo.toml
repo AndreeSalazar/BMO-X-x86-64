@@ -26,4 +26,8 @@ bmo-rtc = { path = "../../../platform/drivers/rtc" }
 # hace `src/la3060.rs`).
 bmo-proton-x-sm86 = { path = "../../../platform/shared/proton-x-sm86" }
 # 05-10: la letra de la casa, para el CARTEL ROJO de los avisos (`src/cartel.rs`).
-bmo-letra = { path = "../../../platform/shared/bmo-letra" }
+# Con monton (`Letra`): el paquete `bmo-letra-monton`, como HERMES y BANK CAT.
+# Pedir aqui `bmo-letra` con `alloc` unifica la feature y el DIRECTOR (sin
+# monton) deja de compilar: "no global memory allocator found" (05-10, lo
+# vio el propietario).
+bmo-letra = { package = "bmo-letra-monton", path = "../../../platform/shared/bmo-letra-monton" }

@@ -47,7 +47,7 @@ dependencies = [
 name = "bmo-app-proton-x"
 version = "0.1.0"
 dependencies = [
- "bmo-letra",
+ "bmo-letra-monton",
  "bmo-monton",
  "bmo-proton-x",
  "bmo-proton-x-casa",
