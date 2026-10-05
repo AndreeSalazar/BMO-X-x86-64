@@ -290,6 +290,31 @@ medido, rapido):
                 GPU no compila nada) van DONDE el numero de 3 lo diga
 ```
 
+**LA CPU GUIA, LA 3060 DIBUJA.** El propietario (05-10): *"que la CPU no
+tiene que ser la que dibuje, sino que tenga el mapa por via de RAM y que le
+guie a la GPU constantemente"*. Es como trabaja todo driver de verdad, y en
+la casa ya tiene sus piezas:
+
+```text
+   hoy           la casa EJECUTA en la CPU las listas de ordenes del juego:
+                 el interprete pinta cada pixel. La CPU dibuja
+   el modelo     la CPU traduce cada lista a un EMPUJE de la 3060 y lo deja en
+                 RAM del PC prestada a la 3060 (por la IOMMU); lo apunta en el
+                 ANILLO (el GPFIFO de `canal::GR`, que ya existe) y avanza su
+                 puntero. La 3060 lo trae por DMA y dibuja, sin parar mientras
+                 haya anillo. La CPU solo escribe el MAPA: que dibujar, con que
+                 datos (matrices, descriptores, vertices) y en que orden
+   las piezas    N6  la traduccion: lo que hoy va al interprete, al SASS de
+                     SM86 (PLAN_LAS_TRES_GRANDES)
+                 C3  los empujes en RAM prestada, no por PRAMIN
+                 C4  dos tandas en vuelo: la CPU prepara la N+1 mientras la
+                     3060 hace la N
+                 A3  esperar a la 3060 por INTERRUPCION, sin girar
+                     (C3, C4 y A3 en PLAN_LA_3060_AFINADA)
+   como se sabe  B1 de AFINADA: el fotograma cuesta el MAYOR de CPU y 3060,
+                 no su suma, y la CPU queda libre para el juego
+```
+
 # 6. LO QUE ESTE PLAN NO CAMBIA
 
 - Cyberpunk sigue siendo el NORTE de PROTON-X: este plan es el camino, no
