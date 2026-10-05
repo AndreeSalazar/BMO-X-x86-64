@@ -57,6 +57,11 @@
 
 ## 3. Las decisiones del propietario
 
+**DECIDIDAS el 05-10, las cuatro (a):** `[T]` y `{K: V}` con funciones de
+biblioteca en ingles corto; `let b = a` COPIA, como todo (y el juez entrega
+la copia del ultimo uso); lo que no esta es un caso `Hay(v)` / `NoHay`; un
+mapa se recorre en el orden en que entraron sus claves.
+
 ### D1 -- como se escriben
 
 ```text
@@ -136,7 +141,7 @@ tiene UN propietario y nadie guarda referencias (TITAN_MAESTRO 14.3).
 
 ## 5. Los escalones
 
-- [ ] L0 -- las decisiones D1-D4 del propietario, escritas aqui (seccion 3)
+- [x] L0 -- las decisiones D1-D4 del propietario, escritas aqui (seccion 3): las cuatro (a), el 05-10
 - [ ] L1 -- el FRONTEND: los tipos `[T]` y `{K: V}`, sus literales y las funciones de la biblioteca (`toolchain/lang/titan/src/parse/expr.rs`, `toolchain/lang/titan/src/check.rs`); el juez con copia, prestamo y entrega de una lista (`toolchain/lang/titan/src/juez.rs`), y la copia del ultimo uso convertida en entrega
 - [ ] L2 -- el CALCULO (E0): `Const::List` y `Const::Map` con el orden de D4 (`toolchain/lang/titan/src/calc.rs`), sus clases (`toolchain/lang/titan/src/calc/clase.rs`) y los casos de D3 en el preludio (`toolchain/lang/titan/src/prelude.rs`)
 - [ ] L3 -- el MONTON de E1: pedir bloques con `TASK_OP_MEMORIA_PEDIR` y una lista de libres emitida una vez, como `platform/shared/bmo-monton/src/freelist.rs`, en `toolchain/lang/titan/emisor-x86_64/src/e1/`; su prueba: pedir, soltar y reusar mil veces sin pisar lo vivo
