@@ -332,10 +332,35 @@ extern "win64" fn create_query_heap(_this: u64, desc: *const u8, riid: *const Gu
     dar(pp, nuevo(com::CONSULTAS, vt, Consultas { paso, datos: alloc::vec![0; n * paso] }) as u64)
 }
 
-/// Una firma de ordenes indirectas: lo que trae (la casa aun no las corre).
+/// Una firma de ordenes indirectas: el paso de una orden y sus argumentos
+/// (`D3D12_INDIRECT_ARGUMENT_DESC`, 16 B cada uno). Las corre
+/// [`indirecto`] (E2.4, 05-10).
 pub struct Firma {
     pub paso: u32,
     pub argumentos: Vec<u8>,
+}
+
+/// D3D12_INDIRECT_ARGUMENT_TYPE.
+const ARG_DRAW: u32 = 0;
+const ARG_DRAW_INDEXED: u32 = 1;
+const ARG_DISPATCH: u32 = 2;
+const ARG_VERTEX_BUFFER_VIEW: u32 = 3;
+const ARG_INDEX_BUFFER_VIEW: u32 = 4;
+const ARG_CONSTANT: u32 = 5;
+const ARG_CONSTANT_BUFFER_VIEW: u32 = 6;
+const ARG_SHADER_RESOURCE_VIEW: u32 = 7;
+const ARG_UNORDERED_ACCESS_VIEW: u32 = 8;
+
+impl Firma {
+    /// Los argumentos, de 4 en 4 palabras: (tipo, y tres de su union).
+    fn args(&self) -> impl Iterator<Item = [u32; 4]> + '_ {
+        self.argumentos.chunks_exact(16).map(|a| core::array::from_fn(|k| u32::from_le_bytes([a[4 * k], a[4 * k + 1], a[4 * k + 2], a[4 * k + 3]])))
+    }
+
+    /// Si despacha (y entonces va con el estado de computo de la lista).
+    fn despacha(&self) -> bool {
+        self.args().any(|a| a[0] == ARG_DISPATCH)
+    }
 }
 
 /// `CreateCommandSignature(this, desc, raiz, riid, pp)`:
@@ -683,9 +708,102 @@ extern "win64" fn set_predication(_this: u64, bufer: u64, _off: u64, _op: u32) {
     }
 }
 
+/// `ExecuteIndirect(this, firma, max, args, off, cuenta, off_cuenta)` (E2.4,
+/// 05-10; la otra mitad de N5.17): se APUNTA con el estado de ahora (el de
+/// computo si la firma despacha), y [`indirecto`] lo corre al ejecutar la
+/// lista, leyendo entonces los argumentos y la cuenta.
 #[allow(clippy::too_many_arguments)]
-extern "win64" fn execute_indirect(_this: u64, _firma: u64, _max: u32, _args: u64, _off: u64, _cuenta: u64, _off_cuenta: u64) {
-    aviso("ExecuteIndirect: las ordenes indirectas aun no corren en la casa: se saltan");
+extern "win64" fn execute_indirect(this: u64, firma: u64, max: u32, args: u64, off: u64, cuenta: u64, off_cuenta: u64) {
+    if firma == 0 || args == 0 {
+        aviso("ExecuteIndirect sin firma o sin bufer de argumentos: en Windows es un error, y no se hace");
+        return;
+    }
+    let l = l(this);
+    // SAFETY: una firma de la casa (`CreateCommandSignature`).
+    let estado = if unsafe { de::<Firma>(firma) }.despacha() { l.computo.clone() } else { l.estado.clone() };
+    l.ordenes.push(Orden::Indirecto { estado, firma, max, args, args_off: off, cuenta, cuenta_off: off_cuenta });
+}
+
+/// `n` bytes desde `off` del bufer `r` (un Recurso de la casa), si caben.
+fn bytes_de(r: u64, off: u64, n: usize) -> Option<&'static [u8]> {
+    let base = crate::d3d12::base_de_bufer(r)?;
+    crate::tuberia::resolver_hasta(base + off, n).filter(|b| b.len() == n)
+}
+
+/// **Correr un ExecuteIndirect** (E2.4): cuantas ordenes diga la cuenta (o
+/// `max` sin cuenta), cada una `paso` bytes desde `args_off`, y cada
+/// argumento en su orden: los que CAMBIAN el estado (un CBV, constantes,
+/// las vistas de vertices e indices) siguen puestos para las de detras, y
+/// los que DIBUJAN o DESPACHAN lo hacen con el de ese momento.
+#[allow(clippy::too_many_arguments)]
+fn indirecto(estado: &Estado, firma: u64, max: u32, args: u64, args_off: u64, cuenta: u64, cuenta_off: u64) {
+    // SAFETY: una firma de la casa (la apunto `execute_indirect`).
+    let f = unsafe { de::<Firma>(firma) };
+    let n = if cuenta == 0 {
+        max
+    } else {
+        match bytes_de(cuenta, cuenta_off, 4) {
+            Some(b) => max.min(u32::from_le_bytes([b[0], b[1], b[2], b[3]])),
+            None => {
+                aviso("ExecuteIndirect: la cuenta no cae en un bufer de la casa: no se hace");
+                return;
+            }
+        }
+    };
+    let mut e = estado.clone();
+    for k in 0..n as u64 {
+        let mut o = args_off + k * f.paso as u64;
+        for a in f.args() {
+            let palabras = |o: u64, n: usize| bytes_de(args, o, 4 * n).map(|b| (0..n).map(|i| u32::from_le_bytes([b[4 * i], b[4 * i + 1], b[4 * i + 2], b[4 * i + 3]])).collect::<Vec<u32>>());
+            let medida = match a[0] {
+                ARG_DRAW | ARG_VERTEX_BUFFER_VIEW | ARG_INDEX_BUFFER_VIEW => 16,
+                ARG_DRAW_INDEXED => 20,
+                ARG_DISPATCH => 12,
+                ARG_CONSTANT => 4 * a[3] as u64,
+                ARG_CONSTANT_BUFFER_VIEW | ARG_SHADER_RESOURCE_VIEW | ARG_UNORDERED_ACCESS_VIEW => 8,
+                t => {
+                    aviso(&alloc::format!("ExecuteIndirect: un argumento de tipo {t} (rayos o malla): todavia no; se para"));
+                    return;
+                }
+            };
+            let Some(v) = palabras(o, medida as usize / 4) else {
+                aviso("ExecuteIndirect: los argumentos se salen de su bufer: se para");
+                return;
+            };
+            match a[0] {
+                ARG_DRAW => crate::tuberia::ejecutar_dibujo(&e, v[0], v[1], v[2], 0, false),
+                ARG_DRAW_INDEXED => crate::tuberia::ejecutar_dibujo(&e, v[0], v[1], v[2], v[3] as i32, true),
+                ARG_DISPATCH => crate::computo::despachar(&e, [v[0], v[1], v[2]]),
+                ARG_VERTEX_BUFFER_VIEW | ARG_INDEX_BUFFER_VIEW => {
+                    let b: Vec<u8> = v.iter().flat_map(|x| x.to_le_bytes()).collect();
+                    // SAFETY: 16 bytes de una vista (direccion, bytes, paso o formato).
+                    let vista = unsafe { crate::d3d12::vista(b.as_ptr()) };
+                    match (a[0], a[1]) {
+                        (ARG_INDEX_BUFFER_VIEW, _) => e.indices = vista,
+                        (_, 0) => e.vertices = vista,
+                        _ => aviso("ExecuteIndirect: una vista de vertices fuera de la ranura 0: todavia solo una"),
+                    }
+                }
+                ARG_CONSTANT => {
+                    if e.raiz == 0 {
+                        aviso("ExecuteIndirect: constantes sin root signature puesta: se tiran");
+                    } else {
+                        // SAFETY: una RootSignature de la casa (los Set* solo guardan de esas).
+                        let firma_raiz = unsafe { &de::<crate::tuberia::RootSignature>(e.raiz).firma };
+                        if let Err(m) = crate::cbuffers::poner(&mut e, firma_raiz, a[1] as usize, a[2] as usize, &v) {
+                            aviso(m);
+                        }
+                    }
+                }
+                ARG_CONSTANT_BUFFER_VIEW => match e.cbv.get_mut(a[1] as usize) {
+                    Some(c) => *c = v[0] as u64 | (v[1] as u64) << 32,
+                    None => aviso("ExecuteIndirect: un CBV a un parametro mas alla de los que la casa guarda"),
+                },
+                _ => aviso("ExecuteIndirect: un SRV o un UAV en la raiz: todavia no (N5.3b); el sombreador lo vera nulo"),
+            }
+            o += medida;
+        }
+    }
 }
 
 /// **Lo que corre una orden de la tanda 47** (lo llama `d3d12::ejecutar_listas`).
@@ -700,6 +818,7 @@ pub(crate) fn ejecutar(o: &Orden) {
         // SAFETY: comprobado al apuntar: cuatro bytes de un bufer de la casa.
         Orden::Escribir { dst, valor } => unsafe { (dst as *mut u32).write_unaligned(valor) },
         Orden::Despachar { ref estado, grupos } => crate::computo::despachar(estado, grupos),
+        Orden::Indirecto { ref estado, firma, max, args, args_off, cuenta, cuenta_off } => indirecto(estado, firma, max, args, args_off, cuenta, cuenta_off),
         _ => {}
     }
 }

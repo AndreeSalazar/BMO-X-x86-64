@@ -207,6 +207,8 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
             Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } => return None,
             // E2.3b: el sombreador de geometria, por el interprete.
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return None,
+            // E2.4: el contador de un UAV, por el interprete.
+            Op::Contador { .. } => return None,
             Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } => unreachable!("mirado arriba: `muestrea`"),
             Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Entera { .. } | Op::Convierte { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => unreachable!("mirado arriba: `salta`"),
         }

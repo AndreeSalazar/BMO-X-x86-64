@@ -265,9 +265,65 @@ pub(crate) extern "win64" fn create_depth_stencil_view(_this: u64, recurso: u64,
     vista_de_destino(recurso, desc, handle, DESC_DSV, dsv);
 }
 
-/// `CreateUnorderedAccessView(this, recurso, contador, desc, handle)`.
-pub(crate) extern "win64" fn create_unordered_access_view(_this: u64, recurso: u64, _contador: u64, desc: *const u8, handle: u64) {
-    vista_de_destino(recurso, desc, handle, DESC_UAV, uav);
+/// `CreateUnorderedAccessView(this, recurso, contador, desc, handle)`. Con
+/// un `contador` (E2.4, 05-10: el de `Append`/`Consume`), su numero en la
+/// ranura (ver [`contador_de`]).
+pub(crate) extern "win64" fn create_unordered_access_view(_this: u64, recurso: u64, contador: u64, desc: *const u8, handle: u64) {
+    if contador == 0 || desc.is_null() || handle == 0 {
+        vista_de_destino(recurso, desc, handle, DESC_UAV, uav);
+        return;
+    }
+    // SAFETY: la descripcion del `.exe`.
+    let mut v = match unsafe { uav(desc) } {
+        Ok(v) => v,
+        Err(m) => {
+            aviso(m);
+            return;
+        }
+    };
+    // D3D12_BUFFER_UAV.CounterOffsetInBytes (+24 de la descripcion).
+    v.mapeo = contador_de(contador, u64_(desc, 24));
+    poner(handle, recurso, DESC_UAV, &v);
+}
+
+/// **Los contadores de los UAV** (E2.4, 05-10): el recurso y el
+/// desplazamiento de cada `pCounterResource` de CreateUnorderedAccessView.
+/// La ranura (32 B) ya esta llena: guarda su NUMERO en los 16 bits del
+/// mapeo, que un UAV no usa, y asi viaja con ella cuando se copia
+/// (CopyDescriptors). El 0 es "sin contador".
+struct Contadores(core::cell::UnsafeCell<alloc::vec::Vec<(u64, u64)>>);
+// SAFETY: una tarea; los hilos de la casa son cooperativos.
+unsafe impl Sync for Contadores {}
+static CONTADORES: Contadores = Contadores(core::cell::UnsafeCell::new(alloc::vec::Vec::new()));
+
+fn contadores() -> &'static mut alloc::vec::Vec<(u64, u64)> {
+    // SAFETY: ver `Contadores`; nadie guarda la referencia.
+    unsafe { &mut *CONTADORES.0.get() }
+}
+
+pub(crate) fn reiniciar() {
+    contadores().clear();
+}
+
+/// El numero del contador `(recurso, desplazamiento)` (el mismo si ya
+/// estaba); 0 si ya hay 65535 (y se dice: el UAV queda sin contador).
+fn contador_de(recurso: u64, desplazamiento: u64) -> u32 {
+    let c = contadores();
+    if let Some(i) = c.iter().position(|&x| x == (recurso, desplazamiento)) {
+        return i as u32 + 1;
+    }
+    if c.len() >= 0xFFFF {
+        aviso("CreateUnorderedAccessView: mas de 65535 contadores distintos: este se queda sin el");
+        return 0;
+    }
+    c.push((recurso, desplazamiento));
+    c.len() as u32
+}
+
+/// El contador de numero `n` (el de la ranura de un UAV): `(recurso,
+/// desplazamiento)`.
+pub(crate) fn contador(n: u32) -> Option<(u64, u64)> {
+    n.checked_sub(1).and_then(|i| contadores().get(i as usize).copied())
 }
 
 fn vista_de_destino(recurso: u64, desc: *const u8, handle: u64, marca: u64, leer: unsafe fn(*const u8) -> Result<Vista, &'static str>) {

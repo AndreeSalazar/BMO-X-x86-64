@@ -357,6 +357,7 @@ pub unsafe fn empezar(p: Plataforma) {
     hilos::reiniciar();
     pulso::reiniciar();
     tuberia::reiniciar();
+    d3d12_vistas::reiniciar();
     dxgi::reiniciar();
     nativo::reiniciar();
     ficheros::reiniciar();

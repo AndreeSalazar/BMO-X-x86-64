@@ -58,7 +58,26 @@ fn uav_de(firma: &Firma, tablas: &[u64; 16], l: Lugar) -> Option<Uav<'static>> {
     let bytes = unsafe { core::slice::from_raw_parts_mut(bytes.as_ptr() as *mut u8, bytes.len()) };
     let elementos = (bytes.len() as u64 / medida) as u32;
     let formato = if v.crudo || v.paso != 0 { 0 } else { v.formato };
-    Some(Uav { bytes, formato, paso: if v.crudo { 0 } else { v.paso }, elementos })
+    let contador = contador_de(crate::d3d12_vistas::leer(r).0 .2, bytes);
+    Some(Uav { bytes, formato, paso: if v.crudo { 0 } else { v.paso }, elementos, contador })
+}
+
+/// **El contador oculto de un UAV** (E2.4, 05-10): el numero `n` de su ranura
+/// (ver `d3d12_vistas::contador_de`), en la memoria de su recurso. Si cae
+/// dentro de los datos de la vista (dos `&mut` a lo mismo), no: se dice.
+fn contador_de(n: u32, datos: &[u8]) -> Option<&'static mut u32> {
+    let (recurso, desplazamiento) = crate::d3d12_vistas::contador(n)?;
+    let base = d3d12::base_de_bufer(recurso)?;
+    let va = base + desplazamiento;
+    let c = crate::tuberia::resolver_hasta(va, 4).filter(|c| c.len() == 4 && va % 4 == 0)?;
+    let (desde, hasta) = (datos.as_ptr() as u64, datos.as_ptr() as u64 + datos.len() as u64);
+    if va < hasta && va + 4 > desde {
+        aviso("Dispatch: el contador de un UAV cae dentro de sus datos (en Windows es un error): se ve sin contador");
+        return None;
+    }
+    // SAFETY: cuatro bytes alineados de un bufer de la casa, fuera de los
+    // datos de la vista: nadie mas los toca mientras corre el Dispatch.
+    Some(unsafe { &mut *(c.as_ptr() as *mut u32) })
 }
 
 /// **Correr un `Dispatch(grupos)`** con el estado de computo `e`.

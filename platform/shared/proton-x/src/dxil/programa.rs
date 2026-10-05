@@ -112,6 +112,8 @@ const DX_GET_DIMENSIONS: i64 = 72;
 const DX_BUFFER_LOAD: i64 = 68;
 // N5.5 (05-10): el computo.
 const DX_BUFFER_STORE: i64 = 69;
+// E2.4 (05-10): el contador de un UAV (Append, Consume, Increment/DecrementCounter).
+const DX_BUFFER_UPDATE_COUNTER: i64 = 70;
 const DX_BARRIER: i64 = 80;
 const DX_THREAD_ID: i64 = 93;
 const DX_GROUP_ID: i64 = 94;
@@ -204,6 +206,11 @@ pub enum Op {
     /// N5.5: `bufferLoad` de un UAV (`RWStructuredBuffer`...): como
     /// `Lectura::Bufer`, pero del UAV `u`.
     LeeUav { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg },
+    /// E2.4 (05-10): `bufferUpdateCounter`: sube (`inc` 1) o baja (-1) el
+    /// contador oculto del UAV `u`; `d` el de antes al subir, el de despues
+    /// al bajar (lo de D3D). `Append` es esto y un `bufferStore` en ese
+    /// indice.
+    Contador { d: Reg, u: u8, inc: i8 },
     /// E2.3b (05-10): una entrada de un sombreador de GEOMETRIA: el
     /// componente del elemento `elemento` del vertice `vertice` de su
     /// primitiva (en las entradas, cada vertice ocupa [`Programa::entradas`]
@@ -1120,6 +1127,19 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             let mascara = c.entero(arg(8)?)? as u8;
             c.ops.push(Op::EscribeUav { u, modo, i, desp, v, mascara });
             Valor::Nada
+        }
+        // E2.4: `bufferUpdateCounter(uav, inc)`.
+        DX_BUFFER_UPDATE_COUNTER => {
+            let Some(Valor::Uav(u, _)) = c.valores.get(arg(1)?).copied() else {
+                return Err(NoPrograma::Forma("BufferUpdateCounter sin el handle de un UAV de bufer"));
+            };
+            let inc = c.entero(arg(2)?)?;
+            if inc != 1 && inc != -1 {
+                return Err(NoPrograma::Forma("BufferUpdateCounter con un paso que no es 1 ni -1"));
+            }
+            let d = c.registro(0.0)?;
+            c.ops.push(Op::Contador { d, u, inc: inc as i8 });
+            Valor::Bits(d)
         }
         // E2.3b: el GS emite un vertice, corta la tira, o las dos.
         DX_EMIT_STREAM | DX_CUT_STREAM | DX_EMIT_THEN_CUT_STREAM => {

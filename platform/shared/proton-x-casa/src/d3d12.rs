@@ -85,6 +85,10 @@ pub(crate) enum Orden {
     /// N5.5 (05-10): un `Dispatch(x, y, z)`, con el estado de COMPUTO de la
     /// lista tal como estaba al pedirlo (ver `computo.rs`).
     Despachar { estado: Estado, grupos: [u32; 3] },
+    /// E2.4 (05-10): un `ExecuteIndirect`, con el estado de dibujo (o el de
+    /// computo, si su firma despacha) tal como estaba; sus argumentos y su
+    /// cuenta se LEEN al ejecutarse: los escribe el computo de antes.
+    Indirecto { estado: Estado, firma: u64, max: u32, args: u64, args_off: u64, cuenta: u64, cuenta_off: u64 },
 }
 
 pub struct Lista {
@@ -631,7 +635,7 @@ extern "win64" fn ia_set_vertex_buffers(this: u64, desde: u32, n: u32, v: *const
 ///
 /// # Safety
 /// 16 bytes legibles del `.exe`.
-unsafe fn vista(v: *const u8) -> Vista {
+pub(crate) unsafe fn vista(v: *const u8) -> Vista {
     Vista {
         va: (v as *const u64).read_unaligned(),
         bytes: (v.add(8) as *const u32).read_unaligned(),

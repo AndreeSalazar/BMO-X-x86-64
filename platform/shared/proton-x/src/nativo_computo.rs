@@ -42,7 +42,8 @@ use crate::dxil::programa::{Comparacion, Conversion, Lectura, Op, OpEntera, Prog
 pub const VISTAS: usize = 8;
 
 /// **Una vista de bufer** para el codigo traducido: sus bytes, su paso (0 si
-/// no es estructurada) y sus elementos (en una cruda, palabras de 4 bytes).
+/// no es estructurada), sus elementos (en una cruda, palabras de 4 bytes) y
+/// (E2.4) su contador oculto, si lo tiene.
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Vista {
@@ -50,10 +51,11 @@ pub struct Vista {
     pub bytes: u64,
     pub paso: u32,
     pub elementos: u32,
+    pub contador: *mut u32,
 }
 
 impl Vista {
-    pub const NULA: Vista = Vista { datos: core::ptr::null_mut(), bytes: 0, paso: 0, elementos: 0 };
+    pub const NULA: Vista = Vista { datos: core::ptr::null_mut(), bytes: 0, paso: 0, elementos: 0, contador: core::ptr::null_mut() };
 }
 
 /// **Lo que ve la funcion traducida** (`rsi`): el codigo lo lee por sus
@@ -81,11 +83,14 @@ const C_COMPARTIDA: i32 = 48;
 const C_ENTRADAS: i32 = 56;
 const C_SALIDAS: i32 = 64;
 const C_SRV: i32 = 72;
-const C_UAV: i32 = C_SRV + 24 * VISTAS as i32;
+const C_UAV: i32 = C_SRV + VISTA * VISTAS as i32;
+/// Lo que mide una [`Vista`].
+const VISTA: i32 = 32;
 const V_DATOS: i32 = 0;
 const V_BYTES: i32 = 8;
 const V_PASO: i32 = 16;
 const V_ELEMENTOS: i32 = 20;
+const V_CONTADOR: i32 = 24;
 
 /// La firma de la funcion traducida: el ABI de System V (el de los
 /// punteros de arriba), que sabe llamar el Rust soft-float de Ring 3.
@@ -403,6 +408,7 @@ fn escritos(op: &Op, mut f: impl FnMut(Reg)) {
         | Op::SumaEntera { d, .. }
         | Op::Entera { d, .. }
         | Op::Convierte { d, .. }
+        | Op::Contador { d, .. }
         | Op::LeeIndexado { d, .. } => f(d),
         Op::EscribeIndexado { base, n, .. } => (0..n).for_each(|k| f(base + k)),
         _ => {}
@@ -815,7 +821,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                     return None;
                 }
                 // Primero los indices (d puede ser uno de ellos), luego los ceros.
-                let fuera = e.ventana(C_SRV + 24 * t as i32, modo, c[0], c[1])?;
+                let fuera = e.ventana(C_SRV + VISTA * t as i32, modo, c[0], c[1])?;
                 e.cuatro_palabras(d);
                 let listo = e.salto();
                 for f in fuera {
@@ -831,7 +837,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                 if u as usize >= VISTAS {
                     return None;
                 }
-                let fuera = e.ventana(C_UAV + 24 * u as i32, modo, i, desp)?;
+                let fuera = e.ventana(C_UAV + VISTA * u as i32, modo, i, desp)?;
                 e.cuatro_palabras(d);
                 let listo = e.salto();
                 for f in fuera {
@@ -847,7 +853,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                 if u as usize >= VISTAS {
                     return None;
                 }
-                let fuera = e.ventana(C_UAV + 24 * u as i32, modo, i, desp)?;
+                let fuera = e.ventana(C_UAV + VISTA * u as i32, modo, i, desp)?;
                 for (k, &r) in v.iter().enumerate() {
                     if mascara & (1 << k) == 0 {
                         continue;
@@ -863,6 +869,24 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                 for f in fuera {
                     e.aqui(f);
                 }
+            }
+            // E2.4: el contador oculto del UAV (sin el, 0 y nada se mueve).
+            Op::Contador { d, u, inc } => {
+                if u as usize >= VISTAS {
+                    return None;
+                }
+                e.campo(RCX, true, C_UAV + VISTA * u as i32, V_CONTADOR); // rcx = el contador
+                e.rr(None, false, &[0x31], RAX, RAX); // xor eax, eax
+                e.rr(None, true, &[0x85], RCX, RCX); // test rcx, rcx
+                let sin = e.salto_si(CC_E);
+                e.mem(None, false, &[0x8B], RAX, RCX, 0); // mov eax, [rcx]
+                e.mem(None, false, &[0x8D], RDX, RAX, inc as i32); // lea edx, [rax + inc]
+                e.mem(None, false, &[0x89], RDX, RCX, 0); // mov [rcx], edx
+                if inc < 0 {
+                    e.rr(None, false, &[0x89], RDX, RAX); // al bajar, el de despues
+                }
+                e.aqui(sin);
+                e.guardar(d, RAX);
             }
             // Lo que no sabe: por el interprete.
             Op::Mate { .. } | Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } | Op::ConstantesEn { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return None,
@@ -913,7 +937,7 @@ pub unsafe fn despachar(p: &Programa, f: Funcion, grupos: [u32; 3], cb: &[u8], s
         &relleno
     };
     let mut compartida = alloc::vec![0u32; p.computo.compartida.max(1) as usize];
-    let vista = |datos: *mut u8, bytes: usize, paso: u32, elementos: u32| Vista { datos, bytes: bytes as u64, paso, elementos };
+    let vista = |datos: *mut u8, bytes: usize, paso: u32, elementos: u32, contador: *mut u32| Vista { datos, bytes: bytes as u64, paso, elementos, contador };
     let mut c = Contexto {
         ids: [0; 10],
         reanudar: 0,
@@ -927,12 +951,13 @@ pub unsafe fn despachar(p: &Programa, f: Funcion, grupos: [u32; 3], cb: &[u8], s
     for (k, b) in srv.iter().enumerate().take(VISTAS) {
         if let Some(b) = b {
             // Solo se lee: el puntero es *mut por la forma, no por el uso.
-            c.srv[k] = vista(b.bytes.as_ptr() as *mut u8, b.bytes.len(), b.paso, b.elementos);
+            c.srv[k] = vista(b.bytes.as_ptr() as *mut u8, b.bytes.len(), b.paso, b.elementos, core::ptr::null_mut());
         }
     }
     for (k, u) in uavs.iter_mut().enumerate().take(VISTAS) {
         if let Some(u) = u {
-            c.uav[k] = vista(u.bytes.as_mut_ptr(), u.bytes.len(), u.paso, u.elementos);
+            let contador = u.contador.as_deref_mut().map_or(core::ptr::null_mut(), |c| c as *mut u32);
+            c.uav[k] = vista(u.bytes.as_mut_ptr(), u.bytes.len(), u.paso, u.elementos, contador);
         }
     }
     let mut hilos: Vec<(Vec<f32>, u32, bool)> = (0..n).map(|_| (Vec::new(), 0, false)).collect();
@@ -994,7 +1019,8 @@ mod pruebas {
         assert_eq!(core::mem::offset_of!(Contexto, salidas) as i32, C_SALIDAS);
         assert_eq!(core::mem::offset_of!(Contexto, srv) as i32, C_SRV);
         assert_eq!(core::mem::offset_of!(Contexto, uav) as i32, C_UAV);
-        assert_eq!(core::mem::size_of::<Vista>(), 24);
+        assert_eq!(core::mem::size_of::<Vista>() as i32, VISTA);
+        assert_eq!(core::mem::offset_of!(Vista, contador) as i32, V_CONTADOR);
         assert_eq!(core::mem::offset_of!(Vista, datos) as i32, V_DATOS);
         assert_eq!(core::mem::offset_of!(Vista, bytes) as i32, V_BYTES);
         assert_eq!(core::mem::offset_of!(Vista, paso) as i32, V_PASO);

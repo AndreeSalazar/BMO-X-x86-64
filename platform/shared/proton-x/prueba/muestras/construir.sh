@@ -130,6 +130,13 @@ sombreador $N nbody ParticleDraw vs_6_0 VSParticleDraw ParticleDraw_VS
 sombreador $N nbody ParticleDraw gs_6_0 GSParticleDraw ParticleDraw_GS
 sombreador $N nbody ParticleDraw ps_6_0 PSParticleDraw ParticleDraw_PS
 
+# E2.4: ExecuteIndirect y su culling por computo (Append en un UAV con
+# contador). Sus .cso: los de shaders.hlsl (los hace `construir`) y el CS.
+I=D3D12ExecuteIndirect/src
+rm -rf indirect
+construir $I indirect.exe
+sombreador $I indirect compute cs_6_0 CSMain compute
+
 # E2.3a: el juez del COMPUTO, NUESTRO y no de Microsoft (`../computo.cpp`,
 # de consola, con su CS de `../computo.dxil` dentro por `.incbin`): las
 # mismas cabeceras y el mismo UCRT que las muestras.

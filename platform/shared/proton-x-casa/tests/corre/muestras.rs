@@ -192,6 +192,11 @@ const AZUL: u32 = 0x00_00_33_66;
 /// guardando los pixeles de los de `fotos`. Devuelve (salio, lo dicho, las
 /// huellas de cada Present, las fotos).
 fn correr_muestra(exe: &[u8], nombre: &'static str, presentes: u32, fotos: &[u32]) -> (u32, String, Vec<u64>, Vec<(u32, Vec<u32>, u32, u32)>) {
+    correr_muestra_con(exe, nombre, presentes, fotos, &[])
+}
+
+/// [`correr_muestra`] con un GUION de entrada (E2.4: una tecla).
+fn correr_muestra_con(exe: &[u8], nombre: &'static str, presentes: u32, fotos: &[u32], guion: &[u64]) -> (u32, String, Vec<u64>, Vec<(u32, Vec<u32>, u32, u32)>) {
     let uno = uno_a_la_vez();
     let dir = volumen().join("window").join(nombre);
     let _ = std::fs::remove_dir_all(&dir);
@@ -205,7 +210,7 @@ fn correr_muestra(exe: &[u8], nombre: &'static str, presentes: u32, fotos: &[u32
     *NOMBRE.lock().unwrap() = (ruta, "");
     TOPE_PRESENTES.store(presentes, Ordering::SeqCst);
     *GUARDAR_FOTOS.lock().unwrap() = fotos.to_vec();
-    let (salio, dicho, _) = correr_exe(&uno, exe, true, &[]);
+    let (salio, dicho, _) = correr_exe(&uno, exe, true, guion);
     TOPE_PRESENTES.store(1000, Ordering::SeqCst);
     GUARDAR_FOTOS.lock().unwrap().clear();
     *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
@@ -578,4 +583,51 @@ fn e2_3b_nbodygravity_simula_en_su_hilo_y_dibuja_con_su_gs() {
     }
     assert!(verde_por_rojo[0] < 0.3, "el Present 0, rojo: G/R {:.3}", verde_por_rojo[0]);
     assert!(verde_por_rojo[1] > 0.4, "el Present 2, amarillo (ya aceleran): G/R {:.3}", verde_por_rojo[1]);
+}
+
+/// El ESPACIO, pulsado y suelto (su scancode, 0x39: WM_KEYDOWN con VK_SPACE).
+const ESPACIO: [u64; 2] = [1 << 8 | 1 << 9 | 0x39, 1 << 8 | 0x39];
+
+/// **E2.4 -- D3D12ExecuteIndirect** (05-10, `Samples/Desktop`, MIT): 1024
+/// triangulos, cada uno su propia orden INDIRECTA (la direccion de su CBV y
+/// los argumentos de su Draw), y un CS que las CULLEA: `Append` en un UAV con
+/// CONTADOR de las que caen en la franja central, y `ExecuteIndirect` con
+/// ese contador como cuenta. Pidio a la casa: el contador de un UAV (la op
+/// `Contador`, su numero en la ranura del descriptor), `ExecuteIndirect`
+/// (corrido al ejecutar la lista: sus argumentos los escribe el computo de
+/// antes) y `CreateCommandSignature` leida. Los triangulos empiezan a la
+/// izquierda y entran a la franja poco a poco: la cuenta crece.
+///
+/// **Como se sabe** (lo que la propia muestra promete, "su huella, igual,
+/// con el culling encendido y apagado"): dos corridas de 60 Present, una
+/// con culling y otra con el ESPACIO pulsado al empezar (sin culling: las
+/// 1024 ordenes, sin cuenta). DENTRO de la tijera del culling (x de 320 a
+/// 960) las dos dan los MISMOS pixeles, bit a bit; FUERA, con culling, solo
+/// el fondo, y sin el, triangulos. Probado que dice NO: con el contador
+/// atascado, la franja sale vacia.
+#[test]
+fn e2_4_executeindirect_cullea_por_computo_y_dibuja_lo_mismo_dentro() {
+    let (fondo, w) = (0x00_33_66u32, ANCHO);
+    let (salio, texto, _, con) = correr_muestra_con(INDIRECT, "indirect", 60, &[30, 59], &[]);
+    assert_eq!(salio, 0xF00D, "{texto}");
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte");
+    let (salio, texto, _, sin) = correr_muestra_con(INDIRECT, "indirect", 60, &[30, 59], &ESPACIO);
+    assert_eq!((salio, texto.as_str()), (0xF00D, ""));
+    for ((n, a, _, _), (_, b, _, _)) in con.iter().zip(&sin) {
+        let (mut dentro_color, mut fuera_sin) = (0, 0);
+        for (i, (&pa, &pb)) in a.iter().zip(b).enumerate() {
+            let (x, pa, pb) = (i as u32 % w, pa & 0xFF_FFFF, pb & 0xFF_FFFF);
+            if (320..960).contains(&x) {
+                assert_eq!(pa, pb, "Present {n}, pixel ({x}, {}): con culling y sin el, distintos dentro de la franja", i as u32 / w);
+                dentro_color += (pa != fondo) as u32;
+            } else {
+                assert_eq!(pa, fondo, "Present {n}, pixel ({x}, {}): con culling, fuera de la franja solo el fondo", i as u32 / w);
+                fuera_sin += (pb != fondo) as u32;
+            }
+        }
+        assert!(fuera_sin > 10_000, "Present {n}: sin culling hay triangulos fuera de la franja ({fuera_sin})");
+        if *n == 59 {
+            assert!(dentro_color > 10_000, "Present 59: ya han entrado triangulos a la franja ({dentro_color} pixeles)");
+        }
+    }
 }

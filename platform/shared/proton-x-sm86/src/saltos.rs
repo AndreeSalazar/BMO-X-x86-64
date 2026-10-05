@@ -91,7 +91,7 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
                 v[2 + k] = Some(w[k]);
             }
         }
-        Op::IdHilo { .. } | Op::Barrera | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => {}
+        Op::IdHilo { .. } | Op::Barrera | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::Contador { .. } => {}
         Op::EscribeIndexado { i, s, .. } => {
             v[0] = Some(i);
             v[1] = Some(s);
@@ -110,7 +110,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         Op::Constantes { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], true),
         Op::ConstantesEn { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
         Op::Muestra { d, .. } | Op::Lee { d, .. } | Op::LeeUav { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
-        Op::IdHilo { d, .. } | Op::LeeCompartida { d, .. } => ([Some(d), None, None, None], false),
+        Op::IdHilo { d, .. } | Op::LeeCompartida { d, .. } | Op::Contador { d, .. } => ([Some(d), None, None, None], false),
         Op::EntradaDe { d, .. } => ([Some(d), None, None, None], true),
         Op::Mul { d, .. }
         | Op::Add { d, .. }

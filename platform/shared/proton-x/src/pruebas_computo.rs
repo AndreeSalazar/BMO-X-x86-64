@@ -35,7 +35,7 @@ fn un_dispatch_con_memoria_compartida_y_barrera_da_lo_de_hlsl() {
     cb[..4].copy_from_slice(&250u32.to_le_bytes());
     cb[4..8].copy_from_slice(&2.0f32.to_le_bytes());
     {
-        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 256 })];
+        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 256, contador: None })];
         assert_eq!(p.despachar([4, 1, 1], &cb, &rec, &mut uavs), 256, "4 grupos de 64 hilos");
     }
     let f = |k: usize, c: usize| f32::from_le_bytes(salida[k * 16 + c * 4..k * 16 + c * 4 + 4].try_into().unwrap());
@@ -64,7 +64,7 @@ fn leer_fuera_del_srv_da_cero_en_el_computo() {
     let mut cb = [0u8; 16];
     cb[..4].copy_from_slice(&128u32.to_le_bytes());
     cb[4..8].copy_from_slice(&1.0f32.to_le_bytes());
-    let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 128 })];
+    let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 128, contador: None })];
     p.despachar([2, 1, 1], &cb, &rec, &mut uavs);
     let x = |k: usize| f32::from_le_bytes(uavs[0].as_ref().unwrap().bytes[k * 16..k * 16 + 4].try_into().unwrap());
     assert_eq!(x(0), 63.0, "grupo 0: el espejo de 0 es 63");
@@ -119,7 +119,7 @@ fn la_textura_elegida_antes_de_la_barrera_sigue_elegida_despues() {
     };
     let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: Some(Dinamicas(&buscar)) };
     let mut salida = vec![0u8; 2 * 16];
-    let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 2 })];
+    let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 2, contador: None })];
     assert_eq!(p.despachar([1, 1, 1], &[], &rec, &mut uavs), 2);
     let quiero: Vec<u8> = [1.0f32, 192.0 / 255.0, 128.0 / 255.0, 64.0 / 255.0].iter().flat_map(|f| f.to_le_bytes()).collect();
     assert_eq!(&salida[..16], &quiero[..], "hilo 0: el texel de la textura 7");
@@ -141,4 +141,58 @@ fn el_cs_de_nbody_se_compila_con_sus_getelementptr_constantes() {
     let fin = p.ops.iter().position(|o| matches!(o, programa::Op::FinBucle)).unwrap();
     assert_eq!(barreras.len(), 2);
     assert!(barreras.iter().all(|&b| bucle < b && b < fin), "las dos, dentro del bucle de los tiles");
+}
+
+/// *** El CS de culling de D3D12ExecuteIndirect (Microsoft, MIT;
+/// `prueba/muestras/indirect/`) se compila: su `Append` es un
+/// `bufferUpdateCounter` (+1, el indice de antes) y dos `bufferStore` en ese
+/// indice (la orden indirecta de 24 bytes: la direccion del CBV y los
+/// argumentos del Draw), dentro de un `si`.
+#[test]
+fn el_cs_de_execute_indirect_se_compila_con_su_append() {
+    let p = dxil::computo::preparar(include_bytes!("../prueba/muestras/indirect/compute.cso")).unwrap().programa;
+    assert_eq!(p.computo.hilos, [128, 1, 1]);
+    let contadores: Vec<_> = p.ops.iter().filter_map(|o| if let programa::Op::Contador { u, inc, .. } = *o { Some((u, inc)) } else { None }).collect();
+    assert_eq!(contadores, [(0, 1)], "un Append: sube el contador del UAV u0");
+    assert_eq!(p.ops.iter().filter(|o| matches!(o, programa::Op::EscribeUav { u: 0, .. })).count(), 2, "24 bytes: 8 y 16");
+    assert!(p.ops.iter().any(|o| matches!(o, programa::Op::Si { .. })));
+}
+
+/// *** El CS de culling de D3D12ExecuteIndirect CORRIDO: dos ordenes, la 0
+/// con su triangulo en el centro (pasa) y la 1 corrida 100 en x (fuera del
+/// plano de culling, 0.5): el `Append` escribe SOLO la 0, en el indice 0, y
+/// el contador queda en 1. Con la proyeccion identidad, la cuenta del CS es
+/// a mano: x de -0.05 a 0.05 (la 0) y de 99.95 a 100.05 (la 1).
+#[test]
+fn el_cs_de_execute_indirect_deja_pasar_solo_lo_que_cae_dentro() {
+    let p = dxil::computo::preparar(include_bytes!("../prueba/muestras/indirect/compute.cso")).unwrap().programa;
+    // `cbv` (t0): velocity, offset, color, projection, padding (256 B).
+    let mut cbv = vec![0u8; 2 * 256];
+    for (k, x) in [0.0f32, 100.0].into_iter().enumerate() {
+        let o = k * 256;
+        cbv[o + 16..o + 20].copy_from_slice(&x.to_le_bytes()); // offset.x
+        for i in 0..4 {
+            let m = o + 48 + 16 * i + 4 * i; // la identidad
+            cbv[m..m + 4].copy_from_slice(&1.0f32.to_le_bytes());
+        }
+    }
+    // `inputCommands` (t1): la direccion del CBV (uint2) y los argumentos del Draw (uint4).
+    let ordenes: Vec<u8> = (0..2u32).flat_map(|k| [0x1000 + k, 0, 3, 1, 0, 0]).flat_map(u32::to_le_bytes).collect();
+    let srv = [Some(Bufer { bytes: &cbv, formato: 0, paso: 256, elementos: 2 }), Some(Bufer { bytes: &ordenes, formato: 0, paso: 24, elementos: 2 })];
+    // Las ranuras: cada SRV en la posicion de su lugar (t0 y t1).
+    let pos = |reg: u32| p.ranuras.texturas.iter().position(|l| l.registro == reg).unwrap();
+    let mut buf: [Option<Bufer>; 2] = [None, None];
+    buf[pos(0)] = srv[0];
+    buf[pos(1)] = srv[1];
+    let rec = Recursos { texturas: &[None, None], muestreadores: &[], buferes: &buf, dinamicas: None };
+    let cb: Vec<u8> = [0.05f32, 1.0, 0.5, 2.0].iter().flat_map(|f| f.to_le_bytes()).collect();
+    let mut salida = vec![0xEEu8; 2 * 24];
+    let mut contador = 0u32;
+    {
+        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 24, elementos: 2, contador: Some(&mut contador) })];
+        p.despachar([1, 1, 1], &cb, &rec, &mut uavs);
+    }
+    assert_eq!(contador, 1, "pasa una");
+    assert_eq!(&salida[..24], &ordenes[..24], "la 0, en el indice 0");
+    assert_eq!(&salida[24..], &[0xEE; 24], "nada mas");
 }

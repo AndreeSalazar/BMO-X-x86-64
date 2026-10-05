@@ -162,6 +162,9 @@ Cyberpunk:
    05-10 (E2.3a), con memoria compartida, barreras           y el post-proceso
    y UAV de bufer, y traducido a x86-64 (E2.3b);
    la 3060 aun no
+   ExecuteIndirect: desde el 05-10 (E2.4), con el      N5.17 el culling de
+   contador de los UAV; sin vistas en la raiz,               la GPU
+   rayos ni malla
    el sombreador de GEOMETRIA: en la CPU desde el      N5.18 particulas,
    05-10 (E2.3b); sin vertice calculado, adyacencia,         siluetas
    puntos o lineas de salida ni stream output
@@ -176,10 +179,10 @@ Cyberpunk:
    pintan (sin recortar)                                    de cerca, falta suelo
    render targets de floats (R32) y HDR de 16 bits     (nueva) se pintan en 8
    como 8 bits                                              bits o no se pintan
-   ExecuteIndirect y ExecuteBundle: se saltan          (nueva)
    ClearUnorderedAccessView: no hace nada              N5.3c
    stencil y AlphaToCoverage: se apuntan, no se usan   (nueva)
-   topologias que no son triangulos (lineas, puntos)   (nueva)
+   topologias que no son triangulos (lineas, puntos)   (nueva) con un GS, ya
+   sin un GS que las haga triangulos                        (E2.3b)
    Clear* con rectangulos: limpia el recurso entero
    SetEventOnMultipleFenceCompletion de varias vallas
    D3D12SerializeRootSignature: solo la 1.0;

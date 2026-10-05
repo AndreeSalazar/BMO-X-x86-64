@@ -96,6 +96,10 @@ pub struct Uav<'a> {
     pub paso: u32,
     /// Los elementos de la vista (en una cruda, palabras de 4 bytes).
     pub elementos: u32,
+    /// E2.4 (05-10): su CONTADOR oculto (`CreateUnorderedAccessView` con
+    /// un `pCounterResource`): lo que mueven `Append`, `Consume`,
+    /// `IncrementCounter` y `DecrementCounter`.
+    pub contador: Option<&'a mut u32>,
 }
 
 /// Los formatos con 32 bits por canal (float, uint y sint de 4, 3, 2 y 1
@@ -112,6 +116,24 @@ fn canales_de_32(formato: u32) -> Option<usize> {
 }
 
 impl Uav<'_> {
+    /// **`IncrementCounter` (`inc` 1) y `DecrementCounter` (-1)**: suben o
+    /// bajan el contador y devuelven, como D3D, el de ANTES al subir y el de
+    /// DESPUES al bajar. Sin contador, 0 (y nada se mueve).
+    pub fn contar(&mut self, inc: i8) -> u32 {
+        match self.contador.as_deref_mut() {
+            Some(c) => {
+                let antes = *c;
+                *c = c.wrapping_add(inc as i32 as u32);
+                if inc >= 0 {
+                    antes
+                } else {
+                    *c
+                }
+            }
+            None => 0,
+        }
+    }
+
     /// Lo que se lee de el, con las reglas de un SRV ([`Bufer::cargar`]).
     pub fn cargar(&self, modo: Modo, i: u32, desp: u32) -> [u32; 4] {
         Bufer { bytes: self.bytes, formato: self.formato, paso: self.paso, elementos: self.elementos }.cargar(modo, i, desp)
@@ -160,14 +182,14 @@ mod pruebas {
     #[test]
     fn un_uav_escribe_lo_de_su_mascara_y_nada_fuera_de_su_vista() {
         let mut b = bytes(&[0; 8]);
-        let mut u = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 2 };
+        let mut u = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 2, contador: None };
         u.escribir(Modo::Estructurado, 1, 0, [1, 2, 3, 4], 0b0101);
         u.escribir(Modo::Estructurado, 2, 0, [9; 4], 0xF); // fuera: se pierde
         u.escribir(Modo::Estructurado, 0, 8, [7, 8, 9, 9], 0xF); // del 8 al 16: dos
         assert_eq!(u.cargar(Modo::Estructurado, 1, 0), [1, 0, 3, 0]);
         assert_eq!(u.cargar(Modo::Estructurado, 0, 0), [0, 0, 7, 8], "no pisa el elemento de al lado");
         let mut c = bytes(&[0; 4]);
-        let mut t = Uav { bytes: &mut c, formato: 41, paso: 0, elementos: 4 }; // R32_FLOAT
+        let mut t = Uav { bytes: &mut c, formato: 41, paso: 0, elementos: 4, contador: None }; // R32_FLOAT
         t.escribir(Modo::Tipado, 2, 0, [5, 6, 7, 8], 0xF);
         assert_eq!(t.cargar(Modo::Crudo, 8, 0), [5, 0, 0, 0], "un R32: una palabra por elemento");
     }
@@ -205,5 +227,20 @@ mod pruebas {
         let c = [0u8, 255, 0, 255];
         let u = Bufer { bytes: &c, formato: 28, paso: 0, elementos: 1 };
         assert_eq!(u.cargar(Modo::Tipado, 0, 0), [0.0f32, 1.0, 0.0, 1.0].map(f32::to_bits));
+    }
+
+    /// E2.4: el contador sube devolviendo el de antes, baja devolviendo el
+    /// de despues; sin contador, 0.
+    #[test]
+    fn el_contador_de_un_uav_sube_y_baja_como_en_d3d() {
+        let mut b = bytes(&[0; 4]);
+        let mut c = 5u32;
+        let mut u = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 1, contador: Some(&mut c) };
+        assert_eq!((u.contar(1), u.contar(1)), (5, 6));
+        assert_eq!(u.contar(-1), 6, "bajar: el de despues");
+        drop(u);
+        assert_eq!(c, 6);
+        let mut sin = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 1, contador: None };
+        assert_eq!(sin.contar(1), 0);
     }
 }

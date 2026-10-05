@@ -282,9 +282,20 @@ muestra.
   despues (las dos nubes ya fundidas en una galaxia): el estilo es el
   mismo (puntos rojos con su halo, amarillos donde aceleran, el fondo azul
   oscuro); el momento, no.
-- [ ] **E2.4 -- D3D12ExecuteIndirect.** `ExecuteIndirect` (la otra mitad de
-  N5.17) y su culling por computo (pide E2.3). **Como se sabe:** su huella,
-  igual, con el culling encendido y apagado.
+- [x] **E2.4 -- D3D12ExecuteIndirect** (05-10, en el banco; falta verlo en
+  el metal). 1024 triangulos, cada uno su orden INDIRECTA (la direccion de
+  su CBV y su Draw), y un CS que las CULLEA con `Append` en un UAV con
+  CONTADOR. Lo que pidio: el contador de un UAV (la op `Contador`, en el
+  interprete y traducido; su numero viaja en la ranura del descriptor, asi
+  que sobrevive a las copias de descriptores), `ExecuteIndirect` (la otra
+  mitad de N5.17: se apunta y se resuelve al EJECUTAR la lista, porque sus
+  argumentos y su cuenta los escribe el computo de antes) y su firma.
+  Nada mas: ni un aviso. **Como se sabe:** `tests/corre/muestras.rs`: dos
+  corridas de 60 Present, con culling y con el ESPACIO pulsado (sin el):
+  dentro de la franja del culling, los MISMOS pixeles bit a bit; fuera,
+  con culling, solo el fondo; probado que dice NO con el contador atascado.
+  Y su CS traducido da las mismas ordenes y el mismo contador que el
+  interprete (`tests/nativo_computo.rs`).
 - [ ] **E2.5 -- D3D12SM6WaveIntrinsics.** Las olas de verdad (D4.3): hoy son
   "un pixel por ola" (`dxil/olas.rs`). **Como se sabe:** su huella, igual.
 - [ ] **E2.6 -- D3D12HDR.** Render targets de float (N5.16) y la cadena en 10
@@ -347,7 +358,7 @@ se mide con R5: una corrida por escalon cerrado.
    D5.7   la cadena de intercambio          E1.1
    D2.3   Map persistente (UPLOAD)          E1.4
    D5.2   vallas                            E1.5, E2.3a y E2.3b (entre colas)
-   N5.17  ExecuteBundle / ExecuteIndirect   E1.6, E2.4
+   N5.17  ExecuteBundle / ExecuteIndirect   E1.6, E2.4 (hechos)
    H2.7   listas desde varios hilos         E2.1
    N5.4   el indice dinamico (bindless)     E2.2
    N5.5   el COMPUTO                        E2.3a y E2.3b (hechos)

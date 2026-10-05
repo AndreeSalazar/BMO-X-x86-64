@@ -832,6 +832,8 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } => return Err(NoEmite::Operacion(i)),
             // E2.3b: el sombreador de geometria, igual (va por la CPU).
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
+            // E2.4: el contador de un UAV, igual.
+            Op::Contador { .. } => return Err(NoEmite::Operacion(i)),
             // N5.6: sin, cos, exp2, log2... (MUFU) todavia no: va por la CPU.
             Op::Mate { .. } => return Err(NoEmite::Operacion(i)),
             // N5.7: `discard` (el KILL de la 3060) todavia no: va por la CPU.

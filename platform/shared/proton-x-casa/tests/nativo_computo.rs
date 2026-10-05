@@ -50,13 +50,13 @@ fn los_dos(cs: &[u8], grupos: [u32; 3], cb: &[u8], srv: &[u8], paso_srv: u32, ua
     let elementos = uav.len() as u32 / paso_uav;
     let t = std::time::Instant::now();
     {
-        let mut u = [Some(Uav { bytes: &mut a, formato: 0, paso: paso_uav, elementos })];
+        let mut u = [Some(Uav { bytes: &mut a, formato: 0, paso: paso_uav, elementos, contador: None })];
         p.despachar(grupos, cb, &rec, &mut u);
     }
     let interpretado = t.elapsed();
     let t = std::time::Instant::now();
     {
-        let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: paso_uav, elementos })];
+        let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: paso_uav, elementos, contador: None })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
         unsafe { nativo_computo::despachar(&p, f, grupos, cb, &buf, &mut u) };
     }
@@ -345,7 +345,7 @@ fn el_cs_de_nbody_traducido_da_la_fisica() {
     let buf = [Some(Bufer { bytes: &srv_bytes, formato: 0, paso: 32, elementos: n as u32 })];
     let mut salida = vec![0u8; n * 32];
     {
-        let mut u = [Some(Uav { bytes: &mut salida, formato: 0, paso: 32, elementos: n as u32 })];
+        let mut u = [Some(Uav { bytes: &mut salida, formato: 0, paso: 32, elementos: n as u32, contador: None })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
         unsafe { nativo_computo::despachar(&p, f, [grupos, 1, 1], &cb, &buf, &mut u) };
     }
@@ -379,4 +379,54 @@ fn el_cs_de_nbody_traducido_da_la_fisica() {
         assert!((leer(i, 7) - modulo).abs() <= 1e-3 * (cota[0] + cota[1] + cota[2] + fantasma) + 1e-6, "particula {i}: |a|");
     }
     eprintln!("nbody: lo peor, {:.3} del margen", peor);
+}
+
+const INDIRECT_CS: &[u8] = include_bytes!("../../proton-x/prueba/muestras/indirect/compute.cso");
+
+/// *** El CS de culling de D3D12ExecuteIndirect, con su `Append` en un UAV
+/// con CONTADOR: 300 ordenes con sus triangulos repartidos a uno y otro lado
+/// de la franja (la proyeccion de la muestra), por los dos caminos. Las
+/// mismas ordenes escritas en el mismo orden, y el mismo contador.
+#[test]
+fn el_cs_de_execute_indirect_traducido_da_el_contador_del_interprete() {
+    let n = 300usize;
+    let p = dxil::computo::preparar(INDIRECT_CS).unwrap().programa;
+    let f = sellar(&nativo_computo::compilar(&p).expect("se traduce con su contador"));
+    // La proyeccion de la muestra (PerspectiveFovLH(pi/4, 16/9, 0.01, 20),
+    // traspuesta), y cada triangulo con su x de -3 a 3 y su z de 0 a 2.
+    let (fy, a) = (1.0f32 / (core::f32::consts::FRAC_PI_4 * 0.5).tan(), 1280.0f32 / 720.0);
+    let (q, zn) = (20.0f32 / (20.0 - 0.01), 0.01f32);
+    let proy = [fy / a, 0.0, 0.0, 0.0, 0.0, fy, 0.0, 0.0, 0.0, 0.0, q, -q * zn, 0.0, 0.0, 1.0, 0.0];
+    let mut cbv = vec![0u8; n * 256];
+    for k in 0..n {
+        let o = k * 256;
+        let (x, z) = (-3.0 + 6.0 * k as f32 / n as f32, (k % 5) as f32 * 0.5);
+        cbv[o + 16..o + 20].copy_from_slice(&x.to_le_bytes());
+        cbv[o + 24..o + 28].copy_from_slice(&z.to_le_bytes());
+        for (i, v) in proy.iter().enumerate() {
+            cbv[o + 48 + 4 * i..o + 52 + 4 * i].copy_from_slice(&v.to_le_bytes());
+        }
+    }
+    let ordenes: Vec<u8> = (0..n as u32).flat_map(|k| [0x1000 + 256 * k, 0, 3, 1, 0, 0]).flat_map(u32::to_le_bytes).collect();
+    let pos = |reg: u32| p.ranuras.texturas.iter().position(|l| l.registro == reg).unwrap();
+    let mut buf: [Option<Bufer>; 2] = [None, None];
+    buf[pos(0)] = Some(Bufer { bytes: &cbv, formato: 0, paso: 256, elementos: n as u32 });
+    buf[pos(1)] = Some(Bufer { bytes: &ordenes, formato: 0, paso: 24, elementos: n as u32 });
+    let rec = Recursos { texturas: &[None, None], muestreadores: &[], buferes: &buf, dinamicas: None };
+    let cb: Vec<u8> = [0.05f32, 1.0, 0.5, n as f32].iter().flat_map(|f| f.to_le_bytes()).collect();
+    let grupos = [n.div_ceil(128) as u32, 1, 1];
+    let (mut a, mut b) = (vec![0xEEu8; n * 24], vec![0xEEu8; n * 24]);
+    let (mut ca, mut cb_) = (0u32, 0u32);
+    {
+        let mut u = [Some(Uav { bytes: &mut a, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut ca) })];
+        p.despachar(grupos, &cb, &rec, &mut u);
+    }
+    {
+        let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut cb_) })];
+        // SAFETY: `f` es la traduccion de `p`, sellada y viva.
+        unsafe { nativo_computo::despachar(&p, f, grupos, &cb, &buf, &mut u) };
+    }
+    assert!(ca > 10 && (ca as usize) < n, "pasan unas y otras no: {ca}");
+    assert_eq!(ca, cb_, "el mismo contador");
+    assert_eq!(a, b, "las mismas ordenes, en el mismo orden");
 }

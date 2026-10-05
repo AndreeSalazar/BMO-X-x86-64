@@ -2210,3 +2210,26 @@ nubes simetricas y centradas, rojas en el 0 y amarillas en el 2), y
 interprete, y la fisica en f64 con su margen sobre 2048 particulas como las
 suyas, el `rand` de MSVC con `srand(0)`); `src/pruebas_geometria.rs` (sus
 tres sombreadores de dibujo: el cuadro de cada punto y su degradado).
+
+indirect.exe -- D3D12ExecuteIndirect de Microsoft: el contador y la orden indirecta (05-10)
+
+E2.4 de la ESCALERA: `Samples/Desktop/D3D12ExecuteIndirect` con el mismo
+script (`muestras/construir.sh`), su fuente sin tocar y el puente igual.
+Sus tres .cso, con DXC, como su proyecto: de shaders.hlsl el VS y el PS
+(-Tvs_6_0 -E"VSMain", -Tps_6_0 -E"PSMain") y de compute.hlsl el CS
+(-Tcs_6_0 -E"CSMain"), todos -Zi -Qembed_debug. Todo en window/indirect/ y
+aqui en muestras/indirect/. Reproducible (comprobado en dos directorios),
+sin rutas de la maquina; los .exe y los .cso de antes salen igual, byte a
+byte. sha256:
+
+   a1d7ea4bfb9bc9792584a5ef618d0771db912ee182f495df4728422e79966a3d  indirect.exe
+   b07116e7c8b4858a1b2b03f3eabddb248e84647eace24bd41d4fe9b144f7d940  indirect/shaders_VSMain.cso
+   f6468022abb177dbc3188252fc365fd515fe8f3439cb0e832641cbb6d1cb94b2  indirect/shaders_PSMain.cso
+   cad2dc4084ffd85c6530c311eefab5a31116825bed9cb02196d0fd276a4962cf  indirect/compute.cso
+
+Los jueces: `tests/corre/muestras.rs` (e2_4: 60 Present con el culling y
+otros 60 con el ESPACIO pulsado, sin el; DENTRO de la franja del culling,
+x de 320 a 960, los mismos pixeles bit a bit, y FUERA, con culling, solo el
+fondo; probado que dice NO con el contador atascado: la franja sale vacia),
+y `tests/nativo_computo.rs` (su CS traducido a x86-64: las mismas ordenes,
+en el mismo orden, y el mismo contador que el interprete).

@@ -299,6 +299,17 @@ impl Programa {
                 Op::Entrada { d, elemento, componente } => {
                     regs[d as usize] = entradas.get(elemento as usize).map(|e| e[componente as usize & 3]).unwrap_or(0.0);
                 }
+                // E2.4: el contador del UAV (fuera del computo, 0).
+                Op::Contador { d, u, inc } => {
+                    let v = match &mut x {
+                        Extra::Grupo(g) => match g.uavs.get_mut(u as usize) {
+                            Some(Some(w)) => w.contar(inc),
+                            _ => 0,
+                        },
+                        _ => 0,
+                    };
+                    regs[d as usize] = f32::from_bits(v);
+                }
                 // E2.3b: el GS lee el vertice `vertice` de su primitiva.
                 Op::EntradaDe { d, vertice, elemento, componente } => {
                     let i = vertice as usize * self.entradas + elemento as usize;
