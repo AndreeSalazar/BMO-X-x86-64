@@ -411,7 +411,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
             // Con su nombre y el color de su icono (04-10: decia `App 1`).
             pon(Ficha {
                 v,
-                nombre: v.rotulo(),
+                nombre: scene::nombre_app::rotulo(v),
                 color: scene::nombre_app::del_hueco(hueco).map_or(0x0060_A5FA, |n| n.color),
                 activa: dsk.win.focus.actual() == Some(v),
                 minimizada: dsk.table.minimizada(hueco),

@@ -101,6 +101,20 @@ pub(crate) fn apuntar(k: usize, n: Nombre) {
     }
 }
 
+/// **Lo que se lee de una ventana** en su ficha y en Alt+Tab: su nombre
+/// (`Ventana::nombre`), salvo una app, que dice el de su programa (`TALLER`,
+/// `DOOM`) si el kernel lo apunto. Era `Ventana::rotulo` hasta el 05-10: vive
+/// aqui para que `ventana` no importe de `scene` (L8).
+pub(crate) fn rotulo(v: crate::ventana::Ventana) -> &'static [u8] {
+    match v {
+        crate::ventana::Ventana::App(k) => match del_hueco(k as usize) {
+            Some(n) => n.texto(),
+            None => v.nombre().as_bytes(),
+        },
+        _ => v.nombre().as_bytes(),
+    }
+}
+
 /// **Como se llama la app del hueco `k`**, si se sabe.
 pub(crate) fn del_hueco(k: usize) -> Option<&'static Nombre> {
     // SAFETY: el mismo hilo; se lee lo que `apuntar` dejo.
