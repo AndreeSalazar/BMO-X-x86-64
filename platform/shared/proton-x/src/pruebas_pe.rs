@@ -1,0 +1,380 @@
+//! El banco de los `.exe` de Windows de VERDAD (`prueba/hola.exe`, `teb.exe`,
+//! `ventana.exe`; como se rehacen, en `prueba/HACER.txt`) y sus mutaciones:
+//! leerlos, colocarlos, la IAT, las relocalizaciones, el TEB y las ventanas.
+//! Movido tal cual de `pruebas.rs` el 05-10 (L6a: aquel pasaba de 1.000).
+
+use alloc::string::ToString;
+use alloc::vec;
+use alloc::vec::Vec;
+
+use crate::*;
+
+const HOLA: &[u8] = include_bytes!("../prueba/hola.exe");
+const FRASE: &[u8] = b"hola desde un .exe de Windows\r\n";
+
+fn rva_de_la_frase(img: &[u8]) -> usize {
+    img.windows(FRASE.len()).position(|w| w == FRASE).expect("la frase esta en la imagen")
+}
+
+/// La tabla de la casa del banco: las tres de `hola.exe`, en direcciones
+/// inventadas y distintas.
+fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
+    if !dll.eq_ignore_ascii_case("kernel32.dll") {
+        return None;
+    }
+    match f {
+        Funcion::Nombre(n) if n == "GetStdHandle" => Some(0x7000_0010),
+        Funcion::Nombre(n) if n == "WriteFile" => Some(0x7000_0020),
+        Funcion::Nombre(n) if n == "ExitProcess" => Some(0x7000_0030),
+        _ => None,
+    }
+}
+
+#[test]
+fn hola_exe_esta_dentro_y_se_lee_entero() {
+    let pe = leer(HOLA).unwrap();
+    assert_eq!(pe.base, 0x1_4000_0000);
+    assert_eq!(pe.entrada, 0x1000);
+    let nombres: Vec<_> = pe.secciones.iter().map(|s| (s.nombre.as_str(), s.permiso())).collect();
+    assert_eq!(nombres, [(".text", Permiso::Codigo), (".rdata", Permiso::Lectura), (".reloc", Permiso::Lectura)]);
+    assert_eq!(pe.tls.rva, 0);
+}
+
+#[test]
+fn lo_que_pide_son_tres_funciones_de_kernel32() {
+    let pe = leer(HOLA).unwrap();
+    let img = colocar(&pe, HOLA, pe.base).unwrap();
+    let imps = importaciones(&pe, &img).unwrap();
+    let nombres: Vec<_> = imps.iter().map(|i| (i.dll.as_str(), i.funcion.to_string())).collect();
+    assert_eq!(nombres, [("kernel32.dll", "ExitProcess".to_string()), ("kernel32.dll", "GetStdHandle".to_string()), ("kernel32.dll", "WriteFile".to_string())]);
+}
+
+/// **El censo** (29-09): las importaciones leidas de UNA seccion del FICHERO,
+/// con solo las cabeceras juzgadas, son las mismas que las de la imagen
+/// colocada. Es lo que deja mirar un `.exe` de 60 MB sin traerlo entero.
+#[test]
+fn el_censo_lee_lo_mismo_sin_colocar_el_exe() {
+    let pe = leer(HOLA).unwrap();
+    let img = colocar(&pe, HOLA, pe.base).unwrap();
+    let de_imagen = importaciones(&pe, &img).unwrap();
+    // Solo las cabeceras, y la medida entera del fichero.
+    let cab = leer_cabeceras(&HOLA[..pe.tam_cabeceras as usize], HOLA.len() as u64).unwrap();
+    let rva = cab.importaciones.rva;
+    let sec = cab.secciones.iter().find(|s| (s.rva..s.rva + s.tam_en_fichero).contains(&rva)).unwrap();
+    let trozo = &HOLA[sec.desde as usize..(sec.desde + sec.tam_en_fichero) as usize];
+    assert_eq!(importaciones_de_seccion(&cab, trozo, sec.rva).unwrap(), de_imagen);
+    // Unas cabeceras que prometen mas fichero del que hay, se dicen.
+    assert!(leer_cabeceras(&HOLA[..pe.tam_cabeceras as usize], 100).is_err());
+}
+
+/// Cada `call [rip+x]` del codigo (`FF 15 disp32`) cae en una ranura de la
+/// IAT: las ranuras que se rellenan son las que el codigo usa de verdad.
+#[test]
+fn cada_llamada_del_codigo_cae_en_una_ranura_de_la_iat() {
+    let pe = leer(HOLA).unwrap();
+    let img = colocar(&pe, HOLA, pe.base).unwrap();
+    let ranuras: Vec<u32> = importaciones(&pe, &img).unwrap().iter().map(|i| i.ranura).collect();
+    let texto = &pe.secciones[0];
+    let codigo = &img[texto.rva as usize..(texto.rva + texto.tam_virtual) as usize];
+    let mut llamadas = 0;
+    for k in 0..codigo.len().saturating_sub(6) {
+        if codigo[k] == 0xFF && codigo[k + 1] == 0x15 {
+            let disp = i32::from_le_bytes([codigo[k + 2], codigo[k + 3], codigo[k + 4], codigo[k + 5]]);
+            let destino = (texto.rva as i64 + k as i64 + 6 + disp as i64) as u32;
+            assert!(ranuras.contains(&destino), "call [rip] a {destino:#x}, fuera de la IAT {ranuras:x?}");
+            llamadas += 1;
+        }
+    }
+    assert_eq!(llamadas, 3, "WriteFile, GetStdHandle y ExitProcess");
+}
+
+#[test]
+fn en_su_base_el_puntero_absoluto_vale_lo_que_dejo_el_enlazador() {
+    let pe = leer(HOLA).unwrap();
+    let img = colocar(&pe, HOLA, pe.base).unwrap();
+    let frase = rva_de_la_frase(&img) as u64;
+    let punteros: Vec<usize> = (0..img.len() - 8).step_by(8).filter(|&o| u64::from_le_bytes(img[o..o + 8].try_into().unwrap()) == pe.base + frase).collect();
+    assert_eq!(punteros.len(), 1, "`mensaje` apunta a la frase");
+}
+
+/// Movido a otra base, la relocalizacion DIR64 lleva `mensaje` con el.
+#[test]
+fn movido_a_otra_base_la_relocalizacion_lo_sigue() {
+    let pe = leer(HOLA).unwrap();
+    let otra = 0x5000_0000u64;
+    let img = colocar(&pe, HOLA, otra).unwrap();
+    let frase = rva_de_la_frase(&img) as u64;
+    let en_su_base = colocar(&pe, HOLA, pe.base).unwrap();
+    let o = (0..en_su_base.len() - 8).step_by(8).find(|&o| u64::from_le_bytes(en_su_base[o..o + 8].try_into().unwrap()) == pe.base + frase).unwrap();
+    assert_eq!(u64::from_le_bytes(img[o..o + 8].try_into().unwrap()), otra + frase);
+    // Y NADA MAS cambio: una relocalizacion de mas seria un byte pisado.
+    let distintos = img.iter().zip(&en_su_base).filter(|(a, b)| a != b).count();
+    assert!(distintos <= 8, "{distintos} bytes distintos entre las dos bases");
+}
+
+/// P0.4a: colocar SIN el fichero entero (de las cabeceras, a trozos) da la
+/// misma imagen que con el; y un fichero corto se dice, no revienta.
+#[test]
+fn colocar_a_trozos_es_colocar_entero() {
+    let pe = leer_cabeceras(&HOLA[..1024], HOLA.len() as u64).unwrap();
+    let otra = 0x5000_0000u64;
+    let mut img = vec![0u8; pe.tam_imagen as usize];
+    let mut lecturas = 0;
+    colocar_en(&pe, &mut img, otra, |desde, destino| {
+        lecturas += 1;
+        destino.copy_from_slice(&HOLA[desde as usize..desde as usize + destino.len()]);
+        true
+    })
+    .unwrap();
+    assert_eq!(img, colocar(&pe, HOLA, otra).unwrap());
+    assert_eq!(lecturas, 1 + pe.secciones.len());
+    let hasta = pe.secciones.iter().map(|s| (s.desde + s.tam_en_fichero.min(s.tam_en_imagen())) as usize).max().unwrap();
+    let corto = &HOLA[..hasta - 1];
+    assert!(colocar_en(&pe, &mut img, otra, |d, x| corto.get(d as usize..d as usize + x.len()).map(|y| x.copy_from_slice(y)).is_some()).is_err());
+    let mut chica = vec![0u8; 16];
+    assert!(colocar_en(&pe, &mut chica, otra, |_, _| true).is_err());
+}
+
+#[test]
+fn con_la_tabla_entera_cada_ranura_recibe_su_funcion() {
+    let pe = leer(HOLA).unwrap();
+    let mut img = colocar(&pe, HOLA, pe.base).unwrap();
+    let imps = importaciones(&pe, &img).unwrap();
+    resolver(&mut img, &imps, tabla).unwrap();
+    for i in &imps {
+        let o = i.ranura as usize;
+        assert_eq!(Some(u64::from_le_bytes(img[o..o + 8].try_into().unwrap())), tabla(&i.dll, &i.funcion));
+    }
+}
+
+/// Sin `WriteFile` en la tabla: NO arranca, dice cual, y no escribio nada.
+#[test]
+fn si_falta_una_no_arranca_y_dice_cual() {
+    let pe = leer(HOLA).unwrap();
+    let mut img = colocar(&pe, HOLA, pe.base).unwrap();
+    let antes = img.clone();
+    let imps = importaciones(&pe, &img).unwrap();
+    let e = resolver(&mut img, &imps, |d, f| if matches!(f, Funcion::Nombre(n) if n == "WriteFile") { None } else { tabla(d, f) }).unwrap_err();
+    assert_eq!(e.to_string(), "no arranca: faltan 1 funcion(es) en la tabla de la casa: kernel32.dll!WriteFile");
+    assert_eq!(img, antes, "a medias no se escribe nada");
+}
+
+fn firma(d: &[u8]) -> usize {
+    u32::from_le_bytes(d[0x3C..0x40].try_into().unwrap()) as usize
+}
+
+#[test]
+fn fuera_con_su_motivo_como_dice_rayosx() {
+    for (maquina, palabra) in [(0x14C, "32 bits"), (0xAA64, "ARM64 ("), (0xA641, "ARM64EC"), (0xA64E, "ARM64X"), (0x1C4, "ARM de 32"), (0x1C0, "desconocida")] {
+        let mut m = HOLA.to_vec();
+        let e = firma(&m);
+        m[e + 4..e + 6].copy_from_slice(&(maquina as u16).to_le_bytes());
+        match leer(&m) {
+            Err(Fallo::Fuera(motivo)) => assert!(motivo.contains(palabra), "{maquina:#x}: {motivo}"),
+            otro => panic!("{maquina:#x}: {otro:?}"),
+        }
+    }
+    let mut m = HOLA.to_vec();
+    let e = firma(&m);
+    m[e + 24..e + 26].copy_from_slice(&0x10Bu16.to_le_bytes());
+    assert!(matches!(leer(&m), Err(Fallo::Fuera(t)) if t.contains("PE32 ")));
+    let mut m = HOLA.to_vec();
+    m[e + 24 + 112 + 14 * 8..e + 24 + 112 + 14 * 8 + 4].copy_from_slice(&0x2000u32.to_le_bytes());
+    assert!(matches!(leer(&m), Err(Fallo::Fuera(t)) if t.starts_with(".NET")));
+    assert_eq!(leer(b"nada"), Err(Fallo::NoEsPe));
+}
+
+/// `.text` marcada ademas como escribible: el W^X de la casa la rechaza.
+#[test]
+fn una_seccion_que_escribe_y_ejecuta_se_rechaza() {
+    let mut m = HOLA.to_vec();
+    let e = firma(&m);
+    let tam_opc = u16::from_le_bytes([m[e + 20], m[e + 21]]) as usize;
+    let s = e + 24 + tam_opc;
+    let c = u32::from_le_bytes(m[s + 36..s + 40].try_into().unwrap()) | 0x8000_0000;
+    m[s + 36..s + 40].copy_from_slice(&c.to_le_bytes());
+    assert_eq!(leer(&m), Err(Fallo::EscribeYEjecuta(".text".into())));
+}
+
+/// Una relocalizacion de otro tipo (HIGHLOW, de 32 bits) no se aplica a
+/// ciegas: se dice.
+#[test]
+fn una_relocalizacion_de_otro_tipo_se_dice() {
+    let pe = leer(HOLA).unwrap();
+    let reloc = pe.secciones.iter().find(|s| s.nombre == ".reloc").unwrap();
+    let mut m = HOLA.to_vec();
+    let entrada = reloc.desde as usize + 8;
+    let e = u16::from_le_bytes([m[entrada], m[entrada + 1]]);
+    assert_eq!(e >> 12, 10, "la primera es DIR64");
+    m[entrada..entrada + 2].copy_from_slice(&((3 << 12) | (e & 0xFFF)).to_le_bytes());
+    let pe = leer(&m).unwrap();
+    assert!(matches!(colocar(&pe, &m, 0x5000_0000), Err(Fallo::Relocalizacion { tipo: 3, .. })));
+    // En su base no hay nada que mover: carga.
+    assert!(colocar(&pe, &m, pe.base).is_ok());
+}
+
+#[test]
+fn un_fichero_cortado_dice_donde() {
+    for largo in [0x3E, 0x90, 0x150, 0x300] {
+        let r = leer(&HOLA[..largo]);
+        assert!(r.is_err(), "cortado en {largo:#x} no puede leerse entero");
+    }
+}
+
+// ============================ P1d: teb.exe ============================
+
+const TEB_EXE: &[u8] = include_bytes!("../prueba/teb.exe");
+
+#[test]
+fn teb_exe_esta_dentro_pide_siete_y_no_trae_reloc() {
+    let pe = leer(TEB_EXE).unwrap();
+    assert_eq!(pe.relocalizaciones.rva, 0, "todo lo suyo es relativo a RIP");
+    assert!(!pe.relocs_quitadas);
+    // Se mueve de base sin nada que corregir: el cargador de Windows hace lo mismo.
+    let img = colocar(&pe, TEB_EXE, 0x7_0000_0000).unwrap();
+    let mut nombres: Vec<_> = importaciones(&pe, &img).unwrap().iter().map(|i| i.funcion.to_string()).collect();
+    nombres.sort();
+    assert_eq!(nombres, ["ExitProcess", "GetCurrentProcessId", "GetCurrentThreadId", "GetLastError", "GetStdHandle", "SetLastError", "WriteFile"]);
+    assert_eq!(partir(&pe).unwrap(), Partes { codigo: 2 * PAGINA, datos: 2 * PAGINA });
+}
+
+#[test]
+fn tramos_como_bink2w64_rdata_entre_dos_codigos() {
+    // P0.4b.6: `partir` no puede con `.rdata` entre dos codigos; `tramos` si.
+    use crate::pe::Seccion;
+    let sec = |nombre: &str, rva: u32, tam: u32, car: u32| Seccion { nombre: nombre.into(), rva, tam_virtual: tam, desde: 0, tam_en_fichero: 0, caracteristicas: car };
+    let (x, w, r) = (0x6000_0020, 0xC000_0040, 0x4000_0040);
+    let mut pe = leer(TEB_EXE).unwrap();
+    assert_eq!(tramos(&pe).unwrap(), [Tramo { codigo: true, bytes: 2 * PAGINA }, Tramo { codigo: false, bytes: 2 * PAGINA }], "lo de siempre: lo mismo que `partir`");
+    pe.tam_cabeceras = 0x400;
+    pe.tam_imagen = 6 * PAGINA;
+    pe.secciones = vec![sec(".text", 0x1000, 0x1800, x), sec(".rdata", 0x3000, 0x10, r), sec(".bink", 0x4000, 0x20, x), sec(".data", 0x5000, 0x30, w)];
+    assert_eq!(partir(&pe), Err(Fallo::NoSeParte(".rdata".into())));
+    let t = tramos(&pe).unwrap();
+    assert_eq!(t, [Tramo { codigo: true, bytes: 3 * PAGINA }, Tramo { codigo: false, bytes: PAGINA }, Tramo { codigo: true, bytes: PAGINA }, Tramo { codigo: false, bytes: PAGINA }]);
+    assert_eq!(t.iter().map(|t| t.bytes).sum::<u32>(), pe.tam_imagen);
+    // Escribible en una pagina de codigo: eso NO (W y X a la vez).
+    pe.secciones[1] = sec(".rdata", 0x2800, 0x10, w);
+    assert_eq!(tramos(&pe), Err(Fallo::NoSeParte(".rdata".into())));
+    // Solo-R en una pagina de codigo: va con el codigo.
+    pe.secciones[1] = sec(".rdata", 0x2800, 0x10, r);
+    assert_eq!(tramos(&pe).unwrap()[0], Tramo { codigo: true, bytes: 3 * PAGINA });
+}
+
+#[test]
+fn con_relocs_stripped_no_se_mueve() {
+    let mut d = TEB_EXE.to_vec();
+    let e = u32::from_le_bytes([d[0x3C], d[0x3D], d[0x3E], d[0x3F]]) as usize;
+    d[e + 22] |= 1;
+    let pe = leer(&d).unwrap();
+    assert!(pe.relocs_quitadas);
+    assert!(colocar(&pe, &d, pe.base).is_ok(), "en SU base si");
+    assert_eq!(colocar(&pe, &d, 0x7_0000_0000), Err(Fallo::SinRelocalizaciones));
+}
+
+#[test]
+fn el_teb_y_el_peb_tienen_la_forma_de_windows_x64() {
+    let h = teb::Hilo { teb: 0x5000, peb: 0x7000, pila_tope: 0x8000_0000, pila_fondo: 0x7FFF_0000, proceso: 3, hilo: 9, base_imagen: 0xE010_3000 };
+    let mut t = vec![0xAAu8; teb::TEB_BYTES];
+    let mut p = vec![0xAAu8; teb::PEB_BYTES];
+    teb::escribir_teb(&mut t, &h);
+    teb::escribir_peb(&mut p, &h);
+    let q = |b: &[u8], o: usize| u64::from_le_bytes(b[o..o + 8].try_into().unwrap());
+    assert_eq!(q(&t, 0x30), 0x5000, "Self");
+    assert_eq!(q(&t, 0x60), 0x7000, "el PEB");
+    assert_eq!((q(&t, 0x08), q(&t, 0x10)), (0x8000_0000, 0x7FFF_0000), "StackBase y StackLimit");
+    assert_eq!((q(&t, 0x40), q(&t, 0x48)), (3, 9), "ClientId");
+    assert_eq!(u32::from_le_bytes(t[0x68..0x6C].try_into().unwrap()), 0, "LastErrorValue empieza en 0");
+    assert_eq!(q(&p, 0x10), 0xE010_3000, "ImageBaseAddress");
+    assert_eq!(p[0x02], 0, "BeingDebugged");
+    assert_eq!(q(&p, 0x30), monton::asa(monton::PROPIETARIO_PROCESO), "ProcessHeap: el de GetProcessHeap");
+    // Tanda 27: ProcessParameters, en la misma pagina; su Flags con el bit 31
+    // a 0 (la UCRT lo lee al empezar cada hilo de _beginthreadex).
+    assert_eq!(q(&p, 0x20), 0x7000 + 0x800, "ProcessParameters");
+    let d = |o: usize| u32::from_le_bytes(p[0x800 + o..0x800 + o + 4].try_into().unwrap());
+    assert_eq!((d(0), d(4)), (0x440, 0x440), "MaximumLength y Length");
+    assert_eq!(d(8), 1, "Flags: NORMALIZED, y el bit 31 a 0");
+    // Todo lo demas, a cero: ni un byte de lo que habia.
+    assert_eq!(t.iter().filter(|&&b| b == 0xAA).count(), 0);
+    assert_eq!(p.iter().filter(|&&b| b == 0xAA).count(), 0);
+}
+
+// ============================ P2: ventanas ============================
+
+use crate::ventanas::*;
+
+const VENTANA_EXE: &[u8] = include_bytes!("../prueba/ventana.exe");
+
+#[test]
+fn ventana_exe_pide_dieciseis_de_tres_dll() {
+    let pe = leer(VENTANA_EXE).unwrap();
+    let img = colocar(&pe, VENTANA_EXE, 0x7_0000_0000).unwrap();
+    let imps = importaciones(&pe, &img).unwrap();
+    let cuantas = |dll: &str| imps.iter().filter(|i| i.dll.eq_ignore_ascii_case(dll)).count();
+    assert_eq!((cuantas("user32.dll"), cuantas("gdi32.dll"), cuantas("kernel32.dll")), (13, 1, 2));
+    // Los 256 KB del bufer de pixeles van en .data (ceros): la parte de datos.
+    let partes = partir(&pe).unwrap();
+    assert_eq!(partes.codigo, 2 * PAGINA);
+    assert!(partes.datos as usize >= 320 * 200 * 4);
+}
+
+#[test]
+fn la_cola_saca_en_el_orden_de_windows() {
+    let mut c = Cola::nueva();
+    let tecla = Msg { hwnd: 1, mensaje: WM_CHAR, wparam: b'a' as u64, lparam: 1 };
+    c.invalidar(1);
+    c.invalidar(1);
+    c.publicar(tecla);
+    c.salir(7);
+    // Lo llegado primero, luego WM_QUIT, y WM_PAINT el ultimo.
+    assert_eq!(c.sacar(), Some(tecla));
+    assert_eq!(c.sacar().map(|m| (m.mensaje, m.wparam)), Some((WM_QUIT, 7)));
+    assert_eq!(c.sacar().map(|m| (m.mensaje, m.hwnd)), Some((WM_PAINT, 1)));
+    // Sin BeginPaint sigue invalida: el mismo WM_PAINT otra vez, UNO.
+    assert_eq!(c.sacar().map(|m| m.mensaje), Some(WM_PAINT));
+    c.validar(1);
+    assert_eq!(c.sacar(), None);
+}
+
+#[test]
+fn los_eventos_de_bmo_x_son_los_mensajes_de_windows() {
+    // Una letra (bit 62): WM_CHAR.
+    let e = 1 << 62 | 1 << 8 | 1 << 9 | b'z' as u64;
+    assert_eq!(de_evento(5, e).map(|m| (m.mensaje, m.wparam)), Some((WM_CHAR, b'z' as u64)));
+    // Un clic izquierdo en (10, 20): WM_LBUTTONDOWN con x | y << 16.
+    let e = 1 << 63 | 1 << 8 | 1 << 9 | 1 | 10 << 16 | 20 << 32;
+    assert_eq!(de_evento(5, e), Some(Msg { hwnd: 5, mensaje: WM_LBUTTONDOWN, wparam: MK_LBUTTON, lparam: 10 | 20 << 16 }));
+    // Soltar ESC (scancode 0x01): WM_KEYUP con VK_ESCAPE y los bits 30 y 31.
+    let m = de_evento(5, 1 << 8 | 0x01).unwrap();
+    assert_eq!((m.mensaje, m.wparam, m.lparam >> 30), (WM_KEYUP, 0x1B, 3));
+    // La A del teclado: VK 'A'.
+    assert_eq!(de_evento(5, 1 << 8 | 1 << 9 | 0x1E).map(|m| (m.mensaje, m.wparam)), Some((WM_KEYDOWN, b'A' as u64)));
+    // Un raton sin boton no es mensaje; un evento vacio tampoco.
+    assert_eq!(de_evento(5, 1 << 63 | 1 << 8 | 30 << 16), None);
+    assert_eq!(de_evento(5, 0), None);
+}
+
+#[test]
+fn un_dib_de_abajo_arriba_cae_derecho() {
+    // 2x2, de ABAJO arriba (biHeight positivo): la fila 0 del bufer es la de abajo.
+    let mut cab = vec![0u8; 40];
+    cab[0] = 40;
+    cab[4] = 2;
+    cab[8] = 2;
+    cab[14] = 32;
+    let dib = leer_dib(&cab).unwrap();
+    assert!(!dib.de_arriba);
+    let bits: Vec<u8> = [0x11u32, 0x22, 0x33, 0x44].iter().flat_map(|p| p.to_le_bytes()).collect();
+    let mut d = vec![0u32; 3 * 3];
+    let r = Rect { x: 1, y: 1, ancho: 2, alto: 2 };
+    let todo = Rect { x: 0, y: 0, ancho: 2, alto: 2 };
+    assert_eq!(copiar_dib(&mut d, 3, 3, 3, r, todo, &bits, &dib), Ok(2));
+    // Arriba de la ventana va la fila de ARRIBA del dibujo: 0x33, 0x44.
+    assert_eq!(&d[4..6], &[0xFF00_0033, 0xFF00_0044]);
+    assert_eq!(&d[7..9], &[0xFF00_0011, 0xFF00_0022]);
+    assert_eq!(d[0], 0, "fuera del rectangulo no se toca");
+    // Estirar y los formatos que no son 32 bits dicen cual es su NO.
+    assert_eq!(copiar_dib(&mut d, 3, 3, 3, Rect { ancho: 3, ..r }, todo, &bits, &dib), Err(NoPinta::Escala));
+    cab[14] = 24;
+    assert_eq!(leer_dib(&cab), Err(NoPinta::Formato { bits: 24, compresion: 0 }));
+}

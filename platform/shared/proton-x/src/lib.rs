@@ -139,6 +139,8 @@ impl fmt::Display for Fallo {
 #[cfg(test)]
 mod pruebas;
 #[cfg(test)]
+mod pruebas_pe;
+#[cfg(test)]
 mod pruebas_windows;
 #[cfg(test)]
 mod pruebas_sm5;
