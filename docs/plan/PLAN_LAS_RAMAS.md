@@ -89,7 +89,8 @@ modulo es su nodo.
 **DECIDIDAS el 05-10, las tres (a)** (el propietario: *"D1 A, D2 A, D3 A, me
 encanta la A"*): una rama es una MARCA; un estrato de mezcla guarda DOS
 padres (formato v2, escrito antes en `ESTRATOS.md` y probado en imagenes);
-un choque lo resuelve una PERSONA en F1. Queda D4 (seccion 4b).
+un choque lo resuelve una PERSONA en F1. Y D4 (seccion 4b), tambien (a), el
+mismo dia: *"D4 es A"*.
 
 ### D1 -- que es una rama
 
@@ -153,7 +154,7 @@ el mismo nodo; solo deja de compartir disco con nadie.
    no da          independencia de LO QUE ES: esa ya la tenia
 ```
 
-### D4 -- cuando nace un nodo de una copia o de una rama
+### D4 -- cuando nace un nodo de una copia o de una rama (DECIDIDA: a)
 
 ```text
    (a) RECOMENDADA  nace COMPARTIENDO, y se independiza cuando una persona lo
@@ -192,8 +193,10 @@ de una lista escrita. Copiar una carpeta entera es C4 de `ESTRATOS.md`.
 
 - [x] R1 -- HECHO el 05-10: la GUIA de ESTRATOS en F1 (sub-solapa GUIA de ESTRATOS, `Ultra_userspace/apps/taller/src/strata_guide.rs`): las 39 puertas que existen, en 4 familias, con QUE y POR QUE, generadas del contrato por `toolchain/tools/estratos-guia/guia.py` (`--check` en el build). Tres puertas del contrato ganaron su linea propia para que la guia pudiera explicarlas
 - [x] R2 -- HECHO el 05-10: la MEZCLA PURA (`platform/drivers/storage/estratos/src/mezcla.rs`): base, A y B como listas de (ruta, nodo) -> `Queda` o `Choque`, comparando el QUE (el BLAKE3) y no el DONDE, rutas sin distinguir mayusculas como las entradas, y `base()` para el ultimo estrato comun; 6 pruebas en el anfitrion con la tabla de la seccion 2 fila a fila; compila sin `std`
-- [x] R3 -- las decisiones D1-D3 del propietario, las tres (a), el 05-10 (seccion 3). D4 pendiente (seccion 4b)
-- [ ] R4 -- el gesto MEZCLAR en el kernel (`ES_GESTO_*`): construir el arbol de lo que sale con los nodos ya escritos (no copia bytes) y publicarlo como UN estrato; con D2 (a), formato v2 en imagenes antes que en F:
+- [x] R3 -- las decisiones D1-D4 del propietario, las cuatro (a), el 05-10 (secciones 3 y 4b)
+- [x] R4a -- HECHO el 05-10: el FORMATO v2, el SEGUNDO PADRE (`SegundoPadre`, `Estrato::mezcla` en `platform/drivers/storage/estratos/src/lib.rs`), escrito antes en `platform/drivers/storage/estratos/ESTRATOS.md` ("las ramas y la mezcla"): en los 16 bytes que v1 dejaba a cero, asi que un v1 se lee como v2 sin segundo padre y un kernel v1 lee un v2 entero; 3 pruebas de los dos sentidos; el kernel compila
+- [ ] R4b -- construir el arbol MEZCLADO en una imagen, en el anfitrion: aplanar base, A y B (ruta -> nodo) leyendo con `read::Fuente`, mezclar (`mezcla.rs`), y escribir solo las CARPETAS nuevas (los ficheros son los nodos que ya estan) y el estrato de dos padres; `estratos-fmt --verificar` sobre el resultado
+- [ ] R4c -- el gesto MEZCLAR en el kernel (`ES_GESTO_*`), con lo de R4b, en F: despues de las imagenes
 - [ ] R5 -- la MEZCLA en F1: las dos cadenas que se juntan en la solapa HISTORIA, y cada choque como un nodo partido que se pulsa (D3)
 - [ ] R6 -- PLANTILLAS: la carpeta `plantillas/`, su LEEME por plantilla, la guia que las cuenta, y "usar" = copiar la carpeta (pide C4 de `platform/drivers/storage/estratos/ESTRATOS.md`)
 - [ ] R8 -- INDEPENDIZAR puro (seccion 4b): dados los bloques de dos nodos, cuales comparten; con sus pruebas en el anfitrion

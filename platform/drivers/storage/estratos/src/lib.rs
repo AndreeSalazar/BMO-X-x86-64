@@ -330,7 +330,61 @@ const OFF_E_AUTOR: usize = 104;
 const OFF_E_PID: usize = 108;
 const OFF_E_MOTIVO: usize = 112;
 const MOTIVO_LEN: usize = 64;
+/// v2 (05-10): el SEGUNDO PADRE de un estrato de mezcla, en los 16 bytes que
+/// v1 dejaba a cero (`ESTRATO.md`, "las ramas y la mezcla").
+const OFF_E_SEGUNDO: usize = 176;
 const OFF_E_SUM: usize = ESTRATO_LEN - 32;
+
+/// **El segundo padre de un estrato de MEZCLA** (formato v2,
+/// `docs/plan/PLAN_LAS_RAMAS.md` D2): DONDE esta el estrato de la otra rama y
+/// los 4 primeros bytes de su BLAKE3.
+///
+/// ** No es un `BlockPtr` entero porque no cabe: v1 dejo 16 bytes libres, y
+/// usarlos es lo que hace que un estrato v1 se lea como v2 (ceros = no hay) y
+/// que un kernel v1 lea un v2 sin enterarse. Lo que protege al segundo padre
+/// es doble: el estrato apuntado lleva su propia suma, y la HUELLA dice si es
+/// el que se apunto.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SegundoPadre {
+    pub lba: u64,
+    pub off: u32,
+    pub huella: [u8; 4],
+}
+
+impl SegundoPadre {
+    /// El segundo padre que apunta a `p` (un estrato: siempre `ESTRATO_LEN`).
+    pub fn de(p: &BlockPtr) -> Self {
+        let mut huella = [0u8; 4];
+        huella.copy_from_slice(&p.hash[..4]);
+        Self { lba: p.lba, off: p.off, huella }
+    }
+
+    /// Apunta a `p`? El mismo sitio y la misma huella.
+    pub fn es(&self, p: &BlockPtr) -> bool {
+        self.lba == p.lba && self.off == p.off && self.huella == p.hash[..4]
+    }
+
+    fn encode(this: Option<Self>) -> [u8; 16] {
+        let mut b = [0u8; 16];
+        if let Some(s) = this {
+            b[0..8].copy_from_slice(&s.lba.to_le_bytes());
+            b[8..12].copy_from_slice(&s.off.to_le_bytes());
+            b[12..16].copy_from_slice(&s.huella);
+        }
+        b
+    }
+
+    /// Ceros es "no hay": lo que v1 escribio siempre. El bloque 0 es el
+    /// superbloque A, asi que ningun estrato vive ahi.
+    fn decode(b: &[u8]) -> Option<Self> {
+        if b[..16].iter().all(|&x| x == 0) {
+            return None;
+        }
+        let mut huella = [0u8; 4];
+        huella.copy_from_slice(&b[12..16]);
+        Some(Self { lba: read_u64(b, 0), off: read_u32(b, 8), huella })
+    }
+}
 
 /// Quien creo un estrato.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -367,6 +421,9 @@ pub struct Estrato {
     /// Por que existe este estrato. Los que llevan motivo escrito a mano son
     /// los que el recolector **no suelta jamas** (section 9).
     pub motivo: [u8; MOTIVO_LEN],
+    /// v2: la otra rama de una MEZCLA. `None` en todo estrato que no lo es, y
+    /// en todos los v1.
+    pub segundo: Option<SegundoPadre>,
 }
 
 impl Estrato {
@@ -374,7 +431,13 @@ impl Estrato {
         let mut m = [0u8; MOTIVO_LEN];
         let n = motivo.len().min(MOTIVO_LEN);
         m[..n].copy_from_slice(&motivo.as_bytes()[..n]);
-        Self { raiz, padre, tiempo, autor, motivo: m }
+        Self { raiz, padre, tiempo, autor, motivo: m, segundo: None }
+    }
+
+    /// **Un estrato de MEZCLA**: su padre es la punta de la rama donde se
+    /// mezcla, y `otra` la de la rama que entra (D2 (a): dos padres).
+    pub fn mezcla(raiz: BlockPtr, padre: BlockPtr, otra: &BlockPtr, tiempo: u64, autor: Autor, motivo: &str) -> Self {
+        Self { segundo: Some(SegundoPadre::de(otra)), ..Self::new(raiz, padre, tiempo, autor, motivo) }
     }
 
     pub fn motivo_str(&self) -> &str {
@@ -393,6 +456,7 @@ impl Estrato {
         b[OFF_E_AUTOR..OFF_E_AUTOR + 4].copy_from_slice(&self.autor.code().to_le_bytes());
         b[OFF_E_PID..OFF_E_PID + 4].copy_from_slice(&self.autor.pid().to_le_bytes());
         b[OFF_E_MOTIVO..OFF_E_MOTIVO + MOTIVO_LEN].copy_from_slice(&self.motivo);
+        b[OFF_E_SEGUNDO..OFF_E_SEGUNDO + 16].copy_from_slice(&SegundoPadre::encode(self.segundo));
         let sum = blake3(&b[..OFF_E_SUM]);
         b[OFF_E_SUM..].copy_from_slice(&sum);
         b
@@ -408,7 +472,8 @@ impl Estrato {
         let autor = Autor::from(read_u32(b, OFF_E_AUTOR), read_u32(b, OFF_E_PID));
         let mut motivo = [0u8; MOTIVO_LEN];
         motivo.copy_from_slice(&b[OFF_E_MOTIVO..OFF_E_MOTIVO + MOTIVO_LEN]);
-        Ok(Self { raiz, padre, tiempo, autor, motivo })
+        let segundo = SegundoPadre::decode(&b[OFF_E_SEGUNDO..OFF_E_SEGUNDO + 16]);
+        Ok(Self { raiz, padre, tiempo, autor, motivo, segundo })
     }
 
     /// La identidad del estrato es el hash de su forma en disco. Direccionado
@@ -431,6 +496,49 @@ fn read_u32(b: &[u8], o: usize) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn ptr(lba: u64, n: u8) -> BlockPtr {
+        BlockPtr { lba, off: 0, len: ESTRATO_LEN as u32, hash: [n; 32] }
+    }
+
+    #[test]
+    fn un_estrato_sin_mezcla_es_byte_a_byte_un_v1() {
+        // v1 escribia CEROS en 176..192: un estrato normal de v2 tambien, asi
+        // que los volumenes de ayer y los de hoy son el mismo formato.
+        let e = Estrato::new(ptr(10, 1), ptr(9, 2), 77, Autor::Proceso(7), "auto");
+        let b = e.encode();
+        assert!(b[OFF_E_SEGUNDO..OFF_E_SEGUNDO + 16].iter().all(|&x| x == 0));
+        let d = Estrato::decode(&b).unwrap();
+        assert_eq!(d.segundo, None);
+        assert_eq!(d, e);
+    }
+
+    #[test]
+    fn un_estrato_de_mezcla_guarda_y_devuelve_sus_dos_padres() {
+        let otra = BlockPtr { lba: 4242, off: 448, len: ESTRATO_LEN as u32, hash: [0xAB; 32] };
+        let e = Estrato::mezcla(ptr(12, 3), ptr(11, 4), &otra, 99, Autor::Proceso(9), "mezcla de pruebas");
+        let d = Estrato::decode(&e.encode()).unwrap();
+        assert_eq!(d, e);
+        assert_eq!(d.padre, ptr(11, 4));
+        let s = d.segundo.expect("lleva segundo padre");
+        assert!(s.es(&otra));
+        // El mismo sitio con OTRO contenido no es el que se apunto.
+        assert!(!s.es(&BlockPtr { hash: [0xAC; 32], ..otra }));
+        // Y la suma lo cubre: tocar el segundo padre es corrupcion detectada.
+        let mut b = e.encode();
+        b[OFF_E_SEGUNDO] ^= 1;
+        assert_eq!(Estrato::decode(&b), Err(FormatError::BadChecksum));
+    }
+
+    #[test]
+    fn un_lector_v1_lee_un_estrato_de_mezcla_entero() {
+        // Lo que un kernel v1 hacia: la suma sobre 0..192 y los campos de
+        // siempre. Cuadra, y ve la rama donde se mezclo.
+        let otra = ptr(500, 5);
+        let b = Estrato::mezcla(ptr(12, 3), ptr(11, 4), &otra, 99, Autor::Kernel, "m").encode();
+        assert_eq!(&b[OFF_E_SUM..], &blake3(&b[..OFF_E_SUM])[..]);
+        assert_eq!(BlockPtr::decode(&b[OFF_E_PADRE..OFF_E_PADRE + objects::PTR_LEN]).unwrap(), ptr(11, 4));
+    }
 
     fn id_de_prueba() -> Hash {
         disk_id(b"KINGSTON SA400S37480G", b"50026B76846C2058", 937703088)

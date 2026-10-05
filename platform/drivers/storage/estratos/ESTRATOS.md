@@ -589,6 +589,52 @@ Lo que de esa captura vale para ESTRATOS, en verde neon con el gato que cuida:
       discos alrededor de ESTRATOS con los datos que corren) y el gato grande
       que respira y mueve la cola.
 
+### ** LAS RAMAS Y LA MEZCLA -- el formato v2 del estrato (05-10)
+
+El propietario decidio (`docs/plan/PLAN_LAS_RAMAS.md`, D1-D4, las cuatro (a)):
+una rama es una MARCA, un estrato de mezcla guarda DOS padres, un choque lo
+resuelve una persona, y un nodo copiado nace compartiendo bloques hasta que
+alguien lo independiza. Lo unico de eso que toca el disco es el SEGUNDO PADRE,
+y se escribe aqui antes de tocar un sector.
+
+```text
+   estrato, 224 bytes          v1                    v2
+     0..48    raiz             BlockPtr              igual
+    48..96    padre            BlockPtr              igual
+    96..112   tiempo, autor    igual                 igual
+   112..176   motivo           64 bytes              igual
+   176..192   (libre)          CEROS                 SEGUNDO PADRE:
+                                                       lba  u64   176..184
+                                                       off  u32   184..188
+                                                       huella     188..192
+                                                       (los 4 primeros bytes
+                                                        de su BLAKE3)
+   192..224   suma             BLAKE3 de 0..192      igual
+```
+
+** POR QUE CABE SIN ROMPER NADA, en los dos sentidos:
+
+- **Un estrato v1 se lee como v2 sin segundo padre**: sus bytes 176..192 son
+  ceros desde el primer dia, y ceros es "no hay".
+- **Un kernel v1 lee un estrato v2 entero**: la suma cubre 0..192 como
+  siempre, asi que cuadra; solo no ve el segundo padre, y su historia sigue
+  la cadena del primero, que es la de la rama donde se mezclo.
+- No hace falta numero de version, ni reformatear, ni migrar.
+
+[!] **Lo que se cede, dicho:** el primer padre lleva su BLAKE3 entero en el
+puntero; el segundo, solo 4 bytes. Lo que protege al segundo es doble: el
+estrato al que apunta lleva SU PROPIA suma (no se puede leer uno a medias), y
+la huella dice si es EL que se apunto. Que un bloque reusado contenga otro
+estrato valido con la misma huella es 1 entre 4.294.967.296 -- y reusar
+bloques solo pasara con el compactador (C3), que ya tiene que republicar todo
+lo que mueve. Un estrato mide 224 bytes siempre, asi que la medida no hace
+falta guardarla.
+
+Hecho en `platform/drivers/storage/estratos/src/lib.rs` (`SegundoPadre`,
+`Estrato::mezcla`), con pruebas de los dos sentidos. Lo que construye el arbol
+mezclado y lo publica es R4b y R4c de `PLAN_LAS_RAMAS.md`, primero en
+imagenes y despues en F:.
+
 ### Lo que sigue fuera de todo esto
 
 TimeBack encima (paso 7) y NVMe debajo de la capa de bloques. Ninguno de los dos
