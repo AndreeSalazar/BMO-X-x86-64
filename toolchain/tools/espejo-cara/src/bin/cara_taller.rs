@@ -6,7 +6,9 @@
 //!
 //! `cara-taller <carpeta>` deja `arbol.png`, `escribiendo.png`, `menu.png` y
 //! `arrastre.png`, del ancho de la columna, y la ventana entera con cada
-//! solapa: `grafo.png`, `cielo.png`, `elementos.png` y `guia.png`.
+//! solapa: `grafo.png`, `cielo.png`, `elementos.png` y `guia.png`. Y la TAB de
+//! los nodos maestros (`PLAN_TALLER` 8.15): `tab.png`, abierta con la ficha de
+//! un nodo, y `tab_filtro.png`, escribiendo "match".
 
 #[path = "../../../../../Ultra_userspace/apps/taller/src/canvas.rs"]
 #[allow(dead_code)]
@@ -35,6 +37,9 @@ mod guia;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/aspecto.rs"]
 #[allow(dead_code)]
 mod aspecto;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/tab.rs"]
+#[allow(dead_code)]
+mod tab;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/tema_gen.rs"]
 #[allow(dead_code)]
 mod tema_gen;
@@ -261,5 +266,35 @@ fn main() {
         explorer::draw(&mut cv, &store, &ui, None, 0);
         guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
     }
-    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png");
+    // La TAB sobre el GRAFO: abierta con las flechas en `semaforo` (nivel 3),
+    // y filtrando "match" (quedan los del nivel 8 y los que lo nombran).
+    let (up, down) = (0x80, 0x81);
+    let scene = view::Scene {
+        graph: &store.loaded.graph,
+        script: None,
+        player: &player,
+        cam: &cam,
+        now_ms: 5000,
+        selected: None,
+        origin: b"asteroids",
+        sky: None,
+        flow_ms: Some(5000),
+        faults: &marks,
+        files: store.loaded.files(),
+        turn: 96,
+    };
+    for (nombre, teclas) in [("tab", &[down; 8][..]), ("tab_filtro", &[b'm', b'a', b't', b'c', b'h', down, down][..])] {
+        let mut paleta = tab::Palette::open((0, 0));
+        for &k in teclas {
+            paleta.key(k, up, down);
+        }
+        let mut px = vec![0u32; w * h];
+        let mut cv = canvas::Canvas::new(px.as_mut_ptr(), w as u32, h as u32);
+        view::draw(&mut cv, &scene);
+        space::tabs(&mut cv, space::Tab::Graph);
+        explorer::draw(&mut cv, &store, &ui, None, 0);
+        tab::draw(&mut cv, &paleta, 5000);
+        guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
+    }
+    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png tab.png tab_filtro.png");
 }

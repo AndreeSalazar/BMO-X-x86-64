@@ -237,6 +237,27 @@ impl Store {
         self.detail = None;
     }
 
+    /// **A master node of the TAB placed** (`PLAN_TALLER` 8.15): its file, its
+    /// row in `[layout]` at `(x, y)` and `mod` in main -- three versions, one
+    /// gesture. The name it got, to pick it when the next beat reads it back.
+    pub fn place_master(&mut self, i: usize, x: i32, y: i32) -> Option<bmo_titan_contrato::Name> {
+        use bmo_titan_lector::maestros::{self, PlaceError};
+        let m = maestros::MASTERS.get(i)?;
+        let r = (|| {
+            let root = self.root().ok_or(PlaceError::Read)?;
+            let block = bmo::Memoria::request(2 * GESTURE_HALF as u64).ok_or(PlaceError::TooBig)?;
+            // SAFETY: as in `gesture`: our block, 2 * GESTURE_HALF bytes, two
+            // halves that do not overlap, alive until the end of this closure.
+            let all = unsafe { core::slice::from_raw_parts_mut(block.base(), 2 * GESTURE_HALF) };
+            let (text, out) = all.split_at_mut(GESTURE_HALF);
+            maestros::place(&mut Disk { block: &block, len: 2 * GESTURE_HALF }, root.as_bytes(), &self.loaded, m, x, y, text, out)
+        })();
+        let name = r.ok().map(|p| p.name);
+        let (line, ok) = maestros::note(r, m.name.as_bytes());
+        self.say(line, None, ok);
+        name
+    }
+
     /// Says one thing in the EXPLORER's note, with a second line if any.
     pub fn say(&mut self, line: Line, detail: Option<Line>, ok: bool) {
         self.note = Some((line, ok));

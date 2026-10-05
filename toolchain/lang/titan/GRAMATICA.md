@@ -16,6 +16,11 @@ en `toolchain/tools/titan-leyes/LEYES.txt`, cada una con su porque y el test o
 el programa que la hace cumplir, y el build para si una pierde su prueba o su
 texto cambia sin sellarse con un motivo.
 
+**Cada ejemplo `BIEN` es tambien un nodo de la TAB de F1** (05-10): el
+programa que se escribe aqui para probar un nivel es el que el propietario
+pone en su paquete con TAB y Enter. Su segunda linea de comentario (la de
+justo antes de `mod main`) es su PORQUE en la TAB: que diga por que existe.
+
 ## La escalera de un vistazo
 
 | nivel | palabras nuevas | lo que deja escribir | sus codigos |

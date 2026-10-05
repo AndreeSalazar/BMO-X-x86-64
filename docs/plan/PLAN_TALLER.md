@@ -1102,13 +1102,14 @@ prefijos que deciden la seccion 2),
 viaja) y [`PLAN_REX.md`](PLAN_REX.md) (las cabeceras de las que se copia la
 forma).
 
-### 8.15 L10: la TAB de los NODOS MAESTROS -- a lo Houdini y Blender (05-10, PLAN)
+### 8.15 L10: la TAB de los NODOS MAESTROS -- a lo Houdini y Blender (05-10, HECHO)
 
 El propietario, 05-10: *"cuando termine ahi me dejas las TAB elegante, en ellas
 el estilo de Houdini con Blender que muestran opciones totales de NODOS maestro
 ya hechos como ejemplos y porque, como tutoriales y pruebas"*.
 
-**Esto es el plan; ni una linea esta escrita.** Lo que toma de cada uno:
+**Hecho el mismo 05-10** (M1-M7 abajo; lo que cambio del plan, en *Lo que se
+aprendio al hacerlo*). Lo que toma de cada uno:
 
 ```text
    Houdini     TAB en el editor de nodos: una lista que se FILTRA mientras se
@@ -1162,15 +1163,38 @@ TAB no inventa un catalogo que pueda mentir:
    la regla        lo que se pone COMPILA: viene del banco, y el banco pasa
 ```
 
+### Lo que se aprendio al hacerlo
+
+```text
+   28 nodos        los programas BIEN de un fichero, y los paquetes de UN solo
+                   modulo (nivel9/con_permiso, nivel11/activa y mezcla). Los de
+                   VARIOS modulos (nivel9/flota y tienda, nivel10/motor) no son
+                   UN nodo: no entran, y el generador lo dice al correr
+   el nombre       un programa que usa su propio nombre dentro (`let area` en
+                   `area`) no puede ser el modulo `area` (T0055): ese nombre
+                   tambien esta COGIDO, y el nodo es `area_2`. Lo encontro la
+                   prueba del compilador, no una revision
+   donde cae       Enter escribe su fila en [layout] de Titan.toml, centrada
+                   donde estaba el raton: TRES escrituras (el fichero, la fila,
+                   el mod en main), en ese orden -- cortado a medias queda un
+                   fichero que nadie declara, nunca un mod que apunta a nada
+   lo que pide     un nodo de la 3060 en un paquete sin `gpu` en [permissions]
+                   se rechaza ANTES de escribir un byte, con el motivo
+   la prueba       `toolchain/lang/titan/tests/maestros.rs` pone CADA nodo en la
+                   semilla (como F1) y compila el paquete entero: "lo que se
+                   pone COMPILA" es un test, no una promesa
+   la pila         57.408 -> 57.840 de 65.536: la tabla es `static` (.rodata)
+```
+
 ### Las casillas
 
-- [ ] M1 -- el generador: `toolchain/tools/maestros` lee los programas `BIEN` de `toolchain/lang/titan/ejemplos/` y escribe `platform/shared/titan-lector/src/maestros_gen.rs` (una tabla constante: nombre, nivel, porque, palabras, fuente, salida); generado, nunca a mano, como `tema_gen.rs`
-- [ ] M2 -- su guardian: `maestros.py --check` en `Ultra_kernel_x86-64/build/guardianes.ps1`: la tabla y el banco dicen lo mismo (un ejemplo nuevo entra en la TAB solo, uno borrado sale)
-- [ ] M3 -- la logica: `titan-lector` filtra (nombre, palabra, porque) y PLANEA el poner (el fichero nuevo y la linea `mod`), con pruebas sobre un ESTRATOS en memoria como `wire::tests`
-- [ ] M4 -- la apariencia: las clases `.tab`, `.tab-fila`, `.tab-elegida` en `Ultra_userspace/apps/taller/aspecto/titan.maqueta`, `tema_gen.rs` regenerado, y el pintor `Ultra_userspace/apps/taller/src/tab.rs` con las piezas suaves de `aspecto.rs`
-- [ ] M5 -- las teclas: TAB, escribir, flechas, Enter, Esc, en `Ultra_userspace/apps/taller/src/view.rs`
-- [ ] M6 -- la pila: `pila.py --ring3` sigue por debajo de 65.536 con la TAB abierta (la tabla es constante: va en `.rodata`, no en la pila)
-- [ ] M7 -- la camara: `cara-taller` saca `tab.png` (abierta, con una ficha) y `tab_filtro.png` (filtrando "match")
+- [x] M1 -- el generador: `toolchain/tools/maestros` lee los programas `BIEN` de `toolchain/lang/titan/ejemplos/` y escribe `platform/shared/titan-lector/src/maestros_gen.rs` (una tabla constante: nombre, nivel, porque, palabras, fuente, salida); generado, nunca a mano, como `tema_gen.rs`
+- [x] M2 -- su guardian: `maestros.py --check` en `Ultra_kernel_x86-64/build/guardianes.ps1`: la tabla y el banco dicen lo mismo (un ejemplo nuevo entra en la TAB solo, uno borrado sale)
+- [x] M3 -- la logica: `platform/shared/titan-lector/src/maestros.rs` filtra (nombre, familia, palabra, porque, nivel) y PONE (el fichero nuevo, su fila de `[layout]` y la linea `mod`), con pruebas sobre un ESTRATOS en memoria como `wire::tests`; y `toolchain/lang/titan/tests/maestros.rs` compila cada nodo puesto en la semilla
+- [x] M4 -- la apariencia: las clases `.tab`, `.tab-fila`, `.tab-elegida` en `Ultra_userspace/apps/taller/aspecto/titan.maqueta`, `tema_gen.rs` regenerado, y el pintor `Ultra_userspace/apps/taller/src/tab.rs` con las piezas suaves de `aspecto.rs`
+- [x] M5 -- las teclas: TAB, escribir, flechas, Enter, Esc, y el clic en una fila; viven en `Ultra_userspace/apps/taller/src/main.rs` (donde estan las demas teclas) y `Ultra_userspace/apps/taller/src/tab.rs`, no en `view.rs`
+- [x] M6 -- la pila: `pila.py --ring3` sigue por debajo de 65.536 con la TAB abierta: 57.840 (la tabla es `static`: va en `.rodata`, no en la pila; ver `toolchain/tools/pila/pila.py`)
+- [x] M7 -- la camara: `cara-taller` (`toolchain/tools/espejo-cara/src/bin/cara_taller.rs`) saca `tab.png` (abierta, con la ficha de `semaforo`) y `tab_filtro.png` (filtrando "match": quedan los 3 del nivel 8)
 
 | se hace | si esta bien | si falla |
 |---|---|---|

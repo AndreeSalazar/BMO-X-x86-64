@@ -49,6 +49,7 @@ mod guia;
 mod player;
 mod space;
 mod store;
+mod tab;
 mod tema_gen;
 mod view;
 mod window;
@@ -310,6 +311,10 @@ pub extern "C" fn _start() -> ! {
     let mut turn: u32 = 96;
     // The last click on a disk row: (when, which), for the double click.
     let mut last_click: (u32, Option<usize>) = (0, None);
+    // The TAB of master nodes, while it is open (`tab.rs`, PLAN_TALLER 8.15),
+    // and the node it just placed: picked when the next beat reads it back.
+    let mut palette: Option<tab::Palette> = None;
+    let mut placed: Option<bmo_titan_contrato::Name> = None;
     let clock = Clock { hz: bmo::info(bmo::INFO_TSC_HZ) };
     let mut last = clock.now_ms();
     let opened = last;
@@ -337,6 +342,9 @@ pub extern "C" fn _start() -> ! {
         if store.refresh() {
             shown = Shown::of(&store.loaded.graph);
             shown.selected = keep.and_then(|n| store.loaded.graph.find(n.as_bytes()));
+            if let Some(n) = placed.take() {
+                shown.selected = store.loaded.graph.find(n.as_bytes()).or(shown.selected);
+            }
             ui.picked = keep_item.and_then(|p| store.tree.as_deref().and_then(|t| t.find(p.as_bytes())));
             // Indices of the old tree mean nothing in the new one.
             if ui.edit.take().is_some() {
@@ -370,6 +378,31 @@ pub extern "C" fn _start() -> ! {
                 continue;
             }
             match input {
+                // The TAB is on top of everything while it is open: every key
+                // is its own (Esc closes IT, not F1), and a click outside it
+                // only closes it.
+                Input::Char(c) if palette.is_some() => {
+                    if let Some(p) = palette.as_mut() {
+                        match p.key(c, KEY_UP, KEY_DOWN) {
+                            tab::Act::Stay => {}
+                            tab::Act::Close => palette = None,
+                            tab::Act::Place(i) => {
+                                let (x, y) = p.at;
+                                placed = store.place_master(i, x, y);
+                                palette = None;
+                            }
+                        }
+                    }
+                    dirty = true;
+                }
+                Input::Mouse { x, y, buttons, down: true } if palette.is_some() => {
+                    let stays = buttons & BUTTON != 0 && palette.as_mut().is_some_and(|p| p.click(WIDTH as i32, HEIGHT as i32, x, y));
+                    if !stays {
+                        palette = None;
+                    }
+                    dirty = true;
+                }
+                Input::Mouse { .. } if palette.is_some() => {}
                 // The menu is on top of everything: a click is ITS click, and
                 // anywhere else only closes it.
                 Input::Mouse { down: true, .. } if ui.menu.is_some() => {
@@ -494,6 +527,17 @@ pub extern "C" fn _start() -> ! {
                 // While a name is typed, every key is the box's.
                 Input::Char(c) if ui.edit.is_some() => {
                     typing(c, &mut store, &mut ui);
+                    dirty = true;
+                }
+                // TAB, over the GRAPH or the SKY: the master nodes (Houdini).
+                // The node will go where the mouse is now, centred on it.
+                Input::Char(b'\t') if matches!(tab, Tab::Graph | Tab::Sky) => {
+                    let p = win.pointer();
+                    let on_canvas = tab == Tab::Graph && p.inside && p.x >= view::LEFT && p.y >= view::TOP && p.y < HEIGHT as i32 - view::PANEL;
+                    let (sx, sy) = if on_canvas { (p.x, p.y) } else { view::canvas_center(WIDTH as i32, HEIGHT as i32) };
+                    let (wx, wy) = cam.to_world(sx, sy);
+                    palette = Some(tab::Palette::open((wx - NODE_W / 2, wy - NODE_H / 2)));
+                    ui.menu = None;
                     dirty = true;
                 }
                 Input::Char(0x1B) if ui.menu.is_some() => {
@@ -659,6 +703,9 @@ pub extern "C" fn _start() -> ! {
                     }
                     _ => {}
                 }
+            }
+            if let (false, Some(p)) = (covered, palette.as_ref()) {
+                tab::draw(&mut canvas, p, flowing.then_some(now).unwrap_or(0) as i32);
             }
             if let (true, Some(a), Some(l)) = (splash, veil, logo.as_ref()) {
                 art::splash(&mut canvas, l, a);

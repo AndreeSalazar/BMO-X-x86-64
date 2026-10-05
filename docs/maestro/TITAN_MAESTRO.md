@@ -1569,6 +1569,13 @@ cabecera que dice la verdad...-- vive en
 hace cumplir. El guardian `titan-leyes` corre en el build: una ley que pierde
 su prueba, o cuyo texto cambia sin `--sellar "el motivo"`, para el build.
 
+**El banco es tambien el CURSO** (05-10): cada programa `BIEN` de un modulo es
+un NODO MAESTRO de la TAB de F1 (`PLAN_TALLER` 8.15) -- su familia es su nivel,
+su porque su comentario, su prueba sus lineas `# sale:`. Escribir un ejemplo
+nuevo en `ejemplos/nivelN/` lo pone en la TAB solo (`toolchain/tools/maestros`,
+guardian en el build), y `tests/maestros.rs` comprueba que cada uno, puesto en
+el paquete de otro, sigue compilando.
+
 **La respuesta corta: con 16 palabras ya se escribe cualquier algoritmo; con
 20, un JSON; con 23, una app; con 25, la 3060.** Lo que va de 16 a 25 no da
 potencia de calculo: da ORDEN (tipos, casos, modulos) y SEGURIDAD (prestamos,

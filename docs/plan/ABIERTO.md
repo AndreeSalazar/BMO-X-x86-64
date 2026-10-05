@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   600 casillas ABIERTAS en 56 planes
-   457 hechas
+   593 casillas ABIERTAS en 56 planes
+   464 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -124,15 +124,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M2 MP3 (= A5) media tarde de comprobar la coma flotante antes
 - ... y 13 mas
 
-## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 16 abiertas, 10 hechas
-
-*PLAN DEL TALLER -- F1 de BMO-X*
-
-- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
-- [ ] 3 taller.bex DIBUJA una ventana con su rejilla y su cursor,
-- [ ] 4 y LEE TECLAS por el buzon de entrada, con el
-- ... y 13 mas
-
 ## [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) -- 15 abiertas, 14 hechas
 
 *PLAN EL TROQUEL -- la geometria de los registros, estampada de un golpe*
@@ -213,6 +204,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
 - [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 7 mas
+
+## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 9 abiertas, 17 hechas
+
+*PLAN DEL TALLER -- F1 de BMO-X*
+
+- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
+- [ ] 3 taller.bex DIBUJA una ventana con su rejilla y su cursor,
+- [ ] 4 y LEE TECLAS por el buzon de entrada, con el
+- ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 

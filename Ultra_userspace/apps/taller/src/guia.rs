@@ -152,7 +152,7 @@ const CARDS: [Card; 15] = [
 ];
 
 /// Splits a text at spaces into lines of `max` characters, at most `n`.
-fn lines(s: &[u8], max: usize, n: usize, mut f: impl FnMut(usize, &[u8])) {
+pub fn lines(s: &[u8], max: usize, n: usize, mut f: impl FnMut(usize, &[u8])) {
     let mut rest = s;
     let mut k = 0;
     while !rest.is_empty() && k < n {
@@ -254,7 +254,7 @@ const GUIDE: [(&[u8], [&[u8]; 4]); 6] = [
         b"6  LAS TECLAS",
         [
             b"[t] la solapa siguiente   [e] el siguiente error",
-            b"[+] [-] [0] zoom y encuadre   [Esc] sale de F1",
+            b"[TAB] los nodos maestros  [+][-][0] zoom  [Esc] sale",
             b"EXPLORER: doble clic renombra, Supr quita,",
             b"clic derecho el menu, arrastrar ordena o mueve.",
         ],
