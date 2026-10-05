@@ -39,7 +39,7 @@ fn pintar_con(en: &Enlace, ia: &[ElementoIa], vertices: &[u8], otros: &mut [tram
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
     let l = Lote { enlace: en, entradas: ia, vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0 };
     let mut px = vec![0u32; 64];
-    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros, flotante: None };
     let c = lote::en_cpu(&l, &mut d).unwrap();
     (px, c)
 }
@@ -76,7 +76,7 @@ fn la_w_de_sv_position_va_con_perspectiva() {
     ];
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
     let mut px = vec![0u32; 64];
-    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros: &mut [] };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros: &mut [], flotante: None };
     let mut vistos = Vec::new();
     trama::dibujar(&reglas, &v, &[[0, 1, 2]], &mut d, Some(0), |e, _| {
         vistos.push(e[0]);
@@ -113,9 +113,9 @@ fn el_g_buffer_pinta_cada_salida_en_su_render_target() {
     assert_eq!(en.objetivos, [0, 1, 3]);
     let (mut sitio, mut normal) = (vec![0u32; 64], vec![0u32; 64]);
     let mut otros = [
-        trama::Otro { pixeles: Some(&mut sitio), bgra: false },
-        trama::Otro { pixeles: None, bgra: false },
-        trama::Otro { pixeles: Some(&mut normal), bgra: true },
+        trama::Otro { pixeles: Some(&mut sitio), bgra: false, flotante: None },
+        trama::Otro { pixeles: None, bgra: false, flotante: None },
+        trama::Otro { pixeles: Some(&mut normal), bgra: true, flotante: None },
     ];
     let (albedo, c) = pintar_con(&en, &ia, &cuadro(0.5, 2.0), &mut otros);
     assert_eq!(c.pixeles, 64, "{c:?}");
@@ -156,7 +156,7 @@ fn la_trama_mezcla_con_lo_que_ya_esta() {
         let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: Mezclas { rt, factor: [1.0; 4] }, z_del_sombreador: false };
         let fondo = rgba([0.0, 0.0, 1.0, 1.0]);
         let mut px = vec![fondo; 64];
-        let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros: &mut [] };
+        let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros: &mut [], flotante: None };
         trama::dibujar(&reglas, &v, &[[0, 1, 2]], &mut d, None, |_, c| {
             c[0] = [1.0, 0.0, 0.0, 0.5];
             true
@@ -186,7 +186,7 @@ fn el_de_pixeles_escribe_su_profundidad() {
     let vertices = cuadro(0.9, 1.0);
     let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: Some(0.5f32.to_bits()), limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0 };
     let (mut px, mut z) = (vec![0u32; 64], vec![0u32; 64]);
-    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: Some(&mut z), cadena: false, otros: &mut [] };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: Some(&mut z), cadena: false, otros: &mut [], flotante: None };
     let c = lote::en_cpu(&l, &mut d).unwrap();
     assert_eq!((c.tapados, c.pasan), (32, 32), "con SV_Depth, la prueba DESPUES del sombreador: {c:?}");
     for k in 0..64 {
@@ -212,7 +212,7 @@ fn la_trama_cuenta_lo_que_pasa_como_una_consulta_de_oclusion() {
     let pasan = |escribir: bool| {
         let (mut px, mut z) = (vec![0u32; 64], z0.clone());
         let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: Some(trama::Profundidad { funcion: 2, escribir }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
-        let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: Some(&mut z), cadena: false, otros: &mut [] };
+        let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: Some(&mut z), cadena: false, otros: &mut [], flotante: None };
         let mut ps = |_: &[[f32; 4]], c: &mut [[f32; 4]; trama::SALIDAS]| {
             c[0] = [1.0; 4];
             true
@@ -223,4 +223,35 @@ fn la_trama_cuenta_lo_que_pasa_como_una_consulta_de_oclusion() {
     };
     assert_eq!(pasan(false), (40, 24, 40));
     assert_eq!(pasan(true), (40, 24, 0), "con su Z escrita (0.5), LESS ya no deja pasar 0.5");
+}
+
+/// *** N5.16: un render target de FLOAT (RGBA16F) guarda lo que pasa de 1, y
+/// la mezcla ADITIVA suma en float: 1.25 y luego 2.5 dan 3.75 (exacto en
+/// half), donde uno de 8 bits se quedaba en 1. Lo que no cabe en un half se
+/// redondea como en la GPU (1/3), y el otro render target, R11G11B10F, con
+/// sus 6 bits de mantisa y sin negativos.
+#[test]
+fn un_render_target_de_float_guarda_mas_de_uno_y_suma_en_float() {
+    let v: Vec<trama::Sombreado> = [[-1.0f32, -1.0], [-1.0, 3.0], [3.0, -1.0]].iter().map(|&[x, y]| trama::Sombreado { pos: [x, y, 0.5, 1.0], atributos: Vec::new() }).collect();
+    let suma = crate::mezcla::Mezcla { encendida: true, origen: 2, destino: 2, origen_a: 2, destino_a: 2, ..crate::mezcla::Mezcla::NINGUNA };
+    let mut mezcla = crate::mezcla::Mezclas::NINGUNA;
+    mezcla.rt[0] = suma;
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 2.0, 2.0, 0.0, 1.0], tijera: [0, 0, 2, 2], descarte: 1, antihorario: false, profundidad: None, mezcla, z_del_sombreador: false };
+    let (mut px, mut otro) = (vec![0u32; 16], vec![0u32; 16]);
+    let mut otros = [trama::Otro { pixeles: Some(&mut otro), bgra: false, flotante: Some(26) }];
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 2, alto: 2, bgra: false, z: None, cadena: false, otros: &mut otros, flotante: Some(10) };
+    for c in [[1.25f32, 1.0 / 3.0, -2.0, 0.5], [2.5, 0.0, 0.0, 0.25]] {
+        trama::dibujar(&reglas, &v, &[[0, 1, 2]], &mut d, None, |_, s| {
+            s[0] = c;
+            s[1] = [-1.0, 1.0 + 1.0 / 128.0, 70000.0, 0.0];
+            true
+        });
+    }
+    let leido = |p: &[u32], k: usize| [0, 1, 2, 3].map(|c| f32::from_bits(p[4 * k + c]));
+    let tercio = crate::formato_ia::half(crate::formato_ia::a_half(1.0 / 3.0));
+    for k in 0..4 {
+        assert_eq!(leido(&px, k), [3.75, tercio, -2.0, 0.75], "texel {k}: sumado en float, cuantizado a half");
+        // R11G11B10: 0 (sin negativos), 1 (6 bits), infinito (pasa del mayor).
+        assert_eq!(leido(&otro, k), [0.0, 1.0, f32::INFINITY, 1.0], "texel {k}: el R11G11B10F, sin mezcla");
+    }
 }
