@@ -25,3 +25,5 @@ bmo-rtc = { path = "../../../platform/drivers/rtc" }
 # P3b4c: el lote a la PUERTA de la 3060 (la receta VRN2; puro: la llamada la
 # hace `src/la3060.rs`).
 bmo-proton-x-sm86 = { path = "../../../platform/shared/proton-x-sm86" }
+# 05-10: la letra de la casa, para el CARTEL ROJO de los avisos (`src/cartel.rs`).
+bmo-letra = { path = "../../../platform/shared/bmo-letra" }

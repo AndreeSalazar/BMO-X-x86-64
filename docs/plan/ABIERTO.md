@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   604 casillas ABIERTAS en 57 planes
+   610 casillas ABIERTAS en 57 planes
    478 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -115,6 +115,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 14 mas
 
+## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 16 abiertas, 15 hechas
+
+*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
+
+- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
+- [ ] E2.1 -- D3D12Multithreading. Listas de ordenes grabadas desde
+- [ ] E2.5 -- D3D12SM6WaveIntrinsics. Las olas de verdad (D4.3): hoy son
+- ... y 13 mas
+
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas
 
 *PLAN MEDIOS -- VLC como objetivo, medido contra lo que hay*
@@ -203,15 +212,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D2a -- un TRINQUETE. static mut declarados en
 - [ ] D2b -- el reparto, por fichero, cuando SMP se retome. No antes: sin
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
-- ... y 7 mas
-
-## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 10 abiertas, 15 hechas
-
-*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
-
-- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
-- [ ] E2.1 -- D3D12Multithreading. Listas de ordenes grabadas desde
-- [ ] E2.5 -- D3D12SM6WaveIntrinsics. Las olas de verdad (D4.3): hoy son
 - ... y 7 mas
 
 ## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 10 abiertas, 35 hechas

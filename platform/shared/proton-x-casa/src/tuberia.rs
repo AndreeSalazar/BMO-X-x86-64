@@ -858,6 +858,11 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     } else {
         ids.extend(primero..primero + cuantos);
     }
+    // N5.3c: un UAV en un sombreador de DIBUJO aun no se ve: que no sea
+    // en silencio (lo que escribe se pierde; lo que lee, 0).
+    if !en.ranuras.uavs.is_empty() {
+        aviso("Draw: un sombreador de dibujo lee o escribe un UAV (RWTexture, RWBuffer): todavia no (N5.3c); lo que escribe se pierde y lo que lee es 0");
+    }
     // E2.3b: puntos y lineas, solo con un GS que los haga triangulos.
     let topologia = match (e.topologia, en.gs.is_some()) {
         (TRIANGLELIST, _) => Topologia::Lista,

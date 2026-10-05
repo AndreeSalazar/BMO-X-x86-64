@@ -455,3 +455,88 @@ la casa ya tiene sus piezas:
   tandas: la casa no lleva ni una linea suya.
 - Las tandas siguen: un muro que no cae en ningun escalon se prueba con una
   tanda, como hasta hoy.
+
+# 7. LO QUE TE PIDO, Y LO QUE PUEDE FALLAR (05-10)
+
+El propietario: *"anota lo que me pidas luego"* y *"anotar que potencial
+fallo es, para saber y asi evitar sorpresa"*. Aqui, para que no se pierda
+en una conversacion.
+
+## 7.1 Lo que te pido (lo decides tu)
+
+- [ ] **Nombres LARGOS en `platform/drivers/storage/fat32/src/buscar.rs`**
+  (Ring 0, en CODEOWNERS: tu permiso). Los `.cso` de las muestras se
+  llaman `shaders_VSMain.cso`: no caben en 8.3 y en el metal no se
+  encuentran. Mientras, se corren desde `D:` (NTFS).
+- [ ] **`opt-level = 3` para `bmo-proton-x` en el `/Cargo.toml` raiz** (en
+  CODEOWNERS: tu permiso). El interprete en debug es lento en el banco (un
+  paso de nBodyGravity eran 73 s antes del computo traducido).
+- [ ] **`SquidRoom.bin` (43 MB) en `platform/shared/proton-x/prueba/muestras`**
+  para E2.1 (Multithreading): sin el, ese escalon no se sube. Iria como
+  `occcity.bin` (E2.2), con su `.gitignore` de `*.bin` abierto.
+- [ ] **Juntar en `main` lo de `docs/plan/PLAN_LAS_TRES_GRANDES.md`** de
+  este trabajo: E2.3, E2.4, E2.7, N5.13 a N5.15, N5.3b y N5.3c (un PR).
+- [ ] **Correr en el Ryzen y en Windows lo de `platform/shared/proton-x/prueba`**
+  (HACER.txt): `computo.exe` dice `bien` 4 veces, `instancias.exe` 3 y
+  `vistas.exe` 7, y salen con 0; `nbody.exe` (las dos nubes que se
+  juntan), `indirect.exe` (lo mismo dentro de la franja con el ESPACIO y
+  sin el) y `predica.exe` (el cuadro blanco se va cuando el rojo lo tapa
+  entero).
+- [ ] **El CARTEL ROJO** (`Ultra_userspace/apps/proton-x/src/cartel.rs`):
+  hoy se queda puesto para siempre desde el primer aviso. Si molesta en un
+  juego, se puede quitar a los diez segundos del ultimo aviso nuevo: tu
+  dices.
+
+## 7.2 Lo que puede fallar (y por que no seria una sorpresa)
+
+```text
+   NADA DE ESTO SE HA VISTO EN EL METAL   todo lo de 05-10 paso en el banco
+                                          del anfitrion; en el Ryzen corre
+                                          con el codigo traducido y la 3060,
+                                          que el banco no usa
+   los .cso de nombre largo               no se encuentran en FAT32 (7.1)
+   la VELOCIDAD                           el computo traducido va 50 veces
+                                          el interprete; los sombreadores de
+                                          DIBUJO con saltos o cuentas
+                                          enteras van interpretados (lo dice
+                                          un aviso); Cyberpunk, lejos de sus
+                                          fotogramas
+   el HDR (N5.16)                         los render targets de float se
+                                          guardan en 8 bits: un RGBA16F
+                                          satura en 1.0, y un UAV de esa
+                                          textura tambien
+   el stencil y AlphaToCoverage           se apuntan y no se usan: un juego
+                                          que recorta con stencil pinta de
+                                          mas (lo dice un aviso al crear el
+                                          PSO)
+   un UAV en un sombreador de DIBUJO      no se ve: lo que escribe se pierde
+                                          (lo dice un aviso, desde hoy; antes
+                                          era en silencio)
+   un UAV de textura 3D, de array o de    el PSO de computo no se crea (lo
+   cubo                                   dice)
+   ClearUnorderedAccessView con           limpia la vista entera (lo dice)
+   rectangulos
+   DepthClipEnable = FALSE                recorta igual (no lo dice: es lo
+                                          que casi todos usan)
+   un SRV estructurado en la RAIZ de un   el paso sale de `dx.resources`; un
+   sombreador sin metadatos (SM5, DXBC)   SM5 no los trae como DXIL: se lee
+                                          crudo, mal, y NO lo dice todavia
+   la consulta de oclusion                sus lotes van por la CPU (la 3060
+                                          aun no cuenta): mas lento, no
+                                          distinto
+   las instancias y los datos por         por la CPU tambien
+   instancia
+   el cartel rojo                         no se ve cuando la 3060 pinta
+                                          DIRECTO en la pantalla (Z1); un
+                                          .exe de GDI que lea su ventana lo
+                                          leeria
+   un .exe hecho con Visual Studio        llama a mas cosas de las que usa
+                                          (el runtime, la telemetria, el
+                                          COM): cada una que falte es un
+                                          aviso y sale en el cartel. Ninguna
+                                          se contesta con un exito mentido
+```
+
+La regla de siempre, y la del propietario: que PROTON-X hable HONESTO.
+Lo que no sabe hacer lo dice (`aviso`), una vez por cosa, en la consola y en
+el cartel rojo; lo que dice que hizo, lo hizo.

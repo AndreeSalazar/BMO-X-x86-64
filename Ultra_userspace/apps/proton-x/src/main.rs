@@ -52,6 +52,8 @@
 extern crate alloc;
 
 mod cargador;
+/// 05-10: lo que la casa no supo hacer, en un cartel rojo en la ventana.
+mod cartel;
 mod el_nulo;
 mod en_vivo;
 mod entorno_windows;
