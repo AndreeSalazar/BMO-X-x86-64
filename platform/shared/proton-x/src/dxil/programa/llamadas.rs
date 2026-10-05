@@ -127,6 +127,26 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             c.ops.push(Op::Contador { d, u, inc: inc as i8 });
             Valor::Bits(d)
         }
+        // 05-10: `atomicBinOp(uav, op, c0, c1, c2, v)` y
+        // `atomicCompareExchange(uav, c0, c1, c2, igual, v)`: las coordenadas
+        // como las de un bufferStore (c1, el desplazamiento o la y; la c2 de
+        // una textura 3D no llega: esas no se crean).
+        DX_ATOMIC_BIN_OP | DX_ATOMIC_COMPARE_EXCHANGE => {
+            let Some(Valor::Uav(u, modo)) = c.valores.get(arg(1)?).copied() else {
+                return Err(NoPrograma::Forma("un Interlocked sin el handle de un UAV"));
+            };
+            let binaria = op == DX_ATOMIC_BIN_OP;
+            let como = if binaria { crate::bufer::Atomo::de_dxil(c.entero(arg(2)?)?).ok_or(NoPrograma::Forma("un atomicBinOp con una operacion que no existe"))? } else { crate::bufer::Atomo::CambiaSiIgual };
+            let c0 = if binaria { 3 } else { 2 };
+            let cero = super::super::estructura::literal(c, 0)?;
+            let i = super::super::estructura::bits(c, arg(c0)?)?;
+            let desp = if matches!(c.valores.get(arg(c0 + 1)?), Some(Valor::Indefinido) | None) { cero } else { super::super::estructura::bits(c, arg(c0 + 1)?)? };
+            let v = super::super::estructura::bits(c, arg(6)?)?;
+            let igual = if binaria { cero } else { super::super::estructura::bits(c, arg(5)?)? };
+            let d = c.registro(0.0)?;
+            c.ops.push(Op::Atomico { d, u, modo, i, desp, como, v, igual });
+            Valor::Bits(d)
+        }
         // E2.3b: el GS emite un vertice, corta la tira, o las dos.
         DX_EMIT_STREAM | DX_CUT_STREAM | DX_EMIT_THEN_CUT_STREAM => {
             let flujo = c.entero(arg(1)?)?;

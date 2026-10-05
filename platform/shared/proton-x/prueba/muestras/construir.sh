@@ -171,3 +171,10 @@ cp "$AQUI/../hdr.cpp" "$AQUI"/../hdr_*.dxil .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c hdr.cpp -o hdr.o
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o hdr.exe hdr.o -ld3d12
 sha256sum hdr.exe
+
+# 05-10: el juez de los UAV escritos desde un DIBUJO, NUESTRO
+# (`../uavpixel.cpp`, con sus tres sombreadores de `../uavpixel_*.dxil`).
+cp "$AQUI/../uavpixel.cpp" "$AQUI"/../uavpixel_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c uavpixel.cpp -o uavpixel.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o uavpixel.exe uavpixel.o -ld3d12
+sha256sum uavpixel.exe

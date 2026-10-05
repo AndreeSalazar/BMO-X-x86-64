@@ -270,8 +270,31 @@ pub fn empaquetar(c: [f32; 4], bgra: bool) -> u32 {
 /// `posicion` (N5.9): el atributo que es SV_Position, si el sombreador lo
 /// lee: en cada pixel, (x + 0.5, y + 0.5, z, w) -- el centro en pantalla,
 /// la z del viewport y la w de recorte (la de D3D: w, no 1/w como en GL).
-pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, mut ps: impl FnMut(&[[f32; 4]], &mut [[f32; 4]; SALIDAS]) -> bool) -> Cuenta {
+pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, ps: impl FnMut(&[[f32; 4]], &mut [[f32; 4]; SALIDAS]) -> bool) -> Cuenta {
+    dibujar_con(reglas, Efectos::default(), vertices, tris, destino, posicion, ps)
+}
+
+/// **Lo que un sombreador de pixeles hace ADEMAS de su color** (05-10): lo
+/// que cambia el orden de la trama.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Efectos {
+    /// Lee o escribe UAV: corre en CADA pixel cubierto, uno a uno y en el
+    /// orden de la trama (sin la memoria del ultimo, que se saltaria
+    /// escrituras), y la profundidad se prueba DESPUES de el (lo de D3D sin
+    /// `[earlydepthstencil]`: un pixel tapado tambien escribe sus UAV).
+    pub uav: bool,
+    /// `[earlydepthstencil]`: la profundidad se prueba y se ESCRIBE antes
+    /// de correrlo (un `discard` ya no la deshace), con UAV o sin ellos.
+    pub temprana: bool,
+}
+
+/// [`dibujar`] con los [`Efectos`] de su sombreador de pixeles.
+#[allow(clippy::too_many_arguments)]
+pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, mut ps: impl FnMut(&[[f32; 4]], &mut [[f32; 4]; SALIDAS]) -> bool) -> Cuenta {
     let mut cuenta = Cuenta::default();
+    // La profundidad, despues del sombreador: la suya (SV_Depth) o la de la
+    // trama con UAV (`tarde`).
+    let tarde = efectos.uav && !efectos.temprana && !reglas.z_del_sombreador;
     let [vx, vy, vw, vh, zmin, zmax] = reglas.viewport;
     let texeles = destino.ancho as usize * destino.alto as usize;
     let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= texeles));
@@ -399,16 +422,20 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                 }
                 let i = (py * ancho + px) as usize;
                 let mut z_nueva = None;
+                let mut z_tarde = None;
                 if let (Some(p), Some(zs)) = (prueba.filter(|_| !reglas.z_del_sombreador), destino.z.as_deref_mut()) {
                     // Lineal en pantalla: los pesos de las aristas, sin w.
                     let s = (e[0] + e[1] + e[2]) as f32;
                     let (b1, b2) = (e[1] as f32 / s, e[2] as f32 / s);
                     let z = (zv[0] + b1 * (zv[1] - zv[0]) + b2 * (zv[2] - zv[0])).clamp(zmin.min(zmax), zmin.max(zmax));
-                    if !p.pasa(z, f32::from_bits(zs[i])) {
+                    if tarde {
+                        z_tarde = Some(z);
+                    } else if !p.pasa(z, f32::from_bits(zs[i])) {
                         cuenta.tapados += 1;
                         continue;
-                    }
-                    if p.escribir {
+                    } else if p.escribir && efectos.temprana {
+                        zs[i] = z.to_bits();
+                    } else if p.escribir {
                         z_nueva = Some(z.to_bits());
                     }
                 }
@@ -435,7 +462,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                     entrada[a] = [px as f32 + 0.5, py as f32 + 0.5, z, w];
                 }
                 let pixel = match &ultima {
-                    Some((antes, p)) if antes.len() == entrada.len() && antes.iter().zip(&entrada).all(|(a, b)| a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())) => *p,
+                    Some((antes, p)) if !efectos.uav && antes.len() == entrada.len() && antes.iter().zip(&entrada).all(|(a, b)| a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())) => *p,
                     _ => {
                         cuenta.sombreados += 1;
                         let mut colores = [[0.0f32; 4]; SALIDAS];
@@ -449,9 +476,9 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                     continue;
                 };
                 // SV_Depth: la prueba, ahora, con la Z del sombreador (D3D la
-                // recorta al rango del viewport).
-                if let (true, Some(p), Some(zs)) = (reglas.z_del_sombreador, prueba, destino.z.as_deref_mut()) {
-                    let z = colores[PROFUNDIDAD][0].clamp(zmin.min(zmax), zmin.max(zmax));
+                // recorta al rango del viewport); con UAV, con la de la trama.
+                let z_despues = if reglas.z_del_sombreador { Some(colores[PROFUNDIDAD][0].clamp(zmin.min(zmax), zmin.max(zmax))) } else { z_tarde };
+                if let (Some(z), Some(p), Some(zs)) = (z_despues, prueba, destino.z.as_deref_mut()) {
                     if !p.pasa(z, f32::from_bits(zs[i])) {
                         cuenta.tapados += 1;
                         continue;

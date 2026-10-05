@@ -379,6 +379,7 @@ se mide con R5: una corrida por escalon cerrado.
    N5.4   el indice dinamico (bindless)     E2.2
    N5.5   el COMPUTO                        E2.3a y E2.3b (hechos)
    N5.3c  los UAV                           E2.3a y E2.3b (los de bufer)
+   N5.3d  los UAV de un DIBUJO              uavpixel.exe (hecho, sin escalon)
    D5.1   la cola de computo                E2.3a y E2.3b (hechos)
    (nueva) el sombreador de geometria       E2.3b (hecho)
    D4.3   las olas de verdad                E2.5
@@ -481,7 +482,7 @@ en una conversacion.
 - [ ] **Correr en el Ryzen y en Windows lo de `platform/shared/proton-x/prueba`**
   (HACER.txt; la hoja entera, prueba a prueba y con lo que tiene que
   salir, en [`docs/metal/PRUEBAS_DX12_EN_EL_RYZEN.md`](../metal/PRUEBAS_DX12_EN_EL_RYZEN.md)): `computo.exe` dice `bien` 4 veces, `instancias.exe` 3 y
-  `vistas.exe` 7, y salen con 0; `nbody.exe` (las dos nubes que se
+  `vistas.exe` 7, `uavpixel.exe` 4, y salen con 0; `nbody.exe` (las dos nubes que se
   juntan), `indirect.exe` (lo mismo dentro de la franja con el ESPACIO y
   sin el) y `predica.exe` (el cuadro blanco se va cuando el rojo lo tapa
   entero).
@@ -513,9 +514,17 @@ en una conversacion.
                                           que recorta con stencil pinta de
                                           mas (lo dice un aviso al crear el
                                           PSO)
-   un UAV en un sombreador de DIBUJO      no se ve: lo que escribe se pierde
-                                          (lo dice un aviso, desde hoy; antes
-                                          era en silencio)
+   un UAV en un sombreador de DIBUJO      desde el 05-10 se escribe (N5.3d,
+                                          uavpixel.exe), por el interprete y
+                                          por la CPU (la 3060 no lo lleva: lo
+                                          dice una vez). El orden entre
+                                          pixeles es el de la trama: D3D no
+                                          da ninguno, y un juego que dependa
+                                          de el podria ver otra cosa. En un
+                                          sombreador de GEOMETRIA, todavia se
+                                          pierde (lo dice un aviso); un
+                                          dibujo SOLO con UAV (sin render
+                                          target) no se dibuja (lo dice)
    un UAV de textura 3D, de array o de    el PSO de computo no se crea (lo
    cubo                                   dice)
    ClearUnorderedAccessView con           limpia la vista entera (lo dice)

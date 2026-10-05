@@ -299,6 +299,11 @@ impl Puerta {
         if l.oclusion {
             return Err(String::from("hay una consulta de oclusion abierta: la 3060 no cuenta los pixeles que pasan todavia"));
         }
+        // 05-10: lo que un dibujo escribe en sus UAV queda en la memoria de la
+        // CPU; la receta no lleva UAV (ni la 3060 emite sus operaciones).
+        if l.uavs.is_some() {
+            return Err(String::from("sus sombreadores leen o escriben UAV (RWTexture, RWBuffer, Interlocked): la 3060 no los lleva todavia"));
+        }
         // N5.13: la receta lleva UNA instancia y los elementos por vertice.
         if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {
             return Err(String::from("el lote dibuja varias instancias o lee datos por instancia: la 3060 no lo sabe todavia"));

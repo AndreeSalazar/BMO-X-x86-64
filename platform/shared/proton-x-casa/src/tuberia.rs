@@ -860,10 +860,10 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     } else {
         ids.extend(primero..primero + cuantos);
     }
-    // N5.3c: un UAV en un sombreador de DIBUJO aun no se ve: que no sea
-    // en silencio (lo que escribe se pierde; lo que lee, 0).
-    if !en.ranuras.uavs.is_empty() {
-        aviso("Draw: un sombreador de dibujo lee o escribe un UAV (RWTexture, RWBuffer): todavia no (N5.3c); lo que escribe se pierde y lo que lee es 0");
+    // 05-10: los UAV de los de vertices y de pixeles van en el lote (abajo);
+    // los de un GS, todavia no: que no sea en silencio.
+    if en.gs.as_ref().is_some_and(|g| g.programa.toca_uav()) {
+        aviso("Draw: un sombreador de GEOMETRIA lee o escribe un UAV: todavia no; lo que escribe se pierde y lo que lee es 0");
     }
     // E2.3b: puntos y lineas, solo con un GS que los haga triangulos.
     let topologia = match (e.topologia, en.gs.is_some()) {
@@ -923,6 +923,9 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // samplers estaticos de la firma. Por RANURA (03-10, N5.1): cada lugar
     // (espacio, registro, etapa) que leen, buscado en la firma.
     let (texturas, muestreadores, buferes) = recursos_del_dibujo(firma, &e.tablas, &e.cbv, &en.ranuras);
+    // 05-10: los UAV, de la raiz o de las tablas, como los de un Dispatch:
+    // lo que escriben los sombreadores del dibujo queda en su memoria.
+    let uavs: Option<bmo_proton_x::lote::Uavs> = (!en.ranuras.uavs.is_empty()).then(|| core::cell::RefCell::new(en.ranuras.uavs.iter().map(|&l| crate::computo::uav_de(firma, &e.tablas, &e.cbv, &en.ranuras, l)).collect()));
     // N5.4 (05-10): las texturas de los arrays con el registro CALCULADO,
     // buscadas cuando un pixel las pide y GUARDADAS: una vez por textura
     // distinta del dibujo, no por pixel. Un millon de descriptores (el
@@ -956,6 +959,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         otros: &flujos[1..],
         instancias,
         primera_instancia,
+        uavs: uavs.as_ref(),
     };
     // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.
     let z = match (pso.profundidad, e.dsv) {

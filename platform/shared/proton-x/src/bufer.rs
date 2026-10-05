@@ -133,7 +133,63 @@ fn canales_de_32(formato: u32) -> Option<usize> {
     }
 }
 
+/// **La operacion de un `Interlocked*`** (05-10: los UAV de un dibujo, y del
+/// computo): la `atomicOp` de `AtomicBinOp` (0..8, en su orden) y, aparte,
+/// `InterlockedCompareExchange` (`AtomicCompareExchange`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Atomo {
+    Suma,
+    Y,
+    O,
+    Xor,
+    MinConSigno,
+    MaxConSigno,
+    MinSinSigno,
+    MaxSinSigno,
+    Cambia,
+    /// Cambia solo si lo que hay es igual a lo que se compara.
+    CambiaSiIgual,
+}
+
+impl Atomo {
+    /// La de `AtomicBinOp` con su numero de DXIL (`None` si no es ninguna).
+    pub fn de_dxil(n: i64) -> Option<Atomo> {
+        use Atomo::*;
+        [Suma, Y, O, Xor, MinConSigno, MaxConSigno, MinSinSigno, MaxSinSigno, Cambia].get(usize::try_from(n).ok()?).copied()
+    }
+
+    /// Lo que queda en la palabra que tenia `antes` (con el valor `v` y, en
+    /// la de comparar, `igual`).
+    pub fn hacer(self, antes: u32, v: u32, igual: u32) -> u32 {
+        match self {
+            Atomo::Suma => antes.wrapping_add(v),
+            Atomo::Y => antes & v,
+            Atomo::O => antes | v,
+            Atomo::Xor => antes ^ v,
+            Atomo::MinConSigno => (antes as i32).min(v as i32) as u32,
+            Atomo::MaxConSigno => (antes as i32).max(v as i32) as u32,
+            Atomo::MinSinSigno => antes.min(v),
+            Atomo::MaxSinSigno => antes.max(v),
+            Atomo::Cambia => v,
+            Atomo::CambiaSiIgual if antes == igual => v,
+            Atomo::CambiaSiIgual => antes,
+        }
+    }
+}
+
 impl Uav<'_> {
+    /// **Un `Interlocked*`** sobre la palabra de 32 bits del elemento `i`
+    /// (`desp` bytes dentro, en uno estructurado; en uno crudo, el byte `i`;
+    /// en una textura, el texel `(i, desp)`): la deja como dice `como` y
+    /// devuelve la de ANTES. Fuera de la vista, ni se lee ni se escribe (0).
+    /// Atomico de verdad porque quien corre los hilos es UNO: los pixeles de
+    /// un dibujo y los hilos de un Dispatch van de uno en uno.
+    pub fn atomico(&mut self, modo: Modo, i: u32, desp: u32, como: Atomo, v: u32, igual: u32) -> u32 {
+        let antes = self.cargar(modo, i, desp)[0];
+        self.escribir(modo, i, desp, [como.hacer(antes, v, igual), 0, 0, 0], 1);
+        antes
+    }
+
     /// **`IncrementCounter` (`inc` 1) y `DecrementCounter` (-1)**: suben o
     /// bajan el contador y devuelven, como D3D, el de ANTES al subir y el de
     /// DESPUES al bajar. Sin contador, 0 (y nada se mueve).
@@ -272,6 +328,23 @@ mod pruebas {
         let c = [0u8, 255, 0, 255];
         let u = Bufer { bytes: &c, formato: 28, paso: 0, elementos: 1 };
         assert_eq!(u.cargar(Modo::Tipado, 0, 0), [0.0f32, 1.0, 0.0, 1.0].map(f32::to_bits));
+    }
+
+    /// Los `Interlocked*` (05-10): la palabra nueva, la de antes devuelta, y
+    /// fuera de la vista nada.
+    #[test]
+    fn un_atomico_devuelve_lo_de_antes_y_deja_lo_nuevo() {
+        let mut b = bytes(&[5, 0xFFFF_FFFE, 0, 0]);
+        let mut u = Uav { bytes: &mut b, formato: 0, paso: 0, elementos: 4, contador: None };
+        assert_eq!(u.atomico(Modo::Crudo, 0, 0, Atomo::Suma, 3, 0), 5);
+        assert_eq!(u.atomico(Modo::Crudo, 4, 0, Atomo::MinConSigno, 1, 0), 0xFFFF_FFFE, "-2 con signo es menor que 1");
+        assert_eq!(u.atomico(Modo::Crudo, 4, 0, Atomo::MaxSinSigno, 1, 0), 0xFFFF_FFFE);
+        assert_eq!(u.atomico(Modo::Crudo, 8, 0, Atomo::CambiaSiIgual, 9, 1), 0, "0 no es 1: no cambia");
+        assert_eq!(u.atomico(Modo::Crudo, 8, 0, Atomo::CambiaSiIgual, 9, 0), 0);
+        assert_eq!(u.atomico(Modo::Crudo, 16, 0, Atomo::Suma, 1, 0), 0, "fuera de la vista");
+        assert_eq!(u.cargar(Modo::Crudo, 0, 0), [8, 0xFFFF_FFFE, 9, 0]);
+        assert_eq!(Atomo::de_dxil(8), Some(Atomo::Cambia));
+        assert_eq!(Atomo::de_dxil(9), None);
     }
 
     /// E2.4: el contador sube devolviendo el de antes, baja devolviendo el

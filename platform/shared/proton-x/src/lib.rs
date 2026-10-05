@@ -157,4 +157,6 @@ mod pruebas_geometria;
 #[cfg(test)]
 mod pruebas_pixeles;
 #[cfg(test)]
+mod pruebas_uav;
+#[cfg(test)]
 mod pruebas_nulo;

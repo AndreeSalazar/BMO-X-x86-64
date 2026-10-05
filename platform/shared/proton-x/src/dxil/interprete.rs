@@ -109,6 +109,20 @@ pub enum Extra<'x, 'a, 'b> {
     Grupo(&'x mut Grupo<'a, 'b>),
     /// E2.3b: un sombreador de geometria, con lo que lleva emitido.
     Tiras(&'x mut Tiras),
+    /// 05-10: un vertice o un pixel de un dibujo con UAV (`RWTexture2D`,
+    /// `RWByteAddressBuffer`...): los del dibujo, por ranura.
+    Uavs(&'x mut [Option<crate::bufer::Uav<'b>>]),
+}
+
+impl<'b> Extra<'_, '_, 'b> {
+    /// Los UAV que ve el hilo: los del Dispatch o los del dibujo.
+    fn uavs(&mut self) -> &mut [Option<crate::bufer::Uav<'b>>] {
+        match self {
+            Extra::Grupo(g) => g.uavs,
+            Extra::Uavs(u) => u,
+            _ => &mut [],
+        }
+    }
 }
 
 impl Programa {
@@ -147,10 +161,17 @@ impl Programa {
     /// nulo en D3D12. Devuelve si el pixel QUEDA: `false` si un
     /// [`Op::Descarta`] lo tiro (N5.7); un programa sin ellos, siempre `true`.
     pub fn correr_con(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) -> bool {
+        self.correr_con_uavs(entradas, cb, rec, salidas, regs, &mut [])
+    }
+
+    /// **Lo mismo, con los UAV de un dibujo** (05-10): lo que escriba en ellos
+    /// queda (un pixel tirado por un `discard` deja lo que escribio ANTES de
+    /// el, y nada de despues: lo de D3D).
+    pub fn correr_con_uavs(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>, uavs: &mut [Option<crate::bufer::Uav>]) -> bool {
         regs.clear();
         regs.extend_from_slice(&self.iniciales);
         let mut p = Pausa::AL_EMPEZAR;
-        match self.correr_desde(&mut p, entradas, cb, rec, salidas, regs, Extra::Nada) {
+        match self.correr_desde(&mut p, entradas, cb, rec, salidas, regs, Extra::Uavs(uavs)) {
             Paro::Fin(queda) => queda,
             // Una barrera fuera del computo no espera a nadie.
             Paro::Barrera => true,
@@ -258,20 +279,24 @@ impl Programa {
                         }
                     }
                 }
+                // N5.5 y, desde el 05-10, en un dibujo (`Extra::Uavs`).
                 Op::EscribeUav { u, modo, i, desp, v, mascara } => {
                     let (k, o, v) = (bits(regs, i), bits(regs, desp), v.map(|r| bits(regs, r)));
-                    if let Extra::Grupo(g) = &mut x {
-                        if let Some(Some(w)) = g.uavs.get_mut(u as usize) {
-                            w.escribir(modo, k, o, v, mascara);
-                        }
+                    if let Some(Some(w)) = x.uavs().get_mut(u as usize) {
+                        w.escribir(modo, k, o, v, mascara);
                     }
                 }
+                Op::Atomico { d, u, modo, i, desp, como, v, igual } => {
+                    let (k, o, v, igual) = (bits(regs, i), bits(regs, desp), bits(regs, v), bits(regs, igual));
+                    let antes = match x.uavs().get_mut(u as usize) {
+                        Some(Some(w)) => w.atomico(modo, k, o, como, v, igual),
+                        _ => 0,
+                    };
+                    regs[d as usize] = f32::from_bits(antes);
+                }
                 Op::MedidasUav { d, u, modo } => {
-                    let v = match &x {
-                        Extra::Grupo(g) => match g.uavs.get(u as usize) {
-                            Some(Some(w)) => crate::bufer::Bufer { bytes: w.bytes, formato: w.formato, paso: w.paso, elementos: w.elementos }.medidas(modo),
-                            _ => [0; 4],
-                        },
+                    let v = match x.uavs().get(u as usize) {
+                        Some(Some(w)) => crate::bufer::Bufer { bytes: w.bytes, formato: w.formato, paso: w.paso, elementos: w.elementos }.medidas(modo),
                         _ => [0; 4],
                     };
                     for (j, w) in v.into_iter().enumerate() {
@@ -280,11 +305,8 @@ impl Programa {
                 }
                 Op::LeeUav { d, u, modo, i, desp } => {
                     let (k, o) = (bits(regs, i), bits(regs, desp));
-                    let v = match &x {
-                        Extra::Grupo(g) => match g.uavs.get(u as usize) {
-                            Some(Some(w)) => w.cargar(modo, k, o),
-                            _ => [0; 4],
-                        },
+                    let v = match x.uavs().get(u as usize) {
+                        Some(Some(w)) => w.cargar(modo, k, o),
                         _ => [0; 4],
                     };
                     for (j, w) in v.into_iter().enumerate() {
@@ -311,13 +333,10 @@ impl Programa {
                 Op::Entrada { d, elemento, componente } => {
                     regs[d as usize] = entradas.get(elemento as usize).map(|e| e[componente as usize & 3]).unwrap_or(0.0);
                 }
-                // E2.4: el contador del UAV (fuera del computo, 0).
+                // E2.4: el contador del UAV (sin UAV, 0).
                 Op::Contador { d, u, inc } => {
-                    let v = match &mut x {
-                        Extra::Grupo(g) => match g.uavs.get_mut(u as usize) {
-                            Some(Some(w)) => w.contar(inc),
-                            _ => 0,
-                        },
+                    let v = match x.uavs().get_mut(u as usize) {
+                        Some(Some(w)) => w.contar(inc),
                         _ => 0,
                     };
                     regs[d as usize] = f32::from_bits(v);

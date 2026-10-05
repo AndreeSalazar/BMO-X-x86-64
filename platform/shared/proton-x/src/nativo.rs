@@ -121,7 +121,9 @@ pub fn por_que_no(p: &Programa) -> Option<&'static str> {
         Op::Mate { .. } => Some("usa la matematica (exp, log, sin...)"),
         Op::Descarta { .. } => Some("tira pixeles (discard)"),
         Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => Some("indexa un array"),
-        Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } => Some("es de computo"),
+        // 05-10: un UAV en un dibujo: interpretado, nunca perdido.
+        Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::Atomico { .. } => Some("lee o escribe un UAV"),
+        Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } => Some("es de computo"),
         Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => Some("es de geometria"),
         _ => None,
     })
@@ -226,8 +228,9 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
             Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } => return None,
             // E2.3b: el sombreador de geometria, por el interprete.
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return None,
-            // E2.4: el contador de un UAV, por el interprete.
-            Op::Contador { .. } => return None,
+            // E2.4: el contador de un UAV, por el interprete; y (05-10) sus
+            // Interlocked.
+            Op::Contador { .. } | Op::Atomico { .. } => return None,
             Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } => unreachable!("mirado arriba: `muestrea`"),
             Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Entera { .. } | Op::Convierte { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => unreachable!("mirado arriba: `salta`"),
         }

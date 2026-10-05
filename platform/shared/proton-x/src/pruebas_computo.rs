@@ -23,7 +23,7 @@ fn un_dispatch_con_memoria_compartida_y_barrera_da_lo_de_hlsl() {
     assert_eq!(s.etapa, dxil::Etapa::Computo);
     assert_eq!(s.hilos, [64, 1, 1], "numthreads, de la PSV0");
     let p = programa::compilar(&s).unwrap();
-    assert_eq!(p.computo, programa::Computo { hilos: [64, 1, 1], compartida: 256 }, "64 float4 compartidos: 256 palabras");
+    assert_eq!(p.computo, programa::Computo { hilos: [64, 1, 1], compartida: 256, temprana: false }, "64 float4 compartidos: 256 palabras");
     assert_eq!(p.ranuras.uavs.len(), 1);
     assert!(p.ops.iter().any(|o| matches!(o, programa::Op::Barrera)));
 
@@ -99,7 +99,7 @@ fn la_textura_elegida_antes_de_la_barrera_sigue_elegida_despues() {
         lee: 0,
         filas_cb: 0,
         ranuras: Ranuras { dinamicas: vec![l], uavs: vec![l], ..Ranuras::default() },
-        computo: Computo { hilos: [2, 1, 1], compartida: 0 },
+        computo: Computo { hilos: [2, 1, 1], compartida: 0, temprana: false },
     };
     let buscar = |rango: u8, registro: u32| {
         (rango == 0 && registro == 7).then_some(Textura {
@@ -134,7 +134,7 @@ fn la_textura_elegida_antes_de_la_barrera_sigue_elegida_despues() {
 #[test]
 fn el_cs_de_nbody_se_compila_con_sus_getelementptr_constantes() {
     let p = dxil::computo::preparar(include_bytes!("../prueba/muestras/nbody/nBodyGravityCS.cso")).unwrap().programa;
-    assert_eq!(p.computo, programa::Computo { hilos: [128, 1, 1], compartida: 512 }, "128 float4 compartidos");
+    assert_eq!(p.computo, programa::Computo { hilos: [128, 1, 1], compartida: 512, temprana: false }, "128 float4 compartidos");
     let lecturas = p.ops.iter().filter(|o| matches!(o, programa::Op::LeeCompartida { .. })).count();
     assert_eq!(lecturas, 384, "128 interacciones de 3 floats");
     let (bucle, barreras) = (p.ops.iter().position(|o| matches!(o, programa::Op::Bucle)).unwrap(), p.ops.iter().enumerate().filter(|(_, o)| matches!(o, programa::Op::Barrera)).map(|(i, _)| i).collect::<Vec<_>>());

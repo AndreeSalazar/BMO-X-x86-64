@@ -576,6 +576,28 @@ fn n5_16_los_render_targets_de_float_guardan_lo_que_pasa_de_uno() {
     assert!(texto.ends_with("hdr.exe: los render targets de float son los de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
+/// **Los UAV escritos desde un DIBUJO** (05-10): `prueba/uavpixel.exe`
+/// (nuestro, `uavpixel.cpp`). A: cada pixel de la mitad izquierda escribe su
+/// posicion en SU texel de un `RWTexture2D<uint>` (de una tabla); B: cada
+/// pixel de una caja de 32 x 16 suma 1 con `InterlockedAdd` a un
+/// `RWByteAddressBuffer` de la RAIZ (512); C: cada vertice escribe 100 + su
+/// numero en un `RWBuffer<uint>`. Solo lo que no depende del orden de los
+/// pixeles. Antes: lo escrito se perdia (y lo decia un aviso).
+#[test]
+fn los_uav_de_un_dibujo_quedan_escritos() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, UAVPIXEL_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Un aviso: el cuadro sale de SV_VertexID con enteros (y escribe un
+    // UAV): se interpreta. Ninguno de UAV perdidos.
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
+    assert!(texto.contains("  bien  B, InterlockedAdd en un RWByteAddressBuffer de la raiz: 512 pixeles cubiertos"), "{texto}");
+    assert!(texto.ends_with("uavpixel.exe: los UAV de un dibujo son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
 /// **E2.3b -- D3D12nBodyGravity** (05-10, `Samples/Desktop`, MIT): el
 /// COMPUTO de verdad (10.000 particulas, la barrera DENTRO de un bucle, en
 /// SU hilo y su cola de computo, con vallas entre las dos colas) y un

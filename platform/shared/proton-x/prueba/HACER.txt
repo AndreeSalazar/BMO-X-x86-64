@@ -2382,3 +2382,59 @@ El banco (`tests/corre/muestras.rs`, n5_16): los 4 `bien`, sale con 0, y
 un solo aviso (el cuadro sale de SV_VertexID con enteros: se interpreta).
 Probado que dice NO: con la casa de ANTES del HDR, A, B y C salen MAL (C
 da 64 de rojo en vez de 207: el 1.0 recortado que el HDR quita).
+
+uavpixel_vs.dxil, uavpixel_pos.dxil, uavpixel_cuenta.dxil,
+uavpixel_temprana.dxil -- los de uavpixel.exe y su banco (05-10)
+
+Los UAV escritos desde un DIBUJO: `uavpixel.hlsl` (aqui al lado): VSCuadro
+(el cuadro de pantalla completa de SV_VertexID, que escribe 100 + su numero
+en un RWBuffer<uint>), PSPosicion (cada pixel, su posicion en SU texel de
+un RWTexture2D<uint>), PSCuenta (InterlockedAdd de 1 en un
+RWByteAddressBuffer; no lee nada) y PSCuentaTemprana (lo mismo con
+[earlydepthstencil]: solo para el banco, `src/pruebas_uav.rs`, no va en el
+.exe). Con el mismo `dxc` de Linux que los demas:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo uavpixel_vs.dxil uavpixel.hlsl
+   dxc -T ps_6_0 -E PSPosicion -Fo uavpixel_pos.dxil uavpixel.hlsl
+   dxc -T ps_6_0 -E PSCuenta -Fo uavpixel_cuenta.dxil uavpixel.hlsl
+   dxc -T ps_6_0 -E PSCuentaTemprana -Fo uavpixel_temprana.dxil uavpixel.hlsl
+
+   42f70ec1e3bcdd710e3cb47dd63a3c45599f153c5125760f79190ab2aac700d6  uavpixel_vs.dxil
+   d59b6f102e19a924285a25f1d512b50bca0eff55e1b8ba644b1fdbbf9ae9c1ae  uavpixel_pos.dxil
+   2eff863b51043b2c80b4a0fe54b851316296053959d23d94a81bf84864858b60  uavpixel_cuenta.dxil
+   9fe9960a280eeb4b9577269d664971a7c44d61ca2a508ce2e90251209998cb9e  uavpixel_temprana.dxil
+
+uavpixel.exe -- los UAV de un DIBUJO, juzgados (05-10)
+
+NUESTRO, no de Microsoft: `uavpixel.cpp` (aqui al lado), de consola, con
+los tres primeros .dxil dentro (`.incbin`). Un render target de 64 x 64 y
+dos dibujos del cuadro, con tres UAV en una root signature vista por todas
+las etapas: A, un RWTexture2D<uint> R32_UINT en una TABLA, limpiado a
+0xDEADBEEF, y con la tijera en la mitad izquierda cada pixel escribe
+y << 16 | x en SU texel (la derecha queda limpia); B, un RWByteAddressBuffer
+en la RAIZ (SetGraphicsRootUnorderedAccessView), limpiado a 0, y con la
+tijera en (8, 8)-(40, 24) cada pixel suma 1: 512; C, un RWBuffer<uint> de
+8 en otra tabla, limpiado a 0xFFFFFFFF: el de VERTICES escribe 100..105 en
+los seis primeros. Solo resultados que no dependen del orden de los
+pixeles (D3D no da ninguno): cada uno en lo suyo, y una suma. Sin Z ni
+discard. Dice `bien` 4 veces y sale con el numero de fallos; en Windows
+dice lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con uavpixel.cpp y los .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c uavpixel.cpp -o uavpixel.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o uavpixel.exe uavpixel.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   dcb782ba5dbd5d533a002faf797984847ea085d95186f92a7906555d026613c4  uavpixel.exe
+
+El banco (`tests/corre/muestras.rs`, los_uav_de_un_dibujo_quedan_escritos):
+los 4 `bien`, sale con 0, y un solo aviso (el cuadro sale de SV_VertexID con
+enteros: se interpreta). Probado que dice NO: con la casa de ANTES
+(14e6b7eb4) A, B y C salen MAL y sale con 3: el PSO de B no se sabia correr
+(`OperacionD3d(78)`: el atomicBinOp) y lo que escribian A y C se perdia
+(su aviso, "lo que escribe se pierde"): la textura seguia en 0xDEADBEEF y el
+bufer en 0xFFFFFFFF. Y en el banco del crate (`src/pruebas_uav.rs`), B da 1
+y no 64 si la trama guarda la memoria del ultimo pixel con UAV.

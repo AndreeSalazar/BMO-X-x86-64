@@ -410,6 +410,7 @@ fn escritos(op: &Op, mut f: impl FnMut(Reg)) {
         | Op::Entera { d, .. }
         | Op::Convierte { d, .. }
         | Op::Contador { d, .. }
+        | Op::Atomico { d, .. }
         | Op::LeeIndexado { d, .. } => f(d),
         Op::EscribeIndexado { base, n, .. } => (0..n).for_each(|k| f(base + k)),
         _ => {}
@@ -889,8 +890,8 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                 e.aqui(sin);
                 e.guardar(d, RAX);
             }
-            // Lo que no sabe: por el interprete.
-            Op::Mate { .. } | Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } | Op::ConstantesEn { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::MedidasUav { .. } => return None,
+            // Lo que no sabe: por el interprete (y, 05-10, los Interlocked).
+            Op::Mate { .. } | Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } | Op::ConstantesEn { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::MedidasUav { .. } | Op::Atomico { .. } => return None,
         }
     }
     if !sis.is_empty() || !bucles.is_empty() {

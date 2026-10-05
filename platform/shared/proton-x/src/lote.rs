@@ -367,6 +367,22 @@ pub struct Lote<'a> {
     /// INSTANCIA; SV_InstanceID cuenta desde 0, como en D3D12.
     pub instancias: u32,
     pub primera_instancia: u32,
+    /// 05-10: los UAV que ven sus sombreadores de vertices y de pixeles,
+    /// por ranura (`enlace.ranuras.uavs`): lo que escriben QUEDA. `None`, un
+    /// dibujo sin UAV. En una celda: el lote se da prestado (`&Lote`) y los
+    /// sombreadores escriben, uno detras de otro, nunca a la vez.
+    pub uavs: Option<&'a Uavs>,
+}
+
+/// Los UAV de un lote (ver [`Lote::uavs`]).
+pub type Uavs = core::cell::RefCell<Vec<Option<crate::bufer::Uav<'static>>>>;
+
+/// `f` con los UAV del lote (sin ellos, ninguno).
+fn con_uavs<R>(l: &Lote, f: impl FnOnce(&mut [Option<crate::bufer::Uav<'static>>]) -> R) -> R {
+    match l.uavs {
+        Some(u) => f(&mut u.borrow_mut()),
+        None => f(&mut []),
+    }
 }
 
 impl Lote<'_> {
@@ -469,10 +485,11 @@ pub fn entrada(l: &Lote, fuente: Fuente, id: u32, instancia: u32) -> [f32; 4] {
 pub fn en_cpu(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, NoDibuja> {
     let (mut rv, mut rp) = (Vec::new(), Vec::new());
     let en = l.enlace;
+    // 05-10: los dos, con los UAV del lote.
     let mut vs = |e: &[[f32; 4]], s: &mut [[f32; 4]]| {
-        en.vs.correr_con(e, l.cb, &l.recursos, s, &mut rv);
+        con_uavs(l, |u| en.vs.correr_con_uavs(e, l.cb, &l.recursos, s, &mut rv, u));
     };
-    en_cpu_con(l, destino, &mut vs, &mut |e, s| en.ps.correr_con(e, l.cb, &l.recursos, s, &mut rp))
+    en_cpu_con(l, destino, &mut vs, &mut |e, s| con_uavs(l, |u| en.ps.correr_con_uavs(e, l.cb, &l.recursos, s, &mut rp, u)))
 }
 
 /// **Lo mismo, con quien corre los sombreadores puesto desde fuera** (P3b3b:
@@ -524,13 +541,19 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs
     let mut sal_ps = vec![[0.0f32; 4]; en.ps.salidas.max(en.objetivos.len())];
     // Con SV_Depth, la prueba de profundidad va despues del de pixeles.
     let reglas = trama::Reglas { z_del_sombreador: en.profundidad_ps.is_some(), ..l.reglas };
-    Ok(trama::dibujar(&reglas, &sombreados, &locales, destino, en.pos_ps, |x, colores| {
+    Ok(trama::dibujar_con(&reglas, efectos(en), &sombreados, &locales, destino, en.pos_ps, |x, colores| {
         let queda = ps(x, &mut sal_ps);
         for (k, &t) in en.objetivos.iter().enumerate() {
             colores[t as usize] = sal_ps[k];
         }
         queda
     }))
+}
+
+/// Lo que su sombreador de pixeles hace ademas del color (05-10): con UAV,
+/// cada pixel corre, en orden, y la Z se prueba despues (si no la pide antes).
+fn efectos(en: &Enlace) -> trama::Efectos {
+    trama::Efectos { uav: en.ps.toca_uav(), temprana: en.ps.computo.temprana }
 }
 
 /// **El dibujo con un sombreador de GEOMETRIA** (E2.3b, 05-10): el de
@@ -592,7 +615,7 @@ fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: 
     }
     let mut sal_ps = vec![[0.0f32; 4]; en.ps.salidas.max(en.objetivos.len())];
     let reglas = trama::Reglas { z_del_sombreador: en.profundidad_ps.is_some(), ..l.reglas };
-    Ok(trama::dibujar(&reglas, &sombreados, &locales, destino, en.pos_ps, |x, colores| {
+    Ok(trama::dibujar_con(&reglas, efectos(en), &sombreados, &locales, destino, en.pos_ps, |x, colores| {
         let queda = ps(x, &mut sal_ps);
         for (k, &t) in en.objetivos.iter().enumerate() {
             colores[t as usize] = sal_ps[k];

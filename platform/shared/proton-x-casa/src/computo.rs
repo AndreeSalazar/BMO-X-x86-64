@@ -31,9 +31,10 @@ use crate::{aviso, d3d12};
 const UAV_BUFER: u32 = 1;
 
 /// **El UAV de bufer del lugar `l`**, buscado en las tablas de la raiz: la
-/// memoria de su bufer desde su primer elemento, para escribirla; `None` (y
-/// se lee como nulo) si no hay, o si es de una textura (todavia no).
-fn uav_de(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, l: Lugar) -> Option<Uav<'static>> {
+/// memoria de su bufer desde su primer elemento, para escribirla (o la de su
+/// textura: `uav_de_textura`); `None` (y se lee como nulo) si no hay. Lo
+/// usan el Dispatch y, desde el 05-10, el Draw (`tuberia::pintar`).
+pub(crate) fn uav_de(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, l: Lugar) -> Option<Uav<'static>> {
     use bmo_proton_x::donde::{self, RANGO_UAV};
     // N5.3b (05-10): un UAV en la RAIZ: crudo o estructurado, sin contador
     // (D3D12 no deja otros ahi).
@@ -57,7 +58,7 @@ fn uav_de(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranuras: &bmo_pro
         (false, p, _) if p != 0 => p as u64,
         (false, _, Some(f)) => f.bytes as u64,
         _ => {
-            aviso("Dispatch: un UAV de bufer sin paso ni un formato que la casa sepa (se ve nulo)");
+            aviso("Dispatch o Draw: un UAV de bufer sin paso ni un formato que la casa sepa (se ve nulo)");
             return None;
         }
     };
@@ -83,7 +84,7 @@ const UAV_TEXTURA_2D: u32 = 4;
 fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'static>> {
     use crate::subrecursos::Almacen;
     if dimension != UAV_TEXTURA_1D && dimension != UAV_TEXTURA_2D {
-        aviso("Dispatch: un UAV de textura 3D, de array o multimuestra: todavia no; se ve nulo");
+        aviso("Dispatch o Draw: un UAV de textura 3D, de array o multimuestra: todavia no; se ve nulo");
         return None;
     }
     // SAFETY: un Recurso de la casa (lo dice su ranura).
@@ -96,11 +97,11 @@ fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'
         Almacen::Flotante if (41..=43).contains(&formato_vista) => formato_vista,
         Almacen::Flotante => 41,
         Almacen::Bloques(_) => {
-            aviso("Dispatch: un UAV de una textura de bloques: en Windows es un error; se ve nulo");
+            aviso("Dispatch o Draw: un UAV de una textura de bloques: en Windows es un error; se ve nulo");
             return None;
         }
         Almacen::Flotantes4 => {
-            aviso("Dispatch: un UAV de una textura de float de 4 canales (HDR): todavia no (N5.16 a medias); se ve nulo");
+            aviso("Dispatch o Draw: un UAV de una textura de float de 4 canales (HDR): todavia no (N5.16 a medias); se ve nulo");
             return None;
         }
     };
@@ -108,7 +109,7 @@ fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'
         crate::tuberia::aplicar_limpieza(r[0]);
     }
     let Some((px, ancho, alto)) = crate::tuberia::destino(r[0], r[3]) else {
-        aviso("Dispatch: un UAV de un subrecurso que la textura no tiene; se ve nulo");
+        aviso("Dispatch o Draw: un UAV de un subrecurso que la textura no tiene; se ve nulo");
         return None;
     };
     // SAFETY: las palabras de un subrecurso de la casa, vistas como bytes;
@@ -127,7 +128,7 @@ fn contador_de(n: u32, datos: &[u8]) -> Option<&'static mut u32> {
     let c = crate::tuberia::resolver_hasta(va, 4).filter(|c| c.len() == 4 && va % 4 == 0)?;
     let (desde, hasta) = (datos.as_ptr() as u64, datos.as_ptr() as u64 + datos.len() as u64);
     if va < hasta && va + 4 > desde {
-        aviso("Dispatch: el contador de un UAV cae dentro de sus datos (en Windows es un error): se ve sin contador");
+        aviso("Dispatch o Draw: el contador de un UAV cae dentro de sus datos (en Windows es un error): se ve sin contador");
         return None;
     }
     // SAFETY: cuatro bytes alineados de un bufer de la casa, fuera de los

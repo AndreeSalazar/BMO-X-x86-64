@@ -882,9 +882,47 @@ la proxima corrida del metal dice cual pesa mas:
   cualquier formato (`formato_ia::empaquetar`) y
   `ClearUnorderedAccessViewUint` y `...Float` (buferes y texturas). Juez:
   `prueba/vistas.cpp` (B, C y D), bit a bit; dice NO sin el paso, sin la
-  limpieza y con la textura mal direccionada. Queda: los UAV en el de
-  PIXELES (escribir desde un dibujo), los de textura 3D o de array, y la
-  limpieza con rectangulos (hoy, la vista entera).
+  limpieza y con la textura mal direccionada. Queda: los de textura 3D o
+  de array, y la limpieza con rectangulos (hoy, la vista entera). Los UAV
+  en el de PIXELES (y en el de vertices), hechos: N5.3d.
+- [x] **N5.3d -- los UAV de un DIBUJO** (`platform/shared/proton-x/src/pruebas_uav.rs`,
+  05-10; en el banco, falta el metal y Windows). Lo que un sombreador de
+  pixeles o de vertices escribia en un UAV se PERDIA (y desde el 05-10 lo
+  decia un aviso). Ahora el lote lleva sus UAV (`Lote::uavs`: los de la
+  raiz y los de las tablas, buscados como los de un Dispatch,
+  `computo::uav_de`) y el interprete los ve en un dibujo
+  (`Extra::Uavs`, `Programa::correr_con_uavs`): `textureStore`,
+  `bufferStore`, sus lecturas, `GetDimensions`, el contador, y los
+  `Interlocked*` (`atomicBinOp` y `atomicCompareExchange`, nuevos: tambien
+  en el computo; `bufer::Atomo`). La trama, con un sombreador de pixeles que
+  toca UAV (`trama::Efectos`): corre CADA pixel cubierto, en su orden (sin
+  la memoria del ultimo pixel, que se saltaba escrituras: un `InterlockedAdd`
+  que no lee nada sumaba 1 en vez de 64), y la profundidad se prueba
+  DESPUES (lo de D3D: un pixel tapado tambien escribe), salvo con
+  `[earlydepthstencil]` (leido de las banderas de `dx.entryPoints`,
+  `recursos::banderas`), que la prueba y la escribe ANTES. Un pixel que hace
+  `discard` deja lo que escribio antes y nada de despues (lo de D3D). El
+  codigo nativo no traduce un sombreador con UAV (se interpreta, con su
+  aviso: "lee o escribe un UAV"); la puerta de la 3060 manda esos lotes a
+  la CPU y lo dice una vez. **Como se sabe:** `prueba/uavpixel.exe`
+  (nuestro, `uavpixel.cpp`): A, cada pixel su posicion en SU texel de un
+  `RWTexture2D<uint>` de una tabla; B, `InterlockedAdd` de cada pixel de una
+  caja de 32 x 16 en un `RWByteAddressBuffer` de la RAIZ (512); C, el de
+  vertices escribe 100..105 en un `RWBuffer<uint>`. Dice `bien` 4 veces;
+  con la casa de antes, A, B y C salen MAL. Y `src/pruebas_uav.rs`: la
+  cuenta con la Z detras (64) y con `[earlydepthstencil]` (0).
+  **Lo que puede fallar, dicho:** el orden entre pixeles de un dibujo aqui
+  es el de la trama (triangulo a triangulo, fila a fila); D3D no da
+  ninguno, asi que un juego que dependa de el (sin `Interlocked` ni
+  `RasterizerOrderedView`) puede ver otra cosa que en la 3060; un ROV
+  (`RasterizerOrdered*`) no se ha probado (aqui el orden ya seria el de
+  las primitivas); un sombreador con UAV va interpretado (lento); la regla
+  de "Z despues con UAV" es la de la especificacion de D3D11 y no se ha
+  visto contra la 3060 todavia.
+  **Queda:** los UAV de un sombreador de GEOMETRIA (lo dice un aviso: lo
+  que escribe se pierde), el dibujo SOLO con UAV (sin render target ni Z:
+  hoy "no hay donde dibujar"), los `Interlocked` traducidos a x86 y en la
+  3060, y verlo en el Ryzen y en Windows.
 - [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
   no es una constante. Hoy el sombreador no compila (y lo dice: "createHandle
   con un registro CALCULADO"); pide que la ranura sea un RANGO y no un
