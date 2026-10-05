@@ -331,7 +331,7 @@ const OFF_E_PID: usize = 108;
 const OFF_E_MOTIVO: usize = 112;
 const MOTIVO_LEN: usize = 64;
 /// v2 (05-10): el SEGUNDO PADRE de un estrato de mezcla, en los 16 bytes que
-/// v1 dejaba a cero (`ESTRATO.md`, "las ramas y la mezcla").
+/// v1 dejaba a cero (`ESTRATOS.md`, "las ramas y la mezcla").
 const OFF_E_SEGUNDO: usize = 176;
 const OFF_E_SUM: usize = ESTRATO_LEN - 32;
 
