@@ -272,8 +272,17 @@ fn the_system_theme_compiles() {
     assert_eq!(fino.border_color, [Some(0xC8A86B); 4], "el hilo de laton");
     assert_eq!(wearing("marfil").color, Some(0xF3EEE4));
 
+    // El MODO FASE (04-10): la placa de holograma y sus cuatro tintas.
+    let fase = wearing("fase");
+    assert_eq!(fase.background, Some(0x05070D));
+    assert_eq!(fase.border_color, [Some(0x1C4E66); 4], "el filo de holograma");
+    assert_eq!(wearing("fase-cian").color, Some(0x5EE8FF), "el cian del gato");
+    assert_eq!(wearing("fase-neon").color, Some(0xFF2E88), "el magenta del neon");
+    assert_eq!(wearing("fase-tinta").color, Some(0xEAF7FF));
+    assert_eq!(wearing("fase-tenue").color, Some(0x7F96AE));
+
     // On its own the theme has no markup, so every rule looks unused from here
     // -- which is exactly what a palette meant for OTHER files should look like.
-    assert_eq!(c.dead_rules.len(), 14, "las catorce reglas del tema (nueve de siempre y cinco de lo fino)");
+    assert_eq!(c.dead_rules.len(), 19, "las diecinueve reglas del tema (nueve de siempre, cinco de lo fino y cinco del MODO FASE)");
     assert!(c.orphan_classes.is_empty());
 }

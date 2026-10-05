@@ -30,6 +30,10 @@ use crate::{aviso, plataforma};
 
 /// `fn(registros, entradas, cbuffer, salidas)`: solo punteros, el ABI entero
 /// que el Rust soft-float de Ring 3 sabe llamar.
+/// La firma de un sombreador de computo traducido (`nativo_computo`): el
+/// ABI de System V. Vive aqui y no en `bmo-proton-x`, que es puro.
+pub(crate) type FuncionComputo = unsafe extern "sysv64" fn(*mut f32, *mut bmo_proton_x::nativo_computo::Contexto, *const u8) -> u32;
+
 type Sombreador = extern "sysv64" fn(*mut f32, *const [f32; 4], *const u8, *mut [f32; 4]);
 
 struct Traducido {
@@ -110,12 +114,12 @@ pub(crate) fn registrar_computo(p: &bmo_proton_x::dxil::programa::Programa) -> O
 
 /// **La funcion de computo** que empieza en `desde`, en el bloque de ahora
 /// (`None` si no quedo bloque).
-pub(crate) fn computo(desde: usize) -> Option<bmo_proton_x::nativo_computo::Funcion> {
+pub(crate) fn computo(desde: usize) -> Option<FuncionComputo> {
     let (base, n) = estado().bloque?;
     // SAFETY: `base + desde` es el principio de una funcion traducida por
     // `nativo_computo::compilar`, dentro del bloque sellado vivo (que mide
     // `n`); su firma es esa.
-    (desde < n).then(|| unsafe { core::mem::transmute::<usize, bmo_proton_x::nativo_computo::Funcion>(base as usize + desde) })
+    (desde < n).then(|| unsafe { core::mem::transmute::<usize, FuncionComputo>(base as usize + desde) })
 }
 
 /// Rehacer el bloque sellado con TODO el codigo de ahora.

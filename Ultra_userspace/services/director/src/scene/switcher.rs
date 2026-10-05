@@ -154,7 +154,7 @@ pub(crate) fn vivir(p: &bmo::Pantalla) {
 /// desde el id que guarda la politica, y el `?` que ya no puede pasar.
 pub(crate) fn name(id: u8) -> &'static [u8] {
     match Ventana::de_id(id) {
-        Some(v) => v.rotulo(),
+        Some(v) => super::nombre_app::rotulo(v),
         None => b"?",
     }
 }

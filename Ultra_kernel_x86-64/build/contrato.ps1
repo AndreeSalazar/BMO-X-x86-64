@@ -340,42 +340,66 @@ Write-Host ('    OP_INFO: ' + $infoCampos.Count + ' campos, el mismo id en kerne
 # ironico de todos: el sistema entero se construyo para no tener la maquetacion
 # escrita dos veces.
 #
-# No se comprueba con una lista: se barren los `.maqueta` que hay, se regenera
-# cada uno a un temporal y se compara. Un fichero nuevo entra solo.
+# No se comprueba con una lista: se barren los `*_gen.rs` de la escena, cada
+# uno dice en su primera linea de que `.maqueta` sale ("GENERADO POR MAQUETA
+# DESDE `...`"), se regenera ese a un temporal y se compara. Una cara nueva
+# entra sola.
+#
+# [!] Se barre por el LADO GENERADO (2026-10-05). Antes se barrian los
+# `.maqueta` de `toolchain/tools/maqueta/pruebas/` y se exigia a cada uno su
+# `_gen.rs`; el 2026-10-04 esa carpeta paso de una cara (`calc`) a once, las
+# otras diez pruebas del compilador que no son caras del escritorio, y el
+# guardian se cayo en `amigo.maqueta`. Asi, ademas, se comprueba tambien la
+# paleta (`tema_gen.rs`, de `maqueta --paleta`), que antes no miraba nadie.
+#
+# Lo que deja de ver: un `.maqueta` que SI deberia ser cara y nunca se genero.
+# Eso no lo puede saber un barrido: la prueba de que algo es cara es su Rust.
 Step 'Validating generated faces match their .maqueta'
-$maqDir = Join-Path $root '../toolchain/tools/maqueta/pruebas'
-$maqFiles = @(Get-ChildItem -Path $maqDir -Filter '*.maqueta' -File -ErrorAction SilentlyContinue)
-if ($maqFiles.Count -eq 0) {
-    Fail ('no hay ni un .maqueta en ' + $maqDir + ' -- las caras generadas no se pueden comprobar')
-}
-# Donde vive el Rust de cada cara. Por convencion: `<nombre>_gen.rs` en la
-# escena del compositor -- la misma que declara la cabecera del generado.
+# Donde vive el Rust de cada cara: la escena del compositor.
 $escena = Join-Path $root '../Ultra_userspace/services/director/src/scene'
+$genFiles = @(Get-ChildItem -Path $escena -Filter '*_gen.rs' -File -ErrorAction SilentlyContinue)
+if ($genFiles.Count -eq 0) {
+    Fail ('no hay ni un *_gen.rs en ' + $escena + ' -- las caras generadas no se pueden comprobar')
+}
 $lf = [string][char]10
 $crlf = [string][char]13 + $lf
-foreach ($maq in $maqFiles) {
-    $gen = Join-Path $escena ($maq.BaseName + '_gen.rs')
-    if (-not (Test-Path $gen)) {
-        Fail ('la cara ' + $maq.Name + ' no tiene su ' + $maq.BaseName + '_gen.rs -- o se genero y no se guardo, o el nombre no sigue la convencion')
+foreach ($gen in $genFiles) {
+    $cabecera = Get-Content -LiteralPath $gen.FullName -TotalCount 1
+    if ($cabecera -notmatch '^//! GENERADO POR MAQUETA DESDE `([^`]+)`') {
+        Fail ($gen.Name + ' se llama _gen.rs pero no dice de que .maqueta sale -- o no es de MAQUETA (y sobra el nombre), o alguien le quito la cabecera')
     }
-    $tmp = Join-Path $env:TEMP ($maq.BaseName + '_gen.comprobacion.rs')
-    Push-Location (Join-Path $root '..')
-    $salida = (cargo run -q -p bmo-maqueta -- $maq.FullName $tmp 2>&1 | Out-String)
-    Pop-Location
-    if (-not (Test-Path $tmp)) {
-        Write-Host $salida
-        Fail ('el compilador de maqueta no emitio nada para ' + $maq.Name)
+    $fuente = $Matches[1]
+    $maq = Join-Path (Join-Path $root '..') $fuente
+    if (-not (Test-Path -LiteralPath $maq)) {
+        Fail ($gen.Name + ' dice salir de ' + $fuente + ', y ese .maqueta no esta -- se movio o se borro la verdad de la cara')
     }
     # Los finales de linea no son la cara: se normalizan antes de comparar, o
     # este guardian gritaria por un `git config` distinto en otra maquina.
-    $a = (Get-Content $gen -Raw).Replace($crlf, $lf)
-    $b = (Get-Content $tmp -Raw).Replace($crlf, $lf)
+    $a = (Get-Content -LiteralPath $gen.FullName -Raw).Replace($crlf, $lf)
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ($gen.BaseName + '.comprobacion.rs')
+    $igual = $false
+    # Una cara se emite tal cual; la paleta, con `--paleta`. Vale la que case:
+    # las dos son lo que MAQUETA dice de esa fuente.
+    foreach ($modo in @(@(), @('--paleta'))) {
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+        Push-Location (Join-Path $root '..')
+        $salida = (cargo run -q -p bmo-maqueta -- @modo $maq $tmp 2>&1 | Out-String)
+        Pop-Location
+        if (-not (Test-Path $tmp)) {
+            Write-Host $salida
+            Fail ('el compilador de maqueta no emitio nada para ' + $fuente)
+        }
+        if ($a -eq (Get-Content $tmp -Raw).Replace($crlf, $lf)) {
+            $igual = $true
+            break
+        }
+    }
     Remove-Item $tmp -ErrorAction SilentlyContinue
-    if ($a -ne $b) {
-        Fail ('DERIVA: ' + $maq.Name + ' y ' + $maq.BaseName + '_gen.rs dicen caras distintas. Regenera con: cargo run -p bmo-maqueta -- ' + $maq.FullName + ' ' + $gen)
+    if (-not $igual) {
+        Fail ('DERIVA: ' + $fuente + ' y ' + $gen.Name + ' dicen caras distintas. Regenera con: cargo run -p bmo-maqueta -- [--paleta] ' + $fuente + ' ' + $gen.FullName)
     }
 }
-Write-Host ('    caras: ' + $maqFiles.Count + ' .maqueta, y su Rust generado dice lo mismo') -ForegroundColor DarkGray
+Write-Host ('    caras: ' + $genFiles.Count + ' _gen.rs, y cada uno dice lo mismo que su .maqueta') -ForegroundColor DarkGray
 
 # -- ** Y LA CUARTA COPIA: `bmo.h`, LA CARA EN C DE LA MISMA TABLA --------
 #

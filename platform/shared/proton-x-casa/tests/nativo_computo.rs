@@ -13,7 +13,10 @@
 use bmo_proton_x::bufer::{Bufer, Uav};
 use bmo_proton_x::dxil::programa::{Comparacion, Conversion, Op, OpEntera, Programa};
 use bmo_proton_x::dxil::{self, ejemplos};
-use bmo_proton_x::nativo_computo::{self, Contexto, Funcion, Vista, ACABO, VISTAS};
+use bmo_proton_x::nativo_computo::{self, Contexto, Vista, ACABO, VISTAS};
+
+/// La firma del codigo traducido (en la casa es `FuncionComputo`).
+type Funcion = unsafe extern "sysv64" fn(*mut f32, *mut Contexto, *const u8) -> u32;
 use bmo_proton_x::textura::Recursos;
 
 const COMPUTO: &[u8] = include_bytes!("../../proton-x/prueba/computo.dxil");
@@ -58,7 +61,7 @@ fn los_dos(cs: &[u8], grupos: [u32; 3], cb: &[u8], srv: &[u8], paso_srv: u32, ua
     {
         let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: paso_uav, elementos, contador: None })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
-        unsafe { nativo_computo::despachar(&p, f, grupos, cb, &buf, &mut u) };
+        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, cb, &buf, &mut u);
     }
     eprintln!("interpretado {interpretado:?}, traducido {:?}", t.elapsed());
     (a, b)
@@ -347,7 +350,7 @@ fn el_cs_de_nbody_traducido_da_la_fisica() {
     {
         let mut u = [Some(Uav { bytes: &mut salida, formato: 0, paso: 32, elementos: n as u32, contador: None })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
-        unsafe { nativo_computo::despachar(&p, f, [grupos, 1, 1], &cb, &buf, &mut u) };
+        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, [grupos, 1, 1], &cb, &buf, &mut u);
     }
     let leer = |i: usize, k: usize| f32::from_le_bytes(salida[i * 32 + 4 * k..i * 32 + 4 * k + 4].try_into().unwrap()) as f64;
     let (masa, suave, dt) = (6.673e-11f64 * 1e4 * 1e4 * 1e4, 0.00125f64 * 0.00125, 0.1f64);
@@ -424,7 +427,7 @@ fn el_cs_de_execute_indirect_traducido_da_el_contador_del_interprete() {
     {
         let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut cb_) })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
-        unsafe { nativo_computo::despachar(&p, f, grupos, &cb, &buf, &mut u) };
+        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, &cb, &buf, &mut u);
     }
     assert!(ca > 10 && (ca as usize) < n, "pasan unas y otras no: {ca}");
     assert_eq!(ca, cb_, "el mismo contador");

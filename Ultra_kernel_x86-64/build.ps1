@@ -63,6 +63,9 @@ if (-not $root) { $root = Split-Path -Parent $MyInvocation.MyCommand.Path }
 # La hora de arranque, para poder distinguir despues lo que este build produjo
 # de lo que se quedo de otro. Ver el guardian de fantasmas del final.
 $buildStart = Get-Date
+# Lo que dejo un `exit` de un fichero cargado con punto (ver `Fail` en
+# build\comun.ps1: alli esta el por que).
+$script:salida = $null
 
 # El reloj por etapa, `Step`, `Tiempos`, `Fail`, `Hash256` y `Guardian`: en
 # `build\comun.ps1` desde el 2026-10-03, porque las tres ventanas de
@@ -189,6 +192,7 @@ if ($SoloDiscos) {
     }
     $deployFiles = @('BOOTX64.EFI', 'BMO-MANIFEST.TXT')
     . (Join-Path $PSScriptRoot 'build\discos.ps1')
+    if ($null -ne $script:salida) { exit $script:salida }
     $espejoLetra = if ($Data) { $Data.TrimEnd([char]':', [char]'\').ToUpper() } else { $Drive.TrimEnd([char]':', [char]'\').ToUpper() }
     Espejo $espejoLetra
     Tiempos
@@ -212,8 +216,10 @@ if ($SinGuardianes) {
     Write-Host '  (los guardianes y el contrato los corre la ventana VERIFICAR, a la vez)' -ForegroundColor DarkGray
 } else {
     . (Join-Path $PSScriptRoot 'build\guardianes.ps1')
+    if ($null -ne $script:salida) { exit $script:salida }
     # -- CONTRATO (L6a: `build.ps1` se partio el 2026-08-28) --------
     . (Join-Path $PSScriptRoot 'build\contrato.ps1')
+    if ($null -ne $script:salida) { exit $script:salida }
 }
 # NOTE: uefi_chain is now the UNIFIED shim -- it embeds the flat binaries
 # of s1_cpu, s2_mem and the kernel via include_bytes!, so it is built
@@ -340,8 +346,10 @@ if ($pila3Python) {
 # se NIEGA a recortar, porque un nombre recortado abre otro archivo.
 # -- EJEMPLOS (L6a: `build.ps1` se partio el 2026-08-28) --------
 . (Join-Path $PSScriptRoot 'build\ejemplos.ps1')
+if ($null -ne $script:salida) { exit $script:salida }
 # -- FIRMWARE DEL GSP (L0c): bajado una vez, verificado por SHA-256 ----
 . (Join-Path $PSScriptRoot 'build\firmware.ps1')
+if ($null -ne $script:salida) { exit $script:salida }
 
 # -- Build kernel (Ring 0 base) ------------------------------------
 Step 'Building kernel (Ring 0 base)...'
@@ -700,6 +708,7 @@ if ($BuildOnly) {
 
 # -- DISCOS (L6a: `build.ps1` se partio el 2026-08-28) --------
 . (Join-Path $PSScriptRoot 'build\discos.ps1')
+if ($null -ne $script:salida) { exit $script:salida }
 
 Espejo $espejoLetra
 SinCopiar

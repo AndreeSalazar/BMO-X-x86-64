@@ -198,18 +198,9 @@ impl Ventana {
         }
     }
 
-    /// **Lo que se lee de ella** en su ficha y en Alt+Tab: el nombre de
-    /// arriba, salvo una app, que dice el de su programa (`TALLER`, `DOOM`)
-    /// si el kernel lo apunto. Ver `scene::nombre_app`.
-    pub(crate) fn rotulo(self) -> &'static [u8] {
-        match self {
-            Ventana::App(k) => match crate::scene::nombre_app::del_hueco(k as usize) {
-                Some(n) => n.texto(),
-                None => self.nombre().as_bytes(),
-            },
-            _ => self.nombre().as_bytes(),
-        }
-    }
+    // Lo que se lee de ella en su ficha y en Alt+Tab (`rotulo`) vive en
+    // `scene::nombre_app` desde el 05-10: aqui hacia que `ventana` y `scene`
+    // se importaran en los dos sentidos (L8, `capas.py`).
 }
 
 /// **El foco, hablando en ventanas.**

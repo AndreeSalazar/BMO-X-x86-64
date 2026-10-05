@@ -92,9 +92,10 @@ const V_PASO: i32 = 16;
 const V_ELEMENTOS: i32 = 20;
 const V_CONTADOR: i32 = 24;
 
-/// La firma de la funcion traducida: el ABI de System V (el de los
-/// punteros de arriba), que sabe llamar el Rust soft-float de Ring 3.
-pub type Funcion = unsafe extern "sysv64" fn(*mut f32, *mut Contexto, *const u8) -> u32;
+// La firma de la funcion traducida es `unsafe extern "sysv64" fn(*mut f32,
+// *mut Contexto, *const u8) -> u32` (el ABI de System V, el de los punteros
+// de arriba, que sabe llamar el Rust soft-float de Ring 3). El tipo vive en
+// la casa (`FuncionComputo`): esto es `capa: puro`, y sellar y llamar es suyo.
 
 /// Lo que devuelve: acabo, se paro en una barrera, o el pixel se tiro.
 pub const ACABO: u32 = 0;
@@ -913,14 +914,16 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
     Some(e.b)
 }
 
-/// **Un Dispatch con la funcion traducida** `f` (la de [`compilar`] sobre
-/// `p`): lo mismo que [`Programa::despachar`], grupo a grupo y barrera a
-/// barrera, con las cuentas en x86. Los SRV son los buferes del dibujo (por
-/// ranura) y los UAV, los del Dispatch.
+/// **Un Dispatch con la funcion traducida** (la de [`compilar`] sobre `p`):
+/// lo mismo que [`Programa::despachar`], grupo a grupo y barrera a barrera,
+/// con las cuentas en x86. Los SRV son los buferes del dibujo (por ranura) y
+/// los UAV, los del Dispatch.
 ///
-/// # Safety
-/// `f` es el codigo de `compilar(p)`, sellado y vivo mientras dure esto.
-pub unsafe fn despachar(p: &Programa, f: Funcion, grupos: [u32; 3], cb: &[u8], srv: &[Option<crate::bufer::Bufer>], uavs: &mut [Option<crate::bufer::Uav>]) -> u64 {
+/// `llamar(regs, contexto, cb)` llama al codigo sellado: lo pone la casa,
+/// que es quien lo sello y quien promete que es el de `compilar(p)` (este
+/// crate es puro: sin `unsafe`). Los punteros son de esta funcion y viven lo
+/// que ella.
+pub fn despachar(p: &Programa, llamar: &mut dyn FnMut(*mut f32, *mut Contexto, *const u8) -> u32, grupos: [u32; 3], cb: &[u8], srv: &[Option<crate::bufer::Bufer>], uavs: &mut [Option<crate::bufer::Uav>]) -> u64 {
     let [hx, hy, hz] = p.computo.hilos;
     let n = (hx * hy * hz) as usize;
     if n == 0 {
@@ -981,10 +984,7 @@ pub unsafe fn despachar(p: &Programa, f: Funcion, grupos: [u32; 3], cb: &[u8], s
                         let en = [t % hx, (t / hx) % hy, t / (hx * hy)];
                         c.ids = [gx * hx + en[0], gy * hy + en[1], gz * hz + en[2], gx, gy, gz, en[0], en[1], en[2], t];
                         c.reanudar = *reanudar;
-                        // SAFETY: lo promete quien llama (`f` es la de `p`);
-                        // los punteros del contexto son de esta funcion y
-                        // viven lo que ella.
-                        match unsafe { f(regs.as_mut_ptr(), &mut c, cb.as_ptr()) } {
+                        match llamar(regs.as_mut_ptr(), &mut c, cb.as_ptr()) {
                             BARRERA => {
                                 *reanudar = c.reanudar;
                                 alguno_espera = true;

@@ -13,7 +13,7 @@ del escritorio desde el 2026-09-22 (*"si, pon la ciudad de fondo"*).
 
 ## Por que aqui y no el `.qoi`
 
-Por la regla de `Nuevo-Fondo` en `ejemplos.ps1`: **un binario en el repo no se
+Por la regla de `Nuevo-Fondo` en `imagenes.ps1` (antes en `ejemplos.ps1`): **un binario en el repo no se
 lee en un diff**. El `.qoi` es un PRODUCTO -- lo hace el build con
 `toolchain/tools/fondo/a_qoi.py` (cubrir la pantalla con Lanczos, QOI, y la ida
 y vuelta comprobada con Pillow). Lo que no se puede generar es el arte, y el
