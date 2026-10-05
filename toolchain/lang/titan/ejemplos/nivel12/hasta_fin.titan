@@ -1,0 +1,22 @@
+# espera: BIEN
+# entra: pan
+# entra: leche
+# entra: huevos
+# entra: fin
+# sale: apunta lo que falta; fin para terminar
+# sale: 1: pan
+# sale: 2: leche
+# sale: 3: huevos
+# sale: son 3 cosas
+# un `while` que para cuando LO TECLEADO lo dice: nadie sabia al compilar cuantas vueltas daria
+mod main "la lista de la compra"
+
+fn main()
+    print("apunta lo que falta; fin para terminar")
+    let mut n = 0
+    let mut cosa = lee()
+    while cosa != "fin"
+        n = n + 1
+        print(n, ": ", cosa)
+        cosa = lee()
+    print("son ", n, " cosas")

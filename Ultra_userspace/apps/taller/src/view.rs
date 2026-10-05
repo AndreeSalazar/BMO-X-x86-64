@@ -19,6 +19,7 @@
 //! `aspecto/titan.maqueta` and the soft pieces are MAQUETA 2's (`aspecto.rs`).
 
 use crate::canvas::Canvas;
+use crate::iconos::Icon;
 use crate::player::{duration, Player, TRAVEL_MS};
 use bmo_dibujo::{mezclar, Color, Lienzo, Vertice};
 use bmo_titan_contrato::{EventKind, Graph, Lang, Mode, Node, NodeId, NodeKind, Permission, Script, MAX_NODES};
@@ -252,7 +253,7 @@ pub fn draw(c: &mut Canvas, sc: &Scene) {
             let (x, y, w, h) = node_rect(cam, n);
             look::shine(c, x, y, w, h, look::r_at(look::R_NODE, cam.zoom), 14, ACCENT, 170);
         }
-        node(c, g, cam, id, n, current, sc.now_ms);
+        node(c, g, cam, id, n, current, sc.now_ms, crate::astros::traits_of(sc.files, id));
     }
     chips(c, g, p, cam);
     crate::faults::draw_over(c, g, cam, sc.faults, clock, lively);
@@ -261,7 +262,7 @@ pub fn draw(c: &mut Canvas, sc: &Scene) {
     if sc.script.is_some() {
         panel(c, g, s, p);
     } else {
-        quiet_panel(c);
+        quiet_panel(c, g, sc.files);
     }
 }
 
@@ -400,7 +401,8 @@ pub fn draw_wire(c: &mut Canvas, g: &Graph, cam: &Camera, from: NodeId, x: i32, 
     }
 }
 
-fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: Option<EventKind>, now_ms: u32) {
+#[allow(clippy::too_many_arguments)]
+fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: Option<EventKind>, now_ms: u32, tr: bmo_titan_lector::Traits) {
     let (x, y, w, h) = node_rect(cam, n);
     if x + w < 0 || y + h < TOP || x >= c.w || y >= c.h - PANEL {
         return;
@@ -441,6 +443,32 @@ fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: 
     let scale = if cam.zoom >= 1500 { 2 } else { 1 };
     let line = 16 * scale;
     c.text_fit(x + 8, y + (head_h - 16).max(0) / 2, label.as_bytes(), INK, w - 16);
+    // ** Its SHAPE, in the header, right to left: where the program starts
+    // (main), the 3060's chip, and what the module DOES (`iconos.rs`) --
+    // print, decide, repeat, crystal, change, value, call, return. They
+    // change the moment the file is saved.
+    let main = n.kind == NodeKind::Module && n.name.as_bytes() == b"main";
+    let shapes = [
+        (Icon::Play, main),
+        (Icon::Chip, n.kind == NodeKind::Gpu),
+        (Icon::Printer, tr.writes > 0),
+        (Icon::Decide, tr.ifs > 0),
+        (Icon::Repeat, tr.loops > 0),
+        (Icon::Crystal, tr.types > 0),
+        (Icon::Change, tr.muts > 0),
+        (Icon::Value, tr.lets > 0),
+        (Icon::Call, tr.calls > 0),
+        (Icon::Return, tr.returns > 0),
+    ];
+    let s = (head_h - 6).clamp(8, 16);
+    let floor = x + 16 + label.len() as i32 * 8;
+    let mut ix = x + w - s - 8;
+    for (icon, on) in shapes {
+        if on && ix >= floor {
+            crate::iconos::draw(c, icon, ix, y + (head_h - s) / 2, s);
+            ix -= s + 4;
+        }
+    }
     let mut ty = y + head_h + 6;
     if scale == 2 {
         c.text(x + 8, ty, n.name.as_bytes(), INK, 2);
@@ -455,8 +483,31 @@ fn node(c: &mut Canvas, g: &Graph, cam: &Camera, id: NodeId, n: &Node, current: 
     let max = ((w - 16) / 8).max(1) as usize;
     let (a, b) = wrap(n.purpose.as_bytes(), max);
     c.text_fit(x + 8, ty, a, DIM, w - 16);
-    if ty + 16 < y + h - 4 {
-        c.text_fit(x + 8, ty + 16, b, DIM, w - 16);
+    if n.kind != NodeKind::Module {
+        if ty + 16 < y + h - 4 {
+            c.text_fit(x + 8, ty + 16, b, DIM, w - 16);
+        }
+        return;
+    }
+    // ** THE PRINTER and what it prints: the exact text when every argument
+    // is a written text, its arguments as written when something is
+    // calculated (`titan_lector::traits::Said`).
+    ty += line;
+    if tr.writes > 0 && ty + 16 <= y + h - 2 {
+        crate::iconos::draw(c, Icon::Printer, x + 8, ty, 16);
+        let said = tr.says.as_bytes();
+        let (tx, room) = (x + 30, w - 38);
+        if tr.says.exact {
+            let k = c.text_fit(tx, ty, b"\"", GOOD, room);
+            let k = k + c.text_fit(tx + k, ty, said, GOOD, room - k - 16);
+            c.text_fit(tx + k, ty, if tr.says.cut { b"...\"" } else { b"\"" }, GOOD, room - k);
+        } else {
+            let k = c.text_fit(tx, ty, b"print(", DIM, room);
+            let k = k + c.text_fit(tx + k, ty, said, INK, room - k - 8);
+            c.text_fit(tx + k, ty, b")", DIM, room - k);
+        }
+    } else if ty - line + 32 < y + h - 2 {
+        c.text_fit(x + 8, ty - line + 16, b, DIM, w - 16);
     }
 }
 
@@ -709,10 +760,44 @@ fn panel(c: &mut Canvas, g: &Graph, s: &Script, p: &Player) {
 /// A graph the sample's events do not fit (a module or a cable they name is
 /// not there -- after a hang, for one): say so, instead of animating
 /// something invented.
-fn quiet_panel(c: &mut Canvas) {
+/// Without the checker's script, the panel is the CONSOLA: what the nodes
+/// print, read from their text -- the exact text when every argument is a
+/// written one (`print("hola mundo")` writes `hola mundo`, nothing to
+/// calculate), the arguments as written when something is calculated. It is
+/// the first `print` of each node, and it says so; running the whole program
+/// is `titan build`'s (and, with T6, the compiler inside F1).
+fn quiet_panel(c: &mut Canvas, g: &Graph, files: &[bmo_titan_lector::FileEntry]) {
     let (x, top, w) = panel_box(c);
-    c.text_fit(x, top + 8, b"Sin animacion: el guion de ejemplo pide modulos y cables que este grafo no tiene.", INK, w);
-    c.text_fit(x, top + 30, b"No se anima nada inventado. Los prestamos de verdad llegan con el comprobador (TITAN_MAESTRO, T2-T4).", DIM, w);
+    let k = c.text(x, top + 8, b"CONSOLA", TITLE, 1);
+    c.text_fit(x + k + 12, top + 8, b"el primer print de cada nodo, leido de su texto; cambia al guardar", DIM, w - k - 12);
+    let mut y = top + 30;
+    let mut any = false;
+    for f in files.iter().filter(|f| f.traits.writes > 0) {
+        if y > top + PANEL - 44 {
+            break;
+        }
+        any = true;
+        crate::iconos::draw(c, Icon::Printer, x, y - 1, 14);
+        let name = g.node(f.node).map_or(&b"?"[..], |n| n.name.as_bytes());
+        let nw = c.text(x + 22, y, name, DIM, 1);
+        let said = f.traits.says.as_bytes();
+        let tx = x + 22 + nw + 12;
+        if f.traits.says.exact {
+            let k = c.text(tx, y, b"> ", GOOD, 1);
+            let k = k + c.text_fit(tx + k, y, said, GOOD, w - (tx - x) - k - 24);
+            if f.traits.says.cut {
+                c.text(tx + k, y, b"...", GOOD, 1);
+            }
+        } else {
+            let k = c.text(tx, y, b"print(", DIM, 1);
+            let k = k + c.text_fit(tx + k, y, said, INK, w - (tx - x) - k - 24);
+            c.text(tx + k, y, b")  se calcula al compilar", DIM, 1);
+        }
+        y += 18;
+    }
+    if !any {
+        c.text_fit(x, y, b"ningun nodo escribe todavia: un print(\"hola\") en su codigo (doble clic en el nodo)", DIM, w);
+    }
     help(c, x, top);
 }
 
@@ -720,7 +805,7 @@ fn help(c: &mut Canvas, x: i32, top: i32) {
     c.text(
         x,
         top + PANEL - 22,
-        b"[espacio] pausa [n] paso [r] repite [+-] zoom [0] encuadra [e] error [t] ESPACIO  pin de abajo a otro nodo: use  [Esc] sale",
+        b"2 clics en un nodo: su codigo  clic der: menu  [TAB] maestros  [+-] zoom  [0] encuadra  [t] ESPACIO  [Esc] sale",
         DIM,
         1,
     );

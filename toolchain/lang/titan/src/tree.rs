@@ -30,6 +30,9 @@
 //!    level 11  `gpu fn mezcla(a: f32, b: f32) -> f32`: written for ONE
 //!              cell, applied to tables of n cells it is n threads of the
 //!              3060; `f32` lives there (PLAN_EL_CENTAURO, D1 and D2)
+//!    level 13  what GROWS: lists `[int]` and maps `{text: int}`, written
+//!              `{"ana": 3}`, and `Opcion[int]`, the case `get` and `pop`
+//!              give (`docs/plan/PLAN_LISTAS_Y_MAPAS.md`)
 //! ```
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -175,6 +178,12 @@ pub enum Ty {
     Table(Box<Ty>, usize),
     /// A `type` of the file, by name (level 6).
     Named(String),
+    /// `[int]`: a list -- it grows and shrinks while the program runs (13).
+    List(Box<Ty>),
+    /// `{text: int}`: a map -- a key leads to a value (13).
+    Map(Box<Ty>, Box<Ty>),
+    /// `Opcion[int]`: what `get` and `pop` give -- `Hay(v)` or `NoHay` (13).
+    Opt(Box<Ty>),
 }
 
 impl Ty {
@@ -188,6 +197,9 @@ impl Ty {
             Ty::F32 => "f32".into(),
             Ty::Table(t, n) => format!("[{}; {}]", t.name(), n),
             Ty::Named(n) => n.clone(),
+            Ty::List(t) => format!("[{}]", t.name()),
+            Ty::Map(k, v) => format!("{{{}: {}}}", k.name(), v.name()),
+            Ty::Opt(t) => format!("Opcion[{}]", t.name()),
         }
     }
 }
@@ -367,6 +379,8 @@ pub enum Expr {
     Lend { mode: Mode, name: String, line: usize, col: usize },
     /// `round(x, 2)`: the rounding WRITTEN, COBOL's `ROUNDED` (level 7).
     Round { value: Box<Expr>, digits: u32, line: usize, col: usize },
+    /// `{"ana": 3, "bo": 5}`, or `{}`: a map written, key and value (13).
+    Map { items: Vec<(Expr, Expr)>, line: usize, col: usize },
 }
 
 /// A decimal as it is written: `1250` with scale 2 is `12.50`.
@@ -401,7 +415,8 @@ impl Expr {
             | Expr::Field { line, col, .. }
             | Expr::Record { line, col, .. }
             | Expr::Lend { line, col, .. }
-            | Expr::Round { line, col, .. } => (*line, *col),
+            | Expr::Round { line, col, .. }
+            | Expr::Map { line, col, .. } => (*line, *col),
         }
     }
 
@@ -429,6 +444,7 @@ impl Expr {
             }
             Expr::Lend { mode, name, .. } => format!("{} {}", mode.word(), name),
             Expr::Round { value, digits, .. } => format!("round({}, {})", value.show(), digits),
+            Expr::Map { items, .. } => format!("{{{}}}", items.iter().map(|(k, v)| format!("{}: {}", k.show(), v.show())).collect::<Vec<_>>().join(", ")),
         }
     }
 }

@@ -68,6 +68,11 @@ pub const CYAN: Color = t::USE;
 pub const AMBER: Color = t::MUT;
 pub const GOLD: Color = t::DECIDE;
 pub const LILAC: Color = t::LOOP;
+/// The TAB of master nodes: its box, its border, a node's name, the picked one.
+pub const TAB_BOX: Color = t::TAB_FONDO;
+pub const TAB_EDGE: Color = t::TAB_BORDE;
+pub const TAB_ROW: Color = t::TAB_FILA;
+pub const TAB_PICK: Color = t::TAB_ELEGIDA_FONDO;
 
 // -- THE MEASURES --------------------------------------------------------
 
@@ -85,6 +90,8 @@ pub const R_NODE: i32 = 10;
 pub const R_CARD: i32 = 12;
 pub const R_TAB: i32 = 10;
 pub const R_CHIP: i32 = 9;
+/// The TAB's box: the softest, it floats over everything.
+pub const R_BOX: i32 = 14;
 
 // -- THE SOFT PIECES (MAQUETA 2) ----------------------------------------
 

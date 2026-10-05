@@ -13,7 +13,7 @@
 pub const LIBRARY: &str = "titan/biblioteca.toml";
 
 /// The folders to create, parents first.
-pub const FOLDERS: &[&str] = &["titan", "titan/asteroids", "titan/asteroids/src", "titan/asteroids/src/physics"];
+pub const FOLDERS: &[&str] = &["titan", "titan/asteroids", "titan/asteroids/src", "titan/asteroids/src/physics", "titan/hola", "titan/hola/src"];
 
 /// Path and contents, the index LAST: while it is missing, F1 seeds again,
 /// so a seed cut halfway is finished the next time instead of being taken as
@@ -96,7 +96,29 @@ pub const FILES: &[(&str, &str)] = &[
          \x20   print(\"mira quien toca a quien\")\n",
     ),
     ("titan/asteroids/src/physics/collide.titan", "mod collide \"quien toca a quien\"\n"),
-    (LIBRARY, "[packages]\nasteroids = \"titan/asteroids\"\n"),
+    // ** HOLA (05-10, the owner: "el ejemplo de hola mundo, es simple"): the
+    // smallest package there is, one node that prints. In the GRAPH its node
+    // wears the PRINTER and says what it prints (`traits::Said`); change the
+    // text in F1 (double click on the node) and the node says the new one.
+    (
+        "titan/hola/Titan.toml",
+        "[package]\n\
+         name = \"hola\"\n\
+         version = \"0.1.0\"\n\
+         edition = \"2026\"\n\
+         \n\
+         [layout]\n\
+         hola = [380, 40]\n\
+         main = [380, 220]\n",
+    ),
+    (
+        "titan/hola/src/main.titan",
+        "mod main \"saluda al mundo\"\n\
+         \n\
+         fn main()\n\
+         \x20   print(\"hola mundo\")\n",
+    ),
+    (LIBRARY, "[packages]\nasteroids = \"titan/asteroids\"\nhola = \"titan/hola\"\n"),
 ];
 
 #[cfg(test)]
@@ -124,6 +146,12 @@ mod tests {
         let physics = t("titan/asteroids/src/physics.titan");
         assert_eq!((physics.fns, physics.writes, physics.calls, physics.loops), (2, 2, 2, 1));
         assert_eq!(t("titan/asteroids/src/physics/collide.titan").lines, 0);
+    }
+
+    #[test]
+    fn hola_is_one_node_that_prints_hola_mundo() {
+        let t = crate::traits::scan(FILES.iter().find(|f| f.0 == "titan/hola/src/main.titan").unwrap().1.as_bytes());
+        assert_eq!((t.fns, t.writes, t.says.as_bytes(), t.says.exact), (1, 1, &b"hola mundo"[..], true));
     }
 
     #[test]

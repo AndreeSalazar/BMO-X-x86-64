@@ -1,0 +1,7 @@
+# espera: T0071
+# `[]` no dice de que es: una lista guarda valores de UNA clase, y vacia no se ve cual
+mod main "una lista que no dice que guarda"
+
+fn main()
+    let nombres = []
+    print(nombres)

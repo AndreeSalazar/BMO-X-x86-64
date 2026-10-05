@@ -268,13 +268,16 @@ Ordenados por la regla de la casa: **lo que no toca nada va primero.**
    [ ] 2b la ventana con REJILLA      `scroll` como modulo reutilizable, de la
                                       forma que ya tiene `scene/historial.rs`
 
-   [ ] 3  taller.bex DIBUJA           una ventana con su rejilla y su cursor,
-                                      sin leer una tecla. Se compara contra
-                                      `scene/consola.rs`, que ya lo hace
+   [x] 3  taller.bex DIBUJA           HECHO de otra forma (29-09, 8.5 B1):
+                                      `sys/taller.bex` dibuja SU ventana y el
+                                      DIRECTOR la compone; no con rejilla de
+                                      terminal, porque F1 se hizo editor de
+                                      nodos (seccion 8)
 
-   [ ] 4  y LEE TECLAS                por el buzon de `entrada`, con el
-                                      historial de `scroll`. Ya es un terminal,
-                                      y todavia no compila nada
+   [x] 4  y LEE TECLAS                HECHO (29-09, 8.5 B1): teclas y raton
+                                      por el buzon de su ventana
+                                      (`Ultra_userspace/apps/taller/src/window.rs`).
+                                      Terminal no es: no hacia falta
 
    [ ] 5  los comandos que la         `ls`, `cat`, `escribir`. Y los que la
           FRONTERA permite            frontera deja fuera SE DICEN, con el
@@ -398,11 +401,13 @@ el compilador ya comprueba.
 ### 8.4 Los escalones del editor (detras del 7)
 
 ```text
-   [ ] 8  el lienzo: los modulos de un paquete como nodos, leidos de src/ y de
-          sus `use`, sin editar nada. Pide: el escalon 3 (dibujar) y el
-          frontend de TITAN++ hasta T2 (sabe leer `mod` y `use`)
+   [x] 8  el lienzo: los modulos de un paquete como nodos, leidos de src/ y de
+          sus `use`, sin editar nada. HECHO (8.6, L1): titan-lector los lee
+          de ESTRATOS siguiendo `mod`, en vivo
    [ ] 9  el texto del nodo se EDITA y se guarda en su .titan; `titan check`
-          marca el nodo que no compila
+          marca el nodo que no compila. A MEDIAS el 05-10 (8.16): se edita,
+          se guarda solo y el nodo cambia; falta que el compilador lo juzgue
+          dentro de F1, y eso espera a T6
    [x] 10 dibujar un cable escribe un `use`; uno hacia arriba se rechaza
           HECHO en el anfitrion el 04-10 (8.13): del pin OUT a otro nodo
    [ ] 11 F5: `titan build`, y el .bex se le ofrece al ESCRITORIO
@@ -1102,13 +1107,14 @@ prefijos que deciden la seccion 2),
 viaja) y [`PLAN_REX.md`](PLAN_REX.md) (las cabeceras de las que se copia la
 forma).
 
-### 8.15 L10: la TAB de los NODOS MAESTROS -- a lo Houdini y Blender (05-10, PLAN)
+### 8.15 L10: la TAB de los NODOS MAESTROS -- a lo Houdini y Blender (05-10, HECHO)
 
 El propietario, 05-10: *"cuando termine ahi me dejas las TAB elegante, en ellas
 el estilo de Houdini con Blender que muestran opciones totales de NODOS maestro
 ya hechos como ejemplos y porque, como tutoriales y pruebas"*.
 
-**Esto es el plan; ni una linea esta escrita.** Lo que toma de cada uno:
+**Hecho el mismo 05-10** (M1-M7 abajo; lo que cambio del plan, en *Lo que se
+aprendio al hacerlo*). Lo que toma de cada uno:
 
 ```text
    Houdini     TAB en el editor de nodos: una lista que se FILTRA mientras se
@@ -1162,15 +1168,38 @@ TAB no inventa un catalogo que pueda mentir:
    la regla        lo que se pone COMPILA: viene del banco, y el banco pasa
 ```
 
+### Lo que se aprendio al hacerlo
+
+```text
+   28 nodos        los programas BIEN de un fichero, y los paquetes de UN solo
+                   modulo (nivel9/con_permiso, nivel11/activa y mezcla). Los de
+                   VARIOS modulos (nivel9/flota y tienda, nivel10/motor) no son
+                   UN nodo: no entran, y el generador lo dice al correr
+   el nombre       un programa que usa su propio nombre dentro (`let area` en
+                   `area`) no puede ser el modulo `area` (T0055): ese nombre
+                   tambien esta COGIDO, y el nodo es `area_2`. Lo encontro la
+                   prueba del compilador, no una revision
+   donde cae       Enter escribe su fila en [layout] de Titan.toml, centrada
+                   donde estaba el raton: TRES escrituras (el fichero, la fila,
+                   el mod en main), en ese orden -- cortado a medias queda un
+                   fichero que nadie declara, nunca un mod que apunta a nada
+   lo que pide     un nodo de la 3060 en un paquete sin `gpu` en [permissions]
+                   se rechaza ANTES de escribir un byte, con el motivo
+   la prueba       `toolchain/lang/titan/tests/maestros.rs` pone CADA nodo en la
+                   semilla (como F1) y compila el paquete entero: "lo que se
+                   pone COMPILA" es un test, no una promesa
+   la pila         57.408 -> 57.840 de 65.536: la tabla es `static` (.rodata)
+```
+
 ### Las casillas
 
-- [ ] M1 -- el generador: `toolchain/tools/maestros` lee los programas `BIEN` de `toolchain/lang/titan/ejemplos/` y escribe `platform/shared/titan-lector/src/maestros_gen.rs` (una tabla constante: nombre, nivel, porque, palabras, fuente, salida); generado, nunca a mano, como `tema_gen.rs`
-- [ ] M2 -- su guardian: `maestros.py --check` en `Ultra_kernel_x86-64/build/guardianes.ps1`: la tabla y el banco dicen lo mismo (un ejemplo nuevo entra en la TAB solo, uno borrado sale)
-- [ ] M3 -- la logica: `titan-lector` filtra (nombre, palabra, porque) y PLANEA el poner (el fichero nuevo y la linea `mod`), con pruebas sobre un ESTRATOS en memoria como `wire::tests`
-- [ ] M4 -- la apariencia: las clases `.tab`, `.tab-fila`, `.tab-elegida` en `Ultra_userspace/apps/taller/aspecto/titan.maqueta`, `tema_gen.rs` regenerado, y el pintor `Ultra_userspace/apps/taller/src/tab.rs` con las piezas suaves de `aspecto.rs`
-- [ ] M5 -- las teclas: TAB, escribir, flechas, Enter, Esc, en `Ultra_userspace/apps/taller/src/view.rs`
-- [ ] M6 -- la pila: `pila.py --ring3` sigue por debajo de 65.536 con la TAB abierta (la tabla es constante: va en `.rodata`, no en la pila)
-- [ ] M7 -- la camara: `cara-taller` saca `tab.png` (abierta, con una ficha) y `tab_filtro.png` (filtrando "match")
+- [x] M1 -- el generador: `toolchain/tools/maestros` lee los programas `BIEN` de `toolchain/lang/titan/ejemplos/` y escribe `platform/shared/titan-lector/src/maestros_gen.rs` (una tabla constante: nombre, nivel, porque, palabras, fuente, salida); generado, nunca a mano, como `tema_gen.rs`
+- [x] M2 -- su guardian: `maestros.py --check` en `Ultra_kernel_x86-64/build/guardianes.ps1`: la tabla y el banco dicen lo mismo (un ejemplo nuevo entra en la TAB solo, uno borrado sale)
+- [x] M3 -- la logica: `platform/shared/titan-lector/src/maestros.rs` filtra (nombre, familia, palabra, porque, nivel) y PONE (el fichero nuevo, su fila de `[layout]` y la linea `mod`), con pruebas sobre un ESTRATOS en memoria como `wire::tests`; y `toolchain/lang/titan/tests/maestros.rs` compila cada nodo puesto en la semilla
+- [x] M4 -- la apariencia: las clases `.tab`, `.tab-fila`, `.tab-elegida` en `Ultra_userspace/apps/taller/aspecto/titan.maqueta`, `tema_gen.rs` regenerado, y el pintor `Ultra_userspace/apps/taller/src/tab.rs` con las piezas suaves de `aspecto.rs`
+- [x] M5 -- las teclas: TAB, escribir, flechas, Enter, Esc, y el clic en una fila; viven en `Ultra_userspace/apps/taller/src/main.rs` (donde estan las demas teclas) y `Ultra_userspace/apps/taller/src/tab.rs`, no en `view.rs`
+- [x] M6 -- la pila: `pila.py --ring3` sigue por debajo de 65.536 con la TAB abierta: 57.840 (la tabla es `static`: va en `.rodata`, no en la pila; ver `toolchain/tools/pila/pila.py`)
+- [x] M7 -- la camara: `cara-taller` (`toolchain/tools/espejo-cara/src/bin/cara_taller.rs`) saca `tab.png` (abierta, con la ficha de `semaforo`) y `tab_filtro.png` (filtrando "match": quedan los 3 del nivel 8)
 
 | se hace | si esta bien | si falla |
 |---|---|---|
@@ -1178,3 +1207,64 @@ TAB no inventa un catalogo que pueda mentir:
 | escribir `match` | quedan los nodos del nivel 8 (y los que lo nombran en su porque) | no filtra, o filtra solo por nombre |
 | Enter sobre `semaforo` | aparece el nodo; `src/semaforo.titan` existe y `main` dice `mod semaforo` | aparece y no esta en el disco: no se guardo |
 | `titan check` del paquete | bien | NO: el nodo no vino del banco, o se renombro mal |
+
+### 8.16 L11: el nodo se EDITA en su sitio; cada uno con su FORMA; `hola` imprime a la vista (05-10, HECHO)
+
+El propietario, 05-10: *"formas de nodos unicos que representan, y cuando le
+doy click a los nodos en grafos tengan click derecho o doble click para
+modificar escrituras en tiempo real ... el ejemplo de hola mundo, es simple,
+pero en la que imprime, el nodo de imprimir o logo de impresora, mas facil"*.
+
+```text
+   la FORMA         la cabecera de cada nodo lleva, de derecha a izquierda,
+                    lo que HACE (`iconos.rs`): PLAY en main, la IMPRESORA si
+                    escribe, el ROMBO si decide, el BUCLE si repite, el
+                    CRISTAL si tiene tipos, el ANILLO si algo cambia, la CAJA
+                    si nombra valores, la FLECHA si llama, el GANCHO si
+                    devuelve, el CHIP en la 3060. Mismo color que en el CIELO
+   la IMPRESORA     el cuerpo del nodo dice lo que imprime: el texto EXACTO
+                    si todos los argumentos son textos escritos ahi
+                    (`print("hola mundo")` -> "hola mundo"), y los argumentos
+                    tal cual si algo se calcula. Lo lee el lector
+                    (`traits::Said`), y una prueba del compilador comprueba
+                    que lo que el nodo dice es lo que el programa imprime
+   la CONSOLA       el panel de abajo, sin guion: el primer print de cada
+                    nodo, con el mismo criterio
+   2 CLICS          en un nodo abren su CODIGO en un panel a la derecha (el
+                    grafo sigue a la vista): colores de TITAN++, la sangria
+                    sigue sola con Enter, TAB son 4 espacios (un tabulador es
+                    T0010). Se GUARDA SOLO al parar de escribir (~1 s): una
+                    version de ESTRATOS, el latido relee y el nodo cambia
+                    -- su impresora, sus formas -- mientras se mira. Esc
+                    guarda y cierra
+   CLIC DERECHO     en un nodo: el menu de su fichero, con `Editar codigo`
+                    arriba (renombrar, quitar, nuevo: lo de siempre)
+   HOLA             la semilla siembra un segundo paquete, `titan/hola`: un
+                    nodo, `print("hola mundo")`. El mas chico que hay
+```
+
+** Lo que NO hace todavia, dicho para que nadie lo busque: **correr** el
+programa editado dentro de BMO-X. La consola LEE el texto (lo que un `print`
+de textos escritos imprime es ese texto); lo que se calcula lo calcula el
+compilador, y el compilador vive en el anfitrion (`titan build`) -- correrlo
+dentro de F1 es el autohospedaje (T6, `PLAN_AUTOHOSPEDAJE`). El
+`titan/hola.bex` del FAT32 se compila del banco en cada build, no de lo que se
+edita en F1: lanzarlo desde aqui mostraria otro programa, y por eso no se hace.
+
+** La pila, de paso: la tienda (`Store`, ~13 KiB) salio de la pila de `_start`
+a un bloque propio, construida campo a campo: F1 baja de 57.840 a 40.032 de
+65.536 (`pila.py --ring3`).
+
+- [x] E1 -- la forma: `Ultra_userspace/apps/taller/src/iconos.rs` (los iconos) y su uso en la cabecera de cada nodo en `Ultra_userspace/apps/taller/src/view.rs`
+- [x] E2 -- la impresora: `Said` en `platform/shared/titan-lector/src/traits.rs` (con sus pruebas) y la prueba cruzada `what_the_printer_on_the_node_says_is_what_the_program_prints` en `toolchain/lang/titan/tests/maestros.rs`
+- [x] E3 -- el editor: `Ultra_userspace/apps/taller/src/editor.rs`; leer y guardar en `Ultra_userspace/apps/taller/src/store.rs` (`read_text`, `save_text`); 2 clics, clic derecho y autoguardado en `Ultra_userspace/apps/taller/src/main.rs`; `Editar codigo` en el menu de `Ultra_userspace/apps/taller/src/explorer.rs`
+- [x] E4 -- hola: el paquete en `platform/shared/titan-lector/src/seed.rs` (solo en una biblioteca NUEVA: una que ya existe no se toca en silencio; el nodo `hola` tambien esta en la TAB)
+- [x] E5 -- la camara: `toolchain/tools/espejo-cara/src/bin/cara_taller.rs` saca `hola.png`, `menu_nodo.png`, `editor.png` y `editor_guardado.png`
+- [ ] E6 -- correr lo editado dentro de BMO-X: espera al compilador dentro de F1 (T6, `docs/plan/en_pausa/PLAN_AUTOHOSPEDAJE.md`)
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| abrir `hola` en F1 | un nodo `main` con PLAY e IMPRESORA, y `"hola mundo"`; la CONSOLA dice `> hola mundo` | sin impresora: `Traits::writes` no cuenta, o el nodo no lee sus rasgos |
+| 2 clics en `main`, cambiar el texto, esperar 1 s | el panel dice `guardado`, el nodo y la CONSOLA dicen lo nuevo | dice `escribiendo...` siempre: `guardar_desde` fallo (CABINA, F11) |
+| clic derecho en un nodo | el menu, con `Editar codigo` arriba | nada: el nodo no tiene fichero en el disco (el ejemplo en memoria) |
+| `vuelve 1` en F12 | el texto de antes, y el nodo con el | -- |

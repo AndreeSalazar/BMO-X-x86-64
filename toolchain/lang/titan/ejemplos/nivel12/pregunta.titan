@@ -1,0 +1,11 @@
+# espera: BIEN
+# entra: Ada
+# sale: como te llamas?
+# sale: hola Ada!
+# el primer programa que PREGUNTA: lo que escribe depende de lo que se teclea, y por eso corre de verdad en la maquina
+mod main "saluda a quien teclee su nombre"
+
+fn main()
+    print("como te llamas?")
+    let nombre = lee()
+    print("hola ", nombre, "!")

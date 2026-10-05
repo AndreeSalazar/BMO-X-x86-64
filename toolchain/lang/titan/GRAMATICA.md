@@ -16,6 +16,11 @@ en `toolchain/tools/titan-leyes/LEYES.txt`, cada una con su porque y el test o
 el programa que la hace cumplir, y el build para si una pierde su prueba o su
 texto cambia sin sellarse con un motivo.
 
+**Cada ejemplo `BIEN` es tambien un nodo de la TAB de F1** (05-10): el
+programa que se escribe aqui para probar un nivel es el que el propietario
+pone en su paquete con TAB y Enter. Su segunda linea de comentario (la de
+justo antes de `mod main`) es su PORQUE en la TAB: que diga por que existe.
+
 ## La escalera de un vistazo
 
 | nivel | palabras nuevas | lo que deja escribir | sus codigos |
@@ -32,6 +37,7 @@ texto cambia sin sellarse con un motivo.
 | 9 | `mod use pub` | paquetes de varios ficheros, con su `Titan.toml` (U2) | T0080-T0084, T0088, T0089 |
 | 10 | `trait` | lo que un valor sabe hacer, y fn para cualquiera que lo sepa | T0085-T0087 |
 | 11 | `gpu` | la 3060: `gpu fn`, una celda por hilo; `f32` vive alli | T0090, T0091 (el plan: `docs/plan/PLAN_EL_CENTAURO.md`) |
+| 12 | (ninguna) | lo que viene de fuera: `lee()` de la biblioteca, y el programa CORRE en la maquina | los de siempre, y T0060-T0062 tambien al correr (el plan: `docs/plan/PLAN_LA_ENTRADA.md`) |
 
 ---
 
@@ -827,6 +833,175 @@ del propietario.
 
 ---
 
+## Nivel 12 -- lo que viene de fuera (25 palabras: + ninguna; `lee()` y `numero(t)`) -- 05-10, E1 de PLAN_LA_ENTRADA
+
+```text
+# pregunta.titan
+mod main "saluda a quien teclee su nombre"
+
+fn main()
+    print("como te llamas?")
+    let nombre = lee()
+    print("hola ", nombre, "!")
+```
+
+**`lee()` trae la linea que se teclea en la consola del programa**, sin su
+salto, como un texto. Es de la BIBLIOTECA, como `print`: no hay palabra nueva,
+las 25 se quedan en 25 (decision del propietario, 05-10). No pide permiso: la
+consola del propio programa es la misma puerta por la que escribe `print`
+(`Door::Console` del certificado), y el certificado la nombra en su linea. El
+teclado y el raton de una VENTANA son otra cosa (`input`, con REX).
+
+**Lo que cambia por dentro es grande, y se dice entero.** Hasta el nivel 11 el
+calculo CORRIA el programa al compilar y el `.bex` solo escribia lo que salia.
+Con `lee()` eso ya no se puede: lo tecleado no se sabe al compilar. Asi que un
+programa que lee se JUZGA entero al compilar -- sus clases, sus prestamos --
+y se EMITE para correr de verdad en la maquina (E1 del emisor,
+`emisor-x86_64/src/e1/mod.rs`). Un programa que no lee sale igual que siempre.
+
+```text
+   lee()               una linea, como texto (126 bytes como mucho: una mas
+                       larga es un NO T0060, nunca un corte callado)
+   lee() + 1           NO T0063: un texto no se suma a un numero, ni tecleado
+   if lee() ...        NO T0065: un si/no se pregunta como a cualquier texto
+   lee()  (suelta)     NO T0069: lo tecleado se perderia nada mas llegar
+   lee(1)              NO T0068: `lee` no pide nada
+```
+
+**Lo que solo falla al correr, ATRAPA** (la regla 1 de INTI): una suma que no
+cabe en 64 bits (T0060), un `/` o `%` por cero (T0061), una division entre
+enteros que no es exacta (T0062). El programa escribe el NO con su linea --
+`NO T0060 al correr, linea 6: el resultado no cabe en 64 bits` -- y sale. Un
+`print` calcula todas sus partes ANTES de escribir: un NO nunca deja media
+linea delante.
+
+### `numero(t)`: lo tecleado, como numero -- un CASO, no un int
+
+```text
+# adivina.titan (el corazon)
+    let t = lee()
+    match numero(t)
+        Es(n)
+            if n < secreto
+                print("mas alto")
+            ...
+        NoEs
+            print("eso no es un numero: ", t)
+```
+
+**`numero(t)` da `Es(n)` si el texto ES un entero, y `NoEs` si no** -- el
+caso del nivel 8, y el `match` obliga a mirar los dos: sin null, sin
+excepcion, sin un 0 inventado (decision D3 del propietario, 05-10). La regla
+es una sola, la misma al compilar y al correr (`src/prelude.rs`):
+
+```text
+   "42", "  42 ", "+7", "-0"      Es: blancos alrededor, un signo, cifras
+   "4x", "", "-", "1 2", "12.5"   NoEs: un entero, y nada mas
+   "9223372036854775808"          NoEs: no cabe en 64 bits
+   numero(lee()) + 1              NO T0063: un caso no se suma; mira el caso
+```
+
+`Numero`, `Es` y `NoEs` los pone el preludio SOLO si el programa llama a
+`numero`; un programa que ya usa esos nombres para lo suyo y llama a `numero`
+da T0055.
+
+### El programa entero corre en la maquina
+
+E1 emite TODO lo de los niveles 0 a 10 -- `dec` exacto, tablas, registros,
+casos, llamadas con valores, `mut` y `take`, `round`, `dec(p, s)`, traits --
+para que un valor tecleado llegue a cualquier sitio del lenguaje. Y lo que el
+calculo veria corriendo, la maquina lo ve corriendo, con su linea:
+
+```text
+   T0060   no cabe en 64 bits (un int, las cifras de un dec, un texto de mas
+           de 248 bytes, una linea tecleada de mas de 126)
+   T0061   / o % por cero
+   T0062   una division que no acaba exacta (7 / 2 entre int, 1.0 / 3)
+   T0072   una celda que no esta en la tabla (t[i] con i tecleado)
+   T0074   el PIC: un numero que no cabe en su dec(p, s)
+   T0066   las llamadas se anidan mas de lo que cabe en la pila: el NO sale
+           en la linea de la LLAMADA, como lo dice el calculo
+```
+
+**La vara de E1 es el calculo** (`emisor-x86_64/tests/e1.rs`): cada programa
+BIEN del banco se emite TAMBIEN por E1 y tiene que escribir lo mismo, letra a
+letra; cada NO del banco que el calculo encuentra corriendo, E1 lo encuentra
+con el mismo codigo y en la misma linea; y miles de cuentas al azar con
+numeros tecleados (`E1_AZAR=semilla,casos`) dan lo mismo en los dos. Donde el
+calculo hace un paso en 128 bits, E1 tambien (`emisor-x86_64/src/e1/ancho.rs`).
+
+Un bucle SIN fin que no lee sigue siendo T0066 al compilar: el presupuesto de
+plegado (R8) cambia una ley, y las leyes las sella el propietario.
+
+---
+
+## Nivel 13 -- lo que crece (25 palabras: + ninguna; `[T]`, `{K: V}` y su biblioteca) -- 05-10, PLAN_LISTAS_Y_MAPAS
+
+```text
+# agenda.titan (el corazon)
+    let mut todos: [text] = []
+    let mut veces: {text: int} = {}
+    let mut nombre = lee()
+    while nombre != "fin"
+        push(mut todos, nombre)
+        match get(veces, nombre)
+            Hay(n)
+                put(mut veces, nombre, n + 1)
+            NoHay
+                put(mut veces, nombre, 1)
+        nombre = lee()
+```
+
+**Una LISTA crece y encoge al correr; un MAPA lleva de una clave a un
+valor.** Se escriben con los simbolos que ya habia, sin palabra nueva
+(decisiones D1-D4 del propietario, 05-10):
+
+```text
+   [int]                 una lista de int        [] vacia, con su tipo dicho
+   {text: int}           un mapa                 {} vacio, {"ana": 3} escrito
+   push(mut l, x)        x al final              l[i], l[i] = v, len(l), for x in l
+   let u = pop(mut l)    el ultimo, como caso: Hay(x) o NoHay -- y la lista lo pierde
+   put(mut m, k, v)      k lleva a v (si estaba, su valor nuevo)
+   get(m, k)             Hay(v) o NoHay           has(m, k): true o false
+   remove(mut m, k)      k ya no esta             for k in m: sus claves, en el orden
+                                                  en que ENTRARON
+   Opcion[int]           el tipo de lo que dan get y pop, para escribirlo:
+                         fn busca(m: {text: int}, k: text) -> Opcion[int]
+```
+
+**Es un VALOR, como todo** (D2): `let b = a` es OTRA lista; `push(mut a, x)`
+cambia solo `a`. Se presta con `mut` -- tambien una PARTE de un valor:
+`push(mut nave.carga, x)` -- y se entrega con `take`, como cualquier valor.
+`[1, 2, 3]` escrito es una tabla hasta que va donde se dice una lista
+(`let l: [int] = [1, 2, 3]`): ahi se vuelve lista, y un `2` en una `[dec]` es
+un decimal.
+
+**Lo que no esta es un CASO** (D3): `get` y `pop` dan `Hay(v)` o `NoHay`, y el
+`match` obliga a mirar los dos. `Hay` y `NoHay` los da la biblioteca: no se
+escriben a mano. La clave de un mapa es un int, un text, un bool o un registro
+de esos (un decimal no: 1.0 y 1.00 son el mismo numero).
+
+```text
+   let l = []              NO T0071: una lista vacia no dice de que es
+   push(l, 1)              NO T0077: push cambia su lista, se le presta: mut l
+   let l: [int] = ...      NO T0056 en push(mut l, 1): sin `let mut` no cambia
+   let x = Hay(3)          NO T0079: Hay lo da la biblioteca
+   m[0]  (un mapa)         NO T0063: sus valores se piden por su clave, con get
+   print(pop(mut l))       NO T0069: pop va solo, o como el valor de un let o un match
+   l[9]  (fuera)           NO T0072, al compilar o al correr
+```
+
+**En la maquina** (E1, `emisor-x86_64/src/e1/coleccion.rs`): una lista es su
+ASA -- puntero, cuantas, cuantas caben -- y sus celdas viven en un MONTON
+propio (`e1/monton.rs`) que crece al doble y suelta lo que muere: un local al
+cerrarse su bloque o al volver su fn, lo viejo de un `=`, lo que una cuenta
+calculo y nadie se quedo. Sin recolector: se suelta donde el juez ya sabe que
+el valor muere. Al acabar no queda NADA pedido -- y si quedara, el programa lo
+dice. La vara, la de siempre: el calculo, programa a programa y al azar
+(`emisor-x86_64/tests/e1.rs`).
+
+---
+
 ## Los codigos
 
 | codigo | que |
@@ -886,6 +1061,7 @@ del propietario.
 
 ```text
    # espera: BIEN        compila...
+   # entra: Ada          (nivel 12) ...el banco TECLEA esto, linea a linea...
    # sale: hola          ...y al CORRER escribe exactamente esto, linea a linea
    # espera: T0053       NO compila, con este codigo, y no escribe ningun .bex
 ```
