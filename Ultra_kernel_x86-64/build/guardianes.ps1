@@ -73,6 +73,14 @@ Guardian 'Validating the TAB of F1 offers exactly the bench of TITAN++' `
     'toolchain\tools\maestros\maestros.py' 'los nodos maestros de la TAB' `
     'maestros: maestros_gen.rs y el banco no dicen lo mismo (python toolchain/tools/maestros/maestros.py lo regenera)'
 
+# ** LA GUIA DE ESTRATOS EN F1 (2026-10-05, PLAN_LAS_RAMAS R1): cada puerta de
+# ESTRATOS que existe, con QUE hace y POR QUE, copiada del contrato del ABI a
+# una tabla del TALLER. Una guia a mano mentiria pronto; este dice NO si la
+# tabla y el contrato dejan de decir lo mismo, o si una puerta no se explica.
+Guardian 'Validating the guide of ESTRATOS says what the contract says' `
+    'toolchain\tools\estratos-guia\guia.py' 'la guia de ESTRATOS' `
+    'estratos-guia: guia_estratos_gen.rs y el contrato no dicen lo mismo (python toolchain/tools/estratos-guia/guia.py lo regenera)'
+
 # ---------------------------------------------------------------------------
 # ** EL QUINTO GUARDIAN: LAS CITAS A DOCUMENTOS (2026-08-17).
 #

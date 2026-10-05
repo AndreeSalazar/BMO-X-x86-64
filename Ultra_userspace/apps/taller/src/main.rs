@@ -47,11 +47,13 @@ mod editor;
 mod explorer;
 mod faults;
 mod guia;
+mod guia_estratos_gen;
 mod iconos;
 mod player;
 mod space;
 mod store;
 mod strata;
+mod strata_guide;
 mod tab;
 mod tema_gen;
 mod view;
@@ -351,6 +353,8 @@ pub extern "C" fn _start() -> ! {
     // the generation it was read at.
     let mut history = store::history_block();
     let mut history_gen = u64::MAX;
+    // The door picked in ESTRATOS's GUIDE (`strata_guide.rs`).
+    let mut door = 0usize;
     let mut canvas = Canvas::new(win.px, win.w, win.h);
     let mut cam = fit(&store.loaded.graph);
     let mut drag = Drag::None;
@@ -605,6 +609,11 @@ pub extern "C" fn _start() -> ! {
                             dirty = true;
                             continue;
                         }
+                        Tab::StrataGuide => {
+                            door = strata_guide::hit(&canvas, x, y).unwrap_or(door);
+                            dirty = true;
+                            continue;
+                        }
                         // The pages are to read.
                         _ => continue,
                     }
@@ -656,6 +665,11 @@ pub extern "C" fn _start() -> ! {
                 // While a name is typed, every key is the box's.
                 Input::Char(c) if ui.edit.is_some() => {
                     typing(c, &mut store, &mut ui);
+                    dirty = true;
+                }
+                // ESTRATOS's GUIDE: the arrows walk the doors.
+                Input::Char(k @ (KEY_UP | KEY_DOWN)) if tab == Tab::StrataGuide => {
+                    door = strata_guide::step(door, k == KEY_DOWN);
                     dirty = true;
                 }
                 // The ESTRATOS tab: the arrows walk the chain, ENTER twice
@@ -854,6 +868,10 @@ pub extern "C" fn _start() -> ! {
                             Some(h) => strata::draw(&mut canvas, h, sky, now),
                             None => canvas.clear(aspecto::BG),
                         }
+                        view::title(&mut canvas, &scene);
+                    }
+                    Tab::StrataGuide => {
+                        strata_guide::draw(&mut canvas, door, sky);
                         view::title(&mut canvas, &scene);
                     }
                     space_tab => space::draw(&mut canvas, &scene, space_tab),

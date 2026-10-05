@@ -43,11 +43,16 @@ pub enum Tab {
     Guide,
     /// The volume's history, each version a node (`strata.rs`).
     Strata,
+    /// ESTRATOS's GUIDE: every door that exists, what it does and why.
+    StrataGuide,
 }
 
 impl Tab {
     pub fn is_space(self) -> bool {
         matches!(self, Tab::Sky | Tab::Elements | Tab::Guide)
+    }
+    pub fn is_strata(self) -> bool {
+        matches!(self, Tab::Strata | Tab::StrataGuide)
     }
     /// `t` walks them all.
     pub fn next(self) -> Tab {
@@ -56,7 +61,8 @@ impl Tab {
             Tab::Sky => Tab::Elements,
             Tab::Elements => Tab::Guide,
             Tab::Guide => Tab::Strata,
-            Tab::Strata => Tab::Graph,
+            Tab::Strata => Tab::StrataGuide,
+            Tab::StrataGuide => Tab::Graph,
         }
     }
 }
@@ -66,21 +72,31 @@ const TAB_H: i32 = 20;
 /// The first strip, and -- inside ESPACIO -- the second one.
 const MAIN: [(Tab, &[u8], i32); 3] = [(Tab::Graph, b"GRAFO", 64), (Tab::Sky, b"ESPACIO", 80), (Tab::Strata, b"ESTRATOS", 88)];
 const SUB: [(Tab, &[u8], i32); 3] = [(Tab::Sky, b"CIELO 3D", 80), (Tab::Elements, b"ELEMENTOS", 88), (Tab::Guide, b"GUIA", 56)];
+const STRATA_SUB: [(Tab, &[u8], i32); 2] = [(Tab::Strata, b"HISTORIA", 80), (Tab::StrataGuide, b"GUIA", 56)];
 const SUB_X: i32 = LEFT + 12 + 64 + 6 + 80 + 6 + 88 + 26;
+
+/// The second strip of a tab that has one: ESPACIO's pages, ESTRATOS's two.
+fn sub_of(now: Tab) -> &'static [(Tab, &'static [u8], i32)] {
+    if now.is_space() {
+        &SUB
+    } else if now.is_strata() {
+        &STRATA_SUB
+    } else {
+        &[]
+    }
+}
 
 /// Every tab on screen: (tab, label, x, width).
 fn strips(now: Tab, mut f: impl FnMut(Tab, &[u8], i32, i32, bool)) {
     let mut x = LEFT + 12;
     for (tab, label, w) in MAIN {
-        f(tab, label, x, w, tab == now || (tab == Tab::Sky && now.is_space()));
+        f(tab, label, x, w, tab == now || (tab == Tab::Sky && now.is_space()) || (tab == Tab::Strata && now.is_strata()));
         x += w + 6;
     }
-    if now.is_space() {
-        let mut x = SUB_X;
-        for (tab, label, w) in SUB {
-            f(tab, label, x, w, tab == now);
-            x += w + 4;
-        }
+    let mut x = SUB_X;
+    for &(tab, label, w) in sub_of(now) {
+        f(tab, label, x, w, tab == now);
+        x += w + 4;
     }
 }
 
@@ -93,7 +109,8 @@ pub fn tab_at(now: Tab, x: i32, y: i32) -> Option<Tab> {
     strips(now, |tab, _, tx, w, _| {
         if (tx..tx + w).contains(&x) {
             // ESPACIO from GRAFO opens the sky; inside ESPACIO it stays.
-            hit = Some(if tab == Tab::Sky && now.is_space() && x < SUB_X { now } else { tab });
+            let stays = (tab == Tab::Sky && now.is_space()) || (tab == Tab::Strata && now.is_strata());
+            hit = Some(if stays && x < SUB_X { now } else { tab });
         }
     });
     hit
@@ -114,7 +131,7 @@ pub fn tabs(c: &mut Canvas, now: Tab) {
         let lw = label.len() as i32 * 8;
         c.text(x + (w - lw) / 2, TAB_Y + 2, label, if on { INK } else { DIM }, 1);
     });
-    if now.is_space() {
+    if !sub_of(now).is_empty() {
         c.rect(SUB_X - 14, TAB_Y + TAB_H / 2, 10, 1, EDGE);
     }
     c.text(c.w - 4 * 8 - 12, TAB_Y + 2, b"[t]", DIM, 1);

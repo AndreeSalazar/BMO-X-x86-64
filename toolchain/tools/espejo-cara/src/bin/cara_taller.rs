@@ -10,7 +10,8 @@
 //! los nodos maestros (`PLAN_TALLER` 8.15): `tab.png`, abierta con la ficha de
 //! un nodo, y `tab_filtro.png`, escribiendo "match". Y la solapa ESTRATOS
 //! (`PLAN_LA_BANDEJA` T2) con una historia de EJEMPLO: `estratos.png` y
-//! `estratos_pregunta.png` (el primer ENTER, preguntando).
+//! `estratos_pregunta.png` (el primer ENTER, preguntando); y su GUIA, las
+//! puertas del contrato (`PLAN_LAS_RAMAS` R1): `estratos_guia.png`.
 
 #[path = "../../../../../Ultra_userspace/apps/taller/src/canvas.rs"]
 #[allow(dead_code)]
@@ -48,6 +49,12 @@ mod iconos;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/tab.rs"]
 #[allow(dead_code)]
 mod tab;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/strata_guide.rs"]
+#[allow(dead_code)]
+mod strata_guide;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/guia_estratos_gen.rs"]
+#[allow(dead_code)]
+mod guia_estratos_gen;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/strata.rs"]
 #[allow(dead_code)]
 mod strata;
@@ -290,6 +297,18 @@ fn main() {
         space::tabs(&mut cv, space::Tab::Strata);
         explorer::draw(&mut cv, &store, &ui, None, 0);
         guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
+        if pregunta {
+            // Y su GUIA (PLAN_LAS_RAMAS R1): las puertas del contrato, con
+            // `volver` elegida, que es la que la historia acaba de ofrecer.
+            let volver = guia_estratos_gen::DOORS.iter().position(|d| d.door == "ES_GESTO_VOLVER").expect("el contrato tiene volver");
+            let mut px = vec![0u32; w * h];
+            let mut cv = canvas::Canvas::new(px.as_mut_ptr(), w as u32, h as u32);
+            strata_guide::draw(&mut cv, volver, None);
+            view::title(&mut cv, &scene);
+            space::tabs(&mut cv, space::Tab::StrataGuide);
+            explorer::draw(&mut cv, &store, &ui, None, 0);
+            guardar(&format!("{out}/estratos_guia.png"), &px, w, h, w);
+        }
     }
     // GRAFO con dos cables en la mano (UE5): uno que se puede soltar y uno
     // que cerraria un ciclo, rojo y con su motivo.
@@ -454,5 +473,5 @@ fn main() {
         }
     }
     println!("ok: {out}/hola.png editor.png editor_guardado.png menu_nodo.png");
-    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png estratos.png estratos_pregunta.png tab.png tab_filtro.png");
+    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png estratos.png estratos_pregunta.png estratos_guia.png tab.png tab_filtro.png");
 }

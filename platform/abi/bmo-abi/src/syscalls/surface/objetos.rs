@@ -15,21 +15,26 @@
 //! no por que hacen, y conviene decirlo: el dia que una de estas familias crezca
 //! como crecio `TASK_OP_*`, se saca a su propio fichero.
 
-/// -- El CURSOR de ESTRATOS ---------------------------------------------
+// -- El CURSOR de ESTRATOS ---------------------------------------------
+//
+// `INFO_ES_*` contesta *como esta* el almacen: generacion, ocupacion, nivel.
+// **No contesta que hay dentro**, y por eso la ventana de Datos podia pintar
+// numeros y no un arbol: `raiz`, `nodo`, `entradas` y `entrada` eran funciones
+// de Ring 0 sin puerta.
+//
+// Esto es esa puerta, y son **DOS operaciones y no diez**: un cursor que se
+// mueve (`TASK_OP_ES_NODO`, con la pregunta en `arg0` y su argumento en
+// `arg1`) y los nombres (`TASK_OP_ES_TEXTO`, de ocho en ocho). La superficie
+// crece por su tabla, no por sus puertas -- el mismo trato que el klog.
+//
+// * **No concede nada.** Contesta, igual que `OP_INFO`: leer los nombres de un
+// directorio no ejerce ningun poder, y aqui no hay ni una operacion que
+// escriba.
+
+/// Pone el cursor en la RAIZ del volumen. `0` si no hay volumen montado.
 ///
-/// `INFO_ES_*` contesta *como esta* el almacen: generacion, ocupacion, nivel.
-/// **No contesta que hay dentro**, y por eso la ventana de Datos podia pintar
-/// numeros y no un arbol: `raiz`, `nodo`, `entradas` y `entrada` eran funciones
-/// de Ring 0 sin puerta.
-///
-/// Esto es esa puerta, y son **DOS operaciones y no diez**: un cursor que se
-/// mueve (`TASK_OP_ES_NODO`, con la pregunta en `arg0` y su argumento en
-/// `arg1`) y los nombres (`TASK_OP_ES_TEXTO`, de ocho en ocho). La superficie
-/// crece por su tabla, no por sus puertas -- el mismo trato que el klog.
-///
-/// * **No concede nada.** Contesta, igual que `OP_INFO`: leer los nombres de un
-/// directorio no ejerce ningun poder, y aqui no hay ni una operacion que
-/// escriba.
+/// * Es la primera pregunta de cualquier recorrido: el cursor guarda la ruta
+/// desde aqui, y cada nivel por el que se baja se queda con su listado.
 pub const ES_NODO_RAIZ: u64 = 0x00;
 
 /// Cuantos hijos tiene el nodo donde esta el cursor.
@@ -54,11 +59,11 @@ pub const ES_NODO_ENTRAR: u64 = 0x06;
 /// Vuelve al padre. 1 si se pudo, 0 si ya estaba en la raiz.
 pub const ES_NODO_SUBIR: u64 = 0x07;
 
-/// -- El DETALLE del hijo `arg1` ----------------------------------------
-///
-/// Un grafo que solo muestra nombres contesta *que hay*; no contesta *que es
-/// esto*. Esto es lo que el nodo ya lleva dentro y la ventana no podia pedir.
-///
+// -- El DETALLE del hijo `arg1` ----------------------------------------
+//
+// Un grafo que solo muestra nombres contesta *que hay*; no contesta *que es
+// esto*. Esto es lo que el nodo ya lleva dentro y la ventana no podia pedir.
+
 /// Bytes de su contenido. Un directorio contesta lo que ocupa su lista de
 /// entradas -- que tambien es un dato, y distinto de lo que hay dentro.
 pub const ES_NODO_HIJO_BYTES: u64 = 0x08;
@@ -156,9 +161,10 @@ pub const ES_HIST_QUIEN: u64 = 0x14;
 /// puede desaparecer y una a la que siempre se podra volver.
 pub const ES_HIST_CON_NOMBRE: u64 = 0x15;
 
-/// Que texto pide [`TASK_OP_ES_TEXTO`], en los bits altos de `arg0`.
+/// El nombre del hijo `indice` del nodo donde esta el cursor.
 ///
-/// Los bajos siguen siendo el indice. Se reparte el argumento en vez de agregar
+/// Es el primero de los textos que pide [`TASK_OP_ES_TEXTO`]: cual, en los
+/// bits altos de `arg0`. Los bajos siguen siendo el indice. Se reparte el argumento en vez de agregar
 /// una operacion porque **son el mismo mecanismo** --sacar un nombre de ocho en
 /// ocho-- pidiendo dos cosas distintas, y una puerta por cada texto que devuelva
 /// el sistema es como una superficie de dos syscalls acaba teniendo cuarenta.
