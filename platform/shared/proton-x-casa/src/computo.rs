@@ -99,6 +99,10 @@ fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'
             aviso("Dispatch: un UAV de una textura de bloques: en Windows es un error; se ve nulo");
             return None;
         }
+        Almacen::Flotantes4 => {
+            aviso("Dispatch: un UAV de una textura de float de 4 canales (HDR): todavia no (N5.16 a medias); se ve nulo");
+            return None;
+        }
     };
     if r[3] == 0 {
         crate::tuberia::aplicar_limpieza(r[0]);

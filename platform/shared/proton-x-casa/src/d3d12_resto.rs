@@ -760,6 +760,10 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool) {
             aviso("ClearUnorderedAccessView de una textura de bloques: en Windows es un error");
             return;
         }
+        Almacen::Flotantes4 => {
+            aviso("ClearUnorderedAccessView de una textura de float de 4 canales (HDR): todavia no (N5.16 a medias); no se limpia");
+            return;
+        }
     };
     if r[3] == 0 {
         crate::tuberia::olvidar_limpieza(r[0]);

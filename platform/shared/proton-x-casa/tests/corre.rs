@@ -96,6 +96,8 @@ const PREDICA: &[u8] = include_bytes!("../../proton-x/prueba/predica.exe");
 const INSTANCIAS: &[u8] = include_bytes!("../../proton-x/prueba/instancias.exe");
 /// N5.3b y N5.3c (05-10): las vistas en la raiz, los UAV de textura y con tipo, y ClearUnorderedAccessView.
 const VISTAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/vistas.exe");
+// N5.16 (05-10): los render targets de float.
+const HDR_EXE: &[u8] = include_bytes!("../../proton-x/prueba/hdr.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

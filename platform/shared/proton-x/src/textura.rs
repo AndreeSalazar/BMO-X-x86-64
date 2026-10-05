@@ -58,6 +58,10 @@ pub enum Como {
     /// Un float de 32 bits por texel (R32, una profundidad): se lee
     /// `(r, 0, 0, 1)`, como D3D.
     Flotante,
+    /// N5.16 (05-10): cuatro floats de 32 bits por texel, (r, g, b, a) tal
+    /// cual: como guarda la casa los render targets de float (RGBA16F,
+    /// R11G11B10F, RGBA32F, R10G10B10A2...), ya cuantizados a su formato.
+    Flotantes4,
     /// Bloques de 4x4 comprimidos, tal cual (8 o 16 bytes: 2 o 4 palabras),
     /// fila de bloques tras fila de bloques; se descomprime el bloque al leer.
     Bloques(Bc),
@@ -135,6 +139,23 @@ const SRGB_A_LINEAL: [u16; 256] = [
     48850, 49344, 49841, 50341, 50844, 51349, 51858, 52369, 52884, 53401, 53921, 54445, 54971, 55500, 56032, 56567,
     57105, 57646, 58190, 58737, 59287, 59840, 60396, 60955, 61517, 62082, 62650, 63221, 63795, 64372, 64952, 65535,
 ];
+
+/// **Lineal a sRGB de 8 bits** (N5.16, 05-10): la vuelta de la tabla de
+/// arriba, para presentar un back buffer de float (scRGB, lineal) en una
+/// ventana de 8 bits. El codigo cuyo lineal queda MAS CERCA; lo de fuera de
+/// [0, 1] se recorta (una pantalla SDR no tiene mas), y un NaN es negro.
+pub fn lineal_a_srgb8(x: f32) -> u8 {
+    let v = if x > 0.0 { if x < 1.0 { (x * 65535.0 + 0.5) as u32 } else { 65535 } } else { 0 };
+    let i = SRGB_A_LINEAL.partition_point(|&t| (t as u32) < v);
+    match i {
+        0 => 0,
+        256 => 255,
+        i => {
+            let (a, b) = (SRGB_A_LINEAL[i - 1] as u32, SRGB_A_LINEAL[i] as u32);
+            if v - a <= b - v { (i - 1) as u8 } else { i as u8 }
+        }
+    }
+}
 /// Como se filtra (`D3D12_FILTER`, reducido a lo que no son mipmaps).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Filtro {
@@ -293,6 +314,7 @@ impl<'a> Textura<'a> {
         let (w, h, d) = self.medidas_de(m);
         let rebanada = match self.como {
             Como::Bloques(b) => w.div_ceil(4) as usize * h.div_ceil(4) as usize * b.bytes() / 4,
+            Como::Flotantes4 => w as usize * h as usize * 4,
             _ => w as usize * h as usize,
         };
         (rebanada, rebanada * d as usize)
@@ -427,6 +449,7 @@ impl<'a> Textura<'a> {
         let Some(p) = self.plano(m as u32, capa as u32, rebanada as u32) else { return [0; 4] };
         let crudo = match p.como {
             Como::Flotante => [p.texeles.get((y * w as i64 + x) as usize).copied().unwrap_or(0), 0, 0, 1.0f32.to_bits()],
+            Como::Flotantes4 => p.flotante(x, y).map(f32::to_bits),
             _ if enteros => {
                 let q = p.palabra(x, y);
                 let (r, g, b, a) = if p.como == Como::Bgra8 { (q >> 16, q >> 8, q, q >> 24) } else { (q, q >> 8, q >> 16, q >> 24) };
@@ -435,7 +458,7 @@ impl<'a> Textura<'a> {
             _ => p.texel(x, y).map(|v| (v as f32 / 65535.0).to_bits()),
         };
         // El mapeo, sobre los bits: un 1 es 1 en un entero, 1.0 en un float.
-        let uno = if enteros && p.como != Como::Flotante { 1 } else { 1.0f32.to_bits() };
+        let uno = if enteros && !matches!(p.como, Como::Flotante | Como::Flotantes4) { 1 } else { 1.0f32.to_bits() };
         if self.mapeo & 0xFFF == Self::MAPEO & 0xFFF {
             return crudo;
         }
@@ -521,9 +544,17 @@ impl Plano<'_> {
         [color(r), color(g), color(b), canal16(a)]
     }
 
-    /// El texel `(x, y)` de una de floats, `(r, 0, 0, 1)`.
+    /// El texel `(x, y)` de una de floats: `(r, 0, 0, 1)` de un R32, los
+    /// cuatro de una de `Flotantes4`.
     fn flotante(&self, x: i64, y: i64) -> [f32; 4] {
-        let r = self.texeles.get((y * self.ancho as i64 + x) as usize).map_or(0.0, |&p| f32::from_bits(p));
+        let i = (y * self.ancho as i64 + x) as usize;
+        if self.como == Como::Flotantes4 {
+            return match self.texeles.get(4 * i..4 * i + 4) {
+                Some(t) => [f32::from_bits(t[0]), f32::from_bits(t[1]), f32::from_bits(t[2]), f32::from_bits(t[3])],
+                None => [0.0; 4],
+            };
+        }
+        let r = self.texeles.get(i).map_or(0.0, |&p| f32::from_bits(p));
         [r, 0.0, 0.0, 1.0]
     }
 
@@ -551,7 +582,7 @@ impl Plano<'_> {
         }
         let (su, sv) = (u * self.ancho as f32, v * self.alto as f32);
         let a_float = |c: [u32; 4]| c.map(|x| x as f32 / 65535.0);
-        let flot = self.como == Como::Flotante;
+        let flot = matches!(self.como, Como::Flotante | Como::Flotantes4);
         match m.filtro {
             Filtro::Punto => {
                 let (i, j) = (suelo(su) as i64 + o[0], suelo(sv) as i64 + o[1]);
@@ -750,6 +781,16 @@ mod pruebas {
     }
 
     #[test]
+    fn lineal_a_srgb8_es_la_vuelta_de_la_tabla() {
+        for c in 0..=255u8 {
+            assert_eq!(lineal_a_srgb8(SRGB_A_LINEAL[c as usize] as f32 / 65535.0), c, "ida y vuelta de {c}");
+        }
+        // La curva: 0,5 lineal es 188 en sRGB (round(255 * 0,7354)); 0,2 es 124.
+        assert_eq!((lineal_a_srgb8(0.5), lineal_a_srgb8(0.2)), (188, 124));
+        assert_eq!((lineal_a_srgb8(-1.0), lineal_a_srgb8(7.0), lineal_a_srgb8(f32::NAN)), (0, 255, 0));
+    }
+
+    #[test]
     fn bc_srgb_mapeo_floats_y_cubos() {
         // Un BC1 de 4x4 de un rojo 565 (c0 = c1, indices a 0): 255, 0, 0.
         let bloque = [0x00u8, 0xF8, 0x00, 0xF8, 0, 0, 0, 0];
@@ -776,6 +817,12 @@ mod pruebas {
         assert_eq!(fl.muestrear(&PUNTO_BORDE, 0.75, 0.5), [0.75, 0.0, 0.0, 1.0]);
         let lin = Muestreador { filtro: Filtro::Lineal, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0 };
         assert_eq!(fl.muestrear(&lin, 0.5, 0.5)[0], 0.5);
+        // N5.16: cuatro floats por texel (un HDR): mas de 1 y negativos, tal
+        // cual, y el lineal mezcla en float.
+        let h: alloc::vec::Vec<u32> = [[3.5f32, -0.5, 0.0, 1.0], [1.5, 0.5, 8.0, 0.5]].iter().flatten().map(|x| x.to_bits()).collect();
+        let hdr = Textura { como: Como::Flotantes4, ..Textura::rgba(&h, 2, 1, false) };
+        assert_eq!(hdr.muestrear(&PUNTO_BORDE, 0.25, 0.5), [3.5, -0.5, 0.0, 1.0]);
+        assert_eq!(hdr.muestrear(&lin, 0.5, 0.5), [2.5, 0.0, 4.0, 0.75]);
         // Las caras de un cubo: el eje mayor y su signo.
         assert_eq!(cara_de_cubo(1.0, 0.0, 0.0), (0, 0.5, 0.5));
         assert_eq!(cara_de_cubo(-1.0, 0.5, 0.0), (1, 0.5, 0.25));

@@ -298,8 +298,10 @@ muestra.
   interprete (`tests/nativo_computo.rs`).
 - [ ] **E2.5 -- D3D12SM6WaveIntrinsics.** Las olas de verdad (D4.3): hoy son
   "un pixel por ola" (`dxil/olas.rs`). **Como se sabe:** su huella, igual.
-- [ ] **E2.6 -- D3D12HDR.** Render targets de float (N5.16) y la cadena en 10
-  o 16 bits con su espacio de color. **Como se sabe:** su huella, igual, en
+- [ ] **E2.6 -- D3D12HDR.** Render targets de float (N5.16, hecho el 05-10 con
+  `prueba/hdr.exe`) y la cadena en 10 o 16 bits con su espacio de color (la
+  cadena ya se acepta y se presenta en 8 bits; falta la muestra de
+  Microsoft y SetColorSpace1/SetHDRMetaData). **Como se sabe:** su huella, igual, en
   el modo de 8 bits y en el de 16.
 - [x] **E2.7 -- D3D12PredicationQueries** (05-10, en el banco; falta verlo
   en el metal). Un cuadro blanco lejos, uno translucido cerca que pasa por
@@ -501,10 +503,11 @@ en una conversacion.
                                           enteras van interpretados (lo dice
                                           un aviso); Cyberpunk, lejos de sus
                                           fotogramas
-   el HDR (N5.16)                         los render targets de float se
-                                          guardan en 8 bits: un RGBA16F
-                                          satura en 1.0, y un UAV de esa
-                                          textura tambien
+   el HDR (N5.16, 05-10)                  los de 2-4 canales ya son float;
+                                          quedan R32F como render target y
+                                          los UAV de un RGBA16F (aviso), y
+                                          al presentar lo de mas de 1 se
+                                          recorta (sin monitor HDR)
    el stencil y AlphaToCoverage           se apuntan y no se usan: un juego
                                           que recorta con stencil pinta de
                                           mas (lo dice un aviso al crear el

@@ -196,8 +196,8 @@ extern "win64" fn resize_buffers(this: u64, n: u32, ancho: u32, alto: u32, forma
     let alto = if alto != 0 { alto } else { sup.as_ref().map_or(u(4), |s| s.alto) };
     let formato = if formato != 0 { formato } else { u(8) };
     let n = if n != 0 { n } else { u(28) };
-    if !matches!(formato, crate::d3d12::DXGI_FORMAT_R8G8B8A8_UNORM | crate::d3d12::DXGI_FORMAT_B8G8R8A8_UNORM) {
-        aviso("ResizeBuffers: solo R8G8B8A8_UNORM y B8G8R8A8_UNORM, todavia");
+    if !crate::dxgi::formato_de_cadena(formato) {
+        aviso("ResizeBuffers: solo R8G8B8A8_UNORM, B8G8R8A8_UNORM, R16G16B16A16_FLOAT y R10G10B10A2_UNORM, todavia");
         return E_INVALIDARG;
     }
     let Some(buffers) = (0..n.clamp(1, 4)).map(|_| crate::d3d12::recurso(ancho, alto, formato, true)).collect::<Option<alloc::vec::Vec<u64>>>() else {

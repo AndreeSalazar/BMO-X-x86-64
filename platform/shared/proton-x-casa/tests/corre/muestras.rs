@@ -557,6 +557,25 @@ fn n5_3c_las_vistas_en_la_raiz_y_los_uav_de_textura_dan_los_bits_de_la_cuenta() 
     assert!(texto.ends_with("vistas.exe: las vistas de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
+/// **N5.16, los render targets de FLOAT** (05-10): `hdr.exe`
+/// (`prueba/hdr.cpp`, nuestro, de consola). A: un RGBA16F limpio en float y
+/// con dos sumas guarda 3.25 y lo que resta; B: un R11G11B10F sin signo (el
+/// -1 es 0); C: A leido como textura a 8 bits. Cada valor cabe exacto en su
+/// formato y lo que tiene que salir son bits escritos a mano en el `.cpp`.
+#[test]
+fn n5_16_los_render_targets_de_float_guardan_lo_que_pasa_de_uno() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, HDR_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Un aviso, y es el que tiene que ser: el cuadro sale de SV_VertexID con
+    // desplazamientos de enteros, que el codigo nativo aun no sabe.
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
+    assert!(texto.ends_with("hdr.exe: los render targets de float son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
 /// **E2.3b -- D3D12nBodyGravity** (05-10, `Samples/Desktop`, MIT): el
 /// COMPUTO de verdad (10.000 particulas, la barrera DENTRO de un bucle, en
 /// SU hilo y su cola de computo, con vallas entre las dos colas) y un

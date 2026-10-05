@@ -118,8 +118,8 @@ pub(crate) extern "win64" fn create_swap_chain_for_hwnd(_this: u64, _cola: u64, 
         let u = |o: usize| (desc.add(o) as *const u32).read_unaligned();
         (u(0), u(4), u(8), u(28))
     };
-    if formato != DXGI_FORMAT_R8G8B8A8_UNORM && formato != DXGI_FORMAT_B8G8R8A8_UNORM {
-        aviso("CreateSwapChainForHwnd: solo R8G8B8A8_UNORM y B8G8R8A8_UNORM, todavia");
+    if !formato_de_cadena(formato) {
+        aviso("CreateSwapChainForHwnd: solo R8G8B8A8_UNORM, B8G8R8A8_UNORM, R16G16B16A16_FLOAT y R10G10B10A2_UNORM, todavia");
         return E_INVALIDARG;
     }
     let (w, h) = (if w == 0 { sup.ancho } else { w }, if h == 0 { sup.alto } else { h });
@@ -170,9 +170,17 @@ pub(crate) extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32)
     // SAFETY: la superficie mide `stride * alto` pixeles y es de este proceso.
     let destino = unsafe { core::slice::from_raw_parts_mut(sup.pixeles, sup.stride as usize * sup.alto as usize) };
     let (w, h) = if en_pantalla { (0, 0) } else { (r.ancho.min(sup.ancho) as usize, r.alto.min(sup.alto) as usize) };
+    // N5.16: un back buffer de float son cuatro palabras por pixel.
+    let k = r.pixeles.len() / (r.ancho as usize * r.alto as usize).max(1);
     for y in 0..h {
-        let fila = &r.pixeles[y * r.ancho as usize..][..w];
+        let fila = &r.pixeles[y * r.ancho as usize * k..][..w * k];
         let dst = &mut destino[y * sup.stride as usize..][..w];
+        if k == 4 {
+            for (d, t) in dst.iter_mut().zip(fila.chunks_exact(4)) {
+                *d = a_bgra8_de_float(r.formato, [t[0], t[1], t[2]].map(f32::from_bits));
+            }
+            continue;
+        }
         for (d, &p) in dst.iter_mut().zip(fila) {
             // La superficie es B,G,R,A: R8G8B8A8 cambia R y B de sitio.
             *d = if r.formato == DXGI_FORMAT_R8G8B8A8_UNORM { p & 0xFF00_FF00 | (p & 0xFF) << 16 | (p >> 16) & 0xFF } else { p };
@@ -186,6 +194,30 @@ pub(crate) extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32)
         (plataforma().escribir)(linea.as_bytes());
     }
     S_OK
+}
+
+/// DXGI_FORMAT_R16G16B16A16_FLOAT y R10G10B10A2_UNORM: las cadenas HDR que
+/// acepta la casa (N5.16), ademas de las de 8 bits.
+pub(crate) const DXGI_FORMAT_R16G16B16A16_FLOAT: u32 = 10;
+pub(crate) const DXGI_FORMAT_R10G10B10A2_UNORM: u32 = 24;
+
+/// Si una cadena (CreateSwapChain*, ResizeBuffers) puede tener este formato.
+pub(crate) fn formato_de_cadena(f: u32) -> bool {
+    matches!(f, DXGI_FORMAT_R8G8B8A8_UNORM | DXGI_FORMAT_B8G8R8A8_UNORM | DXGI_FORMAT_R16G16B16A16_FLOAT | DXGI_FORMAT_R10G10B10A2_UNORM)
+}
+
+/// **Un pixel de una cadena HDR, a la ventana** (B,G,R,A de 8 bits). El
+/// RGBA16F es scRGB LINEAL (su espacio de color por omision en DXGI, el
+/// G10 de P709): se lleva a sRGB, como lo haria DWM en una pantalla SDR. El
+/// R10G10B10A2 ya es G22: se cuantiza a 8 bits. Lo que pasa de 1 se recorta:
+/// sin un monitor HDR, NO hay mapeo de tonos (dicho en el plan, N5.16).
+fn a_bgra8_de_float(formato: u32, c: [f32; 3]) -> u32 {
+    let [r, g, b] = if formato == DXGI_FORMAT_R16G16B16A16_FLOAT {
+        c.map(bmo_proton_x::textura::lineal_a_srgb8)
+    } else {
+        c.map(|x| if x > 0.0 { if x < 1.0 { (x * 255.0 + 0.5) as u8 } else { 255 } } else { 0 })
+    };
+    0xFF00_0000 | (r as u32) << 16 | (g as u32) << 8 | b as u32
 }
 
 // -- P3c4: el adaptador, Factory5/6 y SwapChain3 ----------------------------
@@ -628,4 +660,21 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "CreateDXGIFactory2" => dir!(create_dxgi_factory2),
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod pruebas_hdr {
+    use super::*;
+
+    #[test]
+    fn una_cadena_hdr_llega_a_la_ventana_en_8_bits() {
+        // RGBA16F es scRGB LINEAL: 0.5 es 188 en sRGB, 0.2 es 124, y lo que
+        // pasa de 1 (una luz de 4.0) se recorta a 255 (sin monitor HDR).
+        assert_eq!(a_bgra8_de_float(DXGI_FORMAT_R16G16B16A16_FLOAT, [0.5, 0.2, 4.0]), 0xFF00_0000 | 188 << 16 | 124 << 8 | 255);
+        // R10G10B10A2 ya es G22: se cuantiza a secas (0.5 -> 128).
+        assert_eq!(a_bgra8_de_float(DXGI_FORMAT_R10G10B10A2_UNORM, [0.5, 0.0, 1.0]), 0xFF00_0000 | 128 << 16 | 255);
+        // Las cuatro cadenas que se aceptan, y una que no.
+        assert!([28, 87, 10, 24].into_iter().all(formato_de_cadena));
+        assert!(!formato_de_cadena(2));
+    }
 }

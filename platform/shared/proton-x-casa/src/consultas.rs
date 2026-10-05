@@ -127,7 +127,7 @@ pub(crate) fn salta(dir: u64, op: u32) -> bool {
 /// Si la predicacion salta esta orden (ver la cabecera).
 pub(crate) fn predicable(o: &Orden) -> bool {
     match o {
-        Orden::Limpiar { .. } | Orden::LimpiarUav { .. } | Orden::Dibujar { .. } | Orden::Region(_) | Orden::Bytes { .. } | Orden::Entero { .. } | Orden::Despachar { .. } | Orden::Indirecto { .. } => true,
+        Orden::Limpiar { .. } | Orden::LimpiarTexel { .. } | Orden::LimpiarUav { .. } | Orden::Dibujar { .. } | Orden::Region(_) | Orden::Bytes { .. } | Orden::Entero { .. } | Orden::Despachar { .. } | Orden::Indirecto { .. } => true,
         Orden::Atomica { .. } | Orden::Consulta { .. } | Orden::Empezar { .. } | Orden::Resolver { .. } | Orden::Escribir { .. } | Orden::Predicar { .. } => false,
     }
 }

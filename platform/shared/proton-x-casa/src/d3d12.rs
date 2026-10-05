@@ -63,6 +63,10 @@ pub(crate) enum Orden {
     /// profundidad, los bits del float). `sub`: el subrecurso de la vista y
     /// su rebanada 3D << 32 (ver `d3d12_vistas`); 0, el de siempre.
     Limpiar { recurso: u64, sub: u64, pixel: u32 },
+    /// N5.16 (05-10): limpiar un render target de FLOAT (cuatro palabras
+    /// por texel, ya cuantizadas a su formato). Se hace al ejecutarse, no se
+    /// apunta como la de arriba: esa guarda UNA palabra.
+    LimpiarTexel { recurso: u64, sub: u64, texel: [u32; 4] },
     /// Un dibujo, con el estado de la lista TAL COMO ESTABA al pedirlo. Los
     /// buferes se leen al ejecutarse, como los lee la GPU.
     Dibujar { estado: Estado, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool, primera_instancia: u32 },
@@ -320,7 +324,8 @@ pub(crate) fn recurso_forma(forma: Forma, cadena: bool, banderas: u32) -> Option
     let datos = crate::memoria::pedir_pixeles(total.max(4), prestable)?;
     let pixeles = match almacen {
         Almacen::Bloques(_) => Pixeles::ninguno(),
-        _ => Pixeles::sobre(datos, forma.ancho as usize * forma.alto as usize),
+        // N5.16: un float de 2-4 canales son cuatro palabras por texel.
+        _ => Pixeles::sobre(datos, forma.ancho as usize * forma.alto as usize * (almacen.elemento().0 / 4) as usize),
     };
     let tex = Some(Tex { forma, subs, datos, almacen, banderas });
     crate::pulso::contar(crate::pulso::Cosa::Recurso, 0);
@@ -752,6 +757,14 @@ pub(crate) extern "win64" fn clear_render_target_view(this: u64, handle: u64, co
             return;
         }
         Almacen::Rgba8 => a << 24 | b << 16 | g << 8 | r,
+        Almacen::Flotantes4 => {
+            // El color en float, cuantizado al formato de VERDAD de la
+            // textura (un R11G11B10 no guarda signo ni alfa).
+            let texel = bmo_proton_x::formato_ia::cuantizar(Almacen::nativo(formato), c).map(f32::to_bits);
+            // SAFETY: `this` es una Lista de la casa.
+            unsafe { de::<Lista>(this) }.ordenes.push(Orden::LimpiarTexel { recurso, sub, texel });
+            return;
+        }
     };
     // SAFETY: `this` es una Lista de la casa.
     let l = unsafe { de::<Lista>(this) };
@@ -1000,6 +1013,15 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
                     Some((px, _, _)) => px.fill(*pixel),
                     None => aviso("ClearRenderTargetView/ClearDepthStencilView de un subrecurso que la textura no tiene"),
                 },
+                Orden::LimpiarTexel { recurso, sub, texel } => {
+                    if *sub == 0 {
+                        tuberia::olvidar_limpieza(*recurso);
+                    }
+                    match tuberia::destino(*recurso, *sub) {
+                        Some((px, _, _)) => px.chunks_exact_mut(4).for_each(|t| t.copy_from_slice(texel)),
+                        None => aviso("ClearRenderTargetView de un subrecurso que la textura no tiene"),
+                    }
+                }
                 Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado, primera_instancia } => {
                     tuberia::ejecutar_dibujo(estado, *cuantos, *instancias, *primero, *base, *indexado, *primera_instancia);
                 }

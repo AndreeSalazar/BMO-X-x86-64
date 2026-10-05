@@ -963,8 +963,27 @@ la proxima corrida del metal dice cual pesa mas:
   cada pixel el atributo de la cuenta en f64 del triangulo ENTERO). Queda:
   `DepthClipEnable = FALSE` (sin recorte en z, la Z sujeta), que hoy
   recorta igual.
-- [ ] **N5.16 -- render targets de floats** (R32, RGBA16F de verdad): hoy
-  se pintan en 8 bits o no se pintan; el HDR de Cyberpunk vive ahi.
+- [x] **N5.16 -- render targets de floats de 2 a 4 canales** (05-10, `prueba/hdr.exe`):
+  RGBA16F, RG16F, RGBA32F, R11G11B10F y R10G10B10A2 se guardan en FLOAT
+  (cuatro palabras por texel, `Almacen::Flotantes4`), se mezclan en float
+  y se cuantizan al formato de su vista (half, float11/10 con redondeo al
+  par, sin signo a 0); ClearRenderTargetView en float; se copian y se
+  leen como textura; y una cadena RGBA16F (scRGB lineal, llevada a sRGB) o
+  R10G10B10A2 se presenta en la ventana de 8 bits. Juez: `hdr.exe`
+  (`tests/corre/muestras.rs`, n5_16: 4 `bien`, bit a bit; con la casa de
+  antes sale MAL: el 1.0 recortado) y `dxgi::pruebas_hdr`.
+  **Lo que puede fallar, dicho:** (1) un monitor HDR no existe aqui: lo de
+  mas de 1 se RECORTA al presentar, sin mapeo de tonos (un juego que confie
+  en el monitor se vera quemado); (2) la 3060 no pinta en float: su puerta
+  es de 8 bits, y un lote en float va por la CPU (lo dice un aviso); (3)
+  cuatro palabras por texel son 4 veces la memoria de un RGBA8 (un RGBA16F
+  de 1080p son 33 MB, no 8).
+- [ ] **N5.16b -- lo que queda de los floats** (`proton-x-casa/src/tuberia.rs`):
+  un render target de UN canal (R32_FLOAT, R16_FLOAT: hoy "todavia no"),
+  los UAV y ClearUnorderedAccessView sobre una textura de float de 2-4
+  canales (hoy un aviso y nada), y la 3060 pintando en float (su puerta).
+  **Como se sabe:** `hdr.exe` con un cuarto destino R32F y un CS que
+  escriba en el RGBA16F, bit a bit.
 - [x] **N5.17 -- ExecuteIndirect y ExecuteBundle** (05-10). ExecuteBundle
   corre desde E1.6 de la ESCALERA (HelloBundles, bit a bit), y
   ExecuteIndirect desde E2.4 (D3D12ExecuteIndirect): se apunta con el

@@ -2340,3 +2340,45 @@ Reproducible (comprobado en dos directorios), sin rutas. sha256:
 El banco (`tests/corre/muestras.rs`, n5_3c): los 7 `bien` y sale con 0.
 Probado que dice NO: con el paso de los estructurados mal (A), sin la
 limpieza (las dos D) y con la textura traspuesta (B).
+
+hdr_vs.dxil, hdr_color.dxil, hdr_lee.dxil -- los de hdr.exe (05-10)
+
+N5.16: `hdr.hlsl` (aqui al lado): VSCuadro (un cuadro de pantalla completa
+de SV_VertexID, sin bufer de vertices), PSColor (el color de cuatro
+constantes de la raiz) y PSLee (un render target de float LEIDO como
+textura, por cuatro). Con el mismo `dxc` de Linux que los demas:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo hdr_vs.dxil hdr.hlsl
+   dxc -T ps_6_0 -E PSColor -Fo hdr_color.dxil hdr.hlsl
+   dxc -T ps_6_0 -E PSLee -Fo hdr_lee.dxil hdr.hlsl
+
+   024b0d8e4f6780e5f9ed724fccaa11aee60e6f632e2241bbcbc91e00dc9a4d58  hdr_vs.dxil
+   ec4179122fe80bf7b7346408be529c9580272678168a1b11c2cf195e091389e2  hdr_color.dxil
+   6a659ebe4e23edb07f451145037eb900a21f77343382f12a9b4d46e838b7a569  hdr_lee.dxil
+
+hdr.exe -- N5.16: los render targets de FLOAT, juzgados (05-10)
+
+NUESTRO, no de Microsoft: `hdr.cpp` (aqui al lado), de consola, con los
+tres .dxil dentro (`.incbin`). Tres destinos de 64 x 64: A, un RGBA16F
+limpio en float y con dos dibujos SUMANDO (sale 3.25: lo que pasa de 1 y lo
+que resta se guardan); B, un R11G11B10F con la tijera en la mitad izquierda
+(sin signo: el -1 es 0); C, A leido como textura por cuatro a un RGBA8.
+Cada valor cabe EXACTO en su formato (sin redondeos que discutir con una
+GPU de verdad) y lo esperado son bits escritos a mano en el `.cpp`, con su
+cuenta al lado. Dice `bien` 4 veces y sale con el numero de fallos; en
+Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con hdr.cpp y los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c hdr.cpp -o hdr.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o hdr.exe hdr.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   b22564e0603689415ed89a89d1e13e25f32892953ad637bf05418d2e2d19d051  hdr.exe
+
+El banco (`tests/corre/muestras.rs`, n5_16): los 4 `bien`, sale con 0, y
+un solo aviso (el cuadro sale de SV_VertexID con enteros: se interpreta).
+Probado que dice NO: con la casa de ANTES del HDR, A, B y C salen MAL (C
+da 64 de rojo en vez de 207: el 1.0 recortado que el HDR quita).
