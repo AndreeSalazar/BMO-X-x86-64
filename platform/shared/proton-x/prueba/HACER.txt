@@ -2032,3 +2032,27 @@ Reproducible (comprobado dos veces). sha256:
 
 `dxc -dumpbin`: sampleCmpLevelZero (65), textureGather (73) y unaryBits
 31, 32 y 33. El banco (`pruebas_espacios.rs`) lo corre en una 2x2.
+
+hwindow.exe -- D3D12HelloWindow de Microsoft, el .exe DE VERDAD (05-10)
+
+E1.1 de la ESCALERA (docs/plan/PLAN_LA_ESCALERA_PROTON_X.md): la muestra
+`D3D12HelloWorld/src/HelloWindow` de DirectX-Graphics-Samples (licencia MIT,
+Copyright (c) Microsoft; el texto en muestras/LICENSE-MIT.txt), compilada de
+su fuente SIN cambiarla. Lo que solo acepta MSVC lo pone el puente
+`muestras/antes.h` (-include), que no cambia lo que hace la muestra. En la
+nube, con mingw-w64 sobre el UCRT (el mismo CRT que Cyberpunk:
+api-ms-win-crt-*), g++-mingw-w64-x86-64-win32 13.2.0 y mingw-w64-x86-64-dev
+11.0.1 de Ubuntu, y las cabeceras de DirectX-Headers y DirectXMath (MIT):
+
+   sh muestras/construir.sh DIRECTORIO_DE_TRABAJO
+
+Los tres commits estan fijados en el script. Reproducible: dos directorios
+de trabajo distintos dan el mismo .exe, y no lleva ninguna ruta de la
+maquina que lo hizo (comprobado). sha256:
+
+   65e01b1cec65b451dea8c3a287159cac653aa2ff4574e95ab6be63c5b1f543cd  hwindow.exe
+
+En Windows corre tal cual: una ventana de 1280x720 limpia al azul
+{0.0, 0.2, 0.4}. El juez del banco (`tests/corre/muestras.rs`): cada pixel
+de cada Present es R 0x00 G 0x33 B 0x66, lo que dicen las reglas de D3D12
+para ese color en R8G8B8A8_UNORM.

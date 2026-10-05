@@ -76,6 +76,9 @@ const TANDA14B: &[u8] = include_bytes!("../../proton-x/prueba/tanda14b.exe");
 const TANDA15: &[u8] = include_bytes!("../../proton-x/prueba/tanda15.exe");
 /// 02-10: el hilo que espera dando vueltas (`de_hoy.rs`).
 const VUELTAS: &[u8] = include_bytes!("../../proton-x/prueba/vueltas.exe");
+/// E1.1 de la ESCALERA (05-10): `D3D12HelloWindow` de Microsoft, el `.exe`
+/// de verdad compilado de su fuente (`prueba/muestras/HACER.txt`).
+const HWINDOW: &[u8] = include_bytes!("../../proton-x/prueba/hwindow.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");
@@ -205,6 +208,10 @@ static DORMIDAS: AtomicU32 = AtomicU32::new(0);
 /// La huella (`bmo_cubo::referencia::huella`) de cada superficie PRESENTADA,
 /// en orden: lo que se vio en la ventana, fotograma a fotograma.
 static VISTAS: Mutex<Vec<u64>> = Mutex::new(Vec::new());
+/// Cuantos Present deja el banco antes de sacar al `.exe` con 0xF00D. Las
+/// muestras de Microsoft solo salen cerrando su ventana (WM_CLOSE), que en
+/// BMO-X es la X del escritorio: la que la pone, la devuelve a 1000.
+static TOPE_PRESENTES: AtomicU32 = AtomicU32::new(1000);
 
 /// **El guion del buzon.** Cada `evento` saca el siguiente; un 0 del guion es
 /// "ahora no hay nada", y se gasta. Asi se ve lo que hace `GetMessageW` cuando
@@ -232,10 +239,10 @@ fn mostrar(_s: &Superficie) -> bool {
 }
 
 /// Un `.exe` que presenta para siempre (un bucle de juego al que no le llega
-/// su tecla de salir) tampoco cuelga el banco: a los mil Present, fuera con
-/// 0xF00D.
+/// su tecla de salir) tampoco cuelga el banco: a los mil Present (o a los de
+/// [`TOPE_PRESENTES`]), fuera con 0xF00D.
 fn presentar(s: &Superficie) {
-    if PRESENTADAS.fetch_add(1, Ordering::SeqCst) >= 1000 {
+    if PRESENTADAS.fetch_add(1, Ordering::SeqCst) >= TOPE_PRESENTES.load(Ordering::SeqCst) {
         salir(0xF00D);
     }
     // SAFETY: la superficie es un Vec de PANTALLA (ver `superficie`), vivo.
@@ -1392,3 +1399,5 @@ fn tanda13_exe_tiene_lo_que_lanza_msvcp140() {
 // fichero: este paso de las 1000 lineas de codigo (L6a).
 #[path = "corre/de_hoy.rs"]
 mod de_hoy;
+#[path = "corre/muestras.rs"]
+mod muestras;

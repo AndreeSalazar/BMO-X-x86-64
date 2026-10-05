@@ -86,12 +86,15 @@ cada pieza aislada y con su imagen correcta delante.
 ```text
    R1  UN ESCALON, UNA CAPA. Si un escalon pide dos casillas abiertas de
        LAS_TRES_GRANDES, se parte en dos, o se sube primero el que pide una
-   R2  EL .EXE DE VERDAD. Compilado del fuente publico SIN cambios, salvo el
-       parche de la huella (R3), que se guarda como .patch junto al binario.
-       Nada de "su camino llamado a mano": eso es lo que ya hay
-   R3  EL JUEZ. El .exe dice la huella del fotograma N (FNV-1a de B, G, R,
-       como `bmo_cubo::referencia::huella` y `cubo12.exe`). En Windows, con
-       la 3060 y su driver, y en BMO-X tiene que decir LO MISMO:
+   R2  EL .EXE DE VERDAD. Compilado del fuente publico SIN cambios. Lo que
+       solo acepta MSVC va en un puente (`prueba/muestras/antes.h`) que no
+       cambia lo que hace la muestra. Nada de "su camino llamado a mano":
+       eso es lo que ya habia
+   R3  EL JUEZ. La huella de cada Present (FNV-1a de B, G, R, como
+       `bmo_cubo::referencia::huella`) la toma el banco SIN tocar el .exe
+       (`VISTAS` de `tests/corre.rs`, 05-10). La esperada sale de las reglas
+       de D3D12 cuando las fijan (E1.1: un Clear), o de la misma muestra en
+       Windows, con la 3060 y su driver. Las dos tienen que ser LA MISMA:
          bit a bit   donde D3D12 lo fija: copias, enteros, sin filtrado
          su margen   donde la especificacion lo deja (filtrado, mezcla en
                      float, las trascendentales): el de la especificacion,
@@ -106,12 +109,14 @@ cada pieza aislada y con su imagen correcta delante.
        (como siempre) o a un escalon nuevo de este plan
    R6  SOLO x86-64. PE32+ AMD64, como dice PROTON-X (su seccion 1). Todos
        los escalones de aqui lo son; uno que no, no sube
-   R7  DE DONDE SALE CADA BINARIO. Compilado con MSVC, `/MD` (el mismo CRT
-       que Cyberpunk: vcruntime140, msvcp140, api-ms-win-crt-*), `/Brepro` y
-       sin la ruta del PDB de la maquina (`procedencia --check` lo caza).
-       Junto al binario: su LICENSE (MIT), su .patch y un HACER.txt con el
-       commit del repo de origen, la version de MSVC, las banderas y la
-       huella que dio en Windows
+   R7  DE DONDE SALE CADA BINARIO (cambiada el 05-10, con E1.0 hecho). En
+       la NUBE, con `prueba/muestras/construir.sh`: mingw-w64 sobre el UCRT
+       (el mismo CRT que Cyberpunk: api-ms-win-crt-*), los commits de
+       origen fijados, reproducible (dos directorios, el mismo sha256) y sin
+       rutas de la maquina (`procedencia --check`). Sin Windows ni Visual
+       Studio para fabricarlo; Windows solo hace falta para MIRARLO. El sha256
+       en `prueba/HACER.txt` (PX1), la licencia en `muestras/` y en el
+       NOTICE de la raiz
    R8  EL PISO DE LA 3060. Cada escalon tiene dos mitades: la de la CPU (el
        banco, la huella del interprete) y la de la 3060 (la huella del
        metal). La de la 3060 pide que el GSP despierte SIEMPRE: G0 de
@@ -142,19 +147,32 @@ dice si el arreglo de `ffxDispatch` (`d16a29d`) funciono (E0.4).
 
 ## E1 -- los Hello de Microsoft (`Samples/Desktop/D3D12HelloWorld`, MIT)
 
-- [ ] **E1.0 -- la cadena de fabricacion.** Clonar
-  `microsoft/DirectX-Graphics-Samples`, compilar en Windows con R7, aplicar
-  el parche de la huella (R3) y dejar cada `.exe` en
-  `platform/shared/proton-x/prueba/muestras/` con su LICENSE, su .patch y su
-  HACER.txt; `rayosx` sobre cada uno (DENTRO, y su lista de importaciones).
-  Sus sombreadores, con `sombras.exe` en el mismo Windows: el `D3DCompile`
-  de la casa no compila HLSL, sirve el `.cso` de su huella (P3c2,
-  `proton-x-casa/src/compilador.rs`). Y su entrada en el NOTICE de la raiz. **Como se sabe:** los `.exe` en el
-  arbol, `procedencia --check` en verde, y la huella de Windows de cada uno
-  apuntada en su HACER.txt.
-- [ ] **E1.1 -- HelloWindow.** Solo la cadena de intercambio, un Clear, una
-  valla y Present. La capa: la cadena de un `.exe` de Microsoft (D5.7 de
-  LAS_TRES_GRANDES, a medias). **Como se sabe:** su huella, igual.
+- [x] **E1.0 -- la cadena de fabricacion** (05-10). `prueba/muestras/
+  construir.sh` trae DirectX-Graphics-Samples, DirectX-Headers y
+  DirectXMath en sus commits y compila la muestra en la nube (R7);
+  `antes.h` es el puente de MSVC a mingw-w64: `_uuidof`, el `FileHandle` de
+  la WRL, y los metodos COM que devuelven una estructura (la llamada de
+  maquina es la misma que la de MSVC). Lo que se aprendio al hacerlo: con
+  msvcrt.dll el `.exe` pedia 23 funciones que la casa no tiene, casi todas
+  del arranque viejo de mingw; sobre el UCRT, 12, y todas de Windows de
+  verdad. Por eso el UCRT. Lo que queda para los siguientes: los
+  sombreadores, con `sombras.exe` en Windows (el `D3DCompile` de la casa no
+  compila HLSL, sirve el `.cso` de su huella: P3c2,
+  `proton-x-casa/src/compilador.rs`). **Como se sabe:** `hwindow.exe` en el
+  arbol, su sha256 en `prueba/HACER.txt`, `proton_x.py` y
+  `procedencia --check` en verde.
+- [x] **E1.1 -- HelloWindow** (05-10, en el banco; falta verlo en el metal
+  y en Windows). Solo la cadena de intercambio, un Clear, una valla y
+  Present. La capa: la cadena de un `.exe` de Microsoft (D5.7 de
+  LAS_TRES_GRANDES, a medias). Pidio 12 funciones que la casa no tenia, y
+  ya las tiene: `GetThreadId`, `CommandLineToArgvW`, `mbrtowc`, `wcrtomb`,
+  `_ismbblead`, `__p__environ`, `__p__wenviron`, `__p__acmdln`,
+  `__p__fmode`, `signal` (guarda, no llama, y lo dice), `__daylight` y
+  `rand_s`. **Como se sabe:** `tests/corre/muestras.rs`: 60 Present en
+  1280x720 y en cada uno CADA pixel R 0x00 G 0x33 B 0x66, lo que fija D3D12
+  para {0.0, 0.2, 0.4} en R8G8B8A8_UNORM; y las doce, una a una, con los
+  casos que muerden. En el metal: `run sys/proton-x.bex window/hwindow.exe`,
+  una ventana azul.
 - [ ] **E1.2 -- HelloTriangle, el `.exe` de verdad.** Lo que el cubo no
   pide: `d3dx12.h`, ComPtr, el CRT de C++ de MSVC y el HLSL compilado en
   marcha con `D3DCompileFromFile` (SM5; la casa da su `.cso`, E1.0). **Como

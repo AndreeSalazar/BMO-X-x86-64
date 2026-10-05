@@ -98,6 +98,12 @@ pub(crate) fn variable(n: &str) -> Option<Vec<u16>> {
     estado().entorno.leer(&w).map(|v| v.to_vec())
 }
 
+/// La ruta ENTERA del `.exe`, como la da GetModuleFileNameW(NULL).
+pub(crate) fn ruta_exe() -> alloc::string::String {
+    let e = &estado().exe_w;
+    alloc::string::String::from_utf16_lossy(&e[..e.len().saturating_sub(1)])
+}
+
 /// El nombre del `.exe` sin su ruta (`crt.exe`), para GetModuleHandle.
 pub(crate) fn nombre_exe() -> alloc::string::String {
     let e = &estado().exe_a;

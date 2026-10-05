@@ -36,6 +36,7 @@ struct Estado {
     ctime_a: [u8; 32],
     ctime_w: [u16; 32],
     timezone: i32,
+    daylight: i32,
 }
 
 struct Global(UnsafeCell<Estado>);
@@ -48,6 +49,7 @@ static ESTADO: Global = Global(UnsafeCell::new(Estado {
     ctime_a: [0; 32],
     ctime_w: [0; 32],
     timezone: 0,
+    daylight: 0,
 }));
 
 fn estado() -> &'static mut Estado {
@@ -59,6 +61,7 @@ pub(crate) fn reiniciar() {
     let e = estado();
     e.entorno_a.clear();
     e.entorno_w.clear();
+    e.daylight = 0;
 }
 
 // -- El entorno ------------------------------------------------------------------------------
@@ -284,6 +287,24 @@ extern "win64" fn wctime64(t: *const i64) -> *const u16 {
 
 extern "win64" fn timezone() -> *mut i32 {
     &mut estado().timezone
+}
+
+/// `__daylight`: la DIRECCION de `_daylight`, si la zona tiene horario de
+/// verano. La de la casa es UTC (ver `__tzname`): 0.
+extern "win64" fn daylight() -> *mut i32 {
+    &mut estado().daylight
+}
+
+/// `rand_s(*r)` (E1.1 de la ESCALERA, 05-10): un numero al azar de 32 bits,
+/// del MISMO generador que SystemFunction036 y BCryptGenRandom
+/// (`sistema::process_prng`). NULL: EINVAL, sin tocar nada.
+extern "win64" fn rand_s(r: *mut u32) -> i32 {
+    if r.is_null() {
+        crate::crt_cadenas::poner_errno(crate::crt_cadenas::EINVAL);
+        return crate::crt_cadenas::EINVAL;
+    }
+    crate::sistema::process_prng(r as *mut u8, 4);
+    0
 }
 
 static UTC: [u8; 4] = *b"UTC\0";
@@ -626,6 +647,8 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "_ctime64" => dir!(ctime64),
         "_wctime64" => dir!(wctime64),
         "__timezone" => dir!(timezone),
+        "__daylight" => dir!(daylight),
+        "rand_s" => dir!(rand_s),
         "__tzname" => dir!(tzname),
         "_fullpath" => dir!(fullpath),
         "_wfullpath" => dir!(wfullpath),

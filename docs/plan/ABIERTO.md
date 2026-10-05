@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   622 casillas ABIERTAS en 57 planes
-   460 hechas
+   620 casillas ABIERTAS en 57 planes
+   462 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -79,15 +79,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 19 mas
 
-## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 21 abiertas, 3 hechas
-
-*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
-
-- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
-- [ ] E1.0 -- la cadena de fabricacion. Clonar
-- [ ] E1.1 -- HelloWindow. Solo la cadena de intercambio, un Clear, una
-- ... y 18 mas
-
 ## [`PLAN_FASE.md`](PLAN_FASE.md) -- 19 abiertas, 3 hechas
 
 *PLAN FASE -- el escritorio que se TRANSFORMA*
@@ -95,6 +86,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] F4 -- REPLEGARSE. Al salir de FASE, las placas se van (hoy la
 - [ ] F5 -- EL PANEL IZQUIERDO TAMBIEN SE ARMA. Sus secciones como placas
 - [ ] F6 -- LO DATA-DENSE. Graficos circulares (la carga por nucleo, los
+- ... y 16 mas
+
+## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 19 abiertas, 5 hechas
+
+*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
+
+- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
+- [ ] E1.2 -- HelloTriangle, el .exe de verdad. Lo que el cubo no
+- [ ] E1.3 -- HelloTexture, el .exe de verdad. Hoy solo el camino a
 - ... y 16 mas
 
 ## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 18 abiertas, 2 hechas
