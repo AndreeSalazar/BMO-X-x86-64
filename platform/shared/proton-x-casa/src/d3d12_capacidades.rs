@@ -35,6 +35,12 @@ const OPTIONS4: u32 = 23;
 const OPTIONS5: u32 = 27;
 const OPTIONS6: u32 = 30;
 const OPTIONS7: u32 = 32;
+// E2.3b (05-10): nBodyGravity pregunta OPTIONS12 con ThrowIfFailed.
+const OPTIONS8: u32 = 36;
+const OPTIONS9: u32 = 37;
+const OPTIONS10: u32 = 39;
+const OPTIONS11: u32 = 40;
+const OPTIONS12: u32 = 41;
 
 /// OPTIONS2 a OPTIONS7 (02-10, lo siguiente que pregunta Cyberpunk): su
 /// numero y sus campos de 4 bytes, en orden.
@@ -52,7 +58,13 @@ const OPTIONS7: u32 = 32;
 /// hace, y un motor que lee un "si" los usa y cae. Sigue el "si" de
 /// WriteBufferImmediate y de los sellos de tiempo en la cola de copia, que
 /// la casa ya hace (`d3d12_lista2`, `d3d12_resto`).
-const OPCIONES_MAS: [(u32, &[u32]); 6] = [
+///
+/// ** E2.3b (05-10): de OPTIONS8 a OPTIONS12, todo NO. Las barreras nuevas
+/// (`EnhancedBarriersSupported`, OPTIONS12) las pregunta nBodyGravity de
+/// Microsoft con ThrowIfFailed: sin contestar, la muestra no arranca; con
+/// un NO, va por ResourceBarrier, que la casa ya sabe. Los atomicos de 64
+/// bits, el VRS y los de malla, lo mismo que en OPTIONS5 a OPTIONS7.
+const OPCIONES_MAS: [(u32, &[u32]); 11] = [
     // DepthBoundsTest NO, ProgrammableSamplePositions NO.
     (OPTIONS2, &[0, 0]),
     // CopyQueueTimestamps, CastingFullyTypedFormat, WriteBufferImmediate en
@@ -67,6 +79,18 @@ const OPCIONES_MAS: [(u32, &[u32]); 6] = [
     (OPTIONS6, &[0, 0, 0, 0, 0]),
     // MeshShader NO, SamplerFeedback NO.
     (OPTIONS7, &[0, 0]),
+    // UnalignedBlockTextures NO.
+    (OPTIONS8, &[0]),
+    // Las de malla, los atomicos de 64 bits y las derivadas en malla NO,
+    // WaveMMA NO.
+    (OPTIONS9, &[0, 0, 0, 0, 0, 0]),
+    // VRS con suma NO, VRS por primitiva de malla NO.
+    (OPTIONS10, &[0, 0]),
+    // Atomicos de 64 bits en el monton de descriptores NO.
+    (OPTIONS11, &[0]),
+    // Las estadisticas de malla: sin sombreadores de malla, UNKNOWN (-1).
+    // EnhancedBarriers NO, RelaxedFormatCasting NO.
+    (OPTIONS12, &[0xFFFF_FFFF, 0, 0]),
 ];
 
 /// D3D_FEATURE_LEVEL_12_2: lo mas alto que dice la tarjeta.

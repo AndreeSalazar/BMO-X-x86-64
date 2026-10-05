@@ -89,6 +89,7 @@ const HBUNDLES: &[u8] = include_bytes!("../../proton-x/prueba/hbundles.exe");
 /// E2.2 (05-10): DynamicIndexing, el bindless (N5.4).
 const DYNINDEX: &[u8] = include_bytes!("../../proton-x/prueba/dynindex.exe");
 const COMPUTO: &[u8] = include_bytes!("../../proton-x/prueba/computo.exe");
+const NBODY: &[u8] = include_bytes!("../../proton-x/prueba/nbody.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

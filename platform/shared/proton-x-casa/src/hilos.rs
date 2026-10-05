@@ -12,8 +12,9 @@
 //!                 rbp rdi rsi r12..r15, xmm6..xmm15, MXCSR y la palabra de
 //!                 control de la x87), cambia de pila y pone el GS del otro
 //!    el turno     lo decide `bmo_proton_x::hilos::Planificador` (puro, con
-//!                 banco): se cede cuando un hilo ESPERA -- WaitFor*, Sleep,
-//!                 una seccion critica ocupada, una condicion, GetMessage
+//!                 banco): se cede cuando un hilo ESPERA -- WaitFor* (con
+//!                 plazo, aunque ya este cumplido: 05-10), Sleep, una
+//!                 seccion critica ocupada, una condicion, GetMessage
 //! ```
 //!
 //! **Por que el relevo guarda xmm6..xmm15 a mano:** la casa se compila sin SSE
@@ -495,7 +496,18 @@ fn esperar(hs: &[u64], todos: bool, ms: u32) -> u32 {
         c.plan.esperar(&objetos, todos, plazo, ahora())
     };
     if let Some(r) = r {
-        // Esperar 0 con un objeto listo es tambien un sitio donde se cede.
+        // E2.3b (05-10): una espera DE VERDAD (con plazo) que ya esta
+        // cumplida cede el turno, si otro hilo puede seguir. En la casa las
+        // vallas de D3D12 se cumplen siempre al momento (la cola es
+        // sincrona): el hilo de computo de nBodyGravity espera su valla, la
+        // encuentra cumplida y vuelve a calcular, y el de dibujo no correria
+        // nunca. En Windows ese hilo se dormiria lo que tarda la tarjeta. El
+        // resultado ya esta decidido (y gastado, si era automatico): ceder
+        // aqui es lo que Windows hace cuando le quita el turno al volver.
+        // Esperar 0 (preguntar) no cede.
+        if ms != 0 {
+            ceder();
+        }
         return r;
     }
     bloquear();

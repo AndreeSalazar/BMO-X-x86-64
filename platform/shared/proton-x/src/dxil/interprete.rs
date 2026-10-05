@@ -56,6 +56,61 @@ pub struct Grupo<'a, 'b> {
     pub uavs: &'a mut [Option<crate::bufer::Uav<'b>>],
 }
 
+/// **Lo que emite un sombreador de GEOMETRIA** (E2.3b, 05-10): sus vertices
+/// (cada uno, `salidas` elementos seguidos: las salidas al emitirlo) y donde
+/// acaba cada tira. Lo que pase de `maximo` (`[maxvertexcount]`) se pierde,
+/// como en D3D12.
+#[derive(Debug, Default)]
+pub struct Tiras {
+    pub salidas: usize,
+    pub maximo: usize,
+    pub vertices: Vec<[f32; 4]>,
+    /// Cuantos vertices iban emitidos al cortar cada tira.
+    pub cortes: Vec<usize>,
+}
+
+impl Tiras {
+    /// Los vertices emitidos.
+    pub fn emitidos(&self) -> usize {
+        self.vertices.len() / self.salidas.max(1)
+    }
+
+    /// Cortar la tira de ahora (si tiene algo).
+    pub fn cortar(&mut self) {
+        let n = self.emitidos();
+        if self.cortes.last().copied().unwrap_or(0) != n {
+            self.cortes.push(n);
+        }
+    }
+
+    /// **Los triangulos de sus tiras**, como indices de vertice: cada uno
+    /// nuevo con los dos de antes, los impares dados la vuelta (lo de una
+    /// tira de D3D). Una tira de menos de tres no da ninguno.
+    pub fn triangulos(&self) -> Vec<[u32; 3]> {
+        let mut v = Vec::new();
+        let mut desde = 0usize;
+        for &hasta in self.cortes.iter().chain(core::iter::once(&self.emitidos())) {
+            for i in desde..hasta.saturating_sub(2) {
+                let i = i as u32;
+                v.push(if (i as usize - desde) % 2 == 0 { [i, i + 1, i + 2] } else { [i + 1, i, i + 2] });
+            }
+            desde = desde.max(hasta);
+        }
+        v
+    }
+}
+
+/// **Lo que ve un hilo ademas de sus entradas y sus salidas**, segun su
+/// etapa.
+pub enum Extra<'x, 'a, 'b> {
+    /// Un vertice o un pixel: nada mas.
+    Nada,
+    /// N5.5: un hilo de computo, con su grupo.
+    Grupo(&'x mut Grupo<'a, 'b>),
+    /// E2.3b: un sombreador de geometria, con lo que lleva emitido.
+    Tiras(&'x mut Tiras),
+}
+
 impl Programa {
     /// Desde el `Si` (o el `SiNo`) `i`: el indice tras su `SiNo` (si
     /// `hasta_sino`) o tras su `FinSi`.
@@ -95,19 +150,32 @@ impl Programa {
         regs.clear();
         regs.extend_from_slice(&self.iniciales);
         let mut p = Pausa::AL_EMPEZAR;
-        match self.correr_desde(&mut p, entradas, cb, rec, salidas, regs, None) {
+        match self.correr_desde(&mut p, entradas, cb, rec, salidas, regs, Extra::Nada) {
             Paro::Fin(queda) => queda,
             // Una barrera fuera del computo no espera a nadie.
             Paro::Barrera => true,
         }
     }
 
-    /// **Correr un hilo desde `p`** (N5.5): hasta el final, o hasta una
-    /// `Barrera` si es de computo (`grupo`); `p` queda donde se paro. Los
-    /// registros, `regs`, son los del hilo: quien llama los guarda entre
-    /// una barrera y la siguiente.
+    /// **Correr un sombreador de GEOMETRIA** (E2.3b) una vez, sobre una
+    /// primitiva: `entradas` son sus vertices, cada uno [`Programa::entradas`]
+    /// elementos seguidos; lo que emite queda en `tiras` (que se vacia antes).
     #[allow(clippy::too_many_arguments)]
-    pub fn correr_desde(&self, p: &mut Pausa, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut [f32], mut grupo: Option<&mut Grupo>) -> Paro {
+    pub fn correr_gs(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>, tiras: &mut Tiras) {
+        regs.clear();
+        regs.extend_from_slice(&self.iniciales);
+        tiras.vertices.clear();
+        tiras.cortes.clear();
+        let mut p = Pausa::AL_EMPEZAR;
+        self.correr_desde(&mut p, entradas, cb, rec, salidas, regs, Extra::Tiras(tiras));
+    }
+
+    /// **Correr un hilo desde `p`** (N5.5): hasta el final, o hasta una
+    /// `Barrera` si es de computo (`Extra::Grupo`); `p` queda donde se paro.
+    /// Los registros, `regs`, son los del hilo: quien llama los guarda entre
+    /// una barrera y la siguiente. Un GS (E2.3b) emite en `Extra::Tiras`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn correr_desde(&self, p: &mut Pausa, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut [f32], mut x: Extra) -> Paro {
         let bits = |regs: &[f32], r: Reg| regs[r as usize].to_bits();
         // Donde empieza cada bucle abierto (la forma ya se comprobo).
         let Pausa { mut pc, mut bucles, mut hondo, mut elige } = *p;
@@ -157,41 +225,54 @@ impl Programa {
                 }
                 // N5.5: el computo.
                 Op::IdHilo { d, que, c } => {
-                    let v = grupo.as_deref().map_or(0, |g| match que {
-                        0 => g.ids.despacho[c as usize],
-                        1 => g.ids.grupo[c as usize],
-                        2 => g.ids.en_grupo[c as usize],
-                        _ => g.ids.indice,
-                    });
+                    let v = match &x {
+                        Extra::Grupo(g) => match que {
+                            0 => g.ids.despacho[c as usize],
+                            1 => g.ids.grupo[c as usize],
+                            2 => g.ids.en_grupo[c as usize],
+                            _ => g.ids.indice,
+                        },
+                        _ => 0,
+                    };
                     regs[d as usize] = f32::from_bits(v);
                 }
                 Op::Barrera => {
-                    if grupo.is_some() {
+                    if matches!(x, Extra::Grupo(_)) {
                         *p = Pausa { pc, bucles, hondo, elige };
                         return Paro::Barrera;
                     }
                 }
                 Op::LeeCompartida { d, base, n, i } => {
                     let k = bits(regs, i);
-                    let v = grupo.as_deref().and_then(|g| (k < n).then(|| g.compartida.get((base + k) as usize).copied()).flatten()).unwrap_or(0);
+                    let v = match &x {
+                        Extra::Grupo(g) if k < n => g.compartida.get((base + k) as usize).copied().unwrap_or(0),
+                        _ => 0,
+                    };
                     regs[d as usize] = f32::from_bits(v);
                 }
                 Op::EscribeCompartida { base, n, i, s } => {
                     let (k, v) = (bits(regs, i), bits(regs, s));
-                    if let Some(x) = grupo.as_deref_mut().filter(|_| k < n).and_then(|g| g.compartida.get_mut((base + k) as usize)) {
-                        *x = v;
+                    if let Extra::Grupo(g) = &mut x {
+                        if let Some(w) = g.compartida.get_mut((base + k) as usize).filter(|_| k < n) {
+                            *w = v;
+                        }
                     }
                 }
                 Op::EscribeUav { u, modo, i, desp, v, mascara } => {
                     let (k, o, v) = (bits(regs, i), bits(regs, desp), v.map(|r| bits(regs, r)));
-                    if let Some(Some(x)) = grupo.as_deref_mut().and_then(|g| g.uavs.get_mut(u as usize)) {
-                        x.escribir(modo, k, o, v, mascara);
+                    if let Extra::Grupo(g) = &mut x {
+                        if let Some(Some(w)) = g.uavs.get_mut(u as usize) {
+                            w.escribir(modo, k, o, v, mascara);
+                        }
                     }
                 }
                 Op::LeeUav { d, u, modo, i, desp } => {
                     let (k, o) = (bits(regs, i), bits(regs, desp));
-                    let v = match grupo.as_deref().and_then(|g| g.uavs.get(u as usize)) {
-                        Some(Some(x)) => x.cargar(modo, k, o),
+                    let v = match &x {
+                        Extra::Grupo(g) => match g.uavs.get(u as usize) {
+                            Some(Some(w)) => w.cargar(modo, k, o),
+                            _ => [0; 4],
+                        },
                         _ => [0; 4],
                     };
                     for (j, w) in v.into_iter().enumerate() {
@@ -217,6 +298,26 @@ impl Programa {
                 }
                 Op::Entrada { d, elemento, componente } => {
                     regs[d as usize] = entradas.get(elemento as usize).map(|e| e[componente as usize & 3]).unwrap_or(0.0);
+                }
+                // E2.3b: el GS lee el vertice `vertice` de su primitiva.
+                Op::EntradaDe { d, vertice, elemento, componente } => {
+                    let i = vertice as usize * self.entradas + elemento as usize;
+                    regs[d as usize] = entradas.get(i).map(|e| e[componente as usize & 3]).unwrap_or(0.0);
+                }
+                Op::Emite { flujo } => {
+                    if let Extra::Tiras(t) = &mut x {
+                        if flujo == 0 && t.emitidos() < t.maximo {
+                            let n = t.salidas;
+                            t.vertices.extend((0..n).map(|k| salidas.get(k).copied().unwrap_or([0.0; 4])));
+                        }
+                    }
+                }
+                Op::Corta { flujo } => {
+                    if let Extra::Tiras(t) = &mut x {
+                        if flujo == 0 {
+                            t.cortar();
+                        }
+                    }
                 }
                 Op::Salida { s, elemento, componente } => {
                     if let Some(e) = salidas.get_mut(elemento as usize) {

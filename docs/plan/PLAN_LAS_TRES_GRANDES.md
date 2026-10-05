@@ -927,7 +927,9 @@ la proxima corrida del metal dice cual pesa mas:
 - [ ] **N5.14 -- los buferes de vertices de mas de una ranura**
   (`IASetVertexBuffers` 1..15): hoy solo la 0.
 - [ ] **N5.15 -- el RECORTE** contra el plano cercano: el triangulo que lo
-  cruza hoy no se pinta (en 3D de cerca falta suelo y pared).
+  cruza hoy no se pinta (en 3D de cerca falta suelo y pared). Lo dice
+  tambien nBodyGravity (05-10): las particulas que salen disparadas cruzan
+  el plano cercano o el lejano, y su cuadro no se pinta entero.
 - [ ] **N5.16 -- render targets de floats** (R32, RGBA16F de verdad): hoy
   se pintan en 8 bits o no se pintan; el HDR de Cyberpunk vive ahi.
 - [ ] **N5.17 -- ExecuteIndirect y ExecuteBundle**: hoy se saltan.
@@ -976,6 +978,27 @@ La ESCALERA de juegos (por que DX9 y Left 4 Dead 2 no) esta en su seccion
   `ClearUnorderedAccessView` (N5.3c), las vistas en la RAIZ (N5.3b), las
   atomicas, y la 3060 (el emisor no lo sabe: va por la CPU, y cada grupo
   en un hilo es lo siguiente de EXPRIMIR).
+  **Y TRADUCIDO a x86-64 (05-10, E2.3b):** `bmo_proton_x::nativo_computo`
+  traduce el CS una vez al crear el PSO (saltos, enteros, la compartida,
+  los buferes, y la barrera como un punto donde la funcion vuelve y por
+  donde sigue); 50 veces el interprete. Con el, D3D12nBodyGravity (10.000
+  particulas, la barrera dentro de un bucle) corre en el banco. Su juez
+  (`proton-x-casa/tests/nativo_computo.rs`): el interprete bit a bit, y la
+  fisica en f64. Lo que no traduce (texturas, `mates.rs`, buferes tipados,
+  cbuffers con fila calculada) va por el interprete, que da lo mismo.
+- [x] **N5.18 -- el sombreador de GEOMETRIA** (05-10, E2.3b de la
+  ESCALERA): el GS de nBodyGravity hace de cada punto un cuadro. En el
+  crate: `EntradaDe` (el elemento de un vertice de la primitiva), `Emite` y
+  `Corta`, lo de su PSV0 (primitiva de entrada, topologia de salida,
+  `maxvertexcount`), el enlace VS -> GS -> PS (`lote::enlazar_con_gs`) y
+  las primitivas de un lote (`lote::primitivas`); en la casa, el PSO con
+  GS y los puntos y lineas (solo con GS: la trama pinta triangulos).
+  Probado con los tres de nBodyGravity (`pruebas_geometria.rs`, contra la
+  geometria del cuadro y su degradado; dice NO si el GS lee mal) y con la
+  muestra entera. Queda: un vertice CALCULADO (`input[i]` con `i` en un
+  registro), la adyacencia, emitir puntos o lineas, varios flujos y el
+  stream output, `SV_PrimitiveID` y las instancias de GS, y la 3060 (va por
+  la CPU).
 - [ ] **N6.1 -- a la 3060 lo que hoy va a la CPU**: SV_VertexID y
   SV_InstanceID, los formatos de vertice que no son float de 32 bits
   (`proton-x-sm86/src/pso.rs`, `NoVa::Entrada`: el pegamento los convierte

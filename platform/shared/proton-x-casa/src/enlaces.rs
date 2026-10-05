@@ -21,7 +21,8 @@
 //! N3.1); al abrirlos, se quedaron.
 //!
 //! ```text
-//!    la llave     huella del VS, huella del PS, el input layout
+//!    la llave     huella del VS, del GS (E2.3b; sin el, la de nada) y
+//!                 del PS, y el input layout
 //!    lo que vale  los nombres de las dos funciones y el enlace (o por que
 //!                 no se puede), en un `Rc`: lo comparten todos sus PSO
 //!    al acertar   no se lee ni el DXIL: los PSO de Cyberpunk que solo
@@ -45,7 +46,7 @@ pub struct Compilado {
     pub enlace: Result<Enlace, String>,
 }
 
-type Llave = ([u8; 16], [u8; 16]);
+type Llave = ([u8; 16], [u8; 16], [u8; 16]);
 
 struct Global(UnsafeCell<BTreeMap<Llave, Vec<(Vec<ElementoIa>, Rc<Compilado>)>>>);
 // SAFETY: la casa corre en un hilo a la vez (ver `Global` en lib.rs).
@@ -85,11 +86,12 @@ pub fn huella(d: &[u8]) -> [u8; 16] {
     x
 }
 
-/// **Lo compilado de `(vs, ps, entradas)`**: lo de antes si ya se hizo, o lo
-/// que haga `hacer` (y se guarda). `true` si es nuevo. Lo que `hacer` niega
-/// no se guarda (es raro, y su texto lo dice el PSO).
-pub(crate) fn de(vs: &[u8], ps: &[u8], entradas: &[ElementoIa], hacer: impl FnOnce() -> Result<Compilado, &'static str>) -> Result<(Rc<Compilado>, bool), &'static str> {
-    let llave = (huella(vs), huella(ps));
+/// **Lo compilado de `(vs, gs, ps, entradas)`**: lo de antes si ya se hizo,
+/// o lo que haga `hacer` (y se guarda). `true` si es nuevo. Lo que `hacer`
+/// niega no se guarda (es raro, y su texto lo dice el PSO). Sin GS, `gs`
+/// va vacio.
+pub(crate) fn de(vs: &[u8], gs: &[u8], ps: &[u8], entradas: &[ElementoIa], hacer: impl FnOnce() -> Result<Compilado, &'static str>) -> Result<(Rc<Compilado>, bool), &'static str> {
+    let llave = (huella(vs), huella(gs), huella(ps));
     if let Some(v) = hechos().get(&llave) {
         if let Some((_, c)) = v.iter().find(|(e, _)| e.as_slice() == entradas) {
             return Ok((c.clone(), false));
@@ -120,16 +122,19 @@ mod pruebas {
         vs[..4].copy_from_slice(b"DXBC");
         vs[4] = 7;
         let ps = alloc::vec![1u8; 40];
-        let (a, nuevo) = de(&vs, &ps, &[ia("POSITION")], || hecho("a")).unwrap();
+        let (a, nuevo) = de(&vs, &[], &ps, &[ia("POSITION")], || hecho("a")).unwrap();
         assert!(nuevo);
-        let (b, nuevo) = de(&vs, &ps, &[ia("POSITION")], || panic!("ya estaba: no se vuelve a leer")).unwrap();
+        let (b, nuevo) = de(&vs, &[], &ps, &[ia("POSITION")], || panic!("ya estaba: no se vuelve a leer")).unwrap();
         assert!(!nuevo && Rc::ptr_eq(&a, &b));
         // Otro layout: otro enlace.
-        let (c, nuevo) = de(&vs, &ps, &[ia("NORMAL")], || hecho("c")).unwrap();
+        let (c, nuevo) = de(&vs, &[], &ps, &[ia("NORMAL")], || hecho("c")).unwrap();
         assert!(nuevo && !Rc::ptr_eq(&a, &c));
+        // E2.3b: con un GS en medio, otro enlace.
+        let (g, nuevo) = de(&vs, &ps, &ps, &[ia("POSITION")], || hecho("g")).unwrap();
+        assert!(nuevo && !Rc::ptr_eq(&a, &g));
         // Lo negado no se guarda.
-        assert!(de(&ps, &vs, &[], || Err("no")).is_err());
-        assert!(de(&ps, &vs, &[], || hecho("d")).unwrap().1);
+        assert!(de(&ps, &[], &vs, &[], || Err("no")).is_err());
+        assert!(de(&ps, &[], &vs, &[], || hecho("d")).unwrap().1);
         reiniciar();
     }
 

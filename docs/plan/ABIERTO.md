@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   614 casillas ABIERTAS en 57 planes
-   469 hechas
+   613 casillas ABIERTAS en 57 planes
+   471 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -34,7 +34,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 # Los planes VIVOS, el que mas debe primero
 
-## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 92 abiertas, 51 hechas
+## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 92 abiertas, 52 hechas
 
 *PLAN LAS TRES GRANDES -- D3D12 de juego, el sonido del juego y varios nucleos*
 
@@ -169,15 +169,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] H7 -- los emojis se pintan. bmo-dibujo aprende UTF-8 y un atlas
 - ... y 10 mas
 
-## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 13 abiertas, 12 hechas
-
-*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
-
-- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
-- [ ] E2.1 -- D3D12Multithreading. Listas de ordenes grabadas desde
-- [ ] E2.3b -- D3D12nBodyGravity. Confirmado con su fuente (05-10):
-- ... y 10 mas
-
 ## [`PLAN_LA_RED_SOLA.md`](PLAN_LA_RED_SOLA.md) -- 13 abiertas, 1 hechas
 
 *PLAN LA RED SOLA -- la red que sabe, que se maneja y que avisa, sin Google*
@@ -194,6 +185,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E0 -- LA TAREA IDLE. Prioridad minima, siempre lista, cuerpo
 - [ ] E1 -- EL TIEMPO DE CPU POR TAREA. Un contador en el cambio de contexto
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
+- ... y 9 mas
+
+## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 12 abiertas, 13 hechas
+
+*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
+
+- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
+- [ ] E2.1 -- D3D12Multithreading. Listas de ordenes grabadas desde
+- [ ] E2.4 -- D3D12ExecuteIndirect. ExecuteIndirect (la otra mitad de
 - ... y 9 mas
 
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas

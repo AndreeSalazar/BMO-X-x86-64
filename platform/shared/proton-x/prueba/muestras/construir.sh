@@ -120,6 +120,16 @@ sombreador $D dynindex shader_mesh_simple_vert vs_6_0 VSMain shader_mesh_simple_
 sombreador $D dynindex shader_mesh_dynamic_indexing_pixel ps_6_0 PSMain shader_mesh_dynamic_indexing_pixel
 datos $D dynindex occcity.bin
 
+# E2.3b: el COMPUTO de verdad (y su hilo, sus colas y su GS). Los cuatro
+# .cso como su proyecto: el CS, y de ParticleDraw.hlsl el VS, el GS y el PS.
+N=D3D12nBodyGravity/src
+rm -rf nbody
+construir $N nbody.exe
+sombreador $N nbody nBodyGravityCS cs_6_0 CSMain nBodyGravityCS
+sombreador $N nbody ParticleDraw vs_6_0 VSParticleDraw ParticleDraw_VS
+sombreador $N nbody ParticleDraw gs_6_0 GSParticleDraw ParticleDraw_GS
+sombreador $N nbody ParticleDraw ps_6_0 PSParticleDraw ParticleDraw_PS
+
 # E2.3a: el juez del COMPUTO, NUESTRO y no de Microsoft (`../computo.cpp`,
 # de consola, con su CS de `../computo.dxil` dentro por `.incbin`): las
 # mismas cabeceras y el mismo UCRT que las muestras.

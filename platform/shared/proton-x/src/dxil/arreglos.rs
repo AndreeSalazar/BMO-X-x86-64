@@ -91,6 +91,8 @@ pub(super) const CST_AGGREGATE: u64 = 7;
 /// El `addrspace` de `groupshared` en DXIL.
 const ESPACIO_COMPARTIDO: u64 = 3;
 pub(super) const CST_DATA: u64 = 22;
+pub(super) const CST_CE_GEP: u64 = 12;
+pub(super) const CST_CE_INBOUNDS_GEP: u64 = 20;
 
 /// **Un global** (`MODULE_CODE_GLOBALVAR`: [tipo, constante | explicito
 /// << 1, inicial + 1, ...]): su array, con el inicial si lo tiene.
@@ -143,6 +145,28 @@ pub(super) fn gep(c: &mut Compilador, o: &mut Operandos, tipos: &[Tipo], floats:
     while o.i < o.ops.len() {
         indices.push(o.con_tipo()?);
     }
+    let v = apuntar(c, p, &indices, tipos, floats, anchos)?;
+    c.valores.push(v);
+    Ok(())
+}
+
+/// `CST_CODE_CE_GEP` (12) y `CST_CODE_CE_INBOUNDS_GEP` (20): un
+/// getelementptr CONSTANTE (05-10, el `sharedPos[counter + 1]` desenrollado
+/// de nBodyGravity: 384 asi). El registro es [tipo de lo apuntado si la
+/// medida es impar, y pares (tipo, valor)]; los valores, ABSOLUTOS. LLVM
+/// pone los enteros antes que los GEP en el bloque (sus indices ya estan).
+pub(super) fn gep_constante(c: &mut Compilador, ops: &[u64], tipos: &[Tipo], floats: &[bool], anchos: &[u32]) -> Result<Valor, NoPrograma> {
+    let pares = &ops[ops.len() % 2..];
+    let ids: Vec<usize> = pares.chunks_exact(2).map(|par| par[1] as usize).collect();
+    let Some((&p, indices)) = ids.split_first() else {
+        return Err(NoPrograma::Forma("un getelementptr constante sin puntero"));
+    };
+    apuntar(c, p, indices, tipos, floats, anchos)
+}
+
+/// El puntero de un getelementptr: `p` (un array de registros o de la
+/// memoria compartida) por los `indices` (ids de valores).
+fn apuntar(c: &mut Compilador, p: usize, indices: &[usize], tipos: &[Tipo], floats: &[bool], anchos: &[u32]) -> Result<Valor, NoPrograma> {
     // El array de registros, o (N5.5) el de la memoria compartida.
     let (compartida, base, n, enteros, tipo) = match c.valores.get(p).copied() {
         Some(Valor::Arreglo { base, n, enteros, tipo }) => (false, base as u32, n as u32, enteros, tipo),
@@ -196,8 +220,7 @@ pub(super) fn gep(c: &mut Compilador, o: &mut Operandos, tipos: &[Tipo], floats:
             d
         }
     };
-    c.valores.push(if compartida { Valor::PunteroCompartido { base, n, i, enteros } } else { Valor::Puntero { base: base as Reg, n: n as u16, i, enteros } });
-    Ok(())
+    Ok(if compartida { Valor::PunteroCompartido { base, n, i, enteros } } else { Valor::Puntero { base: base as Reg, n: n as u16, i, enteros } })
 }
 
 /// El array y el indice de un puntero (un array solo es su elemento 0), y

@@ -43,6 +43,8 @@ mod enteros;
 mod olas;
 /// El interprete de un `Programa` (partido de `programa.rs`, 03-10).
 mod interprete;
+/// E2.3b: lo que emite un sombreador de geometria.
+pub use interprete::Tiras;
 /// 03-10: Gather y SampleCmp (las sombras).
 mod sombras;
 /// N5.10: los arrays (alloca, GEP, load, store y las tablas globales).
@@ -145,6 +147,10 @@ pub struct Sombreador {
     /// (`[numthreads(x, y, z)]`), de su PSV0; [0; 3] si no es de computo o
     /// no lo dice.
     pub hilos: [u32; 3],
+    /// E2.3b (05-10): lo de un sombreador de GEOMETRIA (su primitiva de
+    /// entrada, su topologia de salida y cuantos vertices emite), de su
+    /// PSV0; `None` si no es un GS.
+    pub geometria: Option<recursos::Geometria>,
 }
 
 fn u32_en(d: &[u8], o: usize) -> Option<u32> {
@@ -322,6 +328,7 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
     let (mut entradas, mut salidas, mut programa, mut shex) = (Vec::new(), Vec::new(), None, None);
     let mut tabla = Vec::new();
     let mut hilos = [0u32; 3];
+    let mut geometria = None;
     for i in 0..n {
         let o = u32_en(d, 32 + 4 * i).ok_or(NoSombreador::Contenedor("una parte sin desplazamiento"))? as usize;
         let cc: [u8; 4] = d.get(o..o + 4).and_then(|b| b.try_into().ok()).ok_or(NoSombreador::Contenedor("una parte fuera"))?;
@@ -337,6 +344,7 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
             b"PSV0" => {
                 tabla = recursos::de_psv0(p).ok_or(NoSombreador::Contenedor("una PSV0 que no se lee"))?;
                 hilos = recursos::hilos_de_psv0(p);
+                geometria = recursos::geometria_de_psv0(p);
             }
             _ => {}
         }
@@ -351,7 +359,7 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
             return Err(NoSombreador::Contenedor("SHEX con una medida que no cuadra"));
         }
         let modulo = Modulo { productor: String::new(), funciones: Vec::new(), bloques: Vec::new() };
-        return Ok(Sombreador { etapa: etapa(version), modelo: ((version >> 4) & 0xF, version & 0xF), entradas, salidas, partes, modulo, sm5: Some(t), recursos: tabla, hilos });
+        return Ok(Sombreador { etapa: etapa(version), modelo: ((version >> 4) & 0xF, version & 0xF), entradas, salidas, partes, modulo, sm5: Some(t), recursos: tabla, hilos, geometria });
     }
     let p = programa.ok_or(NoSombreador::SinDxil)?;
     // Cabecera del programa: version (etapa << 16 | mayor << 4 | menor), medida
@@ -374,5 +382,6 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
         sm5: None,
         recursos: tabla,
         hilos,
+        geometria,
     })
 }

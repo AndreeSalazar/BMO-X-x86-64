@@ -91,6 +91,15 @@ pub(crate) fn despachar(e: &Estado, grupos: [u32; 3]) {
     };
     let (texturas, muestreadores, buferes) = crate::tuberia::recursos_del_dibujo(firma, &e.tablas, &p.programa.ranuras);
     let mut uavs: Vec<Option<Uav>> = p.programa.ranuras.uavs.iter().map(|&l| uav_de(firma, &e.tablas, l)).collect();
+    // E2.3b (05-10): con su traduccion a x86-64 si la hay (EXPRIMIR: 50
+    // veces el interprete); si no, el interprete, que es su juez.
+    if let Some(f) = pso.nativo.and_then(crate::nativo::computo) {
+        // SAFETY: `f` es la traduccion de este programa (`registrar_computo`
+        // al crear el PSO), en el bloque sellado de ahora: un Dispatch no
+        // cede el turno, asi que nadie lo cambia mientras corre.
+        unsafe { bmo_proton_x::nativo_computo::despachar(&p.programa, f, grupos, &cb, &buferes, &mut uavs) };
+        return;
+    }
     let rec = bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: None };
     p.programa.despachar(grupos, &cb, &rec, &mut uavs);
 }

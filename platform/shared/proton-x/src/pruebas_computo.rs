@@ -125,3 +125,20 @@ fn la_textura_elegida_antes_de_la_barrera_sigue_elegida_despues() {
     assert_eq!(&salida[..16], &quiero[..], "hilo 0: el texel de la textura 7");
     assert_eq!(&salida[16..], &quiero[..], "hilo 1: igual");
 }
+
+/// *** El CS de nBodyGravity (Microsoft, MIT; `prueba/muestras/nbody/`) se
+/// compila: sus 384 lecturas de la memoria compartida desenrolladas son
+/// `getelementptr` CONSTANTES (del bloque de constantes, no instrucciones:
+/// antes, "un load de algo que no es un array"), y sus dos barreras van
+/// dentro de un bucle.
+#[test]
+fn el_cs_de_nbody_se_compila_con_sus_getelementptr_constantes() {
+    let p = dxil::computo::preparar(include_bytes!("../prueba/muestras/nbody/nBodyGravityCS.cso")).unwrap().programa;
+    assert_eq!(p.computo, programa::Computo { hilos: [128, 1, 1], compartida: 512 }, "128 float4 compartidos");
+    let lecturas = p.ops.iter().filter(|o| matches!(o, programa::Op::LeeCompartida { .. })).count();
+    assert_eq!(lecturas, 384, "128 interacciones de 3 floats");
+    let (bucle, barreras) = (p.ops.iter().position(|o| matches!(o, programa::Op::Bucle)).unwrap(), p.ops.iter().enumerate().filter(|(_, o)| matches!(o, programa::Op::Barrera)).map(|(i, _)| i).collect::<Vec<_>>());
+    let fin = p.ops.iter().position(|o| matches!(o, programa::Op::FinBucle)).unwrap();
+    assert_eq!(barreras.len(), 2);
+    assert!(barreras.iter().all(|&b| bucle < b && b < fin), "las dos, dentro del bucle de los tiles");
+}

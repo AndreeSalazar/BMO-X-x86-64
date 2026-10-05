@@ -117,6 +117,10 @@ const DX_THREAD_ID: i64 = 93;
 const DX_GROUP_ID: i64 = 94;
 const DX_THREAD_ID_IN_GROUP: i64 = 95;
 const DX_FLATTENED_THREAD_ID_IN_GROUP: i64 = 96;
+// E2.3b (05-10): el sombreador de geometria.
+const DX_EMIT_STREAM: i64 = 97;
+const DX_CUT_STREAM: i64 = 98;
+const DX_EMIT_THEN_CUT_STREAM: i64 = 99;
 const DX_DISCARD: i64 = 82;
 /// Las filas de 16 bytes que puede tener un cbuffer en D3D (64 KiB).
 const FILAS_DE_D3D: u16 = 4096;
@@ -200,6 +204,16 @@ pub enum Op {
     /// N5.5: `bufferLoad` de un UAV (`RWStructuredBuffer`...): como
     /// `Lectura::Bufer`, pero del UAV `u`.
     LeeUav { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg },
+    /// E2.3b (05-10): una entrada de un sombreador de GEOMETRIA: el
+    /// componente del elemento `elemento` del vertice `vertice` de su
+    /// primitiva (en las entradas, cada vertice ocupa [`Programa::entradas`]
+    /// elementos seguidos).
+    EntradaDe { d: Reg, vertice: u8, elemento: u8, componente: u8 },
+    /// E2.3b: `EmitStream`: un vertice, con las salidas de ahora, al flujo
+    /// `flujo` (solo el 0 llega a la trama).
+    Emite { flujo: u8 },
+    /// E2.3b: `CutStream`: la tira de ahora se acaba.
+    Corta { flujo: u8 },
     /// 02-10: leer una textura con lo que `Muestra` (2D, la mip de la
     /// vista) no dice: `Sample` con mas coordenadas (arrays, cubos, 3D) o
     /// desplazado, `SampleLevel`, `SampleBias` y `SampleGrad` (sin su sesgo
@@ -770,6 +784,9 @@ impl Compilador {
                 }
                 // N5.10: las tablas (`static const float x[4] = {...}`).
                 super::arreglos::CST_AGGREGATE | super::arreglos::CST_DATA => super::arreglos::constante(self, r.codigo, &r.ops, tipo, tipos, tipos_float, anchos)?,
+                // 05-10: un getelementptr constante (a la memoria compartida o a
+                // un array global), con su indice ya sabido.
+                super::arreglos::CST_CE_GEP | super::arreglos::CST_CE_INBOUNDS_GEP => super::arreglos::gep_constante(self, &r.ops, tipos, tipos_float, anchos)?,
                 CST_INTEGER => Valor::Entero(con_signo(r.ops.first().copied().unwrap_or(0))),
                 CST_FLOAT if es_float => {
                     let bits = r.ops.first().copied().unwrap_or(0) as u32;
@@ -1049,7 +1066,14 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
                 c.entradas = c.entradas.max(elemento as usize + 1);
                 c.lee |= 1 << elemento;
                 let d = c.registro(0.0)?;
-                c.ops.push(Op::Entrada { d, elemento, componente });
+                // E2.3b: en un GS, el quinto es el VERTICE de la primitiva
+                // (`input[k]`); en los demas, `undef`.
+                match c.valores.get(arg(4)?) {
+                    Some(Valor::Entero(k)) if (0..6).contains(k) => c.ops.push(Op::EntradaDe { d, vertice: *k as u8, elemento, componente }),
+                    Some(Valor::Entero(_)) => return Err(NoPrograma::Forma("un GS que lee un vertice que su primitiva no tiene")),
+                    Some(Valor::Indefinido) | None => c.ops.push(Op::Entrada { d, elemento, componente }),
+                    _ => return Err(NoPrograma::Forma("un GS que lee la entrada de un vertice CALCULADO: todavia no")),
+                }
                 if enteros {
                     Valor::Bits(d)
                 } else {
@@ -1095,6 +1119,20 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             }
             let mascara = c.entero(arg(8)?)? as u8;
             c.ops.push(Op::EscribeUav { u, modo, i, desp, v, mascara });
+            Valor::Nada
+        }
+        // E2.3b: el GS emite un vertice, corta la tira, o las dos.
+        DX_EMIT_STREAM | DX_CUT_STREAM | DX_EMIT_THEN_CUT_STREAM => {
+            let flujo = c.entero(arg(1)?)?;
+            if !(0..4).contains(&flujo) {
+                return Err(NoPrograma::Forma("un GS con un flujo que no es 0..3"));
+            }
+            if op != DX_CUT_STREAM {
+                c.ops.push(Op::Emite { flujo: flujo as u8 });
+            }
+            if op != DX_EMIT_STREAM {
+                c.ops.push(Op::Corta { flujo: flujo as u8 });
+            }
             Valor::Nada
         }
         // N5.7: `discard(i1 c)`; `clip(x)` llega como `discard(x < 0)`, y un

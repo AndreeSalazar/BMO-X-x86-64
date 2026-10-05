@@ -42,11 +42,15 @@ platform/shared/proton-x/prueba/hwindow.exe (since 2026-10-05) is Microsoft's
 D3D12HelloWindow sample from DirectX-Graphics-Samples, built unmodified from
 its source with platform/shared/proton-x/prueba/muestras/construir.sh; the
 same holds for htriang.exe, htexture.exe, hcbuffer.exe, hframes.exe,
-hbundles.exe and dynindex.exe, and for the shaders and the occcity.bin mesh
-under prueba/muestras/ (the samples' own data, same license). It
-contains code from DirectX-Graphics-Samples and DirectX-Headers (Microsoft,
-MIT License; the text is in prueba/muestras/LICENSE-MIT.txt), the GCC runtime
-libraries (GPL-3.0 with the GCC Runtime Library Exception) and the mingw-w64
-runtime (its own permissive terms). It is a TEST input for PROTON-X; none of
-that code is part of PROTON-X itself. The sources are not in the tree:
+hbundles.exe, dynindex.exe and nbody.exe (D3D12nBodyGravity), and for the
+shaders and the occcity.bin mesh under prueba/muestras/ (the samples' own
+data, same license). They contain code from DirectX-Graphics-Samples and
+DirectX-Headers (Microsoft, MIT License; the text is in
+prueba/muestras/LICENSE-MIT.txt), the GCC runtime libraries (GPL-3.0 with the
+GCC Runtime Library Exception) and the mingw-w64 runtime (its own permissive
+terms). prueba/computo.exe is NOT a Microsoft sample (its source is
+prueba/computo.cpp, ours), but it is built with the same script and
+toolchain: it carries the DirectX-Headers and runtime code named above, not
+the samples' code. All of them are TEST inputs for PROTON-X; none of that
+code is part of PROTON-X itself. The sources are not in the tree:
 construir.sh fetches them at pinned commits.

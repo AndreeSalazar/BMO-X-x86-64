@@ -26,7 +26,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::dxil::programa::{self, Programa, Ranuras};
-use crate::dxil::Sombreador;
+use crate::dxil::{Sombreador, Tiras};
 use crate::trama;
 
 pub use crate::formato_ia::{FMT_R32G32B32A32_FLOAT, FMT_R32G32B32_FLOAT, FMT_R32G32_FLOAT, FMT_R32_FLOAT};
@@ -80,10 +80,12 @@ pub struct Enlace {
     /// Por elemento de entrada del de vertices: de donde sale (el input
     /// layout, o el numero de vertice o de instancia).
     pub desde_ia: Vec<Fuente>,
-    /// La salida del de vertices que es SV_Position.
+    /// La salida que es SV_Position: la del de vertices, o (E2.3b) la del
+    /// de GEOMETRIA si lo hay (la ultima etapa antes de la trama).
     pub posicion: usize,
-    /// Por elemento de entrada del de pixeles: la salida del de vertices que
-    /// le llega (`None`: SV_Position, que pone la trama).
+    /// Por elemento de entrada del de pixeles: la salida de la ultima etapa
+    /// antes de la trama (el de vertices, o el GS) que le llega (`None`:
+    /// SV_Position, que pone la trama).
     pub desde_vs: Vec<Option<usize>>,
     /// N5.9 (03-10): la entrada del de pixeles que es SV_Position, si la
     /// LEE: ahi la trama pone (x + 0.5, y + 0.5, z, w) del pixel.
@@ -103,6 +105,21 @@ pub struct Enlace {
     /// (`ranuras.cbuffers[i]`) va en `constantes[i]`. Quien dibuja copia cada
     /// uno a su sitio de [`Lote::cb`].
     pub constantes: Vec<Bloque>,
+    /// E2.3b (05-10): el sombreador de GEOMETRIA, si el PSO trae uno.
+    pub gs: Option<EnlaceGs>,
+}
+
+/// **El sombreador de geometria de un enlace** (E2.3b, 05-10): corre UNA
+/// vez por primitiva (puntos, lineas o triangulos) con las salidas del de
+/// vertices de sus vertices, y lo que emite es lo que pinta la trama.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnlaceGs {
+    pub programa: Programa,
+    /// Por elemento de entrada del GS: la salida del de vertices que le
+    /// llega (por su semantica).
+    pub desde_vs: Vec<usize>,
+    /// Su primitiva de entrada, su topologia de salida y cuantos emite.
+    pub info: crate::dxil::recursos::Geometria,
 }
 
 /// **Un cbuffer en el bloque de las constantes**: desde que fila y cuantas
@@ -128,13 +145,15 @@ pub fn juntar_constantes<'a>(constantes: &[Bloque], mut cada: impl FnMut(usize) 
     v
 }
 
-/// **Aplanar los cbuffers de los dos**: uno detras de otro, cada uno con las
-/// filas que se leen de el. El interprete, la 3060 y el x86 ven UN cbuffer;
-/// solo quien dibuja sabe que son varios.
-fn aplanar(vs: &mut Programa, ps: &mut Programa, n: usize) -> Result<Vec<Bloque>, String> {
+/// **Aplanar los cbuffers de todos** (el de vertices, el de pixeles y,
+/// E2.3b, el de geometria): uno detras de otro, cada uno con las filas que
+/// se leen de el. El interprete, la 3060 y el x86 ven UN cbuffer; solo
+/// quien dibuja sabe que son varios.
+fn aplanar(programas: &mut [&mut Programa], n: usize) -> Result<Vec<Bloque>, String> {
     let mut filas = vec![0u16; n];
-    vs.filas_por_cbuffer(&mut filas);
-    ps.filas_por_cbuffer(&mut filas);
+    for p in programas.iter() {
+        p.filas_por_cbuffer(&mut filas);
+    }
     let mut bloques = Vec::with_capacity(filas.len());
     let mut fila = 0u32;
     for &f in &filas {
@@ -145,8 +164,9 @@ fn aplanar(vs: &mut Programa, ps: &mut Programa, n: usize) -> Result<Vec<Bloque>
         return Err(format!("los cbuffers de los dos sombreadores leen {fila} filas: mas de las que caben"));
     }
     let bases: Vec<u16> = bloques.iter().map(|b| b.fila).collect();
-    vs.aplanar(&bases);
-    ps.aplanar(&bases);
+    for p in programas.iter_mut() {
+        p.aplanar(&bases);
+    }
     Ok(bloques)
 }
 
@@ -160,22 +180,39 @@ pub fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[ElementoIa]) -> Res
 /// solo profundidad -- las sombras, el prepaso de Z --, y el de pixeles es
 /// [`Programa::vacio`]).
 pub fn enlazar_con(vs: &Sombreador, ps: Option<&Sombreador>, entradas: &[ElementoIa]) -> Result<Enlace, String> {
+    enlazar_con_gs(vs, None, ps, entradas)
+}
+
+/// **Coser** con un sombreador de GEOMETRIA en medio, o sin el (E2.3b,
+/// 05-10): el GS lee las salidas del de vertices, y el de pixeles las del GS.
+pub fn enlazar_con_gs(vs: &Sombreador, gs: Option<&Sombreador>, ps: Option<&Sombreador>, entradas: &[ElementoIa]) -> Result<Enlace, String> {
     let mut pv = programa::compilar(vs).map_err(|e| format!("el sombreador de vertices no se sabe correr todavia: {e:?}"))?;
+    let mut pg = gs.map(|g| programa::compilar(g).map_err(|e| format!("el sombreador de geometria no se sabe correr todavia: {e:?}"))).transpose()?;
     let mut pp = match ps {
         Some(ps) => programa::compilar(ps).map_err(|e| format!("el sombreador de pixeles no se sabe correr todavia: {e:?}"))?,
         None => Programa::vacio(),
     };
     let (ps_entradas, ps_salidas) = ps.map_or((&[][..], &[][..]), |p| (&p.entradas[..], &p.salidas[..]));
-    // Una tabla para los dos: las del de vertices se quedan donde estan y las
-    // del de pixeles se renumeran a la suya (la misma si los dos la leen).
+    // Una tabla para todos: las del de vertices se quedan donde estan y las
+    // de los demas se renumeran a la suya (la misma si los dos la leen).
     // Cada lugar, con su etapa: el t0 de uno no es el t0 del otro si la root
     // signature les da tablas distintas (`donde::en_tabla`).
     let mut ranuras = pv.ranuras.clone().de_la_etapa(crate::donde::VISTA_VERTICES);
+    if let Some(g) = pg.as_mut() {
+        let mapa = ranuras.unir(&g.ranuras.clone().de_la_etapa(crate::donde::VISTA_GEOMETRIA)).map_err(|e| format!("los recursos de los sombreadores: {e:?}"))?;
+        g.renumerar(&mapa);
+    }
     let mapa = ranuras.unir(&pp.ranuras.clone().de_la_etapa(crate::donde::VISTA_PIXELES)).map_err(|e| format!("los recursos de los dos sombreadores: {e:?}"))?;
     pp.renumerar(&mapa);
     pp.ranuras = ranuras.clone();
     pv.ranuras = ranuras.clone();
-    let constantes = aplanar(&mut pv, &mut pp, ranuras.cbuffers.len())?;
+    if let Some(g) = pg.as_mut() {
+        g.ranuras = ranuras.clone();
+    }
+    let constantes = match pg.as_mut() {
+        Some(g) => aplanar(&mut [&mut pv, g, &mut pp], ranuras.cbuffers.len())?,
+        None => aplanar(&mut [&mut pv, &mut pp], ranuras.cbuffers.len())?,
+    };
     let mut desde_ia = Vec::with_capacity(vs.entradas.len());
     for f in &vs.entradas {
         match f.sistema {
@@ -193,7 +230,33 @@ pub fn enlazar_con(vs: &Sombreador, ps: Option<&Sombreador>, entradas: &[Element
         let i = entradas.iter().position(|e| e.semantica.eq_ignore_ascii_case(&f.semantica) && e.indice == f.indice);
         desde_ia.push(Fuente::Ia(i.ok_or_else(|| format!("el sombreador de vertices lee {}{} y el input layout no lo da", f.semantica, f.indice))?));
     }
-    let posicion = vs.salidas.iter().position(|f| f.sistema == SV_POSITION).ok_or_else(|| String::from("el sombreador de vertices no escribe SV_Position"))?;
+    // E2.3b: con un GS, lo que llega a la trama es lo que el emite; y el lee
+    // del de vertices, por semantica.
+    let (ultima, etapa) = match gs {
+        Some(g) => (&g.salidas[..], "geometria"),
+        None => (&vs.salidas[..], "vertices"),
+    };
+    let posicion = ultima.iter().position(|f| f.sistema == SV_POSITION).ok_or_else(|| format!("el sombreador de {etapa} no escribe SV_Position"))?;
+    let gs = match (gs, pg) {
+        (Some(g), Some(programa)) => {
+            let Some(info) = g.geometria else {
+                return Err(String::from("un sombreador de geometria sin su primitiva ni su topologia (sin PSV0: el SM5 todavia no)"));
+            };
+            if info.salida != 5 {
+                return Err(format!("un GS que emite {} (topologia {}): la trama solo pinta triangulos todavia", if info.salida == 1 { "puntos" } else { "lineas" }, info.salida));
+            }
+            if posicion >= programa.salidas {
+                return Err(String::from("el GS no escribe SV_Position"));
+            }
+            let mut desde = Vec::with_capacity(g.entradas.len());
+            for f in &g.entradas {
+                let k = vs.salidas.iter().position(|o| o.semantica.eq_ignore_ascii_case(&f.semantica) && o.indice == f.indice);
+                desde.push(k.ok_or_else(|| format!("el GS lee {}{} y el de vertices no lo escribe", f.semantica, f.indice))?);
+            }
+            Some(EnlaceGs { programa, desde_vs: desde, info })
+        }
+        _ => None,
+    };
     let mut desde_vs = Vec::with_capacity(ps_entradas.len());
     let mut pos_ps = None;
     for (i, f) in ps_entradas.iter().enumerate() {
@@ -204,8 +267,8 @@ pub fn enlazar_con(vs: &Sombreador, ps: Option<&Sombreador>, entradas: &[Element
             desde_vs.push(None);
             continue;
         }
-        let k = vs.salidas.iter().position(|o| o.semantica.eq_ignore_ascii_case(&f.semantica) && o.indice == f.indice);
-        desde_vs.push(Some(k.ok_or_else(|| format!("el sombreador de pixeles lee {}{} y el de vertices no lo escribe", f.semantica, f.indice))?));
+        let k = ultima.iter().position(|o| o.semantica.eq_ignore_ascii_case(&f.semantica) && o.indice == f.indice);
+        desde_vs.push(Some(k.ok_or_else(|| format!("el sombreador de pixeles lee {}{} y el de {etapa} no lo escribe", f.semantica, f.indice))?));
     }
     let mut objetivos = Vec::with_capacity(ps_salidas.len());
     let mut profundidad_ps = None;
@@ -223,7 +286,7 @@ pub fn enlazar_con(vs: &Sombreador, ps: Option<&Sombreador>, entradas: &[Element
         }
         objetivos.push(f.indice as u8);
     }
-    Ok(Enlace { vs: pv, ps: pp, desde_ia, posicion, desde_vs, pos_ps, objetivos, profundidad_ps, ranuras, constantes })
+    Ok(Enlace { vs: pv, ps: pp, desde_ia, posicion, desde_vs, pos_ps, objetivos, profundidad_ps, ranuras, constantes, gs })
 }
 
 /// Como se agrupan los ids en triangulos.
@@ -232,6 +295,23 @@ pub enum Topologia {
     Lista,
     /// Cada vertice nuevo con los dos anteriores; los impares, dados la vuelta.
     Tira,
+    /// E2.3b (05-10): puntos, lineas y tiras de lineas. La trama pinta
+    /// triangulos: estas solo se dibujan con un GS que los haga.
+    Puntos,
+    Lineas,
+    TiraDeLineas,
+}
+
+/// **Las primitivas de un lote** (E2.3b), como ids: de `n` vertices cada
+/// una (lo que lee el GS), o `None` si la topologia no da de esas.
+pub fn primitivas(ids: &[u32], t: Topologia, n: usize) -> Option<Vec<Vec<u32>>> {
+    Some(match (t, n) {
+        (Topologia::Puntos, 1) => ids.iter().map(|&i| vec![i]).collect(),
+        (Topologia::Lineas, 2) => ids.chunks_exact(2).map(<[u32]>::to_vec).collect(),
+        (Topologia::TiraDeLineas, 2) => ids.windows(2).map(<[u32]>::to_vec).collect(),
+        (Topologia::Lista | Topologia::Tira, 3) => triangulos(ids, t).into_iter().map(|x| x.to_vec()).collect(),
+        _ => return None,
+    })
 }
 
 /// **Un dibujo, sin D3D12.**
@@ -280,6 +360,8 @@ pub fn triangulos(ids: &[u32], t: Topologia) -> Vec<[u32; 3]> {
     match t {
         Topologia::Lista => ids.chunks_exact(3).map(|x| [x[0], x[1], x[2]]).collect(),
         Topologia::Tira => ids.windows(3).enumerate().map(|(i, x)| if i % 2 == 0 { [x[0], x[1], x[2]] } else { [x[1], x[0], x[2]] }).collect(),
+        // Sin GS, puntos y lineas no dan triangulos.
+        Topologia::Puntos | Topologia::Lineas | Topologia::TiraDeLineas => Vec::new(),
     }
 }
 
@@ -337,6 +419,9 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs
         return Err(NoDibuja::SinVertices);
     }
     let en = l.enlace;
+    if let Some(g) = &en.gs {
+        return en_cpu_gs(l, destino, vs, ps, g);
+    }
     let n_vertices = l.vertices.len() / l.paso;
     let mut hecho: Vec<Option<usize>> = vec![None; n_vertices];
     let mut sombreados: Vec<trama::Sombreado> = Vec::new();
@@ -367,6 +452,72 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs
     // N5.8: cada salida del de pixeles, a su render target.
     let mut sal_ps = vec![[0.0f32; 4]; en.ps.salidas.max(en.objetivos.len())];
     // Con SV_Depth, la prueba de profundidad va despues del de pixeles.
+    let reglas = trama::Reglas { z_del_sombreador: en.profundidad_ps.is_some(), ..l.reglas };
+    Ok(trama::dibujar(&reglas, &sombreados, &locales, destino, en.pos_ps, |x, colores| {
+        let queda = ps(x, &mut sal_ps);
+        for (k, &t) in en.objetivos.iter().enumerate() {
+            colores[t as usize] = sal_ps[k];
+        }
+        queda
+    }))
+}
+
+/// **El dibujo con un sombreador de GEOMETRIA** (E2.3b, 05-10): el de
+/// vertices una vez por vertice distinto (todas sus salidas guardadas), el
+/// GS una vez por primitiva (punto, linea o triangulo, de la topologia del
+/// lote), y sus tiras de triangulos a la trama, con el de pixeles. El GS va
+/// siempre por el interprete.
+fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: &EnlaceGs) -> Result<trama::Cuenta, NoDibuja> {
+    let en = l.enlace;
+    let n_vertices = l.vertices.len() / l.paso;
+    let por_vs = en.vs.salidas.max(1);
+    let mut hecho: Vec<Option<usize>> = vec![None; n_vertices];
+    let mut salidas_vs: Vec<[f32; 4]> = Vec::new();
+    let mut ent = vec![[0.0f32, 0.0, 0.0, 1.0]; en.desde_ia.len().max(en.vs.entradas)];
+    let mut sal = vec![[0.0f32; 4]; por_vs];
+    // La topologia del lote tiene que dar lo que el GS lee (la casa lo mira
+    // antes: en D3D12 es un error).
+    let Some(prims) = primitivas(l.ids, l.topologia, g.info.vertices()) else {
+        return Ok(trama::Cuenta::default());
+    };
+    let paso_gs = g.programa.entradas;
+    let mut ent_gs = vec![[0.0f32; 4]; paso_gs * g.info.vertices()];
+    let mut sal_gs = vec![[0.0f32; 4]; g.programa.salidas];
+    let mut tiras = Tiras { salidas: g.programa.salidas, maximo: g.info.maximo as usize, ..Tiras::default() };
+    let mut regs = Vec::new();
+    let mut sombreados: Vec<trama::Sombreado> = Vec::new();
+    let mut locales: Vec<[usize; 3]> = Vec::new();
+    for prim in &prims {
+        for (k, &id) in prim.iter().enumerate() {
+            let ranura = hecho.get_mut(id as usize).ok_or(NoDibuja::IndiceFuera(id))?;
+            let base = match *ranura {
+                Some(b) => b,
+                None => {
+                    let v = &l.vertices[id as usize * l.paso..(id as usize + 1) * l.paso];
+                    for (x, &fuente) in ent.iter_mut().zip(&en.desde_ia) {
+                        *x = entrada(l, fuente, id, v);
+                    }
+                    vs(&ent, &mut sal);
+                    let b = salidas_vs.len();
+                    salidas_vs.extend_from_slice(&sal);
+                    *ranura = Some(b);
+                    b
+                }
+            };
+            for (j, &o) in g.desde_vs.iter().enumerate().take(paso_gs) {
+                ent_gs[k * paso_gs + j] = salidas_vs.get(base + o).copied().unwrap_or([0.0; 4]);
+            }
+        }
+        sal_gs.fill([0.0; 4]);
+        g.programa.correr_gs(&ent_gs, l.cb, &l.recursos, &mut sal_gs, &mut regs, &mut tiras);
+        let primero = sombreados.len();
+        for v in tiras.vertices.chunks_exact(tiras.salidas.max(1)) {
+            let atributos = en.desde_vs.iter().map(|o| o.and_then(|k| v.get(k).copied()).unwrap_or([0.0; 4])).collect();
+            sombreados.push(trama::Sombreado { pos: v[en.posicion], atributos });
+        }
+        locales.extend(tiras.triangulos().into_iter().map(|t| t.map(|i| primero + i as usize)));
+    }
+    let mut sal_ps = vec![[0.0f32; 4]; en.ps.salidas.max(en.objetivos.len())];
     let reglas = trama::Reglas { z_del_sombreador: en.profundidad_ps.is_some(), ..l.reglas };
     Ok(trama::dibujar(&reglas, &sombreados, &locales, destino, en.pos_ps, |x, colores| {
         let queda = ps(x, &mut sal_ps);

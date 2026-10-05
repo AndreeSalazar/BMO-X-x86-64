@@ -86,6 +86,10 @@ fn bytes(codigo: &[(u64, u64)]) -> Vec<u8> {
 
 /// **Los cuerpos de un PSO**: el emisor, con el ABI de registros.
 pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
+    // E2.3b: el sombreador de geometria corre en la CPU (la 3060, todavia no).
+    if en.gs.is_some() {
+        return Err(NoVa::Entrada("un sombreador de geometria"));
+    }
     let ev = emitir_con(&en.vs, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor("vertice", e))?;
     if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. })) {
         return Err(NoVa::Emisor("vertice", crate::NoEmite::Operacion(0)));

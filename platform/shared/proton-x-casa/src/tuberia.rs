@@ -40,7 +40,7 @@ use core::cell::UnsafeCell;
 use alloc::format;
 
 use bmo_proton_x::dxil::{self, Etapa, Sombreador};
-use bmo_proton_x::lote::{enlazar_con, Lote, NoDibuja, Topologia};
+use bmo_proton_x::lote::{enlazar_con_gs, Lote, NoDibuja, Topologia};
 use bmo_proton_x::trama;
 use bmo_proton_x::raiz::{self, Carga, Firma, Parametro, Rango};
 
@@ -303,12 +303,14 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
     if raiz == 0 {
         return Err("CreateGraphicsPipelineState sin root signature");
     }
-    // D3D12_SHADER_BYTECODE de DS +40, HS +56, GS +72: su medida, +8.
-    for o in [40usize, 56, 72] {
+    // D3D12_SHADER_BYTECODE de DS +40, HS +56, GS +72: su medida, +8. El de
+    // GEOMETRIA ya (E2.3b, 05-10: nBodyGravity); dominio y casco, todavia no.
+    for o in [40usize, 56] {
         if u64_de(d, o + 8) != 0 {
-            return Err("CreateGraphicsPipelineState con dominio, casco o geometria: todavia no");
+            return Err("CreateGraphicsPipelineState con dominio o casco (teselado): todavia no");
         }
     }
+    let bytes_gs = if u64_de(d, 72) == 0 || u64_de(d, 80) == 0 { None } else { Some(bytecode(u64_de(d, 72) as *const u8, u64_de(d, 80) as usize, "")?) };
     let bytes_vs = bytecode(u64_de(d, 8) as *const u8, u64_de(d, 16) as usize, "CreateGraphicsPipelineState sin sombreador de vertices")?;
     // N5.12: sin sombreador de pixeles es un dibujo de solo profundidad.
     let bytes_ps = if u64_de(d, 24) == 0 || u64_de(d, 32) == 0 { None } else { Some(bytecode(u64_de(d, 24) as *const u8, u64_de(d, 32) as usize, "")?) };
@@ -359,8 +361,9 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
         .map(|v| core::array::from_fn(|i| v[i]));
     // Los sombreadores: leidos, comprobados y compilados UNA vez por (VS, PS,
     // layout); los demas PSO con lo mismo lo comparten (`enlaces.rs`).
-    let (compilado, nuevo) = crate::enlaces::de(bytes_vs, bytes_ps.unwrap_or(&[]), &entradas, || {
+    let (compilado, nuevo) = crate::enlaces::de(bytes_vs, bytes_gs.unwrap_or(&[]), bytes_ps.unwrap_or(&[]), &entradas, || {
         let vs = sombreador(bytes_vs, Etapa::Vertice)?;
+        let gs = bytes_gs.map(|b| sombreador(b, Etapa::Geometria)).transpose()?;
         let ps = bytes_ps.map(|b| sombreador(b, Etapa::Pixel)).transpose()?;
         // Cada elemento del sombreador de vertices tiene que venir del
         // layout, MENOS los valores de sistema (SV_VertexID, SV_InstanceID):
@@ -372,7 +375,7 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
             }
         }
         let nombre = |s: &Sombreador| s.modulo.entrada().map(|f| f.nombre.clone()).unwrap_or_default();
-        Ok(crate::enlaces::Compilado { nombres: (nombre(&vs), ps.as_ref().map(nombre).unwrap_or_default()), enlace: enlazar_con(&vs, ps.as_ref(), &entradas) })
+        Ok(crate::enlaces::Compilado { nombres: (nombre(&vs), ps.as_ref().map(nombre).unwrap_or_default()), enlace: enlazar_con_gs(&vs, gs.as_ref(), ps.as_ref(), &entradas) })
     })?;
     if nuevo {
         if let Err(m) = &compilado.enlace {
@@ -769,6 +772,10 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
 
 
 const TRIANGLESTRIP: u32 = 5;
+/// E2.3b: D3D_PRIMITIVE_TOPOLOGY de puntos y lineas (solo con un GS).
+const POINTLIST: u32 = 1;
+const LINELIST: u32 = 2;
+const LINESTRIP: u32 = 3;
 
 /// **Pintar un Draw** (P3b3): el sombreador de vertices por cada vertice que
 /// piden los indices (una vez cada uno), los triangulos por la trama, y el de
@@ -842,14 +849,28 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     } else {
         ids.extend(primero..primero + cuantos);
     }
-    let topologia = match e.topologia {
-        TRIANGLELIST => Topologia::Lista,
-        TRIANGLESTRIP => Topologia::Tira,
+    // E2.3b: puntos y lineas, solo con un GS que los haga triangulos.
+    let topologia = match (e.topologia, en.gs.is_some()) {
+        (TRIANGLELIST, _) => Topologia::Lista,
+        (TRIANGLESTRIP, _) => Topologia::Tira,
+        (POINTLIST, true) => Topologia::Puntos,
+        (LINELIST, true) => Topologia::Lineas,
+        (LINESTRIP, true) => Topologia::TiraDeLineas,
+        (POINTLIST | LINELIST | LINESTRIP, false) => {
+            aviso("Draw de puntos o lineas sin un GS: la trama solo pinta triangulos todavia");
+            return;
+        }
         _ => {
-            aviso("Draw con una topologia que no es de triangulos (lista o tira): todavia no");
+            aviso("Draw con una topologia con adyacencia o de parches: todavia no");
             return;
         }
     };
+    if let Some(g) = &en.gs {
+        if bmo_proton_x::lote::primitivas(&[], topologia, g.info.vertices()).is_none() {
+            aviso("Draw: la topologia no da las primitivas que lee su GS: en Windows es un error, y no se dibuja");
+            return;
+        }
+    }
     // Los vertices: el bufer de la ranura 0 entero.
     let paso = e.vertices.paso_o_formato as usize;
     let Some(vb) = (paso > 0).then(|| resolver(e.vertices.va, e.vertices.bytes as usize)).flatten() else {

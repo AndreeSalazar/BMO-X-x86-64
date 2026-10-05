@@ -122,6 +122,46 @@ pub fn hilos_de_psv0(p: &[u8]) -> [u32; 3] {
     [u32_en(p, 4 + 36).unwrap_or(0), u32_en(p, 4 + 40).unwrap_or(0), u32_en(p, 4 + 44).unwrap_or(0)]
 }
 
+/// **Lo de un sombreador de GEOMETRIA** (E2.3b, 05-10), de su PSV0: el
+/// `GSInfo` de la cabecera (`InputPrimitive`, `OutputTopology`) y su
+/// `MaxVertexCount` (16 bits en el byte 26). Medido con dxc 1.9 sobre el GS
+/// de nBodyGravity: punto (1), tira de triangulos (5), 4 vertices.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Geometria {
+    /// D3D_PRIMITIVE de su entrada: 1 punto, 2 linea, 3 triangulo, 6 y 7
+    /// linea y triangulo con adyacencia.
+    pub entrada: u32,
+    /// D3D_PRIMITIVE_TOPOLOGY de su salida: 1 puntos, 3 tira de lineas, 5
+    /// tira de triangulos.
+    pub salida: u32,
+    /// Los vertices que puede emitir, a lo mas (`[maxvertexcount(n)]`).
+    pub maximo: u32,
+}
+
+impl Geometria {
+    /// Los vertices de su primitiva de entrada.
+    pub fn vertices(&self) -> usize {
+        match self.entrada {
+            1 => 1,
+            2 => 2,
+            3 => 3,
+            6 => 4,
+            7 => 6,
+            _ => 0,
+        }
+    }
+}
+
+/// [`Geometria`] de la PSV0 `p`, si es de un GS (la etapa del byte 24 es 2).
+pub fn geometria_de_psv0(p: &[u8]) -> Option<Geometria> {
+    let cabecera = u32_en(p, 0)? as usize;
+    if cabecera < 36 || p.get(4 + 24) != Some(&2) {
+        return None;
+    }
+    let maximo = u32::from(u16::from_le_bytes([*p.get(4 + 26)?, *p.get(4 + 27)?]));
+    Some(Geometria { entrada: u32_en(p, 4)?, salida: u32_en(p, 8)?, maximo })
+}
+
 /// **El recurso `rango` de la clase `clase`** (lo que dice `createHandle`).
 pub fn rango(recursos: &[Recurso], clase: u8, rango: u32) -> Option<Recurso> {
     recursos.iter().filter(|r| r.clase == clase).nth(rango as usize).copied()

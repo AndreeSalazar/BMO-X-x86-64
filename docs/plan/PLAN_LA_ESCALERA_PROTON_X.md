@@ -259,16 +259,29 @@ muestra.
   se sabe:** el `.exe` compara los 2 x 1024 floats con su cuenta, BIT A BIT
   (todo exacto en float: la 3060 tiene que dar lo mismo), y en Windows dice
   lo mismo; probado que dice NO sin la barrera.
-- [ ] **E2.3b -- D3D12nBodyGravity.** Confirmado con su fuente (05-10):
-  dibuja las 10.000 particulas con un GEOMETRY SHADER (`ParticleDraw_GS.cso`,
-  un punto a un cuadro) que la casa no tiene: es su casilla. Calcula en
-  UN hilo suyo (`ThreadCount` = 1) con su cola de computo y vallas entre
-  colas (D5.1, D5.2), y pregunta `D3D12_OPTIONS12` (las barreras nuevas)
-  con ThrowIfFailed: la casa tiene que contestar, y con
-  `EnhancedBarriersSupported` = FALSE va por las de siempre. Pide tambien
-  los UAV que faltan (N5.3c). **Como se sabe:** su huella tras N pasos, con
-  su margen (R3): son floats sumados en otro orden que la 3060, y eso no da
-  los mismos bits.
+- [x] **E2.3b -- D3D12nBodyGravity** (05-10, en el banco; falta verlo en
+  el metal y en Windows). Confirmado con su fuente: dibuja las 10.000
+  particulas con un GEOMETRY SHADER (un punto, un cuadro de cuatro
+  vertices) y calcula en UN hilo suyo con su cola de computo y vallas entre
+  colas. Lo que pidio, y ya tiene la casa: el GS (en el crate: `EntradaDe`,
+  `Emite`, `Corta`, su PSV0, el enlace VS -> GS -> PS y las primitivas; en
+  la casa, el PSO con GS y los puntos), `D3D12_OPTIONS12` contestado
+  (`EnhancedBarriersSupported` NO: va por ResourceBarrier), `rand`/`srand`
+  de MSVC, los `getelementptr` CONSTANTES de su CS (384 lecturas de la
+  compartida), y que una espera cumplida CEDA el turno: con la cola
+  sincrona su hilo de computo nunca esperaba de verdad y el de dibujo no
+  corria. Y su CS, TRADUCIDO a x86-64 (`nativo_computo`): interpretado, un
+  paso de la simulacion eran 73 s; traducido, uno o dos. **Como se sabe:**
+  `tests/corre/muestras.rs`: tres Present distintos, las dos nubes iguales a
+  izquierda y derecha y centradas, rojas en el 0 y amarillas en el 2 (ya
+  aceleran); y `tests/nativo_computo.rs`: su CS traducido da los bits del
+  interprete y, sobre 2048 particulas como las suyas, la FISICA en f64 con
+  su margen (R3: floats sumados en otro orden; lo peor, un 3 % del margen),
+  probado que dice NO con un paso una milesima distinto. Los bits de
+  Windows, no (otro orden de suma). La captura de Microsoft es de mucho
+  despues (las dos nubes ya fundidas en una galaxia): el estilo es el
+  mismo (puntos rojos con su halo, amarillos donde aceleran, el fondo azul
+  oscuro); el momento, no.
 - [ ] **E2.4 -- D3D12ExecuteIndirect.** `ExecuteIndirect` (la otra mitad de
   N5.17) y su culling por computo (pide E2.3). **Como se sabe:** su huella,
   igual, con el culling encendido y apagado.
@@ -333,13 +346,14 @@ se mide con R5: una corrida por escalon cerrado.
    casilla de LAS_TRES_GRANDES             su escalon
    D5.7   la cadena de intercambio          E1.1
    D2.3   Map persistente (UPLOAD)          E1.4
-   D5.2   vallas                            E1.5, E2.3a (entre colas), E2.3b
+   D5.2   vallas                            E1.5, E2.3a y E2.3b (entre colas)
    N5.17  ExecuteBundle / ExecuteIndirect   E1.6, E2.4
    H2.7   listas desde varios hilos         E2.1
    N5.4   el indice dinamico (bindless)     E2.2
-   N5.5   el COMPUTO                        E2.3a (hecho), E2.3b
-   N5.3c  los UAV                           E2.3a (de bufer), E2.3b
-   D5.1   la cola de computo                E2.3a (hecho), E2.3b
+   N5.5   el COMPUTO                        E2.3a y E2.3b (hechos)
+   N5.3c  los UAV                           E2.3a y E2.3b (los de bufer)
+   D5.1   la cola de computo                E2.3a y E2.3b (hechos)
+   (nueva) el sombreador de geometria       E2.3b (hecho)
    D4.3   las olas de verdad                E2.5
    N5.16  render targets de float           E2.6
    D5.5   consultas                         E2.7
@@ -372,6 +386,15 @@ medido, rapido):
                 VERRANO con TITAN++ encima (la 3060: el BSF ya traducido, la
                 GPU no compila nada) van DONDE el numero de 3 lo diga
 ```
+
+**Lo primero que ya se exprimio (05-10, E2.3b): el COMPUTO traducido a
+x86-64** (`bmo_proton_x::nativo_computo`). Lo de `nativo.rs` (los dibujos
+sin saltos) con lo que el computo pide: saltos de verdad, enteros, la
+memoria compartida, los buferes y la BARRERA (guarda donde va y vuelve; al
+llamarla otra vez, salta detras). 50 veces el interprete en el banco: un
+paso de nBodyGravity, de 73 s a uno o dos. Su juez es el interprete, bit a
+bit, y la fisica en f64. No es que la CPU dibuje: es calcular lo que el
+juego pide mientras la 3060 no corre computo (N6).
 
 **LA CPU GUIA, LA 3060 DIBUJA.** El propietario (05-10): *"que la CPU no
 tiene que ser la que dibuje, sino que tenga el mapa por via de RAM y que le

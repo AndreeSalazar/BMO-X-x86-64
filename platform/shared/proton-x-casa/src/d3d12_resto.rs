@@ -148,6 +148,9 @@ pub struct Computo {
     pub raiz: u64,
     pub cs: Vec<u8>,
     pub preparado: Result<bmo_proton_x::dxil::computo::DeComputo, alloc::string::String>,
+    /// E2.3b (05-10): donde empieza su traduccion a x86-64 en el bloque
+    /// sellado (`nativo::registrar_computo`), si la hay.
+    pub nativo: Option<usize>,
 }
 
 /// `CreateComputePipelineState(this, desc, riid, pp)`:
@@ -172,8 +175,11 @@ extern "win64" fn create_compute_pipeline_state(_this: u64, desc: *const u8, rii
     if let Err(m) = &preparado {
         aviso(&alloc::format!("CreateComputePipelineState: {m}; sus Dispatch no se haran"));
     }
+    // E2.3b: y traducido a x86-64, una vez (lo que no se traduce, por el
+    // interprete: da lo mismo, mas despacio).
+    let nativo = preparado.as_ref().ok().and_then(|p| crate::nativo::registrar_computo(&p.programa));
     let vt = vtabla::<{ com::PSO }>(&[(8, dir!(get_cached_blob))]);
-    let obj = nuevo(com::PSO, vt, Computo { raiz, cs, preparado }) as u64;
+    let obj = nuevo(com::PSO, vt, Computo { raiz, cs, preparado, nativo }) as u64;
     // SAFETY: ver `Computos`.
     unsafe { (*COMPUTOS.0.get()).push(obj) };
     dar(pp, obj)

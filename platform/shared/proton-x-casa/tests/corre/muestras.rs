@@ -514,3 +514,68 @@ fn e2_3a_el_computo_con_memoria_compartida_y_barrera_da_los_bits_de_la_cuenta() 
     assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
     assert!(texto.ends_with("computo.exe: el computo de D3D12 es el de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **E2.3b -- D3D12nBodyGravity** (05-10, `Samples/Desktop`, MIT): el
+/// COMPUTO de verdad (10.000 particulas, la barrera DENTRO de un bucle, en
+/// SU hilo y su cola de computo, con vallas entre las dos colas) y un
+/// sombreador de GEOMETRIA que hace de cada punto un cuadro con un degradado
+/// redondo. Pidio a la casa: el GS, puntos (POINTLIST), OPTIONS12 contestado
+/// (EnhancedBarriers NO: va por ResourceBarrier), `rand`/`srand`, y que una
+/// espera cumplida ceda el turno (su hilo de computo no soltaria nunca).
+/// Corre su CS TRADUCIDO a x86-64 (`nativo_computo`, 50 veces el
+/// interprete; su juez, `tests/nativo_computo.rs`, bit a bit y contra la
+/// fisica en f64).
+///
+/// **Como se sabe** (R3: el CS suma floats en otro orden que la 3060, asi
+/// que los bits no; lo que la fisica fija, si): tres Present distintos (la
+/// simulacion avanza); en cada uno las DOS nubes, iguales a izquierda y
+/// derecha (las dos mitades salen del mismo `srand(0)`) y centradas; y el
+/// color: en el 0 ROJO (sin aceleracion aun: `velo.w` es 1e-8) y en el 2
+/// tirando a AMARILLO (`velo.w` = |aceleracion| despues de un paso). Dos
+/// avisos y ninguno mas: el VS lee un bufer (por el interprete) y algun
+/// cuadro cruza el plano cercano o el lejano (sin recortar todavia, N5.15).
+#[test]
+fn e2_3b_nbodygravity_simula_en_su_hilo_y_dibuja_con_su_gs() {
+    let (salio, texto, vistas, fotos) = correr_muestra(NBODY, "nbody", 3, &[0, 2]);
+    assert_eq!(salio, 0xF00D, "presento hasta el tope del banco: {texto}");
+    for l in texto.lines() {
+        assert!(
+            l == "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)"
+                || l == "PROTON-X: Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan",
+            "un aviso que no se espera: {l}\n{texto}"
+        );
+    }
+    assert_eq!(vistas.len(), 3);
+    assert!(vistas[0] != vistas[1] && vistas[1] != vistas[2], "cada Present, la simulacion un paso mas: {vistas:?}");
+    let mut verde_por_rojo = Vec::new();
+    for (n, px, w, h) in &fotos {
+        assert_eq!((*w, *h), (ANCHO, ALTO));
+        let fondo = px[0] & 0xFF_FFFF;
+        assert_eq!(fondo, 0x00_00_1A, "foto {n}: el fondo de la muestra, {{0, 0, 0.1}}");
+        let (mut izq, mut der, mut sx, mut sy, mut r, mut g) = (0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
+        for y in 0..*h {
+            for x in 0..*w {
+                let p = px[(y * w + x) as usize] & 0xFF_FFFF;
+                if p == fondo {
+                    continue;
+                }
+                if x < w / 2 {
+                    izq += 1;
+                } else {
+                    der += 1;
+                }
+                (sx, sy) = (sx + x as u64, sy + y as u64);
+                (r, g) = (r + (p >> 16 & 0xFF) as u64, g + (p >> 8 & 0xFF) as u64);
+            }
+        }
+        let n_px = izq + der;
+        assert!(n_px > 200_000, "foto {n}: las nubes, {n_px} pixeles");
+        let simetria = izq as f64 / der as f64;
+        assert!((0.9..1.1).contains(&simetria), "foto {n}: izquierda {izq} y derecha {der}");
+        let (cx, cy) = (sx as f64 / n_px as f64, sy as f64 / n_px as f64);
+        assert!((cx - 640.0).abs() < 20.0 && (cy - 360.0).abs() < 20.0, "foto {n}: el centro ({cx:.1}, {cy:.1})");
+        verde_por_rojo.push(g as f64 / r as f64);
+    }
+    assert!(verde_por_rojo[0] < 0.3, "el Present 0, rojo: G/R {:.3}", verde_por_rojo[0]);
+    assert!(verde_por_rojo[1] > 0.4, "el Present 2, amarillo (ya aceleran): G/R {:.3}", verde_por_rojo[1]);
+}

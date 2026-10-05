@@ -67,26 +67,55 @@ pub(crate) fn reiniciar() {
     e.sin_bloque = false;
 }
 
+/// Agregar `c` al codigo (a 16 bytes, con int3 en medio: entre funciones no
+/// se cae en nada); donde empieza.
+fn agregar(e: &mut Estado, c: &[u8]) -> usize {
+    while e.codigo.len() % 16 != 0 {
+        e.codigo.push(0xCC);
+    }
+    let desde = e.codigo.len();
+    e.codigo.extend_from_slice(c);
+    desde
+}
+
 /// **Traducir los sombreadores de un PSO** y rehacer el bloque sellado.
 pub(crate) fn registrar(en: &Enlace) {
     let e = estado();
-    let mut agregar = |c: Vec<u8>| {
-        while e.codigo.len() % 16 != 0 {
-            e.codigo.push(0xCC); // int3: entre funciones no se cae en nada
-        }
-        let desde = e.codigo.len();
-        e.codigo.extend_from_slice(&c);
-        desde
-    };
     // Un sombreador que MUESTREA una textura no se traduce todavia: el PSO
     // entero va por el interprete (el muestreo, `bmo_proton_x::textura`).
     let (Some(cv), Some(cp)) = (nativo::compilar(&en.vs), nativo::compilar(&en.ps)) else {
         aviso("un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)");
         return;
     };
-    let vs = agregar(cv);
-    let ps = agregar(cp);
+    let vs = agregar(e, &cv);
+    let ps = agregar(e, &cp);
     e.traducidos.push(Traducido { enlace: en as *const Enlace as usize, vs, ps });
+    sellar(e);
+}
+
+/// **Traducir el CS de un PSO de computo** (E2.3b, 05-10) y rehacer el
+/// bloque sellado: donde empieza en el codigo, o `None` si no se traduce
+/// (sus Dispatch van por el interprete, que da lo mismo).
+pub(crate) fn registrar_computo(p: &bmo_proton_x::dxil::programa::Programa) -> Option<usize> {
+    let c = bmo_proton_x::nativo_computo::compilar(p)?;
+    let e = estado();
+    let desde = agregar(e, &c);
+    sellar(e);
+    Some(desde)
+}
+
+/// **La funcion de computo** que empieza en `desde`, en el bloque de ahora
+/// (`None` si no quedo bloque).
+pub(crate) fn computo(desde: usize) -> Option<bmo_proton_x::nativo_computo::Funcion> {
+    let (base, n) = estado().bloque?;
+    // SAFETY: `base + desde` es el principio de una funcion traducida por
+    // `nativo_computo::compilar`, dentro del bloque sellado vivo (que mide
+    // `n`); su firma es esa.
+    (desde < n).then(|| unsafe { core::mem::transmute::<usize, bmo_proton_x::nativo_computo::Funcion>(base as usize + desde) })
+}
+
+/// Rehacer el bloque sellado con TODO el codigo de ahora.
+fn sellar(e: &mut Estado) {
     let p = plataforma();
     match (p.sellar_codigo)(&e.codigo) {
         Some(b) => {

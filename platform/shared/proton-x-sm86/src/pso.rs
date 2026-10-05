@@ -127,6 +127,10 @@ pub fn elementos(en: &Enlace, ia: &[ElementoIa]) -> Result<Vec<Elemento>, NoVa> 
 
 /// **Traducir un PSO** para un paso de vertice. Emite, pega y JUZGA.
 pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060, NoVa> {
+    // E2.3b: el sombreador de geometria corre en la CPU (la 3060, todavia no).
+    if en.gs.is_some() {
+        return Err(NoVa::Entrada("un sombreador de geometria"));
+    }
     let ev = emitir_con(&en.vs, 64, Abi::Registros).map_err(|e| NoVa::Emisor("vertice", e))?;
     let ep = emitir_con(&en.ps, 64, Abi::Registros).map_err(|e| NoVa::Emisor("pixel", e))?;
     let els = elementos(en, ia)?;

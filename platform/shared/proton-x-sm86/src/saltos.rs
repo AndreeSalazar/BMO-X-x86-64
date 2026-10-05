@@ -91,7 +91,7 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
                 v[2 + k] = Some(w[k]);
             }
         }
-        Op::IdHilo { .. } | Op::Barrera => {}
+        Op::IdHilo { .. } | Op::Barrera | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => {}
         Op::EscribeIndexado { i, s, .. } => {
             v[0] = Some(i);
             v[1] = Some(s);
@@ -111,6 +111,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         Op::ConstantesEn { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
         Op::Muestra { d, .. } | Op::Lee { d, .. } | Op::LeeUav { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
         Op::IdHilo { d, .. } | Op::LeeCompartida { d, .. } => ([Some(d), None, None, None], false),
+        Op::EntradaDe { d, .. } => ([Some(d), None, None, None], true),
         Op::Mul { d, .. }
         | Op::Add { d, .. }
         | Op::Sub { d, .. }
@@ -132,7 +133,7 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         | Op::Convierte { d, .. }
         | Op::LeeIndexado { d, .. } => uno(d),
         // EligeTextura no escribe registros: escoge la textura de la lectura de detras.
-        Op::Salida { .. } | Op::Descarta { .. } | Op::EscribeIndexado { .. } | Op::EligeTextura { .. } | Op::Barrera | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
+        Op::Salida { .. } | Op::Descarta { .. } | Op::EscribeIndexado { .. } | Op::EligeTextura { .. } | Op::Barrera | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => ([None; 4], false),
     }
 }
 

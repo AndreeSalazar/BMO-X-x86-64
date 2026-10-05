@@ -2183,3 +2183,30 @@ Reproducible (comprobado en dos directorios), sin rutas. sha256:
 El banco (`tests/corre/muestras.rs`, e2_3a): los 4 `bien`, ni un aviso y
 sale con 0. Probado que dice NO: con la barrera quitada del interprete, 128
 elementos distintos en cada Dispatch y sale con 2.
+
+nbody.exe -- D3D12nBodyGravity de Microsoft: el COMPUTO y el GS (05-10)
+
+E2.3b de la ESCALERA: `Samples/Desktop/D3D12nBodyGravity` con el mismo
+script (`muestras/construir.sh`), su fuente sin tocar. El puente gana UNA
+declaracion en `antes.h`: `DXGIDeclareAdapterRemovalSupport` (del dxgi1_6.h
+del SDK de Windows; el de mingw-w64 11 no la declara y su libdxgi.a si la
+trae); los .exe de antes salen igual, byte a byte. Sus cuatro .cso, con
+DXC, como su proyecto: de nBodyGravityCS.hlsl el CS (-Tcs_6_0
+-E"CSMain"), y de ParticleDraw.hlsl el VS, el GS y el PS (-Tvs_6_0
+-E"VSParticleDraw", -Tgs_6_0 -E"GSParticleDraw", -Tps_6_0
+-E"PSParticleDraw"), todos -Zi -Qembed_debug. Todo en window/nbody/ y aqui
+en muestras/nbody/. Reproducible (comprobado en dos directorios), sin
+rutas de la maquina. sha256:
+
+   a8c766677a491f386b44c93140064a4f5f4c57e847bef27acb43bf2d868db3ce  nbody.exe
+   d6cdc5445bc0379168086e59d6ba0c19258c493ae81cd8dab4f7876df0d7e75a  nbody/nBodyGravityCS.cso
+   138f9b56eb9de4d7fd9f0783dfdf4516484e43a846b2c03834a5a17907c3b7f9  nbody/ParticleDraw_VS.cso
+   c1b9c42ba39a8b185245bdfc243fd29cd276660b0237f92ea7a8548666c033ad  nbody/ParticleDraw_GS.cso
+   116301bd940d646cfdf49fed2c3e85db91ff0c19e6211873917706a123cf0ea9  nbody/ParticleDraw_PS.cso
+
+Los jueces: `tests/corre/muestras.rs` (tres Present distintos, las dos
+nubes simetricas y centradas, rojas en el 0 y amarillas en el 2), y
+`tests/nativo_computo.rs` (su CS traducido a x86-64: los bits del
+interprete, y la fisica en f64 con su margen sobre 2048 particulas como las
+suyas, el `rand` de MSVC con `srand(0)`); `src/pruebas_geometria.rs` (sus
+tres sombreadores de dibujo: el cuadro de cada punto y su degradado).

@@ -160,7 +160,11 @@ Cyberpunk:
 ```text
    Dispatch (el COMPUTO): corre en la CPU desde el     N5.5  la luz, las sombras
    05-10 (E2.3a), con memoria compartida, barreras           y el post-proceso
-   y UAV de bufer; la 3060 aun no
+   y UAV de bufer, y traducido a x86-64 (E2.3b);
+   la 3060 aun no
+   el sombreador de GEOMETRIA: en la CPU desde el      N5.18 particulas,
+   05-10 (E2.3b); sin vertice calculado, adyacencia,         siluetas
+   puntos o lineas de salida ni stream output
    un UAV de TEXTURA (RWTexture), un UAV en el de      N5.3b/c
    pixeles, ClearUnorderedAccessView y los SRV/UAV
    de la raiz: el sombreador no los ve

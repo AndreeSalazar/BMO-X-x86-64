@@ -24,7 +24,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use super::interprete::{Grupo, Ids, Paro, Pausa};
+use super::interprete::{Extra, Grupo, Ids, Paro, Pausa};
 use super::programa::Programa;
 
 impl Programa {
@@ -64,7 +64,7 @@ impl Programa {
                                 indice: t,
                             };
                             let mut g = Grupo { ids, compartida: &mut compartida, uavs };
-                            match self.correr_desde(pausa, &[], cb, rec, &mut [], regs, Some(&mut g)) {
+                            match self.correr_desde(pausa, &[], cb, rec, &mut [], regs, Extra::Grupo(&mut g)) {
                                 Paro::Barrera => alguno_espera = true,
                                 Paro::Fin(_) => {
                                     *acabo = true;
