@@ -81,6 +81,10 @@ mod the_logic_names_no_look {
     #[test]
     fn no_colour_no_pixel_no_painter() {
         for (name, src) in SOURCES {
+            // [!] Sin `\r`: en Windows git saca los ficheros con CRLF y el
+            // corte de abajo no casaba -- se leian las pruebas, que SI dicen
+            // `color` (05-10).
+            let src = src.replace("\r\n", "\n");
             let code = src.split("#[cfg(test)]\nmod ").next().unwrap_or("");
             for line in code.lines().filter(|l| {
                 let t = l.trim_start();
