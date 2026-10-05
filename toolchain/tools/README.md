@@ -34,6 +34,7 @@ decoracion**, y un obrero que juzga es un obrero que un dia se niega a trabajar.
 | [`ambitos`](ambitos/) | un commit usa un ambito que no esta en `AMBITOS.txt` |
 | [`titan-leyes`](titan-leyes/) | una de las **leyes de TITAN++** pierde quien la hace cumplir (su test se borra o se ignora, el ultimo programa de su NO se va), o su texto cambia sin `--sellar` con motivo; o el codigo, la GRAMATICA y el banco dejan de decir lo mismo (04-10) |
 | [`maestros`](maestros/) | la TAB de F1 y el banco de TITAN++ dejan de decir lo mismo: un programa `BIEN` entro, salio o cambio y `maestros_gen.rs` no lo sigue. Es tambien su OBRERO: sin `--check` la regenera (05-10, `PLAN_TALLER` 8.15) |
+| [`estratos-guia`](estratos-guia/) | la GUIA de ESTRATOS en F1 y el contrato del ABI dejan de decir lo mismo: una puerta `ES_*` entro, salio o cambio, o no tiene comentario propio que explicarla. Es tambien su OBRERO: sin `--check` la regenera (05-10, `PLAN_LAS_RAMAS` R1) |
 | [`censo-neutro`](censo-neutro/) | el censo del neutro y el codigo no dicen lo mismo. Ver [`NEUTRO/CENSO.txt`](../../NEUTRO/CENSO.txt) |
 | [`perfil-placa`](perfil-placa/) | el perfil de la placa y los rodeos que se le hacen no cuadran |
 | [`perfil`](perfil/) | un perfil expone a un fichero que no existe |

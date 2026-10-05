@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 70 planes
+# LO QUE FALTA -- las casillas abiertas de los 71 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   630 casillas ABIERTAS en 61 planes
-   519 hechas
+   636 casillas ABIERTAS en 62 planes
+   520 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -350,6 +350,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 2 el build y el metro: ventana, musica, cubo y navegar fuera de
 - [ ] 4 fuera el runtime de app (objetos, monton, superficie, lamina,
 - [ ] 5 el emisor pierde los caminos del monton y de los objetos; los docs
+- ... y 3 mas
+
+## [`PLAN_LAS_RAMAS.md`](PLAN_LAS_RAMAS.md) -- 6 abiertas, 1 hechas
+
+*PLAN LAS RAMAS -- ESTRATOS como Git: guias, plantillas, ramas y mezcla por NODOS*
+
+- [ ] R2 -- la MEZCLA PURA en bmo-estratos: base, A y B como listas de (ruta, nodo) -> lo que sale y l
+- [ ] R3 -- las decisiones D1-D3 del propietario, escritas aqui (seccion 3)
+- [ ] R4 -- el gesto MEZCLAR en el kernel (ES_GESTO_*): construir el arbol de lo que sale con los nodo
 - ... y 3 mas
 
 ## [`PLAN_RED_TX.md`](PLAN_RED_TX.md) -- 6 abiertas, 8 hechas
