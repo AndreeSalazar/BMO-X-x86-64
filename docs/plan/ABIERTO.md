@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   621 casillas ABIERTAS en 57 planes
+   622 casillas ABIERTAS en 57 planes
    460 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -97,6 +97,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] F6 -- LO DATA-DENSE. Graficos circulares (la carga por nucleo, los
 - ... y 16 mas
 
+## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 18 abiertas, 2 hechas
+
+*PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
+
+- [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
+- [ ] E3 -- el compositor al compas de la pantalla
+- [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
+- ... y 15 mas
+
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 
 *El plan de la AUTO-CURACION: de informar a actuar*
@@ -113,15 +122,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
 - [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
-- ... y 14 mas
-
-## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 17 abiertas, 2 hechas
-
-*PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
-
-- [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
-- [ ] E3 -- el compositor al compas de la pantalla
-- [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
 - ... y 14 mas
 
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas

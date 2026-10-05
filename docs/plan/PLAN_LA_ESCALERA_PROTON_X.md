@@ -112,6 +112,12 @@ cada pieza aislada y con su imagen correcta delante.
        Junto al binario: su LICENSE (MIT), su .patch y un HACER.txt con el
        commit del repo de origen, la version de MSVC, las banderas y la
        huella que dio en Windows
+   R8  EL PISO DE LA 3060. Cada escalon tiene dos mitades: la de la CPU (el
+       banco, la huella del interprete) y la de la 3060 (la huella del
+       metal). La de la 3060 pide que el GSP despierte SIEMPRE: G0 de
+       PLAN_LA_3060. Mientras la 3060 despierte cuando quiera, una huella
+       mala no dice si fallo el escalon o el arranque. La mitad de la CPU NO
+       lo pide: E1 y E2 avanzan aunque la 3060 este terca
 ```
 
 La unica excepcion a R5 es la que ya esta en marcha: la corrida 13, que
@@ -260,7 +266,31 @@ Una casilla de LAS_TRES_GRANDES se marca cuando pasa su escalon, con "falta
 verlo en Cyberpunk" hasta que la vara (R5) lo mida. Asi el plan del juego
 sigue diciendo la verdad sobre el juego, y este, sobre la pieza.
 
-# 5. LO QUE ESTE PLAN NO CAMBIA
+# 5. Y DESPUES, EXPRIMIR: DONDE ENTRAN INTI Y VERRANO
+
+El propietario (05-10): *"OPTIMIZACION monstruosa para que mi Cyberpunk
+pueda ser exprimido con mi CPU y mi GPU, gracias a INTI y VERRANO"*. Si, y
+en este orden, que es la ley 0 de
+[`OPTIMIZACION_MAESTRO.md`](../maestro/OPTIMIZACION_MAESTRO.md) (correcto,
+medido, rapido):
+
+```text
+   1  CORRECTO  la escalera: cada escalon con su huella. Optimizar algo que
+                todavia no dibuja bien es acelerar un fallo
+   2  LOS DOS SALTOS GRANDES, que no son micro-optimizacion:
+                N6  los sombreadores del juego a la 3060 (hoy los interpreta
+                    la CPU, pixel a pixel)
+                H1  el Ring 3 en los 6 nucleos (hoy `smp all` solo lleva
+                    faenas del kernel: el juego entero corre en UN nucleo)
+   3  MEDIDO    FRAPS-X sobre E3.2 (ModelViewer): el fotograma partido en sus
+                trozos, con el codigo abierto para seguir el lento hasta su
+                linea. Sobre Cyberpunk solo despues: es cerrado
+   4  RAPIDO    INTI (la CPU, el samurai: la instruccion exacta, AVX2) y
+                VERRANO con TITAN++ encima (la 3060: el BSF ya traducido, la
+                GPU no compila nada) van DONDE el numero de 3 lo diga
+```
+
+# 6. LO QUE ESTE PLAN NO CAMBIA
 
 - Cyberpunk sigue siendo el NORTE de PROTON-X: este plan es el camino, no
   otro destino.
