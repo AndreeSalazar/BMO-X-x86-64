@@ -82,7 +82,7 @@ fn el_sm5_de_fxc_y_la_trama_dan_las_huellas_de_d3d12() {
     for (f, esperada) in bmo_cubo::referencia::HUELLAS {
         let (px, cuenta) = cubo_con(SM5_VS, SM5_PS, f, false, 3);
         assert_eq!(bmo_cubo::referencia::huella(&px), esperada, "fotograma {f}: {cuenta:?}");
-        assert_eq!((cuenta.dibujados + cuenta.descartados, cuenta.sin_recortar), (12, 0));
+        assert_eq!((cuenta.dibujados + cuenta.descartados, cuenta.recortados), (12, 0));
     }
 }
 

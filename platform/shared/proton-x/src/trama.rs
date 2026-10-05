@@ -25,9 +25,14 @@
 //! pixeles solo depende de lo que entra (y del cbuffer), si entra lo mismo que
 //! en el pixel anterior se reusa su color: es la misma cuenta, no un atajo.
 //!
-//! Lo que falta se CUENTA ([`Cuenta::sin_recortar`]): un triangulo que cruza
-//! el plano cercano (w <= 0) o sale de la profundidad (z < 0, z > w) no se
-//! recorta todavia; se deja entero sin pintar y se dice.
+//! **El recorte** (05-10): un triangulo que cruza el plano cercano (z < 0)
+//! o el lejano (z > w) se RECORTA contra ellos, como en D3D, y lo que queda
+//! (hasta cinco lados, en abanico) se pinta en su sitio; antes se dejaba
+//! entero sin pintar (en 3D, de cerca, faltaba suelo). Los atributos, en
+//! linea recta en el espacio de recorte: la perspectiva sale igual. Contra
+//! x e y no hace falta (la tijera corta), salvo lo que pasa de una BANDA de
+//! guarda de 64 veces la pantalla, para que las cuentas enteras no se
+//! desborden.
 
 use alloc::vec::Vec;
 
@@ -128,7 +133,8 @@ pub const PROFUNDIDAD: usize = OBJETIVOS;
 pub struct Cuenta {
     pub dibujados: u32,
     pub descartados: u32,
-    pub sin_recortar: u32,
+    /// 05-10: triangulos que hubo que RECORTAR (cruzaban un plano).
+    pub recortados: u32,
     pub pixeles: u64,
     /// Cuantas veces corrio de verdad el sombreador de pixeles.
     pub sombreados: u64,
@@ -156,6 +162,49 @@ pub fn redondear_par(x: f32) -> i64 {
     } else {
         piso
     }
+}
+
+/// La banda de guarda: x e y, dentro de +-64 w (64 veces la pantalla).
+const BANDA: f32 = 64.0;
+
+/// La distancia firmada de `p` a cada plano de recorte (dentro: >= 0): el
+/// cercano, el lejano y los cuatro de la banda.
+fn planos(p: &[f32; 4]) -> [f32; 6] {
+    let [x, y, z, w] = *p;
+    [z, w - z, BANDA * w - x, BANDA * w + x, BANDA * w - y, BANDA * w + y]
+}
+
+/// El punto de `a` a `b` en `t`: la posicion y cada atributo, en linea recta.
+fn entre(a: &Sombreado, b: &Sombreado, t: f32) -> Sombreado {
+    let l = |x: f32, y: f32| x + t * (y - x);
+    Sombreado {
+        pos: core::array::from_fn(|k| l(a.pos[k], b.pos[k])),
+        atributos: a.atributos.iter().zip(&b.atributos).map(|(x, y)| core::array::from_fn(|k| l(x[k], y[k]))).collect(),
+    }
+}
+
+/// **Recortar un triangulo** (Sutherland-Hodgman): el poligono que queda
+/// dentro de todos los planos, en el orden de sus vertices (vacio si nada).
+fn recortar(v: [&Sombreado; 3]) -> Vec<Sombreado> {
+    let mut poli: Vec<Sombreado> = v.iter().map(|&s| s.clone()).collect();
+    for plano in 0..6 {
+        if poli.len() < 3 {
+            return Vec::new();
+        }
+        let mut sale = Vec::with_capacity(poli.len() + 1);
+        for i in 0..poli.len() {
+            let (a, b) = (&poli[i], &poli[(i + 1) % poli.len()]);
+            let (da, db) = (planos(&a.pos)[plano], planos(&b.pos)[plano]);
+            if da >= 0.0 {
+                sale.push(a.clone());
+            }
+            if (da >= 0.0) != (db >= 0.0) {
+                sale.push(entre(a, b, da / (da - db)));
+            }
+        }
+        poli = sale;
+    }
+    poli
 }
 
 fn arista(ax: i64, ay: i64, bx: i64, by: i64, px: i64, py: i64) -> i64 {
@@ -240,16 +289,42 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
         bgra[k + 1] = o.bgra;
     }
     let mut entrada: Vec<[f32; 4]> = Vec::new();
+    // El recorte: los triangulos que cruzan un plano se cambian, EN SU
+    // SITIO, por el abanico de lo que queda; sus vertices nuevos van detras
+    // de los de siempre (`extra`).
+    let n = vertices.len();
+    let mut extra: Vec<Sombreado> = Vec::new();
+    let mut lista: Vec<[usize; 3]> = Vec::with_capacity(tris.len());
     for t in tris {
         let Some(v) = t.iter().map(|&i| vertices.get(i)).collect::<Option<Vec<_>>>() else {
             cuenta.descartados += 1;
             continue;
         };
-        if v.iter().any(|v| {
-            let [x, y, z, w] = v.pos;
-            !(w > 0.0 && x.is_finite() && y.is_finite() && z >= 0.0 && z <= w && w.is_finite())
-        }) {
-            cuenta.sin_recortar += 1;
+        if v.iter().any(|v| !v.pos.iter().all(|c| c.is_finite())) {
+            cuenta.descartados += 1;
+            continue;
+        }
+        if v.iter().all(|v| planos(&v.pos).iter().all(|&d| d >= 0.0) && v.pos[3] > 0.0) {
+            lista.push(*t);
+            continue;
+        }
+        cuenta.recortados += 1;
+        let poli = recortar([v[0], v[1], v[2]]);
+        if poli.len() < 3 {
+            cuenta.descartados += 1;
+            continue;
+        }
+        let base = n + extra.len();
+        let k = poli.len();
+        extra.extend(poli);
+        lista.extend((1..k - 1).map(|i| [base, base + i, base + i + 1]));
+    }
+    let vertice = |i: usize| if i < n { &vertices[i] } else { &extra[i - n] };
+    for t in &lista {
+        let v = [vertice(t[0]), vertice(t[1]), vertice(t[2])];
+        // Recortado, w >= z >= 0; w = 0 es el ojo mismo: nada que pintar.
+        if v.iter().any(|v| v.pos[3] <= 0.0) {
+            cuenta.descartados += 1;
             continue;
         }
         // 1-2: a pantalla y al subpixel.

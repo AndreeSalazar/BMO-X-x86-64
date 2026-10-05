@@ -174,8 +174,6 @@ Cyberpunk:
    un UAV de TEXTURA (RWTexture), un UAV en el de      N5.3b/c
    pixeles, ClearUnorderedAccessView y los SRV/UAV
    de la raiz: el sombreador no los ve
-   triangulos que cruzan el plano CERCANO: no se       (nueva) el recorte; en 3D
-   pintan (sin recortar)                                    de cerca, falta suelo
    render targets de floats (R32) y HDR de 16 bits     (nueva) se pintan en 8
    como 8 bits                                              bits o no se pintan
    ClearUnorderedAccessView: no hace nada              N5.3c

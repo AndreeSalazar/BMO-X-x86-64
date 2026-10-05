@@ -51,7 +51,7 @@ pub enum Fuente {
     Ia(usize),
     /// SV_VertexID: el numero del vertice (el id, con el vertice base).
     Vertice,
-    /// SV_InstanceID: el numero de la instancia, desde 0 (N5.19: sin
+    /// SV_InstanceID: el numero de la instancia, desde 0 (N5.13: sin
     /// StartInstanceLocation).
     Instancia,
 }
@@ -64,14 +64,14 @@ pub struct ElementoIa {
     pub formato: u32,
     pub ranura: u32,
     pub desde: u32,
-    /// N5.19 (05-10): `None`, un elemento POR VERTICE; `Some(k)`, POR
+    /// N5.13 (05-10): `None`, un elemento POR VERTICE; `Some(k)`, POR
     /// INSTANCIA (`D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA`): avanza
     /// cada `k` instancias (InstanceDataStepRate; con 0, todas leen el
     /// primero).
     pub por_instancia: Option<u32>,
 }
 
-/// **El bufer de vertices de otra ranura** (N5.19): sus bytes y su paso
+/// **El bufer de vertices de otra ranura** (N5.13): sus bytes y su paso
 /// (`D3D12_VERTEX_BUFFER_VIEW`). Sin bufer, `bytes` va vacio.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Flujo<'a> {
@@ -359,10 +359,10 @@ pub struct Lote<'a> {
     /// tiene que contar los pixeles que pasan ([`trama::Cuenta::pasan`]).
     /// La trama de la CPU los cuenta siempre; la 3060, aun no.
     pub oclusion: bool,
-    /// N5.19 (05-10): los buferes de vertices de las ranuras 1..16
+    /// N5.13 (05-10): los buferes de vertices de las ranuras 1..16
     /// (`otros[r - 1]` es la ranura `r`); la 0 es `vertices` y `paso`.
     pub otros: &'a [Flujo<'a>],
-    /// N5.19: cuantas instancias se dibujan (1, lo de siempre) y la primera
+    /// N5.13: cuantas instancias se dibujan (1, lo de siempre) y la primera
     /// (StartInstanceLocation): solo mueve lo que leen los elementos POR
     /// INSTANCIA; SV_InstanceID cuenta desde 0, como en D3D12.
     pub instancias: u32,
@@ -379,7 +379,7 @@ impl Lote<'_> {
         }
     }
 
-    /// Lo que el lote no puede dibujar antes de empezar (N5.19): un elemento
+    /// Lo que el lote no puede dibujar antes de empezar (N5.13): un elemento
     /// que lee una ranura SIN bufer, o un id que pasa de un bufer que se lee
     /// por vertice. Si no, cuantos vertices distintos puede haber (el mayor
     /// id + 1).
@@ -435,7 +435,7 @@ pub type CorrePs<'a> = &'a mut dyn FnMut(&[[f32; 4]], &mut [[f32; 4]]) -> bool;
 
 /// **Una entrada del de vertices** para el vertice `id` de la instancia
 /// `instancia`: el elemento del layout con su formato (`formato_ia`), de SU
-/// ranura (N5.19) y en el elemento que le toca (por vertice o por
+/// ranura (N5.13) y en el elemento que le toca (por vertice o por
 /// instancia), o el numero de vertice o de instancia, como ENTERO en los
 /// bits del registro. Lo que cae fuera del bufer se lee como ceros, como en
 /// D3D12.
@@ -496,7 +496,7 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs
     let mut sal = vec![[0.0f32; 4]; en.vs.salidas];
     let tris = triangulos(l.ids, l.topologia);
     let mut locales = Vec::with_capacity(tris.len() * l.instancias.max(1) as usize);
-    // N5.19: instancia a instancia, en orden (D3D12 las pinta asi): el de
+    // N5.13: instancia a instancia, en orden (D3D12 las pinta asi): el de
     // vertices una vez por vertice distinto DE CADA UNA.
     for inst in 0..l.instancias {
         let mut hecho: Vec<Option<usize>> = vec![None; n_vertices];
@@ -557,7 +557,7 @@ fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: 
     let mut regs = Vec::new();
     let mut sombreados: Vec<trama::Sombreado> = Vec::new();
     let mut locales: Vec<[usize; 3]> = Vec::new();
-    // N5.19: instancia a instancia, como sin GS.
+    // N5.13: instancia a instancia, como sin GS.
     for inst in 0..l.instancias {
         hecho.fill(None);
         for prim in &prims {

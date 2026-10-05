@@ -330,7 +330,7 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
         let r = (ranura as usize).min(15);
         let desde = if desde == APPEND_ALIGNED { siguiente[r] } else { desde };
         siguiente[r] = desde + bytes;
-        // N5.19: InputSlotClass +24 (1, POR INSTANCIA) e InstanceDataStepRate +28.
+        // N5.13: InputSlotClass +24 (1, POR INSTANCIA) e InstanceDataStepRate +28.
         let por_instancia = (u32_de(e, 24) == 1).then(|| u32_de(e, 28));
         if ranura > 15 {
             return Err("un input layout con una ranura mas alla de la 15");
@@ -604,7 +604,7 @@ pub struct Estado {
     /// N5.2), las de todos sus parametros una tras otra: ver `cbuffers`.
     pub raiz32: crate::cbuffers::Palabras,
     pub topologia: u32,
-    /// N5.19 (05-10): los buferes de vertices de las 16 ranuras.
+    /// N5.13 (05-10): los buferes de vertices de las 16 ranuras.
     pub vertices: [Vista; 16],
     pub indices: Vista,
     pub viewport: [f32; 6],
@@ -879,7 +879,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             return;
         }
     }
-    // Los vertices (N5.19): el bufer entero de cada ranura que el input
+    // Los vertices (N5.13): el bufer entero de cada ranura que el input
     // layout lee. Sin input layout (los que leen SV_VertexID), ninguno.
     let mut flujos = [bmo_proton_x::lote::Flujo::default(); 16];
     for el in &pso.entradas {
@@ -1011,7 +1011,6 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         crate::consultas::sumar(c.pasan);
     }
     match r {
-        Ok(c) if c.sin_recortar > 0 => aviso("Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan"),
         Ok(_) => {}
         Err(NoDibuja::IndiceFuera(_)) => aviso("Draw: un indice que pasa del bufer de vertices"),
         Err(NoDibuja::SinVertices) => aviso("Draw sin vertices que leer"),

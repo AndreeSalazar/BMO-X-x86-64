@@ -77,7 +77,7 @@ fn el_gs_de_nbody_hace_de_cada_punto_un_cuadro_con_su_degradado() {
     let mut px = vec![0x0102_0304u32; 32 * 32];
     let mut d = trama::Destino { pixeles: &mut px, ancho: 32, alto: 32, bgra: false, z: None, cadena: false, otros: &mut [] };
     let c = lote::en_cpu(&l, &mut d).unwrap();
-    assert_eq!(c.sin_recortar, 0);
+    assert_eq!(c.recortados, 0);
     let rojo = [1.0f32, 0.1, 0.1, 1.0];
     let mut dentro = 0;
     for y in 0..32u32 {

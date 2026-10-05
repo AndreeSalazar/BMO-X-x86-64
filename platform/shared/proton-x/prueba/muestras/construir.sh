@@ -151,7 +151,7 @@ $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/inc
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o computo.exe computo.o -ld3d12
 sha256sum computo.exe
 
-# N5.19: el juez de las INSTANCIAS, NUESTRO tambien (`../instancias.cpp`,
+# N5.13: el juez de las INSTANCIAS, NUESTRO tambien (`../instancias.cpp`,
 # con sus tres sombreadores de `../instancias_*.dxil` dentro).
 cp "$AQUI/../instancias.cpp" "$AQUI"/../instancias_*.dxil .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c instancias.cpp -o instancias.o

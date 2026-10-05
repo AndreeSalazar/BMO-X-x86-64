@@ -2255,7 +2255,7 @@ pasa, en la trama: `src/pruebas_pixeles.rs`.
 
 instancias_vs.dxil, instancias_id.dxil, instancias_ps.dxil -- los de instancias.exe (05-10)
 
-N5.19: `instancias.hlsl` (aqui al lado): VSInst (la esquina por vertice, el
+N5.13: `instancias.hlsl` (aqui al lado): VSInst (la esquina por vertice, el
 sitio, el color y la fila por instancia, y SV_InstanceID en el verde),
 VSId (sin entradas: un rectangulo de SV_VertexID, una banda por instancia)
 y PSColor. Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
@@ -2272,7 +2272,7 @@ Reproducible (comprobado en dos directorios), sin rutas. sha256:
 
 Van DENTRO de instancias.exe.
 
-instancias.exe -- N5.19: las INSTANCIAS de D3D12, juzgadas (05-10)
+instancias.exe -- N5.13: las INSTANCIAS de D3D12, juzgadas (05-10)
 
 NUESTRO, no de Microsoft: `instancias.cpp` (aqui al lado), de consola, con
 los tres .dxil dentro (`.incbin`). En un destino de 64 x 64: A,

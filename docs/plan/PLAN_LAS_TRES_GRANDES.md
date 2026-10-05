@@ -925,15 +925,32 @@ la proxima corrida del metal dice cual pesa mas:
   (`Destino::pixeles` vacio). Probado por las puertas de Windows: un mapa
   de sombras D32 (`tests/gbuffer.rs`). La 3060 no lo toma todavia (sin
   back buffer que darle a la puerta): por la CPU.
-- [ ] **N5.13 -- las INSTANCIAS** (`DrawInstanced` con mas de una): hoy se
-  dibuja una (lo dice). El follaje, la gente y los coches de Cyberpunk son
-  instancias; pide SV_InstanceID de verdad y los buferes POR INSTANCIA.
-- [ ] **N5.14 -- los buferes de vertices de mas de una ranura**
-  (`IASetVertexBuffers` 1..15): hoy solo la 0.
-- [ ] **N5.15 -- el RECORTE** contra el plano cercano: el triangulo que lo
-  cruza hoy no se pinta (en 3D de cerca falta suelo y pared). Lo dice
-  tambien nBodyGravity (05-10): las particulas que salen disparadas cruzan
-  el plano cercano o el lejano, y su cuadro no se pinta entero.
+- [x] **N5.13 -- las INSTANCIAS** (05-10, con N5.14): el follaje, la
+  gente, los coches. Antes un `DrawInstanced` dibujaba UNA y solo se leia la ranura 0. Ahora: las 16
+  ranuras de `IASetVertexBuffers` (y quitarlas con NULL), los elementos POR
+  INSTANCIA con su `InstanceDataStepRate` (0: todas leen el primero),
+  `StartInstanceLocation` (mueve lo que se lee por instancia;
+  SV_InstanceID cuenta desde 0), los argumentos de ExecuteIndirect y los
+  bundles, y dibujar SIN bufer de vertices (los que solo leen
+  SV_VertexID: el triangulo de pantalla completa del post-proceso). En el
+  crate, `lote::Flujo` y `Lote::instancias`; en la casa, `Estado::vertices`
+  con sus 16. Juez: `prueba/instancias.cpp` (NUESTRO, de consola), en el
+  banco (`tests/corre/muestras.rs`) pixel a pixel; probado que dice NO sin
+  el bucle de instancias y sin el StepRate. Queda: la 3060 (esos lotes van
+  por la CPU) y que el traductor a x86-64 de los de dibujo sepa las cuentas
+  enteras (SV_InstanceID a float las tiene: hoy se interpretan).
+- [x] **N5.14 -- los buferes de vertices de mas de una ranura** (05-10):
+  las 16, con N5.13 (arriba), y el mismo juez.
+- [x] **N5.15 -- el RECORTE** contra el plano cercano y el lejano (05-10):
+  la trama recorta (Sutherland-Hodgman, `trama::recortar`) lo que cruza
+  un plano y pinta lo que queda, en abanico y en su sitio; los atributos,
+  en linea recta en el espacio de recorte (la perspectiva sale igual), y
+  una banda de guarda de 64 pantallas para x e y. Antes no se pintaba
+  (en 3D de cerca faltaba suelo y pared; nBodyGravity lo decia). Juez:
+  `proton-x/src/pruebas.rs` (los mismos pixeles que recortado a mano, y en
+  cada pixel el atributo de la cuenta en f64 del triangulo ENTERO). Queda:
+  `DepthClipEnable = FALSE` (sin recorte en z, la Z sujeta), que hoy
+  recorta igual.
 - [ ] **N5.16 -- render targets de floats** (R32, RGBA16F de verdad): hoy
   se pintan en 8 bits o no se pintan; el HDR de Cyberpunk vive ahi.
 - [x] **N5.17 -- ExecuteIndirect y ExecuteBundle** (05-10). ExecuteBundle
@@ -1010,21 +1027,6 @@ La ESCALERA de juegos (por que DX9 y Left 4 Dead 2 no) esta en su seccion
   registro), la adyacencia, emitir puntos o lineas, varios flujos y el
   stream output, `SV_PrimitiveID` y las instancias de GS, y la 3060 (va por
   la CPU).
-- [x] **N5.19 -- las INSTANCIAS y los buferes de vertices de varias
-  ranuras** (05-10): el follaje, la gente, los coches. Antes un
-  `DrawInstanced` dibujaba UNA y solo se leia la ranura 0. Ahora: las 16
-  ranuras de `IASetVertexBuffers` (y quitarlas con NULL), los elementos POR
-  INSTANCIA con su `InstanceDataStepRate` (0: todas leen el primero),
-  `StartInstanceLocation` (mueve lo que se lee por instancia;
-  SV_InstanceID cuenta desde 0), los argumentos de ExecuteIndirect y los
-  bundles, y dibujar SIN bufer de vertices (los que solo leen
-  SV_VertexID: el triangulo de pantalla completa del post-proceso). En el
-  crate, `lote::Flujo` y `Lote::instancias`; en la casa, `Estado::vertices`
-  con sus 16. Juez: `prueba/instancias.cpp` (NUESTRO, de consola), en el
-  banco (`tests/corre/muestras.rs`) pixel a pixel; probado que dice NO sin
-  el bucle de instancias y sin el StepRate. Queda: la 3060 (esos lotes van
-  por la CPU) y que el traductor a x86-64 de los de dibujo sepa las cuentas
-  enteras (SV_InstanceID a float las tiene: hoy se interpretan).
 - [ ] **N6.1 -- a la 3060 lo que hoy va a la CPU**: SV_VertexID y
   SV_InstanceID, los formatos de vertice que no son float de 32 bits
   (`proton-x-sm86/src/pso.rs`, `NoVa::Entrada`: el pegamento los convierte

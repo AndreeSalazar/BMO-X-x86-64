@@ -1,4 +1,4 @@
-// instancias.cpp -- el juez de las INSTANCIAS de D3D12 (N5.19 de
+// instancias.cpp -- el juez de las INSTANCIAS de D3D12 (N5.13 de
 // docs/plan/PLAN_LAS_TRES_GRANDES.md, 05-10): lo que todo juego usa para el
 // follaje, la gente y los coches, y que la casa dibujaba una vez. Dos
 // dibujos en un destino de 64 x 64 (R8G8B8A8), con los sombreadores de

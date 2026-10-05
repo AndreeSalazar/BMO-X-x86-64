@@ -625,7 +625,7 @@ extern "win64" fn ia_set_index_buffer(this: u64, v: *const u8) {
     unsafe { lista(this).estado.indices = if v.is_null() { Vista::default() } else { vista(v) } };
 }
 
-/// `D3D12_VERTEX_BUFFER_VIEW` (16 B): direccion +0, bytes +8, paso +12. N5.19
+/// `D3D12_VERTEX_BUFFER_VIEW` (16 B): direccion +0, bytes +8, paso +12. N5.13
 /// (05-10): las 16 ranuras, desde `desde`; con `v` nulo, se quitan.
 extern "win64" fn ia_set_vertex_buffers(this: u64, desde: u32, n: u32, v: *const u8) {
     if desde as u64 + n as u64 > 16 {

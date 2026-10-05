@@ -1,4 +1,4 @@
-// instancias.hlsl -- los sombreadores de instancias.exe (N5.19 de
+// instancias.hlsl -- los sombreadores de instancias.exe (N5.13 de
 // docs/plan/PLAN_LAS_TRES_GRANDES.md, 05-10): las INSTANCIAS y los buferes
 // de vertices de varias ranuras. Cuentas exactas en float: cada borde cae en
 // un borde de pixel de un destino de 64 x 64, y cada color es k / 255.

@@ -605,7 +605,7 @@ fn los_dxil_corridos_y_la_trama_dan_las_huellas_de_d3d12() {
     for (f, esperada) in bmo_cubo::referencia::HUELLAS {
         let (px, cuenta) = cubo_por_la_casa(f);
         assert_eq!(bmo_cubo::referencia::huella(&px), esperada, "fotograma {f}: {cuenta:?}");
-        assert_eq!((cuenta.dibujados + cuenta.descartados, cuenta.sin_recortar), (12, 0));
+        assert_eq!((cuenta.dibujados + cuenta.descartados, cuenta.recortados), (12, 0));
         // Cada cara es plana: el sombreador corre una vez por triangulo, no
         // por pixel (la memoria de la trama).
         assert!(cuenta.sombreados <= cuenta.dibujados as u64, "{cuenta:?}");
@@ -674,12 +674,55 @@ fn la_trama_interpola_con_perspectiva() {
     assert!(fijo.0.iter().filter(|&&p| p != 0).all(|&p| rojo(p) == trama::unorm8(0.3)));
 }
 
+/// *** 05-10: el RECORTE. Un triangulo con un vertice DETRAS de la camara
+/// (z < 0, w = 0): antes no se pintaba nada. Recortado contra el plano
+/// cercano, (1) da los MISMOS pixeles que el poligono recortado a mano
+/// (los puntos de corte caen en la mitad exacta de sus aristas) y (2) en
+/// cada pixel, el atributo que da la cuenta en f64 del triangulo ENTERO
+/// (con perspectiva: lineal en el espacio de recorte), a medio escalon de
+/// 8 bits. Y uno entero detras, nada.
 #[test]
-fn la_trama_no_pinta_lo_que_no_sabe_recortar() {
-    let mut v = triangulo([1.0; 3], [1.0; 3], true);
-    v[1].pos[3] = -1.0;
+fn la_trama_recorta_contra_el_plano_cercano() {
+    let s = |p: [f32; 4], a: f32| trama::Sombreado { pos: p, atributos: vec![[a, 0.0, 0.0, 1.0]] };
+    // v0 y v2 delante (z = 1, w = 2); v1 detras (z = -1, w = 0): las
+    // aristas que cruzan, cortadas en su mitad.
+    let v = [s([-1.5, 1.5, 1.0, 2.0], 0.0), s([1.0, -1.0, -1.0, 0.0], 1.0), s([-1.5, -1.5, 1.0, 2.0], 0.5)];
     let (px, c) = pinta(&v, 1, false);
-    assert_eq!((c.sin_recortar, c.pixeles), (1, 0));
+    assert_eq!((c.recortados, c.dibujados), (1, 2), "{c:?}");
+    assert!(c.pixeles > 0, "ya se pinta");
+    let m01 = s([-0.25, 0.25, 0.0, 1.0], 0.5);
+    let m12 = s([-0.25, -1.25, 0.0, 1.0], 0.75);
+    let a_mano = [v[0].clone(), m01.clone(), m12.clone(), v[0].clone(), m12, v[2].clone()];
+    let mut px2 = vec![0u32; 64];
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
+    let mut d = trama::Destino { pixeles: &mut px2, ancho: 8, alto: 8, bgra: true, z: None, cadena: false, otros: &mut [] };
+    let c2 = trama::dibujar(&reglas, &a_mano, &[[0, 1, 2], [3, 4, 5]], &mut d, None, |e, c| {
+        c[0] = e[0];
+        true
+    });
+    assert_eq!(c2.recortados, 0);
+    assert_eq!(px, px2, "lo mismo que recortado a mano");
+    // La cuenta en f64: el atributo en el centro de cada pixel pintado.
+    for (i, &p) in px.iter().enumerate() {
+        if p == 0 {
+            continue;
+        }
+        let (x, y) = ((i % 8) as f64 + 0.5, (i / 8) as f64 + 0.5);
+        let (nx, ny) = (x / 4.0 - 1.0, 1.0 - y / 4.0);
+        // b0 + b1 + b2 = 1 y sum b (x - nx w) = sum b (y - ny w) = 0.
+        let f = |k: usize| (v[k].pos[0] as f64 - nx * v[k].pos[3] as f64, v[k].pos[1] as f64 - ny * v[k].pos[3] as f64);
+        let ((a0, c0), (a1, c1), (a2, c2)) = (f(0), f(1), f(2));
+        let det = (a1 - a0) * (c2 - c0) - (a2 - a0) * (c1 - c0);
+        let b1 = (-a0 * (c2 - c0) + c0 * (a2 - a0)) / det;
+        let b2 = (-(a1 - a0) * c0 + (c1 - c0) * a0) / det;
+        let a = b1 * 1.0 + b2 * 0.5;
+        let rojo = (p >> 16) & 0xFF;
+        assert!((rojo as f64 - a * 255.0).abs() <= 0.5 + 1e-3, "pixel ({x}, {y}): {rojo} y la cuenta {:.3}", a * 255.0);
+    }
+    // Entero detras de la camara: nada.
+    let detras: Vec<trama::Sombreado> = v.iter().map(|x| s([x.pos[0], x.pos[1], -1.0, 1.0], 0.0)).collect();
+    let (px, c) = pinta(&detras, 1, false);
+    assert_eq!((c.recortados, c.descartados, c.pixeles), (1, 1, 0));
     assert!(px.iter().all(|&p| p == 0));
 }
 
