@@ -603,10 +603,36 @@ pub struct Recursos<'a> {
     /// N5.3: los SRV que son BUFERES, en la misma ranura que las texturas
     /// (un SRV es una cosa u otra: la otra se queda en `None`).
     pub buferes: &'a [Option<crate::bufer::Bufer<'a>>],
+    /// N5.4: las texturas de un rango con el registro CALCULADO (un array de
+    /// texturas, o bindless), que se buscan al correr: ver [`Dinamicas`].
+    pub dinamicas: Option<Dinamicas<'a>>,
 }
 
-impl Recursos<'_> {
-    pub const NINGUNO: Recursos<'static> = Recursos { texturas: &[], muestreadores: &[], buferes: &[] };
+/// **Quien busca una textura por su registro calculado** (N5.4, 05-10):
+/// `(rango, registro)` -- el rango, el de `Ranuras::dinamicas` del programa;
+/// el registro, el absoluto que calculo el sombreador (la base del rango
+/// incluida) -- y su textura, o `None` (se lee como un SRV nulo: ceros).
+/// Lo da quien dibuja (la casa, que lo busca en la root signature y el
+/// monton), una vez por textura distinta y no por pixel si sabe guardarlo.
+/// Sus texturas son `'static` (la memoria del proceso): asi `Recursos` sigue
+/// siendo covariante y el interprete puede prestar la elegida un momento.
+#[derive(Clone, Copy)]
+pub struct Dinamicas<'a>(pub &'a dyn Fn(u8, u32) -> Option<Textura<'static>>);
+
+impl core::fmt::Debug for Dinamicas<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("Dinamicas(..)")
+    }
+}
+
+impl<'a> Recursos<'a> {
+    pub const NINGUNO: Recursos<'static> = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: None };
+
+    /// **La textura del registro `registro` del rango dinamico `rango`**, o
+    /// `None` (sin quien busque, o sin textura alli).
+    pub fn dinamica(&self, rango: u8, registro: u32) -> Option<Textura<'static>> {
+        self.dinamicas.and_then(|d| (d.0)(rango, registro))
+    }
 
     /// `Load` del bufer tN (ver [`crate::bufer::Bufer::cargar`]); sin
     /// bufer, ceros.

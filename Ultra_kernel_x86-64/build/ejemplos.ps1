@@ -255,15 +255,15 @@ try {
     Get-ChildItem (Join-Path (Get-Location) 'platform\shared\proton-x\prueba\sombras\*.cso') | ForEach-Object {
         Copy-Item $_.FullName (Join-Path $dataBase ('window\sombras\' + $_.Name)) -Force
     }
-    # E1.2 a E1.6 de la ESCALERA (05-10): los Hello de Microsoft que leen sus
-    # .cso de SU carpeta (todos se llaman shaders_VSMain.cso y shaders_PSMain.cso),
-    # cada uno en window\<muestra>\ con los suyos (prueba\muestras\<muestra>).
+    # E1.2 a E1.6 y E2 de la ESCALERA (05-10): las muestras de Microsoft que
+    # leen sus .cso (y sus datos) de SU carpeta (los Hello los llaman igual
+    # todos), cada una en window\<muestra>\ con lo suyo (prueba\muestras\<muestra>).
     # run sys/proton-x.bex window/htriang/htriang.exe
-    foreach ($muestra in @('htriang', 'htexture', 'hcbuffer', 'hframes', 'hbundles')) {
+    foreach ($muestra in @('htriang', 'htexture', 'hcbuffer', 'hframes', 'hbundles', 'dynindex')) {
         $d = Join-Path $dataBase ('window\' + $muestra)
         New-Item -ItemType Directory -Path $d -Force | Out-Null
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $muestra + '.exe')) $d -Force
-        Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\muestras\' + $muestra + '\*.cso')) $d -Force
+        Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\muestras\' + $muestra + '\*')) $d -Force
     }
     Write-Host '    [proton-x] sys\proton-x.bex y window\{hola,teb,ventana,limpia,cubo,hilos,ficheros,crt,texto,esperas}.exe (run sys/proton-x.bex window/esperas.exe)' -ForegroundColor DarkGray
 } finally { Pop-Location }

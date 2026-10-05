@@ -874,12 +874,25 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // samplers estaticos de la firma. Por RANURA (03-10, N5.1): cada lugar
     // (espacio, registro, etapa) que leen, buscado en la firma.
     let (texturas, muestreadores, buferes) = recursos_del_dibujo(firma, &e.tablas, &en.ranuras);
+    // N5.4 (05-10): las texturas de los arrays con el registro CALCULADO,
+    // buscadas cuando un pixel las pide y GUARDADAS: una vez por textura
+    // distinta del dibujo, no por pixel. Un millon de descriptores (el
+    // monton de Cyberpunk) no se recorre: solo los que se leen.
+    let guardadas: core::cell::RefCell<alloc::collections::BTreeMap<(u8, u32), Option<bmo_proton_x::textura::Textura<'static>>>> = Default::default();
+    let buscar = |rango: u8, registro: u32| {
+        if let Some(t) = guardadas.borrow().get(&(rango, registro)) {
+            return *t;
+        }
+        let t = textura_dinamica(firma, &e.tablas, &en.ranuras, rango, registro);
+        guardadas.borrow_mut().insert((rango, registro), t);
+        t
+    };
     // P3b4c: las limpiezas apuntadas de SU render target y de SU Z: las
     // hace quien dibuje este lote.
     let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 && e.dsv_sub == 0 { tomar_limpieza(e.dsv) } else { None };
     let limpiar_rt = if e.rtv_sub == 0 && !solo_z { tomar_limpieza(e.rtv) } else { None };
     let lote = Lote {
-        recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes },
+        recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: Some(bmo_proton_x::textura::Dinamicas(&buscar)) },
         limpiar_z,
         limpiar_rt,
         enlace: en,
@@ -968,21 +981,38 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
 /// Lo que ve un dibujo, por ranura: cada SRV es una textura o un bufer.
 type Vistos = (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, Vec<Option<bmo_proton_x::textura::Muestreador>>, Vec<Option<bmo_proton_x::bufer::Bufer<'static>>>);
 
+/// La ranura `i` de la tabla del parametro `k` (4 palabras), si el `.exe`
+/// puso esa tabla.
+fn descriptor_de(tablas: &[u64; 16], k: usize, i: u64) -> Option<&'static [u64]> {
+    let base = *tablas.get(k)?;
+    if base == 0 {
+        return None;
+    }
+    // SAFETY: la ranura `i` de un monton de la casa (la tabla la puso el
+    // `.exe` con un identificador de la casa; la firma dice que la ranura es
+    // de ella).
+    Some(unsafe { core::slice::from_raw_parts((base + i * DESCRIPTOR_BYTES) as *const u64, 4) })
+}
+
+/// **La textura del registro `registro` del rango dinamico `rango`** (N5.4):
+/// el lugar del rango con ese registro, buscado en la firma como una ranura
+/// fija; un registro que ninguna tabla tiene, o un SRV nulo o de bufer, se
+/// lee como nulo (ceros).
+fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::textura::Textura<'static>> {
+    use bmo_proton_x::donde::{self, RANGO_SRV};
+    let l = bmo_proton_x::dxil::ranuras::Lugar { registro, ..*ranuras.dinamicas.get(rango as usize)? };
+    let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor_de(tablas, k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0)?;
+    if crate::d3d12_vistas::leer(ranura).0 .0 == crate::d3d12_vistas::SRV_BUFER {
+        aviso("un array de texturas con un SRV de BUFER dentro: se lee como nulo");
+        return None;
+    }
+    textura_de_srv(ranura).map_err(aviso).ok()
+}
+
 fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
     use bmo_proton_x::donde::{self, RANGO_MUESTREADOR, RANGO_SRV};
     use bmo_proton_x::textura::Muestreador;
-    // La ranura `i` de la tabla del parametro `k` (4 palabras), si el `.exe`
-    // puso esa tabla.
-    let descriptor = |k: usize, i: u64| -> Option<&'static [u64]> {
-        let base = *tablas.get(k)?;
-        if base == 0 {
-            return None;
-        }
-        // SAFETY: la ranura `i` de un monton de la casa (la tabla la puso el
-        // `.exe` con un identificador de la casa; la firma dice que la ranura
-        // es de ella).
-        Some(unsafe { core::slice::from_raw_parts((base + i * DESCRIPTOR_BYTES) as *const u64, 4) })
-    };
+    let descriptor = |k: usize, i: u64| descriptor_de(tablas, k, i);
     // N5.3: cada SRV, a su sitio: una textura, o un bufer en la misma ranura.
     let (mut tex, mut buf) = (Vec::with_capacity(ranuras.texturas.len()), Vec::with_capacity(ranuras.texturas.len()));
     for &l in &ranuras.texturas {

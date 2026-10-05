@@ -44,3 +44,36 @@ static D3D12_CPU_DESCRIPTOR_HANDLE bmo_puente_cpu;
 static D3D12_GPU_DESCRIPTOR_HANDLE bmo_puente_gpu;
 #define GetCPUDescriptorHandleForHeapStart() GetCPUDescriptorHandleForHeapStart(&bmo_puente_cpu)[0]
 #define GetGPUDescriptorHandleForHeapStart() GetGPUDescriptorHandleForHeapStart(&bmo_puente_gpu)[0]
+
+// `min` y `max` sueltos: el windows.h de Microsoft los da como macros (sin
+// NOMINMAX); el de mingw-w64, en C++, no. Los de la biblioteca de C++.
+#include <algorithm>
+using std::max;
+using std::min;
+
+// Lo que usa `L` como nombre (DirectXMath, la biblioteca de C++), ANTES de la
+// macro de abajo: con sus guardas, cuando la muestra los incluya ya estan.
+#include <DirectXMath.h>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+// `L#x` (el nombre de una variable como cadena ANCHA): MSVC lo une en
+// L"x"; GCC ve el identificador `L` y luego "x". Las muestras de E2 solo lo
+// usan para NOMBRAR objetos (`NAME_D3D12_OBJECT`: SetName, que en release
+// no hace nada). `L` pasa a ser "una cadena estrecha a ancha": el `.exe`
+// llama a SetName con el nombre, como el de MSVC. Un `L"..."` de verdad es
+// otro token y no lo ve; `L##q` (la macro TEXT de Windows) tampoco: se pega
+// antes de expandir.
+struct BmoAncha {};
+inline const wchar_t* operator+(BmoAncha, const char* s) {
+    static wchar_t buf[8][128];
+    static unsigned k = 0;
+    wchar_t* w = buf[k++ % 8];
+    unsigned i = 0;
+    for (; s[i] && i < 127; i++) w[i] = (unsigned char)s[i];
+    w[i] = 0;
+    return w;
+}
+#define L BmoAncha{} +

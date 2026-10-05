@@ -132,6 +132,10 @@ pub enum NoPrograma {
 /// Un registro del programa: un `f32`.
 pub type Reg = u16;
 
+/// N5.4: la `t` de una lectura que no es una ranura sino la textura ELEGIDA
+/// por el ultimo [`Op::EligeTextura`] (un array de texturas, o bindless).
+pub const DINAMICA: u8 = 255;
+
 /// Una operacion del programa ya compilado.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Op {
@@ -164,6 +168,12 @@ pub enum Op {
     /// `Sample`: la textura `t` (el registro tN) con el muestreador `s` (sN)
     /// en `(u, v)`; los cuatro canales (R, G, B, A) en `d..d+4`.
     Muestra { d: Reg, t: u8, s: u8, u: Reg, v: Reg },
+    /// N5.4 (05-10): ELEGIR la textura del rango dinamico `rango` cuyo
+    /// registro (absoluto, la base incluida) calculo el sombreador en los
+    /// bits de `i`. La lectura que viene detras, con `t` = [`DINAMICA`], lee
+    /// esa. Va justo delante de cada una: dos arrays en el mismo sombreador
+    /// no se pisan.
+    EligeTextura { i: Reg, rango: u8 },
     /// 02-10: leer una textura con lo que `Muestra` (2D, la mip de la
     /// vista) no dice: `Sample` con mas coordenadas (arrays, cubos, 3D) o
     /// desplazado, `SampleLevel`, `SampleBias` y `SampleGrad` (sin su sesgo
@@ -421,7 +431,7 @@ impl Programa {
 
     /// Si el programa lee alguna textura (`Sample`).
     pub fn muestrea(&self) -> bool {
-        self.ops.iter().any(|o| matches!(o, Op::Muestra { .. } | Op::Lee { .. }))
+        self.ops.iter().any(|o| matches!(o, Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. }))
     }
 
     /// Si el programa salta (E6): `si`, bucles, o lo que lee bits como
@@ -486,6 +496,20 @@ fn cuatro(c: &mut Compilador) -> Result<Reg, NoPrograma> {
 
 /// Los desplazamientos de un Sample o un Load: enteros constantes (o
 /// `undef`, 0), de -8 a 7 como en D3D.
+/// N5.4: la `t` de una lectura del handle `k`: su ranura, o -- si es de un
+/// array con el registro calculado -- [`DINAMICA`], tras apuntar el
+/// [`Op::EligeTextura`] que la escoge. `None` si `k` no es el handle de una textura.
+pub(super) fn textura(c: &mut Compilador, k: usize) -> Option<u8> {
+    match c.valores.get(k).copied()? {
+        Valor::Textura(t) => Some(t),
+        Valor::TexturaEn { rango, i } => {
+            c.ops.push(Op::EligeTextura { i, rango });
+            Some(DINAMICA)
+        }
+        _ => None,
+    }
+}
+
 fn desplazamientos(c: &Compilador, ids: [usize; 3]) -> Result<[i8; 3], NoPrograma> {
     let mut v = [0i8; 3];
     for (k, id) in ids.into_iter().enumerate() {
@@ -604,6 +628,9 @@ pub(super) enum Valor {
     Cbuffer(u8),
     /// El handle de una textura (su registro tN) o de un muestreador (sN).
     Textura(u8),
+    /// N5.4: el handle de una textura de un array con el registro
+    /// CALCULADO: su rango dinamico, y el registro (absoluto) en `i`.
+    TexturaEn { rango: u8, i: Reg },
     /// N5.3: el handle de un SRV de bufer: su ranura (la de las texturas) y
     /// como se direcciona.
     Bufer(u8, crate::bufer::Modo),
@@ -1000,7 +1027,23 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             // Sampler. El indice es el REGISTRO (la base del rango incluida);
             // el ESPACIO, el del rango `rango` de su clase en la PSV0 (03-10).
             if !matches!(c.valores.get(arg(3)?), Some(Valor::Entero(_))) {
-                return Err(NoPrograma::Forma("createHandle con un registro CALCULADO (un array de texturas o bindless): todavia no (N5.4)"));
+                // N5.4 (05-10): el registro CALCULADO. Las texturas, si; un
+                // array de buferes, de cbuffers, de muestreadores o de UAV,
+                // todavia no, y se dice cual.
+                let (clase, rango) = (c.entero(arg(1)?)?, c.entero(arg(2)?)?);
+                let Some(r) = (rango >= 0).then(|| super::recursos::rango(&c.recursos, clase as u8, rango as u32)).flatten() else {
+                    return Err(NoPrograma::Forma("createHandle con un registro calculado de un rango que la PSV0 no declara"));
+                };
+                return match clase {
+                    0 if r.modo_de_bufer().is_none() => {
+                        let i = super::estructura::bits(c, arg(3)?)?;
+                        Ok(Valor::TexturaEn { rango: c.ranuras.dinamica(r.espacio, r.desde)?, i })
+                    }
+                    0 => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de BUFERES: todavia no (N5.4)")),
+                    2 => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de CBUFFERS: todavia no (N5.4)")),
+                    3 => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de MUESTREADORES: todavia no (N5.4)")),
+                    _ => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de UAV: todavia no (N5.4)")),
+                };
             }
             let (clase, rango, indice) = (c.entero(arg(1)?)?, c.entero(arg(2)?)?, c.entero(arg(3)?)?);
             if !(0..=3).contains(&clase) || rango < 0 || indice < 0 {
@@ -1051,13 +1094,15 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
         DX_SAMPLE | DX_SAMPLE_BIAS | DX_SAMPLE_LEVEL | DX_SAMPLE_GRAD => {
             // (srv, sampler, coord0..3, offset0..2, y lo de cada una: el
             // sesgo, la mip o los gradientes, y el clamp).
-            let (Some(Valor::Textura(t)), Some(Valor::Muestreador(sm))) = (c.valores.get(arg(1)?).copied(), c.valores.get(arg(2)?).copied()) else {
+            let (Some(t), Some(Valor::Muestreador(sm))) = (textura(c, arg(1)?), c.valores.get(arg(2)?).copied()) else {
                 return Err(NoPrograma::Forma("Sample sin el handle de una textura y el de un muestreador"));
             };
             let desp = desplazamientos(c, [arg(7)?, arg(8)?, arg(9)?])?;
             let indefinido = |k: usize| matches!(c.valores.get(k), Some(Valor::Indefinido) | None);
             let plana = indefinido(arg(5)?) && indefinido(arg(6)?) && desp == [0; 3];
-            if op == DX_SAMPLE && plana {
+            // La ELEGIDA va siempre por `Lee`: `Muestra` es lo que sabe la
+            // 3060, y la 3060 no elige texturas (todavia).
+            if op == DX_SAMPLE && plana && t != DINAMICA {
                 // Lo de siempre (2D, sin desplazar): lo que sabe la 3060.
                 let (u, v) = (c.float(arg(3)?)?, c.float(arg(4)?)?);
                 let d = cuatro(c)?;
@@ -1076,7 +1121,7 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
         }
         DX_TEXTURE_LOAD => {
             // (srv, mip o muestra, coord0..2, offset0..2).
-            let Some(Valor::Textura(t)) = c.valores.get(arg(1)?).copied() else {
+            let Some(t) = textura(c, arg(1)?) else {
                 return Err(NoPrograma::Forma("TextureLoad sin el handle de una textura (un UAV o un bufer: todavia no)"));
             };
             let nivel = super::estructura::bits(c, arg(2)?)?;
@@ -1103,7 +1148,7 @@ fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Result<Valor, No
             // (handle, mip): %dx.types.Dimensions, cuatro i32. De un bufer
             // (N5.3), sus elementos; el mip es `undef`.
             let t = match c.valores.get(arg(1)?).copied() {
-                Some(Valor::Textura(t)) => t,
+                Some(Valor::Textura(_) | Valor::TexturaEn { .. }) => textura(c, arg(1)?).ok_or(NoPrograma::Forma("GetDimensions sin textura"))?,
                 Some(Valor::Bufer(t, modo)) => {
                     let cero = super::estructura::literal(c, 0)?;
                     let d = cuatro(c)?;

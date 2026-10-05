@@ -992,7 +992,7 @@ fn un_pixel_de_dxc_muestrea_la_textura() {
     let t: Vec<u32> = (0..16).map(|i| if (i % 4 + i / 4) % 2 == 0 { 0xFFFF_FFFF } else { 0xFF00_0000 }).collect();
     let tex = [Some(Textura::rgba(&t, 4, 4, false))];
     let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4], comparacion: 0 })];
-    let rec = Recursos { texturas: &tex, muestreadores: &m, buferes: &[] };
+    let rec = Recursos { texturas: &tex, muestreadores: &m, buferes: &[], dinamicas: None };
     let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
     for (u, v) in [(0.1f32, 0.1f32), (0.3, 0.1), (0.9, 0.6), (1.2, 0.5), (-0.1, 0.5)] {
         // La entrada 1 del de pixel es TEXCOORD (la 0, la posicion).
@@ -1043,7 +1043,7 @@ fn un_pixel_de_dxc_lee_arrays_cubos_3d_y_mips() {
     let tex: Vec<Option<Textura>> = ps.ranuras.texturas.iter().map(|l| por_registro.get(l.registro as usize).copied()).collect();
     assert_eq!(tex.len(), 5, "{:?}", ps.ranuras);
     let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0 })];
-    let rec = Recursos { texturas: &tex, muestreadores: &m, buferes: &[] };
+    let rec = Recursos { texturas: &tex, muestreadores: &m, buferes: &[], dinamicas: None };
     let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
     let ent = |x: i32| f32::from_bits(x as u32);
     let corre = |c: [f32; 4], i: [i32; 4], sal: &mut Vec<[f32; 4]>, regs: &mut Vec<f32>| {

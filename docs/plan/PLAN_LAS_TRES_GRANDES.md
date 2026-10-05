@@ -876,6 +876,16 @@ la proxima corrida del metal dice cual pesa mas:
   calculada (`color[i]`, los arrays de luces y huesos) es
   `Op::ConstantesEn`, con las 4096 filas de D3D reservadas; probado con
   `prueba/luces.dxil`.
+  **Las TEXTURAS ya (05-10, E2.2 de la ESCALERA):** un array de texturas
+  con el registro calculado, con medida o sin ella (bindless), ya no es una
+  ranura: es un RANGO dinamico (`Ranuras::dinamicas`, su espacio y su primer
+  registro), y `Op::EligeTextura` escoge al correr la textura de su registro
+  absoluto; la casa la busca en la root signature y el monton SOLO cuando un
+  pixel la pide, y la guarda (un millon de descriptores no se recorren).
+  Probado con `prueba/indice.dxil` y con DynamicIndexing de Microsoft (120
+  materiales, uno por dibujo). Queda: los arrays de BUFERES, de cbuffers,
+  de muestreadores y de UAV (lo dicen por su nombre), la 3060 (va por la
+  CPU), y verlo en Cyberpunk.
 - [x] **N5.6 -- la matematica que falta** (03-10): sin, cos, tan, exp2,
   log2, frac, los cuatro redondeos y los medios floats, en el interprete
   (`proton-x/src/mates.rs`, sin `libm`; contra la del anfitrion y los

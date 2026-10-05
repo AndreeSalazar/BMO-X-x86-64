@@ -43,17 +43,19 @@ G=x86_64-w64-mingw32-g++-win32
 # El UCRT en vez de msvcrt.dll: los specs de este gcc, con -lucrt.
 $G -dumpspecs | sed 's/-lmsvcrt/-lucrt/g' > ucrt.specs
 
-# construir MUESTRA EXE: la carpeta de D3D12HelloWorld/src y el .exe.
+# construir CARPETA EXE: la carpeta de la muestra (bajo Samples/Desktop) y el .exe.
 construir() {
-    rm -rf "$1" && mkdir -p "$1/include/d3dx12"
-    cp dgs/Samples/Desktop/D3D12HelloWorld/src/"$1"/*.cpp dgs/Samples/Desktop/D3D12HelloWorld/src/"$1"/*.h "$1"/
+    src="dgs/Samples/Desktop/$1"
+    b="obra_${2%.exe}"
+    rm -rf "$b" && mkdir -p "$b/include/d3dx12"
+    cp "$src"/*.cpp "$src"/*.h "$b"/
     # Los nombres que la muestra pide como en Windows (sin mayusculas en Linux).
-    printf '#include <d3dx12.h>\n' > "$1/include/d3dx12/d3dx12.h"
-    printf '#include <d3dcompiler.h>\n' > "$1/include/D3Dcompiler.h"
-    cp "$AQUI/antes.h" "$1/include/antes.h"
-    cp "$AQUI/guids.cpp" "$1/zz_guids.cpp"
+    printf '#include <d3dx12.h>\n' > "$b/include/d3dx12/d3dx12.h"
+    printf '#include <d3dcompiler.h>\n' > "$b/include/D3Dcompiler.h"
+    cp "$AQUI/antes.h" "$AQUI/pix3.h" "$b/include/"
+    cp "$AQUI/guids.cpp" "$b/zz_guids.cpp"
     (
-        cd "$1"
+        cd "$b"
         for f in *.cpp; do
             [ "$f" = stdafx.cpp ] && continue
             # Los IID (guids.cpp) sin el puente: solo las cabeceras.
@@ -70,25 +72,50 @@ construir() {
             -Wl,--no-insert-timestamp -o "../$2" $(ls *.o | grep -v zz_guids) -L. -lguids -ld3d12 -ldxgi -luser32 -lshell32
     )
     sha256sum "$2"
-    # Sus .cso, si hay DXC y la muestra los lee.
-    if [ -n "${DXC:-}" ] && [ -f "dgs/Samples/Desktop/D3D12HelloWorld/src/$1/shaders.hlsl" ]; then
-        m=${2%.exe}
-        rm -rf "$m" && mkdir -p "$m"
-        cp "dgs/Samples/Desktop/D3D12HelloWorld/src/$1/shaders.hlsl" "$m/"
-        (
-            cd "$m"
-            "$DXC" -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo shaders_VSMain.cso shaders.hlsl
-            "$DXC" -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo shaders_PSMain.cso shaders.hlsl
-            rm shaders.hlsl
-        )
-        sha256sum "$m"/*.cso
+    # Los Hello: sus dos .cso, de shaders.hlsl, si hay DXC.
+    if [ -n "${DXC:-}" ] && [ -f "$src/shaders.hlsl" ]; then
+        sombreador "$1" "${2%.exe}" shaders vs_6_0 VSMain shaders_VSMain
+        sombreador "$1" "${2%.exe}" shaders ps_6_0 PSMain shaders_PSMain
     fi
 }
+
+# sombreador CARPETA MUESTRA HLSL PERFIL ENTRADA CSO: un .cso como lo hace el
+# proyecto de Visual Studio de la muestra (`dxc -nologo -T<perfil> -E<entrada>
+# -Zi -Qembed_debug`), en <directorio>/<muestra>/. Sin DXC, nada.
+sombreador() {
+    [ -n "${DXC:-}" ] || return 0
+    mkdir -p "$2"
+    cp "dgs/Samples/Desktop/$1/$3.hlsl" "$2/"
+    (
+        cd "$2"
+        "$DXC" -nologo -T"$4" -E"$5" -Zi -Qembed_debug -Fo "$6.cso" "$3.hlsl"
+        rm "$3.hlsl"
+    )
+    sha256sum "$2/$6.cso"
+}
+
+# datos CARPETA MUESTRA FICHERO: lo que la muestra lee de su carpeta (su malla).
+datos() {
+    mkdir -p "$2"
+    cp "dgs/Samples/Desktop/$1/$3" "$2/"
+    sha256sum "$2/$3"
+}
+
 # Los Hello de D3D12HelloWorld (E1 de la escalera), con nombres de 8.3: el
 # FAT32 de BMO-X busca asi.
-construir HelloWindow hwindow.exe
-construir HelloTriangle htriang.exe
-construir HelloTexture htexture.exe
-construir HelloConstBuffers hcbuffer.exe
-construir HelloFrameBuffering hframes.exe
-construir HelloBundles hbundles.exe
+H=D3D12HelloWorld/src
+for m in htriang htexture hcbuffer hframes hbundles; do rm -rf "$m"; done
+construir $H/HelloWindow hwindow.exe
+construir $H/HelloTriangle htriang.exe
+construir $H/HelloTexture htexture.exe
+construir $H/HelloConstBuffers hcbuffer.exe
+construir $H/HelloFrameBuffering hframes.exe
+construir $H/HelloBundles hbundles.exe
+
+# E2 de la escalera: una muestra por casilla abierta.
+D=D3D12DynamicIndexing/src
+rm -rf dynindex
+construir $D dynindex.exe
+sombreador $D dynindex shader_mesh_simple_vert vs_6_0 VSMain shader_mesh_simple_vert
+sombreador $D dynindex shader_mesh_dynamic_indexing_pixel ps_6_0 PSMain shader_mesh_dynamic_indexing_pixel
+datos $D dynindex occcity.bin

@@ -187,8 +187,8 @@ const ANCHO: u32 = 1280;
 const ALTO: u32 = 720;
 const AZUL: u32 = 0x00_00_33_66;
 
-/// Correr la muestra `nombre` (`window/<nombre>/<nombre>.exe`, con sus `.cso`
-/// copiados de `prueba/muestras/<nombre>/`) hasta `presentes` Present,
+/// Correr la muestra `nombre` (`window/<nombre>/<nombre>.exe`, con lo de
+/// `prueba/muestras/<nombre>/` copiado al lado: sus `.cso` y sus datos) hasta `presentes` Present,
 /// guardando los pixeles de los de `fotos`. Devuelve (salio, lo dicho, las
 /// huellas de cada Present, las fotos).
 fn correr_muestra(exe: &[u8], nombre: &'static str, presentes: u32, fotos: &[u32]) -> (u32, String, Vec<u64>, Vec<(u32, Vec<u32>, u32, u32)>) {
@@ -196,8 +196,10 @@ fn correr_muestra(exe: &[u8], nombre: &'static str, presentes: u32, fotos: &[u32
     let dir = volumen().join("window").join(nombre);
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    for cso in ["shaders_VSMain.cso", "shaders_PSMain.cso"] {
-        std::fs::copy(format!("../proton-x/prueba/muestras/{nombre}/{cso}"), dir.join(cso)).unwrap();
+    // Todo lo de su carpeta: sus `.cso` y sus datos (la malla de E2.2).
+    for f in std::fs::read_dir(format!("../proton-x/prueba/muestras/{nombre}")).unwrap() {
+        let f = f.unwrap();
+        std::fs::copy(f.path(), dir.join(f.file_name())).unwrap();
     }
     let ruta: &'static str = Box::leak(format!("window/{nombre}/{nombre}.exe").into_boxed_str());
     *NOMBRE.lock().unwrap() = (ruta, "");
@@ -412,4 +414,84 @@ fn e1_3_hellotexture_muestrea_el_tablero_por_punto_bit_a_bit() {
     }
     assert!(mal.is_empty(), "el tablero no es el de D3D12: {mal:#?}");
     assert!(negros > 10_000 && blancos > 10_000, "los dos colores del tablero: {negros} negros, {blancos} blancos");
+}
+
+/// El tono (HSL, de 0 a 1) de un pixel `0x00RRGGBB`, si tiene color: ni
+/// gris (saturacion < 0.25) ni casi negro (luz < 0.15).
+fn tono(p: u32) -> Option<f32> {
+    let [r, g, b] = [(p >> 16 & 0xFF) as f32 / 255.0, (p >> 8 & 0xFF) as f32 / 255.0, (p & 0xFF) as f32 / 255.0];
+    let (mx, mn) = (r.max(g).max(b), r.min(g).min(b));
+    let luz = (mx + mn) / 2.0;
+    let d = mx - mn;
+    if d == 0.0 || luz < 0.15 {
+        return None;
+    }
+    let sat = if luz > 0.5 { d / (2.0 - mx - mn) } else { d / (mx + mn) };
+    if sat < 0.25 {
+        return None;
+    }
+    let h = if mx == r { ((g - b) / d).rem_euclid(6.0) } else if mx == g { (b - r) / d + 2.0 } else { (r - g) / d + 4.0 };
+    Some(h / 6.0)
+}
+
+/// **E2.2 -- DynamicIndexing** (N5.4, el bindless): una ciudad de 15 x 8
+/// copias de `occcity.bin`, y cada copia lee SU material con el registro
+/// CALCULADO -- `g_txMats[materialConstants.matIndex]`, con `matIndex` en
+/// una constante de 32 bits de la raiz, distinto por dibujo -- de 120
+/// texturas de 64x64 que recorren el arcoiris (el material `k`, del tono
+/// k/120 al (k+1)/120). Con profundidad, tres fotogramas en vuelo y bundles.
+///
+/// **El juez** (sin la imagen de Windows, que va con muestreo LINEAL y no es
+/// bit a bit): lo que solo sale si CADA dibujo lee la textura de SU indice.
+///
+/// ```text
+///    el tono medio de cada franja de 20 filas    SUBE de abajo (las ciudades
+///    con color (mas de 1000 pixeles)             de cerca, rojo: k chico)
+///                                                arriba (las del fondo,
+///                                                violeta), sin bajar
+///    el de abajo, menos de 0.1; el de arriba,     el arcoiris entero, de
+///    mas de 0.8                                   punta a punta
+///    los seis tramos del tono, 1000 pixeles cada  rojo, amarillo, verde, cian,
+///    uno o mas                                    azul y magenta
+/// ```
+///
+/// Un indice atascado (siempre el 0, o el de la primera ciudad) da un solo
+/// tono, y una franja plana.
+#[test]
+fn e2_2_dynamicindexing_cada_ciudad_lee_su_material_por_indice_dinamico() {
+    let (salio, texto, vistas, fotos) = correr_muestra(DYNINDEX, "dynindex", 2, &[1]);
+    assert_eq!(salio, 0xF00D, "{texto}");
+    assert_eq!(
+        texto,
+        "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)\n",
+        "ni otro aviso ni un hueco que falte (antes: `createHandle con un registro CALCULADO`)"
+    );
+    assert_eq!(vistas[0], vistas[1], "la camara quieta: la misma imagen");
+    let px = &fotos[0].1;
+    let (w, h) = (fotos[0].2, fotos[0].3);
+    let mut franjas = Vec::new();
+    let mut tramos = [0u32; 6];
+    for y0 in (0..h).step_by(20) {
+        let (mut n, mut suma) = (0u32, 0.0f32);
+        for y in y0..(y0 + 20).min(h) {
+            for x in 0..w {
+                let p = px[(y * w + x) as usize] & 0x00FF_FFFF;
+                // El cielo es el azul de limpiar: no es de ninguna ciudad.
+                if let Some(t) = (p != AZUL).then(|| tono(p)).flatten() {
+                    n += 1;
+                    suma += t;
+                    tramos[((t * 6.0) as usize).min(5)] += 1;
+                }
+            }
+        }
+        if n > 1000 {
+            franjas.push((y0, suma / n as f32));
+        }
+    }
+    assert!(franjas.len() >= 10, "la ciudad ocupa la mitad de abajo: {franjas:?}");
+    for par in franjas.windows(2) {
+        assert!(par[0].1 >= par[1].1 - 0.01, "el tono SUBE hacia el fondo (arriba): {franjas:?}");
+    }
+    assert!(franjas.last().unwrap().1 < 0.1 && franjas[0].1 > 0.8, "de rojo (cerca) a violeta (fondo): {franjas:?}");
+    assert!(tramos.iter().all(|&n| n >= 1000), "los seis tramos del arcoiris: {tramos:?}");
 }

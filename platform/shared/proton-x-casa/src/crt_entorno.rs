@@ -486,6 +486,15 @@ extern "win64" fn abort() -> ! {
     (plataforma().salir)(3)
 }
 
+/// `_wassert(expresion, fichero, linea)`: un `assert` que fallo (E2.2 de la
+/// ESCALERA, 05-10: lo importa DynamicIndexing). Como el UCRT: dice la
+/// expresion, el fichero y la linea, y acaba como `abort()` (codigo 3).
+extern "win64" fn wassert(expresion: *const u16, fichero: *const u16, linea: u32) -> ! {
+    let ancha = |p: *const u16| if p.is_null() { alloc::string::String::new() } else { alloc::string::String::from_utf16_lossy(&crt::cadena_w(p as u64)) };
+    aviso(&alloc::format!("Assertion failed: {}, file {}, line {linea}", ancha(expresion), ancha(fichero)));
+    (plataforma().salir)(3)
+}
+
 /// `_invoke_watson`: un parametro invalido sin manejador; Windows acaba el
 /// proceso con STATUS_INVALID_CRUNTIME_PARAMETER.
 extern "win64" fn invoke_watson(_e: u64, _f: u64, _fi: u64, _l: u32, _r: u64) -> ! {
@@ -658,6 +667,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "_getpid" => dir!(getpid),
         "_beginthreadex" => dir!(beginthreadex),
         "abort" => dir!(abort),
+        "_wassert" => dir!(wassert),
         "_invoke_watson" => dir!(invoke_watson),
         "_amsg_exit" => dir!(amsg_exit),
         "_purecall" => dir!(purecall),

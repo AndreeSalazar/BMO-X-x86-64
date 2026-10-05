@@ -2097,3 +2097,41 @@ con cada canal a 2 o menos de lo exacto y el fondo exacto (htriang); el
 tablero de PUNTO bit a bit (htexture); el triangulo corrido lo que dice el
 cbuffer en cada fotograma (hcbuffer); y bit a bit el de htriang con dos
 fotogramas en vuelo (hframes) y desde un bundle (hbundles).
+
+dynindex.exe -- D3D12DynamicIndexing de Microsoft: el BINDLESS (05-10)
+
+E2.2 de la ESCALERA (N5.4 de LAS_TRES_GRANDES): `Samples/Desktop/
+D3D12DynamicIndexing` con el mismo script (`construir.sh`), su fuente sin
+tocar. El puente gana `muestras/pix3.h` (los marcadores de PIX, vacios, como
+sin USE_PIX) y tres cosas de MSVC en `antes.h`: `min`/`max` sueltos, y `L#x`
+(el nombre de una variable como cadena ancha, para SetName). Sus dos .cso,
+con DXC (los del proyecto: -Tvs_6_0 -E"VSMain" y -Tps_6_0 -E"PSMain", -Zi
+-Qembed_debug); y su malla, `occcity.bin`, de la carpeta de la muestra (MIT,
+como la muestra). Todo en window/dynindex/ y aqui en muestras/dynindex/.
+Reproducible, sin rutas de la maquina. sha256:
+
+   490915561a470b887e46345aa7ad1f870289a1228b8abec05a2b57fbebb7c194  dynindex.exe
+   9d84bfc416790813563733de65460611ec199b27cc03dd5ebbb5d00850a58648  dynindex/shader_mesh_simple_vert.cso
+   8475c804f93f45a170181e3b0073f8ca15d7eb8244c9b6be35f5009a114c1f8a  dynindex/shader_mesh_dynamic_indexing_pixel.cso
+   7e2ef2e708a636b4d46d3bfc8103431a0ee9d3916234a19072af8aaf09a832f2  dynindex/occcity.bin
+
+El juez (`tests/corre/muestras.rs`): el tono medio de cada franja con color
+sube de las ciudades de cerca (rojo, material 0) a las del fondo (violeta,
+material 119), y salen los seis tramos del arcoiris. Probado que dice NO: con
+el indice atascado en un registro, el tono queda plano y falla.
+
+indice.dxil -- dos arrays de texturas con el registro CALCULADO (05-10)
+
+N5.4 en el crate puro, sin muestra: `m[]` sin medida (bindless, desde t5 de
+space1) y `f[3]` (t1..t3), leidos con los indices de un cbuffer. De
+`indice.hlsl` (aqui al lado), con el DXC de la nube (v1.8.2505, 9efbb6c3):
+
+   dxc -T ps_6_0 -E pixel -Fo indice.dxil indice.hlsl
+
+Reproducible (comprobado dos veces), sin rutas. sha256:
+
+   095b8eb685e6d9c3f942021e39139c0555c496cfeefafd92aa72892dfb9c03ac  indice.dxil
+
+`dxc -dumpbin`: dos createHandle con el indice calculado (%7 y %16), de los
+rangos 0 (m, t5 space1, unbounded) y 1 (f, t1, 3). El banco
+(`pruebas_espacios.rs`) lo corre con cuatro pares (i, j).

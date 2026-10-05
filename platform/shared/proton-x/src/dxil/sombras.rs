@@ -28,7 +28,7 @@ pub(super) fn de(c: &mut Compilador, op: i64, args: &[usize]) -> Option<Result<V
     }
     Some((|| {
         let arg = |k: usize| args.get(k).copied().ok_or(NoPrograma::Forma("un Gather o un SampleCmp con menos argumentos"));
-        let (Some(Valor::Textura(t)), Some(Valor::Muestreador(s))) = (c.valores.get(arg(1)?).copied(), c.valores.get(arg(2)?).copied()) else {
+        let (Some(t), Some(Valor::Muestreador(s))) = (super::programa::textura(c, arg(1)?), c.valores.get(arg(2)?).copied()) else {
             return Err(NoPrograma::Forma("un Gather o un SampleCmp sin el handle de una textura y el de un muestreador"));
         };
         let co = [bits(c, arg(3)?)?, bits(c, arg(4)?)?, bits(c, arg(5)?)?, bits(c, arg(6)?)?];

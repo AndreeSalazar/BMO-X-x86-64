@@ -225,9 +225,18 @@ muestra.
   varios hilos (H2.7), con sus mapas de sombras (N5.12, hecho). **Como se
   sabe:** su huella, igual, con los hilos cooperativos de hoy; y otra vez
   cuando H1 lleve los hilos a varios nucleos.
-- [ ] **E2.2 -- D3D12DynamicIndexing.** El indice dinamico de descriptores
-  (N5.4, el bindless). **Como se sabe:** su huella, igual, y el diario ya no
-  dice "un operando que deberia ser un entero constante".
+- [x] **E2.2 -- D3D12DynamicIndexing** (05-10, en el banco; falta verlo en
+  el metal). El indice dinamico de descriptores (N5.4, el bindless): una
+  ciudad de 15 x 8 copias, y cada una lee SU material de 120 con el registro
+  calculado de una constante de la raiz. Antes de hoy decia lo mismo que
+  Cyberpunk, "createHandle con un registro CALCULADO", y no dibujaba nada;
+  ahora la casa lo hace (ver N5.4). Pidio ademas `_wassert`. **Como se
+  sabe:** `tests/corre/muestras.rs`: el tono medio de cada franja sube de
+  las ciudades de cerca (rojo, material 0) a las del fondo (violeta, 119),
+  con los seis tramos del arcoiris; probado que dice NO con el indice
+  atascado. La imagen, a ojo, es la de la captura de Microsoft. Bit a bit
+  no se puede (muestreo LINEAL): falta la de Windows a 1280x720 para
+  compararla con su margen.
 - [ ] **E2.3 -- D3D12nBodyGravity.** El COMPUTO (N5.5), los UAV (N5.3c), la
   cola de computo y la valla entre colas (D5.1, D5.2). Por confirmar con su
   fuente antes de empezar: si dibuja las particulas con un geometry shader;
