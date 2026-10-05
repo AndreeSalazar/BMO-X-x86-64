@@ -985,10 +985,13 @@ TITAN++, falta esa palabra.
 ```text
    E0  HECHO (niveles 0-3)  todo valor se sabe al compilar: el .bex solo
                             escribe resultados; ni un byte del lado muerto
-   E1  nivel 4 (while/for)  los primeros valores AL CORRER: una IR con
-                            temporales y bucles de verdad, y un PRESUPUESTO de
-                            plegado (un bucle de mil millones de vueltas no se
-                            calcula al compilar: se emite)
+   E1  nivel 12 (lee())     EMPEZADO el 05-10 (docs/plan/PLAN_LA_ENTRADA.md):
+                            un programa que LEE se emite para correr de verdad
+                            (`emisor-x86_64/src/e1.rs`): textos, int, si/no,
+                            if, bucles y llamadas sin valores, y lo que solo
+                            falla al correr ATRAPA con su linea. Falta: dec,
+                            numero(t), llamadas con valores, tablas (R6-R7), y
+                            el PRESUPUESTO de plegado (R8)
    E2  nivel 5 (return)     llamadas con valores; y LLAMAR A INTI por .bo +
                             bmo-enlazar: el camino de lo caliente
    E3  T5 (gpu fn)          las tablas y las funciones elementales, a la 3060

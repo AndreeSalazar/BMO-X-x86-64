@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 65 planes
+# LO QUE FALTA -- las casillas abiertas de los 66 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   589 casillas ABIERTAS en 56 planes
-   474 hechas
+   593 casillas ABIERTAS en 57 planes
+   480 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -420,6 +420,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Paso 0b -- el lanzador que inyecta en el juego
 - [ ] Paso 1 -- las DLL del juego y las que llegan tarde
 - [ ] Paso 2 -- las vigiladas, con sus datos
+- ... y 1 mas
+
+## [`PLAN_LA_ENTRADA.md`](PLAN_LA_ENTRADA.md) -- 4 abiertas, 6 hechas
+
+*PLAN LA ENTRADA -- TITAN++ lee de fuera, y una parte del programa corre de verdad*
+
+- [ ] R6 -- numero(t) y su caso (D3), y dec al correr con fmt.rs
+- [ ] R7 -- llamadas con valores al correr (nivel 5), tablas y registros (6), prestamos (7): el resto 
+- [ ] R8 -- el PRESUPUESTO de plegado (7.3): un bucle sin lee() que pasa de STEPS se EMITE en vez de d
 - ... y 1 mas
 
 ## [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](PLAN_LA_RAM_SALE_DEL_KERNEL.md) -- 4 abiertas, 3 hechas

@@ -19,7 +19,7 @@
 use bmo_titan_front::{lower_package, Code, Message};
 use std::path::{Path, PathBuf};
 
-const LEVELS: [&str; 12] = ["nivel0", "nivel1", "nivel2", "nivel3", "nivel4", "nivel5", "nivel6", "nivel7", "nivel8", "nivel9", "nivel10", "nivel11"];
+const LEVELS: [&str; 13] = ["nivel0", "nivel1", "nivel2", "nivel3", "nivel4", "nivel5", "nivel6", "nivel7", "nivel8", "nivel9", "nivel10", "nivel11", "nivel12"];
 
 /// One example: its name, what it expects, the text of its root file, the
 /// folder its paths start from, and its root's path from there.

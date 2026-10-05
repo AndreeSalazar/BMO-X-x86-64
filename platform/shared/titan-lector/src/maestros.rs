@@ -45,6 +45,8 @@ pub struct Master {
     pub words: &'static [&'static str],
     /// What its `Titan.toml` asks for: the package it goes into must allow it.
     pub asks: Permissions,
+    /// What the bench TYPES for it (level 12, `lee()`), line by line.
+    pub typed: &'static [&'static str],
     /// Its proof: what it prints when it runs, line by line.
     pub out: &'static [&'static str],
     /// The program, without the bench's `# espera` line.

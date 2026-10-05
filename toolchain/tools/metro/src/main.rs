@@ -125,6 +125,10 @@ const BANCO: &[(&str, &str)] = &[
     // Nivel 11 (04-10): gpu fn, una celda por hilo de la 3060 (G1).
     ("titan", "toolchain/lang/titan/ejemplos/nivel11/mezcla/src/main.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel11/activa/src/main.titan"),
+    // Nivel 12 (05-10): lo que viene de fuera -- E1, el primer codigo de
+    // TITAN++ que corre DE VERDAD en la maquina (PLAN_LA_ENTRADA).
+    ("titan", "toolchain/lang/titan/ejemplos/nivel12/pregunta.titan"),
+    ("titan", "toolchain/lang/titan/ejemplos/nivel12/hasta_fin.titan"),
 ];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -200,7 +204,11 @@ fn medir(lenguaje: &str, rel: &str) -> Result<Medida, String> {
     let ruta = raiz().join(rel);
     let fuente = std::fs::read_to_string(&ruta).map_err(|e| format!("no se lee: {e}"))?;
     let bex = compilar(lenguaje, &ruta, rel, &fuente)?;
-    let maquina = bmo_lower::emu::cargar_bex(&bex)?;
+    let mut maquina = bmo_lower::emu::cargar_bex(&bex)?;
+    // Nivel 12 de TITAN++ (05-10): un programa que LEE corre con lo que su
+    // ejemplo dice que se teclea (`# entra:`), igual que en su banco.
+    let entra: String = fuente.lines().filter_map(|l| l.strip_prefix("# entra: ")).map(|l| format!("{l}\n")).collect();
+    maquina.poner_entrada(&entra);
     let m = std::panic::catch_unwind(move || bmo_lower::emu::run(maquina, LIMITE))
         .map_err(|_| format!("no termina en {LIMITE} instrucciones o el emulador no sabe una"))?;
     if !m.exited {

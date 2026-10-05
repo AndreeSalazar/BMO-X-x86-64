@@ -395,6 +395,8 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
     Ok(match v {
         Value::Int(..) => Class::Int,
         Value::Text(..) => Class::Text,
+        // `lee()`: a text, whatever is typed (E1).
+        Value::Read(..) => Class::Text,
         Value::Bool(..) => Class::Bool,
         Value::Dec(..) => Class::Dec,
         Value::F32(..) => Class::F32,

@@ -293,6 +293,20 @@ fn card(c: &mut Canvas, m: &Master, x: i32, y: i32, w: i32, h: i32, t: i32) {
         }
     }
 
+    // Level 12: what the bench TYPES for it -- the proof depends on it.
+    if !m.typed.is_empty() {
+        let k = c.text(x, cy, b"TECLEA ", CYAN, 1);
+        let mut px = x + k;
+        for t in m.typed {
+            if px + t.len() as i32 * 8 + 24 > x + w {
+                c.text(px, cy, b"...", DIM, 1);
+                break;
+            }
+            px += look::pill(c, px, cy - 1, t.as_bytes(), CYAN, mezclar(CYAN, TAB_BOX, 1, 6)) + 6;
+        }
+        cy += 24;
+    }
+
     // Its proof: what it prints, checked by both benches on every build.
     c.text(x, cy, b"PRUEBA", TITLE, 1);
     c.text(x + 64, cy, b"# sale:  lo que escribe al correr", DIM, 1);

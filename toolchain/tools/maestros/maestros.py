@@ -24,6 +24,7 @@ existe. Este obrero los copia, tal cual, a una tabla constante de
     lo que dice    la frase de `mod main "..."`
     lo que trae    las palabras de TITAN++ que usa
     lo que pide    los [permissions] de su Titan.toml (la 3060, la pantalla)
+    lo tecleado    sus lineas `# entra:` (nivel 12: lo que el banco teclea)
     su prueba      sus lineas `# sale:`
 
 [!] Un paquete de VARIOS modulos (`nivel9/flota`, `nivel10/motor`) no es UN
@@ -111,7 +112,7 @@ def nodo(nivel, nombre, fuente, toml):
     if cab is None:
         raise SystemExit("maestros: %s/%s es BIEN y no empieza por `mod main`" % (nivel, nombre))
     dice = re.match(r'mod main "([^"]*)"', lineas[cab])
-    porque = [l[1:].strip() for l in lineas[:cab] if l.startswith("#") and not re.match(r"# (espera|sale):", l)]
+    porque = [l[1:].strip() for l in lineas[:cab] if l.startswith("#") and not re.match(r"# (espera|sale|entra):", l)]
     if not porque or not dice:
         raise SystemExit("maestros: %s/%s no dice su porque (un comentario antes de `mod main`)" % (nivel, nombre))
     return {
@@ -124,6 +125,8 @@ def nodo(nivel, nombre, fuente, toml):
         # sin la linea `# espera`: eso es del banco, no del paquete del propietario
         "source": "\n".join(lineas[1:]) + "\n",
         "out": [l[len("# sale: "):] if l.startswith("# sale: ") else "" for l in lineas[:cab] if l.startswith("# sale:")],
+        # nivel 12: lo que el banco TECLEA para el (`# entra:`)
+        "typed": [l[len("# entra: "):] for l in lineas[:cab] if l.startswith("# entra: ")],
     }
 
 
@@ -197,6 +200,7 @@ def escribir(lista, fams):
         o.append("        says: %s," % rust(m["says"]))
         o.append("        words: &[%s]," % ", ".join(rust(w) for w in m["words"]))
         o.append("        asks: %s," % asks)
+        o.append("        typed: &[%s]," % ", ".join(rust(x) for x in m["typed"]))
         o.append("        out: &[%s]," % ", ".join(rust(x) for x in m["out"]))
         o.append("        source: %s," % rust(m["source"]))
         o.append("    },")

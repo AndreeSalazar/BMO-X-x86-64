@@ -253,6 +253,13 @@ pub fn fold_with(m: &Module, device: Option<&mut dyn Device>) -> Result<Module, 
     for f in out.functions.iter().filter(|f| f.dispatch.is_none()) {
         classes(f, m)?;
     }
+    // ** E1 (`docs/plan/PLAN_LA_ENTRADA.md`): a program that reads from
+    // outside is not RUN here -- what will be typed is not known yet. Its
+    // classes are judged (above) and so are its loans (`juez.rs`, before);
+    // the rest is the emitter's: every block stays, `flat` stays empty.
+    if m.reads_outside() {
+        return Ok(out);
+    }
     // ** The run goes in a thread of its OWN, with a big stack: a recursion
     // of DEPTH calls is a rule of the language (T0066), never a stack that
     // bursts inside the compiler. The memory is only reserved, not used.
@@ -548,6 +555,7 @@ impl Run<'_, '_> {
             Value::Bool(b, _) => Const::Bool(*b),
             Value::Dec(d, s, _) => Const::Dec(*d, *s),
             Value::F32(b, _) => Const::F32(*b),
+            Value::Read(_) => unreachable!("calc: a module that reads is emitted, never run when compiling (fold_with)"),
             Value::Local(l, _) | Value::Lend(_, l, _) => known[*l].clone().expect("juez: every local read has a value"),
             Value::Call(func, args, at) => self.call_with(*func, args, *at, known)?.expect("check: a call used as a value gives one back"),
             Value::Round(inner, n, at) => {

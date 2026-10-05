@@ -10,7 +10,7 @@
 //! that sneaks in without its level, or a 31st, stops `cargo test` here.
 
 /// The level this frontend understands today. Everything above says "not yet".
-pub const LEVEL_NOW: u8 = 11;
+pub const LEVEL_NOW: u8 = 12;
 
 /// The ceiling (TITAN_MAESTRO 4.4). A new word gets in only if it removes a
 /// confusion, and it goes through here.
@@ -70,6 +70,9 @@ pub fn level_name(level: u8) -> &'static str {
         9 => "varios ficheros",
         10 => "comportamientos",
         11 => "la 3060",
+        // ** Level 12 brings NO word (`docs/plan/PLAN_LA_ENTRADA.md`): `lee()`
+        // is the library's, like `print`. The 25 words stay 25.
+        12 => "lo que viene de fuera",
         _ => "?",
     }
 }
@@ -92,7 +95,7 @@ mod tests {
             assert!(WORDS[i + 1..].iter().all(|b| b.text != a.text), "twice: {}", a.text);
         }
         // The totals of 14.14: with this level, this many words.
-        let totals = [(0, 1), (1, 2), (2, 3), (3, 10), (4, 15), (5, 16), (6, 17), (7, 18), (8, 20), (9, 23), (10, 24), (11, 25)];
+        let totals = [(0, 1), (1, 2), (2, 3), (3, 10), (4, 15), (5, 16), (6, 17), (7, 18), (8, 20), (9, 23), (10, 24), (11, 25), (12, 25)];
         for (level, total) in totals {
             assert_eq!(WORDS.iter().filter(|w| w.level <= level).count(), total, "level {}", level);
         }

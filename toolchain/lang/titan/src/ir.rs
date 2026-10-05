@@ -197,6 +197,10 @@ pub enum Value {
     /// The value number `k` the case `v` of the enum `e` carries: what a
     /// `Circulo(r)` of a `match` names `r` (8). Only read where `Is` said yes.
     Payload(Box<Value>, usize, usize, usize, At),
+    /// `lee()`: the line typed on the program's own console, as a text (E1,
+    /// `docs/plan/PLAN_LA_ENTRADA.md`). Known only WHEN IT RUNS: a module
+    /// that reads is not run when compiling (`calc.rs`), it is emitted.
+    Read(At),
 }
 
 impl Value {
@@ -222,7 +226,8 @@ impl Value {
             | Value::F32(_, a)
             | Value::Variant(_, _, _, a)
             | Value::Is(_, _, _, a)
-            | Value::Payload(_, _, _, _, a) => *a,
+            | Value::Payload(_, _, _, _, a)
+            | Value::Read(a) => *a,
         }
     }
 
@@ -230,7 +235,7 @@ impl Value {
     /// judges.
     pub fn reads(&self, out: &mut Vec<(usize, At)>) {
         match self {
-            Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) => {}
+            Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Read(..) => {}
             Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => {
                 for i in items {
                     i.reads(out);
@@ -266,6 +271,39 @@ pub enum End {
     Jump(usize),
     /// `if`: to `then` if `cond` is true, to `other` if not. `at` is the `if`.
     Branch { cond: Value, then: usize, other: usize, at: At },
+}
+
+impl Value {
+    /// Does this value come, even in part, from OUTSIDE (`lee()`, E1)?
+    pub fn from_outside(&self) -> bool {
+        match self {
+            Value::Read(_) => true,
+            Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Local(..) | Value::Lend(..) => false,
+            Value::Bin(_, a, b, _) | Value::Index(a, b, _) => a.from_outside() || b.from_outside(),
+            Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) => a.from_outside(),
+            Value::Call(_, items, _) | Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) => items.iter().any(Value::from_outside),
+        }
+    }
+}
+
+impl Module {
+    /// ** Does the program read from OUTSIDE anywhere (E1,
+    /// `docs/plan/PLAN_LA_ENTRADA.md`)? Then it cannot be run when compiling
+    /// -- what is typed is not known yet -- and it is EMITTED instead.
+    pub fn reads_outside(&self) -> bool {
+        let op = |o: &Op| match o {
+            Op::Let { value, .. } | Op::Set { value, .. } => value.from_outside(),
+            Op::Write { parts: items, .. } | Op::Call { args: items, .. } => items.iter().any(Value::from_outside),
+            Op::SetAt { path, value, .. } => value.from_outside() || path.iter().any(|p| matches!(p, PathStep::Index(i) if i.from_outside())),
+            Op::Drop { .. } => false,
+        };
+        let end = |e: &End| match e {
+            End::Return(v) => v.as_ref().is_some_and(Value::from_outside),
+            End::Branch { cond, .. } => cond.from_outside(),
+            End::Jump(_) => false,
+        };
+        self.functions.iter().flat_map(|f| &f.blocks).any(|b| b.ops.iter().any(op) || end(&b.end))
+    }
 }
 
 impl End {
@@ -330,6 +368,7 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
             Value::Bin(*op, Box::new(value(left, locals)), Box::new(value(right, locals)), (*line, *col))
         }
         Expr::Neg { value: v, line, col } => Value::Neg(Box::new(value(v, locals)), (*line, *col)),
+        Expr::Call { callee, line, col, .. } if callee == "lee" => Value::Read((*line, *col)),
         Expr::Call { callee, args, line, col } if callee == "len" => Value::Len(Box::new(value(&args[0], locals)), (*line, *col)),
         Expr::Call { callee, args, line, col } if p.case(callee).is_some() => {
             let (e, v) = p.case(callee).expect("the guard");
@@ -816,6 +855,7 @@ fn show(v: &Value) -> String {
         Value::Field(b, n, _) => format!("{}.{}", show(b), n),
         Value::Record(t, items, _) => format!("T{} {{ {} }}", t, items.iter().map(show).collect::<Vec<_>>().join(", ")),
         Value::Len(v, _) => format!("len({})", show(v)),
+        Value::Read(_) => "lee()".to_string(),
         Value::Lend(m, l, _) => format!("{} %{}", m.word(), l),
         Value::Round(v, n, _) => format!("round({}, {})", show(v), n),
         Value::F32(b, _) => format!("{}f32", f32::from_bits(*b)),

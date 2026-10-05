@@ -37,6 +37,7 @@ justo antes de `mod main`) es su PORQUE en la TAB: que diga por que existe.
 | 9 | `mod use pub` | paquetes de varios ficheros, con su `Titan.toml` (U2) | T0080-T0084, T0088, T0089 |
 | 10 | `trait` | lo que un valor sabe hacer, y fn para cualquiera que lo sepa | T0085-T0087 |
 | 11 | `gpu` | la 3060: `gpu fn`, una celda por hilo; `f32` vive alli | T0090, T0091 (el plan: `docs/plan/PLAN_EL_CENTAURO.md`) |
+| 12 | (ninguna) | lo que viene de fuera: `lee()` de la biblioteca, y el programa CORRE en la maquina | los de siempre, y T0060-T0062 tambien al correr (el plan: `docs/plan/PLAN_LA_ENTRADA.md`) |
 
 ---
 
@@ -832,6 +833,54 @@ del propietario.
 
 ---
 
+## Nivel 12 -- lo que viene de fuera (25 palabras: + ninguna; `lee()`) -- 05-10, E1 de PLAN_LA_ENTRADA
+
+```text
+# pregunta.titan
+mod main "saluda a quien teclee su nombre"
+
+fn main()
+    print("como te llamas?")
+    let nombre = lee()
+    print("hola ", nombre, "!")
+```
+
+**`lee()` trae la linea que se teclea en la consola del programa**, sin su
+salto, como un texto. Es de la BIBLIOTECA, como `print`: no hay palabra nueva,
+las 25 se quedan en 25 (decision del propietario, 05-10). No pide permiso: la
+consola del propio programa es la misma puerta por la que escribe `print`
+(`Door::Console` del certificado), y el certificado la nombra en su linea. El
+teclado y el raton de una VENTANA son otra cosa (`input`, con REX).
+
+**Lo que cambia por dentro es grande, y se dice entero.** Hasta el nivel 11 el
+calculo CORRIA el programa al compilar y el `.bex` solo escribia lo que salia.
+Con `lee()` eso ya no se puede: lo tecleado no se sabe al compilar. Asi que un
+programa que lee se JUZGA entero al compilar -- sus clases, sus prestamos --
+y se EMITE para correr de verdad en la maquina (E1 del emisor,
+`emisor-x86_64/src/e1.rs`). Un programa que no lee sale igual que siempre.
+
+```text
+   lee()               una linea, como texto (hasta 127 bytes)
+   lee() + 1           NO T0063: un texto no se suma a un numero, ni tecleado
+   if lee() ...        NO T0065: un si/no se pregunta como a cualquier texto
+   lee()  (suelta)     NO T0069: lo tecleado se perderia nada mas llegar
+   lee(1)              NO T0068: `lee` no pide nada
+```
+
+**Lo que solo falla al correr, ATRAPA** (la regla 1 de INTI): una suma que no
+cabe en 64 bits (T0060), un `/` o `%` por cero (T0061), una division entre
+enteros que no es exacta (T0062). El programa escribe el NO con su linea --
+`NO T0060 al correr, linea 6: el resultado no cabe en 64 bits` -- y sale. Un
+`print` calcula todas sus partes ANTES de escribir: un NO nunca deja media
+linea delante.
+
+**Lo que E1 todavia no emite lo dice al compilar**, con el escalon de
+`docs/plan/PLAN_LA_ENTRADA.md` donde llega: el `dec` al correr y `numero(t)`
+(R6), llamadas con valores, tablas, registros y casos (R7). Nunca un `.bex`
+que haga otra cosa.
+
+---
+
 ## Los codigos
 
 | codigo | que |
@@ -891,6 +940,7 @@ del propietario.
 
 ```text
    # espera: BIEN        compila...
+   # entra: Ada          (nivel 12) ...el banco TECLEA esto, linea a linea...
    # sale: hola          ...y al CORRER escribe exactamente esto, linea a linea
    # espera: T0053       NO compila, con este codigo, y no escribe ningun .bex
 ```

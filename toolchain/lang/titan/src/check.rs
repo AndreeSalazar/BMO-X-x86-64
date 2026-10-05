@@ -7,7 +7,8 @@
 //! -- are not judged here: that is the checker's (`juez.rs`), on the IR,
 //! because it is the same question the borrow checker asks.
 //!
-//! There are three kinds of callee: the library's (`print`, `len`), a `fn`
+//! There are three kinds of callee: the library's (`print`, `len`, and --
+//! E1, `PLAN_LA_ENTRADA` -- `lee`), a `fn`
 //! of the file, and -- level 8 -- a CASE of an `enum`: `Circulo(2.0)` builds a
 //! value, it does not run anything. And the `match` is judged here too: every
 //! arm a case of ONE enum, none twice, and ALL of them (T0078, T0079).
@@ -15,8 +16,9 @@
 use crate::message::{Code, Message};
 use crate::tree::{Arm, Expr, Mode, Program, Stmt, Ty};
 
-/// What the library gives in level 0.
-const LIBRARY: [&str; 2] = ["print", "len"];
+/// What the library gives: `print` (level 0), `len` (6), and `lee` -- the
+/// line typed on the program's own console (E1, `docs/plan/PLAN_LA_ENTRADA.md`).
+const LIBRARY: [&str; 3] = ["print", "len", "lee"];
 
 /// The fn a trait promises, by its name (level 10): what `area(f)` calls.
 fn method<'p>(p: &'p Program, name: &str) -> Option<&'p crate::tree::Sig> {
@@ -648,7 +650,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             line,
             col,
             &format!("`{}` no existe", callee),
-"no es una `fn` de este fichero, ni un caso de sus `enum`, ni de la biblioteca (la biblioteca, hoy, es `print` y `len`)",
+"no es una `fn` de este fichero, ni un caso de sus `enum`, ni de la biblioteca (la biblioteca, hoy, es `print`, `len` y `lee`)",
             &match near {
                 Some(k) => format!("quisiste decir `{}`?", k),
                 None => format!("define `fn {}()` en este fichero, o usa `print`", callee),
@@ -656,6 +658,17 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
         ));
     }
     let Some(g) = own else {
+        if callee == "lee" {
+            // `lee()`: the line typed on the program's own console, as a
+            // text. Nothing in, a text out -- and a line read must be kept.
+            if n != 0 {
+                return Err(Message::new(Code::Args, line, col, &format!("`lee` no pide valores, y aqui se le dan {}", n), "`lee` trae la linea que se teclea en la consola del programa: no hay nada que darle", "let nombre = lee()"));
+            }
+            if !as_value {
+                return Err(Message::new(Code::Result, line, col, "`lee()` trae una linea, y aqui nadie la guarda", "lo que se teclea se perderia nada mas llegar", "guardala: let linea = lee()"));
+            }
+            return Ok(());
+        }
         if callee == "len" {
             // `len(tabla)`: how many cells; one value in, an `int` out.
             if n != 1 {
