@@ -603,6 +603,13 @@ La regla: nada de la fila 7 empieza sin la fila 5 hecha (encender nucleos con
 > porque es mi kernel"*. Esta es la escalera, de abajo arriba; se actualiza
 > con cada corrida del metal (la ultima: 02-10, tanda53 de
 > [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md)).
+>
+> **Desde el 05-10, Cyberpunk es la VARA DE MEDIR** (R5 de
+> [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md)): una
+> corrida por escalon cerrado de esa escalera, no una por muro. Un muro nuevo
+> se apunta aqui y se arregla en el escalon que lo prueba solo, con su
+> huella de Windows delante; la tabla de que casilla de este plan prueba
+> cada escalon esta en su seccion 4.
 
 ```text
    nivel                                          donde se ve que esta hecho
@@ -918,8 +925,9 @@ la proxima corrida del metal dice cual pesa mas:
 El ABI entero (que hace cada hueco de las 28 interfaces, que es falla
 documentada y que falta) esta en `docs/maestro/D3D12_MAESTRO.md`, y lo
 escribe una prueba (`proton-x-casa/tests/abi.rs`): 465 huecos, 0 faltan.
-La ESCALERA de juegos (los DirectX-Graphics-Samples, Cyberpunk, The
-Witcher 3, y por que DX9 y Left 4 Dead 2 no) esta en su seccion 5.
+La ESCALERA de juegos (por que DX9 y Left 4 Dead 2 no) esta en su seccion
+5; desde el 05-10, con sus casillas, en
+[`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md).
 - [x] **N5.9 -- SV_Position en el de pixeles** (03-10): `Enlace::pos_ps`
   dice que entrada es; la trama pone en ella (x + 0.5, y + 0.5, z, w) de
   cada pixel (la w de recorte, con perspectiva: la de D3D, no la 1/w de
