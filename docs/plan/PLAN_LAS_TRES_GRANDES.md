@@ -399,7 +399,10 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   que en Windows.
 - [ ] D4.3 -- Las operaciones de ONDA (wave, modelo 6.0): la 3060 va en
   warps de 32. **Como se sabe:** `WaveActiveSum` y compania, igual que en
-  Windows.
+  Windows. (05-10, E2.5 de la ESCALERA: hechas en el INTERPRETE, olas de
+  32 en el computo y cuadros de 2x2 en olas en los pixeles, juzgadas por
+  `prueba/olas.exe` en el banco; falta la 3060 y el x86 traducido, que no
+  las traducen, y verlo en Cyberpunk.)
 - [ ] D4.4 -- Pixel: `discard`, derivadas, 8 destinos (MRT), profundidad de
   salida, fusion (blend) completa, estarcido (stencil).
 - [ ] D4.5 -- Vertices: instancias, `SV_VertexID`/`InstanceID`. Casco y

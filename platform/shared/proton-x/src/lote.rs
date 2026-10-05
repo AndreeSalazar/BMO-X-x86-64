@@ -26,6 +26,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::dxil::programa::{self, Programa, Ranuras};
+use crate::dxil::carriles::{Carril, Estado};
 use crate::dxil::{Sombreador, Tiras};
 use crate::trama;
 
@@ -489,13 +490,54 @@ pub fn en_cpu(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, N
     let mut vs = |e: &[[f32; 4]], s: &mut [[f32; 4]]| {
         con_uavs(l, |u| en.vs.correr_con_uavs(e, l.cb, &l.recursos, s, &mut rv, u));
     };
-    en_cpu_con(l, destino, &mut vs, &mut |e, s| con_uavs(l, |u| en.ps.correr_con_uavs(e, l.cb, &l.recursos, s, &mut rp, u)))
+    if !en.ps.usa_olas() {
+        return en_cpu_con(l, destino, &mut vs, &mut |e, s| con_uavs(l, |u| en.ps.correr_con_uavs(e, l.cb, &l.recursos, s, &mut rp, u)));
+    }
+    // E2.5: un de pixeles con OLAS va en cuadros y olas (`cuadros`).
+    let mut ola = olas_de(&en.ps, l.cb, &l.recursos, &en.objetivos, l.uavs);
+    en_cpu_olas(l, destino, &mut vs, &mut |_, _| false, Some(&mut ola))
+}
+
+/// **Quien corre las olas de pixeles** de `ps` (E2.5, 05-10): los carriles
+/// de cada una, juntos (`dxil::carriles`), con los UAV del lote (los
+/// ayudantes, sin ellos), y la salida `k` de cada uno a su render target
+/// `objetivos[k]`, como la de un pixel solo.
+pub fn olas_de<'a, 'r: 'a>(ps: &'a Programa, cb: &'a [u8], rec: &'a crate::textura::Recursos<'r>, objetivos: &'a [u8], uavs: Option<&'a Uavs>) -> impl FnMut(&mut [crate::cuadros::Carril]) + 'a {
+    let mut carriles: Vec<Carril> = Vec::new();
+    let mut salidas: Vec<Vec<[f32; 4]>> = Vec::new();
+    let n_sal = ps.salidas.max(objetivos.len());
+    move |ola: &mut [crate::cuadros::Carril]| {
+        carriles.resize_with(ola.len(), || Carril::nuevo(ps, false));
+        salidas.resize_with(ola.len(), Vec::new);
+        for ((c, s), o) in carriles.iter_mut().zip(salidas.iter_mut()).zip(ola.iter()) {
+            c.reiniciar(ps, o.ayudante);
+            s.clear();
+            s.resize(n_sal, [0.0; 4]);
+        }
+        let entradas: Vec<&[[f32; 4]]> = ola.iter().map(|o| o.entrada.as_slice()).collect();
+        match uavs {
+            Some(u) => ps.correr_pixeles(&mut carriles[..ola.len()], &entradas, cb, rec, &mut salidas, &mut u.borrow_mut()),
+            None => ps.correr_pixeles(&mut carriles[..ola.len()], &entradas, cb, rec, &mut salidas, &mut []),
+        }
+        for (k, o) in ola.iter_mut().enumerate() {
+            o.queda = carriles[k].estado == Estado::Fin(true);
+            for (j, &t) in objetivos.iter().enumerate() {
+                o.colores[t as usize] = salidas[k][j];
+            }
+        }
+    }
 }
 
 /// **Lo mismo, con quien corre los sombreadores puesto desde fuera** (P3b3b:
 /// el interprete, o su traduccion a x86-64). La trama y el orden no cambian:
 /// lo unico que cambia es QUIEN hace las cuentas de cada sombreador.
 pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs) -> Result<trama::Cuenta, NoDibuja> {
+    en_cpu_olas(l, destino, vs, ps, None)
+}
+
+/// E2.5: [`en_cpu_con`] con quien corre las OLAS de pixeles (`Some`: el de
+/// pixeles usa las olas, y `ps` no se llama).
+fn en_cpu_olas(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, olas: Option<crate::cuadros::Olas>) -> Result<trama::Cuenta, NoDibuja> {
     // Las limpiezas que la casa dejo a quien dibuje: aqui, la CPU.
     if let Some(p) = l.limpiar_rt {
         destino.pixeles.fill(p);
@@ -506,7 +548,7 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs
     let n_vertices = l.comprobar()?;
     let en = l.enlace;
     if let Some(g) = &en.gs {
-        return en_cpu_gs(l, destino, vs, ps, g, n_vertices);
+        return en_cpu_gs(l, destino, vs, ps, g, n_vertices, olas);
     }
     let mut sombreados: Vec<trama::Sombreado> = Vec::new();
     let mut ent = vec![[0.0f32, 0.0, 0.0, 1.0]; en.desde_ia.len().max(en.vs.entradas)];
@@ -541,6 +583,9 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs
     let mut sal_ps = vec![[0.0f32; 4]; en.ps.salidas.max(en.objetivos.len())];
     // Con SV_Depth, la prueba de profundidad va despues del de pixeles.
     let reglas = trama::Reglas { z_del_sombreador: en.profundidad_ps.is_some(), ..l.reglas };
+    if let Some(o) = olas {
+        return Ok(trama::dibujar_en_olas(&reglas, efectos(en), &sombreados, &locales, destino, en.pos_ps, o));
+    }
     Ok(trama::dibujar_con(&reglas, efectos(en), &sombreados, &locales, destino, en.pos_ps, |x, colores| {
         let queda = ps(x, &mut sal_ps);
         for (k, &t) in en.objetivos.iter().enumerate() {
@@ -561,7 +606,7 @@ fn efectos(en: &Enlace) -> trama::Efectos {
 /// GS una vez por primitiva (punto, linea o triangulo, de la topologia del
 /// lote), y sus tiras de triangulos a la trama, con el de pixeles. El GS va
 /// siempre por el interprete.
-fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: &EnlaceGs, n_vertices: usize) -> Result<trama::Cuenta, NoDibuja> {
+fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: &EnlaceGs, n_vertices: usize, olas: Option<crate::cuadros::Olas>) -> Result<trama::Cuenta, NoDibuja> {
     let en = l.enlace;
     let por_vs = en.vs.salidas.max(1);
     let mut salidas_vs: Vec<[f32; 4]> = Vec::new();
@@ -615,6 +660,9 @@ fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: 
     }
     let mut sal_ps = vec![[0.0f32; 4]; en.ps.salidas.max(en.objetivos.len())];
     let reglas = trama::Reglas { z_del_sombreador: en.profundidad_ps.is_some(), ..l.reglas };
+    if let Some(o) = olas {
+        return Ok(trama::dibujar_en_olas(&reglas, efectos(en), &sombreados, &locales, destino, en.pos_ps, o));
+    }
     Ok(trama::dibujar_con(&reglas, efectos(en), &sombreados, &locales, destino, en.pos_ps, |x, colores| {
         let queda = ps(x, &mut sal_ps);
         for (k, &t) in en.objetivos.iter().enumerate() {

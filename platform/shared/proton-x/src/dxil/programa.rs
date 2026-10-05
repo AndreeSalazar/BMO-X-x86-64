@@ -289,6 +289,11 @@ pub enum Op {
     /// sin saber hasta donde llega el indice, las 4096 de D3D); si no, 0.
     /// Los arrays de un cbuffer (luces, huesos) se leen asi.
     ConstantesEn { d: Reg, fila: u16, filas: u16, i: Reg, cb: u8 },
+    /// E2.5 (05-10): una operacion de OLA (`Wave*`, `Quad*`): mira los
+    /// carriles de la ola, asi que el interprete PARA el hilo aqui y la
+    /// resuelve con los demas (`dxil/carriles.rs`). `a` el valor, `b` el
+    /// segundo operando (el carril de `ReadLaneAt`); `d..d+4` en `Papeleta`.
+    Ola { d: Reg, a: Reg, b: Reg, que: super::olas::Ola },
 }
 
 /// Lo que pregunta [`Op::Compara`]. Las `SinSigno` (E6c), solo con
@@ -513,6 +518,11 @@ impl Programa {
     /// no puede saltarse ni repetir un pixel de estos).
     pub fn toca_uav(&self) -> bool {
         self.ops.iter().any(|o| matches!(o, Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::Atomico { .. }))
+    }
+
+    /// E2.5: si usa las olas (un pixel asi va en cuadros y olas, `cuadros`).
+    pub fn usa_olas(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::Ola { .. }))
     }
 
     /// Si el programa salta (E6): `si`, bucles, o lo que lee bits como

@@ -306,6 +306,11 @@ impl Puerta {
         if l.uavs.is_some() {
             return Err(String::from("sus sombreadores leen o escriben UAV (RWTexture, RWBuffer, Interlocked): la 3060 no los lleva todavia"));
         }
+        // E2.5 (05-10): las olas (Wave*, Quad*) tampoco: el emisor no las
+        // sabe (`vote`, `shfl`); dicho con su nombre, no con un numero.
+        if l.enlace.vs.usa_olas() || l.enlace.ps.usa_olas() {
+            return Err(String::from("sus sombreadores usan las olas (Wave*, Quad*): la 3060 no las lleva todavia"));
+        }
         // N5.13: la receta lleva UNA instancia y los elementos por vertice.
         if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {
             return Err(String::from("el lote dibuja varias instancias o lee datos por instancia: la 3060 no lo sabe todavia"));

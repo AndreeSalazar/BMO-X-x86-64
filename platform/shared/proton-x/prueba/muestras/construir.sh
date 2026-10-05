@@ -191,3 +191,12 @@ cp "$AQUI/../stencil.cpp" "$AQUI"/../stencil_*.dxil .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c stencil.cpp -o stencil.o
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o stencil.exe stencil.o -ld3d12
 sha256sum stencil.exe
+
+# E2.5: el juez de las OLAS, NUESTRO (`../olas.cpp`, con sus tres
+# sombreadores de `../olas_*.dxil` dentro): la muestra D3D12SM6WaveIntrinsics
+# pinta segun como junte la GPU los pixeles en olas (sin huella que
+# comparar) y pide D3D11On12 y Direct2D para su texto.
+cp "$AQUI/../olas.cpp" "$AQUI"/../olas_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c olas.cpp -o olas.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o olas.exe olas.o -ld3d12
+sha256sum olas.exe

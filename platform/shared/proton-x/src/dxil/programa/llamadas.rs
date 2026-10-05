@@ -19,8 +19,8 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
         c.ops.push(f(d, a));
         Ok(Valor::Float(d))
     };
-    // Las olas (con un carril) y las derivadas: `olas.rs`.
-    if let Some(v) = super::super::olas::de_un_carril(c, op, args) {
+    // Las olas (E2.5: de verdad) y las derivadas: `olas.rs`.
+    if let Some(v) = super::super::olas::de(c, op, args, nombre) {
         return v;
     }
     // Gather y SampleCmp (las sombras): `sombras.rs`.

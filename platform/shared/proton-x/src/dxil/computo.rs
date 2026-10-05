@@ -20,11 +20,18 @@
 //! Que todos los hilos crucen la misma barrera lo exige D3D12 (las barreras
 //! van en flujo uniforme); un hilo que acaba antes que los demas deja de
 //! correr, y los demas siguen sin el.
+//!
+//! E2.5 (05-10): los hilos van en OLAS de 32, los seguidos en el orden de
+//! SV_GroupIndex (`dxil/carriles.rs`): cada ronda corre ola a ola, y dentro
+//! de una, sus carriles se esperan en cada operacion de ola. Un CS sin olas
+//! corre igual que antes: hilo a hilo, en orden.
 
 use alloc::vec;
 use alloc::vec::Vec;
 
-use super::interprete::{Extra, Grupo, Ids, Paro, Pausa};
+use super::carriles::{Carril, Estado};
+use super::interprete::{Extra, Grupo, Ids};
+use super::olas::CARRILES;
 use super::programa::Programa;
 
 impl Programa {
@@ -38,44 +45,41 @@ impl Programa {
             return 0;
         }
         let mut compartida = vec![0u32; self.computo.compartida as usize];
-        let mut hilos: Vec<(Vec<f32>, Pausa, bool)> = (0..n).map(|_| (Vec::new(), Pausa::AL_EMPEZAR, false)).collect();
+        let mut hilos: Vec<Carril> = (0..n).map(|_| Carril::nuevo(self, false)).collect();
         let mut corridos = 0u64;
         for gz in 0..grupos[2] {
             for gy in 0..grupos[1] {
                 for gx in 0..grupos[0] {
                     compartida.fill(0);
                     for h in hilos.iter_mut() {
-                        h.0.clear();
-                        h.0.extend_from_slice(&self.iniciales);
-                        (h.1, h.2) = (Pausa::AL_EMPEZAR, false);
+                        h.reiniciar(self, false);
                     }
                     loop {
                         let mut alguno_espera = false;
-                        for (t, (regs, pausa, acabo)) in hilos.iter_mut().enumerate() {
-                            if *acabo {
-                                continue;
-                            }
-                            let t = t as u32;
-                            let en_grupo = [t % hx, (t / hx) % hy, t / (hx * hy)];
-                            let ids = Ids {
-                                despacho: [gx * hx + en_grupo[0], gy * hy + en_grupo[1], gz * hz + en_grupo[2]],
-                                grupo: [gx, gy, gz],
-                                en_grupo,
-                                indice: t,
-                            };
-                            let mut g = Grupo { ids, compartida: &mut compartida, uavs };
-                            match self.correr_desde(pausa, &[], cb, rec, &mut [], regs, Extra::Grupo(&mut g)) {
-                                Paro::Barrera => alguno_espera = true,
-                                Paro::Fin(_) => {
-                                    *acabo = true;
-                                    corridos += 1;
-                                }
+                        for (w, ola) in hilos.chunks_mut(CARRILES as usize).enumerate() {
+                            self.correr_ola(ola, |k, c| {
+                                let t = (w * CARRILES as usize + k) as u32;
+                                let en_grupo = [t % hx, (t / hx) % hy, t / (hx * hy)];
+                                let ids = Ids {
+                                    despacho: [gx * hx + en_grupo[0], gy * hy + en_grupo[1], gz * hz + en_grupo[2]],
+                                    grupo: [gx, gy, gz],
+                                    en_grupo,
+                                    indice: t,
+                                };
+                                let mut g = Grupo { ids, compartida: &mut compartida, uavs };
+                                self.correr_desde(&mut c.pausa, &[], cb, rec, &mut [], &mut c.regs, Extra::Grupo(&mut g))
+                            });
+                            // Los de la barrera, a la ronda siguiente.
+                            for c in ola.iter_mut().filter(|c| c.estado == Estado::Barrera) {
+                                c.estado = Estado::Corre;
+                                alguno_espera = true;
                             }
                         }
                         if !alguno_espera {
                             break;
                         }
                     }
+                    corridos += hilos.iter().filter(|c| matches!(c.estado, Estado::Fin(_))).count() as u64;
                 }
             }
         }

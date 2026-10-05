@@ -38,6 +38,9 @@ extern crate alloc;
 pub mod bc;
 pub mod bufer;
 pub mod cargar;
+/// E2.5 (05-10): los pixeles en cuadros de 2x2 y en olas (las de un
+/// sombreador que usa `Wave*` y `Quad*`).
+pub mod cuadros;
 pub mod desenrollar;
 /// Los formatos de un vertice: de los bytes a lo que lee el sombreador (03-10).
 pub mod formato_ia;
@@ -159,5 +162,7 @@ mod pruebas_geometria;
 mod pruebas_pixeles;
 #[cfg(test)]
 mod pruebas_uav;
+#[cfg(test)]
+mod pruebas_olas;
 #[cfg(test)]
 mod pruebas_nulo;

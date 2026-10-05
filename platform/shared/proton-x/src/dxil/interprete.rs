@@ -19,6 +19,9 @@ pub struct Pausa {
     pc: usize,
     bucles: [usize; ANIDADO_MAXIMO],
     hondo: usize,
+    /// E2.5: la vuelta de cada bucle abierto (0 la primera): dos carriles
+    /// en la misma operacion de ola van JUNTOS solo si van en la misma.
+    vueltas: [u32; ANIDADO_MAXIMO],
     /// El rango y el registro del ultimo `EligeTextura` (N5.4): tras la
     /// barrera se vuelve a buscar la misma textura.
     elige: Option<(u8, u32)>,
@@ -26,7 +29,38 @@ pub struct Pausa {
 
 impl Pausa {
     /// La de un hilo que empieza.
-    pub const AL_EMPEZAR: Pausa = Pausa { pc: 0, bucles: [0; ANIDADO_MAXIMO], hondo: 0, elige: None };
+    pub const AL_EMPEZAR: Pausa = Pausa { pc: 0, bucles: [0; ANIDADO_MAXIMO], hondo: 0, vueltas: [0; ANIDADO_MAXIMO], elige: None };
+
+    /// E2.5: la operacion en la que se paro (la de antes de `pc`).
+    pub fn operacion(&self) -> usize {
+        self.pc.wrapping_sub(1)
+    }
+
+    /// **E2.5: quien va antes** en el programa, como lo correria una ola
+    /// (SIMT): de fuera a dentro, en el mismo bucle la vuelta menor; un
+    /// carril dentro de un bucle va antes que uno parado DETRAS de el (y
+    /// despues que uno parado delante); si no, el que esta mas arriba. Con
+    /// `si` y bucles estructurados (`Programa::forma`), dos carriles en la
+    /// misma operacion y `Equal` van por el mismo camino: los activos.
+    pub fn orden(&self, otra: &Pausa) -> core::cmp::Ordering {
+        use core::cmp::Ordering::{Greater, Less};
+        let n = self.hondo.min(otra.hondo);
+        for k in 0..n {
+            if self.bucles[k] != otra.bucles[k] {
+                return self.bucles[k].cmp(&otra.bucles[k]);
+            }
+            if self.vueltas[k] != otra.vueltas[k] {
+                return self.vueltas[k].cmp(&otra.vueltas[k]);
+            }
+        }
+        if self.hondo > n {
+            return if otra.pc < self.bucles[n] { Greater } else { Less };
+        }
+        if otra.hondo > n {
+            return if self.pc < otra.bucles[n] { Less } else { Greater };
+        }
+        self.pc.cmp(&otra.pc)
+    }
 }
 
 /// **Por que se paro** un hilo.
@@ -36,6 +70,9 @@ pub enum Paro {
     Fin(bool),
     /// Llego a una `Barrera`: sigue con [`Programa::correr_desde`].
     Barrera,
+    /// E2.5: llego a una operacion de ola: la resuelve quien corre la ola
+    /// (`dxil/carriles.rs`), y sigue con [`Programa::correr_desde`].
+    Ola,
 }
 
 /// **Los ids de un hilo de computo** (N5.5): SV_DispatchThreadID,
@@ -112,6 +149,10 @@ pub enum Extra<'x, 'a, 'b> {
     /// 05-10: un vertice o un pixel de un dibujo con UAV (`RWTexture2D`,
     /// `RWByteAddressBuffer`...): los del dibujo, por ranura.
     Uavs(&'x mut [Option<crate::bufer::Uav<'b>>]),
+    /// E2.5: un pixel que va en una ola (`crate::cuadros`), con los UAV del
+    /// dibujo (un AYUDANTE, ninguno: lo que escribe se pierde, como en D3D):
+    /// se para en cada operacion de ola, como uno de computo.
+    Ola(&'x mut [Option<crate::bufer::Uav<'b>>]),
 }
 
 impl<'b> Extra<'_, '_, 'b> {
@@ -119,7 +160,7 @@ impl<'b> Extra<'_, '_, 'b> {
     fn uavs(&mut self) -> &mut [Option<crate::bufer::Uav<'b>>] {
         match self {
             Extra::Grupo(g) => g.uavs,
-            Extra::Uavs(u) => u,
+            Extra::Uavs(u) | Extra::Ola(u) => u,
             _ => &mut [],
         }
     }
@@ -173,8 +214,9 @@ impl Programa {
         let mut p = Pausa::AL_EMPEZAR;
         match self.correr_desde(&mut p, entradas, cb, rec, salidas, regs, Extra::Uavs(uavs)) {
             Paro::Fin(queda) => queda,
-            // Una barrera fuera del computo no espera a nadie.
-            Paro::Barrera => true,
+            // Una barrera fuera del computo no espera a nadie (y con
+            // `Extra::Nada` una ola no para: es de un carril).
+            Paro::Barrera | Paro::Ola => true,
         }
     }
 
@@ -199,7 +241,7 @@ impl Programa {
     pub fn correr_desde(&self, p: &mut Pausa, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut [f32], mut x: Extra) -> Paro {
         let bits = |regs: &[f32], r: Reg| regs[r as usize].to_bits();
         // Donde empieza cada bucle abierto (la forma ya se comprobo).
-        let Pausa { mut pc, mut bucles, mut hondo, mut elige } = *p;
+        let Pausa { mut pc, mut bucles, mut hondo, mut vueltas, mut elige } = *p;
         // N5.4: la textura que eligio el ultimo `EligeTextura` (la de antes
         // de la barrera, si el hilo viene de una).
         let mut elegida: Option<crate::textura::Textura> = elige.and_then(|(r, k)| rec.dinamica(r, k));
@@ -225,9 +267,13 @@ impl Programa {
                 Op::FinSi => {}
                 Op::Bucle => {
                     bucles[hondo] = pc;
+                    vueltas[hondo] = 0;
                     hondo += 1;
                 }
-                Op::FinBucle => pc = bucles[hondo - 1],
+                Op::FinBucle | Op::Continuar => {
+                    pc = bucles[hondo - 1];
+                    vueltas[hondo - 1] = vueltas[hondo - 1].wrapping_add(1);
+                }
                 Op::RomperSi { c, si_cero } => {
                     if (bits(regs, c) == 0) == si_cero {
                         pc = self.tras_bucle(pc - 1);
@@ -238,7 +284,6 @@ impl Programa {
                     pc = self.tras_bucle(pc - 1);
                     hondo -= 1;
                 }
-                Op::Continuar => pc = bucles[hondo - 1],
                 Op::Descarta { c } => {
                     if bits(regs, c) != 0 {
                         return Paro::Fin(false);
@@ -259,8 +304,22 @@ impl Programa {
                 }
                 Op::Barrera => {
                     if matches!(x, Extra::Grupo(_)) {
-                        *p = Pausa { pc, bucles, hondo, elige };
+                        *p = Pausa { pc, bucles, hondo, vueltas, elige };
                         return Paro::Barrera;
+                    }
+                }
+                // E2.5: en una ola (computo, o un pixel de `cuadros`), parar:
+                // la resuelve `carriles.rs` con los demas. Si no (vertices,
+                // GS), el hilo es una ola de 32 con UN carril activo, el 0.
+                Op::Ola { d, a, b, que } => {
+                    if matches!(x, Extra::Grupo(_) | Extra::Ola(_)) {
+                        *p = Pausa { pc, bucles, hondo, vueltas, elige };
+                        return Paro::Ola;
+                    }
+                    let (va, vb) = (bits(regs, a), bits(regs, b));
+                    let r = super::olas::hacer(que, 0, 1, |_| va, vb);
+                    for (k, v) in r.into_iter().enumerate().take(super::olas::anchura(que)) {
+                        regs[d as usize + k] = f32::from_bits(v);
                     }
                 }
                 Op::LeeCompartida { d, base, n, i } => {
@@ -452,7 +511,7 @@ impl Programa {
                 }
             }
         }
-        *p = Pausa { pc, bucles, hondo, elige };
+        *p = Pausa { pc, bucles, hondo, vueltas, elige };
         Paro::Fin(true)
     }
 }

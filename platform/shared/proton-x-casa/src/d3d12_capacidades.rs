@@ -194,9 +194,12 @@ pub(crate) extern "win64" fn check_feature_support(_this: u64, que: u32, datos: 
             // (como mucho, ese).
             SHADER_MODEL if cabe(4) => pon(0, u(0).min(MODELO_MAXIMO)),
             // WaveOps, WaveLaneCountMin/Max (32: un warp), TotalLaneCount,
-            // ExpandedComputeResourceStates, Int64ShaderOps.
+            // ExpandedComputeResourceStates, Int64ShaderOps. E2.5 (05-10):
+            // los carriles, los MISMOS que ve el sombreador (WaveGetLaneCount)
+            // y con los que corren sus olas (`dxil::olas::CARRILES`).
             OPTIONS1 if cabe(24) => {
-                for (k, v) in [1, 32, 32, 28 * 128, 1, 1].into_iter().enumerate() {
+                let carriles = bmo_proton_x::dxil::olas::CARRILES;
+                for (k, v) in [1, carriles, carriles, 28 * 128, 1, 1].into_iter().enumerate() {
                     pon(k, v);
                 }
             }

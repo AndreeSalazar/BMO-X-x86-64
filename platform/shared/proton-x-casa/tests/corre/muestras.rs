@@ -641,6 +641,26 @@ fn el_stencil_recorta_como_en_windows() {
     assert!(texto.ends_with("stencil.exe: el stencil de D3D12 es el de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
+/// **E2.5 -- las OLAS** (05-10, `prueba/olas.exe`, NUESTRO: la muestra
+/// D3D12SM6WaveIntrinsics de Microsoft pinta como la GPU junte los pixeles
+/// en olas, y eso no tiene una huella que comparar). El computo en olas de
+/// 32 hilos seguidos con cada operacion de ola, y los pixeles en cuadros de
+/// 2x2 con sus ayudantes, bit a bit; y OPTIONS1 dice los mismos 32
+/// carriles. Un aviso y ninguno mas, el de verdad: el PSO de dibujo se
+/// interpreta porque su PS usa las olas (su VS, que salta, ya se traduce:
+/// X1).
+#[test]
+fn e2_5_las_olas_de_32_carriles_dan_los_bits_de_la_cuenta() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, OLAS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador usa las olas (Wave*, Quad*: van de 32 en 32 carriles): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 15, "{texto}");
+    assert!(texto.ends_with("olas.exe: las olas de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
 /// **E2.3b -- D3D12nBodyGravity** (05-10, `Samples/Desktop`, MIT): el
 /// COMPUTO de verdad (10.000 particulas, la barrera DENTRO de un bucle, en
 /// SU hilo y su cola de computo, con vallas entre las dos colas) y un

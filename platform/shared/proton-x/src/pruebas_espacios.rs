@@ -262,8 +262,9 @@ fn la_trama_no_escribe_el_pixel_tirado_ni_su_profundidad() {
 const OLAS_PS: &[u8] = include_bytes!("../prueba/olas.dxil");
 
 /// *** `olas.hlsl` (de `dxc`): las olas y las derivadas que pedian los
-/// sombreadores de Cyberpunk (83, 84, 118 en el metal) y sus hermanas, con
-/// un pixel por ola: el valor mismo, el neutro del prefijo, un carril, y las
+/// sombreadores de Cyberpunk (83, 84, 118 en el metal) y sus hermanas,
+/// corrido SOLO (`correr`, sin trama: un carril activo de una ola de 32,
+/// E2.5): el valor mismo, el neutro del prefijo, 32 carriles, y las
 /// derivadas a 0 (ver `dxil/olas.rs`).
 #[test]
 fn un_pixel_de_dxc_con_olas_y_derivadas_corre_con_un_carril() {
@@ -272,12 +273,13 @@ fn un_pixel_de_dxc_con_olas_y_derivadas_corre_con_un_carril() {
     let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
     let x = [0.25f32, 0.5, 3.0, 4.0];
     assert!(ps.correr(&[[0.0; 4], x, [f32::from_bits(7), 0.0, 0.0, 0.0]], &[], &mut sal, &mut regs));
-    // a = x.x; b = x.y; n = 1 carril + prefijo 0 + indice 0, k = 1 (x.y > 0);
-    // las derivadas, 0; y los cuatro booleanos, ciertos.
-    assert_eq!(sal[0], [0.25, 0.5, 11.0, 1.0]);
+    // a = x.x; b = x.y; n = 32 carriles + prefijo 0 + indice 0, k = 1
+    // (x.y > 0): 32 * 10 + 1; las derivadas, 0; y los cuatro booleanos,
+    // ciertos.
+    assert_eq!(sal[0], [0.25, 0.5, 321.0, 1.0]);
     // Con x.y = 0: la cuenta de bits es 0; con x.z <= 1, AnyTrue es falso.
     ps.correr(&[[0.0; 4], [0.25, 0.0, 0.5, 4.0], [f32::from_bits(7), 0.0, 0.0, 0.0]], &[], &mut sal, &mut regs);
-    assert_eq!(sal[0], [0.25, 0.0, 10.0, 0.0]);
+    assert_eq!(sal[0], [0.25, 0.0, 320.0, 0.0]);
 }
 
 const ARREGLOS_PS: &[u8] = include_bytes!("../prueba/arreglos.dxil");

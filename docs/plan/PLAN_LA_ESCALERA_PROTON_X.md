@@ -296,8 +296,49 @@ muestra.
   con culling, solo el fondo; probado que dice NO con el contador atascado.
   Y su CS traducido da las mismas ordenes y el mismo contador que el
   interprete (`tests/nativo_computo.rs`).
-- [ ] **E2.5 -- D3D12SM6WaveIntrinsics.** Las olas de verdad (D4.3): hoy son
-  "un pixel por ola" (`dxil/olas.rs`). **Como se sabe:** su huella, igual.
+- [x] **E2.5 -- las OLAS de verdad, con un juez nuestro** (`prueba/olas.exe`;
+  05-10, en el banco; falta verlo en el metal y en Windows). Antes eran
+  "un pixel por ola": cada hilo SOLO, y `WaveGetLaneCount` daba 1 mientras
+  OPTIONS1 contestaba 32. Ahora una ola son 32 carriles
+  (`dxil::olas::CARRILES`, el mismo numero que contesta OPTIONS1): en el
+  computo, los 32 hilos SEGUIDOS de SV_GroupIndex (como un warp de la
+  3060); en los pixeles, cuadros de 2x2 de un triangulo, de 8 en 8, con
+  los pixeles de fuera de AYUDANTES (`src/cuadros.rs`); en vertices y GS,
+  un carril activo de 32. El interprete PARA cada carril en su operacion de
+  ola y `dxil/carriles.rs` la resuelve con los que llegaron por el mismo
+  camino (los ACTIVOS: el que va antes, como lo correria una GPU, con la
+  vuelta de cada bucle; los ayudantes no cuentan). Todas las de SM 6.0:
+  Active Sum/Product/Min/Max/BitAnd/BitOr/BitXor/CountBits/Ballot/AllEqual/
+  AnyTrue/AllTrue, ReadLaneAt/First, IsFirstLane, Prefix Sum/Product/
+  CountBits, y QuadReadAcrossX/Y/Diagonal y QuadReadLaneAt. Los traductores
+  nativos (`nativo.rs`, `nativo_computo.rs`) y el de la 3060
+  (`proton-x-sm86`) NO las traducen: ese sombreador va por el interprete
+  (lo dice el aviso del PSO; la puerta de la 3060, con su nombre). Con
+  stencil, UAV y `[earlydepthstencil]` (N5.12b, N5.3d) cada pixel de una
+  ola pasa por las MISMAS pruebas de antes y de despues que uno solo
+  (`trama::poner_pixel`); los ayudantes no escriben stencil, Z ni UAV, ni
+  cuentan. La muestra de Microsoft, D3D12SM6WaveIntrinsics,
+  no es el juez: pinta segun como junte la GPU los pixeles (no hay huella
+  que comparar) y pide D3D11On12 y Direct2D para su texto. **Como se
+  sabe:** `tests/corre/muestras.rs` (e2_5): `olas.exe` dice `bien` 15
+  veces: cada operacion de ola de un CS sobre 128 hilos, bit a bit, contra
+  la cuenta a mano (dentro de un si, en el bucle de ESCALARIZAR de los
+  juegos y en uno del que cada hilo sale en otra vuelta); en 64 x 64 cada
+  pixel lee a sus vecinos de cuadro; un pixel solo lee a sus tres
+  ayudantes y su ola tiene UN activo. Probado que dice NO: la casa de antes
+  sale con 14 MAL; contando a los ayudantes, MAL; juntando los carriles sin
+  mirar el bucle, MAL en los dos bucles. Y `src/pruebas_olas.rs`: lo mismo
+  sin la casa, y que en cuadros entra a cada pixel lo MISMO que pixel a
+  pixel. **Lo que puede fallar, dicho:** que la 3060 no junte los hilos de
+  un CS de 32 en 32 seguidos (es lo que hace; D3D no lo promete: el juez lo
+  mira primero, `WaveGetLaneIndex`) o que no reconverja en los bucles como
+  aqui (la ola de un `continue` se junta al final de la vuelta); las
+  DERIVADAS siguen a 0 (D4.4), tambien con cuadros; ni las de 16 o 64 bits
+  ni las de SM 6.5 (`WaveMatch`, `WaveMultiPrefix*`): no compilan, dicho.
+  Un pixel que no paso el stencil y corre solo para saber si lo tira va en
+  su ola de AYUDANTE (D3D ni lo correria).
+  **Queda:** las olas en la 3060 (`vote`, `shfl`) y en el x86 traducido;
+  las derivadas con los cuadros; verlo en el metal y en Windows.
 - [ ] **E2.6 -- D3D12HDR.** Render targets de float (N5.16, hecho el 05-10 con
   `prueba/hdr.exe`) y la cadena en 10 o 16 bits con su espacio de color (la
   cadena ya se acepta y se presenta en 8 bits; falta la muestra de
@@ -382,7 +423,7 @@ se mide con R5: una corrida por escalon cerrado.
    N5.3d  los UAV de un DIBUJO              uavpixel.exe (hecho, sin escalon)
    D5.1   la cola de computo                E2.3a y E2.3b (hechos)
    (nueva) el sombreador de geometria       E2.3b (hecho)
-   D4.3   las olas de verdad                E2.5
+   D4.3   las olas de verdad                E2.5 (hecho)
    N5.16  render targets de float           E2.6
    D5.5   consultas                         E2.7 (oclusion y predicacion)
 ```
@@ -590,6 +631,11 @@ en una conversacion.
    un SRV estructurado en la RAIZ de un   el paso sale de `dx.resources`; un
    sombreador sin metadatos (SM5, DXBC)   SM5 no los trae como DXIL: se lee
                                           crudo, mal, y NO lo dice todavia
+   las OLAS (E2.5)                        por el interprete siempre, y un
+                                          sombreador de pixeles con olas va en
+                                          cuadros (mas lento); las derivadas,
+                                          aun 0 (lo dice `dxil/olas.rs`, no
+                                          un aviso)
    la consulta de oclusion                sus lotes van por la CPU (la 3060
                                           aun no cuenta): mas lento, no
                                           distinto

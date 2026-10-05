@@ -887,8 +887,9 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                 e.aqui(sin);
                 e.guardar(d, RAX);
             }
-            // Lo que no sabe: por el interprete (y, 05-10, los Interlocked).
-            Op::Mate { .. } | Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } | Op::ConstantesEn { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::MedidasUav { .. } | Op::Atomico { .. } => return None,
+            // Lo que no sabe: por el interprete (y, 05-10, los Interlocked;
+            // E2.5, las olas: aqui cada hilo corre solo).
+            Op::Mate { .. } | Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } | Op::ConstantesEn { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::MedidasUav { .. } | Op::Atomico { .. } | Op::Ola { .. } => return None,
         }
     }
     if !sis.is_empty() || !bucles.is_empty() {

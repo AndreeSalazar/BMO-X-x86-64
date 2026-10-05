@@ -2560,3 +2560,59 @@ de antes (14e6b7eb4: el PSO lo apuntaba y no lo usaba) sale con 4, y A, B,
 C y D MAL (A: la derecha verde, ff00ff00 en vez de ff000000; B y D: las
 tres sondas pasan en todo, 00ffffff; C: 0000ffff), con el aviso "con
 stencil: se apunta, y no se usa todavia".
+
+olas_cs.dxil, olas_vs.dxil, olas_ps.dxil -- los de olas.exe (05-10)
+
+E2.5: `olas_juez.hlsl` (aqui al lado): CSOlas (cs_6_0, 64 hilos por grupo:
+cada operacion Wave* sobre valores de su SV_GroupIndex, dentro de un si, en
+el bucle de escalarizar y en un bucle con salidas a distintas vueltas),
+VSOlas (los vertices de una tabla, por SV_VertexID) y PSOlas (QuadRead* y
+ocho pruebas de ola que no dependen de como junte la GPU los cuadros). Con
+el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSOlas -Fo olas_cs.dxil olas_juez.hlsl
+   dxc -T vs_6_0 -E VSOlas -Fo olas_vs.dxil olas_juez.hlsl
+   dxc -T ps_6_0 -E PSOlas -Fo olas_ps.dxil olas_juez.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   752643b95c32351813d66d6d54cdb0c28c36d4a39bf645b72800c5fc04ad64a5  olas_cs.dxil
+   062ed94ae171c3e7ea1bd194024dc829c654e75d3c62ecea64c7e572ff626e4f  olas_vs.dxil
+   0c24d8ec50398201ad68418e464ece39bd9e11a0150b8acbbc1dd6902aa33986  olas_ps.dxil
+
+Van DENTRO de olas.exe. El banco de proton-x los corre tambien sin la casa
+(`src/pruebas_olas.rs`, con la misma cuenta que olas.cpp).
+
+olas.exe -- E2.5: las OLAS de D3D12, juzgadas (05-10)
+
+NUESTRO, no de Microsoft: la muestra D3D12SM6WaveIntrinsics pinta segun
+como junte la GPU los pixeles en olas (no hay huella que comparar) y pide
+D3D11On12, Direct2D y DirectWrite para su texto. `olas.cpp` (aqui al
+lado), de consola, con los tres .dxil dentro (`.incbin`): 0, OPTIONS1 dice
+WaveOps y 32 carriles; A, CSOlas en 2 grupos (cada operacion de ola, bit a
+bit, contra la cuenta a mano sobre los 32 hilos SEGUIDOS de cada ola, lo
+que hace un warp de la 3060); B, PSOlas en 64 x 64 (cada pixel lee x ^ 1
+e y ^ 1 de sus vecinos de cuadro; sus 8 pruebas de ola salen; de 1 a 32
+activos por ola, y olas de mas de un cuadro); C, un triangulo que cubre
+solo el pixel (2, 2): lee a sus tres AYUDANTES (3, 3) y su ola tiene un
+activo. Dice `bien` 15 veces y sale con el numero de fallos; en Windows
+dice lo mismo (en una GPU de olas de 32: la 3060).
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con olas.cpp y los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c olas.cpp -o olas.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o olas.exe olas.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   06ec9275078696045bebdf5d9cbf7a7b2d4749551ad4bb391b6b45470d251c68  olas.exe
+
+El banco (`tests/corre/muestras.rs`, e2_5): los 15 `bien`, sale con 0, y
+un aviso (el PSO de dibujo se interpreta: su PS usa las olas). Probado
+que dice NO: contra la casa de antes ("un pixel por ola": 3152bdd6a y,
+al rebasarlo, 3f320b5a0) sale con 14 MAL (el CS y el
+PS no compilaban: la papeleta, 116, y QuadOp, 123; solo OPTIONS1 decia
+bien: ya contestaba 32 mientras los sombreadores veian 1); contando a los
+ayudantes como activos, MAL en C (A = 4); juntando los carriles por la
+operacion sin mirar el bucle ni quien va antes, MAL en los dos bucles.

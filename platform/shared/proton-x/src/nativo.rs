@@ -166,6 +166,10 @@ pub const DESCARTADO: u32 = crate::nativo_computo::DESCARTADO;
 /// **Por que [`compilar`] no traduce `p`**, dicho para quien lo lea (el
 /// aviso de la casa), o `None` si lo traduce. La lista es la de `compilar`.
 pub fn por_que_no(p: &Programa) -> Option<&'static str> {
+    // E2.5: lo primero (un sombreador con olas suele saltar tambien).
+    if p.usa_olas() {
+        return Some("usa las olas (Wave*, Quad*: van de 32 en 32 carriles)");
+    }
     if p.muestrea() {
         return Some("muestrea una textura");
     }
@@ -333,6 +337,8 @@ fn directo(p: &Programa) -> Option<Vec<u8>> {
             // E2.4: el contador de un UAV, por el interprete; y (05-10) sus
             // Interlocked.
             Op::Contador { .. } | Op::Atomico { .. } => return None,
+            // E2.5: las olas miran a los otros carriles: por el interprete.
+            Op::Ola { .. } => return None,
             Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } => unreachable!("mirado en `compilar`: `muestrea`"),
             Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Entera { .. } | Op::Convierte { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => unreachable!("mirado arriba: `salta`"),
         }

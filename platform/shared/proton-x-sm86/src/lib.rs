@@ -840,6 +840,9 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             Op::Descarta { .. } => return Err(NoEmite::Operacion(i)),
             // N5.10: los arrays (registros indexables) todavia no: por la CPU.
             Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => return Err(NoEmite::Operacion(i)),
+            // E2.5: las olas (`vote`, `shfl` de la 3060) todavia no: por la CPU,
+            // donde van de 32 en 32 carriles como en un warp.
+            Op::Ola { .. } => return Err(NoEmite::Operacion(i)),
         }
         // Lo de paso, y lo que ya nadie lee, se devuelve.
         for t in paso {
