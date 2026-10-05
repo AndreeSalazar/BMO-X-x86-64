@@ -92,6 +92,8 @@ const COMPUTO: &[u8] = include_bytes!("../../proton-x/prueba/computo.exe");
 const NBODY: &[u8] = include_bytes!("../../proton-x/prueba/nbody.exe");
 const INDIRECT: &[u8] = include_bytes!("../../proton-x/prueba/indirect.exe");
 const PREDICA: &[u8] = include_bytes!("../../proton-x/prueba/predica.exe");
+/// N5.19 (05-10): las instancias y los buferes de vertices de varias ranuras.
+const INSTANCIAS: &[u8] = include_bytes!("../../proton-x/prueba/instancias.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");
@@ -1200,8 +1202,7 @@ fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
         }
         correr(&ev.codigo, &mut m).unwrap();
         // La casa, con SU lectura del input layout (la de `lote::en_cpu`).
-        let bytes = &l.vertices[id as usize * l.paso..(id as usize + 1) * l.paso];
-        let ent: Vec<[f32; 4]> = en.desde_ia.iter().map(|&f| lote::entrada(&l, f, id, bytes)).collect();
+        let ent: Vec<[f32; 4]> = en.desde_ia.iter().map(|&f| lote::entrada(&l, f, id, 0)).collect();
         en.vs.correr(&ent, l.cb, &mut casa, &mut regs);
         for (e, s) in casa.iter().enumerate() {
             for k in 0..4 {

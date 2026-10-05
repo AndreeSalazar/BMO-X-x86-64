@@ -108,7 +108,7 @@ mod pruebas {
     use alloc::string::ToString;
 
     fn ia(s: &str) -> ElementoIa {
-        ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde: 0 }
+        ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde: 0, por_instancia: None }
     }
 
     fn hecho(n: &str) -> Result<Compilado, &'static str> {

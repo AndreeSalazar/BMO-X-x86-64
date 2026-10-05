@@ -25,7 +25,7 @@ fn cuadro(z: f32, w: f32) -> Vec<u8> {
 }
 
 fn enlace(ps: &[u8]) -> (Enlace, [ElementoIa; 2]) {
-    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde, por_instancia: None };
     let ia = [e("POSITION", 0), e("TEXCOORD", 16)];
     let (vs, ps) = (dxil::leer(TEXTURA_VS).unwrap(), dxil::leer(ps).unwrap());
     (lote::enlazar(&vs, &ps, &ia).unwrap(), ia)
@@ -37,7 +37,7 @@ fn pintar(en: &Enlace, ia: &[ElementoIa], vertices: &[u8]) -> (Vec<u32>, trama::
 
 fn pintar_con(en: &Enlace, ia: &[ElementoIa], vertices: &[u8], otros: &mut [trama::Otro]) -> (Vec<u32>, trama::Cuenta) {
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
-    let l = Lote { enlace: en, entradas: ia, vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false };
+    let l = Lote { enlace: en, entradas: ia, vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0 };
     let mut px = vec![0u32; 64];
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros };
     let c = lote::en_cpu(&l, &mut d).unwrap();
@@ -137,7 +137,7 @@ fn una_salida_que_no_es_sv_target_se_dice() {
     let mut ps = ps;
     ps.salidas[2].sistema = 66;
     ps.salidas[2].semantica = "SV_Coverage".into();
-    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde, por_instancia: None };
     let r = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]);
     assert_eq!(r.err().as_deref(), Some("el sombreador de pixeles escribe SV_Coverage3 (valor de sistema 66): todavia no"));
 }
@@ -184,7 +184,7 @@ fn el_de_pixeles_escribe_su_profundidad() {
     assert_eq!((en.objetivos.as_slice(), en.profundidad_ps), (&[0, trama::PROFUNDIDAD as u8][..], Some(1)));
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: Some(trama::Profundidad { funcion: 2, escribir: true }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
     let vertices = cuadro(0.9, 1.0);
-    let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: Some(0.5f32.to_bits()), limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false };
+    let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso: 32, ids: &[0, 1, 2, 2, 1, 3], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: Some(0.5f32.to_bits()), limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0 };
     let (mut px, mut z) = (vec![0u32; 64], vec![0u32; 64]);
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: Some(&mut z), cadena: false, otros: &mut [] };
     let c = lote::en_cpu(&l, &mut d).unwrap();

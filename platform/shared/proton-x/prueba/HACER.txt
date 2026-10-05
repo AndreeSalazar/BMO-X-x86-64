@@ -2252,3 +2252,48 @@ donde esta el cuadro cercano, y el lejano sale si y solo si el cercano NO
 lo tapaba en el anterior, con los colores exactos; probado que dice NO sin
 predicacion y con la consulta siempre VISIBLE). La cuenta exacta de lo que
 pasa, en la trama: `src/pruebas_pixeles.rs`.
+
+instancias_vs.dxil, instancias_id.dxil, instancias_ps.dxil -- los de instancias.exe (05-10)
+
+N5.19: `instancias.hlsl` (aqui al lado): VSInst (la esquina por vertice, el
+sitio, el color y la fila por instancia, y SV_InstanceID en el verde),
+VSId (sin entradas: un rectangulo de SV_VertexID, una banda por instancia)
+y PSColor. Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T vs_6_0 -E VSInst -Fo instancias_vs.dxil instancias.hlsl
+   dxc -T vs_6_0 -E VSId -Fo instancias_id.dxil instancias.hlsl
+   dxc -T ps_6_0 -E PSColor -Fo instancias_ps.dxil instancias.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   8c5ff0fb677adeaa5b29360306d1cd0a206ee081bd8b822e75bb421be7ad9258  instancias_vs.dxil
+   f246c6b05e38e3056ede5f34f6b914308d51d576370a983cd096d06c20b8ed1b  instancias_id.dxil
+   a36007209f2f7294d05dc8e1fedf8def928b8cf22d74972dcee9ac3ccc5b2245  instancias_ps.dxil
+
+Van DENTRO de instancias.exe.
+
+instancias.exe -- N5.19: las INSTANCIAS de D3D12, juzgadas (05-10)
+
+NUESTRO, no de Microsoft: `instancias.cpp` (aqui al lado), de consola, con
+los tres .dxil dentro (`.incbin`). En un destino de 64 x 64: A,
+DrawIndexedInstanced(6, 6, 0, 0, 2) con TRES buferes de vertices (la
+esquina por vertice; el sitio y el color por instancia con StepRate 1; la
+fila por instancia con StepRate 2); B, DrawInstanced(6, 2, 0, 5) SIN
+bufer de vertices (IASetVertexBuffers con NULL). Compara el destino con su
+cuenta, pixel a pixel (cada borde en un borde de pixel, cada color k /
+255). Dice `bien` 3 veces y sale con el numero de fallos; en Windows dice
+lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con instancias.cpp y los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c instancias.cpp -o instancias.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o instancias.exe instancias.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   d165c708d8bfe2f7c48a261d61f59f24adcc930aac79f29520733db08f6cdfbb  instancias.exe
+
+El banco (`tests/corre/muestras.rs`, n5_19): los 3 `bien` y sale con 0.
+Probado que dice NO: sin el bucle de instancias (180 pixeles distintos en
+A) y sin el StepRate (252).

@@ -84,7 +84,11 @@ pub(crate) fn registrar(en: &Enlace) {
     // Un sombreador que MUESTREA una textura no se traduce todavia: el PSO
     // entero va por el interprete (el muestreo, `bmo_proton_x::textura`).
     let (Some(cv), Some(cp)) = (nativo::compilar(&en.vs), nativo::compilar(&en.ps)) else {
-        aviso("un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)");
+        // N5.19 (05-10): el motivo de VERDAD (antes decia "texturas" siempre).
+        match nativo::por_que_no(&en.vs).or_else(|| nativo::por_que_no(&en.ps)) {
+            Some("muestrea una textura") | None => aviso("un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)"),
+            Some(m) => aviso(&alloc::format!("un PSO cuyo sombreador {m}: sus sombreadores se interpretan (el codigo nativo aun no lo sabe)")),
+        }
         return;
     };
     let vs = agregar(e, &cv);

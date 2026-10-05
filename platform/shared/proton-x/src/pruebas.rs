@@ -579,7 +579,7 @@ fn cubo_por_la_casa(f: u32) -> (Vec<u32>, trama::Cuenta) {
 pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32, z: bool, descarte: u32) -> (Vec<u32>, trama::Cuenta) {
     use crate::lote::{self, ElementoIa, Lote, Topologia};
     let (vs, ps) = (dxil::leer(vs).unwrap(), dxil::leer(ps).unwrap());
-    let e = |s: &str, formato, desde| ElementoIa { semantica: s.into(), indice: 0, formato, ranura: 0, desde };
+    let e = |s: &str, formato, desde| ElementoIa { semantica: s.into(), indice: 0, formato, ranura: 0, desde, por_instancia: None };
     let entradas = [e("POSITION", 6, 0), e("NORMAL", 6, 12), e("COLOR", 2, 24)];
     let enlace = lote::enlazar(&vs, &ps, &entradas).unwrap();
     let vertices: Vec<u8> = bmo_cubo::vertices().iter().flat_map(|v| v.pos.iter().chain(&v.normal).chain(&v.color).flat_map(|x| x.to_le_bytes())).collect();
@@ -589,7 +589,7 @@ pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32, z: bool, descarte: u32) -> 
     let cb = lote::juntar_constantes(&enlace.constantes, |_| Some(&b0[..]));
     let (w, h) = (bmo_cubo::referencia::ANCHO, bmo_cubo::referencia::ALTO);
     let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte, antihorario: false, profundidad: z.then_some(trama::Profundidad { funcion: 2, escribir: true }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
-    let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false };
+    let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0 };
     let mut px = vec![bmo_cubo::FONDO; (w * h) as usize];
     let mut zs = vec![1.0f32.to_bits(); (w * h) as usize];
     let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true, z: z.then_some(&mut zs[..]), cadena: false, otros: &mut [] };
@@ -856,7 +856,7 @@ fn dormir_cede_hasta_la_hora() {
 fn un_lote_sin_input_layout_para_una_semantica_no_se_enlaza() {
     use crate::lote::{self, ElementoIa};
     let (vs, ps) = (dxil::leer(CUBO_VS).unwrap(), dxil::leer(CUBO_PS).unwrap());
-    let sin_color = [ElementoIa { semantica: "POSITION".into(), indice: 0, formato: 6, ranura: 0, desde: 0 }, ElementoIa { semantica: "NORMAL".into(), indice: 0, formato: 6, ranura: 0, desde: 12 }];
+    let sin_color = [ElementoIa { semantica: "POSITION".into(), indice: 0, formato: 6, ranura: 0, desde: 0, por_instancia: None }, ElementoIa { semantica: "NORMAL".into(), indice: 0, formato: 6, ranura: 0, desde: 12, por_instancia: None }];
     assert_eq!(lote::enlazar(&vs, &ps, &sin_color).err().as_deref(), Some("el sombreador de vertices lee COLOR0 y el input layout no lo da"));
     assert_eq!(lote::triangulos(&[0, 1, 2, 3], lote::Topologia::Tira), vec![[0, 1, 2], [2, 1, 3]], "en la tira, el impar se da la vuelta");
 }

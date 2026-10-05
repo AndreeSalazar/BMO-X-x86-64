@@ -22,7 +22,7 @@ fn el_enlace_da_a_cada_espacio_su_ranura() {
     use crate::lote::{self, ElementoIa};
     use crate::textura::{Direccion, Filtro, Muestreador, Recursos, Textura};
     let (vs, ps) = (dxil::leer(TEXTURA_VS).unwrap(), dxil::leer(ESPACIOS_PS).unwrap());
-    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde, por_instancia: None };
     let en = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]).unwrap();
     let l = |espacio, registro| Lugar { espacio, registro, vista: VISTA_PIXELES };
     let mut t = en.ranuras.texturas.clone();
@@ -99,7 +99,7 @@ fn el_enlace_aplana_los_cbuffers_que_no_son_b0() {
     use crate::dxil::programa::Lugar;
     use crate::lote::{self, Bloque, ElementoIa};
     let (vs, ps) = (dxil::leer(TEXTURA_VS).unwrap(), dxil::leer(CBUFFERS_PS).unwrap());
-    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde, por_instancia: None };
     let en = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]).unwrap();
     let l = |espacio, registro| Lugar { espacio, registro, vista: VISTA_PIXELES };
     let filas: Vec<(Lugar, u16)> = en.ranuras.cbuffers.iter().zip(&en.constantes).map(|(&x, b)| (x, b.filas)).collect();
@@ -389,7 +389,7 @@ fn un_array_de_texturas_con_el_registro_calculado_lee_la_de_su_indice() {
     use crate::lote::{self, ElementoIa};
     use crate::textura::{Dinamicas, Direccion, Filtro, Muestreador, Recursos, Textura};
     let (vs, ps) = (dxil::leer(TEXTURA_VS).unwrap(), dxil::leer(INDICE_PS).unwrap());
-    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde };
+    let e = |s: &str, desde| ElementoIa { semantica: s.into(), indice: 0, formato: 2, ranura: 0, desde, por_instancia: None };
     let en = lote::enlazar(&vs, &ps, &[e("POSITION", 0), e("TEXCOORD", 16)]).unwrap();
     let l = |espacio, registro| Lugar { espacio, registro, vista: VISTA_PIXELES };
     assert!(en.ranuras.texturas.is_empty(), "ninguna textura fija: {:?}", en.ranuras.texturas);

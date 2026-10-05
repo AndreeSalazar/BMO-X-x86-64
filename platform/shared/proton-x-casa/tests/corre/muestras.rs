@@ -520,6 +520,26 @@ fn e2_3a_el_computo_con_memoria_compartida_y_barrera_da_los_bits_de_la_cuenta() 
     assert!(texto.ends_with("computo.exe: el computo de D3D12 es el de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
+/// **N5.19, las INSTANCIAS** (05-10): `instancias.exe` (`prueba/instancias.cpp`,
+/// de consola) dibuja seis instancias con TRES buferes de vertices (la
+/// esquina por vertice; el sitio, el color y la fila por instancia, con
+/// StepRate 1 y 2, desde la instancia 2) y dos sin bufer de vertices
+/// (SV_VertexID, desde la 5), y compara el destino de 64 x 64 con su
+/// cuenta, pixel a pixel. El juez es el `.exe`: en Windows dice lo mismo.
+#[test]
+fn n5_19_las_instancias_y_las_ranuras_de_vertices_dan_los_pixeles_de_la_cuenta() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, INSTANCIAS, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Un aviso, y es el que tiene que ser: SV_InstanceID a float es una
+    // cuenta ENTERA, y el traductor a x86-64 de los de dibujo aun no las sabe.
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 3, "{texto}");
+    assert!(texto.ends_with("instancias.exe: las instancias de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
 /// **E2.3b -- D3D12nBodyGravity** (05-10, `Samples/Desktop`, MIT): el
 /// COMPUTO de verdad (10.000 particulas, la barrera DENTRO de un bucle, en
 /// SU hilo y su cola de computo, con vallas entre las dos colas) y un

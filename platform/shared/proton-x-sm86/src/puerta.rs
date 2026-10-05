@@ -299,6 +299,10 @@ impl Puerta {
         if l.oclusion {
             return Err(String::from("hay una consulta de oclusion abierta: la 3060 no cuenta los pixeles que pasan todavia"));
         }
+        // N5.19: la receta lleva UNA instancia y los elementos por vertice.
+        if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {
+            return Err(String::from("el lote dibuja varias instancias o lee datos por instancia: la 3060 no lo sabe todavia"));
+        }
         // N5.11: la 3060 aun no mezcla (ni enmascara): ese lote, por la CPU.
         if !l.reglas.mezcla.trivial() {
             return Err(String::from("el lote mezcla (o escribe solo algunos canales): la 3060 no lo sabe todavia"));

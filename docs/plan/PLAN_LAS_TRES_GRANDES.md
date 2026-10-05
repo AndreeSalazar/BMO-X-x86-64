@@ -1010,6 +1010,21 @@ La ESCALERA de juegos (por que DX9 y Left 4 Dead 2 no) esta en su seccion
   registro), la adyacencia, emitir puntos o lineas, varios flujos y el
   stream output, `SV_PrimitiveID` y las instancias de GS, y la 3060 (va por
   la CPU).
+- [x] **N5.19 -- las INSTANCIAS y los buferes de vertices de varias
+  ranuras** (05-10): el follaje, la gente, los coches. Antes un
+  `DrawInstanced` dibujaba UNA y solo se leia la ranura 0. Ahora: las 16
+  ranuras de `IASetVertexBuffers` (y quitarlas con NULL), los elementos POR
+  INSTANCIA con su `InstanceDataStepRate` (0: todas leen el primero),
+  `StartInstanceLocation` (mueve lo que se lee por instancia;
+  SV_InstanceID cuenta desde 0), los argumentos de ExecuteIndirect y los
+  bundles, y dibujar SIN bufer de vertices (los que solo leen
+  SV_VertexID: el triangulo de pantalla completa del post-proceso). En el
+  crate, `lote::Flujo` y `Lote::instancias`; en la casa, `Estado::vertices`
+  con sus 16. Juez: `prueba/instancias.cpp` (NUESTRO, de consola), en el
+  banco (`tests/corre/muestras.rs`) pixel a pixel; probado que dice NO sin
+  el bucle de instancias y sin el StepRate. Queda: la 3060 (esos lotes van
+  por la CPU) y que el traductor a x86-64 de los de dibujo sepa las cuentas
+  enteras (SV_InstanceID a float las tiene: hoy se interpretan).
 - [ ] **N6.1 -- a la 3060 lo que hoy va a la CPU**: SV_VertexID y
   SV_InstanceID, los formatos de vertice que no son float de 32 bits
   (`proton-x-sm86/src/pso.rs`, `NoVa::Entrada`: el pegamento los convierte

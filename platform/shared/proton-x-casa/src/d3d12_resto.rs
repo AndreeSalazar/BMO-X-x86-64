@@ -541,8 +541,10 @@ fn encima(base: &Estado, bundle: &Estado) -> Estado {
     if bundle.topologia != 0 {
         e.topologia = bundle.topologia;
     }
-    if bundle.vertices.va != 0 {
-        e.vertices = bundle.vertices;
+    for (v, b) in e.vertices.iter_mut().zip(&bundle.vertices) {
+        if b.va != 0 {
+            *v = *b;
+        }
     }
     if bundle.indices.va != 0 {
         e.indices = bundle.indices;
@@ -578,13 +580,13 @@ extern "win64" fn execute_bundle(this: u64, b: u64) {
     }
     for o in &bundle.ordenes {
         let o = match o {
-            Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado } => {
+            Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado, primera_instancia } => {
                 let mut e = encima(&l.estado, estado);
                 // Lo que un bundle no puede poner nunca.
                 e.viewport = l.estado.viewport;
                 e.tijera = l.estado.tijera;
                 (e.rtv, e.rtv_otros, e.dsv, e.rtv_sub, e.dsv_sub) = (l.estado.rtv, l.estado.rtv_otros, l.estado.dsv, l.estado.rtv_sub, l.estado.dsv_sub);
-                Orden::Dibujar { estado: e, cuantos: *cuantos, instancias: *instancias, primero: *primero, base: *base, indexado: *indexado }
+                Orden::Dibujar { estado: e, cuantos: *cuantos, instancias: *instancias, primero: *primero, base: *base, indexado: *indexado, primera_instancia: *primera_instancia }
             }
             // Limpiar, copiar y las consultas no se graban en un bundle.
             _ => {
@@ -797,17 +799,17 @@ fn indirecto(estado: &Estado, firma: u64, max: u32, args: u64, args_off: u64, cu
                 return;
             };
             match a[0] {
-                ARG_DRAW => crate::tuberia::ejecutar_dibujo(&e, v[0], v[1], v[2], 0, false),
-                ARG_DRAW_INDEXED => crate::tuberia::ejecutar_dibujo(&e, v[0], v[1], v[2], v[3] as i32, true),
+                ARG_DRAW => crate::tuberia::ejecutar_dibujo(&e, v[0], v[1], v[2], 0, false, v[3]),
+                ARG_DRAW_INDEXED => crate::tuberia::ejecutar_dibujo(&e, v[0], v[1], v[2], v[3] as i32, true, v[4]),
                 ARG_DISPATCH => crate::computo::despachar(&e, [v[0], v[1], v[2]]),
                 ARG_VERTEX_BUFFER_VIEW | ARG_INDEX_BUFFER_VIEW => {
                     let b: Vec<u8> = v.iter().flat_map(|x| x.to_le_bytes()).collect();
                     // SAFETY: 16 bytes de una vista (direccion, bytes, paso o formato).
                     let vista = unsafe { crate::d3d12::vista(b.as_ptr()) };
-                    match (a[0], a[1]) {
+                    match (a[0], e.vertices.get_mut(a[1] as usize)) {
                         (ARG_INDEX_BUFFER_VIEW, _) => e.indices = vista,
-                        (_, 0) => e.vertices = vista,
-                        _ => aviso("ExecuteIndirect: una vista de vertices fuera de la ranura 0: todavia solo una"),
+                        (_, Some(r)) => *r = vista,
+                        (_, None) => aviso("ExecuteIndirect: una vista de vertices mas alla de la ranura 15: en Windows es un error"),
                     }
                 }
                 ARG_CONSTANT => {

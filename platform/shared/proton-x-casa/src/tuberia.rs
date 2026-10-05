@@ -330,7 +330,12 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
         let r = (ranura as usize).min(15);
         let desde = if desde == APPEND_ALIGNED { siguiente[r] } else { desde };
         siguiente[r] = desde + bytes;
-        entradas.push(EntradaIa { semantica: cadena_c(u64_de(e, 0) as *const u8), indice: u32_de(e, 8), formato, ranura, desde });
+        // N5.19: InputSlotClass +24 (1, POR INSTANCIA) e InstanceDataStepRate +28.
+        let por_instancia = (u32_de(e, 24) == 1).then(|| u32_de(e, 28));
+        if ranura > 15 {
+            return Err("un input layout con una ranura mas alla de la 15");
+        }
+        entradas.push(EntradaIa { semantica: cadena_c(u64_de(e, 0) as *const u8), indice: u32_de(e, 8), formato, ranura, desde, por_instancia });
     }
     // N5.8 (03-10): hasta 8 render targets (el G-buffer); N5.12: ninguno es
     // un dibujo de solo profundidad (las sombras, el prepaso de Z).
@@ -599,7 +604,8 @@ pub struct Estado {
     /// N5.2), las de todos sus parametros una tras otra: ver `cbuffers`.
     pub raiz32: crate::cbuffers::Palabras,
     pub topologia: u32,
-    pub vertices: Vista,
+    /// N5.19 (05-10): los buferes de vertices de las 16 ranuras.
+    pub vertices: [Vista; 16],
     pub indices: Vista,
     pub viewport: [f32; 6],
     pub tijera: [i32; 4],
@@ -650,7 +656,11 @@ pub fn dibujos() -> Vec<Dibujo> {
 }
 
 /// **Un dibujo, al ejecutarse**: todo lo que veria, leido y comprobado.
-pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero: u32, base_vertice: i32, indexado: bool) {
+pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero: u32, base_vertice: i32, indexado: bool, primera_instancia: u32) {
+    // D3D12: cero instancias (o cero vertices) no dibuja nada.
+    if instancias == 0 || cuantos == 0 {
+        return;
+    }
     if e.pso == 0 {
         aviso("Draw sin PSO: no se dibuja nada");
         return;
@@ -692,7 +702,7 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
             return;
         }
     }
-    pintar(e, pso, cuantos, instancias, primero, base_vertice, indexado);
+    pintar(e, pso, cuantos, instancias, primero, base_vertice, indexado, primera_instancia);
     // SAFETY: un hilo.
     let v = unsafe { &mut *DIBUJOS.0.get() };
     // Se guardan los primeros: en Ring 3 el monton solo avanza (ver
@@ -716,9 +726,9 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
         instancias,
     };
     // Los vertices: todo el bufer de la ranura 0, a traves del layout.
-    let paso = e.vertices.paso_o_formato as usize;
+    let paso = e.vertices[0].paso_o_formato as usize;
     if paso > 0 {
-        let Some(vb) = resolver(e.vertices.va, e.vertices.bytes as usize) else {
+        let Some(vb) = resolver(e.vertices[0].va, e.vertices[0].bytes as usize) else {
             aviso("IASetVertexBuffers: una direccion que no es de ningun bufer de la casa");
             return;
         };
@@ -781,7 +791,8 @@ const LINESTRIP: u32 = 3;
 /// piden los indices (una vez cada uno), los triangulos por la trama, y el de
 /// pixeles en cada pixel que cubren, sobre el render target. Lo que no sabe
 /// hacer todavia lo dice y NO pinta: nunca un dibujo a medias callado.
-fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool) {
+#[allow(clippy::too_many_arguments)]
+fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool, primera_instancia: u32) {
     let en = match &pso.compilado.enlace {
         Ok(en) => en,
         Err(m) => {
@@ -796,9 +807,6 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             return;
         }
     };
-    if instancias > 1 {
-        aviso("Draw con varias instancias: se dibuja una (no hay datos por instancia todavia)");
-    }
     if e.tijera == [0; 4] {
         aviso("Draw sin RSSetScissorRects: en D3D12 la tijera siempre corta, y vacia no deja pintar nada");
         return;
@@ -871,12 +879,24 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             return;
         }
     }
-    // Los vertices: el bufer de la ranura 0 entero.
-    let paso = e.vertices.paso_o_formato as usize;
-    let Some(vb) = (paso > 0).then(|| resolver(e.vertices.va, e.vertices.bytes as usize)).flatten() else {
-        aviso("Draw sin un bufer de vertices de la casa en la ranura 0");
-        return;
-    };
+    // Los vertices (N5.19): el bufer entero de cada ranura que el input
+    // layout lee. Sin input layout (los que leen SV_VertexID), ninguno.
+    let mut flujos = [bmo_proton_x::lote::Flujo::default(); 16];
+    for el in &pso.entradas {
+        let r = el.ranura as usize;
+        if !flujos[r].bytes.is_empty() {
+            continue;
+        }
+        let v = e.vertices[r];
+        match (v.va != 0).then(|| resolver(v.va, v.bytes as usize)).flatten() {
+            Some(b) => flujos[r] = bmo_proton_x::lote::Flujo { bytes: b, paso: v.paso_o_formato as usize },
+            None => {
+                aviso(&format!("Draw: el input layout lee la ranura {r} y no tiene un bufer de vertices de la casa"));
+                return;
+            }
+        }
+    }
+    let (vb, paso) = (flujos[0].bytes, flujos[0].paso);
     // Las CONSTANTES (N5.2): cada cbuffer que leen, de la raiz o de una
     // tabla, en su sitio del bloque (`cbuffers.rs`).
     // SAFETY: un RootSignature de la casa.
@@ -925,6 +945,9 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         cb: &cb,
         reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad, mezcla, z_del_sombreador: false },
         oclusion: crate::consultas::hay_abierta(),
+        otros: &flujos[1..],
+        instancias,
+        primera_instancia,
     };
     // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.
     let z = match (pso.profundidad, e.dsv) {

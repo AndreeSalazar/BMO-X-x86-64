@@ -174,10 +174,6 @@ Cyberpunk:
    un UAV de TEXTURA (RWTexture), un UAV en el de      N5.3b/c
    pixeles, ClearUnorderedAccessView y los SRV/UAV
    de la raiz: el sombreador no los ve
-   Draw con varias INSTANCIAS: dibuja una              (nueva) el follaje, la
-                                                            gente, los coches
-   IASetVertexBuffers fuera de la ranura 0             (nueva) las mallas con
-                                                            varios buferes
    triangulos que cruzan el plano CERCANO: no se       (nueva) el recorte; en 3D
    pintan (sin recortar)                                    de cerca, falta suelo
    render targets de floats (R32) y HDR de 16 bits     (nueva) se pintan en 8

@@ -51,7 +51,8 @@ pub enum Fuente {
     Ia(usize),
     /// SV_VertexID: el numero del vertice (el id, con el vertice base).
     Vertice,
-    /// SV_InstanceID: el numero de la instancia (el lote dibuja la 0).
+    /// SV_InstanceID: el numero de la instancia, desde 0 (N5.19: sin
+    /// StartInstanceLocation).
     Instancia,
 }
 
@@ -63,6 +64,19 @@ pub struct ElementoIa {
     pub formato: u32,
     pub ranura: u32,
     pub desde: u32,
+    /// N5.19 (05-10): `None`, un elemento POR VERTICE; `Some(k)`, POR
+    /// INSTANCIA (`D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA`): avanza
+    /// cada `k` instancias (InstanceDataStepRate; con 0, todas leen el
+    /// primero).
+    pub por_instancia: Option<u32>,
+}
+
+/// **El bufer de vertices de otra ranura** (N5.19): sus bytes y su paso
+/// (`D3D12_VERTEX_BUFFER_VIEW`). Sin bufer, `bytes` va vacio.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Flujo<'a> {
+    pub bytes: &'a [u8],
+    pub paso: usize,
 }
 
 /// Cuantos componentes trae un formato de vertice (1 si no es uno).
@@ -345,6 +359,49 @@ pub struct Lote<'a> {
     /// tiene que contar los pixeles que pasan ([`trama::Cuenta::pasan`]).
     /// La trama de la CPU los cuenta siempre; la 3060, aun no.
     pub oclusion: bool,
+    /// N5.19 (05-10): los buferes de vertices de las ranuras 1..16
+    /// (`otros[r - 1]` es la ranura `r`); la 0 es `vertices` y `paso`.
+    pub otros: &'a [Flujo<'a>],
+    /// N5.19: cuantas instancias se dibujan (1, lo de siempre) y la primera
+    /// (StartInstanceLocation): solo mueve lo que leen los elementos POR
+    /// INSTANCIA; SV_InstanceID cuenta desde 0, como en D3D12.
+    pub instancias: u32,
+    pub primera_instancia: u32,
+}
+
+impl Lote<'_> {
+    /// El bufer de la ranura `r` (0..16): sus bytes y su paso.
+    pub fn flujo(&self, r: u32) -> Flujo<'_> {
+        if r == 0 {
+            Flujo { bytes: self.vertices, paso: self.paso }
+        } else {
+            self.otros.get(r as usize - 1).copied().unwrap_or_default()
+        }
+    }
+
+    /// Lo que el lote no puede dibujar antes de empezar (N5.19): un elemento
+    /// que lee una ranura SIN bufer, o un id que pasa de un bufer que se lee
+    /// por vertice. Si no, cuantos vertices distintos puede haber (el mayor
+    /// id + 1).
+    fn comprobar(&self) -> Result<usize, NoDibuja> {
+        let mut tope = usize::MAX;
+        for &f in &self.enlace.desde_ia {
+            let Fuente::Ia(i) = f else { continue };
+            let el = &self.entradas[i];
+            let fl = self.flujo(el.ranura);
+            if fl.bytes.is_empty() {
+                return Err(NoDibuja::SinVertices);
+            }
+            if el.por_instancia.is_none() && fl.paso > 0 {
+                tope = tope.min(fl.bytes.len() / fl.paso);
+            }
+        }
+        let n = self.ids.iter().max().map_or(0, |&m| m as usize + 1);
+        match self.ids.iter().find(|&&id| id as usize >= tope) {
+            Some(&id) => Err(NoDibuja::IndiceFuera(id)),
+            None => Ok(n),
+        }
+    }
 }
 
 /// Por que un ejecutor no dibujo un lote.
@@ -376,21 +433,31 @@ pub type Corre<'a> = &'a mut dyn FnMut(&[[f32; 4]], &mut [[f32; 4]]);
 /// lo tiro, N5.7).
 pub type CorrePs<'a> = &'a mut dyn FnMut(&[[f32; 4]], &mut [[f32; 4]]) -> bool;
 
-/// **Una entrada del de vertices** para el vertice `id` (de bytes `v`): el
-/// elemento del layout con su formato (`formato_ia`), o el numero de
-/// vertice o de instancia, como ENTERO en los bits del registro.
-pub fn entrada(l: &Lote, fuente: Fuente, id: u32, v: &[u8]) -> [f32; 4] {
+/// **Una entrada del de vertices** para el vertice `id` de la instancia
+/// `instancia`: el elemento del layout con su formato (`formato_ia`), de SU
+/// ranura (N5.19) y en el elemento que le toca (por vertice o por
+/// instancia), o el numero de vertice o de instancia, como ENTERO en los
+/// bits del registro. Lo que cae fuera del bufer se lee como ceros, como en
+/// D3D12.
+pub fn entrada(l: &Lote, fuente: Fuente, id: u32, instancia: u32) -> [f32; 4] {
     let entero = |n: u32| [f32::from_bits(n), 0.0, 0.0, 0.0];
     match fuente {
         Fuente::Vertice => entero(id),
-        Fuente::Instancia => entero(0),
+        Fuente::Instancia => entero(instancia),
         Fuente::Ia(i) => {
             let el = &l.entradas[i];
-            // Solo la ranura 0 llega al lote: lo de otra, como si no hubiera.
-            if el.ranura != 0 {
-                return [0.0, 0.0, 0.0, 1.0];
+            let f = l.flujo(el.ranura);
+            let n = match el.por_instancia {
+                None => id as usize,
+                Some(0) => l.primera_instancia as usize,
+                Some(k) => l.primera_instancia as usize + (instancia / k) as usize,
+            };
+            let desde = n * f.paso + el.desde as usize;
+            let mide = crate::formato_ia::forma(el.formato).map_or(0, |x| x.bytes as usize);
+            match f.bytes.get(desde..desde + mide) {
+                Some(v) => crate::formato_ia::leer(el.formato, v),
+                None => [0.0; 4],
             }
-            crate::formato_ia::leer(el.formato, v.get(el.desde as usize..).unwrap_or(&[]))
         }
     }
 }
@@ -419,39 +486,39 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs
     if let (Some(b), Some(z)) = (l.limpiar_z, destino.z.as_mut()) {
         z.fill(b);
     }
-    if l.paso == 0 {
-        return Err(NoDibuja::SinVertices);
-    }
+    let n_vertices = l.comprobar()?;
     let en = l.enlace;
     if let Some(g) = &en.gs {
-        return en_cpu_gs(l, destino, vs, ps, g);
+        return en_cpu_gs(l, destino, vs, ps, g, n_vertices);
     }
-    let n_vertices = l.vertices.len() / l.paso;
-    let mut hecho: Vec<Option<usize>> = vec![None; n_vertices];
     let mut sombreados: Vec<trama::Sombreado> = Vec::new();
     let mut ent = vec![[0.0f32, 0.0, 0.0, 1.0]; en.desde_ia.len().max(en.vs.entradas)];
     let mut sal = vec![[0.0f32; 4]; en.vs.salidas];
     let tris = triangulos(l.ids, l.topologia);
-    let mut locales = Vec::with_capacity(tris.len());
-    for t in &tris {
-        let mut local = [0usize; 3];
-        for (k, &id) in t.iter().enumerate() {
-            let ranura = hecho.get_mut(id as usize).ok_or(NoDibuja::IndiceFuera(id))?;
-            if let Some(i) = *ranura {
-                local[k] = i;
-                continue;
+    let mut locales = Vec::with_capacity(tris.len() * l.instancias.max(1) as usize);
+    // N5.19: instancia a instancia, en orden (D3D12 las pinta asi): el de
+    // vertices una vez por vertice distinto DE CADA UNA.
+    for inst in 0..l.instancias {
+        let mut hecho: Vec<Option<usize>> = vec![None; n_vertices];
+        for t in &tris {
+            let mut local = [0usize; 3];
+            for (k, &id) in t.iter().enumerate() {
+                let ranura = &mut hecho[id as usize];
+                if let Some(i) = *ranura {
+                    local[k] = i;
+                    continue;
+                }
+                for (x, &fuente) in ent.iter_mut().zip(&en.desde_ia) {
+                    *x = entrada(l, fuente, id, inst);
+                }
+                vs(&ent, &mut sal);
+                let atributos = en.desde_vs.iter().map(|o| o.and_then(|k| sal.get(k).copied()).unwrap_or([0.0; 4])).collect();
+                sombreados.push(trama::Sombreado { pos: sal[en.posicion], atributos });
+                *ranura = Some(sombreados.len() - 1);
+                local[k] = sombreados.len() - 1;
             }
-            let v = &l.vertices[id as usize * l.paso..(id as usize + 1) * l.paso];
-            for (x, &fuente) in ent.iter_mut().zip(&en.desde_ia) {
-                *x = entrada(l, fuente, id, v);
-            }
-            vs(&ent, &mut sal);
-            let atributos = en.desde_vs.iter().map(|o| o.and_then(|k| sal.get(k).copied()).unwrap_or([0.0; 4])).collect();
-            sombreados.push(trama::Sombreado { pos: sal[en.posicion], atributos });
-            *ranura = Some(sombreados.len() - 1);
-            local[k] = sombreados.len() - 1;
+            locales.push(local);
         }
-        locales.push(local);
     }
     // N5.8: cada salida del de pixeles, a su render target.
     let mut sal_ps = vec![[0.0f32; 4]; en.ps.salidas.max(en.objetivos.len())];
@@ -471,11 +538,9 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs
 /// GS una vez por primitiva (punto, linea o triangulo, de la topologia del
 /// lote), y sus tiras de triangulos a la trama, con el de pixeles. El GS va
 /// siempre por el interprete.
-fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: &EnlaceGs) -> Result<trama::Cuenta, NoDibuja> {
+fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: &EnlaceGs, n_vertices: usize) -> Result<trama::Cuenta, NoDibuja> {
     let en = l.enlace;
-    let n_vertices = l.vertices.len() / l.paso;
     let por_vs = en.vs.salidas.max(1);
-    let mut hecho: Vec<Option<usize>> = vec![None; n_vertices];
     let mut salidas_vs: Vec<[f32; 4]> = Vec::new();
     let mut ent = vec![[0.0f32, 0.0, 0.0, 1.0]; en.desde_ia.len().max(en.vs.entradas)];
     let mut sal = vec![[0.0f32; 4]; por_vs];
@@ -484,6 +549,7 @@ fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: 
     let Some(prims) = primitivas(l.ids, l.topologia, g.info.vertices()) else {
         return Ok(trama::Cuenta::default());
     };
+    let mut hecho: Vec<Option<usize>> = vec![None; n_vertices];
     let paso_gs = g.programa.entradas;
     let mut ent_gs = vec![[0.0f32; 4]; paso_gs * g.info.vertices()];
     let mut sal_gs = vec![[0.0f32; 4]; g.programa.salidas];
@@ -491,35 +557,38 @@ fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: 
     let mut regs = Vec::new();
     let mut sombreados: Vec<trama::Sombreado> = Vec::new();
     let mut locales: Vec<[usize; 3]> = Vec::new();
-    for prim in &prims {
-        for (k, &id) in prim.iter().enumerate() {
-            let ranura = hecho.get_mut(id as usize).ok_or(NoDibuja::IndiceFuera(id))?;
-            let base = match *ranura {
-                Some(b) => b,
-                None => {
-                    let v = &l.vertices[id as usize * l.paso..(id as usize + 1) * l.paso];
-                    for (x, &fuente) in ent.iter_mut().zip(&en.desde_ia) {
-                        *x = entrada(l, fuente, id, v);
+    // N5.19: instancia a instancia, como sin GS.
+    for inst in 0..l.instancias {
+        hecho.fill(None);
+        for prim in &prims {
+                for (k, &id) in prim.iter().enumerate() {
+                    let ranura = &mut hecho[id as usize];
+                    let base = match *ranura {
+                        Some(b) => b,
+                        None => {
+                            for (x, &fuente) in ent.iter_mut().zip(&en.desde_ia) {
+                                *x = entrada(l, fuente, id, inst);
+                            }
+                            vs(&ent, &mut sal);
+                            let b = salidas_vs.len();
+                            salidas_vs.extend_from_slice(&sal);
+                            *ranura = Some(b);
+                            b
+                        }
+                    };
+                    for (j, &o) in g.desde_vs.iter().enumerate().take(paso_gs) {
+                        ent_gs[k * paso_gs + j] = salidas_vs.get(base + o).copied().unwrap_or([0.0; 4]);
                     }
-                    vs(&ent, &mut sal);
-                    let b = salidas_vs.len();
-                    salidas_vs.extend_from_slice(&sal);
-                    *ranura = Some(b);
-                    b
                 }
-            };
-            for (j, &o) in g.desde_vs.iter().enumerate().take(paso_gs) {
-                ent_gs[k * paso_gs + j] = salidas_vs.get(base + o).copied().unwrap_or([0.0; 4]);
-            }
+                sal_gs.fill([0.0; 4]);
+                g.programa.correr_gs(&ent_gs, l.cb, &l.recursos, &mut sal_gs, &mut regs, &mut tiras);
+                let primero = sombreados.len();
+                for v in tiras.vertices.chunks_exact(tiras.salidas.max(1)) {
+                    let atributos = en.desde_vs.iter().map(|o| o.and_then(|k| v.get(k).copied()).unwrap_or([0.0; 4])).collect();
+                    sombreados.push(trama::Sombreado { pos: v[en.posicion], atributos });
+                }
+                locales.extend(tiras.triangulos().into_iter().map(|t| t.map(|i| primero + i as usize)));
         }
-        sal_gs.fill([0.0; 4]);
-        g.programa.correr_gs(&ent_gs, l.cb, &l.recursos, &mut sal_gs, &mut regs, &mut tiras);
-        let primero = sombreados.len();
-        for v in tiras.vertices.chunks_exact(tiras.salidas.max(1)) {
-            let atributos = en.desde_vs.iter().map(|o| o.and_then(|k| v.get(k).copied()).unwrap_or([0.0; 4])).collect();
-            sombreados.push(trama::Sombreado { pos: v[en.posicion], atributos });
-        }
-        locales.extend(tiras.triangulos().into_iter().map(|t| t.map(|i| primero + i as usize)));
     }
     let mut sal_ps = vec![[0.0f32; 4]; en.ps.salidas.max(en.objetivos.len())];
     let reglas = trama::Reglas { z_del_sombreador: en.profundidad_ps.is_some(), ..l.reglas };

@@ -65,7 +65,7 @@ pub(crate) enum Orden {
     Limpiar { recurso: u64, sub: u64, pixel: u32 },
     /// Un dibujo, con el estado de la lista TAL COMO ESTABA al pedirlo. Los
     /// buferes se leen al ejecutarse, como los lee la GPU.
-    Dibujar { estado: Estado, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool },
+    Dibujar { estado: Estado, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool, primera_instancia: u32 },
     /// Una copia de CopyTextureRegion (02-10: cualquier subrecurso, con su
     /// caja; ver `d3d12_texturas`): de una textura a un bufer (leer), de un
     /// bufer a una textura (subir: `UpdateSubresources` de d3dx12), o entre
@@ -625,17 +625,19 @@ extern "win64" fn ia_set_index_buffer(this: u64, v: *const u8) {
     unsafe { lista(this).estado.indices = if v.is_null() { Vista::default() } else { vista(v) } };
 }
 
-/// `D3D12_VERTEX_BUFFER_VIEW` (16 B): direccion +0, bytes +8, paso +12. La
-/// casa dibuja con la ranura 0; las demas se dicen.
+/// `D3D12_VERTEX_BUFFER_VIEW` (16 B): direccion +0, bytes +8, paso +12. N5.19
+/// (05-10): las 16 ranuras, desde `desde`; con `v` nulo, se quitan.
 extern "win64" fn ia_set_vertex_buffers(this: u64, desde: u32, n: u32, v: *const u8) {
-    if desde != 0 || n != 1 {
-        aviso("IASetVertexBuffers fuera de la ranura 0: todavia solo una");
-    }
-    if desde != 0 || n == 0 {
+    if desde as u64 + n as u64 > 16 {
+        aviso("IASetVertexBuffers mas alla de la ranura 15: en Windows es un error, y no se hace");
         return;
     }
     // SAFETY: `this` es una Lista de la casa; `v`, `n` vistas del `.exe` o nula.
-    unsafe { lista(this).estado.vertices = if v.is_null() { Vista::default() } else { vista(v) } };
+    let e = unsafe { &mut lista(this).estado };
+    for i in 0..n as usize {
+        // SAFETY: como arriba: la vista `i` de las `n`.
+        e.vertices[desde as usize + i] = if v.is_null() { Vista::default() } else { unsafe { vista(v.add(16 * i)) } };
+    }
 }
 
 /// Una vista de bufer (de vertices o de indices: la misma forma).
@@ -676,19 +678,19 @@ pub(crate) extern "win64" fn om_set_render_targets(this: u64, n: u32, handles: *
     }
 }
 
-extern "win64" fn draw_instanced(this: u64, vertices: u32, instancias: u32, primero: u32, _primera_instancia: u32) {
-    dibujar(this, vertices, instancias, primero, 0, false);
+extern "win64" fn draw_instanced(this: u64, vertices: u32, instancias: u32, primero: u32, primera_instancia: u32) {
+    dibujar(this, vertices, instancias, primero, 0, false, primera_instancia);
 }
 
-extern "win64" fn draw_indexed_instanced(this: u64, indices: u32, instancias: u32, primero: u32, base: i32, _primera_instancia: u32) {
-    dibujar(this, indices, instancias, primero, base, true);
+extern "win64" fn draw_indexed_instanced(this: u64, indices: u32, instancias: u32, primero: u32, base: i32, primera_instancia: u32) {
+    dibujar(this, indices, instancias, primero, base, true, primera_instancia);
 }
 
-fn dibujar(this: u64, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool) {
+fn dibujar(this: u64, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool, primera_instancia: u32) {
     // SAFETY: `this` es una Lista de la casa.
     let l = unsafe { lista(this) };
     let estado = l.estado.clone();
-    l.ordenes.push(Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado });
+    l.ordenes.push(Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado, primera_instancia });
 }
 
 /// En la CPU no hay caches de la GPU que vaciar ni estados de memoria que
@@ -995,8 +997,8 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
                     Some((px, _, _)) => px.fill(*pixel),
                     None => aviso("ClearRenderTargetView/ClearDepthStencilView de un subrecurso que la textura no tiene"),
                 },
-                Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado } => {
-                    tuberia::ejecutar_dibujo(estado, *cuantos, *instancias, *primero, *base, *indexado);
+                Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado, primera_instancia } => {
+                    tuberia::ejecutar_dibujo(estado, *cuantos, *instancias, *primero, *base, *indexado, *primera_instancia);
                 }
                 Orden::Region(c) => {
                     if let Err(m) = crate::d3d12_texturas::hacer(c) {
