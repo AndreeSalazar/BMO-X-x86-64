@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 67 planes
+# LO QUE FALTA -- las casillas abiertas de los 68 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   610 casillas ABIERTAS en 57 planes
-   478 hechas
+   604 casillas ABIERTAS en 59 planes
+   513 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -90,6 +90,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] F5 -- EL PANEL IZQUIERDO TAMBIEN SE ARMA. Sus secciones como placas
 - [ ] F6 -- LO DATA-DENSE. Graficos circulares (la carga por nucleo, los
 - ... y 16 mas
+
+## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 18 abiertas, 2 hechas
+
+*PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
+
+- [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
+- [ ] E3 -- el compositor al compas de la pantalla
+- [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
+- ... y 15 mas
 
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 
