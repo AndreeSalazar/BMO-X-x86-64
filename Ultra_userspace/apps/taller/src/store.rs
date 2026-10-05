@@ -22,6 +22,7 @@
 //! the package again itself: the generation moved, so the next beat does,
 //! and F1 sees its own change exactly as anyone else's.
 
+use crate::strata::{self, History};
 use bmo_titan_contrato::{sample, Line, NodeId};
 use bmo_titan_lector::explorer::{Lister, Tree};
 use bmo_titan_lector::hang::{self, HangError, Plan, Sink};
@@ -476,7 +477,56 @@ fn tree_block() -> Option<&'static mut Tree> {
     Some(t)
 }
 
-fn generation() -> u64 {
+/// **THE HISTORY for the ESTRATOS tab** (`strata.rs`), in a block of its own
+/// like the tree: ~1.5 KiB that `_start`'s frame cannot spare.
+pub fn history_block() -> Option<&'static mut History> {
+    let block = bmo::Memoria::request(core::mem::size_of::<History>() as u64)?;
+    let p = block.base() as *mut History;
+    core::mem::forget(block);
+    // SAFETY: the block is ours, mapped, page-aligned (more than `History`'s
+    // alignment) and at least `size_of::<History>()` bytes; the value is
+    // written whole before the reference is made; and the block is never
+    // given back (`forget`), so the reference lives as long as F1.
+    unsafe {
+        p.write(History::EMPTY);
+        Some(&mut *p)
+    }
+}
+
+/// Reads the volume's history into `h`. `hist_releer` is the one that touches
+/// the disk -- one block per version -- so F1 asks when the tab opens and when
+/// the generation moved, never per frame. It refreshes the KERNEL's list, not
+/// the F12 panel's cursor: F12 then shows the same truth.
+pub fn read_history(h: &mut History) {
+    h.confirm = None;
+    if bmo::info(bmo::INFO_ES_MONTADO) == 0 {
+        h.absent = true;
+        h.n = 0;
+        return;
+    }
+    h.absent = false;
+    let n = (bmo::estratos::hist_releer() as usize).min(strata::MAX);
+    h.n = n;
+    h.cut = bmo::estratos::hist_recortada();
+    for i in 0..n {
+        let v = &mut h.versions[i];
+        v.when = bmo::estratos::hist_cuando(i as u64);
+        v.who = bmo::estratos::hist_quien(i as u64) as u32;
+        v.name_len = if bmo::estratos::hist_con_nombre(i as u64) { bmo::estratos::hist_nombre(i as u64, &mut v.name).min(strata::NAME_MAX) } else { 0 };
+    }
+    if h.picked.is_some_and(|p| p >= n) {
+        h.picked = None;
+    }
+}
+
+/// RESTABLECER: `volver(steps)` -- ONE new estrato pointing at that root. The
+/// generation moves, so the next beat reads the package and the history
+/// again, exactly as after any other change.
+pub fn restore(steps: usize) -> bool {
+    bmo::estratos::volver(steps as u64) != 0
+}
+
+pub fn generation() -> u64 {
     bmo::info(bmo::INFO_ES_GENERACION)
 }
 

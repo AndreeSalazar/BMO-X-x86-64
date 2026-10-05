@@ -41,11 +41,13 @@ pub enum Tab {
     Sky,
     Elements,
     Guide,
+    /// The volume's history, each version a node (`strata.rs`).
+    Strata,
 }
 
 impl Tab {
     pub fn is_space(self) -> bool {
-        self != Tab::Graph
+        matches!(self, Tab::Sky | Tab::Elements | Tab::Guide)
     }
     /// `t` walks them all.
     pub fn next(self) -> Tab {
@@ -53,7 +55,8 @@ impl Tab {
             Tab::Graph => Tab::Sky,
             Tab::Sky => Tab::Elements,
             Tab::Elements => Tab::Guide,
-            Tab::Guide => Tab::Graph,
+            Tab::Guide => Tab::Strata,
+            Tab::Strata => Tab::Graph,
         }
     }
 }
@@ -61,9 +64,9 @@ impl Tab {
 const TAB_Y: i32 = TOP + 8;
 const TAB_H: i32 = 20;
 /// The first strip, and -- inside ESPACIO -- the second one.
-const MAIN: [(Tab, &[u8], i32); 2] = [(Tab::Graph, b"GRAFO", 64), (Tab::Sky, b"ESPACIO", 80)];
+const MAIN: [(Tab, &[u8], i32); 3] = [(Tab::Graph, b"GRAFO", 64), (Tab::Sky, b"ESPACIO", 80), (Tab::Strata, b"ESTRATOS", 88)];
 const SUB: [(Tab, &[u8], i32); 3] = [(Tab::Sky, b"CIELO 3D", 80), (Tab::Elements, b"ELEMENTOS", 88), (Tab::Guide, b"GUIA", 56)];
-const SUB_X: i32 = LEFT + 12 + 64 + 6 + 80 + 26;
+const SUB_X: i32 = LEFT + 12 + 64 + 6 + 80 + 6 + 88 + 26;
 
 /// Every tab on screen: (tab, label, x, width).
 fn strips(now: Tab, mut f: impl FnMut(Tab, &[u8], i32, i32, bool)) {

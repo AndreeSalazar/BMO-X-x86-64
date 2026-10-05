@@ -8,7 +8,7 @@
 
 ```text
    630 casillas ABIERTAS en 61 planes
-   518 hechas
+   519 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -145,7 +145,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
 
-## [`PLAN_LA_BANDEJA.md`](PLAN_LA_BANDEJA.md) -- 15 abiertas, 3 hechas
+## [`PLAN_LA_BANDEJA.md`](PLAN_LA_BANDEJA.md) -- 15 abiertas, 4 hechas
 
 *PLAN LA BANDEJA -- F2 donde viven TODOS los archivos, F12 el volumen, F1 todo nodos*
 

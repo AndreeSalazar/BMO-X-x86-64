@@ -21,3 +21,6 @@ bmo-pinta = { path = "../../../platform/shared/bmo-pinta" }
 # Reads a package following `mod` (section 8.6). Knows no kernel: the store
 # hands it ESTRATOS through a `Source`.
 bmo-titan-lector = { path = "../../../platform/shared/titan-lector" }
+# The dates of ESTRATOS's versions (the ESTRATOS tab). It lives in drivers/
+# but DECLARES `capa: puro`: it decides dates and touches no port.
+bmo-rtc = { path = "../../../platform/drivers/rtc" }

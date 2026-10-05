@@ -60,6 +60,8 @@ pub const ACCENT: Color = t::ACCENT;
 pub const GOOD: Color = t::GOOD;
 pub const BAD: Color = t::BAD;
 pub const GREY: Color = t::GREY;
+/// ESTRATOS's neon: the volume and each of its versions (the ESTRATOS tab).
+pub const NEON: Color = t::ESTRATOS;
 /// A cable at rest: its soft halo and its bright core.
 pub const CABLE_HALO: Color = t::CABLE_BORDE;
 pub const CABLE_CORE: Color = t::CABLE;
