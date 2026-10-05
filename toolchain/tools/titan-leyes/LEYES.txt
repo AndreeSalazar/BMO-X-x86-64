@@ -126,10 +126,19 @@ L27 una gpu fn es UNA celda de la 3060: f32 y bool, cada valor una copia, siempr
     porque PLAN_EL_CENTAURO D1: funciones elementales, como FORTRAN; un hilo por celda, y lo que un hilo no puede hacer no se escribe
     cumple ejemplo T0090
 
+L28 lo que viaja a la 3060 lo juzga el juez de spirv; si no pasa, el fallo es del escritor y no hay .bex
+    porque TITAN_MAESTRO 7.4: lo que cruza es un FORMATO juzgado por SU juez, no un cerebro compartido; el juez no sabe quien lo escribio
+    cumple test toolchain/lang/titan/emisor-spirv/tests/banco.rs every_gpu_fn_of_the_bench_is_valid_spirv
+
+L29 los resultados de una gpu fn los da el oraculo de spirv, y son los mismos que cuenta el calculo
+    porque una cuenta, dos caminos: si el oraculo y el calculo discreparan, el programa diria dos cosas segun quien lo compile
+    cumple test toolchain/lang/titan/emisor-spirv/src/lib.rs the_oracle_runs_the_gpu_fn_and_the_program_writes_the_same
+
 [SELLO]
-45b5f497dae3ff488bc5c65c3f3f6d39830040d9bb5c1f8234b516a70b009669
+43dc81198a78f61721602f08ffb81905aa98987d1cac78471ace92d921a479e6
 
 [HISTORIA]
 2026-10-04  16a5580ebef2  24 leyes  nacen las 24 leyes de los niveles 0-10, pedidas por el propietario
 2026-10-04  96dd4cf48961  25 leyes  L25: el permiso del Titan.toml (U2), con la casilla G0 de PLAN_EL_CENTAURO
 2026-10-05  45b5f497dae3  27 leyes  L26 y L27: el f32 en la GPU (D2) y la gpu fn de una celda (D1), con G1 de PLAN_EL_CENTAURO
+2026-10-05  43dc81198a78  29 leyes  L28 y L29: el juez de spirv y el oraculo, con G2 y G3 de PLAN_EL_CENTAURO

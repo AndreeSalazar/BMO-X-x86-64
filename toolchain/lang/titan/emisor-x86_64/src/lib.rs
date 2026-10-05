@@ -237,7 +237,14 @@ pub fn build(src: &str, source_name: &str) -> Result<Vec<u8>, Failure> {
 /// names the root.
 pub fn build_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<Vec<u8>, Failure> {
     let source_name = root.rsplit('/').next().unwrap_or(root);
-    let m = bmo_titan_front::lower_package(root, src, read).map_err(Failure::Source)?;
+    // ** Nivel 11 (G3): las celdas de cada gpu fn las calcula el ORACULO de
+    // spirv, sobre el SPIR-V que escribe `bmo-titan-spirv`; el .bex lleva
+    // esos resultados.
+    let mut oracle = bmo_titan_spirv::Oracle::default();
+    let m = bmo_titan_front::lower_package_with(root, src, read, Some(&mut oracle)).map_err(Failure::Source)?;
+    // (G2): y TODAS, tambien las que ninguna ejecucion llamo, escritas y
+    // juzgadas. Si una no pasa, el fallo es del ESCRITOR: no hay .bex.
+    bmo_titan_spirv::kernels(&m).map_err(Failure::Gate)?;
     let manifest = bmo_titan_front::manifest::manifest(&m, source_name);
     let e = emit(&m).map_err(Failure::Gate)?;
     package(&e, &manifest).map_err(Failure::Gate)

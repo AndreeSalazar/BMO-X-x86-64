@@ -28,6 +28,10 @@ bmo-verify = { path = "../../../forge/bmo-verify" }
 # El certificado de los dos jueces: `titan juez` lo lee de un .bex con el
 # mismo codigo que usara la puerta de carga del kernel (J2).
 bmo-titan-contrato = { path = "../../../../platform/shared/titan-contrato" }
+# Su escritor de SPIR-V (nivel 11, G2): `build` no escribe un .bex si una gpu
+# fn no sale como SPIR-V que el juez de spirv acepte; `titan spirv` deja los
+# .spv para mirarlos.
+bmo-titan-spirv = { path = "../emisor-spirv" }
 
 [lib]
 name = "bmo_titan_x86_64"

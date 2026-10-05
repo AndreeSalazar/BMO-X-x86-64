@@ -805,10 +805,18 @@ llamada a una gpu fn queda en el certificado del `.bex` con su linea: es lo que
      CPU en dec)
 ```
 
-[!] Hoy el calculo corre cada hilo en la CPU con f32 IEEE de precision simple
--- cada operacion redondeada una vez, como la 3060 --, y el `.bex` lleva los
-resultados. Que lo escriba SPIR-V y lo juzgue el juez de spirv es G2; que los
-calcule el oraculo de spirv, G3; que corra en la 3060, G4 (Ring 0).
+**Lo que viaja a la 3060 es SPIR-V** (G2): cada gpu fn se escribe como un
+modulo de computo, un hilo por celda y sin saltos (cada `if` es un `OpSelect`:
+una gpu fn es pura, asi que da lo mismo bit a bit), y lo juzga el juez de spirv
+-- el validador y el subconjunto de la 3060 --, que no sabe quien lo escribio.
+Si no pasa, el fallo es del escritor, y no hay `.bex`. `titan spirv
+mezcla/src/main.titan -o carpeta` deja cada gpu fn como `.spv`.
+
+**Los resultados los da el oraculo de spirv** (G3): `titan build` corre cada
+gpu fn en el interprete de spirv, sobre el SPIR-V escrito, y el `.bex` lleva
+esas celdas. `titan check` e `ir` las calculan con f32 de precision simple;
+los dos bancos comparan lo mismo. Que corra en la 3060 de verdad es G4: Ring 0,
+del propietario.
 
 ---
 

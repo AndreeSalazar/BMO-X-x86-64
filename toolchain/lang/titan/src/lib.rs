@@ -95,6 +95,12 @@ pub fn compile_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Opti
 
 /// El paquete hasta la IR juzgada y calculada.
 pub fn lower_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<ir::Module, Message> {
+    lower_package_with(root, src, read, None)
+}
+
+/// `lower_package`, con QUIEN corre las `gpu fn` (nivel 11, G3): el emisor da
+/// el oraculo de spirv; sin el, el calculo corre cada hilo con f32.
+pub fn lower_package_with(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>, device: Option<&mut dyn calc::Device>) -> Result<ir::Module, Message> {
     let pkg = paquete::load(root, src, read)?;
     let mut program = paquete::join(&pkg)?;
     let at = |m: Message| pkg.locate(m);
@@ -104,7 +110,7 @@ pub fn lower_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option
     let mut m = ir::lower(&program);
     m.permissions = pkg.permissions;
     juez::judge(&m).map_err(at)?;
-    calc::fold(&m).map_err(at)
+    calc::fold_with(&m, device).map_err(at)
 }
 
 #[cfg(test)]

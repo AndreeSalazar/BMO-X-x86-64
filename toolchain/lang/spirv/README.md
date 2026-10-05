@@ -5,6 +5,12 @@
 > Naga, rust-gpu y los motores de juego, y BMO-X lo **recibe**. La lista cerro
 > lo que se escribe; esto es lo que llega. Decision del propietario.
 >
+> ** Desde el **2026-10-04** hay UN escritor en casa: TITAN++, para sus `gpu
+> fn` (nivel 11, D5 de [`PLAN_EL_CENTAURO.md`](../../../docs/plan/PLAN_EL_CENTAURO.md);
+> el crate `toolchain/lang/titan/emisor-spirv`). No cambia nada aqui: lo que
+> escribe pasa por este lector, este validador y el subconjunto de la 3060
+> como si viniera de fuera, y si no pasa, el fallo es del escritor.
+>
 > El plan: [`docs/plan/PLAN_EL_SOMBREADOR.md`](../../../docs/plan/PLAN_EL_SOMBREADOR.md).
 > Para que sirve: la pieza 2 de la ruta B1 de
 > [`PLAN_VULKAN.md`](../../../platform/drivers/gpu/rdna4/PLAN_VULKAN.md) --

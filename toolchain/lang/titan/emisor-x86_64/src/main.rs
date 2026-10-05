@@ -10,6 +10,9 @@
 //!                                           compara con lo pedido y lo dado
 //! ```
 //!
+//!    titan spirv FICHERO.titan [-o CARPETA] cada gpu fn, como el modulo SPIR-V
+//!                                           que juzga el juez de spirv (nivel 11)
+//!
 //! Desde el nivel 9 el FICHERO es la raiz de un paquete: `titan check
 //! flota/src/main.titan` sigue sus `mod` desde `flota/`, como F1.
 //!
@@ -28,7 +31,7 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-const USE: &str = "uso: titan check|arbol|ir FICHERO.titan\n     titan build FICHERO.titan [-o SALIDA.bex]\n     titan juez X.bex [--concede screen,input,...]";
+const USE: &str = "uso: titan check|arbol|ir FICHERO.titan\n     titan build FICHERO.titan [-o SALIDA.bex]\n     titan spirv FICHERO.titan [-o CARPETA]\n     titan juez X.bex [--concede screen,input,...]";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -41,7 +44,7 @@ fn main() -> ExitCode {
     }
     let out = match args.get(2).map(String::as_str) {
         None => None,
-        Some("-o") if order == "build" => match args.get(3) {
+        Some("-o") if order == "build" || order == "spirv" => match args.get(3) {
             Some(p) if args.len() == 4 => Some(PathBuf::from(p)),
             _ => return fail("`-o` pide una ruta detras, y nada mas"),
         },
@@ -100,7 +103,32 @@ fn main() -> ExitCode {
             println!("ok: {} bytes -> {}", bex.len(), dst.display());
             ExitCode::SUCCESS
         }
-        other => fail(&format!("no conozco `{}` (check, arbol, ir, build)", other)),
+        "spirv" => {
+            // Nivel 11 (G2): cada gpu fn como el modulo SPIR-V que viaja a la
+            // 3060, ya juzgado. Junto al fuente, o en la carpeta de `-o`.
+            let m = match bmo_titan_front::lower_package(&root, &src, &mut read) {
+                Ok(m) => m,
+                Err(m) => return no(&m, &dir, &root, &src, true),
+            };
+            let kernels = match bmo_titan_spirv::kernels(&m) {
+                Ok(k) => k,
+                Err(why) => return fail(&format!("{} -- es un fallo del escritor de SPIR-V, no de {}", why, file)),
+            };
+            if kernels.is_empty() {
+                println!("{}: no tiene ninguna gpu fn", file);
+                return ExitCode::SUCCESS;
+            }
+            let carpeta = out.unwrap_or_else(|| Path::new(file).parent().map(Path::to_path_buf).unwrap_or_default());
+            for k in kernels {
+                let dst = carpeta.join(format!("{}.spv", k.name.replace('.', "_")));
+                if let Err(e) = std::fs::write(&dst, k.bytes()) {
+                    return fail(&format!("no pude escribir {}: {}", dst.display(), e));
+                }
+                println!("ok: gpu fn {} -> {} ({} palabras; el juez de spirv dijo que si)", k.name, dst.display(), k.words.len());
+            }
+            ExitCode::SUCCESS
+        }
+        other => fail(&format!("no conozco `{}` (check, arbol, ir, build, spirv)", other)),
     }
 }
 

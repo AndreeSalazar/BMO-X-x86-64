@@ -817,6 +817,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-titan-spirv"
+version = "0.1.0"
+dependencies = [
+ "bmo-spirv-front",
+ "bmo-spirv-sm86",
+ "bmo-titan-front",
+]
+
+[[package]]
 name = "bmo-titan-x86-64"
 version = "0.1.0"
 dependencies = [
@@ -824,6 +833,7 @@ dependencies = [
  "bmo-lower",
  "bmo-titan-contrato",
  "bmo-titan-front",
+ "bmo-titan-spirv",
  "bmo-verify",
 ]
 

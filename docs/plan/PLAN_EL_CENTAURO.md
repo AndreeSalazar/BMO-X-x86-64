@@ -132,17 +132,20 @@ que entre.
 - [x] los codigos nuevos, cada uno con su programa roto en `ejemplos/nivel11/`; las leyes L26 y L27
 - Hoy cada hilo lo corre el calculo, en la CPU, con f32 IEEE de precision simple (cada operacion redondeada una vez); G2 y G3 lo llevan a SPIR-V y a su oraculo.
 
-## [ ] G2 -- EL FORMATO: TITAN++ escribe SPIR-V (D5)
+## [x] G2 -- EL FORMATO: TITAN++ escribe SPIR-V (D5) -- HECHO el 05-10
 
-- [ ] `emisor-spirv`: una `gpu fn` -> un modulo GLCompute (buffers de entrada y salida, `GlobalInvocationId`)
-- [ ] el SPIR-V que sale pasa `validate_stage(GLCompute)` y `bmo-spirv-sm86::check` -- si no, es un fallo del ESCRITOR, nunca del programa
-- [ ] el README de spirv dice quien escribe ahora
+- [x] `toolchain/lang/titan/emisor-spirv` (crate `bmo-titan-spirv`): una `gpu fn` -> un modulo SPIR-V 1.0 GLCompute, con la forma que el banco de spirv ya conoce (un buffer por valor y uno para el resultado, `DescriptorSet 0`, `Binding k`; un hilo por celda con `GlobalInvocationId.x`)
+- [x] SIN SALTOS: cada `if` es un `OpSelect` (una gpu fn es pura y sin bucles, asi que el resultado es el mismo bit a bit), y sale codigo en linea recta: lo que el emisor de SASS de la 3060 (E3) ya traduce
+- [x] lo que sale pasa `bmo-spirv-sm86::check` (que corre `validate_stage(GLCompute)` primero); si no, es un fallo del ESCRITOR y `titan build` no escribe el `.bex` (tests de `emisor-spirv`, y su banco `tests/banco.rs` sobre `ejemplos/nivel11/`)
+- [x] `titan spirv FICHERO -o CARPETA` deja cada gpu fn como `.spv`, ya juzgada
+- [x] el README de spirv dice quien escribe ahora
 
-## [ ] G3 -- LOS RESULTADOS: el oraculo al compilar
+## [x] G3 -- LOS RESULTADOS: el oraculo al compilar -- HECHO el 05-10
 
-- [ ] el calculo corre cada aplicacion elemental en el interprete de spirv y guarda las celdas
-- [ ] el banco `nivel11` (paquetes con su `Titan.toml`) corre en el emulador y compara su salida
-- [ ] el metro con dos programas del nivel 11
+- [x] el calculo define QUIEN corre una gpu fn (`calc::Device`, sin nombrar maquina ni formato); `titan build` le da el ORACULO de spirv (`bmo_titan_spirv::Oracle`): las celdas que lleva el `.bex` las calcula el interprete de spirv sobre el SPIR-V escrito (test `the_oracle_runs_the_gpu_fn_and_the_program_writes_the_same`)
+- [x] `check` e `ir` siguen con el f32 del calculo; los dos bancos comparan las mismas lineas `# sale:`, asi que si un dia discreparan, uno lo diria
+- [x] el banco `nivel11` (paquetes con su `Titan.toml`) corre en el emulador y compara su salida
+- [x] el metro con dos programas del nivel 11 (`mezcla`, `activa`)
 
 ## [ ] G4 -- EN LA 3060 (Ring 0, del propietario)
 

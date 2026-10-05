@@ -1877,3 +1877,20 @@ ANFITRION el 04-10** (`gpu`, las 25 palabras):
   spirv (G2), que el oraculo de spirv de los resultados (G3), y correr en la
   3060 (G4, Ring 0 del propietario).
 - 🟡 en el emulador.
+
+**NIVEL 11 -- G2 Y G3: TITAN++ ESCRIBE SPIR-V, Y LO JUZGA Y LO CORRE SPIRV,
+HECHO EN EL ANFITRION el 05-10:**
+
+- **El formato** (7.4 hecho codigo): `toolchain/lang/titan/emisor-spirv`
+  escribe cada gpu fn como un modulo SPIR-V 1.0 de computo -- un hilo por celda,
+  un buffer por valor --, y lo juzgan el validador de spirv y el subconjunto de
+  la 3060, como si viniera de fuera. TITAN++ es el primer escritor de SPIR-V
+  de la casa (D5).
+- **Sin saltos**: cada `if` es un `OpSelect`. Una gpu fn es pura y sin bucles,
+  asi que calcular los dos lados y elegir da el mismo resultado bit a bit, y
+  sale codigo en linea recta -- lo que el emisor de SASS de la 3060 ya traduce.
+- **El oraculo**: el calculo define `Device` (quien corre una gpu fn, sin
+  nombrar maquina); `titan build` le da el interprete de spirv, y el `.bex`
+  lleva SUS celdas. Probado bit a bit contra el f32 de Rust, con NaN y con
+  los dos lados de cada `if`.
+- Lo que falta del nivel 11: G4, correr en la 3060 de verdad (Ring 0).

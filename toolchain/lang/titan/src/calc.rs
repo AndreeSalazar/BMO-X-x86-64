@@ -220,10 +220,26 @@ fn wrong(at: At, want: &Class, got: &Class, types: Defs, what: &str, how: &str) 
     Message::new(Code::WrongType, at.0, at.1, &format!("aqui va {}, y llega {}", want.name(types), got.name(types)), what, how)
 }
 
+/// ** WHO RUNS A `gpu fn` (level 11, G3 of PLAN_EL_CENTAURO), said without
+/// naming a machine or a format: given the cells of each value -- an f32 by
+/// its bits, a bool as 0 or 1 --, the cells of the result. The emitter's
+/// side gives one that writes the gpu fn as SPIR-V and runs it in spirv's
+/// ORACLE; without one, the calculation runs each thread itself, with f32 of
+/// single precision. The two benches compare the same `# sale:` lines, so
+/// the day they disagreed, one of them would say it.
+pub trait Device: Send {
+    fn run(&mut self, m: &Module, func: usize, cells: Vec<Vec<u32>>) -> Result<Vec<u32>, String>;
+}
+
 /// The module RUN: its classes judged in every block, then the program run
 /// from `main`. `Module::flat` is what it writes; the blocks no run entered
 /// are `dead`.
 pub fn fold(m: &Module) -> Result<Module, Message> {
+    fold_with(m, None)
+}
+
+/// `fold`, with who runs the `gpu fn` (level 11).
+pub fn fold_with(m: &Module, device: Option<&mut dyn Device>) -> Result<Module, Message> {
     let mut out = m.clone();
     // A trait's fn has no body: each type's fn is judged as its own.
     for f in out.functions.iter().filter(|f| f.dispatch.is_none()) {
@@ -235,8 +251,8 @@ pub fn fold(m: &Module) -> Result<Module, Message> {
     let r = std::thread::scope(|sc| {
         std::thread::Builder::new()
             .stack_size(STACK)
-            .spawn_scoped(sc, || {
-                let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0 };
+            .spawn_scoped(sc, move || {
+                let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0, device };
                 r.call(m.entry, Vec::new(), (m.functions[m.entry].line, 1)).map(|_| r)
             })
             .expect("a thread for the run")
@@ -853,8 +869,10 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
 /// [!] The day something comes from outside, part of the program can no longer
 /// be run here, and that part goes to the machine as real code (E1 of the
 /// emitter, TITAN_MAESTRO 7.3). This is the floor, E0, made whole.
-struct Run<'m> {
+struct Run<'m, 'd> {
     m: &'m Module,
+    /// Who runs a `gpu fn` (level 11), if someone does: otherwise, this.
+    device: Option<&'d mut dyn Device>,
     steps: u64,
     /// How many calls are open right now.
     depth: usize,
@@ -868,7 +886,7 @@ struct Run<'m> {
     lenient: u32,
 }
 
-impl Run<'_> {
+impl Run<'_, '_> {
     fn tick(&mut self) -> Result<(), Message> {
         self.steps += 1;
         if self.steps > STEPS {
@@ -1001,6 +1019,9 @@ impl Run<'_> {
         // ** A `gpu fn` applied to TABLES (level 11, D1): one cell of each
         // per thread -- here, one call per cell, in order. The 3060 runs
         // them at once; the result is the same, cell by cell.
+        if self.m.functions[func].gpu && self.device.is_some() {
+            return self.on_device(func, vals, at).map(Some);
+        }
         if self.m.functions[func].gpu && vals.iter().any(|v| matches!(v, Const::Table(_))) {
             let n = match &vals[0] {
                 Const::Table(items) => items.len(),
@@ -1022,6 +1043,38 @@ impl Run<'_> {
             }
         }
         Ok(result)
+    }
+
+    /// ** A `gpu fn` run by the DEVICE (level 11, G3): its cells, by their
+    /// bits, and back. A value that is not a table is one cell; tables give
+    /// one cell per thread.
+    fn on_device(&mut self, func: usize, vals: Vec<Const>, at: At) -> Result<Const, Message> {
+        let m = self.m;
+        let table = vals.iter().any(|v| matches!(v, Const::Table(_)));
+        let n = vals.iter().find_map(|v| if let Const::Table(items) = v { Some(items.len()) } else { None }).unwrap_or(1);
+        let bits = |c: &Const| match c {
+            Const::F32(b) => *b,
+            Const::Bool(b) => *b as u32,
+            _ => 0,
+        };
+        let cells: Vec<Vec<u32>> = vals.iter().map(|v| match v {
+            Const::Table(items) => items.iter().map(bits).collect(),
+            one => vec![bits(one); n],
+        }).collect();
+        let device = self.device.as_mut().expect("the caller checked");
+        let out = device.run(m, func, cells).map_err(|why| {
+            Message::new(
+                Code::GpuBody,
+                at.0,
+                at.1,
+                &format!("la 3060 no pudo correr `{}`", m.functions[func].name),
+                &format!("es un fallo del escritor de SPIR-V o del oraculo, no del programa: {}", why),
+                "avisa con este programa",
+            )
+        })?;
+        let ret_bool = m.functions[func].ret == Some(Ty::Bool);
+        let back: Vec<Const> = out.into_iter().map(|b| if ret_bool { Const::Bool(b != 0) } else { Const::F32(b) }).collect();
+        Ok(if table { Const::Table(back) } else { back.into_iter().next().unwrap_or(Const::F32(0)) })
     }
 
     /// A value, calculated -- running the calls inside it.

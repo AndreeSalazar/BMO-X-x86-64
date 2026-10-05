@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   601 casillas ABIERTAS en 56 planes
-   442 hechas
+   593 casillas ABIERTAS en 56 planes
+   453 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -26,6 +26,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 10 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
+- [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 26 de 31 hechas, faltan 5
 - [`PLAN_SEGURIDAD.md`](PLAN_SEGURIDAD.md) -- 26 de 32 hechas, faltan 6
 - [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 35 de 45 hechas, faltan 10
 
@@ -148,15 +149,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] el DIRECTOR le dice el hueco: una ranura de buzon con bit propio
 - [ ] la app puede REEMPLAZAR su superficie: hoy una segunda oferta del
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
-- ... y 10 mas
-
-## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 13 abiertas, 15 hechas
-
-*PLAN EL CENTAURO -- TITAN++ nivel 11: gpu fn a la 3060*
-
-- [ ] G2 -- EL FORMATO: TITAN++ escribe SPIR-V (D5)
-- [ ] emisor-spirv: una gpu fn -> un modulo GLCompute (buffers de entrada y salida, GlobalInvocationId
-- [ ] el SPIR-V que sale pasa validate_stage(GLCompute) y bmo-spirv-sm86::check -- si no, es un fallo 
 - ... y 10 mas
 
 ## [`PLAN_HERMES.md`](PLAN_HERMES.md) -- 13 abiertas, 2 hechas
@@ -364,6 +356,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] emit_program son 357 lineas dentro de mod.rs, y hace TRES cosas:
 - [ ] emit_stmt son 175 lineas y un match de sentencias. Es hermano de
 - [ ] parser/preprocessor.rs son 1.204 lineas y es el otro monolito.
+- ... y 2 mas
+
+## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 5 abiertas, 26 hechas
+
+*PLAN EL CENTAURO -- TITAN++ nivel 11: gpu fn a la 3060*
+
+- [ ] G4 -- EN LA 3060 (Ring 0, del propietario)
+- [ ] LANZAR computo: la QMD y el banco constante 0 (ga10x)
+- [ ] el mismo programa del banco, con sus celdas calculadas por la 3060 y comparadas con el oraculo
 - ... y 2 mas
 
 ## [`PLAN_EL_SEMAFORO_COMPLETO.md`](PLAN_EL_SEMAFORO_COMPLETO.md) -- 5 abiertas, 4 hechas
