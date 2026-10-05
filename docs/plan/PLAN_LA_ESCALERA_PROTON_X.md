@@ -479,7 +479,8 @@ en una conversacion.
 - [ ] **Juntar en `main` lo de `docs/plan/PLAN_LAS_TRES_GRANDES.md`** de
   este trabajo: E2.3, E2.4, E2.7, N5.13 a N5.15, N5.3b y N5.3c (un PR).
 - [ ] **Correr en el Ryzen y en Windows lo de `platform/shared/proton-x/prueba`**
-  (HACER.txt): `computo.exe` dice `bien` 4 veces, `instancias.exe` 3 y
+  (HACER.txt; la hoja entera, prueba a prueba y con lo que tiene que
+  salir, en [`docs/metal/PRUEBAS_DX12_EN_EL_RYZEN.md`](../metal/PRUEBAS_DX12_EN_EL_RYZEN.md)): `computo.exe` dice `bien` 4 veces, `instancias.exe` 3 y
   `vistas.exe` 7, y salen con 0; `nbody.exe` (las dos nubes que se
   juntan), `indirect.exe` (lo mismo dentro de la franja con el ESPACIO y
   sin el) y `predica.exe` (el cuadro blanco se va cuando el rojo lo tapa
