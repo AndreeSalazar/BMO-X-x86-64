@@ -73,7 +73,7 @@ if ($Flash -or $Verify) {
         if ((-not $Yes) -or $grande) {
             $expected = 'FLASH ' + $targetLetter + ' BMO'
             $confirmation = Read-Host ('  Type "' + $expected + '" to update Ring 0')
-            if ($confirmation -ne $expected) { Write-Host '  Aborted.'; exit 0 }
+            if ($confirmation -ne $expected) { Write-Host '  Aborted.'; $script:salida = 0; exit 0 }
         }
 
         Step ('Deploying Ring 0 to ' + $targetLetter + ':\EFI\BOOT')
@@ -173,7 +173,7 @@ if ($Data) {
     if ((-not $Yes) -or $dGrande) {
         $esperado = 'DATA ' + $dataLetter + ' BMO'
         $conf = Read-Host ('  Escribe "' + $esperado + '" para copiar los programas de Ring 3')
-        if ($conf -ne $esperado) { Write-Host '  Abortado.'; exit 0 }
+        if ($conf -ne $esperado) { Write-Host '  Abortado.'; $script:salida = 0; exit 0 }
     }
 
     # * Ya no es una sola carpeta: van a sys\ cobol\ c\ ada\ datos\. El bucle de

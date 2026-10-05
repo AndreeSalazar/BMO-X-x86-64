@@ -977,6 +977,7 @@ try {
 
     # -- DOOM: en `build\doom.ps1` (26-09, L6a) ------------------
     . (Join-Path $PSScriptRoot 'doom.ps1')
+    if ($null -ne $script:salida) { exit $script:salida }
 
     # -- Los DATOS de los ejemplos ---------------------------------
     #

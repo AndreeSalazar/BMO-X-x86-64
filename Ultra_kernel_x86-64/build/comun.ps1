@@ -43,7 +43,19 @@ function Tiempos {
     Write-Host ('  {0,-60}  {1,8:N1}' -f 'TOTAL', $fin) -ForegroundColor White
     Write-Host ''
 }
-function Fail { param($m) Write-Host ('  [X] ' + $m) -ForegroundColor Red; Tiempos; exit 1 }
+# *** `exit` DENTRO DE UN FICHERO CARGADO CON PUNTO SOLO SALE DE ESE FICHERO
+# (2026-10-05). `. contrato.ps1` corre en el ambito de quien lo carga, pero un
+# `exit` en su nivel de arriba termina `contrato.ps1` y NADA MAS: quien lo cargo
+# sigue con la linea siguiente. Desde que esto se partio en ficheros (03-10)
+# cada `Fail` de `comprobar`, `guardianes`, `contrato`, `ejemplos` o `discos`
+# paraba su fichero y el resto seguia: VERIFICAR dijo "TODO VERIFICADO" con
+# tres [X] encima. Probado en PowerShell 7.4.
+#
+# Asi que `Fail` (y `Muere`, y el "Abortado" de `discos.ps1`) APUNTA el codigo
+# en `$script:salida` antes de salir, y quien carga un fichero con punto mira
+# al volver: `if ($null -ne $script:salida) { exit $script:salida }`. Un `.`
+# nuevo sin esa linea detras vuelve a tener el agujero.
+function Fail { param($m) Write-Host ('  [X] ' + $m) -ForegroundColor Red; Tiempos; $script:salida = 1; exit 1 }
 function Hash256 { param($p) (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() }
 
 # ** LOS GUARDIANES DE PYTHON, en un sitio: habia DOS bloques identicos y el

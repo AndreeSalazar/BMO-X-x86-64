@@ -86,7 +86,10 @@ $t0 = Get-Date
 
 function Titulo($m) { Write-Host "`n== $m" -ForegroundColor Cyan }
 function Bien($m)   { Write-Host "   OK  $m" -ForegroundColor DarkGray }
-function Muere($m)  { Write-Host "   [X] $m" -ForegroundColor Red; exit 1 }
+function Muere($m)  { Write-Host "   [X] $m" -ForegroundColor Red; $script:salida = 1; exit 1 }
+# Lo que dejo un `exit` de un fichero cargado con punto (ver `Fail` en
+# Ultra_kernel_x86-64\build\comun.ps1: alli esta el por que).
+$script:salida = $null
 
 Write-Host "BMO-X -- comprobar y construir" -ForegroundColor White
 
@@ -106,6 +109,7 @@ if ($Desplegar -and (-not $Arranque -or -not $Datos)) {
 # no se repite.
 if (-not $Paralelo) {
     . (Join-Path $raiz 'Ultra_kernel_x86-64\build\comprobar.ps1')
+    if ($null -ne $script:salida) { exit $script:salida }
 }
 
 # -- 2. CONSTRUIR ---------------------------------------------------------
