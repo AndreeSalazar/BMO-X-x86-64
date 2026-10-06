@@ -197,6 +197,9 @@ pub struct Recurso {
     /// D3D12_HEAP_TYPE de su memoria (GetHeapProperties, tanda 47): 1
     /// DEFAULT, salvo lo que diga quien lo crea.
     pub tipo_monton: u32,
+    /// A7 (06-10): de un monton CUSTOM, su D3D12_CPU_PAGE_PROPERTY y su
+    /// D3D12_MEMORY_POOL (los otros tipos, UNKNOWN: 0 y 0).
+    pub pagina_y_piscina: (u32, u32),
     /// 02-10: si es una textura, TODA ella (sus mips y capas); `pixeles` es
     /// la vista de su subrecurso 0 (lo que dibuja y presenta la casa).
     pub tex: Option<Tex>,
@@ -350,7 +353,7 @@ pub(crate) fn recurso_forma(forma: Forma, cadena: bool, banderas: u32) -> Option
     };
     let tex = Some(Tex { forma, subs, datos, almacen, banderas });
     crate::pulso::contar(crate::pulso::Cosa::Recurso, 0);
-    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: forma.ancho, alto: forma.alto, formato: forma.formato, pixeles, bufer: None, cadena, en_pantalla: false, tipo_monton: 1, tex }) as u64;
+    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: forma.ancho, alto: forma.alto, formato: forma.formato, pixeles, bufer: None, cadena, en_pantalla: false, tipo_monton: 1, pagina_y_piscina: (0, 0), tex }) as u64;
     // Uno nuevo en la direccion de uno que se fue no hereda su limpieza.
     tuberia::olvidar_limpieza(r);
     Some(r)
@@ -359,7 +362,7 @@ pub(crate) fn recurso_forma(forma: Forma, cadena: bool, banderas: u32) -> Option
 /// Un recurso que es un bufer (CreateCommittedResource).
 pub(crate) fn recurso_bufer(b: Bufer) -> u64 {
     crate::pulso::contar(crate::pulso::Cosa::Recurso, 0);
-    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Pixeles::ninguno(), bufer: Some(b), cadena: false, en_pantalla: false, tipo_monton: 1, tex: None }) as u64
+    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Pixeles::ninguno(), bufer: Some(b), cadena: false, en_pantalla: false, tipo_monton: 1, pagina_y_piscina: (0, 0), tex: None }) as u64
 }
 
 /// El inicio de un bufer de la casa, o `None` si `this` es una imagen.

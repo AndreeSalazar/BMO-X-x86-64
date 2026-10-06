@@ -1127,21 +1127,24 @@ fn resolver(monton: u64, desde: u32, n: u32, b: u64, off: u64) {
 // -- El recurso --------------------------------------------------------------
 
 /// Apuntar en el recurso recien creado en `pp` el tipo de su monton (de un
-/// D3D12_HEAP_PROPERTIES, Type +0), si salio.
+/// D3D12_HEAP_PROPERTIES, Type +0), si salio; y (A7, 06-10) su pagina de
+/// la CPU y su piscina (+4, +8).
 pub(crate) fn apuntar_monton(r: i32, pp: *mut u64, props: *const u8) {
     if r != S_OK || pp.is_null() || props.is_null() {
         return;
     }
     // SAFETY: el recurso que se acaba de dejar en `pp`.
-    unsafe { de::<Recurso>(*pp).tipo_monton = u32_de(props, 0) };
+    let x = unsafe { de::<Recurso>(*pp) };
+    x.tipo_monton = u32_de(props, 0);
+    x.pagina_y_piscina = (u32_de(props, 4), u32_de(props, 8));
 }
 
 /// `GetHeapProperties(this, props, banderas)`.
 pub(crate) extern "win64" fn get_heap_properties(this: u64, props: *mut u8, banderas: *mut u32) -> i32 {
     // SAFETY: un Recurso de la casa.
-    let tipo = unsafe { de::<Recurso>(this) }.tipo_monton;
+    let (tipo, (pagina, piscina)) = unsafe { (de::<Recurso>(this).tipo_monton, de::<Recurso>(this).pagina_y_piscina) };
     if !props.is_null() {
-        for (o, v) in [(0, tipo), (4, 0), (8, 0), (12, 1), (16, 1)] {
+        for (o, v) in [(0, tipo), (4, pagina), (8, piscina), (12, 1), (16, 1)] {
             poner_u32(props, o, v);
         }
     }

@@ -3250,3 +3250,32 @@ El banco (`tests/corre/muestras.rs`): los 7 `bien`, sale con 0, ni un
 aviso. Probado que dice NO: contra la casa de antes, 7 MAL ("una
 topologia con adyacencia: todavia no", y el GS no se crea:
 OperacionD3d(108), el primitiveID).
+
+mapeo.exe -- Map sobre una TEXTURA, juzgado (06-10)
+
+A7 del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola, sin
+sombreadores. Un motor que sube sus texturas sin bufer intermedio (una GPU
+integrada, o un monton CUSTOM de paginas de la CPU) hace Map(sub, NULL,
+NULL), WriteToSubresource y Unmap; hasta el 06-10 la casa decia
+E_INVALIDARG en ese Map. A, una textura 2D RGBA8 de 8 x 8 con 2 mips en
+un monton CUSTOM (WRITE_BACK, L0); B, Map de sus dos subrecursos sin
+puntero; C, WriteToSubresource de las dos mips y de una caja; D,
+ReadFromSubresource de vuelta; E, la GPU la copia a un bufer de lectura;
+F, Map de una textura de un DEFAULT: E_INVALIDARG; G, GetHeapProperties:
+CUSTOM, WRITE_BACK, L0. La nota: Map(0, NULL, &p) de la de layout
+UNKNOWN, lo que diga Windows (la casa: E_INVALIDARG, y lo avisa). Dice
+`bien` 7 veces y la nota, y sale con el numero de fallos.
+
+Con lo de `muestras/construir.sh`, en un directorio con mapeo.cpp:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c mapeo.cpp -o mapeo.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o mapeo.exe mapeo.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   01b60ac2536852f8bed694635105d79545cf09c826c302013f056304ab975ad4  mapeo.exe
+
+El banco (`tests/corre/muestras.rs`): los 7 `bien`, la nota con
+0x80070057 y un solo aviso (el del Map con puntero), sale con 0. Probado
+que dice NO: contra la casa de antes, 2 MAL (B: el Map sin puntero daba
+E_INVALIDARG; G: la pagina y la piscina a 0).

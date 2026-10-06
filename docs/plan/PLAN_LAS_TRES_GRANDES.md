@@ -365,7 +365,12 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   (`CreatePlacedResource`) y que se solapan (ALIAS), sobre VRAM de la 3060.
 - [ ] D2.3 -- Montones de subida y de lectura: `Map` persistente, memoria
   combinada para escribir. **Como se sabe:** un `.exe` escribe 256 MiB por
-  un `Map` y la 3060 los lee.
+  un `Map` y la 3060 los lee. (06-10, A7: `Map` de una TEXTURA de un monton
+  de la CPU -- CUSTOM, el de una GPU integrada -- sin puntero, para
+  WriteToSubresource y ReadFromSubresource; la de un DEFAULT, E_INVALIDARG;
+  y GetHeapProperties dice su pagina y su piscina. Juez `prueba/mapeo.exe`,
+  7 `bien` y una nota -- el Map CON puntero, que la casa no da: guarda la
+  textura en su formato --; con la casa de antes, 2 MAL.)
 - [ ] D2.4 -- Recursos RESERVADOS (tiled: `UpdateTileMappings`,
   `CopyTileMappings`) -- SOLO si D0 dice que el juego los usa.
 - [ ] D2.5 -- Texturas de todas las formas: mips, arrays, 3D, cubos;
@@ -1313,7 +1318,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    5
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    4
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1327,7 +1332,8 @@ y lo dice.
                se dan en la casa: guarda las filas sin relleno)
       6  [x] D4.5  las topologias con adyacencia (para un GS que las pide)
                (06-10: adyacencia.exe, 7 bien; y el SV_PrimitiveID del GS)
-      7  D2.3  Map sobre una textura (montones de la CPU)
+      7  [x] D2.3  Map sobre una textura (montones de la CPU) (06-10:
+               mapeo.exe, 7 bien y la nota del Map con puntero)
       8  D1.2  las preguntas de CheckFeatureSupport que no contesta
       9  D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO)
      10  X5    la velocidad que queda: las olas en el computo traducido y

@@ -130,6 +130,8 @@ const LEEFIRMA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/leefirma.exe")
 const CAPAS1D_EXE: &[u8] = include_bytes!("../../proton-x/prueba/capas1d.exe");
 /// 06-10: las topologias con adyacencia, con un GS y sin el (A6).
 const ADYACENCIA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/adyacencia.exe");
+/// 06-10: Map sobre una textura de un monton de la CPU (A7).
+const MAPEO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/mapeo.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

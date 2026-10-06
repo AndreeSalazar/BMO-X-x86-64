@@ -1084,3 +1084,22 @@ fn las_topologias_con_adyacencia_son_las_de_windows() {
     assert_eq!(texto.matches("  bien  ").count(), 7, "{texto}");
     assert!(texto.ends_with("adyacencia.exe: las topologias con adyacencia son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **Map sobre una TEXTURA** (A7, 06-10, `prueba/mapeo.exe`, NUESTRO): una
+/// textura con mips en un monton CUSTOM se mapea sin puntero, se escribe
+/// con WriteToSubresource (entera y una caja), se lee de vuelta y la GPU la
+/// copia; la de un monton DEFAULT, E_INVALIDARG; GetHeapProperties dice
+/// su pagina y su piscina. La nota: el Map CON
+/// puntero, que la casa no da (y lo dice: su unico aviso).
+#[test]
+fn map_sobre_una_textura_es_el_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, MAPEO_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 7, "{texto}");
+    assert!(texto.contains("  nota  Map(0, NULL, &p) de una textura de layout UNKNOWN en un CUSTOM: HRESULT 0x80070057, sin puntero"), "{texto}");
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert!(avisos.len() == 1 && avisos[0].contains("Map con puntero de una textura"), "solo el del Map con puntero: {texto}");
+    assert!(texto.ends_with("mapeo.exe: Map sobre una textura es el de Windows\r\n[salio 0x0]"), "{texto}");
+}

@@ -24,7 +24,7 @@ banco creia probado): esa linea `MAL` es lo mas valioso que puedes mandar.
   2015-2022 (`vcruntime140.dll`, `msvcp140.dll`): lo tiene cualquier PC con
   juegos; si falta, salen con `0xC0000135` y el guion lo dice.
 
-## 1. Los 89 de consola: UN guion
+## 1. Los 90 de consola: UN guion
 
 En una PowerShell normal, dentro de la carpeta:
 
@@ -68,6 +68,7 @@ bueno contra ellos.
 | `leefirma` | (06-10) los deserializadores de root signatures, y la 1.1 serializada con los bytes de Windows (A3, A4) | 10 |
 | `capas1d` | (06-10) los UAV de arrays de UNA dimension (`RWTexture1DArray`): escritos, leidos, contados, sus medidas y su ClearUnorderedAccessView (A5) | 9 |
 | `adyacencia` | (06-10) las topologias con ADYACENCIA: que vertices le llegan a un GS `triangleadj` o `lineadj` en listas y tiras, y que se pinta sin GS (A6) | 7 |
+| `mapeo` | (06-10) `Map` sobre una TEXTURA de un monton de la CPU (CUSTOM), con WriteToSubresource y ReadFromSubresource; la nota dice el HRESULT de Windows al Map CON puntero (A7) | 7 y una nota |
 
 Si alguno se CUELGA (el guion lo dice), en `multihilo` es su parte B: una
 cola que espera y nadie la despierta. Si `restos` dice una `nota` en E, la
