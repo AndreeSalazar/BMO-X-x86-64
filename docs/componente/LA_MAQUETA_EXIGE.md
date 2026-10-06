@@ -295,8 +295,10 @@ como CARA, y se dice, igual que con los estados.
    349 de ellos contra Chromium, pixel a pixel: igual 92,40 %, parecido
    99,26 % de los pixeles con tinta; lo que difiere es el suavizado de los
    bordes (`compara` del lector)
-   `pruebas/dibujos.maqueta` contra Chromium (el espejo): igual 99,58 %,
-   parecido 99,76 %; por la CARA que viaja, los mismos pixeles (prueba)
+   `pruebas/dibujos.maqueta` contra Chromium (el espejo): igual 99,79 %,
+   parecido 99,87 %; por la CARA que viaja, los mismos pixeles (prueba)
+   y lo que se sale de la caja del `<svg>` no se ve, como en el navegador
+   (`overflow: hidden`): se recorta al compilar, solo la figura que se sale
    `pruebas/anima.maqueta` en 7 instantes contra Chromium parado en cada
    uno: igual entre 99,83 % y 99,93 %
 ```

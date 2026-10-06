@@ -43,15 +43,47 @@ fn llevar(m: &Matriz, c: &[Vec<P>]) -> Vec<Vec<P>> {
     c.iter().map(|s| s.iter().map(|&q| m.punto(q)).collect()).collect()
 }
 
+/// Si una pieza se sale de la caja `(x, y, w, h)` del dibujo (sus puntos de
+/// control, con media pluma): entonces se recorta por ella.
+fn se_sale(p: &Pieza, (x, y, w, h): (f64, f64, f64, f64)) -> bool {
+    let media = p.linea.as_ref().map_or(0.0, |l| l.ancho / 2.0 * p.m.estira());
+    let c = p.contorno.transformado(&p.m);
+    c.subs.iter().any(|s| {
+        std::iter::once(s.inicio)
+            .chain(s.segs.iter().flat_map(|g| match *g {
+                geo::Seg::Linea(a) => vec![a],
+                geo::Seg::Cuadratica(a, b) => vec![a, b],
+                geo::Seg::Cubica(a, b, c) => vec![a, b, c],
+            }))
+            .any(|(px, py)| px - media < x || py - media < y || px + media > x + w || py + media > y + h)
+    })
+}
+
 /// **Las figuras de unas piezas** con unos tramos dados. Con `podar`, lo
 /// que no se ve (opacidad 0) no sale; para animar sale todo, para que los
 /// pasos tengan la misma forma.
-pub fn aplanar(svg: &Svg, piezas: &[Pieza], n: &[Vec<Vec<usize>>], podar: bool) -> (Vec<Figura>, Vec<(usize, String)>) {
+///
+/// ** `caja` es la del `<svg>` en el lienzo: lo que se sale de ella NO se ve,
+/// como en el navegador (`overflow: hidden` de un `<svg>`). Solo se recorta
+/// la pieza que de verdad se sale; las demas salen como siempre.
+pub fn aplanar(svg: &Svg, piezas: &[Pieza], n: &[Vec<Vec<usize>>], podar: bool, caja: (f64, f64, f64, f64)) -> (Vec<Figura>, Vec<(usize, String)>) {
     let ids = svg.ids();
     let mut out = Vec::new();
     let mut fallas = Vec::new();
+    let marco = [(caja.0, caja.1), (caja.0 + caja.2, caja.1), (caja.0 + caja.2, caja.1 + caja.3), (caja.0, caja.1 + caja.3)];
     for (k, p) in piezas.iter().enumerate() {
         let tramos = &n[k];
+        let mut con_marco;
+        let p = if se_sale(p, caja) {
+            con_marco = p.clone();
+            con_marco.recorte = Some(match &p.recorte {
+                Some(r) => geo::convexo(&geo::recortar(&marco, r)).unwrap_or_default(),
+                None => marco.to_vec(),
+            });
+            &con_marco
+        } else {
+            p
+        };
         // Con recorte, todo sale como contorno y se recorta: una pluma
         // redonda tambien (su contorno redondo).
         let recorta = |caminos: Vec<Vec<P>>| -> Vec<Vec<P>> {
@@ -133,7 +165,7 @@ pub fn en(svg: &Svg, h: &Herencia, caja: (f64, f64, f64, f64), ajuste: &dyn Fn(&
             &propios
         }
     };
-    let (figs, mut f2) = aplanar(svg, &piezas, n, podar);
+    let (figs, mut f2) = aplanar(svg, &piezas, n, podar, caja);
     fallas.append(&mut f2);
     (figs, errores(svg, &fallas))
 }

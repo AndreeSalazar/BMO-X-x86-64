@@ -742,7 +742,7 @@ pub fn pasos(svg: &Svg, h: &Herencia, caja: (f64, f64, f64, f64)) -> Option<Resu
     }
     let mut figs = Vec::new();
     for e in &escenas {
-        let (f, fa) = figuras::aplanar(svg, e, &n, false);
+        let (f, fa) = figuras::aplanar(svg, e, &n, false, caja);
         if !fa.is_empty() {
             return Some(Err(figuras::errores(svg, &fa)));
         }

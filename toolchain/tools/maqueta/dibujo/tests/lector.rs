@@ -203,3 +203,16 @@ fn steps_salta_y_nth_child_escalona() {
     // El segundo va medio ciclo detras.
     assert!((alfa_en(100, 1) - 0.2).abs() < 1e-9, "{}", alfa_en(100, 1));
 }
+
+#[test]
+fn lo_que_se_sale_del_svg_no_se_ve_como_en_el_navegador() {
+    // Un circulo mas grande que el `viewBox`: el navegador lo corta en la
+    // caja del `<svg>` (`overflow: hidden`), y BMO-X tambien.
+    let s = dentro(r##"<circle cx="5" cy="5" r="8" fill="red"/><rect x="2" y="2" width="2" height="2" fill="blue"/>"##, [0.0, 0.0, 10.0, 10.0]);
+    let (f, _) = figuras(&s, &Herencia::default(), (0.0, 0.0, 10.0, 10.0));
+    for &(x, y) in &f[0].caminos[0] {
+        assert!((-1e-9..=10.0 + 1e-9).contains(&x) && (-1e-9..=10.0 + 1e-9).contains(&y), "({x}, {y}) fuera");
+    }
+    // El que cabe sale como siempre, sin recortar.
+    assert_eq!(f[1].caminos[0].len(), 4);
+}
