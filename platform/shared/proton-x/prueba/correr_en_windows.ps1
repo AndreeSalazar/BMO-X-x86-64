@@ -24,8 +24,10 @@
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 
-# nombre, cuantos `bien`, cuantas `nota` (-1: no se cuentan), y que mirar.
-# Un `bien` de -1: el juez no tiene cuenta fija; vale ningun MAL y salir con 0.
+# nombre, cuantos `bien`, cuantas `nota` (-1: no se cuentan), y que mirar;
+# y, si hay, OTRA cuenta que tambien vale (`bien` y `nota`: lo que dice una
+# GPU que no tiene algo). Un `bien` de -1: el juez no tiene cuenta fija; vale
+# ningun MAL y salir con 0.
 $jueces = @(
     # -- PROTON-X por dentro (P1 a P5, 27-09 y 28-09)
     @('hola', -1, -1, 'imprime la frase y sale con 0'),
@@ -45,7 +47,7 @@ $jueces = @(
     @('seh', 9, -1, ''),
     # -- Las TANDAS de Cyberpunk (29-09 a 02-10)
     @('tanda1', 55, -1, ''),
-    @('tanda2', 14, -1, ''),
+    @('tanda2', 13, -1, ''),
     @('tanda3', 25, -1, ''),
     @('tanda3b', 18, -1, ''),
     @('tanda3c', 16, -1, ''),
@@ -108,7 +110,7 @@ $jueces = @(
     @('stencil', 5, -1, 'D3D12'),
     @('olas', 15, -1, 'D3D12: el "hasta N" de B puede ser otro'),
     @('derivadas', 17, -1, 'D3D12'),
-    @('restos', 18, -1, 'D3D12: si la GPU no tiene SV_StencilRef, E sale como nota (no es fallo)'),
+    @('restos', 18, 0, 'D3D12: o 15 y una nota, si la GPU no tiene SV_StencilRef (las NVIDIA no lo tienen)', @(15, 1)),
     @('multihilo', 17, -1, 'D3D12'),
     @('volumen', 10, -1, 'D3D12'),
     @('firmas', 6, -1, 'D3D12'),
@@ -128,7 +130,8 @@ $resumen.Add('')
 
 $buenos = 0; $malos = 0; $faltan = 0
 foreach ($j in $jueces) {
-    $nombre, $quiere, $notas, $que = $j
+    $nombre, $quiere, $notas, $que = $j[0..3]
+    $otra = if ($j.Count -gt 4) { $j[4] } else { $null }
     $exe = Join-Path $PSScriptRoot "$nombre.exe"
     if (-not (Test-Path -LiteralPath $exe)) {
         $resumen.Add(('{0,-12} NO ESTA el .exe' -f $nombre)); $faltan++; continue
@@ -153,8 +156,11 @@ foreach ($j in $jueces) {
     if ($colgado) { $fallo += 'se colgo (60 s)' }
     elseif ($codigo -ne 0) { $fallo += "salio con $codigo" }
     if ($mal -gt 0) { $fallo += "$mal MAL" }
-    if ($quiere -ge 0 -and $bien -ne $quiere) { $fallo += "$bien bien (pide $quiere)" }
-    if ($notas -ge 0 -and $nota -ne $notas) { $fallo += "$nota nota (pide $notas)" }
+    $vale_otra = $otra -and $bien -eq $otra[0] -and $nota -eq $otra[1]
+    if (-not $vale_otra) {
+        if ($quiere -ge 0 -and $bien -ne $quiere) { $fallo += "$bien bien (pide $quiere)" }
+        if ($notas -ge 0 -and $nota -ne $notas) { $fallo += "$nota nota (pide $notas)" }
+    }
 
     if ($fallo.Count -eq 0) {
         $buenos++

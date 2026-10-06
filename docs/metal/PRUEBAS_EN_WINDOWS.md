@@ -94,7 +94,7 @@ dice si Windows sigue igual tras sus parches.
 | .exe | `bien` | | .exe | `bien` | | .exe | `bien` |
 |---|---|---|---|---|---|---|---|
 | `tanda1` | 55 | | `tanda14` | 27 | | `tanda29` | 18 |
-| `tanda2` | 14 | | `tanda14b` | 12 | | `tanda30` | 14 |
+| `tanda2` | 13 | | `tanda14b` | 12 | | `tanda30` | 14 |
 | `tanda3` | 25 | | `tanda15` | 11 | | `tanda31` | 30 |
 | `tanda3b` | 18 | | `tanda16` | 9 | | `tanda32` | 10 |
 | `tanda3c` | 16 | | `tanda17` | 11 | | `tanda33` | 8 |
@@ -157,6 +157,23 @@ juego en `C:`, nunca sobre `D:`:
   su modelo (6.x), sus recursos. Lo que los traductores no sepan entra en A.
 - **D0.3** -- el `diario` de P0.3 con el juego, filtrado a D3D12: que
   metodos, cuantas veces, en que orden hasta el primer `Present`.
+
+## 3b. Lo que dijo Windows la PRIMERA vez (06-10, la 3060 del propietario)
+
+78 de 83 como pide la tabla. Los 5 distintos:
+
+- `tanda2`: 13 `bien` y pedia 14. La TABLA estaba mal (el texto de
+  HACER.txt dice catorce; el juez tiene trece `mira` y el banco pide 13).
+  Arreglada.
+- `tanda3`: 1 MAL, `WriteConsoleA`. El guion manda la salida a un fichero, y
+  ahi WriteConsoleA falla en Windows. El juez ya solo lo juzga si la salida
+  es una consola (como texto.exe): `tanda3.exe` rehecho.
+- `restos`: 15 `bien` y una `nota`: la 3060 dice
+  PSSpecifiedStencilRefSupported = FALSE (las NVIDIA no tienen
+  SV_StencilRef), y E se salta. No es fallo; el guion acepta 18, o 15 con
+  una nota. Lo que si dice: E (SV_StencilRef) solo lo juzga el banco.
+- `vistas`: 3 MAL. Hace falta la linea de cada uno (`resumen.txt`).
+- `olas`: 1 MAL. Hace falta la linea (`resumen.txt`).
 
 ## 4. Que mandar, en orden
 

@@ -516,11 +516,17 @@ de kernel32.dll (tanda3_kernel32.def, su propia lista):
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   8b65fc920042f228051855f228cd4b0ef2b669e311cfb21a0d62147dc6f6ace7
+   878dfab7b3a1ea129c119202e29f7409d9f51b9099094b342d22a06a76661fae
 
 Dice `bien` veinticinco veces y sale con 0 (la version, 10 en la casa o 6.2
 en un Windows sin manifiesto; el locale, el de la maquina); deja tanda3_a.txt y
 tanda3_b.txt (vacios) en su carpeta. En Windows dice lo mismo.
+
+06-10: correr_en_windows.ps1 manda la salida a un FICHERO, y en Windows
+WriteConsoleA falla si la salida no es una consola: dijo 1 MAL. Desde hoy,
+como texto.exe, solo lo juzga si GetConsoleMode dice que es una consola (si
+no, un `bien` que lo dice); tanda3_kernel32.def suma GetConsoleMode. Sigue
+diciendo 25 `bien`.
 
 tanda3b.exe -- la TANDA 3 de Cyberpunk, paso 4a (29-09): el pool de hilos
 

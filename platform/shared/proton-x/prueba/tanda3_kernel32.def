@@ -26,6 +26,7 @@ QueryFullProcessImageNameA
 CreateEventExA
 SetEvent
 WaitForSingleObject
+GetConsoleMode
 WriteConsoleA
 GetSystemTime
 SystemTimeToFileTime
