@@ -1052,3 +1052,19 @@ fn los_deserializadores_de_firmas_son_los_de_windows() {
     assert_eq!(texto.matches("  bien  ").count(), 10, "{texto}");
     assert!(texto.ends_with("leefirma.exe: los deserializadores y la 1.1 serializada son los de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **Los UAV de un array de UNA dimension** (A5, 06-10,
+/// `prueba/capas1d.exe`, NUESTRO): `RWTexture1DArray` escrito, leido y
+/// contado por computo (la capa es la segunda coordenada; GetDimensions da
+/// ancho y capas), por una vista de una mip y dos capas, y
+/// ClearUnorderedAccessView sobre TODAS las capas de su vista.
+#[test]
+fn los_uav_de_arrays_de_una_dimension_son_los_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, CAPAS1D_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 9, "{texto}");
+    assert!(texto.ends_with("capas1d.exe: los UAV de arrays de una dimension son los de Windows\r\n[salio 0x0]"), "{texto}");
+}

@@ -422,9 +422,14 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   `prueba/volumen.exe` en el banco: rebanadas, capas con su cadena de mips
   entre una y otra, atomicos, GetDimensions, y ClearUnorderedAccessView
   sobre TODAS sus rebanadas o capas: antes limpiaba solo la primera, sin
-  decir nada. Falta: los arrays de 1D, los multimuestra, el x86 traducido
-  -- su computo con UAV de textura sigue en el interprete -- y verlo en
-  Windows.)
+  decir nada. 06-10 (A5): y los de arrays de 1D (`RWTexture1DArray`: la
+  capa es la segunda coordenada, GetDimensions da ancho y capas), en el
+  computo, los dibujos y ClearUnorderedAccessView (todas las capas de la
+  vista); juez `prueba/capas1d.exe`, 9 `bien`; con la casa de antes, 7 MAL.
+  Las "filas de otra medida" no existen en la casa: guarda cada fila sin
+  relleno (`subrecursos::disposicion`); el aviso queda de guarda. Falta: los
+  multimuestra, el x86 traducido -- su computo con UAV de textura sigue en
+  el interprete -- y verlo en Windows.)
 
 ## 2E. Los sombreadores
 
@@ -1301,7 +1306,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    7
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    6
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1310,7 +1315,9 @@ y lo dice.
       3  [x] D3.2  el deserializador de firmas (06-10: leefirma.exe, 10 bien)
       4  [x] D3.2  serializar la 1.1 con los MISMOS bytes que Windows (06-10:
                los de dxc, huella incluida; leefirma.exe)
-      5  D3.4  los UAV de arrays de 1D y los de filas de otra medida
+      5  [x] D3.4  los UAV de arrays de 1D y los de filas de otra medida
+               (06-10: capas1d.exe, 9 bien; las filas de otra medida no
+               se dan en la casa: guarda las filas sin relleno)
       6  D4.5  las topologias con adyacencia (para un GS que las pide)
       7  D2.3  Map sobre una textura (montones de la CPU)
       8  D1.2  las preguntas de CheckFeatureSupport que no contesta

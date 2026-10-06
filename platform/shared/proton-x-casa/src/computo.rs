@@ -73,12 +73,13 @@ pub(crate) fn uav_de(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranura
     Some(Uav { bytes, formato, paso: if v.crudo { 0 } else { v.paso }, elementos, contador, rebanadas: Rebanadas::PLANA })
 }
 
-/// D3D12_UAV_DIMENSION_TEXTURE1D, TEXTURE2D y (06-10) TEXTURE2DARRAY y
-/// TEXTURE3D.
+/// D3D12_UAV_DIMENSION_TEXTURE1D, TEXTURE2D y (06-10) TEXTURE2DARRAY,
+/// TEXTURE3D y (A5) TEXTURE1DARRAY.
 const UAV_TEXTURA_1D: u32 = 2;
+pub(crate) const UAV_TEXTURA_1D_ARRAY: u32 = 3;
 const UAV_TEXTURA_2D: u32 = 4;
-const UAV_TEXTURA_2D_ARRAY: u32 = 5;
-const UAV_TEXTURA_3D: u32 = 8;
+pub(crate) const UAV_TEXTURA_2D_ARRAY: u32 = 5;
+pub(crate) const UAV_TEXTURA_3D: u32 = 8;
 
 /// **Un UAV de TEXTURA** (N5.3c, 05-10: `RWTexture2D`, el post-proceso): la
 /// memoria de su subresource, texel a texel, en el formato en que la casa
@@ -89,11 +90,12 @@ const UAV_TEXTURA_3D: u32 = 8;
 /// 06-10: y los de un 3D (`RWTexture3D`, sus rebanadas desde FirstWSlice) o
 /// un array de 2D (`RWTexture2DArray`, sus capas desde FirstArraySlice):
 /// la memoria de la primera a la ultima, y donde cae cada una
-/// (`bufer::Rebanadas`; ver [`rebanadas_de`]).
+/// (`bufer::Rebanadas`; ver [`rebanadas_de`]). A5 (06-10): y los de un
+/// array de 1D (`RWTexture1DArray`): capas de una fila.
 fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'static>> {
     use crate::subrecursos::Almacen;
-    if ![UAV_TEXTURA_1D, UAV_TEXTURA_2D, UAV_TEXTURA_2D_ARRAY, UAV_TEXTURA_3D].contains(&dimension) {
-        aviso("Dispatch o Draw: un UAV de textura de array de una dimension o multimuestra: todavia no; se ve nulo");
+    if ![UAV_TEXTURA_1D, UAV_TEXTURA_1D_ARRAY, UAV_TEXTURA_2D, UAV_TEXTURA_2D_ARRAY, UAV_TEXTURA_3D].contains(&dimension) {
+        aviso("Dispatch o Draw: un UAV de textura multimuestra: todavia no; se ve nulo");
         return None;
     }
     // SAFETY: un Recurso de la casa (lo dice su ranura).
@@ -130,9 +132,9 @@ fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'
             }
         }
     };
-    if dimension == UAV_TEXTURA_2D_ARRAY || dimension == UAV_TEXTURA_3D {
+    if [UAV_TEXTURA_1D_ARRAY, UAV_TEXTURA_2D_ARRAY, UAV_TEXTURA_3D].contains(&dimension) {
         crate::tuberia::aplicar_limpieza(r[0]);
-        return rebanadas_de(r, dimension == UAV_TEXTURA_3D, efectivo);
+        return rebanadas_de(r, dimension, efectivo);
     }
     if r[3] == 0 {
         crate::tuberia::aplicar_limpieza(r[0]);
@@ -152,15 +154,21 @@ fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'
 /// rebanadas van seguidas en su subrecurso (`hondo` de ellas); en un array
 /// cada capa es otro subrecurso, `mips` mas alla, y entre una y la
 /// siguiente va el resto de la cadena de mips (el salto). Cuantas: las de
-/// la vista (WSize, ArraySize), o todas las que quedan.
-pub(crate) fn rebanadas_de(r: &[u64], es_3d: bool, efectivo: u32) -> Option<Uav<'static>> {
+/// la vista (WSize, ArraySize), o todas las que quedan. `dimension`, la
+/// del UAV: 3D (8), array de 2D (5) o (A5) array de 1D (3: capas de una
+/// fila, `Rebanadas::una_d`).
+pub(crate) fn rebanadas_de(r: &[u64], dimension: u32, efectivo: u32) -> Option<Uav<'static>> {
+    let es_3d = dimension == UAV_TEXTURA_3D;
     let t = crate::d3d12_vistas::tex(r[0])?;
     let (sub, primera) = (r[3] as u32, (r[3] >> 32) as u32);
     let s = *t.subs.get(sub as usize)?;
     let (bytes_texel, lado) = t.almacen.elemento();
     // Lo que el UAV direcciona: texeles de 4 o 16 bytes, filas sin relleno.
+    // A5 (06-10): las "filas de otra medida" no llegan aqui -- la casa
+    // guarda cada fila sin relleno (`subrecursos::disposicion`), y los
+    // bloques ya se dijeron arriba --; si un dia llegan, se dice.
     if lado != 1 || s.fila != s.ancho as u64 * bytes_texel {
-        aviso("Dispatch o Draw: un UAV de textura 3D o de array con filas de otra medida: todavia no; se ve nulo");
+        aviso("Dispatch o Draw: un UAV de textura 3D o de array con filas de otra medida: se ve nulo");
         return None;
     }
     let por_rebanada = s.ancho as u64 * s.alto as u64 * bytes_texel;
@@ -183,7 +191,7 @@ pub(crate) fn rebanadas_de(r: &[u64], es_3d: bool, efectivo: u32) -> Option<Uav<
     // textura (sus subrecursos estan dentro de `datos`); la cola es
     // sincrona: nadie mas la toca mientras corre el Dispatch o el Draw.
     let bytes = unsafe { core::slice::from_raw_parts_mut((t.datos + desde) as *mut u8, n as usize) };
-    let rebanadas = Rebanadas { alto: s.alto, capas, salto: (salto / bytes_texel) as u32 };
+    let rebanadas = Rebanadas { alto: s.alto, capas, salto: (salto / bytes_texel) as u32, una_d: dimension == UAV_TEXTURA_1D_ARRAY };
     Some(Uav { bytes, formato: efectivo, paso: s.ancho, elementos: (n / bytes_texel) as u32, contador: None, rebanadas })
 }
 

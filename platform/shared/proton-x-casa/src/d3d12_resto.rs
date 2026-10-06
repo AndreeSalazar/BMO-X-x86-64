@@ -823,13 +823,15 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool, rects: &[[i32; 4]]) {
             }
         }
     };
-    // 06-10: la vista de un 3D (8) o de un array de 2D (5): TODAS sus
-    // rebanadas (o capas), no solo la primera; los rectangulos, en cada una.
-    if dimension == 5 || dimension == 8 {
+    // 06-10: la vista de un 3D (8) o de un array de 2D (5) y (A5) de 1D
+    // (3): TODAS sus rebanadas (o capas), no solo la primera; los
+    // rectangulos, en cada una.
+    use crate::computo::{UAV_TEXTURA_1D_ARRAY, UAV_TEXTURA_2D_ARRAY, UAV_TEXTURA_3D};
+    if [UAV_TEXTURA_1D_ARRAY, UAV_TEXTURA_2D_ARRAY, UAV_TEXTURA_3D].contains(&dimension) {
         crate::tuberia::aplicar_limpieza(r[0]);
         // Un formato de 4 o de 16 bytes por texel: lo que mide cada uno.
         let medida = if k == 4 { 2 | bmo_proton_x::bufer::CUATRO_FLOATS } else { 42 };
-        let Some(mut u) = crate::computo::rebanadas_de(r, dimension == 8, medida) else { return };
+        let Some(mut u) = crate::computo::rebanadas_de(r, dimension, medida) else { return };
         let (ancho, alto) = (u.paso, u.rebanadas.alto);
         for z in 0..u.rebanadas.capas {
             if let Some(s) = u.rebanada(z) {

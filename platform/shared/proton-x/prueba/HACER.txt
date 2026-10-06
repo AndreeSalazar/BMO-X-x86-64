@@ -3146,3 +3146,55 @@ Reproducible (comprobado en dos directorios), sin rutas. sha256:
 El banco (`tests/corre/muestras.rs`): los 10 `bien`, sale con 0. Probado
 que dice NO: contra la casa de antes, 7 MAL (la 1.1 salia como un blob de
 la 1.0 de 172 bytes, y los deserializadores daban E_NOTIMPL).
+
+capas1d_escribe.dxil, capas1d_medio.dxil, capas1d_lee.dxil -- los de capas1d.exe (06-10)
+
+`capas1d.hlsl` (aqui al lado): CSEscribe (cada hilo de 16 x 3 su texel de
+un RWTexture1DArray<float4>, e InterlockedAdd en un RWTexture1DArray<uint>),
+CSMedio (por la vista de la mip 1 y dos capas de otro) y CSLee
+(GetDimensions y lecturas, dentro y fuera, a un RWByteAddressBuffer). Con
+el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSEscribe -Fo capas1d_escribe.dxil capas1d.hlsl
+   dxc -T cs_6_0 -E CSMedio -Fo capas1d_medio.dxil capas1d.hlsl
+   dxc -T cs_6_0 -E CSLee -Fo capas1d_lee.dxil capas1d.hlsl
+
+Reproducible, sin rutas. sha256:
+
+   2c3d0052ae4e3ba60685391942138ab6a83250983db133ce7a16c5fc358859a3  capas1d_escribe.dxil
+   666b2923c661fb2e6a6d342c61d42a0e625795a74826c0655af07c22741e6172  capas1d_lee.dxil
+   d2b90878b45f3bdd70c5ee0314220cad2e92e4845ed0120bc0609d97d0c7ed28  capas1d_medio.dxil
+
+Van DENTRO de capas1d.exe.
+
+capas1d.exe -- los UAV de arrays de UNA dimension, juzgados (06-10)
+
+A5 del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola. En un
+RWTexture1DArray la capa es la SEGUNDA coordenada y GetDimensions da
+(ancho, capas); hasta el 06-10 la casa no creaba sus PSO, y
+ClearUnorderedAccessView limpiaba solo su primera capa. A, un array de 3
+capas de 16 (RGBA32F) escrito entero; B, uno de 4 capas de 8 con 2 mips
+(R32_UINT) por la vista de MipSlice = 1, FirstArraySlice = 1 y ArraySize =
+2 (lo de fuera, la capa 0, la 3 y la mip 0, intactos); C, InterlockedAdd
+en uno de 2 capas de 4 (8 en la capa 0, 4 en la 1); D, GetDimensions de
+las tres vistas; E, lecturas dentro; F, lecturas fuera (0); G,
+ClearUnorderedAccessViewUint por la vista de las capas 1 y 2 de un array
+de 3 (esas dos, y la 0 no); H, ClearUnorderedAccessViewFloat sobre las dos
+capas de un RGBA32F. Dice `bien` 9 veces y sale con el numero de fallos; en
+Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con capas1d.cpp y los
+tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c capas1d.cpp -o capas1d.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o capas1d.exe capas1d.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   746bcdead374dafac9107e51ac488a389ce54a8e3113bbc251c0eb5ed482cfa7  capas1d.exe
+
+El banco (`tests/corre/muestras.rs`): los 9 `bien`, sale con 0, ni un
+aviso. Probado que dice NO: contra la casa de antes, el PSO no se crea
+("un UAV de TEXTURA de array de una dimension ... todavia no") y salen 7
+MAL (B de la mip 0 y F pasan: nada escribe); G, la suma de cada capa 0 20
+0 (solo la primera capa de la vista).

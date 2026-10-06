@@ -126,6 +126,8 @@ const LIMPIEZA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/limpieza.exe")
 const ESCENA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/escena.exe");
 /// 06-10: los deserializadores de root signatures y la 1.1 serializada con los bytes de Windows (A3, A4).
 const LEEFIRMA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/leefirma.exe");
+/// 06-10: los UAV de arrays de una dimension (A5).
+const CAPAS1D_EXE: &[u8] = include_bytes!("../../proton-x/prueba/capas1d.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

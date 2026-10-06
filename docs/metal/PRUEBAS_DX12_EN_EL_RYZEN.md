@@ -24,7 +24,7 @@ cada juez es lo que hace que esta hoja cuente.
 
 ## 1. Los jueces de consola (dicen `bien` / `MAL`, y salen con los fallos)
 
-**La forma corta (06-10): `run sys/jueces.bex`.** Los 87 de consola, uno
+**La forma corta (06-10): `run sys/jueces.bex`.** Los 88 de consola, uno
 tras otro y SOLOS: cada uno con su consola y un tope de 600 s, contados con
 la MISMA tabla que uso Windows (`platform/shared/proton-x/prueba/jueces.txt`,
 84 de 84 en la 3060 del propietario; `limpieza` y `escena`, aun no). Dice una linea por juez (`bien`,
@@ -59,6 +59,7 @@ cualquiera es una diferencia.
 | `limpieza.exe` | ClearUnorderedAccessView en el formato de la VISTA (R32_UINT y SNORM sobre RGBA8 TYPELESS, UINT sobre RGBA16 TYPELESS, R32_UINT sobre R10G10B10A2 TYPELESS, RG16F, un bufer R16G16_UINT) y solo en sus RECTANGULOS (una 2D, las dos capas de un array) (06-10) | 8 | `limpieza.exe: ClearUnorderedAccessView es el de Windows` | ninguno |
 | `escena.exe` | una escena 3D DURA (A11): un terreno de 18432 triangulos con una textura de 8 mips, 64 cubos por instancias, una luz con SOMBRA (pase de solo profundidad y SampleCmp), un vidrio con mezcla, HDR y un tonemap por computo; A el cielo, B el mapa de la luz, C la imagen contra `window/escena.ref` (la de Windows) con un margen (06-10) | 3 (o 2 y una nota sin `escena.ref`) | `escena.exe: la escena 3D dura es la de Windows` | ninguno |
 | `leefirma.exe` | los DESERIALIZADORES de root signatures (`D3D12Create[Versioned]RootSignatureDeserializer`: la 1.0, la 1.1 con sus banderas, la 1.2) y la 1.1 SERIALIZADA con los bytes de `dxc`/Windows (A3, A4, 06-10) | 10 | `leefirma.exe: los deserializadores y la 1.1 serializada son los de Windows` | ninguno |
+| `capas1d.exe` | los UAV de un ARRAY de texturas de UNA dimension (`RWTexture1DArray`): escritos, leidos y contados por computo -- la capa es la segunda coordenada --, una vista de una mip y dos capas, GetDimensions, lo de fuera a 0, y ClearUnorderedAccessView Uint y Float sobre TODAS las capas de su vista (A5, 06-10) | 9 | `capas1d.exe: los UAV de arrays de una dimension son los de Windows` | ninguno |
 
 **Lo que el banco NO puede ver y el Ryzen si** (por eso cuentan):
 

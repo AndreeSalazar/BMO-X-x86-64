@@ -213,11 +213,13 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
                 // N5.5: los UAV de BUFER (RWStructuredBuffer, RWByteAddress
                 // Buffer, RWBuffer); N5.3c (05-10), los de TEXTURA de una o
                 // dos dimensiones (RWTexture1D, RWTexture2D); y (06-10) los
-                // 3D y los arrays de 2D (RWTexture3D, RWTexture2DArray: la z).
+                // 3D y los arrays de 2D (RWTexture3D, RWTexture2DArray: la z)
+                // y (A5) de 1D (RWTexture1DArray, 6: la capa es la y; lo sabe
+                // su vista, `bufer::Rebanadas::una_d`).
                 1 => match super::super::recursos::rango(&c.recursos, 1, rango as u32).map(|r| (r.modo_de_bufer(), r.especie)) {
                     Some((Some(modo), _)) => Valor::Uav(c.ranuras.uav(espacio, registro)?, modo),
-                    Some((None, 1 | 2 | 4 | 7)) => Valor::Uav(c.ranuras.uav(espacio, registro)?, crate::bufer::Modo::Textura),
-                    _ => return Err(NoPrograma::Forma("un UAV de TEXTURA de array de una dimension, multimuestra o de cubo: todavia no")),
+                    Some((None, 1 | 2 | 4 | 6 | 7)) => Valor::Uav(c.ranuras.uav(espacio, registro)?, crate::bufer::Modo::Textura),
+                    _ => return Err(NoPrograma::Forma("un UAV de TEXTURA multimuestra o de cubo: todavia no")),
                 },
                 _ => return Err(NoPrograma::Forma("un createHandle de una clase que no existe")),
             }
