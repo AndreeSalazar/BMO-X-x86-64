@@ -1270,3 +1270,39 @@ no con muestras, y la obra toca el corazon de la trama (13 choques con lo
 de hoy). Vuelve si una medida del juego (o un juego que se quiera despues)
 pide `SampleDesc.Count > 1`; hasta entonces, la casa sigue con UNA muestra
 y lo dice.
+
+## 7.1 EL CONTADOR DE DX12 (06-10)
+
+> El propietario (06-10): *"cuantos elementos son que faltan ... se siente
+> como infinito pero no tengo contador"*. Las 38 casillas de la seccion 2
+> siguen abiertas aunque muchas ya estan HECHAS EN EL BANCO: su "como se
+> sabe" pide Windows o el metal. Por eso el contador va en TRES MONTONES,
+> por QUIEN puede cerrarlas. Se actualiza con cada pieza.
+
+```text
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)   10
+      1  D2.7  las vistas que cambian el tipo (UAV, render target, SRV)
+      2  D3.4  ClearUnorderedAccessView en los formatos que aun no escribe
+      3  D3.2  el deserializador de firmas (D3D12CreateVersionedRoot...)
+      4  D3.2  serializar la 1.1 con los MISMOS bytes que Windows
+      5  D3.4  los UAV de arrays de 1D y los de filas de otra medida
+      6  D4.5  las topologias con adyacencia (para un GS que las pide)
+      7  D2.3  Map sobre una textura (montones de la CPU)
+      8  D1.2  las preguntas de CheckFeatureSupport que no contesta
+      9  D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO)
+     10  X5    la velocidad que queda: las olas en el computo traducido y
+               los pixeles con UAV traducidos
+   B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            3
+      D0.1 rayosx sobre la carpeta del juego; D0.2 los DXIL de su cache;
+      D0.3 el diario filtrado a D3D12. Lo que encuentren entra en A (el
+      teselado D4.5, los recursos reservados D2.4: SOLO si aparecen)
+   C  El METAL: correr la hoja y la 3060                                    --
+      docs/metal/PRUEBAS_DX12_EN_EL_RYZEN.md, juez a juez (cada `bien` en
+      el Ryzen y en Windows CIERRA casillas de la seccion 2 que hoy estan
+      hechas solo en el banco); G0 de PLAN_LA_3060 (el GSP 10 de 10) para
+      D5.x; y D5.8, la primera imagen del juego
+   D  Lo que NO se hace (apagado en el juego): D6.1 rayos, D6.2 DLSS y
+      Reflex; D6.3 FSR 2 sale solo con el computo (ya esta)
+```
+
+Cuando A llegue a 0, lo que falte de DX12 lo diran B y C: el juego mismo.
