@@ -24,7 +24,7 @@ cada juez es lo que hace que esta hoja cuente.
 
 ## 1. Los jueces de consola (dicen `bien` / `MAL`, y salen con los fallos)
 
-**La forma corta (06-10): `run sys/jueces.bex`.** Los 90 de consola, uno
+**La forma corta (06-10): `run sys/jueces.bex`.** Los 91 de consola, uno
 tras otro y SOLOS: cada uno con su consola y un tope de 600 s, contados con
 la MISMA tabla que uso Windows (`platform/shared/proton-x/prueba/jueces.txt`,
 84 de 84 en la 3060 del propietario; `limpieza` y `escena`, aun no). Dice una linea por juez (`bien`,
@@ -62,6 +62,7 @@ cualquiera es una diferencia.
 | `capas1d.exe` | los UAV de un ARRAY de texturas de UNA dimension (`RWTexture1DArray`): escritos, leidos y contados por computo -- la capa es la segunda coordenada --, una vista de una mip y dos capas, GetDimensions, lo de fuera a 0, y ClearUnorderedAccessView Uint y Float sobre TODAS las capas de su vista (A5, 06-10) | 9 | `capas1d.exe: los UAV de arrays de una dimension son los de Windows` | ninguno |
 | `adyacencia.exe` | las topologias con ADYACENCIA (`*_ADJ`): un GS `triangleadj` y uno `lineadj` apuntan que vertices les llegan, en listas y en tiras (la tabla de D3D, con sus extremos y el impar dado la vuelta), con su `SV_PrimitiveID`; y sin GS se pintan solo los triangulos (A6, 06-10) | 7 | `adyacencia.exe: las topologias con adyacencia son las de Windows` | ninguno |
 | `mapeo.exe` | `Map` sobre una TEXTURA con mips de un monton CUSTOM (WRITE_BACK, L0) sin puntero, WriteToSubresource entera y por una caja, ReadFromSubresource, la GPU la copia, la de un DEFAULT da E_INVALIDARG, y GetHeapProperties dice su pagina y su piscina (A7, 06-10) | 7 y una nota | `mapeo.exe: Map sobre una textura es el de Windows` | uno: el Map CON puntero de la nota (la casa guarda la textura en su formato) |
+| `preguntas.exe` | las preguntas de CheckFeatureSupport que la casa no contestaba: SHADER_CACHE, COMMAND_QUEUE_PRIORITY, EXISTING_HEAPS, SERIALIZATION (y un nodo que no hay), CROSS_NODE, DISPLAYABLE, PROTECTED_RESOURCE_SESSION_SUPPORT, con la medida exacta y con 4 bytes de mas; la nota, OPTIONS13 a 21, PREDICATION y HARDWARE_COPY (A8, 06-10) | 8 y una nota | `preguntas.exe: CheckFeatureSupport contesta lo que contesta Windows` | ninguno |
 
 **Lo que el banco NO puede ver y el Ryzen si** (por eso cuentan):
 

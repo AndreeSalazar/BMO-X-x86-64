@@ -3279,3 +3279,32 @@ El banco (`tests/corre/muestras.rs`): los 7 `bien`, la nota con
 0x80070057 y un solo aviso (el del Map con puntero), sale con 0. Probado
 que dice NO: contra la casa de antes, 2 MAL (B: el Map sin puntero daba
 E_INVALIDARG; G: la pagina y la piscina a 0).
+
+preguntas.exe -- las preguntas de CheckFeatureSupport que no se contestaban, juzgadas (06-10)
+
+A8 del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola, sin
+sombreadores. Un motor pregunta al montar su D3D12 la cache de
+sombreadores, las prioridades de cola, la serializacion de montones...; la
+casa contestaba E_INVALIDARG (y un aviso) con la medida buena. Lo que DICE
+cada una puede ser otro en la 3060 (la casa dice NO a lo que no hace): se
+juzga que conteste. A, SHADER_CACHE; B, COMMAND_QUEUE_PRIORITY (DIRECT a
+NORMAL y COMPUTE a HIGH, si); C, EXISTING_HEAPS; D, SERIALIZATION del
+nodo 0, S_OK, y del 1, E_INVALIDARG; E, CROSS_NODE; F, DISPLAYABLE; G,
+PROTECTED_RESOURCE_SESSION_SUPPORT; H, las siete con 4 bytes de mas,
+E_INVALIDARG. La nota: cuales de OPTIONS13 a OPTIONS21, PREDICATION y
+HARDWARE_COPY contesta ese Windows (las mas nuevas dependen de su
+version; la casa, todas). Dice `bien` 8 veces y la nota.
+
+Con lo de `muestras/construir.sh`, en un directorio con preguntas.cpp:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c preguntas.cpp -o preguntas.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o preguntas.exe preguntas.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   5268bc0489def325fd74bd08cc29343c0a8dd5468ae9bdeae4269213e245452b  preguntas.exe
+
+El banco (`tests/corre/muestras.rs`): los 8 `bien` y la nota con las 11
+en "s", ni un aviso, sale con 0. Probado que dice NO: contra la casa de
+antes, 7 MAL (de A a G, E_INVALIDARG; H pasaba) y la nota con las 11 en
+"n".

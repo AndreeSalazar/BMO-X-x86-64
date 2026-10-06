@@ -132,6 +132,8 @@ const CAPAS1D_EXE: &[u8] = include_bytes!("../../proton-x/prueba/capas1d.exe");
 const ADYACENCIA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/adyacencia.exe");
 /// 06-10: Map sobre una textura de un monton de la CPU (A7).
 const MAPEO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/mapeo.exe");
+/// 06-10: las preguntas de CheckFeatureSupport que la casa no contestaba (A8).
+const PREGUNTAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/preguntas.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

@@ -1103,3 +1103,21 @@ fn map_sobre_una_textura_es_el_de_windows() {
     assert!(avisos.len() == 1 && avisos[0].contains("Map con puntero de una textura"), "solo el del Map con puntero: {texto}");
     assert!(texto.ends_with("mapeo.exe: Map sobre una textura es el de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **Las preguntas de CheckFeatureSupport que la casa no contestaba** (A8,
+/// 06-10, `prueba/preguntas.exe`, NUESTRO): SHADER_CACHE, las prioridades
+/// de cola, EXISTING_HEAPS, SERIALIZATION (y un nodo que no hay), CROSS_NODE,
+/// DISPLAYABLE y las sesiones protegidas contestan con la medida exacta, y
+/// con 4 bytes de mas, E_INVALIDARG. Las nuevas (OPTIONS13 a 21...), todas
+/// con un "si" de contestadas en la nota.
+#[test]
+fn las_preguntas_de_check_feature_support_son_las_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, PREGUNTAS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 8, "{texto}");
+    assert!(texto.contains("  nota  las nuevas (S_OK = s, otra = n): OPTIONS13 s OPTIONS14 s OPTIONS15 s OPTIONS16 s OPTIONS17 s OPTIONS18 s OPTIONS19 s OPTIONS20 s OPTIONS21 s PREDICATION s HARDWARE_COPY s"), "{texto}");
+    assert!(texto.ends_with("preguntas.exe: CheckFeatureSupport contesta lo que contesta Windows\r\n[salio 0x0]"), "{texto}");
+}

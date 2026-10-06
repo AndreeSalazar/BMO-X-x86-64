@@ -340,7 +340,14 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   `SHADER_MODEL` (hasta 6.6), `ROOT_SIGNATURE` 1.1, `ARCHITECTURE1`,
   `GPU_VIRTUAL_ADDRESS_SUPPORT`, `FEATURE_LEVELS`, `SHADER_CACHE`. Lo que
   diga la 3060 real, campo a campo. **Como se sabe:** `tandaD1.exe` lo
-  compara con los numeros medidos en Windows.
+  compara con los numeros medidos en Windows. (06-10, A8: contesta TODAS
+  las que un motor pregunta al montar su D3D12 -- SHADER_CACHE, las
+  prioridades de cola, EXISTING_HEAPS, SERIALIZATION, CROSS_NODE,
+  DISPLAYABLE, las sesiones protegidas, OPTIONS13 a OPTIONS21,
+  PREDICATION, HARDWARE_COPY -- con la medida exacta y NO a lo que la casa
+  no hace; antes, E_INVALIDARG y un aviso. Juez `prueba/preguntas.exe`, 8
+  `bien` y la nota de cuales sabe Windows; con la casa de antes, 7 MAL.
+  Falta "lo que diga la 3060, campo a campo": eso es D0, del propietario.)
 - [ ] D1.3 -- `FORMAT_SUPPORT` y `FORMAT_INFO` de los ~120 formatos DXGI (la
   tabla de la 3060). **Como se sabe:** `tandaD1.exe`, formato a formato.
 - [ ] D1.4 -- La cadena de `QueryInterface`: `ID3D12Device1` a `Device9` y
@@ -1318,7 +1325,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    4
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    3
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1334,7 +1341,8 @@ y lo dice.
                (06-10: adyacencia.exe, 7 bien; y el SV_PrimitiveID del GS)
       7  [x] D2.3  Map sobre una textura (montones de la CPU) (06-10:
                mapeo.exe, 7 bien y la nota del Map con puntero)
-      8  D1.2  las preguntas de CheckFeatureSupport que no contesta
+      8  [x] D1.2  las preguntas de CheckFeatureSupport que no contesta
+               (06-10: preguntas.exe, 8 bien y la nota de las nuevas)
       9  D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO)
      10  X5    la velocidad que queda: las olas en el computo traducido y
                los pixeles con UAV traducidos

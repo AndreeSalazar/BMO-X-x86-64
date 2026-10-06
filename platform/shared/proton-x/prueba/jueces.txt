@@ -109,3 +109,4 @@ leefirma 10           # D3D12: los deserializadores de root signatures y la 1.1 
 capas1d 9             # D3D12: los UAV de arrays de una dimension (RWTexture1DArray) y su ClearUnorderedAccessView (06-10)
 adyacencia 7          # D3D12: las topologias con adyacencia, con un GS (triangleadj, lineadj) y sin el (06-10)
 mapeo 7 1             # D3D12: Map sobre una textura de un monton de la CPU; la nota, el HRESULT del Map con puntero (06-10)
+preguntas 8 1         # D3D12: las preguntas de CheckFeatureSupport que no se contestaban; la nota, cuales nuevas sabe Windows (06-10)
