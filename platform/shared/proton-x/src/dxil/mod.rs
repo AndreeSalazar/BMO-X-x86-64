@@ -48,6 +48,8 @@ pub mod carriles;
 mod interprete;
 /// E2.3b: lo que emite un sombreador de geometria.
 pub use interprete::Tiras;
+/// X2 (05-10): la lectura de texturas, que llama tambien el codigo traducido.
+pub use interprete::leer_textura;
 /// 03-10: Gather y SampleCmp (las sombras).
 mod sombras;
 /// N5.10: los arrays (alloca, GEP, load, store y las tablas globales).

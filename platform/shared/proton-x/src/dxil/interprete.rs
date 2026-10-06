@@ -246,7 +246,7 @@ impl Programa {
         let Pausa { mut pc, mut bucles, mut hondo, mut vueltas, mut elige } = *p;
         // N5.4: la textura que eligio el ultimo `EligeTextura` (la de antes
         // de la barrera, si el hilo viene de una).
-        let mut elegida: Option<crate::textura::Textura> = elige.and_then(|(r, k)| rec.dinamica(r, k));
+        let mut elegida: Option<crate::textura::Textura<'static>> = elige.and_then(|(r, k)| rec.dinamica(r, k));
         while let Some(op) = self.ops.get(pc) {
             pc += 1;
             match *op {
@@ -466,69 +466,84 @@ impl Programa {
                     elige = Some((rango, bits(regs, i)));
                     elegida = rec.dinamica(rango, bits(regs, i));
                 }
-                Op::Muestra { d, t, s, u, v, g } => {
-                    let (unica, solo);
-                    let (rec, t) = if t == super::programa::DINAMICA {
-                        unica = [elegida];
-                        solo = crate::textura::Recursos { texturas: &unica, muestreadores: rec.muestreadores, buferes: &[], dinamicas: None };
-                        (&solo, 0)
-                    } else {
-                        (rec, t)
-                    };
-                    // D4.4: la mip de sus gradientes (las derivadas de antes).
-                    let c = match g {
-                        Some(g) => rec.muestrear_grad(t, s, [regs[u as usize], regs[v as usize], 0.0, 0.0], core::array::from_fn(|k| regs[g as usize + k]), [0.0; 2], [0; 3]),
-                        None => rec.muestrear(t, s, regs[u as usize], regs[v as usize]),
-                    };
-                    regs[d as usize..d as usize + 4].copy_from_slice(&c);
-                }
-                Op::Lee { d, t, s, como, c, nivel, desp } => {
-                    // La ELEGIDA, en la ranura 0 de unos recursos de una.
-                    let (unica, solo);
-                    let (rec, t) = if t == super::programa::DINAMICA {
-                        unica = [elegida];
-                        solo = crate::textura::Recursos { texturas: &unica, muestreadores: rec.muestreadores, buferes: &[], dinamicas: None };
-                        (&solo, 0)
-                    } else {
-                        (rec, t)
-                    };
-                    let f = c.map(|r| regs[r as usize]);
-                    let b = |r: Reg| regs[r as usize].to_bits();
-                    let x = match como {
-                        Lectura::Muestra => rec.muestrear_en(t, s, f, None, desp).map(f32::to_bits),
-                        Lectura::Nivel => rec.muestrear_en(t, s, f, Some(regs[nivel as usize]), desp).map(f32::to_bits),
-                        Lectura::Carga { enteros } => rec.cargar(t, [b(c[0]) as i32, b(c[1]) as i32, b(c[2]) as i32], b(nivel) as i32, desp, enteros),
-                        Lectura::Medidas => rec.medidas(t, b(nivel)),
-                        Lectura::Bufer(modo) => rec.cargar_bufer(t, modo, b(c[0]), b(c[1])),
-                        Lectura::MedidasBufer(modo) => rec.medidas_bufer(t, modo),
-                        Lectura::Junta { canal } => rec.juntar(t, s, f, canal as usize, desp).map(f32::to_bits),
-                        Lectura::Compara => [rec.comparar(t, s, f, regs[nivel as usize], desp).to_bits(); 4],
-                        // D4.4: el bloque de `nivel` (ver `Lectura::Gradientes`).
-                        Lectura::Gradientes { compara } => {
-                            let n = |k: usize| regs[nivel as usize + k];
-                            let (g, sesgo_clamp) = ([n(0), n(1), n(2), n(3)], [n(4), n(5)]);
-                            if compara {
-                                [rec.comparar_grad(t, s, f, n(6), g, sesgo_clamp, desp).to_bits(); 4]
-                            } else {
-                                rec.muestrear_grad(t, s, f, g, sesgo_clamp, desp).map(f32::to_bits)
-                            }
-                        }
-                        Lectura::Lod { sujeta } => [rec.lod(t, s, core::array::from_fn(|k| regs[nivel as usize + k]), sujeta).to_bits(), 0, 0, 0],
-                        Lectura::JuntaCompara { canal } => {
-                            // Cada texel contra la referencia, con la funcion del muestreador.
-                            let g = rec.juntar(t, s, f, canal as usize, desp);
-                            let m = rec.muestreadores.get(s as usize).copied().flatten();
-                            let fun = m.map_or(4, |m| if m.comparacion == 0 { 4 } else { m.comparacion });
-                            g.map(|x| if (crate::trama::Profundidad { funcion: fun, escribir: false }).pasa(regs[nivel as usize], x) { 1.0f32.to_bits() } else { 0 })
-                        }
-                    };
-                    for (k, v) in x.into_iter().enumerate() {
-                        regs[d as usize + k] = f32::from_bits(v);
-                    }
-                }
+                // X2 (05-10): la lectura, en una funcion: la llama tambien el
+                // codigo traducido (`nativo_llamadas`), y asi da los MISMOS bits.
+                Op::Muestra { .. } | Op::Lee { .. } => leer_textura(*op, regs, rec, elegida),
             }
         }
         *p = Pausa { pc, bucles, hondo, vueltas, elige };
         Paro::Fin(true)
+    }
+}
+
+/// **Una lectura de textura** ([`Op::Muestra`] o [`Op::Lee`]) sobre los
+/// registros, con la textura `elegida` por el ultimo `EligeTextura` (N5.4).
+/// X2 (05-10): fuera de [`Programa::correr_desde`] para que el codigo
+/// traducido la LLAME (`nativo_llamadas::textura`) en vez de copiarla: el
+/// mismo Rust, los mismos bits. Otra operacion, nada.
+pub fn leer_textura(op: Op, regs: &mut [f32], rec: &crate::textura::Recursos, elegida: Option<crate::textura::Textura<'static>>) {
+    match op {
+        Op::Muestra { d, t, s, u, v, g } => {
+            let (unica, solo);
+            let (rec, t) = if t == super::programa::DINAMICA {
+                unica = [elegida];
+                solo = crate::textura::Recursos { texturas: &unica, muestreadores: rec.muestreadores, buferes: &[], dinamicas: None };
+                (&solo, 0)
+            } else {
+                (rec, t)
+            };
+            // D4.4: la mip de sus gradientes (las derivadas de antes; en el
+            // codigo traducido, 0: la casa solo lo usa si la mip no importa).
+            let c = match g {
+                Some(g) => rec.muestrear_grad(t, s, [regs[u as usize], regs[v as usize], 0.0, 0.0], core::array::from_fn(|k| regs[g as usize + k]), [0.0; 2], [0; 3]),
+                None => rec.muestrear(t, s, regs[u as usize], regs[v as usize]),
+            };
+            regs[d as usize..d as usize + 4].copy_from_slice(&c);
+        }
+        Op::Lee { d, t, s, como, c, nivel, desp } => {
+            // La ELEGIDA, en la ranura 0 de unos recursos de una.
+            let (unica, solo);
+            let (rec, t) = if t == super::programa::DINAMICA {
+                unica = [elegida];
+                solo = crate::textura::Recursos { texturas: &unica, muestreadores: rec.muestreadores, buferes: &[], dinamicas: None };
+                (&solo, 0)
+            } else {
+                (rec, t)
+            };
+            let f = c.map(|r| regs[r as usize]);
+            let b = |r: Reg| regs[r as usize].to_bits();
+            let x = match como {
+                Lectura::Muestra => rec.muestrear_en(t, s, f, None, desp).map(f32::to_bits),
+                Lectura::Nivel => rec.muestrear_en(t, s, f, Some(regs[nivel as usize]), desp).map(f32::to_bits),
+                Lectura::Carga { enteros } => rec.cargar(t, [b(c[0]) as i32, b(c[1]) as i32, b(c[2]) as i32], b(nivel) as i32, desp, enteros),
+                Lectura::Medidas => rec.medidas(t, b(nivel)),
+                Lectura::Bufer(modo) => rec.cargar_bufer(t, modo, b(c[0]), b(c[1])),
+                Lectura::MedidasBufer(modo) => rec.medidas_bufer(t, modo),
+                Lectura::Junta { canal } => rec.juntar(t, s, f, canal as usize, desp).map(f32::to_bits),
+                Lectura::Compara => [rec.comparar(t, s, f, regs[nivel as usize], desp).to_bits(); 4],
+                // D4.4: el bloque de `nivel` (ver `Lectura::Gradientes`).
+                Lectura::Gradientes { compara } => {
+                    let n = |k: usize| regs[nivel as usize + k];
+                    let (g, sesgo_clamp) = ([n(0), n(1), n(2), n(3)], [n(4), n(5)]);
+                    if compara {
+                        [rec.comparar_grad(t, s, f, n(6), g, sesgo_clamp, desp).to_bits(); 4]
+                    } else {
+                        rec.muestrear_grad(t, s, f, g, sesgo_clamp, desp).map(f32::to_bits)
+                    }
+                }
+                Lectura::Lod { sujeta } => [rec.lod(t, s, core::array::from_fn(|k| regs[nivel as usize + k]), sujeta).to_bits(), 0, 0, 0],
+                Lectura::JuntaCompara { canal } => {
+                    // Cada texel contra la referencia, con la funcion del muestreador.
+                    let g = rec.juntar(t, s, f, canal as usize, desp);
+                    let m = rec.muestreadores.get(s as usize).copied().flatten();
+                    let fun = m.map_or(4, |m| if m.comparacion == 0 { 4 } else { m.comparacion });
+                    g.map(|x| if (crate::trama::Profundidad { funcion: fun, escribir: false }).pasa(regs[nivel as usize], x) { 1.0f32.to_bits() } else { 0 })
+                }
+            };
+            for (k, v) in x.into_iter().enumerate() {
+                regs[d as usize + k] = f32::from_bits(v);
+            }
+        }
+        _ => {}
     }
 }

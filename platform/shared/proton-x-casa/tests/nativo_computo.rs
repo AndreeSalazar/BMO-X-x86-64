@@ -123,6 +123,7 @@ fn el_cs_de_nbody_traducido_da_los_bits_del_interprete() {
 fn correr_nativo(p: &Programa, f: Funcion, ent: &[[f32; 4]], salidas: usize) -> Vec<[f32; 4]> {
     let mut s = vec![[0.0f32; 4]; salidas];
     let mut regs = p.iniciales.clone();
+    let llamadas = bmo_proton_x::nativo_llamadas::Llamadas::nuevas(16);
     let mut c = Contexto {
         ids: [0; 10],
         reanudar: 0,
@@ -130,6 +131,7 @@ fn correr_nativo(p: &Programa, f: Funcion, ent: &[[f32; 4]], salidas: usize) -> 
         compartida: core::ptr::null_mut(),
         entradas: ent.as_ptr(),
         salidas: s.as_mut_ptr(),
+        llamadas: &llamadas,
         srv: [Vista::NULA; VISTAS],
         uav: [Vista::NULA; VISTAS],
     };

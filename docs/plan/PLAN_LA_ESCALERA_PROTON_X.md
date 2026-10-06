@@ -523,7 +523,47 @@ juego pide mientras la 3060 no corre computo (N6).
   PSLee de `hdr.exe`, casi todos los PS de un juego: el aviso de texturas
   sigue), la matematica (`Mate`: exp, log, sin), los cbuffers con fila
   calculada (`ConstantesEn`: luces, huesos; falta pasarle al codigo la
-  medida del cbuffer) y verlo en el Ryzen.
+  medida del cbuffer) y verlo en el Ryzen. (X2, abajo: lo hecho de esto.)
+- [x] **X2 -- los que MUESTREAN, la matematica y la fila calculada,
+  traducidos** (`platform/shared/proton-x/src/nativo_llamadas.rs`, 05-10, en
+  el banco; falta verlo en el metal). El codigo traducido ya no se aparta
+  de una textura, un `sin` o un cbuffer de fila calculada: los LLAMA. El
+  x86 del cuerpo llama por un puntero al MISMO Rust del interprete
+  (`dxil::leer_textura`, `mates`): los bits salen iguales por
+  construccion. La casa le pone las llamadas una vez por dibujo
+  (`proton-x-casa/src/nativo.rs`, `textura_sysv`). Con D4.4 (06-10): sin
+  el cuadro de 2x2 no hay derivadas, asi que lo traducido muestrea con
+  gradientes 0 (la mip mas detallada, el filtro de cerca), y la casa SOLO
+  lo usa si eso no cambia nada (`Recursos::mip_importa`: vistas de una
+  mip y el mismo filtro de cerca y de lejos); si no, o si las texturas son
+  del indice dinamico (sus mips no se ven de antemano), el dibujo va por
+  el interprete en cuadros, y lo dice. `ddx`/`ddy` y CalculateLevelOfDetail
+  no se traducen (dicho). **Como se sabe:**
+  `proton-x-casa/tests/nativo/texturas.rs`, contra el interprete BIT A BIT:
+  13 sombreadores de verdad (los de hdr, flotante1, vistas, sombras,
+  espacios, mates, luces, buferes, gbuffer, HelloTexture, DynamicIndexing y
+  nBody) con texturas de 8 bits, de float con NaN, infinitos y -0, con
+  mips y arrays, y cada muestreador; cada `Mate` sobre valores raros; y el
+  MXCSR de quien llama. En el banco de `.exe`, el aviso "un PSO con
+  texturas" desaparece de hdr, flotante1, vistas y restos. **Medido**
+  (`--release`, 100.000 llamadas, el Xeon del banco): los que muestrean,
+  POCO: HelloTexture 1,4 veces, hdr PSLee 1,4, DynamicIndexing 1,3, mates
+  1,2 -- el filtro de la textura se come casi todo, y es el mismo Rust en
+  los dos caminos --; los que no, MUCHO: luces 4,2, gbuffer 6,0. En el
+  metal el interprete es soft-float: alli la diferencia sera otra.
+  **Lo que puede fallar, dicho:** (1) un juego con texturas de varias
+  mips (todos) o bindless (Cyberpunk) sigue INTERPRETADO en sus pixeles:
+  lo arregla X3; (2) la llamada guarda los registros del cuerpo en la pila
+  (System V): una funcion de Rust que use mucha pila crece la de quien
+  dibuja.
+- [ ] **X3 -- el codigo traducido EN CUADROS de 2x2** (`platform/shared/proton-x/src/nativo.rs`):
+  que lo traducido corra cuatro pixeles a la vez (los de un cuadro, con
+  sus ayudantes, como `crate::cuadros`) y saque las derivadas restando
+  carriles, como el interprete en olas. Es lo que le falta a Cyberpunk:
+  sus pixeles muestrean texturas de varias mips por el indice dinamico, y
+  hoy (X2) van por el interprete. **Como se sabe:** `derivadas.exe` y
+  `restos.exe` sin el aviso de "va por el interprete, en cuadros"; los
+  bits, los del interprete en olas; y DynamicIndexing medido mas rapido.
 
 **LA CPU GUIA, LA 3060 DIBUJA.** El propietario (05-10): *"que la CPU no
 tiene que ser la que dibuje, sino que tenga el mapa por via de RAM y que le

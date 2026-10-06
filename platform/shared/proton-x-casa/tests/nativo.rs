@@ -190,3 +190,7 @@ fn el_mxcsr_de_quien_llama_no_cuenta_y_se_devuelve() {
 
 #[path = "nativo/saltos.rs"]
 mod saltos;
+
+/// X2 (05-10): los que MUESTREAN, hacen matematica o leen una fila calculada.
+#[path = "nativo/texturas.rs"]
+mod texturas;

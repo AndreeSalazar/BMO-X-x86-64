@@ -28,16 +28,21 @@
 //!    lo de fuera  la memoria compartida, los SRV y los UAV de bufer y los
 //!                 ids del hilo, del contexto; lo que pasa de su vista da 0
 //!                 al leer y no se escribe, como en el interprete
+//!    lo que LLAMA (X2, 05-10) la matematica de `mates.rs` y, en un dibujo,
+//!                 las texturas: un `call` a la funcion de Rust del
+//!                 interprete (`nativo_llamadas`), los mismos bits; y el
+//!                 cbuffer con fila CALCULADA, mirado contra su medida
 //! ```
 //!
 //! Lo que no traduce (devuelve `None` y el Dispatch va por el interprete):
-//! las texturas, la matematica de `mates.rs`, los buferes tipados y los
-//! cbuffers con fila calculada.
+//! las texturas de un CS (su Dispatch no pone quien las lea) y sus buferes
+//! tipados.
 
 use alloc::vec::Vec;
 
 use crate::bufer::Modo;
 use crate::dxil::programa::{Comparacion, Conversion, Lectura, Op, OpEntera, Programa, Reg};
+use crate::nativo_llamadas::{L_CB_BYTES, L_DATOS, L_MATE, L_TEXTURA};
 
 /// Los SRV y los UAV que ve, como mucho (por ranura).
 pub const VISTAS: usize = 8;
@@ -74,18 +79,22 @@ pub struct Contexto {
     /// Las entradas y las salidas (`[f32; 4]` por elemento), si las hay.
     pub entradas: *const [f32; 4],
     pub salidas: *mut [f32; 4],
+    /// X2 (05-10): a quien llama (la matematica, las texturas) y la medida
+    /// del cbuffer: ver [`crate::nativo_llamadas::Llamadas`].
+    pub llamadas: *const crate::nativo_llamadas::Llamadas,
     pub srv: [Vista; VISTAS],
     pub uav: [Vista; VISTAS],
 }
 
 const C_IDS: i32 = 0;
-// Estos cuatro, tambien de `nativo.rs`: el VS o el PS con saltos se traduce
+// Estos cinco, tambien de `nativo.rs`: el VS o el PS con saltos se traduce
 // con esto, y su entrada pone un `Contexto` a medias en la pila (solo estos).
 pub(crate) const C_REANUDAR: i32 = 40;
 pub(crate) const C_COMPARTIDA: i32 = 48;
 pub(crate) const C_ENTRADAS: i32 = 56;
 pub(crate) const C_SALIDAS: i32 = 64;
-const C_SRV: i32 = 72;
+pub(crate) const C_LLAMADAS: i32 = 72;
+const C_SRV: i32 = 80;
 const C_UAV: i32 = C_SRV + VISTA * VISTAS as i32;
 /// Lo que mide una [`Vista`].
 const VISTA: i32 = 32;
@@ -379,6 +388,57 @@ impl Emisor {
         self.campo(RDX, true, vista, V_DATOS);
         Some(fuera)
     }
+
+    // -- Lo que LLAMA (X2, 05-10): `nativo_llamadas` ---------------------------------
+
+    /// `mov rax, [r12 + llamadas]; call [rax + desp]`. Lo que vive en un
+    /// registro de los que se pisan (rax, rcx, rdx, rsi, rdi, r8..r11, los
+    /// xmm) no sobrevive: aqui todo esta en memoria o en rbx, r12..r14.
+    fn llamar(&mut self, desp: i32) {
+        self.mem(None, true, &[0x8B], RAX, CTX, C_LLAMADAS);
+        self.mem(None, false, &[0xFF], 2, RAX, desp); // call qword [rax + desp]
+    }
+
+    /// `d = mate(cual, a)`, la de `Mate::aplicar` (edi, esi -> eax).
+    fn mate(&mut self, d: Reg, a: Reg, cual: u32) {
+        self.inmediato(RDI, cual);
+        self.cargar(RSI, a);
+        self.llamar(L_MATE);
+        self.guardar(d, RAX);
+    }
+
+    /// La operacion `k` (una lectura de textura) por la llamada de la casa:
+    /// `textura(datos, registros, k)` (rdi, rsi, edx).
+    fn textura(&mut self, k: u32) {
+        self.mem(None, true, &[0x8B], RAX, CTX, C_LLAMADAS);
+        self.mem(None, true, &[0x8B], RDI, RAX, L_DATOS);
+        self.rr(None, true, &[0x89], REGS, RSI); // mov rsi, rbx
+        self.inmediato(RDX, k);
+        self.mem(None, false, &[0xFF], 2, RAX, L_TEXTURA);
+    }
+
+    /// `d..d+4` = la fila `fila + i` del cbuffer si `i < filas`, cada
+    /// palabra solo si cabe en su medida (`Llamadas::cb_bytes`); lo demas,
+    /// 0. Lo del interprete en `ConstantesEn`.
+    fn constantes_en(&mut self, d: Reg, fila: u16, filas: u16, i: Reg) {
+        self.cargar(RAX, i); // rax = i, sin signo
+        self.b.push(0x3D); // cmp eax, filas
+        self.b.extend_from_slice(&(filas as u32).to_le_bytes());
+        let fuera = self.salto_si(CC_AE);
+        self.mem(None, true, &[0x8D], RAX, RAX, fila as i32); // lea rax, [rax + fila]
+        self.b.extend_from_slice(&[0x48, 0xC1, 0xE0, 0x04]); // shl rax, 4: en bytes
+        self.mem(None, true, &[0x8B], R10, CTX, C_LLAMADAS);
+        self.mem(None, true, &[0x8B], R10, R10, L_CB_BYTES); // r10 = hasta
+        self.rr(None, true, &[0x89], CB, RDX); // mov rdx, r13
+        self.cuatro_palabras(d);
+        let listo = self.salto();
+        self.aqui(fuera);
+        self.rr(None, false, &[0x31], RCX, RCX);
+        for k in 0..4 {
+            self.guardar(d + k, RCX);
+        }
+        self.aqui(listo);
+    }
 }
 
 /// Los registros que algo escribe (para saber cuales son constantes).
@@ -417,9 +477,20 @@ fn escritos(op: &Op, mut f: impl FnMut(Reg)) {
     }
 }
 
-/// **Traducir un programa de computo** (o uno sin texturas con entradas y
-/// salidas) a x86-64. `None`: algo que todavia no sabe (va por el interprete).
+/// **Traducir un programa de computo** a x86-64. `None`: algo que todavia no
+/// sabe (va por el interprete). Sus texturas, no: su Dispatch no pone quien
+/// las lea (`Llamadas::textura` a 0).
 pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
+    compilar_con(p, false)
+}
+
+/// **El cuerpo de un dibujo** (`nativo.rs` le pone delante su llamada): lo
+/// de [`compilar`], y sus texturas por la llamada de la casa (X2, 05-10).
+pub(crate) fn compilar_dibujo(p: &Programa) -> Option<Vec<u8>> {
+    compilar_con(p, true)
+}
+
+fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
     // Los registros que nadie escribe son sus iniciales: constantes.
     let mut escrito = alloc::vec![false; p.iniciales.len()];
     for op in &p.ops {
@@ -459,8 +530,18 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
     let mut bucles: Vec<(usize, Vec<usize>)> = Vec::new();
     let mut al_final: Vec<usize> = Vec::new();
     let mut barrera = 0usize;
-    for op in &p.ops {
+    for (k, op) in p.ops.iter().enumerate() {
         match *op {
+            // X2 (05-10): en un dibujo, TODA lectura de textura (y de bufer:
+            // su entrada no pone vistas) por la llamada de la casa; la
+            // matematica, por `Mate::aplicar`; y el cbuffer con fila calculada.
+            Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } if dibujo => e.textura(k as u32),
+            // D4.4: los gradientes que pide un muestreo para su mip se quedan
+            // en 0 (no hay cuadro de 2x2: cada pixel corre solo). La casa solo
+            // corre esto si la mip no cambia nada (`Recursos::mip_importa`).
+            Op::Ola { que: crate::dxil::olas::Ola::Derivada { muestra: true, .. }, .. } if dibujo => {}
+            Op::Mate { d, a, f } => e.mate(d, a, crate::nativo_llamadas::indice_mate(f)?),
+            Op::ConstantesEn { d, fila, filas, i, .. } => e.constantes_en(d, fila, filas, i),
             Op::Mul { d, a, b } | Op::Add { d, a, b } | Op::Sub { d, a, b } | Op::Div { d, a, b } => {
                 let x = match op {
                     Op::Mul { .. } => MULSS,
@@ -889,7 +970,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
             }
             // Lo que no sabe: por el interprete (y, 05-10, los Interlocked;
             // E2.5, las olas: aqui cada hilo corre solo).
-            Op::Mate { .. } | Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } | Op::ConstantesEn { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::MedidasUav { .. } | Op::Atomico { .. } | Op::Ola { .. } => return None,
+            Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::MedidasUav { .. } | Op::Atomico { .. } | Op::Ola { .. } => return None,
         }
     }
     if !sis.is_empty() || !bucles.is_empty() {
@@ -939,6 +1020,8 @@ pub fn despachar(p: &Programa, llamar: &mut dyn FnMut(*mut f32, *mut Contexto, *
         &relleno
     };
     let mut compartida = alloc::vec![0u32; p.computo.compartida.max(1) as usize];
+    // X2: la matematica, y la medida del cbuffer (sin texturas: ver `compilar`).
+    let llamadas = crate::nativo_llamadas::Llamadas::nuevas(cb.len());
     let vista = |datos: *mut u8, bytes: usize, paso: u32, elementos: u32, contador: *mut u32| Vista { datos, bytes: bytes as u64, paso, elementos, contador };
     let mut c = Contexto {
         ids: [0; 10],
@@ -947,6 +1030,7 @@ pub fn despachar(p: &Programa, llamar: &mut dyn FnMut(*mut f32, *mut Contexto, *
         compartida: compartida.as_mut_ptr(),
         entradas: core::ptr::null(),
         salidas: core::ptr::null_mut(),
+        llamadas: &llamadas,
         srv: [Vista::NULA; VISTAS],
         uav: [Vista::NULA; VISTAS],
     };
@@ -1016,6 +1100,7 @@ mod pruebas {
         assert_eq!(core::mem::offset_of!(Contexto, compartida) as i32, C_COMPARTIDA);
         assert_eq!(core::mem::offset_of!(Contexto, entradas) as i32, C_ENTRADAS);
         assert_eq!(core::mem::offset_of!(Contexto, salidas) as i32, C_SALIDAS);
+        assert_eq!(core::mem::offset_of!(Contexto, llamadas) as i32, C_LLAMADAS);
         assert_eq!(core::mem::offset_of!(Contexto, srv) as i32, C_SRV);
         assert_eq!(core::mem::offset_of!(Contexto, uav) as i32, C_UAV);
         assert_eq!(core::mem::size_of::<Vista>() as i32, VISTA);
@@ -1032,7 +1117,11 @@ mod pruebas {
         let cs = crate::dxil::computo::preparar(include_bytes!("../prueba/computo.dxil")).unwrap();
         assert!(compilar(&cs.programa).is_some());
         let mut p = cs.programa.clone();
+        // X2 (05-10): la matematica ya la llama; una textura en un CS, no.
         p.ops.push(Op::Mate { d: 0, a: 0, f: crate::mates::Mate::Exp2 });
-        assert!(compilar(&p).is_none(), "la matematica, por el interprete");
+        assert!(compilar(&p).is_some(), "la matematica, por `Mate::aplicar`");
+        p.ops.push(Op::Muestra { d: 0, t: 0, s: 0, u: 0, v: 0, g: None });
+        assert!(compilar(&p).is_none(), "las texturas de un CS, por el interprete");
+        assert!(compilar_dibujo(&p).is_some(), "las de un dibujo, por la llamada de la casa");
     }
 }

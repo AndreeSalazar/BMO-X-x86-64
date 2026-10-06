@@ -375,13 +375,10 @@ fn e1_4_helloconstbuffers_corre_el_triangulo_lo_que_dice_su_cbuffer() {
 fn e1_3_hellotexture_muestrea_el_tablero_por_punto_bit_a_bit() {
     let (salio, texto, vistas, fotos) = correr_muestra(HTEXTURE, "htexture", 10, &[9]);
     assert_eq!(salio, 0xF00D, "{texto}");
-    // El UNICO aviso, y es de velocidad, no de lo que se ve: un PSO que
-    // muestrea va por el interprete, no por el codigo nativo (P3b3b).
-    assert_eq!(
-        texto,
-        "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)\n",
-        "ni otro aviso ni un hueco que falte"
-    );
+    // Ni un aviso: desde X2 (05-10) el PSO que muestrea va por el codigo
+    // nativo (llama al muestreo del interprete); antes decia "un PSO con
+    // texturas: sus sombreadores se interpretan".
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte");
     assert!(vistas.iter().all(|&v| v == vistas[0]), "la misma imagen en cada Present");
     let t = triangulo(0.0);
     let uv = [(0.5f64, 0.0f64), (1.0, 1.0), (0.0, 1.0)];
@@ -466,9 +463,13 @@ fn tono(p: u32) -> Option<f32> {
 fn e2_2_dynamicindexing_cada_ciudad_lee_su_material_por_indice_dinamico() {
     let (salio, texto, vistas, fotos) = correr_muestra(DYNINDEX, "dynindex", 2, &[1]);
     assert_eq!(salio, 0xF00D, "{texto}");
+    // X2 (05-10): el PSO se TRADUCE, pero su `Sample` elige la mip con las
+    // derivadas del cuadro y sus texturas son del indice dinamico (no se
+    // ven de antemano): el dibujo va por el interprete, en cuadros, y lo
+    // dice. Lo arregla X3 (el codigo nativo en cuadros de 2x2).
     assert_eq!(
         texto,
-        "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)\n",
+        "PROTON-X: un dibujo muestrea con la mip de sus derivadas texturas del indice dinamico (bindless): va por el interprete, en cuadros de 2x2 (sus mips no se ven de antemano)\n",
         "ni otro aviso ni un hueco que falte (antes: `createHandle con un registro CALCULADO`)"
     );
     assert_eq!(vistas[0], vistas[1], "la camara quieta: la misma imagen");
@@ -569,12 +570,11 @@ fn n5_16_los_render_targets_de_float_guardan_lo_que_pasa_de_uno() {
     let (salio, dicho, _) = correr_exe(&uno, HDR_EXE, true, &[]);
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
-    // Un aviso, y es el que tiene que ser: PSLee LEE el render target como
-    // textura, y el codigo nativo aun no muestrea. El cuadro de SV_VertexID
-    // (desplazamientos de enteros) ya se traduce (la VELOCIDAD, 05-10: antes
-    // decia "un PSO cuyo sombreador salta o hace cuentas ENTERAS").
+    // Ni un aviso: el cuadro de SV_VertexID (desplazamientos de enteros) se
+    // traduce desde la VELOCIDAD (05-10), y PSLee, que LEE el render target
+    // como textura, desde X2 (05-10: antes, "un PSO con texturas").
     let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
-    assert_eq!(avisos, ["PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)"], "un aviso, dicho una vez: {texto}");
+    assert!(avisos.is_empty(), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
     assert!(texto.ends_with("hdr.exe: los render targets de float son los de Windows\r\n[salio 0x0]"), "{texto}");
 }
@@ -615,8 +615,9 @@ fn n5_16b_los_floats_de_un_canal_sus_uav_y_sin_recorte_en_z() {
     let (salio, dicho, _) = correr_exe(&uno, FLOTANTE1_EXE, true, &[]);
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
+    // X2 (05-10): ni el de texturas (su lectura va por el codigo nativo).
     let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
-    assert_eq!(avisos, ["PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)"], "un aviso, dicho una vez: {texto}");
+    assert!(avisos.is_empty(), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 10, "{texto}");
     assert!(texto.ends_with("flotante1.exe: los floats de un canal, sus UAV y DepthClipEnable son los de Windows\r\n[salio 0x0]"), "{texto}");
 }
@@ -655,16 +656,13 @@ fn restos_enteros_solo_uav_gs_plano_de_stencil_y_stencilref() {
     let (salio, dicho, _) = correr_exe(&uno, RESTOS_EXE, true, &[]);
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
-    // Dos avisos, los de verdad: A5 y D2 leen una textura y B y C escriben
-    // UAV, y eso se interpreta (el codigo nativo no muestrea ni toca UAV).
+    // Un aviso, el de verdad: B y C escriben UAV, y eso se interpreta (el
+    // codigo nativo no toca UAV). A5 y D2 leen una textura: desde X2, en x86.
     // Ninguno de lo que antes se perdia o se negaba.
     let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
     assert_eq!(
         avisos,
-        [
-            "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)",
-            "PROTON-X: un PSO cuyo sombreador lee o escribe un UAV: sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"
-        ],
+        ["PROTON-X: un PSO cuyo sombreador lee o escribe un UAV: sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"],
         "{texto}"
     );
     assert_eq!(texto.matches("  bien  ").count(), 18, "{texto}");
@@ -717,8 +715,7 @@ fn e2_3b_nbodygravity_simula_en_su_hilo_y_dibuja_con_su_gs() {
     assert_eq!(salio, 0xF00D, "presento hasta el tope del banco: {texto}");
     for l in texto.lines() {
         assert!(
-            l == "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)"
-                || l == "PROTON-X: Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan",
+            l == "PROTON-X: Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan",
             "un aviso que no se espera: {l}\n{texto}"
         );
     }
@@ -872,7 +869,7 @@ fn e2_7_predicationqueries_salta_el_cuadro_que_la_oclusion_dice_tapado() {
 /// `SampleLevel`, `SampleGrad`, `CalculateLevelOfDetail` (y `Unclamped`), y
 /// lo que sujeta la mip: MostDetailedMip, ResourceMinLODClamp y el MaxLOD de
 /// un muestreador de un monton. Bit a bit. Dos avisos y ninguno mas, los de
-/// verdad: los dos PSO se interpretan (uno deriva, el otro muestrea).
+/// verdad: los dos PSO se interpretan (uno deriva, el otro calcula el LOD).
 #[test]
 fn d4_4_las_derivadas_y_la_mip_de_un_muestreo_son_las_de_windows() {
     let uno = uno_a_la_vez();
@@ -884,7 +881,7 @@ fn d4_4_las_derivadas_y_la_mip_de_un_muestreo_son_las_de_windows() {
         avisos,
         [
             "PROTON-X: un PSO cuyo sombreador usa las derivadas (ddx, ddy, fwidth: van en cuadros de 2x2): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)",
-            "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)"
+            "PROTON-X: un PSO cuyo sombreador calcula el LOD de sus derivadas (CalculateLevelOfDetail: van en cuadros de 2x2): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"
         ],
         "{texto}"
     );

@@ -10,7 +10,9 @@
 //!
 //! ```text
 //!    la llamada   rdi = los registros (f32), rsi = las entradas ([f32; 4]),
-//!                 rdx = el cbuffer, rcx = las salidas ([f32; 4])
+//!                 rdx = el cbuffer, rcx = las salidas ([f32; 4]), r8 = las
+//!                 `Llamadas` (X2: solo las lee el que muestrea, hace
+//!                 matematica o lee el cbuffer con fila calculada)
 //!                 -- solo PUNTEROS: el ABI entero, el que Rust soft-float sabe
 //!    el cuerpo    una instruccion ESCALAR de SSE por operacion, sobre
 //!                 [rdi + 4 * registro]; solo xmm0..xmm2 (volatiles)
@@ -30,6 +32,12 @@
 //! en la pila (solo entradas, salidas, compartida nula y `reanudar`): asi la
 //! casa los llama igual, y lo que el computo lee de mas (ids, vistas,
 //! barreras) no esta en un dibujo -- se mira antes y, si esta, `None`.
+//!
+//! **Los que MUESTREAN** (X2, 05-10): las texturas (`Sample`, `Load`, los
+//! arrays de texturas), la matematica (`sin`, `exp2`...) y el cbuffer con
+//! fila calculada ya no apartan al sombreador: el cuerpo LLAMA al Rust del
+//! interprete (`nativo_llamadas`) por los punteros de r8, y la fila se mira
+//! contra la medida del cbuffer, como el interprete.
 //!
 //! **Por que da los MISMOS bits que el interprete:** mulss, addss, subss,
 //! divss y sqrtss son IEEE-754 con redondeo al mas cercano, igual que la
@@ -172,18 +180,18 @@ pub fn por_que_no(p: &Programa) -> Option<&'static str> {
     if p.olas_propias() {
         return Some("usa las olas (Wave*, Quad*: van de 32 en 32 carriles)");
     }
-    if p.muestrea() {
-        return Some("muestrea una textura");
-    }
-    // D4.4: las derivadas restan carriles de su cuadro de 2x2.
+    // D4.4: las derivadas restan carriles de su cuadro de 2x2; y el LOD que
+    // se pide con ellas (CalculateLevelOfDetail) sale de ellas.
     if p.deriva() {
         return Some("usa las derivadas (ddx, ddy, fwidth: van en cuadros de 2x2)");
     }
-    // Los saltos, los enteros, `discard` y los arrays de registros ya los
-    // sabe (por el cuerpo del computo): no son motivo.
+    if p.calcula_lod() {
+        return Some("calcula el LOD de sus derivadas (CalculateLevelOfDetail: van en cuadros de 2x2)");
+    }
+    // Los saltos, los enteros, `discard`, los arrays de registros y (X2,
+    // 05-10) las texturas, la matematica y el cbuffer con fila calculada ya
+    // los sabe (por el cuerpo del computo y sus llamadas): no son motivo.
     p.ops.iter().find_map(|o| match o {
-        Op::Mate { .. } => Some("usa la matematica (exp, log, sin...)"),
-        Op::ConstantesEn { .. } => Some("lee un cbuffer con fila calculada"),
         // 05-10: un UAV en un dibujo: interpretado, nunca perdido.
         Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::Atomico { .. } => Some("lee o escribe un UAV"),
         Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } => Some("es de computo"),
@@ -193,11 +201,11 @@ pub fn por_que_no(p: &Programa) -> Option<&'static str> {
 }
 
 /// **Traducir un programa a x86-64.** Una funcion entera, independiente de
-/// donde caiga (solo usa sus cuatro punteros): se puede copiar a otro bloque.
+/// donde caiga (solo usa sus punteros): se puede copiar a otro bloque.
 pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
-    // Un programa que MUESTREA una textura no se traduce todavia: el
-    // muestreo (filtros, direcciones) va por el interprete (`textura`).
-    if p.muestrea() {
+    // D4.4: CalculateLevelOfDetail sale de las derivadas del cuadro, que aqui
+    // no hay (cada pixel corre solo): daria otro numero. Por el interprete.
+    if p.calcula_lod() {
         return None;
     }
     // Lo sin saltos, por la fila de SSE; lo demas, por el cuerpo del computo.
@@ -208,9 +216,10 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
 /// una entrada que habla la llamada de los dibujos:
 ///
 /// ```text
-///    sub  rsp, 88             el Contexto a medias (72 bytes), a 16
+///    sub  rsp, 88             el Contexto a medias (80 bytes), a 16
 ///    mov  [rsp+56], rsi       sus entradas
 ///    mov  [rsp+64], rcx       sus salidas
+///    mov  [rsp+72], r8        sus llamadas (X2: texturas, matematica)
 ///    mov  qword [rsp+48], 0   sin memoria compartida
 ///    mov  dword [rsp+40], 0   desde el principio
 ///    mov  rsi, rsp            rdi (registros) y rdx (cbuffer), tal cual
@@ -219,19 +228,20 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
 ///    ret
 /// ```
 fn con_saltos(p: &Programa) -> Option<Vec<u8>> {
-    use crate::nativo_computo::{C_COMPARTIDA, C_ENTRADAS, C_REANUDAR, C_SALIDAS};
+    use crate::nativo_computo::{C_COMPARTIDA, C_ENTRADAS, C_LLAMADAS, C_REANUDAR, C_SALIDAS};
     // Lo que lee del Contexto que aqui no se pone (ids, vistas, barreras,
     // compartida) o lo de la geometria: eso no es de un vertice ni un pixel.
     let de_fuera = |o: &Op| matches!(o, Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. });
     if p.ops.iter().any(de_fuera) {
         return None;
     }
-    let cuerpo = crate::nativo_computo::compilar(p)?;
+    let cuerpo = crate::nativo_computo::compilar_dibujo(p)?;
     let disp8 = |c: i32| c as u8;
     let mut b = Vec::with_capacity(cuerpo.len() + 48);
     b.extend_from_slice(&[0x48, 0x83, 0xEC, 0x58]); // sub rsp, 88
     b.extend_from_slice(&[0x48, 0x89, 0x74, 0x24, disp8(C_ENTRADAS)]); // mov [rsp+56], rsi
     b.extend_from_slice(&[0x48, 0x89, 0x4C, 0x24, disp8(C_SALIDAS)]); // mov [rsp+64], rcx
+    b.extend_from_slice(&[0x4C, 0x89, 0x44, 0x24, disp8(C_LLAMADAS)]); // mov [rsp+72], r8
     b.extend_from_slice(&[0x48, 0xC7, 0x44, 0x24, disp8(C_COMPARTIDA), 0, 0, 0, 0]); // mov qword [rsp+48], 0
     b.extend_from_slice(&[0xC7, 0x44, 0x24, disp8(C_REANUDAR), 0, 0, 0, 0]); // mov dword [rsp+40], 0
     b.extend_from_slice(&[0x48, 0x89, 0xE6]); // mov rsi, rsp
@@ -242,11 +252,11 @@ fn con_saltos(p: &Programa) -> Option<Vec<u8>> {
     Some(b)
 }
 
-// Los cuatro campos que pone la entrada de [`con_saltos`] caben en sus 88
+// Los cinco campos que pone la entrada de [`con_saltos`] caben en sus 88
 // bytes de pila y su desplazamiento, en un byte (`disp8`).
 const _: () = {
-    use crate::nativo_computo::{C_COMPARTIDA, C_ENTRADAS, C_REANUDAR, C_SALIDAS};
-    assert!(C_REANUDAR + 4 <= 88 && C_COMPARTIDA + 8 <= 88 && C_ENTRADAS + 8 <= 88 && C_SALIDAS + 8 <= 88 && C_SALIDAS < 128);
+    use crate::nativo_computo::{C_COMPARTIDA, C_ENTRADAS, C_LLAMADAS, C_REANUDAR, C_SALIDAS};
+    assert!(C_REANUDAR + 4 <= 88 && C_COMPARTIDA + 8 <= 88 && C_ENTRADAS + 8 <= 88 && C_SALIDAS + 8 <= 88 && C_LLAMADAS + 8 <= 88 && C_LLAMADAS < 128);
 };
 
 /// **Sin saltos**: una fila de SSE, sobre los cuatro punteros. `None` si
@@ -330,10 +340,10 @@ fn directo(p: &Programa) -> Option<Vec<u8>> {
             }
             Op::Min { d, a, b } => e.min_max(MINSS, d, a, b),
             Op::Max { d, a, b } => e.min_max(MAXSS, d, a, b),
-            // N5.6: la matematica va por el interprete hasta que esto la sepa.
+            // N5.6: la matematica, por `con_saltos` (X2: la llama).
             Op::Mate { .. } => return None,
             // N5.7 y N5.10: el que tira pixeles y los arrays, por `con_saltos`
-            // (los cbuffers con fila calculada, por el interprete).
+            // (y, X2, los cbuffers con fila calculada).
             Op::Descarta { .. } => return None,
             Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => return None,
             // N5.5: el computo, por el interprete.
@@ -345,7 +355,8 @@ fn directo(p: &Programa) -> Option<Vec<u8>> {
             Op::Contador { .. } | Op::Atomico { .. } => return None,
             // E2.5: las olas miran a los otros carriles: por el interprete.
             Op::Ola { .. } => return None,
-            Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } => unreachable!("mirado en `compilar`: `muestrea`"),
+            // X2 (05-10): las texturas, por `con_saltos` (las llama).
+            Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } => return None,
             Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Entera { .. } | Op::Convierte { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => unreachable!("mirado arriba: `salta`"),
         }
     }

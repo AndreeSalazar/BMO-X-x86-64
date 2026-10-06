@@ -75,6 +75,8 @@ pub mod monton;
 pub mod nativo;
 /// E2.3b (05-10): el computo traducido a x86-64, con saltos y barreras.
 pub mod nativo_computo;
+/// X2 (05-10): lo que el codigo traducido LLAMA (texturas, matematica).
+pub mod nativo_llamadas;
 pub mod teb;
 pub mod texto;
 pub mod textura;

@@ -442,8 +442,10 @@ fn hellotexture_dibuja_su_textura() {
     for version_1_1 in [false, true] {
         let img = hello_texture(version_1_1, false);
         let dicho = String::from_utf8_lossy(&DICHO.lock().unwrap()).into_owned();
-        // Lo UNICO que dice: que ese PSO se interpreta (el JIT aun no muestrea).
-        assert_eq!(dicho, "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)\n");
+        // Desde X2 (05-10) el PSO que muestrea se TRADUCE (antes: "un PSO con
+        // texturas: sus sombreadores se interpretan"); este banco no sella
+        // codigo (`sellar_codigo` da None), asi que lo unico que dice es eso.
+        assert_eq!(dicho, "PROTON-X: sin bloque sellado para el codigo nativo: los sombreadores se interpretan (dan lo mismo, mas despacio)\n");
         let mut malos = 0;
         for y in 0..64u32 {
             for x in 0..64u32 {

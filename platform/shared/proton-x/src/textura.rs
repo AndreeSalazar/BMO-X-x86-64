@@ -338,7 +338,8 @@ fn dentro(i: i64, n: i64, d: Direccion) -> Option<i64> {
             Some(if m < n { m } else { 2 * n - 1 - m })
         }
         Direccion::EspejoUnaVez => {
-            let a = if i < 0 { -i - 1 } else { i };
+            // `!i` es `-i - 1` sin desbordar con i64::MIN (X2, 05-10).
+            let a = if i < 0 { !i } else { i };
             Some(a.min(n - 1))
         }
     }
@@ -778,7 +779,11 @@ impl Plano<'_> {
         let flot = matches!(self.como, Como::Flotante | Como::Flotantes4);
         match m.filtro {
             Filtro::Punto => {
-                let (i, j) = (suelo(su) as i64 + o[0], suelo(sv) as i64 + o[1]);
+                // X2 (05-10): `wrapping_add`: con una coordenada enorme (o
+                // infinita: `as i64` satura) y un desplazamiento, el `+` del
+                // banco paraba (debug); en el metal (release) daba la vuelta.
+                // Lo mismo que en el metal, sin parar.
+                let (i, j) = ((suelo(su) as i64).wrapping_add(o[0]), (suelo(sv) as i64).wrapping_add(o[1]));
                 if flot {
                     self.leer_f(m, i, j)
                 } else {

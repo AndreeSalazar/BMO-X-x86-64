@@ -23,14 +23,14 @@ const DIVISION: &[u8] = include_bytes!("../../../proton-x/prueba/division.dxil")
 const DESCARTE: &[u8] = include_bytes!("../../../proton-x/prueba/descarte.dxil");
 const ARREGLOS: &[u8] = include_bytes!("../../../proton-x/prueba/arreglos.dxil");
 
-fn de_dxc(d: &[u8]) -> Programa {
+pub(crate) fn de_dxc(d: &[u8]) -> Programa {
     let p = dxil::programa::compilar(&dxil::leer(d).unwrap()).unwrap();
     assert_eq!(p.forma(), Ok(()));
     p
 }
 
 /// Los valores que muerden: como floats, y como bits de enteros.
-fn raros() -> Vec<f32> {
+pub(crate) fn raros() -> Vec<f32> {
     let mut v = vec![
         0.0f32, -0.0, 1.0, -1.0, 0.5, -0.5, 1.5, -2.5, 3.0, 7.75, 100.0, -100.0, 1e-40, -1e-40, f32::MIN_POSITIVE, f32::MAX, f32::MIN, f32::INFINITY,
         f32::NEG_INFINITY, f32::NAN, -f32::NAN, 2147483520.0, 2147483648.0, -2147483648.0, -2147483904.0, 4294967040.0, 4294967296.0, 1e10, -1e10, 0.999_999_9,
@@ -42,10 +42,10 @@ fn raros() -> Vec<f32> {
 }
 
 /// Un generador fijo (xorshift): siempre los mismos casos.
-struct Azar(u64);
+pub(crate) struct Azar(pub(crate) u64);
 
 impl Azar {
-    fn siguiente(&mut self) -> u64 {
+    pub(crate) fn siguiente(&mut self) -> u64 {
         self.0 ^= self.0 << 13;
         self.0 ^= self.0 >> 7;
         self.0 ^= self.0 << 17;
@@ -53,7 +53,7 @@ impl Azar {
     }
 
     /// Medio de las veces un raro; medio, unos bits cualesquiera.
-    fn valor(&mut self, raros: &[f32]) -> f32 {
+    pub(crate) fn valor(&mut self, raros: &[f32]) -> f32 {
         let x = self.siguiente();
         if x & 1 == 0 {
             raros[(x >> 8) as usize % raros.len()]
