@@ -19,8 +19,9 @@
 ## 0. La respuesta corta
 
 ```text
-   hoy          59,30 % del CSS de las tres maquetas de docs/arte/ compila
-                (1919 de 3236 declaraciones, MEDIDO, no contado)
+   hoy          62,45 % del CSS de las tres maquetas de docs/arte/ compila
+                (2021 de 3236 declaraciones, MEDIDO el 06-10 despues de MA1;
+                antes de empezar, 59,30 %)
    A  +9,1      lo que entra sin tocar ninguna ley           -> 68,4 %
    B  +20,0     lo que se hace MEJOR que CSS, al compilar    -> 88,4 %
    C  +6,0      el movimiento, como estados ya maquetados    -> 94,3 %
@@ -133,10 +134,13 @@ clase, asi que la vista previa no miente.
 | `<icono nombre="x">` | el `<svg>` de un catalogo compartido | los trazos del catalogo |
 | `<globo>` | caja absoluta, `capa`, resplandor y `@secuencia` de entrada | `pintar_secuencia(entra, ms)` |
 
-## 3. Las decisiones del propietario
+## 3. Las decisiones del propietario -- DECIDIDAS el 06-10: las siete en (a)
 
-Las seis cambian lo que dice `docs/componente/LA_MAQUETA_EXIGE.md`. La
-maqueta las deja pulsar; la recomendada es la (a) en las seis.
+El propietario, con la captura de la seccion 6 de la maqueta delante (las
+siete en (a)): *"me encanto por completo, asi que a completar todo eso [...]
+el CSS COMPLETO pero no todo para no romper reglas en mi BMO-X"*. Cada una
+cambia lo que dice `docs/componente/LA_MAQUETA_EXIGE.md`, y se escribe ahi el
+dia que entra su codigo, no antes.
 
 ```text
    M1  margin         (a) entra, error solo donde CSS fundiria   (b) sigue fuera
@@ -168,8 +172,9 @@ maqueta las deja pulsar; la recomendada es la (a) en las seis.
 
 - [x] M0 -- HECHO el 06-10: la medida (seccion 1) y la maqueta del plan, `docs/arte/maqueta_maqueta3.html`, con las tres pilas, las demos y las seis decisiones
 - [x] M0b -- HECHO el 06-10: la maqueta INTERACTIVA (`docs/arte/maqueta_maqueta3.html`): siete LAB que juzgan en vivo (rejilla, margenes medidos en el navegador, variables de caja, opacidad premezclada, flex:1, la secuencia que se arrastra, las zonas), el mapa de los 37 modulos de CSS (seccion 2b), los elementos que se prueban (seccion 2c), y las decisiones que mueven el medidor; probada en Chromium con los clics de verdad
-- [ ] M-dec -- las decisiones M1-M6 y E1 del propietario, escritas en la seccion 3 de este plan
+- [x] M-dec -- HECHO el 06-10: las decisiones M1-M6 y E1, las siete en (a), escritas en la seccion 3 de este plan
 - [ ] ME -- los elementos de la seccion 2c segun E1: la etiqueta en `toolchain/tools/maqueta/node/src/markup.rs`, su expansion antes de la cascada, y lo que emite en `toolchain/tools/maqueta/emit/src/rust.rs`; el catalogo de iconos junto a `toolchain/tools/maqueta/tema/tema.maqueta`
+- [x] MA1 -- HECHO el 06-10: la parte de la pila A que solo toca la maquetacion -- `text-align` (con la comprobacion L: en una caja flex o en un parrafo no alinea, y se dice), `min-width`, `max-width`, `min-height`, `max-height` (`sujeta` en `toolchain/tools/maqueta/layout/src/measure.rs`: `max` gana a `width`, `min` gana a `max`, y acotan tambien lo que llena y lo que se estira), y los atajos `inset`, `padding-block` y `padding-inline` (`toolchain/tools/maqueta/node/src/style/atajos.rs`). Escrito antes en `docs/componente/LA_MAQUETA_EXIGE.md` 3e; 9 pruebas nuevas, las 248 de MAQUETA en verde. Medido: 59,30 % -> **62,45 %** (2021 de 3236)
 - [ ] MA -- la pila A entera en `toolchain/tools/maqueta/node/src/value.rs` (la lista), el nieto en `toolchain/tools/maqueta/layout/src/flow.rs` y su juicio en `toolchain/tools/maqueta/verdict/src/fit.rs`; cada propiedad con su fichero dorado en `toolchain/tools/maqueta/pruebas/`
 - [ ] MB -- la pila B segun M1-M4 y M6: la rejilla en `toolchain/tools/maqueta/layout/src/flow.rs`, las variables de caja en `toolchain/tools/maqueta/node/src/variables.rs`, la premezcla en `toolchain/tools/maqueta/emit/src/paleta.rs`, y la fuente web desde `platform/shared/bmo-letra`
 - [ ] MC -- la pila C segun M5: `@secuencia` junto a `@estado` en `toolchain/tools/maqueta/node/src/style.rs` y el movimiento en `toolchain/tools/maqueta/emit/src/movimiento.rs`

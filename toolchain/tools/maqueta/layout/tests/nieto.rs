@@ -314,3 +314,65 @@ fn una_etiqueta_centrada_cae_donde_calc_rs_la_pone() {
     assert_eq!((t.x, t.y), (esperado_x, esperado_y), "la etiqueta no cae donde calc.rs");
     assert_eq!((t.x, t.y), (40, 82), "y ese sitio es este");
 }
+
+// ------------------------------------------------------------------------
+//  MAQUETA 3, pila A (06-10): lo que se resuelve con la caja PROPIA
+// ------------------------------------------------------------------------
+
+#[test]
+fn text_align_places_the_measured_text_inside_its_block_box() {
+    // "hola" con la letra de 8 x 16 mide 32: en 100 de contenido, centrado cae
+    // en 34 y a la derecha en 68. Una resta, porque el texto ya se midio.
+    for (como, x) in [("left", 0), ("center", 34), ("right", 68), ("end", 68)] {
+        let l = run(&format!(
+            "<maqueta><span class=\"a\">hola</span></maqueta><style>.a{{width:100px;text-align:{como}}}</style>"
+        ));
+        let t = l.root.children[0].text_at.unwrap();
+        assert_eq!((t.x, t.w), (x, 4 * GLIFO_ANCHO as u32), "text-align:{como}");
+    }
+}
+
+#[test]
+fn max_width_bounds_what_a_block_child_fills() {
+    // Sin `width` llena a su padre (200) -- y `max-width` acota lo que llena,
+    // con el padding fuera: 120 de contenido + 2 x 5 de relleno.
+    let l = run("<maqueta ancho=\"200\" alto=\"50\"><div class=\"b\"></div></maqueta>\
+                 <style>.b{height:10px;padding:5px;max-width:120px}</style>");
+    assert_eq!(l.root.children[0].rect, r(0, 0, 130, 20));
+}
+
+#[test]
+fn min_beats_max_and_max_beats_width_as_in_css() {
+    let l = run("<maqueta><div class=\"a\"></div><div class=\"b\"></div></maqueta>\
+                 <style>.a{width:300px;max-width:100px;height:1px} .b{width:50px;min-width:80px;max-width:60px;height:1px}</style>");
+    assert_eq!(l.root.children[0].rect.w, 100, "max gana a width");
+    assert_eq!(l.root.children[1].rect.w, 80, "min gana a max");
+}
+
+#[test]
+fn max_height_bounds_a_stretched_flex_item() {
+    // `align-items:stretch` (el de serie) estira al alto de la fila (100), y
+    // `max-height` lo para en 40.
+    let l = run("<maqueta><div class=\"f\"><div class=\"i\"></div></div></maqueta>\
+                 <style>.f{display:flex;height:100px;width:100px} .i{width:10px;max-height:40px}</style>");
+    assert_eq!(l.root.children[0].children[0].rect.h, 40);
+}
+
+#[test]
+fn a_box_grows_to_its_min_height_even_with_less_content() {
+    let l = run("<maqueta><span class=\"a\">hola</span></maqueta><style>.a{min-height:40px}</style>");
+    assert_eq!(l.root.children[0].rect.h, 40);
+}
+
+#[test]
+fn inset_and_the_axis_paddings_expand_like_css() {
+    // `inset: 10px 20px` = top 10, right 20, bottom 10, left 20 (el segundo
+    // valor es el eje horizontal, como en `padding`): `left` y `top` mandan. `padding-block: 4px` = arriba y abajo; `padding-inline: 6px 2px`
+    // = izquierda 6, derecha 2.
+    let l = run("<maqueta ancho=\"200\" alto=\"100\"><div class=\"p\"><div class=\"a\"></div></div></maqueta>\
+                 <style>.p{position:relative;width:200px;height:100px} \
+                 .a{position:absolute;inset:10px 20px;width:30px;height:10px;padding-block:4px;padding-inline:6px 2px}</style>");
+    let a = &l.root.children[0].children[0];
+    assert_eq!(a.rect, r(20, 10, 30 + 8, 10 + 8));
+    assert_eq!(a.content, r(26, 14, 30, 10));
+}

@@ -1,6 +1,9 @@
 //! **Los ATAJOS** (escalon 1, 04-10): `background`, `border` y
 //! `border-<lado>` se expanden aqui en sus propiedades largas, como hace un
 //! navegador. La cascada solo ve largas.
+//!
+//! Y los de MAQUETA 3, pila A (06-10): `inset` (los cuatro lados de una
+//! absoluta) y `padding-block` / `padding-inline` (el relleno de un eje).
 
 use bmo_maqueta_diag::Error;
 use bmo_maqueta_lex::{Kind, Token};
@@ -15,6 +18,11 @@ pub(super) enum Atajo {
     Background,
     /// `border` (los cuatro lados) o `border-<lado>` (uno).
     Border(Option<usize>),
+    /// `inset`: `top right bottom left`, de uno a cuatro, como `padding`.
+    Inset,
+    /// `padding-block` (`false`: arriba y abajo) o `padding-inline` (`true`:
+    /// izquierda y derecha), con uno o dos valores.
+    PaddingEje(bool),
 }
 
 impl Atajo {
@@ -26,6 +34,9 @@ impl Atajo {
             b"border-right" => Atajo::Border(Some(1)),
             b"border-bottom" => Atajo::Border(Some(2)),
             b"border-left" => Atajo::Border(Some(3)),
+            b"inset" => Atajo::Inset,
+            b"padding-block" => Atajo::PaddingEje(false),
+            b"padding-inline" => Atajo::PaddingEje(true),
             _ => return None,
         })
     }
@@ -34,6 +45,8 @@ impl Atajo {
         match self {
             Atajo::Background => fondo(src, toks, i, span, errors),
             Atajo::Border(lado) => borde(src, toks, i, lado, span, errors),
+            Atajo::Inset => inset(src, toks, i, span, errors),
+            Atajo::PaddingEje(en_linea) => padding_eje(src, toks, i, en_linea, span, errors),
         }
     }
 }
@@ -201,3 +214,46 @@ fn borde(
     v
 }
 
+/// Hasta `max` medidas en pixeles, y error si sobran.
+fn medidas(src: &[u8], toks: &[Token], i: &mut usize, max: usize, nombre: &str, span: bmo_maqueta_diag::Span, errors: &mut Vec<Error>) -> Option<Vec<u32>> {
+    let mut v = vec![measure(src, toks, i, Prop::Padding, errors)?];
+    while v.len() < max && at_value_start(toks, *i) {
+        v.push(measure(src, toks, i, Prop::Padding, errors)?);
+    }
+    if at_value_start(toks, *i) {
+        errors.push(Error::new(
+            span,
+            &format!("`{nombre}` acepta de uno a {max} valores, no mas"),
+            "es un atajo de CSS, y lee sus valores como CSS.",
+            "quitar lo que sobra.",
+        ));
+        skip_value(toks, i);
+        return None;
+    }
+    Some(v)
+}
+
+/// `inset: a [b [c [d]]]` -> `top`, `right`, `bottom`, `left` (como `padding`).
+///
+/// [!] Pone los CUATRO: en CSS tambien. Una absoluta con `inset: 0` queda
+/// clavada a los cuatro lados de su ancla, y aqui eso es una caja de la
+/// medida que ella misma dice, puesta arriba a la izquierda (`left` y `top`
+/// mandan, como en el nieto).
+fn inset(src: &[u8], toks: &[Token], i: &mut usize, span: bmo_maqueta_diag::Span, errors: &mut Vec<Error>) -> Vec<(Prop, Value)> {
+    let Some(v) = medidas(src, toks, i, 4, "inset", span, errors) else { return Vec::new() };
+    let [t, r, b, l] = super::cuatro(&v);
+    vec![(Prop::Top, Value::Px(t)), (Prop::Right, Value::Px(r)), (Prop::Bottom, Value::Px(b)), (Prop::Left, Value::Px(l))]
+}
+
+/// `padding-block: a [b]` -> arriba y abajo; `padding-inline` -> izquierda y
+/// derecha. Con uno, los dos lados iguales.
+fn padding_eje(src: &[u8], toks: &[Token], i: &mut usize, en_linea: bool, span: bmo_maqueta_diag::Span, errors: &mut Vec<Error>) -> Vec<(Prop, Value)> {
+    let nombre = if en_linea { "padding-inline" } else { "padding-block" };
+    let Some(v) = medidas(src, toks, i, 2, nombre, span, errors) else { return Vec::new() };
+    let (a, b) = (v[0], *v.get(1).unwrap_or(&v[0]));
+    if en_linea {
+        vec![(Prop::PaddingLeft, Value::Px(a)), (Prop::PaddingRight, Value::Px(b))]
+    } else {
+        vec![(Prop::PaddingTop, Value::Px(a)), (Prop::PaddingBottom, Value::Px(b))]
+    }
+}

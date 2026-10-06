@@ -143,6 +143,16 @@ pub enum Prop {
     BorderLeftColor,
     // the motion (P3, 04-10): how this box goes from one state to another.
     Transition,
+    // MAQUETA 3, pile A (06-10): what fits without touching any law -- each
+    // one is resolved with the box's OWN size, never its parent's.
+    /// `left | center | right`: where the text sits inside its `block` box.
+    TextAlign,
+    /// Bounds on the box's own size; CSS's rule: `max` beats `width`, `min`
+    /// beats `max`.
+    MinWidth,
+    MaxWidth,
+    MinHeight,
+    MaxHeight,
 }
 
 /// The four sides, in CSS order (top, right, bottom, left).
@@ -216,6 +226,11 @@ impl Prop {
             b"border-bottom-color" => Prop::BorderBottomColor,
             b"border-left-color" => Prop::BorderLeftColor,
             b"transition" => Prop::Transition,
+            b"text-align" => Prop::TextAlign,
+            b"min-width" => Prop::MinWidth,
+            b"max-width" => Prop::MaxWidth,
+            b"min-height" => Prop::MinHeight,
+            b"max-height" => Prop::MaxHeight,
             _ => return None,
         })
     }
@@ -267,6 +282,11 @@ impl Prop {
             Prop::BorderBottomColor => "border-bottom-color",
             Prop::BorderLeftColor => "border-left-color",
             Prop::Transition => "transition",
+            Prop::TextAlign => "text-align",
+            Prop::MinWidth => "min-width",
+            Prop::MaxWidth => "max-width",
+            Prop::MinHeight => "min-height",
+            Prop::MaxHeight => "max-height",
         }
     }
 
@@ -316,7 +336,12 @@ impl Prop {
             | Prop::BorderTopWidth
             | Prop::BorderRightWidth
             | Prop::BorderBottomWidth
-            | Prop::BorderLeftWidth => Shape::OnePx,
+            | Prop::BorderLeftWidth
+            | Prop::MinWidth
+            | Prop::MaxWidth
+            | Prop::MinHeight
+            | Prop::MaxHeight => Shape::OnePx,
+            Prop::TextAlign => Shape::Words(&[Keyword::Left, Keyword::Center, Keyword::Right, Keyword::Start, Keyword::End]),
             Prop::FontWeight => Shape::Weight,
             Prop::LetterSpacing => Shape::Em,
             Prop::TextTransform => Shape::Words(&[Keyword::Uppercase, Keyword::None]),
@@ -433,6 +458,9 @@ pub enum Keyword {
     /// `border-radius: 50%` (H6): la mitad del lado corto -- un circulo en
     /// una caja cuadrada. El unico porcentaje que hay.
     Mitad,
+    /// `text-align: left | right` (MAQUETA 3).
+    Left,
+    Right,
 }
 
 impl Keyword {
@@ -456,6 +484,8 @@ impl Keyword {
             b"uppercase" => Keyword::Uppercase,
             b"none" => Keyword::None,
             b"round" => Keyword::Round,
+            b"left" => Keyword::Left,
+            b"right" => Keyword::Right,
             _ => return None,
         })
     }
@@ -481,6 +511,8 @@ impl Keyword {
             Keyword::Uppercase => "uppercase",
             Keyword::None => "none",
             Keyword::Round => "round",
+            Keyword::Left => "left",
+            Keyword::Right => "right",
         }
     }
 }
@@ -547,11 +579,6 @@ pub fn known_rejection(name: &[u8]) -> Option<(&'static str, &'static str)> {
              fuentes de nadie. Elegir familia seria traer otra.",
             "`font-size`, `font-weight`, `letter-spacing`, `line-height` y \
              `text-transform`: lo que de verdad cambia una letra.",
-        ),
-        b"text-align" => (
-            "no esta implementada, y no es gratis: alinear texto es colocar una caja \
-             dentro de otra, o sea maquetacion.",
-            "meter el texto en su `<span>` y colocarlo con `justify-content`.",
         ),
         b"animation" | b"transform" | b"@keyframes" => (
             "en el aparato no se maqueta NADA: cada estado se maqueta entero al \
@@ -620,6 +647,6 @@ pub fn unknown_prop(span: Span, name: &[u8]) -> Error {
         "la lista de propiedades esta CERRADA: contadas sobre lo que el escritorio \
          y las maquetas de las apps hacen de verdad.",
         "la lista entera esta en la seccion 3 de `LA_MAQUETA_EXIGE.md`. Agregar una \
-         empieza por anadirla ahi.",
+         empieza por escribirla ahi.",
     )
 }

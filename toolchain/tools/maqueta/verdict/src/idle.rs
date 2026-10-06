@@ -17,6 +17,45 @@ pub fn check(laid: &Laid, out: &mut Vec<Error>) {
         absoluta_sin_sitio(f, out);
         relativa_que_se_mueve(f, out);
         texto_sin_color(f, out);
+        alineado_que_no_alinea(f, out);
+    }
+}
+
+/// L. (MAQUETA 3, 06-10) Un `text-align` que no puede hacer lo que dice.
+///
+/// Dos casos, y en los dos el navegador tampoco lo haria -- la diferencia es
+/// que aqui se dice:
+///
+/// - en una caja `flex`, el texto es un elemento flex ANONIMO de su misma
+///   medida, asi que no hay sitio dentro donde moverlo. Lo coloca
+///   `justify-content`;
+/// - en un PARRAFO (`white-space:normal`), cada linea mide distinto y
+///   pediria su propia x. Todavia no: se escribe aqui en vez de alinear solo
+///   la primera.
+fn alineado_que_no_alinea(f: &Frame, out: &mut Vec<Error>) {
+    use bmo_maqueta_cascade::TextAlign;
+    let s = &f.style;
+    if s.text_align == TextAlign::Left || f.text.is_none() {
+        return;
+    }
+    if s.display == Display::Flex {
+        out.push(Error::new(
+            f.span,
+            "`text-align` en una caja `flex` no hace nada",
+            "en un contenedor flex el texto es un elemento ANONIMO de su misma \
+             medida: no queda sitio dentro donde alinearlo. En el navegador \
+             tampoco haria nada.",
+            "`justify-content:center` (o `end`) en esta caja, o quitar el `display:flex`.",
+        ));
+    } else if s.parrafo {
+        out.push(Error::new(
+            f.span,
+            "un parrafo solo se alinea a la izquierda, todavia",
+            "cada linea de un parrafo mide distinto, y centrarlo pide una x por \
+             linea. Alinear solo la caja entera dejaria las lineas cortas donde \
+             el navegador no las pone.",
+            "`text-align:left`, o un `<span>` por linea.",
+        ));
     }
 }
 

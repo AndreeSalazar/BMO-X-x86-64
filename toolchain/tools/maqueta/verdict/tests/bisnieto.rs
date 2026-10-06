@@ -275,3 +275,32 @@ fn una_pluma_sin_round_no_compila() {
     let e = veredicto(src);
     assert!(e.contains("no es redonda"), "{e}");
 }
+
+// ------------------------------------------------------------------------
+//  L (MAQUETA 3, 06-10): un text-align que no puede alinear
+// ------------------------------------------------------------------------
+
+#[test]
+fn text_align_en_una_caja_flex_se_dice() {
+    let v = veredicto(
+        "<maqueta><div class=\"a\">hola</div></maqueta>\
+         <style>.a{display:flex;width:100px;height:16px;text-align:center;color:#FFFFFF}</style>",
+    );
+    assert!(v.contains("`text-align` en una caja `flex` no hace nada"), "{v}");
+    assert!(v.contains("justify-content"), "y que escribir:\n{v}");
+}
+
+#[test]
+fn un_parrafo_centrado_se_dice_todavia() {
+    let v = veredicto(
+        "<maqueta><span class=\"a\">uno dos tres cuatro cinco seis</span></maqueta>\
+         <style>.a{width:80px;font-size:14px;white-space:normal;text-align:center;color:#FFFFFF}</style>",
+    );
+    assert!(v.contains("un parrafo solo se alinea a la izquierda"), "{v}");
+}
+
+#[test]
+fn un_texto_centrado_en_su_caja_block_sale_limpio() {
+    limpio("<maqueta><span class=\"a\">hola</span></maqueta>\
+            <style>.a{width:100px;height:16px;text-align:center;color:#FFFFFF}</style>");
+}

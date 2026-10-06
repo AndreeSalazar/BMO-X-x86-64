@@ -71,6 +71,16 @@ pub enum Position {
     Relative,
 }
 
+/// `text-align` (MAQUETA 3): where the text sits inside its `block` box.
+/// `Left` is CSS's default for left-to-right text.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum TextAlign {
+    #[default]
+    Left,
+    Center,
+    Right,
+}
+
 /// Every one of the sixteen properties, resolved.
 ///
 /// `Option` means *nobody said*; everything else carries the value CSS uses when
@@ -136,6 +146,14 @@ pub struct Style {
     pub round_join: bool,
     // -- P3 (04-10): como va esta caja de un estado a otro. `None` = de golpe.
     pub transicion: Option<Transicion>,
+    // -- MAQUETA 3, pila A (06-10): resueltas con la medida PROPIA.
+    pub text_align: TextAlign,
+    /// `min-width` / `max-width` / `min-height` / `max-height`. `None` = sin
+    /// cota. Las aplica el nieto (`layout::measure::sujeta`).
+    pub min_w: Option<u32>,
+    pub max_w: Option<u32>,
+    pub min_h: Option<u32>,
+    pub max_h: Option<u32>,
 }
 
 impl Style {
@@ -232,6 +250,17 @@ impl Style {
             (Prop::StrokeLinecap, Value::Word(Keyword::Round)) => self.round_cap = true,
             (Prop::StrokeLinejoin, Value::Word(Keyword::Round)) => self.round_join = true,
             (Prop::Transition, Value::Transicion(t)) => self.transicion = Some(t),
+            (Prop::TextAlign, Value::Word(k)) => {
+                self.text_align = match k {
+                    Keyword::Center => TextAlign::Center,
+                    Keyword::Right | Keyword::End => TextAlign::Right,
+                    _ => TextAlign::Left,
+                }
+            }
+            (Prop::MinWidth, Value::Px(n)) => self.min_w = Some(n),
+            (Prop::MaxWidth, Value::Px(n)) => self.max_w = Some(n),
+            (Prop::MinHeight, Value::Px(n)) => self.min_h = Some(n),
+            (Prop::MaxHeight, Value::Px(n)) => self.max_h = Some(n),
 
             // The father checked every shape before this generation saw it, so
             // no other pairing exists. Ignoring rather than panicking keeps a

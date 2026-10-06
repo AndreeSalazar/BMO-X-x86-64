@@ -41,7 +41,7 @@ pub mod style;
 use bmo_maqueta_diag::{Error, Span};
 use bmo_maqueta_node::{Document, Node, Selector, Tag};
 
-pub use style::{Align, Direction, Display, Justify, Position, Style};
+pub use style::{Align, Direction, Display, Justify, Position, Style, TextAlign};
 
 /// A box whose style is settled. **No classes** -- see the module header.
 #[derive(Clone, PartialEq, Eq, Debug)]

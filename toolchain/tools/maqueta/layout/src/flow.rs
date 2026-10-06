@@ -26,9 +26,9 @@
 //! It is the same trap the rasterizer wrote down: with the wrong width an
 //! overflow flips the SIGN and the shape comes out inside out.
 
-use bmo_maqueta_cascade::{Align, Direction, Display, Justify, Position, Styled};
+use bmo_maqueta_cascade::{Align, Direction, Display, Justify, Position, Styled, TextAlign};
 
-use crate::measure::{content_size, frame, outer_size};
+use crate::measure::{alto, ancho, content_size, frame, outer_size};
 use crate::{Frame, Rect};
 
 /// Lay one box out inside the border box its parent decided for it. La raiz
@@ -142,7 +142,17 @@ fn donde_el_texto(b: &Styled, content: Rect) -> Option<Rect> {
     let t = b.text.as_ref()?;
     let (w, h) = crate::measure::texto(&b.style, t);
     if b.style.display != Display::Flex {
-        return Some(Rect { x: content.x, y: content.y, w, h });
+        // `text-align` (MAQUETA 3): el texto ya se midio, asi que colocarlo
+        // dentro de su caja es una resta. Con signo, como todo aqui: un texto
+        // que no cabe y se centra cae a la izquierda del contenido, como en el
+        // navegador, y el veredicto (B) lo caza.
+        let libre = content.w as i64 - w as i64;
+        let dx = match b.style.text_align {
+            TextAlign::Left => 0,
+            TextAlign::Center => libre / 2,
+            TextAlign::Right => libre,
+        };
+        return Some(Rect { x: (content.x as i64 + dx) as i32, y: content.y, w, h });
     }
     let (libre_main, libre_cross, horizontal) = if b.style.direction == Direction::Row {
         (content.w as i64 - w as i64, content.h as i64 - h as i64, true)
@@ -174,7 +184,12 @@ fn block(flow: &[&Styled], content: Rect, ancla: Rect) -> Vec<Frame> {
     let mut out = Vec::with_capacity(flow.len());
     for c in flow {
         let (fw, _) = frame(c);
-        let w = c.style.width.map(|w| w + fw).unwrap_or(content.w);
+        // Sin `width` llena a su padre -- y sus cotas (MAQUETA 3) acotan lo que
+        // llena, como en CSS: `max-width` es justo eso.
+        let w = match c.style.width {
+            Some(_) => content_size(c).w + fw,
+            None => ancho(&c.style, content.w.saturating_sub(fw)) + fw,
+        };
         let h = outer_size(c).h;
         out.push(colocar(c, Rect { x: content.x, y, w, h }, ancla));
         y += h as i32;
@@ -221,15 +236,15 @@ fn flex(b: &Styled, flow: &[&Styled], content: Rect, ancla: Rect) -> Vec<Frame> 
         let (fw, fh) = frame(c);
         let (main_len, cross_len) = if row {
             let cross = match (c.style.height, b.style.align) {
-                (Some(h), _) => h + fh,
-                (None, Align::Stretch) => content.h,
+                (Some(_), _) => content_size(c).h + fh,
+                (None, Align::Stretch) => alto(&c.style, content.h.saturating_sub(fh)) + fh,
                 (None, _) => o.h,
             };
             (o.w, cross)
         } else {
             let cross = match (c.style.width, b.style.align) {
-                (Some(w), _) => w + fw,
-                (None, Align::Stretch) => content.w,
+                (Some(_), _) => content_size(c).w + fw,
+                (None, Align::Stretch) => ancho(&c.style, content.w.saturating_sub(fw)) + fw,
                 (None, _) => o.w,
             };
             (o.h, cross)

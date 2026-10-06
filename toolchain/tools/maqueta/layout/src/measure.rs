@@ -101,12 +101,31 @@ pub fn frame(b: &Styled) -> (u32, u32) {
     (p[1] + p[3] + d[1] + d[3], p[0] + p[2] + d[0] + d[2])
 }
 
-/// The content size this box settles on: what it declared, or what it needs.
+/// **Una medida con sus cotas** (MAQUETA 3): `min-*` y `max-*` sobre la
+/// medida de CONTENIDO, con la regla de CSS -- `max` le gana a la medida, y
+/// `min` le gana a `max`. Es la caja contra si misma: no pregunta al padre.
+pub fn sujeta(v: u32, min: Option<u32>, max: Option<u32>) -> u32 {
+    let v = max.map_or(v, |m| v.min(m));
+    min.map_or(v, |m| v.max(m))
+}
+
+/// El ancho de contenido de una caja con sus cotas.
+pub fn ancho(s: &Style, v: u32) -> u32 {
+    sujeta(v, s.min_w, s.max_w)
+}
+
+/// El alto de contenido de una caja con sus cotas.
+pub fn alto(s: &Style, v: u32) -> u32 {
+    sujeta(v, s.min_h, s.max_h)
+}
+
+/// The content size this box settles on: what it declared, or what it needs --
+/// and then its own bounds (`min-*`, `max-*`).
 pub fn content_size(b: &Styled) -> Size {
     let want = intrinsic(b);
     Size {
-        w: b.style.width.unwrap_or(want.w),
-        h: b.style.height.unwrap_or(want.h),
+        w: ancho(&b.style, b.style.width.unwrap_or(want.w)),
+        h: alto(&b.style, b.style.height.unwrap_or(want.h)),
     }
 }
 

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   648 casillas ABIERTAS en 63 planes
-   541 hechas
+   647 casillas ABIERTAS en 63 planes
+   543 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -361,15 +361,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] R8 -- INDEPENDIZAR puro (seccion 4b): dados los bloques de dos nodos, cuales comparten; con sus 
 - ... y 3 mas
 
-## [`PLAN_MAQUETA_3.md`](PLAN_MAQUETA_3.md) -- 6 abiertas, 2 hechas
-
-*PLAN MAQUETA 3 -- lo que le falta a un .maqueta para escribir lo que escribe CSS, y MEJOR*
-
-- [ ] M-dec -- las decisiones M1-M6 y E1 del propietario, escritas en la seccion 3 de este plan
-- [ ] ME -- los elementos de la seccion 2c segun E1: la etiqueta en toolchain/tools/maqueta/node/src/m
-- [ ] MA -- la pila A entera en toolchain/tools/maqueta/node/src/value.rs (la lista), el nieto en tool
-- ... y 3 mas
-
 ## [`PLAN_RED_TX.md`](PLAN_RED_TX.md) -- 6 abiertas, 8 hechas
 
 *PLAN RED TX -- transmitir, con el DMA contado y el cable detras de un grifo*
@@ -449,6 +440,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 1. ARRANCAR Y LEER. Reproducir --matar Ring 3, volver a entrar-- y
 - [ ] 2. EL JUEZ, en su crate. platform/shared/bmo-pila-juicio: *"se
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
+- ... y 2 mas
+
+## [`PLAN_MAQUETA_3.md`](PLAN_MAQUETA_3.md) -- 5 abiertas, 4 hechas
+
+*PLAN MAQUETA 3 -- lo que le falta a un .maqueta para escribir lo que escribe CSS, y MEJOR*
+
+- [ ] ME -- los elementos de la seccion 2c segun E1: la etiqueta en toolchain/tools/maqueta/node/src/m
+- [ ] MA -- la pila A entera en toolchain/tools/maqueta/node/src/value.rs (la lista), el nieto en tool
+- [ ] MB -- la pila B segun M1-M4 y M6: la rejilla en toolchain/tools/maqueta/layout/src/flow.rs, las 
 - ... y 2 mas
 
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas

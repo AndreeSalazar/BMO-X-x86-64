@@ -192,8 +192,9 @@ que MAQUETA no hace, y por eso **estan prohibidas**, no reinterpretadas.
 
 ## 3. LAS PROPIEDADES -- LISTA CERRADA
 
-**Cuarenta** (contadas en `value.rs`, 04-10, escalon 1), y **seis atajos** que
-se expanden en ellas (seccion 3c). Las **dieciseis** primeras se
+**Cuarenta y cinco** (contadas en `value.rs`: cuarenta el 04-10, escalon 1, y
+cinco de MAQUETA 3 el 06-10, seccion 3e), y **nueve atajos** que se expanden
+en ellas (seis en la seccion 3c, tres en la 3e). Las **dieciseis** primeras se
 eligieron **contando** lo que `scene/` hace de verdad, no lo que CSS ofrece.
 `border-radius` entro al medir la raiz y descubrir que ya estaba implementada;
 `margin` **salio** al escribir el nieto -- ver seccion 3b.
@@ -434,6 +435,25 @@ cuando la caja ya tiene medida; no depende del padre, asi que no rompe L7.
 porque los paneles del escritorio se colocan asi. Es tambien la unica forma de
 que una caja se salga de su padre legitimamente, y por eso desactiva la
 comprobacion 2 para ese nodo. **Usarla es declarar que sabes lo que haces.**
+
+### 3e. MAQUETA 3, PILA A: lo que entra sin tocar ninguna ley (06-10)
+
+`docs/plan/PLAN_MAQUETA_3.md`, escalon MA. Ninguna de estas pide saber la
+medida del padre: se resuelven con la caja PROPIA. Primera tanda, la que solo
+toca la maquetacion (el nieto) y no la pintura:
+
+| propiedad | valores | nota |
+|---|---|---|
+| `text-align` | `left` \| `center` \| `right` (y `start`, `end`) | coloca el texto DENTRO de su caja `block`, con lo que el texto midio al compilar: exacto al pixel. En una caja `flex` no hace nada (el texto es un elemento flex anonimo de su medida, como en CSS) y es error (comprobacion L). En un parrafo (`white-space:normal`) solo `left` todavia: cada linea pediria su x (tambien L). `justify` se rechaza: estira los espacios y cada linea saldria distinta |
+| `min-width`, `max-width` | `Npx` | acotan el ancho de la caja contra SU contenido, y tambien el que llena a su padre (`block`) o el que la estira (`flex`): como CSS, `max` gana a `width` y `min` gana a `max`. Lo que no quepa en el maximo lo dice el veredicto (A, B) |
+| `min-height`, `max-height` | `Npx` | igual, en vertical |
+
+Y dos atajos mas (se expanden en el padre, como los de la seccion 3c):
+
+| atajo | se expande en |
+|---|---|
+| `inset` | `top`, `right`, `bottom`, `left`, de uno a cuatro valores como `padding` |
+| `padding-block`, `padding-inline` | `padding-top`/`-bottom`, y `padding-left`/`-right`; uno o dos valores |
 
 ---
 

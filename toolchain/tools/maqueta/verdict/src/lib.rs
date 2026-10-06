@@ -29,6 +29,7 @@
 //!    names.rs    D id repetido   E isla sin sitio o repetida
 //!                I regla muerta  J clase huerfana
 //!    idle.rs     G gap sin flex  H absoluta sin left/top  F texto sin color
+//!                L text-align que no puede alinear (MAQUETA 3)
 //! ```
 //!
 //! ## Todas son errores, y no hay avisos
