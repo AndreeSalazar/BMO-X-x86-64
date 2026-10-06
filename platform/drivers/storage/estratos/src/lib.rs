@@ -68,6 +68,9 @@ pub mod mezcla;
 /// EL MOTOR DE LA MEZCLA sin `alloc` (PLAN_LAS_RAMAS R4c-2): el que corre el
 /// kernel y el que prueba `estratos-mezcla` sobre imagenes.
 pub mod motor_mezcla;
+/// LA TABLA DE RAMAS (superbloque v2, PLAN_LAS_RAMAS D5): la punta de cada
+/// rama, fuera de la historia.
+pub mod ramas;
 pub mod objects;
 pub mod read;
 pub use escritura::{Fase, Rechazo, Transaccion};
@@ -97,6 +100,11 @@ pub const MAGIC: [u8; 8] = *b"ESTRATOS";
 /// codigo: montar un volumen de una version que no se entiende es solo lectura
 /// y un aviso, nunca una interpretacion a la buena de dios.
 pub const VERSION: u32 = 1;
+/// v2 (06-10): el volumen tiene TABLA DE RAMAS (`ESTRATOS.md`, "la tabla de
+/// ramas"). Un volumen sube a v2 cuando nace su primera rama, con LAS DOS
+/// copias del superbloque, y asi un kernel v1 no lo monta en vez de borrarle
+/// la tabla en su primer commit.
+pub const VERSION_RAMAS: u32 = 2;
 
 /// Medida de bloque de ESTRATOS. Ocho sectores de 512 B.
 pub const BLOCK_SIZE: u32 = 4096;
@@ -198,6 +206,9 @@ pub struct Superblock {
     /// objetos es justamente que **el que lee no necesita indice**. Un puntero
     /// lleva las dos cosas: donde esta y que debe contener.
     pub estrato: BlockPtr,
+    /// v2: la TABLA DE RAMAS (`ramas::Ramas`), fuera de la historia. Nulo en
+    /// v1 y en un v2 sin tabla.
+    pub ramas: BlockPtr,
 }
 
 // Desplazamientos del sector. Se declaran como constantes en vez de escribirse
@@ -212,6 +223,8 @@ const OFF_TOTAL_BLOCKS: usize = 24;
 const OFF_LOG_HEAD: usize = 32;
 const OFF_DISK_ID: usize = 40;
 const OFF_ESTRATO: usize = 72;
+/// v2: la tabla de ramas, en los bytes que v1 dejaba a cero.
+const OFF_RAMAS: usize = 120;
 /// La suma va AL FINAL y cubre todo lo anterior.
 const OFF_SUPER_SUM: usize = SUPER_LEN - 32;
 
@@ -229,7 +242,16 @@ impl Superblock {
             log_head: 2,
             disk_id,
             estrato: BlockPtr::NULO,
+            ramas: BlockPtr::NULO,
         }
+    }
+
+    /// **El superbloque con TABLA DE RAMAS**: v2 para siempre. Quien lo
+    /// escribe por primera vez escribe LAS DOS copias (ver [`VERSION_RAMAS`]).
+    pub fn con_ramas(mut self, ramas: BlockPtr) -> Self {
+        self.ramas = ramas;
+        self.version = VERSION_RAMAS;
+        self
     }
 
     /// Serializa a un sector de 512 B, con su suma ya calculada.
@@ -243,6 +265,10 @@ impl Superblock {
         b[OFF_LOG_HEAD..OFF_LOG_HEAD + 8].copy_from_slice(&self.log_head.to_le_bytes());
         b[OFF_DISK_ID..OFF_DISK_ID + 32].copy_from_slice(&self.disk_id);
         b[OFF_ESTRATO..OFF_ESTRATO + objects::PTR_LEN].copy_from_slice(&self.estrato.encode());
+        // Un v1 lleva CEROS aqui, como siempre: byte a byte el mismo sector.
+        if self.version == VERSION_RAMAS {
+            b[OFF_RAMAS..OFF_RAMAS + objects::PTR_LEN].copy_from_slice(&self.ramas.encode());
+        }
         let sum = blake3(&b[..OFF_SUPER_SUM]);
         b[OFF_SUPER_SUM..].copy_from_slice(&sum);
         b
@@ -258,7 +284,7 @@ impl Superblock {
         if b.len() < SUPER_LEN { return Err(FormatError::ShortBuffer); }
         if b[OFF_MAGIC..OFF_MAGIC + 8] != MAGIC { return Err(FormatError::BadMagic); }
         let version = u32::from_le_bytes([b[8], b[9], b[10], b[11]]);
-        if version != VERSION { return Err(FormatError::BadVersion); }
+        if version != VERSION && version != VERSION_RAMAS { return Err(FormatError::BadVersion); }
         let sum = blake3(&b[..OFF_SUPER_SUM]);
         if b[OFF_SUPER_SUM..SUPER_LEN] != sum { return Err(FormatError::BadChecksum); }
 
@@ -277,8 +303,13 @@ impl Superblock {
         let mut disk_id = NO_HASH;
         disk_id.copy_from_slice(&b[OFF_DISK_ID..OFF_DISK_ID + 32]);
         let estrato = BlockPtr::decode(&b[OFF_ESTRATO..OFF_ESTRATO + objects::PTR_LEN])?;
+        let ramas = if version == VERSION_RAMAS {
+            BlockPtr::decode(&b[OFF_RAMAS..OFF_RAMAS + objects::PTR_LEN])?
+        } else {
+            BlockPtr::NULO
+        };
 
-        Ok(Self { version, block_size, generation, total_blocks, log_head, disk_id, estrato })
+        Ok(Self { version, block_size, generation, total_blocks, log_head, disk_id, estrato, ramas })
     }
 
     /// Nacio este volumen en el disco que tenemos delante?
@@ -545,6 +576,32 @@ mod tests {
 
     fn id_de_prueba() -> Hash {
         disk_id(b"KINGSTON SA400S37480G", b"50026B76846C2058", 937703088)
+    }
+
+    #[test]
+    fn un_superbloque_sin_ramas_es_byte_a_byte_un_v1() {
+        let sb = Superblock::new(id_de_prueba(), 1000);
+        let b = sb.encode();
+        assert_eq!(u32::from_le_bytes([b[8], b[9], b[10], b[11]]), VERSION);
+        assert!(b[OFF_RAMAS..OFF_RAMAS + objects::PTR_LEN].iter().all(|&x| x == 0));
+        assert_eq!(Superblock::decode(&b).unwrap().ramas, BlockPtr::NULO);
+    }
+
+    #[test]
+    fn un_superbloque_con_ramas_es_v2_y_un_lector_v1_no_lo_monta() {
+        let t = BlockPtr { lba: 77, off: 0, len: 4096, hash: [7; 32] };
+        let sb = Superblock::new(id_de_prueba(), 1000).con_ramas(t);
+        let b = sb.encode();
+        let d = Superblock::decode(&b).unwrap();
+        assert_eq!((d.version, d.ramas), (VERSION_RAMAS, t));
+        // Lo que hace un kernel v1 (`version != 1` -> BadVersion): no monta.
+        let v = u32::from_le_bytes([b[8], b[9], b[10], b[11]]);
+        assert_ne!(v, VERSION, "un lector v1 lo rechaza en vez de borrarle la tabla");
+        // Y por que hacen falta LAS DOS copias: con una v1, un lector v1 se
+        // quedaria con ella aunque sea mas vieja.
+        let viejo = Superblock::new(id_de_prueba(), 1000).encode();
+        let lee_v1 = |x: &[u8]| u32::from_le_bytes([x[8], x[9], x[10], x[11]]) == VERSION;
+        assert!(lee_v1(&viejo) && !lee_v1(&b), "con una sola copia en v2, el v1 montaria la vieja");
     }
 
     #[test]

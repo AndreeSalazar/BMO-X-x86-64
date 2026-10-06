@@ -635,6 +635,48 @@ Hecho en `platform/drivers/storage/estratos/src/lib.rs` (`SegundoPadre`,
 mezclado y lo publica es R4b y R4c de `PLAN_LAS_RAMAS.md`, primero en
 imagenes y despues en F:.
 
+### ** LA TABLA DE RAMAS -- el superbloque v2 (06-10)
+
+`docs/plan/PLAN_LAS_RAMAS.md`, D5 (a): la PUNTA de cada rama vive FUERA de la
+historia, como las refs de Git. Si cambiar de rama fuera `volver`, la rama
+que se deja seria antepasada de la nueva, y mezclarla despues diria "nada
+que mezclar".
+
+```text
+   superbloque, 512 bytes      v1                  v2
+     0..120    lo de siempre   igual               igual
+   120..168    (libre)         CEROS               RAMAS: BlockPtr al objeto
+                                                   de la tabla
+   168..480    (libre)         ceros               ceros
+   480..512    suma            igual               igual
+
+   la tabla, UN bloque         "BMORAMAS", cuantas, cual es la ACTUAL, y
+                               por rama 112 bytes: nombre (63, Latin-1) y la
+                               punta (BlockPtr al estrato). La punta de la
+                               ACTUAL no se guarda ahi: es `estrato` del
+                               superbloque, que cada commit mueve
+```
+
+** LA DEBILIDAD, Y COMO SE CIERRA. Un kernel v1 reescribe el superbloque
+desde sus campos, con ceros en 120..168: un commit suyo BORRARIA la tabla.
+No llega a pasar por dos cosas que ya estaban y una que se hace aqui:
+
+1. `Superblock::decode` exige `version == VERSION` desde el primer dia: un
+   kernel v1 ante un superbloque v2 dice `BadVersion` y no lo monta.
+2. Pero `pick_superblock` usa la copia que SI entiende si la otra falla: con
+   una copia v2 y la otra v1, un kernel v1 montaria la VIEJA (deshaciendo el
+   ultimo commit) y escribiria encima de la nueva.
+3. Por eso la SUBIDA a v2 escribe LAS DOS COPIAS. Primero la que no esta en
+   uso (el commit de siempre) y despues la otra: si el corte llega a mitad de
+   la segunda, la primera ya es valida y mas nueva. Con las dos en v2, un
+   kernel v1 no monta el volumen: no puede borrar nada.
+
+Y lo que NO cambia: un volumen sin ramas sigue siendo v1 byte a byte (los
+ceros de siempre) y lo monta cualquier kernel; uno con ramas es v2 para
+siempre (no se baja de version: una tabla vacia sigue siendo una tabla).
+Un kernel v2 lee los dos, y su commit conserva la tabla sin saberlo
+(`Transaccion::commit` parte del superbloque que habia).
+
 ### Lo que sigue fuera de todo esto
 
 TimeBack encima (paso 7) y NVMe debajo de la capa de bloques. Ninguno de los dos

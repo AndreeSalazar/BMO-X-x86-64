@@ -345,3 +345,53 @@ fn una_carpeta_de_mas_de_64_se_dice_y_no_se_escribe_nada() {
     assert!(e.contains("64 entradas"), "{e}");
     assert_eq!(fs::read(&img.ruta).unwrap(), antes, "ni un byte cambio");
 }
+
+fn version_de(img: &mut Imagen, lba: u64) -> u32 {
+    let b = leer_bloque(&mut img.disco, lba).unwrap();
+    u32::from_le_bytes([b[8], b[9], b[10], b[11]])
+}
+
+/// ** EL CASO DE D5, que con `volver` fallaba: principal avanza, se cambia a
+/// "pruebas" (que salio de X), pruebas avanza, y principal se MEZCLA en
+/// pruebas. Con la tabla de ramas nadie es antepasado de nadie, y la mezcla
+/// trae lo de las dos.
+#[test]
+fn con_la_tabla_de_ramas_se_mezcla_la_rama_que_se_dejo() {
+    let (mut img, formato) = imagen("d5");
+    let x = version(&mut img, formato, &[(b"a", b"a de X"), (b"b", b"b de X")]);
+    assert_eq!((version_de(&mut img, 0), version_de(&mut img, 1)), (1, 1), "sin ramas: v1");
+    img.generacion = ramas::crear_rama(&mut img.disco, id(), img.generacion, b"pruebas", None, b"principal").unwrap();
+    assert_eq!((version_de(&mut img, 0), version_de(&mut img, 1)), (2, 2), "la subida escribe LAS DOS copias");
+
+    let t1 = version(&mut img, x, &[(b"a", b"a de principal"), (b"b", b"b de X")]);
+    img.generacion = ramas::cambiar_rama(&mut img.disco, id(), img.generacion, b"pruebas").unwrap();
+    assert_eq!(punta(&mut img), x, "el superbloque sigue la punta de pruebas");
+    assert_eq!(ramas::punta_de(&mut img.disco, id(), img.generacion, b"principal").unwrap(), t1);
+    let _t3 = version(&mut img, x, &[(b"a", b"a de X"), (b"b", b"b de pruebas")]);
+
+    let principal = ramas::punta_de(&mut img.disco, id(), img.generacion, b"principal").unwrap();
+    let r = mezclar(&mut img.disco, id(), img.generacion, &principal, "principal en pruebas", &mut |_| Eleccion::A).unwrap();
+    img.generacion = r.generacion;
+    assert_eq!(contenido(&mut img, &r.estrato), vec![s("a", "a de principal"), s("b", "b de pruebas")]);
+    // La tabla sobrevive a los commits de despues (el de la mezcla, aqui).
+    let t = ramas::leer_ramas(&mut img.disco, id(), img.generacion).unwrap().unwrap();
+    assert_eq!((t.cuantas(), t.actual()), (2, &b"pruebas"[..]));
+    assert_eq!((version_de(&mut img, 0), version_de(&mut img, 1)), (2, 2));
+}
+
+/// Y por que hacia falta: con `volver` (un estrato con la raiz de X y la punta
+/// de ahora de padre), la rama que se deja es ANTEPASADA y no se mezcla.
+#[test]
+fn sin_tabla_volver_hace_antepasada_a_la_rama_que_se_deja() {
+    let (mut img, formato) = imagen("d5-sin");
+    let x = version(&mut img, formato, &[(b"a", b"a de X")]);
+    let t1 = version(&mut img, x, &[(b"a", b"a de principal")]);
+    let raiz_x = leer_estrato(&mut img.disco, &x).unwrap().raiz;
+    let (g, _, _, _) = publicar(&mut img.disco, id(), img.generacion, &Hijo::Nodo(raiz_x), |raiz, padre| {
+        Estrato::new(raiz, padre, 0, Autor::Herramienta, "")
+    })
+    .unwrap();
+    img.generacion = g;
+    let e = mezclar(&mut img.disco, id(), img.generacion, &t1, "m", &mut |_| Eleccion::A).unwrap_err();
+    assert!(e.contains("nada que mezclar"), "{e}");
+}

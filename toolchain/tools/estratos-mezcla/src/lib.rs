@@ -524,6 +524,7 @@ pub fn mezclar<W: Almacen>(
 }
 
 mod decide;
+pub mod ramas;
 
 #[cfg(test)]
 mod pruebas;
