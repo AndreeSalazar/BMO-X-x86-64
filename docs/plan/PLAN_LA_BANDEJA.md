@@ -108,6 +108,40 @@ construccion por su hash en una carpeta aparte (`/nix/store`). Aqui no es una
 carpeta encima del disco: es el sistema de ficheros, con su historia y su
 suma. Eso es lo que solo tiene BMO-X.
 
+## 4b. "ESTA ABIERTO": el cuadrito que Windows hace mal (06-10)
+
+El propietario: *"Microsoft es muy pesimo para lock file [...] mi caso seria
+mostrar el cuadrito y dice 'esta abierto no se puede eliminar a menos:' 2
+opciones: mostrar la ventana ESPECIFICA [...] o forzar el cierre y eliminar, y
+el ultimo es aceptar como 'okey'"*. Y despues: *"esta bien aplicar, por algo el
+kernel mi orquestador es basicamente el mejor mayordomo del mundo"*.
+
+** EN ESTRATOS BORRAR NO FALLA NUNCA, y por eso el cuadrito casi no sale.
+Borrar es DEJAR DE NOMBRAR: un `Archivo` abierto lee de SU nodo, no del
+nombre (`Ultra_kernel_x86-64/kernel/src/ring0/obj/estratos.rs`), asi que el
+nombre se va y el programa sigue viendo su version hasta que la cierre. Ahi
+basta una linea: *"ship.titan esta abierto en TALLER: seguira viendo su
+version hasta cerrarlo"*.
+
+El cuadrito sale donde algo de verdad esta AGARRADO:
+
+```text
+   D: (FAT32)          sobreescribe: borrar con alguien leyendo SI rompe
+   expulsar un disco   desde la BANDEJA, con un fichero suyo abierto
+   el recolector       quiere soltar una version que alguien tiene abierta
+```
+
+Y sus tres botones, mejor que en Windows porque el kernel SABE quien:
+
+| boton | que hace | por que se puede aqui |
+|---|---|---|
+| **MOSTRAR LA VENTANA** | lleva a la ventana EXACTA que lo tiene | el permiso de abrirlo es una capability en la tabla del kernel, con el pid de quien la tiene: no hay que adivinar como el Monitor de recursos |
+| **FORZAR** | le QUITA el permiso a ese programa (revoca la capability) y despues borra; el programa sigue vivo y se entera al leer | Windows mata el proceso entero; aqui se quita una cosa, no un programa |
+| **OKEY** | no hace nada | -- |
+
+[!] FORZAR lo pulsa una PERSONA, nunca un programa: es la misma regla que
+`marcar` y que elegir un choque (D3 de `docs/plan/PLAN_LAS_RAMAS.md`).
+
 ## 5. F1: TODOS son nodos
 
 Hoy el TALLER es un editor de nodos de TITAN++ (`docs/plan/PLAN_TALLER.md`,
@@ -157,6 +191,7 @@ El propietario ya lo probo y espera bugs de sorpresa: se anotan en la seccion
   - [ ] T4 -- los nodos de C, con sus `#include` como cables
   - [ ] T5 -- los cables de `:origen` de un resultado a sus fuentes (pide B6)
 - [ ] B8b -- el ESPEJO de esa maqueta: `cara-taller` (`toolchain/tools/espejo-cara/src/bin/cara_taller.rs`) pinta con el codigo de verdad lo que la maqueta dibuja, y `foto.js` hace la foto de la regla
+- [ ] B10 -- EL CUADRITO "ESTA ABIERTO" (seccion 4b): la pregunta al kernel "quien tiene abierto esto" (las capabilities con su pid), la linea de ESTRATOS que no bloquea, y el cuadrito de tres botones en D:, al expulsar y ante el recolector; FORZAR revoca la capability, no mata el programa
 - [ ] B9 -- los bugs de sorpresa que vea el propietario al probar F1 (seccion 8), cada uno arreglado con su prueba
 
 ## 7. Lo que este plan NO es

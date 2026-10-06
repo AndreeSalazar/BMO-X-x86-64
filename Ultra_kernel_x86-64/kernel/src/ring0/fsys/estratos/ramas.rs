@@ -55,28 +55,54 @@ const NIVELES: [usize; 2] = [16, 8];
 
 // -- La tabla de ramas -----------------------------------------------------------
 
-fn tabla(sb: &es::Superblock) -> Result<Option<Ramas>, WriteError> {
-    if sb.ramas.es_nulo() {
-        return Ok(None);
-    }
-    let d = super::seguir(&sb.ramas, 0).ok_or(WriteError::NoSeLeeLaRaiz)?;
-    Ramas::decode(d).map(Some).map_err(|_| WriteError::NoSeLeeLaRaiz)
+// ** LA TABLA Y SU BLOQUE VIVEN EN `static`, no en la pila: son ~4 KiB cada
+// uno, y en el marco de `cambiar` y `publicar_tabla` pasaban de los 40 KiB de
+// la pila de un syscall (`pila` lo midio, 06-10). Un solo hilo escribe
+// ESTRATOS (`walk::scratch_de_flujo`), asi que una copia basta.
+static mut TABLA: Ramas = Ramas::VACIA;
+static mut CODIFICADA: [u8; BLOQUE] = [0; BLOQUE];
+
+fn tabla() -> &'static mut Ramas {
+    // SAFETY: un solo hilo escribe ESTRATOS, y nadie guarda la referencia.
+    unsafe { &mut *core::ptr::addr_of_mut!(TABLA) }
 }
 
-/// Publica la tabla `t` --y, si `sigue` trae una, la punta que el superbloque
+/// Carga en [`TABLA`] la tabla del volumen. `false`: el volumen no tiene.
+#[inline(never)]
+fn cargar(sb: &es::Superblock) -> Result<bool, WriteError> {
+    if sb.ramas.es_nulo() {
+        return Ok(false);
+    }
+    let d = super::seguir(&sb.ramas, 0).ok_or(WriteError::NoSeLeeLaRaiz)?;
+    *tabla() = Ramas::decode(d).map_err(|_| WriteError::NoSeLeeLaRaiz)?;
+    Ok(true)
+}
+
+/// La tabla en su bloque, en [`CODIFICADA`].
+#[inline(never)]
+fn codificar() -> &'static [u8; BLOQUE] {
+    // SAFETY: como `tabla`.
+    unsafe {
+        let b = &mut *core::ptr::addr_of_mut!(CODIFICADA);
+        *b = tabla().encode();
+        b
+    }
+}
+
+/// Publica [`TABLA`] --y, si `sigue` trae una, la punta que el superbloque
 /// pasa a seguir-- con el orden de siempre.
 ///
 /// ** LA SUBIDA A v2 ESCRIBE LAS DOS COPIAS del superbloque (`ESTRATOS.md`, "la
 /// tabla de ramas"): con una sola, un kernel v1 montaria la copia vieja y
 /// escribiria encima de la nueva, perdiendo la tabla. Con las dos, un kernel
 /// v1 no monta el volumen -- y no puede borrarla.
-fn publicar_tabla(sb: &es::Superblock, t: &Ramas, sigue: Option<BlockPtr>) -> Result<u64, WriteError> {
+fn publicar_tabla(sb: &es::Superblock, sigue: Option<BlockPtr>) -> Result<u64, WriteError> {
     let cual = copia_en_uso();
     let mut tr = es::escritura::Transaccion::open(sb, cual, identidad_ok()).map_err(WriteError::Rechazada)?;
     let base = tr.reserve(1).map_err(WriteError::Rechazada)?;
-    let bytes = t.encode();
-    super::escribir::poner(base, &bytes)?;
-    let p = BlockPtr::nuevo(base, 0, &bytes);
+    let bytes = codificar();
+    super::escribir::poner(base, bytes)?;
+    let p = BlockPtr::nuevo(base, 0, bytes);
 
     tr.cerrar_datos().map_err(WriteError::Rechazada)?;
     if !disk::flush() {
@@ -116,14 +142,14 @@ fn publicar_tabla(sb: &es::Superblock, t: &Ramas, sigue: Option<BlockPtr>) -> Re
 ///
 /// Si el volumen no tenia ramas, la de ahora pasa a llamarse `principal`: la
 /// tabla nace con DOS filas, la de siempre y la nueva.
+#[inline(never)]
 pub fn crear(nombre: &str) -> Result<u64, WriteError> {
     let sb = superbloque().ok_or(WriteError::SinVolumen)?;
-    let mut t = match tabla(&sb)? {
-        Some(t) => t,
-        None => Ramas::nueva(PRIMERA).map_err(WriteError::Rama)?,
-    };
-    t.crear(nombre.as_bytes(), sb.estrato).map_err(WriteError::Rama)?;
-    let g = publicar_tabla(&sb, &t, None)?;
+    if !cargar(&sb)? {
+        *tabla() = Ramas::nueva(PRIMERA).map_err(WriteError::Rama)?;
+    }
+    tabla().crear(nombre.as_bytes(), sb.estrato).map_err(WriteError::Rama)?;
+    let g = publicar_tabla(&sb, None)?;
     crate::ring0::cabina::info("estratos", "rama nueva en la punta de ahora", g);
     Ok(g)
 }
@@ -134,11 +160,14 @@ pub fn crear(nombre: &str) -> Result<u64, WriteError> {
 /// ** No publica estrato: nadie se vuelve antepasado de nadie. Por eso las
 /// ramas no se mezclan solas al ir y venir -- que era el agujero de D1 con
 /// `volver` (`PLAN_LAS_RAMAS.md`, D5).
+#[inline(never)]
 pub fn cambiar(nombre: &str) -> Result<u64, WriteError> {
     let sb = superbloque().ok_or(WriteError::SinVolumen)?;
-    let mut t = tabla(&sb)?.ok_or(WriteError::Rama(es::ramas::RamaError::NoEsta))?;
-    let sigue = t.cambiar(nombre.as_bytes(), sb.estrato).map_err(WriteError::Rama)?;
-    let g = publicar_tabla(&sb, &t, Some(sigue))?;
+    if !cargar(&sb)? {
+        return Err(WriteError::Rama(es::ramas::RamaError::NoEsta));
+    }
+    let sigue = tabla().cambiar(nombre.as_bytes(), sb.estrato).map_err(WriteError::Rama)?;
+    let g = publicar_tabla(&sb, Some(sigue))?;
     crate::ring0::cabina::info("estratos", "cambio de rama", g);
     Ok(g)
 }
@@ -284,10 +313,9 @@ fn motor_dice(f: motor::Fallo) -> WriteError {
 /// Devuelve `(choques, bloques)`. Los bloques cuentan el estrato y suponen que
 /// cada choque se queda con lo de A: lo que de verdad cuesta se vuelve a contar
 /// al mezclar, con lo elegido.
+#[inline(never)]
 pub fn contar(pid: u32, nombre: &str) -> Result<(u32, u64), WriteError> {
-    let sb = superbloque().ok_or(WriteError::SinVolumen)?;
-    let t = tabla(&sb)?.ok_or(WriteError::Rama(es::ramas::RamaError::NoEsta))?;
-    let otra = t.punta(nombre.as_bytes(), sb.estrato).map_err(WriteError::Rama)?;
+    let (sb, otra) = punta_de(nombre)?;
     if otra == sb.estrato {
         return Err(WriteError::NadaQueMezclar);
     }
@@ -316,6 +344,21 @@ pub fn contar(pid: u32, nombre: &str) -> Result<(u32, u64), WriteError> {
     Ok((n as u32, cuenta.bloques + 1))
 }
 
+/// El superbloque y la punta de la rama `nombre`.
+///
+/// ** Aparte y sin `inline` A PROPOSITO: lo que lee la tabla no puede quedarse
+/// en el marco de `contar`, que esta en la pila durante TODA la mezcla, debajo
+/// del motor. `pila` lo midio: 48 KiB en una pila de 40.
+#[inline(never)]
+fn punta_de(nombre: &str) -> Result<(es::Superblock, BlockPtr), WriteError> {
+    let sb = superbloque().ok_or(WriteError::SinVolumen)?;
+    if !cargar(&sb)? {
+        return Err(WriteError::Rama(es::ramas::RamaError::NoEsta));
+    }
+    let otra = tabla().punta(nombre.as_bytes(), sb.estrato).map_err(WriteError::Rama)?;
+    Ok((sb, otra))
+}
+
 fn pendiente_de(pid: u32) -> Option<Pendiente> {
     unsafe { PENDIENTE }.filter(|p| p.pid == pid)
 }
@@ -324,6 +367,7 @@ fn pendiente_de(pid: u32) -> Option<Pendiente> {
 ///
 /// `trozo` 0 es la cabeza --`largo | lados << 8 | eleccion << 16`--, y del 1 en
 /// adelante, ocho bytes de la ruta cada uno.
+#[inline(never)]
 pub fn choque(pid: u32, i: usize, trozo: usize) -> u64 {
     let Some(p) = pendiente_de(pid) else { return 0 };
     if i >= p.choques.min(CHOQUES_MAX) {
@@ -341,7 +385,45 @@ pub fn choque(pid: u32, i: usize, trozo: usize) -> u64 {
     u64::from_le_bytes(b)
 }
 
+/// **EL CANDADO de lo contado por `pid`**:
+/// `estado | choques << 8 | elegidos << 24`.
+///
+/// Estado `0`: no hay nada contado. `1`, CERRADO: contado y esperando a que se
+/// elija, sin haber escrito nada -- irse y volver no pierde nada. `2`, ROTO:
+/// el volumen cambio desde que se conto, y hay que contar otra vez.
+#[inline(never)]
+pub fn candado(pid: u32) -> u64 {
+    let Some(p) = pendiente_de(pid) else { return 0 };
+    let vale = superbloque().is_some_and(|sb| sb.generation == p.generacion);
+    let choques = unsafe { &*core::ptr::addr_of!(CHOQUES) };
+    let elegidos = choques[..p.choques.min(CHOQUES_MAX)].iter().filter(|c| c.eleccion != 0).count() as u64;
+    (if vale { 1 } else { 2 }) | (p.choques.min(0xFFFF) as u64) << 8 | elegidos << 24
+}
+
+/// **El nombre de la rama `i`**, de ocho en ocho. El trozo `0` es la cabeza,
+/// `largo | actual << 8`; `0` si esa rama no esta (o el volumen no tiene).
+///
+/// Lee la tabla cada vez: UN bloque, y quien pregunta es un panel que la lee
+/// al abrirse y despues de un gesto, no al repintar.
+#[inline(never)]
+pub fn nombre(i: usize, trozo: usize) -> u64 {
+    let Some(sb) = superbloque() else { return 0 };
+    if !matches!(cargar(&sb), Ok(true)) {
+        return 0;
+    }
+    let Some((n, actual)) = tabla().rama(i) else { return 0 };
+    if trozo == 0 {
+        return n.len() as u64 | (actual as u64) << 8;
+    }
+    let mut b = [0u8; 8];
+    for (k, x) in b.iter_mut().enumerate() {
+        *x = n.get((trozo - 1) * 8 + k).copied().unwrap_or(0);
+    }
+    u64::from_le_bytes(b)
+}
+
 /// **Lo que una persona elige** para el choque `i` (1 = A, 2 = B, 3 = quitar).
+#[inline(never)]
 pub fn elegir(pid: u32, i: usize, eleccion: u8) -> bool {
     let Some(p) = pendiente_de(pid) else { return false };
     if i >= p.choques.min(CHOQUES_MAX) || eleccion_de(eleccion).is_none() {
@@ -357,6 +439,7 @@ pub fn elegir(pid: u32, i: usize, eleccion: u8) -> bool {
 /// Dice que no, sin tocar un sector, si: no hay nada contado, el volumen
 /// cambio desde entonces, hay choques sin elegir (D3), o al volver a contar
 /// sale un choque que no se conto.
+#[inline(never)]
 pub fn mezclar(pid: u32) -> Result<u64, WriteError> {
     let sb = superbloque().ok_or(WriteError::SinVolumen)?;
     let p = pendiente_de(pid).ok_or(WriteError::Caducada)?;

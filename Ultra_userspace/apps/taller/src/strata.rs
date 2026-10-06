@@ -46,10 +46,12 @@ pub struct Version {
     pub who: u32,
     pub name: [u8; NAME_MAX],
     pub name_len: usize,
+    /// It has TWO parents: two branches met here (`ES_RAMA_DOS_PADRES`).
+    pub merge: bool,
 }
 
 impl Version {
-    pub const EMPTY: Version = Version { when: 0, who: 0, name: [0; NAME_MAX], name_len: 0 };
+    pub const EMPTY: Version = Version { when: 0, who: 0, name: [0; NAME_MAX], name_len: 0, merge: false };
 
     pub fn name(&self) -> &[u8] {
         &self.name[..self.name_len.min(NAME_MAX)]
@@ -114,6 +116,32 @@ pub fn enter(h: &mut History, now_ms: u32) -> Option<usize> {
             h.confirm = Some((i, now_ms.wrapping_add(CONFIRM_MS)));
             h.said = None;
             None
+        }
+    }
+}
+
+/// A key in the tab: the arrows walk the chain, ENTER twice restores the
+/// picked version (`restore` asks the kernel), Esc takes the question back.
+pub fn key(h: &mut History, k: u8, now: u32, restore: impl FnOnce(usize) -> bool) {
+    match k {
+        crate::KEY_LEFT => h.step(true),
+        crate::KEY_RIGHT => h.step(false),
+        0x1B => {
+            h.confirm = None;
+            h.said = None;
+        }
+        _ => {
+            if let Some(steps) = enter(h, now) {
+                let ok = restore(steps);
+                h.said = Some(if ok {
+                    (&b"RESTABLECIDA: un estrato nuevo; lo de en medio sigue en la historia"[..], true)
+                } else {
+                    (&b"NO se pudo restablecer: el volumen no cambio"[..], false)
+                });
+                if ok {
+                    h.picked = Some(0);
+                }
+            }
         }
     }
 }
@@ -187,6 +215,14 @@ pub fn draw(c: &mut Canvas, h: &History, sky: Option<&[u32]>, now_ms: u32) {
         if h.picked == Some(i) {
             halo(c, x, y, R + 3, 8, ACCENT, 260);
             orbit(c, x, y, R + 7, R + 7, ACCENT);
+        }
+        // A MERGE: the second parent comes in from the side, in the colour
+        // of the branch that came in (`branches.rs`).
+        if v.merge {
+            let from = (x + R + 34, y - R - 26);
+            dotted(c, from, (x, y), look::VIOLET);
+            c.disc(from.0, from.1, 5, look::VIOLET);
+            c.text(from.0 + 9, from.1 - 4, b"mezcla", look::VIOLET, 1);
         }
         c.disc(x, y, R, mezclar(color, BG, 1, 9));
         seal(c, x, y, R - 3, s, color);
@@ -269,6 +305,9 @@ fn panel(c: &mut Canvas, h: &History, now_ms: u32) {
     let k = k + 16 + c.text(tx + k + 16, ty, b"proceso ", DIM, 1);
     c.text(tx + k, ty, number(b'#', v.who as u64, &mut p), DIM, 1);
     ty += 20;
+    if v.merge {
+        c.text(tx + w - 360, ty - 20, b"MEZCLA: aqui se juntaron dos ramas", look::VIOLET, 1);
+    }
     if v.marked() {
         let k = c.text(tx, ty, b"PERMANENTE: ", NEON, 1);
         c.text_fit(tx + k, ty, v.name(), INK, w - k - 24);

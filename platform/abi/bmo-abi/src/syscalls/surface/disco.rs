@@ -299,6 +299,9 @@ pub const ES_GESTO_GUARDAR: u64 = 0x0B;
 //   ES_RAMA_CHOQUE    arg1 = cual, arg0 >> 8 = que trozo. NO escribe
 //   ES_RAMA_ELEGIR    arg1 = cual, arg0 >> 8 = MEZCLA_A, _B o _QUITAR
 //   ES_RAMA_MEZCLAR   sin nada: mezcla lo contado con lo elegido
+//   ES_RAMA_CANDADO   el estado de lo contado. NO escribe
+//   ES_RAMA_NOMBRE    arg1 = cual rama, arg0 >> 8 = trozo. NO escribe
+//   ES_RAMA_DOS_PADRES arg1 = cual version de la historia. NO escribe
 // ```
 
 /// **Crea una rama** con el nombre que traiga la ruta, en la punta de ahora.
@@ -356,6 +359,37 @@ pub const ES_RAMA_ELEGIR: u64 = 0x10;
 /// volumen cambio desde que se conto: un plan hecho sobre otro volumen no se
 /// aplica. Se vuelve a contar.
 pub const ES_RAMA_MEZCLAR: u64 = 0x11;
+
+/// **EL CANDADO de lo contado**: `estado | choques << 8 | elegidos << 24`.
+///
+/// Estado `MEZCLA_SIN_CONTAR`, `MEZCLA_CERRADO` o `MEZCLA_ROTO`.
+///
+/// ** El candado no BLOQUEA el volumen: lo CUIDA. Mientras una persona elige,
+/// nada se ha escrito, asi que irse y volver no pierde nada (cerrado). Si otro
+/// programa guarda entre medias, el candado se rompe y se vuelve a contar:
+/// bloquear el volumen dejaria congelado a un juego que guarda partida.
+pub const ES_RAMA_CANDADO: u64 = 0x12;
+
+/// **El nombre de la rama `arg1`**, de ocho en ocho: `arg0 >> 8` es el trozo.
+/// El `0` es la cabeza, `largo | actual << 8`; `0` si no hay esa rama.
+///
+/// * Lee la tabla de ramas cada vez (UN bloque): se pregunta al abrir el panel
+/// y despues de un gesto, no en cada repintado.
+pub const ES_RAMA_NOMBRE: u64 = 0x13;
+
+/// **Es una mezcla la version `arg1`** de la historia? `1` si tiene DOS padres.
+///
+/// ** Vive en esta familia y no en `ES_HIST_*` porque el brazo de la historia
+/// esta en `syscall/mod.rs`, que L6a no deja crecer; y porque la pregunta es
+/// de ramas: donde se juntaron dos.
+pub const ES_RAMA_DOS_PADRES: u64 = 0x14;
+
+/// El candado: no hay nada contado.
+pub const MEZCLA_SIN_CONTAR: u64 = 0;
+/// El candado CERRADO: contado y esperando a que se elija. Nada escrito.
+pub const MEZCLA_CERRADO: u64 = 1;
+/// El candado ROTO: el volumen cambio desde que se conto. Se cuenta otra vez.
+pub const MEZCLA_ROTO: u64 = 2;
 
 /// Elegir lo de la rama de ahora.
 pub const MEZCLA_A: u64 = 1;

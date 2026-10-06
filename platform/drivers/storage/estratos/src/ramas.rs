@@ -73,6 +73,11 @@ fn mismo(a: &[u8], b: &[u8]) -> bool {
 }
 
 impl Ramas {
+    /// Sin ninguna rama: lo que llena un `static` antes de cargar una tabla
+    /// (el kernel no la quiere en la pila: son ~4 KiB). No es una tabla que
+    /// se pueda escribir: `encode` de esta no la acepta `decode`.
+    pub const VACIA: Ramas = Ramas { filas: [Rama::VACIA; RAMAS_MAX], n: 0, actual: 0 };
+
     /// Una tabla nueva con UNA rama, la actual (la punta es la de siempre).
     pub fn nueva(actual: &[u8]) -> Result<Self, RamaError> {
         let mut t = Ramas { filas: [Rama::VACIA; RAMAS_MAX], n: 0, actual: 0 };

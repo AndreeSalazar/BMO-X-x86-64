@@ -43,6 +43,8 @@ pub enum Tab {
     Guide,
     /// The volume's history, each version a node (`strata.rs`).
     Strata,
+    /// The branches and the merge, chosen by hand (`branches.rs`).
+    Branches,
     /// ESTRATOS's GUIDE: every door that exists, what it does and why.
     StrataGuide,
 }
@@ -52,7 +54,7 @@ impl Tab {
         matches!(self, Tab::Sky | Tab::Elements | Tab::Guide)
     }
     pub fn is_strata(self) -> bool {
-        matches!(self, Tab::Strata | Tab::StrataGuide)
+        matches!(self, Tab::Strata | Tab::Branches | Tab::StrataGuide)
     }
     /// `t` walks them all.
     pub fn next(self) -> Tab {
@@ -61,7 +63,8 @@ impl Tab {
             Tab::Sky => Tab::Elements,
             Tab::Elements => Tab::Guide,
             Tab::Guide => Tab::Strata,
-            Tab::Strata => Tab::StrataGuide,
+            Tab::Strata => Tab::Branches,
+            Tab::Branches => Tab::StrataGuide,
             Tab::StrataGuide => Tab::Graph,
         }
     }
@@ -72,10 +75,10 @@ const TAB_H: i32 = 20;
 /// The first strip, and -- inside ESPACIO -- the second one.
 const MAIN: [(Tab, &[u8], i32); 3] = [(Tab::Graph, b"GRAFO", 64), (Tab::Sky, b"ESPACIO", 80), (Tab::Strata, b"ESTRATOS", 88)];
 const SUB: [(Tab, &[u8], i32); 3] = [(Tab::Sky, b"CIELO 3D", 80), (Tab::Elements, b"ELEMENTOS", 88), (Tab::Guide, b"GUIA", 56)];
-const STRATA_SUB: [(Tab, &[u8], i32); 2] = [(Tab::Strata, b"HISTORIA", 80), (Tab::StrataGuide, b"GUIA", 56)];
+const STRATA_SUB: [(Tab, &[u8], i32); 3] = [(Tab::Strata, b"HISTORIA", 80), (Tab::Branches, b"RAMAS", 64), (Tab::StrataGuide, b"GUIA", 56)];
 const SUB_X: i32 = LEFT + 12 + 64 + 6 + 80 + 6 + 88 + 26;
 
-/// The second strip of a tab that has one: ESPACIO's pages, ESTRATOS's two.
+/// The second strip of a tab that has one: ESPACIO's pages, ESTRATOS's three.
 fn sub_of(now: Tab) -> &'static [(Tab, &'static [u8], i32)] {
     if now.is_space() {
         &SUB

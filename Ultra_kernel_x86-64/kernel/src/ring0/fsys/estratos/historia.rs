@@ -56,10 +56,12 @@ pub struct Version {
     pub quien: u32,
     pub nombre: [u8; NOMBRE_MAX],
     pub nombre_len: usize,
+    /// Tiene DOS padres: es una mezcla (`PLAN_LAS_RAMAS` D2).
+    pub mezcla: bool,
 }
 
 impl Version {
-    const VACIA: Self = Self { cuando: 0, quien: 0, nombre: [0; NOMBRE_MAX], nombre_len: 0 };
+    const VACIA: Self = Self { cuando: 0, quien: 0, nombre: [0; NOMBRE_MAX], nombre_len: 0, mezcla: false };
 }
 
 static mut VERSIONES: [Version; MAX] = [Version::VACIA; MAX];
@@ -103,6 +105,7 @@ pub fn releer() -> usize {
         };
         versiones[n].nombre[..k].copy_from_slice(&motivo[..k]);
         versiones[n].nombre_len = k;
+        versiones[n].mezcla = e.segundo.is_some();
         n += 1;
         donde = e.padre;
         if n == MAX && !donde.es_nulo() {
@@ -147,6 +150,12 @@ pub fn quien(i: usize) -> u64 {
 /// Lleva nombre? Las que si son PERMANENTES: el recolector no las suelta.
 pub fn con_nombre(i: usize) -> u64 {
     version(i).map_or(0, |v| (v.nombre_len > 0) as u64)
+}
+
+/// Es una mezcla? La version `i` junto dos ramas: tiene dos padres. La
+/// cadena que se guarda sigue al PRIMERO, que es la rama en la que se mezclo.
+pub fn dos_padres(i: usize) -> u64 {
+    version(i).map_or(0, |v| v.mezcla as u64)
 }
 
 /// Ocho bytes del nombre de la version `i`. El mismo trato que el klog: la

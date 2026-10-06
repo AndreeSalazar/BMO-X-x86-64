@@ -92,7 +92,7 @@ pub(super) fn servir(pid: u32, arg0: u64, arg1: u64) -> u64 {
     // ** MARCAR, VOLVER y LAS RAMAS no llevan ruta y tocan el volumen ENTERO
     // (H3): a un proceso encerrado, no. Los renglones se vacian igual, como en
     // `hacer`.
-    if matches!(arg0 & 0xFF, ES_GESTO_MARCAR | ES_GESTO_VOLVER | ES_RAMA_CREAR..=ES_RAMA_MEZCLAR)
+    if matches!(arg0 & 0xFF, ES_GESTO_MARCAR | ES_GESTO_VOLVER | ES_RAMA_CREAR..=ES_RAMA_DOS_PADRES)
         && crate::ring0::task::raiz::encerrado(pid)
     {
         ruta_tomar_cruda(pid);
@@ -202,6 +202,12 @@ pub(super) fn servir(pid: u32, arg0: u64, arg1: u64) -> u64 {
         // Lo contado se lee y se elige por numero: no hay ruta que mandar.
         ES_RAMA_CHOQUE => ramas::choque(pid, arg1 as usize, (arg0 >> 8) as usize),
         ES_RAMA_ELEGIR => ramas::elegir(pid, arg1 as usize, u8::try_from(arg0 >> 8).unwrap_or(0)) as u64,
+        // R5: lo que pregunta el panel de RAMAS. Contestan de lo que hay, sin
+        // escribir: el candado de lo contado, los nombres de las ramas, y si
+        // una version de la historia es una mezcla.
+        ES_RAMA_CANDADO => ramas::candado(pid),
+        ES_RAMA_NOMBRE => ramas::nombre(arg1 as usize, (arg0 >> 8) as usize),
+        ES_RAMA_DOS_PADRES => crate::ring0::fsys::estratos::historia::dos_padres(arg1 as usize),
         ES_RAMA_MEZCLAR => {
             crate::ring0::cabina::info("estratos", "mezclar una rama", pid as u64);
             dicho(pid, ramas::mezclar(pid))

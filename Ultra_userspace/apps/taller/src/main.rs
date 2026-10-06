@@ -52,6 +52,7 @@ mod iconos;
 mod player;
 mod space;
 mod store;
+mod branches;
 mod strata;
 mod strata_guide;
 mod tab;
@@ -82,10 +83,10 @@ const DOUBLE_MS: u32 = 450;
 const CONFIRM_MS: u32 = 3_000;
 
 // The cooked codes of the kernel's keyboard map (`<bmo/entrada.h>`).
-const KEY_UP: u8 = 0x80;
-const KEY_DOWN: u8 = 0x81;
-const KEY_LEFT: u8 = 0x82;
-const KEY_RIGHT: u8 = 0x83;
+pub(crate) const KEY_UP: u8 = 0x80;
+pub(crate) const KEY_DOWN: u8 = 0x81;
+pub(crate) const KEY_LEFT: u8 = 0x82;
+pub(crate) const KEY_RIGHT: u8 = 0x83;
 const KEY_SUPR: u8 = 0x86;
 const KEY_F2: u8 = 0x8A;
 
@@ -353,6 +354,7 @@ pub extern "C" fn _start() -> ! {
     // the generation it was read at.
     let mut history = store::history_block();
     let mut history_gen = u64::MAX;
+    let (mut rams, mut rams_gen) = (store::branches_block(), u64::MAX);
     // The door picked in ESTRATOS's GUIDE (`strata_guide.rs`).
     let mut door = 0usize;
     let mut canvas = Canvas::new(win.px, win.w, win.h);
@@ -427,6 +429,11 @@ pub extern "C" fn _start() -> ! {
                 }
                 dirty |= h.confirm.is_some();
             }
+        }
+        if let Some(b) = rams.as_deref_mut().filter(|_| tab == Tab::Branches && store::generation() != rams_gen) {
+            b.refresh(&mut store::Kernel);
+            rams_gen = store::generation();
+            dirty = true;
         }
         if let Some((_, until)) = ui.confirm {
             if now.wrapping_sub(until) < u32::MAX / 2 {
@@ -609,6 +616,13 @@ pub extern "C" fn _start() -> ! {
                             dirty = true;
                             continue;
                         }
+                        Tab::Branches => {
+                            if let Some(b) = rams.as_deref_mut() {
+                                b.click(&canvas, x, y);
+                            }
+                            dirty = true;
+                            continue;
+                        }
                         Tab::StrataGuide => {
                             door = strata_guide::hit(&canvas, x, y).unwrap_or(door);
                             dirty = true;
@@ -676,27 +690,15 @@ pub extern "C" fn _start() -> ! {
                 // restores the picked version, Esc takes the question back.
                 Input::Char(k @ (KEY_LEFT | KEY_RIGHT | b'\r' | b'\n' | 0x1B)) if tab == Tab::Strata => {
                     if let Some(h) = history.as_deref_mut() {
-                        match k {
-                            KEY_LEFT => h.step(true),
-                            KEY_RIGHT => h.step(false),
-                            0x1B => {
-                                h.confirm = None;
-                                h.said = None;
-                            }
-                            _ => {
-                                if let Some(steps) = strata::enter(h, now) {
-                                    let ok = store::restore(steps);
-                                    h.said = Some(if ok {
-                                        (&b"RESTABLECIDA: un estrato nuevo; lo de en medio sigue en la historia"[..], true)
-                                    } else {
-                                        (&b"NO se pudo restablecer: el volumen no cambio"[..], false)
-                                    });
-                                    if ok {
-                                        h.picked = Some(0);
-                                    }
-                                }
-                            }
-                        }
+                        strata::key(h, k, now, store::restore);
+                    }
+                    dirty = true;
+                }
+                // The BRANCHES (`branches.rs`): its keys, and every key while
+                // a new branch's name is typed.
+                Input::Char(k) if tab == Tab::Branches && rams.as_deref().is_some_and(|b| b.wants(k)) => {
+                    if let Some(b) = rams.as_deref_mut() {
+                        b.key(k, now, &mut store::Kernel);
                     }
                     dirty = true;
                 }
@@ -868,6 +870,10 @@ pub extern "C" fn _start() -> ! {
                             Some(h) => strata::draw(&mut canvas, h, sky, now),
                             None => canvas.clear(aspecto::BG),
                         }
+                        view::title(&mut canvas, &scene);
+                    }
+                    Tab::Branches => {
+                        branches::draw(&mut canvas, rams.as_deref(), sky, now);
                         view::title(&mut canvas, &scene);
                     }
                     Tab::StrataGuide => {

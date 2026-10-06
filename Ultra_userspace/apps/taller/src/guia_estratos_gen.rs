@@ -25,7 +25,7 @@ pub static FAMILIES: [(&str, &str, bool); 5] = [
 ];
 
 /// Cuantas puertas hay: la guia lo dice con este numero, no con uno escrito.
-pub const COUNT: usize = 45;
+pub const COUNT: usize = 48;
 
 /// `static`: UNA copia en `.rodata`, que Ring 3 lee por indice.
 pub static DOORS: [Door; COUNT] = [
@@ -380,6 +380,30 @@ pub static DOORS: [Door; COUNT] = [
         value: 17,
         what: "FASE 2: MEZCLA lo contado con lo elegido. Publica UN estrato de DOS padres: la punta de ahora y la de la otra rama. Devuelve la generacion, o 0.",
         why: "Dice que no sin tocar un sector si hay choques sin elegir, o si el volumen cambio desde que se conto: un plan hecho sobre otro volumen no se aplica. Se vuelve a contar.",
+    },
+    Door {
+        family: 4,
+        name: "candado",
+        door: "ES_RAMA_CANDADO",
+        value: 18,
+        what: "EL CANDADO de lo contado: estado | choques << 8 | elegidos << 24.",
+        why: "El candado no BLOQUEA el volumen: lo CUIDA. Mientras una persona elige, nada se ha escrito, asi que irse y volver no pierde nada (cerrado). Si otro programa guarda entre medias, el candado se rompe y se vuelve a contar: bloquear el volumen dejaria congelado a un juego que guarda partida.",
+    },
+    Door {
+        family: 4,
+        name: "nombre",
+        door: "ES_RAMA_NOMBRE",
+        value: 19,
+        what: "El nombre de la rama arg1, de ocho en ocho: arg0 >> 8 es el trozo. El 0 es la cabeza, largo | actual << 8; 0 si no hay esa rama.",
+        why: "Lee la tabla de ramas cada vez (UN bloque): se pregunta al abrir el panel y despues de un gesto, no en cada repintado.",
+    },
+    Door {
+        family: 4,
+        name: "dos padres",
+        door: "ES_RAMA_DOS_PADRES",
+        value: 20,
+        what: "Es una mezcla la version arg1 de la historia? 1 si tiene DOS padres.",
+        why: "Vive en esta familia y no en ES_HIST_ porque el brazo de la historia esta en syscall/mod.rs, que L6a no deja crecer; y porque la pregunta es de ramas: donde se juntaron dos.",
     },
     Door {
         family: 3,

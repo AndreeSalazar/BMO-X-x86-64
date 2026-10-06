@@ -621,6 +621,10 @@ pub(crate) const ES_RAMA_CONTAR: u64 = 0x0E;
 pub(crate) const ES_RAMA_CHOQUE: u64 = 0x0F;
 pub(crate) const ES_RAMA_ELEGIR: u64 = 0x10;
 pub(crate) const ES_RAMA_MEZCLAR: u64 = 0x11;
+/// R5: lo que el panel de RAMAS de F1 pregunta. Ninguna escribe.
+pub(crate) const ES_RAMA_CANDADO: u64 = 0x12;
+pub(crate) const ES_RAMA_NOMBRE: u64 = 0x13;
+pub(crate) const ES_RAMA_DOS_PADRES: u64 = 0x14;
 pub(crate) const ES_GESTO_MAX: u64 = 96;
 /// Las ordenes del disco. Espejo de `bmo_abi::...::DISCO_OP_*`.
 ///

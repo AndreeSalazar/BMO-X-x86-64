@@ -279,6 +279,14 @@ pub const ES_RAMA_CONTAR: u64 = 0x0E;
 pub const ES_RAMA_CHOQUE: u64 = 0x0F;
 pub const ES_RAMA_ELEGIR: u64 = 0x10;
 pub const ES_RAMA_MEZCLAR: u64 = 0x11;
+pub const ES_RAMA_CANDADO: u64 = 0x12;
+pub const ES_RAMA_NOMBRE: u64 = 0x13;
+pub const ES_RAMA_DOS_PADRES: u64 = 0x14;
+/// El candado de lo contado: nada, CERRADO (esperando, nada escrito) o ROTO
+/// (el volumen cambio: se cuenta otra vez).
+pub const MEZCLA_SIN_CONTAR: u64 = 0;
+pub const MEZCLA_CERRADO: u64 = 1;
+pub const MEZCLA_ROTO: u64 = 2;
 /// Lo que se elige ante un choque: la rama de ahora, la que entra, o ninguna.
 pub const MEZCLA_A: u64 = 1;
 pub const MEZCLA_B: u64 = 2;
@@ -507,6 +515,40 @@ pub fn elegir(i: u64, eleccion: u64) -> bool {
 /// Devuelve la generacion, o `0` (choques sin elegir, o el volumen cambio).
 pub fn mezclar() -> u64 {
     invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_MEZCLAR, 0, 0).value
+}
+
+/// **El candado de lo contado**: `(estado, choques, elegidos)`. Estado
+/// [`MEZCLA_SIN_CONTAR`], [`MEZCLA_CERRADO`] o [`MEZCLA_ROTO`].
+pub fn candado() -> (u64, u32, u32) {
+    let r = invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_CANDADO, 0, 0).value;
+    (r & 0xFF, ((r >> 8) & 0xFFFF) as u32, ((r >> 24) & 0xFFFF) as u32)
+}
+
+/// **El nombre de la rama `i`** en `dst`: `Some((largo, es_la_actual))`, o
+/// `None` si no hay esa rama (o el volumen no tiene ramas).
+pub fn rama(i: u64, dst: &mut [u8]) -> Option<(usize, bool)> {
+    let cabeza = invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_NOMBRE, i, 0).value;
+    if cabeza == 0 {
+        return None;
+    }
+    let largo = (cabeza & 0xFF) as usize;
+    let mut k = 0;
+    while k < largo.min(dst.len()) {
+        let trozo = (k / 8 + 1) as u64;
+        let b = invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_NOMBRE | (trozo << 8), i, 0).value.to_le_bytes();
+        for x in b {
+            if k < largo.min(dst.len()) {
+                dst[k] = x;
+                k += 1;
+            }
+        }
+    }
+    Some((largo, (cabeza >> 8) & 1 == 1))
+}
+
+/// **Es una mezcla la version `i` de la historia?** Tiene dos padres.
+pub fn dos_padres(i: u64) -> bool {
+    invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_DOS_PADRES, i, 0).value == 1
 }
 
 /// **Marca la version en curso con `nombre`.** Devuelve la generacion, o `0`.
