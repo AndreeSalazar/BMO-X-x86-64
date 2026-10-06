@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HUD de mision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
+<style>
+/* Maqueta del HUD DE MISION de BMO-X (docs/plan/PLAN_EL_HUD.md).
+
+   El propietario, 06-10: *"puedes hacer que HUD sean todo como estilo de NASA
+   al viaje en otro planeta unicos? TODOS hasta el escritorio"*.
+
+   Cada tecla abre SU instrumento, distinto de los demas: el escritorio es la
+   ventana de la nave llegando a un planeta, F7 la propulsion (los 12 nucleos
+   son 12 motores), F8 el soporte vital, F9 la ALARMA MAESTRA, F12 la
+   trayectoria (las versiones de ESTRATOS son encendidos de motor y las ramas,
+   trayectorias). Los numeros son DE EJEMPLO.
+
+   ** Esta maqueta es el OBJETIVO, no lo que hoy compila: usa SVG con
+   circulos, arcos y grupos girados (MAQUETA 3, seccion 2d de
+   docs/plan/PLAN_MAQUETA_3.md) y animaciones que en MAQUETA seran
+   @secuencia. Lo que pinta el Ryzen saldra de los .maqueta, no de aqui. */
+:root {
+  color-scheme: dark;
+  --fondo: #010306;
+  --panel: #04080E;
+  --linea: #1B2A3A;
+  --rejilla: #0B1622;
+  --p: #FFB547;
+  --s: #5CE1FF;
+  --t: #C9D6E3;
+  --tenue: #5F7387;
+  --bien: #7CFFB2;
+  --alerta: #FF4D4D;
+  --cuidado: #FFD54A;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --f-cond: "IBM Plex Sans Condensed", system-ui, sans-serif;
+}
+:root[data-paleta="artemis"] { --p: #E8EEF6; --s: #3D8BFF; --t: #DDE6F0; --bien: #6CF0C2; --alerta: #FF3B3B; --cuidado: #FFC94A; }
+:root[data-paleta="marte"]   { --p: #FF7A3D; --s: #FFC08A; --t: #F3D9C8; --tenue: #8A6A5A; --linea: #3A2318; --rejilla: #1A0F0A; --panel: #0B0604; --fondo: #060302; --bien: #B6FF7A; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--fondo); color: var(--t); }
+body { font-family: var(--f-mono); font-size: 13px; padding: 16px 16px 40px; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--s); outline-offset: 2px; }
+.pagina { max-width: 1280px; margin: 0 auto; }
+
+.cabecera { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-bottom: 12px; }
+.cabecera h1 { margin: 0; font-family: var(--f-cond); font-weight: 600; font-size: 22px; letter-spacing: .18em; color: var(--p); }
+.cabecera p { margin: 0; color: var(--tenue); font-family: var(--f-cond); font-size: 14px; max-width: 780px; }
+.paletas { margin-left: auto; display: flex; gap: 6px; }
+.paletas button { border: 1px solid var(--linea); padding: 3px 10px; font-size: 11px; letter-spacing: .14em; color: var(--tenue); }
+.paletas button[aria-pressed="true"] { color: var(--fondo); background: var(--p); border-color: var(--p); }
+
+/* -- la pantalla: 16:10, como el monitor ------------------------------------ */
+.pantalla { position: relative; aspect-ratio: 16 / 10; border: 1px solid var(--linea); background: var(--fondo); overflow: hidden; }
+.pantalla::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px); }
+.barra-sup { position: absolute; left: 0; right: 0; top: 0; height: 34px; display: flex; align-items: center; gap: 18px; padding: 0 14px;
+  border-bottom: 1px solid var(--linea); background: var(--panel); font-size: 11.5px; letter-spacing: .12em; z-index: 3; }
+.barra-sup .mision { color: var(--p); font-weight: 600; }
+.barra-sup .reloj { color: var(--s); }
+.barra-sup .luz { display: inline-flex; align-items: center; gap: 6px; color: var(--tenue); }
+.barra-sup .luz i { width: 7px; height: 7px; border-radius: 50%; background: var(--bien); box-shadow: 0 0 6px var(--bien); }
+.barra-sup .luz.mal i { background: var(--alerta); box-shadow: 0 0 8px var(--alerta); animation: parpadeo 1s steps(2) infinite; }
+.barra-sup .der { margin-left: auto; color: var(--tenue); }
+.mando { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; display: flex; border-top: 1px solid var(--linea); background: var(--panel); z-index: 3; }
+.mando button { flex: 1; border-right: 1px solid var(--linea); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--tenue); }
+.mando button b { font-size: 11px; color: var(--t); font-weight: 500; }
+.mando button span { font-size: 9px; letter-spacing: .12em; }
+.mando button[aria-pressed="true"] { background: color-mix(in srgb, var(--p) 14%, transparent); color: var(--p); box-shadow: inset 0 2px 0 var(--p); }
+.mando button[aria-pressed="true"] b { color: var(--p); }
+.vista { position: absolute; left: 0; right: 0; top: 34px; bottom: 40px; }
+.vista svg { width: 100%; height: 100%; display: block; }
+
+/* -- las piezas comunes de todos los instrumentos (HUD2 del plan) ----------- */
+.t-p { fill: var(--p); } .t-s { fill: var(--s); } .t-t { fill: var(--t); } .t-d { fill: var(--tenue); }
+.t-ok { fill: var(--bien); } .t-al { fill: var(--alerta); } .t-cu { fill: var(--cuidado); }
+.k-p { stroke: var(--p); } .k-s { stroke: var(--s); } .k-d { stroke: var(--tenue); } .k-l { stroke: var(--linea); } .k-ok { stroke: var(--bien); } .k-al { stroke: var(--alerta); }
+svg text { font-family: var(--f-mono); }
+.rot { font-size: 11px; letter-spacing: .14em; }
+.cifra { font-size: 22px; font-weight: 500; }
+.cifra-g { font-size: 40px; font-weight: 500; }
+.chico { font-size: 9.5px; letter-spacing: .12em; }
+.gira { transform-box: fill-box; transform-origin: center; animation: gira 40s linear infinite; }
+.gira-r { transform-box: fill-box; transform-origin: center; animation: gira 6s linear infinite; }
+.late { animation: late 2.2s ease-in-out infinite; }
+.barre { transform-box: view-box; animation: barre 4s linear infinite; }
+.parp { animation: parpadeo 1s steps(2) infinite; }
+@keyframes gira { to { transform: rotate(360deg); } }
+@keyframes late { 50% { opacity: .35; } }
+@keyframes parpadeo { 50% { opacity: .15; } }
+@keyframes barre { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .gira, .gira-r, .late, .barre, .parp, .barra-sup .luz.mal i { animation: none; } }
+
+/* -- la ficha debajo: que es cada instrumento y de que esta hecho ------------ */
+.ficha { margin-top: 12px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
+@media (max-width: 860px) { .ficha { grid-template-columns: 1fr; } }
+.ficha > div { border: 1px solid var(--linea); background: var(--panel); padding: 12px 14px; }
+.ficha h2 { margin: 0 0 6px; font-family: var(--f-cond); font-size: 16px; letter-spacing: .14em; color: var(--p); font-weight: 600; }
+.ficha p { margin: 0 0 8px; font-family: var(--f-cond); font-size: 14px; line-height: 1.45; color: var(--t); }
+.ficha ul { margin: 0; padding-left: 18px; color: var(--tenue); font-size: 12px; line-height: 1.6; }
+.ficha ul b { color: var(--s); font-weight: 500; }
+.ficha .usa { font-size: 11px; color: var(--tenue); letter-spacing: .1em; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header class="cabecera">
+    <h1>MISION BMO-X</h1>
+    <p>El HUD de mision para TODO BMO-X, hasta el escritorio: cada tecla abre su propio instrumento, unico.
+       Pulsa la consola de abajo (o las teclas F1..F12 de tu teclado). Los numeros son de ejemplo.</p>
+    <div class="paletas" role="group" aria-label="paleta">
+      <button data-p="apollo" aria-pressed="true">APOLLO</button>
+      <button data-p="artemis" aria-pressed="false">ARTEMIS</button>
+      <button data-p="marte" aria-pressed="false">MARTE</button>
+    </div>
+  </header>
+
+  <div class="pantalla" id="pantalla">
+    <div class="barra-sup">
+      <span class="mision">BMO-X // MISION KEPLER-5600</span>
+      <span class="reloj" id="reloj">T+ 00:00:00</span>
+      <span class="luz" id="luz-sis"><i></i>SISTEMAS NOMINALES</span>
+      <span class="luz"><i></i>3060 P0 49C</span>
+      <span class="der" id="donde">ESCRITORIO / APROXIMACION</span>
+    </div>
+    <div class="vista" id="vista"></div>
+    <nav class="mando" id="mando" aria-label="consola"></nav>
+  </div>
+
+  <section class="ficha">
+    <div><h2 id="f-tit"></h2><p id="f-que"></p><p id="f-dato" style="color:var(--tenue);font-size:13px"></p></div>
+    <div><div class="usa">DE QUE ESTA HECHO (MAQUETA 3)</div><ul id="f-usa"></ul></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  var $ = function (id) { return document.getElementById(id); };
+  var W = 1280, H = 726;           // la vista, en unidades del viewBox
+  var t0 = performance.now();
+
+  // -- piezas: todas las pantallas se arman con las MISMAS (HUD2 del plan) --
+  function el(tag, at, padre, texto) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in at) { e.setAttribute(k, at[k]); }
+    if (texto != null) { e.textContent = texto; }
+    if (padre) { padre.appendChild(e); }
+    return e;
+  }
+  function txt(p, x, y, s, cls, anchor) { return el('text', { x: x, y: y, 'class': cls || 'rot t-d', 'text-anchor': anchor || 'start' }, p, s); }
+  // El MARCO de instrumento: esquinas en L, rotulo y su codigo. La pieza de la casa.
+  function marco(p, x, y, w, h, rotulo, codigo) {
+    var g = el('g', {}, p), L = 14;
+    el('rect', { x: x, y: y, width: w, height: h, fill: 'var(--panel)', 'fill-opacity': .88, 'class': 'k-l', 'stroke-width': 1 }, g);
+    [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]].forEach(function (c) {
+      el('path', { d: 'M' + (c[0] + c[2] * L) + ' ' + c[1] + 'H' + c[0] + 'V' + (c[1] + c[3] * L), fill: 'none', 'class': 'k-p', 'stroke-width': 2 }, g);
+    });
+    if (rotulo) { txt(g, x + 12, y + 20, rotulo, 'rot t-p'); }
+    if (codigo) { txt(g, x + w - 12, y + 20, codigo, 'chico t-d', 'end'); }
+    return g;
+  }
+  // La REGLA con marcas, como en un altimetro.
+  function regla(p, x, y, largo, n, vertical) {
+    for (var i = 0; i <= n; i++) {
+      var d = largo * i / n, mayor = i % 5 === 0, l = mayor ? 9 : 4;
+      if (vertical) { el('line', { x1: x, y1: y + d, x2: x + l, y2: y + d, 'class': 'k-d', 'stroke-width': 1 }, p); }
+      else { el('line', { x1: x + d, y1: y, x2: x + d, y2: y - l, 'class': 'k-d', 'stroke-width': 1 }, p); }
+    }
+  }
+  function lectura(p, x, y, rotulo, valor, unidad, cls) {
+    txt(p, x, y, rotulo, 'chico t-d');
+    var t = txt(p, x, y + 26, valor, 'cifra ' + (cls || 't-t'));
+    if (unidad) { el('tspan', { 'class': 'chico t-d', dx: 6 }, t, unidad); }
+    return t;
+  }
+  function barraH(p, x, y, w, v, cls) {
+    el('rect', { x: x, y: y, width: w, height: 6, fill: 'none', 'class': 'k-l' }, p);
+    el('rect', { x: x, y: y, width: w * v, height: 6, 'class': cls || 't-s' }, p);
+  }
+  function rejilla(p, paso) {
+    var g = el('g', { opacity: .55 }, p);
+    for (var x = 0; x <= W; x += paso) { el('line', { x1: x, y1: 0, x2: x, y2: H, stroke: 'var(--rejilla)', 'stroke-width': 1 }, g); }
+    for (var y = 0; y <= H; y += paso) { el('line', { x1: 0, y1: y, x2: W, y2: y, stroke: 'var(--rejilla)', 'stroke-width': 1 }, g); }
+  }
+  function planeta(p, cx, cy, r, tinta) {
+    var id = 'pl' + Math.round(cx) + Math.round(r);
+    var defs = el('defs', {}, p);
+    var gr = el('radialGradient', { id: id, cx: '35%', cy: '35%', r: '70%' }, defs);
+    el('stop', { offset: '0%', 'stop-color': tinta[0] }, gr);
+    el('stop', { offset: '60%', 'stop-color': tinta[1] }, gr);
+    el('stop', { offset: '100%', 'stop-color': '#000' }, gr);
+    el('circle', { cx: cx, cy: cy, r: r, fill: 'url(#' + id + ')' }, p);
+    var g = el('g', { 'class': 'gira' }, p);
+    for (var i = -3; i <= 3; i++) {
+      el('ellipse', { cx: cx, cy: cy + i * r * 0.22, rx: r * Math.sqrt(1 - Math.pow(i * 0.22, 2)), ry: r * 0.035, fill: 'none', stroke: tinta[1], 'stroke-opacity': .35 }, g);
+    }
+    el('circle', { cx: cx, cy: cy, r: r + 6, fill: 'none', 'class': 'k-s', 'stroke-opacity': .25, 'stroke-width': 1 }, p);
+  }
+  function estrellas(p, n, semilla) {
+    var s = semilla;
+    for (var i = 0; i < n; i++) {
+      s = (s * 1103515245 + 12345) & 0x7fffffff; var x = s % W;
+      s = (s * 1103515245 + 12345) & 0x7fffffff; var y = s % H;
+      el('circle', { cx: x, cy: y, r: (s % 3) * 0.4 + 0.4, fill: '#fff', opacity: 0.2 + (s % 5) / 8 }, p);
+    }
+  }
+
+  // == LAS PANTALLAS: una por tecla, y ninguna repite instrumento ============
+  var PANTALLAS = [
+    { k: 'ESC', n: 'ESCRITORIO', sub: 'APROXIMACION', que: 'La ventana de la nave llegando al planeta: la reticula, la trayectoria de entrada, y la telemetria en las cuatro esquinas. Es el fondo de todo: las ventanas se abren DENTRO de esta vista.',
+      dato: 'La reticula sigue al puntero; el globo (CAPCOM) habla abajo a la izquierda.',
+      usa: ['<b>svg</b> con circulo, elipses y arco (S1, S2)', '<b>@secuencia</b> que gira las bandas del planeta (S7)', '<b>capa</b> y absolutas para las cuatro esquinas (MA)', 'la paleta <b>mision</b> del tema (HUD1)'],
+      pinta: function (p) {
+        estrellas(p, 220, 7);
+        planeta(p, 860, 470, 230, ['#E8A766', '#7A3B1C']);
+        el('path', { d: 'M120 140 Q 520 160 700 330 T 860 470', fill: 'none', 'class': 'k-s', 'stroke-width': 1.5, 'stroke-dasharray': '6 6' }, p);
+        el('circle', { cx: 700, cy: 330, r: 5, 'class': 't-s late' }, p);
+        txt(p, 712, 326, 'ENTRADA  -14.2 GRADOS', 'chico t-s');
+        var cx = W / 2, cy = H / 2, ret = el('g', { id: 'reticula' }, p);
+        el('circle', { cx: cx, cy: cy, r: 46, fill: 'none', 'class': 'k-p', 'stroke-width': 1 }, ret);
+        [[-70, 0, -50, 0], [50, 0, 70, 0], [0, -70, 0, -50], [0, 50, 0, 70]].forEach(function (l) {
+          el('line', { x1: cx + l[0], y1: cy + l[1], x2: cx + l[2], y2: cy + l[3], 'class': 'k-p', 'stroke-width': 2 }, ret);
+        });
+        el('circle', { cx: cx, cy: cy, r: 2, 'class': 't-p' }, ret);
+        marco(p, 24, 24, 260, 120, 'VELOCIDAD', 'V-01'); lectura(p, 40, 70, 'RELATIVA', '7.412', 'KM/S', 't-p');
+        marco(p, W - 284, 24, 260, 120, 'ALTITUD', 'A-02'); lectura(p, W - 268, 70, 'SOBRE LA SUPERFICIE', '412.6', 'KM', 't-s');
+        regla(p, W - 40, 170, 360, 40, true);
+        marco(p, 24, H - 154, 300, 130, 'CAPCOM', 'GLOBO');
+        txt(p, 40, H - 104, 'administrar archivos?', 'rot t-t'); txt(p, 40, H - 82, 'F2  MIAU :3', 'rot t-p');
+        marco(p, W - 324, H - 154, 300, 130, 'SISTEMAS', 'S-04');
+        barraH(p, W - 308, H - 104, 268, .62, 't-s'); txt(p, W - 308, H - 112, 'CPU 62 %', 'chico t-d');
+        barraH(p, W - 308, H - 70, 268, .31, 't-p'); txt(p, W - 308, H - 78, 'MEMORIA 5.4 MIB DE 14.8 GIB', 'chico t-d');
+      } },
+    { k: 'F1', n: 'TALLER', sub: 'ENSAMBLAJE', que: 'El TALLER como plano de ensamblaje del modulo: cada nodo de TITAN++ es una pieza de la nave con sus puertos de acople, y cada `use` es un conducto.',
+      dato: 'Los nodos son los de asteroids; el sello de cada uno sigue siendo unico.',
+      usa: ['<b>&lt;boton&gt;</b> por nodo, con su zona (E1)', '<b>svg</b> con trazos y puertos redondos', '<b>grid</b> para la cartela de piezas (M3)'],
+      pinta: function (p) {
+        rejilla(p, 32);
+        var nodos = [[640, 120, 'MAIN'], [380, 300, 'SHIP'], [640, 300, 'ROCK'], [900, 300, 'PHYSICS'], [900, 480, 'COLLIDE'], [1120, 480, 'GPU 3060']];
+        [[0, 1], [0, 2], [0, 3], [3, 4], [3, 5]].forEach(function (c) {
+          var a = nodos[c[0]], b = nodos[c[1]];
+          el('path', { d: 'M' + a[0] + ' ' + (a[1] + 34) + ' C ' + a[0] + ' ' + (a[1] + 110) + ' ' + b[0] + ' ' + (b[1] - 110) + ' ' + b[0] + ' ' + (b[1] - 34), fill: 'none', 'class': 'k-s', 'stroke-width': 1.5 }, p);
+        });
+        nodos.forEach(function (n, i) {
+          var g = el('g', {}, p);
+          el('rect', { x: n[0] - 90, y: n[1] - 34, width: 180, height: 68, fill: 'var(--panel)', 'class': 'k-p', 'stroke-width': 1 }, g);
+          el('circle', { cx: n[0], cy: n[1] - 34, r: 5, fill: 'var(--fondo)', 'class': 'k-s' }, g);
+          el('circle', { cx: n[0], cy: n[1] + 34, r: 5, fill: 'var(--fondo)', 'class': 'k-s' }, g);
+          txt(g, n[0] - 78, n[1] - 10, 'MODULO ' + (i + 1), 'chico t-d');
+          txt(g, n[0] - 78, n[1] + 14, n[2], 'rot t-t');
+        });
+        marco(p, 24, H - 150, 360, 126, 'CARTELA', 'F1');
+        txt(p, 40, H - 110, 'PAQUETE   asteroids', 'chico t-t'); txt(p, 40, H - 90, 'PIEZAS    6   CONDUCTOS  5', 'chico t-t'); txt(p, 40, H - 70, 'JUEZ      SIN FALLOS', 'chico t-ok');
+      } },
+    { k: 'F2', n: 'ARCHIVOS', sub: 'BAHIA DE CARGA', que: 'F2, los archivos, como la bahia de carga: cada disco que el kernel perfilo es un compartimento con su rango (DIAMANTE, ORO, PLATA, CERRADO) y su manifiesto.',
+      dato: 'El NVMe del propietario va CERRADO: se ve, no se abre.',
+      usa: ['<b>&lt;lista&gt;</b> para el manifiesto (E1)', '<b>&lt;barra&gt;</b> de ocupacion por disco', '<b>&lt;ventana&gt;</b> que se desplaza (H7)'],
+      pinta: function (p) {
+        var bahias = [['F:', 'DIAMANTE', 'ESTRATOS', .12, 't-s'], ['D:', 'ORO', 'FAT32', .48, 't-p'], ['USB', 'PLATA', 'FAT32', .7, 't-t'], ['C:', 'CERRADO', 'NVMe  WINDOWS', 0, 't-al']];
+        bahias.forEach(function (b, i) {
+          var x = 40 + i * 305, g = el('g', {}, p);
+          marco(g, x, 40, 280, 330, 'BAHIA ' + (i + 1), b[0]);
+          el('rect', { x: x + 30, y: 90, width: 220, height: 150, fill: 'none', 'class': i === 3 ? 'k-al' : 'k-s', 'stroke-dasharray': i === 3 ? '4 4' : '0' }, g);
+          if (i === 3) { el('path', { d: 'M' + (x + 30) + ' 90 L' + (x + 250) + ' 240 M' + (x + 250) + ' 90 L' + (x + 30) + ' 240', 'class': 'k-al', 'stroke-width': 1 }, g); }
+          else { el('rect', { x: x + 30, y: 240 - 150 * b[3], width: 220, height: 150 * b[3], 'class': b[4], opacity: .35 }, g); }
+          txt(g, x + 30, 270, b[1], 'rot ' + b[4]); txt(g, x + 30, 290, b[2], 'chico t-d');
+          txt(g, x + 30, 330, i === 3 ? 'SOLO LECTURA DEL PERFIL' : Math.round(b[3] * 100) + ' % LLENO', 'chico t-t');
+        });
+        marco(p, 40, 400, W - 80, 290, 'MANIFIESTO  F:', 'ESTRATOS gen 1234');
+        ['juegos/doom/doom.bex', 'musica/nya.mp2', 'titan/asteroids/', 'informe/DATOS.TXT', 'apps/hermes.bex'].forEach(function (f, i) {
+          txt(p, 60, 450 + i * 40, String(i + 1).padStart(2, '0') + '   ' + f, 'rot t-t');
+          txt(p, W - 60, 450 + i * 40, ['DOOM', 'AUDIO', 'TITAN++', 'TEXTO', 'APP'][i], 'chico t-d', 'end');
+        });
+      } },
+    { k: 'F3', n: 'HERMES', sub: 'RED DE ESPACIO PROFUNDO', que: 'HERMES, los mensajes, como la red de antenas de espacio profundo: cada amigo es una estacion, con su nivel de enlace y su retardo.',
+      dato: 'Una antena que barre: los datos llegan por paquetes.',
+      usa: ['<b>@secuencia</b> que barre (S7)', '<b>&lt;lista&gt;</b> de estaciones', 'arcos de SVG para las antenas (S2)'],
+      pinta: function (p) {
+        estrellas(p, 120, 3);
+        [[260, 420], [640, 460], [1020, 420]].forEach(function (a, i) {
+          var g = el('g', {}, p);
+          el('path', { d: 'M' + (a[0] - 90) + ' ' + a[1] + ' A 90 90 0 0 0 ' + (a[0] + 90) + ' ' + a[1] + ' Z', fill: 'var(--panel)', 'class': 'k-s', 'stroke-width': 1.5 }, g);
+          el('line', { x1: a[0], y1: a[1], x2: a[0], y2: a[1] - 120, 'class': 'k-d' }, g);
+          for (var r = 1; r <= 3; r++) { el('path', { d: 'M' + (a[0] - 30 * r) + ' ' + (a[1] - 120 - 10 * r) + ' Q ' + a[0] + ' ' + (a[1] - 150 - 20 * r) + ' ' + (a[0] + 30 * r) + ' ' + (a[1] - 120 - 10 * r), fill: 'none', 'class': 'k-p late', 'stroke-width': 1.5, style: 'animation-delay:' + (r * .3) + 's' }, g); }
+          txt(g, a[0], a[1] + 40, ['GOLDSTONE  ana', 'MADRID  luis', 'CANBERRA  miau'][i], 'rot t-t', 'middle');
+          txt(g, a[0], a[1] + 60, ['NIVEL 92 %  12 MS', 'NIVEL 71 %  38 MS', 'NIVEL 40 %  120 MS'][i], 'chico t-d', 'middle');
+        });
+        marco(p, 24, 24, 420, 150, 'CANAL ABIERTO', 'F3');
+        txt(p, 40, 74, 'ana > llegaste al planeta?', 'rot t-t'); txt(p, 40, 98, 'tu  > en orbita, 412 km', 'rot t-s'); txt(p, 40, 122, 'ana > :3', 'rot t-t');
+      } },
+    { k: 'F4', n: 'LUDOTECA', sub: 'SIMULADOR', que: 'La LUDOTECA como el simulador de vuelo: cada juego es un parche de mision, redondo, con su nombre bordado.',
+      dato: 'DOOM a 70 cuadros: el parche dice cuanto rinde.',
+      usa: ['<b>border-radius:50%</b> (H6)', '<b>grid</b> de parches (M3)', '<b>&lt;boton&gt;</b> por juego'],
+      pinta: function (p) {
+        rejilla(p, 48);
+        [['DOOM', '70 FPS'], ['ASTEROIDS', 'TITAN++'], ['CALC', 'COBOL'], ['MANDEL', '3060 221X'], ['NYA', 'AUDIO'], ['PAINT', 'C++']].forEach(function (j, i) {
+          var cx = 200 + (i % 3) * 440, cy = 200 + Math.floor(i / 3) * 290, g = el('g', {}, p);
+          el('circle', { cx: cx, cy: cy, r: 110, fill: 'var(--panel)', 'class': 'k-p', 'stroke-width': 2 }, g);
+          el('circle', { cx: cx, cy: cy, r: 92, fill: 'none', 'class': 'k-d', 'stroke-dasharray': '2 5' }, g);
+          el('path', { id: 'arco' + i, d: 'M ' + (cx - 78) + ' ' + cy + ' A 78 78 0 0 1 ' + (cx + 78) + ' ' + cy, fill: 'none' }, g);
+          var t = el('text', { 'class': 'rot t-p' }, g); el('textPath', { href: '#arco' + i, startOffset: '50%', 'text-anchor': 'middle' }, t, j[0]);
+          el('path', { d: 'M' + (cx - 30) + ' ' + (cy + 20) + ' L' + cx + ' ' + (cy - 30) + ' L' + (cx + 30) + ' ' + (cy + 20) + ' Z', fill: 'none', 'class': 'k-s', 'stroke-width': 2 }, g);
+          txt(g, cx, cy + 56, j[1], 'chico t-t', 'middle');
+        });
+      } },
+    { k: 'F5', n: 'BANK CAT', sub: 'COMBUSTIBLE', que: 'BANK CAT como el panel de combustible: el saldo es lo que queda en el tanque, y cada movimiento es un encendido que gasta o recarga.',
+      dato: 'El decimal es exacto: 1.250,00 y ni un centimo de float.',
+      usa: ['<b>&lt;barra&gt;</b> vertical del tanque', 'arco de SVG para el indicador (S2)', '<b>text-align:right</b> en las cifras (MA1, ya esta)'],
+      pinta: function (p) {
+        var cx = 360, cy = 380, r = 220;
+        el('path', { d: 'M' + (cx - r) + ' ' + cy + ' A ' + r + ' ' + r + ' 0 0 1 ' + (cx + r) + ' ' + cy, fill: 'none', 'class': 'k-l', 'stroke-width': 18 }, p);
+        el('path', { d: 'M' + (cx - r) + ' ' + cy + ' A ' + r + ' ' + r + ' 0 0 1 ' + (cx + r * Math.cos(Math.PI * .38)) + ' ' + (cy - r * Math.sin(Math.PI * .38)), fill: 'none', 'class': 'k-p', 'stroke-width': 18 }, p);
+        txt(p, cx, cy - 40, '1.250,00', 'cifra-g t-p', 'middle'); txt(p, cx, cy - 10, 'SALDO  EN EL TANQUE', 'chico t-d', 'middle');
+        marco(p, 680, 60, 560, 600, 'ENCENDIDOS', 'LIBRO');
+        [['+50,00', 'RECIBIR  ana'], ['-19,99', 'ENVIAR  musica'], ['-8,50', 'ENVIAR  cafe'], ['+120,00', 'RECIBIR  sueldo'], ['-3,00', 'ENVIAR  miau']].forEach(function (m, i) {
+          var y = 130 + i * 96, bien = m[0][0] === '+';
+          el('line', { x1: 700, y1: y + 30, x2: 1220, y2: y + 30, 'class': 'k-l' }, p);
+          txt(p, 700, y, m[1], 'rot t-t'); txt(p, 1220, y, m[0], 'cifra ' + (bien ? 't-ok' : 't-p'), 'end');
+        });
+      } },
+    { k: 'F6', n: 'RED', sub: 'ENLACE DE TELEMETRIA', que: 'La red como el enlace de telemetria: la onda de lo que llega, el presupuesto del enlace y el ping al router y a internet.',
+      dato: 'DHCP, DNS y ping ya andan en el metal.',
+      usa: ['<b>svg</b> polilinea de la onda (S1)', '<b>@secuencia</b> que la recorre', '<b>&lt;lista&gt;</b> de paquetes'],
+      pinta: function (p) {
+        rejilla(p, 40);
+        var d = 'M 40 ' + (H / 2);
+        for (var x = 40; x <= W - 40; x += 8) { d += ' L ' + x + ' ' + (H / 2 + Math.sin(x / 24) * 60 * Math.sin(x / 300) + Math.sin(x / 7) * 6); }
+        el('path', { d: d, fill: 'none', 'class': 'k-s', 'stroke-width': 1.5 }, p);
+        var cur = el('line', { x1: 40, y1: 80, x2: 40, y2: H - 80, 'class': 'k-p', 'stroke-width': 1, id: 'cursor-red' }, p);
+        marco(p, 24, 24, 380, 110, 'ENLACE', 'F6'); lectura(p, 40, 70, 'RECIBIDO', '1.42', 'MB/S', 't-s');
+        marco(p, W - 404, 24, 380, 110, 'PING', 'ICMP'); lectura(p, W - 388, 70, 'ROUTER / INTERNET', '1 / 14', 'MS', 't-p');
+        marco(p, 24, H - 134, W - 48, 110, 'PAQUETES', 'ULTIMOS');
+        txt(p, 40, H - 84, 'DHCP ACK 192.168.x.x    DNS A wikipedia.org    TCP SYN :443  -- CERRADO: SIN TLS TODAVIA', 'chico t-t');
+        return function (t) { var x = 40 + ((t / 8) % (W - 80)); cur.setAttribute('x1', x); cur.setAttribute('x2', x); };
+      } },
+    { k: 'F7', n: 'CPU', sub: 'PROPULSION', que: 'La CPU como la propulsion: los 12 nucleos del Ryzen son 12 motores, cada uno con su empuje (su carga) y su temperatura.',
+      dato: 'Doce encendidos cuestan menos que uno: 57,2 W contra 58,9 W, medido.',
+      usa: ['<b>@secuencia</b> por motor', '<b>grid</b> de 12 (M3)', '<b>opacity</b> premezclada en las llamas (M4)'],
+      pinta: function (p) {
+        var ms = [];
+        for (var i = 0; i < 12; i++) {
+          var cx = 120 + (i % 6) * 208, cy = 210 + Math.floor(i / 6) * 300, g = el('g', {}, p);
+          el('path', { d: 'M' + (cx - 40) + ' ' + (cy - 60) + ' L' + (cx + 40) + ' ' + (cy - 60) + ' L' + (cx + 60) + ' ' + (cy + 40) + ' L' + (cx - 60) + ' ' + (cy + 40) + ' Z', fill: 'var(--panel)', 'class': 'k-p', 'stroke-width': 1.5 }, g);
+          var llama = el('path', { d: '', 'class': 't-p', opacity: .7 }, g);
+          txt(g, cx, cy - 70, 'MOTOR ' + String(i + 1).padStart(2, '0'), 'chico t-d', 'middle');
+          var lec = txt(g, cx, cy + 112, '', 'rot t-t', 'middle');
+          ms.push([cx, cy, llama, lec, (i * 37) % 100]);
+        }
+        return function (t) {
+          ms.forEach(function (m, i) {
+            var carga = 30 + 60 * (0.5 + 0.5 * Math.sin(t / 900 + i));
+            var l = 20 + carga * 0.5;
+            m[2].setAttribute('d', 'M' + (m[0] - 40) + ' ' + (m[1] + 44) + ' Q ' + m[0] + ' ' + (m[1] + 44 + l * 2) + ' ' + (m[0] + 40) + ' ' + (m[1] + 44) + ' Z');
+            m[3].textContent = Math.round(carga) + ' %  ' + Math.round(38 + carga / 4) + 'C';
+          });
+        };
+      } },
+    { k: 'F8', n: 'MEMORIA', sub: 'SOPORTE VITAL', que: 'La memoria como el soporte vital: cada titular de marcos (pila, tabla, bloque, kernel, neutro) es un tanque, y se ve cuanto respira el sistema.',
+      dato: '5,4 MiB de 14,8 GiB: la nave casi no gasta aire.',
+      usa: ['<b>&lt;barra&gt;</b> vertical por tanque', '<b>min-height</b> para el tanque vacio (MA1, ya esta)'],
+      pinta: function (p) {
+        [['KERNEL', .22], ['PILA', .08], ['TABLA', .05], ['BLOQUE', .31], ['NEUTRO', .12], ['LIBRE', .97]].forEach(function (k, i) {
+          var x = 90 + i * 190, g = el('g', {}, p);
+          el('rect', { x: x, y: 110, width: 110, height: 440, rx: 55, fill: 'var(--panel)', 'class': i === 5 ? 'k-ok' : 'k-s', 'stroke-width': 1.5 }, g);
+          el('rect', { x: x + 8, y: 118 + 424 * (1 - k[1]), width: 94, height: 424 * k[1], rx: 47, 'class': i === 5 ? 't-ok' : 't-s', opacity: .4 }, g);
+          regla(g, x + 116, 118, 424, 20, true);
+          txt(g, x + 55, 590, k[0], 'rot t-t', 'middle'); txt(g, x + 55, 612, Math.round(k[1] * 100) + ' %', 'chico t-d', 'middle');
+        });
+        txt(p, 40, 60, 'SOPORTE VITAL  //  14.8 GIB  //  TITULARES DE MARCOS', 'rot t-p');
+      } },
+    { k: 'F9', n: 'FALLO', sub: 'ALARMA MAESTRA', que: 'El dia malo, como el panel de precaucion y aviso: la ALARMA MAESTRA arriba, y debajo cada luz con lo que fallo. La autopsia, en castellano: que paso y donde.',
+      dato: 'Cuando no hay fallos, todas las luces apagadas y el boton dice NOMINAL.',
+      usa: ['<b>@estado</b> encendida / apagada por luz', '<b>&lt;interruptor&gt;</b> para silenciar', '<b>grid</b> de luces (M3)'],
+      pinta: function (p) {
+        var g = el('g', { 'class': 'parp' }, p);
+        el('rect', { x: W / 2 - 200, y: 50, width: 400, height: 110, fill: 'none', 'class': 'k-al', 'stroke-width': 3 }, g);
+        txt(g, W / 2, 118, 'ALARMA MAESTRA', 'cifra t-al', 'middle');
+        var luces = ['RING 3 MUERTO', 'PILA', 'DISCO', 'RED', '3060', 'SONIDO', 'USB', 'RELOJ', 'ESTRATOS', 'MEMORIA', 'FIRMA', 'TECLADO'];
+        luces.forEach(function (n, i) {
+          var x = 140 + (i % 4) * 260, y = 220 + Math.floor(i / 4) * 130, mal = i === 0;
+          el('rect', { x: x, y: y, width: 220, height: 92, fill: mal ? 'color-mix(in srgb, var(--alerta) 18%, transparent)' : 'var(--panel)', 'class': mal ? 'k-al' : 'k-l', 'stroke-width': 1.5 }, p);
+          txt(p, x + 110, y + 52, n, 'rot ' + (mal ? 't-al' : 't-d'), 'middle');
+        });
+        txt(p, W / 2, H - 40, 'ESCRIBIA EN LA PANTALLA QUE YA NO ES SUYA -- fila 231', 'rot t-t', 'middle');
+      } },
+    { k: 'F10', n: 'SONIDO', sub: 'LAZO DE AUDIO', que: 'El sonido como el lazo de comunicaciones de voz: los canales del casco 7.1, sus niveles, y el volumen maestro.',
+      dato: 'El bus late cada 4 ms y nunca desde un syscall.',
+      usa: ['<b>&lt;barra&gt;</b> por canal', '<b>@secuencia</b> de los niveles', '<b>&lt;interruptor&gt;</b> de silencio'],
+      pinta: function (p) {
+        rejilla(p, 40);
+        var cs = [];
+        ['FL', 'FR', 'C', 'LFE', 'SL', 'SR', 'BL', 'BR'].forEach(function (n, i) {
+          var x = 120 + i * 135;
+          el('rect', { x: x, y: 120, width: 60, height: 440, fill: 'none', 'class': 'k-l' }, p);
+          var r = el('rect', { x: x + 4, y: 556, width: 52, height: 0, 'class': i === 3 ? 't-p' : 't-s', opacity: .65 }, p);
+          txt(p, x + 30, 590, n, 'rot t-t', 'middle'); cs.push(r);
+        });
+        txt(p, 40, 70, 'LAZO DE AUDIO  //  CASCO 7.1  //  VOLUMEN 72 %', 'rot t-p');
+        return function (t) { cs.forEach(function (r, i) { var h = 60 + 360 * (0.5 + 0.5 * Math.sin(t / 220 + i * 1.3)) * (0.6 + 0.4 * Math.sin(t / 1300)); r.setAttribute('y', 556 - h); r.setAttribute('height', h); }); };
+      } },
+    { k: 'F11', n: 'CABINA', sub: 'REGISTRO DE VUELO', que: 'CABINA, lo que dice el kernel, como el registro de vuelo: cada linea con su hora de mision, su emisor y su color.',
+      dato: 'RePag llega al principio del arranque.',
+      usa: ['<b>&lt;ventana&gt;</b> que se desplaza (H7)', '<b>text-overflow</b> con "..." (MA)', 'el color por emisor, del tema'],
+      pinta: function (p) {
+        marco(p, 24, 24, W - 48, H - 48, 'REGISTRO DE VUELO', 'F11  RING 0');
+        var ls = [['T+00:00:00.047', 'boot', 'kernel arriba en 47 ms', 't-ok'], ['T+00:00:00.310', 'smp', '12 de 12 nucleos', 't-t'], ['T+00:00:01.204', 'usb', 'teclado y raton en el puerto 3', 't-t'],
+          ['T+00:00:02.880', 'estratos', 'montado: generacion 1234', 't-s'], ['T+00:00:03.402', 'gpu', 'la 3060 despierta: P0, 49C', 't-s'], ['T+00:00:05.011', 'red', 'DHCP: direccion concedida', 't-t'],
+          ['T+00:01:12.330', 'disco', 'TRIM: 2.1 GiB devueltos', 't-t'], ['T+00:04:40.002', 'raiz', 'un proceso encerrado quiso tocar las ramas', 't-cu'], ['T+00:05:01.519', 'estratos', 'MEZCLA: un estrato de dos padres', 't-p']];
+        ls.forEach(function (l, i) {
+          var y = 90 + i * 56;
+          txt(p, 50, y, l[0], 'rot t-d'); txt(p, 260, y, l[1].toUpperCase(), 'rot ' + l[3]); txt(p, 420, y, l[2], 'rot t-t');
+        });
+      } },
+    { k: 'F12', n: 'ESTRATOS', sub: 'TRAYECTORIA', que: 'ESTRATOS como la trayectoria de la mision: cada version es un encendido de motor sobre la orbita, las marcadas son PERMANENTES (puntos de paso), y las ramas son trayectorias que se separan y se vuelven a juntar en la MEZCLA.',
+      dato: 'Restablecer es volver a un punto de paso sin perder la orbita recorrida.',
+      usa: ['arcos de SVG para las orbitas (S2)', '<b>@secuencia</b> que recorre la trayectoria', '<b>&lt;boton&gt;</b> por version'],
+      pinta: function (p) {
+        estrellas(p, 140, 11);
+        planeta(p, 640, 400, 70, ['#5CE1FF', '#13406A']);
+        el('ellipse', { cx: 640, cy: 400, rx: 420, ry: 220, fill: 'none', 'class': 'k-s', 'stroke-width': 1.2 }, p);
+        el('path', { d: 'M 1000 287 Q 1150 200 1120 420 Q 1080 600 880 600', fill: 'none', 'class': 'k-p', 'stroke-width': 1.5, 'stroke-dasharray': '7 5' }, p);
+        txt(p, 1140, 260, 'RAMA  pruebas', 'chico t-p');
+        var vs = [];
+        for (var i = 0; i < 14; i++) {
+          var a = Math.PI * 1.05 + i * 0.36, x = 640 + 420 * Math.cos(a), y = 400 + 220 * Math.sin(a), marca = [2, 6, 11].indexOf(i) >= 0;
+          el('circle', { cx: x, cy: y, r: marca ? 9 : 5, fill: 'var(--fondo)', 'class': marca ? 'k-p' : 'k-s', 'stroke-width': 2 }, p);
+          if (marca) { txt(p, x, y - 16, ['base del mundo', 'antes del dragon', 'mundo sano'][[2, 6, 11].indexOf(i)], 'chico t-p', 'middle'); }
+          vs.push([x, y]);
+        }
+        el('circle', { cx: 880, cy: 600, r: 11, fill: 'none', 'class': 'k-ok', 'stroke-width': 2 }, p);
+        txt(p, 880, 630, 'MEZCLA  dos padres', 'chico t-ok', 'middle');
+        var nave = el('path', { d: 'M0 -8 L6 6 L0 3 L-6 6 Z', 'class': 't-t' }, p);
+        marco(p, 24, 24, 320, 110, 'GENERACION', 'F12'); lectura(p, 40, 70, 'VERSIONES', '1234', '14 A LA VISTA', 't-s');
+        return function (t) { var k = (t / 4000) % 1, a = Math.PI * 1.05 + k * 13 * 0.36; nave.setAttribute('transform', 'translate(' + (640 + 420 * Math.cos(a)) + ' ' + (400 + 220 * Math.sin(a)) + ') rotate(' + (a * 180 / Math.PI + 90) + ')'); };
+      } }
+  ];
+
+  // -- la consola de mando, abajo -------------------------------------------
+  var actual = 0, anima = null;
+  PANTALLAS.forEach(function (s, i) {
+    var b = document.createElement('button');
+    b.innerHTML = '<b>' + s.k + '</b><span>' + s.n + '</span>';
+    b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+    b.addEventListener('click', function () { abrir(i); });
+    $('mando').appendChild(b);
+  });
+  function abrir(i) {
+    actual = i;
+    var s = PANTALLAS[i];
+    document.querySelectorAll('#mando button').forEach(function (b, k) { b.setAttribute('aria-pressed', k === i ? 'true' : 'false'); });
+    var v = $('vista'); v.innerHTML = '';
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'xMidYMid meet', role: 'img', 'aria-label': s.n }, v);
+    anima = s.pinta(svg) || null;
+    $('donde').textContent = s.n + ' / ' + s.sub;
+    $('luz-sis').className = 'luz' + (s.k === 'F9' ? ' mal' : '');
+    $('luz-sis').lastChild.textContent = s.k === 'F9' ? 'ALARMA MAESTRA' : 'SISTEMAS NOMINALES';
+    $('f-tit').textContent = s.k + '  //  ' + s.n + '  //  ' + s.sub;
+    $('f-que').textContent = s.que;
+    $('f-dato').textContent = s.dato;
+    $('f-usa').innerHTML = s.usa.map(function (u) { return '<li>' + u + '</li>'; }).join('');
+  }
+
+  // -- el reloj de mision y lo que se mueve --------------------------------
+  var quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function cuadro(ahora) {
+    var t = ahora - t0, s = Math.floor(t / 1000);
+    $('reloj').textContent = 'T+ ' + [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(function (n) { return String(n).padStart(2, '0'); }).join(':');
+    if (anima && !quieto) { anima(t); }
+    requestAnimationFrame(cuadro);
+  }
+  requestAnimationFrame(cuadro);
+
+  // -- la reticula del escritorio sigue al puntero ---------------------------
+  $('vista').addEventListener('mousemove', function (e) {
+    var r = $('reticula'); if (!r) { return; }
+    var svg = r.ownerSVGElement, pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    var q = pt.matrixTransform(svg.getScreenCTM().inverse());
+    r.setAttribute('transform', 'translate(' + (q.x - W / 2) + ' ' + (q.y - H / 2) + ')');
+  });
+
+  // -- las teclas de verdad: Esc y F1..F12 -----------------------------------
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { abrir(0); e.preventDefault(); return; }
+    var m = /^F(\d{1,2})$/.exec(e.key);
+    if (m && +m[1] >= 1 && +m[1] <= 12) { abrir(+m[1]); e.preventDefault(); }
+  });
+  document.querySelectorAll('.paletas button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.documentElement.setAttribute('data-paleta', b.dataset.p);
+      document.querySelectorAll('.paletas button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    });
+  });
+  abrir(0);
+})();
+</script>
+</body>
+</html>

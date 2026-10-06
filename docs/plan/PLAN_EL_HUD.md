@@ -252,5 +252,71 @@ aire entre ellas y esquinas suavizadas. `C:` no sale: BMO-X ni lo mira.
 
 ---
 
+# 2. LA CARA DE MISION -- todo BMO-X como el HUD de una nave (06-10)
+
+El propietario, 06-10: *"puedes hacer que HUD sean todo como estilo de NASA
+al viaje en otro planeta unicos? TODOS hasta el escritorio"*.
+
+La maqueta es `docs/arte/maqueta_hud_nasa.html`, y se toca: una consola de
+mando abajo (o las teclas F1..F12 de verdad) abre cada instrumento, y arriba
+se elige la paleta. **Cada tecla es un instrumento DISTINTO**, y eso es la
+regla de la seccion 0 dicha en otro idioma -- un instrumento, un motivo:
+
+```text
+   ESC  ESCRITORIO  la ventana de la nave llegando al planeta: reticula que
+                    sigue al puntero, trayectoria, telemetria en las esquinas
+   F1   TALLER      el plano de ensamblaje: nodos = modulos con puertos
+   F2   ARCHIVOS    la bahia de carga: un compartimento por disco y su rango
+   F3   HERMES      la red de espacio profundo: un amigo, una antena
+   F4   LUDOTECA    el simulador: cada juego, un parche de mision
+   F5   BANK CAT    el combustible: el saldo es lo que queda en el tanque
+   F6   RED         el enlace de telemetria: la onda, el ping
+   F7   CPU         la propulsion: los 12 nucleos son 12 motores
+   F8   MEMORIA     el soporte vital: un tanque por titular de marcos
+   F9   FALLO       la ALARMA MAESTRA y el panel de precaucion
+   F10  SONIDO      el lazo de audio: los 8 canales del casco
+   F11  CABINA      el registro de vuelo, con hora de mision
+   F12  ESTRATOS    la trayectoria: versiones = encendidos, marcadas = puntos
+                    de paso, ramas = trayectorias que se juntan en la MEZCLA
+```
+
+Las piezas son las MISMAS en todas (el marco de esquinas en L, la regla de
+marcas, la lectura con su unidad, la barra), y por eso todo se ve de una
+mision sin repetir un instrumento.
+
+[!] **Esto CAMBIA una linea de la seccion 0**: *"animaciones: cada fotograma
+animado es latencia"*. Sigue siendo verdad, y la forma de cumplirla es la del
+globo del puntero: se anima SOLO mientras algo cambia (un motor que sube, la
+nave que recorre la trayectoria), y quieto son CERO fotogramas. Y lo que se
+anima son piezas YA maquetadas que el aparato mezcla (`@estado`, y la
+`@secuencia` de `docs/plan/PLAN_MAQUETA_3.md`): en el aparato no se maqueta
+nada.
+
+### Las decisiones del propietario
+
+```text
+   HD1  la paleta       APOLLO (ambar y cian sobre negro) | ARTEMIS (blanco
+                        y azul) | MARTE (naranja). La maqueta deja probar las tres
+   HD2  la letra        la de la casa (bmo-letra) en su peso de numeros; la
+                        maqueta usa IBM Plex solo porque el navegador no tiene la
+                        de la casa (eso es M2 de PLAN_MAQUETA_3)
+   HD3  el orden        el escritorio primero (se ve siempre) o los paneles de
+                        vitales primero (F6-F8, los mas simples)
+```
+
+### Los escalones
+
+- [x] HM0 -- HECHO el 06-10: la maqueta interactiva `docs/arte/maqueta_hud_nasa.html`: trece pantallas, cada una un instrumento distinto, con las piezas comunes, tres paletas y las teclas F1..F12 de verdad; probada en Chromium (las trece se pintan sin un error)
+- [ ] HM-dec -- las decisiones HD1-HD3 del propietario, escritas en esta seccion
+- [ ] HM1 -- la paleta de mision en `toolchain/tools/maqueta/tema/tema.maqueta`, al lado de la del gato (el tema de la casa no se borra: se elige)
+- [ ] HM2 -- las piezas comunes (marco, regla, lectura, barra) como `.maqueta` de verdad, con sus ficheros dorados en `toolchain/tools/maqueta/pruebas/`; piden MAQUETA 3 (pila A y la seccion 2d de `docs/plan/PLAN_MAQUETA_3.md`)
+- [ ] HM3 -- el escritorio de mision: `Ultra_userspace/services/director/src/scene/fondo.rs` (el planeta y la reticula) y las cuatro esquinas
+- [ ] HM4 -- los vitales F6, F7 y F8 como instrumentos: `Ultra_userspace/services/director/src/desktop/vitales.rs`
+- [ ] HM5 -- F9, F10, F11 y el globo: `Ultra_userspace/services/director/src/scene/cabina.rs`, `Ultra_userspace/services/director/src/scene/sound.rs`, `Ultra_userspace/services/director/src/scene/globo.rs`
+- [ ] HM6 -- las apps: F5 BANK CAT (`Ultra_userspace/services/director/src/desktop/bankcat.rs`), F1 el TALLER, F3 HERMES, F4 la LUDOTECA y F12 ESTRATOS, cada una con su instrumento
+- [ ] HM7 -- del PROPIETARIO: la foto de cada pantalla en el Ryzen
+
+---
+
 Ver [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) (el compositor) y
 [`PLAN_EL_PIXEL.md`](PLAN_EL_PIXEL.md) (por que no hay animaciones).

@@ -134,6 +134,28 @@ clase, asi que la vista previa no miente.
 | `<icono nombre="x">` | el `<svg>` de un catalogo compartido | los trazos del catalogo |
 | `<globo>` | caja absoluta, `capa`, resplandor y `@secuencia` de entrada | `pintar_secuencia(entra, ms)` |
 
+## 2d. TODO EL SVG, Y ANIMAR TODO (06-10)
+
+El propietario: *"es para tener mi BMO-X con TODO el SVG en internet y animar
+todo"*. Hoy un `<svg>` solo lleva `<path>` (sin arcos `A`). Lo que cambia, y
+la ley que no:
+
+```text
+   en el anfitrion, AL COMPILAR    se lee el SVG entero, se aplana todo a
+                                   trazos y se juzga
+   en el aparato                   solo se pintan trazos -- como hoy
+```
+
+| escalon | que entra | como |
+|---|---|---|
+| S1 | `circle`, `ellipse`, `rect` (con `rx`), `line`, `polyline`, `polygon` | se convierten en `path` al leerlos: las formas son caminos con nombre |
+| S2 | el arco `A` en `d` | se aplana en curvas, como ya se aplanan `C` y `Q` |
+| S3 | `<g>` y `transform` (`translate`, `scale`, `rotate`, `matrix`) | se aplican a los puntos al compilar. En un dibujo SI se gira: es geometria, no la letra de la casa |
+| S4 | `fill-rule`, `stroke-dasharray`, `stroke-dashoffset`, `opacity` del dibujo | el discontinuo son trozos de camino, calculados al compilar; la opacidad, premezclada (M4) |
+| S5 | `linearGradient` y `radialGradient` de dos paradas | lo mismo que el degradado de una caja |
+| S6 | **`<svg src="logo.svg">`: un SVG de internet, tal cual** | se lee el fichero, se aplana y se juzga; lo que no se puede (`text`, `filter`, `mask`, `image`, `foreignObject`, `script`) es error con la LISTA de lo que tiene, en vez de pintarlo a medias |
+| S7 | animar: `<animate>`, `<animateTransform>` y los `@keyframes` de dentro | cada paso es una `@secuencia` de dibujos YA aplanados; si dos pasos no tienen los mismos puntos, se dice al compilar |
+
 ## 3. Las decisiones del propietario -- DECIDIDAS el 06-10: las siete en (a)
 
 El propietario, con la captura de la seccion 6 de la maqueta delante (las
@@ -178,4 +200,5 @@ dia que entra su codigo, no antes.
 - [ ] MA -- la pila A entera en `toolchain/tools/maqueta/node/src/value.rs` (la lista), el nieto en `toolchain/tools/maqueta/layout/src/flow.rs` y su juicio en `toolchain/tools/maqueta/verdict/src/fit.rs`; cada propiedad con su fichero dorado en `toolchain/tools/maqueta/pruebas/`
 - [ ] MB -- la pila B segun M1-M4 y M6: la rejilla en `toolchain/tools/maqueta/layout/src/flow.rs`, las variables de caja en `toolchain/tools/maqueta/node/src/variables.rs`, la premezcla en `toolchain/tools/maqueta/emit/src/paleta.rs`, y la fuente web desde `platform/shared/bmo-letra`
 - [ ] MC -- la pila C segun M5: `@secuencia` junto a `@estado` en `toolchain/tools/maqueta/node/src/style.rs` y el movimiento en `toolchain/tools/maqueta/emit/src/movimiento.rs`
+- [ ] MS -- la seccion 2d, de S1 a S7: las formas y los grupos en `toolchain/tools/maqueta/node/src/markup.rs`, el aplanado (arcos, transformaciones, discontinuos) en `toolchain/tools/maqueta/emit/src/orden.rs`, y `<svg src>` como lee hoy `<imagen src>` en `toolchain/tools/maqueta/compone/src/lib.rs`
 - [ ] MR -- volver a medir con `toolchain/tools/maqueta/cli/src/cobertura.rs` despues de cada pila, y escribir la cifra de verdad en la seccion 0
