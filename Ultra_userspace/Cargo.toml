@@ -21,6 +21,8 @@ members = [
     # maquina. PLAN_HERMES, H5.
     "apps/hermes",
     "apps/bankcat",
+    # Los JUECES de PROTON-X, corridos solos (06-10): `run sys/jueces.bex`.
+    "apps/jueces",
 ]
 resolver = "2"
 

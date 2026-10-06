@@ -733,16 +733,20 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
     }
     // SAFETY: el descriptor guarda un Recurso de la casa. El formato de la
     // vista puede no ser el del recurso (TYPELESS, SRGB): basta que se
-    // guarden igual.
-    if pso.n_rt > 0 && Almacen::de(unsafe { crate::d3d12::recurso_de(e.rtv) }.formato) != Almacen::de(pso.formatos_rt[0]) {
+    // guarden igual, o (D2.7) que la casa sepa pintar uno con el otro.
+    let otro = |r: u64, f: u32| {
+        // SAFETY: como arriba.
+        let de_r = unsafe { crate::d3d12::recurso_de(r) }.formato;
+        Almacen::de(de_r) != Almacen::de(f) && como_se_pinta(de_r, f).is_none()
+    };
+    if pso.n_rt > 0 && otro(e.rtv, pso.formatos_rt[0]) {
         aviso("Draw sobre un render target de otro formato que el del PSO");
         return;
     }
     // N5.8: los demas, igual (los que no estan puestos no se miran: lo que
     // va a ellos se pierde, como con un RTV nulo).
     for (k, &(r, _)) in e.rtv_otros.iter().enumerate().take((pso.n_rt as usize).saturating_sub(1)) {
-        // SAFETY: como arriba.
-        if r != 0 && Almacen::de(unsafe { crate::d3d12::recurso_de(r) }.formato) != Almacen::de(pso.formatos_rt[k + 1]) {
+        if r != 0 && otro(r, pso.formatos_rt[k + 1]) {
             aviso("Draw sobre un render target (de los 1..8) de otro formato que el del PSO");
             return;
         }
@@ -865,7 +869,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         Some(Some(c)) => c,
         None => (false, None),
         Some(None) => {
-            aviso("Draw sobre un render target de un formato que la casa no pinta (BC, o una vista de enteros sobre un recurso de otro formato): todavia no");
+            aviso("Draw sobre un render target de un formato que la casa no pinta (BC, o una vista de otro tamanio de elemento): todavia no");
             return;
         }
     };
@@ -1013,6 +1017,8 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         otros: &flujos[1..],
         instancias,
         primera_instancia,
+        // 06-10: SV_VertexID sin StartVertexLocation ni BaseVertexLocation.
+        base_vertice: if indexado { base as u32 } else { primero },
         uavs: uavs.as_ref(),
     };
     // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.
@@ -1045,7 +1051,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         let k = otros.len() + 1;
         // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
         let Some((bgra, flotante)) = como_se_pinta(unsafe { de::<crate::d3d12::Recurso>(r) }.formato, pso.formatos_rt[k]) else {
-            aviso("Draw sobre un render target (de los 1..8) de un formato que la casa no pinta (BC, o una vista de enteros sobre otro formato): todavia no");
+            aviso("Draw sobre un render target (de los 1..8) de un formato que la casa no pinta (BC, o una vista de otro tamanio de elemento): todavia no");
             return;
         };
         if sub == 0 {
@@ -1087,17 +1093,27 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
 /// formato de su vista; N5.16b, los de UN float que la casa guarda en una
 /// palabra (un R32_FLOAT, o la vista R16_FLOAT de un R16_TYPELESS). 05-10:
 /// los de ENTEROS (R32_UINT y R32_SINT en una palabra, los demas en cuatro),
-/// con los bits del sombreador (`trama`: `formato_ia::de_entero`); una
-/// vista de enteros sobre un recurso que no lo es (un RGBA8_TYPELESS), no.
+/// con los bits del sombreador (`trama`: `formato_ia::de_entero`). D2.7
+/// (06-10): una vista de OTRO formato del mismo tamanio (un RGBA8_UINT
+/// sobre un RGBA8_TYPELESS, un R32_UINT sobre un R11G11B10F) pinta los bytes
+/// del elemento en el formato de la vista (`bufer::con_vista`; en lo que la
+/// casa guarda tal cual, con guardado 0: la palabra es la memoria).
 fn como_se_pinta(formato: u32, vista: u32) -> Option<(bool, Option<u32>)> {
-    let entero = bmo_proton_x::formato_ia::es_entero;
+    use bmo_proton_x::bufer::con_vista;
+    let vista = if vista == 0 { formato } else { vista };
+    let mide = |f: u32| bmo_proton_x::formato_ia::forma(f).map(|x| x.bytes);
+    let nativo = crate::subrecursos::interno_es_nativo(formato);
+    let tal_cual = nativo && mide(vista) == Some(4);
     Some(match Almacen::de(formato) {
-        Almacen::Bgra8 | Almacen::Rgba8 if entero(vista) => return None,
-        Almacen::Bgra8 => (true, None),
-        Almacen::Rgba8 => (false, None),
-        Almacen::Flotantes4 if entero(vista) != entero(Almacen::nativo(formato)) => return None,
-        Almacen::Flotantes4 => (false, Some(Almacen::nativo(vista))),
+        Almacen::Rgba8 if matches!(vista, 27..=29) => (false, None),
+        // Los de 8 bits que la casa ensancha a RGBA8 (R8, RG8...): su vista
+        // de color; una de enteros, no.
+        Almacen::Rgba8 if !nativo && Almacen::de(vista) == Almacen::Rgba8 && !bmo_proton_x::formato_ia::es_entero(vista) => (false, None),
+        Almacen::Bgra8 if matches!(vista, 87..=93) => (true, None),
         Almacen::Flotante if matches!(vista, 41..=43 | 54) => (false, Some(vista)),
+        Almacen::Rgba8 | Almacen::Bgra8 | Almacen::Flotante if tal_cual => (false, Some(con_vista(0, vista))),
+        Almacen::Flotantes4 if Almacen::nativo(vista) == Almacen::nativo(formato) => (false, Some(Almacen::nativo(vista))),
+        Almacen::Flotantes4 if mide(vista).is_some() && mide(vista) == mide(Almacen::nativo(formato)) => (false, Some(con_vista(Almacen::nativo(formato), vista))),
         _ => return None,
     })
 }
@@ -1260,7 +1276,35 @@ fn textura_de_srv(ranura: &[u64]) -> Result<bmo_proton_x::textura::Textura<'stat
     let hondo = if f.dimension == crate::subrecursos::DIM_TEXTURA3D { f.hondo } else { 1 };
     // D4.4: las mips de la vista y su ResourceMinLODClamp (`d3d12_vistas::poner`).
     let (niveles, lod_min) = crate::d3d12_vistas::mips_de(ranura);
-    Ok(Textura { texeles, ancho: f.ancho, alto: f.alto, como, srgb: crate::d3d12_vistas::es_srgb(formato), mapeo, mips: f.mips, capas: f.capas(), hondo, clase, mip, capa, niveles, lod_min })
+    let vista = otra_vista(t.almacen, f.formato, formato)?;
+    Ok(Textura { texeles, ancho: f.ancho, alto: f.alto, como, srgb: crate::d3d12_vistas::es_srgb(formato), mapeo, mips: f.mips, capas: f.capas(), hondo, clase, mip, capa, niveles, lod_min, vista })
+}
+
+/// **Si un SRV lee la textura con OTRO formato** (D2.7, 06-10): el
+/// `(guardado, vista)` de `Textura::vista`, o `None` si la vista lee lo
+/// guardado como es (la de su formato, la de float de su TYPELESS, una
+/// sRGB, los RGBA8 UNORM y UINT de un RGBA8). Una vista de otro tamanio de
+/// elemento, o sobre bloques, no es de D3D12: se lee como nulo.
+pub(crate) fn otra_vista(almacen: Almacen, formato: u32, vista: u32) -> Result<Option<(u32, u32)>, &'static str> {
+    let mide = |f: u32| bmo_proton_x::formato_ia::forma(f).map(|x| x.bytes);
+    let distinta = |guardado: u32| match mide(vista) {
+        Some(n) if Some(n) == mide(guardado) => Ok(Some((guardado, vista))),
+        _ => Err("un SRV con una vista de otro tamanio de elemento: en Windows es un error (se lee como nulo)"),
+    };
+    match almacen {
+        // Los bloques BC se leen como son (sus vistas, las de su familia).
+        Almacen::Bloques(_) => Ok(None),
+        Almacen::Flotantes4 if Almacen::nativo(vista) == Almacen::nativo(formato) => Ok(None),
+        Almacen::Flotantes4 => distinta(Almacen::nativo(formato)),
+        // Lo que se guarda tal cual: la palabra de la memoria.
+        Almacen::Rgba8 if matches!(vista, 27..=30) => Ok(None),
+        Almacen::Bgra8 if matches!(vista, 87..=93) => Ok(None),
+        Almacen::Flotante if matches!(vista, 39..=43) || !crate::subrecursos::interno_es_nativo(formato) => Ok(None),
+        // (Su `guardado` no cuenta: los bytes son los de la palabra.)
+        _ if crate::subrecursos::interno_es_nativo(formato) && mide(vista) == Some(4) => Ok(Some((0, vista))),
+        _ if crate::subrecursos::interno_es_nativo(formato) => Err("un SRV con una vista de otro tamanio de elemento: en Windows es un error (se lee como nulo)"),
+        _ => Ok(None),
+    }
 }
 
 /// Lo que mide una ranura de un monton de descriptores de la casa.

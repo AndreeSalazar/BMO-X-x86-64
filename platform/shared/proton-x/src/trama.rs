@@ -723,14 +723,41 @@ fn poner_pixel(k: &Comun, destino: &mut Destino, cuenta: &mut Cuenta, cara: Opti
     // 05-10: uno de ENTEROS (R32_UINT, RGBA16_SINT...) guarda los bits del
     // sombreador saturados a su canal (`formato_ia::de_entero`), SIN mezcla
     // (D3D no mezcla enteros) y con su mascara de escritura.
+    // D2.7 (06-10): con OTRA vista (`bufer::con_vista`), lo que hay se ve en
+    // ella y lo que sale vuelve a lo guardado: en cuatro floats, por los
+    // bytes del elemento; en una palabra (un RGBA8 o un R32 de la casa,
+    // guardado 0), la palabra ES los bytes de la memoria.
     let poner_f = |k: usize, f: u32, t: &mut [u32]| {
-        let entero = crate::formato_ia::de_entero(f, colores[k]);
+        let (g, otra) = if f & crate::bufer::CUATRO_FLOATS != 0 { crate::bufer::guardado_y_vista(f) } else { (f, None) };
+        let v = otra.unwrap_or(g);
+        let entero = crate::formato_ia::de_entero(v, colores[k]);
         let m = crate::mezcla::Mezcla { encendida: mezclas.rt[k].encendida && entero.is_none(), ..mezclas.rt[k] };
-        let d: [f32; 4] = core::array::from_fn(|c| t.get(c).map_or(if c == 3 { 1.0 } else { 0.0 }, |&w| f32::from_bits(w)));
+        let d: [f32; 4] = match (otra, t.len()) {
+            (Some(o), 1) => crate::formato_ia::leer(o, &t[0].to_le_bytes()),
+            (Some(o), 4) => crate::bufer::a_la_vista(g, o, [t[0], t[1], t[2], t[3]]).map(f32::from_bits),
+            _ => core::array::from_fn(|c| t.get(c).map_or(if c == 3 { 1.0 } else { 0.0 }, |&w| f32::from_bits(w))),
+        };
         let o = entero.unwrap_or(colores[k]);
         let c = if m.trivial() { o } else { m.aplicar(o, d, mezclas.factor) };
-        for (w, x) in t.iter_mut().zip(if entero.is_some() { c } else { crate::formato_ia::cuantizar(f, c) }) {
-            *w = x.to_bits();
+        let c = if entero.is_some() { c } else { crate::formato_ia::cuantizar(v, c) };
+        match (otra, t.len()) {
+            (Some(o), 1) => {
+                if let Some(b) = crate::formato_ia::empaquetar(o, c.map(f32::to_bits), entero.is_some()) {
+                    t[0] = u32::from_le_bytes([b[0], b[1], b[2], b[3]]);
+                }
+            }
+            (Some(o), 4) => {
+                if let Some(q) = crate::bufer::de_la_vista(g, o, c.map(f32::to_bits)) {
+                    for (w, x) in t.iter_mut().zip(q) {
+                        *w = x.to_bits();
+                    }
+                }
+            }
+            _ => {
+                for (w, x) in t.iter_mut().zip(c) {
+                    *w = x.to_bits();
+                }
+            }
         }
     };
     // N5.12: sin render target (solo profundidad), `pixeles` va vacio.

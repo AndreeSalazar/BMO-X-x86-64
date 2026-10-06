@@ -116,7 +116,7 @@ pub(crate) fn textura(recurso: u64, mapeo: u32) -> Result<bmo_proton_x::textura:
     // SAFETY: el plano empieza en palabra (lo interno son palabras) y
     // `bytes_de_mas` lo pidio a palabras enteras.
     let texeles = unsafe { core::slice::from_raw_parts(s.as_ptr() as *const u32, s.len().div_ceil(4)) };
-    Ok(Textura { texeles, ancho, alto, como: Como::Stencil8, srgb: false, mapeo, mips: 1, capas: 1, hondo: 1, clase: Clase::Plana, mip: 0, capa: 0, niveles: u32::MAX, lod_min: 0.0 })
+    Ok(Textura { texeles, ancho, alto, como: Como::Stencil8, srgb: false, mapeo, mips: 1, capas: 1, hondo: 1, clase: Clase::Plana, mip: 0, capa: 0, niveles: u32::MAX, lod_min: 0.0, vista: None })
 }
 
 /// **Limpiar el plano** (`Orden::LimpiarStencil`, al ejecutar la lista).

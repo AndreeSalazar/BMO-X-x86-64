@@ -516,11 +516,17 @@ de kernel32.dll (tanda3_kernel32.def, su propia lista):
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   8b65fc920042f228051855f228cd4b0ef2b669e311cfb21a0d62147dc6f6ace7
+   878dfab7b3a1ea129c119202e29f7409d9f51b9099094b342d22a06a76661fae
 
 Dice `bien` veinticinco veces y sale con 0 (la version, 10 en la casa o 6.2
 en un Windows sin manifiesto; el locale, el de la maquina); deja tanda3_a.txt y
 tanda3_b.txt (vacios) en su carpeta. En Windows dice lo mismo.
+
+06-10: correr_en_windows.ps1 manda la salida a un FICHERO, y en Windows
+WriteConsoleA falla si la salida no es una consola: dijo 1 MAL. Desde hoy,
+como texto.exe, solo lo juzga si GetConsoleMode dice que es una consola (si
+no, un `bien` que lo dice); tanda3_kernel32.def suma GetConsoleMode. Sigue
+diciendo 25 `bien`.
 
 tanda3b.exe -- la TANDA 3 de Cyberpunk, paso 4a (29-09): el pool de hilos
 
@@ -2335,7 +2341,7 @@ en un directorio con vistas.cpp y los tres .dxil:
 
 Reproducible (comprobado en dos directorios), sin rutas. sha256:
 
-   67bc459b8a49928b345c9cc181d5bfd0c8ebec2e60cb28efb6a32b9a9b777acf  vistas.exe
+   8a9aa4099e8b17b0ac058314f65d5b8975c876eb90ac54a463ec0fd88b69b7bd  vistas.exe
 
 El banco (`tests/corre/muestras.rs`, n5_3c): los 7 `bien` y sale con 0.
 Probado que dice NO: con el paso de los estructurados mal (A), sin la
@@ -2355,6 +2361,14 @@ textura, por cuatro). Con el mismo `dxc` de Linux que los demas:
    024b0d8e4f6780e5f9ed724fccaa11aee60e6f632e2241bbcbc91e00dc9a4d58  hdr_vs.dxil
    ec4179122fe80bf7b7346408be529c9580272678168a1b11c2cf195e091389e2  hdr_color.dxil
    6a659ebe4e23edb07f451145037eb900a21f77343382f12a9b4d46e838b7a569  hdr_lee.dxil
+
+06-10, LO QUE DIJO WINDOWS (la 3060): 3 MAL, en B, C y D-float, y los tres
+por lo mismo: un 0.5 en UNORM de 8 bits es 127.5, un EMPATE, y la 3060 lo
+dejo en 127 donde la casa (y la cuenta) decian 128. Lo demas, bit a bit
+igual. El juez ya acepta 127 o 128 en ese canal (el azul de B, el rojo de
+C), y la limpieza de D lleva 0.4 (102, sin empate). Y sus dos copias de
+textura iban a 1280 y 5376, que no son de 512 (lo que pide D3D12): ahora
+a 1536 y 5632. Sigue en 7 `bien`.
 
 hdr.exe -- N5.16: los render targets de FLOAT, juzgados (05-10)
 
@@ -2606,7 +2620,7 @@ en un directorio con olas.cpp y los tres .dxil:
 
 Reproducible (comprobado en dos directorios), sin rutas. sha256:
 
-   06ec9275078696045bebdf5d9cbf7a7b2d4749551ad4bb391b6b45470d251c68  olas.exe
+   e5b7102f1be4f92c4d97fa0871b1095f40cc2902a03519fde8a785f279b2af34  olas.exe
 
 El banco (`tests/corre/muestras.rs`, e2_5): los 15 `bien`, sale con 0, y
 un aviso (el PSO de dibujo se interpreta: su PS usa las olas). Probado
@@ -2616,6 +2630,22 @@ PS no compilaban: la papeleta, 116, y QuadOp, 123; solo OPTIONS1 decia
 bien: ya contestaba 32 mientras los sombreadores veian 1); contando a los
 ayudantes como activos, MAL en C (A = 4); juntando los carriles por la
 operacion sin mirar el bucle ni quien va antes, MAL en los dos bucles.
+
+06-10, LO QUE DIJO WINDOWS (la 3060 del propietario, correr_en_windows.ps1):
+14 bien y MAL en C: "el (2, 2) es 20ff0303 ... 2015 pixeles mas pintados".
+C se dibujaba con DrawInstanced(3, 1, 6, 0), y en Windows SV_VertexID NO
+cuenta el StartVertexLocation: fue de 0 a 2 y pinto la mitad de arriba a
+la izquierda (los 2016 pixeles con x + y < 63, A = 32). El fallo era de la
+CASA, que lo sumaba (y el juez, escrito con la misma idea, lo dio por
+bueno). Arreglado en `lote::Lote::base_vertice`. olas.cpp: C va con
+indices (6, 7, 8: con indices, SV_VertexID es el indice); D, el
+DrawInstanced de antes, pide la mitad; E, DrawIndexedInstanced con
+BaseVertexLocation 6 sobre los indices 0, 1, 2, pide la mitad TAMBIEN (lo
+que hacen DXVK y vkd3d-proton: el base no cuenta) -- eso lo PREGUNTA a
+Windows. Dice `bien` 17 veces. Probado que dice NO: con la casa de antes,
+MAL en D y en E ("1 pixeles pintados").
+Lo que dijo Windows con el nuevo (06-10, 08:49): 17 `bien`. E tambien:
+el BaseVertexLocation no cuenta en SV_VertexID.
 
 derivadas_vs.dxil, derivadas_ps.dxil, derivadas_niveles.dxil -- los de derivadas.exe (05-10)
 
@@ -2932,3 +2962,69 @@ El banco (`tests/corre/muestras.rs`): los 3 `bien`, sale con 0, ni un
 aviso (corre traducido). Probado que dice NO: contra la casa de antes, A y
 C MAL (el UAV sin descripcion se veia nulo); y sin el indice dinamico en el
 Dispatch, 171 MAL en A (las texturas 1 y 2 se leian nulas).
+
+tipos_escribe.dxil, tipos_suma.dxil, tipos_lee.dxil, tipos_vs.dxil, tipos_ps.dxil -- los de tipos.exe (06-10)
+
+`tipos.hlsl` (aqui al lado): CSEscribe (tres texturas TYPELESS de 4 x 4,
+cada una por una vista de su tipo: UNORM, R32_UINT, halfs), CSSuma
+(InterlockedAdd por la vista R32_UINT de la de RGBA8), CSLee (Load por SRV
+de OTRO tipo: R10G10B10A2_UNORM, R16G16B16A16_UINT, R8G8B8A8_SINT, y
+GetDimensions), VSLleno (un triangulo que cubre la vista, de SV_VertexID) y
+PSTipos (dos SV_Target: uint4 y float4). Con el DXC de la nube (v1.8.2505,
+9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSEscribe -Fo tipos_escribe.dxil tipos.hlsl
+   dxc -T cs_6_0 -E CSSuma -Fo tipos_suma.dxil tipos.hlsl
+   dxc -T cs_6_0 -E CSLee -Fo tipos_lee.dxil tipos.hlsl
+   dxc -T vs_6_0 -E VSLleno -Fo tipos_vs.dxil tipos.hlsl
+   dxc -T ps_6_0 -E PSTipos -Fo tipos_ps.dxil tipos.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   0e02ee91b0b24514b7b7888ab90c91ba46fae6b6300f6d62505acdb4733546b1  tipos_escribe.dxil
+   9fb2e65215bef3611fa85305f98ff0c0702364b20ee05255c507d8231a189800  tipos_lee.dxil
+   423078077205b59e66ef67c24ae8a8e60db32a0d3ba8c4f1addae8ffde9282dc  tipos_ps.dxil
+   1afdcba7593b3e4d77153017f598b73bdae80098c31bcd44a9cb9c1ae40857e3  tipos_suma.dxil
+   9caad17701b6ca475c9ccce6a5a776629c776224c69cfc6fe2ac2d91d9fb68a7  tipos_vs.dxil
+
+Van DENTRO de tipos.exe.
+
+tipos.exe -- las VISTAS QUE CAMBIAN EL TIPO, juzgadas (06-10)
+
+D2.7 (A1 del contador de PLAN_LAS_TRES_GRANDES 7.1). NUESTRO, de consola:
+A, t8 (R8G8B8A8_TYPELESS) escrito por su vista UNORM, t10
+(R10G10B10A2_TYPELESS) por una R32_UINT y t16 (R16G16B16A16_TYPELESS) en
+halfs; B, InterlockedAdd por la vista R32_UINT de t8 (lo de antes: la
+palabra de A); C, Load por SRV de otro tipo (t10 como R10G10B10A2_UNORM,
+t16 como R16G16B16A16_UINT: el -0 es 0x8000; t8 como R8G8B8A8_SINT) y su
+GetDimensions; D, un triangulo en dos render targets RGBA8 TYPELESS vistos
+como UINT (300 satura a 255) y SNORM (-0.25, 1, -1, 0.25: E0 7F 81 20); E,
+los bytes de t8 al final. Todo bit a bit. Dice `bien` 8 veces y sale con el
+numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con tipos.cpp y sus
+cinco .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c tipos.cpp -o tipos.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o tipos.exe tipos.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   e04948aae43339de1ca839d759b04372ed64661f74c7a2d7ae2301a7bda37e1b  tipos.exe
+
+El banco (`tests/corre/muestras.rs`): los 8 `bien`, sale con 0, ni un
+aviso. Probado que dice NO: contra la casa de antes, 6 MAL (los UAV y los
+SRV de otro tipo se veian nulos; los render targets de otro tipo no se
+pintaban). Y el juez se equivoco una vez y la casa no: la palabra SNORM
+esperada iba con los bytes al reves (0x207F81E0); es 0x20817FE0.
+
+Lo que dijo Windows (06-10, 09:55, la 3060 del propietario): 8 `bien`.
+
+jueces.txt -- la TABLA de los jueces de consola (06-10)
+
+Una linea por juez: su nombre, cuantos `bien` pide, y si hay, cuantas `nota`
+y otra cuenta que tambien vale; `[grupo]` empieza un grupo (dentro, tandas,
+d3d12). La leen los dos que los corren, y por eso no se pueden contradecir:
+`correr_en_windows.ps1` en Windows, y `sys/jueces.bex` en BMO-X
+(Ultra_userspace/apps/jueces, que la lleva dentro: `include_str!`). Un juez
+nuevo entra AQUI, y en los dos a la vez.

@@ -16,6 +16,13 @@
 //
 // Todo se lee y se compara con la cuenta, BIT A BIT. Sale con el numero de
 // fallos. En Windows dice lo mismo (es de consola: lo que falle, se lee).
+//
+// 06-10, lo que dijo Windows (la 3060): el 0.5 de B (su azul, el rojo de C)
+// es 127.5 en UNORM de 8 bits, un EMPATE, y la 3060 lo dejo en 127 donde la
+// casa da 128. Ese canal acepta los dos; el resto, bit a bit. La limpieza
+// de D ya no lleva empates (0.4: 102). Y las copias a lo leido van a
+// sitios de 512 bytes (D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT): antes, a
+// 1280 y 5376.
 #include <windows.h>
 #include <d3d12.h>
 #include <dxguids/dxguids.h>
@@ -116,12 +123,17 @@ static UINT rgba(UINT r, UINT g, UINT b, UINT a) {
     return r | g << 8 | b << 16 | a << 24;
 }
 
-// Comparar `n` palabras con lo que tienen que ser.
-static void juzgar(const char *que, const UINT *leido, const UINT *quiero, UINT n) {
+// Comparar `n` palabras con lo que tienen que ser. El canal que empieza en
+// el bit `empate` (32: ninguno) vale 127 o 128 donde se pide 128.
+static void juzgar(const char *que, const UINT *leido, const UINT *quiero, UINT n, UINT empate = 32) {
     UINT malos = 0, primero = 0;
-    for (UINT i = 0; i < n; i++)
-        if (leido[i] != quiero[i] && malos++ == 0)
+    for (UINT i = 0; i < n; i++) {
+        UINT l = leido[i];
+        if (empate < 32 && (l >> empate & 0xFF) == 0x7F && (quiero[i] >> empate & 0xFF) == 0x80)
+            l += 1u << empate;
+        if (l != quiero[i] && malos++ == 0)
             primero = i;
+    }
     char m[240];
     if (malos == 0)
         snprintf(m, sizeof m, "%s: las %u palabras bit a bit", que, n);
@@ -186,9 +198,9 @@ int main() {
     ID3D12Resource *relleno = bufer(d, D3D12_HEAP_TYPE_DEFAULT, 64, UAV, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     ID3D12Resource *imagen = recurso(d, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_DIMENSION_TEXTURE2D, 16, 16, DXGI_FORMAT_R8G8B8A8_UNORM, UAV, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     ID3D12Resource *lisa = recurso(d, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_DIMENSION_TEXTURE2D, 8, 8, DXGI_FORMAT_R8G8B8A8_UNORM, UAV, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-    // La lectura: sumas 0, crudo 64, destino 128, relleno 1152, imagen 1280
-    // (16 filas de 256), lisa 5376 (8 filas).
-    ID3D12Resource *leida = bufer(d, D3D12_HEAP_TYPE_READBACK, 5376 + 8 * 256, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
+    // La lectura: sumas 0, crudo 64, destino 128, relleno 1152, imagen 1536
+    // (16 filas de 256), lisa 5632 (8 filas): las texturas, a 512.
+    ID3D12Resource *leida = bufer(d, D3D12_HEAP_TYPE_READBACK, 5632 + 8 * 256, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
     if (fallos)
         return fallos;
 
@@ -238,7 +250,7 @@ int main() {
     l->SetComputeRootSignature(rs);
     // D: las limpiezas.
     const UINT muerto[4] = {0xDEADBEEF, 0, 0, 0};
-    const float azul[4] = {0.25f, 0.5f, 1.0f, 2.0f};
+    const float azul[4] = {0.25f, 0.4f, 1.0f, 2.0f};
     l->ClearUnorderedAccessViewUint(eng(3), en(cc, 0), relleno, muerto, 0, nullptr);
     l->ClearUnorderedAccessViewFloat(eng(4), en(cc, 1), lisa, azul, 0, nullptr);
     // A.
@@ -262,8 +274,8 @@ int main() {
     l->CopyBufferRegion(leida, 64, crudo, 0, 32);
     l->CopyBufferRegion(leida, 128, destino, 0, 1024);
     l->CopyBufferRegion(leida, 1152, relleno, 0, 64);
-    leer_textura(l, imagen, leida, 1280, 16, 16);
-    leer_textura(l, lisa, leida, 5376, 8, 8);
+    leer_textura(l, imagen, leida, 1536, 16, 16);
+    leer_textura(l, lisa, leida, 5632, 8, 8);
     hecho(l->Close(), "Close");
     ID3D12CommandList *ls[1] = {l};
     cola->ExecuteCommandLists(1, ls);
@@ -291,24 +303,24 @@ int main() {
     UINT img[256];
     for (UINT y = 0; y < 16; y++)
         for (UINT x = 0; x < 16; x++)
-            img[y * 16 + x] = ((const UINT *)(b + 1280 + y * 256))[x];
+            img[y * 16 + x] = ((const UINT *)(b + 1536 + y * 256))[x];
     for (UINT y = 0; y < 16; y++)
         for (UINT x = 0; x < 16; x++)
             q[y * 16 + x] = rgba(x * 17, y * 17, 128, 255);
-    juzgar("B, RWTexture2D con GetDimensions: cada texel, su (x, y) / 15", img, q, 256);
+    juzgar("B, RWTexture2D con GetDimensions: cada texel, su (x, y) / 15", img, q, 256, 16);
     for (UINT y = 0; y < 16; y++)
         for (UINT x = 0; x < 16; x++)
             q[y * 16 + x] = rgba(128, y * 17, x * 17, 255);
-    juzgar("C, la textura leida como UAV, a un RWBuffer con tipo R8G8B8A8_UNORM", (const UINT *)(b + 128), q, 256);
+    juzgar("C, la textura leida como UAV, a un RWBuffer con tipo R8G8B8A8_UNORM", (const UINT *)(b + 128), q, 256, 0);
     for (UINT i = 0; i < 16; i++)
         q[i] = 0xDEADBEEF;
     juzgar("D, ClearUnorderedAccessViewUint de un bufer crudo", (const UINT *)(b + 1152), q, 16);
     UINT lisa_leida[64];
     for (UINT y = 0; y < 8; y++)
         for (UINT x = 0; x < 8; x++)
-            lisa_leida[y * 8 + x] = ((const UINT *)(b + 5376 + y * 256))[x];
+            lisa_leida[y * 8 + x] = ((const UINT *)(b + 5632 + y * 256))[x];
     for (UINT i = 0; i < 64; i++)
-        q[i] = rgba(64, 128, 255, 255);
+        q[i] = rgba(64, 102, 255, 255);
     juzgar("D, ClearUnorderedAccessViewFloat de una textura UNORM (satura)", lisa_leida, q, 64);
     printf("vistas.exe: las vistas de D3D12 son las de Windows\n");
     return fallos;

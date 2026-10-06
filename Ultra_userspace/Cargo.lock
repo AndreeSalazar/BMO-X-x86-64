@@ -33,6 +33,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-app-jueces"
+version = "0.1.0"
+dependencies = [
+ "bmo-userland",
+]
+
+[[package]]
 name = "bmo-app-ludoteca"
 version = "0.1.0"
 dependencies = [

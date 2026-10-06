@@ -114,7 +114,7 @@ fn pintar(ids: &[u32]) -> (Vec<u32>, trama::Cuenta) {
     let en = lote::enlazar(&vs, &ps, &[]).unwrap();
     assert!(en.ps.usa_olas() && en.pos_ps == Some(0));
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 64.0, 64.0, 0.0, 1.0], tijera: [0, 0, 64, 64], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
-    let l = Lote { enlace: &en, entradas: &[], vertices: &[], paso: 0, ids, topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: Some(0), recursos: Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, uavs: None };
+    let l = Lote { enlace: &en, entradas: &[], vertices: &[], paso: 0, ids, topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: Some(0), recursos: Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
     let mut px = vec![0u32; 64 * 64];
     let mut d = trama::Destino { pixeles: &mut px, ancho: 64, alto: 64, bgra: false, z: None, cadena: false, otros: &mut [], flotante: None, stencil: None };
     let c = lote::en_cpu(&l, &mut d).unwrap();

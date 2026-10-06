@@ -24,7 +24,7 @@ banco creia probado): esa linea `MAL` es lo mas valioso que puedes mandar.
   2015-2022 (`vcruntime140.dll`, `msvcp140.dll`): lo tiene cualquier PC con
   juegos; si falta, salen con `0xC0000135` y el guion lo dice.
 
-## 1. Los 83 de consola: UN guion
+## 1. Los 84 de consola: UN guion
 
 En una PowerShell normal, dentro de la carpeta:
 
@@ -36,7 +36,10 @@ tabla, `DISTINTO` (y por que) si no. Al final: cuantos de cada. Lo que hay que
 mandar: `informe_windows\resumen.txt` (las lineas MAL van enteras dentro), o
 la carpeta `informe_windows\` entera si algo sale DISTINTO.
 
-Lo que pide cada uno (la tabla del guion es la misma):
+Lo que pide cada uno. Desde el 06-10 la tabla es UN fichero,
+`prueba/jueces.txt`: la lee este guion y la lleva dentro `sys/jueces.bex`,
+el que corre los mismos jueces SOLOS en BMO-X (`run sys/jueces.bex`). Lo
+que Windows dio por bueno, alli se pide igual.
 
 ### 1a. LOS PRIMEROS: los 14 de D3D12, NINGUNO corrido aun en Windows
 
@@ -52,13 +55,14 @@ bueno contra ellos.
 | `uavpixel` | UAV escritos desde un pixel, InterlockedAdd, RWBuffer desde el VS (N5.3d) | 4 |
 | `flotante1` | R32F y R16F de destino, UAV de RGBA16F, DepthClipEnable = FALSE (N5.16b) | 10 |
 | `stencil` | REPLACE/EQUAL, INCR_SAT, mascaras, las dos caras (N5.12b) | 5 |
-| `olas` | Wave* y Quad* de 32 carriles (E2.5); el "hasta N" de B puede salir otro | 15 |
+| `olas` | Wave* y Quad* de 32 carriles (E2.5); el "hasta N" de B puede salir otro; D y E, SV_VertexID con un vertice base (06-10) | 17 |
 | `derivadas` | ddx/ddy finas y gruesas, la mip de cada muestreo, CalculateLevelOfDetail (D4.4) | 17 |
 | `restos` | destinos de enteros, UAV sin destino y desde el GS, el plano de stencil, SV_StencilRef | 18 |
 | `multihilo` | listas de cuatro hilos, colas que esperan a una valla, Reset/Close (E2.1) | 17 |
 | `volumen` | UAV de texturas 3D y de arrays, ClearUAV de rebanadas | 10 |
 | `firmas` | root signatures 1.1, la de dentro del sombreador, DESC1 serializada | 6 |
 | `postpro` | un posproceso por computo: bindless, UAV creado sin descripcion | 3 |
+| `tipos` | (06-10) texturas TYPELESS vistas con OTRO formato: UAV, SRV y render targets (D2.7) | 8 |
 
 Si alguno se CUELGA (el guion lo dice), en `multihilo` es su parte B: una
 cola que espera y nadie la despierta. Si `restos` dice una `nota` en E, la
@@ -94,7 +98,7 @@ dice si Windows sigue igual tras sus parches.
 | .exe | `bien` | | .exe | `bien` | | .exe | `bien` |
 |---|---|---|---|---|---|---|---|
 | `tanda1` | 55 | | `tanda14` | 27 | | `tanda29` | 18 |
-| `tanda2` | 14 | | `tanda14b` | 12 | | `tanda30` | 14 |
+| `tanda2` | 13 | | `tanda14b` | 12 | | `tanda30` | 14 |
 | `tanda3` | 25 | | `tanda15` | 11 | | `tanda31` | 30 |
 | `tanda3b` | 18 | | `tanda16` | 9 | | `tanda32` | 10 |
 | `tanda3c` | 16 | | `tanda17` | 11 | | `tanda33` | 8 |
@@ -157,6 +161,39 @@ juego en `C:`, nunca sobre `D:`:
   su modelo (6.x), sus recursos. Lo que los traductores no sepan entra en A.
 - **D0.3** -- el `diario` de P0.3 con el juego, filtrado a D3D12: que
   metodos, cuantas veces, en que orden hasta el primer `Present`.
+
+## 3b. Lo que dijo Windows la PRIMERA vez (06-10, la 3060 del propietario)
+
+78 de 83 como pide la tabla. Los 5 distintos:
+
+- `tanda2`: 13 `bien` y pedia 14. La TABLA estaba mal (el texto de
+  HACER.txt dice catorce; el juez tiene trece `mira` y el banco pide 13).
+  Arreglada.
+- `tanda3`: 1 MAL, `WriteConsoleA`. El guion manda la salida a un fichero, y
+  ahi WriteConsoleA falla en Windows. El juez ya solo lo juzga si la salida
+  es una consola (como texto.exe): `tanda3.exe` rehecho.
+- `restos`: 15 `bien` y una `nota`: la 3060 dice
+  PSSpecifiedStencilRefSupported = FALSE (las NVIDIA no tienen
+  SV_StencilRef), y E se salta. No es fallo; el guion acepta 18, o 15 con
+  una nota. Lo que si dice: E (SV_StencilRef) solo lo juzga el banco.
+- `vistas`: 3 MAL, los tres por lo mismo: 0.5 en UNORM de 8 bits es
+  127.5, un empate, y la 3060 da 127 donde la casa da 128 (todo lo demas,
+  bit a bit igual). Del JUEZ: acepta los dos en ese canal; y sus copias van
+  ya a sitios de 512 bytes.
+- `olas`: 1 MAL, y este era de PROTON-X: **SV_VertexID no cuenta el
+  StartVertexLocation**. Un DrawInstanced(3, 1, 6, 0) en Windows lee los
+  vertices 0..2 (media pantalla) y la casa leia 6..8 (un pixel). Arreglado
+  (`lote::Lote::base_vertice`); el juez suma D (eso) y E (lo mismo con
+  BaseVertexLocation en un dibujo con indices: lo PREGUNTA). Pide 17.
+
+**La SEGUNDA corrida (06-10, 08:49): 83 de 83.** `olas` 17 `bien`: E
+confirma que en un dibujo con indices el BaseVertexLocation TAMPOCO cuenta
+en SV_VertexID (lo que hace la casa desde hoy). `restos`, 15 y su nota.
+Desde aqui, cada juez de esta carpeta es Windows: lo que diga distinto
+BMO-X en el Ryzen, es de BMO-X.
+
+**La TERCERA corrida (06-10, 09:55): 84 de 84**, con `tipos.exe` (D2.7)
+en 8 `bien` a la primera.
 
 ## 4. Que mandar, en orden
 

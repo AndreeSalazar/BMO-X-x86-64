@@ -189,7 +189,9 @@ try {
         if ($LASTEXITCODE -ne 0) { Fail ('bex-link fallo con apps/' + $app) }
         if (-not (Test-Path $bex)) { Fail ('bex-link no produjo ' + $app + '.bex') }
     }
-    foreach ($app in @('taller', 'ludoteca', 'hermes', 'bankcat')) { Enlazar-App $app }
+    # Y `jueces` (06-10): no es de una tecla; los jueces de PROTON-X, uno tras
+    # otro y contados (`run sys/jueces.bex`, o un grupo: `d3d12`).
+    foreach ($app in @('taller', 'ludoteca', 'hermes', 'bankcat', 'jueces')) { Enlazar-App $app }
     # Y `teb.exe` (P1d, 27-09): lee su TEB y su PEB por `gs:` como el CRT de
     # Microsoft, y dice `bien` seis veces si el GS de la casa es el de Windows.
     # Y `ventana.exe` (P2, 27-09): una ventana Win32 de manual, con el user32 y
@@ -231,7 +233,8 @@ try {
     # Y `volumen.exe` (06-10): los UAV de texturas 3D y de ARRAYS (la niebla volumetrica, las cascadas de sombras).
     # Y `firmas.exe` (06-10): las ROOT SIGNATURES 1.1 y las que vienen dentro del sombreador ([RootSignature]).
     # Y `postpro.exe` (06-10): el COMPUTO de un posproceso (bindless, SampleLevel, RWTexture2D, InterlockedAdd), traducido.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll', 'cubo12.exe', 'seh.exe', 'bmox12.exe', 'tanda1.exe', 'tanda2.exe', 'tanda3.exe', 'tanda3b.exe', 'tanda3c.exe', 'tanda4.exe', 'tanda5.exe', 'tanda6.exe', 'tanda7.exe', 'tanda8.exe', 'tanda9.exe', 'tanda10.exe', 'tanda11.exe', 'tanda12.exe', 'tanda13.exe', 'diario.exe', 'tanda14.exe', 'tanda4m.exe', 'tanda14b.exe', 'tanda15.exe', 'tanda16.exe', 'tanda17.exe', 'tanda18.exe', 'tanda19.exe', 'tanda19m.exe', 'tanda20.exe', 'tanda21.exe', 'tanda22.exe', 'tanda22d.dll', 'tanda23.exe', 'tanda24.exe', 'tanda25.exe', 'tanda26.exe', 'tanda27.exe', 'tanda28.exe', 'tanda29.exe', 'tanda30.exe', 'tanda31.exe', 'tanda32.exe', 'tanda33.exe', 'tanda34.exe', 'tanda35.exe', 'tanda36.exe', 'tanda37.exe', 'tanda38.exe', 'tanda39.exe', 'tanda41.exe', 'tanda42.exe', 'tanda43.exe', 'tanda44.exe', 'tanda45.exe', 'tanda46.exe', 'tanda47.exe', 'tanda48.exe', 'vueltas.exe', 'hwindow.exe', 'computo.exe', 'instancias.exe', 'vistas.exe', 'hdr.exe', 'uavpixel.exe', 'flotante1.exe', 'stencil.exe', 'olas.exe', 'derivadas.exe', 'restos.exe', 'multihilo.exe', 'volumen.exe', 'firmas.exe', 'postpro.exe')) {
+    # Y `tipos.exe` (06-10): las vistas que CAMBIAN EL TIPO (D2.7): UAV, SRV y render targets de otro formato del mismo tamanio.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll', 'cubo12.exe', 'seh.exe', 'bmox12.exe', 'tanda1.exe', 'tanda2.exe', 'tanda3.exe', 'tanda3b.exe', 'tanda3c.exe', 'tanda4.exe', 'tanda5.exe', 'tanda6.exe', 'tanda7.exe', 'tanda8.exe', 'tanda9.exe', 'tanda10.exe', 'tanda11.exe', 'tanda12.exe', 'tanda13.exe', 'diario.exe', 'tanda14.exe', 'tanda4m.exe', 'tanda14b.exe', 'tanda15.exe', 'tanda16.exe', 'tanda17.exe', 'tanda18.exe', 'tanda19.exe', 'tanda19m.exe', 'tanda20.exe', 'tanda21.exe', 'tanda22.exe', 'tanda22d.dll', 'tanda23.exe', 'tanda24.exe', 'tanda25.exe', 'tanda26.exe', 'tanda27.exe', 'tanda28.exe', 'tanda29.exe', 'tanda30.exe', 'tanda31.exe', 'tanda32.exe', 'tanda33.exe', 'tanda34.exe', 'tanda35.exe', 'tanda36.exe', 'tanda37.exe', 'tanda38.exe', 'tanda39.exe', 'tanda41.exe', 'tanda42.exe', 'tanda43.exe', 'tanda44.exe', 'tanda45.exe', 'tanda46.exe', 'tanda47.exe', 'tanda48.exe', 'vueltas.exe', 'hwindow.exe', 'computo.exe', 'instancias.exe', 'vistas.exe', 'hdr.exe', 'uavpixel.exe', 'flotante1.exe', 'stencil.exe', 'olas.exe', 'derivadas.exe', 'restos.exe', 'multihilo.exe', 'volumen.exe', 'firmas.exe', 'postpro.exe', 'tipos.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
     $leemeWin = @(
@@ -239,6 +242,7 @@ try {
         '',
         '  run sys/proton-x.bex window/hola.exe           uno de aqui',
         '  run sys/proton-x.bex window/crt.exe -nivel 3   lo de detras es su linea de ordenes',
+        '  run sys/jueces.bex                            TODOS los jueces, solos (o: d3d12, tandas, dentro)',
         '',
         'Su directorio actual es ESTA carpeta: lo que un .exe escriba con una ruta',
         'relativa (ficheros.exe deja pxtest.txt) cae aqui, y aqui lo encuentra.',

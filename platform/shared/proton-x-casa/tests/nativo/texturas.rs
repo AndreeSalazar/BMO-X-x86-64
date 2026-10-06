@@ -71,7 +71,7 @@ fn texturas() -> Vec<Option<Textura<'static>>> {
     let raros = raros();
     let floats: &'static [u32] = Box::leak((0..4 * 5 * 3).map(|k| raros[k * 7 % raros.len()].to_bits()).collect::<Vec<_>>().into_boxed_slice());
     let uno: &'static [u32] = Box::leak((0..6 * 6).map(|k| raros[k * 5 % raros.len()].to_bits()).collect::<Vec<_>>().into_boxed_slice());
-    let plana = |texeles, ancho, alto, como| Textura { texeles, ancho, alto, como, srgb: false, mapeo: Textura::MAPEO, mips: 1, capas: 1, hondo: 1, clase: Clase::Plana, mip: 0, capa: 0, niveles: u32::MAX, lod_min: 0.0 };
+    let plana = |texeles, ancho, alto, como| Textura { texeles, ancho, alto, como, srgb: false, mapeo: Textura::MAPEO, mips: 1, capas: 1, hondo: 1, clase: Clase::Plana, mip: 0, capa: 0, niveles: u32::MAX, lod_min: 0.0, vista: None };
     vec![
         Some(Textura::rgba(palabras(8 * 8), 8, 8, false)),
         Some(plana(floats, 5, 3, Como::Flotantes4)),
