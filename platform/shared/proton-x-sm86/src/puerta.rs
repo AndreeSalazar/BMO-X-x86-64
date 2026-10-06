@@ -311,6 +311,9 @@ pub struct Puerta {
     pub vigia_cada: u64,
     pub revisados: usize,
     pub corregidos: usize,
+    /// 9d (06-10): los PSO que la LIBRETA de la 3060 apunto como raros
+    /// ([`Puerta::leer_libreta`]), en la vida de esta puerta.
+    pub apuntados: usize,
 }
 
 impl Default for Puerta {
@@ -321,7 +324,7 @@ impl Default for Puerta {
 
 impl Puerta {
     pub fn nueva() -> Self {
-        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), z_viva: false, z_a_la_3060: Z_EN_LA_SOMBRA, recuerdo: None, traducidos: 0, recordados: 0, vigia_cada: VIGIA_CADA, revisados: 0, corregidos: 0 }
+        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), z_viva: false, z_a_la_3060: Z_EN_LA_SOMBRA, recuerdo: None, traducidos: 0, recordados: 0, vigia_cada: VIGIA_CADA, revisados: 0, corregidos: 0, apuntados: 0 }
     }
 
     /// **La receta de este lote**, en `self.caja[..n]`: `Ok(n)`, o por que
@@ -426,6 +429,26 @@ impl Puerta {
             Ok(()) => Ok(n),
             Err(e) => Err(e.clone()),
         }
+    }
+
+    /// **Lo que apunto la LIBRETA de la 3060** (9d, 06-10), entre
+    /// fotogramas: `libreta`, una palabra por PSO en el orden en que esta
+    /// puerta los conocio (el numero que lleva su receta), distinta de 0 si
+    /// alguno de sus dibujos dio algo RARO ([`crate::libreta`]). El
+    /// siguiente lote de cada uno lo revisa el vigia con los datos del juego
+    /// YA, sin esperar a su turno de `vigia_cada`: asi la 3060 dice donde
+    /// mirar, y la CPU decide. Devuelve cuantos PSO apunto.
+    pub fn leer_libreta(&mut self, libreta: &[u8]) -> usize {
+        let mut n = 0;
+        for i in crate::libreta::apuntados(libreta) {
+            // Uno que ya va por la CPU no tiene nada que revisar.
+            if let Some((_, Ok(_), lotes)) = self.cuerpos.get_mut(i) {
+                *lotes = 0;
+                n += 1;
+            }
+        }
+        self.apuntados += n;
+        n
     }
 
     /// Lo que paso con el lote: `a_la_3060` = lo dibujo la 3060. La Z de la

@@ -53,9 +53,10 @@
 //! el `Programa` y su x86-64 de `nativo`) se sigue haciendo en cada arranque;
 //! el de pixeles que MUESTREA se comprueba con las texturas a cero (lo que
 //! lee una textura de verdad lo juzgan los jueces de `prueba/`); y la
-//! LIBRETA de la GPU (que la 3060 misma apunte lo raro mientras dibuja) pide
-//! que el emisor sepa escribir en memoria desde un sombreador: hoy el vigia
-//! es la CPU, con lotes de muestra.
+//! LIBRETA de la GPU (que la 3060 misma apunte lo raro mientras dibuja)
+//! tiene hecha la mitad de la app (9d, 06-10: [`crate::libreta`], el
+//! termometro que esto tambien comprueba) y le falta la del kernel: hoy el
+//! vigia es la CPU, con lotes de muestra.
 //!
 //! capa: puro -- bytes y cuentas; quien guarda y lee es un [`Recuerdo`]
 
@@ -142,6 +143,13 @@ fn cuerpo(e: &Emitido) -> Vec<u8> {
             Precarga::Asa { textura, muestreador, reg } => [2, textura, muestreador, reg],
         });
     }
+    // 9d: el termometro de la libreta, como una entrada mas (3): un .bsf de
+    // antes no la lleva, y uno con ella no lo lee un lector de antes (lo
+    // vuelve a emitir).
+    if let Some(t) = e.termometro {
+        b[4..8].copy_from_slice(&(e.precargas.len() as u32 + 1).to_le_bytes());
+        b.extend_from_slice(&[3, 0, 0, t]);
+    }
     b
 }
 
@@ -155,16 +163,21 @@ fn de_cuerpo(b: &[u8], registros: u32) -> Option<Emitido> {
     let u64_ = |i: usize| u64::from_le_bytes(b[i..i + 8].try_into().unwrap());
     let codigo = (0..n).map(|k| (u64_(8 + 16 * k), u64_(16 + 16 * k))).collect();
     let mut precargas = Vec::with_capacity(m);
+    let mut termometro = None;
     for k in 0..m {
         let x = &b[8 + 16 * n + 4 * k..][..4];
         precargas.push(match x[0] {
             0 => Precarga::Entrada { elemento: x[1], componente: x[2], reg: x[3] },
             1 => Precarga::Fila { fila: u16::from_le_bytes([x[1], x[2]]), reg: x[3] },
             2 => Precarga::Asa { textura: x[1], muestreador: x[2], reg: x[3] },
+            3 if termometro.is_none() => {
+                termometro = Some(x[3]);
+                continue;
+            }
             _ => return None,
         });
     }
-    Some(Emitido { codigo, registros, mufus: 0, ciclos: 0, precargas })
+    Some(Emitido { codigo, registros, mufus: 0, ciclos: 0, precargas, termometro })
 }
 
 /// El objetivo de la puerta con `code` (ver `bmo_bsf::abi::SM86_PUERTA_V1`).
@@ -245,6 +258,19 @@ pub fn comprobar(p: &Programa, e: &Emitido, que: &str) -> Result<usize, String> 
             let (g, c) = (m.r[4 * el + k], casa[el][k].to_bits());
             if g != c && !(f32::from_bits(g).is_nan() && f32::from_bits(c).is_nan()) {
                 return Err(format!("el {que}: la salida {el}.{k} de la tanda {t} es {g:08x} en la 3060 y {c:08x} en la CPU"));
+            }
+            n += 1;
+        }
+        // 9d: con libreta, su termometro es el de la CPU sobre esas salidas
+        // (cada registro escrito una vez, en su orden).
+        if let Some(r) = e.termometro {
+            let mut regs_salida: Vec<usize> = escritas.iter().map(|&(el, k)| 4 * el + k).collect();
+            regs_salida.sort_unstable();
+            regs_salida.dedup();
+            let bits: Vec<u32> = regs_salida.iter().map(|&o| m.r[o]).collect();
+            let (g, c) = (m.r[r as usize], crate::libreta::termometro(&bits));
+            if g != c {
+                return Err(format!("el {que}: el termometro de la libreta de la tanda {t} es {g:08x} en la 3060 y {c:08x} en la CPU"));
             }
             n += 1;
         }

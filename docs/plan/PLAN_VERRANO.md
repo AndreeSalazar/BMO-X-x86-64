@@ -807,8 +807,11 @@ el cuello de botella SI es el kernel. VC4 es lo que lo quita.
   con numeros de prueba, al generar el .bsf; 3 EL JUEGO, el VIGIA (A9c,
   `bmo_proton_x_sm86::vivo::revisar`): los vertices y las constantes del
   juego en el primer lote de cada PSO y uno de cada 256; si no cuadra, por
-  la CPU desde ese lote y marcado `.malo` en ESTRATOS. Falta la libreta en
-  la propia GPU (el emisor escribiendo en memoria).
+  la CPU desde ese lote y marcado `.malo` en ESTRATOS. 06-10, la libreta en
+  la propia GPU, la mitad de la app (`bmo_proton_x_sm86::libreta`: el
+  TERMOMETRO al final de cada cuerpo, juzgado contra la CPU; y la puerta
+  que revisa YA lo apuntado). Falta el pegamento del kernel que lo apunta
+  en una pagina suya (Ring 0, con el propietario).
 - [ ] **VC2 -- PROTON-X habla VERRANO** (`platform/shared/proton-x-casa/src/tuberia.rs`):
   Draw y Dispatch se vuelven fotogramas de VERRANO en vez de llamar a la
   trama a mano; la trama queda como el backend CPU (el juez). **Como se

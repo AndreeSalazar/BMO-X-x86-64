@@ -74,6 +74,8 @@ pub mod puerta;
 
 // A9 (06-10): el .bsf vivo: generar, comprobar bit a bit y recordar.
 pub mod vivo;
+/// 9d (06-10): la libreta de la 3060 (su termometro, aislado aqui).
+pub mod libreta;
 /// P3b4c.8 T0: el muestreador y la textura de la casa en el TSC y el TIC de
 /// la 3060 (29-09).
 pub mod muestreo;
@@ -158,6 +160,9 @@ pub struct Emitido {
     pub ciclos: u32,
     /// Lo que va cargado antes (vacio con [`Abi::Banco`]).
     pub precargas: Vec<Precarga>,
+    /// 9d (06-10): el registro del TERMOMETRO de la libreta
+    /// ([`libreta`]), si se emitio con ella.
+    pub termometro: Option<u8>,
 }
 
 /// Donde vive un valor del Programa.
@@ -440,6 +445,13 @@ pub fn emitir(p: &Programa, registros: u32) -> Result<Emitido, NoEmite> {
 
 /// **Emitir** con el [`Abi`] que se pida.
 pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoEmite> {
+    emitir_libreta(p, registros, abi, false)
+}
+
+/// **Emitir con la LIBRETA** (9d, 06-10) si `libreta`: al final del cuerpo,
+/// el termometro de sus salidas en el registro de detras de ellas
+/// ([`libreta`]).
+pub fn emitir_libreta(p: &Programa, registros: u32, abi: Abi, libreta: bool) -> Result<Emitido, NoEmite> {
     let n = p.iniciales.len();
     let reservados = 4 * p.salidas;
     if reservados as u32 > registros || registros > 255 {
@@ -868,16 +880,33 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             }
         }
     }
+    // 9d: el termometro, detras de las salidas (todo el cuerpo ya corrio:
+    // ese registro esta libre), de cada componente escrito en su orden.
+    let termometro = if libreta {
+        let t = libreta::registro(p.salidas);
+        if t as u32 >= registros {
+            return Err(NoEmite::Registros);
+        }
+        let escritas: Vec<u8> = (0..reservados).filter(|&o| veces[o] > 0).map(|o| o as u8).collect();
+        for (w, m) in libreta::instrucciones(&escritas, t) {
+            e.poner_meta(w, m);
+        }
+        e.maximo = e.maximo.max(t as u32 + 1);
+        Some(t)
+    } else {
+        None
+    };
     // El EXIT LEE las salidas (R0..): lo que las escribe tiene que haber
-    // llegado (metal 28-09: el color de pixel salia a medio escribir).
+    // llegado (metal 28-09: el color de pixel salia a medio escribir). Y el
+    // termometro, que lee el pegamento.
     e.poner(c::exit(0), Clase::Nada, None, [None; 3]);
     if let Some(m) = e.metas.last_mut() {
-        m.lee_salidas = reservados as u8;
+        m.lee_salidas = termometro.map_or(reservados as u8, |t| t + 1);
     }
     // El control, por regla.
     let (controles, ciclos) = planifica::planificar(&e.metas);
     let codigo = e.codigo.iter().zip(&controles).map(|(&(lo, hi), &k)| (lo, (hi & ((1 << 41) - 1)) | k << 41)).collect();
-    Ok(Emitido { codigo, registros: e.maximo, mufus: e.mufus, ciclos, precargas: e.precargas })
+    Ok(Emitido { codigo, registros: e.maximo, mufus: e.mufus, ciclos, precargas: e.precargas, termometro })
 }
 
 #[cfg(test)]
@@ -886,3 +915,5 @@ mod pruebas;
 mod pruebas_saltos;
 #[cfg(test)]
 mod pruebas_vivo;
+#[cfg(test)]
+mod pruebas_libreta;

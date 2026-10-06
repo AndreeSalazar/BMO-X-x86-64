@@ -1428,7 +1428,19 @@ y lo dice.
                bits con numeros de prueba, bits con el juego)
      9d  D4.6  la LIBRETA en la propia GPU: que la 3060 apunte lo raro
                mientras dibuja (el emisor tiene que saber escribir en
-               memoria desde un sombreador)
+               memoria desde un sombreador). 06-10, LA MITAD DE LA APP,
+               aislada en el crate de la 3060 (pedido del propietario: "OJO
+               aislar eso", por una AMD futura): `proton-x-sm86::libreta`
+               -- el cuerpo deja al final un TERMOMETRO (la suma de los
+               |valores| de sus salidas, por 0: NaN si una salio NaN o
+               infinita) que el simulador y la CPU cuentan IGUAL; viaja en
+               el .bsf; y `Puerta::leer_libreta` hace que el vigia revise
+               YA el siguiente lote de un PSO apuntado (6 pruebas, una que
+               dice NO). FALTA, y es RING 0 (con permiso del propietario):
+               el pegamento del kernel que pasa el termometro a una pagina
+               de libreta SUYA (`FSETP.NAN` y `@P STG`, con el numero del PSO
+               en la receta) y se la da a la app entre fotogramas. Hasta
+               entonces la puerta emite sin libreta
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.
