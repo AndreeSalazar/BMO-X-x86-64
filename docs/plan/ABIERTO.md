@@ -8,7 +8,7 @@
 
 ```text
    656 casillas ABIERTAS en 63 planes
-   546 hechas
+   548 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -145,7 +145,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
 
-## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 14 abiertas, 3 hechas
+## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 14 abiertas, 5 hechas
 
 *PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
 

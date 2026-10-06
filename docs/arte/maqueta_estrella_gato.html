@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estrella gato</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
+<style>
+/* LA ESTRELLA GATO, en seis estilos (docs/plan/PLAN_EL_HUD.md, HD1).
+
+   El propietario, 06-10: *"puedes cambiar otros estilo de eso solo el gato?
+   SOLO el gato asi pero no tan literal SVG, pero TODOS tienen vida [...] con
+   cada uno elementos [...] tomando en referencias uno mejor cool"*.
+
+   No es el logo pegado: es el gato REINTERPRETADO -- la misma cabeza con
+   orejas y los ojos de neon en raya del logo, dibujada de seis maneras,
+   cada una viva y cada una con sus piezas. Cada tarjeta dice de donde sale
+   la idea y COMO la pintaria BMO-X: en la CPU con piezas de MAQUETA, o en
+   la 3060 con un sombreador (VERRANO).
+
+   La letra de la maqueta es IBM Plex porque el navegador no tiene la de la
+   casa; en BMO-X es bmo-letra (HD2, decidido el 06-10). */
+:root {
+  color-scheme: dark;
+  --fondo: #04030A; --panel: #09080F; --linea: #2B2250; --rejilla: #161236;
+  --cian: #5EF2E6; --magenta: #FF2E88; --azul: #3DA5FF; --violeta: #8C52FF;
+  --t: #F2F7F9; --tenue: #9A96B8; --oro: #FFD45E;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --f-cond: "IBM Plex Sans Condensed", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--fondo); color: var(--t); }
+body { font-family: var(--f-mono); font-size: 13px; padding: 16px 16px 40px; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--cian); outline-offset: 2px; }
+.pagina { max-width: 1280px; margin: 0 auto; }
+.cabecera { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-bottom: 14px; }
+.cabecera h1 { margin: 0; font-family: var(--f-cond); font-weight: 600; font-size: 22px; letter-spacing: .18em; color: var(--cian); }
+.cabecera p { margin: 0; color: var(--tenue); font-family: var(--f-cond); font-size: 14px; max-width: 820px; }
+
+.galeria { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 980px) { .galeria { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .galeria { grid-template-columns: 1fr; } }
+.estilo { border: 1px solid var(--linea); background: var(--panel); display: flex; flex-direction: column; text-align: left; }
+.estilo[aria-pressed="true"] { border-color: var(--cian); box-shadow: 0 0 0 1px var(--cian) inset, 0 0 24px #5EF2E633; }
+.estilo .lienzo { aspect-ratio: 1 / 1; background: radial-gradient(circle at 50% 50%, #0B0920, var(--fondo) 70%); border-bottom: 1px solid var(--linea); }
+.estilo svg { width: 100%; height: 100%; display: block; }
+.estilo .pie { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; }
+.estilo .num { font-size: 10px; letter-spacing: .16em; color: var(--tenue); }
+.estilo h2 { margin: 0; font-family: var(--f-cond); font-size: 18px; letter-spacing: .12em; color: var(--t); font-weight: 600; }
+.estilo .ref { font-family: var(--f-cond); font-size: 13px; color: var(--magenta); }
+.estilo .como { font-family: var(--f-cond); font-size: 13px; color: var(--tenue); line-height: 1.4; }
+.estilo .chip { align-self: flex-start; font-size: 9.5px; letter-spacing: .12em; padding: 2px 7px; border: 1px solid; margin-top: 4px; }
+.chip.cpu { color: var(--cian); border-color: var(--cian); }
+.chip.gpu { color: var(--oro); border-color: var(--oro); }
+
+/* -- el escritorio: la elegida, en grande, con el HUD alrededor ------------ */
+.escena { margin-top: 16px; border: 1px solid var(--linea); background: var(--fondo); position: relative; aspect-ratio: 16 / 9; overflow: hidden; }
+.escena svg { width: 100%; height: 100%; display: block; }
+.escena .rotulo { position: absolute; left: 14px; top: 10px; font-size: 11px; letter-spacing: .14em; color: var(--cian); }
+.escena .rotulo b { color: var(--t); font-weight: 500; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header class="cabecera">
+    <h1>ESTRELLA GATO</h1>
+    <p>Seis maneras de que tu gato sea la estrella del escritorio -- ninguna es el logo pegado, todas estan vivas.
+       Pulsa una para verla en grande, en el escritorio, con el HUD alrededor.</p>
+  </header>
+
+  <div class="galeria" id="galeria"></div>
+
+  <div class="escena" id="escena">
+    <div class="rotulo" id="rotulo"></div>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  var quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function el(tag, at, padre, texto) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in at) { e.setAttribute(k, at[k]); }
+    if (texto != null) { e.textContent = texto; }
+    if (padre) { padre.appendChild(e); }
+    return e;
+  }
+
+  // ** LA FORMA: una cabeza de gato con sus orejas, centrada en 0,0 y de
+  // radio ~110. No es el logo trazo a trazo: es lo que se RECONOCE de el --
+  // las orejas, la cara, y los ojos de neon en raya.
+  var CABEZA = 'M -104 18 C -104 -42 -76 -80 -50 -90 L -78 -158 L -16 -104 C -6 -106 6 -106 16 -104 ' +
+    'L 78 -158 L 50 -90 C 76 -80 104 -42 104 18 C 104 82 58 118 0 118 C -58 118 -104 82 -104 18 Z';
+  var OJOS = [[-40, 4], [40, 4]];
+  function ojos(g, color, alto) {
+    var o = el('g', { 'class': 'ojos' }, g);
+    OJOS.forEach(function (p) {
+      el('rect', { x: p[0] - 18, y: p[1] - (alto || 4), width: 36, height: (alto || 4) * 2, rx: 3, fill: color }, o);
+      el('rect', { x: p[0] - 26, y: p[1] - 14, width: 52, height: 28, rx: 10, fill: color, opacity: .16 }, o);
+    });
+    return o;
+  }
+  // Puntos sobre el contorno de la cabeza (para la constelacion, las orbitas...).
+  var medidor = el('path', { d: CABEZA });
+  var probador = el('svg', { width: 0, height: 0, style: 'position:absolute' }, document.body);
+  probador.appendChild(medidor);
+  var LARGO = medidor.getTotalLength();
+  function sobre(f) { var q = medidor.getPointAtLength((f % 1) * LARGO); return [q.x, q.y]; }
+  function dentro(x, y) { var pt = probador.createSVGPoint(); pt.x = x; pt.y = y; return medidor.isPointInFill(pt); }
+  function semilla(s) { return function () { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; }
+
+  // == LOS SEIS ESTILOS: cada uno pinta en `g` (centrado en 0,0, escala 1)
+  // y devuelve su animacion `t -> ()`. ===================================
+  var ESTILOS = [
+    { n: 'ECLIPSE', ref: 'el agujero negro de Interstellar y los eclipses de la NASA',
+      como: 'El gato NEGRO tapa a su estrella: la corona asoma por las orejas y un anillo de luz se curva por delante y por detras. Los ojos, lo unico encendido.',
+      donde: 'cpu', hecho: 'CPU: degradados radiales, el anillo y la corona son piezas de bmo-pinta; la corona respira con @secuencia',
+      pinta: function (g, id) {
+        var d = el('defs', {}, g);
+        var c = el('radialGradient', { id: id + 'c', cx: '50%', cy: '50%', r: '50%' }, d);
+        [['55%', '#FFFFFF', 0], ['62%', '#FFE7B0', .95], ['70%', '#FF2E88', .55], ['85%', '#8C52FF', .18], ['100%', '#3DA5FF', 0]].forEach(function (s) { el('stop', { offset: s[0], 'stop-color': s[1], 'stop-opacity': s[2] }, c); });
+        var corona = el('circle', { cx: 0, cy: -10, r: 230, fill: 'url(#' + id + 'c)' }, g);
+        var atras = el('ellipse', { cx: 0, cy: 0, rx: 190, ry: 34, fill: 'none', stroke: '#FFE7B0', 'stroke-width': 5, 'stroke-opacity': .8 }, g);
+        el('path', { d: CABEZA, fill: '#000', stroke: '#FFE7B0', 'stroke-width': 1.5, 'stroke-opacity': .9 }, g);
+        var frente = el('path', { d: 'M -190 0 A 190 34 0 0 0 190 0', fill: 'none', stroke: '#FFF3D6', 'stroke-width': 6 }, g);
+        var o = ojos(g, '#5EF2E6');
+        return function (t) {
+          var k = 1 + 0.04 * Math.sin(t / 900);
+          corona.setAttribute('r', 230 * k);
+          atras.setAttribute('stroke-opacity', .55 + .3 * Math.sin(t / 700));
+          frente.setAttribute('stroke-width', 5 + 2 * Math.sin(t / 700));
+          o.setAttribute('opacity', (t % 6000) > 5850 ? .1 : 1);
+        };
+      } },
+    { n: 'CONSTELACION', ref: 'los mapas del cielo antiguos (Hevelius) y las cartas estelares',
+      como: 'El gato es una constelacion: estrellas sobre su contorno que titilan, unidas por lineas que se dibujan solas. Los ojos, dos estrellas dobles.',
+      donde: 'cpu', hecho: 'CPU: puntos y lineas de bmo-dibujo sobre el camino aplanado al compilar; cada estrella titila con su @secuencia',
+      pinta: function (g) {
+        for (var r = 60; r <= 240; r += 60) { el('circle', { cx: 0, cy: 0, r: r, fill: 'none', stroke: '#2B2250', 'stroke-dasharray': '2 6' }, g); }
+        for (var a = 0; a < 12; a++) { el('line', { x1: 0, y1: 0, x2: 240 * Math.cos(a * Math.PI / 6), y2: 240 * Math.sin(a * Math.PI / 6), stroke: '#161236' }, g); }
+        var N = 22, pts = [];
+        for (var i = 0; i < N; i++) { pts.push(sobre(i / N)); }
+        var linea = el('polyline', { points: pts.concat([pts[0]]).map(function (p) { return p.join(','); }).join(' '), fill: 'none', stroke: '#3DA5FF', 'stroke-width': 1, 'stroke-opacity': .7 }, g);
+        var largo = 0; for (var k = 0; k < N; k++) { var p1 = pts[k], p2 = pts[(k + 1) % N]; largo += Math.hypot(p2[0] - p1[0], p2[1] - p1[1]); }
+        linea.setAttribute('stroke-dasharray', largo);
+        var estrellas = pts.map(function (p, i) { return el('circle', { cx: p[0], cy: p[1], r: i % 4 === 0 ? 4 : 2.4, fill: '#F2F7F9' }, g); });
+        OJOS.forEach(function (o) {
+          el('circle', { cx: o[0] - 6, cy: o[1], r: 5, fill: '#5EF2E6' }, g);
+          el('circle', { cx: o[0] + 7, cy: o[1], r: 3, fill: '#5EF2E6' }, g);
+          el('circle', { cx: o[0], cy: o[1], r: 16, fill: '#5EF2E6', opacity: .15 }, g);
+        });
+        el('text', { x: 0, y: 170, 'text-anchor': 'middle', fill: '#9A96B8', 'font-size': 12, 'letter-spacing': 3 }, g, 'FELIS  NEONIS');
+        return function (t) {
+          linea.setAttribute('stroke-dashoffset', largo * (1 - Math.min(1, (t % 9000) / 4000)));
+          estrellas.forEach(function (s, i) { s.setAttribute('opacity', .45 + .55 * Math.abs(Math.sin(t / 500 + i * 1.7))); });
+        };
+      } },
+    { n: 'NEBULOSA', ref: 'los Pilares de la Creacion del Hubble y el Webb',
+      como: 'El gato hecho de gas: cientos de particulas cian, magenta y azules que se arremolinan dentro de su forma y nunca se quedan quietas. Los ojos brillan a traves de la nube.',
+      donde: 'gpu', hecho: '3060: un sombreador de particulas (VERRANO); en la CPU, con 600 puntos, costaria un nucleo entero',
+      pinta: function (g) {
+        var r = semilla(42), ps = [], colores = ['#5EF2E6', '#FF2E88', '#3DA5FF', '#8C52FF', '#F2F7F9'];
+        while (ps.length < 620) {
+          var x = (r() - .5) * 230, y = -160 + r() * 280;
+          if (dentro(x, y)) {
+            var c = el('circle', { cx: x, cy: y, r: .8 + r() * 2.2, fill: colores[Math.floor(r() * colores.length)], opacity: .25 + r() * .6 }, g);
+            ps.push([c, x, y, r() * 6.28, 2 + r() * 7]);
+          }
+        }
+        ojos(g, '#F2F7F9', 3);
+        return function (t) {
+          ps.forEach(function (p) {
+            var a = p[3] + t / (1600 + p[4] * 120);
+            p[0].setAttribute('cx', p[1] + Math.cos(a) * p[4]);
+            p[0].setAttribute('cy', p[2] + Math.sin(a * 1.3) * p[4]);
+          });
+        };
+      } },
+    { n: 'HOLOGRAMA', ref: 'el holograma de Leia y los planos de nave de la ciencia ficcion',
+      como: 'El gato proyectado: lineas horizontales de luz que llenan su forma, una barra que lo escanea de arriba abajo, el parpadeo del proyector y el aro de donde sale.',
+      donde: 'cpu', hecho: 'CPU: rayas recortadas a la forma y un @estado de glitch; el escaneo es una pieza que baja con @secuencia',
+      pinta: function (g, id) {
+        var d = el('defs', {}, g);
+        var cp = el('clipPath', { id: id + 'h' }, d); el('path', { d: CABEZA }, cp);
+        el('ellipse', { cx: 0, cy: 170, rx: 120, ry: 18, fill: 'none', stroke: '#5EF2E6', 'stroke-width': 2 }, g);
+        el('path', { d: 'M -120 170 L -104 40 M 120 170 L 104 40', stroke: '#5EF2E6', 'stroke-opacity': .25 }, g);
+        var cuerpo = el('g', {}, g);
+        var rayas = el('g', { 'clip-path': 'url(#' + id + 'h)' }, cuerpo);
+        for (var y = -160; y < 120; y += 5) { el('line', { x1: -110, y1: y, x2: 110, y2: y, stroke: '#5EF2E6', 'stroke-opacity': .5, 'stroke-width': 1.4 }, rayas); }
+        var barra = el('rect', { x: -110, y: -160, width: 220, height: 14, fill: '#5EF2E6', opacity: .5 }, rayas);
+        el('path', { d: CABEZA, fill: 'none', stroke: '#5EF2E6', 'stroke-width': 1.5 }, cuerpo);
+        ojos(cuerpo, '#FF2E88');
+        return function (t) {
+          barra.setAttribute('y', -160 + ((t / 12) % 300));
+          var glitch = (t % 3700) > 3550;
+          cuerpo.setAttribute('transform', glitch ? 'translate(' + (Math.sin(t) * 7) + ' 0)' : '');
+          cuerpo.setAttribute('opacity', glitch ? .55 : .92 + .08 * Math.sin(t / 60));
+        };
+      } },
+    { n: 'ORBITAS', ref: 'las orbitas de Kepler y los diagramas de mision de la NASA',
+      como: 'El gato dibujado por ORBITAS: la cara es una orbita, cada oreja otra, y por cada una viaja un satelite. Los ojos son dos planetas con su anillo.',
+      donde: 'cpu', hecho: 'CPU: arcos de SVG (S2) y satelites que recorren el camino aplanado; todo es geometria calculada al compilar',
+      pinta: function (g) {
+        el('path', { d: CABEZA, fill: 'none', stroke: '#2B2250', 'stroke-width': 1 }, g);
+        el('circle', { cx: 0, cy: 18, r: 100, fill: 'none', stroke: '#3DA5FF', 'stroke-width': 1.2, 'stroke-dasharray': '3 5' }, g);
+        var orejas = [el('path', { d: 'M -50 -90 L -78 -158 L -16 -104', fill: 'none', stroke: '#FF2E88', 'stroke-width': 1.2 }, g),
+          el('path', { d: 'M 50 -90 L 78 -158 L 16 -104', fill: 'none', stroke: '#FF2E88', 'stroke-width': 1.2 }, g)];
+        OJOS.forEach(function (o) {
+          el('circle', { cx: o[0], cy: o[1], r: 12, fill: '#5EF2E6' }, g);
+          el('ellipse', { cx: o[0], cy: o[1], rx: 24, ry: 6, fill: 'none', stroke: '#F2F7F9', 'stroke-width': 1.5, transform: 'rotate(-18 ' + o[0] + ' ' + o[1] + ')' }, g);
+        });
+        el('circle', { cx: 0, cy: 50, r: 4, fill: '#FFD45E' }, g);
+        var sats = [el('circle', { r: 5, fill: '#F2F7F9' }, g), el('circle', { r: 4, fill: '#FF2E88' }, g), el('circle', { r: 4, fill: '#FF2E88' }, g), el('circle', { r: 3, fill: '#5EF2E6' }, g)];
+        return function (t) {
+          var a = t / 2200;
+          sats[0].setAttribute('cx', 100 * Math.cos(a)); sats[0].setAttribute('cy', 18 + 100 * Math.sin(a));
+          orejas.forEach(function (o, i) {
+            var L = o.getTotalLength(), q = o.getPointAtLength(((t / 2500 + i * .5) % 1) * L);
+            sats[i + 1].setAttribute('cx', q.x); sats[i + 1].setAttribute('cy', q.y);
+          });
+          var q = sobre(t / 8000); sats[3].setAttribute('cx', q[0]); sats[3].setAttribute('cy', q[1]);
+        };
+      } },
+    { n: 'SOL DE PLASMA', ref: 'las fotos del Sol del SDO (la NASA en ultravioleta)',
+      como: 'El gato es una estrella de verdad: su superficie hierve en granulos que se mueven, y por el borde saltan protuberancias -- arcos de plasma que suben y caen.',
+      donde: 'gpu', hecho: '3060: la superficie es ruido en un sombreador (VERRANO); las protuberancias, arcos de SVG que se mezclan con @secuencia',
+      pinta: function (g, id) {
+        var d = el('defs', {}, g);
+        var gr = el('radialGradient', { id: id + 's', cx: '45%', cy: '40%', r: '65%' }, d);
+        [['0%', '#FFF3D6'], ['35%', '#FFD45E'], ['70%', '#FF2E88'], ['100%', '#5A1030']].forEach(function (s) { el('stop', { offset: s[0], 'stop-color': s[1] }, gr); });
+        var cp = el('clipPath', { id: id + 'p' }, d); el('path', { d: CABEZA }, cp);
+        el('path', { d: CABEZA, fill: '#FF2E88', opacity: .25, transform: 'scale(1.12)' }, g);
+        el('path', { d: CABEZA, fill: 'url(#' + id + 's)' }, g);
+        var r = semilla(7), granos = el('g', { 'clip-path': 'url(#' + id + 'p)' }, g), gs = [];
+        for (var i = 0; i < 70; i++) {
+          var x = (r() - .5) * 220, y = -150 + r() * 270;
+          gs.push([el('circle', { cx: x, cy: y, r: 6 + r() * 12, fill: '#FFF3D6', opacity: .12 }, granos), x, y, r() * 6.28]);
+        }
+        var arcos = [];
+        [[-70, -110, -30, 1], [60, 70, 50, -1], [-95, 40, 40, 1]].forEach(function (a) {
+          arcos.push([el('path', { fill: 'none', stroke: '#FFD45E', 'stroke-width': 3, 'stroke-opacity': .8, 'stroke-linecap': 'round' }, g), a]);
+        });
+        ojos(g, '#5A1030', 4);
+        return function (t) {
+          gs.forEach(function (q) { q[0].setAttribute('cx', q[1] + Math.cos(t / 1400 + q[3]) * 6); q[0].setAttribute('opacity', .08 + .1 * Math.abs(Math.sin(t / 900 + q[3]))); });
+          arcos.forEach(function (a, i) {
+            var h = a[1][2] * (0.6 + 0.4 * Math.sin(t / 1100 + i * 2)), x = a[1][0], y = a[1][1], s = a[1][3];
+            a[0].setAttribute('d', 'M ' + x + ' ' + y + ' q ' + (s * 20) + ' ' + (-h * 1.6) + ' ' + (s * 46) + ' 0');
+          });
+        };
+      } }
+  ];
+
+  // -- la galeria ------------------------------------------------------------
+  var animas = [], elegido = 0;
+  ESTILOS.forEach(function (e, i) {
+    var b = document.createElement('button');
+    b.className = 'estilo';
+    b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+    b.innerHTML = '<div class="lienzo"></div><div class="pie"><span class="num">ESTILO ' + (i + 1) + ' DE ' + ESTILOS.length + '</span><h2>' + e.n +
+      '</h2><span class="ref">de ' + e.ref + '</span><span class="como">' + e.como + '</span><span class="chip ' + e.donde + '">' +
+      (e.donde === 'gpu' ? 'LA 3060' : 'LA CPU, CON MAQUETA') + '</span></div>';
+    var svg = el('svg', { viewBox: '-250 -250 500 500', role: 'img', 'aria-label': 'estrella gato: ' + e.n }, b.querySelector('.lienzo'));
+    var g = el('g', {}, svg);
+    animas.push(e.pinta(g, 'g' + i));
+    b.addEventListener('click', function () { elegir(i); });
+    document.getElementById('galeria').appendChild(b);
+  });
+
+  // -- la escena: la elegida, en el escritorio con el HUD alrededor --------
+  var animaGrande = null;
+  function elegir(i) {
+    elegido = i;
+    document.querySelectorAll('.estilo').forEach(function (b, k) { b.setAttribute('aria-pressed', k === i ? 'true' : 'false'); });
+    var esc = document.getElementById('escena'), vieja = esc.querySelector('svg');
+    if (vieja) { vieja.remove(); }
+    var svg = el('svg', { viewBox: '0 0 1600 900', role: 'img', 'aria-label': 'el escritorio con la estrella gato ' + ESTILOS[i].n }, null);
+    esc.insertBefore(svg, esc.firstChild);
+    var r = semilla(9);
+    for (var s = 0; s < 260; s++) { el('circle', { cx: r() * 1600, cy: r() * 900, r: r() * 1.3 + .3, fill: '#fff', opacity: .15 + r() * .6 }, svg); }
+    el('ellipse', { cx: 800, cy: 450, rx: 640, ry: 190, fill: 'none', stroke: '#2B2250', 'stroke-dasharray': '2 6' }, svg);
+    var g = el('g', { transform: 'translate(800 450) scale(1.35)' }, svg);
+    animaGrande = ESTILOS[i].pinta(g, 'grande' + i);
+    var pl = el('circle', { r: 16, fill: '#E8A766' }, svg);
+    var marcos = [[40, 60, 'VELOCIDAD', '7.412 KM/S'], [1260, 60, 'ALTITUD', '412.6 KM'], [40, 740, 'CAPCOM', 'F2  MIAU :3'], [1260, 740, 'SISTEMAS', 'NOMINALES']];
+    marcos.forEach(function (m) {
+      el('rect', { x: m[0], y: m[1], width: 300, height: 100, fill: '#09080F', 'fill-opacity': .85, stroke: '#2B2250' }, svg);
+      [[0, 0, 1, 1], [300, 0, -1, 1], [0, 100, 1, -1], [300, 100, -1, -1]].forEach(function (c) {
+        el('path', { d: 'M' + (m[0] + c[0] + c[2] * 14) + ' ' + (m[1] + c[1]) + 'H' + (m[0] + c[0]) + 'V' + (m[1] + c[1] + c[3] * 14), fill: 'none', stroke: '#5EF2E6', 'stroke-width': 2 }, svg);
+      });
+      el('text', { x: m[0] + 14, y: m[1] + 26, fill: '#5EF2E6', 'font-size': 12, 'letter-spacing': 3 }, svg, m[2]);
+      el('text', { x: m[0] + 14, y: m[1] + 70, fill: '#F2F7F9', 'font-size': 26 }, svg, m[3]);
+    });
+    animaGrande = (function (a) { return function (t) { a(t); var k = t / 9000; pl.setAttribute('cx', 800 + 640 * Math.cos(k)); pl.setAttribute('cy', 450 + 190 * Math.sin(k)); }; })(animaGrande);
+    document.getElementById('rotulo').innerHTML = 'ESCRITORIO  //  ESTRELLA GATO  //  <b>' + ESTILOS[i].n + '</b>  //  ' + ESTILOS[i].hecho.toUpperCase();
+  }
+
+  var t0 = performance.now();
+  function cuadro(ahora) {
+    var t = quieto ? 2500 : ahora - t0;
+    animas.forEach(function (a) { a(t); });
+    if (animaGrande) { animaGrande(t); }
+    if (!quieto) { requestAnimationFrame(cuadro); }
+  }
+  elegir(0);
+  requestAnimationFrame(cuadro);
+})();
+</script>
+</body>
+</html>

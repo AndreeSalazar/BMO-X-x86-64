@@ -294,11 +294,12 @@ nada.
 
 ### Las decisiones del propietario
 
-**HD1 y HD3, DECIDIDAS el 06-10.** HD1 no fue ninguna de las tres paletas
+**HD1, HD2 y HD3, DECIDIDAS el 06-10.** HD1 no fue ninguna de las tres paletas
 que se ofrecieron: *"me imagine un planeta mi gato del logo pero que es
 dominante, que es estrella, como fondo animado y presentable en escritorio;
 cuando todo se configura normal en inicio y luego en escritorio por
-completo"*. HD3: *"el escritorio primero"*.
+completo"*. HD3: *"el escritorio primero"*. HD2: *"si, la letra de la
+casa"*.
 
 ```text
    HD1  la paleta       GATO: sale del LOGO (docs/arte/bmo-x-gato-hd.svg) --
@@ -314,15 +315,40 @@ completo"*. HD3: *"el escritorio primero"*.
                         estrella se ENCIENDE; con todo en GO, el escritorio
    HD2  la letra        la de la casa (bmo-letra) en su peso de numeros; la
                         maqueta usa IBM Plex solo porque el navegador no tiene la
-                        de la casa (eso es M2 de PLAN_MAQUETA_3). Sin decidir
+                        de la casa (eso es M2 de PLAN_MAQUETA_3)
    HD3  el orden        el ESCRITORIO primero
+   HD4  la estrella     COMO es la estrella. El propietario pidio otros
+                        estilos, "no tan literal", todos vivos y cada uno con
+                        sus elementos: seis en docs/arte/maqueta_estrella_gato.html
+                        ECLIPSE       el gato negro tapa su estrella; corona y
+                                      anillo (Interstellar, los eclipses)
+                        CONSTELACION  estrellas sobre su contorno que titilan
+                                      (los mapas de Hevelius)
+                        NEBULOSA      cientos de particulas dentro de su forma
+                                      (Hubble y Webb) -- la 3060
+                        HOLOGRAMA     lineas de luz, la barra que escanea, el
+                                      parpadeo del proyector (Leia)
+                        ORBITAS       la cara y las orejas son orbitas con su
+                                      satelite (Kepler)
+                        SOL DE PLASMA granulos que hierven y arcos que saltan
+                                      (el SDO de la NASA) -- la 3060
+                        Sin decidir
 ```
+
+Las seis comparten UNA cabeza de gato (un camino) y los ojos del logo: el
+estilo cambia la materia, no al gato. Cuatro se pintan en la CPU con lo que
+MAQUETA 3 ya promete (degradados, arcos, el camino aplanado al compilar, la
+`@secuencia`); NEBULOSA y SOL DE PLASMA son trabajo de la 3060, y por eso,
+si se eligen, HM3 empieza por un paso CPU (la misma estrella, quieta) y la
+version viva espera al compositor de la GPU.
 
 ### Los escalones
 
 - [x] HM0 -- HECHO el 06-10: la maqueta interactiva `docs/arte/maqueta_hud_nasa.html`: trece pantallas, cada una un instrumento distinto, con las piezas comunes, tres paletas y las teclas F1..F12 de verdad; probada en Chromium (las trece se pintan sin un error)
 - [x] HM-dec -- HECHO el 06-10: HD1 (la paleta GATO, la ESTRELLA GATO y el INICIO) y HD3 (el escritorio primero), escritas en esta seccion; HD2 sigue abierta
 - [x] HM0b -- HECHO el 06-10: la maqueta con HD1 dentro (`docs/arte/maqueta_hud_nasa.html`): la paleta GATO por defecto, la estrella gato con el logo de verdad en el escritorio, y la pantalla INICIO que se enciende y pasa sola al escritorio; probada en Chromium
+- [x] HM-dec2 -- HECHO el 06-10: HD2 (la letra de la casa), escrita en esta seccion
+- [x] HM0c -- HECHO el 06-10: los seis estilos de la estrella (HD4) en `docs/arte/maqueta_estrella_gato.html`: cada uno vivo, con su referencia y donde se pinta (CPU o la 3060), en galeria y en grande sobre el escritorio con el HUD; probada en Chromium (los seis se pintan sin un error)
 - [ ] HM1 -- la paleta GATO de mision en `toolchain/tools/maqueta/tema/tema.maqueta`, de los colores del logo
 - [ ] HM2 -- las piezas comunes (marco, regla, lectura, barra) como `.maqueta` de verdad, con sus ficheros dorados en `toolchain/tools/maqueta/pruebas/`; piden MAQUETA 3 (pila A y la seccion 2d de `docs/plan/PLAN_MAQUETA_3.md`)
 - [ ] HM3 -- el escritorio de mision: la ESTRELLA GATO en `Ultra_userspace/services/director/src/scene/fondo.rs` (el logo como `<svg src>`, S6 de `docs/plan/PLAN_MAQUETA_3.md`), el planeta que la orbita, la reticula y las cuatro esquinas
