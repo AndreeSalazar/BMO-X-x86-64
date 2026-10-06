@@ -72,7 +72,9 @@ impl Tag {
         matches!(self, Tag::Maqueta | Tag::Div)
     }
 
-    /// Only `<svg>` takes `<path>`s, and a `<path>` goes nowhere else.
+    /// Only `<svg>` takes `<path>`s, and a `<path>` goes nowhere else. Since
+    /// MAQUETA 3 what is inside an `<svg>` is read by the SVG reader, so a
+    /// `<path>` the father sees is always one OUTSIDE a drawing.
     pub fn takes_paths(self) -> bool {
         matches!(self, Tag::Svg)
     }
@@ -357,7 +359,8 @@ impl Prop {
             | Prop::BorderLeftColor => Shape::ColorOrClear,
             Prop::Stroke | Prop::Fill => Shape::ColorOrNone,
             Prop::StrokeWidth => Shape::Fine,
-            Prop::StrokeLinecap | Prop::StrokeLinejoin => Shape::Words(&[Keyword::Round]),
+            Prop::StrokeLinecap => Shape::Words(&[Keyword::Round, Keyword::Butt, Keyword::Square]),
+            Prop::StrokeLinejoin => Shape::Words(&[Keyword::Round, Keyword::Miter, Keyword::Bevel]),
             Prop::Padding | Prop::BorderWidth => Shape::OneToFourPx,
             Prop::Transition => Shape::Transition,
             Prop::Color => Shape::Color,
@@ -461,6 +464,11 @@ pub enum Keyword {
     /// `text-align: left | right` (MAQUETA 3).
     Left,
     Right,
+    /// La pluma de un dibujo (MAQUETA 3, 2e): puntas y esquinas.
+    Butt,
+    Square,
+    Miter,
+    Bevel,
 }
 
 impl Keyword {
@@ -486,6 +494,10 @@ impl Keyword {
             b"round" => Keyword::Round,
             b"left" => Keyword::Left,
             b"right" => Keyword::Right,
+            b"butt" => Keyword::Butt,
+            b"square" => Keyword::Square,
+            b"miter" => Keyword::Miter,
+            b"bevel" => Keyword::Bevel,
             _ => return None,
         })
     }
@@ -513,6 +525,10 @@ impl Keyword {
             Keyword::Round => "round",
             Keyword::Left => "left",
             Keyword::Right => "right",
+            Keyword::Butt => "butt",
+            Keyword::Square => "square",
+            Keyword::Miter => "miter",
+            Keyword::Bevel => "bevel",
         }
     }
 }

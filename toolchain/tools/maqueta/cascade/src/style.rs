@@ -141,9 +141,10 @@ pub struct Style {
     /// Si el `<svg>` declaro `fill` (aunque sea `none`): sin declararlo, el
     /// navegador rellena de NEGRO, y la regla no puede mentir.
     pub fill_said: bool,
-    /// `stroke-linecap: round` y `stroke-linejoin: round`, dichos.
-    pub round_cap: bool,
-    pub round_join: bool,
+    /// `stroke-linecap` y `stroke-linejoin`, si se dijeron (MAQUETA 3: las
+    /// tres puntas y las tres esquinas de SVG).
+    pub linecap: Option<Keyword>,
+    pub linejoin: Option<Keyword>,
     // -- P3 (04-10): como va esta caja de un estado a otro. `None` = de golpe.
     pub transicion: Option<Transicion>,
     // -- MAQUETA 3, pila A (06-10): resueltas con la medida PROPIA.
@@ -247,8 +248,8 @@ impl Style {
                 self.fill = None;
                 self.fill_said = true;
             }
-            (Prop::StrokeLinecap, Value::Word(Keyword::Round)) => self.round_cap = true,
-            (Prop::StrokeLinejoin, Value::Word(Keyword::Round)) => self.round_join = true,
+            (Prop::StrokeLinecap, Value::Word(k)) => self.linecap = Some(k),
+            (Prop::StrokeLinejoin, Value::Word(k)) => self.linejoin = Some(k),
             (Prop::Transition, Value::Transicion(t)) => self.transicion = Some(t),
             (Prop::TextAlign, Value::Word(k)) => {
                 self.text_align = match k {

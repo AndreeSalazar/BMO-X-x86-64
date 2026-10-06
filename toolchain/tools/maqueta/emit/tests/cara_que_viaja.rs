@@ -226,3 +226,47 @@ fn una_cara_suave_corrompida_no_tumba_al_lector() {
         }
     }
 }
+
+// ------------------------------------------------------------------------
+//  MAQUETA 3 (06-10): los dibujos de SVG viajan con su tinta
+// ------------------------------------------------------------------------
+
+/// `pruebas/dibujos.maqueta`, por `compone` (lee su `<svg src>`).
+fn dibujos() -> Laid {
+    let ruta = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../pruebas/dibujos.maqueta");
+    bmo_maqueta_compone::compilar(&ruta).unwrap_or_else(|f| panic!("{}", f.render()))
+}
+
+#[test]
+fn los_dibujos_viajan_y_pintan_los_mismos_pixeles() {
+    let l = dibujos();
+    let ordenes = orden::lista(&l);
+    assert!(ordenes.iter().any(|o| matches!(o.trazo, orden::Trazo::Figura { .. })), "hay figuras de MAQUETA 3");
+    let (w, h) = lienzo(&l);
+    let bytes = bef::escribir(&ordenes, &orden::golpes(&l), w, h).expect("los dibujos tienen que caber");
+    let c = cara::leer(&bytes, 1920, 1080).expect("se lee");
+    assert!((0..c.trazos()).any(|i| c.trazo(i).unwrap().clase == cara::CLASE_FIGURA));
+    let directa = bmo_maqueta_emit::foto::foto(&l);
+    let viajada = bmo_maqueta_emit::foto::foto_cara(&bytes).expect("la cara escrita se tiene que leer");
+    let distintos = directa.px.iter().zip(&viajada.px).filter(|(a, b)| a != b).count();
+    assert_eq!(distintos, 0, "los dibujos perdieron {distintos} pixeles al viajar");
+    // El degradado de la rueda: hay cian y magenta mezclados, no un color.
+    let colores: std::collections::HashSet<u32> = directa.px.iter().copied().collect();
+    assert!(colores.len() > 200, "con degradados hay muchos colores: {}", colores.len());
+}
+
+#[test]
+fn unos_dibujos_corrompidos_no_tumban_al_lector() {
+    let l = dibujos();
+    let (w, h) = lienzo(&l);
+    let bytes = bef::escribir(&orden::lista(&l), &orden::golpes(&l), w, h).unwrap();
+    for i in (0..bytes.len()).step_by(3) {
+        for v in [0u8, 0xFF, bytes[i] ^ 0x5A] {
+            let mut b = bytes.clone();
+            b[i] = v;
+            if cara::leer(&b, u16::MAX, u16::MAX).is_ok() && i % 41 == 0 {
+                let _ = bmo_maqueta_emit::foto::foto_cara(&b);
+            }
+        }
+    }
+}

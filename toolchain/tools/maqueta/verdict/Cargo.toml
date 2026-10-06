@@ -12,6 +12,8 @@ license = "Apache-2.0"
 bmo-maqueta-layout = { path = "../layout" }
 bmo-maqueta-cascade = { path = "../cascade" }
 bmo-maqueta-diag = { path = "../diag" }
+# MAQUETA 3: K le pregunta al lector de SVG por el dibujo en su caja.
+bmo-maqueta-dibujo = { path = "../dibujo" }
 
 # Only the tests need this, to build documents to judge. Keeping it out of
 # `[dependencies]` is not tidiness: the production graph is the evidence for

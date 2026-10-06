@@ -156,6 +156,13 @@ la ley que no:
 | S6 | **`<svg src="logo.svg">`: un SVG de internet, tal cual** | se lee el fichero, se aplana y se juzga; lo que no se puede (`text`, `filter`, `mask`, `image`, `foreignObject`, `script`) es error con la LISTA de lo que tiene, en vez de pintarlo a medias |
 | S7 | animar: `<animate>`, `<animateTransform>` y los `@keyframes` de dentro | cada paso es una `@secuencia` de dibujos YA aplanados; si dos pasos no tienen los mismos puntos, se dice al compilar |
 
+**Hecho el 06-10, los siete** (el escalon MS de la seccion 5, y el contrato en
+`docs/componente/LA_MAQUETA_EXIGE.md` 2e). Lo que cambio al hacerlo, dicho:
+el `clipPath` entro (convexo: se recorta exacto al compilar), la pluma que
+no es redonda se pinta como su contorno, la opacidad de un GRUPO de varias
+figuras sigue fuera (pide componer aparte, de la 3060), y S7 no espero a la
+`@secuencia` de las cajas: los pasos de un dibujo son suyos.
+
 ## 3. Las decisiones del propietario -- DECIDIDAS el 06-10: las siete en (a)
 
 El propietario, con la captura de la seccion 6 de la maqueta delante (las
@@ -200,5 +207,5 @@ dia que entra su codigo, no antes.
 - [ ] MA -- la pila A entera en `toolchain/tools/maqueta/node/src/value.rs` (la lista), el nieto en `toolchain/tools/maqueta/layout/src/flow.rs` y su juicio en `toolchain/tools/maqueta/verdict/src/fit.rs`; cada propiedad con su fichero dorado en `toolchain/tools/maqueta/pruebas/`
 - [ ] MB -- la pila B segun M1-M4 y M6: la rejilla en `toolchain/tools/maqueta/layout/src/flow.rs`, las variables de caja en `toolchain/tools/maqueta/node/src/variables.rs`, la premezcla en `toolchain/tools/maqueta/emit/src/paleta.rs`, y la fuente web desde `platform/shared/bmo-letra`
 - [ ] MC -- la pila C segun M5: `@secuencia` junto a `@estado` en `toolchain/tools/maqueta/node/src/style.rs` y el movimiento en `toolchain/tools/maqueta/emit/src/movimiento.rs`
-- [ ] MS -- la seccion 2d, de S1 a S7: las formas y los grupos en `toolchain/tools/maqueta/node/src/markup.rs`, el aplanado (arcos, transformaciones, discontinuos) en `toolchain/tools/maqueta/emit/src/orden.rs`, y `<svg src>` como lee hoy `<imagen src>` en `toolchain/tools/maqueta/compone/src/lib.rs`
+- [x] MS -- HECHO el 06-10: la seccion 2d entera, de S1 a S7, escrita antes en `docs/componente/LA_MAQUETA_EXIGE.md` 2e. El LECTOR DE SVG es su propio crate, `toolchain/tools/maqueta/dibujo` (`bmo-maqueta-dibujo`, abuelo): XML, el CSS de dentro, las formas, el arco, los grupos, `use`/`symbol`, las transformaciones, la cascada, `fill-rule`, la opacidad, los discontinuos, el CONTORNO exacto de una pluma que no es redonda, los degradados (hasta 8 paradas), el `clipPath` convexo, y S7 (`animate`, `animateTransform`, `@keyframes`) en PASOS ya aplanados. `markup.rs` le pasa el texto de dentro de cada `<svg>`; `compone` lee `<svg src>`; K se rehizo encima del lector; `emit` escribe `Pieza::Figura` (y lo de MAQUETA 2 sigue saliendo con sus piezas), la CARA lleva `CLASE_FIGURA`, y el codigo generado trae `ANIMA_MS` y `pintar_anima` con `pintar_en_fijo` debajo. El pintor (`platform/shared/bmo-pinta/src/figura.rs`) lee los puntos por un rasgo y mezcla dos pasos sin monton. Medido: 18.152 de 18.177 SVG de internet se pintan; contra Chromium, `pruebas/dibujos.maqueta` igual 99,58 % y `pruebas/anima.maqueta` entre 99,83 % y 99,93 % en siete instantes; el banco del anfitrion, 4.771 pruebas en verde
 - [ ] MR -- volver a medir con `toolchain/tools/maqueta/cli/src/cobertura.rs` despues de cada pila, y escribir la cifra de verdad en la seccion 0

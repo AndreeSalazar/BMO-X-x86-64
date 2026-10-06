@@ -549,6 +549,7 @@ name = "bmo-maqueta-cascade"
 version = "0.1.0"
 dependencies = [
  "bmo-maqueta-diag",
+ "bmo-maqueta-dibujo",
  "bmo-maqueta-node",
 ]
 
@@ -559,6 +560,7 @@ dependencies = [
  "bmo-imagen",
  "bmo-maqueta-cascade",
  "bmo-maqueta-diag",
+ "bmo-maqueta-dibujo",
  "bmo-maqueta-layout",
  "bmo-maqueta-node",
  "bmo-maqueta-verdict",
@@ -588,6 +590,7 @@ dependencies = [
  "bmo-maqueta-cascade",
  "bmo-maqueta-compone",
  "bmo-maqueta-diag",
+ "bmo-maqueta-dibujo",
  "bmo-maqueta-layout",
  "bmo-maqueta-node",
  "bmo-maqueta-verdict",
@@ -601,6 +604,7 @@ dependencies = [
  "bmo-letra",
  "bmo-maqueta-cascade",
  "bmo-maqueta-diag",
+ "bmo-maqueta-dibujo",
  "bmo-maqueta-node",
 ]
 
@@ -612,8 +616,8 @@ version = "0.1.0"
 name = "bmo-maqueta-node"
 version = "0.1.0"
 dependencies = [
- "bmo-letra",
  "bmo-maqueta-diag",
+ "bmo-maqueta-dibujo",
  "bmo-maqueta-lex",
 ]
 
@@ -623,6 +627,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-maqueta-cascade",
  "bmo-maqueta-diag",
+ "bmo-maqueta-dibujo",
  "bmo-maqueta-layout",
  "bmo-maqueta-node",
 ]

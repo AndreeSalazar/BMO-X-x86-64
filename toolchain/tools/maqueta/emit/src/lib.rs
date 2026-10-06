@@ -35,6 +35,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod anima;
+pub mod literal;
 pub mod orden;
 pub mod recorte;
 /// **La PALETA**: los colores de un `.maqueta` como constantes de Rust.

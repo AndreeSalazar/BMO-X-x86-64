@@ -3,9 +3,10 @@
 // el ESPEJO de COBOL.
 //
 //   node foto.js <maqueta.html> <selector> <salida.png> [--clic <selector>]... [--medidas]
-//   node foto.js <fichero.maqueta> maqueta <salida.png> --maqueta
+//   node foto.js <fichero.maqueta> maqueta <salida.png> --maqueta [--ms N]
 //
 // Con --maqueta las piezas (`<usa src="...">`) se componen con Shadow DOM,
+// y los dibujos de fichero (`<svg src="...">`, MAQUETA 3) se ponen dentro,
 // y `--estado abierta` abre ese bloque `@estado` (si no, se ve el reposo).
 //
 // Con --maqueta el fichero es un `.maqueta` de MAQUETA 2, y el navegador lo
@@ -46,8 +47,35 @@ function abrirEstado(texto, nombre) {
   return texto.slice(0, m.index) + texto.slice(m.index + m[0].length, i - 1) + texto.slice(i);
 }
 
+// ** LOS DIBUJOS DE FICHERO (MAQUETA 3, S6): `<svg class="logo" src="logo.svg"/>`
+// no existe en HTML. El navegador pinta el MISMO fichero que lee el
+// compilador si se pone dentro -- y dentro de una SOMBRA (Shadow DOM): el
+// `<style>` de un SVG es SUYO (como en un `<img>`), y suelto en la pagina
+// pintaria tambien los dibujos de al lado. La clase y el id de la maqueta
+// van en el anfitrion (la `<section>`), y su medida, si la regla no la dice,
+// es la del fichero.
+function dibujos(texto, dir) {
+  return texto.replace(/<svg\b([^>]*?)\bsrc="([^"]+)"([^>]*?)(\/>|>\s*<\/svg>)/g, (todo, antes, src, despues) => {
+    // Sin comentarios: uno que nombre `<svg>` haria buscar la raiz en el.
+    const fichero = fs.readFileSync(path.join(dir, src), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+    const k = fichero.search(/<svg\b/);
+    if (k < 0) return todo;
+    const raiz = fichero.slice(k);
+    const propios = (antes + ' ' + despues).replace(/\/\s*$/, '');
+    const clase = /class="([^"]*)"/.exec(propios);
+    const id = /id="([^"]*)"/.exec(propios);
+    const abre = /^<svg\b[^>]*>/.exec(raiz)[0];
+    const w = /\swidth="([\d.]+)(px)?"/.exec(abre);
+    const h = /\sheight="([\d.]+)(px)?"/.exec(abre);
+    const medida = w && h ? `width:${w[1]}px;height:${h[1]}px;` : '';
+    return '<section' + (clase ? ` class="${clase[1]}"` : '') + (id ? ` id="${id[1]}"` : '') + '><template shadowrootmode="open">' +
+      `<style>:host{display:block;${medida}} :host>svg{display:block;width:100%;height:100%}</style>` + raiz + '</template></section>';
+  });
+}
+
 function componer(texto, dir, hondo) {
   if (hondo > 8) throw new Error('piezas demasiado hondas (o un ciclo)');
+  texto = dibujos(texto, dir);
   const cerrado = texto.replace(/<usa\b([^>]*?)\/>/g, '<usa$1></usa>');
   return cerrado.replace(/<usa\b([^>]*)><\/usa>/g, (todo, attrs) => {
     const src = /src="([^"]+)"/.exec(attrs);
@@ -89,6 +117,25 @@ function componer(texto, dir, hondo) {
   await p.waitForTimeout(900);
   for (let i = 0; i < resto.length; i++) {
     if (resto[i] === '--clic') { await p.click(resto[++i]); await p.waitForTimeout(300); }
+  }
+  // ** `--ms 6500` (MAQUETA 3, S7): las animaciones de los dibujos, PARADAS a
+  // ese instante -- las de SVG (`setCurrentTime`) y las de CSS
+  // (`currentTime`). Es la regla de `maqueta --foto --ms`.
+  const im = resto.indexOf('--ms');
+  if (im >= 0) {
+    await p.evaluate((ms) => {
+      // La pagina y cada sombra (`<usa>`, `<svg src>`): `getAnimations` y
+      // `querySelectorAll` no entran en una sombra solos.
+      const raices = [document];
+      for (let i = 0; i < raices.length; i++) {
+        raices[i].querySelectorAll('*').forEach((e) => { if (e.shadowRoot) raices.push(e.shadowRoot); });
+      }
+      for (const r of raices) {
+        r.querySelectorAll('svg').forEach((s) => { if (s.pauseAnimations && !(s.parentElement && s.parentElement.closest('svg'))) { s.pauseAnimations(); s.setCurrentTime(ms / 1000); } });
+        r.getAnimations().forEach((a) => { a.pause(); a.currentTime = ms; });
+      }
+    }, Number(resto[im + 1]));
+    await p.waitForTimeout(100);
   }
   if (resto.includes('--medidas')) {
     const filas = await p.evaluate((sel) => {

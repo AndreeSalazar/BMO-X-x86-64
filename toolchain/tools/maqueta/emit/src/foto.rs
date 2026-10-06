@@ -84,6 +84,27 @@ pub fn foto(l: &Laid) -> Foto {
     im
 }
 
+/// **La foto a los `ms` de los dibujos que animan** (S7): todo lo que no
+/// anima, y encima cada dibujo en ese instante -- la misma mezcla de pasos
+/// que hace `pintar_anima` en el aparato.
+pub fn foto_anima(l: &Laid, ms: u32) -> Foto {
+    let mut im = Foto::nueva(l.canvas.0, l.canvas.1);
+    let mut letra = bmo_letra::Letra::nueva();
+    for o in crate::orden::lista_sin_anima(&crate::desplaza::podar(l)).iter().filter(|o| o.estado == Estado::Reposo) {
+        un_trazo(&mut im, &mut letra, &o.trazo);
+    }
+    for f in crate::desplaza::cajas(l) {
+        desplazado(&mut im, &mut letra, f, l.canvas, 0);
+    }
+    for a in crate::anima::animados(l) {
+        let (k, mil) = a.tramo(ms);
+        for (ta, tb) in a.trazos[k].iter().zip(&a.trazos[(k + 1).min(a.trazos.len() - 1)]) {
+            ta.con_pieza(|pa| tb.con_pieza(|pb| bmo_pinta::pieza_entre(&mut im, &mut letra, pa, pb, mil, 0, 0)));
+        }
+    }
+    im
+}
+
 /// **Una ventana desplazada `desde` pixeles** (H7): limpia, lo de dentro
 /// corrido y recortado, y la barra.
 pub fn desplazado(im: &mut Foto, letra: &mut bmo_letra::Letra, f: &bmo_maqueta_layout::Frame, lienzo: (u32, u32), desde: u32) {
@@ -125,7 +146,9 @@ pub fn foto_en(pares: &[crate::movimiento::Par], lienzo: (u32, u32), ms: u32) ->
                 im.texto(x, y, texto.as_bytes(), bmo_pinta::entre_color(*ca, *cb, k));
             }
             (Some(a), Some(b)) => {
-                let hecho = a.con_pieza_o_caja(|pa| b.con_pieza_o_caja(|pb| bmo_pinta::pieza(&mut im, &mut letra, &bmo_pinta::entre_piezas(pa, pb, k), 0, 0)));
+                // `pieza_entre`, como `Pantalla::pieza_entre` en el aparato: dos
+                // figuras de SVG (MAQUETA 3) mezclan tambien sus caminos.
+                let hecho = a.con_pieza_o_caja(|pa| b.con_pieza_o_caja(|pb| bmo_pinta::pieza_entre(&mut im, &mut letra, pa, pb, k, 0, 0)));
                 if hecho.flatten().is_none() {
                     un_trazo(&mut im, &mut letra, if llegada { b } else { a });
                 }

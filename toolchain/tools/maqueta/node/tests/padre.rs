@@ -378,3 +378,44 @@ fn nothing_here_panics_however_broken_the_input() {
         let _ = parse(bad.as_bytes());
     }
 }
+
+// ------------------------------------------------------------------------
+//  MAQUETA 3 (06-10): lo de dentro de un `<svg>` es SVG, y lo lee su lector
+// ------------------------------------------------------------------------
+
+#[test]
+fn un_svg_de_verdad_dentro_de_la_maqueta_se_lee() {
+    let d = bmo_maqueta_node::parse(
+        b"<maqueta><style>.i{width:24px;height:24px}</style><svg class=\"i\" viewBox=\"0 0 24 24\">\
+          <defs><linearGradient id=\"g\"><stop offset=\"0\" stop-color=\"#5EF2E6\"/><stop offset=\"1\" stop-color=\"#FF2E88\"/></linearGradient></defs>\
+          <g transform=\"rotate(45 12 12)\"><rect x=\"6\" y=\"6\" width=\"12\" height=\"12\" rx=\"3\" fill=\"url(#g)\"/></g>\
+          <circle cx=\"12\" cy=\"12\" r=\"3\" fill=\"none\" stroke=\"#fff\"/></svg></maqueta>",
+    )
+    .unwrap_or_else(|e| panic!("{e:#?}"));
+    let svg = &d.root.children[0];
+    let dibujo = svg.dibujo.as_ref().expect("el dibujo, leido");
+    assert_eq!(dibujo.vista, Some([0.0, 0.0, 24.0, 24.0]));
+    assert!(svg.children.is_empty(), "lo de dentro no son cajas");
+}
+
+#[test]
+fn un_svg_con_texto_no_compila_y_dice_que_hacer() {
+    let e = bmo_maqueta_node::parse(b"<maqueta><svg viewBox=\"0 0 10 10\"><text>hola</text></svg></maqueta>").unwrap_err();
+    assert!(e.iter().any(|e| e.title.contains("`<text>` no se puede pintar") && e.instead.contains("caminos")), "{e:#?}");
+}
+
+#[test]
+fn un_path_fuera_de_un_svg_no_compila() {
+    let e = bmo_maqueta_node::parse(b"<maqueta><path d=\"M0 0\"/></maqueta>").unwrap_err();
+    assert!(e.iter().any(|e| e.title.contains("`<path>` no puede ir")), "{e:#?}");
+}
+
+#[test]
+fn un_svg_src_vacio_y_un_viewbox_con_decimales() {
+    let d = bmo_maqueta_node::parse(b"<maqueta><svg src=\"arte/logo.svg\"/><svg viewBox=\"-0.5 0 23.5 24.25\"></svg></maqueta>").unwrap_or_else(|e| panic!("{e:#?}"));
+    assert_eq!(d.root.children[0].src.as_deref(), Some("arte/logo.svg"));
+    assert!(d.root.children[0].dibujo.is_none(), "lo lee `compone`, que lee ficheros");
+    assert_eq!(d.root.children[1].dibujo.as_ref().unwrap().vista, Some([-0.5, 0.0, 23.5, 24.25]));
+    let e = bmo_maqueta_node::parse(b"<maqueta><svg src=\"../fuera.svg\"/></maqueta>").unwrap_err();
+    assert!(e[0].title.contains("de esta carpeta o de debajo"), "{e:#?}");
+}

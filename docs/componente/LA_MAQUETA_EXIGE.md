@@ -232,17 +232,19 @@ nada de eso es error -- el navegador le daria 300 x 150 por su cuenta.
 | `stroke-width`, `stroke-linecap` (`butt`, `round`, `square`), `stroke-linejoin` (`miter`, `round`, `bevel`), `stroke-miterlimit` | la pluma redonda de la casa si todo es `round`; si no, el CONTORNO exacto del trazo se calcula al compilar y se rellena |
 | `stroke-dasharray`, `stroke-dashoffset` (S4) | el discontinuo son trozos de camino, cortados al compilar |
 | `linearGradient`, `radialGradient` (S5): hasta OCHO paradas con `stop-color` y `stop-opacity`, `gradientUnits` (los dos), `gradientTransform`, `href` a otro degradado, `spreadMethod="pad"` | el pintor lleva la tinta de degradado por cada pixel |
-| `style="..."` y, en un fichero, `<style>` con selectores `.clase`, `#id`, `etiqueta` y `etiqueta.clase` (con su especificidad, como CSS) | se resuelve al leer |
+| `style="..."` y, en un fichero, `<style>` con selectores `.clase`, `#id`, `etiqueta` y `etiqueta.clase`, y `:first-child`, `:last-child`, `:nth-child(An+B)` (con su especificidad, como CSS) | se resuelve al leer |
+| `clipPath` de UNA figura convexa (un rectangulo, un circulo, un poligono convexo), en los dos `clipPathUnits` | se recorta al compilar, exacto: cada contorno cortado por el convexo guarda sus vueltas |
 | `display:none`, `visibility:hidden` | no se pinta |
 | `preserveAspectRatio` (`none`, `xMinYMin`..`xMaxYMax`, `meet`, `slice`) | como el navegador; por defecto `xMidYMid meet` |
 | `<animate>`, `<animateTransform>`, y en un fichero `@keyframes` con `animation` (S7) | ver abajo |
 | `title`, `desc`, `metadata`, los `xmlns`, `id`, `class`, `data-*`, `aria-*`, `role`, `version`, y los de Inkscape y Sodipodi | no pintan: se leen y se dejan |
 
 **Lo que el lector RECHAZA, con la LISTA de lo que el fichero tiene** (S6): un
-SVG de internet que lleva `text`, `filter`, `mask`, `clipPath`, `pattern`,
-`image`, `foreignObject`, `script`, `marker`, `switch`, un selector que no sea
-de los de arriba, o `opacity` sobre un GRUPO de varias figuras o sobre una
-figura que rellena Y traza, NO se pinta a medias: el error dice cada cosa que
+SVG de internet que lleva `text`, `filter`, `mask`, `pattern`, `image`,
+`foreignObject`, `script`, `marker`, `switch`, un `clipPath` que no sea UNA
+figura convexa, un selector que no sea de los de arriba, o `opacity` sobre un
+GRUPO de varias figuras o sobre una figura que rellena Y traza, NO se pinta a
+medias: el error dice cada cosa que
 falta y en que linea, de una vez. La opacidad de un grupo pide componer el
 grupo aparte y mezclarlo despues, y eso es de la 3060 (VERRANO), no de la
 maqueta -- `fill-opacity` y `stroke-opacity` en cada figura si se pintan
@@ -273,13 +275,31 @@ ocho pasos por tramo). El aparato solo MEZCLA dos pasos vecinos punto a punto
 - como mucho 240 pasos por dibujo;
 - `begin` solo con un tiempo (`0s`, `1.5s`); `calcMode` `linear`, `discrete`
   o `spline`; en `@keyframes`, `animation-timing-function` `linear`, `ease`,
-  `ease-in`, `ease-out`, `ease-in-out` o `cubic-bezier()`, y
-  `animation-direction` `normal` o `alternate`.
+  `ease-in`, `ease-out`, `ease-in-out`, `cubic-bezier()` o `steps(n)` (los
+  saltos: dos pasos pegados, sin mezcla), y `animation-direction` `normal` o
+  `alternate`. Un retraso (`begin`, `animation-delay`) de lo que se repite es
+  la FASE de su vuelta: se pinta el ciclo ya en marcha.
 
 El codigo generado lleva `ANIMA_MS` (el ciclo) y `pintar_anima(p, ox, oy, ms)`
 -- quien lo llama decide el ritmo, y en reposo no corre nada (L6h). La CARA que
 viaja todavia no lleva pasos: una maqueta con un dibujo animado no se escribe
 como CARA, y se dice, igual que con los estados.
+
+**Medido el 06-10** (no a ojo):
+
+```text
+   18.152 de 18.177 SVG de internet se leen y se pintan (99,86 %): Material
+   Design, Simple Icons, Bootstrap, Heroicons, Feather, Twemoji y banderas.
+   Lo que no, con su lista: `text`, `mask`, `marker`, dos ciclos de 40 s y
+   602 s, y un selector de dos pisos (`censo` del lector)
+   349 de ellos contra Chromium, pixel a pixel: igual 92,40 %, parecido
+   99,26 % de los pixeles con tinta; lo que difiere es el suavizado de los
+   bordes (`compara` del lector)
+   `pruebas/dibujos.maqueta` contra Chromium (el espejo): igual 99,58 %,
+   parecido 99,76 %; por la CARA que viaja, los mismos pixeles (prueba)
+   `pruebas/anima.maqueta` en 7 instantes contra Chromium parado en cada
+   uno: igual entre 99,83 % y 99,93 %
+```
 
 **El pintor** (`platform/shared/bmo-pinta`) gana UNA pieza, `Pieza::Figura`:
 sus caminos, pluma redonda o relleno (`nonzero` o `evenodd`), su TINTA (lisa,

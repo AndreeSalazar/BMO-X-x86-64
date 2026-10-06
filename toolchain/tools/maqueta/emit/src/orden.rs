@@ -44,6 +44,30 @@ pub enum Trazo {
     /// Una `<imagen>` (H4): sus pixeles, recortados al radio de su caja.
     /// `dato` = llega al ejecutar (estos pixeles son su muestra).
     Imagen { r: Rect, radio: u32, px: std::sync::Arc<[u32]>, dato: Option<String> },
+    /// **Una figura de SVG** (MAQUETA 3): caminos en 1/64 px; pluma redonda
+    /// de `pluma` (1/64) o relleno (`pluma == 0`) con su regla; su tinta y
+    /// su opacidad. Lo que MAQUETA 2 ya sabia pintar sigue saliendo como
+    /// `Linea` y `Relleno` (ver [`trazos_del_dibujo`]).
+    Figura { caminos: Vec<Vec<(i32, i32)>>, cerrados: Vec<bool>, pluma: i32, tinta: TintaFija, alfa: u8, par_impar: bool },
+}
+
+/// La tinta de una [`Trazo::Figura`], con sus paradas suyas.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum TintaFija {
+    Liso(u32),
+    Lineal { de: (i32, i32), a: (i32, i32), paradas: Vec<bmo_pinta::Parada> },
+    Radial { centro: (i32, i32), eje_x: (i32, i32), eje_y: (i32, i32), paradas: Vec<bmo_pinta::Parada> },
+}
+
+impl TintaFija {
+    pub fn tinta(&self) -> bmo_pinta::Tinta<'_> {
+        use bmo_pinta::Tinta;
+        match self {
+            TintaFija::Liso(c) => Tinta::Liso(*c),
+            TintaFija::Lineal { de, a, paradas } => Tinta::Lineal { de: *de, a: *a, paradas },
+            TintaFija::Radial { centro, eje_x, eje_y, paradas } => Tinta::Radial { centro: *centro, eje_x: *eje_x, eje_y: *eje_y, paradas },
+        }
+    }
 }
 
 impl Trazo {
@@ -114,6 +138,10 @@ impl Trazo {
                 let (x, y, w, h) = caja(r);
                 Some(f(&Pieza::Imagen { x, y, w, h, r: *radio as i32, px }))
             }
+            Trazo::Figura { caminos, cerrados, pluma, tinta, alfa, par_impar } => {
+                let v: Vec<&[(i32, i32)]> = caminos.iter().map(|c| c.as_slice()).collect();
+                Some(f(&Pieza::Figura { caminos: &v, cerrados, pluma: *pluma, tinta: tinta.tinta(), alfa: *alfa, par_impar: *par_impar }))
+            }
         }
     }
 }
@@ -140,18 +168,28 @@ pub struct Orden {
 
 /// La lista entera, en orden de pintado -- que es el orden del fichero.
 pub fn lista(l: &Laid) -> Vec<Orden> {
+    lista_con(l, false)
+}
+
+/// La lista SIN los dibujos que animan (S7): lo que hay debajo de ellos.
+pub fn lista_sin_anima(l: &Laid) -> Vec<Orden> {
+    lista_con(l, true)
+}
+
+fn lista_con(l: &Laid, sin_anima: bool) -> Vec<Orden> {
     let mut out = Vec::new();
     for f in l.all() {
         let de = nombre_de(f);
-        trazos_de(f, Estado::Reposo, &de, &mut out);
-        trazos_de(f, Estado::Encima, &de, &mut out);
+        let fuera = sin_anima && crate::anima::de(f).is_some();
+        trazos_de(f, Estado::Reposo, &de, fuera, &mut out);
+        trazos_de(f, Estado::Encima, &de, fuera, &mut out);
     }
     out
 }
 
 /// Los trazos de una caja en un estado. Devuelve nada si en ese estado no
 /// cambia -- una caja sin `:hover` no aporta ni una orden a `Encima`.
-fn trazos_de(f: &Frame, estado: Estado, de: &str, out: &mut Vec<Orden>) {
+fn trazos_de(f: &Frame, estado: Estado, de: &str, sin_dibujo: bool, out: &mut Vec<Orden>) {
     let s = match estado {
         Estado::Reposo => f.style,
         Estado::Encima => match f.hover {
@@ -165,7 +203,10 @@ fn trazos_de(f: &Frame, estado: Estado, de: &str, out: &mut Vec<Orden>) {
         return;
     }
 
-    for (_, trazo) in trazos_de_estilo(f, &s, es_suave(&s)) {
+    for (ranura, trazo) in trazos_de_estilo(f, &s, es_suave(&s)) {
+        if sin_dibujo && matches!(ranura, Ranura::Relleno(_) | Ranura::Linea(_)) {
+            continue;
+        }
         out.push(Orden { trazo, de: de.to_string(), estado });
     }
 }
@@ -325,53 +366,81 @@ pub fn trazos_de_estilo(f: &Frame, s: &bmo_maqueta_layout::Style, suave: bool) -
             None => push(Trazo::Texto { r, texto: t.clone(), color }),
         }
     }
-    // Un dibujo: sus caminos, con la pluma y el relleno del `<svg>` (como en
-    // SVG: primero el relleno, luego el trazo).
-    if let Some(vb) = f.view_box {
-        for (k, d) in f.children.iter().filter_map(|c| c.d.as_deref()).enumerate() {
-            let (caminos, cerrados) = aplanar(d, vb, f.content);
-            if let Some(color) = s.fill {
-                en!(Ranura::Relleno(k as u16));
-                push(Trazo::Relleno { caminos: caminos.clone(), color });
-            }
-            if let Some(color) = s.stroke {
-                en!(Ranura::Linea(k as u16));
-                let sw = if s.stroke_width == 0 { 64 } else { s.stroke_width } as i64;
-                let grosor64 = (sw * f.content.w as i64 / vb[2].max(1) as i64) as i32;
-                push(Trazo::Linea { caminos, cerrados, grosor64, color });
-            }
+    // ** Un dibujo (MAQUETA 3): lo aplana el lector de SVG en la caja de
+    // contenido, con lo que hereda de ESTA regla (la de reposo o la de
+    // `:hover`). Animado, aqui va su primer paso; los demas los pinta
+    // `pintar_anima` (S7).
+    if let Some(d) = &f.dibujo {
+        let anima = crate::anima::de(f).is_some();
+        for (k, t) in figuras_como_trazos(&figuras_en(d, &s, f.content), anima).into_iter().enumerate() {
+            en!(match t {
+                Trazo::Linea { .. } => Ranura::Linea(k as u16),
+                _ => Ranura::Relleno(k as u16),
+            });
+            push(t);
         }
     }
     drop(push);
     out
 }
 
-/// **Un `<path>` aplanado** a la caja de su `<svg>`: sus curvas en tramos
-/// rectos (con el lector de la casa, el MISMO del aparato), y cada punto del
-/// `viewBox` a 1/64 de pixel. Toda la matematica, aqui, en el anfitrion.
-pub fn aplanar(d: &str, vb: [u32; 4], caja: Rect) -> (Vec<Vec<(i32, i32)>>, Vec<bool>) {
-    let (vx, vy, vw, vh) = (vb[0] as i64 * 64, vb[1] as i64 * 64, vb[2].max(1) as i64, vb[3].max(1) as i64);
-    let mut caminos = Vec::new();
-    let mut cerrados = Vec::new();
-    for sub in bmo_letra::svg::camino(d) {
-        let p = sub
-            .puntos
-            .iter()
-            .map(|&(x, y)| {
-                // En 1/16 de pixel (multiplos de 4): la precision con la que
-                // VIAJA una cara. Asi la cara pintada aqui y la que viaja son
-                // los mismos pixeles, no casi los mismos.
-                let a16 = |v: i64| ((v + 2).div_euclid(4) * 4) as i32;
-                (
-                    a16(caja.x as i64 * 64 + (x as i64 - vx) * caja.w as i64 / vw),
-                    a16(caja.y as i64 * 64 + (y as i64 - vy) * caja.h as i64 / vh),
-                )
-            })
-            .collect();
-        caminos.push(p);
-        cerrados.push(sub.cerrado);
+/// **Las figuras de un dibujo** en una caja, con lo que hereda de `s` (el
+/// primer paso si anima).
+pub fn figuras_en(d: &bmo_maqueta_dibujo::Svg, s: &bmo_maqueta_layout::Style, caja: Rect) -> Vec<bmo_maqueta_dibujo::Figura> {
+    let h = bmo_maqueta_cascade::herencia(s);
+    let c = (caja.x as f64, caja.y as f64, caja.w as f64, caja.h as f64);
+    match bmo_maqueta_dibujo::pasos(d, &h, c) {
+        Some(Ok(p)) => p.figuras.into_iter().next().unwrap_or_default(),
+        _ => bmo_maqueta_dibujo::figuras(d, &h, c).0,
     }
-    (caminos, cerrados)
+}
+
+/// Un pixel con decimales a 1/64, en multiplos de 4 (1/16 de pixel: la
+/// precision con la que VIAJA una cara).
+pub fn a64(v: f64) -> i32 {
+    ((v * 16.0).round() as i32) * 4
+}
+
+/// **Las figuras del lector, como trazos.** Lo que MAQUETA 2 ya pintaba --
+/// una pluma redonda lisa y opaca, un relleno par-impar liso y opaco --
+/// sale con sus piezas de siempre; lo demas, como `Figura`.
+pub fn trazos_del_dibujo(figs: &[bmo_maqueta_dibujo::Figura]) -> Vec<Trazo> {
+    figuras_como_trazos(figs, false)
+}
+
+/// Con `siempre_figura`, todas como `Figura`: los pasos de una animacion se
+/// mezclan punto a punto, y eso solo lo hace la figura.
+pub fn figuras_como_trazos(figs: &[bmo_maqueta_dibujo::Figura], siempre_figura: bool) -> Vec<Trazo> {
+    use bmo_maqueta_dibujo::Tinta as T;
+    figs.iter()
+        .map(|f| {
+            let caminos: Vec<Vec<(i32, i32)>> = f.caminos.iter().map(|c| c.iter().map(|p| (a64(p.0), a64(p.1))).collect()).collect();
+            if let Some(color) = f.de_siempre().filter(|_| !siempre_figura) {
+                return if f.pluma > 0.0 {
+                    Trazo::Linea { caminos, cerrados: f.cerrados.clone(), grosor64: a64(f.pluma).max(4), color }
+                } else {
+                    Trazo::Relleno { caminos, color }
+                };
+            }
+            let paradas = |ps: &[bmo_maqueta_dibujo::Parada]| -> Vec<bmo_pinta::Parada> {
+                ps.iter().map(|p| bmo_pinta::Parada { en: (p.en * 1000.0).round().clamp(0.0, 1000.0) as u16, c: p.c, alfa: (p.alfa * 255.0).round().clamp(0.0, 255.0) as u8 }).collect()
+            };
+            let pt = |p: (f64, f64)| (a64(p.0), a64(p.1));
+            let tinta = match &f.tinta {
+                T::Liso(c) => TintaFija::Liso(*c),
+                T::Lineal { de, a, paradas: ps } => TintaFija::Lineal { de: pt(*de), a: pt(*a), paradas: paradas(ps) },
+                T::Radial { centro, eje_x, eje_y, paradas: ps } => TintaFija::Radial { centro: pt(*centro), eje_x: pt(*eje_x), eje_y: pt(*eje_y), paradas: paradas(ps) },
+            };
+            Trazo::Figura {
+                caminos,
+                cerrados: f.cerrados.clone(),
+                pluma: if f.pluma > 0.0 { a64(f.pluma).max(4) } else { 0 },
+                tinta,
+                alfa: (f.alfa * 255.0).round().clamp(0.0, 255.0) as u8,
+                par_impar: f.par_impar,
+            }
+        })
+        .collect()
 }
 
 /// **Una region que se puede pulsar**, y como se llama.

@@ -27,9 +27,11 @@ bmo-maqueta-cara = { path = "../../../../platform/shared/bmo-maqueta-cara" }
 # caminos de SVG, para aplanarlos aqui.
 bmo-pinta = { path = "../../../../platform/shared/bmo-pinta" }
 bmo-letra = { path = "../../../../platform/shared/bmo-letra" }
+# MAQUETA 3: el dibujo aplanado (y lo que hereda de la regla de su `<svg>`).
+bmo-maqueta-dibujo = { path = "../dibujo" }
+bmo-maqueta-cascade = { path = "../cascade" }
 
 [dev-dependencies]
-bmo-maqueta-cascade = { path = "../cascade" }
 bmo-maqueta-verdict = { path = "../verdict" }
 bmo-maqueta-diag = { path = "../diag" }
 # Las pruebas de la transicion compilan los estados con quien los compone.

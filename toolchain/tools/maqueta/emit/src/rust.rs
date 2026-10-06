@@ -18,6 +18,7 @@
 //! se convierte en un fuente de BMO-X. Se colo un simbolo una vez y lo cazo una
 //! prueba, no una lectura.
 
+use crate::literal::{pieza_literal, PX};
 use bmo_maqueta_layout::{Laid, Rect};
 use std::fmt::Write;
 
@@ -64,6 +65,11 @@ pub fn modulo_con_datos(origen: &str, l: &Laid, colores: &[(String, u32)]) -> St
     listas(&mut s, l);
     pintar(&mut s, &ordenes, &datos, &ventanas);
     pintar_en(&mut s, &ordenes, &datos);
+    // ** Los dibujos que animan (MAQUETA 3, S7).
+    if crate::anima::hay(&podada) {
+        pintar_en_como(&mut s, &crate::orden::lista_sin_anima(&crate::desplaza::podar(&podada)), &datos, "pintar_en_fijo");
+        crate::anima::emitir(&mut s, &podada);
+    }
     realce(&mut s, &ordenes, &datos);
     realce_animado(&mut s, &podada, &datos);
     desplazamientos(&mut s, &podada, &datos);
@@ -362,47 +368,6 @@ fn cabecera(s: &mut String, origen: &str, l: &Laid) {
 //  Un trazo, escrito
 // ------------------------------------------------------------------------
 
-/// **Una pieza suave escrita en Rust**, para `bmo::Pieza` (la `Pieza` de
-/// `bmo-pinta`, que `bmo-userland` reexporta).
-fn pieza_literal(p: &bmo_pinta::Pieza) -> String {
-    use bmo_pinta::Pieza;
-    let caminos = |c: &[&[(i32, i32)]]| -> String {
-        let v: Vec<String> = c
-            .iter()
-            .map(|s| format!("&[{}]", s.iter().map(|(x, y)| format!("({x}, {y})")).collect::<Vec<_>>().join(", ")))
-            .collect();
-        format!("&[{}]", v.join(", "))
-    };
-    match *p {
-        Pieza::Caja { x, y, w, h, r, c } => format!("bmo::Pieza::Caja {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, c: 0x{c:08X} }}"),
-        Pieza::Borde { x, y, w, h, r, grosor, c } => {
-            format!("bmo::Pieza::Borde {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, grosor: {grosor}, c: 0x{c:08X} }}")
-        }
-        Pieza::Resplandor { x, y, w, h, r, alcance, argb } => {
-            format!("bmo::Pieza::Resplandor {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, alcance: {alcance}, argb: 0x{argb:08X} }}")
-        }
-        Pieza::Degradado { x, y, w, h, r, de, a, vertical } => format!(
-            "bmo::Pieza::Degradado {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, de: 0x{de:08X}, a: 0x{a:08X}, vertical: {vertical} }}"
-        ),
-        Pieza::Letra { x, y, alto, texto, c, px, peso, espacio, mayusculas } => format!(
-            "bmo::Pieza::Letra {{ x: {x}, y: {y}, alto: {alto}, texto: b{:?}, c: 0x{c:08X}, px: {px}, peso: {peso}, espacio: {espacio}, mayusculas: {mayusculas} }}",
-            String::from_utf8_lossy(texto)
-        ),
-        Pieza::Trazo { caminos: cs, cerrados, grosor64, c } => format!(
-            "bmo::Pieza::Trazo {{ caminos: {}, cerrados: &{:?}, grosor64: {grosor64}, c: 0x{c:08X} }}",
-            caminos(cs),
-            cerrados
-        ),
-        Pieza::Relleno { caminos: cs, c } => format!("bmo::Pieza::Relleno {{ caminos: {}, c: 0x{c:08X} }}", caminos(cs)),
-        // Los pixeles los pone quien sabe de donde salen (`llamada_con`): un
-        // `static IMAGEN_n` o un dato.
-        Pieza::Imagen { x, y, w, h, r, .. } => format!("bmo::Pieza::Imagen {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, px: {PX} }}"),
-    }
-}
-
-/// Donde van los pixeles de una imagen en su literal.
-const PX: &str = "__PIXELES__";
-
 /// La llamada que pinta este trazo, con su dato si lleva (H1).
 fn llamada_con(t: &Trazo, d: &Datos, limite: &str) -> String {
     if let (Trazo::Imagen { px, dato, .. }, Some(l)) = (t, t.con_pieza(pieza_literal)) {
@@ -479,6 +444,16 @@ fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos, ventanas: &[String]) {
 
 /// ** El pintado RECORTADO, que es lo que hace barato reparar un danio.
 fn pintar_en(s: &mut String, ordenes: &[Orden], d: &Datos) {
+    pintar_en_como(s, ordenes, d, "pintar_en");
+}
+
+/// `pintar_en` con otro nombre y otras ordenes: `pintar_en_fijo` (S7) es
+/// lo mismo SIN los dibujos que animan -- lo que hay debajo de ellos.
+fn pintar_en_como(s: &mut String, ordenes: &[Orden], d: &Datos, nombre: &str) {
+    if nombre != "pintar_en" {
+        let _ = writeln!(s, "/// Lo mismo que `pintar_en`, sin los dibujos que animan (S7): lo que hay
+/// DEBAJO de ellos, para repintarlo antes de cada paso.");
+    }
     s.push_str(
         "/// Repinta SOLO lo que cae dentro de `(cx, cy, cw, ch)`, en coordenadas\n\
          /// de pantalla. Para devolver el fondo de un area sin repintarlo todo.\n\
@@ -494,8 +469,9 @@ fn pintar_en(s: &mut String, ordenes: &[Orden], d: &Datos) {
          ///\n\
          /// Los rectangulos se RECORTAN; el texto entra entero o no entra, porque\n\
          /// medio glifo no se puede pintar.\n\
-         pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32, ch: u32",
+         pub fn ",
     );
+    let _ = write!(s, "{nombre}(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32, ch: u32");
     let _ = writeln!(s, "{}) {{\n    let limite = Recorte::nuevo(cx as i32, cy as i32, cw as i32, ch as i32);", d.param());
     if d.hay() {
         s.push_str("    let _ = d;\n");

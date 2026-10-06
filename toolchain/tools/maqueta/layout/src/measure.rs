@@ -148,9 +148,14 @@ fn intrinsic(b: &Styled) -> Size {
         let (w, h) = texto(&b.style, t);
         return Size { w, h };
     }
-    // A drawing is as big as it says: its paths do not push.
+    // A drawing is as big as it says: its figures do not push. A FILE says
+    // its own size (`width`/`height` of its root), and that is what the
+    // browser gives it too when the rule says nothing (MAQUETA 3).
     if b.tag == Tag::Svg {
-        return Size { w: 0, h: 0 };
+        return match b.dibujo.as_ref().and_then(|d| d.medida) {
+            Some((w, h)) => Size { w: w.round() as u32, h: h.round() as u32 },
+            None => Size { w: 0, h: 0 },
+        };
     }
 
     // Absolutely positioned children are out of the flow, so they contribute

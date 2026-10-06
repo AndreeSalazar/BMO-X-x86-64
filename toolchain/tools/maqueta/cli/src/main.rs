@@ -57,6 +57,15 @@ fn main() -> ExitCode {
         }
         args.remove(k);
     }
+    // ** S7 (MAQUETA 3): `--foto --ms 750` pinta los dibujos que animan a
+    // los 750 ms -- la misma mezcla de pasos que `pintar_anima`.
+    let mut ms: Option<u32> = None;
+    if let Some(k) = args.iter().position(|a| a == "--ms") {
+        if k + 1 < args.len() {
+            ms = args.remove(k + 1).parse().ok();
+        }
+        args.remove(k);
+    }
     let solo_paleta = args.first().map(|a| a == "--paleta").unwrap_or(false);
     if solo_paleta {
         args.remove(0);
@@ -75,7 +84,7 @@ fn main() -> ExitCode {
     }
     let mut args = args.into_iter();
     let (Some(entrada), Some(salida)) = (args.next(), args.next()) else {
-        eprintln!("uso: maqueta [--paleta | --foto | --foto-cara] <entrada.maqueta> <salida.rs | salida.png>\n     maqueta --cobertura <maqueta.html>...");
+        eprintln!("uso: maqueta [--paleta | --foto [--ms N] | --foto-cara] <entrada.maqueta> <salida.rs | salida.png>\n     maqueta --cobertura <maqueta.html>...");
         return ExitCode::from(2);
     };
 
@@ -148,7 +157,14 @@ fn main() -> ExitCode {
     };
 
     if let Some(por_la_cara) = foto {
-        let im = if por_la_cara {
+        let anima = bmo_maqueta_emit::anima::hay(&puesto);
+        if por_la_cara && anima {
+            eprintln!("maqueta: {entrada} tiene dibujos que animan, y una CARA que viaja todavia no lleva sus pasos (S7): se escribe sin ellos o no se escribe, y sin ellos mentiria.");
+            return ExitCode::FAILURE;
+        }
+        let im = if let (Some(ms), false) = (ms, por_la_cara) {
+            bmo_maqueta_emit::foto::foto_anima(&puesto, ms)
+        } else if por_la_cara {
             let ordenes = bmo_maqueta_emit::orden::lista(&puesto);
             let golpes = bmo_maqueta_emit::orden::golpes(&puesto);
             let bytes = match bmo_maqueta_emit::bef::escribir(&ordenes, &golpes, puesto.canvas.0 as i64, puesto.canvas.1 as i64) {
@@ -188,6 +204,15 @@ fn main() -> ExitCode {
     let con_imagenes = puesto.all().iter().any(|f| f.tag == bmo_maqueta_node::Tag::Imagen);
     if con_imagenes && !otros.is_empty() {
         eprintln!("maqueta: {entrada} tiene imagenes y estados a la vez; una imagen todavia no tiene transicion (P3c).");
+        return ExitCode::FAILURE;
+    }
+    let con_anima = bmo_maqueta_emit::anima::hay(&puesto);
+    if con_anima && !otros.is_empty() {
+        eprintln!("maqueta: {entrada} tiene dibujos que animan y estados a la vez; un dibujo animado no cambia de estado todavia (S7).");
+        return ExitCode::FAILURE;
+    }
+    if con_anima && con_datos {
+        eprintln!("maqueta: {entrada} tiene dibujos que animan y datos a la vez; una pieza con datos no anima todavia (S7).");
         return ExitCode::FAILURE;
     }
     if con_datos && !otros.is_empty() {

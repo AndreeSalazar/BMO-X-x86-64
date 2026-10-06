@@ -273,12 +273,51 @@ fn de_cada_clase(t: &Trazo) -> Option<DeLaClase> {
             let (caja, datos) = puntos(caminos, &cerrados)?;
             DeLaClase { clase: cara::CLASE_RELLENO, caja, color: *color, extra: 0, datos }
         }
+        // ** MAQUETA 3: la figura, con su tinta (`CLASE_FIGURA`).
+        Trazo::Figura { caminos, cerrados, pluma, tinta, alfa, par_impar } => {
+            let (caja, pts) = puntos(caminos, cerrados)?;
+            let (ox, oy) = (caja.x * 64, caja.y * 64);
+            let i16_de = |v: i32| i16::try_from(v / 4).ok();
+            let rel = |p: (i32, i32)| -> Option<[i16; 2]> { Some([i16_de(p.0 - ox)?, i16_de(p.1 - oy)?]) };
+            let vec_ = |p: (i32, i32)| -> Option<[i16; 2]> { Some([i16_de(p.0)?, i16_de(p.1)?]) };
+            use crate::orden::TintaFija as T;
+            let (clase_tinta, geo, paradas, color): (u8, Vec<[i16; 2]>, &[bmo_pinta::Parada], u32) = match tinta {
+                T::Liso(c) => (cara::figura::LISA, Vec::new(), &[], *c),
+                T::Lineal { de, a, paradas } => (cara::figura::LINEAL, vec![rel(*de)?, rel(*a)?], paradas, 0),
+                T::Radial { centro, eje_x, eje_y, paradas } => (cara::figura::RADIAL, vec![rel(*centro)?, vec_(*eje_x)?, vec_(*eje_y)?], paradas, 0),
+            };
+            if paradas.len() > cara::figura::PARADAS {
+                return None;
+            }
+            let mut datos = vec![clase_tinta, paradas.len() as u8];
+            datos.extend_from_slice(&u16::try_from(pluma / 4).ok()?.to_le_bytes());
+            for g in geo {
+                datos.extend_from_slice(&g[0].to_le_bytes());
+                datos.extend_from_slice(&g[1].to_le_bytes());
+            }
+            for p in paradas {
+                datos.extend_from_slice(&p.en.to_le_bytes());
+                datos.extend_from_slice(&p.c.to_le_bytes());
+                datos.extend_from_slice(&[p.alfa, 0]);
+            }
+            datos.extend(pts);
+            DeLaClase { clase: cara::CLASE_FIGURA, caja, color, extra: *par_impar as u16 | (*alfa as u16) << 8, datos }
+        }
     })
 }
+
+/// Lo que el pintor de una cara descodifica por trazo (`bmo_pinta`, sin
+/// monton): lo que pase de ahi no cabe, y se dice al escribir en vez de
+/// cortarse en el aparato.
+const PUNTOS_MAX: usize = 1024;
+const SUBS_MAX: usize = 32;
 
 /// Los puntos de unos caminos (1/64 px, en el lienzo) en el plano de la
 /// version 2: su caja en pixeles, y los pares en 1/16 RELATIVOS a ella.
 fn puntos(caminos: &[Vec<(i32, i32)>], cerrados: &[bool]) -> Option<(bmo_maqueta_layout::Rect, Vec<u8>)> {
+    if caminos.len() > SUBS_MAX || caminos.iter().map(Vec::len).sum::<usize>() > PUNTOS_MAX {
+        return None;
+    }
     let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
     for c in caminos {
         for &(x, y) in c {
