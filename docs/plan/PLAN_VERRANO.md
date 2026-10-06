@@ -799,6 +799,16 @@ el cuello de botella SI es el kernel. VC4 es lo que lo quita.
   compilados y las huellas de la 3060. Falta: el x86-64 de `nativo`
   recordado tambien (hoy, una pasada al arrancar), ID3D12PipelineLibrary,
   y verlo en el metal.
+  06-10, **EL JUEZ EN TRES NIVELES** (pedido del propietario: "ese mismo
+  juez pueda aportar ... cuando ya ejecuta en tiempo real, que sea el
+  intermedio que esta en VERRANO"): todo codigo de la 3060 pasa por la
+  PUERTA, y ahi lo juzgan antes de que la tarjeta lo vea -- 1 LA FORMA, el
+  juez del SASS (que no cuelgue la 3060), al pegar cada receta; 2 LOS BITS
+  con numeros de prueba, al generar el .bsf; 3 EL JUEGO, el VIGIA (A9c,
+  `bmo_proton_x_sm86::vivo::revisar`): los vertices y las constantes del
+  juego en el primer lote de cada PSO y uno de cada 256; si no cuadra, por
+  la CPU desde ese lote y marcado `.malo` en ESTRATOS. Falta la libreta en
+  la propia GPU (el emisor escribiendo en memoria).
 - [ ] **VC2 -- PROTON-X habla VERRANO** (`platform/shared/proton-x-casa/src/tuberia.rs`):
   Draw y Dispatch se vuelven fotogramas de VERRANO en vez de llamar a la
   trama a mano; la trama queda como el backend CPU (el juez). **Como se

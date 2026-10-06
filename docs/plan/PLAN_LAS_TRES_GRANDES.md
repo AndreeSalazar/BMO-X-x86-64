@@ -1393,7 +1393,7 @@ y lo dice.
                la 3060 del propietario (`prueba/escena_3060.ref`) contra la
                casa: el 100 % de los pixeles a 8 o menos, la media 0.282,
                la peor 5 (se pedia el 98 % y 2). Y en Windows, 91 de 91
-     9c  D4.6  el MODO DINAMICO del .bsf vivo (06-10, idea del propietario:
+     9c  [x] D4.6  el MODO DINAMICO del .bsf vivo (06-10, idea del propietario:
                "dos modos, el estatico que ya sabemos lo dibuja y el
                dinamico que corrige en tiempo real"): la GPU apunta en una
                libreta lo raro de cada fotograma; entre fotogramas la CPU
@@ -1401,7 +1401,18 @@ y lo dice.
                del juego, no los de prueba) y, si no coincide, marca el
                .bsf malo, dibuja ese efecto por la CPU y genera otro. La
                GPU no puede preguntar A MITAD de un dibujo (esperaria a la
-               CPU miles de veces por pixel): pregunta entre fotogramas
+               CPU miles de veces por pixel): pregunta entre fotogramas.
+               HECHO 06-10 con la CPU de vigia (`vivo::revisar`): el
+               estatico usa el .bsf de ESTRATOS tal cual; el vigia revisa
+               con los datos del juego el primer lote de cada PSO y uno de
+               cada 256; si no cuadra, ese PSO por la CPU desde ese lote y
+               marcado `.malo`. bmox12.exe con un .bsf que miente: 0 lotes
+               a la 3060, la marca puesta, y el arranque siguiente ni lo
+               intenta. Es el TERCER nivel del juez de VERRANO (forma,
+               bits con numeros de prueba, bits con el juego)
+     9d  D4.6  la LIBRETA en la propia GPU: que la 3060 apunte lo raro
+               mientras dibuja (el emisor tiene que saber escribir en
+               memoria desde un sombreador)
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.

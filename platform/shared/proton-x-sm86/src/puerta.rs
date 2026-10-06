@@ -43,7 +43,7 @@ use crate::pso::{cargas, elementos, NoVa};
 /// Lo que contesta el kernel (`cubo::empaquetar`): `sano` = la 3060 pago el
 /// dibujo entero; `desempaquetar` = `(us, triangulos, etapas, ..)`.
 pub use bmo_gpu_ga10x::cubo::{a_pantalla, copia_us, desempaquetar, preparado, sano};
-use crate::vivo::{Origen, Recuerdo};
+use crate::vivo::{Origen, Recuerdo, Vivos};
 use crate::{emitir_con, Abi};
 
 /// Los registros que se le dan al emisor (los de VERRANO, `tuberia::REGISTROS`).
@@ -93,7 +93,7 @@ pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
 
 /// [`cuerpos`] con un [`Recuerdo`] (A9, 06-10): del .bsf de antes si lo hay,
 /// o traducidos, comprobados y guardados en el. Dice de donde salieron.
-pub fn cuerpos_con(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut dyn Recuerdo>) -> Result<(Cuerpos, Origen), NoVa> {
+pub fn cuerpos_con(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut dyn Recuerdo>) -> Result<(Cuerpos, Vivos), NoVa> {
     // E2.3b: el sombreador de geometria corre en la CPU (la 3060, todavia no).
     if en.gs.is_some() {
         return Err(NoVa::Entrada("un sombreador de geometria"));
@@ -108,7 +108,8 @@ pub fn cuerpos_con(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut dyn Rec
         return Err(NoVa::Entrada("varios render targets (o uno que no es el 0, o SV_Depth)"));
     }
     let emitir = |p: &bmo_proton_x::dxil::programa::Programa, que: &'static str| emitir_con(p, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor(que, e));
-    let (ev, ep, origen) = crate::vivo::cuerpos_vivos(en, recuerdo, emitir)?;
+    let vivos = crate::vivo::cuerpos_vivos(en, recuerdo, emitir)?;
+    let (ev, ep) = (&vivos.vs, &vivos.ps);
     if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. })) {
         return Err(NoVa::Emisor("vertice", crate::NoEmite::Operacion(0)));
     }
@@ -123,12 +124,12 @@ pub fn cuerpos_con(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut dyn Rec
         posicion,
         filas: en.vs.filas_cb.max(en.ps.filas_cb) as u32,
         elementos: elementos(en, ia)?,
-        cargas_vs: cargas(&ev),
-        cargas_ps: cargas(&ep),
+        cargas_vs: cargas(ev),
+        cargas_ps: cargas(ep),
         genericos,
-        texturas: crate::pso::texturas_de(&ep),
+        texturas: crate::pso::texturas_de(ep),
     };
-    Ok((c, origen))
+    Ok((c, vivos))
 }
 
 /// El modo de la casa con su numero de D3D12.
@@ -274,10 +275,17 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
     receta::escribir(caja, &rec).ok_or_else(|| String::from("la receta no se sostiene (lo que lee el pegamento no cae en los DATOS)"))
 }
 
+/// A9c: de cada cuantos lotes de un PSO revisa uno el vigia (el primero,
+/// siempre). Revisar son unos pocos vertices en el simulador: en 256 lotes,
+/// menos que nada.
+pub const VIGIA_CADA: u64 = 256;
+
 /// **La puerta de la app**: los cuerpos por PSO, lo probado por PSO y paso,
 /// la caja de la receta y la Z.
 pub struct Puerta {
-    cuerpos: Vec<(usize, Result<Cuerpos, NoVa>)>,
+    /// Por PSO: sus cuerpos y lo vivo (A9c: lo que revisa el vigia), y
+    /// cuantos lotes lleva.
+    cuerpos: Vec<(usize, Result<(Cuerpos, Vivos), NoVa>, u64)>,
     probados: Vec<(usize, usize, Result<(), String>)>,
     /// La caja de la receta: en el MONTON de la app (un bloque suyo), que es
     /// lo que el kernel exige.
@@ -296,6 +304,13 @@ pub struct Puerta {
     /// recuerdo, en la vida de esta puerta.
     pub traducidos: usize,
     pub recordados: usize,
+    /// A9c (06-10): EL VIGIA, el modo dinamico -- el PRIMER lote de cada PSO
+    /// y luego uno de cada `vigia_cada` se revisan con los datos del juego
+    /// ([`crate::vivo::revisar`]); uno que no cuadra se dibuja por la CPU
+    /// desde ese lote, y se marca malo en el recuerdo.
+    pub vigia_cada: u64,
+    pub revisados: usize,
+    pub corregidos: usize,
 }
 
 impl Default for Puerta {
@@ -306,7 +321,7 @@ impl Default for Puerta {
 
 impl Puerta {
     pub fn nueva() -> Self {
-        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), z_viva: false, z_a_la_3060: Z_EN_LA_SOMBRA, recuerdo: None, traducidos: 0, recordados: 0 }
+        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), z_viva: false, z_a_la_3060: Z_EN_LA_SOMBRA, recuerdo: None, traducidos: 0, recordados: 0, vigia_cada: VIGIA_CADA, revisados: 0, corregidos: 0 }
     }
 
     /// **La receta de este lote**, en `self.caja[..n]`: `Ok(n)`, o por que
@@ -365,19 +380,37 @@ impl Puerta {
             None => {
                 // A9: vivos -- del .bsf de antes, o traducidos, comprobados
                 // contra la CPU y guardados.
-                let r = cuerpos_con(l.enlace, l.entradas, self.recuerdo.as_mut().map(|r| r.as_mut() as &mut dyn Recuerdo)).map(|(c, origen)| {
-                    match origen {
+                let r = cuerpos_con(l.enlace, l.entradas, self.recuerdo.as_mut().map(|r| r.as_mut() as &mut dyn Recuerdo));
+                if let Ok((_, v)) = &r {
+                    match v.origen {
                         Origen::Traducido => self.traducidos += 1,
                         Origen::Recordado => self.recordados += 1,
                     }
-                    c
-                });
-                self.cuerpos.push((clave, r));
+                }
+                self.cuerpos.push((clave, r, 0));
                 self.cuerpos.len() - 1
             }
         };
+        // A9c: EL VIGIA -- el primer lote de este PSO, y uno de cada
+        // `vigia_cada`, con los datos del juego. Si no cuadra: por la CPU
+        // desde YA (este lote no llega mal a la pantalla), marcado malo en el
+        // recuerdo (el arranque siguiente ni lo intenta), y se dice.
+        let (_, r, lotes) = &mut self.cuerpos[i];
+        *lotes += 1;
+        if let Ok((c, v)) = r {
+            if (*lotes - 1) % self.vigia_cada.max(1) == 0 {
+                self.revisados += 1;
+                if let Err(m) = crate::vivo::revisar(l.enlace, &c.elementos, &v.vs, &v.ps, l) {
+                    if let (Some(rec), Some(nombre)) = (self.recuerdo.as_mut(), &v.nombre) {
+                        rec.guardar(&crate::vivo::malo(nombre), m.as_bytes());
+                    }
+                    self.corregidos += 1;
+                    *r = Err(NoVa::Juez("el vigia, con los datos del juego", m));
+                }
+            }
+        }
         let c = match &self.cuerpos[i].1 {
-            Ok(c) => c,
+            Ok((c, _)) => c,
             Err(e) => return Err(format!("el PSO no va a la 3060: {e:?}")),
         };
         let n = escribir(c, l, b, l.limpiar_z, &mut self.datos, &mut self.caja)?;

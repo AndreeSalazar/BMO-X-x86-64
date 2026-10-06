@@ -78,8 +78,9 @@ struct Estado {
     /// (`proton-x/<juego>/bsf`), si tiene perfil; sin ella, se traduce cada
     /// arranque (y se comprueba igual).
     carpeta_bsf: Option<String>,
-    /// A9: lo dicho de los `.bsf` (traducidos, recordados) y cuando.
-    bsf_dicho: (usize, usize, u64),
+    /// A9: lo dicho de los `.bsf` (traducidos, recordados, cuando y, A9c,
+    /// corregidos por el vigia).
+    bsf_dicho: (usize, usize, u64, usize),
 }
 
 /// **El recuerdo de los `.bsf` en ESTRATOS** (A9, 06-10): cada PSO, un
@@ -213,7 +214,7 @@ static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado {
     pantalla_pedida: false,
     sin_pantalla: false,
     carpeta_bsf: None,
-    bsf_dicho: (0, 0, 0),
+    bsf_dicho: (0, 0, 0, 0),
 }));
 
 /// **P3b4c.9 Z1: soltar la pantalla directa** si se pidio, y no volver a
@@ -293,10 +294,14 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
         // A9: cuantos PSO se tradujeron (y se comprobaron bit a bit contra la
         // CPU) y cuantos salieron del recuerdo; como mucho una linea por
         // segundo.
-        let (t, r) = (p.traducidos, p.recordados);
-        if (t, r) != (e.bsf_dicho.0, e.bsf_dicho.1) && t0.saturating_sub(e.bsf_dicho.2) >= 1_000_000_000 {
-            bmo::consola(&alloc::format!("PROTON-X: .bsf de la 3060: {t} traducido(s) y comprobado(s) bit a bit contra la CPU, {r} del recuerdo\n"));
-            e.bsf_dicho = (t, r, t0);
+        // A9c: y lo que dijo el vigia (el juez con los datos del juego).
+        let (t, r, c) = (p.traducidos, p.recordados, p.corregidos);
+        if (t, r, c) != (e.bsf_dicho.0, e.bsf_dicho.1, e.bsf_dicho.3) && t0.saturating_sub(e.bsf_dicho.2) >= 1_000_000_000 {
+            bmo::consola(&alloc::format!(
+                "PROTON-X: .bsf de la 3060: {t} traducido(s) y comprobado(s) bit a bit contra la CPU, {r} del recuerdo; el vigia reviso {} lote(s) con los datos del juego y corrigio {c}\n",
+                p.revisados
+            ));
+            e.bsf_dicho = (t, r, t0, c);
         }
         let p = e.puerta.as_mut().expect("recien puesta");
         match preparado {

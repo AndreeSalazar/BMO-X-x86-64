@@ -30,10 +30,32 @@
 //!                 unas pocas corridas); traducir, cero
 //! ```
 //!
+//! **El JUEZ en tres niveles** (06-10, lo que pidio el propietario: "ese
+//! mismo juez pueda aportar ... cuando ya ejecuta en tiempo real, que sea el
+//! intermedio que esta en VERRANO"). Todo codigo de la 3060 pasa por la
+//! PUERTA de VERRANO, y ahi lo juzgan los tres antes de que la tarjeta lo vea:
+//!
+//! ```text
+//!    1  LA FORMA        el juez del SASS (`bmo_gpu_ga10x::sass::juez`): que
+//!                       no cuelgue la 3060 (esperas, barreras, registros);
+//!                       al pegar cada receta, en la puerta y en el kernel
+//!    2  LOS BITS        [`comprobar`]: el simulador contra el interprete con
+//!                       numeros de prueba, al GENERAR el .bsf (si no, no se
+//!                       guarda)
+//!    3  EL JUEGO        [`revisar`], el VIGIA (A9c, el modo dinamico): con
+//!                       los vertices y las constantes DEL JUEGO, en el primer
+//!                       lote de cada PSO y luego uno de cada
+//!                       `puerta::VIGIA_CADA`; si no cuadra, ese PSO va por la
+//!                       CPU desde ESE lote y queda marcado `.malo`
+//! ```
+//!
 //! Lo que NO es todavia, dicho: la parte de la CPU del paquete (el `.bex`:
 //! el `Programa` y su x86-64 de `nativo`) se sigue haciendo en cada arranque;
-//! y el de pixeles que MUESTREA se comprueba con las texturas a cero (lo que
-//! lee una textura de verdad lo juzgan los jueces de `prueba/`).
+//! el de pixeles que MUESTREA se comprueba con las texturas a cero (lo que
+//! lee una textura de verdad lo juzgan los jueces de `prueba/`); y la
+//! LIBRETA de la GPU (que la 3060 misma apunte lo raro mientras dibuja) pide
+//! que el emisor sepa escribir en memoria desde un sombreador: hoy el vigia
+//! es la CPU, con lotes de muestra.
 //!
 //! capa: puro -- bytes y cuentas; quien guarda y lee es un [`Recuerdo`]
 
@@ -230,33 +252,130 @@ pub fn comprobar(p: &Programa, e: &Emitido, que: &str) -> Result<usize, String> 
     Ok(n)
 }
 
-/// **Los dos cuerpos de un PSO, vivos**: del recuerdo si hay un .bsf con
-/// este mapa (y vuelve a pasar la comprobacion), o emitidos ahora,
-/// comprobados y guardados. `emitir` es el emisor (lo pone la puerta).
-pub fn cuerpos_vivos(
-    en: &Enlace,
-    recuerdo: Option<&mut dyn Recuerdo>,
-    emitir: impl Fn(&Programa, &'static str) -> Result<Emitido, crate::pso::NoVa>,
-) -> Result<(Emitido, Emitido, Origen), crate::pso::NoVa> {
+/// **Lo vivo de un PSO**: sus dos cuerpos, de donde salieron y el nombre
+/// de su `.bsf` (con recuerdo).
+#[derive(Debug, Clone)]
+pub struct Vivos {
+    pub vs: Emitido,
+    pub ps: Emitido,
+    pub origen: Origen,
+    pub nombre: Option<String>,
+}
+
+/// El nombre de la MARCA de un `.bsf` malo (A9c): el mismo, `.malo`.
+pub fn malo(nombre: &str) -> String {
+    format!("{}.malo", nombre.trim_end_matches(".bsf"))
+}
+
+/// **Los dos cuerpos de un PSO, vivos**. Con recuerdo: si una revision con
+/// datos reales lo marco MALO (A9c), no va a la 3060; si hay un `.bsf` de
+/// este mapa con su sobre sano, se usa TAL CUAL (el MODO ESTATICO: lo que ya
+/// se sabe, se dibuja; el vigia lo revisa con los datos del juego en su
+/// primer dibujo); si no, se emite, se comprueba con los numeros de prueba
+/// y se guarda. `emitir` es el emisor (lo pone la puerta).
+pub fn cuerpos_vivos(en: &Enlace, recuerdo: Option<&mut dyn Recuerdo>, emitir: impl Fn(&Programa, &'static str) -> Result<Emitido, crate::pso::NoVa>) -> Result<Vivos, crate::pso::NoVa> {
     let comprobar_los_dos = |ev: &Emitido, ep: &Emitido| -> Result<(), crate::pso::NoVa> {
         comprobar(&en.vs, ev, "de vertice").and_then(|_| comprobar(&en.ps, ep, "de pixel")).map(|_| ()).map_err(|m| crate::pso::NoVa::Juez("la comprobacion contra la CPU", m))
     };
     let Some(r) = recuerdo else {
-        let (ev, ep) = (emitir(&en.vs, "vertice")?, emitir(&en.ps, "pixel")?);
-        comprobar_los_dos(&ev, &ep)?;
-        return Ok((ev, ep, Origen::Traducido));
+        let (vs, ps) = (emitir(&en.vs, "vertice")?, emitir(&en.ps, "pixel")?);
+        comprobar_los_dos(&vs, &ps)?;
+        return Ok(Vivos { vs, ps, origen: Origen::Traducido, nombre: None });
     };
     let m = mapa(en);
     let nombre = nombre(&m);
+    if let Some(motivo) = r.leer(&malo(&nombre)) {
+        return Err(crate::pso::NoVa::Juez("una revision con los datos del juego lo marco malo", String::from_utf8_lossy(&motivo).into_owned()));
+    }
     if let Some(b) = r.leer(&nombre) {
-        if let Ok((ev, ep)) = de_bsf(&b, &m) {
-            if comprobar_los_dos(&ev, &ep).is_ok() {
-                return Ok((ev, ep, Origen::Recordado));
-            }
+        if let Ok((vs, ps)) = de_bsf(&b, &m) {
+            return Ok(Vivos { vs, ps, origen: Origen::Recordado, nombre: Some(nombre) });
         }
     }
-    let (ev, ep) = (emitir(&en.vs, "vertice")?, emitir(&en.ps, "pixel")?);
-    comprobar_los_dos(&ev, &ep)?;
-    r.guardar(&nombre, &a_bsf(&m, &ev, &ep));
-    Ok((ev, ep, Origen::Traducido))
+    let (vs, ps) = (emitir(&en.vs, "vertice")?, emitir(&en.ps, "pixel")?);
+    comprobar_los_dos(&vs, &ps)?;
+    r.guardar(&nombre, &a_bsf(&m, &vs, &ps));
+    Ok(Vivos { vs, ps, origen: Origen::Traducido, nombre: Some(nombre) })
+}
+
+/// Las salidas que un programa escribe: `(elemento, componente)`.
+fn escritas(p: &Programa) -> Vec<(usize, usize)> {
+    p.ops.iter().filter_map(|o| if let Op::Salida { elemento, componente, .. } = *o { Some((elemento as usize, componente as usize & 3)) } else { None }).collect()
+}
+
+/// Cuantos vertices de un lote revisa el vigia.
+pub const VERTICES_REVISADOS: usize = 8;
+
+/// **EL VIGIA (A9c, 06-10, el MODO DINAMICO): un lote de VERDAD, revisado.**
+/// Hasta [`VERTICES_REVISADOS`] vertices del lote: el cuerpo de vertice en
+/// el simulador de la 3060 con lo que el pegamento cargaria de los DATOS
+/// (el bufer de vertices y el cbuffer del juego TAL CUAL, `els` dice donde
+/// va cada elemento) contra el interprete de la CPU con su lectura del
+/// input layout; y el de pixel con las salidas de ese vertice (un pixel
+/// justo en el), contra la CPU. Cada salida escrita, los mismos bits (o
+/// NaN en los dos). Lo que muestrea, con las texturas a cero en los dos.
+/// `Ok(n)`: cuantos valores; `Err`, el primero que no cuadra.
+pub fn revisar(en: &Enlace, els: &[bmo_gpu_ga10x::pegamento::Elemento], vs: &Emitido, ps: &Emitido, l: &bmo_proton_x::lote::Lote) -> Result<usize, String> {
+    let palabra = |b: &[u8], o: usize| b.get(o..o + 4).map_or(0, |x| u32::from_le_bytes([x[0], x[1], x[2], x[3]]));
+    let cero = |_: u32, _: f32, _: f32| [0.0f32; 4];
+    let mut ids: Vec<u32> = l.ids.to_vec();
+    ids.sort_unstable();
+    ids.dedup();
+    ids.truncate(VERTICES_REVISADOS);
+    let (ev, ep) = (escritas(&en.vs), escritas(&en.ps));
+    let (mut regs, mut n) = (Vec::new(), 0usize);
+    // Una maquina con lo que cargan sus precargas: `entrada(elemento,
+    // componente)` y las filas del cbuffer del juego.
+    let maquina = |e: &Emitido, entrada: &dyn Fn(usize, usize) -> u32| {
+        let mut m = Maquina::nueva([&[]; 8]);
+        for (i, r) in m.r.iter_mut().enumerate() {
+            *r = 0x7FC0_0000 | i as u32;
+        }
+        for &q in &e.precargas {
+            match q {
+                Precarga::Entrada { elemento, componente, reg } => m.r[reg as usize] = entrada(elemento as usize, componente as usize & 3),
+                Precarga::Fila { fila, reg } => {
+                    for k in 0..4 {
+                        m.r[reg as usize + k] = palabra(l.cb, 16 * fila as usize + 4 * k);
+                    }
+                }
+                Precarga::Asa { reg, .. } => m.r[reg as usize] = 0,
+            }
+        }
+        m
+    };
+    let comparar = |m: &Maquina, casa: &[[f32; 4]], escritas: &[(usize, usize)], que: &str, id: u32| -> Result<usize, String> {
+        for &(el, k) in escritas {
+            let (g, c) = (m.r[4 * el + k], casa[el][k].to_bits());
+            if g != c && !(f32::from_bits(g).is_nan() && f32::from_bits(c).is_nan()) {
+                return Err(format!("el de {que}, con el vertice {id} del juego, salida {el}.{k}: {g:08x} en la 3060 y {c:08x} en la CPU"));
+            }
+        }
+        Ok(escritas.len())
+    };
+    for id in ids {
+        let v = id as usize * l.paso;
+        let leer_vertice = |el: usize, k: usize| match els.get(el) {
+            Some(x) if k < x.componentes as usize => palabra(l.vertices, v + x.desde as usize + 4 * k),
+            Some(_) if k == 3 => 1.0f32.to_bits(),
+            _ => 0,
+        };
+        let mut m = maquina(vs, &leer_vertice);
+        m.muestrear = Some(&cero);
+        correr(&vs.codigo, &mut m).map_err(|x| format!("el de vertice: el simulador no sabe correrlo ({x:?})"))?;
+        let ent: Vec<[f32; 4]> = en.desde_ia.iter().map(|&f| bmo_proton_x::lote::entrada(l, f, id, 0)).collect();
+        let mut casa = vec![[0f32; 4]; en.vs.salidas.max(1)];
+        en.vs.correr(&ent, l.cb, &mut casa, &mut regs);
+        n += comparar(&m, &casa, &ev, "vertice", id)?;
+        // El de pixel en ese vertice: sus entradas, las salidas de la CPU.
+        let ent_ps: Vec<[f32; 4]> = en.desde_vs.iter().map(|o| o.and_then(|k| casa.get(k).copied()).unwrap_or([0.0; 4])).collect();
+        let leer_pixel = |el: usize, k: usize| ent_ps.get(el).map_or(0, |x| x[k].to_bits());
+        let mut m = maquina(ps, &leer_pixel);
+        m.muestrear = Some(&cero);
+        correr(&ps.codigo, &mut m).map_err(|x| format!("el de pixel: el simulador no sabe correrlo ({x:?})"))?;
+        let mut casa_ps = vec![[0f32; 4]; en.ps.salidas.max(1)];
+        en.ps.correr(&ent_ps, l.cb, &mut casa_ps, &mut regs);
+        n += comparar(&m, &casa_ps, &ep, "pixel", id)?;
+    }
+    Ok(n)
 }

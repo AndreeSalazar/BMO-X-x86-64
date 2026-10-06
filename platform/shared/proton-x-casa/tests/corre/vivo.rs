@@ -111,3 +111,56 @@ fn bmox12_exe_la_segunda_vez_no_compila_su_dxil() {
         antes = Some(ahora);
     }
 }
+
+/// *** A9c: EL VIGIA, el modo dinamico, con un juego de verdad. Se deja en
+/// el recuerdo un `.bsf` de BMOX-12 SANO por fuera -- su sobre sellado y su
+/// mapa, el de ahora -- pero con el codigo de OTRO sombreador (lo que haria
+/// un emisor con un fallo que los numeros de prueba no ven). El modo
+/// estatico lo toma TAL CUAL; el vigia, en el PRIMER lote y con los datos
+/// del juego, ve que no cuadra: ese lote y los demas van por la CPU (en la
+/// 3060 no se dibuja nada mal), y queda la marca `.malo`. El arranque
+/// siguiente ni lo intenta.
+#[test]
+fn bmox12_exe_el_vigia_caza_un_bsf_que_miente() {
+    let uno = uno_a_la_vez();
+    let dir = volumen().join("proton-x/bmox12/bsf-vigia");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let esc = 1 << 8 | 1 << 9 | 0x01;
+    let mut guion = vec![0u64; 20];
+    guion.push(esc);
+    let correr = |uno: &MutexGuard<'static, ()>| -> La3060 {
+        let mut puerta = bmo_proton_x_sm86::puerta::Puerta::nueva();
+        puerta.recuerdo = Some(Box::new(EnCarpeta(dir.clone())));
+        *LA3060.lock().unwrap() = Some(La3060 { almacen: bmo_proton_x_sm86::pso::Almacen::nuevo(), lotes: 0, vertices: 0, datos_max: 0, fallos: Vec::new(), puerta, recetas: 0, z_limpias: 0, rt_limpios: 0, z_mandadas: 0 });
+        let (salio, texto) = correr_bmox12(uno, true, "", &guion);
+        assert_eq!(salio, 0, "{texto}");
+        LA3060.lock().unwrap().take().unwrap()
+    };
+    // 1: el sano, traducido y revisado en su primer lote: cuadra.
+    let b = correr(&uno);
+    assert!(b.fallos.is_empty(), "{:?}", &b.fallos[..b.fallos.len().min(3)]);
+    assert_eq!((b.puerta.traducidos, b.puerta.corregidos), (1, 0));
+    assert!(b.puerta.revisados >= 1, "el primer lote, revisado");
+    // El .bsf que MIENTE: el mismo mapa, el codigo de vertice de otro.
+    let (nombre, bueno) = bsfs(&dir).remove(0);
+    let sobre = bmo_bsf::Bsf::parse(&bueno).unwrap();
+    let mapa = sobre.find(b"vs").unwrap().spirv().unwrap().to_vec();
+    let (vs_bueno, ps_bueno) = bmo_proton_x_sm86::vivo::de_bsf(&bueno, &mapa).unwrap();
+    let otro = dxil::programa::compilar(&dxil::leer(include_bytes!("../../../proton-x/prueba/textura_vs.dxil")).unwrap()).unwrap();
+    let vs_malo = bmo_proton_x_sm86::emitir_con(&otro, 64, bmo_proton_x_sm86::Abi::Registros).unwrap();
+    assert_ne!(vs_malo.codigo, vs_bueno.codigo);
+    std::fs::write(dir.join(&nombre), bmo_proton_x_sm86::vivo::a_bsf(&mapa, &vs_malo, &ps_bueno)).unwrap();
+    // 2: el estatico lo toma; el vigia lo caza en el PRIMER lote.
+    let b = correr(&uno);
+    assert_eq!((b.puerta.traducidos, b.puerta.recordados, b.puerta.corregidos), (0, 1, 1));
+    assert_eq!(b.recetas, 0, "ni un lote a la 3060 con el codigo que miente");
+    assert!(b.fallos.iter().all(|f| f.contains("el vigia, con los datos del juego") && f.contains("en la 3060 y")), "{:?}", &b.fallos[..b.fallos.len().min(3)]);
+    let marca = dir.join(bmo_proton_x_sm86::vivo::malo(&nombre));
+    let motivo = String::from_utf8(std::fs::read(&marca).expect("la marca .malo")).unwrap();
+    assert!(motivo.starts_with("el de vertice, con el vertice ") && motivo.contains("en la CPU"), "{motivo}");
+    // 3: el arranque siguiente ni lo intenta: ni lee el .bsf ni traduce.
+    let b = correr(&uno);
+    assert_eq!((b.puerta.traducidos, b.puerta.recordados, b.recetas), (0, 0, 0));
+    assert!(b.fallos.iter().all(|f| f.contains("una revision con los datos del juego lo marco malo")), "{:?}", &b.fallos[..b.fallos.len().min(3)]);
+}
