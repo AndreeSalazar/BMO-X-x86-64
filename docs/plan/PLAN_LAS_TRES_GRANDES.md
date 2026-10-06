@@ -1197,3 +1197,40 @@ de "se ve el menu" (seccion 0). DLSS es una biblioteca cerrada de NVIDIA
 (`nvngx`) que habla con SU driver: aqui no hay ese driver, asi que no. FSR 3
 si: lo trae el juego en sus DLL (`ffx_*.dll`, ya cargadas el 02-10) y corre
 en cualquier grafica.
+
+---
+
+# 7. CUANTO FALTA, CONTADO (06-10)
+
+> El propietario (06-10): *"dime las listas largas cuantos son para tener el
+> cyberpunk"*, y al ver el numero: *"me hace dudar si poner 130 a menos que
+> sea motivos"*. Por eso el numero va con su MOTIVO: es una cuenta de
+> casillas abiertas, sacada con `grep -c '^\s*- \[ \]'` el 06-10, no una
+> promesa. Cada casilla cabe en un commit y dice **como se sabe**; una
+> casilla nueva que aparezca al correr el juego sube la cuenta, y eso no es
+> un fallo del plan: es el juego diciendo que pide.
+
+```text
+   plan                                   que cubre                       abiertas  hechas
+   PLAN_LAS_TRES_GRANDES.md  1            el primer contacto                   9       3
+                             2            D3D12 de juego                      38       -
+                             3            el sonido del juego                  7       7
+                             4            varios nucleos ([RING 0] dentro)    20       -
+                             6            la escalera hasta jugar              9      28
+   PLAN_LA_ESCALERA_PROTON_X.md           las muestras de Microsoft           15      17
+   PLAN_LA_LUDOTECA.md                    las funciones sueltas, por tandas   33      13
+   PLAN_LA_3060.md + _AFINADA             el GSP despierto y la 3060 fina     10       1
+                                                                  en total   ~141
+```
+
+Hay casillas que estan en dos planes (la ESCALERA prueba casillas de este),
+asi que el numero de verdad es algo menos de 141: **unas 130**. Las que mas
+pesan no son las mas: 2F (un fotograma entero en la 3060), D4.6 (la cache
+de PSO, miles de pipelines traducidos una vez: VC1 de
+[`PLAN_VERRANO.md`](PLAN_VERRANO.md)) y la seccion 4 (Ring 0, con permiso).
+Y todo cuelga de G0 de [`PLAN_LA_3060.md`](PLAN_LA_3060.md): la 3060 tiene
+que despertar 10 de 10.
+
+**Cyberpunk en PC es SOLO DX12.** DX11 no lo acerca; la cara de DX11 (y la
+de Vulkan para DOOM) estan en la seccion 5 de [`PLAN_VERRANO.md`](PLAN_VERRANO.md),
+DESPUES de esta lista.

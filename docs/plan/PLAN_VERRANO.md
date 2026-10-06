@@ -805,3 +805,57 @@ el cuello de botella SI es el kernel. VC4 es lo que lo quita.
 - Sin el kernel en medio, un sombreador que cuelga la 3060 no lo para nadie
   si no existe E7: VC4 no va antes que el vigilante.
 
+
+## 5. LAS OTRAS CARAS: DX11, y Vulkan para los DOOM (06-10)
+
+> El propietario (06-10): *"igual voy a poner DX11 y por cierto vulkan es
+> ultra facil, no? por documentos que existen aunque tengo que replicar
+> igual para jugar doom 2016 ... doom eternal y doom dark age"*.
+
+**Vulkan es mas facil de LEER, no de HACER.** Su especificacion es publica
+y entera, SPIR-V esta documentado (DXIL hubo que sacarlo de bitcode de LLVM
+3.7) y Khronos publica sus pruebas de conformidad, que sirven de jueces como
+los `.exe` de `prueba/`. Pero es tan EXPLICITO como DX12 (barreras,
+descriptor sets, pipelines) y cada juego pide su lista de extensiones: por
+eso la cara es COMUN (seccion 4) y lo de DX12 se reaprovecha.
+
+**DX11 es mas facil para el JUEGO, no para nosotros:** en DX11 el driver
+hace lo que en DX12 hace el juego (barreras y estados de cada recurso,
+`Map(WRITE_DISCARD)` con su renombrado, un contexto que se ejecuta en
+orden). Eso lo hace la cara. Los sombreadores de DX11 (DXBC, SM5) ya se
+traducen: `platform/shared/proton-x/src/sm5.rs`.
+
+El orden, por lo que pide cada juego:
+
+```text
+   juego                API                    lo que pide de mas
+   Cyberpunk 2077       D3D12                  (la lista de PLAN_LAS_TRES_GRANDES, seccion 7)
+   DOOM (2016)          OpenGL 4.5 o Vulkan    Vulkan 1.0; sin trazado de rayos: el mas cerca
+   DOOM Eternal         solo Vulkan            mas extensiones, mas sombreadores
+   DOOM: The Dark Ages  solo Vulkan            TRAZADO DE RAYOS OBLIGATORIO (no tiene modo
+                                               sin el): estructuras de aceleracion y recorrido
+                                               de rayos en un driver propio -- el jefe final
+```
+
+- [ ] **VC5 -- la cara de DX11** (`platform/shared/proton-x-casa/src/`, un
+  `d3d11.dll` de la casa): `ID3D11Device` y su contexto inmediato dichos en
+  VERRANO, con el seguimiento de estados que en DX11 hace el driver, y los
+  DXBC por `sm5.rs`. Despues de VC2 (que DX12 hable VERRANO). **Como se
+  sabe:** un juez nuestro de DX11 (como los de `prueba/`) dice `bien` en el
+  banco y en el Windows del propietario.
+- [ ] **VD1 -- DOOM (2016) por Vulkan** (`platform/drivers/gpu/rdna4/PLAN_VULKAN.md`,
+  despues de VC3 y de M5/V5, las 67 funciones de vkQuake): lo que pide su
+  `vulkan-1.dll`, medido primero con el censo de PROTON-X (como se hizo con
+  Cyberpunk). **Como se sabe:** el menu de DOOM en la pantalla del Ryzen.
+- [ ] **VD2 -- DOOM Eternal.** Lo que pida de mas sobre VD1, medido.
+  **Como se sabe:** su menu.
+- [ ] **VD3 -- DOOM: The Dark Ages.** Pide trazado de rayos, que la seccion
+  2G de [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) deja al
+  final a proposito: va el ULTIMO. **Como se sabe:** su menu, con la 3060
+  trazando rayos.
+
+**Lo que puede fallar, dicho:** el DRM. DOOM Eternal salio con el
+anti-tamper Denuvo; de The Dark Ages hay que mirarlo en la copia del
+propietario. La regla es "nada de saltarse DRM": si la copia lo lleva y no
+arranca, eso se dice y no se rodea. Cyberpunk de GOG no lo lleva: otra razon
+para que vaya primero.
