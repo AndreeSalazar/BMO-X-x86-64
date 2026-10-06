@@ -2644,6 +2644,8 @@ BaseVertexLocation 6 sobre los indices 0, 1, 2, pide la mitad TAMBIEN (lo
 que hacen DXVK y vkd3d-proton: el base no cuenta) -- eso lo PREGUNTA a
 Windows. Dice `bien` 17 veces. Probado que dice NO: con la casa de antes,
 MAL en D y en E ("1 pixeles pintados").
+Lo que dijo Windows con el nuevo (06-10, 08:49): 17 `bien`. E tambien:
+el BaseVertexLocation no cuenta en SV_VertexID.
 
 derivadas_vs.dxil, derivadas_ps.dxil, derivadas_niveles.dxil -- los de derivadas.exe (05-10)
 

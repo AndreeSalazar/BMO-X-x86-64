@@ -182,8 +182,11 @@ juego en `C:`, nunca sobre `D:`:
   (`lote::Lote::base_vertice`); el juez suma D (eso) y E (lo mismo con
   BaseVertexLocation en un dibujo con indices: lo PREGUNTA). Pide 17.
 
-La siguiente corrida tiene que dar 83 de 83 (o decir que E no es como se
-penso: eso tambien sirve).
+**La SEGUNDA corrida (06-10, 08:49): 83 de 83.** `olas` 17 `bien`: E
+confirma que en un dibujo con indices el BaseVertexLocation TAMPOCO cuenta
+en SV_VertexID (lo que hace la casa desde hoy). `restos`, 15 y su nota.
+Desde aqui, cada juez de esta carpeta es Windows: lo que diga distinto
+BMO-X en el Ryzen, es de BMO-X.
 
 ## 4. Que mandar, en orden
 

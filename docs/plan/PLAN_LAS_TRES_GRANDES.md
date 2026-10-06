@@ -1299,7 +1299,8 @@ y lo dice.
       PRIMERA CORRIDA (06-10, la 3060): 78 de 83. De los 5: tres del juez
       o de la tabla (tanda2, tanda3, el empate 127.5 de vistas), uno de la
       GPU (restos: NVIDIA sin SV_StencilRef) y UNO DE PROTON-X: SV_VertexID
-      sumaba el StartVertexLocation (olas). Arreglado; falta la 2a corrida.
+      sumaba el StartVertexLocation (olas). Arreglado. SEGUNDA CORRIDA
+      (06-10, 08:49): 83 de 83 [x]. B0 hecho; quedan D0.1 a D0.3.
       D0.1 rayosx sobre la carpeta del juego; D0.2 los DXIL de su cache;
       D0.3 el diario filtrado a D3D12. Lo que encuentren entra en A (el
       teselado D4.5, los recursos reservados D2.4: SOLO si aparecen)
