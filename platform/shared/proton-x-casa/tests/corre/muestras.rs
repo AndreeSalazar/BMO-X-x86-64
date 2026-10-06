@@ -587,11 +587,11 @@ fn los_uav_de_un_dibujo_quedan_escritos() {
     let (salio, dicho, _) = correr_exe(&uno, UAVPIXEL_EXE, true, &[]);
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
-    // Un aviso: sus sombreadores escriben UAV, y eso no se traduce a x86
-    // (X1 traduce los enteros, no los UAV): se interpretan. Ninguno de UAV
-    // perdidos.
+    // A10 (06-10): ni un aviso. Antes uno (sus sombreadores escriben UAV y
+    // se interpretaban); ahora se TRADUCEN y sus UAV van por la llamada, a
+    // `operar_uav` del interprete. Ninguno de UAV perdidos.
     let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
-    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador lee o escribe un UAV: sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    assert!(avisos.is_empty(), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
     assert!(texto.contains("  bien  B, InterlockedAdd en un RWByteAddressBuffer de la raiz: 512 pixeles cubiertos"), "{texto}");
     assert!(texto.ends_with("uavpixel.exe: los UAV de un dibujo son los de Windows\r\n[salio 0x0]"), "{texto}");
@@ -651,15 +651,12 @@ fn restos_enteros_solo_uav_gs_plano_de_stencil_y_stencilref() {
     let (salio, dicho, _) = correr_exe(&uno, RESTOS_EXE, true, &[]);
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
-    // Un aviso, el de verdad: B y C escriben UAV, y eso se interpreta (el
-    // codigo nativo no toca UAV). A5 y D2 leen una textura: desde X2, en x86.
-    // Ninguno de lo que antes se perdia o se negaba.
+    // A10 (06-10): ni un aviso. Antes uno (B y C escriben UAV y se
+    // interpretaban); ahora sus VS y PS se TRADUCEN (el GS, como siempre, por
+    // el interprete). A5 y D2 leen una textura: desde X2, en x86. Ninguno de
+    // lo que antes se perdia o se negaba.
     let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
-    assert_eq!(
-        avisos,
-        ["PROTON-X: un PSO cuyo sombreador lee o escribe un UAV: sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"],
-        "{texto}"
-    );
+    assert!(avisos.is_empty(), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 18, "{texto}");
     assert!(!texto.contains("  nota  "), "la casa dice que SV_StencilRef si: {texto}");
     assert!(texto.ends_with("restos.exe: los enteros, los UAV sin destino y del GS, el plano de stencil y SV_StencilRef son los de Windows\r\n[salio 0x0]"), "{texto}");

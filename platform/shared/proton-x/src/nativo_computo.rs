@@ -559,9 +559,11 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
         });
     }
     let constante = |r: Reg| (!escrito.get(r as usize).copied().unwrap_or(true)).then(|| p.iniciales[r as usize].to_bits());
-    // 06-10: en el computo, las ranuras de UAV que van por la llamada.
+    // 06-10: en el computo, las ranuras de UAV que van por la llamada. A10
+    // (06-10): en un dibujo, TODAS (su entrada no pone vistas): cada
+    // operacion de UAV, por `operar_uav` del interprete (la casa la llama).
     let llamados = if dibujo { alloc::vec![false; VISTAS] } else { uavs_llamados(p) };
-    let llamado = |u: u8| llamados.get(u as usize).copied().unwrap_or(false);
+    let llamado = |u: u8| dibujo || llamados.get(u as usize).copied().unwrap_or(false);
     // Las barreras y (X3, en un dibujo) las rachas de derivadas: cada una,
     // un punto donde para y por donde sigue.
     let puntos = paradas(p, dibujo);

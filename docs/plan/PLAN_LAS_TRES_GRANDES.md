@@ -1003,8 +1003,8 @@ la proxima corrida del metal dice cual pesa mas:
   `[earlydepthstencil]` (leido de las banderas de `dx.entryPoints`,
   `recursos::banderas`), que la prueba y la escribe ANTES. Un pixel que hace
   `discard` deja lo que escribio antes y nada de despues (lo de D3D). El
-  codigo nativo no traduce un sombreador con UAV (se interpreta, con su
-  aviso: "lee o escribe un UAV"); la puerta de la 3060 manda esos lotes a
+  codigo nativo los TRADUCE desde A10 (06-10: cada operacion de UAV llama a
+  `operar_uav` del interprete); la puerta de la 3060 manda esos lotes a
   la CPU y lo dice una vez. **Como se sabe:** `prueba/uavpixel.exe`
   (nuestro, `uavpixel.cpp`): A, cada pixel su posicion en SU texel de un
   `RWTexture2D<uint>` de una tabla; B, `InterlockedAdd` de cada pixel de una
@@ -1348,7 +1348,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    2
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    1
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1378,14 +1378,24 @@ y lo dice.
                HUELLA del codigo de la casa (`build.rs`): otro codigo, otro
                mapa. El x86-64 de `nativo` se sigue haciendo al arrancar (es
                una pasada sobre el Programa, sin leer DXIL)
-     10  X5    la velocidad que queda: las olas en el computo traducido y
+     10  [x] X5    la velocidad que queda: las olas en el computo traducido y
                los pixeles con UAV traducidos. 06-10, la MITAD: las olas en
                el computo TRADUCIDO (cada ola para el hilo y
                `nativo_despacho` la resuelve con su ola de 32, en el orden
                del interprete: las vueltas de cada bucle van en registros
                de mas); `olas_cs.dxil` -- con olas en un si y en el bucle de
                escalarizar -- da los MISMOS bytes por los dos caminos.
-               Falta: los pixeles con UAV
+               06-10, CERRADO: los vertices y los pixeles con UAV TRADUCIDOS
+               (cada operacion de UAV llama, como una textura, a
+               `operar_uav` del interprete con los UAV del lote:
+               `dibujo_sysv` de la casa). `uavorden.hlsl` -- contador,
+               lista, un lienzo de float leido y escrito, una tabla con
+               tipo, un `discard` a medias: cada pixel ve lo de los de
+               antes -- deja los MISMOS bytes en los cuatro UAV tras cada
+               uno de 3000 pixeles y 2000 vertices; uavpixel.exe y
+               restos.exe, ya sin aviso. Queda en el interprete, y lo dice:
+               el pixel que DERIVA y toca UAV (un cuadro que se separa se
+               rehace, y lo escrito quedaria dos veces)
      11  [x] ESCENA  (06-10, pedido del propietario: "un test en 3D DURO en
                Windows, y que se refleje en BMO-X") una escena pesada --
                miles de triangulos, texturas con mips, profundidad, luz

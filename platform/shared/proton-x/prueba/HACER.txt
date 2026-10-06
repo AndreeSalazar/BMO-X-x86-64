@@ -2418,6 +2418,23 @@ RWByteAddressBuffer; no lee nada) y PSCuentaTemprana (lo mismo con
    2eff863b51043b2c80b4a0fe54b851316296053959d23d94a81bf84864858b60  uavpixel_cuenta.dxil
    9fe9960a280eeb4b9577269d664971a7c44d61ca2a508ce2e90251209998cb9e  uavpixel_temprana.dxil
 
+uavorden_ps.dxil, uavorden_vs.dxil -- los UAV que dependen del ORDEN, para
+el banco de lo TRADUCIDO (A10, 06-10)
+
+`uavorden.hlsl` (aqui al lado): PSOrden (un contador con InterlockedAdd,
+una lista estructurada, un RWTexture2D<float4> leido y escrito, un
+RWBuffer<uint> leido y escrito, un `discard` a medias, un bucle de
+InterlockedMax y GetDimensions) y VSOrden (InterlockedAdd y su elemento de
+la tabla). Cada pixel ve lo que dejaron los de antes: el juez de
+`proton-x-casa/tests/nativo/uav.rs` (lo traducido contra el interprete,
+los cuatro UAV tras cada pixel). No van en un .exe. Con el mismo `dxc`:
+
+   dxc -T ps_6_0 -E PSOrden -Fo uavorden_ps.dxil uavorden.hlsl
+   dxc -T vs_6_0 -E VSOrden -Fo uavorden_vs.dxil uavorden.hlsl
+
+   1a854005fc8347e45a87df28c65d3459714d374675cc8150992ffbd837fa57b0  uavorden_ps.dxil
+   d3d5c2a9046c8746a91d35649b63bd9ebac7bb731dd65e10cd8049ab485da864  uavorden_vs.dxil
+
 uavpixel.exe -- los UAV de un DIBUJO, juzgados (05-10)
 
 NUESTRO, no de Microsoft: `uavpixel.cpp` (aqui al lado), de consola, con
