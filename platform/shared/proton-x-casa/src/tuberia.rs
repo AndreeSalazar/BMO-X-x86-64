@@ -1131,9 +1131,13 @@ pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], raiz: &[u64
                 if ranura[1] != crate::d3d12::DESC_MUESTREADOR {
                     return None;
                 }
-                let (f, u, v, b) = (ranura[2] as u32, (ranura[2] >> 32) as u32, ranura[3] as u32, (ranura[3] >> 32) as u32);
+                let (f, u, v, b) = (ranura[2] as u32 & 0xFFFF, (ranura[2] >> 32) as u32 & 0xFFFF, ranura[3] as u32, (ranura[3] >> 32) as u32);
                 let borde = core::array::from_fn(|c| ((b >> (8 * c)) & 0xFF) as f32 / 255.0);
-                return Muestreador::de_descriptor(f, u, v, borde, ranura[0] as u32).map_err(aviso).ok();
+                // D4.4: el sesgo y los limites de la mip (ver `create_sampler`).
+                let fijo = |x: u64| (x & 0xFFFF) as f32 / 256.0;
+                let maximo = if ranura[2] >> 48 == 0xFFFF { f32::MAX } else { fijo(ranura[2] >> 48) };
+                let m = Muestreador::de_descriptor(f, u, v, borde, ranura[0] as u32).map_err(aviso).ok()?;
+                return Some(m.con_lod(f32::from_bits((ranura[0] >> 32) as u32), fijo(ranura[2] >> 16), maximo));
             }
             Muestreador::de_estatico(donde::estatico(firma, l)?).map_err(aviso).ok()
         })
@@ -1211,7 +1215,9 @@ fn textura_de_srv(ranura: &[u64]) -> Result<bmo_proton_x::textura::Textura<'stat
     let (mip, capa) = f.sub(sub);
     let formato = if formato == 0 { f.formato } else { formato };
     let hondo = if f.dimension == crate::subrecursos::DIM_TEXTURA3D { f.hondo } else { 1 };
-    Ok(Textura { texeles, ancho: f.ancho, alto: f.alto, como, srgb: crate::d3d12_vistas::es_srgb(formato), mapeo, mips: f.mips, capas: f.capas(), hondo, clase, mip, capa })
+    // D4.4: las mips de la vista y su ResourceMinLODClamp (`d3d12_vistas::poner`).
+    let (niveles, lod_min) = crate::d3d12_vistas::mips_de(ranura);
+    Ok(Textura { texeles, ancho: f.ancho, alto: f.alto, como, srgb: crate::d3d12_vistas::es_srgb(formato), mapeo, mips: f.mips, capas: f.capas(), hondo, clase, mip, capa, niveles, lod_min })
 }
 
 /// Lo que mide una ranura de un monton de descriptores de la casa.

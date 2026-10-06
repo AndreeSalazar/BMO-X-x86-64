@@ -404,7 +404,15 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   `prueba/olas.exe` en el banco; falta la 3060 y el x86 traducido, que no
   las traducen, y verlo en Cyberpunk.)
 - [ ] D4.4 -- Pixel: `discard`, derivadas, 8 destinos (MRT), profundidad de
-  salida, fusion (blend) completa, estarcido (stencil).
+  salida, fusion (blend) completa, estarcido (stencil). (05-10: el stencil,
+  N5.12b; las DERIVADAS y la MIP de un muestreo, hechas en el INTERPRETE:
+  `ddx`/`ddy` finas y gruesas de su cuadro de 2x2, `Sample` en la mip de
+  sus gradientes con MIP_LINEAR, SampleBias, SampleGrad, SampleCmp,
+  CalculateLevelOfDetail, MinLOD/MaxLOD/MipLODBias, MostDetailedMip,
+  MipLevels y ResourceMinLODClamp; juzgadas por `prueba/derivadas.exe` en
+  el banco, 17 `bien`. Falta: la 3060 con texturas de varias mips (la
+  puerta las manda a la CPU, dicho), el x86 traducido, la anisotropia y
+  los cubos (en la mip de la vista), y verlo en Windows.)
 - [ ] D4.5 -- Vertices: instancias, `SV_VertexID`/`InstanceID`. Casco y
   dominio (teselado) y geometria SOLO si D0.2 los encuentra.
 - [ ] D4.6 -- La CACHE de PSO a escala: miles de pipelines traducidos una vez

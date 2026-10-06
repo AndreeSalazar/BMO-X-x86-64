@@ -8,9 +8,12 @@
 //!    la ranura (32 B)   0 el recurso   1 la marca (SRV, RTV, DSV, UAV)
 //!                       2 dimension | formato << 8 | mapeo << 24
 //!                         (y en un SRV de bufer, N5.3: | paso << 40 |
-//!                         crudo << 56)
+//!                         crudo << 56; en uno de textura, D4.4: | sus
+//!                         MipLevels << 40, 8 bits, 0 todas)
 //!                       3 el subrecurso | rebanada 3D << 32 (o, en un
-//!                         bufer, el primer elemento | elementos << 32)
+//!                         bufer, el primer elemento | elementos << 32; en
+//!                         un SRV de textura, D4.4: su ResourceMinLODClamp,
+//!                         el float, << 32)
 //!    el subrecurso      mip + capa * mips, de la textura del recurso (en un
 //!                       cubo, cada cara es una capa; en 3D, la mip)
 //! ```
@@ -46,6 +49,10 @@ pub(crate) struct Vista {
     pub elementos: u32,
     pub paso: u32,
     pub crudo: bool,
+    /// D4.4, un SRV de textura: sus MipLevels (0 todas: el -1 de D3D, o mas
+    /// de 255) y su ResourceMinLODClamp (el float, en bits).
+    pub niveles: u32,
+    pub lod_min: u32,
 }
 
 /// **Un SRV de bufer, leido de su ranura** (N5.3).
@@ -103,6 +110,20 @@ pub(crate) unsafe fn srv(d: *const u8) -> Result<Vista, &'static str> {
         7 => v.capa = u32_(d, 16),
         SRV_ACELERACION => v.elemento = u64_(d, 16),
         _ => return Err("CreateShaderResourceView con una dimension que no es de D3D12"),
+    }
+    // D4.4: MipLevels (+20 en todas las de textura con mips) y
+    // ResourceMinLODClamp, el ultimo de cada una: +24 en 1D, 3D y cubo; +28
+    // en 2D; +32 en 1DARRAY y CUBEARRAY; +36 en 2DARRAY.
+    let clamp = match dimension {
+        2 | 8 | SRV_CUBO => Some(24),
+        4 => Some(28),
+        3 | 10 => Some(32),
+        5 => Some(36),
+        _ => None,
+    };
+    if let Some(o) = clamp {
+        let n = u32_(d, 20);
+        (v.niveles, v.lod_min) = (if n > 255 { 0 } else { n }, u32_(d, o));
     }
     Ok(v)
 }
@@ -183,9 +204,10 @@ pub(crate) fn sub(t: &Tex, mip: u32, capa: u32) -> u32 {
 /// marca y la vista (ver la cabecera). Con la vista, el subrecurso que
 /// toca, si el recurso es una textura.
 pub(crate) fn poner(handle: u64, recurso: u64, marca: u64, v: &Vista) {
-    let w2 = v.dimension as u64 & 0xFF | (v.formato as u64 & 0xFFFF) << 8 | (v.mapeo as u64 & 0xFFFF) << 24 | (v.paso as u64 & 0xFFF) << 40 | (v.crudo as u64) << 56;
+    let w2 = v.dimension as u64 & 0xFF | (v.formato as u64 & 0xFFFF) << 8 | (v.mapeo as u64 & 0xFFFF) << 24 | (v.paso as u64 & 0xFFF) << 40 | (v.crudo as u64) << 56 | (v.niveles as u64 & 0xFF) << 40;
     let w3 = match tex(recurso) {
-        Some(t) => sub(t, v.mip, v.capa) as u64 | (v.rebanada as u64) << 32,
+        // D4.4: un SRV no tiene rebanada: ahi va su ResourceMinLODClamp.
+        Some(t) => sub(t, v.mip, v.capa) as u64 | (if marca == DESC_SRV { v.lod_min } else { v.rebanada } as u64) << 32,
         // Un bufer: el primer elemento en 32 bits (4 mil millones de
         // elementos bastan) y cuantos detras.
         None => v.elemento & 0xFFFF_FFFF | (v.elementos as u64) << 32,
@@ -205,6 +227,13 @@ pub(crate) fn poner(handle: u64, recurso: u64, marca: u64, v: &Vista) {
 pub(crate) fn leer(ranura: &[u64]) -> ((u32, u32, u32), (u32, u32)) {
     let (w2, w3) = (ranura[2], ranura[3]);
     ((w2 as u32 & 0xFF, (w2 >> 8) as u32 & 0xFFFF, (w2 >> 24) as u32 & 0xFFFF), (w3 as u32, (w3 >> 32) as u32))
+}
+
+/// D4.4: lo de las mips de un SRV de textura: sus MipLevels (`u32::MAX`,
+/// todas) y su ResourceMinLODClamp.
+pub(crate) fn mips_de(ranura: &[u64]) -> (u32, f32) {
+    let n = ((ranura[2] >> 40) & 0xFF) as u32;
+    (if n == 0 { u32::MAX } else { n }, f32::from_bits((ranura[3] >> 32) as u32))
 }
 
 /// La textura de un recurso de la casa (o `None`: un bufer, o nulo).

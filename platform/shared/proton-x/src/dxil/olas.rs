@@ -22,14 +22,32 @@
 //!
 //! Lo que falta, dicho: las de 16 y 64 bits (`.f16`, `.i64`...) no compilan
 //! (el modulo lo dice), ni las del modelo 6.5 (`WaveMatch`, `WaveMulti*`).
-//! Las DERIVADAS (`ddx`, `ddy`, `fwidth`) siguen a 0 (D4.4): el muestreo ya
-//! lee la mip de la vista sin mirarlas (`Lectura::Muestra`), y `fwidth` da 0
-//! (un borde suavizado sale duro). Con los cuadros de `crate::cuadros` se
-//! podran calcular de verdad, pero eso cambia lo que pinta todo sombreador
-//! que las use, olas o no: es su casilla.
+//!
+//! **Las DERIVADAS** (D4.4, 05-10; hasta entonces daban 0): `ddx`, `ddy` y
+//! `fwidth` son una [`Ola::Derivada`], la resta de dos carriles de SU cuadro
+//! (ayudantes o no, como las `Quad*`). Con los carriles 0 1 arriba y 2 3
+//! abajo (`crate::cuadros`):
+//!
+//! ```text
+//!    gruesa x   p1 - p0, para los cuatro      (DerivCoarseX, 83: `ddx`)
+//!    gruesa y   p2 - p0, para los cuatro      (DerivCoarseY, 84: `ddy`)
+//!    fina x     la de su FILA: p1 - p0 o p3 - p2          (85: `ddx_fine`)
+//!    fina y     la de su COLUMNA: p2 - p0 o p3 - p1       (86: `ddy_fine`)
+//! ```
+//!
+//! D3D deja a la gruesa usar cualquier par del cuadro; esta es la de arriba
+//! a la izquierda, la de las GPU de escritorio. `dxc` traduce `ddx` y `ddy`
+//! a las gruesas. Fuera de un cuadro (un vertice, un hilo de computo solo)
+//! la resta es de un carril consigo mismo: 0.
+//!
+//! El MUESTREO con la mip por derivadas (`Sample`, `SampleBias`,
+//! `SampleCmp`, `CalculateLevelOfDetail`) pide las cuatro gruesas de sus
+//! (u, v) con [`gradientes`]: por eso un sombreador que muestrea tambien va
+//! en cuadros. Esas llevan `muestra: true`: la 3060 las sabe hacer sola (su
+//! TEX las calcula) y la puerta no las cuenta como olas del sombreador.
 
 use super::estructura::{bits, literal};
-use super::programa::{Compilador, NoPrograma, Op, Valor};
+use super::programa::{Compilador, NoPrograma, Op, Reg, Valor};
 
 /// **Los carriles de una ola**: 32, los de un warp de la 3060.
 pub const CARRILES: u32 = 32;
@@ -84,6 +102,10 @@ pub enum Ola {
     Cuadro,
     /// `QuadReadAcrossX` (1), `...Y` (2), `...Diagonal` (3): el carril `k ^ m`.
     Cruza(u8),
+    /// D4.4: una derivada de float, `ddx` (o `ddy` si `y`), gruesa o `fina`
+    /// (ver arriba). `muestra`: no la pidio el sombreador sino un muestreo,
+    /// para su mip ([`gradientes`]).
+    Derivada { y: bool, fina: bool, muestra: bool },
 }
 
 /// Como se cuentan los valores de [`Ola::Activa`] y [`Ola::Prefijo`].
@@ -141,6 +163,19 @@ pub fn hacer(que: Ola, k: usize, activos: u32, a: impl Fn(usize) -> u32, b: u32)
         Ola::PrefijoBits => lista().filter(|&j| j < k && a(j) != 0).count() as u32,
         Ola::Cuadro => a((k & !3) | (b & 3) as usize),
         Ola::Cruza(m) => a(k ^ m as usize),
+        // D4.4: el carril de arriba a la izquierda de su fila (x) o de su
+        // columna (y); en la gruesa, del cuadro. Menos el de su derecha (o
+        // el de debajo): la resta de dos floats.
+        Ola::Derivada { y, fina, .. } => {
+            let q = k & !3;
+            let de = match (y, fina) {
+                (false, true) => q + (k & 2),
+                (true, true) => q + (k & 1),
+                _ => q,
+            };
+            let paso = if y { 2 } else { 1 };
+            (f32::from_bits(a(de + paso)) - f32::from_bits(a(de))).to_bits()
+        }
     };
     [x, 0, 0, 0]
 }
@@ -179,8 +214,8 @@ fn juntar(op: u8, num: Numero, mut v: impl Iterator<Item = u32>) -> Option<u32> 
 }
 
 /// **La operacion de D3D `op` si es de olas o una derivada** (`None` si
-/// no): una [`Op::Ola`], o -- `WaveGetLaneCount` y las derivadas -- una
-/// constante. `nombre` es el de la funcion (`dx.op.waveActiveOp.f32`): su
+/// no): una [`Op::Ola`] (las derivadas tambien, D4.4), o -- `WaveGetLaneCount`
+/// -- una constante. `nombre` es el de la funcion (`dx.op.waveActiveOp.f32`): su
 /// sobrecarga dice si son floats.
 pub(super) fn de(c: &mut Compilador, op: i64, args: &[usize], nombre: &str) -> Option<Result<Valor, NoPrograma>> {
     if !(DERIV_PRIMERA..=DERIV_ULTIMA).contains(&op) && !(ES_PRIMER_CARRIL..=CRUZA_EL_CUADRO).contains(&op) && !(CUENTA_DE_BITS..=CUENTA_DE_PREFIJO).contains(&op) {
@@ -213,8 +248,9 @@ fn compilar(c: &mut Compilador, op: i64, args: &[usize], nombre: &str) -> Result
         })
     };
     let que = match op {
-        // Las derivadas, a 0 (ver arriba); el numero de carriles, constante.
-        DERIV_PRIMERA..=DERIV_ULTIMA => return c.registro(0.0).map(Valor::Float),
+        // D4.4: las derivadas, de verdad (83 y 84 gruesas, 85 y 86 finas; las
+        // pares, las de y). El numero de carriles, constante.
+        DERIV_PRIMERA..=DERIV_ULTIMA => Ola::Derivada { y: (op - DERIV_PRIMERA) % 2 == 1, fina: op >= DERIV_PRIMERA + 2, muestra: false },
         CARRILES_DE_OLA => return literal(c, CARRILES).map(Valor::Bits),
         ES_PRIMER_CARRIL => Ola::EsPrimero,
         INDICE_DE_CARRIL => Ola::Indice,
@@ -259,4 +295,43 @@ fn compilar(c: &mut Compilador, op: i64, args: &[usize], nombre: &str) -> Result
         _ if nombre.ends_with(".i1") => Valor::Bool(d),
         _ => Valor::Bits(d),
     })
+}
+
+/// **D4.4: los gradientes de un muestreo** con la mip por derivadas: en
+/// `g..g+4`, `ddx(u)`, `ddx(v)`, `ddy(u)` y `ddy(v)`, gruesas (una mip para
+/// todo el cuadro, como las GPU). Los usa `textura::Textura::lambda`.
+pub fn gradientes(ops: &mut alloc::vec::Vec<Op>, g: Reg, u: Reg, v: Reg) {
+    for (k, (a, y)) in [(u, false), (v, false), (u, true), (v, true)].into_iter().enumerate() {
+        ops.push(Op::Ola { d: g + k as Reg, a, b: a, que: Ola::Derivada { y, fina: false, muestra: true } });
+    }
+}
+
+/// **D4.4: el bloque de un muestreo con la mip por gradientes** (ver
+/// `Lectura::Gradientes`), y su primer registro: los cuatro gradientes de
+/// (u, v) = (`co[0]`, `co[1]`) -- los que da el sombreador (`grad`: ddx u,
+/// ddx v, ddy u, ddy v) o los de su cuadro (`olas::gradientes`) -- y detras,
+/// copiado, cada uno de `resto` (el sesgo, el clamp, la referencia; uno que
+/// no viene, 0).
+pub(super) fn bloque(c: &mut Compilador, co: [Reg; 4], grad: Option<[usize; 4]>, resto: &[Option<usize>]) -> Result<Reg, NoPrograma> {
+    let g = c.registro(0.0)?;
+    for _ in 1..4 + resto.len() {
+        c.registro(0.0)?;
+    }
+    match grad {
+        Some(ids) => {
+            for (k, id) in ids.into_iter().enumerate() {
+                let a = bits(c, id)?;
+                c.ops.push(Op::Copia { d: g + k as Reg, a });
+            }
+        }
+        None => gradientes(&mut c.ops, g, co[0], co[1]),
+    }
+    for (k, id) in resto.iter().enumerate() {
+        let a = match id {
+            Some(id) => bits(c, *id)?,
+            None => literal(c, 0)?,
+        };
+        c.ops.push(Op::Copia { d: g + 4 + k as Reg, a });
+    }
+    Ok(g)
 }

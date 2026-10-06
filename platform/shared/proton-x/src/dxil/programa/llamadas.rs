@@ -254,19 +254,37 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             let desp = desplazamientos(c, [arg(7)?, arg(8)?, arg(9)?])?;
             let indefinido = |k: usize| matches!(c.valores.get(k), Some(Valor::Indefinido) | None);
             let plana = indefinido(arg(5)?) && indefinido(arg(6)?) && desp == [0; 3];
+            // D4.4: el clamp del sombreador (la mip mas detallada que deja),
+            // el ultimo argumento de Sample, SampleBias y SampleGrad.
+            let clamp = match op {
+                DX_SAMPLE => Some(10),
+                DX_SAMPLE_BIAS => Some(11),
+                DX_SAMPLE_GRAD => Some(16),
+                _ => None,
+            };
+            let sin_clamp = clamp.is_none_or(|k| args.get(k).is_none_or(|&a| indefinido(a)));
             // La ELEGIDA va siempre por `Lee`: `Muestra` es lo que sabe la
             // 3060, y la 3060 no elige texturas (todavia).
-            if op == DX_SAMPLE && plana && t != DINAMICA {
-                // Lo de siempre (2D, sin desplazar): lo que sabe la 3060.
+            if op == DX_SAMPLE && plana && sin_clamp && t != DINAMICA {
+                // Lo de siempre (2D, sin desplazar): lo que sabe la 3060. D4.4:
+                // con la mip de los gradientes de (u, v) en su cuadro.
                 let (u, v) = (c.float(arg(3)?)?, c.float(arg(4)?)?);
+                let g = cuatro(c)?;
+                super::super::olas::gradientes(&mut c.ops, g, u, v);
                 let d = cuatro(c)?;
-                c.ops.push(Op::Muestra { d, t, s: sm, u, v });
+                c.ops.push(Op::Muestra { d, t, s: sm, u, v, g: Some(g) });
                 Valor::Cuatro(d)
             } else {
                 let co = [super::super::estructura::bits(c, arg(3)?)?, super::super::estructura::bits(c, arg(4)?)?, super::super::estructura::bits(c, arg(5)?)?, super::super::estructura::bits(c, arg(6)?)?];
                 let (como, nivel) = match op {
                     DX_SAMPLE_LEVEL => (Lectura::Nivel, super::super::estructura::bits(c, arg(10)?)?),
-                    _ => (Lectura::Muestra, super::super::estructura::literal(c, 0)?),
+                    // D4.4: SampleGrad con los suyos (ddx 10, 11; ddy 13, 14);
+                    // Sample y SampleBias (su sesgo, el 10), con los del cuadro.
+                    _ => {
+                        let grad = if op == DX_SAMPLE_GRAD { Some([arg(10)?, arg(11)?, arg(13)?, arg(14)?]) } else { None };
+                        let sesgo = if op == DX_SAMPLE_BIAS { Some(arg(10)?) } else { None };
+                        (Lectura::Gradientes { compara: false }, super::super::olas::bloque(c, co, grad, &[sesgo, clamp.and_then(|k| args.get(k).copied())])?)
+                    }
                 };
                 let d = cuatro(c)?;
                 c.ops.push(Op::Lee { d, t, s: sm, como, c: co, nivel, desp });
@@ -313,6 +331,20 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             let d = cuatro(c)?;
             c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::Bufer(modo), c: [indice, desp, cero, cero], nivel: cero, desp: [0; 3] });
             if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) }
+        }
+        // D4.4: `calculateLOD(srv, sampler, c0, c1, c2, sujeta)`: el LOD de
+        // los gradientes de (c0, c1) en su cuadro, en un float.
+        DX_CALCULATE_LOD => {
+            let (Some(t), Some(Valor::Muestreador(sm))) = (textura(c, arg(1)?), c.valores.get(arg(2)?).copied()) else {
+                return Err(NoPrograma::Forma("CalculateLevelOfDetail sin el handle de una textura y el de un muestreador"));
+            };
+            let sujeta = c.entero(arg(6)?)? != 0;
+            let cero = super::super::estructura::literal(c, 0)?;
+            let co = [super::super::estructura::bits(c, arg(3)?)?, super::super::estructura::bits(c, arg(4)?)?, super::super::estructura::bits(c, arg(5)?)?, cero];
+            let nivel = super::super::olas::bloque(c, co, None, &[])?;
+            let d = cuatro(c)?;
+            c.ops.push(Op::Lee { d, t, s: sm, como: Lectura::Lod { sujeta }, c: co, nivel, desp: [0; 3] });
+            Valor::Float(d)
         }
         DX_GET_DIMENSIONS => {
             // (handle, mip): %dx.types.Dimensions, cuatro i32. De un bufer

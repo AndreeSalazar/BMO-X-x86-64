@@ -200,3 +200,10 @@ cp "$AQUI/../olas.cpp" "$AQUI"/../olas_*.dxil .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c olas.cpp -o olas.o
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o olas.exe olas.o -ld3d12
 sha256sum olas.exe
+
+# D4.4: el juez de las DERIVADAS y de la MIP de un muestreo, NUESTRO
+# (`../derivadas.cpp`, con sus tres sombreadores de `../derivadas_*.dxil`).
+cp "$AQUI/../derivadas.cpp" "$AQUI"/../derivadas_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c derivadas.cpp -o derivadas.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o derivadas.exe derivadas.o -ld3d12
+sha256sum derivadas.exe

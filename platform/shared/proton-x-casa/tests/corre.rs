@@ -106,6 +106,8 @@ const FLOTANTE1_EXE: &[u8] = include_bytes!("../../proton-x/prueba/flotante1.exe
 const STENCIL_EXE: &[u8] = include_bytes!("../../proton-x/prueba/stencil.exe");
 /// E2.5 (05-10): las olas de verdad (Wave*, Quad*), en el computo y en los pixeles.
 const OLAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/olas.exe");
+/// D4.4 (05-10): las derivadas (ddx, ddy, finas y gruesas) y la mip de un muestreo.
+const DERIVADAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/derivadas.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

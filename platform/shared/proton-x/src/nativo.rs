@@ -166,12 +166,18 @@ pub const DESCARTADO: u32 = crate::nativo_computo::DESCARTADO;
 /// **Por que [`compilar`] no traduce `p`**, dicho para quien lo lea (el
 /// aviso de la casa), o `None` si lo traduce. La lista es la de `compilar`.
 pub fn por_que_no(p: &Programa) -> Option<&'static str> {
-    // E2.5: lo primero (un sombreador con olas suele saltar tambien).
-    if p.usa_olas() {
+    // E2.5: lo primero (un sombreador con olas suele saltar tambien). D4.4:
+    // las derivadas que pide un muestreo (su mip) no son motivo aparte: el
+    // motivo es que muestrea.
+    if p.olas_propias() {
         return Some("usa las olas (Wave*, Quad*: van de 32 en 32 carriles)");
     }
     if p.muestrea() {
         return Some("muestrea una textura");
+    }
+    // D4.4: las derivadas restan carriles de su cuadro de 2x2.
+    if p.deriva() {
+        return Some("usa las derivadas (ddx, ddy, fwidth: van en cuadros de 2x2)");
     }
     // Los saltos, los enteros, `discard` y los arrays de registros ya los
     // sabe (por el cuerpo del computo): no son motivo.

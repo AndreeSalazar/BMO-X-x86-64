@@ -333,12 +333,12 @@ muestra.
   un CS de 32 en 32 seguidos (es lo que hace; D3D no lo promete: el juez lo
   mira primero, `WaveGetLaneIndex`) o que no reconverja en los bucles como
   aqui (la ola de un `continue` se junta al final de la vuelta); las
-  DERIVADAS siguen a 0 (D4.4), tambien con cuadros; ni las de 16 o 64 bits
+  DERIVADAS, de verdad desde D4.4 (05-10, `prueba/derivadas.exe`); ni las de 16 o 64 bits
   ni las de SM 6.5 (`WaveMatch`, `WaveMultiPrefix*`): no compilan, dicho.
   Un pixel que no paso el stencil y corre solo para saber si lo tira va en
   su ola de AYUDANTE (D3D ni lo correria).
   **Queda:** las olas en la 3060 (`vote`, `shfl`) y en el x86 traducido;
-  las derivadas con los cuadros; verlo en el metal y en Windows.
+  verlo en el metal y en Windows.
 - [ ] **E2.6 -- D3D12HDR.** Render targets de float (N5.16, hecho el 05-10 con
   `prueba/hdr.exe`) y la cadena en 10 o 16 bits con su espacio de color (la
   cadena ya se acepta y se presenta en 8 bits; falta la muestra de

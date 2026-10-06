@@ -833,3 +833,30 @@ fn e2_7_predicationqueries_salta_el_cuadro_que_la_oclusion_dice_tapado() {
     }
     assert!(vistos[0] > 5 && vistos[1] > 5, "se ven las dos cosas: saltado y dibujado ({vistos:?})");
 }
+
+/// **D4.4 -- las DERIVADAS y la MIP de un muestreo** (05-10,
+/// `prueba/derivadas.exe`, NUESTRO). Las finas y las gruesas de un cuadro de
+/// 2x2, la mip de `Sample` por sus derivadas (lambda 0 a 6, el ultimo con
+/// tres ayudantes), la mezcla de dos mips (MIP_LINEAR), `SampleBias`,
+/// `SampleLevel`, `SampleGrad`, `CalculateLevelOfDetail` (y `Unclamped`), y
+/// lo que sujeta la mip: MostDetailedMip, ResourceMinLODClamp y el MaxLOD de
+/// un muestreador de un monton. Bit a bit. Dos avisos y ninguno mas, los de
+/// verdad: los dos PSO se interpretan (uno deriva, el otro muestrea).
+#[test]
+fn d4_4_las_derivadas_y_la_mip_de_un_muestreo_son_las_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, DERIVADAS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(
+        avisos,
+        [
+            "PROTON-X: un PSO cuyo sombreador usa las derivadas (ddx, ddy, fwidth: van en cuadros de 2x2): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)",
+            "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)"
+        ],
+        "{texto}"
+    );
+    assert_eq!(texto.matches("  bien  ").count(), 17, "{texto}");
+    assert!(texto.ends_with("derivadas.exe: las derivadas y la mip de un muestreo son las de Windows\r\n[salio 0x0]"), "{texto}");
+}

@@ -2616,3 +2616,58 @@ PS no compilaban: la papeleta, 116, y QuadOp, 123; solo OPTIONS1 decia
 bien: ya contestaba 32 mientras los sombreadores veian 1); contando a los
 ayudantes como activos, MAL en C (A = 4); juntando los carriles por la
 operacion sin mirar el bucle ni quien va antes, MAL en los dos bucles.
+
+derivadas_vs.dxil, derivadas_ps.dxil, derivadas_niveles.dxil -- los de derivadas.exe (05-10)
+
+D4.4: `derivadas.hlsl` (aqui al lado): VSCuadro (un cuadro sin bufer de
+vertices, de las constantes de la raiz), PSDerivadas (ddx_fine, ddy_fine,
+ddx_coarse y ddy_coarse de x * y) y PSMips (Sample, SampleBias,
+SampleLevel, SampleGrad, CalculateLevelOfDetail y su Unclamped, segun
+`modo`, sobre tres vistas de una textura de 7 mips y tres muestreadores).
+Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo derivadas_vs.dxil derivadas.hlsl
+   dxc -T ps_6_0 -E PSDerivadas -Fo derivadas_ps.dxil derivadas.hlsl
+   dxc -T ps_6_0 -E PSMips -Fo derivadas_niveles.dxil derivadas.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   af9ed1b57eadc104ead00c8740d67f461b3937d0853e5dbd0ffcba17a5f65ad8  derivadas_vs.dxil
+   b50e08e364707601ad02960f6b33524c4ab2e559732a1bfac94fe81710ea2ecb  derivadas_ps.dxil
+   b24300e89ec3f9691ce4f285b2181929952c97cac197b0ca76a6684e59c096c9  derivadas_niveles.dxil
+
+Van DENTRO de derivadas.exe.
+
+derivadas.exe -- D4.4: las DERIVADAS y la MIP de un muestreo, juzgadas (05-10)
+
+NUESTRO, de consola, con los tres .dxil dentro (`.incbin`). A, en 16 x 16
+de RGBA32F: las finas de x * y, exactas (ddx = y, ddy = x), y las gruesas,
+una por cuadro y de una de sus dos filas (columnas: D3D deja elegir). B, una
+textura de 64 x 64 con sus 7 mips, cada una de un color, muestreada con
+Sample y MIN_MAG_MIP_POINT en cuadros de 64, 32... 1 pixeles: cada uno, la
+mip de su escala (lambda 0 a 6; el de un pixel, con tres ayudantes). C,
+MIP_LINEAR a medio camino (SampleBias 0,5; SampleLevel 2,5) y SampleGrad.
+D, CalculateLevelOfDetail y su Unclamped (2 y 2; de cerca, 0 y -1). E, lo
+que sujeta la mip: MostDetailedMip = 2, ResourceMinLODClamp = 4 y un
+muestreador de un monton (CreateSampler) con MaxLOD = 1. Ningun LOD cae en
+un empate; cada media es exacta en 8 bits. Dice `bien` 17 veces y sale con
+el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con derivadas.cpp y los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c derivadas.cpp -o derivadas.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o derivadas.exe derivadas.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   b46ab077ea3d0287e4bb96b76d4b016da5f3431723ea79259f94ee7314b02fce  derivadas.exe
+
+El banco (`tests/corre/muestras.rs`, d4_4): los 17 `bien`, sale con 0, y
+dos avisos (los dos PSO se interpretan: uno deriva, el otro muestrea).
+Probado que dice NO: contra la casa de antes, 17 MAL (el PS de las mips no
+compilaba: CalculateLevelOfDetail, 81; las derivadas daban 0). Y cada pieza
+quitada a mano, una a una, la ve su `bien`: las derivadas a 0, 13 MAL (A, y
+toda mip por encima de la 0); la fina x como la gruesa, MAL en A; sin
+MIP_LINEAR, los dos de C; sin ResourceMinLODClamp, ese de E; sin el MaxLOD
+del muestreador del monton, ese de E.

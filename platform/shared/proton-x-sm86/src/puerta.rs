@@ -308,8 +308,18 @@ impl Puerta {
         }
         // E2.5 (05-10): las olas (Wave*, Quad*) tampoco: el emisor no las
         // sabe (`vote`, `shfl`); dicho con su nombre, no con un numero.
-        if l.enlace.vs.usa_olas() || l.enlace.ps.usa_olas() {
+        if l.enlace.vs.olas_propias() || l.enlace.ps.olas_propias() {
             return Err(String::from("sus sombreadores usan las olas (Wave*, Quad*): la 3060 no las lleva todavia"));
+        }
+        // D4.4 (05-10): las derivadas (ddx, ddy, fwidth) tampoco; y la mip de
+        // un `Sample` la saca su TEX, pero de la mip 0 de una textura de una
+        // mip: si la vista tiene mas, o el muestreador filtra distinto de
+        // lejos, la CPU (que elige la mip) daria otra cosa.
+        if l.enlace.vs.deriva() || l.enlace.ps.deriva() {
+            return Err(String::from("sus sombreadores usan las derivadas (ddx, ddy, fwidth): la 3060 no las lleva todavia"));
+        }
+        if l.enlace.ps.mip_por_derivadas() && l.recursos.mip_importa() {
+            return Err(String::from("muestrea con la mip de sus derivadas una textura de varias mips (o con MIN y MAG distintos): la 3060 lee la mip 0 todavia"));
         }
         // N5.13: la receta lleva UNA instancia y los elementos por vertice.
         if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {

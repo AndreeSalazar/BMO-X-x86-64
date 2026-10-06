@@ -10,8 +10,9 @@
 //! ```
 //!
 //! Las cuentas, en `textura.rs` (`juntar`, `comparar`); aqui solo se leen
-//! los argumentos y sale un [`Op::Lee`]. La comparacion, sin mips: la de
-//! la vista (como `SampleCmpLevelZero`, que es la que usan las sombras).
+//! los argumentos y sale un [`Op::Lee`]. `SampleCmpLevelZero` y los Gather,
+//! en la mip de la vista; D4.4 (05-10): `SampleCmp`, en la de sus
+//! derivadas (`Lectura::Gradientes`).
 
 use super::estructura::{bits, literal};
 use super::programa::{Compilador, Lectura, NoPrograma, Op, Valor};
@@ -49,6 +50,9 @@ pub(super) fn de(c: &mut Compilador, op: i64, args: &[usize]) -> Option<Result<V
         let (como, nivel) = match op {
             GATHER => (Lectura::Junta { canal: canal(c)? }, literal(c, 0)?),
             GATHER_CMP => (Lectura::JuntaCompara { canal: canal(c)? }, bits(c, arg(10)?)?),
+            // D4.4: SampleCmp, con la mip de los gradientes de su cuadro: sin
+            // sesgo, su clamp (el 11) y la referencia (el 10).
+            SAMPLE_CMP => (Lectura::Gradientes { compara: true }, super::olas::bloque(c, co, None, &[None, args.get(11).copied(), Some(arg(10)?)])?),
             _ => (Lectura::Compara, bits(c, arg(10)?)?),
         };
         let d = c.registro(0.0)?;

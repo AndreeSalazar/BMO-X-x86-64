@@ -286,8 +286,8 @@ fn exp2(x: f32) -> f32 {
     (s * f64::from_bits(((n + 1023) as u64) << 52)) as f32
 }
 
-/// log2(x).
-fn log2(x: f32) -> f32 {
+/// log2(x). D4.4: tambien el LOD de un muestreo (`textura::Textura::lambda`).
+pub fn log2(x: f32) -> f32 {
     if x.is_nan() || x < 0.0 {
         return f32::NAN;
     }

@@ -464,7 +464,7 @@ impl Programa {
                     elige = Some((rango, bits(regs, i)));
                     elegida = rec.dinamica(rango, bits(regs, i));
                 }
-                Op::Muestra { d, t, s, u, v } => {
+                Op::Muestra { d, t, s, u, v, g } => {
                     let (unica, solo);
                     let (rec, t) = if t == super::programa::DINAMICA {
                         unica = [elegida];
@@ -473,7 +473,11 @@ impl Programa {
                     } else {
                         (rec, t)
                     };
-                    let c = rec.muestrear(t, s, regs[u as usize], regs[v as usize]);
+                    // D4.4: la mip de sus gradientes (las derivadas de antes).
+                    let c = match g {
+                        Some(g) => rec.muestrear_grad(t, s, [regs[u as usize], regs[v as usize], 0.0, 0.0], core::array::from_fn(|k| regs[g as usize + k]), [0.0; 2], [0; 3]),
+                        None => rec.muestrear(t, s, regs[u as usize], regs[v as usize]),
+                    };
                     regs[d as usize..d as usize + 4].copy_from_slice(&c);
                 }
                 Op::Lee { d, t, s, como, c, nivel, desp } => {
@@ -497,6 +501,17 @@ impl Programa {
                         Lectura::MedidasBufer(modo) => rec.medidas_bufer(t, modo),
                         Lectura::Junta { canal } => rec.juntar(t, s, f, canal as usize, desp).map(f32::to_bits),
                         Lectura::Compara => [rec.comparar(t, s, f, regs[nivel as usize], desp).to_bits(); 4],
+                        // D4.4: el bloque de `nivel` (ver `Lectura::Gradientes`).
+                        Lectura::Gradientes { compara } => {
+                            let n = |k: usize| regs[nivel as usize + k];
+                            let (g, sesgo_clamp) = ([n(0), n(1), n(2), n(3)], [n(4), n(5)]);
+                            if compara {
+                                [rec.comparar_grad(t, s, f, n(6), g, sesgo_clamp, desp).to_bits(); 4]
+                            } else {
+                                rec.muestrear_grad(t, s, f, g, sesgo_clamp, desp).map(f32::to_bits)
+                            }
+                        }
+                        Lectura::Lod { sujeta } => [rec.lod(t, s, core::array::from_fn(|k| regs[nivel as usize + k]), sujeta).to_bits(), 0, 0, 0],
                         Lectura::JuntaCompara { canal } => {
                             // Cada texel contra la referencia, con la funcion del muestreador.
                             let g = rec.juntar(t, s, f, canal as usize, desp);

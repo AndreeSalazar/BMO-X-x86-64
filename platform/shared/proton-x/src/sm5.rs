@@ -804,11 +804,17 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
                 // SM5 no tiene espacios: todo es del 0 (03-10: por ranura).
                 let (tn, sn) = (tr.p.ranuras.textura(0, res.indices[0])?, tr.p.ranuras.muestreador(0, smp.indices[0])?);
                 let (u, v) = (tr.fuente(&dir, 0)?, tr.fuente(&dir, 1)?);
+                // D4.4: la mip, de los gradientes de (u, v) en su cuadro.
+                let g = tr.nuevo()?;
+                for _ in 0..3 {
+                    tr.nuevo()?;
+                }
+                crate::dxil::olas::gradientes(&mut tr.p.ops, g, u, v);
                 let x = tr.nuevo()?;
                 for _ in 0..3 {
                     tr.nuevo()?;
                 }
-                tr.p.ops.push(Op::Muestra { d: x, t: tn, s: sn, u, v });
+                tr.p.ops.push(Op::Muestra { d: x, t: tn, s: sn, u, v, g: Some(g) });
                 // El swizzle del recurso dice que canal va a cada componente.
                 for k in (0..4).filter(|k| d.mascara & (1 << k) != 0) {
                     tr.escribir(&d, k, x + res.sel[k] as Reg, saturar)?;

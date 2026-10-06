@@ -110,6 +110,8 @@ const DX_SAMPLE_GRAD: i64 = 63;
 const DX_TEXTURE_LOAD: i64 = 66;
 const DX_TEXTURE_STORE: i64 = 67;
 const DX_GET_DIMENSIONS: i64 = 72;
+/// D4.4: `CalculateLevelOfDetail` (y su `Unclamped`).
+const DX_CALCULATE_LOD: i64 = 81;
 const DX_BUFFER_LOAD: i64 = 68;
 // N5.5 (05-10): el computo.
 const DX_BUFFER_STORE: i64 = 69;
@@ -183,8 +185,10 @@ pub enum Op {
     Min { d: Reg, a: Reg, b: Reg },
     Max { d: Reg, a: Reg, b: Reg },
     /// `Sample`: la textura `t` (el registro tN) con el muestreador `s` (sN)
-    /// en `(u, v)`; los cuatro canales (R, G, B, A) en `d..d+4`.
-    Muestra { d: Reg, t: u8, s: u8, u: Reg, v: Reg },
+    /// en `(u, v)`; los cuatro canales (R, G, B, A) en `d..d+4`. D4.4: con
+    /// `g`, la mip de los gradientes de `g..g+4` (`olas::gradientes`); sin
+    /// el, la de la vista (un programa hecho a mano).
+    Muestra { d: Reg, t: u8, s: u8, u: Reg, v: Reg, g: Option<Reg> },
     /// N5.4 (05-10): ELEGIR la textura del rango dinamico `rango` cuyo
     /// registro (absoluto, la base incluida) calculo el sombreador en los
     /// bits de `i`. La lectura que viene detras, con `t` = [`DINAMICA`], lee
@@ -232,10 +236,10 @@ pub enum Op {
     Emite { flujo: u8 },
     /// E2.3b: `CutStream`: la tira de ahora se acaba.
     Corta { flujo: u8 },
-    /// 02-10: leer una textura con lo que `Muestra` (2D, la mip de la
-    /// vista) no dice: `Sample` con mas coordenadas (arrays, cubos, 3D) o
-    /// desplazado, `SampleLevel`, `SampleBias` y `SampleGrad` (sin su sesgo
-    /// ni sus gradientes: la mip de la vista), `Load` y `GetDimensions` (ver
+    /// 02-10: leer una textura con lo que `Muestra` (2D) no dice: `Sample`
+    /// con mas coordenadas (arrays, cubos, 3D) o desplazado, `SampleLevel`,
+    /// `SampleBias` y `SampleGrad` (D4.4: con su sesgo y sus gradientes,
+    /// [`Lectura::Gradientes`]), `Load` y `GetDimensions` (ver
     /// [`Lectura`]). `c`: las coordenadas (floats, o enteros en `Load`; las
     /// que no trae, un registro a 0); `nivel`: la mip (un float en
     /// SampleLevel, un entero en Load y GetDimensions); `desp`: el
@@ -472,7 +476,8 @@ pub struct Computo {
 /// **Como lee una textura** [`Op::Lee`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Lectura {
-    /// `Sample` (y Bias y Grad): la mip mas detallada de la vista.
+    /// `Sample` en la mip mas detallada de la vista (D4.4: el DXIL ya no la
+    /// pide: sus `Sample` van por [`Lectura::Gradientes`]).
     Muestra,
     /// `SampleLevel`: la mip de `nivel` (float).
     Nivel,
@@ -493,6 +498,14 @@ pub enum Lectura {
     Compara,
     /// 03-10: `GatherCmp`: los cuatro texeles, cada uno comparado.
     JuntaCompara { canal: u8 },
+    /// D4.4: `Sample`, `SampleBias`, `SampleGrad` (y con `compara`,
+    /// `SampleCmp`) con la mip de sus GRADIENTES. Desde `nivel`, seguidos:
+    /// ddx(u), ddx(v), ddy(u), ddy(v), el sesgo, el clamp del sombreador (la
+    /// mip menor que deja) y, si compara, la referencia.
+    Gradientes { compara: bool },
+    /// D4.4: `CalculateLevelOfDetail` (`sujeta`) o su `Unclamped`: el LOD
+    /// de los gradientes de `nivel..nivel+4`, en x.
+    Lod { sujeta: bool },
 }
 
 impl Programa {
@@ -521,8 +534,27 @@ impl Programa {
     }
 
     /// E2.5: si usa las olas (un pixel asi va en cuadros y olas, `cuadros`).
+    /// D4.4: las derivadas son olas (de su cuadro), y un muestreo con la mip
+    /// por derivadas las pide: tambien va en cuadros.
     pub fn usa_olas(&self) -> bool {
         self.ops.iter().any(|o| matches!(o, Op::Ola { .. }))
+    }
+
+    /// D4.4: si usa olas que NO son derivadas (`Wave*`, `Quad*`).
+    pub fn olas_propias(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::Ola { que, .. } if !matches!(que, super::olas::Ola::Derivada { .. })))
+    }
+
+    /// D4.4: si el sombreador pide derivadas (`ddx`, `ddy`, `fwidth`); las de
+    /// la mip de un muestreo no cuentan (ver [`Programa::mip_por_derivadas`]).
+    pub fn deriva(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::Ola { que: super::olas::Ola::Derivada { muestra: false, .. }, .. }))
+    }
+
+    /// D4.4: si muestrea con la mip de sus derivadas (`Sample`, no
+    /// `SampleLevel`).
+    pub fn mip_por_derivadas(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::Ola { que: super::olas::Ola::Derivada { muestra: true, .. }, .. }))
     }
 
     /// Si el programa salta (E6): `si`, bucles, o lo que lee bits como
