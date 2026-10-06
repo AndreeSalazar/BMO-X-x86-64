@@ -93,17 +93,19 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
                 }
             }
             let mascara = c.entero(arg(8)?)? as u8;
-            c.ops.push(Op::EscribeUav { u, modo, i, desp, v, mascara });
+            c.ops.push(Op::EscribeUav { u, modo, i, desp, z: cero, v, mascara });
             Valor::Nada
         }
         // N5.3c: `textureStore(uav, coord0, coord1, coord2, v0..v3, mascara)`:
-        // el texel (x, y) de un RWTexture2D (la z, en las de 3D: todavia no).
+        // el texel (x, y) de un RWTexture2D y (06-10) la z de un RWTexture3D
+        // o la capa de un RWTexture2DArray.
         DX_TEXTURE_STORE => {
             let Some(Valor::Uav(u, crate::bufer::Modo::Textura)) = c.valores.get(arg(1)?).copied() else {
                 return Err(NoPrograma::Forma("TextureStore sin el handle de un UAV de textura"));
             };
             let cero = super::super::estructura::literal(c, 0)?;
             let (i, desp) = (super::super::estructura::bits(c, arg(2)?)?, super::super::estructura::bits(c, arg(3)?)?);
+            let z = coordenada(c, arg(4)?, cero)?;
             let mut v = [cero; 4];
             for (k, r) in v.iter_mut().enumerate() {
                 if !matches!(c.valores.get(arg(5 + k)?), Some(Valor::Indefinido) | None) {
@@ -111,7 +113,7 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
                 }
             }
             let mascara = c.entero(arg(9)?)? as u8;
-            c.ops.push(Op::EscribeUav { u, modo: crate::bufer::Modo::Textura, i, desp, v, mascara });
+            c.ops.push(Op::EscribeUav { u, modo: crate::bufer::Modo::Textura, i, desp, z, v, mascara });
             Valor::Nada
         }
         // E2.4: `bufferUpdateCounter(uav, inc)`.
@@ -129,8 +131,8 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
         }
         // 05-10: `atomicBinOp(uav, op, c0, c1, c2, v)` y
         // `atomicCompareExchange(uav, c0, c1, c2, igual, v)`: las coordenadas
-        // como las de un bufferStore (c1, el desplazamiento o la y; la c2 de
-        // una textura 3D no llega: esas no se crean).
+        // como las de un bufferStore (c1, el desplazamiento o la y; 06-10, la
+        // c2, la z de una textura 3D o la capa de un array).
         DX_ATOMIC_BIN_OP | DX_ATOMIC_COMPARE_EXCHANGE => {
             let Some(Valor::Uav(u, modo)) = c.valores.get(arg(1)?).copied() else {
                 return Err(NoPrograma::Forma("un Interlocked sin el handle de un UAV"));
@@ -141,10 +143,11 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             let cero = super::super::estructura::literal(c, 0)?;
             let i = super::super::estructura::bits(c, arg(c0)?)?;
             let desp = if matches!(c.valores.get(arg(c0 + 1)?), Some(Valor::Indefinido) | None) { cero } else { super::super::estructura::bits(c, arg(c0 + 1)?)? };
+            let z = coordenada(c, arg(c0 + 2)?, cero)?;
             let v = super::super::estructura::bits(c, arg(6)?)?;
             let igual = if binaria { cero } else { super::super::estructura::bits(c, arg(5)?)? };
             let d = c.registro(0.0)?;
-            c.ops.push(Op::Atomico { d, u, modo, i, desp, como, v, igual });
+            c.ops.push(Op::Atomico { d, u, modo, i, desp, z, como, v, igual });
             Valor::Bits(d)
         }
         // E2.3b: el GS emite un vertice, corta la tira, o las dos.
@@ -209,11 +212,12 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
                 3 => Valor::Muestreador(c.ranuras.muestreador(espacio, registro)?),
                 // N5.5: los UAV de BUFER (RWStructuredBuffer, RWByteAddress
                 // Buffer, RWBuffer); N5.3c (05-10), los de TEXTURA de una o
-                // dos dimensiones (RWTexture1D, RWTexture2D).
+                // dos dimensiones (RWTexture1D, RWTexture2D); y (06-10) los
+                // 3D y los arrays de 2D (RWTexture3D, RWTexture2DArray: la z).
                 1 => match super::super::recursos::rango(&c.recursos, 1, rango as u32).map(|r| (r.modo_de_bufer(), r.especie)) {
                     Some((Some(modo), _)) => Valor::Uav(c.ranuras.uav(espacio, registro)?, modo),
-                    Some((None, 1 | 2)) => Valor::Uav(c.ranuras.uav(espacio, registro)?, crate::bufer::Modo::Textura),
-                    _ => return Err(NoPrograma::Forma("un UAV de TEXTURA 3D, de array o de cubo: todavia no (N5.3c)")),
+                    Some((None, 1 | 2 | 4 | 7)) => Valor::Uav(c.ranuras.uav(espacio, registro)?, crate::bufer::Modo::Textura),
+                    _ => return Err(NoPrograma::Forma("un UAV de TEXTURA de array de una dimension, multimuestra o de cubo: todavia no")),
                 },
                 _ => return Err(NoPrograma::Forma("un createHandle de una clase que no existe")),
             }
@@ -292,11 +296,14 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             }
         }
         DX_TEXTURE_LOAD => {
-            // N5.3c: de un UAV de textura: el texel (x, y), sin mip.
+            // N5.3c: de un UAV de textura: el texel (x, y), sin mip; y (06-10)
+            // la z de un 3D o la capa de un array.
             if let Some(Valor::Uav(u, modo @ crate::bufer::Modo::Textura)) = c.valores.get(arg(1)?).copied() {
                 let (i, desp) = (super::super::estructura::bits(c, arg(3)?)?, super::super::estructura::bits(c, arg(4)?)?);
+                let cero = super::super::estructura::literal(c, 0)?;
+                let z = coordenada(c, arg(5)?, cero)?;
                 let d = cuatro(c)?;
-                c.ops.push(Op::LeeUav { d, u, modo, i, desp });
+                c.ops.push(Op::LeeUav { d, u, modo, i, desp, z });
                 return Ok(if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) });
             }
             // (srv, mip o muestra, coord0..2, offset0..2).
@@ -319,7 +326,7 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
                 let i = super::super::estructura::bits(c, arg(2)?)?;
                 let desp = if matches!(c.valores.get(arg(3)?), Some(Valor::Indefinido) | None) { cero } else { super::super::estructura::bits(c, arg(3)?)? };
                 let d = cuatro(c)?;
-                c.ops.push(Op::LeeUav { d, u, modo, i, desp });
+                c.ops.push(Op::LeeUav { d, u, modo, i, desp, z: cero });
                 return Ok(if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) });
             }
             let Some(Valor::Bufer(t, modo)) = c.valores.get(arg(1)?).copied() else {
@@ -417,4 +424,14 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
         }
         otra => return Err(NoPrograma::OperacionD3d(otra)),
     })
+}
+
+/// 06-10: la tercera coordenada de un UAV de textura (la z de un 3D, la
+/// capa de un array): sus bits, o `cero` si no viene (`undef`, en uno 2D).
+fn coordenada(c: &mut Compilador, id: usize, cero: Reg) -> Result<Reg, NoPrograma> {
+    if matches!(c.valores.get(id), Some(Valor::Indefinido) | None) {
+        Ok(cero)
+    } else {
+        super::super::estructura::bits(c, id)
+    }
 }

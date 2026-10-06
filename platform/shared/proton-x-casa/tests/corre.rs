@@ -112,6 +112,8 @@ const OLAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/olas.exe");
 const DERIVADAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/derivadas.exe");
 /// E2.1 (05-10): listas grabadas desde varios hilos, y las colas con vallas.
 const MULTIHILO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/multihilo.exe");
+/// 06-10: los UAV de texturas 3D y de arrays (la niebla volumetrica, las cascadas).
+const VOLUMEN_EXE: &[u8] = include_bytes!("../../proton-x/prueba/volumen.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

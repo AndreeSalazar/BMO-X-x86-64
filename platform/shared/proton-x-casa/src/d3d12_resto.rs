@@ -777,6 +777,24 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool) {
             (bmo_proton_x::formato_ia::leer(f, &e).map(f32::to_bits), 4)
         }
     };
+    // 06-10: la vista de un 3D (8) o de un array de 2D (5): TODAS sus
+    // rebanadas (o capas), no solo la primera.
+    if dimension == 5 || dimension == 8 {
+        crate::tuberia::aplicar_limpieza(r[0]);
+        // Un formato de 4 o de 16 bytes por texel: lo que mide cada uno.
+        let medida = if k == 4 { 2 | bmo_proton_x::bufer::CUATRO_FLOATS } else { 42 };
+        let Some(mut u) = crate::computo::rebanadas_de(r, dimension == 8, medida) else { return };
+        for z in 0..u.rebanadas.capas {
+            if let Some(s) = u.rebanada(z) {
+                for t in s.bytes.chunks_exact_mut(4 * k) {
+                    for (c, w) in t.chunks_exact_mut(4).zip(&texel[..k]) {
+                        c.copy_from_slice(&w.to_le_bytes());
+                    }
+                }
+            }
+        }
+        return;
+    }
     if r[3] == 0 {
         crate::tuberia::olvidar_limpieza(r[0]);
     }

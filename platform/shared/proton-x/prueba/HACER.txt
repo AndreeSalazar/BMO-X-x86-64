@@ -2786,3 +2786,58 @@ los cuatro avisos de los errores que C hace a proposito. Probado que dice
 NO: contra la casa de antes, A pasa (grabar desde varios hilos ya iba) y B
 se cuelga: la valla sigue en 0 con las colas esperando, y el `.exe` muere
 con 0xdead.
+
+volumen_escribe.dxil, volumen_medio.dxil, volumen_lee.dxil -- los de volumen.exe (06-10)
+
+`volumen.hlsl` (aqui al lado): CSEscribe (cada hilo de 8 x 8 x 4 su texel
+de un RWTexture3D<float4>, e InterlockedAdd en un RWTexture3D<uint>),
+CSMedio (por una vista de dos rebanadas del mismo 3D, y por un
+RWTexture2DArray<uint> de dos capas) y CSLee (GetDimensions y lecturas, a
+un RWByteAddressBuffer). Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin
+-Zi:
+
+   dxc -T cs_6_0 -E CSEscribe -Fo volumen_escribe.dxil volumen.hlsl
+   dxc -T cs_6_0 -E CSMedio -Fo volumen_medio.dxil volumen.hlsl
+   dxc -T cs_6_0 -E CSLee -Fo volumen_lee.dxil volumen.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   7ab2aedebc177867dc6465927b09cc7b31a3eb9daaf034b4e040f57a202feb22  volumen_escribe.dxil
+   dcbe1399d4a4efab72a4a6b23d7bcd8e9906366acc36c72fe3a8d285d0519e66  volumen_lee.dxil
+   2b071cf101026f846b3bfda8f726d4441584720eab01902f073bbb08f17c92d0  volumen_medio.dxil
+
+Van DENTRO de volumen.exe.
+
+volumen.exe -- los UAV de texturas 3D y de ARRAYS, juzgados (06-10)
+
+NUESTRO, de consola. Un juego escribe por computo en volumenes (la niebla
+volumetrica) y en arrays (las cascadas de sombras); hasta el 06-10 la casa
+no creaba esos PSO y sus Dispatch se perdian. A, un 3D de 8 x 8 x 4
+(RGBA32F) escrito entero; B, una vista del mismo con FirstWSlice = 1 y
+WSize = 2 (lo de z = 2 y 3 cae fuera y no se escribe); C, un array de 3
+capas de 4 x 4 con 2 mips (R32_UINT) por la vista de MipSlice = 1,
+FirstArraySlice = 1 y ArraySize = 2 (la capa 0 y la mip 0, intactas); D,
+InterlockedAdd en un 3D de 2 x 2 x 2 (32 en cada celda); E, GetDimensions
+de las tres vistas y lecturas (fuera de la vista, 0); F,
+ClearUnorderedAccessViewUint por la vista de las rebanadas 1 y 2 de otro 3D
+y por la de las capas 0 y 1 de un array de 3 (esas, todas, y ninguna mas).
+Dice `bien` 10 veces y sale con el numero de fallos; en Windows dice lo
+mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con volumen.cpp y los
+tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c volumen.cpp -o volumen.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o volumen.exe volumen.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   8823869a3df10a76236118c09e3dfbbd7c60a9cd6a757c17daa819d34390cb7e  volumen.exe
+
+El banco (`tests/corre/muestras.rs`): los 10 `bien`, sale con 0, ni un
+aviso. Probado que dice NO: contra la casa de antes, el PSO no se crea
+("un UAV de TEXTURA 3D, de array o de cubo: todavia no") y salen 6 MAL; y
+quitando a mano el salto entre capas (sin la cadena de mips), WSize y
+ArraySize, o FirstWSlice: cada uno, sus MAL. F: con la limpieza de antes,
+solo la PRIMERA rebanada y la primera capa (0 28 0 0 y 36 0 0), los dos
+MAL.

@@ -35,7 +35,7 @@ fn un_dispatch_con_memoria_compartida_y_barrera_da_lo_de_hlsl() {
     cb[..4].copy_from_slice(&250u32.to_le_bytes());
     cb[4..8].copy_from_slice(&2.0f32.to_le_bytes());
     {
-        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 256, contador: None })];
+        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 256, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
         assert_eq!(p.despachar([4, 1, 1], &cb, &rec, &mut uavs), 256, "4 grupos de 64 hilos");
     }
     let f = |k: usize, c: usize| f32::from_le_bytes(salida[k * 16 + c * 4..k * 16 + c * 4 + 4].try_into().unwrap());
@@ -64,7 +64,7 @@ fn leer_fuera_del_srv_da_cero_en_el_computo() {
     let mut cb = [0u8; 16];
     cb[..4].copy_from_slice(&128u32.to_le_bytes());
     cb[4..8].copy_from_slice(&1.0f32.to_le_bytes());
-    let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 128, contador: None })];
+    let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 128, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
     p.despachar([2, 1, 1], &cb, &rec, &mut uavs);
     let x = |k: usize| f32::from_le_bytes(uavs[0].as_ref().unwrap().bytes[k * 16..k * 16 + 4].try_into().unwrap());
     assert_eq!(x(0), 63.0, "grupo 0: el espejo de 0 es 63");
@@ -91,7 +91,7 @@ fn la_textura_elegida_antes_de_la_barrera_sigue_elegida_despues() {
             Op::EligeTextura { i: 1, rango: 0 },
             Op::Barrera,
             Op::Lee { d: 3, t: DINAMICA, s: 0, como: Lectura::Carga { enteros: false }, c: [2, 2, 2, 2], nivel: 2, desp: [0; 3] },
-            Op::EscribeUav { u: 0, modo: Modo::Estructurado, i: 0, desp: 2, v: [3, 4, 5, 6], mascara: 0xF },
+            Op::EscribeUav { u: 0, modo: Modo::Estructurado, i: 0, desp: 2, z: 2, v: [3, 4, 5, 6], mascara: 0xF },
         ],
         iniciales,
         entradas: 0,
@@ -121,7 +121,7 @@ fn la_textura_elegida_antes_de_la_barrera_sigue_elegida_despues() {
     };
     let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: Some(Dinamicas(&buscar)) };
     let mut salida = vec![0u8; 2 * 16];
-    let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 2, contador: None })];
+    let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 2, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
     assert_eq!(p.despachar([1, 1, 1], &[], &rec, &mut uavs), 2);
     let quiero: Vec<u8> = [1.0f32, 192.0 / 255.0, 128.0 / 255.0, 64.0 / 255.0].iter().flat_map(|f| f.to_le_bytes()).collect();
     assert_eq!(&salida[..16], &quiero[..], "hilo 0: el texel de la textura 7");
@@ -191,7 +191,7 @@ fn el_cs_de_execute_indirect_deja_pasar_solo_lo_que_cae_dentro() {
     let mut salida = vec![0xEEu8; 2 * 24];
     let mut contador = 0u32;
     {
-        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 24, elementos: 2, contador: Some(&mut contador) })];
+        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 24, elementos: 2, contador: Some(&mut contador), rebanadas: crate::bufer::Rebanadas::PLANA })];
         p.despachar([1, 1, 1], &cb, &rec, &mut uavs);
     }
     assert_eq!(contador, 1, "pasa una");

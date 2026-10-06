@@ -58,8 +58,8 @@ fn cada_pixel_y_cada_vertice_escriben_su_uav() {
     assert!(en.ps.toca_uav() && en.vs.toca_uav());
     let (tex, buf) = (memoria(64), memoria(8));
     let mut v: Vec<Option<Uav>> = (0..en.ranuras.uavs.len()).map(|_| None).collect();
-    poner(&en, &mut v, 1, Uav { bytes: tex, formato: R32_UINT, paso: 8, elementos: 64, contador: None });
-    poner(&en, &mut v, 3, Uav { bytes: buf, formato: R32_UINT, paso: 0, elementos: 8, contador: None });
+    poner(&en, &mut v, 1, Uav { bytes: tex, formato: R32_UINT, paso: 8, elementos: 64, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA });
+    poner(&en, &mut v, 3, Uav { bytes: buf, formato: R32_UINT, paso: 0, elementos: 8, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA });
     let uavs = RefCell::new(v);
     let c = dibujar(&en, &uavs, None);
     assert_eq!(c.pixeles, 64, "{c:?}");
@@ -81,7 +81,7 @@ fn cuenta(ps: &[u8], con_z: bool) -> (u32, trama::Cuenta) {
     let en = enlace(ps);
     let c = memoria(1);
     let mut v: Vec<Option<Uav>> = (0..en.ranuras.uavs.len()).map(|_| None).collect();
-    poner(&en, &mut v, 2, Uav { bytes: c, formato: 0, paso: 0, elementos: 1, contador: None });
+    poner(&en, &mut v, 2, Uav { bytes: c, formato: 0, paso: 0, elementos: 1, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA });
     let uavs = RefCell::new(v);
     let cuenta = dibujar(&en, &uavs, con_z.then_some(0.25));
     let v = uavs.into_inner();
@@ -120,7 +120,7 @@ fn con_stencil(ps: &[u8], funcion: u8, falla: u8, pasa: u8) -> (u32, trama::Cuen
     let en = enlace(ps);
     let c = memoria(1);
     let mut v: Vec<Option<Uav>> = (0..en.ranuras.uavs.len()).map(|_| None).collect();
-    poner(&en, &mut v, 2, Uav { bytes: c, formato: 0, paso: 0, elementos: 1, contador: None });
+    poner(&en, &mut v, 2, Uav { bytes: c, formato: 0, paso: 0, elementos: 1, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA });
     let uavs = RefCell::new(v);
     let cara = Cara { falla, falla_z: KEEP, pasa, funcion, lectura: 0xFF, escritura: 0xFF, referencia: 1 };
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: Some(Stencil { delante: cara, detras: cara }) };

@@ -53,13 +53,13 @@ fn los_dos(cs: &[u8], grupos: [u32; 3], cb: &[u8], srv: &[u8], paso_srv: u32, ua
     let elementos = uav.len() as u32 / paso_uav;
     let t = std::time::Instant::now();
     {
-        let mut u = [Some(Uav { bytes: &mut a, formato: 0, paso: paso_uav, elementos, contador: None })];
+        let mut u = [Some(Uav { bytes: &mut a, formato: 0, paso: paso_uav, elementos, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         p.despachar(grupos, cb, &rec, &mut u);
     }
     let interpretado = t.elapsed();
     let t = std::time::Instant::now();
     {
-        let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: paso_uav, elementos, contador: None })];
+        let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: paso_uav, elementos, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
         nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, cb, &buf, &mut u);
     }
@@ -350,7 +350,7 @@ fn el_cs_de_nbody_traducido_da_la_fisica() {
     let buf = [Some(Bufer { bytes: &srv_bytes, formato: 0, paso: 32, elementos: n as u32 })];
     let mut salida = vec![0u8; n * 32];
     {
-        let mut u = [Some(Uav { bytes: &mut salida, formato: 0, paso: 32, elementos: n as u32, contador: None })];
+        let mut u = [Some(Uav { bytes: &mut salida, formato: 0, paso: 32, elementos: n as u32, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
         nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, [grupos, 1, 1], &cb, &buf, &mut u);
     }
@@ -423,11 +423,11 @@ fn el_cs_de_execute_indirect_traducido_da_el_contador_del_interprete() {
     let (mut a, mut b) = (vec![0xEEu8; n * 24], vec![0xEEu8; n * 24]);
     let (mut ca, mut cb_) = (0u32, 0u32);
     {
-        let mut u = [Some(Uav { bytes: &mut a, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut ca) })];
+        let mut u = [Some(Uav { bytes: &mut a, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut ca), rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         p.despachar(grupos, &cb, &rec, &mut u);
     }
     {
-        let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut cb_) })];
+        let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut cb_), rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
         nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, &cb, &buf, &mut u);
     }

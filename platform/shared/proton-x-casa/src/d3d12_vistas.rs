@@ -185,13 +185,31 @@ pub(crate) unsafe fn uav(d: *const u8) -> Result<Vista, &'static str> {
         // SRV de bufer: el computo lo escribe.
         1 => (v.elemento, v.elementos, v.paso, v.crudo) = (u64_(d, 8), u32_(d, 16), u32_(d, 20), u32_(d, 32) & 1 != 0),
         2 | 4 => v.mip = u32_(d, 8),
-        3 | 5 => (v.mip, v.capa) = (u32_(d, 8), u32_(d, 12)),
+        // 06-10: y CUANTAS capas (ArraySize, +16) o rebanadas (WSize, +16),
+        // en `paso` (que una textura no usa): 12 bits en la ranura, 0 (o -1
+        // de D3D, o de mas) todas las que quedan (`computo::uav_de_textura`).
+        3 | 5 => (v.mip, v.capa, v.paso) = (u32_(d, 8), u32_(d, 12), cuantas(u32_(d, 16))),
         6 => {}
         7 => v.capa = u32_(d, 8),
-        8 => (v.mip, v.rebanada) = (u32_(d, 8), u32_(d, 12)),
+        8 => (v.mip, v.rebanada, v.paso) = (u32_(d, 8), u32_(d, 12), cuantas(u32_(d, 16))),
         _ => return Err("CreateUnorderedAccessView con una dimension que no es de D3D12"),
     }
     Ok(v)
+}
+
+/// 06-10: ArraySize o WSize de un UAV en los 12 bits de su ranura: 0 (o -1,
+/// o mas de 4095) es "todas las que quedan".
+fn cuantas(n: u32) -> u32 {
+    if n > 0xFFF {
+        0
+    } else {
+        n
+    }
+}
+
+/// 06-10: lo de [`cuantas`], leido de la ranura de un UAV de textura.
+pub(crate) fn cuantas_de(ranura: &[u64]) -> u32 {
+    ((ranura[2] >> 40) & 0xFFF) as u32
 }
 
 /// El subrecurso de `(mip, capa)` en `t`: `mip + capa * mips`, dentro.

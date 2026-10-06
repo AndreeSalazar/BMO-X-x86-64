@@ -704,8 +704,12 @@ en una conversacion.
                                           un sombreador de GEOMETRIA y en un
                                           dibujo SOLO con UAV (a la medida
                                           del viewport, con UNA muestra)
-   un UAV de textura 3D, de array o de    el PSO de computo no se crea (lo
-   cubo                                   dice)
+   un UAV de textura 3D, de array o de    desde el 06-10 los 3D y los arrays
+   cubo                                   de 2D se escriben y se leen
+                                          (`volumen.exe`: rebanadas, capas
+                                          con mips, atomicos); los arrays de
+                                          1D y los multimuestra, todavia no
+                                          (el PSO no se crea, y lo dice)
    ClearUnorderedAccessView con           limpia la vista entera (lo dice)
    rectangulos
    DepthClipEnable = FALSE                N5.16b (05-10): sin recorte en z,

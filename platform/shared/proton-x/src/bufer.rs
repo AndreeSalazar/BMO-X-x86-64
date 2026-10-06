@@ -136,6 +136,27 @@ pub struct Uav<'a> {
     /// un `pCounterResource`): lo que mueven `Append`, `Consume`,
     /// `IncrementCounter` y `DecrementCounter`.
     pub contador: Option<&'a mut u32>,
+    /// 06-10: un UAV de textura 3D o de ARRAY (`RWTexture3D`,
+    /// `RWTexture2DArray`): donde va cada rebanada (o capa). `PLANA` en los
+    /// demas: un bufer, o una textura de una o dos dimensiones.
+    pub rebanadas: Rebanadas,
+}
+
+/// **Las rebanadas de un UAV de textura 3D o de array** (06-10): cada una,
+/// una textura 2D de `paso` (el ancho) por `alto` texeles, la `z` empezando
+/// `z * salto` texeles despues de la primera (en un array con mips, cada
+/// capa lleva su cadena de mips detras: el salto es mas que ancho por alto).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Rebanadas {
+    pub alto: u32,
+    /// Cuantas (WSize o ArraySize de la vista); 0, ninguna: `PLANA`.
+    pub capas: u32,
+    pub salto: u32,
+}
+
+impl Rebanadas {
+    /// La de un bufer o una textura de una o dos dimensiones.
+    pub const PLANA: Rebanadas = Rebanadas { alto: 0, capas: 0, salto: 0 };
 }
 
 /// Los formatos con 32 bits por canal (float, uint y sint de 4, 3, 2 y 1
@@ -223,6 +244,33 @@ impl Uav<'_> {
                 }
             }
             None => 0,
+        }
+    }
+
+    /// **La rebanada `z` de un UAV de textura** (06-10), vista como una
+    /// textura 2D: la de un 3D o un array, o la textura entera si es plana y
+    /// `z` es 0. `None` fuera (D3D12: se lee 0 y no se escribe).
+    pub fn rebanada(&mut self, z: u32) -> Option<Uav<'_>> {
+        let r = self.rebanadas;
+        if r.capas == 0 {
+            return (z == 0).then(|| Uav { bytes: &mut *self.bytes, formato: self.formato, paso: self.paso, elementos: self.elementos, contador: None, rebanadas: Rebanadas::PLANA });
+        }
+        if z >= r.capas {
+            return None;
+        }
+        let por_texel = if self.formato & CUATRO_FLOATS != 0 { 16 } else { crate::formato_ia::forma(self.formato)?.bytes as usize };
+        let texeles = self.paso as usize * r.alto as usize;
+        let desde = z as usize * r.salto as usize * por_texel;
+        let bytes = self.bytes.get_mut(desde..desde + texeles * por_texel)?;
+        Some(Uav { bytes, formato: self.formato, paso: self.paso, elementos: texeles as u32, contador: None, rebanadas: Rebanadas::PLANA })
+    }
+
+    /// **`GetDimensions` de un UAV de textura** (06-10): ancho, alto y, en
+    /// un 3D o un array, cuantas rebanadas (o capas).
+    pub fn medidas_textura(&self) -> [u32; 4] {
+        match self.rebanadas.capas {
+            0 => [self.paso, self.elementos / self.paso.max(1), 0, 0],
+            n => [self.paso, self.rebanadas.alto, n, 0],
         }
     }
 
@@ -322,14 +370,14 @@ mod pruebas {
     #[test]
     fn un_uav_escribe_lo_de_su_mascara_y_nada_fuera_de_su_vista() {
         let mut b = bytes(&[0; 8]);
-        let mut u = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 2, contador: None };
+        let mut u = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 2, contador: None, rebanadas: Rebanadas::PLANA };
         u.escribir(Modo::Estructurado, 1, 0, [1, 2, 3, 4], 0b0101);
         u.escribir(Modo::Estructurado, 2, 0, [9; 4], 0xF); // fuera: se pierde
         u.escribir(Modo::Estructurado, 0, 8, [7, 8, 9, 9], 0xF); // del 8 al 16: dos
         assert_eq!(u.cargar(Modo::Estructurado, 1, 0), [1, 0, 3, 0]);
         assert_eq!(u.cargar(Modo::Estructurado, 0, 0), [0, 0, 7, 8], "no pisa el elemento de al lado");
         let mut c = bytes(&[0; 4]);
-        let mut t = Uav { bytes: &mut c, formato: 41, paso: 0, elementos: 4, contador: None }; // R32_FLOAT
+        let mut t = Uav { bytes: &mut c, formato: 41, paso: 0, elementos: 4, contador: None, rebanadas: Rebanadas::PLANA }; // R32_FLOAT
         t.escribir(Modo::Tipado, 2, 0, [5, 6, 7, 8], 0xF);
         assert_eq!(t.cargar(Modo::Crudo, 8, 0), [5, 0, 0, 0], "un R32: una palabra por elemento");
     }
@@ -340,12 +388,24 @@ mod pruebas {
     #[test]
     fn un_uav_en_cuatro_floats_escribe_cuantizado_a_su_formato() {
         let mut b = bytes(&[1.5f32, -2.0, 0.25, 1.0, 0.0, 0.0, 0.0, 0.0].map(f32::to_bits));
-        let mut u = Uav { bytes: &mut b, formato: 10 | CUATRO_FLOATS, paso: 2, elementos: 2, contador: None };
+        let mut u = Uav { bytes: &mut b, formato: 10 | CUATRO_FLOATS, paso: 2, elementos: 2, contador: None, rebanadas: Rebanadas::PLANA };
         assert_eq!(u.cargar(Modo::Textura, 0, 0), [1.5f32, -2.0, 0.25, 1.0].map(f32::to_bits));
         u.escribir(Modo::Textura, 1, 0, [1.0 + 1.0 / 4096.0, 70000.0, -3.5, 9.0].map(f32::to_bits), 0b0111);
         assert_eq!(u.cargar(Modo::Textura, 1, 0), [1.0, f32::INFINITY, -3.5, 0.0].map(f32::to_bits), "a half, y el alfa de antes");
         u.escribir(Modo::Textura, 2, 0, [0; 4], 0xF); // fuera: se pierde
         assert_eq!(u.cargar(Modo::Textura, 0, 1), [0; 4]);
+        // 06-10: un 3D (o un array) de rebanadas de 2 x 1 texeles de R32_UINT,
+        // una cada TRES texeles (el de en medio, de otra mip: no se toca).
+        let mut b = [0u8; 4 * 8];
+        let mut u = Uav { bytes: &mut b, formato: 42, paso: 2, elementos: 8, contador: None, rebanadas: Rebanadas { alto: 1, capas: 3, salto: 3 } };
+        for z in 0..3 {
+            u.rebanada(z).unwrap().escribir(Modo::Textura, 1, 0, [10 + z, 0, 0, 0], 1);
+        }
+        assert!(u.rebanada(3).is_none(), "fuera de las rebanadas");
+        assert_eq!(u.rebanada(2).unwrap().cargar(Modo::Textura, 1, 0)[0], 12);
+        assert_eq!(u.medidas_textura(), [2, 1, 3, 0]);
+        let palabras: alloc::vec::Vec<u32> = b.chunks(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
+        assert_eq!(palabras, [0, 10, 0, 0, 11, 0, 0, 12], "cada una en su sitio, y lo de en medio intacto");
     }
 
     #[test]
@@ -388,7 +448,7 @@ mod pruebas {
     #[test]
     fn un_atomico_devuelve_lo_de_antes_y_deja_lo_nuevo() {
         let mut b = bytes(&[5, 0xFFFF_FFFE, 0, 0]);
-        let mut u = Uav { bytes: &mut b, formato: 0, paso: 0, elementos: 4, contador: None };
+        let mut u = Uav { bytes: &mut b, formato: 0, paso: 0, elementos: 4, contador: None, rebanadas: Rebanadas::PLANA };
         assert_eq!(u.atomico(Modo::Crudo, 0, 0, Atomo::Suma, 3, 0), 5);
         assert_eq!(u.atomico(Modo::Crudo, 4, 0, Atomo::MinConSigno, 1, 0), 0xFFFF_FFFE, "-2 con signo es menor que 1");
         assert_eq!(u.atomico(Modo::Crudo, 4, 0, Atomo::MaxSinSigno, 1, 0), 0xFFFF_FFFE);
@@ -406,12 +466,12 @@ mod pruebas {
     fn el_contador_de_un_uav_sube_y_baja_como_en_d3d() {
         let mut b = bytes(&[0; 4]);
         let mut c = 5u32;
-        let mut u = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 1, contador: Some(&mut c) };
+        let mut u = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 1, contador: Some(&mut c), rebanadas: Rebanadas::PLANA };
         assert_eq!((u.contar(1), u.contar(1)), (5, 6));
         assert_eq!(u.contar(-1), 6, "bajar: el de despues");
         drop(u);
         assert_eq!(c, 6);
-        let mut sin = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 1, contador: None };
+        let mut sin = Uav { bytes: &mut b, formato: 0, paso: 16, elementos: 1, contador: None, rebanadas: Rebanadas::PLANA };
         assert_eq!(sin.contar(1), 0);
     }
 }

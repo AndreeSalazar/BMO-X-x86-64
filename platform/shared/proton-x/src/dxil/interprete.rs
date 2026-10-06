@@ -11,6 +11,7 @@
 use alloc::vec::Vec;
 
 use super::programa::{raiz, saturar, Lectura, Op, Programa, Reg, ANIDADO_MAXIMO};
+use crate::bufer::Modo;
 
 /// **Donde se paro un hilo** (N5.5, 05-10): en una barrera, para seguir
 /// cuando lleguen los demas del grupo. Un pixel nunca se para.
@@ -341,15 +342,24 @@ impl Programa {
                     }
                 }
                 // N5.5 y, desde el 05-10, en un dibujo (`Extra::Uavs`).
-                Op::EscribeUav { u, modo, i, desp, v, mascara } => {
+                Op::EscribeUav { u, modo, i, desp, z, v, mascara } => {
                     let (k, o, v) = (bits(regs, i), bits(regs, desp), v.map(|r| bits(regs, r)));
                     if let Some(Some(w)) = x.uavs().get_mut(u as usize) {
-                        w.escribir(modo, k, o, v, mascara);
+                        // 06-10: en una textura, su rebanada z (3D o array).
+                        match modo {
+                            Modo::Textura => {
+                                if let Some(mut r) = w.rebanada(bits(regs, z)) {
+                                    r.escribir(modo, k, o, v, mascara);
+                                }
+                            }
+                            _ => w.escribir(modo, k, o, v, mascara),
+                        }
                     }
                 }
-                Op::Atomico { d, u, modo, i, desp, como, v, igual } => {
+                Op::Atomico { d, u, modo, i, desp, z, como, v, igual } => {
                     let (k, o, v, igual) = (bits(regs, i), bits(regs, desp), bits(regs, v), bits(regs, igual));
                     let antes = match x.uavs().get_mut(u as usize) {
+                        Some(Some(w)) if modo == Modo::Textura => w.rebanada(bits(regs, z)).map_or(0, |mut r| r.atomico(modo, k, o, como, v, igual)),
                         Some(Some(w)) => w.atomico(modo, k, o, como, v, igual),
                         _ => 0,
                     };
@@ -357,6 +367,7 @@ impl Programa {
                 }
                 Op::MedidasUav { d, u, modo } => {
                     let v = match x.uavs().get(u as usize) {
+                        Some(Some(w)) if modo == Modo::Textura => w.medidas_textura(),
                         Some(Some(w)) => crate::bufer::Bufer { bytes: w.bytes, formato: w.formato, paso: w.paso, elementos: w.elementos }.medidas(modo),
                         _ => [0; 4],
                     };
@@ -364,9 +375,10 @@ impl Programa {
                         regs[d as usize + j] = f32::from_bits(w);
                     }
                 }
-                Op::LeeUav { d, u, modo, i, desp } => {
+                Op::LeeUav { d, u, modo, i, desp, z } => {
                     let (k, o) = (bits(regs, i), bits(regs, desp));
-                    let v = match x.uavs().get(u as usize) {
+                    let v = match x.uavs().get_mut(u as usize) {
+                        Some(Some(w)) if modo == Modo::Textura => w.rebanada(bits(regs, z)).map_or([0; 4], |r| r.cargar(modo, k, o)),
                         Some(Some(w)) => w.cargar(modo, k, o),
                         _ => [0; 4],
                     };

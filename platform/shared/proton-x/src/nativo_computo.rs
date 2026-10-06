@@ -955,7 +955,7 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
                 }
                 e.aqui(listo);
             }
-            Op::LeeUav { d, u, modo, i, desp } => {
+            Op::LeeUav { d, u, modo, i, desp, .. } => {
                 if u as usize >= VISTAS {
                     return None;
                 }
@@ -971,7 +971,7 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
                 }
                 e.aqui(listo);
             }
-            Op::EscribeUav { u, modo, i, desp, v, mascara } => {
+            Op::EscribeUav { u, modo, i, desp, v, mascara, .. } => {
                 if u as usize >= VISTAS {
                     return None;
                 }

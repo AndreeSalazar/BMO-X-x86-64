@@ -909,3 +909,22 @@ fn e2_1_listas_de_varios_hilos_y_colas_que_esperan() {
     assert_eq!(texto.matches("  bien  ").count(), 17, "{texto}");
     assert!(texto.ends_with("multihilo.exe: las listas de varios hilos y las colas con vallas son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **Los UAV de texturas 3D y de ARRAYS** (06-10, `prueba/volumen.exe`,
+/// NUESTRO): un 3D de 8 x 8 x 4 escrito entero por computo; una vista de
+/// sus rebanadas 1 y 2 (lo de fuera no se escribe); un array de 3 capas con
+/// 2 mips, por la vista de la mip 1 de las capas 1 y 2 (la capa 0 y la mip
+/// 0, intactas); InterlockedAdd en un 3D; GetDimensions y lecturas, fuera
+/// de la vista 0; y ClearUnorderedAccessViewUint por la vista de dos
+/// rebanadas (o capas): todas ellas, y ninguna mas. Bit a bit. Ni un aviso: hasta el 06-10 el PSO de computo
+/// no se creaba y sus Dispatch se perdian.
+#[test]
+fn los_uav_de_texturas_3d_y_de_arrays_son_los_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, VOLUMEN_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 10, "{texto}");
+    assert!(texto.ends_with("volumen.exe: los UAV de texturas 3D y de arrays son los de Windows\r\n[salio 0x0]"), "{texto}");
+}

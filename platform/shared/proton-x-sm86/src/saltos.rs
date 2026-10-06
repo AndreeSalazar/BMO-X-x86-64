@@ -82,23 +82,26 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
         }
         // N5.3c: no lee registros.
         Op::MedidasUav { .. } => {}
-        Op::LeeUav { i, desp, .. } => {
+        Op::LeeUav { i, desp, z, .. } => {
             v[0] = Some(i);
             v[1] = Some(desp);
+            v[2] = Some(z);
         }
-        Op::EscribeUav { i, desp, v: w, .. } => {
+        Op::EscribeUav { i, desp, z, v: w, .. } => {
             v[0] = Some(i);
             v[1] = Some(desp);
             for k in 0..4 {
                 v[2 + k] = Some(w[k]);
             }
+            v[6] = Some(z);
         }
         // 05-10: un Interlocked (la 3060 no lo emite: ver lib.rs).
-        Op::Atomico { i, desp, v: w, igual, .. } => {
+        Op::Atomico { i, desp, z, v: w, igual, .. } => {
             v[0] = Some(i);
             v[1] = Some(desp);
             v[2] = Some(w);
             v[3] = Some(igual);
+            v[4] = Some(z);
         }
         Op::IdHilo { .. } | Op::Barrera | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::Contador { .. } => {}
         // E2.5: una ola (la 3060 no la emite todavia: ver lib.rs).

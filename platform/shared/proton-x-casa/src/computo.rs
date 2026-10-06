@@ -19,7 +19,7 @@
 
 use alloc::vec::Vec;
 
-use bmo_proton_x::bufer::Uav;
+use bmo_proton_x::bufer::{Rebanadas, Uav};
 use bmo_proton_x::dxil::programa::Lugar;
 use bmo_proton_x::raiz::Firma;
 
@@ -44,7 +44,7 @@ pub(crate) fn uav_de(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranura
         // que es suya y cuanto mide); el computo es el unico que la toca
         // mientras corre (la cola es sincrona y de un hilo).
         let bytes = unsafe { core::slice::from_raw_parts_mut(bytes.as_ptr() as *mut u8, bytes.len()) };
-        return Some(Uav { bytes, formato: 0, paso, elementos, contador: None });
+        return Some(Uav { bytes, formato: 0, paso, elementos, contador: None, rebanadas: Rebanadas::PLANA });
     }
     let r = donde::en_tabla(firma, RANGO_UAV, l).and_then(|(k, i)| crate::tuberia::descriptor_de(tablas, k, i)).filter(|r| r[1] == d3d12::DESC_UAV && r[0] != 0)?;
     let ((dimension, formato_vista, _), _) = crate::d3d12_vistas::leer(r);
@@ -70,22 +70,30 @@ pub(crate) fn uav_de(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranura
     let elementos = (bytes.len() as u64 / medida) as u32;
     let formato = if v.crudo || v.paso != 0 { 0 } else { v.formato };
     let contador = contador_de(crate::d3d12_vistas::leer(r).0 .2, bytes);
-    Some(Uav { bytes, formato, paso: if v.crudo { 0 } else { v.paso }, elementos, contador })
+    Some(Uav { bytes, formato, paso: if v.crudo { 0 } else { v.paso }, elementos, contador, rebanadas: Rebanadas::PLANA })
 }
 
-/// D3D12_UAV_DIMENSION_TEXTURE1D y TEXTURE2D.
+/// D3D12_UAV_DIMENSION_TEXTURE1D, TEXTURE2D y (06-10) TEXTURE2DARRAY y
+/// TEXTURE3D.
 const UAV_TEXTURA_1D: u32 = 2;
 const UAV_TEXTURA_2D: u32 = 4;
+const UAV_TEXTURA_2D_ARRAY: u32 = 5;
+const UAV_TEXTURA_3D: u32 = 8;
 
 /// **Un UAV de TEXTURA** (N5.3c, 05-10: `RWTexture2D`, el post-proceso): la
 /// memoria de su subresource, texel a texel, en el formato en que la casa
 /// la GUARDA (8 bits por canal, un float de 32 o, N5.16b, los cuatro floats
 /// de un RGBA16F, R11G11B10F...: se escriben cuantizados al formato de la
 /// vista, `bufer::CUATRO_FLOATS`).
+///
+/// 06-10: y los de un 3D (`RWTexture3D`, sus rebanadas desde FirstWSlice) o
+/// un array de 2D (`RWTexture2DArray`, sus capas desde FirstArraySlice):
+/// la memoria de la primera a la ultima, y donde cae cada una
+/// (`bufer::Rebanadas`; ver [`rebanadas_de`]).
 fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'static>> {
     use crate::subrecursos::Almacen;
-    if dimension != UAV_TEXTURA_1D && dimension != UAV_TEXTURA_2D {
-        aviso("Dispatch o Draw: un UAV de textura 3D, de array o multimuestra: todavia no; se ve nulo");
+    if ![UAV_TEXTURA_1D, UAV_TEXTURA_2D, UAV_TEXTURA_2D_ARRAY, UAV_TEXTURA_3D].contains(&dimension) {
+        aviso("Dispatch o Draw: un UAV de textura de array de una dimension o multimuestra: todavia no; se ve nulo");
         return None;
     }
     // SAFETY: un Recurso de la casa (lo dice su ranura).
@@ -112,6 +120,10 @@ fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'
             Almacen::nativo(vista) | bmo_proton_x::bufer::CUATRO_FLOATS
         }
     };
+    if dimension == UAV_TEXTURA_2D_ARRAY || dimension == UAV_TEXTURA_3D {
+        crate::tuberia::aplicar_limpieza(r[0]);
+        return rebanadas_de(r, dimension == UAV_TEXTURA_3D, efectivo);
+    }
     if r[3] == 0 {
         crate::tuberia::aplicar_limpieza(r[0]);
     }
@@ -122,7 +134,47 @@ fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'
     // SAFETY: las palabras de un subrecurso de la casa, vistas como bytes;
     // la cola es sincrona: nadie mas las toca mientras corre el Dispatch.
     let bytes = unsafe { core::slice::from_raw_parts_mut(px.as_mut_ptr() as *mut u8, px.len() * 4) };
-    Some(Uav { bytes, formato: efectivo, paso: ancho, elementos: ancho * alto, contador: None })
+    Some(Uav { bytes, formato: efectivo, paso: ancho, elementos: ancho * alto, contador: None, rebanadas: Rebanadas::PLANA })
+}
+
+/// **Un UAV de textura 3D o de array** (06-10), del subrecurso de su ranura
+/// (la mip de la vista; en un array, su primera capa): en un 3D las
+/// rebanadas van seguidas en su subrecurso (`hondo` de ellas); en un array
+/// cada capa es otro subrecurso, `mips` mas alla, y entre una y la
+/// siguiente va el resto de la cadena de mips (el salto). Cuantas: las de
+/// la vista (WSize, ArraySize), o todas las que quedan.
+pub(crate) fn rebanadas_de(r: &[u64], es_3d: bool, efectivo: u32) -> Option<Uav<'static>> {
+    let t = crate::d3d12_vistas::tex(r[0])?;
+    let (sub, primera) = (r[3] as u32, (r[3] >> 32) as u32);
+    let s = *t.subs.get(sub as usize)?;
+    let (bytes_texel, lado) = t.almacen.elemento();
+    // Lo que el UAV direcciona: texeles de 4 o 16 bytes, filas sin relleno.
+    if lado != 1 || s.fila != s.ancho as u64 * bytes_texel {
+        aviso("Dispatch o Draw: un UAV de textura 3D o de array con filas de otra medida: todavia no; se ve nulo");
+        return None;
+    }
+    let por_rebanada = s.ancho as u64 * s.alto as u64 * bytes_texel;
+    let mips = t.forma.mips.max(1);
+    let (desde, salto, quedan) = if es_3d {
+        (s.desde + primera as u64 * por_rebanada, por_rebanada, s.hondo.saturating_sub(primera))
+    } else {
+        let capa = sub / mips;
+        let salto = t.subs.get((sub + mips) as usize).map_or(por_rebanada, |sig| sig.desde - s.desde);
+        (s.desde, salto, t.forma.capas().saturating_sub(capa))
+    };
+    let pedidas = crate::d3d12_vistas::cuantas_de(r);
+    let capas = if pedidas == 0 { quedan } else { pedidas.min(quedan) };
+    if capas == 0 {
+        aviso("Dispatch o Draw: un UAV de textura 3D o de array sin rebanadas dentro de la textura; se ve nulo");
+        return None;
+    }
+    let n = (capas as u64 - 1) * salto + por_rebanada;
+    // SAFETY: de `desde` a `desde + n` cae dentro de la memoria de la
+    // textura (sus subrecursos estan dentro de `datos`); la cola es
+    // sincrona: nadie mas la toca mientras corre el Dispatch o el Draw.
+    let bytes = unsafe { core::slice::from_raw_parts_mut((t.datos + desde) as *mut u8, n as usize) };
+    let rebanadas = Rebanadas { alto: s.alto, capas, salto: (salto / bytes_texel) as u32 };
+    Some(Uav { bytes, formato: efectivo, paso: s.ancho, elementos: (n / bytes_texel) as u32, contador: None, rebanadas })
 }
 
 /// **El contador oculto de un UAV** (E2.4, 05-10): el numero `n` de su ranura

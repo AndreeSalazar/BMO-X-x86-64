@@ -222,3 +222,10 @@ cp "$AQUI/../multihilo.cpp" "$AQUI"/../multihilo_*.dxil .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c multihilo.cpp -o multihilo.o
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o multihilo.exe multihilo.o -ld3d12
 sha256sum multihilo.exe
+
+# 06-10: el juez de los UAV de texturas 3D y de arrays, NUESTRO
+# (`../volumen.cpp`, con sus tres CS de `../volumen_*.dxil`).
+cp "$AQUI/../volumen.cpp" "$AQUI"/../volumen_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c volumen.cpp -o volumen.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o volumen.exe volumen.o -ld3d12
+sha256sum volumen.exe

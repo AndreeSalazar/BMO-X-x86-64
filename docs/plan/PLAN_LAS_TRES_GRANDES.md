@@ -388,7 +388,14 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
 - [ ] D3.3 -- SIN ATAR (bindless, modelo 6.6: `ResourceDescriptorHeap`),
   si D0.2 lo encuentra.
 - [ ] D3.4 -- Los UAV: bufferes con tipo, crudos y estructurados; sus
-  contadores; `ClearUnorderedAccessView*`.
+  contadores; `ClearUnorderedAccessView*`. (06-10: tambien los de TEXTURAS 3D y de
+  arrays de 2D, en el computo y en los dibujos, juzgados por
+  `prueba/volumen.exe` en el banco: rebanadas, capas con su cadena de mips
+  entre una y otra, atomicos, GetDimensions, y ClearUnorderedAccessView
+  sobre TODAS sus rebanadas o capas: antes limpiaba solo la primera, sin
+  decir nada. Falta: los arrays de 1D, los multimuestra, el x86 traducido
+  -- su computo con UAV de textura sigue en el interprete -- y verlo en
+  Windows.)
 
 ## 2E. Los sombreadores
 

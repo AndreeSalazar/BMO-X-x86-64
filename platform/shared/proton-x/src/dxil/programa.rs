@@ -209,11 +209,12 @@ pub enum Op {
     EscribeCompartida { base: u32, n: u32, i: Reg, s: Reg },
     /// N5.5: `bufferStore` al UAV de la ranura `u`: el elemento `i`, `desp`
     /// bytes dentro de el (estructurado), los canales de `v` que dice
-    /// `mascara`.
-    EscribeUav { u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg, v: [Reg; 4], mascara: u8 },
+    /// `mascara`. En un UAV de textura, `i` la x, `desp` la y y (06-10) `z`
+    /// la rebanada de un 3D o la capa de un array (en los demas, un 0).
+    EscribeUav { u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg, z: Reg, v: [Reg; 4], mascara: u8 },
     /// N5.5: `bufferLoad` de un UAV (`RWStructuredBuffer`...): como
     /// `Lectura::Bufer`, pero del UAV `u`.
-    LeeUav { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg },
+    LeeUav { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg, z: Reg },
     /// N5.3c (05-10): `GetDimensions` de un UAV: sus elementos (de un bufer)
     /// o su ancho y su alto (de una textura), como enteros.
     MedidasUav { d: Reg, u: u8, modo: crate::bufer::Modo },
@@ -225,7 +226,7 @@ pub enum Op {
     /// 05-10: un `Interlocked*` (`atomicBinOp`, `atomicCompareExchange`)
     /// sobre la palabra del elemento `i` (`desp` dentro) del UAV `u`: `d` la
     /// de antes ([`crate::bufer::Uav::atomico`]); `igual`, lo que se compara.
-    Atomico { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg, como: crate::bufer::Atomo, v: Reg, igual: Reg },
+    Atomico { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg, z: Reg, como: crate::bufer::Atomo, v: Reg, igual: Reg },
     /// E2.3b (05-10): una entrada de un sombreador de GEOMETRIA: el
     /// componente del elemento `elemento` del vertice `vertice` de su
     /// primitiva (en las entradas, cada vertice ocupa [`Programa::entradas`]

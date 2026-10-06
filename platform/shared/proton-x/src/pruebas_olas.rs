@@ -91,7 +91,7 @@ fn el_computo_va_en_olas_de_32_hilos_seguidos() {
     assert_eq!(crate::nativo_computo::compilar(&p), None, "las olas, por el interprete");
     let mut salida = vec![0xEEu8; 128 * N * 4];
     {
-        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 4, elementos: (128 * N) as u32, contador: None })];
+        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 4, elementos: (128 * N) as u32, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
         assert_eq!(p.despachar([2, 1, 1], &[], &Recursos::NINGUNO, &mut uavs), 128);
     }
     let mut mal = Vec::new();
