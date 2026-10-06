@@ -569,6 +569,16 @@ name = "bmo-maqueta-diag"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-maqueta-dibujo"
+version = "0.1.0"
+dependencies = [
+ "bmo-imagen",
+ "bmo-letra",
+ "bmo-maqueta-diag",
+ "bmo-pinta",
+]
+
+[[package]]
 name = "bmo-maqueta-emit"
 version = "0.1.0"
 dependencies = [

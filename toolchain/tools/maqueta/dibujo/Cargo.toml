@@ -1,0 +1,18 @@
+[package]
+name = "bmo-maqueta-dibujo"
+version = "0.1.0"
+edition = "2021"
+description = "MAQUETA 3: el LECTOR DE SVG. Lee un SVG (escrito en la maqueta o un fichero de internet), lo juzga contra su lista cerrada y lo aplana a caminos. No sabe de cajas."
+license = "Apache-2.0"
+
+# Solo el vocabulario de los rechazos. Un lector no conoce a quien lo lee:
+# si aqui aparece `node`, `cascade` o `layout`, el corte esta mal (L7a).
+[dependencies]
+bmo-maqueta-diag = { path = "../diag" }
+
+# Solo para los ejemplos (`compara`): pintar con el pintor de la casa y leer
+# la foto del navegador, para medir el lector contra la regla.
+[dev-dependencies]
+bmo-pinta = { path = "../../../../platform/shared/bmo-pinta" }
+bmo-imagen = { path = "../../../../platform/shared/bmo-imagen" }
+bmo-letra = { path = "../../../../platform/shared/bmo-letra" }
