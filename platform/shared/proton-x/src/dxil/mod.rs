@@ -50,6 +50,7 @@ mod interprete;
 pub use interprete::Tiras;
 /// X2 (05-10): la lectura de texturas, que llama tambien el codigo traducido.
 pub use interprete::leer_textura;
+pub use interprete::operar_uav;
 /// 03-10: Gather y SampleCmp (las sombras).
 mod sombras;
 /// N5.10: los arrays (alloca, GEP, load, store y las tablas globales).

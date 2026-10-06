@@ -68,6 +68,78 @@ pub fn llamadas(m: *mut Muestras, cb_bytes: usize) -> Llamadas {
     Llamadas { textura: t as usize, datos: m as *mut u8, ..Llamadas::nuevas(cb_bytes) }
 }
 
+/// **Lo que llama un hilo de computo traducido** (06-10): sus `Muestras`
+/// (la textura ELEGIDA es suya) y las ranuras de UAV que van por la llamada
+/// (`nativo_computo::uavs_llamados`: las de textura, atomicos o medidas),
+/// que son SOLO de la llamada -- el `Contexto` las ve nulas.
+pub struct LlamadoComputo<'a> {
+    pub muestras: Muestras<'a>,
+    pub uavs: *mut Option<bmo_proton_x::bufer::Uav<'static>>,
+    pub n_uavs: usize,
+}
+
+/// **La llamada del computo traducido** (06-10): la operacion `k` de su
+/// programa -- una de UAV, con `operar_uav` del interprete sobre las
+/// ranuras llamadas; una de textura, con las `Muestras` del hilo --, los
+/// MISMOS bits que el interprete.
+///
+/// # Safety
+/// `datos` apunta a un `LlamadoComputo` vivo, sus `uavs` a `n_uavs` ranuras
+/// que nadie mas toca mientras dura, y `regs` a tantos registros como
+/// `iniciales` tiene su programa: lo promete quien despacha.
+pub unsafe extern "sysv64" fn computo_sysv(datos: *mut u8, regs: *mut f32, k: u32) {
+    use bmo_proton_x::dxil::programa::Op;
+    // SAFETY: lo de arriba.
+    let l = unsafe { &mut *(datos as *mut LlamadoComputo) };
+    let regs = unsafe { core::slice::from_raw_parts_mut(regs, l.muestras.programa.iniciales.len()) };
+    match l.muestras.programa.ops.get(k as usize) {
+        Some(op @ (Op::LeeUav { .. } | Op::EscribeUav { .. } | Op::Atomico { .. } | Op::MedidasUav { .. } | Op::Contador { .. })) => {
+            // SAFETY: lo de arriba (las ranuras llamadas, solo de aqui).
+            let uavs = unsafe { core::slice::from_raw_parts_mut(l.uavs, l.n_uavs) };
+            bmo_proton_x::dxil::operar_uav(*op, regs, uavs);
+        }
+        _ => l.muestras.llamar(regs, k),
+    }
+}
+
+/// Las `Llamadas` de un hilo de computo con su `LlamadoComputo` (que tiene
+/// que vivir lo que ellas: aqui solo se guarda el puntero).
+pub fn llamadas_computo(l: *mut LlamadoComputo, cb_bytes: usize) -> Llamadas {
+    let t: unsafe extern "sysv64" fn(*mut u8, *mut f32, u32) = computo_sysv;
+    Llamadas { textura: t as usize, datos: l as *mut u8, ..Llamadas::nuevas(cb_bytes) }
+}
+
+/// **Un Dispatch con el computo TRADUCIDO** (`f`, de
+/// `nativo_computo::compilar` sobre `p`), 06-10: las ranuras de UAV que van
+/// por la llamada (`nativo_computo::uavs_llamados`: texturas, atomicos,
+/// medidas) salen de `uavs` y son SOLO de ella; cada hilo del grupo, sus
+/// `Muestras` (su textura elegida) y sus `Llamadas`. Lo demas, como el
+/// interprete (`Programa::despachar`): su juez, bit a bit. Publica: el banco
+/// la mide contra el.
+pub fn despachar_computo(p: &bmo_proton_x::dxil::programa::Programa, f: FuncionComputo, grupos: [u32; 3], cb: &[u8], rec: &bmo_proton_x::textura::Recursos, buferes: &[Option<bmo_proton_x::bufer::Bufer>], uavs: &mut [Option<bmo_proton_x::bufer::Uav<'static>>]) -> u64 {
+    let llamados = bmo_proton_x::nativo_computo::uavs_llamados(p);
+    let mut suyas: Vec<Option<bmo_proton_x::bufer::Uav<'static>>> = uavs.iter_mut().enumerate().map(|(k, u)| if llamados.get(k) == Some(&true) { u.take() } else { None }).collect();
+    let [hx, hy, hz] = p.computo.hilos;
+    let n = (hx * hy * hz) as usize;
+    let (pu, nu) = (suyas.as_mut_ptr(), suyas.len());
+    let mut hilos: Vec<LlamadoComputo> = (0..n).map(|_| LlamadoComputo { muestras: Muestras { programa: p, recursos: rec, elegida: None }, uavs: pu, n_uavs: nu }).collect();
+    let mut por_hilo: Vec<Llamadas> = hilos.iter_mut().map(|h| llamadas_computo(h, cb.len())).collect();
+    // SAFETY: `f` es la traduccion de `p`, en el bloque sellado de quien
+    // llama (que no cambia mientras corre: un Dispatch no cede el turno). Sus
+    // llamadas apuntan a `hilos` y a `suyas`, que viven hasta el final.
+    let mut llamar = |r: *mut f32, c: *mut bmo_proton_x::nativo_computo::Contexto, b: *const u8| unsafe { f(r, c, b) };
+    let corridos = bmo_proton_x::nativo_computo::despachar(p, &mut llamar, grupos, cb, buferes, uavs, &mut por_hilo);
+    // Las ranuras llamadas, de vuelta a su sitio (quien llamo las ve igual).
+    drop(por_hilo);
+    drop(hilos);
+    for (k, s) in suyas.into_iter().enumerate() {
+        if s.is_some() {
+            uavs[k] = s;
+        }
+    }
+    corridos
+}
+
 struct Traducido {
     /// El `Enlace` de su PSO (los PSO no se liberan: su direccion vale).
     enlace: usize,

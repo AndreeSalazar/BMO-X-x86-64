@@ -411,7 +411,10 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   (DXIL y SM5), de los mas usados a los menos. Uno por commit.
 - [ ] D4.2 -- COMPUTE (`Dispatch`): memoria compartida del grupo, barreras,
   atomicas. **Como se sabe:** un sombreador de suma en paralelo da lo mismo
-  que en Windows.
+  que en Windows. (06-10: el computo de JUEGO -- bindless,
+  muestreo, UAV de textura, Interlocked --, traducido a x86 y juzgado por
+  `prueba/postpro.exe`, X4 de la ESCALERA; antes su bindless se leia nulo.
+  Falta: verlo en Windows y en el metal, y las olas en un CS traducido.)
 - [ ] D4.3 -- Las operaciones de ONDA (wave, modelo 6.0): la 3060 va en
   warps de 32. **Como se sabe:** `WaveActiveSum` y compania, igual que en
   Windows. (05-10, E2.5 de la ESCALERA: hechas en el INTERPRETE, olas de

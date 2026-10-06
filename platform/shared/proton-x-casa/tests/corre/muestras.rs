@@ -945,3 +945,20 @@ fn las_root_signatures_1_1_y_las_del_sombreador_son_las_de_windows() {
     assert_eq!(texto.matches("  bien  ").count(), 6, "{texto}");
     assert!(texto.ends_with("firmas.exe: las root signatures 1.1 y las de dentro del sombreador son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **El COMPUTO de un posproceso** (06-10, `prueba/postpro.exe`, NUESTRO):
+/// cada hilo elige SU textura de un array sin limite por un indice
+/// calculado (el bindless), le suma lo que muestrea de la escena, lo
+/// escribe en un RWTexture2D (creado SIN descripcion: la vista del recurso
+/// entero) y cuenta con InterlockedAdd; y GetDimensions. Bit a bit. Ni un
+/// aviso: corre TRADUCIDO, y la casa de antes lo leia nulo.
+#[test]
+fn el_computo_de_un_posproceso_es_el_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, POSTPRO_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 3, "{texto}");
+    assert!(texto.ends_with("postpro.exe: el computo de un posproceso es el de Windows\r\n[salio 0x0]"), "{texto}");
+}

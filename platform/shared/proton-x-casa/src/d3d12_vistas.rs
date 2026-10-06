@@ -277,13 +277,7 @@ pub(crate) extern "win64" fn create_shader_resource_view(_this: u64, recurso: u6
         }
         let dimension = match tex(recurso) {
             None => SRV_BUFER,
-            Some(t) => match (t.forma.dimension, t.forma.capas() > 1) {
-                (crate::subrecursos::DIM_TEXTURA1D, false) => 2,
-                (crate::subrecursos::DIM_TEXTURA1D, true) => 3,
-                (crate::subrecursos::DIM_TEXTURA3D, _) => 8,
-                (_, false) => 4,
-                (_, true) => 5,
-            },
+            Some(t) => dimension_del_recurso(t),
         };
         Vista { dimension, mapeo: MAPEO, ..Vista::default() }
     } else {
@@ -316,6 +310,17 @@ pub(crate) extern "win64" fn create_depth_stencil_view(_this: u64, recurso: u64,
 /// un `contador` (E2.4, 05-10: el de `Append`/`Consume`), su numero en la
 /// ranura (ver [`contador_de`]).
 pub(crate) extern "win64" fn create_unordered_access_view(_this: u64, recurso: u64, contador: u64, desc: *const u8, handle: u64) {
+    // 06-10: SIN descripcion, la vista es la del recurso entero (su
+    // dimension, su formato, la mip 0 y todas sus capas o rebanadas), como
+    // D3D12; antes quedaba sin dimension y el sombreador la veia nula.
+    if desc.is_null() && handle != 0 && recurso != 0 {
+        let Some(t) = tex(recurso) else {
+            aviso("CreateUnorderedAccessView de un bufer sin descripcion: en Windows es un error");
+            return;
+        };
+        poner(handle, recurso, DESC_UAV, &Vista { dimension: dimension_del_recurso(t), mapeo: MAPEO, ..Vista::default() });
+        return;
+    }
     if contador == 0 || desc.is_null() || handle == 0 {
         vista_de_destino(recurso, desc, handle, DESC_UAV, uav);
         return;
@@ -390,6 +395,19 @@ fn vista_de_destino(recurso: u64, desc: *const u8, handle: u64, marca: u64, leer
         }
     };
     poner(handle, recurso, marca, &v);
+}
+
+/// **La dimension de la vista de un recurso ENTERO** (la de un SRV o un UAV
+/// sin descripcion): 1D o 2D, sus arrays, o 3D -- los numeros de
+/// D3D12_SRV_DIMENSION y D3D12_UAV_DIMENSION, que en estas coinciden.
+fn dimension_del_recurso(t: &Tex) -> u32 {
+    match (t.forma.dimension, t.forma.capas() > 1) {
+        (crate::subrecursos::DIM_TEXTURA1D, false) => 2,
+        (crate::subrecursos::DIM_TEXTURA1D, true) => 3,
+        (crate::subrecursos::DIM_TEXTURA3D, _) => 8,
+        (_, false) => 4,
+        (_, true) => 5,
+    }
 }
 
 /// Los formatos `*_SRGB` de DXGI: R8G8B8A8, BC1, BC2, BC3, B8G8R8A8,

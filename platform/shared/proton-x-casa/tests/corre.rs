@@ -116,6 +116,8 @@ const MULTIHILO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/multihilo.exe
 const VOLUMEN_EXE: &[u8] = include_bytes!("../../proton-x/prueba/volumen.exe");
 /// 06-10: las root signatures 1.1 y las de dentro del sombreador.
 const FIRMAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/firmas.exe");
+/// 06-10: el computo de un posproceso (bindless, SampleLevel, RWTexture2D, Interlocked).
+const POSTPRO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/postpro.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

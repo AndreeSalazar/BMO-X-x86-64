@@ -1131,7 +1131,7 @@ pub(crate) fn descriptor_de(tablas: &[u64; 16], k: usize, i: u64) -> Option<&'st
 /// el lugar del rango con ese registro, buscado en la firma como una ranura
 /// fija; un registro que ninguna tabla tiene, o un SRV nulo o de bufer, se
 /// lee como nulo (ceros).
-fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::textura::Textura<'static>> {
+pub(crate) fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::textura::Textura<'static>> {
     use bmo_proton_x::donde::{self, RANGO_SRV};
     let l = bmo_proton_x::dxil::ranuras::Lugar { registro, ..*ranuras.dinamicas.get(rango as usize)? };
     let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor_de(tablas, k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0)?;

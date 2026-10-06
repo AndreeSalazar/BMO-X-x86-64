@@ -2891,3 +2891,44 @@ aviso. Probado que dice NO: contra la casa de antes, E dice 1.0, y A y C
 salen con E_INVALIDARG ("esos bytes no son una root signature 1.0"); y
 quitando a mano la firma del sombreador en un PSO de computo, D sale con
 E_INVALIDARG.
+
+postpro_cs.dxil -- el de postpro.exe (06-10)
+
+`postpro.hlsl` (aqui al lado): CSPost, el computo de un posproceso (un
+array de texturas SIN LIMITE en space1, indexado con
+NonUniformResourceIndex; SampleLevel de la escena; un RWTexture2D; un
+InterlockedAdd en un RWByteAddressBuffer; GetDimensions). Con el DXC de la
+nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSPost -Fo postpro_cs.dxil postpro.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   37ec4fbe91943e00315eb09446839040b3420d67432bee0bab40b66456d31555  postpro_cs.dxil
+
+Va DENTRO de postpro.exe, y el banco de la casa lo corre tambien sin el
+`.exe` (`tests/nativo/texturas.rs`: traducido contra el interprete).
+
+postpro.exe -- el COMPUTO de un posproceso, juzgado (06-10)
+
+NUESTRO, de consola. Un Dispatch de 2 x 2 grupos de 8 x 8: A, cada hilo
+elige SU textura (i = (x + y + cual) % 3) del array sin limite, la lee y le
+suma lo que muestrea de la escena (punto), a un RWTexture2D de 16 x 16 en
+RGBA32F creado SIN descripcion; B, InterlockedAdd: los hilos de cada
+textura; C, GetDimensions del RWTexture2D. Exacto. Dice `bien` 3 veces y
+sale con el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con postpro.cpp y su
+.dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c postpro.cpp -o postpro.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o postpro.exe postpro.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   fa559cba6e3419b6b91e5fc353f728194546c85240f93a7c42d6779d941943e4  postpro.exe
+
+El banco (`tests/corre/muestras.rs`): los 3 `bien`, sale con 0, ni un
+aviso (corre traducido). Probado que dice NO: contra la casa de antes, A y
+C MAL (el UAV sin descripcion se veia nulo); y sin el indice dinamico en el
+Dispatch, 171 MAL en A (las texturas 1 y 2 se leian nulas).

@@ -592,6 +592,35 @@ juego pide mientras la 3060 no corre computo (N6).
   paga mas; (3) los cuadros que se separan cuestan DOS veces (lo
   traducido hasta separarse, y el interprete entero).
 
+- [x] **X4 -- el COMPUTO de juego, traducido y con su bindless**
+  (`platform/shared/proton-x/src/nativo_computo.rs` y
+  `proton-x-casa/src/nativo.rs`, 06-10, en el banco; falta verlo en el
+  metal). Lo que hace un juego en el computo (la luz, el posproceso, los
+  histogramas) iba SIEMPRE por el interprete en cuanto muestreaba, tocaba
+  un UAV de textura o hacia un Interlocked; y peor: un CS que elegia su
+  textura por un indice calculado (el bindless de Cyberpunk) la leia NULA,
+  porque el Dispatch no buscaba en el monton (el dibujo si). Y un UAV
+  creado SIN descripcion (la vista del recurso entero) quedaba sin
+  dimension y se leia nulo. Ahora: el Dispatch busca y guarda las texturas
+  del indice dinamico como un dibujo; un UAV sin descripcion es el del
+  recurso; y lo traducido LLAMA (como X2) para las texturas y para las
+  ranuras de UAV que no sabe tocar solo (textura, atomicos, GetDimensions:
+  `uavs_llamados`), que salen del `Contexto` y son SOLO de la llamada --
+  `operar_uav`, la del interprete, los mismos bits --; los UAV de bufer
+  sencillos siguen en el x86 directo. Cada hilo, sus `Muestras` (la textura
+  elegida es suya: una barrera puede caer entre elegirla y leerla). **Como
+  se sabe:** `prueba/postpro.exe` (3 `bien`, ni un aviso);
+  `proton-x-casa/tests/nativo/texturas.rs`: el CS de postpro traducido, bit
+  a bit contra el interprete con las texturas raras del banco, y un
+  programa con una BARRERA entre elegir y leer. Probado que dice NO: la
+  casa de antes, A y C MAL (el UAV sin descripcion); sin el bindless del
+  Dispatch, 171 MAL en A; con la textura elegida compartida entre los
+  hilos, los 32 leen la del ultimo. **Medido** (`--release`): postpro, 1,4
+  veces el interprete (el muestreo es el mismo Rust en los dos y se lleva
+  casi todo). **Lo que puede fallar, dicho:** las olas en un CS siguen en
+  el interprete; un CS con un UAV de textura que tambien escribe un bufer
+  por la llamada paga una llamada por acceso.
+
 **LA CPU GUIA, LA 3060 DIBUJA.** El propietario (05-10): *"que la CPU no
 tiene que ser la que dibuje, sino que tenga el mapa por via de RAM y que le
 guie a la GPU constantemente"*. Es como trabaja todo driver de verdad, y en

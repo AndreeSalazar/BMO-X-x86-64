@@ -519,3 +519,114 @@ fn cada_carril_muestrea_la_textura_que_eligio() {
     }
     assert!(malos.is_empty(), "{} olas distintas de 2000; la primera: {}", malos.len(), malos[0]);
 }
+
+/// El CS de `prueba/postpro.exe`: bindless, SampleLevel, un RWTexture2D, un
+/// InterlockedAdd y GetDimensions.
+const POSTPRO: &[u8] = include_bytes!("../../../proton-x/prueba/postpro_cs.dxil");
+
+/// Unos UAV para un computo: el `k`, `bytes` bytes de memoria nueva (y que
+/// dura: los UAV de la casa son de su memoria).
+fn uav_nuevo(bytes: usize, formato: u32, paso: u32, elementos: u32) -> Option<bmo_proton_x::bufer::Uav<'static>> {
+    Some(bmo_proton_x::bufer::Uav { bytes: Box::leak(vec![0u8; bytes].into_boxed_slice()), formato, paso, elementos, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })
+}
+
+/// Un Dispatch por los dos caminos (el interprete y lo traducido, con la
+/// casa: `despachar_computo`) con UAV nuevos de las mismas medidas; lo que
+/// queda en cada uno, byte a byte.
+fn dos_caminos(p: &Programa, f: FuncionComputo, grupos: [u32; 3], cb: &[u8], rec: &Recursos, nuevos: &dyn Fn() -> Vec<Option<bmo_proton_x::bufer::Uav<'static>>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+    let (mut uno, mut otro) = (nuevos(), nuevos());
+    p.despachar(grupos, cb, rec, &mut uno);
+    bmo_proton_x_casa::nativo::despachar_computo(p, f, grupos, cb, rec, rec.buferes, &mut otro);
+    let bytes = |v: &[Option<bmo_proton_x::bufer::Uav>]| v.iter().map(|u| u.as_ref().map_or(Vec::new(), |u| u.bytes.to_vec())).collect::<Vec<_>>();
+    (bytes(&uno), bytes(&otro))
+}
+
+/// *** El COMPUTO que muestrea, elige su textura (bindless), escribe un
+/// RWTexture2D, hace un InterlockedAdd y GetDimensions (06-10): se TRADUCE
+/// (`nativo_computo::compilar`) y da los bits del interprete, con las
+/// texturas raras del banco y varios `cual`.
+#[test]
+fn el_computo_que_muestrea_y_toca_uav_de_textura_traducido_da_los_bits_del_interprete() {
+    let cs = bmo_proton_x::dxil::computo::preparar(POSTPRO).unwrap();
+    let p = &cs.programa;
+    let f = cuerpo(sellar(&bmo_proton_x::nativo_computo::compilar(p).expect("el computo que muestrea se traduce")));
+    assert_eq!(bmo_proton_x::nativo_computo::uavs_llamados(p)[..2], [true, true], "el RWTexture2D y el del Interlocked, por la llamada");
+    let (tex, mue, buf) = (texturas(), muestreadores(), buferes());
+    let tex_dinamicas = tex.clone();
+    let buscar = move |rango: u8, registro: u32| -> Option<Textura<'static>> { tex_dinamicas.get((registro as usize + 3 * rango as usize) % 9).copied().flatten() };
+    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar)) };
+    let nuevos = || vec![uav_nuevo(16 * 16 * 16, 2 | bmo_proton_x::bufer::CUATRO_FLOATS, 16, 256), uav_nuevo(256, 0, 0, 64)];
+    for cual in 0..6u32 {
+        let cb: Vec<u8> = [cual, 16, 0, 0].iter().flat_map(|x| x.to_le_bytes()).collect();
+        let (uno, otro) = dos_caminos(p, f, [2, 2, 1], &cb, &rec, &nuevos);
+        assert_eq!(uno, otro, "cual = {cual}");
+        assert!(uno[0].iter().any(|&b| b != 0), "que escribio algo");
+    }
+}
+
+/// *** Cada HILO, su textura ELEGIDA, aunque una BARRERA caiga entre elegirla
+/// y leerla (06-10): un programa hecho a mano de 32 hilos; cada uno elige la
+/// textura de su SV_GroupIndex, espera a los demas y lee el texel (0, 0) de
+/// la que eligio. Si los hilos compartieran lo elegido, todos leerian la del
+/// ultimo.
+#[test]
+fn cada_hilo_lee_la_textura_que_eligio_aunque_haya_una_barrera_en_medio() {
+    use bmo_proton_x::bufer::Modo;
+    use bmo_proton_x::dxil::programa::{Lectura, DINAMICA};
+    let p = Programa {
+        ops: vec![
+            Op::IdHilo { d: 0, que: 3, c: 0 },
+            Op::EligeTextura { i: 0, rango: 0 },
+            Op::Barrera,
+            Op::Lee { d: 4, t: DINAMICA, s: 0, como: Lectura::Carga { enteros: false }, c: [1, 1, 1, 1], nivel: 1, desp: [0; 3] },
+            Op::EscribeUav { u: 0, modo: Modo::Estructurado, i: 0, desp: 1, z: 1, v: [4, 5, 6, 7], mascara: 0xF },
+        ],
+        iniciales: vec![0.0; 8],
+        entradas: 0,
+        salidas: 0,
+        lee: 0,
+        filas_cb: 0,
+        ranuras: Default::default(),
+        computo: bmo_proton_x::dxil::programa::Computo { hilos: [32, 1, 1], ..Default::default() },
+    };
+    let f = cuerpo(sellar(&bmo_proton_x::nativo_computo::compilar(&p).expect("se traduce")));
+    let (tex, mue, buf) = (texturas(), muestreadores(), buferes());
+    let tex_dinamicas = tex.clone();
+    let buscar = move |_: u8, registro: u32| -> Option<Textura<'static>> { tex_dinamicas.get(registro as usize % 8).copied().flatten() };
+    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar)) };
+    let nuevos = || vec![uav_nuevo(32 * 16, 0, 16, 32)];
+    let (uno, otro) = dos_caminos(&p, f, [1, 1, 1], &[], &rec, &nuevos);
+    assert_eq!(uno, otro);
+    let filas: Vec<&[u8]> = uno[0].chunks(16).collect();
+    assert!(filas[0] != filas[2], "cada hilo, la suya (la 0 y la 2 son texturas distintas)");
+}
+
+/// **Lo que se gana en el computo de un posproceso** (no juzga: lo dice):
+/// `n` Dispatch de `postpro` por los dos caminos, la mejor de cinco rondas.
+#[test]
+fn lo_que_tarda_el_computo_de_un_posproceso() {
+    let cs = bmo_proton_x::dxil::computo::preparar(POSTPRO).unwrap();
+    let p = &cs.programa;
+    let f = cuerpo(sellar(&bmo_proton_x::nativo_computo::compilar(p).unwrap()));
+    let (tex, mue, buf) = (texturas(), muestreadores(), buferes());
+    let tex_dinamicas = tex.clone();
+    let buscar = move |rango: u8, registro: u32| -> Option<Textura<'static>> { tex_dinamicas.get((registro as usize + 3 * rango as usize) % 9).copied().flatten() };
+    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar)) };
+    let cb: Vec<u8> = [1u32, 16, 0, 0].iter().flat_map(|x| x.to_le_bytes()).collect();
+    let n = 200;
+    let (mut interpretado, mut traducido) = (std::time::Duration::MAX, std::time::Duration::MAX);
+    for _ in 0..5 {
+        let mut u = vec![uav_nuevo(16 * 16 * 16, 2 | bmo_proton_x::bufer::CUATRO_FLOATS, 16, 256), uav_nuevo(256, 0, 0, 64)];
+        let t = std::time::Instant::now();
+        for _ in 0..n {
+            p.despachar([2, 2, 1], &cb, &rec, &mut u);
+        }
+        interpretado = interpretado.min(t.elapsed());
+        let t = std::time::Instant::now();
+        for _ in 0..n {
+            bmo_proton_x_casa::nativo::despachar_computo(p, f, [2, 2, 1], &cb, &rec, &buf, &mut u);
+        }
+        traducido = traducido.min(t.elapsed());
+    }
+    eprintln!("postpro: {n} Dispatch de 256 hilos, interpretado {interpretado:?}, traducido {traducido:?} ({:.1} veces)", interpretado.as_secs_f64() / traducido.as_secs_f64());
+}

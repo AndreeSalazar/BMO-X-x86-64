@@ -236,3 +236,10 @@ cp "$AQUI/../firmas.cpp" "$AQUI"/../firmas_cs.dxil "$AQUI"/../firmas_*.rts0 .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c firmas.cpp -o firmas.o
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o firmas.exe firmas.o -ld3d12
 sha256sum firmas.exe
+
+# 06-10: el juez del COMPUTO de un posproceso, NUESTRO (`../postpro.cpp`,
+# con su CS de `../postpro_cs.dxil`).
+cp "$AQUI/../postpro.cpp" "$AQUI"/../postpro_cs.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c postpro.cpp -o postpro.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o postpro.exe postpro.o -ld3d12
+sha256sum postpro.exe

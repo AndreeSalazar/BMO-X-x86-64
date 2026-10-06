@@ -61,7 +61,7 @@ fn los_dos(cs: &[u8], grupos: [u32; 3], cb: &[u8], srv: &[u8], paso_srv: u32, ua
     {
         let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: paso_uav, elementos, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
-        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, cb, &buf, &mut u);
+        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, cb, &buf, &mut u, &mut []);
     }
     eprintln!("interpretado {interpretado:?}, traducido {:?}", t.elapsed());
     (a, b)
@@ -352,7 +352,7 @@ fn el_cs_de_nbody_traducido_da_la_fisica() {
     {
         let mut u = [Some(Uav { bytes: &mut salida, formato: 0, paso: 32, elementos: n as u32, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
-        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, [grupos, 1, 1], &cb, &buf, &mut u);
+        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, [grupos, 1, 1], &cb, &buf, &mut u, &mut []);
     }
     let leer = |i: usize, k: usize| f32::from_le_bytes(salida[i * 32 + 4 * k..i * 32 + 4 * k + 4].try_into().unwrap()) as f64;
     let (masa, suave, dt) = (6.673e-11f64 * 1e4 * 1e4 * 1e4, 0.00125f64 * 0.00125, 0.1f64);
@@ -429,7 +429,7 @@ fn el_cs_de_execute_indirect_traducido_da_el_contador_del_interprete() {
     {
         let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut cb_), rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
-        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, &cb, &buf, &mut u);
+        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, &cb, &buf, &mut u, &mut []);
     }
     assert!(ca > 10 && (ca as usize) < n, "pasan unas y otras no: {ca}");
     assert_eq!(ca, cb_, "el mismo contador");

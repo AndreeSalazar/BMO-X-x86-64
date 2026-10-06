@@ -225,16 +225,25 @@ pub(crate) fn despachar(e: &Estado, grupos: [u32; 3]) {
     };
     let (texturas, muestreadores, buferes) = crate::tuberia::recursos_del_dibujo(firma, &e.tablas, &e.cbv, &p.programa.ranuras);
     let mut uavs: Vec<Option<Uav>> = p.programa.ranuras.uavs.iter().map(|&l| uav_de(firma, &e.tablas, &e.cbv, &p.programa.ranuras, l)).collect();
+    // 06-10: y el indice DINAMICO (el bindless: `textures[i]`), como en un
+    // dibujo; antes un CS que elegia su textura la leia como nula. Buscadas
+    // cuando un hilo las pide y GUARDADAS: una vez por textura distinta del
+    // Dispatch, no por hilo (lo de `tuberia::pintar`).
+    let guardadas: core::cell::RefCell<alloc::collections::BTreeMap<(u8, u32), Option<bmo_proton_x::textura::Textura<'static>>>> = Default::default();
+    let buscar = |rango: u8, registro: u32| {
+        if let Some(t) = guardadas.borrow().get(&(rango, registro)) {
+            return *t;
+        }
+        let t = crate::tuberia::textura_dinamica(firma, &e.tablas, &p.programa.ranuras, rango, registro);
+        guardadas.borrow_mut().insert((rango, registro), t);
+        t
+    };
+    let rec = bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: Some(bmo_proton_x::textura::Dinamicas(&buscar)) };
     // E2.3b (05-10): con su traduccion a x86-64 si la hay (EXPRIMIR: 50
     // veces el interprete); si no, el interprete, que es su juez.
     if let Some(f) = pso.nativo.and_then(crate::nativo::computo) {
-        // SAFETY: `f` es la traduccion de este programa (`registrar_computo`
-        // al crear el PSO), en el bloque sellado de ahora: un Dispatch no
-        // cede el turno, asi que nadie lo cambia mientras corre.
-        let mut llamar = |r: *mut f32, c: *mut bmo_proton_x::nativo_computo::Contexto, b: *const u8| unsafe { f(r, c, b) };
-        bmo_proton_x::nativo_computo::despachar(&p.programa, &mut llamar, grupos, &cb, &buferes, &mut uavs);
+        crate::nativo::despachar_computo(&p.programa, f, grupos, &cb, &rec, &buferes, &mut uavs);
         return;
     }
-    let rec = bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: None };
     p.programa.despachar(grupos, &cb, &rec, &mut uavs);
 }
