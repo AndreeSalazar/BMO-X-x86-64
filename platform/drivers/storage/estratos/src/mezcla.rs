@@ -124,6 +124,30 @@ pub fn mezclar<'a>(base: &[Lado<'a>], a: &[Lado<'a>], b: &[Lado<'a>], mut f: imp
     c
 }
 
+/// **LA REGLA DE TRES**, sola: de que lado sale una ruta, mirando el QUE de
+/// la base, de A y de B. La usa el motor sin `alloc` (`motor_mezcla`);
+/// [`mezclar`] y [`por_carpeta`] la escriben con sus cuentas al lado, y la
+/// prueba al azar de `estratos-mezcla` comprueba que las tres dicen lo mismo.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Regla {
+    /// Sale lo que tenga A (o nada, si A no lo tiene).
+    A,
+    /// Sale lo que tenga B (o nada).
+    B,
+    /// Los dos lo cambiaron distinto.
+    Distintos,
+}
+
+pub fn regla(base: Option<Hash>, a: Option<Hash>, b: Option<Hash>) -> Regla {
+    if a == b || b == base {
+        Regla::A
+    } else if a == base {
+        Regla::B
+    } else {
+        Regla::Distintos
+    }
+}
+
 /// Lo que la mezcla POR CARPETA decide para un nombre (`por_carpeta`).
 #[derive(Debug, Clone, Copy)]
 pub enum Paso<'e> {

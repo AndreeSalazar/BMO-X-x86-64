@@ -8,7 +8,7 @@
 
 ```text
    638 casillas ABIERTAS en 62 planes
-   525 hechas
+   526 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -244,11 +244,11 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
 
-## [`PLAN_LAS_RAMAS.md`](PLAN_LAS_RAMAS.md) -- 8 abiertas, 6 hechas
+## [`PLAN_LAS_RAMAS.md`](PLAN_LAS_RAMAS.md) -- 8 abiertas, 7 hechas
 
 *PLAN LAS RAMAS -- ESTRATOS como Git: guias, plantillas, ramas y mezcla por NODOS*
 
-- [ ] R4c-2 -- el gesto MEZCLAR en el kernel (ES_GESTO_*): por_carpeta con tres listas FIJAS por nivel
+- [ ] R4c-2b -- el gesto en el KERNEL (ES_GESTO_*): el motor con sus tablas en static (unos 38 KB por 
 - [ ] R4c-3 -- del PROPIETARIO: la mezcla en F: en el Ryzen, despues de las imagenes
 - [ ] R5 -- la MEZCLA en F1: las dos cadenas que se juntan en la solapa HISTORIA, y cada choque como u
 - ... y 5 mas

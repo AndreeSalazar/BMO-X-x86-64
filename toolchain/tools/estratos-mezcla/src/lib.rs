@@ -60,20 +60,17 @@ pub struct Choque {
     pub b: Option<BlockPtr>,
 }
 
-/// Lo que una persona elige ante un choque. Un nodo ENTERO, nunca lineas.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Eleccion {
-    A,
-    B,
-    Quitar,
-}
+/// Lo que una persona elige ante un choque. Un nodo ENTERO, nunca lineas. Es
+/// el del motor: el mismo que usara el kernel.
+pub use es::motor_mezcla::Eleccion;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Resultado {
     pub generacion: u64,
     pub estrato: BlockPtr,
     pub raiz: BlockPtr,
-    pub cuenta: mezcla::Cuenta,
+    /// Cuantos choques se le preguntaron a quien elige (una vez cada uno).
+    pub choques: u32,
     pub bloques_nuevos: u64,
 }
 
@@ -358,34 +355,28 @@ fn abrir<R: Read + Seek>(r: &mut R, disk_id: [u8; 32], generacion: u64) -> Resul
     Ok((sb, cual))
 }
 
-/// **Publica `arbol` como UN estrato nuevo**, con el orden que no pierde datos.
-/// `estrato` recibe la raiz y el estrato de ahora (el padre). Una raiz que es
-/// un nodo que YA esta (nada cambio respecto a A) no gasta mas que el estrato.
-pub(crate) fn publicar<W: Almacen>(
+/// **Publica UN estrato nuevo** con el orden que no pierde datos: reservar
+/// `bloques` (+1, el estrato), dejar que `arbol` escriba la raiz desde el
+/// principio de la reserva, el estrato, barrera, superbloque alterno, barrera.
+/// `arbol` recibe el disco y donde empezar, y devuelve la raiz y donde acabo:
+/// si no acaba donde se reservo, no hay commit.
+pub(crate) fn publicar_con<W: Almacen>(
     w: &mut W,
     disk_id: [u8; 32],
     generacion: u64,
-    arbol: &Hijo,
+    bloques: u64,
+    arbol: impl FnOnce(&mut W, u64) -> Result<(BlockPtr, u64), String>,
     estrato: impl FnOnce(BlockPtr, BlockPtr) -> Estrato,
 ) -> Result<(u64, BlockPtr, BlockPtr, u64), String> {
     let (sb, cual) = abrir(w, disk_id, generacion)?;
-    let bloques = match arbol {
-        Hijo::Carpeta(c) => c.bloques()?,
-        Hijo::Nodo(_) => 0,
-        Hijo::Contenido(_) => return Err("la raiz tiene que ser una carpeta".into()),
-    } + 1;
+    let total = bloques + 1;
     let mut t = Transaccion::open(&sb, cual, true).map_err(|e| e.name().to_string())?;
-    let base = t.reserve(bloques).map_err(|e| e.name().to_string())?;
-    let mut cursor = base;
-    let raiz = match arbol {
-        Hijo::Carpeta(c) => c.escribir(w, &mut cursor)?,
-        Hijo::Nodo(p) => *p,
-        Hijo::Contenido(_) => unreachable!("rechazado arriba"),
-    };
+    let base = t.reserve(total).map_err(|e| e.name().to_string())?;
+    let (raiz, mut cursor) = arbol(w, base)?;
     let e = estrato(raiz, sb.estrato);
     let ep = escribir_objeto(w, cursor, &e.encode())?;
     cursor += 1;
-    if cursor != base + bloques {
+    if cursor != base + total {
         return Err("la transaccion no escribio lo que reservo".into());
     }
     t.cerrar_datos().map_err(|e| e.name().to_string())?;
@@ -397,7 +388,38 @@ pub(crate) fn publicar<W: Almacen>(
         .and_then(|_| w.write_all(&nuevo.encode()))
         .map_err(|e| format!("publicando el superbloque alterno: {e}"))?;
     w.barrera().map_err(|e| format!("barrera del commit: {e}"))?;
-    Ok((nuevo.generation, ep, raiz, bloques))
+    Ok((nuevo.generation, ep, raiz, total))
+}
+
+/// Publica un arbol hecho en memoria (`Carpeta`), o una raiz que ya esta.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn publicar<W: Almacen>(
+    w: &mut W,
+    disk_id: [u8; 32],
+    generacion: u64,
+    arbol: &Hijo,
+    estrato: impl FnOnce(BlockPtr, BlockPtr) -> Estrato,
+) -> Result<(u64, BlockPtr, BlockPtr, u64), String> {
+    let bloques = match arbol {
+        Hijo::Carpeta(c) => c.bloques()?,
+        Hijo::Nodo(_) => 0,
+        Hijo::Contenido(_) => return Err("la raiz tiene que ser una carpeta".into()),
+    };
+    publicar_con(
+        w,
+        disk_id,
+        generacion,
+        bloques,
+        |w, mut cursor| {
+            let raiz = match arbol {
+                Hijo::Carpeta(c) => c.escribir(w, &mut cursor)?,
+                Hijo::Nodo(p) => *p,
+                Hijo::Contenido(_) => unreachable!("rechazado arriba"),
+            };
+            Ok((raiz, cursor))
+        },
+        estrato,
+    )
 }
 
 /// Las tres raices de una mezcla: la BASE, la de ahora (A) y la que entra (B).
@@ -416,11 +438,24 @@ fn raices<R: Read + Seek>(r: &mut R, ahora: &BlockPtr, otra: &BlockPtr) -> Resul
     Ok([leer_estrato(r, &base)?.raiz, leer_estrato(r, ahora)?.raiz, leer_estrato(r, otra)?.raiz])
 }
 
+/// Una imagen leida y escrita a la vez por el motor: lee con `Fuente` y
+/// escribe con `poner`, cada uno pidiendo el disco cuando le toca.
+struct Compartido<'d, W>(&'d std::cell::RefCell<&'d mut W>);
+
+impl<W: Read + Seek> Fuente for Compartido<'_, W> {
+    fn bloque(&mut self, lba: u64, dst: &mut [u8; BLOQUE]) -> bool {
+        Lector(&mut **self.0.borrow_mut()).bloque(lba, dst)
+    }
+}
+
 /// **MEZCLA la rama `otra` en la punta de ahora** y la publica como UN
-/// estrato de DOS padres. Cada choque se le pregunta a `elegir`.
+/// estrato de DOS padres. Cada choque se le pregunta a `elegir` UNA vez.
 ///
-/// Mezcla POR CARPETAS (`decide::por_arbol`): baja solo donde los dos lados
-/// cambiaron algo; lo que un solo lado toco entra ENTERO, sin leerlo.
+/// Quien mezcla es `bmo_estratos::motor_mezcla`, sin `alloc`: el MISMO motor
+/// que correra el kernel. Primero CUENTA (bloques y choques, sin escribir),
+/// despues ESCRIBE con las mismas respuestas. Y al releer, lo publicado se
+/// compara con la mezcla de carpetas con `Vec` (`decide::por_arbol`): dos
+/// implementaciones, una respuesta.
 ///
 /// No escribe nada si: el disco o la generacion no son los esperados, las dos
 /// ramas no comparten historia, o `otra` ya esta dentro de la de ahora.
@@ -432,26 +467,60 @@ pub fn mezclar<W: Almacen>(
     motivo: &str,
     elegir: &mut dyn FnMut(&Choque) -> Eleccion,
 ) -> Result<Resultado, String> {
+    use es::motor_mezcla::{self as motor, Nivel, Taller, CAP, RUTA_MAX};
     let (sb, _) = abrir(disco, disk_id, generacion)?;
     let ahora = sb.estrato;
     let [rb, ra, rx] = raices(disco, &ahora, otra)?;
-    let (arbol, cuenta) = decide::por_arbol(disco, rb, ra, rx, elegir)?;
-    let (generacion, estrato, raiz, bloques_nuevos) =
-        publicar(disco, disk_id, generacion, &arbol, |raiz, padre| Estrato::mezcla(raiz, padre, otra, 0, Autor::Herramienta, motivo))?;
-    // Releer: lo publicado es exactamente lo decidido, y el estrato lleva
-    // sus dos padres.
+
+    let mut niveles = vec![Nivel::VACIO; 32];
+    let mut scratch = vec![[0u8; BLOQUE]; NIVELES_MAX + 1];
+    let mut indice = vec![[0u8; BLOQUE]; NIVELES_MAX];
+    let mut bloque = Box::new([0u8; BLOQUE]);
+    let mut ruta = Box::new([0u8; RUTA_MAX]);
+    let mut taller = Taller { niveles: &mut niveles, scratch: &mut scratch, indice: &mut indice, bloque: &mut bloque, ruta: &mut ruta };
+    let fallo = |e: motor::Fallo| match e {
+        motor::Fallo::CarpetaGrande => format!("una carpeta con mas de {CAP} entradas por lado: el motor no la mezcla todavia"),
+        otro => format!("motor de mezcla: {otro:?}"),
+    };
+
+    // CONTAR, y grabar cada respuesta: escribir y releer las reproducen.
+    let mut respuestas: Vec<(Vec<u8>, Eleccion)> = Vec::new();
+    let cuenta = motor::contar(&mut Lector(disco), &mut taller, rb, ra, rx, &mut |ruta, a, b| {
+        let e = elegir(&Choque { ruta: ruta.to_vec(), a: a.copied(), b: b.copied() });
+        respuestas.push((ruta.to_vec(), e));
+        e
+    })
+    .map_err(fallo)?;
+    let repite = |r: &[u8]| respuestas.iter().find(|(x, _)| x.as_slice() == r).map_or(Eleccion::Quitar, |(_, e)| *e);
+
+    let (generacion, estrato, raiz, bloques_nuevos) = publicar_con(
+        disco,
+        disk_id,
+        generacion,
+        cuenta.bloques,
+        |w, desde| {
+            let celda = std::cell::RefCell::new(w);
+            let mut fuente = Compartido(&celda);
+            let mut poner = |lba: u64, d: &[u8]| escribir_bloque(&mut **celda.borrow_mut(), lba, d).is_ok();
+            motor::escribir(&mut fuente, &mut taller, rb, ra, rx, &mut |r, _, _| repite(r), desde, &mut poner).map_err(fallo)
+        },
+        |raiz, padre| Estrato::mezcla(raiz, padre, otra, 0, Autor::Herramienta, motivo),
+    )?;
+    // Releer: los dos padres, y el arbol publicado es el que decide la mezcla
+    // de carpetas con `Vec`, con las mismas respuestas.
     let e = leer_estrato(disco, &estrato)?;
     if e.padre != ahora || !e.segundo.is_some_and(|s| s.es(otra)) {
         return Err("releido: el estrato de mezcla no lleva sus dos padres".into());
     }
-    let mut esperado = decide::hojas_de(disco, &arbol)?;
+    let (oraculo, _) = decide::por_arbol(disco, rb, ra, rx, &mut |c| repite(&c.ruta))?;
+    let mut esperado = decide::hojas_de(disco, &oraculo)?;
     let mut leido = decide::sumas(aplanar(disco, &raiz)?);
     esperado.sort();
     leido.sort();
     if esperado != leido {
-        return Err("releido: el arbol publicado no es el decidido".into());
+        return Err("releido: el motor y la mezcla de carpetas no dicen lo mismo".into());
     }
-    Ok(Resultado { generacion, estrato, raiz, cuenta, bloques_nuevos })
+    Ok(Resultado { generacion, estrato, raiz, choques: cuenta.choques, bloques_nuevos })
 }
 
 mod decide;

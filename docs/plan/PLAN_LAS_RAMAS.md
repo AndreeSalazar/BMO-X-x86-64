@@ -123,6 +123,42 @@ mismo dia: *"D4 es A"*.
                     trabajo sin que nadie lo vea
 ```
 
+### D5 -- donde vive la PUNTA de cada rama (PENDIENTE, encontrado el 06-10)
+
+Al ir a escribir el gesto se vio un hueco en D1 (a), y se dice antes de
+construir encima. Si una rama es una MARCA y "cambiar de rama" es `volver` a
+ella, `volver` publica un estrato cuyo padre es la punta de AHORA (es un
+revert): la rama que se deja pasa a ser ANTEPASADO de la nueva. Ejemplo:
+
+```text
+   T1 "main" --volver a X--> T2 (raiz de X, padre T1) --trabajo--> T3
+   mezclar "main" (T1) en T3: T1 YA es antepasado de T3 -> "nada que
+   mezclar", y lo de main que T2 deshizo no vuelve nunca
+```
+
+Y no se puede arreglar mirando solo la historia: una marca solo se
+encuentra recorriendo desde la punta, y una punta que se deja de seguir no
+se encuentra mas.
+
+```text
+   (a) RECOMENDADA  una TABLA DE RAMAS fuera de la historia, como las refs de
+                    Git: el superbloque tiene 360 bytes LIBRES (120..480, a
+                    cero) y en ellos cabe un puntero a un objeto chico
+                    "nombre -> punta". Cambiar de rama es que el superbloque
+                    siga OTRA punta (sin estrato nuevo y sin hacer a nadie
+                    antepasado de nadie); las marcas siguen siendo versiones
+                    permanentes. [!] Un kernel VIEJO que haga commit
+                    reescribe el superbloque con ceros ahi y perderia la
+                    tabla: se sube `version` del superbloque para que no lo
+                    haga sin enterarse
+   (b)              ramas dentro de la historia, como hoy: no hace falta
+                    formato, pero mezclar una rama de la que se volvio no
+                    funciona (el ejemplo de arriba)
+   (c)              un fichero `.ramas` en el arbol: sin formato, pero se
+                    versiona y se MEZCLA consigo mismo -- la lista de ramas
+                    tendria choques
+```
+
 ## 4b. Nodos ULTRA independientes: independizar es una DECISION
 
 El propietario, al decidir D1-D3: *"esos nodos sean independiente [...] ese
@@ -197,7 +233,8 @@ de una lista escrita. Copiar una carpeta entera es C4 de `ESTRATOS.md`.
 - [x] R4a -- HECHO el 05-10: el FORMATO v2, el SEGUNDO PADRE (`SegundoPadre`, `Estrato::mezcla` en `platform/drivers/storage/estratos/src/lib.rs`), escrito antes en `platform/drivers/storage/estratos/ESTRATOS.md` ("las ramas y la mezcla"): en los 16 bytes que v1 dejaba a cero, asi que un v1 se lee como v2 sin segundo padre y un kernel v1 lee un v2 entero; 3 pruebas de los dos sentidos; el kernel compila
 - [x] R4b -- HECHO el 05-10: `toolchain/tools/estratos-mezcla` construye el arbol MEZCLADO sobre una imagen, en el anfitrion: la base por los DOS padres de cada estrato, aplanar base, A y B, decidir con `mezcla.rs`, preguntar cada choque (D3), escribir SOLO las carpetas (los ficheros apuntan a los nodos que ya estan: D4, 3 bloques para mezclar una raiz) y UN estrato de dos padres, con el orden de `estratos-put`, y releer lo publicado. 5 pruebas sobre imagenes (un choque elegido, no copiar, una rama que ya estaba dentro no escribe ni un byte, la base por el segundo padre, un nombre Latin-1); y `estratos-fmt --verificar` dice OK en las cinco
 - [x] R4c-1 -- HECHO el 05-10: la mezcla POR CARPETAS, la forma que puede usar el kernel. `mezcla::por_carpeta` (en `platform/drivers/storage/estratos/src/mezcla.rs`, sin `alloc`): la regla de tres sobre las entradas de UNA carpeta; lo que un solo lado toco entra ENTERO sin leerlo, y solo se baja donde los dos cambiaron. `estratos-mezcla` la usa de verdad (`decide::por_arbol`) y conserva la plana como ORACULO: la prueba al azar compara las dos con las tres respuestas a un choque (2.000 semillas sin una diferencia) y publica cada mezcla; `estratos-fmt --verificar` dice OK en 25 imagenes. El azar encontro que el hash de una carpeta REESCRITA cambia aunque su contenido no: el hash de carpeta es un atajo, nunca la verdad
-- [ ] R4c-2 -- el gesto MEZCLAR en el kernel (`ES_GESTO_*`): `por_carpeta` con tres listas FIJAS por nivel (sin `alloc`, como `fsys/estratos/dir.rs`), los choques en dos tiempos (primero se listan por la puerta, despues se eligen), y el estrato de dos padres con el commit de siempre
+- [x] R4c-2a -- HECHO el 06-10: EL MOTOR sin `alloc` (`platform/drivers/storage/estratos/src/motor_mezcla.rs`): tablas FIJAS por nivel que presta quien llama (64 entradas por lado, las de `MAX_ENTRIES` del kernel), dos pasadas (CONTAR bloques y choques sin escribir; ESCRIBIR con las mismas respuestas) y la regla unica `mezcla::regla`. `estratos-mezcla` mezcla YA con este motor (el mismo que correra el kernel) y lo compara al publicar con la mezcla de carpetas con `Vec`; a quien elige se le pregunta UNA vez por choque. 2.000 semillas al azar sin diferencia, una carpeta de 50 (lista de dos bloques) bien, una de 70 se DICE sin escribir un byte, y `estratos-fmt --verificar` OK en 25 imagenes
+- [ ] R4c-2b -- el gesto en el KERNEL (`ES_GESTO_*`): el motor con sus tablas en `static` (unos 38 KB por nivel de carpetas), los choques en dos tiempos (listar por la puerta, despues elegir) y el commit de siempre. Bloquea: D5
 - [ ] R4c-3 -- del PROPIETARIO: la mezcla en F: en el Ryzen, despues de las imagenes
 - [ ] R5 -- la MEZCLA en F1: las dos cadenas que se juntan en la solapa HISTORIA, y cada choque como un nodo partido que se pulsa (D3)
 - [ ] R6 -- PLANTILLAS: la carpeta `plantillas/`, su LEEME por plantilla, la guia que las cuenta, y "usar" = copiar la carpeta (pide C4 de `platform/drivers/storage/estratos/ESTRATOS.md`)

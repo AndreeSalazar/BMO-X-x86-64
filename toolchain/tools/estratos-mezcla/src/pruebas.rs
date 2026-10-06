@@ -305,3 +305,43 @@ fn por_carpetas_y_plana_deciden_lo_mismo_al_azar() {
     }
     assert!(con_choque > 0, "el azar tiene que traer choques, si no no prueba nada");
 }
+
+fn muchos(n: usize, cambia: &str, cuales: &[usize]) -> Vec<(Vec<u8>, Vec<u8>)> {
+    (0..n)
+        .map(|i| {
+            let d = if cuales.contains(&i) { format!("{cambia} {i}") } else { format!("base {i}") };
+            (format!("grande/f{i:02}").into_bytes(), d.into_bytes())
+        })
+        .collect()
+}
+
+fn refs(v: &[(Vec<u8>, Vec<u8>)]) -> Vec<(&[u8], &[u8])> {
+    v.iter().map(|(p, d)| (&p[..], &d[..])).collect()
+}
+
+#[test]
+fn una_carpeta_de_mas_de_un_bloque_se_mezcla_entera() {
+    // 50 entradas: la lista ya no cabe en un bloque (36), y lleva indice.
+    let (mut img, formato) = imagen("grande");
+    let base = version(&mut img, formato, &refs(&muchos(50, "", &[])));
+    let rama = version(&mut img, base, &refs(&muchos(50, "B", &[3, 40, 49])));
+    let _ahora = version(&mut img, base, &refs(&muchos(50, "A", &[0, 20])));
+    let r = mezclar(&mut img.disco, id(), img.generacion, &rama, "grande", &mut |_| Eleccion::A).unwrap();
+    let c = contenido(&mut img, &r.estrato);
+    assert_eq!(c.len(), 50);
+    for (i, quien) in [(0, "A"), (20, "A"), (3, "B"), (40, "B"), (49, "B"), (7, "base")] {
+        assert!(c.contains(&s(&format!("grande/f{i:02}"), &format!("{quien} {i}"))), "f{i}: {c:?}");
+    }
+}
+
+#[test]
+fn una_carpeta_de_mas_de_64_se_dice_y_no_se_escribe_nada() {
+    let (mut img, formato) = imagen("tope");
+    let base = version(&mut img, formato, &refs(&muchos(70, "", &[])));
+    let rama = version(&mut img, base, &refs(&muchos(70, "B", &[1])));
+    let _ahora = version(&mut img, base, &refs(&muchos(70, "A", &[2])));
+    let antes = fs::read(&img.ruta).unwrap();
+    let e = mezclar(&mut img.disco, id(), img.generacion, &rama, "tope", &mut |_| Eleccion::A).unwrap_err();
+    assert!(e.contains("64 entradas"), "{e}");
+    assert_eq!(fs::read(&img.ruta).unwrap(), antes, "ni un byte cambio");
+}

@@ -65,6 +65,9 @@ pub mod espacio;
 /// LA MEZCLA POR NODOS (PLAN_LAS_RAMAS R2): base, A y B dentro, lo que queda
 /// y los choques fuera. Pura: no toca un sector.
 pub mod mezcla;
+/// EL MOTOR DE LA MEZCLA sin `alloc` (PLAN_LAS_RAMAS R4c-2): el que corre el
+/// kernel y el que prueba `estratos-mezcla` sobre imagenes.
+pub mod motor_mezcla;
 pub mod objects;
 pub mod read;
 pub use escritura::{Fase, Rechazo, Transaccion};

@@ -370,6 +370,10 @@ pub struct Entrada {
 }
 
 impl Entrada {
+    /// Una entrada sin nombre y sin nodo: lo que llena una tabla fija antes de
+    /// usarla (el motor de la mezcla, sin `alloc`).
+    pub const VACIA: Entrada = Entrada { name: [0; NOMBRE_MAX], nombre_len: 0, nodo: BlockPtr::NULO };
+
     pub fn nueva(name: &str, nodo: BlockPtr) -> Result<Self, FormatError> {
         let b = name.as_bytes();
         if b.is_empty() || b.len() > NOMBRE_MAX { return Err(FormatError::BadField); }
