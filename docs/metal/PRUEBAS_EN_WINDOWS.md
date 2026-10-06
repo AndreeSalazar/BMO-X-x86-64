@@ -24,7 +24,7 @@ banco creia probado): esa linea `MAL` es lo mas valioso que puedes mandar.
   2015-2022 (`vcruntime140.dll`, `msvcp140.dll`): lo tiene cualquier PC con
   juegos; si falta, salen con `0xC0000135` y el guion lo dice.
 
-## 1. Los 85 de consola: UN guion
+## 1. Los 86 de consola: UN guion
 
 En una PowerShell normal, dentro de la carpeta:
 
@@ -64,6 +64,7 @@ bueno contra ellos.
 | `postpro` | un posproceso por computo: bindless, UAV creado sin descripcion | 3 |
 | `tipos` | (06-10) texturas TYPELESS vistas con OTRO formato: UAV, SRV y render targets (D2.7) | 8 |
 | `limpieza` | (06-10) ClearUnorderedAccessView en el formato de la vista y con rectangulos (A2) | 8 |
+| `escena` | (06-10) una escena 3D DURA contra la imagen de Windows (A11): ver abajo | 3 (o 2 y una nota sin `escena.ref`) |
 
 Si alguno se CUELGA (el guion lo dice), en `multihilo` es su parte B: una
 cola que espera y nadie la despierta. Si `restos` dice una `nota` en E, la
@@ -122,6 +123,19 @@ dice si Windows sigue igual tras sus parches.
 TLS de la DLL de clang. Si ahora dice 9, la hipotesis (le faltaba importar
 algo de kernel32) era cierta; si dice 7 MAL, no, y queda como prueba solo del
 anfitrion. Cualquiera de las dos respuestas sirve.
+
+### 1d. La escena 3D DURA: Windows hace la referencia (06-10)
+
+`escena.exe` no se juzga bit a bit (la GPU y la CPU no dan los mismos bits
+en los floats): se compara con la imagen que deja TU Windows. Una vez, en
+la carpeta `prueba\`:
+
+    .\escena.exe guardar
+
+Deja `escena.ref` (la referencia) y `escena.bmp` (para mirarla: un
+terreno a cuadros con 64 cubos, sus sombras y un vidrio azul). Manda
+`escena.ref`: entra al repo, y desde ahi el banco y BMO-X (`run
+sys/jueces.bex`) se comparan con ella. Sin `escena.ref`, su C es una nota.
 
 ## 2. Los 15 de ventana: A OJO
 

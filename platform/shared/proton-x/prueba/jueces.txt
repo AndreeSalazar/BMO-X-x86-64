@@ -104,3 +104,4 @@ firmas 6              # D3D12
 postpro 3             # D3D12
 tipos 8               # D3D12: vistas que cambian el tipo (06-10)
 limpieza 8            # D3D12: ClearUnorderedAccessView por la vista y con rectangulos (06-10)
+escena 3 0 2 1        # D3D12: la escena 3D DURA contra escena.ref de Windows; sin ella, 2 y una nota (06-10)

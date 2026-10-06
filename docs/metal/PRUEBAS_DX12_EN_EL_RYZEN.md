@@ -24,10 +24,10 @@ cada juez es lo que hace que esta hoja cuente.
 
 ## 1. Los jueces de consola (dicen `bien` / `MAL`, y salen con los fallos)
 
-**La forma corta (06-10): `run sys/jueces.bex`.** Los 85 de consola, uno
+**La forma corta (06-10): `run sys/jueces.bex`.** Los 86 de consola, uno
 tras otro y SOLOS: cada uno con su consola y un tope de 600 s, contados con
 la MISMA tabla que uso Windows (`platform/shared/proton-x/prueba/jueces.txt`,
-84 de 84 en la 3060 del propietario; `limpieza`, el 85, aun no). Dice una linea por juez (`bien`,
+84 de 84 en la 3060 del propietario; `limpieza` y `escena`, aun no). Dice una linea por juez (`bien`,
 `DISTINTO` y por que, o `COLGADO`) y lo deja todo en `informe/jueces.txt`:
 ese fichero es lo que hay que mandar. Un grupo solo: `run sys/jueces.bex
 d3d12` (o `tandas`, `dentro`); unos pocos: `run sys/jueces.bex olas tipos`;
@@ -57,6 +57,7 @@ cualquiera es una diferencia.
 | `postpro.exe` | el COMPUTO de un posproceso: cada hilo elige SU textura de un array sin limite (bindless), muestrea la escena, escribe un RWTexture2D creado sin descripcion, InterlockedAdd y GetDimensions; corre TRADUCIDO a x86 (06-10) | 3 | `postpro.exe: el computo de un posproceso es el de Windows` | ninguno |
 | `tipos.exe` | las VISTAS QUE CAMBIAN EL TIPO (D2.7): texturas TYPELESS escritas por una vista y leidas por otra (UNORM, R32_UINT, R10G10B10A2_UNORM, halfs como UINT, SINT), un InterlockedAdd por la vista de una palabra, y render targets RGBA8 vistos como UINT y SNORM (06-10) | 8 | `tipos.exe: las vistas que cambian el tipo son las de Windows` | ninguno |
 | `limpieza.exe` | ClearUnorderedAccessView en el formato de la VISTA (R32_UINT y SNORM sobre RGBA8 TYPELESS, UINT sobre RGBA16 TYPELESS, R32_UINT sobre R10G10B10A2 TYPELESS, RG16F, un bufer R16G16_UINT) y solo en sus RECTANGULOS (una 2D, las dos capas de un array) (06-10) | 8 | `limpieza.exe: ClearUnorderedAccessView es el de Windows` | ninguno |
+| `escena.exe` | una escena 3D DURA (A11): un terreno de 18432 triangulos con una textura de 8 mips, 64 cubos por instancias, una luz con SOMBRA (pase de solo profundidad y SampleCmp), un vidrio con mezcla, HDR y un tonemap por computo; A el cielo, B el mapa de la luz, C la imagen contra `window/escena.ref` (la de Windows) con un margen (06-10) | 3 (o 2 y una nota sin `escena.ref`) | `escena.exe: la escena 3D dura es la de Windows` | ninguno |
 
 **Lo que el banco NO puede ver y el Ryzen si** (por eso cuentan):
 

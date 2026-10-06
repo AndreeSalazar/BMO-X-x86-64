@@ -1315,6 +1315,10 @@ y lo dice.
                imagen, y en el banco y en BMO-X se compara con ella con un
                margen MEDIDO (la GPU y la CPU no dan los mismos bits en
                los floats: lo que se pide es cuantos pixeles y cuanto)
+               06-10: `prueba/escena.exe` HECHO (en el banco, 2 bien y la
+               nota; con la imagen de la casa como referencia, bien, y con
+               un cubo de mas pegado, MAL). FALTA la referencia de Windows:
+               `escena.exe guardar` en la 3060 deja escena.ref
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.

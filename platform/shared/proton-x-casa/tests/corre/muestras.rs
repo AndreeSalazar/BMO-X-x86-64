@@ -999,3 +999,40 @@ fn clear_unordered_access_view_es_el_de_windows() {
     assert_eq!(texto.matches("  bien  ").count(), 8, "{texto}");
     assert!(texto.ends_with("limpieza.exe: ClearUnorderedAccessView es el de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **Una escena 3D DURA** (A11, 06-10, `prueba/escena.exe`, NUESTRO; el
+/// propietario: "un test en 3D duro en Windows, y que se refleje en BMO-X"):
+/// un terreno de 18432 triangulos con una textura de 8 mips, 64 cubos por
+/// instancias, una luz con sombra (pase de solo profundidad y SampleCmp), un
+/// vidrio con mezcla, en HDR y con un tonemap por computo. A y B dicen lo que
+/// no depende de la GPU (el cielo, el mapa de la luz); C compara la imagen
+/// con la de WINDOWS (`prueba/escena.ref`, la que deja `escena.exe guardar`
+/// en el Windows del propietario) con un margen. Sin ella, C es una nota.
+/// La imagen de la casa se deja en el volumen (`escena.exe guardar`), para
+/// mirarla: `$TMP/proton-x-volumen-<pid>/window/escena.bmp`.
+#[test]
+fn una_escena_3d_dura_es_la_de_windows() {
+    let uno = uno_a_la_vez();
+    let referencia = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../proton-x/prueba/escena.ref");
+    let dentro = volumen().join("window/escena.ref");
+    let _ = std::fs::remove_file(&dentro);
+    let hay = std::fs::copy(&referencia, &dentro).is_ok();
+    *NOMBRE.lock().unwrap() = ("window/escena.exe", "");
+    let (salio, dicho, _) = correr_exe(&uno, ESCENA_EXE, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), if hay { 3 } else { 2 }, "{texto}");
+    assert_eq!(texto.matches("  nota  ").count(), usize::from(!hay), "{texto}");
+    assert!(texto.ends_with("escena.exe: la escena 3D dura es la de Windows\r\n[salio 0x0]"), "{texto}");
+    // La de la casa, para mirarla (no se juzga aqui: la juzga C contra Windows).
+    let _ = std::fs::remove_file(&dentro);
+    *NOMBRE.lock().unwrap() = ("window/escena.exe", "guardar");
+    let (salio, _, _) = correr_exe(&uno, ESCENA_EXE, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    assert_eq!(salio, 0);
+    if let Ok(d) = std::env::var("BMO_ESCENA") {
+        let _ = std::fs::copy(volumen().join("window/escena.bmp"), d);
+    }
+}

@@ -3055,3 +3055,57 @@ aviso. Probado que dice NO: contra la casa de antes, 6 MAL (el valor en el
 formato del recurso y no en el de la vista; los rectangulos, "se limpia la
 vista entera"). Y el juez se equivoco una vez y la casa no: leia los
 texeles de 8 bytes de D como si fueran de 4.
+
+escena_vs.dxil, escena_sombra.dxil, escena_ps.dxil, escena_vidrio.dxil, escena_tono.dxil -- los de escena.exe (06-10)
+
+`escena.hlsl` (aqui al lado): VSEscena (un vertice por su instancia: el
+terreno, los cubos y el vidrio), VSSombra (solo la profundidad, desde la
+luz), PSEscena (la textura con mips, la luz y la sombra con SampleCmp de 4
+vecinos), PSVidrio (un color con alfa) y CSTono (de HDR a RGBA8: Reinhard
+y una raiz). Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T vs_6_0 -E VSEscena -Fo escena_vs.dxil escena.hlsl
+   dxc -T vs_6_0 -E VSSombra -Fo escena_sombra.dxil escena.hlsl
+   dxc -T ps_6_0 -E PSEscena -Fo escena_ps.dxil escena.hlsl
+   dxc -T ps_6_0 -E PSVidrio -Fo escena_vidrio.dxil escena.hlsl
+   dxc -T cs_6_0 -E CSTono -Fo escena_tono.dxil escena.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   dd08bc654daac542a9fdf3e3c2f694fe9eec4af4da9aeef649b0c6093ed5ea91  escena_ps.dxil
+   0faa5c139d4d4a0af519992ee38d96fac7ecfa7746cfaa6f3e184724747bbc68  escena_sombra.dxil
+   627e025d84a8b04a7b25cec1615626fe88c400f7fd057745dbfd1de947e46669  escena_tono.dxil
+   f9f41044c3d95e76fd7603711e46804b05c3473dfa301b4c19d7be84464f951d  escena_vidrio.dxil
+   2533037d97fb26d9366e494a91d870a96d6993207d91074c0aa706d5e8fd9535  escena_vs.dxil
+
+Van DENTRO de escena.exe.
+
+escena.exe -- una escena 3D DURA, contra la imagen de Windows (06-10)
+
+A11 del contador de PLAN_LAS_TRES_GRANDES 7.1, el pedido del propietario:
+"un test en 3D duro en Windows, y que se refleje en BMO-X". NUESTRO, de
+consola: un fotograma de 256 x 144 con un terreno de 96 x 96 cuadros
+(18432 triangulos) y una textura de 128 x 128 con sus 8 mips, 64 cubos por
+instancias, una sombra (un pase de solo profundidad a un mapa de 512 x 512
+R32_TYPELESS, SampleCmpLevelZero con 4 vecinos), un vidrio con mezcla, en
+HDR (RGBA16F, D32) y un tonemap por computo a RGBA8. A, el pixel (0, 0) es
+el cielo con su tonemap (a 1); B, el centro del mapa de la luz es el
+terreno; C, la imagen contra `escena.ref` (la que deja `escena.exe guardar`
+en Windows): el 98 % de los pixeles a 8 o menos en cada canal y la media a
+2 o menos -- un margen APOSTADO, que la primera referencia de Windows mide.
+Sin `escena.ref`, C es una `nota`. `guardar` deja ademas `escena.bmp`.
+
+Con lo de `muestras/construir.sh`, en un directorio con escena.cpp y sus
+cinco .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c escena.cpp -o escena.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o escena.exe escena.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   c226a65459e74deb98cb32c28700475f203efd497f084fb4a3ce4d031309e5bd  escena.exe
+
+El banco (`tests/corre/muestras.rs`): sin escena.ref, A y B `bien` y la
+nota, ni un aviso, en 1,5 s; con la imagen de la PROPIA casa como
+referencia, C bien (100 %); con un cuadrado blanco de 30 x 30 pegado en esa
+referencia, C MAL (97,56 % < 98): el margen ve un cubo de mas.
