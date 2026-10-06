@@ -127,8 +127,10 @@ anfitrion. Cualquiera de las dos respuestas sirve.
 ### 1d. La escena 3D DURA: Windows hace la referencia (06-10)
 
 `escena.exe` no se juzga bit a bit (la GPU y la CPU no dan los mismos bits
-en los floats): se compara con la imagen que deja TU Windows. Una vez, en
-la carpeta `prueba\`:
+en los floats): se compara con la imagen que deja TU Windows. No hay que
+hacer nada aparte: si no esta, `correr_en_windows.ps1` la hace la primera
+vez (`escena.exe guardar`) y lo dice en amarillo al final. A mano, en la
+carpeta `prueba\`, seria:
 
     .\escena.exe guardar
 

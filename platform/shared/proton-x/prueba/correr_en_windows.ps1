@@ -53,6 +53,19 @@ try {
 } catch { $resumen.Add('GPU: no se pudo preguntar') }
 $resumen.Add('')
 
+# A11 (06-10): la escena 3D DURA se compara con la imagen de ESTE Windows.
+# Si todavia no esta (escena.ref), se hace aqui, una vez: `escena.exe
+# guardar` la deja al lado (y escena.bmp, para mirarla). Esa escena.ref es
+# la que hay que mandar: con ella se juzgan el banco y BMO-X.
+$escenaRef = Join-Path $PSScriptRoot 'escena.ref'
+$escenaNueva = $false
+if (-not (Test-Path -LiteralPath $escenaRef) -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'escena.exe'))) {
+    Write-Host 'escena.ref no esta: la hago con escena.exe guardar (una vez)...'
+    $p = Start-Process -FilePath (Join-Path $PSScriptRoot 'escena.exe') -ArgumentList 'guardar' -WorkingDirectory $PSScriptRoot -NoNewWindow -PassThru -Wait
+    $escenaNueva = Test-Path -LiteralPath $escenaRef
+}
+if ($escenaNueva) { $resumen.Add('escena.ref HECHA en este Windows: mandala (esta en la carpeta prueba)'); $resumen.Add('') }
+
 $buenos = 0; $malos = 0; $faltan = 0
 foreach ($j in $jueces) {
     $nombre, $quiere, $notas, $que = $j[0..3]
@@ -109,3 +122,8 @@ $resumen | Set-Content -LiteralPath (Join-Path $informe 'resumen.txt') -Encoding
 Write-Host ''
 Write-Host "$buenos dicen lo que pide la tabla, $malos distintos, $faltan sin .exe"
 Write-Host "El resumen: $informe\resumen.txt"
+if ($escenaNueva) {
+    Write-Host ''
+    Write-Host 'IMPORTANTE: se hizo escena.ref (la imagen de la escena 3D de este Windows).' -ForegroundColor Yellow
+    Write-Host "Mandala junto con el resumen: $escenaRef" -ForegroundColor Yellow
+}
