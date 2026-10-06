@@ -3,9 +3,15 @@
 > Abierto el **2026-10-06**. El propietario: *"puedes hacer maqueta y que
 > faltan mi .maqueta como estilo CSS? pero mejor claro."*
 >
-> La maqueta de este plan es `docs/arte/maqueta_maqueta3.html` (se abre en un
-> navegador: cada tarjeta compara CSS con MAQUETA 3, con demos vivas, y las
-> decisiones se pulsan). Sigue a `docs/plan/PLAN_MAQUETA.md` (6c: igualar a
+> Y despues: *"que sean interactiva para entender"* y *"COMPLETO el CSS
+> objetivo y porque [...] con .maqueta con multiples ELEMENTOS"*.
+>
+> La maqueta de este plan es `docs/arte/maqueta_maqueta3.html`, y se TOCA:
+> cada tarjeta con LAB tiene sus controles (la rejilla que se ensancha, los
+> dos margenes que el navegador funde de verdad, la opacidad premezclada, la
+> secuencia que se arrastra), el mapa de TODO CSS se filtra y se abre modulo
+> a modulo, los elementos de la casa se prueban, y las decisiones mueven el
+> medidor. Sigue a `docs/plan/PLAN_MAQUETA.md` (6c: igualar a
 > CSS, E2 y E3) y al contrato `docs/componente/LA_MAQUETA_EXIGE.md`.
 
 ---
@@ -79,6 +85,54 @@ navegador). Se vuelve a medir al cerrar cada escalon.
 | `@keyframes`, `animation*` | 94 | `@secuencia nombre 1600ms repite { 50% { reglas } }`: cada paso es un `@estado` ENTERO, maquetado y juzgado al compilar; el aparato solo mezcla piezas, como ya hace con las transiciones (`docs/componente/LA_MAQUETA_EXIGE.md` 3d) |
 | `transform: translate / scale`, `transform-origin` | 99 | solo dentro de un estado o de una secuencia, resuelto a cajas de pixel entero; `rotate` se rechaza: la letra de la casa no se pinta torcida |
 
+## 2b. EL OBJETIVO COMPLETO: todo CSS, modulo a modulo
+
+El objetivo no es copiar CSS: es poder escribir CUALQUIER pantalla de BMO-X
+(HERMES, BANK CAT, el TALLER, F2) en `.maqueta` y que el compilador la juzgue.
+CSS es la vara porque es lo que entiende la vista previa, el navegador.
+
+La maqueta lleva el mapa entero: **37 modulos** de CSS, cada uno con su sitio
+y su porque (el texto de cada uno esta alli, para leerlo pulsando):
+
+```text
+   ya esta     15   la caja, flexbox, posicion, la letra, color, fondos,
+                    bordes, resplandor, transiciones, selectores, cascada
+                    (MEJOR desde el dia uno: gana la ultima), variables,
+                    dibujos, imagenes, listas
+   pila A       6   medidas acotadas, flex que parte, posicion fina, el
+                    texto, contorno, desbordar
+   pila B       6   margen, flex que crece, rejilla, la familia,
+                    transparencia, variables de caja
+   pila C       2   transformar, animaciones
+   pendiente    1   :active, :focus y :disabled como @estado con nombre
+   nunca        7   filtros y mezclas (son de la 3060), combinadores y
+                    herencia (L7), unidades relativas, @media (hasta que
+                    haya dos pantallas), contenido generado, escritura rtl
+```
+
+## 2c. LOS ELEMENTOS DE LA CASA
+
+Hoy la lista de etiquetas es CERRADA, 9: `maqueta`, `style`, `div`, `span`,
+`island`, `svg`, `path`, `usa`, `imagen`. Y `<button>` o `<input>` se
+rechazan porque "prometen semantica que no existe".
+
+MAQUETA 3 trae **nueve elementos propios cuya semantica SI existe**: cada uno
+se expande en las piezas de siempre y el compilador emite lo que lo hace
+real. En el navegador, `maqueta --vista-html` los escribe como `div` con su
+clase, asi que la vista previa no miente.
+
+| elemento | se expande en | el compilador emite |
+|---|---|---|
+| `<boton>` | `div` con `cursor:pointer` y `@estado` realce y pulsado | su zona, `realce_en`, `pulsado_en` |
+| `<campo letras="24">` | `div` + `span` con dato, juzgado con 24 letras anchas | su zona y `CAMPO_<ID>`; el texto lo guarda la app |
+| `<interruptor>` | dos `@estado` (si, no) con transicion de rebote | su zona, `pintar_estado`, `pintar_transicion` |
+| `<barra de="100">` | caja fija y RELLENO proporcional (no es maquetar) | `pintar_barra(p, valor)` |
+| `<lista tope="5">` | `<usa repite="5">` | `LISTA_<ID>.fila(i)` |
+| `<ventana alto="92">` | `overflow-y:auto` (H7) | `desplazar_<id>`, `DESPLAZA_<ID>` |
+| `<solapas de="a b c">` | una fila de `<boton>` y un `@estado` por opcion | sus zonas, `pintar_estado(a)` |
+| `<icono nombre="x">` | el `<svg>` de un catalogo compartido | los trazos del catalogo |
+| `<globo>` | caja absoluta, `capa`, resplandor y `@secuencia` de entrada | `pintar_secuencia(entra, ms)` |
+
 ## 3. Las decisiones del propietario
 
 Las seis cambian lo que dice `docs/componente/LA_MAQUETA_EXIGE.md`. La
@@ -91,6 +145,7 @@ maqueta las deja pulsar; la recomendada es la (a) en las seis.
    M4  opacity        (a) mezclada al compilar sobre fondo liso  (b) esperar al alfa
    M5  animacion      (a) @secuencia de estados                  (b) solo estados
    M6  var por caja   (a) constantes de UNA caja                 (b) solo :root
+   E1  elementos      (a) los nueve de la seccion 2c             (b) solo los 9 de hoy
 ```
 
 ## 4. Lo que NO entra, con su motivo (183 usos)
@@ -112,7 +167,9 @@ maqueta las deja pulsar; la recomendada es la (a) en las seis.
 ## 5. Los escalones
 
 - [x] M0 -- HECHO el 06-10: la medida (seccion 1) y la maqueta del plan, `docs/arte/maqueta_maqueta3.html`, con las tres pilas, las demos y las seis decisiones
-- [ ] M-dec -- las decisiones M1-M6 del propietario, escritas en la seccion 3 de este plan
+- [x] M0b -- HECHO el 06-10: la maqueta INTERACTIVA (`docs/arte/maqueta_maqueta3.html`): siete LAB que juzgan en vivo (rejilla, margenes medidos en el navegador, variables de caja, opacidad premezclada, flex:1, la secuencia que se arrastra, las zonas), el mapa de los 37 modulos de CSS (seccion 2b), los elementos que se prueban (seccion 2c), y las decisiones que mueven el medidor; probada en Chromium con los clics de verdad
+- [ ] M-dec -- las decisiones M1-M6 y E1 del propietario, escritas en la seccion 3 de este plan
+- [ ] ME -- los elementos de la seccion 2c segun E1: la etiqueta en `toolchain/tools/maqueta/node/src/markup.rs`, su expansion antes de la cascada, y lo que emite en `toolchain/tools/maqueta/emit/src/rust.rs`; el catalogo de iconos junto a `toolchain/tools/maqueta/tema/tema.maqueta`
 - [ ] MA -- la pila A entera en `toolchain/tools/maqueta/node/src/value.rs` (la lista), el nieto en `toolchain/tools/maqueta/layout/src/flow.rs` y su juicio en `toolchain/tools/maqueta/verdict/src/fit.rs`; cada propiedad con su fichero dorado en `toolchain/tools/maqueta/pruebas/`
 - [ ] MB -- la pila B segun M1-M4 y M6: la rejilla en `toolchain/tools/maqueta/layout/src/flow.rs`, las variables de caja en `toolchain/tools/maqueta/node/src/variables.rs`, la premezcla en `toolchain/tools/maqueta/emit/src/paleta.rs`, y la fuente web desde `platform/shared/bmo-letra`
 - [ ] MC -- la pila C segun M5: `@secuencia` junto a `@estado` en `toolchain/tools/maqueta/node/src/style.rs` y el movimiento en `toolchain/tools/maqueta/emit/src/movimiento.rs`

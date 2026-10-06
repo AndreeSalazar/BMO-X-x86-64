@@ -13,11 +13,24 @@
    padre no sabe que tiene padre; la vista previa no puede mentir; en el
    aparato no se maqueta nada). El plan es docs/plan/PLAN_MAQUETA_3.md.
 
+   ** INTERACTIVA, a peticion del propietario (06-10: "que sean interactiva
+   para entender"): cada tarjeta con LAB se toca -- se mueve un control y se
+   ve lo que haria CSS, lo que diria MAQUETA 3 y por que. Las decisiones M1-M6
+   y E1 mueven el medidor.
+
+   ** Y COMPLETA (06-10: "COMPLETO el CSS objetivo y porque [...] con
+   multiples ELEMENTOS"): el mapa de TODO CSS, modulo a modulo, con donde
+   cae cada uno y su porque; y los ELEMENTOS de la casa, que se prueban.
+
    ** Los numeros NO son de ejemplo: salen de
       maqueta --cobertura docs/arte/maqueta_bankcat.html
                           docs/arte/maqueta_hermes.html
                           docs/arte/maqueta_taller_estratos.html
-   medido el 2026-10-06: 1919 de 3236 declaraciones, 59,30 %. */
+   medido el 2026-10-06: 1919 de 3236 declaraciones, 59,30 %.
+
+   [!] Lo que el laboratorio mide con la letra del NAVEGADOR (el ancho de un
+   texto), el compilador lo mide con bmo-letra: la cuenta es la misma, la
+   letra no -- y eso es justo lo que arregla M2. */
 :root {
   color-scheme: dark;
   --negro: #02030A;
@@ -48,15 +61,20 @@
 html, body { margin: 0; background: var(--negro); color: var(--ink); }
 body { font-family: var(--f-texto); font-size: 14px; line-height: 1.45; padding: 16px 16px 48px; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
-.pagina { max-width: 1200px; margin: 0 auto; }
+.pagina { max-width: 1240px; margin: 0 auto; }
+h2.seccion { font-family: var(--f-pixel); font-size: 15px; letter-spacing: .06em; color: var(--title); margin: 28px 0 4px; }
+p.seccion { margin: 0 0 12px; color: var(--ink-dim); max-width: 860px; }
 
-/* -- la cabecera ---------------------------------------------------------- */
-.cabecera { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-bottom: 14px; }
+/* -- la cabecera y el indice ----------------------------------------------- */
+.cabecera { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-bottom: 10px; }
 .cabecera h1 { margin: 0; font-family: var(--f-pixel); font-size: 20px; letter-spacing: .06em; color: var(--title); }
 .cabecera h1 b { color: var(--accent); }
-.cabecera p { margin: 0; color: var(--ink-dim); max-width: 760px; }
+.cabecera p { margin: 0; color: var(--ink-dim); max-width: 860px; }
+.indice { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.indice a { font-size: 12.5px; color: var(--ink-dim); text-decoration: none; border: 1px solid #24306A; border-radius: 999px; padding: 3px 11px; }
+.indice a:hover { color: var(--ink); border-color: var(--accent); }
 
 /* -- el medidor ----------------------------------------------------------- */
 .medidor { background: var(--canvas); border: 1px solid var(--node-borde); border-radius: 14px; padding: 18px 18px 14px; }
@@ -64,22 +82,48 @@ code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
 .medidor .sub { margin: 0 0 14px; color: var(--ink-dim); font-size: 13px; }
 .barra { display: flex; height: 30px; border-radius: 9px; overflow: hidden; border: 1px solid var(--node-borde); background: var(--bar); }
 .trozo { display: flex; align-items: center; justify-content: center; font-family: var(--f-mono); font-size: 12px; font-weight: 500;
-  color: #050816; white-space: nowrap; transition: filter .2s ease; cursor: pointer; }
-.trozo:hover, .trozo.encendido { filter: brightness(1.25); }
+  color: #050816; white-space: nowrap; overflow: hidden; transition: width .45s cubic-bezier(.34, 1.3, .64, 1), filter .2s ease; cursor: pointer; }
+.trozo:hover { filter: brightness(1.25); }
 .t-hoy { background: var(--neon); }
 .t-a { background: var(--a); }
 .t-b { background: var(--b); color: var(--ink); }
 .t-c { background: var(--c); }
 .t-no { background: repeating-linear-gradient(45deg, #2A2F45 0 6px, #1A1E30 6px 12px); color: var(--ink-dim); }
-.leyenda { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 12px; font-size: 13px; }
-.leyenda span { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-dim); }
-.leyenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-.leyenda b { color: var(--ink); font-weight: 600; }
+.mandos { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; align-items: center; font-size: 13px; }
+.mandos label { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-dim); cursor: pointer; }
+.mandos input { accent-color: var(--accent); }
+.mandos i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.resultado { margin-left: auto; font-family: var(--f-mono); font-size: 13px; }
+.resultado b { color: var(--neon); font-size: 16px; }
 .aviso { margin: 12px 0 0; font-size: 12.5px; color: var(--ink-dim); border-left: 2px solid var(--mut); padding-left: 10px; }
 
+/* -- EL OBJETIVO: el mapa de todo CSS ----------------------------------------- */
+.mapa { background: var(--canvas); border: 1px solid var(--node-borde); border-radius: 14px; padding: 14px; }
+.filtros { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.filtro { border: 1px solid #2A3570; border-radius: 999px; padding: 3px 11px; font-size: 12.5px; color: var(--ink-dim); }
+.filtro[aria-pressed="true"] { color: var(--negro); background: var(--ink); border-color: var(--ink); font-weight: 600; }
+.modulos { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 8px; }
+.modulo { text-align: left; border-radius: 10px; border: 1px solid #1F2A60; background: var(--node); padding: 9px 10px; display: flex; flex-direction: column; gap: 5px; min-height: 82px; }
+.modulo:hover { border-color: #3A4BA0; }
+.modulo[aria-pressed="true"] { border-color: var(--accent); background: #0C1538; box-shadow: 0 0 0 1px var(--accent) inset; }
+.modulo .mn { font-weight: 600; font-size: 13px; }
+.modulo .mq { font-family: var(--f-mono); font-size: 11px; color: var(--ink-dim); line-height: 1.35; }
+.estado { align-self: flex-start; font-family: var(--f-pixel); font-size: 9px; letter-spacing: .08em; border-radius: 4px; padding: 1px 6px; color: var(--negro); }
+.e-hoy { background: var(--neon); } .e-a { background: var(--a); } .e-b { background: var(--b); color: var(--ink); }
+.e-c { background: var(--c); } .e-no { background: #4A5070; color: var(--ink); } .e-pend { background: var(--oro); }
+.modulo.oculto { display: none; }
+.detalle { margin-top: 12px; border-radius: 10px; border: 1px solid #2A3570; background: #070B22; padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 760px) { .detalle { grid-template-columns: 1fr; } }
+.detalle h3 { margin: 0 0 4px; font-size: 15px; }
+.detalle h4 { margin: 0 0 4px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
+.detalle p { margin: 0 0 8px; font-size: 13px; }
+.detalle pre { margin: 0; white-space: pre-wrap; font-family: var(--f-mono); font-size: 11.5px; color: var(--title); background: var(--bar); border-radius: 7px; padding: 8px; }
+.cuentas { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12.5px; color: var(--ink-dim); }
+.cuentas b { color: var(--ink); }
+
 /* -- las tres pilas -------------------------------------------------------- */
-.pilas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
-@media (max-width: 960px) { .pilas { grid-template-columns: 1fr; } }
+.pilas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1000px) { .pilas { grid-template-columns: 1fr; } }
 .pila { background: var(--canvas); border: 1px solid var(--node-borde); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .pila > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .pila h3 { margin: 0; font-family: var(--f-pixel); font-size: 13px; letter-spacing: .06em; }
@@ -87,6 +131,7 @@ code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
 .pila .que { margin: 0; font-size: 12.5px; color: var(--ink-dim); }
 .pila-a h3 { color: var(--a); } .pila-b h3 { color: var(--b); } .pila-c h3 { color: var(--c); }
 .pila-a { box-shadow: inset 0 2px 0 var(--a); } .pila-b { box-shadow: inset 0 2px 0 var(--b); } .pila-c { box-shadow: inset 0 2px 0 var(--c); }
+.pila.apagada { opacity: .45; }
 
 /* -- una tarjeta: CSS contra MAQUETA 3 ----------------------------------- */
 .carta { background: var(--node); border: 1px solid var(--node-borde); border-radius: 11px; overflow: hidden; }
@@ -94,11 +139,14 @@ code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
 .carta .nombre { font-family: var(--f-mono); font-weight: 500; flex: 1; }
 .carta .usos { font-family: var(--f-mono); font-size: 12px; color: var(--ink-dim); }
 .carta .usos b { color: var(--ink); }
+.lab-chip { font-family: var(--f-pixel); font-size: 9px; letter-spacing: .08em; color: var(--negro); background: var(--accent); border-radius: 4px; padding: 1px 5px; }
 .carta .flecha { color: var(--ink-dim); transition: transform .2s ease; }
 .carta.abierta .flecha { transform: rotate(90deg); }
 .carta .cuerpo { display: none; padding: 0 12px 12px; }
 .carta.abierta .cuerpo { display: block; }
 .carta.abierta { border-color: #34418A; background: #0B1130; }
+.carta.rechazada { border-style: dashed; }
+.carta.rechazada .nombre { text-decoration: line-through; color: var(--ink-dim); }
 .lado { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .lado div { border-radius: 8px; padding: 8px; background: var(--bar); border: 1px solid #1A2350; min-width: 0; }
 .lado h4 { margin: 0 0 4px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); font-weight: 600; }
@@ -107,34 +155,100 @@ code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
 .mejor { margin: 0; font-size: 12.5px; color: var(--ink); }
 .mejor::before { content: "MEJOR: "; font-family: var(--f-pixel); font-size: 10px; color: var(--neon); letter-spacing: .08em; }
 
-/* -- las demos vivas ------------------------------------------------------ */
-.demo { margin-top: 8px; border-radius: 8px; border: 1px dashed #2A3570; padding: 8px; }
-.demo .rot { font-size: 11px; color: var(--ink-dim); margin-bottom: 6px; }
-.rejilla { display: grid; grid-template-columns: 60px 1fr 1fr; gap: 4px; width: 100%; }
-.rejilla span { background: #16205A; border-radius: 4px; height: 22px; font-family: var(--f-mono); font-size: 10.5px; display: flex; align-items: center; justify-content: center; color: var(--title); }
-.rejilla span.mal { background: #3A1424; color: var(--bad); }
-.margenes { display: flex; gap: 10px; }
-.margenes > div { flex: 1; background: var(--bar); border-radius: 6px; padding: 4px; }
-.margenes .caja { height: 16px; border-radius: 3px; background: var(--b); }
-.margenes .m1 { margin-bottom: 10px; } .margenes .m2 { margin-top: 10px; }
-.margenes .g { display: flex; flex-direction: column; gap: 20px; }
-.margenes small { display: block; font-size: 10.5px; color: var(--ink-dim); margin-top: 4px; text-align: center; }
-.premezcla { display: flex; gap: 8px; align-items: center; }
-.premezcla .fondo { width: 60px; height: 34px; border-radius: 6px; background: #0D1118; display: flex; align-items: center; justify-content: center; }
-.premezcla .vidrio { width: 40px; height: 20px; border-radius: 4px; background: #FFD45E; opacity: .4; }
-.premezcla .hecho { width: 40px; height: 20px; border-radius: 4px; background: #6E5F34; }
-.premezcla code { color: var(--oro); }
-.estados { display: flex; gap: 6px; align-items: center; }
-.estados .paso { width: 34px; height: 34px; border-radius: 8px; background: #2B1F0E; border: 1px solid var(--c); display: flex; align-items: center; justify-content: center; font-family: var(--f-mono); font-size: 10px; color: var(--c); }
-.estados .vivo { animation: latido 1.6s cubic-bezier(.34, 1.56, .64, 1) infinite; }
-@keyframes latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
-@media (prefers-reduced-motion: reduce) { .estados .vivo { animation: none; } }
+/* -- el laboratorio de cada tarjeta ---------------------------------------- */
+.lab { margin-top: 10px; border-radius: 9px; border: 1px solid #24306A; background: #060A1E; padding: 10px; }
+.lab > .tit { font-family: var(--f-pixel); font-size: 10px; letter-spacing: .1em; color: var(--accent); margin-bottom: 8px; }
+.ctl { display: grid; grid-template-columns: 110px 1fr 54px; gap: 6px 8px; align-items: center; font-size: 12px; color: var(--ink-dim); margin-bottom: 6px; }
+.ctl input[type=range] { width: 100%; accent-color: var(--accent); }
+.ctl input[type=text] { width: 100%; background: var(--bar); border: 1px solid #24306A; border-radius: 6px; color: var(--ink); padding: 3px 6px; font-family: var(--f-mono); font-size: 11.5px; }
+.ctl input[type=color] { width: 100%; height: 22px; border: 1px solid #24306A; border-radius: 5px; background: none; padding: 0; }
+.ctl output { font-family: var(--f-mono); color: var(--ink); text-align: right; }
+.ctl.chk { grid-template-columns: 1fr; }
+.ctl.chk label { display: flex; gap: 7px; align-items: center; cursor: pointer; }
+.escena { border-radius: 7px; background: var(--bar); border: 1px solid #1A2350; padding: 8px; margin: 8px 0; overflow: hidden; }
+.juez { font-size: 12.5px; border-radius: 7px; padding: 7px 9px; }
+.juez.bien { background: #0C2A1F; color: var(--good); border: 1px solid #1F5A40; }
+.juez.mal { background: #2E0F1A; color: #FF8FA2; border: 1px solid #6A2236; }
+.juez b { font-weight: 600; }
+.dos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dos > div > small { display: block; font-size: 10.5px; color: var(--ink-dim); margin-bottom: 4px; letter-spacing: .06em; text-transform: uppercase; }
+
+.rej { display: grid; gap: 4px; }
+.rej span { background: #16205A; border-radius: 4px; height: 24px; padding: 0 8px; font-family: var(--f-mono); font-size: 11px;
+  display: flex; align-items: center; color: var(--title); white-space: nowrap; overflow: hidden; }
+.rej span.mal { background: #3A1424; color: var(--bad); box-shadow: inset 0 0 0 1px var(--bad); }
+.regla { font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-dim); margin-top: 4px; }
+.pilita { background: #0A0F2C; border-radius: 6px; padding: 6px; display: flow-root; }
+.pilita .caja { height: 18px; border-radius: 4px; background: var(--b); }
+.pilita .caja.dos-b { background: var(--a); }
+.cota { font-family: var(--f-mono); font-size: 10.5px; color: var(--oro); text-align: center; margin-top: 4px; }
+.muestra { height: 48px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+.muestra .tinta { width: 70%; height: 26px; border-radius: 5px; }
+.hex { font-family: var(--f-mono); font-size: 11.5px; text-align: center; margin-top: 4px; color: var(--oro); }
+.chipv { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 5px 12px 5px 6px; border: 1px solid; font-size: 12px; }
+.chipv .punto { width: 16px; height: 16px; border-radius: 50%; }
+.fila-flex { display: flex; gap: 6px; align-items: center; border: 1px dashed #2A3570; border-radius: 6px; padding: 5px; transition: width .3s ease; }
+.fila-flex > span { height: 24px; border-radius: 4px; font-family: var(--f-mono); font-size: 10.5px; display: flex; align-items: center; justify-content: center; color: var(--negro); white-space: nowrap; overflow: hidden; }
+.pista { position: relative; height: 70px; display: flex; align-items: center; justify-content: center; }
+.latido { height: 34px; border-radius: 9px; background: #2B1F0E; border: 1px solid var(--c); color: var(--c); font-family: var(--f-mono); font-size: 11px;
+  display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; padding: 0 6px; }
+.pasos { display: flex; gap: 6px; margin-top: 6px; }
+.pasos button { flex: 1; border: 1px solid #3A2F12; border-radius: 6px; padding: 4px; font-family: var(--f-mono); font-size: 11px; color: var(--c); }
+.pasos button.mal { border-color: var(--bad); color: var(--bad); }
+.pasos button.aqui { background: #2B1F0E; }
+.panelz { position: relative; display: flex; gap: 8px; padding: 10px; background: #0A0F2C; border-radius: 7px; }
+.panelz .btn { padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 600; position: relative; }
+.panelz .btn.r { background: #142C26; border: 1px solid #4DE38F; color: #CFF7E2; }
+.panelz .btn.e { background: #2D1225; border: 1px solid #FF2E88; color: #FFD3E6; }
+.panelz.ver .btn::after { content: attr(data-z); position: absolute; inset: -4px; border: 1px dashed var(--oro); border-radius: 9px;
+  font-family: var(--f-mono); font-size: 9px; color: var(--oro); display: flex; align-items: flex-end; justify-content: center; transform: translateY(14px); }
+.tabla-z { font-family: var(--f-mono); font-size: 11px; color: var(--title); white-space: pre; margin-top: 18px; overflow-x: auto; }
+
+/* -- LOS ELEMENTOS de la casa ------------------------------------------------ */
+.elementos { background: var(--canvas); border: 1px solid var(--node-borde); border-radius: 14px; padding: 14px; display: grid; grid-template-columns: 240px 1fr; gap: 14px; }
+@media (max-width: 860px) { .elementos { grid-template-columns: 1fr; } }
+.lista-el { display: flex; flex-direction: column; gap: 6px; }
+.grupo-el { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); margin: 6px 0 0; }
+.el { display: flex; align-items: center; gap: 8px; text-align: left; border: 1px solid #1F2A60; border-radius: 9px; padding: 7px 9px; background: var(--node); }
+.el code { flex: 1; color: var(--title); }
+.el .tag { font-family: var(--f-pixel); font-size: 9px; border-radius: 4px; padding: 1px 5px; color: var(--negro); }
+.el .tag.ya { background: var(--neon); } .el .tag.nuevo { background: var(--oro); }
+.el[aria-pressed="true"] { border-color: var(--accent); background: #0C1538; }
+.ficha { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-width: 0; }
+@media (max-width: 760px) { .ficha { grid-template-columns: 1fr; } }
+.ficha h3 { margin: 0 0 2px; font-size: 16px; font-family: var(--f-mono); color: var(--accent); }
+.ficha .por { margin: 0 0 10px; font-size: 13px; }
+.ficha h4 { margin: 0 0 4px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
+.ficha pre { margin: 0 0 10px; white-space: pre-wrap; font-family: var(--f-mono); font-size: 11.5px; color: var(--title); background: var(--bar); border-radius: 7px; padding: 8px; }
+.vivo { border-radius: 10px; background: #0A0F2C; border: 1px solid #1A2350; padding: 14px; min-height: 96px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; }
+/* los elementos, en vivo */
+.x-boton { padding: 8px 18px; border-radius: 10px; font-weight: 600; background: #142C26; border: 1px solid #4DE38F; color: #CFF7E2; transition: transform .12s ease, background .18s ease; }
+.x-boton:hover { background: #1A3A31; } .x-boton:active { transform: translateY(1px) scale(.98); background: #0F231E; }
+.x-campo { display: flex; flex-direction: column; gap: 4px; }
+.x-campo input { width: 220px; background: var(--bar); border: 1px solid #2A3570; border-radius: 8px; color: var(--ink); padding: 7px 9px; font: inherit; }
+.x-campo small { color: var(--ink-dim); font-family: var(--f-mono); font-size: 11px; }
+.x-int { width: 52px; height: 28px; border-radius: 999px; background: #1A1E30; border: 1px solid #2A3570; position: relative; transition: background .25s ease; }
+.x-int::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink-dim); transition: left .25s cubic-bezier(.34, 1.56, .64, 1), background .25s; }
+.x-int.on { background: #0F3A26; border-color: var(--good); } .x-int.on::after { left: 27px; background: var(--good); }
+.x-barra { width: 240px; height: 12px; border-radius: 999px; background: #1A1E30; overflow: hidden; border: 1px solid #2A3570; }
+.x-barra i { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), var(--violet)); transition: width .2s ease; }
+.x-lista { display: flex; flex-direction: column; gap: 4px; width: 260px; }
+.x-lista div { display: flex; justify-content: space-between; background: var(--bar); border-radius: 6px; padding: 5px 9px; font-size: 12.5px; }
+.x-lista div.fuera { opacity: .35; text-decoration: line-through; }
+.x-ventana { width: 260px; height: 92px; overflow-y: auto; background: var(--bar); border-radius: 8px; padding: 6px 9px; font-size: 12.5px; color: var(--ink-dim); }
+.x-pest { display: flex; gap: 4px; background: var(--bar); border-radius: 9px; padding: 3px; }
+.x-pest button { padding: 4px 12px; border-radius: 7px; font-size: 12.5px; color: var(--ink-dim); }
+.x-pest button[aria-pressed="true"] { background: #16246A; color: var(--ink); }
+.x-isla { width: 240px; height: 80px; border-radius: 8px; border: 1px dashed var(--accent); display: flex; align-items: center; justify-content: center; color: var(--accent); font-family: var(--f-mono); font-size: 11.5px; text-align: center; }
+.x-globo { position: relative; padding: 8px 12px; border-radius: 12px; border: 1px solid #FF2E88; background: #1A0B18; color: #FFD3E6; font-size: 12.5px; box-shadow: 0 0 14px #FF2E8855; }
+.vivo-mandos { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--ink-dim); margin-top: 8px; flex-wrap: wrap; }
+.vivo-mandos input[type=range] { accent-color: var(--accent); }
 
 /* -- lo que no entra nunca ------------------------------------------------ */
 .nunca { margin-top: 16px; background: var(--canvas); border: 1px solid var(--node-borde); border-radius: 14px; padding: 14px; }
 .nunca h3 { margin: 0 0 8px; font-family: var(--f-pixel); font-size: 13px; color: var(--ink-dim); letter-spacing: .06em; }
 .nunca ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 18px; }
-@media (max-width: 760px) { .nunca ul { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .nunca ul { grid-template-columns: 1fr; } .dos, .lado { grid-template-columns: 1fr; } }
 .nunca li { font-size: 12.5px; color: var(--ink-dim); }
 .nunca li code { color: var(--bad); }
 
@@ -142,13 +256,16 @@ code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
 .decisiones { margin-top: 16px; background: var(--canvas); border: 1px solid #3A2F12; border-radius: 14px; padding: 14px; }
 .decisiones h3 { margin: 0 0 4px; font-family: var(--f-pixel); font-size: 13px; color: var(--oro); letter-spacing: .06em; }
 .decisiones > p { margin: 0 0 10px; color: var(--ink-dim); font-size: 13px; }
-.dec { display: grid; grid-template-columns: 54px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid #1A2350; }
+.dec { display: grid; grid-template-columns: 54px 1fr auto; gap: 10px; padding: 8px 0; border-top: 1px solid #1A2350; align-items: start; }
 .dec .id { font-family: var(--f-pixel); color: var(--oro); font-size: 12px; padding-top: 2px; }
 .dec p { margin: 0 0 6px; }
+.dec .cuesta { font-family: var(--f-mono); font-size: 12px; color: var(--ink-dim); padding-top: 3px; white-space: nowrap; }
+.dec .cuesta.pierde { color: var(--bad); }
 .opciones { display: flex; flex-wrap: wrap; gap: 6px; }
 .op { border: 1px solid #2A3570; border-radius: 999px; padding: 3px 10px; font-size: 12.5px; color: var(--ink-dim); }
 .op[aria-pressed="true"] { border-color: var(--oro); color: var(--negro); background: var(--oro); font-weight: 600; }
 .op.rec::after { content: " (recomendada)"; font-size: 11px; }
+@media (prefers-reduced-motion: reduce) { .trozo, .fila-flex, .x-int, .x-int::after, .x-barra i { transition: none; } }
 </style>
 </head>
 <body>
@@ -156,36 +273,66 @@ code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
 
 <header class="cabecera">
   <h1>MAQUETA <b>3</b></h1>
-  <p>Lo que le falta a tu <code>.maqueta</code> para escribir todo lo que escriben tus maquetas de CSS -- y como hacerlo
-     <b>mejor</b> que CSS sin romper sus tres leyes: un padre no sabe que tiene padre, la vista previa no miente,
-     y en el aparato no se maqueta nada.</p>
+  <p>Lo que le falta a tu <code>.maqueta</code> para escribir todo lo que escribe CSS -- y como hacerlo
+     <b>mejor</b> sin romper sus tres leyes: un padre no sabe que tiene padre, la vista previa no miente,
+     y en el aparato no se maqueta nada. <b>Todo lo que tiene LAB se toca.</b></p>
 </header>
+<nav class="indice" aria-label="secciones">
+  <a href="#medidor">1. cuanto entra hoy</a>
+  <a href="#objetivo">2. el objetivo: TODO CSS</a>
+  <a href="#pilas">3. lo que falta, con LAB</a>
+  <a href="#elementos">4. los ELEMENTOS</a>
+  <a href="#nunca">5. lo que nunca</a>
+  <a href="#decisiones">6. tus decisiones</a>
+</nav>
 
-<section class="medidor" aria-label="cobertura">
+<!-- ======================= 1. EL MEDIDOR ======================= -->
+<section class="medidor" id="medidor" aria-label="cobertura">
   <h2>Hoy MAQUETA acepta el 59,30 % del CSS de tus tres maquetas</h2>
   <p class="sub mono">maqueta --cobertura  bankcat + hermes + taller_estratos  =  1919 de 3236 declaraciones  (medido 2026-10-06)</p>
-  <div class="barra" role="img" aria-label="59,3 por ciento hoy, mas 9,1 de la pila A, 20,0 de la B, 6,0 de la C, y 5,7 que no entra">
-    <div class="trozo t-hoy" style="width:59.30%" data-pila="hoy">hoy 59,3 %</div>
-    <div class="trozo t-a" style="width:9.12%" data-pila="a">+9,1</div>
-    <div class="trozo t-b" style="width:19.96%" data-pila="b">+20,0</div>
-    <div class="trozo t-c" style="width:5.96%" data-pila="c">+6,0</div>
-    <div class="trozo t-no" style="width:5.66%" data-pila="no">5,7</div>
+  <div class="barra" role="img" aria-label="cobertura">
+    <div class="trozo t-hoy" style="width:59.30%" data-pila="a">hoy 59,3 %</div>
+    <div class="trozo t-a" id="tr-a" data-pila="a"></div>
+    <div class="trozo t-b" id="tr-b" data-pila="b"></div>
+    <div class="trozo t-c" id="tr-c" data-pila="c"></div>
+    <div class="trozo t-no" id="tr-no" data-pila="no"></div>
   </div>
-  <div class="leyenda">
-    <span><i style="background:var(--neon)"></i><b>59,3 %</b> hoy</span>
-    <span><i style="background:var(--a)"></i>A, sin tocar ninguna ley: <b>68,4 %</b></span>
-    <span><i style="background:var(--b)"></i>B, mejor que CSS al compilar: <b>88,4 %</b></span>
-    <span><i style="background:var(--c)"></i>C, el movimiento como estados: <b>94,3 %</b></span>
-    <span><i style="background:#2A2F45"></i>nunca, con su motivo: 5,7 %</span>
+  <div class="mandos">
+    <label><input type="checkbox" id="on-a" checked><i style="background:var(--a)"></i>A, sin tocar ninguna ley (295)</label>
+    <label><input type="checkbox" id="on-b" checked><i style="background:var(--b)"></i>B, mejor que CSS (<span id="n-b">646</span>)</label>
+    <label><input type="checkbox" id="on-c" checked><i style="background:var(--c)"></i>C, el movimiento (<span id="n-c">193</span>)</label>
+    <span class="resultado">con lo marcado y tus decisiones: <b id="total">94,3 %</b></span>
   </div>
   <p class="aviso">Es el TECHO, no la promesa: una declaracion que pasa la lista todavia la juzga el veredicto (que quepa, que se pinte igual).
-     Lo que se cuenta es lo que hoy se rechaza por la propiedad o por el valor.</p>
+     Marca y desmarca las pilas, y elige (b) en una decision de abajo: el medidor dice cuanto se pierde.</p>
 </section>
 
+<!-- ======================= 2. EL OBJETIVO ======================= -->
+<h2 class="seccion" id="objetivo">2. EL OBJETIVO COMPLETO: TODO CSS, MODULO A MODULO</h2>
+<p class="seccion">El objetivo no es copiar CSS: es poder escribir <b>cualquier pantalla de BMO-X</b> (HERMES, BANK CAT, el TALLER, F2)
+  en <code>.maqueta</code> y que el compilador la juzgue. CSS es la vara porque es lo que entiende la vista previa -- el navegador.
+  Cada modulo de CSS cae en un sitio, y cada sitio tiene su porque. Pulsa uno.</p>
+<div class="mapa">
+  <div class="filtros" id="filtros">
+    <button class="filtro" aria-pressed="true" data-f="todo">todos</button>
+    <button class="filtro" aria-pressed="false" data-f="hoy">ya esta</button>
+    <button class="filtro" aria-pressed="false" data-f="a">pila A</button>
+    <button class="filtro" aria-pressed="false" data-f="b">pila B</button>
+    <button class="filtro" aria-pressed="false" data-f="c">pila C</button>
+    <button class="filtro" aria-pressed="false" data-f="pend">pendiente</button>
+    <button class="filtro" aria-pressed="false" data-f="no">nunca</button>
+  </div>
+  <div class="modulos" id="modulos"></div>
+  <div class="detalle" id="detalle"></div>
+  <div class="cuentas" id="cuentas"></div>
+</div>
+
+<!-- ======================= 3. LAS PILAS ======================= -->
+<h2 class="seccion" id="pilas">3. LO QUE FALTA, EN TRES PILAS -- con LAB</h2>
+<p class="seccion">Abre una tarjeta con <span class="lab-chip">LAB</span>, mueve los controles y mira que dice el juez.</p>
 <div class="pilas">
 
-  <!-- ============ A ============ -->
-  <section class="pila pila-a" aria-labelledby="ha">
+  <section class="pila pila-a" id="pila-a" aria-labelledby="ha">
     <header><h3 id="ha">A -- ENTRAN YA</h3><span class="cuenta">295 usos</span></header>
     <p class="que">Ninguna pide saber la medida del padre: se resuelven con la caja PROPIA o con lo que ya hay.</p>
 
@@ -213,14 +360,25 @@ code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
     </article>
 
     <article class="carta">
-      <button aria-expanded="false"><span class="nombre">cursor, pointer-events</span><span class="usos"><b>30</b></span><span class="flecha">&#9656;</span></button>
+      <button aria-expanded="false"><span class="nombre">cursor: la zona que se pulsa</span><span class="lab-chip">LAB</span><span class="usos"><b>30</b></span><span class="flecha">&#9656;</span></button>
       <div class="cuerpo">
         <div class="lado">
           <div class="css"><h4>CSS</h4><pre>cursor: pointer;</pre></div>
           <div class="maq"><h4>MAQUETA 3</h4><pre>cursor: pointer;
-/* -> ZONA_ENVIAR en el modulo */</pre></div>
+/* -> ZONA_ENVIAR */</pre></div>
         </div>
         <p class="mejor">en CSS es solo la flecha. Aqui DECLARA que la caja se pulsa: el modulo sale con su tabla de zonas, y la app no calcula a mano donde cae cada boton.</p>
+        <div class="lab">
+          <div class="tit">LAB -- PULSA UN BOTON</div>
+          <div class="ctl chk"><label><input type="checkbox" id="z-ver"> ver las zonas que emite el compilador</label></div>
+          <div class="panelz" id="z-panel">
+            <div class="btn r" data-z="ZONA_RECIBIR" data-id="RECIBIR">Recibir</div>
+            <div class="btn e" data-z="ZONA_ENVIAR" data-id="ENVIAR">Enviar</div>
+          </div>
+          <div class="tabla-z">pub const ZONA_RECIBIR: Zona = Zona { x: 10, y: 10, w: 78, h: 30 };
+pub const ZONA_ENVIAR:  Zona = Zona { x: 96, y: 10, w: 70, h: 30 };</div>
+          <div class="juez bien" id="z-juez">la app pregunta <b>zona_en(x, y)</b> y el modulo contesta: ninguna cuenta a mano.</div>
+        </div>
       </div>
     </article>
 
@@ -268,57 +426,57 @@ outline: 2px solid #70D6FF;</pre></div>
     </article>
   </section>
 
-  <!-- ============ B ============ -->
-  <section class="pila pila-b" aria-labelledby="hb">
+  <section class="pila pila-b" id="pila-b" aria-labelledby="hb">
     <header><h3 id="hb">B -- MEJOR QUE CSS</h3><span class="cuenta">646 usos</span></header>
     <p class="que">Lo que CSS hace en el navegador cada vez, aqui se resuelve UNA vez al compilar -- y se juzga.</p>
 
-    <article class="carta abierta">
-      <button aria-expanded="true"><span class="nombre">display: grid</span><span class="usos"><b>204</b></span><span class="flecha">&#9656;</span></button>
+    <article class="carta abierta" data-dec="M3">
+      <button aria-expanded="true"><span class="nombre">display: grid</span><span class="lab-chip">LAB</span><span class="usos"><b>204</b></span><span class="flecha">&#9656;</span></button>
       <div class="cuerpo">
         <div class="lado">
-          <div class="css"><h4>CSS</h4><pre>display: grid;
-grid-template-columns:
+          <div class="css"><h4>CSS</h4><pre>grid-template-columns:
   60px 1fr 1fr;</pre></div>
-          <div class="maq"><h4>MAQUETA 3</h4><pre>display: grid; width: 300px;
+          <div class="maq"><h4>MAQUETA 3</h4><pre>width: 300px;
 grid-template-columns:
   60px 1fr 1fr;</pre></div>
         </div>
-        <p class="mejor"><code>fr</code> se reparte contra el ancho de la PROPIA rejilla (como <code>50%</code> del radio): L7 intacta. Y cada celda se juzga: una que no cabe es error con su fila y su columna, no una celda que se desborda en silencio.</p>
-        <div class="demo">
-          <div class="rot">el juez, sobre una rejilla de 3 columnas:</div>
-          <div class="rejilla">
-            <span>60px</span><span>1fr = 116</span><span>1fr = 116</span>
-            <span>icono</span><span>Recibir</span><span class="mal">Enviar 1.250.000,00 no cabe</span>
-          </div>
+        <p class="mejor"><code>fr</code> se reparte contra el ancho de la PROPIA rejilla: L7 intacta. Y cada celda se juzga: la que no cabe es error con su fila y su columna.</p>
+        <div class="lab">
+          <div class="tit">LAB -- ENSANCHA LA REJILLA, CAMBIA EL TEXTO</div>
+          <div class="ctl"><span>width</span><input type="range" id="g-w" min="180" max="340" value="300"><output id="g-wo">300px</output></div>
+          <div class="ctl"><span>celda (2, 3)</span><input type="text" id="g-t" value="Enviar 1.250.000,00"><span></span></div>
+          <div class="escena"><div class="rej" id="g-rej"></div><div class="regla" id="g-regla"></div></div>
+          <div class="juez" id="g-juez"></div>
         </div>
       </div>
     </article>
 
-    <article class="carta">
-      <button aria-expanded="false"><span class="nombre">margin</span><span class="usos"><b>114</b></span><span class="flecha">&#9656;</span></button>
+    <article class="carta" data-dec="M1">
+      <button aria-expanded="false"><span class="nombre">margin</span><span class="lab-chip">LAB</span><span class="usos"><b>114</b></span><span class="flecha">&#9656;</span></button>
       <div class="cuerpo">
         <div class="lado">
           <div class="css"><h4>CSS</h4><pre>.a { margin-bottom:10px }
 .b { margin-top:10px }
-/* entre las dos: 10, no 20 */</pre></div>
-          <div class="maq"><h4>MAQUETA 3</h4><pre>margin-top: 10px;
-/* error SOLO donde CSS
+/* entre las dos: 10 */</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>/* error SOLO donde CSS
    fundiria dos margenes */</pre></div>
         </div>
-        <p class="mejor">se acepta el margen y se rechaza EXACTAMENTE el caso en que CSS los funde -- con el arreglo escrito: "pon gap:10px en el padre". La vista previa no puede mentir y el 95 % de los usos entra.</p>
-        <div class="demo">
-          <div class="rot">dos margenes de 10 px, pegados:</div>
-          <div class="margenes">
-            <div><div class="caja m1"></div><div class="caja m2"></div><small>CSS: 10 (se funden)</small></div>
-            <div><div class="g"><div class="caja"></div><div class="caja"></div></div><small>gap: 20, lo que se lee</small></div>
+        <p class="mejor">se acepta el margen y se rechaza EXACTAMENTE el caso en que CSS los funde, con el arreglo escrito. La vista previa no puede mentir y casi todos los usos entran.</p>
+        <div class="lab">
+          <div class="tit">LAB -- DOS CAJAS, DOS MARGENES</div>
+          <div class="ctl"><span>.a margin-bottom</span><input type="range" id="m-a" min="0" max="30" value="10"><output id="m-ao">10px</output></div>
+          <div class="ctl"><span>.b margin-top</span><input type="range" id="m-b" min="0" max="30" value="10"><output id="m-bo">10px</output></div>
+          <div class="dos escena">
+            <div><small>el navegador (de verdad)</small><div class="pilita"><div class="caja" id="m-c1"></div><div class="caja dos-b" id="m-c2"></div></div><div class="cota" id="m-css"></div></div>
+            <div><small>lo que uno lee: a + b</small><div class="pilita" style="display:flex;flex-direction:column" id="m-gp"><div class="caja"></div><div class="caja dos-b"></div></div><div class="cota" id="m-lee"></div></div>
           </div>
+          <div class="juez" id="m-juez"></div>
         </div>
       </div>
     </article>
 
-    <article class="carta">
-      <button aria-expanded="false"><span class="nombre">variables por caja (--c)</span><span class="usos"><b>104</b></span><span class="flecha">&#9656;</span></button>
+    <article class="carta" data-dec="M6">
+      <button aria-expanded="false"><span class="nombre">variables por caja (--c)</span><span class="lab-chip">LAB</span><span class="usos"><b>104</b></span><span class="flecha">&#9656;</span></button>
       <div class="cuerpo">
         <div class="lado">
           <div class="css"><h4>CSS</h4><pre>&lt;div class="chip"
@@ -328,11 +486,18 @@ grid-template-columns:
   style="--c:#FF8A5C"&gt;
 /* solo ESTA caja */</pre></div>
         </div>
-        <p class="mejor">la variable vale para su caja y nada mas; si un hijo la lee, es error (en el navegador la heredaria y se veria distinto). Una constante, no una herencia escondida.</p>
+        <p class="mejor">la variable vale para su caja y nada mas; si un hijo la lee, es error (en el navegador la heredaria). Una constante, no una herencia escondida.</p>
+        <div class="lab">
+          <div class="tit">LAB -- QUIEN LEE --c</div>
+          <div class="ctl"><span>--c del chip</span><input type="color" id="v-c" value="#ff8a5c"><span></span></div>
+          <div class="ctl chk"><label><input type="checkbox" id="v-hijo"> el punto de dentro (un HIJO) tambien usa var(--c)</label></div>
+          <div class="escena" style="display:flex;justify-content:center"><span class="chipv" id="v-chip"><span class="punto" id="v-punto"></span>pruebas</span></div>
+          <div class="juez" id="v-juez"></div>
+        </div>
       </div>
     </article>
 
-    <article class="carta">
+    <article class="carta" data-dec="M2">
       <button aria-expanded="false"><span class="nombre">font-family</span><span class="usos"><b>84</b></span><span class="flecha">&#9656;</span></button>
       <div class="cuerpo">
         <div class="lado">
@@ -341,12 +506,12 @@ grid-template-columns:
           <div class="maq"><h4>MAQUETA 3</h4><pre>font-family: bmo;
 /* y bmo.woff2 para el navegador */</pre></div>
         </div>
-        <p class="mejor">una sola letra, la de la casa -- pero EXPORTADA como fuente web desde bmo-letra, asi el navegador pinta la MISMA. Hoy la foto se parece un 86 % por la letra de reserva; con esto, la diferencia es el suavizado.</p>
+        <p class="mejor">una sola letra, la de la casa -- pero EXPORTADA como fuente web desde bmo-letra, asi el navegador pinta la MISMA. Hoy la foto se parece un 86 % por la letra de reserva.</p>
       </div>
     </article>
 
-    <article class="carta">
-      <button aria-expanded="false"><span class="nombre">opacity</span><span class="usos"><b>67</b></span><span class="flecha">&#9656;</span></button>
+    <article class="carta" data-dec="M4">
+      <button aria-expanded="false"><span class="nombre">opacity</span><span class="lab-chip">LAB</span><span class="usos"><b>67</b></span><span class="flecha">&#9656;</span></button>
       <div class="cuerpo">
         <div class="lado">
           <div class="css"><h4>CSS</h4><pre>background:#FFD45E;
@@ -354,28 +519,45 @@ opacity:.4;
 /* mezcla en cada cuadro */</pre></div>
           <div class="maq"><h4>MAQUETA 3</h4><pre>background:#FFD45E;
 opacity:.4;
-/* = #6E5F34, al compilar */</pre></div>
+/* = un color, al compilar */</pre></div>
         </div>
-        <p class="mejor">sobre un fondo liso y conocido, la mezcla se hace UNA vez al compilar: el aparato pinta un color, cero alfa. Sobre una isla o una imagen (fondo que no se sabe), error con el motivo.</p>
-        <div class="demo">
-          <div class="premezcla">
-            <div class="fondo"><div class="vidrio"></div></div><span>=</span>
-            <div class="fondo"><div class="hecho"></div></div><code>#6E5F34</code>
+        <p class="mejor">sobre un fondo liso y conocido, la mezcla se hace UNA vez al compilar: el aparato pinta un color, cero alfa. Sobre una isla o una imagen, error.</p>
+        <div class="lab">
+          <div class="tit">LAB -- LA MEZCLA, HECHA ANTES</div>
+          <div class="ctl"><span>color</span><input type="color" id="o-f" value="#ffd45e"><span></span></div>
+          <div class="ctl"><span>fondo</span><input type="color" id="o-b" value="#0d1118"><span></span></div>
+          <div class="ctl"><span>opacity</span><input type="range" id="o-a" min="0" max="100" value="40"><output id="o-ao">0.40</output></div>
+          <div class="ctl chk"><label><input type="checkbox" id="o-isla"> el fondo es una ISLA (otro proceso lo pinta: no se sabe)</label></div>
+          <div class="dos escena">
+            <div><small>CSS: alfa en cada cuadro</small><div class="muestra" id="o-m1"><div class="tinta" id="o-t1"></div></div></div>
+            <div><small>MAQUETA 3: un color</small><div class="muestra" id="o-m2"><div class="tinta" id="o-t2"></div></div><div class="hex" id="o-hex"></div></div>
           </div>
+          <div class="juez" id="o-juez"></div>
         </div>
       </div>
     </article>
 
-    <article class="carta">
-      <button aria-expanded="false"><span class="nombre">flex: 1</span><span class="usos"><b>59</b></span><span class="flecha">&#9656;</span></button>
+    <article class="carta" data-dec="M3">
+      <button aria-expanded="false"><span class="nombre">flex: 1</span><span class="lab-chip">LAB</span><span class="usos"><b>59</b></span><span class="flecha">&#9656;</span></button>
       <div class="cuerpo">
         <div class="lado">
           <div class="css"><h4>CSS</h4><pre>.fila { display:flex }
 .nombre { flex:1 }</pre></div>
-          <div class="maq"><h4>MAQUETA 3</h4><pre>.fila { display:flex; width:420px }
+          <div class="maq"><h4>MAQUETA 3</h4><pre>.fila { display:flex; width:300px }
 .nombre { flex:1 }</pre></div>
         </div>
         <p class="mejor">crecer pide un padre con medida DICHA en el fichero; sin ella, error. El sobrante se reparte al compilar y queda escrito en el modulo.</p>
+        <div class="lab">
+          <div class="tit">LAB -- EL SOBRANTE, REPARTIDO</div>
+          <div class="ctl"><span>.fila width</span><input type="range" id="f-w" min="160" max="340" value="300"><output id="f-wo">300px</output></div>
+          <div class="ctl chk"><label><input type="checkbox" id="f-sin"> la fila NO dice su width</label></div>
+          <div class="escena"><div class="fila-flex" id="f-fila">
+            <span style="width:28px;background:var(--accent)">ic</span>
+            <span id="f-crece" style="background:var(--b);color:var(--ink)">flex:1</span>
+            <span style="width:80px;background:var(--oro)">1.250,00</span>
+          </div></div>
+          <div class="juez" id="f-juez"></div>
+        </div>
       </div>
     </article>
 
@@ -393,57 +575,66 @@ opacity:.4;
     </article>
   </section>
 
-  <!-- ============ C ============ -->
-  <section class="pila pila-c" aria-labelledby="hc">
+  <section class="pila pila-c" id="pila-c" aria-labelledby="hc">
     <header><h3 id="hc">C -- EL MOVIMIENTO</h3><span class="cuenta">193 usos</span></header>
     <p class="que">CSS anima maquetando en cada cuadro. MAQUETA no maqueta en el aparato: anima ESTADOS ya maquetados.</p>
 
-    <article class="carta abierta">
-      <button aria-expanded="true"><span class="nombre">@keyframes, animation</span><span class="usos"><b>94</b></span><span class="flecha">&#9656;</span></button>
+    <article class="carta abierta" data-dec="M5">
+      <button aria-expanded="true"><span class="nombre">@keyframes, animation</span><span class="lab-chip">LAB</span><span class="usos"><b>94</b></span><span class="flecha">&#9656;</span></button>
       <div class="cuerpo">
         <div class="lado">
           <div class="css"><h4>CSS</h4><pre>@keyframes latido {
-  50% { transform:scale(1.18) }
-}
-.punto { animation:
-  latido 1.6s infinite }</pre></div>
-          <div class="maq"><h4>MAQUETA 3</h4><pre>@secuencia latido 1600ms
-          repite {
-  50% { .punto { width:40px;
-                 height:40px } }
+  50% { width: 200px }
+}</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>@secuencia latido 1600ms {
+  50% { .punto {
+          width: 200px } }
 }</pre></div>
         </div>
-        <p class="mejor">cada paso de la secuencia es un <code>@estado</code> ENTERO: se maqueta y se juzga al compilar (un texto que no cabe en el 50 % no compila). El aparato solo mezcla piezas, como hoy con las transiciones.</p>
-        <div class="demo">
-          <div class="rot">tres estados ya maquetados; el aparato solo los mezcla:</div>
-          <div class="estados">
-            <div class="paso">0%</div><span>&#8594;</span><div class="paso">50%</div><span>&#8594;</span><div class="paso">100%</div>
-            <span style="margin-left:10px"></span><div class="paso vivo">vivo</div>
-          </div>
+        <p class="mejor">cada paso es un <code>@estado</code> ENTERO: se maqueta y se juzga al compilar. El aparato solo MEZCLA piezas ya hechas.</p>
+        <div class="lab">
+          <div class="tit">LAB -- ARRASTRA EL TIEMPO</div>
+          <div class="ctl"><span>tiempo</span><input type="range" id="s-t" min="0" max="100" value="0"><output id="s-to">0 %</output></div>
+          <div class="ctl"><span>ancho en 0 y 100 %</span><input type="range" id="s-w0" min="40" max="200" value="110"><output id="s-w0o">110px</output></div>
+          <div class="ctl"><span>texto</span><input type="text" id="s-txt" value="latiendo"><span></span></div>
+          <div class="escena pista"><div class="latido" id="s-caja">latiendo</div></div>
+          <div class="pasos" id="s-pasos"></div>
+          <div class="ctl chk" style="margin-top:6px"><label><input type="checkbox" id="s-play"> reproducir</label></div>
+          <div class="juez" id="s-juez"></div>
         </div>
       </div>
     </article>
 
-    <article class="carta">
+    <article class="carta" data-dec="M5">
       <button aria-expanded="false"><span class="nombre">transform: translate / scale</span><span class="usos"><b>99</b></span><span class="flecha">&#9656;</span></button>
       <div class="cuerpo">
         <div class="lado">
           <div class="css"><h4>CSS</h4><pre>transform: translateY(-4px)
-           scale(1.05);
-transform-origin: center;</pre></div>
+           scale(1.05);</pre></div>
           <div class="maq"><h4>MAQUETA 3</h4><pre>@estado arriba {
   .carta { transform:
     translateY(-4px) scale(1.05) }
 }</pre></div>
         </div>
-        <p class="mejor">solo dentro de un estado o de una secuencia, y resuelto a cajas de pixel entero al compilar: la "carta que sube" se ve igual en el navegador y en el Ryzen. Rotar se rechaza: la letra de la casa no se pinta torcida.</p>
+        <p class="mejor">solo dentro de un estado o de una secuencia, y resuelto a cajas de pixel entero al compilar. Rotar se rechaza: la letra de la casa no se pinta torcida.</p>
       </div>
     </article>
   </section>
 </div>
 
-<section class="nunca" aria-labelledby="hn">
-  <h3 id="hn">NUNCA (Y LOS SUELTOS) -- 183 usos, y por que</h3>
+<!-- ======================= 4. LOS ELEMENTOS ======================= -->
+<h2 class="seccion" id="elementos">4. LOS ELEMENTOS DE LA CASA -- muchos, y cada uno con su porque</h2>
+<p class="seccion">Hoy <code>.maqueta</code> tiene una lista CERRADA de 9 etiquetas, y rechaza <code>&lt;button&gt;</code> o <code>&lt;input&gt;</code>
+  porque "prometen semantica que no existe". MAQUETA 3 trae elementos PROPIOS cuya semantica <b>si existe</b>: cada uno se
+  expande en las piezas de siempre y el compilador emite lo que lo hace real (su zona, sus estados, su dato). Pulsa uno y tocalo.</p>
+<div class="elementos">
+  <div class="lista-el" id="lista-el"></div>
+  <div class="ficha" id="ficha"></div>
+</div>
+
+<!-- ======================= 5. NUNCA ======================= -->
+<section class="nunca" id="nunca" aria-labelledby="hn">
+  <h3 id="hn">5. NUNCA (Y LOS SUELTOS) -- 183 usos, y por que</h3>
   <ul>
     <li><code>inherit</code>, herencia (23): un padre no sabe que tiene padre (L7). Se escribe <code>var(--x)</code>.</li>
     <li><code>width: %</code>, <code>height: auto</code>, <code>calc()</code> (60): piden la medida del contenedor. <code>fr</code> de la rejilla PROPIA lo cubre.</li>
@@ -455,63 +646,553 @@ transform-origin: center;</pre></div>
   </ul>
 </section>
 
-<section class="decisiones" aria-labelledby="hd">
-  <h3 id="hd">LAS DECISIONES -- son tuyas</h3>
-  <p>Cada una cambia lo que se escribe en <code>LA_MAQUETA_EXIGE.md</code>. Pulsa la que quieras: la recomendada va marcada.</p>
+<!-- ======================= 6. LAS DECISIONES ======================= -->
+<section class="decisiones" id="decisiones" aria-labelledby="hd">
+  <h3 id="hd">6. LAS DECISIONES -- son tuyas</h3>
+  <p>Cada una cambia lo que se escribe en <code>LA_MAQUETA_EXIGE.md</code>. Pulsa (b) en una y mira el medidor de arriba: dice cuanto se pierde, y su tarjeta se tacha.</p>
 
   <div class="dec"><div class="id">M1</div><div>
     <p><b>margin</b>: entra, con error SOLO donde CSS fundiria dos margenes?</p>
-    <div class="opciones" data-dec="M1"><button class="op rec" aria-pressed="true">a) si, y el error dice "gap"</button><button class="op" aria-pressed="false">b) sigue fuera</button></div>
-  </div></div>
+    <div class="opciones" data-dec="M1"><button class="op rec" data-v="a" aria-pressed="true">a) si, y el error dice "gap"</button><button class="op" data-v="b" aria-pressed="false">b) sigue fuera</button></div>
+  </div><div class="cuesta" data-cuesta="M1"></div></div>
 
   <div class="dec"><div class="id">M2</div><div>
     <p><b>font-family</b>: la letra de la casa exportada como fuente web, para que el navegador pinte la misma?</p>
-    <div class="opciones" data-dec="M2"><button class="op rec" aria-pressed="true">a) si: font-family: bmo</button><button class="op" aria-pressed="false">b) sigue rechazada</button></div>
-  </div></div>
+    <div class="opciones" data-dec="M2"><button class="op rec" data-v="a" aria-pressed="true">a) si: font-family: bmo</button><button class="op" data-v="b" aria-pressed="false">b) sigue rechazada</button></div>
+  </div><div class="cuesta" data-cuesta="M2"></div></div>
 
   <div class="dec"><div class="id">M3</div><div>
     <p><b>grid</b> y <b>flex:1</b>: solo con la medida de la caja dicha en el fichero?</p>
-    <div class="opciones" data-dec="M3"><button class="op rec" aria-pressed="true">a) si, como el 50 % del radio</button><button class="op" aria-pressed="false">b) esperar a "cuando algo real lo pida"</button></div>
-  </div></div>
+    <div class="opciones" data-dec="M3"><button class="op rec" data-v="a" aria-pressed="true">a) si, como el 50 % del radio</button><button class="op" data-v="b" aria-pressed="false">b) esperar a "cuando algo real lo pida"</button></div>
+  </div><div class="cuesta" data-cuesta="M3"></div></div>
 
   <div class="dec"><div class="id">M4</div><div>
     <p><b>opacity</b>: mezclada al compilar sobre un fondo liso conocido?</p>
-    <div class="opciones" data-dec="M4"><button class="op rec" aria-pressed="true">a) si, y error sobre lo que no se sabe</button><button class="op" aria-pressed="false">b) esperar al alfa del rasterizador</button></div>
-  </div></div>
+    <div class="opciones" data-dec="M4"><button class="op rec" data-v="a" aria-pressed="true">a) si, y error sobre lo que no se sabe</button><button class="op" data-v="b" aria-pressed="false">b) esperar al alfa del rasterizador</button></div>
+  </div><div class="cuesta" data-cuesta="M4"></div></div>
 
   <div class="dec"><div class="id">M5</div><div>
     <p><b>animacion</b>: <code>@secuencia</code> de estados ya maquetados (y transform solo dentro de estados)?</p>
-    <div class="opciones" data-dec="M5"><button class="op rec" aria-pressed="true">a) si: @secuencia</button><button class="op" aria-pressed="false">b) solo estados + transition, como hoy</button></div>
-  </div></div>
+    <div class="opciones" data-dec="M5"><button class="op rec" data-v="a" aria-pressed="true">a) si: @secuencia</button><button class="op" data-v="b" aria-pressed="false">b) solo estados + transition, como hoy</button></div>
+  </div><div class="cuesta" data-cuesta="M5"></div></div>
 
   <div class="dec"><div class="id">M6</div><div>
     <p><b>variables por caja</b>: valen para SU caja, y error si un hijo las lee?</p>
-    <div class="opciones" data-dec="M6"><button class="op rec" aria-pressed="true">a) si, constantes de una caja</button><button class="op" aria-pressed="false">b) solo :root, como hoy</button></div>
-  </div></div>
+    <div class="opciones" data-dec="M6"><button class="op rec" data-v="a" aria-pressed="true">a) si, constantes de una caja</button><button class="op" data-v="b" aria-pressed="false">b) solo :root, como hoy</button></div>
+  </div><div class="cuesta" data-cuesta="M6"></div></div>
+
+  <div class="dec"><div class="id">E1</div><div>
+    <p><b>los elementos de la casa</b> (seccion 4): entran, cada uno con su expansion escrita y lo que emite?</p>
+    <div class="opciones" data-dec="E1"><button class="op rec" data-v="a" aria-pressed="true">a) si, los nueve</button><button class="op" data-v="b" aria-pressed="false">b) solo los 9 de hoy</button></div>
+  </div><div class="cuesta" data-cuesta="E1"></div></div>
 </section>
 
 </main>
 <script>
-// Abrir y cerrar cada tarjeta; encender la pila de la barra; elegir en las decisiones.
-document.querySelectorAll('.carta > button').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var c = b.parentElement, abierta = c.classList.toggle('abierta');
-    b.setAttribute('aria-expanded', abierta ? 'true' : 'false');
-  });
-});
-document.querySelectorAll('.trozo').forEach(function (t) {
-  t.addEventListener('click', function () {
-    var p = document.querySelector('.pila-' + t.dataset.pila);
-    if (p) { p.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-  });
-});
-document.querySelectorAll('.opciones').forEach(function (g) {
-  g.querySelectorAll('.op').forEach(function (o) {
-    o.addEventListener('click', function () {
-      g.querySelectorAll('.op').forEach(function (x) { x.setAttribute('aria-pressed', x === o ? 'true' : 'false'); });
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var juez = function (el, bien, html) { el.className = 'juez ' + (bien ? 'bien' : 'mal'); el.innerHTML = html; };
+  function escapar(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  // -- abrir y cerrar las tarjetas ------------------------------------------
+  document.querySelectorAll('.carta > button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var abierta = b.parentElement.classList.toggle('abierta');
+      b.setAttribute('aria-expanded', abierta ? 'true' : 'false');
+      // Un LAB que estaba cerrado no se podia medir: se mide al abrirse.
+      if (abierta && typeof refrescar === 'function') { refrescar(); }
     });
   });
-});
+
+  // == 1. EL MEDIDOR: las pilas y las decisiones ==============================
+  // Los usos de cada decision salen de la medida (PLAN_MAQUETA_3.md, seccion 2).
+  var TOTAL = 3236, HOY = 1919, A = 295, B = 646, C = 193;
+  var USOS = { M1: 114, M2: 84, M3: 263, M4: 67, M5: 193, M6: 104 };
+  var dec = { M1: 'a', M2: 'a', M3: 'a', M4: 'a', M5: 'a', M6: 'a', E1: 'a' };
+  var pc = function (n) { return (n * 100 / TOTAL).toFixed(1).replace('.', ','); };
+  function medidor() {
+    var b = B, c = dec.M5 === 'a' ? C : 0;
+    ['M1', 'M2', 'M3', 'M4', 'M6'].forEach(function (k) { if (dec[k] === 'b') { b -= USOS[k]; } });
+    var a = $('on-a').checked ? A : 0;
+    b = $('on-b').checked ? b : 0;
+    c = $('on-c').checked ? c : 0;
+    var resto = TOTAL - HOY - a - b - c;
+    [['tr-a', a, '+'], ['tr-b', b, '+'], ['tr-c', c, '+'], ['tr-no', resto, '']].forEach(function (t) {
+      var el = $(t[0]);
+      el.style.width = (t[1] * 100 / TOTAL) + '%';
+      el.textContent = t[1] ? t[2] + pc(t[1]) : '';
+    });
+    $('n-b').textContent = b;
+    $('n-c').textContent = c;
+    $('total').textContent = pc(HOY + a + b + c) + ' %';
+    $('pila-a').classList.toggle('apagada', !$('on-a').checked);
+    $('pila-b').classList.toggle('apagada', !$('on-b').checked);
+    $('pila-c').classList.toggle('apagada', !$('on-c').checked);
+    Object.keys(USOS).forEach(function (k) {
+      var el = document.querySelector('[data-cuesta="' + k + '"]');
+      el.textContent = dec[k] === 'b' ? '-' + USOS[k] + ' usos' : '+' + USOS[k] + ' usos';
+      el.classList.toggle('pierde', dec[k] === 'b');
+      document.querySelectorAll('.carta[data-dec="' + k + '"]').forEach(function (c) { c.classList.toggle('rechazada', dec[k] === 'b'); });
+    });
+    var e1 = document.querySelector('[data-cuesta="E1"]');
+    e1.textContent = dec.E1 === 'a' ? '+9 elementos' : 'se quedan 9';
+    e1.classList.toggle('pierde', dec.E1 === 'b');
+    pintarElementos();
+  }
+  ['on-a', 'on-b', 'on-c'].forEach(function (id) { $(id).addEventListener('change', medidor); });
+  document.querySelectorAll('.opciones').forEach(function (g) {
+    g.querySelectorAll('.op').forEach(function (o) {
+      o.addEventListener('click', function () {
+        g.querySelectorAll('.op').forEach(function (x) { x.setAttribute('aria-pressed', x === o ? 'true' : 'false'); });
+        dec[g.dataset.dec] = o.dataset.v;
+        medidor();
+      });
+    });
+  });
+  document.querySelectorAll('.trozo').forEach(function (t) {
+    t.addEventListener('click', function () {
+      var p = $('pila-' + t.dataset.pila);
+      if (p) { p.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+  });
+
+  // == 2. EL OBJETIVO: todo CSS, modulo a modulo ===============================
+  // estado: hoy | a | b | c | pend | no.  `usos`: lo que pesa en las tres
+  // maquetas medidas (0 si no aparece o ya entra).
+  var EST = { hoy: ['YA ESTA', 'e-hoy'], a: ['PILA A', 'e-a'], b: ['PILA B', 'e-b'], c: ['PILA C', 'e-c'], pend: ['PENDIENTE', 'e-pend'], no: ['NUNCA', 'e-no'] };
+  var MODULOS = [
+    { n: 'La caja', q: 'width, height, padding, border', e: 'hoy', u: 0,
+      p: 'Es el corazon y entro el primer dia: medidas en pixel ENTERO, y un borde por lado. Lo que la caja mide se sabe al compilar.',
+      css: 'width: 300px;\npadding: 14px;\nborder: 1px solid #1B2130;', maq: 'lo mismo, tal cual' },
+    { n: 'Medidas acotadas', q: 'min-, max-width, -height', e: 'a', u: 76,
+      p: 'Acotan contra el contenido PROPIO, no contra el padre: L7 no se toca. Y lo que no cabe en el maximo es error.',
+      css: 'max-width: 360px;', maq: 'max-width: 360px;\n/* error si el contenido pide mas */' },
+    { n: 'Margen', q: 'margin, margin-*', e: 'b', u: 114, d: 'M1',
+      p: 'CSS funde dos margenes verticales pegados: la trampa mas famosa del oficio. Entra, y es error SOLO ese caso, con el arreglo (gap).',
+      css: 'margin-bottom: 10px;', maq: 'margin-bottom: 10px;\n/* error donde CSS fundiria */' },
+    { n: 'Flexbox', q: 'display:flex, direction, gap, justify, align', e: 'hoy', u: 0,
+      p: 'Ya esta, y con align-items:stretch por defecto como CSS (el detalle que casi se cuela). Lo que falta de flex va en A y B.',
+      css: 'display: flex; gap: 10px;', maq: 'lo mismo, tal cual' },
+    { n: 'Flex que crece', q: 'flex: 1, flex-grow', e: 'b', u: 59, d: 'M3',
+      p: 'Crecer es repartir lo que SOBRA, y eso solo se sabe con la medida del padre DICHA en el fichero. Entonces se reparte al compilar.',
+      css: '.nombre { flex: 1 }', maq: '.fila { width: 300px }\n.nombre { flex: 1 }' },
+    { n: 'Flex que parte', q: 'flex-wrap, align baseline', e: 'a', u: 26,
+      p: 'Con hijos y anchos conocidos, partir en filas es una cuenta del compilador, no del navegador.',
+      css: 'flex-wrap: wrap;', maq: 'flex-wrap: wrap;' },
+    { n: 'Rejilla', q: 'display:grid, template, place-items', e: 'b', u: 204, d: 'M3',
+      p: 'Lo MAS usado de lo que falta. fr se reparte contra el ancho de la PROPIA rejilla, y cada celda se juzga con su fila y su columna.',
+      css: 'grid-template-columns: 60px 1fr 1fr;', maq: 'width: 300px;\ngrid-template-columns: 60px 1fr 1fr;' },
+    { n: 'Posicion', q: 'absolute, relative, top, left', e: 'hoy', u: 0,
+      p: 'La unica puerta trasera, y esta porque los paneles se colocan asi. relative ANCLA y no se corre: en CSS se pinta en un sitio y ocupa otro.',
+      css: 'position: absolute; right: 0;', maq: 'lo mismo; correr una relative es error' },
+    { n: 'Posicion fina', q: 'inset, negativos, z-index', e: 'a', u: 48,
+      p: 'z-index depende del contexto de apilado. Aqui capa: N es GLOBAL y se lee en el fichero.',
+      css: 'z-index: 3;', maq: 'capa: 3;' },
+    { n: 'La letra', q: 'font-size, weight, letter-spacing, line-height', e: 'hoy', u: 0,
+      p: 'Una letra, la de la casa (bmo-letra), y se mide al compilar con el MISMO codigo que la pinta.',
+      css: 'font-size: 14px; font-weight: 600;', maq: 'lo mismo, tal cual' },
+    { n: 'La familia', q: 'font-family', e: 'b', u: 84, d: 'M2',
+      p: 'Sigue habiendo UNA letra, pero se exporta como fuente web para que el navegador pinte la misma. La vista previa deja de parecerse un 86 %.',
+      css: 'font-family: "IBM Plex Sans";', maq: 'font-family: bmo;' },
+    { n: 'El texto', q: 'text-align, text-overflow, white-space', e: 'a', u: 31,
+      p: 'Centrar es exacto al pixel porque el texto ya se midio. Partir lineas (white-space:normal) ya esta, al compilar.',
+      css: 'text-align: center;', maq: 'text-align: center;' },
+    { n: 'Color', q: '#RRGGBB, transparent', e: 'hoy', u: 0,
+      p: 'Un color de MAQUETA es el que SE VE, ya mezclado. Sin nombres, sin rgb(): un solo formato que no se discute.',
+      css: 'color: rgb(201 211 219);', maq: 'color: #C9D3DB;' },
+    { n: 'Transparencia', q: 'opacity, rgba', e: 'b', u: 67, d: 'M4',
+      p: 'Sobre un fondo liso y conocido, la mezcla se hace al compilar: el aparato pinta un color. Sobre lo que no se sabe, error.',
+      css: 'opacity: .4;', maq: 'opacity: .4;\n/* = #6E5F34 sobre #0D1118 */' },
+    { n: 'Fondos', q: 'background, linear-gradient', e: 'hoy', u: 0,
+      p: 'Un color o un degradado de dos colores en un eje, dentro de la caja redonda: lo que bmo-pinta pinta igual en los tres sitios.',
+      css: 'background: linear-gradient(90deg, #FFD45E, #080A10);', maq: 'lo mismo, tal cual' },
+    { n: 'Bordes', q: 'border, radius, por lado', e: 'hoy', u: 0,
+      p: 'Una raya LLENA (sin dashed: el borde de la casa) y radio con curva suave. El radio del 50 % es el unico porcentaje.',
+      css: 'border: 1px dashed red;', maq: 'border: 1px solid #FF4D6A;' },
+    { n: 'Contorno', q: 'outline, outline-offset', e: 'a', u: 11,
+      p: 'Un anillo de bmo-pinta fuera de la caja que no ocupa sitio: lo que pide el foco del teclado.',
+      css: 'outline: 2px solid #70D6FF;', maq: 'outline: 2px solid #70D6FF;' },
+    { n: 'Resplandor', q: 'box-shadow 0 0 N', e: 'hoy', u: 0,
+      p: 'Solo el resplandor, sin desplazamiento: la luz de la casa. Una sombra desplazada es otra estetica.',
+      css: 'box-shadow: 4px 4px 8px #000;', maq: 'box-shadow: 0 0 14px #FFD45E59;' },
+    { n: 'Filtros y mezclas', q: 'filter, blend, mask, backdrop', e: 'no', u: 13,
+      p: 'Piden COMPONER en el aparato, cuadro a cuadro. El desenfoque detras de una ventana es trabajo de la 3060 (VERRANO), no de la maqueta.',
+      css: 'backdrop-filter: blur(8px);', maq: '-- la 3060, no MAQUETA' },
+    { n: 'Transformar', q: 'translate, scale, rotate', e: 'c', u: 99, d: 'M5',
+      p: 'Dentro de un estado o de una secuencia, resuelto a cajas de pixel entero. Rotar no: la letra de la casa no se pinta torcida.',
+      css: 'transform: scale(1.05);', maq: '@estado arriba { .x { transform: scale(1.05) } }' },
+    { n: 'Transiciones', q: 'transition, @estado', e: 'hoy', u: 14,
+      p: 'Ya estan: cada estado se maqueta ENTERO y el aparato mezcla piezas. Falta aceptar la LISTA de propiedades de CSS (14 usos, pila B).',
+      css: 'transition: width .3s;', maq: 'transition: 300ms ease;' },
+    { n: 'Animaciones', q: '@keyframes, animation', e: 'c', u: 94, d: 'M5',
+      p: '@secuencia: cada paso es un estado juzgado al compilar. Un texto que no cabe en el 50 % no compila.',
+      css: '@keyframes latido { 50% { ... } }', maq: '@secuencia latido 1600ms { 50% { ... } }' },
+    { n: 'Selectores', q: 'etiqueta, .clase, :hover', e: 'hoy', u: 0,
+      p: 'Dos formas y :hover al final. Sin combinadores: un padre no sabe que tiene padre, asi que un hijo tampoco puede preguntar por el.',
+      css: '.lista > .fila:hover', maq: '.fila:hover' },
+    { n: 'Estados de uso', q: ':active, :focus, :disabled', e: 'pend', u: 0,
+      p: 'Son @estado con nombre que pone la app (pulsado, enfocado, apagado). Ya hay mecanismo; falta darles los nombres de CSS.',
+      css: '.boton:active { ... }', maq: '@estado pulsado { .boton { ... } }' },
+    { n: 'Combinadores', q: '.a .b, >, +, ~', e: 'no', u: 0,
+      p: 'Exigen que una caja sepa quien la contiene o quien va antes: es exactamente lo que L7 prohibe.',
+      css: '.panel .titulo', maq: '-- una clase en .titulo' },
+    { n: 'Cascada', q: 'especificidad, !important', e: 'hoy', u: 0,
+      p: 'MEJOR que CSS desde el dia uno: gana la ULTIMA regla, y un guardian exige el orden de menos a mas especificas, para que el navegador diga lo mismo.',
+      css: '#id.clase { ... !important }', maq: 'gana la ultima, y punto' },
+    { n: 'Variables', q: ':root { --x }, var()', e: 'hoy', u: 0,
+      p: 'Una tabla de constantes, no un interprete: se sustituyen antes de leer reglas.',
+      css: ':root { --oro: #FFD45E }', maq: 'lo mismo, tal cual' },
+    { n: 'Variables de caja', q: 'style="--c:..."', e: 'b', u: 104, d: 'M6',
+      p: 'Valen para SU caja; si un hijo la lee, error -- en el navegador la heredaria y se veria distinto.',
+      css: '<div style="--c:#FF8A5C">', maq: 'lo mismo; un hijo no la ve' },
+    { n: 'Herencia', q: 'inherit, currentColor', e: 'no', u: 23,
+      p: 'El padre no sabe que tiene padre (L7). Lo que se quiera compartir se escribe con una variable.',
+      css: 'color: inherit;', maq: 'color: var(--tinta);' },
+    { n: 'Desbordar', q: 'overflow: hidden / auto', e: 'a', u: 40,
+      p: 'overflow-y:auto (la ventana que se desplaza) ya esta; hidden recorta, y el veredicto dice que se corto.',
+      css: 'overflow: hidden;', maq: 'overflow: hidden;' },
+    { n: 'Unidades', q: 'px, em, fr, %, vh, calc', e: 'no', u: 60,
+      p: 'px enteros (y em en la letra). % y calc() piden el contenedor; fr de la rejilla propia cubre el caso de verdad.',
+      css: 'width: calc(100% - 20px);', maq: 'grid-template-columns: 20px 1fr;' },
+    { n: 'Pantallas', q: '@media', e: 'no', u: 0,
+      p: 'Una sola pantalla, medida por el perfil. Vuelve el dia que haya dos, y entonces como dos maquetas, no como reglas que se encienden.',
+      css: '@media (max-width: 600px)', maq: '-- dos ficheros, si hay dos pantallas' },
+    { n: 'Contenido generado', q: '::before, ::after, content', e: 'no', u: 10,
+      p: 'Una caja que no esta en el fichero no se puede juzgar ni nombrar.',
+      css: '.x::before { content: "*" }', maq: 'una <span> de verdad' },
+    { n: 'Dibujos', q: 'svg, path, stroke, fill', e: 'hoy', u: 0,
+      p: 'Ya estan, con la pluma redonda de la casa. Falta el arco A de los paths.',
+      css: '<path d="M6 6h12 ...">', maq: 'lo mismo, tal cual' },
+    { n: 'Imagenes', q: '<imagen>, object-fit', e: 'hoy', u: 1,
+      p: 'QOI, BMP o PNG hasta 128x128 embebidas, o el dato que llega al ejecutar. Miden lo que miden: no se escalan.',
+      css: 'object-fit: cover;', maq: '<imagen src="gato.qoi"/>' },
+    { n: 'Listas y tablas', q: 'ul, table, border-collapse', e: 'hoy', u: 5,
+      p: '<usa repite> es la lista y la rejilla de datos: el TOPE va en el fichero y el numero de verdad lo pone Rust.',
+      css: '<table>...', maq: '<usa src="fila.maqueta" repite="6"/>' },
+    { n: 'Escritura', q: 'writing-mode, direction: rtl', e: 'no', u: 0,
+      p: 'Una lengua y un sentido: el castellano sin acentos de la casa.',
+      css: 'direction: rtl;', maq: '--' }
+  ];
+  var filtro = 'todo', elegido = 6;
+  function pintarMapa() {
+    var cont = $('modulos'); cont.innerHTML = '';
+    MODULOS.forEach(function (m, i) {
+      var b = document.createElement('button');
+      b.className = 'modulo' + (filtro !== 'todo' && m.e !== filtro ? ' oculto' : '');
+      b.setAttribute('aria-pressed', i === elegido ? 'true' : 'false');
+      b.innerHTML = '<span class="estado ' + EST[m.e][1] + '">' + EST[m.e][0] + '</span><span class="mn">' + escapar(m.n) + '</span><span class="mq">' + escapar(m.q) + '</span>';
+      b.addEventListener('click', function () { elegido = i; pintarMapa(); });
+      cont.appendChild(b);
+    });
+    var m = MODULOS[elegido];
+    $('detalle').innerHTML =
+      '<div><h3>' + escapar(m.n) + ' <span class="estado ' + EST[m.e][1] + '">' + EST[m.e][0] + '</span></h3>' +
+      '<p>' + escapar(m.p) + '</p>' +
+      '<p style="color:var(--ink-dim);font-size:12.5px">' + (m.u ? m.u + ' usos en tus tres maquetas' : 'sin usos rechazados en tus tres maquetas') +
+      (m.d ? ' -- depende de tu decision <b style="color:var(--oro)">' + m.d + '</b>' : '') + '</p></div>' +
+      '<div><h4>CSS</h4><pre>' + escapar(m.css) + '</pre><h4 style="margin-top:8px">MAQUETA 3</h4><pre>' + escapar(m.maq) + '</pre></div>';
+    var cuenta = {};
+    MODULOS.forEach(function (x) { cuenta[x.e] = (cuenta[x.e] || 0) + 1; });
+    $('cuentas').innerHTML = MODULOS.length + ' modulos de CSS: ' + Object.keys(EST).map(function (k) {
+      return '<span><b>' + (cuenta[k] || 0) + '</b> ' + EST[k][0].toLowerCase() + '</span>';
+    }).join('');
+  }
+  document.querySelectorAll('.filtro').forEach(function (f) {
+    f.addEventListener('click', function () {
+      filtro = f.dataset.f;
+      document.querySelectorAll('.filtro').forEach(function (x) { x.setAttribute('aria-pressed', x === f ? 'true' : 'false'); });
+      var primero = MODULOS.findIndex(function (m) { return filtro === 'todo' || m.e === filtro; });
+      if (primero >= 0 && filtro !== 'todo') { elegido = primero; }
+      pintarMapa();
+    });
+  });
+
+  // == 4. LOS ELEMENTOS ========================================================
+  // ya: los 9 de hoy. nuevo: los de MAQUETA 3 (decision E1). Cada uno dice en
+  // que se EXPANDE y que EMITE el compilador: eso es lo que le da semantica.
+  var ELEMENTOS = [
+    { t: 'div', g: 'ya', por: 'La caja generica: el 95 % de todo.',
+      src: '<div class="tarjeta">...</div>', exp: 'es la pieza base', emite: 'su rect, ya calculado', vivo: 'div' },
+    { t: 'span', g: 'ya', por: 'Una caja en linea con texto, medida al compilar con la letra que lo pinta.',
+      src: '<span class="cifra">1.250,00</span>', exp: 'es la pieza base del texto', emite: 'el texto y su x siguiente', vivo: 'span' },
+    { t: 'island', g: 'ya', por: 'El hueco que rellena OTRO proceso: MAQUETA le da el sitio y no pinta nada dentro.',
+      src: '<island nombre="vitals"/>', exp: 'un rect con nombre', emite: 'ISLA_VITALS: el rect para la superficie del DIRECTOR', vivo: 'isla' },
+    { t: 'imagen', g: 'ya', por: 'Pixeles: embebidos (hasta 128x128) o el dato que llega al ejecutar.',
+      src: '<imagen src="gato.qoi"/>', exp: 'static IMAGEN_n', emite: 'la imagen recortada a su radio', vivo: 'imagen' },
+    { t: 'usa', g: 'ya', por: 'Una pieza: otra maqueta puesta aqui. Con repite, una lista o una rejilla.',
+      src: '<usa src="fila.maqueta" repite="6"/>', exp: 'la pieza, repetida hasta el TOPE', emite: 'LISTA_<ID>.fila(i)', vivo: 'lista' },
+    { t: 'svg + path', g: 'ya', por: 'Un dibujo con la pluma redonda de la casa.',
+      src: '<svg viewBox="0 0 24 24"><path d="M6 6h12"/></svg>', exp: 'trazos de bmo-pinta', emite: 'los trazos ya escalados', vivo: 'icono' },
+    { t: 'boton', g: 'nuevo', por: 'Un <div> que SE PULSA: trae su zona y sus estados. En HTML <button> promete algo que el sistema no da; este lo da porque el compilador lo emite.',
+      src: '<boton id="enviar">Enviar</boton>', exp: '<div class="boton" id="enviar" cursor:pointer>\n  + @estado realce\n  + @estado pulsado', emite: 'ZONA_ENVIAR, realce_en(), pulsado_en()', vivo: 'boton' },
+    { t: 'campo', g: 'nuevo', por: 'Donde se ESCRIBE: el hueco se juzga al ancho de su maximo de letras; el texto lo guarda la app.',
+      src: '<campo id="nombre" letras="24"/>', exp: '<div> + <span dato="nombre">\n  juzgado con 24 letras anchas', emite: 'ZONA_NOMBRE, CAMPO_NOMBRE { x, y, letras }', vivo: 'campo' },
+    { t: 'interruptor', g: 'nuevo', por: 'Si o no, con su movimiento: dos estados ya maquetados y la mezcla entre ellos.',
+      src: '<interruptor id="sonido"/>', exp: '<div> + <div class="bola">\n  @estado si / @estado no\n  transition: 250ms rebote', emite: 'ZONA_SONIDO, pintar_estado(si|no), pintar_transicion()', vivo: 'interruptor' },
+    { t: 'barra', g: 'nuevo', por: 'Cuanto falta: la caja es fija y lo que cambia es el RELLENO, que no es maquetar (como la barra de desplazar).',
+      src: '<barra id="carga" de="100"/>', exp: '<div> fijo + relleno proporcional', emite: 'pintar_barra(p, valor)', vivo: 'barra' },
+    { t: 'lista', g: 'nuevo', por: 'El nombre que se lee de <usa repite>: una fila, un tope, y Rust pone el numero de verdad.',
+      src: '<lista src="amigo.maqueta" tope="5"/>', exp: '<usa src="amigo.maqueta" repite="5"/>', emite: 'LISTA_AMIGOS.fila(i), su alto', vivo: 'lista' },
+    { t: 'ventana', g: 'nuevo', por: 'Lo que se desplaza: el nombre de overflow-y:auto con su barra.',
+      src: '<ventana alto="92">...</ventana>', exp: '<div style="height:92px;\n  overflow-y:auto">', emite: 'desplazar_<id>(p, ox, oy, desde), DESPLAZA_<ID>', vivo: 'ventana' },
+    { t: 'solapas', g: 'nuevo', por: 'Una tira de opciones de la que se elige UNA: cada opcion es un estado.',
+      src: '<solapas id="vista" de="grafo espacio estratos"/>', exp: 'una fila de <boton> + @estado por opcion', emite: 'ZONA_VISTA_n, pintar_estado(grafo|...)', vivo: 'solapas' },
+    { t: 'icono', g: 'nuevo', por: 'Un dibujo por NOMBRE, sacado de un catalogo compartido: el mismo icono en todas las caras.',
+      src: '<icono nombre="cartera"/>', exp: '<svg> del catalogo iconos.maqueta', emite: 'los trazos del catalogo', vivo: 'icono' },
+    { t: 'globo', g: 'nuevo', por: 'El aviso que flota con neon, como el globo del puntero: una caja absoluta con su resplandor y su secuencia de entrada.',
+      src: '<globo id="aviso">F2 MIAU :3</globo>', exp: '<div position:absolute capa:9\n  box-shadow + @secuencia entra>', emite: 'pintar_secuencia(entra, ms)', vivo: 'globo' }
+  ];
+  var elEle = 6, intOn = true, solapa = 0;
+  function pintarElementos() {
+    var cont = $('lista-el'); cont.innerHTML = '';
+    var grupos = [['ya', 'los 9 de hoy'], ['nuevo', dec.E1 === 'a' ? 'MAQUETA 3 (E1)' : 'MAQUETA 3 -- rechazados en E1']];
+    grupos.forEach(function (gr) {
+      var h = document.createElement('div'); h.className = 'grupo-el'; h.textContent = gr[1]; cont.appendChild(h);
+      ELEMENTOS.forEach(function (e, i) {
+        if (e.g !== gr[0]) { return; }
+        var b = document.createElement('button');
+        b.className = 'el';
+        if (e.g === 'nuevo' && dec.E1 === 'b') { b.style.opacity = '.4'; }
+        b.setAttribute('aria-pressed', i === elEle ? 'true' : 'false');
+        b.innerHTML = '<code>&lt;' + escapar(e.t) + '&gt;</code><span class="tag ' + e.g + '">' + (e.g === 'ya' ? 'HOY' : 'NUEVO') + '</span>';
+        b.addEventListener('click', function () { elEle = i; pintarElementos(); });
+        cont.appendChild(b);
+      });
+    });
+    var e = ELEMENTOS[elEle];
+    var rechazado = e.g === 'nuevo' && dec.E1 === 'b';
+    $('ficha').innerHTML =
+      '<div><h3>&lt;' + escapar(e.t) + '&gt;</h3><p class="por">' + escapar(e.por) + '</p>' +
+      '<h4>se escribe</h4><pre>' + escapar(e.src) + '</pre>' +
+      '<h4>se expande en</h4><pre>' + escapar(e.exp) + '</pre>' +
+      '<h4>el compilador emite</h4><pre>' + escapar(e.emite) + '</pre></div>' +
+      '<div><h4>tocalo</h4><div class="vivo" id="vivo"></div><div class="vivo-mandos" id="vivo-mandos"></div>' +
+      (rechazado ? '<div class="juez mal" style="margin-top:8px">con E1 en (b) este elemento no existe: se escribiria con <b>div</b> y clases a mano.</div>'
+                 : '<div class="juez bien" style="margin-top:8px">en el navegador, <code>maqueta --vista-html</code> lo escribe como <b>div</b> con su clase: la vista previa no miente.</div>') + '</div>';
+    vivo(e.vivo);
+  }
+  function vivo(k) {
+    var v = $('vivo'), m = $('vivo-mandos');
+    v.innerHTML = ''; m.innerHTML = '';
+    if (k === 'boton') {
+      v.innerHTML = '<button class="x-boton" id="xb">Enviar</button>';
+      m.textContent = 'pulsalo: realce al pasar, pulsado al apretar';
+      $('xb').addEventListener('click', function () { m.innerHTML = 'la app recibio <code>zona_en(x, y) == Some(ENVIAR)</code>'; });
+    } else if (k === 'campo') {
+      v.innerHTML = '<label class="x-campo"><small>nombre (24 letras)</small><input id="xc" maxlength="24" value="Eddi"></label>';
+      var cuenta = function () { m.textContent = $('xc').value.length + ' de 24 letras -- el hueco se juzgo con 24 anchas: nunca se desborda'; };
+      $('xc').addEventListener('input', cuenta); cuenta();
+    } else if (k === 'interruptor') {
+      v.innerHTML = '<button class="x-int' + (intOn ? ' on' : '') + '" id="xi" aria-label="sonido"></button><span id="xit"></span>';
+      var dice = function () { $('xit').textContent = intOn ? 'sonido: SI' : 'sonido: NO'; };
+      $('xi').addEventListener('click', function () { intOn = !intOn; $('xi').classList.toggle('on', intOn); dice(); m.textContent = 'pintar_transicion(' + (intOn ? 'no, si' : 'si, no') + ', 250 ms)'; });
+      dice(); m.textContent = 'pulsalo: dos estados ya maquetados, y la mezcla con rebote';
+    } else if (k === 'barra') {
+      v.innerHTML = '<div class="x-barra"><i id="xbar" style="width:62%"></i></div>';
+      m.innerHTML = 'valor <input type="range" id="xr" min="0" max="100" value="62"> <span id="xrv">62</span> / 100';
+      $('xr').addEventListener('input', function () { $('xbar').style.width = this.value + '%'; $('xrv').textContent = this.value; });
+    } else if (k === 'lista') {
+      v.innerHTML = '<div class="x-lista" id="xl"></div>';
+      m.innerHTML = 'Rust pone <input type="range" id="xn" min="0" max="7" value="3"> <span id="xnv">3</span> filas (tope 5)';
+      var pinta = function () {
+        var n = +$('xn').value; $('xnv').textContent = n;
+        var nombres = ['ana', 'luis', 'miau', 'rocio', 'tito', 'zoe', 'gato'];
+        $('xl').innerHTML = nombres.slice(0, n).map(function (x, i) { return '<div class="' + (i >= 5 ? 'fuera' : '') + '"><span>' + x + '</span><span>' + (i >= 5 ? 'pasa del tope' : 'fila ' + i) + '</span></div>'; }).join('');
+      };
+      $('xn').addEventListener('input', pinta); pinta();
+    } else if (k === 'ventana') {
+      var lineas = []; for (var i = 1; i <= 14; i++) { lineas.push('linea ' + i + ' de la biblioteca'); }
+      v.innerHTML = '<div class="x-ventana">' + lineas.join('<br>') + '</div>';
+      m.textContent = 'desplazala: lo de dentro se maqueto y se juzgo ENTERO, aunque no quepa a la vista';
+    } else if (k === 'solapas') {
+      var ops = ['grafo', 'espacio', 'estratos'];
+      v.innerHTML = '<div class="x-pest" id="xp">' + ops.map(function (o, i) { return '<button aria-pressed="' + (i === solapa) + '" data-i="' + i + '">' + o + '</button>'; }).join('') + '</div>';
+      v.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { solapa = +b.dataset.i; vivo('solapas'); }); });
+      m.textContent = 'pintar_estado(' + ops[solapa] + ')';
+    } else if (k === 'icono') {
+      v.innerHTML = '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#FFD45E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6h12q3 0 3 3v7q0 3-3 3H6q-3 0-3-3V9q0-3 3-3zM3 10h18M16 14h2"/></svg>';
+      m.textContent = 'cartera, del catalogo: el mismo trazo en BANK CAT, en F2 y en el escritorio';
+    } else if (k === 'globo') {
+      v.innerHTML = '<div class="x-globo" id="xg">administrar archivos? F2 MIAU :3</div>';
+      m.innerHTML = '<button class="op" id="xgo">entrar otra vez</button>';
+      $('xgo').addEventListener('click', function () {
+        var g = $('xg'); g.animate([{ transform: 'scale(.2)', opacity: 0 }, { transform: 'scale(1.08)', opacity: 1, offset: .7 }, { transform: 'scale(1)' }], { duration: 350, easing: 'ease-out' });
+      });
+    } else if (k === 'isla') {
+      v.innerHTML = '<div class="x-isla">ISLA_VITALS<br>otro proceso pinta aqui</div>';
+      m.textContent = 'MAQUETA solo le da el sitio: el rect viaja a la superficie del DIRECTOR';
+    } else if (k === 'imagen') {
+      v.innerHTML = '<div style="width:64px;height:64px;border-radius:14px;background:radial-gradient(circle at 35% 35%, #70D6FF, #3D6BFF 55%, #8C52FF);"></div>';
+      m.textContent = 'mide lo que mide (no se escala) y se recorta a su radio con la curva suave';
+    } else if (k === 'span') {
+      v.innerHTML = '<span style="font-size:28px;color:#FFD45E">1.250,00</span>';
+      m.textContent = 'medido al compilar: la caja es exactamente el texto';
+    } else {
+      v.innerHTML = '<div style="width:200px;padding:14px;border-radius:12px;background:#0D1118;border:1px solid #1B2130;font-size:13px;color:#C9D3DB">una tarjeta: el 95 % de todo</div>';
+      m.textContent = 'su rect sale ya calculado en el modulo';
+    }
+  }
+
+  // -- medir un texto como lo mediria el compilador (aqui, con la letra del navegador)
+  var lienzo = document.createElement('canvas').getContext('2d');
+  function ancho(texto, letra) { lienzo.font = letra; return Math.ceil(lienzo.measureText(texto).width); }
+
+  // == 3. LOS LAB ================================================================
+  function rejilla() {
+    var W = +$('g-w').value, GAP = 4, PAD = 16, t = $('g-t').value || ' ';
+    $('g-wo').textContent = W + 'px';
+    var fr = Math.floor((W - 60 - 2 * GAP) / 2);
+    var r = $('g-rej');
+    r.style.width = W + 'px';
+    r.style.gridTemplateColumns = '60px ' + fr + 'px ' + fr + 'px';
+    var celdas = [['60px', '1fr = ' + fr, '1fr = ' + fr], ['icono', 'Recibir', t]];
+    var necesita = ancho(t, '11px "IBM Plex Mono", monospace') + PAD;
+    r.innerHTML = '';
+    celdas.forEach(function (fila, i) {
+      fila.forEach(function (txt, j) {
+        var s = document.createElement('span');
+        s.textContent = txt;
+        if (i === 1 && j === 2 && necesita > fr) { s.className = 'mal'; }
+        r.appendChild(s);
+      });
+    });
+    $('g-regla').textContent = 'fr = (' + W + ' - 60 - 2 x 4 de gap) / 2 = ' + fr + 'px, calculado UNA vez al compilar';
+    if (necesita > fr) {
+      juez($('g-juez'), false, '<b>error en la celda (fila 2, columna 3)</b>: "' + escapar(t) + '" necesita ' + necesita + 'px y la pista tiene ' + fr + 'px. ' +
+        'Ensancha la rejilla a ' + (60 + 2 * GAP + 2 * necesita) + 'px o acorta el texto. CSS la habria desbordado sin decir nada.');
+    } else {
+      juez($('g-juez'), true, '<b>cabe</b>: la celda necesita ' + necesita + 'px de ' + fr + '. Queda escrito en el modulo; en el aparato no se reparte nada.');
+    }
+  }
+  ['g-w', 'g-t'].forEach(function (id) { $(id).addEventListener('input', rejilla); });
+
+  function margenes() {
+    var a = +$('m-a').value, b = +$('m-b').value;
+    $('m-ao').textContent = a + 'px'; $('m-bo').textContent = b + 'px';
+    $('m-c1').style.marginBottom = a + 'px';
+    $('m-c2').style.marginTop = b + 'px';
+    // Lo que pone el navegador DE VERDAD, medido; con la tarjeta cerrada no
+    // hay nada que medir y se dice la regla de CSS: el mayor de los dos.
+    var visible = $('m-c1').offsetParent !== null;
+    var real = visible ? Math.round($('m-c2').getBoundingClientRect().top - $('m-c1').getBoundingClientRect().bottom) : Math.max(a, b);
+    $('m-css').textContent = 'entre las dos: ' + real + 'px';
+    $('m-gp').style.gap = (a + b) + 'px';
+    $('m-lee').textContent = 'a + b = ' + (a + b) + 'px';
+    if (a > 0 && b > 0) {
+      juez($('m-juez'), false, '<b>error: CSS fundiria estos dos margenes</b> -- el navegador pone ' + real + 'px, no ' + (a + b) +
+        '. Escribe <code>gap: ' + (a + b) + 'px</code> en el padre (o <code>gap: ' + Math.max(a, b) + 'px</code> si querias lo de CSS).');
+    } else {
+      juez($('m-juez'), true, '<b>entra</b>: un solo margen no se funde con nada. El navegador y el Ryzen dicen lo mismo: ' + real + 'px.');
+    }
+  }
+  ['m-a', 'm-b'].forEach(function (id) { $(id).addEventListener('input', margenes); });
+
+  function variables() {
+    var c = $('v-c').value, hijo = $('v-hijo').checked;
+    var chip = $('v-chip');
+    chip.style.borderColor = c; chip.style.color = c; chip.style.background = c + '1F';
+    $('v-punto').style.background = hijo ? c : '#3A4270';
+    if (hijo) {
+      juez($('v-juez'), false, '<b>error: el punto es un HIJO y lee var(--c)</b>. En el navegador la heredaria y se veria ' + c +
+        '; en MAQUETA --c solo existe para el chip. Dale su propia --c al punto, o ponla en <code>:root</code>.');
+    } else {
+      juez($('v-juez'), true, '<b>entra</b>: --c la usa SOLO el chip que la declara. Es una constante de una caja: nadie la hereda a escondidas.');
+    }
+  }
+  ['v-c', 'v-hijo'].forEach(function (id) { $(id).addEventListener('input', variables); });
+
+  function hex2rgb(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
+  function rgb2hex(c) { return '#' + c.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('').toUpperCase(); }
+  function opacidad() {
+    var f = $('o-f').value, b = $('o-b').value, a = +$('o-a').value / 100, isla = $('o-isla').checked;
+    $('o-ao').textContent = a.toFixed(2);
+    var F = hex2rgb(f), Bk = hex2rgb(b);
+    var mez = rgb2hex(F.map(function (v, i) { return Math.round(a * v + (1 - a) * Bk[i]); }));
+    var fondo = isla ? 'repeating-linear-gradient(45deg,#1D2650 0 8px,#3B2350 8px 16px)' : b;
+    $('o-m1').style.background = fondo; $('o-t1').style.background = f; $('o-t1').style.opacity = a;
+    $('o-m2').style.background = fondo;
+    if (isla) {
+      $('o-t2').style.background = 'transparent'; $('o-t2').style.border = '1px dashed #FF4D6A';
+      $('o-hex').textContent = '?';
+      juez($('o-juez'), false, '<b>error: el fondo es una isla</b> -- lo pinta otro proceso y no se sabe al compilar. No hay color que mezclar: usa un fondo liso, o deja la caja opaca.');
+    } else {
+      $('o-t2').style.background = mez; $('o-t2').style.border = '0';
+      $('o-hex').textContent = 'background: ' + mez;
+      juez($('o-juez'), true, '<b>entra</b>: ' + f.toUpperCase() + ' al ' + Math.round(a * 100) + ' % sobre ' + b.toUpperCase() + ' = <b>' + mez +
+        '</b>. El aparato pinta ese color y ya: cero mezclas por cuadro.');
+    }
+  }
+  ['o-f', 'o-b', 'o-a', 'o-isla'].forEach(function (id) { $(id).addEventListener('input', opacidad); });
+
+  function flexuno() {
+    var W = +$('f-w').value, sin = $('f-sin').checked;
+    $('f-wo').textContent = sin ? '--' : W + 'px';
+    var fila = $('f-fila'), crece = $('f-crece');
+    var sobra = W - 10 - 28 - 80 - 2 * 6 - 2;
+    if (sin) {
+      fila.style.width = 'auto'; crece.style.width = '60px'; crece.textContent = '?';
+      juez($('f-juez'), false, '<b>error: flex:1 sin medida del padre</b> -- crecer es repartir lo que SOBRA, y sin width no se sabe cuanto sobra. ' +
+        'CSS lo resolveria contra el abuelo, que esta fila no conoce (L7). Dile <code>width</code> a la fila.');
+    } else {
+      fila.style.width = W + 'px'; crece.style.width = Math.max(sobra, 0) + 'px'; crece.textContent = 'flex:1 = ' + sobra + 'px';
+      juez($('f-juez'), sobra >= 40, sobra >= 40
+        ? '<b>entra</b>: sobran ' + sobra + 'px y se los lleva la caja que crece. Calculado al compilar y escrito en el modulo.'
+        : '<b>error: a la caja que crece le quedan ' + sobra + 'px</b> y su texto pide 40. Ensancha la fila.');
+    }
+  }
+  ['f-w', 'f-sin'].forEach(function (id) { $(id).addEventListener('input', flexuno); });
+
+  // La secuencia: tres estados maquetados AL COMPILAR (0, 50 y 100 %); el
+  // aparato solo los mezcla con la curva -- la cuenta de bmo_pinta::entre_piezas.
+  var PASOS = [0, 50, 100];
+  function curva(x) { var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); }
+  function secuencia() {
+    var t = +$('s-t').value, w0 = +$('s-w0').value, txt = $('s-txt').value || ' ';
+    $('s-to').textContent = t + ' %'; $('s-w0o').textContent = w0 + 'px';
+    var anchos = { 0: w0, 50: 200, 100: w0 };
+    var pide = ancho(txt, '11px "IBM Plex Mono", monospace') + 14;
+    var tramo = t <= 50 ? [0, 50] : [50, 100];
+    var x = (t - tramo[0]) / 50;
+    var w = Math.round(anchos[tramo[0]] + (anchos[tramo[1]] - anchos[tramo[0]]) * curva(x));
+    var caja = $('s-caja'); caja.style.width = w + 'px'; caja.textContent = txt;
+    var malos = PASOS.filter(function (p) { return anchos[p] < pide; });
+    var pasos = $('s-pasos'); pasos.innerHTML = '';
+    PASOS.forEach(function (p) {
+      var bt = document.createElement('button');
+      bt.textContent = p + ' % -- ' + anchos[p] + 'px';
+      if (anchos[p] < pide) { bt.className = 'mal'; }
+      if (p === t) { bt.classList.add('aqui'); }
+      bt.addEventListener('click', function () { $('s-t').value = p; secuencia(); });
+      pasos.appendChild(bt);
+    });
+    if (malos.length) {
+      juez($('s-juez'), false, '<b>no compila: en el paso ' + malos.join(' % y ') + ' % el texto no cabe</b> (pide ' + pide + 'px). ' +
+        'CSS lo descubriria en la pantalla, a mitad de la animacion; MAQUETA lo dice antes de que exista el binario.');
+    } else {
+      juez($('s-juez'), true, '<b>los tres pasos caben</b> (el texto pide ' + pide + 'px). Ahora el aparato mezcla el paso ' +
+        tramo[0] + ' % y el ' + tramo[1] + ' % al ' + Math.round(x * 100) + ' %: ' + w + 'px, sin maquetar nada.');
+    }
+  }
+  ['s-t', 's-w0', 's-txt'].forEach(function (id) { $(id).addEventListener('input', secuencia); });
+  var reloj = null;
+  $('s-play').addEventListener('change', function () {
+    if (this.checked && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      reloj = setInterval(function () { $('s-t').value = (+$('s-t').value + 2) % 102; secuencia(); }, 32);
+    } else { clearInterval(reloj); }
+  });
+
+  $('z-ver').addEventListener('change', function () { $('z-panel').classList.toggle('ver', this.checked); });
+  document.querySelectorAll('#z-panel .btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      juez($('z-juez'), true, 'pulsaste en <b>' + b.dataset.z + '</b>: <code>zona_en(x, y) == Some(' + b.dataset.id + ')</code> -- la app solo decide QUE hacer, no DONDE esta.');
+    });
+  });
+
+  function refrescar() { rejilla(); margenes(); variables(); opacidad(); flexuno(); secuencia(); }
+  pintarMapa(); medidor(); refrescar();
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(function () { rejilla(); secuencia(); margenes(); }); }
+})();
 </script>
 </body>
 </html>
