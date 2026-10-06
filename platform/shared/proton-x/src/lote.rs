@@ -44,6 +44,9 @@ const SV_TARGET: u32 = 64;
 const SV_DEPTH: u32 = 65;
 const SV_DEPTH_MAYOR_IGUAL: u32 = 67;
 const SV_DEPTH_MENOR_IGUAL: u32 = 68;
+/// SV_StencilRef (`D3D_NAME_STENCIL_REF`, 05-10): la referencia de stencil
+/// la da el de pixeles.
+const SV_STENCILREF: u32 = 69;
 
 /// **De donde sale una entrada del sombreador de vertices** (03-10).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -291,6 +294,10 @@ pub fn enlazar_con_gs(vs: &Sombreador, gs: Option<&Sombreador>, ps: Option<&Somb
         if matches!(f.sistema, SV_DEPTH | SV_DEPTH_MAYOR_IGUAL | SV_DEPTH_MENOR_IGUAL) {
             profundidad_ps = Some(k);
             objetivos.push(trama::PROFUNDIDAD as u8);
+            continue;
+        }
+        if f.sistema == SV_STENCILREF {
+            objetivos.push(trama::REFERENCIA as u8);
             continue;
         }
         if f.sistema != SV_TARGET && !f.semantica.eq_ignore_ascii_case("SV_Target") {
@@ -598,7 +605,7 @@ fn en_cpu_olas(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, o
 /// Lo que su sombreador de pixeles hace ademas del color (05-10): con UAV,
 /// cada pixel corre, en orden, y la Z se prueba despues (si no la pide antes).
 fn efectos(en: &Enlace) -> trama::Efectos {
-    trama::Efectos { uav: en.ps.toca_uav(), temprana: en.ps.computo.temprana }
+    trama::Efectos { uav: en.ps.toca_uav(), temprana: en.ps.computo.temprana, referencia: en.objetivos.contains(&(trama::REFERENCIA as u8)) }
 }
 
 /// **El dibujo con un sombreador de GEOMETRIA** (E2.3b, 05-10): el de
@@ -649,7 +656,8 @@ fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: 
                     }
                 }
                 sal_gs.fill([0.0; 4]);
-                g.programa.correr_gs(&ent_gs, l.cb, &l.recursos, &mut sal_gs, &mut regs, &mut tiras);
+                // 05-10: con los UAV del lote (lo que el GS escribe, queda).
+                con_uavs(l, |u| g.programa.correr_gs(&ent_gs, l.cb, &l.recursos, &mut sal_gs, &mut regs, &mut tiras, u));
                 let primero = sombreados.len();
                 for v in tiras.vertices.chunks_exact(tiras.salidas.max(1)) {
                     let atributos = en.desde_vs.iter().map(|o| o.and_then(|k| v.get(k).copied()).unwrap_or([0.0; 4])).collect();

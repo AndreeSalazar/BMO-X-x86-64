@@ -597,13 +597,15 @@ en una conversacion.
    el HDR (N5.16 y N5.16b, 05-10)         los de 1 a 4 canales y sus UAV ya
                                           son float; al presentar lo de mas
                                           de 1 se recorta (sin monitor HDR);
-                                          un R32_UINT de destino, aun no
-                                          (aviso)
+                                          los de ENTEROS, desde el 05-10
+                                          (`restos.exe`): sus bits, saturados
    el stencil (05-10, N5.12b)             ya recorta, con las reglas de D3D12
                                           (`stencil.exe`); sus lotes van por
                                           la CPU (la 3060 no lo sabe: lo
-                                          dice), y el plano 1 no se lee con
-                                          CopyTextureRegion todavia
+                                          dice); el plano 1 se lee desde el
+                                          05-10 (CopyTextureRegion y un SRV
+                                          X24_G8, `restos.exe`), y SV_StencilRef
+                                          se usa
    AlphaToCoverage                        se apunta y no se usa (lo dice un
                                           aviso al crear el PSO): con
                                           SampleDesc.Count 1 no cubre nada,
@@ -615,11 +617,11 @@ en una conversacion.
                                           dice una vez). El orden entre
                                           pixeles es el de la trama: D3D no
                                           da ninguno, y un juego que dependa
-                                          de el podria ver otra cosa. En un
-                                          sombreador de GEOMETRIA, todavia se
-                                          pierde (lo dice un aviso); un
-                                          dibujo SOLO con UAV (sin render
-                                          target) no se dibuja (lo dice)
+                                          de el podria ver otra cosa. Desde
+                                          el 05-10 (`restos.exe`), tambien en
+                                          un sombreador de GEOMETRIA y en un
+                                          dibujo SOLO con UAV (a la medida
+                                          del viewport, con UNA muestra)
    un UAV de textura 3D, de array o de    el PSO de computo no se crea (lo
    cubo                                   dice)
    ClearUnorderedAccessView con           limpia la vista entera (lo dice)

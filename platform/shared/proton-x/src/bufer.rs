@@ -256,7 +256,14 @@ impl Uav<'_> {
             }
             let antes = vista.cargar(Modo::Tipado, i, 0);
             let w: [f32; 4] = core::array::from_fn(|k| f32::from_bits(if mascara & (1 << k) != 0 { v[k] } else { antes[k] }));
-            for (k, x) in crate::formato_ia::cuantizar(self.formato & !CUATRO_FLOATS, w).iter().enumerate() {
+            // 05-10: una textura de ENTEROS (RGBA8_UINT, R16_SINT...) se guarda
+            // asi tambien: sus bits bajos, como un RWBuffer de enteros (abajo).
+            let f = self.formato & !CUATRO_FLOATS;
+            let q = match crate::formato_ia::es_entero(f) {
+                true => crate::formato_ia::empaquetar(f, w.map(f32::to_bits), true).map_or(w, |b| crate::formato_ia::leer(f, &b)),
+                false => crate::formato_ia::cuantizar(f, w),
+            };
+            for (k, x) in q.iter().enumerate() {
                 self.bytes[o + 4 * k..o + 4 * k + 4].copy_from_slice(&x.to_bits().to_le_bytes());
             }
             return;

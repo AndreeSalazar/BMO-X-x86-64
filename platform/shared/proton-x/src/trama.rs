@@ -153,9 +153,11 @@ pub struct Otro<'a> {
 /// Cuantos render targets puede escribir un dibujo (D3D12: 8).
 pub const OBJETIVOS: usize = 8;
 /// Lo que el de pixeles le da a la trama: un color por render target y,
-/// detras, su SV_Depth (en el canal 0 de `colores[PROFUNDIDAD]`).
-pub const SALIDAS: usize = OBJETIVOS + 1;
+/// detras, su SV_Depth (en el canal 0 de `colores[PROFUNDIDAD]`) y (05-10)
+/// su SV_StencilRef (los bits del canal 0 de `colores[REFERENCIA]`).
+pub const SALIDAS: usize = OBJETIVOS + 2;
 pub const PROFUNDIDAD: usize = OBJETIVOS;
+pub const REFERENCIA: usize = OBJETIVOS + 1;
 
 /// Lo que paso.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -384,6 +386,10 @@ pub struct Efectos {
     /// `[earlydepthstencil]`: la profundidad se prueba y se ESCRIBE antes
     /// de correrlo (un `discard` ya no la deshace), con UAV o sin ellos.
     pub temprana: bool,
+    /// 05-10: escribe SV_StencilRef: la referencia de stencil es la SUYA
+    /// (`colores[REFERENCIA]`, sus 8 bits bajos), asi que el stencil (y con
+    /// el la profundidad) se prueba DESPUES de el, como con UAV.
+    pub referencia: bool,
 }
 
 /// [`dibujar`] con los [`Efectos`] de su sombreador de pixeles.
@@ -420,11 +426,14 @@ struct Pendiente {
 struct Comun<'r> {
     reglas: &'r Reglas,
     temprana: bool,
+    /// El stencil se prueba despues del de pixeles (`tarde` y, 05-10, con
+    /// SV_StencilRef tambien con SV_Depth), con la referencia que diga el.
     tarde: bool,
     prueba: Option<Profundidad>,
     texeles: usize,
     n_rt: usize,
     bgra: [bool; OBJETIVOS],
+    referencia: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -432,7 +441,8 @@ fn dibujar_todo(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tris:
     let mut cuenta = Cuenta::default();
     // La profundidad, despues del sombreador: la suya (SV_Depth) o la de la
     // trama con UAV (`tarde`).
-    let tarde = efectos.uav && !efectos.temprana && !reglas.z_del_sombreador;
+    let tarde = (efectos.uav || efectos.referencia) && !efectos.temprana && !reglas.z_del_sombreador;
+    let st_tarde = tarde || efectos.referencia;
     let [vx, vy, vw, vh, zmin, zmax] = reglas.viewport;
     let texeles = destino.ancho as usize * destino.alto as usize;
     let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= texeles));
@@ -456,7 +466,7 @@ fn dibujar_todo(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tris:
     for (k, o) in destino.otros.iter().take(OBJETIVOS - 1).enumerate() {
         bgra[k + 1] = o.bgra;
     }
-    let comun = Comun { reglas, temprana: efectos.temprana, tarde, prueba, texeles, n_rt, bgra };
+    let comun = Comun { reglas, temprana: efectos.temprana, tarde: st_tarde, prueba, texeles, n_rt, bgra, referencia: efectos.referencia };
     // E2.5: con olas, los pixeles que llegan al sombreador, para despues.
     let mut pendientes: Vec<(Pendiente, i64, i64, Vec<[f32; 4]>)> = Vec::new();
     let mut entrada: Vec<[f32; 4]> = Vec::new();
@@ -571,7 +581,7 @@ fn dibujar_todo(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tris:
                 // (`tarde`): entonces el de pixeles corre en todos y los dos se
                 // prueban DESPUES, como en D3D.
                 let mut fallo = match (cara, destino.stencil.as_deref()) {
-                    (Some(c), Some(s)) if !tarde && !c.prueba(s[i]) => Some(c.falla),
+                    (Some(c), Some(s)) if !st_tarde && !c.prueba(s[i]) => Some(c.falla),
                     _ => None,
                 };
                 if let (None, Some(p), Some(zs)) = (fallo, prueba.filter(|_| !reglas.z_del_sombreador), destino.z.as_deref_mut()) {
@@ -653,7 +663,7 @@ fn dibujar_todo(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tris:
 /// que pasan, la profundidad, el stencil y la mezcla en cada render target.
 fn poner_pixel(k: &Comun, destino: &mut Destino, cuenta: &mut Cuenta, cara: Option<crate::stencil::Cara>, p: Pendiente, pixel: Salida) {
     let Pendiente { i, fallo, mut z_nueva, z_tarde } = p;
-    let (reglas, prueba, tarde, n_rt, bgra) = (k.reglas, k.prueba, k.tarde, k.n_rt, k.bgra);
+    let (reglas, prueba, n_rt, bgra) = (k.reglas, k.prueba, k.n_rt, k.bgra);
     let (zmin, zmax) = (reglas.viewport[4], reglas.viewport[5]);
     let mezclas = reglas.mezcla;
     // Palabras por texel de un render target de float (N5.16b): cuatro, o
@@ -665,12 +675,14 @@ fn poner_pixel(k: &Comun, destino: &mut Destino, cuenta: &mut Cuenta, cara: Opti
         }
         return;
     };
+    // SV_StencilRef: la referencia de ESTE pixel, para la prueba y REPLACE.
+    let cara = cara.map(|c| if k.referencia { crate::stencil::Cara { referencia: colores[REFERENCIA][0].to_bits() as u8, ..c } } else { c });
     if let (Some(op), Some(c), Some(s)) = (fallo, cara, destino.stencil.as_deref_mut()) {
         s[i] = c.aplicar(op, s[i]);
         return;
     }
-    // `tarde` (UAV sin [earlydepthstencil]): el stencil, ahora.
-    if let (true, Some(c), Some(s)) = (tarde, cara, destino.stencil.as_deref_mut()) {
+    // `tarde` (UAV sin [earlydepthstencil], o SV_StencilRef): el stencil, ahora.
+    if let (true, Some(c), Some(s)) = (k.tarde, cara, destino.stencil.as_deref_mut()) {
         if !c.prueba(s[i]) {
             cuenta.tapados += 1;
             s[i] = c.aplicar(c.falla, s[i]);
@@ -708,11 +720,16 @@ fn poner_pixel(k: &Comun, destino: &mut Destino, cuenta: &mut Cuenta, cara: Opti
     // N5.16: el de un render target de float, en float: mezclado
     // con el que esta y cuantizado a su formato. N5.16b: con una
     // palabra por texel (R32F), el r; lo demas se lee (0, 0, 1).
+    // 05-10: uno de ENTEROS (R32_UINT, RGBA16_SINT...) guarda los bits del
+    // sombreador saturados a su canal (`formato_ia::de_entero`), SIN mezcla
+    // (D3D no mezcla enteros) y con su mascara de escritura.
     let poner_f = |k: usize, f: u32, t: &mut [u32]| {
-        let m = &mezclas.rt[k];
+        let entero = crate::formato_ia::de_entero(f, colores[k]);
+        let m = crate::mezcla::Mezcla { encendida: mezclas.rt[k].encendida && entero.is_none(), ..mezclas.rt[k] };
         let d: [f32; 4] = core::array::from_fn(|c| t.get(c).map_or(if c == 3 { 1.0 } else { 0.0 }, |&w| f32::from_bits(w)));
-        let c = if m.trivial() { colores[k] } else { m.aplicar(colores[k], d, mezclas.factor) };
-        for (w, x) in t.iter_mut().zip(crate::formato_ia::cuantizar(f, c)) {
+        let o = entero.unwrap_or(colores[k]);
+        let c = if m.trivial() { o } else { m.aplicar(o, d, mezclas.factor) };
+        for (w, x) in t.iter_mut().zip(if entero.is_some() { c } else { crate::formato_ia::cuantizar(f, c) }) {
             *w = x.to_bits();
         }
     };

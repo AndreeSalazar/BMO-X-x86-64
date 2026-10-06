@@ -54,7 +54,9 @@ pub enum Almacen {
     /// de los formatos de FLOAT de color y los de 10 bits (el HDR: RGBA16F,
     /// R11G11B10F, RGBA32F, RG16F, R10G10B10A2...), ya cuantizados a su
     /// formato NATIVO ([`Almacen::nativo`]): se leen y se escriben sin
-    /// perder nada, y vuelven a su formato exactos.
+    /// perder nada, y vuelven a su formato exactos. Y (05-10) los de
+    /// ENTEROS: cada palabra, los bits de su canal (como los lee el
+    /// sombreador, `formato_ia::leer`).
     Flotantes4,
     /// Bloques comprimidos, tal cual llegan.
     Bloques(Bc),
@@ -73,6 +75,11 @@ impl Almacen {
             19..=22 | 39..=47 | 53 | 55 => Almacen::Flotante,
             // N5.16: los de float y los de 10 bits (y sus TYPELESS).
             1..=3 | 5 | 6 | 9 | 10 | 15 | 16 | 23 | 24 | 26 | 33 | 34 | 54 => Almacen::Flotantes4,
+            // 05-10: los de ENTEROS de 1 a 4 canales (UINT y SINT, salvo los
+            // R32 de arriba): sus bits, un canal por palabra, para que un
+            // R16_UINT o un RGBA8_SINT se pinten, se limpien y se copien
+            // exactos (antes, a 8 bits por canal: se perdian).
+            4 | 7 | 8 | 12 | 14 | 17 | 18 | 25 | 30 | 32 | 36 | 38 | 50 | 52 | 57 | 59 | 62 | 64 => Almacen::Flotantes4,
             _ => Almacen::Rgba8,
         }
     }
@@ -230,11 +237,14 @@ pub struct Huella {
 /// **Las huellas de `n` subrecursos desde `primero`**, y lo que ocupan
 /// todas (sin el relleno de la ultima fila, como D3D12).
 pub fn huellas(f: &Forma, primero: u32, n: u32) -> (Vec<Huella>, u64) {
-    let (bytes, lado) = crate::d3d12_medidas::elemento(f.formato);
     let mut v = Vec::with_capacity(n as usize);
     let (mut siguiente, mut total) = (0u64, 0u64);
     for i in primero..primero.saturating_add(n) {
-        let (m, _) = f.sub(i);
+        // 05-10: los subrecursos del PLANO 1 (el stencil de un D24S8 o un
+        // D32S8X24), detras de los de la profundidad: un byte por texel.
+        let plano1 = i >= f.subrecursos() && crate::d3d12_stencil::con_stencil(f.formato);
+        let (bytes, lado) = if plano1 { (1, 1) } else { crate::d3d12_medidas::elemento(f.formato) };
+        let (m, _) = f.sub(if plano1 { i - f.subrecursos() } else { i });
         let (ancho, alto, hondo) = f.medidas(m);
         let (cols, filas) = ((ancho as u64).div_ceil(lado), (alto as u64).div_ceil(lado));
         let fila = cols * bytes;
@@ -427,6 +437,9 @@ mod pruebas {
         assert_eq!(Almacen::de(87), Almacen::Bgra8);
         assert_eq!(Almacen::de(45), Almacen::Flotante);
         assert_eq!(Almacen::de(98), Almacen::Bloques(Bc::Bc7));
+        // Los de enteros, un canal por palabra; los R32 de enteros, una.
+        assert_eq!((Almacen::de(62), Almacen::de(30), Almacen::de(14)), (Almacen::Flotantes4, Almacen::Flotantes4, Almacen::Flotantes4));
+        assert_eq!((Almacen::de(42), Almacen::de(27)), (Almacen::Flotante, Almacen::Rgba8));
     }
 
     #[test]

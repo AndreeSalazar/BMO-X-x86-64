@@ -252,6 +252,42 @@ pub fn cuantizar(formato: u32, c: [f32; 4]) -> [f32; 4] {
     }
 }
 
+/// Si es un formato de ENTEROS (UINT o SINT): sus valores van en los bits
+/// del registro, no en un float.
+pub fn es_entero(formato: u32) -> bool {
+    forma(formato).is_some_and(|f| matches!(f.clase, Clase::Uint | Clase::Sint))
+}
+
+/// **Lo que un sombreador ENTERO deja en un render target de enteros**
+/// (05-10, los R32_UINT, R8_UINT, RGBA16_SINT...): cada canal son los bits
+/// de un entero de 32 (sin signo en un UINT, con signo en un SINT) y se
+/// SATURA a los bits del canal, la regla de conversion entre enteros de la
+/// especificacion funcional de D3D11.3 (3.2.3.6), que D3D12 hereda: 300 en
+/// un R8_UINT es 255, -40000 en un R16_SINT es -32768. Sin mezcla (en un
+/// entero no la hay). Devuelve lo que se lee de vuelta (como [`leer`]), o
+/// `None` si el formato no es de enteros.
+pub fn de_entero(formato: u32, c: [f32; 4]) -> Option<[f32; 4]> {
+    let f = forma(formato).filter(|f| matches!(f.clase, Clase::Uint | Clase::Sint))?;
+    let mut v = c.map(f32::to_bits);
+    if f.bgra {
+        v.swap(0, 2);
+    }
+    for (x, &n) in v.iter_mut().zip(&f.bits) {
+        let n = n as u32;
+        if n == 0 || n == 32 {
+            continue;
+        }
+        *x = match f.clase {
+            Clase::Uint => (*x).min((1 << n) - 1),
+            _ => (*x as i32).clamp(-(1 << (n - 1)), (1 << (n - 1)) - 1) as u32,
+        };
+    }
+    if f.bgra {
+        v.swap(0, 2);
+    }
+    empaquetar(formato, v, true).map(|b| leer(formato, &b))
+}
+
 /// **Un elemento en su formato** (N5.3c, 05-10, lo de `ClearUnorderedAccessView`):
 /// lo contrario de [`leer`]. `v` trae un valor por canal: con `crudo` (la
 /// version Uint de D3D12), los bits bajos de cada uno tal cual, sin
@@ -363,6 +399,23 @@ mod pruebas {
         assert_eq!(x.map(f32::to_bits), [(-1i32) as u32, (-128i32) as u32, 5, 0]);
         // Lo que falta en uno entero: w = 1 ENTERO, no 1.0.
         assert_eq!(leer(42, &7u32.to_le_bytes()).map(f32::to_bits), [7, 0, 0, 1]);
+    }
+
+    #[test]
+    fn un_render_target_de_enteros_satura_lo_que_no_cabe() {
+        let b = |v: [u32; 4]| v.map(f32::from_bits);
+        // R8_UINT (62): 300 -> 255, 77 tal cual; lo que no trae, (0, 0, 1).
+        assert_eq!(de_entero(62, b([300, 9, 9, 9])).unwrap().map(f32::to_bits), [255, 0, 0, 1]);
+        assert_eq!(de_entero(62, b([77, 0, 0, 0])).unwrap().map(f32::to_bits), [77, 0, 0, 1]);
+        // R16G16B16A16_SINT (14): -5, 40000 -> 32767, -40000 -> -32768, 123.
+        let s = |x: i32| x as u32;
+        assert_eq!(de_entero(14, b([s(-5), 40000, s(-40000), 123])).unwrap().map(f32::to_bits), [s(-5), 32767, s(-32768), 123]);
+        // R32_UINT y R32_SINT: los 32 bits, tal cual.
+        assert_eq!(de_entero(42, b([0xDEAD_BEEF, 0, 0, 0])).unwrap()[0].to_bits(), 0xDEAD_BEEF);
+        assert_eq!(de_entero(43, b([s(-7), 0, 0, 0])).unwrap()[0].to_bits(), s(-7));
+        // Uno de floats no es de enteros.
+        assert!(de_entero(41, [0.0; 4]).is_none() && de_entero(28, [0.0; 4]).is_none());
+        assert!(es_entero(30) && es_entero(43) && !es_entero(10));
     }
 
     #[test]

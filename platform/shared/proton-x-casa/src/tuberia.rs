@@ -361,6 +361,12 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
     if u32_de(d, 120) != 0 {
         aviso("CreateGraphicsPipelineState con AlphaToCoverage: sin MSAA no cubre nada; se apunta, y no se usa");
     }
+    // 05-10: RasterizerState.ForcedSampleCount (+36), el de los dibujos SOLO
+    // con UAV: con mas de una muestra D3D cubre por muestras; la trama, en el
+    // centro del pixel (una).
+    if u32_de(d, 452 + 36) > 1 {
+        aviso("CreateGraphicsPipelineState con ForcedSampleCount > 1: la trama cubre con UNA muestra (el centro del pixel); un pixel que solo toca otras muestras no se sombrea");
+    }
     let independiente = u32_de(d, 124) != 0;
     let mezcla = (0..8usize)
         .map(|i| {
@@ -689,9 +695,11 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
         aviso("Draw con una root signature distinta de la del PSO: en Windows es un error");
         return;
     }
-    // N5.12: el de solo profundidad pinta en el DSV, y nada mas.
-    if pso.n_rt == 0 && e.dsv == 0 {
-        aviso("Draw de solo profundidad sin DSV en OMSetRenderTargets: no hay donde dibujar");
+    // N5.12: el de solo profundidad pinta en el DSV, y nada mas. 05-10: sin
+    // DSV tampoco, si sus sombreadores escriben UAV (el dibujo SOLO con UAV
+    // de D3D: se rasteriza a la medida del viewport, `pintar`).
+    if pso.n_rt == 0 && e.dsv == 0 && !pso.compilado.enlace.as_ref().is_ok_and(|en| !en.ranuras.uavs.is_empty()) {
+        aviso("Draw sin render target, sin DSV y sin UAV: no hay donde dibujar");
         return;
     }
     if pso.n_rt > 0 && e.rtv == 0 {
@@ -832,11 +840,16 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         Some(Some(c)) => c,
         None => (false, None),
         Some(None) => {
-            aviso("Draw sobre un render target de un solo float que no es R32_FLOAT ni R16_FLOAT (un R32_UINT...) o BC: todavia no");
+            aviso("Draw sobre un render target de un formato que la casa no pinta (BC, o una vista de enteros sobre un recurso de otro formato): todavia no");
             return;
         }
     };
-    let (pixeles, ancho, alto): (&mut [u32], u32, u32) = if solo_z {
+    let (pixeles, ancho, alto): (&mut [u32], u32, u32) = if solo_z && e.dsv == 0 {
+        // 05-10: SOLO con UAV: sin nada que medir, la medida del viewport (lo
+        // de D3D: el rectangulo es el del viewport y la tijera).
+        let [x, y, w, h, ..] = e.viewport;
+        (&mut [], (x + w).clamp(0.0, 16384.0) as u32, (y + h).clamp(0.0, 16384.0) as u32)
+    } else if solo_z {
         match destino(e.dsv, e.dsv_sub) {
             Some((_, w, h)) => (&mut [], w, h),
             None => {
@@ -866,11 +879,6 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         }
     } else {
         ids.extend(primero..primero + cuantos);
-    }
-    // 05-10: los UAV de los de vertices y de pixeles van en el lote (abajo);
-    // los de un GS, todavia no: que no sea en silencio.
-    if en.gs.as_ref().is_some_and(|g| g.programa.toca_uav()) {
-        aviso("Draw: un sombreador de GEOMETRIA lee o escribe un UAV: todavia no; lo que escribe se pierde y lo que lee es 0");
     }
     // E2.3b: puntos y lineas, solo con un GS que los haga triangulos.
     let topologia = match (e.topologia, en.gs.is_some()) {
@@ -1012,7 +1020,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         let k = otros.len() + 1;
         // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
         let Some((bgra, flotante)) = como_se_pinta(unsafe { de::<crate::d3d12::Recurso>(r) }.formato, pso.formatos_rt[k]) else {
-            aviso("Draw sobre un render target (de los 1..8) de un solo float que no es R32_FLOAT ni R16_FLOAT, o BC: todavia no");
+            aviso("Draw sobre un render target (de los 1..8) de un formato que la casa no pinta (BC, o una vista de enteros sobre otro formato): todavia no");
             return;
         };
         if sub == 0 {
@@ -1052,13 +1060,19 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
 /// todavia no se sabe. 02-10: lo de 8 bits por canal; N5.16 (05-10), los de
 /// float de 2 a 4 canales (RGBA16F, R11G11B10F...) en float, cuantizados al
 /// formato de su vista; N5.16b, los de UN float que la casa guarda en una
-/// palabra (un R32_FLOAT, o la vista R16_FLOAT de un R16_TYPELESS).
+/// palabra (un R32_FLOAT, o la vista R16_FLOAT de un R16_TYPELESS). 05-10:
+/// los de ENTEROS (R32_UINT y R32_SINT en una palabra, los demas en cuatro),
+/// con los bits del sombreador (`trama`: `formato_ia::de_entero`); una
+/// vista de enteros sobre un recurso que no lo es (un RGBA8_TYPELESS), no.
 fn como_se_pinta(formato: u32, vista: u32) -> Option<(bool, Option<u32>)> {
+    let entero = bmo_proton_x::formato_ia::es_entero;
     Some(match Almacen::de(formato) {
+        Almacen::Bgra8 | Almacen::Rgba8 if entero(vista) => return None,
         Almacen::Bgra8 => (true, None),
         Almacen::Rgba8 => (false, None),
+        Almacen::Flotantes4 if entero(vista) != entero(Almacen::nativo(formato)) => return None,
         Almacen::Flotantes4 => (false, Some(Almacen::nativo(vista))),
-        Almacen::Flotante if matches!(vista, 41 | 54) => (false, Some(vista)),
+        Almacen::Flotante if matches!(vista, 41..=43 | 54) => (false, Some(vista)),
         _ => return None,
     })
 }
@@ -1190,6 +1204,10 @@ fn textura_de_srv(ranura: &[u64]) -> Result<bmo_proton_x::textura::Textura<'stat
     use bmo_proton_x::textura::{Clase, Como, Textura};
     let ((dimension, formato, mapeo), (sub, _)) = crate::d3d12_vistas::leer(ranura);
     aplicar_limpieza(ranura[0]);
+    // 05-10: X24_TYPELESS_G8_UINT y X32_TYPELESS_G8X24_UINT: el plano de stencil.
+    if matches!(formato, 22 | 47) {
+        return crate::d3d12_stencil::textura(ranura[0], mapeo);
+    }
     let Some(t) = crate::d3d12_vistas::tex(ranura[0]) else {
         return Err("un SRV de textura sobre un bufer: en Windows es un error (se lee como nulo)");
     };

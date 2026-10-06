@@ -2671,3 +2671,68 @@ quitada a mano, una a una, la ve su `bien`: las derivadas a 0, 13 MAL (A, y
 toda mip por encima de la 0); la fina x como la gruesa, MAL en A; sin
 MIP_LINEAR, los dos de C; sin ResourceMinLODClamp, ese de E; sin el MaxLOD
 del muestreador del monton, ese de E.
+
+restos_*.dxil -- los diez de restos.exe (05-10)
+
+`restos.hlsl` (aqui al lado): VSPantalla (un triangulo de pantalla entera
+por SV_VertexID), PSUint, PSSint, PSDos (dos destinos de enteros), PSLee
+(Load de un R32_UINT), PSStencil (Load del plano de stencil, .g), PSSoloUav
+(un dibujo sin destino que escribe UAV), VSPunto y GSMarca (un GS que
+escribe UAV) y PSRef (SV_StencilRef). Con el DXC de la nube (v1.8.2505,
+9efbb6c3), sin -Zi:
+
+   dxc -T vs_6_0 -E VSPantalla -Fo restos_vs.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSUint -Fo restos_uint.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSSint -Fo restos_sint.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSDos -Fo restos_dos.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSLee -Fo restos_lee.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSStencil -Fo restos_stencil.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSSoloUav -Fo restos_uav.dxil restos.hlsl
+   dxc -T vs_6_0 -E VSPunto -Fo restos_punto.dxil restos.hlsl
+   dxc -T gs_6_0 -E GSMarca -Fo restos_gs.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSRef -Fo restos_ref.dxil restos.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   3aa23d223d7d5ff517e969d99c4fb99f47f1703449efc9b135c9c36335fe8850  restos_dos.dxil
+   fc3dedf7a2655ff1c39b203e67c9499d3a8b71c000941b4dd97212ccb62c5424  restos_gs.dxil
+   472c838666261d5e397979362c50d7418057f219bded8a6c59b602ad4e3914a4  restos_lee.dxil
+   e535ede36075229b1187d9f61031021e52883a06309c2cc356ddbc31ac7533a3  restos_punto.dxil
+   bdc6729ded7558b2f4a2fe3023696410440bb15205cf075379aab7ca56903c6d  restos_ref.dxil
+   1de3482c2bc1d3c777cbd610b47f964e7fa8ed081e167b709927dd034c086e68  restos_sint.dxil
+   ecb68d31991b85f1d226b9054977842d8dfe7f5f35002a7fa825594911568d36  restos_stencil.dxil
+   727b8bcdbcd33891c42ba2494b63d032b87aa6f082f530d7fa432fa3a630537c  restos_uav.dxil
+   72b3c16acfcfb10a72acca762d81bd0f3f6ecb867c24c86ae9d7afecadc8cdcf  restos_uint.dxil
+   e125f2c7d9bcfa34bdac2908aa71e14107dd85412564f584438de2bad01dd16c  restos_vs.dxil
+
+Van DENTRO de restos.exe.
+
+restos.exe -- lo que QUEDABA de N5.3d, N5.12b y N5.16b, juzgado (05-10)
+
+NUESTRO, de consola, destinos de 8 x 4. A, render targets de ENTEROS: un
+R32_UINT limpio a 7.0 (7) y escrito con sus 32 bits; un R8_UINT limpio a
+3.7 (3, hacia el cero) con 77 y con 300 (SATURA a 255); un RGBA16_SINT
+limpio y escrito, con lo que no cabe saturado (D3D11.3, 3.2.3.6); dos a la
+vez (un RGBA8_UINT con la mascara R|B y un RG32_UINT); y el R32_UINT leido
+con Load. B, un dibujo SOLO con UAV (sin destino ni Z) en un viewport de 6 x
+3: 18 pixeles, cada uno su texel. C, un GS que escribe UAV (5 puntos). D,
+el plano de stencil leido de vuelta: CopyTextureRegion del subrecurso 1 de
+un D24S8 y de un D32S8X24, y un SRV X24_TYPELESS_G8_UINT. E, SV_StencilRef
+(si OPTIONS dice PSSpecifiedStencilRefSupported; si no, una `nota`). Dice
+`bien` 18 veces y sale con el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con restos.cpp y los
+diez .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c restos.cpp -o restos.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o restos.exe restos.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   8705027785bad311aca27f7b3046ba5b55cf626b26ed46802b5b567a70b0bddd  restos.exe
+
+El banco (`tests/corre/muestras.rs`): los 18 `bien`, sale con 0, ninguna
+`nota`, y dos avisos (texturas y UAV: se interpretan). Probado que dice NO:
+contra la casa de antes, 14 MAL (los enteros no se pintaban, el dibujo
+sin destino no se dibujaba, lo del GS se perdia, el plano 1 no se copiaba)
+y E en `nota` (la casa decia que SV_StencilRef no).

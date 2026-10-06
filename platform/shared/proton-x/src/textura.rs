@@ -90,6 +90,11 @@ pub enum Como {
     /// Bloques de 4x4 comprimidos, tal cual (8 o 16 bytes: 2 o 4 palabras),
     /// fila de bloques tras fila de bloques; se descomprime el bloque al leer.
     Bloques(Bc),
+    /// 05-10: el plano de STENCIL de un D24S8 o un D32S8X24 (un byte por
+    /// texel, cuatro por palabra: el texel `i` es el byte `i % 4` de la
+    /// palabra `i / 4`), visto por un SRV X24_TYPELESS_G8_UINT o
+    /// X32_TYPELESS_G8X24_UINT: `Load` da `(0, stencil, 0, 1)`, enteros.
+    Stencil8,
 }
 
 /// **Que mira una vista** (la D3D12_SRV_DIMENSION, reducida): una 1D o
@@ -393,6 +398,7 @@ impl<'a> Textura<'a> {
         let rebanada = match self.como {
             Como::Bloques(b) => w.div_ceil(4) as usize * h.div_ceil(4) as usize * b.bytes() / 4,
             Como::Flotantes4 => w as usize * h as usize * 4,
+            Como::Stencil8 => (w as usize * h as usize).div_ceil(4),
             _ => w as usize * h as usize,
         };
         (rebanada, rebanada * d as usize)
@@ -632,6 +638,10 @@ impl<'a> Textura<'a> {
         let crudo = match p.como {
             Como::Flotante => [p.texeles.get((y * w as i64 + x) as usize).copied().unwrap_or(0), 0, 0, 1.0f32.to_bits()],
             Como::Flotantes4 => p.flotante(x, y).map(f32::to_bits),
+            Como::Stencil8 => {
+                let i = (y * w as i64 + x) as usize;
+                [0, p.texeles.get(i / 4).map_or(0, |q| q >> (8 * (i % 4)) & 0xFF), 0, 1]
+            }
             _ if enteros => {
                 let q = p.palabra(x, y);
                 let (r, g, b, a) = if p.como == Como::Bgra8 { (q >> 16, q >> 8, q, q >> 24) } else { (q, q >> 8, q >> 16, q >> 24) };
@@ -1040,6 +1050,12 @@ mod pruebas {
         let hdr = Textura { como: Como::Flotantes4, ..Textura::rgba(&h, 2, 1, false) };
         assert_eq!(hdr.muestrear(&PUNTO_BORDE, 0.25, 0.5), [3.5, -0.5, 0.0, 1.0]);
         assert_eq!(hdr.muestrear(&lin, 0.5, 0.5), [2.5, 0.0, 4.0, 0.75]);
+        // 05-10: el plano de stencil, un byte por texel: Load da el de (x, y)
+        // en G, entero (5 x 1: el quinto en la segunda palabra).
+        let st = [0x44_33_22_11u32, 0x55];
+        let p = Textura { como: Como::Stencil8, ..Textura::rgba(&st, 5, 1, false) };
+        assert_eq!(p.cargar([2, 0, 0], 0, [0; 3], true), [0, 0x33, 0, 1]);
+        assert_eq!(p.cargar([4, 0, 0], 0, [0; 3], true), [0, 0x55, 0, 1]);
         // Las caras de un cubo: el eje mayor y su signo.
         assert_eq!(cara_de_cubo(1.0, 0.0, 0.0), (0, 0.5, 0.5));
         assert_eq!(cara_de_cubo(-1.0, 0.5, 0.0), (1, 0.5, 0.25));

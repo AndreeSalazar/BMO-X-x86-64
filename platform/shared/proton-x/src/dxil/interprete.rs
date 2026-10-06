@@ -144,8 +144,9 @@ pub enum Extra<'x, 'a, 'b> {
     Nada,
     /// N5.5: un hilo de computo, con su grupo.
     Grupo(&'x mut Grupo<'a, 'b>),
-    /// E2.3b: un sombreador de geometria, con lo que lleva emitido.
-    Tiras(&'x mut Tiras),
+    /// E2.3b: un sombreador de geometria, con lo que lleva emitido y
+    /// (05-10) los UAV del dibujo.
+    Tiras(&'x mut Tiras, &'x mut [Option<crate::bufer::Uav<'b>>]),
     /// 05-10: un vertice o un pixel de un dibujo con UAV (`RWTexture2D`,
     /// `RWByteAddressBuffer`...): los del dibujo, por ranura.
     Uavs(&'x mut [Option<crate::bufer::Uav<'b>>]),
@@ -160,7 +161,7 @@ impl<'b> Extra<'_, '_, 'b> {
     fn uavs(&mut self) -> &mut [Option<crate::bufer::Uav<'b>>] {
         match self {
             Extra::Grupo(g) => g.uavs,
-            Extra::Uavs(u) | Extra::Ola(u) => u,
+            Extra::Uavs(u) | Extra::Ola(u) | Extra::Tiras(_, u) => u,
             _ => &mut [],
         }
     }
@@ -222,15 +223,16 @@ impl Programa {
 
     /// **Correr un sombreador de GEOMETRIA** (E2.3b) una vez, sobre una
     /// primitiva: `entradas` son sus vertices, cada uno [`Programa::entradas`]
-    /// elementos seguidos; lo que emite queda en `tiras` (que se vacia antes).
+    /// elementos seguidos; lo que emite queda en `tiras` (que se vacia antes),
+    /// y lo que escribe en sus UAV (05-10), en `uavs`.
     #[allow(clippy::too_many_arguments)]
-    pub fn correr_gs(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>, tiras: &mut Tiras) {
+    pub fn correr_gs(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>, tiras: &mut Tiras, uavs: &mut [Option<crate::bufer::Uav>]) {
         regs.clear();
         regs.extend_from_slice(&self.iniciales);
         tiras.vertices.clear();
         tiras.cortes.clear();
         let mut p = Pausa::AL_EMPEZAR;
-        self.correr_desde(&mut p, entradas, cb, rec, salidas, regs, Extra::Tiras(tiras));
+        self.correr_desde(&mut p, entradas, cb, rec, salidas, regs, Extra::Tiras(tiras, uavs));
     }
 
     /// **Correr un hilo desde `p`** (N5.5): hasta el final, o hasta una
@@ -406,7 +408,7 @@ impl Programa {
                     regs[d as usize] = entradas.get(i).map(|e| e[componente as usize & 3]).unwrap_or(0.0);
                 }
                 Op::Emite { flujo } => {
-                    if let Extra::Tiras(t) = &mut x {
+                    if let Extra::Tiras(t, _) = &mut x {
                         if flujo == 0 && t.emitidos() < t.maximo {
                             let n = t.salidas;
                             t.vertices.extend((0..n).map(|k| salidas.get(k).copied().unwrap_or([0.0; 4])));
@@ -414,7 +416,7 @@ impl Programa {
                     }
                 }
                 Op::Corta { flujo } => {
-                    if let Extra::Tiras(t) = &mut x {
+                    if let Extra::Tiras(t, _) = &mut x {
                         if flujo == 0 {
                             t.cortar();
                         }

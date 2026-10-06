@@ -641,6 +641,37 @@ fn el_stencil_recorta_como_en_windows() {
     assert!(texto.ends_with("stencil.exe: el stencil de D3D12 es el de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
+/// **Lo que QUEDABA de N5.3d, N5.12b y N5.16b** (05-10, `prueba/restos.exe`,
+/// nuestro, de consola): A, render targets de ENTEROS (R32_UINT, R8_UINT,
+/// RGBA16_SINT, RGBA8_UINT con mascara y RG32_UINT; su limpieza hacia el
+/// cero, la saturacion de lo que no cabe y uno leido con Load); B, un dibujo
+/// SOLO con UAV (el viewport de 6 x 3: 18 pixeles); C, UAV desde un
+/// sombreador de GEOMETRIA; D, el plano de stencil leido con
+/// CopyTextureRegion (subrecurso 1) y con un SRV X24_TYPELESS_G8_UINT; E,
+/// SV_StencilRef (OPTIONS ya dice que si). Bits escritos a mano en el `.cpp`.
+#[test]
+fn restos_enteros_solo_uav_gs_plano_de_stencil_y_stencilref() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, RESTOS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Dos avisos, los de verdad: A5 y D2 leen una textura y B y C escriben
+    // UAV, y eso se interpreta (el codigo nativo no muestrea ni toca UAV).
+    // Ninguno de lo que antes se perdia o se negaba.
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(
+        avisos,
+        [
+            "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)",
+            "PROTON-X: un PSO cuyo sombreador lee o escribe un UAV: sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"
+        ],
+        "{texto}"
+    );
+    assert_eq!(texto.matches("  bien  ").count(), 18, "{texto}");
+    assert!(!texto.contains("  nota  "), "la casa dice que SV_StencilRef si: {texto}");
+    assert!(texto.ends_with("restos.exe: los enteros, los UAV sin destino y del GS, el plano de stencil y SV_StencilRef son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
 /// **E2.5 -- las OLAS** (05-10, `prueba/olas.exe`, NUESTRO: la muestra
 /// D3D12SM6WaveIntrinsics de Microsoft pinta como la GPU junte los pixeles
 /// en olas, y eso no tiene una huella que comparar). El computo en olas de

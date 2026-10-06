@@ -220,7 +220,7 @@ fn en_olas_la_profundidad_el_stencil_y_la_cuenta_son_los_de_siempre() {
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 32.0, 32.0, 0.0, 1.0], tijera: [0, 0, 32, 32], descarte: 1, antihorario: false, profundidad, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: Some(Stencil { delante: cara, detras: cara }) };
     let queda = |e: &[[f32; 4]]| e[0][0] <= 0.6;
     for (uav, temprana) in [(false, false), (true, false), (false, true), (true, true)] {
-        let efectos = trama::Efectos { uav, temprana };
+        let efectos = trama::Efectos { uav, temprana, referencia: false };
         let pintar = |olas: bool| {
             let mut px = vec![0u32; 32 * 32];
             let mut zs: Vec<u32> = (0..32 * 32u32).map(|i| if (i % 32 + i / 32) % 3 == 0 { 0.3f32 } else { 1.0 }.to_bits()).collect();

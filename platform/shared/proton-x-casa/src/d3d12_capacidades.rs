@@ -106,8 +106,9 @@ const FIRMA_1_0: u32 = 1;
 /// CrossNodeSharing 0, CrossAdapterRowMajorTexture, VPAndRTArrayIndex sin
 /// GS, ResourceHeap 2. Los de una RTX 3060 MENOS lo que la casa no hace
 /// (tanda 48): dobles, LogicOp, 16 bits, tiles, ROVs, rasterizacion
-/// conservadora y texturas entre adaptadores, a 0.
-const OPCIONES: [u32; 15] = [0, 0, 0, 0, 3, 0, 1, 0, 0, 40, 0, 0, 0, 1, 2];
+/// conservadora y texturas entre adaptadores, a 0. PSSpecifiedStencilRef,
+/// a 1 desde el 05-10: SV_StencilRef se usa (la trama, `restos.exe` E).
+const OPCIONES: [u32; 15] = [0, 0, 0, 0, 3, 1, 1, 0, 0, 40, 0, 0, 0, 1, 2];
 
 /// Los DXGI_FORMAT de profundidad: D32_FLOAT_S8X24_UINT, D32_FLOAT,
 /// D24_UNORM_S8_UINT, D16_UNORM.

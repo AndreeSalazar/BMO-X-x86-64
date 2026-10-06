@@ -936,7 +936,8 @@ pub(crate) extern "win64" fn get_copyable_footprints(_this: u64, desc: *const u8
     } else {
         // SAFETY: como arriba.
         match unsafe { Forma::de(desc) } {
-            Some(f) if primero.saturating_add(n) <= f.subrecursos() => sr::huellas(&f, primero, n).0,
+            // 05-10: con stencil, tambien los del plano 1 (`d3d12_stencil`).
+            Some(f) if primero.saturating_add(n) <= f.subrecursos() * if crate::d3d12_stencil::con_stencil(f.formato) { 2 } else { 1 } => sr::huellas(&f, primero, n).0,
             _ => {
                 aviso("GetCopyableFootprints de una textura imposible, o de subrecursos que no tiene: todo a 0xFF..., como D3D12");
                 // SAFETY: los punteros del `.exe` que no son nulos.
@@ -958,7 +959,8 @@ pub(crate) extern "win64" fn get_copyable_footprints(_this: u64, desc: *const u8
                 core::ptr::write_bytes(e, 0, 32);
                 (e as *mut u64).write_unaligned(desde + h.desde);
                 let u = |o: usize, v: u32| (e.add(o) as *mut u32).write_unaligned(v);
-                u(8, formato);
+                let plano1 = dimension != 1 && crate::d3d12_stencil::con_stencil(formato) && Forma::de(desc).is_some_and(|f| primero + i as u32 >= f.subrecursos());
+                u(8, if plano1 { crate::d3d12_stencil::HUELLA_PLANO } else { formato });
                 u(12, h.ancho);
                 u(16, h.alto);
                 u(20, h.hondo);

@@ -930,10 +930,11 @@ la proxima corrida del metal dice cual pesa mas:
   las primitivas); un sombreador con UAV va interpretado (lento); la regla
   de "Z despues con UAV" es la de la especificacion de D3D11 y no se ha
   visto contra la 3060 todavia.
-  **Queda:** los UAV de un sombreador de GEOMETRIA (lo dice un aviso: lo
-  que escribe se pierde), el dibujo SOLO con UAV (sin render target ni Z:
-  hoy "no hay donde dibujar"), los `Interlocked` traducidos a x86 y en la
-  3060, y verlo en el Ryzen y en Windows.
+  **Queda:** los `Interlocked` traducidos a x86 y en la 3060, y verlo en
+  el Ryzen y en Windows. (05-10, `prueba/restos.exe`: los UAV de un
+  sombreador de GEOMETRIA ya se escriben, y el dibujo SOLO con UAV se
+  rasteriza a la medida del viewport; con ForcedSampleCount > 1, UNA
+  muestra, dicho en un aviso.)
 - [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
   no es una constante. Hoy el sombreador no compila (y lo dice: "createHandle
   con un registro CALCULADO"); pide que la ranura sea un RANGO y no un
@@ -1007,8 +1008,11 @@ la proxima corrida del metal dice cual pesa mas:
   de la 3060 deja de estar viva (como con cualquier lote de Z por la CPU);
   (2) el juez lo LEE por el color: leer el plano 1 con CopyTextureRegion no
   esta (su huella R8 no se ha medido contra Windows; CopyResource si lo
-  copia entero); (3) SV_StencilRef (el de pixeles da la referencia) no: la casa
-  anuncia `PSSpecifiedStencilRefSupported` NO; (4) el subobjeto
+  copia entero) -- HECHO el 05-10 (`prueba/restos.exe`, D: el subrecurso 1
+  con su huella R8 de un byte por texel, y un SRV X24_TYPELESS_G8_UINT);
+  (3) SV_StencilRef (el de pixeles da la referencia) -- HECHO el 05-10
+  (`restos.exe`, E): la casa anuncia `PSSpecifiedStencilRefSupported` SI, y
+  con el el stencil y la Z se prueban despues del de pixeles; (4) el subobjeto
   DEPTH_STENCIL2 de un flujo (el 26, que la casa leia como RASTERIZER1,
   que es el 27: el flujo se torcia) ya se lee, pero con mascaras DISTINTAS
   en cada cara el PSO no se crea (lo dice).
@@ -1076,9 +1080,10 @@ la proxima corrida del metal dice cual pesa mas:
   UAV (`bufer.rs`).
   **Lo que puede fallar, dicho:** (1) la 3060 no pinta en float ni sin
   recorte en z: esos lotes van por la CPU (lo dice la puerta, una vez);
-  (2) un render target R32_UINT/R32_SINT (o un UAV R32_UINT sobre un
-  R11G11B10F, el truco de leer con tipo) sigue en "todavia no", con su
-  aviso; (3) la vista R16_FLOAT de un R16_TYPELESS se pinta, pero leerla de
+  (2) un render target R32_UINT/R32_SINT -- HECHO el 05-10 con todos los
+  de ENTEROS (`prueba/restos.exe`, A: sus bits, saturados al canal como
+  D3D11.3 3.2.3.6, sin mezcla) --; un UAV R32_UINT sobre un R11G11B10F (el
+  truco de leer con tipo) sigue en "todavia no", con su aviso; (3) la vista R16_FLOAT de un R16_TYPELESS se pinta, pero leerla de
   vuelta con una copia aun no (la casa no sabe si sus floats son un D16 o
   un half); (4) SV_Position.z en el de pixeles, sin recorte, va SIN sujetar
   (como el FragCoord de Vulkan con depthClamp; si D3D lo sujetara, un

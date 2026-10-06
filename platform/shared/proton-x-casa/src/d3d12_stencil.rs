@@ -22,8 +22,12 @@
 //! ```
 //!
 //! La prueba y las operaciones son de `bmo_proton_x::stencil` (puro) y las
-//! hace la trama. Leer el plano 1 de vuelta (CopyTextureRegion de su
-//! subrecurso) todavia no: el juez lo mira por el color.
+//! hace la trama. Desde el 05-10 el plano se COPIA (CopyTextureRegion de
+//! los subrecursos del PLANO 1: los de D3D12, `mips * capas` mas alla de
+//! los de la profundidad, con su huella de un byte por texel, R8_TYPELESS)
+//! y se LEE con un SRV X24_TYPELESS_G8_UINT o X32_TYPELESS_G8X24_UINT (el
+//! stencil en G, como entero: `textura::Como::Stencil8`). Juez:
+//! `prueba/restos.exe` (D y E).
 
 use crate::aviso;
 use crate::subrecursos::Forma;
@@ -37,10 +41,11 @@ pub(crate) fn con_stencil(formato: u32) -> bool {
 
 /// Los bytes que una textura pide DETRAS de lo interno (`total`) para su
 /// plano: la cuarta parte (lo interno de una profundidad son 4 bytes por
-/// texel), o nada si su formato no tiene stencil.
+/// texel), o nada si su formato no tiene stencil. A palabras enteras
+/// (05-10): el SRV del plano lo lee de cuatro en cuatro bytes.
 pub(crate) fn bytes_de_mas(forma: &Forma, total: u64) -> u64 {
     if con_stencil(forma.formato) {
-        total / 4
+        (total / 4).div_ceil(4) * 4
     } else {
         0
     }
@@ -65,6 +70,53 @@ pub(crate) fn plano(recurso: u64, sub: u64) -> Option<(&'static mut [u8], u32, u
     // SAFETY: `recurso_forma` pidio `total + total / 4` bytes para esta
     // textura (`bytes_de_mas`), y el subrecurso cae dentro de su cuarta parte.
     Some((unsafe { core::slice::from_raw_parts_mut(p, n) }, s.ancho, s.alto))
+}
+
+/// R8_TYPELESS: la huella de un subrecurso del plano 1 (un byte por texel).
+pub(crate) const HUELLA_PLANO: u32 = 60;
+
+/// **Copiar la `caja` del subrecurso `sub` del PLANO 1** (05-10; `sub`
+/// cuenta desde el primero del plano) con la memoria `l` de una huella de
+/// un byte por texel: `hacia`, de la huella al plano (subirlo); si no, leerlo.
+///
+/// # Safety
+/// `l.p` vale para `l.bytes` bytes (leer, y escribir si no es `hacia`).
+pub(crate) unsafe fn mover_plano(recurso: u64, sub: u32, caja: [u32; 6], l: &crate::d3d12_texturas::Lineal, hacia: bool) -> Result<(), &'static str> {
+    let (s, w, h) = plano(recurso, sub as u64).ok_or("CopyTextureRegion de un plano de stencil que la textura no tiene")?;
+    let [x0, y0, z0, x1, y1, z1] = caja;
+    if x0 >= x1 || y0 >= y1 || x1 > w || y1 > h || (z0, z1) != (0, 1) {
+        return Err("una caja que sale del plano de stencil");
+    }
+    let n = (x1 - x0) as usize;
+    if (y1 - y0 - 1) as u64 * l.fila + n as u64 > l.bytes {
+        return Err("la memoria de la copia es mas corta que la caja");
+    }
+    for y in y0..y1 {
+        let fila = &mut s[(y * w + x0) as usize..][..n];
+        let lin = l.p.add(((y - y0) as u64 * l.fila) as usize);
+        if hacia {
+            core::ptr::copy_nonoverlapping(lin, fila.as_mut_ptr(), n);
+        } else {
+            core::ptr::copy_nonoverlapping(fila.as_ptr(), lin, n);
+        }
+    }
+    Ok(())
+}
+
+/// **La textura de un SRV del plano de stencil** (05-10: X24_TYPELESS_G8_UINT
+/// o X32_TYPELESS_G8X24_UINT, el PlaneSlice 1): el plano del subrecurso 0,
+/// un byte por texel. De una textura con mips o capas, todavia no.
+pub(crate) fn textura(recurso: u64, mapeo: u32) -> Result<bmo_proton_x::textura::Textura<'static>, &'static str> {
+    use bmo_proton_x::textura::{Clase, Como, Textura};
+    let t = crate::d3d12_vistas::tex(recurso).ok_or("un SRV de stencil sobre un bufer: en Windows es un error (se lee como nulo)")?;
+    if t.forma.subrecursos() != 1 {
+        return Err("un SRV del plano de stencil de una textura con mips o capas: todavia no (se lee como nulo)");
+    }
+    let (s, ancho, alto) = plano(recurso, 0).ok_or("un SRV de stencil sobre una textura sin plano de stencil (se lee como nulo)")?;
+    // SAFETY: el plano empieza en palabra (lo interno son palabras) y
+    // `bytes_de_mas` lo pidio a palabras enteras.
+    let texeles = unsafe { core::slice::from_raw_parts(s.as_ptr() as *const u32, s.len().div_ceil(4)) };
+    Ok(Textura { texeles, ancho, alto, como: Como::Stencil8, srgb: false, mapeo, mips: 1, capas: 1, hondo: 1, clase: Clase::Plana, mip: 0, capa: 0, niveles: u32::MAX, lod_min: 0.0 })
 }
 
 /// **Limpiar el plano** (`Orden::LimpiarStencil`, al ejecutar la lista).

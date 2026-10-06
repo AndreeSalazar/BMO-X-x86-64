@@ -104,6 +104,8 @@ const UAVPIXEL_EXE: &[u8] = include_bytes!("../../proton-x/prueba/uavpixel.exe")
 const FLOTANTE1_EXE: &[u8] = include_bytes!("../../proton-x/prueba/flotante1.exe");
 // 05-10: el stencil (la fila de la tabla 7.2 de la ESCALERA).
 const STENCIL_EXE: &[u8] = include_bytes!("../../proton-x/prueba/stencil.exe");
+// 05-10: lo que quedaba: enteros, UAV sin destino y del GS, el plano de stencil y SV_StencilRef.
+const RESTOS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/restos.exe");
 /// E2.5 (05-10): las olas de verdad (Wave*, Quad*), en el computo y en los pixeles.
 const OLAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/olas.exe");
 /// D4.4 (05-10): las derivadas (ddx, ddy, finas y gruesas) y la mip de un muestreo.
