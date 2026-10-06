@@ -1314,6 +1314,8 @@ y lo dice.
       D0.3 el diario filtrado a D3D12. Lo que encuentren entra en A (el
       teselado D4.5, los recursos reservados D2.4: SOLO si aparecen)
    C  El METAL: correr la hoja y la 3060                                    --
+      (06-10) `run sys/jueces.bex`: los 84 jueces de consola SOLOS en
+      BMO-X, con la tabla de Windows; el informe, informe/jueces.txt.
       docs/metal/PRUEBAS_DX12_EN_EL_RYZEN.md, juez a juez (cada `bien` en
       el Ryzen y en Windows CIERRA casillas de la seccion 2 que hoy estan
       hechas solo en el banco); G0 de PLAN_LA_3060 (el GSP 10 de 10) para

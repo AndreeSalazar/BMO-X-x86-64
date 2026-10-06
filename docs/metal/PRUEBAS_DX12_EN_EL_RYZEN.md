@@ -24,6 +24,16 @@ cada juez es lo que hace que esta hoja cuente.
 
 ## 1. Los jueces de consola (dicen `bien` / `MAL`, y salen con los fallos)
 
+**La forma corta (06-10): `run sys/jueces.bex`.** Los 84 de consola, uno
+tras otro y SOLOS: cada uno con su consola y un tope de 600 s, contados con
+la MISMA tabla que uso Windows (`platform/shared/proton-x/prueba/jueces.txt`,
+84 de 84 en la 3060 del propietario). Dice una linea por juez (`bien`,
+`DISTINTO` y por que, o `COLGADO`) y lo deja todo en `informe/jueces.txt`:
+ese fichero es lo que hay que mandar. Un grupo solo: `run sys/jueces.bex
+d3d12` (o `tandas`, `dentro`); unos pocos: `run sys/jueces.bex olas tipos`;
+otro tope: `tope=900`. Los avisos `PROTON-X:` no cuentan: van al informe.
+La tabla de abajo dice lo mismo, juez a juez, para leerla a mano.
+
 Se lanzan con `run sys/proton-x.bex window/<nombre>.exe`. Lo que tiene que
 salir es lo mismo que pide el banco: el numero de `bien`, la ultima linea, y
 NINGUN `MAL`. Los avisos `PROTON-X:` que se esperan estan dichos; otro

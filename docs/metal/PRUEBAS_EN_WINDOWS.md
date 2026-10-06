@@ -36,7 +36,10 @@ tabla, `DISTINTO` (y por que) si no. Al final: cuantos de cada. Lo que hay que
 mandar: `informe_windows\resumen.txt` (las lineas MAL van enteras dentro), o
 la carpeta `informe_windows\` entera si algo sale DISTINTO.
 
-Lo que pide cada uno (la tabla del guion es la misma):
+Lo que pide cada uno. Desde el 06-10 la tabla es UN fichero,
+`prueba/jueces.txt`: la lee este guion y la lleva dentro `sys/jueces.bex`,
+el que corre los mismos jueces SOLOS en BMO-X (`run sys/jueces.bex`). Lo
+que Windows dio por bueno, alli se pide igual.
 
 ### 1a. LOS PRIMEROS: los 14 de D3D12, NINGUNO corrido aun en Windows
 

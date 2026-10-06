@@ -3019,3 +3019,12 @@ pintaban). Y el juez se equivoco una vez y la casa no: la palabra SNORM
 esperada iba con los bytes al reves (0x207F81E0); es 0x20817FE0.
 
 Lo que dijo Windows (06-10, 09:55, la 3060 del propietario): 8 `bien`.
+
+jueces.txt -- la TABLA de los jueces de consola (06-10)
+
+Una linea por juez: su nombre, cuantos `bien` pide, y si hay, cuantas `nota`
+y otra cuenta que tambien vale; `[grupo]` empieza un grupo (dentro, tandas,
+d3d12). La leen los dos que los corren, y por eso no se pueden contradecir:
+`correr_en_windows.ps1` en Windows, y `sys/jueces.bex` en BMO-X
+(Ultra_userspace/apps/jueces, que la lleva dentro: `include_str!`). Un juez
+nuevo entra AQUI, y en los dos a la vez.

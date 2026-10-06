@@ -302,7 +302,8 @@ try {
     # ** Y `ludoteca` (01-10): F4, tus juegos de todas las tiendas. Igual:
     # sin construirla, F4 no abre nada.
     # ** Y `hermes` (03-10): F3, H5 de PLAN_HERMES. Sin ella, F3 solo avisa.
-    $out = cargo +nightly build -p bmo-service-director -p bmo-medida-coste -p bmo-medida-sombra -p bmo-app-proton-x -p bmo-app-taller -p bmo-app-ludoteca -p bmo-app-hermes -p bmo-app-bankcat `
+    # ** Y `jueces` (06-10): los jueces de PROTON-X corridos SOLOS (`run sys/jueces.bex`).
+    $out = cargo +nightly build -p bmo-service-director -p bmo-medida-coste -p bmo-medida-sombra -p bmo-app-proton-x -p bmo-app-taller -p bmo-app-ludoteca -p bmo-app-hermes -p bmo-app-bankcat -p bmo-app-jueces `
         --release --target x86_64-unknown-none 2>&1
     $out | ForEach-Object {
         if ($_ -match 'Compiling|Finished|error') { Write-Host ('    [userspace] ' + $_) -ForegroundColor DarkGray }

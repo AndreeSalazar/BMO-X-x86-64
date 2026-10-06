@@ -24,99 +24,23 @@
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 
-# nombre, cuantos `bien`, cuantas `nota` (-1: no se cuentan), y que mirar;
-# y, si hay, OTRA cuenta que tambien vale (`bien` y `nota`: lo que dice una
-# GPU que no tiene algo). Un `bien` de -1: el juez no tiene cuenta fija; vale
-# ningun MAL y salir con 0.
-$jueces = @(
-    # -- PROTON-X por dentro (P1 a P5, 27-09 y 28-09)
-    @('hola', -1, -1, 'imprime la frase y sale con 0'),
-    @('teb', 6, -1, ''),
-    @('hilos', 19, -1, ''),
-    @('ficheros', 16, -1, 'deja pxtest.txt'),
-    @('crt', 35, -1, ''),
-    @('texto', 21, -1, ''),
-    @('esperas', 24, -1, 'tarda unos 150 ms'),
-    @('carpetas', 34, -1, 'deja pqa.txt, pqb.txt, pzc.txt'),
-    @('sistema', 22, -1, 'sale por TerminateProcess'),
-    @('ucrt', 19, -1, ''),
-    @('stdio', 15, -1, 'uno de los bien va por stderr'),
-    @('peek', 12, -1, ''),
-    @('compila', -1, -1, 'en Windows compila de verdad (d3dcompiler_47)'),
-    @('usadll', 8, -1, 'necesita saludo.dll al lado'),
-    @('seh', 9, -1, ''),
-    # -- Las TANDAS de Cyberpunk (29-09 a 02-10)
-    @('tanda1', 55, -1, ''),
-    @('tanda2', 13, -1, ''),
-    @('tanda3', 25, -1, ''),
-    @('tanda3b', 18, -1, ''),
-    @('tanda3c', 16, -1, ''),
-    @('tanda4', 11, -1, ''),
-    @('tanda4m', 11, -1, 'la de MSVC'),
-    @('tanda5', 22, -1, ''),
-    @('tanda6', 29, -1, ''),
-    @('tanda7', 29, -1, ''),
-    @('tanda8', 25, -1, ''),
-    @('tanda9', 30, -1, ''),
-    @('tanda10', 25, -1, ''),
-    @('tanda11', 35, -1, ''),
-    @('tanda12', 24, -1, 'sin red tambien'),
-    @('tanda13', 16, -1, ''),
-    @('diario', 4, -1, ''),
-    @('tanda14', 27, -1, ''),
-    @('tanda14b', 12, -1, ''),
-    @('tanda15', 11, -1, ''),
-    @('tanda16', 9, -1, ''),
-    @('tanda17', 11, -1, ''),
-    @('tanda18', 16, -1, ''),
-    @('tanda19', 19, -1, ''),
-    @('tanda19m', 15, -1, 'la de MSVC'),
-    @('tanda20', 15, -1, ''),
-    @('tanda21', 17, -1, ''),
-    @('tanda22', 9, -1, 'PREGUNTA ABIERTA: con 9 la hipotesis de HACER.txt era cierta; con 7 MAL, Windows sigue sin darle TLS a la DLL de clang'),
-    @('tanda23', 16, -1, ''),
-    @('tanda24', 12, -1, ''),
-    @('tanda25', 9, -1, ''),
-    @('tanda26', 6, -1, ''),
-    @('tanda27', 8, -1, ''),
-    @('tanda28', 6, -1, ''),
-    @('tanda29', 18, -1, ''),
-    @('tanda30', 14, -1, ''),
-    @('tanda31', 30, -1, ''),
-    @('tanda32', 10, -1, ''),
-    @('tanda33', 8, -1, ''),
-    @('tanda34', 9, -1, ''),
-    @('tanda35', 8, -1, ''),
-    @('tanda36', 6, -1, ''),
-    @('tanda37', 9, -1, ''),
-    @('tanda38', 13, -1, ''),
-    @('tanda39', 8, -1, ''),
-    @('tanda41', 10, -1, ''),
-    @('tanda42', 13, -1, ''),
-    @('tanda43', 12, -1, ''),
-    @('tanda44', 10, -1, ''),
-    @('tanda45', 15, -1, ''),
-    @('tanda46', 9, 1, 'la nota dice el HRESULT de Windows'),
-    @('tanda47', 21, -1, ''),
-    @('tanda48', 14, -1, ''),
-    @('vueltas', 4, -1, ''),
-    # -- Los jueces de D3D12 (05-10 y 06-10): NINGUNO corrido aun en Windows
-    @('computo', 4, -1, 'D3D12'),
-    @('instancias', 3, -1, 'D3D12'),
-    @('vistas', 7, -1, 'D3D12'),
-    @('hdr', 4, -1, 'D3D12'),
-    @('uavpixel', 4, -1, 'D3D12'),
-    @('flotante1', 10, -1, 'D3D12'),
-    @('stencil', 5, -1, 'D3D12'),
-    @('olas', 17, -1, 'D3D12: el "hasta N" de B puede ser otro; E le pregunta a Windows'),
-    @('derivadas', 17, -1, 'D3D12'),
-    @('restos', 18, 0, 'D3D12: o 15 y una nota, si la GPU no tiene SV_StencilRef (las NVIDIA no lo tienen)', @(15, 1)),
-    @('multihilo', 17, -1, 'D3D12'),
-    @('volumen', 10, -1, 'D3D12'),
-    @('firmas', 6, -1, 'D3D12'),
-    @('postpro', 3, -1, 'D3D12'),
-    @('tipos', 8, -1, 'D3D12: vistas que cambian el tipo (06-10)')
-)
+# La tabla: `jueces.txt` (aqui al lado), la MISMA que lleva dentro
+# `sys/jueces.bex` en BMO-X. Por juez: nombre, cuantos `bien` (-1: sin
+# cuenta fija), cuantas `nota` (-1 si no se dice: no se cuentan), lo de
+# detras de `#`, y OTRA cuenta de `bien` y `nota` que tambien vale.
+$jueces = @()
+foreach ($l in Get-Content -LiteralPath (Join-Path $PSScriptRoot 'jueces.txt')) {
+    $t = $l.Trim()
+    if ($t -eq '' -or $t.StartsWith('#') -or $t.StartsWith('[')) { continue }
+    $que = ''
+    $k = $t.IndexOf('#')
+    if ($k -ge 0) { $que = $t.Substring($k + 1).Trim(); $t = $t.Substring(0, $k).Trim() }
+    $c = $t -split '\s+'
+    $notas = if ($c.Count -gt 2) { [int]$c[2] } else { -1 }
+    $j = @($c[0], [int]$c[1], $notas, $que)
+    if ($c.Count -gt 4) { $j += , @([int]$c[3], [int]$c[4]) }
+    $jueces += , $j
+}
 
 $informe = Join-Path $PSScriptRoot 'informe_windows'
 New-Item -ItemType Directory -Force -Path $informe | Out-Null

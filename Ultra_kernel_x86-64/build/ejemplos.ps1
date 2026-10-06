@@ -189,7 +189,9 @@ try {
         if ($LASTEXITCODE -ne 0) { Fail ('bex-link fallo con apps/' + $app) }
         if (-not (Test-Path $bex)) { Fail ('bex-link no produjo ' + $app + '.bex') }
     }
-    foreach ($app in @('taller', 'ludoteca', 'hermes', 'bankcat')) { Enlazar-App $app }
+    # Y `jueces` (06-10): no es de una tecla; los jueces de PROTON-X, uno tras
+    # otro y contados (`run sys/jueces.bex`, o un grupo: `d3d12`).
+    foreach ($app in @('taller', 'ludoteca', 'hermes', 'bankcat', 'jueces')) { Enlazar-App $app }
     # Y `teb.exe` (P1d, 27-09): lee su TEB y su PEB por `gs:` como el CRT de
     # Microsoft, y dice `bien` seis veces si el GS de la casa es el de Windows.
     # Y `ventana.exe` (P2, 27-09): una ventana Win32 de manual, con el user32 y
@@ -240,6 +242,7 @@ try {
         '',
         '  run sys/proton-x.bex window/hola.exe           uno de aqui',
         '  run sys/proton-x.bex window/crt.exe -nivel 3   lo de detras es su linea de ordenes',
+        '  run sys/jueces.bex                            TODOS los jueces, solos (o: d3d12, tandas, dentro)',
         '',
         'Su directorio actual es ESTA carpeta: lo que un .exe escriba con una ruta',
         'relativa (ficheros.exe deja pxtest.txt) cae aqui, y aqui lo encuentra.',
