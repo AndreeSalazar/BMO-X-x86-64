@@ -1379,7 +1379,13 @@ y lo dice.
                mapa. El x86-64 de `nativo` se sigue haciendo al arrancar (es
                una pasada sobre el Programa, sin leer DXIL)
      10  X5    la velocidad que queda: las olas en el computo traducido y
-               los pixeles con UAV traducidos
+               los pixeles con UAV traducidos. 06-10, la MITAD: las olas en
+               el computo TRADUCIDO (cada ola para el hilo y
+               `nativo_despacho` la resuelve con su ola de 32, en el orden
+               del interprete: las vueltas de cada bucle van en registros
+               de mas); `olas_cs.dxil` -- con olas en un si y en el bucle de
+               escalarizar -- da los MISMOS bytes por los dos caminos.
+               Falta: los pixeles con UAV
      11  [x] ESCENA  (06-10, pedido del propietario: "un test en 3D DURO en
                Windows, y que se refleje en BMO-X") una escena pesada --
                miles de triangulos, texturas con mips, profundidad, luz

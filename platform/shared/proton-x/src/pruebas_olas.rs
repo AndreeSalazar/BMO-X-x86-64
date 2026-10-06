@@ -88,7 +88,10 @@ pub fn esperado(g: u32, i: u32) -> [u32; N] {
 fn el_computo_va_en_olas_de_32_hilos_seguidos() {
     let p = programa::compilar(&dxil::leer(OLAS_CS).unwrap()).unwrap();
     assert!(p.usa_olas());
-    assert_eq!(crate::nativo_computo::compilar(&p), None, "las olas, por el interprete");
+    // A10 (06-10): ya se traduce (cada ola se para y la resuelve
+    // `nativo_computo::despachar`); que da los MISMOS bits que este
+    // interprete lo juzga `proton-x-casa/tests/nativo_computo.rs`.
+    assert!(crate::nativo_computo::compilar(&p).is_some(), "las olas, traducidas");
     let mut salida = vec![0xEEu8; 128 * N * 4];
     {
         let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 4, elementos: (128 * N) as u32, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];

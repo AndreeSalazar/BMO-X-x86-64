@@ -435,3 +435,26 @@ fn el_cs_de_execute_indirect_traducido_da_el_contador_del_interprete() {
     assert_eq!(ca, cb_, "el mismo contador");
     assert_eq!(a, b, "las mismas ordenes, en el mismo orden");
 }
+
+const OLAS_CS: &[u8] = include_bytes!("../../proton-x/prueba/olas_cs.dxil");
+
+/// *** A10 (06-10): las OLAS en el computo TRADUCIDO. `olas_cs.dxil` (el de
+/// `olas.exe`: 2 grupos de 64 hilos, dos olas de 32 en cada uno) con todas
+/// las operaciones de ola, una dentro de un `si` (solo los de la rama son
+/// activos) y dos dentro de BUCLES -- el de escalarizar de los juegos, que
+/// sale en vueltas distintas por carril --: los dos caminos escriben los
+/// MISMOS bytes, y son los de una ola de 32.
+#[test]
+fn las_olas_del_computo_traducido_dan_los_bits_del_interprete() {
+    const N: usize = 26;
+    let p = dxil::computo::preparar(OLAS_CS).unwrap().programa;
+    assert!(p.olas_propias());
+    assert!(nativo_computo::compilar(&p).is_some(), "se traduce, olas y bucles incluidos");
+    let antes = vec![0xEEu8; 128 * N * 4];
+    let (a, b) = los_dos(OLAS_CS, [2, 1, 1], &[0u8; 16], &[0u8; 16], 16, &antes, 4);
+    assert_ne!(a, antes, "el interprete escribio");
+    assert_eq!(a, b, "los mismos bytes");
+    let palabra = |t: usize, k: usize| u32::from_le_bytes(b[4 * (t * N + k)..][..4].try_into().unwrap());
+    assert_eq!((palabra(0, 0), palabra(33, 1)), (32, 1), "WaveGetLaneCount 32, y el carril 1 de la segunda ola");
+    assert_eq!(palabra(0, 3), (0..32).sum::<u32>(), "WaveActiveSum de la primera ola");
+}

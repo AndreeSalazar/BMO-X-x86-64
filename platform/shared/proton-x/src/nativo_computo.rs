@@ -116,7 +116,16 @@ pub const DESCARTADO: u32 = 2;
 /// X3 (06-10): un dibujo se paro en una DERIVADA (o en varias seguidas):
 /// `reanudar` dice en cual ([`paradas`]). La casa resta los carriles del
 /// cuadro de 2x2, pone el resultado en sus registros y lo vuelve a llamar.
+/// A10 (06-10): y un hilo de computo, en una operacion de OLA (`Wave*`,
+/// `Quad*`): [`despachar`] la resuelve con los carriles de su ola, como el
+/// interprete (`dxil::carriles`), y lo vuelve a llamar.
 pub const OLA: u32 = 3;
+
+/// A10 (06-10): una operacion de ola de verdad (no una derivada), la que
+/// en el computo se para para resolverse con su ola.
+fn es_ola_de_computo(o: &Op) -> bool {
+    matches!(o, Op::Ola { que, .. } if !matches!(que, crate::dxil::olas::Ola::Derivada { .. }))
+}
 
 /// **Los puntos donde se para el cuerpo** (X3, 06-10), en orden: el `k`
 /// que deja en `reanudar` es la posicion `k - 1` de esta lista. Cada uno,
@@ -127,7 +136,8 @@ pub fn paradas(p: &Programa, dibujo: bool) -> Vec<Vec<usize>> {
     let deriva = |o: &Op| dibujo && matches!(o, Op::Ola { que: crate::dxil::olas::Ola::Derivada { .. }, .. });
     let mut v: Vec<Vec<usize>> = Vec::new();
     for (k, o) in p.ops.iter().enumerate() {
-        if matches!(o, Op::Barrera) {
+        // A10: en el computo, cada operacion de ola, su punto.
+        if matches!(o, Op::Barrera) || (!dibujo && es_ola_de_computo(o)) {
             v.push(alloc::vec![k]);
         } else if deriva(o) {
             match v.last_mut() {
@@ -556,6 +566,12 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
     // un punto donde para y por donde sigue.
     let puntos = paradas(p, dibujo);
     let barreras = puntos.len();
+    // A10: llevar las vueltas de los bucles (solo el computo con olas).
+    let vueltas = !dibujo && p.olas_propias();
+    if vueltas && p.ops.iter().any(|o| matches!(o, Op::Ola { que: crate::dxil::olas::Ola::Derivada { .. }, .. })) {
+        // Derivadas en el computo: por el interprete.
+        return None;
+    }
     let mut punto_de = alloc::vec![None; p.ops.len()];
     for (n, g) in puntos.iter().enumerate() {
         punto_de[g[0]] = Some(n + 1);
@@ -598,6 +614,18 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
             Op::Lee { como, .. } if dibujo || !matches!(como, Lectura::Bufer(_)) => e.textura(k as u32),
             // 06-10: lo de una ranura de UAV llamada, por la misma llamada.
             Op::LeeUav { u, .. } | Op::EscribeUav { u, .. } | Op::Atomico { u, .. } | Op::MedidasUav { u, .. } | Op::Contador { u, .. } if llamado(u) => e.textura(k as u32),
+            // A10 (06-10): una OLA en el computo (`Wave*`, `Quad*`): se para
+            // (OLA) y `despachar` la resuelve con los carriles de su ola; quien
+            // va antes lo dicen sus VUELTAS (ver `Op::Bucle`).
+            Op::Ola { .. } if !dibujo && es_ola_de_computo(op) => {
+                let n = punto_de[k]?;
+                e.mem(None, false, &[0xC7], 0, CTX, C_REANUDAR); // mov dword [r12 + reanudar], n
+                e.b.extend_from_slice(&(n as u32).to_le_bytes());
+                e.inmediato(RAX, OLA);
+                al_final.push(e.salto());
+                let aqui = e.b.len();
+                e.parchear(reanudar[n - 1], aqui);
+            }
             // X3 (06-10): una racha de derivadas para el carril (OLA); la casa
             // resta los del cuadro y lo vuelve a llamar. Las de despues de la
             // primera de la racha, ya resueltas con ella.
@@ -855,8 +883,22 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
                 let s = sis.pop()?;
                 e.aqui(s);
             }
-            Op::Bucle => bucles.push((e.b.len(), Vec::new())),
+            Op::Bucle => {
+                // A10: con olas en el computo, la VUELTA de cada bucle abierto
+                // (como `Pausa::vueltas` del interprete): 0 al entrar, +1 cada
+                // vez que vuelve a empezar. Va en los registros de mas del hilo
+                // (`vueltas_desde`): `despachar` la lee en cada ola.
+                if vueltas {
+                    e.mem(None, false, &[0xC7], 0, REGS, 4 * (p.iniciales.len() + bucles.len()) as i32); // mov dword [rbx + vuelta], 0
+                    e.b.extend_from_slice(&0u32.to_le_bytes());
+                }
+                bucles.push((e.b.len(), Vec::new()));
+            }
             Op::FinBucle => {
+                if vueltas {
+                    e.mem(None, false, &[0x83], 0, REGS, 4 * (p.iniciales.len() + bucles.len() - 1) as i32); // add dword [rbx + vuelta], 1
+                    e.b.push(1);
+                }
                 let (principio, romper) = bucles.pop()?;
                 e.saltar_a(principio);
                 for r in romper {
@@ -874,6 +916,10 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
                 bucles.last_mut()?.1.push(s);
             }
             Op::Continuar => {
+                if vueltas {
+                    e.mem(None, false, &[0x83], 0, REGS, 4 * (p.iniciales.len() + bucles.len() - 1) as i32); // add dword [rbx + vuelta], 1
+                    e.b.push(1);
+                }
                 let principio = bucles.last()?.0;
                 e.saltar_a(principio);
             }
@@ -1065,107 +1111,9 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
     Some(e.b)
 }
 
-/// **Un Dispatch con la funcion traducida** (la de [`compilar`] sobre `p`):
-/// lo mismo que [`Programa::despachar`], grupo a grupo y barrera a barrera,
-/// con las cuentas en x86. Los SRV son los buferes del dibujo (por ranura) y
-/// los UAV, los del Dispatch.
-///
-/// `llamar(regs, contexto, cb)` llama al codigo sellado: lo pone la casa,
-/// que es quien lo sello y quien promete que es el de `compilar(p)` (este
-/// crate es puro: sin `unsafe`). Los punteros son de esta funcion y viven lo
-/// que ella.
-pub fn despachar(p: &Programa, llamar: &mut dyn FnMut(*mut f32, *mut Contexto, *const u8) -> u32, grupos: [u32; 3], cb: &[u8], srv: &[Option<crate::bufer::Bufer>], uavs: &mut [Option<crate::bufer::Uav>], por_hilo: &mut [crate::nativo_llamadas::Llamadas]) -> u64 {
-    let [hx, hy, hz] = p.computo.hilos;
-    let n = (hx * hy * hz) as usize;
-    if n == 0 {
-        return 0;
-    }
-    // El cbuffer, con lo que lea: lo que falte, a cero (como el interprete).
-    let filas = p.filas_cb as usize * 16;
-    let mut relleno = Vec::new();
-    let cb: &[u8] = if cb.len() >= filas.max(16) {
-        cb
-    } else {
-        relleno.extend_from_slice(cb);
-        relleno.resize(filas.max(16), 0);
-        &relleno
-    };
-    let mut compartida = alloc::vec![0u32; p.computo.compartida.max(1) as usize];
-    // X2: la matematica, y la medida del cbuffer. 06-10: las de cada hilo
-    // del grupo, si quien despacha las da (las texturas y las ranuras de
-    // UAV llamadas, `uavs_llamados`: cada hilo con SU textura elegida, que
-    // una barrera puede caer entre elegirla y leerla); si no, unas sin
-    // texturas, de todos.
-    let llamadas = crate::nativo_llamadas::Llamadas::nuevas(cb.len());
-    for l in por_hilo.iter_mut() {
-        l.cb_bytes = cb.len() as u64;
-    }
-    let vista = |datos: *mut u8, bytes: usize, paso: u32, elementos: u32, contador: *mut u32| Vista { datos, bytes: bytes as u64, paso, elementos, contador };
-    let mut c = Contexto {
-        ids: [0; 10],
-        reanudar: 0,
-        n_compartida: p.computo.compartida,
-        compartida: compartida.as_mut_ptr(),
-        entradas: core::ptr::null(),
-        salidas: core::ptr::null_mut(),
-        llamadas: &llamadas,
-        srv: [Vista::NULA; VISTAS],
-        uav: [Vista::NULA; VISTAS],
-    };
-    for (k, b) in srv.iter().enumerate().take(VISTAS) {
-        if let Some(b) = b {
-            // Solo se lee: el puntero es *mut por la forma, no por el uso.
-            c.srv[k] = vista(b.bytes.as_ptr() as *mut u8, b.bytes.len(), b.paso, b.elementos, core::ptr::null_mut());
-        }
-    }
-    for (k, u) in uavs.iter_mut().enumerate().take(VISTAS) {
-        if let Some(u) = u {
-            let contador = u.contador.as_deref_mut().map_or(core::ptr::null_mut(), |c| c as *mut u32);
-            c.uav[k] = vista(u.bytes.as_mut_ptr(), u.bytes.len(), u.paso, u.elementos, contador);
-        }
-    }
-    let mut hilos: Vec<(Vec<f32>, u32, bool)> = (0..n).map(|_| (Vec::new(), 0, false)).collect();
-    let mut corridos = 0u64;
-    for gz in 0..grupos[2] {
-        for gy in 0..grupos[1] {
-            for gx in 0..grupos[0] {
-                compartida.fill(0);
-                for h in hilos.iter_mut() {
-                    h.0.clear();
-                    h.0.extend_from_slice(&p.iniciales);
-                    (h.1, h.2) = (0, false);
-                }
-                loop {
-                    let mut alguno_espera = false;
-                    for (t, (regs, reanudar, acabo)) in hilos.iter_mut().enumerate() {
-                        if *acabo {
-                            continue;
-                        }
-                        let t = t as u32;
-                        let en = [t % hx, (t / hx) % hy, t / (hx * hy)];
-                        c.ids = [gx * hx + en[0], gy * hy + en[1], gz * hz + en[2], gx, gy, gz, en[0], en[1], en[2], t];
-                        c.reanudar = *reanudar;
-                        c.llamadas = por_hilo.get(t as usize).map_or(&llamadas as *const _, |l| l as *const _);
-                        match llamar(regs.as_mut_ptr(), &mut c, cb.as_ptr()) {
-                            BARRERA => {
-                                *reanudar = c.reanudar;
-                                alguno_espera = true;
-                            }
-                            _ => {
-                                *acabo = true;
-                                corridos += 1;
-                            }
-                        }
-                    }
-                    if !alguno_espera {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    corridos
-}
+// El Dispatch con la funcion traducida (y A10, sus olas) vive en
+// `nativo_despacho.rs` (L6a, 06-10); aqui, el mismo nombre.
+pub use crate::nativo_despacho::despachar;
 
 #[cfg(test)]
 mod pruebas {
@@ -1209,8 +1157,11 @@ mod pruebas {
         q.ops.push(Op::Atomico { d: 0, u: 1, modo: crate::bufer::Modo::Crudo, i: 0, desp: 0, z: 0, como: crate::bufer::Atomo::Suma, v: 0, igual: 0 });
         assert!(compilar(&q).is_some(), "un Interlocked, por la llamada");
         assert_eq!(uavs_llamados(&q)[..2], [false, true], "solo su ranura");
-        // Lo que sigue sin saber: una ola (aqui cada hilo corre solo).
+        // A10 (06-10): una ola, ya si (se para y la resuelve `despachar`).
         p.ops.push(Op::Ola { d: 0, a: 0, b: 0, que: crate::dxil::olas::Ola::Indice });
-        assert!(compilar(&p).is_none(), "las olas, por el interprete");
+        assert!(compilar(&p).is_some(), "una ola fuera de bucles, traducida");
+        let mut b = cs.programa.clone();
+        b.ops.extend([Op::Bucle, Op::Ola { d: 0, a: 0, b: 0, que: crate::dxil::olas::Ola::Indice }, Op::Romper, Op::FinBucle]);
+        assert!(compilar(&b).is_some(), "y dentro de un bucle (con sus vueltas)");
     }
 }
