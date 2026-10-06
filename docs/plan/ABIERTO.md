@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   655 casillas ABIERTAS en 63 planes
-   549 hechas
+   656 casillas ABIERTAS en 63 planes
+   551 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -145,6 +145,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
 
+## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 14 abiertas, 8 hechas
+
+*PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
+
+- [ ] H1 -- LA TECLA DEL GESTOR: CTRL (2026-09-22)
+- [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
+- [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
+- ... y 11 mas
+
 ## [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) -- 14 abiertas, 1 hechas
 
 *PLAN EL PLAZO -- V-Sync, VBlank y la deuda de planificacion*
@@ -170,15 +179,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] el DIRECTOR le dice el hueco: una ranura de buzon con bit propio
 - [ ] la app puede REEMPLAZAR su superficie: hoy una segunda oferta del
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
-- ... y 10 mas
-
-## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 13 abiertas, 6 hechas
-
-*PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
-
-- [ ] H1 -- LA TECLA DEL GESTOR: CTRL (2026-09-22)
-- [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
-- [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
 - ... y 10 mas
 
 ## [`PLAN_HERMES.md`](PLAN_HERMES.md) -- 13 abiertas, 2 hechas

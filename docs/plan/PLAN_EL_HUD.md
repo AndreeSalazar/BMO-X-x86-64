@@ -294,12 +294,14 @@ nada.
 
 ### Las decisiones del propietario
 
-**HD1, HD2 y HD3, DECIDIDAS el 06-10.** HD1 no fue ninguna de las tres paletas
+**HD1, HD2, HD3 y HD4, DECIDIDAS el 06-10.** HD1 no fue ninguna de las tres paletas
 que se ofrecieron: *"me imagine un planeta mi gato del logo pero que es
 dominante, que es estrella, como fondo animado y presentable en escritorio;
 cuando todo se configura normal en inicio y luego en escritorio por
 completo"*. HD3: *"el escritorio primero"*. HD2: *"si, la letra de la
-casa"*.
+casa"*. HD4: *"me gustan el gato SOL de PLASMA, NEBULOSA, y lo otro que es
+quieta con la CPU si no hace nada, pero con RTX 3060 12G ya con eso se
+encargue, pero como siempre se aisle para estar ordenado"*.
 
 ```text
    HD1  la paleta       GATO: sale del LOGO (docs/arte/bmo-x-gato-hd.svg) --
@@ -332,7 +334,20 @@ casa"*.
                                       satelite (Kepler)
                         SOL DE PLASMA granulos que hierven y arcos que saltan
                                       (el SDO de la NASA) -- la 3060
-                        Sin decidir
+                        ELEGIDAS: SOL DE PLASMA y NEBULOSA. Conviven asi (la
+                        maqueta lo propone y se ve en el escritorio entero):
+                        la NEBULOSA es el INICIO -- se junta en la forma del
+                        gato y se condensa en el SOL, que es el escritorio.
+                        Una estrella nace de una nebulosa; la de BMO-X tambien.
+                        Quien quiera la nebulosa en el escritorio la elige
+                        el motor  con la 3060 la estrella esta VIVA; sin ella (o sin
+                        el sobre de su tarjeta), la CPU pinta UN fotograma y
+                        la deja QUIETA. En reposo, cero fotogramas
+                        aislada  la estrella viva es un programa de VERRANO en
+                        su PROPIA pieza: entra como SPIR-V, la 3060 lo juzga
+                        y lo sube por su puerta, y el director solo habla
+                        VERRANO (`Frame`) -- no sabe que tarjeta hay. Otra
+                        GPU trae su fila, como manda PLAN_EL_AISLAMIENTO
 ```
 
 Las seis comparten UNA cabeza de gato (un camino) y los ojos del logo: el
@@ -340,7 +355,12 @@ estilo cambia la materia, no al gato. Cuatro se pintan en la CPU con lo que
 MAQUETA 3 ya promete (degradados, arcos, el camino aplanado al compilar, la
 `@secuencia`); NEBULOSA y SOL DE PLASMA son trabajo de la 3060, y por eso,
 si se eligen, HM3 empieza por un paso CPU (la misma estrella, quieta) y la
-version viva espera al compositor de la GPU.
+version viva espera al compositor de la GPU. Se eligieron las dos de la 3060,
+asi que ese es el camino: HM3 (quieta, CPU) y HM3c (viva, la 3060).
+
+El escritorio ENTERO, con todo junto, es `docs/arte/maqueta_escritorio_mision.html`
+(el codigo de la estrella va aparte, en `docs/arte/estrella_gato.js`, y lo
+comparten las dos maquetas: lo que pinta la estrella no sabe donde se pinta).
 
 ### Los escalones
 
@@ -350,9 +370,12 @@ version viva espera al compositor de la GPU.
 - [x] HM-dec2 -- HECHO el 06-10: HD2 (la letra de la casa), escrita en esta seccion
 - [x] HM0c -- HECHO el 06-10: los seis estilos de la estrella (HD4) en `docs/arte/maqueta_estrella_gato.html`: cada uno vivo, con su referencia y donde se pinta (CPU o la 3060), en galeria y en grande sobre el escritorio con el HUD; pulida a pedido del propietario ("cambia y mejorar un poco mas"): nariz y bigotes para que se lea gato, brillo, la lente de Gargantua, las puntas del Webb, la malla que gira, manchas solares y bucles de plasma, y el planeta que pasa por detras; probada en Chromium (los seis se pintan sin un error)
 - [x] HM1 -- HECHO el 06-10: la paleta GATO de mision en `toolchain/tools/maqueta/tema/tema.maqueta` (`.mision` y once colores mas: el ojo, el neon, el azul, la tinta, GO, NO-GO...), cada uno del logo o de lo que el tema ya decia; generada a `Ultra_userspace/services/director/src/scene/tema_gen.rs` con `maqueta --paleta`, y el test del tema la comprueba
+- [x] HM-dec3 -- HECHO el 06-10: HD4 (SOL DE PLASMA y NEBULOSA; quieta en la CPU, viva en la 3060 y aislada), escrita en esta seccion
+- [x] HM0d -- HECHO el 06-10: el ESCRITORIO DE MISION entero, `docs/arte/maqueta_escritorio_mision.html`: el INICIO (la encuesta GO / NO-GO mientras la nebulosa se condensa en el sol), la barra de mision con la hora T+ y las luces, la lateral viva (propulsion, soporte vital, telemetria, la trayectoria de ESTRATOS y el motor de la estrella), la reticula que es el puntero, CAPCOM, la consola ESC y F1..F12, el mosaico que nada tapa (F1, F12, ESC), y el interruptor 3060 viva / CPU quieta; la estrella, aparte en `docs/arte/estrella_gato.js`, con SOL DE PLASMA y NEBULOSA pulidas (espiculas, rotacion, eyeccion; pilares de polvo y la nebulosa que se junta); probada en Chromium sin un error
 - [ ] HM2 -- las piezas comunes (marco, regla, lectura, barra) como `.maqueta` de verdad, con sus ficheros dorados en `toolchain/tools/maqueta/pruebas/`; piden MAQUETA 3 (pila A y la seccion 2d de `docs/plan/PLAN_MAQUETA_3.md`)
-- [ ] HM3 -- el escritorio de mision: la ESTRELLA GATO en `Ultra_userspace/services/director/src/scene/fondo.rs` (el logo como `<svg src>`, S6 de `docs/plan/PLAN_MAQUETA_3.md`), el planeta que la orbita, la reticula y las cuatro esquinas
-- [ ] HM3b -- el INICIO: la encuesta GO / NO-GO y la estrella que se enciende, en `Ultra_userspace/services/director/src/scene/arranque.rs` y `Ultra_userspace/services/director/src/scene/splash.rs`; cada GO sale de lo que el kernel ya mide, no de un reloj
+- [ ] HM3 -- el escritorio de mision en la CPU: el SOL DE PLASMA QUIETO en `Ultra_userspace/services/director/src/scene/fondo.rs` (UN fotograma, pintado cuando algo cambia; en reposo ninguno), el planeta, la reticula y las esquinas; los colores, de `tema_gen.rs` (HM1)
+- [ ] HM3c -- la estrella VIVA en la 3060: un programa de VERRANO en su propia pieza del director, que solo habla VERRANO; el sombreador entra como SPIR-V y la 3060 lo juzga y lo sube por su puerta (la fila de la 3060 de `docs/plan/PLAN_EL_AISLAMIENTO.md`). Sin la 3060 o sin su sobre: HM3, quieta
+- [ ] HM3b -- el INICIO: la encuesta GO / NO-GO y la NEBULOSA que se condensa en el SOL (con la 3060, viva; en la CPU, la nebulosa quieta y luego el sol quieto: dos fotogramas), en `Ultra_userspace/services/director/src/scene/arranque.rs` y `Ultra_userspace/services/director/src/scene/splash.rs`; cada GO sale de lo que el kernel ya mide, no de un reloj
 - [ ] HM4 -- los vitales F6, F7 y F8 como instrumentos: `Ultra_userspace/services/director/src/desktop/vitales.rs`
 - [ ] HM5 -- F9, F10, F11 y el globo: `Ultra_userspace/services/director/src/scene/cabina.rs`, `Ultra_userspace/services/director/src/scene/sound.rs`, `Ultra_userspace/services/director/src/scene/globo.rs`
 - [ ] HM6 -- las apps: F5 BANK CAT (`Ultra_userspace/services/director/src/desktop/bankcat.rs`), F1 el TALLER, F3 HERMES, F4 la LUDOTECA y F12 ESTRATOS, cada una con su instrumento

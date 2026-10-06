@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Escritorio de mision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
+<style>
+/* EL ESCRITORIO DE MISION, entero (docs/plan/PLAN_EL_HUD.md, HM0d).
+
+   El propietario, 06-10: *"me gustan el gato SOL de PLASMA, NEBULOSA, y lo
+   otro que es quieta con la CPU si no hace nada, pero con RTX 3060 12G ya
+   con eso se encargue, pero como siempre se aisle [...] y el escritorio
+   completo como se veria? con mi HUD"*.
+
+   Lo que se ve, de arriba abajo:
+     la barra de mision   (H5) la hora de mision T+, las luces GO, la hora
+     la lateral viva      (H3) propulsion, soporte vital, telemetria, la
+                          trayectoria del disco y el motor de la estrella
+     la estrella gato     (HD1, HD4) SOL DE PLASMA, o la NEBULOSA
+     el mosaico           (H4, H2) F1 o F12 abren ventanas sin taparse; la
+                          del foco lleva el borde cian
+     CAPCOM               el globo que habla
+     la consola de mando  ESC y F1..F12, cada tecla un instrumento
+
+   Y el INICIO: la encuesta GO / NO-GO mientras la NEBULOSA se junta en la
+   forma del gato y se condensa en el SOL -- una estrella nace de una
+   nebulosa, y la de BMO-X tambien.
+
+   El motor: con la 3060 la estrella esta VIVA (un programa de VERRANO, en su
+   propia pieza); sin ella, la CPU pinta UN fotograma y la deja QUIETA --
+   en reposo, cero fotogramas. El interruptor de arriba cambia de uno a otro.
+
+   La letra es IBM Plex porque el navegador no tiene la de la casa; en BMO-X
+   es bmo-letra (HD2). */
+:root {
+  color-scheme: dark;
+  --fondo: #04030A; --panel: #09080F; --linea: #2B2250; --rejilla: #161236;
+  --cian: #5EF2E6; --magenta: #FF2E88; --azul: #3DA5FF; --t: #F2F7F9; --tenue: #9A96B8;
+  --go: #7EE787; --nogo: #FF5A6E; --cuidado: #FFD45E;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --f-cond: "IBM Plex Sans Condensed", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--fondo); color: var(--t); }
+body { font-family: var(--f-mono); font-size: 13px; padding: 16px 16px 40px; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--cian); outline-offset: 2px; }
+.pagina { max-width: 1600px; margin: 0 auto; }
+.cabecera { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-bottom: 10px; }
+.cabecera h1 { margin: 0; font-family: var(--f-cond); font-weight: 600; font-size: 22px; letter-spacing: .18em; color: var(--cian); }
+.cabecera p { margin: 0; color: var(--tenue); font-family: var(--f-cond); font-size: 14px; max-width: 900px; }
+.mandos { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 10px; align-items: center; }
+.grupo { display: flex; gap: 4px; align-items: center; }
+.grupo > span { font-size: 10px; letter-spacing: .16em; color: var(--tenue); margin-right: 4px; }
+.grupo button { border: 1px solid var(--linea); padding: 4px 10px; font-size: 11px; letter-spacing: .1em; color: var(--tenue); }
+.grupo button[aria-pressed="true"] { color: var(--fondo); background: var(--cian); border-color: var(--cian); }
+.grupo button.gpu[aria-pressed="true"] { background: var(--cuidado); border-color: var(--cuidado); }
+.pantalla { position: relative; border: 1px solid var(--linea); background: var(--fondo); aspect-ratio: 16 / 9; overflow: hidden; }
+.pantalla svg { width: 100%; height: 100%; display: block; cursor: none; }
+.nota { margin-top: 10px; color: var(--tenue); font-family: var(--f-cond); font-size: 14px; max-width: 1100px; line-height: 1.45; }
+.nota b { color: var(--t); font-weight: 500; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header class="cabecera">
+    <h1>ESCRITORIO DE MISION</h1>
+    <p>Todo BMO-X junto: la estrella gato en el centro, el HUD de nave alrededor. Mueve el raton (la reticula es el puntero),
+       pulsa F1 o F12 para abrir ventanas en mosaico, ESC para volver, y prueba el motor: la 3060 viva o la CPU quieta.</p>
+  </header>
+  <div class="mandos" role="toolbar" aria-label="lo que se puede cambiar">
+    <div class="grupo"><span>ESTRELLA</span>
+      <button data-estrella="plasma" aria-pressed="true">SOL DE PLASMA</button>
+      <button data-estrella="nebulosa" aria-pressed="false">NEBULOSA</button></div>
+    <div class="grupo"><span>MOTOR</span>
+      <button class="gpu" data-motor="gpu" aria-pressed="true">LA 3060: VIVA</button>
+      <button data-motor="cpu" aria-pressed="false">LA CPU: QUIETA</button></div>
+    <div class="grupo"><span>VENTANAS</span>
+      <button data-ventanas="0" aria-pressed="true">NINGUNA</button>
+      <button data-ventanas="1" aria-pressed="false">MOSAICO</button></div>
+    <div class="grupo"><button id="otra-vez" aria-pressed="false">EL INICIO OTRA VEZ</button></div>
+  </div>
+  <div class="pantalla" id="pantalla"></div>
+  <p class="nota" id="nota"></p>
+</main>
+
+<script src="estrella_gato.js"></script>
+<script>
+(function () {
+  'use strict';
+  var EG = window.EstrellaGato, el = EG.el, semilla = EG.semilla;
+  var quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var W = 1920, H = 1080, CX = 1040, CY = 520;
+  function estilo(n) { return EG.ESTILOS.filter(function (e) { return e.n === n; })[0]; }
+  function txt(p, x, y, s, at) { return el('text', Object.assign({ x: x, y: y, fill: '#9A96B8', 'font-size': 13, 'font-family': 'IBM Plex Mono, monospace' }, at || {}), p, s); }
+  function marco(p, x, y, w, h, rotulo) {
+    var g = el('g', {}, p);
+    el('rect', { x: x, y: y, width: w, height: h, fill: '#09080F', 'fill-opacity': .9, stroke: '#2B2250' }, g);
+    [[0, 0, 1, 1], [w, 0, -1, 1], [0, h, 1, -1], [w, h, -1, -1]].forEach(function (c) {
+      el('path', { d: 'M' + (x + c[0] + c[2] * 12) + ' ' + (y + c[1]) + 'H' + (x + c[0]) + 'V' + (y + c[1] + c[3] * 12), fill: 'none', stroke: '#5EF2E6', 'stroke-width': 2 }, g);
+    });
+    if (rotulo) { txt(g, x + 12, y + 20, rotulo, { fill: '#5EF2E6', 'font-size': 11, 'letter-spacing': 3 }); }
+    return g;
+  }
+
+  var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': 'el escritorio de BMO-X con la estrella gato y el HUD de mision' }, document.getElementById('pantalla'));
+  var defs = el('defs', {}, svg);
+
+  // == EL CIELO: tres capas de estrellas que se mueven un poco con el puntero
+  var capas = [], r = semilla(5);
+  [[340, .5, .3], [160, 1, .6], [50, 1.7, 1]].forEach(function (c, i) {
+    var g = el('g', {}, svg);
+    for (var k = 0; k < c[0]; k++) { el('circle', { cx: r() * W, cy: r() * H, r: c[1] * (.5 + r()), fill: '#FFFFFF', opacity: .15 + r() * c[2] * .7 }, g); }
+    capas.push([g, (i + 1) * 6]);
+  });
+  el('ellipse', { cx: 1640, cy: 250, rx: 120, ry: 34, fill: EG.degradado(defs, 'galaxia', [['0%', '#8C52FF', .35], ['100%', '#8C52FF', 0]]), transform: 'rotate(-24 1640 250)' }, svg);
+  var rejilla = el('g', { stroke: '#161236', 'stroke-width': 1, opacity: .7 }, svg);
+  for (var gx = 300; gx < W; gx += 120) { el('line', { x1: gx, y1: 40, x2: gx, y2: H - 52 }, rejilla); }
+  for (var gy = 100; gy < H - 52; gy += 120) { el('line', { x1: 280, y1: gy, x2: W, y2: gy }, rejilla); }
+
+  // == LA ESTRELLA: las dos piezas, montadas una vez; se ve la elegida =======
+  var orbita = el('ellipse', { cx: CX, cy: CY, rx: 700, ry: 210, fill: 'none', stroke: '#2B2250', 'stroke-dasharray': '2 7' }, svg);
+  var planeta = el('g', {}, svg);
+  el('circle', { r: 22, fill: EG.degradado(defs, 'pl', [['0%', '#F5C48E'], ['70%', '#C26A3A'], ['100%', '#5A2410']], { cx: '35%', cy: '35%' }) }, planeta);
+  el('ellipse', { rx: 40, ry: 9, fill: 'none', stroke: '#F5C48E', 'stroke-opacity': .6, transform: 'rotate(-14)' }, planeta);
+  txt(planeta, 30, -26, 'KEPLER-5600 b', { 'font-size': 11, 'letter-spacing': 2, fill: '#FF2E88' });
+  var estrella = el('g', { transform: 'translate(' + CX + ' ' + CY + ')' }, svg);
+  var gNeb = el('g', {}, estrella), gPla = el('g', {}, estrella);
+  var anNeb = estilo('NEBULOSA').pinta(el('g', { transform: 'scale(1.75)' }, gNeb), 'neb');
+  var anPla = estilo('SOL DE PLASMA').pinta(el('g', { transform: 'scale(1.75)' }, gPla), 'pla');
+  var destello = el('circle', { cx: CX, cy: CY, r: 0, fill: '#FFF3D6', opacity: 0, filter: EG.brillo(defs, 'dest', 30) }, svg);
+
+  // == LAS VENTANAS (H4): el mosaico, sin taparse; el foco lleva el borde ==
+  var ventanas = el('g', { opacity: 0, 'pointer-events': 'none' }, svg), vs = [];
+  function ventana(x, y, w, h, tecla, nombre, pinta) {
+    var g = el('g', {}, ventanas);
+    el('rect', { x: x, y: y, width: w, height: h, fill: '#09080F', stroke: '#2B2250' }, g);
+    el('rect', { x: x, y: y, width: w, height: 30, fill: '#0E0B1C' }, g);
+    txt(g, x + 14, y + 20, tecla, { fill: '#FF2E88', 'font-size': 12, 'letter-spacing': 2 });
+    txt(g, x + 56, y + 20, nombre, { fill: '#F2F7F9', 'font-size': 12, 'letter-spacing': 3 });
+    var borde = el('rect', { x: x - 1, y: y - 1, width: w + 2, height: h + 2, fill: 'none', stroke: '#5EF2E6', 'stroke-width': 2, opacity: 0 }, g);
+    pinta(el('g', {}, g), x, y + 30, w, h - 30);
+    g.addEventListener('pointerdown', function () { foco(vs.indexOf(v)); });
+    var v = { g: g, borde: borde, tecla: tecla };
+    vs.push(v);
+  }
+  ventana(292, 56, 806, 958, 'F1', 'EL TALLER  //  PLANO DE ENSAMBLAJE', function (g, x, y, w, h) {
+    var nodos = [[120, 120, 'main.tt'], [420, 90, 'calculo.tt'], [420, 300, 'tabla.tt'], [140, 420, 'entrada.tt'], [520, 520, 'gpu.tt'], [260, 640, 'salida.tt']];
+    [[0, 1], [0, 2], [0, 3], [2, 4], [3, 5], [1, 4]].forEach(function (c) {
+      var a = nodos[c[0]], b = nodos[c[1]];
+      el('path', { d: 'M' + (x + a[0] + 170) + ' ' + (y + a[1] + 30) + ' C' + (x + a[0] + 260) + ' ' + (y + a[1] + 30) + ' ' + (x + b[0] - 90) + ' ' + (y + b[1] + 30) + ' ' + (x + b[0]) + ' ' + (y + b[1] + 30), fill: 'none', stroke: '#3DA5FF', 'stroke-width': 2, 'stroke-opacity': .7 }, g);
+    });
+    nodos.forEach(function (n, i) {
+      marco(g, x + n[0], y + n[1], 170, 60);
+      txt(g, x + n[0] + 14, y + n[1] + 26, n[2], { fill: i === 4 ? '#FFD45E' : '#F2F7F9', 'font-size': 14 });
+      txt(g, x + n[0] + 14, y + n[1] + 46, i === 4 ? 'gpu fn  //  3060' : 'modulo  //  ' + (3 + i * 2) + ' fn', { 'font-size': 10 });
+    });
+    txt(g, x + 20, y + h - 20, 'TAB: los nodos maestro   //   ENTER dos veces: abrir el codigo', { 'font-size': 11, 'letter-spacing': 1 });
+  });
+  ventana(1110, 56, 794, 958, 'F12', 'ESTRATOS  //  LA TRAYECTORIA', function (g, x, y, w, h) {
+    var px = function (i) { return x + 70 + i * 92; }, Y = y + 300;
+    el('line', { x1: px(0), y1: Y, x2: px(7), y2: Y, stroke: '#5EF2E6', 'stroke-width': 2 }, g);
+    el('path', { d: 'M' + px(2) + ' ' + Y + ' C' + px(3) + ' ' + (Y - 150) + ' ' + px(4) + ' ' + (Y - 150) + ' ' + px(5) + ' ' + (Y - 140) + ' S' + px(6) + ' ' + (Y - 30) + ' ' + px(7) + ' ' + Y, fill: 'none', stroke: '#FF2E88', 'stroke-width': 2, 'stroke-dasharray': '6 5' }, g);
+    for (var i = 0; i < 8; i++) {
+      el('circle', { cx: px(i), cy: Y, r: i === 7 ? 11 : 7, fill: i === 7 ? '#FFD45E' : '#09080F', stroke: i === 7 ? '#FFD45E' : '#5EF2E6', 'stroke-width': 2 }, g);
+      txt(g, px(i) - 12, Y + 32, '#' + (40 + i), { 'font-size': 11 });
+    }
+    el('circle', { cx: px(5), cy: Y - 140, r: 7, fill: '#09080F', stroke: '#FF2E88', 'stroke-width': 2 }, g);
+    txt(g, px(0), Y - 40, 'principal', { fill: '#5EF2E6', 'font-size': 12, 'letter-spacing': 2 });
+    txt(g, px(3) + 6, Y - 156, 'pruebas', { fill: '#FF2E88', 'font-size': 12, 'letter-spacing': 2 });
+    txt(g, px(7) - 190, Y + 58, 'MEZCLA  //  candado cerrado', { fill: '#FFD45E', 'font-size': 11 });
+    marco(g, x + 30, y + 480, w - 60, 200, 'LA VERSION #47');
+    ['dos padres: #46 y pruebas #45', 'escrita por TALLER (pid 12)', 'carpetas tocadas: 3   choques elegidos: 2'].forEach(function (l, i) { txt(g, x + 50, y + 540 + i * 30, l, { fill: '#F2F7F9', 'font-size': 14 }); });
+  });
+  var enfocada = 0;
+  function foco(i) { enfocada = i; vs.forEach(function (v, k) { v.borde.setAttribute('opacity', k === i ? 1 : 0); }); }
+  foco(0);
+
+  // == CAPCOM: el globo que habla ==========================================
+  var capcom = el('g', {}, svg);
+  marco(capcom, 300, 868, 560, 92, 'CAPCOM');
+  var dicho = txt(capcom, 314, 922, '', { fill: '#F2F7F9', 'font-size': 18 });
+  var FRASES = ['Todo en GO. Buen viaje, gato.', '', 'ESTRATOS: version #47 escrita, nada perdido.', 'F2 MIAU :3'];
+  function frase2() { return est.motor === 'gpu' ? 'La 3060 lleva la estrella; la CPU descansa.' : 'Estrella quieta: cero fotogramas en reposo.'; }
+
+  // == EL HUD: la barra de mision, la lateral, las esquinas, la consola =====
+  var hud = el('g', {}, svg);
+  el('rect', { x: 0, y: 0, width: W, height: 40, fill: '#09080F' }, hud);
+  el('line', { x1: 0, y1: 40, x2: W, y2: 40, stroke: '#2B2250' }, hud);
+  txt(hud, 18, 26, 'BMO-X', { fill: '#5EF2E6', 'font-size': 15, 'font-weight': 600, 'letter-spacing': 4 });
+  txt(hud, 98, 26, 'MISION 01  //  SOL GATO', { 'font-size': 12, 'letter-spacing': 2 });
+  var met = txt(hud, 860, 27, 'T+ 00:00:00', { fill: '#FF2E88', 'font-size': 17, 'letter-spacing': 3 });
+  var LUCES = ['KERNEL', 'DISCO', 'RED', 'SONIDO', '3060'], luces = [];
+  LUCES.forEach(function (n, i) {
+    var x = 1150 + i * 120;
+    luces.push(el('circle', { cx: x, cy: 20, r: 5, fill: '#7EE787' }, hud));
+    txt(hud, x + 12, 25, n, { 'font-size': 11, 'letter-spacing': 2 });
+  });
+  var reloj = txt(hud, 1800, 26, '00:00', { fill: '#F2F7F9', 'font-size': 15 });
+
+  // La lateral viva (H3): lo que hace la maquina, sin abrir nada.
+  var lat = el('g', {}, hud);
+  el('rect', { x: 0, y: 40, width: 276, height: H - 92, fill: '#09080F' }, lat);
+  el('line', { x1: 276, y1: 40, x2: 276, y2: H - 52, stroke: '#2B2250' }, lat);
+  marco(lat, 14, 56, 248, 170, 'PROPULSION  //  CPU');
+  var motores = [];
+  for (var m = 0; m < 12; m++) { motores.push(el('rect', { x: 30 + m * 18, y: 120, width: 12, height: 80, fill: '#5EF2E6' }, lat)); }
+  var cpuTxt = txt(lat, 30, 216, '', { fill: '#F2F7F9', 'font-size': 12 });
+  marco(lat, 14, 240, 248, 150, 'SOPORTE VITAL  //  MEMORIA');
+  el('rect', { x: 30, y: 280, width: 216, height: 26, fill: 'none', stroke: '#2B2250' }, lat);
+  var tanque = el('rect', { x: 32, y: 282, width: 0, height: 22, fill: '#3DA5FF' }, lat);
+  var memTxt = txt(lat, 30, 334, '', { fill: '#F2F7F9', 'font-size': 20 });
+  txt(lat, 30, 366, 'de 32 GiB  //  4 titulares', { 'font-size': 11 });
+  marco(lat, 14, 404, 248, 150, 'TELEMETRIA  //  RED');
+  var onda = el('polyline', { fill: 'none', stroke: '#FF2E88', 'stroke-width': 2 }, lat), muestras = [];
+  var redTxt = txt(lat, 30, 538, '', { fill: '#F2F7F9', 'font-size': 12 });
+  marco(lat, 14, 568, 248, 150, 'TRAYECTORIA  //  ESTRATOS');
+  txt(lat, 30, 612, 'rama   principal', { fill: '#5EF2E6', 'font-size': 13 });
+  txt(lat, 30, 640, 'version #47  //  mezcla', { fill: '#F2F7F9', 'font-size': 13 });
+  txt(lat, 30, 668, 'marcadas 6   ramas 2', { 'font-size': 12 });
+  txt(lat, 30, 696, 'candado: CERRADO', { fill: '#FFD45E', 'font-size': 12 });
+  var cMotor = marco(lat, 14, 732, 248, 180, 'LA ESTRELLA  //  MOTOR');
+  var motorTxt = [txt(cMotor, 30, 780, '', { fill: '#F2F7F9', 'font-size': 15 }), txt(cMotor, 30, 808, '', { 'font-size': 11 }), txt(cMotor, 30, 830, '', { 'font-size': 11 }), txt(cMotor, 30, 852, '', { 'font-size': 11 }), txt(cMotor, 30, 890, '', { 'font-size': 12 })];
+  // Las esquinas de la derecha: donde estamos y como va todo.
+  var esquinas = el('g', {}, hud);
+  marco(esquinas, 1640, 56, 264, 96, 'NAVEGACION');
+  txt(esquinas, 1654, 100, 'SOL GATO  //  ORBITA 1', { fill: '#F2F7F9', 'font-size': 14 });
+  var dist = txt(esquinas, 1654, 130, '', { 'font-size': 12 });
+  marco(esquinas, 1640, 880, 264, 80, 'SISTEMAS');
+  var nominal = txt(esquinas, 1654, 934, 'NOMINALES', { fill: '#7EE787', 'font-size': 20, 'letter-spacing': 2 });
+
+  // La consola de mando: ESC y F1..F12, cada una un instrumento.
+  var TECLAS = [['ESC', 'ESCRITORIO'], ['F1', 'TALLER'], ['F2', 'ARCHIVOS'], ['F3', 'HERMES'], ['F4', 'LUDOTECA'], ['F5', 'BANK CAT'], ['F6', 'RED'], ['F7', 'CPU'], ['F8', 'MEMORIA'], ['F9', 'FALLO'], ['F10', 'SONIDO'], ['F11', 'CABINA'], ['F12', 'ESTRATOS']];
+  var mando = el('g', {}, hud), teclas = [], ancho = W / TECLAS.length;
+  el('rect', { x: 0, y: H - 52, width: W, height: 52, fill: '#09080F' }, mando);
+  el('line', { x1: 0, y1: H - 52, x2: W, y2: H - 52, stroke: '#2B2250' }, mando);
+  TECLAS.forEach(function (k, i) {
+    var g = el('g', { cursor: 'pointer' }, mando), x = i * ancho;
+    var fondo = el('rect', { x: x, y: H - 51, width: ancho, height: 51, fill: '#5EF2E6', opacity: 0 }, g);
+    var raya = el('rect', { x: x, y: H - 52, width: ancho, height: 2, fill: '#5EF2E6', opacity: 0 }, g);
+    el('line', { x1: x + ancho, y1: H - 52, x2: x + ancho, y2: H, stroke: '#2B2250' }, g);
+    var a = txt(g, x + ancho / 2, H - 28, k[0], { 'text-anchor': 'middle', fill: '#F2F7F9', 'font-size': 13 });
+    var b = txt(g, x + ancho / 2, H - 11, k[1], { 'text-anchor': 'middle', 'font-size': 10, 'letter-spacing': 2 });
+    g.addEventListener('click', function () { tecla(k[0]); });
+    teclas.push([k[0], fondo, raya, a, b]);
+  });
+
+  // == LA RETICULA: el puntero de la nave ==================================
+  var ret = el('g', { 'pointer-events': 'none' }, svg), px = CX, py = CY;
+  el('circle', { r: 26, fill: 'none', stroke: '#5EF2E6', 'stroke-width': 1.5 }, ret);
+  [[-40, 0, -30, 0], [30, 0, 40, 0], [0, -40, 0, -30], [0, 30, 0, 40]].forEach(function (l) { el('line', { x1: l[0], y1: l[1], x2: l[2], y2: l[3], stroke: '#5EF2E6', 'stroke-width': 2 }, ret); });
+  el('circle', { r: 2, fill: '#FF2E88' }, ret);
+  var coord = txt(ret, 34, 46, '', { fill: '#5EF2E6', 'font-size': 11, 'letter-spacing': 1 });
+  svg.addEventListener('pointermove', function (e) {
+    var b = svg.getBoundingClientRect();
+    px = (e.clientX - b.left) / b.width * W; py = (e.clientY - b.top) / b.height * H;
+    ret.setAttribute('transform', 'translate(' + px + ' ' + py + ')');
+    coord.textContent = 'AZ ' + (px / W * 360).toFixed(1) + '  EL ' + (90 - py / H * 180).toFixed(1);
+    capas.forEach(function (c) { c[0].setAttribute('transform', 'translate(' + (-(px - W / 2) / W * c[1]) + ' ' + (-(py - H / 2) / H * c[1]) + ')'); });
+  });
+  ret.setAttribute('transform', 'translate(' + px + ' ' + py + ')');
+
+  // == EL INICIO: la encuesta GO / NO-GO ===================================
+  var inicio = el('g', {}, svg);
+  el('rect', { x: 0, y: 0, width: W, height: H, fill: '#000000', opacity: .55 }, inicio);
+  txt(inicio, 120, 300, 'ENCUESTA  //  GO / NO-GO', { fill: '#5EF2E6', 'font-size': 16, 'letter-spacing': 4 });
+  var SISTEMAS = ['KERNEL', 'MEMORIA', 'DISCO', 'ESTRATOS', 'RED', 'SONIDO', 'LA 3060', 'DIRECTOR'], votos = [];
+  SISTEMAS.forEach(function (n, i) {
+    txt(inicio, 120, 350 + i * 40, n, { fill: '#F2F7F9', 'font-size': 18, 'letter-spacing': 2 });
+    el('line', { x1: 300, y1: 344 + i * 40, x2: 420, y2: 344 + i * 40, stroke: '#2B2250', 'stroke-dasharray': '2 4' }, inicio);
+    votos.push(txt(inicio, 440, 350 + i * 40, '...', { fill: '#FFD45E', 'font-size': 18, 'letter-spacing': 2 }));
+  });
+  var lema = txt(inicio, CX, 900, 'la nebulosa se junta...', { 'text-anchor': 'middle', fill: '#9A96B8', 'font-size': 16, 'letter-spacing': 4 });
+
+  // == EL ESTADO ===========================================================
+  var est = { estrella: 'plasma', motor: quieto ? 'cpu' : 'gpu', ventanas: false, t0: 0, inicio: !quieto, tI: 0 };
+  var tEstrella = 0, ultimo = 0, quietaPintada = false;
+
+  function nota() {
+    var gpu = est.motor === 'gpu';
+    motorTxt[0].textContent = gpu ? 'LA 3060  //  VIVA' : 'LA CPU  //  QUIETA';
+    motorTxt[0].setAttribute('fill', gpu ? '#FFD45E' : '#5EF2E6');
+    motorTxt[1].textContent = gpu ? 'un programa de VERRANO, en su' : 'UN fotograma al cambiar algo;';
+    motorTxt[2].textContent = gpu ? 'pieza: el director no sabe de' : 'en reposo, CERO. La 3060 no';
+    motorTxt[3].textContent = gpu ? 'que tarjeta es, solo de VERRANO' : 'esta o no tiene su sobre';
+    motorTxt[4].textContent = (est.estrella === 'plasma' ? 'SOL DE PLASMA' : 'NEBULOSA');
+    luces[4].setAttribute('fill', gpu ? '#7EE787' : '#FFD45E');
+    document.getElementById('nota').innerHTML = gpu
+      ? '<b>La 3060 lleva la estrella.</b> Viva, en su propia pieza: el sombreador entra como SPIR-V, la 3060 lo juzga y lo sube por SU puerta, y el director solo habla con VERRANO. Si manana hay otra tarjeta, trae su fila y el escritorio no cambia (PLAN_EL_AISLAMIENTO).'
+      : '<b>La CPU pinta la estrella UNA vez y la deja quieta.</b> Es lo que pasa sin la 3060, o sin el sobre de su tarjeta: el mismo gato, el mismo fotograma, y en reposo cero fotogramas. El HUD sigue vivo porque sus numeros SI cambian.';
+  }
+  function marcar(sel, val) { document.querySelectorAll('[' + sel + ']').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute(sel) === String(val) ? 'true' : 'false'); }); }
+  function verEstrella() {
+    gNeb.setAttribute('display', est.estrella === 'nebulosa' ? 'inline' : 'none');
+    gPla.setAttribute('display', est.estrella === 'plasma' ? 'inline' : 'none');
+    quietaPintada = false;
+  }
+  function verVentanas() {
+    ventanas.setAttribute('opacity', est.ventanas ? 1 : 0);
+    ventanas.setAttribute('pointer-events', est.ventanas ? 'auto' : 'none');
+    // H4: con ventanas, NADA las tapa -- ni CAPCOM ni las esquinas del HUD.
+    capcom.setAttribute('display', est.ventanas ? 'none' : 'inline');
+    esquinas.setAttribute('display', est.ventanas ? 'none' : 'inline');
+    estrella.setAttribute('opacity', est.ventanas ? .3 : 1);
+    marcar('data-ventanas', est.ventanas ? 1 : 0);
+    var activa = est.ventanas ? vs[enfocada].tecla : 'ESC';
+    teclas.forEach(function (k) { var on = k[0] === activa; k[1].setAttribute('opacity', on ? .14 : 0); k[2].setAttribute('opacity', on ? 1 : 0); k[3].setAttribute('fill', on ? '#5EF2E6' : '#F2F7F9'); k[4].setAttribute('fill', on ? '#5EF2E6' : '#9A96B8'); });
+  }
+  function tecla(k) {
+    if (k === 'F1' || k === 'F12') { est.ventanas = true; foco(k === 'F1' ? 0 : 1); }
+    else if (k === 'ESC') { est.ventanas = false; }
+    else { decir(k + ': ese instrumento esta en maqueta_hud_nasa.html'); return; }
+    verVentanas();
+  }
+  document.addEventListener('keydown', function (e) {
+    var k = e.key === 'Escape' ? 'ESC' : e.key;
+    if (/^F([1-9]|1[0-2])$/.test(k) || k === 'ESC') { e.preventDefault(); tecla(k); }
+  });
+  document.querySelectorAll('[data-estrella]').forEach(function (b) { b.addEventListener('click', function () { est.estrella = b.dataset.estrella; marcar('data-estrella', est.estrella); verEstrella(); nota(); }); });
+  document.querySelectorAll('[data-motor]').forEach(function (b) { b.addEventListener('click', function () { est.motor = b.dataset.motor; marcar('data-motor', est.motor); quietaPintada = false; nota(); }); });
+  document.querySelectorAll('[data-ventanas]').forEach(function (b) { b.addEventListener('click', function () { est.ventanas = b.dataset.ventanas === '1'; verVentanas(); }); });
+  document.getElementById('otra-vez').addEventListener('click', function () { est.inicio = true; est.tI = performance.now(); });
+
+  var frase = 0, letras = 0, propia = null;
+  function decir(s) { propia = s; letras = 0; }
+
+  // Los numeros del HUD cambian una vez por segundo: eso es lo que de verdad
+  // se mueve en un escritorio en reposo.
+  var rr = semilla(17), carga = [];
+  for (var c = 0; c < 12; c++) { carga.push(.2 + rr() * .3); }
+  function segundo() {
+    var tot = 0;
+    carga = carga.map(function (v) { v = Math.min(.95, Math.max(.04, v + (rr() - .5) * .18)); tot += v; return v; });
+    motores.forEach(function (m, i) { var h = 80 * carga[i]; m.setAttribute('y', 200 - h); m.setAttribute('height', h); m.setAttribute('fill', carga[i] > .8 ? '#FF2E88' : '#5EF2E6'); });
+    cpuTxt.textContent = '12 motores  //  ' + Math.round(tot / 12 * 100) + '% de empuje';
+    var mem = 9.2 + rr() * .6; tanque.setAttribute('width', 212 * mem / 32); memTxt.textContent = mem.toFixed(1) + ' GiB';
+    muestras.push(10 + rr() * 50); if (muestras.length > 24) { muestras.shift(); }
+    onda.setAttribute('points', muestras.map(function (v, i) { return (30 + i * 9) + ',' + (510 - v); }).join(' '));
+    redTxt.textContent = 'ping 12 ms  //  ' + (muestras[muestras.length - 1] / 10).toFixed(1) + ' MiB/s';
+    var s = Math.floor((performance.now() - est.t0) / 1000);
+    met.textContent = 'T+ ' + [s / 3600, s / 60 % 60, s % 60].map(function (n) { return ('0' + Math.floor(n)).slice(-2); }).join(':');
+    var d = new Date(); reloj.textContent = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    dist.textContent = (0.982 + 0.004 * Math.sin(s / 30)).toFixed(4) + ' UA de la estrella';
+  }
+
+  function cuadro(ahora) {
+    var dt = Math.min(100, ahora - (ultimo || ahora)); ultimo = ahora;
+    // -- el INICIO
+    if (est.inicio) {
+      var s = (ahora - est.tI) / 1000, neb = est.estrella === 'nebulosa', fin = neb ? 6 : 7.6;
+      inicio.setAttribute('display', 'inline'); capcom.setAttribute('display', 'none');
+      inicio.setAttribute('opacity', Math.max(0, Math.min(1, fin - .7 - s)));
+      hud.setAttribute('opacity', Math.max(0, Math.min(1, (s - (fin - .7)) / .7)));
+      votos.forEach(function (v, i) { var go = s > .8 + i * .55; v.textContent = go ? 'GO' : '...'; v.setAttribute('fill', go ? '#7EE787' : '#FFD45E'); });
+      gNeb.setAttribute('display', 'inline');
+      var forma = Math.max(0, Math.min(1, (s - .4) / 4)), k = 1;
+      if (!neb && s > 4.8) { k = Math.max(.12, 1 - (s - 4.8) / 1); }
+      gNeb.setAttribute('transform', 'scale(' + k + ')'); gNeb.setAttribute('opacity', neb || s < 5.6 ? 1 : 0);
+      anNeb(ahora, forma);
+      if (!neb) {
+        var e = Math.max(0, Math.min(1, (s - 5.6) / 1.2));
+        gPla.setAttribute('display', s > 5.6 ? 'inline' : 'none');
+        gPla.setAttribute('transform', 'scale(' + (.12 + .88 * e * e * (3 - 2 * e)) + ')');
+        anPla(ahora);
+        var f = (s - 5.6) / .9;
+        destello.setAttribute('r', f > 0 && f < 1 ? 60 + 340 * f : 0); destello.setAttribute('opacity', f > 0 && f < 1 ? .9 * (1 - f) : 0);
+      }
+      lema.textContent = s < 4.6 ? 'la nebulosa se junta...' : neb ? 'GO: el escritorio' : s < 5.8 ? 'y se condensa...' : 'IGNICION  //  el sol gato';
+      if (s > fin) { est.inicio = false; inicio.setAttribute('display', 'none'); inicio.setAttribute('opacity', 1); hud.setAttribute('opacity', 1); verVentanas(); gNeb.setAttribute('transform', ''); gPla.setAttribute('transform', ''); gNeb.setAttribute('opacity', 1); verEstrella(); }
+      ret.setAttribute('display', 'none');
+      requestAnimationFrame(cuadro); return;
+    }
+    ret.setAttribute('display', 'inline');
+    // -- la estrella: viva con la 3060; con la CPU, un fotograma y quieta
+    if (est.motor === 'gpu') {
+      tEstrella += dt;
+      (est.estrella === 'plasma' ? anPla : anNeb)(tEstrella);
+      var a = tEstrella / 14000, lejos = Math.sin(a) < 0;
+      planeta.setAttribute('transform', 'translate(' + (CX + 700 * Math.cos(a)) + ' ' + (CY + 210 * Math.sin(a)) + ')');
+      svg.insertBefore(planeta, lejos ? estrella : estrella.nextSibling);
+    } else if (!quietaPintada) {
+      (est.estrella === 'plasma' ? anPla : anNeb)(2500);
+      quietaPintada = true;
+    }
+    // -- CAPCOM escribe letra a letra
+    var linea = propia || FRASES[frase] || frase2();
+    letras += dt / 45;
+    dicho.textContent = linea.slice(0, Math.floor(letras));
+    if (letras > linea.length + 80) { letras = 0; if (propia) { propia = null; } else { frase = (frase + 1) % FRASES.length; } }
+    requestAnimationFrame(cuadro);
+  }
+
+  est.t0 = performance.now(); est.tI = est.t0;
+  planeta.setAttribute('transform', 'translate(' + (CX + 700) + ' ' + CY + ')');
+  marcar('data-motor', est.motor);
+  verEstrella(); verVentanas(); nota(); segundo();
+  setInterval(segundo, 1000);
+  if (!est.inicio) { inicio.setAttribute('display', 'none'); }
+  requestAnimationFrame(cuadro);
+})();
+</script>
+</body>
+</html>
