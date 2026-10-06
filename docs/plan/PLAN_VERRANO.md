@@ -761,7 +761,7 @@ exactamente lo que el juez aprobo, y para que GPU se hizo.
 **Por que es la forma buena (y no una idea nueva que choque):** la regla de
 este plan ya es "la GPU NO COMPILA NADA: los programas viajan ya traducidos
 en el BSF" (seccion 0) y "Vulkan se TRADUCE a VERRANO, no al reves" (seccion
-3). Lo que el pedido anade es que DX12 entre por la MISMA puerta, que el
+3). Lo que el pedido agrega es que DX12 entre por la MISMA puerta, que el
 codigo de la CPU viaje en el mismo paquete (.bex), y que el kernel salga del
 camino de cada dibujo. Es lo que hacen las caches de sombreadores de DXVK y
 vkd3d-proton, pero en el formato de la casa.
