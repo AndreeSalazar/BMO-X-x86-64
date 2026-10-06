@@ -47,6 +47,7 @@ New-Item -ItemType Directory -Force -Path $informe | Out-Null
 $resumen = New-Object System.Collections.Generic.List[string]
 $resumen.Add("Los jueces de PROTON-X en Windows, " + (Get-Date -Format 'yyyy-MM-dd HH:mm'))
 $resumen.Add([Environment]::OSVersion.VersionString)
+$resumen.Add("La tabla (jueces.txt): $($jueces.Count) jueces")
 try {
     $gpu = (Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name + ' (' + $_.DriverVersion + ')' }) -join '; '
     $resumen.Add("GPU: $gpu")
@@ -76,15 +77,24 @@ foreach ($j in $jueces) {
     }
     $sale = Join-Path $informe "$nombre.txt"
     $err = Join-Path $informe "$nombre.err.txt"
-    $p = Start-Process -FilePath $exe -WorkingDirectory $PSScriptRoot -NoNewWindow -PassThru `
-        -RedirectStandardOutput $sale -RedirectStandardError $err
-    # Sin tocar Handle antes de que acabe, ExitCode sale vacio (PowerShell 5.1).
-    $null = $p.Handle
+    # 06-10: con Process de .NET y no con Start-Process: este tiene el
+    # proceso desde que nace, y su ExitCode no se pierde. Con Start-Process,
+    # un .exe tan rapido como hola.exe acababa antes de que se pidiera su
+    # Handle, y salia "salio con" y nada (lo vio el propietario).
+    $psi = New-Object System.Diagnostics.ProcessStartInfo $exe
+    $psi.WorkingDirectory = $PSScriptRoot
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $p = [System.Diagnostics.Process]::Start($psi)
+    $leeSale = $p.StandardOutput.ReadToEndAsync()
+    $leeErr = $p.StandardError.ReadToEndAsync()
     $colgado = -not $p.WaitForExit(60000)
     if ($colgado) { try { $p.Kill() } catch {} }
-    $lineas = @(Get-Content -LiteralPath $sale -ErrorAction SilentlyContinue) +
-              @(Get-Content -LiteralPath $err -ErrorAction SilentlyContinue)
-    if ((Get-Item -LiteralPath $err).Length -eq 0) { Remove-Item -LiteralPath $err }
+    $p.WaitForExit()
+    Set-Content -LiteralPath $sale -Value $leeSale.Result -NoNewline
+    if ($leeErr.Result.Length -gt 0) { Set-Content -LiteralPath $err -Value $leeErr.Result -NoNewline }
+    $lineas = @(($leeSale.Result + "`n" + $leeErr.Result) -split "`r?`n")
     $bien = @($lineas | Where-Object { $_ -match '^\s*bien\b' }).Count
     $mal = @($lineas | Where-Object { $_ -match '^\s*MAL\b' }).Count
     $nota = @($lineas | Where-Object { $_ -match '^\s*nota\b' }).Count
