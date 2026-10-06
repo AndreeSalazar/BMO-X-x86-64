@@ -3028,3 +3028,30 @@ d3d12). La leen los dos que los corren, y por eso no se pueden contradecir:
 `correr_en_windows.ps1` en Windows, y `sys/jueces.bex` en BMO-X
 (Ultra_userspace/apps/jueces, que la lleva dentro: `include_str!`). Un juez
 nuevo entra AQUI, y en los dos a la vez.
+
+limpieza.exe -- ClearUnorderedAccessView, juzgado (06-10)
+
+A2 del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola, sin
+sombreadores: limpiezas y copias. A, RGBA8_TYPELESS por una vista R32_UINT
+(Uint 0x11223344); B, por una R8G8B8A8_SNORM (Float -1, -0.25, 0.25, 1:
+81 E0 20 7F); C, R10G10B10A2_TYPELESS por una R32_UINT; D,
+R16G16B16A16_TYPELESS por una UINT (los 16 bits bajos de cada valor); E,
+R16G16_FLOAT (los halfs); F, un R32_UINT de 8 x 8 con dos rectangulos y uno
+vacio; G, un bufer R16G16_UINT; H, un array de dos capas con un
+rectangulo: en LAS DOS. Bit a bit. Dice `bien` 8 veces y sale con el numero
+de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con limpieza.cpp:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c limpieza.cpp -o limpieza.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o limpieza.exe limpieza.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   1261ce7a2c4b0d1dcf9eb5fbb974a0e55f0b4f17991be2d4f7fd74febc360859  limpieza.exe
+
+El banco (`tests/corre/muestras.rs`): los 8 `bien`, sale con 0, ni un
+aviso. Probado que dice NO: contra la casa de antes, 6 MAL (el valor en el
+formato del recurso y no en el de la vista; los rectangulos, "se limpia la
+vista entera"). Y el juez se equivoco una vez y la casa no: leia los
+texeles de 8 bytes de D como si fueran de 4.

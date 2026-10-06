@@ -983,3 +983,19 @@ fn las_vistas_que_cambian_el_tipo_son_las_de_windows() {
     assert_eq!(texto.matches("  bien  ").count(), 8, "{texto}");
     assert!(texto.ends_with("tipos.exe: las vistas que cambian el tipo son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **ClearUnorderedAccessView** (A2, 06-10, `prueba/limpieza.exe`, NUESTRO):
+/// el valor en el formato de la VISTA (un R32_UINT o un SNORM sobre un RGBA8
+/// TYPELESS, un UINT sobre un RGBA16 TYPELESS, un R32_UINT sobre un
+/// R10G10B10A2 TYPELESS) y solo dentro de sus RECTANGULOS (en una 2D y en
+/// cada capa de un array). Sin sombreadores; bit a bit, ni un aviso.
+#[test]
+fn clear_unordered_access_view_es_el_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, LIMPIEZA_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 8, "{texto}");
+    assert!(texto.ends_with("limpieza.exe: ClearUnorderedAccessView es el de Windows\r\n[salio 0x0]"), "{texto}");
+}

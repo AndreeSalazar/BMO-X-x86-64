@@ -24,10 +24,10 @@ cada juez es lo que hace que esta hoja cuente.
 
 ## 1. Los jueces de consola (dicen `bien` / `MAL`, y salen con los fallos)
 
-**La forma corta (06-10): `run sys/jueces.bex`.** Los 84 de consola, uno
+**La forma corta (06-10): `run sys/jueces.bex`.** Los 85 de consola, uno
 tras otro y SOLOS: cada uno con su consola y un tope de 600 s, contados con
 la MISMA tabla que uso Windows (`platform/shared/proton-x/prueba/jueces.txt`,
-84 de 84 en la 3060 del propietario). Dice una linea por juez (`bien`,
+84 de 84 en la 3060 del propietario; `limpieza`, el 85, aun no). Dice una linea por juez (`bien`,
 `DISTINTO` y por que, o `COLGADO`) y lo deja todo en `informe/jueces.txt`:
 ese fichero es lo que hay que mandar. Un grupo solo: `run sys/jueces.bex
 d3d12` (o `tandas`, `dentro`); unos pocos: `run sys/jueces.bex olas tipos`;
@@ -56,6 +56,7 @@ cualquiera es una diferencia.
 | `firmas.exe` | las ROOT SIGNATURES 1.1 (la de `dxc`, con banderas) y 1.0, la que viene DENTRO del sombreador (pasada a CreateRootSignature, y la de un PSO creado sin root signature), una DESC1 serializada, y CheckFeatureSupport diciendo 1.1 (06-10) | 6 | `firmas.exe: las root signatures 1.1 y las de dentro del sombreador son las de Windows` | ninguno |
 | `postpro.exe` | el COMPUTO de un posproceso: cada hilo elige SU textura de un array sin limite (bindless), muestrea la escena, escribe un RWTexture2D creado sin descripcion, InterlockedAdd y GetDimensions; corre TRADUCIDO a x86 (06-10) | 3 | `postpro.exe: el computo de un posproceso es el de Windows` | ninguno |
 | `tipos.exe` | las VISTAS QUE CAMBIAN EL TIPO (D2.7): texturas TYPELESS escritas por una vista y leidas por otra (UNORM, R32_UINT, R10G10B10A2_UNORM, halfs como UINT, SINT), un InterlockedAdd por la vista de una palabra, y render targets RGBA8 vistos como UINT y SNORM (06-10) | 8 | `tipos.exe: las vistas que cambian el tipo son las de Windows` | ninguno |
+| `limpieza.exe` | ClearUnorderedAccessView en el formato de la VISTA (R32_UINT y SNORM sobre RGBA8 TYPELESS, UINT sobre RGBA16 TYPELESS, R32_UINT sobre R10G10B10A2 TYPELESS, RG16F, un bufer R16G16_UINT) y solo en sus RECTANGULOS (una 2D, las dos capas de un array) (06-10) | 8 | `limpieza.exe: ClearUnorderedAccessView es el de Windows` | ninguno |
 
 **Lo que el banco NO puede ver y el Ryzen si** (por eso cuentan):
 

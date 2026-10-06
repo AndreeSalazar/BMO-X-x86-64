@@ -404,7 +404,13 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
 - [ ] D3.3 -- SIN ATAR (bindless, modelo 6.6: `ResourceDescriptorHeap`),
   si D0.2 lo encuentra.
 - [ ] D3.4 -- Los UAV: bufferes con tipo, crudos y estructurados; sus
-  contadores; `ClearUnorderedAccessView*`. (06-10: tambien los de TEXTURAS 3D y de
+  contadores; `ClearUnorderedAccessView*`. (06-10, A2: ClearUnorderedAccessView
+  escribe el valor en el formato de la VISTA -- un R32_UINT o un SNORM sobre
+  un RGBA8 TYPELESS, un UINT sobre un RGBA16 TYPELESS, un R32_UINT sobre un
+  R10G10B10A2 TYPELESS; antes, en el del recurso -- y solo dentro de sus
+  RECTANGULOS, en una 2D, en cada capa de un array y en los elementos de un
+  bufer; antes, "se limpia la vista entera". Juez: `prueba/limpieza.exe`, 8
+  `bien`; con la casa de antes, 6 MAL. 06-10: tambien los de TEXTURAS 3D y de
   arrays de 2D, en el computo y en los dibujos, juzgados por
   `prueba/volumen.exe` en el banco: rebanadas, capas con su cadena de mips
   entre una y otra, atomicos, GetDimensions, y ClearUnorderedAccessView
@@ -1291,7 +1297,8 @@ y lo dice.
    A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    9
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
-      2  D3.4  ClearUnorderedAccessView en los formatos que aun no escribe
+      2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
+               rectangulos (06-10: limpieza.exe, 8 bien en el banco)
       3  D3.2  el deserializador de firmas (D3D12CreateVersionedRoot...)
       4  D3.2  serializar la 1.1 con los MISMOS bytes que Windows
       5  D3.4  los UAV de arrays de 1D y los de filas de otra medida
@@ -1301,6 +1308,13 @@ y lo dice.
       9  D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO)
      10  X5    la velocidad que queda: las olas en el computo traducido y
                los pixeles con UAV traducidos
+     11  ESCENA  (06-10, pedido del propietario: "un test en 3D DURO en
+               Windows, y que se refleje en BMO-X") una escena pesada --
+               miles de triangulos, texturas con mips, profundidad, luz
+               con sombra, HDR y posproceso -- que en Windows GUARDA su
+               imagen, y en el banco y en BMO-X se compara con ella con un
+               margen MEDIDO (la GPU y la CPU no dan los mismos bits en
+               los floats: lo que se pide es cuantos pixeles y cuanto)
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.

@@ -120,6 +120,8 @@ const FIRMAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/firmas.exe");
 const POSTPRO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/postpro.exe");
 /// 06-10: las vistas que cambian el tipo (D2.7): UAV, SRV y render targets de otro formato.
 const TIPOS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/tipos.exe");
+/// 06-10: ClearUnorderedAccessView en el formato de la vista y con rectangulos (A2).
+const LIMPIEZA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/limpieza.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

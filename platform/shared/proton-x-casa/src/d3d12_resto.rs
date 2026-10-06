@@ -694,21 +694,21 @@ extern "win64" fn so_set_targets(_this: u64, _desde: u32, n: u32, _v: *const u8)
 /// `ClearUnorderedAccessViewUint(this, gpu, cpu, recurso, valores, n, rects)`
 /// (N5.3c, 05-10): los bits bajos de cada valor, sin convertir.
 #[allow(clippy::too_many_arguments)]
-extern "win64" fn clear_uav_uint(this: u64, _gpu: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, _rects: *const u8) {
-    apuntar_limpiar_uav(this, cpu, recurso, v, n, true);
+extern "win64" fn clear_uav_uint(this: u64, _gpu: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, rects: *const u8) {
+    apuntar_limpiar_uav(this, cpu, recurso, v, n, rects, true);
 }
 
 /// `ClearUnorderedAccessViewFloat`: los valores son floats, convertidos al
 /// formato de la vista (un UNORM satura).
 #[allow(clippy::too_many_arguments)]
-extern "win64" fn clear_uav_float(this: u64, _gpu: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, _rects: *const u8) {
-    apuntar_limpiar_uav(this, cpu, recurso, v, n, false);
+extern "win64" fn clear_uav_float(this: u64, _gpu: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, rects: *const u8) {
+    apuntar_limpiar_uav(this, cpu, recurso, v, n, rects, false);
 }
 
 /// Se APUNTA con la ranura de la vista (la del descriptor de CPU, que D3D12
 /// pide en un monton que no ve el sombreador: puede cambiar antes de
 /// ejecutar la lista) y se hace al ejecutarla.
-fn apuntar_limpiar_uav(this: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, crudo: bool) {
+fn apuntar_limpiar_uav(this: u64, cpu: u64, recurso: u64, v: *const u32, n: u32, rects: *const u8, crudo: bool) {
     if cpu == 0 || v.is_null() {
         aviso("ClearUnorderedAccessView sin descriptor o sin valores: en Windows es un error, y no se hace");
         return;
@@ -719,20 +719,27 @@ fn apuntar_limpiar_uav(this: u64, cpu: u64, recurso: u64, v: *const u32, n: u32,
         aviso("ClearUnorderedAccessView de algo que no es un UAV de ese recurso: en Windows es un error, y no se hace");
         return;
     }
-    if n != 0 {
-        aviso("ClearUnorderedAccessView con rectangulos: se limpia la vista entera");
+    // A2 (06-10): los rectangulos, copiados ya (el `.exe` puede soltarlos).
+    let rects: Vec<[i32; 4]> = if rects.is_null() {
+        Vec::new()
+    } else {
+        // SAFETY: `n` D3D12_RECT (cuatro LONG) del `.exe`.
+        (0..n as usize).map(|i| core::array::from_fn(|k| unsafe { (rects as *const i32).add(4 * i + k).read_unaligned() })).collect()
+    };
+    if n != 0 && rects.is_empty() {
+        aviso("ClearUnorderedAccessView con rectangulos y sin su puntero: en Windows es un error; se limpia la vista entera");
     }
     // SAFETY: cuatro valores del `.exe`.
     let valores = core::array::from_fn(|k| unsafe { v.add(k).read_unaligned() });
-    l(this).ordenes.push(Orden::LimpiarUav { ranura, valores, crudo });
+    l(this).ordenes.push(Orden::LimpiarUav { ranura, valores, crudo, rects });
 }
 
 /// **Limpiar un UAV**, al ejecutarse: un bufer (crudo o estructurado, cada
 /// palabra con el primer valor, como dice D3D12; con tipo, cada elemento en
 /// su formato) o el subrecurso de una textura (en como la guarda la casa).
-fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool) {
+fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool, rects: &[[i32; 4]]) {
     use crate::subrecursos::Almacen;
-    let ((dimension, _, _), _) = crate::d3d12_vistas::leer(r);
+    let ((dimension, vista, _), _) = crate::d3d12_vistas::leer(r);
     if dimension == 1 {
         let b = crate::d3d12_vistas::leer_bufer(r);
         let Some(base) = crate::d3d12::base_de_bufer(r[0]) else { return };
@@ -752,62 +759,118 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool) {
         // SAFETY: la memoria de un bufer de la casa (`resolver_hasta` dijo
         // cuanta); la cola es sincrona: nadie mas la toca ahora.
         let bytes = unsafe { core::slice::from_raw_parts_mut(bytes.as_ptr() as *mut u8, bytes.len()) };
-        for x in bytes.chunks_exact_mut(elemento.len()) {
-            x.copy_from_slice(&elemento);
+        // A2: en un bufer, el `left` y el `right` de cada rectangulo son
+        // elementos (el `top` y el `bottom` no cuentan).
+        let n = bytes.len() / elemento.len();
+        for ((x0, x1), _) in tramos(rects, n as i64, 1) {
+            for x in bytes.chunks_exact_mut(elemento.len()).take(x1 as usize).skip(x0 as usize) {
+                x.copy_from_slice(&elemento);
+            }
         }
         return;
     }
     // SAFETY: un Recurso de la casa (lo dice su ranura).
     let formato = unsafe { de::<Recurso>(r[0]) }.formato;
-    // N5.16b: los cuatro floats de un RGBA16F, R11G11B10F...: el valor en el
-    // formato de la vista (la Uint, sus bits tal cual; la Float, convertido)
-    // y leido de vuelta, como lo guarda la casa. Los demas, una palabra.
+    let vista = if vista != 0 { vista } else { formato };
+    let mide = |f: u32| bmo_proton_x::formato_ia::forma(f).map(|x| x.bytes);
+    // El valor en el formato de la VISTA (A2, 06-10: antes, en el de lo
+    // guardado, y un R32_UINT sobre un RGBA8 TYPELESS se limpiaba como un
+    // RGBA8_UNORM), y como lo guarda la casa: N5.16b, los cuatro floats de
+    // un RGBA16F, R11G11B10F... leidos de vuelta; lo que guarda tal cual
+    // (RGBA8, BGRA8, R32), la palabra de la memoria; los de 8 bits que
+    // ensancha (R8, RG8...), su RGBA8.
+    let empaquetar = |f: u32| bmo_proton_x::formato_ia::empaquetar(f, v, crudo);
+    let palabra = |e: &[u8]| u32::from_le_bytes([e[0], e[1], e[2], e[3]]);
     let (texel, k): ([u32; 4], usize) = match Almacen::de(formato) {
-        Almacen::Rgba8 | Almacen::Bgra8 => {
-            let f = if Almacen::de(formato) == Almacen::Bgra8 { 87 } else { 28 };
-            let e = bmo_proton_x::formato_ia::empaquetar(f, v, crudo).unwrap_or_default();
-            ([u32::from_le_bytes([e[0], e[1], e[2], e[3]]), 0, 0, 0], 1)
-        }
-        Almacen::Flotante => ([v[0], 0, 0, 0], 1),
         Almacen::Bloques(_) => {
             aviso("ClearUnorderedAccessView de una textura de bloques: en Windows es un error");
             return;
         }
+        _ if crate::subrecursos::interno_es_nativo(formato) && mide(vista) == Some(4) => match empaquetar(vista) {
+            Some(e) => ([palabra(&e), 0, 0, 0], 1),
+            None => {
+                aviso("ClearUnorderedAccessView con una vista que la casa aun no escribe: no se limpia");
+                return;
+            }
+        },
+        Almacen::Rgba8 | Almacen::Bgra8 => {
+            let f = if Almacen::de(formato) == Almacen::Bgra8 { 87 } else { 28 };
+            // Lo que la vista deja (un R8 no tiene verde), en el RGBA8 de la casa.
+            let x = match empaquetar(vista) {
+                Some(e) => bmo_proton_x::formato_ia::leer(vista, &e).map(f32::to_bits),
+                None => v,
+            };
+            let e = bmo_proton_x::formato_ia::empaquetar(f, x, crudo && empaquetar(vista).is_none()).unwrap_or_default();
+            ([palabra(&e), 0, 0, 0], 1)
+        }
+        Almacen::Flotante => ([v[0], 0, 0, 0], 1),
         Almacen::Flotantes4 => {
-            let ((_, vista, _), _) = crate::d3d12_vistas::leer(r);
-            let f = Almacen::nativo(if vista != 0 { vista } else { formato });
-            let Some(e) = bmo_proton_x::formato_ia::empaquetar(f, v, crudo) else {
+            let Some(e) = empaquetar(Almacen::nativo(vista)) else {
                 aviso("ClearUnorderedAccessView de una textura de float con una vista que la casa aun no escribe: no se limpia");
                 return;
             };
-            (bmo_proton_x::formato_ia::leer(f, &e).map(f32::to_bits), 4)
+            (bmo_proton_x::formato_ia::leer(Almacen::nativo(formato), &e).map(f32::to_bits), 4)
+        }
+    };
+    let poner = |px: &mut [u32], ancho: u32, alto: u32| {
+        for (x, y) in tramos(rects, ancho as i64, alto as i64) {
+            for fila in y.0..y.1 {
+                let desde = (fila as usize * ancho as usize + x.0 as usize) * k;
+                let hasta = (fila as usize * ancho as usize + x.1 as usize) * k;
+                if let Some(t) = px.get_mut(desde..hasta) {
+                    t.chunks_exact_mut(k).for_each(|t| t.copy_from_slice(&texel[..k]));
+                }
+            }
         }
     };
     // 06-10: la vista de un 3D (8) o de un array de 2D (5): TODAS sus
-    // rebanadas (o capas), no solo la primera.
+    // rebanadas (o capas), no solo la primera; los rectangulos, en cada una.
     if dimension == 5 || dimension == 8 {
         crate::tuberia::aplicar_limpieza(r[0]);
         // Un formato de 4 o de 16 bytes por texel: lo que mide cada uno.
         let medida = if k == 4 { 2 | bmo_proton_x::bufer::CUATRO_FLOATS } else { 42 };
         let Some(mut u) = crate::computo::rebanadas_de(r, dimension == 8, medida) else { return };
+        let (ancho, alto) = (u.paso, u.rebanadas.alto);
         for z in 0..u.rebanadas.capas {
             if let Some(s) = u.rebanada(z) {
-                for t in s.bytes.chunks_exact_mut(4 * k) {
-                    for (c, w) in t.chunks_exact_mut(4).zip(&texel[..k]) {
-                        c.copy_from_slice(&w.to_le_bytes());
-                    }
-                }
+                // SAFETY: los bytes de la rebanada, de 4 en 4 (sus texeles
+                // son de 4 o 16 bytes y empiezan alineados).
+                let px = unsafe { core::slice::from_raw_parts_mut(s.bytes.as_mut_ptr() as *mut u32, s.bytes.len() / 4) };
+                poner(px, ancho, alto);
             }
         }
         return;
     }
-    if r[3] == 0 {
+    // Con rectangulos, lo de fuera se queda: la limpieza apuntada (si la
+    // hay) se aplica antes; sin ellos, la vista entera la tapa.
+    if r[3] == 0 && rects.is_empty() {
         crate::tuberia::olvidar_limpieza(r[0]);
+    } else {
+        crate::tuberia::aplicar_limpieza(r[0]);
     }
     match crate::tuberia::destino(r[0], r[3]) {
-        Some((px, _, _)) => px.chunks_exact_mut(k).for_each(|t| t.copy_from_slice(&texel[..k])),
+        Some((px, ancho, alto)) => poner(px, ancho, alto),
         None => aviso("ClearUnorderedAccessView de un subrecurso que la textura no tiene"),
     }
+}
+
+/// **Lo que tapa una limpieza** (A2, 06-10): los rectangulos (`left, top,
+/// right, bottom`, el final sin incluir) recortados a `ancho` x `alto`, como
+/// `((x0, x1), (y0, y1))`; sin rectangulos, todo. Uno vacio o del reves no
+/// tapa nada (D3D12 no limpia nada en el).
+fn tramos(rects: &[[i32; 4]], ancho: i64, alto: i64) -> Vec<((i64, i64), (i64, i64))> {
+    if rects.is_empty() {
+        return alloc::vec![((0, ancho), (0, alto))];
+    }
+    rects
+        .iter()
+        .map(|&[l, t, r, b]| {
+            let x = (l.max(0) as i64, (r as i64).min(ancho));
+            let y = if alto == 1 { (0, 1) } else { (t.max(0) as i64, (b as i64).min(alto)) };
+            (x, y)
+        })
+        .filter(|&((x0, x1), (y0, y1))| x0 < x1 && y0 < y1)
+        .collect()
 }
 
 extern "win64" fn discard_resource(_this: u64, _r: u64, _region: *const u8) {}
@@ -973,7 +1036,7 @@ pub(crate) fn ejecutar(o: &Orden) {
         Orden::Resolver { monton, desde, n, bufer: b, off } => resolver(monton, desde, n, b, off),
         // SAFETY: comprobado al apuntar: cuatro bytes de un bufer de la casa.
         Orden::Escribir { dst, valor } => unsafe { (dst as *mut u32).write_unaligned(valor) },
-        Orden::LimpiarUav { ref ranura, valores, crudo } => limpiar_uav(ranura, valores, crudo),
+        Orden::LimpiarUav { ref ranura, valores, crudo, ref rects } => limpiar_uav(ranura, valores, crudo, rects),
         Orden::LimpiarStencil { recurso, sub, valor } => crate::d3d12_stencil::limpiar(recurso, sub, valor),
         Orden::Despachar { ref estado, grupos } => crate::computo::despachar(estado, grupos),
         Orden::Indirecto { ref estado, firma, max, args, args_off, cuenta, cuenta_off } => indirecto(estado, firma, max, args, args_off, cuenta, cuenta_off),

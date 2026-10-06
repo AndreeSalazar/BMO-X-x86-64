@@ -103,3 +103,4 @@ volumen 10            # D3D12
 firmas 6              # D3D12
 postpro 3             # D3D12
 tipos 8               # D3D12: vistas que cambian el tipo (06-10)
+limpieza 8            # D3D12: ClearUnorderedAccessView por la vista y con rectangulos (06-10)
