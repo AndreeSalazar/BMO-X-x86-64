@@ -672,7 +672,10 @@ fn restos_enteros_solo_uav_gs_plano_de_stencil_y_stencilref() {
 /// 2x2 con sus ayudantes, bit a bit; y OPTIONS1 dice los mismos 32
 /// carriles. Un aviso y ninguno mas, el de verdad: el PSO de dibujo se
 /// interpreta porque su PS usa las olas (su VS, que salta, ya se traduce:
-/// X1).
+/// X1). 06-10, lo que dijo Windows en la 3060: SV_VertexID no cuenta el
+/// StartVertexLocation (D) ni el BaseVertexLocation (E); la casa lo sumaba
+/// y C (un DrawInstanced(3, 1, 6, 0)) pintaba un pixel donde Windows pinto
+/// media pantalla. C va ahora con indices.
 #[test]
 fn e2_5_las_olas_de_32_carriles_dan_los_bits_de_la_cuenta() {
     let uno = uno_a_la_vez();
@@ -681,7 +684,7 @@ fn e2_5_las_olas_de_32_carriles_dan_los_bits_de_la_cuenta() {
     assert!(!texto.contains("  MAL   "), "{texto}");
     let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
     assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador usa las olas (Wave*, Quad*: van de 32 en 32 carriles): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "{texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 15, "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 17, "{texto}");
     assert!(texto.ends_with("olas.exe: las olas de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
 

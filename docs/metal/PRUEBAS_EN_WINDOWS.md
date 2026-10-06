@@ -52,7 +52,7 @@ bueno contra ellos.
 | `uavpixel` | UAV escritos desde un pixel, InterlockedAdd, RWBuffer desde el VS (N5.3d) | 4 |
 | `flotante1` | R32F y R16F de destino, UAV de RGBA16F, DepthClipEnable = FALSE (N5.16b) | 10 |
 | `stencil` | REPLACE/EQUAL, INCR_SAT, mascaras, las dos caras (N5.12b) | 5 |
-| `olas` | Wave* y Quad* de 32 carriles (E2.5); el "hasta N" de B puede salir otro | 15 |
+| `olas` | Wave* y Quad* de 32 carriles (E2.5); el "hasta N" de B puede salir otro; D y E, SV_VertexID con un vertice base (06-10) | 17 |
 | `derivadas` | ddx/ddy finas y gruesas, la mip de cada muestreo, CalculateLevelOfDetail (D4.4) | 17 |
 | `restos` | destinos de enteros, UAV sin destino y desde el GS, el plano de stencil, SV_StencilRef | 18 |
 | `multihilo` | listas de cuatro hilos, colas que esperan a una valla, Reset/Close (E2.1) | 17 |
@@ -172,8 +172,18 @@ juego en `C:`, nunca sobre `D:`:
   PSSpecifiedStencilRefSupported = FALSE (las NVIDIA no tienen
   SV_StencilRef), y E se salta. No es fallo; el guion acepta 18, o 15 con
   una nota. Lo que si dice: E (SV_StencilRef) solo lo juzga el banco.
-- `vistas`: 3 MAL. Hace falta la linea de cada uno (`resumen.txt`).
-- `olas`: 1 MAL. Hace falta la linea (`resumen.txt`).
+- `vistas`: 3 MAL, los tres por lo mismo: 0.5 en UNORM de 8 bits es
+  127.5, un empate, y la 3060 da 127 donde la casa da 128 (todo lo demas,
+  bit a bit igual). Del JUEZ: acepta los dos en ese canal; y sus copias van
+  ya a sitios de 512 bytes.
+- `olas`: 1 MAL, y este era de PROTON-X: **SV_VertexID no cuenta el
+  StartVertexLocation**. Un DrawInstanced(3, 1, 6, 0) en Windows lee los
+  vertices 0..2 (media pantalla) y la casa leia 6..8 (un pixel). Arreglado
+  (`lote::Lote::base_vertice`); el juez suma D (eso) y E (lo mismo con
+  BaseVertexLocation en un dibujo con indices: lo PREGUNTA). Pide 17.
+
+La siguiente corrida tiene que dar 83 de 83 (o decir que E no es como se
+penso: eso tambien sirve).
 
 ## 4. Que mandar, en orden
 

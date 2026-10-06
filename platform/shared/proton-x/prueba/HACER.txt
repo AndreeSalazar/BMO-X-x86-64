@@ -2341,7 +2341,7 @@ en un directorio con vistas.cpp y los tres .dxil:
 
 Reproducible (comprobado en dos directorios), sin rutas. sha256:
 
-   67bc459b8a49928b345c9cc181d5bfd0c8ebec2e60cb28efb6a32b9a9b777acf  vistas.exe
+   8a9aa4099e8b17b0ac058314f65d5b8975c876eb90ac54a463ec0fd88b69b7bd  vistas.exe
 
 El banco (`tests/corre/muestras.rs`, n5_3c): los 7 `bien` y sale con 0.
 Probado que dice NO: con el paso de los estructurados mal (A), sin la
@@ -2361,6 +2361,14 @@ textura, por cuatro). Con el mismo `dxc` de Linux que los demas:
    024b0d8e4f6780e5f9ed724fccaa11aee60e6f632e2241bbcbc91e00dc9a4d58  hdr_vs.dxil
    ec4179122fe80bf7b7346408be529c9580272678168a1b11c2cf195e091389e2  hdr_color.dxil
    6a659ebe4e23edb07f451145037eb900a21f77343382f12a9b4d46e838b7a569  hdr_lee.dxil
+
+06-10, LO QUE DIJO WINDOWS (la 3060): 3 MAL, en B, C y D-float, y los tres
+por lo mismo: un 0.5 en UNORM de 8 bits es 127.5, un EMPATE, y la 3060 lo
+dejo en 127 donde la casa (y la cuenta) decian 128. Lo demas, bit a bit
+igual. El juez ya acepta 127 o 128 en ese canal (el azul de B, el rojo de
+C), y la limpieza de D lleva 0.4 (102, sin empate). Y sus dos copias de
+textura iban a 1280 y 5376, que no son de 512 (lo que pide D3D12): ahora
+a 1536 y 5632. Sigue en 7 `bien`.
 
 hdr.exe -- N5.16: los render targets de FLOAT, juzgados (05-10)
 
@@ -2612,7 +2620,7 @@ en un directorio con olas.cpp y los tres .dxil:
 
 Reproducible (comprobado en dos directorios), sin rutas. sha256:
 
-   06ec9275078696045bebdf5d9cbf7a7b2d4749551ad4bb391b6b45470d251c68  olas.exe
+   e5b7102f1be4f92c4d97fa0871b1095f40cc2902a03519fde8a785f279b2af34  olas.exe
 
 El banco (`tests/corre/muestras.rs`, e2_5): los 15 `bien`, sale con 0, y
 un aviso (el PSO de dibujo se interpreta: su PS usa las olas). Probado
@@ -2622,6 +2630,20 @@ PS no compilaban: la papeleta, 116, y QuadOp, 123; solo OPTIONS1 decia
 bien: ya contestaba 32 mientras los sombreadores veian 1); contando a los
 ayudantes como activos, MAL en C (A = 4); juntando los carriles por la
 operacion sin mirar el bucle ni quien va antes, MAL en los dos bucles.
+
+06-10, LO QUE DIJO WINDOWS (la 3060 del propietario, correr_en_windows.ps1):
+14 bien y MAL en C: "el (2, 2) es 20ff0303 ... 2015 pixeles mas pintados".
+C se dibujaba con DrawInstanced(3, 1, 6, 0), y en Windows SV_VertexID NO
+cuenta el StartVertexLocation: fue de 0 a 2 y pinto la mitad de arriba a
+la izquierda (los 2016 pixeles con x + y < 63, A = 32). El fallo era de la
+CASA, que lo sumaba (y el juez, escrito con la misma idea, lo dio por
+bueno). Arreglado en `lote::Lote::base_vertice`. olas.cpp: C va con
+indices (6, 7, 8: con indices, SV_VertexID es el indice); D, el
+DrawInstanced de antes, pide la mitad; E, DrawIndexedInstanced con
+BaseVertexLocation 6 sobre los indices 0, 1, 2, pide la mitad TAMBIEN (lo
+que hacen DXVK y vkd3d-proton: el base no cuenta) -- eso lo PREGUNTA a
+Windows. Dice `bien` 17 veces. Probado que dice NO: con la casa de antes,
+MAL en D y en E ("1 pixeles pintados").
 
 derivadas_vs.dxil, derivadas_ps.dxil, derivadas_niveles.dxil -- los de derivadas.exe (05-10)
 

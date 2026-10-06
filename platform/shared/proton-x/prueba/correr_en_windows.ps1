@@ -108,7 +108,7 @@ $jueces = @(
     @('uavpixel', 4, -1, 'D3D12'),
     @('flotante1', 10, -1, 'D3D12'),
     @('stencil', 5, -1, 'D3D12'),
-    @('olas', 15, -1, 'D3D12: el "hasta N" de B puede ser otro'),
+    @('olas', 17, -1, 'D3D12: el "hasta N" de B puede ser otro; E le pregunta a Windows'),
     @('derivadas', 17, -1, 'D3D12'),
     @('restos', 18, 0, 'D3D12: o 15 y una nota, si la GPU no tiene SV_StencilRef (las NVIDIA no lo tienen)', @(15, 1)),
     @('multihilo', 17, -1, 'D3D12'),

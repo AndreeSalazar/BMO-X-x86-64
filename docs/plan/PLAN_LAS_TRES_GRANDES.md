@@ -1296,6 +1296,10 @@ y lo dice.
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.
       Dice si cada juez tiene RAZON: lo que el banco dio por bueno.
+      PRIMERA CORRIDA (06-10, la 3060): 78 de 83. De los 5: tres del juez
+      o de la tabla (tanda2, tanda3, el empate 127.5 de vistas), uno de la
+      GPU (restos: NVIDIA sin SV_StencilRef) y UNO DE PROTON-X: SV_VertexID
+      sumaba el StartVertexLocation (olas). Arreglado; falta la 2a corrida.
       D0.1 rayosx sobre la carpeta del juego; D0.2 los DXIL de su cache;
       D0.3 el diario filtrado a D3D12. Lo que encuentren entra en A (el
       teselado D4.5, los recursos reservados D2.4: SOLO si aparecen)

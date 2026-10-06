@@ -1013,6 +1013,8 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         otros: &flujos[1..],
         instancias,
         primera_instancia,
+        // 06-10: SV_VertexID sin StartVertexLocation ni BaseVertexLocation.
+        base_vertice: if indexado { base as u32 } else { primero },
         uavs: uavs.as_ref(),
     };
     // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.

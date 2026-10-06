@@ -53,7 +53,8 @@ const SV_STENCILREF: u32 = 69;
 pub enum Fuente {
     /// Del elemento `i` del input layout.
     Ia(usize),
-    /// SV_VertexID: el numero del vertice (el id, con el vertice base).
+    /// SV_VertexID: el numero del vertice, SIN el vertice base (06-10:
+    /// [`Lote::base_vertice`]).
     Vertice,
     /// SV_InstanceID: el numero de la instancia, desde 0 (N5.13: sin
     /// StartInstanceLocation).
@@ -375,6 +376,12 @@ pub struct Lote<'a> {
     /// INSTANCIA; SV_InstanceID cuenta desde 0, como en D3D12.
     pub instancias: u32,
     pub primera_instancia: u32,
+    /// 06-10, lo que dijo Windows (olas.exe en la 3060): SV_VertexID NO
+    /// cuenta el StartVertexLocation de un Draw ni el BaseVertexLocation de
+    /// un DrawIndexed: es el id menos esto (los buferes si se leen en el id
+    /// entero). La casa lo sumaba: un DrawInstanced(3, 1, 6, 0) leia los
+    /// vertices 6..8 donde Windows lee 0..2.
+    pub base_vertice: u32,
     /// 05-10: los UAV que ven sus sombreadores de vertices y de pixeles,
     /// por ranura (`enlace.ranuras.uavs`): lo que escriben QUEDA. `None`, un
     /// dibujo sin UAV. En una celda: el lote se da prestado (`&Lote`) y los
@@ -466,7 +473,7 @@ pub type CorrePs<'a> = &'a mut dyn FnMut(&[[f32; 4]], &mut [[f32; 4]]) -> bool;
 pub fn entrada(l: &Lote, fuente: Fuente, id: u32, instancia: u32) -> [f32; 4] {
     let entero = |n: u32| [f32::from_bits(n), 0.0, 0.0, 0.0];
     match fuente {
-        Fuente::Vertice => entero(id),
+        Fuente::Vertice => entero(id.wrapping_sub(l.base_vertice)),
         Fuente::Instancia => entero(instancia),
         Fuente::Ia(i) => {
             let el = &l.entradas[i];

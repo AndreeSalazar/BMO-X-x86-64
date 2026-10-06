@@ -17,7 +17,16 @@
 //      mas de un cuadro.
 //   C  Un triangulo que cubre SOLO el pixel (2, 2): su cuadro corre con
 //      tres AYUDANTES, que el pixel lee (R = G = 3) y que las olas no
-//      cuentan (A = 1).
+//      cuentan (A = 1). Con DrawIndexedInstanced y los indices 6, 7, 8: en
+//      un dibujo con indices, SV_VertexID es el indice.
+//   D  06-10, lo que dijo Windows: DrawInstanced(3, 1, 6, 0). SV_VertexID NO
+//      cuenta el StartVertexLocation: va de 0 a 2, y se pinta la mitad de
+//      arriba a la izquierda (los 2016 pixeles con x + y < 63). Hasta hoy
+//      C se dibujaba asi, y en la 3060 pinto esa mitad.
+//   E  DrawIndexedInstanced con los indices 0, 1, 2 y BaseVertexLocation 6:
+//      SV_VertexID es el indice SIN el vertice base (lo que hacen DXVK y
+//      vkd3d-proton): la misma mitad. Esto lo pregunta: si Windows pinta
+//      solo el (2, 2), el base SI cuenta.
 //
 // Todo bit a bit. Sale con el numero de fallos. En Windows dice lo mismo (es
 // de consola: lo que falle, se lee).
@@ -252,10 +261,16 @@ int main() {
         return fallos;
 
     // Los buferes: el UAV del computo, el destino de 64 x 64, y donde se
-    // lee todo (el UAV, y el destino dos veces: B y C).
+    // lee todo (el UAV, y el destino cuatro veces: B, C, D y E); y los
+    // indices de C y E.
     const UINT64 uav_bytes = HILOS * N * 4, img_bytes = LADO * LADO * 4;
     ID3D12Resource *uav = bufer(d, D3D12_HEAP_TYPE_DEFAULT, uav_bytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-    ID3D12Resource *leida = bufer(d, D3D12_HEAP_TYPE_READBACK, uav_bytes + 2 * img_bytes, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
+    ID3D12Resource *leida = bufer(d, D3D12_HEAP_TYPE_READBACK, uav_bytes + 4 * img_bytes, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
+    const unsigned short indices[6] = {6, 7, 8, 0, 1, 2};
+    ID3D12Resource *ib = bufer(d, D3D12_HEAP_TYPE_UPLOAD, sizeof indices, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
+    void *mi = nullptr;
+    if (ib && hecho(ib->Map(0, nullptr, &mi), "Map de los indices"))
+        memcpy(mi, indices, sizeof indices);
     D3D12_HEAP_PROPERTIES hp = {};
     hp.Type = D3D12_HEAP_TYPE_DEFAULT;
     D3D12_RESOURCE_DESC td = {};
@@ -298,12 +313,18 @@ int main() {
     l->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     l->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
     const float negro[4] = {0, 0, 0, 0};
-    for (UINT k = 0; k < 2; k++) {
+    D3D12_INDEX_BUFFER_VIEW ibv = {ib->GetGPUVirtualAddress(), (UINT)sizeof indices, DXGI_FORMAT_R16_UINT};
+    l->IASetIndexBuffer(&ibv);
+    for (UINT k = 0; k < 4; k++) {
         l->ClearRenderTargetView(rtv, negro, 0, nullptr);
         if (k == 0)
             l->DrawInstanced(6, 1, 0, 0);
-        else
+        else if (k == 1)
+            l->DrawIndexedInstanced(3, 1, 0, 0, 0);
+        else if (k == 2)
             l->DrawInstanced(3, 1, 6, 0);
+        else
+            l->DrawIndexedInstanced(3, 1, 3, 6, 0);
         barrera(l, rt, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
         D3D12_TEXTURE_COPY_LOCATION a = {}, de = {};
         a.pResource = leida;
@@ -391,6 +412,20 @@ int main() {
         otros += i != 2 * LADO + 2 && cc[i] != 0;
     snprintf(msg, sizeof msg, "C, un pixel solo: el (2, 2) es %08x (lee a sus 3 ayudantes, 1 activo); %u pixeles mas pintados", cc[2 * LADO + 2], otros);
     decir(cc[2 * LADO + 2] == (3u | 3u << 8 | 255u << 16 | 1u << 24) && otros == 0, msg);
+
+    // D y E: la mitad de arriba a la izquierda (x + y < 63), y nada mas.
+    const char *que[2] = {"D, DrawInstanced(3, 1, 6, 0): SV_VertexID sin StartVertexLocation", "E, DrawIndexedInstanced con BaseVertexLocation 6: SV_VertexID sin el vertice base"};
+    for (UINT k = 0; k < 2; k++) {
+        const UINT *de = cc + (k + 1) * LADO * LADO;
+        UINT pintados = 0, mal_puestos = 0;
+        for (UINT i = 0; i < LADO * LADO; i++) {
+            bool dentro = i % LADO + i / LADO < 63;
+            pintados += de[i] != 0;
+            mal_puestos += (de[i] != 0) != dentro;
+        }
+        snprintf(msg, sizeof msg, "%s: %u pixeles pintados (2016 la mitad), %u donde no tocaba; el (2, 2) es %08x", que[k], pintados, mal_puestos, de[2 * LADO + 2]);
+        decir(mal_puestos == 0, msg);
+    }
 
     printf("olas.exe: las olas de D3D12 son las de Windows\n");
     return fallos;
