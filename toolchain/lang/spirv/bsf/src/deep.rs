@@ -75,6 +75,9 @@ impl<'a> Bsf<'a> {
     /// del lector (una palabra por id del modulo).
     pub fn deep(&self, i: usize, ids: &mut [u32]) -> Result<(), Fault> {
         let mv = self.module(i);
+        if mv.es_mapa() {
+            return Err(Fault::at(What::Mapa, mv.spirv_offset()));
+        }
         let m = read(mv.spirv()?, ids).map_err(|e| spirv_fault(&mv, e))?;
         let f = facts(&m).map_err(|e| spirv_fault(&mv, e))?;
         let lies = |que| Err(Fault::at(What::Lies(que), mv.row_offset()));

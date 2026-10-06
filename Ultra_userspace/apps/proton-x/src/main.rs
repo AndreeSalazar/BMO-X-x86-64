@@ -1120,6 +1120,8 @@ pub extern "C" fn _start() -> ! {
     // P4e: su nombre (GetModuleFileNameW) y su linea de ordenes; y si es un
     // juego de D:, su perfil de Windows en ESTRATOS (relevo 01-10, paso 3).
     let perfil = perfil::en_estratos(nombre);
+    // A9 (06-10): los .bsf de la 3060 de este juego, en su carpeta de ESTRATOS.
+    la3060::poner_carpeta_bsf(perfil.as_ref().map(|p| p.bsf.clone()));
     bmo_proton_x_casa::proceso::poner_exe_con_perfil(
         nombre,
         linea,

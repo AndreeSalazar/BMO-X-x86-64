@@ -776,6 +776,25 @@ el cuello de botella SI es el kernel. VC4 es lo que lo quita.
   version del traductor; en el volumen de datos. **Como se sabe:** la
   segunda corrida de `bmox12.exe` traduce CERO sombreadores (un contador en
   la cabina) y da las mismas huellas.
+  06-10, la mitad del .bsf HECHA (A9 de PLAN_LAS_TRES_GRANDES): el .BSF VIVO (`bmo_proton_x_sm86::vivo`), lo que pidio el propietario:
+  *"que mi CPU entienda el mapa y guie al GPU que genere en .bsf para
+  generar datos precisos por completo"*, y *"que lo guarde en ESTRATOS para
+  que no se olvide"*. La CPU escribe el MAPA de cada PSO (sus dos Programas,
+  con los bits de cada constante, y la version del emisor: el nombre del
+  .bsf es su hash), genera el codigo de la 3060, lo COMPRUEBA bit a bit
+  contra su interprete (el simulador de la 3060 y la CPU con las mismas
+  entradas: un bit distinto y no va a la 3060 ni se guarda) y lo guarda en
+  `proton-x/<juego>/bsf/<hash>.bsf` de ESTRATOS; el arranque siguiente lo
+  lee, comprueba el sobre y el mapa, vuelve a comprobar los bits, y no
+  traduce nada. El BSF aprendio una fuente que no es SPIR-V (el mapa,
+  `MAPA_MAGIC`) y el cuerpo de la puerta (`abi::SM86_PUERTA_V1`). **Como se
+  sabe:** `bmox12.exe` dos veces en el banco (`tests/corre/vivo.rs`): la
+  primera 1 traducido, la segunda 0 traducidos y 1 del recuerdo, el .bsf sin
+  reescribir y los mismos programas pegados; y 4 pruebas de
+  `proton-x-sm86` (un .bsf tocado o de otro mapa no se cree; el cuerpo de
+  otro programa no pasa la comprobacion). Falta: la parte de la CPU del
+  paquete (el `.bex`: el Programa y su x86-64 se hacen en cada arranque),
+  ID3D12PipelineLibrary, y verlo en el metal.
 - [ ] **VC2 -- PROTON-X habla VERRANO** (`platform/shared/proton-x-casa/src/tuberia.rs`):
   Draw y Dispatch se vuelven fotogramas de VERRANO en vez de llamar a la
   trama a mano; la trama queda como el backend CPU (el juez). **Como se

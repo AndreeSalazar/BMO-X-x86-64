@@ -133,7 +133,7 @@ impl<'a> Bsf<'a> {
             // Su SPIR-V.
             let (off, len) = (u32le(bytes, r + 24) as usize, u32le(bytes, r + 28) as usize);
             cursor = blob(bytes, cursor, off, len, r + 24)?;
-            if len < 20 || len % 4 != 0 || u32le(bytes, off) != SPIRV_MAGIC {
+            if len < 20 || len % 4 != 0 || (u32le(bytes, off) != SPIRV_MAGIC && u32le(bytes, off) != MAPA_MAGIC) {
                 return Err(Fault::at(What::SpirvMagic, off));
             }
 
@@ -322,6 +322,12 @@ impl<'a> ModuleView<'a> {
     /// Donde empieza su SPIR-V en el fichero.
     pub fn spirv_offset(&self) -> usize {
         u32le(self.bytes, self.row + 24) as usize
+    }
+
+    /// A9 (06-10): su fuente es el MAPA de la CPU ([`MAPA_MAGIC`]), no
+    /// SPIR-V. Lo dice la primera palabra (ya comprobada al abrir).
+    pub fn es_mapa(&self) -> bool {
+        u32le(self.bytes, self.spirv_offset()) == MAPA_MAGIC
     }
 
     pub fn spirv_hash(&self) -> &'a [u8; 32] {

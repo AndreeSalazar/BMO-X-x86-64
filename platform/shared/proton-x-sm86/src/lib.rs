@@ -71,6 +71,9 @@ mod saltos;
 pub mod pso;
 /// P3b4c: el lote a la PUERTA de la 3060 (la receta VRN2 que manda la app).
 pub mod puerta;
+
+// A9 (06-10): el .bsf vivo: generar, comprobar bit a bit y recordar.
+pub mod vivo;
 /// P3b4c.8 T0: el muestreador y la textura de la casa en el TSC y el TIC de
 /// la 3060 (29-09).
 pub mod muestreo;
@@ -881,3 +884,5 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
 mod pruebas;
 #[cfg(test)]
 mod pruebas_saltos;
+#[cfg(test)]
+mod pruebas_vivo;

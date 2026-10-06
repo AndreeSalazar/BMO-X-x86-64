@@ -13,6 +13,10 @@ bmo-sm86 = { path = "../bmo-sm86" }
 # P3b4a: el pegamento de VERRANO y su juez (capa: puro -- bytes, sin tocar la
 # tarjeta), para que un PSO salga de aqui listo para la 3060 y JUZGADO.
 bmo-gpu-ga10x = { path = "../../drivers/gpu/ga10x" }
+# A9 (06-10): el .BSF VIVO (`vivo.rs`): el sobre (con el MAPA de la CPU de
+# fuente) y su hash, para guardar y recordar lo traducido.
+bmo-bsf = { path = "../../../toolchain/lang/spirv/bsf" }
+bmo-hash = { path = "../bmo-hash" }
 
 [dev-dependencies]
 bmo-cubo = { path = "../bmo-cubo" }

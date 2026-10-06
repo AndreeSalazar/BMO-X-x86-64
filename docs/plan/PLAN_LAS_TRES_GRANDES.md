@@ -482,7 +482,25 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   triangulo, rotado); arreglado, y H le pregunta el impar que es el ultimo.)
 - [ ] D4.6 -- La CACHE de PSO a escala: miles de pipelines traducidos una vez
   y guardados en disco; `ID3D12PipelineLibrary` (el juego guarda la suya).
-  **Como se sabe:** el segundo arranque no traduce nada.
+  **Como se sabe:** el segundo arranque no traduce nada. (06-10, A9: el .BSF VIVO (`bmo_proton_x_sm86::vivo`), lo que pidio el propietario:
+  *"que mi CPU entienda el mapa y guie al GPU que genere en .bsf para
+  generar datos precisos por completo"*, y *"que lo guarde en ESTRATOS para
+  que no se olvide"*. La CPU escribe el MAPA de cada PSO (sus dos Programas,
+  con los bits de cada constante, y la version del emisor: el nombre del
+  .bsf es su hash), genera el codigo de la 3060, lo COMPRUEBA bit a bit
+  contra su interprete (el simulador de la 3060 y la CPU con las mismas
+  entradas: un bit distinto y no va a la 3060 ni se guarda) y lo guarda en
+  `proton-x/<juego>/bsf/<hash>.bsf` de ESTRATOS; el arranque siguiente lo
+  lee, comprueba el sobre y el mapa, vuelve a comprobar los bits, y no
+  traduce nada. El BSF aprendio una fuente que no es SPIR-V (el mapa,
+  `MAPA_MAGIC`) y el cuerpo de la puerta (`abi::SM86_PUERTA_V1`). **Como se
+  sabe:** `bmox12.exe` dos veces en el banco (`tests/corre/vivo.rs`): la
+  primera 1 traducido, la segunda 0 traducidos y 1 del recuerdo, el .bsf sin
+  reescribir y los mismos programas pegados; y 4 pruebas de
+  `proton-x-sm86` (un .bsf tocado o de otro mapa no se cree; el cuerpo de
+  otro programa no pasa la comprobacion). Falta: la parte de la CPU del
+  paquete (el `.bex`: el Programa y su x86-64 se hacen en cada arranque),
+  ID3D12PipelineLibrary, y verlo en el metal.)
 - [ ] D4.7 -- Lo que un traductor no sepa, al interprete de la CPU, DICHO
   (una linea en el diario), nunca una imagen rota en silencio.
 
@@ -1345,7 +1363,12 @@ y lo dice.
                mapeo.exe, 7 bien y la nota del Map con puntero)
       8  [x] D1.2  las preguntas de CheckFeatureSupport que no contesta
                (06-10: preguntas.exe, 8 bien y la nota de las nuevas)
-      9  D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO)
+      9  [x] D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO) -- 06-10:
+               el .BSF VIVO de la 3060 (la CPU genera, comprueba bit a bit
+               y lo recuerda en ESTRATOS); bmox12.exe, la segunda vez 0
+               traducidos
+     9b  D4.6  el .bex del paquete: el Programa y su x86-64 recordados
+               tambien (hoy se hacen en cada arranque)
      10  X5    la velocidad que queda: las olas en el computo traducido y
                los pixeles con UAV traducidos
      11  ESCENA  (06-10, pedido del propietario: "un test en 3D DURO en

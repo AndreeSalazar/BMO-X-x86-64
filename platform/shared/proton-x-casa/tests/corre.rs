@@ -1341,3 +1341,6 @@ mod muestras;
 // Las tandas 1 a 13 (05-10, L6a otra vez).
 #[path = "corre/tandas.rs"]
 mod tandas;
+// A9 (06-10): el .bsf vivo, de punta a punta (bmox12.exe dos veces).
+#[path = "corre/vivo.rs"]
+mod vivo;

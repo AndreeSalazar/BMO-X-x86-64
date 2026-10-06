@@ -46,6 +46,9 @@ pub struct Perfil {
     pub capa: String,
     /// Las marcas que ocultan nombres borrados del disco Personal.
     pub borrados: String,
+    /// A9 (06-10): los `.bsf` de sus PSO, ya traducidos y comprobados
+    /// (`proton-x/<juego>/bsf`): la 3060 no vuelve a traducir lo de ayer.
+    pub bsf: String,
     /// La misma, como la ve el `.exe` (`C:\proton-x\cyberpunk2077\perfil`).
     pub windows: String,
 }
@@ -84,11 +87,13 @@ pub fn perfil_de(ruta_exe: &str) -> Option<Perfil> {
     let windows = alloc::format!("C:\\proton-x\\{juego}\\perfil");
     let capa = alloc::format!("proton-x/{juego}/capa");
     let borrados = alloc::format!("proton-x/{juego}/borrados");
+    let bsf = alloc::format!("proton-x/{juego}/bsf");
     Some(Perfil {
         juego,
         volumen,
         capa,
         borrados,
+        bsf,
         windows,
     })
 }
@@ -102,6 +107,7 @@ impl Perfil {
             self.volumen.clone(),
             self.capa.clone(),
             self.borrados.clone(),
+            self.bsf.clone(),
         ];
         v.extend(
             CARPETAS_DEL_PERFIL

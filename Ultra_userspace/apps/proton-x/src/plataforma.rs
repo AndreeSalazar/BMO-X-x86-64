@@ -85,7 +85,7 @@ fn sellar_codigo(bytes: &[u8]) -> Option<u64> {
 
 /// Un fichero entero: se abre, se lee a un bloque de una vez, se copia y el
 /// bloque se suelta (el monton de la app se queda con los bytes).
-fn leer_fichero(ruta: &[u8]) -> Option<alloc::vec::Vec<u8>> {
+pub(crate) fn leer_fichero(ruta: &[u8]) -> Option<alloc::vec::Vec<u8>> {
     let a = bmo::Archivo::leer_de(ruta).ok()?;
     let n = a.size();
     if n == 0 {
@@ -108,7 +108,7 @@ fn leer_fichero(ruta: &[u8]) -> Option<alloc::vec::Vec<u8>> {
 /// `proton-x/` (el perfil de un juego) va a ESTRATOS; lo demas, a FAT32 como
 /// siempre, y si FAT32 no puede (su carpeta solo esta en ESTRATOS), a
 /// ESTRATOS.
-fn escribir_fichero(ruta: &[u8], bytes: &[u8]) -> bool {
+pub(crate) fn escribir_fichero(ruta: &[u8], bytes: &[u8]) -> bool {
     if ruta.starts_with(b"proton-x/") {
         return escribir_en_estratos(ruta, bytes);
     }

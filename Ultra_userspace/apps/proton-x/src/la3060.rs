@@ -74,6 +74,35 @@ struct Estado {
     /// Z1: un lote fue por la CPU con la pantalla pedida: no se vuelve a
     /// pedir (un fotograma a medias entre la pantalla y la RAM no se muestra).
     sin_pantalla: bool,
+    /// A9 (06-10): la carpeta de los `.bsf` del juego en ESTRATOS
+    /// (`proton-x/<juego>/bsf`), si tiene perfil; sin ella, se traduce cada
+    /// arranque (y se comprueba igual).
+    carpeta_bsf: Option<String>,
+    /// A9: lo dicho de los `.bsf` (traducidos, recordados) y cuando.
+    bsf_dicho: (usize, usize, u64),
+}
+
+/// **El recuerdo de los `.bsf` en ESTRATOS** (A9, 06-10): cada PSO, un
+/// fichero con el hash de su mapa por nombre, en la carpeta del juego.
+/// Guardar encima no pierde nada: ESTRATOS guarda la version de antes.
+struct EnEstratos {
+    carpeta: String,
+}
+
+impl bmo_proton_x_sm86::vivo::Recuerdo for EnEstratos {
+    fn leer(&mut self, nombre: &str) -> Option<Vec<u8>> {
+        crate::plataforma::leer_fichero(alloc::format!("{}/{nombre}", self.carpeta).as_bytes())
+    }
+    fn guardar(&mut self, nombre: &str, bsf: &[u8]) -> bool {
+        crate::plataforma::escribir_fichero(alloc::format!("{}/{nombre}", self.carpeta).as_bytes(), bsf)
+    }
+}
+
+/// A9: donde guarda la 3060 los `.bsf` de este juego (lo pone `main` con el
+/// perfil en ESTRATOS, antes del primer dibujo).
+pub(crate) fn poner_carpeta_bsf(carpeta: Option<String>) {
+    // SAFETY: una tarea (ver `Celda`).
+    unsafe { (*ESTADO.0.get()).carpeta_bsf = carpeta };
 }
 
 /// Las sumas de un segundo: lotes y ns/us de cada parte.
@@ -183,6 +212,8 @@ static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado {
     },
     pantalla_pedida: false,
     sin_pantalla: false,
+    carpeta_bsf: None,
+    bsf_dicho: (0, 0, 0),
 }));
 
 /// **P3b4c.9 Z1: soltar la pantalla directa** si se pidio, y no volver a
@@ -248,9 +279,27 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
             bgra: d.bgra,
             cadena: d.cadena,
         };
-        let p = e.puerta.get_or_insert_with(Puerta::nueva);
+        let carpeta = e.carpeta_bsf.clone();
+        let p = e.puerta.get_or_insert_with(|| {
+            let mut p = Puerta::nueva();
+            if let Some(carpeta) = carpeta {
+                bmo::consola(&alloc::format!("PROTON-X: los .bsf de la 3060, vivos y recordados en ESTRATOS: {carpeta} (A9)\n"));
+                p.recuerdo = Some(alloc::boxed::Box::new(EnEstratos { carpeta }));
+            }
+            p
+        });
         let t0 = crate::plataforma::ahora_ns();
-        match p.preparar(l, blanco) {
+        let preparado = p.preparar(l, blanco);
+        // A9: cuantos PSO se tradujeron (y se comprobaron bit a bit contra la
+        // CPU) y cuantos salieron del recuerdo; como mucho una linea por
+        // segundo.
+        let (t, r) = (p.traducidos, p.recordados);
+        if (t, r) != (e.bsf_dicho.0, e.bsf_dicho.1) && t0.saturating_sub(e.bsf_dicho.2) >= 1_000_000_000 {
+            bmo::consola(&alloc::format!("PROTON-X: .bsf de la 3060: {t} traducido(s) y comprobado(s) bit a bit contra la CPU, {r} del recuerdo\n"));
+            e.bsf_dicho = (t, r, t0);
+        }
+        let p = e.puerta.as_mut().expect("recien puesta");
+        match preparado {
             Ok(_) => {
                 let caja = p.caja.as_ptr() as u64;
                 let t1 = crate::plataforma::ahora_ns();

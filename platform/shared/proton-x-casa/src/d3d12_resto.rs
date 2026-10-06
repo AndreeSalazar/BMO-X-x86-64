@@ -1126,6 +1126,56 @@ fn resolver(monton: u64, desde: u32, n: u32, b: u64, off: u64) {
 
 // -- El recurso --------------------------------------------------------------
 
+// Map, Unmap y GetGPUVirtualAddress (06-10: aqui desde `tuberia`, L6a).
+pub(crate) extern "win64" fn map(this: u64, sub: u32, _leer: *const u8, pp: *mut u64) -> i32 {
+    let Some(base) = crate::d3d12::base_de_bufer(this) else {
+        return map_textura(this, sub, pp);
+    };
+    if pp.is_null() {
+        return S_OK;
+    }
+    dar(pp, base)
+}
+
+/// D3D12_HEAP_TYPE_DEFAULT: la memoria de la GPU, que la CPU no mapea.
+const MONTON_DEFAULT: u32 = 1;
+
+/// **`Map` de una TEXTURA** (A7, 06-10): la de un monton de la CPU (CUSTOM,
+/// el de una GPU integrada) se mapea SIN puntero (`Map(sub, NULL, NULL)`)
+/// para escribirla con `WriteToSubresource` y leerla con
+/// `ReadFromSubresource` (`d3d12_resto::filas`), como un motor que sube sus
+/// texturas sin bufer intermedio. La de un monton DEFAULT o un subrecurso
+/// que no tiene, E_INVALIDARG, como Windows. CON puntero, no: la casa la
+/// guarda en su formato (`subrecursos`), no en el de D3D, y se dice.
+fn map_textura(this: u64, sub: u32, pp: *mut u64) -> i32 {
+    let falla = |pp: *mut u64| {
+        if !pp.is_null() {
+            crate::d3d12::nada(pp);
+        }
+        E_INVALIDARG
+    };
+    let Some(t) = crate::d3d12_vistas::tex(this) else {
+        aviso("ID3D12Resource::Map sobre algo que no es un bufer ni una textura de la casa: E_INVALIDARG");
+        return falla(pp);
+    };
+    // SAFETY: un Recurso de la casa (tiene textura).
+    if unsafe { de::<Recurso>(this) }.tipo_monton == MONTON_DEFAULT || sub as usize >= t.subs.len() {
+        return falla(pp);
+    }
+    if pp.is_null() {
+        return S_OK;
+    }
+    aviso("ID3D12Resource::Map con puntero de una textura: la casa la guarda en su formato, no en el de D3D (WriteToSubresource si): E_INVALIDARG");
+    falla(pp)
+}
+
+pub(crate) extern "win64" fn unmap(_this: u64, _sub: u32, _escrito: *const u8) {}
+
+pub(crate) extern "win64" fn get_gpu_virtual_address(this: u64) -> u64 {
+    crate::d3d12::base_de_bufer(this).unwrap_or(0)
+}
+
+
 /// Apuntar en el recurso recien creado en `pp` el tipo de su monton (de un
 /// D3D12_HEAP_PROPERTIES, Type +0), si salio; y (A7, 06-10) su pagina de
 /// la CPU y su piscina (+4, +8).

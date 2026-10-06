@@ -43,6 +43,7 @@ use crate::pso::{cargas, elementos, NoVa};
 /// Lo que contesta el kernel (`cubo::empaquetar`): `sano` = la 3060 pago el
 /// dibujo entero; `desempaquetar` = `(us, triangulos, etapas, ..)`.
 pub use bmo_gpu_ga10x::cubo::{a_pantalla, copia_us, desempaquetar, preparado, sano};
+use crate::vivo::{Origen, Recuerdo};
 use crate::{emitir_con, Abi};
 
 /// Los registros que se le dan al emisor (los de VERRANO, `tuberia::REGISTROS`).
@@ -84,17 +85,19 @@ fn bytes(codigo: &[(u64, u64)]) -> Vec<u8> {
     codigo.iter().flat_map(|&(lo, hi)| lo.to_le_bytes().into_iter().chain(hi.to_le_bytes())).collect()
 }
 
-/// **Los cuerpos de un PSO**: el emisor, con el ABI de registros.
+/// **Los cuerpos de un PSO**: el emisor, con el ABI de registros (y A9,
+/// comprobados bit a bit contra la CPU: [`crate::vivo`]).
 pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
+    cuerpos_con(en, ia, None).map(|(c, _)| c)
+}
+
+/// [`cuerpos`] con un [`Recuerdo`] (A9, 06-10): del .bsf de antes si lo hay,
+/// o traducidos, comprobados y guardados en el. Dice de donde salieron.
+pub fn cuerpos_con(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut dyn Recuerdo>) -> Result<(Cuerpos, Origen), NoVa> {
     // E2.3b: el sombreador de geometria corre en la CPU (la 3060, todavia no).
     if en.gs.is_some() {
         return Err(NoVa::Entrada("un sombreador de geometria"));
     }
-    let ev = emitir_con(&en.vs, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor("vertice", e))?;
-    if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. })) {
-        return Err(NoVa::Emisor("vertice", crate::NoEmite::Operacion(0)));
-    }
-    let ep = emitir_con(&en.ps, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor("pixel", e))?;
     // N5.9: el de pixeles que lee SV_Position, por la CPU todavia (la 3060
     // la da en un atributo de sistema que el pegamento no pone).
     if en.pos_ps.is_some() {
@@ -104,9 +107,14 @@ pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
     if en.objetivos != [0] {
         return Err(NoVa::Entrada("varios render targets (o uno que no es el 0, o SV_Depth)"));
     }
+    let emitir = |p: &bmo_proton_x::dxil::programa::Programa, que: &'static str| emitir_con(p, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor(que, e));
+    let (ev, ep, origen) = crate::vivo::cuerpos_vivos(en, recuerdo, emitir)?;
+    if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. })) {
+        return Err(NoVa::Emisor("vertice", crate::NoEmite::Operacion(0)));
+    }
     let posicion = en.posicion as u32;
     let genericos = en.desde_vs.iter().map(|o| o.and_then(|o| bmo_gpu_ga10x::pegamento::generico(o as u32, posicion))).collect();
-    Ok(Cuerpos {
+    let c = Cuerpos {
         vs: bytes(&ev.codigo),
         ps: bytes(&ep.codigo),
         registros_vs: ev.registros,
@@ -119,7 +127,8 @@ pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
         cargas_ps: cargas(&ep),
         genericos,
         texturas: crate::pso::texturas_de(&ep),
-    })
+    };
+    Ok((c, origen))
 }
 
 /// El modo de la casa con su numero de D3D12.
@@ -280,6 +289,13 @@ pub struct Puerta {
     /// Mandar lotes con Z a la 3060 ([`Z_EN_LA_SOMBRA`]): el kernel los
     /// dibuja en su sombra en bloque y los copia al back buffer.
     pub z_a_la_3060: bool,
+    /// A9 (06-10): donde se recuerdan los .bsf de cada PSO (en BMO-X,
+    /// ESTRATOS); sin el, se traduce cada arranque.
+    pub recuerdo: Option<Box<dyn Recuerdo + Send>>,
+    /// A9: los PSO traducidos (y comprobados) y los que salieron del
+    /// recuerdo, en la vida de esta puerta.
+    pub traducidos: usize,
+    pub recordados: usize,
 }
 
 impl Default for Puerta {
@@ -290,7 +306,7 @@ impl Default for Puerta {
 
 impl Puerta {
     pub fn nueva() -> Self {
-        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), z_viva: false, z_a_la_3060: Z_EN_LA_SOMBRA }
+        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), z_viva: false, z_a_la_3060: Z_EN_LA_SOMBRA, recuerdo: None, traducidos: 0, recordados: 0 }
     }
 
     /// **La receta de este lote**, en `self.caja[..n]`: `Ok(n)`, o por que
@@ -347,7 +363,16 @@ impl Puerta {
         let i = match self.cuerpos.iter().position(|x| x.0 == clave) {
             Some(i) => i,
             None => {
-                self.cuerpos.push((clave, cuerpos(l.enlace, l.entradas)));
+                // A9: vivos -- del .bsf de antes, o traducidos, comprobados
+                // contra la CPU y guardados.
+                let r = cuerpos_con(l.enlace, l.entradas, self.recuerdo.as_mut().map(|r| r.as_mut() as &mut dyn Recuerdo)).map(|(c, origen)| {
+                    match origen {
+                        Origen::Traducido => self.traducidos += 1,
+                        Origen::Recordado => self.recordados += 1,
+                    }
+                    c
+                });
+                self.cuerpos.push((clave, r));
                 self.cuerpos.len() - 1
             }
         };

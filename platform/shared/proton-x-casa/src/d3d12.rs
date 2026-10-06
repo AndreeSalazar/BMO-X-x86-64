@@ -312,10 +312,10 @@ fn dispositivo() -> u64 {
 /// recurso es un bufer.
 fn vtabla_recurso() -> *const u64 {
     vtabla::<{ com::RESOURCE }>(&[
-        (8, dir!(tuberia::map)),
-        (9, dir!(tuberia::unmap)),
+        (8, dir!(crate::d3d12_resto::map)),
+        (9, dir!(crate::d3d12_resto::unmap)),
         (10, dir!(get_desc)),
-        (11, dir!(tuberia::get_gpu_virtual_address)),
+        (11, dir!(crate::d3d12_resto::get_gpu_virtual_address)),
         (12, dir!(crate::d3d12_resto::write_to_subresource)),
         (13, dir!(crate::d3d12_resto::read_from_subresource)),
         (14, dir!(crate::d3d12_resto::get_heap_properties)),
