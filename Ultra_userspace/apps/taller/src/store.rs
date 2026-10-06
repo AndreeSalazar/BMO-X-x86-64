@@ -22,6 +22,7 @@
 //! the package again itself: the generation moved, so the next beat does,
 //! and F1 sees its own change exactly as anyone else's.
 
+use crate::branches::{self, Branches};
 use crate::strata::{self, History};
 use bmo_titan_contrato::{sample, Line, NodeId};
 use bmo_titan_lector::explorer::{Lister, Tree};
@@ -513,6 +514,7 @@ pub fn read_history(h: &mut History) {
         v.when = bmo::estratos::hist_cuando(i as u64);
         v.who = bmo::estratos::hist_quien(i as u64) as u32;
         v.name_len = if bmo::estratos::hist_con_nombre(i as u64) { bmo::estratos::hist_nombre(i as u64, &mut v.name).min(strata::NAME_MAX) } else { 0 };
+        v.merge = bmo::estratos::dos_padres(i as u64);
     }
     if h.picked.is_some_and(|p| p >= n) {
         h.picked = None;
@@ -524,6 +526,51 @@ pub fn read_history(h: &mut History) {
 /// again, exactly as after any other change.
 pub fn restore(steps: usize) -> bool {
     bmo::estratos::volver(steps as u64) != 0
+}
+
+/// **THE BRANCHES for their tab** (`branches.rs`), in a block of its own:
+/// ~9 KiB of names and conflict paths that `_start`'s frame cannot spare.
+pub fn branches_block() -> Option<&'static mut Branches> {
+    let block = bmo::Memoria::request(core::mem::size_of::<Branches>() as u64)?;
+    let p = block.base() as *mut Branches;
+    core::mem::forget(block);
+    // SAFETY: as `history_block`: our own page-aligned block, written whole
+    // before the reference is made, and never given back.
+    unsafe {
+        p.write(Branches::EMPTY);
+        Some(&mut *p)
+    }
+}
+
+/// The volume behind the BRANCHES tab: each question is a door of
+/// `bmo::estratos` (`ES_RAMA_*`). The host's camera answers with a sample.
+pub struct Kernel;
+
+impl branches::Volume for Kernel {
+    fn branch(&mut self, i: usize, dst: &mut [u8]) -> Option<(usize, bool)> {
+        bmo::estratos::rama(i as u64, dst)
+    }
+    fn create(&mut self, name: &[u8]) -> bool {
+        bmo::estratos::crear_rama(name) != 0
+    }
+    fn switch(&mut self, name: &[u8]) -> bool {
+        bmo::estratos::cambiar_rama(name) != 0
+    }
+    fn count(&mut self, name: &[u8]) -> Option<(u32, u32)> {
+        bmo::estratos::contar_mezcla(name)
+    }
+    fn conflict(&mut self, i: usize, dst: &mut [u8]) -> Option<(usize, u8, u8)> {
+        bmo::estratos::choque(i as u64, dst)
+    }
+    fn choose(&mut self, i: usize, pick: u8) -> bool {
+        bmo::estratos::elegir(i as u64, pick as u64)
+    }
+    fn merge(&mut self) -> bool {
+        bmo::estratos::mezclar() != 0
+    }
+    fn lock(&mut self) -> (u64, u32, u32) {
+        bmo::estratos::candado()
+    }
 }
 
 pub fn generation() -> u64 {

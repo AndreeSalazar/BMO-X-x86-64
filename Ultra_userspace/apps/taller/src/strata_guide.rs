@@ -5,7 +5,8 @@
 //!
 //! ```text
 //!    the families      two columns: the cursor and the history (they READ),
-//!                      the names and the gestures (the gestures WRITE)
+//!                      the names, the gestures and the branches (those
+//!                      two WRITE)
 //!    every door        one line: its name and the start of WHAT it does
 //!    picked            the panel below: WHAT, whole, and WHY, as the
 //!                      contract says them
@@ -88,7 +89,9 @@ pub fn draw(c: &mut Canvas, picked: usize, sky: Option<&[u32]>) {
     let k = c.text(x0, TOP + 40, b"ESTRATOS: ", NEON, 1);
     let mut b = [0u8; 4];
     let k = k + c.text(x0 + k, TOP + 40, digits(COUNT as u32, &mut b), INK, 1);
-    c.text(x0 + k, TOP + 40, b" puertas en 4 familias; cada una dice QUE hace y POR QUE, tal como lo dice el contrato", DIM, 1);
+    let k = k + c.text(x0 + k, TOP + 40, b" puertas en ", DIM, 1);
+    let k = k + c.text(x0 + k, TOP + 40, digits(FAMILIES.len() as u32, &mut b), INK, 1);
+    c.text(x0 + k, TOP + 40, b" familias; cada una dice QUE hace y POR QUE, tal como lo dice el contrato", DIM, 1);
     let width = c.w;
     rows(width, |r, x, y, w| match r {
         Row::Family(f) => {

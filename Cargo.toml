@@ -319,6 +319,8 @@ members = [
     "toolchain/tools/estratos-fmt",
     # Publica un artefacto en un ESTRATOS ya existente, con copia-en-escritura.
     "toolchain/tools/estratos-put",
+    # Mezcla dos ramas por NODOS sobre imagenes (PLAN_LAS_RAMAS R4b).
+    "toolchain/tools/estratos-mezcla",
     # El eslabon Rust -> .bex: sin el, Ultra_userspace/ no puede producir
     # nada que el kernel admita, y por eso llevaba meses lleno de stubs.
     "toolchain/tools/bex-link",

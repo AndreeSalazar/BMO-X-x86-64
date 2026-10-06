@@ -282,6 +282,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-estratos-mezcla"
+version = "0.1.0"
+dependencies = [
+ "bmo-estratos",
+]
+
+[[package]]
 name = "bmo-estratos-put"
 version = "0.1.0"
 dependencies = [

@@ -45,6 +45,11 @@
 | **ramas a la vez** | **NO**: el superbloque apunta a UNA punta | `Estrato.padre` en `platform/drivers/storage/estratos/src/lib.rs` |
 | **`merge`** | **NO**: un estrato tiene UN padre | el mismo |
 
+(Eso era el 05-10, antes de este plan. Desde R4c-2b, el 06-10: `branch` es
+`ES_RAMA_CREAR`, `switch` es `ES_RAMA_CAMBIAR`, y `merge` son DOS FASES --
+`ES_RAMA_CONTAR`, `ES_RAMA_CHOQUE` y `ES_RAMA_ELEGIR` para que una persona
+elija cada choque, y `ES_RAMA_MEZCLAR`, que publica UN estrato de dos padres.)
+
 La diferencia que importa, y la que pidio el propietario: Git mezcla TEXTO
 linea a linea, y cuando no puede escribe `<<<<<<<` dentro del fichero. Aqui
 cada nodo es un objeto entero e independiente, asi que **se mezcla por nodos**.
@@ -86,7 +91,11 @@ modulo es su nodo.
 
 ## 3. Las decisiones del propietario
 
-**PENDIENTES.** Cada una con su recomendada.
+**DECIDIDAS el 05-10, las tres (a)** (el propietario: *"D1 A, D2 A, D3 A, me
+encanta la A"*): una rama es una MARCA; un estrato de mezcla guarda DOS
+padres (formato v2, escrito antes en `ESTRATOS.md` y probado en imagenes);
+un choque lo resuelve una PERSONA en F1. Y D4 (seccion 4b), tambien (a), el
+mismo dia: *"D4 es A"*.
 
 ### D1 -- que es una rama
 
@@ -119,6 +128,104 @@ modulo es su nodo.
                     trabajo sin que nadie lo vea
 ```
 
+### D5 -- donde vive la PUNTA de cada rama (DECIDIDA el 06-10: a, y sin su debilidad)
+
+Al ir a escribir el gesto se vio un hueco en D1 (a), y se dice antes de
+construir encima. Si una rama es una MARCA y "cambiar de rama" es `volver` a
+ella, `volver` publica un estrato cuyo padre es la punta de AHORA (es un
+revert): la rama que se deja pasa a ser ANTEPASADO de la nueva. Ejemplo:
+
+```text
+   T1 "main" --volver a X--> T2 (raiz de X, padre T1) --trabajo--> T3
+   mezclar "main" (T1) en T3: T1 YA es antepasado de T3 -> "nada que
+   mezclar", y lo de main que T2 deshizo no vuelve nunca
+```
+
+Y no se puede arreglar mirando solo la historia: una marca solo se
+encuentra recorriendo desde la punta, y una punta que se deja de seguir no
+se encuentra mas.
+
+```text
+   (a) RECOMENDADA  una TABLA DE RAMAS fuera de la historia, como las refs de
+                    Git: el superbloque tiene 360 bytes LIBRES (120..480, a
+                    cero) y en ellos cabe un puntero a un objeto chico
+                    "nombre -> punta". Cambiar de rama es que el superbloque
+                    siga OTRA punta (sin estrato nuevo y sin hacer a nadie
+                    antepasado de nadie); las marcas siguen siendo versiones
+                    permanentes. [!] Un kernel VIEJO que haga commit
+                    reescribe el superbloque con ceros ahi y perderia la
+                    tabla: se sube `version` del superbloque para que no lo
+                    haga sin enterarse
+   (b)              ramas dentro de la historia, como hoy: no hace falta
+                    formato, pero mezclar una rama de la que se volvio no
+                    funciona (el ejemplo de arriba)
+   (c)              un fichero `.ramas` en el arbol: sin formato, pero se
+                    versiona y se MEZCLA consigo mismo -- la lista de ramas
+                    tendria choques
+```
+
+El propietario: *"la A, puedes mejorar y eliminar la debilidad?"*. Si: la
+debilidad era que un kernel v1 borrara la tabla en su primer commit, y ya no
+puede, por tres cosas (escritas en `platform/drivers/storage/estratos/ESTRATOS.md`,
+"la tabla de ramas"):
+
+```text
+   1  ya estaba    un kernel v1 rechaza un superbloque de otra version
+                   (`version != VERSION` -> BadVersion)
+   2  el agujero   pero si UNA copia es v1, monta esa (la vieja) y escribe
+                   encima de la nueva
+   3  el cierre    la subida a v2 escribe LAS DOS copias: un kernel v1 no
+                   monta el volumen y no puede borrar nada. Un volumen sin
+                   ramas sigue siendo v1, y lo monta cualquiera
+```
+
+## 4b. Nodos ULTRA independientes: independizar es una DECISION
+
+El propietario, al decidir D1-D3: *"esos nodos sean independiente [...] ese
+nodo que aun hereda, se corte por completo la herencia [...] otros que nace con
+dependencias el ultimo es independiente dependiendo de la decision"*.
+
+Hay DOS independencias, y una ya esta garantizada:
+
+```text
+   LO QUE ES       independiente SIEMPRE, ya hoy: nada se sobreescribe, asi
+                   que cambiar un nodo NO puede cambiar otro. Un cambio es un
+                   nodo nuevo; el de antes sigue entero
+   DONDE VIVE      COMPARTIDO a veces: una copia de una plantilla, o dos
+                   versiones del mismo fichero, apuntan a los MISMOS bloques
+                   hasta que algo cambia. Esto es lo que "aun hereda"
+```
+
+**Independizar** corta lo segundo: los bloques del nodo se escriben aparte,
+en su sitio propio. El `BlockPtr` cambia su DONDE (`lba`, `off`) y conserva
+su QUE (`hash`), asi que para la mezcla (`mezcla.rs`) y para la historia es
+el mismo nodo; solo deja de compartir disco con nadie.
+
+```text
+   cuesta         los bytes del nodo, otra vez (compartir era gratis)
+   da             que un sector malo no se lleve a dos nodos a la vez; que se
+                  pueda sacar o mover el nodo sin arrastrar a otro; y que en
+                  F1 se VEA: un nodo que comparte lleva un cable fino hasta
+                  con quien comparte, y al independizarlo el cable se CORTA
+   no da          independencia de LO QUE ES: esa ya la tenia
+```
+
+### D4 -- cuando nace un nodo de una copia o de una rama (DECIDIDA: a)
+
+```text
+   (a) RECOMENDADA  nace COMPARTIENDO, y se independiza cuando una persona lo
+                    decide (en F1, sobre el nodo, o en F12): gratis hasta que
+                    importa, y la decision queda a la vista
+   (b)              nace YA independiente: cada copia escribe sus bytes. Nunca
+                    comparte nada, pero copiar una plantilla de un GiB cuesta
+                    un GiB
+```
+
+[!] Saber CON QUIEN comparte un nodo es comparar los bloques de su arbol con
+los de los otros: ESTRATOS no lleva cuentas de referencias (el espacio es una
+resta, `ESTRATOS.md` tramo 4), asi que es una busqueda, no un numero guardado.
+Para una carpeta en pantalla es barato; para un volumen entero, otra cosa.
+
 ## 4. Plantillas
 
 Una plantilla es una CARPETA de ESTRATOS que se copia para empezar algo: un
@@ -141,11 +248,20 @@ de una lista escrita. Copiar una carpeta entera es C4 de `ESTRATOS.md`.
 ## 5. Los escalones
 
 - [x] R1 -- HECHO el 05-10: la GUIA de ESTRATOS en F1 (sub-solapa GUIA de ESTRATOS, `Ultra_userspace/apps/taller/src/strata_guide.rs`): las 39 puertas que existen, en 4 familias, con QUE y POR QUE, generadas del contrato por `toolchain/tools/estratos-guia/guia.py` (`--check` en el build). Tres puertas del contrato ganaron su linea propia para que la guia pudiera explicarlas
-- [ ] R2 -- la MEZCLA PURA en `bmo-estratos`: base, A y B como listas de (ruta, nodo) -> lo que sale y los choques, con la tabla de la seccion 2 como pruebas en el anfitrion
-- [ ] R3 -- las decisiones D1-D3 del propietario, escritas aqui (seccion 3)
-- [ ] R4 -- el gesto MEZCLAR en el kernel (`ES_GESTO_*`): construir el arbol de lo que sale con los nodos ya escritos (no copia bytes) y publicarlo como UN estrato; con D2 (a), formato v2 en imagenes antes que en F:
-- [ ] R5 -- la MEZCLA en F1: las dos cadenas que se juntan en la solapa HISTORIA, y cada choque como un nodo partido que se pulsa (D3)
+- [x] R2 -- HECHO el 05-10: la MEZCLA PURA (`platform/drivers/storage/estratos/src/mezcla.rs`): base, A y B como listas de (ruta, nodo) -> `Queda` o `Choque`, comparando el QUE (el BLAKE3) y no el DONDE, rutas sin distinguir mayusculas como las entradas, y `base()` para el ultimo estrato comun; 6 pruebas en el anfitrion con la tabla de la seccion 2 fila a fila; compila sin `std`
+- [x] R3 -- las decisiones D1-D4 del propietario, las cuatro (a), el 05-10 (secciones 3 y 4b)
+- [x] R4a -- HECHO el 05-10: el FORMATO v2, el SEGUNDO PADRE (`SegundoPadre`, `Estrato::mezcla` en `platform/drivers/storage/estratos/src/lib.rs`), escrito antes en `platform/drivers/storage/estratos/ESTRATOS.md` ("las ramas y la mezcla"): en los 16 bytes que v1 dejaba a cero, asi que un v1 se lee como v2 sin segundo padre y un kernel v1 lee un v2 entero; 3 pruebas de los dos sentidos; el kernel compila
+- [x] R4b -- HECHO el 05-10: `toolchain/tools/estratos-mezcla` construye el arbol MEZCLADO sobre una imagen, en el anfitrion: la base por los DOS padres de cada estrato, aplanar base, A y B, decidir con `mezcla.rs`, preguntar cada choque (D3), escribir SOLO las carpetas (los ficheros apuntan a los nodos que ya estan: D4, 3 bloques para mezclar una raiz) y UN estrato de dos padres, con el orden de `estratos-put`, y releer lo publicado. 5 pruebas sobre imagenes (un choque elegido, no copiar, una rama que ya estaba dentro no escribe ni un byte, la base por el segundo padre, un nombre Latin-1); y `estratos-fmt --verificar` dice OK en las cinco
+- [x] R4c-1 -- HECHO el 05-10: la mezcla POR CARPETAS, la forma que puede usar el kernel. `mezcla::por_carpeta` (en `platform/drivers/storage/estratos/src/mezcla.rs`, sin `alloc`): la regla de tres sobre las entradas de UNA carpeta; lo que un solo lado toco entra ENTERO sin leerlo, y solo se baja donde los dos cambiaron. `estratos-mezcla` la usa de verdad (`decide::por_arbol`) y conserva la plana como ORACULO: la prueba al azar compara las dos con las tres respuestas a un choque (2.000 semillas sin una diferencia) y publica cada mezcla; `estratos-fmt --verificar` dice OK en 25 imagenes. El azar encontro que el hash de una carpeta REESCRITA cambia aunque su contenido no: el hash de carpeta es un atajo, nunca la verdad
+- [x] R4c-2a -- HECHO el 06-10: EL MOTOR sin `alloc` (`platform/drivers/storage/estratos/src/motor_mezcla.rs`): tablas FIJAS por nivel que presta quien llama (64 entradas por lado, las de `MAX_ENTRIES` del kernel), dos pasadas (CONTAR bloques y choques sin escribir; ESCRIBIR con las mismas respuestas) y la regla unica `mezcla::regla`. `estratos-mezcla` mezcla YA con este motor (el mismo que correra el kernel) y lo compara al publicar con la mezcla de carpetas con `Vec`; a quien elige se le pregunta UNA vez por choque. 2.000 semillas al azar sin diferencia, una carpeta de 50 (lista de dos bloques) bien, una de 70 se DICE sin escribir un byte, y `estratos-fmt --verificar` OK en 25 imagenes
+- [x] R4c-2c -- HECHO el 06-10: LA TABLA DE RAMAS (D5 a), sin la debilidad. El superbloque v2 (`Superblock::ramas`, `VERSION_RAMAS`, en los bytes que v1 dejaba a cero) y la tabla (`platform/drivers/storage/estratos/src/ramas.rs`: crear, cambiar, quitar, sin `alloc`); `estratos-mezcla` crea y cambia ramas sobre imagenes con la subida a v2 en LAS DOS copias. La prueba del caso de D5: principal avanza, se cambia a pruebas, pruebas avanza, y principal se MEZCLA en pruebas con lo de las dos (y otra prueba muestra que con `volver` salia "nada que mezclar"). `estratos-fmt --verificar` OK en las imagenes v2; el kernel compila (un kernel v2 lee v1 y v2 y su commit conserva la tabla)
+- [x] R4c-2b -- HECHO el 06-10: los gestos en el KERNEL (`Ultra_kernel_x86-64/kernel/src/ring0/fsys/estratos/ramas.rs`), seis subordenes de `TASK_OP_ES_GESTO` con prefijo propio, `ES_RAMA_*` (`platform/abi/bmo-abi/src/syscalls/surface/disco.rs`): CREAR y CAMBIAR publican la tabla con el orden de siempre y la subida a v2 en las DOS copias; CONTAR cuenta sin escribir y apunta hasta 64 choques; CHOQUE los lee por la puerta (ruta y que lado lo tiene); ELEGIR apunta A, B o quitar; MEZCLAR vuelve a contar con lo elegido, reserva, escribe con el motor y publica UN estrato de dos padres -- y dice que no sin tocar un sector si falta elegir alguno o si el volumen cambio desde que se conto. Las tablas del motor NO son `static`: ~38 KiB por nivel, 16 niveles, se piden en marcos contiguos solo mientras dura la mezcla (y si no hay, 8). La BASE por los dos padres salio a `platform/drivers/storage/estratos/src/raices.rs`, sin `alloc`: el kernel la corre con sus tablas y `estratos-mezcla` con las suyas, y la compara con su cola con `Vec` en cada mezcla (600 semillas al azar, las 10 pruebas). Una prueba guarda que una tabla a cero ES `Nivel::VACIO`, que es lo que el kernel supone. Envoltorios en `Ultra_userspace/userland/src/estratos.rs`; la GUIA de F1 cuenta 45 puertas en 5 familias (LAS RAMAS, 6). El kernel compila; probarlo en metal es R4c-3
+- [ ] R4c-3 -- del PROPIETARIO: la mezcla en F: en el Ryzen, despues de las imagenes
+- [x] R5 -- HECHO el 06-10: la MEZCLA en F1, interactiva y con CANDADO. Sub-solapa RAMAS (`Ultra_userspace/apps/taller/src/branches.rs`): cada rama un nodo con su sello, la actual encendida; ENTER dos veces cambia, N crea (con el nombre tecleado), M cuenta la mezcla de la elegida en la actual: dos cadenas que se juntan en un nodo, y cada choque un NODO PARTIDO (la mitad de ahora, la de la que entra) que se elige con A, B o Q; ENTER dos veces mezcla. EL CANDADO (`ES_RAMA_CANDADO`) no bloquea el volumen, cuida la eleccion: CERRADO = contado y nada escrito, Esc y volver no pierde nada; ROTO = alguien escribio entre medias, ENTER cuenta otra vez (bloquear dejaria congelado a un juego que guarda). La HISTORIA marca las versiones de dos padres (`ES_RAMA_DOS_PADRES`); los nombres de las ramas por `ES_RAMA_NOMBRE`. La camara (`cara-taller`) maneja la solapa con las MISMAS teclas sobre un volumen de ejemplo y comprueba contar, elegir, Esc sin perder, el candado roto y la mezcla: `estratos_ramas.png`, `estratos_mezcla.png`, `estratos_roto.png`. Y `pila` (`toolchain/tools/pila/pila.py`) cazo que la tabla de ramas en la pila hacia bajar un syscall 48 KiB en una de 40: la tabla y su bloque viven ahora en `static`, y mide 32 KiB (8,6 libres)
 - [ ] R6 -- PLANTILLAS: la carpeta `plantillas/`, su LEEME por plantilla, la guia que las cuenta, y "usar" = copiar la carpeta (pide C4 de `platform/drivers/storage/estratos/ESTRATOS.md`)
+- [ ] R8 -- INDEPENDIZAR puro (seccion 4b): dados los bloques de dos nodos, cuales comparten; con sus pruebas en el anfitrion
+- [ ] R9 -- el gesto INDEPENDIZAR en el kernel: reescribir los bloques compartidos de un nodo en su sitio propio y publicar UN estrato (el QUE no cambia)
+- [ ] R10 -- en F1, en tiempo real: el cable fino de "comparte con" y el corte al independizar
 - [ ] R7 -- del PROPIETARIO: las leyes de la mezcla (que nunca se pierde un nodo sin que una persona lo vea) con `--sellar`
 
 ## 6. Lo que este plan NO es

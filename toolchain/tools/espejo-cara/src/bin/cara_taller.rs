@@ -11,7 +11,9 @@
 //! un nodo, y `tab_filtro.png`, escribiendo "match". Y la solapa ESTRATOS
 //! (`PLAN_LA_BANDEJA` T2) con una historia de EJEMPLO: `estratos.png` y
 //! `estratos_pregunta.png` (el primer ENTER, preguntando); y su GUIA, las
-//! puertas del contrato (`PLAN_LAS_RAMAS` R1): `estratos_guia.png`.
+//! puertas del contrato (`PLAN_LAS_RAMAS` R1): `estratos_guia.png`. Y sus
+//! RAMAS (R5), manejadas con las teclas de verdad: `estratos_ramas.png`,
+//! `estratos_mezcla.png` y `estratos_roto.png` (el candado roto).
 
 #[path = "../../../../../Ultra_userspace/apps/taller/src/canvas.rs"]
 #[allow(dead_code)]
@@ -58,6 +60,9 @@ mod guia_estratos_gen;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/strata.rs"]
 #[allow(dead_code)]
 mod strata;
+#[path = "../../../../../Ultra_userspace/apps/taller/src/branches.rs"]
+#[allow(dead_code)]
+mod branches;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/tema_gen.rs"]
 #[allow(dead_code)]
 mod tema_gen;
@@ -98,6 +103,69 @@ mod store {
 }
 
 use bmo_espejo_cara::{png, Imagen};
+
+// Las teclas del DIRECTOR, como `main.rs` las nombra: `strata.rs` y
+// `branches.rs` las piden a la raiz del crate.
+#[allow(dead_code)]
+pub(crate) const KEY_UP: u8 = 0x80;
+#[allow(dead_code)]
+pub(crate) const KEY_DOWN: u8 = 0x81;
+#[allow(dead_code)]
+pub(crate) const KEY_LEFT: u8 = 0x82;
+#[allow(dead_code)]
+pub(crate) const KEY_RIGHT: u8 = 0x83;
+
+/// Un volumen de EJEMPLO para la solapa RAMAS (PLAN_LAS_RAMAS R5): tres
+/// ramas, una mezcla con cuatro choques, y el candado que se puede romper.
+struct Muestra {
+    ramas: Vec<(&'static str, bool)>,
+    choques: Vec<(&'static str, u8, u8)>,
+    contado: bool,
+    roto: bool,
+}
+
+impl branches::Volume for Muestra {
+    fn branch(&mut self, i: usize, dst: &mut [u8]) -> Option<(usize, bool)> {
+        let (n, actual) = *self.ramas.get(i)?;
+        dst[..n.len()].copy_from_slice(n.as_bytes());
+        Some((n.len(), actual))
+    }
+    fn create(&mut self, name: &[u8]) -> bool {
+        self.ramas.push((String::from_utf8_lossy(name).into_owned().leak(), false));
+        true
+    }
+    fn switch(&mut self, name: &[u8]) -> bool {
+        for r in &mut self.ramas {
+            r.1 = r.0.as_bytes() == name;
+        }
+        true
+    }
+    fn count(&mut self, _: &[u8]) -> Option<(u32, u32)> {
+        self.contado = true;
+        Some((self.choques.len() as u32, 7))
+    }
+    fn conflict(&mut self, i: usize, dst: &mut [u8]) -> Option<(usize, u8, u8)> {
+        let (p, lados, e) = *self.choques.get(i).filter(|_| self.contado)?;
+        dst[..p.len()].copy_from_slice(p.as_bytes());
+        Some((p.len(), lados, e))
+    }
+    fn choose(&mut self, i: usize, pick: u8) -> bool {
+        self.choques[i].2 = pick;
+        true
+    }
+    fn merge(&mut self) -> bool {
+        self.contado = false;
+        true
+    }
+    fn lock(&mut self) -> (u64, u32, u32) {
+        let elegidos = self.choques.iter().filter(|c| c.2 != 0).count() as u32;
+        match (self.contado, self.roto) {
+            (false, _) => (0, 0, 0),
+            (true, false) => (1, self.choques.len() as u32, elegidos),
+            (true, true) => (2, self.choques.len() as u32, elegidos),
+        }
+    }
+}
 use bmo_titan_contrato::{Line, Name};
 use bmo_titan_lector::explorer::{Lister, Tree};
 use bmo_titan_lector::{read_package, seed, Fetch, Path, Source};
@@ -271,6 +339,8 @@ fn main() {
             v.name_len = n.len();
         }
     }
+    // La 4 es una MEZCLA (R5): tiene dos padres.
+    historia.versions[4].merge = true;
     historia.picked = Some(6);
     for (nombre, pregunta) in [("estratos", false), ("estratos_pregunta", true)] {
         if pregunta {
@@ -310,6 +380,67 @@ fn main() {
             guardar(&format!("{out}/estratos_guia.png"), &px, w, h, w);
         }
     }
+    // La solapa RAMAS (PLAN_LAS_RAMAS R5), manejada con las MISMAS teclas que
+    // en el Ryzen: la lista; M sobre `pruebas` cuenta la mezcla y se eligen
+    // dos choques; y el candado ROTO cuando otro programa escribio.
+    let mut vol = Muestra {
+        ramas: vec![("principal", true), ("pruebas", false), ("dragon-nuevo", false)],
+        choques: vec![("mundo/mapa.titan", 3, 0), ("mundo/dragon.titan", 3, 0), ("notas.txt", 1, 0), ("src/ship.titan", 3, 0)],
+        contado: false,
+        roto: false,
+    };
+    let mut ramas = Box::new(branches::Branches::EMPTY);
+    ramas.refresh(&mut vol);
+    ramas.key(KEY_DOWN, 1000, &mut vol);
+    let foto = |ramas: &branches::Branches, nombre: &str| {
+        let scene = view::Scene {
+            graph: &store.loaded.graph,
+            script: None,
+            player: &player,
+            cam: &cam,
+            now_ms: 5000,
+            selected: None,
+            origin: b"asteroids",
+            sky: None,
+            flow_ms: None,
+            faults: &marks,
+            files: store.loaded.files(),
+            turn: 96,
+        };
+        let mut px = vec![0u32; w * h];
+        let mut cv = canvas::Canvas::new(px.as_mut_ptr(), w as u32, h as u32);
+        branches::draw(&mut cv, Some(ramas), None, 5000);
+        view::title(&mut cv, &scene);
+        space::tabs(&mut cv, space::Tab::Branches);
+        explorer::draw(&mut cv, &store, &ui, None, 0);
+        guardar(&format!("{out}/{nombre}.png"), &px, w, h, w);
+    };
+    foto(&ramas, "estratos_ramas");
+    ramas.key(b'm', 1000, &mut vol);
+    assert_eq!(ramas.nc, 4, "contar trae los cuatro choques");
+    ramas.key(b'a', 1000, &mut vol);
+    ramas.key(b'b', 1000, &mut vol);
+    assert_eq!((vol.choques[0].2, vol.choques[1].2), (1, 2), "A y B llegan al volumen");
+    ramas.key(b'\r', 1000, &mut vol);
+    assert!(ramas.said.is_some_and(|(_, bien)| !bien), "con choques sin elegir, ENTER no mezcla");
+    foto(&ramas, "estratos_mezcla");
+    // Esc no pierde nada: M sobre la misma rama vuelve a lo elegido.
+    ramas.key(0x1B, 1000, &mut vol);
+    ramas.key(b'm', 1000, &mut vol);
+    assert_eq!(ramas.conflicts[1].pick, 2, "volver no pierde lo elegido");
+    vol.roto = true;
+    ramas.refresh(&mut vol);
+    foto(&ramas, "estratos_roto");
+    // Y entero: se cuenta otra vez, se elige todo, y dos ENTER mezclan.
+    vol.roto = false;
+    ramas.key(b'\r', 1000, &mut vol);
+    for _ in 0..4 {
+        ramas.key(b'a', 1000, &mut vol);
+    }
+    ramas.key(b'\r', 1000, &mut vol);
+    ramas.key(b'\r', 1100, &mut vol);
+    assert!(!vol.contado && ramas.said.is_some_and(|(_, bien)| bien), "dos ENTER con todo elegido mezclan");
+
     // GRAFO con dos cables en la mano (UE5): uno que se puede soltar y uno
     // que cerraria un ciclo, rojo y con su motivo.
     for (nombre, from, to) in [("cable_bien", "rock", "ship"), ("cable_ciclo", "ship", "physics")] {
@@ -473,5 +604,5 @@ fn main() {
         }
     }
     println!("ok: {out}/hola.png editor.png editor_guardado.png menu_nodo.png");
-    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png estratos.png estratos_pregunta.png estratos_guia.png tab.png tab_filtro.png");
+    println!("ok: {out}/arbol.png escribiendo.png menu.png arrastre.png grafo.png cielo.png elementos.png guia.png estratos.png estratos_pregunta.png estratos_guia.png estratos_ramas.png estratos_mezcla.png estratos_roto.png tab.png tab_filtro.png");
 }

@@ -589,6 +589,121 @@ Lo que de esa captura vale para ESTRATOS, en verde neon con el gato que cuida:
       discos alrededor de ESTRATOS con los datos que corren) y el gato grande
       que respira y mueve la cola.
 
+### ** LAS RAMAS Y LA MEZCLA -- el formato v2 del estrato (05-10)
+
+El propietario decidio (`docs/plan/PLAN_LAS_RAMAS.md`, D1-D4, las cuatro (a)):
+una rama es una MARCA, un estrato de mezcla guarda DOS padres, un choque lo
+resuelve una persona, y un nodo copiado nace compartiendo bloques hasta que
+alguien lo independiza. Lo unico de eso que toca el disco es el SEGUNDO PADRE,
+y se escribe aqui antes de tocar un sector.
+
+```text
+   estrato, 224 bytes          v1                    v2
+     0..48    raiz             BlockPtr              igual
+    48..96    padre            BlockPtr              igual
+    96..112   tiempo, autor    igual                 igual
+   112..176   motivo           64 bytes              igual
+   176..192   (libre)          CEROS                 SEGUNDO PADRE:
+                                                       lba  u64   176..184
+                                                       off  u32   184..188
+                                                       huella     188..192
+                                                       (los 4 primeros bytes
+                                                        de su BLAKE3)
+   192..224   suma             BLAKE3 de 0..192      igual
+```
+
+** POR QUE CABE SIN ROMPER NADA, en los dos sentidos:
+
+- **Un estrato v1 se lee como v2 sin segundo padre**: sus bytes 176..192 son
+  ceros desde el primer dia, y ceros es "no hay".
+- **Un kernel v1 lee un estrato v2 entero**: la suma cubre 0..192 como
+  siempre, asi que cuadra; solo no ve el segundo padre, y su historia sigue
+  la cadena del primero, que es la de la rama donde se mezclo.
+- No hace falta numero de version, ni reformatear, ni migrar.
+
+[!] **Lo que se cede, dicho:** el primer padre lleva su BLAKE3 entero en el
+puntero; el segundo, solo 4 bytes. Lo que protege al segundo es doble: el
+estrato al que apunta lleva SU PROPIA suma (no se puede leer uno a medias), y
+la huella dice si es EL que se apunto. Que un bloque reusado contenga otro
+estrato valido con la misma huella es 1 entre 4.294.967.296 -- y reusar
+bloques solo pasara con el compactador (C3), que ya tiene que republicar todo
+lo que mueve. Un estrato mide 224 bytes siempre, asi que la medida no hace
+falta guardarla.
+
+Hecho en `platform/drivers/storage/estratos/src/lib.rs` (`SegundoPadre`,
+`Estrato::mezcla`), con pruebas de los dos sentidos. Lo que construye el arbol
+mezclado y lo publica es R4b y R4c de `PLAN_LAS_RAMAS.md`, primero en
+imagenes y despues en F:.
+
+### ** LA TABLA DE RAMAS -- el superbloque v2 (06-10)
+
+`docs/plan/PLAN_LAS_RAMAS.md`, D5 (a): la PUNTA de cada rama vive FUERA de la
+historia, como las refs de Git. Si cambiar de rama fuera `volver`, la rama
+que se deja seria antepasada de la nueva, y mezclarla despues diria "nada
+que mezclar".
+
+```text
+   superbloque, 512 bytes      v1                  v2
+     0..120    lo de siempre   igual               igual
+   120..168    (libre)         CEROS               RAMAS: BlockPtr al objeto
+                                                   de la tabla
+   168..480    (libre)         ceros               ceros
+   480..512    suma            igual               igual
+
+   la tabla, UN bloque         "BMORAMAS", cuantas, cual es la ACTUAL, y
+                               por rama 112 bytes: nombre (63, Latin-1) y la
+                               punta (BlockPtr al estrato). La punta de la
+                               ACTUAL no se guarda ahi: es `estrato` del
+                               superbloque, que cada commit mueve
+```
+
+** LA DEBILIDAD, Y COMO SE CIERRA. Un kernel v1 reescribe el superbloque
+desde sus campos, con ceros en 120..168: un commit suyo BORRARIA la tabla.
+No llega a pasar por dos cosas que ya estaban y una que se hace aqui:
+
+1. `Superblock::decode` exige `version == VERSION` desde el primer dia: un
+   kernel v1 ante un superbloque v2 dice `BadVersion` y no lo monta.
+2. Pero `pick_superblock` usa la copia que SI entiende si la otra falla: con
+   una copia v2 y la otra v1, un kernel v1 montaria la VIEJA (deshaciendo el
+   ultimo commit) y escribiria encima de la nueva.
+3. Por eso la SUBIDA a v2 escribe LAS DOS COPIAS. Primero la que no esta en
+   uso (el commit de siempre) y despues la otra: si el corte llega a mitad de
+   la segunda, la primera ya es valida y mas nueva. Con las dos en v2, un
+   kernel v1 no monta el volumen: no puede borrar nada.
+
+Y lo que NO cambia: un volumen sin ramas sigue siendo v1 byte a byte (los
+ceros de siempre) y lo monta cualquier kernel; uno con ramas es v2 para
+siempre (no se baja de version: una tabla vacia sigue siendo una tabla).
+Un kernel v2 lee los dos, y su commit conserva la tabla sin saberlo
+(`Transaccion::commit` parte del superbloque que habia).
+
+### ** LOS GESTOS DE LAS RAMAS, EN EL KERNEL (06-10)
+
+`docs/plan/PLAN_LAS_RAMAS.md`, R4c-2b. El formato no cambia: son los dos de
+arriba (el estrato v2 y el superbloque v2), puestos detras de la puerta de
+siempre, `TASK_OP_ES_GESTO`, con prefijo propio:
+
+```text
+   ES_RAMA_CREAR     0x0C   la ruta lleva el nombre. Tabla nueva -> UN bloque
+   ES_RAMA_CAMBIAR   0x0D   la ruta lleva el nombre. Tabla y punta -> UN bloque
+   ES_RAMA_CONTAR    0x0E   la ruta lleva la rama a mezclar. NO escribe
+   ES_RAMA_CHOQUE    0x0F   lee un choque contado. NO escribe
+   ES_RAMA_ELEGIR    0x10   A, B o quitar, para un choque. NO escribe
+   ES_RAMA_MEZCLAR   0x11   las carpetas que cambian + UN estrato de 2 padres
+```
+
+** POR QUE DOS FASES: a mitad de una mezcla el kernel tendria una
+transaccion abierta, y no puede esperar a que una persona elija (D3). Asi
+que CONTAR no escribe y apunta los choques; la persona los lee y elige; y
+MEZCLAR vuelve a contar con lo elegido y escribe de una. Si el volumen
+cambio entre medias (otra generacion), lo contado no vale y se dice.
+
+[!] La memoria: las tablas del motor son ~38 KiB por nivel de carpetas. No
+viven en `.bss`: se piden en marcos contiguos mientras dura la mezcla y se
+devuelven al acabar, salga bien o mal. Y la BASE la busca
+`bmo_estratos::raices`, sin `alloc`, el mismo recorrido que corre
+`estratos-mezcla` en el anfitrion.
+
 ### Lo que sigue fuera de todo esto
 
 TimeBack encima (paso 7) y NVMe debajo de la capa de bloques. Ninguno de los dos

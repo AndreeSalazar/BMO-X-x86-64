@@ -370,6 +370,10 @@ pub struct Entrada {
 }
 
 impl Entrada {
+    /// Una entrada sin nombre y sin nodo: lo que llena una tabla fija antes de
+    /// usarla (el motor de la mezcla, sin `alloc`).
+    pub const VACIA: Entrada = Entrada { name: [0; NOMBRE_MAX], nombre_len: 0, nodo: BlockPtr::NULO };
+
     pub fn nueva(name: &str, nodo: BlockPtr) -> Result<Self, FormatError> {
         let b = name.as_bytes();
         if b.is_empty() || b.len() > NOMBRE_MAX { return Err(FormatError::BadField); }
@@ -387,6 +391,21 @@ impl Entrada {
     pub fn con_nodo(mut self, nodo: BlockPtr) -> Self {
         self.nodo = nodo;
         self
+    }
+
+    /// **Una entrada con el nombre en BYTES** (Latin-1), tal cual: lo que
+    /// necesita quien rehace una carpeta a partir de otra -- la mezcla
+    /// (`PLAN_LAS_RAMAS` R4b) -- sin pasar por `&str`, que perderia `an~o`.
+    pub fn de_bytes(name: &[u8], nodo: BlockPtr) -> Result<Self, FormatError> {
+        if name.is_empty() || name.len() > NOMBRE_MAX { return Err(FormatError::BadField); }
+        let mut n = [0u8; NOMBRE_MAX];
+        n[..name.len()].copy_from_slice(name);
+        Ok(Self { name: n, nombre_len: name.len(), nodo })
+    }
+
+    /// El nombre en sus BYTES, sin decodificar: el par de [`Entrada::de_bytes`].
+    pub fn nombre_bytes(&self) -> &[u8] {
+        &self.name[..self.nombre_len]
     }
 
     /// El nombre TAL COMO SE ESCRIBIO. Se conserva aunque las comparaciones
@@ -430,7 +449,7 @@ impl Entrada {
 
 /// Minuscula en Latin-1: ASCII mas el bloque acentuado (0xC0-0xDE), saltandose
 /// 0xD7, que es el signo de multiplicar y no una letra.
-fn baja(c: u8) -> u8 {
+pub(crate) fn baja(c: u8) -> u8 {
     if c >= b'A' && c <= b'Z' { return c + 32; }
     if c >= 0xC0 && c <= 0xDE && c != 0xD7 { return c + 32; }
     c

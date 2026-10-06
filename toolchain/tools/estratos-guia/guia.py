@@ -14,7 +14,7 @@ guia no tiene texto propio: cada puerta de ESTRATOS ya esta escrita, con su
 porque, en el contrato del ABI:
 
     platform/abi/bmo-abi/src/syscalls/surface/objetos.rs    ES_NODO_*, ES_HIST_*, ES_TXT_*
-    platform/abi/bmo-abi/src/syscalls/surface/disco.rs      ES_GESTO_*
+    platform/abi/bmo-abi/src/syscalls/surface/disco.rs      ES_GESTO_*, ES_RAMA_*
 
 y este obrero las copia, tal cual, a una tabla constante del TALLER:
 
@@ -52,6 +52,7 @@ FAMILIAS = [
     ("ES_HIST_", "LA HISTORIA", "lee: la cadena de versiones, de ahora hacia atras", False),
     ("ES_TXT_", "LOS NOMBRES", "lee: los textos que el cursor y la historia no caben en un numero", False),
     ("ES_GESTO_", "LOS GESTOS", "escribe: cada gesto publica un estrato nuevo; nada se pisa", True),
+    ("ES_RAMA_", "LAS RAMAS", "escribe: crear, cambiar y mezclar en dos fases (contar y elegir solo leen)", True),
 ]
 CONST = re.compile(r"pub const (ES_[A-Z_]+): u64 = (0x[0-9A-Fa-f]+|\d+);")
 MARCA = re.compile(r"^(\[!\]|\*+|★+)\s*")

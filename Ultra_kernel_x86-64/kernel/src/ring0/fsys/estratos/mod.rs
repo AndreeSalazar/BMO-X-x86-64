@@ -43,6 +43,10 @@ pub mod copiar;
 /// LA HISTORIA DEL VOLUMEN: la cadena de versiones hacia atras. Existia en el
 /// disco desde el primer dia --cada estrato guarda su padre-- y no tenia puerta.
 pub(crate) mod historia;
+/// ** LAS RAMAS Y LA MEZCLA: crear, cambiar y mezclar en DOS FASES (contar los
+/// choques, que una persona elija, mezclar). El formato y el motor son de
+/// `bmo_estratos`; aqui la base, la memoria prestada y el commit.
+pub mod ramas;
 /// UN NIVEL de la ruta: su nodo, su listado y el detalle de cada hijo, leidos
 /// UNA VEZ al pasar por el. Es lo que permite pintar un arbol y lo que quita el
 /// martillo sobre el disco en cada repintado.
@@ -270,6 +274,25 @@ pub enum WriteError {
     /// profundidad no es un capricho: es cuantos bloques cuesta la operacion.
     /// El tope se dice en vez de descubrirse con una reserva que no cabe.
     MuyHondo,
+    /// **La tabla de ramas dijo que no**: ese nombre ya esta, no esta, no
+    /// vale, o la tabla esta llena. Trae cual de ellas.
+    Rama(es::ramas::RamaError),
+    /// **Las dos ramas no comparten historia**: sin base no hay mezcla de
+    /// tres, y se dice en vez de adivinar una.
+    SinBase,
+    /// **Nada que mezclar**: esa rama ya esta dentro de la de ahora, o es ella.
+    NadaQueMezclar,
+    /// **El motor de la mezcla no pudo**: una carpeta con mas de 64 entradas
+    /// por lado, o mas hondo que las tablas prestadas. Trae cual.
+    Motor(es::motor_mezcla::Fallo),
+    /// **Hay choques sin elegir.** Una persona decide cada uno (D3): mezclar
+    /// con uno a ciegas seria decidir por ella.
+    SinElegir,
+    /// **Lo contado ya no vale**: no hay nada contado, o el volumen cambio
+    /// desde entonces. Se vuelve a contar.
+    Caducada,
+    /// No hubo marcos contiguos para las tablas de la mezcla.
+    SinMemoria,
 }
 
 impl WriteError {
@@ -303,6 +326,13 @@ impl WriteError {
             WriteError::CarpetaLlena => 9,
             // 10 fue `CarpetaNoCabeEntera`, quitado por E1: no se reutiliza.
             WriteError::NombreNoVale => 11,
+            WriteError::Rama(_) => 12,
+            WriteError::SinBase => 13,
+            WriteError::NadaQueMezclar => 14,
+            WriteError::Motor(_) => 15,
+            WriteError::SinElegir => 16,
+            WriteError::Caducada => 17,
+            WriteError::SinMemoria => 18,
         }
     }
 
@@ -318,6 +348,21 @@ impl WriteError {
             WriteError::MuyHondo => "la ruta baja demasiado para republicarla",
             WriteError::CarpetaLlena => "la carpeta esta llena: su lista no da para mas",
             WriteError::NombreNoVale => "ese nombre no vale: repetido, ausente o ya ocupado",
+            WriteError::Rama(es::ramas::RamaError::YaEsta) => "ya hay una rama con ese nombre",
+            WriteError::Rama(es::ramas::RamaError::NoEsta) => "no hay rama con ese nombre",
+            WriteError::Rama(es::ramas::RamaError::Llena) => "la tabla de ramas esta llena",
+            WriteError::Rama(es::ramas::RamaError::MalNombre) => "un nombre de rama va de 1 a 63 bytes",
+            WriteError::Rama(es::ramas::RamaError::EsLaActual) => "la rama actual no se quita: primero se cambia a otra",
+            WriteError::SinBase => "las dos ramas no comparten historia: sin base no hay mezcla",
+            WriteError::NadaQueMezclar => "nada que mezclar: esa rama ya esta dentro de la de ahora",
+            WriteError::Motor(es::motor_mezcla::Fallo::CarpetaGrande) => "una carpeta con mas de 64 entradas por lado: no se mezcla todavia",
+            WriteError::Motor(es::motor_mezcla::Fallo::MuyHondo) => "la mezcla baja mas carpetas de las que tiene prestadas",
+            WriteError::Motor(es::motor_mezcla::Fallo::RutaLarga) => "la ruta de un choque pasa de 255 bytes",
+            WriteError::Motor(es::motor_mezcla::Fallo::NoEscribio) => "el disco no acepto un bloque de la mezcla",
+            WriteError::Motor(es::motor_mezcla::Fallo::Formato(e)) => e.name(),
+            WriteError::SinElegir => "hay choques sin elegir: una persona decide cada uno",
+            WriteError::Caducada => "lo contado ya no vale: el volumen cambio, hay que contar otra vez",
+            WriteError::SinMemoria => "no hubo marcos contiguos para las tablas de la mezcla",
         }
     }
 }
