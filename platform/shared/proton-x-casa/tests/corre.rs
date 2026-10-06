@@ -134,6 +134,8 @@ const ADYACENCIA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/adyacencia.e
 const MAPEO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/mapeo.exe");
 /// 06-10: las preguntas de CheckFeatureSupport que la casa no contestaba (A8).
 const PREGUNTAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/preguntas.exe");
+/// 06-10: lo raro de un render target (+inf, NaN, -inf), lo que apunta la libreta de la 3060 (9d).
+const LIBRETA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/libreta.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

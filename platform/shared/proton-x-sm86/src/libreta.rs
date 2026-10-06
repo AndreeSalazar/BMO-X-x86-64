@@ -11,7 +11,7 @@
 //! Es de ESTA tarjeta, aislado aqui (pedido del propietario: "OJO aislar
 //! eso", por si un dia hay una AMD): otro emisor (RDNA) tendria su libreta en
 //! su crate, con sus instrucciones. Lo comun -- que un PSO apuntado se
-//! revise antes ([`crate::puerta::Puerta::leer_libreta`]) -- es de la puerta.
+//! revise antes ([`crate::puerta::Puerta::apunto`]) -- es de la puerta.
 //!
 //! # El TERMOMETRO
 //!
@@ -29,16 +29,16 @@
 //! MUFU en su borde, un infinito que se resta): ahi el vigia
 //! ([`crate::vivo::revisar`]) tiene que mirar YA, no dentro de 256 lotes.
 //!
-//! # Lo que falta, dicho: el pegamento del KERNEL (Ring 0)
+//! # El pegamento del KERNEL (Ring 0, con permiso del propietario, 06-10)
 //!
-//! El cuerpo no escribe en memoria: lo apunta en un registro. Quien lo pasa
-//! a la libreta es el pegamento de `bmo-gpu-ga10x` que pega el kernel (un
-//! `FSETP.NAN` y un `@P STG` a la pagina de la libreta que es SUYA, con el
-//! numero del PSO de la receta) y quien se la da a la app entre fotogramas.
-//! Eso es Ring 0: se decide con el propietario. Hasta entonces la puerta
-//! emite SIN libreta ([`crate::pso`]), y lo de aqui lo prueba el banco
-//! (`pruebas_libreta.rs`): lo que apunta el simulador es lo que dice la CPU.
-//! Encenderla cambia el codigo emitido: sube `vivo::VERSION_EMISOR`.
+//! El cuerpo no escribe en memoria: lo deja en un registro, y la receta dice
+//! cual (`+92`). El pegamento que pone el kernel (`bmo_gpu_ga10x::libreta`)
+//! hace `FSETP.NAN` y `@P STG` de una constante a UNA palabra SUYA, que pone
+//! a 0 antes de cada dibujo y lee despues; si la 3060 apunto, el `Ok` de la
+//! receta lleva el bit `cubo::LIBRETA_RARO`, y solo lo ve la app que la
+//! mando. AISLADO: ni la app elige donde ni que se escribe, ni otra app ve
+//! lo de esta. Si un PSO con libreta no cabe en el pegado, la puerta lo
+//! vuelve a emitir sin ella. Encenderla cambio el codigo: `VERSION_EMISOR` 2.
 
 use alloc::vec::Vec;
 
@@ -90,11 +90,4 @@ pub fn termometro(salidas: &[u32]) -> u32 {
 /// Si un termometro dice RARO (NaN).
 pub fn raro(bits: u32) -> bool {
     f32::from_bits(bits).is_nan()
-}
-
-/// **Las hojas apuntadas de una libreta**, como la dara el kernel: una
-/// palabra por PSO (su numero en la puerta), distinta de 0 si la 3060
-/// apunto algo raro en el fotograma. Lo que no llega a palabra no cuenta.
-pub fn apuntados(libreta: &[u8]) -> Vec<usize> {
-    libreta.chunks_exact(4).enumerate().filter(|(_, w)| w.iter().any(|&b| b != 0)).map(|(k, _)| k).collect()
 }

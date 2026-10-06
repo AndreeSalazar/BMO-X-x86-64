@@ -75,7 +75,7 @@ use crate::{Emitido, Precarga};
 /// emisor o su ABI de registros dan otro codigo para el mismo Programa. Un
 /// .bsf de otra version tiene otro nombre (y ademas se vuelve a comprobar
 /// bit a bit al cargarlo: una version que se olvido de subir no pasa).
-pub const VERSION_EMISOR: u32 = 1;
+pub const VERSION_EMISOR: u32 = 2;
 
 /// **Quien guarda y lee los .bsf** (en BMO-X, ESTRATOS: `proton-x/<juego>/bsf/`;
 /// en el banco, la memoria). `nombre` es el de [`nombre`].

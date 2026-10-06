@@ -12,7 +12,7 @@ use bmo_proton_x::lote::{self, ElementoIa, Enlace, Lote, Topologia};
 
 use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_de_app, juzgar_drenado, Contexto, RESERVADOS};
 
-use crate::libreta::{apuntados, raro, registro, termometro};
+use crate::libreta::{raro, registro, termometro};
 use crate::puerta::{Blanco, Puerta};
 use crate::simula::{correr, Maquina};
 use crate::vivo::{a_bsf, comprobar, de_bsf, mapa};
@@ -130,35 +130,33 @@ fn el_termometro_va_y_vuelve_por_el_bsf() {
     assert_eq!((s2.termometro, t2.termometro), (None, None));
 }
 
-/// *** Las hojas apuntadas: una palabra por PSO, distinta de 0.
-#[test]
-fn las_hojas_apuntadas_de_una_libreta() {
-    assert_eq!(apuntados(&[0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 9]), [1, 3]);
-    assert!(apuntados(&[]).is_empty());
-}
-
 /// *** LA PUERTA APRENDE DE LA LIBRETA: el vigia revisa el primer lote de
-/// un PSO y luego uno de cada 256; si la libreta apunta ese PSO, su
-/// siguiente lote se revisa YA. Una hoja de un PSO que no hay no cuenta.
+/// un PSO y luego uno de cada 256; si el kernel dice que la libreta apunto
+/// en un dibujo de ese PSO, su siguiente lote se revisa YA. Un PSO que no
+/// es de la puerta no cuenta. Y la receta lleva los termometros.
 #[test]
 fn lo_apuntado_se_revisa_en_el_siguiente_lote() {
     let (en, ia) = cubo();
+    let (otro, _) = cubo();
     let paso = 40usize;
     let vertices: Vec<u8> = (0..3 * paso / 4).flat_map(|k| (k as f32 * 0.125).to_bits().to_le_bytes()).collect();
     let cb = std::vec![0u8; 16 * en.vs.filas_cb.max(en.ps.filas_cb) as usize];
-    let reglas = bmo_proton_x::trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: bmo_proton_x::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+    let reglas = bmo_proton_x::trama::Reglas { viewport: [0.0, 0.0, 1280.0, 720.0, 0.0, 1.0], tijera: [0, 0, 1280, 720], descarte: 1, antihorario: false, profundidad: None, mezcla: bmo_proton_x::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
     let l = Lote { enlace: &en, entradas: &ia, vertices: &vertices, paso, ids: &[0, 1, 2], topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: bmo_proton_x::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None };
-    let b = Blanco { va: 0x4000_0000, ancho: 8, alto: 8, bgra: false, cadena: false };
+    let b = Blanco { va: 0x4000_0000, ancho: 1280, alto: 720, bgra: false, cadena: false };
     let mut p = Puerta::nueva();
-    let _ = p.preparar(&l, b);
-    let _ = p.preparar(&l, b);
+    let n = p.preparar(&l, b).expect("el cubo va a la 3060");
+    let r = bmo_gpu_ga10x::receta::leer(&p.caja[..n]).unwrap();
+    assert!(r.termometro_vs.is_some() && r.termometro_ps.is_some(), "la receta lleva los dos termometros");
+    assert_eq!(p.sin_libreta, 0, "y cabe con ellos");
+    p.preparar(&l, b).unwrap();
     assert_eq!(p.revisados, 1, "el primero, y el segundo no (uno de cada 256)");
-    assert_eq!(p.leer_libreta(&[0, 0, 0, 0, 7, 0, 0, 0]), 0, "la hoja 1: no hay PSO 1");
-    let _ = p.preparar(&l, b);
+    assert!(!p.apunto(&Lote { enlace: &otro, ..l }), "un PSO que no es de la puerta");
+    p.preparar(&l, b).unwrap();
     assert_eq!(p.revisados, 1);
-    assert_eq!(p.leer_libreta(&[1, 0, 0, 0]), 1, "la hoja 0: el cubo");
-    let _ = p.preparar(&l, b);
+    assert!(p.apunto(&l), "el cubo");
+    p.preparar(&l, b).unwrap();
     assert_eq!((p.revisados, p.apuntados, p.corregidos), (2, 1, 0), "revisado YA, y cuadra");
-    let _ = p.preparar(&l, b);
+    p.preparar(&l, b).unwrap();
     assert_eq!(p.revisados, 2, "y vuelve a su turno");
 }

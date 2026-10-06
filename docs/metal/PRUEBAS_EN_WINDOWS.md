@@ -24,7 +24,7 @@ banco creia probado): esa linea `MAL` es lo mas valioso que puedes mandar.
   2015-2022 (`vcruntime140.dll`, `msvcp140.dll`): lo tiene cualquier PC con
   juegos; si falta, salen con `0xC0000135` y el guion lo dice.
 
-## 1. Los 91 de consola: UN guion
+## 1. Los 92 de consola: UN guion
 
 En una PowerShell normal, dentro de la carpeta:
 
@@ -70,6 +70,7 @@ bueno contra ellos.
 | `adyacencia` | (06-10) las topologias con ADYACENCIA: que vertices le llegan a un GS `triangleadj` o `lineadj` en listas y tiras, y que se pinta sin GS (A6; 06-10, Windows corrigio el orden del impar de la tira) | 8 |
 | `mapeo` | (06-10) `Map` sobre una TEXTURA de un monton de la CPU (CUSTOM), con WriteToSubresource y ReadFromSubresource; la nota dice el HRESULT de Windows al Map CON puntero (A7) | 7 y una nota |
 | `preguntas` | (06-10) las preguntas de CheckFeatureSupport que la casa no contestaba (SHADER_CACHE, prioridades de cola, SERIALIZATION...); la nota dice cuales de las nuevas (OPTIONS13 a 21) sabe ese Windows (A8) | 8 y una nota |
+| `libreta` | (06-10) lo RARO de un render target: un dibujo cuyo de pixeles saca +infinito, NaN y -infinito a un RGBA8 de 1280 x 720; D3D los guarda 1, 0 y 0, y la imagen entera tiene que ser la que pide (9d: en el metal de BMO-X, ademas, la libreta de la 3060 lo apunta) | 4 |
 
 Si alguno se CUELGA (el guion lo dice), en `multihilo` es su parte B: una
 cola que espera y nadie la despierta. Si `restos` dice una `nota` en E, la

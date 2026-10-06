@@ -3350,3 +3350,42 @@ Lo medido contra la casa (el banco, `una_escena_3d_dura_es_la_de_windows`):
 el 100 % de los pixeles a 8 o menos, la diferencia media 0.282 y la peor 5
 (el juez pide el 98 % y una media de 2 o menos). Y que el juez dice NO ya
 se probo (un cuadro blanco de 30 x 30 pegado: 97.56 %, MAL).
+
+libreta_vs.dxil, libreta_ps.dxil -- los de libreta.exe (06-10)
+
+`libreta.hlsl` (aqui al lado): VSPasa (la posicion y el color, tal cual) y
+PSRaro (con k del cbuffer: rojo con k = (1, 0); +inf, NaN y -inf con k =
+(1e30, 0) -- NaN por k.y = 0, porque dxc pliega `grande - grande` a 0 con
+su matematica rapida --; sin Div, que la 3060 rechaza). Con el mismo `dxc`:
+
+   dxc -T vs_6_0 -E VSPasa -Fo libreta_vs.dxil libreta.hlsl
+   dxc -T ps_6_0 -E PSRaro -Fo libreta_ps.dxil libreta.hlsl
+
+   17a9dc13dc3acc1c43efae02f16712414ee8b5b99ee256849c06304634e5304f  libreta_vs.dxil
+   922f18d94d2a12d18791f7fe696ebb5ee950558738b78fffdcafbd12e84c37c2  libreta_ps.dxil
+
+libreta.exe -- lo RARO de un render target, y la LIBRETA de la 3060 (06-10)
+
+9d del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola. Un
+render target RGBA8 de 1280 x 720 (lo que dibuja la puerta de la 3060)
+limpio a azul; A, un dibujo normal a la mitad izquierda; B, el RARO (+inf,
+NaN, -inf) arriba a la derecha: D3D los guarda 1, 0 y 0 (rojo tambien); C,
+abajo a la derecha, azul; D, la imagen entera. Dice `bien` 4 veces y sale
+con el numero de fallos; en Windows dice lo mismo. En el metal de BMO-X,
+si los lotes van a la 3060, el B lo apunta la LIBRETA (el termometro del
+cuerpo, el pegamento del kernel) y la consola lo dice.
+
+Con lo de `muestras/construir.sh`, en un directorio con libreta.cpp y los
+dos .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c libreta.cpp -o libreta.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o libreta.exe libreta.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   e1b4a8c384adeb0ffb34589151054d0765aceb7b10422a52a74d102ada9e78ff  libreta.exe
+
+El banco (`tests/corre/vivo.rs`): los 4 `bien`, sale con 0, ni un aviso
+(en el banco va por la CPU: el termometro y el apunte los juzgan
+`proton-x-sm86` y `bmo-gpu-ga10x`). Probado que dice NO: con la casa
+guardando NaN como 1 (`trama::unorm8`), B y D salen MAL (230400 pixeles).

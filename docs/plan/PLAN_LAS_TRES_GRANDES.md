@@ -1348,7 +1348,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    1
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    0
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1426,7 +1426,7 @@ y lo dice.
                a la 3060, la marca puesta, y el arranque siguiente ni lo
                intenta. Es el TERCER nivel del juez de VERRANO (forma,
                bits con numeros de prueba, bits con el juego)
-     9d  D4.6  la LIBRETA en la propia GPU: que la 3060 apunte lo raro
+     9d  [x] D4.6  la LIBRETA en la propia GPU: que la 3060 apunte lo raro
                mientras dibuja (el emisor tiene que saber escribir en
                memoria desde un sombreador). 06-10, LA MITAD DE LA APP,
                aislada en el crate de la 3060 (pedido del propietario: "OJO
@@ -1436,11 +1436,19 @@ y lo dice.
                infinita) que el simulador y la CPU cuentan IGUAL; viaja en
                el .bsf; y `Puerta::leer_libreta` hace que el vigia revise
                YA el siguiente lote de un PSO apuntado (6 pruebas, una que
-               dice NO). FALTA, y es RING 0 (con permiso del propietario):
-               el pegamento del kernel que pasa el termometro a una pagina
-               de libreta SUYA (`FSETP.NAN` y `@P STG`, con el numero del PSO
-               en la receta) y se la da a la app entre fotogramas. Hasta
-               entonces la puerta emite sin libreta
+               dice NO). 06-10, CERRADO, con el permiso de Ring 0 del
+               propietario ("AISLAR por completo"): el pegamento del KERNEL
+               (`bmo_gpu_ga10x::libreta`) hace `FSETP.NAN` y `@P0 STG` de
+               una constante a UNA palabra SUYA (la app solo dice en que
+               registro de su cuerpo esta el termometro: `+92` de la
+               receta); el kernel la pone a 0 antes de cada dibujo, la lee
+               despues con el cerrojo del GR (`gpu_trabajo/libreta.rs`) y
+               lo dice en el bit 61 del `Ok` de ESA receta: solo lo ve
+               quien la mando. La puerta emite con libreta (si no cabe en
+               el pegado, sin ella) y `Puerta::apunto` revisa ese PSO YA.
+               El juez de la forma lo aprueba (y dice NO, R9, sin la espera
+               del guarda); BMOX-12 con libreta pasa sus 360 fotogramas;
+               `libreta.exe`, 4 bien. Falta VERLO en el metal (pila C)
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.

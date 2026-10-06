@@ -61,7 +61,7 @@ fn el_mapa_es_la_identidad_del_pso() {
     let (a, b, t) = (cubo().0, cubo().0, textura().0);
     assert_eq!(mapa(&a), mapa(&b));
     assert_ne!(mapa(&a), mapa(&t));
-    assert!(mapa(&a).starts_with(b"MAPA 1\nemisor 1\nvs Programa"));
+    assert!(mapa(&a).starts_with(b"MAPA 1\nemisor 2\nvs Programa"));
     assert_eq!(mapa(&a).len() % 4, 0);
     let n = nombre(&mapa(&a));
     assert!(n.len() == 68 && n.ends_with(".bsf") && n[..64].bytes().all(|c| c.is_ascii_hexdigit()), "{n}");

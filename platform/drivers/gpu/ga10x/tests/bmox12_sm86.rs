@@ -211,6 +211,8 @@ fn la_receta_pega_lo_mismo_que_el_metal() {
         datos: &b[..total],
         dibujo,
         texturas: [bmo_gpu_ga10x::texturas::DeApp::NINGUNA; bmo_gpu_ga10x::texturas::MAX_TEXTURAS],
+        termometro_vs: None,
+        termometro_ps: None,
     };
     r.elementos[..DATOS.elementos.len()].copy_from_slice(DATOS.elementos);
     for (d, p) in r.cargas_vs.iter_mut().zip(&ev.precargas) {

@@ -164,3 +164,21 @@ fn bmox12_exe_el_vigia_caza_un_bsf_que_miente() {
     assert_eq!((b.puerta.traducidos, b.puerta.recordados, b.recetas), (0, 0, 0));
     assert!(b.fallos.iter().all(|f| f.contains("una revision con los datos del juego lo marco malo")), "{:?}", &b.fallos[..b.fallos.len().min(3)]);
 }
+
+/// **9d -- LO RARO de un render target** (06-10, `prueba/libreta.exe`,
+/// nuestro): un dibujo normal y uno RARO (su de pixeles saca +inf, NaN y
+/// -inf) a un RGBA8 de 1280 x 720; D3D los guarda 1, 0 y 0, y la imagen
+/// entera es la que pide. En el banco va por la CPU (aqui no hay 3060 ni
+/// libreta: el termometro y su apunte los juzgan `proton-x-sm86` y
+/// `bmo-gpu-ga10x`); en el metal, el dibujo raro lo apunta la libreta.
+#[test]
+fn lo_raro_de_un_render_target_se_guarda_como_en_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, LIBRETA_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
+    assert!(texto.contains("  bien  D, la imagen entera: 0 pixeles distintos"), "{texto}");
+    assert!(texto.ends_with("libreta.exe: lo raro de un render target se guarda como en Windows\r\n[salio 0x0]"), "{texto}");
+}

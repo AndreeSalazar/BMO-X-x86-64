@@ -296,10 +296,11 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
         // segundo.
         // A9c: y lo que dijo el vigia (el juez con los datos del juego).
         let (t, r, c) = (p.traducidos, p.recordados, p.corregidos);
+        // 9d: lo que apunto la libreta va en la misma linea.
         if (t, r, c) != (e.bsf_dicho.0, e.bsf_dicho.1, e.bsf_dicho.3) && t0.saturating_sub(e.bsf_dicho.2) >= 1_000_000_000 {
             bmo::consola(&alloc::format!(
-                "PROTON-X: .bsf de la 3060: {t} traducido(s) y comprobado(s) bit a bit contra la CPU, {r} del recuerdo; el vigia reviso {} lote(s) con los datos del juego y corrigio {c}\n",
-                p.revisados
+                "PROTON-X: .bsf de la 3060: {t} traducido(s) y comprobado(s) bit a bit contra la CPU, {r} del recuerdo; el vigia reviso {} lote(s) con los datos del juego y corrigio {c}; la libreta de la 3060 apunto {} dibujo(s) raro(s)\n",
+                p.revisados, p.apuntados
             ));
             e.bsf_dicho = (t, r, t0, c);
         }
@@ -314,6 +315,12 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                     Ok(r) if puerta::sano(r) => {
                         e.partes.sumar(t1 - t0, t2 - t1, r, t2);
                         p.despues(l, true);
+                        // 9d: la LIBRETA de la 3060 apunto algo raro en ESTE
+                        // dibujo (solo nos lo dice a nosotros): el vigia
+                        // revisa este PSO en su siguiente lote.
+                        if puerta::raro(r) && p.apunto(l) && p.apuntados == 1 {
+                            bmo::consola("PROTON-X: la libreta de la 3060 apunto algo raro (una salida NaN o infinita): el vigia revisa ese PSO con los datos del juego (9d)\n");
+                        }
                         e.negados = 0;
                         if e.por_la_3060 == 0 {
                             bmo::consola("PROTON-X: la 3060 dibuja los lotes (P3b4c: la puerta estrecha, la receta VRN2)\n");

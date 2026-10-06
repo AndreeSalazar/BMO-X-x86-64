@@ -344,9 +344,17 @@ pub fn vertice(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: D
 
 /// [`vertice`], pegando en `g` (sin copias: el kernel pega asi).
 pub fn vertice_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, salidas: u32, posicion: u32) -> Result<(), NoPega> {
+    vertice_con_libreta_en(g, cuerpo, registros, cargas, datos, salidas, posicion, None)
+}
+
+/// [`vertice_en`] con la LIBRETA (9d): `termometro`, el registro del cuerpo
+/// donde deja el suyo; detras del cuerpo, el apunte (`libreta::apunte`).
+#[allow(clippy::too_many_arguments)]
+pub fn vertice_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, salidas: u32, posicion: u32, termometro: Option<u8>) -> Result<(), NoPega> {
     g.n = 0;
     let (resto, _) = partir(cuerpo)?;
     cargas_propias(cargas, registros)?;
+    termometro_propio(termometro, registros)?;
     // Las texturas, hoy, solo en el de pixel.
     if asas(cargas) != 0 {
         return Err(NoPega::Carga);
@@ -408,6 +416,12 @@ pub fn vertice_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas:
         let w = if k == 0 { esperando(w, 1 << B_CARGAS) } else { w };
         o.p(if k + 1 == resto.len() { al_menos(w, 6) } else { w });
     }
+    // 9d: el apunte de la libreta (A y V ya no los usa nadie).
+    if let Some(t) = termometro {
+        for w in crate::libreta::apunte(t as u64, a, v) {
+            o.p(w);
+        }
+    }
     // Las salidas.
     let mut g = 0u64;
     for e in 0..salidas as u64 {
@@ -435,10 +449,17 @@ pub fn pixel(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Dat
 
 /// [`pixel`], pegando en `g`.
 pub fn pixel_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>]) -> Result<(), NoPega> {
+    pixel_con_libreta_en(g, cuerpo, registros, cargas, datos, genericos, None)
+}
+
+/// [`pixel_en`] con la LIBRETA (9d): el apunte va antes del EXIT del
+/// cuerpo, que espera ademas su lectura.
+pub fn pixel_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>], termometro: Option<u8>) -> Result<(), NoPega> {
     g.n = 0;
-    partir(cuerpo)?;
+    let (resto, exit) = partir(cuerpo)?;
     cargas_propias(cargas, registros)?;
-    let (a, d, _, _, total) = propios(registros)?;
+    termometro_propio(termometro, registros)?;
+    let (a, d, v, _, total) = propios(registros)?;
     let mut o = Poner { g, lleno: false };
     let mut sph = sph_pixel_v0_sin_generico();
     // Las asas de las texturas: un MOV cada una (acoplado: su latencia la
@@ -471,11 +492,37 @@ pub fn pixel_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &
         sph[0] |= crate::raster::LEE_O_ESCRIBE;
     }
     let mascara = if entradas > 0 { 1 << 0 } else { 0 } | if filas { 1 << B_CARGAS } else { 0 };
-    for (k, &w) in cuerpo.iter().enumerate() {
-        o.p(if k == 0 { esperando(w, mascara) } else { w });
+    match termometro {
+        None => {
+            for (k, &w) in cuerpo.iter().enumerate() {
+                o.p(if k == 0 { esperando(w, mascara) } else { w });
+            }
+        }
+        // 9d: el cuerpo sin su EXIT, el apunte, y el EXIT esperando su
+        // lectura. La ultima del cuerpo, con la espera de los AST (6).
+        Some(t) => {
+            for (k, &w) in resto.iter().enumerate() {
+                let w = if k == 0 { esperando(w, mascara) } else { w };
+                o.p(if k + 1 == resto.len() { al_menos(w, 6) } else { w });
+            }
+            for w in crate::libreta::apunte(t as u64, a, v) {
+                o.p(w);
+            }
+            o.p(esperando(exit, 1 << crate::libreta::B_LECTURA));
+            sph[0] |= crate::raster::LEE_O_ESCRIBE;
+        }
     }
     o.p(cu::BRA);
     cerrar(o, sph, total)
+}
+
+/// 9d: el termometro, un registro DEL CUERPO (los del pegamento son del
+/// kernel).
+fn termometro_propio(termometro: Option<u8>, registros: u32) -> Result<(), NoPega> {
+    match termometro {
+        Some(t) if t as u32 >= registros => Err(NoPega::Registros),
+        _ => Ok(()),
+    }
 }
 
 /// La SPH de pixel de V0 sin su generico 0 (lo pone [`pixel`] segun lo que
@@ -548,6 +595,46 @@ mod pruebas {
             let r = juzgar(p.codigo(), &Contexto { registros: REGISTROS, sph: Some(&p.sph) });
             assert!(r.is_ok(), "{ps}: {}", r.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
             std::eprintln!("{vs}: {} instrucciones, {} registros; {ps}: {} y {}", v.n, v.registros, p.n, p.registros);
+        }
+    }
+
+    /// *** 9d: con la LIBRETA (el cuerpo emitido con su termometro), lo
+    /// pegado sigue siendo PERFECTO Y PRECISO; lleva el apunte una vez --
+    /// el FSETP sobre SU termometro, la direccion del kernel y el STG con
+    /// guarda --, el de pixel declara que escribe memoria, y su EXIT espera
+    /// la lectura del STG. Un termometro fuera del cuerpo, no se pega.
+    #[test]
+    fn lo_pegado_con_libreta_es_perfecto() {
+        use bmo_proton_x_sm86::emitir_libreta;
+        let libreta = |f: &str| {
+            let d = std::fs::read(std::format!("{RAIZ}{f}")).unwrap();
+            let p = compilar(&dxil::leer(&d).unwrap()).unwrap();
+            let e = emitir_libreta(&p, 64, Abi::Registros, true).unwrap();
+            (p, e)
+        };
+        for (vs, ps) in [("sombras/f3ef42a0.cso", "sombras/4d67f5e4.cso"), ("cubo_vs.dxil", "cubo_ps.dxil")] {
+            let (pv, ev) = libreta(vs);
+            let mut v = Pegado::VACIO;
+            vertice_con_libreta_en(&mut v, &ev.codigo, ev.registros, &cargas(&ev), DATOS, pv.salidas as u32, 0, ev.termometro).unwrap();
+            let r = juzgar(v.codigo(), &Contexto { registros: REGISTROS, sph: Some(&v.sph) });
+            assert!(r.is_ok(), "{vs}: {}", r.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
+            let (_, ep) = libreta(ps);
+            let mut p = Pegado::VACIO;
+            pixel_con_libreta_en(&mut p, &ep.codigo, ep.registros, &cargas(&ep), DATOS, &GENERICOS, ep.termometro).unwrap();
+            let r = juzgar(p.codigo(), &Contexto { registros: REGISTROS, sph: Some(&p.sph) });
+            assert!(r.is_ok(), "{ps}: {}", r.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
+            for (g, e) in [(&v, &ev), (&p, &ep)] {
+                let t = e.termometro.unwrap() as u64;
+                assert_eq!(g.codigo().iter().filter(|w| w.0 & 0xFFF == 0x986).count(), 1, "un STG");
+                let stg = g.codigo().iter().position(|w| w.0 & 0xFFF == 0x986).unwrap();
+                assert_eq!(g.codigo()[stg].0 >> 12 & 0xF, 0, "con guarda P0");
+                assert_eq!(g.codigo()[stg - 4], crate::libreta::fsetp_nan(t, crate::cubo::ALU), "el FSETP sobre su termometro");
+                assert_ne!(g.sph[0] & crate::raster::LEE_O_ESCRIBE, 0);
+            }
+            assert_eq!(p.codigo()[p.n - 2].1 >> (41 + 11) & 0x3F & 1 << crate::libreta::B_LECTURA, 1 << crate::libreta::B_LECTURA, "el EXIT espera el STG");
+            // Fuera del cuerpo: el de pixel con su termometro en un registro del pegamento.
+            let mut x = Pegado::VACIO;
+            assert_eq!(pixel_con_libreta_en(&mut x, &ep.codigo, ep.registros, &cargas(&ep), DATOS, &GENERICOS, Some(ep.registros as u8)).unwrap_err(), NoPega::Registros);
         }
     }
 

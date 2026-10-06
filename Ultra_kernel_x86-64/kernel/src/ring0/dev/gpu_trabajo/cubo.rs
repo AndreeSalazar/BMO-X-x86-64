@@ -218,7 +218,7 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
         BLUR_EN_MARCHA.store(false, Ordering::Release);
         return r;
     }
-    en_frio(bar0, pid, e, &p, &v, &paquete, ligero)
+    en_frio(bar0, pid, e, &p, &v, &paquete, ligero, false)
 }
 
 // == P3b4c: LA PUERTA DE LAS APPS =============================================
@@ -360,7 +360,9 @@ pub fn receta(va: u64) -> Result<u64, u32> {
                 let pantalla = a_la_pantalla(pid, &paquete.dibujo);
                 paquete.dibujo.pantalla = pantalla;
                 let t0 = pieza(4, t0);
-                let x = en_frio(bar0, pid, BLUR_ENTRADA.load(Ordering::Acquire), &p, &v, &paquete, true)
+                // 9d: con la libreta si la receta trae termometros.
+                let libreta = r.termometro_vs.is_some() || r.termometro_ps.is_some();
+                let x = en_frio(bar0, pid, BLUR_ENTRADA.load(Ordering::Acquire), &p, &v, &paquete, true, libreta)
                     .map(|x| if pantalla && cu::sano(x) { cu::en_pantalla(x) } else { x });
                 let t0 = pieza(5, t0);
                 devolver_texturas(&prestadas);
@@ -495,7 +497,8 @@ fn decir_no_receta(e: bmo_gpu_ga10x::receta::NoReceta) {
 /// **Un dibujo EN FRIO (o en caliente) por la tuberia fija**, con el cerrojo
 /// del GR tomado aqui y soltado en TODA salida: el de `gpu verrano` y el de
 /// la puerta de las apps (`receta`). `paquete` ya esta leido y juzgado.
-fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, ligero: bool) -> Result<u64, u32> {
+#[allow(clippy::too_many_arguments)]
+fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, ligero: bool, libreta: bool) -> Result<u64, u32> {
     use bmo_gpu_ga10x::tuberia as tu;
     let (p, v, paquete) = (*p, *v, *paquete);
     // P3b4c (29-09): un canal MUERTO dice NO al instante, con SU motivo.
@@ -598,7 +601,9 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
                 Err(_) => cu::sin_dibujo(x),
             },
             _ => x,
-        });
+        })
+        // 9d: la libreta, leida con el cerrojo aun tomado.
+        .map(|x| super::libreta::tras_el_dibujo(bar0, libreta, x));
     BLUR_EN_MARCHA.store(false, Ordering::Release);
     if let Some(paginas) = prestado {
         if crate::ring0::plat::iommu::devolver_gpu(bmo_gpu_ga10x::destino::IOVA, paginas).is_err() {

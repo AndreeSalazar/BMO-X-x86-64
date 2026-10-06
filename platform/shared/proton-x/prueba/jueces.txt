@@ -110,3 +110,4 @@ capas1d 9             # D3D12: los UAV de arrays de una dimension (RWTexture1DAr
 adyacencia 8          # D3D12: las topologias con adyacencia, con un GS (triangleadj, lineadj) y sin el (06-10)
 mapeo 7 1             # D3D12: Map sobre una textura de un monton de la CPU; la nota, el HRESULT del Map con puntero (06-10)
 preguntas 8 1         # D3D12: las preguntas de CheckFeatureSupport que no se contestaban; la nota, cuales nuevas sabe Windows (06-10)
+libreta 4             # D3D12: lo raro de un render target (+inf, NaN, -inf) se guarda como en Windows; en el metal de BMO-X lo apunta la libreta de la 3060 (06-10)

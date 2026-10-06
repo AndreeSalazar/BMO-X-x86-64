@@ -39,6 +39,9 @@ pub use cubo::{cubo, info_receta, pantalla_para, receta};
 /// E7: el vigilante -- un trabajo del GR que no vuelve se corta (el TDR de
 /// BMO-X), y el trabajo ETERNO que lo prueba.
 mod vigilante;
+/// 9d: la libreta de la 3060 -- lo que apunto el pegamento, leido tras el
+/// dibujo de una receta y dicho solo a quien la mando.
+mod libreta;
 pub use vigilante::eterno;
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========

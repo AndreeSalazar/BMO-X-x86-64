@@ -24,7 +24,7 @@ cada juez es lo que hace que esta hoja cuente.
 
 ## 1. Los jueces de consola (dicen `bien` / `MAL`, y salen con los fallos)
 
-**La forma corta (06-10): `run sys/jueces.bex`.** Los 91 de consola, uno
+**La forma corta (06-10): `run sys/jueces.bex`.** Los 92 de consola, uno
 tras otro y SOLOS: cada uno con su consola y un tope de 600 s, contados con
 la MISMA tabla que uso Windows (`platform/shared/proton-x/prueba/jueces.txt`,
 84 de 84 en la 3060 del propietario; `limpieza` y `escena`, aun no). Dice una linea por juez (`bien`,
@@ -63,6 +63,7 @@ cualquiera es una diferencia.
 | `adyacencia.exe` | las topologias con ADYACENCIA (`*_ADJ`): un GS `triangleadj` y uno `lineadj` apuntan que vertices les llegan, en listas y en tiras (la tabla de D3D, con sus extremos, y el impar empezando por su vertice 2i como lo dijo la 3060), con su `SV_PrimitiveID`; y sin GS se pintan solo los triangulos (A6, 06-10) | 8 | `adyacencia.exe: las topologias con adyacencia son las de Windows` | ninguno |
 | `mapeo.exe` | `Map` sobre una TEXTURA con mips de un monton CUSTOM (WRITE_BACK, L0) sin puntero, WriteToSubresource entera y por una caja, ReadFromSubresource, la GPU la copia, la de un DEFAULT da E_INVALIDARG, y GetHeapProperties dice su pagina y su piscina (A7, 06-10) | 7 y una nota | `mapeo.exe: Map sobre una textura es el de Windows` | uno: el Map CON puntero de la nota (la casa guarda la textura en su formato) |
 | `preguntas.exe` | las preguntas de CheckFeatureSupport que la casa no contestaba: SHADER_CACHE, COMMAND_QUEUE_PRIORITY, EXISTING_HEAPS, SERIALIZATION (y un nodo que no hay), CROSS_NODE, DISPLAYABLE, PROTECTED_RESOURCE_SESSION_SUPPORT, con la medida exacta y con 4 bytes de mas; la nota, OPTIONS13 a 21, PREDICATION y HARDWARE_COPY (A8, 06-10) | 8 y una nota | `preguntas.exe: CheckFeatureSupport contesta lo que contesta Windows` | ninguno |
+| `libreta.exe` | LA LIBRETA DE LA 3060 (9d, 06-10): un dibujo normal y uno RARO (su de pixeles saca +inf, NaN y -inf) a un RGBA8 de 1280 x 720; D3D los guarda 1, 0 y 0. Con el escritorio que prepara la 3060 (`gpu verrano`), los dos lotes van a ella: el pegamento del KERNEL apunta el raro en su palabra y se lo dice SOLO a esta app | 4 | `libreta.exe: lo raro de un render target se guarda como en Windows` | ninguno de aviso. Si los lotes fueron a la 3060, ademas: `PROTON-X: la libreta de la 3060 apunto algo raro (una salida NaN o infinita): el vigia revisa ese PSO con los datos del juego (9d)`, una vez; y en CABINA del kernel, `9d: LA LIBRETA de la 3060 apunto algo raro`. Si la 3060 dibuja y esa linea NO sale, la libreta no apunta: decirlo |
 
 **Lo que el banco NO puede ver y el Ryzen si** (por eso cuentan):
 

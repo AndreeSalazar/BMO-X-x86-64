@@ -810,8 +810,11 @@ el cuello de botella SI es el kernel. VC4 es lo que lo quita.
   la CPU desde ese lote y marcado `.malo` en ESTRATOS. 06-10, la libreta en
   la propia GPU, la mitad de la app (`bmo_proton_x_sm86::libreta`: el
   TERMOMETRO al final de cada cuerpo, juzgado contra la CPU; y la puerta
-  que revisa YA lo apuntado). Falta el pegamento del kernel que lo apunta
-  en una pagina suya (Ring 0, con el propietario).
+  que revisa YA lo apuntado); y la del KERNEL, con permiso de Ring 0 del
+  propietario: el pegamento apunta en una palabra SUYA, que se lee tras el
+  dibujo y va en el `Ok` de la receta de quien la mando (AISLADA: ni donde
+  ni que lo elige la app, y otra app no lo ve). `libreta.exe` para verlo en
+  el metal.
 - [ ] **VC2 -- PROTON-X habla VERRANO** (`platform/shared/proton-x-casa/src/tuberia.rs`):
   Draw y Dispatch se vuelven fotogramas de VERRANO en vez de llamar a la
   trama a mano; la trama queda como el backend CPU (el juez). **Como se
