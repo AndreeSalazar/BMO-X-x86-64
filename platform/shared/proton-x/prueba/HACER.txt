@@ -3316,3 +3316,20 @@ El banco (`tests/corre/muestras.rs`): los 8 `bien` y la nota con las 11
 en "s", ni un aviso, sale con 0. Probado que dice NO: contra la casa de
 antes, 7 MAL (de A a G, E_INVALIDARG; H pasaba) y la nota con las 11 en
 "n".
+
+escena_3060.ref -- la imagen de escena.exe en la RTX 3060 del propietario (06-10)
+
+La dejo `escena.exe guardar` en su Windows (Windows NT 10.0.26200, RTX 3060,
+driver 32.0.16.1074), al correr `correr_en_windows.ps1` por primera vez; la
+mando el 06-10. Formato de `escena.cpp` (`guardar`): "ESCENA1" y un 0, el
+ancho y el alto (u32: 256 y 144) y los pixeles RGBA8 fila a fila. En el repo
+con OTRO nombre para no chocar con la `escena.ref` que cada Windows hace al
+lado del .exe (esa esta en `.gitignore`); `ejemplos.ps1` la pone en el
+volumen como `window/escena.ref`, y el banco tambien. sha256:
+
+   6ceffe4c7ae1587f5ddb04a3eefebe33b2f7779eac9ccce41bc642c38d5ec1a8  escena_3060.ref
+
+Lo medido contra la casa (el banco, `una_escena_3d_dura_es_la_de_windows`):
+el 100 % de los pixeles a 8 o menos, la diferencia media 0.282 y la peor 5
+(el juez pide el 98 % y una media de 2 o menos). Y que el juez dice NO ya
+se probo (un cuadro blanco de 30 x 30 pegado: 97.56 %, MAL).

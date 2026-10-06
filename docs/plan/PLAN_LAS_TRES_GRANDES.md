@@ -1371,7 +1371,7 @@ y lo dice.
                tambien (hoy se hacen en cada arranque)
      10  X5    la velocidad que queda: las olas en el computo traducido y
                los pixeles con UAV traducidos
-     11  ESCENA  (06-10, pedido del propietario: "un test en 3D DURO en
+     11  [x] ESCENA  (06-10, pedido del propietario: "un test en 3D DURO en
                Windows, y que se refleje en BMO-X") una escena pesada --
                miles de triangulos, texturas con mips, profundidad, luz
                con sombra, HDR y posproceso -- que en Windows GUARDA su
@@ -1380,8 +1380,19 @@ y lo dice.
                los floats: lo que se pide es cuantos pixeles y cuanto)
                06-10: `prueba/escena.exe` HECHO (en el banco, 2 bien y la
                nota; con la imagen de la casa como referencia, bien, y con
-               un cubo de mas pegado, MAL). FALTA la referencia de Windows:
-               `escena.exe guardar` en la 3060 deja escena.ref
+               un cubo de mas pegado, MAL). 06-10, CERRADO: la imagen de
+               la 3060 del propietario (`prueba/escena_3060.ref`) contra la
+               casa: el 100 % de los pixeles a 8 o menos, la media 0.282,
+               la peor 5 (se pedia el 98 % y 2). Y en Windows, 91 de 91
+     9c  D4.6  el MODO DINAMICO del .bsf vivo (06-10, idea del propietario:
+               "dos modos, el estatico que ya sabemos lo dibuja y el
+               dinamico que corrige en tiempo real"): la GPU apunta en una
+               libreta lo raro de cada fotograma; entre fotogramas la CPU
+               recalcula de vez en cuando un dibujo de VERDAD (los datos
+               del juego, no los de prueba) y, si no coincide, marca el
+               .bsf malo, dibuja ese efecto por la CPU y genera otro. La
+               GPU no puede preguntar A MITAD de un dibujo (esperaria a la
+               CPU miles de veces por pixel): pregunta entre fotogramas
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.

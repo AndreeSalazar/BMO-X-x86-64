@@ -1006,14 +1006,15 @@ fn clear_unordered_access_view_es_el_de_windows() {
 /// instancias, una luz con sombra (pase de solo profundidad y SampleCmp), un
 /// vidrio con mezcla, en HDR y con un tonemap por computo. A y B dicen lo que
 /// no depende de la GPU (el cielo, el mapa de la luz); C compara la imagen
-/// con la de WINDOWS (`prueba/escena.ref`, la que deja `escena.exe guardar`
-/// en el Windows del propietario) con un margen. Sin ella, C es una nota.
+/// con la de WINDOWS (`prueba/escena_3060.ref`: la que dejo `escena.exe
+/// guardar` en la 3060 del propietario el 06-10) con un margen. Medido: el
+/// 100 % de los pixeles a 8 o menos, la media 0.282 y la peor 5.
 /// La imagen de la casa se deja en el volumen (`escena.exe guardar`), para
 /// mirarla: `$TMP/proton-x-volumen-<pid>/window/escena.bmp`.
 #[test]
 fn una_escena_3d_dura_es_la_de_windows() {
     let uno = uno_a_la_vez();
-    let referencia = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../proton-x/prueba/escena.ref");
+    let referencia = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../proton-x/prueba/escena_3060.ref");
     let dentro = volumen().join("window/escena.ref");
     let _ = std::fs::remove_file(&dentro);
     let hay = std::fs::copy(&referencia, &dentro).is_ok();
@@ -1023,9 +1024,14 @@ fn una_escena_3d_dura_es_la_de_windows() {
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
     assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert!(hay, "la imagen de la 3060 (escena_3060.ref) esta en el repo desde el 06-10");
     assert_eq!(texto.matches("  bien  ").count(), if hay { 3 } else { 2 }, "{texto}");
     assert_eq!(texto.matches("  nota  ").count(), usize::from(!hay), "{texto}");
     assert!(texto.ends_with("escena.exe: la escena 3D dura es la de Windows\r\n[salio 0x0]"), "{texto}");
+    // Lo medido contra Windows (cuantos pixeles, cuanto), a la vista.
+    if let Some(c) = texto.lines().find(|l| l.contains("C, contra la imagen de Windows")) {
+        eprintln!("escena.exe:{c}");
+    }
     // La de la casa, para mirarla (no se juzga aqui: la juzga C contra Windows).
     let _ = std::fs::remove_file(&dentro);
     *NOMBRE.lock().unwrap() = ("window/escena.exe", "guardar");
