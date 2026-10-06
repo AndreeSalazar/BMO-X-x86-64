@@ -6,7 +6,10 @@
 
 **A bare-metal orchestrator that boots on real hardware and runs COBOL, C, C++,
 Ada and INTI -- compiled by its own toolchain into its own executable format.
-No LLVM. No GCC. No ELF. No QEMU.**
+No LLVM. No GCC. No ELF. No QEMU.** And now a sixth language of its own,
+**TITAN++**, written as text and seen as a graph of nodes, over a filesystem
+that keeps every version and is learning to merge branches the way Git does --
+by whole nodes, not lines.
 
 ![status](https://img.shields.io/badge/boots_on-real_hardware-2ea043)
 ![cpu](https://img.shields.io/badge/verified_on-Ryzen_5_5600X-2ea043)
@@ -16,6 +19,8 @@ No LLVM. No GCC. No ELF. No QEMU.**
 ![languages](https://img.shields.io/badge/native_languages-COBOL_-_C_-_C%2B%2B_-_Ada_-_INTI-8957e5)
 ![format](https://img.shields.io/badge/executable_format-BEF2_(own)-8957e5)
 ![inti](https://img.shields.io/badge/system_language-INTI-f0883e)
+![titan](https://img.shields.io/badge/TITAN%2B%2B-14_levels_(host)-d29922)
+![estratos](https://img.shields.io/badge/ESTRATOS-every_write_a_version-2ea043)
 ![gpu](https://img.shields.io/badge/GPU-RTX_3060_driven_from_scratch-76b900)
 ![0x15](https://img.shields.io/badge/case_0x15-solved-76b900)
 ![license](https://img.shields.io/badge/license-Apache_2.0-d29922)
@@ -29,7 +34,7 @@ cartoon bounce, types itself out and closes. Every pixel of it is BMO-X's own co
 (<a href="#the-desktop-talks-back">how this image was made</a>).</sub></p>
 
 Written from scratch in Rust -- the boot chain, the kernel, the drivers, the
-filesystem, **five native compilers** and the executable format they emit. It
+filesystem, **six native compilers** and the executable format they emit. It
 boots on an AMD Ryzen 5 5600X and occupies **5.4 MiB of 14.8 GiB of RAM**.
 
 **One developer, since 17 April 2026 -- Lima, Peru.**
@@ -61,9 +66,12 @@ escrito --y las tres cosas que cuesta-- estan en
 [`docs/identidad/EL_ORQUESTAL.md`](docs/identidad/EL_ORQUESTAL.md).
 
 Esta escrito desde cero en Rust, en Lima, por una persona: la cadena de
-arranque, el kernel, los drivers, el sistema de ficheros, cinco compiladores
-nativos (C, C++, COBOL, Ada e INTI) que no usan LLVM ni GCC, y el formato
-ejecutable que emiten (BEF2, propio: no hay ELF). Arranca en un AMD Ryzen
+arranque, el kernel, los drivers, el sistema de ficheros, seis compiladores
+nativos (C, C++, COBOL, Ada, INTI y TITAN++) que no usan LLVM ni GCC, y el
+formato ejecutable que emiten (BEF2, propio: no hay ELF). TITAN++ es el
+lenguaje propio que se escribe como NODOS en F1 (el TALLER), y ESTRATOS --el
+sistema de ficheros-- guarda cada version y mezcla ramas como Git, pero por
+nodos enteros. Arranca en un AMD Ryzen
 5 5600X **de verdad**, no en QEMU.
 
 La documentacion tecnica esta en castellano --`BITACORA.md`, `ARQUITECTURA.md`,
@@ -77,6 +85,7 @@ IMPRIME en pantalla es castellano sin acentos, y eso tiene su propio motivo tecn
 <p align="center">
   <a href="#-what-the-silicon-has-actually-done">What runs</a> &middot;
   <a href="#the-rtx-3060-driven-from-scratch">The RTX 3060</a> &middot;
+  <a href="#estratos-titan-and-the-taller">ESTRATOS &amp; TITAN++</a> &middot;
   <a href="#case-file-the-booter-that-said-no-0x15"><b>Case 0x15</b></a> &middot;
   <a href="#try-it-yourself">Try it</a> &middot;
   <a href="#why-it-is-built-this-way">Why</a> &middot;
@@ -84,7 +93,12 @@ IMPRIME en pantalla es castellano sin acentos, y eso tiene su propio motivo tecn
   <a href="#going-deeper">Docs</a>
 </p>
 
-> **New -- [case `0x15`](#case-file-the-booter-that-said-no-0x15).** NVIDIA's own
+> **New -- [ESTRATOS learned Git](#estratos-titan-and-the-taller).** Branches,
+> and a merge that compares whole nodes by their BLAKE3 and asks a person about
+> every conflict -- with a padlock that guards the choice instead of locking the
+> disk. Written and tested on the host; the metal test is next.
+>
+> **And [case `0x15`](#case-file-the-booter-that-said-no-0x15).** NVIDIA's own
 > signed booter refused to start the RTX 3060's firmware nine times, with an
 > error code nobody publishes. BMO-X measured every boot until one variable
 > separated good from bad -- and found the cause.
@@ -130,7 +144,8 @@ under it is a slogan.
 | Three languages in one program | C, C++ and INTI compile to the same `.bo` object and `bmo-enlazar` links them into one `.bex` -- a C `main` calling an INTI function and a C++ class, `42 42 7`, in the host bank |
 | Decimal arithmetic that is exact | a bank batch totalling `$1,135.00` from a file it read |
 | USB keyboard and mouse | xHCI + HID written here, no BIOS help |
-| Disk | AHCI, FAT32 read *and* write, plus ESTRATOS, its own copy-on-write volume |
+| Disk | AHCI, FAT32 read *and* write, plus **ESTRATOS**, its own copy-on-write volume: the first file saved on the Ryzen on 2026-08-19, and every write since is a version you can go back to without losing what came after ([below](#estratos-titan-and-the-taller)) |
+| A workshop where code is nodes | **F1, the TALLER**: a TITAN++ package drawn as a graph -- every module a node, every `use` a cable, the console line each node prints -- seen on the Ryzen on 2026-09-29 (and it stopped the machine that night; the cause and the fix are in [`PLAN_TALLER.md`](docs/plan/PLAN_TALLER.md)) |
 | 12 cores | SMP bring-up, `12 of 12` |
 | Ring 3 isolation | a fault kills the task; the kernel takes the screen back and prints its last four lines |
 | Traps its own undefined behaviour | INTI `llano` on the Ryzen: overflow, divide-by-zero and bad conversion all caught **in metal** |
@@ -147,7 +162,7 @@ under it is a slogan.
 | Enumerates USB without freezing the mouse | a mute device on port 1 cost the bus thread **933 ms per attempt**, felt as stutter. Enumeration is now a state machine advanced one step per 4 ms pump; the worst pump measured on the Ryzen went from 932.898 us to **7.922 us** (2026-09-21) |
 | Drives an RTX 3060 with no NVIDIA driver | wakes its GSP firmware, builds the graphics engine's context in its own VRAM, runs SM86 shaders (a Mandelbrot **221x** faster than one Ryzen core, bit-exact), draws triangles with the card's own rasterizer and **paints the whole monitor, 1920x1080 at ~245 fps**. `save mode`: **51 of 51 steps** on the Ryzen (2026-09-24), and **every boot now wakes the card by itself**. See [below](#the-rtx-3060-driven-from-scratch) |
 | Hunts a firmware bug to its cause | NVIDIA's signed booter refused to start the GPU's firmware (`0x15`) nine times, no public meaning, six times in a row on a cold machine. BMO-X measured every boot, good and bad, until **one variable separated them** -- and the variable was its own. [The case](#case-file-the-booter-that-said-no-0x15) |
-| The kernel stack cannot leak silently | 16 KiB was overrun by one syscall path (the desktop died at DOOM launch); it is 32 KiB now, and `pila.py` reads every frame from the disassembly and refuses a build whose deepest path does not fit. Confirmed: DOOM launched, played and closed with `ningun fallo de Ring 3` |
+| The kernel stack cannot leak silently | 16 KiB was overrun by one syscall path (the desktop died at DOOM launch); it is 40 KiB now, and `pila.py` reads every frame from the disassembly and refuses a build whose deepest path does not fit. Confirmed: DOOM launched, played and closed with `ningun fallo de Ring 3`. It keeps earning its place: on 2026-10-06 it caught the new ESTRATOS merge needing 48 KiB of a 40 KiB stack **before** any CPU ran it |
 
 ### Watch it boot
 
@@ -319,6 +334,123 @@ for Ring 3 programs, and SASS emitted by BMO-X's own compiler instead of
 step with its date and its result on the metal:
 **[PLAN_LA_3060.md](docs/plan/PLAN_LA_3060.md)**, and the log of the day:
 **[METAL_2026-09-25.md](docs/metal/METAL_2026-09-25.md)**.
+
+---
+
+## ESTRATOS, TITAN++ and the TALLER
+
+Three pieces that grew together in September and October. Each one is stated
+with its colour, because two of them have not met the metal yet.
+
+<p align="center">
+  <img src="docs/arte/taller-grafo.png" alt="F1, the TALLER: a TITAN++ package as a graph of nodes, with the EXPLORER on the left and the console line of each node below" width="100%">
+</p>
+<p align="center"><sub>F1, the TALLER, drawing a TITAN++ package. Drawn by the TALLER's own code
+on the host (<code>cara-taller</code>: the same painter the Ryzen runs, on a
+fake screen) -- not a photo of the monitor.</sub></p>
+
+### ESTRATOS: the filesystem is the database, and now it is Git too
+
+**Writing is committing.** Every gesture -- create, save, rename, remove --
+publishes a new *estrato* (a commit) and overwrites nothing; removing a file
+is *no longer naming it*. That already gives three things an ordinary
+filesystem does not have:
+
+```text
+   history     every version, newest first, with when and which process
+   mark        a named version is PERMANENT: the collector never drops it
+   go back     ONE new block points at an old root -- reverting 400 GiB costs
+               what reverting an empty disk costs, and what lay in between
+               is kept: it is a revert, not a reset
+```
+
+The owner asked whether SQL belonged here. The answer in
+[`PLAN_LOS_DATOS.md`](docs/plan/PLAN_LOS_DATOS.md) is that it already does:
+`COMMIT` is an estrato, `ROLLBACK` is going back, a snapshot is mounting an old
+root. No second store and no SQL engine -- TITAN++ gets a handful of verbs over
+the volume instead.
+
+**And on 2026-10-06 it learned branches and merge** (🟡, the plan is
+[`PLAN_LAS_RAMAS.md`](docs/plan/PLAN_LAS_RAMAS.md)):
+
+<p align="center">
+  <img src="docs/arte/taller-ramas.png" alt="The RAMAS tab: branches principal and pruebas meeting in a merge node with a closed padlock, and four conflicts drawn as split nodes, two of them already chosen" width="100%">
+</p>
+
+- **A branch is a name for a tip**, kept in a table *outside* the history
+  (like Git's refs). Creating one copies nothing; switching publishes no
+  commit, so two branches never become each other's ancestors by accident.
+- **Merging compares whole NODES by their BLAKE3** -- *what* a file is, not
+  where it sits -- folder by folder, and writes only the folders that change.
+  A file is never merged line by line: a node of ESTRATOS is not necessarily
+  text, and mixing the bytes of two versions gives a file that is neither.
+- **A conflict is a person's call.** The merge runs in two phases: COUNT
+  writes nothing and lists the conflicts; a person picks A, B or neither for
+  each one (a split node in F1); MERGE publishes **one estrato with two
+  parents**.
+- **The padlock guards the choice; it does not lock the disk.** Closed:
+  counted, nothing written, leave and come back without losing a pick.
+  Broken: something else wrote meanwhile, so count again. Locking the volume
+  instead would freeze a game that is saving while a person thinks.
+- **The format grew into bytes v1 left at zero**, so old volumes read the
+  same, and the first branch upgrades **both** superblock copies -- an old
+  kernel then refuses to mount the volume instead of writing over the table.
+- **The kernel runs the same engine the host tests.** No dynamic memory: its
+  tables are borrowed from contiguous frames for the length of one merge. On
+  the host the engine is checked against two other merge implementations
+  over 2.000 random histories, with no difference. That is why it is 🟡 and
+  not 🟢: the merge on the metal, on the data disk, is the owner's next test.
+
+### TITAN++: the language that is drawn as nodes
+
+TITAN++ is the house language for programs a person writes and *sees*: every
+module is a node in F1, every `use` is a cable, and every example in its bank
+is also a ready-made node in F1's TAB menu, Houdini-style.
+
+```text
+   14 levels   fn, let, mut, if, loops, functions, exact dec and tables,
+               lend (mut) and hand over (take) with COBOL's dec(p, s),
+               enum + match, packages, traits, gpu fn, input, lists and maps
+   emitters    its own, to x86-64 and to SPIR-V: a `gpu fn` runs on the 3060
+   a judge     ownership checked over the IR, not over the syntax
+   31 laws     each one with the test or the program that enforces it; the
+               build stops if a law loses its proof (`titan-leyes`)
+```
+
+🟡 **Its bank runs in BMO-X's own emulator, not on the Ryzen yet**: 87
+programs. The 31 that must work are built, loaded the way the kernel loads
+them, run, and their console compared with the `# sale:` line each one
+carries; the 56 that must fail are each refused with the exact error code
+they name. The first metal step
+is `run titan/hola.bex` from F12. The design and every decision:
+**[TITAN_MAESTRO.md](docs/maestro/TITAN_MAESTRO.md)** and
+**[GRAMATICA.md](toolchain/lang/titan/GRAMATICA.md)**.
+
+### The TALLER (F1): the workshop
+
+```text
+   GRAFO       the package as nodes and cables (UE5-style pins); pulling a
+               cable writes the `use`, and a cycle is refused in red
+   ESPACIO     the same nodes as a 3D sky of planets, the elements, a guide
+   ESTRATOS    the volume's HISTORY (each version a node with its own seal,
+               ENTER twice to go back), its BRANCHES, and a GUIDE to every
+               door the kernel offers -- generated from the ABI's comments,
+               so it cannot drift from the contract
+   TAB         the master nodes: TITAN++'s bank, filtered as you type
+   the editor  two clicks on a node open its code; it saves itself
+```
+
+🟢 the graph, seen on the Ryzen. 🟡 everything added after 2026-09-29 --
+checked by `cara-taller`, which compiles the TALLER's own painter on the host
+and drives it with the same keys, but with no photo of the monitor yet.
+
+**Next, in [`PLAN_LA_BANDEJA.md`](docs/plan/PLAN_LA_BANDEJA.md):** F2 becomes
+the file manager, with a tray of the disks the kernel has profiled, and the
+*"this file is open"* dialog done right. The kernel knows exactly which
+program holds a file (the handle is in its table), so the dialog can **show
+that window**, or **take the handle back** without killing the program -- or
+just say okay. In ESTRATOS the dialog barely appears at all: removing a file
+someone has open never fails, because their handle reads *their* version.
 
 ---
 
@@ -577,14 +709,14 @@ because a trade-off with only one side written down is advertising.
 reading the mouse, claiming the screen -- is an *operation* on a capability. The
 API grows inside the pair (object kind, operation); the ABI does not move. The
 proof it works is a number: **the doors went 3 -> 2 while the operations went
-22 -> 127.** The system grew and the surface shrank -- and the build prints that
-second number on every run (`operaciones kernel<->ABI: 127 comprobadas, ninguna
-a mano`), so it is checked, not claimed.
+22 -> 228.** The system grew and the surface shrank -- and the build prints that
+second number on every run (`228 operaciones del kernel y 209 del userland, todas
+en el contrato`), so it is checked, not claimed.
 *Cost*: every new ability needs a handle kind to hang from, so there is no quick
 way to add "just one syscall".
 
-**Its own compilers, and its own format.** COBOL, C, C++, Ada and INTI,
-straight to machine code and BMO's own **BEF2** container: 64-byte header,
+**Its own compilers, and its own format.** COBOL, C, C++, Ada, INTI and
+TITAN++, straight to machine code and BMO's own **BEF2** container: 64-byte header,
 four regions in fixed slots, one relocation kind, a signature that is *of the
 index* (header and attachment table) and of every region and attachment. No
 LLVM, no libc, no ELF. There *is* a linker now -- `bmo-enlazar`, static only,
@@ -996,6 +1128,9 @@ row below is **work on top of something that already runs**, except the last one
 | 🟡 | **Sound** -- the headset is claimed by the enumerator with its descriptor in hand, volume and the isochronous pipe are driven by the bus thread (never from a syscall), the pipe opens itself on claim, and enumeration is done in **two beats** of its own: first the host *listens* to the device at address 0 to learn how it speaks (its EP0 packet), then a clean reset, the address and the papers -- each step justified by the USB and xHCI specs, not by what another host does. Written 2026-09-21; the first image shipped with two extra steps that left keyboard and mouse out, found by reading and removed 2026-09-22 | the next boot: the `save` says whether the 7.1 headset answered |
 | 🟡 | **The desktop composed by the RTX 3060** -- step 1, the copy engine moves the desktop to the screen instead of the CPU; then windows as textures, blur behind them, animations on the vertical blank | one boot per step, each checked pixel by pixel against the CPU |
 | 🟢 | **Games on the GPU, step one** -- **VERRANO V0**, BMO-X's own drawing API: the D3D cube through the card's rasterizer, with two programs shipped ready-made in BMO-X's own shader format (**BSF**) and the vertices in a buffer, **equal bit for bit to D3D12 on Windows** (2026-09-26: 923 us on the card, 1796 us on the CPU). The hang on the way was the card's own report: `Xid 13, Out Of Range Register` -- on Volta and later two registers are burned for the program counter. A SASS judge now checks every program BMO-X sends to the card before it goes | next: V1, the cube in motion with fps; then SPIR-V to SM86 by BMO-X's own compiler |
+| 🟡 | **ESTRATOS branches and merge on the metal** -- create, switch, count, choose and merge are kernel gestures and F1 drives them; the merge engine matches two other implementations on 2.000 random histories | one test on the data disk, by the owner (`R4c-3` in [`PLAN_LAS_RAMAS.md`](docs/plan/PLAN_LAS_RAMAS.md)) |
+| 🟡 | **TITAN++ on the metal** -- 14 levels; its bank of 87 programs passes in the emulator | `run titan/hola.bex` from F12 |
+| ⚪ | **F2, the files** -- every file of every disk in one tree, the disks in a tray, the desktop icons retired, and the *"it is open"* dialog that shows the program's own window | [`PLAN_LA_BANDEJA.md`](docs/plan/PLAN_LA_BANDEJA.md), step B1 |
 | ⚪ | **A local assistant**, running as a Ring 3 app over your own files -- parked by decision; its step 0 (closed decisions over `DATOS.TXT`, no model) needs nothing | `exp`, and the core door |
 | ⛔ | **Anything over the internet** | **cryptography** -- and that is the ceiling |
 
@@ -1050,10 +1185,10 @@ The claim worth checking is not "it works" -- it is that the things marked 🟢
 were seen on the real machine and the things marked 🟡 say so.
 
 - `.\bmo.ps1` builds everything and runs the guards **without touching any
-  disk**: seventeen compatibility rules over 82 cases, sources are ASCII, 1.033
+  disk**: seventeen compatibility rules over 82 cases, sources are ASCII, 2.503
   document citations resolve, no module grew past its ceiling, and the syscall
   contract is compared across the kernel, the ABI and the userland runtime --
-  **127 kernel operations and 94 userland ones, none by hand**. Deploying to a
+  **228 kernel operations and 209 userland ones, none by hand**. Deploying to a
   USB stick is a separate command, `.\desplegar.ps1`, on purpose.
 - `.\limpiar.ps1` says what the build trees weigh before you delete them.
 - `cargo test --workspace --exclude bmo-kernel` -- **2.433 tests, 0 failures**.
@@ -1087,7 +1222,11 @@ because the reason a decision was made is worth more than the decision.
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | The bar, and why Ring 0 is closed |
 | [Ultra_kernel_x86-64](Ultra_kernel_x86-64/README.md) | Ring 0: boot chain, drivers, filesystems |
 | [Ultra_userspace](Ultra_userspace/README.md) | Ring 3: the runtime and the compositor |
-| [toolchain](toolchain/README.md) | The five native compilers (C, C++, COBOL, Ada, INTI), the linker and the shared backend |
+| [toolchain](toolchain/README.md) | The six native compilers (C, C++, COBOL, Ada, INTI, TITAN++), the linker and the shared backend |
+| **[TITAN_MAESTRO.md](docs/maestro/TITAN_MAESTRO.md)** | TITAN++: why a sixth language, why nodes, and every decision level by level |
+| **[ESTRATOS.md](platform/drivers/storage/estratos/ESTRATOS.md)** | The filesystem, from alpha to 1.0 and on: the format byte by byte, the commit order that cannot lose data, versions, branches and merge |
+| **[PLAN_LAS_RAMAS.md](docs/plan/PLAN_LAS_RAMAS.md)** | Git's ideas by whole nodes: the owner's decisions D1-D5, every step and its test |
+| **[PLAN_TALLER.md](docs/plan/PLAN_TALLER.md)** | F1, the workshop: what was seen on the Ryzen and what the host camera checks |
 | [platform](platform/README.md) | The ABI, the `.bex` container, the drivers as crates |
 | [docs/](docs/) | The master plans: audio, network, SMP, self-healing, DOOM, RAM |
 
