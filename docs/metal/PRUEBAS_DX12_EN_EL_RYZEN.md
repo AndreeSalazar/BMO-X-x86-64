@@ -5,7 +5,9 @@ aplicarse ... y luego en CPU lo testeo"*. Todo lo de PROTON-X del 05-10 paso
 en el banco del anfitrion (`platform/shared/proton-x-casa/tests/corre/muestras.rs`)
 y NADA en el metal. Esta hoja dice, prueba a prueba, que correr en BMO-X, que
 tiene que salir, y que mandar si no sale. Cada juez dice lo mismo en Windows:
-si en el Ryzen sale distinto, la diferencia es de BMO-X.
+si en el Ryzen sale distinto, la diferencia es de BMO-X. **Antes**, la lista
+de Windows (`PRUEBAS_EN_WINDOWS.md`, 06-10): que Windows diga lo que pide
+cada juez es lo que hace que esta hoja cuente.
 
 ## 0. Antes de empezar
 

@@ -1292,7 +1292,10 @@ y lo dice.
       9  D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO)
      10  X5    la velocidad que queda: las olas en el computo traducido y
                los pixeles con UAV traducidos
-   B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            3
+   B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
+      B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
+      consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.
+      Dice si cada juez tiene RAZON: lo que el banco dio por bueno.
       D0.1 rayosx sobre la carpeta del juego; D0.2 los DXIL de su cache;
       D0.3 el diario filtrado a D3D12. Lo que encuentren entra en A (el
       teselado D4.5, los recursos reservados D2.4: SOLO si aparecen)
