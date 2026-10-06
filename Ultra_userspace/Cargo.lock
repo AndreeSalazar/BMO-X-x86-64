@@ -217,7 +217,9 @@ dependencies = [
 name = "bmo-proton-x-sm86"
 version = "0.1.0"
 dependencies = [
+ "bmo-bsf",
  "bmo-gpu-ga10x",
+ "bmo-hash",
  "bmo-proton-x",
  "bmo-sm86",
 ]
