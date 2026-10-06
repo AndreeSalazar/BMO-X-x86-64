@@ -120,12 +120,13 @@ mod pruebas {
     fn firma() -> Firma {
         Firma {
             parametros: vec![
-                Parametro { tipo: CBV, visibilidad: 0, carga: Carga::Descriptor { registro: 0, espacio: 0 } },
+                Parametro { tipo: CBV, visibilidad: 0, carga: Carga::Descriptor { registro: 0, espacio: 0, banderas: 0 } },
                 Parametro { tipo: CONSTANTES, visibilidad: 0, carga: Carga::Constantes { registro: 1, espacio: 0, cuantas: 3 } },
                 Parametro { tipo: CONSTANTES, visibilidad: 0, carga: Carga::Constantes { registro: 2, espacio: 0, cuantas: 4 } },
             ],
             samplers: vec![],
             banderas: 0,
+            version: bmo_proton_x::raiz::VERSION_1_0,
         }
     }
 

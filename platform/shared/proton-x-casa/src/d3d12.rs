@@ -1209,7 +1209,7 @@ pub(crate) extern "win64" fn set_event_on_completion(this: u64, valor: u64, even
 }
 
 /// Dejar 0 donde el `.exe` espera una interfaz que no se le da.
-fn nada(pp: *mut u64) {
+pub(crate) fn nada(pp: *mut u64) {
     if !pp.is_null() {
         // SAFETY: el puntero a interfaz del `.exe`.
         unsafe { pp.write_unaligned(0) };
@@ -1235,14 +1235,6 @@ extern "win64" fn d3d12_enable_experimental_features(_n: u32, _iids: *const Guid
     E_NOINTERFACE
 }
 
-/// Leer una firma raiz ya serializada: la casa todavia no; se dice.
-extern "win64" fn d3d12_create_root_signature_deserializer(_datos: u64, _medida: usize, _riid: *const Guid, pp: *mut u64) -> i32 {
-    aviso("D3D12Create(Versioned)RootSignatureDeserializer: la casa todavia no lee firmas serializadas");
-    nada(pp);
-    E_NOTIMPL
-}
-
-const E_NOTIMPL: i32 = 0x8000_4001_u32 as i32;
 
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
@@ -1250,7 +1242,9 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "D3D12GetDebugInterface" => dir!(d3d12_get_debug_interface),
         "D3D12GetInterface" => dir!(d3d12_get_interface),
         "D3D12EnableExperimentalFeatures" => dir!(d3d12_enable_experimental_features),
-        "D3D12CreateRootSignatureDeserializer" | "D3D12CreateVersionedRootSignatureDeserializer" => dir!(d3d12_create_root_signature_deserializer),
+        // A3 (06-10): `deserializador`.
+        "D3D12CreateRootSignatureDeserializer" => dir!(crate::deserializador::d3d12_create_root_signature_deserializer),
+        "D3D12CreateVersionedRootSignatureDeserializer" => dir!(crate::deserializador::d3d12_create_versioned_root_signature_deserializer),
         _ => return None,
     })
 }

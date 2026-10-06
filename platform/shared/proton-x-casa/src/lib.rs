@@ -76,6 +76,8 @@ pub mod pulso;
 pub mod d3d12_lista2;
 pub mod fallas;
 pub mod d3d12_resto;
+/// A3 (06-10): los deserializadores de root signatures.
+mod deserializador;
 /// 05-10: el plano de stencil, su limpieza y su referencia.
 pub mod d3d12_stencil;
 mod computo;

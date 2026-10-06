@@ -1036,3 +1036,19 @@ fn una_escena_3d_dura_es_la_de_windows() {
         let _ = std::fs::copy(volumen().join("window/escena.bmp"), d);
     }
 }
+
+/// **Los deserializadores de root signatures y la 1.1 con los bytes de
+/// Windows** (A3 y A4, 06-10, `prueba/leefirma.exe`, NUESTRO): serializar la
+/// DESC1 y la DESC de `firmas.hlsl` da los bytes de `dxc`; los dos
+/// deserializadores devuelven sus estructuras en la 1.0, la 1.1 (con sus
+/// banderas, o las de la 1.0 al convertir) y la 1.2 (un sampler con Flags),
+/// y lo que devuelven, serializado otra vez, vuelve a dar los de `dxc`.
+#[test]
+fn los_deserializadores_de_firmas_son_los_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, LEEFIRMA_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 10, "{texto}");
+    assert!(texto.ends_with("leefirma.exe: los deserializadores y la 1.1 serializada son los de Windows\r\n[salio 0x0]"), "{texto}");
+}

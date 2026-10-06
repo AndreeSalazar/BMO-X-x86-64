@@ -389,7 +389,7 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
 
 - [ ] D3.1 -- Montones de descriptores A ESCALA: un millon de CBV/SRV/UAV
   visibles al sombreador, y copiar descriptores en masa.
-- [ ] D3.2 -- Firma raiz 1.1 ENTERA: constantes, CBV/SRV/UAV directos, tablas
+- [x] D3.2 -- Firma raiz 1.1 ENTERA: constantes, CBV/SRV/UAV directos, tablas
   con rangos sin limite (`unbounded`), samplers estaticos, sus banderas.
   **Como se sabe:** `tandaD3.exe` serializa y deserializa firmas y Windows
   da los mismos bytes. (06-10: LEER la 1.1 ya esta -- la de `dxc`, con sus
@@ -401,6 +401,13 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   son los bytes de Windows), el deserializador
   (`D3D12CreateVersionedRootSignatureDeserializer`), la 1.2 -- `dxc` aun
   no la escribe -- y verlo en Windows.)
+  06-10 (A3 y A4): SERIALIZAR la 1.1 ya da SUS bytes (los de `dxc`, huella
+  incluida: la firma guarda su version y las banderas de cada rango y de
+  cada descriptor de la raiz), y los dos DESERIALIZADORES
+  (`D3D12Create[Versioned]RootSignatureDeserializer`, `deserializador.rs`)
+  devuelven las estructuras de Windows en la 1.0, la 1.1 y la 1.2. **Como se
+  sabe:** `prueba/leefirma.exe`, 10 `bien` en el banco; con la casa de
+  antes, 7 MAL. Falta verlo en Windows y en el metal.
 - [ ] D3.3 -- SIN ATAR (bindless, modelo 6.6: `ResourceDescriptorHeap`),
   si D0.2 lo encuentra.
 - [ ] D3.4 -- Los UAV: bufferes con tipo, crudos y estructurados; sus
@@ -1294,14 +1301,15 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    9
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    7
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
                rectangulos (06-10: limpieza.exe, 8 bien en el banco; en
                Windows, MAL en D y G: los enteros SATURAN -- arreglado)
-      3  D3.2  el deserializador de firmas (D3D12CreateVersionedRoot...)
-      4  D3.2  serializar la 1.1 con los MISMOS bytes que Windows
+      3  [x] D3.2  el deserializador de firmas (06-10: leefirma.exe, 10 bien)
+      4  [x] D3.2  serializar la 1.1 con los MISMOS bytes que Windows (06-10:
+               los de dxc, huella incluida; leefirma.exe)
       5  D3.4  los UAV de arrays de 1D y los de filas de otra medida
       6  D4.5  las topologias con adyacencia (para un GS que las pide)
       7  D2.3  Map sobre una textura (montones de la CPU)

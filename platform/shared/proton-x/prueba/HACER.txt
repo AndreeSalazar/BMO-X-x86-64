@@ -3118,3 +3118,31 @@ El banco (`tests/corre/muestras.rs`): sin escena.ref, A y B `bien` y la
 nota, ni un aviso, en 1,5 s; con la imagen de la PROPIA casa como
 referencia, C bien (100 %); con un cuadrado blanco de 30 x 30 pegado en esa
 referencia, C MAL (97,56 % < 98): el margen ve un cubo de mas.
+
+leefirma.exe -- los DESERIALIZADORES de root signatures y la 1.1 serializada, juzgados (06-10)
+
+A3 y A4 del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola, sin
+sombreadores: lleva dentro firmas_11.rts0 y firmas_10.rts0 (las de `dxc`,
+ver firmas.exe). A, D3D12SerializeVersionedRootSignature de su DESC1 da los
+bytes de dxc; B, D3D12SerializeRootSignature de su DESC (1.0), igual; C, el
+deserializador con versiones sobre la 1.1, sin convertir (sus banderas 8, 1
+y 2); D, pedida en la 1.0; E, la 1.0 pedida en la 1.1 (las banderas que
+D3D12 le da a la 1.0: 3 en los rangos, 2 en el UAV de la raiz); F,
+D3D12CreateRootSignatureDeserializer; G, lo de C serializado otra vez: los
+bytes de dxc; H, un sampler estatico ida y vuelta, y en la 1.2; I, bytes
+que no son una firma: E_INVALIDARG. Dice `bien` 10 veces y sale con el
+numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con leefirma.cpp,
+firmas_11.rts0 y firmas_10.rts0:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c leefirma.cpp -o leefirma.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o leefirma.exe leefirma.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   ff697bd062b25c391407bf9098087b3aff08409e0f815745201e79e138f55f60  leefirma.exe
+
+El banco (`tests/corre/muestras.rs`): los 10 `bien`, sale con 0. Probado
+que dice NO: contra la casa de antes, 7 MAL (la 1.1 salia como un blob de
+la 1.0 de 172 bytes, y los deserializadores daban E_NOTIMPL).
