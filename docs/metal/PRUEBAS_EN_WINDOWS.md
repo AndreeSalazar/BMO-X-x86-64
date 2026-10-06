@@ -24,7 +24,7 @@ banco creia probado): esa linea `MAL` es lo mas valioso que puedes mandar.
   2015-2022 (`vcruntime140.dll`, `msvcp140.dll`): lo tiene cualquier PC con
   juegos; si falta, salen con `0xC0000135` y el guion lo dice.
 
-## 1. Los 83 de consola: UN guion
+## 1. Los 84 de consola: UN guion
 
 En una PowerShell normal, dentro de la carpeta:
 
@@ -59,6 +59,7 @@ bueno contra ellos.
 | `volumen` | UAV de texturas 3D y de arrays, ClearUAV de rebanadas | 10 |
 | `firmas` | root signatures 1.1, la de dentro del sombreador, DESC1 serializada | 6 |
 | `postpro` | un posproceso por computo: bindless, UAV creado sin descripcion | 3 |
+| `tipos` | (06-10) texturas TYPELESS vistas con OTRO formato: UAV, SRV y render targets (D2.7) | 8 |
 
 Si alguno se CUELGA (el guion lo dice), en `multihilo` es su parte B: una
 cola que espera y nadie la despierta. Si `restos` dice una `nota` en E, la

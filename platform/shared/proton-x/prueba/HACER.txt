@@ -2962,3 +2962,58 @@ El banco (`tests/corre/muestras.rs`): los 3 `bien`, sale con 0, ni un
 aviso (corre traducido). Probado que dice NO: contra la casa de antes, A y
 C MAL (el UAV sin descripcion se veia nulo); y sin el indice dinamico en el
 Dispatch, 171 MAL en A (las texturas 1 y 2 se leian nulas).
+
+tipos_escribe.dxil, tipos_suma.dxil, tipos_lee.dxil, tipos_vs.dxil, tipos_ps.dxil -- los de tipos.exe (06-10)
+
+`tipos.hlsl` (aqui al lado): CSEscribe (tres texturas TYPELESS de 4 x 4,
+cada una por una vista de su tipo: UNORM, R32_UINT, halfs), CSSuma
+(InterlockedAdd por la vista R32_UINT de la de RGBA8), CSLee (Load por SRV
+de OTRO tipo: R10G10B10A2_UNORM, R16G16B16A16_UINT, R8G8B8A8_SINT, y
+GetDimensions), VSLleno (un triangulo que cubre la vista, de SV_VertexID) y
+PSTipos (dos SV_Target: uint4 y float4). Con el DXC de la nube (v1.8.2505,
+9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSEscribe -Fo tipos_escribe.dxil tipos.hlsl
+   dxc -T cs_6_0 -E CSSuma -Fo tipos_suma.dxil tipos.hlsl
+   dxc -T cs_6_0 -E CSLee -Fo tipos_lee.dxil tipos.hlsl
+   dxc -T vs_6_0 -E VSLleno -Fo tipos_vs.dxil tipos.hlsl
+   dxc -T ps_6_0 -E PSTipos -Fo tipos_ps.dxil tipos.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   0e02ee91b0b24514b7b7888ab90c91ba46fae6b6300f6d62505acdb4733546b1  tipos_escribe.dxil
+   9fb2e65215bef3611fa85305f98ff0c0702364b20ee05255c507d8231a189800  tipos_lee.dxil
+   423078077205b59e66ef67c24ae8a8e60db32a0d3ba8c4f1addae8ffde9282dc  tipos_ps.dxil
+   1afdcba7593b3e4d77153017f598b73bdae80098c31bcd44a9cb9c1ae40857e3  tipos_suma.dxil
+   9caad17701b6ca475c9ccce6a5a776629c776224c69cfc6fe2ac2d91d9fb68a7  tipos_vs.dxil
+
+Van DENTRO de tipos.exe.
+
+tipos.exe -- las VISTAS QUE CAMBIAN EL TIPO, juzgadas (06-10)
+
+D2.7 (A1 del contador de PLAN_LAS_TRES_GRANDES 7.1). NUESTRO, de consola:
+A, t8 (R8G8B8A8_TYPELESS) escrito por su vista UNORM, t10
+(R10G10B10A2_TYPELESS) por una R32_UINT y t16 (R16G16B16A16_TYPELESS) en
+halfs; B, InterlockedAdd por la vista R32_UINT de t8 (lo de antes: la
+palabra de A); C, Load por SRV de otro tipo (t10 como R10G10B10A2_UNORM,
+t16 como R16G16B16A16_UINT: el -0 es 0x8000; t8 como R8G8B8A8_SINT) y su
+GetDimensions; D, un triangulo en dos render targets RGBA8 TYPELESS vistos
+como UINT (300 satura a 255) y SNORM (-0.25, 1, -1, 0.25: E0 7F 81 20); E,
+los bytes de t8 al final. Todo bit a bit. Dice `bien` 8 veces y sale con el
+numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con tipos.cpp y sus
+cinco .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c tipos.cpp -o tipos.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o tipos.exe tipos.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   e04948aae43339de1ca839d759b04372ed64661f74c7a2d7ae2301a7bda37e1b  tipos.exe
+
+El banco (`tests/corre/muestras.rs`): los 8 `bien`, sale con 0, ni un
+aviso. Probado que dice NO: contra la casa de antes, 6 MAL (los UAV y los
+SRV de otro tipo se veian nulos; los render targets de otro tipo no se
+pintaban). Y el juez se equivoco una vez y la casa no: la palabra SNORM
+esperada iba con los bytes al reves (0x207F81E0); es 0x20817FE0.

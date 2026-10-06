@@ -965,3 +965,21 @@ fn el_computo_de_un_posproceso_es_el_de_windows() {
     assert_eq!(texto.matches("  bien  ").count(), 3, "{texto}");
     assert!(texto.ends_with("postpro.exe: el computo de un posproceso es el de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **Las vistas que CAMBIAN EL TIPO** (D2.7, 06-10, `prueba/tipos.exe`,
+/// NUESTRO): una textura TYPELESS escrita por una vista y leida por otra del
+/// mismo tamanio (UNORM y R32_UINT, R32_UINT y R10G10B10A2_UNORM, halfs y
+/// R16G16B16A16_UINT, SINT), un InterlockedAdd por la vista de una palabra,
+/// y dos render targets RGBA8 TYPELESS vistos como UINT (satura) y SNORM.
+/// Bit a bit, ni un aviso. Probado que dice NO: con la casa de antes, 6 MAL
+/// (los UAV y los SRV de otro tipo, nulos; los render targets, sin pintar).
+#[test]
+fn las_vistas_que_cambian_el_tipo_son_las_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, TIPOS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 8, "{texto}");
+    assert!(texto.ends_with("tipos.exe: las vistas que cambian el tipo son las de Windows\r\n[salio 0x0]"), "{texto}");
+}

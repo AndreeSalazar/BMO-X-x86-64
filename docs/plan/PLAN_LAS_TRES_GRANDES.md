@@ -374,8 +374,15 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
 - [ ] D2.6 -- Los formatos COMPRIMIDOS BC1 a BC7: la 3060 los lee de por si
   (solo es el formato en la cabecera de la textura); el interprete de la CPU
   los descomprime. **Como se sabe:** una textura BC7 se ve igual en los dos.
-- [ ] D2.7 -- Los formatos sin tipo (`TYPELESS`) y sus vistas que lo cambian,
-  con las reglas de Windows de que se puede ver como que.
+- [x] D2.7 -- Los formatos sin tipo (`TYPELESS`) y sus vistas que lo cambian,
+  con las reglas de Windows de que se puede ver como que. (06-10, en el
+  banco; falta verlo en Windows y en el metal.) Una vista de otro formato
+  del MISMO tamanio de elemento lee y escribe los bytes del elemento: los
+  UAV (`bufer::con_vista`), los SRV (`Textura::vista`, su Load) y los
+  render targets (`trama`). **Como se sabe:** `tipos.exe`, 8 `bien` bit a
+  bit; con la casa de antes, 6 MAL. Queda: muestrear (Sample) por una vista
+  de float de OTRO formato (se muestrea lo guardado), y limpiar un render
+  target de enteros por una vista de otro tipo.
 
 ## 2D. Los descriptores y la firma raiz
 
@@ -1280,8 +1287,8 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)   10
-      1  D2.7  las vistas que cambian el tipo (UAV, render target, SRV)
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    9
+      1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien)
       2  D3.4  ClearUnorderedAccessView en los formatos que aun no escribe
       3  D3.2  el deserializador de firmas (D3D12CreateVersionedRoot...)
       4  D3.2  serializar la 1.1 con los MISMOS bytes que Windows

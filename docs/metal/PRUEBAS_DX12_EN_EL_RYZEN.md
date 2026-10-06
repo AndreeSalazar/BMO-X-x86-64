@@ -45,6 +45,7 @@ cualquiera es una diferencia.
 | `volumen.exe` | los UAV de texturas 3D y de ARRAYS escritos por computo: un 3D entero, una vista de dos rebanadas (lo de fuera no se escribe), un array de 3 capas con 2 mips por la vista de la mip 1 de dos capas, InterlockedAdd en un 3D, GetDimensions y lecturas, y ClearUnorderedAccessViewUint de dos rebanadas o dos capas (06-10) | 10 | `volumen.exe: los UAV de texturas 3D y de arrays son los de Windows` | ninguno |
 | `firmas.exe` | las ROOT SIGNATURES 1.1 (la de `dxc`, con banderas) y 1.0, la que viene DENTRO del sombreador (pasada a CreateRootSignature, y la de un PSO creado sin root signature), una DESC1 serializada, y CheckFeatureSupport diciendo 1.1 (06-10) | 6 | `firmas.exe: las root signatures 1.1 y las de dentro del sombreador son las de Windows` | ninguno |
 | `postpro.exe` | el COMPUTO de un posproceso: cada hilo elige SU textura de un array sin limite (bindless), muestrea la escena, escribe un RWTexture2D creado sin descripcion, InterlockedAdd y GetDimensions; corre TRADUCIDO a x86 (06-10) | 3 | `postpro.exe: el computo de un posproceso es el de Windows` | ninguno |
+| `tipos.exe` | las VISTAS QUE CAMBIAN EL TIPO (D2.7): texturas TYPELESS escritas por una vista y leidas por otra (UNORM, R32_UINT, R10G10B10A2_UNORM, halfs como UINT, SINT), un InterlockedAdd por la vista de una palabra, y render targets RGBA8 vistos como UINT y SNORM (06-10) | 8 | `tipos.exe: las vistas que cambian el tipo son las de Windows` | ninguno |
 
 **Lo que el banco NO puede ver y el Ryzen si** (por eso cuentan):
 

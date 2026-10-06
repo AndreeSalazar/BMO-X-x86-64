@@ -114,7 +114,8 @@ $jueces = @(
     @('multihilo', 17, -1, 'D3D12'),
     @('volumen', 10, -1, 'D3D12'),
     @('firmas', 6, -1, 'D3D12'),
-    @('postpro', 3, -1, 'D3D12')
+    @('postpro', 3, -1, 'D3D12'),
+    @('tipos', 8, -1, 'D3D12: vistas que cambian el tipo (06-10)')
 )
 
 $informe = Join-Path $PSScriptRoot 'informe_windows'
