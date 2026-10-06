@@ -215,3 +215,10 @@ cp "$AQUI/../restos.cpp" "$AQUI"/../restos_*.dxil .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c restos.cpp -o restos.o
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o restos.exe restos.o -ld3d12
 sha256sum restos.exe
+
+# E2.1: el juez de las listas de VARIOS HILOS y las colas que esperan,
+# NUESTRO (`../multihilo.cpp`; D3D12Multithreading pide SquidRoom.bin).
+cp "$AQUI/../multihilo.cpp" "$AQUI"/../multihilo_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c multihilo.cpp -o multihilo.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o multihilo.exe multihilo.o -ld3d12
+sha256sum multihilo.exe

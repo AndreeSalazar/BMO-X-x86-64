@@ -577,7 +577,10 @@ donde dos `&mut` del mismo estado pueden chocar.
 - [ ] H2.5 -- El monton (`HeapAlloc`) seguro con varios hilos.
 - [ ] H2.6 -- El pool de hilos (`kernel32_pool`) sobre obreros de verdad.
 - [ ] H2.7 -- D3D12 desde varios hilos: el juego GRABA listas de ordenes en
-  paralelo; la casa de D3D12 tiene que aguantarlo.
+  paralelo; la casa de D3D12 tiene que aguantarlo. (05-10: con los hilos
+  COOPERATIVOS de hoy, hecho y juzgado por `prueba/multihilo.exe`, E2.1 de
+  la ESCALERA, con las colas que esperan a una valla; falta con H1, varios
+  nucleos de verdad a la vez.)
 - [ ] H2.8 -- `GetLogicalProcessorInformation(Ex)`,
   `SetThreadAffinityMask`, `SetThreadIdealProcessor`, `SetThreadPriority` y
   MMCSS (`avrt.dll`) con la topologia de H1.7.
@@ -1239,3 +1242,12 @@ que despertar 10 de 10.
 **Cyberpunk en PC es SOLO DX12.** DX11 no lo acerca; la cara de DX11 (y la
 de Vulkan para DOOM) estan en la seccion 5 de [`PLAN_VERRANO.md`](PLAN_VERRANO.md),
 DESPUES de esta lista.
+
+**El MSAA, APARCADO con motivo (06-10).** Hay una obra a medias (texturas de
+varias muestras, el patron estandar, AlphaToCoverage, ResolveSubresource)
+que quedo cortada sin juez. Se aparca por la regla 0 de este plan, "lo que
+el juego no pide no se hace": Cyberpunk suaviza los bordes con TAA y DLSS,
+no con muestras, y la obra toca el corazon de la trama (13 choques con lo
+de hoy). Vuelve si una medida del juego (o un juego que se quiera despues)
+pide `SampleDesc.Count > 1`; hasta entonces, la casa sigue con UNA muestra
+y lo dice.

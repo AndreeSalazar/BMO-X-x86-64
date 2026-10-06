@@ -110,6 +110,8 @@ const RESTOS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/restos.exe");
 const OLAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/olas.exe");
 /// D4.4 (05-10): las derivadas (ddx, ddy, finas y gruesas) y la mip de un muestreo.
 const DERIVADAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/derivadas.exe");
+/// E2.1 (05-10): listas grabadas desde varios hilos, y las colas con vallas.
+const MULTIHILO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/multihilo.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

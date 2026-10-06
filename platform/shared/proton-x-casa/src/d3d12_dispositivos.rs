@@ -29,7 +29,7 @@
 //! Lo demas (sesiones protegidas, rayos, monton desde una direccion,
 //! recursos reservados) sigue siendo un hueco que se dice y sale.
 
-use crate::com::{Guid, E_FAIL, E_INVALIDARG, S_OK};
+use crate::com::{Guid, E_INVALIDARG, S_OK};
 use crate::{aviso, d3d12, d3d12_montones, hilos, tuberia};
 
 /// DXGI_ERROR_UNSUPPORTED.
@@ -50,27 +50,29 @@ pub(crate) extern "win64" fn create_pipeline_library(_this: u64, _blob: *const u
 
 /// `SetEventOnMultipleFenceCompletion(this, vallas, valores, n, banderas,
 /// evento)`: banderas 0 = TODAS, 1 = CUALQUIERA. Si ya se cumple, el evento
-/// se enciende YA; si falta UNA valla (o es una sola), se espera a esa (las
-/// vallas solo suben). Esperar a varias a la vez, todavia no: se dice.
+/// se enciende YA; si no, cuando una marca la cumpla (E2.1: a varias a la
+/// vez; antes se decia "todavia no" y E_FAIL).
 pub(crate) extern "win64" fn set_event_on_multiple_fence_completion(_this: u64, vallas: *const u64, valores: *const u64, n: u32, banderas: u32, evento: u64) -> i32 {
     if vallas.is_null() || valores.is_null() || n == 0 || banderas > 1 {
         return E_INVALIDARG;
     }
     // SAFETY: `n` vallas de la casa y `n` valores del `.exe`.
     let pares: alloc::vec::Vec<(u64, u64)> = (0..n as usize).map(|i| unsafe { (vallas.add(i).read_unaligned(), valores.add(i).read_unaligned()) }).collect();
-    let faltan: alloc::vec::Vec<(u64, u64)> = pares.iter().copied().filter(|&(v, x)| d3d12::valor_de_valla(v) < x).collect();
-    let hecho = if banderas == 0 { faltan.is_empty() } else { faltan.len() < pares.len() };
-    if hecho {
+    // E2.1 (05-10): ALL (0) o ANY (1), mirado en cada marca de una valla
+    // (`d3d12_colas`); sin evento, se espera aqui, como Windows.
+    let todas = banderas == 0;
+    if crate::d3d12_colas::cumplida(&pares, todas) {
         if evento != 0 {
             hilos::encender_evento(evento);
         }
         return S_OK;
     }
-    if faltan.len() == 1 {
-        return d3d12::set_event_on_completion(faltan[0].0, faltan[0].1, evento);
+    let ev = if evento == 0 { hilos::evento_nuevo() } else { evento };
+    crate::d3d12_colas::esperar_varias(pares, todas, ev);
+    if evento == 0 {
+        hilos::esperar_y_cerrar(ev);
     }
-    aviso("SetEventOnMultipleFenceCompletion esperando a varias vallas a la vez: todavia no");
-    E_FAIL
+    S_OK
 }
 
 /// `SetResidencyPriority(this, n, objetos, prioridades)`: todo es residente.

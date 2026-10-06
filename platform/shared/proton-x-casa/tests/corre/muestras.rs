@@ -891,3 +891,34 @@ fn d4_4_las_derivadas_y_la_mip_de_un_muestreo_son_las_de_windows() {
     assert_eq!(texto.matches("  bien  ").count(), 17, "{texto}");
     assert!(texto.ends_with("derivadas.exe: las derivadas y la mip de un muestreo son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **E2.1 -- listas grabadas desde VARIOS HILOS, y las colas con vallas**
+/// (05-10, `prueba/multihilo.exe`, NUESTRO: la muestra D3D12Multithreading
+/// pide SquidRoom.bin). A: cuatro hilos graban a la vez, a turnos, en el
+/// mismo render target y en un pase de solo Z; en una llamada y en seis. B:
+/// colas de computo y de copia que ESPERAN en la GPU a un valor que se da
+/// despues, una cola que espera a la CPU con su lista reiniciada entretanto,
+/// SetEventOnCompletion sin evento y SetEventOnMultipleFenceCompletion. C:
+/// las reglas de Reset y Close de listas y allocators.
+#[test]
+fn e2_1_listas_de_varios_hilos_y_colas_que_esperan() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, MULTIHILO_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Los cuatro errores que C hace A PROPOSITO, dichos (y ninguno mas: el
+    // cuadro de SV_VertexID y el CS de enteros se traducen a x86).
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(
+        avisos,
+        [
+            "PROTON-X: una lista con un allocator con el que ya graba otra: en Windows es E_INVALIDARG",
+            "PROTON-X: Reset de un allocator con una lista grabando con el: en Windows es E_FAIL",
+            "PROTON-X: Reset de una lista que no se cerro: en Windows es E_FAIL",
+            "PROTON-X: Close de una lista ya cerrada: en Windows es E_FAIL",
+        ],
+        "{texto}"
+    );
+    assert_eq!(texto.matches("  bien  ").count(), 17, "{texto}");
+    assert!(texto.ends_with("multihilo.exe: las listas de varios hilos y las colas con vallas son las de Windows\r\n[salio 0x0]"), "{texto}");
+}

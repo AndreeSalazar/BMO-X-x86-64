@@ -84,6 +84,9 @@ mod consultas;
 pub mod dxgi_resto;
 pub mod d3d12_capacidades;
 pub mod d3d12_dispositivos;
+/// E2.1 (05-10): las colas que esperan a una valla (Wait), y las esperas de
+/// la CPU a varias vallas.
+mod d3d12_colas;
 pub mod d3d12_montones;
 pub mod diario;
 pub mod dll_chicas;
@@ -369,6 +372,7 @@ pub unsafe fn empezar(p: Plataforma) {
     com_objeto::reiniciar();
     d3d12_resto::reiniciar();
     consultas::reiniciar();
+    d3d12_colas::reiniciar();
     proceso::reiniciar();
     esperas::reiniciar();
     carpetas::reiniciar();

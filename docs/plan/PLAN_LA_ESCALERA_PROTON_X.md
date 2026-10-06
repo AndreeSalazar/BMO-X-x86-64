@@ -231,10 +231,25 @@ macros vacias, y un `pix3.h` minimo en el puente basta), y DynamicIndexing y
 Multithreading, sus datos (`occcity.bin`, texturas) de la carpeta de la
 muestra.
 
-- [ ] **E2.1 -- D3D12Multithreading.** Listas de ordenes grabadas desde
-  varios hilos (H2.7), con sus mapas de sombras (N5.12, hecho). **Como se
-  sabe:** su huella, igual, con los hilos cooperativos de hoy; y otra vez
-  cuando H1 lleve los hilos a varios nucleos.
+- [x] **E2.1 -- D3D12Multithreading** (05-10, en el banco; falta el metal y
+  varios nucleos). Listas de ordenes grabadas desde varios hilos (H2.7), con
+  sus mapas de sombras (N5.12, hecho). La muestra de Microsoft pide
+  SquidRoom.bin (43 MB, 7.1), asi que el juez es NUESTRO:
+  `prueba/multihilo.exe`. A: cuatro hilos graban A LA VEZ (parados a mitad,
+  con las cuatro listas abiertas) en el mismo render target y en un pase de
+  solo Z, en UN ExecuteCommandLists y en seis. B: las colas de computo y de
+  copia ESPERAN en la GPU (`Wait`) a un valor que se da despues, una cola
+  espera a la CPU con su lista reiniciada entretanto, SetEventOnCompletion
+  sin evento y SetEventOnMultipleFenceCompletion (ALL y ANY). C: las reglas
+  de Reset y Close de listas y allocators, con sus E_INVALIDARG y E_FAIL.
+  Lo nuevo de la casa: `d3d12_colas.rs` (una cola que espera queda
+  RETENIDA y lo que se le manda corre cuando llega su valla; antes `Wait`
+  no hacia nada) y los allocators saben que lista graba con ellos.
+  **Como se sabe:** `tests/corre/muestras.rs`, e2_1: 17 `bien`. Probado que
+  dice NO: contra la casa de antes A ya pasaba (grabar desde varios hilos
+  ya iba) y B se colgaba (la valla en 0, el `.exe` muere con 0xdead).
+  **Queda:** verlo en el Ryzen, y otra vez cuando H1 lleve los hilos a
+  varios nucleos (hoy son cooperativos: uno corre a la vez).
 - [x] **E2.2 -- D3D12DynamicIndexing** (05-10, en el banco; falta verlo en
   el metal). El indice dinamico de descriptores (N5.4, el bindless): una
   ciudad de 15 x 8 copias, y cada una lee SU material de 120 con el registro

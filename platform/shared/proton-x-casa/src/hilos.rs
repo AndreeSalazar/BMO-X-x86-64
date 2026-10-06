@@ -410,6 +410,18 @@ pub(crate) fn evento_encendido() -> u64 {
     handle(casa().plan.nuevo_objeto(Objeto::Evento { manual: true, encendido: true }))
 }
 
+/// Un evento AUTOMATICO apagado, de la casa (E2.1: lo que espera
+/// `SetEventOnCompletion` sin evento).
+pub(crate) fn evento_nuevo() -> u64 {
+    handle(casa().plan.nuevo_objeto(Objeto::Evento { manual: false, encendido: false }))
+}
+
+/// Esperar a un evento de la casa sin plazo (cediendo el turno) y cerrarlo.
+pub(crate) fn esperar_y_cerrar(h: u64) {
+    wait_for_single_object(h, INFINITE);
+    close_handle(h);
+}
+
 /// Encender un evento (lo usa la valla de D3D12).
 pub(crate) fn encender_evento(h: u64) {
     if let Some(o) = objeto_de(h) {

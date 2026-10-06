@@ -35,7 +35,7 @@
 
 use alloc::vec::Vec;
 
-use crate::com::{self, dar, de, nuevo, pide, vtabla, Com, Guid, E_NOINTERFACE, E_OUTOFMEMORY, S_FALSE, S_OK};
+use crate::com::{self, dar, de, nuevo, pide, vtabla, Com, Guid, E_INVALIDARG, E_NOINTERFACE, E_OUTOFMEMORY, S_FALSE, S_OK};
 use crate::d3d12_dispositivos as dv;
 use crate::subrecursos::{self as sr, Almacen, Forma, Sub};
 use crate::tuberia::{self, Bufer, Estado, Vista};
@@ -55,9 +55,17 @@ pub struct Dispositivo {
 pub struct Cola {
     pub(crate) desc: [u8; 16],
 }
-pub struct Asignador;
+/// Un allocator: su D3D12_COMMAND_LIST_TYPE y la lista que GRABA con el
+/// ahora (0: ninguna). E2.1 (05-10): D3D12 no deja dos listas grabando con
+/// el mismo, ni reiniciarlo con una grabando (ver `list_reset`).
+pub struct Asignador {
+    pub(crate) tipo: u32,
+    pub(crate) grabando: u64,
+}
 
-/// Una orden apuntada en la lista.
+/// Una orden apuntada en la lista. E2.1: se copia cuando una cola que
+/// espera la retiene (`d3d12_colas`): lo mandado ya no cambia con la lista.
+#[derive(Clone)]
 pub(crate) enum Orden {
     /// Limpiar un recurso con este pixel (ya en SU formato; en una
     /// profundidad, los bits del float). `sub`: el subrecurso de la vista y
@@ -118,6 +126,8 @@ pub struct Lista {
     /// N5.5 (05-10): el estado de COMPUTO, aparte del de dibujo como en
     /// D3D12: su PSO, su root signature y lo que se le dio (`SetCompute*`).
     pub(crate) computo: Estado,
+    /// E2.1 (05-10): el allocator con el que graba (0: ninguno).
+    pub(crate) asignador: u64,
 }
 
 pub struct Monton {
@@ -220,8 +230,12 @@ pub struct Valla {
     pendientes: Vec<(u64, u64)>,
 }
 
-/// Poner el valor de una valla y encender los eventos que ya tocan.
-fn marcar(v: &mut Valla, valor: u64) {
+/// Poner el valor de una valla y encender los eventos que ya tocan; y
+/// (E2.1) despertar a las colas que la esperaban (`d3d12_colas`).
+pub(crate) fn marcar(valla: u64, valor: u64) {
+    // SAFETY: una Valla de la casa; el prestamo acaba antes de despertar
+    // (que puede volver a marcar esta misma).
+    let v = unsafe { de::<Valla>(valla) };
     v.valor = valor;
     v.pendientes.retain(|&(x, ev)| {
         if x <= valor {
@@ -231,6 +245,7 @@ fn marcar(v: &mut Valla, valor: u64) {
             true
         }
     });
+    crate::d3d12_colas::despertar();
 }
 
 // -- Crear objetos ----------------------------------------------------------
@@ -408,19 +423,57 @@ pub(crate) extern "win64" fn create_command_queue(_this: u64, desc: *const u8, r
     dar(pp, nuevo(com::QUEUE, vt, Cola { desc: d }) as u64)
 }
 
-extern "win64" fn create_command_allocator(_this: u64, _tipo: u32, riid: *const Guid, pp: *mut u64) -> i32 {
+extern "win64" fn create_command_allocator(_this: u64, tipo: u32, riid: *const Guid, pp: *mut u64) -> i32 {
     if !pide(riid, com::ALLOCATOR) {
         return E_NOINTERFACE;
     }
     let vt = vtabla::<{ com::ALLOCATOR }>(&[(8, dir!(allocator_reset))]);
-    dar(pp, nuevo(com::ALLOCATOR, vt, Asignador) as u64)
+    dar(pp, nuevo(com::ALLOCATOR, vt, Asignador { tipo, grabando: 0 }) as u64)
+}
+
+/// **E2.1: si la lista `lista` (0: una que aun no existe) puede grabar con
+/// `asig`** (0: sin allocator, lo que hace CreateCommandList1): de su tipo,
+/// y sin otra lista grabando con el. Windows dice E_INVALIDARG si no.
+fn asignador_libre(asig: u64, tipo: u32, lista: u64) -> i32 {
+    if asig == 0 {
+        return S_OK;
+    }
+    // SAFETY: un allocator de la casa.
+    let a = unsafe { de::<Asignador>(asig) };
+    if a.tipo != tipo {
+        aviso("una lista con un allocator de otro tipo: en Windows es E_INVALIDARG");
+        return E_INVALIDARG;
+    }
+    if a.grabando != 0 && a.grabando != lista {
+        aviso("una lista con un allocator con el que ya graba otra: en Windows es E_INVALIDARG");
+        return E_INVALIDARG;
+    }
+    S_OK
+}
+
+/// La lista `lista` empieza (`true`) o deja (`false`) de grabar con `asig`.
+fn grabar_con(asig: u64, lista: u64, empieza: bool) {
+    if asig == 0 {
+        return;
+    }
+    // SAFETY: un allocator de la casa.
+    let a = unsafe { de::<Asignador>(asig) };
+    if empieza {
+        a.grabando = lista;
+    } else if a.grabando == lista {
+        a.grabando = 0;
+    }
 }
 
 /// `CreateCommandList(this, mascara, tipo, asignador, pso, riid, pp)`: nace
 /// ABIERTA, como en Windows.
-pub(crate) extern "win64" fn create_command_list(_this: u64, _mascara: u32, tipo: u32, _asig: u64, pso: u64, riid: *const Guid, pp: *mut u64) -> i32 {
+pub(crate) extern "win64" fn create_command_list(_this: u64, _mascara: u32, tipo: u32, asig: u64, pso: u64, riid: *const Guid, pp: *mut u64) -> i32 {
     if !pide(riid, com::LIST) {
         return E_NOINTERFACE;
+    }
+    let r = asignador_libre(asig, tipo, 0);
+    if r != S_OK {
+        return r;
     }
     let mut m = alloc::vec![
         (9, dir!(list_close)),
@@ -447,7 +500,9 @@ pub(crate) extern "win64" fn create_command_list(_this: u64, _mascara: u32, tipo
     m.extend_from_slice(&crate::d3d12_lista2::lista());
     let vt = vtabla::<{ com::LIST }>(&m);
     let (estado, computo) = estados_al_empezar(pso);
-    dar(pp, nuevo(com::LIST, vt, Lista { ordenes: Vec::new(), abierta: true, estado, tipo, computo }) as u64)
+    let l = nuevo(com::LIST, vt, Lista { ordenes: Vec::new(), abierta: true, estado, tipo, computo, asignador: asig }) as u64;
+    grabar_con(asig, l, true);
+    dar(pp, l)
 }
 
 /// El estado de dibujo y el de computo de una lista recien creada o
@@ -550,18 +605,36 @@ extern "win64" fn create_sampler(_this: u64, desc: *const u8, handle: u64) {
 
 // -- La lista de ordenes ----------------------------------------------------
 
+/// `Close`: E_FAIL si ya estaba cerrada (E2.1); suelta su allocator.
 pub(crate) extern "win64" fn list_close(this: u64) -> i32 {
     // SAFETY: `this` es una Lista de la casa.
     let l = unsafe { de::<Lista>(this) };
+    if !l.abierta {
+        aviso("Close de una lista ya cerrada: en Windows es E_FAIL");
+        return com::E_FAIL;
+    }
     l.abierta = false;
+    grabar_con(l.asignador, this, false);
     S_OK
 }
 
 /// `Reset(this, asignador, pso)`: la lista vuelve a nacer, con el estado de
-/// dibujo a cero y ese PSO puesto (como en Windows).
-extern "win64" fn list_reset(this: u64, _asignador: u64, pso: u64) -> i32 {
+/// dibujo a cero y ese PSO puesto (como en Windows). E2.1: solo CERRADA
+/// (E_FAIL si no), y con un allocator que no grabe otra (E_INVALIDARG). Lo
+/// que ya se mando no se pierde: es de la cola (`d3d12_colas`).
+extern "win64" fn list_reset(this: u64, asignador: u64, pso: u64) -> i32 {
     // SAFETY: como arriba.
     let l = unsafe { de::<Lista>(this) };
+    if l.abierta {
+        aviso("Reset de una lista que no se cerro: en Windows es E_FAIL");
+        return com::E_FAIL;
+    }
+    let r = asignador_libre(asignador, l.tipo, this);
+    if r != S_OK {
+        return r;
+    }
+    grabar_con(asignador, this, true);
+    l.asignador = asignador;
     l.ordenes.clear();
     l.abierta = true;
     (l.estado, l.computo) = estados_al_empezar(pso);
@@ -1003,14 +1076,15 @@ extern "win64" fn copy_texture_region(this: u64, destino: *const u8, x: u32, y: 
 
 // -- La cola, el asignador y la valla ---------------------------------------
 
-/// `ExecuteCommandLists(this, n, listas)`: en el acto, en orden.
-extern "win64" fn execute_command_lists(_this: u64, n: u32, listas: *const u64) {
+/// `ExecuteCommandLists(this, n, listas)`: en el acto, en orden; o, si la
+/// cola espera a una valla (E2.1), cuando llegue (`d3d12_colas`).
+extern "win64" fn execute_command_lists(this: u64, n: u32, listas: *const u64) {
     let empezo = (crate::plataforma().ahora_ns)();
-    ejecutar_listas(n, listas);
+    crate::d3d12_colas::ejecutar(this, n, listas);
     crate::dxgi::dibujado((crate::plataforma().ahora_ns)().saturating_sub(empezo));
 }
 
-fn ejecutar_listas(n: u32, listas: *const u64) {
+pub(crate) fn ejecutar_listas(n: u32, listas: *const u64) {
     crate::pulso::contar(crate::pulso::Cosa::Lista, 0);
     for i in 0..n as usize {
         // SAFETY: `n` punteros a listas de la casa.
@@ -1019,10 +1093,17 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
             aviso("ExecuteCommandLists con una lista sin Close: en Windows es un error, y no se corre");
             continue;
         }
+        correr(&l.ordenes);
+    }
+}
+
+/// Las ordenes de UNA lista, de un tiron (sin ceder el turno).
+pub(crate) fn correr(ordenes: &[Orden]) {
+    {
         // E2.7: toda lista empieza sin consultas abiertas ni predicacion.
         crate::consultas::al_empezar_lista();
         let mut saltar = false;
-        for o in &l.ordenes {
+        for o in ordenes {
             if saltar && crate::consultas::predicable(o) {
                 continue;
             }
@@ -1063,14 +1144,22 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
     }
 }
 
-/// La cola es sincrona: cuando se pide `Signal`, todo lo anterior YA termino.
-extern "win64" fn queue_signal(_this: u64, valla: u64, valor: u64) -> i32 {
-    // SAFETY: una Valla de la casa.
-    marcar(unsafe { de::<Valla>(valla) }, valor);
+/// La cola es sincrona: cuando se pide `Signal`, todo lo anterior YA termino
+/// (o, si espera a una valla, se marca cuando le toque: `d3d12_colas`).
+extern "win64" fn queue_signal(this: u64, valla: u64, valor: u64) -> i32 {
+    crate::d3d12_colas::signal(this, valla, valor);
     S_OK
 }
 
-extern "win64" fn allocator_reset(_this: u64) -> i32 {
+/// `ID3D12CommandAllocator::Reset`: E_FAIL con una lista grabando con el
+/// (E2.1). Con sus listas cerradas, si: que la GPU ya no las corra es cosa
+/// del `.exe` (su valla), y aqui la cola ya las corrio o se quedo su copia.
+extern "win64" fn allocator_reset(this: u64) -> i32 {
+    // SAFETY: un allocator de la casa.
+    if unsafe { de::<Asignador>(this) }.grabando != 0 {
+        aviso("Reset de un allocator con una lista grabando con el: en Windows es E_FAIL");
+        return com::E_FAIL;
+    }
     S_OK
 }
 
@@ -1091,29 +1180,29 @@ pub(crate) fn valor_de_valla(v: u64) -> u64 {
 }
 
 pub(crate) extern "win64" fn fence_signal(this: u64, valor: u64) -> i32 {
-    // SAFETY: como arriba.
-    marcar(unsafe { de::<Valla>(this) }, valor);
+    marcar(this, valor);
     S_OK
 }
 
 /// `SetEventOnCompletion(this, valor, evento)`: si ya se llego, el evento se
 /// enciende YA; si no, cuando un Signal (de la cola o de otro hilo) llegue.
-/// Con evento nulo, Windows ESPERA ahi mismo: aqui se cede el turno hasta que
-/// llegue (o hasta el bloqueo mutuo, que se dice).
+/// Con evento nulo, Windows ESPERA ahi mismo: aqui (E2.1) con un evento de
+/// la casa y cediendo el turno hasta que llegue (o hasta el bloqueo mutuo,
+/// que se dice: en Windows se colgaria).
 pub(crate) extern "win64" fn set_event_on_completion(this: u64, valor: u64, evento: u64) -> i32 {
-    // SAFETY: como arriba.
-    let v = unsafe { de::<Valla>(this) };
-    if v.valor >= valor {
+    if valor_de_valla(this) >= valor {
         if evento != 0 {
             hilos::encender_evento(evento);
         }
         return S_OK;
     }
+    let ev = if evento == 0 { hilos::evento_nuevo() } else { evento };
+    // SAFETY: como arriba; el prestamo acaba antes de esperar (otro hilo
+    // marcara esta misma valla).
+    unsafe { de::<Valla>(this) }.pendientes.push((valor, ev));
     if evento == 0 {
-        aviso("SetEventOnCompletion sin evento sobre un valor que no ha llegado: todavia no");
-        return crate::com::E_FAIL;
+        hilos::esperar_y_cerrar(ev);
     }
-    v.pendientes.push((valor, evento));
     S_OK
 }
 

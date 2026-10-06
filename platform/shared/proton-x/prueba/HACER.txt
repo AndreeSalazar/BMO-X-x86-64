@@ -2736,3 +2736,53 @@ El banco (`tests/corre/muestras.rs`): los 18 `bien`, sale con 0, ninguna
 contra la casa de antes, 14 MAL (los enteros no se pintaban, el dibujo
 sin destino no se dibujaba, lo del GS se perdia, el plano 1 no se copiaba)
 y E en `nota` (la casa decia que SV_StencilRef no).
+
+multihilo_vs.dxil, multihilo_ps.dxil, multihilo_cs.dxil -- los de multihilo.exe (05-10)
+
+E2.1: `multihilo.hlsl` (aqui al lado): VSCuadro (un cuadro de las
+constantes de la raiz, por SV_VertexID), PSColor (su color) y CSDoble (un
+CS de enteros sobre un RWByteAddressBuffer). Con el DXC de la nube
+(v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo multihilo_vs.dxil multihilo.hlsl
+   dxc -T ps_6_0 -E PSColor -Fo multihilo_ps.dxil multihilo.hlsl
+   dxc -T cs_6_0 -E CSDoble -Fo multihilo_cs.dxil multihilo.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   da2031fea2b7c98695ad237e8847df0aa2bf91b22e3858de2359f8b4bfc69020  multihilo_cs.dxil
+   02e3323caa1e24f7b95ab5c1618da42d455e50f42f9f4c02def7a3ad58bbd5a5  multihilo_ps.dxil
+   a6e67b0afc22b688b05cb354db85795c046dbff28426df352f69387ff236e8fb  multihilo_vs.dxil
+
+Van DENTRO de multihilo.exe.
+
+multihilo.exe -- E2.1: listas de VARIOS HILOS y colas que esperan, juzgadas (05-10)
+
+NUESTRO, de consola: D3D12Multithreading pide SquidRoom.bin (43 MB). A,
+cuatro hilos (CreateThread), cada uno con su allocator y su lista, graban a
+la vez en el mismo render target de 64 x 64 y en un pase de solo Z,
+parados a mitad para que las cuatro listas esten abiertas; en UN
+ExecuteCommandLists y en seis, en otro orden (en la tira comun gana la
+ULTIMA mandada; en la Z, la menor). B, tres colas con vallas: la de computo
+y la de copia esperan en la GPU a un valor que la directa da despues; una
+cola espera a una valla de la CPU con su lista reiniciada entretanto;
+SetEventOnCompletion sin evento (otro hilo marca) y
+SetEventOnMultipleFenceCompletion con ALL y ANY. C, las reglas de Reset y
+Close (E_INVALIDARG y E_FAIL donde Windows los da). Dice `bien` 17 veces y
+sale con el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con multihilo.cpp y
+los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c multihilo.cpp -o multihilo.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o multihilo.exe multihilo.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   1d7f225e05375c97099a2879af6a721d34ae251da93345f63e38801ee06c9aab  multihilo.exe
+
+El banco (`tests/corre/muestras.rs`, e2_1): los 17 `bien`, sale con 0, y
+los cuatro avisos de los errores que C hace a proposito. Probado que dice
+NO: contra la casa de antes, A pasa (grabar desde varios hilos ya iba) y B
+se cuelga: la valla sigue en 0 con las colas esperando, y el `.exe` muere
+con 0xdead.

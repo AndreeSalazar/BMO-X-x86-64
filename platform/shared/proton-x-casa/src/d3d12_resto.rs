@@ -14,7 +14,7 @@
 //!                 MakeResident/Evict y SetStablePowerState (todo residente,
 //!                 nada que fijar), CreateQueryHeap, CreateCommandSignature,
 //!                 CreateComputePipelineState (se guarda; aun no corre)
-//!    cola         Wait (la cola es sincrona), GetTimestampFrequency (ns),
+//!    cola         Wait (retiene la cola: d3d12_colas), GetTimestampFrequency (ns),
 //!                 GetClockCalibration, GetDesc, los marcadores de PIX
 //!    lista        GetType, ClearState, CopyBufferRegion, CopyResource,
 //!                 ResolveSubresource (una muestra: copiar), Begin/EndQuery y
@@ -392,12 +392,15 @@ extern "win64" fn marcador(_this: u64, _meta: u32, _datos: *const u8, _n: u32) {
 
 extern "win64" fn fin_de_evento(_this: u64) {}
 
-/// `Wait(this, valla, valor)`: la cola es sincrona; lo que la valla espere
-/// lo pondra quien la marque, y la cola no tiene nada pendiente que retener.
-extern "win64" fn queue_wait(_this: u64, valla: u64, _valor: u64) -> i32 {
+/// `Wait(this, valla, valor)`: la COLA (no la CPU) espera a que la valla
+/// llegue. E2.1 (05-10): si no ha llegado, la cola queda retenida y lo que
+/// se le mande corre cuando llegue (`d3d12_colas`); antes no hacia nada y
+/// lo de detras corria antes de tiempo.
+extern "win64" fn queue_wait(this: u64, valla: u64, valor: u64) -> i32 {
     if valla == 0 {
         return E_INVALIDARG;
     }
+    crate::d3d12_colas::wait(this, valla, valor);
     S_OK
 }
 
