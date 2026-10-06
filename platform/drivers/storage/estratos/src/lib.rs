@@ -68,6 +68,9 @@ pub mod mezcla;
 /// EL MOTOR DE LA MEZCLA sin `alloc` (PLAN_LAS_RAMAS R4c-2): el que corre el
 /// kernel y el que prueba `estratos-mezcla` sobre imagenes.
 pub mod motor_mezcla;
+/// LAS TRES RAICES de una mezcla, sin `alloc` (PLAN_LAS_RAMAS R4c-2b): la base
+/// por los dos padres. Un solo recorrido para el kernel y el anfitrion.
+pub mod raices;
 /// LA TABLA DE RAMAS (superbloque v2, PLAN_LAS_RAMAS D5): la punta de cada
 /// rama, fuera de la historia.
 pub mod ramas;

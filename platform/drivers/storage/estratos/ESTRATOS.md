@@ -677,6 +677,33 @@ siempre (no se baja de version: una tabla vacia sigue siendo una tabla).
 Un kernel v2 lee los dos, y su commit conserva la tabla sin saberlo
 (`Transaccion::commit` parte del superbloque que habia).
 
+### ** LOS GESTOS DE LAS RAMAS, EN EL KERNEL (06-10)
+
+`docs/plan/PLAN_LAS_RAMAS.md`, R4c-2b. El formato no cambia: son los dos de
+arriba (el estrato v2 y el superbloque v2), puestos detras de la puerta de
+siempre, `TASK_OP_ES_GESTO`, con prefijo propio:
+
+```text
+   ES_RAMA_CREAR     0x0C   la ruta lleva el nombre. Tabla nueva -> UN bloque
+   ES_RAMA_CAMBIAR   0x0D   la ruta lleva el nombre. Tabla y punta -> UN bloque
+   ES_RAMA_CONTAR    0x0E   la ruta lleva la rama a mezclar. NO escribe
+   ES_RAMA_CHOQUE    0x0F   lee un choque contado. NO escribe
+   ES_RAMA_ELEGIR    0x10   A, B o quitar, para un choque. NO escribe
+   ES_RAMA_MEZCLAR   0x11   las carpetas que cambian + UN estrato de 2 padres
+```
+
+** POR QUE DOS FASES: a mitad de una mezcla el kernel tendria una
+transaccion abierta, y no puede esperar a que una persona elija (D3). Asi
+que CONTAR no escribe y apunta los choques; la persona los lee y elige; y
+MEZCLAR vuelve a contar con lo elegido y escribe de una. Si el volumen
+cambio entre medias (otra generacion), lo contado no vale y se dice.
+
+[!] La memoria: las tablas del motor son ~38 KiB por nivel de carpetas. No
+viven en `.bss`: se piden en marcos contiguos mientras dura la mezcla y se
+devuelven al acabar, salga bien o mal. Y la BASE la busca
+`bmo_estratos::raices`, sin `alloc`, el mismo recorrido que corre
+`estratos-mezcla` en el anfitrion.
+
 ### Lo que sigue fuera de todo esto
 
 TimeBack encima (paso 7) y NVMe debajo de la capa de bloques. Ninguno de los dos

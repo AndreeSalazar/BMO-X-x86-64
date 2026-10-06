@@ -287,6 +287,94 @@ pub const ES_GESTO_FICHERO_DE: u64 = 0x0A;
 /// intencion es CREAR y hay que enterarse de que el nombre ya estaba.
 pub const ES_GESTO_GUARDAR: u64 = 0x0B;
 
+// == ** LAS RAMAS Y LA MEZCLA: mas subordenes de `TASK_OP_ES_GESTO` ===========
+//
+// `docs/plan/PLAN_LAS_RAMAS.md`, R4c-2b. Mismo renglon, misma puerta, y un
+// prefijo propio porque la guia de F1 las agrupa por el: no todas escriben.
+//
+// ```text
+//   ES_RAMA_CREAR     la ruta lleva el NOMBRE de la rama nueva
+//   ES_RAMA_CAMBIAR   la ruta lleva el nombre de la rama a la que se pasa
+//   ES_RAMA_CONTAR    la ruta lleva la rama que se quiere mezclar. NO escribe
+//   ES_RAMA_CHOQUE    arg1 = cual, arg0 >> 8 = que trozo. NO escribe
+//   ES_RAMA_ELEGIR    arg1 = cual, arg0 >> 8 = MEZCLA_A, _B o _QUITAR
+//   ES_RAMA_MEZCLAR   sin nada: mezcla lo contado con lo elegido
+// ```
+
+/// **Crea una rama** con el nombre que traiga la ruta, en la punta de ahora.
+/// No cambia de rama. Devuelve la generacion nueva, o `0`.
+///
+/// ** Una rama es un NOMBRE para una punta, guardado FUERA de la historia (la
+/// tabla de ramas, D5): ni copia nada ni publica un estrato. Si el volumen no
+/// tenia ramas, la de ahora pasa a llamarse `principal`.
+pub const ES_RAMA_CREAR: u64 = 0x0C;
+
+/// **Cambia a la rama** que diga la ruta: el volumen pasa a seguir su punta y
+/// la de ahora se queda guardada en la tabla. Devuelve la generacion, o `0`.
+///
+/// ** No publica estrato, y por eso nadie se vuelve antepasado de nadie: ir y
+/// venir entre ramas no las mezcla. Con `volver` si pasaba, y era el agujero
+/// que la tabla de ramas cerro.
+pub const ES_RAMA_CAMBIAR: u64 = 0x0D;
+
+/// **FASE 1 de la mezcla: CUENTA** lo que costaria mezclar la rama de la ruta
+/// en la de ahora, y apunta sus choques. No escribe nada.
+///
+/// Devuelve `(choques << MEZCLA_CHOQUES_SHIFT) | bloques`, o `0` si no se puede
+/// (sin base comun, nada que mezclar, una carpeta demasiado grande: el motivo
+/// va a CABINA). Los bloques suponen que cada choque se queda con lo de A.
+///
+/// ** DOS FASES porque a mitad de una mezcla el kernel no puede esperar a una
+/// persona: tendria una transaccion abierta. Se cuenta, la persona elige con
+/// calma, y solo entonces se mezcla.
+pub const ES_RAMA_CONTAR: u64 = 0x0E;
+
+/// **Lee un choque de lo contado.** `arg1` es cual; `arg0 >> 8`, que trozo.
+///
+/// El trozo `0` es la cabeza: `largo | lados << 8 | eleccion << 16` (lados:
+/// `MEZCLA_LADO_A`, `MEZCLA_LADO_B`). Del `1` en adelante, ocho bytes de la
+/// ruta cada uno, en little-endian. `0`: ese choque no existe.
+///
+/// * Un choque es un NODO entero con una ruta: lo cambiaron las dos ramas, de
+/// formas distintas. Se muestra la ruta y que lado lo tiene; elegir es de la
+/// persona (D3).
+pub const ES_RAMA_CHOQUE: u64 = 0x0F;
+
+/// **Elige un choque**: `arg1` es cual, `arg0 >> 8` es `MEZCLA_A`, `MEZCLA_B` o
+/// `MEZCLA_QUITAR`. Devuelve `1` si se apunto.
+///
+/// ** Se elige un nodo ENTERO, no lineas: un fichero de ESTRATOS no es texto
+/// por fuerza, y mezclar bytes de dos versiones a ciegas daria uno que no es
+/// ninguno de los dos.
+pub const ES_RAMA_ELEGIR: u64 = 0x10;
+
+/// **FASE 2: MEZCLA** lo contado con lo elegido. Publica UN estrato de DOS
+/// padres: la punta de ahora y la de la otra rama. Devuelve la generacion, o
+/// `0`.
+///
+/// ** Dice que no sin tocar un sector si hay choques sin elegir, o si el
+/// volumen cambio desde que se conto: un plan hecho sobre otro volumen no se
+/// aplica. Se vuelve a contar.
+pub const ES_RAMA_MEZCLAR: u64 = 0x11;
+
+/// Elegir lo de la rama de ahora.
+pub const MEZCLA_A: u64 = 1;
+/// Elegir lo de la rama que entra.
+pub const MEZCLA_B: u64 = 2;
+/// Que no quede ninguno de los dos.
+pub const MEZCLA_QUITAR: u64 = 3;
+/// En la cabeza de un choque: la rama de ahora lo tiene.
+pub const MEZCLA_LADO_A: u64 = 1;
+/// En la cabeza de un choque: la rama que entra lo tiene.
+pub const MEZCLA_LADO_B: u64 = 2;
+/// Donde van los choques en la respuesta de [`ES_RAMA_CONTAR`].
+pub const MEZCLA_CHOQUES_SHIFT: u64 = 32;
+/// Los bloques, en la respuesta de [`ES_RAMA_CONTAR`].
+pub const MEZCLA_BLOQUES_MASK: u64 = (1 << 32) - 1;
+/// Cuantos choques se apuntan para elegir. Con mas, se cuentan pero no se
+/// mezcla: una persona no elige a ciegas el que no ve.
+pub const MEZCLA_CHOQUES_MAX: u64 = 64;
+
 /// Cuanto contenido admite EL RENGLON. Es [`RESIDENTE_MAX`] de ESTRATOS: lo que
 /// cabe DENTRO del nodo, sin gastar un bloque de datos.
 ///

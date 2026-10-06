@@ -85,6 +85,8 @@ pub struct Nivel {
 }
 
 impl Nivel {
+    /// Todo a cero: cada campo es un entero o bytes, asi que una tabla a cero
+    /// ES esta. El kernel la saca de marcos limpios (`fsys/estratos/ramas.rs`).
     pub const VACIO: Nivel = Nivel {
         base: [Entrada::VACIA; CAP],
         nb: 0,
@@ -394,3 +396,21 @@ impl Ctx<'_, '_> {
 }
 
 const _: () = assert!(NIVELES_MAX >= 1);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// ** El kernel presta las tablas de marcos A CERO, sin construirlas: eso
+    /// solo vale mientras cero sea `Nivel::VACIO`. Si un campo deja de serlo,
+    /// esto lo dice antes que el metal.
+    #[test]
+    fn una_tabla_a_cero_es_la_vacia() {
+        let z: Nivel = unsafe { core::mem::zeroed() };
+        let v = Nivel::VACIO;
+        assert_eq!((z.nb, z.na, z.nx, z.no), (v.nb, v.na, v.nx, v.no));
+        let igual = |a: &Entrada, b: &Entrada| a.nombre_bytes() == b.nombre_bytes() && a.nodo == b.nodo;
+        assert!(z.base.iter().chain(&z.a).chain(&z.b).chain(&z.out).all(|e| igual(e, &Entrada::VACIA)));
+        assert_eq!(BlockPtr::NULO, unsafe { core::mem::zeroed::<BlockPtr>() });
+    }
+}

@@ -29,6 +29,7 @@
 //!   CARPETA     crea una carpeta vacia
 //!   QUITAR      quita una entrada
 //!   RENOMBRAR   le cambia el nombre a una entrada
+//!   ES_RAMA_*   crear y cambiar de rama, y mezclar en dos fases (R4c-2b)
 //! ```
 //!
 //! === ** LA RUTA LLEVA EL DESTINO ENTERO, y el kernel la parte ===
@@ -54,6 +55,7 @@
 use super::ops::*;
 use super::{datos_limpiar, datos_meter, datos_tomar, ruta_tomar, ruta_tomar_cruda};
 use crate::ring0::fsys::estratos::escribir::{self, Gesto};
+use crate::ring0::fsys::estratos::ramas;
 use crate::ring0::obj::cap;
 
 /// Parte `a/b/c.txt` en `("a/b", "c.txt")`.
@@ -87,12 +89,15 @@ fn partir(ruta: &str) -> Option<(&str, &str)> {
 /// con "no cabe" que con "esa ruta no existe" salvo ensenarselo a una persona,
 /// y para eso esta F11.
 pub(super) fn servir(pid: u32, arg0: u64, arg1: u64) -> u64 {
-    // ** MARCAR y VOLVER no llevan ruta y tocan el volumen ENTERO (H3): a un
-    // proceso encerrado, no. Los renglones se vacian igual, como en `hacer`.
-    if matches!(arg0 & 0xFF, ES_GESTO_MARCAR | ES_GESTO_VOLVER) && crate::ring0::task::raiz::encerrado(pid) {
+    // ** MARCAR, VOLVER y LAS RAMAS no llevan ruta y tocan el volumen ENTERO
+    // (H3): a un proceso encerrado, no. Los renglones se vacian igual, como en
+    // `hacer`.
+    if matches!(arg0 & 0xFF, ES_GESTO_MARCAR | ES_GESTO_VOLVER | ES_RAMA_CREAR..=ES_RAMA_MEZCLAR)
+        && crate::ring0::task::raiz::encerrado(pid)
+    {
         ruta_tomar_cruda(pid);
         datos_tomar(pid);
-        crate::ring0::cabina::warn("raiz", "un proceso encerrado quiso marcar o volver una version del volumen", pid as u64);
+        crate::ring0::cabina::warn("raiz", "un proceso encerrado quiso tocar las versiones o las ramas del volumen", pid as u64);
         return 0;
     }
     match arg0 & 0xFF {
@@ -176,6 +181,31 @@ pub(super) fn servir(pid: u32, arg0: u64, arg1: u64) -> u64 {
             crate::ring0::cabina::info("estratos", "volver a una version", pid as u64);
             escribir::volver(arg1 as usize).unwrap_or(0)
         }
+        // ** LAS RAMAS (R4c-2b). La ruta lleva un NOMBRE, no un destino, y no
+        // se parte: igual que en MARCAR.
+        ES_RAMA_CREAR | ES_RAMA_CAMBIAR | ES_RAMA_CONTAR => {
+            let nombre = ruta_tomar_cruda(pid);
+            datos_tomar(pid);
+            if nombre.is_empty() {
+                crate::ring0::cabina::warn("estratos", "un gesto de ramas sin nombre", pid as u64);
+                return 0;
+            }
+            let r = match arg0 & 0xFF {
+                ES_RAMA_CREAR => ramas::crear(nombre),
+                ES_RAMA_CAMBIAR => ramas::cambiar(nombre),
+                // `(choques << 32) | bloques`: los bloques cuentan el estrato,
+                // asi que un conteo que sale bien nunca es cero.
+                _ => ramas::contar(pid, nombre).map(|(c, b)| (c as u64) << 32 | b.min(0xFFFF_FFFF)),
+            };
+            dicho(pid, r)
+        }
+        // Lo contado se lee y se elige por numero: no hay ruta que mandar.
+        ES_RAMA_CHOQUE => ramas::choque(pid, arg1 as usize, (arg0 >> 8) as usize),
+        ES_RAMA_ELEGIR => ramas::elegir(pid, arg1 as usize, u8::try_from(arg0 >> 8).unwrap_or(0)) as u64,
+        ES_RAMA_MEZCLAR => {
+            crate::ring0::cabina::info("estratos", "mezclar una rama", pid as u64);
+            dicho(pid, ramas::mezclar(pid))
+        }
         ES_GESTO_RENOMBRAR => hacer(pid, "renombrar una entrada", |ruta, datos| {
             let (dir, viejo) = partir(ruta)?;
             // El nombre nuevo viene por el renglon del contenido.
@@ -189,6 +219,18 @@ pub(super) fn servir(pid: u32, arg0: u64, arg1: u64) -> u64 {
         // se entera igual, y un `unsupported` obligaria al que llama a
         // distinguir dos formas de "no paso nada".
         _ => 0,
+    }
+}
+
+/// La generacion, o `0` con el motivo en CABINA: las ramas no pasan por
+/// `escribir::aplicar`, que es quien lo dice para los otros gestos.
+fn dicho(pid: u32, r: Result<u64, crate::ring0::fsys::estratos::WriteError>) -> u64 {
+    match r {
+        Ok(g) => g,
+        Err(e) => {
+            crate::ring0::cabina::warn("estratos", e.name(), pid as u64);
+            0
+        }
     }
 }
 

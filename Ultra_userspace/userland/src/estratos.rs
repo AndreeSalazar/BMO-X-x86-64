@@ -273,6 +273,16 @@ pub const ES_GESTO_VOLVER: u64 = 0x08;
 pub const ES_GESTO_ORIGEN: u64 = 0x09;
 pub const ES_GESTO_FICHERO_DE: u64 = 0x0A;
 pub const ES_GESTO_GUARDAR: u64 = 0x0B;
+pub const ES_RAMA_CREAR: u64 = 0x0C;
+pub const ES_RAMA_CAMBIAR: u64 = 0x0D;
+pub const ES_RAMA_CONTAR: u64 = 0x0E;
+pub const ES_RAMA_CHOQUE: u64 = 0x0F;
+pub const ES_RAMA_ELEGIR: u64 = 0x10;
+pub const ES_RAMA_MEZCLAR: u64 = 0x11;
+/// Lo que se elige ante un choque: la rama de ahora, la que entra, o ninguna.
+pub const MEZCLA_A: u64 = 1;
+pub const MEZCLA_B: u64 = 2;
+pub const MEZCLA_QUITAR: u64 = 3;
 /// Lo que cabe DENTRO del nodo, sin gastar un bloque de datos.
 ///
 /// ** Es el tope DEL RENGLON, no el de un fichero. [`crear_desde`] no pasa por
@@ -438,6 +448,65 @@ pub fn quitar(ruta: &[u8]) -> u64 {
 /// no un *reset*.
 pub fn volver(n: u64) -> u64 {
     invoke(CURRENT_TASK, OP_ES_GESTO, ES_GESTO_VOLVER, n, 0).value
+}
+
+/// **Crea la rama `nombre`** en la punta de ahora. Devuelve la generacion, o `0`.
+///
+/// ** No copia nada ni publica un estrato: una rama es un nombre para una
+/// punta, en la tabla de ramas. Si no habia, la de ahora pasa a ser `principal`.
+pub fn crear_rama(nombre: &[u8]) -> u64 {
+    mandar_ruta(nombre);
+    mandar_datos(&[]);
+    invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_CREAR, 0, 0).value
+}
+
+/// **Cambia a la rama `nombre`.** Devuelve la generacion, o `0`.
+pub fn cambiar_rama(nombre: &[u8]) -> u64 {
+    mandar_ruta(nombre);
+    mandar_datos(&[]);
+    invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_CAMBIAR, 0, 0).value
+}
+
+/// **FASE 1: cuenta la mezcla de la rama `nombre`** en la de ahora, sin
+/// escribir. `Some((choques, bloques))`, o `None` (el motivo va a CABINA).
+pub fn contar_mezcla(nombre: &[u8]) -> Option<(u32, u32)> {
+    mandar_ruta(nombre);
+    mandar_datos(&[]);
+    let r = invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_CONTAR, 0, 0).value;
+    (r != 0).then_some(((r >> 32) as u32, r as u32))
+}
+
+/// **Un choque de lo contado**: su ruta en `dst` y `(largo, lados, eleccion)`.
+/// `None` si no existe. Lados: bit 0 la rama de ahora, bit 1 la que entra.
+pub fn choque(i: u64, dst: &mut [u8]) -> Option<(usize, u8, u8)> {
+    let cabeza = invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_CHOQUE, i, 0).value;
+    if cabeza == 0 {
+        return None;
+    }
+    let largo = (cabeza & 0xFF) as usize;
+    let mut k = 0;
+    while k < largo.min(dst.len()) {
+        let trozo = (k / 8 + 1) as u64;
+        let b = invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_CHOQUE | (trozo << 8), i, 0).value.to_le_bytes();
+        for x in b {
+            if k < largo.min(dst.len()) {
+                dst[k] = x;
+                k += 1;
+            }
+        }
+    }
+    Some((largo, (cabeza >> 8) as u8, (cabeza >> 16) as u8))
+}
+
+/// **Elige el choque `i`**: [`MEZCLA_A`], [`MEZCLA_B`] o [`MEZCLA_QUITAR`].
+pub fn elegir(i: u64, eleccion: u64) -> bool {
+    invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_ELEGIR | (eleccion << 8), i, 0).value == 1
+}
+
+/// **FASE 2: mezcla** lo contado con lo elegido: UN estrato de dos padres.
+/// Devuelve la generacion, o `0` (choques sin elegir, o el volumen cambio).
+pub fn mezclar() -> u64 {
+    invoke(CURRENT_TASK, OP_ES_GESTO, ES_RAMA_MEZCLAR, 0, 0).value
 }
 
 /// **Marca la version en curso con `nombre`.** Devuelve la generacion, o `0`.

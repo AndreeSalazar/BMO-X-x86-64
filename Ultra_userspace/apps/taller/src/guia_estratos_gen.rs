@@ -16,15 +16,16 @@ pub struct Door {
 }
 
 /// (nombre, que es, escribe?) de cada familia, por su prefijo.
-pub static FAMILIES: [(&str, &str, bool); 4] = [
+pub static FAMILIES: [(&str, &str, bool); 5] = [
     ("EL CURSOR", "lee: un cursor que baja y sube por el arbol del volumen", false),
     ("LA HISTORIA", "lee: la cadena de versiones, de ahora hacia atras", false),
     ("LOS NOMBRES", "lee: los textos que el cursor y la historia no caben en un numero", false),
     ("LOS GESTOS", "escribe: cada gesto publica un estrato nuevo; nada se pisa", true),
+    ("LAS RAMAS", "escribe: crear, cambiar y mezclar en dos fases (contar y elegir solo leen)", true),
 ];
 
 /// Cuantas puertas hay: la guia lo dice con este numero, no con uno escrito.
-pub const COUNT: usize = 39;
+pub const COUNT: usize = 45;
 
 /// `static`: UNA copia en `.rodata`, que Ring 3 lee por indice.
 pub static DOORS: [Door; COUNT] = [
@@ -331,6 +332,54 @@ pub static DOORS: [Door; COUNT] = [
         value: 11,
         what: "GUARDA el contenido del bloque anotado: lo crea, o publica su version nueva. arg1 son los BYTES a tomar, igual que ES_GESTO_FICHERO_DE.",
         why: "Aqui no puede perder nada: el nodo viejo, su contenido y el estrato que lo nombraba siguen enteros y alcanzables. Guardar encima publica una version, no destruye una -- y el historial las muestra las dos.",
+    },
+    Door {
+        family: 4,
+        name: "crear",
+        door: "ES_RAMA_CREAR",
+        value: 12,
+        what: "Crea una rama con el nombre que traiga la ruta, en la punta de ahora. No cambia de rama. Devuelve la generacion nueva, o 0.",
+        why: "Una rama es un NOMBRE para una punta, guardado FUERA de la historia (la tabla de ramas, D5): ni copia nada ni publica un estrato. Si el volumen no tenia ramas, la de ahora pasa a llamarse principal.",
+    },
+    Door {
+        family: 4,
+        name: "cambiar",
+        door: "ES_RAMA_CAMBIAR",
+        value: 13,
+        what: "Cambia a la rama que diga la ruta: el volumen pasa a seguir su punta y la de ahora se queda guardada en la tabla. Devuelve la generacion, o 0.",
+        why: "No publica estrato, y por eso nadie se vuelve antepasado de nadie: ir y venir entre ramas no las mezcla. Con volver si pasaba, y era el agujero que la tabla de ramas cerro.",
+    },
+    Door {
+        family: 4,
+        name: "contar",
+        door: "ES_RAMA_CONTAR",
+        value: 14,
+        what: "FASE 1 de la mezcla: CUENTA lo que costaria mezclar la rama de la ruta en la de ahora, y apunta sus choques. No escribe nada.",
+        why: "DOS FASES porque a mitad de una mezcla el kernel no puede esperar a una persona: tendria una transaccion abierta. Se cuenta, la persona elige con calma, y solo entonces se mezcla.",
+    },
+    Door {
+        family: 4,
+        name: "choque",
+        door: "ES_RAMA_CHOQUE",
+        value: 15,
+        what: "Lee un choque de lo contado. arg1 es cual; arg0 >> 8, que trozo.",
+        why: "Un choque es un NODO entero con una ruta: lo cambiaron las dos ramas, de formas distintas. Se muestra la ruta y que lado lo tiene; elegir es de la persona (D3).",
+    },
+    Door {
+        family: 4,
+        name: "elegir",
+        door: "ES_RAMA_ELEGIR",
+        value: 16,
+        what: "Elige un choque: arg1 es cual, arg0 >> 8 es MEZCLA_A, MEZCLA_B o MEZCLA_QUITAR. Devuelve 1 si se apunto.",
+        why: "Se elige un nodo ENTERO, no lineas: un fichero de ESTRATOS no es texto por fuerza, y mezclar bytes de dos versiones a ciegas daria uno que no es ninguno de los dos.",
+    },
+    Door {
+        family: 4,
+        name: "mezclar",
+        door: "ES_RAMA_MEZCLAR",
+        value: 17,
+        what: "FASE 2: MEZCLA lo contado con lo elegido. Publica UN estrato de DOS padres: la punta de ahora y la de la otra rama. Devuelve la generacion, o 0.",
+        why: "Dice que no sin tocar un sector si hay choques sin elegir, o si el volumen cambio desde que se conto: un plan hecho sobre otro volumen no se aplica. Se vuelve a contar.",
     },
     Door {
         family: 3,

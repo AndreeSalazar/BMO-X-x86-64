@@ -435,7 +435,17 @@ fn raices<R: Read + Seek>(r: &mut R, ahora: &BlockPtr, otra: &BlockPtr) -> Resul
     let kb: Vec<_> = de_b.iter().map(llave).collect();
     let base_k = mezcla::base(&ka, &kb).ok_or("las dos ramas no comparten historia: sin base no hay mezcla de tres")?;
     let base = *de_a.iter().find(|p| llave(p) == base_k).ok_or("base perdida")?;
-    Ok([leer_estrato(r, &base)?.raiz, leer_estrato(r, ahora)?.raiz, leer_estrato(r, otra)?.raiz])
+    let tres = [leer_estrato(r, &base)?.raiz, leer_estrato(r, ahora)?.raiz, leer_estrato(r, otra)?.raiz];
+    // ** Y el recorrido SIN `alloc` que corre el kernel (`bmo_estratos::raices`)
+    // tiene que decir lo mismo, con tablas del largo de las suyas.
+    let (mut ta, mut tb) = (vec![BlockPtr::NULO; 512], vec![BlockPtr::NULO; 512]);
+    let mut bloque = [0u8; BLOQUE];
+    let del_motor = es::raices::raices(&mut Lector(r), *ahora, *otra, &mut ta, &mut tb, &mut bloque)
+        .map_err(|e| format!("las raices sin alloc: {e:?}"))?;
+    if del_motor != tres {
+        return Err("las raices sin alloc y las de la cola con Vec no dicen lo mismo".into());
+    }
+    Ok(tres)
 }
 
 /// Una imagen leida y escrita a la vez por el motor: lee con `Fuente` y

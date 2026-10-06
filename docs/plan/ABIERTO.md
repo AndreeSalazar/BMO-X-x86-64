@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   638 casillas ABIERTAS en 62 planes
-   527 hechas
+   637 casillas ABIERTAS en 62 planes
+   528 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -244,15 +244,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
 
-## [`PLAN_LAS_RAMAS.md`](PLAN_LAS_RAMAS.md) -- 8 abiertas, 8 hechas
-
-*PLAN LAS RAMAS -- ESTRATOS como Git: guias, plantillas, ramas y mezcla por NODOS*
-
-- [ ] R4c-2b -- el gesto en el KERNEL (ES_GESTO_*): mezclar, crear rama y cambiar de rama, con el moto
-- [ ] R4c-3 -- del PROPIETARIO: la mezcla en F: en el Ryzen, despues de las imagenes
-- [ ] R5 -- la MEZCLA en F1: las dos cadenas que se juntan en la solapa HISTORIA, y cada choque como u
-- ... y 5 mas
-
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 8 hechas
 
 *PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
@@ -278,6 +269,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] pendiente [~] a medias, y se dice cuanto [x] hecho, con fecha
 - [ ] A1.3 -- el AP con reloj: un LAPIC timer propio, o el MWAITX con plazo
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
+- ... y 4 mas
+
+## [`PLAN_LAS_RAMAS.md`](PLAN_LAS_RAMAS.md) -- 7 abiertas, 9 hechas
+
+*PLAN LAS RAMAS -- ESTRATOS como Git: guias, plantillas, ramas y mezcla por NODOS*
+
+- [ ] R4c-3 -- del PROPIETARIO: la mezcla en F: en el Ryzen, despues de las imagenes
+- [ ] R5 -- la MEZCLA en F1: las dos cadenas que se juntan en la solapa HISTORIA, y cada choque como u
+- [ ] R6 -- PLANTILLAS: la carpeta plantillas/, su LEEME por plantilla, la guia que las cuenta, y "usa
 - ... y 4 mas
 
 ## [`PLAN_LA_CASA_ESCONDIDA.md`](PLAN_LA_CASA_ESCONDIDA.md) -- 7 abiertas, 0 hechas

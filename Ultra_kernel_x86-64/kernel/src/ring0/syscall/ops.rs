@@ -613,6 +613,14 @@ pub(crate) const ES_GESTO_FICHERO_DE: u64 = 0x0A;
 /// Guarda el contenido del bloque anotado: lo crea, o publica su version nueva.
 /// El quinto verbo -- el unico que versiona un FICHERO y no solo el arbol.
 pub(crate) const ES_GESTO_GUARDAR: u64 = 0x0B;
+/// LAS RAMAS Y LA MEZCLA (R4c-2b): crear y cambiar de rama, y mezclar en dos
+/// fases -- contar los choques, elegirlos, mezclar.
+pub(crate) const ES_RAMA_CREAR: u64 = 0x0C;
+pub(crate) const ES_RAMA_CAMBIAR: u64 = 0x0D;
+pub(crate) const ES_RAMA_CONTAR: u64 = 0x0E;
+pub(crate) const ES_RAMA_CHOQUE: u64 = 0x0F;
+pub(crate) const ES_RAMA_ELEGIR: u64 = 0x10;
+pub(crate) const ES_RAMA_MEZCLAR: u64 = 0x11;
 pub(crate) const ES_GESTO_MAX: u64 = 96;
 /// Las ordenes del disco. Espejo de `bmo_abi::...::DISCO_OP_*`.
 ///
