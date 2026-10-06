@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 71 planes
+# LO QUE FALTA -- las casillas abiertas de los 72 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   642 casillas ABIERTAS en 62 planes
-   539 hechas
+   647 casillas ABIERTAS en 63 planes
+   540 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -440,6 +440,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 1. ARRANCAR Y LEER. Reproducir --matar Ring 3, volver a entrar-- y
 - [ ] 2. EL JUEZ, en su crate. platform/shared/bmo-pila-juicio: *"se
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
+- ... y 2 mas
+
+## [`PLAN_MAQUETA_3.md`](PLAN_MAQUETA_3.md) -- 5 abiertas, 1 hechas
+
+*PLAN MAQUETA 3 -- lo que le falta a un .maqueta para escribir lo que escribe CSS, y MEJOR*
+
+- [ ] M-dec -- las decisiones M1-M6 del propietario, escritas en la seccion 3 de este plan
+- [ ] MA -- la pila A entera en toolchain/tools/maqueta/node/src/value.rs (la lista), el nieto en tool
+- [ ] MB -- la pila B segun M1-M4 y M6: la rejilla en toolchain/tools/maqueta/layout/src/flow.rs, las 
 - ... y 2 mas
 
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas

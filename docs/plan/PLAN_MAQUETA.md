@@ -370,7 +370,12 @@ maquetas de `docs/arte/`: cada declaracion pasada por el compilador de verdad
 ```
 
 Lo que NO se persigue con propiedades, y es una decision: `font-family` (la
-letra de la casa) y `margin` (seccion 3b de `LA_MAQUETA_EXIGE.md`). La
+letra de la casa) y `margin` (seccion 3b de `LA_MAQUETA_EXIGE.md`).
+
+** Medido otra vez el 06-10 sobre TRES maquetas: 59,30 %. Lo que falta, en
+tres pilas y con como hacerlo MEJOR que CSS (incluidas `margin` y
+`font-family`, que vuelven a la mesa con una forma que no miente): ver
+`docs/plan/PLAN_MAQUETA_3.md` y su maqueta `docs/arte/maqueta_maqueta3.html`. La
 animacion SI, pero no como CSS: ver 6d.
 
 ## 6d. LAS PIEZAS: MAQUETA COMPUESTA, CON ESTADOS (2026-10-04)

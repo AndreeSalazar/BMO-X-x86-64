@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MAQUETA 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Maqueta de MAQUETA 3: lo que le falta a un .maqueta para escribir lo que
+   escribe CSS, y como hacerlo MEJOR que CSS sin romper sus leyes (L7: un
+   padre no sabe que tiene padre; la vista previa no puede mentir; en el
+   aparato no se maqueta nada). El plan es docs/plan/PLAN_MAQUETA_3.md.
+
+   ** Los numeros NO son de ejemplo: salen de
+      maqueta --cobertura docs/arte/maqueta_bankcat.html
+                          docs/arte/maqueta_hermes.html
+                          docs/arte/maqueta_taller_estratos.html
+   medido el 2026-10-06: 1919 de 3236 declaraciones, 59,30 %. */
+:root {
+  color-scheme: dark;
+  --negro: #02030A;
+  --canvas: #030510;
+  --bar: #06091A;
+  --node: #090E26;
+  --node-borde: #222E6A;
+  --picked: #101A46;
+  --ink: #E9EEFF;
+  --ink-dim: #7884B4;
+  --title: #AFC3FF;
+  --blue: #3D6BFF;
+  --violet: #8C52FF;
+  --accent: #70D6FF;
+  --good: #52E0A0;
+  --bad: #FF4D6A;
+  --mut: #FFB84B;
+  --oro: #F2E27A;
+  --neon: #39FF88;
+  --a: #36C4D8;
+  --b: #8C52FF;
+  --c: #FFB84B;
+  --f-pixel: "Silkscreen", "Courier New", monospace;
+  --f-texto: "IBM Plex Sans", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--negro); color: var(--ink); }
+body { font-family: var(--f-texto); font-size: 14px; line-height: 1.45; padding: 16px 16px 48px; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, .mono { font-family: var(--f-mono); font-size: 12.5px; }
+.pagina { max-width: 1200px; margin: 0 auto; }
+
+/* -- la cabecera ---------------------------------------------------------- */
+.cabecera { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-bottom: 14px; }
+.cabecera h1 { margin: 0; font-family: var(--f-pixel); font-size: 20px; letter-spacing: .06em; color: var(--title); }
+.cabecera h1 b { color: var(--accent); }
+.cabecera p { margin: 0; color: var(--ink-dim); max-width: 760px; }
+
+/* -- el medidor ----------------------------------------------------------- */
+.medidor { background: var(--canvas); border: 1px solid var(--node-borde); border-radius: 14px; padding: 18px 18px 14px; }
+.medidor h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.medidor .sub { margin: 0 0 14px; color: var(--ink-dim); font-size: 13px; }
+.barra { display: flex; height: 30px; border-radius: 9px; overflow: hidden; border: 1px solid var(--node-borde); background: var(--bar); }
+.trozo { display: flex; align-items: center; justify-content: center; font-family: var(--f-mono); font-size: 12px; font-weight: 500;
+  color: #050816; white-space: nowrap; transition: filter .2s ease; cursor: pointer; }
+.trozo:hover, .trozo.encendido { filter: brightness(1.25); }
+.t-hoy { background: var(--neon); }
+.t-a { background: var(--a); }
+.t-b { background: var(--b); color: var(--ink); }
+.t-c { background: var(--c); }
+.t-no { background: repeating-linear-gradient(45deg, #2A2F45 0 6px, #1A1E30 6px 12px); color: var(--ink-dim); }
+.leyenda { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 12px; font-size: 13px; }
+.leyenda span { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-dim); }
+.leyenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.leyenda b { color: var(--ink); font-weight: 600; }
+.aviso { margin: 12px 0 0; font-size: 12.5px; color: var(--ink-dim); border-left: 2px solid var(--mut); padding-left: 10px; }
+
+/* -- las tres pilas -------------------------------------------------------- */
+.pilas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
+@media (max-width: 960px) { .pilas { grid-template-columns: 1fr; } }
+.pila { background: var(--canvas); border: 1px solid var(--node-borde); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.pila > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pila h3 { margin: 0; font-family: var(--f-pixel); font-size: 13px; letter-spacing: .06em; }
+.pila .cuenta { font-family: var(--f-mono); font-size: 12px; color: var(--ink-dim); }
+.pila .que { margin: 0; font-size: 12.5px; color: var(--ink-dim); }
+.pila-a h3 { color: var(--a); } .pila-b h3 { color: var(--b); } .pila-c h3 { color: var(--c); }
+.pila-a { box-shadow: inset 0 2px 0 var(--a); } .pila-b { box-shadow: inset 0 2px 0 var(--b); } .pila-c { box-shadow: inset 0 2px 0 var(--c); }
+
+/* -- una tarjeta: CSS contra MAQUETA 3 ----------------------------------- */
+.carta { background: var(--node); border: 1px solid var(--node-borde); border-radius: 11px; overflow: hidden; }
+.carta > button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; text-align: left; }
+.carta .nombre { font-family: var(--f-mono); font-weight: 500; flex: 1; }
+.carta .usos { font-family: var(--f-mono); font-size: 12px; color: var(--ink-dim); }
+.carta .usos b { color: var(--ink); }
+.carta .flecha { color: var(--ink-dim); transition: transform .2s ease; }
+.carta.abierta .flecha { transform: rotate(90deg); }
+.carta .cuerpo { display: none; padding: 0 12px 12px; }
+.carta.abierta .cuerpo { display: block; }
+.carta.abierta { border-color: #34418A; background: #0B1130; }
+.lado { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.lado div { border-radius: 8px; padding: 8px; background: var(--bar); border: 1px solid #1A2350; min-width: 0; }
+.lado h4 { margin: 0 0 4px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); font-weight: 600; }
+.lado .css h4 { color: var(--bad); } .lado .maq h4 { color: var(--neon); }
+.lado pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--f-mono); font-size: 11.5px; color: var(--title); }
+.mejor { margin: 0; font-size: 12.5px; color: var(--ink); }
+.mejor::before { content: "MEJOR: "; font-family: var(--f-pixel); font-size: 10px; color: var(--neon); letter-spacing: .08em; }
+
+/* -- las demos vivas ------------------------------------------------------ */
+.demo { margin-top: 8px; border-radius: 8px; border: 1px dashed #2A3570; padding: 8px; }
+.demo .rot { font-size: 11px; color: var(--ink-dim); margin-bottom: 6px; }
+.rejilla { display: grid; grid-template-columns: 60px 1fr 1fr; gap: 4px; width: 100%; }
+.rejilla span { background: #16205A; border-radius: 4px; height: 22px; font-family: var(--f-mono); font-size: 10.5px; display: flex; align-items: center; justify-content: center; color: var(--title); }
+.rejilla span.mal { background: #3A1424; color: var(--bad); }
+.margenes { display: flex; gap: 10px; }
+.margenes > div { flex: 1; background: var(--bar); border-radius: 6px; padding: 4px; }
+.margenes .caja { height: 16px; border-radius: 3px; background: var(--b); }
+.margenes .m1 { margin-bottom: 10px; } .margenes .m2 { margin-top: 10px; }
+.margenes .g { display: flex; flex-direction: column; gap: 20px; }
+.margenes small { display: block; font-size: 10.5px; color: var(--ink-dim); margin-top: 4px; text-align: center; }
+.premezcla { display: flex; gap: 8px; align-items: center; }
+.premezcla .fondo { width: 60px; height: 34px; border-radius: 6px; background: #0D1118; display: flex; align-items: center; justify-content: center; }
+.premezcla .vidrio { width: 40px; height: 20px; border-radius: 4px; background: #FFD45E; opacity: .4; }
+.premezcla .hecho { width: 40px; height: 20px; border-radius: 4px; background: #6E5F34; }
+.premezcla code { color: var(--oro); }
+.estados { display: flex; gap: 6px; align-items: center; }
+.estados .paso { width: 34px; height: 34px; border-radius: 8px; background: #2B1F0E; border: 1px solid var(--c); display: flex; align-items: center; justify-content: center; font-family: var(--f-mono); font-size: 10px; color: var(--c); }
+.estados .vivo { animation: latido 1.6s cubic-bezier(.34, 1.56, .64, 1) infinite; }
+@keyframes latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { .estados .vivo { animation: none; } }
+
+/* -- lo que no entra nunca ------------------------------------------------ */
+.nunca { margin-top: 16px; background: var(--canvas); border: 1px solid var(--node-borde); border-radius: 14px; padding: 14px; }
+.nunca h3 { margin: 0 0 8px; font-family: var(--f-pixel); font-size: 13px; color: var(--ink-dim); letter-spacing: .06em; }
+.nunca ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 18px; }
+@media (max-width: 760px) { .nunca ul { grid-template-columns: 1fr; } }
+.nunca li { font-size: 12.5px; color: var(--ink-dim); }
+.nunca li code { color: var(--bad); }
+
+/* -- las decisiones --------------------------------------------------------- */
+.decisiones { margin-top: 16px; background: var(--canvas); border: 1px solid #3A2F12; border-radius: 14px; padding: 14px; }
+.decisiones h3 { margin: 0 0 4px; font-family: var(--f-pixel); font-size: 13px; color: var(--oro); letter-spacing: .06em; }
+.decisiones > p { margin: 0 0 10px; color: var(--ink-dim); font-size: 13px; }
+.dec { display: grid; grid-template-columns: 54px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid #1A2350; }
+.dec .id { font-family: var(--f-pixel); color: var(--oro); font-size: 12px; padding-top: 2px; }
+.dec p { margin: 0 0 6px; }
+.opciones { display: flex; flex-wrap: wrap; gap: 6px; }
+.op { border: 1px solid #2A3570; border-radius: 999px; padding: 3px 10px; font-size: 12.5px; color: var(--ink-dim); }
+.op[aria-pressed="true"] { border-color: var(--oro); color: var(--negro); background: var(--oro); font-weight: 600; }
+.op.rec::after { content: " (recomendada)"; font-size: 11px; }
+</style>
+</head>
+<body>
+<main class="pagina">
+
+<header class="cabecera">
+  <h1>MAQUETA <b>3</b></h1>
+  <p>Lo que le falta a tu <code>.maqueta</code> para escribir todo lo que escriben tus maquetas de CSS -- y como hacerlo
+     <b>mejor</b> que CSS sin romper sus tres leyes: un padre no sabe que tiene padre, la vista previa no miente,
+     y en el aparato no se maqueta nada.</p>
+</header>
+
+<section class="medidor" aria-label="cobertura">
+  <h2>Hoy MAQUETA acepta el 59,30 % del CSS de tus tres maquetas</h2>
+  <p class="sub mono">maqueta --cobertura  bankcat + hermes + taller_estratos  =  1919 de 3236 declaraciones  (medido 2026-10-06)</p>
+  <div class="barra" role="img" aria-label="59,3 por ciento hoy, mas 9,1 de la pila A, 20,0 de la B, 6,0 de la C, y 5,7 que no entra">
+    <div class="trozo t-hoy" style="width:59.30%" data-pila="hoy">hoy 59,3 %</div>
+    <div class="trozo t-a" style="width:9.12%" data-pila="a">+9,1</div>
+    <div class="trozo t-b" style="width:19.96%" data-pila="b">+20,0</div>
+    <div class="trozo t-c" style="width:5.96%" data-pila="c">+6,0</div>
+    <div class="trozo t-no" style="width:5.66%" data-pila="no">5,7</div>
+  </div>
+  <div class="leyenda">
+    <span><i style="background:var(--neon)"></i><b>59,3 %</b> hoy</span>
+    <span><i style="background:var(--a)"></i>A, sin tocar ninguna ley: <b>68,4 %</b></span>
+    <span><i style="background:var(--b)"></i>B, mejor que CSS al compilar: <b>88,4 %</b></span>
+    <span><i style="background:var(--c)"></i>C, el movimiento como estados: <b>94,3 %</b></span>
+    <span><i style="background:#2A2F45"></i>nunca, con su motivo: 5,7 %</span>
+  </div>
+  <p class="aviso">Es el TECHO, no la promesa: una declaracion que pasa la lista todavia la juzga el veredicto (que quepa, que se pinte igual).
+     Lo que se cuenta es lo que hoy se rechaza por la propiedad o por el valor.</p>
+</section>
+
+<div class="pilas">
+
+  <!-- ============ A ============ -->
+  <section class="pila pila-a" aria-labelledby="ha">
+    <header><h3 id="ha">A -- ENTRAN YA</h3><span class="cuenta">295 usos</span></header>
+    <p class="que">Ninguna pide saber la medida del padre: se resuelven con la caja PROPIA o con lo que ya hay.</p>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">min/max-width, -height</span><span class="usos"><b>76</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>max-width: 360px;</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>max-width: 360px;</pre></div>
+        </div>
+        <p class="mejor">acota a la caja contra SU contenido, al compilar. Si el contenido no cabe en el maximo, es error con la cifra -- en CSS se sale en silencio.</p>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">overflow: hidden</span><span class="usos"><b>40</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>overflow: hidden;</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>overflow: hidden;
+/* recorta lo de dentro */</pre></div>
+        </div>
+        <p class="mejor">el recorte ya existe (emit/recorte.rs). Y el veredicto dice QUE se corta y cuanto: en CSS lo cortado no se ve ni se sabe.</p>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">cursor, pointer-events</span><span class="usos"><b>30</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>cursor: pointer;</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>cursor: pointer;
+/* -> ZONA_ENVIAR en el modulo */</pre></div>
+        </div>
+        <p class="mejor">en CSS es solo la flecha. Aqui DECLARA que la caja se pulsa: el modulo sale con su tabla de zonas, y la app no calcula a mano donde cae cada boton.</p>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">text-align, text-overflow</span><span class="usos"><b>31</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>text-align: center;
+text-overflow: ellipsis;</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>text-align: center;
+text-overflow: ellipsis;</pre></div>
+        </div>
+        <p class="mejor">el texto se mide AL COMPILAR con la letra que lo pinta, asi que centrar es exacto al pixel; y el corte con "..." ya lo hace el aparato (H2).</p>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">inset, offsets negativos, z-index</span><span class="usos"><b>48</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>inset: 0;
+top: -6px;
+z-index: 3;</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>inset: 0;
+top: -6px;
+capa: 3;</pre></div>
+        </div>
+        <p class="mejor">z-index en CSS depende del contexto de apilado, un clasico que nadie entiende. Aqui <code>capa</code> es un numero GLOBAL y ordenado: lo que se pinta encima se lee en el fichero.</p>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">flex-wrap, aspect-ratio, outline, align</span><span class="usos"><b>70</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>flex-wrap: wrap;
+aspect-ratio: 16/9;
+outline: 2px solid #70D6FF;</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>flex-wrap: wrap;
+aspect-ratio: 16/9;
+outline: 2px solid #70D6FF;</pre></div>
+        </div>
+        <p class="mejor">con hijos y anchos conocidos, partir en filas es una cuenta del compilador; la proporcion sale de la caja PROPIA; el contorno es un anillo de bmo-pinta que no ocupa sitio.</p>
+      </div>
+    </article>
+  </section>
+
+  <!-- ============ B ============ -->
+  <section class="pila pila-b" aria-labelledby="hb">
+    <header><h3 id="hb">B -- MEJOR QUE CSS</h3><span class="cuenta">646 usos</span></header>
+    <p class="que">Lo que CSS hace en el navegador cada vez, aqui se resuelve UNA vez al compilar -- y se juzga.</p>
+
+    <article class="carta abierta">
+      <button aria-expanded="true"><span class="nombre">display: grid</span><span class="usos"><b>204</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>display: grid;
+grid-template-columns:
+  60px 1fr 1fr;</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>display: grid; width: 300px;
+grid-template-columns:
+  60px 1fr 1fr;</pre></div>
+        </div>
+        <p class="mejor"><code>fr</code> se reparte contra el ancho de la PROPIA rejilla (como <code>50%</code> del radio): L7 intacta. Y cada celda se juzga: una que no cabe es error con su fila y su columna, no una celda que se desborda en silencio.</p>
+        <div class="demo">
+          <div class="rot">el juez, sobre una rejilla de 3 columnas:</div>
+          <div class="rejilla">
+            <span>60px</span><span>1fr = 116</span><span>1fr = 116</span>
+            <span>icono</span><span>Recibir</span><span class="mal">Enviar 1.250.000,00 no cabe</span>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">margin</span><span class="usos"><b>114</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>.a { margin-bottom:10px }
+.b { margin-top:10px }
+/* entre las dos: 10, no 20 */</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>margin-top: 10px;
+/* error SOLO donde CSS
+   fundiria dos margenes */</pre></div>
+        </div>
+        <p class="mejor">se acepta el margen y se rechaza EXACTAMENTE el caso en que CSS los funde -- con el arreglo escrito: "pon gap:10px en el padre". La vista previa no puede mentir y el 95 % de los usos entra.</p>
+        <div class="demo">
+          <div class="rot">dos margenes de 10 px, pegados:</div>
+          <div class="margenes">
+            <div><div class="caja m1"></div><div class="caja m2"></div><small>CSS: 10 (se funden)</small></div>
+            <div><div class="g"><div class="caja"></div><div class="caja"></div></div><small>gap: 20, lo que se lee</small></div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">variables por caja (--c)</span><span class="usos"><b>104</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>&lt;div class="chip"
+  style="--c:#FF8A5C"&gt;
+/* la HEREDAN los hijos */</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>&lt;div class="chip"
+  style="--c:#FF8A5C"&gt;
+/* solo ESTA caja */</pre></div>
+        </div>
+        <p class="mejor">la variable vale para su caja y nada mas; si un hijo la lee, es error (en el navegador la heredaria y se veria distinto). Una constante, no una herencia escondida.</p>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">font-family</span><span class="usos"><b>84</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>font-family:
+  "IBM Plex Sans", sans-serif;</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>font-family: bmo;
+/* y bmo.woff2 para el navegador */</pre></div>
+        </div>
+        <p class="mejor">una sola letra, la de la casa -- pero EXPORTADA como fuente web desde bmo-letra, asi el navegador pinta la MISMA. Hoy la foto se parece un 86 % por la letra de reserva; con esto, la diferencia es el suavizado.</p>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">opacity</span><span class="usos"><b>67</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>background:#FFD45E;
+opacity:.4;
+/* mezcla en cada cuadro */</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>background:#FFD45E;
+opacity:.4;
+/* = #6E5F34, al compilar */</pre></div>
+        </div>
+        <p class="mejor">sobre un fondo liso y conocido, la mezcla se hace UNA vez al compilar: el aparato pinta un color, cero alfa. Sobre una isla o una imagen (fondo que no se sabe), error con el motivo.</p>
+        <div class="demo">
+          <div class="premezcla">
+            <div class="fondo"><div class="vidrio"></div></div><span>=</span>
+            <div class="fondo"><div class="hecho"></div></div><code>#6E5F34</code>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">flex: 1</span><span class="usos"><b>59</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>.fila { display:flex }
+.nombre { flex:1 }</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>.fila { display:flex; width:420px }
+.nombre { flex:1 }</pre></div>
+        </div>
+        <p class="mejor">crecer pide un padre con medida DICHA en el fichero; sin ella, error. El sobrante se reparte al compilar y queda escrito en el modulo.</p>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">transition de varias propiedades</span><span class="usos"><b>14</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>transition:
+  border-radius .3s, width .3s;</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>transition: 300ms ease;
+/* el radio YA se mezcla */</pre></div>
+        </div>
+        <p class="mejor">la mezcla de piezas ya lleva el radio, la medida y el color: se acepta la lista de CSS y se dice cuales iban juntas.</p>
+      </div>
+    </article>
+  </section>
+
+  <!-- ============ C ============ -->
+  <section class="pila pila-c" aria-labelledby="hc">
+    <header><h3 id="hc">C -- EL MOVIMIENTO</h3><span class="cuenta">193 usos</span></header>
+    <p class="que">CSS anima maquetando en cada cuadro. MAQUETA no maqueta en el aparato: anima ESTADOS ya maquetados.</p>
+
+    <article class="carta abierta">
+      <button aria-expanded="true"><span class="nombre">@keyframes, animation</span><span class="usos"><b>94</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>@keyframes latido {
+  50% { transform:scale(1.18) }
+}
+.punto { animation:
+  latido 1.6s infinite }</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>@secuencia latido 1600ms
+          repite {
+  50% { .punto { width:40px;
+                 height:40px } }
+}</pre></div>
+        </div>
+        <p class="mejor">cada paso de la secuencia es un <code>@estado</code> ENTERO: se maqueta y se juzga al compilar (un texto que no cabe en el 50 % no compila). El aparato solo mezcla piezas, como hoy con las transiciones.</p>
+        <div class="demo">
+          <div class="rot">tres estados ya maquetados; el aparato solo los mezcla:</div>
+          <div class="estados">
+            <div class="paso">0%</div><span>&#8594;</span><div class="paso">50%</div><span>&#8594;</span><div class="paso">100%</div>
+            <span style="margin-left:10px"></span><div class="paso vivo">vivo</div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="carta">
+      <button aria-expanded="false"><span class="nombre">transform: translate / scale</span><span class="usos"><b>99</b></span><span class="flecha">&#9656;</span></button>
+      <div class="cuerpo">
+        <div class="lado">
+          <div class="css"><h4>CSS</h4><pre>transform: translateY(-4px)
+           scale(1.05);
+transform-origin: center;</pre></div>
+          <div class="maq"><h4>MAQUETA 3</h4><pre>@estado arriba {
+  .carta { transform:
+    translateY(-4px) scale(1.05) }
+}</pre></div>
+        </div>
+        <p class="mejor">solo dentro de un estado o de una secuencia, y resuelto a cajas de pixel entero al compilar: la "carta que sube" se ve igual en el navegador y en el Ryzen. Rotar se rechaza: la letra de la casa no se pinta torcida.</p>
+      </div>
+    </article>
+  </section>
+</div>
+
+<section class="nunca" aria-labelledby="hn">
+  <h3 id="hn">NUNCA (Y LOS SUELTOS) -- 183 usos, y por que</h3>
+  <ul>
+    <li><code>inherit</code>, herencia (23): un padre no sabe que tiene padre (L7). Se escribe <code>var(--x)</code>.</li>
+    <li><code>width: %</code>, <code>height: auto</code>, <code>calc()</code> (60): piden la medida del contenedor. <code>fr</code> de la rejilla PROPIA lo cubre.</li>
+    <li><code>content</code>, pseudo-elementos (10): una caja que no esta en el fichero no se puede juzgar.</li>
+    <li><code>filter</code>, <code>mix-blend-mode</code>, <code>mask</code>, <code>clip-path</code> (13): piden componer en el aparato. El desenfoque es de la 3060 (VERRANO), no de la maqueta.</li>
+    <li>decimales de caja (<code>line-height:1.4</code>, <code>font-size:13.5px</code>, 19): medio pixel de caja es un borde borroso.</li>
+    <li>restos de JavaScript y prefijos <code>-webkit-</code> (5): no son CSS.</li>
+    <li>y 53 sueltos de 1 a 7 usos (<code>overflow-wrap</code>, <code>background-size</code>, <code>stroke-dasharray</code>, <code>sticky</code>...): no son "nunca" -- se miran uno a uno cuando un caso real los pida.</li>
+  </ul>
+</section>
+
+<section class="decisiones" aria-labelledby="hd">
+  <h3 id="hd">LAS DECISIONES -- son tuyas</h3>
+  <p>Cada una cambia lo que se escribe en <code>LA_MAQUETA_EXIGE.md</code>. Pulsa la que quieras: la recomendada va marcada.</p>
+
+  <div class="dec"><div class="id">M1</div><div>
+    <p><b>margin</b>: entra, con error SOLO donde CSS fundiria dos margenes?</p>
+    <div class="opciones" data-dec="M1"><button class="op rec" aria-pressed="true">a) si, y el error dice "gap"</button><button class="op" aria-pressed="false">b) sigue fuera</button></div>
+  </div></div>
+
+  <div class="dec"><div class="id">M2</div><div>
+    <p><b>font-family</b>: la letra de la casa exportada como fuente web, para que el navegador pinte la misma?</p>
+    <div class="opciones" data-dec="M2"><button class="op rec" aria-pressed="true">a) si: font-family: bmo</button><button class="op" aria-pressed="false">b) sigue rechazada</button></div>
+  </div></div>
+
+  <div class="dec"><div class="id">M3</div><div>
+    <p><b>grid</b> y <b>flex:1</b>: solo con la medida de la caja dicha en el fichero?</p>
+    <div class="opciones" data-dec="M3"><button class="op rec" aria-pressed="true">a) si, como el 50 % del radio</button><button class="op" aria-pressed="false">b) esperar a "cuando algo real lo pida"</button></div>
+  </div></div>
+
+  <div class="dec"><div class="id">M4</div><div>
+    <p><b>opacity</b>: mezclada al compilar sobre un fondo liso conocido?</p>
+    <div class="opciones" data-dec="M4"><button class="op rec" aria-pressed="true">a) si, y error sobre lo que no se sabe</button><button class="op" aria-pressed="false">b) esperar al alfa del rasterizador</button></div>
+  </div></div>
+
+  <div class="dec"><div class="id">M5</div><div>
+    <p><b>animacion</b>: <code>@secuencia</code> de estados ya maquetados (y transform solo dentro de estados)?</p>
+    <div class="opciones" data-dec="M5"><button class="op rec" aria-pressed="true">a) si: @secuencia</button><button class="op" aria-pressed="false">b) solo estados + transition, como hoy</button></div>
+  </div></div>
+
+  <div class="dec"><div class="id">M6</div><div>
+    <p><b>variables por caja</b>: valen para SU caja, y error si un hijo las lee?</p>
+    <div class="opciones" data-dec="M6"><button class="op rec" aria-pressed="true">a) si, constantes de una caja</button><button class="op" aria-pressed="false">b) solo :root, como hoy</button></div>
+  </div></div>
+</section>
+
+</main>
+<script>
+// Abrir y cerrar cada tarjeta; encender la pila de la barra; elegir en las decisiones.
+document.querySelectorAll('.carta > button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var c = b.parentElement, abierta = c.classList.toggle('abierta');
+    b.setAttribute('aria-expanded', abierta ? 'true' : 'false');
+  });
+});
+document.querySelectorAll('.trozo').forEach(function (t) {
+  t.addEventListener('click', function () {
+    var p = document.querySelector('.pila-' + t.dataset.pila);
+    if (p) { p.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+});
+document.querySelectorAll('.opciones').forEach(function (g) {
+  g.querySelectorAll('.op').forEach(function (o) {
+    o.addEventListener('click', function () {
+      g.querySelectorAll('.op').forEach(function (x) { x.setAttribute('aria-pressed', x === o ? 'true' : 'false'); });
+    });
+  });
+});
+</script>
+</body>
+</html>
