@@ -376,7 +376,8 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   los descomprime. **Como se sabe:** una textura BC7 se ve igual en los dos.
 - [x] D2.7 -- Los formatos sin tipo (`TYPELESS`) y sus vistas que lo cambian,
   con las reglas de Windows de que se puede ver como que. (06-10, en el
-  banco; falta verlo en Windows y en el metal.) Una vista de otro formato
+  banco y EN WINDOWS: `tipos.exe` 8 `bien` en la 3060 del propietario;
+  falta el metal.) Una vista de otro formato
   del MISMO tamanio de elemento lee y escribe los bytes del elemento: los
   UAV (`bufer::con_vista`), los SRV (`Textura::vista`, su Load) y los
   render targets (`trama`). **Como se sabe:** `tipos.exe`, 8 `bien` bit a
@@ -1288,7 +1289,8 @@ y lo dice.
 
 ```text
    A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    9
-      1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien)
+      1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
+               en el banco y en Windows)
       2  D3.4  ClearUnorderedAccessView en los formatos que aun no escribe
       3  D3.2  el deserializador de firmas (D3D12CreateVersionedRoot...)
       4  D3.2  serializar la 1.1 con los MISMOS bytes que Windows

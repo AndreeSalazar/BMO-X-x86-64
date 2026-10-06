@@ -3017,3 +3017,5 @@ aviso. Probado que dice NO: contra la casa de antes, 6 MAL (los UAV y los
 SRV de otro tipo se veian nulos; los render targets de otro tipo no se
 pintaban). Y el juez se equivoco una vez y la casa no: la palabra SNORM
 esperada iba con los bytes al reves (0x207F81E0); es 0x20817FE0.
+
+Lo que dijo Windows (06-10, 09:55, la 3060 del propietario): 8 `bien`.

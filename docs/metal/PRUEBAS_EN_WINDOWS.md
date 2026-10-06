@@ -189,6 +189,9 @@ en SV_VertexID (lo que hace la casa desde hoy). `restos`, 15 y su nota.
 Desde aqui, cada juez de esta carpeta es Windows: lo que diga distinto
 BMO-X en el Ryzen, es de BMO-X.
 
+**La TERCERA corrida (06-10, 09:55): 84 de 84**, con `tipos.exe` (D2.7)
+en 8 `bien` a la primera.
+
 ## 4. Que mandar, en orden
 
 1. `informe_windows\resumen.txt` (seccion 1). Si todo dice `bien`: con esa
