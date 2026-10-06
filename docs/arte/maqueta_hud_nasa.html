@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-paleta="gato">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,6 +18,15 @@
    son 12 motores), F8 el soporte vital, F9 la ALARMA MAESTRA, F12 la
    trayectoria (las versiones de ESTRATOS son encendidos de motor y las ramas,
    trayectorias). Los numeros son DE EJEMPLO.
+
+   ** HD1 (06-10): *"me imagine un planeta mi gato del logo pero que es
+   dominante, que es estrella, como fondo animado y presentable en
+   escritorio; cuando todo se configura normal en inicio y luego en
+   escritorio por completo"*. Asi que: la paleta GATO sale del logo
+   (docs/arte/bmo-x-gato-hd.svg: el cian del ojo, el magenta, el violeta de
+   la ciudad), el escritorio tiene en el centro la ESTRELLA GATO --el logo,
+   con su corona animada--, y la pantalla INICIO es el arranque: la lista de
+   GO / NO-GO mientras la estrella se enciende, y despues el escritorio.
 
    ** Esta maqueta es el OBJETIVO, no lo que hoy compila: usa SVG con
    circulos, arcos y grupos girados (MAQUETA 3, seccion 2d de
@@ -39,6 +48,7 @@
   --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   --f-cond: "IBM Plex Sans Condensed", system-ui, sans-serif;
 }
+:root[data-paleta="gato"]   { --p: #5EF2E6; --s: #FF2E88; --t: #F2F7F9; --tenue: #9A96B8; --linea: #2B2250; --rejilla: #161236; --panel: #09080F; --fondo: #04030A; --bien: #7EE787; --alerta: #FF5A6E; --cuidado: #FFD45E; }
 :root[data-paleta="artemis"] { --p: #E8EEF6; --s: #3D8BFF; --t: #DDE6F0; --bien: #6CF0C2; --alerta: #FF3B3B; --cuidado: #FFC94A; }
 :root[data-paleta="marte"]   { --p: #FF7A3D; --s: #FFC08A; --t: #F3D9C8; --tenue: #8A6A5A; --linea: #3A2318; --rejilla: #1A0F0A; --panel: #0B0604; --fondo: #060302; --bien: #B6FF7A; }
 * { box-sizing: border-box; }
@@ -87,6 +97,9 @@ svg text { font-family: var(--f-mono); }
 .chico { font-size: 9.5px; letter-spacing: .12em; }
 .gira { transform-box: fill-box; transform-origin: center; animation: gira 40s linear infinite; }
 .gira-r { transform-box: fill-box; transform-origin: center; animation: gira 6s linear infinite; }
+.corona { transform-box: fill-box; transform-origin: center; animation: gira 90s linear infinite; }
+.respira { transform-box: fill-box; transform-origin: center; animation: respira 5s ease-in-out infinite; }
+@keyframes respira { 50% { transform: scale(1.04); opacity: .85; } }
 .late { animation: late 2.2s ease-in-out infinite; }
 .barre { transform-box: view-box; animation: barre 4s linear infinite; }
 .parp { animation: parpadeo 1s steps(2) infinite; }
@@ -94,7 +107,7 @@ svg text { font-family: var(--f-mono); }
 @keyframes late { 50% { opacity: .35; } }
 @keyframes parpadeo { 50% { opacity: .15; } }
 @keyframes barre { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .gira, .gira-r, .late, .barre, .parp, .barra-sup .luz.mal i { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .gira, .gira-r, .late, .barre, .parp, .corona, .respira, .barra-sup .luz.mal i { animation: none; } }
 
 /* -- la ficha debajo: que es cada instrumento y de que esta hecho ------------ */
 .ficha { margin-top: 12px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
@@ -114,7 +127,8 @@ svg text { font-family: var(--f-mono); }
     <p>El HUD de mision para TODO BMO-X, hasta el escritorio: cada tecla abre su propio instrumento, unico.
        Pulsa la consola de abajo (o las teclas F1..F12 de tu teclado). Los numeros son de ejemplo.</p>
     <div class="paletas" role="group" aria-label="paleta">
-      <button data-p="apollo" aria-pressed="true">APOLLO</button>
+      <button data-p="gato" aria-pressed="true">GATO</button>
+      <button data-p="apollo" aria-pressed="false">APOLLO</button>
       <button data-p="artemis" aria-pressed="false">ARTEMIS</button>
       <button data-p="marte" aria-pressed="false">MARTE</button>
     </div>
@@ -203,6 +217,35 @@ svg text { font-family: var(--f-mono); }
     }
     el('circle', { cx: cx, cy: cy, r: r + 6, fill: 'none', 'class': 'k-s', 'stroke-opacity': .25, 'stroke-width': 1 }, p);
   }
+  // ** LA ESTRELLA GATO (HD1): el logo de BMO-X como la estrella dominante
+  // del sistema. La corona gira despacio, el halo respira, y dentro va el
+  // gato DE VERDAD (docs/arte/bmo-x-gato-hd.svg, con sus ojos de neon).
+  // `k` de 0 a 1 es cuanto esta encendida: el arranque la enciende.
+  function estrellaGato(p, cx, cy, r, k) {
+    var g = el('g', { id: 'estrella' }, p);
+    var defs = el('defs', {}, g);
+    var gr = el('radialGradient', { id: 'halo-gato', cx: '50%', cy: '50%', r: '50%' }, defs);
+    [['0%', '#5EF2E6', .55], ['45%', '#3DA5FF', .22], ['75%', '#FF2E88', .10], ['100%', '#FF2E88', 0]].forEach(function (s) {
+      el('stop', { offset: s[0], 'stop-color': s[1], 'stop-opacity': s[2] }, gr);
+    });
+    var cp = el('clipPath', { id: 'cara-gato' }, defs);
+    el('circle', { cx: cx, cy: cy, r: r * 0.92 }, cp);
+    var halo = el('circle', { cx: cx, cy: cy, r: r * 2.3, fill: 'url(#halo-gato)', 'class': 'respira' }, g);
+    var corona = el('g', { 'class': 'corona' }, g);
+    for (var i = 0; i < 24; i++) {
+      var a = i * Math.PI / 12, l = r * (i % 2 ? 1.45 : 1.85);
+      el('line', { x1: cx + Math.cos(a) * r * 1.05, y1: cy + Math.sin(a) * r * 1.05, x2: cx + Math.cos(a) * l, y2: cy + Math.sin(a) * l,
+        stroke: i % 3 ? '#5EF2E6' : '#FF2E88', 'stroke-opacity': .5, 'stroke-width': i % 2 ? 1 : 2, 'stroke-linecap': 'round' }, corona);
+    }
+    el('circle', { cx: cx, cy: cy, r: r, fill: '#000' }, g);
+    el('image', { href: 'bmo-x-gato-hd.svg', x: cx - r * 1.1, y: cy - r * 1.02, width: r * 2.2, height: r * 1.98, 'clip-path': 'url(#cara-gato)', preserveAspectRatio: 'xMidYMid slice' }, g);
+    el('circle', { cx: cx, cy: cy, r: r, fill: 'none', stroke: '#5EF2E6', 'stroke-width': 2, 'stroke-opacity': .8 }, g);
+    el('circle', { cx: cx, cy: cy, r: r * 1.08, fill: 'none', stroke: '#FF2E88', 'stroke-width': 1, 'stroke-opacity': .5, 'stroke-dasharray': '3 9' }, g);
+    var fijar = function (k) { g.setAttribute('transform', 'translate(' + cx + ' ' + cy + ') scale(' + (0.05 + 0.95 * k) + ') translate(' + (-cx) + ' ' + (-cy) + ')'); g.setAttribute('opacity', Math.min(1, k * 1.5)); };
+    fijar(k == null ? 1 : k);
+    return fijar;
+  }
+
   function estrellas(p, n, semilla) {
     var s = semilla;
     for (var i = 0; i < n; i++) {
@@ -214,15 +257,47 @@ svg text { font-family: var(--f-mono); }
 
   // == LAS PANTALLAS: una por tecla, y ninguna repite instrumento ============
   var PANTALLAS = [
+    { k: 'INICIO', n: 'ARRANQUE', sub: 'GO / NO-GO', que: 'El arranque como la cuenta atras de un lanzamiento: cada sistema contesta GO cuando de verdad esta listo -- lo que el kernel ya mide, no una barra de progreso inventada -- mientras la estrella gato se enciende. Con todo en GO, el escritorio.',
+      dato: 'Las horas son las del arranque medido: el kernel arriba en 47 ms. Pasa solo al escritorio; la pantalla vuelve con el boton INICIO.',
+      usa: ['<b>@secuencia</b> de encendido de la estrella (S7)', '<b>&lt;lista&gt;</b> de sistemas, cada fila con su <b>@estado</b> GO', 'la misma estrella del escritorio: UNA pieza'],
+      pinta: function (p) {
+        estrellas(p, 160, 5);
+        var enciende = estrellaGato(p, 900, 360, 150, 0.05);
+        var lista = [['KERNEL', 'ARRIBA EN 47 MS'], ['NUCLEOS', '12 DE 12'], ['MEMORIA', '14.8 GIB'], ['USB', 'TECLADO Y RATON'], ['DISCO', 'AHCI'],
+          ['ESTRATOS', 'GENERACION 1234'], ['3060', 'P0  49C'], ['RED', 'DHCP'], ['SONIDO', 'CASCO 7.1'], ['ESCRITORIO', 'LISTO']];
+        marco(p, 40, 40, 520, H - 80, 'ENCUESTA DE LANZAMIENTO', 'GO / NO-GO');
+        var filas = lista.map(function (s, i) {
+          var y = 96 + i * 56;
+          el('line', { x1: 60, y1: y + 18, x2: 540, y2: y + 18, 'class': 'k-l' }, p);
+          txt(p, 60, y, s[0], 'rot t-t');
+          var d = txt(p, 60, y + 14, '', 'chico t-d');
+          var go = txt(p, 540, y + 4, '...', 'rot t-d', 'end');
+          return [d, go, s[1]];
+        });
+        var cuenta = txt(p, 900, 620, '', 'cifra t-p', 'middle');
+        var hecho = false;
+        return function (t) {
+          var n = Math.min(lista.length, Math.floor(t / 520));
+          filas.forEach(function (f, i) {
+            if (i < n) { f[0].textContent = f[2]; f[1].textContent = 'GO'; f[1].setAttribute('class', 'rot t-ok'); }
+          });
+          enciende(Math.min(1, t / 5400));
+          cuenta.textContent = n < lista.length ? 'T- ' + String(lista.length - n).padStart(2, '0') : 'TODOS LOS SISTEMAS: GO';
+          if (!hecho && t > 6600) { hecho = true; if (actual === 0) { abrir(1); } }
+        };
+      } },
     { k: 'ESC', n: 'ESCRITORIO', sub: 'APROXIMACION', que: 'La ventana de la nave llegando al planeta: la reticula, la trayectoria de entrada, y la telemetria en las cuatro esquinas. Es el fondo de todo: las ventanas se abren DENTRO de esta vista.',
-      dato: 'La reticula sigue al puntero; el globo (CAPCOM) habla abajo a la izquierda.',
-      usa: ['<b>svg</b> con circulo, elipses y arco (S1, S2)', '<b>@secuencia</b> que gira las bandas del planeta (S7)', '<b>capa</b> y absolutas para las cuatro esquinas (MA)', 'la paleta <b>mision</b> del tema (HUD1)'],
+      dato: 'En el centro, la ESTRELLA GATO: el logo de BMO-X con su corona. Un planeta la orbita; la reticula sigue al puntero; el globo (CAPCOM) habla abajo a la izquierda.',
+      usa: ['<b>&lt;svg src="bmo-x-gato-hd.svg"&gt;</b>: el logo tal cual, aplanado al compilar (S6)', '<b>svg</b> con circulo, elipses y arco (S1, S2)', '<b>@secuencia</b> que gira las bandas del planeta (S7)', '<b>capa</b> y absolutas para las cuatro esquinas (MA)', 'la paleta <b>mision</b> del tema (HUD1)'],
       pinta: function (p) {
         estrellas(p, 220, 7);
-        planeta(p, 860, 470, 230, ['#E8A766', '#7A3B1C']);
-        el('path', { d: 'M120 140 Q 520 160 700 330 T 860 470', fill: 'none', 'class': 'k-s', 'stroke-width': 1.5, 'stroke-dasharray': '6 6' }, p);
-        el('circle', { cx: 700, cy: 330, r: 5, 'class': 't-s late' }, p);
-        txt(p, 712, 326, 'ENTRADA  -14.2 GRADOS', 'chico t-s');
+        estrellaGato(p, 760, 380, 170, 1);
+        el('ellipse', { cx: 760, cy: 380, rx: 470, ry: 150, fill: 'none', 'class': 'k-d', 'stroke-opacity': .5, 'stroke-dasharray': '2 6' }, p);
+        var orbita = el('g', {}, p);
+        planeta(orbita, 0, 0, 26, ['#E8A766', '#7A3B1C']);
+        txt(orbita, 34, -30, 'KEPLER-5600 b', 'chico t-p');
+        el('path', { d: 'M120 140 Q 420 200 520 330', fill: 'none', 'class': 'k-s', 'stroke-width': 1.5, 'stroke-dasharray': '6 6' }, p);
+        txt(p, 300, 236, 'TRAYECTORIA DE ENTRADA', 'chico t-s');
         var cx = W / 2, cy = H / 2, ret = el('g', { id: 'reticula' }, p);
         el('circle', { cx: cx, cy: cy, r: 46, fill: 'none', 'class': 'k-p', 'stroke-width': 1 }, ret);
         [[-70, 0, -50, 0], [50, 0, 70, 0], [0, -70, 0, -50], [0, 50, 0, 70]].forEach(function (l) {
@@ -234,9 +309,12 @@ svg text { font-family: var(--f-mono); }
         regla(p, W - 40, 170, 360, 40, true);
         marco(p, 24, H - 154, 300, 130, 'CAPCOM', 'GLOBO');
         txt(p, 40, H - 104, 'administrar archivos?', 'rot t-t'); txt(p, 40, H - 82, 'F2  MIAU :3', 'rot t-p');
+        var mueve = function (t) { var a = t / 9000; orbita.setAttribute('transform', 'translate(' + (760 + 470 * Math.cos(a)) + ' ' + (380 + 150 * Math.sin(a)) + ')'); };
+        mueve(0);
         marco(p, W - 324, H - 154, 300, 130, 'SISTEMAS', 'S-04');
         barraH(p, W - 308, H - 104, 268, .62, 't-s'); txt(p, W - 308, H - 112, 'CPU 62 %', 'chico t-d');
         barraH(p, W - 308, H - 70, 268, .31, 't-p'); txt(p, W - 308, H - 78, 'MEMORIA 5.4 MIB DE 14.8 GIB', 'chico t-d');
+        return mueve;
       } },
     { k: 'F1', n: 'TALLER', sub: 'ENSAMBLAJE', que: 'El TALLER como plano de ensamblaje del modulo: cada nodo de TITAN++ es una pieza de la nave con sus puertos de acople, y cada `use` es un conducto.',
       dato: 'Los nodos son los de asteroids; el sello de cada uno sigue siendo unico.',
@@ -443,7 +521,7 @@ svg text { font-family: var(--f-mono); }
   ];
 
   // -- la consola de mando, abajo -------------------------------------------
-  var actual = 0, anima = null;
+  var actual = 0, anima = null, tAbre = performance.now();
   PANTALLAS.forEach(function (s, i) {
     var b = document.createElement('button');
     b.innerHTML = '<b>' + s.k + '</b><span>' + s.n + '</span>';
@@ -458,6 +536,7 @@ svg text { font-family: var(--f-mono); }
     var v = $('vista'); v.innerHTML = '';
     var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'xMidYMid meet', role: 'img', 'aria-label': s.n }, v);
     anima = s.pinta(svg) || null;
+    tAbre = performance.now();
     $('donde').textContent = s.n + ' / ' + s.sub;
     $('luz-sis').className = 'luz' + (s.k === 'F9' ? ' mal' : '');
     $('luz-sis').lastChild.textContent = s.k === 'F9' ? 'ALARMA MAESTRA' : 'SISTEMAS NOMINALES';
@@ -472,7 +551,7 @@ svg text { font-family: var(--f-mono); }
   function cuadro(ahora) {
     var t = ahora - t0, s = Math.floor(t / 1000);
     $('reloj').textContent = 'T+ ' + [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(function (n) { return String(n).padStart(2, '0'); }).join(':');
-    if (anima && !quieto) { anima(t); }
+    if (anima) { anima(quieto ? 1e7 : ahora - tAbre); }
     requestAnimationFrame(cuadro);
   }
   requestAnimationFrame(cuadro);
@@ -487,9 +566,9 @@ svg text { font-family: var(--f-mono); }
 
   // -- las teclas de verdad: Esc y F1..F12 -----------------------------------
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { abrir(0); e.preventDefault(); return; }
+    if (e.key === 'Escape') { abrir(1); e.preventDefault(); return; }
     var m = /^F(\d{1,2})$/.exec(e.key);
-    if (m && +m[1] >= 1 && +m[1] <= 12) { abrir(+m[1]); e.preventDefault(); }
+    if (m && +m[1] >= 1 && +m[1] <= 12) { abrir(+m[1] + 1); e.preventDefault(); }
   });
   document.querySelectorAll('.paletas button').forEach(function (b) {
     b.addEventListener('click', function () {

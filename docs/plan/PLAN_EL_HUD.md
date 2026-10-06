@@ -294,23 +294,39 @@ nada.
 
 ### Las decisiones del propietario
 
+**HD1 y HD3, DECIDIDAS el 06-10.** HD1 no fue ninguna de las tres paletas
+que se ofrecieron: *"me imagine un planeta mi gato del logo pero que es
+dominante, que es estrella, como fondo animado y presentable en escritorio;
+cuando todo se configura normal en inicio y luego en escritorio por
+completo"*. HD3: *"el escritorio primero"*.
+
 ```text
-   HD1  la paleta       APOLLO (ambar y cian sobre negro) | ARTEMIS (blanco
-                        y azul) | MARTE (naranja). La maqueta deja probar las tres
+   HD1  la paleta       GATO: sale del LOGO (docs/arte/bmo-x-gato-hd.svg) --
+                        el cian del ojo #5EF2E6, el magenta #FF2E88, el azul
+                        #3DA5FF y el violeta de la ciudad del tema. APOLLO,
+                        ARTEMIS y MARTE se quedan en la maqueta para comparar
+        la ESTRELLA     el logo es la estrella DOMINANTE del sistema: el gato
+                        dentro, la corona que gira despacio, el halo que
+                        respira; un planeta la orbita. Es el fondo del
+                        escritorio
+        el INICIO       el arranque es la encuesta GO / NO-GO: cada sistema
+                        dice GO cuando el kernel lo mide listo, mientras la
+                        estrella se ENCIENDE; con todo en GO, el escritorio
    HD2  la letra        la de la casa (bmo-letra) en su peso de numeros; la
                         maqueta usa IBM Plex solo porque el navegador no tiene la
-                        de la casa (eso es M2 de PLAN_MAQUETA_3)
-   HD3  el orden        el escritorio primero (se ve siempre) o los paneles de
-                        vitales primero (F6-F8, los mas simples)
+                        de la casa (eso es M2 de PLAN_MAQUETA_3). Sin decidir
+   HD3  el orden        el ESCRITORIO primero
 ```
 
 ### Los escalones
 
 - [x] HM0 -- HECHO el 06-10: la maqueta interactiva `docs/arte/maqueta_hud_nasa.html`: trece pantallas, cada una un instrumento distinto, con las piezas comunes, tres paletas y las teclas F1..F12 de verdad; probada en Chromium (las trece se pintan sin un error)
-- [ ] HM-dec -- las decisiones HD1-HD3 del propietario, escritas en esta seccion
-- [ ] HM1 -- la paleta de mision en `toolchain/tools/maqueta/tema/tema.maqueta`, al lado de la del gato (el tema de la casa no se borra: se elige)
+- [x] HM-dec -- HECHO el 06-10: HD1 (la paleta GATO, la ESTRELLA GATO y el INICIO) y HD3 (el escritorio primero), escritas en esta seccion; HD2 sigue abierta
+- [x] HM0b -- HECHO el 06-10: la maqueta con HD1 dentro (`docs/arte/maqueta_hud_nasa.html`): la paleta GATO por defecto, la estrella gato con el logo de verdad en el escritorio, y la pantalla INICIO que se enciende y pasa sola al escritorio; probada en Chromium
+- [ ] HM1 -- la paleta GATO de mision en `toolchain/tools/maqueta/tema/tema.maqueta`, de los colores del logo
 - [ ] HM2 -- las piezas comunes (marco, regla, lectura, barra) como `.maqueta` de verdad, con sus ficheros dorados en `toolchain/tools/maqueta/pruebas/`; piden MAQUETA 3 (pila A y la seccion 2d de `docs/plan/PLAN_MAQUETA_3.md`)
-- [ ] HM3 -- el escritorio de mision: `Ultra_userspace/services/director/src/scene/fondo.rs` (el planeta y la reticula) y las cuatro esquinas
+- [ ] HM3 -- el escritorio de mision: la ESTRELLA GATO en `Ultra_userspace/services/director/src/scene/fondo.rs` (el logo como `<svg src>`, S6 de `docs/plan/PLAN_MAQUETA_3.md`), el planeta que la orbita, la reticula y las cuatro esquinas
+- [ ] HM3b -- el INICIO: la encuesta GO / NO-GO y la estrella que se enciende, en `Ultra_userspace/services/director/src/scene/arranque.rs` y `Ultra_userspace/services/director/src/scene/splash.rs`; cada GO sale de lo que el kernel ya mide, no de un reloj
 - [ ] HM4 -- los vitales F6, F7 y F8 como instrumentos: `Ultra_userspace/services/director/src/desktop/vitales.rs`
 - [ ] HM5 -- F9, F10, F11 y el globo: `Ultra_userspace/services/director/src/scene/cabina.rs`, `Ultra_userspace/services/director/src/scene/sound.rs`, `Ultra_userspace/services/director/src/scene/globo.rs`
 - [ ] HM6 -- las apps: F5 BANK CAT (`Ultra_userspace/services/director/src/desktop/bankcat.rs`), F1 el TALLER, F3 HERMES, F4 la LUDOTECA y F12 ESTRATOS, cada una con su instrumento
