@@ -28,6 +28,9 @@
 
 pub use bmo_letra::{Estilo, Fuente, Peso};
 
+pub mod figura;
+pub use figura::{Caminos, Fijos, Mezcla, Parada, Tinta, PARADAS};
+
 /// Un color `0x00RRGGBB`.
 pub type Color = u32;
 
@@ -66,7 +69,7 @@ pub fn sobre(fondo: Color, c: Color, alfa: u8) -> Color {
 /// lo que costaba un borde redondo (medido 04-10: 1,4 ms un anillo de
 /// 300 x 140). Desde cualquier inicio >= la raiz, Newton baja hasta el MISMO
 /// suelo: el resultado no cambia, solo cuanto cuesta llegar.
-fn raiz(n: u64) -> u64 {
+pub(crate) fn raiz(n: u64) -> u64 {
     if n < 2 {
         return n;
     }
@@ -307,7 +310,7 @@ pub fn letra_cabe(l: &mut impl Lienzo, f: &mut impl Fuente, x: i32, y: i32, alto
 }
 
 /// La distancia (1/64 px) del punto `p` al segmento `a`-`b`.
-fn distancia(p: (i32, i32), a: (i32, i32), b: (i32, i32)) -> i32 {
+pub(crate) fn distancia(p: (i32, i32), a: (i32, i32), b: (i32, i32)) -> i32 {
     let (px, py) = ((p.0 - a.0) as i64, (p.1 - a.1) as i64);
     let (bx, by) = ((b.0 - a.0) as i64, (b.1 - a.1) as i64);
     let l2 = bx * bx + by * by;
@@ -461,6 +464,11 @@ pub enum Pieza<'a> {
     /// Una imagen (H4): `w x h` pixeles `0xAARRGGBB` con el alfa de un BIT
     /// (como los da `bmo-imagen`), recortada a una caja de radio `r`.
     Imagen { x: i32, y: i32, w: i32, h: i32, r: i32, px: &'a [u32] },
+    /// **Una figura de SVG** (MAQUETA 3, ver [`figura`]): con `pluma > 0`,
+    /// la pluma redonda de ese grosor (1/64 px) por todos sus caminos a la
+    /// vez; con `pluma == 0`, el relleno con su regla. Con su tinta y su
+    /// opacidad (255, opaca).
+    Figura { caminos: &'a [&'a [(i32, i32)]], cerrados: &'a [bool], pluma: i32, tinta: Tinta<'a>, alfa: u8, par_impar: bool },
 }
 
 /// El estilo de la letra de una pieza.
@@ -534,7 +542,32 @@ pub fn pieza(l: &mut impl Lienzo, f: &mut impl Fuente, p: &Pieza, ox: i32, oy: i
         }
         Pieza::Relleno { caminos, c } => relleno(&mut l, caminos, c),
         Pieza::Imagen { x, y, w, h, r, px } => imagen(&mut l, x, y, w, h, r, px),
+        Pieza::Figura { caminos, cerrados, pluma, ref tinta, alfa, par_impar } => {
+            figura::figura(&mut l, &Fijos { caminos, cerrados }, pluma, tinta, alfa, par_impar);
+        }
     }
+}
+
+/// **Pinta una pieza a medio camino** entre `a` y `b` (`p` milesimas), con
+/// su origen en `(ox, oy)`. Lo mismo que `pieza(entre_piezas(a, b, p))`,
+/// y ademas mezcla los CAMINOS de dos figuras (S7): cada punto se mezcla
+/// cuando el pintor lo lee, sin construir la figura de en medio.
+pub fn pieza_entre(l: &mut impl Lienzo, f: &mut impl Fuente, a: &Pieza, b: &Pieza, p: i32, ox: i32, oy: i32) {
+    if let (
+        Pieza::Figura { caminos, cerrados, pluma, tinta, alfa, par_impar },
+        Pieza::Figura { caminos: c2, cerrados: k2, pluma: p2, tinta: t2, alfa: a2, .. },
+    ) = (a, b)
+    {
+        let mut aqui = [Parada { en: 0, c: 0, alfa: 0 }; PARADAS];
+        let tinta = figura::tinta_entre(tinta, t2, p, &mut aqui);
+        let pluma = if *pluma > 0 && *p2 > 0 { entre_i(*pluma, *p2, p).max(1) } else if p.clamp(0, 1000) >= 500 { *p2 } else { *pluma };
+        let alfa = entre_i(*alfa as i32, *a2 as i32, p.clamp(0, 1000)).clamp(0, 255) as u8;
+        let cs = Mezcla { a: Fijos { caminos, cerrados }, b: Fijos { caminos: c2, cerrados: k2 }, p };
+        let mut l = Corrido { l, ox, oy };
+        figura::figura(&mut l, &cs, pluma, &tinta, alfa, *par_impar);
+        return;
+    }
+    pieza(l, f, &entre_piezas(a, b, p), ox, oy);
 }
 
 /// La caja (en pixeles, sin el origen) que una pieza puede manchar, con lo
@@ -547,6 +580,7 @@ pub fn caja_de(p: &Pieza) -> (i32, i32, i32, i32) {
         Pieza::Letra { x, y, alto, px, .. } => (x - 2, y - px as i32 / 2, 4096, alto + px as i32),
         Pieza::Trazo { caminos, grosor64, .. } => caja_de_caminos(caminos, grosor64),
         Pieza::Relleno { caminos, .. } => caja_de_caminos(caminos, 0),
+        Pieza::Figura { caminos, pluma, .. } => caja_de_caminos(caminos, pluma),
     }
 }
 
@@ -613,43 +647,75 @@ pub fn pincelada(l: &mut impl Lienzo, f: &mut impl Fuente, p: &bmo_maqueta_cara:
             mayusculas: (e >> 9) & 1 != 0,
         },
         cara::CLASE_LINEA | cara::CLASE_RELLENO => {
-            let mut puntos = [(0i32, 0i32); PUNTOS];
-            let mut cortes = [(0usize, 0usize, false); SUBS];
-            let (mut n, mut m) = (0usize, 0usize);
-            cara::subcaminos(p.datos, |cerrado, pares| {
-                if m == SUBS {
-                    return;
-                }
-                let ini = n;
-                for par in pares.chunks_exact(4) {
-                    if n == PUNTOS {
-                        break;
-                    }
-                    let px = i16::from_le_bytes([par[0], par[1]]) as i32;
-                    let py = i16::from_le_bytes([par[2], par[3]]) as i32;
-                    puntos[n] = ((x * 64) + px * 4, (y * 64) + py * 4);
-                    n += 1;
-                }
-                cortes[m] = (ini, n, cerrado);
-                m += 1;
+            let linea = p.clase == cara::CLASE_LINEA;
+            con_caminos(p.datos, x, y, |caminos, cerrados| {
+                let pz = if linea {
+                    Pieza::Trazo { caminos, cerrados, grosor64: e * 4, c: p.color }
+                } else {
+                    Pieza::Relleno { caminos, c: p.color }
+                };
+                pieza(l, f, &pz, ox, oy);
             });
-            let mut caminos: [&[(i32, i32)]; SUBS] = [&[]; SUBS];
-            let mut cerrados = [false; SUBS];
-            for k in 0..m {
-                caminos[k] = &puntos[cortes[k].0..cortes[k].1];
-                cerrados[k] = cortes[k].2;
+            return;
+        }
+        cara::CLASE_FIGURA => {
+            let Some(fg) = cara::figura_de(p.datos) else { return };
+            let mut paradas = [Parada { en: 0, c: 0, alfa: 0 }; PARADAS];
+            let n = (fg.paradas.len() / cara::figura::PARADA).min(PARADAS);
+            for (k, pa) in paradas.iter_mut().enumerate().take(n) {
+                if let Some((en, c, alfa)) = cara::parada(fg.paradas, k) {
+                    *pa = Parada { en, c, alfa };
+                }
             }
-            let pz = if p.clase == cara::CLASE_LINEA {
-                Pieza::Trazo { caminos: &caminos[..m], cerrados: &cerrados[..m], grosor64: e * 4, c: p.color }
-            } else {
-                Pieza::Relleno { caminos: &caminos[..m], c: p.color }
+            let g = fg.geo.map(|v| v as i32 * 4);
+            let punto = |gx: i32, gy: i32| (x * 64 + gx, y * 64 + gy);
+            let tinta = match fg.tinta {
+                cara::figura::LINEAL => Tinta::Lineal { de: punto(g[0], g[1]), a: punto(g[2], g[3]), paradas: &paradas[..n] },
+                cara::figura::RADIAL => Tinta::Radial { centro: punto(g[0], g[1]), eje_x: (g[2], g[3]), eje_y: (g[4], g[5]), paradas: &paradas[..n] },
+                _ => Tinta::Liso(p.color),
             };
-            pieza(l, f, &pz, ox, oy);
+            con_caminos(fg.puntos, x, y, |caminos, cerrados| {
+                let pz = Pieza::Figura { caminos, cerrados, pluma: fg.pluma16 as i32 * 4, tinta, alfa: (e >> 8) as u8, par_impar: e & 1 != 0 };
+                pieza(l, f, &pz, ox, oy);
+            });
             return;
         }
         _ => return,
     };
     pieza(l, f, &pz, ox, oy);
+}
+
+/// **Los caminos de una cara**, descodificados en una tabla fija (los que no
+/// caben, no se pintan; nunca se escribe fuera), con su origen en el trazo.
+fn con_caminos(datos: &[u8], x: i32, y: i32, f: impl FnOnce(&[&[(i32, i32)]], &[bool])) {
+    use bmo_maqueta_cara as cara;
+    let mut puntos = [(0i32, 0i32); PUNTOS];
+    let mut cortes = [(0usize, 0usize, false); SUBS];
+    let (mut n, mut m) = (0usize, 0usize);
+    cara::subcaminos(datos, |cerrado, pares| {
+        if m == SUBS {
+            return;
+        }
+        let ini = n;
+        for par in pares.chunks_exact(4) {
+            if n == PUNTOS {
+                break;
+            }
+            let px = i16::from_le_bytes([par[0], par[1]]) as i32;
+            let py = i16::from_le_bytes([par[2], par[3]]) as i32;
+            puntos[n] = ((x * 64) + px * 4, (y * 64) + py * 4);
+            n += 1;
+        }
+        cortes[m] = (ini, n, cerrado);
+        m += 1;
+    });
+    let mut caminos: [&[(i32, i32)]; SUBS] = [&[]; SUBS];
+    let mut cerrados = [false; SUBS];
+    for k in 0..m {
+        caminos[k] = &puntos[cortes[k].0..cortes[k].1];
+        cerrados[k] = cortes[k].2;
+    }
+    f(&caminos[..m], &cerrados[..m]);
 }
 
 #[cfg(test)]

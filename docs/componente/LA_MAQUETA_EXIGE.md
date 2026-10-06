@@ -5,7 +5,7 @@
 > de quien quiera escribirle, y que le devuelve a la cara**.
 >
 > Escrito el **2026-08-17**. Este documento **es el contrato**: lo que no esta
-> aqui, no compila. Agregar algo a MAQUETA empieza por anadirlo a este fichero.
+> aqui, no compila. Agregar algo a MAQUETA empieza por escribirlo en este fichero.
 
 ---
 
@@ -86,8 +86,7 @@ declara con medida; una ventana que debe ajustarse a su contenido, no.
 | `<div>` | caja generica | el 95% de todo |
 | `<span>` | caja en linea, contiene texto | no acepta hijos |
 | `<island>` | el hueco que rellena otro proceso | atributo `nombre`, obligatorio y unico |
-| `<svg>` | **MAQUETA 2 (04-10)**: un dibujo, con su `viewBox` | solo lleva `<path>`; su pluma y su relleno se dicen en SU regla (`stroke`, `fill`...) |
-| `<path>` | un camino de SVG, atributo `d` | solo dentro de `<svg>`. `M L H V C S Q T Z` y minusculas; sin arcos `A` |
+| `<svg>` | **MAQUETA 2 (04-10)**: un dibujo, con su `viewBox`. **MAQUETA 3 (06-10)**: dentro va SVG de verdad, o `src="dibujo.svg"` | lo de dentro lo lee el LECTOR DE SVG con su propia lista cerrada (seccion 2e); la regla del `<svg>` da lo que heredan sus figuras (`fill`, `stroke`...) |
 | `<usa>` | **(04-10)** una PIEZA: otra maqueta, puesta aqui | atributo `src`, obligatorio; vacia. Con `repite` (y `entre`, `columnas`), una LISTA o una REJILLA. Ver abajo |
 | `<imagen>` | **(H4, 04-10)** pixeles | `src` (`.qoi`, `.bmp`, `.png`: se embebe, hasta 128x128) o `dato` (llega al ejecutar). Mide lo que mide; sin `padding` ni borde; se recorta a su `border-radius` |
 
@@ -98,9 +97,10 @@ de pixel) si no. **No se parten en lineas**: si no caben, es error (comprobacion
 B de la seccion 7).
 
 Atributos aceptados: `class`, `id`, `nombre` (solo en `<island>`), `ancho`/`alto`
-(solo en `<maqueta>`), `viewBox` (solo en `<svg>`), `d` (solo en `<path>`) y
+(solo en `<maqueta>`), `viewBox`, `preserveAspectRatio` y `src` (en `<svg>`),
 `src`, `repite`, `entre` y `columnas` (en `<usa>`), y `src` y `dato` (en
-`<imagen>`). **Cualquier otro atributo es un error.**
+`<imagen>`). **Cualquier otro atributo es un error.** Lo de DENTRO de un
+`<svg>` no son etiquetas de MAQUETA: es SVG, y lo juzga su lector (2e).
 
 ### `<usa src="fila.maqueta"/>`: las piezas (04-10)
 
@@ -187,6 +187,106 @@ conserva la previsualizacion en navegador. `<h1>`, `<p>`, `<button>` prometen co
 que MAQUETA no hace, y por eso **estan prohibidas**, no reinterpretadas.
 
 `id` **no sirve para estilar**: es la clave de la tabla de golpeo (seccion 8).
+
+### 2e. EL DIBUJO DE MAQUETA 3: TODO EL SVG (06-10)
+
+`docs/plan/PLAN_MAQUETA_3.md`, seccion 2d, escalones S1 a S7. El propietario:
+*"es para tener mi BMO-X con TODO el SVG en internet y animar todo"*. La ley
+no cambia, cambia cuanto cabe dentro de ella:
+
+```text
+   en el anfitrion, AL COMPILAR    se lee el SVG entero, se aplana TODO a
+                                   caminos de 1/64 de pixel y se juzga
+   en el aparato                   solo se entintan caminos, con su tinta
+```
+
+**Dos maneras de escribir un dibujo, UN lector** (`toolchain/tools/maqueta/dibujo`,
+`bmo-maqueta-dibujo`):
+
+```text
+   <svg class="icono" viewBox="0 0 24 24">     SVG escrito en la maqueta. Lo de
+     <circle cx="12" cy="12" r="9"/>          dentro es SVG: el navegador lo
+   </svg>                                      pinta tal cual en la vista previa
+   <svg class="logo" src="logo.svg"/>          un fichero SVG de internet, TAL
+                                               CUAL: de esta carpeta o de debajo,
+                                               sin `..`, hasta 1 MiB
+```
+
+En la vista previa (`toolchain/tools/espejo-cara/foto.js`) el `src` se pone
+DENTRO, como las piezas de `<usa>`: el navegador pinta el mismo fichero que
+lee el compilador. Sin `width`/`height` en la regla, el dibujo mide lo que
+dice su fichero (`width`/`height` de la raiz, en `px` o sin unidad); sin
+nada de eso es error -- el navegador le daria 300 x 150 por su cuenta.
+
+**Lo que el lector ENTIENDE** (la lista cerrada; todo lo demas, error):
+
+| que | como se pinta |
+|---|---|
+| `path` con `M L H V C S Q T A Z` y minusculas (S2: el arco `A` se aplana como `C` y `Q`) | caminos |
+| `circle`, `ellipse`, `rect` (con `rx`/`ry`), `line`, `polyline`, `polygon` (S1) | se convierten en `path` al leerlos |
+| `g`, `a`, `defs`, `symbol`, `use` (`href` o `xlink:href`, con `x`, `y`, `width`, `height`), `svg` raiz | se aplanan: un grupo no existe en el aparato |
+| `transform`: `matrix`, `translate`, `scale`, `rotate` (con centro), `skewX`, `skewY` (S3) | se aplica a cada punto al compilar. En un dibujo SI se gira: es geometria |
+| `fill`, `stroke`: `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, los nombres de CSS, `none`, `currentColor` (con `color`), `url(#degradado)` | la tinta |
+| `fill-rule` (`nonzero`, el de SVG, y `evenodd`) (S4) | el pintor sabe los dos |
+| `fill-opacity`, `stroke-opacity`, y `opacity` de UNA figura que solo rellena o solo traza (S4) | transparencia DE VERDAD: el pintor mezcla con lo de debajo |
+| `stroke-width`, `stroke-linecap` (`butt`, `round`, `square`), `stroke-linejoin` (`miter`, `round`, `bevel`), `stroke-miterlimit` | la pluma redonda de la casa si todo es `round`; si no, el CONTORNO exacto del trazo se calcula al compilar y se rellena |
+| `stroke-dasharray`, `stroke-dashoffset` (S4) | el discontinuo son trozos de camino, cortados al compilar |
+| `linearGradient`, `radialGradient` (S5): hasta OCHO paradas con `stop-color` y `stop-opacity`, `gradientUnits` (los dos), `gradientTransform`, `href` a otro degradado, `spreadMethod="pad"` | el pintor lleva la tinta de degradado por cada pixel |
+| `style="..."` y, en un fichero, `<style>` con selectores `.clase`, `#id`, `etiqueta` y `etiqueta.clase` (con su especificidad, como CSS) | se resuelve al leer |
+| `display:none`, `visibility:hidden` | no se pinta |
+| `preserveAspectRatio` (`none`, `xMinYMin`..`xMaxYMax`, `meet`, `slice`) | como el navegador; por defecto `xMidYMid meet` |
+| `<animate>`, `<animateTransform>`, y en un fichero `@keyframes` con `animation` (S7) | ver abajo |
+| `title`, `desc`, `metadata`, los `xmlns`, `id`, `class`, `data-*`, `aria-*`, `role`, `version`, y los de Inkscape y Sodipodi | no pintan: se leen y se dejan |
+
+**Lo que el lector RECHAZA, con la LISTA de lo que el fichero tiene** (S6): un
+SVG de internet que lleva `text`, `filter`, `mask`, `clipPath`, `pattern`,
+`image`, `foreignObject`, `script`, `marker`, `switch`, un selector que no sea
+de los de arriba, o `opacity` sobre un GRUPO de varias figuras o sobre una
+figura que rellena Y traza, NO se pinta a medias: el error dice cada cosa que
+falta y en que linea, de una vez. La opacidad de un grupo pide componer el
+grupo aparte y mezclarlo despues, y eso es de la 3060 (VERRANO), no de la
+maqueta -- `fill-opacity` y `stroke-opacity` en cada figura si se pintan
+exactas.
+
+**El NO a la pluma solo redonda se fue, con su motivo.** La comprobacion K
+exigia `round` porque el pintor solo sabia esa pluma y el navegador habria
+pintado otra cosa. Ahora una pluma `butt`, `square`, `miter` o `bevel` se
+convierte al compilar en su CONTORNO (un relleno `nonzero`), con las mismas
+esquinas que el navegador: las dos fotos vuelven a ser la misma. Y sin `fill`
+el dibujo se rellena de NEGRO, como en SVG -- antes BMO-X no rellenaba y por
+eso K pedia decirlo.
+
+**S7: animar.** Cada animacion se convierte al compilar en PASOS: el dibujo
+entero, ya aplanado, en cada instante que hace falta (los de `values`/
+`keyTimes`, y mas pasos donde la mezcla en linea recta no daria lo mismo:
+un giro, cada 7,5 grados como mucho; una curva de tiempo que no es lineal,
+ocho pasos por tramo). El aparato solo MEZCLA dos pasos vecinos punto a punto
+-- sin monton: el pintor lee los puntos mezclados mientras pinta. Las reglas:
+
+- un dibujo anima en UN ciclo: todas sus animaciones se repiten para siempre
+  con duraciones que caben en el ciclo (el minimo comun multiplo, hasta 20 s),
+  o ninguna se repite (se juega una vez y se queda en el ultimo paso con
+  `fill="freeze"`, o vuelve al primero);
+- todos los pasos tienen que tener las MISMAS figuras con los MISMOS puntos:
+  si animar un `d`, un `stroke-dasharray` o un `r` cambiara cuantos puntos
+  salen, es error al compilar, diciendo cual;
+- como mucho 240 pasos por dibujo;
+- `begin` solo con un tiempo (`0s`, `1.5s`); `calcMode` `linear`, `discrete`
+  o `spline`; en `@keyframes`, `animation-timing-function` `linear`, `ease`,
+  `ease-in`, `ease-out`, `ease-in-out` o `cubic-bezier()`, y
+  `animation-direction` `normal` o `alternate`.
+
+El codigo generado lleva `ANIMA_MS` (el ciclo) y `pintar_anima(p, ox, oy, ms)`
+-- quien lo llama decide el ritmo, y en reposo no corre nada (L6h). La CARA que
+viaja todavia no lleva pasos: una maqueta con un dibujo animado no se escribe
+como CARA, y se dice, igual que con los estados.
+
+**El pintor** (`platform/shared/bmo-pinta`) gana UNA pieza, `Pieza::Figura`:
+sus caminos, pluma redonda o relleno (`nonzero` o `evenodd`), su TINTA (lisa,
+degradado lineal o radial con sus paradas) y su opacidad. La CARA gana su
+clase (`CLASE_FIGURA`), con su lector desconfiado. Un dibujo sin nada de
+MAQUETA 3 -- pluma redonda lisa y opaca, relleno liso -- se sigue escribiendo
+con las piezas de MAQUETA 2, asi que lo que ya habia sale IGUAL.
 
 ---
 
@@ -408,11 +508,11 @@ no cambia ni un pixel: su codigo generado sale identico).
 
 | propiedad | valores | nota |
 |---|---|---|
-| `stroke` | `#RRGGBB` \| `none` | la pluma de sus `<path>` |
+| `stroke` | `#RRGGBB` \| `none` | la pluma de sus figuras (la heredan, como en SVG) |
 | `stroke-width` | `2`, `1.5` | en unidades del `viewBox`, como SVG |
-| `fill` | `#RRGGBB` \| `none` | **obligatoria** de decir: sin ella el navegador rellena de negro |
-| `stroke-linecap` | `round` | la pluma de la casa es redonda; el navegador tiene que usar la misma |
-| `stroke-linejoin` | `round` | igual |
+| `fill` | `#RRGGBB` \| `none` | el relleno que heredan; sin decirlo, NEGRO, como en SVG (MAQUETA 3) |
+| `stroke-linecap` | `round`, y desde MAQUETA 3 `butt` y `square` | redonda es la pluma de la casa; las otras se pintan como contorno exacto (2e) |
+| `stroke-linejoin` | `round`, y desde MAQUETA 3 `miter` y `bevel` | igual |
 
 ### La colocacion absoluta
 
@@ -613,12 +713,11 @@ nada; la diferencia es que alli no te lo dice nadie.
 
 ### El dibujo se puede pintar (`dibujo.rs`, MAQUETA 2)
 
-**K.** Todo `<svg>` trae `viewBox`; todo `<path>` dice su `fill` (aunque sea
-`none`); y si lleva `stroke`, lleva `stroke-linecap:round` y
-`stroke-linejoin:round`. La pluma de la casa es redonda -- es la unica que el
-pintor sabe hacer exacta --, y un navegador que pintara puntas cuadradas
-dibujaria OTRA cosa que la app. Se exige escrito para que la regla y la pieza
-digan lo mismo.
+**K.** Todo `<svg>` trae `viewBox` (el suyo, o el de su fichero), y una
+medida: la de su regla o la de su fichero. (Hasta MAQUETA 3, K pedia tambien
+`fill` dicho y la pluma `round`: el pintor no rellenaba por defecto ni sabia
+otra pluma. Ya sabe -- seccion 2e -- y esas dos dejaron de ser trampas.) Lo
+que el lector de SVG no sabe pintar es error al leer, antes de K.
 
 Y **B** dejo de medir con `len * 8`: mide con la letra de verdad
 (`bmo-letra`, la misma que pinta), en el anfitrion. Con la cuenta vieja daba
@@ -792,7 +891,7 @@ en una propiedad, y ninguna parece grave sola.
 | herencia de propiedades | el padre no conoce a su padre (L7) | nunca en v1 |
 | combinadores `.a .b`, `>` | igual | nunca en v1 |
 | `%`, `auto`, `calc()` | exigen el contenedor | nunca en v1 |
-| `rgba()`, `opacity` | no hay mezcla alfa | rasterizador escalon 4 |
+| `rgba()`, `opacity` | no hay mezcla alfa | en una CAJA, M4 de MAQUETA 3; en un DIBUJO ya entran (2e): el pintor mezcla |
 | ~~`border-radius`~~ | **ACEPTADO el 17-08** -- ver seccion 3 | -- |
 | repeticion sobre datos vivos | el numero de hijos se sabe en ejecucion | nunca: es de Rust |
 | `:hover`, `:active` | es **conducta**, no maquetacion | v2, y sin tocar el layout |
@@ -802,7 +901,7 @@ en una propiedad, y ninguna parece grave sola.
 | variables fuera de `:root` | se heredarian, y no hay herencia | nunca en v1 |
 | `margin` | sus margenes se FUNDEN en CSS y aqui no | cuando se implemente la fusion |
 | `@media` | una sola pantalla | cuando haya dos |
-| `@keyframes`, `animation`, `transform` | piden maquetar en ejecucion | nunca: estados + `transition` (3d), o Rust |
+| `@keyframes`, `animation`, `transform` | piden maquetar en ejecucion | en una caja, nunca: estados + `transition` (3d), o Rust. En un DIBUJO si (2e): no maquetan nada, se aplanan en pasos al compilar |
 | salto de linea automatico | esconderia la comprobacion 3 | nunca |
 | `<h1>`, `<p>`, `<button>`... | prometen semantica que no existe | nunca |
 | script de cualquier clase | esto es un compilador | nunca |

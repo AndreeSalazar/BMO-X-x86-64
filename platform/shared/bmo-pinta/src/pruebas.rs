@@ -199,3 +199,122 @@ fn una_pieza_a_medio_camino() {
     assert_eq!(avance(150, 100, 100, [0, 0, 1000, 1000]), 500, "con espera");
     assert_eq!(avance(1, 0, 0, [0, 0, 1000, 1000]), 1000, "sin transicion, de golpe");
 }
+
+// ---------------------------------------------------------------------------
+// LA FIGURA (MAQUETA 3): la regla, la tinta, la opacidad y la mezcla
+// ---------------------------------------------------------------------------
+
+/// Una letra para `pieza`, que una figura no usa.
+fn fuente() -> std::boxed::Box<bmo_letra::LetraFija<65536, 1024>> {
+    std::boxed::Box::new(bmo_letra::LetraFija::nueva())
+}
+
+/// Un cuadrado de `x0..x1` (pixeles), en 1/64, en el sentido que se pida.
+fn cuadrado(x0: i32, x1: i32, horario: bool) -> Vec<(i32, i32)> {
+    let (a, b) = (x0 * 64, x1 * 64);
+    let mut v = vec![(a, a), (b, a), (b, b), (a, b)];
+    if !horario {
+        v.reverse();
+    }
+    v
+}
+
+fn rellena(im: &mut Imagen, caminos: &[&[(i32, i32)]], tinta: Tinta, alfa: u8, par_impar: bool) {
+    let cerrados = vec![true; caminos.len()];
+    pieza(im, &mut *fuente(), &Pieza::Figura { caminos, cerrados: &cerrados, pluma: 0, tinta, alfa, par_impar }, 0, 0);
+}
+
+#[test]
+fn la_regla_nonzero_llena_el_agujero_que_evenodd_deja() {
+    // Dos cuadrados en el MISMO sentido: con `nonzero` el de dentro se
+    // llena (las vueltas suman 2), con `evenodd` es un agujero.
+    let (fuera, dentro) = (cuadrado(2, 18, true), cuadrado(6, 14, true));
+    let caminos: [&[(i32, i32)]; 2] = [&fuera, &dentro];
+    let mut nz = Imagen::nueva(20, 20);
+    rellena(&mut nz, &caminos, Tinta::Liso(VERDE), 255, false);
+    let mut eo = Imagen::nueva(20, 20);
+    rellena(&mut eo, &caminos, Tinta::Liso(VERDE), 255, true);
+    assert_eq!(nz.en(10, 10), VERDE, "nonzero: el centro esta lleno");
+    assert_eq!(eo.en(10, 10), 0, "evenodd: el centro es agujero");
+    assert_eq!(nz.en(3, 3), VERDE);
+    assert_eq!(eo.en(3, 3), VERDE);
+    // En sentido CONTRARIO el de dentro es agujero con las dos reglas.
+    let contra = cuadrado(6, 14, false);
+    let caminos: [&[(i32, i32)]; 2] = [&fuera, &contra];
+    let mut nz2 = Imagen::nueva(20, 20);
+    rellena(&mut nz2, &caminos, Tinta::Liso(VERDE), 255, false);
+    assert_eq!(nz2.en(10, 10), 0);
+}
+
+#[test]
+fn una_figura_lisa_y_opaca_pinta_lo_mismo_que_el_relleno_de_siempre() {
+    let c = cuadrado(3, 15, true);
+    let mut vieja = Imagen::nueva(20, 20);
+    relleno(&mut vieja, &[&c], VERDE);
+    let mut nueva = Imagen::nueva(20, 20);
+    rellena(&mut nueva, &[&c], Tinta::Liso(VERDE), 255, false);
+    assert_eq!(vieja.px, nueva.px);
+}
+
+#[test]
+fn la_opacidad_mezcla_con_lo_de_debajo() {
+    let c = cuadrado(2, 8, true);
+    let mut im = Imagen::nueva(10, 10);
+    rellena(&mut im, &[&c], Tinta::Liso(0x00FF_FFFF), 128, false);
+    let g = im.en(5, 5) >> 8 & 255;
+    assert!((126..=130).contains(&g), "medio blanco sobre negro, salio {g}");
+}
+
+#[test]
+fn el_degradado_lineal_va_de_una_parada_a_la_otra() {
+    let c = cuadrado(0, 40, true);
+    let paradas = [Parada { en: 0, c: 0x0000_0000, alfa: 255 }, Parada { en: 1000, c: 0x0000_FF00, alfa: 255 }];
+    let mut im = Imagen::nueva(40, 40);
+    rellena(&mut im, &[&c], Tinta::Lineal { de: (0, 0), a: (40 * 64, 0), paradas: &paradas }, 255, false);
+    let verde = |x: i32| im.en(x, 20) >> 8 & 255;
+    assert!(verde(0) < 10 && verde(39) > 245, "{} .. {}", verde(0), verde(39));
+    assert!((120..=136).contains(&verde(20)), "a la mitad, medio: {}", verde(20));
+    // Las lineas del mismo color son perpendiculares a `de -> a`: verticales.
+    assert_eq!(im.en(13, 2), im.en(13, 37));
+}
+
+#[test]
+fn el_degradado_radial_es_un_circulo_y_se_estira_con_sus_ejes() {
+    let c = cuadrado(0, 40, true);
+    let paradas = [Parada { en: 0, c: 0x0000_FF00, alfa: 255 }, Parada { en: 1000, c: 0, alfa: 255 }];
+    let mut im = Imagen::nueva(40, 40);
+    let centro = (20 * 64, 20 * 64);
+    rellena(&mut im, &[&c], Tinta::Radial { centro, eje_x: (20 * 64, 0), eje_y: (0, 10 * 64), paradas: &paradas }, 255, false);
+    let verde = |x: i32, y: i32| im.en(x, y) >> 8 & 255;
+    assert!(verde(20, 20) > 240);
+    // Una elipse: a 10 px en x es la mitad; a 10 px en y ya es el borde.
+    assert!((110..=140).contains(&verde(30, 20)), "{}", verde(30, 20));
+    assert!(verde(20, 30) < 20, "{}", verde(20, 30));
+}
+
+#[test]
+fn una_pluma_transparente_no_oscurece_donde_se_cruza() {
+    // Dos rayas en cruz, como DOS subcaminos de la misma figura: el cruce
+    // se pinta una vez, como en el navegador.
+    let h: [(i32, i32); 2] = [(2 * 64, 10 * 64), (18 * 64, 10 * 64)];
+    let v: [(i32, i32); 2] = [(10 * 64, 2 * 64), (10 * 64, 18 * 64)];
+    let caminos: [&[(i32, i32)]; 2] = [&h, &v];
+    let mut im = Imagen::nueva(20, 20);
+    pieza(&mut im, &mut *fuente(), &Pieza::Figura { caminos: &caminos, cerrados: &[false, false], pluma: 4 * 64, tinta: Tinta::Liso(0x00FF_FFFF), alfa: 128, par_impar: false }, 0, 0);
+    assert_eq!(im.en(10, 10), im.en(4, 10), "el cruce sale igual que la raya sola");
+}
+
+#[test]
+fn a_medio_camino_la_figura_esta_a_medio_camino() {
+    let a = cuadrado(2, 6, true);
+    let b = cuadrado(12, 16, true);
+    let (ca, cb): ([&[(i32, i32)]; 1], [&[(i32, i32)]; 1]) = ([&a], [&b]);
+    let pa = Pieza::Figura { caminos: &ca, cerrados: &[true], pluma: 0, tinta: Tinta::Liso(VERDE), alfa: 255, par_impar: false };
+    let pb = Pieza::Figura { caminos: &cb, cerrados: &[true], pluma: 0, tinta: Tinta::Liso(VERDE), alfa: 255, par_impar: false };
+    let mut im = Imagen::nueva(20, 20);
+    pieza_entre(&mut im, &mut *fuente(), &pa, &pb, 500, 0, 0);
+    // A la mitad: de 7 a 11.
+    assert_eq!(im.en(9, 9), VERDE);
+    assert_eq!(im.en(4, 4), 0);
+    assert_eq!(im.en(14, 14), 0);
+}

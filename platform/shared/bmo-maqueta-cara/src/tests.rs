@@ -323,3 +323,81 @@ fn hostile_faces_never_panic() {
         }
     });
 }
+
+// ---------------------------------------------------------------------------
+// LA FIGURA (MAQUETA 3): una buena se lee, y cada forma mala se dice
+// ---------------------------------------------------------------------------
+
+/// Los datos de una figura con un degradado lineal de dos paradas y un
+/// triangulo dentro de una caja de 10 x 10.
+fn datos_figura(paradas: &[(u16, u32)]) -> Vec<u8> {
+    let mut d = Vec::new();
+    d.push(figura::LINEAL);
+    d.push(paradas.len() as u8);
+    d.extend_from_slice(&0u16.to_le_bytes());
+    for v in [0i16, 0, 160, 0] {
+        d.extend_from_slice(&v.to_le_bytes());
+    }
+    for &(en, c) in paradas {
+        d.extend_from_slice(&en.to_le_bytes());
+        d.extend_from_slice(&c.to_le_bytes());
+        d.push(255);
+        d.push(0);
+    }
+    d.extend_from_slice(&puntos::SEPARA.to_le_bytes());
+    d.extend_from_slice(&1i16.to_le_bytes());
+    for (x, y) in [(0i16, 0i16), (160, 0), (80, 160)] {
+        d.extend_from_slice(&x.to_le_bytes());
+        d.extend_from_slice(&y.to_le_bytes());
+    }
+    d
+}
+
+impl Constructor {
+    fn figura(&mut self, datos: &[u8], extra: u16) -> &mut Self {
+        let (off, len) = self.cadena(datos);
+        let mut t = [0u8; TRAZO];
+        t[trazo::CLASE] = CLASE_FIGURA;
+        t[trazo::X..trazo::X + 2].copy_from_slice(&5i16.to_le_bytes());
+        t[trazo::Y..trazo::Y + 2].copy_from_slice(&5i16.to_le_bytes());
+        t[trazo::W..trazo::W + 2].copy_from_slice(&10u16.to_le_bytes());
+        t[trazo::H..trazo::H + 2].copy_from_slice(&10u16.to_le_bytes());
+        t[trazo::CAD_OFF..trazo::CAD_OFF + 2].copy_from_slice(&off.to_le_bytes());
+        t[trazo::CAD_LEN..trazo::CAD_LEN + 2].copy_from_slice(&len.to_le_bytes());
+        t[trazo::EXTRA..trazo::EXTRA + 2].copy_from_slice(&extra.to_le_bytes());
+        self.trazos.push(t);
+        self
+    }
+}
+
+#[test]
+fn una_figura_con_degradado_se_lee_y_se_descodifica() {
+    let b = Constructor::nueva().figura(&datos_figura(&[(0, 0x0011_2233), (1000, 0x00FF_FFFF)]), 1 | 200 << 8).bytes();
+    let cara = leer(&b, 1920, 1080).expect("una figura buena se lee");
+    let p = cara.trazo(0).unwrap();
+    assert_eq!(p.clase, CLASE_FIGURA);
+    let f = figura_de(p.datos).unwrap();
+    assert_eq!(f.tinta, figura::LINEAL);
+    assert_eq!(f.geo[2], 160);
+    assert_eq!(parada(f.paradas, 1), Some((1000, 0x00FF_FFFF, 255)));
+    assert_eq!(f.puntos.len(), 16);
+}
+
+#[test]
+fn una_figura_con_las_paradas_al_reves_es_datos_mal() {
+    let b = Constructor::nueva().figura(&datos_figura(&[(800, 0), (200, 0)]), 0).bytes();
+    assert_eq!(leer(&b, 1920, 1080).err(), Some(Falta::DatosMal));
+}
+
+#[test]
+fn una_figura_con_bits_reservados_es_reservado_sucio() {
+    let b = Constructor::nueva().figura(&datos_figura(&[(0, 0)]), 0b10).bytes();
+    assert_eq!(leer(&b, 1920, 1080).err(), Some(Falta::ReservadoSucio));
+}
+
+#[test]
+fn una_figura_cortada_es_datos_mal() {
+    let d = datos_figura(&[(0, 0), (1000, 0)]);
+    let b = Constructor::nueva().figura(&d[..10], 0).bytes();
+    assert_eq!(leer(&b, 1920, 1080).err(), Some(Falta::DatosMal));
+}
