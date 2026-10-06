@@ -46,6 +46,14 @@ pub(crate) mod data;
 pub(crate) mod estilo;
 /// La foto de fondo de `fondo_imagen`, para pintar y para restaurar.
 pub(crate) mod fondo;
+/// EL ESCRITORIO DE MISION (06-10, HM3): el cielo, la rejilla, el sol y su
+/// planeta, pintados UNA vez en el bufer de `fondo`.
+pub(crate) mod mision;
+/// El SOL DE PLASMA quieto, generado por MAQUETA desde
+/// `toolchain/tools/maqueta/escritorio/sol.maqueta`. No se edita a mano.
+pub(crate) mod sol_gen;
+/// Su planeta, desde `toolchain/tools/maqueta/escritorio/planeta.maqueta`.
+pub(crate) mod planeta_gen;
 /// Lo que un borrado destapo, para que el cierre del fotograma lo devuelva.
 pub(crate) mod dirty;
 /// Los pictogramas de cada clase de fichero (app, imagen, audio, texto).

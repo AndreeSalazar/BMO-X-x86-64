@@ -47,6 +47,8 @@ const fn dibujo(filas: [&[u8; CUR_W]; CUR_H]) -> [[u8; CUR_W]; CUR_H] {
                 b'c' => 3,
                 b'Y' => 4,
                 b's' => 5,
+                b'o' => 6,
+                b'm' => 7,
                 _ => 0,
             };
             x += 1;
@@ -140,6 +142,35 @@ pub(crate) const HAND: [[u8; CUR_W]; CUR_H] = dibujo([
     b"....ccccccccc...",
 ]);
 
+/// **LA RETICULA** (06-10, HM3): la flecha del escritorio de mision. Es la
+/// de `docs/arte/maqueta_escritorio_mision.html` --el anillo, las cuatro
+/// marcas y el punto neon en el centro-- a la medida del puntero. Pincha en
+/// el CENTRO, no en una esquina. `o` el ojo cian, `m` el neon.
+pub(crate) const RETICULA: [[u8; CUR_W]; CUR_H] = dibujo([
+    b".......o........",
+    b".......o........",
+    b".....ooooo......",
+    b"....o.....o.....",
+    b"...o.......o....",
+    b"..o.........o...",
+    b"..o.........o...",
+    b"oo.o...m...o.oo.",
+    b"..o.........o...",
+    b"..o.........o...",
+    b"...o.......o....",
+    b"....o.....o.....",
+    b".....ooooo......",
+    b".......o........",
+    b".......o........",
+    b"................",
+    b"................",
+    b"................",
+    b"................",
+    b"................",
+    b"................",
+    b"................",
+]);
+
 /// Que esta diciendo el puntero ahora mismo.
 ///
 /// * **La forma del cursor es informacion, no decoracion.** Es lo unico del
@@ -163,6 +194,8 @@ pub(crate) enum Shape {
 impl Shape {
     fn mapa(self) -> &'static [[u8; CUR_W]; CUR_H] {
         match self {
+            // Sobre el escritorio de mision, la flecha es la reticula.
+            Shape::Arrow if super::fondo::es_mision() => &RETICULA,
             Shape::Arrow => &ARROW,
             Shape::Beam => &IBEAM,
             Shape::Hand => &HAND,
@@ -174,6 +207,7 @@ impl Shape {
     /// de su caja, que con la mano grande quedaria cinco pixeles al lado.
     fn punta(self) -> (u32, u32) {
         match self {
+            Shape::Arrow if super::fondo::es_mision() => (7, 7),
             Shape::Arrow | Shape::Beam => (0, 0),
             Shape::Hand => (5, 1),
         }
@@ -198,6 +232,8 @@ fn draw_cursor(p: &bmo::Pantalla, x: u32, y: u32, shape: Shape) {
                 3 => CUR_NEON,
                 4 => CUR_AMARILLO,
                 5 => CUR_SOMBRA,
+                6 => super::tema_gen::MISION_OJO,
+                7 => super::tema_gen::MISION_NEON,
                 _ => CUR_EDGE,
             };
             p.punto(x + col as u32, y + row as u32, color);

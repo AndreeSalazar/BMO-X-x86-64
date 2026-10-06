@@ -310,6 +310,15 @@ clase (`CLASE_FIGURA`), con su lector desconfiado. Un dibujo sin nada de
 MAQUETA 3 -- pluma redonda lisa y opaca, relleno liso -- se sigue escribiendo
 con las piezas de MAQUETA 2, asi que lo que ya habia sale IGUAL.
 
+**Y un dibujo GRANDE se escribe una vez** (06-10, la tabla de figuras de
+`toolchain/tools/maqueta/emit/src/tabla.rs`). Ocho figuras seguidas o mas van a
+`static FIGURAS` --la pieza y su caja-- y `pintar` y `pintar_en` la recorren
+con un bucle, en el mismo orden. Lo pidio el SOL del escritorio de mision
+(`toolchain/tools/maqueta/escritorio/sol.maqueta`): 225 figuras escritas una a
+una, dos veces, eran 1005 lineas y 297 KB de fuente; en su tabla son 343 lineas.
+Lo que se pinta no cambia. Con datos no hay tabla (el color del dato se escribe
+en cada llamada).
+
 ---
 
 ## 3. LAS PROPIEDADES -- LISTA CERRADA

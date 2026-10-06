@@ -40,7 +40,7 @@ static mut ANTES: Estilo = estilo::POR_DEFECTO;
 static mut AVISO: &str = "";
 
 /// Los ajustes, en el orden en que se ven.
-const CAMPOS: [&str; 12] = [
+const CAMPOS: [&str; 13] = [
     "barra_flotante",
     "barra_hueco",
     "acento",
@@ -54,6 +54,8 @@ const CAMPOS: [&str; 12] = [
     "reloj",
     // El vestido de las ventanas (04-10): `fino` o `hacker`.
     "marco",
+    // Lo de detras sin foto (06-10): `mision` o `degradado`.
+    "fondo",
 ];
 
 /// Acentos: vivos, para una linea o un punto.
@@ -105,25 +107,30 @@ fn cambiar(e: &mut Estilo, campo: usize, d: isize) {
         9 => e.vatios = !e.vatios,
         10 => e.reloj = !e.reloj,
         // Tres vestidos, en rueda: fino, hacker y FASE (04-10).
-        _ => {
+        11 => {
             use bmo_config::Marco::{Fase, Fino, Hacker};
             let rueda = [Fino, Hacker, Fase];
             let i = rueda.iter().position(|&m| m == e.marco).unwrap_or(0) as isize;
             e.marco = rueda[(i + d.signum()).rem_euclid(3) as usize];
         }
+        // Dos fondos: el de mision y el degradado (06-10).
+        _ => {
+            use bmo_config::Fondo::{Degradado, Mision};
+            e.fondo = if e.fondo == Mision { Degradado } else { Mision };
+        }
     }
 }
 
 /// El valor de un campo, como se escribe en el `.cfg`.
-fn valor(e: &Estilo, campo: usize, dst: &mut [u8; 8]) -> usize {
-    let hex = |c: u32, dst: &mut [u8; 8]| {
+fn valor(e: &Estilo, campo: usize, dst: &mut [u8; 10]) -> usize {
+    let hex = |c: u32, dst: &mut [u8; 10]| {
         dst[0] = b'#';
         for i in 0..6 {
             dst[1 + i] = b"0123456789ABCDEF"[((c >> ((5 - i) * 4)) & 0xF) as usize];
         }
         7
     };
-    let si = |v: bool, dst: &mut [u8; 8]| {
+    let si = |v: bool, dst: &mut [u8; 10]| {
         dst[..2].copy_from_slice(if v { b"si" } else { b"no" });
         2
     };
@@ -150,8 +157,14 @@ fn valor(e: &Estilo, campo: usize, dst: &mut [u8; 8]) -> usize {
         8 => si(e.memoria, dst),
         9 => si(e.vatios, dst),
         10 => si(e.reloj, dst),
-        _ => {
+        11 => {
             let n = e.marco.nombre();
+            dst[..n.len()].copy_from_slice(n);
+            n.len()
+        }
+        _ => {
+            // `degradado` son 9 letras: por eso `dst` es de 10 y no de 8.
+            let n = e.fondo.nombre();
             dst[..n.len()].copy_from_slice(n);
             n.len()
         }
@@ -175,7 +188,7 @@ fn mostrar(dsk: &mut Desktop, p: &bmo::Pantalla) {
         for _ in nombre.len()..18 {
             g.byte(b' ');
         }
-        let mut v = [0u8; 8];
+        let mut v = [0u8; 10];
         let n = valor(&e, k, &mut v);
         g.text(if elegido { b"< " } else { b"  " });
         g.text(&v[..n]);
@@ -221,9 +234,14 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) {
         0x80 => unsafe { CAMPO = (campo + CAMPOS.len() - 1) % CAMPOS.len() },
         0x81 | b'\t' => unsafe { CAMPO = (campo + 1) % CAMPOS.len() },
         0x82 | 0x83 => {
-            let antes = e.marco;
+            let (antes, fondo) = (e.marco, e.fondo);
             cambiar(&mut e, campo, if c == 0x83 { 1 } else { -1 });
             estilo::poner(e);
+            // El fondo de mision se pinta UNA vez en su bufer: al cambiar, se
+            // prepara de nuevo (y el viejo se suelta), antes de repintar.
+            if e.fondo != fondo {
+                crate::scene::fondo::cargar(p);
+            }
             // ** Entrar en el MODO FASE es TRANSFORMARSE (04-10): la barra
             // tactica se arma placa a placa, y el panel se repinta en los
             // colores del gato.
@@ -239,7 +257,11 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) {
             // ** ESC DESHACE lo que no se guardo. Salir de un editor dejando a
             // medias lo que se probo es como se acaba con un aspecto que nadie
             // eligio.
+            let fondo = e.fondo;
             estilo::poner(unsafe { *addr_of_mut!(ANTES) });
+            if estilo::configurado().fondo != fondo {
+                crate::scene::fondo::cargar(p);
+            }
             ACTIVO.store(false, Ordering::Relaxed);
             dsk.out.grid.clear();
             dsk.out.grid.text(b"aspecto: sin guardar, como estaba\n");

@@ -45,6 +45,8 @@ pub mod recorte;
 /// comparten las diecisiete caras del escritorio; la maquetacion no.
 pub mod paleta;
 pub mod rust;
+/// Las figuras seguidas de un dibujo, en UNA tabla que recorren los pintados.
+mod tabla;
 /// **El emisor B**: la cara como BYTES, para cambiarla sin recompilar. Hermano
 /// de [`rust`] y con la misma regla -- traduce, no decide. Ver su cabecera.
 pub mod bef;

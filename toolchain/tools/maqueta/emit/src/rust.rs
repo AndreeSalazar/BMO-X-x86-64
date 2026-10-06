@@ -75,6 +75,7 @@ pub fn modulo_con_datos(origen: &str, l: &Laid, colores: &[(String, u32)]) -> St
     desplazamientos(&mut s, &podada, &datos);
     golpe(&mut s, l);
     islas(&mut s, l);
+    datos.tabla.emitir(&mut s);
     s
 }
 
@@ -121,6 +122,8 @@ struct Datos {
     /// TODOS los pixeles que se embeben (fijos y muestras), en orden: el
     /// `static IMAGEN_n` de cada uno.
     pixeles: Vec<std::sync::Arc<[u32]>>,
+    /// Las figuras que van a `static FIGURAS` (`tabla.rs`).
+    tabla: crate::tabla::Tabla,
 }
 
 impl Datos {
@@ -146,7 +149,7 @@ impl Datos {
                 }
             }
         }
-        Datos { huecos, colores: colores.to_vec(), fotos, pixeles }
+        Datos { huecos, colores: colores.to_vec(), fotos, pixeles, tabla: Default::default() }
     }
 
     fn hay(&self) -> bool {
@@ -409,6 +412,14 @@ fn llamada(t: &Trazo) -> String {
     }
 }
 
+/// Una racha de figuras para `static FIGURAS` (`tabla.rs`); con datos, nunca.
+fn racha(d: &Datos, ordenes: &[&Orden], i: usize) -> Option<(usize, usize)> {
+    if d.hay() {
+        return None;
+    }
+    d.tabla.racha(ordenes, i)
+}
+
 fn area(t: &Trazo) -> Rect {
     t.area()
 }
@@ -429,12 +440,21 @@ fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos, ventanas: &[String]) {
         s.push_str("    let _ = d;\n");
     }
     let mut ultimo = String::new();
-    for o in ordenes.iter().filter(|o| o.estado == Estado::Reposo) {
+    let reposo: Vec<&Orden> = ordenes.iter().filter(|o| o.estado == Estado::Reposo).collect();
+    let mut i = 0;
+    while i < reposo.len() {
+        let o = reposo[i];
         if o.de != ultimo {
             let _ = writeln!(s, "    // {}", o.de);
             ultimo = o.de.clone();
         }
+        if let Some((a, b)) = racha(d, &reposo, i) {
+            let _ = writeln!(s, "{}", crate::tabla::bucle(a, b));
+            i += b - a;
+            continue;
+        }
         let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, "None"));
+        i += 1;
     }
     for v in ventanas {
         let _ = writeln!(s, "    {v}");
@@ -481,10 +501,18 @@ fn pintar_en_como(s: &mut String, ordenes: &[Orden], d: &Datos, nombre: &str) {
         s.push_str("    let _ = (p, ox, oy, limite);\n");
     }
     let mut ultimo = String::new();
-    for o in reposo {
+    let mut i = 0;
+    while i < reposo.len() {
+        let o = reposo[i];
+        i += 1;
         if o.de != ultimo {
             let _ = writeln!(s, "    // {}", o.de);
             ultimo = o.de.clone();
+        }
+        if let Some((a, b)) = racha(d, &reposo, i - 1) {
+            let _ = writeln!(s, "{}", crate::tabla::bucle_en(a, b));
+            i += b - a - 1;
+            continue;
         }
         let r = area(&o.trazo);
         let caja = format!(

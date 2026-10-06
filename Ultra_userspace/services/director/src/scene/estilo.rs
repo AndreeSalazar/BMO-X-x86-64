@@ -37,6 +37,9 @@ pub(crate) const POR_DEFECTO: Estilo = Estilo {
     // ** El de 04-10, "la elegancia de Francia". El hacker de 25-09 sigue a
     // una linea: `marco = hacker` en `sys/director.cfg`.
     marco: bmo_config::Marco::Fino,
+    // ** El de mision (06-10, HM3): la estrella gato y su cielo. El degradado
+    // de siempre sigue a una linea: `fondo = degradado`.
+    fondo: bmo_config::Fondo::Mision,
 };
 
 pub(crate) const RUTA: &[u8] = b"sys/director.cfg";
