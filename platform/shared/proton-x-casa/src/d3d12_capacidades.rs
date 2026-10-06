@@ -97,8 +97,11 @@ const OPCIONES_MAS: [(u32, &[u32]); 11] = [
 const NIVEL_MAXIMO: u32 = 0xc200;
 /// D3D_SHADER_MODEL_6_6.
 const MODELO_MAXIMO: u32 = 0x66;
-/// D3D_ROOT_SIGNATURE_VERSION_1_0: lo que lee la firma de raiz de la casa.
+/// D3D_ROOT_SIGNATURE_VERSION_1_0, 1_1 y 1_2: la casa lee y escribe las
+/// dos primeras (06-10).
 const FIRMA_1_0: u32 = 1;
+const FIRMA_1_1: u32 = 2;
+const FIRMA_1_2: u32 = 3;
 /// D3D12_FEATURE_DATA_D3D12_OPTIONS, en orden (15 campos de 4 bytes):
 /// doble precision, LogicOp, MinPrecision, TiledResources, ResourceBinding
 /// 3, PSSpecifiedStencilRef, TypedUAVLoadAdditionalFormats, ROVs,
@@ -204,9 +207,14 @@ pub(crate) extern "win64" fn check_feature_support(_this: u64, que: u32, datos: 
                     pon(k, v);
                 }
             }
-            // HighestVersion: entra la que se quiere; la casa lee 1.0 (y
-            // d3dx12 baja la 1.1 a 1.0).
-            ROOT_SIGNATURE if cabe(4) => pon(0, FIRMA_1_0),
+            // HighestVersion: entra la que se quiere y sale, como mucho, la
+            // 1.1 (06-10: la casa lee y escribe las dos; la 1.2, no). Lo que
+            // no es 1.0, 1.1 ni 1.2: E_INVALIDARG, como Windows.
+            ROOT_SIGNATURE if cabe(4) => match u(0) {
+                FIRMA_1_0 => pon(0, FIRMA_1_0),
+                FIRMA_1_1 | FIRMA_1_2 => pon(0, FIRMA_1_1),
+                _ => return E_INVALIDARG,
+            },
             // Una que la casa sabe, con la medida mal: el error es del `.exe`
             // (Windows dice lo mismo, y no hay nada que avisar).
             OPTIONS | ARCHITECTURE | FEATURE_LEVELS | FORMAT_SUPPORT | MULTISAMPLE_QUALITY_LEVELS | FORMAT_INFO | GPU_VIRTUAL_ADDRESS_SUPPORT

@@ -240,11 +240,25 @@ pub(crate) extern "win64" fn create_root_signature(_this: u64, _nodo: u32, bytes
             let vt = vtabla::<{ com::ROOTSIG }>(&[]);
             dar(pp, nuevo(com::ROOTSIG, vt, RootSignature { firma }) as u64)
         }
+        Err(raiz::NoFirma::Version(v)) => {
+            aviso(&alloc::format!("CreateRootSignature: una root signature de la version {v} (la casa lee la 1.0 y la 1.1)"));
+            E_INVALIDARG
+        }
         Err(_) => {
-            aviso("CreateRootSignature: esos bytes no son una root signature 1.0");
+            aviso("CreateRootSignature: esos bytes no son una root signature");
             E_INVALIDARG
         }
     }
+}
+
+/// **La root signature que trae un sombreador** (06-10): la parte RTS0 de
+/// su contenedor (la que `dxc` mete con `[RootSignature(...)]`), como un
+/// objeto de la casa. La usa un PSO creado SIN root signature: D3D12 toma
+/// entonces la del sombreador. `None` si no trae (o no se lee).
+pub(crate) fn firma_del_sombreador(bytes: &[u8]) -> Option<u64> {
+    let firma = raiz::leer(bytes).ok()?;
+    let vt = vtabla::<{ com::ROOTSIG }>(&[]);
+    Some(nuevo(com::ROOTSIG, vt, RootSignature { firma }) as u64)
 }
 
 // -- El PSO -------------------------------------------------------------------
@@ -304,9 +318,20 @@ fn sombreador(d: &[u8], etapa: Etapa) -> Result<Sombreador, &'static str> {
 /// MEDIDOS con la cabecera de Windows: ver prueba/HACER.txt).
 /// Con el PSO, si su enlace es NUEVO (no lo comparte con uno de antes).
 unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
-    let raiz = u64_de(d, 0);
+    // 06-10: sin root signature, la que traiga su sombreador de vertices (o
+    // el de pixeles), como D3D12.
+    let mut raiz = u64_de(d, 0);
     if raiz == 0 {
-        return Err("CreateGraphicsPipelineState sin root signature");
+        for o in [8usize, 24] {
+            let (p, n) = (u64_de(d, o), u64_de(d, o + 8) as usize);
+            if raiz == 0 && p != 0 && n != 0 {
+                // SAFETY: `n` bytes del sombreador, del `.exe`.
+                raiz = firma_del_sombreador(core::slice::from_raw_parts(p as *const u8, n)).unwrap_or(0);
+            }
+        }
+    }
+    if raiz == 0 {
+        return Err("CreateGraphicsPipelineState sin root signature, ni dentro de sus sombreadores");
     }
     // D3D12_SHADER_BYTECODE de DS +40, HS +56, GS +72: su medida, +8. El de
     // GEOMETRIA ya (E2.3b, 05-10: nBodyGravity); dominio y casco, todavia no.

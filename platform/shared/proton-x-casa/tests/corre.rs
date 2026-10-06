@@ -114,6 +114,8 @@ const DERIVADAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/derivadas.exe
 const MULTIHILO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/multihilo.exe");
 /// 06-10: los UAV de texturas 3D y de arrays (la niebla volumetrica, las cascadas).
 const VOLUMEN_EXE: &[u8] = include_bytes!("../../proton-x/prueba/volumen.exe");
+/// 06-10: las root signatures 1.1 y las de dentro del sombreador.
+const FIRMAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/firmas.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

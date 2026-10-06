@@ -229,3 +229,10 @@ cp "$AQUI/../volumen.cpp" "$AQUI"/../volumen_*.dxil .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c volumen.cpp -o volumen.o
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o volumen.exe volumen.o -ld3d12
 sha256sum volumen.exe
+
+# 06-10: el juez de las ROOT SIGNATURES 1.1 y de las de dentro del
+# sombreador, NUESTRO (`../firmas.cpp`, con su CS y sus dos firmas de dxc).
+cp "$AQUI/../firmas.cpp" "$AQUI"/../firmas_cs.dxil "$AQUI"/../firmas_*.rts0 .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c firmas.cpp -o firmas.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o firmas.exe firmas.o -ld3d12
+sha256sum firmas.exe

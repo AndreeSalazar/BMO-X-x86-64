@@ -167,11 +167,17 @@ extern "win64" fn create_compute_pipeline_state(_this: u64, desc: *const u8, rii
         return E_INVALIDARG;
     }
     let (raiz, cs, n) = (u64_de(desc, 0), u64_de(desc, 8), u64_de(desc, 16) as usize);
-    if raiz == 0 || cs == 0 || n == 0 {
+    if cs == 0 || n == 0 {
         return E_INVALIDARG;
     }
     // SAFETY: `n` bytes del sombreador, del `.exe`.
     let cs = unsafe { core::slice::from_raw_parts(cs as *const u8, n) }.to_vec();
+    // 06-10: sin root signature, la que traiga el sombreador (como D3D12).
+    let raiz = if raiz != 0 { raiz } else { crate::tuberia::firma_del_sombreador(&cs).unwrap_or(0) };
+    if raiz == 0 {
+        aviso("CreateComputePipelineState sin root signature, ni dentro de su sombreador: en Windows es un error");
+        return E_INVALIDARG;
+    }
     // N5.5: compilar al CREAR (lo de DXVK: al cargar, no al dibujar).
     let preparado = bmo_proton_x::dxil::computo::preparar(&cs);
     if let Err(m) = &preparado {

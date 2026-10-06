@@ -2841,3 +2841,53 @@ quitando a mano el salto entre capas (sin la cadena de mips), WSize y
 ArraySize, o FirstWSlice: cada uno, sus MAL. F: con la limpieza de antes,
 solo la PRIMERA rebanada y la primera capa (0 28 0 0 y 36 0 0), los dos
 MAL.
+
+firmas_cs.dxil, firmas_11.rts0, firmas_10.rts0 -- los de firmas.exe (06-10)
+
+`firmas.hlsl` (aqui al lado): una root signature (cuatro constantes en b0;
+una tabla con dos SRV y un UAV; un UAV en la raiz) en 1.1 con banderas
+(RS11) y en 1.0 (RS10), y CSFirma, que la trae DENTRO ([RootSignature],
+1.1). Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSFirma -Fo firmas_cs.dxil firmas.hlsl
+   dxc -T rootsig_1_1 -E RS11 -Fo firmas_11.rts0 firmas.hlsl
+   dxc -T rootsig_1_0 -E RS10 -Fo firmas_10.rts0 firmas.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   8f03cae9b8efd22b4ed496d25e47375b1a484ca9178e88705d10aa3666ef6355  firmas_cs.dxil
+   5e25a3725e70f6f59852ca91587017997c6248a827017ba7e8abd7f80f56fb8a  firmas_11.rts0
+   12f05f9f766cc2054b4de020cbb0c14d8242ffef1de7c6bc9edb9bcb5a39e4d6  firmas_10.rts0
+
+Van DENTRO de firmas.exe, y el banco de proton-x los lee tambien sin la
+casa (`src/raiz.rs`: la 1.1 y la del sombreador son la misma firma que la
+1.0).
+
+firmas.exe -- las ROOT SIGNATURES 1.1 y las de dentro del sombreador, juzgadas (06-10)
+
+NUESTRO, de consola. Un motor moderno escribe su firma en HLSL y `dxc` la
+mete en el sombreador en 1.1; o la guarda ya serializada. Cada caso crea su
+root signature de otra forma y corre el MISMO CS: a[i] * k.x + b[i] * k.y
++ caso a un UAV de la raiz, y + 1000 a su sitio de un UAV de la tabla (una
+firma mal leida los corre). A, la 1.1 de dxc; B, la 1.0; C, el sombreador
+entero pasado a CreateRootSignature; D, un PSO de computo SIN root
+signature (la de su sombreador); E, CheckFeatureSupport(ROOT_SIGNATURE)
+dice 1.1 si se pide 1.1; F, una D3D12_ROOT_SIGNATURE_DESC1 pasada por
+D3D12SerializeVersionedRootSignature. Dice `bien` 6 veces y sale con el
+numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con firmas.cpp, el
+.dxil y los dos .rts0:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c firmas.cpp -o firmas.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o firmas.exe firmas.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   ef21eccd49bc46a21e28e3f979de1d897fdd6bbfee50509984ce3975f6dd8fc2  firmas.exe
+
+El banco (`tests/corre/muestras.rs`): los 6 `bien`, sale con 0, ni un
+aviso. Probado que dice NO: contra la casa de antes, E dice 1.0, y A y C
+salen con E_INVALIDARG ("esos bytes no son una root signature 1.0"); y
+quitando a mano la firma del sombreador en un PSO de computo, D sale con
+E_INVALIDARG.

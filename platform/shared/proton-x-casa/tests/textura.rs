@@ -194,11 +194,15 @@ fn hello_texture(version_1_1: bool, bc: bool) -> Vec<u32> {
     let mut disp = 0;
     assert_eq!(crear(0, 0xb000, &com::IID_DEVICE, &mut disp), 0);
 
-    // CheckFeatureSupport(ROOT_SIGNATURE): la casa dice 1.0.
+    // CheckFeatureSupport(ROOT_SIGNATURE): desde el 06-10 la casa lee la 1.1
+    // (y dice la que se pide, como mucho esa).
     let cfs: extern "win64" fn(u64, u32, *mut u8, u32) -> i32 = hueco(disp, 13);
     let mut version = 2u32;
     assert_eq!(cfs(disp, 12, &mut version as *mut u32 as *mut u8, 4), 0);
-    assert_eq!(version, 1, "la casa contesta ROOT_SIGNATURE_VERSION_1_0");
+    assert_eq!(version, 2, "pidiendo la 1.1, la casa contesta ROOT_SIGNATURE_VERSION_1_1");
+    let mut version = 1u32;
+    assert_eq!(cfs(disp, 12, &mut version as *mut u32 as *mut u8, 4), 0);
+    assert_eq!(version, 1, "pidiendo la 1.0, la 1.0");
 
     // La firma: una tabla con UN rango SRV t0 (visible al pixel) y el
     // sampler estatico de HelloTexture.

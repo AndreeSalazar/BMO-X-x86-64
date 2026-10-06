@@ -928,3 +928,20 @@ fn los_uav_de_texturas_3d_y_de_arrays_son_los_de_windows() {
     assert_eq!(texto.matches("  bien  ").count(), 10, "{texto}");
     assert!(texto.ends_with("volumen.exe: los UAV de texturas 3D y de arrays son los de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **Las ROOT SIGNATURES 1.1 y las de DENTRO del sombreador** (06-10,
+/// `prueba/firmas.exe`, NUESTRO): la 1.1 que hace `dxc` (con banderas), la
+/// 1.0, la del sombreador pasada a CreateRootSignature, un PSO de computo
+/// SIN root signature (la de su sombreador), una DESC1 serializada, y
+/// CheckFeatureSupport diciendo 1.1. Cada una corre el mismo CS y sus
+/// constantes, su tabla y su UAV de la raiz caen en su sitio. Ni un aviso.
+#[test]
+fn las_root_signatures_1_1_y_las_del_sombreador_son_las_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, FIRMAS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 6, "{texto}");
+    assert!(texto.ends_with("firmas.exe: las root signatures 1.1 y las de dentro del sombreador son las de Windows\r\n[salio 0x0]"), "{texto}");
+}

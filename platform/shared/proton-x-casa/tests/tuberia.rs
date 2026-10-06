@@ -243,7 +243,8 @@ fn create_graphics_pipeline_state_cruza_el_layout_con_el_sombreador() {
 
     DICHO.lock().unwrap().clear();
     assert_eq!(pso(0, VS, PS, &layout(true)), E_INVALIDARG);
-    assert_eq!(dicho(), "PROTON-X: CreateGraphicsPipelineState sin root signature\n");
+    // 06-10: sin root signature, la de dentro del sombreador; estos no traen.
+    assert_eq!(dicho(), "PROTON-X: CreateGraphicsPipelineState sin root signature, ni dentro de sus sombreadores\n");
 }
 
 /// 03-10: dos PSO con los mismos sombreadores y layout COMPARTEN lo

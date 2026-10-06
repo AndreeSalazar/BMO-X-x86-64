@@ -384,7 +384,15 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
 - [ ] D3.2 -- Firma raiz 1.1 ENTERA: constantes, CBV/SRV/UAV directos, tablas
   con rangos sin limite (`unbounded`), samplers estaticos, sus banderas.
   **Como se sabe:** `tandaD3.exe` serializa y deserializa firmas y Windows
-  da los mismos bytes.
+  da los mismos bytes. (06-10: LEER la 1.1 ya esta -- la de `dxc`, con sus
+  banderas, y la que viene DENTRO de un sombreador --, y un PSO creado SIN
+  root signature toma la de su sombreador; CheckFeatureSupport dice 1.1.
+  Juzgado por `prueba/firmas.exe` en el banco; la casa rechazaba todo lo
+  que no era 1.0, y en Cyberpunk la escalera murio "en los primeros PSO".
+  Falta: SERIALIZAR una 1.1 da hoy un blob 1.0 (vale para la casa, pero no
+  son los bytes de Windows), el deserializador
+  (`D3D12CreateVersionedRootSignatureDeserializer`), la 1.2 -- `dxc` aun
+  no la escribe -- y verlo en Windows.)
 - [ ] D3.3 -- SIN ATAR (bindless, modelo 6.6: `ResourceDescriptorHeap`),
   si D0.2 lo encuentra.
 - [ ] D3.4 -- Los UAV: bufferes con tipo, crudos y estructurados; sus
