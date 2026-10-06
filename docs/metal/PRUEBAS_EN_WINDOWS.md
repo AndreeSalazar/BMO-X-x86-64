@@ -224,6 +224,12 @@ ClearUnorderedAccessViewUint de ENTEROS satura (0x10001 en 16 bits es
 0xFFFF), la casa se quedaba con los bits bajos; arreglado, y con el un NaN
 de half que la casa no conservaba.
 
+**Las de la tarde (06-10): 90 de 91, 91 de 91 y, a las 18:27, 92 de 92**,
+con `libreta.exe` (9d) en 4 `bien` a la primera: lo raro de un render
+target (+inf, NaN, -inf) se guarda en la 3060 como en la casa. Con eso la
+pila A del contador (lo que se hace desde la nube) esta a 0 y Windows le
+da la razon a cada juez.
+
 ## 4. Que mandar, en orden
 
 1. `informe_windows\resumen.txt` (seccion 1). Si todo dice `bien`: con esa
