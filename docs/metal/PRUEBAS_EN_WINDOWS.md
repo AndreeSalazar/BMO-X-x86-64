@@ -67,7 +67,7 @@ bueno contra ellos.
 | `escena` | (06-10) una escena 3D DURA contra la imagen de Windows (A11): ver abajo | 3 (o 2 y una nota sin `escena.ref`) |
 | `leefirma` | (06-10) los deserializadores de root signatures, y la 1.1 serializada con los bytes de Windows (A3, A4) | 10 |
 | `capas1d` | (06-10) los UAV de arrays de UNA dimension (`RWTexture1DArray`): escritos, leidos, contados, sus medidas y su ClearUnorderedAccessView (A5) | 9 |
-| `adyacencia` | (06-10) las topologias con ADYACENCIA: que vertices le llegan a un GS `triangleadj` o `lineadj` en listas y tiras, y que se pinta sin GS (A6) | 7 |
+| `adyacencia` | (06-10) las topologias con ADYACENCIA: que vertices le llegan a un GS `triangleadj` o `lineadj` en listas y tiras, y que se pinta sin GS (A6; 06-10, Windows corrigio el orden del impar de la tira) | 8 |
 | `mapeo` | (06-10) `Map` sobre una TEXTURA de un monton de la CPU (CUSTOM), con WriteToSubresource y ReadFromSubresource; la nota dice el HRESULT de Windows al Map CON puntero (A7) | 7 y una nota |
 | `preguntas` | (06-10) las preguntas de CheckFeatureSupport que la casa no contestaba (SHADER_CACHE, prioridades de cola, SERIALIZATION...); la nota dice cuales de las nuevas (OPTIONS13 a 21) sabe ese Windows (A8) | 8 y una nota |
 

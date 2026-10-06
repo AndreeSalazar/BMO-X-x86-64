@@ -123,7 +123,9 @@ fn las_topologias_con_adyacencia_dan_sus_primitivas() {
     let ids: Vec<u32> = (0..15).collect();
     let p = |n: usize, t: Topologia, k: usize| lote::primitivas(&ids[..n], t, k).unwrap();
     assert_eq!(p(15, Topologia::ListaAdy, 6), [vec![0, 1, 2, 3, 4, 5], vec![6, 7, 8, 9, 10, 11]]);
-    assert_eq!(p(10, Topologia::TiraAdy, 6), [vec![0, 1, 2, 6, 4, 3], vec![4, 0, 2, 5, 6, 8], vec![4, 2, 6, 9, 8, 7]]);
+    // El segundo, como lo dijo Windows (la 3060): empieza por el 2.
+    assert_eq!(p(10, Topologia::TiraAdy, 6), [vec![0, 1, 2, 6, 4, 3], vec![2, 5, 6, 8, 4, 0], vec![4, 2, 6, 9, 8, 7]]);
+    assert_eq!(p(8, Topologia::TiraAdy, 6)[1], [2, 5, 6, 7, 4, 0], "impar y el ultimo");
     assert_eq!(p(12, Topologia::TiraAdy, 6)[2], [4, 2, 6, 10, 8, 7], "uno par en medio");
     assert_eq!(p(7, Topologia::TiraAdy, 6), [vec![0, 1, 2, 5, 4, 3]], "solo uno");
     assert!(p(5, Topologia::TiraAdy, 6).is_empty());
@@ -131,6 +133,6 @@ fn las_topologias_con_adyacencia_dan_sus_primitivas() {
     assert_eq!(p(6, Topologia::TiraDeLineasAdy, 4).len(), 3);
     assert!(lote::primitivas(&ids, Topologia::ListaAdy, 3).is_none(), "un GS de triangulos no lee una lista con adyacencia");
     assert_eq!(lote::triangulos(&ids[..12], Topologia::ListaAdy), [[0, 2, 4], [6, 8, 10]]);
-    assert_eq!(lote::triangulos(&ids[..8], Topologia::TiraAdy), [[0, 2, 4], [4, 2, 6]]);
+    assert_eq!(lote::triangulos(&ids[..8], Topologia::TiraAdy), [[0, 2, 4], [2, 6, 4]]);
     assert!(lote::triangulos(&ids, Topologia::LineasAdy).is_empty());
 }

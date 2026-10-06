@@ -364,7 +364,7 @@ pub fn primitivas(ids: &[u32], t: Topologia, n: usize) -> Option<Vec<Vec<u32>>> 
 /// de al lado de esa arista). Los del triangulo van en los pares; de `n`
 /// vertices salen `(n - 4) / 2`, y los impares van dados la vuelta, como en
 /// una tira sin adyacencia. Las aristas de los extremos toman el de al lado
-/// de la punta (D3D11.3, la de OpenGL: tabla 10.1 de GL 4.6):
+/// de la punta (la tabla 10.1 de GL 4.6):
 ///
 /// ```text
 ///    triangulo i     v1, v2, v3              a12     a23     a31
@@ -375,6 +375,12 @@ pub fn primitivas(ids: &[u32], t: Topologia, n: usize) -> Option<Vec<Vec<u32>>> 
 ///    par, el ultimo  2i, 2i+2, 2i+4          2i-2    2i+5    2i+3
 ///    impar, ultimo   2i+2, 2i, 2i+4          2i-2    2i+3    2i+5
 /// ```
+///
+/// Con UNA diferencia, la que dijo Windows (06-10, `adyacencia.exe` B en la
+/// 3060): D3D empieza los IMPARES por su segundo vertice, `2i` -- el mismo
+/// triangulo y el mismo giro, rotado: `[v2, a23, v3, a31, v1, a12]` (el
+/// segundo de la tira de 10 es (2 5 6 8 4 0), no (4 0 2 5 6 8)). Importa al
+/// GS que lee `p[0]`, y al vertice que manda (el plano).
 fn tira_ady(ids: &[u32]) -> Vec<[u32; 6]> {
     let m = ids.len().saturating_sub(4) / 2;
     (0..m)
@@ -390,7 +396,9 @@ fn tira_ady(ids: &[u32]) -> Vec<[u32; 6]> {
                 (.., true) => (2 * i + 6, 2 * i + 3),
                 _ => (2 * i + 3, 2 * i + 6),
             };
-            [v1, a12, v2, a23, 2 * i + 4, a31].map(|k| ids[k])
+            let t = [v1, a12, v2, a23, 2 * i + 4, a31];
+            let t = if par { t } else { [t[2], t[3], t[4], t[5], t[0], t[1]] };
+            t.map(|k| ids[k])
         })
         .collect()
 }

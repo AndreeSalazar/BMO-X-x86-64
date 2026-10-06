@@ -3232,9 +3232,17 @@ TRIANGLELIST_ADJ con un GS triangleadj, Draw(15): 2 triangulos (0..5,
 Draw(7): (0 1 2 5 4 3); D, LINELIST_ADJ con un GS lineadj, Draw(9): 2
 lineas; E, LINESTRIP_ADJ, Draw(6): 3 lineas; F, TRIANGLELIST_ADJ sin GS:
 el triangulo de los vertices 0, 2 y 4 tapa los 64 pixeles; G,
-TRIANGLESTRIP_ADJ sin GS: (0 2 4) y (4 2 6), un cuadro. Dice `bien` 7
-veces y sale con el numero de fallos; en Windows dice lo mismo (B y C son
-lo que se le PREGUNTA: el orden de la tira con adyacencia).
+TRIANGLESTRIP_ADJ sin GS: (0 2 4) y (4 2 6), un cuadro; H (06-10), la
+tira de DOS, Draw(8): el impar que es el ultimo, (0 1 2 6 4 3) y (2 5 6 7
+4 0). Dice `bien` 8 veces y sale con el numero de fallos; en Windows dice
+lo mismo.
+
+LO QUE DIJO WINDOWS (06-10, la 3060 del propietario, la version de 7): 6
+de 7 y B MAL: el segundo triangulo de la tira de 10 llega como (2 5 6 8 4
+0), no (4 0 2 5 6 8) -- D3D empieza el IMPAR por su vertice 2i: el mismo
+triangulo y el mismo giro, rotado. La casa estaba mal (la tabla de OpenGL
+tal cual); arreglado en `lote::tira_ady`, B lleva lo de Windows y H le
+pregunta el impar que es el ultimo.
 
 Con lo de `muestras/construir.sh`, en un directorio con adyacencia.cpp y
 los cuatro .dxil:
@@ -3244,9 +3252,9 @@ los cuatro .dxil:
 
 Reproducible (comprobado en dos directorios), sin rutas. sha256:
 
-   75b23eef54eb0f8f358c390a2c0319c8baaabca1db49697e43bd2b81e67fa27e  adyacencia.exe
+   e7b5396b5cb7a4ba27f75ae71d8485b286e5139304efcf8f4cf0dafe7c89d63d  adyacencia.exe
 
-El banco (`tests/corre/muestras.rs`): los 7 `bien`, sale con 0, ni un
+El banco (`tests/corre/muestras.rs`): los 8 `bien`, sale con 0, ni un
 aviso. Probado que dice NO: contra la casa de antes, 7 MAL ("una
 topologia con adyacencia: todavia no", y el GS no se crea:
 OperacionD3d(108), el primitiveID).

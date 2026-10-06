@@ -476,9 +476,10 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   `LINELIST_ADJ`, `LINESTRIP_ADJ` --: con un GS `triangleadj` o `lineadj`,
   cada primitiva con los vertices de al lado, la tira con la tabla de D3D
   y sus extremos (`lote::tira_ady`); sin GS, sus triangulos. Y el
-  `SV_PrimitiveID` de un GS. Juez `prueba/adyacencia.exe`, 7 `bien`; con la
-  casa de antes, 7 MAL. Falta verlo en Windows: el orden de la tira lo
-  dice el.)
+  `SV_PrimitiveID` de un GS. Juez `prueba/adyacencia.exe`, 8 `bien`; con la
+  casa de antes, 7 MAL. 06-10, EN WINDOWS (la 3060): 6 de 7 y B MAL -- D3D
+  empieza el triangulo IMPAR de la tira por su vertice 2i (el mismo
+  triangulo, rotado); arreglado, y H le pregunta el impar que es el ultimo.)
 - [ ] D4.6 -- La CACHE de PSO a escala: miles de pipelines traducidos una vez
   y guardados en disco; `ID3D12PipelineLibrary` (el juego guarda la suya).
   **Como se sabe:** el segundo arranque no traduce nada.
@@ -1338,7 +1339,8 @@ y lo dice.
                (06-10: capas1d.exe, 9 bien; las filas de otra medida no
                se dan en la casa: guarda las filas sin relleno)
       6  [x] D4.5  las topologias con adyacencia (para un GS que las pide)
-               (06-10: adyacencia.exe, 7 bien; y el SV_PrimitiveID del GS)
+               (06-10: adyacencia.exe, 8 bien; y el SV_PrimitiveID del GS;
+               Windows corrigio el orden del impar de la tira)
       7  [x] D2.3  Map sobre una textura (montones de la CPU) (06-10:
                mapeo.exe, 7 bien y la nota del Map con puntero)
       8  [x] D1.2  las preguntas de CheckFeatureSupport que no contesta

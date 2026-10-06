@@ -8,8 +8,9 @@
 //   A  TRIANGLELIST_ADJ con un GS triangleadj, Draw(15): 2 triangulos, cada
 //      uno con sus 6 vertices en orden (0..5, 6..11); los 3 de mas, nada.
 //   B  TRIANGLESTRIP_ADJ, Draw(10): 3 triangulos con los vertices que dice
-//      la tabla de D3D (la de OpenGL): (0 1 2 6 4 3), (4 0 2 5 6 8) -- el
-//      impar dado la vuelta -- y (4 2 6 9 8 7).
+//      la tabla de OpenGL, con el impar como lo da D3D (06-10, lo dijo la
+//      3060: empieza por su vertice 2i): (0 1 2 6 4 3), (2 5 6 8 4 0) y
+//      (4 2 6 9 8 7).
 //   C  TRIANGLESTRIP_ADJ, Draw(7): UN triangulo, (0 1 2 5 4 3).
 //   D  LINELIST_ADJ con un GS lineadj, Draw(9): 2 lineas (0..3, 4..7).
 //   E  LINESTRIP_ADJ, Draw(6): 3 lineas (0 1 2 3), (1 2 3 4), (2 3 4 5).
@@ -17,6 +18,8 @@
 //      vertices 0, 2 y 4 (tapa la pantalla); los otros no cuentan.
 //   G  TRIANGLESTRIP_ADJ sin GS, Draw(8): los triangulos (0 2 4) y (4 2 6),
 //      un cuadro que tapa la pantalla.
+//   H  TRIANGLESTRIP_ADJ de DOS, Draw(8): el impar y el ultimo a la vez,
+//      (0 1 2 6 4 3) y (2 5 6 7 4 0).
 //
 // Todo entero. Sale con el numero de fallos; en Windows dice lo mismo.
 #include <windows.h>
@@ -100,7 +103,7 @@ static void transicion(ID3D12GraphicsCommandList *l, ID3D12Resource *r, D3D12_RE
 
 // Donde apunta cada dibujo con GS en `sal` (la cuenta, en +240), y donde
 // quedan las dos imagenes en lo leido.
-static const UINT BASE_A = 0, BASE_B = 256, BASE_C = 512, BASE_D = 768, BASE_E = 1024, SAL = 2048;
+static const UINT BASE_A = 0, BASE_B = 256, BASE_C = 512, BASE_D = 768, BASE_E = 1024, BASE_H = 1280, SAL = 2048;
 static const UINT64 EN_F = 4096, EN_G = 8192, LEIDO = 12288;
 
 int main() {
@@ -176,6 +179,7 @@ int main() {
     dibujo(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ, 15, BASE_A, 0);
     dibujo(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ, 10, BASE_B, 0);
     dibujo(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ, 7, BASE_C, 0);
+    dibujo(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ, 8, BASE_H, 0);
     l->SetPipelineState(p_linea);
     dibujo(D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ, 9, BASE_D, 0);
     dibujo(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ, 6, BASE_E, 0);
@@ -236,7 +240,7 @@ int main() {
     };
     const UINT a[12] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     mirar("A, TRIANGLELIST_ADJ con un GS triangleadj, Draw(15)", BASE_A, 6, 8, 2, a);
-    const UINT b[18] = {0, 1, 2, 6, 4, 3, 4, 0, 2, 5, 6, 8, 4, 2, 6, 9, 8, 7};
+    const UINT b[18] = {0, 1, 2, 6, 4, 3, 2, 5, 6, 8, 4, 0, 4, 2, 6, 9, 8, 7};
     mirar("B, TRIANGLESTRIP_ADJ, Draw(10)", BASE_B, 6, 8, 3, b);
     const UINT c[6] = {0, 1, 2, 5, 4, 3};
     mirar("C, TRIANGLESTRIP_ADJ de un triangulo, Draw(7)", BASE_C, 6, 8, 1, c);
@@ -258,6 +262,9 @@ int main() {
     decir(nf == 64, msg);
     snprintf(msg, sizeof msg, "G, TRIANGLESTRIP_ADJ sin GS: los triangulos (0 2 4) y (4 2 6) (%u de 64 pixeles)", ng);
     decir(ng == 64, msg);
+
+    const UINT hh[12] = {0, 1, 2, 6, 4, 3, 2, 5, 6, 7, 4, 0};
+    mirar("H, TRIANGLESTRIP_ADJ de dos, Draw(8)", BASE_H, 6, 8, 2, hh);
 
     printf("adyacencia.exe: las topologias con adyacencia son las de Windows\n");
     return fallos;
