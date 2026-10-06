@@ -37,6 +37,8 @@ extern crate alloc;
 
 pub mod bc;
 pub mod bufer;
+// A9b (06-10): el mapa de la CPU (el Enlace de un PSO) en bytes y de vuelta.
+pub mod cifra;
 pub mod cargar;
 /// E2.5 (05-10): los pixeles en cuadros de 2x2 y en olas (las de un
 /// sombreador que usa `Wave*` y `Quad*`).
@@ -170,3 +172,5 @@ mod pruebas_olas;
 mod pruebas_niveles;
 #[cfg(test)]
 mod pruebas_nulo;
+#[cfg(test)]
+mod pruebas_cifra;

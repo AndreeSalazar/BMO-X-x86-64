@@ -498,9 +498,13 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   primera 1 traducido, la segunda 0 traducidos y 1 del recuerdo, el .bsf sin
   reescribir y los mismos programas pegados; y 4 pruebas de
   `proton-x-sm86` (un .bsf tocado o de otro mapa no se cree; el cuerpo de
-  otro programa no pasa la comprobacion). Falta: la parte de la CPU del
-  paquete (el `.bex`: el Programa y su x86-64 se hacen en cada arranque),
-  ID3D12PipelineLibrary, y verlo en el metal.)
+  otro programa no pasa la comprobacion). 06-10 (A9b), la parte de la CPU:
+  lo compilado de cada PSO (el Enlace) se cifra (`bmo_proton_x::cifra`,
+  con la huella del codigo de la casa) y se recuerda en
+  `proton-x/<juego>/mapas`: `bmox12.exe` dos veces, la segunda 0
+  compilados y las huellas de la 3060. Falta: el x86-64 de `nativo`
+  recordado tambien (hoy, una pasada al arrancar), ID3D12PipelineLibrary,
+  y verlo en el metal.)
 - [ ] D4.7 -- Lo que un traductor no sepa, al interprete de la CPU, DICHO
   (una linea en el diario), nunca una imagen rota en silencio.
 
@@ -1344,7 +1348,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    3
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    2
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1367,8 +1371,13 @@ y lo dice.
                el .BSF VIVO de la 3060 (la CPU genera, comprueba bit a bit
                y lo recuerda en ESTRATOS); bmox12.exe, la segunda vez 0
                traducidos
-     9b  D4.6  el .bex del paquete: el Programa y su x86-64 recordados
-               tambien (hoy se hacen en cada arranque)
+     9b  [x] D4.6  los MAPAS de la CPU (06-10): lo que compilo de cada PSO
+               (el Enlace, cifrado con `bmo_proton_x::cifra`) recordado en
+               `proton-x/<juego>/mapas` de ESTRATOS; bmox12.exe, la segunda
+               vez 0 compilados y los mismos fotogramas. Lo cifrado lleva la
+               HUELLA del codigo de la casa (`build.rs`): otro codigo, otro
+               mapa. El x86-64 de `nativo` se sigue haciendo al arrancar (es
+               una pasada sobre el Programa, sin leer DXIL)
      10  X5    la velocidad que queda: las olas en el computo traducido y
                los pixeles con UAV traducidos
      11  [x] ESCENA  (06-10, pedido del propietario: "un test en 3D DURO en

@@ -63,3 +63,51 @@ fn bmox12_exe_la_segunda_vez_su_pso_sale_del_bsf() {
         antes = Some(ahora);
     }
 }
+
+/// Quitar la carpeta de los mapas al salir (tambien si la prueba cae): las
+/// demas pruebas compilan como siempre.
+struct SinMapas;
+impl Drop for SinMapas {
+    fn drop(&mut self) {
+        bmo_proton_x_casa::enlaces::poner_carpeta(None);
+    }
+}
+
+/// *** A9b: los MAPAS de la CPU. `bmox12.exe` dos veces con la carpeta de
+/// mapas puesta (en BMO-X, `proton-x/<juego>/mapas` de ESTRATOS): la
+/// primera compila su PSO y lo guarda cifrado; la segunda no lee el DXIL --
+/// lo descifra -- y dibuja los MISMOS fotogramas (las huellas de la 3060).
+#[test]
+fn bmox12_exe_la_segunda_vez_no_compila_su_dxil() {
+    let uno = uno_a_la_vez();
+    let _limpio = SinMapas;
+    let dir = volumen().join("proton-x/bmox12/mapas");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    bmo_proton_x_casa::enlaces::poner_carpeta(Some(String::from("proton-x/bmox12/mapas")));
+    let esc = 1 << 8 | 1 << 9 | 0x01;
+    let mut guion = vec![0u64; 70];
+    guion.push(esc);
+    let mut antes: Option<Vec<(String, Vec<u8>)>> = None;
+    for vuelta in 0..2 {
+        let (salio, texto) = correr_bmox12(&uno, true, "", &guion);
+        assert_eq!(salio, 0, "{texto}");
+        assert!(!texto.contains("PROTON-X:"), "ni un aviso de la casa: {texto}");
+        let (compilados, recordados) = bmo_proton_x_casa::enlaces::cuentas();
+        let vistas = VISTAS.lock().unwrap().clone();
+        for (f, esperada) in bmo_cubo::referencia::HUELLAS {
+            assert_eq!(vistas[f as usize], esperada, "vuelta {vuelta}, fotograma {f}");
+        }
+        let ahora = bsfs(&dir);
+        assert!(!ahora.is_empty() && ahora.iter().all(|(n, _)| n.ends_with(".mapa")), "{:?}", ahora.iter().map(|x| &x.0).collect::<Vec<_>>());
+        assert!(ahora.iter().all(|(_, b)| bmo_proton_x::cifra::descifrar_compilado(b).is_some()), "cada mapa se descifra");
+        match vuelta {
+            0 => assert_eq!((compilados, recordados), (ahora.len(), 0), "la primera vez se compila (y se guarda)"),
+            _ => {
+                assert_eq!((compilados, recordados), (0, ahora.len()), "la segunda, NADA que compilar");
+                assert_eq!(antes.as_ref(), Some(&ahora), "y los mapas no se reescriben");
+            }
+        }
+        antes = Some(ahora);
+    }
+}

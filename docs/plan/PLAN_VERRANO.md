@@ -792,9 +792,13 @@ el cuello de botella SI es el kernel. VC4 es lo que lo quita.
   primera 1 traducido, la segunda 0 traducidos y 1 del recuerdo, el .bsf sin
   reescribir y los mismos programas pegados; y 4 pruebas de
   `proton-x-sm86` (un .bsf tocado o de otro mapa no se cree; el cuerpo de
-  otro programa no pasa la comprobacion). Falta: la parte de la CPU del
-  paquete (el `.bex`: el Programa y su x86-64 se hacen en cada arranque),
-  ID3D12PipelineLibrary, y verlo en el metal.
+  otro programa no pasa la comprobacion). 06-10 (A9b), la parte de la CPU:
+  lo compilado de cada PSO (el Enlace) se cifra (`bmo_proton_x::cifra`,
+  con la huella del codigo de la casa) y se recuerda en
+  `proton-x/<juego>/mapas`: `bmox12.exe` dos veces, la segunda 0
+  compilados y las huellas de la 3060. Falta: el x86-64 de `nativo`
+  recordado tambien (hoy, una pasada al arrancar), ID3D12PipelineLibrary,
+  y verlo en el metal.
 - [ ] **VC2 -- PROTON-X habla VERRANO** (`platform/shared/proton-x-casa/src/tuberia.rs`):
   Draw y Dispatch se vuelven fotogramas de VERRANO en vez de llamar a la
   trama a mano; la trama queda como el backend CPU (el juez). **Como se

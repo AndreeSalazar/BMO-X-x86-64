@@ -151,12 +151,14 @@ pub(crate) fn texto(ahora: u64) -> String {
         por_s
     );
     t.push_str(&alloc::format!(
-        "# d3d12: {} PSO ({} ms creandolos, el peor {} ms; {} enlaces distintos, {} se corren), {} recursos, {} ExecuteCommandLists, {} Present\n",
+        "# d3d12: {} PSO ({} ms creandolos, el peor {} ms; {} enlaces distintos, {} se corren; {} compilados y {} del recuerdo), {} recursos, {} ExecuteCommandLists, {} Present\n",
         k.psos,
         ms(k.pso_ns),
         ms(k.pso_peor_ns),
         crate::enlaces::cuantos().0,
         crate::enlaces::cuantos().1,
+        crate::enlaces::cuentas().0,
+        crate::enlaces::cuentas().1,
         k.recursos,
         k.listas,
         k.presents

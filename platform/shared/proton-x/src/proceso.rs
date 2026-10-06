@@ -49,6 +49,10 @@ pub struct Perfil {
     /// A9 (06-10): los `.bsf` de sus PSO, ya traducidos y comprobados
     /// (`proton-x/<juego>/bsf`): la 3060 no vuelve a traducir lo de ayer.
     pub bsf: String,
+    /// A9b (06-10): los MAPAS de la CPU (lo que compilo de cada PSO, cifrado:
+    /// `bmo_proton_x::cifra`), `proton-x/<juego>/mapas`: el DXIL de ayer no
+    /// se vuelve a leer.
+    pub mapas: String,
     /// La misma, como la ve el `.exe` (`C:\proton-x\cyberpunk2077\perfil`).
     pub windows: String,
 }
@@ -88,12 +92,14 @@ pub fn perfil_de(ruta_exe: &str) -> Option<Perfil> {
     let capa = alloc::format!("proton-x/{juego}/capa");
     let borrados = alloc::format!("proton-x/{juego}/borrados");
     let bsf = alloc::format!("proton-x/{juego}/bsf");
+    let mapas = alloc::format!("proton-x/{juego}/mapas");
     Some(Perfil {
         juego,
         volumen,
         capa,
         borrados,
         bsf,
+        mapas,
         windows,
     })
 }
@@ -108,6 +114,7 @@ impl Perfil {
             self.capa.clone(),
             self.borrados.clone(),
             self.bsf.clone(),
+            self.mapas.clone(),
         ];
         v.extend(
             CARPETAS_DEL_PERFIL
