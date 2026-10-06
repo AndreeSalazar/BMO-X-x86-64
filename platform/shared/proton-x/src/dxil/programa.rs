@@ -551,17 +551,6 @@ impl Programa {
         self.ops.iter().any(|o| matches!(o, Op::Ola { que: super::olas::Ola::Derivada { muestra: false, .. }, .. }))
     }
 
-    /// N5.4: si elige texturas por un registro CALCULADO (el bindless).
-    pub fn elige_texturas(&self) -> bool {
-        self.ops.iter().any(|o| matches!(o, Op::EligeTextura { .. }))
-    }
-
-    /// D4.4: si pide el LOD de sus derivadas (`CalculateLevelOfDetail`): sale
-    /// de ellas aunque la textura tenga una sola mip.
-    pub fn calcula_lod(&self) -> bool {
-        self.ops.iter().any(|o| matches!(o, Op::Lee { como: Lectura::Lod { .. }, .. }))
-    }
-
     /// D4.4: si muestrea con la mip de sus derivadas (`Sample`, no
     /// `SampleLevel`).
     pub fn mip_por_derivadas(&self) -> bool {

@@ -552,18 +552,45 @@ juego pide mientras la 3060 no corre computo (N6).
   los dos caminos --; los que no, MUCHO: luces 4,2, gbuffer 6,0. En el
   metal el interprete es soft-float: alli la diferencia sera otra.
   **Lo que puede fallar, dicho:** (1) un juego con texturas de varias
-  mips (todos) o bindless (Cyberpunk) sigue INTERPRETADO en sus pixeles:
-  lo arregla X3; (2) la llamada guarda los registros del cuerpo en la pila
+  mips (todos) o bindless (Cyberpunk) seguia INTERPRETADO en sus pixeles:
+  lo arreglo X3 (06-10); (2) la llamada guarda los registros del cuerpo en la pila
   (System V): una funcion de Rust que use mucha pila crece la de quien
   dibuja.
-- [ ] **X3 -- el codigo traducido EN CUADROS de 2x2** (`platform/shared/proton-x/src/nativo.rs`):
-  que lo traducido corra cuatro pixeles a la vez (los de un cuadro, con
-  sus ayudantes, como `crate::cuadros`) y saque las derivadas restando
-  carriles, como el interprete en olas. Es lo que le falta a Cyberpunk:
-  sus pixeles muestrean texturas de varias mips por el indice dinamico, y
-  hoy (X2) van por el interprete. **Como se sabe:** `derivadas.exe` y
-  `restos.exe` sin el aviso de "va por el interprete, en cuadros"; los
-  bits, los del interprete en olas; y DynamicIndexing medido mas rapido.
+- [x] **X3 -- el codigo traducido EN CUADROS de 2x2** (`platform/shared/proton-x-casa/src/nativo.rs`,
+  `en_cuadros`; 06-10, en el banco; falta verlo en el metal). Lo que le
+  faltaba a Cyberpunk: sus pixeles muestrean texturas de varias mips por
+  el indice dinamico, y en X2 iban por el interprete. Ahora cada derivada
+  (o racha de derivadas SEGUIDAS) es un punto de PARADA del cuerpo
+  traducido, como una barrera del computo (`nativo_computo::paradas`, y
+  vuelve con `OLA`): la casa corre los cuatro carriles del cuadro
+  (ayudantes incluidos), y cuando los cuatro se paran en el MISMO punto
+  hace sus derivadas con la funcion del interprete (`olas::hacer`) sobre
+  los registros de los cuatro, y siguen. Cada carril tiene su `Contexto` y
+  sus `Muestras` (la textura ELEGIDA es suya: la parada cae entre
+  `EligeTextura` y su muestreo). Si el cuadro se SEPARA (uno se tira o
+  acaba y otro se para, o se paran en sitios distintos), se rehace entero
+  en el interprete: un pixel traducido no escribe UAV, asi que correrlo
+  otra vez no deja nada. `ddx`/`ddy`, `fwidth` y CalculateLevelOfDetail
+  ya se traducen. **Como se sabe:** `proton-x-casa/tests/nativo/texturas.rs`,
+  contra el interprete en olas BIT A BIT (si queda cada carril y lo que
+  sale): los cinco del banco que derivan (textura_ps, vistas, espacios,
+  HelloTexture, DynamicIndexing), 2.500 olas de 8 cuadros cada uno, con
+  ayudantes al azar: los 20.000 cuadros por lo TRADUCIDO, ninguno
+  rehecho; un programa hecho a mano que se separa (un `discard` antes de
+  derivar, cuatro derivadas seguidas -- la tercera lee la primera --, la
+  fina en y, y una dentro de un `si`): 1.186 traducidos y 14.814
+  rehechos, iguales; y uno que elige SU textura por pixel. En el banco de
+  `.exe`: `derivadas.exe` y DynamicIndexing, ni un aviso. Probado que dice
+  NO, quitando a mano: el carril de al lado (`q ^ 1`), resolver solo la
+  primera de la racha, no mirar si se separan, y las cuatro `Muestras` en
+  una: cada una, sus `MAL`. **Medido** (`--release`, 100.000 pixeles en
+  olas de 8 cuadros, el Xeon del banco): HelloTexture 1,8 veces el
+  interprete en olas, DynamicIndexing 1,7. **Lo que puede fallar,
+  dicho:** (1) un pixel con UAV, olas de verdad (`Wave*`) o lo de fuera
+  sigue interpretado (dicho); (2) cada parada es una vuelta y una llamada
+  por carril: un sombreador con muchas derivadas sueltas (no seguidas)
+  paga mas; (3) los cuadros que se separan cuestan DOS veces (lo
+  traducido hasta separarse, y el interprete entero).
 
 **LA CPU GUIA, LA 3060 DIBUJA.** El propietario (05-10): *"que la CPU no
 tiene que ser la que dibuje, sino que tenga el mapa por via de RAM y que le

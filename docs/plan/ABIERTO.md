@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   643 casillas ABIERTAS en 62 planes
-   537 hechas
+   642 casillas ABIERTAS en 62 planes
+   538 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -145,15 +145,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
 
-## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 15 abiertas, 19 hechas
-
-*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
-
-- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
-- [ ] E2.6 -- D3D12HDR. Render targets de float (N5.16, hecho el 05-10 con
-- [ ] E3.1 -- ModelViewer con Sponza. Cientos de PSO, sombras, SSAO,
-- ... y 12 mas
-
 ## [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) -- 14 abiertas, 1 hechas
 
 *PLAN EL PLAZO -- V-Sync, VBlank y la deuda de planificacion*
@@ -161,6 +152,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] **P2.2 -- RESCHEDULE FORZADO: una tarea que se duerme suelta el CPU en el
 - [ ] P2.3 -- el kernel publica el TIEMPO DE CPU de una tarea. Hoy
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
+- ... y 11 mas
+
+## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 14 abiertas, 20 hechas
+
+*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
+
+- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
+- [ ] E2.6 -- D3D12HDR. Render targets de float (N5.16, hecho el 05-10 con
+- [ ] E3.1 -- ModelViewer con Sponza. Cientos de PSO, sombras, SSAO,
 - ... y 11 mas
 
 ## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 13 abiertas, 7 hechas

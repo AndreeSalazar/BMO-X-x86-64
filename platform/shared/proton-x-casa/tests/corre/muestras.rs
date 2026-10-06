@@ -463,15 +463,10 @@ fn tono(p: u32) -> Option<f32> {
 fn e2_2_dynamicindexing_cada_ciudad_lee_su_material_por_indice_dinamico() {
     let (salio, texto, vistas, fotos) = correr_muestra(DYNINDEX, "dynindex", 2, &[1]);
     assert_eq!(salio, 0xF00D, "{texto}");
-    // X2 (05-10): el PSO se TRADUCE, pero su `Sample` elige la mip con las
-    // derivadas del cuadro y sus texturas son del indice dinamico (no se
-    // ven de antemano): el dibujo va por el interprete, en cuadros, y lo
-    // dice. Lo arregla X3 (el codigo nativo en cuadros de 2x2).
-    assert_eq!(
-        texto,
-        "PROTON-X: un dibujo muestrea con la mip de sus derivadas texturas del indice dinamico (bindless): va por el interprete, en cuadros de 2x2 (sus mips no se ven de antemano)\n",
-        "ni otro aviso ni un hueco que falte (antes: `createHandle con un registro CALCULADO`)"
-    );
+    // Ni un aviso: desde X3 (06-10) su `Sample` (la mip de las derivadas
+    // del cuadro, de texturas del indice dinamico) va TRADUCIDO, en cuadros
+    // de 2x2 (antes: el de texturas, y en X2 "va por el interprete").
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte (antes: `createHandle con un registro CALCULADO`)");
     assert_eq!(vistas[0], vistas[1], "la camara quieta: la misma imagen");
     let px = &fotos[0].1;
     let (w, h) = (fotos[0].2, fotos[0].3);
@@ -868,23 +863,18 @@ fn e2_7_predicationqueries_salta_el_cuadro_que_la_oclusion_dice_tapado() {
 /// tres ayudantes), la mezcla de dos mips (MIP_LINEAR), `SampleBias`,
 /// `SampleLevel`, `SampleGrad`, `CalculateLevelOfDetail` (y `Unclamped`), y
 /// lo que sujeta la mip: MostDetailedMip, ResourceMinLODClamp y el MaxLOD de
-/// un muestreador de un monton. Bit a bit. Dos avisos y ninguno mas, los de
-/// verdad: los dos PSO se interpretan (uno deriva, el otro calcula el LOD).
+/// un muestreador de un monton. Bit a bit. Ni un aviso: desde X3 los dos PSO
+/// van traducidos, en cuadros de 2x2.
 #[test]
 fn d4_4_las_derivadas_y_la_mip_de_un_muestreo_son_las_de_windows() {
     let uno = uno_a_la_vez();
     let (salio, dicho, _) = correr_exe(&uno, DERIVADAS_EXE, true, &[]);
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
+    // Ni un aviso: desde X3 (06-10) los dos PSO (el que deriva y el que
+    // calcula el LOD) van TRADUCIDOS, en cuadros de 2x2.
     let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
-    assert_eq!(
-        avisos,
-        [
-            "PROTON-X: un PSO cuyo sombreador usa las derivadas (ddx, ddy, fwidth: van en cuadros de 2x2): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)",
-            "PROTON-X: un PSO cuyo sombreador calcula el LOD de sus derivadas (CalculateLevelOfDetail: van en cuadros de 2x2): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"
-        ],
-        "{texto}"
-    );
+    assert!(avisos.is_empty(), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 17, "{texto}");
     assert!(texto.ends_with("derivadas.exe: las derivadas y la mip de un muestreo son las de Windows\r\n[salio 0x0]"), "{texto}");
 }

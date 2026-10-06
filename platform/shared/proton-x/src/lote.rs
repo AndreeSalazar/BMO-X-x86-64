@@ -542,6 +542,13 @@ pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs
     en_cpu_olas(l, destino, vs, ps, None)
 }
 
+/// **X3 (06-10): lo mismo, con quien corre los pixeles EN OLAS** puesto
+/// desde fuera (la casa: lo traducido, en cuadros de 2x2). La trama, los
+/// cuadros y sus ayudantes no cambian: solo quien hace las cuentas.
+pub fn en_cpu_en_olas(l: &Lote, destino: &mut trama::Destino, vs: Corre, olas: crate::cuadros::Olas) -> Result<trama::Cuenta, NoDibuja> {
+    en_cpu_olas(l, destino, vs, &mut |_, _| false, Some(olas))
+}
+
 /// E2.5: [`en_cpu_con`] con quien corre las OLAS de pixeles (`Some`: el de
 /// pixeles usa las olas, y `ps` no se llama).
 fn en_cpu_olas(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, olas: Option<crate::cuadros::Olas>) -> Result<trama::Cuenta, NoDibuja> {

@@ -16,7 +16,9 @@ use bmo_proton_x::dxil::programa::{Op, Programa};
 use bmo_proton_x::nativo;
 use bmo_proton_x::nativo_llamadas::{Muestras, MATES};
 use bmo_proton_x::textura::{Clase, Como, Dinamicas, Direccion, Filtro, Muestreador, Recursos, Textura};
-use bmo_proton_x_casa::nativo::{llamadas, Sombreador};
+use bmo_proton_x::cuadros::Carril;
+use bmo_proton_x::lote;
+use bmo_proton_x_casa::nativo::{cuadros_contados, en_cuadros, llamadas, FuncionComputo, Sombreador};
 
 const HDR_LEE: &[u8] = include_bytes!("../../../proton-x/prueba/hdr_lee.dxil");
 const TEXTURA_PS: &[u8] = include_bytes!("../../../proton-x/prueba/textura_ps.dxil");
@@ -130,6 +132,37 @@ fn un_caso(p: &Programa, f: Sombreador, ent: &[[f32; 4]], cb: &[u8], rec: &Recur
     Ok(())
 }
 
+/// El cuerpo de un pixel que DERIVA (X3), sellado: la firma de los de
+/// computo (`fn(registros, Contexto, cbuffer)`).
+fn cuerpo(f: super::Sombreador) -> FuncionComputo {
+    // SAFETY: la misma direccion; lo sellado es un cuerpo de
+    // `nativo::compilar_cuadros`, y esa es su firma.
+    unsafe { core::mem::transmute::<super::Sombreador, FuncionComputo>(f) }
+}
+
+/// **X3: una ola de cuadros por los dos caminos**: el interprete en olas
+/// (`lote::olas_de`, el de E2.5) y lo traducido en cuadros (`en_cuadros`),
+/// con los mismos carriles (`entradas` y `ayudantes`, de cuatro en cuatro).
+/// Bit a bit: si queda cada carril y lo que sale de el.
+fn una_ola(p: &Programa, f: FuncionComputo, entradas: &[Vec<[f32; 4]>], ayudantes: &[bool], cb: &[u8], rec: &Recursos) -> Result<(), String> {
+    let objetivos: Vec<u8> = (0..p.salidas as u8).collect();
+    let carriles = || -> Vec<Carril> { entradas.iter().zip(ayudantes).map(|(e, &a)| Carril { entrada: e.clone(), ayudante: a, colores: [[0.0; 4]; bmo_proton_x::trama::SALIDAS], queda: false }).collect() };
+    let (mut uno, mut otro) = (carriles(), carriles());
+    lote::olas_de(p, cb, rec, &objetivos, None)(&mut uno);
+    en_cuadros(p, &objetivos, rec, cb, f)(&mut otro);
+    let bits = |v: &[[f32; 4]]| v.iter().map(|e| e.map(f32::to_bits)).collect::<Vec<_>>();
+    for (k, (a, b)) in uno.iter().zip(&otro).enumerate() {
+        if a.queda != b.queda {
+            return Err(format!("carril {k} (ayudante {}): queda interpretado {}, traducido {}", a.ayudante, a.queda, b.queda));
+        }
+        let n = p.salidas;
+        if a.queda && !a.colores[..n].iter().zip(&b.colores[..n]).all(|(x, y)| (0..4).all(|c| igual(x[c], y[c]))) {
+            return Err(format!("carril {k}: interpretado {:x?}, traducido {:x?} (entradas del cuadro {:x?})", bits(&a.colores[..n]), bits(&b.colores[..n]), entradas[k & !3..(k & !3) + 4].iter().map(|e| bits(e)).collect::<Vec<_>>()));
+        }
+    }
+    Ok(())
+}
+
 /// Un valor de entrada: un raro, unos bits cualesquiera, una coordenada de
 /// textura (de -1.5 a 2.5, donde caen los texeles, los bordes y las
 /// vueltas) o un entero chico (un `Load`, un indice de array).
@@ -156,15 +189,38 @@ fn los_que_muestrean_nativos_dan_los_bits_del_interprete() {
     for (nombre, d) in TODOS {
         let p = super::saltos::de_dxc(d);
         assert_eq!(nativo::por_que_no(&p), None, "{nombre}: sin motivo para no traducirlo");
-        let f = con_llamadas(sellar(&nativo::compilar(&p).unwrap_or_else(|| panic!("{nombre}: se traduce"))));
         let mut z = Azar(0x2545_F491_4F6C_DD1D ^ nombre.len() as u64);
         // El cbuffer: lo que lean sus filas fijas (las calculadas, hasta 64
         // filas: lo de fuera, 0 en los dos).
         let fijas = p.ops.iter().filter_map(|o| if let Op::Constantes { fila, .. } = o { Some(*fila as usize + 1) } else { None }).max().unwrap_or(0);
         let filas = (p.filas_cb as usize).clamp(1, 64).max(fijas);
         let mut malos = Vec::new();
+        let mut entrada = |z: &mut Azar| -> Vec<[f32; 4]> { (0..p.entradas.max(1)).map(|_| [valor(z, &raros), valor(z, &raros), valor(z, &raros), valor(z, &raros)]).collect() };
+        // X3 (06-10): el que DERIVA (`Sample` y su mip) va en cuadros: olas
+        // de ocho cuadros, con ayudantes al azar, contra el interprete en olas.
+        if p.usa_olas() {
+            assert!(nativo::compilar(&p).is_none(), "{nombre}: deriva, y pixel a pixel no hay cuadro");
+            let f = cuerpo(sellar(&nativo::compilar_cuadros(&p).unwrap_or_else(|| panic!("{nombre}: se traduce en cuadros"))));
+            let (n0, r0) = cuadros_contados();
+            for _ in 0..2_500 {
+                let ent: Vec<Vec<[f32; 4]>> = (0..32).map(|_| entrada(&mut z)).collect();
+                let ayudantes: Vec<bool> = (0..32).map(|_| z.siguiente() % 4 == 0).collect();
+                let cb: Vec<u8> = (0..filas * 4).flat_map(|_| valor(&mut z, &raros).to_le_bytes()).collect();
+                if let Err(m) = una_ola(&p, f, &ent, &ayudantes, &cb, &rec) {
+                    malos.push(m);
+                }
+            }
+            assert!(malos.is_empty(), "{nombre}: {} olas distintas de 2500; la primera: {}", malos.len(), malos[0]);
+            // Que lo juzgado sea lo TRADUCIDO: los cuadros que se separan se
+            // rehacen en el interprete (y darian lo mismo por construccion).
+            let (n1, r1) = cuadros_contados();
+            eprintln!("{nombre}: {} cuadros por lo traducido, {} rehechos en el interprete", n1 - n0, r1 - r0);
+            assert!(n1 - n0 >= 8 * 2_500 * 9 / 10, "{nombre}: casi todos por lo traducido ({} de {})", n1 - n0, 8 * 2_500);
+            continue;
+        }
+        let f = con_llamadas(sellar(&nativo::compilar(&p).unwrap_or_else(|| panic!("{nombre}: se traduce"))));
         for _ in 0..20_000 {
-            let ent: Vec<[f32; 4]> = (0..p.entradas.max(1)).map(|_| [valor(&mut z, &raros), valor(&mut z, &raros), valor(&mut z, &raros), valor(&mut z, &raros)]).collect();
+            let ent = entrada(&mut z);
             let cb: Vec<u8> = (0..filas * 4).flat_map(|_| valor(&mut z, &raros).to_le_bytes()).collect();
             if let Err(m) = un_caso(&p, f, &ent, &cb, &rec) {
                 malos.push(m);
@@ -260,7 +316,8 @@ fn el_mxcsr_de_quien_llama_no_cuenta_en_lo_que_se_llama() {
     let f = con_llamadas(sellar(&nativo::compilar(&p).unwrap()));
     let (tex, mue, buf) = (texturas(), muestreadores(), buferes());
     let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: None };
-    let lee = super::saltos::de_dxc(TEXTURA_PS);
+    // Uno que muestrea sin derivar (pixel a pixel: un SampleLevel o un Load).
+    let lee = super::saltos::de_dxc(HDR_LEE);
     let fl = con_llamadas(sellar(&nativo::compilar(&lee).unwrap()));
     let cb: Vec<u8> = (0..160u32).map(|k| (k * 37) as u8).collect();
     for suyo in [0x7F80u32, 0x9FC0, 0x1FBF] {
@@ -305,8 +362,38 @@ fn lo_que_tarda_cada_camino_con_texturas() {
     let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar)) };
     for (nombre, d) in [("hdr PSLee", HDR_LEE), ("htexture PSMain", HTEXTURE_PS), ("dynindex pixel", DYNINDEX_PS), ("mates", MATES_PS), ("luces", LUCES), ("gbuffer", GBUFFER)] {
         let p = super::saltos::de_dxc(d);
-        let f = con_llamadas(sellar(&nativo::compilar(&p).unwrap()));
         let cb: Vec<u8> = (0..1024u32).flat_map(|k| ((k % 7) as f32 * 0.125).to_le_bytes()).collect();
+        // X3 (06-10): el que DERIVA, en olas de ocho cuadros por los dos
+        // caminos (`n` pixeles en total): el interprete en olas y lo
+        // traducido en cuadros.
+        if p.usa_olas() {
+            let f = cuerpo(sellar(&nativo::compilar_cuadros(&p).unwrap()));
+            let objetivos: Vec<u8> = (0..p.salidas as u8).collect();
+            let mut ola: Vec<Carril> = (0..32u32)
+                .map(|i| {
+                    let (x, y) = ((i & 1) + (i >> 2 & 7) * 2, (i >> 1 & 1) + (i >> 5) * 2);
+                    Carril { entrada: vec![[x as f32 / 64.0, y as f32 / 64.0, 0.5, f32::from_bits(i % 4)]; p.entradas.max(1)], ayudante: false, colores: [[0.0; 4]; bmo_proton_x::trama::SALIDAS], queda: false }
+                })
+                .collect();
+            let (mut interpretado, mut traducido) = (std::time::Duration::MAX, std::time::Duration::MAX);
+            for _ in 0..5 {
+                let mut i = lote::olas_de(&p, &cb, &rec, &objetivos, None);
+                let t = std::time::Instant::now();
+                for _ in 0..n / 32 {
+                    i(&mut ola);
+                }
+                interpretado = interpretado.min(t.elapsed());
+                let mut c = en_cuadros(&p, &objetivos, &rec, &cb, f);
+                let t = std::time::Instant::now();
+                for _ in 0..n / 32 {
+                    c(&mut ola);
+                }
+                traducido = traducido.min(t.elapsed());
+            }
+            eprintln!("{nombre} (en cuadros): {n} pixeles, interpretado {interpretado:?}, traducido {traducido:?} ({:.1} veces)", interpretado.as_secs_f64() / traducido.as_secs_f64());
+            continue;
+        }
+        let f = con_llamadas(sellar(&nativo::compilar(&p).unwrap()));
         let ent: Vec<Vec<[f32; 4]>> = (0..64u32).map(|i| vec![[i as f32 / 64.0, 1.0 - i as f32 / 80.0, 0.5, f32::from_bits(i % 4)]; p.entradas.max(1)]).collect();
         let mut s = vec![[0.0f32; 4]; p.salidas];
         let mut regs = Vec::new();
@@ -334,4 +421,101 @@ fn lo_que_tarda_cada_camino_con_texturas() {
         }
         eprintln!("{nombre}: {n} veces, interpretado {interpretado:?}, traducido {traducido:?} ({:.1} veces)", interpretado.as_secs_f64() / traducido.as_secs_f64());
     }
+}
+
+
+/// **X3: cuadros que se SEPARAN, y derivadas seguidas.** Un programa hecho
+/// a mano: tira el pixel si x < 0 ANTES de derivar (el cuadro se separa: un
+/// carril acaba y los otros se paran), luego tres derivadas seguidas (una
+/// sola parada; la tercera lee la PRIMERA: el orden importa), y una mas
+/// dentro de un `si` de y (carriles parados en sitios distintos). Lo que se
+/// separa se rehace en el interprete; lo demas va traducido. Bit a bit, y
+/// que haya de los dos.
+#[test]
+fn los_cuadros_que_se_separan_dan_los_bits_del_interprete() {
+    use bmo_proton_x::dxil::olas::Ola;
+    use bmo_proton_x::dxil::programa::Comparacion;
+    let der = |d, a, y, fina| Op::Ola { d, a, b: a, que: Ola::Derivada { y, fina, muestra: false } };
+    let ops = vec![
+        Op::Entrada { d: 0, elemento: 0, componente: 0 },
+        Op::Entrada { d: 1, elemento: 0, componente: 1 },
+        Op::Compara { d: 3, a: 0, b: 2, como: Comparacion::Menor, entero: false },
+        Op::Descarta { c: 3 },
+        der(4, 1, false, true),
+        der(5, 0, true, false),
+        der(6, 4, false, false),
+        // La fina en y: la de SU columna (un carril cambiado la tuerce).
+        der(10, 1, true, true),
+        Op::Compara { d: 7, a: 1, b: 9, como: Comparacion::Menor, entero: false },
+        Op::Si { c: 7 },
+        der(8, 0, false, true),
+        Op::FinSi,
+        Op::Salida { s: 4, elemento: 0, componente: 0 },
+        Op::Salida { s: 5, elemento: 0, componente: 1 },
+        Op::Salida { s: 6, elemento: 0, componente: 2 },
+        Op::Salida { s: 8, elemento: 0, componente: 3 },
+        Op::Salida { s: 10, elemento: 1, componente: 0 },
+    ];
+    let mut iniciales = vec![0.0f32; 11];
+    iniciales[9] = 0.5;
+    let p = Programa { ops, iniciales, entradas: 1, salidas: 2, lee: 1, filas_cb: 0, ranuras: Default::default(), computo: Default::default() };
+    let f = cuerpo(sellar(&nativo::compilar_cuadros(&p).expect("se traduce en cuadros")));
+    assert_eq!(bmo_proton_x::nativo_computo::paradas(&p, true), vec![vec![4, 5, 6, 7], vec![10]], "cuatro seguidas, una parada; la del si, otra");
+    let mut z = Azar(0x0BAD_C0DE_1234_5678);
+    let (n0, r0) = cuadros_contados();
+    let mut malos = Vec::new();
+    for _ in 0..2_000 {
+        // x < 0 en uno de cada ocho carriles; y < 0,5 en la mitad.
+        let ent: Vec<Vec<[f32; 4]>> = (0..32)
+            .map(|_| {
+                let r = z.siguiente();
+                let x = if r % 8 == 0 { -1.0 } else { (r >> 8) as u32 as f32 / 4294967296.0 };
+                vec![[x, (r >> 40) as u32 as f32 / 16777216.0, 0.0, 0.0]]
+            })
+            .collect();
+        let ayudantes: Vec<bool> = (0..32).map(|_| z.siguiente() % 5 == 0).collect();
+        if let Err(m) = una_ola(&p, f, &ent, &ayudantes, &[], &Recursos::NINGUNO) {
+            malos.push(m);
+        }
+    }
+    let (n1, r1) = cuadros_contados();
+    assert!(malos.is_empty(), "{} olas distintas de 2000; la primera: {}", malos.len(), malos[0]);
+    eprintln!("separados: {} cuadros por lo traducido, {} rehechos", n1 - n0, r1 - r0);
+    assert!(n1 - n0 > 1_000 && r1 - r0 > 1_000, "de los dos caminos: {} traducidos, {} rehechos", n1 - n0, r1 - r0);
+}
+
+/// **X3: la textura ELEGIDA es de cada carril.** Un programa hecho a mano:
+/// cada pixel elige SU textura del indice dinamico (los bits de su w,
+/// distintos en cada carril), deriva sus (u, v) para la mip -- una PARADA
+/// entre elegir y muestrear -- y muestrea la elegida. Si los cuatro
+/// compartieran lo elegido, cada uno leeria la del ultimo que eligio.
+#[test]
+fn cada_carril_muestrea_la_textura_que_eligio() {
+    use bmo_proton_x::dxil::olas;
+    use bmo_proton_x::dxil::programa::DINAMICA;
+    let mut ops = vec![
+        Op::Entrada { d: 0, elemento: 0, componente: 0 },
+        Op::Entrada { d: 1, elemento: 0, componente: 1 },
+        Op::Entrada { d: 2, elemento: 0, componente: 3 },
+        Op::EligeTextura { i: 2, rango: 0 },
+    ];
+    olas::gradientes(&mut ops, 4, 0, 1);
+    ops.push(Op::Muestra { d: 8, t: DINAMICA, s: 0, u: 0, v: 1, g: Some(4) });
+    ops.extend((0..4u8).map(|k| Op::Salida { s: 8 + k as u16, elemento: 0, componente: k }));
+    let p = Programa { ops, iniciales: vec![0.0; 12], entradas: 1, salidas: 1, lee: 1, filas_cb: 0, ranuras: Default::default(), computo: Default::default() };
+    let f = cuerpo(sellar(&nativo::compilar_cuadros(&p).expect("se traduce en cuadros")));
+    let (tex, mue) = (texturas(), muestreadores());
+    let tex_dinamicas = tex.clone();
+    let buscar = move |rango: u8, registro: u32| -> Option<Textura<'static>> { tex_dinamicas.get((registro as usize + rango as usize) % 9).copied().flatten() };
+    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &[], dinamicas: Some(Dinamicas(&buscar)) };
+    let mut z = Azar(0x7EC5_7DA5_A1B2_C3D4);
+    let mut malos = Vec::new();
+    for _ in 0..2_000 {
+        let ent: Vec<Vec<[f32; 4]>> = (0..32).map(|_| vec![[valor(&mut z, &[0.25]), valor(&mut z, &[0.75]), 0.0, f32::from_bits(z.siguiente() as u32 % 9)]]).collect();
+        let ayudantes = vec![false; 32];
+        if let Err(m) = una_ola(&p, f, &ent, &ayudantes, &[], &rec) {
+            malos.push(m);
+        }
+    }
+    assert!(malos.is_empty(), "{} olas distintas de 2000; la primera: {}", malos.len(), malos[0]);
 }

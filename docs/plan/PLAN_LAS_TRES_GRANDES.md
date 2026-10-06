@@ -410,9 +410,10 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   sus gradientes con MIP_LINEAR, SampleBias, SampleGrad, SampleCmp,
   CalculateLevelOfDetail, MinLOD/MaxLOD/MipLODBias, MostDetailedMip,
   MipLevels y ResourceMinLODClamp; juzgadas por `prueba/derivadas.exe` en
-  el banco, 17 `bien`. Falta: la 3060 con texturas de varias mips (la
-  puerta las manda a la CPU, dicho), el x86 traducido, la anisotropia y
-  los cubos (en la mip de la vista), y verlo en Windows.)
+  el banco, 17 `bien`. Y en el x86 traducido desde X3 de la ESCALERA
+  (06-10: en cuadros de 2x2). Falta: la 3060 con texturas de varias mips
+  (la puerta las manda a la CPU, dicho), la anisotropia y los cubos (en la
+  mip de la vista), y verlo en Windows.)
 - [ ] D4.5 -- Vertices: instancias, `SV_VertexID`/`InstanceID`. Casco y
   dominio (teselado) y geometria SOLO si D0.2 los encuentra.
 - [ ] D4.6 -- La CACHE de PSO a escala: miles de pipelines traducidos una vez

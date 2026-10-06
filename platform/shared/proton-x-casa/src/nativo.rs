@@ -27,6 +27,7 @@
 
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
+use core::sync::atomic::{AtomicU64, Ordering};
 
 use bmo_proton_x::lote::{self, Enlace, Lote, NoDibuja};
 use bmo_proton_x::nativo_llamadas::{Llamadas, Muestras};
@@ -36,7 +37,7 @@ use crate::{aviso, plataforma};
 
 /// La firma de un sombreador de computo traducido (`nativo_computo`): el
 /// ABI de System V. Vive aqui y no en `bmo-proton-x`, que es puro.
-pub(crate) type FuncionComputo = unsafe extern "sysv64" fn(*mut f32, *mut bmo_proton_x::nativo_computo::Contexto, *const u8) -> u32;
+pub type FuncionComputo = unsafe extern "sysv64" fn(*mut f32, *mut bmo_proton_x::nativo_computo::Contexto, *const u8) -> u32;
 
 /// `fn(registros, entradas, cbuffer, salidas, llamadas) -> QUEDA o
 /// DESCARTADO`: solo punteros, el ABI entero que el Rust soft-float de Ring
@@ -72,6 +73,10 @@ struct Traducido {
     enlace: usize,
     vs: usize,
     ps: usize,
+    /// X3 (06-10): el de pixeles DERIVA (`ddx`, la mip de un `Sample`...):
+    /// `ps` es su cuerpo sin entrada, que corre en cuadros de 2x2
+    /// ([`en_cuadros`]); si no, un [`Sombreador`] de un pixel.
+    cuadros: bool,
 }
 
 struct Estado {
@@ -117,8 +122,11 @@ fn agregar(e: &mut Estado, c: &[u8]) -> usize {
 pub(crate) fn registrar(en: &Enlace) {
     let e = estado();
     // X2 (05-10): los que MUESTREAN ya se traducen (llaman al muestreo del
-    // interprete); lo que no, el PSO entero va por el interprete.
-    let (Some(cv), Some(cp)) = (nativo::compilar(&en.vs), nativo::compilar(&en.ps)) else {
+    // interprete); lo que no, el PSO entero va por el interprete. X3 (06-10):
+    // el de pixeles que DERIVA, en cuadros de 2x2.
+    let cuadros = en.ps.usa_olas();
+    let ps = if cuadros { nativo::compilar_cuadros(&en.ps) } else { nativo::compilar(&en.ps) };
+    let (Some(cv), Some(cp)) = (nativo::compilar(&en.vs), ps) else {
         // N5.13 (05-10): el motivo de VERDAD.
         match nativo::por_que_no(&en.vs).or_else(|| nativo::por_que_no(&en.ps)) {
             Some(m) => aviso(&alloc::format!("un PSO cuyo sombreador {m}: sus sombreadores se interpretan (el codigo nativo aun no lo sabe)")),
@@ -128,7 +136,7 @@ pub(crate) fn registrar(en: &Enlace) {
     };
     let vs = agregar(e, &cv);
     let ps = agregar(e, &cp);
-    e.traducidos.push(Traducido { enlace: en as *const Enlace as usize, vs, ps });
+    e.traducidos.push(Traducido { enlace: en as *const Enlace as usize, vs, ps, cuadros });
     sellar(e);
 }
 
@@ -188,22 +196,7 @@ pub fn dibujar(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, 
         return lote::en_cpu(l, destino);
     };
     let en = l.enlace;
-    // D4.4: lo traducido corre pixel a pixel, sin el cuadro de 2x2 que da las
-    // derivadas: muestrea con gradientes 0 (la mip mas detallada, el filtro
-    // de cerca). Solo vale si la mip no cambia nada; si la cambia (una vista
-    // de varias mips, o MIN y MAG distintos), por el interprete, en cuadros.
-    // Las del indice dinamico (el bindless) no se ven de antemano (cada
-    // pixel calcula la suya): esas, siempre por el interprete.
-    let mip_por_derivadas = en.ps.mip_por_derivadas() || en.vs.mip_por_derivadas();
-    if mip_por_derivadas && l.recursos.mip_importa() {
-        aviso("un dibujo muestrea con la mip de sus derivadas una textura de varias mips (o con MIN y MAG distintos): va por el interprete, en cuadros de 2x2 (el codigo nativo no los tiene)");
-        return lote::en_cpu(l, destino);
-    }
-    if mip_por_derivadas && l.recursos.dinamicas.is_some() && (en.ps.elige_texturas() || en.vs.elige_texturas()) {
-        aviso("un dibujo muestrea con la mip de sus derivadas texturas del indice dinamico (bindless): va por el interprete, en cuadros de 2x2 (sus mips no se ven de antemano)");
-        return lote::en_cpu(l, destino);
-    }
-    let (fv, fp) = (funcion(base, t.vs), funcion(base, t.ps));
+    let fv = funcion(base, t.vs);
     // El cbuffer, con lo que lean los dos: lo que falte, a cero (como el
     // interprete).
     let filas = en.vs.filas_cb.max(en.ps.filas_cb) as usize * 16;
@@ -238,6 +231,15 @@ pub fn dibujar(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, 
             en.vs.correr_con(ent, l.cb, &l.recursos, sal, &mut rv);
         }
     };
+    if t.cuadros {
+        // SAFETY: `base + t.ps` es el principio de un cuerpo traducido por
+        // `nativo::compilar_cuadros`, dentro del bloque sellado vivo; su firma
+        // es la de `FuncionComputo`.
+        let fc = unsafe { core::mem::transmute::<usize, FuncionComputo>(base as usize + t.ps) };
+        let mut cuadros = en_cuadros(&en.ps, &en.objetivos, &l.recursos, cb, fc);
+        return lote::en_cpu_en_olas(l, destino, &mut vs, &mut cuadros);
+    }
+    let fp = funcion(base, t.ps);
     let mut ps = |ent: &[[f32; 4]], sal: &mut [[f32; 4]]| {
         rp.clear();
         rp.extend_from_slice(&en.ps.iniciales);
@@ -255,3 +257,129 @@ pub fn dibujar(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, 
     };
     lote::en_cpu_con(l, destino, &mut vs, &mut ps)
 }
+
+/// X3: los cuadros que corrio lo traducido, y los que se rehicieron en el
+/// interprete (se separaron). Los mira el banco (que lo juzgado no sea solo
+/// el interprete) y quien quiera saber cuanto se rehace.
+static NATIVOS: AtomicU64 = AtomicU64::new(0);
+static REHECHOS: AtomicU64 = AtomicU64::new(0);
+
+/// (cuadros por lo traducido, cuadros rehechos en el interprete), desde que
+/// empezo el proceso.
+pub fn cuadros_contados() -> (u64, u64) {
+    (NATIVOS.load(Ordering::Relaxed), REHECHOS.load(Ordering::Relaxed))
+}
+
+/// **X3 (06-10): quien corre los pixeles de un dibujo que DERIVA, en
+/// cuadros de 2x2, con lo traducido** (`f`, de `nativo::compilar_cuadros`).
+/// Cada cuadro, sus cuatro carriles (ayudantes incluidos) con su `Contexto`
+/// y sus `Muestras` (la textura ELEGIDA es de cada uno: una parada cae entre
+/// `EligeTextura` y su muestreo). Cada vez que los cuatro vuelven con `OLA`
+/// en el MISMO punto, sus derivadas se hacen como en el interprete
+/// (`olas::hacer`, con los registros de los cuatro) y siguen. Si se separan
+/// (uno acaba o se tira y otro se para, o se paran en sitios distintos), el
+/// cuadro entero se rehace en el interprete: un pixel traducido no escribe
+/// UAV, asi que correrlo otra vez no deja nada, y sale lo del interprete.
+///
+/// `objetivos`: a que render target va cada salida (los del enlace); `cb`,
+/// el cbuffer YA con lo que leen sus filas (ver `dibujar`). Publica: el
+/// banco la juzga contra el interprete en olas, bit a bit.
+pub fn en_cuadros<'a>(ps: &'a bmo_proton_x::dxil::programa::Programa, objetivos: &'a [u8], rec: &'a bmo_proton_x::textura::Recursos<'a>, cb: &'a [u8], f: FuncionComputo) -> impl FnMut(&mut [bmo_proton_x::cuadros::Carril]) + 'a {
+    use bmo_proton_x::dxil::olas;
+    use bmo_proton_x::dxil::programa::Op;
+    use bmo_proton_x::nativo_computo::{self as nc, Contexto, Vista, VISTAS};
+    static CERO: [u8; 16] = [0; 16];
+    let cbp = if cb.is_empty() { CERO.as_ptr() } else { cb.as_ptr() };
+    let paradas = nc::paradas(ps, true);
+    let n_sal = ps.salidas.max(objetivos.len()).max(1);
+    // Un pixel traducido no toca UAV (`nativo::por_que_no`): sin ellos.
+    let mut interprete = lote::olas_de(ps, cb, rec, objetivos, None);
+    // Las cuatro `Muestras` no se mueven mas: sus `Llamadas` guardan su
+    // direccion (y solo se tocan por ella).
+    let mut muestras: alloc::boxed::Box<[Muestras<'a>; 4]> = alloc::boxed::Box::new(core::array::from_fn(|_| Muestras { programa: ps, recursos: rec, elegida: None }));
+    let pm: *mut Muestras<'a> = muestras.as_mut_ptr();
+    // SAFETY: `pm.add(q)`, q < 4, dentro de la caja.
+    let ll: [Llamadas; 4] = core::array::from_fn(|q| llamadas(unsafe { pm.add(q) }, cb.len()));
+    let mut regs: [Vec<f32>; 4] = Default::default();
+    let mut sal: [Vec<[f32; 4]>; 4] = Default::default();
+    move |ola: &mut [bmo_proton_x::cuadros::Carril]| {
+        let _ = &muestras;
+        for cuadro in ola.chunks_mut(4) {
+            let hecho = 'cuadro: {
+                if cuadro.len() < 4 || cuadro.iter().any(|c| c.entrada.len() < ps.entradas) {
+                    break 'cuadro false;
+                }
+                let mut ctx: [Contexto; 4] = core::array::from_fn(|q| {
+                    regs[q].clear();
+                    regs[q].extend_from_slice(&ps.iniciales);
+                    sal[q].clear();
+                    sal[q].resize(n_sal, [0.0; 4]);
+                    // SAFETY: como arriba; nadie mas la toca ahora.
+                    unsafe { (*pm.add(q)).elegida = None };
+                    Contexto {
+                        ids: [0; 10],
+                        reanudar: 0,
+                        n_compartida: 0,
+                        compartida: core::ptr::null_mut(),
+                        entradas: cuadro[q].entrada.as_ptr(),
+                        salidas: sal[q].as_mut_ptr(),
+                        llamadas: &ll[q],
+                        srv: [Vista::NULA; VISTAS],
+                        uav: [Vista::NULA; VISTAS],
+                    }
+                });
+                // Lo de cada carril: `None` corre; `Some(queda)` acabo.
+                let mut fin = [None::<bool>; 4];
+                loop {
+                    let mut punto = [0u32; 4];
+                    for q in 0..4 {
+                        if fin[q].is_some() {
+                            continue;
+                        }
+                        // SAFETY: `f` es la traduccion de `ps`; sus registros
+                        // (`iniciales` de largo), su Contexto (entradas, salidas
+                        // y llamadas de aqui, vivas) y el cbuffer (`cbp`, con
+                        // lo que leen sus filas, ver `dibujar`).
+                        match unsafe { f(regs[q].as_mut_ptr(), &mut ctx[q], cbp) } {
+                            nc::ACABO => fin[q] = Some(true),
+                            nc::DESCARTADO => fin[q] = Some(false),
+                            nc::OLA => punto[q] = ctx[q].reanudar,
+                            _ => break 'cuadro false,
+                        }
+                    }
+                    if fin.iter().all(Option::is_some) {
+                        break;
+                    }
+                    let k = punto[0];
+                    if k == 0 || fin.iter().any(Option::is_some) || punto.iter().any(|&p| p != k) {
+                        break 'cuadro false;
+                    }
+                    for &i in paradas.get(k as usize - 1).map_or(&[][..], |g| &g[..]) {
+                        let Some(&Op::Ola { d, a, b, que }) = ps.ops.get(i) else {
+                            break 'cuadro false;
+                        };
+                        // Todos antes de escribir ninguno (uno lee el `a` de otro).
+                        let r: [u32; 4] = core::array::from_fn(|q| olas::hacer(que, q, 0b1111, |j| regs[j & 3][a as usize].to_bits(), regs[q][b as usize].to_bits())[0]);
+                        for q in 0..4 {
+                            regs[q][d as usize] = f32::from_bits(r[q]);
+                        }
+                    }
+                }
+                for (q, c) in cuadro.iter_mut().enumerate() {
+                    c.queda = fin[q] == Some(true);
+                    for (j, &t) in objetivos.iter().enumerate() {
+                        c.colores[t as usize] = sal[q][j];
+                    }
+                }
+                true
+            };
+            if hecho {
+                NATIVOS.fetch_add(1, Ordering::Relaxed);
+            } else {
+                REHECHOS.fetch_add(1, Ordering::Relaxed);
+                interprete(cuadro);
+            }
+        }
+    }
+}
+

@@ -113,6 +113,31 @@ const V_CONTADOR: i32 = 24;
 pub const ACABO: u32 = 0;
 pub const BARRERA: u32 = 1;
 pub const DESCARTADO: u32 = 2;
+/// X3 (06-10): un dibujo se paro en una DERIVADA (o en varias seguidas):
+/// `reanudar` dice en cual ([`paradas`]). La casa resta los carriles del
+/// cuadro de 2x2, pone el resultado en sus registros y lo vuelve a llamar.
+pub const OLA: u32 = 3;
+
+/// **Los puntos donde se para el cuerpo** (X3, 06-10), en orden: el `k`
+/// que deja en `reanudar` es la posicion `k - 1` de esta lista. Cada uno,
+/// los indices de sus operaciones: una barrera, o (en un dibujo) una racha
+/// de derivadas SEGUIDAS (`Op::Ola` con `Ola::Derivada`), que se resuelven
+/// juntas y en su orden.
+pub fn paradas(p: &Programa, dibujo: bool) -> Vec<Vec<usize>> {
+    let deriva = |o: &Op| dibujo && matches!(o, Op::Ola { que: crate::dxil::olas::Ola::Derivada { .. }, .. });
+    let mut v: Vec<Vec<usize>> = Vec::new();
+    for (k, o) in p.ops.iter().enumerate() {
+        if matches!(o, Op::Barrera) {
+            v.push(alloc::vec![k]);
+        } else if deriva(o) {
+            match v.last_mut() {
+                Some(g) if g.last() == Some(&(k - 1)) && deriva(&p.ops[k - 1]) => g.push(k),
+                _ => v.push(alloc::vec![k]),
+            }
+        }
+    }
+    v
+}
 
 // Los registros de x86-64 (su numero en ModRM, con el bit 3 en REX).
 const RAX: u8 = 0;
@@ -471,6 +496,8 @@ fn escritos(op: &Op, mut f: impl FnMut(Reg)) {
         | Op::Convierte { d, .. }
         | Op::Contador { d, .. }
         | Op::Atomico { d, .. }
+        // X3: la escribe la casa al pararse (no es una constante).
+        | Op::Ola { d, .. }
         | Op::LeeIndexado { d, .. } => f(d),
         Op::EscribeIndexado { base, n, .. } => (0..n).for_each(|k| f(base + k)),
         _ => {}
@@ -501,7 +528,14 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
         });
     }
     let constante = |r: Reg| (!escrito.get(r as usize).copied().unwrap_or(true)).then(|| p.iniciales[r as usize].to_bits());
-    let barreras = p.ops.iter().filter(|o| matches!(o, Op::Barrera)).count();
+    // Las barreras y (X3, en un dibujo) las rachas de derivadas: cada una,
+    // un punto donde para y por donde sigue.
+    let puntos = paradas(p, dibujo);
+    let barreras = puntos.len();
+    let mut punto_de = alloc::vec![None; p.ops.len()];
+    for (n, g) in puntos.iter().enumerate() {
+        punto_de[g[0]] = Some(n + 1);
+    }
     let mut e = Emisor { b: Vec::with_capacity(24 * p.ops.len() + 256) };
     // Prologo: los cinco que hay que conservar, el MXCSR, y los cuatro
     // punteros de la funcion en sus sitios.
@@ -529,17 +563,25 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
     let mut sis: Vec<usize> = Vec::new();
     let mut bucles: Vec<(usize, Vec<usize>)> = Vec::new();
     let mut al_final: Vec<usize> = Vec::new();
-    let mut barrera = 0usize;
     for (k, op) in p.ops.iter().enumerate() {
         match *op {
             // X2 (05-10): en un dibujo, TODA lectura de textura (y de bufer:
             // su entrada no pone vistas) por la llamada de la casa; la
             // matematica, por `Mate::aplicar`; y el cbuffer con fila calculada.
             Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } if dibujo => e.textura(k as u32),
-            // D4.4: los gradientes que pide un muestreo para su mip se quedan
-            // en 0 (no hay cuadro de 2x2: cada pixel corre solo). La casa solo
-            // corre esto si la mip no cambia nada (`Recursos::mip_importa`).
-            Op::Ola { que: crate::dxil::olas::Ola::Derivada { muestra: true, .. }, .. } if dibujo => {}
+            // X3 (06-10): una racha de derivadas para el carril (OLA); la casa
+            // resta los del cuadro y lo vuelve a llamar. Las de despues de la
+            // primera de la racha, ya resueltas con ella.
+            Op::Ola { que: crate::dxil::olas::Ola::Derivada { .. }, .. } if dibujo => {
+                if let Some(n) = punto_de[k] {
+                    e.mem(None, false, &[0xC7], 0, CTX, C_REANUDAR); // mov dword [r12 + reanudar], n
+                    e.b.extend_from_slice(&(n as u32).to_le_bytes());
+                    e.inmediato(RAX, OLA);
+                    al_final.push(e.salto());
+                    let aqui = e.b.len();
+                    e.parchear(reanudar[n - 1], aqui);
+                }
+            }
             Op::Mate { d, a, f } => e.mate(d, a, crate::nativo_llamadas::indice_mate(f)?),
             Op::ConstantesEn { d, fila, filas, i, .. } => e.constantes_en(d, fila, filas, i),
             Op::Mul { d, a, b } | Op::Add { d, a, b } | Op::Sub { d, a, b } | Op::Div { d, a, b } => {
@@ -857,13 +899,13 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
                 e.guardar(d, RAX);
             }
             Op::Barrera => {
-                barrera += 1;
-                e.mem(None, false, &[0xC7], 0, CTX, C_REANUDAR); // mov dword [r12 + reanudar], k
-                e.b.extend_from_slice(&(barrera as u32).to_le_bytes());
+                let n = punto_de[k]?;
+                e.mem(None, false, &[0xC7], 0, CTX, C_REANUDAR); // mov dword [r12 + reanudar], n
+                e.b.extend_from_slice(&(n as u32).to_le_bytes());
                 e.inmediato(RAX, BARRERA);
                 al_final.push(e.salto());
                 let aqui = e.b.len();
-                e.parchear(reanudar[barrera - 1], aqui);
+                e.parchear(reanudar[n - 1], aqui);
             }
             Op::LeeCompartida { d, base, n, i } => {
                 match constante(i) {

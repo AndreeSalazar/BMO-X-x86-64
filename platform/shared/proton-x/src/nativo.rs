@@ -174,20 +174,12 @@ pub const DESCARTADO: u32 = crate::nativo_computo::DESCARTADO;
 /// **Por que [`compilar`] no traduce `p`**, dicho para quien lo lea (el
 /// aviso de la casa), o `None` si lo traduce. La lista es la de `compilar`.
 pub fn por_que_no(p: &Programa) -> Option<&'static str> {
-    // E2.5: lo primero (un sombreador con olas suele saltar tambien). D4.4:
-    // las derivadas que pide un muestreo (su mip) no son motivo aparte: el
-    // motivo es que muestrea.
+    // E2.5: lo primero (un sombreador con olas suele saltar tambien).
     if p.olas_propias() {
         return Some("usa las olas (Wave*, Quad*: van de 32 en 32 carriles)");
     }
-    // D4.4: las derivadas restan carriles de su cuadro de 2x2; y el LOD que
-    // se pide con ellas (CalculateLevelOfDetail) sale de ellas.
-    if p.deriva() {
-        return Some("usa las derivadas (ddx, ddy, fwidth: van en cuadros de 2x2)");
-    }
-    if p.calcula_lod() {
-        return Some("calcula el LOD de sus derivadas (CalculateLevelOfDetail: van en cuadros de 2x2)");
-    }
+    // D4.4 y X3: las derivadas (y la mip y el LOD que salen de ellas) ya no
+    // son motivo: van en cuadros de 2x2 (`compilar_cuadros`).
     // Los saltos, los enteros, `discard`, los arrays de registros y (X2,
     // 05-10) las texturas, la matematica y el cbuffer con fila calculada ya
     // los sabe (por el cuerpo del computo y sus llamadas): no son motivo.
@@ -203,13 +195,35 @@ pub fn por_que_no(p: &Programa) -> Option<&'static str> {
 /// **Traducir un programa a x86-64.** Una funcion entera, independiente de
 /// donde caiga (solo usa sus punteros): se puede copiar a otro bloque.
 pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
-    // D4.4: CalculateLevelOfDetail sale de las derivadas del cuadro, que aqui
-    // no hay (cada pixel corre solo): daria otro numero. Por el interprete.
-    if p.calcula_lod() {
+    // D4.4: las derivadas (y la mip y el LOD que salen de ellas) piden el
+    // cuadro de 2x2, que aqui no hay (cada pixel corre solo): esos, en
+    // cuadros ([`compilar_cuadros`], X3) o por el interprete.
+    if p.usa_olas() {
         return None;
     }
     // Lo sin saltos, por la fila de SSE; lo demas, por el cuerpo del computo.
     directo(p).or_else(|| con_saltos(p))
+}
+
+/// **X3 (06-10): el cuerpo de un pixel que DERIVA, para correrlo en
+/// cuadros de 2x2**: la funcion de `nativo_computo` (`fn(registros,
+/// Contexto, cbuffer) -> u32`), sin entrada: la casa pone un `Contexto` por
+/// carril y la llama hasta que acaba; cada vez que vuelve con
+/// `nativo_computo::OLA` resta los carriles del cuadro en los registros de
+/// la parada (`nativo_computo::paradas`) y la llama otra vez. `None` si usa
+/// olas de verdad (`Wave*`, `Quad*`: piden los 32 carriles) o algo que no
+/// es de un pixel.
+pub fn compilar_cuadros(p: &Programa) -> Option<Vec<u8>> {
+    if p.olas_propias() || p.ops.iter().any(de_fuera) {
+        return None;
+    }
+    crate::nativo_computo::compilar_dibujo(p)
+}
+
+/// Lo que lee del Contexto que un dibujo no pone (ids, vistas, barreras,
+/// compartida) o lo de la geometria: eso no es de un vertice ni un pixel.
+fn de_fuera(o: &Op) -> bool {
+    matches!(o, Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. })
 }
 
 /// **Con saltos** (la VELOCIDAD, 05-10): el cuerpo de `nativo_computo` con
@@ -229,9 +243,6 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
 /// ```
 fn con_saltos(p: &Programa) -> Option<Vec<u8>> {
     use crate::nativo_computo::{C_COMPARTIDA, C_ENTRADAS, C_LLAMADAS, C_REANUDAR, C_SALIDAS};
-    // Lo que lee del Contexto que aqui no se pone (ids, vistas, barreras,
-    // compartida) o lo de la geometria: eso no es de un vertice ni un pixel.
-    let de_fuera = |o: &Op| matches!(o, Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. });
     if p.ops.iter().any(de_fuera) {
         return None;
     }
