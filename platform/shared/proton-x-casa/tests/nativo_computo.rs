@@ -53,15 +53,15 @@ fn los_dos(cs: &[u8], grupos: [u32; 3], cb: &[u8], srv: &[u8], paso_srv: u32, ua
     let elementos = uav.len() as u32 / paso_uav;
     let t = std::time::Instant::now();
     {
-        let mut u = [Some(Uav { bytes: &mut a, formato: 0, paso: paso_uav, elementos, contador: None })];
+        let mut u = [Some(Uav { bytes: &mut a, formato: 0, paso: paso_uav, elementos, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         p.despachar(grupos, cb, &rec, &mut u);
     }
     let interpretado = t.elapsed();
     let t = std::time::Instant::now();
     {
-        let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: paso_uav, elementos, contador: None })];
+        let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: paso_uav, elementos, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
-        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, cb, &buf, &mut u);
+        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, cb, &buf, &mut u, &mut []);
     }
     eprintln!("interpretado {interpretado:?}, traducido {:?}", t.elapsed());
     (a, b)
@@ -123,6 +123,7 @@ fn el_cs_de_nbody_traducido_da_los_bits_del_interprete() {
 fn correr_nativo(p: &Programa, f: Funcion, ent: &[[f32; 4]], salidas: usize) -> Vec<[f32; 4]> {
     let mut s = vec![[0.0f32; 4]; salidas];
     let mut regs = p.iniciales.clone();
+    let llamadas = bmo_proton_x::nativo_llamadas::Llamadas::nuevas(16);
     let mut c = Contexto {
         ids: [0; 10],
         reanudar: 0,
@@ -130,6 +131,7 @@ fn correr_nativo(p: &Programa, f: Funcion, ent: &[[f32; 4]], salidas: usize) -> 
         compartida: core::ptr::null_mut(),
         entradas: ent.as_ptr(),
         salidas: s.as_mut_ptr(),
+        llamadas: &llamadas,
         srv: [Vista::NULA; VISTAS],
         uav: [Vista::NULA; VISTAS],
     };
@@ -348,9 +350,9 @@ fn el_cs_de_nbody_traducido_da_la_fisica() {
     let buf = [Some(Bufer { bytes: &srv_bytes, formato: 0, paso: 32, elementos: n as u32 })];
     let mut salida = vec![0u8; n * 32];
     {
-        let mut u = [Some(Uav { bytes: &mut salida, formato: 0, paso: 32, elementos: n as u32, contador: None })];
+        let mut u = [Some(Uav { bytes: &mut salida, formato: 0, paso: 32, elementos: n as u32, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
-        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, [grupos, 1, 1], &cb, &buf, &mut u);
+        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, [grupos, 1, 1], &cb, &buf, &mut u, &mut []);
     }
     let leer = |i: usize, k: usize| f32::from_le_bytes(salida[i * 32 + 4 * k..i * 32 + 4 * k + 4].try_into().unwrap()) as f64;
     let (masa, suave, dt) = (6.673e-11f64 * 1e4 * 1e4 * 1e4, 0.00125f64 * 0.00125, 0.1f64);
@@ -421,13 +423,13 @@ fn el_cs_de_execute_indirect_traducido_da_el_contador_del_interprete() {
     let (mut a, mut b) = (vec![0xEEu8; n * 24], vec![0xEEu8; n * 24]);
     let (mut ca, mut cb_) = (0u32, 0u32);
     {
-        let mut u = [Some(Uav { bytes: &mut a, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut ca) })];
+        let mut u = [Some(Uav { bytes: &mut a, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut ca), rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         p.despachar(grupos, &cb, &rec, &mut u);
     }
     {
-        let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut cb_) })];
+        let mut u = [Some(Uav { bytes: &mut b, formato: 0, paso: 24, elementos: n as u32, contador: Some(&mut cb_), rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA })];
         // SAFETY: `f` es la traduccion de `p`, sellada y viva.
-        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, &cb, &buf, &mut u);
+        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, grupos, &cb, &buf, &mut u, &mut []);
     }
     assert!(ca > 10 && (ca as usize) < n, "pasan unas y otras no: {ca}");
     assert_eq!(ca, cb_, "el mismo contador");

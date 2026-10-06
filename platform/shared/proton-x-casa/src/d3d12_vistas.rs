@@ -8,9 +8,12 @@
 //!    la ranura (32 B)   0 el recurso   1 la marca (SRV, RTV, DSV, UAV)
 //!                       2 dimension | formato << 8 | mapeo << 24
 //!                         (y en un SRV de bufer, N5.3: | paso << 40 |
-//!                         crudo << 56)
+//!                         crudo << 56; en uno de textura, D4.4: | sus
+//!                         MipLevels << 40, 8 bits, 0 todas)
 //!                       3 el subrecurso | rebanada 3D << 32 (o, en un
-//!                         bufer, el primer elemento | elementos << 32)
+//!                         bufer, el primer elemento | elementos << 32; en
+//!                         un SRV de textura, D4.4: su ResourceMinLODClamp,
+//!                         el float, << 32)
 //!    el subrecurso      mip + capa * mips, de la textura del recurso (en un
 //!                       cubo, cada cara es una capa; en 3D, la mip)
 //! ```
@@ -46,6 +49,10 @@ pub(crate) struct Vista {
     pub elementos: u32,
     pub paso: u32,
     pub crudo: bool,
+    /// D4.4, un SRV de textura: sus MipLevels (0 todas: el -1 de D3D, o mas
+    /// de 255) y su ResourceMinLODClamp (el float, en bits).
+    pub niveles: u32,
+    pub lod_min: u32,
 }
 
 /// **Un SRV de bufer, leido de su ranura** (N5.3).
@@ -103,6 +110,20 @@ pub(crate) unsafe fn srv(d: *const u8) -> Result<Vista, &'static str> {
         7 => v.capa = u32_(d, 16),
         SRV_ACELERACION => v.elemento = u64_(d, 16),
         _ => return Err("CreateShaderResourceView con una dimension que no es de D3D12"),
+    }
+    // D4.4: MipLevels (+20 en todas las de textura con mips) y
+    // ResourceMinLODClamp, el ultimo de cada una: +24 en 1D, 3D y cubo; +28
+    // en 2D; +32 en 1DARRAY y CUBEARRAY; +36 en 2DARRAY.
+    let clamp = match dimension {
+        2 | 8 | SRV_CUBO => Some(24),
+        4 => Some(28),
+        3 | 10 => Some(32),
+        5 => Some(36),
+        _ => None,
+    };
+    if let Some(o) = clamp {
+        let n = u32_(d, 20);
+        (v.niveles, v.lod_min) = (if n > 255 { 0 } else { n }, u32_(d, o));
     }
     Ok(v)
 }
@@ -164,13 +185,31 @@ pub(crate) unsafe fn uav(d: *const u8) -> Result<Vista, &'static str> {
         // SRV de bufer: el computo lo escribe.
         1 => (v.elemento, v.elementos, v.paso, v.crudo) = (u64_(d, 8), u32_(d, 16), u32_(d, 20), u32_(d, 32) & 1 != 0),
         2 | 4 => v.mip = u32_(d, 8),
-        3 | 5 => (v.mip, v.capa) = (u32_(d, 8), u32_(d, 12)),
+        // 06-10: y CUANTAS capas (ArraySize, +16) o rebanadas (WSize, +16),
+        // en `paso` (que una textura no usa): 12 bits en la ranura, 0 (o -1
+        // de D3D, o de mas) todas las que quedan (`computo::uav_de_textura`).
+        3 | 5 => (v.mip, v.capa, v.paso) = (u32_(d, 8), u32_(d, 12), cuantas(u32_(d, 16))),
         6 => {}
         7 => v.capa = u32_(d, 8),
-        8 => (v.mip, v.rebanada) = (u32_(d, 8), u32_(d, 12)),
+        8 => (v.mip, v.rebanada, v.paso) = (u32_(d, 8), u32_(d, 12), cuantas(u32_(d, 16))),
         _ => return Err("CreateUnorderedAccessView con una dimension que no es de D3D12"),
     }
     Ok(v)
+}
+
+/// 06-10: ArraySize o WSize de un UAV en los 12 bits de su ranura: 0 (o -1,
+/// o mas de 4095) es "todas las que quedan".
+fn cuantas(n: u32) -> u32 {
+    if n > 0xFFF {
+        0
+    } else {
+        n
+    }
+}
+
+/// 06-10: lo de [`cuantas`], leido de la ranura de un UAV de textura.
+pub(crate) fn cuantas_de(ranura: &[u64]) -> u32 {
+    ((ranura[2] >> 40) & 0xFFF) as u32
 }
 
 /// El subrecurso de `(mip, capa)` en `t`: `mip + capa * mips`, dentro.
@@ -183,9 +222,10 @@ pub(crate) fn sub(t: &Tex, mip: u32, capa: u32) -> u32 {
 /// marca y la vista (ver la cabecera). Con la vista, el subrecurso que
 /// toca, si el recurso es una textura.
 pub(crate) fn poner(handle: u64, recurso: u64, marca: u64, v: &Vista) {
-    let w2 = v.dimension as u64 & 0xFF | (v.formato as u64 & 0xFFFF) << 8 | (v.mapeo as u64 & 0xFFFF) << 24 | (v.paso as u64 & 0xFFF) << 40 | (v.crudo as u64) << 56;
+    let w2 = v.dimension as u64 & 0xFF | (v.formato as u64 & 0xFFFF) << 8 | (v.mapeo as u64 & 0xFFFF) << 24 | (v.paso as u64 & 0xFFF) << 40 | (v.crudo as u64) << 56 | (v.niveles as u64 & 0xFF) << 40;
     let w3 = match tex(recurso) {
-        Some(t) => sub(t, v.mip, v.capa) as u64 | (v.rebanada as u64) << 32,
+        // D4.4: un SRV no tiene rebanada: ahi va su ResourceMinLODClamp.
+        Some(t) => sub(t, v.mip, v.capa) as u64 | (if marca == DESC_SRV { v.lod_min } else { v.rebanada } as u64) << 32,
         // Un bufer: el primer elemento en 32 bits (4 mil millones de
         // elementos bastan) y cuantos detras.
         None => v.elemento & 0xFFFF_FFFF | (v.elementos as u64) << 32,
@@ -205,6 +245,13 @@ pub(crate) fn poner(handle: u64, recurso: u64, marca: u64, v: &Vista) {
 pub(crate) fn leer(ranura: &[u64]) -> ((u32, u32, u32), (u32, u32)) {
     let (w2, w3) = (ranura[2], ranura[3]);
     ((w2 as u32 & 0xFF, (w2 >> 8) as u32 & 0xFFFF, (w2 >> 24) as u32 & 0xFFFF), (w3 as u32, (w3 >> 32) as u32))
+}
+
+/// D4.4: lo de las mips de un SRV de textura: sus MipLevels (`u32::MAX`,
+/// todas) y su ResourceMinLODClamp.
+pub(crate) fn mips_de(ranura: &[u64]) -> (u32, f32) {
+    let n = ((ranura[2] >> 40) & 0xFF) as u32;
+    (if n == 0 { u32::MAX } else { n }, f32::from_bits((ranura[3] >> 32) as u32))
 }
 
 /// La textura de un recurso de la casa (o `None`: un bufer, o nulo).
@@ -230,13 +277,7 @@ pub(crate) extern "win64" fn create_shader_resource_view(_this: u64, recurso: u6
         }
         let dimension = match tex(recurso) {
             None => SRV_BUFER,
-            Some(t) => match (t.forma.dimension, t.forma.capas() > 1) {
-                (crate::subrecursos::DIM_TEXTURA1D, false) => 2,
-                (crate::subrecursos::DIM_TEXTURA1D, true) => 3,
-                (crate::subrecursos::DIM_TEXTURA3D, _) => 8,
-                (_, false) => 4,
-                (_, true) => 5,
-            },
+            Some(t) => dimension_del_recurso(t),
         };
         Vista { dimension, mapeo: MAPEO, ..Vista::default() }
     } else {
@@ -269,6 +310,17 @@ pub(crate) extern "win64" fn create_depth_stencil_view(_this: u64, recurso: u64,
 /// un `contador` (E2.4, 05-10: el de `Append`/`Consume`), su numero en la
 /// ranura (ver [`contador_de`]).
 pub(crate) extern "win64" fn create_unordered_access_view(_this: u64, recurso: u64, contador: u64, desc: *const u8, handle: u64) {
+    // 06-10: SIN descripcion, la vista es la del recurso entero (su
+    // dimension, su formato, la mip 0 y todas sus capas o rebanadas), como
+    // D3D12; antes quedaba sin dimension y el sombreador la veia nula.
+    if desc.is_null() && handle != 0 && recurso != 0 {
+        let Some(t) = tex(recurso) else {
+            aviso("CreateUnorderedAccessView de un bufer sin descripcion: en Windows es un error");
+            return;
+        };
+        poner(handle, recurso, DESC_UAV, &Vista { dimension: dimension_del_recurso(t), mapeo: MAPEO, ..Vista::default() });
+        return;
+    }
     if contador == 0 || desc.is_null() || handle == 0 {
         vista_de_destino(recurso, desc, handle, DESC_UAV, uav);
         return;
@@ -343,6 +395,19 @@ fn vista_de_destino(recurso: u64, desc: *const u8, handle: u64, marca: u64, leer
         }
     };
     poner(handle, recurso, marca, &v);
+}
+
+/// **La dimension de la vista de un recurso ENTERO** (la de un SRV o un UAV
+/// sin descripcion): 1D o 2D, sus arrays, o 3D -- los numeros de
+/// D3D12_SRV_DIMENSION y D3D12_UAV_DIMENSION, que en estas coinciden.
+fn dimension_del_recurso(t: &Tex) -> u32 {
+    match (t.forma.dimension, t.forma.capas() > 1) {
+        (crate::subrecursos::DIM_TEXTURA1D, false) => 2,
+        (crate::subrecursos::DIM_TEXTURA1D, true) => 3,
+        (crate::subrecursos::DIM_TEXTURA3D, _) => 8,
+        (_, false) => 4,
+        (_, true) => 5,
+    }
 }
 
 /// Los formatos `*_SRGB` de DXGI: R8G8B8A8, BC1, BC2, BC3, B8G8R8A8,

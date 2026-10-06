@@ -375,13 +375,10 @@ fn e1_4_helloconstbuffers_corre_el_triangulo_lo_que_dice_su_cbuffer() {
 fn e1_3_hellotexture_muestrea_el_tablero_por_punto_bit_a_bit() {
     let (salio, texto, vistas, fotos) = correr_muestra(HTEXTURE, "htexture", 10, &[9]);
     assert_eq!(salio, 0xF00D, "{texto}");
-    // El UNICO aviso, y es de velocidad, no de lo que se ve: un PSO que
-    // muestrea va por el interprete, no por el codigo nativo (P3b3b).
-    assert_eq!(
-        texto,
-        "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)\n",
-        "ni otro aviso ni un hueco que falte"
-    );
+    // Ni un aviso: desde X2 (05-10) el PSO que muestrea va por el codigo
+    // nativo (llama al muestreo del interprete); antes decia "un PSO con
+    // texturas: sus sombreadores se interpretan".
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte");
     assert!(vistas.iter().all(|&v| v == vistas[0]), "la misma imagen en cada Present");
     let t = triangulo(0.0);
     let uv = [(0.5f64, 0.0f64), (1.0, 1.0), (0.0, 1.0)];
@@ -466,11 +463,10 @@ fn tono(p: u32) -> Option<f32> {
 fn e2_2_dynamicindexing_cada_ciudad_lee_su_material_por_indice_dinamico() {
     let (salio, texto, vistas, fotos) = correr_muestra(DYNINDEX, "dynindex", 2, &[1]);
     assert_eq!(salio, 0xF00D, "{texto}");
-    assert_eq!(
-        texto,
-        "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)\n",
-        "ni otro aviso ni un hueco que falte (antes: `createHandle con un registro CALCULADO`)"
-    );
+    // Ni un aviso: desde X3 (06-10) su `Sample` (la mip de las derivadas
+    // del cuadro, de texturas del indice dinamico) va TRADUCIDO, en cuadros
+    // de 2x2 (antes: el de texturas, y en X2 "va por el interprete").
+    assert_eq!(texto, "", "ni un aviso ni un hueco que falte (antes: `createHandle con un registro CALCULADO`)");
     assert_eq!(vistas[0], vistas[1], "la camara quieta: la misma imagen");
     let px = &fotos[0].1;
     let (w, h) = (fotos[0].2, fotos[0].3);
@@ -532,10 +528,11 @@ fn n5_13_las_instancias_y_las_ranuras_de_vertices_dan_los_pixeles_de_la_cuenta()
     let (salio, dicho, _) = correr_exe(&uno, INSTANCIAS, true, &[]);
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
-    // Un aviso, y es el que tiene que ser: SV_InstanceID a float es una
-    // cuenta ENTERA, y el traductor a x86-64 de los de dibujo aun no las sabe.
-    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
-    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    // Ni un aviso (la VELOCIDAD, 05-10): SV_InstanceID a float y los
+    // desplazamientos de SV_VertexID son cuentas ENTERAS, y el traductor a
+    // x86-64 de los de dibujo ya las sabe (antes: "un PSO cuyo sombreador
+    // salta o hace cuentas ENTERAS ... se interpretan").
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 3, "{texto}");
     assert!(texto.ends_with("instancias.exe: las instancias de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
@@ -555,6 +552,137 @@ fn n5_3c_las_vistas_en_la_raiz_y_los_uav_de_textura_dan_los_bits_de_la_cuenta() 
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 7, "{texto}");
     assert!(texto.ends_with("vistas.exe: las vistas de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **N5.16, los render targets de FLOAT** (05-10): `hdr.exe`
+/// (`prueba/hdr.cpp`, nuestro, de consola). A: un RGBA16F limpio en float y
+/// con dos sumas guarda 3.25 y lo que resta; B: un R11G11B10F sin signo (el
+/// -1 es 0); C: A leido como textura a 8 bits. Cada valor cabe exacto en su
+/// formato y lo que tiene que salir son bits escritos a mano en el `.cpp`.
+#[test]
+fn n5_16_los_render_targets_de_float_guardan_lo_que_pasa_de_uno() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, HDR_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Ni un aviso: el cuadro de SV_VertexID (desplazamientos de enteros) se
+    // traduce desde la VELOCIDAD (05-10), y PSLee, que LEE el render target
+    // como textura, desde X2 (05-10: antes, "un PSO con texturas").
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert!(avisos.is_empty(), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
+    assert!(texto.ends_with("hdr.exe: los render targets de float son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **Los UAV escritos desde un DIBUJO** (05-10): `prueba/uavpixel.exe`
+/// (nuestro, `uavpixel.cpp`). A: cada pixel de la mitad izquierda escribe su
+/// posicion en SU texel de un `RWTexture2D<uint>` (de una tabla); B: cada
+/// pixel de una caja de 32 x 16 suma 1 con `InterlockedAdd` a un
+/// `RWByteAddressBuffer` de la RAIZ (512); C: cada vertice escribe 100 + su
+/// numero en un `RWBuffer<uint>`. Solo lo que no depende del orden de los
+/// pixeles. Antes: lo escrito se perdia (y lo decia un aviso).
+#[test]
+fn los_uav_de_un_dibujo_quedan_escritos() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, UAVPIXEL_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Un aviso: sus sombreadores escriben UAV, y eso no se traduce a x86
+    // (X1 traduce los enteros, no los UAV): se interpretan. Ninguno de UAV
+    // perdidos.
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador lee o escribe un UAV: sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "un aviso, dicho una vez: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
+    assert!(texto.contains("  bien  B, InterlockedAdd en un RWByteAddressBuffer de la raiz: 512 pixeles cubiertos"), "{texto}");
+    assert!(texto.ends_with("uavpixel.exe: los UAV de un dibujo son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **N5.16b -- lo que quedaba de los floats** (05-10, `prueba/flotante1.cpp`,
+/// nuestro, de consola). A: un R32F y un R16F con sumas, de mas de 1 y
+/// negativos, y el R32F leido como textura; B: un RWTexture2D de RGBA16F
+/// limpio con ClearUnorderedAccessViewFloat, escrito por un CS (cuantizado
+/// a half) y leido por otro; C: una rampa que cruza el plano cercano y el
+/// lejano con DepthClipEnable FALSE (la Z sujeta al viewport) y TRUE. Lo que
+/// tiene que salir, bits escritos a mano en el `.cpp`.
+#[test]
+fn n5_16b_los_floats_de_un_canal_sus_uav_y_sin_recorte_en_z() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, FLOTANTE1_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // X2 (05-10): ni el de texturas (su lectura va por el codigo nativo).
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert!(avisos.is_empty(), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 10, "{texto}");
+    assert!(texto.ends_with("flotante1.exe: los floats de un canal, sus UAV y DepthClipEnable son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **El STENCIL** (05-10, la fila de la tabla 7.2 de la ESCALERA): marcar
+/// con REPLACE y pintar solo alli con EQUAL; INCR_SAT y las mascaras de
+/// lectura y escritura; la cara de delante y la de detras (en un D32S8X24);
+/// y dibujos de SOLO profundidad con las tres operaciones (fallo de stencil,
+/// de Z y las dos que pasan) en un R24G8 TYPELESS. Leido por el color con
+/// sondas EQUAL. Antes el PSO lo apuntaba y no lo usaba: A, B, C y D, MAL.
+#[test]
+fn el_stencil_recorta_como_en_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, STENCIL_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Ningun aviso: el cuadro viene de un bufer de vertices (sin cuentas
+    // enteras) y todo lo que pide el juez la casa lo hace.
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert!(avisos.is_empty(), "ningun aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 5, "{texto}");
+    assert!(texto.ends_with("stencil.exe: el stencil de D3D12 es el de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **Lo que QUEDABA de N5.3d, N5.12b y N5.16b** (05-10, `prueba/restos.exe`,
+/// nuestro, de consola): A, render targets de ENTEROS (R32_UINT, R8_UINT,
+/// RGBA16_SINT, RGBA8_UINT con mascara y RG32_UINT; su limpieza hacia el
+/// cero, la saturacion de lo que no cabe y uno leido con Load); B, un dibujo
+/// SOLO con UAV (el viewport de 6 x 3: 18 pixeles); C, UAV desde un
+/// sombreador de GEOMETRIA; D, el plano de stencil leido con
+/// CopyTextureRegion (subrecurso 1) y con un SRV X24_TYPELESS_G8_UINT; E,
+/// SV_StencilRef (OPTIONS ya dice que si). Bits escritos a mano en el `.cpp`.
+#[test]
+fn restos_enteros_solo_uav_gs_plano_de_stencil_y_stencilref() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, RESTOS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Un aviso, el de verdad: B y C escriben UAV, y eso se interpreta (el
+    // codigo nativo no toca UAV). A5 y D2 leen una textura: desde X2, en x86.
+    // Ninguno de lo que antes se perdia o se negaba.
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(
+        avisos,
+        ["PROTON-X: un PSO cuyo sombreador lee o escribe un UAV: sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"],
+        "{texto}"
+    );
+    assert_eq!(texto.matches("  bien  ").count(), 18, "{texto}");
+    assert!(!texto.contains("  nota  "), "la casa dice que SV_StencilRef si: {texto}");
+    assert!(texto.ends_with("restos.exe: los enteros, los UAV sin destino y del GS, el plano de stencil y SV_StencilRef son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **E2.5 -- las OLAS** (05-10, `prueba/olas.exe`, NUESTRO: la muestra
+/// D3D12SM6WaveIntrinsics de Microsoft pinta como la GPU junte los pixeles
+/// en olas, y eso no tiene una huella que comparar). El computo en olas de
+/// 32 hilos seguidos con cada operacion de ola, y los pixeles en cuadros de
+/// 2x2 con sus ayudantes, bit a bit; y OPTIONS1 dice los mismos 32
+/// carriles. Un aviso y ninguno mas, el de verdad: el PSO de dibujo se
+/// interpreta porque su PS usa las olas (su VS, que salta, ya se traduce:
+/// X1).
+#[test]
+fn e2_5_las_olas_de_32_carriles_dan_los_bits_de_la_cuenta() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, OLAS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador usa las olas (Wave*, Quad*: van de 32 en 32 carriles): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 15, "{texto}");
+    assert!(texto.ends_with("olas.exe: las olas de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
 /// **E2.3b -- D3D12nBodyGravity** (05-10, `Samples/Desktop`, MIT): el
@@ -582,8 +710,7 @@ fn e2_3b_nbodygravity_simula_en_su_hilo_y_dibuja_con_su_gs() {
     assert_eq!(salio, 0xF00D, "presento hasta el tope del banco: {texto}");
     for l in texto.lines() {
         assert!(
-            l == "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)"
-                || l == "PROTON-X: Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan",
+            l == "PROTON-X: Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan",
             "un aviso que no se espera: {l}\n{texto}"
         );
     }
@@ -728,4 +855,110 @@ fn e2_7_predicationqueries_salta_el_cuadro_que_la_oclusion_dice_tapado() {
         tapaba = Some(izq <= 480 && der >= 799);
     }
     assert!(vistos[0] > 5 && vistos[1] > 5, "se ven las dos cosas: saltado y dibujado ({vistos:?})");
+}
+
+/// **D4.4 -- las DERIVADAS y la MIP de un muestreo** (05-10,
+/// `prueba/derivadas.exe`, NUESTRO). Las finas y las gruesas de un cuadro de
+/// 2x2, la mip de `Sample` por sus derivadas (lambda 0 a 6, el ultimo con
+/// tres ayudantes), la mezcla de dos mips (MIP_LINEAR), `SampleBias`,
+/// `SampleLevel`, `SampleGrad`, `CalculateLevelOfDetail` (y `Unclamped`), y
+/// lo que sujeta la mip: MostDetailedMip, ResourceMinLODClamp y el MaxLOD de
+/// un muestreador de un monton. Bit a bit. Ni un aviso: desde X3 los dos PSO
+/// van traducidos, en cuadros de 2x2.
+#[test]
+fn d4_4_las_derivadas_y_la_mip_de_un_muestreo_son_las_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, DERIVADAS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Ni un aviso: desde X3 (06-10) los dos PSO (el que deriva y el que
+    // calcula el LOD) van TRADUCIDOS, en cuadros de 2x2.
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert!(avisos.is_empty(), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 17, "{texto}");
+    assert!(texto.ends_with("derivadas.exe: las derivadas y la mip de un muestreo son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **E2.1 -- listas grabadas desde VARIOS HILOS, y las colas con vallas**
+/// (05-10, `prueba/multihilo.exe`, NUESTRO: la muestra D3D12Multithreading
+/// pide SquidRoom.bin). A: cuatro hilos graban a la vez, a turnos, en el
+/// mismo render target y en un pase de solo Z; en una llamada y en seis. B:
+/// colas de computo y de copia que ESPERAN en la GPU a un valor que se da
+/// despues, una cola que espera a la CPU con su lista reiniciada entretanto,
+/// SetEventOnCompletion sin evento y SetEventOnMultipleFenceCompletion. C:
+/// las reglas de Reset y Close de listas y allocators.
+#[test]
+fn e2_1_listas_de_varios_hilos_y_colas_que_esperan() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, MULTIHILO_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    // Los cuatro errores que C hace A PROPOSITO, dichos (y ninguno mas: el
+    // cuadro de SV_VertexID y el CS de enteros se traducen a x86).
+    let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
+    assert_eq!(
+        avisos,
+        [
+            "PROTON-X: una lista con un allocator con el que ya graba otra: en Windows es E_INVALIDARG",
+            "PROTON-X: Reset de un allocator con una lista grabando con el: en Windows es E_FAIL",
+            "PROTON-X: Reset de una lista que no se cerro: en Windows es E_FAIL",
+            "PROTON-X: Close de una lista ya cerrada: en Windows es E_FAIL",
+        ],
+        "{texto}"
+    );
+    assert_eq!(texto.matches("  bien  ").count(), 17, "{texto}");
+    assert!(texto.ends_with("multihilo.exe: las listas de varios hilos y las colas con vallas son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **Los UAV de texturas 3D y de ARRAYS** (06-10, `prueba/volumen.exe`,
+/// NUESTRO): un 3D de 8 x 8 x 4 escrito entero por computo; una vista de
+/// sus rebanadas 1 y 2 (lo de fuera no se escribe); un array de 3 capas con
+/// 2 mips, por la vista de la mip 1 de las capas 1 y 2 (la capa 0 y la mip
+/// 0, intactas); InterlockedAdd en un 3D; GetDimensions y lecturas, fuera
+/// de la vista 0; y ClearUnorderedAccessViewUint por la vista de dos
+/// rebanadas (o capas): todas ellas, y ninguna mas. Bit a bit. Ni un aviso: hasta el 06-10 el PSO de computo
+/// no se creaba y sus Dispatch se perdian.
+#[test]
+fn los_uav_de_texturas_3d_y_de_arrays_son_los_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, VOLUMEN_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 10, "{texto}");
+    assert!(texto.ends_with("volumen.exe: los UAV de texturas 3D y de arrays son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **Las ROOT SIGNATURES 1.1 y las de DENTRO del sombreador** (06-10,
+/// `prueba/firmas.exe`, NUESTRO): la 1.1 que hace `dxc` (con banderas), la
+/// 1.0, la del sombreador pasada a CreateRootSignature, un PSO de computo
+/// SIN root signature (la de su sombreador), una DESC1 serializada, y
+/// CheckFeatureSupport diciendo 1.1. Cada una corre el mismo CS y sus
+/// constantes, su tabla y su UAV de la raiz caen en su sitio. Ni un aviso.
+#[test]
+fn las_root_signatures_1_1_y_las_del_sombreador_son_las_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, FIRMAS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 6, "{texto}");
+    assert!(texto.ends_with("firmas.exe: las root signatures 1.1 y las de dentro del sombreador son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **El COMPUTO de un posproceso** (06-10, `prueba/postpro.exe`, NUESTRO):
+/// cada hilo elige SU textura de un array sin limite por un indice
+/// calculado (el bindless), le suma lo que muestrea de la escena, lo
+/// escribe en un RWTexture2D (creado SIN descripcion: la vista del recurso
+/// entero) y cuenta con InterlockedAdd; y GetDimensions. Bit a bit. Ni un
+/// aviso: corre TRADUCIDO, y la casa de antes lo leia nulo.
+#[test]
+fn el_computo_de_un_posproceso_es_el_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, POSTPRO_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 3, "{texto}");
+    assert!(texto.ends_with("postpro.exe: el computo de un posproceso es el de Windows\r\n[salio 0x0]"), "{texto}");
 }

@@ -173,8 +173,9 @@ Cyberpunk:
    un UAV en el de PIXELES, y los de textura 3D o de   N5.3c
    array: el sombreador no los ve (en el computo, los
    de textura 2D, con tipo y en la raiz, desde el 05-10)
-   render targets de floats (R32) y HDR de 16 bits     (nueva) se pintan en 8
-   como 8 bits                                              bits o no se pintan
+   render targets de float (N5.16 y N5.16b, 05-10):    N5.16b la 3060 en
+   en float en la CPU; un R32_UINT/SINT de destino,          float
+   todavia no
    stencil y AlphaToCoverage: se apuntan, no se usan   (nueva)
    topologias que no son triangulos (lineas, puntos)   (nueva) con un GS, ya
    sin un GS que las haga triangulos                        (E2.3b)

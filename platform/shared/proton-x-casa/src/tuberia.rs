@@ -240,11 +240,25 @@ pub(crate) extern "win64" fn create_root_signature(_this: u64, _nodo: u32, bytes
             let vt = vtabla::<{ com::ROOTSIG }>(&[]);
             dar(pp, nuevo(com::ROOTSIG, vt, RootSignature { firma }) as u64)
         }
+        Err(raiz::NoFirma::Version(v)) => {
+            aviso(&alloc::format!("CreateRootSignature: una root signature de la version {v} (la casa lee la 1.0 y la 1.1)"));
+            E_INVALIDARG
+        }
         Err(_) => {
-            aviso("CreateRootSignature: esos bytes no son una root signature 1.0");
+            aviso("CreateRootSignature: esos bytes no son una root signature");
             E_INVALIDARG
         }
     }
+}
+
+/// **La root signature que trae un sombreador** (06-10): la parte RTS0 de
+/// su contenedor (la que `dxc` mete con `[RootSignature(...)]`), como un
+/// objeto de la casa. La usa un PSO creado SIN root signature: D3D12 toma
+/// entonces la del sombreador. `None` si no trae (o no se lee).
+pub(crate) fn firma_del_sombreador(bytes: &[u8]) -> Option<u64> {
+    let firma = raiz::leer(bytes).ok()?;
+    let vt = vtabla::<{ com::ROOTSIG }>(&[]);
+    Some(nuevo(com::ROOTSIG, vt, RootSignature { firma }) as u64)
 }
 
 // -- El PSO -------------------------------------------------------------------
@@ -258,6 +272,9 @@ pub struct Pso {
     /// D3D12_CULL_MODE: 1 ninguna, 2 delante, 3 detras.
     pub descarte: u32,
     pub antihorario: bool,
+    /// N5.16b: `RasterizerState.DepthClipEnable` (FALSE: sin recorte en z,
+    /// la Z sujeta al viewport; `trama::SIN_RECORTE_Z`).
+    pub recorte_z: bool,
     pub topologia: u32,
     /// Los formatos de sus render targets (`RTVFormats`, N5.8: hasta 8) y
     /// cuantos son (`NumRenderTargets`).
@@ -275,6 +292,8 @@ pub struct Pso {
     pub mezcla: Result<[bmo_proton_x::mezcla::Mezcla; 8], &'static str>,
     /// La prueba de profundidad (P3c4), si `DepthEnable`.
     pub profundidad: Option<trama::Profundidad>,
+    /// 05-10: el stencil, si `StencilEnable` (la referencia la pone la lista).
+    pub stencil: Option<bmo_proton_x::stencil::Stencil>,
 }
 
 
@@ -299,9 +318,20 @@ fn sombreador(d: &[u8], etapa: Etapa) -> Result<Sombreador, &'static str> {
 /// MEDIDOS con la cabecera de Windows: ver prueba/HACER.txt).
 /// Con el PSO, si su enlace es NUEVO (no lo comparte con uno de antes).
 unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
-    let raiz = u64_de(d, 0);
+    // 06-10: sin root signature, la que traiga su sombreador de vertices (o
+    // el de pixeles), como D3D12.
+    let mut raiz = u64_de(d, 0);
     if raiz == 0 {
-        return Err("CreateGraphicsPipelineState sin root signature");
+        for o in [8usize, 24] {
+            let (p, n) = (u64_de(d, o), u64_de(d, o + 8) as usize);
+            if raiz == 0 && p != 0 && n != 0 {
+                // SAFETY: `n` bytes del sombreador, del `.exe`.
+                raiz = firma_del_sombreador(core::slice::from_raw_parts(p as *const u8, n)).unwrap_or(0);
+            }
+        }
+    }
+    if raiz == 0 {
+        return Err("CreateGraphicsPipelineState sin root signature, ni dentro de sus sombreadores");
     }
     // D3D12_SHADER_BYTECODE de DS +40, HS +56, GS +72: su medida, +8. El de
     // GEOMETRIA ya (E2.3b, 05-10: nBodyGravity); dominio y casco, todavia no.
@@ -347,14 +377,20 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
     // DepthStencilState (+496): DepthEnable +0, DepthWriteMask +4 (1 ALL),
     // DepthFunc +8, StencilEnable +12.
     let profundidad = (u32_de(d, 496) != 0).then(|| trama::Profundidad { funcion: u32_de(d, 504), escribir: u32_de(d, 500) == 1 });
-    if u32_de(d, 508) != 0 {
-        aviso("CreateGraphicsPipelineState con stencil: se apunta, y no se usa todavia");
-    }
+    // 05-10: el stencil (StencilEnable +12, mascaras +16, caras +20 y +36),
+    // que antes se apuntaba y no se usaba: ver `bmo_proton_x::stencil`.
+    let stencil = bmo_proton_x::stencil::Stencil::de_desc(core::slice::from_raw_parts(d.add(496), 52))?;
     // BlendState (+120): AlphaToCoverageEnable +0, IndependentBlendEnable
     // +4, y RenderTarget[i] desde +8, de 40 bytes (`mezcla::Mezcla::de_desc`).
     // Sin IndependentBlendEnable, el 0 vale para todos.
     if u32_de(d, 120) != 0 {
         aviso("CreateGraphicsPipelineState con AlphaToCoverage: sin MSAA no cubre nada; se apunta, y no se usa");
+    }
+    // 05-10: RasterizerState.ForcedSampleCount (+36), el de los dibujos SOLO
+    // con UAV: con mas de una muestra D3D cubre por muestras; la trama, en el
+    // centro del pixel (una).
+    if u32_de(d, 452 + 36) > 1 {
+        aviso("CreateGraphicsPipelineState con ForcedSampleCount > 1: la trama cubre con UNA muestra (el centro del pixel); un pixel que solo toca otras muestras no se sombrea");
     }
     let independiente = u32_de(d, 124) != 0;
     let mezcla = (0..8usize)
@@ -393,8 +429,11 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
         compilado,
         mezcla,
         profundidad,
+        stencil,
         descarte: u32_de(d, 452 + 4),
         antihorario: u32_de(d, 452 + 8) != 0,
+        // D3D12_RASTERIZER_DESC.DepthClipEnable (+24).
+        recorte_z: u32_de(d, 452 + 24) != 0,
         topologia: u32_de(d, 572),
         formatos_rt,
         n_rt,
@@ -618,6 +657,9 @@ pub struct Estado {
     pub rtv_otros: [(u64, u64); 7],
     /// El recurso de profundidad (OMSetRenderTargets), o 0.
     pub dsv: u64,
+    /// 05-10: la referencia de stencil de delante y de detras
+    /// (`OMSetStencilRef`, `OMSetFrontAndBackStencilRef`); 0 de serie.
+    pub stencil_ref: [u8; 2],
     /// 02-10: el subrecurso de cada vista (y su rebanada 3D << 32): ver
     /// `d3d12_vistas`. 0, el de siempre.
     pub rtv_sub: u64,
@@ -678,9 +720,11 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
         aviso("Draw con una root signature distinta de la del PSO: en Windows es un error");
         return;
     }
-    // N5.12: el de solo profundidad pinta en el DSV, y nada mas.
-    if pso.n_rt == 0 && e.dsv == 0 {
-        aviso("Draw de solo profundidad sin DSV en OMSetRenderTargets: no hay donde dibujar");
+    // N5.12: el de solo profundidad pinta en el DSV, y nada mas. 05-10: sin
+    // DSV tampoco, si sus sombreadores escriben UAV (el dibujo SOLO con UAV
+    // de D3D: se rasteriza a la medida del viewport, `pintar`).
+    if pso.n_rt == 0 && e.dsv == 0 && !pso.compilado.enlace.as_ref().is_ok_and(|en| !en.ranuras.uavs.is_empty()) {
+        aviso("Draw sin render target, sin DSV y sin UAV: no hay donde dibujar");
         return;
     }
     if pso.n_rt > 0 && e.rtv == 0 {
@@ -817,17 +861,20 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     let solo_z = pso.n_rt == 0 || e.rtv == 0;
     // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
     let mut rt = (!solo_z).then(|| unsafe { de::<crate::d3d12::Recurso>(e.rtv) });
-    // 02-10: todo lo que la casa guarda en 8 bits por canal (tambien un
-    // RGBA16F o un R10G10B10A2: se pintan en 8 bits, como se guardan).
-    let bgra = match rt.as_ref().map(|r| Almacen::de(r.formato)) {
-        Some(Almacen::Bgra8) => true,
-        Some(Almacen::Rgba8) | None => false,
-        Some(_) => {
-            aviso("Draw sobre un render target de floats (R32) o BC: todavia no");
+    let (bgra, flotante) = match rt.as_ref().map(|r| como_se_pinta(r.formato, pso.formatos_rt[0])) {
+        Some(Some(c)) => c,
+        None => (false, None),
+        Some(None) => {
+            aviso("Draw sobre un render target de un formato que la casa no pinta (BC, o una vista de enteros sobre un recurso de otro formato): todavia no");
             return;
         }
     };
-    let (pixeles, ancho, alto): (&mut [u32], u32, u32) = if solo_z {
+    let (pixeles, ancho, alto): (&mut [u32], u32, u32) = if solo_z && e.dsv == 0 {
+        // 05-10: SOLO con UAV: sin nada que medir, la medida del viewport (lo
+        // de D3D: el rectangulo es el del viewport y la tijera).
+        let [x, y, w, h, ..] = e.viewport;
+        (&mut [], (x + w).clamp(0.0, 16384.0) as u32, (y + h).clamp(0.0, 16384.0) as u32)
+    } else if solo_z {
         match destino(e.dsv, e.dsv_sub) {
             Some((_, w, h)) => (&mut [], w, h),
             None => {
@@ -857,11 +904,6 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         }
     } else {
         ids.extend(primero..primero + cuantos);
-    }
-    // N5.3c: un UAV en un sombreador de DIBUJO aun no se ve: que no sea
-    // en silencio (lo que escribe se pierde; lo que lee, 0).
-    if !en.ranuras.uavs.is_empty() {
-        aviso("Draw: un sombreador de dibujo lee o escribe un UAV (RWTexture, RWBuffer): todavia no (N5.3c); lo que escribe se pierde y lo que lee es 0");
     }
     // E2.3b: puntos y lineas, solo con un GS que los haga triangulos.
     let topologia = match (e.topologia, en.gs.is_some()) {
@@ -921,6 +963,9 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // samplers estaticos de la firma. Por RANURA (03-10, N5.1): cada lugar
     // (espacio, registro, etapa) que leen, buscado en la firma.
     let (texturas, muestreadores, buferes) = recursos_del_dibujo(firma, &e.tablas, &e.cbv, &en.ranuras);
+    // 05-10: los UAV, de la raiz o de las tablas, como los de un Dispatch:
+    // lo que escriben los sombreadores del dibujo queda en su memoria.
+    let uavs: Option<bmo_proton_x::lote::Uavs> = (!en.ranuras.uavs.is_empty()).then(|| core::cell::RefCell::new(en.ranuras.uavs.iter().map(|&l| crate::computo::uav_de(firma, &e.tablas, &e.cbv, &en.ranuras, l)).collect()));
     // N5.4 (05-10): las texturas de los arrays con el registro CALCULADO,
     // buscadas cuando un pixel las pide y GUARDADAS: una vez por textura
     // distinta del dibujo, no por pixel. Un millon de descriptores (el
@@ -938,6 +983,19 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // hace quien dibuje este lote.
     let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 && e.dsv_sub == 0 { tomar_limpieza(e.dsv) } else { None };
     let limpiar_rt = if e.rtv_sub == 0 && !solo_z { tomar_limpieza(e.rtv) } else { None };
+    // 05-10: el plano de stencil del DSV, si el PSO lo enciende y lo hay (un
+    // D32 no tiene: como en D3D, ni prueba ni escritura).
+    let plano = match (pso.stencil, e.dsv) {
+        (Some(_), dsv) if dsv != 0 => match crate::d3d12_stencil::plano(dsv, e.dsv_sub) {
+            Some((s, w, h)) if (w, h) == (ancho, alto) => Some(s),
+            Some(_) => {
+                aviso("Draw: el plano de stencil no mide lo que el render target: se dibuja sin el");
+                None
+            }
+            None => None,
+        },
+        _ => None,
+    };
     let lote = Lote {
         recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: Some(bmo_proton_x::textura::Dinamicas(&buscar)) },
         limpiar_z,
@@ -949,11 +1007,13 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         ids: &ids,
         topologia,
         cb: &cb,
-        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad, mezcla, z_del_sombreador: false },
+        // N5.16b: DepthClipEnable = FALSE viaja en un bit del descarte.
+        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte | if pso.recorte_z { 0 } else { trama::SIN_RECORTE_Z }, antihorario: pso.antihorario, profundidad: pso.profundidad, mezcla, z_del_sombreador: false, stencil: pso.stencil.filter(|_| plano.is_some()).map(|s| s.con_referencia(e.stencil_ref)) },
         oclusion: crate::consultas::hay_abierta(),
         otros: &flujos[1..],
         instancias,
         primera_instancia,
+        uavs: uavs.as_ref(),
     };
     // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.
     let z = match (pso.profundidad, e.dsv) {
@@ -974,7 +1034,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     let mut puestos = alloc::vec![e.rtv];
     for &(r, sub) in e.rtv_otros.iter().take((pso.n_rt as usize).saturating_sub(1)) {
         if r == 0 {
-            otros.push(trama::Otro { pixeles: None, bgra: false });
+            otros.push(trama::Otro { pixeles: None, bgra: false, flotante: None });
             continue;
         }
         // Dos vistas del mismo recurso serian dos `&mut` a la misma memoria.
@@ -982,14 +1042,11 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             aviso("Draw con el mismo recurso en dos render targets: en Windows es un error, y no se dibuja");
             return;
         }
+        let k = otros.len() + 1;
         // SAFETY: el descriptor guarda un Recurso de la casa (Draw ya lo miro).
-        let bgra = match Almacen::de(unsafe { de::<crate::d3d12::Recurso>(r) }.formato) {
-            Almacen::Bgra8 => true,
-            Almacen::Rgba8 => false,
-            _ => {
-                aviso("Draw sobre un render target (de los 1..8) de floats (R32) o BC: todavia no");
-                return;
-            }
+        let Some((bgra, flotante)) = como_se_pinta(unsafe { de::<crate::d3d12::Recurso>(r) }.formato, pso.formatos_rt[k]) else {
+            aviso("Draw sobre un render target (de los 1..8) de un formato que la casa no pinta (BC, o una vista de enteros sobre otro formato): todavia no");
+            return;
         };
         if sub == 0 {
             aplicar_limpieza(r);
@@ -997,7 +1054,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         match destino(r, sub) {
             Some((p, w, h)) if (w, h) == (ancho, alto) => {
                 puestos.push(r);
-                otros.push(trama::Otro { pixeles: Some(p), bgra });
+                otros.push(trama::Otro { pixeles: Some(p), bgra, flotante });
             }
             _ => {
                 aviso("Draw: un render target (de los 1..8) que no mide lo que el 0, o un subrecurso que no tiene");
@@ -1005,7 +1062,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             }
         }
     }
-    let mut destino = trama::Destino { pixeles, ancho, alto, bgra, z, cadena, otros: &mut otros };
+    let mut destino = trama::Destino { pixeles, ancho, alto, bgra, z, cadena, otros: &mut otros, flotante, stencil: plano };
     let r = (plataforma().dibujar)(&lote, &mut destino);
     // P3b4c.9 Z1: donde quedo este dibujo (la pantalla o la RAM) es donde
     // queda el fotograma: lo lee `Present`.
@@ -1021,6 +1078,28 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         Err(NoDibuja::IndiceFuera(_)) => aviso("Draw: un indice que pasa del bufer de vertices"),
         Err(NoDibuja::SinVertices) => aviso("Draw sin vertices que leer"),
     }
+}
+
+/// **Como se pinta un render target** de formato `formato` con la vista
+/// `vista` (la del PSO): `(bgra, flotante)` de `trama::Destino`, o `None` si
+/// todavia no se sabe. 02-10: lo de 8 bits por canal; N5.16 (05-10), los de
+/// float de 2 a 4 canales (RGBA16F, R11G11B10F...) en float, cuantizados al
+/// formato de su vista; N5.16b, los de UN float que la casa guarda en una
+/// palabra (un R32_FLOAT, o la vista R16_FLOAT de un R16_TYPELESS). 05-10:
+/// los de ENTEROS (R32_UINT y R32_SINT en una palabra, los demas en cuatro),
+/// con los bits del sombreador (`trama`: `formato_ia::de_entero`); una
+/// vista de enteros sobre un recurso que no lo es (un RGBA8_TYPELESS), no.
+fn como_se_pinta(formato: u32, vista: u32) -> Option<(bool, Option<u32>)> {
+    let entero = bmo_proton_x::formato_ia::es_entero;
+    Some(match Almacen::de(formato) {
+        Almacen::Bgra8 | Almacen::Rgba8 if entero(vista) => return None,
+        Almacen::Bgra8 => (true, None),
+        Almacen::Rgba8 => (false, None),
+        Almacen::Flotantes4 if entero(vista) != entero(Almacen::nativo(formato)) => return None,
+        Almacen::Flotantes4 => (false, Some(Almacen::nativo(vista))),
+        Almacen::Flotante if matches!(vista, 41..=43 | 54) => (false, Some(vista)),
+        _ => return None,
+    })
 }
 
 /// **Las texturas y los muestreadores que ve un dibujo**, por RANURA del
@@ -1052,7 +1131,7 @@ pub(crate) fn descriptor_de(tablas: &[u64; 16], k: usize, i: u64) -> Option<&'st
 /// el lugar del rango con ese registro, buscado en la firma como una ranura
 /// fija; un registro que ninguna tabla tiene, o un SRV nulo o de bufer, se
 /// lee como nulo (ceros).
-fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::textura::Textura<'static>> {
+pub(crate) fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::textura::Textura<'static>> {
     use bmo_proton_x::donde::{self, RANGO_SRV};
     let l = bmo_proton_x::dxil::ranuras::Lugar { registro, ..*ranuras.dinamicas.get(rango as usize)? };
     let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor_de(tablas, k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0)?;
@@ -1091,9 +1170,13 @@ pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], raiz: &[u64
                 if ranura[1] != crate::d3d12::DESC_MUESTREADOR {
                     return None;
                 }
-                let (f, u, v, b) = (ranura[2] as u32, (ranura[2] >> 32) as u32, ranura[3] as u32, (ranura[3] >> 32) as u32);
+                let (f, u, v, b) = (ranura[2] as u32 & 0xFFFF, (ranura[2] >> 32) as u32 & 0xFFFF, ranura[3] as u32, (ranura[3] >> 32) as u32);
                 let borde = core::array::from_fn(|c| ((b >> (8 * c)) & 0xFF) as f32 / 255.0);
-                return Muestreador::de_descriptor(f, u, v, borde, ranura[0] as u32).map_err(aviso).ok();
+                // D4.4: el sesgo y los limites de la mip (ver `create_sampler`).
+                let fijo = |x: u64| (x & 0xFFFF) as f32 / 256.0;
+                let maximo = if ranura[2] >> 48 == 0xFFFF { f32::MAX } else { fijo(ranura[2] >> 48) };
+                let m = Muestreador::de_descriptor(f, u, v, borde, ranura[0] as u32).map_err(aviso).ok()?;
+                return Some(m.con_lod(f32::from_bits((ranura[0] >> 32) as u32), fijo(ranura[2] >> 16), maximo));
             }
             Muestreador::de_estatico(donde::estatico(firma, l)?).map_err(aviso).ok()
         })
@@ -1146,6 +1229,10 @@ fn textura_de_srv(ranura: &[u64]) -> Result<bmo_proton_x::textura::Textura<'stat
     use bmo_proton_x::textura::{Clase, Como, Textura};
     let ((dimension, formato, mapeo), (sub, _)) = crate::d3d12_vistas::leer(ranura);
     aplicar_limpieza(ranura[0]);
+    // 05-10: X24_TYPELESS_G8_UINT y X32_TYPELESS_G8X24_UINT: el plano de stencil.
+    if matches!(formato, 22 | 47) {
+        return crate::d3d12_stencil::textura(ranura[0], mapeo);
+    }
     let Some(t) = crate::d3d12_vistas::tex(ranura[0]) else {
         return Err("un SRV de textura sobre un bufer: en Windows es un error (se lee como nulo)");
     };
@@ -1161,6 +1248,7 @@ fn textura_de_srv(ranura: &[u64]) -> Result<bmo_proton_x::textura::Textura<'stat
         Almacen::Rgba8 => Como::Rgba8,
         Almacen::Bgra8 => Como::Bgra8,
         Almacen::Flotante => Como::Flotante,
+        Almacen::Flotantes4 => Como::Flotantes4,
         Almacen::Bloques(b) => Como::Bloques(b),
     };
     let total: u64 = t.subs.iter().map(|x| x.bytes()).sum();
@@ -1170,7 +1258,9 @@ fn textura_de_srv(ranura: &[u64]) -> Result<bmo_proton_x::textura::Textura<'stat
     let (mip, capa) = f.sub(sub);
     let formato = if formato == 0 { f.formato } else { formato };
     let hondo = if f.dimension == crate::subrecursos::DIM_TEXTURA3D { f.hondo } else { 1 };
-    Ok(Textura { texeles, ancho: f.ancho, alto: f.alto, como, srgb: crate::d3d12_vistas::es_srgb(formato), mapeo, mips: f.mips, capas: f.capas(), hondo, clase, mip, capa })
+    // D4.4: las mips de la vista y su ResourceMinLODClamp (`d3d12_vistas::poner`).
+    let (niveles, lod_min) = crate::d3d12_vistas::mips_de(ranura);
+    Ok(Textura { texeles, ancho: f.ancho, alto: f.alto, como, srgb: crate::d3d12_vistas::es_srgb(formato), mapeo, mips: f.mips, capas: f.capas(), hondo, clase, mip, capa, niveles, lod_min })
 }
 
 /// Lo que mide una ranura de un monton de descriptores de la casa.
@@ -1225,10 +1315,16 @@ pub(crate) fn destino(recurso: u64, sub: u64) -> Option<(&'static mut [u32], u32
     let t = r.tex.as_ref()?;
     let s = *t.subs.get(sub as u32 as usize)?;
     let rebanada = (sub >> 32) as u32;
-    if t.almacen.elemento() != (4, 1) || rebanada >= s.hondo {
+    // Palabras por texel: una, o cuatro en un float (N5.16).
+    let k = match t.almacen.elemento() {
+        (4, 1) => 1,
+        (16, 1) => 4,
+        _ => return None,
+    };
+    if rebanada >= s.hondo {
         return None;
     }
-    let n = s.ancho as usize * s.alto as usize;
+    let n = s.ancho as usize * s.alto as usize * k;
     let p = (t.datos + s.desde + rebanada as u64 * s.fila * s.filas as u64) as *mut u32;
     // SAFETY: una rebanada de un subrecurso, dentro de la memoria de la textura.
     Some((unsafe { core::slice::from_raw_parts_mut(p, n) }, s.ancho, s.alto))

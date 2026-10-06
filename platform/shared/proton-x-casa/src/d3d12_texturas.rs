@@ -9,7 +9,9 @@
 //!    hacia la textura   cada texel NATIVO se pasa a lo interno
 //!                       (`subrecursos::a_interno`); un BC, sus bloques tal cual
 //!    desde la textura   exacto si lo interno es lo nativo (RGBA8, BGRA8, R32,
-//!                       D32, BC); de lo demas se dice y no se copia
+//!                       D32, BC) o son los cuatro floats de un formato de
+//!                       float (N5.16: se vuelven a su formato); de lo demas
+//!                       se dice y no se copia
 //!    entre texturas     lo interno tal cual (mismo almacen)
 //! ```
 //!
@@ -59,7 +61,9 @@ pub(crate) unsafe fn mover(t: &Tex, sub: u32, caja: Caja, l: &Lineal, hacia: boo
         return Err("la memoria de la copia es mas corta que la caja");
     }
     let crudo = l.interno || matches!(t.almacen, Almacen::Bloques(_));
-    if !hacia && !crudo && (bn != 4 || !interno_es_nativo(t.forma.formato)) {
+    // N5.16: los de float, texel a texel en su formato nativo, ida y vuelta.
+    let flotantes = !crudo && t.almacen == Almacen::Flotantes4;
+    if !hacia && !crudo && !flotantes && (bn != 4 || !interno_es_nativo(t.forma.formato)) {
         return Err("leer de vuelta una textura que la casa guarda convertida (no es RGBA8, BGRA8, R32, D32 ni BC): todavia no");
     }
     let rebanada = s.fila * s.filas as u64;
@@ -67,7 +71,25 @@ pub(crate) unsafe fn mover(t: &Tex, sub: u32, caja: Caja, l: &Lineal, hacia: boo
         for f in 0..filas {
             let int = (t.datos + s.desde + (z0 as u64 + z) * rebanada + (f0 + f) * s.fila + c0 * bi) as *mut u8;
             let lin = l.p.add((z * l.capa + f * l.fila) as usize);
-            if crudo || (!hacia && bn == 4) {
+            if flotantes {
+                let nativo = Almacen::nativo(l.formato);
+                for c in 0..cols as usize {
+                    let (lin_c, int_c) = (lin.add(c * bn as usize), int.add(16 * c));
+                    if hacia {
+                        let v = bmo_proton_x::formato_ia::leer(nativo, core::slice::from_raw_parts(lin_c, bn as usize));
+                        for (k, x) in v.iter().enumerate() {
+                            (int_c.add(4 * k) as *mut u32).write_unaligned(x.to_bits());
+                        }
+                    } else {
+                        let v: [u32; 4] = core::array::from_fn(|k| (int_c.add(4 * k) as *const u32).read_unaligned());
+                        // 05-10: uno de enteros, sus bits tal cual (los de un float, convertidos).
+                        let Some(e) = bmo_proton_x::formato_ia::empaquetar(nativo, v, bmo_proton_x::formato_ia::es_entero(nativo)) else {
+                            return Err("leer de vuelta una textura de float en un formato que la casa aun no escribe");
+                        };
+                        core::ptr::copy_nonoverlapping(e.as_ptr(), lin_c, (bn as usize).min(e.len()));
+                    }
+                }
+            } else if crudo || (!hacia && bn == 4) {
                 let n = (cols * bi) as usize;
                 if hacia {
                     core::ptr::copy(lin, int, n);
@@ -167,18 +189,31 @@ pub(crate) fn hacer(c: &Region) -> Result<(), &'static str> {
             let [x0, y0, z0, x1, y1, z1] = c.caja.unwrap_or([0, 0, 0, ancho, alto, hondo]);
             let l = lineal_de_huella(h, x0, y0, z0).ok_or("CopyTextureRegion desde una huella que no es de un bufer de la casa")?;
             crate::tuberia::aplicar_limpieza(recurso);
+            let caja = [dx, dy, dz, dx + (x1 - x0), dy + (y1 - y0), dz + (z1 - z0)];
+            // 05-10: un subrecurso del plano de stencil (`d3d12_stencil`).
+            if let Some(p) = (sub as usize).checked_sub(t.subs.len()) {
+                // SAFETY: como abajo.
+                return unsafe { crate::d3d12_stencil::mover_plano(recurso, p as u32, caja, &l, true) };
+            }
             // SAFETY: `l` es memoria de un bufer de la casa, `l.bytes` de largo.
-            unsafe { mover(t, sub, [dx, dy, dz, dx + (x1 - x0), dy + (y1 - y0), dz + (z1 - z0)], &l, true) }
+            unsafe { mover(t, sub, caja, &l, true) }
         }
         // Una textura a un bufer (leer: READBACK).
         (h @ Ubicacion::Huella { .. }, Ubicacion::Sub { recurso, sub }) => {
             let t = tex(recurso).ok_or("CopyTextureRegion desde algo que no es una textura")?;
-            let caja = match c.caja {
-                Some(k) => k,
-                None => caja_entera(t, sub).ok_or("un subrecurso que la textura no tiene")?,
+            // 05-10: el plano de stencil: el subrecurso `sub - mips * capas`.
+            let plano = (sub as usize).checked_sub(t.subs.len()).map(|p| p as u32);
+            let caja = match (c.caja, plano) {
+                (Some(k), _) => k,
+                (None, Some(p)) => t.subs.get(p as usize).map(|s| [0, 0, 0, s.ancho, s.alto, 1]).ok_or("un subrecurso que la textura no tiene")?,
+                (None, None) => caja_entera(t, sub).ok_or("un subrecurso que la textura no tiene")?,
             };
             let l = lineal_de_huella(h, dx, dy, dz).ok_or("CopyTextureRegion a una huella que no es de un bufer de la casa")?;
             crate::tuberia::aplicar_limpieza(recurso);
+            if let Some(p) = plano {
+                // SAFETY: como abajo.
+                return unsafe { crate::d3d12_stencil::mover_plano(recurso, p, caja, &l, false) };
+            }
             // SAFETY: como arriba.
             unsafe { mover(t, sub, caja, &l, false) }
         }

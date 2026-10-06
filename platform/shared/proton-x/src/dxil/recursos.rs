@@ -213,59 +213,19 @@ mod pruebas {
 /// Los numeros son constantes del modulo: `entero` dice cuanto vale el
 /// valor `i` (o `None` si no es un entero).
 pub(super) fn pasos_estructurados(m: &super::bits::Bloque, entero: impl Fn(usize) -> Option<i64>) -> Vec<(bool, u32, u32, u32)> {
-    // Los registros de METADATA de LLVM 3.7 que hacen falta aqui.
-    const VALOR: u64 = 2;
-    const NODO: u64 = 3;
-    const NOMBRE: u64 = 4;
-    const NODO_DISTINTO: u64 = 5;
-    const CLASE: u64 = 6;
-    const CON_NOMBRE: u64 = 10;
-    enum Md {
-        Valor(u64),
-        Nodo(Vec<u64>),
-        Otro,
-    }
-    let mut todos: Vec<Md> = Vec::new();
-    let mut raiz = None;
-    let mut nombre = None;
-    for b in m.bloques.iter().filter(|b| b.id == 15) {
-        for r in &b.registros {
-            match r.codigo {
-                NOMBRE => nombre = Some(r.ops.iter().map(|&c| c as u8).collect::<Vec<u8>>()),
-                CON_NOMBRE => {
-                    if nombre.take().as_deref() == Some(b"dx.resources") {
-                        raiz = r.ops.first().copied();
-                    }
-                }
-                CLASE => {}
-                VALOR => todos.push(Md::Valor(r.ops.get(1).copied().unwrap_or(u64::MAX))),
-                NODO | NODO_DISTINTO => todos.push(Md::Nodo(r.ops.clone())),
-                _ => todos.push(Md::Otro),
-            }
-        }
-    }
-    // Dentro de un nodo, cada referencia es su numero + 1 (0, nada).
-    let nodo = |i: u64| match todos.get(i as usize) {
-        Some(Md::Nodo(v)) => Some(v),
-        _ => None,
-    };
-    let dentro = |r: u64| r.checked_sub(1).and_then(nodo);
-    let numero = |r: u64| match r.checked_sub(1).and_then(|i| todos.get(i as usize)) {
-        Some(Md::Valor(v)) => entero(*v as usize),
-        _ => None,
-    };
+    let md = Metadatos::de(m);
     let mut v = Vec::new();
-    let Some(listas) = raiz.and_then(nodo) else { return v };
+    let Some(listas) = md.raiz(b"dx.resources") else { return v };
     for (k, uav) in [(0usize, false), (1, true)] {
-        let Some(lista) = listas.get(k).and_then(|&r| dentro(r)) else { continue };
+        let Some(lista) = listas.get(k).and_then(|&r| md.dentro(r)) else { continue };
         for &e in lista {
-            let Some(c) = dentro(e) else { continue };
+            let Some(c) = md.dentro(e) else { continue };
             let extra = if uav { 10 } else { 8 };
-            let (Some(espacio), Some(registro)) = (c.get(3).and_then(|&x| numero(x)), c.get(4).and_then(|&x| numero(x))) else { continue };
-            let Some(par) = c.get(extra).and_then(|&x| dentro(x)) else { continue };
+            let (Some(espacio), Some(registro)) = (c.get(3).and_then(|&x| md.numero(x, &entero)), c.get(4).and_then(|&x| md.numero(x, &entero))) else { continue };
+            let Some(par) = c.get(extra).and_then(|&x| md.dentro(x)) else { continue };
             for p in par.chunks_exact(2) {
-                if numero(p[0]) == Some(1) {
-                    if let Some(paso) = numero(p[1]) {
+                if md.numero(p[0], &entero) == Some(1) {
+                    if let Some(paso) = md.numero(p[1], &entero) {
                         v.push((uav, espacio as u32, registro as u32, paso as u32));
                     }
                 }
@@ -273,4 +233,94 @@ pub(super) fn pasos_estructurados(m: &super::bits::Bloque, entero: impl Fn(usize
         }
     }
     v
+}
+
+/// **Las banderas del sombreador** (05-10), de `dx.entryPoints`: la etiqueta
+/// 0 de sus propiedades (`!{i32 0, i64 banderas}`); 0 si no las trae. La
+/// que importa aqui es [`TEMPRANA`].
+///
+/// ```text
+///    !dx.entryPoints = !{!{funcion, nombre, firmas, recursos, propiedades}}
+///    propiedades     !{etiqueta, valor, ...}: la 0, las banderas
+/// ```
+pub(super) fn banderas(m: &super::bits::Bloque, entero: impl Fn(usize) -> Option<i64>) -> u64 {
+    let md = Metadatos::de(m);
+    let props = md.raiz(b"dx.entryPoints").and_then(|e| e.get(4)).and_then(|&p| md.dentro(p));
+    props.and_then(|p| p.chunks_exact(2).find(|p| md.numero(p[0], &entero) == Some(0)).and_then(|p| md.numero(p[1], &entero))).unwrap_or(0) as u64
+}
+
+/// `[earlydepthstencil]` en las banderas de un sombreador de pixeles: la
+/// prueba de profundidad ANTES de el, aunque escriba UAV.
+pub const TEMPRANA: u64 = 0x8;
+
+/// Un metadato de LLVM 3.7, lo justo para los de arriba.
+enum Md {
+    Valor(u64),
+    Nodo(Vec<u64>),
+    Otro,
+}
+
+/// **Los metadatos del modulo**, numerados como los numera LLVM: cada
+/// registro define uno, salvo el nombre, la clase y el nodo con nombre.
+struct Metadatos {
+    todos: Vec<Md>,
+    /// Cada nodo con nombre (`dx.resources`...) y el PRIMERO al que apunta
+    /// (`!dx.entryPoints = !{!10}`: el !10).
+    nombrados: Vec<(Vec<u8>, u64)>,
+}
+
+impl Metadatos {
+    fn de(m: &super::bits::Bloque) -> Metadatos {
+        // Los registros de METADATA de LLVM 3.7 que hacen falta aqui.
+        const VALOR: u64 = 2;
+        const NODO: u64 = 3;
+        const NOMBRE: u64 = 4;
+        const NODO_DISTINTO: u64 = 5;
+        const CLASE: u64 = 6;
+        const CON_NOMBRE: u64 = 10;
+        let (mut todos, mut nombrados, mut nombre) = (Vec::new(), Vec::new(), None);
+        for b in m.bloques.iter().filter(|b| b.id == 15) {
+            for r in &b.registros {
+                match r.codigo {
+                    NOMBRE => nombre = Some(r.ops.iter().map(|&c| c as u8).collect::<Vec<u8>>()),
+                    CON_NOMBRE => {
+                        if let (Some(n), Some(&k)) = (nombre.take(), r.ops.first()) {
+                            nombrados.push((n, k));
+                        }
+                    }
+                    CLASE => {}
+                    VALOR => todos.push(Md::Valor(r.ops.get(1).copied().unwrap_or(u64::MAX))),
+                    NODO | NODO_DISTINTO => todos.push(Md::Nodo(r.ops.clone())),
+                    _ => todos.push(Md::Otro),
+                }
+            }
+        }
+        Metadatos { todos, nombrados }
+    }
+
+    fn nodo(&self, i: u64) -> Option<&Vec<u64>> {
+        match self.todos.get(i as usize) {
+            Some(Md::Nodo(v)) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// El nodo al que apunta el nodo con nombre `nombre`.
+    fn raiz(&self, nombre: &[u8]) -> Option<&Vec<u64>> {
+        self.nombrados.iter().find(|n| n.0 == nombre).and_then(|n| self.nodo(n.1))
+    }
+
+    /// Dentro de un nodo, cada referencia es su numero + 1 (0, nada).
+    fn dentro(&self, r: u64) -> Option<&Vec<u64>> {
+        r.checked_sub(1).and_then(|i| self.nodo(i))
+    }
+
+    /// El entero de la referencia `r` (los numeros son constantes del
+    /// modulo: `entero` dice cuanto vale el valor `i`).
+    fn numero(&self, r: u64, entero: &impl Fn(usize) -> Option<i64>) -> Option<i64> {
+        match r.checked_sub(1).and_then(|i| self.todos.get(i as usize)) {
+            Some(Md::Valor(v)) => entero(*v as usize),
+            _ => None,
+        }
+    }
 }

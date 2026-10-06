@@ -173,6 +173,8 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         1 => Descarte::Ninguna,
         2 => Descarte::Delanteras,
         3 => Descarte::Traseras,
+        // N5.16b: la receta de la 3060 recorta siempre en z.
+        d if d & bmo_proton_x::trama::SIN_RECORTE_Z != 0 => return Err(String::from("DepthClipEnable = FALSE: la receta de la 3060 recorta en z siempre (no lo apaga todavia)")),
         d => return Err(format!("un modo de descarte que no es de D3D12 ({d})")),
     };
     let z = r.profundidad.map(|p| Z { funcion: p.funcion, escribir: p.escribir, limpiar: limpiar_z });
@@ -299,6 +301,26 @@ impl Puerta {
         if l.oclusion {
             return Err(String::from("hay una consulta de oclusion abierta: la 3060 no cuenta los pixeles que pasan todavia"));
         }
+        // 05-10: lo que un dibujo escribe en sus UAV queda en la memoria de la
+        // CPU; la receta no lleva UAV (ni la 3060 emite sus operaciones).
+        if l.uavs.is_some() {
+            return Err(String::from("sus sombreadores leen o escriben UAV (RWTexture, RWBuffer, Interlocked): la 3060 no los lleva todavia"));
+        }
+        // E2.5 (05-10): las olas (Wave*, Quad*) tampoco: el emisor no las
+        // sabe (`vote`, `shfl`); dicho con su nombre, no con un numero.
+        if l.enlace.vs.olas_propias() || l.enlace.ps.olas_propias() {
+            return Err(String::from("sus sombreadores usan las olas (Wave*, Quad*): la 3060 no las lleva todavia"));
+        }
+        // D4.4 (05-10): las derivadas (ddx, ddy, fwidth) tampoco; y la mip de
+        // un `Sample` la saca su TEX, pero de la mip 0 de una textura de una
+        // mip: si la vista tiene mas, o el muestreador filtra distinto de
+        // lejos, la CPU (que elige la mip) daria otra cosa.
+        if l.enlace.vs.deriva() || l.enlace.ps.deriva() {
+            return Err(String::from("sus sombreadores usan las derivadas (ddx, ddy, fwidth): la 3060 no las lleva todavia"));
+        }
+        if l.enlace.ps.mip_por_derivadas() && l.recursos.mip_importa() {
+            return Err(String::from("muestrea con la mip de sus derivadas una textura de varias mips (o con MIN y MAG distintos): la 3060 lee la mip 0 todavia"));
+        }
         // N5.13: la receta lleva UNA instancia y los elementos por vertice.
         if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {
             return Err(String::from("el lote dibuja varias instancias o lee datos por instancia: la 3060 no lo sabe todavia"));
@@ -306,6 +328,12 @@ impl Puerta {
         // N5.11: la 3060 aun no mezcla (ni enmascara): ese lote, por la CPU.
         if !l.reglas.mezcla.trivial() {
             return Err(String::from("el lote mezcla (o escribe solo algunos canales): la 3060 no lo sabe todavia"));
+        }
+        // 05-10: el stencil vive en la RAM de la casa (un byte por texel del
+        // DSV) y la receta no lo lleva: ese lote, por la CPU (y `despues`
+        // da por muerta la Z de la 3060 si el lote tambien la usa).
+        if l.reglas.stencil.is_some() {
+            return Err(String::from("el lote usa STENCIL: la 3060 no lo prueba ni lo escribe todavia (su plano vive en la RAM de la casa)"));
         }
         if l.reglas.profundidad.is_some() && !self.z_a_la_3060 {
             return Err(String::from(

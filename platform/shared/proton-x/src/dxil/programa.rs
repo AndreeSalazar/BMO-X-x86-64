@@ -110,11 +110,16 @@ const DX_SAMPLE_GRAD: i64 = 63;
 const DX_TEXTURE_LOAD: i64 = 66;
 const DX_TEXTURE_STORE: i64 = 67;
 const DX_GET_DIMENSIONS: i64 = 72;
+/// D4.4: `CalculateLevelOfDetail` (y su `Unclamped`).
+const DX_CALCULATE_LOD: i64 = 81;
 const DX_BUFFER_LOAD: i64 = 68;
 // N5.5 (05-10): el computo.
 const DX_BUFFER_STORE: i64 = 69;
 // E2.4 (05-10): el contador de un UAV (Append, Consume, Increment/DecrementCounter).
 const DX_BUFFER_UPDATE_COUNTER: i64 = 70;
+// 05-10: los `Interlocked*` de un UAV (en un dibujo y en el computo).
+const DX_ATOMIC_BIN_OP: i64 = 78;
+const DX_ATOMIC_COMPARE_EXCHANGE: i64 = 79;
 const DX_BARRIER: i64 = 80;
 const DX_THREAD_ID: i64 = 93;
 const DX_GROUP_ID: i64 = 94;
@@ -180,8 +185,10 @@ pub enum Op {
     Min { d: Reg, a: Reg, b: Reg },
     Max { d: Reg, a: Reg, b: Reg },
     /// `Sample`: la textura `t` (el registro tN) con el muestreador `s` (sN)
-    /// en `(u, v)`; los cuatro canales (R, G, B, A) en `d..d+4`.
-    Muestra { d: Reg, t: u8, s: u8, u: Reg, v: Reg },
+    /// en `(u, v)`; los cuatro canales (R, G, B, A) en `d..d+4`. D4.4: con
+    /// `g`, la mip de los gradientes de `g..g+4` (`olas::gradientes`); sin
+    /// el, la de la vista (un programa hecho a mano).
+    Muestra { d: Reg, t: u8, s: u8, u: Reg, v: Reg, g: Option<Reg> },
     /// N5.4 (05-10): ELEGIR la textura del rango dinamico `rango` cuyo
     /// registro (absoluto, la base incluida) calculo el sombreador en los
     /// bits de `i`. La lectura que viene detras, con `t` = [`DINAMICA`], lee
@@ -202,11 +209,12 @@ pub enum Op {
     EscribeCompartida { base: u32, n: u32, i: Reg, s: Reg },
     /// N5.5: `bufferStore` al UAV de la ranura `u`: el elemento `i`, `desp`
     /// bytes dentro de el (estructurado), los canales de `v` que dice
-    /// `mascara`.
-    EscribeUav { u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg, v: [Reg; 4], mascara: u8 },
+    /// `mascara`. En un UAV de textura, `i` la x, `desp` la y y (06-10) `z`
+    /// la rebanada de un 3D o la capa de un array (en los demas, un 0).
+    EscribeUav { u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg, z: Reg, v: [Reg; 4], mascara: u8 },
     /// N5.5: `bufferLoad` de un UAV (`RWStructuredBuffer`...): como
     /// `Lectura::Bufer`, pero del UAV `u`.
-    LeeUav { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg },
+    LeeUav { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg, z: Reg },
     /// N5.3c (05-10): `GetDimensions` de un UAV: sus elementos (de un bufer)
     /// o su ancho y su alto (de una textura), como enteros.
     MedidasUav { d: Reg, u: u8, modo: crate::bufer::Modo },
@@ -215,6 +223,10 @@ pub enum Op {
     /// al bajar (lo de D3D). `Append` es esto y un `bufferStore` en ese
     /// indice.
     Contador { d: Reg, u: u8, inc: i8 },
+    /// 05-10: un `Interlocked*` (`atomicBinOp`, `atomicCompareExchange`)
+    /// sobre la palabra del elemento `i` (`desp` dentro) del UAV `u`: `d` la
+    /// de antes ([`crate::bufer::Uav::atomico`]); `igual`, lo que se compara.
+    Atomico { d: Reg, u: u8, modo: crate::bufer::Modo, i: Reg, desp: Reg, z: Reg, como: crate::bufer::Atomo, v: Reg, igual: Reg },
     /// E2.3b (05-10): una entrada de un sombreador de GEOMETRIA: el
     /// componente del elemento `elemento` del vertice `vertice` de su
     /// primitiva (en las entradas, cada vertice ocupa [`Programa::entradas`]
@@ -225,10 +237,10 @@ pub enum Op {
     Emite { flujo: u8 },
     /// E2.3b: `CutStream`: la tira de ahora se acaba.
     Corta { flujo: u8 },
-    /// 02-10: leer una textura con lo que `Muestra` (2D, la mip de la
-    /// vista) no dice: `Sample` con mas coordenadas (arrays, cubos, 3D) o
-    /// desplazado, `SampleLevel`, `SampleBias` y `SampleGrad` (sin su sesgo
-    /// ni sus gradientes: la mip de la vista), `Load` y `GetDimensions` (ver
+    /// 02-10: leer una textura con lo que `Muestra` (2D) no dice: `Sample`
+    /// con mas coordenadas (arrays, cubos, 3D) o desplazado, `SampleLevel`,
+    /// `SampleBias` y `SampleGrad` (D4.4: con su sesgo y sus gradientes,
+    /// [`Lectura::Gradientes`]), `Load` y `GetDimensions` (ver
     /// [`Lectura`]). `c`: las coordenadas (floats, o enteros en `Load`; las
     /// que no trae, un registro a 0); `nivel`: la mip (un float en
     /// SampleLevel, un entero en Load y GetDimensions); `desp`: el
@@ -282,6 +294,11 @@ pub enum Op {
     /// sin saber hasta donde llega el indice, las 4096 de D3D); si no, 0.
     /// Los arrays de un cbuffer (luces, huesos) se leen asi.
     ConstantesEn { d: Reg, fila: u16, filas: u16, i: Reg, cb: u8 },
+    /// E2.5 (05-10): una operacion de OLA (`Wave*`, `Quad*`): mira los
+    /// carriles de la ola, asi que el interprete PARA el hilo aqui y la
+    /// resuelve con los demas (`dxil/carriles.rs`). `a` el valor, `b` el
+    /// segundo operando (el carril de `ReadLaneAt`); `d..d+4` en `Papeleta`.
+    Ola { d: Reg, a: Reg, b: Reg, que: super::olas::Ola },
 }
 
 /// Lo que pregunta [`Op::Compara`]. Las `SinSigno` (E6c), solo con
@@ -450,12 +467,18 @@ pub struct Computo {
     pub hilos: [u32; 3],
     /// Las palabras de 4 bytes de su memoria compartida (`groupshared`).
     pub compartida: u32,
+    /// 05-10, de uno de PIXELES: `[earlydepthstencil]` (la profundidad se
+    /// prueba ANTES de correrlo aunque escriba UAV). Va aqui, con lo de
+    /// la etapa que no son operaciones, y no en `Programa`: asi no cambian
+    /// los que lo construyen a mano.
+    pub temprana: bool,
 }
 
 /// **Como lee una textura** [`Op::Lee`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Lectura {
-    /// `Sample` (y Bias y Grad): la mip mas detallada de la vista.
+    /// `Sample` en la mip mas detallada de la vista (D4.4: el DXIL ya no la
+    /// pide: sus `Sample` van por [`Lectura::Gradientes`]).
     Muestra,
     /// `SampleLevel`: la mip de `nivel` (float).
     Nivel,
@@ -476,6 +499,14 @@ pub enum Lectura {
     Compara,
     /// 03-10: `GatherCmp`: los cuatro texeles, cada uno comparado.
     JuntaCompara { canal: u8 },
+    /// D4.4: `Sample`, `SampleBias`, `SampleGrad` (y con `compara`,
+    /// `SampleCmp`) con la mip de sus GRADIENTES. Desde `nivel`, seguidos:
+    /// ddx(u), ddx(v), ddy(u), ddy(v), el sesgo, el clamp del sombreador (la
+    /// mip menor que deja) y, si compara, la referencia.
+    Gradientes { compara: bool },
+    /// D4.4: `CalculateLevelOfDetail` (`sujeta`) o su `Unclamped`: el LOD
+    /// de los gradientes de `nivel..nivel+4`, en x.
+    Lod { sujeta: bool },
 }
 
 impl Programa {
@@ -495,6 +526,36 @@ impl Programa {
     /// Si el programa lee alguna textura (`Sample`).
     pub fn muestrea(&self) -> bool {
         self.ops.iter().any(|o| matches!(o, Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. }))
+    }
+
+    /// 05-10: si LEE o ESCRIBE un UAV (lo de un dibujo con efectos: la trama
+    /// no puede saltarse ni repetir un pixel de estos).
+    pub fn toca_uav(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::Atomico { .. }))
+    }
+
+    /// E2.5: si usa las olas (un pixel asi va en cuadros y olas, `cuadros`).
+    /// D4.4: las derivadas son olas (de su cuadro), y un muestreo con la mip
+    /// por derivadas las pide: tambien va en cuadros.
+    pub fn usa_olas(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::Ola { .. }))
+    }
+
+    /// D4.4: si usa olas que NO son derivadas (`Wave*`, `Quad*`).
+    pub fn olas_propias(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::Ola { que, .. } if !matches!(que, super::olas::Ola::Derivada { .. })))
+    }
+
+    /// D4.4: si el sombreador pide derivadas (`ddx`, `ddy`, `fwidth`); las de
+    /// la mip de un muestreo no cuentan (ver [`Programa::mip_por_derivadas`]).
+    pub fn deriva(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::Ola { que: super::olas::Ola::Derivada { muestra: false, .. }, .. }))
+    }
+
+    /// D4.4: si muestrea con la mip de sus derivadas (`Sample`, no
+    /// `SampleLevel`).
+    pub fn mip_por_derivadas(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::Ola { que: super::olas::Ola::Derivada { muestra: true, .. }, .. }))
     }
 
     /// Si el programa salta (E6): `si`, bucles, o lo que lee bits como
@@ -900,10 +961,13 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
         c.valores[k] = super::arreglos::global(&mut c, ops, &tipos, &floats, &anchos)?;
     }
     // N5.3b (05-10): el paso de cada bufer estructurado, de `dx.resources`.
-    c.ranuras.pasos = super::recursos::pasos_estructurados(m, |i| match c.valores.get(i) {
+    let entero = |i: usize| match c.valores.get(i) {
         Some(Valor::Entero(v)) => Some(*v),
         _ => None,
-    });
+    };
+    c.ranuras.pasos = super::recursos::pasos_estructurados(m, entero);
+    // 05-10: `[earlydepthstencil]`, de las banderas de `dx.entryPoints`.
+    let temprana = super::recursos::banderas(m, entero) & super::recursos::TEMPRANA != 0;
     // 3. El cuerpo: el primer FUNCTION_BLOCK es el de la primera funcion
     //    definida (la entrada: sin argumentos).
     if funciones.iter().filter(|f| !f.declarada).count() != 1 {
@@ -918,7 +982,7 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
     }
     // E6b: con saltos, el grafo de bloques vuelve a ser `si` y bucles.
     super::estructura::armar(&mut c)?;
-    Ok(Programa { ops: c.ops, iniciales: c.iniciales, entradas: c.entradas, salidas: c.salidas, lee: c.lee, filas_cb: c.filas_cb, ranuras: c.ranuras, computo: Computo { hilos: s.hilos, compartida: c.compartida } })
+    Ok(Programa { ops: c.ops, iniciales: c.iniciales, entradas: c.entradas, salidas: c.salidas, lee: c.lee, filas_cb: c.filas_cb, ranuras: c.ranuras, computo: Computo { hilos: s.hilos, compartida: c.compartida, temprana } })
 }
 
 /// Lee operandos de un registro de instruccion: relativos o absolutos, y si

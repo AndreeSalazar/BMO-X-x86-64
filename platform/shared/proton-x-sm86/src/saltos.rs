@@ -82,18 +82,33 @@ pub(crate) fn leidos(op: &Op) -> [Option<Reg>; 8] {
         }
         // N5.3c: no lee registros.
         Op::MedidasUav { .. } => {}
-        Op::LeeUav { i, desp, .. } => {
+        Op::LeeUav { i, desp, z, .. } => {
             v[0] = Some(i);
             v[1] = Some(desp);
+            v[2] = Some(z);
         }
-        Op::EscribeUav { i, desp, v: w, .. } => {
+        Op::EscribeUav { i, desp, z, v: w, .. } => {
             v[0] = Some(i);
             v[1] = Some(desp);
             for k in 0..4 {
                 v[2 + k] = Some(w[k]);
             }
+            v[6] = Some(z);
+        }
+        // 05-10: un Interlocked (la 3060 no lo emite: ver lib.rs).
+        Op::Atomico { i, desp, z, v: w, igual, .. } => {
+            v[0] = Some(i);
+            v[1] = Some(desp);
+            v[2] = Some(w);
+            v[3] = Some(igual);
+            v[4] = Some(z);
         }
         Op::IdHilo { .. } | Op::Barrera | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::Contador { .. } => {}
+        // E2.5: una ola (la 3060 no la emite todavia: ver lib.rs).
+        Op::Ola { a, b, .. } => {
+            v[0] = Some(a);
+            v[1] = Some(b);
+        }
         Op::EscribeIndexado { i, s, .. } => {
             v[0] = Some(i);
             v[1] = Some(s);
@@ -112,7 +127,10 @@ pub(crate) fn escritos(op: &Op) -> ([Option<Reg>; 4], bool) {
         Op::Constantes { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], true),
         Op::ConstantesEn { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
         Op::Muestra { d, .. } | Op::Lee { d, .. } | Op::LeeUav { d, .. } | Op::MedidasUav { d, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
-        Op::IdHilo { d, .. } | Op::LeeCompartida { d, .. } | Op::Contador { d, .. } => ([Some(d), None, None, None], false),
+        Op::IdHilo { d, .. } | Op::LeeCompartida { d, .. } | Op::Contador { d, .. } | Op::Atomico { d, .. } => ([Some(d), None, None, None], false),
+        // E2.5: la papeleta escribe un uint4.
+        Op::Ola { d, que: bmo_proton_x::dxil::olas::Ola::Papeleta, .. } => ([Some(d), Some(d + 1), Some(d + 2), Some(d + 3)], false),
+        Op::Ola { d, .. } => uno(d),
         Op::EntradaDe { d, .. } => ([Some(d), None, None, None], true),
         Op::Mul { d, .. }
         | Op::Add { d, .. }

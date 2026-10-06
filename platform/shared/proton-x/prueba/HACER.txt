@@ -2340,3 +2340,595 @@ Reproducible (comprobado en dos directorios), sin rutas. sha256:
 El banco (`tests/corre/muestras.rs`, n5_3c): los 7 `bien` y sale con 0.
 Probado que dice NO: con el paso de los estructurados mal (A), sin la
 limpieza (las dos D) y con la textura traspuesta (B).
+
+hdr_vs.dxil, hdr_color.dxil, hdr_lee.dxil -- los de hdr.exe (05-10)
+
+N5.16: `hdr.hlsl` (aqui al lado): VSCuadro (un cuadro de pantalla completa
+de SV_VertexID, sin bufer de vertices), PSColor (el color de cuatro
+constantes de la raiz) y PSLee (un render target de float LEIDO como
+textura, por cuatro). Con el mismo `dxc` de Linux que los demas:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo hdr_vs.dxil hdr.hlsl
+   dxc -T ps_6_0 -E PSColor -Fo hdr_color.dxil hdr.hlsl
+   dxc -T ps_6_0 -E PSLee -Fo hdr_lee.dxil hdr.hlsl
+
+   024b0d8e4f6780e5f9ed724fccaa11aee60e6f632e2241bbcbc91e00dc9a4d58  hdr_vs.dxil
+   ec4179122fe80bf7b7346408be529c9580272678168a1b11c2cf195e091389e2  hdr_color.dxil
+   6a659ebe4e23edb07f451145037eb900a21f77343382f12a9b4d46e838b7a569  hdr_lee.dxil
+
+hdr.exe -- N5.16: los render targets de FLOAT, juzgados (05-10)
+
+NUESTRO, no de Microsoft: `hdr.cpp` (aqui al lado), de consola, con los
+tres .dxil dentro (`.incbin`). Tres destinos de 64 x 64: A, un RGBA16F
+limpio en float y con dos dibujos SUMANDO (sale 3.25: lo que pasa de 1 y lo
+que resta se guardan); B, un R11G11B10F con la tijera en la mitad izquierda
+(sin signo: el -1 es 0); C, A leido como textura por cuatro a un RGBA8.
+Cada valor cabe EXACTO en su formato (sin redondeos que discutir con una
+GPU de verdad) y lo esperado son bits escritos a mano en el `.cpp`, con su
+cuenta al lado. Dice `bien` 4 veces y sale con el numero de fallos; en
+Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con hdr.cpp y los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c hdr.cpp -o hdr.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o hdr.exe hdr.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   b22564e0603689415ed89a89d1e13e25f32892953ad637bf05418d2e2d19d051  hdr.exe
+
+El banco (`tests/corre/muestras.rs`, n5_16): los 4 `bien`, sale con 0, y
+un solo aviso (el cuadro sale de SV_VertexID con enteros: se interpreta).
+Probado que dice NO: con la casa de ANTES del HDR, A, B y C salen MAL (C
+da 64 de rojo en vez de 207: el 1.0 recortado que el HDR quita).
+
+uavpixel_vs.dxil, uavpixel_pos.dxil, uavpixel_cuenta.dxil,
+uavpixel_temprana.dxil -- los de uavpixel.exe y su banco (05-10)
+
+Los UAV escritos desde un DIBUJO: `uavpixel.hlsl` (aqui al lado): VSCuadro
+(el cuadro de pantalla completa de SV_VertexID, que escribe 100 + su numero
+en un RWBuffer<uint>), PSPosicion (cada pixel, su posicion en SU texel de
+un RWTexture2D<uint>), PSCuenta (InterlockedAdd de 1 en un
+RWByteAddressBuffer; no lee nada) y PSCuentaTemprana (lo mismo con
+[earlydepthstencil]: solo para el banco, `src/pruebas_uav.rs`, no va en el
+.exe). Con el mismo `dxc` de Linux que los demas:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo uavpixel_vs.dxil uavpixel.hlsl
+   dxc -T ps_6_0 -E PSPosicion -Fo uavpixel_pos.dxil uavpixel.hlsl
+   dxc -T ps_6_0 -E PSCuenta -Fo uavpixel_cuenta.dxil uavpixel.hlsl
+   dxc -T ps_6_0 -E PSCuentaTemprana -Fo uavpixel_temprana.dxil uavpixel.hlsl
+
+   42f70ec1e3bcdd710e3cb47dd63a3c45599f153c5125760f79190ab2aac700d6  uavpixel_vs.dxil
+   d59b6f102e19a924285a25f1d512b50bca0eff55e1b8ba644b1fdbbf9ae9c1ae  uavpixel_pos.dxil
+   2eff863b51043b2c80b4a0fe54b851316296053959d23d94a81bf84864858b60  uavpixel_cuenta.dxil
+   9fe9960a280eeb4b9577269d664971a7c44d61ca2a508ce2e90251209998cb9e  uavpixel_temprana.dxil
+
+uavpixel.exe -- los UAV de un DIBUJO, juzgados (05-10)
+
+NUESTRO, no de Microsoft: `uavpixel.cpp` (aqui al lado), de consola, con
+los tres primeros .dxil dentro (`.incbin`). Un render target de 64 x 64 y
+dos dibujos del cuadro, con tres UAV en una root signature vista por todas
+las etapas: A, un RWTexture2D<uint> R32_UINT en una TABLA, limpiado a
+0xDEADBEEF, y con la tijera en la mitad izquierda cada pixel escribe
+y << 16 | x en SU texel (la derecha queda limpia); B, un RWByteAddressBuffer
+en la RAIZ (SetGraphicsRootUnorderedAccessView), limpiado a 0, y con la
+tijera en (8, 8)-(40, 24) cada pixel suma 1: 512; C, un RWBuffer<uint> de
+8 en otra tabla, limpiado a 0xFFFFFFFF: el de VERTICES escribe 100..105 en
+los seis primeros. Solo resultados que no dependen del orden de los
+pixeles (D3D no da ninguno): cada uno en lo suyo, y una suma. Sin Z ni
+discard. Dice `bien` 4 veces y sale con el numero de fallos; en Windows
+dice lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con uavpixel.cpp y los .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c uavpixel.cpp -o uavpixel.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o uavpixel.exe uavpixel.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   dcb782ba5dbd5d533a002faf797984847ea085d95186f92a7906555d026613c4  uavpixel.exe
+
+El banco (`tests/corre/muestras.rs`, los_uav_de_un_dibujo_quedan_escritos):
+los 4 `bien`, sale con 0, y un solo aviso (el cuadro sale de SV_VertexID con
+enteros: se interpreta). Probado que dice NO: con la casa de ANTES
+(14e6b7eb4) A, B y C salen MAL y sale con 3: el PSO de B no se sabia correr
+(`OperacionD3d(78)`: el atomicBinOp) y lo que escribian A y C se perdia
+(su aviso, "lo que escribe se pierde"): la textura seguia en 0xDEADBEEF y el
+bufer en 0xFFFFFFFF. Y en el banco del crate (`src/pruebas_uav.rs`), B da 1
+y no 64 si la trama guarda la memoria del ultimo pixel con UAV.
+flotante1_vs.dxil, flotante1_rampa.dxil, flotante1_color.dxil,
+flotante1_lee.dxil, flotante1_escribe.dxil, flotante1_uav.dxil -- los de
+flotante1.exe (05-10)
+
+N5.16b: `flotante1.hlsl` (aqui al lado): VSCuadro (el cuadro de pantalla
+completa de SV_VertexID, como el de hdr), VSRampa (el mismo con la z de
+-0.5 a 1.5: cruza el plano cercano y el lejano), PSColor (cuatro
+constantes de la raiz), PSLee (un render target de float LEIDO como
+textura, por el color), CSEscribe (lee y escribe un RWTexture2D de
+RGBA16F) y CSLee (lo lee a un RWStructuredBuffer<float4>). Con el mismo
+`dxc` de Linux que los demas:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo flotante1_vs.dxil flotante1.hlsl
+   dxc -T vs_6_0 -E VSRampa -Fo flotante1_rampa.dxil flotante1.hlsl
+   dxc -T ps_6_0 -E PSColor -Fo flotante1_color.dxil flotante1.hlsl
+   dxc -T ps_6_0 -E PSLee -Fo flotante1_lee.dxil flotante1.hlsl
+   dxc -T cs_6_0 -E CSEscribe -Fo flotante1_escribe.dxil flotante1.hlsl
+   dxc -T cs_6_0 -E CSLee -Fo flotante1_uav.dxil flotante1.hlsl
+
+   024b0d8e4f6780e5f9ed724fccaa11aee60e6f632e2241bbcbc91e00dc9a4d58  flotante1_vs.dxil
+   bd7d39bc543c27641ab47d5238fbc2e614842c48539df40df4839a42b5088393  flotante1_rampa.dxil
+   ec4179122fe80bf7b7346408be529c9580272678168a1b11c2cf195e091389e2  flotante1_color.dxil
+   22b0ef2e22bab2a122c8513b3656f34cacaa05b7bccad37c54c9b6315a9f67e5  flotante1_lee.dxil
+   1fa0e8bc54e187622e32caab7ec4f792255dbe2663c3c3187dc4c6478f4eb441  flotante1_escribe.dxil
+   38d019bfd6663e6616f6d575651187acd55547b62a171132da2b5d9ecd315a15  flotante1_uav.dxil
+
+(El de vertices y PSColor salen igual que hdr_vs.dxil y hdr_color.dxil:
+son el mismo codigo.)
+
+flotante1.exe -- N5.16b: lo que quedaba de los floats, juzgado (05-10)
+
+NUESTRO, no de Microsoft: `flotante1.cpp` (aqui al lado), de consola, con
+los seis .dxil dentro (`.incbin`). Destinos de 16 x 16: A1, un R32_FLOAT
+limpio a -0.5 con la mitad derecha SUMADA dos veces (2 + 2^-19: en half se
+perderia); A2, un R16_FLOAT con dos sumas de -2.5 (-4.25); A3, A1 leido
+como textura por -4 en otro R32F; B, un RWTexture2D de RGBA16F limpio con
+ClearUnorderedAccessViewFloat, escrito por un CS (el 2^-16 que suma no cabe
+en el half de 0.125: se pierde al escribir) y leido half a half y, por
+otro CS, float a float; C, una rampa que cruza el plano cercano y el lejano
+con la Z del viewport en [0.25, 0.75], la Z limpia a 0.875 y LESS: con
+DepthClipEnable = FALSE se pinta entera y la Z se SUJETA (0.25 y 0.75)
+antes de la prueba; con TRUE, solo las columnas 4 a 11. Lo esperado son
+bits escritos a mano en el `.cpp`, con su cuenta al lado; la unica Z que
+una GPU no da exacta (la de dentro de la rampa) se mira a 2^-12. Dice
+`bien` 10 veces y sale con el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con flotante1.cpp y los seis .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c flotante1.cpp -o flotante1.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o flotante1.exe flotante1.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   2fb54c6b706a83e1ea4a7b6d425e3e31da1026417c1239753d5324410b8e959b  flotante1.exe
+
+El banco (`tests/corre/muestras.rs`, n5_16b): los 10 `bien`, sale con 0,
+y un solo aviso (el cuadro sale de SV_VertexID con enteros: se interpreta).
+Probado que dice NO: con la casa de ANTES (568a4a453, N5.16) salen MAL
+seis (A1 y A3: "Draw sobre un render target de un solo float (R32)"; los
+dos de B: el UAV de float se ve nulo y no se limpia; los dos de C con
+FALSE: recortaba igual) y sale con 6; A2 (R16F, ya de N5.16) y C con TRUE
+(N5.15) ya decian bien. Y sin cuantizar al escribir el UAV (solo eso
+quitado), el segundo de B sale MAL: el CS leia 0.125 + 2^-16.
+stencil_vs.dxil, stencil_ps.dxil -- los de stencil.exe (05-10)
+
+El STENCIL (la fila de la tabla 7.2 de docs/plan/PLAN_LA_ESCALERA_PROTON_X.md):
+`stencil.hlsl` (aqui al lado): VSCuadro (la posicion de un bufer de
+vertices, a z = 0.5: sin cuentas enteras, asi que el nativo lo traduce y no
+hay aviso) y PSColor (el color de cuatro constantes de la raiz; sus bytes
+son los de hdr_color.dxil: el mismo sombreador). Con el mismo `dxc`:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo stencil_vs.dxil stencil.hlsl
+   dxc -T ps_6_0 -E PSColor -Fo stencil_ps.dxil stencil.hlsl
+
+   57b9278402b5525350c94969c6b426d0087b118ada5e7c905916bccaae0fca77  stencil_vs.dxil
+   ec4179122fe80bf7b7346408be529c9580272678168a1b11c2cf195e091389e2  stencil_ps.dxil
+
+stencil.exe -- el STENCIL de D3D12, juzgado (05-10)
+
+NUESTRO, no de Microsoft: `stencil.cpp` (aqui al lado), de consola, con los
+dos .dxil dentro (`.incbin`). Cuatro destinos RGBA8 de 64 x 64, cada uno con
+su DSV, y un cuadro de pantalla completa (y el mismo girado: sus caras son
+las de DETRAS):
+
+   A  D24S8: REPLACE 1 (de OMSetStencilRef) marca la mitad izquierda
+      pintando rojo; EQUAL 1 pinta de verde la pantalla entera: verde SOLO
+      a la izquierda, la derecha negra (lo limpio).
+   B  D24S8 limpio SOLO de stencil a 0xFD: INCR_SAT dos veces en todo y otra
+      a la izquierda (0xFF: satura, no da la vuelta); REPLACE 0 con la
+      mascara de ESCRITURA 0x0F a la derecha (0xF0); la sonda azul compara
+      con la mascara de LECTURA 0x0F (0x30: el nibble bajo, 0).
+   C  D32_FLOAT_S8X24_UINT limpio a 0x10: INCR con la cara de delante a la
+      izquierda (0x11), DECR con la de detras a la derecha (0x0F).
+   D  R24G8_TYPELESS con vista D24S8 y dibujos de SOLO profundidad (sin
+      render target ni sombreador de pixeles): REPLACE 3 a la izquierda, Z
+      0.5 arriba; luego EQUAL 3 con Z LESS: falla el stencil (INVERT: 0xFF a
+      la derecha), falla la Z (INCR_SAT: 4 arriba a la izquierda), pasan las
+      dos (ZERO: 0 abajo a la izquierda).
+
+El stencil se lee por el COLOR (leer el plano 1 con CopyTextureRegion la
+casa todavia no lo hace): sondas EQUAL a pantalla completa, cada una
+escribiendo en blanco SOLO su canal (R, G o B). Lo esperado son bits
+escritos a mano en el `.cpp`, con su cuenta. Dice `bien` 5 veces y sale con
+el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con stencil.cpp y los
+dos .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c stencil.cpp -o stencil.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o stencil.exe stencil.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   2ae976dc684fe5ea71f31f48704c15257d62fdbf7f9d242b060a3fc24f4daa94  stencil.exe
+
+El banco (`tests/corre/muestras.rs`, el_stencil_recorta_como_en_windows):
+los 5 `bien`, sale con 0 y NINGUN aviso. Probado que dice NO: con la casa
+de antes (14e6b7eb4: el PSO lo apuntaba y no lo usaba) sale con 4, y A, B,
+C y D MAL (A: la derecha verde, ff00ff00 en vez de ff000000; B y D: las
+tres sondas pasan en todo, 00ffffff; C: 0000ffff), con el aviso "con
+stencil: se apunta, y no se usa todavia".
+
+olas_cs.dxil, olas_vs.dxil, olas_ps.dxil -- los de olas.exe (05-10)
+
+E2.5: `olas_juez.hlsl` (aqui al lado): CSOlas (cs_6_0, 64 hilos por grupo:
+cada operacion Wave* sobre valores de su SV_GroupIndex, dentro de un si, en
+el bucle de escalarizar y en un bucle con salidas a distintas vueltas),
+VSOlas (los vertices de una tabla, por SV_VertexID) y PSOlas (QuadRead* y
+ocho pruebas de ola que no dependen de como junte la GPU los cuadros). Con
+el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSOlas -Fo olas_cs.dxil olas_juez.hlsl
+   dxc -T vs_6_0 -E VSOlas -Fo olas_vs.dxil olas_juez.hlsl
+   dxc -T ps_6_0 -E PSOlas -Fo olas_ps.dxil olas_juez.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   752643b95c32351813d66d6d54cdb0c28c36d4a39bf645b72800c5fc04ad64a5  olas_cs.dxil
+   062ed94ae171c3e7ea1bd194024dc829c654e75d3c62ecea64c7e572ff626e4f  olas_vs.dxil
+   0c24d8ec50398201ad68418e464ece39bd9e11a0150b8acbbc1dd6902aa33986  olas_ps.dxil
+
+Van DENTRO de olas.exe. El banco de proton-x los corre tambien sin la casa
+(`src/pruebas_olas.rs`, con la misma cuenta que olas.cpp).
+
+olas.exe -- E2.5: las OLAS de D3D12, juzgadas (05-10)
+
+NUESTRO, no de Microsoft: la muestra D3D12SM6WaveIntrinsics pinta segun
+como junte la GPU los pixeles en olas (no hay huella que comparar) y pide
+D3D11On12, Direct2D y DirectWrite para su texto. `olas.cpp` (aqui al
+lado), de consola, con los tres .dxil dentro (`.incbin`): 0, OPTIONS1 dice
+WaveOps y 32 carriles; A, CSOlas en 2 grupos (cada operacion de ola, bit a
+bit, contra la cuenta a mano sobre los 32 hilos SEGUIDOS de cada ola, lo
+que hace un warp de la 3060); B, PSOlas en 64 x 64 (cada pixel lee x ^ 1
+e y ^ 1 de sus vecinos de cuadro; sus 8 pruebas de ola salen; de 1 a 32
+activos por ola, y olas de mas de un cuadro); C, un triangulo que cubre
+solo el pixel (2, 2): lee a sus tres AYUDANTES (3, 3) y su ola tiene un
+activo. Dice `bien` 15 veces y sale con el numero de fallos; en Windows
+dice lo mismo (en una GPU de olas de 32: la 3060).
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con olas.cpp y los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c olas.cpp -o olas.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o olas.exe olas.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   06ec9275078696045bebdf5d9cbf7a7b2d4749551ad4bb391b6b45470d251c68  olas.exe
+
+El banco (`tests/corre/muestras.rs`, e2_5): los 15 `bien`, sale con 0, y
+un aviso (el PSO de dibujo se interpreta: su PS usa las olas). Probado
+que dice NO: contra la casa de antes ("un pixel por ola": 3152bdd6a y,
+al rebasarlo, 3f320b5a0) sale con 14 MAL (el CS y el
+PS no compilaban: la papeleta, 116, y QuadOp, 123; solo OPTIONS1 decia
+bien: ya contestaba 32 mientras los sombreadores veian 1); contando a los
+ayudantes como activos, MAL en C (A = 4); juntando los carriles por la
+operacion sin mirar el bucle ni quien va antes, MAL en los dos bucles.
+
+derivadas_vs.dxil, derivadas_ps.dxil, derivadas_niveles.dxil -- los de derivadas.exe (05-10)
+
+D4.4: `derivadas.hlsl` (aqui al lado): VSCuadro (un cuadro sin bufer de
+vertices, de las constantes de la raiz), PSDerivadas (ddx_fine, ddy_fine,
+ddx_coarse y ddy_coarse de x * y) y PSMips (Sample, SampleBias,
+SampleLevel, SampleGrad, CalculateLevelOfDetail y su Unclamped, segun
+`modo`, sobre tres vistas de una textura de 7 mips y tres muestreadores).
+Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo derivadas_vs.dxil derivadas.hlsl
+   dxc -T ps_6_0 -E PSDerivadas -Fo derivadas_ps.dxil derivadas.hlsl
+   dxc -T ps_6_0 -E PSMips -Fo derivadas_niveles.dxil derivadas.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   af9ed1b57eadc104ead00c8740d67f461b3937d0853e5dbd0ffcba17a5f65ad8  derivadas_vs.dxil
+   b50e08e364707601ad02960f6b33524c4ab2e559732a1bfac94fe81710ea2ecb  derivadas_ps.dxil
+   b24300e89ec3f9691ce4f285b2181929952c97cac197b0ca76a6684e59c096c9  derivadas_niveles.dxil
+
+Van DENTRO de derivadas.exe.
+
+derivadas.exe -- D4.4: las DERIVADAS y la MIP de un muestreo, juzgadas (05-10)
+
+NUESTRO, de consola, con los tres .dxil dentro (`.incbin`). A, en 16 x 16
+de RGBA32F: las finas de x * y, exactas (ddx = y, ddy = x), y las gruesas,
+una por cuadro y de una de sus dos filas (columnas: D3D deja elegir). B, una
+textura de 64 x 64 con sus 7 mips, cada una de un color, muestreada con
+Sample y MIN_MAG_MIP_POINT en cuadros de 64, 32... 1 pixeles: cada uno, la
+mip de su escala (lambda 0 a 6; el de un pixel, con tres ayudantes). C,
+MIP_LINEAR a medio camino (SampleBias 0,5; SampleLevel 2,5) y SampleGrad.
+D, CalculateLevelOfDetail y su Unclamped (2 y 2; de cerca, 0 y -1). E, lo
+que sujeta la mip: MostDetailedMip = 2, ResourceMinLODClamp = 4 y un
+muestreador de un monton (CreateSampler) con MaxLOD = 1. Ningun LOD cae en
+un empate; cada media es exacta en 8 bits. Dice `bien` 17 veces y sale con
+el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh` (las mismas cabeceras y el mismo UCRT),
+en un directorio con derivadas.cpp y los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c derivadas.cpp -o derivadas.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o derivadas.exe derivadas.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   b46ab077ea3d0287e4bb96b76d4b016da5f3431723ea79259f94ee7314b02fce  derivadas.exe
+
+El banco (`tests/corre/muestras.rs`, d4_4): los 17 `bien`, sale con 0, y
+dos avisos (los dos PSO se interpretan: uno deriva, el otro muestrea).
+Probado que dice NO: contra la casa de antes, 17 MAL (el PS de las mips no
+compilaba: CalculateLevelOfDetail, 81; las derivadas daban 0). Y cada pieza
+quitada a mano, una a una, la ve su `bien`: las derivadas a 0, 13 MAL (A, y
+toda mip por encima de la 0); la fina x como la gruesa, MAL en A; sin
+MIP_LINEAR, los dos de C; sin ResourceMinLODClamp, ese de E; sin el MaxLOD
+del muestreador del monton, ese de E.
+
+restos_*.dxil -- los diez de restos.exe (05-10)
+
+`restos.hlsl` (aqui al lado): VSPantalla (un triangulo de pantalla entera
+por SV_VertexID), PSUint, PSSint, PSDos (dos destinos de enteros), PSLee
+(Load de un R32_UINT), PSStencil (Load del plano de stencil, .g), PSSoloUav
+(un dibujo sin destino que escribe UAV), VSPunto y GSMarca (un GS que
+escribe UAV) y PSRef (SV_StencilRef). Con el DXC de la nube (v1.8.2505,
+9efbb6c3), sin -Zi:
+
+   dxc -T vs_6_0 -E VSPantalla -Fo restos_vs.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSUint -Fo restos_uint.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSSint -Fo restos_sint.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSDos -Fo restos_dos.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSLee -Fo restos_lee.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSStencil -Fo restos_stencil.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSSoloUav -Fo restos_uav.dxil restos.hlsl
+   dxc -T vs_6_0 -E VSPunto -Fo restos_punto.dxil restos.hlsl
+   dxc -T gs_6_0 -E GSMarca -Fo restos_gs.dxil restos.hlsl
+   dxc -T ps_6_0 -E PSRef -Fo restos_ref.dxil restos.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   3aa23d223d7d5ff517e969d99c4fb99f47f1703449efc9b135c9c36335fe8850  restos_dos.dxil
+   fc3dedf7a2655ff1c39b203e67c9499d3a8b71c000941b4dd97212ccb62c5424  restos_gs.dxil
+   472c838666261d5e397979362c50d7418057f219bded8a6c59b602ad4e3914a4  restos_lee.dxil
+   e535ede36075229b1187d9f61031021e52883a06309c2cc356ddbc31ac7533a3  restos_punto.dxil
+   bdc6729ded7558b2f4a2fe3023696410440bb15205cf075379aab7ca56903c6d  restos_ref.dxil
+   1de3482c2bc1d3c777cbd610b47f964e7fa8ed081e167b709927dd034c086e68  restos_sint.dxil
+   ecb68d31991b85f1d226b9054977842d8dfe7f5f35002a7fa825594911568d36  restos_stencil.dxil
+   727b8bcdbcd33891c42ba2494b63d032b87aa6f082f530d7fa432fa3a630537c  restos_uav.dxil
+   72b3c16acfcfb10a72acca762d81bd0f3f6ecb867c24c86ae9d7afecadc8cdcf  restos_uint.dxil
+   e125f2c7d9bcfa34bdac2908aa71e14107dd85412564f584438de2bad01dd16c  restos_vs.dxil
+
+Van DENTRO de restos.exe.
+
+restos.exe -- lo que QUEDABA de N5.3d, N5.12b y N5.16b, juzgado (05-10)
+
+NUESTRO, de consola, destinos de 8 x 4. A, render targets de ENTEROS: un
+R32_UINT limpio a 7.0 (7) y escrito con sus 32 bits; un R8_UINT limpio a
+3.7 (3, hacia el cero) con 77 y con 300 (SATURA a 255); un RGBA16_SINT
+limpio y escrito, con lo que no cabe saturado (D3D11.3, 3.2.3.6); dos a la
+vez (un RGBA8_UINT con la mascara R|B y un RG32_UINT); y el R32_UINT leido
+con Load. B, un dibujo SOLO con UAV (sin destino ni Z) en un viewport de 6 x
+3: 18 pixeles, cada uno su texel. C, un GS que escribe UAV (5 puntos). D,
+el plano de stencil leido de vuelta: CopyTextureRegion del subrecurso 1 de
+un D24S8 y de un D32S8X24, y un SRV X24_TYPELESS_G8_UINT. E, SV_StencilRef
+(si OPTIONS dice PSSpecifiedStencilRefSupported; si no, una `nota`). Dice
+`bien` 18 veces y sale con el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con restos.cpp y los
+diez .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c restos.cpp -o restos.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o restos.exe restos.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   8705027785bad311aca27f7b3046ba5b55cf626b26ed46802b5b567a70b0bddd  restos.exe
+
+El banco (`tests/corre/muestras.rs`): los 18 `bien`, sale con 0, ninguna
+`nota`, y dos avisos (texturas y UAV: se interpretan). Probado que dice NO:
+contra la casa de antes, 14 MAL (los enteros no se pintaban, el dibujo
+sin destino no se dibujaba, lo del GS se perdia, el plano 1 no se copiaba)
+y E en `nota` (la casa decia que SV_StencilRef no).
+
+multihilo_vs.dxil, multihilo_ps.dxil, multihilo_cs.dxil -- los de multihilo.exe (05-10)
+
+E2.1: `multihilo.hlsl` (aqui al lado): VSCuadro (un cuadro de las
+constantes de la raiz, por SV_VertexID), PSColor (su color) y CSDoble (un
+CS de enteros sobre un RWByteAddressBuffer). Con el DXC de la nube
+(v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T vs_6_0 -E VSCuadro -Fo multihilo_vs.dxil multihilo.hlsl
+   dxc -T ps_6_0 -E PSColor -Fo multihilo_ps.dxil multihilo.hlsl
+   dxc -T cs_6_0 -E CSDoble -Fo multihilo_cs.dxil multihilo.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   da2031fea2b7c98695ad237e8847df0aa2bf91b22e3858de2359f8b4bfc69020  multihilo_cs.dxil
+   02e3323caa1e24f7b95ab5c1618da42d455e50f42f9f4c02def7a3ad58bbd5a5  multihilo_ps.dxil
+   a6e67b0afc22b688b05cb354db85795c046dbff28426df352f69387ff236e8fb  multihilo_vs.dxil
+
+Van DENTRO de multihilo.exe.
+
+multihilo.exe -- E2.1: listas de VARIOS HILOS y colas que esperan, juzgadas (05-10)
+
+NUESTRO, de consola: D3D12Multithreading pide SquidRoom.bin (43 MB). A,
+cuatro hilos (CreateThread), cada uno con su allocator y su lista, graban a
+la vez en el mismo render target de 64 x 64 y en un pase de solo Z,
+parados a mitad para que las cuatro listas esten abiertas; en UN
+ExecuteCommandLists y en seis, en otro orden (en la tira comun gana la
+ULTIMA mandada; en la Z, la menor). B, tres colas con vallas: la de computo
+y la de copia esperan en la GPU a un valor que la directa da despues; una
+cola espera a una valla de la CPU con su lista reiniciada entretanto;
+SetEventOnCompletion sin evento (otro hilo marca) y
+SetEventOnMultipleFenceCompletion con ALL y ANY. C, las reglas de Reset y
+Close (E_INVALIDARG y E_FAIL donde Windows los da). Dice `bien` 17 veces y
+sale con el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con multihilo.cpp y
+los tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c multihilo.cpp -o multihilo.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o multihilo.exe multihilo.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   1d7f225e05375c97099a2879af6a721d34ae251da93345f63e38801ee06c9aab  multihilo.exe
+
+El banco (`tests/corre/muestras.rs`, e2_1): los 17 `bien`, sale con 0, y
+los cuatro avisos de los errores que C hace a proposito. Probado que dice
+NO: contra la casa de antes, A pasa (grabar desde varios hilos ya iba) y B
+se cuelga: la valla sigue en 0 con las colas esperando, y el `.exe` muere
+con 0xdead.
+
+volumen_escribe.dxil, volumen_medio.dxil, volumen_lee.dxil -- los de volumen.exe (06-10)
+
+`volumen.hlsl` (aqui al lado): CSEscribe (cada hilo de 8 x 8 x 4 su texel
+de un RWTexture3D<float4>, e InterlockedAdd en un RWTexture3D<uint>),
+CSMedio (por una vista de dos rebanadas del mismo 3D, y por un
+RWTexture2DArray<uint> de dos capas) y CSLee (GetDimensions y lecturas, a
+un RWByteAddressBuffer). Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin
+-Zi:
+
+   dxc -T cs_6_0 -E CSEscribe -Fo volumen_escribe.dxil volumen.hlsl
+   dxc -T cs_6_0 -E CSMedio -Fo volumen_medio.dxil volumen.hlsl
+   dxc -T cs_6_0 -E CSLee -Fo volumen_lee.dxil volumen.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   7ab2aedebc177867dc6465927b09cc7b31a3eb9daaf034b4e040f57a202feb22  volumen_escribe.dxil
+   dcbe1399d4a4efab72a4a6b23d7bcd8e9906366acc36c72fe3a8d285d0519e66  volumen_lee.dxil
+   2b071cf101026f846b3bfda8f726d4441584720eab01902f073bbb08f17c92d0  volumen_medio.dxil
+
+Van DENTRO de volumen.exe.
+
+volumen.exe -- los UAV de texturas 3D y de ARRAYS, juzgados (06-10)
+
+NUESTRO, de consola. Un juego escribe por computo en volumenes (la niebla
+volumetrica) y en arrays (las cascadas de sombras); hasta el 06-10 la casa
+no creaba esos PSO y sus Dispatch se perdian. A, un 3D de 8 x 8 x 4
+(RGBA32F) escrito entero; B, una vista del mismo con FirstWSlice = 1 y
+WSize = 2 (lo de z = 2 y 3 cae fuera y no se escribe); C, un array de 3
+capas de 4 x 4 con 2 mips (R32_UINT) por la vista de MipSlice = 1,
+FirstArraySlice = 1 y ArraySize = 2 (la capa 0 y la mip 0, intactas); D,
+InterlockedAdd en un 3D de 2 x 2 x 2 (32 en cada celda); E, GetDimensions
+de las tres vistas y lecturas (fuera de la vista, 0); F,
+ClearUnorderedAccessViewUint por la vista de las rebanadas 1 y 2 de otro 3D
+y por la de las capas 0 y 1 de un array de 3 (esas, todas, y ninguna mas).
+Dice `bien` 10 veces y sale con el numero de fallos; en Windows dice lo
+mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con volumen.cpp y los
+tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c volumen.cpp -o volumen.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o volumen.exe volumen.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   8823869a3df10a76236118c09e3dfbbd7c60a9cd6a757c17daa819d34390cb7e  volumen.exe
+
+El banco (`tests/corre/muestras.rs`): los 10 `bien`, sale con 0, ni un
+aviso. Probado que dice NO: contra la casa de antes, el PSO no se crea
+("un UAV de TEXTURA 3D, de array o de cubo: todavia no") y salen 6 MAL; y
+quitando a mano el salto entre capas (sin la cadena de mips), WSize y
+ArraySize, o FirstWSlice: cada uno, sus MAL. F: con la limpieza de antes,
+solo la PRIMERA rebanada y la primera capa (0 28 0 0 y 36 0 0), los dos
+MAL.
+
+firmas_cs.dxil, firmas_11.rts0, firmas_10.rts0 -- los de firmas.exe (06-10)
+
+`firmas.hlsl` (aqui al lado): una root signature (cuatro constantes en b0;
+una tabla con dos SRV y un UAV; un UAV en la raiz) en 1.1 con banderas
+(RS11) y en 1.0 (RS10), y CSFirma, que la trae DENTRO ([RootSignature],
+1.1). Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSFirma -Fo firmas_cs.dxil firmas.hlsl
+   dxc -T rootsig_1_1 -E RS11 -Fo firmas_11.rts0 firmas.hlsl
+   dxc -T rootsig_1_0 -E RS10 -Fo firmas_10.rts0 firmas.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   8f03cae9b8efd22b4ed496d25e47375b1a484ca9178e88705d10aa3666ef6355  firmas_cs.dxil
+   5e25a3725e70f6f59852ca91587017997c6248a827017ba7e8abd7f80f56fb8a  firmas_11.rts0
+   12f05f9f766cc2054b4de020cbb0c14d8242ffef1de7c6bc9edb9bcb5a39e4d6  firmas_10.rts0
+
+Van DENTRO de firmas.exe, y el banco de proton-x los lee tambien sin la
+casa (`src/raiz.rs`: la 1.1 y la del sombreador son la misma firma que la
+1.0).
+
+firmas.exe -- las ROOT SIGNATURES 1.1 y las de dentro del sombreador, juzgadas (06-10)
+
+NUESTRO, de consola. Un motor moderno escribe su firma en HLSL y `dxc` la
+mete en el sombreador en 1.1; o la guarda ya serializada. Cada caso crea su
+root signature de otra forma y corre el MISMO CS: a[i] * k.x + b[i] * k.y
++ caso a un UAV de la raiz, y + 1000 a su sitio de un UAV de la tabla (una
+firma mal leida los corre). A, la 1.1 de dxc; B, la 1.0; C, el sombreador
+entero pasado a CreateRootSignature; D, un PSO de computo SIN root
+signature (la de su sombreador); E, CheckFeatureSupport(ROOT_SIGNATURE)
+dice 1.1 si se pide 1.1; F, una D3D12_ROOT_SIGNATURE_DESC1 pasada por
+D3D12SerializeVersionedRootSignature. Dice `bien` 6 veces y sale con el
+numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con firmas.cpp, el
+.dxil y los dos .rts0:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c firmas.cpp -o firmas.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o firmas.exe firmas.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   ef21eccd49bc46a21e28e3f979de1d897fdd6bbfee50509984ce3975f6dd8fc2  firmas.exe
+
+El banco (`tests/corre/muestras.rs`): los 6 `bien`, sale con 0, ni un
+aviso. Probado que dice NO: contra la casa de antes, E dice 1.0, y A y C
+salen con E_INVALIDARG ("esos bytes no son una root signature 1.0"); y
+quitando a mano la firma del sombreador en un PSO de computo, D sale con
+E_INVALIDARG.
+
+postpro_cs.dxil -- el de postpro.exe (06-10)
+
+`postpro.hlsl` (aqui al lado): CSPost, el computo de un posproceso (un
+array de texturas SIN LIMITE en space1, indexado con
+NonUniformResourceIndex; SampleLevel de la escena; un RWTexture2D; un
+InterlockedAdd en un RWByteAddressBuffer; GetDimensions). Con el DXC de la
+nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSPost -Fo postpro_cs.dxil postpro.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   37ec4fbe91943e00315eb09446839040b3420d67432bee0bab40b66456d31555  postpro_cs.dxil
+
+Va DENTRO de postpro.exe, y el banco de la casa lo corre tambien sin el
+`.exe` (`tests/nativo/texturas.rs`: traducido contra el interprete).
+
+postpro.exe -- el COMPUTO de un posproceso, juzgado (06-10)
+
+NUESTRO, de consola. Un Dispatch de 2 x 2 grupos de 8 x 8: A, cada hilo
+elige SU textura (i = (x + y + cual) % 3) del array sin limite, la lee y le
+suma lo que muestrea de la escena (punto), a un RWTexture2D de 16 x 16 en
+RGBA32F creado SIN descripcion; B, InterlockedAdd: los hilos de cada
+textura; C, GetDimensions del RWTexture2D. Exacto. Dice `bien` 3 veces y
+sale con el numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con postpro.cpp y su
+.dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c postpro.cpp -o postpro.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o postpro.exe postpro.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   fa559cba6e3419b6b91e5fc353f728194546c85240f93a7c42d6779d941943e4  postpro.exe
+
+El banco (`tests/corre/muestras.rs`): los 3 `bien`, sale con 0, ni un
+aviso (corre traducido). Probado que dice NO: contra la casa de antes, A y
+C MAL (el UAV sin descripcion se veia nulo); y sin el indice dinamico en el
+Dispatch, 171 MAL en A (las texturas 1 y 2 se leian nulas).

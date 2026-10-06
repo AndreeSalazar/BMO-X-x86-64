@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   637 casillas ABIERTAS en 62 planes
-   529 hechas
+   642 casillas ABIERTAS en 62 planes
+   539 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -37,14 +37,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 # Los planes VIVOS, el que mas debe primero
 
-## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 85 abiertas, 57 hechas
+## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 84 abiertas, 61 hechas
 
 *PLAN LAS TRES GRANDES -- D3D12 de juego, el sonido del juego y varios nucleos*
 
 - [ ] P0.2 -- Las DURAS que falten, a CERO (una tanda por grupo de arriba).
 - [ ] P0.2g -- DONDE GUARDA EL JUEGO: hoy USERPROFILE (y con el APPDATA,
 - [ ] P0.2h -- El globo de run recomienda smp all para un juego SOLO
-- ... y 82 mas
+- ... y 81 mas
 
 ## [`PLAN_CLOUD_LOCAL.md`](PLAN_CLOUD_LOCAL.md) -- 46 abiertas, 16 hechas
 
@@ -64,14 +64,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] J2b -- itch.io, la API oficial. En la antena: la clave que el
 - ... y 30 mas
 
-## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 23 abiertas, 10 hechas
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 31 abiertas, 10 hechas
 
 *PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
 
 - [ ] V2 -- la profundidad y el culling (X5b de
 - [ ] V3 -- las constantes. La matriz en un buffer y el programa de
 - [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
-- ... y 20 mas
+- ... y 28 mas
 
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 22 abiertas, 6 hechas
 
@@ -127,15 +127,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] B3 -- LA BANDEJA (seccion 3): los discos que el kernel lee, con su perfil y su rango; el NVMe CE
 - ... y 13 mas
 
-## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 16 abiertas, 15 hechas
-
-*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
-
-- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
-- [ ] E2.1 -- D3D12Multithreading. Listas de ordenes grabadas desde
-- [ ] E2.5 -- D3D12SM6WaveIntrinsics. Las olas de verdad (D4.3): hoy son
-- ... y 13 mas
-
 ## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas
 
 *PLAN MEDIOS -- VLC como objetivo, medido contra lo que hay*
@@ -161,6 +152,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] **P2.2 -- RESCHEDULE FORZADO: una tarea que se duerme suelta el CPU en el
 - [ ] P2.3 -- el kernel publica el TIEMPO DE CPU de una tarea. Hoy
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
+- ... y 11 mas
+
+## [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md) -- 14 abiertas, 21 hechas
+
+*PLAN LA ESCALERA DE PROTON-X -- de HelloWindow a Cyberpunk, una capa por escalon*
+
+- [ ] E0.4 -- cerrar el nulo de ffxDispatch. La corrida 13 con
+- [ ] E2.6 -- D3D12HDR. Render targets de float (N5.16, hecho el 05-10 con
+- [ ] E3.1 -- ModelViewer con Sponza. Cientos de PSO, sombras, SSAO,
 - ... y 11 mas
 
 ## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 13 abiertas, 7 hechas

@@ -148,7 +148,7 @@ impl Programa {
                     *s = a(&m.muestreadores, *s);
                 }
                 Op::EligeTextura { rango, .. } => *rango = a(&m.dinamicas, *rango),
-                Op::EscribeUav { u, .. } | Op::LeeUav { u, .. } | Op::MedidasUav { u, .. } | Op::Contador { u, .. } => *u = a(&m.uavs, *u),
+                Op::EscribeUav { u, .. } | Op::LeeUav { u, .. } | Op::MedidasUav { u, .. } | Op::Contador { u, .. } | Op::Atomico { u, .. } => *u = a(&m.uavs, *u),
                 Op::Constantes { cb, .. } | Op::ConstantesEn { cb, .. } => *cb = a(&m.cbuffers, *cb),
                 _ => {}
             }

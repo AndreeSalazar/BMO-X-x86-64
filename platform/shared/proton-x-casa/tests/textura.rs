@@ -194,11 +194,15 @@ fn hello_texture(version_1_1: bool, bc: bool) -> Vec<u32> {
     let mut disp = 0;
     assert_eq!(crear(0, 0xb000, &com::IID_DEVICE, &mut disp), 0);
 
-    // CheckFeatureSupport(ROOT_SIGNATURE): la casa dice 1.0.
+    // CheckFeatureSupport(ROOT_SIGNATURE): desde el 06-10 la casa lee la 1.1
+    // (y dice la que se pide, como mucho esa).
     let cfs: extern "win64" fn(u64, u32, *mut u8, u32) -> i32 = hueco(disp, 13);
     let mut version = 2u32;
     assert_eq!(cfs(disp, 12, &mut version as *mut u32 as *mut u8, 4), 0);
-    assert_eq!(version, 1, "la casa contesta ROOT_SIGNATURE_VERSION_1_0");
+    assert_eq!(version, 2, "pidiendo la 1.1, la casa contesta ROOT_SIGNATURE_VERSION_1_1");
+    let mut version = 1u32;
+    assert_eq!(cfs(disp, 12, &mut version as *mut u32 as *mut u8, 4), 0);
+    assert_eq!(version, 1, "pidiendo la 1.0, la 1.0");
 
     // La firma: una tabla con UN rango SRV t0 (visible al pixel) y el
     // sampler estatico de HelloTexture.
@@ -442,8 +446,10 @@ fn hellotexture_dibuja_su_textura() {
     for version_1_1 in [false, true] {
         let img = hello_texture(version_1_1, false);
         let dicho = String::from_utf8_lossy(&DICHO.lock().unwrap()).into_owned();
-        // Lo UNICO que dice: que ese PSO se interpreta (el JIT aun no muestrea).
-        assert_eq!(dicho, "PROTON-X: un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)\n");
+        // Desde X2 (05-10) el PSO que muestrea se TRADUCE (antes: "un PSO con
+        // texturas: sus sombreadores se interpretan"); este banco no sella
+        // codigo (`sellar_codigo` da None), asi que lo unico que dice es eso.
+        assert_eq!(dicho, "PROTON-X: sin bloque sellado para el codigo nativo: los sombreadores se interpretan (dan lo mismo, mas despacio)\n");
         let mut malos = 0;
         for y in 0..64u32 {
             for x in 0..64u32 {

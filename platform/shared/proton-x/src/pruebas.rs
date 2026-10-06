@@ -220,11 +220,11 @@ pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32, z: bool, descarte: u32) -> 
     let b0 = cb_de(f);
     let cb = lote::juntar_constantes(&enlace.constantes, |_| Some(&b0[..]));
     let (w, h) = (bmo_cubo::referencia::ANCHO, bmo_cubo::referencia::ALTO);
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte, antihorario: false, profundidad: z.then_some(trama::Profundidad { funcion: 2, escribir: true }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
-    let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0 };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte, antihorario: false, profundidad: z.then_some(trama::Profundidad { funcion: 2, escribir: true }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+    let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, uavs: None };
     let mut px = vec![bmo_cubo::FONDO; (w * h) as usize];
     let mut zs = vec![1.0f32.to_bits(); (w * h) as usize];
-    let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true, z: z.then_some(&mut zs[..]), cadena: false, otros: &mut [] };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true, z: z.then_some(&mut zs[..]), cadena: false, otros: &mut [], flotante: None, stencil: None };
     let cuenta = lote::en_cpu(&l, &mut d).unwrap();
     (px, cuenta)
 }
@@ -260,8 +260,8 @@ pub(crate) fn triangulo(w: [f32; 3], atributo: [f32; 3], horario: bool) -> Vec<t
 
 fn pinta(v: &[trama::Sombreado], descarte: u32, antihorario: bool) -> (Vec<u32>, trama::Cuenta) {
     let mut px = vec![0u32; 64];
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte, antihorario, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
-    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: None, cadena: false, otros: &mut [] };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte, antihorario, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: None, cadena: false, otros: &mut [], flotante: None, stencil: None };
     let c = trama::dibujar(&reglas, v, &[[0, 1, 2]], &mut d, None, |e, c| {
         c[0] = e[0];
         true
@@ -326,8 +326,8 @@ fn la_trama_recorta_contra_el_plano_cercano() {
     let m12 = s([-0.25, -1.25, 0.0, 1.0], 0.75);
     let a_mano = [v[0].clone(), m01.clone(), m12.clone(), v[0].clone(), m12, v[2].clone()];
     let mut px2 = vec![0u32; 64];
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
-    let mut d = trama::Destino { pixeles: &mut px2, ancho: 8, alto: 8, bgra: true, z: None, cadena: false, otros: &mut [] };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+    let mut d = trama::Destino { pixeles: &mut px2, ancho: 8, alto: 8, bgra: true, z: None, cadena: false, otros: &mut [], flotante: None, stencil: None };
     let c2 = trama::dibujar(&reglas, &a_mano, &[[0, 1, 2], [3, 4, 5]], &mut d, None, |e, c| {
         c[0] = e[0];
         true
@@ -667,7 +667,7 @@ fn un_pixel_de_dxc_muestrea_la_textura() {
     // Un tablero de 4x4: blanco y negro alternos (RGBA).
     let t: Vec<u32> = (0..16).map(|i| if (i % 4 + i / 4) % 2 == 0 { 0xFFFF_FFFF } else { 0xFF00_0000 }).collect();
     let tex = [Some(Textura::rgba(&t, 4, 4, false))];
-    let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4], comparacion: 0 })];
+    let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4], comparacion: 0, lod: crate::textura::Lod::DE_SIEMPRE })];
     let rec = Recursos { texturas: &tex, muestreadores: &m, buferes: &[], dinamicas: None };
     let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
     for (u, v) in [(0.1f32, 0.1f32), (0.3, 0.1), (0.9, 0.6), (1.2, 0.5), (-0.1, 0.5)] {
@@ -718,7 +718,7 @@ fn un_pixel_de_dxc_lee_arrays_cubos_3d_y_mips() {
     // 03-10 (N5.1): por RANURA, no por registro; cada ranura dice su tN.
     let tex: Vec<Option<Textura>> = ps.ranuras.texturas.iter().map(|l| por_registro.get(l.registro as usize).copied()).collect();
     assert_eq!(tex.len(), 5, "{:?}", ps.ranuras);
-    let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0 })];
+    let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0, lod: crate::textura::Lod::DE_SIEMPRE })];
     let rec = Recursos { texturas: &tex, muestreadores: &m, buferes: &[], dinamicas: None };
     let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
     let ent = |x: i32| f32::from_bits(x as u32);

@@ -38,6 +38,9 @@ extern crate alloc;
 pub mod bc;
 pub mod bufer;
 pub mod cargar;
+/// E2.5 (05-10): los pixeles en cuadros de 2x2 y en olas (las de un
+/// sombreador que usa `Wave*` y `Quad*`).
+pub mod cuadros;
 pub mod desenrollar;
 /// Los formatos de un vertice: de los bytes a lo que lee el sombreador (03-10).
 pub mod formato_ia;
@@ -60,6 +63,7 @@ pub mod resumen;
 pub mod seh;
 pub mod sm5;
 pub mod sombras;
+pub mod stencil;
 pub mod hilos;
 pub mod hora;
 pub mod lote;
@@ -71,6 +75,8 @@ pub mod monton;
 pub mod nativo;
 /// E2.3b (05-10): el computo traducido a x86-64, con saltos y barreras.
 pub mod nativo_computo;
+/// X2 (05-10): lo que el codigo traducido LLAMA (texturas, matematica).
+pub mod nativo_llamadas;
 pub mod teb;
 pub mod texto;
 pub mod textura;
@@ -156,5 +162,11 @@ mod pruebas_computo;
 mod pruebas_geometria;
 #[cfg(test)]
 mod pruebas_pixeles;
+#[cfg(test)]
+mod pruebas_uav;
+#[cfg(test)]
+mod pruebas_olas;
+#[cfg(test)]
+mod pruebas_niveles;
 #[cfg(test)]
 mod pruebas_nulo;

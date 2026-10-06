@@ -231,10 +231,25 @@ macros vacias, y un `pix3.h` minimo en el puente basta), y DynamicIndexing y
 Multithreading, sus datos (`occcity.bin`, texturas) de la carpeta de la
 muestra.
 
-- [ ] **E2.1 -- D3D12Multithreading.** Listas de ordenes grabadas desde
-  varios hilos (H2.7), con sus mapas de sombras (N5.12, hecho). **Como se
-  sabe:** su huella, igual, con los hilos cooperativos de hoy; y otra vez
-  cuando H1 lleve los hilos a varios nucleos.
+- [x] **E2.1 -- D3D12Multithreading** (05-10, en el banco; falta el metal y
+  varios nucleos). Listas de ordenes grabadas desde varios hilos (H2.7), con
+  sus mapas de sombras (N5.12, hecho). La muestra de Microsoft pide
+  SquidRoom.bin (43 MB, 7.1), asi que el juez es NUESTRO:
+  `prueba/multihilo.exe`. A: cuatro hilos graban A LA VEZ (parados a mitad,
+  con las cuatro listas abiertas) en el mismo render target y en un pase de
+  solo Z, en UN ExecuteCommandLists y en seis. B: las colas de computo y de
+  copia ESPERAN en la GPU (`Wait`) a un valor que se da despues, una cola
+  espera a la CPU con su lista reiniciada entretanto, SetEventOnCompletion
+  sin evento y SetEventOnMultipleFenceCompletion (ALL y ANY). C: las reglas
+  de Reset y Close de listas y allocators, con sus E_INVALIDARG y E_FAIL.
+  Lo nuevo de la casa: `d3d12_colas.rs` (una cola que espera queda
+  RETENIDA y lo que se le manda corre cuando llega su valla; antes `Wait`
+  no hacia nada) y los allocators saben que lista graba con ellos.
+  **Como se sabe:** `tests/corre/muestras.rs`, e2_1: 17 `bien`. Probado que
+  dice NO: contra la casa de antes A ya pasaba (grabar desde varios hilos
+  ya iba) y B se colgaba (la valla en 0, el `.exe` muere con 0xdead).
+  **Queda:** verlo en el Ryzen, y otra vez cuando H1 lleve los hilos a
+  varios nucleos (hoy son cooperativos: uno corre a la vez).
 - [x] **E2.2 -- D3D12DynamicIndexing** (05-10, en el banco; falta verlo en
   el metal). El indice dinamico de descriptores (N5.4, el bindless): una
   ciudad de 15 x 8 copias, y cada una lee SU material de 120 con el registro
@@ -296,10 +311,53 @@ muestra.
   con culling, solo el fondo; probado que dice NO con el contador atascado.
   Y su CS traducido da las mismas ordenes y el mismo contador que el
   interprete (`tests/nativo_computo.rs`).
-- [ ] **E2.5 -- D3D12SM6WaveIntrinsics.** Las olas de verdad (D4.3): hoy son
-  "un pixel por ola" (`dxil/olas.rs`). **Como se sabe:** su huella, igual.
-- [ ] **E2.6 -- D3D12HDR.** Render targets de float (N5.16) y la cadena en 10
-  o 16 bits con su espacio de color. **Como se sabe:** su huella, igual, en
+- [x] **E2.5 -- las OLAS de verdad, con un juez nuestro** (`prueba/olas.exe`;
+  05-10, en el banco; falta verlo en el metal y en Windows). Antes eran
+  "un pixel por ola": cada hilo SOLO, y `WaveGetLaneCount` daba 1 mientras
+  OPTIONS1 contestaba 32. Ahora una ola son 32 carriles
+  (`dxil::olas::CARRILES`, el mismo numero que contesta OPTIONS1): en el
+  computo, los 32 hilos SEGUIDOS de SV_GroupIndex (como un warp de la
+  3060); en los pixeles, cuadros de 2x2 de un triangulo, de 8 en 8, con
+  los pixeles de fuera de AYUDANTES (`src/cuadros.rs`); en vertices y GS,
+  un carril activo de 32. El interprete PARA cada carril en su operacion de
+  ola y `dxil/carriles.rs` la resuelve con los que llegaron por el mismo
+  camino (los ACTIVOS: el que va antes, como lo correria una GPU, con la
+  vuelta de cada bucle; los ayudantes no cuentan). Todas las de SM 6.0:
+  Active Sum/Product/Min/Max/BitAnd/BitOr/BitXor/CountBits/Ballot/AllEqual/
+  AnyTrue/AllTrue, ReadLaneAt/First, IsFirstLane, Prefix Sum/Product/
+  CountBits, y QuadReadAcrossX/Y/Diagonal y QuadReadLaneAt. Los traductores
+  nativos (`nativo.rs`, `nativo_computo.rs`) y el de la 3060
+  (`proton-x-sm86`) NO las traducen: ese sombreador va por el interprete
+  (lo dice el aviso del PSO; la puerta de la 3060, con su nombre). Con
+  stencil, UAV y `[earlydepthstencil]` (N5.12b, N5.3d) cada pixel de una
+  ola pasa por las MISMAS pruebas de antes y de despues que uno solo
+  (`trama::poner_pixel`); los ayudantes no escriben stencil, Z ni UAV, ni
+  cuentan. La muestra de Microsoft, D3D12SM6WaveIntrinsics,
+  no es el juez: pinta segun como junte la GPU los pixeles (no hay huella
+  que comparar) y pide D3D11On12 y Direct2D para su texto. **Como se
+  sabe:** `tests/corre/muestras.rs` (e2_5): `olas.exe` dice `bien` 15
+  veces: cada operacion de ola de un CS sobre 128 hilos, bit a bit, contra
+  la cuenta a mano (dentro de un si, en el bucle de ESCALARIZAR de los
+  juegos y en uno del que cada hilo sale en otra vuelta); en 64 x 64 cada
+  pixel lee a sus vecinos de cuadro; un pixel solo lee a sus tres
+  ayudantes y su ola tiene UN activo. Probado que dice NO: la casa de antes
+  sale con 14 MAL; contando a los ayudantes, MAL; juntando los carriles sin
+  mirar el bucle, MAL en los dos bucles. Y `src/pruebas_olas.rs`: lo mismo
+  sin la casa, y que en cuadros entra a cada pixel lo MISMO que pixel a
+  pixel. **Lo que puede fallar, dicho:** que la 3060 no junte los hilos de
+  un CS de 32 en 32 seguidos (es lo que hace; D3D no lo promete: el juez lo
+  mira primero, `WaveGetLaneIndex`) o que no reconverja en los bucles como
+  aqui (la ola de un `continue` se junta al final de la vuelta); las
+  DERIVADAS, de verdad desde D4.4 (05-10, `prueba/derivadas.exe`); ni las de 16 o 64 bits
+  ni las de SM 6.5 (`WaveMatch`, `WaveMultiPrefix*`): no compilan, dicho.
+  Un pixel que no paso el stencil y corre solo para saber si lo tira va en
+  su ola de AYUDANTE (D3D ni lo correria).
+  **Queda:** las olas en la 3060 (`vote`, `shfl`) y en el x86 traducido;
+  verlo en el metal y en Windows.
+- [ ] **E2.6 -- D3D12HDR.** Render targets de float (N5.16, hecho el 05-10 con
+  `prueba/hdr.exe`) y la cadena en 10 o 16 bits con su espacio de color (la
+  cadena ya se acepta y se presenta en 8 bits; falta la muestra de
+  Microsoft y SetColorSpace1/SetHDRMetaData). **Como se sabe:** su huella, igual, en
   el modo de 8 bits y en el de 16.
 - [x] **E2.7 -- D3D12PredicationQueries** (05-10, en el banco; falta verlo
   en el metal). Un cuadro blanco lejos, uno translucido cerca que pasa por
@@ -377,9 +435,10 @@ se mide con R5: una corrida por escalon cerrado.
    N5.4   el indice dinamico (bindless)     E2.2
    N5.5   el COMPUTO                        E2.3a y E2.3b (hechos)
    N5.3c  los UAV                           E2.3a y E2.3b (los de bufer)
+   N5.3d  los UAV de un DIBUJO              uavpixel.exe (hecho, sin escalon)
    D5.1   la cola de computo                E2.3a y E2.3b (hechos)
    (nueva) el sombreador de geometria       E2.3b (hecho)
-   D4.3   las olas de verdad                E2.5
+   D4.3   las olas de verdad                E2.5 (hecho)
    N5.16  render targets de float           E2.6
    D5.5   consultas                         E2.7 (oclusion y predicacion)
 ```
@@ -420,6 +479,147 @@ llamarla otra vez, salta detras). 50 veces el interprete en el banco: un
 paso de nBodyGravity, de 73 s a uno o dos. Su juez es el interprete, bit a
 bit, y la fisica en f64. No es que la CPU dibuje: es calcular lo que el
 juego pide mientras la 3060 no corre computo (N6).
+
+- [x] **X1 -- la VELOCIDAD de los DIBUJOS: los que saltan, traducidos**
+  (`platform/shared/proton-x/src/nativo.rs`, 05-10, en el banco; falta
+  verlo en el metal). Un VS o un PS con `si`, bucles, enteros,
+  comparaciones, conversiones, `discard` o arrays de registros se
+  INTERPRETABA (el aviso "un PSO cuyo sombreador salta o hace cuentas
+  ENTERAS"): asi irian casi todos los de Cyberpunk. Ahora `nativo::compilar`
+  los traduce con el cuerpo del COMPUTO (`nativo_computo`, el mismo codigo
+  y el mismo juez) y una entrada de nueve instrucciones que habla la
+  llamada de los dibujos y le pone un `Contexto` a medias en la pila; la
+  casa los llama igual, y el PS dice al volver si se tiro (`DESCARTADO`).
+  Y en los DOS caminos, el MXCSR solo se carga si su control es otro: un
+  `ldmxcsr` que lo cambia costaba en el Xeon del banco unos 50 ns por
+  llamada (el VSId, de 33 a 87), y en BMO-X quien llama es soft-float y
+  su control es siempre el de D3D. **Como se sabe:**
+  `proton-x-casa/tests/nativo/saltos.rs`, contra el interprete BIT A BIT
+  (las salidas y si el pixel queda): los VS y PS de `instancias.exe` y
+  `hdr.exe` (20.000 casos al azar cada uno, con el cbuffer, y los ids de 0 a
+  63); los PS de `dxc` con saltos (anidado, enteros con `switch`, division
+  por un cbuffer con n = 0, -1 e i32::MIN, `clip`/`discard`, arrays) y
+  `mientras`; los de `ejemplos` y seis de `fxc`; y cada operacion entera,
+  comparacion y conversion sobre 52 x 52 valores raros (NaN, -0, lo que no
+  cabe en un i32 o un u32, desplazamientos de 32 o mas). Probado que dice
+  NO: con un `shl` de 64 bits en vez de 32, 324 distintos. Y el MXCSR por
+  los dos caminos con cuatro de quien llama (hacia cero, DAZ+FTZ, el de
+  D3D con banderas). En el banco de `.exe`: `instancias.exe`, ni un aviso;
+  `hdr.exe`, solo el de texturas (su PSLee). **Medido** (100.000
+  llamadas, la mejor de cinco rondas, el Xeon del banco COMPARTIDO: los
+  numeros bailan): sin optimizar, VSCuadro 5 veces el interprete, VSId 6-7,
+  VSInst 3.5, division (un bucle) 17-18, anidado (dos bucles) 45; en
+  `--release` (alli el interprete es Rust CON SSE; en el metal es
+  soft-float, asi que esto es lo de menos) 1.6, 1.5, 1.3, 2.6 y 7. Los
+  `.exe` de 64 x 64 no lo notan (0,13-0,19 s, ruido).
+  **Lo que puede fallar, dicho:** (1) un bucle que no acaba cuelga el
+  traducido como cuelga el interprete (no hay tope en ninguno); (2) las
+  banderas de excepcion del MXCSR de quien llama se quedan con las del
+  sombreador cuando su control es el de D3D (un juego podria leerlas con
+  `_statusfp`; sus propias cuentas ya las ponen a cada rato); (3) la entrada pone SOLO cuatro campos del
+  `Contexto`: lo que lea otros (ids, vistas, compartida, barreras) no se
+  traduce como dibujo (`con_saltos` lo mira; y su prueba,
+  `pruebas_saltos.rs`). **Queda:** los que MUESTREAN (DynamicIndexing, el
+  PSLee de `hdr.exe`, casi todos los PS de un juego: el aviso de texturas
+  sigue), la matematica (`Mate`: exp, log, sin), los cbuffers con fila
+  calculada (`ConstantesEn`: luces, huesos; falta pasarle al codigo la
+  medida del cbuffer) y verlo en el Ryzen. (X2, abajo: lo hecho de esto.)
+- [x] **X2 -- los que MUESTREAN, la matematica y la fila calculada,
+  traducidos** (`platform/shared/proton-x/src/nativo_llamadas.rs`, 05-10, en
+  el banco; falta verlo en el metal). El codigo traducido ya no se aparta
+  de una textura, un `sin` o un cbuffer de fila calculada: los LLAMA. El
+  x86 del cuerpo llama por un puntero al MISMO Rust del interprete
+  (`dxil::leer_textura`, `mates`): los bits salen iguales por
+  construccion. La casa le pone las llamadas una vez por dibujo
+  (`proton-x-casa/src/nativo.rs`, `textura_sysv`). Con D4.4 (06-10): sin
+  el cuadro de 2x2 no hay derivadas, asi que lo traducido muestrea con
+  gradientes 0 (la mip mas detallada, el filtro de cerca), y la casa SOLO
+  lo usa si eso no cambia nada (`Recursos::mip_importa`: vistas de una
+  mip y el mismo filtro de cerca y de lejos); si no, o si las texturas son
+  del indice dinamico (sus mips no se ven de antemano), el dibujo va por
+  el interprete en cuadros, y lo dice. `ddx`/`ddy` y CalculateLevelOfDetail
+  no se traducen (dicho). **Como se sabe:**
+  `proton-x-casa/tests/nativo/texturas.rs`, contra el interprete BIT A BIT:
+  13 sombreadores de verdad (los de hdr, flotante1, vistas, sombras,
+  espacios, mates, luces, buferes, gbuffer, HelloTexture, DynamicIndexing y
+  nBody) con texturas de 8 bits, de float con NaN, infinitos y -0, con
+  mips y arrays, y cada muestreador; cada `Mate` sobre valores raros; y el
+  MXCSR de quien llama. En el banco de `.exe`, el aviso "un PSO con
+  texturas" desaparece de hdr, flotante1, vistas y restos. **Medido**
+  (`--release`, 100.000 llamadas, el Xeon del banco): los que muestrean,
+  POCO: HelloTexture 1,4 veces, hdr PSLee 1,4, DynamicIndexing 1,3, mates
+  1,2 -- el filtro de la textura se come casi todo, y es el mismo Rust en
+  los dos caminos --; los que no, MUCHO: luces 4,2, gbuffer 6,0. En el
+  metal el interprete es soft-float: alli la diferencia sera otra.
+  **Lo que puede fallar, dicho:** (1) un juego con texturas de varias
+  mips (todos) o bindless (Cyberpunk) seguia INTERPRETADO en sus pixeles:
+  lo arreglo X3 (06-10); (2) la llamada guarda los registros del cuerpo en la pila
+  (System V): una funcion de Rust que use mucha pila crece la de quien
+  dibuja.
+- [x] **X3 -- el codigo traducido EN CUADROS de 2x2** (`platform/shared/proton-x-casa/src/nativo.rs`,
+  `en_cuadros`; 06-10, en el banco; falta verlo en el metal). Lo que le
+  faltaba a Cyberpunk: sus pixeles muestrean texturas de varias mips por
+  el indice dinamico, y en X2 iban por el interprete. Ahora cada derivada
+  (o racha de derivadas SEGUIDAS) es un punto de PARADA del cuerpo
+  traducido, como una barrera del computo (`nativo_computo::paradas`, y
+  vuelve con `OLA`): la casa corre los cuatro carriles del cuadro
+  (ayudantes incluidos), y cuando los cuatro se paran en el MISMO punto
+  hace sus derivadas con la funcion del interprete (`olas::hacer`) sobre
+  los registros de los cuatro, y siguen. Cada carril tiene su `Contexto` y
+  sus `Muestras` (la textura ELEGIDA es suya: la parada cae entre
+  `EligeTextura` y su muestreo). Si el cuadro se SEPARA (uno se tira o
+  acaba y otro se para, o se paran en sitios distintos), se rehace entero
+  en el interprete: un pixel traducido no escribe UAV, asi que correrlo
+  otra vez no deja nada. `ddx`/`ddy`, `fwidth` y CalculateLevelOfDetail
+  ya se traducen. **Como se sabe:** `proton-x-casa/tests/nativo/texturas.rs`,
+  contra el interprete en olas BIT A BIT (si queda cada carril y lo que
+  sale): los cinco del banco que derivan (textura_ps, vistas, espacios,
+  HelloTexture, DynamicIndexing), 2.500 olas de 8 cuadros cada uno, con
+  ayudantes al azar: los 20.000 cuadros por lo TRADUCIDO, ninguno
+  rehecho; un programa hecho a mano que se separa (un `discard` antes de
+  derivar, cuatro derivadas seguidas -- la tercera lee la primera --, la
+  fina en y, y una dentro de un `si`): 1.186 traducidos y 14.814
+  rehechos, iguales; y uno que elige SU textura por pixel. En el banco de
+  `.exe`: `derivadas.exe` y DynamicIndexing, ni un aviso. Probado que dice
+  NO, quitando a mano: el carril de al lado (`q ^ 1`), resolver solo la
+  primera de la racha, no mirar si se separan, y las cuatro `Muestras` en
+  una: cada una, sus `MAL`. **Medido** (`--release`, 100.000 pixeles en
+  olas de 8 cuadros, el Xeon del banco): HelloTexture 1,8 veces el
+  interprete en olas, DynamicIndexing 1,7. **Lo que puede fallar,
+  dicho:** (1) un pixel con UAV, olas de verdad (`Wave*`) o lo de fuera
+  sigue interpretado (dicho); (2) cada parada es una vuelta y una llamada
+  por carril: un sombreador con muchas derivadas sueltas (no seguidas)
+  paga mas; (3) los cuadros que se separan cuestan DOS veces (lo
+  traducido hasta separarse, y el interprete entero).
+
+- [x] **X4 -- el COMPUTO de juego, traducido y con su bindless**
+  (`platform/shared/proton-x/src/nativo_computo.rs` y
+  `proton-x-casa/src/nativo.rs`, 06-10, en el banco; falta verlo en el
+  metal). Lo que hace un juego en el computo (la luz, el posproceso, los
+  histogramas) iba SIEMPRE por el interprete en cuanto muestreaba, tocaba
+  un UAV de textura o hacia un Interlocked; y peor: un CS que elegia su
+  textura por un indice calculado (el bindless de Cyberpunk) la leia NULA,
+  porque el Dispatch no buscaba en el monton (el dibujo si). Y un UAV
+  creado SIN descripcion (la vista del recurso entero) quedaba sin
+  dimension y se leia nulo. Ahora: el Dispatch busca y guarda las texturas
+  del indice dinamico como un dibujo; un UAV sin descripcion es el del
+  recurso; y lo traducido LLAMA (como X2) para las texturas y para las
+  ranuras de UAV que no sabe tocar solo (textura, atomicos, GetDimensions:
+  `uavs_llamados`), que salen del `Contexto` y son SOLO de la llamada --
+  `operar_uav`, la del interprete, los mismos bits --; los UAV de bufer
+  sencillos siguen en el x86 directo. Cada hilo, sus `Muestras` (la textura
+  elegida es suya: una barrera puede caer entre elegirla y leerla). **Como
+  se sabe:** `prueba/postpro.exe` (3 `bien`, ni un aviso);
+  `proton-x-casa/tests/nativo/texturas.rs`: el CS de postpro traducido, bit
+  a bit contra el interprete con las texturas raras del banco, y un
+  programa con una BARRERA entre elegir y leer. Probado que dice NO: la
+  casa de antes, A y C MAL (el UAV sin descripcion); sin el bindless del
+  Dispatch, 171 MAL en A; con la textura elegida compartida entre los
+  hilos, los 32 leen la del ultimo. **Medido** (`--release`): postpro, 1,4
+  veces el interprete (el muestreo es el mismo Rust en los dos y se lleva
+  casi todo). **Lo que puede fallar, dicho:** las olas en un CS siguen en
+  el interprete; un CS con un UAV de textura que tambien escribe un bufer
+  por la llamada paga una llamada por acceso.
 
 **LA CPU GUIA, LA 3060 DIBUJA.** El propietario (05-10): *"que la CPU no
 tiene que ser la que dibuje, sino que tenga el mapa por via de RAM y que le
@@ -477,8 +677,9 @@ en una conversacion.
 - [ ] **Juntar en `main` lo de `docs/plan/PLAN_LAS_TRES_GRANDES.md`** de
   este trabajo: E2.3, E2.4, E2.7, N5.13 a N5.15, N5.3b y N5.3c (un PR).
 - [ ] **Correr en el Ryzen y en Windows lo de `platform/shared/proton-x/prueba`**
-  (HACER.txt): `computo.exe` dice `bien` 4 veces, `instancias.exe` 3 y
-  `vistas.exe` 7, y salen con 0; `nbody.exe` (las dos nubes que se
+  (HACER.txt; la hoja entera, prueba a prueba y con lo que tiene que
+  salir, en [`docs/metal/PRUEBAS_DX12_EN_EL_RYZEN.md`](../metal/PRUEBAS_DX12_EN_EL_RYZEN.md)): `computo.exe` dice `bien` 4 veces, `instancias.exe` 3 y
+  `vistas.exe` 7, `uavpixel.exe` 4, y salen con 0; `nbody.exe` (las dos nubes que se
   juntan), `indirect.exe` (lo mismo dentro de la franja con el ESPACIO y
   sin el) y `predica.exe` (el cuadro blanco se va cuando el rojo lo tapa
   entero).
@@ -496,31 +697,62 @@ en una conversacion.
                                           que el banco no usa
    los .cso de nombre largo               no se encuentran en FAT32 (7.1)
    la VELOCIDAD                           el computo traducido va 50 veces
-                                          el interprete; los sombreadores de
-                                          DIBUJO con saltos o cuentas
-                                          enteras van interpretados (lo dice
-                                          un aviso); Cyberpunk, lejos de sus
-                                          fotogramas
-   el HDR (N5.16)                         los render targets de float se
-                                          guardan en 8 bits: un RGBA16F
-                                          satura en 1.0, y un UAV de esa
-                                          textura tambien
-   el stencil y AlphaToCoverage           se apuntan y no se usan: un juego
-                                          que recorta con stencil pinta de
-                                          mas (lo dice un aviso al crear el
-                                          PSO)
-   un UAV en un sombreador de DIBUJO      no se ve: lo que escribe se pierde
-                                          (lo dice un aviso, desde hoy; antes
-                                          era en silencio)
-   un UAV de textura 3D, de array o de    el PSO de computo no se crea (lo
-   cubo                                   dice)
+                                          el interprete, y desde X1 (05-10)
+                                          los de DIBUJO con saltos o cuentas
+                                          enteras tambien van traducidos (3
+                                          a 45 veces en el banco); siguen
+                                          interpretados los que muestrean,
+                                          la matematica y los cbuffers con
+                                          fila calculada (lo dice un aviso);
+                                          Cyberpunk, lejos de sus fotogramas
+   el HDR (N5.16 y N5.16b, 05-10)         los de 1 a 4 canales y sus UAV ya
+                                          son float; al presentar lo de mas
+                                          de 1 se recorta (sin monitor HDR);
+                                          los de ENTEROS, desde el 05-10
+                                          (`restos.exe`): sus bits, saturados
+   el stencil (05-10, N5.12b)             ya recorta, con las reglas de D3D12
+                                          (`stencil.exe`); sus lotes van por
+                                          la CPU (la 3060 no lo sabe: lo
+                                          dice); el plano 1 se lee desde el
+                                          05-10 (CopyTextureRegion y un SRV
+                                          X24_G8, `restos.exe`), y SV_StencilRef
+                                          se usa
+   AlphaToCoverage                        se apunta y no se usa (lo dice un
+                                          aviso al crear el PSO): con
+                                          SampleDesc.Count 1 no cubre nada,
+                                          no hay muestras que tapar; cuenta
+                                          cuando haya MSAA
+   un UAV en un sombreador de DIBUJO      desde el 05-10 se escribe (N5.3d,
+                                          uavpixel.exe), por el interprete y
+                                          por la CPU (la 3060 no lo lleva: lo
+                                          dice una vez). El orden entre
+                                          pixeles es el de la trama: D3D no
+                                          da ninguno, y un juego que dependa
+                                          de el podria ver otra cosa. Desde
+                                          el 05-10 (`restos.exe`), tambien en
+                                          un sombreador de GEOMETRIA y en un
+                                          dibujo SOLO con UAV (a la medida
+                                          del viewport, con UNA muestra)
+   un UAV de textura 3D, de array o de    desde el 06-10 los 3D y los arrays
+   cubo                                   de 2D se escriben y se leen
+                                          (`volumen.exe`: rebanadas, capas
+                                          con mips, atomicos); los arrays de
+                                          1D y los multimuestra, todavia no
+                                          (el PSO no se crea, y lo dice)
    ClearUnorderedAccessView con           limpia la vista entera (lo dice)
    rectangulos
-   DepthClipEnable = FALSE                recorta igual (no lo dice: es lo
-                                          que casi todos usan)
+   DepthClipEnable = FALSE                N5.16b (05-10): sin recorte en z,
+                                          la Z sujeta, en la CPU; la 3060
+                                          recorta siempre: esos lotes, por la
+                                          CPU (lo dice la puerta)
    un SRV estructurado en la RAIZ de un   el paso sale de `dx.resources`; un
    sombreador sin metadatos (SM5, DXBC)   SM5 no los trae como DXIL: se lee
                                           crudo, mal, y NO lo dice todavia
+   las OLAS (E2.5)                        por el interprete siempre, y un
+                                          sombreador de pixeles con olas va en
+                                          cuadros (mas lento); las derivadas,
+                                          aun 0 (lo dice `dxil/olas.rs`, no
+                                          un aviso)
    la consulta de oclusion                sus lotes van por la CPU (la 3060
                                           aun no cuenta): mas lento, no
                                           distinto

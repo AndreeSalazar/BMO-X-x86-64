@@ -18,8 +18,22 @@
 //!    sampler      13 u32 (D3D12_STATIC_SAMPLER_DESC)
 //! ```
 //!
-//! Los desplazamientos van desde el inicio de la parte. La version 1.1 (la de
-//! las banderas por rango) es para cuando un `.exe` la traiga.
+//! Los desplazamientos van desde el inicio de la parte.
+//!
+//! **La 1.1** (version 2, 06-10): la que `dxc` mete en un sombreador con
+//! `[RootSignature(...)]` y la que serializa Microsoft si se le pide. Lo
+//! mismo con BANDERAS: cada rango, 6 u32 (las banderas entre el espacio y
+//! su desplazamiento en la tabla); cada CBV/SRV/UAV de la raiz, 3 (las
+//! banderas detras). Son pistas para el driver (`DATA_STATIC`,
+//! `DESCRIPTORS_VOLATILE`...): se leen y la casa hace lo mismo con ellas o
+//! sin ellas. La 1.2 (version 3, samplers con banderas) no: `dxc` aun no la
+//! escribe y no hay un binario de Microsoft contra el que mirarla.
+//!
+//! ```text
+//!    RTS0 (1.1)   lo de la 1.0, con
+//!    rango        tipo | cuantos | registro | espacio | BANDERAS | desde
+//!    CBV/SRV/UAV  registro | espacio | BANDERAS
+//! ```
 
 use alloc::vec::Vec;
 
@@ -89,9 +103,12 @@ pub fn leer(d: &[u8]) -> Result<Firma, NoFirma> {
     let partes = dxbc::partes(d).ok_or(NoFirma::Contenedor)?;
     let p = partes.iter().find(|(cc, _)| cc == b"RTS0").map(|(_, p)| *p).ok_or(NoFirma::SinRts0)?;
     let version = u(p, 0)?;
-    if version != 1 {
+    if version != 1 && version != 2 {
         return Err(NoFirma::Version(version));
     }
+    // 1.1: un rango mide 24 bytes y su desplazamiento va detras de las
+    // banderas (+20); en la 1.0, 20 bytes y +16.
+    let (rango, su_desde) = if version == 2 { (24, 20) } else { (20, 16) };
     let (n, desde, ns, desde_s, banderas) = (u(p, 4)?, u(p, 8)? as usize, u(p, 12)?, u(p, 16)? as usize, u(p, 20)?);
     let mut parametros = Vec::with_capacity(n as usize);
     for i in 0..n as usize {
@@ -102,8 +119,8 @@ pub fn leer(d: &[u8]) -> Result<Firma, NoFirma> {
                 let (nr, dr) = (u(p, carga)?, u(p, carga + 4)? as usize);
                 let mut v = Vec::with_capacity(nr as usize);
                 for k in 0..nr as usize {
-                    let r = dr + 20 * k;
-                    v.push(Rango { tipo: u(p, r)?, cuantos: u(p, r + 4)?, registro: u(p, r + 8)?, espacio: u(p, r + 12)?, desde: u(p, r + 16)? });
+                    let r = dr + rango * k;
+                    v.push(Rango { tipo: u(p, r)?, cuantos: u(p, r + 4)?, registro: u(p, r + 8)?, espacio: u(p, r + 12)?, desde: u(p, r + su_desde)? });
                 }
                 Carga::Tabla(v)
             }
@@ -178,4 +195,38 @@ pub fn serializar(f: &Firma) -> Vec<u8> {
         }
     }
     dxbc::contenedor(&[(*b"RTS0", &p)])
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+
+    /// La MISMA firma (`prueba/firmas.hlsl`), hecha por `dxc`: en 1.1 (con
+    /// banderas en los rangos y en el UAV de la raiz), en 1.0, y la que
+    /// mete dentro de un sombreador ([RootSignature], en 1.1).
+    const RS_11: &[u8] = include_bytes!("../prueba/firmas_11.rts0");
+    const RS_10: &[u8] = include_bytes!("../prueba/firmas_10.rts0");
+    const CS: &[u8] = include_bytes!("../prueba/firmas_cs.dxil");
+
+    #[test]
+    fn la_1_1_de_dxc_se_lee_como_la_1_0_de_la_misma_firma() {
+        let (f11, f10, fcs) = (leer(RS_11).unwrap(), leer(RS_10).unwrap(), leer(CS).unwrap());
+        // Las banderas son pistas para el driver: la firma es la misma.
+        assert_eq!(f11, f10);
+        assert_eq!(fcs, f10);
+        let tabla = alloc::vec![Rango { tipo: 0, cuantos: 2, registro: 0, espacio: 0, desde: u32::MAX }, Rango { tipo: 1, cuantos: 1, registro: 1, espacio: 0, desde: u32::MAX }];
+        assert_eq!(
+            f11.parametros,
+            [
+                Parametro { tipo: CONSTANTES, visibilidad: 0, carga: Carga::Constantes { registro: 0, espacio: 0, cuantas: 4 } },
+                Parametro { tipo: TABLA, visibilidad: 0, carga: Carga::Tabla(tabla) },
+                Parametro { tipo: UAV, visibilidad: 0, carga: Carga::Descriptor { registro: 0, espacio: 0 } },
+            ]
+        );
+        // Una version que no se sabe (la 1.2, 3), dicha.
+        let mut v3 = RS_11.to_vec();
+        let i = v3.windows(4).position(|w| w == b"RTS0").unwrap() + 8;
+        v3[i] = 3;
+        assert_eq!(leer(&v3), Err(NoFirma::Version(3)));
+    }
 }

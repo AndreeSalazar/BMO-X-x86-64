@@ -17,6 +17,8 @@
 //!    +  la PROFUNDIDAD (P3c4): z / w al rango del viewport, LINEAL en
 //!       pantalla (como D3D), la prueba antes del sombreador de pixeles, y
 //!       escrita si pasa y el PSO lo pide
+//!    +  el STENCIL (05-10, `stencil.rs`): su prueba con la de profundidad,
+//!       la cara por el giro, y la operacion que toca a cada resultado
 //! ```
 //!
 //! **Un atributo igual en los tres vertices es ESE valor**, sin cuentas: la
@@ -32,7 +34,9 @@
 //! linea recta en el espacio de recorte: la perspectiva sale igual. Contra
 //! x e y no hace falta (la tijera corta), salvo lo que pasa de una BANDA de
 //! guarda de 64 veces la pantalla, para que las cuentas enteras no se
-//! desborden.
+//! desborden. N5.16b (05-10): con `DepthClipEnable = FALSE` (el bit
+//! [`SIN_RECORTE_Z`] del descarte) NO se recorta contra esos dos planos: la
+//! Z se SUJETA al rango del viewport antes de la prueba, como en D3D12.
 
 use alloc::vec::Vec;
 
@@ -53,7 +57,8 @@ pub struct Sombreado {
 pub struct Reglas {
     pub viewport: [f32; 6],
     pub tijera: [i32; 4],
-    /// D3D12_CULL_MODE: 1 ninguna, 2 las de delante, 3 las de detras.
+    /// D3D12_CULL_MODE: 1 ninguna, 2 las de delante, 3 las de detras; con
+    /// el bit [`SIN_RECORTE_Z`] si el PSO apaga el recorte en z.
     pub descarte: u32,
     /// `FrontCounterClockwise`: la cara de delante es la antihoraria.
     pub antihorario: bool,
@@ -64,7 +69,19 @@ pub struct Reglas {
     /// 03-10: el de pixeles escribe SV_Depth: la prueba de profundidad va
     /// DESPUES de el, con la suya (en `colores[PROFUNDIDAD][0]`).
     pub z_del_sombreador: bool,
+    /// 05-10: el stencil del PSO (`StencilEnable`) con las referencias de
+    /// la lista, o `None`. Sin `Destino::stencil` no se hace (D3D: sin
+    /// plano de stencil la prueba pasa y no se escribe nada).
+    pub stencil: Option<crate::stencil::Stencil>,
 }
+
+/// **`DepthClipEnable = FALSE`** (N5.16b, 05-10), un bit de
+/// [`Reglas::descarte`]: sin recorte contra el plano cercano ni el lejano, y
+/// la Z sujeta a `[zmin, zmax]` del viewport antes de la prueba (D3D12). Va
+/// en el descarte y no en un campo nuevo para que quien mire el modo de
+/// descarte entero (la puerta de la 3060, que recorta siempre) lo vea y
+/// diga que no, en vez de recortar callado.
+pub const SIN_RECORTE_Z: u32 = 0x100;
 
 /// La prueba de profundidad: `D3D12_COMPARISON_FUNC` (1 nunca, 2 menor,
 /// 3 igual, 4 menor o igual, 5 mayor, 6 distinto, 7 mayor o igual, 8
@@ -111,6 +128,16 @@ pub struct Destino<'a, 'o> {
     /// N5.8 (03-10): los render targets 1..8 (el G-buffer): `otros[k]` es
     /// el SV_Target `k + 1`, del mismo `ancho * alto`. `pixeles` es el 0.
     pub otros: &'a mut [Otro<'o>],
+    /// N5.16 (05-10): el render target 0 es de FLOAT: `pixeles` lleva cuatro
+    /// palabras por texel (los bits de r, g, b y a en f32), y cada color se
+    /// mezcla en float y se cuantiza a ESTE formato (DXGI) al escribirlo,
+    /// para que valga lo que en la GPU (`formato_ia::cuantizar`). N5.16b:
+    /// si `pixeles` mide UNA palabra por texel (un R32_FLOAT, como lo guarda
+    /// la casa), solo el r; lo que no trae se lee (0, 0, 1), como su formato.
+    pub flotante: Option<u32>,
+    /// 05-10: el plano de stencil del DSV (un byte por texel, del mismo
+    /// `ancho * alto`), o `None`: un D32 sin stencil, o sin DSV.
+    pub stencil: Option<&'a mut [u8]>,
 }
 
 /// **Otro render target** del mismo dibujo (N5.8): sus pixeles y su orden
@@ -119,14 +146,18 @@ pub struct Destino<'a, 'o> {
 pub struct Otro<'a> {
     pub pixeles: Option<&'a mut [u32]>,
     pub bgra: bool,
+    /// N5.16: como [`Destino::flotante`], el de este.
+    pub flotante: Option<u32>,
 }
 
 /// Cuantos render targets puede escribir un dibujo (D3D12: 8).
 pub const OBJETIVOS: usize = 8;
 /// Lo que el de pixeles le da a la trama: un color por render target y,
-/// detras, su SV_Depth (en el canal 0 de `colores[PROFUNDIDAD]`).
-pub const SALIDAS: usize = OBJETIVOS + 1;
+/// detras, su SV_Depth (en el canal 0 de `colores[PROFUNDIDAD]`) y (05-10)
+/// su SV_StencilRef (los bits del canal 0 de `colores[REFERENCIA]`).
+pub const SALIDAS: usize = OBJETIVOS + 2;
 pub const PROFUNDIDAD: usize = OBJETIVOS;
+pub const REFERENCIA: usize = OBJETIVOS + 1;
 
 /// Lo que paso.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -143,8 +174,8 @@ pub struct Cuenta {
     /// N5.7: pixeles que el sombreador TIRO (`discard`, `clip`): pasaron la
     /// prueba de profundidad y no escribieron nada.
     pub tirados: u64,
-    /// E2.7 (05-10): pixeles que PASARON la prueba de profundidad (la de
-    /// stencil la casa aun no la hace) y que el sombreador no tiro, escriban
+    /// E2.7 (05-10): pixeles que PASARON la prueba de profundidad (y la de
+    /// stencil, desde el 05-10) y que el sombreador no tiro, escriban
     /// color o no: lo que cuenta una consulta de OCLUSION de D3D12.
     pub pasan: u64,
     /// P3b4c.9 Z1: el dibujo quedo EN LA PANTALLA (la 3060, directo), no en
@@ -184,10 +215,11 @@ fn entre(a: &Sombreado, b: &Sombreado, t: f32) -> Sombreado {
 }
 
 /// **Recortar un triangulo** (Sutherland-Hodgman): el poligono que queda
-/// dentro de todos los planos, en el orden de sus vertices (vacio si nada).
-fn recortar(v: [&Sombreado; 3]) -> Vec<Sombreado> {
+/// dentro de todos los planos desde `desde` (0; 2 sin el cercano ni el
+/// lejano, N5.16b), en el orden de sus vertices (vacio si nada).
+fn recortar(v: [&Sombreado; 3], desde: usize) -> Vec<Sombreado> {
     let mut poli: Vec<Sombreado> = v.iter().map(|&s| s.clone()).collect();
-    for plano in 0..6 {
+    for plano in desde..6 {
         if poli.len() < 3 {
             return Vec::new();
         }
@@ -253,6 +285,81 @@ pub fn empaquetar(c: [f32; 4], bgra: bool) -> u32 {
     }
 }
 
+/// **Un triangulo ya en pantalla** (E2.5, 05-10, sacado del bucle de
+/// [`dibujar`]): lo que hace falta para cubrir, probar y sombrear un pixel
+/// suyo. `crate::cuadros` lo usa igual para los pixeles de sus cuadros
+/// (los ayudantes, FUERA del triangulo: los mismos pesos, extrapolados).
+pub struct Tri<'v> {
+    /// Los vertices en subpixeles (con el area positiva), 1/w y su z.
+    x: [i64; 3],
+    y: [i64; 3],
+    inv_w: [f32; 3],
+    zv: [f32; 3],
+    v: [&'v Sombreado; 3],
+    constante: Vec<[bool; 4]>,
+    plano: bool,
+    incluye: [bool; 3],
+    zmin: f32,
+    zmax: f32,
+}
+
+impl Tri<'_> {
+    /// Las tres aristas en el centro del pixel (dentro: todas >= 0).
+    pub fn aristas(&self, px: i64, py: i64) -> [i64; 3] {
+        let (x, y) = (self.x, self.y);
+        let (cx, cy) = (px * SUBPIXEL + SUBPIXEL / 2, py * SUBPIXEL + SUBPIXEL / 2);
+        [arista(x[1], y[1], x[2], y[2], cx, cy), arista(x[2], y[2], x[0], y[0], cx, cy), arista(x[0], y[0], x[1], y[1], cx, cy)]
+    }
+
+    /// Si el pixel es del triangulo (la regla top-left en los bordes).
+    pub fn cubre(&self, e: &[i64; 3]) -> bool {
+        (0..3).all(|k| e[k] > 0 || (e[k] == 0 && self.incluye[k]))
+    }
+
+    /// La z del pixel para la prueba: lineal en pantalla (los pesos de las
+    /// aristas, sin w), al rango del viewport.
+    pub fn z(&self, e: &[i64; 3]) -> f32 {
+        let (zv, zmin, zmax) = (self.zv, self.zmin, self.zmax);
+        let s = (e[0] + e[1] + e[2]) as f32;
+        let (b1, b2) = (e[1] as f32 / s, e[2] as f32 / s);
+        (zv[0] + b1 * (zv[1] - zv[0]) + b2 * (zv[2] - zv[0])).clamp(zmin.min(zmax), zmin.max(zmax))
+    }
+
+    /// **Lo que entra al sombreador** en el pixel: los atributos que
+    /// cambian, interpolados CON perspectiva, sobre `entrada` (que empieza
+    /// con los del vertice 0, [`Tri::de_partida`]: los que no cambian ya
+    /// estan), y SV_Position.
+    pub fn entrada(&self, e: &[i64; 3], px: i64, py: i64, posicion: Option<usize>, entrada: &mut [[f32; 4]]) {
+        let (v, inv_w, zv) = (self.v, self.inv_w, self.zv);
+        if !self.plano {
+            // Con perspectiva: los pesos de pantalla sobre w.
+            let b = [e[0] as f32 * inv_w[0], e[1] as f32 * inv_w[1], e[2] as f32 * inv_w[2]];
+            let s = b[0] + b[1] + b[2];
+            let (b1, b2) = (b[1] / s, b[2] / s);
+            for (a, fija) in self.constante.iter().enumerate() {
+                for k in 0..4 {
+                    if !fija[k] {
+                        let a0 = v[0].atributos[a][k];
+                        entrada[a][k] = a0 + b1 * (v[1].atributos[a][k] - a0) + b2 * (v[2].atributos[a][k] - a0);
+                    }
+                }
+            }
+        }
+        if let Some(a) = posicion.filter(|&a| a < entrada.len()) {
+            let s = (e[0] + e[1] + e[2]) as f32;
+            let (b1, b2) = (e[1] as f32 / s, e[2] as f32 / s);
+            let z = zv[0] + b1 * (zv[1] - zv[0]) + b2 * (zv[2] - zv[0]);
+            let w = 1.0 / ((1.0 - b1 - b2) * inv_w[0] + b1 * inv_w[1] + b2 * inv_w[2]);
+            entrada[a] = [px as f32 + 0.5, py as f32 + 0.5, z, w];
+        }
+    }
+
+    /// Las entradas del vertice 0 (de las que parte [`Tri::entrada`]).
+    pub fn de_partida(&self) -> &[[f32; 4]] {
+        &self.v[0].atributos[..self.constante.len()]
+    }
+}
+
 /// **Dibujar triangulos** (cada tres indices de `tris`, uno) sobre `destino`,
 /// con `ps` como sombreador de pixeles: recibe los atributos interpolados,
 /// pone el color (r, g, b, a) de cada render target en su SV_Target (N5.8:
@@ -263,10 +370,83 @@ pub fn empaquetar(c: [f32; 4], bgra: bool) -> u32 {
 /// `posicion` (N5.9): el atributo que es SV_Position, si el sombreador lo
 /// lee: en cada pixel, (x + 0.5, y + 0.5, z, w) -- el centro en pantalla,
 /// la z del viewport y la w de recorte (la de D3D: w, no 1/w como en GL).
-pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, mut ps: impl FnMut(&[[f32; 4]], &mut [[f32; 4]; SALIDAS]) -> bool) -> Cuenta {
+pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, ps: impl FnMut(&[[f32; 4]], &mut [[f32; 4]; SALIDAS]) -> bool) -> Cuenta {
+    dibujar_con(reglas, Efectos::default(), vertices, tris, destino, posicion, ps)
+}
+
+/// **Lo que un sombreador de pixeles hace ADEMAS de su color** (05-10): lo
+/// que cambia el orden de la trama.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Efectos {
+    /// Lee o escribe UAV: corre en CADA pixel cubierto, uno a uno y en el
+    /// orden de la trama (sin la memoria del ultimo, que se saltaria
+    /// escrituras), y la profundidad se prueba DESPUES de el (lo de D3D sin
+    /// `[earlydepthstencil]`: un pixel tapado tambien escribe sus UAV).
+    pub uav: bool,
+    /// `[earlydepthstencil]`: la profundidad se prueba y se ESCRIBE antes
+    /// de correrlo (un `discard` ya no la deshace), con UAV o sin ellos.
+    pub temprana: bool,
+    /// 05-10: escribe SV_StencilRef: la referencia de stencil es la SUYA
+    /// (`colores[REFERENCIA]`, sus 8 bits bajos), asi que el stencil (y con
+    /// el la profundidad) se prueba DESPUES de el, como con UAV.
+    pub referencia: bool,
+}
+
+/// [`dibujar`] con los [`Efectos`] de su sombreador de pixeles.
+#[allow(clippy::too_many_arguments)]
+pub fn dibujar_con(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, ps: impl FnMut(&[[f32; 4]], &mut [[f32; 4]; SALIDAS]) -> bool) -> Cuenta {
+    dibujar_todo(reglas, efectos, vertices, tris, destino, posicion, ps, None)
+}
+
+/// E2.5 (05-10): [`dibujar_con`] con un sombreador de pixeles que usa las
+/// OLAS: los pixeles de cada triangulo que llegan al sombreador (con las
+/// mismas pruebas de antes, y sus escrituras tempranas) se sombrean juntos,
+/// en cuadros de 2x2 con sus AYUDANTES y en olas (`crate::cuadros`), y
+/// luego cada uno se pone como siempre ([`poner_pixel`]: las pruebas de
+/// despues, el stencil, la profundidad, la cuenta y la mezcla).
+#[allow(clippy::too_many_arguments)]
+pub fn dibujar_en_olas(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, olas: crate::cuadros::Olas) -> Cuenta {
+    dibujar_todo(reglas, efectos, vertices, tris, destino, posicion, |_, _| false, Some(olas))
+}
+
+/// Lo que dio el de pixeles: sus colores, y ya empaquetados (`None`: lo tiro).
+type Salida = Option<([[f32; 4]; SALIDAS], [u32; OBJETIVOS])>;
+
+/// **Lo que el bucle sabe de un pixel al llegar al de pixeles** (E2.5): su
+/// indice, la operacion de stencil si no paso (`fallo`), y su profundidad
+/// para escribir o para probar despues (`tarde`).
+struct Pendiente {
+    i: usize,
+    fallo: Option<u8>,
+    z_nueva: Option<u32>,
+    z_tarde: Option<f32>,
+}
+
+/// Lo de todo el dibujo que hace falta para poner un pixel.
+struct Comun<'r> {
+    reglas: &'r Reglas,
+    temprana: bool,
+    /// El stencil se prueba despues del de pixeles (`tarde` y, 05-10, con
+    /// SV_StencilRef tambien con SV_Depth), con la referencia que diga el.
+    tarde: bool,
+    prueba: Option<Profundidad>,
+    texeles: usize,
+    n_rt: usize,
+    bgra: [bool; OBJETIVOS],
+    referencia: bool,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn dibujar_todo(reglas: &Reglas, efectos: Efectos, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, posicion: Option<usize>, mut ps: impl FnMut(&[[f32; 4]], &mut [[f32; 4]; SALIDAS]) -> bool, mut olas: Option<crate::cuadros::Olas>) -> Cuenta {
     let mut cuenta = Cuenta::default();
+    // La profundidad, despues del sombreador: la suya (SV_Depth) o la de la
+    // trama con UAV (`tarde`).
+    let tarde = (efectos.uav || efectos.referencia) && !efectos.temprana && !reglas.z_del_sombreador;
+    let st_tarde = tarde || efectos.referencia;
     let [vx, vy, vw, vh, zmin, zmax] = reglas.viewport;
-    let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= destino.pixeles.len()));
+    let texeles = destino.ancho as usize * destino.alto as usize;
+    let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= texeles));
+    let plantilla = reglas.stencil.filter(|_| destino.stencil.as_ref().is_some_and(|s| s.len() >= texeles));
     let (mw, mh) = (vw * 0.5, vh * 0.5);
     let (ox, oy) = (vx + mw, vy + mh);
     // El rectangulo donde se puede pintar: viewport, tijera y destino.
@@ -278,9 +458,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
     // La memoria del sombreador de pixeles: lo ultimo que entro y lo que dio.
     // Con los colores SIN mezclar (N5.11: la mezcla depende del pixel que ya
     // esta, la memoria no) y ya empaquetados para los que no mezclan.
-    type Salida = Option<([[f32; 4]; SALIDAS], [u32; OBJETIVOS])>;
     let mut ultima: Option<(Vec<[f32; 4]>, Salida)> = None;
-    let mezclas = reglas.mezcla;
     // Cuantos render targets se pintan, y el orden de bytes de cada uno.
     let n_rt = (1 + destino.otros.len()).min(OBJETIVOS);
     let mut bgra = [false; OBJETIVOS];
@@ -288,6 +466,9 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
     for (k, o) in destino.otros.iter().take(OBJETIVOS - 1).enumerate() {
         bgra[k + 1] = o.bgra;
     }
+    let comun = Comun { reglas, temprana: efectos.temprana, tarde: st_tarde, prueba, texeles, n_rt, bgra, referencia: efectos.referencia };
+    // E2.5: con olas, los pixeles que llegan al sombreador, para despues.
+    let mut pendientes: Vec<(Pendiente, i64, i64, Vec<[f32; 4]>)> = Vec::new();
     let mut entrada: Vec<[f32; 4]> = Vec::new();
     // El recorte: los triangulos que cruzan un plano se cambian, EN SU
     // SITIO, por el abanico de lo que queda; sus vertices nuevos van detras
@@ -295,6 +476,9 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
     let n = vertices.len();
     let mut extra: Vec<Sombreado> = Vec::new();
     let mut lista: Vec<[usize; 3]> = Vec::with_capacity(tris.len());
+    // N5.16b: con DepthClipEnable = FALSE, los planos de z no cuentan (la
+    // banda de x e y si: sigue dejando fuera lo de detras del ojo).
+    let desde = if reglas.descarte & SIN_RECORTE_Z != 0 { 2 } else { 0 };
     for t in tris {
         let Some(v) = t.iter().map(|&i| vertices.get(i)).collect::<Option<Vec<_>>>() else {
             cuenta.descartados += 1;
@@ -304,12 +488,12 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
             cuenta.descartados += 1;
             continue;
         }
-        if v.iter().all(|v| planos(&v.pos).iter().all(|&d| d >= 0.0) && v.pos[3] > 0.0) {
+        if v.iter().all(|v| planos(&v.pos)[desde..].iter().all(|&d| d >= 0.0) && v.pos[3] > 0.0) {
             lista.push(*t);
             continue;
         }
         cuenta.recortados += 1;
-        let poli = recortar([v[0], v[1], v[2]]);
+        let poli = recortar([v[0], v[1], v[2]], desde);
         if poli.len() < 3 {
             cuenta.descartados += 1;
             continue;
@@ -341,7 +525,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
         let area = arista(x[0], y[0], x[1], y[1], x[2], y[2]);
         // En pantalla (y hacia abajo), area > 0 es sentido HORARIO.
         let delante = if reglas.antihorario { area < 0 } else { area > 0 };
-        let fuera = match reglas.descarte {
+        let fuera = match reglas.descarte & !SIN_RECORTE_Z {
             2 => delante,
             3 => !delante,
             _ => false,
@@ -359,7 +543,10 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
             inv_w.swap(1, 2);
         }
         let v = [v[o[0]], v[o[1]], v[o[2]]];
-        // La profundidad de cada vertice, ya en el rango del viewport.
+        // 05-10: la cara de stencil de este triangulo, por su giro.
+        let cara = plantilla.map(|s| if delante { s.delante } else { s.detras });
+        // La profundidad de cada vertice, ya en el rango del viewport (sin
+        // recorte en z puede salirse: la prueba la sujeta, abajo).
         let zv: [f32; 3] = core::array::from_fn(|k| zmin + v[k].pos[2] * inv_w[k] * (zmax - zmin));
         cuenta.dibujados += 1;
         let n = v[0].atributos.len().min(v[1].atributos.len()).min(v[2].atributos.len());
@@ -371,6 +558,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
         entrada.clear();
         entrada.extend(v[0].atributos[..n].iter().copied());
         let incluye = [top_left(x[1], y[1], x[2], y[2]), top_left(x[2], y[2], x[0], y[0]), top_left(x[0], y[0], x[1], y[1])];
+        let tri = Tri { x, y, inv_w, zv, v, constante, plano, incluye, zmin, zmax };
         let c = SUBPIXEL / 2;
         let (min_x, max_x) = (x[0].min(x[1]).min(x[2]), x[0].max(x[1]).max(x[2]));
         let (min_y, max_y) = (y[0].min(y[1]).min(y[2]), y[0].max(y[1]).max(y[2]));
@@ -380,54 +568,66 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
         let py1 = (max_y - c).div_euclid(SUBPIXEL).min(y1);
         for py in py0..=py1 {
             for px in px0..=px1 {
-                let (cx, cy) = (px * SUBPIXEL + c, py * SUBPIXEL + c);
-                let e = [
-                    arista(x[1], y[1], x[2], y[2], cx, cy),
-                    arista(x[2], y[2], x[0], y[0], cx, cy),
-                    arista(x[0], y[0], x[1], y[1], cx, cy),
-                ];
-                if !(0..3).all(|k| e[k] > 0 || (e[k] == 0 && incluye[k])) {
+                let e = tri.aristas(px, py);
+                if !tri.cubre(&e) {
                     continue;
                 }
                 let i = (py * ancho + px) as usize;
                 let mut z_nueva = None;
-                if let (Some(p), Some(zs)) = (prueba.filter(|_| !reglas.z_del_sombreador), destino.z.as_deref_mut()) {
-                    // Lineal en pantalla: los pesos de las aristas, sin w.
-                    let s = (e[0] + e[1] + e[2]) as f32;
-                    let (b1, b2) = (e[1] as f32 / s, e[2] as f32 / s);
-                    let z = (zv[0] + b1 * (zv[1] - zv[0]) + b2 * (zv[2] - zv[0])).clamp(zmin.min(zmax), zmin.max(zmax));
-                    if !p.pasa(z, f32::from_bits(zs[i])) {
-                        cuenta.tapados += 1;
-                        continue;
-                    }
-                    if p.escribir {
+                let mut z_tarde = None;
+                // 05-10: el stencil, con la profundidad, y los dos ANTES del
+                // de pixeles (`fallo`: la operacion de stencil de un pixel que
+                // NO se pinta) -- salvo con UAV y sin [earlydepthstencil]
+                // (`tarde`): entonces el de pixeles corre en todos y los dos se
+                // prueban DESPUES, como en D3D.
+                let mut fallo = match (cara, destino.stencil.as_deref()) {
+                    (Some(c), Some(s)) if !st_tarde && !c.prueba(s[i]) => Some(c.falla),
+                    _ => None,
+                };
+                if let (None, Some(p), Some(zs)) = (fallo, prueba.filter(|_| !reglas.z_del_sombreador), destino.z.as_deref_mut()) {
+                    let z = tri.z(&e);
+                    if tarde {
+                        z_tarde = Some(z);
+                    } else if !p.pasa(z, f32::from_bits(zs[i])) {
+                        fallo = Some(cara.map_or(crate::stencil::KEEP, |c| c.falla_z));
+                    } else if p.escribir && efectos.temprana {
+                        zs[i] = z.to_bits();
+                    } else if p.escribir {
                         z_nueva = Some(z.to_bits());
                     }
                 }
-                cuenta.pixeles += 1;
-                if !plano {
-                    // Con perspectiva: los pesos de pantalla sobre w.
-                    let b = [e[0] as f32 * inv_w[0], e[1] as f32 * inv_w[1], e[2] as f32 * inv_w[2]];
-                    let s = b[0] + b[1] + b[2];
-                    let (b1, b2) = (b[1] / s, b[2] / s);
-                    for (a, fija) in constante.iter().enumerate() {
-                        for k in 0..4 {
-                            if !fija[k] {
-                                let a0 = v[0].atributos[a][k];
-                                entrada[a][k] = a0 + b1 * (v[1].atributos[a][k] - a0) + b2 * (v[2].atributos[a][k] - a0);
-                            }
-                        }
+                // [earlydepthstencil]: el stencil se ESCRIBE ya, como la
+                // profundidad de arriba (un `discard` ya no lo deshace), y lo
+                // que no pasa no corre el de pixeles.
+                if efectos.temprana {
+                    if let (Some(c), Some(s)) = (cara, destino.stencil.as_deref_mut()) {
+                        s[i] = c.aplicar(fallo.unwrap_or(c.pasa), s[i]);
+                    }
+                    if fallo.is_some() {
+                        cuenta.tapados += 1;
+                        continue;
                     }
                 }
-                if let Some(a) = posicion.filter(|&a| a < entrada.len()) {
-                    let s = (e[0] + e[1] + e[2]) as f32;
-                    let (b1, b2) = (e[1] as f32 / s, e[2] as f32 / s);
-                    let z = zv[0] + b1 * (zv[1] - zv[0]) + b2 * (zv[2] - zv[0]);
-                    let w = 1.0 / ((1.0 - b1 - b2) * inv_w[0] + b1 * inv_w[1] + b2 * inv_w[2]);
-                    entrada[a] = [px as f32 + 0.5, py as f32 + 0.5, z, w];
+                match fallo {
+                    // Su operacion de stencil vale solo si el de pixeles no
+                    // lo tira (ver `stencil.rs`): si cambiaria algo, se corre.
+                    Some(op) => {
+                        cuenta.tapados += 1;
+                        if !cara.is_some_and(|c| c.cambia(op)) {
+                            continue;
+                        }
+                    }
+                    None => cuenta.pixeles += 1,
+                }
+                tri.entrada(&e, px, py, posicion, &mut entrada);
+                let pendiente = Pendiente { i, fallo, z_nueva, z_tarde };
+                // E2.5: con olas, se sombrea con sus vecinos, despues.
+                if olas.is_some() {
+                    pendientes.push((pendiente, px, py, entrada.clone()));
+                    continue;
                 }
                 let pixel = match &ultima {
-                    Some((antes, p)) if antes.len() == entrada.len() && antes.iter().zip(&entrada).all(|(a, b)| a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())) => *p,
+                    Some((antes, p)) if !efectos.uav && antes.len() == entrada.len() && antes.iter().zip(&entrada).all(|(a, b)| a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())) => *p,
                     _ => {
                         cuenta.sombreados += 1;
                         let mut colores = [[0.0f32; 4]; SALIDAS];
@@ -436,42 +636,132 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                         p
                     }
                 };
-                let Some((colores, pixel)) = pixel else {
-                    cuenta.tirados += 1;
-                    continue;
-                };
-                // SV_Depth: la prueba, ahora, con la Z del sombreador (D3D la
-                // recorta al rango del viewport).
-                if let (true, Some(p), Some(zs)) = (reglas.z_del_sombreador, prueba, destino.z.as_deref_mut()) {
-                    let z = colores[PROFUNDIDAD][0].clamp(zmin.min(zmax), zmin.max(zmax));
-                    if !p.pasa(z, f32::from_bits(zs[i])) {
-                        cuenta.tapados += 1;
-                        continue;
-                    }
-                    if p.escribir {
-                        z_nueva = Some(z.to_bits());
-                    }
-                }
-                cuenta.pasan += 1;
-                if let (Some(z), Some(zs)) = (z_nueva, destino.z.as_deref_mut()) {
-                    zs[i] = z;
-                }
-                // El render target `k`: el pixel nuevo, o mezclado con el que esta.
-                let poner = |k: usize, p: &mut u32| {
-                    let m = &mezclas.rt[k];
-                    *p = if m.trivial() { pixel[k] } else { empaquetar(m.aplicar(colores[k], desempaquetar(*p, bgra[k]), mezclas.factor), bgra[k]) };
-                };
-                // N5.12: sin render target (solo profundidad), `pixeles` va vacio.
-                if let Some(p) = destino.pixeles.get_mut(i) {
-                    poner(0, p);
-                }
-                for (k, o) in destino.otros.iter_mut().take(n_rt - 1).enumerate() {
-                    if let Some(p) = o.pixeles.as_deref_mut().and_then(|p| p.get_mut(i)) {
-                        poner(k + 1, p);
-                    }
-                }
+                poner_pixel(&comun, destino, &mut cuenta, cara, pendiente, pixel);
+            }
+        }
+        // E2.5: los del triangulo, en cuadros y olas, y cada uno a su sitio.
+        if let Some(o) = olas.as_mut() {
+            // Uno que no paso el stencil corre solo para saber si lo tira
+            // (su operacion de stencil cambiaria algo): en la ola, AYUDANTE
+            // (D3D ni lo correria: ni cuenta en las olas ni escribe UAV).
+            let reales: Vec<(i64, i64, &[[f32; 4]], bool)> = pendientes.iter().map(|(p, px, py, e)| (*px, *py, e.as_slice(), p.fallo.is_some())).collect();
+            let hechos = crate::cuadros::sombrear(&tri, &reales, posicion, &mut **o);
+            for ((pendiente, ..), hecho) in pendientes.drain(..).zip(hechos) {
+                cuenta.sombreados += 1;
+                let pixel = hecho.map(|colores| (colores, core::array::from_fn(|k| if k < n_rt { empaquetar(colores[k], bgra[k]) } else { 0 })));
+                poner_pixel(&comun, destino, &mut cuenta, cara, pendiente, pixel);
             }
         }
     }
     cuenta
 }
+
+/// **Poner un pixel ya sombreado** (sacado del bucle de [`dibujar_con`] el
+/// 05-10, E2.5, para que un pixel de una ola se ponga igual): lo que va
+/// DESPUES del de pixeles, en el orden de D3D -- el stencil de un pixel que
+/// no paso, las pruebas de despues (`tarde`, SV_Depth), la cuenta de los
+/// que pasan, la profundidad, el stencil y la mezcla en cada render target.
+fn poner_pixel(k: &Comun, destino: &mut Destino, cuenta: &mut Cuenta, cara: Option<crate::stencil::Cara>, p: Pendiente, pixel: Salida) {
+    let Pendiente { i, fallo, mut z_nueva, z_tarde } = p;
+    let (reglas, prueba, n_rt, bgra) = (k.reglas, k.prueba, k.n_rt, k.bgra);
+    let (zmin, zmax) = (reglas.viewport[4], reglas.viewport[5]);
+    let mezclas = reglas.mezcla;
+    // Palabras por texel de un render target de float (N5.16b): cuatro, o
+    // una (un R32F, como lo guarda la casa); lo dice lo que mide.
+    let palabras = |n: usize| if n >= 4 * k.texeles { 4 } else { 1 };
+    let Some((colores, pixel)) = pixel else {
+        if fallo.is_none() {
+            cuenta.tirados += 1;
+        }
+        return;
+    };
+    // SV_StencilRef: la referencia de ESTE pixel, para la prueba y REPLACE.
+    let cara = cara.map(|c| if k.referencia { crate::stencil::Cara { referencia: colores[REFERENCIA][0].to_bits() as u8, ..c } } else { c });
+    if let (Some(op), Some(c), Some(s)) = (fallo, cara, destino.stencil.as_deref_mut()) {
+        s[i] = c.aplicar(op, s[i]);
+        return;
+    }
+    // `tarde` (UAV sin [earlydepthstencil], o SV_StencilRef): el stencil, ahora.
+    if let (true, Some(c), Some(s)) = (k.tarde, cara, destino.stencil.as_deref_mut()) {
+        if !c.prueba(s[i]) {
+            cuenta.tapados += 1;
+            s[i] = c.aplicar(c.falla, s[i]);
+            return;
+        }
+    }
+    // SV_Depth: la prueba, ahora, con la Z del sombreador (D3D la
+    // recorta al rango del viewport); con UAV, con la de la trama.
+    let z_despues = if reglas.z_del_sombreador { Some(colores[PROFUNDIDAD][0].clamp(zmin.min(zmax), zmin.max(zmax))) } else { z_tarde };
+    if let (Some(z), Some(p), Some(zs)) = (z_despues, prueba, destino.z.as_deref_mut()) {
+        if !p.pasa(z, f32::from_bits(zs[i])) {
+            cuenta.tapados += 1;
+            if let (Some(c), Some(s)) = (cara, destino.stencil.as_deref_mut()) {
+                s[i] = c.aplicar(c.falla_z, s[i]);
+            }
+            return;
+        }
+        if p.escribir {
+            z_nueva = Some(z.to_bits());
+        }
+    }
+    cuenta.pasan += 1;
+    if let (Some(z), Some(zs)) = (z_nueva, destino.z.as_deref_mut()) {
+        zs[i] = z;
+    }
+    // Con [earlydepthstencil] ya se escribio arriba.
+    if let (false, Some(c), Some(s)) = (k.temprana, cara, destino.stencil.as_deref_mut()) {
+        s[i] = c.aplicar(c.pasa, s[i]);
+    }
+    // El render target `k`: el pixel nuevo, o mezclado con el que esta.
+    let poner = |k: usize, p: &mut u32| {
+        let m = &mezclas.rt[k];
+        *p = if m.trivial() { pixel[k] } else { empaquetar(m.aplicar(colores[k], desempaquetar(*p, bgra[k]), mezclas.factor), bgra[k]) };
+    };
+    // N5.16: el de un render target de float, en float: mezclado
+    // con el que esta y cuantizado a su formato. N5.16b: con una
+    // palabra por texel (R32F), el r; lo demas se lee (0, 0, 1).
+    // 05-10: uno de ENTEROS (R32_UINT, RGBA16_SINT...) guarda los bits del
+    // sombreador saturados a su canal (`formato_ia::de_entero`), SIN mezcla
+    // (D3D no mezcla enteros) y con su mascara de escritura.
+    let poner_f = |k: usize, f: u32, t: &mut [u32]| {
+        let entero = crate::formato_ia::de_entero(f, colores[k]);
+        let m = crate::mezcla::Mezcla { encendida: mezclas.rt[k].encendida && entero.is_none(), ..mezclas.rt[k] };
+        let d: [f32; 4] = core::array::from_fn(|c| t.get(c).map_or(if c == 3 { 1.0 } else { 0.0 }, |&w| f32::from_bits(w)));
+        let o = entero.unwrap_or(colores[k]);
+        let c = if m.trivial() { o } else { m.aplicar(o, d, mezclas.factor) };
+        for (w, x) in t.iter_mut().zip(if entero.is_some() { c } else { crate::formato_ia::cuantizar(f, c) }) {
+            *w = x.to_bits();
+        }
+    };
+    // N5.12: sin render target (solo profundidad), `pixeles` va vacio.
+    match destino.flotante {
+        Some(f) => {
+            let w = palabras(destino.pixeles.len());
+            if let Some(t) = destino.pixeles.get_mut(w * i..w * i + w) {
+                poner_f(0, f, t);
+            }
+        }
+        None => {
+            if let Some(p) = destino.pixeles.get_mut(i) {
+                poner(0, p);
+            }
+        }
+    }
+    for (k, o) in destino.otros.iter_mut().take(n_rt - 1).enumerate() {
+        match (o.flotante, o.pixeles.as_deref_mut()) {
+            (Some(f), Some(p)) => {
+                let w = palabras(p.len());
+                if let Some(t) = p.get_mut(w * i..w * i + w) {
+                    poner_f(k + 1, f, t);
+                }
+            }
+            (None, Some(p)) => {
+                if let Some(p) = p.get_mut(i) {
+                    poner(k + 1, p);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+

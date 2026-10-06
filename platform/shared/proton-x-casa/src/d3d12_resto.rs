@@ -14,7 +14,7 @@
 //!                 MakeResident/Evict y SetStablePowerState (todo residente,
 //!                 nada que fijar), CreateQueryHeap, CreateCommandSignature,
 //!                 CreateComputePipelineState (se guarda; aun no corre)
-//!    cola         Wait (la cola es sincrona), GetTimestampFrequency (ns),
+//!    cola         Wait (retiene la cola: d3d12_colas), GetTimestampFrequency (ns),
 //!                 GetClockCalibration, GetDesc, los marcadores de PIX
 //!    lista        GetType, ClearState, CopyBufferRegion, CopyResource,
 //!                 ResolveSubresource (una muestra: copiar), Begin/EndQuery y
@@ -83,7 +83,7 @@ pub(crate) fn lista() -> [(usize, u64); 32] {
         (17, dir!(copy_resource)),
         (19, dir!(resolve_subresource)),
         (23, dir!(om_set_blend_factor)),
-        (24, dir!(om_set_stencil_ref)),
+        (24, dir!(crate::d3d12_stencil::om_set_stencil_ref)),
         (27, dir!(execute_bundle)),
         (29, dir!(set_compute_root_signature)),
         (31, dir!(set_compute_root_descriptor_table)),
@@ -167,11 +167,17 @@ extern "win64" fn create_compute_pipeline_state(_this: u64, desc: *const u8, rii
         return E_INVALIDARG;
     }
     let (raiz, cs, n) = (u64_de(desc, 0), u64_de(desc, 8), u64_de(desc, 16) as usize);
-    if raiz == 0 || cs == 0 || n == 0 {
+    if cs == 0 || n == 0 {
         return E_INVALIDARG;
     }
     // SAFETY: `n` bytes del sombreador, del `.exe`.
     let cs = unsafe { core::slice::from_raw_parts(cs as *const u8, n) }.to_vec();
+    // 06-10: sin root signature, la que traiga el sombreador (como D3D12).
+    let raiz = if raiz != 0 { raiz } else { crate::tuberia::firma_del_sombreador(&cs).unwrap_or(0) };
+    if raiz == 0 {
+        aviso("CreateComputePipelineState sin root signature, ni dentro de su sombreador: en Windows es un error");
+        return E_INVALIDARG;
+    }
     // N5.5: compilar al CREAR (lo de DXVK: al cargar, no al dibujar).
     let preparado = bmo_proton_x::dxil::computo::preparar(&cs);
     if let Err(m) = &preparado {
@@ -392,12 +398,15 @@ extern "win64" fn marcador(_this: u64, _meta: u32, _datos: *const u8, _n: u32) {
 
 extern "win64" fn fin_de_evento(_this: u64) {}
 
-/// `Wait(this, valla, valor)`: la cola es sincrona; lo que la valla espere
-/// lo pondra quien la marque, y la cola no tiene nada pendiente que retener.
-extern "win64" fn queue_wait(_this: u64, valla: u64, _valor: u64) -> i32 {
+/// `Wait(this, valla, valor)`: la COLA (no la CPU) espera a que la valla
+/// llegue. E2.1 (05-10): si no ha llegado, la cola queda retenida y lo que
+/// se le mande corre cuando llegue (`d3d12_colas`); antes no hacia nada y
+/// lo de detras corria antes de tiempo.
+extern "win64" fn queue_wait(this: u64, valla: u64, valor: u64) -> i32 {
     if valla == 0 {
         return E_INVALIDARG;
     }
+    crate::d3d12_colas::wait(this, valla, valor);
     S_OK
 }
 
@@ -515,8 +524,6 @@ extern "win64" fn om_set_blend_factor(this: u64, f: *const f32) {
     unsafe { crate::d3d12::lista(this).estado.factor_mezcla = (!f.is_null()).then(|| [f.read_unaligned(), f.add(1).read_unaligned(), f.add(2).read_unaligned(), f.add(3).read_unaligned()]) };
 }
 
-extern "win64" fn om_set_stencil_ref(_this: u64, _r: u32) {}
-
 /// Lo de `bundle` que se PUSO (no es lo de serie), encima de `base`: lo que
 /// un bundle hereda de la lista que lo llama y lo que deja de vuelta.
 fn encima(base: &Estado, bundle: &Estado) -> Estado {
@@ -551,6 +558,9 @@ fn encima(base: &Estado, bundle: &Estado) -> Estado {
     }
     if bundle.factor_mezcla.is_some() {
         e.factor_mezcla = bundle.factor_mezcla;
+    }
+    if bundle.stencil_ref != [0; 2] {
+        e.stencil_ref = bundle.stencil_ref;
     }
     e
 }
@@ -749,23 +759,53 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool) {
     }
     // SAFETY: un Recurso de la casa (lo dice su ranura).
     let formato = unsafe { de::<Recurso>(r[0]) }.formato;
-    let texel = match Almacen::de(formato) {
+    // N5.16b: los cuatro floats de un RGBA16F, R11G11B10F...: el valor en el
+    // formato de la vista (la Uint, sus bits tal cual; la Float, convertido)
+    // y leido de vuelta, como lo guarda la casa. Los demas, una palabra.
+    let (texel, k): ([u32; 4], usize) = match Almacen::de(formato) {
         Almacen::Rgba8 | Almacen::Bgra8 => {
             let f = if Almacen::de(formato) == Almacen::Bgra8 { 87 } else { 28 };
             let e = bmo_proton_x::formato_ia::empaquetar(f, v, crudo).unwrap_or_default();
-            u32::from_le_bytes([e[0], e[1], e[2], e[3]])
+            ([u32::from_le_bytes([e[0], e[1], e[2], e[3]]), 0, 0, 0], 1)
         }
-        Almacen::Flotante => v[0],
+        Almacen::Flotante => ([v[0], 0, 0, 0], 1),
         Almacen::Bloques(_) => {
             aviso("ClearUnorderedAccessView de una textura de bloques: en Windows es un error");
             return;
         }
+        Almacen::Flotantes4 => {
+            let ((_, vista, _), _) = crate::d3d12_vistas::leer(r);
+            let f = Almacen::nativo(if vista != 0 { vista } else { formato });
+            let Some(e) = bmo_proton_x::formato_ia::empaquetar(f, v, crudo) else {
+                aviso("ClearUnorderedAccessView de una textura de float con una vista que la casa aun no escribe: no se limpia");
+                return;
+            };
+            (bmo_proton_x::formato_ia::leer(f, &e).map(f32::to_bits), 4)
+        }
     };
+    // 06-10: la vista de un 3D (8) o de un array de 2D (5): TODAS sus
+    // rebanadas (o capas), no solo la primera.
+    if dimension == 5 || dimension == 8 {
+        crate::tuberia::aplicar_limpieza(r[0]);
+        // Un formato de 4 o de 16 bytes por texel: lo que mide cada uno.
+        let medida = if k == 4 { 2 | bmo_proton_x::bufer::CUATRO_FLOATS } else { 42 };
+        let Some(mut u) = crate::computo::rebanadas_de(r, dimension == 8, medida) else { return };
+        for z in 0..u.rebanadas.capas {
+            if let Some(s) = u.rebanada(z) {
+                for t in s.bytes.chunks_exact_mut(4 * k) {
+                    for (c, w) in t.chunks_exact_mut(4).zip(&texel[..k]) {
+                        c.copy_from_slice(&w.to_le_bytes());
+                    }
+                }
+            }
+        }
+        return;
+    }
     if r[3] == 0 {
         crate::tuberia::olvidar_limpieza(r[0]);
     }
     match crate::tuberia::destino(r[0], r[3]) {
-        Some((px, _, _)) => px.fill(texel),
+        Some((px, _, _)) => px.chunks_exact_mut(k).for_each(|t| t.copy_from_slice(&texel[..k])),
         None => aviso("ClearUnorderedAccessView de un subrecurso que la textura no tiene"),
     }
 }
@@ -934,6 +974,7 @@ pub(crate) fn ejecutar(o: &Orden) {
         // SAFETY: comprobado al apuntar: cuatro bytes de un bufer de la casa.
         Orden::Escribir { dst, valor } => unsafe { (dst as *mut u32).write_unaligned(valor) },
         Orden::LimpiarUav { ref ranura, valores, crudo } => limpiar_uav(ranura, valores, crudo),
+        Orden::LimpiarStencil { recurso, sub, valor } => crate::d3d12_stencil::limpiar(recurso, sub, valor),
         Orden::Despachar { ref estado, grupos } => crate::computo::despachar(estado, grupos),
         Orden::Indirecto { ref estado, firma, max, args, args_off, cuenta, cuenta_off } => indirecto(estado, firma, max, args, args_off, cuenta, cuenta_off),
         _ => {}
@@ -956,6 +997,8 @@ fn copiar_entero(dst: u64, src: u64) {
                 // guardan igual: mismas medidas por dentro.
                 (Some(td), Some(ts)) if td.almacen.elemento() == ts.almacen.elemento() && td.subs == ts.subs => {
                     let n: u64 = ts.subs.iter().map(|x| x.bytes()).sum();
+                    // 05-10: y el plano de stencil detras, si los dos lo tienen.
+                    let n = n + crate::d3d12_stencil::bytes_de_mas(&ts.forma, n).min(crate::d3d12_stencil::bytes_de_mas(&td.forma, n));
                     // SAFETY: las dos memorias de texturas de la casa, de `n` bytes.
                     unsafe { core::ptr::copy(ts.datos as *const u8, td.datos as *mut u8, n as usize) };
                 }

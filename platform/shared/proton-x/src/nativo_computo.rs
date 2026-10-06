@@ -12,7 +12,8 @@
 //! nBodyGravity hace 10.000 x 10.000 interacciones por paso: el interprete,
 //! a 1,4 millones por segundo sin optimizar, tardaria 73 s en cada uno. Esto
 //! es lo de `nativo.rs` (el x86 sin saltos de los dibujos) con lo que el
-//! computo necesita:
+//! computo necesita (y desde la VELOCIDAD, 05-10, tambien el cuerpo de los
+//! dibujos que SALTAN: `nativo.rs` le pone delante su llamada):
 //!
 //! ```text
 //!    la llamada   rdi = los registros del hilo (f32), rsi = el [`Contexto`],
@@ -27,16 +28,21 @@
 //!    lo de fuera  la memoria compartida, los SRV y los UAV de bufer y los
 //!                 ids del hilo, del contexto; lo que pasa de su vista da 0
 //!                 al leer y no se escribe, como en el interprete
+//!    lo que LLAMA (X2, 05-10) la matematica de `mates.rs` y, en un dibujo,
+//!                 las texturas: un `call` a la funcion de Rust del
+//!                 interprete (`nativo_llamadas`), los mismos bits; y el
+//!                 cbuffer con fila CALCULADA, mirado contra su medida
 //! ```
 //!
 //! Lo que no traduce (devuelve `None` y el Dispatch va por el interprete):
-//! las texturas, la matematica de `mates.rs`, los buferes tipados y los
-//! cbuffers con fila calculada.
+//! las texturas de un CS (su Dispatch no pone quien las lea) y sus buferes
+//! tipados.
 
 use alloc::vec::Vec;
 
 use crate::bufer::Modo;
 use crate::dxil::programa::{Comparacion, Conversion, Lectura, Op, OpEntera, Programa, Reg};
+use crate::nativo_llamadas::{L_CB_BYTES, L_DATOS, L_MATE, L_TEXTURA};
 
 /// Los SRV y los UAV que ve, como mucho (por ranura).
 pub const VISTAS: usize = 8;
@@ -73,16 +79,22 @@ pub struct Contexto {
     /// Las entradas y las salidas (`[f32; 4]` por elemento), si las hay.
     pub entradas: *const [f32; 4],
     pub salidas: *mut [f32; 4],
+    /// X2 (05-10): a quien llama (la matematica, las texturas) y la medida
+    /// del cbuffer: ver [`crate::nativo_llamadas::Llamadas`].
+    pub llamadas: *const crate::nativo_llamadas::Llamadas,
     pub srv: [Vista; VISTAS],
     pub uav: [Vista; VISTAS],
 }
 
 const C_IDS: i32 = 0;
-const C_REANUDAR: i32 = 40;
-const C_COMPARTIDA: i32 = 48;
-const C_ENTRADAS: i32 = 56;
-const C_SALIDAS: i32 = 64;
-const C_SRV: i32 = 72;
+// Estos cinco, tambien de `nativo.rs`: el VS o el PS con saltos se traduce
+// con esto, y su entrada pone un `Contexto` a medias en la pila (solo estos).
+pub(crate) const C_REANUDAR: i32 = 40;
+pub(crate) const C_COMPARTIDA: i32 = 48;
+pub(crate) const C_ENTRADAS: i32 = 56;
+pub(crate) const C_SALIDAS: i32 = 64;
+pub(crate) const C_LLAMADAS: i32 = 72;
+const C_SRV: i32 = 80;
 const C_UAV: i32 = C_SRV + VISTA * VISTAS as i32;
 /// Lo que mide una [`Vista`].
 const VISTA: i32 = 32;
@@ -101,9 +113,31 @@ const V_CONTADOR: i32 = 24;
 pub const ACABO: u32 = 0;
 pub const BARRERA: u32 = 1;
 pub const DESCARTADO: u32 = 2;
+/// X3 (06-10): un dibujo se paro en una DERIVADA (o en varias seguidas):
+/// `reanudar` dice en cual ([`paradas`]). La casa resta los carriles del
+/// cuadro de 2x2, pone el resultado en sus registros y lo vuelve a llamar.
+pub const OLA: u32 = 3;
 
-/// El MXCSR de D3D: todas las excepciones tapadas, al mas cercano.
-const MXCSR_D3D: u32 = 0x1F80;
+/// **Los puntos donde se para el cuerpo** (X3, 06-10), en orden: el `k`
+/// que deja en `reanudar` es la posicion `k - 1` de esta lista. Cada uno,
+/// los indices de sus operaciones: una barrera, o (en un dibujo) una racha
+/// de derivadas SEGUIDAS (`Op::Ola` con `Ola::Derivada`), que se resuelven
+/// juntas y en su orden.
+pub fn paradas(p: &Programa, dibujo: bool) -> Vec<Vec<usize>> {
+    let deriva = |o: &Op| dibujo && matches!(o, Op::Ola { que: crate::dxil::olas::Ola::Derivada { .. }, .. });
+    let mut v: Vec<Vec<usize>> = Vec::new();
+    for (k, o) in p.ops.iter().enumerate() {
+        if matches!(o, Op::Barrera) {
+            v.push(alloc::vec![k]);
+        } else if deriva(o) {
+            match v.last_mut() {
+                Some(g) if g.last() == Some(&(k - 1)) && deriva(&p.ops[k - 1]) => g.push(k),
+                _ => v.push(alloc::vec![k]),
+            }
+        }
+    }
+    v
+}
 
 // Los registros de x86-64 (su numero en ModRM, con el bit 3 en REX).
 const RAX: u8 = 0;
@@ -379,6 +413,57 @@ impl Emisor {
         self.campo(RDX, true, vista, V_DATOS);
         Some(fuera)
     }
+
+    // -- Lo que LLAMA (X2, 05-10): `nativo_llamadas` ---------------------------------
+
+    /// `mov rax, [r12 + llamadas]; call [rax + desp]`. Lo que vive en un
+    /// registro de los que se pisan (rax, rcx, rdx, rsi, rdi, r8..r11, los
+    /// xmm) no sobrevive: aqui todo esta en memoria o en rbx, r12..r14.
+    fn llamar(&mut self, desp: i32) {
+        self.mem(None, true, &[0x8B], RAX, CTX, C_LLAMADAS);
+        self.mem(None, false, &[0xFF], 2, RAX, desp); // call qword [rax + desp]
+    }
+
+    /// `d = mate(cual, a)`, la de `Mate::aplicar` (edi, esi -> eax).
+    fn mate(&mut self, d: Reg, a: Reg, cual: u32) {
+        self.inmediato(RDI, cual);
+        self.cargar(RSI, a);
+        self.llamar(L_MATE);
+        self.guardar(d, RAX);
+    }
+
+    /// La operacion `k` (una lectura de textura) por la llamada de la casa:
+    /// `textura(datos, registros, k)` (rdi, rsi, edx).
+    fn textura(&mut self, k: u32) {
+        self.mem(None, true, &[0x8B], RAX, CTX, C_LLAMADAS);
+        self.mem(None, true, &[0x8B], RDI, RAX, L_DATOS);
+        self.rr(None, true, &[0x89], REGS, RSI); // mov rsi, rbx
+        self.inmediato(RDX, k);
+        self.mem(None, false, &[0xFF], 2, RAX, L_TEXTURA);
+    }
+
+    /// `d..d+4` = la fila `fila + i` del cbuffer si `i < filas`, cada
+    /// palabra solo si cabe en su medida (`Llamadas::cb_bytes`); lo demas,
+    /// 0. Lo del interprete en `ConstantesEn`.
+    fn constantes_en(&mut self, d: Reg, fila: u16, filas: u16, i: Reg) {
+        self.cargar(RAX, i); // rax = i, sin signo
+        self.b.push(0x3D); // cmp eax, filas
+        self.b.extend_from_slice(&(filas as u32).to_le_bytes());
+        let fuera = self.salto_si(CC_AE);
+        self.mem(None, true, &[0x8D], RAX, RAX, fila as i32); // lea rax, [rax + fila]
+        self.b.extend_from_slice(&[0x48, 0xC1, 0xE0, 0x04]); // shl rax, 4: en bytes
+        self.mem(None, true, &[0x8B], R10, CTX, C_LLAMADAS);
+        self.mem(None, true, &[0x8B], R10, R10, L_CB_BYTES); // r10 = hasta
+        self.rr(None, true, &[0x89], CB, RDX); // mov rdx, r13
+        self.cuatro_palabras(d);
+        let listo = self.salto();
+        self.aqui(fuera);
+        self.rr(None, false, &[0x31], RCX, RCX);
+        for k in 0..4 {
+            self.guardar(d + k, RCX);
+        }
+        self.aqui(listo);
+    }
 }
 
 /// Los registros que algo escribe (para saber cuales son constantes).
@@ -410,15 +495,50 @@ fn escritos(op: &Op, mut f: impl FnMut(Reg)) {
         | Op::Entera { d, .. }
         | Op::Convierte { d, .. }
         | Op::Contador { d, .. }
+        | Op::Atomico { d, .. }
+        // X3: la escribe la casa al pararse (no es una constante).
+        | Op::Ola { d, .. }
         | Op::LeeIndexado { d, .. } => f(d),
         Op::EscribeIndexado { base, n, .. } => (0..n).for_each(|k| f(base + k)),
         _ => {}
     }
 }
 
-/// **Traducir un programa de computo** (o uno sin texturas con entradas y
-/// salidas) a x86-64. `None`: algo que todavia no sabe (va por el interprete).
+/// **Traducir un programa de computo** a x86-64. `None`: algo que todavia no
+/// sabe (va por el interprete). Sus texturas, no: su Dispatch no pone quien
+/// las lea (`Llamadas::textura` a 0).
 pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
+    compilar_con(p, false)
+}
+
+/// **Las ranuras de UAV que van por la LLAMADA** (06-10): las que el
+/// codigo no sabe tocar solo -- las de una textura (`Modo::Textura`: sus
+/// rebanadas, sus formatos) y las que tienen atomicos o `GetDimensions` --
+/// van ENTERAS por `operar_uav` del interprete (cada operacion sobre
+/// ellas, tambien las sencillas: asi nadie mas toca su memoria). Quien
+/// despacha se las da a la llamada y no al `Contexto` (`Vista::NULA`).
+pub fn uavs_llamados(p: &Programa) -> Vec<bool> {
+    let mut v = alloc::vec![false; VISTAS];
+    for o in &p.ops {
+        let u = match *o {
+            Op::Atomico { u, .. } | Op::MedidasUav { u, .. } => u,
+            Op::LeeUav { u, modo: Modo::Textura, .. } | Op::EscribeUav { u, modo: Modo::Textura, .. } => u,
+            _ => continue,
+        };
+        if let Some(x) = v.get_mut(u as usize) {
+            *x = true;
+        }
+    }
+    v
+}
+
+/// **El cuerpo de un dibujo** (`nativo.rs` le pone delante su llamada): lo
+/// de [`compilar`], y sus texturas por la llamada de la casa (X2, 05-10).
+pub(crate) fn compilar_dibujo(p: &Programa) -> Option<Vec<u8>> {
+    compilar_con(p, true)
+}
+
+fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
     // Los registros que nadie escribe son sus iniciales: constantes.
     let mut escrito = alloc::vec![false; p.iniciales.len()];
     for op in &p.ops {
@@ -429,7 +549,17 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
         });
     }
     let constante = |r: Reg| (!escrito.get(r as usize).copied().unwrap_or(true)).then(|| p.iniciales[r as usize].to_bits());
-    let barreras = p.ops.iter().filter(|o| matches!(o, Op::Barrera)).count();
+    // 06-10: en el computo, las ranuras de UAV que van por la llamada.
+    let llamados = if dibujo { alloc::vec![false; VISTAS] } else { uavs_llamados(p) };
+    let llamado = |u: u8| llamados.get(u as usize).copied().unwrap_or(false);
+    // Las barreras y (X3, en un dibujo) las rachas de derivadas: cada una,
+    // un punto donde para y por donde sigue.
+    let puntos = paradas(p, dibujo);
+    let barreras = puntos.len();
+    let mut punto_de = alloc::vec![None; p.ops.len()];
+    for (n, g) in puntos.iter().enumerate() {
+        punto_de[g[0]] = Some(n + 1);
+    }
     let mut e = Emisor { b: Vec::with_capacity(24 * p.ops.len() + 256) };
     // Prologo: los cinco que hay que conservar, el MXCSR, y los cuatro
     // punteros de la funcion en sus sitios.
@@ -437,10 +567,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
         e.push(r);
     }
     e.b.extend_from_slice(&[0x48, 0x83, 0xEC, 0x10]); // sub rsp, 16
-    e.b.extend_from_slice(&[0x0F, 0xAE, 0x1C, 0x24]); // stmxcsr [rsp]
-    e.b.extend_from_slice(&[0xC7, 0x44, 0x24, 0x04]); // mov dword [rsp+4], imm32
-    e.b.extend_from_slice(&MXCSR_D3D.to_le_bytes());
-    e.b.extend_from_slice(&[0x0F, 0xAE, 0x54, 0x24, 0x04]); // ldmxcsr [rsp+4]
+    crate::nativo::mxcsr_al_entrar(&mut e.b); // el de D3D, si no lo es ya
     e.rr(None, true, &[0x89], RDI, REGS); // mov rbx, rdi
     e.rr(None, true, &[0x89], RSI, CTX); // mov r12, rsi
     e.rr(None, true, &[0x89], RDX, CB); // mov r13, rdx
@@ -460,9 +587,32 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
     let mut sis: Vec<usize> = Vec::new();
     let mut bucles: Vec<(usize, Vec<usize>)> = Vec::new();
     let mut al_final: Vec<usize> = Vec::new();
-    let mut barrera = 0usize;
-    for op in &p.ops {
+    for (k, op) in p.ops.iter().enumerate() {
         match *op {
+            // X2 (05-10): en un dibujo, TODA lectura de textura (y de bufer:
+            // su entrada no pone vistas) por la llamada de la casa; la
+            // matematica, por `Mate::aplicar`; y el cbuffer con fila calculada.
+            // 06-10: y en el computo tambien (su Dispatch pone las llamadas),
+            // salvo los buferes, que el computo lee solo (abajo).
+            Op::Muestra { .. } | Op::EligeTextura { .. } => e.textura(k as u32),
+            Op::Lee { como, .. } if dibujo || !matches!(como, Lectura::Bufer(_)) => e.textura(k as u32),
+            // 06-10: lo de una ranura de UAV llamada, por la misma llamada.
+            Op::LeeUav { u, .. } | Op::EscribeUav { u, .. } | Op::Atomico { u, .. } | Op::MedidasUav { u, .. } | Op::Contador { u, .. } if llamado(u) => e.textura(k as u32),
+            // X3 (06-10): una racha de derivadas para el carril (OLA); la casa
+            // resta los del cuadro y lo vuelve a llamar. Las de despues de la
+            // primera de la racha, ya resueltas con ella.
+            Op::Ola { que: crate::dxil::olas::Ola::Derivada { .. }, .. } if dibujo => {
+                if let Some(n) = punto_de[k] {
+                    e.mem(None, false, &[0xC7], 0, CTX, C_REANUDAR); // mov dword [r12 + reanudar], n
+                    e.b.extend_from_slice(&(n as u32).to_le_bytes());
+                    e.inmediato(RAX, OLA);
+                    al_final.push(e.salto());
+                    let aqui = e.b.len();
+                    e.parchear(reanudar[n - 1], aqui);
+                }
+            }
+            Op::Mate { d, a, f } => e.mate(d, a, crate::nativo_llamadas::indice_mate(f)?),
+            Op::ConstantesEn { d, fila, filas, i, .. } => e.constantes_en(d, fila, filas, i),
             Op::Mul { d, a, b } | Op::Add { d, a, b } | Op::Sub { d, a, b } | Op::Div { d, a, b } => {
                 let x = match op {
                     Op::Mul { .. } => MULSS,
@@ -778,13 +928,13 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                 e.guardar(d, RAX);
             }
             Op::Barrera => {
-                barrera += 1;
-                e.mem(None, false, &[0xC7], 0, CTX, C_REANUDAR); // mov dword [r12 + reanudar], k
-                e.b.extend_from_slice(&(barrera as u32).to_le_bytes());
+                let n = punto_de[k]?;
+                e.mem(None, false, &[0xC7], 0, CTX, C_REANUDAR); // mov dword [r12 + reanudar], n
+                e.b.extend_from_slice(&(n as u32).to_le_bytes());
                 e.inmediato(RAX, BARRERA);
                 al_final.push(e.salto());
                 let aqui = e.b.len();
-                e.parchear(reanudar[barrera - 1], aqui);
+                e.parchear(reanudar[n - 1], aqui);
             }
             Op::LeeCompartida { d, base, n, i } => {
                 match constante(i) {
@@ -834,7 +984,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                 }
                 e.aqui(listo);
             }
-            Op::LeeUav { d, u, modo, i, desp } => {
+            Op::LeeUav { d, u, modo, i, desp, .. } => {
                 if u as usize >= VISTAS {
                     return None;
                 }
@@ -850,7 +1000,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                 }
                 e.aqui(listo);
             }
-            Op::EscribeUav { u, modo, i, desp, v, mascara } => {
+            Op::EscribeUav { u, modo, i, desp, v, mascara, .. } => {
                 if u as usize >= VISTAS {
                     return None;
                 }
@@ -889,8 +1039,9 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
                 e.aqui(sin);
                 e.guardar(d, RAX);
             }
-            // Lo que no sabe: por el interprete.
-            Op::Mate { .. } | Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } | Op::ConstantesEn { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::MedidasUav { .. } => return None,
+            // Lo que no sabe: por el interprete (y, 05-10, los Interlocked;
+            // E2.5, las olas: aqui cada hilo corre solo).
+            Op::Lee { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::MedidasUav { .. } | Op::Atomico { .. } | Op::Ola { .. } => return None,
         }
     }
     if !sis.is_empty() || !bucles.is_empty() {
@@ -905,7 +1056,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
         e.parchear(s, fin);
     }
     // Epilogo: el MXCSR de quien llamo, y los cinco.
-    e.b.extend_from_slice(&[0x0F, 0xAE, 0x14, 0x24]); // ldmxcsr [rsp]
+    crate::nativo::mxcsr_al_salir(&mut e.b);
     e.b.extend_from_slice(&[0x48, 0x83, 0xC4, 0x10]); // add rsp, 16
     for r in [R15, R14, R13, R12, RBX] {
         e.pop(r);
@@ -923,7 +1074,7 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
 /// que es quien lo sello y quien promete que es el de `compilar(p)` (este
 /// crate es puro: sin `unsafe`). Los punteros son de esta funcion y viven lo
 /// que ella.
-pub fn despachar(p: &Programa, llamar: &mut dyn FnMut(*mut f32, *mut Contexto, *const u8) -> u32, grupos: [u32; 3], cb: &[u8], srv: &[Option<crate::bufer::Bufer>], uavs: &mut [Option<crate::bufer::Uav>]) -> u64 {
+pub fn despachar(p: &Programa, llamar: &mut dyn FnMut(*mut f32, *mut Contexto, *const u8) -> u32, grupos: [u32; 3], cb: &[u8], srv: &[Option<crate::bufer::Bufer>], uavs: &mut [Option<crate::bufer::Uav>], por_hilo: &mut [crate::nativo_llamadas::Llamadas]) -> u64 {
     let [hx, hy, hz] = p.computo.hilos;
     let n = (hx * hy * hz) as usize;
     if n == 0 {
@@ -940,6 +1091,15 @@ pub fn despachar(p: &Programa, llamar: &mut dyn FnMut(*mut f32, *mut Contexto, *
         &relleno
     };
     let mut compartida = alloc::vec![0u32; p.computo.compartida.max(1) as usize];
+    // X2: la matematica, y la medida del cbuffer. 06-10: las de cada hilo
+    // del grupo, si quien despacha las da (las texturas y las ranuras de
+    // UAV llamadas, `uavs_llamados`: cada hilo con SU textura elegida, que
+    // una barrera puede caer entre elegirla y leerla); si no, unas sin
+    // texturas, de todos.
+    let llamadas = crate::nativo_llamadas::Llamadas::nuevas(cb.len());
+    for l in por_hilo.iter_mut() {
+        l.cb_bytes = cb.len() as u64;
+    }
     let vista = |datos: *mut u8, bytes: usize, paso: u32, elementos: u32, contador: *mut u32| Vista { datos, bytes: bytes as u64, paso, elementos, contador };
     let mut c = Contexto {
         ids: [0; 10],
@@ -948,6 +1108,7 @@ pub fn despachar(p: &Programa, llamar: &mut dyn FnMut(*mut f32, *mut Contexto, *
         compartida: compartida.as_mut_ptr(),
         entradas: core::ptr::null(),
         salidas: core::ptr::null_mut(),
+        llamadas: &llamadas,
         srv: [Vista::NULA; VISTAS],
         uav: [Vista::NULA; VISTAS],
     };
@@ -984,6 +1145,7 @@ pub fn despachar(p: &Programa, llamar: &mut dyn FnMut(*mut f32, *mut Contexto, *
                         let en = [t % hx, (t / hx) % hy, t / (hx * hy)];
                         c.ids = [gx * hx + en[0], gy * hy + en[1], gz * hz + en[2], gx, gy, gz, en[0], en[1], en[2], t];
                         c.reanudar = *reanudar;
+                        c.llamadas = por_hilo.get(t as usize).map_or(&llamadas as *const _, |l| l as *const _);
                         match llamar(regs.as_mut_ptr(), &mut c, cb.as_ptr()) {
                             BARRERA => {
                                 *reanudar = c.reanudar;
@@ -1017,6 +1179,7 @@ mod pruebas {
         assert_eq!(core::mem::offset_of!(Contexto, compartida) as i32, C_COMPARTIDA);
         assert_eq!(core::mem::offset_of!(Contexto, entradas) as i32, C_ENTRADAS);
         assert_eq!(core::mem::offset_of!(Contexto, salidas) as i32, C_SALIDAS);
+        assert_eq!(core::mem::offset_of!(Contexto, llamadas) as i32, C_LLAMADAS);
         assert_eq!(core::mem::offset_of!(Contexto, srv) as i32, C_SRV);
         assert_eq!(core::mem::offset_of!(Contexto, uav) as i32, C_UAV);
         assert_eq!(core::mem::size_of::<Vista>() as i32, VISTA);
@@ -1033,7 +1196,21 @@ mod pruebas {
         let cs = crate::dxil::computo::preparar(include_bytes!("../prueba/computo.dxil")).unwrap();
         assert!(compilar(&cs.programa).is_some());
         let mut p = cs.programa.clone();
+        // X2 (05-10): la matematica ya la llama; y (06-10) las texturas de
+        // un CS tambien, por la llamada de su Dispatch.
         p.ops.push(Op::Mate { d: 0, a: 0, f: crate::mates::Mate::Exp2 });
-        assert!(compilar(&p).is_none(), "la matematica, por el interprete");
+        assert!(compilar(&p).is_some(), "la matematica, por `Mate::aplicar`");
+        p.ops.push(Op::Muestra { d: 0, t: 0, s: 0, u: 0, v: 0, g: None });
+        assert!(compilar(&p).is_some(), "las texturas de un CS, por la llamada de la casa");
+        assert!(compilar_dibujo(&p).is_some(), "las de un dibujo, tambien");
+        // 06-10: un atomico o una textura en un UAV: su ranura, ENTERA por la
+        // llamada (`uavs_llamados`), y lo demas sigue en el codigo.
+        let mut q = cs.programa.clone();
+        q.ops.push(Op::Atomico { d: 0, u: 1, modo: crate::bufer::Modo::Crudo, i: 0, desp: 0, z: 0, como: crate::bufer::Atomo::Suma, v: 0, igual: 0 });
+        assert!(compilar(&q).is_some(), "un Interlocked, por la llamada");
+        assert_eq!(uavs_llamados(&q)[..2], [false, true], "solo su ranura");
+        // Lo que sigue sin saber: una ola (aqui cada hilo corre solo).
+        p.ops.push(Op::Ola { d: 0, a: 0, b: 0, que: crate::dxil::olas::Ola::Indice });
+        assert!(compilar(&p).is_none(), "las olas, por el interprete");
     }
 }

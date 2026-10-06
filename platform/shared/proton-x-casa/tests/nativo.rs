@@ -7,6 +7,12 @@
 //! cada operacion y los valores que muerden -- NaN, infinitos, -0, subnormales,
 //! negativos en una raiz. Un NaN cuenta como igual a otro NaN (su carga util
 //! puede ser otra: es NaN igual).
+//!
+//! La VELOCIDAD (05-10): los que SALTAN o hacen cuentas enteras (por el
+//! cuerpo del computo, con la llamada de los dibujos), contra el interprete
+//! igual: los VS de `instancias.exe` y `hdr.exe`, los PS de `dxc` y de `fxc`
+//! con saltos, y cada operacion entera con los valores que muerden. Estan en
+//! `nativo/saltos.rs`.
 
 #![cfg(all(target_os = "linux", target_arch = "x86_64"))]
 
@@ -19,7 +25,7 @@ const PS: &[u8] = include_bytes!("../../proton-x/prueba/cubo_ps.dxil");
 const SM5_VS: &[u8] = include_bytes!("../../proton-x/prueba/sombras/f3ef42a0.cso");
 const SM5_PS: &[u8] = include_bytes!("../../proton-x/prueba/sombras/4d67f5e4.cso");
 
-type Sombreador = extern "sysv64" fn(*mut f32, *const [f32; 4], *const u8, *mut [f32; 4]);
+type Sombreador = extern "sysv64" fn(*mut f32, *const [f32; 4], *const u8, *mut [f32; 4]) -> u32;
 
 unsafe fn syscall6(n: u64, a: u64, b: u64, c: u64, d: u64, e: u64, f: u64) -> u64 {
     let r: u64;
@@ -181,3 +187,10 @@ fn el_mxcsr_de_quien_llama_no_cuenta_y_se_devuelve() {
     assert_eq!(despues, hacia_cero, "el MXCSR de quien llama, devuelto");
     assert_eq!(s[0][0].to_bits(), (1.0f32 / 3.0).to_bits(), "1/3 al MAS CERCANO, no hacia cero");
 }
+
+#[path = "nativo/saltos.rs"]
+mod saltos;
+
+/// X2 (05-10): los que MUESTREAN, hacen matematica o leen una fila calculada.
+#[path = "nativo/texturas.rs"]
+mod texturas;

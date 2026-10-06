@@ -76,12 +76,17 @@ pub mod pulso;
 pub mod d3d12_lista2;
 pub mod fallas;
 pub mod d3d12_resto;
+/// 05-10: el plano de stencil, su limpieza y su referencia.
+pub mod d3d12_stencil;
 mod computo;
 /// E2.7 (05-10): las consultas de oclusion y la predicacion.
 mod consultas;
 pub mod dxgi_resto;
 pub mod d3d12_capacidades;
 pub mod d3d12_dispositivos;
+/// E2.1 (05-10): las colas que esperan a una valla (Wait), y las esperas de
+/// la CPU a varias vallas.
+mod d3d12_colas;
 pub mod d3d12_montones;
 pub mod diario;
 pub mod dll_chicas;
@@ -367,6 +372,7 @@ pub unsafe fn empezar(p: Plataforma) {
     com_objeto::reiniciar();
     d3d12_resto::reiniciar();
     consultas::reiniciar();
+    d3d12_colas::reiniciar();
     proceso::reiniciar();
     esperas::reiniciar();
     carpetas::reiniciar();

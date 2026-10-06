@@ -9,6 +9,13 @@
 > medido en Windows y dibujado IGUAL, bit a bit, por la 3060 sin Windows.
 > Aqui vive desde hoy lo que sigue.
 
+
+> **El papel de PROTON-X, segun el propietario (05-10):** es el ESPIA -- lee
+> lo que el juego de Windows pide y lo dice en VERRANO, la cara comun de DX12
+> y Vulkan; no se queda con el dibujo. El plan, en la seccion 4 de
+> [`PLAN_VERRANO.md`](PLAN_VERRANO.md) (el paquete .bex + .bsf traducido una
+> vez, y el kernel fuera del camino de cada dibujo).
+
 ---
 
 ## 0. La respuesta corta

@@ -729,3 +729,133 @@ exactamente lo que el juez aprobo, y para que GPU se hizo.
   ata por hash.
 - **La capa 5 del BSF** (`deep`) no mira aun los modulos de vertice y de
   pixel: el lector de SPIR-V solo sabe de `GLCompute`.
+
+## 4. LA CARA COMUN: DX12 y Vulkan entran, VERRANO sale (pedido 05-10)
+
+> El propietario (05-10): *"PROTON-X considerare que es espia y VERRANO se
+> llevara lo mejor de Vulkan y DX12 con el fin de que pueda eliminar toda
+> las basuras y sea ... cara de DX12 o Vulkan como intermedio para que el
+> CPU y GPU con .bex (CPU) y .bsf (GPU) ambos formatos que se lleve TODO el
+> paquete uno solo para ejecutar una sola vez ... no pierda el tiempo sino
+> que el cuello de botella serian ambos y no mi kernel"*.
+
+```text
+   el juego (.exe)          habla D3D12 (o Vulkan): lo de Microsoft o
+                            Khronos, con sus diez versiones de cada cosa
+   PROTON-X, el ESPIA       lee lo que el juego pide -- cada PSO, cada
+                            dibujo, cada cola -- y lo DICE en VERRANO; no
+                            dibuja el mismo
+   VERRANO, la cara comun   una API chica: lo mejor de las dos, sin lo
+                            repetido (Device1..Device14 son UNA cosa aqui)
+   el PAQUETE, una vez      cada sombreador se traduce UNA vez a sus dos
+                            destinos: .bex (x86-64, el codigo de la CPU: lo
+                            que ya hace el JIT de PROTON-X) y .bsf (SASS de
+                            la 3060, con su SPIR-V/DXIL de origen y su hash);
+                            se guarda en el disco por hash y la siguiente
+                            vez se carga sin traducir nada
+   la CPU y la GPU          ejecutan el paquete; el kernel PREPARA (memoria,
+                            IOMMU, el canal) y se aparta: no esta en el
+                            camino de cada dibujo
+```
+
+**Por que es la forma buena (y no una idea nueva que choque):** la regla de
+este plan ya es "la GPU NO COMPILA NADA: los programas viajan ya traducidos
+en el BSF" (seccion 0) y "Vulkan se TRADUCE a VERRANO, no al reves" (seccion
+3). Lo que el pedido agrega es que DX12 entre por la MISMA puerta, que el
+codigo de la CPU viaje en el mismo paquete (.bex), y que el kernel salga del
+camino de cada dibujo. Es lo que hacen las caches de sombreadores de DXVK y
+vkd3d-proton, pero en el formato de la casa.
+
+**Hoy, medido:** en el metal del 29-09 cada lote de la 3060 costaba 264 us
+de kernel contra 36 us de la tarjeta (`docs/plan/PLAN_PROTON_X.md`, Z1): HOY
+el cuello de botella SI es el kernel. VC4 es lo que lo quita.
+
+- [ ] **VC1 -- el PAQUETE de un sombreador** (`platform/shared/verrano`):
+  .bex + .bsf de un PSO de D3D12, traducido UNA vez, con la clave = hash
+  del codigo de origen + el estado del PSO que cambia el codigo + la
+  version del traductor; en el volumen de datos. **Como se sabe:** la
+  segunda corrida de `bmox12.exe` traduce CERO sombreadores (un contador en
+  la cabina) y da las mismas huellas.
+- [ ] **VC2 -- PROTON-X habla VERRANO** (`platform/shared/proton-x-casa/src/tuberia.rs`):
+  Draw y Dispatch se vuelven fotogramas de VERRANO en vez de llamar a la
+  trama a mano; la trama queda como el backend CPU (el juez). **Como se
+  sabe:** todos los jueces de `prueba/` (hdr, stencil, olas...) dicen lo
+  mismo por la nueva puerta.
+- [ ] **VC3 -- la cara de Vulkan** (`platform/drivers/gpu/rdna4/PLAN_VULKAN.md`):
+  un `vulkan-1.dll` en la casa que dice lo suyo en el MISMO VERRANO; el
+  SPIR-V ya entra por `toolchain/lang/spirv`. Despues de VC2: Vulkan no se
+  empieza hasta que DX12 hable VERRANO. **Como se sabe:** una muestra de
+  Khronos (o la que se elija con `rayosx`) con su huella.
+- [ ] **VC4 -- el kernel fuera del camino** (`Ultra_kernel_x86-64/kernel/src/ring0/dev/gpu_trabajo/cubo.rs`):
+  el canal de la 3060 (GPFIFO y USERD) en memoria de la app, detras de la
+  IOMMU, y el timbre (doorbell) tocado desde Ring 3; el kernel lo crea por
+  RPC al GSP-RM y no vuelve a entrar por dibujo. Es Ring 0: se decide con
+  el propietario. Pide antes G0 (el GSP 10 de 10) y E7 (el vigilante).
+  **Como se sabe:** en el metal, el coste del kernel por lote cae de
+  ~264 us a casi cero, y los fps de `bmox12.exe` suben.
+
+**Lo que puede fallar, dicho:**
+- Cyberpunk crea MILES de PSO: la primera vez cada uno se traduce (tirones
+  en la primera partida); la cache lo quita de la segunda en adelante.
+- Lo que el traductor a SASS aun no sabe (hoy un subconjunto; el computo no
+  llega todavia) va por la CPU: el paquete puede salir solo con .bex.
+- Si el traductor cambia, la cache vieja no vale: por eso la version va en
+  la clave, y se borra sola.
+- El paquete de un juego comprado es SUYO y de esta maquina: no se reparte.
+- Sin el kernel en medio, un sombreador que cuelga la 3060 no lo para nadie
+  si no existe E7: VC4 no va antes que el vigilante.
+
+
+## 5. LAS OTRAS CARAS: DX11, y Vulkan para los DOOM (06-10)
+
+> El propietario (06-10): *"igual voy a poner DX11 y por cierto vulkan es
+> ultra facil, no? por documentos que existen aunque tengo que replicar
+> igual para jugar doom 2016 ... doom eternal y doom dark age"*.
+
+**Vulkan es mas facil de LEER, no de HACER.** Su especificacion es publica
+y entera, SPIR-V esta documentado (DXIL hubo que sacarlo de bitcode de LLVM
+3.7) y Khronos publica sus pruebas de conformidad, que sirven de jueces como
+los `.exe` de `prueba/`. Pero es tan EXPLICITO como DX12 (barreras,
+descriptor sets, pipelines) y cada juego pide su lista de extensiones: por
+eso la cara es COMUN (seccion 4) y lo de DX12 se reaprovecha.
+
+**DX11 es mas facil para el JUEGO, no para nosotros:** en DX11 el driver
+hace lo que en DX12 hace el juego (barreras y estados de cada recurso,
+`Map(WRITE_DISCARD)` con su renombrado, un contexto que se ejecuta en
+orden). Eso lo hace la cara. Los sombreadores de DX11 (DXBC, SM5) ya se
+traducen: `platform/shared/proton-x/src/sm5.rs`.
+
+El orden, por lo que pide cada juego:
+
+```text
+   juego                API                    lo que pide de mas
+   Cyberpunk 2077       D3D12                  (la lista de PLAN_LAS_TRES_GRANDES, seccion 7)
+   DOOM (2016)          OpenGL 4.5 o Vulkan    Vulkan 1.0; sin trazado de rayos: el mas cerca
+   DOOM Eternal         solo Vulkan            mas extensiones, mas sombreadores
+   DOOM: The Dark Ages  solo Vulkan            TRAZADO DE RAYOS OBLIGATORIO (no tiene modo
+                                               sin el): estructuras de aceleracion y recorrido
+                                               de rayos en un driver propio -- el jefe final
+```
+
+- [ ] **VC5 -- la cara de DX11** (`platform/shared/proton-x-casa/src/`, un
+  `d3d11.dll` de la casa): `ID3D11Device` y su contexto inmediato dichos en
+  VERRANO, con el seguimiento de estados que en DX11 hace el driver, y los
+  DXBC por `sm5.rs`. Despues de VC2 (que DX12 hable VERRANO). **Como se
+  sabe:** un juez nuestro de DX11 (como los de `prueba/`) dice `bien` en el
+  banco y en el Windows del propietario.
+- [ ] **VD1 -- DOOM (2016) por Vulkan** (`platform/drivers/gpu/rdna4/PLAN_VULKAN.md`,
+  despues de VC3 y de M5/V5, las 67 funciones de vkQuake): lo que pide su
+  `vulkan-1.dll`, medido primero con el censo de PROTON-X (como se hizo con
+  Cyberpunk). **Como se sabe:** el menu de DOOM en la pantalla del Ryzen.
+- [ ] **VD2 -- DOOM Eternal.** Lo que pida de mas sobre VD1, medido.
+  **Como se sabe:** su menu.
+- [ ] **VD3 -- DOOM: The Dark Ages.** Pide trazado de rayos, que la seccion
+  2G de [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) deja al
+  final a proposito: va el ULTIMO. **Como se sabe:** su menu, con la 3060
+  trazando rayos.
+
+**Lo que puede fallar, dicho:** el DRM. DOOM Eternal salio con el
+anti-tamper Denuvo; de The Dark Ages hay que mirarlo en la copia del
+propietario. La regla es "nada de saltarse DRM": si la copia lo lleva y no
+arranca, eso se dice y no se rodea. Cyberpunk de GOG no lo lleva: otra razon
+para que vaya primero.

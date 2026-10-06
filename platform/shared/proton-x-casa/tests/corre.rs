@@ -96,6 +96,28 @@ const PREDICA: &[u8] = include_bytes!("../../proton-x/prueba/predica.exe");
 const INSTANCIAS: &[u8] = include_bytes!("../../proton-x/prueba/instancias.exe");
 /// N5.3b y N5.3c (05-10): las vistas en la raiz, los UAV de textura y con tipo, y ClearUnorderedAccessView.
 const VISTAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/vistas.exe");
+// N5.16 (05-10): los render targets de float.
+const HDR_EXE: &[u8] = include_bytes!("../../proton-x/prueba/hdr.exe");
+// 05-10: los UAV escritos desde un DIBUJO (de pixeles y de vertices).
+const UAVPIXEL_EXE: &[u8] = include_bytes!("../../proton-x/prueba/uavpixel.exe");
+// N5.16b (05-10): los floats de un canal, sus UAV y DepthClipEnable = FALSE.
+const FLOTANTE1_EXE: &[u8] = include_bytes!("../../proton-x/prueba/flotante1.exe");
+// 05-10: el stencil (la fila de la tabla 7.2 de la ESCALERA).
+const STENCIL_EXE: &[u8] = include_bytes!("../../proton-x/prueba/stencil.exe");
+// 05-10: lo que quedaba: enteros, UAV sin destino y del GS, el plano de stencil y SV_StencilRef.
+const RESTOS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/restos.exe");
+/// E2.5 (05-10): las olas de verdad (Wave*, Quad*), en el computo y en los pixeles.
+const OLAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/olas.exe");
+/// D4.4 (05-10): las derivadas (ddx, ddy, finas y gruesas) y la mip de un muestreo.
+const DERIVADAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/derivadas.exe");
+/// E2.1 (05-10): listas grabadas desde varios hilos, y las colas con vallas.
+const MULTIHILO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/multihilo.exe");
+/// 06-10: los UAV de texturas 3D y de arrays (la niebla volumetrica, las cascadas).
+const VOLUMEN_EXE: &[u8] = include_bytes!("../../proton-x/prueba/volumen.exe");
+/// 06-10: las root signatures 1.1 y las de dentro del sombreador.
+const FIRMAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/firmas.exe");
+/// 06-10: el computo de un posproceso (bindless, SampleLevel, RWTexture2D, Interlocked).
+const POSTPRO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/postpro.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

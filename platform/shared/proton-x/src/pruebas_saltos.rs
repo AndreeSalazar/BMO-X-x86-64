@@ -382,3 +382,33 @@ fn el_sm5_con_udiv() {
         }
     }
 }
+
+/// La VELOCIDAD (05-10): el traductor a x86-64 de los DIBUJOS ya sabe los
+/// saltos y los enteros (por el cuerpo del computo), y `por_que_no` lo dice
+/// igual que `compilar`: lo que traduce no tiene motivo, y lo que no, si.
+/// (Sus bits, contra el interprete: `proton-x-casa/tests/nativo/saltos.rs`.)
+#[test]
+fn los_dibujos_con_saltos_se_traducen_y_dicen_por_que_no_cuando_no() {
+    use crate::nativo::{compilar, por_que_no};
+    for p in [si_sino(), bucle_geometrico(), bucle_entero(), anidado()] {
+        assert!(p.salta());
+        assert_eq!(por_que_no(&p), None);
+        assert!(compilar(&p).is_some());
+    }
+    let con = |op: Op| {
+        let mut p = si_sino();
+        p.ops.insert(0, op);
+        (por_que_no(&p), compilar(&p).is_some())
+    };
+    assert_eq!(con(Op::Descarta { c: 0 }), (None, true), "discard, tambien");
+    assert_eq!(con(Op::LeeIndexado { d: 0, base: 0, n: 1, i: 0 }), (None, true), "y los arrays de registros");
+    // X2 (05-10): la matematica, el cbuffer con fila calculada y las
+    // texturas (por la llamada de la casa) ya no son motivo.
+    assert_eq!(con(Op::Mate { d: 0, a: 0, f: crate::mates::Mate::Exp2 }), (None, true));
+    assert_eq!(con(Op::ConstantesEn { d: 0, fila: 0, filas: 4, i: 0, cb: 0 }), (None, true));
+    assert_eq!(con(Op::Muestra { d: 0, t: 0, s: 0, u: 0, v: 0, g: None }), (None, true));
+    assert_eq!(con(Op::EligeTextura { i: 0, rango: 0 }), (None, true));
+    assert_eq!(con(Op::IdHilo { d: 0, que: 0, c: 0 }), (Some("es de computo"), false), "lo del Contexto que un dibujo no pone");
+    assert_eq!(con(Op::Barrera), (Some("es de computo"), false));
+    assert_eq!(con(Op::Corta { flujo: 0 }), (Some("es de geometria"), false));
+}

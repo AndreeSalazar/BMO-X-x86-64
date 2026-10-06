@@ -234,7 +234,13 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     let e = unsafe { &mut *ESTADO.0.get() };
     // N5.12: un lote de solo profundidad (sin pixeles) no tiene back buffer
     // que darle a la puerta: por la CPU.
-    if !e.apagada && !d.pixeles.is_empty() {
+    // N5.16 (05-10): un render target de FLOAT (HDR) tampoco: la puerta
+    // escribe 8 bits por canal, y el lote iria a parar a un sitio que no
+    // tiene esa forma. Por la CPU, y dicho UNA vez.
+    if !e.apagada && d.flotante.is_some() {
+        decir(e, String::from("un render target de float (HDR, N5.16): la puerta de la 3060 solo sabe BGRA8 y RGBA8"));
+    }
+    if !e.apagada && !d.pixeles.is_empty() && d.flotante.is_none() {
         let blanco = Blanco {
             va: d.pixeles.as_ptr() as u64,
             ancho: d.ancho,

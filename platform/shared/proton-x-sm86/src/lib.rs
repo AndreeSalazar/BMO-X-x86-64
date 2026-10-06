@@ -696,7 +696,9 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             // ** P3b4c.8 T2b: el muestreo, un TEX (2D, nivel 0) con el asa
             // que pone el KERNEL. Solo con el ABI de registros (el del
             // pegamento); con el del banco, no hay asa: se dice.
-            Op::Muestra { d, t, s, u, v } => {
+            // D4.4: sin mirar `g`: el TEX de la 3060 saca la mip de sus
+            // derivadas el solo (la puerta mira que de lo mismo, `preparar`).
+            Op::Muestra { d, t, s, u, v, .. } => {
                 if e.abi != Abi::Registros {
                     return Err(NoEmite::Operacion(i));
                 }
@@ -832,14 +834,20 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } => return Err(NoEmite::Operacion(i)),
             // E2.3b: el sombreador de geometria, igual (va por la CPU).
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
-            // E2.4: el contador de un UAV, igual.
-            Op::Contador { .. } => return Err(NoEmite::Operacion(i)),
+            // E2.4: el contador de un UAV, igual; y (05-10) sus Interlocked.
+            Op::Contador { .. } | Op::Atomico { .. } => return Err(NoEmite::Operacion(i)),
             // N5.6: sin, cos, exp2, log2... (MUFU) todavia no: va por la CPU.
             Op::Mate { .. } => return Err(NoEmite::Operacion(i)),
             // N5.7: `discard` (el KILL de la 3060) todavia no: va por la CPU.
             Op::Descarta { .. } => return Err(NoEmite::Operacion(i)),
             // N5.10: los arrays (registros indexables) todavia no: por la CPU.
             Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => return Err(NoEmite::Operacion(i)),
+            // E2.5: las olas (`vote`, `shfl` de la 3060) todavia no: por la CPU,
+            // donde van de 32 en 32 carriles como en un warp.
+            // D4.4: las derivadas de la mip de un muestreo no se emiten: solo
+            // las lee el `Op::Muestra` de la CPU, y el TEX las hace solo.
+            Op::Ola { que: bmo_proton_x::dxil::olas::Ola::Derivada { muestra: true, .. }, .. } => {}
+            Op::Ola { .. } => return Err(NoEmite::Operacion(i)),
         }
         // Lo de paso, y lo que ya nadie lee, se devuelve.
         for t in paso {

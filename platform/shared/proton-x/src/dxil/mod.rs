@@ -39,12 +39,18 @@ pub mod ejemplos;
 mod estructura;
 /// E6c (02-10): los enteros y las conversiones del DXIL.
 mod enteros;
-/// 03-10: las olas (un pixel por ola) y las derivadas.
-mod olas;
+/// 03-10: las olas y las derivadas; E2.5 (05-10): las olas de verdad, de
+/// 32 carriles (la operacion y lo que hace).
+pub mod olas;
+/// E2.5: quien corre los carriles de una ola juntos (computo y pixeles).
+pub mod carriles;
 /// El interprete de un `Programa` (partido de `programa.rs`, 03-10).
 mod interprete;
 /// E2.3b: lo que emite un sombreador de geometria.
 pub use interprete::Tiras;
+/// X2 (05-10): la lectura de texturas, que llama tambien el codigo traducido.
+pub use interprete::leer_textura;
+pub use interprete::operar_uav;
 /// 03-10: Gather y SampleCmp (las sombras).
 mod sombras;
 /// N5.10: los arrays (alloca, GEP, load, store y las tablas globales).

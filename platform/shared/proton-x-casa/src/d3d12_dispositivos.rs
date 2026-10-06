@@ -29,7 +29,7 @@
 //! Lo demas (sesiones protegidas, rayos, monton desde una direccion,
 //! recursos reservados) sigue siendo un hueco que se dice y sale.
 
-use crate::com::{Guid, E_FAIL, E_INVALIDARG, S_OK};
+use crate::com::{Guid, E_INVALIDARG, S_OK};
 use crate::{aviso, d3d12, d3d12_montones, hilos, tuberia};
 
 /// DXGI_ERROR_UNSUPPORTED.
@@ -50,27 +50,29 @@ pub(crate) extern "win64" fn create_pipeline_library(_this: u64, _blob: *const u
 
 /// `SetEventOnMultipleFenceCompletion(this, vallas, valores, n, banderas,
 /// evento)`: banderas 0 = TODAS, 1 = CUALQUIERA. Si ya se cumple, el evento
-/// se enciende YA; si falta UNA valla (o es una sola), se espera a esa (las
-/// vallas solo suben). Esperar a varias a la vez, todavia no: se dice.
+/// se enciende YA; si no, cuando una marca la cumpla (E2.1: a varias a la
+/// vez; antes se decia "todavia no" y E_FAIL).
 pub(crate) extern "win64" fn set_event_on_multiple_fence_completion(_this: u64, vallas: *const u64, valores: *const u64, n: u32, banderas: u32, evento: u64) -> i32 {
     if vallas.is_null() || valores.is_null() || n == 0 || banderas > 1 {
         return E_INVALIDARG;
     }
     // SAFETY: `n` vallas de la casa y `n` valores del `.exe`.
     let pares: alloc::vec::Vec<(u64, u64)> = (0..n as usize).map(|i| unsafe { (vallas.add(i).read_unaligned(), valores.add(i).read_unaligned()) }).collect();
-    let faltan: alloc::vec::Vec<(u64, u64)> = pares.iter().copied().filter(|&(v, x)| d3d12::valor_de_valla(v) < x).collect();
-    let hecho = if banderas == 0 { faltan.is_empty() } else { faltan.len() < pares.len() };
-    if hecho {
+    // E2.1 (05-10): ALL (0) o ANY (1), mirado en cada marca de una valla
+    // (`d3d12_colas`); sin evento, se espera aqui, como Windows.
+    let todas = banderas == 0;
+    if crate::d3d12_colas::cumplida(&pares, todas) {
         if evento != 0 {
             hilos::encender_evento(evento);
         }
         return S_OK;
     }
-    if faltan.len() == 1 {
-        return d3d12::set_event_on_completion(faltan[0].0, faltan[0].1, evento);
+    let ev = if evento == 0 { hilos::evento_nuevo() } else { evento };
+    crate::d3d12_colas::esperar_varias(pares, todas, ev);
+    if evento == 0 {
+        hilos::esperar_y_cerrar(ev);
     }
-    aviso("SetEventOnMultipleFenceCompletion esperando a varias vallas a la vez: todavia no");
-    E_FAIL
+    S_OK
 }
 
 /// `SetResidencyPriority(this, n, objetos, prioridades)`: todo es residente.
@@ -280,7 +282,10 @@ unsafe fn pso_de_flujo(p: *const u8, n: usize) -> Result<[u8; PSO], &'static str
             7 => (8, 32, Some(88)),
             8 => (4, 328, Some(120)),
             9 => (4, 4, Some(448)),
-            10 | 26 => (4, 44, Some(452)),
+            // 05-10: el 26 es DEPTH_STENCIL2 (d3d12.h) y el RASTERIZER1 es el
+            // 27; antes el 26 se leia como rasterizador y el flujo se torcia.
+            10 | 27 => (4, 44, Some(452)),
+            26 => (4, 60, None),
             11 => (4, 52, Some(496)),
             12 => (8, 16, Some(552)),
             13 => (4, 4, Some(568)),
@@ -311,16 +316,18 @@ unsafe fn pso_de_flujo(p: *const u8, n: usize) -> Result<[u8; PSO], &'static str
             }
             // D3D12_DEPTH_STENCIL_DESC1: el de siempre y DepthBoundsTestEnable.
             (21, _) => d[496..548].copy_from_slice(&q[..52]),
+            // D3D12_DEPTH_STENCIL_DESC2: las mascaras van en cada cara.
+            (26, _) => d[496..548].copy_from_slice(&crate::d3d12_stencil::desc2_a_desc(q)?),
             // D3D12_VIEW_INSTANCING_DESC: una vista (o ninguna) es lo de siempre.
             (22, _) if u32::from_le_bytes([q[0], q[1], q[2], q[3]]) > 1 => return Err("CreatePipelineState con varias vistas (view instancing): todavia no"),
             _ => {}
         }
-        if tipo == 26 {
+        if tipo == 27 {
             // D3D12_RASTERIZER_DESC1: el DepthBias es un float; la casa no lo usa.
             let f = f32::from_le_bytes([q[12], q[13], q[14], q[15]]);
             d[464..468].copy_from_slice(&(f as i32).to_le_bytes());
         }
-        profundidad_dicha |= matches!(tipo, 11 | 21);
+        profundidad_dicha |= matches!(tipo, 11 | 21 | 26);
         o = (fin + 7) & !7;
     }
     // Sin formato de profundidad ni subobjeto que la pida, no hay prueba.

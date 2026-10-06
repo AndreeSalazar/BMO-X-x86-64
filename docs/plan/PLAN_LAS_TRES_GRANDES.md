@@ -384,11 +384,26 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
 - [ ] D3.2 -- Firma raiz 1.1 ENTERA: constantes, CBV/SRV/UAV directos, tablas
   con rangos sin limite (`unbounded`), samplers estaticos, sus banderas.
   **Como se sabe:** `tandaD3.exe` serializa y deserializa firmas y Windows
-  da los mismos bytes.
+  da los mismos bytes. (06-10: LEER la 1.1 ya esta -- la de `dxc`, con sus
+  banderas, y la que viene DENTRO de un sombreador --, y un PSO creado SIN
+  root signature toma la de su sombreador; CheckFeatureSupport dice 1.1.
+  Juzgado por `prueba/firmas.exe` en el banco; la casa rechazaba todo lo
+  que no era 1.0, y en Cyberpunk la escalera murio "en los primeros PSO".
+  Falta: SERIALIZAR una 1.1 da hoy un blob 1.0 (vale para la casa, pero no
+  son los bytes de Windows), el deserializador
+  (`D3D12CreateVersionedRootSignatureDeserializer`), la 1.2 -- `dxc` aun
+  no la escribe -- y verlo en Windows.)
 - [ ] D3.3 -- SIN ATAR (bindless, modelo 6.6: `ResourceDescriptorHeap`),
   si D0.2 lo encuentra.
 - [ ] D3.4 -- Los UAV: bufferes con tipo, crudos y estructurados; sus
-  contadores; `ClearUnorderedAccessView*`.
+  contadores; `ClearUnorderedAccessView*`. (06-10: tambien los de TEXTURAS 3D y de
+  arrays de 2D, en el computo y en los dibujos, juzgados por
+  `prueba/volumen.exe` en el banco: rebanadas, capas con su cadena de mips
+  entre una y otra, atomicos, GetDimensions, y ClearUnorderedAccessView
+  sobre TODAS sus rebanadas o capas: antes limpiaba solo la primera, sin
+  decir nada. Falta: los arrays de 1D, los multimuestra, el x86 traducido
+  -- su computo con UAV de textura sigue en el interprete -- y verlo en
+  Windows.)
 
 ## 2E. Los sombreadores
 
@@ -396,12 +411,27 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   (DXIL y SM5), de los mas usados a los menos. Uno por commit.
 - [ ] D4.2 -- COMPUTE (`Dispatch`): memoria compartida del grupo, barreras,
   atomicas. **Como se sabe:** un sombreador de suma en paralelo da lo mismo
-  que en Windows.
+  que en Windows. (06-10: el computo de JUEGO -- bindless,
+  muestreo, UAV de textura, Interlocked --, traducido a x86 y juzgado por
+  `prueba/postpro.exe`, X4 de la ESCALERA; antes su bindless se leia nulo.
+  Falta: verlo en Windows y en el metal, y las olas en un CS traducido.)
 - [ ] D4.3 -- Las operaciones de ONDA (wave, modelo 6.0): la 3060 va en
   warps de 32. **Como se sabe:** `WaveActiveSum` y compania, igual que en
-  Windows.
+  Windows. (05-10, E2.5 de la ESCALERA: hechas en el INTERPRETE, olas de
+  32 en el computo y cuadros de 2x2 en olas en los pixeles, juzgadas por
+  `prueba/olas.exe` en el banco; falta la 3060 y el x86 traducido, que no
+  las traducen, y verlo en Cyberpunk.)
 - [ ] D4.4 -- Pixel: `discard`, derivadas, 8 destinos (MRT), profundidad de
-  salida, fusion (blend) completa, estarcido (stencil).
+  salida, fusion (blend) completa, estarcido (stencil). (05-10: el stencil,
+  N5.12b; las DERIVADAS y la MIP de un muestreo, hechas en el INTERPRETE:
+  `ddx`/`ddy` finas y gruesas de su cuadro de 2x2, `Sample` en la mip de
+  sus gradientes con MIP_LINEAR, SampleBias, SampleGrad, SampleCmp,
+  CalculateLevelOfDetail, MinLOD/MaxLOD/MipLODBias, MostDetailedMip,
+  MipLevels y ResourceMinLODClamp; juzgadas por `prueba/derivadas.exe` en
+  el banco, 17 `bien`. Y en el x86 traducido desde X3 de la ESCALERA
+  (06-10: en cuadros de 2x2). Falta: la 3060 con texturas de varias mips
+  (la puerta las manda a la CPU, dicho), la anisotropia y los cubos (en la
+  mip de la vista), y verlo en Windows.)
 - [ ] D4.5 -- Vertices: instancias, `SV_VertexID`/`InstanceID`. Casco y
   dominio (teselado) y geometria SOLO si D0.2 los encuentra.
 - [ ] D4.6 -- La CACHE de PSO a escala: miles de pipelines traducidos una vez
@@ -566,7 +596,10 @@ donde dos `&mut` del mismo estado pueden chocar.
 - [ ] H2.5 -- El monton (`HeapAlloc`) seguro con varios hilos.
 - [ ] H2.6 -- El pool de hilos (`kernel32_pool`) sobre obreros de verdad.
 - [ ] H2.7 -- D3D12 desde varios hilos: el juego GRABA listas de ordenes en
-  paralelo; la casa de D3D12 tiene que aguantarlo.
+  paralelo; la casa de D3D12 tiene que aguantarlo. (05-10: con los hilos
+  COOPERATIVOS de hoy, hecho y juzgado por `prueba/multihilo.exe`, E2.1 de
+  la ESCALERA, con las colas que esperan a una valla; falta con H1, varios
+  nucleos de verdad a la vez.)
 - [ ] H2.8 -- `GetLogicalProcessorInformation(Ex)`,
   `SetThreadAffinityMask`, `SetThreadIdealProcessor`, `SetThreadPriority` y
   MMCSS (`avrt.dll`) con la topologia de H1.7.
@@ -882,9 +915,48 @@ la proxima corrida del metal dice cual pesa mas:
   cualquier formato (`formato_ia::empaquetar`) y
   `ClearUnorderedAccessViewUint` y `...Float` (buferes y texturas). Juez:
   `prueba/vistas.cpp` (B, C y D), bit a bit; dice NO sin el paso, sin la
-  limpieza y con la textura mal direccionada. Queda: los UAV en el de
-  PIXELES (escribir desde un dibujo), los de textura 3D o de array, y la
-  limpieza con rectangulos (hoy, la vista entera).
+  limpieza y con la textura mal direccionada. Queda: los de textura 3D o
+  de array, y la limpieza con rectangulos (hoy, la vista entera). Los UAV
+  en el de PIXELES (y en el de vertices), hechos: N5.3d.
+- [x] **N5.3d -- los UAV de un DIBUJO** (`platform/shared/proton-x/src/pruebas_uav.rs`,
+  05-10; en el banco, falta el metal y Windows). Lo que un sombreador de
+  pixeles o de vertices escribia en un UAV se PERDIA (y desde el 05-10 lo
+  decia un aviso). Ahora el lote lleva sus UAV (`Lote::uavs`: los de la
+  raiz y los de las tablas, buscados como los de un Dispatch,
+  `computo::uav_de`) y el interprete los ve en un dibujo
+  (`Extra::Uavs`, `Programa::correr_con_uavs`): `textureStore`,
+  `bufferStore`, sus lecturas, `GetDimensions`, el contador, y los
+  `Interlocked*` (`atomicBinOp` y `atomicCompareExchange`, nuevos: tambien
+  en el computo; `bufer::Atomo`). La trama, con un sombreador de pixeles que
+  toca UAV (`trama::Efectos`): corre CADA pixel cubierto, en su orden (sin
+  la memoria del ultimo pixel, que se saltaba escrituras: un `InterlockedAdd`
+  que no lee nada sumaba 1 en vez de 64), y la profundidad se prueba
+  DESPUES (lo de D3D: un pixel tapado tambien escribe), salvo con
+  `[earlydepthstencil]` (leido de las banderas de `dx.entryPoints`,
+  `recursos::banderas`), que la prueba y la escribe ANTES. Un pixel que hace
+  `discard` deja lo que escribio antes y nada de despues (lo de D3D). El
+  codigo nativo no traduce un sombreador con UAV (se interpreta, con su
+  aviso: "lee o escribe un UAV"); la puerta de la 3060 manda esos lotes a
+  la CPU y lo dice una vez. **Como se sabe:** `prueba/uavpixel.exe`
+  (nuestro, `uavpixel.cpp`): A, cada pixel su posicion en SU texel de un
+  `RWTexture2D<uint>` de una tabla; B, `InterlockedAdd` de cada pixel de una
+  caja de 32 x 16 en un `RWByteAddressBuffer` de la RAIZ (512); C, el de
+  vertices escribe 100..105 en un `RWBuffer<uint>`. Dice `bien` 4 veces;
+  con la casa de antes, A, B y C salen MAL. Y `src/pruebas_uav.rs`: la
+  cuenta con la Z detras (64) y con `[earlydepthstencil]` (0).
+  **Lo que puede fallar, dicho:** el orden entre pixeles de un dibujo aqui
+  es el de la trama (triangulo a triangulo, fila a fila); D3D no da
+  ninguno, asi que un juego que dependa de el (sin `Interlocked` ni
+  `RasterizerOrderedView`) puede ver otra cosa que en la 3060; un ROV
+  (`RasterizerOrdered*`) no se ha probado (aqui el orden ya seria el de
+  las primitivas); un sombreador con UAV va interpretado (lento); la regla
+  de "Z despues con UAV" es la de la especificacion de D3D11 y no se ha
+  visto contra la 3060 todavia.
+  **Queda:** los `Interlocked` traducidos a x86 y en la 3060, y verlo en
+  el Ryzen y en Windows. (05-10, `prueba/restos.exe`: los UAV de un
+  sombreador de GEOMETRIA ya se escriben, y el dibujo SOLO con UAV se
+  rasteriza a la medida del viewport; con ForcedSampleCount > 1, UNA
+  muestra, dicho en un aviso.)
 - [ ] **N5.4 -- el indice dinamico** (`textures[i]`, bindless): el registro
   no es una constante. Hoy el sombreador no compila (y lo dice: "createHandle
   con un registro CALCULADO"); pide que la ranura sea un RANGO y no un
@@ -937,6 +1009,37 @@ la proxima corrida del metal dice cual pesa mas:
   (`Destino::pixeles` vacio). Probado por las puertas de Windows: un mapa
   de sombras D32 (`tests/gbuffer.rs`). La 3060 no lo toma todavia (sin
   back buffer que darle a la puerta): por la CPU.
+- [x] **N5.12b -- el STENCIL** (05-10, `proton-x/src/stencil.rs`, `prueba/stencil.exe`):
+  las mascaras de luz y las calcomanias de Cyberpunk. Antes el PSO lo
+  apuntaba y no lo usaba (un aviso), y un juego que recorta con stencil
+  pintaba de mas. Ahora, con las reglas de D3D12: StencilEnable, las
+  mascaras de lectura y escritura, las dos caras (la del giro del
+  triangulo) con sus tres operaciones (fallo, fallo de Z, pasa) y su
+  funcion; las ocho operaciones; la referencia de `OMSetStencilRef` (y
+  `OMSetFrontAndBackStencilRef`, una por cara), enmascarada para comparar
+  y entera para REPLACE; la prueba con la de Z (antes del de pixeles, y la
+  de Z despues si hay SV_Depth), tambien en los dibujos de solo
+  profundidad; un pixel TIRADO no cambia el stencil. El plano: un byte por
+  texel DETRAS de la profundidad en D24S8, D32S8X24 y sus TYPELESS
+  (`proton-x-casa/src/d3d12_stencil.rs`); ClearDepthStencilView con
+  CLEAR_FLAG_STENCIL (y BeginRenderPass) lo limpia. Juez: `stencil.exe`
+  (`tests/corre/muestras.rs`: 5 `bien`, ningun aviso; con la casa de antes
+  A, B, C y D salen MAL) y las pruebas de `stencil.rs` en la trama.
+  **Lo que puede fallar, dicho:** (1) la 3060 no lo sabe: un lote con
+  stencil va por la CPU (la puerta lo dice una vez), y si ademas usa Z, la
+  de la 3060 deja de estar viva (como con cualquier lote de Z por la CPU);
+  (2) el juez lo LEE por el color: leer el plano 1 con CopyTextureRegion no
+  esta (su huella R8 no se ha medido contra Windows; CopyResource si lo
+  copia entero) -- HECHO el 05-10 (`prueba/restos.exe`, D: el subrecurso 1
+  con su huella R8 de un byte por texel, y un SRV X24_TYPELESS_G8_UINT);
+  (3) SV_StencilRef (el de pixeles da la referencia) -- HECHO el 05-10
+  (`restos.exe`, E): la casa anuncia `PSSpecifiedStencilRefSupported` SI, y
+  con el el stencil y la Z se prueban despues del de pixeles; (4) el subobjeto
+  DEPTH_STENCIL2 de un flujo (el 26, que la casa leia como RASTERIZER1,
+  que es el 27: el flujo se torcia) ya se lee, pero con mascaras DISTINTAS
+  en cada cara el PSO no se crea (lo dice).
+  **Queda:** AlphaToCoverage, que con `SampleDesc.Count` 1 no cubre nada
+  (sin MSAA no hay muestras que tapar): sigue apuntado y dicho.
 - [x] **N5.13 -- las INSTANCIAS** (05-10, con N5.14): el follaje, la
   gente, los coches. Antes un `DrawInstanced` dibujaba UNA y solo se leia la ranura 0. Ahora: las 16
   ranuras de `IASetVertexBuffers` (y quitarlas con NULL), los elementos POR
@@ -949,8 +1052,9 @@ la proxima corrida del metal dice cual pesa mas:
   con sus 16. Juez: `prueba/instancias.cpp` (NUESTRO, de consola), en el
   banco (`tests/corre/muestras.rs`) pixel a pixel; probado que dice NO sin
   el bucle de instancias y sin el StepRate. Queda: la 3060 (esos lotes van
-  por la CPU) y que el traductor a x86-64 de los de dibujo sepa las cuentas
-  enteras (SV_InstanceID a float las tiene: hoy se interpretan).
+  por la CPU). Las cuentas enteras de SV_InstanceID ya las traduce a
+  x86-64 el de los dibujos (05-10, la VELOCIDAD: ESCALERA seccion 5):
+  `instancias.exe` ya no dice ni un aviso.
 - [x] **N5.14 -- los buferes de vertices de mas de una ranura** (05-10):
   las 16, con N5.13 (arriba), y el mismo juez.
 - [x] **N5.15 -- el RECORTE** contra el plano cercano y el lejano (05-10):
@@ -960,11 +1064,54 @@ la proxima corrida del metal dice cual pesa mas:
   una banda de guarda de 64 pantallas para x e y. Antes no se pintaba
   (en 3D de cerca faltaba suelo y pared; nBodyGravity lo decia). Juez:
   `proton-x/src/pruebas.rs` (los mismos pixeles que recortado a mano, y en
-  cada pixel el atributo de la cuenta en f64 del triangulo ENTERO). Queda:
-  `DepthClipEnable = FALSE` (sin recorte en z, la Z sujeta), que hoy
-  recorta igual.
-- [ ] **N5.16 -- render targets de floats** (R32, RGBA16F de verdad): hoy
-  se pintan en 8 bits o no se pintan; el HDR de Cyberpunk vive ahi.
+  cada pixel el atributo de la cuenta en f64 del triangulo ENTERO).
+  `DepthClipEnable = FALSE` (sin recorte en z, la Z sujeta) ya no recorta
+  igual: hecho con N5.16b (abajo, `flotante1.exe`, C).
+- [x] **N5.16 -- render targets de floats de 2 a 4 canales** (05-10, `prueba/hdr.exe`):
+  RGBA16F, RG16F, RGBA32F, R11G11B10F y R10G10B10A2 se guardan en FLOAT
+  (cuatro palabras por texel, `Almacen::Flotantes4`), se mezclan en float
+  y se cuantizan al formato de su vista (half, float11/10 con redondeo al
+  par, sin signo a 0); ClearRenderTargetView en float; se copian y se
+  leen como textura; y una cadena RGBA16F (scRGB lineal, llevada a sRGB) o
+  R10G10B10A2 se presenta en la ventana de 8 bits. Juez: `hdr.exe`
+  (`tests/corre/muestras.rs`, n5_16: 4 `bien`, bit a bit; con la casa de
+  antes sale MAL: el 1.0 recortado) y `dxgi::pruebas_hdr`.
+  **Lo que puede fallar, dicho:** (1) un monitor HDR no existe aqui: lo de
+  mas de 1 se RECORTA al presentar, sin mapeo de tonos (un juego que confie
+  en el monitor se vera quemado); (2) la 3060 no pinta en float: su puerta
+  es de 8 bits, y un lote en float va por la CPU (lo dice un aviso); (3)
+  cuatro palabras por texel son 4 veces la memoria de un RGBA8 (un RGBA16F
+  de 1080p son 33 MB, no 8).
+- [x] **N5.16b -- lo que quedaba de los floats, y DepthClipEnable = FALSE** (05-10, `prueba/flotante1.exe`):
+  (1) un render target de UN float: R32_FLOAT (y la vista R16_FLOAT de un
+  R16_TYPELESS) se guarda en UNA palabra por texel (`Almacen::Flotante`,
+  la de la profundidad), se mezcla en float y se cuantiza a su vista
+  (`tuberia::como_se_pinta`; la trama sabe cuantas palabras por lo que
+  mide el destino); ClearRenderTargetView cuantizado a la vista; la copia
+  y el SRV ya eran exactos. Un R16_FLOAT de verdad ya era float desde
+  N5.16 (cuatro palabras). (2) Los UAV de una textura de float de 2-4
+  canales: `bufer::CUATRO_FLOATS` (un bit del formato de la vista): el CS
+  lee los cuatro f32 tal cual y escribe cuantizado al formato de la vista;
+  ClearUnorderedAccessViewFloat/Uint en ese formato. (3) `DepthClipEnable
+  = FALSE`: el PSO lo lee (`RasterizerState` +24) y llega a la trama como
+  el bit `trama::SIN_RECORTE_Z` del descarte: sin recorte contra el plano
+  cercano ni el lejano (la banda de x e y sigue), y la Z SUJETA al
+  viewport [MinDepth, MaxDepth] antes de la prueba. Juez: `flotante1.exe`
+  (`tests/corre/muestras.rs`, n5_16b: 10 `bien`, bit a bit; con la casa de
+  antes, 6 MAL) y dos pruebas de la trama (`pruebas_pixeles.rs`) y una del
+  UAV (`bufer.rs`).
+  **Lo que puede fallar, dicho:** (1) la 3060 no pinta en float ni sin
+  recorte en z: esos lotes van por la CPU (lo dice la puerta, una vez);
+  (2) un render target R32_UINT/R32_SINT -- HECHO el 05-10 con todos los
+  de ENTEROS (`prueba/restos.exe`, A: sus bits, saturados al canal como
+  D3D11.3 3.2.3.6, sin mezcla) --; un UAV R32_UINT sobre un R11G11B10F (el
+  truco de leer con tipo) sigue en "todavia no", con su aviso; (3) la vista R16_FLOAT de un R16_TYPELESS se pinta, pero leerla de
+  vuelta con una copia aun no (la casa no sabe si sus floats son un D16 o
+  un half); (4) SV_Position.z en el de pixeles, sin recorte, va SIN sujetar
+  (como el FragCoord de Vulkan con depthClamp; si D3D lo sujetara, un
+  sombreador que la lea veria otra cosa).
+  **Queda:** la 3060 pintando en float y sin recorte en z (su puerta es de
+  8 bits y su receta recorta siempre).
 - [x] **N5.17 -- ExecuteIndirect y ExecuteBundle** (05-10). ExecuteBundle
   corre desde E1.6 de la ESCALERA (HelloBundles, bit a bit), y
   ExecuteIndirect desde E2.4 (D3D12ExecuteIndirect): se apunta con el
@@ -1077,3 +1224,88 @@ de "se ve el menu" (seccion 0). DLSS es una biblioteca cerrada de NVIDIA
 (`nvngx`) que habla con SU driver: aqui no hay ese driver, asi que no. FSR 3
 si: lo trae el juego en sus DLL (`ffx_*.dll`, ya cargadas el 02-10) y corre
 en cualquier grafica.
+
+---
+
+# 7. CUANTO FALTA, CONTADO (06-10)
+
+> El propietario (06-10): *"dime las listas largas cuantos son para tener el
+> cyberpunk"*, y al ver el numero: *"me hace dudar si poner 130 a menos que
+> sea motivos"*. Por eso el numero va con su MOTIVO: es una cuenta de
+> casillas abiertas, sacada con `grep -c '^\s*- \[ \]'` el 06-10, no una
+> promesa. Cada casilla cabe en un commit y dice **como se sabe**; una
+> casilla nueva que aparezca al correr el juego sube la cuenta, y eso no es
+> un fallo del plan: es el juego diciendo que pide.
+
+```text
+   plan                                   que cubre                       abiertas  hechas
+   PLAN_LAS_TRES_GRANDES.md  1            el primer contacto                   9       3
+                             2            D3D12 de juego                      38       -
+                             3            el sonido del juego                  7       7
+                             4            varios nucleos ([RING 0] dentro)    20       -
+                             6            la escalera hasta jugar              9      28
+   PLAN_LA_ESCALERA_PROTON_X.md           las muestras de Microsoft           15      17
+   PLAN_LA_LUDOTECA.md                    las funciones sueltas, por tandas   33      13
+   PLAN_LA_3060.md + _AFINADA             el GSP despierto y la 3060 fina     10       1
+                                                                  en total   ~141
+```
+
+Hay casillas que estan en dos planes (la ESCALERA prueba casillas de este),
+asi que el numero de verdad es algo menos de 141: **unas 130**. Las que mas
+pesan no son las mas: 2F (un fotograma entero en la 3060), D4.6 (la cache
+de PSO, miles de pipelines traducidos una vez: VC1 de
+[`PLAN_VERRANO.md`](PLAN_VERRANO.md)) y la seccion 4 (Ring 0, con permiso).
+Y todo cuelga de G0 de [`PLAN_LA_3060.md`](PLAN_LA_3060.md): la 3060 tiene
+que despertar 10 de 10.
+
+**Cyberpunk en PC es SOLO DX12.** DX11 no lo acerca; la cara de DX11 (y la
+de Vulkan para DOOM) estan en la seccion 5 de [`PLAN_VERRANO.md`](PLAN_VERRANO.md),
+DESPUES de esta lista.
+
+**El MSAA, APARCADO con motivo (06-10).** Hay una obra a medias (texturas de
+varias muestras, el patron estandar, AlphaToCoverage, ResolveSubresource)
+que quedo cortada sin juez. Se aparca por la regla 0 de este plan, "lo que
+el juego no pide no se hace": Cyberpunk suaviza los bordes con TAA y DLSS,
+no con muestras, y la obra toca el corazon de la trama (13 choques con lo
+de hoy). Vuelve si una medida del juego (o un juego que se quiera despues)
+pide `SampleDesc.Count > 1`; hasta entonces, la casa sigue con UNA muestra
+y lo dice.
+
+## 7.1 EL CONTADOR DE DX12 (06-10)
+
+> El propietario (06-10): *"cuantos elementos son que faltan ... se siente
+> como infinito pero no tengo contador"*. Las 38 casillas de la seccion 2
+> siguen abiertas aunque muchas ya estan HECHAS EN EL BANCO: su "como se
+> sabe" pide Windows o el metal. Por eso el contador va en TRES MONTONES,
+> por QUIEN puede cerrarlas. Se actualiza con cada pieza.
+
+```text
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)   10
+      1  D2.7  las vistas que cambian el tipo (UAV, render target, SRV)
+      2  D3.4  ClearUnorderedAccessView en los formatos que aun no escribe
+      3  D3.2  el deserializador de firmas (D3D12CreateVersionedRoot...)
+      4  D3.2  serializar la 1.1 con los MISMOS bytes que Windows
+      5  D3.4  los UAV de arrays de 1D y los de filas de otra medida
+      6  D4.5  las topologias con adyacencia (para un GS que las pide)
+      7  D2.3  Map sobre una textura (montones de la CPU)
+      8  D1.2  las preguntas de CheckFeatureSupport que no contesta
+      9  D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO)
+     10  X5    la velocidad que queda: las olas en el computo traducido y
+               los pixeles con UAV traducidos
+   B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
+      B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
+      consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.
+      Dice si cada juez tiene RAZON: lo que el banco dio por bueno.
+      D0.1 rayosx sobre la carpeta del juego; D0.2 los DXIL de su cache;
+      D0.3 el diario filtrado a D3D12. Lo que encuentren entra en A (el
+      teselado D4.5, los recursos reservados D2.4: SOLO si aparecen)
+   C  El METAL: correr la hoja y la 3060                                    --
+      docs/metal/PRUEBAS_DX12_EN_EL_RYZEN.md, juez a juez (cada `bien` en
+      el Ryzen y en Windows CIERRA casillas de la seccion 2 que hoy estan
+      hechas solo en el banco); G0 de PLAN_LA_3060 (el GSP 10 de 10) para
+      D5.x; y D5.8, la primera imagen del juego
+   D  Lo que NO se hace (apagado en el juego): D6.1 rayos, D6.2 DLSS y
+      Reflex; D6.3 FSR 2 sale solo con el computo (ya esta)
+```
+
+Cuando A llegue a 0, lo que falte de DX12 lo diran B y C: el juego mismo.

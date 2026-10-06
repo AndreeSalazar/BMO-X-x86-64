@@ -194,7 +194,7 @@ fn sample_de_sm5_muestrea() {
     };
     let tx: Vec<u32> = vec![0xFF30_2010, 0xFF60_5040, 0xFF90_8070, 0xFFC0_B0A0];
     let tex = [Some(Textura::rgba(&tx, 2, 2, false))];
-    let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Repetir, v: Direccion::Repetir, borde: [0.0; 4], comparacion: 0 })];
+    let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Repetir, v: Direccion::Repetir, borde: [0.0; 4], comparacion: 0, lod: crate::textura::Lod::DE_SIEMPRE })];
     let rec = Recursos { texturas: &tex, muestreadores: &m, buferes: &[], dinamicas: None };
     let p = crate::sm5::compilar(&programa([0, 1, 2, 3]), &entradas, &salidas).unwrap();
     assert_eq!(p.ops.iter().filter(|o| matches!(o, Op::Muestra { t: 0, s: 0, .. })).count(), 1);

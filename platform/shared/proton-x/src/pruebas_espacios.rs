@@ -40,7 +40,7 @@ fn el_enlace_da_a_cada_espacio_su_ranura() {
         _ => 0x00FF_0000,
     };
     let pix: Vec<[u32; 1]> = en.ranuras.texturas.iter().map(|&x| [color(x)]).collect();
-    let m = Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4], comparacion: 0 };
+    let m = Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4], comparacion: 0, lod: crate::textura::Lod::DE_SIEMPRE };
     let mue: Vec<Option<Muestreador>> = en.ranuras.muestreadores.iter().map(|_| Some(m)).collect();
     let cb = [0u8; 16];
     let (mut sal, mut regs) = (vec![[0f32; 4]; en.ps.salidas], Vec::new());
@@ -67,7 +67,7 @@ fn unir_ranuras_renumera_las_del_de_pixeles() {
     assert_eq!(m.texturas, [2, 1], "el t0 del pixel es otro; el t5 sin etapa, el mismo");
     assert_eq!((m.muestreadores.as_slice(), m.cbuffers.as_slice()), (&[1u8][..], &[1u8][..]));
     let mut p = Programa {
-        ops: vec![Op::Muestra { d: 0, t: 0, s: 0, u: 4, v: 5 }, Op::Muestra { d: 0, t: 1, s: 0, u: 4, v: 5 }, Op::Constantes { d: 6, fila: 2, cb: 0 }],
+        ops: vec![Op::Muestra { d: 0, t: 0, s: 0, u: 4, v: 5, g: None }, Op::Muestra { d: 0, t: 1, s: 0, u: 4, v: 5, g: None }, Op::Constantes { d: 6, fila: 2, cb: 0 }],
         iniciales: vec![0.0; 10],
         entradas: 0,
         salidas: 0,
@@ -242,8 +242,8 @@ fn la_trama_no_escribe_el_pixel_tirado_ni_su_profundidad() {
     let v = crate::pruebas::triangulo([1.0; 3], [0.0, 1.0, 1.0], true);
     let mut px = vec![0u32; 64];
     let mut z = vec![1.0f32.to_bits(); 64];
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: Some(trama::Profundidad { funcion: 2, escribir: true }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false };
-    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: Some(&mut z), cadena: false, otros: &mut [] };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: Some(trama::Profundidad { funcion: 2, escribir: true }), mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: Some(&mut z), cadena: false, otros: &mut [], flotante: None, stencil: None };
     // Tira lo de atributo < 0.5 (cerca del vertice de (0,0)).
     let c = trama::dibujar(&reglas, &v, &[[0, 1, 2]], &mut d, None, |e, c| {
         c[0] = [1.0; 4];
@@ -262,8 +262,9 @@ fn la_trama_no_escribe_el_pixel_tirado_ni_su_profundidad() {
 const OLAS_PS: &[u8] = include_bytes!("../prueba/olas.dxil");
 
 /// *** `olas.hlsl` (de `dxc`): las olas y las derivadas que pedian los
-/// sombreadores de Cyberpunk (83, 84, 118 en el metal) y sus hermanas, con
-/// un pixel por ola: el valor mismo, el neutro del prefijo, un carril, y las
+/// sombreadores de Cyberpunk (83, 84, 118 en el metal) y sus hermanas,
+/// corrido SOLO (`correr`, sin trama: un carril activo de una ola de 32,
+/// E2.5): el valor mismo, el neutro del prefijo, 32 carriles, y las
 /// derivadas a 0 (ver `dxil/olas.rs`).
 #[test]
 fn un_pixel_de_dxc_con_olas_y_derivadas_corre_con_un_carril() {
@@ -272,12 +273,13 @@ fn un_pixel_de_dxc_con_olas_y_derivadas_corre_con_un_carril() {
     let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
     let x = [0.25f32, 0.5, 3.0, 4.0];
     assert!(ps.correr(&[[0.0; 4], x, [f32::from_bits(7), 0.0, 0.0, 0.0]], &[], &mut sal, &mut regs));
-    // a = x.x; b = x.y; n = 1 carril + prefijo 0 + indice 0, k = 1 (x.y > 0);
-    // las derivadas, 0; y los cuatro booleanos, ciertos.
-    assert_eq!(sal[0], [0.25, 0.5, 11.0, 1.0]);
+    // a = x.x; b = x.y; n = 32 carriles + prefijo 0 + indice 0, k = 1
+    // (x.y > 0): 32 * 10 + 1; las derivadas, 0; y los cuatro booleanos,
+    // ciertos.
+    assert_eq!(sal[0], [0.25, 0.5, 321.0, 1.0]);
     // Con x.y = 0: la cuenta de bits es 0; con x.z <= 1, AnyTrue es falso.
     ps.correr(&[[0.0; 4], [0.25, 0.0, 0.5, 4.0], [f32::from_bits(7), 0.0, 0.0, 0.0]], &[], &mut sal, &mut regs);
-    assert_eq!(sal[0], [0.25, 0.0, 10.0, 0.0]);
+    assert_eq!(sal[0], [0.25, 0.0, 320.0, 0.0]);
 }
 
 const ARREGLOS_PS: &[u8] = include_bytes!("../prueba/arreglos.dxil");
@@ -357,8 +359,8 @@ fn las_sombras_comparan_y_gather_junta() {
     texturas[reg(&ps.ranuras.texturas, 0)] = Some(tex);
     texturas[reg(&ps.ranuras.texturas, 1)] = Some(tex);
     let mut mues = vec![None, None];
-    mues[reg(&ps.ranuras.muestreadores, 0)] = Some(Muestreador { filtro: Filtro::Lineal, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 2 });
-    mues[reg(&ps.ranuras.muestreadores, 1)] = Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0 });
+    mues[reg(&ps.ranuras.muestreadores, 0)] = Some(Muestreador { filtro: Filtro::Lineal, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 2, lod: crate::textura::Lod::DE_SIEMPRE });
+    mues[reg(&ps.ranuras.muestreadores, 1)] = Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4], comparacion: 0, lod: crate::textura::Lod::DE_SIEMPRE });
     let rec = Recursos { texturas: &texturas, muestreadores: &mues, buferes: &[], dinamicas: None };
     let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
     ps.correr_con(&[[0.0; 4], [0.5, 0.5, 0.0, 0.0], [f32::from_bits(88), 0.0, 0.0, 0.0]], &[], &rec, &mut sal, &mut regs);
@@ -405,7 +407,7 @@ fn un_array_de_texturas_con_el_registro_calculado_lee_la_de_su_indice() {
         let base = dinamicas.get(rango as usize)?;
         (registro < 32).then(|| Textura::rgba(&pixeles[(base.espacio * 32 + registro) as usize], 1, 1, false))
     };
-    let m = Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4], comparacion: 0 };
+    let m = Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4], comparacion: 0, lod: crate::textura::Lod::DE_SIEMPRE };
     let mue: Vec<Option<Muestreador>> = en.ranuras.muestreadores.iter().map(|_| Some(m)).collect();
     let rec = Recursos { texturas: &[], muestreadores: &mue, buferes: &[], dinamicas: Some(Dinamicas(&buscar)) };
     let (mut sal, mut regs) = (vec![[0f32; 4]; en.ps.salidas], Vec::new());

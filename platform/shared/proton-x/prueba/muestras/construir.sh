@@ -164,3 +164,82 @@ cp "$AQUI/../vistas.cpp" "$AQUI"/../vistas_*.dxil .
 $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c vistas.cpp -o vistas.o
 $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o vistas.exe vistas.o -ld3d12
 sha256sum vistas.exe
+
+# N5.16: el juez de los render targets de FLOAT, NUESTRO (`../hdr.cpp`, con
+# sus tres sombreadores de `../hdr_*.dxil` dentro).
+cp "$AQUI/../hdr.cpp" "$AQUI"/../hdr_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c hdr.cpp -o hdr.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o hdr.exe hdr.o -ld3d12
+sha256sum hdr.exe
+
+# 05-10: el juez de los UAV escritos desde un DIBUJO, NUESTRO
+# (`../uavpixel.cpp`, con sus tres sombreadores de `../uavpixel_*.dxil`).
+cp "$AQUI/../uavpixel.cpp" "$AQUI"/../uavpixel_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c uavpixel.cpp -o uavpixel.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o uavpixel.exe uavpixel.o -ld3d12
+sha256sum uavpixel.exe
+# N5.16b: el juez de los floats de un canal, de sus UAV y de DepthClipEnable
+# = FALSE, NUESTRO (`../flotante1.cpp`, con sus seis sombreadores de
+# `../flotante1_*.dxil` dentro).
+cp "$AQUI/../flotante1.cpp" "$AQUI"/../flotante1_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c flotante1.cpp -o flotante1.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o flotante1.exe flotante1.o -ld3d12
+sha256sum flotante1.exe
+# 05-10: el juez del STENCIL, NUESTRO (`../stencil.cpp`, con sus dos
+# sombreadores de `../stencil_*.dxil` dentro).
+cp "$AQUI/../stencil.cpp" "$AQUI"/../stencil_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c stencil.cpp -o stencil.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o stencil.exe stencil.o -ld3d12
+sha256sum stencil.exe
+
+# E2.5: el juez de las OLAS, NUESTRO (`../olas.cpp`, con sus tres
+# sombreadores de `../olas_*.dxil` dentro): la muestra D3D12SM6WaveIntrinsics
+# pinta segun como junte la GPU los pixeles en olas (sin huella que
+# comparar) y pide D3D11On12 y Direct2D para su texto.
+cp "$AQUI/../olas.cpp" "$AQUI"/../olas_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c olas.cpp -o olas.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o olas.exe olas.o -ld3d12
+sha256sum olas.exe
+
+# D4.4: el juez de las DERIVADAS y de la MIP de un muestreo, NUESTRO
+# (`../derivadas.cpp`, con sus tres sombreadores de `../derivadas_*.dxil`).
+cp "$AQUI/../derivadas.cpp" "$AQUI"/../derivadas_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c derivadas.cpp -o derivadas.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o derivadas.exe derivadas.o -ld3d12
+sha256sum derivadas.exe
+
+# 05-10: el juez de lo que QUEDABA (enteros, UAV sin destino y del GS, el
+# plano de stencil y SV_StencilRef), NUESTRO (`../restos.cpp`, con sus diez
+# sombreadores de `../restos_*.dxil`).
+cp "$AQUI/../restos.cpp" "$AQUI"/../restos_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c restos.cpp -o restos.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o restos.exe restos.o -ld3d12
+sha256sum restos.exe
+
+# E2.1: el juez de las listas de VARIOS HILOS y las colas que esperan,
+# NUESTRO (`../multihilo.cpp`; D3D12Multithreading pide SquidRoom.bin).
+cp "$AQUI/../multihilo.cpp" "$AQUI"/../multihilo_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c multihilo.cpp -o multihilo.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o multihilo.exe multihilo.o -ld3d12
+sha256sum multihilo.exe
+
+# 06-10: el juez de los UAV de texturas 3D y de arrays, NUESTRO
+# (`../volumen.cpp`, con sus tres CS de `../volumen_*.dxil`).
+cp "$AQUI/../volumen.cpp" "$AQUI"/../volumen_*.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c volumen.cpp -o volumen.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o volumen.exe volumen.o -ld3d12
+sha256sum volumen.exe
+
+# 06-10: el juez de las ROOT SIGNATURES 1.1 y de las de dentro del
+# sombreador, NUESTRO (`../firmas.cpp`, con su CS y sus dos firmas de dxc).
+cp "$AQUI/../firmas.cpp" "$AQUI"/../firmas_cs.dxil "$AQUI"/../firmas_*.rts0 .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c firmas.cpp -o firmas.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o firmas.exe firmas.o -ld3d12
+sha256sum firmas.exe
+
+# 06-10: el juez del COMPUTO de un posproceso, NUESTRO (`../postpro.cpp`,
+# con su CS de `../postpro_cs.dxil`).
+cp "$AQUI/../postpro.cpp" "$AQUI"/../postpro_cs.dxil .
+$G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c postpro.cpp -o postpro.o
+$G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o postpro.exe postpro.o -ld3d12
+sha256sum postpro.exe

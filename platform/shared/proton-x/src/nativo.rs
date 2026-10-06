@@ -10,13 +10,34 @@
 //!
 //! ```text
 //!    la llamada   rdi = los registros (f32), rsi = las entradas ([f32; 4]),
-//!                 rdx = el cbuffer, rcx = las salidas ([f32; 4])
+//!                 rdx = el cbuffer, rcx = las salidas ([f32; 4]), r8 = las
+//!                 `Llamadas` (X2: solo las lee el que muestrea, hace
+//!                 matematica o lee el cbuffer con fila calculada)
 //!                 -- solo PUNTEROS: el ABI entero, el que Rust soft-float sabe
 //!    el cuerpo    una instruccion ESCALAR de SSE por operacion, sobre
 //!                 [rdi + 4 * registro]; solo xmm0..xmm2 (volatiles)
 //!    el MXCSR     el suyo se guarda, se pone 0x1F80 (al mas cercano, sin
-//!                 FTZ ni DAZ: IEEE-754 como el interprete) y se devuelve
+//!                 FTZ ni DAZ: IEEE-754 como el interprete) y se devuelve;
+//!                 si su control ya es ese, ni se pone ni se quita (ver
+//!                 [`mxcsr_al_entrar`]: sus banderas de excepcion no cuentan)
+//!    devuelve     en eax: [`QUEDA`] (0), o [`DESCARTADO`] si el pixel se tiro
 //! ```
+//!
+//! **Los que SALTAN** (la VELOCIDAD, 05-10): un VS o un PS con `si`, bucles,
+//! enteros, comparaciones, conversiones, `discard` o arrays de registros no
+//! cabe en lo de arriba (una fila de SSE sin saltos). Para esos, el cuerpo es
+//! el del COMPUTO (`nativo_computo`: saltos de verdad, los enteros modulo
+//! 2^32, las conversiones de Rust, su juez bit a bit) y delante va una
+//! entrada con la MISMA llamada de arriba que le pone un `Contexto` a medias
+//! en la pila (solo entradas, salidas, compartida nula y `reanudar`): asi la
+//! casa los llama igual, y lo que el computo lee de mas (ids, vistas,
+//! barreras) no esta en un dibujo -- se mira antes y, si esta, `None`.
+//!
+//! **Los que MUESTREAN** (X2, 05-10): las texturas (`Sample`, `Load`, los
+//! arrays de texturas), la matematica (`sin`, `exp2`...) y el cbuffer con
+//! fila calculada ya no apartan al sombreador: el cuerpo LLAMA al Rust del
+//! interprete (`nativo_llamadas`) por los punteros de r8, y la fila se mira
+//! contra la medida del cbuffer, como el interprete.
 //!
 //! **Por que da los MISMOS bits que el interprete:** mulss, addss, subss,
 //! divss y sqrtss son IEEE-754 con redondeo al mas cercano, igual que la
@@ -34,6 +55,45 @@ use crate::dxil::programa::{Op, Programa, Reg};
 
 /// El MXCSR de D3D: todas las excepciones tapadas, al mas cercano.
 pub const MXCSR_D3D: u32 = 0x1F80;
+
+/// Los bits de CONTROL del MXCSR (6..15: DAZ, las mascaras, el redondeo,
+/// FTZ); los de abajo (0..5) son las banderas de excepcion, pegajosas.
+const MXCSR_CONTROL: u32 = 0xFFC0;
+
+/// **El MXCSR al entrar** (la VELOCIDAD, 05-10), con `[rsp]` y `[rsp+4]`
+/// libres: el de quien llama a `[rsp]`, y el de D3D puesto SOLO si su
+/// control es otro. Por que: un `ldmxcsr` que CAMBIA el MXCSR cuesta (en el
+/// Xeon del banco, unos 50 ns por llamada: el VSId de instancias, de 33 a 87
+/// ns), y en BMO-X quien llama es Rust soft-float, que no lo toca: su
+/// control es siempre 0x1F80. Las banderas que deje el sombreador (inexacto,
+/// NaN) se quedan: son de estado; el juego (codigo de Windows, en el mismo
+/// hilo) podria leerlas con `_statusfp`, pero sus propias cuentas ya las
+/// ponen a cada rato. Pisa eax.
+pub(crate) fn mxcsr_al_entrar(b: &mut Vec<u8>) {
+    b.extend_from_slice(&[0x0F, 0xAE, 0x1C, 0x24]); // stmxcsr [rsp]
+    b.extend_from_slice(&[0x8B, 0x04, 0x24]); // mov eax, [rsp]
+    b.push(0x25); // and eax, MXCSR_CONTROL
+    b.extend_from_slice(&MXCSR_CONTROL.to_le_bytes());
+    b.push(0x3D); // cmp eax, MXCSR_D3D
+    b.extend_from_slice(&MXCSR_D3D.to_le_bytes());
+    b.extend_from_slice(&[0x74, 13]); // je (detras de los dos de abajo: 8 + 5)
+    b.extend_from_slice(&[0xC7, 0x44, 0x24, 0x04]); // mov dword [rsp+4], MXCSR_D3D
+    b.extend_from_slice(&MXCSR_D3D.to_le_bytes());
+    b.extend_from_slice(&[0x0F, 0xAE, 0x54, 0x24, 0x04]); // ldmxcsr [rsp+4]
+}
+
+/// **El MXCSR al salir**: el de quien llamo, de vuelta tal cual, si su
+/// control era otro; si era el de D3D, nada (ver [`mxcsr_al_entrar`]). Pisa
+/// ecx (no eax: lo que devuelve).
+pub(crate) fn mxcsr_al_salir(b: &mut Vec<u8>) {
+    b.extend_from_slice(&[0x0F, 0xAE, 0x5C, 0x24, 0x04]); // stmxcsr [rsp+4]
+    b.extend_from_slice(&[0x8B, 0x0C, 0x24]); // mov ecx, [rsp]
+    b.extend_from_slice(&[0x33, 0x4C, 0x24, 0x04]); // xor ecx, [rsp+4]
+    b.extend_from_slice(&[0xF7, 0xC1]); // test ecx, MXCSR_CONTROL
+    b.extend_from_slice(&MXCSR_CONTROL.to_le_bytes());
+    b.extend_from_slice(&[0x74, 4]); // je (detras del ldmxcsr)
+    b.extend_from_slice(&[0x0F, 0xAE, 0x14, 0x24]); // ldmxcsr [rsp]
+}
 
 // Los registros base de la llamada (numero de registro en ModRM).
 const RDI: u8 = 7;
@@ -106,45 +166,120 @@ pub const MINSS: u8 = 0x5D;
 pub const DIVSS: u8 = 0x5E;
 pub const MAXSS: u8 = 0x5F;
 
-/// **Traducir un programa a x86-64.** Una funcion entera, independiente de
-/// donde caiga (solo usa sus cuatro punteros): se puede copiar a otro bloque.
+/// Lo que devuelve un sombreador traducido: el pixel queda (o el vertice).
+pub const QUEDA: u32 = 0;
+/// O se tiro (`discard`): el del computo, que es quien lo emite.
+pub const DESCARTADO: u32 = crate::nativo_computo::DESCARTADO;
+
 /// **Por que [`compilar`] no traduce `p`**, dicho para quien lo lea (el
 /// aviso de la casa), o `None` si lo traduce. La lista es la de `compilar`.
 pub fn por_que_no(p: &Programa) -> Option<&'static str> {
-    if p.muestrea() {
-        return Some("muestrea una textura");
+    // E2.5: lo primero (un sombreador con olas suele saltar tambien).
+    if p.olas_propias() {
+        return Some("usa las olas (Wave*, Quad*: van de 32 en 32 carriles)");
     }
-    if p.salta() {
-        return Some("salta o hace cuentas ENTERAS (si, bucles, comparaciones, conversiones)");
-    }
+    // D4.4 y X3: las derivadas (y la mip y el LOD que salen de ellas) ya no
+    // son motivo: van en cuadros de 2x2 (`compilar_cuadros`).
+    // Los saltos, los enteros, `discard`, los arrays de registros y (X2,
+    // 05-10) las texturas, la matematica y el cbuffer con fila calculada ya
+    // los sabe (por el cuerpo del computo y sus llamadas): no son motivo.
     p.ops.iter().find_map(|o| match o {
-        Op::Mate { .. } => Some("usa la matematica (exp, log, sin...)"),
-        Op::Descarta { .. } => Some("tira pixeles (discard)"),
-        Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => Some("indexa un array"),
-        Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } => Some("es de computo"),
+        // 05-10: un UAV en un dibujo: interpretado, nunca perdido.
+        Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::Atomico { .. } => Some("lee o escribe un UAV"),
+        Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } => Some("es de computo"),
         Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => Some("es de geometria"),
         _ => None,
     })
 }
 
+/// **Traducir un programa a x86-64.** Una funcion entera, independiente de
+/// donde caiga (solo usa sus punteros): se puede copiar a otro bloque.
 pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
-    // Un programa que MUESTREA una textura no se traduce todavia: el
-    // muestreo (filtros, direcciones) va por el interprete (`textura`).
-    if p.muestrea() {
+    // D4.4: las derivadas (y la mip y el LOD que salen de ellas) piden el
+    // cuadro de 2x2, que aqui no hay (cada pixel corre solo): esos, en
+    // cuadros ([`compilar_cuadros`], X3) o por el interprete.
+    if p.usa_olas() {
         return None;
     }
-    // Ni uno que SALTA (E6, 02-10): los `si` y los bucles van por el
-    // interprete hasta que esto sepa poner sus saltos.
+    // Lo sin saltos, por la fila de SSE; lo demas, por el cuerpo del computo.
+    directo(p).or_else(|| con_saltos(p))
+}
+
+/// **X3 (06-10): el cuerpo de un pixel que DERIVA, para correrlo en
+/// cuadros de 2x2**: la funcion de `nativo_computo` (`fn(registros,
+/// Contexto, cbuffer) -> u32`), sin entrada: la casa pone un `Contexto` por
+/// carril y la llama hasta que acaba; cada vez que vuelve con
+/// `nativo_computo::OLA` resta los carriles del cuadro en los registros de
+/// la parada (`nativo_computo::paradas`) y la llama otra vez. `None` si usa
+/// olas de verdad (`Wave*`, `Quad*`: piden los 32 carriles) o algo que no
+/// es de un pixel.
+pub fn compilar_cuadros(p: &Programa) -> Option<Vec<u8>> {
+    if p.olas_propias() || p.ops.iter().any(de_fuera) {
+        return None;
+    }
+    crate::nativo_computo::compilar_dibujo(p)
+}
+
+/// Lo que lee del Contexto que un dibujo no pone (ids, vistas, barreras,
+/// compartida) o lo de la geometria: eso no es de un vertice ni un pixel.
+fn de_fuera(o: &Op) -> bool {
+    matches!(o, Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. })
+}
+
+/// **Con saltos** (la VELOCIDAD, 05-10): el cuerpo de `nativo_computo` con
+/// una entrada que habla la llamada de los dibujos:
+///
+/// ```text
+///    sub  rsp, 88             el Contexto a medias (80 bytes), a 16
+///    mov  [rsp+56], rsi       sus entradas
+///    mov  [rsp+64], rcx       sus salidas
+///    mov  [rsp+72], r8        sus llamadas (X2: texturas, matematica)
+///    mov  qword [rsp+48], 0   sin memoria compartida
+///    mov  dword [rsp+40], 0   desde el principio
+///    mov  rsi, rsp            rdi (registros) y rdx (cbuffer), tal cual
+///    call cuerpo              eax: 0 acabo, 2 descartado
+///    add  rsp, 88
+///    ret
+/// ```
+fn con_saltos(p: &Programa) -> Option<Vec<u8>> {
+    use crate::nativo_computo::{C_COMPARTIDA, C_ENTRADAS, C_LLAMADAS, C_REANUDAR, C_SALIDAS};
+    if p.ops.iter().any(de_fuera) {
+        return None;
+    }
+    let cuerpo = crate::nativo_computo::compilar_dibujo(p)?;
+    let disp8 = |c: i32| c as u8;
+    let mut b = Vec::with_capacity(cuerpo.len() + 48);
+    b.extend_from_slice(&[0x48, 0x83, 0xEC, 0x58]); // sub rsp, 88
+    b.extend_from_slice(&[0x48, 0x89, 0x74, 0x24, disp8(C_ENTRADAS)]); // mov [rsp+56], rsi
+    b.extend_from_slice(&[0x48, 0x89, 0x4C, 0x24, disp8(C_SALIDAS)]); // mov [rsp+64], rcx
+    b.extend_from_slice(&[0x4C, 0x89, 0x44, 0x24, disp8(C_LLAMADAS)]); // mov [rsp+72], r8
+    b.extend_from_slice(&[0x48, 0xC7, 0x44, 0x24, disp8(C_COMPARTIDA), 0, 0, 0, 0]); // mov qword [rsp+48], 0
+    b.extend_from_slice(&[0xC7, 0x44, 0x24, disp8(C_REANUDAR), 0, 0, 0, 0]); // mov dword [rsp+40], 0
+    b.extend_from_slice(&[0x48, 0x89, 0xE6]); // mov rsi, rsp
+    b.extend_from_slice(&[0xE8, 5, 0, 0, 0]); // call cuerpo (detras de add y ret)
+    b.extend_from_slice(&[0x48, 0x83, 0xC4, 0x58]); // add rsp, 88
+    b.push(0xC3); // ret
+    b.extend_from_slice(&cuerpo);
+    Some(b)
+}
+
+// Los cinco campos que pone la entrada de [`con_saltos`] caben en sus 88
+// bytes de pila y su desplazamiento, en un byte (`disp8`).
+const _: () = {
+    use crate::nativo_computo::{C_COMPARTIDA, C_ENTRADAS, C_LLAMADAS, C_REANUDAR, C_SALIDAS};
+    assert!(C_REANUDAR + 4 <= 88 && C_COMPARTIDA + 8 <= 88 && C_ENTRADAS + 8 <= 88 && C_SALIDAS + 8 <= 88 && C_LLAMADAS + 8 <= 88 && C_LLAMADAS < 128);
+};
+
+/// **Sin saltos**: una fila de SSE, sobre los cuatro punteros. `None` si
+/// tiene algo que esto no sabe (lo de [`con_saltos`] o lo que nadie sabe).
+fn directo(p: &Programa) -> Option<Vec<u8>> {
     if p.salta() {
         return None;
     }
     let mut e = Emisor { b: Vec::with_capacity(16 * p.ops.len() + 64) };
     // Prologo: el MXCSR de quien llama, a la pila; el de D3D, puesto.
     e.b.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]); // sub rsp, 8
-    e.b.extend_from_slice(&[0x0F, 0xAE, 0x1C, 0x24]); // stmxcsr [rsp]
-    e.b.extend_from_slice(&[0xC7, 0x44, 0x24, 0x04]); // mov dword [rsp+4], imm32
-    e.b.extend_from_slice(&MXCSR_D3D.to_le_bytes());
-    e.b.extend_from_slice(&[0x0F, 0xAE, 0x54, 0x24, 0x04]); // ldmxcsr [rsp+4]
+    mxcsr_al_entrar(&mut e.b);
     for op in &p.ops {
         match *op {
             Op::Entrada { d, elemento, componente } => {
@@ -216,24 +351,29 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
             }
             Op::Min { d, a, b } => e.min_max(MINSS, d, a, b),
             Op::Max { d, a, b } => e.min_max(MAXSS, d, a, b),
-            // N5.6: la matematica va por el interprete hasta que esto la sepa.
+            // N5.6: la matematica, por `con_saltos` (X2: la llama).
             Op::Mate { .. } => return None,
-            // N5.7: el que tira pixeles, tambien (el x86-64 no sabe salir a medias).
+            // N5.7 y N5.10: el que tira pixeles y los arrays, por `con_saltos`
+            // (y, X2, los cbuffers con fila calculada).
             Op::Descarta { .. } => return None,
-            // N5.10: los arrays, por el interprete.
             Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => return None,
             // N5.5: el computo, por el interprete.
             Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } => return None,
             // E2.3b: el sombreador de geometria, por el interprete.
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return None,
-            // E2.4: el contador de un UAV, por el interprete.
-            Op::Contador { .. } => return None,
-            Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } => unreachable!("mirado arriba: `muestrea`"),
+            // E2.4: el contador de un UAV, por el interprete; y (05-10) sus
+            // Interlocked.
+            Op::Contador { .. } | Op::Atomico { .. } => return None,
+            // E2.5: las olas miran a los otros carriles: por el interprete.
+            Op::Ola { .. } => return None,
+            // X2 (05-10): las texturas, por `con_saltos` (las llama).
+            Op::Muestra { .. } | Op::Lee { .. } | Op::EligeTextura { .. } => return None,
             Op::Compara { .. } | Op::Elige { .. } | Op::Copia { .. } | Op::SumaEntera { .. } | Op::Entera { .. } | Op::Convierte { .. } | Op::Si { .. } | Op::SiNo | Op::FinSi | Op::Bucle | Op::RomperSi { .. } | Op::Romper | Op::Continuar | Op::FinBucle => unreachable!("mirado arriba: `salta`"),
         }
     }
-    // Epilogo: el MXCSR de quien llamo, de vuelta.
-    e.b.extend_from_slice(&[0x0F, 0xAE, 0x14, 0x24]); // ldmxcsr [rsp]
+    // Epilogo: el MXCSR de quien llamo, de vuelta, y el pixel queda.
+    e.b.extend_from_slice(&[0x31, 0xC0]); // xor eax, eax (QUEDA)
+    mxcsr_al_salir(&mut e.b);
     e.b.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]); // add rsp, 8
     e.b.push(0xC3); // ret
     Some(e.b)
