@@ -113,3 +113,24 @@ fn el_gs_de_nbody_hace_de_cada_punto_un_cuadro_con_su_degradado() {
     }
     assert!(dentro >= 2 * 25, "dos cuadros de unos 6 x 6 pixeles: {dentro}");
 }
+
+/// A6 (06-10): las primitivas de las topologias con ADYACENCIA, como las
+/// lee un GS, y sus triangulos sin GS (los de al lado no cuentan). La tira
+/// con la tabla de D3D (la de OpenGL), con sus extremos y el impar dado la
+/// vuelta; `prueba/adyacencia.exe` la pregunta a Windows.
+#[test]
+fn las_topologias_con_adyacencia_dan_sus_primitivas() {
+    let ids: Vec<u32> = (0..15).collect();
+    let p = |n: usize, t: Topologia, k: usize| lote::primitivas(&ids[..n], t, k).unwrap();
+    assert_eq!(p(15, Topologia::ListaAdy, 6), [vec![0, 1, 2, 3, 4, 5], vec![6, 7, 8, 9, 10, 11]]);
+    assert_eq!(p(10, Topologia::TiraAdy, 6), [vec![0, 1, 2, 6, 4, 3], vec![4, 0, 2, 5, 6, 8], vec![4, 2, 6, 9, 8, 7]]);
+    assert_eq!(p(12, Topologia::TiraAdy, 6)[2], [4, 2, 6, 10, 8, 7], "uno par en medio");
+    assert_eq!(p(7, Topologia::TiraAdy, 6), [vec![0, 1, 2, 5, 4, 3]], "solo uno");
+    assert!(p(5, Topologia::TiraAdy, 6).is_empty());
+    assert_eq!(p(9, Topologia::LineasAdy, 4), [vec![0, 1, 2, 3], vec![4, 5, 6, 7]]);
+    assert_eq!(p(6, Topologia::TiraDeLineasAdy, 4).len(), 3);
+    assert!(lote::primitivas(&ids, Topologia::ListaAdy, 3).is_none(), "un GS de triangulos no lee una lista con adyacencia");
+    assert_eq!(lote::triangulos(&ids[..12], Topologia::ListaAdy), [[0, 2, 4], [6, 8, 10]]);
+    assert_eq!(lote::triangulos(&ids[..8], Topologia::TiraAdy), [[0, 2, 4], [4, 2, 6]]);
+    assert!(lote::triangulos(&ids, Topologia::LineasAdy).is_empty());
+}

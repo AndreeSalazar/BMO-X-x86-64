@@ -72,6 +72,13 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             c.ops.push(Op::IdHilo { d, que, c: comp as u8 });
             Valor::Bits(d)
         }
+        // A6 (06-10): `primitiveID()`, el SV_PrimitiveID de un GS: un id
+        // mas (`que` 4), que da el GS que corre (`Tiras::primitiva`).
+        DX_PRIMITIVE_ID => {
+            let d = c.registro(0.0)?;
+            c.ops.push(Op::IdHilo { d, que: 4, c: 0 });
+            Valor::Bits(d)
+        }
         // N5.5: la barrera del grupo (con cualquier modo: la de la memoria
         // del grupo, la de los UAV, o las dos; todas esperan a todos).
         DX_BARRIER => {

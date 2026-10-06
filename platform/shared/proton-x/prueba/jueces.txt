@@ -107,3 +107,4 @@ limpieza 8            # D3D12: ClearUnorderedAccessView por la vista y con recta
 escena 3 0 2 1        # D3D12: la escena 3D DURA contra escena.ref de Windows; sin ella, 2 y una nota (06-10)
 leefirma 10           # D3D12: los deserializadores de root signatures y la 1.1 con los bytes de Windows (06-10)
 capas1d 9             # D3D12: los UAV de arrays de una dimension (RWTexture1DArray) y su ClearUnorderedAccessView (06-10)
+adyacencia 7          # D3D12: las topologias con adyacencia, con un GS (triangleadj, lineadj) y sin el (06-10)

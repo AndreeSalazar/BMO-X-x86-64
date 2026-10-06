@@ -3198,3 +3198,55 @@ aviso. Probado que dice NO: contra la casa de antes, el PSO no se crea
 ("un UAV de TEXTURA de array de una dimension ... todavia no") y salen 7
 MAL (B de la mip 0 y F pasan: nada escribe); G, la suma de cada capa 0 20
 0 (solo la primera capa de la vista).
+
+ady_vs.dxil, ady_gstri.dxil, ady_gslinea.dxil, ady_ps.dxil -- los de adyacencia.exe (06-10)
+
+`adyacencia.hlsl` (aqui al lado): VSId (pasa su SV_VertexID y, sin GS,
+una posicion de una de dos tablas), GSTri (`triangleadj`: apunta los 6
+ids de su primitiva en SV_PrimitiveID y cuenta) y GSLinea (`lineadj`, 4),
+a un RWByteAddressBuffer en la raiz, y PSBlanco. Con el DXC de la nube
+(v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T vs_6_0 -E VSId -Fo ady_vs.dxil adyacencia.hlsl
+   dxc -T gs_6_0 -E GSTri -Fo ady_gstri.dxil adyacencia.hlsl
+   dxc -T gs_6_0 -E GSLinea -Fo ady_gslinea.dxil adyacencia.hlsl
+   dxc -T ps_6_0 -E PSBlanco -Fo ady_ps.dxil adyacencia.hlsl
+
+Reproducible, sin rutas. sha256:
+
+   4e239afaab2a785ec8b94d594d5d1ec2fade5c78265526f55778b5007cecdfc7  ady_gslinea.dxil
+   7a5c33987c5a6ca0c83486b120b88974055f620dfec177b33f9de5cd331c341c  ady_gstri.dxil
+   2b5863c31e6468e297fa69fb4775ef00273e69d4865272f18def14da3358241b  ady_ps.dxil
+   de2c3a240074752f307387d62fb6523997eb6abc0a76d0d0616c19e5886b3935  ady_vs.dxil
+
+Van DENTRO de adyacencia.exe.
+
+adyacencia.exe -- las topologias con ADYACENCIA, juzgadas (06-10)
+
+A6 del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola. Un GS
+de siluetas o de sombras de volumen pide `triangleadj`; hasta el 06-10 la
+casa no pintaba esos Draw, y un GS no sabia su SV_PrimitiveID. A,
+TRIANGLELIST_ADJ con un GS triangleadj, Draw(15): 2 triangulos (0..5,
+6..11); B, TRIANGLESTRIP_ADJ, Draw(10): 3 triangulos con la tabla de D3D,
+(0 1 2 6 4 3), (4 0 2 5 6 8), (4 2 6 9 8 7); C, la misma de UN triangulo,
+Draw(7): (0 1 2 5 4 3); D, LINELIST_ADJ con un GS lineadj, Draw(9): 2
+lineas; E, LINESTRIP_ADJ, Draw(6): 3 lineas; F, TRIANGLELIST_ADJ sin GS:
+el triangulo de los vertices 0, 2 y 4 tapa los 64 pixeles; G,
+TRIANGLESTRIP_ADJ sin GS: (0 2 4) y (4 2 6), un cuadro. Dice `bien` 7
+veces y sale con el numero de fallos; en Windows dice lo mismo (B y C son
+lo que se le PREGUNTA: el orden de la tira con adyacencia).
+
+Con lo de `muestras/construir.sh`, en un directorio con adyacencia.cpp y
+los cuatro .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c adyacencia.cpp -o adyacencia.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o adyacencia.exe adyacencia.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   75b23eef54eb0f8f358c390a2c0319c8baaabca1db49697e43bd2b81e67fa27e  adyacencia.exe
+
+El banco (`tests/corre/muestras.rs`): los 7 `bien`, sale con 0, ni un
+aviso. Probado que dice NO: contra la casa de antes, 7 MAL ("una
+topologia con adyacencia: todavia no", y el GS no se crea:
+OperacionD3d(108), el primitiveID).

@@ -819,6 +819,12 @@ const TRIANGLESTRIP: u32 = 5;
 const POINTLIST: u32 = 1;
 const LINELIST: u32 = 2;
 const LINESTRIP: u32 = 3;
+/// A6 (06-10): las de ADYACENCIA (`*_ADJ`): sus triangulos sin GS; con
+/// uno (`lineadj`, `triangleadj`), cada primitiva con los de al lado.
+const LINELIST_ADJ: u32 = 10;
+const LINESTRIP_ADJ: u32 = 11;
+const TRIANGLELIST_ADJ: u32 = 12;
+const TRIANGLESTRIP_ADJ: u32 = 13;
 
 /// **Pintar un Draw** (P3b3): el sombreador de vertices por cada vertice que
 /// piden los indices (una vez cada uno), los triangulos por la trama, y el de
@@ -900,12 +906,16 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         (POINTLIST, true) => Topologia::Puntos,
         (LINELIST, true) => Topologia::Lineas,
         (LINESTRIP, true) => Topologia::TiraDeLineas,
-        (POINTLIST | LINELIST | LINESTRIP, false) => {
+        (TRIANGLELIST_ADJ, _) => Topologia::ListaAdy,
+        (TRIANGLESTRIP_ADJ, _) => Topologia::TiraAdy,
+        (LINELIST_ADJ, true) => Topologia::LineasAdy,
+        (LINESTRIP_ADJ, true) => Topologia::TiraDeLineasAdy,
+        (POINTLIST | LINELIST | LINESTRIP | LINELIST_ADJ | LINESTRIP_ADJ, false) => {
             aviso("Draw de puntos o lineas sin un GS: la trama solo pinta triangulos todavia");
             return;
         }
         _ => {
-            aviso("Draw con una topologia con adyacencia o de parches: todavia no");
+            aviso("Draw con una topologia de parches (teselado) o que no es de D3D12: todavia no");
             return;
         }
     };

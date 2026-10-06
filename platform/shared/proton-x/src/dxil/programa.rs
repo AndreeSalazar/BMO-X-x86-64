@@ -129,6 +129,8 @@ const DX_FLATTENED_THREAD_ID_IN_GROUP: i64 = 96;
 const DX_EMIT_STREAM: i64 = 97;
 const DX_CUT_STREAM: i64 = 98;
 const DX_EMIT_THEN_CUT_STREAM: i64 = 99;
+// A6 (06-10): el SV_PrimitiveID de un GS.
+const DX_PRIMITIVE_ID: i64 = 108;
 const DX_DISCARD: i64 = 82;
 /// Las filas de 16 bytes que puede tener un cbuffer en D3D (64 KiB).
 const FILAS_DE_D3D: u16 = 4096;

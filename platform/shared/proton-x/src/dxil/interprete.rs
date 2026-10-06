@@ -105,6 +105,9 @@ pub struct Tiras {
     pub vertices: Vec<[f32; 4]>,
     /// Cuantos vertices iban emitidos al cortar cada tira.
     pub cortes: Vec<usize>,
+    /// A6 (06-10): el `SV_PrimitiveID` de la primitiva que corre: cuantas
+    /// van antes en el dibujo (de nuevo desde 0 en cada instancia).
+    pub primitiva: u32,
 }
 
 impl Tiras {
@@ -301,6 +304,8 @@ impl Programa {
                             2 => g.ids.en_grupo[c as usize],
                             _ => g.ids.indice,
                         },
+                        // A6: el SV_PrimitiveID de un GS (`que` 4).
+                        Extra::Tiras(t, _) if que == 4 => t.primitiva,
                         _ => 0,
                     };
                     regs[d as usize] = f32::from_bits(v);

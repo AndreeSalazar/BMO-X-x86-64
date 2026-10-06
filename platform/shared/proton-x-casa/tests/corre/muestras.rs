@@ -1068,3 +1068,19 @@ fn los_uav_de_arrays_de_una_dimension_son_los_de_windows() {
     assert_eq!(texto.matches("  bien  ").count(), 9, "{texto}");
     assert!(texto.ends_with("capas1d.exe: los UAV de arrays de una dimension son los de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+/// **Las topologias con ADYACENCIA** (A6, 06-10, `prueba/adyacencia.exe`,
+/// NUESTRO): un GS `triangleadj` y uno `lineadj` apuntan, por primitiva,
+/// los vertices que les llegan (listas y tiras, la tabla de D3D con sus
+/// extremos), y sin GS se pintan solo los triangulos (los de al lado no
+/// cuentan).
+#[test]
+fn las_topologias_con_adyacencia_son_las_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, ADYACENCIA_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 7, "{texto}");
+    assert!(texto.ends_with("adyacencia.exe: las topologias con adyacencia son las de Windows\r\n[salio 0x0]"), "{texto}");
+}

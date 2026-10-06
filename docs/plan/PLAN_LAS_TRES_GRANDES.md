@@ -459,7 +459,14 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   (la puerta las manda a la CPU, dicho), la anisotropia y los cubos (en la
   mip de la vista), y verlo en Windows.)
 - [ ] D4.5 -- Vertices: instancias, `SV_VertexID`/`InstanceID`. Casco y
-  dominio (teselado) y geometria SOLO si D0.2 los encuentra.
+  dominio (teselado) y geometria SOLO si D0.2 los encuentra. (06-10, A6:
+  las topologias con ADYACENCIA -- `TRIANGLELIST_ADJ`, `TRIANGLESTRIP_ADJ`,
+  `LINELIST_ADJ`, `LINESTRIP_ADJ` --: con un GS `triangleadj` o `lineadj`,
+  cada primitiva con los vertices de al lado, la tira con la tabla de D3D
+  y sus extremos (`lote::tira_ady`); sin GS, sus triangulos. Y el
+  `SV_PrimitiveID` de un GS. Juez `prueba/adyacencia.exe`, 7 `bien`; con la
+  casa de antes, 7 MAL. Falta verlo en Windows: el orden de la tira lo
+  dice el.)
 - [ ] D4.6 -- La CACHE de PSO a escala: miles de pipelines traducidos una vez
   y guardados en disco; `ID3D12PipelineLibrary` (el juego guarda la suya).
   **Como se sabe:** el segundo arranque no traduce nada.
@@ -1306,7 +1313,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    6
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    5
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1318,7 +1325,8 @@ y lo dice.
       5  [x] D3.4  los UAV de arrays de 1D y los de filas de otra medida
                (06-10: capas1d.exe, 9 bien; las filas de otra medida no
                se dan en la casa: guarda las filas sin relleno)
-      6  D4.5  las topologias con adyacencia (para un GS que las pide)
+      6  [x] D4.5  las topologias con adyacencia (para un GS que las pide)
+               (06-10: adyacencia.exe, 7 bien; y el SV_PrimitiveID del GS)
       7  D2.3  Map sobre una textura (montones de la CPU)
       8  D1.2  las preguntas de CheckFeatureSupport que no contesta
       9  D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO)
