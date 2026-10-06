@@ -1298,7 +1298,8 @@ y lo dice.
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
-               rectangulos (06-10: limpieza.exe, 8 bien en el banco)
+               rectangulos (06-10: limpieza.exe, 8 bien en el banco; en
+               Windows, MAL en D y G: los enteros SATURAN -- arreglado)
       3  D3.2  el deserializador de firmas (D3D12CreateVersionedRoot...)
       4  D3.2  serializar la 1.1 con los MISMOS bytes que Windows
       5  D3.4  los UAV de arrays de 1D y los de filas de otra medida

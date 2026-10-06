@@ -212,6 +212,12 @@ BMO-X en el Ryzen, es de BMO-X.
 **La TERCERA corrida (06-10, 09:55): 84 de 84**, con `tipos.exe` (D2.7)
 en 8 `bien` a la primera.
 
+**La CUARTA corrida (06-10, 12:22): 85 de 86.** `escena` hizo su
+`escena.ref` y dijo 3 `bien`. `limpieza`, MAL en D y G: un
+ClearUnorderedAccessViewUint de ENTEROS satura (0x10001 en 16 bits es
+0xFFFF), la casa se quedaba con los bits bajos; arreglado, y con el un NaN
+de half que la casa no conservaba.
+
 ## 4. Que mandar, en orden
 
 1. `informe_windows\resumen.txt` (seccion 1). Si todo dice `bien`: con esa

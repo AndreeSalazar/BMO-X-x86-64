@@ -746,7 +746,7 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool, rects: &[[i32; 4]]) {
         let elemento = if b.crudo || b.paso != 0 {
             v[0].to_le_bytes().to_vec()
         } else {
-            match bmo_proton_x::formato_ia::empaquetar(b.formato, v, crudo) {
+            match bmo_proton_x::formato_ia::empaquetar(b.formato, saturados(b.formato, v, crudo), crudo) {
                 Some(e) => e,
                 None => {
                     aviso("ClearUnorderedAccessView de un bufer con un formato que la casa aun no escribe: no se hace");
@@ -779,7 +779,7 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool, rects: &[[i32; 4]]) {
     // un RGBA16F, R11G11B10F... leidos de vuelta; lo que guarda tal cual
     // (RGBA8, BGRA8, R32), la palabra de la memoria; los de 8 bits que
     // ensancha (R8, RG8...), su RGBA8.
-    let empaquetar = |f: u32| bmo_proton_x::formato_ia::empaquetar(f, v, crudo);
+    let empaquetar = |f: u32| bmo_proton_x::formato_ia::empaquetar(f, saturados(f, v, crudo), crudo);
     let palabra = |e: &[u8]| u32::from_le_bytes([e[0], e[1], e[2], e[3]]);
     let (texel, k): ([u32; 4], usize) = match Almacen::de(formato) {
         Almacen::Bloques(_) => {
@@ -851,6 +851,17 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool, rects: &[[i32; 4]]) {
     match crate::tuberia::destino(r[0], r[3]) {
         Some((px, ancho, alto)) => poner(px, ancho, alto),
         None => aviso("ClearUnorderedAccessView de un subrecurso que la textura no tiene"),
+    }
+}
+
+/// Los valores de `ClearUnorderedAccessViewUint` (`crudo`) sobre una vista
+/// de ENTEROS, saturados a sus canales (06-10, lo que hace Windows en la
+/// 3060: `limpieza.exe`, D y G); los demas, tal cual (sus bits bajos).
+fn saturados(formato: u32, v: [u32; 4], crudo: bool) -> [u32; 4] {
+    if crudo {
+        bmo_proton_x::formato_ia::saturar(formato, v).unwrap_or(v)
+    } else {
+        v
     }
 }
 

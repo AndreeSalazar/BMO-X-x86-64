@@ -3048,13 +3048,22 @@ Con lo de `muestras/construir.sh`, en un directorio con limpieza.cpp:
 
 Reproducible (comprobado en dos directorios), sin rutas. sha256:
 
-   1261ce7a2c4b0d1dcf9eb5fbb974a0e55f0b4f17991be2d4f7fd74febc360859  limpieza.exe
+   63574117aa8d5ccdf9b859ee49b35553ae0f5c92bbd966f88dc888a4b6a5ce03  limpieza.exe
 
 El banco (`tests/corre/muestras.rs`): los 8 `bien`, sale con 0, ni un
 aviso. Probado que dice NO: contra la casa de antes, 6 MAL (el valor en el
 formato del recurso y no en el de la vista; los rectangulos, "se limpia la
 vista entera"). Y el juez se equivoco una vez y la casa no: leia los
 texeles de 8 bytes de D como si fueran de 4.
+
+LO QUE DIJO WINDOWS (06-10, 12:22, la 3060): 6 bien, MAL en D y en G. Un
+valor de ClearUnorderedAccessViewUint que no cabe en un canal de ENTEROS se
+SATURA (0x10001 en 16 bits es 0xFFFF), no se queda con sus bits bajos: la
+misma regla de enteros de D3D11.3 3.2.3.6 que la casa ya seguia en los
+render targets. Arreglado (`formato_ia::saturar`), y D y G piden ahora lo
+saturado. Y D destapo otra: 0xFFFF en un RGBA16 TYPELESS es un NaN de half,
+y la casa (que lo guarda en floats) le perdia la carga al volver (0xFE00):
+`a_cinco` la conserva ya. Sigue en 8 `bien`.
 
 escena_vs.dxil, escena_sombra.dxil, escena_ps.dxil, escena_vidrio.dxil, escena_tono.dxil -- los de escena.exe (06-10)
 

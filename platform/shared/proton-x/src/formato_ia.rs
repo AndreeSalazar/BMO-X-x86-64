@@ -213,8 +213,12 @@ fn a_cinco(x: f32, mantisa: u32) -> u32 {
     let m = b & 0x7F_FFFF;
     let inf = 0x1F << mantisa;
     if e == 0xFF {
-        // Infinito, o NaN (con un bit de mantisa, que siga siendo NaN).
-        return inf | if m != 0 { 1 << (mantisa - 1) } else { 0 };
+        // Infinito, o NaN con SU carga: los bits altos de la mantisa (06-10:
+        // un 0xFFFF de half leido como float y vuelto a half tiene que
+        // volver 0xFFFF, como en la GPU: `limpieza.exe`, D). Si la carga no
+        // llega a los bits que quedan, un bit, que siga siendo NaN.
+        let carga = m >> (23 - mantisa);
+        return inf | if m == 0 { 0 } else if carga == 0 { 1 << (mantisa - 1) } else { carga };
     }
     let e = e - 127 + 15;
     if e >= 0x1F {
@@ -267,8 +271,19 @@ pub fn es_entero(formato: u32) -> bool {
 /// entero no la hay). Devuelve lo que se lee de vuelta (como [`leer`]), o
 /// `None` si el formato no es de enteros.
 pub fn de_entero(formato: u32, c: [f32; 4]) -> Option<[f32; 4]> {
+    let v = saturar(formato, c.map(f32::to_bits))?;
+    empaquetar(formato, v, true).map(|b| leer(formato, &b))
+}
+
+/// **Los enteros de `v` saturados a los canales de `formato`** (la regla de
+/// [`de_entero`], sin empaquetar): un UINT de 16 bits deja 0x10001 en
+/// 0xFFFF, un SINT de 8 deja -300 en -128. 06-10: tambien la de
+/// `ClearUnorderedAccessViewUint` sobre una vista de ENTEROS -- lo dijo
+/// Windows en la 3060 (`limpieza.exe`, D y G): satura, no se queda con los
+/// bits bajos. `None` si el formato no es de enteros.
+pub fn saturar(formato: u32, v: [u32; 4]) -> Option<[u32; 4]> {
     let f = forma(formato).filter(|f| matches!(f.clase, Clase::Uint | Clase::Sint))?;
-    let mut v = c.map(f32::to_bits);
+    let mut v = v;
     if f.bgra {
         v.swap(0, 2);
     }
@@ -285,7 +300,7 @@ pub fn de_entero(formato: u32, c: [f32; 4]) -> Option<[f32; 4]> {
     if f.bgra {
         v.swap(0, 2);
     }
-    empaquetar(formato, v, true).map(|b| leer(formato, &b))
+    Some(v)
 }
 
 /// **Un elemento en su formato** (N5.3c, 05-10, lo de `ClearUnorderedAccessView`):
@@ -357,6 +372,10 @@ mod pruebas {
         assert_eq!(a_half(1.0 + 3.0 / 2048.0), 0x3C02, "empate al par: arriba");
         assert_eq!(a_half(1e-7), 0x0002, "subnormal");
         assert_eq!(a_half(-2.0), 0xC000);
+        // 06-10: un NaN de half vuelve con su carga y su signo.
+        for h in [0xFFFFu16, 0x7C01, 0x7E00, 0xFC10] {
+            assert_eq!(a_half(half(h)), h, "{h:#06x}");
+        }
         assert_eq!(a_half(70000.0), 0x7C00, "pasa del mayor: infinito");
         // R11G11B10_FLOAT (26): ida y vuelta, y lo negativo a 0.
         let p = empaquetar(26, f([1.5, 0.25, 3.0, 0.0]), false).unwrap();
