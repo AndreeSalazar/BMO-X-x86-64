@@ -34,6 +34,17 @@ use crate::plataforma;
 /// Cada cuanto se escribe la foto.
 const CADA_NS: u64 = 2_000_000_000;
 
+/// **Quien mide el monton de la casa** (07-10): `(en uso, pico, crecido)`
+/// en bytes; lo pone el cargador (`medir_monton`). El metal (06-10):
+/// Cyberpunk lleno sus 64 MiB a los 17,7 s; con esto cada foto dice si se
+/// llena DE GOLPE (cargando) o GOTEA (una fuga que buscar).
+static MEDIR_MONTON: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
+
+/// Poner quien mide el monton (una vez, al arrancar).
+pub fn medir_monton(f: fn() -> (usize, usize, usize)) {
+    MEDIR_MONTON.store(f as usize, Ordering::Relaxed);
+}
+
 /// Lo que se cuenta de D3D12.
 #[derive(Clone, Copy)]
 pub(crate) enum Cosa {
@@ -163,6 +174,13 @@ pub(crate) fn texto(ahora: u64) -> String {
         k.listas,
         k.presents
     ));
+    let m = MEDIR_MONTON.load(Ordering::Relaxed);
+    if m != 0 {
+        // SAFETY: solo `medir_monton` lo pone, con un `fn` de esa firma.
+        let f = unsafe { core::mem::transmute::<usize, fn() -> (usize, usize, usize)>(m) };
+        let (uso, pico, crecido) = f();
+        t.push_str(&alloc::format!("# el monton de la casa: {} MiB en uso (pico {} MiB), crecio {} MiB por la reserva\n", uso >> 20, pico >> 20, crecido >> 20));
+    }
     let v = VIGILADA.load(Ordering::Relaxed);
     if v != 0 {
         // SAFETY: `vigilar` solo recibe casillas de la imagen, que no se

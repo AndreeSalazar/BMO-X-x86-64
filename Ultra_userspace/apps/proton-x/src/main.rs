@@ -952,6 +952,8 @@ pub extern "C" fn _start() -> ! {
     // 07-10: y lleno, que CREZCA por su tramo de la reserva (solo suyo).
     // SAFETY: el tramo lo quita `plataforma::RESERVA` de lo que ve la casa.
     unsafe { MONTON.crecer(plataforma::TRAMO_MONTON_BASE as usize, plataforma::TRAMO_MONTON as usize, plataforma::monton_hacer) };
+    // Y cada foto del pulso dice como va (si se llena de golpe o gotea).
+    bmo_proton_x_casa::pulso::medir_monton(|| (MONTON.gastado(), MONTON.pico(), MONTON.crecido()));
     if con_diario {
         bmo_proton_x_casa::diario::diario(Some(RUTA_DIARIO));
     }
