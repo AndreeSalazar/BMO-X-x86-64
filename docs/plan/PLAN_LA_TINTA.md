@@ -216,7 +216,7 @@ Medido en el arbol el 07-10, sin adivinar:
 | **el raton/lapiz de la ventana** | NO desde TITAN++: *"el teclado y el raton de una VENTANA son otra cosa (`input`, con REX)"* | el nodo `input` de la ventana |
 | **leer y guardar ficheros** | NO desde TITAN++ | un nodo de disco: guardar la obra en ESTRATOS y exportar PNG |
 | **pixeles baratos** | TITAN++ cuenta en `int` de 64 bits y `dec`; `f32` solo dentro de una `gpu fn`. No hay byte | un tipo de 8 bits y tablas grandes en un bloque de memoria (ver la cuenta de abajo) |
-| **la 3060 para la fusion** | SI en el lenguaje: una `gpu fn` es UNA celda, un hilo por celda, sin vecinos ni bucles. Correr en la 3060 de verdad es G4 (del propietario), y VERRANO V0 son 8 triangulos sin mezcla | nada para la fusion (es de una celda); para desenfocar y corregir, leer VECINOS (G2, el escritor de SPIR-V con bucles) |
+| **la 3060 para la fusion** | SI en el lenguaje: una `gpu fn` es UNA celda, un hilo por celda, sin vecinos ni bucles. Correr en la 3060 de verdad es G4 (del propietario), y VERRANO V0 son 8 triangulos sin mezcla | nada para la fusion (es de una celda); para desenfocar y corregir, leer VECINOS (bucles en la `gpu fn`, que el SPIR-V de hoy no tiene) |
 | **el historial** | **SI, y mejor que nadie**: ESTRATOS es copiar-al-escribir. Una tesela es un bloque; deshacer es volver a la version de antes | conectar las teselas a ESTRATOS |
 | **la letra** | la de la casa (`bmo-letra`), proporcional y suave | el texto vertical, para los globos |
 
@@ -389,7 +389,7 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 
 ## 5d. Lo de Photoshop
 
-- [ ] TD1 -- LOS VECINOS en la 3060: `gpu fn` que lee celdas de al lado (pide G2 de `PLAN_EL_CENTAURO.md`); el primero, el desenfoque gaussiano separable
+- [ ] TD1 -- LOS VECINOS en la 3060: `gpu fn` que lee celdas de al lado (pide bucles y vecinos en una `gpu fn`: G2 de `PLAN_EL_CENTAURO.md` escribe SPIR-V en linea recta, y el emisor SM86 los aprende en E6 de `PLAN_LA_LENGUA_DE_LA_3060.md`); el primero, el desenfoque gaussiano separable
 - [ ] TD2 -- CAPAS DE AJUSTE: curvas y niveles que se aplican al componer, sin tocar pixeles
 - [ ] TD3 -- MASCARAS Y RECORTE: la mascara de capa y la capa que solo pinta donde pinta la de abajo
 - [ ] TD4 -- EL PINCEL CORRECTOR: edicion de Poisson
