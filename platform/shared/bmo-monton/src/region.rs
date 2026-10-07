@@ -41,7 +41,8 @@
 use crate::freelist::{MemBackend, Trozo};
 use core::cell::UnsafeCell;
 
-/// Lo que crece cada vez: lo que cabe en un bloque del asignador
+/// Lo que crece cada vez como POCO (lo que pide algo mas grande, en un
+/// trozo de su medida): lo que cabe en un bloque del kernel
 /// (`freelist::BLOQUE_TOPE`).
 pub const TROZO_CRECE: usize = 64 << 20;
 
@@ -156,6 +157,18 @@ impl MemBackend for Region {
     /// No hay otro bloque que pedir: lo grande sale de la lista.
     fn grande_aparte(&self) -> bool {
         false
+    }
+
+    /// **Una region que crece no tiene el tope de un bloque del kernel**
+    /// (07-10, el metal: Cyberpunk pidio 72 MiB de una vez y el monton dijo
+    /// nulo con 16 GiB de tramo libres, porque un trozo no podia pasar de
+    /// los 64 MiB de un bloque de `KIND_MEMORIA`). Su tope es su tramo.
+    fn tope(&self) -> usize {
+        let e = unsafe { &*self.0.get() };
+        match e.hacer {
+            Some(_) => crate::freelist::BLOQUE_TOPE.max(e.crece_hasta - e.crece_desde),
+            None => crate::freelist::BLOQUE_TOPE,
+        }
     }
 }
 

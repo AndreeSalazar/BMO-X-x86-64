@@ -215,6 +215,18 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
 
 ## 4T. EL TURNO, mientras hay UN nucleo (sin Ring 0)
 
+- [~] **V6 -- un trozo mas grande que un bloque.** El metal (07-10, la
+      primera corrida con EXPROPIAR: 68 s vivo, 43 ExecuteCommandLists, el
+      sonido arrancado): `memory allocation of 75497472 bytes failed` con
+      16 GiB de tramo para crecer casi vacios. El monton de la casa crece
+      por la reserva, pero seguia con el tope de un bloque de `KIND_MEMORIA`
+      (64 MiB) para CADA trozo. Ahora el respaldo dice su tope
+      (`MemBackend::tope`): una region que crece, su tramo entero.
+      **Como se sabe:** `bmo-monton`,
+      `una_region_que_crece_da_mas_que_un_bloque` (72 MiB de una vez, de un
+      solo trozo del tramo, escritos enteros; la prueba del NO: sin tramo,
+      nulo; con el tope viejo, la prueba sale ROJA, comprobado). **Falta:**
+      el metal.
 - [x] **T1 -- lo largo PRESTA el turno al sonido.** Cada orden de una lista
       de D3D12 y cada PSO creado RESPIRAN (`hilos::respirar`, como mucho
       cada 1 ms): el latido del sonido, y si el hilo del sonido ya puede
