@@ -115,6 +115,7 @@ bmo-orquesta = { path = "../../platform/shared/bmo-orquesta" }
 # El FUTEX (07-10): el juez de esperar en una palabra de Ring 3. Puro.
 bmo-futex = { path = "../../platform/shared/bmo-futex" }
 bmo-alarma = { path = "../../platform/shared/bmo-alarma" }
+bmo-cache-juicio = { path = "../../platform/shared/bmo-cache-juicio" }
 bmo-mmio-juicio = { path = "../../platform/shared/bmo-mmio-juicio" }
 # El juez del PRESTAMO: que paginas mapear cuando lo prestado no empieza en
 # una pagina. Sin el, la ventana de una app se leia unos bytes antes de su

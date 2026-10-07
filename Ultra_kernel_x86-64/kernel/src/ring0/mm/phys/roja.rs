@@ -199,7 +199,8 @@ pub fn init(ctx: &BootContext) {
     // fisica y este es el sitio que sabe si esa memoria existe. La region
     // tiene que caer entera en un tramo de RAM usable del mapa: si no, se
     // dice y no se abre, en vez de leer MMIO como si fuera texto.
-    reserve_range(crate::ring0::cabina::caida::BASE, crate::ring0::cabina::caida::RESERVA);
+    // V8: la pagina de 2 MiB ENTERA, no solo la reserva -- su tipo pasa a WT.
+    reserve_range(crate::ring0::cabina::caida::BASE, crate::ring0::cabina::caida::PAGINA);
     let en_ram = {
         let (b, e) = (
             crate::ring0::cabina::caida::BASE,
@@ -209,7 +210,27 @@ pub fn init(ctx: &BootContext) {
             .iter()
             .any(|m| m.kind == 1 && m.base <= b && e <= m.base + m.size)
     };
-    crate::ring0::cabina::caida::abrir(en_ram, crate::ring0::mm::phys_to_virt(crate::ring0::cabina::caida::BASE) as u64);
+    // ** V8 (07-10): ANTES de leer lo recuperado, la pagina a escritura
+    // directa (WT). El cambio saca de la cache lo que hubiera, y desde aqui
+    // cada byte de la caja esta en la RAM al escribirse.
+    let escritura = {
+        use crate::ring0::cabina::caida::Escritura;
+        if !en_ram {
+            Escritura::EnCache(1)
+        } else {
+            match crate::ring0::mm::vmm::escribir_directo(crate::ring0::cabina::caida::BASE) {
+                Ok(Some(t)) if t.escribe_directo() => Escritura::Directa(t as u8),
+                Ok(Some(t)) => Escritura::Dudosa(t as u8),
+                Ok(None) => Escritura::Dudosa(0xFF),
+                Err(no) => Escritura::EnCache(no as u8),
+            }
+        }
+    };
+    crate::ring0::cabina::caida::abrir(
+        en_ram,
+        crate::ring0::mm::phys_to_virt(crate::ring0::cabina::caida::BASE) as u64,
+        escritura,
+    );
     if ctx.ring3_payload_phys != 0 {
         reserve_range(ctx.ring3_payload_phys, ctx.ring3_payload_size);
     }

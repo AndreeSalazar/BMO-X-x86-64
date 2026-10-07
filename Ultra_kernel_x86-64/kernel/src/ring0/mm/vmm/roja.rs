@@ -10,7 +10,7 @@
 //! [riesgo]  AJENO -- los numeros que camina no los escribe este fichero: salen
 //!           de las tablas de pagina y del `cr3` de una ranura de tarea MUERTA.
 //!
-//! [prueba]  bmo-fisica-juicio
+//! [prueba]  bmo-fisica-juicio, bmo-cache-juicio
 //!
 //! # Que hay aqui, y por que no se toca sin pagar
 //!
@@ -21,6 +21,7 @@
 //!                            unico deref crudo del modulo
 //!    get_or_create           escribir una entrada de tabla
 //!    new_address_space       y destroy_address_space
+//!    escribir_directo        V8: la pagina de la caja negra, de WB a WT
 //! ```
 //!
 //! ** `table` es la pieza mas chica y la mas roja de todas: cuatro lineas que
@@ -570,4 +571,146 @@ pub fn self_test() -> (bool, u64) {
     let (_, libres_despues) = phys::stats();
     let sobrantes = libres_antes.saturating_sub(libres_despues);
     (ok, sobrantes)
+}
+
+// ===========================================================================
+// **ESCRITURA DIRECTA** (V8) -- una pagina de 2 MiB del physmap pasa de WB a WT.
+//
+// [cuesta] MAQUINA -- cambia el tipo de memoria de una pagina: si apuntara a
+// otra PDE, la memoria de otro se volveria lenta (WT) o, con un indice mal
+// puesto, WC -- y WC pierde escrituras. Por eso es rojo, y vive aqui.
+//
+// # Para que (V8, 2026-10-07)
+//
+// La caja negra (`cabina/caida.rs`) escribe en RAM que sobrevive al
+// reinicio. Pero en WB la RAM es lo ULTIMO que se entera: el byte se queda
+// en la cache, y un reinicio de golpe (un triple fallo) borra la cache sin
+// escribirla. V7 lo salvaba con `clflush` linea a linea; esto lo quita de
+// raiz: con la pagina en **WT, cada escritura llega a la RAM al acabar la
+// instruccion**, haya tick o no, con las interrupciones abiertas o cerradas.
+//
+// # Lo que hace, en el orden que pide el manual
+//
+// ```text
+//    1. leer el PAT de verdad (MSR 0x277) y elegir la casilla WT   el juez
+//    2. la PDE de 2 MiB del physmap que cubre `fisica`: los 3 bits
+//       del indice, y nada mas                                     el juez
+//    3. invlpg: que ningun TLB recuerde el tipo viejo
+//    4. clflush de toda la pagina: las lineas que ya estaban en la
+//       cache como WB, a la RAM y fuera
+//    5. leer los MTRR y combinarlos: el tipo EFECTIVO, no el pedido
+// ```
+//
+// *** Sin alias: el physmap es la UNICA vista de esa fisica (la identidad
+// del kernel acaba en 32 MiB y la caja vive en 64 MiB), y `mm::phys` reserva
+// la pagina de 2 MiB ENTERA. Intel no admite la misma fisica con dos tipos
+// distintos; aqui no la hay.
+//
+// El kernel half es compartido por puntero (`init`): la PDE cambiada
+// la ven todos los CR3, y los nucleos que despierten despues tambien.
+// ===========================================================================
+
+use bmo_cache_juicio as juez;
+
+const DOS_MEGAS: u64 = 0x20_0000;
+
+fn cpuid_hoja(hoja: u32) -> (u32, u32, u32, u32) {
+    let (a, b, c, d): (u32, u32, u32, u32);
+    // SAFETY: cpuid no toca memoria; rbx se guarda a mano (lo usa LLVM).
+    unsafe {
+        core::arch::asm!(
+            "push rbx", "cpuid", "mov {b:e}, ebx", "pop rbx",
+            inout("eax") hoja => a, inout("ecx") 0u32 => c, out("edx") d, b = out(reg) b,
+        )
+    };
+    (a, b, c, d)
+}
+
+unsafe fn rdmsr(msr: u32) -> u64 {
+    let (lo, hi): (u32, u32);
+    // SAFETY: lo de quien llama -- solo MSR cuya existencia dijo cpuid.
+    unsafe { core::arch::asm!("rdmsr", in("ecx") msr, out("eax") lo, out("edx") hi, options(nomem, nostack)) };
+    (hi as u64) << 32 | lo as u64
+}
+
+/// El PAT que usa ESTE nucleo. Sin PAT (CPUID.01H:EDX[16]), los bits PWT y
+/// PCD siguen eligiendo entre las cuatro primeras casillas del de arranque.
+fn pat() -> u64 {
+    if cpuid_hoja(1).3 & (1 << 16) != 0 {
+        unsafe { rdmsr(0x277) }
+    } else {
+        juez::PAT_DE_ARRANQUE
+    }
+}
+
+/// **Lo que dicen los MTRR de `[ini, fin)`**, o `None` si no hay MTRR o no
+/// tienen UN tipo ahi.
+pub fn tipo_mtrr(ini: u64, fin: u64) -> Option<juez::Tipo> {
+    if cpuid_hoja(1).3 & (1 << 12) == 0 {
+        return None;
+    }
+    let ancho = if cpuid_hoja(0x8000_0000).0 >= 0x8000_0008 { cpuid_hoja(0x8000_0008).0 as u8 } else { 36 };
+    let cuantos = (unsafe { rdmsr(0xFE) } & 0xFF).min(32) as usize;
+    let mut vars = [(0u64, 0u64); 32];
+    for (i, v) in vars.iter_mut().enumerate().take(cuantos) {
+        let n = 0x200 + 2 * i as u32;
+        *v = unsafe { (rdmsr(n), rdmsr(n + 1)) };
+    }
+    let def = unsafe { rdmsr(0x2FF) };
+    juez::tipo_mtrr(def, &vars[..cuantos], ancho, ini, fin)
+}
+
+/// **La pagina de 2 MiB que empieza en `fisica`, a escritura directa (WT).**
+///
+/// `Ok(Some(t))`: cambiada, y `t` es el tipo EFECTIVO (MTRR x PAT) -- WT en
+/// una placa normal. `Ok(None)`: cambiada, pero los MTRR no dejan saber el
+/// efectivo. `Err`: no se toco nada (y la caja sigue con el `clflush` de V7).
+pub fn escribir_directo(fisica: u64) -> Result<Option<juez::Tipo>, juez::NoDirecta> {
+    if fisica % DOS_MEGAS != 0 {
+        return Err(juez::NoDirecta::NoEsDeDosMegas);
+    }
+    let pat = pat();
+    let va = phys_to_virt(fisica);
+    let i4 = ((va >> 39) & 0x1FF) as usize;
+    let i3 = ((va >> 30) & 0x1FF) as usize;
+    let i2 = ((va >> 21) & 0x1FF) as usize;
+
+    let e4 = table(read_cr3())[i4];
+    if e4 & PTE_PRESENT == 0 {
+        return Err(juez::NoDirecta::NoPresente);
+    }
+    let e3 = table(e4 & ADDR_MASK)[i3];
+    if e3 & PTE_PRESENT == 0 {
+        return Err(juez::NoDirecta::NoPresente);
+    }
+    if e3 & PTE_HUGE != 0 {
+        // Una pagina de 1 GiB: cambiarla seria cambiar 1 GiB de RAM ajena.
+        return Err(juez::NoDirecta::NoEsDeDosMegas);
+    }
+    let pd = table(e3 & ADDR_MASK);
+    let viejo = pd[i2];
+    // ** La PDE tiene que mostrar EXACTAMENTE esta fisica: si el physmap no
+    // fuera lo que dice `phys_to_virt`, esto cambiaria la pagina de otro.
+    if viejo & PTE_PRESENT != 0 && viejo & PTE_HUGE != 0 && viejo & 0x000F_FFFF_FFE0_0000 != fisica {
+        return Err(juez::NoDirecta::NoPresente);
+    }
+    let nuevo = juez::pde_directa(viejo, pat)?;
+    // SAFETY: es la PDE de una pagina que `mm::phys` reservo entera para la
+    // caja negra; solo cambian los bits del tipo de memoria.
+    unsafe {
+        core::ptr::write_volatile(&mut pd[i2] as *mut u64, nuevo);
+        core::arch::asm!("invlpg [{}]", in(reg) va, options(nostack));
+        let mut o = 0;
+        while o < DOS_MEGAS {
+            core::arch::asm!("clflush [{}]", in(reg) va + o, options(nostack, preserves_flags));
+            o += 64;
+        }
+        core::arch::asm!("mfence", options(nostack, preserves_flags));
+    }
+    let p = juez::tipo_pat_2m(nuevo, pat);
+    let m = tipo_mtrr(fisica, fisica + DOS_MEGAS);
+    Ok(match (m, p) {
+        (Some(m), Some(p)) => juez::efectivo(m, p),
+        _ => None,
+    })
 }
