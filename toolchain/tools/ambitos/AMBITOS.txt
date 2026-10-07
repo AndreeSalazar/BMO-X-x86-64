@@ -81,6 +81,7 @@ calc             (0)
 censo            (0) 
 coste            (0) 
 docs             (11) 
+avances          (0) AVANCES.md, el estado de BMO-X para retomar desde cero
 emu              (0) 
 ext              (0) 
 fat32            (0) 
