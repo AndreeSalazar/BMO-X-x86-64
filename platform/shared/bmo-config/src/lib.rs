@@ -122,6 +122,38 @@ impl Marco {
     }
 }
 
+/// **El fondo sin fichero** (06-10, HM3): el de mision. Lo usa el DIRECTOR
+/// como valor de partida y [`es_mision`], para que las apps y el escritorio no
+/// puedan decir dos cosas distintas.
+pub const FONDO_POR_DEFECTO: Fondo = Fondo::Mision;
+
+/// **Hay escritorio de mision detras?** (HM6 de `docs/plan/PLAN_EL_HUD.md`,
+/// 07-10). Las apps (F1, F3, F4, F5) no ven el estilo del DIRECTOR: leen el
+/// mismo `sys/director.cfg` y preguntan aqui. `None` = no hay fichero, y
+/// entonces manda [`FONDO_POR_DEFECTO`]. La foto (`fondo_imagen`) manda sobre
+/// los dos, como en el escritorio.
+pub fn es_mision(texto: Option<&[u8]>) -> bool {
+    let (mut fondo, mut foto) = (FONDO_POR_DEFECTO, false);
+    // ** Solo las dos claves que importan, con la regla de `aplicar`: la
+    // primera palabra, y una linea mala no pisa lo que habia.
+    for cruda in texto.unwrap_or(b"").split(|&b| b == b'\n') {
+        let l = recortar(cruda);
+        let Some(igual) = l.iter().position(|&b| b == b'=') else { continue };
+        if l[0] == b'#' || l[0] == b';' {
+            continue;
+        }
+        let resto = recortar(&l[igual + 1..]);
+        let valor = &resto[..resto.iter().position(|&b| b == b' ' || b == b'\t').unwrap_or(resto.len())];
+        match recortar(&l[..igual]) {
+            b"fondo" => fondo = Fondo::de(valor).unwrap_or(fondo),
+            b"fondo_imagen" if valor == b"no" => foto = false,
+            b"fondo_imagen" if Ruta::de(valor).is_some_and(|r| !r.vacia()) => foto = true,
+            _ => {}
+        }
+    }
+    fondo == Fondo::Mision && !foto
+}
+
 /// Lo mas larga que puede ser una ruta del fichero.
 pub const RUTA_MAX: usize = 40;
 
@@ -508,6 +540,25 @@ mod pruebas {
         e.aplicar(b"marco = fase\n");
         assert_eq!(e.marco, Marco::Fase, "el MODO FASE");
         assert_eq!(Marco::Fase.nombre(), b"fase", "y se escribe como se lee");
+    }
+
+    /// HM6: lo que preguntan las apps dice lo mismo que el estilo entero.
+    #[test]
+    fn las_apps_saben_si_hay_mision() {
+        assert!(es_mision(None), "sin fichero, el de por defecto");
+        assert!(es_mision(Some(b"acento = #60A5FA\n")));
+        assert!(!es_mision(Some(b"fondo = degradado  # el de siempre\n")));
+        assert!(es_mision(Some(b"fondo = degradado\nfondo = mision\n")), "la ultima buena manda");
+        assert!(!es_mision(Some(b"fondo = degradado\nfondo = estrellado\n")), "una mala no pisa");
+        assert!(!es_mision(Some(b"fondo_imagen = sys/gato.qoi\n")), "la foto manda");
+        assert!(es_mision(Some(b"fondo_imagen = sys/gato.qoi\nfondo_imagen = no\n")));
+        assert!(es_mision(Some(b"# fondo = degradado\n")), "un comentario no cuenta");
+        for texto in [&b"fondo = degradado\n"[..], b"fondo_imagen = a.qoi\n", b"marco = fase\nfondo = mision\n"] {
+            let mut e = BASE;
+            e.fondo = FONDO_POR_DEFECTO;
+            e.aplicar(texto);
+            assert_eq!(es_mision(Some(texto)), e.fondo == Fondo::Mision && e.fondo_imagen.vacia(), "{:?}", core::str::from_utf8(texto));
+        }
     }
 
     #[test]

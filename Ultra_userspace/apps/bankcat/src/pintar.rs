@@ -655,12 +655,19 @@ fn panel(cv: &mut Canvas, v: &Vista) {
     let (x, tw) = (x0 + 15, PANEL - 29);
     let ti = tw - 30;
     let mut y = BARRA + 14;
-    // El gato hucha.
-    let p0: &[u8] = b"Recibe y le salen monedas en los ojos y salta el monoculo; pagas y se le cae una lagrima. Si no hay saldo, no fia.";
-    let h = alto_parrafo(p0, ti);
-    let yy = tarjeta(cv, x, y, tw, h, b"el gato hucha");
-    parrafo(cv, x + 15, yy, ti, LINEA_CUERPO, p0, TEXTO, CUERPO, 8);
-    y += h + 12;
+    if crate::mision::es_mision() {
+        // HM6: con el escritorio de mision, arriba va el instrumento -- el
+        // saldo es lo que queda en el tanque.
+        crate::tanque::pintar(cv, v, x, y, tw);
+        y += crate::tanque::ALTO + 12;
+    } else {
+        // El gato hucha.
+        let p0: &[u8] = b"Recibe y le salen monedas en los ojos y salta el monoculo; pagas y se le cae una lagrima. Si no hay saldo, no fia.";
+        let h = alto_parrafo(p0, ti);
+        let yy = tarjeta(cv, x, y, tw, h, b"el gato hucha");
+        parrafo(cv, x + 15, yy, ti, LINEA_CUERPO, p0, TEXTO, CUERPO, 8);
+        y += h + 12;
+    }
     // Quien lleva la cuenta.
     let h = 39 + 5 * 26 + 16;
     let yy = tarjeta(cv, x, y, tw, h, b"quien lleva la cuenta");

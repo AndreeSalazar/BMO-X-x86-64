@@ -24,6 +24,18 @@ mod pintar;
 #[path = "../../../../../Ultra_userspace/apps/bankcat/src/tinta.rs"]
 #[allow(dead_code)]
 mod tinta;
+/// HM6: el espejo compara con la maqueta de siempre, que no es la de mision:
+/// aqui no hay escritorio de mision detras, y el TANQUE no se pinta (lo pinta
+/// el banco del anfitrion de PLAN_EL_HUD).
+mod mision {
+    pub fn es_mision() -> bool {
+        false
+    }
+}
+mod tanque {
+    pub const ALTO: i32 = 0;
+    pub fn pintar(_: &mut crate::canvas::Canvas, _: &crate::pintar::Vista, _: i32, _: i32, _: i32) {}
+}
 
 use bmo_bankcat::Estado;
 use bmo_espejo_cara::{png, Imagen};

@@ -15,6 +15,7 @@ name = "bmo-app-bankcat"
 version = "0.1.0"
 dependencies = [
  "bmo-bankcat",
+ "bmo-config",
  "bmo-dibujo",
  "bmo-letra-monton",
  "bmo-monton",
