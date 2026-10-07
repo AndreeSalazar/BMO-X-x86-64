@@ -52,6 +52,11 @@ pub(crate) mod mision;
 /// EL INICIO DE MISION (07-10, HM3b): la encuesta GO / NO-GO sobre la
 /// nebulosa, la entrada a Ring 3 con `fondo = mision`.
 pub(crate) mod inicio;
+/// Las piezas del HUD en Rust (07-10, HM4): el marco y la lectura de
+/// `toolchain/tools/maqueta/pruebas/hud/`.
+pub(crate) mod hud;
+/// LOS VITALES COMO INSTRUMENTOS (07-10, HM4): la banda de arriba de F6, F7 y F8.
+pub(crate) mod vitales_hud;
 /// La NEBULOSA quieta, generada por MAQUETA desde
 /// `toolchain/tools/maqueta/escritorio/nebulosa.maqueta`. No se edita a mano.
 pub(crate) mod nebulosa_gen;

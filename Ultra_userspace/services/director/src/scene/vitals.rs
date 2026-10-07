@@ -283,9 +283,16 @@ impl VitalsWindow {
         self.x_solapas().iter().position(|&(a, b)| x >= a && x < b).map(|k| Solapa::TODAS[k])
     }
 
-    /// La y donde empieza el contenido de una solapa.
-    fn y_contenido(&self) -> u32 {
+    /// La y donde empieza la banda de instrumentos (HM4), si la hay.
+    fn y_banda(&self) -> u32 {
         self.y_solapas() + bmo::GLIFO_ALTO + 16
+    }
+
+    /// La y donde empieza el contenido de una solapa: debajo de la banda de
+    /// instrumentos si se ve (`vitales_hud`), y todo lo de abajo -- filas,
+    /// mandos y zonas del raton -- sale de aqui.
+    fn y_contenido(&self) -> u32 {
+        self.y_banda() + if super::vitales_hud::se_ve(self) { super::vitales_hud::BANDA } else { 0 }
     }
 
     /// La y del bloque SMP de la solapa CPU: debajo de sus siete filas.
@@ -562,6 +569,11 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &VitalsWindow, vueltas: u32, consumo: 
     }
     p.rect(tx, py + bmo::GLIFO_ALTO + 6, c.chrome.width.saturating_sub(32), 1, VIT_EDGE);
 
+    // ** LOS INSTRUMENTOS (HM4, 07-10): con el escritorio de mision, arriba de
+    // cada solapa. Ver `vitales_hud`.
+    if super::vitales_hud::se_ve(c) {
+        super::vitales_hud::pintar(p, c, tx, c.y_banda(), c.chrome.width.saturating_sub(32), consumo);
+    }
     let mut y = c.y_contenido();
     let step = bmo::GLIFO_ALTO + 4;
     let mut b = [0u8; 120];
