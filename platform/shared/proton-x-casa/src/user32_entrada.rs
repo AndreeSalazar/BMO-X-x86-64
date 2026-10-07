@@ -170,6 +170,7 @@ struct Estado {
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea, hilos cooperativos; se lee y escribe en el acto.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado {
     sincronas: Teclas::nuevas(),

@@ -106,6 +106,7 @@ struct Tablas {
 }
 
 // SAFETY: una tarea, hilos cooperativos; se escriben una vez, al principio.
+// [hilos] uno -- se escriben UNA vez, al principio (con los directores: un Once)
 unsafe impl Sync for Tablas {}
 
 static TABLAS: Tablas = Tablas { bytes: UnsafeCell::new([0; MEDIDA_TABLAS]), hechas: UnsafeCell::new(([0; 10], [0; 10])), generica: UnsafeCell::new([0; 2]), sistema: UnsafeCell::new([0; 2]) };

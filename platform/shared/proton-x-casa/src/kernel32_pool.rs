@@ -91,6 +91,7 @@ struct Estado {
 struct Global(UnsafeCell<Estado>);
 // SAFETY: la casa corre en UNA tarea con hilos cooperativos: nadie toca esto
 // a la vez (nadie cede el turno con una referencia viva: ver `con`).
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado { obras: Vec::new() }));
 

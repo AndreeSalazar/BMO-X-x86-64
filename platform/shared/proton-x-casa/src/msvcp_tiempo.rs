@@ -51,6 +51,7 @@ impl Iter {
 
 struct Vt(core::cell::UnsafeCell<*const u64>);
 // SAFETY: se llena una vez; los hilos de la casa son cooperativos.
+// [hilos] uno -- se llena UNA vez (con los directores: un Once)
 unsafe impl Sync for Vt {}
 static VT: Vt = Vt(core::cell::UnsafeCell::new(core::ptr::null()));
 

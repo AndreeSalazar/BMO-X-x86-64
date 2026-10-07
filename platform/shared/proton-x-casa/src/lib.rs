@@ -338,6 +338,7 @@ struct Global(UnsafeCell<Estado>);
 
 // SAFETY: un `.exe` de P2 corre en UN hilo, y el banco corre los `.exe` de
 // uno en uno (su cerrojo). Los hilos de Windows son P4.
+// [hilos] cerrojo -- la plataforma, las ventanas y la cola de mensajes de la casa
 unsafe impl Sync for Global {}
 
 static ESTADO: Global = Global(UnsafeCell::new(Estado {

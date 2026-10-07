@@ -32,6 +32,7 @@ const ERROR_MOD_NOT_FOUND: u32 = 126;
 /// P4f4: los que el `.exe` cambio con SetStdHandle (entrada, salida, errores).
 struct Cambiados(core::cell::UnsafeCell<[u64; 3]>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Cambiados {}
 static CAMBIADOS: Cambiados = Cambiados(core::cell::UnsafeCell::new([0; 3]));
 

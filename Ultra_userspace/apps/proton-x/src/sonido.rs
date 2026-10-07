@@ -49,6 +49,7 @@ struct Estado {
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea, y los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- el audifono: lo bombea quien lata
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado { aparato: None, bloque: None, hz: 0, anillo: 0, trama: 0, pos: 0 }));
 

@@ -73,6 +73,7 @@ pub fn de_bmo() -> Plataforma {
 /// cambio, la VA de bloques ya no se gasta con cada sombreador.
 struct Cuaderno(core::cell::UnsafeCell<Option<bmo::Memoria>>);
 // SAFETY: una tarea, y los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- el cuaderno de codigo: lo sella quien dibuje primero
 unsafe impl Sync for Cuaderno {}
 static CUADERNO: Cuaderno = Cuaderno(core::cell::UnsafeCell::new(None));
 
@@ -98,6 +99,7 @@ fn sellar_cuaderno(base: u64, hasta: usize) -> bool {
 /// anterior al sellar el siguiente).
 struct Codigo(core::cell::UnsafeCell<alloc::vec::Vec<bmo::Memoria>>);
 // SAFETY: una tarea, y los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- los bloques de codigo sellados
 unsafe impl Sync for Codigo {}
 static CODIGO: Codigo = Codigo(core::cell::UnsafeCell::new(alloc::vec::Vec::new()));
 
@@ -306,6 +308,7 @@ struct ALaCarta {
 
 struct Global(core::cell::UnsafeCell<ALaCarta>);
 // SAFETY: una tarea, y los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- el bloque de paso y los ficheros a la carta: los lee cualquier hilo
 unsafe impl Sync for Global {}
 static CARTA: Global = Global(core::cell::UnsafeCell::new(ALaCarta {
     abiertos: alloc::vec::Vec::new(),

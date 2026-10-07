@@ -53,6 +53,7 @@ extern "win64" fn inet_addr(p: *const u8) -> u32 {
 /// de la casa se turnan).
 struct Bufer(UnsafeCell<[u8; 16]>);
 // SAFETY: una tarea, hilos cooperativos.
+// [hilos] por-hilo -- inet_ntoa da un bufer de CADA hilo en Windows
 unsafe impl Sync for Bufer {}
 static NTOA: Bufer = Bufer(UnsafeCell::new([0; 16]));
 

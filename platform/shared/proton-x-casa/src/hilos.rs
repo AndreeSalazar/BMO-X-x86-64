@@ -85,6 +85,7 @@ struct Casa {
 struct Global(UnsafeCell<Option<Casa>>);
 // SAFETY: una tarea de BMO-X; los hilos de aqui son cooperativos y nunca hay
 // dos a la vez dentro de la casa. `casa()` no se guarda de un relevo a otro.
+// [hilos] cerrojo -- el planificador de los hilos cooperativos: con los directores lo hace el kernel (H2.2)
 unsafe impl Sync for Global {}
 static CASA: Global = Global(UnsafeCell::new(None));
 

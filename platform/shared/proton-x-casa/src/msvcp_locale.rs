@@ -150,6 +150,7 @@ const VT_CODECVT_ANCHO: usize = 4;
 struct Vtablas(UnsafeCell<[*const u64; 5]>);
 // SAFETY: se llenan una vez y no cambian (los hilos de la casa son
 // cooperativos).
+// [hilos] uno -- se llenan UNA vez y no cambian (con los directores: un Once)
 unsafe impl Sync for Vtablas {}
 static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 5]));
 
@@ -271,6 +272,7 @@ const ID_CNT_N: &str = "?_Id_cnt@id@locale@std@@0HA";
 
 struct Global(UnsafeCell<*mut Locimp>);
 // SAFETY: ver `Vtablas`.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Global {}
 static GLOBAL: Global = Global(UnsafeCell::new(core::ptr::null_mut()));
 /// La ctype<char> de la casa (la de `ctype_de` cuando el locale no la trae).

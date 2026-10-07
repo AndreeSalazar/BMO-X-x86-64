@@ -131,6 +131,7 @@ fn poner_u32(p: *mut u8, o: usize, v: u32) {
 /// Los PSO de computo que se crearon (para que una lista no los dibuje).
 struct Computos(UnsafeCell<Vec<u64>>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Computos {}
 static COMPUTOS: Computos = Computos(UnsafeCell::new(Vec::new()));
 

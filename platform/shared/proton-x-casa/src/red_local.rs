@@ -93,6 +93,7 @@ struct Socket {
 
 struct Tabla(UnsafeCell<(Vec<Option<Socket>>, u16)>);
 // SAFETY: una tarea, hilos cooperativos (ver `hilos`).
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Tabla {}
 static TABLA: Tabla = Tabla(UnsafeCell::new((Vec::new(), 49152)));
 

@@ -86,6 +86,7 @@ struct Estado {
 struct Colas(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y ninguna orden
 // de D3D12 cede el turno (ver la cabecera, y lo que H1 rompe).
+// [hilos] cerrojo -- las colas retenidas y las esperas de varias vallas: las toca quien mande, quien marque y quien despierte
 unsafe impl Sync for Colas {}
 static COLAS: Colas = Colas(UnsafeCell::new(Estado { retenidas: Vec::new(), varias: Vec::new(), despertando: false }));
 

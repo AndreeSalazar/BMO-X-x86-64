@@ -331,6 +331,7 @@ fn cabe(t: &Traducido, n: usize) -> bool {
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos (ver hilos.rs).
+// [hilos] cerrojo -- el codigo nativo y su cuaderno: lo agrega quien crea un PSO, lo lee quien dibuja
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado { codigo: Vec::new(), traducidos: Vec::new(), bloque: None, sin_bloque: false, sellos: 0, cuaderno: None, sin_cuaderno: false, aviso: None }));
 

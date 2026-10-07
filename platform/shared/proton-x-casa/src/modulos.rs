@@ -95,6 +95,7 @@ struct Propia {
 
 struct Propias(core::cell::UnsafeCell<Vec<Propia>>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Propias {}
 static PROPIAS: Propias = Propias(core::cell::UnsafeCell::new(Vec::new()));
 
@@ -443,6 +444,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
 fn no_estaba(dll: &str, nombre: &str, con_trampa: bool) {
     struct Vistas(core::cell::UnsafeCell<alloc::vec::Vec<alloc::string::String>>);
     // SAFETY: la casa corre en un hilo a la vez (ver `Global` en lib.rs).
+    // [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
     unsafe impl Sync for Vistas {}
     static VISTAS: Vistas = Vistas(core::cell::UnsafeCell::new(alloc::vec::Vec::new()));
     // SAFETY: como arriba; nadie guarda la referencia.

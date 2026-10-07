@@ -265,6 +265,7 @@ extern "win64" fn ver_query_value_w(b: *const u8, c: *const u16, s: *mut u64, l:
 
 struct Global(UnsafeCell<bool>);
 // SAFETY: una tarea, hilos cooperativos; se lee y escribe en el acto.
+// [hilos] por-hilo -- ImpersonateSelf es de CADA hilo
 unsafe impl Sync for Global {}
 static SUPLANTA: Global = Global(UnsafeCell::new(false));
 

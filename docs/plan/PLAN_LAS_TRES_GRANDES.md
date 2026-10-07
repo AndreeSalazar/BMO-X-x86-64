@@ -636,10 +636,16 @@ donde dos `&mut` del mismo estado pueden chocar.
 - [ ] H0.1 -- El diario de P0.3: cuantos hilos crea el juego, con que
   prioridad y afinidad, y con que se esperan (SRW, secciones criticas,
   `WaitOnAddress`, eventos). **Como se sabe:** una tabla aqui.
-- [ ] H0.2 -- La lista de los 42 `Sync` de la casa, cada uno con su clase:
+- [x] H0.2 -- La lista de los 42 `Sync` de la casa, cada uno con su clase:
   (a) no se toca desde otro hilo, (b) necesita cerrojo, (c) debe ser por
   hilo. **Como se sabe:** un guardian nuevo que falla si aparece un `Sync`
   sin su clase escrita.
+  07-10, HECHO: eran 72 (la casa crecio). Cada uno lleva `// [hilos] clase
+  -- motivo` encima: 10 `uno` (solo se leen o se llenan una vez), 58
+  `cerrojo`, 4 `por-hilo` (errno, la excepcion de C++ en vuelo, el bufer de
+  inet_ntoa, ImpersonateSelf). El guardian `hilos-casa` (en el build) falla
+  con uno sin clase, y lo PENDIENTE (62) es un trinquete: solo baja, y
+  bajarlo es H2.1.
 
 ## 4B. El kernel `[RING 0]`, pieza a pieza
 

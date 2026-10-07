@@ -482,12 +482,14 @@ impl Bufer {
 
 struct Registro(UnsafeCell<Vec<(u64, usize)>>);
 // SAFETY: un hilo (ver `Global` en lib.rs).
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Registro {}
 static BUFERES: Registro = Registro(UnsafeCell::new(Vec::new()));
 static DIBUJOS: Dibujos = Dibujos(UnsafeCell::new(Vec::new()));
 
 struct Dibujos(UnsafeCell<Vec<Dibujo>>);
 // SAFETY: como arriba.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Dibujos {}
 
 pub(crate) fn reiniciar() {
@@ -1326,6 +1328,7 @@ const DESCRIPTOR_BYTES: u64 = 32;
 /// los pixeles antes. Una tarea, hilos cooperativos: basta una celda.
 struct Limpiezas(UnsafeCell<Vec<(u64, u32)>>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Limpiezas {}
 static LIMPIEZAS: Limpiezas = Limpiezas(UnsafeCell::new(Vec::new()));
 

@@ -69,6 +69,7 @@ struct Estado {
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado {
     argv_a: Vec::new(),
@@ -522,6 +523,7 @@ use bmo_proton_x::formato::{self, Argumentos};
 /// Los tres FILE estandar: la casa solo necesita sus DIRECCIONES distintas.
 struct Files(UnsafeCell<[u64; 3]>);
 // SAFETY: nadie los lee ni escribe; solo se da su direccion.
+// [hilos] uno -- nadie lo lee ni lo escribe: solo se da su direccion
 unsafe impl Sync for Files {}
 static FILES: Files = Files(UnsafeCell::new([0; 3]));
 

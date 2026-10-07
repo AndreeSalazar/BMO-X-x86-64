@@ -51,6 +51,7 @@ struct Estado {
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: la casa corre en un hilo a la vez (ver `Global` en lib.rs).
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado { nombres: Vec::new(), dichas: [false; TRAMPAS] }));
 
