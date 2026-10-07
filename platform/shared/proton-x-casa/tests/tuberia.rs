@@ -79,7 +79,7 @@ fn empezar() -> std::sync::MutexGuard<'static, ()> {
     let g = UNO_A_LA_VEZ.lock().unwrap_or_else(|e| e.into_inner());
     DICHO.lock().unwrap().clear();
     // SAFETY: ningun `.exe` corre; una prueba a la vez (el cerrojo).
-    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None, sonido: None }) };
+    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None, sonido: None, cuaderno: None, obreros: None }) };
     g
 }
 
@@ -229,10 +229,9 @@ fn create_graphics_pipeline_state_cruza_el_layout_con_el_sombreador() {
     let r = raiz();
     // Con APPEND_ALIGNED en NORMAL y COLOR: 12 y 24, como el de cubo.c.
     assert_eq!(pso(r, VS, PS, &layout(true)), 0);
-    // Esta plataforma no sabe sellar codigo: la casa lo dice UNA vez, y los
-    // sombreadores se interpretan (dan lo mismo).
-    assert_eq!(dicho(), "PROTON-X: sin bloque sellado para el codigo nativo: los sombreadores se interpretan (dan lo mismo, mas despacio)\n");
-    DICHO.lock().unwrap().clear();
+    // Esta plataforma no sabe sellar codigo, pero desde V2 (07-10) crear el
+    // PSO no sella: lo hace su primer dibujo nativo, y lo dice entonces.
+    assert_eq!(dicho(), "");
 
     assert_eq!(pso(r, VS, PS, &layout(false)), E_INVALIDARG, "COLOR lo lee el sombreador y el layout no lo da");
     assert_eq!(dicho(), "PROTON-X: el sombreador de vertices lee una semantica que el input layout no da\n");

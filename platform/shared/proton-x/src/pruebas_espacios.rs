@@ -409,7 +409,7 @@ fn un_array_de_texturas_con_el_registro_calculado_lee_la_de_su_indice() {
     };
     let m = Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4], comparacion: 0, lod: crate::textura::Lod::DE_SIEMPRE };
     let mue: Vec<Option<Muestreador>> = en.ranuras.muestreadores.iter().map(|_| Some(m)).collect();
-    let rec = Recursos { texturas: &[], muestreadores: &mue, buferes: &[], dinamicas: Some(Dinamicas(&buscar)) };
+    let rec = Recursos { texturas: &[], muestreadores: &mue, buferes: &[], dinamicas: Some(Dinamicas(&buscar, None)) };
     let (mut sal, mut regs) = (vec![[0f32; 4]; en.ps.salidas], Vec::new());
     for (i, j) in [(0u32, 0u32), (1, 2), (7, 1), (3, 0)] {
         let mut cb = [0u8; 16];

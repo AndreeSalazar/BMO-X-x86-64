@@ -138,6 +138,12 @@ pub trait MemBackend {
     fn grande_aparte(&self) -> bool {
         true
     }
+    /// **Lo mas que mide UN bloque** de este respaldo: el de un bloque de
+    /// `KIND_MEMORIA` ([`BLOQUE_TOPE`]), salvo que el respaldo sepa dar mas
+    /// (una region que crece por la reserva: su tramo entero).
+    fn tope(&self) -> usize {
+        BLOQUE_TOPE
+    }
 }
 
 struct HeapInner {
@@ -173,7 +179,7 @@ impl<B: MemBackend> FreelistAllocator<B> {
 
     /// `size` bytes alineados a [`ALINEA`], o nulo.
     pub fn allocate(&self, size: usize) -> *mut u8 {
-        if size == 0 || size > BLOQUE_TOPE {
+        if size == 0 || size > self.backend.tope() {
             return ptr::null_mut();
         }
         let needed = sube(HEADER_SIZE + size, ALINEA).max(MIN_BLOCK);
@@ -341,7 +347,7 @@ impl<B: MemBackend> FreelistAllocator<B> {
 
         // Nada cabe: una arena nueva, el doble que la anterior.
         let doble = ARENA_PRIMERA << self.inner().arenas.min(6);
-        let medida = doble.max(sube(PRIMER_TROZO + needed, ALINEA)).min(BLOQUE_TOPE);
+        let medida = doble.max(sube(PRIMER_TROZO + needed, ALINEA)).min(self.backend.tope());
         if PRIMER_TROZO + needed > medida {
             return ptr::null_mut();
         }
@@ -403,7 +409,7 @@ impl<B: MemBackend> FreelistAllocator<B> {
     /// iria el primer trozo de una arena.
     unsafe fn allocate_large(&self, needed: usize) -> *mut u8 {
         let medida = sube(PRIMER_TROZO + needed, ALINEA);
-        if medida > BLOQUE_TOPE {
+        if medida > self.backend.tope() {
             return ptr::null_mut();
         }
         let Some(b) = self.pedir_bloque(medida, true) else { return ptr::null_mut() };

@@ -194,6 +194,21 @@ impl Memoria {
             Err(st.flags)
         }
     }
+
+    /// **Sellar por TRAMOS** (V4, 07-10): `[0, hasta)` pasa a codigo, a
+    /// paginas enteras; lo de detras sigue siendo datos (escribible, sin
+    /// ejecucion). Un bloque de codigo que solo crece: lo sellado no se
+    /// mueve ni vuelve atras. `Err` lleva el motivo (`SELLAR_*`).
+    pub fn sellar_hasta(&self, hasta: u64) -> Result<(), u32> {
+        let st = invoke(self.cap, MEM_OP_SELLAR_HASTA, hasta, 0, 0);
+        if st.code == 0 {
+            Ok(())
+        } else if st.flags == 0 {
+            Err(SELLAR_NO_ES_SUYO)
+        } else {
+            Err(st.flags)
+        }
+    }
 }
 
 /// **Lo prestado vuelve al salir del alcance.** Lo residente, no.

@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 73 planes
+# LO QUE FALTA -- las casillas abiertas de los 74 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   683 casillas ABIERTAS en 64 planes
-   567 hechas
+   689 casillas ABIERTAS en 65 planes
+   575 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -37,14 +37,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 # Los planes VIVOS, el que mas debe primero
 
-## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 82 abiertas, 63 hechas
+## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 81 abiertas, 64 hechas
 
 *PLAN LAS TRES GRANDES -- D3D12 de juego, el sonido del juego y varios nucleos*
 
 - [ ] P0.2 -- Las DURAS que falten, a CERO (una tanda por grupo de arriba).
 - [ ] P0.2g -- DONDE GUARDA EL JUEGO: hoy USERPROFILE (y con el APPDATA,
 - [ ] P0.2h -- El globo de run recomienda smp all para un juego SOLO
-- ... y 79 mas
+- ... y 78 mas
 
 ## [`PLAN_CLOUD_LOCAL.md`](PLAN_CLOUD_LOCAL.md) -- 46 abiertas, 16 hechas
 
@@ -305,6 +305,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M1 -- EL PRODUCTOR: la mesa alimenta el tubo
 - [ ] M2 -- LA VENTANA
 - [ ] M3 -- QUE CADA UNO PIDA SU PISTA
+- ... y 4 mas
+
+## [`PLAN_LOS_DOCE_DIRECTORES.md`](PLAN_LOS_DOCE_DIRECTORES.md) -- 7 abiertas, 7 hechas
+
+*PLAN LOS DOCE DIRECTORES -- PROTON-X aprende a usar TODO el Ryzen*
+
+- [ ] V3 -- los ficheros por el bloque de paso. leer_fichero y
+- [ ] V5 -- la cabina lo dice. La foto del pulso de PROTON-X dice la VA
+- [ ] T3 -- medirlo en el metal. Los tirones del audifono por debajo de
 - ... y 4 mas
 
 ## [`PLAN_NUNCA_ADIVINA.md`](PLAN_NUNCA_ADIVINA.md) -- 7 abiertas, 3 hechas

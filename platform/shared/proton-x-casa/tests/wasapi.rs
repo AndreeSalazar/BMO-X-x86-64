@@ -100,7 +100,7 @@ fn empezar(sonido: Option<Sonido>) -> std::sync::MutexGuard<'static, ()> {
     HORA.store(1_000_000_000, Ordering::SeqCst);
     // SAFETY: ningun `.exe` corre; una prueba a la vez (el cerrojo).
     unsafe {
-        bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None, sonido })
+        bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None, sonido, cuaderno: None, obreros: None })
     };
     g
 }

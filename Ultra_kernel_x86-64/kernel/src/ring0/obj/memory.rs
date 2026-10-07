@@ -165,6 +165,27 @@ pub const MEM_OP_SOLTAR: u64 = 0x05;
 /// Contesta 1, o el motivo en las banderas (`SELLAR_*`).
 pub const MEM_OP_SELLAR: u64 = 0x06;
 
+/// **Sellar POR TRAMOS: las paginas de `[sellado, bytes)`** (V4 de
+/// `PLAN_LOS_DOCE_DIRECTORES`, 07-10; con el permiso de Ring 0 del
+/// propietario). Espejo de `bmo_abi::...::MEM_OP_SELLAR_HASTA`.
+///
+/// Un bloque de CODIGO que solo crece: lo sellado es un PREFIJO, de pagina
+/// en pagina; lo de detras sigue escribible y NO ejecutable. Sellar mas es
+/// pasar las paginas nuevas a R+X sin W, de un golpe cada una, como
+/// [`MEM_OP_SELLAR`]; nunca hay una pagina con W y X a la vez, y lo sellado
+/// no vuelve atras.
+///
+/// Por que: PROTON-X traduce los sombreadores de un juego a x86-64. Con un
+/// sello por bloque, cada PSO nuevo era un bloque nuevo con TODO el codigo
+/// y el viejo suelto; la VA de un bloque soltado no vuelve (a proposito,
+/// ver `request`), y Cyberpunk agoto los 512 MiB de VA de bloques
+/// (`SIN SITIO`, 06-10) y despues se cayo saltando fuera del bloque. Con
+/// esto el codigo vive en UN bloque, no se mueve y no se suelta.
+///
+/// `rdx` = hasta donde (bytes desde el principio; se sube a pagina entera).
+/// Contesta 1, o el motivo en las banderas (`SELLAR_*`).
+pub const MEM_OP_SELLAR_HASTA: u64 = 0x07;
+
 /// Sellado.
 pub const SELLAR_HECHO: u32 = 0;
 /// Ese bloque no es de este proceso (o ya lo solto).
@@ -179,6 +200,8 @@ pub const SELLAR_PRESTADO: u32 = 3;
 pub const SELLAR_SIN_NX: u32 = 4;
 /// El remapeo fallo a mitad: el bloque se DESMAPEO entero y queda inutilizable.
 pub const SELLAR_NO_REMAPEA: u32 = 5;
+/// `MEM_OP_SELLAR_HASTA` pidio sellar mas alla del final del bloque.
+pub const SELLAR_FUERA: u32 = 6;
 
 pub const ERROR_TOO_BIG: u32 = 0xE001;
 pub const ERROR_NO_RAM: u32 = 0xE002;
@@ -236,12 +259,14 @@ struct Bloque {
     /// cuando dice que no, y el propietario duerme hasta que se mueva. Sube en
     /// `loan.rs` cuando el prestatario suelta o muere. Nunca baja.
     devueltas: u64,
-    /// **Es CODIGO**: sellado con `MEM_OP_SELLAR`, mapeado R+X y sin escritura.
-    /// Nadie escribe ya en el -- ni el kernel en nombre del proceso.
-    sellado: bool,
+    /// **Cuanto de el es CODIGO**: los bytes desde el principio sellados con
+    /// `MEM_OP_SELLAR` (todo) o `MEM_OP_SELLAR_HASTA` (un prefijo, V4),
+    /// mapeados R+X y sin escritura; siempre paginas enteras. Nadie escribe
+    /// ya en ellos -- ni el kernel en nombre del proceso. `0` = datos.
+    sellado: u64,
 }
 
-const SIN_BLOQUE: Bloque = Bloque { base: 0, fisica: 0, bytes: 0, devueltas: 0, sellado: false };
+const SIN_BLOQUE: Bloque = Bloque { base: 0, fisica: 0, bytes: 0, devueltas: 0, sellado: 0 };
 
 /// La contabilidad de un proceso que tiene memoria pedida.
 #[derive(Clone, Copy)]
@@ -419,7 +444,7 @@ pub fn donde_cae(pid: u32, va: u64) -> Caida {
     // solo bucle haria que el orden de la tabla decidiera el veredicto.
     for (i, b) in bloques.iter().enumerate() {
         if b.base != 0 && b.bytes != 0 && va >= b.base && va < b.base + b.bytes {
-            return Caida::Dentro { bloque: i, off: va - b.base, bytes: b.bytes, sellado: b.sellado };
+            return Caida::Dentro { bloque: i, off: va - b.base, bytes: b.bytes, sellado: va - b.base < b.sellado };
         }
     }
     let mut hay = false;
@@ -705,7 +730,7 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
         // lo liberaria nadie al morir, y `donde_cae` diria "fuera" de algo que
         // es suyo. Se busca hueco, que es lo unico que sobrevive a soltar.
         if let Some(i) = c.bloques.iter().position(|b| b.base == 0) {
-            c.bloques[i] = Bloque { base, fisica, bytes: paginas * mm::PAGE, devueltas: 0, sellado: false };
+            c.bloques[i] = Bloque { base, fisica, bytes: paginas * mm::PAGE, devueltas: 0, sellado: 0 };
         }
         c.peticiones += 1;
         c.entregados += paginas * mm::PAGE;
@@ -894,7 +919,12 @@ pub fn fisica_para_escribir(pid: u32, va: u64, len: u64) -> Option<u64> {
         let c = &(*core::ptr::addr_of!(CUENTAS))[slot];
         for b in c.bloques.iter() {
             if b.base != 0 && va >= b.base && fin <= b.base + b.bytes {
-                return if b.sellado { None } else { Some(b.fisica + (va - b.base)) };
+                // V4: basta con que TOQUE lo sellado (el prefijo).
+                return if bmo_imagen_juicio::sello::toca_sellado(b.base, b.sellado, va) {
+                    None
+                } else {
+                    Some(b.fisica + (va - b.base))
+                };
             }
         }
     }
@@ -909,7 +939,7 @@ pub fn esta_sellado(pid: u32, base: u64) -> bool {
         (*core::ptr::addr_of!(CUENTAS))[slot]
             .bloques
             .iter()
-            .any(|b| b.base == base && b.bytes != 0 && b.sellado)
+            .any(|b| b.base == base && b.bytes != 0 && b.sellado != 0)
     }
 }
 
@@ -921,6 +951,13 @@ pub fn esta_sellado(pid: u32, base: u64) -> bool {
 /// corran en varios, esto pide un derribo de TLB en los demas ANTES de
 /// contestar -- dicho aqui para que ese dia se encuentre.
 pub fn sellar(pid: u32, aspace: u64, base: u64) -> u32 {
+    sellar_hasta(pid, aspace, base, u64::MAX)
+}
+
+/// **SELLAR `[0, hasta)` del bloque `base` de `pid`** (V4): las paginas que
+/// faltan del prefijo pasan a R+X sin W; `u64::MAX` = el bloque entero (lo
+/// de [`MEM_OP_SELLAR`]). Ver [`MEM_OP_SELLAR_HASTA`].
+pub fn sellar_hasta(pid: u32, aspace: u64, base: u64, hasta: u64) -> u32 {
     let Some(slot) = slot(pid) else { return SELLAR_NO_ES_SUYO };
     let (i, b) = unsafe {
         let c = &(*core::ptr::addr_of!(CUENTAS))[slot];
@@ -929,9 +966,11 @@ pub fn sellar(pid: u32, aspace: u64, base: u64) -> u32 {
             None => return SELLAR_NO_ES_SUYO,
         }
     };
-    if b.sellado {
-        return SELLAR_YA_SELLADO;
-    }
+    // La cuenta (paginas enteras, solo crece), en el juez puro con banco.
+    let (desde, hasta) = match bmo_imagen_juicio::sello::tramo(b.sellado, b.bytes, hasta, mm::PAGE) {
+        Ok(t) => t,
+        Err(no) => return no as u32,
+    };
     if !vmm::nx_disponible() {
         crate::ring0::cabina::warn("mem", "NO se sella: EFER.NXE apagado, W^X no se sostiene", base);
         return SELLAR_SIN_NX;
@@ -943,9 +982,9 @@ pub fn sellar(pid: u32, aspace: u64, base: u64) -> u32 {
     // ** Primero se apunta, despues se remapea: si el remapeo fallara a mitad,
     // el bloque queda marcado y ninguno de los que escriben por el kernel lo
     // toca, que es lo seguro.
-    unsafe { (*core::ptr::addr_of_mut!(CUENTAS))[slot].bloques[i].sellado = true };
+    unsafe { (*core::ptr::addr_of_mut!(CUENTAS))[slot].bloques[i].sellado = hasta };
     let paginas = b.bytes / mm::PAGE;
-    for p in 0..paginas {
+    for p in desde / mm::PAGE..hasta / mm::PAGE {
         let va = b.base + p * mm::PAGE;
         // `unmap_page` invalida la TLB de esa pagina; el mapeo nuevo nace ya R+X.
         vmm::unmap_page(aspace, va);
@@ -956,11 +995,14 @@ pub fn sellar(pid: u32, aspace: u64, base: u64) -> u32 {
             for q in 0..paginas {
                 vmm::unmap_page(aspace, b.base + q * mm::PAGE);
             }
+            // V4: desmapeado entero, y entero "codigo" para el kernel: nadie
+            // escribe ya en sus marcos en nombre del proceso.
+            unsafe { (*core::ptr::addr_of_mut!(CUENTAS))[slot].bloques[i].sellado = b.bytes };
             crate::ring0::cabina::fault("mem", "sellar: el remapeo fallo; bloque desmapeado", base);
             return SELLAR_NO_REMAPEA;
         }
     }
-    crate::ring0::cabina::info("mem", "bloque SELLADO: ahora es codigo (R+X, sin escritura)", b.bytes);
+    crate::ring0::cabina::info("mem", "bloque SELLADO: ahora es codigo (R+X, sin escritura)", hasta - desde);
     SELLAR_HECHO
 }
 

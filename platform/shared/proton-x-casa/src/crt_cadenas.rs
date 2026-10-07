@@ -45,6 +45,7 @@ struct Estado {
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] por-hilo -- errno y _doserrno son de CADA hilo en el CRT de Microsoft
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado { errno: 0, doserrno: 0, nerr: 43 }));
 
@@ -74,6 +75,7 @@ pub(crate) fn poner_errno(v: i32) {
 
 struct Manejadores(UnsafeCell<[u64; 2]>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Manejadores {}
 /// El del proceso y el "del hilo" (uno para todos: la casa no los separa).
 static MANEJADORES: Manejadores = Manejadores(UnsafeCell::new([0, 0]));
@@ -700,6 +702,7 @@ static USUARIO: [u8; 27] = *b"English_United States.utf8\0";
 
 struct Actual(UnsafeCell<bool>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Actual {}
 /// Si el locale puesto es el del usuario (si no, "C").
 static DEL_USUARIO: Actual = Actual(UnsafeCell::new(false));
@@ -734,6 +737,7 @@ struct Lconv {
 }
 struct Lc(Lconv);
 // SAFETY: solo se lee.
+// [hilos] uno -- solo se lee (el lconv de "C")
 unsafe impl Sync for Lc {}
 static PUNTO: [u8; 2] = *b".\0";
 static NADA: [u8; 1] = [0];
@@ -808,6 +812,7 @@ extern "win64" fn wcrtomb(s: *mut u8, wc: u16, _estado: u64) -> usize {
 
 struct Nombres([u64; 6]);
 // SAFETY: solo se lee.
+// [hilos] uno -- solo se lee
 unsafe impl Sync for Nombres {}
 static SIN_NOMBRES: Nombres = Nombres([0; 6]);
 

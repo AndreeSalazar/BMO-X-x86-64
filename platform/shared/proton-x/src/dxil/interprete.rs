@@ -250,7 +250,7 @@ impl Programa {
         let Pausa { mut pc, mut bucles, mut hondo, mut vueltas, mut elige } = *p;
         // N5.4: la textura que eligio el ultimo `EligeTextura` (la de antes
         // de la barrera, si el hilo viene de una).
-        let mut elegida: Option<crate::textura::Textura<'static>> = elige.and_then(|(r, k)| rec.dinamica(r, k));
+        let mut elegida: Option<crate::textura::Elegida> = elige.and_then(|(r, k)| rec.elegir(r, k));
         while let Some(op) = self.ops.get(pc) {
             pc += 1;
             match *op {
@@ -337,6 +337,21 @@ impl Programa {
                         _ => 0,
                     };
                     regs[d as usize] = f32::from_bits(v);
+                }
+                Op::AtomicoCompartido { d, base, n, i, v, como } => {
+                    let (k, v) = (bits(regs, i), bits(regs, v));
+                    let antes = match &mut x {
+                        Extra::Grupo(g) => match g.compartida.get_mut((base + k) as usize).filter(|_| k < n) {
+                            Some(w) => {
+                                let antes = *w;
+                                *w = como.hacer(antes, v, 0);
+                                antes
+                            }
+                            None => 0,
+                        },
+                        _ => 0,
+                    };
+                    regs[d as usize] = f32::from_bits(antes);
                 }
                 Op::EscribeCompartida { base, n, i, s } => {
                     let (k, v) = (bits(regs, i), bits(regs, s));
@@ -433,7 +448,7 @@ impl Programa {
                 }
                 Op::EligeTextura { i, rango } => {
                     elige = Some((rango, bits(regs, i)));
-                    elegida = rec.dinamica(rango, bits(regs, i));
+                    elegida = rec.elegir(rango, bits(regs, i));
                 }
                 // X2 (05-10): la lectura, en una funcion: la llama tambien el
                 // codigo traducido (`nativo_llamadas`), y asi da los MISMOS bits.
@@ -514,12 +529,12 @@ pub fn operar_uav(op: Op, regs: &mut [f32], uavs: &mut [Option<crate::bufer::Uav
 /// X2 (05-10): fuera de [`Programa::correr_desde`] para que el codigo
 /// traducido la LLAME (`nativo_llamadas::textura`) en vez de copiarla: el
 /// mismo Rust, los mismos bits. Otra operacion, nada.
-pub fn leer_textura(op: Op, regs: &mut [f32], rec: &crate::textura::Recursos, elegida: Option<crate::textura::Textura<'static>>) {
+pub fn leer_textura(op: Op, regs: &mut [f32], rec: &crate::textura::Recursos, elegida: Option<crate::textura::Elegida>) {
     match op {
         Op::Muestra { d, t, s, u, v, g } => {
             let (unica, solo);
             let (rec, t) = if t == super::programa::DINAMICA {
-                unica = [elegida];
+                unica = [elegida.and_then(|e| e.textura)];
                 solo = crate::textura::Recursos { texturas: &unica, muestreadores: rec.muestreadores, buferes: &[], dinamicas: None };
                 (&solo, 0)
             } else {
@@ -534,11 +549,13 @@ pub fn leer_textura(op: Op, regs: &mut [f32], rec: &crate::textura::Recursos, el
             regs[d as usize..d as usize + 4].copy_from_slice(&c);
         }
         Op::Lee { d, t, s, como, c, nivel, desp } => {
-            // La ELEGIDA, en la ranura 0 de unos recursos de una.
-            let (unica, solo);
+            // La ELEGIDA, en la ranura 0 de unos recursos de una: su textura
+            // o (15, 07-10) su bufer.
+            let (unica, unico, solo);
             let (rec, t) = if t == super::programa::DINAMICA {
-                unica = [elegida];
-                solo = crate::textura::Recursos { texturas: &unica, muestreadores: rec.muestreadores, buferes: &[], dinamicas: None };
+                unica = [elegida.and_then(|e| e.textura)];
+                unico = [elegida.and_then(|e| e.bufer)];
+                solo = crate::textura::Recursos { texturas: &unica, muestreadores: rec.muestreadores, buferes: &unico, dinamicas: None };
                 (&solo, 0)
             } else {
                 (rec, t)

@@ -82,6 +82,8 @@
 pub const BASE: u64 = 0x0400_0000;
 /// Cuanto: 256 KiB de texto, que son unas cinco mil lineas.
 pub const BYTES: u64 = 256 * 1024;
+/// Lo que se reserva: el anillo y, detras, el tablero (`tablero.rs`).
+pub const RESERVA: u64 = BYTES + super::tablero::BYTES;
 const CAB: u64 = 32;
 const CAP: u64 = BYTES - CAB;
 /// Lo que esta sesion puede escribir ANTES de que el disco este montado sin
@@ -145,6 +147,50 @@ pub fn anotar(b: u8) {
     }
 }
 
+/// Hasta donde (el cursor) lo escrito ya esta en la RAM, no solo en la cache.
+static mut EN_RAM: u64 = 0;
+
+/// Escribir una linea de cache a la RAM (y sacarla de la cache).
+#[inline]
+pub(super) fn a_la_ram_linea(p: *const u8) {
+    // SAFETY: CLFLUSH sobre memoria mapeada (el physmap de la reserva); no
+    // cambia su contenido.
+    unsafe { core::arch::asm!("clflush [{}]", in(reg) p, options(nostack, preserves_flags)) };
+}
+
+/// **Lo escrito, a la RAM de verdad** (07-10). Lo llama el tick.
+///
+/// *** POR QUE: las CUATRO caidas del 07-10 acababan en la MISMA linea del
+/// arranque (la autopsia del booter de la 3060) aunque la maquina siguio
+/// viva minutos despues. No era que nadie escribiera: el anillo y su CURSOR
+/// se escriben en memoria con cache (WB), y el cursor es una linea que se
+/// toca en cada byte -- no sale nunca de la cache. Un reinicio de golpe (un
+/// triple fallo) BORRA la cache sin escribirla: la RAM se quedaba con el
+/// cursor del ultimo `wbinvd`, que es justo el que hace el arranque de la
+/// 3060 antes del booter. Todo lo de despues existia solo en la cache.
+///
+/// Ahora, en cada tick, si el cursor se movio: las lineas de texto nuevas y
+/// la cabecera, con `clflush`. Sin nada nuevo, una lectura.
+pub fn a_la_ram() {
+    unsafe {
+        if !LISTA {
+            return;
+        }
+        let c = lee64(16);
+        if c == EN_RAM {
+            return;
+        }
+        let desde = if c.saturating_sub(EN_RAM) > CAP { c - CAP } else { EN_RAM.min(c) };
+        let mut o = desde & !63;
+        while o < c {
+            a_la_ram_linea(ptr(CAB + o % CAP));
+            o += 64;
+        }
+        a_la_ram_linea(ptr(0));
+        EN_RAM = c;
+    }
+}
+
 /// **Abrir la region: recuperar lo del arranque anterior y preparar esta.**
 ///
 /// Se llama desde `mm::phys::init`, justo despues de reservar el rango y con
@@ -200,10 +246,23 @@ pub fn abrir(dentro_de_ram: bool, base_virtual: u64) {
             GENERACION = if cabecera_ok { generacion.wrapping_add(1) } else { 1 };
             pon64(16, 0);
         }
+        // EL TABLERO (07-10): lo que cada nucleo estaba haciendo, al final de
+        // lo recuperado (detras del anillo, en la misma reserva).
+        super::tablero::abrir(VIRT + BYTES, &mut |linea: &str| {
+            let n = RECUPERADO as u64;
+            let l = linea.len() as u64 + 1;
+            if n + l < CAP - 1024 {
+                core::ptr::copy_nonoverlapping(linea.as_ptr(), ptr(CAB + n), linea.len());
+                *ptr(CAB + n + l - 1) = b'\n';
+                RECUPERADO = (n + l) as usize;
+                pon64(16, n + l);
+            }
+        });
         pon64(0, MAGIA);
         pon32(8, VERSION);
         pon32(12, GENERACION);
         pon64(24, suma(MAGIA, VERSION, GENERACION));
+        EN_RAM = 0;
         LISTA = true;
         // Y lo que se dijo antes de abrir, ahora dentro.
         let n = ANTES_N;

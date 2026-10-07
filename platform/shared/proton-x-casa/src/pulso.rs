@@ -71,6 +71,7 @@ struct Cuentas {
 
 struct Global(UnsafeCell<Cuentas>);
 // SAFETY: una tarea, hilos cooperativos (ver `hilos.rs`).
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Global {}
 static CUENTAS: Global = Global(UnsafeCell::new(Cuentas {
     inicio: 0,
@@ -180,6 +181,18 @@ pub(crate) fn texto(ahora: u64) -> String {
         let f = unsafe { core::mem::transmute::<usize, fn() -> (usize, usize, usize)>(m) };
         let (uso, pico, crecido) = f();
         t.push_str(&alloc::format!("# el monton de la casa: {} MiB en uso (pico {} MiB), crecio {} MiB por la reserva\n", uso >> 20, pico >> 20, crecido >> 20));
+    }
+    t.push_str(&crate::nativo::foto());
+    // T1 (07-10): cuantas veces lo largo le presto el turno al sonido.
+    t.push_str(&alloc::format!("# el turno prestado al sonido: {} vez/veces\n", crate::hilos::prestamos()));
+    // 07-10: el cuanto (un hilo que gasto sus 4 ms suelta el turno en un cerrojo).
+    t.push_str(&alloc::format!("# el cuanto solto el turno: {} vez/veces\n", crate::hilos::cuantos()));
+    let (visitas, en_juego, cedidas, rip) = crate::expropiar::cuentas();
+    if visitas != 0 {
+        t.push_str(&alloc::format!(
+            "# EXPROPIAR: la alarma visito {visitas} vez/veces, {en_juego} en el codigo del juego, y le QUITO el turno {cedidas}; la ultima, en {}\n",
+            donde(rip)
+        ));
     }
     let v = VIGILADA.load(Ordering::Relaxed);
     if v != 0 {

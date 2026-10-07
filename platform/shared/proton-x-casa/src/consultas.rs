@@ -50,6 +50,7 @@ struct Abierta {
 struct Abiertas(UnsafeCell<Vec<Abierta>>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y una lista se
 // ejecuta entera sin ceder el turno.
+// [hilos] cerrojo -- las consultas abiertas: con dos colas a la vez, de cada ejecucion de lista
 unsafe impl Sync for Abiertas {}
 static ABIERTAS: Abiertas = Abiertas(UnsafeCell::new(Vec::new()));
 

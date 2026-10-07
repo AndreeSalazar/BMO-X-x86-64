@@ -199,11 +199,11 @@ pub fn init(ctx: &BootContext) {
     // fisica y este es el sitio que sabe si esa memoria existe. La region
     // tiene que caer entera en un tramo de RAM usable del mapa: si no, se
     // dice y no se abre, en vez de leer MMIO como si fuera texto.
-    reserve_range(crate::ring0::cabina::caida::BASE, crate::ring0::cabina::caida::BYTES);
+    reserve_range(crate::ring0::cabina::caida::BASE, crate::ring0::cabina::caida::RESERVA);
     let en_ram = {
         let (b, e) = (
             crate::ring0::cabina::caida::BASE,
-            crate::ring0::cabina::caida::BASE + crate::ring0::cabina::caida::BYTES,
+            crate::ring0::cabina::caida::BASE + crate::ring0::cabina::caida::RESERVA,
         );
         ctx.memory_map[..ctx.memory_map_count as usize]
             .iter()

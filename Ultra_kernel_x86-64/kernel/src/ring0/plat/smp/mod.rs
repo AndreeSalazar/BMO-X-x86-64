@@ -67,6 +67,12 @@ pub mod tramp;
 /// La GDT y el TSS de cada obrero: lo que le falta a un AP para poder tomar
 /// una excepcion sin reiniciar la maquina (A1 de PLAN_EL_BUS_APARTE).
 pub mod tss;
+// ** LOS SUB-DIRECTORES (H4.3, 07-10): una parte de la faena de una app, en
+// Ring 3, en cada obrero. Todo lo que pisa el CPU para eso vive alli.
+pub mod ring3;
+// ** LA FILA DE ESTA CPU (H4.0, 07-10): hermanos SMT, L3 y nucleos grandes o
+// chicos, para repartir primero un nucleo fisico por parte.
+pub mod topologia;
 
 use core::sync::atomic::Ordering;
 use map::*;

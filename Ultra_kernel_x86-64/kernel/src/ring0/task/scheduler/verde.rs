@@ -439,6 +439,17 @@ pub fn current_tid() -> u32 {
 }
 
 
+/// **El espacio de quien llama**: `(pid, cr3, gs de Ring 3)` de la tarea
+/// actual, de una vez bajo el cerrojo; `None` si no es de Ring 3. Lo pide el
+/// sub-director (`smp/ring3.rs`): un obrero entra con ESTE CR3 y este GS.
+pub fn espacio_actual() -> Option<(u32, u64, u64)> {
+    let _g = SCHED_LOCK.lock();
+    let s = sched();
+    let t = &s.tasks[s.current];
+    if t.is_user { Some((t.pid, t.cr3, t.gs_usuario)) } else { None }
+}
+
+
 pub fn current_pid() -> u32 {
     let _g = SCHED_LOCK.lock();
     let s = sched();

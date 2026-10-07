@@ -54,6 +54,7 @@ struct Estado {
 struct Celda(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y ni `oir` ni
 // `pintar` ceden el turno.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Celda {}
 static ESTADO: Celda = Celda(UnsafeCell::new(Estado { linea: [0; LINEA], n: 0, ultimo: [0; LINEA], largo: 0, cuantos: 0, letra: Letra::nueva() }));
 

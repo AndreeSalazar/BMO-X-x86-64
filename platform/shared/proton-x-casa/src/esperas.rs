@@ -54,6 +54,7 @@ struct Estado {
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y ninguna funcion
 // de aqui cede el turno con el estado prestado.
+// [hilos] cerrojo -- las ranuras de FLS y los handles copiados son del proceso (los valores de FLS ya van por hilo)
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado { fls: Vec::new(), valores: Vec::new(), copias: Vec::new(), origen: None }));
 

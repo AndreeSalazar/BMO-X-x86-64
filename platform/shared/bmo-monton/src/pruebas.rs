@@ -347,6 +347,47 @@ fn una_region_que_crece_sigue_por_su_tramo() {
     assert_eq!(HECHOS.lock().unwrap().len(), 2);
 }
 
+/// **72 MiB de una vez** (07-10, Cyberpunk en el metal: `memory allocation
+/// of 75497472 bytes failed` con el tramo de crecer casi vacio). Una region
+/// que crece da un trozo MAS GRANDE que un bloque del kernel, en un solo
+/// trozo de su tramo, y se puede escribir entero. La prueba del NO: la misma
+/// region sin tramo, nulo (ahi si manda el tope de un bloque).
+#[test]
+fn una_region_que_crece_da_mas_que_un_bloque() {
+    use crate::region::Region;
+    use std::sync::Mutex;
+    static HECHOS: Mutex<std::vec::Vec<(u64, u64)>> = Mutex::new(std::vec::Vec::new());
+    fn hacer(va: u64, n: u64) -> bool {
+        HECHOS.lock().unwrap().push((va, n));
+        true
+    }
+    const PIDE: usize = 75_497_472;
+    let mem = std::vec![0u128; (1 << 20) / 16];
+    // La prueba del NO, primero: sin tramo, el tope de un bloque.
+    let fija: FreelistAllocator<Region> = FreelistAllocator::new_with(Region::vacia());
+    unsafe { fija.backend().poner(mem.as_ptr() as usize, 1 << 20, 0x42) };
+    assert!(fija.allocate(PIDE).is_null(), "sin crecer, 72 MiB no caben");
+    // Con tramo (80 MiB de memoria del anfitrion).
+    let mem2 = std::vec![0u128; (1 << 20) / 16];
+    let tramo = std::vec![0u128; (80 << 20) / 16];
+    let r: FreelistAllocator<Region> = FreelistAllocator::new_with(Region::vacia());
+    unsafe {
+        r.backend().poner(mem2.as_ptr() as usize, 1 << 20, 0x43);
+        r.backend().poner_crecer(tramo.as_ptr() as usize, 80 << 20, hacer);
+    }
+    let p = r.allocate(PIDE);
+    assert!(!p.is_null(), "72 MiB de una vez, de su tramo");
+    let base = tramo.as_ptr() as usize;
+    assert!((p as usize) >= base && (p as usize) + PIDE <= base + (80 << 20), "dentro del tramo");
+    unsafe { ptr::write_bytes(p, 0xA5, PIDE) };
+    let hechos = HECHOS.lock().unwrap().clone();
+    assert_eq!(hechos.len(), 1, "un solo trozo");
+    assert_eq!(hechos[0].0, base as u64);
+    assert!(hechos[0].1 as usize >= PIDE && hechos[0].1 as usize <= 80 << 20);
+    // Y lo que no cabe en el tramo, nulo (no mas alla).
+    assert!(r.allocate(PIDE).is_null(), "otro de 72 MiB ya no cabe en 80");
+}
+
 /// Si el kernel dice NO (sin RAM), nulo, y no cuenta como crecido.
 #[test]
 fn una_region_que_no_puede_crecer_da_nulo() {

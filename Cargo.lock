@@ -39,6 +39,10 @@ name = "bmo-ahci"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-alarma"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-amplificador"
 version = "1.0.0"
 
@@ -352,6 +356,10 @@ name = "bmo-fraps"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-futex"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-golpe"
 version = "0.1.0"
 
@@ -457,6 +465,7 @@ name = "bmo-kernel"
 version = "2.0.0"
 dependencies = [
  "bmo-ahci",
+ "bmo-alarma",
  "bmo-amplificador",
  "bmo-audio",
  "bmo-bex-gate",
@@ -475,6 +484,7 @@ dependencies = [
  "bmo-firma",
  "bmo-firmware",
  "bmo-fisica-juicio",
+ "bmo-futex",
  "bmo-gpu-ga10x",
  "bmo-hash",
  "bmo-identify",

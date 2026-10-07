@@ -4583,3 +4583,29 @@ experimento: tambien puede ser la causa. El caso entero, con un resumen en
 ingles para nova-core y nouveau:
 `platform/drivers/gpu/ga10x/EL_0x15.md`, y los arranques en
 `EL_0x15_ARRANQUES.csv`.
+
+## Ep. 86 -- La caja negra que olvidaba lo ultimo: la cache
+
+**2026-10-07.** Cyberpunk 2077 corre en PROTON-X y, con `smp all`, el PC se
+reinicia de golpe. Sin pantalla azul. El arranque siguiente recupera la caja
+negra de la RAM y la guarda en `CAIDA.TXT`.
+
+**Sintoma**: cuatro `CAIDA` del mismo dia acaban en **la misma linea**: la
+autopsia del booter de la 3060, en el arranque. La maquina siguio viva minutos
+despues de esa linea en las cuatro -- el juego cargo, abrio su ventana, creo
+mil PSO -- y la caja negra no tenia nada de eso.
+**Culpable**: la cache de la CPU. La caja negra es un anillo en RAM con cache
+(WB) y un CURSOR en su cabecera que se escribe en cada byte: esa linea no sale
+nunca de la cache. El arranque de la 3060 hace `wbinvd` y lee 61 MB (el vigia):
+eso SI saca todo a la RAM. Despues, el cursor vive en la cache. Un reinicio de
+golpe (triple fallo) borra la cache sin escribirla, y el arranque siguiente lee
+el cursor de la RAM: el del vigia. Lo que la maquina dijo despues existio, pero
+solo en una memoria que se borra al reiniciar.
+**Moraleja**: "la RAM sobrevive al reinicio" es verdad de la RAM, no de lo que
+crees que escribiste en ella. Ahora el tick saca las lineas nuevas con
+`clflush`, y un TABLERO (una casilla por nucleo, a la RAM en el acto) dice que
+estaba haciendo cada uno. Mismo dia: el reloj aprendio a quitarle el turno a un
+hilo del juego que no lo suelta (EXPROPIAR, como un signal de reloj de Linux), y
+Cyberpunk paso de colgarse a los 24 s a vivir 68 s, abrir el sonido y mandar
+43 listas de ordenes. La bitacora del dia:
+`docs/metal/METAL_2026-10-07.md`.

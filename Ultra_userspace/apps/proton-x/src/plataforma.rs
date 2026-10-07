@@ -21,8 +21,10 @@
 //!                 los sombreadores NATIVOS de la casa si no se puede
 //!    sellar_codigo  un bloque, los bytes y MEM_OP_SELLAR (W^X); soltarlo es
 //!                 MEM_OP_SOLTAR: de los ocho bloques vivos, el codigo gasta uno
-//!    leer_fichero   Archivo::leer_de + un bloque + leer_en: ENTERO, un viaje
-//!    escribir_fichero  Archivo::create + write (hoy, hasta 4 KiB)
+//!    leer_fichero   Archivo::leer_de + leer_en por el bloque de PASO (V3,
+//!                 07-10): ENTERO, en trozos de 1 MiB, sin pedir bloque
+//!    escribir_fichero  Archivo::create + escribir_de por el bloque de PASO;
+//!                 a ESTRATOS, el de paso si cabe
 //!    trozos       A LA CARTA (01-10): Archivo::reflejar + saltar + leer_en,
 //!                 sin traerse el fichero: los grandes de un juego (Cyberpunk
 //!                 abrio uno de 46 MB con un monton de 25)
@@ -61,13 +63,45 @@ pub fn de_bmo() -> Plataforma {
         reserva: Some(RESERVA),
         trozos: Some(TROZOS),
         sonido: Some(super::sonido::SONIDO),
+        cuaderno: Some(bmo_proton_x_casa::Cuaderno { abrir: abrir_cuaderno, sellar_hasta: sellar_cuaderno }),
+        // H4.3: los otros nucleos pintan en franjas (`obreros.rs`).
+        obreros: Some(bmo_proton_x_casa::Obreros { cuantos: super::obreros::cuantos, repartir: super::obreros::repartir, en_parte: super::monton::en_parte }),
     }
+}
+
+/// **El cuaderno de codigo** (V4 de `PLAN_LOS_DOCE_DIRECTORES`, 07-10): UN
+/// bloque que vive lo que el proceso, sellado por tramos
+/// (`MEM_OP_SELLAR_HASTA`). Uno de los ocho bloques vivos, para siempre; a
+/// cambio, la VA de bloques ya no se gasta con cada sombreador.
+struct Cuaderno(core::cell::UnsafeCell<Option<bmo::Memoria>>);
+// SAFETY: una tarea, y los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- el cuaderno de codigo: lo sella quien dibuje primero
+unsafe impl Sync for Cuaderno {}
+static CUADERNO: Cuaderno = Cuaderno(core::cell::UnsafeCell::new(None));
+
+/// El mas grande que de el kernel (64 MiB es su tope por bloque; la RAM
+/// tiene que estar SEGUIDA, asi que si no, menos).
+fn abrir_cuaderno() -> Option<(u64, usize)> {
+    // SAFETY: ver `Cuaderno`; nadie guarda la referencia.
+    let c = unsafe { &mut *CUADERNO.0.get() };
+    if c.is_none() {
+        *c = [64usize, 32, 16, 8].iter().find_map(|&mib| bmo::Memoria::request((mib as u64) << 20));
+    }
+    let m = c.as_ref()?;
+    Some((m.base() as u64, m.bytes() as usize))
+}
+
+fn sellar_cuaderno(base: u64, hasta: usize) -> bool {
+    // SAFETY: ver `Cuaderno`.
+    let c = unsafe { &*CUADERNO.0.get() };
+    c.as_ref().is_some_and(|m| m.base() as u64 == base && m.sellar_hasta(hasta as u64).is_ok())
 }
 
 /// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el
 /// anterior al sellar el siguiente).
 struct Codigo(core::cell::UnsafeCell<alloc::vec::Vec<bmo::Memoria>>);
 // SAFETY: una tarea, y los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- los bloques de codigo sellados
 unsafe impl Sync for Codigo {}
 static CODIGO: Codigo = Codigo(core::cell::UnsafeCell::new(alloc::vec::Vec::new()));
 
@@ -83,22 +117,43 @@ fn sellar_codigo(bytes: &[u8]) -> Option<u64> {
     Some(base)
 }
 
-/// Un fichero entero: se abre, se lee a un bloque de una vez, se copia y el
-/// bloque se suelta (el monton de la app se queda con los bytes).
+/// **Con el bloque de PASO** (V3 de `PLAN_LOS_DOCE_DIRECTORES`, 07-10): el
+/// de A LA CARTA ([`PASO`], uno y se queda), tambien para los ficheros
+/// enteros. Antes cada `leer_fichero` y cada `escribir_fichero` pedia un
+/// bloque y lo soltaba, y la VA de un bloque soltado NO vuelve (el kernel no
+/// la reusa, a proposito): Cyberpunk agoto los 512 MiB de VA de bloques
+/// (`SIN SITIO`, 06-10). `None` si no hay bloque de paso.
+fn con_paso<R>(f: impl FnOnce(&bmo::Memoria) -> R) -> Option<R> {
+    // SAFETY: ver `Global`; `f` no toca `CARTA` (lee o escribe el bloque y
+    // un fichero suyo), y nadie guarda la referencia.
+    let e = unsafe { &mut *CARTA.0.get() };
+    if e.paso.is_none() {
+        e.paso = Some(bmo::Memoria::request(PASO)?);
+    }
+    Some(f(e.paso.as_ref()?))
+}
+
+/// Un fichero entero: se abre y se trae en trozos por el bloque de paso
+/// (el monton de la app se queda con los bytes).
 pub(crate) fn leer_fichero(ruta: &[u8]) -> Option<alloc::vec::Vec<u8>> {
     let a = bmo::Archivo::leer_de(ruta).ok()?;
-    let n = a.size();
+    let n = a.size() as usize;
+    let mut v = alloc::vec::Vec::with_capacity(n);
     if n == 0 {
-        return Some(alloc::vec::Vec::new());
+        return Some(v);
     }
-    let b = bmo::Memoria::request(n)?;
-    if a.leer_en(&b, 0, n) != n {
-        return None;
-    }
-    // SAFETY: `n` bytes que el kernel acaba de escribir en un bloque nuestro.
-    let v = unsafe { core::slice::from_raw_parts(b.base() as *const u8, n as usize) }.to_vec();
-    b.soltar();
-    Some(v)
+    con_paso(|paso| {
+        while v.len() < n {
+            let k = (n - v.len()).min(PASO as usize) as u64;
+            let got = a.leer_en(paso, 0, k).min(k);
+            // SAFETY: `got` bytes que el kernel acaba de escribir en el bloque de paso.
+            v.extend_from_slice(unsafe { core::slice::from_raw_parts(paso.base() as *const u8, got as usize) });
+            if got < k {
+                break;
+            }
+        }
+    })?;
+    (v.len() == n).then_some(v)
 }
 
 /// Un fichero entero, de UNA llamada (P4f3): los bytes a un bloque y
@@ -130,14 +185,24 @@ fn escribir_en_estratos(ruta: &[u8], bytes: &[u8]) -> bool {
     if bytes.is_empty() {
         return bmo::estratos::crear_fichero(ruta, &[]) != 0;
     }
+    // ESTRATOS publica la version de UNA vez: el fichero entero en un
+    // bloque. El de paso si cabe (V3); si no, uno para el (raro: > 1 MiB).
+    let guardar = |m: &bmo::Memoria| {
+        // SAFETY: un bloque nuestro de al menos `bytes.len()` bytes.
+        unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), m.base(), bytes.len()) };
+        bmo::estratos::guardar_desde(ruta, m.handle(), 0, bytes.len() as u64) != 0
+    };
+    if bytes.len() as u64 <= PASO {
+        if let Some(g) = con_paso(guardar) {
+            return g;
+        }
+    }
     let Some(m) = bmo::Memoria::request(bytes.len() as u64) else {
         return false;
     };
-    // SAFETY: un bloque nuestro de al menos `bytes.len()` bytes.
-    unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), m.base(), bytes.len()) };
-    let g = bmo::estratos::guardar_desde(ruta, m.handle(), 0, bytes.len() as u64);
+    let g = guardar(&m);
     m.soltar();
-    g != 0
+    g
 }
 
 /// **Las carpetas en ESTRATOS** (relevo 01-10, paso 4b): crear, quitar y
@@ -152,17 +217,22 @@ fn escribir_en_fat32(ruta: &[u8], bytes: &[u8]) -> bool {
     let Ok(a) = bmo::Archivo::create(ruta) else {
         return false;
     };
-    let n = if bytes.is_empty() {
-        0
-    } else if let Some(b) = bmo::Memoria::request(bytes.len() as u64) {
-        // SAFETY: un bloque nuestro de al menos `bytes.len()` bytes.
-        unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), b.base(), bytes.len()) };
-        let n = a.escribir_de(&b, 0, bytes.len() as u64) as usize;
-        b.soltar();
-        n
-    } else {
-        a.write(bytes)
+    // Por el bloque de paso, en trozos (V3): sin pedir bloque.
+    let por_paso = |paso: &bmo::Memoria| {
+        let mut hecho = 0usize;
+        while hecho < bytes.len() {
+            let k = (bytes.len() - hecho).min(PASO as usize);
+            // SAFETY: `k` <= PASO, la medida del bloque de paso, que es nuestro.
+            unsafe { core::ptr::copy_nonoverlapping(bytes[hecho..].as_ptr(), paso.base(), k) };
+            let w = (a.escribir_de(paso, 0, k as u64) as usize).min(k);
+            hecho += w;
+            if w < k {
+                break;
+            }
+        }
+        hecho
     };
+    let n = if bytes.is_empty() { 0 } else { con_paso(por_paso).unwrap_or_else(|| a.write(bytes)) };
     a.close() && n == bytes.len()
 }
 
@@ -240,6 +310,7 @@ struct ALaCarta {
 
 struct Global(core::cell::UnsafeCell<ALaCarta>);
 // SAFETY: una tarea, y los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- el bloque de paso y los ficheros a la carta: los lee cualquier hilo
 unsafe impl Sync for Global {}
 static CARTA: Global = Global(core::cell::UnsafeCell::new(ALaCarta {
     abiertos: alloc::vec::Vec::new(),
@@ -338,10 +409,11 @@ pub(crate) fn monton_hacer(va: u64, bytes: u64) -> bool {
 }
 
 /// **La RESERVA del kernel** (P0.4c): la ventana de `TASK_OP_RESERVA_*`,
-/// menos el tramo del monton (07-10).
+/// menos el tramo del monton (07-10) y, debajo, el de los sub-directores
+/// (H4.3, `obreros.rs`: sus pilas y sus arenas).
 const RESERVA: bmo_proton_x_casa::Reserva = bmo_proton_x_casa::Reserva {
     base: bmo::reserva::VENTANA_BASE,
-    bytes: bmo::reserva::VENTANA_BYTES - TRAMO_MONTON,
+    bytes: bmo::reserva::VENTANA_BYTES - TRAMO_MONTON - super::obreros::TRAMO,
     hacer: reserva_hacer,
     deshacer: reserva_deshacer,
     ram,

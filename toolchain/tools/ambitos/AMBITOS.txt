@@ -22,7 +22,7 @@
 # los 69 `gui` de ayer no se reescriben, y un guardian que fallara por ellos se
 # apagaria en una semana. Se mueve con `--sellar`.
 [DESDE]
-d79531bf2643cc66dd573ce0e33bda02180a5057   sellado a mano
+86ff2b3e0639af9653ff88f54b44ae6bbbd7897b   sellado a mano
 
 # Viejo -> como se llama ahora, y por que. Un alias no es un error del que
 # escribe: es un nombre que se quedo atras, y decirle el nuevo cuesta lo mismo
@@ -32,18 +32,19 @@ gui            -> director     el compositor se renombro el 19-08 (`22abf803`)
 escritorio     -> director     el mismo componente, tercer nombre
 ui             -> director     el mismo componente, cuarto nombre
 estructura     -> taller       el propietario lo renombro el 29-09 ("reemplazar el nombre ESTRUCTURA a taller")
+guardian       -> guardianes   el mismo componente en singular (07-10, `86ff2b3e`)
 
 # Los que valen. Ordenados por uso, que es el orden en el que se ve el ruido.
 [AMBITOS]
 c                (0) 
 kernel           (2) 
-cobol            (4) 
-estratos         (0) 
+cobol            (3) 
+estratos         (9) 
 inti             (1) 
 usb              (0) 
 boot             (0) 
 director         (11) 
-maqueta          (9) 
+maqueta          (19) 
 medida           (0) 
 mm               (0) 
 smp              (0) 
@@ -53,7 +54,7 @@ bef              (0)
 disk             (0) 
 ring0            (0) 
 c-front          (0) 
-disco            (23) 
+disco            (43) 
 puerta           (0) 
 cpp              (0) 
 metal            (0) 
@@ -65,21 +66,21 @@ ipc              (0)
 lienzo           (1) 
 cap              (0) 
 ram              (0) 
-audio            (5) 
-build            (2) 
+audio            (0) 
+build            (6) 
 forge            (0) 
 gpu              (0) 
 iommu            (0) la IOMMU de AMD (AMD-Vi): M0 de PLAN_LA_3060, la frontera del DMA de TODO aparato, no solo de la grafica
 lanzar           (0) 
 proc             (0) 
-red              (2) 
+red              (0) 
 shell            (0) 
 toolchain        (1) 
 caja             (0) 
 calc             (0) 
 censo            (0) 
 coste            (0) 
-docs             (21) 
+docs             (11) 
 emu              (0) 
 ext              (0) 
 fat32            (0) 
@@ -99,7 +100,7 @@ contrato         (0)
 dibujo           (0) 
 explorador       (0) 
 fb               (0) 
-readme           (0) 
+readme           (2) 
 repo             (0) 
 userspace        (0) 
 ada              (0) 
@@ -119,7 +120,7 @@ faggin           (0)
 fat              (0) 
 fault            (0) 
 fuero            (0) 
-guardianes       (0) 
+guardianes       (1) 
 # ** Componente NUEVO el 2026-08-24: `platform/shared/bmo-cripto`. Es el octavo
 # escalon del plan --el unico que es un invento y no trabajo-- y va aparte de
 # `hash` a proposito: aquel es BLAKE3, que sirve para saber si dos ficheros son
@@ -128,7 +129,7 @@ guardianes       (0)
 cripto           (0) 
 hash             (0) 
 herencia         (0) 
-hud              (0) 
+hud              (4) 
 identidad        (0) 
 juicio           (0) 
 l1               (0) 
@@ -159,14 +160,14 @@ vmm              (0)
 spirv            (0) 
 # 2026-09-29: el TALLER de F1 (`Ultra_userspace/apps/taller`) y
 # su contrato con TITAN++ (`platform/shared/titan-contrato`). Nace aqui.
-taller           (5) 
+taller           (11) 
 # 2026-09-30: el frontend de TITAN++ (`toolchain/lang/titan`), el lenguaje
 # para CONSTRUIR. Nace aqui, con el nivel 0 de su escalera.
-titan            (15) 
+titan            (27) 
 # 2026-10-03: HERMES, la app de F3 (`Ultra_userspace/apps/hermes`) y su
 # protocolo (`platform/shared/bmo-hermes`). Nace aqui, con H5.
-hermes           (5) 
-antena           (2) 
+hermes           (1) 
+antena           (0) 
 bankcat          (4) 
 # 2026-10-04: un cambio que toca VARIAS apps de `Ultra_userspace/apps` a la
 # vez -- las piezas que comparten (la `piezas.rs` de HERMES, que usan BANK CAT
@@ -175,4 +176,7 @@ apps             (1)
 # 2026-10-04: los PLANES (`docs/plan/`): su estado, su orden y lo que cambia
 # en ellos por decision del propietario (`EL_ORDEN.md`, `en_pausa/`). Lo de
 # un componente va con el suyo; esto es el mapa de lo que falta.
-plan             (1) 
+plan             (17) 
+proton-x         (19) la capa de Windows: la casa, el cargador, D3D12 en la CPU y la 3060 (07-10: decenas de commits sin estar en la lista)
+jueces           (2) los jueces de PROTON-X que corren solos en BMO-X
+arte             (3) las maquetas y los logos del propietario

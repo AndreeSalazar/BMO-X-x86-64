@@ -368,6 +368,7 @@ const VT_IOSTREAM: usize = 5;
 
 struct Tablas(UnsafeCell<[*const u64; 6]>);
 // SAFETY: se llenan una vez; los hilos de la casa son cooperativos.
+// [hilos] uno -- vtablas que se llenan UNA vez (con los directores: un Once)
 unsafe impl Sync for Tablas {}
 static TABLAS: Tablas = Tablas(UnsafeCell::new([core::ptr::null(); 6]));
 

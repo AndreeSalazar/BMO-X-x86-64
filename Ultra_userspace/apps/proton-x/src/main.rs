@@ -41,6 +41,16 @@
 //! `informe/diario.txt` cada funcion de Windows que el `.exe` llama por
 //! primera vez, en orden: `run sys/proton-x.bex --diario window/hola.exe`.
 //!
+//! **Sin obreros** (07-10): `--sin-obreros` apaga los sub-directores (el
+//! dibujo de la CPU en franjas por los otros nucleos, `obreros.rs`) aunque
+//! haya `smp all`. Va con `--diario` en cualquier orden.
+//!
+//! **EXPROPIAR** (07-10): antes de saltar, la ALARMA del kernel
+//! (`bmo::alarma`): cada 4 ms visita la puerta de la casa, que le quita el
+//! turno al hilo del juego que no lo suelta (`bmo_proton_x_casa::expropiar`).
+//! SIEMPRE, sin orden para apagarla: el kernel es el orquestador, y un hilo
+//! que no suelta el nucleo nunca tiene razon (asi Windows y Linux).
+//!
 //! **El GS de Windows** (P1d, 27-09): antes de saltar, un TEB y un PEB en el
 //! monton y el GS del hilo apuntando al TEB (`TASK_OP_PON_GS`). Un `.exe`
 //! encuentra ahi su pila, su base, su LastError y sus ids, como en Windows
@@ -59,6 +69,7 @@ mod en_vivo;
 mod entorno_windows;
 mod la3060;
 mod monton;
+mod obreros;
 mod plataforma;
 mod perfil;
 mod sonido;
@@ -136,6 +147,10 @@ fn partir_ruta(todo: &[u8]) -> (&[u8], &[u8]) {
 const TOPE_SECCION: u64 = 64 << 20;
 /// Donde queda la lista entera.
 const RUTA_CENSO: &[u8] = b"informe/censo.txt";
+/// Cada cuanto visita la alarma del kernel (EXPROPIAR): el cuanto de la
+/// casa (`hilos::CUANTO_NS`).
+const EXPROPIAR_MS: u32 = 4;
+
 /// Donde queda el diario (`--diario`).
 const RUTA_DIARIO: &[u8] = b"informe/diario.txt";
 /// Lo que se lee de D: entre dos cesiones del turno (8 MiB: ~16 ms a la
@@ -912,10 +927,20 @@ pub extern "C" fn _start() -> ! {
     // (`informe/diario.txt`) con el monton a 0 -- el primer contacto del
     // metal (30-09) no paso de aqui. El banco no lo veia: alli el monton
     // existe siempre.
-    let (todo, con_diario) = match todo.strip_prefix(b"--diario ") {
-        Some(r) => (r, true),
-        None => (todo, false),
-    };
+    // ** `--sin-obreros` (07-10): los sub-directores APAGADOS -- todo el
+    // dibujo en el nucleo de la casa, aunque haya `smp all`. Para comparar
+    // en el metal sin recompilar. En cualquier orden con `--diario`.
+    let (mut todo, mut con_diario) = (todo, false);
+    loop {
+        if let Some(r) = todo.strip_prefix(b"--diario ") {
+            (todo, con_diario) = (r, true);
+        } else if let Some(r) = todo.strip_prefix(b"--sin-obreros ") {
+            todo = r;
+            obreros::apagar();
+        } else {
+            break;
+        }
+    }
     // P4e: `window/x.exe lo de detras` -- la ruta hasta el primer espacio; lo
     // demas es la linea de ordenes del `.exe` (GetCommandLineW). N2: o entre
     // comillas, que las rutas de D: llevan espacios (`"d:Cyberpunk 2077/..."`).
@@ -1184,6 +1209,15 @@ pub extern "C" fn _start() -> ! {
         "PROTON-X: los DllMain tardaron {} ms\n",
         t_dllmain / 1_000_000
     ));
+    // -- 6f. EXPROPIAR (07-10): el codigo del `.exe` es del juego (las DLL
+    // ya lo dijeron al registrarse), y la alarma, armada: cada 4 ms el
+    // kernel visita la puerta de la casa.
+    bmo_proton_x_casa::expropiar::juego(base, exe.pe.tam_imagen as u64);
+    let (inicio, fin, buzon) = bmo_proton_x_casa::expropiar::puerta();
+    match bmo::alarma::armar(inicio, fin, buzon, EXPROPIAR_MS) {
+        Ok(()) => di(&format!("PROTON-X: EXPROPIAR: la alarma del kernel, cada {EXPROPIAR_MS} ms (puerta {inicio:#x}, {} B)\n", fin - inicio)),
+        Err(no) => di(&format!("PROTON-X: EXPROPIAR: el kernel dijo NO a la alarma ({no:?}): los hilos solo sueltan el turno en las puertas\n")),
+    }
     di("PROTON-X: salto a su entrada ----------------------------------\n");
     // La imagen vive hasta que el proceso muera (no hay soltar).
     core::mem::forget(imagen);
@@ -1233,6 +1267,13 @@ pub extern "C" fn _start() -> ! {
 
 #[panic_handler]
 fn panico(info: &core::panic::PanicInfo) -> ! {
+    // H4.3: en una parte de un obrero (Ring 3, sin puerta) decirlo es un
+    // syscall, o sea otro #UD; el `ud2` ya dice "esta parte fallo" y la casa
+    // la rehace.
+    if monton::en_parte() {
+        // SAFETY: una excepcion a proposito; el obrero vuelve al kernel.
+        unsafe { core::arch::asm!("ud2", options(noreturn)) };
+    }
     // El motivo y el sitio, ENTEROS, en un bufer de la pila: el monton puede
     // ser justo lo que se acabo (metal 30-09: el primer contacto decia solo
     // "panico en el cargador", porque el mensaje no era un texto fijo).

@@ -79,6 +79,7 @@ struct Estado {
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y ninguna funcion
 // de aqui cede el turno.
+// [hilos] cerrojo -- el monton de Windows (HeapAlloc) y la reserva: de todo el proceso
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado { monton: Monton::nuevo(), regiones: Regiones::nuevas(), huecos: Vec::new(), ventana: false, noes: 0, grandes: 0, consultas: 0, creados: Vec::new(), siguiente: 2, prestable: Monton::nuevo(), bloques_prestables: 0 }));
 
@@ -842,6 +843,7 @@ fn fuera_de_regiones(dir: u64) -> Respuesta {
 /// cargador ([`registrar_tramos`]) al sellar.
 struct Tramos(core::cell::UnsafeCell<Vec<(u64, u64, bool)>>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- los tramos de VirtualAlloc: de todo el proceso
 unsafe impl Sync for Tramos {}
 static TRAMOS: Tramos = Tramos(core::cell::UnsafeCell::new(Vec::new()));
 

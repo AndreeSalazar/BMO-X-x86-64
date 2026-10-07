@@ -113,6 +113,10 @@ pub mod task {
     pub mod admitir;
     pub mod proc;
     pub mod scheduler;
+    /// **LA ALARMA** (EXPROPIAR, 07-10): el tick le quita el turno a un hilo
+    /// de la casa que no lo suelta, como un signal de reloj de Linux. Ver
+    /// su cabecera.
+    pub mod alarma;
     /// **EL ENTERRADOR**: los muertos se desmontan FUERA del cerrojo del
     /// planificador, en su propio hilo (2026-09-23). Ver su cabecera.
     pub mod enterrador;

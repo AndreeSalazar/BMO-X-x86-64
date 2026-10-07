@@ -315,6 +315,7 @@ extern "win64" fn release(this: *mut Cabecera) -> u32 {
 
 struct Vtablas(UnsafeCell<[*const u64; CUANTAS]>);
 // SAFETY: un hilo (ver `Global` en lib.rs).
+// [hilos] uno -- las vtablas de COM se llenan UNA vez (con los directores: un Once)
 unsafe impl Sync for Vtablas {}
 static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); CUANTAS]));
 

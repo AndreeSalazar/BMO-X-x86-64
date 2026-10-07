@@ -238,6 +238,7 @@ extern "win64" fn set_handle_count(n: u32) -> u32 {
 
 struct Modos(UnsafeCell<(u32, u32)>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Modos {}
 static MODOS: Modos = Modos(UnsafeCell::new((0, 0)));
 

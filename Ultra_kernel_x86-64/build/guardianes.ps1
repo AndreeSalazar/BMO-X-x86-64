@@ -161,6 +161,15 @@ Guardian 'Validating the open-work index matches the plans' `
 Guardian 'Validating every USB static says who writes it' `
     'toolchain\tools\escritores\escritores.py' 'los escritores del USB' `
     'escritores: un static mut del USB no dice quien lo escribe, o `ambos` subio (ver arriba)'
+# ** LOS SYNC DE PROTON-X (07-10, H0.2 de PLAN_LAS_TRES_GRANDES; el orden en
+# PLAN_LOS_DOCE_DIRECTORES). Los hilos de Windows de la casa son cooperativos
+# y cada `unsafe impl Sync` lo da por hecho; el dia de los doce directores
+# cada uno choca. Ahora cada uno dice su clase (uno, cerrojo, por-hilo,
+# hecho), uno nuevo sin decirla para el build, y lo pendiente es un
+# trinquete. Ver toolchain/tools/hilos-casa/hilos_casa.py
+Guardian 'Validating every PROTON-X Sync says its threading class' `
+    'toolchain\tools\hilos-casa\hilos_casa.py' 'los Sync de PROTON-X' `
+    'hilos-casa: un unsafe impl Sync de PROTON-X no dice su clase, o lo pendiente subio (ver arriba)'
 # ** LA 3060 (25-09): el dia que funciono entera, el propietario pidio que los
 # guardianes la PROTEJAN antes de optimizarla. La puerta de sus 65 ordenes
 # pide la autoridad MAQUINA (una app con la pantalla prestada no manda en

@@ -185,6 +185,18 @@ mod op_contar;
 /// **Los ficheros del GSP para `dev/gpu_gsp.rs`** (L0c2): `dev` esta debajo de
 /// `fsys` y no puede abrirlos; aqui se abren y se le dan.
 mod op_gsp;
+/// **Los sub-directores** (H4.3): las cuatro puertas de una faena de Ring 3
+/// repartida por los obreros. Aparte porque son las unicas que mandan a OTRO
+/// nucleo al espacio de quien llama.
+mod op_subdirector;
+/// **El futex** (07-10): esperar en una palabra de Ring 3 y despertar a N,
+/// como Linux. Aparte: es la unica puerta que lee una palabra de la app bajo
+/// el cerrojo del planificador.
+mod op_futex;
+/// **La alarma** (07-10, EXPROPIAR): el tick le quita el turno a un hilo
+/// de la casa que no lo suelta. Aparte: es la unica puerta con TRES
+/// argumentos de la tarea actual (`r8`).
+mod op_alarma;
 
 #[inline]
 fn unsupported() -> BmoStatus {
@@ -358,6 +370,12 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_AUDIO_CENSO => op_aparato::audio_censo(arg0, arg1),
         TASK_OP_AUDIO_MANDO => op_aparato::audio_mando(arg0, arg1),
         TASK_OP_AUDIO_FONDO => op_aparato::audio_fondo(arg0, arg1),
+        TASK_OP_SUB_INFO => op_subdirector::info(),
+        TASK_OP_SUB_PREPARAR => op_subdirector::preparar(arg0, arg1),
+        TASK_OP_SUB_REPARTIR => op_subdirector::repartir(arg0, arg1),
+        TASK_OP_SUB_ESPERAR => op_subdirector::esperar(),
+        TASK_OP_FUTEX_ESPERAR => op_futex::esperar(arg0, arg1),
+        TASK_OP_FUTEX_DESPERTAR => op_futex::despertar(arg0, arg1),
         TASK_OP_IOMMU => op_maquina::iommu(arg0, arg1),
         // ** PROTON-X P1d: el GS de Ring 3 de ESTE hilo. Solo el suyo, asi que
         // no pide autoridad; lo unico que se exige es que sea de la mitad de
@@ -718,6 +736,9 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
     if frame.rdi == CURRENT_TASK {
         // * `frame.r10` y no `rcx`: en SYSCALL el CPU mete ahi el RIP de
         // retorno. Es el mismo motivo por el que el prologo hace `push rcx`.
+        if frame.rsi == TASK_OP_ALARMA {
+            return op_alarma::armar(frame.rdx, frame.r10, frame.r8);
+        }
         return invoke_current_task(frame.rsi, frame.rdx, frame.r10);
     }
     let pid = scheduler::current_pid();
@@ -1051,6 +1072,20 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
                     scheduler::current_pid(),
                     crate::ring0::mm::vmm::read_cr3(),
                     resolved.object,
+                );
+                if motivo == crate::ring0::obj::memory::SELLAR_HECHO {
+                    BmoStatus::ok_value(1)
+                } else {
+                    BmoStatus::negado(motivo, 0)
+                }
+            }
+            // ** SELLAR POR TRAMOS (V4, 07-10): lo mismo, hasta `rdx` bytes.
+            cap::KIND_MEMORIA if frame.rsi == crate::ring0::obj::memory::MEM_OP_SELLAR_HASTA => {
+                let motivo = crate::ring0::obj::memory::sellar_hasta(
+                    scheduler::current_pid(),
+                    crate::ring0::mm::vmm::read_cr3(),
+                    resolved.object,
+                    frame.rdx,
                 );
                 if motivo == crate::ring0::obj::memory::SELLAR_HECHO {
                     BmoStatus::ok_value(1)

@@ -424,7 +424,15 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
     }, nuevo))
 }
 
-pub(crate) extern "win64" fn create_graphics_pipeline_state(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+pub(crate) extern "win64" fn create_graphics_pipeline_state(this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+    let r = crear_pso_grafico(this, desc, riid, pp);
+    // T1 (07-10): una carga crea mil PSO de un tiron; entre uno y otro, el
+    // hilo del sonido (ya no queda nada de este a medias).
+    crate::hilos::respirar();
+    r
+}
+
+fn crear_pso_grafico(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
     if !pide(riid, com::PSO) {
         return E_NOINTERFACE;
     }
@@ -474,12 +482,14 @@ impl Bufer {
 
 struct Registro(UnsafeCell<Vec<(u64, usize)>>);
 // SAFETY: un hilo (ver `Global` en lib.rs).
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Registro {}
 static BUFERES: Registro = Registro(UnsafeCell::new(Vec::new()));
 static DIBUJOS: Dibujos = Dibujos(UnsafeCell::new(Vec::new()));
 
 struct Dibujos(UnsafeCell<Vec<Dibujo>>);
 // SAFETY: como arriba.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Dibujos {}
 
 pub(crate) fn reiniciar() {
@@ -600,13 +610,42 @@ pub struct Vista {
     pub paso_o_formato: u32,
 }
 
+/// **P2 (07-10): los parametros de una firma raiz.** D3D12 deja hasta 64
+/// (64 palabras: una tabla o una vista cuestan una o dos); la casa guardaba
+/// 16, y un parametro 16 o mas se tiraba con un aviso.
+pub const PARAMETROS: usize = 64;
+
+/// Lo dado a cada parametro de la raiz, por su indice (una direccion de GPU,
+/// o 0). Se lee como un `[u64]`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Raiz(pub [u64; PARAMETROS]);
+
+impl Default for Raiz {
+    fn default() -> Self {
+        Raiz([0; PARAMETROS])
+    }
+}
+
+impl core::ops::Deref for Raiz {
+    type Target = [u64];
+    fn deref(&self) -> &[u64] {
+        &self.0
+    }
+}
+
+impl core::ops::DerefMut for Raiz {
+    fn deref_mut(&mut self) -> &mut [u64] {
+        &mut self.0
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct Estado {
     pub pso: u64,
     pub raiz: u64,
     /// La direccion dada a cada parametro DESCRIPTOR de la raiz (CBV, y
     /// desde N5.3b SRV y UAV), por su indice.
-    pub cbv: [u64; 16],
+    pub cbv: Raiz,
     /// Las constantes de 32 bits de la raiz (`SetGraphicsRoot32BitConstants`,
     /// N5.2), las de todos sus parametros una tras otra: ver `cbuffers`.
     pub raiz32: crate::cbuffers::Palabras,
@@ -633,7 +672,7 @@ pub struct Estado {
     pub dsv_sub: u64,
     /// El identificador de GPU dado a cada tabla de la raiz, por su indice
     /// (SetGraphicsRootDescriptorTable): la direccion de su primera ranura.
-    pub tablas: [u64; 16],
+    pub tablas: Raiz,
 }
 
 /// **Lo que un dibujo ve**, ya leido de la memoria: lo que el banco compara.
@@ -951,15 +990,15 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // buscadas cuando un pixel las pide y GUARDADAS: una vez por textura
     // distinta del dibujo, no por pixel. Un millon de descriptores (el
     // monton de Cyberpunk) no se recorre: solo los que se leen.
-    let guardadas: core::cell::RefCell<alloc::collections::BTreeMap<(u8, u32), Option<bmo_proton_x::textura::Textura<'static>>>> = Default::default();
-    let buscar = |rango: u8, registro: u32| {
-        if let Some(t) = guardadas.borrow().get(&(rango, registro)) {
-            return *t;
-        }
-        let t = textura_dinamica(firma, &e.tablas, &en.ranuras, rango, registro);
-        guardadas.borrow_mut().insert((rango, registro), t);
-        t
-    };
+    // ** H4.3 (07-10): en un RECUERDO que aguanta varios nucleos a la vez
+    // (el dibujo puede ir en franjas, `bandas`) y que no pide memoria con
+    // su cerrojo tomado. Las primeras 256 distintas se recuerdan; las demas
+    // se buscan cada vez (dan lo mismo).
+    let guardadas: crate::bandas::Recuerdo<(u8, u32), Option<bmo_proton_x::textura::Textura<'static>>, 256> = Default::default();
+    let buscar = |rango: u8, registro: u32| guardadas.o_buscar((rango, registro), || textura_dinamica(firma, &e.tablas, &en.ranuras, rango, registro));
+    // 15 (07-10): y los buferes de un array con el registro calculado.
+    let buferes_guardados: crate::bandas::Recuerdo<(u8, u32), Option<bmo_proton_x::bufer::Bufer<'static>>, 256> = Default::default();
+    let buscar_bufer = |rango: u8, registro: u32| buferes_guardados.o_buscar((rango, registro), || bufer_dinamico(firma, &e.tablas, &en.ranuras, rango, registro));
     // P3b4c: las limpiezas apuntadas de SU render target y de SU Z: las
     // hace quien dibuje este lote.
     let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 && e.dsv_sub == 0 { tomar_limpieza(e.dsv) } else { None };
@@ -978,7 +1017,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         _ => None,
     };
     let lote = Lote {
-        recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: Some(bmo_proton_x::textura::Dinamicas(&buscar)) },
+        recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: Some(bmo_proton_x::textura::Dinamicas(&buscar, Some(&buscar_bufer))) },
         limpiar_z,
         limpiar_rt,
         enlace: en,
@@ -1109,7 +1148,7 @@ pub(crate) type Vistos = (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, 
 
 /// La ranura `i` de la tabla del parametro `k` (4 palabras), si el `.exe`
 /// puso esa tabla.
-pub(crate) fn descriptor_de(tablas: &[u64; 16], k: usize, i: u64) -> Option<&'static [u64]> {
+pub(crate) fn descriptor_de(tablas: &[u64], k: usize, i: u64) -> Option<&'static [u64]> {
     let base = *tablas.get(k)?;
     if base == 0 {
         return None;
@@ -1124,18 +1163,33 @@ pub(crate) fn descriptor_de(tablas: &[u64; 16], k: usize, i: u64) -> Option<&'st
 /// el lugar del rango con ese registro, buscado en la firma como una ranura
 /// fija; un registro que ninguna tabla tiene, o un SRV nulo o de bufer, se
 /// lee como nulo (ceros).
-pub(crate) fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::textura::Textura<'static>> {
+pub(crate) fn textura_dinamica(firma: &Firma, tablas: &[u64], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::textura::Textura<'static>> {
     use bmo_proton_x::donde::{self, RANGO_SRV};
     let l = bmo_proton_x::dxil::ranuras::Lugar { registro, ..*ranuras.dinamicas.get(rango as usize)? };
     let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor_de(tablas, k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0)?;
+    // 15 de la pila A (07-10): un SRV de BUFER no es una textura; lo lee
+    // `bufer_dinamico` (un array de buferes "bindless"), y aqui es nulo.
     if crate::d3d12_vistas::leer(ranura).0 .0 == crate::d3d12_vistas::SRV_BUFER {
-        aviso("un array de texturas con un SRV de BUFER dentro: se lee como nulo");
         return None;
     }
     textura_de_srv(ranura).map_err(aviso).ok()
 }
 
-pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
+/// **El bufer de un array con el registro calculado** (15 de la pila A,
+/// 07-10: los buferes "bindless" de un CS de Cyberpunk): como
+/// [`textura_dinamica`], el descriptor del registro en su tabla; un SRV de
+/// textura aqui es nulo (lo lee `textura_dinamica`).
+pub(crate) fn bufer_dinamico(firma: &Firma, tablas: &[u64], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::bufer::Bufer<'static>> {
+    use bmo_proton_x::donde::{self, RANGO_SRV};
+    let l = bmo_proton_x::dxil::ranuras::Lugar { registro, ..*ranuras.dinamicas.get(rango as usize)? };
+    let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor_de(tablas, k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0)?;
+    if crate::d3d12_vistas::leer(ranura).0 .0 != crate::d3d12_vistas::SRV_BUFER {
+        return None;
+    }
+    bufer_de_srv(ranura).map_err(aviso).ok()
+}
+
+pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64], raiz: &[u64], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
     use bmo_proton_x::donde::{self, RANGO_MUESTREADOR, RANGO_SRV};
     use bmo_proton_x::textura::Muestreador;
     let descriptor = |k: usize, i: u64| descriptor_de(tablas, k, i);
@@ -1293,6 +1347,7 @@ const DESCRIPTOR_BYTES: u64 = 32;
 /// los pixeles antes. Una tarea, hilos cooperativos: basta una celda.
 struct Limpiezas(UnsafeCell<Vec<(u64, u32)>>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Limpiezas {}
 static LIMPIEZAS: Limpiezas = Limpiezas(UnsafeCell::new(Vec::new()));
 

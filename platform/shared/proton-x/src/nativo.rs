@@ -195,7 +195,7 @@ pub fn por_que_no(p: &Programa) -> Option<&'static str> {
         // cuadro que se separa se rehace en el interprete, y lo escrito
         // quedaria dos veces.
         Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::Atomico { .. } if p.usa_olas() => Some("deriva y lee o escribe un UAV (un cuadro de 2x2 que se separa no se puede rehacer)"),
-        Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } => Some("es de computo"),
+        Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::AtomicoCompartido { .. } => Some("es de computo"),
         Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => Some("es de geometria"),
         _ => None,
     })
@@ -234,7 +234,7 @@ pub fn compilar_cuadros(p: &Programa) -> Option<Vec<u8>> {
 /// compartida) o lo de la geometria: eso no es de un vertice ni un pixel.
 /// Los UAV (A10, 06-10) si lo son: van por la llamada, no por las vistas.
 fn de_fuera(o: &Op) -> bool {
-    matches!(o, Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. })
+    matches!(o, Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::AtomicoCompartido { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. })
 }
 
 /// **Con saltos** (la VELOCIDAD, 05-10): el cuerpo de `nativo_computo` con
@@ -369,7 +369,7 @@ fn directo(p: &Programa) -> Option<Vec<u8>> {
             Op::Descarta { .. } => return None,
             Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => return None,
             // N5.5: el computo, por el interprete.
-            Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } => return None,
+            Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::AtomicoCompartido { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } => return None,
             // E2.3b: el sombreador de geometria, por el interprete.
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return None,
             // E2.4: el contador de un UAV, por el interprete; y (05-10) sus

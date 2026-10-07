@@ -869,8 +869,20 @@ pub struct Recursos<'a> {
 /// monton), una vez por textura distinta y no por pixel si sabe guardarlo.
 /// Sus texturas son `'static` (la memoria del proceso): asi `Recursos` sigue
 /// siendo covariante y el interprete puede prestar la elegida un momento.
+///
+/// 15 de la pila A (07-10): y, si lo hay, quien busca un BUFER (un array de
+/// `StructuredBuffer`/`ByteAddressBuffer`/`Buffer` con el registro
+/// calculado: los buferes "bindless").
 #[derive(Clone, Copy)]
-pub struct Dinamicas<'a>(pub &'a dyn Fn(u8, u32) -> Option<Textura<'static>>);
+pub struct Dinamicas<'a>(pub &'a dyn Fn(u8, u32) -> Option<Textura<'static>>, pub Option<&'a dyn Fn(u8, u32) -> Option<crate::bufer::Bufer<'static>>>);
+
+/// **Lo ELEGIDO por un `EligeTextura`** (N5.4; 15, 07-10): la textura o el
+/// bufer del registro calculado. Lo que lee `DINAMICA` lo lee de aqui.
+#[derive(Debug, Clone, Copy)]
+pub struct Elegida {
+    pub textura: Option<Textura<'static>>,
+    pub bufer: Option<crate::bufer::Bufer<'static>>,
+}
 
 impl core::fmt::Debug for Dinamicas<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -885,6 +897,13 @@ impl<'a> Recursos<'a> {
     /// `None` (sin quien busque, o sin textura alli).
     pub fn dinamica(&self, rango: u8, registro: u32) -> Option<Textura<'static>> {
         self.dinamicas.and_then(|d| (d.0)(rango, registro))
+    }
+
+    /// **Lo del registro `registro` del rango dinamico `rango`** (15,
+    /// 07-10): su textura y su bufer (uno de los dos, o ninguno).
+    pub fn elegir(&self, rango: u8, registro: u32) -> Option<Elegida> {
+        let d = self.dinamicas?;
+        Some(Elegida { textura: (d.0)(rango, registro), bufer: d.1.and_then(|b| b(rango, registro)) })
     }
 
     /// `Load` del bufer tN (ver [`crate::bufer::Bufer::cargar`]); sin

@@ -713,6 +713,61 @@ pub const TASK_OP_RAIZ_HIJO: u64 = 0x3C;
 /// `[17..26)` | bucle `[26]`; `arg1` segun la orden. Las muestras son siempre
 /// S16 mono a 48 kHz.
 pub const TASK_OP_AUDIO_FONDO: u64 = 0x3D;
+/// **LOS SUB-DIRECTORES** (H4.3 de `PLAN_LOS_DOCE_DIRECTORES`, 07-10): una
+/// faena de la app repartida en Ring 3 por los obreros (`smp all` antes).
+/// Ver `bmo_orquesta::ring3` (el juez, con banco) y
+/// `ring0::plat::smp::ring3` (lo que pisa el CPU).
+///
+/// `SUB_INFO`: cuantos obreros sanos hay (las partes que se pueden pedir son
+/// estos + 1, la de la app). `0`: no hay obreros.
+pub const TASK_OP_SUB_INFO: u64 = 0x3E;
+/// `SUB_PREPARAR`: `arg0` = los bloques (uno por parte, seguidos), `arg1` =
+/// `bmo_orquesta::ring3::empaquetar(bytes de cada bloque, partes)`.
+pub const TASK_OP_SUB_PREPARAR: u64 = 0x3F;
+/// `SUB_REPARTIR`: `arg0` = la funcion (`extern "sysv64" fn(k, n, arg)`,
+/// vuelve a `FIN`), `arg1` = `arg`. Las partes `1..n` a los obreros; la `0`
+/// la corre quien llama al volver. `ERROR_NEGADO` con el motivo
+/// (`bmo_orquesta::ring3::NoRing3`) si no.
+pub const TASK_OP_SUB_REPARTIR: u64 = 0x40;
+/// `SUB_ESPERAR`: `0` si sigue en marcha; si no, `ACABADA` (bit 63) | un bit
+/// por parte que NO salio bien (la rehace quien llama). Al tope (5 s) las
+/// que faltan cuentan como no hechas.
+pub const TASK_OP_SUB_ESPERAR: u64 = 0x41;
+/// Los NO de los sub-directores (espejo de `bmo_orquesta::ring3::NoRing3`).
+pub const SUB_PARTES: u32 = 1;
+pub const SUB_NO_ES_RING3: u32 = 2;
+pub const SUB_BLOQUE: u32 = 3;
+pub const SUB_DESBORDA: u32 = 4;
+pub const SUB_OCUPADO: u32 = 5;
+pub const SUB_SIN_OBREROS: u32 = 6;
+/// **EL FUTEX** (07-10, como `futex(2)` de Linux): esperar en una palabra
+/// de 32 bits de Ring 3. `arg0` = la direccion (alineada a 4), `arg1` =
+/// `bmo_futex::empaquetar(visto, ms)`. Si la palabra ya no vale `visto`,
+/// `ERROR_NEGADO` con `FUTEX_CAMBIO` en el acto; si vale, el hilo duerme
+/// hasta un `FUTEX_DESPERTAR` en esa direccion o el plazo (`u32::MAX` ms:
+/// sin plazo). Al volver, quien llama mira su palabra otra vez.
+pub const TASK_OP_FUTEX_ESPERAR: u64 = 0x42;
+/// `FUTEX_DESPERTAR`: `arg0` = la direccion, `arg1` = cuantos como mucho.
+/// Devuelve cuantos desperto.
+pub const TASK_OP_FUTEX_DESPERTAR: u64 = 0x43;
+/// Los NO del futex (espejo de `bmo_futex::NoFutex`).
+pub const FUTEX_DESALINEADA: u32 = 1;
+pub const FUTEX_NO_ES_RING3: u32 = 2;
+pub const FUTEX_CAMBIO: u32 = 3;
+/// **LA ALARMA** (07-10, EXPROPIAR; como un signal de reloj de Linux): cada
+/// `ms`, si el tick pilla a la tarea en Ring 3 FUERA de su puerta, el RIP
+/// que llevaba va al buzon y el RIP pasa a la puerta. `arg0` = la puerta
+/// (codigo de Ring 3), `arg1` = el buzon (8 bytes alineados que la tarea
+/// puede escribir), `arg2` (en `r8`) = `bmo_alarma::empaquetar(bytes de la
+/// puerta, ms)`; `ms = 0` la apaga. La puerta guarda TODO y salta al RIP del
+/// buzon.
+pub const TASK_OP_ALARMA: u64 = 0x44;
+/// Los NO de la alarma (espejo de `bmo_alarma::NoAlarma`).
+pub const ALARMA_FUERA_DE_RING3: u32 = 1;
+pub const ALARMA_PUERTA_MALA: u32 = 2;
+pub const ALARMA_BUZON_MALO: u32 = 3;
+pub const ALARMA_PERIODO_MALO: u32 = 4;
+pub const ALARMA_BUZON_NO_ESCRIBIBLE: u32 = 5;
 /// La ventana de reserva: 384 GiB desde `0x20_0000_0000`, hasta el final
 /// de `PML4[0]` (era de 128: Cyberpunk aparta mas de 130 GiB al arrancar).
 pub const RESERVA_VENTANA_BASE: u64 = 0x0000_0020_0000_0000;

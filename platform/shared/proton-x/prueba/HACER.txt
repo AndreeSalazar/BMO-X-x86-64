@@ -3389,3 +3389,87 @@ El banco (`tests/corre/vivo.rs`): los 4 `bien`, sale con 0, ni un aviso
 (en el banco va por la CPU: el termometro y el apunte los juzgan
 `proton-x-sm86` y `bmo-gpu-ga10x`). Probado que dice NO: con la casa
 guardando NaN como 1 (`trama::unorm8`), B y D salen MAL (230400 pixeles).
+
+crudo.dxil -- 13 de la pila A: RawBufferLoad y RawBufferStore (07-10)
+
+Un CS de Cyberpunk lo pidio en el metal (06-10: `OperacionD3d(139)`).
+`crudo.hlsl` (aqui al lado): CSMain (cs_6_2, 32 hilos): Load y Load4 de un
+ByteAddressBuffer, una fila de un StructuredBuffer<float4>, Store y Store2 en
+un RWByteAddressBuffer y una fila de un RWStructuredBuffer<uint2>; desde SM
+6.2, dxc da los seis con `rawBufferLoad`/`rawBufferStore` (op 139 y 140). Con
+el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_2 -E CSMain -Fo crudo.dxil crudo.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   207cec23b13eb2bf5498f6b221385e968e1a1c36a5f6a6939afac6b896a693e5  crudo.dxil
+
+El banco: `src/pruebas_computo.rs` (`raw_buffer_load_y_store_dan_lo_de_hlsl`,
+cada valor el exacto de HLSL) y, traducido a x86-64,
+`proton-x-casa/tests/nativo_computo.rs` (los mismos bytes que el interprete).
+
+compartido.dxil y estructuras.dxil -- 14, 18 y 19 de la pila A (07-10)
+
+Lo que tres CS de Cyberpunk pidieron en el metal (06-10): "un load o un
+store de algo que no es un array" (14), `OperacionD3d(48)` e
+`Instruccion(38)` (18), y "un array de algo que no es float ni entero
+(structs, vectores)" (19). Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin
+-Zi:
+
+   dxc -T cs_6_0 -E CSMain -Fo compartido.dxil compartido.hlsl
+   dxc -T cs_6_0 -E CSMain -Fo estructuras.dxil estructuras.hlsl
+
+`compartido.hlsl`: contadores `groupshared` SUELTOS (no arrays: el 14), con
+InterlockedAdd, Min, Max, Or y Exchange (`atomicrmw`: el 18) y `mad()` de
+enteros (IMad 48 y UMad 49). Lo que se juzga no depende del orden de los
+hilos. `estructuras.hlsl`: un array compartido de structs y uno de float2
+(dxc los aplana; lo que llegue entero lo juzga `dxil::arreglos::pruebas`).
+
+Reproducibles (comprobado en dos directorios), sin rutas. sha256:
+
+   e7487ada9fedd9f104d9c0dd6de3f7fd6b8d457e740b0973f9b8bebc04b10bf7  compartido.dxil
+   d93bf5cc4c10f4731aabba3aed37c9d97d82e3f905f23cb6dac678834289e60c  estructuras.dxil
+
+El banco: `src/pruebas_computo.rs` (`imad_umad_y_los_interlocked_de_la_
+compartida_dan_lo_de_hlsl`, `un_array_compartido_de_structs_y_de_vectores_
+da_lo_de_hlsl`).
+
+salidas_cs.dxil y salidas_ps.dxil -- 16 y 21 de la pila A (07-10)
+
+"Un bucle con mas de una salida", lo que pidieron un CS y un sombreador de
+pixeles de Cyberpunk en el metal (06-10). `salidas.hlsl` (aqui al lado): un
+bucle que sale por TRES sitios -- su condicion, un `break` y un `return`
+--, en un CS (CSMain, 64 hilos) y en uno de pixeles (PSMain). Con el DXC de
+la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSMain -Fo salidas_cs.dxil salidas.hlsl
+   dxc -T ps_6_0 -E PSMain -Fo salidas_ps.dxil salidas.hlsl
+
+Reproducibles (comprobado en dos directorios), sin rutas. sha256:
+
+   4eea3d6ceeab1052ca6da6d056db705c2d881e6489537fdb4c609418095f8987  salidas_cs.dxil
+   c99232490212382dc8f68aa182a5fbf143ffbc48677148050320bf2ba55f07b7  salidas_ps.dxil
+
+El banco: `src/pruebas_computo.rs` (`un_bucle_con_tres_salidas_da_lo_de_
+hlsl_en_el_cs_y_en_el_de_pixeles`, contra el mismo bucle en Rust; con el
+estructurador de antes, los dos daban "un bucle con mas de una salida") y,
+traducido, `proton-x-casa/tests/nativo_computo.rs`.
+
+bindless.dxil -- 15 de la pila A: los buferes "bindless" (07-10)
+
+"createHandle con un registro CALCULADO de un array de BUFERES" (N5.4), lo
+que un CS de Cyberpunk pidio en el metal (06-10). `bindless.hlsl` (aqui al
+lado): un array de StructuredBuffer<uint4> (t0..t3, espacio 1) y uno de
+ByteAddressBuffer (t8..t9), elegidos por hilo con NonUniformResourceIndex:
+una fila, sus medidas (GetDimensions) y una palabra. Con el DXC de la nube
+(v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSMain -Fo bindless.dxil bindless.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   72bac580cef08f655b0c3cf492a308a8bfd8816dcff37d6a1ac6fccab85d7018  bindless.dxil
+
+El banco: `src/pruebas_computo.rs` (`los_buferes_bindless_se_eligen_por_
+hilo`; y dice NO: sin quien busque buferes, ceros).

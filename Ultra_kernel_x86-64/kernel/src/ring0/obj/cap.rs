@@ -447,6 +447,14 @@ pub fn revoke_all(pid: u32) {
     let aspace = crate::ring0::task::scheduler::cr3_de_pid(pid)
         .unwrap_or_else(crate::ring0::mm::vmm::read_cr3);
     crate::ring0::core::desmontaje::entra(9, pid);
+    // ** LOS SUB-DIRECTORES FUERA, ANTES DE DEVOLVER UN SOLO MARCO (H4.3).
+    // Lo de abajo devuelve marcos al asignador sin desmapearlos (el espacio
+    // entero se destruye despues); un obrero todavia en Ring 3 con este CR3
+    // escribiria en ellos cuando ya son de otro. Su faena se cierra y salen
+    // (esperando, y al tope con la NMI de rescate). Ver `smp/ring3.rs`.
+    if !crate::ring0::plat::smp::ring3::muere(pid, aspace) {
+        crate::ring0::cabina::warn("smp", "un sub-director sigue dentro del espacio del muerto", pid as u64);
+    }
     crate::ring0::obj::loan::process_died(pid, aspace);
     crate::ring0::core::desmontaje::entra(10, pid);
     crate::ring0::obj::memory::process_died(pid);

@@ -345,6 +345,7 @@ pub(crate) extern "win64" fn create_unordered_access_view(_this: u64, recurso: u
 /// (CopyDescriptors). El 0 es "sin contador".
 struct Contadores(core::cell::UnsafeCell<alloc::vec::Vec<(u64, u64)>>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Contadores {}
 static CONTADORES: Contadores = Contadores(core::cell::UnsafeCell::new(alloc::vec::Vec::new()));
 

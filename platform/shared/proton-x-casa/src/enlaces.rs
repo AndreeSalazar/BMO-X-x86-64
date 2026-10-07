@@ -56,6 +56,7 @@ type Llave = ([u8; 16], [u8; 16], [u8; 16]);
 
 struct Global(UnsafeCell<BTreeMap<Llave, Vec<(Vec<ElementoIa>, Rc<Compilado>)>>>);
 // SAFETY: la casa corre en un hilo a la vez (ver `Global` en lib.rs).
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Global {}
 static HECHOS: Global = Global(UnsafeCell::new(BTreeMap::new()));
 
@@ -73,6 +74,7 @@ struct Recuerdo {
 }
 struct GlobalRecuerdo(UnsafeCell<Recuerdo>);
 // SAFETY: como `Global`.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for GlobalRecuerdo {}
 static RECUERDO: GlobalRecuerdo = GlobalRecuerdo(UnsafeCell::new(Recuerdo { carpeta: None, compilados: 0, recordados: 0 }));
 

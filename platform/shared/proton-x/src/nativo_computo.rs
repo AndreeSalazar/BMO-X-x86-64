@@ -506,6 +506,7 @@ fn escritos(op: &Op, mut f: impl FnMut(Reg)) {
         | Op::Convierte { d, .. }
         | Op::Contador { d, .. }
         | Op::Atomico { d, .. }
+        | Op::AtomicoCompartido { d, .. }
         // X3: la escribe la casa al pararse (no es una constante).
         | Op::Ola { d, .. }
         | Op::LeeIndexado { d, .. } => f(d),
@@ -1089,7 +1090,8 @@ fn compilar_con(p: &Programa, dibujo: bool) -> Option<Vec<u8>> {
             }
             // Lo que no sabe: por el interprete (y, 05-10, los Interlocked;
             // E2.5, las olas: aqui cada hilo corre solo).
-            Op::Lee { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::MedidasUav { .. } | Op::Atomico { .. } | Op::Ola { .. } => return None,
+            // 18 de la pila A (07-10): el Interlocked de la compartida, tambien.
+            Op::Lee { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } | Op::MedidasUav { .. } | Op::Atomico { .. } | Op::AtomicoCompartido { .. } | Op::Ola { .. } => return None,
         }
     }
     if !sis.is_empty() || !bucles.is_empty() {

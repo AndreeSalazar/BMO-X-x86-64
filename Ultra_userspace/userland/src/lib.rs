@@ -125,6 +125,18 @@ pub const OP_RAIZ_HIJO: u32 = 0x3C;
 /// suena aunque otro tenga el sonido. Solo quien tiene la pantalla. Ver
 /// [`crate::sonido::Fondo`].
 pub const OP_AUDIO_FONDO: u32 = 0x3D;
+/// **LOS SUB-DIRECTORES** (H4.3): una faena de la app en Ring 3 en los
+/// obreros. Espejo de `bmo_abi::...::TASK_OP_SUB_*`. Ver [`subdirectores`].
+pub const OP_SUB_INFO: u32 = 0x3E;
+pub const OP_SUB_PREPARAR: u32 = 0x3F;
+pub const OP_SUB_REPARTIR: u32 = 0x40;
+pub const OP_SUB_ESPERAR: u32 = 0x41;
+/// **EL FUTEX** (07-10): esperar en una palabra y despertar a N. Espejo de
+/// `bmo_abi::...::TASK_OP_FUTEX_*`. Ver [`futex`].
+pub const OP_FUTEX_ESPERAR: u32 = 0x42;
+pub const OP_FUTEX_DESPERTAR: u32 = 0x43;
+/// `bmo_abi::...::TASK_OP_ALARMA`. Ver [`alarma`].
+pub const OP_ALARMA: u32 = 0x44;
 /// El log del kernel, leido desde Ring 3. Ver `klog_lineas`/`klog_texto`.
 pub const OP_KLOG_INFO: u32 = 0x16;
 pub const OP_KLOG_TEXTO: u32 = 0x17;
@@ -217,6 +229,11 @@ pub const SELLAR_YA_SELLADO: u32 = 2;
 pub const SELLAR_PRESTADO: u32 = 3;
 pub const SELLAR_SIN_NX: u32 = 4;
 pub const SELLAR_NO_REMAPEA: u32 = 5;
+/// V4 (07-10): `MEM_OP_SELLAR_HASTA` mas alla del final del bloque.
+pub const SELLAR_FUERA: u32 = 6;
+/// **Sellar por TRAMOS** (V4, 07-10): `[0, hasta)`, a paginas enteras; lo
+/// de detras sigue siendo datos. Espejo de `ring0::obj::memory`.
+pub const MEM_OP_SELLAR_HASTA: u32 = 0x07;
 /// **Quien me lanzo**, como TID. `0` si nadie -- ver [`crate::sys::mi_padre`].
 pub const OP_MI_PADRE: u32 = 0x26;
 
@@ -1532,6 +1549,9 @@ mod disco;
 mod entrada;
 mod imagen;
 pub mod reserva;
+pub mod subdirectores;
+pub mod futex;
+pub mod alarma;
 mod memoria;
 /// ** LA RED desde donde vive el propietario: armar el receptor y sondearlo.
 ///

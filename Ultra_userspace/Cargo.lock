@@ -59,6 +59,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-letra-monton",
  "bmo-monton",
+ "bmo-orquesta",
  "bmo-proton-x",
  "bmo-proton-x-casa",
  "bmo-proton-x-sm86",
@@ -185,6 +186,10 @@ dependencies = [
 
 [[package]]
 name = "bmo-monton"
+version = "0.1.0"
+
+[[package]]
+name = "bmo-orquesta"
 version = "0.1.0"
 
 [[package]]

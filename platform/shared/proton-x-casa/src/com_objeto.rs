@@ -51,6 +51,7 @@ struct Estado {
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y nada de aqui
 // cede el turno (las llamadas al `.exe` son AddRef/Release/QueryInterface).
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado { datos: Vec::new(), dispositivo: 0, fabrica: 0, adaptador: 0 }));
 
@@ -83,6 +84,7 @@ pub(crate) fn nacio(interfaz: usize, obj: u64) {
 pub(crate) fn genericos(i: usize) -> &'static [(usize, u64)] {
     struct Tablas(UnsafeCell<[Option<[(usize, u64); 5]>; 3]>);
     // SAFETY: como `Global`.
+    // [hilos] uno -- se llena UNA vez (con los directores: un Once)
     unsafe impl Sync for Tablas {}
     static T: Tablas = Tablas(UnsafeCell::new([None, None, None]));
     // SAFETY: como `Global`; se llena una vez.

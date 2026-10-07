@@ -37,6 +37,7 @@ use core::cell::UnsafeCell;
 
 struct Cuenta(UnsafeCell<Option<Registro>>);
 // SAFETY: un hilo dibuja (ver `Global` en lib.rs).
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Cuenta {}
 static REGISTRO: Cuenta = Cuenta(UnsafeCell::new(None));
 

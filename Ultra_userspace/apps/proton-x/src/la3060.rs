@@ -192,6 +192,7 @@ impl Partes {
 
 struct Celda(core::cell::UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Celda {}
 static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado {
     puerta: None,

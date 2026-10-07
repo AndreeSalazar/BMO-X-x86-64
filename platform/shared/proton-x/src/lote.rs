@@ -480,7 +480,7 @@ impl Lote<'_> {
     /// que lee una ranura SIN bufer, o un id que pasa de un bufer que se lee
     /// por vertice. Si no, cuantos vertices distintos puede haber (el mayor
     /// id + 1).
-    fn comprobar(&self) -> Result<usize, NoDibuja> {
+    pub(crate) fn comprobar(&self) -> Result<usize, NoDibuja> {
         let mut tope = usize::MAX;
         for &f in &self.enlace.desde_ia {
             let Fuente::Ia(i) = f else { continue };

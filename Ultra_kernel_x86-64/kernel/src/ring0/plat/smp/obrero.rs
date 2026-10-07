@@ -35,6 +35,9 @@ pub fn obrero(indice: u32, apic: u32) -> ! {
     // Y de paso deja dicho QUIEN es: el indice es orden de llegada, el
     // APIC es domicilio. Ver `ficha`.
     super::ficha::alta(indice, apic);
+    // H4.0: su tipo de nucleo (grande o chico en un hibrido), leido AQUI:
+    // la hoja 0x1A contesta por el nucleo que la ejecuta.
+    super::topologia::apuntar(indice);
     let mut vista = 0u32;
     loop {
         if PARAR.load(Ordering::SeqCst) {
@@ -49,6 +52,11 @@ pub fn obrero(indice: u32, apic: u32) -> ! {
         let r = RONDA.0.load(Ordering::SeqCst);
         if r != vista {
             vista = r;
+            // ** Lo primero, una parte de Ring 3 si la faena de una app le
+            // dio una (`ring3.rs`, H4.3). Si no, la del kernel, como siempre.
+            if super::ring3::atender(indice) {
+                continue;
+            }
             let f = TAREA.load(Ordering::SeqCst);
             let partes = PARTES.load(Ordering::SeqCst);
             let mia = indice + 1;

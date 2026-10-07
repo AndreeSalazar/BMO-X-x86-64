@@ -816,6 +816,27 @@ pub fn wake_by_key(key: u64) {
 }
 
 
+/// **Despertar a lo mas `n`** de los que duermen en `key` (el futex: un
+/// `despertar(dir, 1)` no levanta a toda la cola). Cuantos desperto.
+pub fn wake_n_by_key(key: u64, n: u32) -> u32 {
+    let _g = SCHED_LOCK.lock();
+    let s = sched();
+    let mut hechos = 0u32;
+    for task in &mut s.tasks {
+        if hechos >= n {
+            break;
+        }
+        if task.state == TaskState::Blocked && task.wait_key == key {
+            task.wait_key = 0;
+            task.wait_deadline = 0;
+            task.state = TaskState::Ready;
+            hechos += 1;
+        }
+    }
+    hechos
+}
+
+
 pub fn spawn_kernel(entry: u64, arg: u64, priority: u8) -> Option<u32> {
     // Contiguous: the stack is addressed linearly through the physmap, and
     // `reap` frees it as `stack_phys + p*PAGE` -- both are only sound when

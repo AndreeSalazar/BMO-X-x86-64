@@ -120,6 +120,7 @@ struct Estado {
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y ninguna
 // referencia al estado cruza una llamada al `.exe` (ver `con`).
+// [hilos] por-hilo -- la excepcion de C++ en vuelo (y lo que captura) es de CADA hilo
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado { en_curso: Vec::new(), capturas: Vec::new(), pendientes: Vec::new(), registro: 0, contexto: 0 }));
 

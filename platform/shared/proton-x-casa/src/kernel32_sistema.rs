@@ -40,6 +40,9 @@ const VIRTUAL: u64 = 0x7FFF_FFFE_FFFF - 0x1_0000 + 1;
 const ERROR_INSUFFICIENT_BUFFER: u32 = 122;
 const ERROR_INVALID_PARAMETER: u32 = 87;
 const ERROR_OLD_WIN_VERSION: u32 = 1150;
+const ERROR_INVALID_HANDLE: u32 = 6;
+/// `GetThreadPriority` de algo que no es un hilo (MAXLONG).
+const THREAD_PRIORITY_ERROR_RETURN: i32 = i32::MAX;
 
 // -- Memoria -----------------------------------------------------------------------------------
 
@@ -149,10 +152,29 @@ extern "win64" fn set_thread_description(_h: u64, _nombre: u64) -> i32 {
     0
 }
 
-/// `GetThreadPriority`: THREAD_PRIORITY_NORMAL. La casa no tiene
-/// prioridades: todos los hilos se turnan igual.
-extern "win64" fn get_thread_priority(_h: u64) -> i32 {
-    0
+/// `GetThreadPriority` (T2, 07-10): la que se puso con SetThreadPriority
+/// (al empezar, THREAD_PRIORITY_NORMAL); THREAD_PRIORITY_ERROR_RETURN si no
+/// es un hilo.
+extern "win64" fn get_thread_priority(h: u64) -> i32 {
+    crate::hilos::prioridad(h).unwrap_or_else(|| {
+        kernel32::poner_error(ERROR_INVALID_HANDLE);
+        THREAD_PRIORITY_ERROR_RETURN
+    })
+}
+
+/// `SetThreadPriority` (T2, 07-10): -15, -2 a 2 y 15, como Windows; se
+/// GUARDA (el turno no cambia: `Planificador::urgente`). Otro numero,
+/// ERROR_INVALID_PARAMETER.
+extern "win64" fn set_thread_priority(h: u64, p: i32) -> i32 {
+    if !(p == -15 || p == 15 || (-2..=2).contains(&p)) {
+        kernel32::poner_error(ERROR_INVALID_PARAMETER);
+        return 0;
+    }
+    if !crate::hilos::poner_prioridad(h, p) {
+        kernel32::poner_error(ERROR_INVALID_HANDLE);
+        return 0;
+    }
+    1
 }
 
 // -- La version --------------------------------------------------------------------------------
@@ -537,13 +559,14 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "GetPhysicallyInstalledSystemMemory" => dir!(get_physically_installed_system_memory),
         "GetCurrentProcessorNumber" => dir!(cero),
         "GetProcessAffinityMask" => dir!(get_process_affinity_mask),
-        "SetProcessAffinityMask" | "SetThreadPriority" | "SetConsoleMode" | "SetConsoleTextAttribute" => dir!(uno2),
+        "SetProcessAffinityMask" | "SetConsoleMode" | "SetConsoleTextAttribute" => dir!(uno2),
         "SetThreadAffinityMask" => dir!(set_thread_affinity_mask),
         "SetThreadIdealProcessor" => dir!(cero),
         "SetThreadSelectedCpuSets" | "FlushInstructionCache" => dir!(uno3),
         "SetThreadInformation" => dir!(uno4),
         "SetThreadDescription" => dir!(set_thread_description),
         "GetThreadPriority" => dir!(get_thread_priority),
+        "SetThreadPriority" => dir!(set_thread_priority),
         "FlushProcessWriteBuffers" => dir!(cero),
         "DisableThreadLibraryCalls" | "AllocConsole" | "SetConsoleTitleA" | "AreFileApisANSI" => dir!(uno),
         "SetConsoleCtrlHandler" => dir!(uno2),

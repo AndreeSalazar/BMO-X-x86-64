@@ -636,10 +636,16 @@ donde dos `&mut` del mismo estado pueden chocar.
 - [ ] H0.1 -- El diario de P0.3: cuantos hilos crea el juego, con que
   prioridad y afinidad, y con que se esperan (SRW, secciones criticas,
   `WaitOnAddress`, eventos). **Como se sabe:** una tabla aqui.
-- [ ] H0.2 -- La lista de los 42 `Sync` de la casa, cada uno con su clase:
+- [x] H0.2 -- La lista de los 42 `Sync` de la casa, cada uno con su clase:
   (a) no se toca desde otro hilo, (b) necesita cerrojo, (c) debe ser por
   hilo. **Como se sabe:** un guardian nuevo que falla si aparece un `Sync`
   sin su clase escrita.
+  07-10, HECHO: eran 72 (la casa crecio). Cada uno lleva `// [hilos] clase
+  -- motivo` encima: 10 `uno` (solo se leen o se llenan una vez), 58
+  `cerrojo`, 4 `por-hilo` (errno, la excepcion de C++ en vuelo, el bufer de
+  inet_ntoa, ImpersonateSelf). El guardian `hilos-casa` (en el build) falla
+  con uno sin clase, y lo PENDIENTE (62) es un trinquete: solo baja, y
+  bajarlo es H2.1.
 
 ## 4B. El kernel `[RING 0]`, pieza a pieza
 
@@ -1355,7 +1361,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    5
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    0
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1463,13 +1469,61 @@ y lo dice.
                Ahora, lleno, sigue en trozos de 64 MiB de un tramo de 16 GiB
                de la reserva que es SOLO suyo (`bmo_monton::Region::
                poner_crecer`; la casa de Windows ve la ventana sin el)
-     13  D4.1  `RawBufferLoad`/`RawBufferStore` (op 139/140, SM 6.2+): un CS
-               de Cyberpunk lo pide (`OperacionD3d(139)`)
-     14  D4.1  un load o un store de algo que no es un array (un CS)
-     15  N5.4  `createHandle` con el registro CALCULADO de un array de
-               BUFERES (bindless de buferes; un CS)
-     16  D4.1  un bucle con mas de una salida (un CS)
-     17  D4.1  un operando que deberia ser un float y no lo es (un CS)
+     13  [x] D4.1  `RawBufferLoad`/`RawBufferStore` (op 139/140, SM 6.2+):
+               un CS de Cyberpunk lo pide (`OperacionD3d(139)`). 07-10:
+               son los argumentos de BufferLoad/BufferStore con la mascara
+               y la alineacion detras (los de 16 o 64 bits lo DICEN:
+               todavia no). `prueba/crudo.hlsl` (cs_6_2: ByteAddressBuffer
+               y StructuredBuffer leidos y escritos) da lo exacto de HLSL
+               por el interprete, y los mismos bytes traducido a x86-64
+     14  [x] D4.1  un load o un store de algo que no es un array (un CS).
+               07-10: un global que es UN numero (`groupshared uint suma;`,
+               `static float x;`) es un array de uno
+               (`prueba/compartido.hlsl`)
+     15  [x] N5.4  `createHandle` con el registro CALCULADO de un array de
+               BUFERES (bindless de buferes; un CS). 07-10: como las
+               texturas de N5.4: `Valor::BuferEn`, `EligeTextura` y la
+               ranura DINAMICA; lo elegido es ahora un `Elegida` (textura
+               o bufer) y `Dinamicas` tiene un segundo buscador, el de
+               buferes (en la casa, `tuberia::bufer_dinamico`, guardado
+               por registro como el de texturas). `bindless.hlsl`: dos
+               arrays elegidos por hilo; sin buscador, ceros (el NO)
+     16  [x] D4.1  un bucle con mas de una salida (un CS). 07-10: un
+               SELECTOR (`estructura.rs`): cada salida apunta su numero
+               antes de su Romper, y detras del FinBucle una cadena de `si`
+               sigue por la suya hasta donde se juntan (el post-dominador
+               de la cabeza). `prueba/salidas.hlsl`: tres salidas
+               (condicion, break, return), contra el bucle en Rust, y los
+               mismos bytes traducido
+     17  [x] D4.1  un operando que deberia ser un float y no lo es (un CS).
+               07-10: `float undef` es 0.0, y unos bits apuntados como
+               entero valen como float (el IR tiene tipos). Si el juego
+               trae otra cosa, ahora lo DICE con su nombre (`que_es`)
+     -- 06-10 22:43, la SEGUNDA corrida con el monton que crece (llego a 95 s;
+        lo que la tumbo, y el sonido, en PLAN_LOS_DOCE_DIRECTORES.md): --
+     18  [x] D4.1  `OperacionD3d(48)` y `Instruccion(38)` (dos CS). 07-10:
+               48 es IMad (y 49 UMad): `mad()` de enteros; 38 es el
+               `atomicrmw` de LLVM, un Interlocked* sobre la memoria
+               COMPARTIDA (`Op::AtomicoCompartido`: add, sub, and, or,
+               xor, min, max con y sin signo, xchg; da la de antes). Por el
+               interprete (el traducido lo deja ahi). `compartido.hlsl`:
+               lo que no depende del orden de los hilos, exacto
+     19  [x] D4.1  un array de algo que no es float ni entero (structs,
+               vectores; un CS). 07-10: los vectores (`<n x T>`) se
+               aplanan como arrays y los structs campo a campo (hasta 16
+               campos); un GEP a un campo salta lo que miden los de antes,
+               y lo leido es del tipo del CAMPO. dxc los aplana solo
+               (`estructuras.hlsl`); lo que llegue entero lo juzga
+               `dxil::arreglos::pruebas` (y dice NO con un puntero dentro).
+               Si el juego trae otra forma, D0.2 (su cache de DXIL) la dira
+     20  [x] D4.1  un operando que no es un numero (ni float, ni entero, ni i1;
+               un CS). 07-10: el aviso dice QUE era (una constante half o
+               double, un ResRet entero, un handle, un puntero sin load...),
+               para que la siguiente corrida lo nombre
+     21  [x] D4.1  un bucle con mas de una salida en un sombreador de PIXELES
+               (el 16 es el de un CS; el estructurador es el mismo). 07-10:
+               con el 16; `salidas_ps.dxil` da lo del bucle en Rust en 64
+               pixeles, y se traduce
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.

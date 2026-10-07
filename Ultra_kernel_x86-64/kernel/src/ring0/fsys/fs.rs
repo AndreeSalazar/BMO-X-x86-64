@@ -802,6 +802,17 @@ pub fn crear_en(dir_cluster: u32, name_8_3: &[u8; 11], data: &[u8]) -> Result<()
     r
 }
 
+/// [`guardar_en`] en la raiz del volumen de datos (donde `create` crea).
+pub fn guardar(name_8_3: &[u8; 11], data: &[u8]) -> Result<(), WriteError> {
+    let root = unsafe {
+        match (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut() {
+            Some(v) => v.root_cluster(),
+            None => return Err(WriteError::ReadOnly),
+        }
+    };
+    guardar_en(root, name_8_3, data)
+}
+
 /// **Guarda un archivo, exista o no.** Si el nombre ya esta, lo REEMPLAZA.
 ///
 /// === Por que existe, y que tapaba no tenerlo ===

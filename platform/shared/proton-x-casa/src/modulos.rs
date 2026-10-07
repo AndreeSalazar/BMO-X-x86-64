@@ -95,6 +95,7 @@ struct Propia {
 
 struct Propias(core::cell::UnsafeCell<Vec<Propia>>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Propias {}
 static PROPIAS: Propias = Propias(core::cell::UnsafeCell::new(Vec::new()));
 
@@ -112,6 +113,9 @@ pub(crate) fn reiniciar() {
 /// direccion). Su DllMain corre en [`iniciar_dlls`].
 pub fn registrar_dll(nombre: &str, base: u64, entrada: u64, exps: Vec<(Option<String>, u32, u64)>) {
     propias().push(Propia { nombre: bmo_proton_x::dll::fichero(nombre), base, entrada, exps, iniciada: false });
+    // EXPROPIAR (07-10): su codigo es del juego (la alarma le puede quitar
+    // el turno ahi).
+    crate::expropiar::juego(base, crate::kernel32_procesos::medida_imagen(base) as u64);
 }
 
 /// Las bases de las DLL propias cargadas (P4c: donde buscar su `.pdata`).
@@ -443,6 +447,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
 fn no_estaba(dll: &str, nombre: &str, con_trampa: bool) {
     struct Vistas(core::cell::UnsafeCell<alloc::vec::Vec<alloc::string::String>>);
     // SAFETY: la casa corre en un hilo a la vez (ver `Global` en lib.rs).
+    // [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
     unsafe impl Sync for Vistas {}
     static VISTAS: Vistas = Vistas(core::cell::UnsafeCell::new(alloc::vec::Vec::new()));
     // SAFETY: como arriba; nadie guarda la referencia.

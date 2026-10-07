@@ -27,6 +27,11 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
     if let Some(v) = super::super::sombras::de(c, op, args) {
         return v;
     }
+    // 13 de la pila A (07-10): los crudos de 16 o 64 bits (`.f16`, `.i64`...)
+    // no son los de 32 de BufferLoad/BufferStore.
+    if (op == DX_RAW_BUFFER_LOAD || op == DX_RAW_BUFFER_STORE) && !(nombre.ends_with(".i32") || nombre.ends_with(".f32")) {
+        return Err(NoPrograma::Forma("RawBufferLoad/RawBufferStore de 16 o de 64 bits: todavia no"));
+    }
     Ok(match op {
         DX_LOAD_INPUT | DX_STORE_OUTPUT => {
             if !matches!(c.valores.get(arg(2)?), Some(Valor::Entero(_))) {
@@ -86,7 +91,8 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             Valor::Nada
         }
         // N5.5: `bufferStore(uav, coord0, coord1, v0, v1, v2, v3, mascara)`.
-        DX_BUFFER_STORE => {
+        // 13 (07-10): `rawBufferStore`, lo mismo con la alineacion detras.
+        DX_BUFFER_STORE | DX_RAW_BUFFER_STORE => {
             let Some(Valor::Uav(u, modo)) = c.valores.get(arg(1)?).copied() else {
                 return Err(NoPrograma::Forma("BufferStore sin el handle de un UAV de bufer"));
             };
@@ -195,7 +201,12 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
                         let i = super::super::estructura::bits(c, arg(3)?)?;
                         Ok(Valor::TexturaEn { rango: c.ranuras.dinamica(r.espacio, r.desde)?, i })
                     }
-                    0 => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de BUFERES: todavia no (N5.4)")),
+                    // 15 de la pila A (07-10): un array de buferes, igual.
+                    0 => {
+                        let modo = r.modo_de_bufer().unwrap_or(crate::bufer::Modo::Tipado);
+                        let i = super::super::estructura::bits(c, arg(3)?)?;
+                        Ok(Valor::BuferEn { rango: c.ranuras.dinamica(r.espacio, r.desde)?, i, modo })
+                    }
                     2 => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de CBUFFERS: todavia no (N5.4)")),
                     3 => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de MUESTREADORES: todavia no (N5.4)")),
                     _ => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de UAV: todavia no (N5.4)")),
@@ -326,9 +337,11 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::Carga { enteros }, c: co, nivel, desp });
             if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) }
         }
-        DX_BUFFER_LOAD => {
+        DX_BUFFER_LOAD | DX_RAW_BUFFER_LOAD => {
             // (srv, indice, desplazamiento): el desplazamiento solo lo trae
-            // uno estructurado; en los demas es `undef`.
+            // uno estructurado; en los demas es `undef`. 13 (07-10):
+            // `rawBufferLoad` trae detras la mascara y la alineacion; se lee
+            // lo de siempre (lo que la mascara no pide no se usa).
             // N5.5: de un UAV (RWStructuredBuffer leido), por su lado.
             if let Some(Valor::Uav(u, modo)) = c.valores.get(arg(1)?).copied() {
                 let cero = super::super::estructura::literal(c, 0)?;
@@ -338,7 +351,7 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
                 c.ops.push(Op::LeeUav { d, u, modo, i, desp, z: cero });
                 return Ok(if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) });
             }
-            let Some(Valor::Bufer(t, modo)) = c.valores.get(arg(1)?).copied() else {
+            let Some((t, modo)) = bufer_de(c, arg(1)?) else {
                 return Err(NoPrograma::Forma("BufferLoad sin el handle de un bufer"));
             };
             let cero = super::super::estructura::literal(c, 0)?;
@@ -367,7 +380,10 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             // (N5.3), sus elementos; el mip es `undef`.
             let t = match c.valores.get(arg(1)?).copied() {
                 Some(Valor::Textura(_) | Valor::TexturaEn { .. }) => textura(c, arg(1)?).ok_or(NoPrograma::Forma("GetDimensions sin textura"))?,
-                Some(Valor::Bufer(t, modo)) => {
+                Some(Valor::Bufer(..) | Valor::BuferEn { .. }) => {
+                    let Some((t, modo)) = bufer_de(c, arg(1)?) else {
+                        return Err(NoPrograma::Forma("GetDimensions sin el handle de un bufer"));
+                    };
                     let cero = super::super::estructura::literal(c, 0)?;
                     let d = cuatro(c)?;
                     c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::MedidasBufer(modo), c: [cero; 4], nivel: cero, desp: [0; 3] });
@@ -425,6 +441,16 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
         DX_FABS => uno(c, |d, a| Op::Abs { d, a })?,
         // E6c: IMax, IMin, UMax, UMin (`dx.op.binary.i32`).
         37..=40 => super::super::enteros::min_max(c, op, arg(1)?, arg(2)?)?,
+        // 18 de la pila A (07-10): IMad (48) y UMad (49), `mad()` de enteros:
+        // a * b + c en 32 bits (los de abajo son los mismos con y sin signo).
+        48 | 49 => {
+            let (a, b, cc) = (super::super::estructura::bits(c, arg(1)?)?, super::super::estructura::bits(c, arg(2)?)?, super::super::estructura::bits(c, arg(3)?)?);
+            let t = c.registro(0.0)?;
+            c.ops.push(Op::Entera { d: t, a, b, op: OpEntera::Mul });
+            let d = c.registro(0.0)?;
+            c.ops.push(Op::SumaEntera { d, a: t, b: cc });
+            Valor::Bits(d)
+        }
         DX_FMIN | DX_FMAX => {
             let (a, b) = (c.float(arg(1)?)?, c.float(arg(2)?)?);
             let d = c.registro(0.0)?;
@@ -433,6 +459,21 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
         }
         otra => return Err(NoPrograma::OperacionD3d(otra)),
     })
+}
+
+/// **El bufer SRV del handle `id`**: su ranura y como se direcciona. 15 de
+/// la pila A (07-10): si es de un array con el registro calculado, se elige
+/// aqui ([`Op::EligeTextura`]) y la ranura es [`DINAMICA`], como una textura
+/// de N5.4. `None` si no es el de un bufer.
+fn bufer_de(c: &mut Compilador, id: usize) -> Option<(u8, crate::bufer::Modo)> {
+    match c.valores.get(id).copied()? {
+        Valor::Bufer(t, modo) => Some((t, modo)),
+        Valor::BuferEn { rango, i, modo } => {
+            c.ops.push(Op::EligeTextura { i, rango });
+            Some((DINAMICA, modo))
+        }
+        _ => None,
+    }
 }
 
 /// 06-10: la tercera coordenada de un UAV de textura (la z de un 3D, la

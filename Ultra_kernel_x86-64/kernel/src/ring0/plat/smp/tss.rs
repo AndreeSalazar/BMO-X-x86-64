@@ -39,10 +39,10 @@
 //! # Lo que NO hace
 //!
 //! No le da al obrero un GS por-CPU ni pila de syscall: un obrero no entra
-//! por SYSCALL ni recibe interrupciones (corre con IF=0). El dia que un AP
-//! ejecute Ring 3 --el sub-director entero-- hara falta `PER_CPUS[i]` y
-//! `rsp0`; esto deja el hueco (`rsp[0]`) a cero a proposito, para que ese dia
-//! el primer trap desde Ring 3 falle DICIENDOLO y no escribiendo en la pila 0.
+//! por SYSCALL ni recibe interrupciones (corre con IF=0). `rsp[0]` vive a
+//! cero: solo [`poner_rsp0`] lo llena, el sub-director (`ring3.rs`), mientras
+//! una parte de Ring 3 corre, y lo vuelve a cero al salir. Fuera de eso un
+//! trap desde Ring 3 falla DICIENDOLO y no escribiendo en la pila 0.
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -175,4 +175,20 @@ pub unsafe fn cargar(indice: u32) -> bool {
     core::arch::asm!("ltr {0:x}", in(reg) TSS_SEL as u64);
     CARGADOS.fetch_add(1, Ordering::Relaxed);
     true
+}
+
+/// **La pila de trap desde Ring 3 del obrero `indice`** (`TSS.rsp0`). Solo
+/// la llama el propio obrero, en su nucleo, antes y despues de una parte
+/// (`ring3.rs`); `0` la quita.
+///
+/// # Safety
+/// `rsp` tiene que ser una pila del kernel mapeada en el CR3 en el que va a
+/// entrar el trap, o cero. Solo desde el obrero `indice`.
+pub unsafe fn poner_rsp0(indice: u32, rsp: u64) {
+    let i = indice as usize;
+    if i >= MAX_OBREROS {
+        return;
+    }
+    // SAFETY: el TSS `i` es de este obrero; empaquetado: escritura sin alinear.
+    unsafe { core::ptr::addr_of_mut!(TSS[i].rsp[0]).write_unaligned(rsp) };
 }

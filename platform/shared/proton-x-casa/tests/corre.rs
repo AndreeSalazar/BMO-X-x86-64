@@ -355,7 +355,7 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_la_3060, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: Some(CARPETAS_DEL_BANCO), reserva: Some(de_hoy::reserva_del_banco()), trozos: Some(de_hoy::TROZOS_DEL_BANCO), sonido: None }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_la_3060, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: Some(CARPETAS_DEL_BANCO), reserva: Some(de_hoy::reserva_del_banco()), trozos: Some(de_hoy::TROZOS_DEL_BANCO), sonido: None, cuaderno: None, obreros: Some(bandas::OBREROS_DEL_BANCO) }
 }
 
 /// Codigo SELLADO, como `MEM_OP_SELLAR`: memoria nueva, los bytes, y de
@@ -1346,3 +1346,9 @@ mod tandas;
 // A9 (06-10): el .bsf vivo, de punta a punta (bmox12.exe dos veces).
 #[path = "corre/vivo.rs"]
 mod vivo;
+#[path = "corre/turno.rs"]
+mod turno;
+#[path = "corre/expropiar.rs"]
+mod expropiar;
+#[path = "corre/bandas.rs"]
+mod bandas;

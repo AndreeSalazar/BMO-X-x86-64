@@ -27,6 +27,16 @@
 //!
 //! Lo que falta y se dice: un hilo que da vueltas sin llamar a nadie (sin
 //! esperar, sin mensajes) no suelta el turno -- no hay reloj que se lo quite.
+//!
+//! **El turno PRESTADO** (T1 y T2 de `PLAN_LOS_DOCE_DIRECTORES`, 07-10).
+//! Cyberpunk, en el metal: 96 cortes de sonido, uno de 33 s. El hilo del
+//! sonido espera su evento, pero quien tiene el turno esta DENTRO de algo
+//! largo (una lista de dibujo por la CPU, mil PSO) y no espera nada. Lo
+//! largo pregunta de vez en cuando por un hilo URGENTE ([`Planificador::
+//! urgente`]: el que espera un evento del sonido) que ya pueda seguir; si lo hay, le PRESTA el turno, y el siguiente turno vuelve al que
+//! presto ([`Planificador::prestado`]) y no a la rueda. Asi lo largo sigue
+//! de un tiron para todos los demas: ningun otro hilo del juego entra en
+//! D3D12 a mitad de una lista.
 
 use alloc::vec::Vec;
 
@@ -91,6 +101,13 @@ struct Hilo {
     /// `SuspendThread` (30-09): mientras no sea 0, no corre, este en lo que
     /// este (su espera sigue donde estaba al reanudarlo).
     suspension: u32,
+    /// `SetThreadPriority` (T2, 07-10): de -15 a 15, como Windows. Se
+    /// GUARDA y se devuelve; no presta el turno (ver [`Planificador::
+    /// urgente`]): la usaran los directores (H4 del mismo plan).
+    prioridad: i32,
+    /// Espero un objeto del sonido ([`Planificador::del_sonido`]): es el
+    /// hilo del sonido, este esperando o ya listo.
+    del_sonido: bool,
 }
 
 /// **Lo que toca ahora.**
@@ -115,6 +132,12 @@ pub struct Planificador {
     /// Quien espera en que condicion, por orden de llegada.
     condiciones: Vec<(u64, Id)>,
     pub actual: Id,
+    /// T1 (07-10): quien PRESTO el turno a un urgente; el siguiente turno es
+    /// suyo, si puede seguir.
+    pub prestado: Option<Id>,
+    /// T1 (07-10): los objetos del SONIDO (el evento de un flujo de WASAPI,
+    /// `SetEventHandle`): quien los espera es el hilo del sonido.
+    sonido: Vec<usize>,
 }
 
 impl Default for Planificador {
@@ -126,11 +149,13 @@ impl Default for Planificador {
 impl Planificador {
     pub fn nuevo() -> Self {
         Planificador {
-            hilos: alloc::vec![Hilo { estado: Estado::Listo, resultado: 0, despertado: false, suspension: 0 }],
+            hilos: alloc::vec![Hilo { estado: Estado::Listo, resultado: 0, despertado: false, suspension: 0, prioridad: 0, del_sonido: false }],
             objetos: Vec::new(),
             cerrojos: Vec::new(),
             condiciones: Vec::new(),
             actual: 0,
+            prestado: None,
+            sonido: Vec::new(),
         }
     }
 
@@ -160,9 +185,26 @@ impl Planificador {
     /// Un hilo nuevo y su objeto (lo que devuelve `CreateThread`).
     pub fn crear(&mut self, suspendido: bool) -> (Id, usize) {
         let estado = if suspendido { Estado::Suspendido(1) } else { Estado::Listo };
-        self.hilos.push(Hilo { estado, resultado: 0, despertado: false, suspension: 0 });
+        self.hilos.push(Hilo { estado, resultado: 0, despertado: false, suspension: 0, prioridad: 0, del_sonido: false });
         let id = self.hilos.len() - 1;
         (id, self.nuevo_objeto(Objeto::Hilo(id)))
+    }
+
+    /// `SetThreadPriority` (T2): `false` si no es un hilo. Se guarda tal cual
+    /// (Windows acepta -15, -2..2 y 15; lo demas lo rechaza el de fuera).
+    pub fn poner_prioridad(&mut self, h: Id, p: i32) -> bool {
+        match self.hilos.get_mut(h) {
+            Some(x) => {
+                x.prioridad = p;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// `GetThreadPriority`.
+    pub fn prioridad(&self, h: Id) -> Option<i32> {
+        self.hilos.get(h).map(|x| x.prioridad)
     }
 
     /// `SuspendThread`: la cuenta de antes, o `None` si no es un hilo (o ya
@@ -362,6 +404,10 @@ impl Planificador {
     /// no, el hilo queda esperando y quien llama tiene que ceder el turno
     /// hasta que vuelva a tenerlo; entonces, [`Self::resultado`].
     pub fn esperar(&mut self, objetos: &[usize], todos: bool, plazo: Option<u64>, ahora: u64) -> Option<u32> {
+        if objetos.iter().any(|o| self.sonido.contains(o)) {
+            let a = self.actual;
+            self.hilos[a].del_sonido = true;
+        }
         if let Some(r) = self.cumplir(self.actual, objetos, todos, ahora) {
             return Some(r);
         }
@@ -559,9 +605,15 @@ impl Planificador {
             .min()
     }
 
-    /// **A quien le toca**: el primero que pueda seguir, en rueda desde el
-    /// SIGUIENTE al actual (el actual, el ultimo: asi ceder es ceder).
+    /// **A quien le toca**: el que presto el turno, si puede seguir (T1);
+    /// si no, el primero que pueda seguir, en rueda desde el SIGUIENTE al
+    /// actual (el actual, el ultimo: asi ceder es ceder).
     pub fn siguiente(&mut self, ahora: u64) -> Turno {
+        if let Some(h) = self.prestado.take() {
+            if h != self.actual && h < self.hilos.len() && self.puede(h, ahora) {
+                return Turno::Hilo(h);
+            }
+        }
         let n = self.hilos.len();
         for k in 1..=n {
             let h = (self.actual + k) % n;
@@ -573,6 +625,37 @@ impl Planificador {
             Some(p) => Turno::Esperar(p),
             None => Turno::Bloqueo,
         }
+    }
+
+    /// **Este objeto es del SONIDO** (T1, 07-10): el evento de un flujo de
+    /// WASAPI. Quien lo espere, desde entonces, es el hilo del sonido.
+    pub fn del_sonido(&mut self, o: usize) {
+        if !self.sonido.contains(&o) {
+            self.sonido.push(o);
+        }
+    }
+
+    /// **Un hilo URGENTE que ya puede seguir** (T1 y T2, 07-10): el del
+    /// sonido -- el que espero alguno de los objetos de [`Self::del_sonido`],
+    /// aunque ahora ya este LISTO (su espera se cumplio en una vuelta que
+    /// eligio a otro). En rueda desde el siguiente al actual; el actual no
+    /// cuenta. Si su espera se cumple, se cumple aqui (el evento automatico
+    /// se gasta: es suyo).
+    ///
+    /// **Por que NO la prioridad alta:** el que presta esta a mitad de algo
+    /// (una lista de D3D12). El hilo del sonido no toca D3D12; uno de
+    /// prioridad HIGHEST del juego puede ser el que manda listas, y entraria
+    /// en la cola a mitad. Prestar a cualquiera es cosa de los directores
+    /// (H2.1: la casa con cerrojos), no de esto.
+    pub fn urgente(&mut self, ahora: u64) -> Option<Id> {
+        let n = self.hilos.len();
+        for k in 1..n {
+            let h = (self.actual + k) % n;
+            if self.hilos[h].del_sonido && self.puede(h, ahora) {
+                return Some(h);
+            }
+        }
+        None
     }
 
     /// Cuantos hilos siguen vivos (no terminados).

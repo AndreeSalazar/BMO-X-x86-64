@@ -44,6 +44,7 @@ struct Estado {
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
+// [hilos] cerrojo -- estado del proceso que tocan los hilos del juego: necesita un cerrojo (H2.1)
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado {
     entorno_a: Vec::new(),
@@ -339,6 +340,7 @@ extern "win64" fn rand() -> i32 {
 static UTC: [u8; 4] = *b"UTC\0";
 struct Tz([*const u8; 2]);
 // SAFETY: solo se lee.
+// [hilos] uno -- solo se lee (los nombres de la zona horaria)
 unsafe impl Sync for Tz {}
 static TZNAME: Tz = Tz([UTC.as_ptr(), UTC.as_ptr()]);
 

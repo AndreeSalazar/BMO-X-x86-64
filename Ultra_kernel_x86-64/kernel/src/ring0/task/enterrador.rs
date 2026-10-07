@@ -87,6 +87,13 @@ pub(crate) fn enterrar(c: &Cadaver) {
         phys::free_frame(c.stack_phys + p * mm::PAGE);
     }
     if let Some(cr3) = c.cr3 {
+        // ** Un sub-director (`smp/ring3.rs`) que siga en Ring 3 con este CR3
+        // (no volvio ni con la NMI de rescate) estaria caminando ESTAS
+        // tablas: se dejan perdidas, que es mucho menos malo que devolverlas.
+        if crate::ring0::plat::smp::ring3::cr3_ocupado(cr3) {
+            crate::ring0::cabina::warn("mm", "espacio NO desmontado: un sub-director sigue dentro", cr3);
+            return;
+        }
         let (hojas, tablas) = mm::vmm::destroy_address_space(cr3, &c.vivos[..c.nv]);
         crate::ring0::cabina::info("mm", "hojas devueltas al reciclar", hojas);
         crate::ring0::cabina::info("mm", "tablas devueltas al reciclar", tablas);

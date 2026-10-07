@@ -252,6 +252,7 @@ struct Estado {
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y ninguna
 // referencia al estado cruza una llamada al `.exe`.
+// [hilos] cerrojo -- el filtro y los vectores son del proceso; lo activo y los saltos, de cada hilo: cerrojo y partirlo
 unsafe impl Sync for Global {}
 static ESTADO: Global = Global(UnsafeCell::new(Estado { filtro: 0, vectores: Vectores::nuevos(), activos: Vec::new(), saltos: Vec::new() }));
 

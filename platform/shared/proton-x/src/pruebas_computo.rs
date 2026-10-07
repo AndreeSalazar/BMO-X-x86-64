@@ -120,7 +120,7 @@ fn la_textura_elegida_antes_de_la_barrera_sigue_elegida_despues() {
             vista: None,
         })
     };
-    let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: Some(Dinamicas(&buscar)) };
+    let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: Some(Dinamicas(&buscar, None)) };
     let mut salida = vec![0u8; 2 * 16];
     let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 2, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
     assert_eq!(p.despachar([1, 1, 1], &[], &rec, &mut uavs), 2);
@@ -215,4 +215,220 @@ fn el_paso_de_los_estructurados_sale_de_sus_metadatos() {
     assert_eq!(n, [(false, 0, 0, 32), (true, 0, 0, 32)]);
     let i = pasos(include_bytes!("../prueba/muestras/indirect/compute.cso"));
     assert!(i.contains(&(false, 0, 1, 24)) && i.contains(&(true, 0, 0, 24)), "{i:?}");
+}
+
+/// **13 de la pila A (07-10): RawBufferLoad y RawBufferStore** (op 139 y
+/// 140, SM 6.2), los de `crudo.hlsl` (de `dxc`, cs_6_2): Load y Load4 de un
+/// ByteAddressBuffer, una fila de un StructuredBuffer, Store y Store2 en un
+/// RWByteAddressBuffer y una fila de un RWStructuredBuffer. Cada valor es el
+/// exacto de HLSL (enteros, y floats chicos sin redondeo que discutir); los
+/// hilos de `n` en adelante no escriben.
+#[test]
+fn raw_buffer_load_y_store_dan_lo_de_hlsl() {
+    let s = dxil::leer(include_bytes!("../prueba/crudo.dxil")).unwrap();
+    let p = programa::compilar(&s).unwrap_or_else(|e| panic!("{e:?}"));
+    let w = |k: u32| k.wrapping_mul(7).wrapping_add(1);
+    let bytes: Vec<u8> = (0..160u32).flat_map(|k| w(k).to_le_bytes()).collect();
+    let filas: Vec<u8> = (0..32u32).flat_map(|k| [k as f32, k as f32 + 0.25, 2.0 * k as f32, -0.5 * k as f32]).flat_map(f32::to_le_bytes).collect();
+    // Las ranuras van en el orden del programa: t1 y t0, u1 y u0.
+    assert_eq!(p.ranuras.texturas.iter().map(|l| l.registro).collect::<Vec<_>>(), [1, 0]);
+    assert_eq!(p.ranuras.uavs.iter().map(|l| l.registro).collect::<Vec<_>>(), [1, 0]);
+    let srv = [Some(Bufer { bytes: &filas, formato: 0, paso: 16, elementos: 32 }), Some(Bufer { bytes: &bytes, formato: 0, paso: 4, elementos: 160 })];
+    let rec = Recursos { texturas: &[None], muestreadores: &[], buferes: &srv, dinamicas: None };
+    let mut salida = vec![0xFFu8; 512];
+    let mut pares = vec![0xFFu8; 32 * 8];
+    let mut cb = [0u8; 16];
+    cb[..4].copy_from_slice(&20u32.to_le_bytes());
+    {
+        let mut uavs = [
+            Some(Uav { bytes: &mut pares, formato: 0, paso: 8, elementos: 32, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA }),
+            Some(Uav { bytes: &mut salida, formato: 0, paso: 4, elementos: 128, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA }),
+        ];
+        assert_eq!(p.despachar([1, 1, 1], &cb, &rec, &mut uavs), 32);
+    }
+    let u = |b: &[u8], k: usize| u32::from_le_bytes(b[4 * k..4 * k + 4].try_into().unwrap());
+    for i in 0..32u32 {
+        let k = i as usize;
+        let (a, bx, by, bz, bw) = (w(i), w(32 + 4 * i), w(33 + 4 * i), w(34 + 4 * i), w(35 + 4 * i));
+        let (fx, fy, fw) = (i as f32, i as f32 + 0.25, -0.5 * i as f32);
+        if i < 20 {
+            assert_eq!(u(&salida, k), a.wrapping_mul(3).wrapping_add(1), "Store del hilo {i}");
+            assert_eq!([u(&salida, 64 + 2 * k), u(&salida, 65 + 2 * k)], [bx ^ bw, (fy * 2.0).to_bits()], "Store2 del hilo {i}");
+            assert_eq!([u(&pares, 2 * k), u(&pares, 2 * k + 1)], [by.wrapping_add(bz), (fx + fw).to_bits()], "la fila del hilo {i}");
+        } else {
+            assert_eq!([u(&salida, k), u(&salida, 64 + 2 * k), u(&pares, 2 * k)], [u32::MAX; 3], "el hilo {i} no escribe");
+        }
+    }
+}
+
+/// **18 de la pila A (07-10): IMad, UMad y los Interlocked de la memoria
+/// COMPARTIDA** (`atomicrmw` de LLVM, la instruccion 38), los de
+/// `compartido.hlsl` (de `dxc`, cs_6_0): dos grupos de 64. Lo que quedo en
+/// cada contador del grupo; los `mad()` de cada hilo; los "antes" de la
+/// suma, todos distintos y el mayor mas lo suyo es la suma; y UNO solo vio
+/// el cambio sin hacer. Nada de eso depende del orden de los hilos.
+#[test]
+fn imad_umad_y_los_interlocked_de_la_compartida_dan_lo_de_hlsl() {
+    let s = dxil::leer(include_bytes!("../prueba/compartido.dxil")).unwrap();
+    let p = programa::compilar(&s).unwrap_or_else(|e| panic!("{e:?}"));
+    assert!(p.ops.iter().any(|o| matches!(o, programa::Op::AtomicoCompartido { .. })));
+    let mut salida = vec![0xEEu8; 2 * 65 * 16];
+    {
+        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 130, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
+        let rec = Recursos { texturas: &[None], muestreadores: &[], buferes: &[], dinamicas: None };
+        assert_eq!(p.despachar([2, 1, 1], &[], &rec, &mut uavs), 128);
+    }
+    let fila = |k: usize| -> [u32; 4] { core::array::from_fn(|c| u32::from_le_bytes(salida[16 * k + 4 * c..16 * k + 4 * c + 4].try_into().unwrap())) };
+    for g in 0..2u32 {
+        let w = |gi: u32| gi * 5 + g * 1000 + 1;
+        let suma: u32 = (0..64).map(w).sum();
+        assert_eq!(fila(g as usize * 65 + 64), [suma, (200 - 3 * 63) as u32, 33, u32::MAX], "lo que quedo en el grupo {g}");
+        let mut antes = Vec::new();
+        let mut vieron_cero = 0;
+        for gi in 0..64u32 {
+            let f = fila((g * 65 + gi) as usize);
+            assert_eq!([f[0], f[1]], [(200 - 3 * gi as i32) as u32, w(gi)], "mad() del hilo {gi}");
+            antes.push((f[2], w(gi)));
+            vieron_cero += f[3];
+        }
+        antes.sort_unstable();
+        assert!(antes.windows(2).all(|x| x[0].0 < x[1].0), "cada InterlockedAdd vio otro antes");
+        let (a, wa) = antes[63];
+        assert_eq!(a + wa, suma, "el ultimo antes mas lo suyo es la suma");
+        assert_eq!(vieron_cero, 1, "uno solo vio el InterlockedExchange sin hacer");
+    }
+}
+
+/// **19 de la pila A (07-10): un array COMPARTIDO de structs y uno de
+/// vectores**, los de `estructuras.hlsl` (de `dxc`, cs_6_0): dxc los aplana
+/// (`[192 x float]`, `[64 x i32]`, `[128 x float]`); cada hilo lee el de su
+/// espejo tras la barrera. Lo que no aplana dxc (un struct o un vector que
+/// llega entero) lo juzga `dxil::arreglos::pruebas`.
+#[test]
+fn un_array_compartido_de_structs_y_de_vectores_da_lo_de_hlsl() {
+    let s = dxil::leer(include_bytes!("../prueba/estructuras.dxil")).unwrap();
+    let p = programa::compilar(&s).unwrap_or_else(|e| panic!("{e:?}"));
+    let mut salida = vec![0u8; 64 * 16];
+    {
+        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 64, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
+        let rec = Recursos { texturas: &[None], muestreadores: &[], buferes: &[], dinamicas: None };
+        assert_eq!(p.despachar([1, 1, 1], &[], &rec, &mut uavs), 64);
+    }
+    for gi in 0..64usize {
+        let q = (63 - gi) as f32;
+        let f: [f32; 4] = core::array::from_fn(|c| f32::from_le_bytes(salida[16 * gi + 4 * c..16 * gi + 4 * c + 4].try_into().unwrap()));
+        assert_eq!(f, [q + q * 0.5, -q, ((63 - gi) * 3 + 1) as f32, (q + 0.25) * (100.0 - q)], "el hilo {gi}");
+    }
+}
+
+/// El bucle de `salidas.hlsl`, en Rust: por donde salio (1 lo encontro, 2
+/// la suma se paso, 3 acabo), en que vuelta, con que suma, y lo encontrado.
+fn salidas_esperado(datos: &[u32], gi: u32, buscado: u32, tope: u32) -> [u32; 4] {
+    let mut suma = 0u32;
+    let mut k = 0;
+    while k < datos.len() {
+        let v = datos[k] ^ gi;
+        if v == buscado {
+            return [1, k as u32, suma, v];
+        }
+        suma = suma.wrapping_add(v);
+        if suma > tope {
+            break;
+        }
+        k += 1;
+    }
+    [if suma > tope { 2 } else { 3 }, k as u32, suma, 0]
+}
+
+/// **16 y 21 de la pila A (07-10): un bucle con TRES salidas** -- su
+/// condicion, un `break` y un `return` --, el de `salidas.hlsl` (de `dxc`):
+/// el CS (64 hilos) y el de pixeles (64 pixeles) dan lo del bucle en Rust,
+/// y salen por las tres. Antes: "un bucle con mas de una salida: todavia
+/// no" (la prueba que dice NO, con el estructurador de antes).
+#[test]
+fn un_bucle_con_tres_salidas_da_lo_de_hlsl_en_el_cs_y_en_el_de_pixeles() {
+    let datos: Vec<u32> = (0..32u32).map(|k| (k * 37 + 11) & 63).collect();
+    let (buscado, tope) = (5u32, 1000u32);
+    let bytes: Vec<u8> = datos.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let srv = [Some(Bufer { bytes: &bytes, formato: 0, paso: 4, elementos: 32 })];
+    let rec = Recursos { texturas: &[None], muestreadores: &[], buferes: &srv, dinamicas: None };
+    let mut cb = [0u8; 16];
+    for (k, v) in [32u32, buscado, tope].iter().enumerate() {
+        cb[4 * k..4 * k + 4].copy_from_slice(&v.to_le_bytes());
+    }
+    let esperado: Vec<[u32; 4]> = (0..64).map(|gi| salidas_esperado(&datos, gi, buscado, tope)).collect();
+    let mut vistas = [false; 4];
+    for e in &esperado {
+        vistas[e[0] as usize] = true;
+    }
+    assert_eq!(vistas, [false, true, true, true], "el juez sale por las tres");
+    // El CS.
+    let cs = programa::compilar(&dxil::leer(include_bytes!("../prueba/salidas_cs.dxil")).unwrap()).unwrap_or_else(|e| panic!("{e:?}"));
+    let mut salida = vec![0xEEu8; 64 * 16];
+    {
+        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 64, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
+        assert_eq!(cs.despachar([1, 1, 1], &cb, &rec, &mut uavs), 64);
+    }
+    for gi in 0..64usize {
+        let f: [u32; 4] = core::array::from_fn(|c| u32::from_le_bytes(salida[16 * gi + 4 * c..16 * gi + 4 * c + 4].try_into().unwrap()));
+        assert_eq!(f, esperado[gi], "el hilo {gi} del CS");
+    }
+    // El de pixeles: la x del pixel es el xor; lo que sale, en floats.
+    let ps = programa::compilar(&dxil::leer(include_bytes!("../prueba/salidas_ps.dxil")).unwrap()).unwrap_or_else(|e| panic!("{e:?}"));
+    let mut regs = Vec::new();
+    for gi in 0..64u32 {
+        let mut sal = vec![[0.0f32; 4]; ps.salidas];
+        ps.correr_con(&[[gi as f32 + 0.5, 0.5, 0.5, 1.0]], &cb, &rec, &mut sal, &mut regs);
+        let e = esperado[gi as usize];
+        assert_eq!(sal[0], [e[0] as f32, e[1] as f32, e[2] as f32, e[3] as f32], "el pixel {gi}");
+    }
+}
+
+/// **15 de la pila A (07-10): los buferes "bindless"** -- un array de
+/// StructuredBuffer y uno de ByteAddressBuffer con el registro CALCULADO
+/// por hilo (`NonUniformResourceIndex`), los de `bindless.hlsl` (de `dxc`):
+/// cada hilo lee la fila de SU tabla, sus medidas y una palabra de SU
+/// crudo, buscados al correr (`Dinamicas`, el segundo: el de buferes). La
+/// prueba que dice NO: sin quien busque buferes, se leen ceros.
+#[test]
+fn los_buferes_bindless_se_eligen_por_hilo() {
+    use crate::textura::Dinamicas;
+    let s = dxil::leer(include_bytes!("../prueba/bindless.dxil")).unwrap();
+    let p = programa::compilar(&s).unwrap_or_else(|e| panic!("{e:?}"));
+    // Los rangos dinamicos, en el orden del programa: el de las tablas (t0
+    // en el espacio 1) y el de los crudos (t8).
+    let rango_de = |desde: u32| p.ranuras.dinamicas.iter().position(|l| l.espacio == 1 && l.registro == desde).unwrap() as u8;
+    let (rt, rc) = (rango_de(0), rango_de(8));
+    let tablas: Vec<&'static [u8]> = (0..4u32)
+        .map(|t| &*alloc::boxed::Box::leak((0..(16 + 4 * t)).flat_map(|r| [t * 100 + r, 7, 9, t]).flat_map(u32::to_le_bytes).collect::<Vec<u8>>().into_boxed_slice()))
+        .collect();
+    let crudos: Vec<&'static [u8]> = (0..2u32).map(|c| &*alloc::boxed::Box::leak((0..16u32).flat_map(|w| (c * 1000 + w).to_le_bytes()).collect::<Vec<u8>>().into_boxed_slice())).collect();
+    let buscar_textura = |_: u8, _: u32| None;
+    let buscar_bufer = |rango: u8, registro: u32| -> Option<Bufer<'static>> {
+        if rango == rt {
+            let b = *tablas.get(registro as usize)?;
+            Some(Bufer { bytes: b, formato: 0, paso: 16, elementos: b.len() as u32 / 16 })
+        } else if rango == rc {
+            let b = *crudos.get(registro.checked_sub(8)? as usize)?;
+            Some(Bufer { bytes: b, formato: 0, paso: 0, elementos: b.len() as u32 / 4 })
+        } else {
+            None
+        }
+    };
+    let correr = |con_buferes: bool| {
+        let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: Some(Dinamicas(&buscar_textura, con_buferes.then_some(&buscar_bufer as &dyn Fn(u8, u32) -> Option<Bufer<'static>>))) };
+        let mut salida = vec![0xEEu8; 16 * 16];
+        {
+            let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 16, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
+            assert_eq!(p.despachar([1, 1, 1], &[], &rec, &mut uavs), 16);
+        }
+        (0..16usize).map(|gi| -> [u32; 4] { core::array::from_fn(|c| u32::from_le_bytes(salida[16 * gi + 4 * c..16 * gi + 4 * c + 4].try_into().unwrap())) }).collect::<Vec<_>>()
+    };
+    let visto = correr(true);
+    for gi in 0..16u32 {
+        let k = gi & 3;
+        assert_eq!(visto[gi as usize], [k * 100 + gi + k, 16 + 4 * k, 16, (gi & 1) * 1000 + gi], "el hilo {gi}");
+    }
+    let sin = correr(false);
+    assert!(sin.iter().all(|f| f[0] == 0 && f[1] == 0 && f[3] == 0), "NO: sin quien busque buferes, ceros: {sin:?}");
 }

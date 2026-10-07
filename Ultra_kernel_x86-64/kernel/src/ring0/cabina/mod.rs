@@ -51,6 +51,9 @@ pub(crate) mod attempt;
 /// vive, y se lee cuando vuelve. Ver su cabecera -- es una hipotesis sobre la
 /// placa hasta que el Ryzen conteste.
 pub mod caida;
+/// EL TABLERO de la caja negra (07-10): la etapa de cada nucleo, que
+/// sobrevive al reinicio. Ver su cabecera.
+pub mod tablero;
 pub use attempt::*;
 /// FORMATTING WITHOUT `std`: a line built by hand in a fixed byte buffer.
 pub(crate) mod format;

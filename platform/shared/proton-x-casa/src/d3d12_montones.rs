@@ -222,7 +222,7 @@ pub(crate) extern "win64" fn create_placed_resource(_this: u64, monton: u64, des
         return E_INVALIDARG;
     }
     if m.colocados.contains(&desde) {
-        aviso("CreatePlacedResource: dos recursos en el mismo sitio de un monton; en la casa no comparten memoria");
+        aviso("CreatePlacedResource: dos TEXTURAS en el mismo sitio de un monton: cada una tiene sus texeles (D3D12 no promete que una herede los de la otra con la disposicion UNKNOWN); los buferes si comparten. Cuesta RAM, no dibujo");
     } else {
         m.colocados.push(desde);
     }

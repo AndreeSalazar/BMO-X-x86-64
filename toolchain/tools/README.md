@@ -28,6 +28,7 @@ decoracion**, y un obrero que juzga es un obrero que un dia se niega a trabajar.
 | [`enlaces`](enlaces/) | una cita apunta a un documento que no existe. Y desde el 10-09 tambien avisa de **documentos que no cita nadie** |
 | [`censo-modular`](censo-modular/) | un modulo nuevo pasa de 1.000 lineas, o uno de la linea base crecio (L6a: trinquete, no muro) |
 | [`casillas`](casillas/) | una casilla de un plan **no dice donde mirar**, o sea que nadie la puede comprobar |
+| [`hilos-casa`](hilos-casa/) | un `unsafe impl Sync` de PROTON-X no dice su clase para los doce directores (`uno`, `cerrojo`, `por-hilo`, `hecho`), **o lo pendiente subio** (trinquete; H0.2 de `PLAN_LAS_TRES_GRANDES`) |
 | [`planes`](planes/) | el indice de lo que falta y los planes dejan de decir lo mismo. Ver [`docs/plan/ABIERTO.md`](../../docs/plan/ABIERTO.md) |
 | [`avisos`](avisos/) | los avisos del compilador SUBEN |
 | [`fases`](fases/) | un fichero de BMO C pierde su `[fase]`, o sea donde APARECE su fallo |

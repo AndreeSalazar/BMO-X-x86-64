@@ -444,6 +444,8 @@ extern "win64" fn set_event_handle(this: u64, h: u64) -> i32 {
         return E_INVALIDARG;
     }
     c.evento = h;
+    // T1 (07-10): quien lo espere es el hilo del sonido.
+    crate::hilos::del_sonido(h);
     S_OK
 }
 
