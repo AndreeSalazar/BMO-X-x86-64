@@ -524,6 +524,13 @@ pub fn repartir(pid: u32, cr3: u64, gs: u64, funcion: u64, arg: u64) -> Result<u
     PARTES.store(p.partes, SeqCst);
     HECHAS.store(0, SeqCst);
     EMPEZO.store(crate::ring0::task::scheduler::rdtsc(), SeqCst);
+    // El tablero de la caja negra (07-10): si la maquina muere en esta
+    // faena, el CAIDA siguiente lo dice.
+    {
+        use crate::ring0::cabina::tablero as t;
+        t::poner_hz(crate::ring0::task::scheduler::tsc_freq());
+        t::marcar(t::SUB_BSP, t::REPARTE, id, p.partes as u64);
+    }
     ACTIVA.store(true, SeqCst);
     if !DICHO_PRIMERO.swap(true, SeqCst) {
         crate::ring0::cabina::info("smp", "sub-directores: PRIMER reparto de Ring 3; partes", p.partes as u64);
@@ -574,6 +581,10 @@ pub fn esperar(pid: u32) -> Result<Option<u64>, NoRing3> {
     }
     for a in ASIGNADA.iter() {
         a.store(0, SeqCst);
+    }
+    {
+        use crate::ring0::cabina::tablero as t;
+        t::marcar(t::SUB_BSP, t::ACABO, FAENA.load(SeqCst), mal);
     }
     ACTIVA.store(false, SeqCst);
     Ok(Some(mal))
@@ -664,8 +675,16 @@ fn correr(i: usize, k: u32) -> u64 {
         DENTRO.fetch_add(1, SeqCst);
         ENTRADA[i].fetch_add(1, SeqCst);
         EN_CR3[i].store(cr3, SeqCst);
+        {
+            use crate::ring0::cabina::tablero as t;
+            t::marcar(t::OBREROS + i, t::ENTRA_RING3, FAENA.load(SeqCst), k as u64);
+        }
         bmo_ring3_entrar(salto, p.funcion, p.pila(k), k as u64, p.partes as u64, p.arg);
         EN_CR3[i].store(0, SeqCst);
+        {
+            use crate::ring0::cabina::tablero as t;
+            t::marcar(t::OBREROS + i, t::VUELVE, FAENA.load(SeqCst), salto.vector << 48 | (salto.rip & 0xFFFF_FFFF_FFFF));
+        }
         DENTRO.fetch_sub(1, SeqCst);
         // Los de datos del kernel otra vez (el iretq los dejo nulos y la
         // excepcion dejo SS a nulo), las bases de la app fuera, y `rsp0` a

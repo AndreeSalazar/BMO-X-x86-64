@@ -195,6 +195,9 @@ extern "C" fn timer_dispatch(frame: &mut TrapFrame) -> u64 {
     // EXPROPIAR (07-10): ANTES de planificar, el marco es el de la tarea que
     // el tick pillo. Si tiene alarma y toca, su RIP va a su puerta.
     crate::ring0::task::alarma::al_tick(frame);
+    // La caja negra, de la cache a la RAM (07-10): un reinicio de golpe
+    // borra la cache, y con ella todo lo que la caida tenia que contar.
+    crate::ring0::cabina::caida::a_la_ram();
     // Budgeted estuary service before the scheduler decision: pending
     // submissions become completions and their WAITers wake this tick.
     // Must run before on_timer so no scheduler lock is held here.

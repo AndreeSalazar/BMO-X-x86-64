@@ -159,6 +159,10 @@ pub fn al_tick(frame: &mut TrapFrame) {
             // de usuario y escribible en todos los pisos), alineada a 8 (no
             // cruza pagina), dentro del physmap.
             unsafe { core::ptr::write_volatile(phys_to_virt(f) as *mut u64, frame.rip) };
+            {
+                use crate::ring0::cabina::tablero as t;
+                t::marcar(t::ALARMA, t::SALTA, frame.rip, tid as u64);
+            }
             frame.rip = a.inicio;
             SALTOS.fetch_add(1, Relaxed);
         }

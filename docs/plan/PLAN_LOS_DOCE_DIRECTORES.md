@@ -215,6 +215,18 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
 
 ## 4T. EL TURNO, mientras hay UN nucleo (sin Ring 0)
 
+- [~] **V7 -- la caja negra que olvidaba lo ultimo.** Las cuatro `CAIDA`
+      del 07-10 acaban en la misma linea del arranque (la autopsia del booter)
+      aunque la maquina siguio viva minutos: el cursor del anillo vive en la
+      CACHE y un reinicio de golpe la borra sin escribirla. Ahora el tick
+      saca a la RAM con `clflush` las lineas nuevas y la cabecera
+      (`cabina::caida::a_la_ram`), y el TABLERO (`cabina/tablero.rs`, detras
+      del anillo) guarda la etapa de cada nucleo (repartir, entrar y volver
+      de Ring 3, la alarma) con su TSC, escrita a la RAM en el acto; el
+      `CAIDA` siguiente acaba con una linea por nucleo. **Como se sabe:** el
+      metal, solo: el siguiente reinicio con `smp all` tiene que traer lineas
+      de DESPUES del arranque y el `[tablero]`. Ver
+      [`METAL_2026-10-07.md`](../metal/METAL_2026-10-07.md).
 - [~] **V6 -- un trozo mas grande que un bloque.** El metal (07-10, la
       primera corrida con EXPROPIAR: 68 s vivo, 43 ExecuteCommandLists, el
       sonido arrancado): `memory allocation of 75497472 bytes failed` con
