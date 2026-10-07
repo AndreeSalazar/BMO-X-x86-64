@@ -339,6 +339,9 @@ pub(crate) const TASK_OP_SUB_ESPERAR: u64 = 0x41;
 /// `syscall/op_futex.rs` y `bmo-futex`.
 pub(crate) const TASK_OP_FUTEX_ESPERAR: u64 = 0x42;
 pub(crate) const TASK_OP_FUTEX_DESPERTAR: u64 = 0x43;
+/// **LA ALARMA** (07-10, EXPROPIAR). Espejo de `bmo_abi::...::TASK_OP_ALARMA`.
+/// Ver `syscall/op_alarma.rs`, `task/alarma.rs` y `bmo-alarma`.
+pub(crate) const TASK_OP_ALARMA: u64 = 0x44;
 pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su entrada, bloqueada.

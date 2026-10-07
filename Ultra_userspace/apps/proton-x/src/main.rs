@@ -45,6 +45,11 @@
 //! dibujo de la CPU en franjas por los otros nucleos, `obreros.rs`) aunque
 //! haya `smp all`. Va con `--diario` en cualquier orden.
 //!
+//! **EXPROPIAR** (07-10): antes de saltar, la ALARMA del kernel
+//! (`bmo::alarma`): cada 4 ms visita la puerta de la casa, que le quita el
+//! turno al hilo del juego que no lo suelta (`bmo_proton_x_casa::expropiar`).
+//! `--sin-expropiar` la deja apagada, para comparar en el metal.
+//!
 //! **El GS de Windows** (P1d, 27-09): antes de saltar, un TEB y un PEB en el
 //! monton y el GS del hilo apuntando al TEB (`TASK_OP_PON_GS`). Un `.exe`
 //! encuentra ahi su pila, su base, su LastError y sus ids, como en Windows
@@ -141,6 +146,10 @@ fn partir_ruta(todo: &[u8]) -> (&[u8], &[u8]) {
 const TOPE_SECCION: u64 = 64 << 20;
 /// Donde queda la lista entera.
 const RUTA_CENSO: &[u8] = b"informe/censo.txt";
+/// Cada cuanto visita la alarma del kernel (EXPROPIAR): el cuanto de la
+/// casa (`hilos::CUANTO_NS`).
+const EXPROPIAR_MS: u32 = 4;
+
 /// Donde queda el diario (`--diario`).
 const RUTA_DIARIO: &[u8] = b"informe/diario.txt";
 /// Lo que se lee de D: entre dos cesiones del turno (8 MiB: ~16 ms a la
@@ -920,10 +929,14 @@ pub extern "C" fn _start() -> ! {
     // ** `--sin-obreros` (07-10): los sub-directores APAGADOS -- todo el
     // dibujo en el nucleo de la casa, aunque haya `smp all`. Para comparar
     // en el metal sin recompilar. En cualquier orden con `--diario`.
-    let (mut todo, mut con_diario) = (todo, false);
+    // ** `--sin-expropiar` (07-10): sin la alarma del kernel; los hilos del
+    // juego solo sueltan el turno en las puertas de la casa (como antes).
+    let (mut todo, mut con_diario, mut expropiar) = (todo, false, true);
     loop {
         if let Some(r) = todo.strip_prefix(b"--diario ") {
             (todo, con_diario) = (r, true);
+        } else if let Some(r) = todo.strip_prefix(b"--sin-expropiar ") {
+            (todo, expropiar) = (r, false);
         } else if let Some(r) = todo.strip_prefix(b"--sin-obreros ") {
             todo = r;
             obreros::apagar();
@@ -1199,6 +1212,19 @@ pub extern "C" fn _start() -> ! {
         "PROTON-X: los DllMain tardaron {} ms\n",
         t_dllmain / 1_000_000
     ));
+    // -- 6f. EXPROPIAR (07-10): el codigo del `.exe` es del juego (las DLL
+    // ya lo dijeron al registrarse), y la alarma, armada: cada 4 ms el
+    // kernel visita la puerta de la casa.
+    bmo_proton_x_casa::expropiar::juego(base, exe.pe.tam_imagen as u64);
+    if expropiar {
+        let (inicio, fin, buzon) = bmo_proton_x_casa::expropiar::puerta();
+        match bmo::alarma::armar(inicio, fin, buzon, EXPROPIAR_MS) {
+            Ok(()) => di(&format!("PROTON-X: EXPROPIAR: la alarma del kernel, cada {EXPROPIAR_MS} ms (puerta {inicio:#x}, {} B)\n", fin - inicio)),
+            Err(no) => di(&format!("PROTON-X: EXPROPIAR: el kernel dijo NO a la alarma ({no:?}): los hilos solo sueltan el turno en las puertas\n")),
+        }
+    } else {
+        di("PROTON-X: EXPROPIAR APAGADO (--sin-expropiar)\n");
+    }
     di("PROTON-X: salto a su entrada ----------------------------------\n");
     // La imagen vive hasta que el proceso muera (no hay soltar).
     core::mem::forget(imagen);

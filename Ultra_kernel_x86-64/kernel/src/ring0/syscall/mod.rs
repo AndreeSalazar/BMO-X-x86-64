@@ -193,6 +193,10 @@ mod op_subdirector;
 /// como Linux. Aparte: es la unica puerta que lee una palabra de la app bajo
 /// el cerrojo del planificador.
 mod op_futex;
+/// **La alarma** (07-10, EXPROPIAR): el tick le quita el turno a un hilo
+/// de la casa que no lo suelta. Aparte: es la unica puerta con TRES
+/// argumentos de la tarea actual (`r8`).
+mod op_alarma;
 
 #[inline]
 fn unsupported() -> BmoStatus {
@@ -732,6 +736,9 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
     if frame.rdi == CURRENT_TASK {
         // * `frame.r10` y no `rcx`: en SYSCALL el CPU mete ahi el RIP de
         // retorno. Es el mismo motivo por el que el prologo hace `push rcx`.
+        if frame.rsi == TASK_OP_ALARMA {
+            return op_alarma::armar(frame.rdx, frame.r10, frame.r8);
+        }
         return invoke_current_task(frame.rsi, frame.rdx, frame.r10);
     }
     let pid = scheduler::current_pid();

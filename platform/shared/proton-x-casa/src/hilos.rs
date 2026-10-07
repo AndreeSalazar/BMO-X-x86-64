@@ -30,9 +30,14 @@
 //! Windows hace el reloj; aqui, en las puertas de sincronizar, que es donde
 //! ceder ya era seguro (es donde un hilo se bloquea).
 //!
-//! **Lo que no hay, dicho:** un hilo que da vueltas sin tocar NINGUNA de
-//! esas puertas (ni la hora) no suelta el turno (no hay reloj que se lo
-//! quite). Y si TODOS esperan algo
+//! **EXPROPIAR** (07-10, el metal: Cyberpunk a los 24 s con un hilo dando
+//! vueltas en SU codigo sin tocar ninguna puerta): la ALARMA del kernel
+//! visita la casa cada 4 ms y, si pillo al hilo en el codigo del juego y su
+//! cuanto paso, le quita el turno ahi mismo ([`expropiar`], desde
+//! `expropiar.rs`). Lo que da vueltas en el codigo de la CASA no se
+//! expropia: vuelve a la casa por una puerta.
+//!
+//! **Lo que no hay, dicho:** si TODOS esperan algo
 //! que solo otro que tambien espera podria dar, es un bloqueo mutuo: se dice
 //! con quien, y el proceso sale con 0xDEAD10CC en vez de colgarse callado.
 
@@ -332,6 +337,20 @@ pub(crate) fn turno_justo() {
     if ceder() {
         CUANTOS.fetch_add(1, Ordering::Relaxed);
     }
+}
+
+/// **EXPROPIAR** (07-10): la alarma del kernel pillo al hilo que corre en
+/// el codigo del JUEGO (`expropiar::decidir`). Si su cuanto paso, cede el
+/// turno, igual que si el juego hubiera llamado a SwitchToThread ahi.
+/// `true` si se cedio.
+pub(crate) fn expropiar() -> bool {
+    use core::sync::atomic::Ordering;
+    let t = ahora();
+    if t.saturating_sub(TURNO_DESDE.load(Ordering::Relaxed)) < CUANTO_NS {
+        return false;
+    }
+    TURNO_DESDE.store(t, Ordering::Relaxed);
+    ceder()
 }
 
 /// Cuantas veces el cuanto solto el turno desde el arranque.

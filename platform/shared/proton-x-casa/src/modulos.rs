@@ -113,6 +113,9 @@ pub(crate) fn reiniciar() {
 /// direccion). Su DllMain corre en [`iniciar_dlls`].
 pub fn registrar_dll(nombre: &str, base: u64, entrada: u64, exps: Vec<(Option<String>, u32, u64)>) {
     propias().push(Propia { nombre: bmo_proton_x::dll::fichero(nombre), base, entrada, exps, iniciada: false });
+    // EXPROPIAR (07-10): su codigo es del juego (la alarma le puede quitar
+    // el turno ahi).
+    crate::expropiar::juego(base, crate::kernel32_procesos::medida_imagen(base) as u64);
 }
 
 /// Las bases de las DLL propias cargadas (P4c: donde buscar su `.pdata`).

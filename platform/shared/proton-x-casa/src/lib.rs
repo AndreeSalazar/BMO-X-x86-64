@@ -98,6 +98,7 @@ pub mod dxgi;
 pub mod enlaces;
 pub mod esperas;
 pub mod excepciones;
+pub mod expropiar;
 pub mod ficheros;
 pub mod gdi32;
 pub mod hilos;
@@ -417,6 +418,7 @@ pub unsafe fn empezar(p: Plataforma) {
         e.dichos.clear();
     });
     hilos::reiniciar();
+    expropiar::reiniciar();
     pulso::reiniciar();
     tuberia::reiniciar();
     d3d12_vistas::reiniciar();

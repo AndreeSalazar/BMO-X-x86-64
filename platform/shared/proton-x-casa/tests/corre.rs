@@ -1348,5 +1348,7 @@ mod tandas;
 mod vivo;
 #[path = "corre/turno.rs"]
 mod turno;
+#[path = "corre/expropiar.rs"]
+mod expropiar;
 #[path = "corre/bandas.rs"]
 mod bandas;

@@ -1,0 +1,12 @@
+[package]
+name = "bmo-alarma"
+version = "0.1.0"
+edition = "2021"
+description = "LA ALARMA: el reloj del kernel le quita el turno a un hilo de Ring 3 que no lo suelta (el juez, con banco)"
+license = "Apache-2.0"
+
+[lib]
+
+# ** CERO DEPENDENCIAS: lo consume Ring 0 (sin asignador) y `cargo test` en
+# el anfitrion, como `bmo-futex`.
+[dependencies]

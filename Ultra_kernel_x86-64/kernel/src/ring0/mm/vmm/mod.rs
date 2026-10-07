@@ -63,7 +63,7 @@ pub use roja::{
     self_test, switch_to,
 };
 pub use verde::{
-    donde_se_corta, fisica_exacta, translate, CHANNEL_VA_BASE, FRAMEBUFFER_VA_BASE, MEMORIA_VA_BASE, PTE_HUGE,
+    donde_se_corta, fisica_escribible_ring3, fisica_exacta, translate, CHANNEL_VA_BASE, FRAMEBUFFER_VA_BASE, MEMORIA_VA_BASE, PTE_HUGE,
     PTE_PRESENT, PTE_USER, PTE_WRITABLE, USER_IMAGE_BASE, USER_STACK_BOTTOM, USER_STACK_SIZE,
     USER_STACK_TOP,
 };

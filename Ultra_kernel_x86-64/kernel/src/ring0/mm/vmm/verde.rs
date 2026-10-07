@@ -105,6 +105,32 @@ pub fn translate(pml4: u64, va: u64) -> Option<u64> {
     Some(e & ADDR_MASK)
 }
 
+/// **La fisica EXACTA de `va` si Ring 3 la puede ESCRIBIR**: presente, de
+/// usuario y escribible en TODOS los pisos (lo que pide la MMU para una
+/// escritura de Ring 3). `None` si no. Para el kernel que escribe por el
+/// physmap en nombre de la tarea (`task/alarma.rs`): solo donde ella misma
+/// podria escribir, nunca en una pagina de solo lectura ni del kernel.
+pub fn fisica_escribible_ring3(pml4: u64, va: u64) -> Option<u64> {
+    let quiere = PTE_PRESENT | PTE_USER | PTE_WRITABLE;
+    let idx = [(va >> 39) & 0x1FF, (va >> 30) & 0x1FF, (va >> 21) & 0x1FF, (va >> 12) & 0x1FF];
+    let mut t = pml4;
+    for (nivel, &i) in idx.iter().enumerate() {
+        let e = table(t)[i as usize];
+        if e & quiere != quiere {
+            return None;
+        }
+        // Una hoja grande en el PDPT (1 GiB) o en el PD (2 MiB).
+        if nivel == 1 && e & PTE_HUGE != 0 {
+            return Some((e & 0x000F_FFFF_C000_0000) + (va & 0x3FFF_FFFF));
+        }
+        if nivel == 2 && e & PTE_HUGE != 0 {
+            return Some((e & 0x000F_FFFF_FFE0_0000) + (va & 0x1F_FFFF));
+        }
+        t = e & ADDR_MASK;
+    }
+    Some(t + (va & (PAGE - 1)))
+}
+
 /// **Donde se corta el paseo de `va`**: `(nivel, tabla)`.
 ///
 /// `nivel` es el piso cuya ENTRADA falta -- 4 = la del PML4, 3 = la del PDPT,

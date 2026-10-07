@@ -260,6 +260,34 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
       prueba se cuelga hasta su tope y falla); en el metal, la linea
       `# el cuanto solto el turno: N` del pulso. Es el parche: lo de verdad
       es H1 (hilos del kernel, como Linux).
+- [~] **T5 -- EXPROPIAR: el reloj le quita el turno al hilo del juego.**
+      El metal (07-10, otra corrida): Cyberpunk a los 24 s con un hilo
+      dando vueltas en SU codigo sin tocar ninguna puerta (el ritmo cayo de
+      ~100 mil llamadas por segundo a 6835, y despues ninguna foto mas), y
+      la maquina se reinicio. T4 no llega ahi: solo actua en las puertas.
+      Ahora, como un signal de reloj de Linux (`setitimer`; y como Go desde
+      2020 con sus gorrutinas): `TASK_OP_ALARMA` (0x44,
+      `syscall/op_alarma.rs`, `task/alarma.rs`) -- cada 4 ms, si el tick
+      pilla a la tarea en Ring 3 y FUERA de su puerta, el RIP que llevaba va
+      a su buzon (por su fisica, solo si es escribible por ella:
+      `vmm::fisica_escribible_ring3`) y el RIP del marco, a la puerta. La
+      puerta de la casa (`proton-x-casa/src/expropiar.rs`, ensamblador)
+      salta la zona roja, guarda los 16 registros, las banderas y x87/SSE
+      (fxsave), y si el RIP era del JUEGO (el `.exe` y sus DLL) y su cuanto
+      paso, cede el turno como un SwitchToThread ahi; lo de la casa, los
+      sombreadores nativos y los trampolines no se tocan. El juez es
+      `bmo-alarma` (puro, 4 pruebas). La app la arma antes de saltar
+      (`--sin-expropiar` la apaga). El pulso dice `# EXPROPIAR: ...` con
+      DONDE pillo al juego la ultima vez (si se cuelga dando vueltas, es
+      ahi), y la foto sale aunque nadie llame a Windows.
+      **Como se sabe:** `tests/corre/expropiar.rs` (el kernel del banco es
+      un signal de Linux que hace lo mismo que el tick):
+      `el_que_da_vueltas_sin_llamar_a_nada_lo_expropia_la_alarma` (la
+      prueba del NO: con la alarma saltando pero sin ser codigo del juego,
+      el otro hilo no corre nunca) y `la_puerta_devuelve_todos_los_registros`
+      (16 registros, CF y los xmm con valores conocidos mientras otro hilo
+      los pisa todos en medio; quitar `push rcx`, el `fxsave` o el `pushfq`
+      de la puerta la pone ROJA, comprobado). **Falta:** el metal.
 
 ## 4H. LOS DOCE DIRECTORES `[RING 0]`, con permiso
 

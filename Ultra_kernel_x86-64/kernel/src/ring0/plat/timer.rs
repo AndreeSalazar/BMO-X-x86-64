@@ -183,7 +183,7 @@ unsafe extern "C" fn spurious_entry() -> ! {
 }
 
 #[unsafe(no_mangle)]
-extern "C" fn timer_dispatch(_frame: &mut TrapFrame) -> u64 {
+extern "C" fn timer_dispatch(frame: &mut TrapFrame) -> u64 {
     // Donde tallo su area este trap, y para quien. Ver `trap::publicaciones`:
     // es lo que permite ver DOS areas solapadas en la misma pila cuando un
     // contexto aparece pisado con el sello intacto.
@@ -192,6 +192,9 @@ extern "C" fn timer_dispatch(_frame: &mut TrapFrame) -> u64 {
         crate::ring0::task::scheduler::current_tid(),
     );
     let n = crate::ring0::reloj::avanzar();
+    // EXPROPIAR (07-10): ANTES de planificar, el marco es el de la tarea que
+    // el tick pillo. Si tiene alarma y toca, su RIP va a su puerta.
+    crate::ring0::task::alarma::al_tick(frame);
     // Budgeted estuary service before the scheduler decision: pending
     // submissions become completions and their WAITers wake this tick.
     // Must run before on_timer so no scheduler lock is held here.

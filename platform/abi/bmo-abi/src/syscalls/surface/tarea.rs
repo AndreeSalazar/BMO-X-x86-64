@@ -754,6 +754,20 @@ pub const TASK_OP_FUTEX_DESPERTAR: u64 = 0x43;
 pub const FUTEX_DESALINEADA: u32 = 1;
 pub const FUTEX_NO_ES_RING3: u32 = 2;
 pub const FUTEX_CAMBIO: u32 = 3;
+/// **LA ALARMA** (07-10, EXPROPIAR; como un signal de reloj de Linux): cada
+/// `ms`, si el tick pilla a la tarea en Ring 3 FUERA de su puerta, el RIP
+/// que llevaba va al buzon y el RIP pasa a la puerta. `arg0` = la puerta
+/// (codigo de Ring 3), `arg1` = el buzon (8 bytes alineados que la tarea
+/// puede escribir), `arg2` (en `r8`) = `bmo_alarma::empaquetar(bytes de la
+/// puerta, ms)`; `ms = 0` la apaga. La puerta guarda TODO y salta al RIP del
+/// buzon.
+pub const TASK_OP_ALARMA: u64 = 0x44;
+/// Los NO de la alarma (espejo de `bmo_alarma::NoAlarma`).
+pub const ALARMA_FUERA_DE_RING3: u32 = 1;
+pub const ALARMA_PUERTA_MALA: u32 = 2;
+pub const ALARMA_BUZON_MALO: u32 = 3;
+pub const ALARMA_PERIODO_MALO: u32 = 4;
+pub const ALARMA_BUZON_NO_ESCRIBIBLE: u32 = 5;
 /// La ventana de reserva: 384 GiB desde `0x20_0000_0000`, hasta el final
 /// de `PML4[0]` (era de 128: Cyberpunk aparta mas de 130 GiB al arrancar).
 pub const RESERVA_VENTANA_BASE: u64 = 0x0000_0020_0000_0000;
