@@ -370,6 +370,7 @@ variantes!(Op:
     47 EscribeIndexado { base, n, i, s };
     48 ConstantesEn { d, fila, filas, i, cb };
     49 Ola { d, a, b, que };
+    50 AtomicoCompartido { d, base, n, i, v, como };
 );
 
 /// **Cifrar un Enlace**: la cabecera, la huella del codigo y el Enlace.

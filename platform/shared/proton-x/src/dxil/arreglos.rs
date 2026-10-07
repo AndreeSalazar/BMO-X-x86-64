@@ -31,10 +31,32 @@ fn forma(tipos: &[Tipo], floats: &[bool], anchos: &[u32], t: usize) -> Result<(u
             let (m, enteros) = forma(tipos, floats, anchos, elem)?;
             Ok((n * m, enteros))
         }
+        // 19 (07-10): un struct, campo a campo; de enteros si todos lo son
+        // (lo que se lea de un campo lo dice SU tipo: `apuntar`).
+        Some(&Tipo::Estructura { n, campos }) => {
+            let (mut total, mut enteros) = (0, true);
+            for &t in &campos[..n as usize] {
+                let (m, e) = forma(tipos, floats, anchos, t as usize)?;
+                total += m;
+                enteros &= e;
+            }
+            Ok((total, enteros))
+        }
         _ if floats.get(t).copied().unwrap_or(false) => Ok((1, false)),
         _ if anchos.get(t).copied().unwrap_or(0) > 0 => Ok((1, true)),
         _ => Err(NoPrograma::Forma("un array de algo que no es float ni entero (structs, vectores): todavia no")),
     }
+}
+
+/// **El campo `k` de un struct** (19, 07-10): donde empieza (lo que miden
+/// los de antes, aplanado) y su tipo.
+fn campo(tipos: &[Tipo], floats: &[bool], anchos: &[u32], campos: &[u32], k: i64) -> Result<(usize, usize), NoPrograma> {
+    let k = usize::try_from(k).ok().filter(|&k| k < campos.len()).ok_or(NoPrograma::Forma("un getelementptr a un campo que el struct no tiene"))?;
+    let mut desde = 0;
+    for &t in &campos[..k] {
+        desde += forma(tipos, floats, anchos, t as usize)?.0;
+    }
+    Ok((desde, campos[k] as usize))
 }
 
 /// N registros seguidos con sus iniciales.
@@ -62,7 +84,7 @@ fn nuevo(c: &mut Compilador, tipos: &[Tipo], floats: &[bool], anchos: &[u32], t:
 /// los bits de cada elemento) o `CST_CODE_AGGREGATE` (7: ids de otras
 /// constantes, que ya deben estar).
 pub(super) fn constante(c: &mut Compilador, codigo: u64, ops: &[u64], tipo: usize, tipos: &[Tipo], floats: &[bool], anchos: &[u32]) -> Result<Valor, NoPrograma> {
-    if !matches!(tipos.get(tipo), Some(Tipo::Arreglo { .. })) {
+    if !matches!(tipos.get(tipo), Some(Tipo::Arreglo { .. } | Tipo::Estructura { .. })) {
         return Ok(Valor::Nada);
     }
     let iniciales: Vec<f32> = if codigo == CST_DATA {
@@ -95,7 +117,8 @@ pub(super) const CST_CE_GEP: u64 = 12;
 pub(super) const CST_CE_INBOUNDS_GEP: u64 = 20;
 
 /// **Un global** (`MODULE_CODE_GLOBALVAR`: [tipo, constante | explicito
-/// << 1, inicial + 1, ...]): su array, con el inicial si lo tiene.
+/// << 1, inicial + 1, ...]): su array, con el inicial si lo tiene; o (14,
+/// 07-10) un array de uno si es un numero suelto.
 pub(super) fn global(c: &mut Compilador, ops: &[u64], tipos: &[Tipo], floats: &[bool], anchos: &[u32]) -> Result<Valor, NoPrograma> {
     let (t, banderas, inicial) = (ops.first().copied().unwrap_or(0) as usize, ops.get(1).copied().unwrap_or(0), ops.get(2).copied().unwrap_or(0));
     // Sin el bit "explicito", el campo 0 es el tipo PUNTERO.
@@ -103,7 +126,11 @@ pub(super) fn global(c: &mut Compilador, ops: &[u64], tipos: &[Tipo], floats: &[
         (0, Some(&Tipo::Puntero { a })) => a,
         _ => t,
     };
-    if !matches!(tipos.get(t), Some(Tipo::Arreglo { .. })) {
+    // 14 de la pila A (07-10): un global que es UN numero (`groupshared uint
+    // suma;`, `static float x;`) es un array de uno; los demas (los
+    // recursos, que son structs) no son nada aqui.
+    let numero = floats.get(t).copied().unwrap_or(false) || anchos.get(t).copied().unwrap_or(0) > 0;
+    if !matches!(tipos.get(t), Some(Tipo::Arreglo { .. } | Tipo::Estructura { .. })) && !numero {
         return Ok(Valor::Nada);
     }
     // N5.5 (05-10): `addrspace(3)` (los bits de arriba de las banderas) es la
@@ -182,6 +209,17 @@ fn apuntar(c: &mut Compilador, p: usize, indices: &[usize], tipos: &[Tipo], floa
     let mut total: Option<Reg> = None;
     let mut fijo = 0i64;
     for &i in &indices[1..] {
+        // 19 (07-10): un campo de un struct: el indice es constante, y lo
+        // que salta es lo que miden los campos de antes.
+        if let Some(&Tipo::Estructura { n, campos }) = tipos.get(t) {
+            let Some(Valor::Entero(k)) = c.valores.get(i).copied() else {
+                return Err(NoPrograma::Forma("un getelementptr a un campo CALCULADO de un struct"));
+            };
+            let (desde, campo) = campo(tipos, floats, anchos, &campos[..n as usize], k)?;
+            fijo += desde as i64;
+            t = campo;
+            continue;
+        }
         let Some(&Tipo::Arreglo { elem, .. }) = tipos.get(t) else {
             return Err(NoPrograma::Forma("un getelementptr que baja mas hondo que el array"));
         };
@@ -220,6 +258,12 @@ fn apuntar(c: &mut Compilador, p: usize, indices: &[usize], tipos: &[Tipo], floa
             d
         }
     };
+    // 19 (07-10): lo que se lee es del tipo de lo APUNTADO (un campo de un
+    // struct puede ser entero en un struct de floats).
+    let enteros = match tipos.get(t) {
+        Some(Tipo::Arreglo { .. } | Tipo::Estructura { .. }) => enteros,
+        _ => anchos.get(t).copied().unwrap_or(0) > 0,
+    };
     Ok(if compartida { Valor::PunteroCompartido { base, n, i, enteros } } else { Valor::Puntero { base: base as Reg, n: n as u16, i, enteros } })
 }
 
@@ -245,6 +289,45 @@ pub(super) fn load(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoProgra
     Ok(())
 }
 
+/// **`atomicrmw`** (38: [puntero con su tipo, valor, operacion, volatil,
+/// orden, alcance]), 18 de la pila A (07-10): un `Interlocked*` sobre la
+/// memoria compartida del grupo; da la palabra de antes. Las operaciones de
+/// LLVM: 0 xchg, 1 add, 2 sub, 3 and, 5 or, 6 xor, 7 max, 8 min, 9 umax,
+/// 10 umin (`sub` es sumar el negado; `nand` no lo escribe HLSL).
+pub(super) fn atomico(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoPrograma> {
+    use crate::bufer::Atomo;
+    let p = o.con_tipo()?;
+    let v = o.solo()?;
+    let que = o.crudo()?;
+    let (compartida, base, n, i, _) = donde(c, p)?;
+    if !compartida {
+        return Err(NoPrograma::Forma("un atomicrmw de algo que no es la memoria compartida: todavia no"));
+    }
+    let mut rv = bits(c, v)?;
+    let como = match que {
+        0 => Atomo::Cambia,
+        1 => Atomo::Suma,
+        2 => {
+            let (cero, d) = (literal(c, 0)?, c.registro(0.0)?);
+            c.ops.push(Op::Entera { d, a: cero, b: rv, op: super::programa::OpEntera::Resta });
+            rv = d;
+            Atomo::Suma
+        }
+        3 => Atomo::Y,
+        5 => Atomo::O,
+        6 => Atomo::Xor,
+        7 => Atomo::MaxConSigno,
+        8 => Atomo::MinConSigno,
+        9 => Atomo::MaxSinSigno,
+        10 => Atomo::MinSinSigno,
+        _ => return Err(NoPrograma::Forma("un atomicrmw que HLSL no escribe (nand)")),
+    };
+    let d = c.registro(0.0)?;
+    c.ops.push(Op::AtomicoCompartido { d, base, n, i, v: rv, como });
+    c.valores.push(Valor::Bits(d));
+    Ok(())
+}
+
 /// `store T v, T* p` (44: [puntero con su tipo, valor con su tipo, ...]).
 pub(super) fn store(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoPrograma> {
     let p = o.con_tipo()?;
@@ -253,4 +336,46 @@ pub(super) fn store(c: &mut Compilador, o: &mut Operandos) -> Result<(), NoProgr
     let s = bits(c, v)?;
     c.ops.push(if compartida { Op::EscribeCompartida { base, n, i, s } } else { Op::EscribeIndexado { base: base as Reg, n: n as u16, i, s } });
     Ok(())
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    use crate::dxil::programa::CAMPOS;
+
+    fn estructura(campos: &[u32]) -> Tipo {
+        let mut c = [0u32; CAMPOS];
+        c[..campos.len()].copy_from_slice(campos);
+        Tipo::Estructura { n: campos.len() as u8, campos: c }
+    }
+
+    /// 19 de la pila A (07-10): `struct { float3 pos; uint id; } [64]`, y
+    /// un `float2 [64]` (un vector se aplana como un array). Los tipos: 0
+    /// float, 1 i32, 2 <3 x float>, 3 el struct, 4 [64 x struct], 5 <2 x
+    /// float>, 6 [64 x <2 x float>], 7 un handle (`{ i8* }`: un puntero, ni
+    /// float ni entero).
+    #[test]
+    fn un_array_de_structs_y_de_vectores_se_aplana() {
+        let tipos = [
+            Tipo::Otro,
+            Tipo::Otro,
+            Tipo::Arreglo { n: 3, elem: 0 },
+            estructura(&[2, 1]),
+            Tipo::Arreglo { n: 64, elem: 3 },
+            Tipo::Arreglo { n: 2, elem: 0 },
+            Tipo::Arreglo { n: 64, elem: 5 },
+            estructura(&[8]),
+            Tipo::Puntero { a: 1 },
+        ];
+        let floats = [true, false, false, false, false, false, false, false, false];
+        let anchos = [0, 32, 0, 0, 0, 0, 0, 0, 0];
+        assert_eq!(forma(&tipos, &floats, &anchos, 3).ok(), Some((4, false)), "float3 + uint: 4, mezclado");
+        assert_eq!(forma(&tipos, &floats, &anchos, 4).ok(), Some((256, false)));
+        assert_eq!(forma(&tipos, &floats, &anchos, 6).ok(), Some((128, false)), "un float2 son 2 floats");
+        assert_eq!(campo(&tipos, &floats, &anchos, &[2, 1], 1).ok(), Some((3, 1)), "id va detras de los 3 de pos, y es entero");
+        assert_eq!(campo(&tipos, &floats, &anchos, &[2, 1], 0).ok(), Some((0, 2)));
+        assert!(campo(&tipos, &floats, &anchos, &[2, 1], 2).is_err(), "no tiene tercer campo");
+        // La prueba que dice NO: un struct con un puntero dentro no se aplana.
+        assert!(forma(&tipos, &floats, &anchos, 7).is_err());
+    }
 }

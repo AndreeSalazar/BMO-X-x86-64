@@ -433,6 +433,16 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
         DX_FABS => uno(c, |d, a| Op::Abs { d, a })?,
         // E6c: IMax, IMin, UMax, UMin (`dx.op.binary.i32`).
         37..=40 => super::super::enteros::min_max(c, op, arg(1)?, arg(2)?)?,
+        // 18 de la pila A (07-10): IMad (48) y UMad (49), `mad()` de enteros:
+        // a * b + c en 32 bits (los de abajo son los mismos con y sin signo).
+        48 | 49 => {
+            let (a, b, cc) = (super::super::estructura::bits(c, arg(1)?)?, super::super::estructura::bits(c, arg(2)?)?, super::super::estructura::bits(c, arg(3)?)?);
+            let t = c.registro(0.0)?;
+            c.ops.push(Op::Entera { d: t, a, b, op: OpEntera::Mul });
+            let d = c.registro(0.0)?;
+            c.ops.push(Op::SumaEntera { d, a: t, b: cc });
+            Valor::Bits(d)
+        }
         DX_FMIN | DX_FMAX => {
             let (a, b) = (c.float(arg(1)?)?, c.float(arg(2)?)?);
             let d = c.registro(0.0)?;

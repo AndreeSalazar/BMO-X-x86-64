@@ -3408,3 +3408,29 @@ Reproducible (comprobado en dos directorios), sin rutas. sha256:
 El banco: `src/pruebas_computo.rs` (`raw_buffer_load_y_store_dan_lo_de_hlsl`,
 cada valor el exacto de HLSL) y, traducido a x86-64,
 `proton-x-casa/tests/nativo_computo.rs` (los mismos bytes que el interprete).
+
+compartido.dxil y estructuras.dxil -- 14, 18 y 19 de la pila A (07-10)
+
+Lo que tres CS de Cyberpunk pidieron en el metal (06-10): "un load o un
+store de algo que no es un array" (14), `OperacionD3d(48)` e
+`Instruccion(38)` (18), y "un array de algo que no es float ni entero
+(structs, vectores)" (19). Con el DXC de la nube (v1.8.2505, 9efbb6c3), sin
+-Zi:
+
+   dxc -T cs_6_0 -E CSMain -Fo compartido.dxil compartido.hlsl
+   dxc -T cs_6_0 -E CSMain -Fo estructuras.dxil estructuras.hlsl
+
+`compartido.hlsl`: contadores `groupshared` SUELTOS (no arrays: el 14), con
+InterlockedAdd, Min, Max, Or y Exchange (`atomicrmw`: el 18) y `mad()` de
+enteros (IMad 48 y UMad 49). Lo que se juzga no depende del orden de los
+hilos. `estructuras.hlsl`: un array compartido de structs y uno de float2
+(dxc los aplana; lo que llegue entero lo juzga `dxil::arreglos::pruebas`).
+
+Reproducibles (comprobado en dos directorios), sin rutas. sha256:
+
+   e7487ada9fedd9f104d9c0dd6de3f7fd6b8d457e740b0973f9b8bebc04b10bf7  compartido.dxil
+   d93bf5cc4c10f4731aabba3aed37c9d97d82e3f905f23cb6dac678834289e60c  estructuras.dxil
+
+El banco: `src/pruebas_computo.rs` (`imad_umad_y_los_interlocked_de_la_
+compartida_dan_lo_de_hlsl`, `un_array_compartido_de_structs_y_de_vectores_
+da_lo_de_hlsl`).

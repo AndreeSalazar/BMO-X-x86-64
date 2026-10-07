@@ -260,3 +260,63 @@ fn raw_buffer_load_y_store_dan_lo_de_hlsl() {
         }
     }
 }
+
+/// **18 de la pila A (07-10): IMad, UMad y los Interlocked de la memoria
+/// COMPARTIDA** (`atomicrmw` de LLVM, la instruccion 38), los de
+/// `compartido.hlsl` (de `dxc`, cs_6_0): dos grupos de 64. Lo que quedo en
+/// cada contador del grupo; los `mad()` de cada hilo; los "antes" de la
+/// suma, todos distintos y el mayor mas lo suyo es la suma; y UNO solo vio
+/// el cambio sin hacer. Nada de eso depende del orden de los hilos.
+#[test]
+fn imad_umad_y_los_interlocked_de_la_compartida_dan_lo_de_hlsl() {
+    let s = dxil::leer(include_bytes!("../prueba/compartido.dxil")).unwrap();
+    let p = programa::compilar(&s).unwrap_or_else(|e| panic!("{e:?}"));
+    assert!(p.ops.iter().any(|o| matches!(o, programa::Op::AtomicoCompartido { .. })));
+    let mut salida = vec![0xEEu8; 2 * 65 * 16];
+    {
+        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 130, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
+        let rec = Recursos { texturas: &[None], muestreadores: &[], buferes: &[], dinamicas: None };
+        assert_eq!(p.despachar([2, 1, 1], &[], &rec, &mut uavs), 128);
+    }
+    let fila = |k: usize| -> [u32; 4] { core::array::from_fn(|c| u32::from_le_bytes(salida[16 * k + 4 * c..16 * k + 4 * c + 4].try_into().unwrap())) };
+    for g in 0..2u32 {
+        let w = |gi: u32| gi * 5 + g * 1000 + 1;
+        let suma: u32 = (0..64).map(w).sum();
+        assert_eq!(fila(g as usize * 65 + 64), [suma, (200 - 3 * 63) as u32, 33, u32::MAX], "lo que quedo en el grupo {g}");
+        let mut antes = Vec::new();
+        let mut vieron_cero = 0;
+        for gi in 0..64u32 {
+            let f = fila((g * 65 + gi) as usize);
+            assert_eq!([f[0], f[1]], [(200 - 3 * gi as i32) as u32, w(gi)], "mad() del hilo {gi}");
+            antes.push((f[2], w(gi)));
+            vieron_cero += f[3];
+        }
+        antes.sort_unstable();
+        assert!(antes.windows(2).all(|x| x[0].0 < x[1].0), "cada InterlockedAdd vio otro antes");
+        let (a, wa) = antes[63];
+        assert_eq!(a + wa, suma, "el ultimo antes mas lo suyo es la suma");
+        assert_eq!(vieron_cero, 1, "uno solo vio el InterlockedExchange sin hacer");
+    }
+}
+
+/// **19 de la pila A (07-10): un array COMPARTIDO de structs y uno de
+/// vectores**, los de `estructuras.hlsl` (de `dxc`, cs_6_0): dxc los aplana
+/// (`[192 x float]`, `[64 x i32]`, `[128 x float]`); cada hilo lee el de su
+/// espejo tras la barrera. Lo que no aplana dxc (un struct o un vector que
+/// llega entero) lo juzga `dxil::arreglos::pruebas`.
+#[test]
+fn un_array_compartido_de_structs_y_de_vectores_da_lo_de_hlsl() {
+    let s = dxil::leer(include_bytes!("../prueba/estructuras.dxil")).unwrap();
+    let p = programa::compilar(&s).unwrap_or_else(|e| panic!("{e:?}"));
+    let mut salida = vec![0u8; 64 * 16];
+    {
+        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 64, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
+        let rec = Recursos { texturas: &[None], muestreadores: &[], buferes: &[], dinamicas: None };
+        assert_eq!(p.despachar([1, 1, 1], &[], &rec, &mut uavs), 64);
+    }
+    for gi in 0..64usize {
+        let q = (63 - gi) as f32;
+        let f: [f32; 4] = core::array::from_fn(|c| f32::from_le_bytes(salida[16 * gi + 4 * c..16 * gi + 4 * c + 4].try_into().unwrap()));
+        assert_eq!(f, [q + q * 0.5, -q, ((63 - gi) * 3 + 1) as f32, (q + 0.25) * (100.0 - q)], "el hilo {gi}");
+    }
+}

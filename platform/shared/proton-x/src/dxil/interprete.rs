@@ -338,6 +338,21 @@ impl Programa {
                     };
                     regs[d as usize] = f32::from_bits(v);
                 }
+                Op::AtomicoCompartido { d, base, n, i, v, como } => {
+                    let (k, v) = (bits(regs, i), bits(regs, v));
+                    let antes = match &mut x {
+                        Extra::Grupo(g) => match g.compartida.get_mut((base + k) as usize).filter(|_| k < n) {
+                            Some(w) => {
+                                let antes = *w;
+                                *w = como.hacer(antes, v, 0);
+                                antes
+                            }
+                            None => 0,
+                        },
+                        _ => 0,
+                    };
+                    regs[d as usize] = f32::from_bits(antes);
+                }
                 Op::EscribeCompartida { base, n, i, s } => {
                     let (k, v) = (bits(regs, i), bits(regs, s));
                     if let Extra::Grupo(g) = &mut x {

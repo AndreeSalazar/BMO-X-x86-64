@@ -59,6 +59,13 @@ const TYPE_POINTER: u64 = 8;
 const TYPE_ARRAY: u64 = 11;
 const TYPE_STRUCT_NAME: u64 = 19;
 const TYPE_FUNCTION: u64 = 21;
+/// 19 de la pila A (07-10): `<n x T>` y los structs (`{ T, U }`, con
+/// nombre o sin el): se aplanan como los arrays.
+const TYPE_VECTOR: u64 = 12;
+const TYPE_STRUCT_ANON: u64 = 18;
+const TYPE_STRUCT_NAMED: u64 = 20;
+/// Los campos que cabe en un [`Tipo::Estructura`].
+pub(super) const CAMPOS: usize = 16;
 
 const CST_SETTYPE: u64 = 1;
 const CST_NULL: u64 = 2;
@@ -84,6 +91,8 @@ const FUNC_ALLOCA: u64 = 19;
 const FUNC_LOAD: u64 = 20;
 const FUNC_GEP: u64 = 43;
 const FUNC_STORE: u64 = 44;
+/// 18 de la pila A (07-10): `atomicrmw` (un Interlocked* de `groupshared`).
+const FUNC_ATOMICRMW: u64 = 38;
 const FUNC_DEBUG_LOC: u64 = 35;
 
 const CALL_EXPLICIT_TYPE: u64 = 1 << 15;
@@ -214,6 +223,11 @@ pub enum Op {
     /// `base + i` (de `n`; fuera, 0 al leer y nada al escribir).
     LeeCompartida { d: Reg, base: u32, n: u32, i: Reg },
     EscribeCompartida { base: u32, n: u32, i: Reg, s: Reg },
+    /// 18 de la pila A (07-10): un `Interlocked*` sobre la memoria
+    /// COMPARTIDA (`atomicrmw` de LLVM, la instruccion 38): la palabra
+    /// `base + i` (de `n`) pasa a `como(antes, v)`; `d` la de antes. Fuera,
+    /// 0 y nada.
+    AtomicoCompartido { d: Reg, base: u32, n: u32, i: Reg, v: Reg, como: crate::bufer::Atomo },
     /// N5.5: `bufferStore` al UAV de la ranura `u`: el elemento `i`, `desp`
     /// bytes dentro de el (estructurado), los canales de `v` que dice
     /// `mascara`. En un UAV de textura, `i` la x, `desp` la y y (06-10) `z`
@@ -735,8 +749,12 @@ pub(super) enum Tipo {
     Vacio,
     Funcion { devuelve: usize },
     Puntero { a: usize },
-    /// N5.10: `[n x elem]`.
+    /// N5.10: `[n x elem]`. 19 (07-10): y un vector `<n x elem>`, que se
+    /// aplana igual.
     Arreglo { n: usize, elem: usize },
+    /// 19 de la pila A (07-10): un struct: sus `n` campos (ids de tipo), en
+    /// orden; se aplana campo a campo. Mas de [`CAMPOS`], `Otro`.
+    Estructura { n: u8, campos: [u32; CAMPOS] },
     Otro,
 }
 
@@ -797,7 +815,15 @@ fn tipos(m: &Bloque) -> Vec<Tipo> {
                 TYPE_NUMENTRY | TYPE_STRUCT_NAME => {}
                 TYPE_VOID => v.push(Tipo::Vacio),
                 TYPE_POINTER => v.push(Tipo::Puntero { a: r.ops.first().copied().unwrap_or(0) as usize }),
-                TYPE_ARRAY => v.push(Tipo::Arreglo { n: r.ops.first().copied().unwrap_or(0) as usize, elem: r.ops.get(1).copied().unwrap_or(0) as usize }),
+                TYPE_ARRAY | TYPE_VECTOR => v.push(Tipo::Arreglo { n: r.ops.first().copied().unwrap_or(0) as usize, elem: r.ops.get(1).copied().unwrap_or(0) as usize }),
+                // [empaquetado, campos...]
+                TYPE_STRUCT_ANON | TYPE_STRUCT_NAMED if r.ops.len() > 1 && r.ops.len() - 1 <= CAMPOS => {
+                    let mut campos = [0u32; CAMPOS];
+                    for (k, &c) in r.ops[1..].iter().enumerate() {
+                        campos[k] = c as u32;
+                    }
+                    v.push(Tipo::Estructura { n: (r.ops.len() - 1) as u8, campos });
+                }
                 // [vararg, devuelve, parametros...]
                 TYPE_FUNCTION => v.push(Tipo::Funcion { devuelve: r.ops.get(1).copied().unwrap_or(0) as usize }),
                 _ => v.push(Tipo::Otro),
@@ -1056,6 +1082,7 @@ fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo]
         FUNC_GEP => super::arreglos::gep(c, &mut o, tipos, floats, anchos)?,
         FUNC_LOAD => super::arreglos::load(c, &mut o)?,
         FUNC_STORE => super::arreglos::store(c, &mut o)?,
+        FUNC_ATOMICRMW => super::arreglos::atomico(c, &mut o)?,
         // E6b: + y - de ENTEROS (un contador de bucle).
         FUNC_BINOP if super::enteros::es_entero(c, &o)? => super::enteros::binop_entero(c, &mut o)?,
         FUNC_BINOP => {

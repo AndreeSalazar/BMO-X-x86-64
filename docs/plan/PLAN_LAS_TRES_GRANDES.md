@@ -1355,7 +1355,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    8
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    5
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1470,16 +1470,31 @@ y lo dice.
                todavia no). `prueba/crudo.hlsl` (cs_6_2: ByteAddressBuffer
                y StructuredBuffer leidos y escritos) da lo exacto de HLSL
                por el interprete, y los mismos bytes traducido a x86-64
-     14  D4.1  un load o un store de algo que no es un array (un CS)
+     14  [x] D4.1  un load o un store de algo que no es un array (un CS).
+               07-10: un global que es UN numero (`groupshared uint suma;`,
+               `static float x;`) es un array de uno
+               (`prueba/compartido.hlsl`)
      15  N5.4  `createHandle` con el registro CALCULADO de un array de
                BUFERES (bindless de buferes; un CS)
      16  D4.1  un bucle con mas de una salida (un CS)
      17  D4.1  un operando que deberia ser un float y no lo es (un CS)
      -- 06-10 22:43, la SEGUNDA corrida con el monton que crece (llego a 95 s;
         lo que la tumbo, y el sonido, en PLAN_LOS_DOCE_DIRECTORES.md): --
-     18  D4.1  `OperacionD3d(48)` y `Instruccion(38)` (dos CS)
-     19  D4.1  un array de algo que no es float ni entero (structs,
-               vectores; un CS)
+     18  [x] D4.1  `OperacionD3d(48)` y `Instruccion(38)` (dos CS). 07-10:
+               48 es IMad (y 49 UMad): `mad()` de enteros; 38 es el
+               `atomicrmw` de LLVM, un Interlocked* sobre la memoria
+               COMPARTIDA (`Op::AtomicoCompartido`: add, sub, and, or,
+               xor, min, max con y sin signo, xchg; da la de antes). Por el
+               interprete (el traducido lo deja ahi). `compartido.hlsl`:
+               lo que no depende del orden de los hilos, exacto
+     19  [x] D4.1  un array de algo que no es float ni entero (structs,
+               vectores; un CS). 07-10: los vectores (`<n x T>`) se
+               aplanan como arrays y los structs campo a campo (hasta 16
+               campos); un GEP a un campo salta lo que miden los de antes,
+               y lo leido es del tipo del CAMPO. dxc los aplana solo
+               (`estructuras.hlsl`); lo que llegue entero lo juzga
+               `dxil::arreglos::pruebas` (y dice NO con un puntero dentro).
+               Si el juego trae otra forma, D0.2 (su cache de DXIL) la dira
      20  D4.1  un operando que no es un numero (ni float, ni entero, ni i1;
                un CS)
      21  D4.1  un bucle con mas de una salida en un sombreador de PIXELES
