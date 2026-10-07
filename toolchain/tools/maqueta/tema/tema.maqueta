@@ -72,5 +72,24 @@
     .fase-neon  { color:#FF2E88 }   /* el glitch y lo que pide mirar: el magenta del neon */
     .fase-tinta { color:#EAF7FF }   /* la tinta: blanco de holograma */
     .fase-tenue { color:#7F96AE }   /* lo secundario: niebla azul */
+
+    /* -- la CARA DE MISION (2026-10-06): el HUD de nave, paleta GATO ---- */
+    /* El propietario: "que HUD sean todo como estilo de NASA al viaje en
+       otro planeta", y de las paletas que se le ofrecieron no eligio
+       ninguna: el gato del logo como estrella (HD1 de PLAN_EL_HUD). Asi que
+       cada color sale del LOGO o de lo que el tema ya decia, no de la NASA:
+       el cian del ojo, el magenta del neon, el azul de su contorno. La NASA
+       pone la FORMA (marcos, reglas, lecturas); el gato pone el color. */
+    .mision         { background-color:#09080F; border-width:1px; border-color:#2B2250 }   /* el instrumento: el panel de la casa, hilo violeta */
+    .mision-cielo   { background-color:#04030A }   /* el espacio detras de la estrella: mas hondo que el panel */
+    .mision-rejilla { color:#161236 }   /* la reticula: la noche de la ciudad, apenas */
+    .mision-ojo     { color:#5EF2E6 }   /* lo primero: el ojo del gato, el mismo acento */
+    .mision-neon    { color:#FF2E88 }   /* lo segundo y el reloj: el magenta del neon */
+    .mision-azul    { color:#3DA5FF }   /* las trayectorias: el azul del contorno del logo */
+    .mision-tinta   { color:#F2F7F9 }   /* las lecturas: el blanco de la linea del gato */
+    .mision-tenue   { color:#9A96B8 }   /* los rotulos: la voz baja de siempre */
+    .mision-go      { color:#7EE787 }   /* GO: el mismo verde de salio bien */
+    .mision-nogo    { color:#FF5A6E }   /* NO-GO: rojo de alarma, mas vivo que ink-bad */
+    .mision-cuidado { color:#FFD45E }   /* ni GO ni NO-GO: esperando */
   </style>
 </maqueta>

@@ -28,6 +28,13 @@
 //!
 //! Sin fichero, o con uno roto, se queda el degradado y el motivo sale en la
 //! consola de Ejecutar: un fondo que no carga no es razon para no arrancar.
+//!
+//! ## ** Y el ESCRITORIO DE MISION por el mismo camino (06-10, HM3)
+//!
+//! Sin foto y con `fondo = mision`, el bufer no sale de un fichero: lo pinta
+//! `scene::mision` UNA vez, a la medida de la pantalla (las tablas quedan en
+//! `COL[x] = x`, `FIL[y] = y`). Pintar y restaurar siguen preguntando aqui, asi
+//! que el sol no deja huecos al cerrar una ventana encima.
 
 use bmo_userland as bmo;
 use core::ptr::{addr_of, addr_of_mut};
@@ -44,6 +51,7 @@ static mut BUFER: Option<bmo::Memoria> = None;
 static mut ANCHO: u32 = 0;
 static mut LISTO: bool = false;
 static mut MOTIVO: Option<&'static str> = None;
+static mut MISION: bool = false;
 static mut COL: [u16; LADO_PANTALLA] = [0; LADO_PANTALLA];
 static mut FIL: [u16; LADO_PANTALLA] = [0; LADO_PANTALLA];
 
@@ -59,14 +67,31 @@ fn fallar(m: &'static str) {
     }
 }
 
-/// **Lee `fondo_imagen` del estilo y la prepara para la pantalla `p`.**
+/// Es el escritorio de mision lo que hay detras? Lo pregunta el cursor, que
+/// alli es la reticula de la nave.
+pub(crate) fn es_mision() -> bool {
+    unsafe { LISTO && MISION }
+}
+
+/// **Lee `fondo_imagen` del estilo y la prepara para la pantalla `p`.** Sin
+/// foto, el escritorio de mision si `fondo = mision`; si no, el degradado.
+///
+/// Se puede llamar otra vez (el editor de `aspecto`): el bufer de antes se
+/// suelta primero, o cada cambio dejaria 8 MiB cogidos para siempre.
 pub(crate) fn cargar(p: &bmo::Pantalla) {
     unsafe {
         LISTO = false;
+        MISION = false;
         MOTIVO = None;
+        if let Some(viejo) = (*addr_of_mut!(BUFER)).take() {
+            viejo.soltar();
+        }
     }
     let ruta = estilo::estilo().fondo_imagen;
     if ruta.vacia() {
+        if estilo::estilo().fondo == bmo_config::Fondo::Mision {
+            mision(p);
+        }
         return;
     }
     if p.ancho as usize > LADO_PANTALLA || p.alto as usize > LADO_PANTALLA {
@@ -138,6 +163,40 @@ pub(crate) fn cargar(p: &bmo::Pantalla) {
             fil[y as usize] = ((oy + y * s) / 1024).min(h - 1) as u16;
         }
         ANCHO = m.ancho;
+        LISTO = true;
+    }
+}
+
+/// **El escritorio de mision**, pintado una vez en un bufer de la medida de
+/// la pantalla. Sin memoria, el degradado y el motivo.
+fn mision(p: &bmo::Pantalla) {
+    let (w, h) = (p.ancho, p.alto);
+    if w == 0 || h == 0 || w as usize > LADO_PANTALLA || h as usize > LADO_PANTALLA {
+        return fallar("fondo = mision: la pantalla es mas grande de lo que se tabula");
+    }
+    let n = w as usize * h as usize;
+    unsafe { *addr_of_mut!(BUFER) = bmo::Memoria::request(n as u64 * 4) };
+    let Some(bufer) = (unsafe { (*addr_of!(BUFER)).as_ref() }) else {
+        return fallar("fondo = mision: sin memoria para el cielo");
+    };
+    // SAFETY: el bloque mide `n * 4` bytes, su base es de pagina y vive en
+    // `BUFER` hasta el proximo `cargar`, que no pinta en el (lo suelta).
+    let px: &'static mut [u32] = unsafe { core::slice::from_raw_parts_mut(bufer.base() as *mut u32, n) };
+    let Some(lienzo) = bmo::Pantalla::en_memoria(px, w, h) else {
+        return fallar("fondo = mision: el bufer no cabe la pantalla");
+    };
+    super::mision::pintar(&lienzo);
+    unsafe {
+        let col = &mut *addr_of_mut!(COL);
+        for (x, c) in col.iter_mut().enumerate().take(w as usize) {
+            *c = x as u16;
+        }
+        let fil = &mut *addr_of_mut!(FIL);
+        for (y, f) in fil.iter_mut().enumerate().take(h as usize) {
+            *f = y as u16;
+        }
+        ANCHO = w;
+        MISION = true;
         LISTO = true;
     }
 }

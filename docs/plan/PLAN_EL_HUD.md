@@ -252,5 +252,136 @@ aire entre ellas y esquinas suavizadas. `C:` no sale: BMO-X ni lo mira.
 
 ---
 
+# 2. LA CARA DE MISION -- todo BMO-X como el HUD de una nave (06-10)
+
+El propietario, 06-10: *"puedes hacer que HUD sean todo como estilo de NASA
+al viaje en otro planeta unicos? TODOS hasta el escritorio"*.
+
+La maqueta es `docs/arte/maqueta_hud_nasa.html`, y se toca: una consola de
+mando abajo (o las teclas F1..F12 de verdad) abre cada instrumento, y arriba
+se elige la paleta. **Cada tecla es un instrumento DISTINTO**, y eso es la
+regla de la seccion 0 dicha en otro idioma -- un instrumento, un motivo:
+
+```text
+   ESC  ESCRITORIO  la ventana de la nave llegando al planeta: reticula que
+                    sigue al puntero, trayectoria, telemetria en las esquinas
+   F1   TALLER      el plano de ensamblaje: nodos = modulos con puertos
+   F2   ARCHIVOS    la bahia de carga: un compartimento por disco y su rango
+   F3   HERMES      la red de espacio profundo: un amigo, una antena
+   F4   LUDOTECA    el simulador: cada juego, un parche de mision
+   F5   BANK CAT    el combustible: el saldo es lo que queda en el tanque
+   F6   RED         el enlace de telemetria: la onda, el ping
+   F7   CPU         la propulsion: los 12 nucleos son 12 motores
+   F8   MEMORIA     el soporte vital: un tanque por titular de marcos
+   F9   FALLO       la ALARMA MAESTRA y el panel de precaucion
+   F10  SONIDO      el lazo de audio: los 8 canales del casco
+   F11  CABINA      el registro de vuelo, con hora de mision
+   F12  ESTRATOS    la trayectoria: versiones = encendidos, marcadas = puntos
+                    de paso, ramas = trayectorias que se juntan en la MEZCLA
+```
+
+Las piezas son las MISMAS en todas (el marco de esquinas en L, la regla de
+marcas, la lectura con su unidad, la barra), y por eso todo se ve de una
+mision sin repetir un instrumento.
+
+[!] **Esto CAMBIA una linea de la seccion 0**: *"animaciones: cada fotograma
+animado es latencia"*. Sigue siendo verdad, y la forma de cumplirla es la del
+globo del puntero: se anima SOLO mientras algo cambia (un motor que sube, la
+nave que recorre la trayectoria), y quieto son CERO fotogramas. Y lo que se
+anima son piezas YA maquetadas que el aparato mezcla (`@estado`, y la
+`@secuencia` de `docs/plan/PLAN_MAQUETA_3.md`): en el aparato no se maqueta
+nada.
+
+### Las decisiones del propietario
+
+**HD1, HD2, HD3 y HD4, DECIDIDAS el 06-10.** HD1 no fue ninguna de las tres paletas
+que se ofrecieron: *"me imagine un planeta mi gato del logo pero que es
+dominante, que es estrella, como fondo animado y presentable en escritorio;
+cuando todo se configura normal en inicio y luego en escritorio por
+completo"*. HD3: *"el escritorio primero"*. HD2: *"si, la letra de la
+casa"*. HD4: *"me gustan el gato SOL de PLASMA, NEBULOSA, y lo otro que es
+quieta con la CPU si no hace nada, pero con RTX 3060 12G ya con eso se
+encargue, pero como siempre se aisle para estar ordenado"*.
+
+```text
+   HD1  la paleta       GATO: sale del LOGO (docs/arte/bmo-x-gato-hd.svg) --
+                        el cian del ojo #5EF2E6, el magenta #FF2E88, el azul
+                        #3DA5FF y el violeta de la ciudad del tema. APOLLO,
+                        ARTEMIS y MARTE se quedan en la maqueta para comparar
+        la ESTRELLA     el logo es la estrella DOMINANTE del sistema: el gato
+                        dentro, la corona que gira despacio, el halo que
+                        respira; un planeta la orbita. Es el fondo del
+                        escritorio
+        el INICIO       el arranque es la encuesta GO / NO-GO: cada sistema
+                        dice GO cuando el kernel lo mide listo, mientras la
+                        estrella se ENCIENDE; con todo en GO, el escritorio
+   HD2  la letra        la de la casa (bmo-letra) en su peso de numeros; la
+                        maqueta usa IBM Plex solo porque el navegador no tiene la
+                        de la casa (eso es M2 de PLAN_MAQUETA_3)
+   HD3  el orden        el ESCRITORIO primero
+   HD4  la estrella     COMO es la estrella. El propietario pidio otros
+                        estilos, "no tan literal", todos vivos y cada uno con
+                        sus elementos: seis en docs/arte/maqueta_estrella_gato.html
+                        ECLIPSE       el gato negro tapa su estrella; corona y
+                                      anillo (Interstellar, los eclipses)
+                        CONSTELACION  estrellas sobre su contorno que titilan
+                                      (los mapas de Hevelius)
+                        NEBULOSA      cientos de particulas dentro de su forma
+                                      (Hubble y Webb) -- la 3060
+                        HOLOGRAMA     lineas de luz, la barra que escanea, el
+                                      parpadeo del proyector (Leia)
+                        ORBITAS       la cara y las orejas son orbitas con su
+                                      satelite (Kepler)
+                        SOL DE PLASMA granulos que hierven y arcos que saltan
+                                      (el SDO de la NASA) -- la 3060
+                        ELEGIDAS: SOL DE PLASMA y NEBULOSA. Conviven asi (la
+                        maqueta lo propone y se ve en el escritorio entero):
+                        la NEBULOSA es el INICIO -- se junta en la forma del
+                        gato y se condensa en el SOL, que es el escritorio.
+                        Una estrella nace de una nebulosa; la de BMO-X tambien.
+                        Quien quiera la nebulosa en el escritorio la elige
+                        el motor  con la 3060 la estrella esta VIVA; sin ella (o sin
+                        el sobre de su tarjeta), la CPU pinta UN fotograma y
+                        la deja QUIETA. En reposo, cero fotogramas
+                        aislada  la estrella viva es un programa de VERRANO en
+                        su PROPIA pieza: entra como SPIR-V, la 3060 lo juzga
+                        y lo sube por su puerta, y el director solo habla
+                        VERRANO (`Frame`) -- no sabe que tarjeta hay. Otra
+                        GPU trae su fila, como manda PLAN_EL_AISLAMIENTO
+```
+
+Las seis comparten UNA cabeza de gato (un camino) y los ojos del logo: el
+estilo cambia la materia, no al gato. Cuatro se pintan en la CPU con lo que
+MAQUETA 3 ya promete (degradados, arcos, el camino aplanado al compilar, la
+`@secuencia`); NEBULOSA y SOL DE PLASMA son trabajo de la 3060, y por eso,
+si se eligen, HM3 empieza por un paso CPU (la misma estrella, quieta) y la
+version viva espera al compositor de la GPU. Se eligieron las dos de la 3060,
+asi que ese es el camino: HM3 (quieta, CPU) y HM3c (viva, la 3060).
+
+El escritorio ENTERO, con todo junto, es `docs/arte/maqueta_escritorio_mision.html`
+(el codigo de la estrella va aparte, en `docs/arte/estrella_gato.js`, y lo
+comparten las dos maquetas: lo que pinta la estrella no sabe donde se pinta).
+
+### Los escalones
+
+- [x] HM0 -- HECHO el 06-10: la maqueta interactiva `docs/arte/maqueta_hud_nasa.html`: trece pantallas, cada una un instrumento distinto, con las piezas comunes, tres paletas y las teclas F1..F12 de verdad; probada en Chromium (las trece se pintan sin un error)
+- [x] HM-dec -- HECHO el 06-10: HD1 (la paleta GATO, la ESTRELLA GATO y el INICIO) y HD3 (el escritorio primero), escritas en esta seccion; HD2 sigue abierta
+- [x] HM0b -- HECHO el 06-10: la maqueta con HD1 dentro (`docs/arte/maqueta_hud_nasa.html`): la paleta GATO por defecto, la estrella gato con el logo de verdad en el escritorio, y la pantalla INICIO que se enciende y pasa sola al escritorio; probada en Chromium
+- [x] HM-dec2 -- HECHO el 06-10: HD2 (la letra de la casa), escrita en esta seccion
+- [x] HM0c -- HECHO el 06-10: los seis estilos de la estrella (HD4) en `docs/arte/maqueta_estrella_gato.html`: cada uno vivo, con su referencia y donde se pinta (CPU o la 3060), en galeria y en grande sobre el escritorio con el HUD; pulida a pedido del propietario ("cambia y mejorar un poco mas"): nariz y bigotes para que se lea gato, brillo, la lente de Gargantua, las puntas del Webb, la malla que gira, manchas solares y bucles de plasma, y el planeta que pasa por detras; probada en Chromium (los seis se pintan sin un error)
+- [x] HM1 -- HECHO el 06-10: la paleta GATO de mision en `toolchain/tools/maqueta/tema/tema.maqueta` (`.mision` y once colores mas: el ojo, el neon, el azul, la tinta, GO, NO-GO...), cada uno del logo o de lo que el tema ya decia; generada a `Ultra_userspace/services/director/src/scene/tema_gen.rs` con `maqueta --paleta`, y el test del tema la comprueba
+- [x] HM-dec3 -- HECHO el 06-10: HD4 (SOL DE PLASMA y NEBULOSA; quieta en la CPU, viva en la 3060 y aislada), escrita en esta seccion
+- [x] HM0d -- HECHO el 06-10: el ESCRITORIO DE MISION entero, `docs/arte/maqueta_escritorio_mision.html`: el INICIO (la encuesta GO / NO-GO mientras la nebulosa se condensa en el sol), la barra de mision con la hora T+ y las luces, la lateral viva (propulsion, soporte vital, telemetria, la trayectoria de ESTRATOS y el motor de la estrella), la reticula que es el puntero, CAPCOM, la consola ESC y F1..F12, el mosaico que nada tapa (F1, F12, ESC), y el interruptor 3060 viva / CPU quieta; la estrella, aparte en `docs/arte/estrella_gato.js`, con SOL DE PLASMA y NEBULOSA pulidas (espiculas, rotacion, eyeccion; pilares de polvo y la nebulosa que se junta); probada en Chromium sin un error
+- [x] HM2 -- HECHO el 07-10: las piezas comunes del HUD como `.maqueta` de verdad, en `toolchain/tools/maqueta/pruebas/hud/`: el MARCO (`marco.maqueta`: la raya del panel, las cuatro esquinas en L como absolutas con desplazamiento negativo -- pila A --, y `{rotulo}` y `{codigo}` como datos), la LECTURA (`lectura.maqueta`: `{rotulo}`, `{valor}` y `{unidad}`), la REGLA (`regla.maqueta`: un dibujo de MAQUETA 3, cuarenta marcas en medio pixel) y la BARRA (`barra.maqueta`: la pista y el relleno de MUESTRA; el de verdad es `<barra de>` de ME). Las cuatro juntas en el fichero dorado `toolchain/tools/maqueta/pruebas/hud.maqueta`, con `<usa src>`: contra Chromium, igual 98,72 % (lo distinto es la letra de reserva del navegador). Al compararlas salieron tres fallos de la REGLA y de MAQUETA, arreglados: una caja con borde y SIN fondo se pintaba maciza del color del borde (`toolchain/tools/maqueta/emit/src/orden.rs`; ahora es un anillo, como CSS), y en `toolchain/tools/espejo-cara/foto.js` el navegador pintaba el dato `{nombre|muestra}` entero (ahora su muestra) y dejaba debajo de cada pieza y de cada `<svg>` el hueco de un renglon (ahora son cajas, como en MAQUETA)
+- [x] HM3 -- HECHO el 06-10: el escritorio de mision en la CPU, `fondo = mision` en `sys/director.cfg` (y en `aspecto`). `Ultra_userspace/services/director/src/scene/mision.rs` pinta UNA vez, en el bufer de `Ultra_userspace/services/director/src/scene/fondo.rs` (el de la foto), el cielo, las estrellas, la galaxia, la rejilla por el centro del sol, la orbita, el SOL DE PLASMA quieto, el planeta KEPLER-5600 b con su nombre y los cuatro angulos del HUD; despues el fondo es una lectura de memoria (pintar y restaurar preguntan lo mismo), y en reposo, cero fotogramas. El sol y el planeta son caras de MAQUETA 3: `toolchain/tools/maqueta/escritorio/sol.maqueta` (con `sol.svg`, que escribe `docs/arte/sol_quieto.py` desde el estilo de `docs/arte/estrella_gato.js`; contra Chromium, 99,97 % igual) y `planeta.maqueta`, generadas a `sol_gen.rs` y `planeta_gen.rs`. El puntero, sobre el escritorio de mision, es la RETICULA (`Ultra_userspace/services/director/src/scene/cursor.rs`). Los colores, de `tema_gen.rs` (HM1). Medido en el anfitrion con el mismo codigo: 44 ms a 1920x1080, una vez. Lo que NO es HM3: los marcos con texto de las esquinas (NAVEGACION, SISTEMAS), que son piezas del HUD (HM2)
+- [ ] HM3c -- la estrella VIVA en la 3060: un programa de VERRANO en su propia pieza del director, que solo habla VERRANO; el sombreador entra como SPIR-V y la 3060 lo juzga y lo sube por su puerta (la fila de la 3060 de `docs/plan/PLAN_EL_AISLAMIENTO.md`). Sin la 3060 o sin su sobre: HM3, quieta
+- [x] HM3b -- HECHO el 07-10, en la CPU: con `fondo = mision` (y sin foto), la entrada a Ring 3 es el INICIO, `Ultra_userspace/services/director/src/scene/inicio.rs` (lo llama `Ultra_userspace/services/director/src/scene/splash.rs`): el cielo de mision, la NEBULOSA quieta en el sitio del sol (`toolchain/tools/maqueta/escritorio/nebulosa.maqueta` con `nebulosa.svg`, que escribe `docs/arte/nebulosa_quieta.py` desde el estilo de `docs/arte/estrella_gato.js` con su semilla; contra Chromium, 99,78 % igual; generada a `nebulosa_gen.rs`) y la ENCUESTA GO / NO-GO en un marco del HUD: kernel, memoria (`INFO_RAM_LIBRE`), reloj (`INFO_TSC_HZ`), disco (`INFO_DISCO_LISTO`), ESTRATOS (`INFO_DATOS_MONTADO`), entrada y consola (lo que este proceso recibio), red (`INFO_NET_PRESENTE`) y la 3060 (`INFO_IOMMU_GPU`). Lo opcional dice ESPERA en ambar, no NO-GO; con un NO-GO se deja leer, con la misma espera saltable de la entrada de siempre. Dos fotogramas: este y el escritorio, que trae el SOL. El estilo se lee ahora ANTES de la entrada (`Ultra_userspace/services/director/src/desktop/boot.rs`). La animacion de la nebulosa que se junta es de la 3060 (HM3c); `scene/arranque.rs` (el arranque orquestado de `save mode`) no cambia
+- [ ] HM4 -- los vitales F6, F7 y F8 como instrumentos: `Ultra_userspace/services/director/src/desktop/vitales.rs`
+- [ ] HM5 -- F9, F10, F11 y el globo: `Ultra_userspace/services/director/src/scene/cabina.rs`, `Ultra_userspace/services/director/src/scene/sound.rs`, `Ultra_userspace/services/director/src/scene/globo.rs`
+- [ ] HM6 -- las apps: F5 BANK CAT (`Ultra_userspace/services/director/src/desktop/bankcat.rs`), F1 el TALLER, F3 HERMES, F4 la LUDOTECA y F12 ESTRATOS, cada una con su instrumento
+- [ ] HM7 -- del PROPIETARIO: la foto de cada pantalla en el Ryzen
+
+---
+
 Ver [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) (el compositor) y
 [`PLAN_EL_PIXEL.md`](PLAN_EL_PIXEL.md) (por que no hay animaciones).

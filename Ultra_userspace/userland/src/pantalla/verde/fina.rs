@@ -45,7 +45,7 @@ use bmo_letra::{Fuente, LetraFija};
 use bmo_pinta::{Color, Lienzo};
 
 pub use bmo_letra::{Estilo, Peso};
-pub use bmo_pinta::{avance, entre, entre_color, entre_i, Pieza};
+pub use bmo_pinta::{avance, entre, entre_color, entre_i, Parada, Pieza, Tinta};
 
 use crate::pantalla::Pantalla;
 
@@ -166,6 +166,17 @@ impl Pantalla {
     /// transicion que genera MAQUETA -- la misma mezcla que la foto del
     /// anfitrion.
     pub fn pieza_entre(&self, a: &Pieza, b: &Pieza, k: i32, ox: i32, oy: i32) {
+        // Dos FIGURAS (S7) mezclan sus caminos punto a punto mientras se
+        // pintan: la caja que se marca es la de las dos juntas.
+        if let (Pieza::Figura { .. }, Pieza::Figura { .. }) = (a, b) {
+            let (x0, y0, w0, h0) = bmo_pinta::caja_de(a);
+            let (x1, y1, w1, h1) = bmo_pinta::caja_de(b);
+            let (x, y) = (x0.min(x1), y0.min(y1));
+            let (w, h) = ((x0 + w0).max(x1 + w1) - x, (y0 + h0).max(y1 + h1) - y);
+            let Some(mut pincel) = self.pincel(x + ox, y + oy, w, h, None) else { return };
+            let _ = con_letra(|l| bmo_pinta::pieza_entre(&mut pincel, l, a, b, k, ox, oy));
+            return;
+        }
         self.pieza(&bmo_pinta::entre_piezas(a, b, k), ox, oy, None);
     }
 

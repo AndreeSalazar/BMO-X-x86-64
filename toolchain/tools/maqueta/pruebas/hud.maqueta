@@ -1,0 +1,23 @@
+<!--
+   LAS PIEZAS DEL HUD, juntas (HM2 de docs/plan/PLAN_EL_HUD.md): el marco, la
+   lectura, la regla y la barra de `hud/`, cada una compilada y juzgada SOLA y
+   puesta aqui con `<usa src>`. Es el fichero dorado de las cuatro: el MISMO
+   se abre en el navegador (`foto.js --maqueta`) y se pinta con
+   `maqueta --foto`.
+-->
+<maqueta>
+  <style>
+    .lienzo  { display:flex; flex-direction:row; gap:24px; padding:20px;
+               background-color:#04030A }
+    .columna { display:flex; flex-direction:column; gap:20px }
+  </style>
+
+  <div class="lienzo">
+    <div class="columna">
+      <usa src="hud/marco.maqueta"/>
+      <usa src="hud/lectura.maqueta"/>
+      <usa src="hud/barra.maqueta"/>
+    </div>
+    <usa src="hud/regla.maqueta"/>
+  </div>
+</maqueta>

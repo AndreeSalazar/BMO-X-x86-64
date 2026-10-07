@@ -222,6 +222,28 @@ fn una(ruta: &Path, leer: &dyn Fn(&Path) -> Option<Vec<u8>>, pila: &mut Vec<Path
             Err(e) => errores.push(e),
         }
     }
+    // ** LOS DIBUJOS DE FICHERO (MAQUETA 3, S6): `<svg src="logo.svg">`, un
+    // SVG de internet tal cual, leido y juzgado por el lector de SVG. Antes de
+    // maquetar: sin medida en su regla, mide lo que dice su fichero.
+    let mut usos = Vec::new();
+    recoger_tag(&mut c.root, Tag::Svg, &mut usos);
+    for u in usos {
+        let nodo = bajar(&mut c.root, &u);
+        let Some(src) = nodo.src.clone() else { continue };
+        match leer(&dir.join(&src)) {
+            None => errores.push(Error::new(nodo.span, &format!("no se puede leer `{src}`"), "el dibujo se lee al compilar, relativo a este fichero.", "revisar el camino.")),
+            Some(b) if b.len() > DIBUJO_MAX => errores.push(Error::new(
+                nodo.span,
+                &format!("`{src}` mide {} KiB, y un dibujo cabe en {} KiB", b.len() / 1024, DIBUJO_MAX / 1024),
+                "el dibujo va DENTRO del codigo generado; uno de mas de un mega es una ilustracion, no un icono.",
+                "simplificarlo en el editor, o pintarlo como `<imagen>`.",
+            )),
+            Some(b) => match bmo_maqueta_dibujo::leer_fichero(&src, &b, nodo.span) {
+                Ok(s) => nodo.dibujo = Some(bmo_maqueta_dibujo::Dibujo(std::sync::Arc::new(s))),
+                Err(e) => errores.extend(e),
+            },
+        }
+    }
     if !errores.is_empty() {
         return Err(fallo(ruta, &fuente, errores));
     }
@@ -277,6 +299,9 @@ fn recoger_tag(n: &mut Styled, tag: Tag, out: &mut Vec<Vec<usize>>) {
     }
     ir(n, tag, &mut Vec::new(), out);
 }
+
+/// Lo mas que mide el fichero de un `<svg src>`.
+pub const DIBUJO_MAX: usize = 1 << 20;
 
 /// El lado mas grande de una imagen EMBEBIDA: lo que se mete en el codigo
 /// generado. Un icono o un avatar caben; una foto grande es un DATO.

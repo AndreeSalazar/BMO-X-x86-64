@@ -3,9 +3,10 @@
 // el ESPEJO de COBOL.
 //
 //   node foto.js <maqueta.html> <selector> <salida.png> [--clic <selector>]... [--medidas]
-//   node foto.js <fichero.maqueta> maqueta <salida.png> --maqueta
+//   node foto.js <fichero.maqueta> maqueta <salida.png> --maqueta [--ms N]
 //
 // Con --maqueta las piezas (`<usa src="...">`) se componen con Shadow DOM,
+// y los dibujos de fichero (`<svg src="...">`, MAQUETA 3) se ponen dentro,
 // y `--estado abierta` abre ese bloque `@estado` (si no, se ve el reposo).
 //
 // Con --maqueta el fichero es un `.maqueta` de MAQUETA 2, y el navegador lo
@@ -26,8 +27,11 @@ const path = require('path');
 
 // Lo minimo para leer un `.maqueta` como maqueta, DENTRO de una pieza (la
 // letra la carga el documento: las fuentes valen tambien en la sombra).
-const SOMBRA = '<style>:host{display:block} maqueta{display:inline-block;width:max-content} island{display:block} usa{display:block}' +
-  ' *{font-family:"IBM Plex Sans",sans-serif;line-height:normal;box-sizing:content-box;border-style:solid;border-width:0} span{display:block}</style>';
+// [!] (07-10) `block` y no `inline-block`: una caja en linea se sienta en la
+// linea base de un renglon de 16 px, y el navegador le dejaba DEBAJO el hueco
+// de las letras que bajan -- 4 px a una lectura y 12 a una barra de 6.
+const SOMBRA = '<style>:host{display:block} maqueta{display:block;width:max-content} island{display:block} usa{display:block}' +
+  ' *{font-family:"IBM Plex Sans",sans-serif;line-height:normal;box-sizing:content-box;border-style:solid;border-width:0} span{display:block} svg{display:block}</style>';
 
 // `--estado abierta` (P3): el navegador no conoce `@estado` y se salta el
 // bloque entero -- lo que ve es el REPOSO. Para ver otro estado, su bloque se
@@ -46,8 +50,35 @@ function abrirEstado(texto, nombre) {
   return texto.slice(0, m.index) + texto.slice(m.index + m[0].length, i - 1) + texto.slice(i);
 }
 
+// ** LOS DIBUJOS DE FICHERO (MAQUETA 3, S6): `<svg class="logo" src="logo.svg"/>`
+// no existe en HTML. El navegador pinta el MISMO fichero que lee el
+// compilador si se pone dentro -- y dentro de una SOMBRA (Shadow DOM): el
+// `<style>` de un SVG es SUYO (como en un `<img>`), y suelto en la pagina
+// pintaria tambien los dibujos de al lado. La clase y el id de la maqueta
+// van en el anfitrion (la `<section>`), y su medida, si la regla no la dice,
+// es la del fichero.
+function dibujos(texto, dir) {
+  return texto.replace(/<svg\b([^>]*?)\bsrc="([^"]+)"([^>]*?)(\/>|>\s*<\/svg>)/g, (todo, antes, src, despues) => {
+    // Sin comentarios: uno que nombre `<svg>` haria buscar la raiz en el.
+    const fichero = fs.readFileSync(path.join(dir, src), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+    const k = fichero.search(/<svg\b/);
+    if (k < 0) return todo;
+    const raiz = fichero.slice(k);
+    const propios = (antes + ' ' + despues).replace(/\/\s*$/, '');
+    const clase = /class="([^"]*)"/.exec(propios);
+    const id = /id="([^"]*)"/.exec(propios);
+    const abre = /^<svg\b[^>]*>/.exec(raiz)[0];
+    const w = /\swidth="([\d.]+)(px)?"/.exec(abre);
+    const h = /\sheight="([\d.]+)(px)?"/.exec(abre);
+    const medida = w && h ? `width:${w[1]}px;height:${h[1]}px;` : '';
+    return '<section' + (clase ? ` class="${clase[1]}"` : '') + (id ? ` id="${id[1]}"` : '') + '><template shadowrootmode="open">' +
+      `<style>:host{display:block;${medida}} :host>svg{display:block;width:100%;height:100%}</style>` + raiz + '</template></section>';
+  });
+}
+
 function componer(texto, dir, hondo) {
   if (hondo > 8) throw new Error('piezas demasiado hondas (o un ciclo)');
+  texto = dibujos(texto, dir);
   const cerrado = texto.replace(/<usa\b([^>]*?)\/>/g, '<usa$1></usa>');
   return cerrado.replace(/<usa\b([^>]*)><\/usa>/g, (todo, attrs) => {
     const src = /src="([^"]+)"/.exec(attrs);
@@ -73,7 +104,7 @@ function componer(texto, dir, hondo) {
   const reset = comoMaqueta
     ? '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">' +
       '<style>html,body{margin:0;padding:0;background:#000} maqueta{display:inline-block;width:max-content} island{display:block} usa{display:block}' +
-      ' *{font-family:"IBM Plex Sans",sans-serif;line-height:normal;box-sizing:content-box;border-style:solid;border-width:0} span{display:block}</style>'
+      ' *{font-family:"IBM Plex Sans",sans-serif;line-height:normal;box-sizing:content-box;border-style:solid;border-width:0} span{display:block} svg{display:block}</style>'
     : '';
   // ** LAS PIEZAS (`<usa src>`, 04-10): cada una entra con Shadow DOM
   // declarativo, que es el aislamiento de MAQUETA dicho en HTML -- sus reglas
@@ -83,12 +114,35 @@ function componer(texto, dir, hondo) {
   const ie = resto.indexOf('--estado');
   const original = fs.readFileSync(html, 'utf8');
   const fuente = comoMaqueta && ie >= 0 ? abrirEstado(original, resto[ie + 1]) : original;
-  const cuerpo = comoMaqueta ? componer(fuente, path.dirname(html), 0) : fuente;
+  // ** LOS DATOS (H1): `{nombre|muestra}` es un hueco que el aparato llena al
+  // ejecutar; el navegador pinta su MUESTRA, la misma que pinta `maqueta
+  // --foto`. Sin esto la regla mediria el texto `{nombre|muestra}` entero.
+  const conPiezas = comoMaqueta ? componer(fuente, path.dirname(html), 0) : fuente;
+  const cuerpo = comoMaqueta ? conPiezas.replace(/\{([a-z_][a-z0-9_]*)\|([^{}]*)\}/g, '$2') : conPiezas;
   fs.writeFileSync(tmp, '<!doctype html><html><head><meta charset="utf-8">' + reset + '</head><body>' + cuerpo + '</body></html>');
   await p.goto('file://' + tmp);
   await p.waitForTimeout(900);
   for (let i = 0; i < resto.length; i++) {
     if (resto[i] === '--clic') { await p.click(resto[++i]); await p.waitForTimeout(300); }
+  }
+  // ** `--ms 6500` (MAQUETA 3, S7): las animaciones de los dibujos, PARADAS a
+  // ese instante -- las de SVG (`setCurrentTime`) y las de CSS
+  // (`currentTime`). Es la regla de `maqueta --foto --ms`.
+  const im = resto.indexOf('--ms');
+  if (im >= 0) {
+    await p.evaluate((ms) => {
+      // La pagina y cada sombra (`<usa>`, `<svg src>`): `getAnimations` y
+      // `querySelectorAll` no entran en una sombra solos.
+      const raices = [document];
+      for (let i = 0; i < raices.length; i++) {
+        raices[i].querySelectorAll('*').forEach((e) => { if (e.shadowRoot) raices.push(e.shadowRoot); });
+      }
+      for (const r of raices) {
+        r.querySelectorAll('svg').forEach((s) => { if (s.pauseAnimations && !(s.parentElement && s.parentElement.closest('svg'))) { s.pauseAnimations(); s.setCurrentTime(ms / 1000); } });
+        r.getAnimations().forEach((a) => { a.pause(); a.currentTime = ms; });
+      }
+    }, Number(resto[im + 1]));
+    await p.waitForTimeout(100);
   }
   if (resto.includes('--medidas')) {
     const filas = await p.evaluate((sel) => {

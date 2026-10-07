@@ -12,5 +12,7 @@ license = "Apache-2.0"
 bmo-maqueta-cascade = { path = "../cascade" }
 bmo-maqueta-node = { path = "../node" }
 bmo-maqueta-diag = { path = "../diag" }
+# MAQUETA 3: la medida que dice el fichero de un `<svg src>`.
+bmo-maqueta-dibujo = { path = "../dibujo" }
 # MAQUETA 2: el texto se mide con la letra de la casa, la MISMA que lo pinta.
 bmo-letra = { path = "../../../../platform/shared/bmo-letra" }

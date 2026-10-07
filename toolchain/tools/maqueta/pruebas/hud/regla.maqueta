@@ -1,0 +1,18 @@
+<!--
+   LA REGLA -- las marcas de un altimetro (HM2 de docs/plan/PLAN_EL_HUD.md;
+   `regla()` de docs/arte/maqueta_hud_nasa.html): cuarenta tramos, una marca
+   larga cada cinco. Es un dibujo de MAQUETA 3 (seccion 2e): las marcas caen en
+   medio pixel para que la raya de 1 sea de UN pixel, aqui y en el navegador.
+-->
+<maqueta>
+  <style>
+    .regla { width:12px; height:361px; stroke:#9A96B8; stroke-width:1;
+             fill:none }
+  </style>
+
+  <div>
+    <svg class="regla" viewBox="0 0 12 361">
+      <path d="M0 0.5 H9 M0 9.5 H4 M0 18.5 H4 M0 27.5 H4 M0 36.5 H4 M0 45.5 H9 M0 54.5 H4 M0 63.5 H4 M0 72.5 H4 M0 81.5 H4 M0 90.5 H9 M0 99.5 H4 M0 108.5 H4 M0 117.5 H4 M0 126.5 H4 M0 135.5 H9 M0 144.5 H4 M0 153.5 H4 M0 162.5 H4 M0 171.5 H4 M0 180.5 H9 M0 189.5 H4 M0 198.5 H4 M0 207.5 H4 M0 216.5 H4 M0 225.5 H9 M0 234.5 H4 M0 243.5 H4 M0 252.5 H4 M0 261.5 H4 M0 270.5 H9 M0 279.5 H4 M0 288.5 H4 M0 297.5 H4 M0 306.5 H4 M0 315.5 H9 M0 324.5 H4 M0 333.5 H4 M0 342.5 H4 M0 351.5 H4 M0 360.5 H9"/>
+    </svg>
+  </div>
+</maqueta>

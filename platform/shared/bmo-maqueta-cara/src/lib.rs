@@ -148,6 +148,101 @@ pub const CLASE_LETRA: u8 = 6;
 pub const CLASE_LINEA: u8 = 7;
 /// Un camino relleno (par-impar). Los datos = sus puntos.
 pub const CLASE_RELLENO: u8 = 8;
+/// **Una figura de SVG** (MAQUETA 3, 06-10): pluma redonda o relleno con
+/// su regla, su TINTA y su opacidad. `EXTRA` = par-impar (bit 0) | alfa << 8
+/// (los bits 1..=7, a cero). `COLOR` = la tinta lisa (0 con un degradado).
+/// Los datos, ver [`figura`].
+pub const CLASE_FIGURA: u8 = 9;
+
+/// **Los datos de una `FIGURA`**, en este orden (todo multiplo de 4, asi
+/// los puntos empiezan alineados como en una `LINEA`):
+///
+/// ```text
+///    0   tinta      u8   0 lisa, 1 lineal, 2 radial
+///    1   paradas    u8   0 en la lisa; 1..=8 en un degradado
+///    2   pluma      u16  grosor en 1/16 px; 0 = relleno
+///    4   geometria       lineal: de (i16 x, y), a (i16 x, y)       8 B
+///                        radial: centro, eje_x, eje_y (i16 x, y)  12 B
+///        paradas         cada una: en u16 (0..=1000, sin bajar),
+///                        color u32 (0x00RRGGBB), alfa u8, cero u8   8 B
+///        puntos          como los de una LINEA (ver [`puntos`])
+/// ```
+///
+/// La geometria del degradado va en 1/16 px relativa al trazo, como los
+/// puntos, pero PUEDE caer fuera de su caja: es donde el degradado vale 0 y
+/// 1, no algo que se pinte.
+pub mod figura {
+    pub const LISA: u8 = 0;
+    pub const LINEAL: u8 = 1;
+    pub const RADIAL: u8 = 2;
+    /// Las paradas que caben, como en el pintor.
+    pub const PARADAS: usize = 8;
+    /// Lo que mide una parada.
+    pub const PARADA: usize = 8;
+}
+
+/// **Una figura descodificada** (los datos ya comprobados por [`leer`]).
+#[derive(Clone, Copy, Debug)]
+pub struct Figura<'a> {
+    pub tinta: u8,
+    /// Grosor de la pluma en 1/16 px; 0 = relleno.
+    pub pluma16: u16,
+    /// La geometria: lineal `[de.x, de.y, a.x, a.y, 0, 0]`; radial
+    /// `[centro.x, centro.y, eje_x.x, eje_x.y, eje_y.x, eje_y.y]`. En 1/16 px.
+    pub geo: [i16; 6],
+    /// Las paradas, sin descodificar: `n * 8` bytes.
+    pub paradas: &'a [u8],
+    /// Los puntos, como los de una `LINEA`.
+    pub puntos: &'a [u8],
+}
+
+/// **Parte los datos de una `FIGURA`** en sus trozos. `None` si no tienen
+/// la forma (el lector ya lo comprobo; esto lo repite sin coste para quien
+/// pinte una figura que no paso por el).
+pub fn figura_de(d: &[u8]) -> Option<Figura<'_>> {
+    let (&tinta, &n) = (d.first()?, d.get(1)?);
+    let pluma16 = u16::from_le_bytes([*d.get(2)?, *d.get(3)?]);
+    let geo_len = match (tinta, n) {
+        (figura::LISA, 0) => 0,
+        (figura::LINEAL, 1..=8) => 8,
+        (figura::RADIAL, 1..=8) => 12,
+        _ => return None,
+    };
+    let mut geo = [0i16; 6];
+    for (k, g) in geo.iter_mut().enumerate().take(geo_len / 2) {
+        *g = i16::from_le_bytes([*d.get(4 + 2 * k)?, *d.get(5 + 2 * k)?]);
+    }
+    let ini_p = 4 + geo_len;
+    let fin_p = ini_p + n as usize * figura::PARADA;
+    Some(Figura { tinta, pluma16, geo, paradas: d.get(ini_p..fin_p)?, puntos: d.get(fin_p..)? })
+}
+
+/// La parada `k` de unas paradas sin descodificar: `(en, color, alfa)`.
+pub fn parada(paradas: &[u8], k: usize) -> Option<(u16, u32, u8)> {
+    let p = paradas.get(k * figura::PARADA..(k + 1) * figura::PARADA)?;
+    Some((u16::from_le_bytes([p[0], p[1]]), u32::from_le_bytes([p[2], p[3], p[4], p[5]]), p[6]))
+}
+
+/// Los datos de una figura: su forma, sus paradas en orden y sus puntos
+/// dentro de la caja.
+fn figura_valida(d: &[u8], w: u16, h: u16, color: u32, extra: u16) -> Result<(), Falta> {
+    if extra & 0x00FE != 0 {
+        return Err(Falta::ReservadoSucio);
+    }
+    let f = figura_de(d).ok_or(Falta::DatosMal)?;
+    if f.tinta != figura::LISA && color != 0 {
+        return Err(Falta::DatosMal);
+    }
+    let mut antes = 0u16;
+    for k in 0..f.paradas.len() / figura::PARADA {
+        let (en, c, _) = parada(f.paradas, k).ok_or(Falta::DatosMal)?;
+        if en > 1000 || en < antes || c >> 24 != 0 || f.paradas[k * figura::PARADA + 7] != 0 {
+            return Err(Falta::DatosMal);
+        }
+        antes = en;
+    }
+    puntos_validos(f.puntos, w, h)
+}
 
 /// **Los puntos de un camino**, en los datos de una `LINEA` o un `RELLENO`:
 /// pares `(i16 x, i16 y)` en 1/16 de pixel, RELATIVOS a la esquina del
@@ -365,7 +460,7 @@ pub fn leer(bytes: &[u8], pantalla_ancho: u16, pantalla_alto: u16) -> Result<Car
     for i in 0..n_trazos {
         let b = trazos_off + i * TRAZO;
         let clase = *bytes.get(b + trazo::CLASE).ok_or(Falta::LasCuentasNoCaben)?;
-        if clase > CLASE_RELLENO {
+        if clase > CLASE_FIGURA {
             return Err(Falta::ClaseDesconocida);
         }
         if (clase == CLASE_RECT || clase == CLASE_TEXTO) && u16_en(bytes, b + trazo::EXTRA) != Some(0) {
@@ -384,6 +479,11 @@ pub fn leer(bytes: &[u8], pantalla_ancho: u16, pantalla_alto: u16) -> Result<Car
         match clase {
             CLASE_DEGRADADO if len != 4 => return Err(Falta::DatosMal),
             CLASE_LINEA | CLASE_RELLENO => puntos_validos(datos, w, h)?,
+            CLASE_FIGURA => {
+                let color = u32_en(bytes, b + trazo::COLOR).ok_or(Falta::LasCuentasNoCaben)?;
+                let extra = u16_en(bytes, b + trazo::EXTRA).ok_or(Falta::LasCuentasNoCaben)?;
+                figura_valida(datos, w, h, color, extra)?
+            }
             _ => {}
         }
     }

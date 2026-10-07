@@ -207,7 +207,7 @@ mod pruebas {
         let src = include_str!("../../tema/tema.maqueta");
         let doc = bmo_maqueta_node::parse(src.as_bytes()).expect("tema.maqueta no compila");
         let r = paleta("toolchain/tools/maqueta/tema/tema.maqueta", &doc);
-        // Las cinco tintas y las cuatro superficies que declara.
+        // Las cinco tintas, las cuatro superficies y la mision que declara.
         for esperado in [
             "pub const INK: u32 = 0x00E6_EDF6;",
             "pub const INK_DIM: u32 = 0x009A_96B8;",
@@ -219,6 +219,12 @@ mod pruebas {
             "pub const FIELD_FONDO: u32 = 0x0011_0E22;",
             "pub const TASKBAR_FONDO: u32 = 0x0009_080F;",
             "pub const BG_TOP_FONDO: u32 = 0x0016_1236;",
+            // La cara de mision (HM1 de PLAN_EL_HUD): el panel y el ojo del gato.
+            "pub const MISION_FONDO: u32 = 0x0009_080F;",
+            "pub const MISION_BORDE: u32 = 0x002B_2250;",
+            "pub const MISION_CIELO_FONDO: u32 = 0x0004_030A;",
+            "pub const MISION_OJO: u32 = 0x005E_F2E6;",
+            "pub const MISION_NOGO: u32 = 0x00FF_5A6E;",
         ] {
             assert!(r.contains(esperado), "falta `{esperado}` en:\n{r}");
         }

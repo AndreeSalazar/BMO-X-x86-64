@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- EL SOL DE PLASMA, QUIETO: la estrella del escritorio de mision (HM3 de
+     docs/plan/PLAN_EL_HUD.md). Es UN fotograma (t = 0) del estilo SOL DE PLASMA
+     de docs/arte/estrella_gato.js: los mismos rayos, espiculas, granulos,
+     bucles y manchas, con la misma semilla. Lo que alli es un filtro (el
+     brillo, la niebla) aqui es un degradado o un trazo ancho y tenue: el
+     lector de SVG de MAQUETA 3 no lee filtros (seccion 2e de
+     docs/componente/LA_MAQUETA_EXIGE.md). Viva, en la 3060, es HM3c.
+     Lo escribe docs/arte/sol_quieto.py; se edita alli. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-240 -240 480 480" width="720" height="720">
+  <defs>
+    <style>
+      .rayos { fill: #FF2E88 }
+      .espiculas { stroke: #FFB36B; stroke-width: 1.5; stroke-opacity: .85; stroke-linecap: round }
+      .clara { stroke: #FFF3D6 }
+      .granos { fill: #FFF3D6 }
+      .bucle { fill: none; stroke: #FFD45E; stroke-width: 3.5; stroke-opacity: .85; stroke-linecap: round }
+      .bucle-luz { fill: none; stroke: #FFD45E; stroke-width: 10; stroke-opacity: .16; stroke-linecap: round }
+      .gota { fill: #FFF3D6 }
+      .estria { stroke: #2A0814; stroke-opacity: .5 }
+    </style>
+    <radialGradient id="niebla" cx="0" cy="-12" r="150" gradientUnits="userSpaceOnUse">
+      <stop offset=".45" stop-color="#FF2E88" stop-opacity=".45"/>
+      <stop offset=".72" stop-color="#FF2E88" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#FF2E88" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sol" cx="45%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#FFF3D6"/>
+      <stop offset=".35" stop-color="#FFD45E"/>
+      <stop offset=".7" stop-color="#FF2E88"/>
+      <stop offset="1" stop-color="#5A1030"/>
+    </radialGradient>
+    <radialGradient id="limbo">
+      <stop offset=".6" stop-color="#5A1030" stop-opacity="0"/>
+      <stop offset="1" stop-color="#2A0814" stop-opacity=".75"/>
+    </radialGradient>
+    <path id="cabeza" d="M -104 18 C -104 -42 -76 -80 -50 -90 L -78 -158 L -16 -104 C -6 -106 6 -106 16 -104 L 78 -158 L 50 -90 C 76 -80 104 -42 104 18 C 104 82 58 118 0 118 C -58 118 -104 82 -104 18 Z"/>
+  </defs>
+  <g class="rayos">
+    <path d="M 99.9 -5 L 207.8 0 L 99.9 5 Z" fill-opacity=".11"/>
+    <path d="M 97.2 23.3 L 195.1 57.3 L 94.4 32.9 Z" fill-opacity=".18"/>
+    <path d="M 86.7 49.8 L 179.8 115.6 L 81.3 58.2 Z" fill-opacity=".13"/>
+    <path d="M 69.2 72.2 L 150.4 173.5 L 61.6 78.8 Z" fill-opacity=".17"/>
+    <path d="M 46 88.8 L 68.9 151 L 36.9 92.9 Z" fill-opacity=".18"/>
+    <path d="M 19.2 98.1 L 25.2 175 L 9.3 99.6 Z" fill-opacity=".10"/>
+    <path d="M -9.3 99.6 L -34.1 237 L -19.2 98.1 Z" fill-opacity=".09"/>
+    <path d="M -36.9 92.9 L -79.2 173.5 L -46 88.8 Z" fill-opacity=".08"/>
+    <path d="M -61.6 78.8 L -108.5 125.3 L -69.2 72.2 Z" fill-opacity=".15"/>
+    <path d="M -81.3 58.2 L -196.8 126.5 L -86.7 49.8 Z" fill-opacity=".16"/>
+    <path d="M -94.4 32.9 L -210.4 61.8 L -97.2 23.3 Z" fill-opacity=".09"/>
+    <path d="M -99.9 5 L -209.4 0 L -99.9 -5 Z" fill-opacity=".13"/>
+    <path d="M -97.2 -23.3 L -169.2 -49.7 L -94.4 -32.9 Z" fill-opacity=".17"/>
+    <path d="M -86.7 -49.8 L -139.2 -89.5 L -81.3 -58.2 Z" fill-opacity=".16"/>
+    <path d="M -69.2 -72.2 L -112.4 -129.8 L -61.6 -78.8 Z" fill-opacity=".08"/>
+    <path d="M -46 -88.8 L -90.3 -197.7 L -36.9 -92.9 Z" fill-opacity=".15"/>
+    <path d="M -19.2 -98.1 L -32.6 -226.7 L -9.3 -99.6 Z" fill-opacity=".16"/>
+    <path d="M 9.3 -99.6 L 32.3 -224.6 L 19.2 -98.1 Z" fill-opacity=".15"/>
+    <path d="M 36.9 -92.9 L 67.7 -148.2 L 46 -88.8 Z" fill-opacity=".11"/>
+    <path d="M 61.6 -78.8 L 112.7 -130 L 69.2 -72.2 Z" fill-opacity=".15"/>
+    <path d="M 81.3 -58.2 L 160.4 -103.1 L 86.7 -49.8 Z" fill-opacity=".11"/>
+    <path d="M 94.4 -32.9 L 214.2 -62.9 L 97.2 -23.3 Z" fill-opacity=".11"/>
+  </g>
+  <circle cx="0" cy="-12" r="150" fill="url(#niebla)"/>
+  <g class="espiculas">
+    <line class="clara" x1="-104" y1="18" x2="-119.5" y2="17.9"/>
+    <line x1="-103.8" y1="9.6" x2="-115.1" y2="9"/>
+    <line x1="-103.2" y1="1.2" x2="-121.6" y2="-0.6"/>
+    <line x1="-102.3" y1="-7.1" x2="-112" y2="-8.5"/>
+    <line class="clara" x1="-100.9" y1="-15.4" x2="-113" y2="-17.8"/>
+    <line x1="-99" y1="-23.6" x2="-111.7" y2="-26.9"/>
+    <line x1="-96.7" y1="-31.6" x2="-114.2" y2="-37.4"/>
+    <line x1="-93.9" y1="-39.6" x2="-109.8" y2="-45.9"/>
+    <line class="clara" x1="-90.6" y1="-47.3" x2="-103.3" y2="-53.4"/>
+    <line x1="-86.8" y1="-54.7" x2="-101.1" y2="-63"/>
+    <line x1="-82.4" y1="-61.9" x2="-97.9" y2="-72.5"/>
+    <line x1="-77.4" y1="-68.7" x2="-87.6" y2="-77"/>
+    <line class="clara" x1="-71.9" y1="-74.9" x2="-81.8" y2="-84.9"/>
+    <line x1="-65.7" y1="-80.6" x2="-73.4" y2="-90.3"/>
+    <line x1="-58.9" y1="-85.5" x2="-68.7" y2="-101.8"/>
+    <line x1="-51.4" y1="-89.4" x2="-58.5" y2="-100.5"/>
+    <line class="clara" x1="50.4" y1="-91" x2="63.5" y2="-94.3"/>
+    <line x1="56.6" y1="-86.9" x2="61.1" y2="-94.5"/>
+    <line x1="63.6" y1="-82.2" x2="70" y2="-90.4"/>
+    <line x1="70" y1="-76.8" x2="83" y2="-90"/>
+    <line class="clara" x1="75.7" y1="-70.7" x2="83.9" y2="-77.5"/>
+    <line x1="80.9" y1="-64" x2="91.4" y2="-71.3"/>
+    <line x1="85.5" y1="-57" x2="101.8" y2="-66.5"/>
+    <line x1="89.5" y1="-49.6" x2="106.1" y2="-57.7"/>
+    <line class="clara" x1="92.9" y1="-42" x2="107.1" y2="-47.7"/>
+    <line x1="95.9" y1="-34.1" x2="111.8" y2="-39.4"/>
+    <line x1="98.3" y1="-26.1" x2="112.1" y2="-29.8"/>
+    <line x1="100.3" y1="-17.9" x2="115.1" y2="-21"/>
+    <line class="clara" x1="101.9" y1="-9.7" x2="113.7" y2="-11.5"/>
+    <line x1="103" y1="-1.4" x2="121.9" y2="-3.3"/>
+    <line x1="103.7" y1="7" x2="112.2" y2="6.5"/>
+    <line x1="104" y1="15.4" x2="118.4" y2="15.3"/>
+    <line class="clara" x1="103.9" y1="23.8" x2="119.7" y2="24.6"/>
+    <line x1="103.2" y1="32.1" x2="120.9" y2="34.3"/>
+    <line x1="102" y1="40.4" x2="120.5" y2="44.1"/>
+    <line x1="100.1" y1="48.6" x2="117.6" y2="53.6"/>
+    <line class="clara" x1="97.5" y1="56.6" x2="111.6" y2="61.9"/>
+    <line x1="94.2" y1="64.3" x2="100.6" y2="67.4"/>
+    <line x1="90.3" y1="71.8" x2="106.3" y2="81.5"/>
+    <line x1="85.7" y1="78.8" x2="100.8" y2="90"/>
+    <line class="clara" x1="80.4" y1="85.3" x2="94.4" y2="98"/>
+    <line x1="74.5" y1="91.3" x2="82.6" y2="100.1"/>
+    <line x1="68.1" y1="96.7" x2="77.7" y2="109.4"/>
+    <line x1="61.2" y1="101.5" x2="65.3" y2="108"/>
+    <line class="clara" x1="54" y1="105.7" x2="62.5" y2="122.6"/>
+    <line x1="46.4" y1="109.2" x2="53.3" y2="126.4"/>
+    <line x1="38.5" y1="112.1" x2="43.6" y2="128.3"/>
+    <line x1="30.4" y1="114.4" x2="34.7" y2="132.7"/>
+    <line class="clara" x1="22.2" y1="116.1" x2="24.4" y2="129.7"/>
+    <line x1="13.9" y1="117.3" x2="15" y2="128.6"/>
+    <line x1="5.5" y1="117.9" x2="6" y2="133.4"/>
+    <line x1="-2.9" y1="118" x2="-3.4" y2="136"/>
+    <line class="clara" x1="-11.3" y1="117.5" x2="-12.2" y2="128.3"/>
+    <line x1="-19.6" y1="116.6" x2="-22.4" y2="134"/>
+    <line x1="-27.9" y1="115" x2="-31.8" y2="132.2"/>
+    <line x1="-36" y1="112.9" x2="-41.5" y2="130.7"/>
+    <line class="clara" x1="-43.9" y1="110.2" x2="-50.9" y2="127.7"/>
+    <line x1="-51.6" y1="106.8" x2="-56.2" y2="116.1"/>
+    <line x1="-59" y1="102.9" x2="-68.8" y2="119"/>
+    <line x1="-66" y1="98.3" x2="-75.6" y2="111.2"/>
+    <line class="clara" x1="-72.6" y1="93" x2="-77.3" y2="98.3"/>
+    <line x1="-78.6" y1="87.2" x2="-88" y2="95.8"/>
+    <line x1="-84.1" y1="80.8" x2="-95.7" y2="89.7"/>
+    <line x1="-88.9" y1="74" x2="-95.5" y2="78.1"/>
+    <line class="clara" x1="-93.1" y1="66.7" x2="-109.9" y2="75.1"/>
+    <line x1="-96.6" y1="59.1" x2="-108.2" y2="63.6"/>
+    <line x1="-99.3" y1="51.1" x2="-112.4" y2="55"/>
+    <line x1="-101.4" y1="43" x2="-115.3" y2="45.9"/>
+    <line class="clara" x1="-102.9" y1="34.7" x2="-121.5" y2="37.1"/>
+    <line x1="-103.7" y1="26.4" x2="-112.7" y2="26.9"/>
+  </g>
+  <use href="#cabeza" fill="url(#sol)"/>
+  <g class="granos">
+    <circle cx="66.5" cy="-13.2" r="12.5" fill-opacity=".20"/>
+    <circle cx="-2.5" cy="97.1" r="7.5" fill-opacity=".13"/>
+    <circle cx="89.2" cy="-25.2" r="7" fill-opacity=".20"/>
+    <circle cx="-68.8" cy="12.3" r="9.8" fill-opacity=".13"/>
+    <circle cx="73" cy="-59.7" r="6.8" fill-opacity=".19"/>
+    <circle cx="29.4" cy="-22.2" r="9" fill-opacity=".12"/>
+    <circle cx="35" cy="-106.1" r="9.5" fill-opacity=".20"/>
+    <circle cx="-13.1" cy="72.9" r="10.8" fill-opacity=".18"/>
+    <circle cx="21.6" cy="-65.9" r="9.9" fill-opacity=".16"/>
+    <circle cx="-83.4" cy="-16.9" r="4.6" fill-opacity=".07"/>
+    <circle cx="-44.7" cy="-108.8" r="5.9" fill-opacity=".19"/>
+    <circle cx="-8.6" cy="-11.4" r="12.8" fill-opacity=".20"/>
+    <circle cx="57.1" cy="-15.6" r="4.8" fill-opacity=".20"/>
+    <circle cx="77.7" cy="-4" r="11.7" fill-opacity=".07"/>
+    <circle cx="-88.8" cy="23.9" r="8.6" fill-opacity=".09"/>
+    <circle cx="76.6" cy="77.4" r="4.4" fill-opacity=".11"/>
+    <circle cx="-93" cy="-10.6" r="4.5" fill-opacity=".18"/>
+    <circle cx="-65.8" cy="-35.7" r="11" fill-opacity=".20"/>
+    <circle cx="-38.1" cy="-67.6" r="8.8" fill-opacity=".07"/>
+    <circle cx="10.7" cy="6.6" r="12.2" fill-opacity=".12"/>
+    <circle cx="-82.5" cy="-22.3" r="12.4" fill-opacity=".17"/>
+    <circle cx="55.7" cy="63.5" r="7.7" fill-opacity=".10"/>
+    <circle cx="-68.7" cy="30.9" r="10.2" fill-opacity=".11"/>
+    <circle cx="31" cy="-87.5" r="6.6" fill-opacity=".07"/>
+    <circle cx="-35.3" cy="57.9" r="11.9" fill-opacity=".15"/>
+    <circle cx="15" cy="75.6" r="9.8" fill-opacity=".10"/>
+    <circle cx="66.6" cy="-11.6" r="5" fill-opacity=".20"/>
+    <circle cx="-76.9" cy="29.1" r="6.4" fill-opacity=".07"/>
+    <circle cx="27" cy="-96.2" r="12.5" fill-opacity=".08"/>
+    <circle cx="-70.9" cy="53.5" r="4.4" fill-opacity=".10"/>
+    <circle cx="-29.5" cy="35.8" r="11.3" fill-opacity=".16"/>
+    <circle cx="20.3" cy="13.6" r="8.9" fill-opacity=".18"/>
+    <circle cx="-3.3" cy="-49.5" r="5.4" fill-opacity=".18"/>
+    <circle cx="-44.6" cy="-111.5" r="5" fill-opacity=".18"/>
+    <circle cx="6.3" cy="78.5" r="11.9" fill-opacity=".11"/>
+    <circle cx="-42.2" cy="10.2" r="4.9" fill-opacity=".13"/>
+    <circle cx="20.8" cy="81.3" r="9.9" fill-opacity=".11"/>
+    <circle cx="57.4" cy="14.1" r="11.5" fill-opacity=".18"/>
+    <circle cx="42.2" cy="-53.1" r="11.1" fill-opacity=".17"/>
+    <circle cx="-30.1" cy="31.4" r="12.1" fill-opacity=".15"/>
+    <circle cx="89" cy="32.7" r="8.2" fill-opacity=".16"/>
+    <circle cx="-53.6" cy="54.5" r="12.1" fill-opacity=".14"/>
+    <circle cx="36.8" cy="61.5" r="6.4" fill-opacity=".15"/>
+    <circle cx="11.2" cy="-39.3" r="4" fill-opacity=".20"/>
+    <circle cx="5.7" cy="-51.6" r="10.1" fill-opacity=".11"/>
+    <circle cx="-32.2" cy="16.3" r="10.2" fill-opacity=".18"/>
+    <circle cx="47.3" cy="46.2" r="4.2" fill-opacity=".10"/>
+    <circle cx="40.5" cy="-98.7" r="6.9" fill-opacity=".13"/>
+    <circle cx="47.5" cy="0.3" r="9.6" fill-opacity=".08"/>
+    <circle cx="-21.9" cy="-71.9" r="7.2" fill-opacity=".07"/>
+    <circle cx="-95.5" cy="15.7" r="8" fill-opacity=".16"/>
+    <circle cx="-42" cy="-1.2" r="4.3" fill-opacity=".07"/>
+    <circle cx="12.9" cy="-55.3" r="4.1" fill-opacity=".20"/>
+    <circle cx="-42.8" cy="-104.3" r="7" fill-opacity=".16"/>
+    <circle cx="49.5" cy="86.9" r="10" fill-opacity=".10"/>
+    <circle cx="-41.1" cy="102.6" r="5" fill-opacity=".18"/>
+    <circle cx="65" cy="-0.8" r="10.2" fill-opacity=".07"/>
+    <circle cx="-60.4" cy="31.1" r="6.8" fill-opacity=".20"/>
+    <circle cx="21.8" cy="68.9" r="6.2" fill-opacity=".07"/>
+    <circle cx="-40" cy="98.5" r="11.3" fill-opacity=".19"/>
+    <circle cx="58.3" cy="28.9" r="6.8" fill-opacity=".12"/>
+    <circle cx="62.1" cy="67.9" r="6.3" fill-opacity=".15"/>
+    <circle cx="23.9" cy="20.3" r="4" fill-opacity=".20"/>
+    <circle cx="-20.2" cy="-75.2" r="9" fill-opacity=".19"/>
+    <circle cx="-31.5" cy="-104.6" r="4.9" fill-opacity=".07"/>
+    <circle cx="-20.8" cy="36" r="7.7" fill-opacity=".20"/>
+    <circle cx="7.8" cy="-40.6" r="11.6" fill-opacity=".17"/>
+  </g>
+  <path d="M -74 62 q 16 -12 30 4 t 28 -2 M 34 84 q 14 8 26 -4" fill="none" stroke="#5A1030" stroke-width="3" stroke-opacity=".5" stroke-linecap="round"/>
+  <use href="#cabeza" fill="url(#limbo)"/>
+  <path class="bucle-luz" d="M -78 -158 Q -139.9 -152 -100 -50"/>
+  <path class="bucle" d="M -78 -158 Q -139.9 -152 -100 -50"/>
+  <circle class="gota" cx="-78" cy="-158" r="2.6"/>
+  <path class="bucle-luz" d="M 78 -158 Q 159.7 -170.8 100 -50"/>
+  <path class="bucle" d="M 78 -158 Q 159.7 -170.8 100 -50"/>
+  <circle class="gota" cx="114.3" cy="-153.6" r="2.6"/>
+  <path class="bucle-luz" d="M -62 98 Q -35.4 154.3 10 118"/>
+  <path class="bucle" d="M -62 98 Q -35.4 154.3 10 118"/>
+  <circle class="gota" cx="-23.3" cy="132.2" r="2.6"/>
+  <g transform="translate(-40 4)">
+    <ellipse rx="28" ry="13" fill="#7A1838" fill-opacity=".7"/>
+    <line class="estria" x1="19" y1="0" x2="28" y2="0"/>
+    <line class="estria" x1="18.4" y1="1.6" x2="27" y2="3.4"/>
+    <line class="estria" x1="16.5" y1="3" x2="24.2" y2="6.5"/>
+    <line class="estria" x1="13.4" y1="4.2" x2="19.8" y2="9.2"/>
+    <line class="estria" x1="9.5" y1="5.2" x2="14" y2="11.3"/>
+    <line class="estria" x1="4.9" y1="5.8" x2="7.2" y2="12.6"/>
+    <line class="estria" x1="0" y1="6" x2="0" y2="13"/>
+    <line class="estria" x1="-4.9" y1="5.8" x2="-7.2" y2="12.6"/>
+    <line class="estria" x1="-9.5" y1="5.2" x2="-14" y2="11.3"/>
+    <line class="estria" x1="-13.4" y1="4.2" x2="-19.8" y2="9.2"/>
+    <line class="estria" x1="-16.5" y1="3" x2="-24.2" y2="6.5"/>
+    <line class="estria" x1="-18.4" y1="1.6" x2="-27" y2="3.4"/>
+    <line class="estria" x1="-19" y1="0" x2="-28" y2="0"/>
+    <line class="estria" x1="-18.4" y1="-1.6" x2="-27" y2="-3.4"/>
+    <line class="estria" x1="-16.5" y1="-3" x2="-24.2" y2="-6.5"/>
+    <line class="estria" x1="-13.4" y1="-4.2" x2="-19.8" y2="-9.2"/>
+    <line class="estria" x1="-9.5" y1="-5.2" x2="-14" y2="-11.3"/>
+    <line class="estria" x1="-4.9" y1="-5.8" x2="-7.2" y2="-12.6"/>
+    <line class="estria" x1="0" y1="-6" x2="0" y2="-13"/>
+    <line class="estria" x1="4.9" y1="-5.8" x2="7.2" y2="-12.6"/>
+    <line class="estria" x1="9.5" y1="-5.2" x2="14" y2="-11.3"/>
+    <line class="estria" x1="13.4" y1="-4.2" x2="19.8" y2="-9.2"/>
+    <line class="estria" x1="16.5" y1="-3" x2="24.2" y2="-6.5"/>
+    <line class="estria" x1="18.4" y1="-1.6" x2="27" y2="-3.4"/>
+    <rect x="-18" y="-4" width="36" height="8" rx="3" fill="#2A0814"/>
+  </g>
+  <g transform="translate(40 4)">
+    <ellipse rx="28" ry="13" fill="#7A1838" fill-opacity=".7"/>
+    <line class="estria" x1="19" y1="0" x2="28" y2="0"/>
+    <line class="estria" x1="18.4" y1="1.6" x2="27" y2="3.4"/>
+    <line class="estria" x1="16.5" y1="3" x2="24.2" y2="6.5"/>
+    <line class="estria" x1="13.4" y1="4.2" x2="19.8" y2="9.2"/>
+    <line class="estria" x1="9.5" y1="5.2" x2="14" y2="11.3"/>
+    <line class="estria" x1="4.9" y1="5.8" x2="7.2" y2="12.6"/>
+    <line class="estria" x1="0" y1="6" x2="0" y2="13"/>
+    <line class="estria" x1="-4.9" y1="5.8" x2="-7.2" y2="12.6"/>
+    <line class="estria" x1="-9.5" y1="5.2" x2="-14" y2="11.3"/>
+    <line class="estria" x1="-13.4" y1="4.2" x2="-19.8" y2="9.2"/>
+    <line class="estria" x1="-16.5" y1="3" x2="-24.2" y2="6.5"/>
+    <line class="estria" x1="-18.4" y1="1.6" x2="-27" y2="3.4"/>
+    <line class="estria" x1="-19" y1="0" x2="-28" y2="0"/>
+    <line class="estria" x1="-18.4" y1="-1.6" x2="-27" y2="-3.4"/>
+    <line class="estria" x1="-16.5" y1="-3" x2="-24.2" y2="-6.5"/>
+    <line class="estria" x1="-13.4" y1="-4.2" x2="-19.8" y2="-9.2"/>
+    <line class="estria" x1="-9.5" y1="-5.2" x2="-14" y2="-11.3"/>
+    <line class="estria" x1="-4.9" y1="-5.8" x2="-7.2" y2="-12.6"/>
+    <line class="estria" x1="0" y1="-6" x2="0" y2="-13"/>
+    <line class="estria" x1="4.9" y1="-5.8" x2="7.2" y2="-12.6"/>
+    <line class="estria" x1="9.5" y1="-5.2" x2="14" y2="-11.3"/>
+    <line class="estria" x1="13.4" y1="-4.2" x2="19.8" y2="-9.2"/>
+    <line class="estria" x1="16.5" y1="-3" x2="24.2" y2="-6.5"/>
+    <line class="estria" x1="18.4" y1="-1.6" x2="27" y2="-3.4"/>
+    <rect x="-18" y="-4" width="36" height="8" rx="3" fill="#2A0814"/>
+  </g>
+  <polygon points="-6,30 6,30 0,37" fill="#5A1030" fill-opacity=".8"/>
+</svg>

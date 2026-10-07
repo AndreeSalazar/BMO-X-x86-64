@@ -37,8 +37,13 @@ pub fn parse(src: &[u8], toks: &[Token], errors: &mut Vec<Error>) -> Option<Node
         match t.kind {
             Kind::Lt => {
                 i += 1;
-                if let Some((node, self_closed)) = open_tag(src, toks, &mut i, errors) {
-                    if self_closed {
+                if let Some((mut node, self_closed)) = open_tag(src, toks, &mut i, errors) {
+                    if node.tag == Tag::Svg {
+                        // ** MAQUETA 3: lo de dentro de un `<svg>` es SVG y lo
+                        // lee SU lector, entero, desde el texto.
+                        dibujo(src, toks, &mut i, &mut node, self_closed, errors);
+                        attach(&mut stack, &mut roots, node, errors);
+                    } else if self_closed {
                         attach(&mut stack, &mut roots, node, errors);
                     } else {
                         stack.push(node);
@@ -282,16 +287,52 @@ fn attribute(
             }
         }
         b"viewBox" if node.tag == Tag::Svg => {
-            let n: Vec<Option<u32>> = val.split(|b| b.is_ascii_whitespace() || *b == b',').filter(|w| !w.is_empty()).map(parse_u32).collect();
-            match n.as_slice() {
-                [Some(a), Some(b), Some(c), Some(d)] if *c > 0 && *d > 0 => node.view_box = Some([*a, *b, *c, *d]),
-                _ => errors.push(Error::new(
+            let t = String::from_utf8_lossy(&val).into_owned();
+            match vista(&t) {
+                Some(_) => node.svg_vista = Some(t),
+                None => errors.push(Error::new(
                     vspan,
-                    "un `viewBox` son cuatro enteros: x, y, ancho y alto",
+                    "un `viewBox` son cuatro numeros: x, y, ancho y alto",
                     "son las coordenadas propias del dibujo; el compilador las lleva a la \
-                     caja del `<svg>`.",
+                     caja del `<svg>`. El ancho y el alto, mayores que cero.",
                     "por ejemplo `viewBox=\"0 0 24 24\"`.",
                 )),
+            }
+        }
+        b"preserveAspectRatio" if node.tag == Tag::Svg => {
+            let t = String::from_utf8_lossy(&val).into_owned();
+            let mut p = t.split_whitespace();
+            let alinea = p.next().unwrap_or("");
+            let ok = (alinea == "none" || ["xMin", "xMid", "xMax"].iter().any(|x| ["YMin", "YMid", "YMax"].iter().any(|y| alinea == format!("{x}{y}"))))
+                && p.next().is_none_or(|m| m == "meet" || m == "slice")
+                && p.next().is_none();
+            if ok {
+                node.svg_aspecto = Some(t);
+            } else {
+                errors.push(Error::new(
+                    vspan,
+                    "este `preserveAspectRatio` no se sabe leer",
+                    "es como cae el `viewBox` en la caja, y el navegador y BMO-X tienen que \
+                     leerlo igual.",
+                    "`none`, o `xMidYMid` (o `xMinYMin`...) con `meet` o `slice`.",
+                ));
+            }
+        }
+        b"src" if node.tag == Tag::Svg => {
+            let ok = val.ends_with(b".svg")
+                && !val.starts_with(b"/")
+                && val.iter().all(|&b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/'))
+                && !val.windows(2).any(|w| w == b"..");
+            if ok {
+                node.src = Some(String::from_utf8_lossy(&val).into_owned());
+            } else {
+                errors.push(Error::new(
+                    vspan,
+                    "`src` de un `<svg>` es un `.svg` de esta carpeta o de debajo",
+                    "lo lee el compilador con el lector de SVG y su dibujo va DENTRO del \
+                     codigo generado: sin `..` ni `/` delante, se sabe siempre de donde sale.",
+                    "por ejemplo `<svg class=\"logo\" src=\"arte/logo.svg\"/>`.",
+                ));
             }
         }
         b"src" if node.tag == Tag::Imagen => {
@@ -379,20 +420,6 @@ fn attribute(
                 }
             }
         }
-        b"d" if node.tag == Tag::Path => {
-            let d = String::from_utf8_lossy(&val).into_owned();
-            if bmo_letra::svg::camino(&d).is_empty() {
-                errors.push(Error::new(
-                    vspan,
-                    "este camino no se puede leer",
-                    "un `d` de SVG con `M L H V C S Q T Z` (y sus minusculas). Los arcos \
-                     `A` no estan: en las maquetas no hay ninguno.",
-                    "por ejemplo `d=\"M4 8h14l-4-4\"`.",
-                ));
-            } else {
-                node.d = Some(d);
-            }
-        }
         other => {
             errors.push(Error::new(
                 span_of(&name_tok),
@@ -403,8 +430,8 @@ fn attribute(
                 "la lista de atributos esta CERRADA. Un atributo que se acepta y no \
                  se lee es una linea que parece hacer algo y no hace nada.",
                 "`class`, `id`, `nombre` (solo en `<island>`), `ancho`/`alto` \
-                 (solo en `<maqueta>`), `viewBox` (solo en `<svg>`), `d` (solo en \
-                 `<path>`), `src`, `repite`, `entre` y `columnas` (en `<usa>`), y `src` y \
+                 (solo en `<maqueta>`), `viewBox`, `preserveAspectRatio` y `src` (en \
+                 `<svg>`), `src`, `repite`, `entre` y `columnas` (en `<usa>`), y `src` y \
                  `dato` (en `<imagen>`).",
             ));
         }
@@ -495,21 +522,16 @@ fn attach(stack: &mut [Node], roots: &mut Vec<Node>, node: Node, errors: &mut Ve
     }
     match stack.last_mut() {
         Some(parent) => {
-            // Un `<path>` solo va en un `<svg>`, y un `<svg>` solo lleva
-            // `<path>`s: un dibujo es matematica, no flujo de cajas.
-            if node.tag == Tag::Path || parent.tag == Tag::Svg {
-                if node.tag != Tag::Path || !parent.tag.takes_paths() {
-                    errors.push(Error::new(
-                        node.span,
-                        &format!("`<{}>` no puede ir dentro de `<{}>`", node.tag.name(), parent.tag.name()),
-                        "un `<svg>` es un dibujo: dentro solo lleva sus `<path>`, y un \
-                         `<path>` solo tiene sentido dentro de su `<svg>` (es quien dice \
-                         su `viewBox` y su trazo).",
-                        "poner los `<path>` dentro del `<svg>`, y las cajas fuera.",
-                    ));
-                    return;
-                }
-                parent.children.push(node);
+            // Lo de dentro de un `<svg>` lo lee el lector de SVG; un
+            // `<path>` que llega aqui esta FUERA de un dibujo.
+            if node.tag == Tag::Path {
+                errors.push(Error::new(
+                    node.span,
+                    &format!("`<path>` no puede ir dentro de `<{}>`", parent.tag.name()),
+                    "un `<path>` solo tiene sentido dentro de su `<svg>`: es quien dice su \
+                     `viewBox` y en que caja cae.",
+                    "ponerlo dentro de un `<svg viewBox=\"...\">`.",
+                ));
                 return;
             }
             if !parent.tag.takes_boxes() {
@@ -646,6 +668,82 @@ fn bad_name(span: Span, raw: &[u8], what: &str) -> Error {
         "un nombre empieza por letra o `_` y sigue con letras, cifras, `-` o `_`.",
         "por ejemplo `tecla-op`.",
     )
+}
+
+/// Los cuatro numeros de un `viewBox`, con el ancho y el alto mayores que 0.
+pub fn vista(t: &str) -> Option<[f64; 4]> {
+    let v: Vec<f64> = t.split(|c: char| c.is_ascii_whitespace() || c == ',').filter(|w| !w.is_empty()).map(|w| w.parse::<f64>().ok()).collect::<Option<_>>()?;
+    match v.as_slice() {
+        [a, b, c, d] if *c > 0.0 && *d > 0.0 && v.iter().all(|x| x.is_finite()) => Some([*a, *b, *c, *d]),
+        _ => None,
+    }
+}
+
+/// **Un `<svg>`** (MAQUETA 3): lo de dentro, desde el TEXTO, al lector de
+/// SVG. Los tokens que el lexer saco de dentro se saltan: el lexer de la
+/// maqueta no sabe SVG, y su lector si.
+fn dibujo(src: &[u8], toks: &[Token], i: &mut usize, node: &mut Node, self_closed: bool, errors: &mut Vec<Error>) {
+    let (ini, fin) = if self_closed {
+        (0, 0)
+    } else {
+        let ini = toks.get(i.wrapping_sub(1)).map_or(src.len(), |t| t.start + t.len);
+        let mut hondo = 0usize;
+        let mut j = *i;
+        let mut fin = None;
+        while j < toks.len() {
+            let t = &toks[j];
+            let es_svg = toks.get(j + 1).is_some_and(|n| n.kind == Kind::Ident && n.text(src) == b"svg");
+            match t.kind {
+                Kind::Lt if es_svg => hondo += 1,
+                Kind::LtSlash if es_svg => {
+                    if hondo == 0 {
+                        fin = Some(j);
+                        break;
+                    }
+                    hondo -= 1;
+                }
+                Kind::NonAscii => errors.push(non_ascii(span_of(t))),
+                _ => {}
+            }
+            j += 1;
+        }
+        let Some(k) = fin else {
+            errors.push(Error::new(node.span, "`<svg>` se abrio y no se cerro", "un dibujo acaba en su `</svg>`.", "escribir `</svg>`."));
+            *i = toks.len();
+            return;
+        };
+        let fin = toks[k].start;
+        *i = k + 2;
+        if toks.get(*i).map(|t| t.kind) == Some(Kind::Gt) {
+            *i += 1;
+        }
+        (ini, fin)
+    };
+    let hay_dentro = src[ini..fin].iter().any(|b| !b.is_ascii_whitespace());
+    if node.src.is_some() {
+        if hay_dentro {
+            errors.push(Error::new(
+                node.span,
+                "este `<svg>` dice `src` y ademas trae dibujo dentro",
+                "o el dibujo esta en su fichero, o esta aqui; con los dos no se sabe cual se pinta.",
+                "`<svg src=\"logo.svg\"/>` vacio, o el dibujo dentro sin `src`.",
+            ));
+        }
+        if node.svg_vista.is_some() || node.svg_aspecto.is_some() {
+            errors.push(Error::new(
+                node.span,
+                "un `<svg src>` no dice su `viewBox` ni su `preserveAspectRatio`",
+                "los dice su fichero, como en el navegador.",
+                "quitarlos de aqui.",
+            ));
+        }
+        return;
+    }
+    let v = node.svg_vista.as_deref().and_then(vista);
+    match bmo_maqueta_dibujo::leer_dentro(src, ini, fin, v, node.svg_aspecto.as_deref().unwrap_or("")) {
+        Ok(s) => node.dibujo = Some(bmo_maqueta_dibujo::Dibujo(std::sync::Arc::new(s))),
+        Err(e) => errors.extend(e),
+    }
 }
 
 fn skip_to_tag_end(toks: &[Token], i: &mut usize) {

@@ -46,7 +46,7 @@ mod roja;
 mod verde;
 
 pub use amarilla::{Volcado, Volcador};
-pub use verde::fina::{avance, entre, entre_color, entre_i, letra_vaciados, Estilo, Peso, Pieza};
+pub use verde::fina::{avance, entre, entre_color, entre_i, letra_vaciados, Estilo, Parada, Peso, Pieza, Tinta};
 pub use roja::{volcador_caja, VOLCADOR_ARMAR, VOLCADOR_CAJA, VOLCADOR_COMO_VA, VOLCADOR_ESPERAR, VOLCADOR_SOLTAR};
 pub use verde::{glyph_bits, GLIFO_ALTO, GLIFO_ANCHO};
 

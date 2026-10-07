@@ -41,7 +41,30 @@ pub mod style;
 use bmo_maqueta_diag::{Error, Span};
 use bmo_maqueta_node::{Document, Node, Selector, Tag};
 
-pub use style::{Align, Direction, Display, Justify, Position, Style};
+pub use style::{Align, AlignContent, Desborde, Direction, Display, Justify, Position, Style, TextAlign};
+
+/// **Lo que un dibujo hereda de la regla de su `<svg>`** (MAQUETA 3, 2e):
+/// en SVG un `fill` en el `<svg>` llega a sus figuras, y en la maqueta se
+/// escribe en la regla del `<svg>` como siempre.
+pub fn herencia(s: &Style) -> bmo_maqueta_dibujo::Herencia {
+    use bmo_maqueta_dibujo::{Esquina, Punta};
+    use bmo_maqueta_node::Keyword;
+    bmo_maqueta_dibujo::Herencia {
+        fill: s.fill_said.then_some(s.fill),
+        stroke: s.stroke.map(Some),
+        stroke_width: (s.stroke_width > 0).then(|| s.stroke_width as f64 / 64.0),
+        punta: s.linecap.map(|k| match k {
+            Keyword::Round => Punta::Redonda,
+            Keyword::Square => Punta::Cuadrada,
+            _ => Punta::Recta,
+        }),
+        esquina: s.linejoin.map(|k| match k {
+            Keyword::Round => Esquina::Redonda,
+            Keyword::Bevel => Esquina::Cortada,
+            _ => Esquina::Pico,
+        }),
+    }
+}
 
 /// A box whose style is settled. **No classes** -- see the module header.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -51,9 +74,8 @@ pub struct Styled {
     pub id: Option<String>,
     pub island: Option<String>,
     pub text: Option<String>,
-    /// `<svg viewBox>` and `<path d>`, carried untouched (MAQUETA 2).
-    pub view_box: Option<[u32; 4]>,
-    pub d: Option<String>,
+    /// `<svg>` (MAQUETA 3): el dibujo, carried untouched.
+    pub dibujo: Option<bmo_maqueta_dibujo::Dibujo>,
     /// `<usa src>`: la pieza, carried untouched.
     pub src: Option<String>,
     /// `<usa repite>` y el hueco `{nombre}` (P2, H1), carried untouched.
@@ -180,11 +202,10 @@ fn settle(
         id: node.id.clone(),
         island: node.island.clone(),
         text: node.text.clone(),
-        view_box: node.view_box,
+        dibujo: node.dibujo.clone(),
         src: node.src.clone(),
         repite: node.repite,
         hueco: node.hueco.clone(),
-        d: node.d.clone(),
         canvas: match (node.width, node.height) {
             (Some(w), Some(h)) => Some((w, h)),
             _ => None,

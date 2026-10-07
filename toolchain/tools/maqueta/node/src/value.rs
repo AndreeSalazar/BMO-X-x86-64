@@ -72,7 +72,9 @@ impl Tag {
         matches!(self, Tag::Maqueta | Tag::Div)
     }
 
-    /// Only `<svg>` takes `<path>`s, and a `<path>` goes nowhere else.
+    /// Only `<svg>` takes `<path>`s, and a `<path>` goes nowhere else. Since
+    /// MAQUETA 3 what is inside an `<svg>` is read by the SVG reader, so a
+    /// `<path>` the father sees is always one OUTSIDE a drawing.
     pub fn takes_paths(self) -> bool {
         matches!(self, Tag::Svg)
     }
@@ -143,6 +145,36 @@ pub enum Prop {
     BorderLeftColor,
     // the motion (P3, 04-10): how this box goes from one state to another.
     Transition,
+    // MAQUETA 3, pile A (06-10): what fits without touching any law -- each
+    // one is resolved with the box's OWN size, never its parent's.
+    /// `left | center | right`: where the text sits inside its `block` box.
+    TextAlign,
+    /// Bounds on the box's own size; CSS's rule: `max` beats `width`, `min`
+    /// beats `max`.
+    MinWidth,
+    MaxWidth,
+    MinHeight,
+    MaxHeight,
+    // MAQUETA 3, pile A, second batch (06-10, MA2): `LA_MAQUETA_EXIGE.md` 3e.
+    /// `hidden | clip | visible | auto`: what sticks out sideways is CLIPPED.
+    OverflowX,
+    /// `ellipsis | clip`: a line that does not fit is cut at compile time.
+    TextOverflow,
+    /// Declares a ZONE: the module answers which pointer a point asks for.
+    Cursor,
+    /// `none`: this box and what is inside are not hit.
+    PointerEvents,
+    /// The LAYER: one global number instead of CSS's stacking contexts.
+    ZIndex,
+    /// `wrap`: rows are split at compile time, against the box's OWN size.
+    FlexWrap,
+    AlignContent,
+    AlignSelf,
+    /// `N` or `A / B`: the box's own proportion.
+    AspectRatio,
+    /// A ring outside the border that takes no room.
+    Outline,
+    OutlineOffset,
 }
 
 /// The four sides, in CSS order (top, right, bottom, left).
@@ -216,6 +248,22 @@ impl Prop {
             b"border-bottom-color" => Prop::BorderBottomColor,
             b"border-left-color" => Prop::BorderLeftColor,
             b"transition" => Prop::Transition,
+            b"text-align" => Prop::TextAlign,
+            b"min-width" => Prop::MinWidth,
+            b"max-width" => Prop::MaxWidth,
+            b"min-height" => Prop::MinHeight,
+            b"max-height" => Prop::MaxHeight,
+            b"overflow-x" => Prop::OverflowX,
+            b"text-overflow" => Prop::TextOverflow,
+            b"cursor" => Prop::Cursor,
+            b"pointer-events" => Prop::PointerEvents,
+            b"z-index" => Prop::ZIndex,
+            b"flex-wrap" => Prop::FlexWrap,
+            b"align-content" => Prop::AlignContent,
+            b"align-self" => Prop::AlignSelf,
+            b"aspect-ratio" => Prop::AspectRatio,
+            b"outline" => Prop::Outline,
+            b"outline-offset" => Prop::OutlineOffset,
             _ => return None,
         })
     }
@@ -267,6 +315,22 @@ impl Prop {
             Prop::BorderBottomColor => "border-bottom-color",
             Prop::BorderLeftColor => "border-left-color",
             Prop::Transition => "transition",
+            Prop::TextAlign => "text-align",
+            Prop::MinWidth => "min-width",
+            Prop::MaxWidth => "max-width",
+            Prop::MinHeight => "min-height",
+            Prop::MaxHeight => "max-height",
+            Prop::OverflowX => "overflow-x",
+            Prop::TextOverflow => "text-overflow",
+            Prop::Cursor => "cursor",
+            Prop::PointerEvents => "pointer-events",
+            Prop::ZIndex => "z-index",
+            Prop::FlexWrap => "flex-wrap",
+            Prop::AlignContent => "align-content",
+            Prop::AlignSelf => "align-self",
+            Prop::AspectRatio => "aspect-ratio",
+            Prop::Outline => "outline",
+            Prop::OutlineOffset => "outline-offset",
         }
     }
 
@@ -303,10 +367,6 @@ impl Prop {
             | Prop::Height
             | Prop::BorderRadius
             | Prop::Gap
-            | Prop::Left
-            | Prop::Top
-            | Prop::Right
-            | Prop::Bottom
             | Prop::FontSize
             | Prop::LineHeight
             | Prop::PaddingTop
@@ -316,12 +376,29 @@ impl Prop {
             | Prop::BorderTopWidth
             | Prop::BorderRightWidth
             | Prop::BorderBottomWidth
-            | Prop::BorderLeftWidth => Shape::OnePx,
+            | Prop::BorderLeftWidth
+            | Prop::MinWidth
+            | Prop::MaxWidth
+            | Prop::MinHeight
+            | Prop::MaxHeight => Shape::OnePx,
+            Prop::TextAlign => Shape::Words(&[Keyword::Left, Keyword::Center, Keyword::Right, Keyword::Start, Keyword::End]),
             Prop::FontWeight => Shape::Weight,
             Prop::LetterSpacing => Shape::Em,
             Prop::TextTransform => Shape::Words(&[Keyword::Uppercase, Keyword::None]),
             Prop::WhiteSpace => Shape::Words(&[Keyword::Normal, Keyword::Nowrap]),
-            Prop::OverflowY => Shape::Words(&[Keyword::Auto, Keyword::Visible]),
+            Prop::OverflowY | Prop::OverflowX => Shape::Words(&[Keyword::Auto, Keyword::Visible, Keyword::Hidden, Keyword::Clip]),
+            // MAQUETA 3 (3e): negatives ARE allowed here -- a badge over a
+            // corner sticks out of its anchor on purpose.
+            Prop::Left | Prop::Top | Prop::Right | Prop::Bottom | Prop::OutlineOffset => Shape::SignedPx,
+            Prop::TextOverflow => Shape::Words(&[Keyword::Ellipsis, Keyword::Clip]),
+            Prop::Cursor => Shape::Words(&[Keyword::Pointer, Keyword::Text, Keyword::Default, Keyword::NotAllowed, Keyword::Auto]),
+            Prop::PointerEvents => Shape::Words(&[Keyword::None, Keyword::Auto]),
+            Prop::ZIndex => Shape::Count,
+            Prop::FlexWrap => Shape::Words(&[Keyword::Wrap, Keyword::Nowrap]),
+            Prop::AlignContent => Shape::Words(&[Keyword::Start, Keyword::Center, Keyword::End, Keyword::SpaceBetween, Keyword::Stretch, Keyword::Normal]),
+            Prop::AlignSelf => Shape::Words(&[Keyword::Start, Keyword::Center, Keyword::End, Keyword::Stretch, Keyword::Auto]),
+            Prop::AspectRatio => Shape::Ratio,
+            Prop::Outline => Shape::Outline,
             Prop::BoxShadow => Shape::Shadow,
             Prop::BackgroundImage => Shape::Gradient,
             Prop::BackgroundColor
@@ -332,7 +409,8 @@ impl Prop {
             | Prop::BorderLeftColor => Shape::ColorOrClear,
             Prop::Stroke | Prop::Fill => Shape::ColorOrNone,
             Prop::StrokeWidth => Shape::Fine,
-            Prop::StrokeLinecap | Prop::StrokeLinejoin => Shape::Words(&[Keyword::Round]),
+            Prop::StrokeLinecap => Shape::Words(&[Keyword::Round, Keyword::Butt, Keyword::Square]),
+            Prop::StrokeLinejoin => Shape::Words(&[Keyword::Round, Keyword::Miter, Keyword::Bevel]),
             Prop::Padding | Prop::BorderWidth => Shape::OneToFourPx,
             Prop::Transition => Shape::Transition,
             Prop::Color => Shape::Color,
@@ -379,6 +457,14 @@ pub enum Shape {
     Fine,
     /// `240ms ease-in-out`, `.3s cubic-bezier(.34,1.56,.64,1) 50ms`.
     Transition,
+    /// `Npx`, negative too (MAQUETA 3: offsets that stick out on purpose).
+    SignedPx,
+    /// A whole number with no unit (`z-index`).
+    Count,
+    /// `16 / 9`, `16/9` or `1`.
+    Ratio,
+    /// `2px solid #RRGGBB`, `none` or `0`.
+    Outline,
 }
 
 /// **Como va una caja de un estado a otro**: cuanto tarda, cuanto espera y
@@ -433,6 +519,23 @@ pub enum Keyword {
     /// `border-radius: 50%` (H6): la mitad del lado corto -- un circulo en
     /// una caja cuadrada. El unico porcentaje que hay.
     Mitad,
+    /// `text-align: left | right` (MAQUETA 3).
+    Left,
+    Right,
+    /// La pluma de un dibujo (MAQUETA 3, 2e): puntas y esquinas.
+    Butt,
+    Square,
+    Miter,
+    Bevel,
+    // MAQUETA 3, pile A (MA2).
+    Hidden,
+    Clip,
+    Ellipsis,
+    Pointer,
+    Text,
+    Default,
+    NotAllowed,
+    Wrap,
 }
 
 impl Keyword {
@@ -456,6 +559,20 @@ impl Keyword {
             b"uppercase" => Keyword::Uppercase,
             b"none" => Keyword::None,
             b"round" => Keyword::Round,
+            b"left" => Keyword::Left,
+            b"right" => Keyword::Right,
+            b"butt" => Keyword::Butt,
+            b"square" => Keyword::Square,
+            b"miter" => Keyword::Miter,
+            b"bevel" => Keyword::Bevel,
+            b"hidden" => Keyword::Hidden,
+            b"clip" => Keyword::Clip,
+            b"ellipsis" => Keyword::Ellipsis,
+            b"pointer" => Keyword::Pointer,
+            b"text" => Keyword::Text,
+            b"default" => Keyword::Default,
+            b"not-allowed" => Keyword::NotAllowed,
+            b"wrap" => Keyword::Wrap,
             _ => return None,
         })
     }
@@ -481,6 +598,20 @@ impl Keyword {
             Keyword::Uppercase => "uppercase",
             Keyword::None => "none",
             Keyword::Round => "round",
+            Keyword::Left => "left",
+            Keyword::Right => "right",
+            Keyword::Butt => "butt",
+            Keyword::Square => "square",
+            Keyword::Miter => "miter",
+            Keyword::Bevel => "bevel",
+            Keyword::Hidden => "hidden",
+            Keyword::Clip => "clip",
+            Keyword::Ellipsis => "ellipsis",
+            Keyword::Pointer => "pointer",
+            Keyword::Text => "text",
+            Keyword::Default => "default",
+            Keyword::NotAllowed => "not-allowed",
+            Keyword::Wrap => "wrap",
         }
     }
 }
@@ -507,6 +638,14 @@ pub enum Value {
     /// A fine number, in 1/64 units.
     Fine(u32),
     Transicion(Transicion),
+    /// A length that may be negative (MAQUETA 3).
+    Signed(i32),
+    /// A whole number (`z-index`).
+    Count(u32),
+    /// `aspect-ratio`: width and height parts.
+    Ratio(u32, u32),
+    /// `outline`: width in px (0 = none) and its colour.
+    Outline { w: u32, color: u32 },
 }
 
 // ------------------------------------------------------------------------
@@ -528,15 +667,6 @@ pub fn known_rejection(name: &[u8]) -> Option<(&'static str, &'static str)> {
              esquina, trazo) y la de `box-shadow`.",
             "elegir el color ya mezclado: `#RRGGBB` resuelto al escribirlo.",
         ),
-        b"z-index" => (
-            "no hay capas: las cajas se pintan en el orden en que estan escritas.",
-            "mover la caja en el fichero. El orden del texto ES el orden de pintado.",
-        ),
-        b"overflow" | b"overflow-x" | b"overflow-y" => (
-            "nada se recorta ni se desplaza: una caja que no cabe es un ERROR del \
-             veredicto, no un caso a manejar en ejecucion.",
-            "dar sitio a la caja, o repartir con `display:flex` y `gap`.",
-        ),
         b"float" | b"clear" => (
             "el flotado existe para rodear texto con imagenes, y aqui no hay ninguna \
              de las dos cosas.",
@@ -547,11 +677,6 @@ pub fn known_rejection(name: &[u8]) -> Option<(&'static str, &'static str)> {
              fuentes de nadie. Elegir familia seria traer otra.",
             "`font-size`, `font-weight`, `letter-spacing`, `line-height` y \
              `text-transform`: lo que de verdad cambia una letra.",
-        ),
-        b"text-align" => (
-            "no esta implementada, y no es gratis: alinear texto es colocar una caja \
-             dentro de otra, o sea maquetacion.",
-            "meter el texto en su `<span>` y colocarlo con `justify-content`.",
         ),
         b"animation" | b"transform" | b"@keyframes" => (
             "en el aparato no se maqueta NADA: cada estado se maqueta entero al \
@@ -620,6 +745,6 @@ pub fn unknown_prop(span: Span, name: &[u8]) -> Error {
         "la lista de propiedades esta CERRADA: contadas sobre lo que el escritorio \
          y las maquetas de las apps hacen de verdad.",
         "la lista entera esta en la seccion 3 de `LA_MAQUETA_EXIGE.md`. Agregar una \
-         empieza por anadirla ahi.",
+         empieza por escribirla ahi.",
     )
 }

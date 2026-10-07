@@ -15,3 +15,5 @@ bmo-maqueta-verdict = { path = "../verdict" }
 bmo-maqueta-diag = { path = "../diag" }
 # H4: las imagenes se leen con el MISMO lector que el aparato.
 bmo-imagen = { path = "../../../../platform/shared/bmo-imagen" }
+# MAQUETA 3 (S6): `<svg src="logo.svg">`, leido con el lector de SVG.
+bmo-maqueta-dibujo = { path = "../dibujo" }

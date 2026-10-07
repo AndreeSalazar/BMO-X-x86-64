@@ -91,6 +91,10 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     // capability y no un `bool`: 1.100 de los 1.205 ms hasta el escritorio eran
     // esa espera, y el propietario la leyo como un fallo mirando el cronometro del
     // klog. Tenia razon en sospechar.
+    // ** EL ESTILO, ANTES de la entrada (07-10, HM3b): la entrada mira si el
+    // fondo es el de mision (y entonces es el INICIO), y su acento ya es el
+    // de `sys/director.cfg`. Leer el fichero es solo leerlo: no pinta nada.
+    scene::estilo::cargar();
     scene::splash::paint(&p, input.as_ref(), has_console);
     bmo::consola("entrada a Ring 3 pintada\n");
     // ** EL ARRANQUE ORQUESTADO, JUSTO TRAS EL GATO (25-09): con `save mode`
@@ -114,8 +118,7 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     // framebuffer, el `git log` tiene los valores exactos con su porque.
     // ** EL ESTILO, antes del primer pixel del escritorio: el degradado y la
     // barra ya salen con lo que diga `sys/director.cfg` (2026-09-13).
-    marca(&p, "estilo (sys/director.cfg)");
-    scene::estilo::cargar();
+    // (El estilo ya se leyo, antes de la entrada: ver arriba.)
     marca(&p, "fondo: leyendo del disco");
     // ** Y LA FOTO DE FONDO, si `fondo_imagen` pide una: se descifra aqui, una
     // vez, antes del primer pixel. Ver `scene::fondo`.

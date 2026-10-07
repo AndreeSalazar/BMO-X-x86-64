@@ -59,11 +59,13 @@ pub struct Node {
     pub height: Option<u32>,
     /// Text content. A node has text or children, never both.
     pub text: Option<String>,
-    /// `<svg viewBox="0 0 24 24">`: the drawing's own coordinates.
-    pub view_box: Option<[u32; 4]>,
-    /// `<path d="...">`: the SVG path, as written. Checked here (it has to
-    /// read), flattened later.
-    pub d: Option<String>,
+    /// `<svg>` (MAQUETA 3): el dibujo, leido y juzgado por el lector de SVG
+    /// (`bmo-maqueta-dibujo`). Con `src="logo.svg"` lo pone `compone`, que es
+    /// quien lee ficheros.
+    pub dibujo: Option<bmo_maqueta_dibujo::Dibujo>,
+    /// `viewBox` y `preserveAspectRatio` del `<svg>`, como se escribieron.
+    pub svg_vista: Option<String>,
+    pub svg_aspecto: Option<String>,
     /// `<usa src="...">`: la pieza que va aqui, relativa a este fichero.
     pub src: Option<String>,
     /// `<usa repite="8" entre="4">` (P2): la pieza, hasta N veces en columna.
@@ -86,8 +88,9 @@ impl Node {
             width: None,
             height: None,
             text: None,
-            view_box: None,
-            d: None,
+            dibujo: None,
+            svg_vista: None,
+            svg_aspecto: None,
             src: None,
             repite: None,
             hueco: None,

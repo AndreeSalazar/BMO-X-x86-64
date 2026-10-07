@@ -1,16 +1,20 @@
-//! **K. Un dibujo que el navegador no pintaria igual** (MAQUETA 2, 04-10).
+//! **K. Un dibujo que el navegador no pintaria igual** (MAQUETA 2, 04-10;
+//! MAQUETA 3, 06-10).
 //!
 //! La regla de MAQUETA es el navegador: el mismo `.maqueta` se abre alli y se
-//! compara. Un `<svg>` tiene dos trampas en las que el navegador hace OTRA
-//! cosa que BMO-X sin que nadie lo vea:
+//! compara. Hasta MAQUETA 3, K pedia el `fill` dicho y la pluma `round`: el
+//! pintor no rellenaba por defecto ni sabia otra pluma, y el navegador si.
+//! Ya sabe (`docs/componente/LA_MAQUETA_EXIGE.md`, 2e). Lo que queda de K:
 //!
 //! ```text
-//!    sin `fill`               el navegador rellena de NEGRO; BMO-X no rellena
-//!    pluma sin `round`        el navegador corta las puntas en recto y las
-//!                             esquinas en pico; la pluma de la casa es redonda
+//!    un viewBox    el suyo, o el de su fichero: sin el no se sabe en que
+//!                  coordenadas esta el dibujo
+//!    una medida    la de su regla o la de su fichero: sin ninguna el
+//!                  navegador le da 300 x 150 por su cuenta
+//!    el dibujo     lo que el lector de SVG dice al pintarlo EN su caja y con
+//!                  lo que hereda de su regla: un `url(#...)` roto, una
+//!                  opacidad de grupo, una animacion sin ciclo
 //! ```
-//!
-//! Las dos se piden DICHAS, y las dos son una linea en la regla.
 //!
 //! **Y una tercera, de cualquier caja (escalon 1)**: un borde DISTINTO por
 //! lado en una caja redonda, con resplandor o con degradado. Las piezas
@@ -40,32 +44,34 @@ pub fn check(laid: &Laid, out: &mut Vec<Error>) {
 }
 
 fn un_dibujo(f: &Frame, out: &mut Vec<Error>) {
-    let s = &f.style;
-    if f.view_box.is_none() {
+    // Sin dibujo: un `<svg src>` cuyo fichero no se leyo, y eso ya se dijo.
+    let Some(d) = &f.dibujo else { return };
+    if d.vista_o_medida().is_none() {
         out.push(Error::new(
             f.span,
             "este `<svg>` no tiene `viewBox`",
-            "sin el no se sabe en que coordenadas estan sus caminos, y el navegador \
-             y BMO-X los pondrian en sitios distintos.",
+            "sin el no se sabe en que coordenadas estan sus figuras, y el navegador \
+             y BMO-X las pondrian en sitios distintos.",
             "`viewBox=\"0 0 24 24\"` (o las del dibujo).",
         ));
+        return;
     }
-    if !s.fill_said {
+    if f.content.w == 0 || f.content.h == 0 {
         out.push(Error::new(
             f.span,
-            "este `<svg>` no dice su `fill`",
-            "sin `fill` el navegador RELLENA DE NEGRO cada camino, y BMO-X no rellena \
-             nada: la regla mentiria sin que se viera.",
-            "`fill: none` (solo trazo) o `fill: #RRGGBB`.",
+            "este `<svg>` no tiene medida",
+            "un dibujo mide lo que dice su regla (o su fichero); sin nada, el navegador \
+             le da 300 x 150 por su cuenta y BMO-X no pinta nada.",
+            "`width` y `height` en su regla.",
         ));
+        return;
     }
-    if s.stroke.is_some() && !(s.round_cap && s.round_join) {
-        out.push(Error::new(
-            f.span,
-            "la pluma de este `<svg>` no es redonda",
-            "la pluma de la casa es REDONDA (puntas y esquinas); sin decirlo, el \
-             navegador corta en recto y en pico, y las dos fotos no se parecerian.",
-            "`stroke-linecap: round; stroke-linejoin: round`.",
-        ));
+    let h = bmo_maqueta_cascade::herencia(&f.style);
+    let c = f.content;
+    let caja = (c.x as f64, c.y as f64, c.w as f64, c.h as f64);
+    let (_, e) = bmo_maqueta_dibujo::figuras(d, &h, caja);
+    out.extend(e);
+    if let Some(Err(e)) = bmo_maqueta_dibujo::pasos(d, &h, caja) {
+        out.extend(e);
     }
 }

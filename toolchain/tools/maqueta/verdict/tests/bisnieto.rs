@@ -260,18 +260,64 @@ fn una_maquetacion_sana_no_da_ni_un_reparo() {
     );
 }
 
-// -- K. el dibujo (MAQUETA 2, 04-10) -------------------------------------------
+// -- K. el dibujo (MAQUETA 2, 04-10; MAQUETA 3, 06-10) -----------------------
 
 #[test]
-fn un_svg_sin_fill_no_compila_porque_el_navegador_lo_pintaria_negro() {
-    let src = "<maqueta><style>.i{width:22px;height:22px;stroke:#FFFFFF;stroke-linecap:round;stroke-linejoin:round}</style><div><svg class=\"i\" viewBox=\"0 0 24 24\"><path d=\"M4 8h14\"/></svg></div></maqueta>";
-    let e = veredicto(src);
-    assert!(e.contains("no dice su `fill`"), "{e}");
+fn un_svg_sin_fill_compila_y_rellena_de_negro_como_el_navegador() {
+    // Hasta MAQUETA 3 esto era error: BMO-X no rellenaba y el navegador si.
+    // Ahora rellenan los dos, de negro.
+    limpio("<maqueta><style>.i{width:22px;height:22px;stroke:#FFFFFF;stroke-linecap:round;stroke-linejoin:round}</style><div><svg class=\"i\" viewBox=\"0 0 24 24\"><path d=\"M4 8h14\"/></svg></div></maqueta>");
 }
 
 #[test]
-fn una_pluma_sin_round_no_compila() {
-    let src = "<maqueta><style>.i{width:22px;height:22px;stroke:#FFFFFF;fill:none}</style><div><svg class=\"i\" viewBox=\"0 0 24 24\"><path d=\"M4 8h14\"/></svg></div></maqueta>";
-    let e = veredicto(src);
-    assert!(e.contains("no es redonda"), "{e}");
+fn una_pluma_recta_compila_porque_su_contorno_se_calcula() {
+    limpio("<maqueta><style>.i{width:22px;height:22px;stroke:#FFFFFF;fill:none}</style><div><svg class=\"i\" viewBox=\"0 0 24 24\"><path d=\"M4 8h14\"/><circle cx=\"12\" cy=\"16\" r=\"4\" stroke-dasharray=\"2 2\"/></svg></div></maqueta>");
+}
+
+#[test]
+fn un_svg_sin_viewbox_no_compila() {
+    let e = veredicto("<maqueta><style>.i{width:22px;height:22px}</style><div><svg class=\"i\"><circle r=\"4\"/></svg></div></maqueta>");
+    assert!(e.contains("no tiene `viewBox`"), "{e}");
+}
+
+#[test]
+fn un_svg_sin_medida_no_compila() {
+    let e = veredicto("<maqueta><style>.f{width:40px;height:40px}</style><div class=\"f\"><svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"4\"/></svg></div></maqueta>");
+    assert!(e.contains("no tiene medida"), "{e}");
+}
+
+#[test]
+fn lo_que_el_lector_dice_al_pintar_sale_en_su_linea() {
+    let e = veredicto("<maqueta><style>.i{width:24px;height:24px}</style><div><svg class=\"i\" viewBox=\"0 0 24 24\">\n<g opacity=\".5\"><circle cx=\"8\" cy=\"8\" r=\"4\"/><circle cx=\"12\" cy=\"8\" r=\"4\"/></g></svg></div></maqueta>");
+    assert!(e.contains("pinta 2 cosas"), "{e}");
+    assert!(e.contains(":2:"), "en la linea del `<g>`:\n{e}");
+}
+
+// ------------------------------------------------------------------------
+//  L (MAQUETA 3, 06-10): un text-align que no puede alinear
+// ------------------------------------------------------------------------
+
+#[test]
+fn text_align_en_una_caja_flex_se_dice() {
+    let v = veredicto(
+        "<maqueta><div class=\"a\">hola</div></maqueta>\
+         <style>.a{display:flex;width:100px;height:16px;text-align:center;color:#FFFFFF}</style>",
+    );
+    assert!(v.contains("`text-align` en una caja `flex` no hace nada"), "{v}");
+    assert!(v.contains("justify-content"), "y que escribir:\n{v}");
+}
+
+#[test]
+fn un_parrafo_centrado_se_dice_todavia() {
+    let v = veredicto(
+        "<maqueta><span class=\"a\">uno dos tres cuatro cinco seis</span></maqueta>\
+         <style>.a{width:80px;font-size:14px;white-space:normal;text-align:center;color:#FFFFFF}</style>",
+    );
+    assert!(v.contains("un parrafo solo se alinea a la izquierda"), "{v}");
+}
+
+#[test]
+fn un_texto_centrado_en_su_caja_block_sale_limpio() {
+    limpio("<maqueta><span class=\"a\">hola</span></maqueta>\
+            <style>.a{width:100px;height:16px;text-align:center;color:#FFFFFF}</style>");
 }
