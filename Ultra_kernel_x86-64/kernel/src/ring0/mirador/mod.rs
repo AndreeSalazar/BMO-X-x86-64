@@ -57,12 +57,32 @@ pub fn volcar_caida() -> usize {
     if n == 0 {
         return 0;
     }
-    match crate::ring0::fsys::fs::create(b"CAIDA   TXT", texto) {
-        Ok(()) => {
-            info("caida", "guardado en CAIDA.TXT: bytes", n as u64);
+    // *** 07-10: era `fs::create`, que NO PISA un fichero que ya existe. O
+    // sea: se guardo la PRIMERA caida de la historia y todas las demas
+    // chocaban con "ya existe" -- un aviso en CABINA y la caja negra
+    // perdida al reusar su RAM. El propietario mando un CAIDA.TXT de 41 KB
+    // de una sesion vieja cuando el arranque decia "recuperado 196576
+    // bytes". Ahora: `CAIDA.TXT` es SIEMPRE la ultima (se reemplaza), y
+    // `CAIDAnnn.TXT` la guarda con su generacion, para que la de antes no
+    // se pierda tampoco.
+    let ultima = crate::ring0::fsys::fs::guardar(b"CAIDA   TXT", texto);
+    let g = crate::ring0::cabina::caida::generacion() % 1000;
+    let numerada = [b'C', b'A', b'I', b'D', b'A', b'0' + (g / 100) as u8, b'0' + (g / 10 % 10) as u8, b'0' + (g % 10) as u8, b'T', b'X', b'T'];
+    let copia = crate::ring0::fsys::fs::guardar(&numerada, texto);
+    match (ultima, copia) {
+        (Ok(()), Ok(())) => {
+            info("caida", "guardado en CAIDA.TXT (y en CAIDAnnn.TXT, nnn = generacion): bytes", n as u64);
             n
         }
-        Err(_) => {
+        (Ok(()), Err(_)) => {
+            warn("caida", "CAIDA.TXT guardado, la copia numerada NO; generacion", g);
+            n
+        }
+        (Err(_), Ok(())) => {
+            warn("caida", "CAIDA.TXT no se pudo reemplazar; esta en CAIDAnnn.TXT, generacion", g);
+            n
+        }
+        (Err(_), Err(_)) => {
             warn("caida", "el disco no acepto CAIDA.TXT; sigue en RAM", n as u64);
             0
         }
