@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   669 casillas ABIERTAS en 64 planes
+   679 casillas ABIERTAS en 64 planes
    567 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -64,6 +64,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] J2b -- itch.io, la API oficial. En la antena: la clave que el
 - ... y 30 mas
 
+## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 33 abiertas, 0 hechas
+
+*PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total*
+
+- [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
+- [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido 
+- [ ] TA2 -- la VENTANA: el nodo screen de TITAN++ (pedir superficie, escribir una fila de pixeles, pr
+- ... y 30 mas
+
 ## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 31 abiertas, 10 hechas
 
 *PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
@@ -72,15 +81,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3 -- las constantes. La matriz en un buffer y el programa de
 - [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
 - ... y 28 mas
-
-## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 23 abiertas, 0 hechas
-
-*PLAN LA TINTA -- dibujar manga en BMO-X, y que TITAN++ cargue con lo pesado*
-
-- [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
-- [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido 
-- [ ] TA2 -- la VENTANA: el nodo screen de TITAN++ (pedir superficie, escribir una fila de pixeles, pr
-- ... y 20 mas
 
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 22 abiertas, 6 hechas
 
@@ -606,5 +606,5 @@ ya no aplican, o esperan a alguien que no es el codigo.
 - **ESPERA** [`en_pausa/PLAN_DOCUMENTOS.md`](en_pausa/PLAN_DOCUMENTOS.md) -- una decision del propietario (.datex, .window/.data): idea suya, sin decidir a proposito; lo que si existe ya es CLASE_PANTALLA en los requisitos del BEF. Lo que hay aqui es el  *(0 hechas, 12 sueltas)*
 - **ESPERA** [`en_pausa/PLAN_EL_ASISTENTE.md`](en_pausa/PLAN_EL_ASISTENTE.md) -- a TITAN++ nivel 11 (gpu fn, PLAN_EL_CENTAURO.md; los niveles 9 y 10 ya estan): por decision del propietario del 2026-10-04 es la PRIMERA app de la F2, y se construye en TITAN++. Antes: APARCADO, "el ultimo" (2026-09-10).  *(3 hechas, 16 sueltas)*
 - **SUPERADO** [`en_pausa/PLAN_EL_CODEGEN.md`](en_pausa/PLAN_EL_CODEGEN.md) -- por PLAN_EL_TROQUEL.md (18/19-09): plegado (decidir/plegado.rs), operador con inmediato, comparacion fundida, troquel por variable, convencion de llamada hibrida. El metro dice 451.306 -> 183.875 instrucciones (-59 %); la MEDIDA de aqui fue el punto de partida y se conserva.  *(0 hechas, 9 sueltas)*
+- **SUPERADO** [`en_pausa/PLAN_EL_GUARDIAN.md`](en_pausa/PLAN_EL_GUARDIAN.md) -- por la decision del 2026-09-18 (el guardian isa, toolchain/tools/isa/isa.py: "este repositorio es de UNA arquitectura"): este repositorio es SOLO x86-64 y ARM/RISC-V son OTRO repositorio. Una placa RISC-V como guardian no cabe aqui; la idea se conserva para ese otro arbol.  *(0 hechas, 9 sueltas)*
 - **SUPERADO** [`en_pausa/PLAN_EL_GUARDIAN.md`](en_pausa/PLAN_EL_GUARDIAN.md) -- por la decision del 2026-09-18 (el guardian isa, toolchain/tools/isa/isa.py: "este repositorio es de UNA arquitectura"): este repositorio es SOLO x86-64 y ARM/RISC-V son OTRO repositorio. Una placa RISC-V como guardian no cabe aqui; la idea se conserva para ese otro arbol.  *(0 hechas, 15 sueltas)*
-
