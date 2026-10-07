@@ -770,6 +770,9 @@ vkd3d-proton, pero en el formato de la casa.
 de kernel contra 36 us de la tarjeta (`docs/plan/PLAN_PROTON_X.md`, Z1): HOY
 el cuello de botella SI es el kernel. VC4 es lo que lo quita.
 
+**El plan entero para Cyberpunk** (por que VERRANO va primero, las
+puertas de la 3060 que faltan y el orden): [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md).
+
 - [ ] **VC1 -- el PAQUETE de un sombreador** (`platform/shared/verrano`):
   .bex + .bsf de un PSO de D3D12, traducido UNA vez, con la clave = hash
   del codigo de origen + el estado del PSO que cambia el codigo + la
