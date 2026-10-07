@@ -120,7 +120,7 @@ fn la_textura_elegida_antes_de_la_barrera_sigue_elegida_despues() {
             vista: None,
         })
     };
-    let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: Some(Dinamicas(&buscar)) };
+    let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: Some(Dinamicas(&buscar, None)) };
     let mut salida = vec![0u8; 2 * 16];
     let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 2, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
     assert_eq!(p.despachar([1, 1, 1], &[], &rec, &mut uavs), 2);
@@ -382,4 +382,53 @@ fn un_bucle_con_tres_salidas_da_lo_de_hlsl_en_el_cs_y_en_el_de_pixeles() {
         let e = esperado[gi as usize];
         assert_eq!(sal[0], [e[0] as f32, e[1] as f32, e[2] as f32, e[3] as f32], "el pixel {gi}");
     }
+}
+
+/// **15 de la pila A (07-10): los buferes "bindless"** -- un array de
+/// StructuredBuffer y uno de ByteAddressBuffer con el registro CALCULADO
+/// por hilo (`NonUniformResourceIndex`), los de `bindless.hlsl` (de `dxc`):
+/// cada hilo lee la fila de SU tabla, sus medidas y una palabra de SU
+/// crudo, buscados al correr (`Dinamicas`, el segundo: el de buferes). La
+/// prueba que dice NO: sin quien busque buferes, se leen ceros.
+#[test]
+fn los_buferes_bindless_se_eligen_por_hilo() {
+    use crate::textura::Dinamicas;
+    let s = dxil::leer(include_bytes!("../prueba/bindless.dxil")).unwrap();
+    let p = programa::compilar(&s).unwrap_or_else(|e| panic!("{e:?}"));
+    // Los rangos dinamicos, en el orden del programa: el de las tablas (t0
+    // en el espacio 1) y el de los crudos (t8).
+    let rango_de = |desde: u32| p.ranuras.dinamicas.iter().position(|l| l.espacio == 1 && l.registro == desde).unwrap() as u8;
+    let (rt, rc) = (rango_de(0), rango_de(8));
+    let tablas: Vec<&'static [u8]> = (0..4u32)
+        .map(|t| &*alloc::boxed::Box::leak((0..(16 + 4 * t)).flat_map(|r| [t * 100 + r, 7, 9, t]).flat_map(u32::to_le_bytes).collect::<Vec<u8>>().into_boxed_slice()))
+        .collect();
+    let crudos: Vec<&'static [u8]> = (0..2u32).map(|c| &*alloc::boxed::Box::leak((0..16u32).flat_map(|w| (c * 1000 + w).to_le_bytes()).collect::<Vec<u8>>().into_boxed_slice())).collect();
+    let buscar_textura = |_: u8, _: u32| None;
+    let buscar_bufer = |rango: u8, registro: u32| -> Option<Bufer<'static>> {
+        if rango == rt {
+            let b = *tablas.get(registro as usize)?;
+            Some(Bufer { bytes: b, formato: 0, paso: 16, elementos: b.len() as u32 / 16 })
+        } else if rango == rc {
+            let b = *crudos.get(registro.checked_sub(8)? as usize)?;
+            Some(Bufer { bytes: b, formato: 0, paso: 0, elementos: b.len() as u32 / 4 })
+        } else {
+            None
+        }
+    };
+    let correr = |con_buferes: bool| {
+        let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: Some(Dinamicas(&buscar_textura, con_buferes.then_some(&buscar_bufer as &dyn Fn(u8, u32) -> Option<Bufer<'static>>))) };
+        let mut salida = vec![0xEEu8; 16 * 16];
+        {
+            let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 16, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
+            assert_eq!(p.despachar([1, 1, 1], &[], &rec, &mut uavs), 16);
+        }
+        (0..16usize).map(|gi| -> [u32; 4] { core::array::from_fn(|c| u32::from_le_bytes(salida[16 * gi + 4 * c..16 * gi + 4 * c + 4].try_into().unwrap())) }).collect::<Vec<_>>()
+    };
+    let visto = correr(true);
+    for gi in 0..16u32 {
+        let k = gi & 3;
+        assert_eq!(visto[gi as usize], [k * 100 + gi + k, 16 + 4 * k, 16, (gi & 1) * 1000 + gi], "el hilo {gi}");
+    }
+    let sin = correr(false);
+    assert!(sin.iter().all(|f| f[0] == 0 && f[1] == 0 && f[3] == 0), "NO: sin quien busque buferes, ceros: {sin:?}");
 }

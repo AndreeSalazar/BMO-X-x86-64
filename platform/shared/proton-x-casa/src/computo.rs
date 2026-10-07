@@ -256,7 +256,18 @@ pub(crate) fn despachar(e: &Estado, grupos: [u32; 3]) {
         guardadas.borrow_mut().insert((rango, registro), t);
         t
     };
-    let rec = bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: Some(bmo_proton_x::textura::Dinamicas(&buscar)) };
+    // 15 de la pila A (07-10): los buferes "bindless" (un array de buferes
+    // con el registro calculado), buscados y guardados igual.
+    let buferes_guardados: core::cell::RefCell<alloc::collections::BTreeMap<(u8, u32), Option<bmo_proton_x::bufer::Bufer<'static>>>> = Default::default();
+    let buscar_bufer = |rango: u8, registro: u32| {
+        if let Some(b) = buferes_guardados.borrow().get(&(rango, registro)) {
+            return *b;
+        }
+        let b = crate::tuberia::bufer_dinamico(firma, &e.tablas, &p.programa.ranuras, rango, registro);
+        buferes_guardados.borrow_mut().insert((rango, registro), b);
+        b
+    };
+    let rec = bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: Some(bmo_proton_x::textura::Dinamicas(&buscar, Some(&buscar_bufer))) };
     // E2.3b (05-10): con su traduccion a x86-64 si la hay (EXPRIMIR: 50
     // veces el interprete); si no, el interprete, que es su juez.
     if let Some(f) = pso.nativo.and_then(crate::nativo::computo) {

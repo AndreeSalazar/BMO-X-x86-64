@@ -3455,3 +3455,21 @@ El banco: `src/pruebas_computo.rs` (`un_bucle_con_tres_salidas_da_lo_de_
 hlsl_en_el_cs_y_en_el_de_pixeles`, contra el mismo bucle en Rust; con el
 estructurador de antes, los dos daban "un bucle con mas de una salida") y,
 traducido, `proton-x-casa/tests/nativo_computo.rs`.
+
+bindless.dxil -- 15 de la pila A: los buferes "bindless" (07-10)
+
+"createHandle con un registro CALCULADO de un array de BUFERES" (N5.4), lo
+que un CS de Cyberpunk pidio en el metal (06-10). `bindless.hlsl` (aqui al
+lado): un array de StructuredBuffer<uint4> (t0..t3, espacio 1) y uno de
+ByteAddressBuffer (t8..t9), elegidos por hilo con NonUniformResourceIndex:
+una fila, sus medidas (GetDimensions) y una palabra. Con el DXC de la nube
+(v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSMain -Fo bindless.dxil bindless.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   72bac580cef08f655b0c3cf492a308a8bfd8816dcff37d6a1ac6fccab85d7018  bindless.dxil
+
+El banco: `src/pruebas_computo.rs` (`los_buferes_bindless_se_eligen_por_
+hilo`; y dice NO: sin quien busque buferes, ceros).

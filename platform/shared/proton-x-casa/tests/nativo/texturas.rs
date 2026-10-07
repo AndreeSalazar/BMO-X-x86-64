@@ -184,7 +184,7 @@ fn los_que_muestrean_nativos_dan_los_bits_del_interprete() {
     let (tex, mue, buf) = (texturas(), muestreadores(), buferes());
     let tex_dinamicas = tex.clone();
     let buscar = move |rango: u8, registro: u32| -> Option<Textura<'static>> { tex_dinamicas.get((registro as usize + rango as usize) % 9).copied().flatten() };
-    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar)) };
+    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar, None)) };
     let raros = raros();
     for (nombre, d) in TODOS {
         let p = super::saltos::de_dxc(d);
@@ -359,7 +359,7 @@ fn lo_que_tarda_cada_camino_con_texturas() {
     let (tex, mue, buf) = (texturas(), muestreadores(), buferes());
     let tex_dinamicas = tex.clone();
     let buscar = move |rango: u8, registro: u32| -> Option<Textura<'static>> { tex_dinamicas.get((registro as usize + rango as usize) % 9).copied().flatten() };
-    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar)) };
+    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar, None)) };
     for (nombre, d) in [("hdr PSLee", HDR_LEE), ("htexture PSMain", HTEXTURE_PS), ("dynindex pixel", DYNINDEX_PS), ("mates", MATES_PS), ("luces", LUCES), ("gbuffer", GBUFFER)] {
         let p = super::saltos::de_dxc(d);
         let cb: Vec<u8> = (0..1024u32).flat_map(|k| ((k % 7) as f32 * 0.125).to_le_bytes()).collect();
@@ -507,7 +507,7 @@ fn cada_carril_muestrea_la_textura_que_eligio() {
     let (tex, mue) = (texturas(), muestreadores());
     let tex_dinamicas = tex.clone();
     let buscar = move |rango: u8, registro: u32| -> Option<Textura<'static>> { tex_dinamicas.get((registro as usize + rango as usize) % 9).copied().flatten() };
-    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &[], dinamicas: Some(Dinamicas(&buscar)) };
+    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &[], dinamicas: Some(Dinamicas(&buscar, None)) };
     let mut z = Azar(0x7EC5_7DA5_A1B2_C3D4);
     let mut malos = Vec::new();
     for _ in 0..2_000 {
@@ -554,7 +554,7 @@ fn el_computo_que_muestrea_y_toca_uav_de_textura_traducido_da_los_bits_del_inter
     let (tex, mue, buf) = (texturas(), muestreadores(), buferes());
     let tex_dinamicas = tex.clone();
     let buscar = move |rango: u8, registro: u32| -> Option<Textura<'static>> { tex_dinamicas.get((registro as usize + 3 * rango as usize) % 9).copied().flatten() };
-    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar)) };
+    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar, None)) };
     let nuevos = || vec![uav_nuevo(16 * 16 * 16, 2 | bmo_proton_x::bufer::CUATRO_FLOATS, 16, 256), uav_nuevo(256, 0, 0, 64)];
     for cual in 0..6u32 {
         let cb: Vec<u8> = [cual, 16, 0, 0].iter().flat_map(|x| x.to_le_bytes()).collect();
@@ -593,7 +593,7 @@ fn cada_hilo_lee_la_textura_que_eligio_aunque_haya_una_barrera_en_medio() {
     let (tex, mue, buf) = (texturas(), muestreadores(), buferes());
     let tex_dinamicas = tex.clone();
     let buscar = move |_: u8, registro: u32| -> Option<Textura<'static>> { tex_dinamicas.get(registro as usize % 8).copied().flatten() };
-    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar)) };
+    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar, None)) };
     let nuevos = || vec![uav_nuevo(32 * 16, 0, 16, 32)];
     let (uno, otro) = dos_caminos(&p, f, [1, 1, 1], &[], &rec, &nuevos);
     assert_eq!(uno, otro);
@@ -611,7 +611,7 @@ fn lo_que_tarda_el_computo_de_un_posproceso() {
     let (tex, mue, buf) = (texturas(), muestreadores(), buferes());
     let tex_dinamicas = tex.clone();
     let buscar = move |rango: u8, registro: u32| -> Option<Textura<'static>> { tex_dinamicas.get((registro as usize + 3 * rango as usize) % 9).copied().flatten() };
-    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar)) };
+    let rec = Recursos { texturas: &tex, muestreadores: &mue, buferes: &buf, dinamicas: Some(Dinamicas(&buscar, None)) };
     let cb: Vec<u8> = [1u32, 16, 0, 0].iter().flat_map(|x| x.to_le_bytes()).collect();
     let n = 200;
     let (mut interpretado, mut traducido) = (std::time::Duration::MAX, std::time::Duration::MAX);

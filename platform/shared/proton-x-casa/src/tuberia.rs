@@ -968,6 +968,16 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         guardadas.borrow_mut().insert((rango, registro), t);
         t
     };
+    // 15 (07-10): y los buferes de un array con el registro calculado.
+    let buferes_guardados: core::cell::RefCell<alloc::collections::BTreeMap<(u8, u32), Option<bmo_proton_x::bufer::Bufer<'static>>>> = Default::default();
+    let buscar_bufer = |rango: u8, registro: u32| {
+        if let Some(b) = buferes_guardados.borrow().get(&(rango, registro)) {
+            return *b;
+        }
+        let b = bufer_dinamico(firma, &e.tablas, &en.ranuras, rango, registro);
+        buferes_guardados.borrow_mut().insert((rango, registro), b);
+        b
+    };
     // P3b4c: las limpiezas apuntadas de SU render target y de SU Z: las
     // hace quien dibuje este lote.
     let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 && e.dsv_sub == 0 { tomar_limpieza(e.dsv) } else { None };
@@ -986,7 +996,7 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         _ => None,
     };
     let lote = Lote {
-        recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: Some(bmo_proton_x::textura::Dinamicas(&buscar)) },
+        recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores, buferes: &buferes, dinamicas: Some(bmo_proton_x::textura::Dinamicas(&buscar, Some(&buscar_bufer))) },
         limpiar_z,
         limpiar_rt,
         enlace: en,
@@ -1136,11 +1146,26 @@ pub(crate) fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_
     use bmo_proton_x::donde::{self, RANGO_SRV};
     let l = bmo_proton_x::dxil::ranuras::Lugar { registro, ..*ranuras.dinamicas.get(rango as usize)? };
     let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor_de(tablas, k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0)?;
+    // 15 de la pila A (07-10): un SRV de BUFER no es una textura; lo lee
+    // `bufer_dinamico` (un array de buferes "bindless"), y aqui es nulo.
     if crate::d3d12_vistas::leer(ranura).0 .0 == crate::d3d12_vistas::SRV_BUFER {
-        aviso("un array de texturas con un SRV de BUFER dentro: se lee como nulo");
         return None;
     }
     textura_de_srv(ranura).map_err(aviso).ok()
+}
+
+/// **El bufer de un array con el registro calculado** (15 de la pila A,
+/// 07-10: los buferes "bindless" de un CS de Cyberpunk): como
+/// [`textura_dinamica`], el descriptor del registro en su tabla; un SRV de
+/// textura aqui es nulo (lo lee `textura_dinamica`).
+pub(crate) fn bufer_dinamico(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::bufer::Bufer<'static>> {
+    use bmo_proton_x::donde::{self, RANGO_SRV};
+    let l = bmo_proton_x::dxil::ranuras::Lugar { registro, ..*ranuras.dinamicas.get(rango as usize)? };
+    let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor_de(tablas, k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0)?;
+    if crate::d3d12_vistas::leer(ranura).0 .0 != crate::d3d12_vistas::SRV_BUFER {
+        return None;
+    }
+    bufer_de_srv(ranura).map_err(aviso).ok()
 }
 
 pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {

@@ -783,6 +783,10 @@ pub(super) enum Valor {
     /// N5.3: el handle de un SRV de bufer: su ranura (la de las texturas) y
     /// como se direcciona.
     Bufer(u8, crate::bufer::Modo),
+    /// 15 de la pila A (07-10): el de un bufer de un array con el registro
+    /// CALCULADO (bindless): su rango dinamico, el registro en `i`, y como
+    /// se direcciona. Se lee como una textura de las de N5.4.
+    BuferEn { rango: u8, i: Reg, modo: crate::bufer::Modo },
     Muestreador(u8),
     /// N5.5: el handle de un UAV de bufer: su ranura y como se direcciona.
     Uav(u8, crate::bufer::Modo),

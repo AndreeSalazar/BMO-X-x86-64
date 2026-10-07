@@ -31,7 +31,7 @@
 use crate::dxil::leer_textura;
 use crate::dxil::programa::{Op, Programa};
 use crate::mates::Mate;
-use crate::textura::{Recursos, Textura};
+use crate::textura::Recursos;
 
 /// **Lo que el codigo traducido ve para llamar fuera**: por
 /// `Contexto::llamadas`. Los desplazamientos (`L_*`) los lee el codigo.
@@ -99,7 +99,7 @@ pub extern "sysv64" fn mate_sysv(cual: u32, bits: u32) -> u32 {
 pub struct Muestras<'a> {
     pub programa: &'a Programa,
     pub recursos: &'a Recursos<'a>,
-    pub elegida: Option<Textura<'static>>,
+    pub elegida: Option<crate::textura::Elegida>,
 }
 
 impl Muestras<'_> {
@@ -109,7 +109,7 @@ impl Muestras<'_> {
         match self.programa.ops.get(k as usize) {
             Some(&Op::EligeTextura { i, rango }) => {
                 let bits = regs.get(i as usize).map_or(0, |x| x.to_bits());
-                self.elegida = self.recursos.dinamica(rango, bits);
+                self.elegida = self.recursos.elegir(rango, bits);
             }
             Some(&op) => leer_textura(op, regs, self.recursos, self.elegida),
             None => {}

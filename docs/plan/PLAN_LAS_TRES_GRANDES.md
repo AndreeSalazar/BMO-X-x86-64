@@ -1355,7 +1355,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    1
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    0
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1474,8 +1474,14 @@ y lo dice.
                07-10: un global que es UN numero (`groupshared uint suma;`,
                `static float x;`) es un array de uno
                (`prueba/compartido.hlsl`)
-     15  N5.4  `createHandle` con el registro CALCULADO de un array de
-               BUFERES (bindless de buferes; un CS)
+     15  [x] N5.4  `createHandle` con el registro CALCULADO de un array de
+               BUFERES (bindless de buferes; un CS). 07-10: como las
+               texturas de N5.4: `Valor::BuferEn`, `EligeTextura` y la
+               ranura DINAMICA; lo elegido es ahora un `Elegida` (textura
+               o bufer) y `Dinamicas` tiene un segundo buscador, el de
+               buferes (en la casa, `tuberia::bufer_dinamico`, guardado
+               por registro como el de texturas). `bindless.hlsl`: dos
+               arrays elegidos por hilo; sin buscador, ceros (el NO)
      16  [x] D4.1  un bucle con mas de una salida (un CS). 07-10: un
                SELECTOR (`estructura.rs`): cada salida apunta su numero
                antes de su Romper, y detras del FinBucle una cadena de `si`

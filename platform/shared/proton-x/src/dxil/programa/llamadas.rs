@@ -201,7 +201,12 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
                         let i = super::super::estructura::bits(c, arg(3)?)?;
                         Ok(Valor::TexturaEn { rango: c.ranuras.dinamica(r.espacio, r.desde)?, i })
                     }
-                    0 => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de BUFERES: todavia no (N5.4)")),
+                    // 15 de la pila A (07-10): un array de buferes, igual.
+                    0 => {
+                        let modo = r.modo_de_bufer().unwrap_or(crate::bufer::Modo::Tipado);
+                        let i = super::super::estructura::bits(c, arg(3)?)?;
+                        Ok(Valor::BuferEn { rango: c.ranuras.dinamica(r.espacio, r.desde)?, i, modo })
+                    }
                     2 => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de CBUFFERS: todavia no (N5.4)")),
                     3 => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de MUESTREADORES: todavia no (N5.4)")),
                     _ => Err(NoPrograma::Forma("createHandle con un registro CALCULADO de un array de UAV: todavia no (N5.4)")),
@@ -346,7 +351,7 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
                 c.ops.push(Op::LeeUav { d, u, modo, i, desp, z: cero });
                 return Ok(if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) });
             }
-            let Some(Valor::Bufer(t, modo)) = c.valores.get(arg(1)?).copied() else {
+            let Some((t, modo)) = bufer_de(c, arg(1)?) else {
                 return Err(NoPrograma::Forma("BufferLoad sin el handle de un bufer"));
             };
             let cero = super::super::estructura::literal(c, 0)?;
@@ -375,7 +380,10 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             // (N5.3), sus elementos; el mip es `undef`.
             let t = match c.valores.get(arg(1)?).copied() {
                 Some(Valor::Textura(_) | Valor::TexturaEn { .. }) => textura(c, arg(1)?).ok_or(NoPrograma::Forma("GetDimensions sin textura"))?,
-                Some(Valor::Bufer(t, modo)) => {
+                Some(Valor::Bufer(..) | Valor::BuferEn { .. }) => {
+                    let Some((t, modo)) = bufer_de(c, arg(1)?) else {
+                        return Err(NoPrograma::Forma("GetDimensions sin el handle de un bufer"));
+                    };
                     let cero = super::super::estructura::literal(c, 0)?;
                     let d = cuatro(c)?;
                     c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::MedidasBufer(modo), c: [cero; 4], nivel: cero, desp: [0; 3] });
@@ -451,6 +459,21 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
         }
         otra => return Err(NoPrograma::OperacionD3d(otra)),
     })
+}
+
+/// **El bufer SRV del handle `id`**: su ranura y como se direcciona. 15 de
+/// la pila A (07-10): si es de un array con el registro calculado, se elige
+/// aqui ([`Op::EligeTextura`]) y la ranura es [`DINAMICA`], como una textura
+/// de N5.4. `None` si no es el de un bufer.
+fn bufer_de(c: &mut Compilador, id: usize) -> Option<(u8, crate::bufer::Modo)> {
+    match c.valores.get(id).copied()? {
+        Valor::Bufer(t, modo) => Some((t, modo)),
+        Valor::BuferEn { rango, i, modo } => {
+            c.ops.push(Op::EligeTextura { i, rango });
+            Some((DINAMICA, modo))
+        }
+        _ => None,
+    }
 }
 
 /// 06-10: la tercera coordenada de un UAV de textura (la z de un 3D, la
