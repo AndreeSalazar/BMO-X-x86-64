@@ -101,7 +101,8 @@ pub fn lower_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option
 }
 
 /// `lower_package`, con QUIEN corre las `gpu fn` (nivel 11, G3): el emisor da
-/// el oraculo de spirv; sin el, el calculo corre cada hilo con f32.
+/// el oraculo (la 3060 simulada, `bmo-titan-sm86`); sin el, el calculo corre
+/// cada hilo con f32.
 pub fn lower_package_with(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>, mut device: Option<&mut dyn calc::Device>) -> Result<ir::Module, Message> {
     lowered(root, src, read, &mut |m| calc::fold_with(m, device.take()))
 }

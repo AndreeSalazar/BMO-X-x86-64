@@ -783,7 +783,10 @@ fn main()
 `if` / `else` y `return` con `+ - * /` y comparaciones. No hay `print` (la 3060
 no tiene consola), tablas, textos, registros, llamadas ni bucles: el bucle de
 una gpu fn ES la tabla. Las llamadas y los bucles dentro de un hilo llegan con
-el escritor de SPIR-V (G2).
+el escritor de la 3060 (IL1 de `PLAN_ILLAPA.md`). **La division**, hoy, solo
+entre una potencia de dos (`/ 2.0`, `/ 0.25`): esa es una multiplicacion
+EXACTA; la general de la 3060 no da los bits exactos, y `titan build` la
+rechaza en su linea (LI2g de `PLAN_EL_LIBRETO.md`, decision pendiente).
 
 **En la CPU** (D2, la regla de la casa): un f32 se GUARDA o se PASA a otra gpu
 fn, y nada mas -- ni se suma, ni se compara, ni se imprime. Para usarlo, se
@@ -811,24 +814,28 @@ llamada a una gpu fn queda en el certificado del `.bex` con su linea: es lo que
      CPU en dec)
 ```
 
-**Lo que viaja a la 3060 es SPIR-V** (G2): cada gpu fn se escribe como un
-modulo de computo, un hilo por celda y sin saltos (cada `if` es un `OpSelect`:
-una gpu fn es pura, asi que da lo mismo bit a bit), y lo juzga el juez de spirv
--- el validador y el subconjunto de la 3060 --, que no sabe quien lo escribio.
-Si no pasa, el fallo es del escritor, y no hay `.bex`. `titan spirv
-mezcla/src/main.titan -o carpeta` deja cada gpu fn como `.spv`.
+**Lo que viaja a la 3060 es su SASS, y SIN SPIR-V** (07-10, decision del
+propietario: *"gpu - sm86 - luego el juez verifica estrictamente y el
+3060"*). Cada gpu fn se escribe como el `Programa` de la casa -- el MISMO que
+sale de los sombreadores de PROTON-X --, un hilo por celda y sin saltos (cada
+`if` es un `Elige`: una gpu fn es pura, asi que da lo mismo bit a bit); el
+emisor de la 3060 la hace SASS de SM86, y la juzga ESTRICTO el juez del SASS,
+la libreria de lo que sabe la 3060 (esperas, barreras, registros). Si no
+pasa, el fallo es del escritor o del juez, y no hay `.bex`. `titan sm86
+mezcla/src/main.titan -o carpeta` deja cada gpu fn como `.sass`.
 
-**El juez no hace adivinar** (05-10): si el juez de spirv dice que no, lo dice
-en el `.titan` (`src/main.titan, linea 3, columna 20`), porque el SPIR-V lleva
-su mapa al fuente (`OpLine`). Y en cada build, sin escribir un test, cada gpu
-fn pasa una bateria de bordes -- 0, -0, NaN, infinitos, subnormales, los
-maximos, 0.1 -- y sus celdas reales por el oraculo y por el calculo: si no dan
-los mismos bits, no hay `.bex`.
+**El juez no hace adivinar**: un NO se dice en el `.titan` (`src/main.titan,
+linea 3, columna 14`): el Programa lleva el sitio de cada operacion. Y en
+cada build, sin escribir un test, cada gpu fn pasa una bateria de bordes --
+0, -0, NaN, infinitos, subnormales, los maximos, 0.1 -- y sus celdas reales
+por TRES caminos: la 3060 simulada (sobre el SASS), el interprete de la casa
+(sobre el Programa) y el calculo (sobre la IR). Si no dan los mismos bits, no
+hay `.bex`.
 
-**Los resultados los da el oraculo de spirv** (G3): `titan build` corre cada
-gpu fn en el interprete de spirv, sobre el SPIR-V escrito, y el `.bex` lleva
-esas celdas. `titan check` e `ir` las calculan con f32 de precision simple;
-los dos bancos comparan lo mismo. Que corra en la 3060 de verdad es G4: Ring 0,
+**Los resultados los da la 3060 simulada**: `titan build` corre cada gpu fn
+en el simulador de la 3060, sobre el SASS que el juez acepto, y el `.bex`
+lleva esas celdas. `titan check` e `ir` las calculan con f32 de precision
+simple; los dos bancos comparan lo mismo. Que corra en la 3060 de verdad es G4: Ring 0,
 del propietario.
 
 ---

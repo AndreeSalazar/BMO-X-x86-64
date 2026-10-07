@@ -81,27 +81,23 @@ La que describio el propietario, pieza a pieza, con lo que hay y lo que no:
 ```text
    ILLAPA (TITAN++)       las gpu fn del solucionador y del dibujo
         |
-   emisor-spirv           gpu fn -> SPIR-V GLCompute, con su mapa al fuente   HECHO (G2 de PLAN_EL_CENTAURO)
-        |                 [ en linea recta: SIN bucles ni vecinos ]
-   el juez de SPIR-V      validar + el subconjunto de la 3060 + el oraculo     HECHO
+   el PROGRAMA de la casa gpu fn -> Programa (bmo-titan-sm86), el MISMO      HECHO (07-10)
+        |                 que sale de los sombreadores de PROTON-X
+   el emisor SM86         Programa -> las instrucciones de la 3060 (E3..E6)  HECHO, en linea recta
+        |                 [ faltan bucles y vecinos en la gpu fn: IL1 ]
+   el JUEZ DEL SASS       ESTRICTO: la libreria de lo que sabe la 3060        HECHO (J1)
+        |                 (una AMD tendria SU libreria)
+   la 3060 simulada       el oraculo de cada build: sus bits, contra la      HECHO (07-10)
+        |                 casa y el calculo
+   VERRANO                la API de dibujo: la GPU NO COMPILA NADA           V0-V1c HECHO; V2+ no
         |
-   el emisor SM86         SPIR-V -> las instrucciones de la 3060              PLAN_LA_LENGUA_DE_LA_3060
-        |                 [ faltan saltos, bucles y enteros: E6 ]
-   el JUEZ DEL SASS       lee lo que salio, instruccion a instruccion          V3b de PLAN_VERRANO
-        |
-   el BSF (kind SM86)     el sobre: el codigo YA traducido, con sus hashes     HECHO (V0b)
-        |
-   VERRANO                la API de dibujo: la GPU NO COMPILA NADA             V0-V1c HECHO; V2+ no
-        |
-   la 3060                el computo de verdad (G4) y el 3D de verdad          del METAL, del propietario
+   la 3060                el computo de verdad (G4) y el 3D de verdad        del METAL, del propietario
 ```
 
-**[!] Una precision (07-10, al leer este plan con el codigo):** el emisor
-de la 3060 que EXISTE (`proton-x-sm86`, E3) no lee SPIR-V: lee el `Programa`
-de la casa, por decision del 28-09. Del lado de SPIR-V solo esta el
-subconjunto (E1). El eslabon que falta es un lector de SPIR-V al `Programa`:
-es **LI7** de [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md), y va antes que IL1
-para que lo que aprenda ILLAPA caiga en el mismo emisor que usa Cyberpunk.
+**SIN SPIR-V** (decision del propietario, 07-10: *"gpu - sm86 - luego el juez
+verifica estrictamente y el 3060"*): el escritor de SPIR-V de TITAN++ se
+quito. Un solo emisor y un solo juez para TITAN++ y para PROTON-X: lo que
+ILLAPA abra en la 3060, Cyberpunk lo usa sin copiarlo.
 
 **La regla de VERRANO vale entera para ILLAPA**: la 3060 no compila; los
 programas viajan ya traducidos y juzgados, y de un fotograma al siguiente solo

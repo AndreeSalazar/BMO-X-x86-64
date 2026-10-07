@@ -126,24 +126,24 @@ L27 una gpu fn es UNA celda de la 3060: f32 y bool, cada valor una copia, siempr
     porque PLAN_EL_CENTAURO D1: funciones elementales, como FORTRAN; un hilo por celda, y lo que un hilo no puede hacer no se escribe
     cumple ejemplo T0090
 
-L28 lo que viaja a la 3060 lo juzga el juez de spirv; si no pasa, el fallo es del escritor y no hay .bex
-    porque TITAN_MAESTRO 7.4: lo que cruza es un FORMATO juzgado por SU juez, no un cerebro compartido; el juez no sabe quien lo escribio
-    cumple test toolchain/lang/titan/emisor-spirv/tests/banco.rs every_gpu_fn_of_the_bench_is_valid_spirv
+L28 lo que viaja a la 3060 sale del Programa de la casa por el emisor de SM86, y lo juzga ESTRICTO el juez del SASS; si no pasa, el fallo es del escritor o del juez y no hay .bex
+    porque el propietario, 07-10: "gpu - sm86 - luego el juez verifica estrictamente y el 3060"; UN emisor y UN juez para TITAN++ y para PROTON-X (PLAN_EL_LIBRETO, LI7), sin SPIR-V en medio
+    cumple test toolchain/lang/titan/emisor-sm86/tests/banco.rs every_gpu_fn_of_the_bench_is_judged_sass
 
-L29 los resultados de una gpu fn los da el oraculo de spirv, y son los mismos que cuenta el calculo
-    porque una cuenta, dos caminos: si el oraculo y el calculo discreparan, el programa diria dos cosas segun quien lo compile
-    cumple test toolchain/lang/titan/emisor-spirv/src/lib.rs the_oracle_runs_the_gpu_fn_and_the_program_writes_the_same
+L29 los resultados de una gpu fn los da el oraculo -- la 3060 simulada sobre el SASS juzgado --, y son los mismos que cuentan la casa y el calculo
+    porque una cuenta, tres caminos: si discreparan, el programa diria cosas distintas segun quien lo compile
+    cumple test toolchain/lang/titan/emisor-sm86/src/pruebas.rs the_oracle_runs_the_gpu_fn_and_the_program_writes_the_same
 
-L30 un NO del juez de spirv se dice en el .titan -- fichero, linea, columna --, nunca en una palabra del SPIR-V
-    porque el propietario, 05-10: "que automatice y no tenga que perder el tiempo en adivinar"; el SPIR-V lleva su mapa al fuente (OpLine)
-    cumple test toolchain/lang/titan/emisor-spirv/src/lib.rs the_judge_says_where_in_the_titan_file
+L30 un NO del escritor o del juez de la 3060 se dice en el .titan -- fichero, linea y, si es de una operacion, columna --, nunca en una instruccion del SASS
+    porque el propietario, 05-10: "que automatice y no tenga que perder el tiempo en adivinar"; el Programa lleva el sitio de cada operacion
+    cumple test toolchain/lang/titan/emisor-sm86/src/pruebas.rs a_general_division_is_refused_where_it_is_written
 
-L31 en cada build, cada gpu fn pasa una bateria de bordes, y sus celdas reales, por el oraculo y por el calculo, con los mismos bits
+L31 en cada build, cada gpu fn pasa una bateria de bordes, y sus celdas reales, por la 3060 simulada, la casa y el calculo, con los mismos bits
     porque una cuenta de coma flotante falla en los bordes (NaN, infinito, subnormales, -0): se comprueba sola en cada build, no se adivina
-    cumple test toolchain/lang/titan/emisor-spirv/src/lib.rs a_disagreement_is_caught_with_its_input_and_both_answers
+    cumple test toolchain/lang/titan/emisor-sm86/src/pruebas.rs a_disagreement_is_caught_with_its_input_and_the_answers
 
 [SELLO]
-6a4d41282639cc90399f99a01bb9ea80daccac52b6cfcd9fe44afe61579f62d6
+05755562e8cdc4aa7d3690c839319949be637499ed3fe5e0e9bc7e2313a88a17
 
 [HISTORIA]
 2026-10-04  16a5580ebef2  24 leyes  nacen las 24 leyes de los niveles 0-10, pedidas por el propietario
@@ -151,3 +151,4 @@ L31 en cada build, cada gpu fn pasa una bateria de bordes, y sus celdas reales, 
 2026-10-05  45b5f497dae3  27 leyes  L26 y L27: el f32 en la GPU (D2) y la gpu fn de una celda (D1), con G1 de PLAN_EL_CENTAURO
 2026-10-05  43dc81198a78  29 leyes  L28 y L29: el juez de spirv y el oraculo, con G2 y G3 de PLAN_EL_CENTAURO
 2026-10-05  6a4d41282639  31 leyes  L30 y L31: el juez de spirv dice DONDE y comprueba SI ESTA BIEN en cada build (G2b)
+2026-10-07  05755562e8cd  31 leyes  L28-L31: TITAN++ sin SPIR-V -- gpu fn -> Programa -> SM86 -> el juez del SASS, decision del propietario 07-10

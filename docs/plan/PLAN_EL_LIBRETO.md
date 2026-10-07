@@ -333,7 +333,7 @@ el subconjunto (E1), no emite. O sea:
 
 ```text
    Cyberpunk:  DXIL / SM5  ->  Programa  ->  proton-x-sm86  ->  juez  ->  3060
-   ILLAPA:     gpu fn      ->  SPIR-V    ->  ???
+   ILLAPA:     gpu fn      ->  Programa  ->  proton-x-sm86  ->  juez  ->  3060   (LI7, 07-10)
 ```
 
 Si ILLAPA tuviera su PROPIO emisor de SPIR-V a la 3060, cada cosa se
@@ -342,24 +342,26 @@ le serviria de nada al examen. Con un lector de SPIR-V al `Programa`, todo lo
 que aprenda ILLAPA cae en el MISMO emisor, el MISMO juez y el MISMO .bsf
 vivo que usa Cyberpunk.
 
-- [ ] **LI7 -- UNA SOLA LENGUA HACIA LA 3060: el SPIR-V de TITAN++ al
-      `Programa` de la casa.** Un lector (el subconjunto de E1 manda lo
-      que entra) que convierte el SPIR-V de una `gpu fn` en el `Programa`
-      que ya corren el interprete, `nativo` y `proton-x-sm86`. Donde vive
-      se decide al hacerlo: el lector de SPIR-V es NEUTRO (el guardian
-      `isa`) y el `Programa` vive en `bmo-proton-x`; quiza el `Programa`
-      tenga que salir a un sitio neutro primero. **Como se sabe:** las
-      `gpu fn` del banco `nivel11` (`mezcla`, `activa`) pasan por SPIR-V ->
-      `Programa` -> el emisor -> el simulador de la 3060 y dan los MISMOS
-      bits que el oraculo de spirv; la prueba del NO, una `gpu fn` con algo
-      fuera del subconjunto, rechazada con motivo y sin emitir. **Va antes
-      que IL1**: si no, IL1 nace en un camino aparte.
+- [x] **LI7 -- UNA SOLA LENGUA HACIA LA 3060, SIN SPIR-V.** Decision del
+      propietario (07-10): *"gpu - sm86 - luego el juez verifica
+      estrictamente y el 3060"*. HECHO el 07-10: `bmo-titan-sm86`
+      (`toolchain/lang/titan/emisor-sm86`) escribe cada `gpu fn` como el
+      `Programa` de la casa, la emite con `proton-x-sm86` y la juzga ESTRICTO
+      el juez del SASS (la libreria de la 3060); el oraculo de cada build es
+      la 3060 simulada, contra la casa y el calculo. El escritor de SPIR-V de
+      TITAN++ se quito; las leyes L28-L31 se sellaron de nuevo. **Como se
+      sabe:** 9 pruebas del crate y su banco (`mezcla`, `activa`, `suma`):
+      los tres caminos dan los mismos bits en la bateria; las pruebas del NO:
+      la division general rechazada en su linea y columna, el SASS sin
+      esperas rechazado por el juez, el signo de -0, y una gpu fn medida
+      contra el calculo de otra. **Falta:** la division general (LI2g), y los
+      bucles (IL1).
 
 ## El orden de los dos planes juntos
 
 ```text
    ahora      smp all, el primer Present por la CPU, LI0 el censo
-   la escuela LI7 (el eslabon) -> IL1 (bucles) -> IL2-IL4 (computo) -> IL7
+   la escuela LI7 (HECHO) -> IL1 (bucles) -> IL2-IL4 (computo) -> IL7
               (3D): cada una con sus gpu fn chicas y el oraculo
    el examen  cada vez que la escuela abre algo, el censo de LI0 se repite
               con Cyberpunk: el % de PSO que deja la CPU dice cuanto sirvio

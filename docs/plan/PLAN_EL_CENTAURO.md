@@ -132,7 +132,13 @@ que entre.
 - [x] los codigos nuevos, cada uno con su programa roto en `ejemplos/nivel11/`; las leyes L26 y L27
 - Hoy cada hilo lo corre el calculo, en la CPU, con f32 IEEE de precision simple (cada operacion redondeada una vez); G2 y G3 lo llevan a SPIR-V y a su oraculo.
 
-## [x] G2 -- EL FORMATO: TITAN++ escribe SPIR-V (D5) -- HECHO el 05-10
+## [x] G2 -- EL FORMATO: TITAN++ escribe SPIR-V (D5) -- HECHO el 05-10, QUITADO el 07-10
+
+> **07-10, decision del propietario: SIN SPIR-V.** La cadena es ahora `gpu fn
+> -> Programa de la casa -> SM86 -> el juez del SASS -> la 3060`
+> (`toolchain/lang/titan/emisor-sm86`, LI7 de
+> [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md)). Lo de abajo queda como historia.
+
 
 - [x] `toolchain/lang/titan/emisor-spirv` (crate `bmo-titan-spirv`): una `gpu fn` -> un modulo SPIR-V 1.0 GLCompute, con la forma que el banco de spirv ya conoce (un buffer por valor y uno para el resultado, `DescriptorSet 0`, `Binding k`; un hilo por celda con `GlobalInvocationId.x`)
 - [x] SIN SALTOS: cada `if` es un `OpSelect` (una gpu fn es pura y sin bucles, asi que el resultado es el mismo bit a bit), y sale codigo en linea recta: lo que el emisor de SASS de la 3060 (E3) ya traduce
