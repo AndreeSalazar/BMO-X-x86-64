@@ -215,6 +215,21 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
 
 ## 4T. EL TURNO, mientras hay UN nucleo (sin Ring 0)
 
+- [~] **V8 -- la caja negra escribe DIRECTO a la RAM (WT).** V7 salvaba lo
+      escrito con `clflush` (cada linea, cada tick); V8 lo quita de raiz: al
+      abrir la caja, la pagina de 2 MiB del physmap que la cubre pasa de WB a
+      **WT** (`mm::vmm::escribir_directo`), y cada byte esta en la RAM al
+      acabar la instruccion -- con o sin tick, con las interrupciones
+      cerradas, a mitad de linea. No se fia de lo pedido: lee el PAT y los
+      MTRR de verdad y dice el tipo EFECTIVO en el DIARIO (`[caida] escribe
+      DIRECTO a la RAM ... 4`); si no es directo o no se sabe, siguen los dos
+      cinturones (el `clflush` de V7). La pagina se reserva ENTERA (sin
+      alias de tipos). **Como se sabe:** `bmo-cache-juicio`, 13 pruebas
+      (la PDE de V7 es WB y NO escribe directo; WC tampoco, aunque parezca
+      "sin cache"; un MTRR que tapa media pagina no tiene tipo); tres
+      mutaciones del juez, las tres ROJAS. **Falta:** el metal: la linea
+      `[caida] escribe DIRECTO` en el DIARIO del Ryzen, y un CAIDA de `smp
+      all` que acabe a mitad de linea en vez de en la ultima linea entera.
 - [~] **V7 -- la caja negra que olvidaba lo ultimo.** Las cuatro `CAIDA`
       del 07-10 acaban en la misma linea del arranque (la autopsia del booter)
       aunque la maquina siguio viva minutos: el cursor del anillo vive en la

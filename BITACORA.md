@@ -4609,3 +4609,20 @@ hilo del juego que no lo suelta (EXPROPIAR, como un signal de reloj de Linux), y
 Cyberpunk paso de colgarse a los 24 s a vivir 68 s, abrir el sonido y mandar
 43 listas de ordenes. La bitacora del dia:
 `docs/metal/METAL_2026-10-07.md`.
+
+## Ep. 87 -- La caja negra deja de pasar por la cache
+
+**2026-10-07.** El propietario pregunta si BMO-X puede saber *en tiempo real*
+que pasa con la cache. El Ep. 86 lo habia parcheado con `clflush`: sacar a
+mano de la cache cada linea y cada tick. Funcionaba, pero con huecos (media
+linea sin acabar, un camino largo sin tick).
+**Arreglo de raiz**: la pagina de la caja negra deja de ser WB (la RAM se
+entera tarde) y pasa a **WT** (cada escritura llega a la RAM al momento). Es
+un cambio de tres bits en UNA entrada de la tabla de paginas.
+**Y no se fia de si mismo**: el tipo de una pagina lo deciden DOS tablas, el
+PAT (del kernel) y los MTRR (de la placa). Un juez nuevo, `bmo-cache-juicio`,
+lee las dos de verdad y dice el tipo EFECTIVO; si no lo sabe, lo dice y se
+quedan los dos cinturones.
+**Moraleja**: WC parece "sin cache" y es igual de malo para una caja negra:
+junta escrituras en un bufer que un reinicio tambien borra. Esta en las
+pruebas como un NO.
