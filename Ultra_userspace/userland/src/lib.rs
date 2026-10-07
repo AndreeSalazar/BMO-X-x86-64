@@ -125,6 +125,12 @@ pub const OP_RAIZ_HIJO: u32 = 0x3C;
 /// suena aunque otro tenga el sonido. Solo quien tiene la pantalla. Ver
 /// [`crate::sonido::Fondo`].
 pub const OP_AUDIO_FONDO: u32 = 0x3D;
+/// **LOS SUB-DIRECTORES** (H4.3): una faena de la app en Ring 3 en los
+/// obreros. Espejo de `bmo_abi::...::TASK_OP_SUB_*`. Ver [`subdirectores`].
+pub const OP_SUB_INFO: u32 = 0x3E;
+pub const OP_SUB_PREPARAR: u32 = 0x3F;
+pub const OP_SUB_REPARTIR: u32 = 0x40;
+pub const OP_SUB_ESPERAR: u32 = 0x41;
 /// El log del kernel, leido desde Ring 3. Ver `klog_lineas`/`klog_texto`.
 pub const OP_KLOG_INFO: u32 = 0x16;
 pub const OP_KLOG_TEXTO: u32 = 0x17;
@@ -1537,6 +1543,7 @@ mod disco;
 mod entrada;
 mod imagen;
 pub mod reserva;
+pub mod subdirectores;
 mod memoria;
 /// ** LA RED desde donde vive el propietario: armar el receptor y sondearlo.
 ///

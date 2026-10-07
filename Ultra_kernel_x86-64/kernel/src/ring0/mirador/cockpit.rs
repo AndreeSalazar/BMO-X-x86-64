@@ -318,6 +318,15 @@ pub fn render_hud() {
         r.txt(":");
         r.dec(crate::ring0::plat::smp::dormir::siestas_cortas());
     }
+    // ** `sub=bien:mal:rescates` -- LOS SUB-DIRECTORES (H4.3): partes de
+    // Ring 3 que los obreros hicieron, las que fallaron (la app las rehizo) y
+    // las NMI de rescate. Solo sale si alguna app repartio.
+    let (sub_bien, sub_mal) = crate::ring0::plat::smp::ring3::cuentas();
+    if sub_bien + sub_mal != 0 {
+        r.txt(" sub="); r.dec(sub_bien);
+        r.txt(":"); r.dec(sub_mal);
+        r.txt(":"); r.dec(crate::ring0::plat::smp::ring3::rescates());
+    }
     let health = if n_soltados != 0 || v_pisados != 0 || v_choques != 0
         || caducados != 0 || c_rotas != 0 || c_demas != 0
     {

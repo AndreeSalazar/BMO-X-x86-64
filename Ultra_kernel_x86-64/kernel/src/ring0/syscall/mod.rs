@@ -185,6 +185,10 @@ mod op_contar;
 /// **Los ficheros del GSP para `dev/gpu_gsp.rs`** (L0c2): `dev` esta debajo de
 /// `fsys` y no puede abrirlos; aqui se abren y se le dan.
 mod op_gsp;
+/// **Los sub-directores** (H4.3): las cuatro puertas de una faena de Ring 3
+/// repartida por los obreros. Aparte porque son las unicas que mandan a OTRO
+/// nucleo al espacio de quien llama.
+mod op_subdirector;
 
 #[inline]
 fn unsupported() -> BmoStatus {
@@ -358,6 +362,10 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_AUDIO_CENSO => op_aparato::audio_censo(arg0, arg1),
         TASK_OP_AUDIO_MANDO => op_aparato::audio_mando(arg0, arg1),
         TASK_OP_AUDIO_FONDO => op_aparato::audio_fondo(arg0, arg1),
+        TASK_OP_SUB_INFO => op_subdirector::info(),
+        TASK_OP_SUB_PREPARAR => op_subdirector::preparar(arg0, arg1),
+        TASK_OP_SUB_REPARTIR => op_subdirector::repartir(arg0, arg1),
+        TASK_OP_SUB_ESPERAR => op_subdirector::esperar(),
         TASK_OP_IOMMU => op_maquina::iommu(arg0, arg1),
         // ** PROTON-X P1d: el GS de Ring 3 de ESTE hilo. Solo el suyo, asi que
         // no pide autoridad; lo unico que se exige es que sea de la mitad de

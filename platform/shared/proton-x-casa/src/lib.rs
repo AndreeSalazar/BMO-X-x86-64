@@ -85,6 +85,8 @@ mod computo;
 mod consultas;
 pub mod dxgi_resto;
 pub mod d3d12_capacidades;
+/// H4.3 (07-10): un dibujo de la CPU en franjas, repartidas entre nucleos.
+pub mod bandas;
 pub mod d3d12_dispositivos;
 /// E2.1 (05-10): las colas que esperan a una valla (Wait), y las esperas de
 /// la CPU a varias vallas.
@@ -229,6 +231,37 @@ pub struct Plataforma {
     /// codigo nativo va por `sellar_codigo`, un bloque nuevo con todo cada
     /// vez.
     pub cuaderno: Option<Cuaderno>,
+    /// LOS SUB-DIRECTORES (H4.3 de `PLAN_LOS_DOCE_DIRECTORES`, 07-10): los
+    /// otros nucleos, para pintar un dibujo de la CPU en franjas
+    /// (`bmo_proton_x::bandas`). `None`: todo en el nucleo de la casa.
+    pub obreros: Option<Obreros>,
+}
+
+/// **Los otros nucleos** (H4.3, 07-10). En BMO-X, los obreros del kernel en
+/// Ring 3 (`TASK_OP_SUB_*`, despues de `smp all`); en el banco, hilos.
+#[derive(Clone, Copy)]
+pub struct Obreros {
+    /// En cuantas partes se puede repartir AHORA (los obreros sanos + el
+    /// nucleo de la casa); menos de 2, no se reparte.
+    pub cuantos: fn() -> u32,
+    /// Correr `f(k)` para `k` en `0..n` (la parte 0, en el nucleo de quien
+    /// llama). Devuelve las partes que NO corrieron enteras: las rehace
+    /// quien llama. `f` no hace syscalls, no pide memoria que sobreviva a la
+    /// parte y no toca nada global de la casa (ver `bandas`).
+    pub repartir: fn(u32, &(dyn Fn(u32) + Sync)) -> u64,
+    /// Lo que corre en este nucleo es una parte (no el hilo de la casa): no
+    /// avisa (`aviso` escribe en el estado de la casa y es un syscall).
+    pub en_parte: fn() -> bool,
+}
+
+/// **Esto corre en una parte de un reparto** (H4.3): la plataforma se lee
+/// por puntero, sin `con` (que da un `&mut` del estado entero: otra parte o
+/// la casa pueden estar dentro).
+fn en_parte() -> bool {
+    // SAFETY: `plataforma` se pone una vez, en `empezar`, antes del `.exe`;
+    // despues solo se lee. Sin referencia al estado entero.
+    let p = unsafe { core::ptr::addr_of!((*ESTADO.0.get()).plataforma).read() };
+    p.and_then(|p| p.obreros).is_some_and(|o| (o.en_parte)())
 }
 
 /// **El cuaderno de codigo** (V4, 07-10): UN bloque donde el codigo nativo
@@ -453,6 +486,11 @@ const AVISOS: usize = 64;
 /// gastaban los `LoadLibrary` de GameServices*.dll antes de que el juego
 /// tocara D3D12: lo que fallaba despues no salia en ningun sitio.
 pub fn aviso(texto: &str) {
+    // H4.3: una franja de un obrero no dice nada (lo dira la casa si le
+    // pasa a ella: la franja 0 es suya, y lo que falle se rehace alli).
+    if en_parte() {
+        return;
+    }
     // FNV-1a: para no repetir, no para nada mas.
     let huella = texto.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3));
     let (p, decir) = con(|e| {

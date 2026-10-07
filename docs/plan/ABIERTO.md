@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   659 casillas ABIERTAS en 64 planes
-   564 hechas
+   658 casillas ABIERTAS en 64 planes
+   565 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -226,15 +226,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Q3 -- el INDICE POR HASH: es L9 de docs/plan/PLAN_LISTAS_Y_MAPAS.md
 - ... y 8 mas
 
-## [`PLAN_LOS_DOCE_DIRECTORES.md`](PLAN_LOS_DOCE_DIRECTORES.md) -- 11 abiertas, 5 hechas
-
-*PLAN LOS DOCE DIRECTORES -- PROTON-X aprende a usar TODO el Ryzen*
-
-- [ ] V3 -- los ficheros por el bloque de paso. leer_fichero y
-- [ ] V5 -- la cabina lo dice. La foto del pulso de PROTON-X dice la VA
-- [ ] T3 -- medirlo en el metal. Los tirones del audifono por debajo de
-- ... y 8 mas
-
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 
 *PLAN LA DEUDA -- lo que el arbol debe, medido el 2026-09-17*
@@ -242,6 +233,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D2a -- un TRINQUETE. static mut declarados en
 - [ ] D2b -- el reparto, por fichero, cuando SMP se retome. No antes: sin
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
+- ... y 7 mas
+
+## [`PLAN_LOS_DOCE_DIRECTORES.md`](PLAN_LOS_DOCE_DIRECTORES.md) -- 10 abiertas, 6 hechas
+
+*PLAN LOS DOCE DIRECTORES -- PROTON-X aprende a usar TODO el Ryzen*
+
+- [ ] V3 -- los ficheros por el bloque de paso. leer_fichero y
+- [ ] V5 -- la cabina lo dice. La foto del pulso de PROTON-X dice la VA
+- [ ] T3 -- medirlo en el metal. Los tirones del audifono por debajo de
 - ... y 7 mas
 
 ## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 10 abiertas, 35 hechas

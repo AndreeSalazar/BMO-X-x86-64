@@ -328,6 +328,13 @@ pub(crate) const TASK_OP_RAIZ_HIJO: u64 = 0x3C;
 /// pantalla. Espejo de `bmo_abi::...::TASK_OP_AUDIO_FONDO`. Ver
 /// `dev/usb/voces.rs`.
 pub(crate) const TASK_OP_AUDIO_FONDO: u64 = 0x3D;
+/// **LOS SUB-DIRECTORES** (H4.3, 07-10): una faena de la app repartida en
+/// Ring 3 por los obreros. Espejo de `bmo_abi::...::TASK_OP_SUB_*`. Ver
+/// `syscall/op_subdirector.rs` y `plat/smp/ring3.rs`.
+pub(crate) const TASK_OP_SUB_INFO: u64 = 0x3E;
+pub(crate) const TASK_OP_SUB_PREPARAR: u64 = 0x3F;
+pub(crate) const TASK_OP_SUB_REPARTIR: u64 = 0x40;
+pub(crate) const TASK_OP_SUB_ESPERAR: u64 = 0x41;
 pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su entrada, bloqueada.

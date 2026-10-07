@@ -126,7 +126,7 @@ const IID_FIRMA: Guid = guid(0xc36a797c, 0xec80, 0x4f0a, [0x89, 0x85, 0xa7, 0xb2
 /// **Un objeto de cada interfaz**, por las puertas de Windows.
 fn crear_de_todo() {
     // SAFETY: ningun `.exe` corre; la unica prueba de este fichero.
-    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None, sonido: Some(Sonido { abrir, escribir: sonar, pendientes, cerrar }), cuaderno: None }) };
+    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, carpetas: None, reserva: None, trozos: None, sonido: Some(Sonido { abrir, escribir: sonar, pendientes, cerrar }), cuaderno: None, obreros: None }) };
     let ok = |hr: i32, que: &str| assert_eq!(hr, 0, "{que}: {}", String::from_utf8_lossy(&DICHO.lock().unwrap()));
 
     // -- D3D12 ---------------------------------------------------------------

@@ -713,6 +713,33 @@ pub const TASK_OP_RAIZ_HIJO: u64 = 0x3C;
 /// `[17..26)` | bucle `[26]`; `arg1` segun la orden. Las muestras son siempre
 /// S16 mono a 48 kHz.
 pub const TASK_OP_AUDIO_FONDO: u64 = 0x3D;
+/// **LOS SUB-DIRECTORES** (H4.3 de `PLAN_LOS_DOCE_DIRECTORES`, 07-10): una
+/// faena de la app repartida en Ring 3 por los obreros (`smp all` antes).
+/// Ver `bmo_orquesta::ring3` (el juez, con banco) y
+/// `ring0::plat::smp::ring3` (lo que pisa el CPU).
+///
+/// `SUB_INFO`: cuantos obreros sanos hay (las partes que se pueden pedir son
+/// estos + 1, la de la app). `0`: no hay obreros.
+pub const TASK_OP_SUB_INFO: u64 = 0x3E;
+/// `SUB_PREPARAR`: `arg0` = los bloques (uno por parte, seguidos), `arg1` =
+/// `bmo_orquesta::ring3::empaquetar(bytes de cada bloque, partes)`.
+pub const TASK_OP_SUB_PREPARAR: u64 = 0x3F;
+/// `SUB_REPARTIR`: `arg0` = la funcion (`extern "sysv64" fn(k, n, arg)`,
+/// vuelve a `FIN`), `arg1` = `arg`. Las partes `1..n` a los obreros; la `0`
+/// la corre quien llama al volver. `ERROR_NEGADO` con el motivo
+/// (`bmo_orquesta::ring3::NoRing3`) si no.
+pub const TASK_OP_SUB_REPARTIR: u64 = 0x40;
+/// `SUB_ESPERAR`: `0` si sigue en marcha; si no, `ACABADA` (bit 63) | un bit
+/// por parte que NO salio bien (la rehace quien llama). Al tope (5 s) las
+/// que faltan cuentan como no hechas.
+pub const TASK_OP_SUB_ESPERAR: u64 = 0x41;
+/// Los NO de los sub-directores (espejo de `bmo_orquesta::ring3::NoRing3`).
+pub const SUB_PARTES: u32 = 1;
+pub const SUB_NO_ES_RING3: u32 = 2;
+pub const SUB_BLOQUE: u32 = 3;
+pub const SUB_DESBORDA: u32 = 4;
+pub const SUB_OCUPADO: u32 = 5;
+pub const SUB_SIN_OBREROS: u32 = 6;
 /// La ventana de reserva: 384 GiB desde `0x20_0000_0000`, hasta el final
 /// de `PML4[0]` (era de 128: Cyberpunk aparta mas de 130 GiB al arrancar).
 pub const RESERVA_VENTANA_BASE: u64 = 0x0000_0020_0000_0000;

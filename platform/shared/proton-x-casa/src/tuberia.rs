@@ -961,25 +961,15 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     // buscadas cuando un pixel las pide y GUARDADAS: una vez por textura
     // distinta del dibujo, no por pixel. Un millon de descriptores (el
     // monton de Cyberpunk) no se recorre: solo los que se leen.
-    let guardadas: core::cell::RefCell<alloc::collections::BTreeMap<(u8, u32), Option<bmo_proton_x::textura::Textura<'static>>>> = Default::default();
-    let buscar = |rango: u8, registro: u32| {
-        if let Some(t) = guardadas.borrow().get(&(rango, registro)) {
-            return *t;
-        }
-        let t = textura_dinamica(firma, &e.tablas, &en.ranuras, rango, registro);
-        guardadas.borrow_mut().insert((rango, registro), t);
-        t
-    };
+    // ** H4.3 (07-10): en un RECUERDO que aguanta varios nucleos a la vez
+    // (el dibujo puede ir en franjas, `bandas`) y que no pide memoria con
+    // su cerrojo tomado. Las primeras 256 distintas se recuerdan; las demas
+    // se buscan cada vez (dan lo mismo).
+    let guardadas: crate::bandas::Recuerdo<(u8, u32), Option<bmo_proton_x::textura::Textura<'static>>, 256> = Default::default();
+    let buscar = |rango: u8, registro: u32| guardadas.o_buscar((rango, registro), || textura_dinamica(firma, &e.tablas, &en.ranuras, rango, registro));
     // 15 (07-10): y los buferes de un array con el registro calculado.
-    let buferes_guardados: core::cell::RefCell<alloc::collections::BTreeMap<(u8, u32), Option<bmo_proton_x::bufer::Bufer<'static>>>> = Default::default();
-    let buscar_bufer = |rango: u8, registro: u32| {
-        if let Some(b) = buferes_guardados.borrow().get(&(rango, registro)) {
-            return *b;
-        }
-        let b = bufer_dinamico(firma, &e.tablas, &en.ranuras, rango, registro);
-        buferes_guardados.borrow_mut().insert((rango, registro), b);
-        b
-    };
+    let buferes_guardados: crate::bandas::Recuerdo<(u8, u32), Option<bmo_proton_x::bufer::Bufer<'static>>, 256> = Default::default();
+    let buscar_bufer = |rango: u8, registro: u32| buferes_guardados.o_buscar((rango, registro), || bufer_dinamico(firma, &e.tablas, &en.ranuras, rango, registro));
     // P3b4c: las limpiezas apuntadas de SU render target y de SU Z: las
     // hace quien dibuje este lote.
     let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 && e.dsv_sub == 0 { tomar_limpieza(e.dsv) } else { None };

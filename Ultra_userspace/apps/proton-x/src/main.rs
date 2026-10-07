@@ -59,6 +59,7 @@ mod en_vivo;
 mod entorno_windows;
 mod la3060;
 mod monton;
+mod obreros;
 mod plataforma;
 mod perfil;
 mod sonido;
@@ -1233,6 +1234,13 @@ pub extern "C" fn _start() -> ! {
 
 #[panic_handler]
 fn panico(info: &core::panic::PanicInfo) -> ! {
+    // H4.3: en una parte de un obrero (Ring 3, sin puerta) decirlo es un
+    // syscall, o sea otro #UD; el `ud2` ya dice "esta parte fallo" y la casa
+    // la rehace.
+    if monton::en_parte() {
+        // SAFETY: una excepcion a proposito; el obrero vuelve al kernel.
+        unsafe { core::arch::asm!("ud2", options(noreturn)) };
+    }
     // El motivo y el sitio, ENTEROS, en un bufer de la pila: el monton puede
     // ser justo lo que se acabo (metal 30-09: el primer contacto decia solo
     // "panico en el cargador", porque el mensaje no era un texto fijo).

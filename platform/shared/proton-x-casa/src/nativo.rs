@@ -461,21 +461,58 @@ fn funcion(base: u64, desde: usize) -> Sombreador {
     unsafe { core::mem::transmute::<usize, Sombreador>(base as usize + desde) }
 }
 
+/// Lo traducido de un dibujo, ya en el bloque sellado: donde empiezan sus
+/// dos funciones. Se saca UNA vez, en el nucleo de la casa (`sellado` puede
+/// pedir un sello al kernel), y despues cada franja solo lo lee.
+#[derive(Clone, Copy)]
+struct Listo {
+    base: u64,
+    vs: usize,
+    ps: usize,
+    cuadros: bool,
+}
+
 /// **El ejecutor de la casa** (`Plataforma::dibujar`): el lote con los
 /// sombreadores nativos de su PSO, o interpretados si no los hay.
+///
+/// H4.3 (07-10): con obreros (`Plataforma::obreros`) y un dibujo que se deja
+/// partir (`bandas::se_parte`), en FRANJAS, una por nucleo. Lo de una vez
+/// (sellar, buscar lo traducido) va antes, aqui; cada franja solo pinta.
 pub fn dibujar(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, NoDibuja> {
+    let listo = preparar(l);
+    let pinta = |l: &Lote, d: &mut trama::Destino| match listo {
+        Some(t) => dibujar_listo(l, d, t),
+        None => lote::en_cpu(l, d),
+    };
+    if let Some(o) = plataforma().obreros {
+        let n = (o.cuantos)();
+        // Las dinamicas de la casa (`tuberia`) se buscan con un recuerdo que
+        // aguanta varios a la vez (`crate::bandas::Recuerdo`).
+        if bmo_proton_x::bandas::se_parte(l, destino, n, true) {
+            return crate::bandas::dibujar(l, destino, n, &o.repartir, &pinta);
+        }
+    }
+    pinta(l, destino)
+}
+
+/// Lo traducido del PSO de `l`, en el bloque sellado al dia, o `None`
+/// (por el interprete).
+fn preparar(l: &Lote) -> Option<Listo> {
     let yo = l.enlace as *const Enlace as usize;
     if !estado().traducidos.iter().any(|t| t.enlace == yo) {
-        return lote::en_cpu(l, destino);
+        return None;
     }
     let bloque = sellado();
     let e = estado();
     let (Some((base, n)), Some(t)) = (bloque, e.traducidos.iter().find(|t| t.enlace == yo)) else {
-        return lote::en_cpu(l, destino);
+        return None;
     };
-    if !cabe(t, n) {
-        return lote::en_cpu(l, destino);
-    }
+    cabe(t, n).then_some(Listo { base, vs: t.vs, ps: t.ps, cuadros: t.cuadros })
+}
+
+/// Un dibujo (o una franja) con lo traducido: no toca nada global.
+fn dibujar_listo(l: &Lote, destino: &mut trama::Destino, t: Listo) -> Result<trama::Cuenta, NoDibuja> {
+    let base = t.base;
     let en = l.enlace;
     let fv = funcion(base, t.vs);
     // El cbuffer, con lo que lean los dos: lo que falte, a cero (como el

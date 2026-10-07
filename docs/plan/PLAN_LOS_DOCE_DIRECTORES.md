@@ -269,10 +269,50 @@ copian. Lo NUEVO de este plan, que alli no estaba:
 - [ ] **H4.2 -- la prioridad del sonido entre nucleos.** El hilo de MMCSS
       "Pro Audio" se despierta con una IPI en el director que este menos
       ocupado. **Como se sabe:** el metal: tirones 0 con el juego cargando.
-- [ ] **H4.3 -- los obreros de la trama.** El interprete parte un Draw en
+- [x] **H4.3 -- los obreros de la trama.** El interprete parte un Draw en
       franjas de la imagen y las reparte entre obreros de Ring 3 de la MISMA
       app (mismos bytes que con uno). **Como se sabe:** el banco: la escena
       dura da los mismos bytes con 1 y con 6 obreros.
+      07-10, HECHO en el banco (con el permiso de CPU del propietario: *"que
+      sea brutal para que exprima"*). Las cuatro piezas, cada una aislada:
+      * **el kernel** [RING 0]: `plat/smp/ring3.rs` -- un obrero BAJA a Ring 3
+        (`iretq`, CPL 3) con el CR3 y el GS de la app, IF=0, su PROPIA IDT
+        (32 stubs) y su pila de trap (`tss::poner_rsp0`); vuelve a `FIN`
+        (`bmo_orquesta::ring3`, el juez con banco: 4 pruebas). Una parte que
+        no vuelve se saca con una NMI de rescate (y la NMI que llega tarde a
+        un obrero es un `iretq`: el vector 2 del kernel mira el bit BSP).
+        `vmm` saca a los obreros de un CR3 antes de quitar o cambiar una
+        pagina de usuario (`sacar`), `revoke_all` antes de devolver un marco
+        del muerto (`muere`), y `enterrador` no desmonta un espacio con uno
+        dentro. Las puertas: `TASK_OP_SUB_INFO/PREPARAR/REPARTIR/ESPERAR`
+        (0x3E..0x41, `syscall/op_subdirector.rs`); `smp` dice
+        `sub=bien:mal:rescates`.
+      * **lo puro**: `proton-x/src/bandas.rs` -- que filas (pares: un cuadro
+        de 2x2 no se parte), que tijera, cuando NO se parte (UAV, olas
+        propias, destino bajo) y como se juntan las cuentas;
+        `pruebas_bandas.rs` (4): el cubo con profundidad y limpiezas en 2, 3,
+        5, 12 y 64 franjas da los mismos pixeles, Z y cuentas; con olas
+        propias el RGB es el mismo y el alfa (los activos de la ola) NO --
+        por eso esos no se parten.
+      * **la casa**: `proton-x-casa/src/bandas.rs` (el destino a trozos
+        crudos, una casilla por franja, el `Recuerdo` de las texturas
+        dinamicas sin pedir memoria con el cerrojo tomado) y
+        `nativo::dibujar` (sella UNA vez y despues cada franja solo pinta).
+        `tests/bandas.rs`: el cubo en hilos de verdad y con franjas que
+        fallan, mismos bytes; `tests/corre/bandas.rs`: `cubo.exe` y
+        `cubo12.exe` ENTEROS, cada dibujo en 6 franjas por hilos y una que
+        falla: lo que se ve en cada Present es la huella de la 3060.
+      * **la app**: `apps/proton-x/src/obreros.rs` -- un hueco de 64 MiB por
+        parte (arena abajo, pila de 2 MiB arriba, guarda sin hacer en medio),
+        la arena por `rsp` en `monton.rs` (sin cerrojo ni syscall), el MXCSR
+        de quien reparte, y el `panic_handler` de una parte es un `ud2`.
+        Cuantas partes: los obreros SANOS que cuenta el kernel + 1 (segun la
+        CPU), hasta 16.
+      **Falta, en el metal:** `smp all` antes de Cyberpunk, y la linea
+      `PROTON-X: los sub-directores pintan en franjas` en el SALIDA.TXT con
+      `sub=` subiendo en `smp`. Y no toca la regla de abajo: lo que corre en
+      los obreros es SOLO la trama de un dibujo (sin hilos del juego, sin la
+      casa), asi que los 62 Sync pendientes de H2.1 no se cruzan con esto.
 - [ ] **H4.4 -- la cabina de los directores.** `cabina smp` dice, por cada
       director, cuanto corrio, cuanto robo y a quien espera. **Como se
       sabe:** la linea en el SALIDA.TXT.

@@ -49,6 +49,11 @@ pub fn obrero(indice: u32, apic: u32) -> ! {
         let r = RONDA.0.load(Ordering::SeqCst);
         if r != vista {
             vista = r;
+            // ** Lo primero, una parte de Ring 3 si la faena de una app le
+            // dio una (`ring3.rs`, H4.3). Si no, la del kernel, como siempre.
+            if super::ring3::atender(indice) {
+                continue;
+            }
             let f = TAREA.load(Ordering::SeqCst);
             let partes = PARTES.load(Ordering::SeqCst);
             let mia = indice + 1;

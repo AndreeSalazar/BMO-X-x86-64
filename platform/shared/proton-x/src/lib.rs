@@ -35,6 +35,7 @@
 
 extern crate alloc;
 
+pub mod bandas;
 pub mod bc;
 pub mod bufer;
 // A9b (06-10): el mapa de la CPU (el Enlace de un PSO) en bytes y de vuelta.
@@ -176,5 +177,7 @@ mod pruebas_niveles;
 mod pruebas_nulo;
 #[cfg(test)]
 mod pruebas_cifra;
+#[cfg(test)]
+mod pruebas_bandas;
 #[cfg(test)]
 mod pruebas_turno;

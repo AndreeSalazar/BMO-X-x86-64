@@ -143,6 +143,10 @@ pub type Faena = fn(u32, u32);
 /// Devuelve `false` si alguien no llego a tiempo -- y entonces **el dato que se
 /// haya calculado no vale**, porque falta una parte del rango.
 pub fn repartir(faena: Faena, obreros: u32) -> bool {
+    // ** Con una faena de Ring 3 en marcha (`ring3.rs`) los obreros son de
+    // ella: esta se hace entera en el BSP. Mas lenta, el mismo resultado, y
+    // ni una ronda pisada.
+    let obreros = if super::ring3::activa() { 0 } else { obreros };
     let partes = obreros + 1;
     if obreros == 0 {
         faena(0, 1);

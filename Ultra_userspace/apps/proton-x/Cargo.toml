@@ -12,6 +12,9 @@ path = "src/main.rs"
 # El monton (03-10): la lista de libres sobre UN bloque, con su handle
 # (`bmo_monton::Region`). Puro: Ring 3 lo enlaza (L8).
 bmo-monton = { path = "../../../platform/shared/bmo-monton" }
+# H4.3 (07-10): el juez de los sub-directores (FIN, el pedido, empaquetar),
+# el mismo que juzga en el kernel. Puro.
+bmo-orquesta = { path = "../../../platform/shared/bmo-orquesta" }
 bmo-userland = { path = "../../userland" }
 # El cargador es puro y se prueba en el anfitrion, donde `hola.exe` CORRE
 # (`tests/corre.rs` de alli). Aqui se pone lo que el no sabe: la memoria de

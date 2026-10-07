@@ -64,6 +64,8 @@ pub fn de_bmo() -> Plataforma {
         trozos: Some(TROZOS),
         sonido: Some(super::sonido::SONIDO),
         cuaderno: Some(bmo_proton_x_casa::Cuaderno { abrir: abrir_cuaderno, sellar_hasta: sellar_cuaderno }),
+        // H4.3: los otros nucleos pintan en franjas (`obreros.rs`).
+        obreros: Some(bmo_proton_x_casa::Obreros { cuantos: super::obreros::cuantos, repartir: super::obreros::repartir, en_parte: super::monton::en_parte }),
     }
 }
 
@@ -407,10 +409,11 @@ pub(crate) fn monton_hacer(va: u64, bytes: u64) -> bool {
 }
 
 /// **La RESERVA del kernel** (P0.4c): la ventana de `TASK_OP_RESERVA_*`,
-/// menos el tramo del monton (07-10).
+/// menos el tramo del monton (07-10) y, debajo, el de los sub-directores
+/// (H4.3, `obreros.rs`: sus pilas y sus arenas).
 const RESERVA: bmo_proton_x_casa::Reserva = bmo_proton_x_casa::Reserva {
     base: bmo::reserva::VENTANA_BASE,
-    bytes: bmo::reserva::VENTANA_BYTES - TRAMO_MONTON,
+    bytes: bmo::reserva::VENTANA_BYTES - TRAMO_MONTON - super::obreros::TRAMO,
     hacer: reserva_hacer,
     deshacer: reserva_deshacer,
     ram,

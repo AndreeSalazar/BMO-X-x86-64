@@ -287,6 +287,11 @@ pub(super) fn map_page_tipo(
         entry |= PTE_NX;
     }
     let old = pt[i1];
+    if old & PTE_PRESENT != 0 && old & PTE_USER != 0 {
+        // Cambiar una pagina de usuario ya puesta: ningun sub-director dentro
+        // con la traduccion vieja (`smp::ring3::sacar`).
+        crate::ring0::plat::smp::ring3::sacar(pml4);
+    }
     pt[i1] = entry;
     if old & PTE_PRESENT != 0 {
         unsafe { core::arch::asm!("invlpg [{}]", in(reg) va, options(nostack)) };
@@ -322,6 +327,13 @@ pub fn unmap_page(pml4: u64, va: u64) -> Option<u64> {
     let e = pt[i1];
     if e & PTE_PRESENT == 0 {
         return None;
+    }
+    // ** Un sub-director (un obrero en Ring 3 con este CR3) podria tener la
+    // traduccion en su TLB y seguir escribiendo en el marco despues de que
+    // vuelva al asignador. Sale ANTES (`smp::ring3::sacar`: casi siempre no
+    // hay ninguno dentro y es una atomica).
+    if e & PTE_USER != 0 {
+        crate::ring0::plat::smp::ring3::sacar(pml4);
     }
     pt[i1] = 0;
     unsafe { core::arch::asm!("invlpg [{}]", in(reg) va, options(nostack)) };
