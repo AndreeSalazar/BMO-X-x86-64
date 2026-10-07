@@ -41,6 +41,27 @@ const OPTIONS9: u32 = 37;
 const OPTIONS10: u32 = 39;
 const OPTIONS11: u32 = 40;
 const OPTIONS12: u32 = 41;
+// A8 (06-10): las que un motor pregunta al montar su D3D12 y la casa no
+// contestaba (E_INVALIDARG con la medida buena: "no se sabe").
+const PROTECTED_RESOURCE_SESSION_SUPPORT: u32 = 10;
+const SHADER_CACHE: u32 = 19;
+const COMMAND_QUEUE_PRIORITY: u32 = 20;
+const EXISTING_HEAPS: u32 = 22;
+const SERIALIZATION: u32 = 24;
+const CROSS_NODE: u32 = 25;
+const DISPLAYABLE: u32 = 28;
+const PROTECTED_RESOURCE_SESSION_TYPE_COUNT: u32 = 33;
+const OPTIONS13: u32 = 42;
+const OPTIONS14: u32 = 43;
+const OPTIONS15: u32 = 44;
+const OPTIONS16: u32 = 45;
+const OPTIONS17: u32 = 46;
+const OPTIONS18: u32 = 47;
+const OPTIONS19: u32 = 48;
+const OPTIONS20: u32 = 49;
+const PREDICATION: u32 = 50;
+const HARDWARE_COPY: u32 = 52;
+const OPTIONS21: u32 = 53;
 
 /// OPTIONS2 a OPTIONS7 (02-10, lo siguiente que pregunta Cyberpunk): su
 /// numero y sus campos de 4 bytes, en orden.
@@ -64,7 +85,13 @@ const OPTIONS12: u32 = 41;
 /// Microsoft con ThrowIfFailed: sin contestar, la muestra no arranca; con
 /// un NO, va por ResourceBarrier, que la casa ya sabe. Los atomicos de 64
 /// bits, el VRS y los de malla, lo mismo que en OPTIONS5 a OPTIONS7.
-const OPCIONES_MAS: [(u32, &[u32]); 11] = [
+///
+/// ** A8 (06-10): las que solo SALEN (nada entra), con la misma regla: NO a
+/// lo que la casa no hace. La cache de sombreadores (SHADER_CACHE) es la
+/// pieza A9: hasta ella, ninguna. ExecuteIndirect, el tier 1.0 (la casa lo
+/// hace, E2.4). Los maximos de los montones de descriptores (OPTIONS19),
+/// los de D3D12 en el tier de enlace 3 que dice OPTIONS.
+const OPCIONES_MAS: [(u32, &[u32]); 26] = [
     // DepthBoundsTest NO, ProgrammableSamplePositions NO.
     (OPTIONS2, &[0, 0]),
     // CopyQueueTimestamps, CastingFullyTypedFormat, WriteBufferImmediate en
@@ -91,6 +118,42 @@ const OPCIONES_MAS: [(u32, &[u32]); 11] = [
     // Las estadisticas de malla: sin sombreadores de malla, UNKNOWN (-1).
     // EnhancedBarriers NO, RelaxedFormatCasting NO.
     (OPTIONS12, &[0xFFFF_FFFF, 0, 0]),
+    // A8: SupportFlags NONE.
+    (SHADER_CACHE, &[0]),
+    // OpenExistingHeapFromAddress NO.
+    (EXISTING_HEAPS, &[0]),
+    // SharingTier NOT_SUPPORTED, AtomicShaderInstructions NO: un nodo.
+    (CROSS_NODE, &[0, 0]),
+    // DisplayableTexture NO, SharedResourceCompatibilityTier 0.
+    (DISPLAYABLE, &[0, 0]),
+    // Las copias de pasos libres, las alineaciones libres de vertices, los
+    // viewports dados la vuelta, las copias entre dimensiones y el factor
+    // de alfa: NO.
+    (OPTIONS13, &[0, 0, 0, 0, 0, 0]),
+    // AdvancedTextureOps, MSAA escribible y stencil de dos caras: NO.
+    (OPTIONS14, &[0, 0, 0]),
+    // TriangleFan NO, el corte de tira de indices dinamico NO.
+    (OPTIONS15, &[0, 0]),
+    // DynamicDepthBias NO, GPUUploadHeap NO.
+    (OPTIONS16, &[0, 0]),
+    // Muestreadores sin normalizar NO, ManualWriteTracking NO.
+    (OPTIONS17, &[0, 0]),
+    // RenderPassesValid NO.
+    (OPTIONS18, &[0]),
+    // Salidas de otra medida NO, muestras sin salida 1, redondeo de puntos
+    // NO, RasterizerDesc2 NO, lineas estrechas NO, aniso con mip de punto NO,
+    // 2048 muestreadores (con estaticos, 2048), un millon de vistas, monton
+    // CUSTOM de solo computo NO.
+    (OPTIONS19, &[0, 1, 0, 0, 0, 0, 2048, 2048, 1_000_000, 0]),
+    // ComputeOnlyWriteWatch NO, RecreateAtTier NOT_SUPPORTED.
+    (OPTIONS20, &[0, 0]),
+    // WorkGraphs NO, ExecuteIndirect 1.0 (10), SampleCmp con gradiente NO,
+    // ExtendedCommandInfo NO.
+    (OPTIONS21, &[0, 10, 0, 0]),
+    // La prediccion en las colas de computo y de copia: NO.
+    (PREDICATION, &[0]),
+    // HARDWARE_COPY NO.
+    (HARDWARE_COPY, &[0]),
 ];
 
 /// D3D_FEATURE_LEVEL_12_2: lo mas alto que dice la tarjeta.
@@ -215,10 +278,31 @@ pub(crate) extern "win64" fn check_feature_support(_this: u64, que: u32, datos: 
                 FIRMA_1_1 | FIRMA_1_2 => pon(0, FIRMA_1_1),
                 _ => return E_INVALIDARG,
             },
+            // A8: CommandListType y Priority (entran), PriorityForTypeIsSupported:
+            // NORMAL (0) y HIGH (100) en una cola de verdad (DIRECT 0,
+            // COMPUTE 2, COPY 3); la de tiempo real (10000) pide un privilegio
+            // que un juego no tiene, y la casa tampoco la hace: NO. Un tipo
+            // que no es de cola, E_INVALIDARG.
+            COMMAND_QUEUE_PRIORITY if cabe(12) => {
+                if !matches!(u(0), 0 | 2 | 3) {
+                    return E_INVALIDARG;
+                }
+                pon(2, u32::from(matches!(u(1), 0 | 100)));
+            }
+            // A8: NodeIndex (entra) y lo de ese nodo: un nodo, el 0; otro,
+            // E_INVALIDARG. SERIALIZATION, el tier 0; las sesiones
+            // protegidas, ninguna (Support NONE, Count 0).
+            SERIALIZATION | PROTECTED_RESOURCE_SESSION_SUPPORT | PROTECTED_RESOURCE_SESSION_TYPE_COUNT if cabe(8) => {
+                if u(0) != 0 {
+                    return E_INVALIDARG;
+                }
+                pon(1, 0);
+            }
             // Una que la casa sabe, con la medida mal: el error es del `.exe`
             // (Windows dice lo mismo, y no hay nada que avisar).
             OPTIONS | ARCHITECTURE | FEATURE_LEVELS | FORMAT_SUPPORT | MULTISAMPLE_QUALITY_LEVELS | FORMAT_INFO | GPU_VIRTUAL_ADDRESS_SUPPORT
-            | SHADER_MODEL | OPTIONS1 | ROOT_SIGNATURE | ARCHITECTURE1 => return E_INVALIDARG,
+            | SHADER_MODEL | OPTIONS1 | ROOT_SIGNATURE | ARCHITECTURE1 | COMMAND_QUEUE_PRIORITY | SERIALIZATION
+            | PROTECTED_RESOURCE_SESSION_SUPPORT | PROTECTED_RESOURCE_SESSION_TYPE_COUNT => return E_INVALIDARG,
             _ => {
                 aviso(&alloc::format!("ID3D12Device::CheckFeatureSupport({que}, {medida} B): todavia no se contesta"));
                 return E_INVALIDARG;

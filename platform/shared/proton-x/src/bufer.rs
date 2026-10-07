@@ -180,8 +180,9 @@ pub struct Uav<'a> {
     /// `IncrementCounter` y `DecrementCounter`.
     pub contador: Option<&'a mut u32>,
     /// 06-10: un UAV de textura 3D o de ARRAY (`RWTexture3D`,
-    /// `RWTexture2DArray`): donde va cada rebanada (o capa). `PLANA` en los
-    /// demas: un bufer, o una textura de una o dos dimensiones.
+    /// `RWTexture2DArray` y, A5, `RWTexture1DArray`): donde va cada rebanada
+    /// (o capa). `PLANA` en los demas: un bufer, o una textura de una o dos
+    /// dimensiones.
     pub rebanadas: Rebanadas,
 }
 
@@ -195,11 +196,15 @@ pub struct Rebanadas {
     /// Cuantas (WSize o ArraySize de la vista); 0, ninguna: `PLANA`.
     pub capas: u32,
     pub salto: u32,
+    /// A5 (06-10): un array de UNA dimension (`RWTexture1DArray`): cada
+    /// capa es una fila (`alto` 1), y la capa la trae la SEGUNDA coordenada
+    /// (`u[uint2(x, capa)]`), no la tercera; `GetDimensions` da (ancho, capas).
+    pub una_d: bool,
 }
 
 impl Rebanadas {
     /// La de un bufer o una textura de una o dos dimensiones.
-    pub const PLANA: Rebanadas = Rebanadas { alto: 0, capas: 0, salto: 0 };
+    pub const PLANA: Rebanadas = Rebanadas { alto: 0, capas: 0, salto: 0, una_d: false };
 }
 
 /// Los formatos con 32 bits por canal (float, uint y sint de 4, 3, 2 y 1
@@ -308,11 +313,21 @@ impl Uav<'_> {
         Some(Uav { bytes, formato: self.formato, paso: self.paso, elementos: texeles as u32, contador: None, rebanadas: Rebanadas::PLANA })
     }
 
+    /// **El texel `(x, y, z)` de un UAV de textura** (A5, 06-10), como lo
+    /// pide el sombreador: su rebanada (ver [`Uav::rebanada`]) y donde cae
+    /// dentro, `(x, y)`. En un array de una dimension la capa es la `y`.
+    pub fn texel(&mut self, x: u32, y: u32, z: u32) -> Option<(Uav<'_>, u32, u32)> {
+        let (y, z) = if self.rebanadas.una_d { (0, y) } else { (y, z) };
+        Some((self.rebanada(z)?, x, y))
+    }
+
     /// **`GetDimensions` de un UAV de textura** (06-10): ancho, alto y, en
-    /// un 3D o un array, cuantas rebanadas (o capas).
+    /// un 3D o un array, cuantas rebanadas (o capas); en un array de una
+    /// dimension (A5), ancho y capas.
     pub fn medidas_textura(&self) -> [u32; 4] {
         match self.rebanadas.capas {
             0 => [self.paso, self.elementos / self.paso.max(1), 0, 0],
+            n if self.rebanadas.una_d => [self.paso, n, 0, 0],
             n => [self.paso, self.rebanadas.alto, n, 0],
         }
     }
@@ -445,7 +460,7 @@ mod pruebas {
         // 06-10: un 3D (o un array) de rebanadas de 2 x 1 texeles de R32_UINT,
         // una cada TRES texeles (el de en medio, de otra mip: no se toca).
         let mut b = [0u8; 4 * 8];
-        let mut u = Uav { bytes: &mut b, formato: 42, paso: 2, elementos: 8, contador: None, rebanadas: Rebanadas { alto: 1, capas: 3, salto: 3 } };
+        let mut u = Uav { bytes: &mut b, formato: 42, paso: 2, elementos: 8, contador: None, rebanadas: Rebanadas { alto: 1, capas: 3, salto: 3, una_d: false } };
         for z in 0..3 {
             u.rebanada(z).unwrap().escribir(Modo::Textura, 1, 0, [10 + z, 0, 0, 0], 1);
         }
@@ -454,6 +469,20 @@ mod pruebas {
         assert_eq!(u.medidas_textura(), [2, 1, 3, 0]);
         let palabras: alloc::vec::Vec<u32> = b.chunks(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
         assert_eq!(palabras, [0, 10, 0, 0, 11, 0, 0, 12], "cada una en su sitio, y lo de en medio intacto");
+        // A5: lo mismo como un array de UNA dimension: la capa es la y
+        // (`texel(x, y, z)`; la z no cuenta) y las medidas, (ancho, capas).
+        let mut b = [0u8; 4 * 8];
+        let mut u = Uav { bytes: &mut b, formato: 42, paso: 2, elementos: 8, contador: None, rebanadas: Rebanadas { alto: 1, capas: 3, salto: 3, una_d: true } };
+        for capa in 0..3 {
+            let (mut r, x, y) = u.texel(1, capa, 7).unwrap();
+            r.escribir(Modo::Textura, x, y, [20 + capa, 0, 0, 0], 1);
+        }
+        assert!(u.texel(0, 3, 0).is_none(), "fuera de las capas");
+        let (r, x, y) = u.texel(1, 2, 0).unwrap();
+        assert_eq!(r.cargar(Modo::Textura, x, y)[0], 22);
+        assert_eq!(u.medidas_textura(), [2, 3, 0, 0]);
+        let palabras: alloc::vec::Vec<u32> = b.chunks(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
+        assert_eq!(palabras, [0, 20, 0, 0, 21, 0, 0, 22]);
     }
 
     /// D2.7: cuatro floats vistos con OTRO formato del mismo tamanio. Un

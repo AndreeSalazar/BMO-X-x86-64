@@ -60,6 +60,23 @@ impl Monton {
         self.0.backend().poner(base, bytes, handle);
     }
 
+    /// **Que pueda CRECER** (07-10): llenos sus bytes, sigue en trozos de
+    /// 64 MiB del tramo `[desde, desde + bytes)`, que es SOLO suyo, hechos
+    /// por `hacer` (que no pide memoria: corre dentro del monton).
+    ///
+    /// # Safety
+    /// Lo de `bmo_monton::Region::poner_crecer`; tras [`Monton::poner`].
+    #[allow(dead_code)]
+    pub unsafe fn crecer(&self, desde: usize, bytes: usize, hacer: bmo_monton::region::Hacer) {
+        self.0.backend().poner_crecer(desde, bytes, hacer);
+    }
+
+    /// Cuanto crecio por la reserva.
+    #[allow(dead_code)]
+    pub fn crecido(&self) -> usize {
+        self.0.backend().crecido()
+    }
+
     /// Lo que esta dado AHORA (antes era todo lo que se dio alguna vez).
     pub fn gastado(&self) -> usize {
         self.0.en_uso()

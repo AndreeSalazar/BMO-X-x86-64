@@ -24,3 +24,5 @@ bmo-proton-x-sm86 = { path = "../proton-x-sm86" }
 # P3b4c: y la receta de cada lote se relee y se PEGA como lo hara el kernel
 # (el lector y el pegamento del driver, puros).
 bmo-gpu-ga10x = { path = "../../drivers/gpu/ga10x" }
+# A9 (06-10): el banco abre los .bsf vivos que guarda la puerta.
+bmo-bsf = { path = "../../../toolchain/lang/spirv/bsf" }

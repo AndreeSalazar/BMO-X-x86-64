@@ -949,6 +949,11 @@ pub extern "C" fn _start() -> ! {
     // SAFETY: el bloque es de este proceso y no se suelta nunca (forget).
     unsafe { MONTON.poner(bloque.base() as usize, PARA_MONTON as usize, bloque.handle()) };
     core::mem::forget(bloque);
+    // 07-10: y lleno, que CREZCA por su tramo de la reserva (solo suyo).
+    // SAFETY: el tramo lo quita `plataforma::RESERVA` de lo que ve la casa.
+    unsafe { MONTON.crecer(plataforma::TRAMO_MONTON_BASE as usize, plataforma::TRAMO_MONTON as usize, plataforma::monton_hacer) };
+    // Y cada foto del pulso dice como va (si se llena de golpe o gotea).
+    bmo_proton_x_casa::pulso::medir_monton(|| (MONTON.gastado(), MONTON.pico(), MONTON.crecido()));
     if con_diario {
         bmo_proton_x_casa::diario::diario(Some(RUTA_DIARIO));
     }
@@ -1120,6 +1125,10 @@ pub extern "C" fn _start() -> ! {
     // P4e: su nombre (GetModuleFileNameW) y su linea de ordenes; y si es un
     // juego de D:, su perfil de Windows en ESTRATOS (relevo 01-10, paso 3).
     let perfil = perfil::en_estratos(nombre);
+    // A9 (06-10): los .bsf de la 3060 de este juego, en su carpeta de ESTRATOS.
+    la3060::poner_carpeta_bsf(perfil.as_ref().map(|p| p.bsf.clone()));
+    // A9b: y los mapas de la CPU (lo compilado de cada PSO), en la suya.
+    bmo_proton_x_casa::enlaces::poner_carpeta(perfil.as_ref().map(|p| p.mapas.clone()));
     bmo_proton_x_casa::proceso::poner_exe_con_perfil(
         nombre,
         linea,
@@ -1247,7 +1256,7 @@ fn panico(info: &core::panic::PanicInfo) -> ! {
     if let Some(l) = info.location() {
         let _ = core::fmt::write(&mut t, format_args!(" ({}:{})", l.file(), l.line()));
     }
-    let _ = core::fmt::write(&mut t, format_args!("; monton {} B en uso (pico {}) de {}\n", MONTON.gastado(), MONTON.pico(), MONTON.medida()));
+    let _ = core::fmt::write(&mut t, format_args!("; monton {} B en uso (pico {}) de {} (crecio {} MiB por la reserva)\n", MONTON.gastado(), MONTON.pico(), MONTON.medida(), MONTON.crecido() >> 20));
     di(core::str::from_utf8(&t.b[..t.n]).unwrap_or("PROTON-X: panico en el cargador\n"));
     // Y al DIARIO, si esta encendido (03-10): lo apuntado, la ultima foto del
     // pulso y este motivo, sin pedir memoria. En el metal (02-10) el panico

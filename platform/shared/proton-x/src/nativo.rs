@@ -33,6 +33,12 @@
 //! casa los llama igual, y lo que el computo lee de mas (ids, vistas,
 //! barreras) no esta en un dibujo -- se mira antes y, si esta, `None`.
 //!
+//! **Los que tocan UAV** (A10, 06-10): cada operacion de UAV de un vertice
+//! o un pixel LLAMA, como una textura, a `operar_uav` del interprete (la
+//! casa le da los UAV del lote): los mismos bits, y la trama los corre en
+//! orden como siempre. Con derivadas, no (por el interprete): un cuadro de
+//! 2x2 que se separa se rehace, y lo escrito quedaria dos veces.
+//!
 //! **Los que MUESTREAN** (X2, 05-10): las texturas (`Sample`, `Load`, los
 //! arrays de texturas), la matematica (`sin`, `exp2`...) y el cbuffer con
 //! fila calculada ya no apartan al sombreador: el cuerpo LLAMA al Rust del
@@ -184,8 +190,11 @@ pub fn por_que_no(p: &Programa) -> Option<&'static str> {
     // 05-10) las texturas, la matematica y el cbuffer con fila calculada ya
     // los sabe (por el cuerpo del computo y sus llamadas): no son motivo.
     p.ops.iter().find_map(|o| match o {
-        // 05-10: un UAV en un dibujo: interpretado, nunca perdido.
-        Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::Atomico { .. } => Some("lee o escribe un UAV"),
+        // A10 (06-10): los UAV de un dibujo ya no son motivo (van por la
+        // llamada, a `operar_uav` del interprete); con derivadas, si: un
+        // cuadro que se separa se rehace en el interprete, y lo escrito
+        // quedaria dos veces.
+        Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::Atomico { .. } if p.usa_olas() => Some("deriva y lee o escribe un UAV (un cuadro de 2x2 que se separa no se puede rehacer)"),
         Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } => Some("es de computo"),
         Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => Some("es de geometria"),
         _ => None,
@@ -214,16 +223,18 @@ pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
 /// olas de verdad (`Wave*`, `Quad*`: piden los 32 carriles) o algo que no
 /// es de un pixel.
 pub fn compilar_cuadros(p: &Programa) -> Option<Vec<u8>> {
-    if p.olas_propias() || p.ops.iter().any(de_fuera) {
+    // A10 (06-10): ni los que tocan UAV (ver `por_que_no`).
+    if p.olas_propias() || p.toca_uav() || p.ops.iter().any(de_fuera) {
         return None;
     }
     crate::nativo_computo::compilar_dibujo(p)
 }
 
-/// Lo que lee del Contexto que un dibujo no pone (ids, vistas, barreras,
+/// Lo que lee del Contexto que un dibujo no pone (ids, barreras,
 /// compartida) o lo de la geometria: eso no es de un vertice ni un pixel.
+/// Los UAV (A10, 06-10) si lo son: van por la llamada, no por las vistas.
 fn de_fuera(o: &Op) -> bool {
-    matches!(o, Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } | Op::Contador { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. })
+    matches!(o, Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. })
 }
 
 /// **Con saltos** (la VELOCIDAD, 05-10): el cuerpo de `nativo_computo` con

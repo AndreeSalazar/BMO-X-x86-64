@@ -194,3 +194,7 @@ mod saltos;
 /// X2 (05-10): los que MUESTREAN, hacen matematica o leen una fila calculada.
 #[path = "nativo/texturas.rs"]
 mod texturas;
+
+/// A10 (06-10): los vertices y los pixeles que tocan UAV.
+#[path = "nativo/uav.rs"]
+mod uav;

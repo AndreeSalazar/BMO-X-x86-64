@@ -24,7 +24,7 @@ banco creia probado): esa linea `MAL` es lo mas valioso que puedes mandar.
   2015-2022 (`vcruntime140.dll`, `msvcp140.dll`): lo tiene cualquier PC con
   juegos; si falta, salen con `0xC0000135` y el guion lo dice.
 
-## 1. Los 86 de consola: UN guion
+## 1. Los 92 de consola: UN guion
 
 En una PowerShell normal, dentro de la carpeta:
 
@@ -65,6 +65,12 @@ bueno contra ellos.
 | `tipos` | (06-10) texturas TYPELESS vistas con OTRO formato: UAV, SRV y render targets (D2.7) | 8 |
 | `limpieza` | (06-10) ClearUnorderedAccessView en el formato de la vista y con rectangulos (A2) | 8 |
 | `escena` | (06-10) una escena 3D DURA contra la imagen de Windows (A11): ver abajo | 3 (o 2 y una nota sin `escena.ref`) |
+| `leefirma` | (06-10) los deserializadores de root signatures, y la 1.1 serializada con los bytes de Windows (A3, A4) | 10 |
+| `capas1d` | (06-10) los UAV de arrays de UNA dimension (`RWTexture1DArray`): escritos, leidos, contados, sus medidas y su ClearUnorderedAccessView (A5) | 9 |
+| `adyacencia` | (06-10) las topologias con ADYACENCIA: que vertices le llegan a un GS `triangleadj` o `lineadj` en listas y tiras, y que se pinta sin GS (A6; 06-10, Windows corrigio el orden del impar de la tira) | 8 |
+| `mapeo` | (06-10) `Map` sobre una TEXTURA de un monton de la CPU (CUSTOM), con WriteToSubresource y ReadFromSubresource; la nota dice el HRESULT de Windows al Map CON puntero (A7) | 7 y una nota |
+| `preguntas` | (06-10) las preguntas de CheckFeatureSupport que la casa no contestaba (SHADER_CACHE, prioridades de cola, SERIALIZATION...); la nota dice cuales de las nuevas (OPTIONS13 a 21) sabe ese Windows (A8) | 8 y una nota |
+| `libreta` | (06-10) lo RARO de un render target: un dibujo cuyo de pixeles saca +infinito, NaN y -infinito a un RGBA8 de 1280 x 720; D3D los guarda 1, 0 y 0, y la imagen entera tiene que ser la que pide (9d: en el metal de BMO-X, ademas, la libreta de la 3060 lo apunta) | 4 |
 
 Si alguno se CUELGA (el guion lo dice), en `multihilo` es su parte B: una
 cola que espera y nadie la despierta. Si `restos` dice una `nota` en E, la
@@ -211,6 +217,18 @@ BMO-X en el Ryzen, es de BMO-X.
 
 **La TERCERA corrida (06-10, 09:55): 84 de 84**, con `tipos.exe` (D2.7)
 en 8 `bien` a la primera.
+
+**La CUARTA corrida (06-10, 12:22): 85 de 86.** `escena` hizo su
+`escena.ref` y dijo 3 `bien`. `limpieza`, MAL en D y G: un
+ClearUnorderedAccessViewUint de ENTEROS satura (0x10001 en 16 bits es
+0xFFFF), la casa se quedaba con los bits bajos; arreglado, y con el un NaN
+de half que la casa no conservaba.
+
+**Las de la tarde (06-10): 90 de 91, 91 de 91 y, a las 18:27, 92 de 92**,
+con `libreta.exe` (9d) en 4 `bien` a la primera: lo raro de un render
+target (+inf, NaN, -inf) se guarda en la 3060 como en la casa. Con eso la
+pila A del contador (lo que se hace desde la nube) esta a 0 y Windows le
+da la razon a cada juez.
 
 ## 4. Que mandar, en orden
 

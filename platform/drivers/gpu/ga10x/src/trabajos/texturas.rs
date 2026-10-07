@@ -708,6 +708,8 @@ pub mod prueba {
             datos: &datos[..],
             dibujo: Dibujo { indices: None, vertices: VERTICES as u32, destino: Some((va_destino, dst)), color: Some(FONDO), texturas: 1, ..Dibujo::default() },
             texturas: [DeApp::NINGUNA; super::MAX_TEXTURAS],
+            termometro_vs: None,
+            termometro_ps: None,
         };
         r.elementos[0] = Elemento { desde: 0, componentes: 4 };
         r.elementos[1] = Elemento { desde: 16, componentes: 4 };

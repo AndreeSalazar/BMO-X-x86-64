@@ -44,7 +44,7 @@ use bmo_proton_x::lote::{enlazar_con_gs, Lote, NoDibuja, Topologia};
 use bmo_proton_x::trama;
 use bmo_proton_x::raiz::{self, Carga, Firma, Parametro, Rango};
 
-use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, E_OUTOFMEMORY, S_OK};
+use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, E_OUTOFMEMORY};
 use crate::subrecursos::{Almacen, Forma};
 use crate::{aviso, dir, plataforma};
 
@@ -121,6 +121,17 @@ pub struct RootSignature {
 /// NumStaticSamplers +16, pStaticSamplers +24, Flags +32. Cada
 /// `D3D12_ROOT_PARAMETER` (32 B): tipo +0, la union +8, visibilidad +24.
 unsafe fn firma_de(desc: *const u8) -> Result<Firma, &'static str> {
+    firma_en(desc, false)
+}
+
+/// La de la 1.0 o (`v11`) la de la 1.1 (`D3D12_ROOT_SIGNATURE_DESC1`, la
+/// misma forma: los rangos miden 24 B, con sus Flags en +16 y el
+/// desplazamiento en +20, y los descriptores de la raiz llevan Flags en
+/// +16). Los Flags de la 1.1 son pistas de rendimiento (DATA_STATIC,
+/// DESCRIPTORS_VOLATILE...): la casa lee sus datos siempre al dibujar, asi
+/// que no cambian lo que se ve; 06-10 (A3/A4), se guardan, para serializar
+/// la 1.1 con los bytes de Windows y devolverla por el deserializador.
+unsafe fn firma_en(desc: *const u8, v11: bool) -> Result<Firma, &'static str> {
     let (n, pars, ns, samps, banderas) = (u32_de(desc, 0), u64_de(desc, 8) as *const u8, u32_de(desc, 16), u64_de(desc, 24) as *const u8, u32_de(desc, 32));
     let mut parametros = Vec::with_capacity(n as usize);
     for i in 0..n as usize {
@@ -129,20 +140,21 @@ unsafe fn firma_de(desc: *const u8) -> Result<Firma, &'static str> {
         let carga = match tipo {
             raiz::TABLA => {
                 let (nr, rangos) = (u32_de(p, 8), u64_de(p, 16) as *const u8);
-                // D3D12_DESCRIPTOR_RANGE: 5 u32.
+                let (mide, su_desde) = if v11 { (24, 20) } else { (20, 16) };
                 Carga::Tabla((0..nr as usize).map(|k| {
-                    let r = rangos.add(20 * k);
-                    Rango { tipo: u32_de(r, 0), cuantos: u32_de(r, 4), registro: u32_de(r, 8), espacio: u32_de(r, 12), desde: u32_de(r, 16) }
+                    let r = rangos.add(mide * k);
+                    let banderas = if v11 { u32_de(r, 16) } else { 0 };
+                    Rango { tipo: u32_de(r, 0), cuantos: u32_de(r, 4), registro: u32_de(r, 8), espacio: u32_de(r, 12), desde: u32_de(r, su_desde), banderas }
                 }).collect())
             }
             raiz::CONSTANTES => Carga::Constantes { registro: u32_de(p, 8), espacio: u32_de(p, 12), cuantas: u32_de(p, 16) },
-            raiz::CBV | raiz::SRV | raiz::UAV => Carga::Descriptor { registro: u32_de(p, 8), espacio: u32_de(p, 12) },
+            raiz::CBV | raiz::SRV | raiz::UAV => Carga::Descriptor { registro: u32_de(p, 8), espacio: u32_de(p, 12), banderas: if v11 { u32_de(p, 16) } else { 0 } },
             _ => return Err("un parametro de un tipo que D3D12 no tiene"),
         };
         parametros.push(Parametro { tipo, visibilidad: u32_de(p, 24), carga });
     }
     let samplers = (0..ns as usize).map(|k| core::array::from_fn(|j| u32_de(samps, 52 * k + 4 * j))).collect();
-    Ok(Firma { parametros, samplers, banderas })
+    Ok(Firma { parametros, samplers, banderas, version: if v11 { raiz::VERSION_1_1 } else { raiz::VERSION_1_0 } })
 }
 
 /// `D3D12SerializeRootSignature(desc, version, ppBlob, ppError)`.
@@ -165,38 +177,10 @@ extern "win64" fn d3d12_serialize_root_signature(desc: *const u8, version: u32, 
     }
 }
 
-/// **Una firma 1.1** (`D3D12_ROOT_SIGNATURE_DESC1`, la misma forma que la
-/// 1.0): los rangos miden 24 B (con sus Flags en +16 y el desplazamiento en
-/// +20) y los descriptores de la raiz llevan Flags en +16. Los Flags de 1.1
-/// son pistas de rendimiento (DATA_STATIC, DESCRIPTORS_VOLATILE...): la casa
-/// lee sus datos siempre al dibujar, asi que no cambian lo que se ve.
-unsafe fn firma_de_1_1(desc: *const u8) -> Result<Firma, &'static str> {
-    let (n, pars, ns, samps, banderas) = (u32_de(desc, 0), u64_de(desc, 8) as *const u8, u32_de(desc, 16), u64_de(desc, 24) as *const u8, u32_de(desc, 32));
-    let mut parametros = Vec::with_capacity(n as usize);
-    for i in 0..n as usize {
-        let p = pars.add(32 * i);
-        let tipo = u32_de(p, 0);
-        let carga = match tipo {
-            raiz::TABLA => {
-                let (nr, rangos) = (u32_de(p, 8), u64_de(p, 16) as *const u8);
-                Carga::Tabla((0..nr as usize).map(|k| {
-                    let r = rangos.add(24 * k);
-                    Rango { tipo: u32_de(r, 0), cuantos: u32_de(r, 4), registro: u32_de(r, 8), espacio: u32_de(r, 12), desde: u32_de(r, 20) }
-                }).collect())
-            }
-            raiz::CONSTANTES => Carga::Constantes { registro: u32_de(p, 8), espacio: u32_de(p, 12), cuantas: u32_de(p, 16) },
-            raiz::CBV | raiz::SRV | raiz::UAV => Carga::Descriptor { registro: u32_de(p, 8), espacio: u32_de(p, 12) },
-            _ => return Err("un parametro de un tipo que D3D12 no tiene"),
-        };
-        parametros.push(Parametro { tipo, visibilidad: u32_de(p, 24), carga });
-    }
-    let samplers = (0..ns as usize).map(|k| core::array::from_fn(|j| u32_de(samps, 52 * k + 4 * j))).collect();
-    Ok(Firma { parametros, samplers, banderas })
-}
-
 /// `D3D12SerializeVersionedRootSignature(desc, ppBlob, ppError)`:
 /// `D3D12_VERSIONED_ROOT_SIGNATURE_DESC` = Version +0 y la firma en +8
-/// (1.0 o 1.1). Sale el mismo blob que la 1.0 (lo que la casa lee luego).
+/// (1.0 o 1.1). 06-10 (A4): cada una en SU version, con los bytes de
+/// Windows (la 1.1, con sus banderas: los de `dxc`, `prueba/firmas.exe`).
 extern "win64" fn d3d12_serialize_versioned_root_signature(desc: *const u8, pp: *mut u64, pp_error: *mut u64) -> i32 {
     const VERSION_1_1: u32 = 2;
     if !pp_error.is_null() {
@@ -212,7 +196,7 @@ extern "win64" fn d3d12_serialize_versioned_root_signature(desc: *const u8, pp: 
     let f = unsafe {
         match version {
             RS_VERSION_1 => firma_de(desc.add(8)),
-            VERSION_1_1 => firma_de_1_1(desc.add(8)),
+            VERSION_1_1 => firma_en(desc.add(8), true),
             _ => Err("una version de root signature que no es 1.0 ni 1.1"),
         }
     };
@@ -606,23 +590,6 @@ pub(crate) fn crear_recurso(desc: *const u8, riid: *const Guid, pp: *mut u64, me
     dar(pp, crate::d3d12::recurso_bufer(b))
 }
 
-pub(crate) extern "win64" fn map(this: u64, _sub: u32, _leer: *const u8, pp: *mut u64) -> i32 {
-    let Some(base) = crate::d3d12::base_de_bufer(this) else {
-        aviso("ID3D12Resource::Map sobre algo que no es un bufer: todavia no");
-        return E_INVALIDARG;
-    };
-    if pp.is_null() {
-        return S_OK;
-    }
-    dar(pp, base)
-}
-
-pub(crate) extern "win64" fn unmap(_this: u64, _sub: u32, _escrito: *const u8) {}
-
-pub(crate) extern "win64" fn get_gpu_virtual_address(this: u64) -> u64 {
-    crate::d3d12::base_de_bufer(this).unwrap_or(0)
-}
-
 // -- El estado de dibujo de una lista ---------------------------------------
 
 #[derive(Clone, Copy, Default)]
@@ -820,7 +787,7 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
         }
     }
     // b0: el parametro CBV de la root signature con registro 0, su direccion.
-    if let Some(i) = firma.parametros.iter().position(|p| p.tipo == raiz::CBV && matches!(p.carga, Carga::Descriptor { registro: 0, espacio: 0 })) {
+    if let Some(i) = firma.parametros.iter().position(|p| p.tipo == raiz::CBV && matches!(p.carga, Carga::Descriptor { registro: 0, espacio: 0, banderas: 0 })) {
         match resolver(e.cbv.get(i).copied().unwrap_or(0), 256) {
             Some(c) => d.constantes = c.to_vec(),
             None => aviso("SetGraphicsRootConstantBufferView: una direccion que no es de ningun bufer de la casa"),
@@ -835,6 +802,12 @@ const TRIANGLESTRIP: u32 = 5;
 const POINTLIST: u32 = 1;
 const LINELIST: u32 = 2;
 const LINESTRIP: u32 = 3;
+/// A6 (06-10): las de ADYACENCIA (`*_ADJ`): sus triangulos sin GS; con
+/// uno (`lineadj`, `triangleadj`), cada primitiva con los de al lado.
+const LINELIST_ADJ: u32 = 10;
+const LINESTRIP_ADJ: u32 = 11;
+const TRIANGLELIST_ADJ: u32 = 12;
+const TRIANGLESTRIP_ADJ: u32 = 13;
 
 /// **Pintar un Draw** (P3b3): el sombreador de vertices por cada vertice que
 /// piden los indices (una vez cada uno), los triangulos por la trama, y el de
@@ -916,12 +889,16 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         (POINTLIST, true) => Topologia::Puntos,
         (LINELIST, true) => Topologia::Lineas,
         (LINESTRIP, true) => Topologia::TiraDeLineas,
-        (POINTLIST | LINELIST | LINESTRIP, false) => {
+        (TRIANGLELIST_ADJ, _) => Topologia::ListaAdy,
+        (TRIANGLESTRIP_ADJ, _) => Topologia::TiraAdy,
+        (LINELIST_ADJ, true) => Topologia::LineasAdy,
+        (LINESTRIP_ADJ, true) => Topologia::TiraDeLineasAdy,
+        (POINTLIST | LINELIST | LINESTRIP | LINELIST_ADJ | LINESTRIP_ADJ, false) => {
             aviso("Draw de puntos o lineas sin un GS: la trama solo pinta triangulos todavia");
             return;
         }
         _ => {
-            aviso("Draw con una topologia con adyacencia o de parches: todavia no");
+            aviso("Draw con una topologia de parches (teselado) o que no es de D3D12: todavia no");
             return;
         }
     };

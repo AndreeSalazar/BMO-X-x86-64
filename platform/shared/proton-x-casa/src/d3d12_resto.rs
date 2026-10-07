@@ -746,7 +746,7 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool, rects: &[[i32; 4]]) {
         let elemento = if b.crudo || b.paso != 0 {
             v[0].to_le_bytes().to_vec()
         } else {
-            match bmo_proton_x::formato_ia::empaquetar(b.formato, v, crudo) {
+            match bmo_proton_x::formato_ia::empaquetar(b.formato, saturados(b.formato, v, crudo), crudo) {
                 Some(e) => e,
                 None => {
                     aviso("ClearUnorderedAccessView de un bufer con un formato que la casa aun no escribe: no se hace");
@@ -779,7 +779,7 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool, rects: &[[i32; 4]]) {
     // un RGBA16F, R11G11B10F... leidos de vuelta; lo que guarda tal cual
     // (RGBA8, BGRA8, R32), la palabra de la memoria; los de 8 bits que
     // ensancha (R8, RG8...), su RGBA8.
-    let empaquetar = |f: u32| bmo_proton_x::formato_ia::empaquetar(f, v, crudo);
+    let empaquetar = |f: u32| bmo_proton_x::formato_ia::empaquetar(f, saturados(f, v, crudo), crudo);
     let palabra = |e: &[u8]| u32::from_le_bytes([e[0], e[1], e[2], e[3]]);
     let (texel, k): ([u32; 4], usize) = match Almacen::de(formato) {
         Almacen::Bloques(_) => {
@@ -823,13 +823,15 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool, rects: &[[i32; 4]]) {
             }
         }
     };
-    // 06-10: la vista de un 3D (8) o de un array de 2D (5): TODAS sus
-    // rebanadas (o capas), no solo la primera; los rectangulos, en cada una.
-    if dimension == 5 || dimension == 8 {
+    // 06-10: la vista de un 3D (8) o de un array de 2D (5) y (A5) de 1D
+    // (3): TODAS sus rebanadas (o capas), no solo la primera; los
+    // rectangulos, en cada una.
+    use crate::computo::{UAV_TEXTURA_1D_ARRAY, UAV_TEXTURA_2D_ARRAY, UAV_TEXTURA_3D};
+    if [UAV_TEXTURA_1D_ARRAY, UAV_TEXTURA_2D_ARRAY, UAV_TEXTURA_3D].contains(&dimension) {
         crate::tuberia::aplicar_limpieza(r[0]);
         // Un formato de 4 o de 16 bytes por texel: lo que mide cada uno.
         let medida = if k == 4 { 2 | bmo_proton_x::bufer::CUATRO_FLOATS } else { 42 };
-        let Some(mut u) = crate::computo::rebanadas_de(r, dimension == 8, medida) else { return };
+        let Some(mut u) = crate::computo::rebanadas_de(r, dimension, medida) else { return };
         let (ancho, alto) = (u.paso, u.rebanadas.alto);
         for z in 0..u.rebanadas.capas {
             if let Some(s) = u.rebanada(z) {
@@ -851,6 +853,17 @@ fn limpiar_uav(r: &[u64; 4], v: [u32; 4], crudo: bool, rects: &[[i32; 4]]) {
     match crate::tuberia::destino(r[0], r[3]) {
         Some((px, ancho, alto)) => poner(px, ancho, alto),
         None => aviso("ClearUnorderedAccessView de un subrecurso que la textura no tiene"),
+    }
+}
+
+/// Los valores de `ClearUnorderedAccessViewUint` (`crudo`) sobre una vista
+/// de ENTEROS, saturados a sus canales (06-10, lo que hace Windows en la
+/// 3060: `limpieza.exe`, D y G); los demas, tal cual (sus bits bajos).
+fn saturados(formato: u32, v: [u32; 4], crudo: bool) -> [u32; 4] {
+    if crudo {
+        bmo_proton_x::formato_ia::saturar(formato, v).unwrap_or(v)
+    } else {
+        v
     }
 }
 
@@ -1113,22 +1126,75 @@ fn resolver(monton: u64, desde: u32, n: u32, b: u64, off: u64) {
 
 // -- El recurso --------------------------------------------------------------
 
+// Map, Unmap y GetGPUVirtualAddress (06-10: aqui desde `tuberia`, L6a).
+pub(crate) extern "win64" fn map(this: u64, sub: u32, _leer: *const u8, pp: *mut u64) -> i32 {
+    let Some(base) = crate::d3d12::base_de_bufer(this) else {
+        return map_textura(this, sub, pp);
+    };
+    if pp.is_null() {
+        return S_OK;
+    }
+    dar(pp, base)
+}
+
+/// D3D12_HEAP_TYPE_DEFAULT: la memoria de la GPU, que la CPU no mapea.
+const MONTON_DEFAULT: u32 = 1;
+
+/// **`Map` de una TEXTURA** (A7, 06-10): la de un monton de la CPU (CUSTOM,
+/// el de una GPU integrada) se mapea SIN puntero (`Map(sub, NULL, NULL)`)
+/// para escribirla con `WriteToSubresource` y leerla con
+/// `ReadFromSubresource` (`d3d12_resto::filas`), como un motor que sube sus
+/// texturas sin bufer intermedio. La de un monton DEFAULT o un subrecurso
+/// que no tiene, E_INVALIDARG, como Windows. CON puntero, no: la casa la
+/// guarda en su formato (`subrecursos`), no en el de D3D, y se dice.
+fn map_textura(this: u64, sub: u32, pp: *mut u64) -> i32 {
+    let falla = |pp: *mut u64| {
+        if !pp.is_null() {
+            crate::d3d12::nada(pp);
+        }
+        E_INVALIDARG
+    };
+    let Some(t) = crate::d3d12_vistas::tex(this) else {
+        aviso("ID3D12Resource::Map sobre algo que no es un bufer ni una textura de la casa: E_INVALIDARG");
+        return falla(pp);
+    };
+    // SAFETY: un Recurso de la casa (tiene textura).
+    if unsafe { de::<Recurso>(this) }.tipo_monton == MONTON_DEFAULT || sub as usize >= t.subs.len() {
+        return falla(pp);
+    }
+    if pp.is_null() {
+        return S_OK;
+    }
+    aviso("ID3D12Resource::Map con puntero de una textura: la casa la guarda en su formato, no en el de D3D (WriteToSubresource si): E_INVALIDARG");
+    falla(pp)
+}
+
+pub(crate) extern "win64" fn unmap(_this: u64, _sub: u32, _escrito: *const u8) {}
+
+pub(crate) extern "win64" fn get_gpu_virtual_address(this: u64) -> u64 {
+    crate::d3d12::base_de_bufer(this).unwrap_or(0)
+}
+
+
 /// Apuntar en el recurso recien creado en `pp` el tipo de su monton (de un
-/// D3D12_HEAP_PROPERTIES, Type +0), si salio.
+/// D3D12_HEAP_PROPERTIES, Type +0), si salio; y (A7, 06-10) su pagina de
+/// la CPU y su piscina (+4, +8).
 pub(crate) fn apuntar_monton(r: i32, pp: *mut u64, props: *const u8) {
     if r != S_OK || pp.is_null() || props.is_null() {
         return;
     }
     // SAFETY: el recurso que se acaba de dejar en `pp`.
-    unsafe { de::<Recurso>(*pp).tipo_monton = u32_de(props, 0) };
+    let x = unsafe { de::<Recurso>(*pp) };
+    x.tipo_monton = u32_de(props, 0);
+    x.pagina_y_piscina = (u32_de(props, 4), u32_de(props, 8));
 }
 
 /// `GetHeapProperties(this, props, banderas)`.
 pub(crate) extern "win64" fn get_heap_properties(this: u64, props: *mut u8, banderas: *mut u32) -> i32 {
     // SAFETY: un Recurso de la casa.
-    let tipo = unsafe { de::<Recurso>(this) }.tipo_monton;
+    let (tipo, (pagina, piscina)) = unsafe { (de::<Recurso>(this).tipo_monton, de::<Recurso>(this).pagina_y_piscina) };
     if !props.is_null() {
-        for (o, v) in [(0, tipo), (4, 0), (8, 0), (12, 1), (16, 1)] {
+        for (o, v) in [(0, tipo), (4, pagina), (8, piscina), (12, 1), (16, 1)] {
             poner_u32(props, o, v);
         }
     }

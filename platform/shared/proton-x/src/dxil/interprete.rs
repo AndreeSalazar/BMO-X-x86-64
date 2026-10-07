@@ -105,6 +105,9 @@ pub struct Tiras {
     pub vertices: Vec<[f32; 4]>,
     /// Cuantos vertices iban emitidos al cortar cada tira.
     pub cortes: Vec<usize>,
+    /// A6 (06-10): el `SV_PrimitiveID` de la primitiva que corre: cuantas
+    /// van antes en el dibujo (de nuevo desde 0 en cada instancia).
+    pub primitiva: u32,
 }
 
 impl Tiras {
@@ -301,6 +304,8 @@ impl Programa {
                             2 => g.ids.en_grupo[c as usize],
                             _ => g.ids.indice,
                         },
+                        // A6: el SV_PrimitiveID de un GS (`que` 4).
+                        Extra::Tiras(t, _) if que == 4 => t.primitiva,
                         _ => 0,
                     };
                     regs[d as usize] = f32::from_bits(v);
@@ -451,10 +456,11 @@ pub fn operar_uav(op: Op, regs: &mut [f32], uavs: &mut [Option<crate::bufer::Uav
         Op::EscribeUav { u, modo, i, desp, z, v, mascara } => {
             let (k, o, v) = (bits(regs, i), bits(regs, desp), v.map(|r| bits(regs, r)));
             if let Some(Some(w)) = uavs.get_mut(u as usize) {
-                // 06-10: en una textura, su rebanada z (3D o array).
+                // 06-10: en una textura, su rebanada z (3D o array; A5, en
+                // un array de una dimension, la y).
                 match modo {
                     Modo::Textura => {
-                        if let Some(mut r) = w.rebanada(bits(regs, z)) {
+                        if let Some((mut r, k, o)) = w.texel(k, o, bits(regs, z)) {
                             r.escribir(modo, k, o, v, mascara);
                         }
                     }
@@ -465,7 +471,7 @@ pub fn operar_uav(op: Op, regs: &mut [f32], uavs: &mut [Option<crate::bufer::Uav
         Op::Atomico { d, u, modo, i, desp, z, como, v, igual } => {
             let (k, o, v, igual) = (bits(regs, i), bits(regs, desp), bits(regs, v), bits(regs, igual));
             let antes = match uavs.get_mut(u as usize) {
-                Some(Some(w)) if modo == Modo::Textura => w.rebanada(bits(regs, z)).map_or(0, |mut r| r.atomico(modo, k, o, como, v, igual)),
+                Some(Some(w)) if modo == Modo::Textura => w.texel(k, o, bits(regs, z)).map_or(0, |(mut r, k, o)| r.atomico(modo, k, o, como, v, igual)),
                 Some(Some(w)) => w.atomico(modo, k, o, como, v, igual),
                 _ => 0,
             };
@@ -484,7 +490,7 @@ pub fn operar_uav(op: Op, regs: &mut [f32], uavs: &mut [Option<crate::bufer::Uav
         Op::LeeUav { d, u, modo, i, desp, z } => {
             let (k, o) = (bits(regs, i), bits(regs, desp));
             let v = match uavs.get_mut(u as usize) {
-                Some(Some(w)) if modo == Modo::Textura => w.rebanada(bits(regs, z)).map_or([0; 4], |r| r.cargar(modo, k, o)),
+                Some(Some(w)) if modo == Modo::Textura => w.texel(k, o, bits(regs, z)).map_or([0; 4], |(r, k, o)| r.cargar(modo, k, o)),
                 Some(Some(w)) => w.cargar(modo, k, o),
                 _ => [0; 4],
             };

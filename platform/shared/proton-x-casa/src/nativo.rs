@@ -68,6 +68,45 @@ pub fn llamadas(m: *mut Muestras, cb_bytes: usize) -> Llamadas {
     Llamadas { textura: t as usize, datos: m as *mut u8, ..Llamadas::nuevas(cb_bytes) }
 }
 
+/// **Lo que llama un vertice o un pixel traducido** (A10, 06-10): sus
+/// `Muestras` (la textura ELEGIDA) y los UAV del lote. La celda se toma
+/// SOLO durante cada operacion (`operar_uav`), como el interprete: entre
+/// una y otra nadie la tiene, y quien rehace en el interprete la ve libre.
+pub struct LlamadoDibujo<'a> {
+    pub muestras: Muestras<'a>,
+    pub uavs: Option<&'a lote::Uavs>,
+}
+
+/// **La llamada de un dibujo traducido** (A10, 06-10): la operacion `k` de
+/// su programa -- una de UAV, con `operar_uav` del interprete sobre los UAV
+/// del lote; una de textura, con sus `Muestras` --, los MISMOS bits que el
+/// interprete (`correr_con_uavs`).
+///
+/// # Safety
+/// `datos` apunta a un `LlamadoDibujo` vivo y `regs` a tantos registros
+/// como `iniciales` tiene su programa, sin otra referencia a ellos mientras
+/// dura: lo promete quien pone las `Llamadas` (`dibujar`).
+pub unsafe extern "sysv64" fn dibujo_sysv(datos: *mut u8, regs: *mut f32, k: u32) {
+    use bmo_proton_x::dxil::programa::Op;
+    // SAFETY: lo de arriba.
+    let l = unsafe { &mut *(datos as *mut LlamadoDibujo) };
+    let regs = unsafe { core::slice::from_raw_parts_mut(regs, l.muestras.programa.iniciales.len()) };
+    match l.muestras.programa.ops.get(k as usize) {
+        Some(op @ (Op::LeeUav { .. } | Op::EscribeUav { .. } | Op::Atomico { .. } | Op::MedidasUav { .. } | Op::Contador { .. })) => match l.uavs {
+            Some(u) => bmo_proton_x::dxil::operar_uav(*op, regs, &mut u.borrow_mut()),
+            None => bmo_proton_x::dxil::operar_uav(*op, regs, &mut []),
+        },
+        _ => l.muestras.llamar(regs, k),
+    }
+}
+
+/// Las `Llamadas` de un dibujo con su `LlamadoDibujo` (que tiene que vivir
+/// lo que ellas: aqui solo se guarda el puntero).
+pub fn llamadas_dibujo(l: *mut LlamadoDibujo, cb_bytes: usize) -> Llamadas {
+    let t: unsafe extern "sysv64" fn(*mut u8, *mut f32, u32) = dibujo_sysv;
+    Llamadas { textura: t as usize, datos: l as *mut u8, ..Llamadas::nuevas(cb_bytes) }
+}
+
 /// **Lo que llama un hilo de computo traducido** (06-10): sus `Muestras`
 /// (la textura ELEGIDA es suya) y las ranuras de UAV que van por la llamada
 /// (`nativo_computo::uavs_llamados`: las de textura, atomicos o medidas),
@@ -283,24 +322,30 @@ pub fn dibujar(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, 
     let cbp = if cb.is_empty() { [0u8; 16].as_ptr() } else { cb.as_ptr() };
     // X2 (05-10): a quien llaman (las texturas del dibujo, la matematica) y
     // la medida del cbuffer, una vez por dibujo; la elegida, a `None` en cada
-    // vertice o pixel (como el interprete).
-    let (mut mv, mut mp) = (Muestras { programa: &en.vs, recursos: &l.recursos, elegida: None }, Muestras { programa: &en.ps, recursos: &l.recursos, elegida: None });
-    let (pmv, pmp): (*mut Muestras, *mut Muestras) = (&mut mv, &mut mp);
-    let (lv, lp) = (llamadas(pmv, cb.len()), llamadas(pmp, cb.len()));
+    // vertice o pixel (como el interprete). A10 (06-10): y los UAV del lote.
+    let llamado = |p| LlamadoDibujo { muestras: Muestras { programa: p, recursos: &l.recursos, elegida: None }, uavs: l.uavs };
+    let (mut mv, mut mp) = (llamado(&en.vs), llamado(&en.ps));
+    let (pmv, pmp): (*mut LlamadoDibujo, *mut LlamadoDibujo) = (&mut mv, &mut mp);
+    let (lv, lp) = (llamadas_dibujo(pmv, cb.len()), llamadas_dibujo(pmp, cb.len()));
     let (mut rv, mut rp) = (Vec::new(), Vec::new());
+    // Lo que no cabe en lo traducido, por el interprete con los mismos UAV.
+    let interpretar = |p: &bmo_proton_x::dxil::programa::Programa, ent: &[[f32; 4]], sal: &mut [[f32; 4]], r: &mut Vec<f32>| match l.uavs {
+        Some(u) => p.correr_con_uavs(ent, l.cb, &l.recursos, sal, r, &mut u.borrow_mut()),
+        None => p.correr_con(ent, l.cb, &l.recursos, sal, r),
+    };
     let mut vs = |ent: &[[f32; 4]], sal: &mut [[f32; 4]]| {
         rv.clear();
         rv.extend_from_slice(&en.vs.iniciales);
         if ent.len() >= en.vs.entradas && sal.len() >= en.vs.salidas {
             // SAFETY: `fv` es la traduccion de `en.vs`; los registros, las
             // entradas, el cbuffer, las salidas y las llamadas, de aqui (las
-            // de `textura_sysv`: `mv` y los `iniciales` de su programa).
+            // de `dibujo_sysv`: `mv` y los `iniciales` de su programa).
             unsafe {
-                (*pmv).elegida = None;
+                (*pmv).muestras.elegida = None;
                 fv(rv.as_mut_ptr(), ent.as_ptr(), cbp, sal.as_mut_ptr(), &lv);
             }
         } else {
-            en.vs.correr_con(ent, l.cb, &l.recursos, sal, &mut rv);
+            interpretar(&en.vs, ent, sal, &mut rv);
         }
     };
     if t.cuadros {
@@ -320,11 +365,11 @@ pub fn dibujar(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, 
             // (por el cuerpo del computo), y lo dice al volver.
             // SAFETY: como el de vertices, con `en.ps` y `mp`.
             unsafe {
-                (*pmp).elegida = None;
+                (*pmp).muestras.elegida = None;
                 fp(rp.as_mut_ptr(), ent.as_ptr(), cbp, sal.as_mut_ptr(), &lp) != nativo::DESCARTADO
             }
         } else {
-            en.ps.correr_con(ent, l.cb, &l.recursos, sal, &mut rp)
+            interpretar(&en.ps, ent, sal, &mut rp)
         }
     };
     lote::en_cpu_con(l, destino, &mut vs, &mut ps)
@@ -350,8 +395,9 @@ pub fn cuadros_contados() -> (u64, u64) {
 /// en el MISMO punto, sus derivadas se hacen como en el interprete
 /// (`olas::hacer`, con los registros de los cuatro) y siguen. Si se separan
 /// (uno acaba o se tira y otro se para, o se paran en sitios distintos), el
-/// cuadro entero se rehace en el interprete: un pixel traducido no escribe
-/// UAV, asi que correrlo otra vez no deja nada, y sale lo del interprete.
+/// cuadro entero se rehace en el interprete: un pixel que deriva y toca UAV
+/// no se traduce (`nativo::compilar_cuadros`), asi que correrlo otra vez no
+/// deja nada, y sale lo del interprete.
 ///
 /// `objetivos`: a que render target va cada salida (los del enlace); `cb`,
 /// el cbuffer YA con lo que leen sus filas (ver `dibujar`). Publica: el
@@ -364,7 +410,8 @@ pub fn en_cuadros<'a>(ps: &'a bmo_proton_x::dxil::programa::Programa, objetivos:
     let cbp = if cb.is_empty() { CERO.as_ptr() } else { cb.as_ptr() };
     let paradas = nc::paradas(ps, true);
     let n_sal = ps.salidas.max(objetivos.len()).max(1);
-    // Un pixel traducido no toca UAV (`nativo::por_que_no`): sin ellos.
+    // Un pixel que DERIVA no se traduce si toca UAV
+    // (`nativo::compilar_cuadros`): sin ellos.
     let mut interprete = lote::olas_de(ps, cb, rec, objetivos, None);
     // Las cuatro `Muestras` no se mueven mas: sus `Llamadas` guardan su
     // direccion (y solo se tocan por ella).

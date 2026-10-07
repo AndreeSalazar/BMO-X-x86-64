@@ -493,15 +493,32 @@ pub const fn copia_us(v: u64) -> u32 {
 
 /// VERRANO (V1) le pone al `Ok` lo que costo PREPARAR: el bit 44 si fue EN
 /// CALIENTE (`tuberia::preparar_caliente`) y los us de preparar en 45..61
-/// (hasta ~0,13 s; mas, satura: en caliente son ~11 us). X5 los deja a cero.
+/// (hasta ~65 ms; mas, satura: en caliente son ~11 us; 9d, 06-10: 16 bits,
+/// el 61 es de la libreta). X5 los deja a cero.
 pub const fn con_preparar(v: u64, caliente: bool, us: u64) -> u64 {
-    let us = if us > 0x1_FFFF { 0x1_FFFF } else { us };
-    v & ((1 << 44) - 1 | EN_VUELO | A_PANTALLA) | (caliente as u64) << 44 | us << 45
+    let us = if us > 0xFFFF { 0xFFFF } else { us };
+    v & ((1 << 44) - 1 | EN_VUELO | A_PANTALLA | LIBRETA_RARO) | (caliente as u64) << 44 | us << 45
 }
 
 /// `(en caliente, us de preparar)` de un `Ok` de VERRANO.
 pub const fn preparado(v: u64) -> (bool, u32) {
-    (v >> 44 & 1 != 0, (v >> 45) as u32 & 0x1_FFFF)
+    (v >> 44 & 1 != 0, (v >> 45) as u32 & 0xFFFF)
+}
+
+/// **9d: LA LIBRETA DIJO RARO** (bit 61): la 3060 apunto, en ESTE dibujo,
+/// que el termometro de un cuerpo salio NaN (una salida NaN o infinita;
+/// `libreta`). Lo pone el kernel, solo en el `Ok` de la receta de quien la
+/// mando: otra app no lo ve.
+pub const LIBRETA_RARO: u64 = 1 << 61;
+
+/// El `Ok` de un dibujo en el que la libreta apunto.
+pub const fn con_raro(v: u64) -> u64 {
+    v | LIBRETA_RARO
+}
+
+/// Si la libreta apunto en este dibujo (nunca en uno en vuelo).
+pub const fn raro(v: u64) -> bool {
+    v & LIBRETA_RARO != 0 && v & EN_VUELO == 0
 }
 
 /// **P3b4c.9 Z1: el dibujo quedo EN LA PANTALLA** (bit 62): la 3060 lo puso
@@ -586,7 +603,14 @@ mod pruebas {
         assert!(sano(v) && !es_en_vuelo(v));
         let w = con_preparar(en_vuelo(3, 97, 12), true, 1 << 30);
         assert!(es_en_vuelo(w) && sano(w));
-        assert_eq!(preparado(w), (true, 0x1_FFFF), "satura sin tocar los bits 62 y 63");
+        assert_eq!(preparado(w), (true, 0xFFFF), "satura sin tocar los bits 61, 62 y 63");
+        assert!(!raro(w) && !raro(v));
+        // 9d: el bit 61 (la libreta) no pisa ni lo pisan; en vuelo no cuenta.
+        let r = con_raro(v);
+        assert!(raro(r) && sano(r));
+        assert_eq!((desempaquetar(r), preparado(r)), (desempaquetar(v), preparado(v)));
+        assert!(raro(con_preparar(r, false, 1 << 30)) && raro(en_pantalla(con_copia(r, 40))), "preparar y la pantalla no lo borran");
+        assert!(!raro(con_raro(w)), "un fotograma en vuelo no sabe aun lo que apunto");
         // Z1: el bit 62 no pisa ni lo pisan.
         let p = en_pantalla(con_copia(v, 40));
         assert!(a_pantalla(p) && sano(p) && !a_pantalla(v));

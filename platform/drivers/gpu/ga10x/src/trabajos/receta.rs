@@ -48,7 +48,9 @@
 //!         `texturas::MAX_TEXTURAS`)
 //!    +88  bit 0: el destino es un BACK BUFFER de la cadena (P3b4c.9 Z1: solo
 //!         eso puede ir directo a la pantalla, si el escritorio la dio)
-//!    +92..+96  0
+//!    +92  9d, LA LIBRETA: el registro del TERMOMETRO del de vertice + 1
+//!         (0 = sin libreta) | el del de pixel + 1 << 8; cada uno, de SU
+//!         cuerpo. Los 16 de arriba, a 0. Ver `libreta`
 //! ```
 //!
 //! Y detras, seguidos: el cuerpo de vertice, el de pixel, los elementos (8 B:
@@ -105,6 +107,9 @@ pub struct Receta<'a> {
     pub dibujo: Dibujo,
     /// Las texturas del de pixel (`dibujo.texturas` de ellas).
     pub texturas: [DeApp; MAX_TEXTURAS],
+    /// 9d: el registro del TERMOMETRO de cada cuerpo (`None`: sin libreta).
+    pub termometro_vs: Option<u8>,
+    pub termometro_ps: Option<u8>,
 }
 
 /// Un hueco de carga (para los arreglos a medio llenar).
@@ -195,7 +200,7 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
 /// cada carga dentro de lo que hay, los DATOS con todos los vertices dentro
 /// y cada indice de un vertice que esta. `None` si algo no se sostiene.
 pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
-    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || u32le(b, 88) > 1 || b[92..CABECERA_2].iter().any(|&x| x != 0) {
+    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || u32le(b, 88) > 1 || u32le(b, 92) >> 16 != 0 {
         return None;
     }
     let n_texturas = u32le(b, 84) as usize;
@@ -287,7 +292,17 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     }
     // Las cargas: dentro de lo que hay (el pegamento lo vuelve a mirar, y
     // que sus registros sean del cuerpo).
-    let r = Receta { n, vs, ps, registros_vs, registros_ps, salidas, posicion, filas, paso, elementos, n_elementos, cargas_vs, n_cargas_vs, cargas_ps, n_cargas_ps, genericos, n_genericos, datos, dibujo, texturas };
+    // 9d: cada termometro, un registro de SU cuerpo.
+    let termometro = |k: u32, registros: u32| -> Option<Option<u8>> {
+        let x = u32le(b, 92) >> (8 * k) & 0xFF;
+        match x {
+            0 => Some(None),
+            _ if x - 1 < registros => Some(Some(x as u8 - 1)),
+            _ => None,
+        }
+    };
+    let (termometro_vs, termometro_ps) = (termometro(0, registros_vs)?, termometro(1, registros_ps)?);
+    let r = Receta { n, vs, ps, registros_vs, registros_ps, salidas, posicion, filas, paso, elementos, n_elementos, cargas_vs, n_cargas_vs, cargas_ps, n_cargas_ps, genericos, n_genericos, datos, dibujo, texturas, termometro_vs, termometro_ps };
     let fila_ok = |fila: u16| (fila as u32) < filas;
     for c in r.cargas_vs() {
         match *c {
@@ -352,6 +367,7 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
         d.z.and_then(|z| z.limpiar).unwrap_or(0),
         d.texturas as u32,
         d.cadena as u32,
+        r.termometro_vs.map_or(0, |t| t as u32 + 1) | r.termometro_ps.map_or(0, |t| t as u32 + 1) << 8,
     ];
     out[..total].fill(0);
     for (k, w) in cabecera.iter().enumerate() {
@@ -426,9 +442,9 @@ impl Taller {
 
 /// Lo mas que mide una [`clave`]: 12 numeros, los dos cuerpos, los
 /// elementos, las cargas y los genericos.
-pub const MAX_CLAVE: usize = 4 * 12 + 2 * MAX_CUERPO + 8 * MAX_ELEMENTOS + 4 * 2 * MAX_CARGAS + 2 * MAX_GENERICOS;
+pub const MAX_CLAVE: usize = 4 * 13 + 2 * MAX_CUERPO + 8 * MAX_ELEMENTOS + 4 * 2 * MAX_CARGAS + 2 * MAX_GENERICOS;
 
-/// **Todo lo que `pegar` lee de `r`**, en bytes y sin ambiguedad (cada
+/// **Todo lo que `pegar` lee de `r`** (9d: tambien sus termometros), en bytes y sin ambiguedad (cada
 /// trozo lleva su medida delante): dos recetas con la misma clave se pegan
 /// y se juzgan igual. Los DATOS, el destino y las texturas no entran (no los
 /// lee `pegar`). Devuelve cuanto mide.
@@ -438,7 +454,8 @@ pub fn clave(r: &Receta, out: &mut [u8; MAX_CLAVE]) -> usize {
         out[i..i + b.len()].copy_from_slice(b);
         i += b.len();
     };
-    for x in [r.registros_vs, r.registros_ps, r.salidas, r.posicion, r.filas, r.paso, r.vs.len() as u32, r.ps.len() as u32, r.n_elementos as u32, r.n_cargas_vs as u32, r.n_cargas_ps as u32, r.n_genericos as u32] {
+    let termometros = r.termometro_vs.map_or(0, |t| t as u32 + 1) | r.termometro_ps.map_or(0, |t| t as u32 + 1) << 8;
+    for x in [r.registros_vs, r.registros_ps, r.salidas, r.posicion, r.filas, r.paso, r.vs.len() as u32, r.ps.len() as u32, r.n_elementos as u32, r.n_cargas_vs as u32, r.n_cargas_ps as u32, r.n_genericos as u32, termometros] {
         poner(&x.to_le_bytes());
     }
     poner(r.vs);
@@ -489,11 +506,11 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
     let datos = Datos { filas: r.filas, paso: r.paso, elementos: r.elementos() };
     let cuerpo = instrucciones(&mut t.cuerpo, r.vs);
     juez::juzgar_cuerpo_de_app(cuerpo, r.registros_vs).map_err(|b| NoReceta::Cuerpo("vertice", b))?;
-    pegamento::vertice_en(&mut t.pegado, cuerpo, r.registros_vs, r.cargas_vs(), datos, r.salidas, r.posicion).map_err(|e| NoReceta::Pegamento("vertice", e))?;
+    pegamento::vertice_con_libreta_en(&mut t.pegado, cuerpo, r.registros_vs, r.cargas_vs(), datos, r.salidas, r.posicion, r.termometro_vs).map_err(|e| NoReceta::Pegamento("vertice", e))?;
     t.bytes_vs = t.pegado.bytes(&mut t.vs);
     let cuerpo = instrucciones(&mut t.cuerpo, r.ps);
     juez::juzgar_cuerpo_con_asas(cuerpo, r.registros_ps, pegamento::asas(r.cargas_ps())).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
-    pegamento::pixel_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos()).map_err(|e| NoReceta::Pegamento("pixel", e))?;
+    pegamento::pixel_con_libreta_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos(), r.termometro_ps).map_err(|e| NoReceta::Pegamento("pixel", e))?;
     t.bytes_ps = t.pegado.bytes(&mut t.ps);
     let jv = juez::juzgar_programa(&t.vs[..t.bytes_vs], tu::REGISTROS).map_err(|b| NoReceta::Juez("vertice", b))?;
     let jp = juez::juzgar_programa(&t.ps[..t.bytes_ps], tu::REGISTROS).map_err(|b| NoReceta::Juez("pixel", b))?;
@@ -553,6 +570,8 @@ mod pruebas {
             datos: &datos,
             dibujo: Dibujo { indices: None, vertices: 3, destino: Some((0x1000_0000, dst)), texturas: 1, ..Dibujo::default() },
             texturas: [DeApp::NINGUNA; MAX_TEXTURAS],
+            termometro_vs: None,
+            termometro_ps: None,
         };
         r.elementos[0] = Elemento { desde: 0, componentes: 4 };
         r.elementos[1] = Elemento { desde: 16, componentes: 4 };
@@ -621,7 +640,15 @@ mod pruebas {
         caja[88] = 2;
         assert!(leer(&caja[..n]).is_none(), "+88 solo lleva el bit 0");
         caja[88] = 1;
-        caja[92] = 1;
-        assert!(leer(&caja[..n]).is_none(), "+92..+96 a cero");
+        caja[94] = 1;
+        assert!(leer(&caja[..n]).is_none(), "los 16 de arriba de +92 a cero");
+        caja[94] = 0;
+        // 9d: +92, el termometro de cada cuerpo + 1, de SUS registros.
+        caja[92] = 9;
+        assert!(leer(&caja[..n]).is_none(), "el de vertice tiene 8 registros: el 8 no es suyo");
+        caja[92] = 8;
+        caja[93] = 3;
+        let l = leer(&caja[..n]).unwrap();
+        assert_eq!((l.termometro_vs, l.termometro_ps), (Some(7), Some(2)));
     }
 }

@@ -304,6 +304,13 @@ seguidos).
 - [ ] P0.4 -- `run window/.../Cyberpunk2077.exe` desde D: (solo lectura) en
   el metal. Llega hasta donde llegue. **Como se sabe:** la autopsia o el
   aviso de la casa dicen DONDE se paro, y el diario, POR QUE CAMINO.
+  **06-10 20:54 (SALIDA, SYSPROTO y DIARIO del propietario):** 17,7 s
+  desde su entrada, 2.007.040 llamadas; carga sus 29 DLL, GOG Galaxy
+  arranca (sin red, lo dice), crea su VENTANA (1738x1064), el dispositivo
+  D3D12, 176 PSO (23 enlaces, los 23 compilados) y 158 recursos, y EMPIEZA
+  A SONAR por el audifono; 0 ExecuteCommandLists y 0 Present: aun cargando.
+  Murio por el monton de la CASA lleno (no la RAM: 113 MiB usados de 15
+  GiB). Arreglado el 07-10 (7.1, A12); lo que pidio y no hay, A13 a A17.
 - [ ] P0.5 -- La lista de lo que pidio el primer contacto, repartida en las
   tres secciones de abajo (cada casilla, marcada "LO PIDIO" o "todavia no").
 
@@ -340,7 +347,14 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   `SHADER_MODEL` (hasta 6.6), `ROOT_SIGNATURE` 1.1, `ARCHITECTURE1`,
   `GPU_VIRTUAL_ADDRESS_SUPPORT`, `FEATURE_LEVELS`, `SHADER_CACHE`. Lo que
   diga la 3060 real, campo a campo. **Como se sabe:** `tandaD1.exe` lo
-  compara con los numeros medidos en Windows.
+  compara con los numeros medidos en Windows. (06-10, A8: contesta TODAS
+  las que un motor pregunta al montar su D3D12 -- SHADER_CACHE, las
+  prioridades de cola, EXISTING_HEAPS, SERIALIZATION, CROSS_NODE,
+  DISPLAYABLE, las sesiones protegidas, OPTIONS13 a OPTIONS21,
+  PREDICATION, HARDWARE_COPY -- con la medida exacta y NO a lo que la casa
+  no hace; antes, E_INVALIDARG y un aviso. Juez `prueba/preguntas.exe`, 8
+  `bien` y la nota de cuales sabe Windows; con la casa de antes, 7 MAL.
+  Falta "lo que diga la 3060, campo a campo": eso es D0, del propietario.)
 - [ ] D1.3 -- `FORMAT_SUPPORT` y `FORMAT_INFO` de los ~120 formatos DXGI (la
   tabla de la 3060). **Como se sabe:** `tandaD1.exe`, formato a formato.
 - [ ] D1.4 -- La cadena de `QueryInterface`: `ID3D12Device1` a `Device9` y
@@ -365,7 +379,12 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   (`CreatePlacedResource`) y que se solapan (ALIAS), sobre VRAM de la 3060.
 - [ ] D2.3 -- Montones de subida y de lectura: `Map` persistente, memoria
   combinada para escribir. **Como se sabe:** un `.exe` escribe 256 MiB por
-  un `Map` y la 3060 los lee.
+  un `Map` y la 3060 los lee. (06-10, A7: `Map` de una TEXTURA de un monton
+  de la CPU -- CUSTOM, el de una GPU integrada -- sin puntero, para
+  WriteToSubresource y ReadFromSubresource; la de un DEFAULT, E_INVALIDARG;
+  y GetHeapProperties dice su pagina y su piscina. Juez `prueba/mapeo.exe`,
+  7 `bien` y una nota -- el Map CON puntero, que la casa no da: guarda la
+  textura en su formato --; con la casa de antes, 2 MAL.)
 - [ ] D2.4 -- Recursos RESERVADOS (tiled: `UpdateTileMappings`,
   `CopyTileMappings`) -- SOLO si D0 dice que el juego los usa.
 - [ ] D2.5 -- Texturas de todas las formas: mips, arrays, 3D, cubos;
@@ -389,7 +408,7 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
 
 - [ ] D3.1 -- Montones de descriptores A ESCALA: un millon de CBV/SRV/UAV
   visibles al sombreador, y copiar descriptores en masa.
-- [ ] D3.2 -- Firma raiz 1.1 ENTERA: constantes, CBV/SRV/UAV directos, tablas
+- [x] D3.2 -- Firma raiz 1.1 ENTERA: constantes, CBV/SRV/UAV directos, tablas
   con rangos sin limite (`unbounded`), samplers estaticos, sus banderas.
   **Como se sabe:** `tandaD3.exe` serializa y deserializa firmas y Windows
   da los mismos bytes. (06-10: LEER la 1.1 ya esta -- la de `dxc`, con sus
@@ -401,6 +420,13 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   son los bytes de Windows), el deserializador
   (`D3D12CreateVersionedRootSignatureDeserializer`), la 1.2 -- `dxc` aun
   no la escribe -- y verlo en Windows.)
+  06-10 (A3 y A4): SERIALIZAR la 1.1 ya da SUS bytes (los de `dxc`, huella
+  incluida: la firma guarda su version y las banderas de cada rango y de
+  cada descriptor de la raiz), y los dos DESERIALIZADORES
+  (`D3D12Create[Versioned]RootSignatureDeserializer`, `deserializador.rs`)
+  devuelven las estructuras de Windows en la 1.0, la 1.1 y la 1.2. **Como se
+  sabe:** `prueba/leefirma.exe`, 10 `bien` en el banco; con la casa de
+  antes, 7 MAL. Falta verlo en Windows y en el metal.
 - [ ] D3.3 -- SIN ATAR (bindless, modelo 6.6: `ResourceDescriptorHeap`),
   si D0.2 lo encuentra.
 - [ ] D3.4 -- Los UAV: bufferes con tipo, crudos y estructurados; sus
@@ -415,9 +441,14 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   `prueba/volumen.exe` en el banco: rebanadas, capas con su cadena de mips
   entre una y otra, atomicos, GetDimensions, y ClearUnorderedAccessView
   sobre TODAS sus rebanadas o capas: antes limpiaba solo la primera, sin
-  decir nada. Falta: los arrays de 1D, los multimuestra, el x86 traducido
-  -- su computo con UAV de textura sigue en el interprete -- y verlo en
-  Windows.)
+  decir nada. 06-10 (A5): y los de arrays de 1D (`RWTexture1DArray`: la
+  capa es la segunda coordenada, GetDimensions da ancho y capas), en el
+  computo, los dibujos y ClearUnorderedAccessView (todas las capas de la
+  vista); juez `prueba/capas1d.exe`, 9 `bien`; con la casa de antes, 7 MAL.
+  Las "filas de otra medida" no existen en la casa: guarda cada fila sin
+  relleno (`subrecursos::disposicion`); el aviso queda de guarda. Falta: los
+  multimuestra, el x86 traducido -- su computo con UAV de textura sigue en
+  el interprete -- y verlo en Windows.)
 
 ## 2E. Los sombreadores
 
@@ -447,10 +478,40 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
   (la puerta las manda a la CPU, dicho), la anisotropia y los cubos (en la
   mip de la vista), y verlo en Windows.)
 - [ ] D4.5 -- Vertices: instancias, `SV_VertexID`/`InstanceID`. Casco y
-  dominio (teselado) y geometria SOLO si D0.2 los encuentra.
+  dominio (teselado) y geometria SOLO si D0.2 los encuentra. (06-10, A6:
+  las topologias con ADYACENCIA -- `TRIANGLELIST_ADJ`, `TRIANGLESTRIP_ADJ`,
+  `LINELIST_ADJ`, `LINESTRIP_ADJ` --: con un GS `triangleadj` o `lineadj`,
+  cada primitiva con los vertices de al lado, la tira con la tabla de D3D
+  y sus extremos (`lote::tira_ady`); sin GS, sus triangulos. Y el
+  `SV_PrimitiveID` de un GS. Juez `prueba/adyacencia.exe`, 8 `bien`; con la
+  casa de antes, 7 MAL. 06-10, EN WINDOWS (la 3060): 6 de 7 y B MAL -- D3D
+  empieza el triangulo IMPAR de la tira por su vertice 2i (el mismo
+  triangulo, rotado); arreglado, y H le pregunta el impar que es el ultimo.)
 - [ ] D4.6 -- La CACHE de PSO a escala: miles de pipelines traducidos una vez
   y guardados en disco; `ID3D12PipelineLibrary` (el juego guarda la suya).
-  **Como se sabe:** el segundo arranque no traduce nada.
+  **Como se sabe:** el segundo arranque no traduce nada. (06-10, A9: el .BSF VIVO (`bmo_proton_x_sm86::vivo`), lo que pidio el propietario:
+  *"que mi CPU entienda el mapa y guie al GPU que genere en .bsf para
+  generar datos precisos por completo"*, y *"que lo guarde en ESTRATOS para
+  que no se olvide"*. La CPU escribe el MAPA de cada PSO (sus dos Programas,
+  con los bits de cada constante, y la version del emisor: el nombre del
+  .bsf es su hash), genera el codigo de la 3060, lo COMPRUEBA bit a bit
+  contra su interprete (el simulador de la 3060 y la CPU con las mismas
+  entradas: un bit distinto y no va a la 3060 ni se guarda) y lo guarda en
+  `proton-x/<juego>/bsf/<hash>.bsf` de ESTRATOS; el arranque siguiente lo
+  lee, comprueba el sobre y el mapa, vuelve a comprobar los bits, y no
+  traduce nada. El BSF aprendio una fuente que no es SPIR-V (el mapa,
+  `MAPA_MAGIC`) y el cuerpo de la puerta (`abi::SM86_PUERTA_V1`). **Como se
+  sabe:** `bmox12.exe` dos veces en el banco (`tests/corre/vivo.rs`): la
+  primera 1 traducido, la segunda 0 traducidos y 1 del recuerdo, el .bsf sin
+  reescribir y los mismos programas pegados; y 4 pruebas de
+  `proton-x-sm86` (un .bsf tocado o de otro mapa no se cree; el cuerpo de
+  otro programa no pasa la comprobacion). 06-10 (A9b), la parte de la CPU:
+  lo compilado de cada PSO (el Enlace) se cifra (`bmo_proton_x::cifra`,
+  con la huella del codigo de la casa) y se recuerda en
+  `proton-x/<juego>/mapas`: `bmox12.exe` dos veces, la segunda 0
+  compilados y las huellas de la 3060. Falta: el x86-64 de `nativo`
+  recordado tambien (hoy, una pasada al arrancar), ID3D12PipelineLibrary,
+  y verlo en el metal.)
 - [ ] D4.7 -- Lo que un traductor no sepa, al interprete de la CPU, DICHO
   (una linea en el diario), nunca una imagen rota en silencio.
 
@@ -949,8 +1010,8 @@ la proxima corrida del metal dice cual pesa mas:
   `[earlydepthstencil]` (leido de las banderas de `dx.entryPoints`,
   `recursos::banderas`), que la prueba y la escribe ANTES. Un pixel que hace
   `discard` deja lo que escribio antes y nada de despues (lo de D3D). El
-  codigo nativo no traduce un sombreador con UAV (se interpreta, con su
-  aviso: "lee o escribe un UAV"); la puerta de la 3060 manda esos lotes a
+  codigo nativo los TRADUCE desde A10 (06-10: cada operacion de UAV llama a
+  `operar_uav` del interprete); la puerta de la 3060 manda esos lotes a
   la CPU y lo dice una vez. **Como se sabe:** `prueba/uavpixel.exe`
   (nuestro, `uavpixel.cpp`): A, cada pixel su posicion en SU texel de un
   `RWTexture2D<uint>` de una tabla; B, `InterlockedAdd` de cada pixel de una
@@ -1294,21 +1355,55 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    9
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    5
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
-               rectangulos (06-10: limpieza.exe, 8 bien en el banco)
-      3  D3.2  el deserializador de firmas (D3D12CreateVersionedRoot...)
-      4  D3.2  serializar la 1.1 con los MISMOS bytes que Windows
-      5  D3.4  los UAV de arrays de 1D y los de filas de otra medida
-      6  D4.5  las topologias con adyacencia (para un GS que las pide)
-      7  D2.3  Map sobre una textura (montones de la CPU)
-      8  D1.2  las preguntas de CheckFeatureSupport que no contesta
-      9  D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO)
-     10  X5    la velocidad que queda: las olas en el computo traducido y
-               los pixeles con UAV traducidos
-     11  ESCENA  (06-10, pedido del propietario: "un test en 3D DURO en
+               rectangulos (06-10: limpieza.exe, 8 bien en el banco; en
+               Windows, MAL en D y G: los enteros SATURAN -- arreglado)
+      3  [x] D3.2  el deserializador de firmas (06-10: leefirma.exe, 10 bien)
+      4  [x] D3.2  serializar la 1.1 con los MISMOS bytes que Windows (06-10:
+               los de dxc, huella incluida; leefirma.exe)
+      5  [x] D3.4  los UAV de arrays de 1D y los de filas de otra medida
+               (06-10: capas1d.exe, 9 bien; las filas de otra medida no
+               se dan en la casa: guarda las filas sin relleno)
+      6  [x] D4.5  las topologias con adyacencia (para un GS que las pide)
+               (06-10: adyacencia.exe, 8 bien; y el SV_PrimitiveID del GS;
+               Windows corrigio el orden del impar de la tira)
+      7  [x] D2.3  Map sobre una textura (montones de la CPU) (06-10:
+               mapeo.exe, 7 bien y la nota del Map con puntero)
+      8  [x] D1.2  las preguntas de CheckFeatureSupport que no contesta
+               (06-10: preguntas.exe, 8 bien y la nota de las nuevas)
+      9  [x] D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO) -- 06-10:
+               el .BSF VIVO de la 3060 (la CPU genera, comprueba bit a bit
+               y lo recuerda en ESTRATOS); bmox12.exe, la segunda vez 0
+               traducidos
+     9b  [x] D4.6  los MAPAS de la CPU (06-10): lo que compilo de cada PSO
+               (el Enlace, cifrado con `bmo_proton_x::cifra`) recordado en
+               `proton-x/<juego>/mapas` de ESTRATOS; bmox12.exe, la segunda
+               vez 0 compilados y los mismos fotogramas. Lo cifrado lleva la
+               HUELLA del codigo de la casa (`build.rs`): otro codigo, otro
+               mapa. El x86-64 de `nativo` se sigue haciendo al arrancar (es
+               una pasada sobre el Programa, sin leer DXIL)
+     10  [x] X5    la velocidad que queda: las olas en el computo traducido y
+               los pixeles con UAV traducidos. 06-10, la MITAD: las olas en
+               el computo TRADUCIDO (cada ola para el hilo y
+               `nativo_despacho` la resuelve con su ola de 32, en el orden
+               del interprete: las vueltas de cada bucle van en registros
+               de mas); `olas_cs.dxil` -- con olas en un si y en el bucle de
+               escalarizar -- da los MISMOS bytes por los dos caminos.
+               06-10, CERRADO: los vertices y los pixeles con UAV TRADUCIDOS
+               (cada operacion de UAV llama, como una textura, a
+               `operar_uav` del interprete con los UAV del lote:
+               `dibujo_sysv` de la casa). `uavorden.hlsl` -- contador,
+               lista, un lienzo de float leido y escrito, una tabla con
+               tipo, un `discard` a medias: cada pixel ve lo de los de
+               antes -- deja los MISMOS bytes en los cuatro UAV tras cada
+               uno de 3000 pixeles y 2000 vertices; uavpixel.exe y
+               restos.exe, ya sin aviso. Queda en el interprete, y lo dice:
+               el pixel que DERIVA y toca UAV (un cuadro que se separa se
+               rehace, y lo escrito quedaria dos veces)
+     11  [x] ESCENA  (06-10, pedido del propietario: "un test en 3D DURO en
                Windows, y que se refleje en BMO-X") una escena pesada --
                miles de triangulos, texturas con mips, profundidad, luz
                con sombra, HDR y posproceso -- que en Windows GUARDA su
@@ -1317,8 +1412,64 @@ y lo dice.
                los floats: lo que se pide es cuantos pixeles y cuanto)
                06-10: `prueba/escena.exe` HECHO (en el banco, 2 bien y la
                nota; con la imagen de la casa como referencia, bien, y con
-               un cubo de mas pegado, MAL). FALTA la referencia de Windows:
-               `escena.exe guardar` en la 3060 deja escena.ref
+               un cubo de mas pegado, MAL). 06-10, CERRADO: la imagen de
+               la 3060 del propietario (`prueba/escena_3060.ref`) contra la
+               casa: el 100 % de los pixeles a 8 o menos, la media 0.282,
+               la peor 5 (se pedia el 98 % y 2). Y en Windows, 91 de 91
+     9c  [x] D4.6  el MODO DINAMICO del .bsf vivo (06-10, idea del propietario:
+               "dos modos, el estatico que ya sabemos lo dibuja y el
+               dinamico que corrige en tiempo real"): la GPU apunta en una
+               libreta lo raro de cada fotograma; entre fotogramas la CPU
+               recalcula de vez en cuando un dibujo de VERDAD (los datos
+               del juego, no los de prueba) y, si no coincide, marca el
+               .bsf malo, dibuja ese efecto por la CPU y genera otro. La
+               GPU no puede preguntar A MITAD de un dibujo (esperaria a la
+               CPU miles de veces por pixel): pregunta entre fotogramas.
+               HECHO 06-10 con la CPU de vigia (`vivo::revisar`): el
+               estatico usa el .bsf de ESTRATOS tal cual; el vigia revisa
+               con los datos del juego el primer lote de cada PSO y uno de
+               cada 256; si no cuadra, ese PSO por la CPU desde ese lote y
+               marcado `.malo`. bmox12.exe con un .bsf que miente: 0 lotes
+               a la 3060, la marca puesta, y el arranque siguiente ni lo
+               intenta. Es el TERCER nivel del juez de VERRANO (forma,
+               bits con numeros de prueba, bits con el juego)
+     9d  [x] D4.6  la LIBRETA en la propia GPU: que la 3060 apunte lo raro
+               mientras dibuja (el emisor tiene que saber escribir en
+               memoria desde un sombreador). 06-10, LA MITAD DE LA APP,
+               aislada en el crate de la 3060 (pedido del propietario: "OJO
+               aislar eso", por una AMD futura): `proton-x-sm86::libreta`
+               -- el cuerpo deja al final un TERMOMETRO (la suma de los
+               |valores| de sus salidas, por 0: NaN si una salio NaN o
+               infinita) que el simulador y la CPU cuentan IGUAL; viaja en
+               el .bsf; y `Puerta::leer_libreta` hace que el vigia revise
+               YA el siguiente lote de un PSO apuntado (6 pruebas, una que
+               dice NO). 06-10, CERRADO, con el permiso de Ring 0 del
+               propietario ("AISLAR por completo"): el pegamento del KERNEL
+               (`bmo_gpu_ga10x::libreta`) hace `FSETP.NAN` y `@P0 STG` de
+               una constante a UNA palabra SUYA (la app solo dice en que
+               registro de su cuerpo esta el termometro: `+92` de la
+               receta); el kernel la pone a 0 antes de cada dibujo, la lee
+               despues con el cerrojo del GR (`gpu_trabajo/libreta.rs`) y
+               lo dice en el bit 61 del `Ok` de ESA receta: solo lo ve
+               quien la mando. La puerta emite con libreta (si no cabe en
+               el pegado, sin ella) y `Puerta::apunto` revisa ese PSO YA.
+               El juez de la forma lo aprueba (y dice NO, R9, sin la espera
+               del guarda); BMOX-12 con libreta pasa sus 360 fotogramas;
+               `libreta.exe`, 4 bien. Falta VERLO en el metal (pila C)
+     -- 06-10 20:54, CYBERPUNK EN EL METAL (P0.4) abrio la pila otra vez: --
+     12  [x] el MONTON de la casa crece (07-10): murio a los 17,7 s con
+               `memory allocation of 3670016 bytes failed; monton 63546240 B
+               en uso de 67108864` (el tope de UN bloque, con la RAM vacia).
+               Ahora, lleno, sigue en trozos de 64 MiB de un tramo de 16 GiB
+               de la reserva que es SOLO suyo (`bmo_monton::Region::
+               poner_crecer`; la casa de Windows ve la ventana sin el)
+     13  D4.1  `RawBufferLoad`/`RawBufferStore` (op 139/140, SM 6.2+): un CS
+               de Cyberpunk lo pide (`OperacionD3d(139)`)
+     14  D4.1  un load o un store de algo que no es un array (un CS)
+     15  N5.4  `createHandle` con el registro CALCULADO de un array de
+               BUFERES (bindless de buferes; un CS)
+     16  D4.1  un bucle con mas de una salida (un CS)
+     17  D4.1  un operando que deberia ser un float y no lo es (un CS)
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.

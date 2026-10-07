@@ -44,6 +44,19 @@
 //! 5. **Determinista.** Los mismos `.spv` dan los mismos bytes: sin fechas,
 //!    sin rutas, sin orden de llegada.
 //!
+//! == Cuando la fuente no es SPIR-V: el MAPA de la CPU (A9, 06-10) ==
+//!
+//! Un sombreador de D3D12 llega en DXIL (o DXBC), no en SPIR-V. Lo que la
+//! CPU de la casa ENTIENDE de el es su "mapa": el `Programa` de PROTON-X,
+//! escrito en un texto canonico que empieza por [`MAPA_MAGIC`] (lo escribe
+//! `bmo_proton_x_sm86::vivo::mapa`). Un modulo puede llevar ese mapa en el
+//! sitio del SPIR-V: el sobre lo sella igual (su hash, y el del codigo que
+//! salio de el), pero la capa profunda ([`Bsf::deep`]) no tiene SPIR-V que
+//! releer y lo dice ([`What::Mapa`]): ahi el juez es el del emisor, que
+//! comprobo el codigo contra el interprete de la CPU antes de escribirlo.
+//! Pedido del propietario (06-10): *"que mi CPU entienda el mapa y guie al
+//! GPU que genere en .bsf"*.
+//!
 //! == Lo que el BSF NO es ==
 //!
 //! No es la seguridad: el BSF viaja como anexo de un `.bex` y la FIRMA del
@@ -78,6 +91,10 @@ pub use deep::{facts, spirv_fault, Facts};
 pub use fault::{Fault, What};
 pub use read::{Bsf, ModuleView, TargetView};
 pub use write::{size, write, ModuleIn, TargetIn};
+
+/// La fuente de un modulo que no es SPIR-V sino el MAPA de la CPU: `"MAPA"`
+/// en little-endian (ver la cabecera).
+pub const MAPA_MAGIC: u32 = u32::from_le_bytes(*b"MAPA");
 
 /// `"BSF1"` en little-endian.
 pub const MAGIC: u32 = u32::from_le_bytes(*b"BSF1");
@@ -131,6 +148,13 @@ pub mod abi {
     /// `a[0x70]` y el generico 0 en `a[0x80]`; el de pixel lee el generico 0
     /// por IPA y deja el color en R0..R3.
     pub const SM86_V1: u16 = 2;
+    /// SM86 de la PUERTA de PROTON-X (A9, 06-10): el CUERPO que emite
+    /// `bmo_proton_x_sm86` con su ABI de registros, SIN pegar (el pegamento
+    /// lo pone el kernel con la receta de cada dibujo). El codigo es: el
+    /// numero de instrucciones (u32), el de precargas (u32), las
+    /// instrucciones (dos u64 cada una) y las precargas (4 bytes cada una:
+    /// clase, dos campos, registro). `frame_words`, los registros que usa.
+    pub const SM86_PUERTA_V1: u16 = 3;
 }
 
 /// Lo que el codigo pide a la CPU. El consumidor pasa lo que TIENE y un

@@ -48,6 +48,10 @@ pub enum What {
     Spirv(bmo_spirv_front::Error),
     /// Comprobacion profunda: la tabla no dice lo que dice el SPIR-V.
     Lies(&'static str),
+    /// Comprobacion profunda de un modulo cuya fuente es el MAPA de la CPU
+    /// ([`crate::MAPA_MAGIC`]), no SPIR-V: no hay nada que releer aqui; su
+    /// juez es el del emisor.
+    Mapa,
     /// Al escribir: el buffer de salida es chico.
     NoRoom { need: usize },
     /// Al despachar: falta el buffer de una fila.
@@ -101,6 +105,7 @@ impl fmt::Display for What {
             What::StaleCode => write!(f, "el codigo salio de otro SPIR-V"),
             What::Spirv(e) => write!(f, "SPIR-V, {}", e),
             What::Lies(que) => write!(f, "la tabla miente: {}", que),
+            What::Mapa => write!(f, "la fuente es el mapa de la CPU, no SPIR-V: no hay nada que releer"),
             What::NoRoom { need } => write!(f, "hacen falta {} bytes para escribirlo", need),
             What::Missing { set, binding } => write!(f, "falta el buffer set {} binding {}", set, binding),
             What::Extra { set, binding } => write!(f, "sobra el buffer set {} binding {}", set, binding),

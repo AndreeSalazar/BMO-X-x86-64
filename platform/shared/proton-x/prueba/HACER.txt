@@ -2418,6 +2418,23 @@ RWByteAddressBuffer; no lee nada) y PSCuentaTemprana (lo mismo con
    2eff863b51043b2c80b4a0fe54b851316296053959d23d94a81bf84864858b60  uavpixel_cuenta.dxil
    9fe9960a280eeb4b9577269d664971a7c44d61ca2a508ce2e90251209998cb9e  uavpixel_temprana.dxil
 
+uavorden_ps.dxil, uavorden_vs.dxil -- los UAV que dependen del ORDEN, para
+el banco de lo TRADUCIDO (A10, 06-10)
+
+`uavorden.hlsl` (aqui al lado): PSOrden (un contador con InterlockedAdd,
+una lista estructurada, un RWTexture2D<float4> leido y escrito, un
+RWBuffer<uint> leido y escrito, un `discard` a medias, un bucle de
+InterlockedMax y GetDimensions) y VSOrden (InterlockedAdd y su elemento de
+la tabla). Cada pixel ve lo que dejaron los de antes: el juez de
+`proton-x-casa/tests/nativo/uav.rs` (lo traducido contra el interprete,
+los cuatro UAV tras cada pixel). No van en un .exe. Con el mismo `dxc`:
+
+   dxc -T ps_6_0 -E PSOrden -Fo uavorden_ps.dxil uavorden.hlsl
+   dxc -T vs_6_0 -E VSOrden -Fo uavorden_vs.dxil uavorden.hlsl
+
+   1a854005fc8347e45a87df28c65d3459714d374675cc8150992ffbd837fa57b0  uavorden_ps.dxil
+   d3d5c2a9046c8746a91d35649b63bd9ebac7bb731dd65e10cd8049ab485da864  uavorden_vs.dxil
+
 uavpixel.exe -- los UAV de un DIBUJO, juzgados (05-10)
 
 NUESTRO, no de Microsoft: `uavpixel.cpp` (aqui al lado), de consola, con
@@ -3048,13 +3065,22 @@ Con lo de `muestras/construir.sh`, en un directorio con limpieza.cpp:
 
 Reproducible (comprobado en dos directorios), sin rutas. sha256:
 
-   1261ce7a2c4b0d1dcf9eb5fbb974a0e55f0b4f17991be2d4f7fd74febc360859  limpieza.exe
+   63574117aa8d5ccdf9b859ee49b35553ae0f5c92bbd966f88dc888a4b6a5ce03  limpieza.exe
 
 El banco (`tests/corre/muestras.rs`): los 8 `bien`, sale con 0, ni un
 aviso. Probado que dice NO: contra la casa de antes, 6 MAL (el valor en el
 formato del recurso y no en el de la vista; los rectangulos, "se limpia la
 vista entera"). Y el juez se equivoco una vez y la casa no: leia los
 texeles de 8 bytes de D como si fueran de 4.
+
+LO QUE DIJO WINDOWS (06-10, 12:22, la 3060): 6 bien, MAL en D y en G. Un
+valor de ClearUnorderedAccessViewUint que no cabe en un canal de ENTEROS se
+SATURA (0x10001 en 16 bits es 0xFFFF), no se queda con sus bits bajos: la
+misma regla de enteros de D3D11.3 3.2.3.6 que la casa ya seguia en los
+render targets. Arreglado (`formato_ia::saturar`), y D y G piden ahora lo
+saturado. Y D destapo otra: 0xFFFF en un RGBA16 TYPELESS es un NaN de half,
+y la casa (que lo guarda en floats) le perdia la carga al volver (0xFE00):
+`a_cinco` la conserva ya. Sigue en 8 `bien`.
 
 escena_vs.dxil, escena_sombra.dxil, escena_ps.dxil, escena_vidrio.dxil, escena_tono.dxil -- los de escena.exe (06-10)
 
@@ -3109,3 +3135,257 @@ El banco (`tests/corre/muestras.rs`): sin escena.ref, A y B `bien` y la
 nota, ni un aviso, en 1,5 s; con la imagen de la PROPIA casa como
 referencia, C bien (100 %); con un cuadrado blanco de 30 x 30 pegado en esa
 referencia, C MAL (97,56 % < 98): el margen ve un cubo de mas.
+
+leefirma.exe -- los DESERIALIZADORES de root signatures y la 1.1 serializada, juzgados (06-10)
+
+A3 y A4 del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola, sin
+sombreadores: lleva dentro firmas_11.rts0 y firmas_10.rts0 (las de `dxc`,
+ver firmas.exe). A, D3D12SerializeVersionedRootSignature de su DESC1 da los
+bytes de dxc; B, D3D12SerializeRootSignature de su DESC (1.0), igual; C, el
+deserializador con versiones sobre la 1.1, sin convertir (sus banderas 8, 1
+y 2); D, pedida en la 1.0; E, la 1.0 pedida en la 1.1 (las banderas que
+D3D12 le da a la 1.0: 3 en los rangos, 2 en el UAV de la raiz); F,
+D3D12CreateRootSignatureDeserializer; G, lo de C serializado otra vez: los
+bytes de dxc; H, un sampler estatico ida y vuelta, y en la 1.2; I, bytes
+que no son una firma: E_INVALIDARG. Dice `bien` 10 veces y sale con el
+numero de fallos; en Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con leefirma.cpp,
+firmas_11.rts0 y firmas_10.rts0:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c leefirma.cpp -o leefirma.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o leefirma.exe leefirma.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   ff697bd062b25c391407bf9098087b3aff08409e0f815745201e79e138f55f60  leefirma.exe
+
+El banco (`tests/corre/muestras.rs`): los 10 `bien`, sale con 0. Probado
+que dice NO: contra la casa de antes, 7 MAL (la 1.1 salia como un blob de
+la 1.0 de 172 bytes, y los deserializadores daban E_NOTIMPL).
+
+capas1d_escribe.dxil, capas1d_medio.dxil, capas1d_lee.dxil -- los de capas1d.exe (06-10)
+
+`capas1d.hlsl` (aqui al lado): CSEscribe (cada hilo de 16 x 3 su texel de
+un RWTexture1DArray<float4>, e InterlockedAdd en un RWTexture1DArray<uint>),
+CSMedio (por la vista de la mip 1 y dos capas de otro) y CSLee
+(GetDimensions y lecturas, dentro y fuera, a un RWByteAddressBuffer). Con
+el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSEscribe -Fo capas1d_escribe.dxil capas1d.hlsl
+   dxc -T cs_6_0 -E CSMedio -Fo capas1d_medio.dxil capas1d.hlsl
+   dxc -T cs_6_0 -E CSLee -Fo capas1d_lee.dxil capas1d.hlsl
+
+Reproducible, sin rutas. sha256:
+
+   2c3d0052ae4e3ba60685391942138ab6a83250983db133ce7a16c5fc358859a3  capas1d_escribe.dxil
+   666b2923c661fb2e6a6d342c61d42a0e625795a74826c0655af07c22741e6172  capas1d_lee.dxil
+   d2b90878b45f3bdd70c5ee0314220cad2e92e4845ed0120bc0609d97d0c7ed28  capas1d_medio.dxil
+
+Van DENTRO de capas1d.exe.
+
+capas1d.exe -- los UAV de arrays de UNA dimension, juzgados (06-10)
+
+A5 del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola. En un
+RWTexture1DArray la capa es la SEGUNDA coordenada y GetDimensions da
+(ancho, capas); hasta el 06-10 la casa no creaba sus PSO, y
+ClearUnorderedAccessView limpiaba solo su primera capa. A, un array de 3
+capas de 16 (RGBA32F) escrito entero; B, uno de 4 capas de 8 con 2 mips
+(R32_UINT) por la vista de MipSlice = 1, FirstArraySlice = 1 y ArraySize =
+2 (lo de fuera, la capa 0, la 3 y la mip 0, intactos); C, InterlockedAdd
+en uno de 2 capas de 4 (8 en la capa 0, 4 en la 1); D, GetDimensions de
+las tres vistas; E, lecturas dentro; F, lecturas fuera (0); G,
+ClearUnorderedAccessViewUint por la vista de las capas 1 y 2 de un array
+de 3 (esas dos, y la 0 no); H, ClearUnorderedAccessViewFloat sobre las dos
+capas de un RGBA32F. Dice `bien` 9 veces y sale con el numero de fallos; en
+Windows dice lo mismo.
+
+Con lo de `muestras/construir.sh`, en un directorio con capas1d.cpp y los
+tres .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c capas1d.cpp -o capas1d.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o capas1d.exe capas1d.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   746bcdead374dafac9107e51ac488a389ce54a8e3113bbc251c0eb5ed482cfa7  capas1d.exe
+
+El banco (`tests/corre/muestras.rs`): los 9 `bien`, sale con 0, ni un
+aviso. Probado que dice NO: contra la casa de antes, el PSO no se crea
+("un UAV de TEXTURA de array de una dimension ... todavia no") y salen 7
+MAL (B de la mip 0 y F pasan: nada escribe); G, la suma de cada capa 0 20
+0 (solo la primera capa de la vista).
+
+ady_vs.dxil, ady_gstri.dxil, ady_gslinea.dxil, ady_ps.dxil -- los de adyacencia.exe (06-10)
+
+`adyacencia.hlsl` (aqui al lado): VSId (pasa su SV_VertexID y, sin GS,
+una posicion de una de dos tablas), GSTri (`triangleadj`: apunta los 6
+ids de su primitiva en SV_PrimitiveID y cuenta) y GSLinea (`lineadj`, 4),
+a un RWByteAddressBuffer en la raiz, y PSBlanco. Con el DXC de la nube
+(v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T vs_6_0 -E VSId -Fo ady_vs.dxil adyacencia.hlsl
+   dxc -T gs_6_0 -E GSTri -Fo ady_gstri.dxil adyacencia.hlsl
+   dxc -T gs_6_0 -E GSLinea -Fo ady_gslinea.dxil adyacencia.hlsl
+   dxc -T ps_6_0 -E PSBlanco -Fo ady_ps.dxil adyacencia.hlsl
+
+Reproducible, sin rutas. sha256:
+
+   4e239afaab2a785ec8b94d594d5d1ec2fade5c78265526f55778b5007cecdfc7  ady_gslinea.dxil
+   7a5c33987c5a6ca0c83486b120b88974055f620dfec177b33f9de5cd331c341c  ady_gstri.dxil
+   2b5863c31e6468e297fa69fb4775ef00273e69d4865272f18def14da3358241b  ady_ps.dxil
+   de2c3a240074752f307387d62fb6523997eb6abc0a76d0d0616c19e5886b3935  ady_vs.dxil
+
+Van DENTRO de adyacencia.exe.
+
+adyacencia.exe -- las topologias con ADYACENCIA, juzgadas (06-10)
+
+A6 del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola. Un GS
+de siluetas o de sombras de volumen pide `triangleadj`; hasta el 06-10 la
+casa no pintaba esos Draw, y un GS no sabia su SV_PrimitiveID. A,
+TRIANGLELIST_ADJ con un GS triangleadj, Draw(15): 2 triangulos (0..5,
+6..11); B, TRIANGLESTRIP_ADJ, Draw(10): 3 triangulos con la tabla de D3D,
+(0 1 2 6 4 3), (4 0 2 5 6 8), (4 2 6 9 8 7); C, la misma de UN triangulo,
+Draw(7): (0 1 2 5 4 3); D, LINELIST_ADJ con un GS lineadj, Draw(9): 2
+lineas; E, LINESTRIP_ADJ, Draw(6): 3 lineas; F, TRIANGLELIST_ADJ sin GS:
+el triangulo de los vertices 0, 2 y 4 tapa los 64 pixeles; G,
+TRIANGLESTRIP_ADJ sin GS: (0 2 4) y (4 2 6), un cuadro; H (06-10), la
+tira de DOS, Draw(8): el impar que es el ultimo, (0 1 2 6 4 3) y (2 5 6 7
+4 0). Dice `bien` 8 veces y sale con el numero de fallos; en Windows dice
+lo mismo.
+
+LO QUE DIJO WINDOWS (06-10, la 3060 del propietario, la version de 7): 6
+de 7 y B MAL: el segundo triangulo de la tira de 10 llega como (2 5 6 8 4
+0), no (4 0 2 5 6 8) -- D3D empieza el IMPAR por su vertice 2i: el mismo
+triangulo y el mismo giro, rotado. La casa estaba mal (la tabla de OpenGL
+tal cual); arreglado en `lote::tira_ady`, B lleva lo de Windows y H le
+pregunta el impar que es el ultimo.
+
+Con lo de `muestras/construir.sh`, en un directorio con adyacencia.cpp y
+los cuatro .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c adyacencia.cpp -o adyacencia.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o adyacencia.exe adyacencia.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   e7b5396b5cb7a4ba27f75ae71d8485b286e5139304efcf8f4cf0dafe7c89d63d  adyacencia.exe
+
+El banco (`tests/corre/muestras.rs`): los 8 `bien`, sale con 0, ni un
+aviso. Probado que dice NO: contra la casa de antes, 7 MAL ("una
+topologia con adyacencia: todavia no", y el GS no se crea:
+OperacionD3d(108), el primitiveID).
+
+mapeo.exe -- Map sobre una TEXTURA, juzgado (06-10)
+
+A7 del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola, sin
+sombreadores. Un motor que sube sus texturas sin bufer intermedio (una GPU
+integrada, o un monton CUSTOM de paginas de la CPU) hace Map(sub, NULL,
+NULL), WriteToSubresource y Unmap; hasta el 06-10 la casa decia
+E_INVALIDARG en ese Map. A, una textura 2D RGBA8 de 8 x 8 con 2 mips en
+un monton CUSTOM (WRITE_BACK, L0); B, Map de sus dos subrecursos sin
+puntero; C, WriteToSubresource de las dos mips y de una caja; D,
+ReadFromSubresource de vuelta; E, la GPU la copia a un bufer de lectura;
+F, Map de una textura de un DEFAULT: E_INVALIDARG; G, GetHeapProperties:
+CUSTOM, WRITE_BACK, L0. La nota: Map(0, NULL, &p) de la de layout
+UNKNOWN, lo que diga Windows (la casa: E_INVALIDARG, y lo avisa). Dice
+`bien` 7 veces y la nota, y sale con el numero de fallos.
+
+Con lo de `muestras/construir.sh`, en un directorio con mapeo.cpp:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c mapeo.cpp -o mapeo.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o mapeo.exe mapeo.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   01b60ac2536852f8bed694635105d79545cf09c826c302013f056304ab975ad4  mapeo.exe
+
+El banco (`tests/corre/muestras.rs`): los 7 `bien`, la nota con
+0x80070057 y un solo aviso (el del Map con puntero), sale con 0. Probado
+que dice NO: contra la casa de antes, 2 MAL (B: el Map sin puntero daba
+E_INVALIDARG; G: la pagina y la piscina a 0).
+
+preguntas.exe -- las preguntas de CheckFeatureSupport que no se contestaban, juzgadas (06-10)
+
+A8 del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola, sin
+sombreadores. Un motor pregunta al montar su D3D12 la cache de
+sombreadores, las prioridades de cola, la serializacion de montones...; la
+casa contestaba E_INVALIDARG (y un aviso) con la medida buena. Lo que DICE
+cada una puede ser otro en la 3060 (la casa dice NO a lo que no hace): se
+juzga que conteste. A, SHADER_CACHE; B, COMMAND_QUEUE_PRIORITY (DIRECT a
+NORMAL y COMPUTE a HIGH, si); C, EXISTING_HEAPS; D, SERIALIZATION del
+nodo 0, S_OK, y del 1, E_INVALIDARG; E, CROSS_NODE; F, DISPLAYABLE; G,
+PROTECTED_RESOURCE_SESSION_SUPPORT; H, las siete con 4 bytes de mas,
+E_INVALIDARG. La nota: cuales de OPTIONS13 a OPTIONS21, PREDICATION y
+HARDWARE_COPY contesta ese Windows (las mas nuevas dependen de su
+version; la casa, todas). Dice `bien` 8 veces y la nota.
+
+Con lo de `muestras/construir.sh`, en un directorio con preguntas.cpp:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c preguntas.cpp -o preguntas.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o preguntas.exe preguntas.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   5268bc0489def325fd74bd08cc29343c0a8dd5468ae9bdeae4269213e245452b  preguntas.exe
+
+El banco (`tests/corre/muestras.rs`): los 8 `bien` y la nota con las 11
+en "s", ni un aviso, sale con 0. Probado que dice NO: contra la casa de
+antes, 7 MAL (de A a G, E_INVALIDARG; H pasaba) y la nota con las 11 en
+"n".
+
+escena_3060.ref -- la imagen de escena.exe en la RTX 3060 del propietario (06-10)
+
+La dejo `escena.exe guardar` en su Windows (Windows NT 10.0.26200, RTX 3060,
+driver 32.0.16.1074), al correr `correr_en_windows.ps1` por primera vez; la
+mando el 06-10. Formato de `escena.cpp` (`guardar`): "ESCENA1" y un 0, el
+ancho y el alto (u32: 256 y 144) y los pixeles RGBA8 fila a fila. En el repo
+con OTRO nombre para no chocar con la `escena.ref` que cada Windows hace al
+lado del .exe (esa esta en `.gitignore`); `ejemplos.ps1` la pone en el
+volumen como `window/escena.ref`, y el banco tambien. sha256:
+
+   6ceffe4c7ae1587f5ddb04a3eefebe33b2f7779eac9ccce41bc642c38d5ec1a8  escena_3060.ref
+
+Lo medido contra la casa (el banco, `una_escena_3d_dura_es_la_de_windows`):
+el 100 % de los pixeles a 8 o menos, la diferencia media 0.282 y la peor 5
+(el juez pide el 98 % y una media de 2 o menos). Y que el juez dice NO ya
+se probo (un cuadro blanco de 30 x 30 pegado: 97.56 %, MAL).
+
+libreta_vs.dxil, libreta_ps.dxil -- los de libreta.exe (06-10)
+
+`libreta.hlsl` (aqui al lado): VSPasa (la posicion y el color, tal cual) y
+PSRaro (con k del cbuffer: rojo con k = (1, 0); +inf, NaN y -inf con k =
+(1e30, 0) -- NaN por k.y = 0, porque dxc pliega `grande - grande` a 0 con
+su matematica rapida --; sin Div, que la 3060 rechaza). Con el mismo `dxc`:
+
+   dxc -T vs_6_0 -E VSPasa -Fo libreta_vs.dxil libreta.hlsl
+   dxc -T ps_6_0 -E PSRaro -Fo libreta_ps.dxil libreta.hlsl
+
+   17a9dc13dc3acc1c43efae02f16712414ee8b5b99ee256849c06304634e5304f  libreta_vs.dxil
+   922f18d94d2a12d18791f7fe696ebb5ee950558738b78fffdcafbd12e84c37c2  libreta_ps.dxil
+
+libreta.exe -- lo RARO de un render target, y la LIBRETA de la 3060 (06-10)
+
+9d del contador de PLAN_LAS_TRES_GRANDES 7.1. NUESTRO, de consola. Un
+render target RGBA8 de 1280 x 720 (lo que dibuja la puerta de la 3060)
+limpio a azul; A, un dibujo normal a la mitad izquierda; B, el RARO (+inf,
+NaN, -inf) arriba a la derecha: D3D los guarda 1, 0 y 0 (rojo tambien); C,
+abajo a la derecha, azul; D, la imagen entera. Dice `bien` 4 veces y sale
+con el numero de fallos; en Windows dice lo mismo. En el metal de BMO-X,
+si los lotes van a la 3060, el B lo apunta la LIBRETA (el termometro del
+cuerpo, el pegamento del kernel) y la consola lo dice.
+
+Con lo de `muestras/construir.sh`, en un directorio con libreta.cpp y los
+dos .dxil:
+
+   $G -specs=ucrt.specs -D__MSVCRT_VERSION__=0xE00 -D_UCRT -std=c++17 -O2 -Idxh/include/directx -Idxh/include -c libreta.cpp -o libreta.o
+   $G -specs=ucrt.specs -static -static-libgcc -static-libstdc++ -s -Wl,--no-insert-timestamp -o libreta.exe libreta.o -ld3d12
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   e1b4a8c384adeb0ffb34589151054d0765aceb7b10422a52a74d102ada9e78ff  libreta.exe
+
+El banco (`tests/corre/vivo.rs`): los 4 `bien`, sale con 0, ni un aviso
+(en el banco va por la CPU: el termometro y el apunte los juzgan
+`proton-x-sm86` y `bmo-gpu-ga10x`). Probado que dice NO: con la casa
+guardando NaN como 1 (`trama::unorm8`), B y D salen MAL (230400 pixeles).

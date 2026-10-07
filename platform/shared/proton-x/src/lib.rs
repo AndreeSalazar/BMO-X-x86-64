@@ -37,6 +37,8 @@ extern crate alloc;
 
 pub mod bc;
 pub mod bufer;
+// A9b (06-10): el mapa de la CPU (el Enlace de un PSO) en bytes y de vuelta.
+pub mod cifra;
 pub mod cargar;
 /// E2.5 (05-10): los pixeles en cuadros de 2x2 y en olas (las de un
 /// sombreador que usa `Wave*` y `Quad*`).
@@ -75,6 +77,8 @@ pub mod monton;
 pub mod nativo;
 /// E2.3b (05-10): el computo traducido a x86-64, con saltos y barreras.
 pub mod nativo_computo;
+// L6a (06-10): el Dispatch del computo traducido, con sus olas (A10).
+pub mod nativo_despacho;
 /// X2 (05-10): lo que el codigo traducido LLAMA (texturas, matematica).
 pub mod nativo_llamadas;
 pub mod teb;
@@ -170,3 +174,5 @@ mod pruebas_olas;
 mod pruebas_niveles;
 #[cfg(test)]
 mod pruebas_nulo;
+#[cfg(test)]
+mod pruebas_cifra;

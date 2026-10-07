@@ -747,6 +747,7 @@ pub fn preparar_con<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, l
         && escribir_bytes(r, VS, p.vs)
         && escribir_bytes(r, PS, p.ps)
         && escribir(r, TABLA, &[va as u32, (va >> 32) as u32]) == 2
+        && escribir(r, crate::libreta::LIBRETA, &[0]) == 1
         && escribir_bytes(r, DATOS, p.vertices)
         && escribir(r, EMPUJE, &o.o[..o.n]) == o.n && escribir(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]) == 2
 }
@@ -816,6 +817,8 @@ pub fn preparar_caliente<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paque
     let en = entrada(sombreador_va(EMPUJE), o.n as u32);
     let vol = crate::volcado::escribir_sin_releer;
     vol(r, SEMAFORO_FIN, &[0; 4]);
+    // 9d: la libreta, a 0 en CADA dibujo (lo de otro no se arrastra).
+    vol(r, crate::libreta::LIBRETA, &[0]);
     if !ligero {
         vol(r, ESCALONES, &[0; N_ESCALONES as usize]);
     }

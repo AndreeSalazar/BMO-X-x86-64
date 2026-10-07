@@ -27,6 +27,12 @@
 //!                 no se puede), en un `Rc`: lo comparten todos sus PSO
 //!    al acertar   no se lee ni el DXIL: los PSO de Cyberpunk que solo
 //!                 cambian mezcla, profundidad o formato salen gratis
+//!    RECORDADO    A9b (06-10): y entre un arranque y otro, en ESTRATOS
+//!                 (`proton-x/<juego>/mapas/<llave>.mapa`, el Enlace
+//!                 cifrado con `bmo_proton_x::cifra`): el segundo arranque
+//!                 del juego no lee el DXIL de lo que ya compilo. Lo cifrado
+//!                 por OTRO codigo de la casa no se descifra (lleva la
+//!                 huella del codigo): se vuelve a compilar
 //! ```
 
 use alloc::collections::BTreeMap;
@@ -58,8 +64,55 @@ fn hechos() -> &'static mut BTreeMap<Llave, Vec<(Vec<ElementoIa>, Rc<Compilado>)
     unsafe { &mut *HECHOS.0.get() }
 }
 
+/// A9b: donde se recuerdan los mapas (la carpeta del juego en ESTRATOS), y
+/// cuantos se compilaron y cuantos salieron del recuerdo en esta corrida.
+struct Recuerdo {
+    carpeta: Option<String>,
+    compilados: usize,
+    recordados: usize,
+}
+struct GlobalRecuerdo(UnsafeCell<Recuerdo>);
+// SAFETY: como `Global`.
+unsafe impl Sync for GlobalRecuerdo {}
+static RECUERDO: GlobalRecuerdo = GlobalRecuerdo(UnsafeCell::new(Recuerdo { carpeta: None, compilados: 0, recordados: 0 }));
+
+fn recuerdo() -> &'static mut Recuerdo {
+    // SAFETY: ver `Global`; nadie guarda la referencia.
+    unsafe { &mut *RECUERDO.0.get() }
+}
+
+/// **A9b: la carpeta de los mapas de este juego** (la pone la app con el
+/// perfil en ESTRATOS: `proton-x/<juego>/mapas`; el banco, una suya).
+/// `None`: se compila cada arranque, como antes.
+pub fn poner_carpeta(carpeta: Option<String>) {
+    recuerdo().carpeta = carpeta;
+}
+
+/// A9b: `(compilados, recordados)` desde que empezo la corrida.
+pub fn cuentas() -> (usize, usize) {
+    (recuerdo().compilados, recuerdo().recordados)
+}
+
+/// El fichero del mapa de `(llave, entradas)` en `carpeta`: la huella de
+/// las tres huellas y del input layout.
+fn fichero(carpeta: &str, llave: &Llave, entradas: &[ElementoIa]) -> String {
+    let mut b = Vec::with_capacity(64);
+    for h in [&llave.0, &llave.1, &llave.2] {
+        b.extend_from_slice(h);
+    }
+    b.extend_from_slice(alloc::format!("{entradas:?}").as_bytes());
+    let mut s = alloc::format!("{carpeta}/");
+    for x in huella(&b) {
+        s.push_str(&alloc::format!("{x:02x}"));
+    }
+    s.push_str(".mapa");
+    s
+}
+
 pub(crate) fn reiniciar() {
     hechos().clear();
+    let r = recuerdo();
+    (r.compilados, r.recordados) = (0, 0);
 }
 
 /// **Cuantos enlaces distintos hay, y cuantos se pueden correr** (para el
@@ -97,7 +150,29 @@ pub(crate) fn de(vs: &[u8], gs: &[u8], ps: &[u8], entradas: &[ElementoIa], hacer
             return Ok((c.clone(), false));
         }
     }
-    let c = Rc::new(hacer()?);
+    // A9b: del recuerdo (ESTRATOS), si hay un mapa de este codigo de la casa;
+    // si no, compilado ahora y guardado (lo que se pudo enlazar).
+    let ruta = recuerdo().carpeta.as_deref().map(|d| fichero(d, &llave, entradas));
+    let recordado = ruta
+        .as_deref()
+        .and_then(|r| (crate::plataforma().leer_fichero)(r.as_bytes()))
+        .and_then(|b| bmo_proton_x::cifra::descifrar_compilado(&b))
+        .map(|(nombres, enlace)| Compilado { nombres, enlace: Ok(enlace) });
+    let c = match recordado {
+        Some(c) => {
+            recuerdo().recordados += 1;
+            c
+        }
+        None => {
+            let c = hacer()?;
+            recuerdo().compilados += 1;
+            if let (Some(r), Ok(en)) = (&ruta, &c.enlace) {
+                (crate::plataforma().escribir_fichero)(r.as_bytes(), &bmo_proton_x::cifra::cifrar_compilado(&c.nombres, en));
+            }
+            c
+        }
+    };
+    let c = Rc::new(c);
     hechos().entry(llave).or_default().push((entradas.to_vec(), c.clone()));
     Ok((c, true))
 }

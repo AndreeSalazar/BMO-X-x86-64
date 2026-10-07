@@ -197,6 +197,9 @@ pub struct Recurso {
     /// D3D12_HEAP_TYPE de su memoria (GetHeapProperties, tanda 47): 1
     /// DEFAULT, salvo lo que diga quien lo crea.
     pub tipo_monton: u32,
+    /// A7 (06-10): de un monton CUSTOM, su D3D12_CPU_PAGE_PROPERTY y su
+    /// D3D12_MEMORY_POOL (los otros tipos, UNKNOWN: 0 y 0).
+    pub pagina_y_piscina: (u32, u32),
     /// 02-10: si es una textura, TODA ella (sus mips y capas); `pixeles` es
     /// la vista de su subrecurso 0 (lo que dibuja y presenta la casa).
     pub tex: Option<Tex>,
@@ -309,10 +312,10 @@ fn dispositivo() -> u64 {
 /// recurso es un bufer.
 fn vtabla_recurso() -> *const u64 {
     vtabla::<{ com::RESOURCE }>(&[
-        (8, dir!(tuberia::map)),
-        (9, dir!(tuberia::unmap)),
+        (8, dir!(crate::d3d12_resto::map)),
+        (9, dir!(crate::d3d12_resto::unmap)),
         (10, dir!(get_desc)),
-        (11, dir!(tuberia::get_gpu_virtual_address)),
+        (11, dir!(crate::d3d12_resto::get_gpu_virtual_address)),
         (12, dir!(crate::d3d12_resto::write_to_subresource)),
         (13, dir!(crate::d3d12_resto::read_from_subresource)),
         (14, dir!(crate::d3d12_resto::get_heap_properties)),
@@ -350,7 +353,7 @@ pub(crate) fn recurso_forma(forma: Forma, cadena: bool, banderas: u32) -> Option
     };
     let tex = Some(Tex { forma, subs, datos, almacen, banderas });
     crate::pulso::contar(crate::pulso::Cosa::Recurso, 0);
-    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: forma.ancho, alto: forma.alto, formato: forma.formato, pixeles, bufer: None, cadena, en_pantalla: false, tipo_monton: 1, tex }) as u64;
+    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: forma.ancho, alto: forma.alto, formato: forma.formato, pixeles, bufer: None, cadena, en_pantalla: false, tipo_monton: 1, pagina_y_piscina: (0, 0), tex }) as u64;
     // Uno nuevo en la direccion de uno que se fue no hereda su limpieza.
     tuberia::olvidar_limpieza(r);
     Some(r)
@@ -359,7 +362,7 @@ pub(crate) fn recurso_forma(forma: Forma, cadena: bool, banderas: u32) -> Option
 /// Un recurso que es un bufer (CreateCommittedResource).
 pub(crate) fn recurso_bufer(b: Bufer) -> u64 {
     crate::pulso::contar(crate::pulso::Cosa::Recurso, 0);
-    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Pixeles::ninguno(), bufer: Some(b), cadena: false, en_pantalla: false, tipo_monton: 1, tex: None }) as u64
+    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Pixeles::ninguno(), bufer: Some(b), cadena: false, en_pantalla: false, tipo_monton: 1, pagina_y_piscina: (0, 0), tex: None }) as u64
 }
 
 /// El inicio de un bufer de la casa, o `None` si `this` es una imagen.
@@ -1209,7 +1212,7 @@ pub(crate) extern "win64" fn set_event_on_completion(this: u64, valor: u64, even
 }
 
 /// Dejar 0 donde el `.exe` espera una interfaz que no se le da.
-fn nada(pp: *mut u64) {
+pub(crate) fn nada(pp: *mut u64) {
     if !pp.is_null() {
         // SAFETY: el puntero a interfaz del `.exe`.
         unsafe { pp.write_unaligned(0) };
@@ -1235,14 +1238,6 @@ extern "win64" fn d3d12_enable_experimental_features(_n: u32, _iids: *const Guid
     E_NOINTERFACE
 }
 
-/// Leer una firma raiz ya serializada: la casa todavia no; se dice.
-extern "win64" fn d3d12_create_root_signature_deserializer(_datos: u64, _medida: usize, _riid: *const Guid, pp: *mut u64) -> i32 {
-    aviso("D3D12Create(Versioned)RootSignatureDeserializer: la casa todavia no lee firmas serializadas");
-    nada(pp);
-    E_NOTIMPL
-}
-
-const E_NOTIMPL: i32 = 0x8000_4001_u32 as i32;
 
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
@@ -1250,7 +1245,9 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "D3D12GetDebugInterface" => dir!(d3d12_get_debug_interface),
         "D3D12GetInterface" => dir!(d3d12_get_interface),
         "D3D12EnableExperimentalFeatures" => dir!(d3d12_enable_experimental_features),
-        "D3D12CreateRootSignatureDeserializer" | "D3D12CreateVersionedRootSignatureDeserializer" => dir!(d3d12_create_root_signature_deserializer),
+        // A3 (06-10): `deserializador`.
+        "D3D12CreateRootSignatureDeserializer" => dir!(crate::deserializador::d3d12_create_root_signature_deserializer),
+        "D3D12CreateVersionedRootSignatureDeserializer" => dir!(crate::deserializador::d3d12_create_versioned_root_signature_deserializer),
         _ => return None,
     })
 }

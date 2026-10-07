@@ -8,11 +8,13 @@
 //      los bytes 81 E0 20 7F.
 //   C  R10G10B10A2_TYPELESS por una R32_UINT, Uint 0xC00FFC01: esa palabra.
 //   D  R16G16B16A16_TYPELESS por una R16G16B16A16_UINT, Uint (0x10001, 2,
-//      3, 0x17BFF): los 16 bits bajos de cada uno (1, 2, 3, 0x7BFF).
+//      3, 0x17BFF): cada uno SATURADO a 16 bits (0xFFFF, 2, 3, 0xFFFF). Lo
+//      dijo Windows en la 3060 (06-10): la casa se quedaba con los bits bajos.
 //   E  R16G16_FLOAT, Float (0.5, -2): los halfs 3800 y C000.
 //   F  R32_UINT de 8 x 8: Uint 5 entera, y Uint 7 en los rectangulos
 //      (1, 1)-(3, 4), (5, 0)-(8, 2) y uno vacio (6, 6)-(6, 8).
-//   G  un bufer R16G16_UINT de 16 elementos, Uint (0x10005, 0x20006): (5, 6).
+//   G  un bufer R16G16_UINT de 16 elementos, Uint (0x10005, 0x20006):
+//      saturados, (0xFFFF, 0xFFFF), como D.
 //   H  un array R32_UINT de 4 x 4 x 2 por la vista de sus dos capas: Uint 0
 //      entera y Uint 9 en (0, 0)-(2, 2): en LAS DOS capas.
 //
@@ -247,7 +249,7 @@ int main() {
     juzgar("A, RGBA8_TYPELESS limpio por una vista R32_UINT", T8A, 4, 1, [](UINT, UINT, UINT) { return 0x11223344u; });
     juzgar("B, RGBA8_TYPELESS limpio por una R8G8B8A8_SNORM (81 E0 20 7F)", T8B, 4, 1, [](UINT, UINT, UINT) { return 0x7F20E081u; });
     juzgar("C, R10G10B10A2_TYPELESS limpio por una R32_UINT", T10, 4, 1, [](UINT, UINT, UINT) { return 0xC00FFC01u; });
-    juzgar("D, R16G16B16A16_TYPELESS por una UINT: los 16 bits bajos de cada valor", T16, 4, 2, [](UINT, UINT, UINT w) { return w == 0 ? 0x00020001u : 0x7BFF0003u; });
+    juzgar("D, R16G16B16A16_TYPELESS por una UINT: cada valor saturado a 16 bits", T16, 4, 2, [](UINT, UINT, UINT w) { return w == 0 ? 0x0002FFFFu : 0xFFFF0003u; });
     juzgar("E, R16G16_FLOAT con Float (0.5, -2): los halfs", TFL, 4, 1, [](UINT, UINT, UINT) { return 0xC0003800u; });
     juzgar("F, R32_UINT de 8 x 8: 7 solo en sus dos rectangulos (el vacio no limpia nada)", TRECT, 8, 1, [](UINT x, UINT y, UINT) {
         bool dentro = (x >= 1 && x < 3 && y >= 1 && y < 4) || (x >= 5 && x < 8 && y < 2);
@@ -256,8 +258,8 @@ int main() {
     const UINT *b = (const UINT *)(m + EN_BUFER);
     UINT malos = 0;
     for (UINT i = 0; i < 16; i++)
-        malos += b[i] != 0x00060005u;
-    snprintf(msg, sizeof msg, "G, un bufer R16G16_UINT con Uint (0x10005, 0x20006): (5, 6) en %u de 16 (el 0 es %08x)", 16 - malos, b[0]);
+        malos += b[i] != 0xFFFFFFFFu;
+    snprintf(msg, sizeof msg, "G, un bufer R16G16_UINT con Uint (0x10005, 0x20006): saturados, (0xFFFF, 0xFFFF) en %u de 16 (el 0 es %08x)", 16 - malos, b[0]);
     decir(malos == 0, msg);
     malos = 0;
     for (int donde = TARR0; donde <= TARR1; donde++)

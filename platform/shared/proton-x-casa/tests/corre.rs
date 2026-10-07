@@ -124,6 +124,18 @@ const TIPOS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/tipos.exe");
 const LIMPIEZA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/limpieza.exe");
 /// 06-10: una escena 3D DURA, contra la imagen que guardo Windows (A11).
 const ESCENA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/escena.exe");
+/// 06-10: los deserializadores de root signatures y la 1.1 serializada con los bytes de Windows (A3, A4).
+const LEEFIRMA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/leefirma.exe");
+/// 06-10: los UAV de arrays de una dimension (A5).
+const CAPAS1D_EXE: &[u8] = include_bytes!("../../proton-x/prueba/capas1d.exe");
+/// 06-10: las topologias con adyacencia, con un GS y sin el (A6).
+const ADYACENCIA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/adyacencia.exe");
+/// 06-10: Map sobre una textura de un monton de la CPU (A7).
+const MAPEO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/mapeo.exe");
+/// 06-10: las preguntas de CheckFeatureSupport que la casa no contestaba (A8).
+const PREGUNTAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/preguntas.exe");
+/// 06-10: lo raro de un render target (+inf, NaN, -inf), lo que apunta la libreta de la 3060 (9d).
+const LIBRETA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/libreta.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");
@@ -1331,3 +1343,6 @@ mod muestras;
 // Las tandas 1 a 13 (05-10, L6a otra vez).
 #[path = "corre/tandas.rs"]
 mod tandas;
+// A9 (06-10): el .bsf vivo, de punta a punta (bmox12.exe dos veces).
+#[path = "corre/vivo.rs"]
+mod vivo;

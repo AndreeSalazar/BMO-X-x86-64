@@ -93,9 +93,10 @@ fn la_huella_de_dxbc_es_la_de_microsoft() {
 
 fn firma_del_cubo() -> raiz::Firma {
     raiz::Firma {
-        parametros: vec![raiz::Parametro { tipo: raiz::CBV, visibilidad: 0, carga: raiz::Carga::Descriptor { registro: 0, espacio: 0 } }],
+        parametros: vec![raiz::Parametro { tipo: raiz::CBV, visibilidad: 0, carga: raiz::Carga::Descriptor { registro: 0, espacio: 0, banderas: 0 } }],
         samplers: Vec::new(),
         banderas: raiz::CON_INPUT_LAYOUT,
+        version: raiz::VERSION_1_0,
     }
 }
 
@@ -111,14 +112,15 @@ fn una_root_signature_con_tabla_constantes_y_sampler_va_y_vuelve() {
     let f = raiz::Firma {
         parametros: vec![
             raiz::Parametro { tipo: raiz::TABLA, visibilidad: 5, carga: raiz::Carga::Tabla(vec![
-                raiz::Rango { tipo: 0, cuantos: 2, registro: 0, espacio: 0, desde: 0 },
-                raiz::Rango { tipo: 2, cuantos: 1, registro: 1, espacio: 0, desde: 2 },
+                raiz::Rango { tipo: 0, cuantos: 2, registro: 0, espacio: 0, desde: 0, banderas: 0 },
+                raiz::Rango { tipo: 2, cuantos: 1, registro: 1, espacio: 0, desde: 2, banderas: 0 },
             ]) },
             raiz::Parametro { tipo: raiz::CONSTANTES, visibilidad: 1, carga: raiz::Carga::Constantes { registro: 1, espacio: 0, cuantas: 4 } },
-            raiz::Parametro { tipo: raiz::SRV, visibilidad: 0, carga: raiz::Carga::Descriptor { registro: 3, espacio: 1 } },
+            raiz::Parametro { tipo: raiz::SRV, visibilidad: 0, carga: raiz::Carga::Descriptor { registro: 3, espacio: 1, banderas: 0 } },
         ],
         samplers: vec![[21, 1, 1, 1, 0, 16, 4, 0, 0, u32::MAX, 0, 0, 5]],
         banderas: raiz::CON_INPUT_LAYOUT,
+        version: raiz::VERSION_1_0,
     };
     let d = raiz::serializar(&f);
     assert_eq!(dxbc::huella(&d), d[4..20]);

@@ -87,7 +87,7 @@ pub fn en_tabla(f: &Firma, tipo: u32, l: Lugar) -> Option<(usize, u64)> {
 /// `tipo` (`raiz::SRV` o `raiz::UAV`, `Set*RootShaderResourceView` y
 /// `...UnorderedAccessView`) con su registro y su espacio, si lo hay.
 pub fn en_raiz(f: &Firma, tipo: u32, l: Lugar) -> Option<usize> {
-    f.parametros.iter().position(|p| p.tipo == tipo && lo_ve(p.visibilidad, l) && matches!(p.carga, Carga::Descriptor { registro, espacio } if (espacio, registro) == (l.espacio, l.registro)))
+    f.parametros.iter().position(|p| p.tipo == tipo && lo_ve(p.visibilidad, l) && matches!(p.carga, Carga::Descriptor { registro, espacio, .. } if (espacio, registro) == (l.espacio, l.registro)))
 }
 
 /// **Donde esta un cbuffer** (N5.2): tres sitios posibles.
@@ -119,7 +119,7 @@ pub fn cbuffer(f: &Firma, l: Lugar) -> Option<Cb> {
             continue;
         }
         match p.carga {
-            Carga::Descriptor { registro, espacio } if p.tipo == crate::raiz::CBV && (espacio, registro) == (l.espacio, l.registro) => return Some(Cb::Raiz(k)),
+            Carga::Descriptor { registro, espacio, .. } if p.tipo == crate::raiz::CBV && (espacio, registro) == (l.espacio, l.registro) => return Some(Cb::Raiz(k)),
             Carga::Constantes { registro, espacio, cuantas } if (espacio, registro) == (l.espacio, l.registro) => return Some(Cb::Constantes { desde: constantes_desde(f, k), cuantas }),
             _ => {}
         }
@@ -144,7 +144,7 @@ mod pruebas {
         Parametro { tipo: TABLA, visibilidad: vista, carga: Carga::Tabla(rangos.to_vec()) }
     }
     fn rango(tipo: u32, cuantos: u32, registro: u32, espacio: u32, desde: u32) -> Rango {
-        Rango { tipo, cuantos, registro, espacio, desde }
+        Rango { tipo, cuantos, registro, espacio, desde, banderas: 0 }
     }
     fn lugar(espacio: u32, registro: u32, vista: u32) -> Lugar {
         Lugar { espacio, registro, vista }
@@ -155,7 +155,7 @@ mod pruebas {
     fn firma() -> Firma {
         Firma {
             parametros: vec![
-                Parametro { tipo: crate::raiz::CBV, visibilidad: 0, carga: Carga::Descriptor { registro: 0, espacio: 0 } },
+                Parametro { tipo: crate::raiz::CBV, visibilidad: 0, carga: Carga::Descriptor { registro: 0, espacio: 0, banderas: 0 } },
                 tabla(VISTA_PIXELES, &[rango(RANGO_SRV, 4, 0, 0, 0), rango(RANGO_SRV, 8, 40, 1, A_CONTINUACION), rango(RANGO_SRV, SIN_MEDIDA, 0, 3, A_CONTINUACION)]),
                 tabla(VISTA_VERTICES, &[rango(RANGO_SRV, 2, 0, 0, 5)]),
                 tabla(VISTA_TODAS, &[rango(RANGO_MUESTREADOR, 16, 0, 0, 0), rango(RANGO_MUESTREADOR, 4, 20, 1, 100)]),
@@ -168,6 +168,7 @@ mod pruebas {
                 s
             }],
             banderas: 0,
+            version: crate::raiz::VERSION_1_0,
         }
     }
 
@@ -211,12 +212,13 @@ mod pruebas {
         let f = Firma {
             parametros: vec![
                 Parametro { tipo: CONSTANTES, visibilidad: VISTA_VERTICES, carga: Carga::Constantes { registro: 1, espacio: 0, cuantas: 4 } },
-                Parametro { tipo: CBV, visibilidad: VISTA_TODAS, carga: Carga::Descriptor { registro: 0, espacio: 0 } },
+                Parametro { tipo: CBV, visibilidad: VISTA_TODAS, carga: Carga::Descriptor { registro: 0, espacio: 0, banderas: 0 } },
                 Parametro { tipo: CONSTANTES, visibilidad: VISTA_PIXELES, carga: Carga::Constantes { registro: 1, espacio: 0, cuantas: 2 } },
                 tabla(VISTA_TODAS, &[rango(RANGO_SRV, 3, 0, 0, 0), rango(RANGO_CBV, 2, 4, 7, A_CONTINUACION)]),
             ],
             samplers: vec![],
             banderas: 0,
+            version: crate::raiz::VERSION_1_0,
         };
         assert_eq!(cbuffer(&f, lugar(0, 0, VISTA_PIXELES)), Some(Cb::Raiz(1)));
         assert_eq!(cbuffer(&f, lugar(0, 1, VISTA_VERTICES)), Some(Cb::Constantes { desde: 0, cuantas: 4 }));
@@ -234,6 +236,7 @@ mod pruebas {
             parametros: vec![tabla(0, &[rango(RANGO_SRV, SIN_MEDIDA, 0, 0, 0xFFFF_FFF0), rango(RANGO_SRV, 4, 0, 1, A_CONTINUACION)])],
             samplers: vec![],
             banderas: 0,
+            version: crate::raiz::VERSION_1_0,
         };
         assert_eq!(en_tabla(&f, RANGO_SRV, lugar(0, 0xFFFF_FFFE, 0)), Some((0, 0xFFFF_FFF0 + 0xFFFF_FFFE)));
         assert_eq!(en_tabla(&f, RANGO_SRV, lugar(1, 0, 0)), None, "a continuacion de uno sin medida");

@@ -88,8 +88,14 @@ pub const VOLUMEN: usize = 25;
 pub const SESION: usize = 26;
 pub const VOLUMEN_FLUJO: usize = 27;
 pub const VOLUMEN_CANALES: usize = 28;
+/// 06-10 (A3): ID3D12RootSignatureDeserializer y su version con versiones
+/// (`deserializador`). Tampoco heredan de ID3D12Object.
+pub const DESERIALIZADOR: usize = 29;
+pub const DESERIALIZADOR_V: usize = 30;
 /// Cuantas interfaces tiene la casa.
-const CUANTAS: usize = 29;
+const CUANTAS: usize = 31;
+const IID_DESERIALIZADOR: Guid = guid(0x34ab647b, 0x3cc8, 0x46ac, [0x84, 0x1b, 0xc0, 0x96, 0x56, 0x45, 0xc0, 0x46]);
+const IID_DESERIALIZADOR_V: Guid = guid(0x7f91ce67, 0x090c, 0x4bb7, [0xb7, 0x8e, 0xed, 0x8f, 0xf2, 0xe3, 0x1d, 0xa0]);
 const IID_CONSULTAS: Guid = guid(0x0d9658ae, 0xed45, 0x469e, [0xa6, 0x1d, 0x97, 0x0e, 0xc5, 0x83, 0xca, 0xb4]);
 const IID_FIRMA: Guid = guid(0xc36a797c, 0xec80, 0x4f0a, [0x89, 0x85, 0xa7, 0xb2, 0x47, 0x50, 0x82, 0xd1]);
 
@@ -218,7 +224,12 @@ pub static INTERFACES: [Interfaz; CUANTAS] = [
     Interfaz { nombre: "IAudioSessionControl2", metodos: crate::wasapi_flujo::M_SESION, iids: &[crate::wasapi_flujo::IID_SESION2, crate::wasapi_flujo::IID_SESION] },
     Interfaz { nombre: "IAudioStreamVolume", metodos: crate::wasapi_flujo::M_VOLUMEN_CANALES, iids: &[crate::wasapi_flujo::IID_VOLUMEN_FLUJO] },
     Interfaz { nombre: "IChannelAudioVolume", metodos: crate::wasapi_flujo::M_VOLUMEN_CANALES, iids: &[crate::wasapi_flujo::IID_VOLUMEN_CANALES] },
+    Interfaz { nombre: "ID3D12RootSignatureDeserializer", metodos: M_DESERIALIZADOR, iids: &[IID_DESERIALIZADOR] },
+    Interfaz { nombre: "ID3D12VersionedRootSignatureDeserializer", metodos: M_DESERIALIZADOR_V, iids: &[IID_DESERIALIZADOR_V] },
 ];
+
+pub const M_DESERIALIZADOR: &[&str] = &["QueryInterface", "AddRef", "Release", "GetRootSignatureDesc"];
+pub const M_DESERIALIZADOR_V: &[&str] = &["QueryInterface", "AddRef", "Release", "GetRootSignatureDescAtVersion", "GetUnconvertedRootSignatureDesc"];
 
 /// **La cabecera de todo objeto de la casa.** `repr(C)` y delante: el `.exe`
 /// solo mira el primer puntero (la vtabla); lo demas es nuestro.
@@ -368,7 +379,7 @@ pub fn censo() -> Vec<(&'static str, Vec<(&'static str, Hueco)>)> {
         if vt.is_null() {
             continue;
         }
-        let faltas = faltas_por_indice!(i; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28);
+        let faltas = faltas_por_indice!(i; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30);
         let fallas = crate::fallas::direcciones(i);
         let metodos = INTERFACES[i].metodos;
         let huecos = metodos

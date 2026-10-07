@@ -131,8 +131,17 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
     if en.gs.is_some() {
         return Err(NoVa::Entrada("un sombreador de geometria"));
     }
-    let ev = emitir_con(&en.vs, 64, Abi::Registros).map_err(|e| NoVa::Emisor("vertice", e))?;
-    let ep = emitir_con(&en.ps, 64, Abi::Registros).map_err(|e| NoVa::Emisor("pixel", e))?;
+    // 9d: con la libreta, como la puerta (`puerta::CON_LIBRETA`).
+    let emitir = |p, que| {
+        let sin = || emitir_con(p, 64, Abi::Registros).map_err(|e| NoVa::Emisor(que, e));
+        if crate::puerta::CON_LIBRETA {
+            crate::emitir_libreta(p, 64, Abi::Registros, true).or_else(|_| sin())
+        } else {
+            sin()
+        }
+    };
+    let ev = emitir(&en.vs, "vertice")?;
+    let ep = emitir(&en.ps, "pixel")?;
     let els = elementos(en, ia)?;
     let filas = en.vs.filas_cb.max(en.ps.filas_cb) as u32;
     let datos = Datos { filas, paso, elementos: &els };
@@ -146,9 +155,11 @@ pub fn traducir(en: &Enlace, ia: &[ElementoIa], paso: u32) -> Result<ParaLa3060,
         return Err(NoVa::Entrada("varios render targets (o uno que no es el 0, o SV_Depth)"));
     }
     let posicion = en.posicion as u32;
-    let v = pegamento::vertice(&ev.codigo, ev.registros, &cargas(&ev), datos, en.vs.salidas as u32, posicion).map_err(|e| NoVa::Pegamento("vertice", e))?;
+    let mut v = pegamento::Pegado::VACIO;
+    pegamento::vertice_con_libreta_en(&mut v, &ev.codigo, ev.registros, &cargas(&ev), datos, en.vs.salidas as u32, posicion, ev.termometro).map_err(|e| NoVa::Pegamento("vertice", e))?;
     let genericos: Vec<Option<u8>> = en.desde_vs.iter().map(|o| o.and_then(|o| pegamento::generico(o as u32, posicion))).collect();
-    let p = pegamento::pixel(&ep.codigo, ep.registros, &cargas(&ep), datos, &genericos).map_err(|e| NoVa::Pegamento("pixel", e))?;
+    let mut p = pegamento::Pegado::VACIO;
+    pegamento::pixel_con_libreta_en(&mut p, &ep.codigo, ep.registros, &cargas(&ep), datos, &genericos, ep.termometro).map_err(|e| NoVa::Pegamento("pixel", e))?;
     let (vs, ps) = (bytes(&v), bytes(&p));
     let juzgar = |cual: &'static str, b: &[u8]| juez::juzgar_programa(b, tuberia::REGISTROS).map_err(|x| NoVa::Juez(cual, alloc::format!("{x}")));
     let instrucciones = juzgar("vertice", &vs)?.instrucciones + juzgar("pixel", &ps)?.instrucciones;

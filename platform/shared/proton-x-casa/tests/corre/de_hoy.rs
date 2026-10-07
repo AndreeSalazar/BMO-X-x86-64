@@ -222,6 +222,8 @@ fn el_pulso_no_se_nota_y_su_foto_dice_hilos_y_llamadas() {
     }
     let uno = uno_a_la_vez();
     let _apagar = Apagar;
+    // 07-10: el monton de la casa, en cada foto (un medidor de mentira).
+    bmo_proton_x_casa::pulso::medir_monton(|| (3 << 20, 5 << 20, 64 << 20));
     let ruta = volumen().join("pulso.txt");
     for (exe, nombre, bien, fin) in [(CRT, ("window/crt.exe", "-nivel 3"), 0, "crt.exe"), (HILOS, ("window/prueba.exe", ""), 19, "hilos.exe: los hilos son los de Windows")] {
         let _ = std::fs::remove_file(&ruta);
@@ -238,6 +240,7 @@ fn el_pulso_no_se_nota_y_su_foto_dice_hilos_y_llamadas() {
         let foto = &diario[diario.find("# EN VIVO").unwrap_or_else(|| panic!("sin foto: {diario}"))..];
         let llamadas: u64 = foto.split("; ").nth(1).and_then(|x| x.split(' ').next()).and_then(|n| n.parse().ok()).unwrap_or_else(|| panic!("{foto}"));
         let hilos = foto.lines().filter(|l| l.starts_with("#   ") && l.contains("; ultima: ")).count();
+        assert!(foto.contains("# el monton de la casa: 3 MiB en uso (pico 5 MiB), crecio 64 MiB por la reserva\n"), "{foto}");
         if exe == CRT {
             assert!(llamadas > 2048, "{foto}");
         } else {

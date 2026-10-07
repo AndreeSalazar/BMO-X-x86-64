@@ -38,6 +38,11 @@ const SV_POSITION: u32 = 1;
 /// los pone quien dibuja.
 const SV_VERTEXID: u32 = 6;
 const SV_INSTANCEID: u32 = 8;
+/// A6 (06-10): el SV_PrimitiveID que lee un GS: no viene del de vertices.
+const SV_PRIMITIVEID: u32 = 7;
+/// Lo que pone [`EnlaceGs::desde_vs`] en una entrada del GS que no viene
+/// del de vertices (su SV_PrimitiveID: lo da `Tiras::primitiva`).
+const NI_UNA: usize = usize::MAX;
 /// SV_Target (`D3D_NAME_TARGET`): un render target.
 const SV_TARGET: u32 = 64;
 /// SV_Depth y sus variantes (`D3D_NAME_DEPTH`, `_GREATER_EQUAL`, `_LESS_EQUAL`).
@@ -135,7 +140,7 @@ pub struct Enlace {
 pub struct EnlaceGs {
     pub programa: Programa,
     /// Por elemento de entrada del GS: la salida del de vertices que le
-    /// llega (por su semantica).
+    /// llega (por su semantica); `usize::MAX`, ninguna (A6: su SV_PrimitiveID).
     pub desde_vs: Vec<usize>,
     /// Su primitiva de entrada, su topologia de salida y cuantos emite.
     pub info: crate::dxil::recursos::Geometria,
@@ -269,6 +274,10 @@ pub fn enlazar_con_gs(vs: &Sombreador, gs: Option<&Sombreador>, ps: Option<&Somb
             }
             let mut desde = Vec::with_capacity(g.entradas.len());
             for f in &g.entradas {
+                if f.sistema == SV_PRIMITIVEID {
+                    desde.push(NI_UNA);
+                    continue;
+                }
                 let k = vs.salidas.iter().position(|o| o.semantica.eq_ignore_ascii_case(&f.semantica) && o.indice == f.indice);
                 desde.push(k.ok_or_else(|| format!("el GS lee {}{} y el de vertices no lo escribe", f.semantica, f.indice))?);
             }
@@ -323,6 +332,14 @@ pub enum Topologia {
     Puntos,
     Lineas,
     TiraDeLineas,
+    /// A6 (06-10): las de ADYACENCIA (`*_ADJ`): cada primitiva lleva, entre
+    /// los suyos, los vertices de al lado, que solo ve un GS (`lineadj`,
+    /// 4; `triangleadj`, 6). Sin GS se pintan sus triangulos y los de al
+    /// lado no cuentan; sus lineas, como las otras, solo con un GS.
+    ListaAdy,
+    TiraAdy,
+    LineasAdy,
+    TiraDeLineasAdy,
 }
 
 /// **Las primitivas de un lote** (E2.3b), como ids: de `n` vertices cada
@@ -333,8 +350,57 @@ pub fn primitivas(ids: &[u32], t: Topologia, n: usize) -> Option<Vec<Vec<u32>>> 
         (Topologia::Lineas, 2) => ids.chunks_exact(2).map(<[u32]>::to_vec).collect(),
         (Topologia::TiraDeLineas, 2) => ids.windows(2).map(<[u32]>::to_vec).collect(),
         (Topologia::Lista | Topologia::Tira, 3) => triangulos(ids, t).into_iter().map(|x| x.to_vec()).collect(),
+        // A6: con su adyacencia, en el orden en que la lee el GS.
+        (Topologia::LineasAdy, 4) => ids.chunks_exact(4).map(<[u32]>::to_vec).collect(),
+        (Topologia::TiraDeLineasAdy, 4) => ids.windows(4).map(<[u32]>::to_vec).collect(),
+        (Topologia::ListaAdy, 6) => ids.chunks_exact(6).map(<[u32]>::to_vec).collect(),
+        (Topologia::TiraAdy, 6) => tira_ady(ids).into_iter().map(|x| x.to_vec()).collect(),
         _ => return None,
     })
+}
+
+/// **Los triangulos de una tira con ADYACENCIA** (A6, 06-10), como los lee
+/// un GS `triangleadj`: `[v1, a12, v2, a23, v3, a31]` (cada `a`, el vertice
+/// de al lado de esa arista). Los del triangulo van en los pares; de `n`
+/// vertices salen `(n - 4) / 2`, y los impares van dados la vuelta, como en
+/// una tira sin adyacencia. Las aristas de los extremos toman el de al lado
+/// de la punta (la tabla 10.1 de GL 4.6):
+///
+/// ```text
+///    triangulo i     v1, v2, v3              a12     a23     a31
+///    solo uno        0, 2, 4                 1       5       3
+///    el primero      0, 2, 4                 1       6       3
+///    par, en medio   2i, 2i+2, 2i+4          2i-2    2i+6    2i+3
+///    impar           2i+2, 2i, 2i+4          2i-2    2i+3    2i+6
+///    par, el ultimo  2i, 2i+2, 2i+4          2i-2    2i+5    2i+3
+///    impar, ultimo   2i+2, 2i, 2i+4          2i-2    2i+3    2i+5
+/// ```
+///
+/// Con UNA diferencia, la que dijo Windows (06-10, `adyacencia.exe` B en la
+/// 3060): D3D empieza los IMPARES por su segundo vertice, `2i` -- el mismo
+/// triangulo y el mismo giro, rotado: `[v2, a23, v3, a31, v1, a12]` (el
+/// segundo de la tira de 10 es (2 5 6 8 4 0), no (4 0 2 5 6 8)). Importa al
+/// GS que lee `p[0]`, y al vertice que manda (el plano).
+fn tira_ady(ids: &[u32]) -> Vec<[u32; 6]> {
+    let m = ids.len().saturating_sub(4) / 2;
+    (0..m)
+        .map(|i| {
+            let par = i % 2 == 0;
+            let (v1, v2) = if par { (2 * i, 2 * i + 2) } else { (2 * i + 2, 2 * i) };
+            let a12 = if i == 0 { 1 } else { 2 * i - 2 };
+            let (a23, a31) = match (m == 1, i == 0, i + 1 == m, par) {
+                (true, ..) => (5, 3),
+                (_, true, ..) => (6, 3),
+                (_, _, true, true) => (2 * i + 5, 2 * i + 3),
+                (_, _, true, false) => (2 * i + 3, 2 * i + 5),
+                (.., true) => (2 * i + 6, 2 * i + 3),
+                _ => (2 * i + 3, 2 * i + 6),
+            };
+            let t = [v1, a12, v2, a23, 2 * i + 4, a31];
+            let t = if par { t } else { [t[2], t[3], t[4], t[5], t[0], t[1]] };
+            t.map(|k| ids[k])
+        })
+        .collect()
 }
 
 /// **Un dibujo, sin D3D12.**
@@ -452,8 +518,11 @@ pub fn triangulos(ids: &[u32], t: Topologia) -> Vec<[u32; 3]> {
     match t {
         Topologia::Lista => ids.chunks_exact(3).map(|x| [x[0], x[1], x[2]]).collect(),
         Topologia::Tira => ids.windows(3).enumerate().map(|(i, x)| if i % 2 == 0 { [x[0], x[1], x[2]] } else { [x[1], x[0], x[2]] }).collect(),
+        // A6: sin GS, los de al lado no cuentan: el 0, el 2 y el 4.
+        Topologia::ListaAdy => ids.chunks_exact(6).map(|x| [x[0], x[2], x[4]]).collect(),
+        Topologia::TiraAdy => tira_ady(ids).into_iter().map(|x| [x[0], x[2], x[4]]).collect(),
         // Sin GS, puntos y lineas no dan triangulos.
-        Topologia::Puntos | Topologia::Lineas | Topologia::TiraDeLineas => Vec::new(),
+        Topologia::Puntos | Topologia::Lineas | Topologia::TiraDeLineas | Topologia::LineasAdy | Topologia::TiraDeLineasAdy => Vec::new(),
     }
 }
 
@@ -649,7 +718,8 @@ fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: 
     // N5.13: instancia a instancia, como sin GS.
     for inst in 0..l.instancias {
         hecho.fill(None);
-        for prim in &prims {
+        for (np, prim) in prims.iter().enumerate() {
+                tiras.primitiva = np as u32;
                 for (k, &id) in prim.iter().enumerate() {
                     let ranura = &mut hecho[id as usize];
                     let base = match *ranura {
@@ -666,7 +736,7 @@ fn en_cpu_gs(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: CorrePs, g: 
                         }
                     };
                     for (j, &o) in g.desde_vs.iter().enumerate().take(paso_gs) {
-                        ent_gs[k * paso_gs + j] = salidas_vs.get(base + o).copied().unwrap_or([0.0; 4]);
+                        ent_gs[k * paso_gs + j] = base.checked_add(o).and_then(|i| salidas_vs.get(i)).copied().unwrap_or([0.0; 4]);
                     }
                 }
                 sal_gs.fill([0.0; 4]);
