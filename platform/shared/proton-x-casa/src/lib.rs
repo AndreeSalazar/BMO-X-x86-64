@@ -224,6 +224,25 @@ pub struct Plataforma {
     /// `None`: no hay aparato, y WASAPI corre con un reloj que no suena (el
     /// juego sigue a su paso, mudo).
     pub sonido: Option<Sonido>,
+    /// El CUADERNO de codigo (V4 de `PLAN_LOS_DOCE_DIRECTORES`, 07-10): un
+    /// bloque que se sella POR TRAMOS (`MEM_OP_SELLAR_HASTA`). `None`: el
+    /// codigo nativo va por `sellar_codigo`, un bloque nuevo con todo cada
+    /// vez.
+    pub cuaderno: Option<Cuaderno>,
+}
+
+/// **El cuaderno de codigo** (V4, 07-10): UN bloque donde el codigo nativo
+/// solo CRECE. Lo sellado (un prefijo, a paginas enteras) es R+X sin W; lo
+/// de detras, R+W sin X. El codigo no se mueve ni se suelta: un puntero a
+/// una funcion traducida vale para siempre, y la VA de bloques no se gasta.
+#[derive(Clone, Copy)]
+pub struct Cuaderno {
+    /// Abrirlo: su direccion y cuantos bytes mide (R+W, a ceros); `None` si
+    /// no hay bloque.
+    pub abrir: fn() -> Option<(u64, usize)>,
+    /// Sellar `[0, hasta)` (a pagina entera) del que empieza en esta
+    /// direccion. `false` si el kernel dijo que no.
+    pub sellar_hasta: fn(u64, usize) -> bool,
 }
 
 /// **El sonido de la plataforma** (03-10, N4.5): en BMO-X, el tubo del

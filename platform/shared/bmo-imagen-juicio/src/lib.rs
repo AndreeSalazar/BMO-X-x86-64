@@ -179,6 +179,7 @@ pub fn donde(partes: &[Parte], l: &Limites, i: usize) -> Option<(u64, u64)> {
 }
 
 pub mod reserva;
+pub mod sello;
 
 #[cfg(test)]
 mod pruebas;

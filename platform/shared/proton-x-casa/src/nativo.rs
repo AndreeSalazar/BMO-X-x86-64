@@ -24,6 +24,14 @@
 //! bloques a mitad de la carga. Ahora una carga de mil PSO sella UNA vez,
 //! en su primer dibujo.
 //!
+//! **El CUADERNO** (V4, 07-10, con el permiso de Ring 0 del propietario):
+//! si la plataforma lo tiene (`Plataforma::cuaderno`, en BMO-X
+//! `MEM_OP_SELLAR_HASTA`), el codigo vive en UN bloque que solo crece: lo
+//! nuevo se copia DETRAS de lo sellado y se sella ese tramo, a paginas
+//! enteras. Nada se mueve ni se suelta: un puntero a una funcion traducida
+//! vale para siempre. Si se llena, lo nuevo va como antes (un bloque entero
+//! con todo), y lo dice.
+//!
 //! **Nunca fuera del bloque** (V1, 07-10): si sellar falla, el bloque vivo
 //! es el VIEJO y el PSO nuevo tiene su sitio en un codigo que no esta en el.
 //! Llamar a `base + sitio` era saltar mas alla del final: el choque de
@@ -214,6 +222,24 @@ struct Estado {
     sin_bloque: bool,
     /// Cuantas veces se sello (V2: uno por carga, no uno por PSO).
     sellos: u32,
+    /// V4: el cuaderno abierto (direccion, medida), si lo hay.
+    cuaderno: Option<(u64, usize)>,
+    /// V4: no hay cuaderno, o se lleno o el kernel dijo que no: lo nuevo va
+    /// en un bloque entero.
+    sin_cuaderno: bool,
+    /// V4: lo que hay que decir una vez (el cuaderno se lleno...).
+    aviso: Option<&'static str>,
+}
+
+/// Lo sellado en el cuaderno va a paginas enteras.
+const PAGINA: usize = 4096;
+
+/// Como se sella: la plataforma, o la prueba.
+#[derive(Clone, Copy)]
+struct Sellador {
+    sellar: fn(&[u8]) -> Option<u64>,
+    soltar: fn(u64, usize),
+    cuaderno: Option<crate::Cuaderno>,
 }
 
 impl Estado {
@@ -222,16 +248,25 @@ impl Estado {
     /// suelta. Si sellar dice que no, el vivo sigue (el viejo, o ninguno) y
     /// no se vuelve a pedir; el segundo es `true` esa vez (lo dice quien
     /// llama, con su aviso).
-    fn al_dia(&mut self, sellar: fn(&[u8]) -> Option<u64>, soltar: fn(u64, usize)) -> (Option<(u64, usize)>, bool) {
-        let n = self.codigo.len();
-        let falta = n > 0 && self.bloque.map_or(true, |(_, k)| k < n);
+    fn al_dia(&mut self, s: &Sellador) -> (Option<(u64, usize)>, bool) {
+        let falta = !self.codigo.is_empty() && self.bloque.map_or(true, |(_, k)| k < self.codigo.len());
         if !falta || self.sin_bloque {
             return (self.bloque, false);
         }
-        match sellar(&self.codigo) {
+        if let Some(b) = self.en_cuaderno(s) {
+            self.bloque = Some(b);
+            self.sellos += 1;
+            return (self.bloque, false);
+        }
+        let n = self.codigo.len();
+        match (s.sellar)(&self.codigo) {
             Some(b) => {
                 if let Some((viejo, k)) = self.bloque.replace((b, n)) {
-                    soltar(viejo, k);
+                    // El cuaderno no se suelta nunca: alguien puede tener
+                    // un puntero a el (V4).
+                    if Some(viejo) != self.cuaderno.map(|c| c.0) {
+                        (s.soltar)(viejo, k);
+                    }
                 }
                 self.sellos += 1;
                 (self.bloque, false)
@@ -241,6 +276,49 @@ impl Estado {
                 (self.bloque, true)
             }
         }
+    }
+}
+
+impl Estado {
+    /// **Al cuaderno** (V4): lo que falta, copiado DETRAS de lo sellado y
+    /// sellado ese tramo; el bloque vivo es el cuaderno con todo. `None` si
+    /// no hay cuaderno (o se lleno, o el kernel dijo que no): entonces, el
+    /// bloque entero de siempre.
+    fn en_cuaderno(&mut self, s: &Sellador) -> Option<(u64, usize)> {
+        let c = s.cuaderno?;
+        if self.sin_cuaderno {
+            return None;
+        }
+        if self.cuaderno.is_none() {
+            self.cuaderno = (c.abrir)();
+            if self.cuaderno.is_none() {
+                self.sin_cuaderno = true;
+                return None;
+            }
+        }
+        let (base, cabe) = self.cuaderno?;
+        // Lo ya sellado: paginas enteras (el codigo se rellena hasta ahi).
+        let ya = match self.bloque {
+            Some((b, k)) if b == base => k,
+            _ => 0,
+        };
+        let hasta = self.codigo.len().div_ceil(PAGINA) * PAGINA;
+        if hasta > cabe {
+            self.sin_cuaderno = true;
+            self.aviso = Some("el cuaderno de codigo nativo se lleno: lo nuevo va en un bloque entero (gasta VA de bloques)");
+            return None;
+        }
+        // Lo de despues empieza en una pagina nueva, sin sellar.
+        self.codigo.resize(hasta, 0xCC);
+        // SAFETY: `[base + ya, base + hasta)` es del cuaderno (mide `cabe`
+        // >= `hasta`), nuestro, y todavia R+W: lo sellado es `[0, ya)`.
+        unsafe { core::ptr::copy_nonoverlapping(self.codigo[ya..].as_ptr(), (base as usize + ya) as *mut u8, hasta - ya) };
+        if !(c.sellar_hasta)(base, hasta) {
+            self.sin_cuaderno = true;
+            self.aviso = Some("el kernel no sello un tramo del cuaderno de codigo: lo nuevo va en un bloque entero");
+            return None;
+        }
+        Some((base, hasta))
     }
 }
 
@@ -254,7 +332,7 @@ fn cabe(t: &Traducido, n: usize) -> bool {
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos (ver hilos.rs).
 unsafe impl Sync for Global {}
-static ESTADO: Global = Global(UnsafeCell::new(Estado { codigo: Vec::new(), traducidos: Vec::new(), bloque: None, sin_bloque: false, sellos: 0 }));
+static ESTADO: Global = Global(UnsafeCell::new(Estado { codigo: Vec::new(), traducidos: Vec::new(), bloque: None, sin_bloque: false, sellos: 0, cuaderno: None, sin_cuaderno: false, aviso: None }));
 
 fn estado() -> &'static mut Estado {
     // SAFETY: ver `Global`; nadie guarda la referencia.
@@ -263,9 +341,15 @@ fn estado() -> &'static mut Estado {
 
 pub(crate) fn reiniciar() {
     let e = estado();
+    // El cuaderno no se suelta (V4): un puntero viejo a el seguiria valiendo.
     if let Some((b, n)) = e.bloque.take() {
-        (plataforma().soltar_codigo)(b, n);
+        if Some(b) != e.cuaderno.map(|c| c.0) {
+            (plataforma().soltar_codigo)(b, n);
+        }
     }
+    e.cuaderno = None;
+    e.sin_cuaderno = false;
+    e.aviso = None;
     e.codigo.clear();
     e.traducidos.clear();
     e.sin_bloque = false;
@@ -281,12 +365,19 @@ pub fn sellos() -> u32 {
 /// cuantos PSO traducidos y si el kernel dijo que no. En el metal dice si el
 /// codigo nativo CORRE (o todo va por el interprete, como el 06-10).
 pub fn foto() -> String {
-    let e = estado();
+    foto_de(estado())
+}
+
+fn foto_de(e: &Estado) -> String {
     alloc::format!(
-        "# el codigo nativo: {} sello(s), {} KiB de codigo, {} PSO traducidos{}\n",
+        "# el codigo nativo: {} sello(s), {} KiB de codigo, {} PSO traducidos{}{}\n",
         e.sellos,
         e.codigo.len() >> 10,
         e.traducidos.len(),
+        match e.cuaderno {
+            Some((_, cabe)) if !e.sin_cuaderno => alloc::format!("; en el cuaderno ({} de {} MiB)", e.codigo.len() >> 20, cabe >> 20),
+            _ => String::new(),
+        },
         if e.sin_bloque { "; SIN BLOQUE: el kernel dijo que no, se interpretan" } else { "" }
     )
 }
@@ -347,11 +438,14 @@ pub(crate) fn computo(desde: usize) -> Option<FuncionComputo> {
 /// Cambiar de bloque aqui es seguro porque se llama al EMPEZAR un Draw o un
 /// Dispatch, y ninguno cede el turno a mitad: nadie esta dentro del viejo.
 /// (T1 de `PLAN_LOS_DOCE_DIRECTORES`, ceder dentro de lo largo, NO puede
-/// ceder dentro del codigo nativo mientras esto suelte bloques; V4, el
-/// bloque que solo crece, lo quita.)
+/// ceder dentro del codigo nativo mientras esto suelte bloques; con el
+/// cuaderno de V4 no se suelta nada, salvo si se llena.)
 fn sellado() -> Option<(u64, usize)> {
     let p = plataforma();
-    let (b, fallo) = estado().al_dia(p.sellar_codigo, p.soltar_codigo);
+    let (b, fallo) = estado().al_dia(&Sellador { sellar: p.sellar_codigo, soltar: p.soltar_codigo, cuaderno: p.cuaderno });
+    if let Some(m) = estado().aviso.take() {
+        aviso(m);
+    }
     if fallo {
         aviso("sin bloque sellado para el codigo nativo: los sombreadores se interpretan (dan lo mismo, mas despacio)");
     }
@@ -582,7 +676,7 @@ pub fn en_cuadros<'a>(ps: &'a bmo_proton_x::dxil::programa::Programa, objetivos:
 mod pruebas {
     use super::*;
     use alloc::vec;
-    use core::sync::atomic::AtomicU32;
+    use core::sync::atomic::{AtomicU32, AtomicU64};
 
     // Cada prueba con los suyos: corren a la vez.
     static PEDIDOS: AtomicU32 = AtomicU32::new(0);
@@ -604,7 +698,11 @@ mod pruebas {
     }
 
     fn nuevo() -> Estado {
-        Estado { codigo: Vec::new(), traducidos: Vec::new(), bloque: None, sin_bloque: false, sellos: 0 }
+        Estado { codigo: Vec::new(), traducidos: Vec::new(), bloque: None, sin_bloque: false, sellos: 0, cuaderno: None, sin_cuaderno: false, aviso: None }
+    }
+
+    fn sin_cuaderno(sellar: fn(&[u8]) -> Option<u64>, soltar: fn(u64, usize)) -> Sellador {
+        Sellador { sellar, soltar, cuaderno: None }
     }
 
     fn pso(e: &mut Estado, enlace: usize, bytes: usize) {
@@ -622,11 +720,11 @@ mod pruebas {
         PEDIDOS.store(0, Ordering::Relaxed);
         let mut e = nuevo();
         pso(&mut e, 1, 100);
-        let (b, fallo) = e.al_dia(sellar_uno, no_suelta);
+        let (b, fallo) = e.al_dia(&sin_cuaderno(sellar_uno, no_suelta));
         let (_, n) = b.unwrap();
         assert!(!fallo && cabe(&e.traducidos[0], n));
         pso(&mut e, 2, 3000);
-        let (b, fallo) = e.al_dia(sellar_uno, no_suelta);
+        let (b, fallo) = e.al_dia(&sin_cuaderno(sellar_uno, no_suelta));
         assert!(fallo, "el kernel dijo que no: se dice una vez");
         let (base, n2) = b.unwrap();
         assert_eq!((base, n2), (0x1000_0000 + n as u64, n), "el vivo sigue siendo el viejo");
@@ -634,9 +732,71 @@ mod pruebas {
         assert!(!cabe(&e.traducidos[1], n2), "el nuevo NO entro: va por el interprete");
         assert!(e.traducidos[1].ps >= n2, "NO: sin `cabe`, base + sitio salta mas alla del final");
         // No se vuelve a pedir: un no del kernel no se repite en cada Draw.
-        let (_, fallo) = e.al_dia(sellar_uno, no_suelta);
+        let (_, fallo) = e.al_dia(&sin_cuaderno(sellar_uno, no_suelta));
         assert!(!fallo);
         assert_eq!(PEDIDOS.load(Ordering::Relaxed), 2);
+    }
+
+    static CUADERNO: AtomicU64 = AtomicU64::new(0);
+    static SELLADO_HASTA: AtomicU64 = AtomicU64::new(0);
+    static SOLTADOS_3: AtomicU32 = AtomicU32::new(0);
+    const CABE: usize = 3 * PAGINA;
+
+    fn abrir() -> Option<(u64, usize)> {
+        let b = alloc::boxed::Box::leak(vec![0u8; CABE].into_boxed_slice());
+        CUADERNO.store(b.as_mut_ptr() as u64, Ordering::Relaxed);
+        Some((b.as_mut_ptr() as u64, CABE))
+    }
+    /// El kernel de V4: solo crece y a paginas enteras (si no, la prueba
+    /// falla aqui).
+    fn sellar_hasta(base: u64, hasta: usize) -> bool {
+        assert_eq!(base, CUADERNO.load(Ordering::Relaxed));
+        assert!(hasta % PAGINA == 0 && hasta as u64 > SELLADO_HASTA.load(Ordering::Relaxed), "solo crece, a paginas");
+        SELLADO_HASTA.store(hasta as u64, Ordering::Relaxed);
+        true
+    }
+    fn soltar_3(_: u64, _: usize) {
+        SOLTADOS_3.fetch_add(1, Ordering::Relaxed);
+    }
+    fn entero(c: &[u8]) -> Option<u64> {
+        Some(0x7000_0000 + c.len() as u64)
+    }
+
+    /// **V4, el cuaderno**: el codigo nuevo va DETRAS de lo sellado y solo
+    /// se sella ese tramo; la direccion no cambia (un puntero viejo sigue
+    /// valiendo) y nada se suelta. La prueba que dice NO: lo sellado se
+    /// pisa en la memoria de prueba despues del primer sello, y el segundo
+    /// no lo reescribe (en BMO-X, escribirlo seria un #PF: es R+X). Lleno,
+    /// lo nuevo va a un bloque entero, se dice, y el cuaderno NO se suelta.
+    #[test]
+    fn el_cuaderno_solo_crece_y_no_se_mueve() {
+        SELLADO_HASTA.store(0, Ordering::Relaxed);
+        SOLTADOS_3.store(0, Ordering::Relaxed);
+        let s = Sellador { sellar: entero, soltar: soltar_3, cuaderno: Some(crate::Cuaderno { abrir, sellar_hasta }) };
+        let mut e = nuevo();
+        pso(&mut e, 1, 100);
+        let (b, fallo) = e.al_dia(&s);
+        let (base, n) = b.unwrap();
+        assert!(!fallo);
+        assert_eq!((base, n), (CUADERNO.load(Ordering::Relaxed), PAGINA), "una pagina sellada");
+        let cuaderno = unsafe { core::slice::from_raw_parts_mut(base as *mut u8, CABE) };
+        assert_eq!(&cuaderno[..PAGINA], &e.codigo[..PAGINA]);
+        cuaderno[..PAGINA].fill(0);
+        pso(&mut e, 2, 1000);
+        assert!(e.traducidos[1].vs >= PAGINA, "lo nuevo empieza en una pagina sin sellar");
+        let (b, _) = e.al_dia(&s);
+        assert_eq!(b, Some((base, 2 * PAGINA)), "la MISMA direccion, un tramo mas");
+        assert!(cuaderno[..PAGINA].iter().all(|&x| x == 0), "NO: lo sellado no se reescribe");
+        assert_eq!(&cuaderno[PAGINA..2 * PAGINA], &e.codigo[PAGINA..2 * PAGINA]);
+        assert!(e.traducidos.iter().all(|t| cabe(t, 2 * PAGINA)));
+        assert!(foto_de(&e).contains("en el cuaderno"));
+        // Lleno: 3 paginas de cuaderno y el codigo pide 4.
+        pso(&mut e, 3, 3000);
+        let (b, _) = e.al_dia(&s);
+        assert_eq!(b, Some((0x7000_0000 + e.codigo.len() as u64, e.codigo.len())), "un bloque entero con todo");
+        assert!(e.aviso.is_some(), "y lo dice");
+        assert_eq!(SOLTADOS_3.load(Ordering::Relaxed), 0, "el cuaderno NO se suelta");
+        assert_eq!(e.sellos, 3);
     }
 
     /// V2: tres PSO y sus dibujos = UN sello (antes, uno por PSO); un PSO
@@ -646,18 +806,18 @@ mod pruebas {
         PEDIDOS_2.store(0, Ordering::Relaxed);
         SOLTADOS.store(0, Ordering::Relaxed);
         let mut e = nuevo();
-        assert_eq!(e.al_dia(sellar_siempre, soltar), (None, false), "sin codigo, nada que sellar");
+        assert_eq!(e.al_dia(&sin_cuaderno(sellar_siempre, soltar)), (None, false), "sin codigo, nada que sellar");
         for k in 1..=3 {
             pso(&mut e, k, 64);
         }
         for _ in 0..10 {
-            let (b, _) = e.al_dia(sellar_siempre, soltar);
+            let (b, _) = e.al_dia(&sin_cuaderno(sellar_siempre, soltar));
             let (_, n) = b.unwrap();
             assert!(e.traducidos.iter().all(|t| cabe(t, n)));
         }
         assert_eq!((e.sellos, PEDIDOS_2.load(Ordering::Relaxed), SOLTADOS.load(Ordering::Relaxed)), (1, 1, 0));
         pso(&mut e, 4, 64);
-        let (b, _) = e.al_dia(sellar_siempre, soltar);
+        let (b, _) = e.al_dia(&sin_cuaderno(sellar_siempre, soltar));
         assert_eq!(b.unwrap().1, e.codigo.len());
         assert_eq!((e.sellos, SOLTADOS.load(Ordering::Relaxed)), (2, 1));
     }

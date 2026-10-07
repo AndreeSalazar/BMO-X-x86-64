@@ -203,6 +203,7 @@ fn plataforma_prueba() -> crate::Plataforma {
         reserva: None,
         trozos: None,
         sonido: None,
+        cuaderno: None,
     }
 }
 

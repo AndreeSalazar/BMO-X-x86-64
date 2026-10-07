@@ -1058,6 +1058,20 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
                     BmoStatus::negado(motivo, 0)
                 }
             }
+            // ** SELLAR POR TRAMOS (V4, 07-10): lo mismo, hasta `rdx` bytes.
+            cap::KIND_MEMORIA if frame.rsi == crate::ring0::obj::memory::MEM_OP_SELLAR_HASTA => {
+                let motivo = crate::ring0::obj::memory::sellar_hasta(
+                    scheduler::current_pid(),
+                    crate::ring0::mm::vmm::read_cr3(),
+                    resolved.object,
+                    frame.rdx,
+                );
+                if motivo == crate::ring0::obj::memory::SELLAR_HECHO {
+                    BmoStatus::ok_value(1)
+                } else {
+                    BmoStatus::negado(motivo, 0)
+                }
+            }
             cap::KIND_MEMORIA => {
                 match crate::ring0::obj::memory::operation(
                     resolved.object, frame.rsi, scheduler::current_pid(),

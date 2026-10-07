@@ -623,6 +623,16 @@ pub const SELLAR_PRESTADO: u32 = 3;
 pub const SELLAR_SIN_NX: u32 = 4;
 /// El remapeo fallo a mitad; el bloque quedo desmapeado.
 pub const SELLAR_NO_REMAPEA: u32 = 5;
+/// `MEM_OP_SELLAR_HASTA` mas alla del final del bloque.
+pub const SELLAR_FUERA: u32 = 6;
+
+/// **Sellar por TRAMOS** (V4 de `PLAN_LOS_DOCE_DIRECTORES`, 07-10): las
+/// paginas de `[sellado, hasta)` pasan a R+X sin W (`rdx` = `hasta`, a
+/// pagina entera); lo de detras sigue siendo datos. Un bloque de codigo que
+/// solo crece: el JIT de PROTON-X (sus sombreadores) vive en UNO, sin
+/// moverse ni soltarse. Contesta 1, o `ERROR_NEGADO` con el motivo
+/// (`SELLAR_*`).
+pub const MEM_OP_SELLAR_HASTA: u64 = 0x07;
 
 /// `INVOKE` operations accepted by a channel (estuary) capability.
 pub const CHANNEL_OP_GET_SEQ: u64 = 0x01;

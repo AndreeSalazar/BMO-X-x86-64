@@ -217,6 +217,11 @@ pub const SELLAR_YA_SELLADO: u32 = 2;
 pub const SELLAR_PRESTADO: u32 = 3;
 pub const SELLAR_SIN_NX: u32 = 4;
 pub const SELLAR_NO_REMAPEA: u32 = 5;
+/// V4 (07-10): `MEM_OP_SELLAR_HASTA` mas alla del final del bloque.
+pub const SELLAR_FUERA: u32 = 6;
+/// **Sellar por TRAMOS** (V4, 07-10): `[0, hasta)`, a paginas enteras; lo
+/// de detras sigue siendo datos. Espejo de `ring0::obj::memory`.
+pub const MEM_OP_SELLAR_HASTA: u32 = 0x07;
 /// **Quien me lanzo**, como TID. `0` si nadie -- ver [`crate::sys::mi_padre`].
 pub const OP_MI_PADRE: u32 = 0x26;
 

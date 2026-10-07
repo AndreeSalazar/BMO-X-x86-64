@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   661 casillas ABIERTAS en 64 planes
-   562 hechas
+   660 casillas ABIERTAS en 64 planes
+   563 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -199,15 +199,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_LOS_DOCE_DIRECTORES.md`](PLAN_LOS_DOCE_DIRECTORES.md) -- 12 abiertas, 4 hechas
-
-*PLAN LOS DOCE DIRECTORES -- PROTON-X aprende a usar TODO el Ryzen*
-
-- [ ] V3 -- los ficheros por el bloque de paso. leer_fichero y
-- [ ] V4 -- [RING 0] sellar por TRAMOS. Un bloque de codigo que solo
-- [ ] V5 -- la cabina lo dice. La foto del pulso de PROTON-X dice la VA
-- ... y 9 mas
-
 ## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 11 abiertas, 11 hechas
 
 *PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
@@ -233,6 +224,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Q1 -- la COMPRENSION en el frontend y el calculo (E0): [e for x in l if c], varios for (el JOIN)
 - [ ] Q2 -- la comprension en E1 (toolchain/lang/titan/emisor-x86_64/src/e1/coleccion.rs): un bucle qu
 - [ ] Q3 -- el INDICE POR HASH: es L9 de docs/plan/PLAN_LISTAS_Y_MAPAS.md
+- ... y 8 mas
+
+## [`PLAN_LOS_DOCE_DIRECTORES.md`](PLAN_LOS_DOCE_DIRECTORES.md) -- 11 abiertas, 5 hechas
+
+*PLAN LOS DOCE DIRECTORES -- PROTON-X aprende a usar TODO el Ryzen*
+
+- [ ] V3 -- los ficheros por el bloque de paso. leer_fichero y
+- [ ] V5 -- la cabina lo dice. La foto del pulso de PROTON-X dice la VA
+- [ ] T3 -- medirlo en el metal. Los tirones del audifono por debajo de
 - ... y 8 mas
 
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas

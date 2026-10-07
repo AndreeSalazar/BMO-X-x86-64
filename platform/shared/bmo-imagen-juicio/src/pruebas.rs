@@ -168,3 +168,35 @@ fn la_reserva_juzga_la_ram_de_lo_que_falta() {
     assert_eq!(reserva::ram((8 * GIB - 64 * MIB) / 4096 + 1, &l), Err(NoReserva::SinRam { pide: 8 * GIB - 64 * MIB + 4096, hay: 8 * GIB - 64 * MIB }));
     assert_eq!(reserva::ram(1, &lr(32 * MIB)), Err(NoReserva::SinRam { pide: 4096, hay: 0 }), "menos libre que el margen: nada");
 }
+
+// -- V4: el sello por tramos ------------------------------------------------
+
+use crate::sello::{toca_sellado, tramo, NoSella};
+
+/// Un bloque de codigo que crece: 100 bytes sellan la pagina 0; 5000 mas,
+/// la 1; pedir otra vez lo mismo, no; mas alla del bloque, no; y el
+/// bloque entero (MEM_OP_SELLAR) es `u64::MAX`.
+#[test]
+fn el_sello_por_tramos_solo_crece_y_a_paginas_enteras() {
+    const P: u64 = 4096;
+    let bytes = 4 * P;
+    assert_eq!(tramo(0, bytes, 100, P), Ok((0, P)));
+    assert_eq!(tramo(P, bytes, 5000, P), Ok((P, 2 * P)));
+    assert_eq!(tramo(2 * P, bytes, 5000, P), Err(NoSella::YaSellado), "lo sellado no se repite");
+    assert_eq!(tramo(2 * P, bytes, P, P), Err(NoSella::YaSellado), "ni se deshace");
+    assert_eq!(tramo(2 * P, bytes, bytes + 1, P), Err(NoSella::Fuera));
+    assert_eq!(tramo(2 * P, bytes, u64::MAX, P), Ok((2 * P, bytes)), "el resto entero");
+    assert_eq!(tramo(bytes, bytes, u64::MAX, P), Err(NoSella::YaSellado));
+    assert_eq!((NoSella::YaSellado as u32, NoSella::Fuera as u32), (2, 6), "los SELLAR_* del kernel");
+}
+
+/// El kernel no escribe en lo sellado (LEER_EN, la orquesta, el DMA), y SI
+/// detras: la prueba que dice NO es la primera linea.
+#[test]
+fn escribir_en_lo_sellado_no_y_detras_si() {
+    let base = 0xE000_0000;
+    assert!(toca_sellado(base, 8192, base + 8191), "el ultimo byte sellado");
+    assert!(toca_sellado(base, 8192, base), "el primero");
+    assert!(!toca_sellado(base, 8192, base + 8192), "la primera pagina de datos");
+    assert!(!toca_sellado(base, 0, base), "un bloque sin sellar es de datos");
+}

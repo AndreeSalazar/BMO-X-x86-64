@@ -184,12 +184,27 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
       dice cuantos bloques pidio PROTON-X; leer 1000 ficheros no lo sube.
       07-10: el CODIGO hecho (`proton-x/src/plataforma.rs`, `con_paso`;
       a ESTRATOS, el de paso si cabe en 1 MiB). Falta la medida, que es V5.
-- [ ] **V4 -- `[RING 0]` sellar por TRAMOS.** Un bloque de codigo que solo
+- [x] **V4 -- `[RING 0]` sellar por TRAMOS.** Un bloque de codigo que solo
       crece: `MEM_OP_SELLAR_HASTA(bloque, bytes)` sella las paginas nuevas y
       deja escribibles las de detras. El codigo NO se mueve nunca (ni un
       puntero viejo, ni VA gastada). **Como se sabe:** prueba del kernel:
       escribir en lo sellado falla; en lo de detras, no; con permiso del
       propietario.
+      07-10, HECHO con el permiso del propietario ("si, no olvides aislar por
+      completo"). AISLADO asi: la CUENTA (que paginas, solo crece, a
+      paginas enteras; si una escritura del kernel toca lo sellado) es pura
+      y con banco, en `bmo-imagen-juicio::sello` (2 pruebas, una que dice
+      NO); el kernel solo remapea con su respuesta (`obj/memory.rs`:
+      `sellado` es ahora un PREFIJO en bytes; `sellar` = `sellar_hasta`
+      del bloque entero; si el remapeo falla, el bloque entero cuenta como
+      sellado). `MEM_OP_SELLAR_HASTA = 0x07` y `SELLAR_FUERA = 6` en
+      `bmo-abi` y `userland` (`Memoria::sellar_hasta`). La casa:
+      `Plataforma::cuaderno` y `nativo::Estado::en_cuaderno` (la prueba
+      `el_cuaderno_solo_crece_y_no_se_mueve`: misma direccion, lo sellado
+      no se reescribe, lleno va a un bloque entero y el cuaderno no se
+      suelta). PROTON-X abre el mas grande que de el kernel (64, 32, 16 u
+      8 MiB). Falta VERLO en el metal: la foto dice `en el cuaderno (X de
+      Y MiB)`.
 - [ ] **V5 -- la cabina lo dice.** La foto del pulso de PROTON-X dice la VA
       de bloques gastada y cuantos bloques vivos (de 8). **Como se sabe:** la
       linea en el DIARIO del metal.

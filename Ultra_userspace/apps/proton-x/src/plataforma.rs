@@ -63,7 +63,35 @@ pub fn de_bmo() -> Plataforma {
         reserva: Some(RESERVA),
         trozos: Some(TROZOS),
         sonido: Some(super::sonido::SONIDO),
+        cuaderno: Some(bmo_proton_x_casa::Cuaderno { abrir: abrir_cuaderno, sellar_hasta: sellar_cuaderno }),
     }
+}
+
+/// **El cuaderno de codigo** (V4 de `PLAN_LOS_DOCE_DIRECTORES`, 07-10): UN
+/// bloque que vive lo que el proceso, sellado por tramos
+/// (`MEM_OP_SELLAR_HASTA`). Uno de los ocho bloques vivos, para siempre; a
+/// cambio, la VA de bloques ya no se gasta con cada sombreador.
+struct Cuaderno(core::cell::UnsafeCell<Option<bmo::Memoria>>);
+// SAFETY: una tarea, y los hilos de la casa son cooperativos.
+unsafe impl Sync for Cuaderno {}
+static CUADERNO: Cuaderno = Cuaderno(core::cell::UnsafeCell::new(None));
+
+/// El mas grande que de el kernel (64 MiB es su tope por bloque; la RAM
+/// tiene que estar SEGUIDA, asi que si no, menos).
+fn abrir_cuaderno() -> Option<(u64, usize)> {
+    // SAFETY: ver `Cuaderno`; nadie guarda la referencia.
+    let c = unsafe { &mut *CUADERNO.0.get() };
+    if c.is_none() {
+        *c = [64usize, 32, 16, 8].iter().find_map(|&mib| bmo::Memoria::request((mib as u64) << 20));
+    }
+    let m = c.as_ref()?;
+    Some((m.base() as u64, m.bytes() as usize))
+}
+
+fn sellar_cuaderno(base: u64, hasta: usize) -> bool {
+    // SAFETY: ver `Cuaderno`.
+    let c = unsafe { &*CUADERNO.0.get() };
+    c.as_ref().is_some_and(|m| m.base() as u64 == base && m.sellar_hasta(hasta as u64).is_ok())
 }
 
 /// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el
