@@ -229,10 +229,9 @@ fn create_graphics_pipeline_state_cruza_el_layout_con_el_sombreador() {
     let r = raiz();
     // Con APPEND_ALIGNED en NORMAL y COLOR: 12 y 24, como el de cubo.c.
     assert_eq!(pso(r, VS, PS, &layout(true)), 0);
-    // Esta plataforma no sabe sellar codigo: la casa lo dice UNA vez, y los
-    // sombreadores se interpretan (dan lo mismo).
-    assert_eq!(dicho(), "PROTON-X: sin bloque sellado para el codigo nativo: los sombreadores se interpretan (dan lo mismo, mas despacio)\n");
-    DICHO.lock().unwrap().clear();
+    // Esta plataforma no sabe sellar codigo, pero desde V2 (07-10) crear el
+    // PSO no sella: lo hace su primer dibujo nativo, y lo dice entonces.
+    assert_eq!(dicho(), "");
 
     assert_eq!(pso(r, VS, PS, &layout(false)), E_INVALIDARG, "COLOR lo lee el sombreador y el layout no lo da");
     assert_eq!(dicho(), "PROTON-X: el sombreador de vertices lee una semantica que el input layout no da\n");

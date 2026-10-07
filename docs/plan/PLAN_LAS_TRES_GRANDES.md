@@ -1355,7 +1355,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    5
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    9
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1470,6 +1470,15 @@ y lo dice.
                BUFERES (bindless de buferes; un CS)
      16  D4.1  un bucle con mas de una salida (un CS)
      17  D4.1  un operando que deberia ser un float y no lo es (un CS)
+     -- 06-10 22:43, la SEGUNDA corrida con el monton que crece (llego a 95 s;
+        lo que la tumbo, y el sonido, en PLAN_LOS_DOCE_DIRECTORES.md): --
+     18  D4.1  `OperacionD3d(48)` y `Instruccion(38)` (dos CS)
+     19  D4.1  un array de algo que no es float ni entero (structs,
+               vectores; un CS)
+     20  D4.1  un operando que no es un numero (ni float, ni entero, ni i1;
+               un CS)
+     21  D4.1  un bucle con mas de una salida en un sombreador de PIXELES
+               (el 16 es el de un CS; el estructurador es el mismo)
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.

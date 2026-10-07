@@ -181,6 +181,7 @@ pub(crate) fn texto(ahora: u64) -> String {
         let (uso, pico, crecido) = f();
         t.push_str(&alloc::format!("# el monton de la casa: {} MiB en uso (pico {} MiB), crecio {} MiB por la reserva\n", uso >> 20, pico >> 20, crecido >> 20));
     }
+    t.push_str(&crate::nativo::foto());
     let v = VIGILADA.load(Ordering::Relaxed);
     if v != 0 {
         // SAFETY: `vigilar` solo recibe casillas de la imagen, que no se

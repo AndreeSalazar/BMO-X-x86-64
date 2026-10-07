@@ -21,8 +21,10 @@
 //!                 los sombreadores NATIVOS de la casa si no se puede
 //!    sellar_codigo  un bloque, los bytes y MEM_OP_SELLAR (W^X); soltarlo es
 //!                 MEM_OP_SOLTAR: de los ocho bloques vivos, el codigo gasta uno
-//!    leer_fichero   Archivo::leer_de + un bloque + leer_en: ENTERO, un viaje
-//!    escribir_fichero  Archivo::create + write (hoy, hasta 4 KiB)
+//!    leer_fichero   Archivo::leer_de + leer_en por el bloque de PASO (V3,
+//!                 07-10): ENTERO, en trozos de 1 MiB, sin pedir bloque
+//!    escribir_fichero  Archivo::create + escribir_de por el bloque de PASO;
+//!                 a ESTRATOS, el de paso si cabe
 //!    trozos       A LA CARTA (01-10): Archivo::reflejar + saltar + leer_en,
 //!                 sin traerse el fichero: los grandes de un juego (Cyberpunk
 //!                 abrio uno de 46 MB con un monton de 25)
@@ -83,22 +85,43 @@ fn sellar_codigo(bytes: &[u8]) -> Option<u64> {
     Some(base)
 }
 
-/// Un fichero entero: se abre, se lee a un bloque de una vez, se copia y el
-/// bloque se suelta (el monton de la app se queda con los bytes).
+/// **Con el bloque de PASO** (V3 de `PLAN_LOS_DOCE_DIRECTORES`, 07-10): el
+/// de A LA CARTA ([`PASO`], uno y se queda), tambien para los ficheros
+/// enteros. Antes cada `leer_fichero` y cada `escribir_fichero` pedia un
+/// bloque y lo soltaba, y la VA de un bloque soltado NO vuelve (el kernel no
+/// la reusa, a proposito): Cyberpunk agoto los 512 MiB de VA de bloques
+/// (`SIN SITIO`, 06-10). `None` si no hay bloque de paso.
+fn con_paso<R>(f: impl FnOnce(&bmo::Memoria) -> R) -> Option<R> {
+    // SAFETY: ver `Global`; `f` no toca `CARTA` (lee o escribe el bloque y
+    // un fichero suyo), y nadie guarda la referencia.
+    let e = unsafe { &mut *CARTA.0.get() };
+    if e.paso.is_none() {
+        e.paso = Some(bmo::Memoria::request(PASO)?);
+    }
+    Some(f(e.paso.as_ref()?))
+}
+
+/// Un fichero entero: se abre y se trae en trozos por el bloque de paso
+/// (el monton de la app se queda con los bytes).
 pub(crate) fn leer_fichero(ruta: &[u8]) -> Option<alloc::vec::Vec<u8>> {
     let a = bmo::Archivo::leer_de(ruta).ok()?;
-    let n = a.size();
+    let n = a.size() as usize;
+    let mut v = alloc::vec::Vec::with_capacity(n);
     if n == 0 {
-        return Some(alloc::vec::Vec::new());
+        return Some(v);
     }
-    let b = bmo::Memoria::request(n)?;
-    if a.leer_en(&b, 0, n) != n {
-        return None;
-    }
-    // SAFETY: `n` bytes que el kernel acaba de escribir en un bloque nuestro.
-    let v = unsafe { core::slice::from_raw_parts(b.base() as *const u8, n as usize) }.to_vec();
-    b.soltar();
-    Some(v)
+    con_paso(|paso| {
+        while v.len() < n {
+            let k = (n - v.len()).min(PASO as usize) as u64;
+            let got = a.leer_en(paso, 0, k).min(k);
+            // SAFETY: `got` bytes que el kernel acaba de escribir en el bloque de paso.
+            v.extend_from_slice(unsafe { core::slice::from_raw_parts(paso.base() as *const u8, got as usize) });
+            if got < k {
+                break;
+            }
+        }
+    })?;
+    (v.len() == n).then_some(v)
 }
 
 /// Un fichero entero, de UNA llamada (P4f3): los bytes a un bloque y
@@ -130,14 +153,24 @@ fn escribir_en_estratos(ruta: &[u8], bytes: &[u8]) -> bool {
     if bytes.is_empty() {
         return bmo::estratos::crear_fichero(ruta, &[]) != 0;
     }
+    // ESTRATOS publica la version de UNA vez: el fichero entero en un
+    // bloque. El de paso si cabe (V3); si no, uno para el (raro: > 1 MiB).
+    let guardar = |m: &bmo::Memoria| {
+        // SAFETY: un bloque nuestro de al menos `bytes.len()` bytes.
+        unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), m.base(), bytes.len()) };
+        bmo::estratos::guardar_desde(ruta, m.handle(), 0, bytes.len() as u64) != 0
+    };
+    if bytes.len() as u64 <= PASO {
+        if let Some(g) = con_paso(guardar) {
+            return g;
+        }
+    }
     let Some(m) = bmo::Memoria::request(bytes.len() as u64) else {
         return false;
     };
-    // SAFETY: un bloque nuestro de al menos `bytes.len()` bytes.
-    unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), m.base(), bytes.len()) };
-    let g = bmo::estratos::guardar_desde(ruta, m.handle(), 0, bytes.len() as u64);
+    let g = guardar(&m);
     m.soltar();
-    g != 0
+    g
 }
 
 /// **Las carpetas en ESTRATOS** (relevo 01-10, paso 4b): crear, quitar y
@@ -152,17 +185,22 @@ fn escribir_en_fat32(ruta: &[u8], bytes: &[u8]) -> bool {
     let Ok(a) = bmo::Archivo::create(ruta) else {
         return false;
     };
-    let n = if bytes.is_empty() {
-        0
-    } else if let Some(b) = bmo::Memoria::request(bytes.len() as u64) {
-        // SAFETY: un bloque nuestro de al menos `bytes.len()` bytes.
-        unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), b.base(), bytes.len()) };
-        let n = a.escribir_de(&b, 0, bytes.len() as u64) as usize;
-        b.soltar();
-        n
-    } else {
-        a.write(bytes)
+    // Por el bloque de paso, en trozos (V3): sin pedir bloque.
+    let por_paso = |paso: &bmo::Memoria| {
+        let mut hecho = 0usize;
+        while hecho < bytes.len() {
+            let k = (bytes.len() - hecho).min(PASO as usize);
+            // SAFETY: `k` <= PASO, la medida del bloque de paso, que es nuestro.
+            unsafe { core::ptr::copy_nonoverlapping(bytes[hecho..].as_ptr(), paso.base(), k) };
+            let w = (a.escribir_de(paso, 0, k as u64) as usize).min(k);
+            hecho += w;
+            if w < k {
+                break;
+            }
+        }
+        hecho
     };
+    let n = if bytes.is_empty() { 0 } else { con_paso(por_paso).unwrap_or_else(|| a.write(bytes)) };
     a.close() && n == bytes.len()
 }
 

@@ -8,12 +8,27 @@
 //! ```text
 //!    CreateGraphicsPipelineState   se traducen sus dos sombreadores y se
 //!                                  agregan al codigo de TODOS los anteriores
-//!    un bloque nuevo               con todo el codigo, sellado; el anterior
-//!                                  se suelta (MEM_OP_SOLTAR): vivo, solo uno
+//!    el primer Draw que lo pide    un bloque nuevo con todo el codigo,
+//!                                  sellado; el anterior se suelta
+//!                                  (MEM_OP_SOLTAR): vivo, solo uno
 //!    Draw                          el ejecutor de la casa ([`dibujar`]) llama
 //!                                  al codigo de su PSO; si no hay (no quedo
-//!                                  bloque), el interprete, que da lo mismo
+//!                                  bloque, o el suyo no entro), el
+//!                                  interprete, que da lo mismo
 //! ```
+//!
+//! **Sellar cuando hace falta, no en cada PSO** (V2 de
+//! `PLAN_LOS_DOCE_DIRECTORES`, 07-10). La VA de un bloque soltado NO vuelve
+//! (el kernel no la reusa, a proposito), y sellar todo en cada PSO gastaba
+//! la suma de todas las medidas: Cyberpunk agoto los 512 MiB de VA de
+//! bloques a mitad de la carga. Ahora una carga de mil PSO sella UNA vez,
+//! en su primer dibujo.
+//!
+//! **Nunca fuera del bloque** (V1, 07-10): si sellar falla, el bloque vivo
+//! es el VIEJO y el PSO nuevo tiene su sitio en un codigo que no esta en el.
+//! Llamar a `base + sitio` era saltar mas alla del final: el choque de
+//! Cyberpunk a los 95 s (`rip 0x10024b640, FUERA de la imagen`). Un
+//! traducido que no cabe en el bloque vivo va por el interprete.
 //!
 //! **Por que cambiar de bloque es seguro:** los hilos de la casa son
 //! cooperativos y un Draw no cede el turno; mientras se crea un PSO nadie esta
@@ -25,6 +40,7 @@
 //! y esta al muestreo del interprete (`nativo_llamadas::Muestras`): los
 //! mismos bits, y el PSO con texturas ya no se interpreta.
 
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicU64, Ordering};
@@ -193,15 +209,52 @@ struct Traducido {
 struct Estado {
     codigo: Vec<u8>,
     traducidos: Vec<Traducido>,
-    /// El bloque sellado de ahora: (direccion, medida).
+    /// El bloque sellado de ahora: (direccion, cuanto codigo lleva).
     bloque: Option<(u64, usize)>,
     sin_bloque: bool,
+    /// Cuantas veces se sello (V2: uno por carga, no uno por PSO).
+    sellos: u32,
+}
+
+impl Estado {
+    /// **El bloque con todo el codigo de ahora** (V2): si el vivo ya lo
+    /// lleva entero, el mismo; si no, uno nuevo, sellado, y el viejo se
+    /// suelta. Si sellar dice que no, el vivo sigue (el viejo, o ninguno) y
+    /// no se vuelve a pedir; el segundo es `true` esa vez (lo dice quien
+    /// llama, con su aviso).
+    fn al_dia(&mut self, sellar: fn(&[u8]) -> Option<u64>, soltar: fn(u64, usize)) -> (Option<(u64, usize)>, bool) {
+        let n = self.codigo.len();
+        let falta = n > 0 && self.bloque.map_or(true, |(_, k)| k < n);
+        if !falta || self.sin_bloque {
+            return (self.bloque, false);
+        }
+        match sellar(&self.codigo) {
+            Some(b) => {
+                if let Some((viejo, k)) = self.bloque.replace((b, n)) {
+                    soltar(viejo, k);
+                }
+                self.sellos += 1;
+                (self.bloque, false)
+            }
+            None => {
+                self.sin_bloque = true;
+                (self.bloque, true)
+            }
+        }
+    }
+}
+
+/// V1: el traducido entero dentro de un bloque que lleva `n` bytes de
+/// codigo. El codigo solo crece, asi que lo que empieza antes de `n` se
+/// sello entero con el.
+fn cabe(t: &Traducido, n: usize) -> bool {
+    t.vs < n && t.ps < n
 }
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos (ver hilos.rs).
 unsafe impl Sync for Global {}
-static ESTADO: Global = Global(UnsafeCell::new(Estado { codigo: Vec::new(), traducidos: Vec::new(), bloque: None, sin_bloque: false }));
+static ESTADO: Global = Global(UnsafeCell::new(Estado { codigo: Vec::new(), traducidos: Vec::new(), bloque: None, sin_bloque: false, sellos: 0 }));
 
 fn estado() -> &'static mut Estado {
     // SAFETY: ver `Global`; nadie guarda la referencia.
@@ -216,6 +269,26 @@ pub(crate) fn reiniciar() {
     e.codigo.clear();
     e.traducidos.clear();
     e.sin_bloque = false;
+    e.sellos = 0;
+}
+
+/// Cuantas veces se sello el codigo nativo desde [`reiniciar`] (V2).
+pub fn sellos() -> u32 {
+    estado().sellos
+}
+
+/// **La linea del pulso** (V5, 07-10): cuantos sellos, cuanto codigo,
+/// cuantos PSO traducidos y si el kernel dijo que no. En el metal dice si el
+/// codigo nativo CORRE (o todo va por el interprete, como el 06-10).
+pub fn foto() -> String {
+    let e = estado();
+    alloc::format!(
+        "# el codigo nativo: {} sello(s), {} KiB de codigo, {} PSO traducidos{}\n",
+        e.sellos,
+        e.codigo.len() >> 10,
+        e.traducidos.len(),
+        if e.sin_bloque { "; SIN BLOQUE: el kernel dijo que no, se interpretan" } else { "" }
+    )
 }
 
 /// Agregar `c` al codigo (a 16 bytes, con int3 en medio: entre funciones no
@@ -229,7 +302,8 @@ fn agregar(e: &mut Estado, c: &[u8]) -> usize {
     desde
 }
 
-/// **Traducir los sombreadores de un PSO** y rehacer el bloque sellado.
+/// **Traducir los sombreadores de un PSO**: su codigo se agrega; el bloque
+/// se rehace en su primer dibujo (V2).
 pub(crate) fn registrar(en: &Enlace) {
     let e = estado();
     // X2 (05-10): los que MUESTREAN ya se traducen (llaman al muestreo del
@@ -248,46 +322,40 @@ pub(crate) fn registrar(en: &Enlace) {
     let vs = agregar(e, &cv);
     let ps = agregar(e, &cp);
     e.traducidos.push(Traducido { enlace: en as *const Enlace as usize, vs, ps, cuadros });
-    sellar(e);
 }
 
-/// **Traducir el CS de un PSO de computo** (E2.3b, 05-10) y rehacer el
-/// bloque sellado: donde empieza en el codigo, o `None` si no se traduce
-/// (sus Dispatch van por el interprete, que da lo mismo).
+/// **Traducir el CS de un PSO de computo** (E2.3b, 05-10): donde empieza
+/// en el codigo, o `None` si no se traduce (sus Dispatch van por el
+/// interprete, que da lo mismo). El bloque se rehace en su primer Dispatch.
 pub(crate) fn registrar_computo(p: &bmo_proton_x::dxil::programa::Programa) -> Option<usize> {
     let c = bmo_proton_x::nativo_computo::compilar(p)?;
-    let e = estado();
-    let desde = agregar(e, &c);
-    sellar(e);
-    Some(desde)
+    Some(agregar(estado(), &c))
 }
 
 /// **La funcion de computo** que empieza en `desde`, en el bloque de ahora
-/// (`None` si no quedo bloque).
+/// (`None` si no quedo bloque, o si el suyo no entro: V1).
 pub(crate) fn computo(desde: usize) -> Option<FuncionComputo> {
-    let (base, n) = estado().bloque?;
+    let (base, n) = sellado()?;
     // SAFETY: `base + desde` es el principio de una funcion traducida por
     // `nativo_computo::compilar`, dentro del bloque sellado vivo (que mide
     // `n`); su firma es esa.
     (desde < n).then(|| unsafe { core::mem::transmute::<usize, FuncionComputo>(base as usize + desde) })
 }
 
-/// Rehacer el bloque sellado con TODO el codigo de ahora.
-fn sellar(e: &mut Estado) {
+/// El bloque sellado con todo el codigo de ahora ([`Estado::al_dia`]).
+///
+/// Cambiar de bloque aqui es seguro porque se llama al EMPEZAR un Draw o un
+/// Dispatch, y ninguno cede el turno a mitad: nadie esta dentro del viejo.
+/// (T1 de `PLAN_LOS_DOCE_DIRECTORES`, ceder dentro de lo largo, NO puede
+/// ceder dentro del codigo nativo mientras esto suelte bloques; V4, el
+/// bloque que solo crece, lo quita.)
+fn sellado() -> Option<(u64, usize)> {
     let p = plataforma();
-    match (p.sellar_codigo)(&e.codigo) {
-        Some(b) => {
-            if let Some((viejo, n)) = e.bloque.replace((b, e.codigo.len())) {
-                (p.soltar_codigo)(viejo, n);
-            }
-        }
-        None => {
-            if !e.sin_bloque {
-                aviso("sin bloque sellado para el codigo nativo: los sombreadores se interpretan (dan lo mismo, mas despacio)");
-                e.sin_bloque = true;
-            }
-        }
+    let (b, fallo) = estado().al_dia(p.sellar_codigo, p.soltar_codigo);
+    if fallo {
+        aviso("sin bloque sellado para el codigo nativo: los sombreadores se interpretan (dan lo mismo, mas despacio)");
     }
+    b
 }
 
 /// La funcion nativa de `desde` en el bloque de ahora.
@@ -301,11 +369,18 @@ fn funcion(base: u64, desde: usize) -> Sombreador {
 /// **El ejecutor de la casa** (`Plataforma::dibujar`): el lote con los
 /// sombreadores nativos de su PSO, o interpretados si no los hay.
 pub fn dibujar(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, NoDibuja> {
-    let e = estado();
     let yo = l.enlace as *const Enlace as usize;
-    let (Some((base, _)), Some(t)) = (e.bloque, e.traducidos.iter().find(|t| t.enlace == yo)) else {
+    if !estado().traducidos.iter().any(|t| t.enlace == yo) {
+        return lote::en_cpu(l, destino);
+    }
+    let bloque = sellado();
+    let e = estado();
+    let (Some((base, n)), Some(t)) = (bloque, e.traducidos.iter().find(|t| t.enlace == yo)) else {
         return lote::en_cpu(l, destino);
     };
+    if !cabe(t, n) {
+        return lote::en_cpu(l, destino);
+    }
     let en = l.enlace;
     let fv = funcion(base, t.vs);
     // El cbuffer, con lo que lean los dos: lo que falte, a cero (como el
@@ -502,3 +577,88 @@ pub fn en_cuadros<'a>(ps: &'a bmo_proton_x::dxil::programa::Programa, objetivos:
     }
 }
 
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    use alloc::vec;
+    use core::sync::atomic::AtomicU32;
+
+    // Cada prueba con los suyos: corren a la vez.
+    static PEDIDOS: AtomicU32 = AtomicU32::new(0);
+    static PEDIDOS_2: AtomicU32 = AtomicU32::new(0);
+    static SOLTADOS: AtomicU32 = AtomicU32::new(0);
+
+    /// Un kernel que sella el primero y dice que NO a todos los demas
+    /// (la VA agotada de Cyberpunk, 06-10).
+    fn sellar_uno(c: &[u8]) -> Option<u64> {
+        (PEDIDOS.fetch_add(1, Ordering::Relaxed) == 0).then_some(0x1000_0000 + c.len() as u64)
+    }
+    fn no_suelta(_: u64, _: usize) {}
+    fn soltar(_: u64, _: usize) {
+        SOLTADOS.fetch_add(1, Ordering::Relaxed);
+    }
+    fn sellar_siempre(c: &[u8]) -> Option<u64> {
+        PEDIDOS_2.fetch_add(1, Ordering::Relaxed);
+        Some(0x2000_0000 + c.len() as u64)
+    }
+
+    fn nuevo() -> Estado {
+        Estado { codigo: Vec::new(), traducidos: Vec::new(), bloque: None, sin_bloque: false, sellos: 0 }
+    }
+
+    fn pso(e: &mut Estado, enlace: usize, bytes: usize) {
+        let vs = agregar(e, &vec![0x90; bytes]);
+        let ps = agregar(e, &vec![0x90; bytes]);
+        e.traducidos.push(Traducido { enlace, vs, ps, cuadros: false });
+    }
+
+    /// V1: el kernel dice que no al segundo sello; el PSO nuevo NO se llama
+    /// en el bloque viejo (su codigo no esta: era el choque de los 95 s),
+    /// y el de antes sigue en el suyo. Y la prueba que dice NO: sin `cabe`,
+    /// el sitio del nuevo cae FUERA del bloque vivo.
+    #[test]
+    fn un_pso_que_no_entro_en_el_bloque_no_se_llama() {
+        PEDIDOS.store(0, Ordering::Relaxed);
+        let mut e = nuevo();
+        pso(&mut e, 1, 100);
+        let (b, fallo) = e.al_dia(sellar_uno, no_suelta);
+        let (_, n) = b.unwrap();
+        assert!(!fallo && cabe(&e.traducidos[0], n));
+        pso(&mut e, 2, 3000);
+        let (b, fallo) = e.al_dia(sellar_uno, no_suelta);
+        assert!(fallo, "el kernel dijo que no: se dice una vez");
+        let (base, n2) = b.unwrap();
+        assert_eq!((base, n2), (0x1000_0000 + n as u64, n), "el vivo sigue siendo el viejo");
+        assert!(cabe(&e.traducidos[0], n2), "el de antes sigue en su bloque");
+        assert!(!cabe(&e.traducidos[1], n2), "el nuevo NO entro: va por el interprete");
+        assert!(e.traducidos[1].ps >= n2, "NO: sin `cabe`, base + sitio salta mas alla del final");
+        // No se vuelve a pedir: un no del kernel no se repite en cada Draw.
+        let (_, fallo) = e.al_dia(sellar_uno, no_suelta);
+        assert!(!fallo);
+        assert_eq!(PEDIDOS.load(Ordering::Relaxed), 2);
+    }
+
+    /// V2: tres PSO y sus dibujos = UN sello (antes, uno por PSO); un PSO
+    /// mas despues, uno mas, y el viejo se suelta.
+    #[test]
+    fn mil_pso_sellan_una_vez() {
+        PEDIDOS_2.store(0, Ordering::Relaxed);
+        SOLTADOS.store(0, Ordering::Relaxed);
+        let mut e = nuevo();
+        assert_eq!(e.al_dia(sellar_siempre, soltar), (None, false), "sin codigo, nada que sellar");
+        for k in 1..=3 {
+            pso(&mut e, k, 64);
+        }
+        for _ in 0..10 {
+            let (b, _) = e.al_dia(sellar_siempre, soltar);
+            let (_, n) = b.unwrap();
+            assert!(e.traducidos.iter().all(|t| cabe(t, n)));
+        }
+        assert_eq!((e.sellos, PEDIDOS_2.load(Ordering::Relaxed), SOLTADOS.load(Ordering::Relaxed)), (1, 1, 0));
+        pso(&mut e, 4, 64);
+        let (b, _) = e.al_dia(sellar_siempre, soltar);
+        assert_eq!(b.unwrap().1, e.codigo.len());
+        assert_eq!((e.sellos, SOLTADOS.load(Ordering::Relaxed)), (2, 1));
+    }
+}
