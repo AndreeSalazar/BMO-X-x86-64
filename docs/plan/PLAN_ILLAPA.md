@@ -169,6 +169,58 @@ anfitrion, con el oraculo de SPIR-V corriendo las mismas `gpu fn`.
 
 ---
 
+# 6b. DESPUES: LOS PERSONAJES -- esculpir, pintar y animar (con la cara)
+
+> El propietario, 07-10: *"anotar que necesitarian ZBrush, Substance y
+> Cascadeur ... con animacion en cara"*. Y antes: *"creo que empezar con VFX
+> es mas que suficiente"*. Asi que esto va DESPUES de IL11, y mientras tanto
+> los personajes se hacen en Windows con esas mismas herramientas y entran
+> por glTF (D4).
+
+## Que es cada una por dentro
+
+| herramienta | que hace | que es por dentro |
+|---|---|---|
+| **ZBrush** | ESCULPIR: barro digital | una malla de millones de poligonos, con niveles de subdivision; cada pincel EMPUJA, TIRA o ALISA los vertices cercanos con una caida suave. Al final se HORNEA el detalle a un mapa de normales para que un personaje ligero se vea como el detallado |
+| **Substance Painter** | PINTAR el modelo 3D | capas, pinceles y mascaras como Photoshop, pero proyectados sobre el modelo; materiales PBR (color, metal, rugosidad, normal) y mapas horneados (oclusion, curvatura) para que la suciedad caiga sola en las grietas y los bordes se gasten solos |
+| **Cascadeur** (de Nekki) | ANIMAR el cuerpo | esqueleto, poses clave y curvas, con fisica: AutoPosing (una red neuronal coloca el resto del cuerpo a partir de unos pocos puntos) y AutoPhysics (corrige la animacion para que sea fisicamente creible, tocandola lo menos posible); desde 2024.2 mueve tambien la cara por blendshapes |
+| **la animacion de la cara** | gestos, habla | BLENDSHAPES (formas de la cara guardadas como desplazamientos de vertices, que se suman con un peso cada una; el juego de referencia son las 52 de ARKit), mas huesos para la mandibula y los ojos; el habla, de fonemas a formas de boca (*visemas*) |
+
+## Lo que NO es nuevo: ya esta en los otros planes
+
+```text
+   SUBSTANCE   =  las capas, el pincel y las mascaras de LA_TINTA, pintando sobre 3D
+   ZBRUSH      =  el motor de pincel de LA_TINTA empujando VERTICES, no pixeles,
+                  con la Wacom (TC1 de LA_TINTA) y la 3060 de ILLAPA
+   CASCADEUR   =  el esqueleto de IL6 y el solucionador de ILLAPA (XPBD) para la fisica
+   LA CARA     =  una suma de formas por vertice: una gpu fn
+                  (y glTF ya las trae: se llaman "morph targets")
+```
+
+## Lo que necesitaria TITAN++ (y BMO-X) para esto
+
+| hace falta | para que | estado |
+|---|---|---|
+| **el f32 en la CPU** (o hacer TODA esa cuenta en `gpu fn`) | rotaciones, cuaterniones, IK y curvas de animacion son coma flotante; hoy la regla D2 de TITAN++ deja el `f32` solo en la 3060 | una LEY: del propietario, con `--sellar` (D5) |
+| mallas de millones de vertices | esculpir | el byte y las tablas grandes (TA1 de LA_TINTA) |
+| `gpu fn` con vecinos y bucles | el pincel que mueve los vertices cercanos, alisar, hornear | IL1 |
+| lanzar rayos contra la malla (una estructura de cajas, BVH) | hornear normales, oclusion y curvatura | nuevo; despues, los nucleos de rayos de la 3060 |
+| la Wacom con presion | esculpir y pintar se hacen con lapiz | TC1 de LA_TINTA |
+| ESCRIBIR glTF, no solo leerlo | que lo hecho en BMO-X salga a otros programas | nuevo (IL5 solo lee) |
+| redes neuronales pequenias | lo de AutoPosing (opcional: sin el, se anima a mano con IK) | multiplicar matrices: `gpu fn`; el modelo entrenado es otro asunto |
+| captura de la cara | animar la cara grabandose | la ANTENA: el movil ya es parte de BMO-X (`PLAN_CLOUD_LOCAL.md`, `PLAN_LA_ANTENA_AOT.md`); MediaPipe Face Landmarker da 52 pesos de blendshapes en Android |
+
+## Su escalera (despues de IL11)
+
+- [ ] IL15 -- LA CARA EN ILLAPA: blendshapes del glTF sumados en una `gpu fn`, y la mandibula y los ojos por huesos; la primera prueba, un gesto puesto a mano
+- [ ] IL16 -- ANIMAR (lo de Cascadeur): esqueleto, poses clave, curvas, cinematica inversa (IK) y la fisica del solucionador de ILLAPA para que el salto caiga creible
+- [ ] IL17 -- LA CARA GRABADA: el movil (la ANTENA) manda los pesos de la cara cuadro a cuadro, e ILLAPA los pone en el personaje
+- [ ] IL18 -- PINTAR EN 3D (lo de Substance): las capas y el pincel de LA_TINTA proyectados sobre el modelo, materiales PBR y los mapas horneados
+- [ ] IL19 -- ESCULPIR (lo de ZBrush): la malla con niveles, los pinceles con la Wacom y el horneado del detalle a normales
+- [ ] IL20 -- glTF DE SALIDA: lo esculpido, pintado y animado en BMO-X sale para cualquier otro programa
+
+---
+
 # 7. LO QUE ESTE PLAN NO HACE
 
 * **No trae Houdini ni Blender.** De Houdini se aprenden sus ideas, que son
@@ -177,8 +229,9 @@ anfitrion, con el oraculo de SPIR-V corriendo las mismas `gpu fn`.
   Traer Blender entero serian millones de lineas ajenas, que
   `docs/identidad/LOS_TRES_VERTICES.md` no admite, y su licencia (GPL) no
   casa limpia con la de BMO-X.
-* **No modela ni anima personajes.** Eso es otro programa del tamanio de
-  Blender; aqui se mueven los que ya estan hechos.
+* **No modela ni anima personajes AL PRINCIPIO.** Esculpir, pintar y animar
+  es la seccion 6b, despues del primer CGI; hasta entonces se hacen en
+  Windows (ZBrush, Substance, Cascadeur o Blender) y entran por glTF.
 * **No es un renderizador de cine al principio.** Primero se ve bien a 60
   fps; el trazador de rayos es IL14.
 * **No adelanta el metal.** La 3060 computando (G4) y el primer CGI (IL10)
@@ -195,6 +248,8 @@ anfitrion, con el oraculo de SPIR-V corriendo las mismas `gpu fn`.
    D3  LA ESCENA        la de la seccion 5, u otra para el primer CGI
    D4  EL glTF          traer los personajes de Blender como glTF (el formato
                         abierto), o esperar a otro camino
+   D5  EL f32 EN LA CPU para animar (6b): una ley nueva de TITAN++, o toda la
+                        cuenta de rotaciones en gpu fn. Con --sellar
 ```
 
 ---
@@ -208,6 +263,8 @@ anfitrion, con el oraculo de SPIR-V corriendo las mismas `gpu fn`.
 * El liquido pintado en la pantalla (*screen space fluid rendering*), la
   rejilla de vecinos y la piel por huesos son conocimiento comun del oficio
   (las charlas y ejemplos de NVIDIA de 2008-2010 lo cuentan).
+* Cascadeur, AutoPosing, AutoPhysics y la cara por blendshapes: [CG Channel, Cascadeur 2024.2](https://www.cgchannel.com/2024/09/nekki-unveils-cascadeur-2024-2/).
+* MediaPipe Face Landmarker y sus 52 pesos de blendshapes: [Google, Face landmark detection guide](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker).
 * Lo de BMO-X: `PLAN_VERRANO.md`, `PLAN_LA_LENGUA_DE_LA_3060.md`,
   `PLAN_EL_CENTAURO.md` y `toolchain/lang/titan/GRAMATICA.md` (nivel 11),
   leidos el 07-10.
