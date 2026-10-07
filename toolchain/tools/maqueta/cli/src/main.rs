@@ -219,6 +219,12 @@ fn main() -> ExitCode {
         eprintln!("maqueta: {entrada} tiene datos y estados a la vez; una pieza con datos no lleva estados todavia (P3c).");
         return ExitCode::FAILURE;
     }
+    // MA2: una transicion mezcla piezas sin el recorte de un `overflow`.
+    let con_recorte = bmo_maqueta_emit::orden::lista(&puesto).iter().any(|o| o.recorte.is_some());
+    if con_recorte && !otros.is_empty() {
+        eprintln!("maqueta: {entrada} tiene estados y algo que un `overflow` corta a medias; una transicion todavia no recorta (MAQUETA 3, 3e).");
+        return ExitCode::FAILURE;
+    }
     let codigo = bmo_maqueta_emit::rust::modulo_entero(&procedencia(&entrada), &puesto, &otros, &colores);
     if let Err(e) = std::fs::write(&salida, codigo) {
         eprintln!("maqueta: no puedo escribir {salida}: {e}");

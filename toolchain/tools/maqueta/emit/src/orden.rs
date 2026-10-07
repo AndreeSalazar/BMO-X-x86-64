@@ -164,6 +164,9 @@ pub struct Orden {
     pub trazo: Trazo,
     pub de: String,
     pub estado: Estado,
+    /// (MAQUETA 3, MA2) Lo que un `overflow: hidden` deja ver de este trazo,
+    /// si lo corta a medias: el pintor lo recorta ahi. `None` = entero.
+    pub recorte: Option<Rect>,
 }
 
 /// La lista entera, en orden de pintado -- que es el orden del fichero.
@@ -178,18 +181,30 @@ pub fn lista_sin_anima(l: &Laid) -> Vec<Orden> {
 
 fn lista_con(l: &Laid, sin_anima: bool) -> Vec<Orden> {
     let mut out = Vec::new();
-    for f in l.all() {
-        let de = nombre_de(f);
-        let fuera = sin_anima && crate::anima::de(f).is_some();
-        trazos_de(f, Estado::Reposo, &de, fuera, &mut out);
-        trazos_de(f, Estado::Encima, &de, fuera, &mut out);
+    // ** Capa a capa, y con lo que el `overflow` de arriba deja ver (MA2,
+    // `capas.rs`). Sin `z-index` ni recortes, el orden y los trazos de siempre.
+    let cajas = crate::capas::cajas(l);
+    for c in &cajas {
+        let de = nombre_de(c.f);
+        let fuera = sin_anima && crate::anima::de(c.f).is_some();
+        trazos_de(c, Estado::Reposo, &de, fuera, &mut out);
+        trazos_de(c, Estado::Encima, &de, fuera, &mut out);
+    }
+    // El contorno, encima de todo, como en CSS.
+    for c in &cajas {
+        for t in crate::capas::contorno(c.f) {
+            if let Some((trazo, recorte)) = crate::capas::recortar(t, c.corte) {
+                out.push(Orden { trazo, de: nombre_de(c.f), estado: Estado::Reposo, recorte });
+            }
+        }
     }
     out
 }
 
 /// Los trazos de una caja en un estado. Devuelve nada si en ese estado no
 /// cambia -- una caja sin `:hover` no aporta ni una orden a `Encima`.
-fn trazos_de(f: &Frame, estado: Estado, de: &str, sin_dibujo: bool, out: &mut Vec<Orden>) {
+fn trazos_de(c: &crate::capas::Caja, estado: Estado, de: &str, sin_dibujo: bool, out: &mut Vec<Orden>) {
+    let f = c.f;
     let s = match estado {
         Estado::Reposo => f.style,
         Estado::Encima => match f.hover {
@@ -207,7 +222,14 @@ fn trazos_de(f: &Frame, estado: Estado, de: &str, sin_dibujo: bool, out: &mut Ve
         if sin_dibujo && matches!(ranura, Ranura::Relleno(_) | Ranura::Linea(_)) {
             continue;
         }
-        out.push(Orden { trazo, de: de.to_string(), estado });
+        // El texto y el dibujo son CONTENIDO: los recorta tambien la propia caja.
+        let corte = match ranura {
+            Ranura::Texto | Ranura::Renglon(_) | Ranura::Relleno(_) | Ranura::Linea(_) => c.corte_propio,
+            _ => c.corte,
+        };
+        if let Some((trazo, recorte)) = crate::capas::recortar(trazo, corte) {
+            out.push(Orden { trazo, de: de.to_string(), estado, recorte });
+        }
     }
 }
 
@@ -475,7 +497,9 @@ pub struct Golpe {
 /// > encima y no hacen nada al pulsarlas.
 pub fn golpes(l: &Laid) -> Vec<Golpe> {
     let mut out = Vec::new();
-    for f in l.all() {
+    // `pointer-events: none` (MA2), suyo o heredado: no se pulsa.
+    for c in crate::capas::cajas(l).into_iter().filter(|c| !c.sin_puntero) {
+        let f = c.f;
         if let Some(id) = &f.id {
             out.push(Golpe {
                 r: f.rect,

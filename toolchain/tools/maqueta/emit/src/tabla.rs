@@ -46,7 +46,7 @@ impl Tabla {
     /// SEGUIDAS: `(desde, hasta)` en la tabla. Cuantas ordenes se come es
     /// `hasta - desde`.
     pub(crate) fn racha(&self, ordenes: &[&Orden], i: usize) -> Option<(usize, usize)> {
-        let n = ordenes[i..].iter().take_while(|o| matches!(o.trazo, Trazo::Figura { .. })).count();
+        let n = ordenes[i..].iter().take_while(|o| matches!(o.trazo, Trazo::Figura { .. }) && o.recorte.is_none()).count();
         if n < RACHA {
             return None;
         }

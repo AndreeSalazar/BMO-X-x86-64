@@ -26,9 +26,9 @@
 //! It is the same trap the rasterizer wrote down: with the wrong width an
 //! overflow flips the SIGN and the shape comes out inside out.
 
-use bmo_maqueta_cascade::{Align, Direction, Display, Justify, Position, Styled, TextAlign};
+use bmo_maqueta_cascade::{Align, AlignContent, Direction, Display, Justify, Position, Styled, TextAlign};
 
-use crate::measure::{alto, ancho, content_size, frame, outer_size};
+use crate::measure::{alto, ancho, content_size, filas, frame, outer_size, por_proporcion};
 use crate::{Frame, Rect};
 
 /// Lay one box out inside the border box its parent decided for it. La raiz
@@ -83,14 +83,15 @@ fn colocar(b: &Styled, border: Rect, ancla: Rect) -> Frame {
     for c in b.children.iter().filter(|c| c.style.position == Position::Absolute && b.tag != bmo_maqueta_node::Tag::Svg) {
         let o = outer_size(c);
         let s = &c.style;
+        // Con signo desde MA2: la insignia que se sale de la esquina.
         let x = match (s.left, s.right) {
-            (Some(l), _) => ancla.x + l as i32,
-            (None, Some(r)) => ancla.x + ancla.w as i32 - r as i32 - o.w as i32,
+            (Some(l), _) => ancla.x + l,
+            (None, Some(r)) => ancla.x + ancla.w as i32 - r - o.w as i32,
             (None, None) => ancla.x,
         };
         let y = match (s.top, s.bottom) {
-            (Some(t), _) => ancla.y + t as i32,
-            (None, Some(bo)) => ancla.y + ancla.h as i32 - bo as i32 - o.h as i32,
+            (Some(t), _) => ancla.y + t,
+            (None, Some(bo)) => ancla.y + ancla.h as i32 - bo - o.h as i32,
             (None, None) => ancla.y,
         };
         placed.push(colocar(c, Rect { x, y, w: o.w, h: o.h }, ancla));
@@ -106,11 +107,20 @@ fn colocar(b: &Styled, border: Rect, ancla: Rect) -> Frame {
         h.border_radius = border.w.min(border.h) / 2;
     }
 
+    // `text-overflow: ellipsis` (MA2): con la caja ya medida, la linea que no
+    // cabe se corta AL COMPILAR. Solo con el recorte en la misma caja y en una
+    // linea, como en CSS (lo demas lo dice el veredicto, N).
+    let text = match &b.text {
+        Some(t) if style.puntos && style.desborde[0].recorta() && !style.parrafo => Some(crate::measure::con_puntos(&style, t, content.w)),
+        otro => otro.clone(),
+    };
+    let text_at = text.as_deref().map(|t| donde_el_texto(b, t, content));
+
     Frame {
         tag: b.tag,
         id: b.id.clone(),
         island: b.island.clone(),
-        text: b.text.clone(),
+        text,
         dibujo: b.dibujo.clone(),
         src: b.src.clone(),
         repite: b.repite,
@@ -120,7 +130,7 @@ fn colocar(b: &Styled, border: Rect, ancla: Rect) -> Frame {
         hover,
         rect: border,
         content,
-        text_at: donde_el_texto(b, content),
+        text_at,
         children: placed,
         span: b.span,
     }
@@ -137,8 +147,7 @@ fn colocar(b: &Styled, border: Rect, ancla: Rect) -> Frame {
 /// This is here and not in the emitter on purpose: centring is arithmetic, and
 /// arithmetic in a consumer is arithmetic nobody checks. `calc.rs` writes
 /// `bx + CALC_BTN/2 - GLIFO_ANCHO/2` by hand, once per label.
-fn donde_el_texto(b: &Styled, content: Rect) -> Option<Rect> {
-    let t = b.text.as_ref()?;
+fn donde_el_texto(b: &Styled, t: &str, content: Rect) -> Rect {
     let (w, h) = crate::measure::texto(&b.style, t);
     if b.style.display != Display::Flex {
         // `text-align` (MAQUETA 3): el texto ya se midio, asi que colocarlo
@@ -151,7 +160,7 @@ fn donde_el_texto(b: &Styled, content: Rect) -> Option<Rect> {
             TextAlign::Center => libre / 2,
             TextAlign::Right => libre,
         };
-        return Some(Rect { x: (content.x as i64 + dx) as i32, y: content.y, w, h });
+        return Rect { x: (content.x as i64 + dx) as i32, y: content.y, w, h };
     }
     let (libre_main, libre_cross, horizontal) = if b.style.direction == Direction::Row {
         (content.w as i64 - w as i64, content.h as i64 - h as i64, true)
@@ -169,12 +178,12 @@ fn donde_el_texto(b: &Styled, content: Rect) -> Option<Rect> {
         Align::End => libre_cross,
     };
     let (dx, dy) = if horizontal { (main, cross) } else { (cross, main) };
-    Some(Rect {
+    Rect {
         x: (content.x as i64 + dx) as i32,
         y: (content.y as i64 + dy) as i32,
         w,
         h,
-    })
+    }
 }
 
 /// Children stack downwards, each filling the width unless it named one.
@@ -189,14 +198,65 @@ fn block(flow: &[&Styled], content: Rect, ancla: Rect) -> Vec<Frame> {
             Some(_) => content_size(c).w + fw,
             None => ancho(&c.style, content.w.saturating_sub(fw)) + fw,
         };
-        let h = outer_size(c).h;
+        // `aspect-ratio` (MA2): sin ancho ni alto dichos, el alto sale del
+        // ancho que LLENA, como en CSS.
+        let h = match (c.style.width, c.style.height, c.style.proporcion) {
+            (None, None, Some((pa, pb))) => alto(&c.style, por_proporcion(w - fw, pb, pa)) + frame(c).1,
+            _ => outer_size(c).h,
+        };
         out.push(colocar(c, Rect { x: content.x, y, w, h }, ancla));
         y += h as i32;
     }
     out
 }
 
+/// ** `flex-wrap: wrap` (MA2): las filas se parten contra el eje principal
+/// del contenido, y cada fila se coloca como una caja flex de una linea, en
+/// su franja. Las franjas se reparten con `align-content` (`normal` =
+/// `stretch`: lo que sobra se reparte entre las filas, como en CSS).
 fn flex(b: &Styled, flow: &[&Styled], content: Rect, ancla: Rect) -> Vec<Frame> {
+    if !b.style.parte || flow.is_empty() {
+        return linea(b, flow, content, ancla);
+    }
+    let row = b.style.direction == Direction::Row;
+    let gap = b.style.gap;
+    let outers: Vec<_> = flow.iter().map(|c| outer_size(c)).collect();
+    let largos: Vec<u32> = outers.iter().map(|s| if row { s.w } else { s.h }).collect();
+    let fs = filas(&largos, if row { content.w } else { content.h }, gap);
+    let mut cruces: Vec<u32> = fs.iter().map(|f| outers[f.clone()].iter().map(|s| if row { s.h } else { s.w }).max().unwrap_or(0)).collect();
+    let sitio = if row { content.h } else { content.w } as i64;
+    let usado: i64 = cruces.iter().map(|&c| c as i64).sum::<i64>() + gap as i64 * (fs.len() as i64 - 1);
+    let libre = sitio - usado;
+    let n = fs.len() as i64;
+    let (mut pos, entre) = match b.style.align_content.unwrap_or_default() {
+        AlignContent::Stretch => {
+            if libre > 0 {
+                for c in cruces.iter_mut() {
+                    *c += (libre / n) as u32;
+                }
+            }
+            (0, 0)
+        }
+        AlignContent::Start => (0, 0),
+        AlignContent::Center => (libre / 2, 0),
+        AlignContent::End => (libre, 0),
+        AlignContent::SpaceBetween => (0, if n > 1 && libre > 0 { libre / (n - 1) } else { 0 }),
+    };
+    let mut out = Vec::with_capacity(flow.len());
+    for (f, c) in fs.iter().zip(&cruces) {
+        let franja = if row {
+            Rect { x: content.x, y: content.y + pos as i32, w: content.w, h: *c }
+        } else {
+            Rect { x: content.x + pos as i32, y: content.y, w: *c, h: content.h }
+        };
+        out.extend(linea(b, &flow[f.clone()], franja, ancla));
+        pos += *c as i64 + gap as i64 + entre;
+    }
+    out
+}
+
+/// Una linea flex: los hijos en fila (o columna) dentro de `content`.
+fn linea(b: &Styled, flow: &[&Styled], content: Rect, ancla: Rect) -> Vec<Frame> {
     if flow.is_empty() {
         return Vec::new();
     }
@@ -233,15 +293,17 @@ fn flex(b: &Styled, flow: &[&Styled], content: Rect, ancla: Rect) -> Vec<Frame> 
 
     for (c, o) in flow.iter().zip(&outers) {
         let (fw, fh) = frame(c);
+        // `align-self` (MA2): el `align-items` de este hijo.
+        let al = c.style.align_self.unwrap_or(b.style.align);
         let (main_len, cross_len) = if row {
-            let cross = match (c.style.height, b.style.align) {
+            let cross = match (c.style.height, al) {
                 (Some(_), _) => content_size(c).h + fh,
                 (None, Align::Stretch) => alto(&c.style, content.h.saturating_sub(fh)) + fh,
                 (None, _) => o.h,
             };
             (o.w, cross)
         } else {
-            let cross = match (c.style.width, b.style.align) {
+            let cross = match (c.style.width, al) {
                 (Some(_), _) => content_size(c).w + fw,
                 (None, Align::Stretch) => ancho(&c.style, content.w.saturating_sub(fw)) + fw,
                 (None, _) => o.w,
@@ -251,7 +313,7 @@ fn flex(b: &Styled, flow: &[&Styled], content: Rect, ancla: Rect) -> Vec<Frame> 
 
         let room_cross = if row { content.h } else { content.w };
         let cross_start = if row { content.y } else { content.x } as i64;
-        let cross_pos = match b.style.align {
+        let cross_pos = match al {
             Align::Stretch | Align::Start => cross_start,
             Align::Center => cross_start + (room_cross as i64 - cross_len as i64) / 2,
             Align::End => cross_start + room_cross as i64 - cross_len as i64,

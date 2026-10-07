@@ -121,6 +121,7 @@ pub fn dentro(ordenes: &[Orden], estado: Estado, limite: Rect) -> Vec<Orden> {
                 trazo,
                 de: o.de.clone(),
                 estado: o.estado,
+                recorte: o.recorte,
             })
         })
         .collect()
@@ -185,16 +186,19 @@ mod tests {
                 trazo: Trazo::Rect { r: r(0, 0, 100, 100), color: 0x111111 },
                 de: "fondo".into(),
                 estado: Estado::Reposo,
+                recorte: None,
             },
             Orden {
                 trazo: Trazo::Texto { r: r(80, 80, 16, 16), texto: "ab".into(), color: 0x222222 },
                 de: "#lejos".into(),
                 estado: Estado::Reposo,
+                recorte: None,
             },
             Orden {
                 trazo: Trazo::Rect { r: r(0, 0, 100, 100), color: 0x333333 },
                 de: "#lejos".into(),
                 estado: Estado::Encima,
+                recorte: None,
             },
         ]
     }

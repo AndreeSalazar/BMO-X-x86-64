@@ -41,7 +41,7 @@ pub mod style;
 use bmo_maqueta_diag::{Error, Span};
 use bmo_maqueta_node::{Document, Node, Selector, Tag};
 
-pub use style::{Align, Direction, Display, Justify, Position, Style, TextAlign};
+pub use style::{Align, AlignContent, Desborde, Direction, Display, Justify, Position, Style, TextAlign};
 
 /// **Lo que un dibujo hereda de la regla de su `<svg>`** (MAQUETA 3, 2e):
 /// en SVG un `fill` en el `<svg>` llega a sus figuras, y en la maqueta se

@@ -62,6 +62,9 @@ pub enum NoCabe {
     /// Hay mas trazos, mas golpes o mas bytes de cadenas de los que la cabecera
     /// puede contar.
     Demasiado { que: &'static str, cuantos: usize },
+    /// (MAQUETA 3, MA2) Un trazo que un `overflow` corta a medias: la CARA
+    /// todavia no lleva recortes, y sin el saldria entero.
+    Recorte { de: String },
 }
 
 /// El bloque de cadenas, con las repetidas puestas UNA vez.
@@ -128,6 +131,9 @@ pub fn escribir(ordenes: &[Orden], golpes: &[Golpe], ancho: i64, alto: i64) -> R
         return Err(NoCabe::Lienzo { ancho, alto });
     };
 
+    if let Some(o) = ordenes.iter().find(|o| o.recorte.is_some()) {
+        return Err(NoCabe::Recorte { de: o.de.clone() });
+    }
     let mut cad = Cadenas::default();
     let mut trazos: Vec<[u8; cara::TRAZO]> = Vec::with_capacity(ordenes.len());
 

@@ -323,9 +323,11 @@ en cada llamada).
 
 ## 3. LAS PROPIEDADES -- LISTA CERRADA
 
-**Cuarenta y cinco** (contadas en `value.rs`: cuarenta el 04-10, escalon 1, y
-cinco de MAQUETA 3 el 06-10, seccion 3e), y **nueve atajos** que se expanden
-en ellas (seis en la seccion 3c, tres en la 3e). Las **dieciseis** primeras se
+**Sesenta y una** (contadas en `value.rs` el 06-10, despues de la pila A de
+MAQUETA 3: once mas en la seccion 3e), y **diez atajos** que se expanden en
+ellas (seis en la seccion 3c, cuatro en la 3e). [!] Antes de contarlas otra
+vez, aqui decia "cuarenta y cinco" con cincuenta en el `enum`: la tercera vez
+que la cifra en prosa se queda atras (ver el aviso de abajo). Las **dieciseis** primeras se
 eligieron **contando** lo que `scene/` hace de verdad, no lo que CSS ofrece.
 `border-radius` entro al medir la raiz y descubrir que ya estaba implementada;
 `margin` **salio** al escribir el nieto -- ver seccion 3b.
@@ -586,13 +588,58 @@ Y dos atajos mas (se expanden en el padre, como los de la seccion 3c):
 | `inset` | `top`, `right`, `bottom`, `left`, de uno a cuatro valores como `padding` |
 | `padding-block`, `padding-inline` | `padding-top`/`-bottom`, y `padding-left`/`-right`; uno o dos valores |
 
+**Segunda tanda (06-10, MA2): la pila A entera.** Escrita aqui antes que su
+codigo. Tampoco piden la medida del padre; lo nuevo es que algunas tocan la
+PINTURA (el recorte, el contorno, el orden de las capas) y una el APARATO (las
+zonas del puntero).
+
+| propiedad | valores | nota |
+|---|---|---|
+| `overflow` | `hidden` \| `clip` \| `visible` \| `auto` | atajo de `overflow-x` y `overflow-y`, como en CSS. `auto` es el de siempre (H7, se desplaza) |
+| `overflow-x`, `overflow-y` | `hidden` \| `clip` \| `visible` (y `auto`) | **lo de dentro se RECORTA a la caja de relleno** (por dentro del borde), como en CSS. El fondo y el borde de la propia caja no; su texto, su dibujo y sus hijos si. Se resuelve al compilar: lo que cae entero dentro sale como siempre, lo que cae entero fuera no sale, un rect se corta exacto, y lo que queda a medias lleva su RECORTE al pintor (`Some(Recorte)`), que recorta al pixel. `overflow-x: auto` solo se acepta si nada se sale de ancho (en el navegador se desplazaria) |
+| `text-overflow` | `ellipsis` \| `clip` | con `overflow: hidden` en la MISMA caja y texto de una linea: si el texto no cabe, se corta AL COMPILAR con la letra que lo pinta y se le ponen `...` (los tres puntos de H2, los mismos que el aparato pone a un dato). El navegador pone el caracter `...` de uno: puede caber una letra de diferencia, y se dice |
+| `cursor` | `pointer` \| `text` \| `default` \| `not-allowed` \| `auto` | DECLARA una zona: el modulo sale con `puntero(ox, oy, px, py) -> &str`, la forma que pide el punto (la de la caja mas de encima que la declaro, como hereda CSS). Una caja con `cursor: pointer` lleva `id`: una zona que se pulsa y nadie puede nombrar es un boton que no hace nada |
+| `pointer-events` | `none` \| `auto` | `none`: la caja y lo de dentro (hereda, como en CSS) no estan en la tabla de golpes ni en la del puntero |
+| `z-index` | entero desde `0` | **la CAPA**: un numero GLOBAL. Se pinta capa a capa, de menor a mayor, y dentro de una capa en el orden del fichero; lo de dentro de una caja va en su capa. Solo en una caja `absolute` o `relative` (en una estatica CSS lo ignora) y nunca una dentro de otra (seria el contexto de apilado de CSS, que aqui no hay): con esas dos reglas el orden global y el de CSS son el mismo |
+| `left`, `top`, `right`, `bottom`, `inset` | `Npx`, **tambien negativos** | en una `absolute`, salirse de su ancla a proposito (la insignia sobre la esquina). Lo que se sale del lienzo sigue siendo error (A) |
+| `flex-wrap` | `wrap` \| `nowrap` | parte las filas AL COMPILAR, con los hijos y su medida conocidos, contra la medida PROPIA de la caja: necesita su `width` (fila) o su `height` (columna). El `gap` separa tambien las filas |
+| `align-content` | `start` \| `center` \| `end` \| `space-between` \| `stretch` (y `normal`) | donde caen las filas partidas si sobra sitio; `normal` es `stretch`, como en CSS. Sin `flex-wrap: wrap` no hace nada y es error |
+| `align-self` | `start` \| `center` \| `end` \| `stretch` \| `auto` | el `align-items` de UN hijo |
+| `aspect-ratio` | `N`, `A / B` | la proporcion de la caja PROPIA: con el ancho dicho (o el que llena su padre `block`) sale el alto, y al reves. Redondeado al pixel. En un hijo flex que se ESTIRARIA en el eje cruzado es error: dale su medida o `align-self` |
+| `outline` | `Npx solid #RRGGBB` \| `none` \| `0` | **el contorno**: un anillo FUERA del borde que no ocupa sitio. Con radio sigue la curva del borde (el radio mas lo que se separa); se pinta encima de todo, como en CSS. Tiene que caber en el lienzo |
+| `outline-offset` | `Npx`, tambien negativo | cuanto se separa del borde |
+
+Y lo que sigue fuera de la pila A, dicho: `align-items: baseline` (pide la
+linea base de cada letra y sale en su propio escalon), y en la CARA que viaja
+(emisor B) el recorte a medias, que todavia no viaja: una maqueta que lo
+necesita compila a Rust y a foto, y `--bef` lo rechaza con su motivo.
+
+Las comprobaciones nuevas (`verdict/src/pila_a.rs`):
+
+```text
+   M  un recorte que no puede ser: texto de PIXEL a medias (8 x 16 no se
+      corta), una absoluta que se ancla fuera de la caja que recorta (en
+      CSS no la recortaria), un recorte dentro de una caja que se
+      desplaza, o un eje que el navegador desplazaria
+   N  `text-overflow` sin `overflow: hidden` en la caja, o en un parrafo
+   O  `cursor: pointer` sin `id`
+   P  `z-index` en una caja estatica, o una capa dentro de otra
+   Q  `flex-wrap` sin la medida contra la que se parte; `align-content`
+      sin `flex-wrap`
+   R  `aspect-ratio` con las dos medidas dichas (sobra una), o en un hijo
+      que se estiraria
+   S  un contorno que se sale del lienzo
+```
+
 ---
 
 ## 4. LAS UNIDADES
 
 **Solo `px`, y solo enteros.** El `0` puede ir sin unidad.
 
-No hay `%`, `auto`, `rem`, `vh`, `vw`, `fr`, `calc()` ni negativos. Las dos
+No hay `%`, `auto`, `rem`, `vh`, `vw`, `fr` ni `calc()`, y negativos solo
+donde una caja se sale A PROPOSITO (los desplazamientos de una `absolute` y
+`outline-offset`, MAQUETA 3, seccion 3e). Las dos
 excepciones de MAQUETA 2 son de la LETRA y del DIBUJO, nunca de una caja:
 `letter-spacing` va en `em` (crece con la letra) y `stroke-width` admite un
 decimal (`1.5`, en unidades del `viewBox`). Una caja cae SIEMPRE en pixel
@@ -710,6 +757,10 @@ aparato limpia, corre y recorta sin maquetar.
 **E.** (H3, 04-10) **Un parrafo dice su `width` y su `font-size`**, y no es
 un dato: se parte al compilar, contra ese ancho; un dato no se parte, se
 corta.
+
+**M a S.** (MAQUETA 3, 06-10) Las de la pila A: el recorte, los puntos
+suspensivos, la zona, la capa, las filas partidas, la proporcion y el
+contorno. Cada una con su caso en la seccion 3e; viven en `pila_a.rs`.
 
 **I.** (H5, 04-10) **Una `relative` no se corre** con `top`/`left`/`right`/
 `bottom`: solo ancla. (Esta en `idle.rs`, con la H: una absoluta dice donde va
@@ -927,7 +978,7 @@ en una propiedad, y ninguna parece grave sola.
 | repeticion sobre datos vivos | el numero de hijos se sabe en ejecucion | nunca: es de Rust |
 | `:hover`, `:active` | es **conducta**, no maquetacion | v2, y sin tocar el layout |
 | `grid` | `flex` cubre lo medido en `scene/` | cuando algo real lo pida |
-| `float`, `z-index`, `overflow` | no hay caso en el arbol | cuando lo haya |
+| `float` | no hay caso en el arbol | cuando lo haya (`z-index` y `overflow` entraron el 06-10: seccion 3e) |
 | `border: ... dashed`, `currentColor` | una raya llena; el color de la letra puede no estar dicho | -- |
 | variables fuera de `:root` | se heredarian, y no hay herencia | nunca en v1 |
 | `margin` | sus margenes se FUNDEN en CSS y aqui no | cuando se implemente la fusion |

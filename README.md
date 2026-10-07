@@ -1191,7 +1191,7 @@ were seen on the real machine and the things marked 🟡 say so.
   **228 kernel operations and 209 userland ones, none by hand**. Deploying to a
   USB stick is a separate command, `.\desplegar.ps1`, on purpose.
 - `.\limpiar.ps1` says what the build trees weigh before you delete them.
-- `cargo test --workspace --exclude bmo-kernel` -- **4.776 tests, 0 failures** (counted 2026-10-06, after the mission desktop, HM3).
+- `cargo test --workspace --exclude bmo-kernel` -- **4.806 tests, 0 failures** (counted 2026-10-07, after pile A of MAQUETA 3, MA).
 - `cargo test -p bmo-c-x86-64 probe_` -- **15 axes in 0,61 s**: the census of what
   the C compiler actually supports, including the rows that are still broken. A
   census that hides its red rows is worth nothing.

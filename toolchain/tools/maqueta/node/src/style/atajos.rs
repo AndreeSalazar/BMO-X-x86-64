@@ -23,6 +23,8 @@ pub(super) enum Atajo {
     /// `padding-block` (`false`: arriba y abajo) o `padding-inline` (`true`:
     /// izquierda y derecha), con uno o dos valores.
     PaddingEje(bool),
+    /// `overflow: x [y]` (MAQUETA 3, MA2) -> `overflow-x` y `overflow-y`.
+    Overflow,
 }
 
 impl Atajo {
@@ -37,6 +39,7 @@ impl Atajo {
             b"inset" => Atajo::Inset,
             b"padding-block" => Atajo::PaddingEje(false),
             b"padding-inline" => Atajo::PaddingEje(true),
+            b"overflow" => Atajo::Overflow,
             _ => return None,
         })
     }
@@ -47,6 +50,7 @@ impl Atajo {
             Atajo::Border(lado) => borde(src, toks, i, lado, span, errors),
             Atajo::Inset => inset(src, toks, i, span, errors),
             Atajo::PaddingEje(en_linea) => padding_eje(src, toks, i, en_linea, span, errors),
+            Atajo::Overflow => desborde(src, toks, i, errors),
         }
     }
 }
@@ -239,10 +243,63 @@ fn medidas(src: &[u8], toks: &[Token], i: &mut usize, max: usize, nombre: &str, 
 /// clavada a los cuatro lados de su ancla, y aqui eso es una caja de la
 /// medida que ella misma dice, puesta arriba a la izquierda (`left` y `top`
 /// mandan, como en el nieto).
+///
+/// Desde MA2 (06-10) admite NEGATIVOS, como sus cuatro largas.
 fn inset(src: &[u8], toks: &[Token], i: &mut usize, span: bmo_maqueta_diag::Span, errors: &mut Vec<Error>) -> Vec<(Prop, Value)> {
-    let Some(v) = medidas(src, toks, i, 4, "inset", span, errors) else { return Vec::new() };
-    let [t, r, b, l] = super::cuatro(&v);
-    vec![(Prop::Top, Value::Px(t)), (Prop::Right, Value::Px(r)), (Prop::Bottom, Value::Px(b)), (Prop::Left, Value::Px(l))]
+    let Some(primero) = super::pila_a::con_signo(src, toks, i, Prop::Top, errors) else { return Vec::new() };
+    let mut v = vec![primero];
+    while v.len() < 4 && at_value_start(toks, *i) {
+        let Some(n) = super::pila_a::con_signo(src, toks, i, Prop::Top, errors) else { return Vec::new() };
+        v.push(n);
+    }
+    if at_value_start(toks, *i) {
+        errors.push(Error::new(span, "`inset` acepta de uno a 4 valores, no mas", "es un atajo de CSS, y lee sus valores como CSS.", "quitar lo que sobra."));
+        skip_value(toks, i);
+        return Vec::new();
+    }
+    let [t, r, b, l] = match v[..] {
+        [a] => [a; 4],
+        [a, b] => [a, b, a, b],
+        [a, b, c] => [a, b, c, b],
+        [a, b, c, d] => [a, b, c, d],
+        _ => [0; 4],
+    };
+    vec![(Prop::Top, Value::Signed(t)), (Prop::Right, Value::Signed(r)), (Prop::Bottom, Value::Signed(b)), (Prop::Left, Value::Signed(l))]
+}
+
+/// `overflow: x [y]`: una palabra son los dos ejes; dos, `x` y luego `y`,
+/// como en CSS.
+fn desborde(src: &[u8], toks: &[Token], i: &mut usize, errors: &mut Vec<Error>) -> Vec<(Prop, Value)> {
+    use crate::value::Keyword;
+    let mut v = Vec::new();
+    while let Some(t) = toks.get(*i).copied() {
+        if matches!(t.kind, Kind::Semi | Kind::RBrace) {
+            break;
+        }
+        let k = (t.kind == Kind::Ident).then(|| Keyword::from_name(t.text(src))).flatten();
+        match k {
+            Some(k @ (Keyword::Hidden | Keyword::Clip | Keyword::Visible | Keyword::Auto)) if v.len() < 2 => {
+                v.push(k);
+                *i += 1;
+            }
+            _ => {
+                errors.push(Error::new(
+                    span_of(&t),
+                    &format!("`{}` no es un valor de `overflow`", String::from_utf8_lossy(t.text(src))),
+                    "una o dos palabras: el eje x y el y.",
+                    "aqui van: `hidden`, `clip`, `visible`, `auto`.",
+                ));
+                skip_value(toks, i);
+                return Vec::new();
+            }
+        }
+    }
+    let (x, y) = match v[..] {
+        [a] => (a, a),
+        [a, b] => (a, b),
+        _ => return Vec::new(),
+    };
+    vec![(Prop::OverflowX, Value::Word(x)), (Prop::OverflowY, Value::Word(y))]
 }
 
 /// `padding-block: a [b]` -> arriba y abajo; `padding-inline` -> izquierda y

@@ -19,6 +19,7 @@
 //! prueba, no una lectura.
 
 use crate::literal::{pieza_literal, PX};
+use crate::rust_pila_a::limite_de;
 use bmo_maqueta_layout::{Laid, Rect};
 use std::fmt::Write;
 
@@ -74,6 +75,7 @@ pub fn modulo_con_datos(origen: &str, l: &Laid, colores: &[(String, u32)]) -> St
     realce_animado(&mut s, &podada, &datos);
     desplazamientos(&mut s, &podada, &datos);
     golpe(&mut s, l);
+    crate::rust_pila_a::puntero(&mut s, l);
     islas(&mut s, l);
     datos.tabla.emitir(&mut s);
     s
@@ -453,7 +455,7 @@ fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos, ventanas: &[String]) {
             i += b - a;
             continue;
         }
-        let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, "None"));
+        let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, &limite_de("None", o.recorte)));
         i += 1;
     }
     for v in ventanas {
@@ -542,7 +544,7 @@ fn pintar_en_como(s: &mut String, ordenes: &[Orden], d: &Datos, nombre: &str) {
             // mezclado dos veces se oscurece.
             otro => {
                 if otro.con_pieza(pieza_literal).is_some() {
-                    let l = llamada_con(otro, d, "Some(limite)");
+                    let l = llamada_con(otro, d, &limite_de("Some(limite)", o.recorte));
                     let _ = writeln!(s, "    if !{caja}.interseccion(&limite).vacio() {{\n        {l}\n    }}");
                 }
             }
@@ -580,7 +582,7 @@ fn realce(s: &mut String, ordenes: &[Orden], d: &Datos) {
             let _ = writeln!(s, "    if id == {:?} {{", o.de.trim_start_matches('#'));
             abierto = o.de.clone();
         }
-        let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, "None"));
+        let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, &limite_de("None", o.recorte)));
     }
     if !abierto.is_empty() {
         s.push_str("        return;\n    }\n");
@@ -654,7 +656,7 @@ fn realce_animado(s: &mut String, l: &Laid, d: &Datos) {
         }
         s.push_str("        }\n");
         for o in &dentro {
-            let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, "None"));
+            let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, &limite_de("None", o.recorte)));
         }
         s.push_str("        return;\n    }\n");
     }
@@ -730,7 +732,7 @@ fn desplazamientos(s: &mut String, l: &Laid, d: &Datos) {
             s.push_str("    let _ = d;\n");
         }
         for o in desplaza::contenido(f, l.canvas) {
-            let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, "Some(limite)"));
+            let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, &limite_de("Some(limite)", o.recorte)));
         }
         // La barra: la misma cuenta que `desplaza::barra`, con `desde` de
         // verdad.

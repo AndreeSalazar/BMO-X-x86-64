@@ -81,6 +81,37 @@ pub enum TextAlign {
     Right,
 }
 
+/// `overflow-x` / `overflow-y` (MAQUETA 3, MA2). `Auto` en `y` es la caja que
+/// se desplaza (H7).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Desborde {
+    #[default]
+    Visible,
+    /// Recorta; si el otro eje es `visible`, el navegador lo DESPLAZARIA.
+    Hidden,
+    /// Recorta, y el otro eje se queda como esta.
+    Clip,
+    Auto,
+}
+
+impl Desborde {
+    pub fn recorta(self) -> bool {
+        matches!(self, Desborde::Hidden | Desborde::Clip)
+    }
+}
+
+/// `align-content` (MA2): donde caen las filas partidas. `Stretch` es el
+/// `normal` de CSS.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum AlignContent {
+    #[default]
+    Stretch,
+    Start,
+    Center,
+    End,
+    SpaceBetween,
+}
+
 /// Every one of the sixteen properties, resolved.
 ///
 /// `Option` means *nobody said*; everything else carries the value CSS uses when
@@ -111,10 +142,12 @@ pub struct Style {
     pub justify: Justify,
     pub align: Align,
     pub position: Position,
-    pub left: Option<u32>,
-    pub top: Option<u32>,
-    pub right: Option<u32>,
-    pub bottom: Option<u32>,
+    /// Con signo desde MAQUETA 3 (MA2): una absoluta se sale de su ancla a
+    /// proposito.
+    pub left: Option<i32>,
+    pub top: Option<i32>,
+    pub right: Option<i32>,
+    pub bottom: Option<i32>,
     // -- MAQUETA 2: the letter. `font_size` None = the 8x16 pixel letter.
     pub font_size: Option<u32>,
     /// 400, 500, 600, 700 (0 = not said: 400).
@@ -155,6 +188,34 @@ pub struct Style {
     pub max_w: Option<u32>,
     pub min_h: Option<u32>,
     pub max_h: Option<u32>,
+    // -- MAQUETA 3, pila A, segunda tanda (06-10, MA2).
+    /// `overflow-x` y `overflow-y`: `[x, y]`.
+    pub desborde: [Desborde; 2],
+    /// `text-overflow: ellipsis`: la linea que no cabe se corta con `...`.
+    pub puntos: bool,
+    /// `white-space: nowrap` DICHO. Sin decirlo, en el navegador un texto que
+    /// no cabe baja de linea (su `normal`); MAQUETA no deja que no quepa
+    /// (B), salvo con los puntos: alli hace falta decirlo (N).
+    pub una_linea: bool,
+    /// `cursor`, si se dijo: declara una zona del puntero.
+    pub cursor: Option<Keyword>,
+    /// `pointer-events`: `Some(true)` = `none`, `Some(false)` = `auto`. Se
+    /// hereda (como en CSS), y eso lo resuelve quien recorre el arbol.
+    pub sin_puntero: Option<bool>,
+    /// `z-index`: la CAPA.
+    pub capa: Option<u32>,
+    /// `flex-wrap: wrap`.
+    pub parte: bool,
+    /// `align-content`, si se dijo.
+    pub align_content: Option<AlignContent>,
+    /// `align-self`: el `align-items` de esta caja como hijo.
+    pub align_self: Option<Align>,
+    /// `aspect-ratio`: ancho y alto.
+    pub proporcion: Option<(u32, u32)>,
+    /// `outline`: grosor y color (sin contorno, `None`).
+    pub contorno: Option<(u32, u32)>,
+    /// `outline-offset`.
+    pub contorno_aparte: i32,
 }
 
 impl Style {
@@ -192,10 +253,10 @@ impl Style {
             }
             (Prop::BorderRadius, Value::Word(Keyword::Mitad)) => self.radio_mitad = true,
             (Prop::Gap, Value::Px(n)) => self.gap = n,
-            (Prop::Left, Value::Px(n)) => self.left = Some(n),
-            (Prop::Top, Value::Px(n)) => self.top = Some(n),
-            (Prop::Right, Value::Px(n)) => self.right = Some(n),
-            (Prop::Bottom, Value::Px(n)) => self.bottom = Some(n),
+            (Prop::Left, Value::Signed(n)) => self.left = Some(n),
+            (Prop::Top, Value::Signed(n)) => self.top = Some(n),
+            (Prop::Right, Value::Signed(n)) => self.right = Some(n),
+            (Prop::Bottom, Value::Signed(n)) => self.bottom = Some(n),
 
             (Prop::Display, Value::Word(Keyword::Block)) => self.display = Display::Block,
             (Prop::Display, Value::Word(Keyword::Flex)) => self.display = Display::Flex,
@@ -230,8 +291,41 @@ impl Style {
             (Prop::LetterSpacing, Value::Em(e)) => self.letter_spacing = e,
             (Prop::LineHeight, Value::Px(n)) => self.line_height = Some(n),
             (Prop::TextTransform, Value::Word(k)) => self.uppercase = k == Keyword::Uppercase,
-            (Prop::WhiteSpace, Value::Word(k)) => self.parrafo = k == Keyword::Normal,
-            (Prop::OverflowY, Value::Word(k)) => self.desplaza = k == Keyword::Auto,
+            (Prop::WhiteSpace, Value::Word(k)) => {
+                self.parrafo = k == Keyword::Normal;
+                self.una_linea = k == Keyword::Nowrap;
+            }
+            (Prop::OverflowY, Value::Word(k)) => {
+                self.desplaza = k == Keyword::Auto;
+                self.desborde[1] = desborde(k);
+            }
+            (Prop::OverflowX, Value::Word(k)) => self.desborde[0] = desborde(k),
+            (Prop::TextOverflow, Value::Word(k)) => self.puntos = k == Keyword::Ellipsis,
+            (Prop::Cursor, Value::Word(k)) => self.cursor = Some(k),
+            (Prop::PointerEvents, Value::Word(k)) => self.sin_puntero = Some(k == Keyword::None),
+            (Prop::ZIndex, Value::Count(n)) => self.capa = Some(n),
+            (Prop::FlexWrap, Value::Word(k)) => self.parte = k == Keyword::Wrap,
+            (Prop::AlignContent, Value::Word(k)) => {
+                self.align_content = Some(match k {
+                    Keyword::Start => AlignContent::Start,
+                    Keyword::Center => AlignContent::Center,
+                    Keyword::End => AlignContent::End,
+                    Keyword::SpaceBetween => AlignContent::SpaceBetween,
+                    _ => AlignContent::Stretch,
+                })
+            }
+            (Prop::AlignSelf, Value::Word(k)) => {
+                self.align_self = match k {
+                    Keyword::Start => Some(Align::Start),
+                    Keyword::Center => Some(Align::Center),
+                    Keyword::End => Some(Align::End),
+                    Keyword::Stretch => Some(Align::Stretch),
+                    _ => None,
+                }
+            }
+            (Prop::AspectRatio, Value::Ratio(a, b)) => self.proporcion = Some((a, b)),
+            (Prop::Outline, Value::Outline { w, color }) => self.contorno = (w > 0).then_some((w, color)),
+            (Prop::OutlineOffset, Value::Signed(n)) => self.contorno_aparte = n,
             (Prop::BoxShadow, Value::Shadow { reach, argb }) => self.shadow = Some((reach, argb)),
             (Prop::BackgroundImage, Value::Gradient { vertical, from, to }) => {
                 self.gradient = Some((from, to, vertical))
@@ -269,5 +363,14 @@ impl Style {
             // arrives, `verdict/` sees a style that is simply missing a value.
             _ => {}
         }
+    }
+}
+
+fn desborde(k: Keyword) -> Desborde {
+    match k {
+        Keyword::Hidden => Desborde::Hidden,
+        Keyword::Clip => Desborde::Clip,
+        Keyword::Auto => Desborde::Auto,
+        _ => Desborde::Visible,
     }
 }

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   654 casillas ABIERTAS en 63 planes
-   553 hechas
+   653 casillas ABIERTAS en 63 planes
+   554 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -442,15 +442,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
 - ... y 2 mas
 
-## [`PLAN_MAQUETA_3.md`](PLAN_MAQUETA_3.md) -- 5 abiertas, 5 hechas
-
-*PLAN MAQUETA 3 -- lo que le falta a un .maqueta para escribir lo que escribe CSS, y MEJOR*
-
-- [ ] ME -- los elementos de la seccion 2c segun E1: la etiqueta en toolchain/tools/maqueta/node/src/m
-- [ ] MA -- la pila A entera en toolchain/tools/maqueta/node/src/value.rs (la lista), el nieto en tool
-- [ ] MB -- la pila B segun M1-M4 y M6: la rejilla en toolchain/tools/maqueta/layout/src/flow.rs, las 
-- ... y 2 mas
-
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas
 
 *PLAN DEL DIRECTOR -- el censo, lo que gasta, y por que*
@@ -485,6 +476,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 3. LA TANDA DEL METRO. -Metro + precio.bex en el Ryzen, y
 - [ ] 5. EL CENSO DE LO PERMANENTE. Trinquete de residente en el build:
 - [ ] 6. ENTREGAR EN CERO. Mover el borrado del devolver al entregar, UNA
+- ... y 1 mas
+
+## [`PLAN_MAQUETA_3.md`](PLAN_MAQUETA_3.md) -- 4 abiertas, 6 hechas
+
+*PLAN MAQUETA 3 -- lo que le falta a un .maqueta para escribir lo que escribe CSS, y MEJOR*
+
+- [ ] ME -- los elementos de la seccion 2c segun E1: la etiqueta en toolchain/tools/maqueta/node/src/m
+- [ ] MB -- la pila B segun M1-M4 y M6: la rejilla en toolchain/tools/maqueta/layout/src/flow.rs, las 
+- [ ] MC -- la pila C segun M5: @secuencia junto a @estado en toolchain/tools/maqueta/node/src/style.r
 - ... y 1 mas
 
 ## [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 3 abiertas, 32 hechas

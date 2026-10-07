@@ -36,6 +36,8 @@
 #![forbid(unsafe_code)]
 
 pub mod anima;
+/// Las capas, el recorte, el puntero y el contorno de la pila A (MAQUETA 3).
+pub mod capas;
 pub mod literal;
 pub mod orden;
 pub mod recorte;
@@ -45,6 +47,8 @@ pub mod recorte;
 /// comparten las diecisiete caras del escritorio; la maquetacion no.
 pub mod paleta;
 pub mod rust;
+/// Lo que la pila A de MAQUETA 3 escribe en Rust (aparte de `rust.rs`).
+mod rust_pila_a;
 /// Las figuras seguidas de un dibujo, en UNA tabla que recorren los pintados.
 mod tabla;
 /// **El emisor B**: la cara como BYTES, para cambiarla sin recompilar. Hermano
