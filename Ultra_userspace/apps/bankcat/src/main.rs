@@ -49,6 +49,12 @@ mod mates;
 #[path = "../../hermes/src/piezas.rs"]
 #[allow(dead_code)]
 mod piezas;
+/// El HUD de mision de las apps (HM6): el fondo, el marco, la lectura y la barra.
+#[path = "../../hermes/src/mision.rs"]
+#[allow(dead_code)]
+mod mision;
+/// El instrumento de BANK CAT con el escritorio de mision: el TANQUE.
+mod tanque;
 
 use alloc::vec::Vec;
 use bmo_bankcat::{Centimos, Estado};

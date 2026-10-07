@@ -36,6 +36,12 @@ mod pintar;
 #[allow(dead_code)]
 mod piezas;
 mod tiendas;
+/// El HUD de mision de las apps (HM6), y el instrumento de la LUDOTECA: el
+/// SIMULADOR, con el parche del juego fijado.
+#[path = "../../hermes/src/mision.rs"]
+#[allow(dead_code)]
+mod mision;
+mod parche;
 
 /// La ventana y el lienzo son los del TALLER (F1): las mismas piezas, sin copia.
 #[path = "../../taller/src/canvas.rs"]

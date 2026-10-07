@@ -20,3 +20,6 @@ bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
 # LA LETRA DE LA CASA (04-10): la de las maquetas, la misma que HERMES. Con
 # monton, por eso el paquete `bmo-letra-monton` (ver el Cargo.toml de HERMES).
 bmo-letra = { package = "bmo-letra-monton", path = "../../../platform/shared/bmo-letra-monton" }
+# HM6: si hay escritorio de mision lo dice `sys/director.cfg`, con la misma
+# regla que lee el escritorio.
+bmo-config = { path = "../../../platform/shared/bmo-config" }

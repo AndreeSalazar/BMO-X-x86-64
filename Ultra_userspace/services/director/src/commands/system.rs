@@ -383,6 +383,7 @@ pub(crate) fn audio(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
 }
 
 pub(crate) fn autopsy(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    super::alarma::report_alarma(&mut dsk.out.grid);
     report_autopsy(&mut dsk.out.grid);
     paint_status(&p, &dsk.run_box, "ultimo fallo de Ring 3", INK_DIM);
     dsk.field.n = 0;

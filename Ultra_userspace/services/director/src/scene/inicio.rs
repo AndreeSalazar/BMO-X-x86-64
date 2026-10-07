@@ -26,7 +26,7 @@
 
 use bmo_userland as bmo;
 
-use super::tema_gen::{MISION_BORDE, MISION_CUIDADO, MISION_FONDO, MISION_GO, MISION_NOGO, MISION_OJO, MISION_TENUE, MISION_TINTA};
+use super::tema_gen::{MISION_BORDE, MISION_CUIDADO, MISION_GO, MISION_NOGO, MISION_OJO, MISION_TENUE, MISION_TINTA};
 use super::{mision, nebulosa_gen};
 
 /// Como contesta un sistema a la encuesta.
@@ -136,7 +136,7 @@ pub(crate) fn pintar_con(p: &bmo::Pantalla, renglones: &[Renglon]) -> bool {
     let nota = bmo::Estilo::normal(13);
     let (x0, alto) = ((w / 16).max(24), 36u32);
     let caja = (x0, h / 2 - (renglones.len() as u32 * alto) / 2 - 64, 620u32.min(w.saturating_sub(2 * x0)), renglones.len() as u32 * alto + 96);
-    marco(p, caja);
+    super::hud::marco(p, caja, b"", b"");
     let (x, mut y) = (caja.0 + 24, caja.1 + 24);
     p.letra(x as i32, y as i32, b"ENCUESTA  //  GO / NO-GO", MISION_OJO, rotulo);
     y += 48;
@@ -167,13 +167,3 @@ pub(crate) fn pintar_con(p: &bmo::Pantalla, renglones: &[Renglon]) -> bool {
     todo
 }
 
-/// El marco de instrumento: el panel, su raya y las cuatro esquinas en L.
-fn marco(p: &bmo::Pantalla, (x, y, w, h): (u32, u32, u32, u32)) {
-    p.rect(x, y, w, h, MISION_BORDE);
-    p.rect(x + 1, y + 1, w.saturating_sub(2), h.saturating_sub(2), MISION_FONDO);
-    const L: u32 = 14;
-    for (ex, ey, hx, vy) in [(x, y, x, y), (x + w - L, y, x + w - 2, y), (x, y + h - 2, x, y + h - L), (x + w - L, y + h - 2, x + w - 2, y + h - L)] {
-        p.rect(ex, ey, L, 2, MISION_OJO);
-        p.rect(hx, vy, 2, L, MISION_OJO);
-    }
-}

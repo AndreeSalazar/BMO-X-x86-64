@@ -90,34 +90,46 @@ pub(crate) fn paint(
 
     // -- el encabezado --
     let y0 = z.y + 12;
-    super::borde::marco(p, x0, y0, ancho, CABEZA_H, super::RADIUS, borde, fondo);
-    p.rect(x0 + super::RADIUS, y0, ancho.saturating_sub(2 * super::RADIUS), 1, neon);
-    super::iconos::vector(p, x0 + 14, y0 + 12, 40, &super::iconos::dibujos::ESTRATOS, &super::iconos::paleta(neon, neon), fondo);
-    p.texto_escala(x0 + 66, y0 + 10, "Historial", INK, 2);
-    if cuantas == 0 {
-        p.texto(x0 + 66, y0 + 44, "no hay historia que mostrar: el volumen no monta, o no tiene ni un estrato.", INK_BAD_O_DIM);
-        return;
-    }
-    let permanentes = (0..cuantas as u64).filter(|&i| bmo::estratos::hist_con_nombre(i)).count();
+    // HM6d: con el escritorio de mision, el encabezado es la TRAYECTORIA
+    // (`trayectoria.rs`). Esta solapa solo se maneja con el teclado, asi que
+    // bajar la cadena no deja ninguna zona de raton atras.
+    let mision = super::fondo::es_mision();
     let mut b = [0u8; 10];
-    let ry = y0 + 44;
-    let n = crate::text::decimal(cuantas as u64, &mut b);
-    let x = p.texto_bytes(x0 + 66, ry, &b[..n], neon);
-    let x = p.texto(x, ry, " versiones   ", INK_DIM);
-    let n = crate::text::decimal(permanentes as u64, &mut b);
-    let x = p.texto_bytes(x, ry, &b[..n], INK_OK);
-    let x = p.texto(x, ry, " permanentes   ", INK_DIM);
-    if bmo::estratos::hist_recortada() {
-        p.texto(x, ry, "(y mas atras, fuera de lo que se guarda)", INK_DIM);
-    }
-    let pista = "ENTRAR vuelve a la marcada: no se pierde nada";
-    let px = (x0 + ancho).saturating_sub(16 + pista.len() as u32 * bmo::GLIFO_ANCHO);
-    if px > x0 + 360 {
-        p.texto(px, y0 + 16, pista, INK_DIM);
+    let cabeza = if mision { super::trayectoria::ALTO - 14 } else { CABEZA_H };
+    if mision {
+        super::trayectoria::pintar(p, (x0, y0, ancho, cabeza));
+        if cuantas == 0 {
+            return;
+        }
+    } else {
+        super::borde::marco(p, x0, y0, ancho, CABEZA_H, super::RADIUS, borde, fondo);
+        p.rect(x0 + super::RADIUS, y0, ancho.saturating_sub(2 * super::RADIUS), 1, neon);
+        super::iconos::vector(p, x0 + 14, y0 + 12, 40, &super::iconos::dibujos::ESTRATOS, &super::iconos::paleta(neon, neon), fondo);
+        p.texto_escala(x0 + 66, y0 + 10, "Historial", INK, 2);
+        if cuantas == 0 {
+            p.texto(x0 + 66, y0 + 44, "no hay historia que mostrar: el volumen no monta, o no tiene ni un estrato.", INK_BAD_O_DIM);
+            return;
+        }
+        let permanentes = (0..cuantas as u64).filter(|&i| bmo::estratos::hist_con_nombre(i)).count();
+        let ry = y0 + 44;
+        let n = crate::text::decimal(cuantas as u64, &mut b);
+        let x = p.texto_bytes(x0 + 66, ry, &b[..n], neon);
+        let x = p.texto(x, ry, " versiones   ", INK_DIM);
+        let n = crate::text::decimal(permanentes as u64, &mut b);
+        let x = p.texto_bytes(x, ry, &b[..n], INK_OK);
+        let x = p.texto(x, ry, " permanentes   ", INK_DIM);
+        if bmo::estratos::hist_recortada() {
+            p.texto(x, ry, "(y mas atras, fuera de lo que se guarda)", INK_DIM);
+        }
+        let pista = "ENTRAR vuelve a la marcada: no se pierde nada";
+        let px = (x0 + ancho).saturating_sub(16 + pista.len() as u32 * bmo::GLIFO_ANCHO);
+        if px > x0 + 360 {
+            p.texto(px, y0 + 16, pista, INK_DIM);
+        }
     }
 
     // -- la cadena --
-    let ty = y0 + CABEZA_H + 14;
+    let ty = y0 + cabeza + 14;
     let paso = CAJA_H + HUECO;
     let caben = ((z.y + z.h).saturating_sub(ty + 20) / paso).max(1) as usize;
     let desde = desde.max((sel + 1).saturating_sub(caben)).min(cuantas.saturating_sub(1));

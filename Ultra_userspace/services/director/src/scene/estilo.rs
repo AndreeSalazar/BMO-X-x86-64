@@ -39,7 +39,7 @@ pub(crate) const POR_DEFECTO: Estilo = Estilo {
     marco: bmo_config::Marco::Fino,
     // ** El de mision (06-10, HM3): la estrella gato y su cielo. El degradado
     // de siempre sigue a una linea: `fondo = degradado`.
-    fondo: bmo_config::Fondo::Mision,
+    fondo: bmo_config::FONDO_POR_DEFECTO,
 };
 
 pub(crate) const RUTA: &[u8] = b"sys/director.cfg";
