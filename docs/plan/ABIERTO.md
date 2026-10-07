@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   724 casillas ABIERTAS en 67 planes
+   733 casillas ABIERTAS en 67 planes
    575 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -82,6 +82,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
 - ... y 28 mas
 
+## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 30 abiertas, 0 hechas
+
+*PLAN ILLAPA -- el motor de CGI en tiempo real de BMO-X: motor grafico + Houdini propio, en TITAN*
+
+- [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
+- [ ] IL1 -- gpu fn CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaj
+- [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
+- ... y 27 mas
+
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 22 abiertas, 6 hechas
 
 *PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
@@ -90,15 +99,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A4 -- los CARRILES de la 3060: una carpeta que no mezcla
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 19 mas
-
-## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 21 abiertas, 0 hechas
-
-*PLAN ILLAPA -- el motor de CGI en tiempo real de BMO-X: motor grafico + Houdini propio, en TITAN*
-
-- [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
-- [ ] IL1 -- gpu fn CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaj
-- [ ] IL2 -- LA REJILLA DE VECINOS: cada particula a su celda, ordenadas por celda (un conteo y un ord
-- ... y 18 mas
 
 ## [`PLAN_FASE.md`](PLAN_FASE.md) -- 19 abiertas, 3 hechas
 
