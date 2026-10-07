@@ -1346,3 +1346,5 @@ mod tandas;
 // A9 (06-10): el .bsf vivo, de punta a punta (bmox12.exe dos veces).
 #[path = "corre/vivo.rs"]
 mod vivo;
+#[path = "corre/turno.rs"]
+mod turno;

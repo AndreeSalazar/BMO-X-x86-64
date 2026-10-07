@@ -243,6 +243,7 @@ fn el_pulso_no_se_nota_y_su_foto_dice_hilos_y_llamadas() {
         assert!(foto.contains("# el monton de la casa: 3 MiB en uso (pico 5 MiB), crecio 64 MiB por la reserva\n"), "{foto}");
         // V5 (07-10): y el codigo nativo (ni crt.exe ni hilos.exe crean PSO).
         assert!(foto.contains("# el codigo nativo: 0 sello(s), 0 KiB de codigo, 0 PSO traducidos\n"), "{foto}");
+        assert!(foto.contains("# el turno prestado al sonido: "), "{foto}");
         if exe == CRT {
             assert!(llamadas > 2048, "{foto}");
         } else {

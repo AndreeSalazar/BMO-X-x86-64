@@ -200,16 +200,36 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
 
 ## 4T. EL TURNO, mientras hay UN nucleo (sin Ring 0)
 
-- [ ] **T1 -- lo largo cede.** Crear un PSO, traducir un sombreador y cada
-      franja de un Draw interpretado ceden el turno si hay otro hilo listo y
-      ya paso 1 ms. **Como se sabe:** prueba en el banco: un hilo que crea 50
-      PSO y otro que cuenta: el segundo avanza entre medias.
-- [ ] **T2 -- el sonido primero.** Cuando el anillo de un `IAudioClient`
+- [x] **T1 -- lo largo PRESTA el turno al sonido.** Cada orden de una lista
+      de D3D12 y cada PSO creado RESPIRAN (`hilos::respirar`, como mucho
+      cada 1 ms): el latido del sonido, y si el hilo del sonido ya puede
+      seguir, se le PRESTA el turno y vuelve a quien lo presto
+      (`Planificador::prestado`), no a la rueda. **Solo** al del sonido: un
+      hilo cualquiera del juego entraria en D3D12 a mitad de la lista (eso
+      es H2.1, la casa con cerrojos). **Como se sabe:** prueba en el banco
+      con hilos de verdad: el principal hace algo largo sin esperar; el del
+      sonido rellena a mitad; otro hilo del juego, listo, NO corre.
+      07-10, HECHO: `proton-x/src/hilos.rs` (`urgente`, `prestado`,
+      `del_sonido`; `pruebas_turno.rs`, 2 pruebas) y
+      `proton-x-casa/tests/corre/turno.rs` (`lo_largo_presta_el_turno_al_
+      sonido_y_a_nadie_mas`; su NO: 60 ms sin respirar, el sonido no corre
+      ni una vez). Se respira en `d3d12::correr` (cada orden) y al crear
+      cada PSO grafico y de computo. Lo que NO respira todavia: UN dibujo
+      enorme por la CPU (dentro de `lote::en_cpu`), que con el codigo
+      nativo de vuelta (V2) deberia durar menos que el anillo (170 ms).
+- [x] **T2 -- el sonido primero.** Cuando el anillo de un `IAudioClient`
       por evento baja de la mitad, su evento se enciende y el hilo que lo
       espera pasa DELANTE en el siguiente turno (`SetThreadPriority`,
       `AvSetMmThreadCharacteristics` "Pro Audio"). **Como se sabe:** el
       banco: con un hilo que no espera nunca, el del sonido rellena a
       tiempo.
+      07-10, HECHO de otra forma, mas firme: el hilo del sonido se reconoce
+      por lo que ESPERA (`SetEventHandle` marca su evento: `del_sonido`), no
+      por lo que dice de si (la prioridad o MMCSS, que un motor puede no
+      pedir). `SetThreadPriority`/`GetThreadPriority` ya guardan y devuelven
+      la de verdad (-15, -2..2, 15; lo demas, ERROR_INVALID_PARAMETER), para
+      los directores. La prueba es la de T1. El pulso dice `# el turno
+      prestado al sonido: N vez/veces`.
 - [ ] **T3 -- medirlo en el metal.** Los tirones del audifono por debajo de
       10 en la intro. **Como se sabe:** la cabina de audio del SALIDA.TXT.
 

@@ -295,6 +295,75 @@ pub(crate) fn ceder() -> bool {
     }
 }
 
+/// Cada cuanto lo largo mira si el hilo del sonido ya puede seguir (T1).
+const RESPIRO_NS: u64 = 1_000_000;
+static ULTIMO_RESPIRO: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+/// Cuantas veces lo largo le presto el turno al sonido (lo dice el pulso).
+static PRESTAMOS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// **Respirar a mitad de lo largo** (T1 y T2 de `PLAN_LOS_DOCE_DIRECTORES`,
+/// 07-10). Lo llama lo que tarda sin esperar nada -- cada orden de una lista
+/// de D3D12, cada PSO creado -- en un punto donde no tiene nada de la casa
+/// a medias. Como mucho cada [`RESPIRO_NS`]: el latido del sonido (lo
+/// convertido, al anillo; y el evento del flujo, si cabe un periodo); y si
+/// el hilo que espera ese evento ya puede seguir, le PRESTA el turno. El
+/// turno vuelve aqui en cuanto ese hilo espere otra vez
+/// (`Planificador::prestado`): ningun otro hilo del juego corre entre medias.
+///
+/// Cyberpunk en el metal (06-10): 96 cortes de sonido, uno de 33 s, porque
+/// el hilo del sonido solo corria cuando el que dibujaba esperaba algo.
+pub fn respirar() {
+    use core::sync::atomic::Ordering;
+    let t = ahora();
+    if t.saturating_sub(ULTIMO_RESPIRO.load(Ordering::Relaxed)) < RESPIRO_NS {
+        return;
+    }
+    ULTIMO_RESPIRO.store(t, Ordering::Relaxed);
+    if casa().hilos.len() == 1 {
+        return;
+    }
+    crate::wasapi_flujo::latir();
+    let u = {
+        let c = casa();
+        let u = c.plan.urgente(t);
+        if u.is_some() {
+            c.plan.prestado = Some(c.plan.actual);
+        }
+        u
+    };
+    if let Some(u) = u {
+        PRESTAMOS.fetch_add(1, Ordering::Relaxed);
+        cambiar_a(u);
+    }
+}
+
+/// **El evento `h` es del sonido** (`IAudioClient::SetEventHandle`): quien
+/// lo espere es el hilo del sonido, y [`respirar`] le presta el turno.
+pub(crate) fn del_sonido(h: u64) {
+    if let Some(o) = objeto_de(h) {
+        casa().plan.del_sonido(o);
+    }
+}
+
+/// Cuantas veces lo largo le presto el turno al sonido ([`respirar`]).
+pub fn prestamos() -> u64 {
+    PRESTAMOS.load(core::sync::atomic::Ordering::Relaxed)
+}
+
+/// `SetThreadPriority` (T2, 07-10): se guarda (ver `Planificador::urgente`:
+/// no presta el turno). `false` si no es un hilo.
+pub(crate) fn poner_prioridad(h: u64, p: i32) -> bool {
+    match hilo_de(h) {
+        Some(n) => casa().plan.poner_prioridad(n, p),
+        None => false,
+    }
+}
+
+/// `GetThreadPriority`: la que se puso, o `None` si no es un hilo.
+pub(crate) fn prioridad(h: u64) -> Option<i32> {
+    casa().plan.prioridad(hilo_de(h)?)
+}
+
 // -- El TLS -------------------------------------------------------------------------
 
 /// Un bloque de TLS estatico para un hilo, y su tabla de un modulo; lo que va

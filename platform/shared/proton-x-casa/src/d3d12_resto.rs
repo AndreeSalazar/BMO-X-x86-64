@@ -158,7 +158,14 @@ pub struct Computo {
 /// `CreateComputePipelineState(this, desc, riid, pp)`:
 /// D3D12_COMPUTE_PIPELINE_STATE_DESC -- pRootSignature +0, CS +8 (puntero y
 /// medida), NodeMask +24, CachedPSO +32, Flags +48.
-extern "win64" fn create_compute_pipeline_state(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+extern "win64" fn create_compute_pipeline_state(this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+    let r = crear_computo(this, desc, riid, pp);
+    // T1 (07-10): como el grafico (`tuberia::create_graphics_pipeline_state`).
+    crate::hilos::respirar();
+    r
+}
+
+fn crear_computo(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
     crate::pulso::contar(crate::pulso::Cosa::Pso, 0);
     if !pide(riid, com::PSO) {
         return E_NOINTERFACE;

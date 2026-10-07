@@ -424,7 +424,15 @@ unsafe fn pso_de(d: *const u8) -> Result<(Pso, bool), &'static str> {
     }, nuevo))
 }
 
-pub(crate) extern "win64" fn create_graphics_pipeline_state(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+pub(crate) extern "win64" fn create_graphics_pipeline_state(this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+    let r = crear_pso_grafico(this, desc, riid, pp);
+    // T1 (07-10): una carga crea mil PSO de un tiron; entre uno y otro, el
+    // hilo del sonido (ya no queda nada de este a medias).
+    crate::hilos::respirar();
+    r
+}
+
+fn crear_pso_grafico(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
     if !pide(riid, com::PSO) {
         return E_NOINTERFACE;
     }

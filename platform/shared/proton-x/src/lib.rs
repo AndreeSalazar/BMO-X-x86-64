@@ -176,3 +176,5 @@ mod pruebas_niveles;
 mod pruebas_nulo;
 #[cfg(test)]
 mod pruebas_cifra;
+#[cfg(test)]
+mod pruebas_turno;

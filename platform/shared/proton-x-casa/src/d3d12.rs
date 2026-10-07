@@ -1102,7 +1102,10 @@ pub(crate) fn ejecutar_listas(n: u32, listas: *const u64) {
     }
 }
 
-/// Las ordenes de UNA lista, de un tiron (sin ceder el turno).
+/// Las ordenes de UNA lista, de un tiron: sin ceder el turno a la rueda.
+/// Entre orden y orden RESPIRA (T1, 07-10): el hilo del sonido, si ya puede
+/// seguir, corre y devuelve el turno aqui (`hilos::respirar`); ningun otro
+/// hilo del juego entra entre medias.
 pub(crate) fn correr(ordenes: &[Orden]) {
     {
         // E2.7: toda lista empieza sin consultas abiertas ni predicacion.
@@ -1144,6 +1147,7 @@ pub(crate) fn correr(ordenes: &[Orden]) {
                 }
                 o => crate::d3d12_resto::ejecutar(o),
             }
+            crate::hilos::respirar();
         }
         crate::consultas::al_acabar_lista();
     }
