@@ -343,11 +343,27 @@ mas de una salida en un sombreador de PIXELES).
 
 ## 4P. LO QUE QUEDA DE D3D12 EN ESTA CORRIDA
 
-- [ ] **P1 -- `CreatePlacedResource` que se solapan.** Dos recursos en el
+- [~] **P1 -- `CreatePlacedResource` que se solapan.** Dos recursos en el
       mismo sitio de un monton ven los MISMOS bytes. **Como se sabe:** un
       juez de Windows que escribe por uno y lee por el otro.
-- [ ] **P2 -- una tabla de descriptores en un parametro mas alla del 16.**
+      07-10: los BUFERES colocados ya viven en la memoria de su monton
+      desde la tanda 44 (`d3d12_montones::create_placed_resource`; prueba
+      `tanda44_exe_buferes_grandes_y_montones_de_verdad`): dos en el mismo
+      sitio ven los mismos bytes. Las TEXTURAS no, a proposito: con la
+      disposicion UNKNOWN (la de un juego) D3D12 no promete que una herede
+      los texeles de la otra, y la casa guarda los suyos en su orden; cuesta
+      RAM, no dibujo, y el aviso ya no lo cuenta como un fallo. **Falta:**
+      el juez de Windows (escribir por uno, leer por el otro) para ver que
+      hace Windows con dos texturas.
+- [~] **P2 -- una tabla de descriptores en un parametro mas alla del 16.**
       **Como se sabe:** un juez con una firma de 20 parametros.
+      07-10, HECHO en el banco; falta el juez de Windows. La casa guardaba
+      16 parametros de la raiz (vistas y tablas: `[u64; 16]`) y tiraba el
+      resto con un aviso; ahora `tuberia::Raiz` guarda los 64 que D3D12
+      deja. Prueba `una_tabla_mas_alla_del_parametro_16_se_ve`
+      (`proton-x-casa/tests/textura.rs`): HelloTexture con 20 parametros de
+      constantes delante y la tabla en el 20, firma 1.0 y 1.1, cada pixel
+      su texel; con el tope viejo, el aviso y la prueba en rojo.
 - [ ] **P3 -- el primer Present de Cyberpunk.** **Como se sabe:** el DIARIO
       del metal dice `Present` y la ventana muestra algo.
 

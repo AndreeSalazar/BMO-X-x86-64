@@ -610,13 +610,42 @@ pub struct Vista {
     pub paso_o_formato: u32,
 }
 
+/// **P2 (07-10): los parametros de una firma raiz.** D3D12 deja hasta 64
+/// (64 palabras: una tabla o una vista cuestan una o dos); la casa guardaba
+/// 16, y un parametro 16 o mas se tiraba con un aviso.
+pub const PARAMETROS: usize = 64;
+
+/// Lo dado a cada parametro de la raiz, por su indice (una direccion de GPU,
+/// o 0). Se lee como un `[u64]`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Raiz(pub [u64; PARAMETROS]);
+
+impl Default for Raiz {
+    fn default() -> Self {
+        Raiz([0; PARAMETROS])
+    }
+}
+
+impl core::ops::Deref for Raiz {
+    type Target = [u64];
+    fn deref(&self) -> &[u64] {
+        &self.0
+    }
+}
+
+impl core::ops::DerefMut for Raiz {
+    fn deref_mut(&mut self) -> &mut [u64] {
+        &mut self.0
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct Estado {
     pub pso: u64,
     pub raiz: u64,
     /// La direccion dada a cada parametro DESCRIPTOR de la raiz (CBV, y
     /// desde N5.3b SRV y UAV), por su indice.
-    pub cbv: [u64; 16],
+    pub cbv: Raiz,
     /// Las constantes de 32 bits de la raiz (`SetGraphicsRoot32BitConstants`,
     /// N5.2), las de todos sus parametros una tras otra: ver `cbuffers`.
     pub raiz32: crate::cbuffers::Palabras,
@@ -643,7 +672,7 @@ pub struct Estado {
     pub dsv_sub: u64,
     /// El identificador de GPU dado a cada tabla de la raiz, por su indice
     /// (SetGraphicsRootDescriptorTable): la direccion de su primera ranura.
-    pub tablas: [u64; 16],
+    pub tablas: Raiz,
 }
 
 /// **Lo que un dibujo ve**, ya leido de la memoria: lo que el banco compara.
@@ -1119,7 +1148,7 @@ pub(crate) type Vistos = (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, 
 
 /// La ranura `i` de la tabla del parametro `k` (4 palabras), si el `.exe`
 /// puso esa tabla.
-pub(crate) fn descriptor_de(tablas: &[u64; 16], k: usize, i: u64) -> Option<&'static [u64]> {
+pub(crate) fn descriptor_de(tablas: &[u64], k: usize, i: u64) -> Option<&'static [u64]> {
     let base = *tablas.get(k)?;
     if base == 0 {
         return None;
@@ -1134,7 +1163,7 @@ pub(crate) fn descriptor_de(tablas: &[u64; 16], k: usize, i: u64) -> Option<&'st
 /// el lugar del rango con ese registro, buscado en la firma como una ranura
 /// fija; un registro que ninguna tabla tiene, o un SRV nulo o de bufer, se
 /// lee como nulo (ceros).
-pub(crate) fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::textura::Textura<'static>> {
+pub(crate) fn textura_dinamica(firma: &Firma, tablas: &[u64], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::textura::Textura<'static>> {
     use bmo_proton_x::donde::{self, RANGO_SRV};
     let l = bmo_proton_x::dxil::ranuras::Lugar { registro, ..*ranuras.dinamicas.get(rango as usize)? };
     let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor_de(tablas, k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0)?;
@@ -1150,7 +1179,7 @@ pub(crate) fn textura_dinamica(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_
 /// 07-10: los buferes "bindless" de un CS de Cyberpunk): como
 /// [`textura_dinamica`], el descriptor del registro en su tabla; un SRV de
 /// textura aqui es nulo (lo lee `textura_dinamica`).
-pub(crate) fn bufer_dinamico(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::bufer::Bufer<'static>> {
+pub(crate) fn bufer_dinamico(firma: &Firma, tablas: &[u64], ranuras: &bmo_proton_x::dxil::programa::Ranuras, rango: u8, registro: u32) -> Option<bmo_proton_x::bufer::Bufer<'static>> {
     use bmo_proton_x::donde::{self, RANGO_SRV};
     let l = bmo_proton_x::dxil::ranuras::Lugar { registro, ..*ranuras.dinamicas.get(rango as usize)? };
     let ranura = donde::en_tabla(firma, RANGO_SRV, l).and_then(|(k, i)| descriptor_de(tablas, k, i)).filter(|r| r[1] == crate::d3d12::DESC_SRV && r[0] != 0)?;
@@ -1160,7 +1189,7 @@ pub(crate) fn bufer_dinamico(firma: &Firma, tablas: &[u64; 16], ranuras: &bmo_pr
     bufer_de_srv(ranura).map_err(aviso).ok()
 }
 
-pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
+pub(crate) fn recursos_del_dibujo(firma: &Firma, tablas: &[u64], raiz: &[u64], ranuras: &bmo_proton_x::dxil::programa::Ranuras) -> Vistos {
     use bmo_proton_x::donde::{self, RANGO_MUESTREADOR, RANGO_SRV};
     use bmo_proton_x::textura::Muestreador;
     let descriptor = |k: usize, i: u64| descriptor_de(tablas, k, i);

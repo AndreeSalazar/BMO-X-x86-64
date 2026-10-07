@@ -34,7 +34,7 @@ const UAV_BUFER: u32 = 1;
 /// memoria de su bufer desde su primer elemento, para escribirla (o la de su
 /// textura: `uav_de_textura`); `None` (y se lee como nulo) si no hay. Lo
 /// usan el Dispatch y, desde el 05-10, el Draw (`tuberia::pintar`).
-pub(crate) fn uav_de(firma: &Firma, tablas: &[u64; 16], raiz: &[u64; 16], ranuras: &bmo_proton_x::dxil::programa::Ranuras, l: Lugar) -> Option<Uav<'static>> {
+pub(crate) fn uav_de(firma: &Firma, tablas: &[u64], raiz: &[u64], ranuras: &bmo_proton_x::dxil::programa::Ranuras, l: Lugar) -> Option<Uav<'static>> {
     use bmo_proton_x::donde::{self, RANGO_UAV};
     // N5.3b (05-10): un UAV en la RAIZ: crudo o estructurado, sin contador
     // (D3D12 no deja otros ahi).

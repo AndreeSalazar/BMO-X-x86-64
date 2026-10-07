@@ -802,7 +802,7 @@ pub(crate) extern "win64" fn set_graphics_root_descriptor_table(this: u64, param
     let e = unsafe { &mut lista(this).estado };
     match e.tablas.get_mut(parametro as usize) {
         Some(t) => *t = handle,
-        None => aviso("SetGraphicsRootDescriptorTable con un parametro de mas de 16"),
+        None => aviso("SetGraphicsRootDescriptorTable con un parametro de mas de 64: en Windows es un error, y no se hace"),
     }
 }
 

@@ -542,7 +542,7 @@ fn encima(base: &Estado, bundle: &Estado) -> Estado {
     if bundle.raiz != 0 {
         e.raiz = bundle.raiz;
     }
-    for k in 0..16 {
+    for k in 0..crate::tuberia::PARAMETROS {
         if bundle.cbv[k] != 0 {
             e.cbv[k] = bundle.cbv[k];
         }

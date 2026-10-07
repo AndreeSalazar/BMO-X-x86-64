@@ -183,7 +183,13 @@ static DE_LA_BC1: Mutex<Option<(Vec<[u64; 4]>, u64, Vec<u8>)>> = Mutex::new(None
 /// convierte; aqui se prueban los dos caminos). `bc`: en vez de la 8x8 RGBA,
 /// la BC1 de [`PALETA`], y el SRV es de un ARRAY (mip 1, capa 1: el
 /// subrecurso 5).
+/// `antes`: cuantos parametros de constantes van DELANTE de la tabla (P2:
+/// con 20, la tabla es el parametro 20 y la firma tiene 21).
 fn hello_texture(version_1_1: bool, bc: bool) -> Vec<u32> {
+    hello_texture_con(version_1_1, bc, 0)
+}
+
+fn hello_texture_con(version_1_1: bool, bc: bool, antes: u32) -> Vec<u32> {
     DICHO.lock().unwrap().clear();
     // SAFETY: ningun `.exe` corre; esta prueba no corre en paralelo con otra
     // que empiece la casa (es la unica de este fichero).
@@ -209,7 +215,17 @@ fn hello_texture(version_1_1: bool, bc: bool) -> Vec<u32> {
     let muestreador: [u32; 13] = [0, 4, 4, 4, 0, 0, 1, 0, 0, 0x7F7F_FFFF, 0, 0, 5];
     let rango_1_1: [u32; 6] = [0, 1, 0, 0, 8, 0]; // SRV, 1, t0, espacio 0, DATA_STATIC, desde 0
     let rango_1_0: [u32; 5] = [0, 1, 0, 0, 0];
-    let mut param = [0u8; 32];
+    // P2: `antes` parametros de UNA constante (b0..b19 del espacio 9, que
+    // nadie lee) delante de la tabla.
+    let mut params = vec![0u8; 32 * (antes as usize + 1)];
+    for k in 0..antes as usize {
+        let c = &mut params[32 * k..32 * k + 32];
+        c[0..4].copy_from_slice(&1u32.to_le_bytes()); // 32BIT_CONSTANTS
+        c[8..12].copy_from_slice(&(k as u32).to_le_bytes());
+        c[12..16].copy_from_slice(&9u32.to_le_bytes());
+        c[16..20].copy_from_slice(&1u32.to_le_bytes());
+    }
+    let param = &mut params[32 * antes as usize..];
     param[8..12].copy_from_slice(&1u32.to_le_bytes());
     let rango_p = if version_1_1 { rango_1_1.as_ptr() as u64 } else { rango_1_0.as_ptr() as u64 };
     param[16..24].copy_from_slice(&rango_p.to_le_bytes());
@@ -217,8 +233,8 @@ fn hello_texture(version_1_1: bool, bc: bool) -> Vec<u32> {
     let mut firma = [0u8; 48];
     let (base, f) = if version_1_1 { (8, "D3D12SerializeVersionedRootSignature") } else { (0, "D3D12SerializeRootSignature") };
     firma[0..4].copy_from_slice(&(if version_1_1 { 2u32 } else { 1 }).to_le_bytes());
-    firma[base..base + 4].copy_from_slice(&1u32.to_le_bytes());
-    firma[base + 8..base + 16].copy_from_slice(&(param.as_ptr() as u64).to_le_bytes());
+    firma[base..base + 4].copy_from_slice(&(antes + 1).to_le_bytes());
+    firma[base + 8..base + 16].copy_from_slice(&(params.as_ptr() as u64).to_le_bytes());
     firma[base + 16..base + 20].copy_from_slice(&1u32.to_le_bytes());
     firma[base + 24..base + 32].copy_from_slice(&(muestreador.as_ptr() as u64).to_le_bytes());
     firma[base + 32..base + 36].copy_from_slice(&1u32.to_le_bytes()); // ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
@@ -399,7 +415,7 @@ fn hello_texture(version_1_1: bool, bc: bool) -> Vec<u32> {
     let set_montones: extern "win64" fn(u64, u32, *const u64) = hueco(l, 28);
     set_montones(l, 1, &_srvs);
     let set_tabla: extern "win64" fn(u64, u32, u64) = hueco(l, 32);
-    set_tabla(l, 0, srv_gpu);
+    set_tabla(l, antes, srv_gpu);
     let vp: [f32; 6] = [0.0, 0.0, 64.0, 64.0, 0.0, 1.0];
     let set_vp: extern "win64" fn(u64, u32, *const f32) = hueco(l, 21);
     set_vp(l, 1, vp.as_ptr());
@@ -469,6 +485,21 @@ fn hellotexture_dibuja_su_textura() {
     assert!(!vistos.is_empty(), "el PSO de HelloTexture tiene cuerpos para la 3060");
     for (texturas, juzgado, texs) in vistos.iter() {
         assert_eq!((texturas.as_slice(), *juzgado, *texs), (&[(0u8, 0u8)][..], true, 1));
+    }
+}
+
+/// *** P2 (07-10): la TABLA en el parametro 20 de una firma de 21 (veinte
+/// de constantes delante). La casa guardaba 16 parametros: el 20 se tiraba
+/// con un aviso y el dibujo no veia su textura. En 1.0 y en 1.1.
+#[test]
+fn una_tabla_mas_alla_del_parametro_16_se_ve() {
+    let _llave = LLAVE.lock().unwrap_or_else(|e| e.into_inner());
+    for version_1_1 in [false, true] {
+        let img = hello_texture_con(version_1_1, false, 20);
+        let dicho = String::from_utf8_lossy(&DICHO.lock().unwrap()).into_owned();
+        assert_eq!(dicho, "", "ni un aviso (firma 1.1: {version_1_1})");
+        let malos = (0..64 * 64u32).filter(|&i| img[i as usize] != texel(i % 64 / 8, i / 64 / 8)).count();
+        assert_eq!(malos, 0, "cada pixel, su texel, con la tabla en el parametro 20 (firma 1.1: {version_1_1})");
     }
 }
 
