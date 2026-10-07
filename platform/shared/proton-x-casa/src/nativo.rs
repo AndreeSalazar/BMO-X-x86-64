@@ -485,7 +485,9 @@ pub fn dibujar(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, 
         None => lote::en_cpu(l, d),
     };
     if let Some(o) = plataforma().obreros {
-        let n = (o.cuantos)();
+        // Las que le compensan a ESTE dibujo (su rectangulo de verdad), de
+        // los nucleos que hay (H4.3: depende del juego, no solo de la CPU).
+        let n = bmo_proton_x::bandas::partes_utiles(l, destino, (o.cuantos)());
         // Las dinamicas de la casa (`tuberia`) se buscan con un recuerdo que
         // aguanta varios a la vez (`crate::bandas::Recuerdo`).
         if bmo_proton_x::bandas::se_parte(l, destino, n, true) {

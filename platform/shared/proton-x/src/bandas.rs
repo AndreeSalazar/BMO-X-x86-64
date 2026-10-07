@@ -60,6 +60,28 @@ pub fn se_parte(l: &Lote, d: &Destino, n: u32, dinamicas_seguras: bool) -> bool 
         && d.alto >= 2 * FILAS_MINIMAS
 }
 
+/// Los pixeles que justifican despertar un nucleo mas: un cuadro de
+/// 128 x 128. Despertar un obrero y esperarlo cuesta decenas de
+/// microsegundos; sombrear 16 mil pixeles, mucho mas.
+pub const PIXELES_POR_PARTE: u64 = 128 * 128;
+
+/// **Cuantas partes le compensan a ESTE dibujo** con `n` nucleos: las que
+/// llena su rectangulo de verdad (viewport, tijera y destino) a
+/// [`PIXELES_POR_PARTE`] cada una. Un dibujo chico no despierta a nadie; una
+/// pasada de pantalla completa, a todos. Es lo que hace que el reparto
+/// dependa del JUEGO y no solo de la CPU.
+pub fn partes_utiles(l: &Lote, d: &Destino, n: u32) -> u32 {
+    let v = l.reglas.viewport;
+    let t = l.reglas.tijera;
+    let x0 = (v[0].max(0.0) as i64).max(t[0] as i64).max(0);
+    let y0 = (v[1].max(0.0) as i64).max(t[1] as i64).max(0);
+    let x1 = ((v[0] + v[2]) as i64).min(t[2] as i64).min(d.ancho as i64);
+    let y1 = ((v[1] + v[3]) as i64).min(t[3] as i64).min(d.alto as i64);
+    let area = ((x1 - x0).max(0) * (y1 - y0).max(0)) as u64;
+    let por_area = area.div_ceil(PIXELES_POR_PARTE).min(FRANJAS_MAXIMAS as u64) as u32;
+    n.min(por_area).min(d.alto / FILAS_MINIMAS).max(1)
+}
+
 /// Cuantas franjas de verdad para `n` pedidas en un destino de `alto`.
 pub fn cuantas(n: u32, alto: u32) -> u32 {
     n.min(alto / FILAS_MINIMAS).clamp(1, FRANJAS_MAXIMAS)

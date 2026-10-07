@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   658 casillas ABIERTAS en 64 planes
+   657 casillas ABIERTAS en 64 planes
    565 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -235,15 +235,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
 - ... y 7 mas
 
-## [`PLAN_LOS_DOCE_DIRECTORES.md`](PLAN_LOS_DOCE_DIRECTORES.md) -- 10 abiertas, 6 hechas
-
-*PLAN LOS DOCE DIRECTORES -- PROTON-X aprende a usar TODO el Ryzen*
-
-- [ ] V3 -- los ficheros por el bloque de paso. leer_fichero y
-- [ ] V5 -- la cabina lo dice. La foto del pulso de PROTON-X dice la VA
-- [ ] T3 -- medirlo en el metal. Los tirones del audifono por debajo de
-- ... y 7 mas
-
 ## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 10 abiertas, 35 hechas
 
 *PLAN MAQUETA*
@@ -252,6 +243,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
 - [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 7 mas
+
+## [`PLAN_LOS_DOCE_DIRECTORES.md`](PLAN_LOS_DOCE_DIRECTORES.md) -- 9 abiertas, 6 hechas
+
+*PLAN LOS DOCE DIRECTORES -- PROTON-X aprende a usar TODO el Ryzen*
+
+- [ ] V3 -- los ficheros por el bloque de paso. leer_fichero y
+- [ ] V5 -- la cabina lo dice. La foto del pulso de PROTON-X dice la VA
+- [ ] T3 -- medirlo en el metal. Los tirones del audifono por debajo de
+- ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 

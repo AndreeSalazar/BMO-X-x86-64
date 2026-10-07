@@ -477,6 +477,7 @@ const _: () = {
 
 /// H4.3 (07-10): los sub-directores, un trozo de Ring 3 en cada obrero.
 pub mod ring3;
+pub mod topologia;
 
 #[cfg(test)]
 mod pruebas {

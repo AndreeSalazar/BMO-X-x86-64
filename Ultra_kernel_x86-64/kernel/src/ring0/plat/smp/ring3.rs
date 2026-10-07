@@ -444,14 +444,20 @@ pub fn repartir(pid: u32, cr3: u64, gs: u64, funcion: u64, arg: u64) -> Result<u
     for r in RESULTADO.iter() {
         r.store(0, SeqCst);
     }
-    // Una parte (1..n-1) por obrero sano, en orden.
+    // Una parte (1..n-1) por obrero sano, en el orden de la CPU (H4.0): un
+    // nucleo fisico distinto para cada una primero, despues los hermanos SMT
+    // (`topologia::orden`).
+    for a in ASIGNADA.iter() {
+        a.store(0, SeqCst);
+    }
+    let mut orden = [0u32; MAX_OBREROS];
+    let n = super::topologia::orden(&mut orden);
     let mut k = 1u32;
-    for (i, a) in ASIGNADA.iter().enumerate() {
-        if k < p.partes && sano(i) {
-            a.store(k, SeqCst);
+    for &i in &orden[..n] {
+        let i = i as usize;
+        if k < p.partes && i < MAX_OBREROS && sano(i) {
+            ASIGNADA[i].store(k, SeqCst);
             k += 1;
-        } else {
-            a.store(0, SeqCst);
         }
     }
     DADAS.store(k - 1, SeqCst);

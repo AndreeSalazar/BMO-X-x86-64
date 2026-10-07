@@ -141,3 +141,28 @@ fn lo_que_no_se_parte() {
     let d = trama::Destino { pixeles: &mut bajo, ancho: 64, alto: 16, bgra: false, z: None, cadena: false, otros: &mut [], flotante: None, stencil: None };
     assert!(!bandas::se_parte(&l, &d, 4, true), "16 filas");
 }
+
+/// Cuantas partes le compensan a un dibujo: las que llena su rectangulo de
+/// verdad. La pantalla entera, todas; un cuadro chico o una tijera
+/// estrecha, una (no se reparte).
+#[test]
+fn las_partes_dependen_de_lo_que_pinta_el_dibujo() {
+    let (vs, ps) = (dxil::leer(CUBO_VS).unwrap(), dxil::leer(CUBO_PS).unwrap());
+    let e = |s: &str, formato, desde| ElementoIa { semantica: s.into(), indice: 0, formato, ranura: 0, desde, por_instancia: None };
+    let en = lote::enlazar(&vs, &ps, &[e("POSITION", 6, 0), e("NORMAL", 6, 12), e("COLOR", 2, 24)]).unwrap();
+    let lote_con = |viewport: [f32; 6], tijera: [i32; 4]| {
+        let reglas = trama::Reglas { viewport, tijera, descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
+        Lote { enlace: &en, entradas: &[], vertices: &[], paso: 0, ids: &[], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: None }
+    };
+    let mut px = vec![0u32; 1280 * 720];
+    let d = trama::Destino { pixeles: &mut px, ancho: 1280, alto: 720, bgra: false, z: None, cadena: false, otros: &mut [], flotante: None, stencil: None };
+    let todo = lote_con([0.0, 0.0, 1280.0, 720.0, 0.0, 1.0], [0, 0, 1280, 720]);
+    assert_eq!(bandas::partes_utiles(&todo, &d, 12), 12, "1280x720 son 57 cuadros: los 12 nucleos");
+    assert_eq!(bandas::partes_utiles(&todo, &d, 6), 6, "y con 6, 6");
+    let chico = lote_con([100.0, 100.0, 64.0, 64.0, 0.0, 1.0], [0, 0, 1280, 720]);
+    assert_eq!(bandas::partes_utiles(&chico, &d, 12), 1, "64x64: no se reparte");
+    let tijera = lote_con([0.0, 0.0, 1280.0, 720.0, 0.0, 1.0], [0, 0, 1280, 40]);
+    assert_eq!(bandas::partes_utiles(&tijera, &d, 12), 4, "una tijera de 1280x40: 51200 pixeles, 4 partes");
+    let medio = lote_con([0.0, 0.0, 640.0, 360.0, 0.0, 1.0], [0, 0, 1280, 720]);
+    assert_eq!(bandas::partes_utiles(&medio, &d, 12), 12, "640x360: 15 cuadros, los 12");
+}

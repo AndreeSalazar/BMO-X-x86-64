@@ -254,7 +254,7 @@ Las casillas son las de la seccion 4 de
 [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) (H0.1 a H3.2): no se
 copian. Lo NUEVO de este plan, que alli no estaba:
 
-- [ ] **H4.0 -- los directores salen de la CPU.** Al arrancar, el kernel
+- [~] **H4.0 -- los directores salen de la CPU.** Al arrancar, el kernel
       lee la topologia de VERDAD (CPUID y MADT, la tabla de arriba) y la
       escribe como una fila de `SMP_MAESTRO`; cuantos directores, quien es
       hermano de quien y que L3 comparten salen de esa fila. **Como se
@@ -262,6 +262,22 @@ copian. Lo NUEVO de este plan, que alli no estaba:
       de un Zen 2 de dos CCX (3+3 con dos L3) y de un Intel hibrido (P y E):
       tres repartos distintos y ningun `if` por modelo; y en el metal,
       `cabina smp` dice 6 nucleos, 12 hilos, una L3.
+      07-10, HECHO en el banco; falta el metal. `bmo-orquesta/src/
+      topologia.rs` (puro): de los APIC de la MADT, `smt_bits` y `l3_bits`
+      (y el tipo 0x1A en un hibrido) sale la `Fila`, y su `orden`: un hilo
+      por nucleo fisico ajeno primero (los grandes antes que los chicos, los
+      de SU L3 antes que los de otra), despues los hermanos SMT, al final el
+      hermano del BSP. 5 pruebas: el 5600X (APIC con hueco: 0-5 y 8-13), un
+      Zen 2 de dos CCX, un Intel hibrido 6P+4E, sin SMT, y la lectura de
+      CPUID. El kernel (`plat/smp/topologia.rs`) solo PREGUNTA: AMD
+      0x8000_001E y 0x8000_001D, Intel 0x0B y 0x04, y cada obrero su 0x1A en
+      su nucleo al levantarse. `ring3::repartir` da las partes en ese orden.
+      Y el reparto depende tambien del JUEGO: `bandas::partes_utiles` da a
+      cada dibujo las partes que llena su rectangulo de verdad (un cuadro de
+      128x128 por parte): un 64x64 no despierta a nadie, una pantalla entera
+      a todos (prueba: `las_partes_dependen_de_lo_que_pinta_el_dibujo`).
+      **Falta, en el metal:** tras `smp all`, CABINA dice `topologia:
+      nucleos fisicos 6`, `hilos 12`, `grupos de L3 1`.
 - [ ] **H4.1 -- robar trabajo.** Un director con la cola vacia mira las de
       los demas (primero las de su mismo nucleo SMT, luego las de la L3) y
       se lleva un hilo listo. **Como se sabe:** `tandaH1.exe` con 12 hilos:

@@ -35,6 +35,9 @@ pub fn obrero(indice: u32, apic: u32) -> ! {
     // Y de paso deja dicho QUIEN es: el indice es orden de llegada, el
     // APIC es domicilio. Ver `ficha`.
     super::ficha::alta(indice, apic);
+    // H4.0: su tipo de nucleo (grande o chico en un hibrido), leido AQUI:
+    // la hoja 0x1A contesta por el nucleo que la ejecuta.
+    super::topologia::apuntar(indice);
     let mut vista = 0u32;
     loop {
         if PARAR.load(Ordering::SeqCst) {
