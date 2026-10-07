@@ -96,6 +96,13 @@ La que describio el propietario, pieza a pieza, con lo que hay y lo que no:
    la 3060                el computo de verdad (G4) y el 3D de verdad          del METAL, del propietario
 ```
 
+**[!] Una precision (07-10, al leer este plan con el codigo):** el emisor
+de la 3060 que EXISTE (`proton-x-sm86`, E3) no lee SPIR-V: lee el `Programa`
+de la casa, por decision del 28-09. Del lado de SPIR-V solo esta el
+subconjunto (E1). El eslabon que falta es un lector de SPIR-V al `Programa`:
+es **LI7** de [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md), y va antes que IL1
+para que lo que aprenda ILLAPA caiga en el mismo emisor que usa Cyberpunk.
+
 **La regla de VERRANO vale entera para ILLAPA**: la 3060 no compila; los
 programas viajan ya traducidos y juzgados, y de un fotograma al siguiente solo
 cambian los DATOS (las posiciones de las particulas, la camara).
