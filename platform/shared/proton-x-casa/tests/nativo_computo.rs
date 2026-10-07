@@ -458,3 +458,42 @@ fn las_olas_del_computo_traducido_dan_los_bits_del_interprete() {
     assert_eq!((palabra(0, 0), palabra(33, 1)), (32, 1), "WaveGetLaneCount 32, y el carril 1 de la segunda ola");
     assert_eq!(palabra(0, 3), (0..32).sum::<u32>(), "WaveActiveSum de la primera ola");
 }
+
+const CRUDO_CS: &[u8] = include_bytes!("../../proton-x/prueba/crudo.dxil");
+
+/// *** 13 de la pila A (07-10): `crudo.dxil` (RawBufferLoad y
+/// RawBufferStore, SM 6.2: un ByteAddressBuffer y un StructuredBuffer
+/// leidos, uno de cada escritos) TRADUCIDO: los mismos bytes que el
+/// interprete en los dos UAV (su juez es `raw_buffer_load_y_store_dan_lo_
+/// de_hlsl`, en el crate puro).
+#[test]
+fn raw_buffer_traducido_da_los_bits_del_interprete() {
+    let p = dxil::computo::preparar(CRUDO_CS).unwrap().programa;
+    let f = sellar(&nativo_computo::compilar(&p).expect("se traduce entero"));
+    let bytes: Vec<u8> = (0..160u32).flat_map(|k| k.wrapping_mul(7).wrapping_add(1).to_le_bytes()).collect();
+    let filas = floats(&(0..32u32).flat_map(|k| [k as f32, k as f32 + 0.25, 2.0 * k as f32, -0.5 * k as f32]).collect::<Vec<_>>());
+    // Las ranuras, en el orden del programa: t1 (filas) y t0 (bytes); u1
+    // (pares) y u0 (salida).
+    let buf = [Some(Bufer { bytes: &filas, formato: 0, paso: 16, elementos: 32 }), Some(Bufer { bytes: &bytes, formato: 0, paso: 4, elementos: 160 })];
+    let rec = Recursos { texturas: &[None], muestreadores: &[], buferes: &buf, dinamicas: None };
+    let mut cb = vec![0u8; 16];
+    cb[..4].copy_from_slice(&20u32.to_le_bytes());
+    let (mut pa, mut sa, mut pb, mut sb) = (vec![0xFFu8; 256], vec![0xFFu8; 512], vec![0xFFu8; 256], vec![0xFFu8; 512]);
+    {
+        let mut u = [
+            Some(Uav { bytes: &mut pa, formato: 0, paso: 8, elementos: 32, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA }),
+            Some(Uav { bytes: &mut sa, formato: 0, paso: 4, elementos: 128, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA }),
+        ];
+        p.despachar([1, 1, 1], &cb, &rec, &mut u);
+    }
+    {
+        let mut u = [
+            Some(Uav { bytes: &mut pb, formato: 0, paso: 8, elementos: 32, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA }),
+            Some(Uav { bytes: &mut sb, formato: 0, paso: 4, elementos: 128, contador: None, rebanadas: bmo_proton_x::bufer::Rebanadas::PLANA }),
+        ];
+        // SAFETY: `f` es la traduccion de `p`, sellada y viva.
+        nativo_computo::despachar(&p, &mut |r, c, b| unsafe { f(r, c, b) }, [1, 1, 1], &cb, &buf, &mut u, &mut []);
+    }
+    assert_ne!(sa, vec![0xFFu8; 512], "el interprete escribio");
+    assert_eq!((pa, sa), (pb, sb), "los mismos bytes");
+}

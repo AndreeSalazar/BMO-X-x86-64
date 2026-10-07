@@ -27,6 +27,11 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
     if let Some(v) = super::super::sombras::de(c, op, args) {
         return v;
     }
+    // 13 de la pila A (07-10): los crudos de 16 o 64 bits (`.f16`, `.i64`...)
+    // no son los de 32 de BufferLoad/BufferStore.
+    if (op == DX_RAW_BUFFER_LOAD || op == DX_RAW_BUFFER_STORE) && !(nombre.ends_with(".i32") || nombre.ends_with(".f32")) {
+        return Err(NoPrograma::Forma("RawBufferLoad/RawBufferStore de 16 o de 64 bits: todavia no"));
+    }
     Ok(match op {
         DX_LOAD_INPUT | DX_STORE_OUTPUT => {
             if !matches!(c.valores.get(arg(2)?), Some(Valor::Entero(_))) {
@@ -86,7 +91,8 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             Valor::Nada
         }
         // N5.5: `bufferStore(uav, coord0, coord1, v0, v1, v2, v3, mascara)`.
-        DX_BUFFER_STORE => {
+        // 13 (07-10): `rawBufferStore`, lo mismo con la alineacion detras.
+        DX_BUFFER_STORE | DX_RAW_BUFFER_STORE => {
             let Some(Valor::Uav(u, modo)) = c.valores.get(arg(1)?).copied() else {
                 return Err(NoPrograma::Forma("BufferStore sin el handle de un UAV de bufer"));
             };
@@ -326,9 +332,11 @@ pub(super) fn llamada(c: &mut Compilador, args: &[usize], nombre: &str) -> Resul
             c.ops.push(Op::Lee { d, t, s: 0, como: Lectura::Carga { enteros }, c: co, nivel, desp });
             if enteros { Valor::CuatroEnteros(d) } else { Valor::Cuatro(d) }
         }
-        DX_BUFFER_LOAD => {
+        DX_BUFFER_LOAD | DX_RAW_BUFFER_LOAD => {
             // (srv, indice, desplazamiento): el desplazamiento solo lo trae
-            // uno estructurado; en los demas es `undef`.
+            // uno estructurado; en los demas es `undef`. 13 (07-10):
+            // `rawBufferLoad` trae detras la mascara y la alineacion; se lee
+            // lo de siempre (lo que la mascara no pide no se usa).
             // N5.5: de un UAV (RWStructuredBuffer leido), por su lado.
             if let Some(Valor::Uav(u, modo)) = c.valores.get(arg(1)?).copied() {
                 let cero = super::super::estructura::literal(c, 0)?;

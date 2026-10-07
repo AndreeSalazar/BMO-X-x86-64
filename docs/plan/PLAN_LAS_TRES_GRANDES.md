@@ -1355,7 +1355,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    9
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    8
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1463,8 +1463,13 @@ y lo dice.
                Ahora, lleno, sigue en trozos de 64 MiB de un tramo de 16 GiB
                de la reserva que es SOLO suyo (`bmo_monton::Region::
                poner_crecer`; la casa de Windows ve la ventana sin el)
-     13  D4.1  `RawBufferLoad`/`RawBufferStore` (op 139/140, SM 6.2+): un CS
-               de Cyberpunk lo pide (`OperacionD3d(139)`)
+     13  [x] D4.1  `RawBufferLoad`/`RawBufferStore` (op 139/140, SM 6.2+):
+               un CS de Cyberpunk lo pide (`OperacionD3d(139)`). 07-10:
+               son los argumentos de BufferLoad/BufferStore con la mascara
+               y la alineacion detras (los de 16 o 64 bits lo DICEN:
+               todavia no). `prueba/crudo.hlsl` (cs_6_2: ByteAddressBuffer
+               y StructuredBuffer leidos y escritos) da lo exacto de HLSL
+               por el interprete, y los mismos bytes traducido a x86-64
      14  D4.1  un load o un store de algo que no es un array (un CS)
      15  N5.4  `createHandle` con el registro CALCULADO de un array de
                BUFERES (bindless de buferes; un CS)

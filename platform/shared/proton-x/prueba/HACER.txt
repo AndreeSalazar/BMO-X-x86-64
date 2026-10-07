@@ -3389,3 +3389,22 @@ El banco (`tests/corre/vivo.rs`): los 4 `bien`, sale con 0, ni un aviso
 (en el banco va por la CPU: el termometro y el apunte los juzgan
 `proton-x-sm86` y `bmo-gpu-ga10x`). Probado que dice NO: con la casa
 guardando NaN como 1 (`trama::unorm8`), B y D salen MAL (230400 pixeles).
+
+crudo.dxil -- 13 de la pila A: RawBufferLoad y RawBufferStore (07-10)
+
+Un CS de Cyberpunk lo pidio en el metal (06-10: `OperacionD3d(139)`).
+`crudo.hlsl` (aqui al lado): CSMain (cs_6_2, 32 hilos): Load y Load4 de un
+ByteAddressBuffer, una fila de un StructuredBuffer<float4>, Store y Store2 en
+un RWByteAddressBuffer y una fila de un RWStructuredBuffer<uint2>; desde SM
+6.2, dxc da los seis con `rawBufferLoad`/`rawBufferStore` (op 139 y 140). Con
+el DXC de la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_2 -E CSMain -Fo crudo.dxil crudo.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   207cec23b13eb2bf5498f6b221385e968e1a1c36a5f6a6939afac6b896a693e5  crudo.dxil
+
+El banco: `src/pruebas_computo.rs` (`raw_buffer_load_y_store_dan_lo_de_hlsl`,
+cada valor el exacto de HLSL) y, traducido a x86-64,
+`proton-x-casa/tests/nativo_computo.rs` (los mismos bytes que el interprete).

@@ -216,3 +216,47 @@ fn el_paso_de_los_estructurados_sale_de_sus_metadatos() {
     let i = pasos(include_bytes!("../prueba/muestras/indirect/compute.cso"));
     assert!(i.contains(&(false, 0, 1, 24)) && i.contains(&(true, 0, 0, 24)), "{i:?}");
 }
+
+/// **13 de la pila A (07-10): RawBufferLoad y RawBufferStore** (op 139 y
+/// 140, SM 6.2), los de `crudo.hlsl` (de `dxc`, cs_6_2): Load y Load4 de un
+/// ByteAddressBuffer, una fila de un StructuredBuffer, Store y Store2 en un
+/// RWByteAddressBuffer y una fila de un RWStructuredBuffer. Cada valor es el
+/// exacto de HLSL (enteros, y floats chicos sin redondeo que discutir); los
+/// hilos de `n` en adelante no escriben.
+#[test]
+fn raw_buffer_load_y_store_dan_lo_de_hlsl() {
+    let s = dxil::leer(include_bytes!("../prueba/crudo.dxil")).unwrap();
+    let p = programa::compilar(&s).unwrap_or_else(|e| panic!("{e:?}"));
+    let w = |k: u32| k.wrapping_mul(7).wrapping_add(1);
+    let bytes: Vec<u8> = (0..160u32).flat_map(|k| w(k).to_le_bytes()).collect();
+    let filas: Vec<u8> = (0..32u32).flat_map(|k| [k as f32, k as f32 + 0.25, 2.0 * k as f32, -0.5 * k as f32]).flat_map(f32::to_le_bytes).collect();
+    // Las ranuras van en el orden del programa: t1 y t0, u1 y u0.
+    assert_eq!(p.ranuras.texturas.iter().map(|l| l.registro).collect::<Vec<_>>(), [1, 0]);
+    assert_eq!(p.ranuras.uavs.iter().map(|l| l.registro).collect::<Vec<_>>(), [1, 0]);
+    let srv = [Some(Bufer { bytes: &filas, formato: 0, paso: 16, elementos: 32 }), Some(Bufer { bytes: &bytes, formato: 0, paso: 4, elementos: 160 })];
+    let rec = Recursos { texturas: &[None], muestreadores: &[], buferes: &srv, dinamicas: None };
+    let mut salida = vec![0xFFu8; 512];
+    let mut pares = vec![0xFFu8; 32 * 8];
+    let mut cb = [0u8; 16];
+    cb[..4].copy_from_slice(&20u32.to_le_bytes());
+    {
+        let mut uavs = [
+            Some(Uav { bytes: &mut pares, formato: 0, paso: 8, elementos: 32, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA }),
+            Some(Uav { bytes: &mut salida, formato: 0, paso: 4, elementos: 128, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA }),
+        ];
+        assert_eq!(p.despachar([1, 1, 1], &cb, &rec, &mut uavs), 32);
+    }
+    let u = |b: &[u8], k: usize| u32::from_le_bytes(b[4 * k..4 * k + 4].try_into().unwrap());
+    for i in 0..32u32 {
+        let k = i as usize;
+        let (a, bx, by, bz, bw) = (w(i), w(32 + 4 * i), w(33 + 4 * i), w(34 + 4 * i), w(35 + 4 * i));
+        let (fx, fy, fw) = (i as f32, i as f32 + 0.25, -0.5 * i as f32);
+        if i < 20 {
+            assert_eq!(u(&salida, k), a.wrapping_mul(3).wrapping_add(1), "Store del hilo {i}");
+            assert_eq!([u(&salida, 64 + 2 * k), u(&salida, 65 + 2 * k)], [bx ^ bw, (fy * 2.0).to_bits()], "Store2 del hilo {i}");
+            assert_eq!([u(&pares, 2 * k), u(&pares, 2 * k + 1)], [by.wrapping_add(bz), (fx + fw).to_bits()], "la fila del hilo {i}");
+        } else {
+            assert_eq!([u(&salida, k), u(&salida, 64 + 2 * k), u(&pares, 2 * k)], [u32::MAX; 3], "el hilo {i} no escribe");
+        }
+    }
+}

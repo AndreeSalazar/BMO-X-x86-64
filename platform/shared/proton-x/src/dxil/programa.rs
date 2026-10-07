@@ -117,6 +117,11 @@ const DX_BUFFER_LOAD: i64 = 68;
 const DX_BUFFER_STORE: i64 = 69;
 // E2.4 (05-10): el contador de un UAV (Append, Consume, Increment/DecrementCounter).
 const DX_BUFFER_UPDATE_COUNTER: i64 = 70;
+// 13 de la pila A (07-10): `RawBufferLoad`/`RawBufferStore`, lo que dxc da
+// desde SM 6.2 para ByteAddressBuffer y StructuredBuffer: los argumentos de
+// BufferLoad/BufferStore y dos mas (la mascara de lo leido y la alineacion).
+const DX_RAW_BUFFER_LOAD: i64 = 139;
+const DX_RAW_BUFFER_STORE: i64 = 140;
 // 05-10: los `Interlocked*` de un UAV (en un dibujo y en el computo).
 const DX_ATOMIC_BIN_OP: i64 = 78;
 const DX_ATOMIC_COMPARE_EXCHANGE: i64 = 79;
