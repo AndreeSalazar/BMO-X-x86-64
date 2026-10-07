@@ -1,39 +1,44 @@
-# PLAN LA TINTA -- dibujar manga en BMO-X, y que TITAN++ cargue con lo pesado
+# PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total
 
 > Abierto el 2026-10-07 a peticion del propietario, despues de probar el
 > escritorio de mision en su Ryzen: *"puedes analizar como se hizo Clip Studio
 > Paint para hacer manga y Adobe Photoshop? para tener ese plan en mi BMO-X y
 > asi TITAN++ haga ese trabajo pesado como mi primer test"*.
 >
-> Este plan es el ANALISIS y la escalera. **No se escribe codigo hasta que el
-> propietario conteste las decisiones de la seccion 7.**
+> Y el mismo dia, al leer la primera version: *"solo es plan, no dije que eso
+> sea ahora ... solo poner eso en plan ADOBE GENERAL + CLIP STUDIO PAINT CON
+> LIBROS Y MANGAS EN TOTAL, eso nada mas, para tener control propio"*. Es
+> **para sus necesidades, no para un mercado**: dibujar sus personajes, su
+> manga y sus libros con herramientas que son suyas.
+>
+> **Es un plan LARGO y no es para ahora.** Este fichero es el analisis y la
+> escalera entera; se empieza el dia que el propietario lo diga.
 
 ---
 
-# 0. PRIMERO, LA CONTRADICCION: la identidad dice que NO
+# 0. LA IDENTIDAD, y lo que contesto el propietario
 
 [`../identidad/LOS_TRES_VERTICES.md`](../identidad/LOS_TRES_VERTICES.md),
-seccion 5, lo dice con todas sus letras:
+seccion 5, dice:
 
 > **Un sistema que promete Photoshop es un sistema que no termina la calculadora.**
 
-Y tiene razon en lo que dice: Photoshop son treinta y cinco anios de
-herramientas, y prometerlo entero es no acabar nunca. Asi que este plan **no
-promete Photoshop ni Clip Studio Paint**. Promete otra cosa, mas chica y que
-si se acaba:
+El propietario, al leerlo: *"la ironia no es imposible"*. Las dos cosas son
+verdad a la vez, y el plan las junta asi:
 
 ```text
-   LO QUE SE PROMETE      una MESA DE DIBUJO para manga, escrita en TITAN++:
-                          capas, pincel con presion, tinta vectorial, vinetas,
-                          tramas, relleno, historial, y la pagina lista para
-                          imprimir. El nucleo que se usa todos los dias.
-   LO QUE NO              la suite entera: 3D, IA generativa, nube, plugins,
-                          video, CMYK de imprenta, los 200 filtros.
+   LA META          el TOTAL: lo de Adobe que hace falta para dibujar, pintar
+                    y maquetar (Photoshop, Illustrator, InDesign) + Clip
+                    Studio Paint, con libros y manga enteros
+   EL ORDEN         el NUCLEO primero (lo que se usa cada dia), el total
+                    despues, peldanio a peldanio: cada uno se acaba y se
+                    usa antes de subir al siguiente
+   LO QUE NO        un clon para vender: ni sus menus, ni sus formatos
 ```
 
-La frase de la identidad no la cambia este plan: la cambia el propietario con
-`--sellar` si quiere (decision D1). Mientras tanto, la frase y este plan dicen
-lo mismo: **el nucleo, no la suite**.
+Lo que la frase advierte -- prometer una suite y no acabar nada -- se evita
+con el orden, no renunciando a la meta. Si la frase se reescribe es del
+propietario, con `--sellar` (decision D1).
 
 ---
 
@@ -167,13 +172,46 @@ Por eso:
 
 ---
 
+## 2d. LO DE ADOBE QUE NO ES PHOTOSHOP: el vector y los LIBROS
+
+"Adobe general" son tres maquinas distintas, y Photoshop es solo la primera:
+
+```text
+   PHOTOSHOP     PIXELES     capas de teselas, fusion, filtros   (seccion 1)
+   ILLUSTRATOR   VECTOR      curvas de Bezier con relleno y trazo
+   INDESIGN      PAGINAS     el libro: texto que fluye por las paginas
+```
+
+**Illustrator**: un dibujo es una lista de CAMINOS (curvas de Bezier
+cubicas) con su relleno y su trazo; se pintan al vuelo a cualquier tamanio.
+Lo gordo es la geometria: unir, restar e intersecar formas (operaciones
+booleanas entre curvas), desplazar un trazo (*offset*) y las mesas de trabajo.
+Es la misma familia que la tinta vectorial de Clip Studio (2b), con una
+diferencia: alli el trazo tiene ancho por punto (presion), aqui es una forma.
+
+**InDesign** (los LIBROS): un documento son PAGINAS que heredan de paginas
+MAESTRAS (el numero de pagina, la cabecera, los margenes), y el texto vive en
+MARCOS enlazados: lo que no cabe en uno pasa al siguiente, de pagina en
+pagina. Encima van los ESTILOS (de parrafo y de caracter: cambiar uno cambia
+el libro entero), las imagenes ancladas al texto, y la composicion del
+parrafo: InDesign reparte los cortes de linea mirando el parrafo ENTERO, no
+linea a linea, que es la idea del algoritmo de Knuth y Plass de TeX -- es lo
+que hace que un libro justificado no tenga rios de blanco. Y los guiones,
+por idioma. Sale a PDF, el formato de imprenta.
+
+**Clip Studio Paint EX** tambien hace libros, del lado del manga: una OBRA de
+muchas paginas, con su orden, su numeracion y sus pliegos, que sale a
+imprenta o a libro electronico.
+
+---
+
 # 3. QUE TIENE BMO-X HOY, Y QUE FALTA
 
 Medido en el arbol el 07-10, sin adivinar:
 
 | hace falta | hoy en BMO-X | falta |
 |---|---|---|
-| **un lapiz con presion** | NO. El USB del kernel lee teclado y raton; ningun digitalizador (la pagina HID 0x0D de las tabletas) | el driver de la tableta, con presion e inclinacion. Es metal: se prueba en el Ryzen |
+| **un lapiz con presion** | NO. El USB del kernel lee teclado y raton; ningun digitalizador. El propietario tiene una **WACOM basica** | el driver de SU Wacom (ver 3b). Es metal: se prueba en el Ryzen |
 | **una ventana desde TITAN++** | NO. La GRAMATICA lo dice: *"el primer hola en la CONSOLA; la ventana, despues"*. TITAN++ escribe con `print` y lee con `lee()` | un nodo `screen`: pedir una superficie, escribir pixeles, presentarla |
 | **el raton/lapiz de la ventana** | NO desde TITAN++: *"el teclado y el raton de una VENTANA son otra cosa (`input`, con REX)"* | el nodo `input` de la ventana |
 | **leer y guardar ficheros** | NO desde TITAN++ | un nodo de disco: guardar la obra en ESTRATOS y exportar PNG |
@@ -196,6 +234,34 @@ Medido en el arbol el 07-10, sin adivinar:
 
 Con teselas y sin las vacias, una pagina de cinco capas cabe holgada. Sin
 teselas y en `int`, no cabe ni una.
+
+---
+
+## 3b. La Wacom: el driver mas chico que se puede escribir
+
+El propietario: *"tengo tableta grafica, eso podria ayudar a estudiar a crear
+propio driver"*. Lo es, y por la razon buena: comparado con el GSP de la 3060
+(firmware, colas, mensajes, `PLAN_LA_3060.md`), una tableta es de lo mas
+pequenio que hay. Lo que pide:
+
+```text
+   1. QUIEN ES          su VID:PID por USB (Wacom es 056A), del censo USB
+                        que el kernel ya hace (`INFO_USB_CENSO`)
+   2. COMO HABLA        su descriptor HID: las tabletas basicas (One by Wacom,
+                        Intuos S) mandan x, y, presion y botones en informes
+                        de pocos bytes; algunas en el modo HID de
+                        digitalizador (pagina 0x0D) y otras en el suyo propio
+                        hasta que se les pide otro. Se MIDE con la tableta
+                        enchufada antes de escribir una linea
+   3. QUE DA            x, y en su rejilla (miles de puntos), la presion
+                        (2048 o 4096 niveles segun el modelo), la punta, el
+                        boton lateral y, si la hay, la goma del lapiz
+   4. A DONDE VA        al mismo camino que el raton (`input`), con la
+                        presion de mas: la ventana que tiene el foco la recibe
+```
+
+Se escribe para ESA tableta primero (su modelo exacto es D3), y solo despues
+se generaliza.
 
 ---
 
@@ -256,7 +322,7 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 
 ## 5c. Manga
 
-- [ ] TC1 -- LA TABLETA: el driver USB HID de digitalizador en el kernel (presion, inclinacion, la goma del lapiz). Del METAL: lo prueba el propietario con SU tableta
+- [ ] TC1 -- LA WACOM: medir su VID:PID y su descriptor HID, y escribir el driver para ESE modelo (x, y, presion, punta, boton lateral, goma si la tiene) hacia `input` (ver 3b). Del METAL: lo prueba el propietario con SU tableta
 - [ ] TC2 -- EL MOTOR DE PINCEL: sellos con espaciado, estabilizador, curvas de presion a tamanio y opacidad, y puntas de imagen
 - [ ] TC3 -- LA TINTA VECTORIAL: trazos guardados como puntos con ancho, pintados al vuelo; la goma hasta la interseccion y cambiar el grosor
 - [ ] TC4 -- LAS VINETAS: la capa de marco, con poligonos que recortan lo de dentro
@@ -265,42 +331,63 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 - [ ] TC7 -- TEXTO Y GLOBOS: la letra de la casa en vertical, y el globo con su rabito
 - [ ] TC8 -- LA OBRA: N paginas con sangrado y zona segura, y la salida para imprenta (600 ppp, 1 bit)
 
-## 5d. Lo de Photoshop, despues y solo si se pide
+## 5d. Lo de Photoshop
 
 - [ ] TD1 -- LOS VECINOS en la 3060: `gpu fn` que lee celdas de al lado (pide G2 de `PLAN_EL_CENTAURO.md`); el primero, el desenfoque gaussiano separable
 - [ ] TD2 -- CAPAS DE AJUSTE: curvas y niveles que se aplican al componer, sin tocar pixeles
-- [ ] TD3 -- EL PINCEL CORRECTOR: edicion de Poisson
-- [ ] TD4 -- EL RELLENO SEGUN CONTENIDO: PatchMatch
-- [ ] TD5 -- IMPORTAR: leer `.psd` y `.clip` (solo leer, y solo lo que esta documentado por fuera), para traer las obras que ya existen
+- [ ] TD3 -- MASCARAS Y RECORTE: la mascara de capa y la capa que solo pinta donde pinta la de abajo
+- [ ] TD4 -- EL PINCEL CORRECTOR: edicion de Poisson
+- [ ] TD5 -- EL RELLENO SEGUN CONTENIDO: PatchMatch
+- [ ] TD6 -- TRANSFORMAR Y DEFORMAR: escalar, girar, perspectiva y la malla de licuar, con re-muestreo
 
----
+## 5e. Lo de Illustrator: el vector
+
+- [ ] TE1 -- CAMINOS: curvas de Bezier con relleno y trazo, editables punto a punto, pintadas al vuelo (comparte el pintor con la tinta vectorial de TC3)
+- [ ] TE2 -- LA GEOMETRIA: unir, restar e intersecar formas, y desplazar un trazo
+- [ ] TE3 -- MESAS DE TRABAJO y la salida en SVG (el lector de SVG de MAQUETA ya existe: `toolchain/tools/maqueta`)
+
+## 5f. Los LIBROS
+
+- [ ] TF1 -- PAGINAS Y MAESTRAS: el documento de N paginas que heredan de su maestra (margenes, cabecera, numero de pagina)
+- [ ] TF2 -- MARCOS DE TEXTO ENLAZADOS: el texto fluye de un marco al siguiente, de pagina en pagina
+- [ ] TF3 -- ESTILOS de parrafo y de caracter, con la letra de la casa
+- [ ] TF4 -- LA COMPOSICION: cortes de linea mirando el parrafo entero (la idea de Knuth y Plass) y los guiones del castellano
+- [ ] TF5 -- IMAGENES EN LA PAGINA: las paginas de manga (TC8) y las ilustraciones entran al libro
+- [ ] TF6 -- LA SALIDA: PDF para imprenta, y libro electronico
 
 # 6. LO QUE ESTE PLAN NO HACE
 
-* **No es un clon.** Ni los menus, ni los atajos, ni el formato de Adobe o de
-  Celsys como formato propio. La obra se guarda en lo de BMO-X.
+* **No es un clon ni es para vender.** Ni los menus, ni los atajos de Adobe o
+  de Celsys. Es para las necesidades del propietario.
+* **Ni `.psd` ni `.clip`** (decidido el 07-10): *"con ABI se puede pero
+  sinceramente no voy a meterme con ellos"*. La obra se guarda en lo de
+  BMO-X, y sale en PNG, SVG y PDF, que lee todo el mundo.
 * **Nada de IA generativa, nube, plugins de terceros ni modelos 3D.**
 * **Nada de color de imprenta (CMYK) ni de 16/32 bits al principio.** Manga en
   blanco y negro y en 8 bits primero: es lo que se imprime.
-* **No adelanta el metal.** La tableta (TC1) y la 3060 de verdad (G4) son del
+* **No adelanta el metal.** La Wacom (TC1) y la 3060 de verdad (G4) son del
   propietario y de su Ryzen; todo lo demas se prueba en el anfitrion antes.
 
 ---
 
-# 7. LAS DECISIONES DEL PROPIETARIO (antes de codificar)
+# 7. LAS DECISIONES DEL PROPIETARIO
+
+Ninguna corre prisa: se contestan el dia que se empiece.
 
 ```text
    D1  LA IDENTIDAD     la frase de LOS_TRES_VERTICES ("un sistema que promete
-                        Photoshop...") se queda como esta (este plan promete
-                        el nucleo, no la suite), o se reescribe con --sellar?
+                        Photoshop...") se queda, o se reescribe con --sellar?
+                        (el propietario, 07-10: "la ironia no es imposible")
    D2  EL NOMBRE        como se llama la app y en que tecla vive (F1..F12 ya
                         estan todas: una nueva en la rejilla, o dentro de F1)
-   D3  LA TABLETA       que tableta tienes (marca y modelo): TC1 se escribe
-                        para ESA primero
+   D3  LA TABLETA       CONTESTADA EN PARTE (07-10): una WACOM basica. Falta
+                        el modelo exacto (en Windows: Administrador de
+                        dispositivos, o la etiqueta de abajo: CTL-xxxx)
    D4  LA PAGINA        el tamanio objetivo: B4 a 600 ppp en blanco y negro
                         (manga de imprenta), o 350 ppp en color
-   D5  EL PRIMER TEST   TB1 con raton (se puede empezar ya, despues de TA1-TA4),
-                        o esperar a la tableta
+   D5  EL PRIMER TEST   TB1 con raton, o esperar a la Wacom
+   D6  LOS FORMATOS     CONTESTADA (07-10): ni .psd ni .clip; lo propio, y
+                        PNG, SVG y PDF de salida
 ```
 
 ---
@@ -310,7 +397,7 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 * Photoshop y sus teselas, su memoria virtual y sus ficheros de paso: [How Photoshop solved working with files larger than can fit into memory](https://developer.chrome.com/blog/how-photoshop-solved-working-with-files-larger-than-can-fit-into-memory/) (Chrome for Developers, sobre Photoshop en la web).
 * El pincel corrector: [Photoshop Healing Brush: a Tool for Seamless Cloning](https://ftp.fau.de/gimp/references/Photoshop_Healing_Brush_a_Tool_for_Seamless_Clonin.pdf) (Georgiev) y [Todor Georgiev](https://en.wikipedia.org/wiki/Todor_Georgiev).
 * El relleno segun contenido: [PatchMatch](https://www.cs.princeton.edu/research/techreps/885) (Barnes, Princeton) y [su entrada en Photoshop CS5](https://imaging-resource.com/NEWS/1256272706.html).
-* El formato `.clip` leido por fuera: [unclip](https://github.com/unai-d/unclip), [clipparse](https://pypi.org/project/clipparse/), [clipstudio.js](https://awesome.ecosyste.ms/projects/github.com%2Fsaitolume%2Fclipstudio.js).
+* El formato `.clip` leido por fuera (solo para entender como esta hecho; no se lee, D6): [unclip](https://github.com/unai-d/unclip), [clipparse](https://pypi.org/project/clipparse/), [clipstudio.js](https://awesome.ecosyste.ms/projects/github.com%2Fsaitolume%2Fclipstudio.js).
 * La tinta vectorial y la goma hasta la interseccion: [Vector Layer, guia completa](https://tips.clip-studio.com/ja-jp/articles/7586?org=1) y [Useful Vector Layers tips](https://tips.clip-studio.com/en-us/articles/7572) (CLIP STUDIO TIPS); vinetas, tramas y globos: [What tools are available?](https://www.clipstudio.net/en/comics-manga/tool/layers/).
 * El motor de pincel por sellos, la fusion por formulas y el relleno con
   cierre de huecos son conocimiento comun del oficio (Krita, GIMP y
