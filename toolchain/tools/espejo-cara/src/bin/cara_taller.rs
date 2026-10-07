@@ -51,6 +51,14 @@ mod iconos;
 #[path = "../../../../../Ultra_userspace/apps/taller/src/tab.rs"]
 #[allow(dead_code)]
 mod tab;
+/// HM6e: the mirror compares with the usual mockup, not the mission one: no
+/// mission desktop behind here, so the BLUEPRINT is not drawn.
+mod plano {
+    pub fn es_mision() -> bool {
+        false
+    }
+    pub fn draw(_: &mut crate::canvas::Canvas, _: &crate::view::Scene) {}
+}
 #[path = "../../../../../Ultra_userspace/apps/taller/src/strata_guide.rs"]
 #[allow(dead_code)]
 mod strata_guide;

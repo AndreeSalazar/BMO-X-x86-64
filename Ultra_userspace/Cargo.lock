@@ -15,6 +15,7 @@ name = "bmo-app-bankcat"
 version = "0.1.0"
 dependencies = [
  "bmo-bankcat",
+ "bmo-config",
  "bmo-dibujo",
  "bmo-letra-monton",
  "bmo-monton",
@@ -25,6 +26,7 @@ dependencies = [
 name = "bmo-app-hermes"
 version = "0.1.0"
 dependencies = [
+ "bmo-config",
  "bmo-dibujo",
  "bmo-fondo",
  "bmo-letra-monton",
@@ -43,6 +45,7 @@ dependencies = [
 name = "bmo-app-ludoteca"
 version = "0.1.0"
 dependencies = [
+ "bmo-config",
  "bmo-dibujo",
  "bmo-letra-monton",
  "bmo-ludoteca",
@@ -68,6 +71,7 @@ dependencies = [
 name = "bmo-app-taller"
 version = "0.1.0"
 dependencies = [
+ "bmo-config",
  "bmo-dibujo",
  "bmo-pinta",
  "bmo-rtc",

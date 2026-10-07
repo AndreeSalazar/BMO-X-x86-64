@@ -34,6 +34,10 @@ mod entrada;
 mod iconos;
 mod onda;
 mod panel;
+/// El HUD de mision de las apps (HM6), y el instrumento de HERMES: la ANTENA.
+#[allow(dead_code)]
+mod mision;
+mod antena;
 /// Compartidas con BANK CAT (que las usa todas: la sombra, los caminos de
 /// SVG...); HERMES aun no usa algunas.
 #[allow(dead_code)]

@@ -36,6 +36,17 @@ mod iconos;
 #[path = "../../../../../Ultra_userspace/apps/hermes/src/reproductor.rs"]
 #[allow(dead_code)]
 mod reproductor;
+/// HM6: el espejo compara con la maqueta de siempre, que no es la de mision:
+/// aqui no hay escritorio de mision detras, y la ANTENA no se pinta.
+mod mision {
+    pub fn es_mision() -> bool {
+        false
+    }
+}
+mod antena {
+    pub const ALTO: i32 = 0;
+    pub fn pintar(_: &mut crate::canvas::Canvas, _: i32, _: i32, _: i32, _: u32) {}
+}
 
 /// Lo que `pintar` lee de la charla (la de verdad vive en `charla.rs`, que
 /// habla con el disco).
