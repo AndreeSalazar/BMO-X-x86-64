@@ -298,3 +298,69 @@ comun en medio, una AMD el dia que llegue es UN backend nuevo debajo de
 VERRANO: PROTON-X, el libreto, el censo y el juez de las huellas de la CPU
 se quedan como estan. Lo aprendido con la 3060 (el juez del SASS, el .bsf
 vivo, la libreta) es la forma; con la AMD cambian los numeros.
+
+---
+
+# 8. ILLAPA, LA ESCUELA DE VERRANO (pedido del propietario, 07-10)
+
+> El propietario, tras subir [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md): *"eso
+> ayudaria educar mi VERRANO poco a poco, no?"*. **Si**, y por una razon
+> concreta: con Cyberpunk, el JUEGO elige los sombreadores (de miles de
+> instrucciones, con todo a la vez); con ILLAPA, **BMO-X los escribe** en
+> TITAN++ (`gpu fn`), de la medida que se quiera, uno nuevo por cada cosa que
+> se aprende, con el oraculo en el anfitrion. **ILLAPA es la escuela;
+> Cyberpunk, el examen.**
+
+## Lo que una casilla de ILLAPA le muestra a VERRANO, y la de aqui que abre
+
+| ILLAPA pide | lo aprende VERRANO | y abre en Cyberpunk |
+|---|---|---|
+| IL1 `gpu fn` con vecinos y bucles | saltos y bucles en la 3060 (E6 de [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md)), programas mas largos | **LI2b**, la puerta mas dura |
+| IL2-IL4 el solucionador (la rejilla, PBF, lo unificado) | el COMPUTO de verdad en la 3060 (G4 de [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md)), buferes que se leen y escriben (UAV), un pase de computo detras de otro | **LI2f**, el computo del juego |
+| IL7 VERRANO en 3D | profundidad, constantes, texturas y MEZCLA | **LI2c**, **LI2d**, y la mezcla (que Cyberpunk tambien pide) |
+| LZ1 HDR y el tono | pintar en coma flotante | los render targets de float del juego |
+| LZ2-LZ4 materiales, entorno, sombras | el G-buffer, mapas de cubo, mipmaps, varias pasadas | **LI2d**, **LI3** (los pases) |
+| la regla de ILLAPA: "de un fotograma al siguiente solo cambian los DATOS" | la misma de VERRANO | **LI4**, el libreto del fotograma |
+| D5 de ILLAPA (el `f32` en la CPU) y las aproximaciones de la 3060 | que cuenta como "el mismo resultado" | **LI2g**: es LA MISMA decision; conviene tomarla una vez para los dos |
+
+## [!] El eslabon que falta para que la escuela sirva al examen
+
+Hoy hay **un solo emisor de verdad** hacia la 3060: `proton-x-sm86`, y su
+entrada NO es SPIR-V sino el `Programa` de la casa (E3, decision del
+propietario del 28-09). Las `gpu fn` de TITAN++ salen como **SPIR-V**
+(G2 de `PLAN_EL_CENTAURO.md`); del lado de SPIR-V, `emisor-sm86` solo tiene
+el subconjunto (E1), no emite. O sea:
+
+```text
+   Cyberpunk:  DXIL / SM5  ->  Programa  ->  proton-x-sm86  ->  juez  ->  3060
+   ILLAPA:     gpu fn      ->  SPIR-V    ->  ???
+```
+
+Si ILLAPA tuviera su PROPIO emisor de SPIR-V a la 3060, cada cosa se
+aprenderia DOS veces (los bucles, las texturas, el computo) y la escuela no
+le serviria de nada al examen. Con un lector de SPIR-V al `Programa`, todo lo
+que aprenda ILLAPA cae en el MISMO emisor, el MISMO juez y el MISMO .bsf
+vivo que usa Cyberpunk.
+
+- [ ] **LI7 -- UNA SOLA LENGUA HACIA LA 3060: el SPIR-V de TITAN++ al
+      `Programa` de la casa.** Un lector (el subconjunto de E1 manda lo
+      que entra) que convierte el SPIR-V de una `gpu fn` en el `Programa`
+      que ya corren el interprete, `nativo` y `proton-x-sm86`. Donde vive
+      se decide al hacerlo: el lector de SPIR-V es NEUTRO (el guardian
+      `isa`) y el `Programa` vive en `bmo-proton-x`; quiza el `Programa`
+      tenga que salir a un sitio neutro primero. **Como se sabe:** las
+      `gpu fn` del banco `nivel11` (`mezcla`, `activa`) pasan por SPIR-V ->
+      `Programa` -> el emisor -> el simulador de la 3060 y dan los MISMOS
+      bits que el oraculo de spirv; la prueba del NO, una `gpu fn` con algo
+      fuera del subconjunto, rechazada con motivo y sin emitir. **Va antes
+      que IL1**: si no, IL1 nace en un camino aparte.
+
+## El orden de los dos planes juntos
+
+```text
+   ahora      smp all, el primer Present por la CPU, LI0 el censo
+   la escuela LI7 (el eslabon) -> IL1 (bucles) -> IL2-IL4 (computo) -> IL7
+              (3D): cada una con sus gpu fn chicas y el oraculo
+   el examen  cada vez que la escuela abre algo, el censo de LI0 se repite
+              con Cyberpunk: el % de PSO que deja la CPU dice cuanto sirvio
+```
