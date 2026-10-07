@@ -22,8 +22,17 @@
 //! el codigo de Microsoft del `.exe` si, y los da por conservados. Si un hilo
 //! los pisa y el otro vuelve, sus floats cambiarian por debajo.
 //!
-//! **Lo que no hay, dicho:** un hilo que da vueltas sin esperar a nada no
-//! suelta el turno (no hay reloj que se lo quite). Y si TODOS esperan algo
+//! **El cuanto** (07-10, el metal: Cyberpunk parado ANTES de su primer
+//! Present dos veces, con un hilo entrando y saliendo de cerrojos sin
+//! esperar nunca y seis hilos LISTOS sin turno): un hilo que lleva
+//! [`CUANTO_NS`] con el turno lo suelta, si hay otro listo, la proxima vez
+//! que toca un cerrojo o una condicion ([`turno_justo`]). Es lo que en
+//! Windows hace el reloj; aqui, en las puertas de sincronizar, que es donde
+//! ceder ya era seguro (es donde un hilo se bloquea).
+//!
+//! **Lo que no hay, dicho:** un hilo que da vueltas sin tocar NINGUNA de
+//! esas puertas (ni la hora) no suelta el turno (no hay reloj que se lo
+//! quite). Y si TODOS esperan algo
 //! que solo otro que tambien espera podria dar, es un bloqueo mutuo: se dice
 //! con quien, y el proceso sale con 0xDEAD10CC en vez de colgarse callado.
 
@@ -231,6 +240,7 @@ fn cambiar_a(destino: usize) {
     }
     c.plan.actual = destino;
     SONDEOS.store(0, core::sync::atomic::Ordering::Relaxed);
+    TURNO_DESDE.store(ahora(), core::sync::atomic::Ordering::Relaxed);
     let (guardar, cargar, gs) = (&mut c.hilos[origen].rsp as *mut u64, c.hilos[destino].rsp, c.hilos[destino].teb);
     (plataforma().poner_gs)(gs);
     // SAFETY: `cargar` es la pila guardada de otro hilo de la casa (o su marco
@@ -294,6 +304,39 @@ pub(crate) fn ceder() -> bool {
         }
         _ => false,
     }
+}
+
+/// **El cuanto** (07-10): lo que un hilo puede tener el turno, si hay otro
+/// listo, antes de soltarlo en una puerta de sincronizar.
+pub const CUANTO_NS: u64 = 4_000_000;
+
+/// Desde cuando tiene el turno el hilo que corre.
+static TURNO_DESDE: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+/// Cuantas veces el cuanto solto el turno (para el pulso).
+static CUANTOS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// **El turno justo**: si el que corre ya gasto su [`CUANTO_NS`], cede (a
+/// otro listo, en rueda). Se llama en las puertas de sincronizar (entrar y
+/// salir de un cerrojo, despertar una condicion, encender un evento, soltar
+/// un semaforo): ahi la casa no esta a medias de nada, igual que cuando un
+/// hilo se bloquea.
+pub(crate) fn turno_justo() {
+    use core::sync::atomic::Ordering;
+    let t = ahora();
+    if t.saturating_sub(TURNO_DESDE.load(Ordering::Relaxed)) < CUANTO_NS {
+        return;
+    }
+    // Aunque no haya a quien cederlo, el cuanto empieza otra vez: no se
+    // pregunta en cada puerta.
+    TURNO_DESDE.store(t, Ordering::Relaxed);
+    if ceder() {
+        CUANTOS.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// Cuantas veces el cuanto solto el turno desde el arranque.
+pub fn cuantos() -> u64 {
+    CUANTOS.load(core::sync::atomic::Ordering::Relaxed)
 }
 
 /// Cada cuanto lo largo mira si el hilo del sonido ya puede seguir (T1).
@@ -504,7 +547,9 @@ extern "win64" fn create_event_w(_attr: u64, manual: i32, inicial: i32, _nombre:
 }
 
 extern "win64" fn set_event(h: u64) -> i32 {
-    objeto_de(h).is_some_and(|o| casa().plan.encender(o, true)) as i32
+    let r = objeto_de(h).is_some_and(|o| casa().plan.encender(o, true)) as i32;
+    turno_justo();
+    r
 }
 
 extern "win64" fn reset_event(h: u64) -> i32 {
@@ -527,6 +572,7 @@ extern "win64" fn release_semaphore(h: u64, n: i32, antes: *mut i32) -> i32 {
                 // SAFETY: un LONG del `.exe`.
                 unsafe { *antes = a as i32 };
             }
+            turno_justo();
             1
         }
         None => {
@@ -959,6 +1005,7 @@ extern "win64" fn tls_set_value(i: u32, v: u64) -> i32 {
 // -- Secciones criticas, SRW y condiciones -------------------------------------------------
 
 fn entrar(dir: u64, exclusivo: bool, recursivo: bool) {
+    turno_justo();
     if !casa().plan.entrar(dir, exclusivo, recursivo) {
         bloquear();
     }
@@ -968,6 +1015,7 @@ fn salir(dir: u64, exclusivo: bool) {
     if !casa().plan.salir(dir, exclusivo) {
         aviso("Leave/Release de un cerrojo que este hilo no tiene");
     }
+    turno_justo();
 }
 
 extern "win64" fn initialize_critical_section(_cs: u64) {}
@@ -985,6 +1033,7 @@ pub(crate) extern "win64" fn enter_critical_section(cs: u64) {
 }
 
 pub(crate) extern "win64" fn try_enter_critical_section(cs: u64) -> i32 {
+    turno_justo();
     casa().plan.probar(cs, true, true) as i32
 }
 
@@ -1005,10 +1054,12 @@ extern "win64" fn acquire_srw_lock_shared(l: u64) {
 }
 
 extern "win64" fn try_acquire_srw_lock_exclusive(l: u64) -> u8 {
+    turno_justo();
     casa().plan.probar(l, true, false) as u8
 }
 
 extern "win64" fn try_acquire_srw_lock_shared(l: u64) -> u8 {
+    turno_justo();
     casa().plan.probar(l, false, false) as u8
 }
 
@@ -1059,10 +1110,12 @@ extern "win64" fn sleep_condition_variable_srw(cv: u64, l: u64, ms: u32, bandera
 
 pub(crate) extern "win64" fn wake_condition_variable(cv: u64) {
     casa().plan.despertar(cv, false);
+    turno_justo();
 }
 
 pub(crate) extern "win64" fn wake_all_condition_variable(cv: u64) {
     casa().plan.despertar(cv, true);
+    turno_justo();
 }
 
 // -- La hora -------------------------------------------------------------------------------

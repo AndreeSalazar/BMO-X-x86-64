@@ -247,6 +247,19 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
       prestado al sonido: N vez/veces`.
 - [ ] **T3 -- medirlo en el metal.** Los tirones del audifono por debajo de
       10 en la intro. **Como se sabe:** la cabina de audio del SALIDA.TXT.
+- [x] **T4 -- el cuanto.** El metal (07-10, dos corridas): Cyberpunk se
+      para antes de su primer Present con el hilo 4108 entrando y saliendo
+      de cerrojos sin esperar nunca, seis hilos LISTOS sin turno y seis
+      trabajadores con su semaforo en 6. Los hilos de la casa son
+      cooperativos: un hilo que no espera no suelta el turno. Ahora un hilo
+      que gasto `hilos::CUANTO_NS` (4 ms) lo suelta, si hay otro listo, en la
+      siguiente puerta de sincronizar (Enter/Leave, SRW, Try*, Wake*,
+      SetEvent, ReleaseSemaphore: donde ceder ya era seguro).
+      **Como se sabe:** `tests/corre/turno.rs`,
+      `el_que_da_vueltas_con_cerrojos_suelta_el_turno` (sin el cuanto, la
+      prueba se cuelga hasta su tope y falla); en el metal, la linea
+      `# el cuanto solto el turno: N` del pulso. Es el parche: lo de verdad
+      es H1 (hilos del kernel, como Linux).
 
 ## 4H. LOS DOCE DIRECTORES `[RING 0]`, con permiso
 

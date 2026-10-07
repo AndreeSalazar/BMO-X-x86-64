@@ -8,7 +8,7 @@
 
 ```text
    655 casillas ABIERTAS en 64 planes
-   565 hechas
+   566 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -298,7 +298,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M3 -- QUE CADA UNO PIDA SU PISTA
 - ... y 4 mas
 
-## [`PLAN_LOS_DOCE_DIRECTORES.md`](PLAN_LOS_DOCE_DIRECTORES.md) -- 7 abiertas, 6 hechas
+## [`PLAN_LOS_DOCE_DIRECTORES.md`](PLAN_LOS_DOCE_DIRECTORES.md) -- 7 abiertas, 7 hechas
 
 *PLAN LOS DOCE DIRECTORES -- PROTON-X aprende a usar TODO el Ryzen*
 

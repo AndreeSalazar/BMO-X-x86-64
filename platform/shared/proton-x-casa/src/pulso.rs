@@ -185,6 +185,8 @@ pub(crate) fn texto(ahora: u64) -> String {
     t.push_str(&crate::nativo::foto());
     // T1 (07-10): cuantas veces lo largo le presto el turno al sonido.
     t.push_str(&alloc::format!("# el turno prestado al sonido: {} vez/veces\n", crate::hilos::prestamos()));
+    // 07-10: el cuanto (un hilo que gasto sus 4 ms suelta el turno en un cerrojo).
+    t.push_str(&alloc::format!("# el cuanto solto el turno: {} vez/veces\n", crate::hilos::cuantos()));
     let v = VIGILADA.load(Ordering::Relaxed);
     if v != 0 {
         // SAFETY: `vigilar` solo recibe casillas de la imagen, que no se

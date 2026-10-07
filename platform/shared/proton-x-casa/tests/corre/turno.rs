@@ -153,3 +153,66 @@ fn lo_largo_presta_el_turno_al_sonido_y_a_nadie_mas() {
     encender(EV_SONIDO.load(Ordering::SeqCst));
     assert_eq!(esperar(h_sonido), 0);
 }
+
+static LISTO: AtomicBool = AtomicBool::new(false);
+static CERROJO: [u64; 8] = [0; 8];
+
+/// El que avisa: no espera nada, solo pone la bandera (y para eso necesita
+/// el turno).
+extern "win64" fn el_que_avisa(_: u64) -> u32 {
+    LISTO.store(true, Ordering::SeqCst);
+    0
+}
+
+/// *** EL CUANTO (07-10, el metal: Cyberpunk parado antes de su primer
+/// Present con un hilo que entraba y salia de cerrojos sin esperar nunca y
+/// seis listos sin turno). El principal da vueltas con Enter/Leave de una
+/// seccion critica hasta que otro hilo ponga una bandera: sin el cuanto, el
+/// otro no corre NUNCA (la prueba se colgaria); con el, en unos ms.
+#[test]
+fn el_que_da_vueltas_con_cerrojos_suelta_el_turno() {
+    let _uno = uno_a_la_vez();
+    DICHO.lock().unwrap().clear();
+    unsafe { bmo_proton_x_casa::empezar(plataforma()) };
+    let bytes = (teb::TEB_BYTES + teb::PEB_BYTES) as u64;
+    let mem = mmap(bytes);
+    let rsp: u64;
+    unsafe { core::arch::asm!("mov {}, rsp", out(reg) rsp) };
+    let h = teb::Hilo { teb: mem, peb: mem + teb::TEB_BYTES as u64, pila_tope: rsp + (64 << 10), pila_fondo: rsp - (256 << 10), proceso: 7, hilo: 42, base_imagen: 0 };
+    {
+        let t = unsafe { core::slice::from_raw_parts_mut(mem as *mut u8, bytes as usize) };
+        let (tb, pb) = t.split_at_mut(teb::TEB_BYTES);
+        teb::escribir_teb(tb, &h);
+        teb::escribir_peb(pb, &h);
+    }
+    poner_gs(mem);
+    struct Quitar(u64, u64);
+    impl Drop for Quitar {
+        fn drop(&mut self) {
+            poner_gs(0);
+            munmap(self.0, self.1);
+        }
+    }
+    let _quitar = Quitar(mem, bytes);
+    type CrearHilo = extern "win64" fn(u64, usize, u64, u64, u32, *mut u32) -> u64;
+    type Cerrojo = extern "win64" fn(u64);
+    let crear_hilo: CrearHilo = unsafe { core::mem::transmute(f("kernel32.dll", "CreateThread")) };
+    let entrar: Cerrojo = unsafe { core::mem::transmute(f("kernel32.dll", "EnterCriticalSection")) };
+    let salir: Cerrojo = unsafe { core::mem::transmute(f("kernel32.dll", "LeaveCriticalSection")) };
+    LISTO.store(false, Ordering::SeqCst);
+    let antes = bmo_proton_x_casa::hilos::cuantos();
+    let mut tid = 0u32;
+    let h_otro = crear_hilo(0, 0, el_que_avisa as extern "win64" fn(u64) -> u32 as usize as u64, 0, 0, &mut tid);
+    assert!(h_otro != 0);
+    let cs = CERROJO.as_ptr() as u64;
+    let t0 = std::time::Instant::now();
+    while !LISTO.load(Ordering::SeqCst) && t0.elapsed().as_secs() < 5 {
+        entrar(cs);
+        std::hint::spin_loop();
+        salir(cs);
+    }
+    assert!(LISTO.load(Ordering::SeqCst), "el otro hilo corrio dentro de las vueltas con cerrojos");
+    assert!(t0.elapsed().as_millis() < 1000, "en unos ms, no al tope: {:?}", t0.elapsed());
+    assert!(bmo_proton_x_casa::hilos::cuantos() > antes, "lo solto el cuanto");
+    assert_eq!(esperar(h_otro), 0);
+}
