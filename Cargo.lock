@@ -129,6 +129,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-cache-juicio"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-carga-juicio"
 version = "0.1.0"
 
@@ -470,6 +474,7 @@ dependencies = [
  "bmo-audio",
  "bmo-bex-gate",
  "bmo-block",
+ "bmo-cache-juicio",
  "bmo-carga-juicio",
  "bmo-channel",
  "bmo-ciudad",

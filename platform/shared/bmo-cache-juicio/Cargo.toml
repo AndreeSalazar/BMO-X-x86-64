@@ -1,0 +1,12 @@
+[package]
+name = "bmo-cache-juicio"
+version = "0.1.0"
+edition = "2021"
+description = "El juez de la cache: que tipo de memoria tiene de verdad una pagina (PAT x MTRR), y como dejarla en escritura directa (WT)"
+license = "Apache-2.0"
+
+[lib]
+
+# ** CERO DEPENDENCIAS: lo consume Ring 0 (sin asignador, antes de que exista
+# el monton) y `cargo test` en el anfitrion, como `bmo-alarma`.
+[dependencies]

@@ -37,6 +37,10 @@ tres primeros **ya han ejecutado en el Ryzen**.
 >   CACHE y un reinicio de golpe la borra; ahora cada linea va a la RAM al
 >   acabarla, y el TABLERO dice que hacia cada nucleo (repartir, Ring 3, la
 >   alarma, la subida de cada obrero).
+> - **Y ya no pasa por la cache** (V8, BITACORA 87): su pagina es **WT**
+>   (escritura directa), cada byte llega a la RAM al momento. El juez
+>   `bmo-cache-juicio` lee el PAT y los MTRR de la placa y el DIARIO dice el
+>   tipo de verdad: `[caida] escribe DIRECTO a la RAM ... 4`.
 >
 > **⚠ Lo abierto:** con `smp all` el PC se reinicia de golpe. La caida de
 > las 13:23 dice que Cyberpunk NI LLEGO a correr: murio poco despues de

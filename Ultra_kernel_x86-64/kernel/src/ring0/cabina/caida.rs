@@ -84,6 +84,11 @@ pub const BASE: u64 = 0x0400_0000;
 pub const BYTES: u64 = 256 * 1024;
 /// Lo que se reserva: el anillo y, detras, el tablero (`tablero.rs`).
 pub const RESERVA: u64 = BYTES + super::tablero::BYTES;
+/// **La pagina de 2 MiB entera** (V8): se reserva toda para que nada mas
+/// viva en ella. Su tipo de memoria pasa a WT, y una pagina WT con RAM de
+/// otro dentro seria memoria ajena lenta -- y un alias de tipos.
+pub const PAGINA: u64 = 0x20_0000;
+const _: () = assert!(BASE % PAGINA == 0 && RESERVA <= PAGINA);
 const CAB: u64 = 32;
 const CAP: u64 = BYTES - CAB;
 /// Lo que esta sesion puede escribir ANTES de que el disco este montado sin
@@ -96,6 +101,27 @@ const VERSION: u32 = 1;
 
 /// `true` desde que la region esta comprobada y preparada para esta sesion.
 static mut LISTA: bool = false;
+
+/// **Como llega a la RAM lo que se escribe aqui** (V8). Lo sabe quien abre
+/// (`mm::phys`, que cambio la pagina con `vmm::escribir_directo`); CABINA no
+/// toca tablas de paginas.
+#[derive(Clone, Copy)]
+pub enum Escritura {
+    /// El tipo EFECTIVO de la pagina escribe directo (WT, UC): cada byte esta
+    /// en la RAM al acabar la instruccion. Ni un `clflush` hace falta. El
+    /// numero es el tipo (4 = WT).
+    Directa(u8),
+    /// Se pidio WT, pero el tipo efectivo no se sabe (los MTRR no lo dejan
+    /// ver, `0xFF`) o no es directo: los dos cinturones, `clflush` como V7.
+    Dudosa(u8),
+    /// No se pudo cambiar la pagina (el porque, de `bmo-cache-juicio`):
+    /// sigue en WB, con el `clflush` de V7.
+    EnCache(u8),
+}
+
+/// `true` si la pagina escribe directo: `anotar` y `a_la_ram` no necesitan
+/// sacar nada de la cache.
+static mut DIRECTA: bool = false;
 /// Lo que se dijo ANTES de que la region estuviera lista, para no perderlo.
 const ANTES_MAX: usize = 4096;
 static mut ANTES: [u8; ANTES_MAX] = [0; ANTES_MAX];
@@ -149,7 +175,7 @@ pub fn anotar(b: u8) {
         // interrupciones cerradas -- despertar a los obreros, un syscall
         // largo -- no tiene tick, y si la maquina muere ahi dentro, sus
         // lineas solo estaban en la cache. Dos o tres `clflush` por linea.
-        if b == b'\n' {
+        if b == b'\n' && !DIRECTA {
             let desde = LINEA.min(cursor);
             let mut t = desde & !63;
             while t <= cursor {
@@ -192,7 +218,8 @@ pub(super) fn a_la_ram_linea(p: *const u8) {
 /// la cabecera, con `clflush`. Sin nada nuevo, una lectura.
 pub fn a_la_ram() {
     unsafe {
-        if !LISTA {
+        // Con la pagina en WT (V8) ya esta todo en la RAM: nada que sacar.
+        if !LISTA || DIRECTA {
             return;
         }
         let c = lee64(16);
@@ -220,8 +247,11 @@ pub fn a_la_ram() {
 /// el physmap ya en pie. `dentro_de_ram` lo comprueba quien llama, que es
 /// quien tiene el mapa: si la region no cae en RAM usable, esto no se abre y
 /// se dice. `base_virtual` es donde el physmap muestra `BASE`.
-pub fn abrir(dentro_de_ram: bool, base_virtual: u64) {
-    unsafe { VIRT = base_virtual };
+pub fn abrir(dentro_de_ram: bool, base_virtual: u64, escritura: Escritura) {
+    unsafe {
+        VIRT = base_virtual;
+        DIRECTA = dentro_de_ram && matches!(escritura, Escritura::Directa(_));
+    }
     if !dentro_de_ram {
         crate::ring0::cabina::warn(
             "caida",
@@ -315,6 +345,26 @@ pub fn abrir(dentro_de_ram: bool, base_virtual: u64) {
             "caida",
             "la RAM no traia rastro: primer arranque, o la placa la borra al reiniciar",
             unsafe { GENERACION } as u64,
+        ),
+    }
+    // ** V8: Y COMO ESCRIBE ESTA SESION. Es lo primero que hay que mirar en
+    // un CAIDA corto: con "directo" la caja no pierde nada por la cache; con
+    // "en cache" un final cortado puede ser la cache, no la maquina.
+    match escritura {
+        Escritura::Directa(t) => crate::ring0::cabina::info(
+            "caida",
+            "escribe DIRECTO a la RAM, sin quedarse en la cache (tipo efectivo, 4 = WT)",
+            t as u64,
+        ),
+        Escritura::Dudosa(t) => crate::ring0::cabina::warn(
+            "caida",
+            "pidio WT pero el tipo efectivo no es directo o no se sabe (0xFF): sigue el clflush de V7",
+            t as u64,
+        ),
+        Escritura::EnCache(motivo) => crate::ring0::cabina::warn(
+            "caida",
+            "la pagina sigue en WB (1 no presente, 2 no es de 2 MiB, 3 PAT sin WT): sigue el clflush de V7",
+            motivo as u64,
         ),
     }
 }

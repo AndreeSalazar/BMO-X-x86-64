@@ -56,6 +56,7 @@
 /platform/shared/bmo-orquesta/               @AndreeSalazar
 /platform/shared/bmo-futex/                  @AndreeSalazar
 /platform/shared/bmo-alarma/                 @AndreeSalazar
+/platform/shared/bmo-cache-juicio/           @AndreeSalazar
 /platform/shared/bmo-prestamo-juicio/        @AndreeSalazar
 /platform/shared/bmo-imagen-juicio/          @AndreeSalazar
 /platform/shared/bmo-cubo/                   @AndreeSalazar
