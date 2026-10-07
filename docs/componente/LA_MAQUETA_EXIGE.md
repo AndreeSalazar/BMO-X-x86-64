@@ -5,7 +5,7 @@
 > de quien quiera escribirle, y que le devuelve a la cara**.
 >
 > Escrito el **2026-08-17**. Este documento **es el contrato**: lo que no esta
-> aqui, no compila. Agregar algo a MAQUETA empieza por anadirlo a este fichero.
+> aqui, no compila. Agregar algo a MAQUETA empieza por escribirlo en este fichero.
 
 ---
 
@@ -86,8 +86,7 @@ declara con medida; una ventana que debe ajustarse a su contenido, no.
 | `<div>` | caja generica | el 95% de todo |
 | `<span>` | caja en linea, contiene texto | no acepta hijos |
 | `<island>` | el hueco que rellena otro proceso | atributo `nombre`, obligatorio y unico |
-| `<svg>` | **MAQUETA 2 (04-10)**: un dibujo, con su `viewBox` | solo lleva `<path>`; su pluma y su relleno se dicen en SU regla (`stroke`, `fill`...) |
-| `<path>` | un camino de SVG, atributo `d` | solo dentro de `<svg>`. `M L H V C S Q T Z` y minusculas; sin arcos `A` |
+| `<svg>` | **MAQUETA 2 (04-10)**: un dibujo, con su `viewBox`. **MAQUETA 3 (06-10)**: dentro va SVG de verdad, o `src="dibujo.svg"` | lo de dentro lo lee el LECTOR DE SVG con su propia lista cerrada (seccion 2e); la regla del `<svg>` da lo que heredan sus figuras (`fill`, `stroke`...) |
 | `<usa>` | **(04-10)** una PIEZA: otra maqueta, puesta aqui | atributo `src`, obligatorio; vacia. Con `repite` (y `entre`, `columnas`), una LISTA o una REJILLA. Ver abajo |
 | `<imagen>` | **(H4, 04-10)** pixeles | `src` (`.qoi`, `.bmp`, `.png`: se embebe, hasta 128x128) o `dato` (llega al ejecutar). Mide lo que mide; sin `padding` ni borde; se recorta a su `border-radius` |
 
@@ -98,9 +97,10 @@ de pixel) si no. **No se parten en lineas**: si no caben, es error (comprobacion
 B de la seccion 7).
 
 Atributos aceptados: `class`, `id`, `nombre` (solo en `<island>`), `ancho`/`alto`
-(solo en `<maqueta>`), `viewBox` (solo en `<svg>`), `d` (solo en `<path>`) y
+(solo en `<maqueta>`), `viewBox`, `preserveAspectRatio` y `src` (en `<svg>`),
 `src`, `repite`, `entre` y `columnas` (en `<usa>`), y `src` y `dato` (en
-`<imagen>`). **Cualquier otro atributo es un error.**
+`<imagen>`). **Cualquier otro atributo es un error.** Lo de DENTRO de un
+`<svg>` no son etiquetas de MAQUETA: es SVG, y lo juzga su lector (2e).
 
 ### `<usa src="fila.maqueta"/>`: las piezas (04-10)
 
@@ -188,12 +188,146 @@ que MAQUETA no hace, y por eso **estan prohibidas**, no reinterpretadas.
 
 `id` **no sirve para estilar**: es la clave de la tabla de golpeo (seccion 8).
 
+### 2e. EL DIBUJO DE MAQUETA 3: TODO EL SVG (06-10)
+
+`docs/plan/PLAN_MAQUETA_3.md`, seccion 2d, escalones S1 a S7. El propietario:
+*"es para tener mi BMO-X con TODO el SVG en internet y animar todo"*. La ley
+no cambia, cambia cuanto cabe dentro de ella:
+
+```text
+   en el anfitrion, AL COMPILAR    se lee el SVG entero, se aplana TODO a
+                                   caminos de 1/64 de pixel y se juzga
+   en el aparato                   solo se entintan caminos, con su tinta
+```
+
+**Dos maneras de escribir un dibujo, UN lector** (`toolchain/tools/maqueta/dibujo`,
+`bmo-maqueta-dibujo`):
+
+```text
+   <svg class="icono" viewBox="0 0 24 24">     SVG escrito en la maqueta. Lo de
+     <circle cx="12" cy="12" r="9"/>          dentro es SVG: el navegador lo
+   </svg>                                      pinta tal cual en la vista previa
+   <svg class="logo" src="logo.svg"/>          un fichero SVG de internet, TAL
+                                               CUAL: de esta carpeta o de debajo,
+                                               sin `..`, hasta 1 MiB
+```
+
+En la vista previa (`toolchain/tools/espejo-cara/foto.js`) el `src` se pone
+DENTRO, como las piezas de `<usa>`: el navegador pinta el mismo fichero que
+lee el compilador. Sin `width`/`height` en la regla, el dibujo mide lo que
+dice su fichero (`width`/`height` de la raiz, en `px` o sin unidad); sin
+nada de eso es error -- el navegador le daria 300 x 150 por su cuenta.
+
+**Lo que el lector ENTIENDE** (la lista cerrada; todo lo demas, error):
+
+| que | como se pinta |
+|---|---|
+| `path` con `M L H V C S Q T A Z` y minusculas (S2: el arco `A` se aplana como `C` y `Q`) | caminos |
+| `circle`, `ellipse`, `rect` (con `rx`/`ry`), `line`, `polyline`, `polygon` (S1) | se convierten en `path` al leerlos |
+| `g`, `a`, `defs`, `symbol`, `use` (`href` o `xlink:href`, con `x`, `y`, `width`, `height`), `svg` raiz | se aplanan: un grupo no existe en el aparato |
+| `transform`: `matrix`, `translate`, `scale`, `rotate` (con centro), `skewX`, `skewY` (S3) | se aplica a cada punto al compilar. En un dibujo SI se gira: es geometria |
+| `fill`, `stroke`: `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, los nombres de CSS, `none`, `currentColor` (con `color`), `url(#degradado)` | la tinta |
+| `fill-rule` (`nonzero`, el de SVG, y `evenodd`) (S4) | el pintor sabe los dos |
+| `fill-opacity`, `stroke-opacity`, y `opacity` de UNA figura que solo rellena o solo traza (S4) | transparencia DE VERDAD: el pintor mezcla con lo de debajo |
+| `stroke-width`, `stroke-linecap` (`butt`, `round`, `square`), `stroke-linejoin` (`miter`, `round`, `bevel`), `stroke-miterlimit` | la pluma redonda de la casa si todo es `round`; si no, el CONTORNO exacto del trazo se calcula al compilar y se rellena |
+| `stroke-dasharray`, `stroke-dashoffset` (S4) | el discontinuo son trozos de camino, cortados al compilar |
+| `linearGradient`, `radialGradient` (S5): hasta OCHO paradas con `stop-color` y `stop-opacity`, `gradientUnits` (los dos), `gradientTransform`, `href` a otro degradado, `spreadMethod="pad"` | el pintor lleva la tinta de degradado por cada pixel |
+| `style="..."` y, en un fichero, `<style>` con selectores `.clase`, `#id`, `etiqueta` y `etiqueta.clase`, y `:first-child`, `:last-child`, `:nth-child(An+B)` (con su especificidad, como CSS) | se resuelve al leer |
+| `clipPath` de UNA figura convexa (un rectangulo, un circulo, un poligono convexo), en los dos `clipPathUnits` | se recorta al compilar, exacto: cada contorno cortado por el convexo guarda sus vueltas |
+| `display:none`, `visibility:hidden` | no se pinta |
+| `preserveAspectRatio` (`none`, `xMinYMin`..`xMaxYMax`, `meet`, `slice`) | como el navegador; por defecto `xMidYMid meet` |
+| `<animate>`, `<animateTransform>`, y en un fichero `@keyframes` con `animation` (S7) | ver abajo |
+| `title`, `desc`, `metadata`, los `xmlns`, `id`, `class`, `data-*`, `aria-*`, `role`, `version`, y los de Inkscape y Sodipodi | no pintan: se leen y se dejan |
+
+**Lo que el lector RECHAZA, con la LISTA de lo que el fichero tiene** (S6): un
+SVG de internet que lleva `text`, `filter`, `mask`, `pattern`, `image`,
+`foreignObject`, `script`, `marker`, `switch`, un `clipPath` que no sea UNA
+figura convexa, un selector que no sea de los de arriba, o `opacity` sobre un
+GRUPO de varias figuras o sobre una figura que rellena Y traza, NO se pinta a
+medias: el error dice cada cosa que
+falta y en que linea, de una vez. La opacidad de un grupo pide componer el
+grupo aparte y mezclarlo despues, y eso es de la 3060 (VERRANO), no de la
+maqueta -- `fill-opacity` y `stroke-opacity` en cada figura si se pintan
+exactas.
+
+**El NO a la pluma solo redonda se fue, con su motivo.** La comprobacion K
+exigia `round` porque el pintor solo sabia esa pluma y el navegador habria
+pintado otra cosa. Ahora una pluma `butt`, `square`, `miter` o `bevel` se
+convierte al compilar en su CONTORNO (un relleno `nonzero`), con las mismas
+esquinas que el navegador: las dos fotos vuelven a ser la misma. Y sin `fill`
+el dibujo se rellena de NEGRO, como en SVG -- antes BMO-X no rellenaba y por
+eso K pedia decirlo.
+
+**S7: animar.** Cada animacion se convierte al compilar en PASOS: el dibujo
+entero, ya aplanado, en cada instante que hace falta (los de `values`/
+`keyTimes`, y mas pasos donde la mezcla en linea recta no daria lo mismo:
+un giro, cada 7,5 grados como mucho; una curva de tiempo que no es lineal,
+ocho pasos por tramo). El aparato solo MEZCLA dos pasos vecinos punto a punto
+-- sin monton: el pintor lee los puntos mezclados mientras pinta. Las reglas:
+
+- un dibujo anima en UN ciclo: todas sus animaciones se repiten para siempre
+  con duraciones que caben en el ciclo (el minimo comun multiplo, hasta 20 s),
+  o ninguna se repite (se juega una vez y se queda en el ultimo paso con
+  `fill="freeze"`, o vuelve al primero);
+- todos los pasos tienen que tener las MISMAS figuras con los MISMOS puntos:
+  si animar un `d`, un `stroke-dasharray` o un `r` cambiara cuantos puntos
+  salen, es error al compilar, diciendo cual;
+- como mucho 240 pasos por dibujo;
+- `begin` solo con un tiempo (`0s`, `1.5s`); `calcMode` `linear`, `discrete`
+  o `spline`; en `@keyframes`, `animation-timing-function` `linear`, `ease`,
+  `ease-in`, `ease-out`, `ease-in-out`, `cubic-bezier()` o `steps(n)` (los
+  saltos: dos pasos pegados, sin mezcla), y `animation-direction` `normal` o
+  `alternate`. Un retraso (`begin`, `animation-delay`) de lo que se repite es
+  la FASE de su vuelta: se pinta el ciclo ya en marcha.
+
+El codigo generado lleva `ANIMA_MS` (el ciclo) y `pintar_anima(p, ox, oy, ms)`
+-- quien lo llama decide el ritmo, y en reposo no corre nada (L6h). La CARA que
+viaja todavia no lleva pasos: una maqueta con un dibujo animado no se escribe
+como CARA, y se dice, igual que con los estados.
+
+**Medido el 06-10** (no a ojo):
+
+```text
+   18.152 de 18.177 SVG de internet se leen y se pintan (99,86 %): Material
+   Design, Simple Icons, Bootstrap, Heroicons, Feather, Twemoji y banderas.
+   Lo que no, con su lista: `text`, `mask`, `marker`, dos ciclos de 40 s y
+   602 s, y un selector de dos pisos (`censo` del lector)
+   349 de ellos contra Chromium, pixel a pixel: igual 92,40 %, parecido
+   99,26 % de los pixeles con tinta; lo que difiere es el suavizado de los
+   bordes (`compara` del lector)
+   `pruebas/dibujos.maqueta` contra Chromium (el espejo): igual 99,79 %,
+   parecido 99,87 %; por la CARA que viaja, los mismos pixeles (prueba)
+   y lo que se sale de la caja del `<svg>` no se ve, como en el navegador
+   (`overflow: hidden`): se recorta al compilar, solo la figura que se sale
+   `pruebas/anima.maqueta` en 7 instantes contra Chromium parado en cada
+   uno: igual entre 99,83 % y 99,93 %
+```
+
+**El pintor** (`platform/shared/bmo-pinta`) gana UNA pieza, `Pieza::Figura`:
+sus caminos, pluma redonda o relleno (`nonzero` o `evenodd`), su TINTA (lisa,
+degradado lineal o radial con sus paradas) y su opacidad. La CARA gana su
+clase (`CLASE_FIGURA`), con su lector desconfiado. Un dibujo sin nada de
+MAQUETA 3 -- pluma redonda lisa y opaca, relleno liso -- se sigue escribiendo
+con las piezas de MAQUETA 2, asi que lo que ya habia sale IGUAL.
+
+**Y un dibujo GRANDE se escribe una vez** (06-10, la tabla de figuras de
+`toolchain/tools/maqueta/emit/src/tabla.rs`). Ocho figuras seguidas o mas van a
+`static FIGURAS` --la pieza y su caja-- y `pintar` y `pintar_en` la recorren
+con un bucle, en el mismo orden. Lo pidio el SOL del escritorio de mision
+(`toolchain/tools/maqueta/escritorio/sol.maqueta`): 225 figuras escritas una a
+una, dos veces, eran 1005 lineas y 297 KB de fuente; en su tabla son 343 lineas.
+Lo que se pinta no cambia. Con datos no hay tabla (el color del dato se escribe
+en cada llamada).
+
 ---
 
 ## 3. LAS PROPIEDADES -- LISTA CERRADA
 
-**Cuarenta** (contadas en `value.rs`, 04-10, escalon 1), y **seis atajos** que
-se expanden en ellas (seccion 3c). Las **dieciseis** primeras se
+**Sesenta y una** (contadas en `value.rs` el 06-10, despues de la pila A de
+MAQUETA 3: once mas en la seccion 3e), y **diez atajos** que se expanden en
+ellas (seis en la seccion 3c, cuatro en la 3e). [!] Antes de contarlas otra
+vez, aqui decia "cuarenta y cinco" con cincuenta en el `enum`: la tercera vez
+que la cifra en prosa se queda atras (ver el aviso de abajo). Las **dieciseis** primeras se
 eligieron **contando** lo que `scene/` hace de verdad, no lo que CSS ofrece.
 `border-radius` entro al medir la raiz y descubrir que ya estaba implementada;
 `margin` **salio** al escribir el nieto -- ver seccion 3b.
@@ -407,11 +541,11 @@ no cambia ni un pixel: su codigo generado sale identico).
 
 | propiedad | valores | nota |
 |---|---|---|
-| `stroke` | `#RRGGBB` \| `none` | la pluma de sus `<path>` |
+| `stroke` | `#RRGGBB` \| `none` | la pluma de sus figuras (la heredan, como en SVG) |
 | `stroke-width` | `2`, `1.5` | en unidades del `viewBox`, como SVG |
-| `fill` | `#RRGGBB` \| `none` | **obligatoria** de decir: sin ella el navegador rellena de negro |
-| `stroke-linecap` | `round` | la pluma de la casa es redonda; el navegador tiene que usar la misma |
-| `stroke-linejoin` | `round` | igual |
+| `fill` | `#RRGGBB` \| `none` | el relleno que heredan; sin decirlo, NEGRO, como en SVG (MAQUETA 3) |
+| `stroke-linecap` | `round`, y desde MAQUETA 3 `butt` y `square` | redonda es la pluma de la casa; las otras se pintan como contorno exacto (2e) |
+| `stroke-linejoin` | `round`, y desde MAQUETA 3 `miter` y `bevel` | igual |
 
 ### La colocacion absoluta
 
@@ -435,13 +569,77 @@ porque los paneles del escritorio se colocan asi. Es tambien la unica forma de
 que una caja se salga de su padre legitimamente, y por eso desactiva la
 comprobacion 2 para ese nodo. **Usarla es declarar que sabes lo que haces.**
 
+### 3e. MAQUETA 3, PILA A: lo que entra sin tocar ninguna ley (06-10)
+
+`docs/plan/PLAN_MAQUETA_3.md`, escalon MA. Ninguna de estas pide saber la
+medida del padre: se resuelven con la caja PROPIA. Primera tanda, la que solo
+toca la maquetacion (el nieto) y no la pintura:
+
+| propiedad | valores | nota |
+|---|---|---|
+| `text-align` | `left` \| `center` \| `right` (y `start`, `end`) | coloca el texto DENTRO de su caja `block`, con lo que el texto midio al compilar: exacto al pixel. En una caja `flex` no hace nada (el texto es un elemento flex anonimo de su medida, como en CSS) y es error (comprobacion L). En un parrafo (`white-space:normal`) solo `left` todavia: cada linea pediria su x (tambien L). `justify` se rechaza: estira los espacios y cada linea saldria distinta |
+| `min-width`, `max-width` | `Npx` | acotan el ancho de la caja contra SU contenido, y tambien el que llena a su padre (`block`) o el que la estira (`flex`): como CSS, `max` gana a `width` y `min` gana a `max`. Lo que no quepa en el maximo lo dice el veredicto (A, B) |
+| `min-height`, `max-height` | `Npx` | igual, en vertical |
+
+Y dos atajos mas (se expanden en el padre, como los de la seccion 3c):
+
+| atajo | se expande en |
+|---|---|
+| `inset` | `top`, `right`, `bottom`, `left`, de uno a cuatro valores como `padding` |
+| `padding-block`, `padding-inline` | `padding-top`/`-bottom`, y `padding-left`/`-right`; uno o dos valores |
+
+**Segunda tanda (06-10, MA2): la pila A entera.** Escrita aqui antes que su
+codigo. Tampoco piden la medida del padre; lo nuevo es que algunas tocan la
+PINTURA (el recorte, el contorno, el orden de las capas) y una el APARATO (las
+zonas del puntero).
+
+| propiedad | valores | nota |
+|---|---|---|
+| `overflow` | `hidden` \| `clip` \| `visible` \| `auto` | atajo de `overflow-x` y `overflow-y`, como en CSS. `auto` es el de siempre (H7, se desplaza) |
+| `overflow-x`, `overflow-y` | `hidden` \| `clip` \| `visible` (y `auto`) | **lo de dentro se RECORTA a la caja de relleno** (por dentro del borde), como en CSS. El fondo y el borde de la propia caja no; su texto, su dibujo y sus hijos si. Se resuelve al compilar: lo que cae entero dentro sale como siempre, lo que cae entero fuera no sale, un rect se corta exacto, y lo que queda a medias lleva su RECORTE al pintor (`Some(Recorte)`), que recorta al pixel. `overflow-x: auto` solo se acepta si nada se sale de ancho (en el navegador se desplazaria) |
+| `text-overflow` | `ellipsis` \| `clip` | con `overflow: hidden` en la MISMA caja y texto de una linea: si el texto no cabe, se corta AL COMPILAR con la letra que lo pinta y se le ponen `...` (los tres puntos de H2, los mismos que el aparato pone a un dato). El navegador pone el caracter `...` de uno: puede caber una letra de diferencia, y se dice |
+| `cursor` | `pointer` \| `text` \| `default` \| `not-allowed` \| `auto` | DECLARA una zona: el modulo sale con `puntero(ox, oy, px, py) -> &str`, la forma que pide el punto (la de la caja mas de encima que la declaro, como hereda CSS). Una caja con `cursor: pointer` lleva `id`: una zona que se pulsa y nadie puede nombrar es un boton que no hace nada |
+| `pointer-events` | `none` \| `auto` | `none`: la caja y lo de dentro (hereda, como en CSS) no estan en la tabla de golpes ni en la del puntero |
+| `z-index` | entero desde `0` | **la CAPA**: un numero GLOBAL. Se pinta capa a capa, de menor a mayor, y dentro de una capa en el orden del fichero; lo de dentro de una caja va en su capa. Solo en una caja `absolute` o `relative` (en una estatica CSS lo ignora) y nunca una dentro de otra (seria el contexto de apilado de CSS, que aqui no hay): con esas dos reglas el orden global y el de CSS son el mismo |
+| `left`, `top`, `right`, `bottom`, `inset` | `Npx`, **tambien negativos** | en una `absolute`, salirse de su ancla a proposito (la insignia sobre la esquina). Lo que se sale del lienzo sigue siendo error (A) |
+| `flex-wrap` | `wrap` \| `nowrap` | parte las filas AL COMPILAR, con los hijos y su medida conocidos, contra la medida PROPIA de la caja: necesita su `width` (fila) o su `height` (columna). El `gap` separa tambien las filas |
+| `align-content` | `start` \| `center` \| `end` \| `space-between` \| `stretch` (y `normal`) | donde caen las filas partidas si sobra sitio; `normal` es `stretch`, como en CSS. Sin `flex-wrap: wrap` no hace nada y es error |
+| `align-self` | `start` \| `center` \| `end` \| `stretch` \| `auto` | el `align-items` de UN hijo |
+| `aspect-ratio` | `N`, `A / B` | la proporcion de la caja PROPIA: con el ancho dicho (o el que llena su padre `block`) sale el alto, y al reves. Redondeado al pixel. En un hijo flex que se ESTIRARIA en el eje cruzado es error: dale su medida o `align-self` |
+| `outline` | `Npx solid #RRGGBB` \| `none` \| `0` | **el contorno**: un anillo FUERA del borde que no ocupa sitio. Con radio sigue la curva del borde (el radio mas lo que se separa); se pinta encima de todo, como en CSS. Tiene que caber en el lienzo |
+| `outline-offset` | `Npx`, tambien negativo | cuanto se separa del borde |
+
+Y lo que sigue fuera de la pila A, dicho: `align-items: baseline` (pide la
+linea base de cada letra y sale en su propio escalon), y en la CARA que viaja
+(emisor B) el recorte a medias, que todavia no viaja: una maqueta que lo
+necesita compila a Rust y a foto, y `--bef` lo rechaza con su motivo.
+
+Las comprobaciones nuevas (`verdict/src/pila_a.rs`):
+
+```text
+   M  un recorte que no puede ser: texto de PIXEL a medias (8 x 16 no se
+      corta), una absoluta que se ancla fuera de la caja que recorta (en
+      CSS no la recortaria), un recorte dentro de una caja que se
+      desplaza, o un eje que el navegador desplazaria
+   N  `text-overflow` sin `overflow: hidden` en la caja, o en un parrafo
+   O  `cursor: pointer` sin `id`
+   P  `z-index` en una caja estatica, o una capa dentro de otra
+   Q  `flex-wrap` sin la medida contra la que se parte; `align-content`
+      sin `flex-wrap`
+   R  `aspect-ratio` con las dos medidas dichas (sobra una), o en un hijo
+      que se estiraria
+   S  un contorno que se sale del lienzo
+```
+
 ---
 
 ## 4. LAS UNIDADES
 
 **Solo `px`, y solo enteros.** El `0` puede ir sin unidad.
 
-No hay `%`, `auto`, `rem`, `vh`, `vw`, `fr`, `calc()` ni negativos. Las dos
+No hay `%`, `auto`, `rem`, `vh`, `vw`, `fr` ni `calc()`, y negativos solo
+donde una caja se sale A PROPOSITO (los desplazamientos de una `absolute` y
+`outline-offset`, MAQUETA 3, seccion 3e). Las dos
 excepciones de MAQUETA 2 son de la LETRA y del DIBUJO, nunca de una caja:
 `letter-spacing` va en `em` (crece con la letra) y `stroke-width` admite un
 decimal (`1.5`, en unidades del `viewBox`). Una caja cae SIEMPRE en pixel
@@ -560,6 +758,10 @@ aparato limpia, corre y recorta sin maquetar.
 un dato: se parte al compilar, contra ese ancho; un dato no se parte, se
 corta.
 
+**M a S.** (MAQUETA 3, 06-10) Las de la pila A: el recorte, los puntos
+suspensivos, la zona, la capa, las filas partidas, la proporcion y el
+contorno. Cada una con su caso en la seccion 3e; viven en `pila_a.rs`.
+
 **I.** (H5, 04-10) **Una `relative` no se corre** con `top`/`left`/`right`/
 `bottom`: solo ancla. (Esta en `idle.rs`, con la H: una absoluta dice donde va
 en los dos ejes.)
@@ -593,12 +795,11 @@ nada; la diferencia es que alli no te lo dice nadie.
 
 ### El dibujo se puede pintar (`dibujo.rs`, MAQUETA 2)
 
-**K.** Todo `<svg>` trae `viewBox`; todo `<path>` dice su `fill` (aunque sea
-`none`); y si lleva `stroke`, lleva `stroke-linecap:round` y
-`stroke-linejoin:round`. La pluma de la casa es redonda -- es la unica que el
-pintor sabe hacer exacta --, y un navegador que pintara puntas cuadradas
-dibujaria OTRA cosa que la app. Se exige escrito para que la regla y la pieza
-digan lo mismo.
+**K.** Todo `<svg>` trae `viewBox` (el suyo, o el de su fichero), y una
+medida: la de su regla o la de su fichero. (Hasta MAQUETA 3, K pedia tambien
+`fill` dicho y la pluma `round`: el pintor no rellenaba por defecto ni sabia
+otra pluma. Ya sabe -- seccion 2e -- y esas dos dejaron de ser trampas.) Lo
+que el lector de SVG no sabe pintar es error al leer, antes de K.
 
 Y **B** dejo de medir con `len * 8`: mide con la letra de verdad
 (`bmo-letra`, la misma que pinta), en el anfitrion. Con la cuenta vieja daba
@@ -772,17 +973,17 @@ en una propiedad, y ninguna parece grave sola.
 | herencia de propiedades | el padre no conoce a su padre (L7) | nunca en v1 |
 | combinadores `.a .b`, `>` | igual | nunca en v1 |
 | `%`, `auto`, `calc()` | exigen el contenedor | nunca en v1 |
-| `rgba()`, `opacity` | no hay mezcla alfa | rasterizador escalon 4 |
+| `rgba()`, `opacity` | no hay mezcla alfa | en una CAJA, M4 de MAQUETA 3; en un DIBUJO ya entran (2e): el pintor mezcla |
 | ~~`border-radius`~~ | **ACEPTADO el 17-08** -- ver seccion 3 | -- |
 | repeticion sobre datos vivos | el numero de hijos se sabe en ejecucion | nunca: es de Rust |
 | `:hover`, `:active` | es **conducta**, no maquetacion | v2, y sin tocar el layout |
 | `grid` | `flex` cubre lo medido en `scene/` | cuando algo real lo pida |
-| `float`, `z-index`, `overflow` | no hay caso en el arbol | cuando lo haya |
+| `float` | no hay caso en el arbol | cuando lo haya (`z-index` y `overflow` entraron el 06-10: seccion 3e) |
 | `border: ... dashed`, `currentColor` | una raya llena; el color de la letra puede no estar dicho | -- |
 | variables fuera de `:root` | se heredarian, y no hay herencia | nunca en v1 |
 | `margin` | sus margenes se FUNDEN en CSS y aqui no | cuando se implemente la fusion |
 | `@media` | una sola pantalla | cuando haya dos |
-| `@keyframes`, `animation`, `transform` | piden maquetar en ejecucion | nunca: estados + `transition` (3d), o Rust |
+| `@keyframes`, `animation`, `transform` | piden maquetar en ejecucion | en una caja, nunca: estados + `transition` (3d), o Rust. En un DIBUJO si (2e): no maquetan nada, se aplanan en pasos al compilar |
 | salto de linea automatico | esconderia la comprobacion 3 | nunca |
 | `<h1>`, `<p>`, `<button>`... | prometen semantica que no existe | nunca |
 | script de cualquier clase | esto es un compilador | nunca |

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- KEPLER-5600 b, el planeta que orbita la estrella del escritorio de mision
+     (HM3 de docs/plan/PLAN_EL_HUD.md). El mismo de
+     docs/arte/maqueta_escritorio_mision.html: la bola con su luz arriba a la
+     izquierda y el anillo inclinado. Quieto, como el sol. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-44 -26 88 52" width="132" height="78">
+  <defs>
+    <radialGradient id="planeta" cx="35%" cy="35%">
+      <stop offset="0" stop-color="#F5C48E"/>
+      <stop offset=".7" stop-color="#C26A3A"/>
+      <stop offset="1" stop-color="#5A2410"/>
+    </radialGradient>
+  </defs>
+  <circle r="22" fill="url(#planeta)"/>
+  <ellipse rx="40" ry="9" fill="none" stroke="#F5C48E" stroke-opacity=".6" transform="rotate(-14)"/>
+</svg>

@@ -280,9 +280,15 @@ fn the_system_theme_compiles() {
     assert_eq!(wearing("fase-neon").color, Some(0xFF2E88), "el magenta del neon");
     assert_eq!(wearing("fase-tinta").color, Some(0xEAF7FF));
     assert_eq!(wearing("fase-tenue").color, Some(0x7F96AE));
+    // La CARA DE MISION (HM1 de PLAN_EL_HUD, 06-10): el panel y el ojo del gato.
+    let mision = wearing("mision");
+    assert_eq!(mision.background, Some(0x09080F));
+    assert_eq!(mision.border_color, [Some(0x2B2250); 4]);
+    assert_eq!(wearing("mision-ojo").color, Some(0x5EF2E6), "el ojo del gato");
+    assert_eq!(wearing("mision-nogo").color, Some(0xFF5A6E));
 
     // On its own the theme has no markup, so every rule looks unused from here
     // -- which is exactly what a palette meant for OTHER files should look like.
-    assert_eq!(c.dead_rules.len(), 19, "las diecinueve reglas del tema (nueve de siempre, cinco de lo fino y cinco del MODO FASE)");
+    assert_eq!(c.dead_rules.len(), 30, "las treinta reglas del tema (nueve de siempre, cinco de lo fino, cinco del MODO FASE y once de la MISION)");
     assert!(c.orphan_classes.is_empty());
 }

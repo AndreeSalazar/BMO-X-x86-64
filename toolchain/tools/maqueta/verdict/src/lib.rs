@@ -29,6 +29,9 @@
 //!    names.rs    D id repetido   E isla sin sitio o repetida
 //!                I regla muerta  J clase huerfana
 //!    idle.rs     G gap sin flex  H absoluta sin left/top  F texto sin color
+//!                L text-align que no puede alinear (MAQUETA 3)
+//!    pila_a.rs   M recorte  N puntos  O zona  P capa  Q filas  R proporcion
+//!                S contorno (MAQUETA 3, pila A)
 //! ```
 //!
 //! ## Todas son errores, y no hay avisos
@@ -48,6 +51,7 @@ pub mod dibujo;
 pub mod fit;
 pub mod idle;
 pub mod names;
+pub mod pila_a;
 
 use bmo_maqueta_cascade::Cascaded;
 use bmo_maqueta_diag::Error;
@@ -78,6 +82,7 @@ pub fn judge(laid: &Laid, cascaded: &Cascaded) -> Vec<Error> {
     names::check(laid, cascaded, &mut out);
     idle::check(laid, &mut out);
     dibujo::check(laid, &mut out);
+    pila_a::check(laid, &mut out);
     out.sort_by_key(|e| (e.span.start, e.span.len));
     out
 }

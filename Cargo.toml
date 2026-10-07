@@ -364,6 +364,7 @@ members = [
     # `docs/plan/PLAN_MAQUETA.md`; mapa de carpetas en su README.
     "toolchain/tools/maqueta/diag",
     "toolchain/tools/maqueta/lex",
+    "toolchain/tools/maqueta/dibujo",
     "toolchain/tools/maqueta/node",
     "toolchain/tools/maqueta/cascade",
     "toolchain/tools/maqueta/layout",

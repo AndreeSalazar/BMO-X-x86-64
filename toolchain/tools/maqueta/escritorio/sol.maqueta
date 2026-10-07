@@ -1,0 +1,18 @@
+<!--
+   EL SOL DEL ESCRITORIO DE MISION (HM3 de docs/plan/PLAN_EL_HUD.md): la
+   estrella gato, SOL DE PLASMA, quieta. Es el `<svg src>` de MAQUETA 3 con
+   un fichero tal cual (`sol.svg`, que escribe docs/arte/sol_quieto.py).
+
+   La cara es SOLO el dibujo: sin fondo, para que caiga sobre el cielo que ya
+   esta pintado y su halo se mezcle con el. Donde va y cuando se pinta lo
+   decide `Ultra_userspace/services/director/src/scene/mision.rs`: UNA vez,
+   al preparar el fondo, y en reposo ninguna.
+-->
+<maqueta>
+  <style>
+    .sol { width:720px; height:720px }
+  </style>
+  <div>
+    <svg class="sol" src="sol.svg"/>
+  </div>
+</maqueta>

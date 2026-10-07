@@ -18,6 +18,9 @@ use crate::markup::span_of;
 // largas, y la TRANSICION de un estado a otro. Hijos de este modulo: ven lo
 // privado de aqui (`color`, `measure`, `skip_value`...) sin abrirlo a nadie.
 mod atajos;
+// Los valores de la PILA A de MAQUETA 3 (06-10): con signo, la capa, la
+// proporcion y el contorno.
+mod pila_a;
 mod transicion;
 
 use atajos::Atajo;
@@ -523,6 +526,10 @@ fn read_value(
             skip_value(toks, i);
             None
         }
+        Shape::SignedPx => pila_a::con_signo(src, toks, i, prop, errors).map(Value::Signed),
+        Shape::Count => pila_a::cuenta(src, toks, i, prop, errors).map(Value::Count),
+        Shape::Ratio => pila_a::proporcion(src, toks, i, errors),
+        Shape::Outline => pila_a::contorno(src, toks, i, errors),
         Shape::Shadow => shadow(src, toks, i, errors),
         Shape::Transition => transicion(src, toks, i, errors),
         Shape::Gradient => {

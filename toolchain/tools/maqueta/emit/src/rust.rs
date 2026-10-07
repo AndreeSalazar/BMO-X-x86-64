@@ -18,6 +18,8 @@
 //! se convierte en un fuente de BMO-X. Se colo un simbolo una vez y lo cazo una
 //! prueba, no una lectura.
 
+use crate::literal::{pieza_literal, PX};
+use crate::rust_pila_a::limite_de;
 use bmo_maqueta_layout::{Laid, Rect};
 use std::fmt::Write;
 
@@ -64,11 +66,18 @@ pub fn modulo_con_datos(origen: &str, l: &Laid, colores: &[(String, u32)]) -> St
     listas(&mut s, l);
     pintar(&mut s, &ordenes, &datos, &ventanas);
     pintar_en(&mut s, &ordenes, &datos);
+    // ** Los dibujos que animan (MAQUETA 3, S7).
+    if crate::anima::hay(&podada) {
+        pintar_en_como(&mut s, &crate::orden::lista_sin_anima(&crate::desplaza::podar(&podada)), &datos, "pintar_en_fijo");
+        crate::anima::emitir(&mut s, &podada);
+    }
     realce(&mut s, &ordenes, &datos);
     realce_animado(&mut s, &podada, &datos);
     desplazamientos(&mut s, &podada, &datos);
     golpe(&mut s, l);
+    crate::rust_pila_a::puntero(&mut s, l);
     islas(&mut s, l);
+    datos.tabla.emitir(&mut s);
     s
 }
 
@@ -115,6 +124,8 @@ struct Datos {
     /// TODOS los pixeles que se embeben (fijos y muestras), en orden: el
     /// `static IMAGEN_n` de cada uno.
     pixeles: Vec<std::sync::Arc<[u32]>>,
+    /// Las figuras que van a `static FIGURAS` (`tabla.rs`).
+    tabla: crate::tabla::Tabla,
 }
 
 impl Datos {
@@ -140,7 +151,7 @@ impl Datos {
                 }
             }
         }
-        Datos { huecos, colores: colores.to_vec(), fotos, pixeles }
+        Datos { huecos, colores: colores.to_vec(), fotos, pixeles, tabla: Default::default() }
     }
 
     fn hay(&self) -> bool {
@@ -362,47 +373,6 @@ fn cabecera(s: &mut String, origen: &str, l: &Laid) {
 //  Un trazo, escrito
 // ------------------------------------------------------------------------
 
-/// **Una pieza suave escrita en Rust**, para `bmo::Pieza` (la `Pieza` de
-/// `bmo-pinta`, que `bmo-userland` reexporta).
-fn pieza_literal(p: &bmo_pinta::Pieza) -> String {
-    use bmo_pinta::Pieza;
-    let caminos = |c: &[&[(i32, i32)]]| -> String {
-        let v: Vec<String> = c
-            .iter()
-            .map(|s| format!("&[{}]", s.iter().map(|(x, y)| format!("({x}, {y})")).collect::<Vec<_>>().join(", ")))
-            .collect();
-        format!("&[{}]", v.join(", "))
-    };
-    match *p {
-        Pieza::Caja { x, y, w, h, r, c } => format!("bmo::Pieza::Caja {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, c: 0x{c:08X} }}"),
-        Pieza::Borde { x, y, w, h, r, grosor, c } => {
-            format!("bmo::Pieza::Borde {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, grosor: {grosor}, c: 0x{c:08X} }}")
-        }
-        Pieza::Resplandor { x, y, w, h, r, alcance, argb } => {
-            format!("bmo::Pieza::Resplandor {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, alcance: {alcance}, argb: 0x{argb:08X} }}")
-        }
-        Pieza::Degradado { x, y, w, h, r, de, a, vertical } => format!(
-            "bmo::Pieza::Degradado {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, de: 0x{de:08X}, a: 0x{a:08X}, vertical: {vertical} }}"
-        ),
-        Pieza::Letra { x, y, alto, texto, c, px, peso, espacio, mayusculas } => format!(
-            "bmo::Pieza::Letra {{ x: {x}, y: {y}, alto: {alto}, texto: b{:?}, c: 0x{c:08X}, px: {px}, peso: {peso}, espacio: {espacio}, mayusculas: {mayusculas} }}",
-            String::from_utf8_lossy(texto)
-        ),
-        Pieza::Trazo { caminos: cs, cerrados, grosor64, c } => format!(
-            "bmo::Pieza::Trazo {{ caminos: {}, cerrados: &{:?}, grosor64: {grosor64}, c: 0x{c:08X} }}",
-            caminos(cs),
-            cerrados
-        ),
-        Pieza::Relleno { caminos: cs, c } => format!("bmo::Pieza::Relleno {{ caminos: {}, c: 0x{c:08X} }}", caminos(cs)),
-        // Los pixeles los pone quien sabe de donde salen (`llamada_con`): un
-        // `static IMAGEN_n` o un dato.
-        Pieza::Imagen { x, y, w, h, r, .. } => format!("bmo::Pieza::Imagen {{ x: {x}, y: {y}, w: {w}, h: {h}, r: {r}, px: {PX} }}"),
-    }
-}
-
-/// Donde van los pixeles de una imagen en su literal.
-const PX: &str = "__PIXELES__";
-
 /// La llamada que pinta este trazo, con su dato si lleva (H1).
 fn llamada_con(t: &Trazo, d: &Datos, limite: &str) -> String {
     if let (Trazo::Imagen { px, dato, .. }, Some(l)) = (t, t.con_pieza(pieza_literal)) {
@@ -444,6 +414,14 @@ fn llamada(t: &Trazo) -> String {
     }
 }
 
+/// Una racha de figuras para `static FIGURAS` (`tabla.rs`); con datos, nunca.
+fn racha(d: &Datos, ordenes: &[&Orden], i: usize) -> Option<(usize, usize)> {
+    if d.hay() {
+        return None;
+    }
+    d.tabla.racha(ordenes, i)
+}
+
 fn area(t: &Trazo) -> Rect {
     t.area()
 }
@@ -464,12 +442,21 @@ fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos, ventanas: &[String]) {
         s.push_str("    let _ = d;\n");
     }
     let mut ultimo = String::new();
-    for o in ordenes.iter().filter(|o| o.estado == Estado::Reposo) {
+    let reposo: Vec<&Orden> = ordenes.iter().filter(|o| o.estado == Estado::Reposo).collect();
+    let mut i = 0;
+    while i < reposo.len() {
+        let o = reposo[i];
         if o.de != ultimo {
             let _ = writeln!(s, "    // {}", o.de);
             ultimo = o.de.clone();
         }
-        let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, "None"));
+        if let Some((a, b)) = racha(d, &reposo, i) {
+            let _ = writeln!(s, "{}", crate::tabla::bucle(a, b));
+            i += b - a;
+            continue;
+        }
+        let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, &limite_de("None", o.recorte)));
+        i += 1;
     }
     for v in ventanas {
         let _ = writeln!(s, "    {v}");
@@ -479,6 +466,16 @@ fn pintar(s: &mut String, ordenes: &[Orden], d: &Datos, ventanas: &[String]) {
 
 /// ** El pintado RECORTADO, que es lo que hace barato reparar un danio.
 fn pintar_en(s: &mut String, ordenes: &[Orden], d: &Datos) {
+    pintar_en_como(s, ordenes, d, "pintar_en");
+}
+
+/// `pintar_en` con otro nombre y otras ordenes: `pintar_en_fijo` (S7) es
+/// lo mismo SIN los dibujos que animan -- lo que hay debajo de ellos.
+fn pintar_en_como(s: &mut String, ordenes: &[Orden], d: &Datos, nombre: &str) {
+    if nombre != "pintar_en" {
+        let _ = writeln!(s, "/// Lo mismo que `pintar_en`, sin los dibujos que animan (S7): lo que hay
+/// DEBAJO de ellos, para repintarlo antes de cada paso.");
+    }
     s.push_str(
         "/// Repinta SOLO lo que cae dentro de `(cx, cy, cw, ch)`, en coordenadas\n\
          /// de pantalla. Para devolver el fondo de un area sin repintarlo todo.\n\
@@ -494,8 +491,9 @@ fn pintar_en(s: &mut String, ordenes: &[Orden], d: &Datos) {
          ///\n\
          /// Los rectangulos se RECORTAN; el texto entra entero o no entra, porque\n\
          /// medio glifo no se puede pintar.\n\
-         pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32, ch: u32",
+         pub fn ",
     );
+    let _ = write!(s, "{nombre}(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32, ch: u32");
     let _ = writeln!(s, "{}) {{\n    let limite = Recorte::nuevo(cx as i32, cy as i32, cw as i32, ch as i32);", d.param());
     if d.hay() {
         s.push_str("    let _ = d;\n");
@@ -505,10 +503,18 @@ fn pintar_en(s: &mut String, ordenes: &[Orden], d: &Datos) {
         s.push_str("    let _ = (p, ox, oy, limite);\n");
     }
     let mut ultimo = String::new();
-    for o in reposo {
+    let mut i = 0;
+    while i < reposo.len() {
+        let o = reposo[i];
+        i += 1;
         if o.de != ultimo {
             let _ = writeln!(s, "    // {}", o.de);
             ultimo = o.de.clone();
+        }
+        if let Some((a, b)) = racha(d, &reposo, i - 1) {
+            let _ = writeln!(s, "{}", crate::tabla::bucle_en(a, b));
+            i += b - a - 1;
+            continue;
         }
         let r = area(&o.trazo);
         let caja = format!(
@@ -538,7 +544,7 @@ fn pintar_en(s: &mut String, ordenes: &[Orden], d: &Datos) {
             // mezclado dos veces se oscurece.
             otro => {
                 if otro.con_pieza(pieza_literal).is_some() {
-                    let l = llamada_con(otro, d, "Some(limite)");
+                    let l = llamada_con(otro, d, &limite_de("Some(limite)", o.recorte));
                     let _ = writeln!(s, "    if !{caja}.interseccion(&limite).vacio() {{\n        {l}\n    }}");
                 }
             }
@@ -576,7 +582,7 @@ fn realce(s: &mut String, ordenes: &[Orden], d: &Datos) {
             let _ = writeln!(s, "    if id == {:?} {{", o.de.trim_start_matches('#'));
             abierto = o.de.clone();
         }
-        let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, "None"));
+        let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, &limite_de("None", o.recorte)));
     }
     if !abierto.is_empty() {
         s.push_str("        return;\n    }\n");
@@ -650,7 +656,7 @@ fn realce_animado(s: &mut String, l: &Laid, d: &Datos) {
         }
         s.push_str("        }\n");
         for o in &dentro {
-            let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, "None"));
+            let _ = writeln!(s, "        {}", llamada_con(&o.trazo, d, &limite_de("None", o.recorte)));
         }
         s.push_str("        return;\n    }\n");
     }
@@ -726,7 +732,7 @@ fn desplazamientos(s: &mut String, l: &Laid, d: &Datos) {
             s.push_str("    let _ = d;\n");
         }
         for o in desplaza::contenido(f, l.canvas) {
-            let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, "Some(limite)"));
+            let _ = writeln!(s, "    {}", llamada_con(&o.trazo, d, &limite_de("Some(limite)", o.recorte)));
         }
         // La barra: la misma cuenta que `desplaza::barra`, con `desde` de
         // verdad.

@@ -11,5 +11,5 @@ license = "Apache-2.0"
 [dependencies]
 bmo-maqueta-lex = { path = "../lex" }
 bmo-maqueta-diag = { path = "../diag" }
-# MAQUETA 2: un camino de SVG se comprueba con el MISMO lector que lo pinta.
-bmo-letra = { path = "../../../../platform/shared/bmo-letra" }
+# MAQUETA 3: lo de dentro de un `<svg>` es SVG, y lo lee SU lector.
+bmo-maqueta-dibujo = { path = "../dibujo" }

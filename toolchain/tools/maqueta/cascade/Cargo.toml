@@ -8,5 +8,7 @@ license = "Apache-2.0"
 # The generation below and the shared error vocabulary. Nothing else, ever: a
 # dependency here on `layout` or `verdict` would mean the cut is wrong (L7a).
 [dependencies]
+# MAQUETA 3: lo que un dibujo hereda de la regla de su `<svg>`.
+bmo-maqueta-dibujo = { path = "../dibujo" }
 bmo-maqueta-node = { path = "../node" }
 bmo-maqueta-diag = { path = "../diag" }

@@ -1,0 +1,82 @@
+<!--
+   LA PILA A -- MAQUETA 3 (06-10, MA2): lo que entra sin tocar ninguna ley,
+   cada cosa en su caja (`LA_MAQUETA_EXIGE.md` 3e).
+
+      el marco      `overflow: hidden`: una caja redonda que se sale por la
+                    derecha y una insignia con `left`/`top` NEGATIVOS, las
+                    dos recortadas al marco (su ancla)
+      el nombre     `text-overflow: ellipsis`: cortado al compilar con `...`
+      las fichas    `flex-wrap: wrap`: cinco, en filas de tres
+      la foto       `aspect-ratio: 16 / 9`: el alto sale del ancho
+      los botones   `outline` (redondo y plano) con `outline-offset`, y
+                    `cursor: pointer` (una zona)
+      la pila       `z-index`: la primera, escrita antes, queda ENCIMA
+      la fila       `align-self`: uno centrado entre dos arriba
+
+   El MISMO fichero se abre en el navegador (`foto.js --maqueta`) y se pinta
+   con `maqueta --foto`: el espejo dice cuanto se parecen.
+-->
+<maqueta>
+  <style>
+    .lienzo   { display:flex; flex-direction:column; gap:14px; padding:20px;
+                background-color:#09080F }
+    .marco    { position:relative; width:220px; height:60px; overflow:hidden;
+                background-color:#1A1631 }
+    .grande   { width:300px; height:40px; background-color:#5EF2E6;
+                border-radius:12px }
+    .insignia { position:absolute; left:-8px; top:-8px; width:24px;
+                height:24px; background-color:#FF2E88; border-radius:12px }
+    .nombre   { width:140px; font-size:14px; line-height:20px; color:#F2F7F9;
+                overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
+    .fichas   { display:flex; flex-direction:row; flex-wrap:wrap; gap:8px;
+                width:200px }
+    .ficha    { width:60px; height:24px; background-color:#3DA5FF;
+                border-radius:6px }
+    .foto     { width:120px; aspect-ratio:16 / 9; background-color:#FFD45E }
+    .botones  { display:flex; flex-direction:row; gap:20px; padding:4px }
+    .boton    { width:100px; height:32px; background-color:#2D1225;
+                border-radius:8px; outline:2px solid #5EF2E6;
+                outline-offset:2px; cursor:pointer }
+    .plano    { width:80px; height:24px; background-color:#142C26;
+                outline:1px solid #FFD45E }
+    .pila     { position:relative; width:120px; height:50px;
+                background-color:#1A1631 }
+    .capa-a   { position:absolute; left:10px; top:10px; width:60px;
+                height:30px; background-color:#FF2E88; z-index:2 }
+    .capa-b   { position:absolute; left:40px; top:15px; width:60px;
+                height:30px; background-color:#7EE787; z-index:1 }
+    .fila     { display:flex; flex-direction:row; align-items:start; gap:8px;
+                height:40px }
+    .punto    { width:16px; height:16px; background-color:#9A96B8 }
+    .medio    { align-self:center; background-color:#FFD45E }
+  </style>
+
+  <div class="lienzo">
+    <div class="marco">
+      <div class="grande"></div>
+      <div class="insignia"></div>
+    </div>
+    <span class="nombre">Kepler-5600 b, el planeta del gato</span>
+    <div class="fichas">
+      <div class="ficha"></div>
+      <div class="ficha"></div>
+      <div class="ficha"></div>
+      <div class="ficha"></div>
+      <div class="ficha"></div>
+    </div>
+    <div class="foto"></div>
+    <div class="botones">
+      <div class="boton" id="lanzar"></div>
+      <div class="plano"></div>
+    </div>
+    <div class="pila">
+      <div class="capa-a"></div>
+      <div class="capa-b"></div>
+    </div>
+    <div class="fila">
+      <div class="punto"></div>
+      <div class="punto medio"></div>
+      <div class="punto"></div>
+    </div>
+  </div>
+</maqueta>

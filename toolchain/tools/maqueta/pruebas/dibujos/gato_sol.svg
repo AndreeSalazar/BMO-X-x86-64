@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- EL SOL DE PLASMA, quieto (HD4 de PLAN_EL_HUD): el gato de la casa como
+     estrella. Es el `<svg src>` de `dibujos.maqueta`: un SVG como los que
+     escribe un editor, con su `<style>` de clases, sus degradados y sus
+     grupos, leido TAL CUAL por el lector de SVG de MAQUETA 3. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-130 -175 260 310" width="104" height="124">
+  <defs>
+    <style>
+      .bigote { fill: none; stroke: #FFE7B0; stroke-opacity: .35; stroke-width: 2; stroke-linecap: round }
+      .mancha { fill: #2A0814 }
+    </style>
+    <radialGradient id="halo" cx="0" cy="-10" r="150" gradientUnits="userSpaceOnUse">
+      <stop offset=".55" stop-color="#FF2E88" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#FF2E88" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sol" cx="45%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#FFF3D6"/>
+      <stop offset=".35" stop-color="#FFD45E"/>
+      <stop offset=".7" stop-color="#FF2E88"/>
+      <stop offset="1" stop-color="#5A1030"/>
+    </radialGradient>
+    <path id="cabeza" d="M -104 18 C -104 -42 -76 -80 -50 -90 L -78 -158 L -16 -104 C -6 -106 6 -106 16 -104 L 78 -158 L 50 -90 C 76 -80 104 -42 104 18 C 104 82 58 118 0 118 C -58 118 -104 82 -104 18 Z"/>
+  </defs>
+  <circle cx="0" cy="-10" r="150" fill="url(#halo)"/>
+  <use href="#cabeza" fill="url(#sol)"/>
+  <g class="bigotes">
+    <path class="bigote" d="M30 38 L132 20 M32 46 L136 48 M30 54 L126 78"/>
+    <path class="bigote" d="M-30 38 L-132 20 M-32 46 L-136 48 M-30 54 L-126 78"/>
+  </g>
+  <g transform="translate(0 4)">
+    <ellipse cx="-40" cy="0" rx="28" ry="13" fill="#7A1838" fill-opacity=".7"/>
+    <ellipse cx="40" cy="0" rx="28" ry="13" fill="#7A1838" fill-opacity=".7"/>
+    <rect class="mancha" x="-58" y="-4" width="36" height="8" rx="3"/>
+    <rect class="mancha" x="22" y="-4" width="36" height="8" rx="3"/>
+  </g>
+  <path d="M -78 -158 Q -150 -110 -100 -50" fill="none" stroke="#FFD45E" stroke-width="4" stroke-linecap="round"/>
+  <path d="M 78 -158 Q 150 -110 100 -50" fill="none" stroke="#FFD45E" stroke-width="4" stroke-linecap="round"/>
+  <polygon points="-6,30 6,30 0,37" fill="#5A1030" opacity=".8"/>
+</svg>

@@ -1,0 +1,35 @@
+<!--
+   LA ANIMACION -- MAQUETA 3, S7 (06-10): dibujos que se mueven, aplanados
+   en PASOS al compilar y mezclados punto a punto en el aparato.
+
+      el giro     `animateTransform` (un cuadrado que da la vuelta: un paso
+                  cada 7,5 grados)
+      el latido   `animate` de `r` y de `fill`: los mismos puntos en cada
+                  paso, otra medida y otro color
+      cargando    `<svg src>` con `@keyframes` y `:nth-child`: tres puntos
+                  en escalera
+
+   `maqueta --foto anima.maqueta f.png --ms 500` pinta el instante; el codigo
+   generado trae `ANIMA_MS` y `pintar_anima(p, ox, oy, ms)`.
+-->
+<maqueta>
+  <style>
+    .lienzo { display:flex; flex-direction:row; gap:20px; padding:20px;
+              align-items:center; background-color:#09080F }
+    .icono  { width:64px; height:64px }
+  </style>
+  <div class="lienzo">
+    <svg class="icono" viewBox="0 0 24 24">
+      <rect x="6" y="6" width="12" height="12" rx="2" fill="#FFD45E">
+        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="2s" repeatCount="indefinite"/>
+      </rect>
+    </svg>
+    <svg class="icono" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="5" fill="#FF2E88">
+        <animate attributeName="r" values="5;9;5" dur="1s" repeatCount="indefinite"/>
+        <animate attributeName="fill" values="#FF2E88;#5EF2E6;#FF2E88" dur="2s" repeatCount="indefinite"/>
+      </circle>
+    </svg>
+    <svg src="dibujos/cargando.svg"/>
+  </div>
+</maqueta>

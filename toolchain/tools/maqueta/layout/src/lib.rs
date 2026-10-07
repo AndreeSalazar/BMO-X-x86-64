@@ -85,9 +85,9 @@ pub struct Frame {
     pub id: Option<String>,
     pub island: Option<String>,
     pub text: Option<String>,
-    /// `<svg viewBox>` and `<path d>` (MAQUETA 2): carried, never read here.
-    pub view_box: Option<[u32; 4]>,
-    pub d: Option<String>,
+    /// `<svg>` (MAQUETA 3): the drawing, carried; read only for the size
+    /// its file says (`measure`).
+    pub dibujo: Option<bmo_maqueta_dibujo::Dibujo>,
     /// `<usa src>`: la pieza que se injerta aqui DESPUES de maquetar.
     pub src: Option<String>,
     /// `<usa repite>` (P2) y el hueco `{nombre}` (H1): carried.

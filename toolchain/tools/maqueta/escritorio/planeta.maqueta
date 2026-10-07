@@ -1,0 +1,13 @@
+<!--
+   EL PLANETA DEL ESCRITORIO DE MISION (HM3 de docs/plan/PLAN_EL_HUD.md):
+   KEPLER-5600 b, en su orbita alrededor del sol. Como `sol.maqueta`: solo el
+   dibujo, sin fondo; lo coloca `scene/mision.rs`.
+-->
+<maqueta>
+  <style>
+    .planeta { width:132px; height:78px }
+  </style>
+  <div>
+    <svg class="planeta" src="planeta.svg"/>
+  </div>
+</maqueta>

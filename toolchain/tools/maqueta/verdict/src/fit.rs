@@ -26,11 +26,20 @@ fn walk(f: &Frame, canvas: &Rect, out: &mut Vec<Error>) {
         };
         // H7: dentro de una caja que se DESPLAZA, lo de dentro puede pasar de
         // su alto (para eso se desplaza); de ancho y por arriba, no.
-        let dentro = if f.style.desplaza && c.style.position != Position::Absolute {
-            c.rect.x >= limite.x && c.rect.right() <= limite.right() && c.rect.y >= limite.y
-        } else {
-            c.rect.inside(limite)
-        };
+        // MA2: en un eje que la caja RECORTA, lo de dentro puede salirse: no
+        // se ve (la absoluta, si esta caja es su ancla; si no, M).
+        let es_abs = c.style.position == Position::Absolute;
+        let ancla_aqui = !es_abs || f.style.position != Position::Static;
+        let rx = f.style.desborde[0].recorta() && ancla_aqui;
+        let ry = f.style.desborde[1].recorta() && ancla_aqui;
+        let x_ok = rx || (c.rect.x >= limite.x && c.rect.right() <= limite.right());
+        let y_ok = ry
+            || if f.style.desplaza && !es_abs {
+                c.rect.y >= limite.y
+            } else {
+                c.rect.y >= limite.y && c.rect.bottom() <= limite.bottom()
+            };
+        let dentro = x_ok && y_ok;
         if !dentro {
             out.push(fuera(c, limite, quien));
         }
@@ -175,6 +184,8 @@ fn cabe_el_texto(f: &Frame, out: &mut Vec<Error>) {
     // dijo `font-size`) o la de pixel. Medir aqui con otra regla seria un
     // juez que mira otra cosa que la que se pinta.
     let (ancho, alto) = bmo_maqueta_layout::measure::texto(&f.style, t);
+    // MA2: la caja que recorta su propio texto lo deja salirse (no se ve).
+    let (ancho, alto) = (if f.style.desborde[0].recorta() { 0 } else { ancho }, if f.style.desborde[1].recorta() { 0 } else { alto });
     let como = if f.style.font_size.is_some() {
         "con la letra de la casa".to_string()
     } else {

@@ -74,12 +74,33 @@ pub fn foto(l: &Laid) -> Foto {
     let mut im = Foto::nueva(l.canvas.0, l.canvas.1);
     let mut letra = bmo_letra::Letra::nueva();
     for o in lista(&crate::desplaza::podar(l)).iter().filter(|o| o.estado == Estado::Reposo) {
-        un_trazo(&mut im, &mut letra, &o.trazo);
+        un_trazo_en(&mut im, &mut letra, &o.trazo, o.recorte);
     }
     // H7: lo de dentro de cada ventana, recortado y en su arranque (desde 0),
     // y su barra -- la misma cuenta que el aparato.
     for f in crate::desplaza::cajas(l) {
         desplazado(&mut im, &mut letra, f, l.canvas, 0);
+    }
+    im
+}
+
+/// **La foto a los `ms` de los dibujos que animan** (S7): todo lo que no
+/// anima, y encima cada dibujo en ese instante -- la misma mezcla de pasos
+/// que hace `pintar_anima` en el aparato.
+pub fn foto_anima(l: &Laid, ms: u32) -> Foto {
+    let mut im = Foto::nueva(l.canvas.0, l.canvas.1);
+    let mut letra = bmo_letra::Letra::nueva();
+    for o in crate::orden::lista_sin_anima(&crate::desplaza::podar(l)).iter().filter(|o| o.estado == Estado::Reposo) {
+        un_trazo_en(&mut im, &mut letra, &o.trazo, o.recorte);
+    }
+    for f in crate::desplaza::cajas(l) {
+        desplazado(&mut im, &mut letra, f, l.canvas, 0);
+    }
+    for a in crate::anima::animados(l) {
+        let (k, mil) = a.tramo(ms);
+        for (ta, tb) in a.trazos[k].iter().zip(&a.trazos[(k + 1).min(a.trazos.len() - 1)]) {
+            ta.con_pieza(|pa| tb.con_pieza(|pb| bmo_pinta::pieza_entre(&mut im, &mut letra, pa, pb, mil, 0, 0)));
+        }
     }
     im
 }
@@ -97,6 +118,18 @@ pub fn desplazado(im: &mut Foto, letra: &mut bmo_letra::Letra, f: &bmo_maqueta_l
     }
     if let Some(b) = desplaza::barra(f, desde) {
         bmo_pinta::caja(im, b.x, b.y, b.w as i32, b.h as i32, (b.w / 2) as i32, desplaza::color_barra(f));
+    }
+}
+
+/// Un trazo, y si un `overflow` lo corta a medias (MA2), recortado ahi: el
+/// mismo `Recortado` que usa el aparato.
+fn un_trazo_en(im: &mut Foto, letra: &mut bmo_letra::Letra, t: &Trazo, recorte: Option<bmo_maqueta_layout::Rect>) {
+    match recorte {
+        None => un_trazo(im, letra, t),
+        Some(c) => {
+            let mut r = bmo_pinta::Recortado { dentro: im, x0: c.x, y0: c.y, x1: c.x + c.w as i32, y1: c.y + c.h as i32 };
+            t.con_pieza(|p| bmo_pinta::pieza(&mut r, letra, p, 0, 0));
+        }
     }
 }
 
@@ -125,7 +158,9 @@ pub fn foto_en(pares: &[crate::movimiento::Par], lienzo: (u32, u32), ms: u32) ->
                 im.texto(x, y, texto.as_bytes(), bmo_pinta::entre_color(*ca, *cb, k));
             }
             (Some(a), Some(b)) => {
-                let hecho = a.con_pieza_o_caja(|pa| b.con_pieza_o_caja(|pb| bmo_pinta::pieza(&mut im, &mut letra, &bmo_pinta::entre_piezas(pa, pb, k), 0, 0)));
+                // `pieza_entre`, como `Pantalla::pieza_entre` en el aparato: dos
+                // figuras de SVG (MAQUETA 3) mezclan tambien sus caminos.
+                let hecho = a.con_pieza_o_caja(|pa| b.con_pieza_o_caja(|pb| bmo_pinta::pieza_entre(&mut im, &mut letra, pa, pb, k, 0, 0)));
                 if hecho.flatten().is_none() {
                     un_trazo(&mut im, &mut letra, if llegada { b } else { a });
                 }

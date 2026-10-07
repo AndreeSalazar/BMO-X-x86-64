@@ -1,0 +1,44 @@
+<!--
+   LOS DIBUJOS -- MAQUETA 3, seccion 2e (06-10): TODO el SVG, dentro de la
+   maqueta y desde un fichero.
+
+      la rueda      S1 S3 S5: un cuadrado redondo GIRADO con un degradado
+                    lineal, un circulo con discontinuo
+      la estrella   S4: un poligono con esquinas en pico y punta recta
+      el anillo     S2 S4: dos arcos, `evenodd`: el de dentro es agujero
+      el gato       S6: `<svg src>`, un fichero tal cual (degradados
+                    radiales, `use`, clases en su `<style>`, opacidad)
+
+   El MISMO fichero se abre en el navegador (`foto.js --maqueta`, que pone
+   el `src` dentro) y se pinta con `maqueta --foto`: el espejo dice cuanto
+   se parecen.
+-->
+<maqueta>
+  <style>
+    .lienzo  { display:flex; flex-direction:row; gap:18px; padding:20px;
+               align-items:center; background-color:#09080F }
+    .icono   { width:72px; height:72px }
+    .gato    { width:104px; height:124px }
+    .anillo  { width:72px; height:72px; fill:#3DA5FF }
+  </style>
+  <div class="lienzo">
+    <svg class="icono" viewBox="0 0 24 24">
+      <defs>
+        <linearGradient id="rueda" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#5EF2E6"/>
+          <stop offset="1" stop-color="#FF2E88"/>
+        </linearGradient>
+      </defs>
+      <rect x="5" y="5" width="14" height="14" rx="3" fill="url(#rueda)" transform="rotate(45 12 12)"/>
+      <circle cx="12" cy="12" r="3.5" fill="none" stroke="#F2F7F9" stroke-width="1.2" stroke-dasharray="2 1.2"/>
+    </svg>
+    <svg class="icono" viewBox="0 0 24 24">
+      <polygon points="12,2 14.6,9 22,9 16,13.6 18.2,21 12,16.6 5.8,21 8,13.6 2,9 9.4,9"
+               fill="#FFD45E" fill-opacity=".85" stroke="#FF2E88" stroke-width="1.5" stroke-linejoin="miter"/>
+    </svg>
+    <svg class="anillo" viewBox="0 0 24 24">
+      <path fill-rule="evenodd" d="M12 2 A10 10 0 1 1 11.99 2 Z M12 7 A5 5 0 1 0 12.01 7 Z"/>
+    </svg>
+    <svg class="gato" src="dibujos/gato_sol.svg"/>
+  </div>
+</maqueta>

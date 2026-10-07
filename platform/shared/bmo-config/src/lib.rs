@@ -17,6 +17,7 @@
 //!    barra_flotante = si
 //!    barra_hueco    = 6          # de 0 a 12
 //!    marco          = fino       # o `hacker`
+//!    fondo          = mision     # o `degradado`
 //! ```
 //!
 //! ## ** Lo que NO hace un fichero roto
@@ -54,6 +55,35 @@ pub struct Estilo {
     pub bienvenida: bool,
     /// **Como se viste una ventana** (04-10). Ver [`Marco`].
     pub marco: Marco,
+    /// **Que hay detras de todo** cuando no hay foto (06-10). Ver [`Fondo`].
+    pub fondo: Fondo,
+}
+
+/// **El escritorio sin foto.** La foto (`fondo_imagen`) manda sobre los dos.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Fondo {
+    /// El degradado de siempre, de `fondo_arriba` a `fondo_abajo`.
+    Degradado,
+    /// (06-10, HM3 de PLAN_EL_HUD) El ESCRITORIO DE MISION: el cielo con su
+    /// rejilla, la estrella gato (SOL DE PLASMA, quieta) y su planeta.
+    Mision,
+}
+
+impl Fondo {
+    pub fn nombre(self) -> &'static [u8] {
+        match self {
+            Fondo::Degradado => b"degradado",
+            Fondo::Mision => b"mision",
+        }
+    }
+
+    pub fn de(v: &[u8]) -> Option<Fondo> {
+        match v {
+            b"degradado" | b"DEGRADADO" | b"Degradado" => Some(Fondo::Degradado),
+            b"mision" | b"MISION" | b"Mision" => Some(Fondo::Mision),
+            _ => None,
+        }
+    }
 }
 
 /// **El vestido de las ventanas.** Los tres los pidio el propietario, en tres
@@ -143,6 +173,8 @@ pub enum Motivo {
     Ruta,
     /// Se esperaba `fino` o `hacker`.
     Marco,
+    /// Se esperaba `degradado` o `mision`.
+    Fondo,
 }
 
 impl Motivo {
@@ -156,6 +188,7 @@ impl Motivo {
             Motivo::SiNo => "ahi va `si` o `no`",
             Motivo::Ruta => "una ruta va sin espacios y con 40 letras como mucho",
             Motivo::Marco => "ahi va `fino`, `hacker` o `fase`",
+            Motivo::Fondo => "ahi va `degradado` o `mision`",
         }
     }
 }
@@ -336,6 +369,9 @@ impl Estilo {
         w.pega(b"marco = ");
         w.pega(self.marco.nombre());
         w.pega(b"\n");
+        w.pega(b"fondo = ");
+        w.pega(self.fondo.nombre());
+        w.pega(b"\n");
         w.pega(b"fondo_imagen = ");
         w.pega(if self.fondo_imagen.vacia() { b"no" } else { self.fondo_imagen.bytes() });
         w.pega(b"\n");
@@ -365,6 +401,7 @@ impl Estilo {
             b"cpu" => self.cpu = sn()?,
             b"bienvenida" => self.bienvenida = sn()?,
             b"marco" => self.marco = Marco::de(v).ok_or(Motivo::Marco)?,
+            b"fondo" => self.fondo = Fondo::de(v).ok_or(Motivo::Fondo)?,
             // `no` devuelve el degradado: es la forma de quitar la foto sin
             // borrar la linea.
             b"fondo_imagen" => {
@@ -395,6 +432,7 @@ mod pruebas {
         fondo_imagen: Ruta::VACIA,
         bienvenida: true,
         marco: Marco::Fino,
+        fondo: Fondo::Degradado,
     };
 
     #[test]
@@ -472,6 +510,19 @@ mod pruebas {
         assert_eq!(Marco::Fase.nombre(), b"fase", "y se escribe como se lee");
     }
 
+    #[test]
+    fn el_fondo_se_elige_y_uno_malo_no_pisa() {
+        let mut e = BASE;
+        assert_eq!(e.aplicar(b"fondo = mision  # el de la estrella gato\n").fallos(), &[]);
+        assert_eq!(e.fondo, Fondo::Mision);
+        let inf = e.aplicar(b"fondo = estrellado\n");
+        assert_eq!(inf.fallos()[0].motivo, Motivo::Fondo);
+        assert_eq!(e.fondo, Fondo::Mision, "uno malo no pisa el que habia");
+        e.aplicar(b"fondo = degradado\n");
+        assert_eq!(e.fondo, Fondo::Degradado);
+        assert_eq!(Fondo::Mision.nombre(), b"mision", "y se escribe como se lee");
+    }
+
     /// *** UN FICHERO ROTO NO ROMPE NADA: cada linea mala dice su numero y su
     /// motivo, y su clave se queda con lo que tenia.
     #[test]
@@ -532,13 +583,14 @@ mod pruebas {
         e.bienvenida = false;
         e.fondo_imagen = Ruta::de(b"sys/fondo.qoi").unwrap();
         e.marco = Marco::Hacker;
+        e.fondo = Fondo::Mision;
         let mut buf = [0u8; 1024];
         let n = e.escribir(&mut buf);
         let mut leido = Estilo { acento: 0, barra_hueco: 0, ..BASE };
         let inf = leido.aplicar(&buf[..n]);
         assert_eq!(inf.fallos(), &[], "{}", String::from_utf8_lossy(&buf[..n]));
         assert_eq!(leido, e);
-        assert_eq!(inf.aplicadas, 14, "las catorce claves, todas");
+        assert_eq!(inf.aplicadas, 15, "las quince claves, todas");
     }
 
     #[test]
