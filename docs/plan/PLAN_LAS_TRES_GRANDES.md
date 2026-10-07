@@ -304,6 +304,13 @@ seguidos).
 - [ ] P0.4 -- `run window/.../Cyberpunk2077.exe` desde D: (solo lectura) en
   el metal. Llega hasta donde llegue. **Como se sabe:** la autopsia o el
   aviso de la casa dicen DONDE se paro, y el diario, POR QUE CAMINO.
+  **06-10 20:54 (SALIDA, SYSPROTO y DIARIO del propietario):** 17,7 s
+  desde su entrada, 2.007.040 llamadas; carga sus 29 DLL, GOG Galaxy
+  arranca (sin red, lo dice), crea su VENTANA (1738x1064), el dispositivo
+  D3D12, 176 PSO (23 enlaces, los 23 compilados) y 158 recursos, y EMPIEZA
+  A SONAR por el audifono; 0 ExecuteCommandLists y 0 Present: aun cargando.
+  Murio por el monton de la CASA lleno (no la RAM: 113 MiB usados de 15
+  GiB). Arreglado el 07-10 (7.1, A12); lo que pidio y no hay, A13 a A17.
 - [ ] P0.5 -- La lista de lo que pidio el primer contacto, repartida en las
   tres secciones de abajo (cada casilla, marcada "LO PIDIO" o "todavia no").
 
@@ -1348,7 +1355,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    0
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    5
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1449,6 +1456,20 @@ y lo dice.
                El juez de la forma lo aprueba (y dice NO, R9, sin la espera
                del guarda); BMOX-12 con libreta pasa sus 360 fotogramas;
                `libreta.exe`, 4 bien. Falta VERLO en el metal (pila C)
+     -- 06-10 20:54, CYBERPUNK EN EL METAL (P0.4) abrio la pila otra vez: --
+     12  [x] el MONTON de la casa crece (07-10): murio a los 17,7 s con
+               `memory allocation of 3670016 bytes failed; monton 63546240 B
+               en uso de 67108864` (el tope de UN bloque, con la RAM vacia).
+               Ahora, lleno, sigue en trozos de 64 MiB de un tramo de 16 GiB
+               de la reserva que es SOLO suyo (`bmo_monton::Region::
+               poner_crecer`; la casa de Windows ve la ventana sin el)
+     13  D4.1  `RawBufferLoad`/`RawBufferStore` (op 139/140, SM 6.2+): un CS
+               de Cyberpunk lo pide (`OperacionD3d(139)`)
+     14  D4.1  un load o un store de algo que no es un array (un CS)
+     15  N5.4  `createHandle` con el registro CALCULADO de un array de
+               BUFERES (bindless de buferes; un CS)
+     16  D4.1  un bucle con mas de una salida (un CS)
+     17  D4.1  un operando que deberia ser un float y no lo es (un CS)
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.

@@ -314,10 +314,34 @@ fn memoria(bytes: usize) -> Option<u64> {
     Some(base)
 }
 
-/// **La RESERVA del kernel** (P0.4c): la ventana de `TASK_OP_RESERVA_*`.
+/// **El tramo del MONTON de la casa** (07-10): los ultimos 16 GiB de la
+/// ventana de reserva son SOLO del monton del cargador (`main::MONTON`, que
+/// crece por aqui al llenar sus 64 MiB); la casa de Windows no los ve. Lo
+/// pidio el metal: Cyberpunk lleno el monton a los 17,7 s con la RAM casi
+/// vacia (`memory allocation of 3670016 bytes failed`).
+pub(crate) const TRAMO_MONTON: u64 = 16 << 30;
+pub(crate) const TRAMO_MONTON_BASE: u64 = bmo::reserva::VENTANA_BASE + bmo::reserva::VENTANA_BYTES - TRAMO_MONTON;
+
+/// **Hacer las paginas de un trozo del monton** (07-10): corre DENTRO del
+/// asignador (con su cerrojo), asi que NO pide memoria: sin textos, sin
+/// avisos. El NO lo dice el panico del asignador, con su medida.
+pub(crate) fn monton_hacer(va: u64, bytes: u64) -> bool {
+    let mut hecho = 0u64;
+    while hecho < bytes {
+        let k = bmo::reserva::MAX_POR_VEZ.min(bytes - hecho);
+        if bmo::reserva::hacer(va + hecho, k).is_err() {
+            return false;
+        }
+        hecho += k;
+    }
+    true
+}
+
+/// **La RESERVA del kernel** (P0.4c): la ventana de `TASK_OP_RESERVA_*`,
+/// menos el tramo del monton (07-10).
 const RESERVA: bmo_proton_x_casa::Reserva = bmo_proton_x_casa::Reserva {
     base: bmo::reserva::VENTANA_BASE,
-    bytes: bmo::reserva::VENTANA_BYTES,
+    bytes: bmo::reserva::VENTANA_BYTES - TRAMO_MONTON,
     hacer: reserva_hacer,
     deshacer: reserva_deshacer,
     ram,

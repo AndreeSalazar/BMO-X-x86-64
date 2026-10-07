@@ -289,3 +289,78 @@ fn una_region_da_su_ticket() {
     assert_eq!(desde, p as u64 - mem.as_ptr() as u64);
     assert!(r.bloque_de(p, 2 << 20).is_none(), "lo que se sale de la region no");
 }
+
+/// **La region que CRECE** (07-10, Cyberpunk en el metal: 64 MiB llenos a
+/// los 17,7 s). Llena, sigue por su tramo en trozos de `TROZO_CRECE`,
+/// pedidos a `hacer` en orden y sin pisarse; lo de antes sigue vivo e
+/// intacto, y lo soltado se reusa. Sin tramo, nulo (lo de antes). Y el tramo
+/// tiene fin: pasado, nulo.
+#[test]
+fn una_region_que_crece_sigue_por_su_tramo() {
+    use crate::region::{Region, TROZO_CRECE};
+    use std::sync::Mutex;
+    // El "kernel": una memoria del anfitrion donde caen los trozos.
+    static HECHOS: Mutex<std::vec::Vec<(u64, u64)>> = Mutex::new(std::vec::Vec::new());
+    fn hacer(va: u64, n: u64) -> bool {
+        HECHOS.lock().unwrap().push((va, n));
+        true
+    }
+    let mem = std::vec![0u128; (1 << 20) / 16];
+    let tramo = std::vec![0u128; 3 * TROZO_CRECE / 16];
+    let r: FreelistAllocator<Region> = FreelistAllocator::new_with(Region::vacia());
+    unsafe {
+        r.backend().poner(mem.as_ptr() as usize, 1 << 20, 0x42);
+        r.backend().poner_crecer(tramo.as_ptr() as usize, 2 * TROZO_CRECE + 4096, hacer);
+    }
+    // Lleno la region con trozos de 100 KiB, marcados.
+    let mut vivos = std::vec::Vec::new();
+    for i in 0..9u8 {
+        let p = r.allocate(100 * 1024);
+        assert!(!p.is_null());
+        unsafe { ptr::write_bytes(p, i, 100 * 1024) };
+        vivos.push((p, i));
+    }
+    assert!(HECHOS.lock().unwrap().is_empty(), "aun cabe en la region");
+    // 3,5 MiB, lo que pidio Cyberpunk: ya no cabe; crece.
+    let grande = r.allocate(3_670_016);
+    assert!(!grande.is_null(), "crece en vez de nulo");
+    let base = tramo.as_ptr() as usize;
+    assert!((grande as usize) >= base && (grande as usize) < base + TROZO_CRECE, "en el tramo");
+    assert_eq!(*HECHOS.lock().unwrap(), [(base as u64, TROZO_CRECE as u64)]);
+    assert_eq!((r.backend().crecido(), r.backend().bytes()), (TROZO_CRECE, (1 << 20) + TROZO_CRECE));
+    unsafe { ptr::write_bytes(grande, 0xEE, 3_670_016) };
+    for &(p, i) in &vivos {
+        assert!(unsafe { core::slice::from_raw_parts(p, 100 * 1024) }.iter().all(|&x| x == i), "lo de antes, intacto");
+    }
+    // Mas de lo que queda del primer trozo: el segundo, detras.
+    let a = r.allocate(40 << 20);
+    let b = r.allocate(40 << 20);
+    assert!(!a.is_null() && !b.is_null());
+    assert_eq!(HECHOS.lock().unwrap().len(), 2);
+    assert_eq!(HECHOS.lock().unwrap()[1], ((base + TROZO_CRECE) as u64, TROZO_CRECE as u64));
+    // Lo soltado se reusa sin crecer.
+    r.deallocate(a, l());
+    assert!(!r.allocate(30 << 20).is_null());
+    assert_eq!(HECHOS.lock().unwrap().len(), 2);
+    // El tramo se acabo: nulo, no mas alla.
+    assert!(r.allocate(40 << 20).is_null(), "un tercer trozo no cabe en el tramo");
+    assert_eq!(HECHOS.lock().unwrap().len(), 2);
+}
+
+/// Si el kernel dice NO (sin RAM), nulo, y no cuenta como crecido.
+#[test]
+fn una_region_que_no_puede_crecer_da_nulo() {
+    use crate::region::Region;
+    fn no(_: u64, _: u64) -> bool {
+        false
+    }
+    let mem = std::vec![0u128; (1 << 20) / 16];
+    let tramo = std::vec![0u128; 16];
+    let r: FreelistAllocator<Region> = FreelistAllocator::new_with(Region::vacia());
+    unsafe {
+        r.backend().poner(mem.as_ptr() as usize, 1 << 20, 0x42);
+        r.backend().poner_crecer(tramo.as_ptr() as usize, 1 << 40, no);
+    }
+    assert!(r.allocate(2 << 20).is_null());
+    assert_eq!(r.backend().crecido(), 0);
+}
