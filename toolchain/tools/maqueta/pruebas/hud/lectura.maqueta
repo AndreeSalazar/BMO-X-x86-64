@@ -1,0 +1,28 @@
+<!--
+   LA LECTURA -- un numero de instrumento con su rotulo y su unidad (HM2 de
+   docs/plan/PLAN_EL_HUD.md; `lectura()` de docs/arte/maqueta_hud_nasa.html).
+   Los tres llegan al ejecutar; las muestras son las de la maqueta.
+
+      {rotulo|RELATIVA}   que se mide
+      {valor|7.412}       la cifra, en grande y en el ojo del gato
+      {unidad|KM/S}       en que, al pie de la cifra
+-->
+<maqueta>
+  <style>
+    .lectura { display:flex; flex-direction:column; gap:2px }
+    .rotulo  { width:200px; font-size:10px; letter-spacing:.14em;
+               text-transform:uppercase; line-height:14px; color:#9A96B8 }
+    .fila    { display:flex; flex-direction:row; gap:6px; align-items:end }
+    .valor   { width:110px; font-size:26px; font-weight:500; line-height:30px;
+               color:#5EF2E6 }
+    .unidad  { width:60px; font-size:10px; line-height:14px; color:#9A96B8 }
+  </style>
+
+  <div class="lectura">
+    <span class="rotulo">{rotulo|RELATIVA}</span>
+    <div class="fila">
+      <span class="valor">{valor|7.412}</span>
+      <span class="unidad">{unidad|KM/S}</span>
+    </div>
+  </div>
+</maqueta>

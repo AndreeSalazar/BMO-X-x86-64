@@ -1,0 +1,22 @@
+<!--
+   LA BARRA -- cuanto lleva algo, de 0 a su tope (HM2 de
+   docs/plan/PLAN_EL_HUD.md; `barraH()` de docs/arte/maqueta_hud_nasa.html):
+   la pista con la raya del panel y el relleno en el neon del gato.
+
+   [!] El relleno de esta pieza es su MUESTRA (el 62 %). El de verdad lo pone
+   el aparato al ejecutar con `<barra de="100">` (ME de
+   docs/plan/PLAN_MAQUETA_3.md, seccion 2c): un relleno proporcional no es
+   maquetar, y ese elemento es el que lo dice.
+-->
+<maqueta>
+  <style>
+    .pista   { position:relative; width:198px; height:4px; border-width:1px;
+               border-color:#2B2250 }
+    .relleno { position:absolute; left:-1px; top:-1px; width:124px;
+               height:6px; background-color:#FF2E88 }
+  </style>
+
+  <div class="pista">
+    <div class="relleno"></div>
+  </div>
+</maqueta>

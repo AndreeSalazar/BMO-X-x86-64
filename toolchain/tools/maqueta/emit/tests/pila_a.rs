@@ -81,3 +81,24 @@ fn la_cara_que_viaja_no_lleva_recortes_todavia_y_lo_dice() {
     let r = bef::escribir(&orden::lista(&l), &orden::golpes(&l), l.canvas.0 as i64, l.canvas.1 as i64);
     assert!(matches!(r, Err(bef::NoCabe::Recorte { .. })), "{r:?}");
 }
+
+/// HM2 (07-10): las piezas comunes del HUD, cada una sola y las cuatro juntas.
+#[test]
+fn las_piezas_del_hud_compilan_y_se_juzgan_limpias() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../pruebas");
+    for f in ["hud/marco.maqueta", "hud/lectura.maqueta", "hud/regla.maqueta", "hud/barra.maqueta", "hud.maqueta"] {
+        bmo_maqueta_compone::compilar(&dir.join(f)).unwrap_or_else(|e| panic!("{f}: {}", e.render()));
+    }
+}
+
+/// [!] (07-10) Un borde sin fondo es un ANILLO: por dentro se ve lo de detras,
+/// como en CSS. Antes salia una caja maciza del color del borde.
+#[test]
+fn un_borde_sin_fondo_pinta_solo_el_anillo() {
+    let l = de_texto("<maqueta><div class=\"f\"><div class=\"p\"></div></div></maqueta>\
+                      <style>.f{padding:4px;background-color:#000000} .p{width:20px;height:4px;border-width:1px;border-color:#2B2250}</style>");
+    let foto = bmo_maqueta_emit::foto::foto(&l);
+    let px = |x: u32, y: u32| foto.px[(y * foto.ancho + x) as usize] & 0x00FF_FFFF;
+    assert_eq!(px(4, 4), 0x2B2250, "el borde");
+    assert_eq!(px(10, 7), 0x000000, "y por dentro, el fondo de detras");
+}

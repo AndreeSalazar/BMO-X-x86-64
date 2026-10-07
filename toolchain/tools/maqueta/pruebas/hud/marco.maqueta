@@ -1,0 +1,46 @@
+<!--
+   EL MARCO DE INSTRUMENTO -- la pieza de la casa del HUD de mision (HM2 de
+   docs/plan/PLAN_EL_HUD.md; la de `marco()` en docs/arte/maqueta_hud_nasa.html):
+   un panel con su raya, las cuatro esquinas en L del ojo del gato, el rotulo
+   arriba a la izquierda y su codigo a la derecha.
+
+   Las esquinas son absolutas con desplazamiento NEGATIVO (MAQUETA 3, pila A):
+   caen encima del borde, no por dentro. Los colores son los de `.mision` de
+   `toolchain/tools/maqueta/tema/tema.maqueta` (HM1).
+
+      {rotulo|VELOCIDAD}   el nombre del instrumento
+      {codigo|V-01}        su codigo
+-->
+<maqueta>
+  <style>
+    .marco   { position:relative; display:flex; flex-direction:column;
+               width:234px; height:94px; padding:12px; background-color:#09080F;
+               border-width:1px; border-color:#2B2250 }
+    .cabeza  { display:flex; flex-direction:row; justify-content:space-between }
+    .rotulo  { width:150px; font-size:11px; font-weight:500; letter-spacing:.18em;
+               text-transform:uppercase; line-height:16px; color:#5EF2E6 }
+    .codigo  { width:60px; font-size:10px; line-height:16px; color:#9A96B8 }
+    .esq     { position:absolute; background-color:#5EF2E6 }
+    .h       { width:14px; height:2px }
+    .v       { width:2px; height:14px }
+    .ai      { left:-1px; top:-1px }
+    .ad      { right:-1px; top:-1px }
+    .bi      { left:-1px; bottom:-1px }
+    .bd      { right:-1px; bottom:-1px }
+  </style>
+
+  <div class="marco">
+    <div class="cabeza">
+      <span class="rotulo">{rotulo|VELOCIDAD}</span>
+      <span class="codigo">{codigo|V-01}</span>
+    </div>
+    <div class="esq h ai"></div>
+    <div class="esq v ai"></div>
+    <div class="esq h ad"></div>
+    <div class="esq v ad"></div>
+    <div class="esq h bi"></div>
+    <div class="esq v bi"></div>
+    <div class="esq h bd"></div>
+    <div class="esq v bd"></div>
+  </div>
+</maqueta>

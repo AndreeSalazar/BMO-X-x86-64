@@ -290,7 +290,11 @@ pub fn trazos_de_estilo(f: &Frame, s: &bmo_maqueta_layout::Style, suave: bool) -
         push(Trazo::Resplandor { r: f.rect, radio, alcance, argb });
     }
     if !suave {
-        match s.borde_uniforme() {
+        // [!] (07-10, HM2) El borde IGUAL se pinta como un rect macizo con el
+        // fondo encima: sin fondo, eso dejaba la caja entera del color del
+        // borde, y en CSS por dentro se ve lo de detras. Sin fondo, va por
+        // lados (la rama de abajo), que pinta solo el anillo.
+        match s.borde_uniforme().filter(|_| s.background.is_some()) {
             Some((d, borde)) => {
                 if let (Some(color), true) = (borde, d > 0) {
                     en!(Ranura::BordePlano);

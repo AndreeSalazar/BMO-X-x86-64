@@ -27,8 +27,11 @@ const path = require('path');
 
 // Lo minimo para leer un `.maqueta` como maqueta, DENTRO de una pieza (la
 // letra la carga el documento: las fuentes valen tambien en la sombra).
-const SOMBRA = '<style>:host{display:block} maqueta{display:inline-block;width:max-content} island{display:block} usa{display:block}' +
-  ' *{font-family:"IBM Plex Sans",sans-serif;line-height:normal;box-sizing:content-box;border-style:solid;border-width:0} span{display:block}</style>';
+// [!] (07-10) `block` y no `inline-block`: una caja en linea se sienta en la
+// linea base de un renglon de 16 px, y el navegador le dejaba DEBAJO el hueco
+// de las letras que bajan -- 4 px a una lectura y 12 a una barra de 6.
+const SOMBRA = '<style>:host{display:block} maqueta{display:block;width:max-content} island{display:block} usa{display:block}' +
+  ' *{font-family:"IBM Plex Sans",sans-serif;line-height:normal;box-sizing:content-box;border-style:solid;border-width:0} span{display:block} svg{display:block}</style>';
 
 // `--estado abierta` (P3): el navegador no conoce `@estado` y se salta el
 // bloque entero -- lo que ve es el REPOSO. Para ver otro estado, su bloque se
@@ -101,7 +104,7 @@ function componer(texto, dir, hondo) {
   const reset = comoMaqueta
     ? '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">' +
       '<style>html,body{margin:0;padding:0;background:#000} maqueta{display:inline-block;width:max-content} island{display:block} usa{display:block}' +
-      ' *{font-family:"IBM Plex Sans",sans-serif;line-height:normal;box-sizing:content-box;border-style:solid;border-width:0} span{display:block}</style>'
+      ' *{font-family:"IBM Plex Sans",sans-serif;line-height:normal;box-sizing:content-box;border-style:solid;border-width:0} span{display:block} svg{display:block}</style>'
     : '';
   // ** LAS PIEZAS (`<usa src>`, 04-10): cada una entra con Shadow DOM
   // declarativo, que es el aislamiento de MAQUETA dicho en HTML -- sus reglas
@@ -111,7 +114,11 @@ function componer(texto, dir, hondo) {
   const ie = resto.indexOf('--estado');
   const original = fs.readFileSync(html, 'utf8');
   const fuente = comoMaqueta && ie >= 0 ? abrirEstado(original, resto[ie + 1]) : original;
-  const cuerpo = comoMaqueta ? componer(fuente, path.dirname(html), 0) : fuente;
+  // ** LOS DATOS (H1): `{nombre|muestra}` es un hueco que el aparato llena al
+  // ejecutar; el navegador pinta su MUESTRA, la misma que pinta `maqueta
+  // --foto`. Sin esto la regla mediria el texto `{nombre|muestra}` entero.
+  const conPiezas = comoMaqueta ? componer(fuente, path.dirname(html), 0) : fuente;
+  const cuerpo = comoMaqueta ? conPiezas.replace(/\{([a-z_][a-z0-9_]*)\|([^{}]*)\}/g, '$2') : conPiezas;
   fs.writeFileSync(tmp, '<!doctype html><html><head><meta charset="utf-8">' + reset + '</head><body>' + cuerpo + '</body></html>');
   await p.goto('file://' + tmp);
   await p.waitForTimeout(900);
