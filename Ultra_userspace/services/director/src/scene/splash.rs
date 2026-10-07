@@ -145,6 +145,18 @@ pub(crate) fn paint(
     has_console: bool,
 ) {
     let has_input = input.is_some();
+    // ** EL INICIO DE MISION (HM3b, 07-10): con `fondo = mision` (y sin foto),
+    // la entrada es la encuesta GO / NO-GO sobre la nebulosa. La misma regla
+    // de espera: si todo lo necesario voto GO, se entra y ya.
+    let e = super::estilo::estilo();
+    if e.fondo == bmo_config::Fondo::Mision && e.fondo_imagen.vacia() {
+        let todo = super::inicio::pintar(p, has_input, has_console);
+        p.vaciar();
+        if !todo {
+            wait_ms(CON_AVISO_MS, input, None);
+        }
+        return;
+    }
     p.limpiar(SPLASH_BG);
 
     // Una banda de acento a la izquierda, de arriba abajo. Sujeta la

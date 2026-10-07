@@ -49,6 +49,12 @@ pub(crate) mod fondo;
 /// EL ESCRITORIO DE MISION (06-10, HM3): el cielo, la rejilla, el sol y su
 /// planeta, pintados UNA vez en el bufer de `fondo`.
 pub(crate) mod mision;
+/// EL INICIO DE MISION (07-10, HM3b): la encuesta GO / NO-GO sobre la
+/// nebulosa, la entrada a Ring 3 con `fondo = mision`.
+pub(crate) mod inicio;
+/// La NEBULOSA quieta, generada por MAQUETA desde
+/// `toolchain/tools/maqueta/escritorio/nebulosa.maqueta`. No se edita a mano.
+pub(crate) mod nebulosa_gen;
 /// El SOL DE PLASMA quieto, generado por MAQUETA desde
 /// `toolchain/tools/maqueta/escritorio/sol.maqueta`. No se edita a mano.
 pub(crate) mod sol_gen;

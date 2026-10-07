@@ -1,0 +1,16 @@
+<!--
+   LA NEBULOSA DEL INICIO (HM3b de docs/plan/PLAN_EL_HUD.md): el gato hecho de
+   gas, quieto, antes de condensarse en el SOL del escritorio. Un `<svg src>`
+   de MAQUETA 3 con `nebulosa.svg`, que escribe docs/arte/nebulosa_quieta.py.
+
+   Como `sol.maqueta`: solo el dibujo, sin fondo, de la misma medida, para
+   caer en el MISMO sitio que el sol. Lo pinta `scene/inicio.rs`.
+-->
+<maqueta>
+  <style>
+    .nebulosa { width:720px; height:720px }
+  </style>
+  <div>
+    <svg class="nebulosa" src="nebulosa.svg"/>
+  </div>
+</maqueta>

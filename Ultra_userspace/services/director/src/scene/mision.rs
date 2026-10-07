@@ -45,19 +45,34 @@ const REJILLA: u32 = 120;
 /// La orbita, en milesimas de la pantalla (700 y 210 de 1920 x 1080).
 const ORBITA: (u32, u32) = (365, 194);
 
+/// **Donde cae el centro de la estrella** en una pantalla `w x h`: el sol del
+/// escritorio y la nebulosa del INICIO (HM3b), en el MISMO sitio.
+pub(crate) fn centro(w: u32, h: u32) -> (u32, u32) {
+    (w * CENTRO.0 / 1000, h * CENTRO.1 / 1000)
+}
+
+/// **El cielo solo**, sin la estrella ni su planeta: el degradado, las
+/// estrellas, la galaxia y la rejilla. Lo comparten el escritorio y el INICIO
+/// (HM3b), que pone encima la NEBULOSA en vez del sol.
+pub(crate) fn cielo_solo(p: &bmo::Pantalla) {
+    let (w, h) = (p.ancho, p.alto);
+    // Se marca UNA vez: marcar por pixel es el 68 a 1 de `verde.rs`.
+    p.marcar(0, 0, w, h);
+    cielo(p);
+    estrellas(p);
+    galaxia(p, w * 854 / 1000, h * 231 / 1000);
+    let (cx, cy) = centro(w, h);
+    rejilla(p, cx, cy);
+}
+
 /// **Pinta el escritorio de mision entero** en `p` (el bufer del fondo).
 pub(crate) fn pintar(p: &bmo::Pantalla) {
     let (w, h) = (p.ancho, p.alto);
     if w == 0 || h == 0 {
         return;
     }
-    // Se marca UNA vez: marcar por pixel es el 68 a 1 de `verde.rs`.
-    p.marcar(0, 0, w, h);
-    cielo(p);
-    estrellas(p);
-    galaxia(p, w * 854 / 1000, h * 231 / 1000);
-    let (cx, cy) = (w * CENTRO.0 / 1000, h * CENTRO.1 / 1000);
-    rejilla(p, cx, cy);
+    cielo_solo(p);
+    let (cx, cy) = centro(w, h);
     let (rx, ry) = (w * ORBITA.0 / 1000, h * ORBITA.1 / 1000);
     orbita(p, cx, cy, rx, ry);
     sol_gen::pintar(p, cx.saturating_sub(sol_gen::ANCHO / 2), cy.saturating_sub(sol_gen::ALTO / 2));
@@ -72,6 +87,11 @@ pub(crate) fn pintar(p: &bmo::Pantalla) {
     let largo = p.medir(NOMBRE, e).max(0) as u32;
     let x = if px + 30 + largo + 8 <= w { px + 30 } else { px.saturating_sub(30 + largo) };
     p.letra(x as i32, py as i32 - 40, NOMBRE, MISION_NEON, e);
+    esquinas(p);
+}
+
+/// Los cuatro angulos del HUD, para quien pinta el cielo sin el escritorio.
+pub(crate) fn angulos(p: &bmo::Pantalla) {
     esquinas(p);
 }
 

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   652 casillas ABIERTAS en 63 planes
-   555 hechas
+   651 casillas ABIERTAS en 63 planes
+   556 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -199,14 +199,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 12 abiertas, 10 hechas
+## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 11 abiertas, 11 hechas
 
 *PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
 
 - [ ] H1 -- LA TECLA DEL GESTOR: CTRL (2026-09-22)
 - [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
 - [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
-- ... y 9 mas
+- ... y 8 mas
 
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
