@@ -99,7 +99,13 @@ fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'
     // SAFETY: un Recurso de la casa (lo dice su ranura).
     let formato = unsafe { crate::com::de::<d3d12::Recurso>(r[0]) }.formato;
     let entero = bmo_proton_x::formato_ia::forma(formato_vista).is_some_and(|f| matches!(f.clase, bmo_proton_x::formato_ia::Clase::Uint | bmo_proton_x::formato_ia::Clase::Sint));
+    let vista = if formato_vista != 0 { formato_vista } else { formato };
+    let mide = |f: u32| bmo_proton_x::formato_ia::forma(f).map(|x| x.bytes);
     let efectivo = match Almacen::de(formato) {
+        // D2.7 (06-10): lo que la casa guarda TAL CUAL (RGBA8, BGRA8, R32):
+        // sus bytes son los de la memoria, y cualquier vista de 4 bytes los
+        // lee en su formato (un R32_UINT sobre un RGBA8, un RGBA8_SNORM...).
+        _ if crate::subrecursos::interno_es_nativo(formato) && mide(vista) == Some(4) => vista,
         Almacen::Rgba8 if entero => 30,
         Almacen::Rgba8 => 28,
         Almacen::Bgra8 => 87,
@@ -109,15 +115,19 @@ fn uav_de_textura(r: &[u64], dimension: u32, formato_vista: u32) -> Option<Uav<'
             aviso("Dispatch o Draw: un UAV de una textura de bloques: en Windows es un error; se ve nulo");
             return None;
         }
-        // N5.16b: la vista de float de su formato (o la de su TYPELESS); otra
-        // (un R32_UINT sobre un R11G11B10F, el truco de leer con tipo) no.
+        // N5.16b: la vista de float de su formato (o la de su TYPELESS). D2.7
+        // (06-10): otra del mismo tamanio (un R32_UINT sobre un R11G11B10F,
+        // el truco de leer con tipo) lee y escribe los bytes del elemento.
         Almacen::Flotantes4 => {
-            let vista = if formato_vista != 0 { formato_vista } else { formato };
-            if Almacen::nativo(vista) != Almacen::nativo(formato) {
-                aviso("Dispatch o Draw: un UAV de una textura de float con una vista de otro formato (un R32_UINT sobre un R11G11B10F...): todavia no; se ve nulo");
+            let guardado = Almacen::nativo(formato);
+            if Almacen::nativo(vista) == guardado {
+                guardado | bmo_proton_x::bufer::CUATRO_FLOATS
+            } else if mide(vista).is_some() && mide(vista) == mide(guardado) {
+                bmo_proton_x::bufer::con_vista(guardado, vista)
+            } else {
+                aviso("Dispatch o Draw: un UAV de textura con una vista de otro tamanio de elemento: en Windows es un error; se ve nulo");
                 return None;
             }
-            Almacen::nativo(vista) | bmo_proton_x::bufer::CUATRO_FLOATS
         }
     };
     if dimension == UAV_TEXTURA_2D_ARRAY || dimension == UAV_TEXTURA_3D {

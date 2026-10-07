@@ -1,2 +1,4 @@
 # Lo que deja correr_en_windows.ps1 en el Windows del propietario (06-10).
 informe_windows/
+# La imagen de escena.exe para mirarla (la que cuenta es escena.ref, 06-10).
+escena.bmp

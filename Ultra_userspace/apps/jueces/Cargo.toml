@@ -1,0 +1,12 @@
+[package]
+name = "bmo-app-jueces"
+version = "0.1.0"
+edition = "2021"
+description = "Los jueces de PROTON-X, corridos SOLOS en BMO-X: uno tras otro, contados y apuntados en informe/jueces.txt"
+
+[[bin]]
+name = "jueces"
+path = "src/main.rs"
+
+[dependencies]
+bmo-userland = { path = "../../userland" }

@@ -672,7 +672,10 @@ fn restos_enteros_solo_uav_gs_plano_de_stencil_y_stencilref() {
 /// 2x2 con sus ayudantes, bit a bit; y OPTIONS1 dice los mismos 32
 /// carriles. Un aviso y ninguno mas, el de verdad: el PSO de dibujo se
 /// interpreta porque su PS usa las olas (su VS, que salta, ya se traduce:
-/// X1).
+/// X1). 06-10, lo que dijo Windows en la 3060: SV_VertexID no cuenta el
+/// StartVertexLocation (D) ni el BaseVertexLocation (E); la casa lo sumaba
+/// y C (un DrawInstanced(3, 1, 6, 0)) pintaba un pixel donde Windows pinto
+/// media pantalla. C va ahora con indices.
 #[test]
 fn e2_5_las_olas_de_32_carriles_dan_los_bits_de_la_cuenta() {
     let uno = uno_a_la_vez();
@@ -681,7 +684,7 @@ fn e2_5_las_olas_de_32_carriles_dan_los_bits_de_la_cuenta() {
     assert!(!texto.contains("  MAL   "), "{texto}");
     let avisos: Vec<&str> = texto.lines().filter(|l| l.starts_with("PROTON-X:")).collect();
     assert_eq!(avisos, ["PROTON-X: un PSO cuyo sombreador usa las olas (Wave*, Quad*: van de 32 en 32 carriles): sus sombreadores se interpretan (el codigo nativo aun no lo sabe)"], "{texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 15, "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 17, "{texto}");
     assert!(texto.ends_with("olas.exe: las olas de D3D12 son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
@@ -961,4 +964,75 @@ fn el_computo_de_un_posproceso_es_el_de_windows() {
     assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 3, "{texto}");
     assert!(texto.ends_with("postpro.exe: el computo de un posproceso es el de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **Las vistas que CAMBIAN EL TIPO** (D2.7, 06-10, `prueba/tipos.exe`,
+/// NUESTRO): una textura TYPELESS escrita por una vista y leida por otra del
+/// mismo tamanio (UNORM y R32_UINT, R32_UINT y R10G10B10A2_UNORM, halfs y
+/// R16G16B16A16_UINT, SINT), un InterlockedAdd por la vista de una palabra,
+/// y dos render targets RGBA8 TYPELESS vistos como UINT (satura) y SNORM.
+/// Bit a bit, ni un aviso. Probado que dice NO: con la casa de antes, 6 MAL
+/// (los UAV y los SRV de otro tipo, nulos; los render targets, sin pintar).
+#[test]
+fn las_vistas_que_cambian_el_tipo_son_las_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, TIPOS_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 8, "{texto}");
+    assert!(texto.ends_with("tipos.exe: las vistas que cambian el tipo son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **ClearUnorderedAccessView** (A2, 06-10, `prueba/limpieza.exe`, NUESTRO):
+/// el valor en el formato de la VISTA (un R32_UINT o un SNORM sobre un RGBA8
+/// TYPELESS, un UINT sobre un RGBA16 TYPELESS, un R32_UINT sobre un
+/// R10G10B10A2 TYPELESS) y solo dentro de sus RECTANGULOS (en una 2D y en
+/// cada capa de un array). Sin sombreadores; bit a bit, ni un aviso.
+#[test]
+fn clear_unordered_access_view_es_el_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, LIMPIEZA_EXE, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 8, "{texto}");
+    assert!(texto.ends_with("limpieza.exe: ClearUnorderedAccessView es el de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **Una escena 3D DURA** (A11, 06-10, `prueba/escena.exe`, NUESTRO; el
+/// propietario: "un test en 3D duro en Windows, y que se refleje en BMO-X"):
+/// un terreno de 18432 triangulos con una textura de 8 mips, 64 cubos por
+/// instancias, una luz con sombra (pase de solo profundidad y SampleCmp), un
+/// vidrio con mezcla, en HDR y con un tonemap por computo. A y B dicen lo que
+/// no depende de la GPU (el cielo, el mapa de la luz); C compara la imagen
+/// con la de WINDOWS (`prueba/escena.ref`, la que deja `escena.exe guardar`
+/// en el Windows del propietario) con un margen. Sin ella, C es una nota.
+/// La imagen de la casa se deja en el volumen (`escena.exe guardar`), para
+/// mirarla: `$TMP/proton-x-volumen-<pid>/window/escena.bmp`.
+#[test]
+fn una_escena_3d_dura_es_la_de_windows() {
+    let uno = uno_a_la_vez();
+    let referencia = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../proton-x/prueba/escena.ref");
+    let dentro = volumen().join("window/escena.ref");
+    let _ = std::fs::remove_file(&dentro);
+    let hay = std::fs::copy(&referencia, &dentro).is_ok();
+    *NOMBRE.lock().unwrap() = ("window/escena.exe", "");
+    let (salio, dicho, _) = correr_exe(&uno, ESCENA_EXE, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.lines().any(|l| l.starts_with("PROTON-X:")), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), if hay { 3 } else { 2 }, "{texto}");
+    assert_eq!(texto.matches("  nota  ").count(), usize::from(!hay), "{texto}");
+    assert!(texto.ends_with("escena.exe: la escena 3D dura es la de Windows\r\n[salio 0x0]"), "{texto}");
+    // La de la casa, para mirarla (no se juzga aqui: la juzga C contra Windows).
+    let _ = std::fs::remove_file(&dentro);
+    *NOMBRE.lock().unwrap() = ("window/escena.exe", "guardar");
+    let (salio, _, _) = correr_exe(&uno, ESCENA_EXE, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    assert_eq!(salio, 0);
+    if let Ok(d) = std::env::var("BMO_ESCENA") {
+        let _ = std::fs::copy(volumen().join("window/escena.bmp"), d);
+    }
 }

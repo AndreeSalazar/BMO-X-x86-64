@@ -117,6 +117,7 @@ fn la_textura_elegida_antes_de_la_barrera_sigue_elegida_despues() {
             capa: 0,
             niveles: u32::MAX,
             lod_min: 0.0,
+            vista: None,
         })
     };
     let rec = Recursos { texturas: &[], muestreadores: &[], buferes: &[], dinamicas: Some(Dinamicas(&buscar)) };

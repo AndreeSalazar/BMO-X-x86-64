@@ -39,6 +39,7 @@ IMPORTA int W QueryFullProcessImageNameA(HANDLE p, DWORD f, char *b, DWORD *n);
 IMPORTA HANDLE W CreateEventExA(void *a, const char *n, DWORD f, DWORD acc);
 IMPORTA int W SetEvent(HANDLE h);
 IMPORTA DWORD W WaitForSingleObject(HANDLE h, DWORD ms);
+IMPORTA int W GetConsoleMode(HANDLE h, DWORD *modo);
 IMPORTA int W WriteConsoleA(HANDLE h, const void *b, DWORD n, DWORD *e, void *r);
 IMPORTA void W GetSystemTime(WORD *st);
 IMPORTA int W SystemTimeToFileTime(const WORD *st, U64 *ft);
@@ -189,8 +190,15 @@ void inicio(void) {
         CloseHandle(e);
     }
     {
-        DWORD k = 0;
-        mira(WriteConsoleA(GetStdHandle((DWORD)-11), "  (WriteConsoleA)\r\n", 19, &k, 0) && k == 19, "WriteConsoleA");
+        /* 06-10: correr_en_windows.ps1 manda la salida a un FICHERO, y ahi
+         * WriteConsoleA falla (no es una consola): Windows dijo MAL. Como
+         * texto.exe: solo se juzga si la salida es una consola. */
+        DWORD k = 0, modo = 0;
+        HANDLE salida = GetStdHandle((DWORD)-11);
+        if (GetConsoleMode(salida, &modo))
+            mira(WriteConsoleA(salida, "  (WriteConsoleA)\r\n", 19, &k, 0) && k == 19, "WriteConsoleA");
+        else
+            di("  bien  (sin consola, WriteConsoleA no se prueba)\r\n");
     }
     di("tanda3.exe: kernel32 dice lo de Windows\r\n");
     ExitProcess(fallos);

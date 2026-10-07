@@ -24,126 +24,77 @@
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 
-# nombre, cuantos `bien`, cuantas `nota` (-1: no se cuentan), y que mirar.
-# Un `bien` de -1: el juez no tiene cuenta fija; vale ningun MAL y salir con 0.
-$jueces = @(
-    # -- PROTON-X por dentro (P1 a P5, 27-09 y 28-09)
-    @('hola', -1, -1, 'imprime la frase y sale con 0'),
-    @('teb', 6, -1, ''),
-    @('hilos', 19, -1, ''),
-    @('ficheros', 16, -1, 'deja pxtest.txt'),
-    @('crt', 35, -1, ''),
-    @('texto', 21, -1, ''),
-    @('esperas', 24, -1, 'tarda unos 150 ms'),
-    @('carpetas', 34, -1, 'deja pqa.txt, pqb.txt, pzc.txt'),
-    @('sistema', 22, -1, 'sale por TerminateProcess'),
-    @('ucrt', 19, -1, ''),
-    @('stdio', 15, -1, 'uno de los bien va por stderr'),
-    @('peek', 12, -1, ''),
-    @('compila', -1, -1, 'en Windows compila de verdad (d3dcompiler_47)'),
-    @('usadll', 8, -1, 'necesita saludo.dll al lado'),
-    @('seh', 9, -1, ''),
-    # -- Las TANDAS de Cyberpunk (29-09 a 02-10)
-    @('tanda1', 55, -1, ''),
-    @('tanda2', 14, -1, ''),
-    @('tanda3', 25, -1, ''),
-    @('tanda3b', 18, -1, ''),
-    @('tanda3c', 16, -1, ''),
-    @('tanda4', 11, -1, ''),
-    @('tanda4m', 11, -1, 'la de MSVC'),
-    @('tanda5', 22, -1, ''),
-    @('tanda6', 29, -1, ''),
-    @('tanda7', 29, -1, ''),
-    @('tanda8', 25, -1, ''),
-    @('tanda9', 30, -1, ''),
-    @('tanda10', 25, -1, ''),
-    @('tanda11', 35, -1, ''),
-    @('tanda12', 24, -1, 'sin red tambien'),
-    @('tanda13', 16, -1, ''),
-    @('diario', 4, -1, ''),
-    @('tanda14', 27, -1, ''),
-    @('tanda14b', 12, -1, ''),
-    @('tanda15', 11, -1, ''),
-    @('tanda16', 9, -1, ''),
-    @('tanda17', 11, -1, ''),
-    @('tanda18', 16, -1, ''),
-    @('tanda19', 19, -1, ''),
-    @('tanda19m', 15, -1, 'la de MSVC'),
-    @('tanda20', 15, -1, ''),
-    @('tanda21', 17, -1, ''),
-    @('tanda22', 9, -1, 'PREGUNTA ABIERTA: con 9 la hipotesis de HACER.txt era cierta; con 7 MAL, Windows sigue sin darle TLS a la DLL de clang'),
-    @('tanda23', 16, -1, ''),
-    @('tanda24', 12, -1, ''),
-    @('tanda25', 9, -1, ''),
-    @('tanda26', 6, -1, ''),
-    @('tanda27', 8, -1, ''),
-    @('tanda28', 6, -1, ''),
-    @('tanda29', 18, -1, ''),
-    @('tanda30', 14, -1, ''),
-    @('tanda31', 30, -1, ''),
-    @('tanda32', 10, -1, ''),
-    @('tanda33', 8, -1, ''),
-    @('tanda34', 9, -1, ''),
-    @('tanda35', 8, -1, ''),
-    @('tanda36', 6, -1, ''),
-    @('tanda37', 9, -1, ''),
-    @('tanda38', 13, -1, ''),
-    @('tanda39', 8, -1, ''),
-    @('tanda41', 10, -1, ''),
-    @('tanda42', 13, -1, ''),
-    @('tanda43', 12, -1, ''),
-    @('tanda44', 10, -1, ''),
-    @('tanda45', 15, -1, ''),
-    @('tanda46', 9, 1, 'la nota dice el HRESULT de Windows'),
-    @('tanda47', 21, -1, ''),
-    @('tanda48', 14, -1, ''),
-    @('vueltas', 4, -1, ''),
-    # -- Los jueces de D3D12 (05-10 y 06-10): NINGUNO corrido aun en Windows
-    @('computo', 4, -1, 'D3D12'),
-    @('instancias', 3, -1, 'D3D12'),
-    @('vistas', 7, -1, 'D3D12'),
-    @('hdr', 4, -1, 'D3D12'),
-    @('uavpixel', 4, -1, 'D3D12'),
-    @('flotante1', 10, -1, 'D3D12'),
-    @('stencil', 5, -1, 'D3D12'),
-    @('olas', 15, -1, 'D3D12: el "hasta N" de B puede ser otro'),
-    @('derivadas', 17, -1, 'D3D12'),
-    @('restos', 18, -1, 'D3D12: si la GPU no tiene SV_StencilRef, E sale como nota (no es fallo)'),
-    @('multihilo', 17, -1, 'D3D12'),
-    @('volumen', 10, -1, 'D3D12'),
-    @('firmas', 6, -1, 'D3D12'),
-    @('postpro', 3, -1, 'D3D12')
-)
+# La tabla: `jueces.txt` (aqui al lado), la MISMA que lleva dentro
+# `sys/jueces.bex` en BMO-X. Por juez: nombre, cuantos `bien` (-1: sin
+# cuenta fija), cuantas `nota` (-1 si no se dice: no se cuentan), lo de
+# detras de `#`, y OTRA cuenta de `bien` y `nota` que tambien vale.
+$jueces = @()
+foreach ($l in Get-Content -LiteralPath (Join-Path $PSScriptRoot 'jueces.txt')) {
+    $t = $l.Trim()
+    if ($t -eq '' -or $t.StartsWith('#') -or $t.StartsWith('[')) { continue }
+    $que = ''
+    $k = $t.IndexOf('#')
+    if ($k -ge 0) { $que = $t.Substring($k + 1).Trim(); $t = $t.Substring(0, $k).Trim() }
+    $c = $t -split '\s+'
+    $notas = if ($c.Count -gt 2) { [int]$c[2] } else { -1 }
+    $j = @($c[0], [int]$c[1], $notas, $que)
+    if ($c.Count -gt 4) { $j += , @([int]$c[3], [int]$c[4]) }
+    $jueces += , $j
+}
 
 $informe = Join-Path $PSScriptRoot 'informe_windows'
 New-Item -ItemType Directory -Force -Path $informe | Out-Null
 $resumen = New-Object System.Collections.Generic.List[string]
 $resumen.Add("Los jueces de PROTON-X en Windows, " + (Get-Date -Format 'yyyy-MM-dd HH:mm'))
 $resumen.Add([Environment]::OSVersion.VersionString)
+$resumen.Add("La tabla (jueces.txt): $($jueces.Count) jueces")
 try {
     $gpu = (Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name + ' (' + $_.DriverVersion + ')' }) -join '; '
     $resumen.Add("GPU: $gpu")
 } catch { $resumen.Add('GPU: no se pudo preguntar') }
 $resumen.Add('')
 
+# A11 (06-10): la escena 3D DURA se compara con la imagen de ESTE Windows.
+# Si todavia no esta (escena.ref), se hace aqui, una vez: `escena.exe
+# guardar` la deja al lado (y escena.bmp, para mirarla). Esa escena.ref es
+# la que hay que mandar: con ella se juzgan el banco y BMO-X.
+$escenaRef = Join-Path $PSScriptRoot 'escena.ref'
+$escenaNueva = $false
+if (-not (Test-Path -LiteralPath $escenaRef) -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'escena.exe'))) {
+    Write-Host 'escena.ref no esta: la hago con escena.exe guardar (una vez)...'
+    $p = Start-Process -FilePath (Join-Path $PSScriptRoot 'escena.exe') -ArgumentList 'guardar' -WorkingDirectory $PSScriptRoot -NoNewWindow -PassThru -Wait
+    $escenaNueva = Test-Path -LiteralPath $escenaRef
+}
+if ($escenaNueva) { $resumen.Add('escena.ref HECHA en este Windows: mandala (esta en la carpeta prueba)'); $resumen.Add('') }
+
 $buenos = 0; $malos = 0; $faltan = 0
 foreach ($j in $jueces) {
-    $nombre, $quiere, $notas, $que = $j
+    $nombre, $quiere, $notas, $que = $j[0..3]
+    $otra = if ($j.Count -gt 4) { $j[4] } else { $null }
     $exe = Join-Path $PSScriptRoot "$nombre.exe"
     if (-not (Test-Path -LiteralPath $exe)) {
         $resumen.Add(('{0,-12} NO ESTA el .exe' -f $nombre)); $faltan++; continue
     }
     $sale = Join-Path $informe "$nombre.txt"
     $err = Join-Path $informe "$nombre.err.txt"
-    $p = Start-Process -FilePath $exe -WorkingDirectory $PSScriptRoot -NoNewWindow -PassThru `
-        -RedirectStandardOutput $sale -RedirectStandardError $err
-    # Sin tocar Handle antes de que acabe, ExitCode sale vacio (PowerShell 5.1).
-    $null = $p.Handle
+    # 06-10: con Process de .NET y no con Start-Process: este tiene el
+    # proceso desde que nace, y su ExitCode no se pierde. Con Start-Process,
+    # un .exe tan rapido como hola.exe acababa antes de que se pidiera su
+    # Handle, y salia "salio con" y nada (lo vio el propietario).
+    $psi = New-Object System.Diagnostics.ProcessStartInfo $exe
+    $psi.WorkingDirectory = $PSScriptRoot
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $p = [System.Diagnostics.Process]::Start($psi)
+    $leeSale = $p.StandardOutput.ReadToEndAsync()
+    $leeErr = $p.StandardError.ReadToEndAsync()
     $colgado = -not $p.WaitForExit(60000)
     if ($colgado) { try { $p.Kill() } catch {} }
-    $lineas = @(Get-Content -LiteralPath $sale -ErrorAction SilentlyContinue) +
-              @(Get-Content -LiteralPath $err -ErrorAction SilentlyContinue)
-    if ((Get-Item -LiteralPath $err).Length -eq 0) { Remove-Item -LiteralPath $err }
+    $p.WaitForExit()
+    Set-Content -LiteralPath $sale -Value $leeSale.Result -NoNewline
+    if ($leeErr.Result.Length -gt 0) { Set-Content -LiteralPath $err -Value $leeErr.Result -NoNewline }
+    $lineas = @(($leeSale.Result + "`n" + $leeErr.Result) -split "`r?`n")
     $bien = @($lineas | Where-Object { $_ -match '^\s*bien\b' }).Count
     $mal = @($lineas | Where-Object { $_ -match '^\s*MAL\b' }).Count
     $nota = @($lineas | Where-Object { $_ -match '^\s*nota\b' }).Count
@@ -153,8 +104,11 @@ foreach ($j in $jueces) {
     if ($colgado) { $fallo += 'se colgo (60 s)' }
     elseif ($codigo -ne 0) { $fallo += "salio con $codigo" }
     if ($mal -gt 0) { $fallo += "$mal MAL" }
-    if ($quiere -ge 0 -and $bien -ne $quiere) { $fallo += "$bien bien (pide $quiere)" }
-    if ($notas -ge 0 -and $nota -ne $notas) { $fallo += "$nota nota (pide $notas)" }
+    $vale_otra = $otra -and $bien -eq $otra[0] -and $nota -eq $otra[1]
+    if (-not $vale_otra) {
+        if ($quiere -ge 0 -and $bien -ne $quiere) { $fallo += "$bien bien (pide $quiere)" }
+        if ($notas -ge 0 -and $nota -ne $notas) { $fallo += "$nota nota (pide $notas)" }
+    }
 
     if ($fallo.Count -eq 0) {
         $buenos++
@@ -178,3 +132,8 @@ $resumen | Set-Content -LiteralPath (Join-Path $informe 'resumen.txt') -Encoding
 Write-Host ''
 Write-Host "$buenos dicen lo que pide la tabla, $malos distintos, $faltan sin .exe"
 Write-Host "El resumen: $informe\resumen.txt"
+if ($escenaNueva) {
+    Write-Host ''
+    Write-Host 'IMPORTANTE: se hizo escena.ref (la imagen de la escena 3D de este Windows).' -ForegroundColor Yellow
+    Write-Host "Mandala junto con el resumen: $escenaRef" -ForegroundColor Yellow
+}

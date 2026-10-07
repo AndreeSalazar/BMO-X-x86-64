@@ -43,7 +43,7 @@ fn poner(en: &Enlace, uavs: &mut [Option<Uav<'static>>], registro: u32, u: Uav<'
 fn dibujar(en: &Enlace, uavs: &RefCell<Vec<Option<Uav<'static>>>>, z: Option<f32>) -> trama::Cuenta {
     let profundidad = z.map(|_| trama::Profundidad { funcion: 2, escribir: true });
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: None };
-    let l = Lote { enlace: en, entradas: &[], vertices: &[], paso: 0, ids: &[0, 1, 2, 3, 4, 5], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, uavs: Some(uavs) };
+    let l = Lote { enlace: en, entradas: &[], vertices: &[], paso: 0, ids: &[0, 1, 2, 3, 4, 5], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: Some(uavs) };
     let (mut px, mut zs) = (vec![0u32; 64], vec![z.unwrap_or(1.0).to_bits(); 64]);
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: z.map(|_| &mut zs[..]), cadena: false, otros: &mut [], flotante: None, stencil: None };
     lote::en_cpu(&l, &mut d).unwrap()
@@ -124,7 +124,7 @@ fn con_stencil(ps: &[u8], funcion: u8, falla: u8, pasa: u8) -> (u32, trama::Cuen
     let uavs = RefCell::new(v);
     let cara = Cara { falla, falla_z: KEEP, pasa, funcion, lectura: 0xFF, escritura: 0xFF, referencia: 1 };
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte: 1, antihorario: false, profundidad: None, mezcla: crate::mezcla::Mezclas::NINGUNA, z_del_sombreador: false, stencil: Some(Stencil { delante: cara, detras: cara }) };
-    let l = Lote { enlace: &en, entradas: &[], vertices: &[], paso: 0, ids: &[0, 1, 2, 3, 4, 5], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, uavs: Some(&uavs) };
+    let l = Lote { enlace: &en, entradas: &[], vertices: &[], paso: 0, ids: &[0, 1, 2, 3, 4, 5], topologia: Topologia::Lista, cb: &[], reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO, oclusion: false, otros: &[], instancias: 1, primera_instancia: 0, base_vertice: 0, uavs: Some(&uavs) };
     let (mut px, mut plano) = (vec![0u32; 64], vec![0u8; 64]);
     let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: false, z: None, cadena: false, otros: &mut [], flotante: None, stencil: Some(&mut plano) };
     let cuenta = lote::en_cpu(&l, &mut d).unwrap();

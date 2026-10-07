@@ -118,6 +118,12 @@ const VOLUMEN_EXE: &[u8] = include_bytes!("../../proton-x/prueba/volumen.exe");
 const FIRMAS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/firmas.exe");
 /// 06-10: el computo de un posproceso (bindless, SampleLevel, RWTexture2D, Interlocked).
 const POSTPRO_EXE: &[u8] = include_bytes!("../../proton-x/prueba/postpro.exe");
+/// 06-10: las vistas que cambian el tipo (D2.7): UAV, SRV y render targets de otro formato.
+const TIPOS_EXE: &[u8] = include_bytes!("../../proton-x/prueba/tipos.exe");
+/// 06-10: ClearUnorderedAccessView en el formato de la vista y con rectangulos (A2).
+const LIMPIEZA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/limpieza.exe");
+/// 06-10: una escena 3D DURA, contra la imagen que guardo Windows (A11).
+const ESCENA_EXE: &[u8] = include_bytes!("../../proton-x/prueba/escena.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");

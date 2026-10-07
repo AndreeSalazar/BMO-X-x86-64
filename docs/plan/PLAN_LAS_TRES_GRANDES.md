@@ -374,8 +374,16 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
 - [ ] D2.6 -- Los formatos COMPRIMIDOS BC1 a BC7: la 3060 los lee de por si
   (solo es el formato en la cabecera de la textura); el interprete de la CPU
   los descomprime. **Como se sabe:** una textura BC7 se ve igual en los dos.
-- [ ] D2.7 -- Los formatos sin tipo (`TYPELESS`) y sus vistas que lo cambian,
-  con las reglas de Windows de que se puede ver como que.
+- [x] D2.7 -- Los formatos sin tipo (`TYPELESS`) y sus vistas que lo cambian,
+  con las reglas de Windows de que se puede ver como que. (06-10, en el
+  banco y EN WINDOWS: `tipos.exe` 8 `bien` en la 3060 del propietario;
+  falta el metal.) Una vista de otro formato
+  del MISMO tamanio de elemento lee y escribe los bytes del elemento: los
+  UAV (`bufer::con_vista`), los SRV (`Textura::vista`, su Load) y los
+  render targets (`trama`). **Como se sabe:** `tipos.exe`, 8 `bien` bit a
+  bit; con la casa de antes, 6 MAL. Queda: muestrear (Sample) por una vista
+  de float de OTRO formato (se muestrea lo guardado), y limpiar un render
+  target de enteros por una vista de otro tipo.
 
 ## 2D. Los descriptores y la firma raiz
 
@@ -396,7 +404,13 @@ vez"); BMOX-12, el cubo y HelloTexture de punta a punta.
 - [ ] D3.3 -- SIN ATAR (bindless, modelo 6.6: `ResourceDescriptorHeap`),
   si D0.2 lo encuentra.
 - [ ] D3.4 -- Los UAV: bufferes con tipo, crudos y estructurados; sus
-  contadores; `ClearUnorderedAccessView*`. (06-10: tambien los de TEXTURAS 3D y de
+  contadores; `ClearUnorderedAccessView*`. (06-10, A2: ClearUnorderedAccessView
+  escribe el valor en el formato de la VISTA -- un R32_UINT o un SNORM sobre
+  un RGBA8 TYPELESS, un UINT sobre un RGBA16 TYPELESS, un R32_UINT sobre un
+  R10G10B10A2 TYPELESS; antes, en el del recurso -- y solo dentro de sus
+  RECTANGULOS, en una 2D, en cada capa de un array y en los elementos de un
+  bufer; antes, "se limpia la vista entera". Juez: `prueba/limpieza.exe`, 8
+  `bien`; con la casa de antes, 6 MAL. 06-10: tambien los de TEXTURAS 3D y de
   arrays de 2D, en el computo y en los dibujos, juzgados por
   `prueba/volumen.exe` en el banco: rebanadas, capas con su cadena de mips
   entre una y otra, atomicos, GetDimensions, y ClearUnorderedAccessView
@@ -1280,9 +1294,11 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)   10
-      1  D2.7  las vistas que cambian el tipo (UAV, render target, SRV)
-      2  D3.4  ClearUnorderedAccessView en los formatos que aun no escribe
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    9
+      1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
+               en el banco y en Windows)
+      2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
+               rectangulos (06-10: limpieza.exe, 8 bien en el banco)
       3  D3.2  el deserializador de firmas (D3D12CreateVersionedRoot...)
       4  D3.2  serializar la 1.1 con los MISMOS bytes que Windows
       5  D3.4  los UAV de arrays de 1D y los de filas de otra medida
@@ -1292,14 +1308,32 @@ y lo dice.
       9  D4.6  la CACHE de PSO en el disco (VC1 de PLAN_VERRANO)
      10  X5    la velocidad que queda: las olas en el computo traducido y
                los pixeles con UAV traducidos
+     11  ESCENA  (06-10, pedido del propietario: "un test en 3D DURO en
+               Windows, y que se refleje en BMO-X") una escena pesada --
+               miles de triangulos, texturas con mips, profundidad, luz
+               con sombra, HDR y posproceso -- que en Windows GUARDA su
+               imagen, y en el banco y en BMO-X se compara con ella con un
+               margen MEDIDO (la GPU y la CPU no dan los mismos bits en
+               los floats: lo que se pide es cuantos pixeles y cuanto)
+               06-10: `prueba/escena.exe` HECHO (en el banco, 2 bien y la
+               nota; con la imagen de la casa como referencia, bien, y con
+               un cubo de mas pegado, MAL). FALTA la referencia de Windows:
+               `escena.exe guardar` en la 3060 deja escena.ref
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.
       Dice si cada juez tiene RAZON: lo que el banco dio por bueno.
+      PRIMERA CORRIDA (06-10, la 3060): 78 de 83. De los 5: tres del juez
+      o de la tabla (tanda2, tanda3, el empate 127.5 de vistas), uno de la
+      GPU (restos: NVIDIA sin SV_StencilRef) y UNO DE PROTON-X: SV_VertexID
+      sumaba el StartVertexLocation (olas). Arreglado. SEGUNDA CORRIDA
+      (06-10, 08:49): 83 de 83 [x]. B0 hecho; quedan D0.1 a D0.3.
       D0.1 rayosx sobre la carpeta del juego; D0.2 los DXIL de su cache;
       D0.3 el diario filtrado a D3D12. Lo que encuentren entra en A (el
       teselado D4.5, los recursos reservados D2.4: SOLO si aparecen)
    C  El METAL: correr la hoja y la 3060                                    --
+      (06-10) `run sys/jueces.bex`: los 84 jueces de consola SOLOS en
+      BMO-X, con la tabla de Windows; el informe, informe/jueces.txt.
       docs/metal/PRUEBAS_DX12_EN_EL_RYZEN.md, juez a juez (cada `bien` en
       el Ryzen y en Windows CIERRA casillas de la seccion 2 que hoy estan
       hechas solo en el banco); G0 de PLAN_LA_3060 (el GSP 10 de 10) para

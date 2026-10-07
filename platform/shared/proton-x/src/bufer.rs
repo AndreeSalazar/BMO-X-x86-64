@@ -24,6 +24,10 @@
 //!                  elemento son cuatro f32 (como guarda la casa un RGBA16F,
 //!                  un R11G11B10F...), leidos tal cual y escritos
 //!                  cuantizados al formato de la vista
+//!    otra vista    D2.7 (06-10): esos cuatro floats vistos con OTRO formato
+//!                  del mismo tamanio (un R32_UINT sobre un R11G11B10F, el
+//!                  truco de los posprocesos): el elemento se pasa a sus
+//!                  bytes y se lee en el de la vista ([`con_vista`])
 //! ```
 
 /// **Como se direcciona** un bufer: lo dice el sombreador (su `ResKind`).
@@ -44,6 +48,42 @@ pub enum Modo {
 /// leen tal cual y se escriben cuantizados (`formato_ia::cuantizar`): lo que
 /// el sombreador lee de vuelta es lo que leeria en la GPU.
 pub const CUATRO_FLOATS: u32 = 0x1_0000;
+
+/// Desde que bit va el formato de la VISTA en uno de [`CUATRO_FLOATS`] que
+/// se ve con otro ([`con_vista`]).
+const VISTA: u32 = 20;
+
+/// **Cuatro floats de `guardado` vistos como `vista`** (D2.7, 06-10): D3D12
+/// deja ver una textura con otro formato del mismo tamanio de elemento (un
+/// R32_UINT sobre un R11G11B10F o un R10G10B10A2, un UINT sobre un
+/// TYPELESS de float). Lo que el sombreador lee y escribe son los BYTES del
+/// elemento en `guardado`, leidos y escritos en `vista`.
+pub const fn con_vista(guardado: u32, vista: u32) -> u32 {
+    guardado | CUATRO_FLOATS | vista << VISTA
+}
+
+/// `(guardado, vista)` de un formato de [`CUATRO_FLOATS`] (sin otra vista,
+/// `None`).
+pub(crate) fn guardado_y_vista(formato: u32) -> (u32, Option<u32>) {
+    let v = formato >> VISTA;
+    (formato & 0xFFFF, (v != 0).then_some(v))
+}
+
+/// Los cuatro floats de un elemento de `guardado` como los ve `vista`
+/// (un entero, sus bits): a los bytes, y de ellos.
+pub(crate) fn a_la_vista(guardado: u32, vista: u32, palabras: [u32; 4]) -> [u32; 4] {
+    use crate::formato_ia::{empaquetar, es_entero, leer};
+    match empaquetar(guardado, palabras, es_entero(guardado)) {
+        Some(b) => leer(vista, &b).map(f32::to_bits),
+        None => [0; 4],
+    }
+}
+
+/// Lo contrario: lo que la vista escribe, como lo guarda `guardado`.
+pub(crate) fn de_la_vista(guardado: u32, vista: u32, v: [u32; 4]) -> Option<[f32; 4]> {
+    use crate::formato_ia::{empaquetar, es_entero, leer};
+    empaquetar(vista, v, es_entero(vista)).map(|b| leer(guardado, &b))
+}
 
 /// **Un bufer, visto por un SRV**: sus bytes desde el primer elemento de la
 /// vista, y lo que dice la vista.
@@ -81,10 +121,13 @@ impl Bufer<'_> {
                 None => [0; 4],
             },
             Modo::Tipado if self.formato & CUATRO_FLOATS != 0 => {
-                if i < self.elementos {
-                    self.palabras(16 * i as u64, 16 * i as u64 + 16)
-                } else {
-                    [0; 4]
+                if i >= self.elementos {
+                    return [0; 4];
+                }
+                let p = self.palabras(16 * i as u64, 16 * i as u64 + 16);
+                match guardado_y_vista(self.formato) {
+                    (g, Some(v)) => a_la_vista(g, v, p),
+                    (_, None) => p,
                 }
             }
             Modo::Tipado => {
@@ -306,10 +349,15 @@ impl Uav<'_> {
             let w: [f32; 4] = core::array::from_fn(|k| f32::from_bits(if mascara & (1 << k) != 0 { v[k] } else { antes[k] }));
             // 05-10: una textura de ENTEROS (RGBA8_UINT, R16_SINT...) se guarda
             // asi tambien: sus bits bajos, como un RWBuffer de enteros (abajo).
-            let f = self.formato & !CUATRO_FLOATS;
-            let q = match crate::formato_ia::es_entero(f) {
-                true => crate::formato_ia::empaquetar(f, w.map(f32::to_bits), true).map_or(w, |b| crate::formato_ia::leer(f, &b)),
-                false => crate::formato_ia::cuantizar(f, w),
+            // D2.7: con otra vista, en el formato de la vista y de vuelta.
+            let (f, otra) = guardado_y_vista(self.formato);
+            let q = match otra {
+                Some(o) => match de_la_vista(f, o, w.map(f32::to_bits)) {
+                    Some(q) => q,
+                    None => return,
+                },
+                None if crate::formato_ia::es_entero(f) => crate::formato_ia::empaquetar(f, w.map(f32::to_bits), true).map_or(w, |b| crate::formato_ia::leer(f, &b)),
+                None => crate::formato_ia::cuantizar(f, w),
             };
             for (k, x) in q.iter().enumerate() {
                 self.bytes[o + 4 * k..o + 4 * k + 4].copy_from_slice(&x.to_bits().to_le_bytes());
@@ -406,6 +454,33 @@ mod pruebas {
         assert_eq!(u.medidas_textura(), [2, 1, 3, 0]);
         let palabras: alloc::vec::Vec<u32> = b.chunks(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
         assert_eq!(palabras, [0, 10, 0, 0, 11, 0, 0, 12], "cada una en su sitio, y lo de en medio intacto");
+    }
+
+    /// D2.7: cuatro floats vistos con OTRO formato del mismo tamanio. Un
+    /// R11G11B10F (26) como R32_UINT (42): la palabra empaquetada (R en los
+    /// 11 bits bajos), y lo que se escribe en ella vuelve a sus floats; un
+    /// R10G10B10A2_UNORM (24) igual; un RGBA16F (10) como R32G32_UINT (17):
+    /// dos halfs por palabra.
+    #[test]
+    fn cuatro_floats_vistos_con_otro_formato_son_sus_bytes() {
+        let floats = |v: [f32; 4]| bytes(&v.map(f32::to_bits));
+        // R11G11B10F: 1.0 es 0x3C0 en 11 bits (exponente 15, mantisa 0) y en 10, 0x1E0.
+        let mut b = floats([1.0, 2.0, 0.5, 1.0]);
+        let mut u = Uav { bytes: &mut b, formato: con_vista(26, 42), paso: 1, elementos: 1, contador: None, rebanadas: Rebanadas::PLANA };
+        let r11 = |r: u32, g: u32, b: u32| r | g << 11 | b << 22;
+        assert_eq!(u.cargar(Modo::Textura, 0, 0)[0], r11(0x3C0, 0x400, 0x1C0), "la palabra de R11G11B10F");
+        assert_eq!(u.cargar(Modo::Textura, 0, 0)[3], 1, "el alfa de un UINT que no lo tiene: 1");
+        u.escribir(Modo::Textura, 0, 0, [r11(0x400, 0x3C0, 0x1E0), 0, 0, 0], 1);
+        assert_eq!(b, floats([2.0, 1.0, 1.0, 1.0]), "lo escrito, vuelto a sus floats");
+        // Un InterlockedOr por la vista de enteros (lo de la mascara en una sola palabra).
+        let mut b = floats([0.0; 4]);
+        let mut u = Uav { bytes: &mut b, formato: con_vista(24, 42), paso: 1, elementos: 1, contador: None, rebanadas: Rebanadas::PLANA };
+        assert_eq!(u.atomico(Modo::Textura, 0, 0, Atomo::O, 1023 | 3 << 30, 0), 0);
+        assert_eq!(b, floats([1.0, 0.0, 0.0, 1.0]), "R = 1023 / 1023 y A = 3 / 3 en R10G10B10A2_UNORM");
+        // RGBA16F como R32G32_UINT.
+        let mut b = floats([1.0, -2.0, 0.5, 0.0]);
+        let u = Uav { bytes: &mut b, formato: con_vista(10, 17), paso: 1, elementos: 1, contador: None, rebanadas: Rebanadas::PLANA };
+        assert_eq!(u.cargar(Modo::Textura, 0, 0), [0x3C00 | 0xC000 << 16, 0x3800, 0, 1]);
     }
 
     #[test]

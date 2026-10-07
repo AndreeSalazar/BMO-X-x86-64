@@ -1,0 +1,107 @@
+# LOS JUECES DE CONSOLA DE PROTON-X (06-10): la UNICA tabla.
+#
+# La leen los dos que los corren, y por eso no se pueden contradecir:
+#   correr_en_windows.ps1   en el Windows del propietario (que el juez tenga razon)
+#   sys/jueces.bex          en BMO-X (Ultra_userspace/apps/jueces, la lleva dentro)
+#
+# Una linea por juez: el nombre (window/<nombre>.exe), cuantos `bien` tiene
+# que decir (-1: sin cuenta fija; vale ningun MAL y salir con 0), y si hay,
+# cuantas `nota` (si no se dice, no se cuentan) y OTRA cuenta de `bien` y
+# `nota` que tambien vale (lo que dice una GPU que no tiene algo). Lo de
+# detras de `#` es lo que hay que mirar. `[grupo]` empieza un grupo: se puede
+# correr solo uno (`run sys/jueces.bex d3d12`).
+
+[dentro]
+# PROTON-X por dentro (P1 a P5, 27-09 y 28-09)
+hola -1               # imprime la frase y sale con 0
+teb 6
+hilos 19
+ficheros 16           # deja pxtest.txt
+crt 35
+texto 21
+esperas 24            # tarda unos 150 ms
+carpetas 34           # deja pqa.txt, pqb.txt, pzc.txt
+sistema 22            # sale por TerminateProcess
+ucrt 19
+stdio 15              # uno de los bien va por stderr
+peek 12
+compila -1            # en Windows compila de verdad (d3dcompiler_47)
+usadll 8              # necesita saludo.dll al lado
+seh 9
+
+[tandas]
+# Las TANDAS de Cyberpunk (29-09 a 02-10)
+tanda1 55
+tanda2 13
+tanda3 25
+tanda3b 18
+tanda3c 16
+tanda4 11
+tanda4m 11            # la de MSVC
+tanda5 22
+tanda6 29
+tanda7 29
+tanda8 25
+tanda9 30
+tanda10 25
+tanda11 35
+tanda12 24            # sin red tambien
+tanda13 16
+diario 4
+tanda14 27
+tanda14b 12
+tanda15 11
+tanda16 9
+tanda17 11
+tanda18 16
+tanda19 19
+tanda19m 15           # la de MSVC
+tanda20 15
+tanda21 17
+tanda22 9             # PREGUNTA ABIERTA: con 9 la hipotesis de HACER.txt era cierta; con 7 MAL, Windows sigue sin darle TLS a la DLL de clang
+tanda23 16
+tanda24 12
+tanda25 9
+tanda26 6
+tanda27 8
+tanda28 6
+tanda29 18
+tanda30 14
+tanda31 30
+tanda32 10
+tanda33 8
+tanda34 9
+tanda35 8
+tanda36 6
+tanda37 9
+tanda38 13
+tanda39 8
+tanda41 10
+tanda42 13
+tanda43 12
+tanda44 10
+tanda45 15
+tanda46 9 1           # la nota dice el HRESULT de Windows
+tanda47 21
+tanda48 14
+vueltas 4
+
+[d3d12]
+# Los jueces de D3D12 (05-10 y 06-10)
+computo 4             # D3D12
+instancias 3          # D3D12
+vistas 7              # D3D12
+hdr 4                 # D3D12
+uavpixel 4            # D3D12
+flotante1 10          # D3D12
+stencil 5             # D3D12
+olas 17               # D3D12: el "hasta N" de B puede ser otro; E le pregunta a Windows
+derivadas 17          # D3D12
+restos 18 0 15 1      # D3D12: o 15 y una nota, si la GPU no tiene SV_StencilRef (las NVIDIA no lo tienen)
+multihilo 17          # D3D12
+volumen 10            # D3D12
+firmas 6              # D3D12
+postpro 3             # D3D12
+tipos 8               # D3D12: vistas que cambian el tipo (06-10)
+limpieza 8            # D3D12: ClearUnorderedAccessView por la vista y con rectangulos (06-10)
+escena 3 0 2 1        # D3D12: la escena 3D DURA contra escena.ref de Windows; sin ella, 2 y una nota (06-10)

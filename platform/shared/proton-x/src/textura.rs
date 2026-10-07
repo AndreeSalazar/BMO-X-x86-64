@@ -140,6 +140,13 @@ pub struct Textura<'a> {
     /// ninguna lectura baja de ahi).
     pub niveles: u32,
     pub lod_min: f32,
+    /// D2.7 (06-10): la vista lee la textura con OTRO formato del mismo
+    /// tamanio de elemento (un R32_UINT sobre un R11G11B10F o un RGBA8, un
+    /// RGBA8_SINT sobre un RGBA8_TYPELESS): `(guardado, vista)`. `Load` toma
+    /// los BYTES del texel (en uno de [`Como::Flotantes4`], los de sus floats
+    /// en `guardado`; en los demas, su palabra tal cual) y los lee en
+    /// `vista`. `None`: la vista lee lo guardado como es.
+    pub vista: Option<(u32, u32)>,
 }
 
 /// **Un plano**: una rebanada 2D de un subrecurso, lo que de verdad se
@@ -370,7 +377,7 @@ impl<'a> Textura<'a> {
 
     /// Una 2D de un nivel y 8 bits por canal, lineal y con el mapeo de siempre.
     pub const fn rgba(texeles: &'a [u32], ancho: u32, alto: u32, bgra: bool) -> Self {
-        Textura { texeles, ancho, alto, como: if bgra { Como::Bgra8 } else { Como::Rgba8 }, srgb: false, mapeo: Self::MAPEO, mips: 1, capas: 1, hondo: 1, clase: Clase::Plana, mip: 0, capa: 0, niveles: u32::MAX, lod_min: 0.0 }
+        Textura { texeles, ancho, alto, como: if bgra { Como::Bgra8 } else { Como::Rgba8 }, srgb: false, mapeo: Self::MAPEO, mips: 1, capas: 1, hondo: 1, clase: Clase::Plana, mip: 0, capa: 0, niveles: u32::MAX, lod_min: 0.0, vista: None }
     }
 
     /// D4.4: las mips que ve la vista (desde `mip`), al menos una.
@@ -636,7 +643,34 @@ impl<'a> Textura<'a> {
             return [0; 4];
         }
         let Some(p) = self.plano(m as u32, capa as u32, rebanada as u32) else { return [0; 4] };
-        let crudo = match p.como {
+        let crudo = match (self.vista, p.como) {
+            (Some((g, v)), Como::Flotantes4) => {
+                use crate::formato_ia::{empaquetar, es_entero, leer};
+                match empaquetar(g, p.flotante(x, y).map(f32::to_bits), es_entero(g)) {
+                    Some(b) => leer(v, &b).map(f32::to_bits),
+                    None => [0; 4],
+                }
+            }
+            (Some((_, v)), Como::Rgba8 | Como::Bgra8 | Como::Flotante) => crate::formato_ia::leer(v, &p.palabra(x, y).to_le_bytes()).map(f32::to_bits),
+            _ => self.cargar_guardado(&p, x, y, w, enteros),
+        };
+        // El mapeo, sobre los bits: un 1 es 1 en un entero, 1.0 en un float.
+        let entero_visto = self.vista.is_some_and(|(_, v)| crate::formato_ia::es_entero(v));
+        let uno = if entero_visto || (enteros && self.vista.is_none() && !matches!(p.como, Como::Flotante | Como::Flotantes4)) { 1 } else { 1.0f32.to_bits() };
+        if self.mapeo & 0xFFF == Self::MAPEO & 0xFFF {
+            return crudo;
+        }
+        core::array::from_fn(|k| match (self.mapeo >> (3 * k)) & 7 {
+            s @ 0..=3 => crudo[s as usize],
+            5 => uno,
+            _ => 0,
+        })
+    }
+
+    /// El texel `(x, y)` de `p` como lo guarda la casa (lo de [`Textura::cargar`]
+    /// sin otra vista).
+    fn cargar_guardado(&self, p: &Plano, x: i64, y: i64, w: u32, enteros: bool) -> [u32; 4] {
+        match p.como {
             Como::Flotante => [p.texeles.get((y * w as i64 + x) as usize).copied().unwrap_or(0), 0, 0, 1.0f32.to_bits()],
             Como::Flotantes4 => p.flotante(x, y).map(f32::to_bits),
             Como::Stencil8 => {
@@ -649,17 +683,7 @@ impl<'a> Textura<'a> {
                 [r & 0xFF, g & 0xFF, b & 0xFF, a & 0xFF]
             }
             _ => p.texel(x, y).map(|v| (v as f32 / 65535.0).to_bits()),
-        };
-        // El mapeo, sobre los bits: un 1 es 1 en un entero, 1.0 en un float.
-        let uno = if enteros && !matches!(p.como, Como::Flotante | Como::Flotantes4) { 1 } else { 1.0f32.to_bits() };
-        if self.mapeo & 0xFFF == Self::MAPEO & 0xFFF {
-            return crudo;
         }
-        core::array::from_fn(|k| match (self.mapeo >> (3 * k)) & 7 {
-            s @ 0..=3 => crudo[s as usize],
-            5 => uno,
-            _ => 0,
-        })
     }
 
     /// **`GetDimensions(mip)`** de la vista, como DXIL: `(ancho, alto,

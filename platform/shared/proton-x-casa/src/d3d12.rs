@@ -102,7 +102,9 @@ pub(crate) enum Orden {
     Atomica { dst: u64, src: u64, n: u64 },
     /// N5.3c (05-10): ClearUnorderedAccessViewUint (`crudo`) o Float, con
     /// la ranura de la vista copiada al apuntarla (`d3d12_resto::limpiar_uav`).
-    LimpiarUav { ranura: [u64; 4], valores: [u32; 4], crudo: bool },
+    /// A2 (06-10): y sus RECTANGULOS (`left, top, right, bottom`), copiados
+    /// tambien; ninguno, la vista entera.
+    LimpiarUav { ranura: [u64; 4], valores: [u32; 4], crudo: bool, rects: Vec<[i32; 4]> },
     Resolver { monton: u64, desde: u32, n: u32, bufer: u64, off: u64 },
     /// Tanda 48: escribir un `u32` en una direccion de un bufer de la casa
     /// (WriteBufferImmediate).
