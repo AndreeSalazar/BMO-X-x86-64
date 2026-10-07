@@ -315,7 +315,7 @@ Un `.psd` es UN fichero binario, en este orden:
 ```
 
 * **Se copia** la imagen compuesta: cualquiera que no entienda las capas la
-  puede ensenar igual. En la `.obra` es `vista.png`.
+  puede mostrar igual. En la `.obra` es `vista.png`.
 * **No se copia** que sea un bloque: cambiar un pixel reescribe el fichero
   entero, y guardar encima pierde lo de antes. No tiene historia.
 
