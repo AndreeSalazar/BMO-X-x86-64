@@ -628,6 +628,18 @@ fn piezas(cv: &mut Canvas, v: &Vista) {
 
 /// **La tarjeta de estado**, abajo a la derecha: lo que es verdad ahora.
 fn estado(cv: &mut Canvas, v: &Vista) {
+    if crate::mision::es_mision() {
+        // HM6c: con el escritorio de mision, el SIMULADOR: el parche del
+        // juego fijado, en el sitio de la tarjeta (lo que ella decia, el
+        // simulador lo dice abajo).
+        let fijado = v.visibles.get(v.sel).map(|&i| {
+            let j = &v.cat.l.juegos[i];
+            crate::parche::Fijado { titulo: j.titulo.as_bytes(), camino: camino_texto(v.cat.camino(i)), tienda: j.tienda.nombre().as_bytes() }
+        });
+        let y = (alto() - crate::parche::ALTO - 12).max(384);
+        crate::parche::pintar(cv, x_piezas() + 8, y, PIEZAS - 16, fijado, v.cat.l.juegos.len(), v.proton, v.ms);
+        return;
+    }
     let (x, y, w, h) = (x_piezas() + 8, alto() - 112, PIEZAS - 16, 100);
     redondo(cv, x, y, w, h, 6, NEON);
     redondo(cv, x + 1, y + 1, w - 2, h - 2, 5, OSCURO);

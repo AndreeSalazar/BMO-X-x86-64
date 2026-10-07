@@ -69,13 +69,21 @@ pub(crate) fn panel(cv: &mut Canvas, v: &Vista, x0: i32) {
         return;
     }
 
-    // ** QUE ES: lo que la seccion es hoy, con su escalon.
-    let (_, color, sub) = SECCIONES[v.sec];
-    let h = 42 + lineas(sub, cw) * 18 + 12;
-    let yc = tarjeta(cv, x, baja(y, 0), tw, h, b"que es");
-    redonda(cv, x + tw - 22, baja(y, 0) + 16, 8, 8, 4, color);
-    parrafo(cv, x + 14, yc, cw, sub, TEXTO);
-    y += h + 14;
+    if crate::mision::es_mision() {
+        // HM6b: con el escritorio de mision, arriba va el instrumento -- la
+        // red de espacio profundo -- en el sitio de QUE ES (la seccion ya la
+        // dice el centro, y con las dos el panel no cabe sobre el reproductor).
+        crate::antena::pintar(cv, x, baja(y, 0), tw, v.ms);
+        y += crate::antena::ALTO + 14;
+    } else {
+        // ** QUE ES: lo que la seccion es hoy, con su escalon.
+        let (_, color, sub) = SECCIONES[v.sec];
+        let h = 42 + lineas(sub, cw) * 18 + 12;
+        let yc = tarjeta(cv, x, baja(y, 0), tw, h, b"que es");
+        redonda(cv, x + tw - 22, baja(y, 0) + 16, 8, 8, 4, color);
+        parrafo(cv, x + 14, yc, cw, sub, TEXTO);
+        y += h + 14;
+    }
 
     match v.sec {
         MENSAJES | TERTULIAS => {
