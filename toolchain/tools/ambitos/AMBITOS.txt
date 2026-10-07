@@ -22,7 +22,7 @@
 # los 69 `gui` de ayer no se reescriben, y un guardian que fallara por ellos se
 # apagaria en una semana. Se mueve con `--sellar`.
 [DESDE]
-86ff2b3e0639af9653ff88f54b44ae6bbbd7897b   sellado a mano
+112af66a9eaccf3ebb06511fb87b5fcab99c121d   sellado a mano
 
 # Viejo -> como se llama ahora, y por que. Un alias no es un error del que
 # escribe: es un nombre que se quedo atras, y decirle el nuevo cuesta lo mismo
@@ -37,17 +37,17 @@ guardian       -> guardianes   el mismo componente en singular (07-10, `86ff2b3e
 # Los que valen. Ordenados por uso, que es el orden en el que se ve el ruido.
 [AMBITOS]
 c                (0) 
-kernel           (2) 
+kernel           (8) 
 cobol            (3) 
 estratos         (9) 
 inti             (1) 
 usb              (0) 
 boot             (0) 
-director         (11) 
+director         (15) 
 maqueta          (19) 
 medida           (0) 
 mm               (0) 
-smp              (0) 
+smp              (3) 
 cpu              (0) 
 abi              (0) 
 bef              (0) 
@@ -81,6 +81,7 @@ calc             (0)
 censo            (0) 
 coste            (0) 
 docs             (11) 
+avances          (1) AVANCES.md, el estado de BMO-X para retomar desde cero
 emu              (0) 
 ext              (0) 
 fat32            (0) 
@@ -160,7 +161,7 @@ vmm              (0)
 spirv            (0) 
 # 2026-09-29: el TALLER de F1 (`Ultra_userspace/apps/taller`) y
 # su contrato con TITAN++ (`platform/shared/titan-contrato`). Nace aqui.
-taller           (11) 
+taller           (12) 
 # 2026-09-30: el frontend de TITAN++ (`toolchain/lang/titan`), el lenguaje
 # para CONSTRUIR. Nace aqui, con el nivel 0 de su escalera.
 titan            (27) 
@@ -172,11 +173,11 @@ bankcat          (4)
 # 2026-10-04: un cambio que toca VARIAS apps de `Ultra_userspace/apps` a la
 # vez -- las piezas que comparten (la `piezas.rs` de HERMES, que usan BANK CAT
 # y la LUDOTECA). Lo de una sola app va con su nombre.
-apps             (1) 
+apps             (3) 
 # 2026-10-04: los PLANES (`docs/plan/`): su estado, su orden y lo que cambia
 # en ellos por decision del propietario (`EL_ORDEN.md`, `en_pausa/`). Lo de
 # un componente va con el suyo; esto es el mapa de lo que falta.
-plan             (17) 
-proton-x         (19) la capa de Windows: la casa, el cargador, D3D12 en la CPU y la 3060 (07-10: decenas de commits sin estar en la lista)
+plan             (23) 
+proton-x         (23) la capa de Windows: la casa, el cargador, D3D12 en la CPU y la 3060 (07-10: decenas de commits sin estar en la lista)
 jueces           (2) los jueces de PROTON-X que corren solos en BMO-X
 arte             (3) las maquetas y los logos del propietario

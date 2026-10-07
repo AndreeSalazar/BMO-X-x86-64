@@ -15,6 +15,34 @@ una escuela de esquema; la ponen las piezas que hay dentro de la caja.
 Toolchain propio (C / COBOL / **Ada** / C++ -> BEF -> BEX nativo), y los
 tres primeros **ya han ejecutado en el Ryzen**.
 
+> ## ★★★★ Al 2026-10-07 -- CYBERPUNK 2077 VIVE 68 s EN EL METAL, Y ABRE EL SONIDO
+>
+> El plan del dia: `docs/plan/PLAN_LOS_DOCE_DIRECTORES.md`. La bitacora de
+> cada corrida: `docs/metal/METAL_2026-10-07.md`. El episodio: BITACORA 86.
+>
+> - **Lo que hace Cyberpunk en PROTON-X** (sin `smp all`): 68 s vivo, su
+>   ventana de 1738 x 1064, 1065 PSO, **43 ExecuteCommandLists** y
+>   `IAudioClient::Start` (**abre el sonido**: 48 kHz estereo por el audifono
+>   USB). Falta el primer `Present` (la imagen) y que la intro suene.
+> - **EXPROPIAR** (T5): la alarma del kernel (`TASK_OP_ALARMA`) visita la
+>   casa cada 4 ms y le QUITA el turno al hilo del juego que no lo suelta,
+>   como un signal de reloj de Linux. Antes el juego se colgaba a los 24 s
+>   con un hilo dando vueltas en su codigo. Siempre encendida.
+> - **El cuanto** (T4), **el futex** (H1.F, como Linux), **los
+>   sub-directores** (H4.3: los otros nucleos pintan franjas en Ring 3) y la
+>   **topologia** (H4.0: primero un nucleo fisico por obrero, luego los SMT).
+> - **El monton de la casa** ya da trozos de mas de 64 MiB (V6: el juego
+>   pidio 72 MiB de una vez).
+> - **La caja negra ya no olvida lo ultimo** (V7, V7b): el cursor vivia en la
+>   CACHE y un reinicio de golpe la borra; ahora cada linea va a la RAM al
+>   acabarla, y el TABLERO dice que hacia cada nucleo (repartir, Ring 3, la
+>   alarma, la subida de cada obrero).
+>
+> **⚠ Lo abierto:** con `smp all` el PC se reinicia de golpe. La caida de
+> las 13:23 dice que Cyberpunk NI LLEGO a correr: murio poco despues de
+> teclear. El siguiente CAIDA (con V7b) dira en que paso de la subida de los
+> obreros. Mientras tanto, Cyberpunk va SIN `smp all`.
+
 > ## ★★★ Al 2026-09-26 -- DOOM ENTRA AL ARBOL, Y LA 3060 SE FABRICA EN LA NUBE
 >
 > La meta del dia (`docs/plan/PLAN_VERRANO.md`, 2d): la escalera al jefe
