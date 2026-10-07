@@ -27,7 +27,7 @@ cada juez es lo que hace que esta hoja cuente.
 **La forma corta (06-10): `run sys/jueces.bex`.** Los 92 de consola, uno
 tras otro y SOLOS: cada uno con su consola y un tope de 600 s, contados con
 la MISMA tabla que uso Windows (`platform/shared/proton-x/prueba/jueces.txt`,
-84 de 84 en la 3060 del propietario; `limpieza` y `escena`, aun no). Dice una linea por juez (`bien`,
+92 de 92 en la 3060 del propietario, 06-10 18:27). Dice una linea por juez (`bien`,
 `DISTINTO` y por que, o `COLGADO`) y lo deja todo en `informe/jueces.txt`:
 ese fichero es lo que hay que mandar. Un grupo solo: `run sys/jueces.bex
 d3d12` (o `tandas`, `dentro`); unos pocos: `run sys/jueces.bex olas tipos`;
