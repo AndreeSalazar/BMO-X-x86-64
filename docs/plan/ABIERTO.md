@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   648 casillas ABIERTAS en 63 planes
-   560 hechas
+   647 casillas ABIERTAS en 63 planes
+   561 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -217,15 +217,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Q3 -- el INDICE POR HASH: es L9 de docs/plan/PLAN_LISTAS_Y_MAPAS.md
 - ... y 8 mas
 
-## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 10 abiertas, 13 hechas
-
-*PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
-
-- [ ] H1 -- LA TECLA DEL GESTOR: CTRL (2026-09-22)
-- [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
-- [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
-- ... y 7 mas
-
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 
 *PLAN LA DEUDA -- lo que el arbol debe, medido el 2026-09-17*
@@ -243,6 +234,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 lo que mas falta ahora, por usos: display:grid (117),
 - [ ] E3 las variables que las maquetas definen POR CAJA (--c en un
 - ... y 7 mas
+
+## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 9 abiertas, 14 hechas
+
+*PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
+
+- [ ] H1 -- LA TECLA DEL GESTOR: CTRL (2026-09-22)
+- [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
+- [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
+- ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 

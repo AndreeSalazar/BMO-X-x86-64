@@ -72,6 +72,8 @@ pub(crate) mod dispatch;
 pub(crate) mod files;
 pub(crate) mod shell;
 pub(crate) mod system;
+/// La ALARMA MAESTRA de F9 (HM5b), delante de la autopsia.
+mod alarma;
 pub(crate) use dispatch::{dispatch, After};
 
 pub(crate) mod history;
