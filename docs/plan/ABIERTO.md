@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 72 planes
+# LO QUE FALTA -- las casillas abiertas de los 73 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   646 casillas ABIERTAS en 63 planes
+   669 casillas ABIERTAS en 64 planes
    567 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -72,6 +72,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3 -- las constantes. La matriz en un buffer y el programa de
 - [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
 - ... y 28 mas
+
+## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 23 abiertas, 0 hechas
+
+*PLAN LA TINTA -- dibujar manga en BMO-X, y que TITAN++ cargue con lo pesado*
+
+- [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
+- [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido 
+- [ ] TA2 -- la VENTANA: el nodo screen de TITAN++ (pedir superficie, escribir una fila de pixeles, pr
+- ... y 20 mas
 
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 22 abiertas, 6 hechas
 
