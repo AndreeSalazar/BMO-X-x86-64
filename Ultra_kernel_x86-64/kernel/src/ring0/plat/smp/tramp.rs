@@ -204,7 +204,9 @@ pub fn apic_id() -> u32 {
 
 /// Donde aterriza el AP, ya en 64 bits. **Se apunta y se para.**
 ///
-/// No toca nada del kernel: ni CABINA, ni el planificador, ni un driver. Solo
+/// No toca nada del kernel: ni CABINA, ni el planificador, ni un driver (el
+/// TABLERO de la caja negra si: una casilla suya, cuatro escrituras sin
+/// cerrojo, para que un reinicio en la subida diga en que paso iba). Solo
 /// dos atomicas. Es el contrato de `docs/maestro/SMP_MAESTRO.md` -- un obrero que no
 /// comparte estado no puede correr una carrera, y por eso esto es seguro con los
 /// 209 `static mut` que hay ahi fuera.
@@ -216,6 +218,10 @@ pub extern "C" fn smp_ap_entrada() -> ! {
     // 0..n-1 sin repartirlo desde fuera ni pasarlo por la pagina compartida.
     // El contador y el reparto de indices salen de la misma operacion atomica.
     let indice = VIVOS.fetch_add(1, Ordering::SeqCst);
+    {
+        use crate::ring0::cabina::tablero as t;
+        t::marcar(t::OBREROS + indice as usize, t::AP_ARRANCA, id as u64, indice as u64);
+    }
     // ** LO PRIMERO, ANTES DE PODER FALLAR: su GDT y su TSS (`tss.rs`), y
     // OSXSAVE con el XCR0 que el BSP ya midio. Hasta aqui una excepcion era
     // el PC reiniciando; desde aqui es una ficha que dice FALLO.
@@ -237,5 +243,9 @@ pub extern "C" fn smp_ap_entrada() -> ! {
     // el orden de llegada; el APIC dice DONDE VIVE. Sin el segundo, un
     // reparto no puede saber que dos obreros comparten nucleo -- que es
     // justo lo que hace que doce partes iguales sean una mentira.
+    {
+        use crate::ring0::cabina::tablero as t;
+        t::marcar(t::OBREROS + indice as usize, t::AP_LISTO, id as u64, indice as u64);
+    }
     super::obrero::obrero(indice, id)
 }

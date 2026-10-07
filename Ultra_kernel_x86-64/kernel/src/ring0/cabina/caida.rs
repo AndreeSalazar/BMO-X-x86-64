@@ -144,8 +144,27 @@ pub fn anotar(b: u8) {
         let cursor = lee64(16);
         core::ptr::write_volatile(ptr(CAB + cursor % CAP), b);
         pon64(16, cursor + 1);
+        // ** CADA LINEA, A LA RAM AL ACABARLA (07-10, la segunda caida con
+        // `smp all`). El tick (`a_la_ram`) no basta: un camino con las
+        // interrupciones cerradas -- despertar a los obreros, un syscall
+        // largo -- no tiene tick, y si la maquina muere ahi dentro, sus
+        // lineas solo estaban en la cache. Dos o tres `clflush` por linea.
+        if b == b'\n' {
+            let desde = LINEA.min(cursor);
+            let mut t = desde & !63;
+            while t <= cursor {
+                a_la_ram_linea(ptr(CAB + t % CAP));
+                t += 64;
+            }
+            a_la_ram_linea(ptr(CAB + cursor % CAP));
+            a_la_ram_linea(ptr(0));
+            LINEA = cursor + 1;
+        }
     }
 }
+
+/// Donde empezo la linea que se esta escribiendo (para sacarla entera).
+static mut LINEA: u64 = 0;
 
 /// Hasta donde (el cursor) lo escrito ya esta en la RAM, no solo en la cache.
 static mut EN_RAM: u64 = 0;
@@ -186,6 +205,10 @@ pub fn a_la_ram() {
             a_la_ram_linea(ptr(CAB + o % CAP));
             o += 64;
         }
+        // El texto empieza en +32: la ultima linea de cache puede quedar
+        // detras del ultimo `o` (lo que se perdia: ~30 bytes de basura al
+        // final del CAIDA del 07-10).
+        a_la_ram_linea(ptr(CAB + (c - 1) % CAP));
         a_la_ram_linea(ptr(0));
         EN_RAM = c;
     }
@@ -263,6 +286,7 @@ pub fn abrir(dentro_de_ram: bool, base_virtual: u64) {
         pon32(12, GENERACION);
         pon64(24, suma(MAGIA, VERSION, GENERACION));
         EN_RAM = 0;
+        LINEA = lee64(16);
         LISTA = true;
         // Y lo que se dijo antes de abrir, ahora dentro.
         let n = ANTES_N;

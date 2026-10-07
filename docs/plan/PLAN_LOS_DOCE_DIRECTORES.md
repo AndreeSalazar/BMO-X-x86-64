@@ -225,7 +225,12 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
       de Ring 3, la alarma) con su TSC, escrita a la RAM en el acto; el
       `CAIDA` siguiente acaba con una linea por nucleo. **Como se sabe:** el
       metal, solo: el siguiente reinicio con `smp all` tiene que traer lineas
-      de DESPUES del arranque y el `[tablero]`. Ver
+      de DESPUES del arranque y el `[tablero]`. 07-10, 13:23: ya trae el
+      escritorio entero; acaba en la primera tecla con el tablero vacio
+      (Cyberpunk no llego a correr). Faltaba: cada linea a la RAM al acabarla
+      (despertar obreros va sin tick), los ~30 bytes de la ultima linea de
+      cache, y la subida de los obreros en el tablero (LLAMA, ARRANCA, LISTO,
+      CONTADOS). Ver
       [`METAL_2026-10-07.md`](../metal/METAL_2026-10-07.md).
 - [~] **V6 -- un trozo mas grande que un bloque.** El metal (07-10, la
       primera corrida con EXPROPIAR: 68 s vivo, 43 ExecuteCommandLists, el
