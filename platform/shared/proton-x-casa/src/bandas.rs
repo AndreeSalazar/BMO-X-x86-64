@@ -151,7 +151,11 @@ pub fn dibujar(l: &Lote, d: &mut Destino, n: u32, repartir: Repartir, franja: Fr
 /// textura distinta, no por pixel), que el dibujo puede ir en franjas.
 pub struct Recuerdo<K: Copy + Eq, V: Copy, const N: usize> {
     tomado: core::sync::atomic::AtomicBool,
-    casillas: UnsafeCell<[Option<(K, V)>; N]>,
+    /// En el MONTON, pedidas UNA vez al crearlo (antes de repartir) y sin
+    /// crecer nunca: con 256 casillas en la pila, el marco de quien dibuja
+    /// pedia 54 KiB de los 64 de una pila de Ring 3 (`pila.py --ring3`,
+    /// 07-10).
+    casillas: UnsafeCell<Vec<Option<(K, V)>>>,
 }
 
 // SAFETY: las casillas solo se tocan con el cerrojo tomado.
@@ -160,18 +164,18 @@ unsafe impl<K: Copy + Eq + Send, V: Copy + Send, const N: usize> Sync for Recuer
 
 impl<K: Copy + Eq, V: Copy, const N: usize> Default for Recuerdo<K, V, N> {
     fn default() -> Self {
-        Recuerdo { tomado: core::sync::atomic::AtomicBool::new(false), casillas: UnsafeCell::new([None; N]) }
+        Recuerdo { tomado: core::sync::atomic::AtomicBool::new(false), casillas: UnsafeCell::new(alloc::vec![None; N]) }
     }
 }
 
 impl<K: Copy + Eq, V: Copy, const N: usize> Recuerdo<K, V, N> {
-    fn con<R>(&self, f: impl FnOnce(&mut [Option<(K, V)>; N]) -> R) -> R {
+    fn con<R>(&self, f: impl FnOnce(&mut [Option<(K, V)>]) -> R) -> R {
         use core::sync::atomic::Ordering::{Acquire, Relaxed, Release};
         while self.tomado.compare_exchange_weak(false, true, Acquire, Relaxed).is_err() {
             core::hint::spin_loop();
         }
         // SAFETY: el cerrojo es nuestro.
-        let r = f(unsafe { &mut *self.casillas.get() });
+        let r = f(unsafe { (*self.casillas.get()).as_mut_slice() });
         self.tomado.store(false, Release);
         r
     }
