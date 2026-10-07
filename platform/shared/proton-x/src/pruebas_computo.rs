@@ -320,3 +320,66 @@ fn un_array_compartido_de_structs_y_de_vectores_da_lo_de_hlsl() {
         assert_eq!(f, [q + q * 0.5, -q, ((63 - gi) * 3 + 1) as f32, (q + 0.25) * (100.0 - q)], "el hilo {gi}");
     }
 }
+
+/// El bucle de `salidas.hlsl`, en Rust: por donde salio (1 lo encontro, 2
+/// la suma se paso, 3 acabo), en que vuelta, con que suma, y lo encontrado.
+fn salidas_esperado(datos: &[u32], gi: u32, buscado: u32, tope: u32) -> [u32; 4] {
+    let mut suma = 0u32;
+    let mut k = 0;
+    while k < datos.len() {
+        let v = datos[k] ^ gi;
+        if v == buscado {
+            return [1, k as u32, suma, v];
+        }
+        suma = suma.wrapping_add(v);
+        if suma > tope {
+            break;
+        }
+        k += 1;
+    }
+    [if suma > tope { 2 } else { 3 }, k as u32, suma, 0]
+}
+
+/// **16 y 21 de la pila A (07-10): un bucle con TRES salidas** -- su
+/// condicion, un `break` y un `return` --, el de `salidas.hlsl` (de `dxc`):
+/// el CS (64 hilos) y el de pixeles (64 pixeles) dan lo del bucle en Rust,
+/// y salen por las tres. Antes: "un bucle con mas de una salida: todavia
+/// no" (la prueba que dice NO, con el estructurador de antes).
+#[test]
+fn un_bucle_con_tres_salidas_da_lo_de_hlsl_en_el_cs_y_en_el_de_pixeles() {
+    let datos: Vec<u32> = (0..32u32).map(|k| (k * 37 + 11) & 63).collect();
+    let (buscado, tope) = (5u32, 1000u32);
+    let bytes: Vec<u8> = datos.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let srv = [Some(Bufer { bytes: &bytes, formato: 0, paso: 4, elementos: 32 })];
+    let rec = Recursos { texturas: &[None], muestreadores: &[], buferes: &srv, dinamicas: None };
+    let mut cb = [0u8; 16];
+    for (k, v) in [32u32, buscado, tope].iter().enumerate() {
+        cb[4 * k..4 * k + 4].copy_from_slice(&v.to_le_bytes());
+    }
+    let esperado: Vec<[u32; 4]> = (0..64).map(|gi| salidas_esperado(&datos, gi, buscado, tope)).collect();
+    let mut vistas = [false; 4];
+    for e in &esperado {
+        vistas[e[0] as usize] = true;
+    }
+    assert_eq!(vistas, [false, true, true, true], "el juez sale por las tres");
+    // El CS.
+    let cs = programa::compilar(&dxil::leer(include_bytes!("../prueba/salidas_cs.dxil")).unwrap()).unwrap_or_else(|e| panic!("{e:?}"));
+    let mut salida = vec![0xEEu8; 64 * 16];
+    {
+        let mut uavs = [Some(Uav { bytes: &mut salida, formato: 0, paso: 16, elementos: 64, contador: None, rebanadas: crate::bufer::Rebanadas::PLANA })];
+        assert_eq!(cs.despachar([1, 1, 1], &cb, &rec, &mut uavs), 64);
+    }
+    for gi in 0..64usize {
+        let f: [u32; 4] = core::array::from_fn(|c| u32::from_le_bytes(salida[16 * gi + 4 * c..16 * gi + 4 * c + 4].try_into().unwrap()));
+        assert_eq!(f, esperado[gi], "el hilo {gi} del CS");
+    }
+    // El de pixeles: la x del pixel es el xor; lo que sale, en floats.
+    let ps = programa::compilar(&dxil::leer(include_bytes!("../prueba/salidas_ps.dxil")).unwrap()).unwrap_or_else(|e| panic!("{e:?}"));
+    let mut regs = Vec::new();
+    for gi in 0..64u32 {
+        let mut sal = vec![[0.0f32; 4]; ps.salidas];
+        ps.correr_con(&[[gi as f32 + 0.5, 0.5, 0.5, 1.0]], &cb, &rec, &mut sal, &mut regs);
+        let e = esperado[gi as usize];
+        assert_eq!(sal[0], [e[0] as f32, e[1] as f32, e[2] as f32, e[3] as f32], "el pixel {gi}");
+    }
+}

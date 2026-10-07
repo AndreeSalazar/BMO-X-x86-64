@@ -3434,3 +3434,24 @@ Reproducibles (comprobado en dos directorios), sin rutas. sha256:
 El banco: `src/pruebas_computo.rs` (`imad_umad_y_los_interlocked_de_la_
 compartida_dan_lo_de_hlsl`, `un_array_compartido_de_structs_y_de_vectores_
 da_lo_de_hlsl`).
+
+salidas_cs.dxil y salidas_ps.dxil -- 16 y 21 de la pila A (07-10)
+
+"Un bucle con mas de una salida", lo que pidieron un CS y un sombreador de
+pixeles de Cyberpunk en el metal (06-10). `salidas.hlsl` (aqui al lado): un
+bucle que sale por TRES sitios -- su condicion, un `break` y un `return`
+--, en un CS (CSMain, 64 hilos) y en uno de pixeles (PSMain). Con el DXC de
+la nube (v1.8.2505, 9efbb6c3), sin -Zi:
+
+   dxc -T cs_6_0 -E CSMain -Fo salidas_cs.dxil salidas.hlsl
+   dxc -T ps_6_0 -E PSMain -Fo salidas_ps.dxil salidas.hlsl
+
+Reproducibles (comprobado en dos directorios), sin rutas. sha256:
+
+   4eea3d6ceeab1052ca6da6d056db705c2d881e6489537fdb4c609418095f8987  salidas_cs.dxil
+   c99232490212382dc8f68aa182a5fbf143ffbc48677148050320bf2ba55f07b7  salidas_ps.dxil
+
+El banco: `src/pruebas_computo.rs` (`un_bucle_con_tres_salidas_da_lo_de_
+hlsl_en_el_cs_y_en_el_de_pixeles`, contra el mismo bucle en Rust; con el
+estructurador de antes, los dos daban "un bucle con mas de una salida") y,
+traducido, `proton-x-casa/tests/nativo_computo.rs`.

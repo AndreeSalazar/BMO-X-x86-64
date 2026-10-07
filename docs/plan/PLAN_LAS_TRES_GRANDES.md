@@ -1355,7 +1355,7 @@ y lo dice.
 > por QUIEN puede cerrarlas. Se actualiza con cada pieza.
 
 ```text
-   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    5
+   A  CODIGO que se puede hacer desde la nube (casa + juez en el banco)    1
       1  [x] D2.7  las vistas que cambian el tipo (06-10: tipos.exe, 8 bien,
                en el banco y en Windows)
       2  [x] D3.4  ClearUnorderedAccessView en el formato de la vista y con
@@ -1476,8 +1476,17 @@ y lo dice.
                (`prueba/compartido.hlsl`)
      15  N5.4  `createHandle` con el registro CALCULADO de un array de
                BUFERES (bindless de buferes; un CS)
-     16  D4.1  un bucle con mas de una salida (un CS)
-     17  D4.1  un operando que deberia ser un float y no lo es (un CS)
+     16  [x] D4.1  un bucle con mas de una salida (un CS). 07-10: un
+               SELECTOR (`estructura.rs`): cada salida apunta su numero
+               antes de su Romper, y detras del FinBucle una cadena de `si`
+               sigue por la suya hasta donde se juntan (el post-dominador
+               de la cabeza). `prueba/salidas.hlsl`: tres salidas
+               (condicion, break, return), contra el bucle en Rust, y los
+               mismos bytes traducido
+     17  [x] D4.1  un operando que deberia ser un float y no lo es (un CS).
+               07-10: `float undef` es 0.0, y unos bits apuntados como
+               entero valen como float (el IR tiene tipos). Si el juego
+               trae otra cosa, ahora lo DICE con su nombre (`que_es`)
      -- 06-10 22:43, la SEGUNDA corrida con el monton que crece (llego a 95 s;
         lo que la tumbo, y el sonido, en PLAN_LOS_DOCE_DIRECTORES.md): --
      18  [x] D4.1  `OperacionD3d(48)` y `Instruccion(38)` (dos CS). 07-10:
@@ -1495,10 +1504,14 @@ y lo dice.
                (`estructuras.hlsl`); lo que llegue entero lo juzga
                `dxil::arreglos::pruebas` (y dice NO con un puntero dentro).
                Si el juego trae otra forma, D0.2 (su cache de DXIL) la dira
-     20  D4.1  un operando que no es un numero (ni float, ni entero, ni i1;
-               un CS)
-     21  D4.1  un bucle con mas de una salida en un sombreador de PIXELES
-               (el 16 es el de un CS; el estructurador es el mismo)
+     20  [x] D4.1  un operando que no es un numero (ni float, ni entero, ni i1;
+               un CS). 07-10: el aviso dice QUE era (una constante half o
+               double, un ResRet entero, un handle, un puntero sin load...),
+               para que la siguiente corrida lo nombre
+     21  [x] D4.1  un bucle con mas de una salida en un sombreador de PIXELES
+               (el 16 es el de un CS; el estructurador es el mismo). 07-10:
+               con el 16; `salidas_ps.dxil` da lo del bucle en Rust en 64
+               pixeles, y se traduce
    B  MEDIDAS del propietario en Windows (dicen si hay MAS en A)            4
       B0 (06-10) los 98 jueces en Windows: `correr_en_windows.ps1` (83 de
       consola, un guion) y 15 a ojo -- docs/metal/PRUEBAS_EN_WINDOWS.md.

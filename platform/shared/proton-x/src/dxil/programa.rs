@@ -908,10 +908,17 @@ impl Compilador {
         Ok(())
     }
 
-    pub(super) fn float(&self, id: usize) -> Result<Reg, NoPrograma> {
-        match self.valores.get(id) {
-            Some(Valor::Float(r)) => Ok(*r),
-            _ => Err(NoPrograma::Forma("un operando que deberia ser un float y no lo es")),
+    /// **Un operando float**: su registro. 17 de la pila A (07-10): el IR
+    /// de LLVM tiene tipos, asi que si aqui va un float, lo que llegue SON
+    /// los bits de un float aunque se apuntaran como entero (un `phi` o un
+    /// `select` que se tipo por su primer valor); y `float undef` es 0.0
+    /// (lo que la casa lee de un `undef`). Lo demas, con su nombre.
+    pub(super) fn float(&mut self, id: usize) -> Result<Reg, NoPrograma> {
+        match self.valores.get(id).copied() {
+            Some(Valor::Float(r) | Valor::Bits(r)) => Ok(r),
+            Some(Valor::Indefinido) => super::estructura::literal(self, 0),
+            Some(Valor::Entero(v)) => super::estructura::literal(self, v as i32 as u32),
+            otro => Err(NoPrograma::Forma(que_es("un operando que deberia ser un float", otro))),
         }
     }
 
@@ -920,6 +927,24 @@ impl Compilador {
             Some(Valor::Entero(v)) => Ok(*v),
             _ => Err(NoPrograma::Forma("un operando que deberia ser un entero constante y no lo es")),
         }
+    }
+}
+
+/// **Que era el operando que no se pudo usar** (17 y 20 de la pila A,
+/// 07-10): el metal solo decia "no es un numero"; con esto, la siguiente
+/// corrida dice QUE era, y se sabe que falta.
+pub(super) fn que_es(antes: &'static str, v: Option<Valor>) -> &'static str {
+    let float = antes.contains("float");
+    match (v, float) {
+        (None, _) => "un operando que todavia no existe (una referencia hacia delante fuera de un phi)",
+        (Some(Valor::Nada), true) => "un operando float que es una constante que la casa no lee (half, double, o un cast constante)",
+        (Some(Valor::Nada), false) => "un operando que es una constante que la casa no lee (half, double, i64, un vector constante o un cast constante)",
+        (Some(Valor::Cuatro(_) | Valor::CuatroEnteros(_)), _) => "un operando que es un ResRet o un CBufRet entero (sin extractvalue)",
+        (Some(Valor::Bool(_)), true) => "un operando float que es un i1",
+        (Some(Valor::Cbuffer(_) | Valor::Textura(_) | Valor::TexturaEn { .. } | Valor::Bufer(..) | Valor::Muestreador(_) | Valor::Uav(..)), _) => "un operando que es el handle de un recurso",
+        (Some(Valor::Arreglo { .. } | Valor::Puntero { .. } | Valor::Compartida { .. } | Valor::PunteroCompartido { .. }), _) => "un operando que es un puntero (un array o la memoria compartida) sin load",
+        (Some(Valor::Funcion(_)), _) => "un operando que es una funcion",
+        _ => antes,
     }
 }
 
@@ -1149,3 +1174,6 @@ fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo]
 // Las llamadas a `dx.op.*`: en `programa/llamadas.rs` (L6a, 05-10).
 mod llamadas;
 use llamadas::llamada;
+
+#[cfg(test)]
+mod pruebas_operandos;

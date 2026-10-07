@@ -13,7 +13,8 @@
 //!                       donde se juntan las dos ramas de un `br` (su union)
 //!    bucles             un salto a un bloque que lo domina (la vuelta);
 //!                       el cuerpo, lo que llega a la vuelta sin pasar por la
-//!                       cabeza; su SALIDA, una sola (si no: todavia no)
+//!                       cabeza; sus SALIDAS (16 y 21 de la pila A, 07-10:
+//!                       varias, con un SELECTOR: ver abajo)
 //!    phi                una COPIA en cada arista que llega, en paralelo
 //!                       (primero a temporales si una copia pisa a otra)
 //! ```
@@ -23,8 +24,16 @@
 //! union. La forma que `dxc` da a un bucle (rotado: la cabeza sale con un
 //! `br` condicional y el ultimo bloque decide si vuelve) sale asi sin mas.
 //!
-//! Lo que un grafo no reducible, un bucle de dos salidas o un salto de dos
-//! bucles de golpe piden, se DICE: `NoPrograma::Forma`, con el porque.
+//! **Un bucle con varias salidas** (16 y 21 de la pila A, 07-10: un CS y un
+//! sombreador de pixeles de Cyberpunk; el `break` que va a un sitio y la
+//! salida normal que va a otro). Cada salida apunta su numero en un
+//! registro, el SELECTOR, justo antes de su `Romper`; detras del `FinBucle`,
+//! una cadena de `si` sobre el selector sigue por la que toco, hasta donde se
+//! juntan todas (el post-dominador de la cabeza). Es lo que hacen los
+//! estructuradores de los drivers.
+//!
+//! Lo que un grafo no reducible o un salto de dos bucles de golpe piden, se
+//! DICE: `NoPrograma::Forma`, con el porque.
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -94,7 +103,7 @@ pub(super) fn bits(c: &mut Compilador, id: usize) -> Result<Reg, NoPrograma> {
         Some(Valor::Float(r) | Valor::Bits(r) | Valor::Bool(r)) => return Ok(r),
         Some(Valor::Entero(v)) => v as i32 as u32,
         Some(Valor::Indefinido) => 0,
-        _ => return Err(NoPrograma::Forma("un operando que no es un numero (ni float, ni entero, ni i1)")),
+        otro => return Err(NoPrograma::Forma(super::programa::que_es("un operando que no es un numero (ni float, ni entero, ni i1)", otro))),
     };
     literal(c, v)
 }
@@ -278,11 +287,13 @@ fn bajar_switches(c: &mut Compilador, bloques: &mut Vec<Bloque>) -> Result<(), N
 /// estructurarse (un bloque se repite si dos ramas llegan a el sin unirse).
 const OPS_MAXIMAS: usize = 1 << 16;
 
-/// Un bucle: su cabeza, sus bloques y su unica salida.
+/// Un bucle: su cabeza, sus bloques y sus salidas (la primera, `salida`).
 struct Bucle {
     cabeza: usize,
     cuerpo: Vec<bool>,
     salida: usize,
+    /// 16 y 21 (07-10): todas, en orden; mas de una, con selector.
+    salidas: Vec<usize>,
 }
 
 struct Armador<'a> {
@@ -300,6 +311,10 @@ struct Armador<'a> {
     out: Vec<Op>,
     temporales: Vec<f32>,
     primer_temporal: usize,
+    /// 16 y 21 (07-10): el selector de cada bucle de varias salidas.
+    selectores: Vec<Option<Reg>>,
+    /// Las constantes que hicieron falta como temporal (valor, registro).
+    constantes: Vec<(u32, Reg)>,
 }
 
 /// **Armar**: sin saltos, nada que hacer; con ellos, `c.ops` pasa a ser el
@@ -356,7 +371,8 @@ pub(super) fn armar(c: &mut Compilador) -> Result<(), NoPrograma> {
     let bucles = bucles(n, &succ, &pred, &idom, &alcanzables)?;
     let ipdom_bucle = bucles.iter().map(|l| post_dominadores_de(l, n, &succ)).collect();
     let primer_temporal = c.iniciales.len();
-    let mut a = Armador { bloques: &bloques, ops: &c.ops, phis, ipdom, bucles, ipdom_bucle, activos: Vec::new(), out: Vec::new(), temporales: Vec::new(), primer_temporal };
+    let selectores = vec![None; bucles.len()];
+    let mut a = Armador { bloques: &bloques, ops: &c.ops, phis, ipdom, bucles, ipdom_bucle, activos: Vec::new(), out: Vec::new(), temporales: Vec::new(), primer_temporal, selectores, constantes: Vec::new() };
     a.emitir(0, None)?;
     // Un Continuar justo antes de su FinBucle no hace nada.
     let mut out: Vec<Op> = Vec::with_capacity(a.out.len());
@@ -508,7 +524,7 @@ fn bucles(n: usize, succ: &[Vec<usize>], pred: &[Vec<usize>], idom: &[Option<usi
                 None => {
                     let mut cuerpo = vec![false; n];
                     cuerpo[h] = true;
-                    v.push(Bucle { cabeza: h, cuerpo, salida: usize::MAX });
+                    v.push(Bucle { cabeza: h, cuerpo, salida: usize::MAX, salidas: Vec::new() });
                     v.len() - 1
                 }
             };
@@ -525,11 +541,15 @@ fn bucles(n: usize, succ: &[Vec<usize>], pred: &[Vec<usize>], idom: &[Option<usi
         let mut salidas: Vec<usize> = (0..n).filter(|&x| b.cuerpo[x]).flat_map(|x| succ[x].iter().copied()).filter(|&s| !b.cuerpo[s]).collect();
         salidas.sort_unstable();
         salidas.dedup();
-        match salidas.as_slice() {
-            [s] => b.salida = *s,
-            [] => return Err(NoPrograma::Forma("un bucle sin salida")),
-            _ => return Err(NoPrograma::Forma("un bucle con mas de una salida: todavia no")),
+        match salidas.first() {
+            Some(&s) => b.salida = s,
+            None => return Err(NoPrograma::Forma("un bucle sin salida")),
         }
+        // 16 y 21 (07-10): varias, con selector (`Armador::hacer`).
+        if salidas.len() > SALIDAS_MAXIMAS {
+            return Err(NoPrograma::Forma("un bucle con mas de 16 salidas: todavia no"));
+        }
+        b.salidas = salidas;
     }
     // Un salto hacia ATRAS (en el orden de la busqueda) a uno que no lo
     // domina: un bucle con dos entradas, un grafo no reducible.
@@ -548,10 +568,14 @@ fn bucles(n: usize, succ: &[Vec<usize>], pred: &[Vec<usize>], idom: &[Option<usi
     Ok(v)
 }
 
-/// Lo que hace un salto especial: salir del bucle o volver a su cabeza.
+/// Las salidas que cabe en un bucle (con selector).
+const SALIDAS_MAXIMAS: usize = 16;
+
+/// Lo que hace un salto especial: salir del bucle (por su salida `k`) o
+/// volver a su cabeza.
 #[derive(Clone, Copy, PartialEq)]
 enum Especial {
-    Romper,
+    Romper(usize),
     Continuar,
 }
 
@@ -560,6 +584,28 @@ impl Armador<'_> {
         let r = self.primer_temporal + self.temporales.len();
         self.temporales.push(0.0);
         Reg::try_from(r).ok().filter(|&r| r < Reg::MAX - 4).ok_or(NoPrograma::Forma("un sombreador con mas de 65000 valores"))
+    }
+
+    /// Un temporal que nadie escribe, con estos bits: una constante.
+    fn constante(&mut self, v: u32) -> Result<Reg, NoPrograma> {
+        if let Some(&(_, r)) = self.constantes.iter().find(|x| x.0 == v) {
+            return Ok(r);
+        }
+        let r = self.temporal()?;
+        self.temporales[(r as usize) - self.primer_temporal] = f32::from_bits(v);
+        self.constantes.push((v, r));
+        Ok(r)
+    }
+
+    /// El selector del bucle `l` si tiene varias salidas (16 y 21).
+    fn selector(&mut self, l: usize) -> Result<Option<Reg>, NoPrograma> {
+        if self.bucles[l].salidas.len() < 2 {
+            return Ok(None);
+        }
+        if self.selectores[l].is_none() {
+            self.selectores[l] = Some(self.temporal()?);
+        }
+        Ok(self.selectores[l])
     }
 
     fn poner(&mut self, op: Op) -> Result<(), NoPrograma> {
@@ -598,18 +644,40 @@ impl Armador<'_> {
         for (k, &l) in self.activos.iter().enumerate().rev() {
             let b = &self.bucles[l];
             let dentro = k + 1 == self.activos.len();
-            if t == b.cabeza || t == b.salida {
+            let salida = b.salidas.iter().position(|&s| s == t);
+            if t == b.cabeza || salida.is_some() {
                 if !dentro {
                     return Err(NoPrograma::Forma("un salto que sale de dos bucles de golpe: todavia no"));
                 }
-                return Ok(Some(if t == b.cabeza { Especial::Continuar } else { Especial::Romper }));
+                return Ok(Some(match salida {
+                    Some(k) if t != b.cabeza => Especial::Romper(k),
+                    _ => Especial::Continuar,
+                }));
             }
         }
         Ok(None)
     }
 
     fn hacer(&mut self, e: Especial) -> Result<(), NoPrograma> {
-        self.poner(if e == Especial::Romper { Op::Romper } else { Op::Continuar })
+        match e {
+            Especial::Romper(k) => {
+                self.apuntar_salida(k)?;
+                self.poner(Op::Romper)
+            }
+            Especial::Continuar => self.poner(Op::Continuar),
+        }
+    }
+
+    /// Con varias salidas, el selector dice por cual se sale (16 y 21). Va
+    /// justo antes de salir; si un `RomperSi` no sale, la salida que si
+    /// salga lo vuelve a poner.
+    fn apuntar_salida(&mut self, k: usize) -> Result<(), NoPrograma> {
+        let Some(&l) = self.activos.last() else { return Ok(()) };
+        if let Some(sel) = self.selector(l)? {
+            let c = self.constante(k as u32)?;
+            self.poner(Op::Copia { d: sel, a: c })?;
+        }
+        Ok(())
     }
 
     /// La arista `b -> t` sin condicion: sus copias, y o un salto especial
@@ -641,7 +709,10 @@ impl Armador<'_> {
                 self.emitir(b, None)?;
                 self.activos.pop();
                 self.poner(Op::FinBucle)?;
-                b = self.bucles[l].salida;
+                match self.tras_el_bucle(l)? {
+                    Some(n) => b = n,
+                    None => return Ok(()),
+                }
                 continue;
             }
             let bl = &self.bloques[b];
@@ -667,13 +738,19 @@ impl Armador<'_> {
         if es_si.is_some() || es_no.is_some() {
             // Un `break` sin copias es un RomperSi (sin `si` alrededor).
             let sin_copias = |a: &Self, t: usize| a.phis[t].iter().all(|(_, e)| e.iter().all(|x| x.1 != b));
-            if es_no.is_none() && es_si == Some(Especial::Romper) && sin_copias(self, si) {
-                self.poner(Op::RomperSi { c, si_cero: false })?;
-                return self.arista(b, no);
+            if let (None, Some(Especial::Romper(k))) = (es_no, es_si) {
+                if sin_copias(self, si) {
+                    self.apuntar_salida(k)?;
+                    self.poner(Op::RomperSi { c, si_cero: false })?;
+                    return self.arista(b, no);
+                }
             }
-            if es_si.is_none() && es_no == Some(Especial::Romper) && sin_copias(self, no) {
-                self.poner(Op::RomperSi { c, si_cero: true })?;
-                return self.arista(b, si);
+            if let (None, Some(Especial::Romper(k))) = (es_si, es_no) {
+                if sin_copias(self, no) {
+                    self.apuntar_salida(k)?;
+                    self.poner(Op::RomperSi { c, si_cero: true })?;
+                    return self.arista(b, si);
+                }
             }
             self.poner(Op::Si { c })?;
             if let Some(e) = es_si {
@@ -709,6 +786,51 @@ impl Armador<'_> {
         }
         self.poner(Op::FinSi)?;
         Ok(union)
+    }
+
+    /// **Detras del bucle `l`**: con una salida, ella. Con varias (16 y
+    /// 21), la cadena de `si` sobre el selector, cada rama hasta donde se
+    /// juntan (el post-dominador de la cabeza: en el grafo del bucle de
+    /// fuera si lo hay), y se sigue por ahi; si no se juntan, cada rama
+    /// acaba sola (`ret`, o el Romper/Continuar del de fuera).
+    fn tras_el_bucle(&mut self, l: usize) -> Result<Option<usize>, NoPrograma> {
+        let salidas = self.bucles[l].salidas.clone();
+        let Some(sel) = self.selector(l)? else {
+            return Ok(Some(self.bucles[l].salida));
+        };
+        let cabeza = self.bucles[l].cabeza;
+        let union = match self.activos.last() {
+            Some(&f) => self.ipdom_bucle[f][cabeza].filter(|&m| m < self.bloques.len() && self.bucles[f].cuerpo[m] && self.bucles[f].cabeza != m),
+            None => self.ipdom[cabeza].filter(|&m| m < self.bloques.len()),
+        };
+        let ultima = salidas.len() - 1;
+        for (k, &s) in salidas.iter().enumerate() {
+            if k < ultima {
+                let (ck, d) = (self.constante(k as u32)?, self.temporal()?);
+                self.poner(Op::Compara { d, a: sel, b: ck, como: Comparacion::Igual, entero: true })?;
+                self.poner(Op::Si { c: d })?;
+            }
+            self.seguir(s, union)?;
+            if k < ultima {
+                self.poner(Op::SiNo)?;
+            }
+        }
+        for _ in 0..ultima {
+            self.poner(Op::FinSi)?;
+        }
+        Ok(union)
+    }
+
+    /// Desde `t` (ya con sus copias) hasta `union`: un salto especial del
+    /// bucle de fuera, o lo de detras.
+    fn seguir(&mut self, t: usize, union: Option<usize>) -> Result<(), NoPrograma> {
+        if Some(t) == union {
+            return Ok(());
+        }
+        match self.especial(t)? {
+            Some(e) => self.hacer(e),
+            None => self.emitir(t, union),
+        }
     }
 
     /// Una rama de un `Si`: la arista y lo de detras, hasta la union.
