@@ -8,7 +8,7 @@
 
 ```text
    648 casillas ABIERTAS en 63 planes
-   559 hechas
+   560 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -217,7 +217,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Q3 -- el INDICE POR HASH: es L9 de docs/plan/PLAN_LISTAS_Y_MAPAS.md
 - ... y 8 mas
 
-## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 10 abiertas, 12 hechas
+## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 10 abiertas, 13 hechas
 
 *PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
 

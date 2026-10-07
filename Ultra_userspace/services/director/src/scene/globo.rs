@@ -63,6 +63,35 @@ const NEGRO: u32 = 0x0008_0410;
 const CRISTAL_ARRIBA: u32 = 0x001C_0A3C;
 const CRISTAL_ABAJO: u32 = 0x0008_1632;
 
+/// ** CAPCOM (07-10, HM5): con el escritorio de mision, el globo habla con la
+/// paleta del gato de `tema_gen.rs` (`.mision`: el ojo, el neon, el ambar...)
+/// y su placa dice CAPCOM; sin el, la de la ciudad de noche de siempre. La
+/// forma y la animacion no cambian: solo de quien son los colores.
+fn mision() -> bool {
+    super::fondo::es_mision()
+}
+fn cian() -> u32 {
+    if mision() { super::tema_gen::MISION_OJO } else { CIAN }
+}
+fn magenta() -> u32 {
+    if mision() { super::tema_gen::MISION_NEON } else { MAGENTA }
+}
+fn amarillo() -> u32 {
+    if mision() { super::tema_gen::MISION_CUIDADO } else { AMARILLO }
+}
+fn verde() -> u32 {
+    if mision() { super::tema_gen::MISION_GO } else { VERDE }
+}
+fn rojo() -> u32 {
+    if mision() { super::tema_gen::MISION_NOGO } else { ROJO }
+}
+fn cristal_arriba() -> u32 {
+    if mision() { super::tema_gen::MISION_FONDO } else { CRISTAL_ARRIBA }
+}
+fn cristal_abajo() -> u32 {
+    if mision() { super::tema_gen::MISION_CIELO_FONDO } else { CRISTAL_ABAJO }
+}
+
 struct Globo {
     px: [u32; GUARDADO],
     caja: (u32, u32, u32, u32),
@@ -119,9 +148,9 @@ pub(crate) enum Tono {
 impl Tono {
     fn placa(self) -> u32 {
         match self {
-            Tono::Consejo => AMARILLO,
-            Tono::Bien => VERDE,
-            Tono::Mal => ROJO,
+            Tono::Consejo => amarillo(),
+            Tono::Bien => verde(),
+            Tono::Mal => rojo(),
         }
     }
 }
@@ -155,7 +184,17 @@ pub(crate) fn poner(p: &bmo::Pantalla, ax: u32, ay: u32, c: &Cara) {
     let ms = c.edad_ms;
     let queda = c.vida_ms.saturating_sub(ms);
     let n = (c.texto.len().min(LETRAS)) as u32;
-    let lleno = (n.max(c.titulo.len() as u32 + 4) * bmo::GLIFO_ANCHO + 2 * PAD).min(ANCHO_MAX);
+    // La placa: el tema, y con el escritorio de mision quien habla, CAPCOM.
+    let mut placa = [0u8; 48];
+    let pn = {
+        let pre: &[u8] = if mision() { b"CAPCOM // " } else { b"" };
+        let n = (pre.len() + c.titulo.len()).min(placa.len());
+        placa[..pre.len()].copy_from_slice(pre);
+        placa[pre.len()..n].copy_from_slice(&c.titulo[..n - pre.len()]);
+        n
+    };
+    let placa = &placa[..pn];
+    let lleno = (n.max(placa.len() as u32 + 4) * bmo::GLIFO_ANCHO + 2 * PAD).min(ANCHO_MAX);
     // ** El ancho de ahora: ENTRA con rebote (al 20 %, pasa al 108 % y vuelve
     // al 100 %) y SALE cerrandose. Es lo que lo hace de dibujo animado.
     let permil = if ms < ENTRA_MS {
@@ -204,7 +243,7 @@ pub(crate) fn poner(p: &bmo::Pantalla, ax: u32, ay: u32, c: &Cara) {
     };
 
     // El neon de ahora: late entre cian y magenta cada 2 s.
-    let neon = mezcla(CIAN, MAGENTA, onda(ms, 2000));
+    let neon = mezcla(cian(), magenta(), onda(ms, 2000));
     let (wi, hi) = (w as i32, h as i32);
 
     // 1. El RESPLANDOR: anillos por fuera, cada vez mas tenues.
@@ -232,7 +271,7 @@ pub(crate) fn poner(p: &bmo::Pantalla, ax: u32, ay: u32, c: &Cara) {
     // diagonal, y mezclado con lo de debajo (se ve a traves). El borde, neon.
     let barrido = (ms / 3) % (w as u64 + 60);
     for dy in 0..hi {
-        let fila = mezcla(CRISTAL_ARRIBA, CRISTAL_ABAJO, (dy * 256 / hi) as u32);
+        let fila = mezcla(cristal_arriba(), cristal_abajo(), (dy * 256 / hi) as u32);
         let fila = if dy % 2 == 1 { mezcla(fila, NEGRO, 60) } else { fila };
         for dx in 0..wi {
             if !dentro(dx, dy, wi, hi) {
@@ -263,7 +302,7 @@ pub(crate) fn poner(p: &bmo::Pantalla, ax: u32, ay: u32, c: &Cara) {
             let izq = bx + 6 - 8 * k / alto;
             let der = bx + 34 - 35 * k / alto;
             let y = by - 1 - k;
-            let relleno = mezcla(CRISTAL_ARRIBA, neon, 40);
+            let relleno = mezcla(cristal_arriba(), neon, 40);
             for x in izq..=der.max(izq) {
                 let orilla = x <= izq + 1 || x + 1 >= der;
                 punto(x, y, if orilla { neon } else { mezcla(debajo(x, y), relleno, 230) });
@@ -278,11 +317,11 @@ pub(crate) fn poner(p: &bmo::Pantalla, ax: u32, ay: u32, c: &Cara) {
 
     // 4. La PLACA amarilla con el tema, pisando el borde de arriba.
     let tx = bx + if colita { 40 } else { 14 };
-    let tw = c.titulo.len() as u32 * bmo::GLIFO_ANCHO + 12;
+    let tw = placa.len() as u32 * bmo::GLIFO_ANCHO + 12;
     if tx + tw + 4 < bx + w {
-        p.rect(tx + 3, by - 9 + 3, tw, bmo::GLIFO_ALTO + 2, MAGENTA);
+        p.rect(tx + 3, by - 9 + 3, tw, bmo::GLIFO_ALTO + 2, magenta());
         p.rect(tx, by - 9, tw, bmo::GLIFO_ALTO + 2, c.tono.placa());
-        p.texto_bytes(tx + 6, by - 8, c.titulo, NEGRO);
+        p.texto_bytes(tx + 6, by - 8, placa, NEGRO);
     }
 
     // 5. El TEXTO, letra a letra, con sombra de neon; las dos ultimas letras
@@ -292,19 +331,19 @@ pub(crate) fn poner(p: &bmo::Pantalla, ax: u32, ay: u32, c: &Cara) {
     let escritas = ((ms.saturating_sub(ENTRA_MS)) * LETRAS_POR_S / 1000) as usize;
     let hasta = escritas.min(c.texto.len()).min(cabe);
     let apagandose = queda < 3000;
-    let tinta = if apagandose { mezcla(TINTA, CRISTAL_ABAJO, 128) } else { TINTA };
+    let tinta = if apagandose { mezcla(TINTA, cristal_abajo(), 128) } else { TINTA };
     // Mientras se escribe; escrito del todo, ya no hay glitch.
     let firmes = if hasta < c.texto.len().min(cabe) { hasta.saturating_sub(2) } else { hasta };
     p.texto_bytes(bx + PAD + 1, ty + 1, &c.texto[..firmes], TINTA_SOMBRA);
     let cx = p.texto_bytes(bx + PAD, ty, &c.texto[..firmes], tinta);
     if hasta > firmes {
-        p.texto_bytes(cx - 1, ty, &c.texto[firmes..hasta], CIAN);
-        p.texto_bytes(cx + 1, ty, &c.texto[firmes..hasta], MAGENTA);
+        p.texto_bytes(cx - 1, ty, &c.texto[firmes..hasta], cian());
+        p.texto_bytes(cx + 1, ty, &c.texto[firmes..hasta], magenta());
     }
     if hasta < c.texto.len().min(cabe) && (ms / 200) % 2 == 0 {
         // El cursor de la maquina de escribir, parpadeando.
         let k = cx + (hasta - firmes) as u32 * bmo::GLIFO_ANCHO;
-        p.rect(k, ty + 2, 2, bmo::GLIFO_ALTO - 4, AMARILLO);
+        p.rect(k, ty + 2, 2, bmo::GLIFO_ALTO - 4, amarillo());
     }
 
     // 6. La BARRITA: lo que le queda, en degradado de cian a magenta, con la
@@ -312,12 +351,12 @@ pub(crate) fn poner(p: &bmo::Pantalla, ax: u32, ay: u32, c: &Cara) {
     let bary = by + h - 8 - BARRA;
     let largo = w - 2 * PAD;
     let lleno_b = (largo as u64 * queda / c.vida_ms.max(1)) as u32;
-    p.rect(bx + PAD, bary, largo, BARRA, mezcla(CRISTAL_ABAJO, NEGRO, 128));
+    p.rect(bx + PAD, bary, largo, BARRA, mezcla(cristal_abajo(), NEGRO, 128));
     let tramos = 16u32;
     for t in 0..tramos {
         let (a, b) = (lleno_b * t / tramos, lleno_b * (t + 1) / tramos);
         if b > a {
-            p.rect(bx + PAD + a, bary, b - a, BARRA, mezcla(CIAN, MAGENTA, t * 256 / tramos));
+            p.rect(bx + PAD + a, bary, b - a, BARRA, mezcla(cian(), magenta(), t * 256 / tramos));
         }
     }
     if lleno_b > 2 {

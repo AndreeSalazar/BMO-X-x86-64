@@ -45,7 +45,8 @@ pub(crate) fn lectura(p: &bmo::Pantalla, x: u32, y: u32, rotulo: &[u8], valor: &
     let grande = bmo::Estilo::media(26);
     // `letra` pinta con la BASE de la linea en `y`, y devuelve el ancho.
     let ancho = p.letra(x as i32, (y + 40) as i32, valor, tinta, grande).max(0);
-    p.letra(x as i32 + ancho + 6, (y + 40) as i32, unidad, MISION_TENUE, chica);
+    // La unidad como se escribe (dB, kHz, MiB): el rotulo va en mayusculas, ella no.
+    p.letra(x as i32 + ancho + 6, (y + 40) as i32, unidad, MISION_TENUE, bmo::Estilo::normal(11));
 }
 
 /// `n` en decimal, con el punto de los miles, en `b`.

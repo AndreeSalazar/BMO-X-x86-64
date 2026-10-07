@@ -359,12 +359,16 @@ pub(crate) struct Sitio {
 }
 
 const LINEA: u32 = bmo::GLIFO_ALTO + 4;
+/// Por debajo de este alto, SONIDO no lleva la banda del lazo de audio.
+const BANDA_MINIMO: u32 = 520;
 const LINEAS_NUMEROS: u32 = 7;
 
 pub(crate) fn sitio(c: &SoundWindow) -> Sitio {
     let ch = &c.chrome;
     let tx = ch.x + 16;
-    let y_aparato = ch.y + TITLE_H + 10;
+    // (HM5) Debajo de la banda del LAZO DE AUDIO, si se ve: el fader, los
+    // medidores y el mudo salen de aqui, para pintar y para el raton.
+    let y_aparato = ch.y + TITLE_H + 10 + super::bandas::alto(ch.height, BANDA_MINIMO);
     let y_aviso = y_aparato + LINEA;
     let arriba = y_aviso + LINEA + 20;
     let pie_y = (ch.y + ch.height).saturating_sub(2 * LINEA + 8);
@@ -536,6 +540,11 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &SoundWindow, panel: &Panel) {
     let l = leer();
     super::fino::punto(p, s.tx, c.chrome.y, SND_TITLE);
     super::fino::titulo(p, s.tx + 16, c.chrome.y, b"Sonido", INK, b"maestro", INK_DIM);
+    // ** EL LAZO DE AUDIO (HM5, 07-10): con el escritorio de mision, arriba.
+    let banda = super::bandas::alto(c.chrome.height, BANDA_MINIMO);
+    if banda > 0 {
+        super::bandas::lazo(p, (s.tx, c.chrome.y + TITLE_H + 6, c.chrome.width.saturating_sub(32), banda - 14), &l);
+    }
 
     cabecera(p, &s, &l);
 

@@ -86,8 +86,12 @@ const SEV_NAME: [&str; 5] = ["info", "trace", " AVISO", " FALLO", " PANICO"];
 /// aire de arriba (8), la linea de instrumentos y el pie. Con 44 la ultima fila
 /// ya caia encima del pie; con la linea de instrumentos caian dos. Lo cazo la
 /// primera captura de pantalla del metal (22:59): `...en ms de pared` pisado.
+/// Por debajo de este alto, CABINA no lleva la banda del registro de vuelo.
+const BANDA_MINIMO: u32 = 480;
+
 fn visible_rows(chrome: &Chrome) -> usize {
-    let arriba = TITLE_H + 8 + (bmo::GLIFO_ALTO + 6) + (bmo::GLIFO_ALTO + 8);
+    // (HM5) Y la banda del REGISTRO DE VUELO, si se ve: ver `bandas`.
+    let arriba = TITLE_H + 8 + (bmo::GLIFO_ALTO + 6) + (bmo::GLIFO_ALTO + 8) + super::bandas::alto(chrome.height, BANDA_MINIMO);
     let pie = bmo::GLIFO_ALTO + 8;
     let abajo = pie + LINEA_INSTRUMENTOS + 4;
     let usable = chrome.height.saturating_sub(arriba + abajo);
@@ -206,6 +210,14 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &CabinaWindow) {
     }
 
     let mut ty = c.chrome.y + TITLE_H + 8;
+    // ** EL REGISTRO DE VUELO (HM5, 07-10): con el escritorio de mision, la
+    // banda de instrumento arriba; lo de debajo baja con ella (y
+    // `visible_rows` cuenta con ella).
+    let banda = super::bandas::alto(c.chrome.height, BANDA_MINIMO);
+    if banda > 0 {
+        super::bandas::registro(p, (tx, ty, c.chrome.width.saturating_sub(32), banda - 14));
+        ty += banda;
+    }
 
     if c.programa {
         paint_programa(p, c, tx, ty);
