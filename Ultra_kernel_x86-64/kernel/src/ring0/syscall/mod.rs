@@ -189,6 +189,10 @@ mod op_gsp;
 /// repartida por los obreros. Aparte porque son las unicas que mandan a OTRO
 /// nucleo al espacio de quien llama.
 mod op_subdirector;
+/// **El futex** (07-10): esperar en una palabra de Ring 3 y despertar a N,
+/// como Linux. Aparte: es la unica puerta que lee una palabra de la app bajo
+/// el cerrojo del planificador.
+mod op_futex;
 
 #[inline]
 fn unsupported() -> BmoStatus {
@@ -366,6 +370,8 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_SUB_PREPARAR => op_subdirector::preparar(arg0, arg1),
         TASK_OP_SUB_REPARTIR => op_subdirector::repartir(arg0, arg1),
         TASK_OP_SUB_ESPERAR => op_subdirector::esperar(),
+        TASK_OP_FUTEX_ESPERAR => op_futex::esperar(arg0, arg1),
+        TASK_OP_FUTEX_DESPERTAR => op_futex::despertar(arg0, arg1),
         TASK_OP_IOMMU => op_maquina::iommu(arg0, arg1),
         // ** PROTON-X P1d: el GS de Ring 3 de ESTE hilo. Solo el suyo, asi que
         // no pide autoridad; lo unico que se exige es que sea de la mitad de

@@ -267,6 +267,16 @@ Las casillas son las de la seccion 4 de
 [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) (H0.1 a H3.2): no se
 copian. Lo NUEVO de este plan, que alli no estaba:
 
+- [~] **H1.F -- el futex, como Linux.** La base de los hilos del juego en
+      el kernel (H1): un cerrojo libre se toma en Ring 3 con una atomica;
+      solo para ESPERAR se llama al kernel. `TASK_OP_FUTEX_ESPERAR/DESPERTAR`
+      (0x42, 0x43, `syscall/op_futex.rs`): la palabra se lee por su fisica
+      bajo el cerrojo del planificador (`wait_current_checked`: un despertar
+      entre "vale" y "duermo" no se pierde), y `wake_n_by_key` despierta a N,
+      no a todos. El juez es `bmo-futex` (puro, 3 pruebas: la llave separa
+      direcciones y procesos y no choca con las otras esperas del kernel;
+      los NO; el plazo). `userland::futex`. **Falta:** que la casa lo use
+      (los hilos del juego como tareas del kernel, H1) y el metal.
 - [~] **H4.0 -- los directores salen de la CPU.** Al arrancar, el kernel
       lee la topologia de VERDAD (CPUID y MADT, la tabla de arriba) y la
       escribe como una fila de `SMP_MAESTRO`; cuantos directores, quien es

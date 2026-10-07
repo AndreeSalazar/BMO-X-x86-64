@@ -45,6 +45,7 @@ members = [
     # trozo sin hacer o dos nucleos escribiendo el mismo byte. Eso se ve tres
     # arranques despues, y por eso se prueba en el anfitrion.
     "platform/shared/bmo-orquesta",
+    "platform/shared/bmo-futex",
     # El juez del physmap. Nacio el 2026-08-30, de dos pantallas azules
     # seguidas por el mismo techo escrito a mano en el sitio equivocado.
     "platform/shared/bmo-carga-juicio",

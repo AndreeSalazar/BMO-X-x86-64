@@ -1,0 +1,12 @@
+[package]
+name = "bmo-futex"
+version = "0.1.0"
+edition = "2021"
+description = "EL FUTEX: esperar en una palabra de Ring 3 y despertar a N (el juez, con banco)"
+license = "Apache-2.0"
+
+[lib]
+
+# ** CERO DEPENDENCIAS: lo consume Ring 0 (sin asignador) y `cargo test` en
+# el anfitrion, como `bmo-orquesta`.
+[dependencies]

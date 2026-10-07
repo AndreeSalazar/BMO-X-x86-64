@@ -740,6 +740,20 @@ pub const SUB_BLOQUE: u32 = 3;
 pub const SUB_DESBORDA: u32 = 4;
 pub const SUB_OCUPADO: u32 = 5;
 pub const SUB_SIN_OBREROS: u32 = 6;
+/// **EL FUTEX** (07-10, como `futex(2)` de Linux): esperar en una palabra
+/// de 32 bits de Ring 3. `arg0` = la direccion (alineada a 4), `arg1` =
+/// `bmo_futex::empaquetar(visto, ms)`. Si la palabra ya no vale `visto`,
+/// `ERROR_NEGADO` con `FUTEX_CAMBIO` en el acto; si vale, el hilo duerme
+/// hasta un `FUTEX_DESPERTAR` en esa direccion o el plazo (`u32::MAX` ms:
+/// sin plazo). Al volver, quien llama mira su palabra otra vez.
+pub const TASK_OP_FUTEX_ESPERAR: u64 = 0x42;
+/// `FUTEX_DESPERTAR`: `arg0` = la direccion, `arg1` = cuantos como mucho.
+/// Devuelve cuantos desperto.
+pub const TASK_OP_FUTEX_DESPERTAR: u64 = 0x43;
+/// Los NO del futex (espejo de `bmo_futex::NoFutex`).
+pub const FUTEX_DESALINEADA: u32 = 1;
+pub const FUTEX_NO_ES_RING3: u32 = 2;
+pub const FUTEX_CAMBIO: u32 = 3;
 /// La ventana de reserva: 384 GiB desde `0x20_0000_0000`, hasta el final
 /// de `PML4[0]` (era de 128: Cyberpunk aparta mas de 130 GiB al arrancar).
 pub const RESERVA_VENTANA_BASE: u64 = 0x0000_0020_0000_0000;
