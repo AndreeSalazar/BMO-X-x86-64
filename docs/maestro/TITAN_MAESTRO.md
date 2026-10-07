@@ -1900,7 +1900,7 @@ ANFITRION el 04-10** (`gpu`, las 25 palabras):
 **NIVEL 11 -- G2 Y G3: TITAN++ ESCRIBE SPIR-V, Y LO JUZGA Y LO CORRE SPIRV,
 HECHO EN EL ANFITRION el 05-10:**
 
-- **El formato** (7.4 hecho codigo): `toolchain/lang/titan/emisor-spirv`
+- **(07-10: QUITADO; ahora `toolchain/lang/titan/emisor-sm86`, sin SPIR-V)** **El formato** (7.4 hecho codigo): `toolchain/lang/titan/emisor-spirv`
   escribe cada gpu fn como un modulo SPIR-V 1.0 de computo -- un hilo por celda,
   un buffer por valor --, y lo juzgan el validador de spirv y el subconjunto de
   la 3060, como si viniera de fuera. TITAN++ es el primer escritor de SPIR-V

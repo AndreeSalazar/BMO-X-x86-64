@@ -261,8 +261,8 @@ fn wrong(at: At, want: &Class, got: &Class, types: Defs, what: &str, how: &str) 
 /// ** WHO RUNS A `gpu fn` (level 11, G3 of PLAN_EL_CENTAURO), said without
 /// naming a machine or a format: given the cells of each value -- an f32 by
 /// its bits, a bool as 0 or 1 --, the cells of the result. The emitter's
-/// side gives one that writes the gpu fn as SPIR-V and runs it in spirv's
-/// ORACLE; without one, the calculation runs each thread itself, with f32 of
+/// side gives one that writes the gpu fn as SM86 (the house Programa, the
+/// 3060 emitter and its judge) and runs it in the 3060 SIMULATOR; without one, the calculation runs each thread itself, with f32 of
 /// single precision. The two benches compare the same `# sale:` lines, so
 /// the day they disagreed, one of them would say it.
 pub trait Device: Send {
@@ -324,7 +324,7 @@ pub fn unfolded(m: &Module) -> Result<Module, Message> {
 
 /// ** A `gpu fn` run by the CALCULATION on given cells (level 11): an f32 by
 /// its bits, a bool as 0 or 1 -- the same cells a `Device` gets. It is the
-/// reference the oracle of spirv is measured against at every build, cell by
+/// reference the oracle (the simulated 3060) is measured against at every build, cell by
 /// cell, so that nobody has to guess whether the two agree.
 pub fn run_gpu(m: &Module, func: usize, cells: &[Vec<u32>]) -> Result<Vec<u32>, Message> {
     let f = &m.functions[func];
@@ -577,7 +577,7 @@ impl Run<'_, '_> {
                 at.0,
                 at.1,
                 &format!("la 3060 no pudo correr `{}`", m.functions[func].name),
-                &format!("es un fallo del escritor de SPIR-V o del oraculo, no del programa: {}", why),
+                &format!("es un fallo del escritor de la 3060, de su juez o del oraculo, no del programa: {}", why),
                 "avisa con este programa",
             )
         })?;

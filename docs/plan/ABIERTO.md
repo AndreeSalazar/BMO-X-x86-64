@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   734 casillas ABIERTAS en 67 planes
-   575 hechas
+   733 casillas ABIERTAS en 67 planes
+   576 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -154,15 +154,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M2 MP3 (= A5) media tarde de comprobar la coma flotante antes
 - ... y 13 mas
 
-## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 15 abiertas, 0 hechas
-
-*PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
-
-- [ ] **LI0 -- EL CENSO de la 3060: cuantos PSO de Cyberpunk pasarian, y
-- [ ] LI1 -- traducir y juzgar al CREAR, no al dibujar. Es VC1 de
-- [ ] LI2a -- SV_Position en el de pixeles (N5.9). La 3060 la da en
-- ... y 12 mas
-
 ## [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) -- 15 abiertas, 14 hechas
 
 *PLAN EL TROQUEL -- la geometria de los registros, estampada de un golpe*
@@ -171,6 +162,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S2 -- LA TABLA DE REGISTROS COMO DATO, no como codigo. x86-64 nombra
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
+
+## [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md) -- 14 abiertas, 1 hechas
+
+*PLAN EL LIBRETO -- Cyberpunk 2077 entra por VERRANO*
+
+- [ ] **LI0 -- EL CENSO de la 3060: cuantos PSO de Cyberpunk pasarian, y
+- [ ] LI1 -- traducir y juzgar al CREAR, no al dibujar. Es VC1 de
+- [ ] LI2a -- SV_Position en el de pixeles (N5.9). La 3060 la da en
+- ... y 11 mas
 
 ## [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) -- 14 abiertas, 1 hechas
 

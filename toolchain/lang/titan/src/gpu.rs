@@ -2,8 +2,8 @@
 //!
 //! A `gpu fn` is written for ONE cell and runs as one thread of the 3060 per
 //! cell (D1, FORTRAN's elemental functions). What it may hold is what a
-//! thread of the 3060 does well and what the SPIR-V subset the house takes to
-//! SASS can say -- nothing else:
+//! thread of the 3060 does well and what the house Programa and the 3060
+//! emitter can say -- nothing else (07-10: no SPIR-V in between):
 //!
 //! ```text
 //!    its values    f32 and bool, each a COPY: a thread has its own cell
@@ -19,7 +19,7 @@
 //! needs the `Titan.toml` to ask for `gpu`, like `use gpu` (T0088).
 //!
 //! [!] Loops and calls between `gpu fn` are not refused for ever: they wait
-//! for the SPIR-V writer (G2) to carry them, and each one enters with its own
+//! for the 3060 writer (`bmo-titan-sm86`) to carry them (IL1 of ILLAPA), and each one enters with its own
 //! example. Said here so nobody takes the NO for a decision.
 
 use crate::message::{Code, Message};
@@ -87,9 +87,9 @@ fn body(f: &Function, stmts: &[Stmt]) -> Result<(), Message> {
             Stmt::Return { value: Some(v), .. } => expr(v)?,
             Stmt::Return { line, col, value: None } => return Err(no(*line, *col, "un `return` sin valor en una gpu fn", "cada hilo devuelve su celda", "return x")),
             Stmt::Call(c) if c.callee == "print" => return Err(no(c.line, c.col, "`print` dentro de una gpu fn", "la 3060 no tiene consola: miles de hilos escribiendo a la vez no dirian nada que se pueda leer", "devuelve el valor, y escribelo en la CPU: print(round(x, 2))")),
-            Stmt::Call(c) => return Err(no(c.line, c.col, &format!("`{}()` dentro de una gpu fn", c.callee), "una gpu fn no llama a nada todavia: lo que corre en la 3060 se escribe entero en ella (las llamadas entre gpu fn llegan con el escritor de SPIR-V, G2)", "escribe el calculo aqui mismo")),
-            Stmt::While(w) => return Err(no(w.line, w.col, "un bucle dentro de una gpu fn", "el bucle de una gpu fn ES la tabla: un hilo por celda. Los bucles dentro de un hilo llegan con el escritor de SPIR-V (G2)", "aplica la gpu fn a una tabla mas grande")),
-            Stmt::For(fo) => return Err(no(fo.line, fo.col, "un bucle dentro de una gpu fn", "el bucle de una gpu fn ES la tabla: un hilo por celda. Los bucles dentro de un hilo llegan con el escritor de SPIR-V (G2)", "aplica la gpu fn a una tabla mas grande")),
+            Stmt::Call(c) => return Err(no(c.line, c.col, &format!("`{}()` dentro de una gpu fn", c.callee), "una gpu fn no llama a nada todavia: lo que corre en la 3060 se escribe entero en ella (las llamadas entre gpu fn llegan con el escritor de la 3060, IL1)", "escribe el calculo aqui mismo")),
+            Stmt::While(w) => return Err(no(w.line, w.col, "un bucle dentro de una gpu fn", "el bucle de una gpu fn ES la tabla: un hilo por celda. Los bucles dentro de un hilo llegan con el escritor de la 3060 (IL1)", "aplica la gpu fn a una tabla mas grande")),
+            Stmt::For(fo) => return Err(no(fo.line, fo.col, "un bucle dentro de una gpu fn", "el bucle de una gpu fn ES la tabla: un hilo por celda. Los bucles dentro de un hilo llegan con el escritor de la 3060 (IL1)", "aplica la gpu fn a una tabla mas grande")),
             Stmt::Match { line, col, .. } => return Err(no(*line, *col, "un `match` dentro de una gpu fn", "dentro de una gpu fn solo hay f32 y bool: no hay enum que mirar", "decide con if / else")),
             Stmt::SetAt { line, col, .. } => return Err(no(*line, *col, "una parte de un valor cambia dentro de una gpu fn", "dentro de una gpu fn no hay tablas ni registros: cada hilo tiene su celda", "devuelve el valor nuevo")),
             Stmt::Break { line, col } | Stmt::Continue { line, col } => return Err(no(*line, *col, "`break` / `continue` dentro de una gpu fn", "una gpu fn no tiene bucles", "decide con if / else")),

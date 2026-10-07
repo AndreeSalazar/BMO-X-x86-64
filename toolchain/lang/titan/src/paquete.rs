@@ -75,7 +75,7 @@ pub struct Package {
 
 /// ** THE PACKAGE'S MAP OF LINES: each file and the line its count starts
 /// at. It travels in the IR (`ir::Module::sources`), so whoever receives the
-/// module -- the SPIR-V writer, the certificate -- can turn a package-wide
+/// module -- the 3060 writer, the certificate -- can turn a package-wide
 /// line back into its file and its own line.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Sources(pub Vec<(String, usize)>);
