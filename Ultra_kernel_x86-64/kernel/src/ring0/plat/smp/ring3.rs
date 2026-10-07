@@ -141,11 +141,24 @@ static IDT_LISTA: AtomicBool = AtomicBool::new(false);
 // Los 32 stubs. Con codigo de error (8, 10..14, 17, 21, 29, 30) el marco
 // mide 48 bytes; sin el, 40. El puntero al salto esta justo encima (lo alto
 // de la pila de trap). `sin`/`con`: sin o con codigo de error.
+//
+// *** LA VENTANA DE RING 0 (07-10, tras el reinicio del metal con `smp
+// all`). Entre el `lidt` de esta IDT y el `iretq` de la ida, y entre la
+// entrada a un stub y el `lidt` de la vuelta, el obrero esta en Ring 0 CON
+// ESTA IDT. Algo que llegue ahi (la NMI de rescate justo en ese momento, o
+// un fallo) entra SIN cambio de pila: lo de `[rsp + 40]` no es el salto, se
+// escribe en cualquier sitio, y fallo sobre fallo es un TRIPLE FALLO -- la
+// maquina entera reinicia. Por eso cada stub mira primero el CS de donde
+// viene: de Ring 0, una NMI se ignora (`iretq`) y cualquier otra cosa PARA
+// a ese obrero solo (`bmo_ring3_en_apuros`), apuntado para que el BSP lo
+// diga. Nunca la maquina.
 macro_rules! stub {
     (sin $v:literal) => {
         core::arch::global_asm!(
             concat!(".global bmo_ring3_stub_", $v),
             concat!("bmo_ring3_stub_", $v, ":"),
+            "test qword ptr [rsp + 8], 3",
+            concat!("jz bmo_ring3_desde_ring0_", $v),
             "mov rax, [rsp + 40]",
             concat!("mov qword ptr [rax + 56], ", $v),
             "xor ecx, ecx",
@@ -155,12 +168,20 @@ macro_rules! stub {
             "mov rcx, cr2",
             "mov [rax + 80], rcx",
             "jmp bmo_ring3_volver",
+            concat!("bmo_ring3_desde_ring0_", $v, ":"),
+            concat!(".if ", $v, " == 2"),
+            "iretq",
+            ".else",
+            "jmp bmo_ring3_en_apuros",
+            ".endif",
         );
     };
     (con $v:literal) => {
         core::arch::global_asm!(
             concat!(".global bmo_ring3_stub_", $v),
             concat!("bmo_ring3_stub_", $v, ":"),
+            "test qword ptr [rsp + 16], 3",
+            "jz bmo_ring3_en_apuros",
             "mov rax, [rsp + 48]",
             concat!("mov qword ptr [rax + 56], ", $v),
             "mov rcx, [rsp]",
@@ -173,6 +194,29 @@ macro_rules! stub {
         );
     };
 }
+
+/// Cuantos obreros se pararon por algo en la VENTANA de Ring 0 (ver arriba).
+#[no_mangle]
+static BMO_RING3_APUROS: AtomicU64 = AtomicU64::new(0);
+
+// Un obrero con algo en la ventana de Ring 0: se apunta y se PARA (con
+// `cli; hlt`; una NMI que llegue despues vuelve al `hlt` por el stub 2).
+// Sin escribir en nada mas: su pila puede no ser la que se cree.
+core::arch::global_asm!(
+    ".global bmo_ring3_en_apuros",
+    "bmo_ring3_en_apuros:",
+    "lock inc qword ptr [rip + BMO_RING3_APUROS]",
+    "2:",
+    "cli",
+    "hlt",
+    "jmp 2b",
+);
+
+/// Los obreros parados en la ventana de Ring 0 (ver los stubs).
+pub fn apuros() -> u64 {
+    BMO_RING3_APUROS.load(SeqCst)
+}
+
 stub!(sin 0); stub!(sin 1); stub!(sin 2); stub!(sin 3); stub!(sin 4); stub!(sin 5); stub!(sin 6); stub!(sin 7);
 stub!(con 8); stub!(sin 9); stub!(con 10); stub!(con 11); stub!(con 12); stub!(con 13); stub!(con 14); stub!(sin 15);
 stub!(sin 16); stub!(con 17); stub!(sin 18); stub!(sin 19); stub!(sin 20); stub!(con 21); stub!(sin 22); stub!(sin 23);
@@ -389,6 +433,15 @@ static PREP_PARTES: AtomicU32 = AtomicU32::new(0);
 
 // Lo que se ve en `smp`: cuantas partes de Ring 3 hechas y falladas.
 static PARTES_BIEN: AtomicU64 = AtomicU64::new(0);
+// LAS MIGAS (07-10): lo que el BSP apunta en CABINA (y por ella en la caja
+// negra, `CAIDA.TXT`): el primer reparto, las primeras partes que fallan con
+// su vector, rip y cr2, y los obreros parados en la ventana de Ring 0.
+static DICHO_PRIMERO: AtomicBool = AtomicBool::new(false);
+static FALLO_VECTOR: AtomicU64 = AtomicU64::new(0);
+static FALLO_RIP: AtomicU64 = AtomicU64::new(0);
+static FALLO_CR2: AtomicU64 = AtomicU64::new(0);
+static FALLOS_DICHOS: AtomicU32 = AtomicU32::new(0);
+static APUROS_DICHOS: AtomicU64 = AtomicU64::new(0);
 static PARTES_MAL: AtomicU64 = AtomicU64::new(0);
 
 /// Si hay una faena de Ring 3 en marcha (`crew::repartir` no reparte encima).
@@ -472,6 +525,10 @@ pub fn repartir(pid: u32, cr3: u64, gs: u64, funcion: u64, arg: u64) -> Result<u
     HECHAS.store(0, SeqCst);
     EMPEZO.store(crate::ring0::task::scheduler::rdtsc(), SeqCst);
     ACTIVA.store(true, SeqCst);
+    if !DICHO_PRIMERO.swap(true, SeqCst) {
+        crate::ring0::cabina::info("smp", "sub-directores: PRIMER reparto de Ring 3; partes", p.partes as u64);
+        crate::ring0::cabina::info("smp", "sub-directores: obreros con parte", (k - 1) as u64);
+    }
     // La faena del kernel, a ninguna (un obrero que vea esta ronda y no
     // tenga parte de Ring 3 no repite la de antes), y la ronda: la signal.
     super::crew::TAREA.store(0, SeqCst);
@@ -508,6 +565,7 @@ pub fn esperar(pid: u32) -> Result<Option<u64>, NoRing3> {
         }
         crate::ring0::cabina::warn("smp", "sub-director: una parte no volvio a tiempo (rescatada con NMI)", pasado);
     }
+    decir_migas();
     let mut mal = 0u64;
     for k in 1..partes {
         if RESULTADO[k as usize].load(SeqCst) != BIEN {
@@ -519,6 +577,21 @@ pub fn esperar(pid: u32) -> Result<Option<u64>, NoRing3> {
     }
     ACTIVA.store(false, SeqCst);
     Ok(Some(mal))
+}
+
+/// Lo que paso desde la ultima vez, a CABINA (lo llama el BSP al cerrar una
+/// faena): la ultima parte que fallo (las 8 primeras) y los obreros parados.
+fn decir_migas() {
+    let v = FALLO_VECTOR.swap(0, SeqCst);
+    if v != 0 && FALLOS_DICHOS.fetch_add(1, SeqCst) < 8 {
+        crate::ring0::cabina::warn("smp", "sub-director: una parte FALLO en Ring 3 (la rehace la app); vector", v & 0xFF);
+        crate::ring0::cabina::warn("smp", "  ...rip", FALLO_RIP.load(SeqCst));
+        crate::ring0::cabina::warn("smp", "  ...cr2", FALLO_CR2.load(SeqCst));
+    }
+    let a = apuros();
+    if a != APUROS_DICHOS.swap(a, SeqCst) {
+        crate::ring0::cabina::warn("smp", "sub-director: un obrero se PARO en la ventana de Ring 0 (no la maquina); van", a);
+    }
 }
 
 /// **El obrero `indice` atiende su parte**, si tiene. `false` si no hay
@@ -545,6 +618,11 @@ pub fn atender(indice: u32) -> bool {
             PARTES_BIEN.fetch_add(1, SeqCst);
         } else {
             PARTES_MAL.fetch_add(1, SeqCst);
+            // SAFETY: el salto del obrero `i`, solo suyo, ya de vuelta.
+            let salto = unsafe { &*core::ptr::addr_of!(SALTOS[i]) };
+            FALLO_RIP.store(salto.rip, SeqCst);
+            FALLO_CR2.store(salto.cr2, SeqCst);
+            FALLO_VECTOR.store(1 << 32 | (r & 0xFF), SeqCst);
         }
         ASIGNADA[i].store(0, SeqCst);
         HECHAS.fetch_add(1, SeqCst);

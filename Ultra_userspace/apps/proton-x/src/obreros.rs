@@ -67,8 +67,21 @@ static DICHO: AtomicBool = AtomicBool::new(false);
 static REPARTOS: AtomicU64 = AtomicU64::new(0);
 static REHECHAS: AtomicU64 = AtomicU64::new(0);
 
+/// `--sin-obreros`: apagados.
+static APAGADOS: AtomicBool = AtomicBool::new(false);
+
+/// **Apagar los sub-directores** (`--sin-obreros`): todo el dibujo en este
+/// nucleo, aunque haya obreros en pie.
+pub fn apagar() {
+    APAGADOS.store(true, Relaxed);
+    bmo::consola("PROTON-X: los sub-directores APAGADOS (--sin-obreros): el dibujo de la CPU, en un nucleo\n");
+}
+
 /// **En cuantas partes se puede repartir ahora** (`Plataforma::obreros`).
 pub fn cuantos() -> u32 {
+    if APAGADOS.load(Relaxed) {
+        return 0;
+    }
     if PREGUNTAS.fetch_add(1, Relaxed) % 512 == 0 {
         SANOS.store(bmo::subdirectores::info(), Relaxed);
     }

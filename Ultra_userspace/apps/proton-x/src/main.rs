@@ -41,6 +41,10 @@
 //! `informe/diario.txt` cada funcion de Windows que el `.exe` llama por
 //! primera vez, en orden: `run sys/proton-x.bex --diario window/hola.exe`.
 //!
+//! **Sin obreros** (07-10): `--sin-obreros` apaga los sub-directores (el
+//! dibujo de la CPU en franjas por los otros nucleos, `obreros.rs`) aunque
+//! haya `smp all`. Va con `--diario` en cualquier orden.
+//!
 //! **El GS de Windows** (P1d, 27-09): antes de saltar, un TEB y un PEB en el
 //! monton y el GS del hilo apuntando al TEB (`TASK_OP_PON_GS`). Un `.exe`
 //! encuentra ahi su pila, su base, su LastError y sus ids, como en Windows
@@ -913,10 +917,20 @@ pub extern "C" fn _start() -> ! {
     // (`informe/diario.txt`) con el monton a 0 -- el primer contacto del
     // metal (30-09) no paso de aqui. El banco no lo veia: alli el monton
     // existe siempre.
-    let (todo, con_diario) = match todo.strip_prefix(b"--diario ") {
-        Some(r) => (r, true),
-        None => (todo, false),
-    };
+    // ** `--sin-obreros` (07-10): los sub-directores APAGADOS -- todo el
+    // dibujo en el nucleo de la casa, aunque haya `smp all`. Para comparar
+    // en el metal sin recompilar. En cualquier orden con `--diario`.
+    let (mut todo, mut con_diario) = (todo, false);
+    loop {
+        if let Some(r) = todo.strip_prefix(b"--diario ") {
+            (todo, con_diario) = (r, true);
+        } else if let Some(r) = todo.strip_prefix(b"--sin-obreros ") {
+            todo = r;
+            obreros::apagar();
+        } else {
+            break;
+        }
+    }
     // P4e: `window/x.exe lo de detras` -- la ruta hasta el primer espacio; lo
     // demas es la linea de ordenes del `.exe` (GetCommandLineW). N2: o entre
     // comillas, que las rutas de D: llevan espacios (`"d:Cyberpunk 2077/..."`).
