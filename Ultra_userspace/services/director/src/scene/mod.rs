@@ -59,6 +59,7 @@ pub(crate) mod hud;
 pub(crate) mod vitales_hud;
 /// Las bandas de F10 y F11 (07-10, HM5): el lazo de audio y el registro de vuelo.
 pub(crate) mod bandas;
+pub(crate) mod trayectoria;
 /// La NEBULOSA quieta, generada por MAQUETA desde
 /// `toolchain/tools/maqueta/escritorio/nebulosa.maqueta`. No se edita a mano.
 pub(crate) mod nebulosa_gen;
