@@ -299,6 +299,58 @@ TITAN++ entinta una pagina sin trabarse, ha pasado el examen.
 
 ---
 
+# 4b. EL FORMATO PROPIO: la `.obra`
+
+> El propietario, 07-10: *"me gustaria inspirarme de .psd ... pero que se
+> pueda aplicar exclusivo en BMO-X, pero ese guardado tiene git propio"*. Y
+> al leer la propuesta: *".obra me encanta"*.
+
+## Lo que se copia del `.psd`, y lo que no
+
+Un `.psd` es UN fichero binario, en este orden:
+
+```text
+   cabecera "8BPS"  ->  modo de color  ->  recursos (guias, perfil ICC...)
+   ->  capas y mascaras  ->  la imagen YA COMPUESTA, al final
+```
+
+* **Se copia** la imagen compuesta: cualquiera que no entienda las capas la
+  puede ensenar igual. En la `.obra` es `vista.png`.
+* **No se copia** que sea un bloque: cambiar un pixel reescribe el fichero
+  entero, y guardar encima pierde lo de antes. No tiene historia.
+
+## La `.obra` es un NODO de ESTRATOS, no un fichero
+
+```text
+   mi_manga.obra/
+     obra.txt          el manifiesto: tamanio, paginas, orden de las capas,
+                       su modo y su opacidad (texto, como `director.cfg`)
+     vista.png         la compuesta: F2 la muestra sin entender nada mas
+     pag01/
+       fondo/          una CAPA = una carpeta
+         t_03_07       una TESELA de 256 = un fichero, solo las pintadas
+       tinta/
+       tramas/
+     pag02/
+       ...
+```
+
+## Y el "git propio" sale de lo que ESTRATOS ya es
+
+| lo de git | en la `.obra` | lo pone |
+|---|---|---|
+| un commit | cada GUARDADO es una version; las teselas que no cambiaron se COMPARTEN con la anterior (copiar-al-escribir), asi que cien guardados de una pagina no pesan cien paginas | ESTRATOS |
+| una etiqueta | marcar una version con nombre ("entintado listo"): queda PERMANENTE | `estratos::marcar` |
+| una rama | "boceto-A" y "boceto-B" de la misma escena, o probar otro color sin miedo | `PLAN_LAS_RAMAS.md` |
+| la mezcla | por NODOS, y cada capa es un nodo: el fondo pintado en una rama y la tinta en otra se juntan solas; solo pregunta si las dos tocaron la MISMA capa (y se puede afinar hasta la misma tesela) | la mezcla de R5, con su candado |
+| el historial | la TRAYECTORIA de F12 (HM6d): cada guardado un encendido, las marcadas puntos de paso, las ramas juntandose en la MEZCLA | `scene/trayectoria.rs` |
+
+**Lo que ni Adobe ni Clip Studio tienen**: Photoshop guarda una FOTO del
+dibujo; la `.obra` guarda la HISTORIA del dibujo, con ramas. Clip Studio
+tiene historial de deshacer, pero ni ramas ni mezcla.
+
+---
+
 # 5. LA ESCALERA
 
 Cada peldanio es UNA cosa que se puede probar sola. El orden es el de la
@@ -318,6 +370,10 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 - [ ] TB1 -- EL LIENZO MINIMO en TITAN++: una capa, un pincel redondo con antialias, la goma, y exportar PNG. La prueba: el tiempo de un trazo a lo largo de la pantalla, medido
 - [ ] TB2 -- CAPAS Y FUSION: N capas con opacidad y los modos normal, multiplicar y pantalla; la fusion como `gpu fn` con su camino en la CPU, y el oraculo de los tres
 - [ ] TB3 -- TESELAS E HISTORIAL: capas en teselas de 256 (las vacias no existen) y deshacer/rehacer sobre ESTRATOS
+- [ ] TB5 -- LA `.obra` (seccion 4b): el manifiesto `obra.txt`, una carpeta por capa, un fichero por tesela pintada y la `vista.png` compuesta; leerla y escribirla desde TITAN++, con su banco en el anfitrion
+- [ ] TB6 -- GUARDAR ES UNA VERSION: cada guardado publica un estrato, las teselas sin tocar se comparten, y marcar con nombre la hace permanente
+- [ ] TB7 -- RAMAS Y MEZCLA DE LA OBRA: una rama por intento, y la mezcla por capas (cada capa un nodo de R5); la pregunta solo cuando dos ramas tocaron la misma capa, y despues afinarla a la misma tesela
+- [ ] TB8 -- LA TRAYECTORIA DE LA OBRA: F12 (`scene/trayectoria.rs`) pinta la historia de una `.obra`, con la miniatura de cada version sacada de su `vista.png`
 - [ ] TB4 -- SELECCION Y RELLENO: la mascara de seleccion, el cubo con referencia a otra capa y "cerrar huecos"
 
 ## 5c. Manga
@@ -360,8 +416,8 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 * **No es un clon ni es para vender.** Ni los menus, ni los atajos de Adobe o
   de Celsys. Es para las necesidades del propietario.
 * **Ni `.psd` ni `.clip`** (decidido el 07-10): *"con ABI se puede pero
-  sinceramente no voy a meterme con ellos"*. La obra se guarda en lo de
-  BMO-X, y sale en PNG, SVG y PDF, que lee todo el mundo.
+  sinceramente no voy a meterme con ellos"*. La obra se guarda en su `.obra`
+  (seccion 4b), y sale en PNG, SVG y PDF, que lee todo el mundo.
 * **Nada de IA generativa, nube, plugins de terceros ni modelos 3D.**
 * **Nada de color de imprenta (CMYK) ni de 16/32 bits al principio.** Manga en
   blanco y negro y en 8 bits primero: es lo que se imprime.
@@ -386,8 +442,9 @@ Ninguna corre prisa: se contestan el dia que se empiece.
    D4  LA PAGINA        el tamanio objetivo: B4 a 600 ppp en blanco y negro
                         (manga de imprenta), o 350 ppp en color
    D5  EL PRIMER TEST   TB1 con raton, o esperar a la Wacom
-   D6  LOS FORMATOS     CONTESTADA (07-10): ni .psd ni .clip; lo propio, y
-                        PNG, SVG y PDF de salida
+   D6  LOS FORMATOS     CONTESTADA (07-10): ni .psd ni .clip; lo propio es
+                        la `.obra` (seccion 4b, "me encanta"), y sale en PNG,
+                        SVG y PDF
 ```
 
 ---

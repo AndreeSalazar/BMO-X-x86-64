@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   679 casillas ABIERTAS en 64 planes
+   683 casillas ABIERTAS en 64 planes
    567 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -55,6 +55,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
 - ... y 43 mas
 
+## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 37 abiertas, 0 hechas
+
+*PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total*
+
+- [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
+- [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido 
+- [ ] TA2 -- la VENTANA: el nodo screen de TITAN++ (pedir superficie, escribir una fila de pixeles, pr
+- ... y 34 mas
+
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 33 abiertas, 13 hechas
 
 *PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
@@ -62,15 +71,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] J2 -- la antena pide la lista a GOG, EN RUST. Cambiado el 29-09
 - [ ] J3 -- traer los DATOS de un juego nativo. El WAD o PAK de un juego
 - [ ] J2b -- itch.io, la API oficial. En la antena: la clave que el
-- ... y 30 mas
-
-## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 33 abiertas, 0 hechas
-
-*PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total*
-
-- [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
-- [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido 
-- [ ] TA2 -- la VENTANA: el nodo screen de TITAN++ (pedir superficie, escribir una fila de pixeles, pr
 - ... y 30 mas
 
 ## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 31 abiertas, 10 hechas
