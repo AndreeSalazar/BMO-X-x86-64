@@ -264,6 +264,10 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
             // Se dice ANTES de mandarlo, no despues: si el que cuelga es este,
             // el numero ya esta en pantalla.
             aviso(id);
+            {
+                use crate::ring0::cabina::tablero as t;
+                t::marcar(t::SMP_BSP, t::LLAMA_AP, id as u64, *slot);
+            }
             lapic::ipi(id, lapic::INIT);
             lapic::esperar_us(10_000);
             lapic::ipi(id, lapic::SIPI);
@@ -303,6 +307,10 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
 
     let alive = tramp::VIVOS.load(Ordering::SeqCst);
     let mascara = tramp::MASCARA.load(Ordering::SeqCst);
+    {
+        use crate::ring0::cabina::tablero as t;
+        t::marcar(t::SMP_BSP, t::CONTADOS, alive as u64, pedidos as u64);
+    }
 
     // * TAMBIEN AL KLOG, y esto era un fallo mio de bulto: todo el relato del
     // bring-up iba **solo a CABINA**, que Ring 3 no puede leer. El mensaje del

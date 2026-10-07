@@ -36,7 +36,9 @@ pub const CASILLAS: usize = ((BYTES - CAB) / 32) as usize;
 /// por casilla desde [`OBREROS`].
 pub const SUB_BSP: usize = 0;
 pub const ALARMA: usize = 1;
-pub const OBREROS: usize = 2;
+/// El BSP despertando a los obreros (`smp all`).
+pub const SMP_BSP: usize = 2;
+pub const OBREROS: usize = 3;
 
 /// Las etapas (el numero que se guarda) y como se dicen.
 pub const REPARTE: u64 = 1;
@@ -44,6 +46,10 @@ pub const ACABO: u64 = 2;
 pub const SALTA: u64 = 3;
 pub const ENTRA_RING3: u64 = 10;
 pub const VUELVE: u64 = 11;
+pub const LLAMA_AP: u64 = 20;
+pub const AP_ARRANCA: u64 = 21;
+pub const AP_LISTO: u64 = 22;
+pub const CONTADOS: u64 = 23;
 
 fn nombre(etapa: u64) -> &'static str {
     match etapa {
@@ -52,6 +58,10 @@ fn nombre(etapa: u64) -> &'static str {
         SALTA => "la ALARMA mando a la puerta (a = rip, b = tid)",
         ENTRA_RING3 => "ENTRA en Ring 3 (a = faena, b = parte)",
         VUELVE => "VOLVIO de Ring 3 (a = faena, b = vector<<48 + rip)",
+        LLAMA_AP => "el BSP LLAMA a un obrero: INIT+SIPI (a = apic, b = orden)",
+        AP_ARRANCA => "ARRANCA en 64 bits, sin GDT ni TSS propios (a = apic)",
+        AP_LISTO => "LISTO: GDT, TSS y XSAVE puestos; al bucle (a = apic)",
+        CONTADOS => "el BSP CONTO los obreros (a = vivos, b = pedidos)",
         _ => "etapa desconocida",
     }
 }
@@ -128,6 +138,7 @@ pub(super) fn abrir(virt: u64, decir: &mut dyn FnMut(&str)) {
                 match c {
                     SUB_BSP => l.txt("BSP sub-dir: "),
                     ALARMA => l.txt("BSP alarma: "),
+                    SMP_BSP => l.txt("BSP smp: "),
                     _ => {
                         l.txt("obrero ");
                         l.dec((c - OBREROS) as u64);
