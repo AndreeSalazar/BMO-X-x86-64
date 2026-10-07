@@ -2,7 +2,7 @@
 //! EXPROPIAR; *"se reinicio, entonces vamos a aplicar EXPROPIAR"*).
 //!
 //! [carril]  ROJO      cambia el RIP del marco de una tarea de Ring 3
-//! [cuesta]  PROCESO   una puerta mala solo rompe a la tarea que la armo
+//! [cuesta]  TAREA     una puerta mala solo rompe a la tarea que la armo
 //! [consumo] NADA      sin alarmas armadas, una comparacion por tick
 //!
 //! La casa de PROTON-X corre los hilos de un juego DENTRO de una tarea, uno

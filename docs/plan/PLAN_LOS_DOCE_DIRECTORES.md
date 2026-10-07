@@ -276,8 +276,8 @@ kernel. `cpu_vendor/ryzen_5_5600x/` es la fila de HOY, no la unica.
       (fxsave), y si el RIP era del JUEGO (el `.exe` y sus DLL) y su cuanto
       paso, cede el turno como un SwitchToThread ahi; lo de la casa, los
       sombreadores nativos y los trampolines no se tocan. El juez es
-      `bmo-alarma` (puro, 4 pruebas). La app la arma antes de saltar
-      (`--sin-expropiar` la apaga). El pulso dice `# EXPROPIAR: ...` con
+      `bmo-alarma` (puro, 4 pruebas). La app la arma SIEMPRE antes de saltar
+      (sin orden para apagarla: el kernel es el orquestador). El pulso dice `# EXPROPIAR: ...` con
       DONDE pillo al juego la ultima vez (si se cuelga dando vueltas, es
       ahi), y la foto sale aunque nadie llame a Windows.
       **Como se sabe:** `tests/corre/expropiar.rs` (el kernel del banco es

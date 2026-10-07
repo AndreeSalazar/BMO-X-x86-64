@@ -2,7 +2,7 @@
 //!
 //! [carril]  ROJO      salta en medio del codigo del juego, en cualquier
 //!                     instruccion, y tiene que dejarlo TODO como estaba
-//! [cuesta]  PROCESO   un registro mal devuelto rompe al juego, no a BMO-X
+//! [cuesta]  TAREA     un registro mal devuelto rompe al juego, no a BMO-X
 //! [consumo] NADA      una visita cada 4 ms; ceder, solo si hay otro listo
 //!
 //! El metal (07-10): Cyberpunk a los 24 s, un hilo dando vueltas en SU

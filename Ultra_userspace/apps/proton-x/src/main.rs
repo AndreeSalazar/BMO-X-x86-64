@@ -48,7 +48,8 @@
 //! **EXPROPIAR** (07-10): antes de saltar, la ALARMA del kernel
 //! (`bmo::alarma`): cada 4 ms visita la puerta de la casa, que le quita el
 //! turno al hilo del juego que no lo suelta (`bmo_proton_x_casa::expropiar`).
-//! `--sin-expropiar` la deja apagada, para comparar en el metal.
+//! SIEMPRE, sin orden para apagarla: el kernel es el orquestador, y un hilo
+//! que no suelta el nucleo nunca tiene razon (asi Windows y Linux).
 //!
 //! **El GS de Windows** (P1d, 27-09): antes de saltar, un TEB y un PEB en el
 //! monton y el GS del hilo apuntando al TEB (`TASK_OP_PON_GS`). Un `.exe`
@@ -929,14 +930,10 @@ pub extern "C" fn _start() -> ! {
     // ** `--sin-obreros` (07-10): los sub-directores APAGADOS -- todo el
     // dibujo en el nucleo de la casa, aunque haya `smp all`. Para comparar
     // en el metal sin recompilar. En cualquier orden con `--diario`.
-    // ** `--sin-expropiar` (07-10): sin la alarma del kernel; los hilos del
-    // juego solo sueltan el turno en las puertas de la casa (como antes).
-    let (mut todo, mut con_diario, mut expropiar) = (todo, false, true);
+    let (mut todo, mut con_diario) = (todo, false);
     loop {
         if let Some(r) = todo.strip_prefix(b"--diario ") {
             (todo, con_diario) = (r, true);
-        } else if let Some(r) = todo.strip_prefix(b"--sin-expropiar ") {
-            (todo, expropiar) = (r, false);
         } else if let Some(r) = todo.strip_prefix(b"--sin-obreros ") {
             todo = r;
             obreros::apagar();
@@ -1216,14 +1213,10 @@ pub extern "C" fn _start() -> ! {
     // ya lo dijeron al registrarse), y la alarma, armada: cada 4 ms el
     // kernel visita la puerta de la casa.
     bmo_proton_x_casa::expropiar::juego(base, exe.pe.tam_imagen as u64);
-    if expropiar {
-        let (inicio, fin, buzon) = bmo_proton_x_casa::expropiar::puerta();
-        match bmo::alarma::armar(inicio, fin, buzon, EXPROPIAR_MS) {
-            Ok(()) => di(&format!("PROTON-X: EXPROPIAR: la alarma del kernel, cada {EXPROPIAR_MS} ms (puerta {inicio:#x}, {} B)\n", fin - inicio)),
-            Err(no) => di(&format!("PROTON-X: EXPROPIAR: el kernel dijo NO a la alarma ({no:?}): los hilos solo sueltan el turno en las puertas\n")),
-        }
-    } else {
-        di("PROTON-X: EXPROPIAR APAGADO (--sin-expropiar)\n");
+    let (inicio, fin, buzon) = bmo_proton_x_casa::expropiar::puerta();
+    match bmo::alarma::armar(inicio, fin, buzon, EXPROPIAR_MS) {
+        Ok(()) => di(&format!("PROTON-X: EXPROPIAR: la alarma del kernel, cada {EXPROPIAR_MS} ms (puerta {inicio:#x}, {} B)\n", fin - inicio)),
+        Err(no) => di(&format!("PROTON-X: EXPROPIAR: el kernel dijo NO a la alarma ({no:?}): los hilos solo sueltan el turno en las puertas\n")),
     }
     di("PROTON-X: salto a su entrada ----------------------------------\n");
     // La imagen vive hasta que el proceso muera (no hay soltar).
