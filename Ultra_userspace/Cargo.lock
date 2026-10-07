@@ -70,6 +70,7 @@ dependencies = [
 name = "bmo-app-taller"
 version = "0.1.0"
 dependencies = [
+ "bmo-config",
  "bmo-dibujo",
  "bmo-pinta",
  "bmo-rtc",

@@ -50,6 +50,8 @@ mod guia;
 mod guia_estratos_gen;
 mod iconos;
 mod player;
+/// El instrumento de F1 con el escritorio de mision (HM6e): el PLANO.
+mod plano;
 mod space;
 mod store;
 mod branches;
@@ -326,6 +328,9 @@ pub extern "C" fn _start() -> ! {
         say("TALLER: NO -- sin ventana (no hay memoria, o nadie me lanzo)\n");
         bmo::salir();
     };
+    // HM6e: is the mission desktop behind? Asked ONCE, here, on a shallow
+    // frame: the 4 KiB of the file never land on the deep one of painting.
+    plano::preguntar();
     // The art, made once: the logo decoded into a borrowed block, and the sky
     // built into another. Without the memory for either, F1 is the same
     // workshop in a plain night colour -- decoration never stops it.

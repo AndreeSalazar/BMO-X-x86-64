@@ -259,6 +259,10 @@ pub fn draw(c: &mut Canvas, sc: &Scene) {
     chips(c, g, p, cam);
     crate::faults::draw_over(c, g, cam, sc.faults, clock, lively);
     overlay(c, g, s, p, cam, sc.now_ms);
+    // HM6e: con el escritorio de mision, el GRAFO se enmarca como un plano.
+    if crate::plano::es_mision() {
+        crate::plano::draw(c, sc);
+    }
     title_bar(c, s, p, sc.script.is_some(), sc.origin);
     if sc.script.is_some() {
         panel(c, g, s, p);
