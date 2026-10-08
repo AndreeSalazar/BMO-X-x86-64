@@ -5,7 +5,7 @@
 //! ejemplo nuevo trae una gpu fn, entra aqui solo. Desde LB3 (08-10), por el
 //! contrato de PROMETEO: la 3060 es la tarjeta que se le da.
 
-use bmo_proton_x_sm86::tarjeta::SM86;
+use bmo_tarjeta_rtx3060_12g::RTX_3060_12G;
 use std::path::Path;
 
 #[test]
@@ -23,7 +23,7 @@ fn every_gpu_fn_of_the_bench_is_judged_sass() {
             continue;
         }
         let m = bmo_titan_front::lower_package("src/main.titan", &src, &mut |p| std::fs::read_to_string(pkg.join(p)).ok()).unwrap_or_else(|e| panic!("{}: {:?}", pkg.display(), e));
-        let ks = bmo_titan_prometeo::kernels(&m, &[&SM86]).unwrap_or_else(|e| panic!("{}: {}", pkg.display(), e));
+        let ks = bmo_titan_prometeo::kernels(&m, &[&RTX_3060_12G]).unwrap_or_else(|e| panic!("{}: {}", pkg.display(), e));
         for k in &ks {
             assert!(k.viaje.instrucciones > 0 && k.viaje.registros <= k.tarjeta.ficha().registros, "{}", k.name);
         }

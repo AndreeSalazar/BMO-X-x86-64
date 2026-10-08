@@ -175,16 +175,53 @@ pub enum NoEmite {
     Fallo { op: Option<usize>, por_que: String },
 }
 
-/// **Lo que una tarjeta dice de si**: como se la nombra, su lengua y sus
-/// techos. Datos, no codigo (DL2).
+/// **Lo que una tarjeta dice de si**: como se la nombra, su lengua, sus
+/// techos y el APARATO exacto que es. Datos, no codigo (DL2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Ficha {
-    /// Como la nombra la casa en un mensaje ("la 3060").
+    /// Como la nombra la casa en un mensaje: el aparato exacto ("la RTX 3060
+    /// 12G"), nunca la familia de su ISA.
     pub nombre: &'static str,
-    /// Su codigo maquina, por su nombre ("SM86").
+    /// Su codigo maquina: el modulo de ISA que lleva dentro ("SASS sm_86").
     pub lengua: &'static str,
     /// Los registros que se le dan a un cuerpo.
     pub registros: u32,
+    /// El aparato exacto que es.
+    pub aparato: Aparato,
+}
+
+/// ** EL APARATO EXACTO (08-10, el propietario: *"que la GPU no sea por ISA
+/// sea por especificamente muy precisos no es ISA sino propio ISA modular
+/// ... (solo: 3060 12G)"*): una tarjeta es UNA grafica concreta, no una
+/// familia de ISA. sm_86 es la lengua de toda Ampere GA10x; una RTX 3060 12G
+/// y una 3070 serian DOS tarjetas, cada una con sus techos y su juez, aunque
+/// hablen la misma ISA. Asi un NO dice el aparato exacto, y el kernel puede
+/// reconocerlo por sus ids ([`Aparato::es`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Aparato {
+    /// Quien la hace y su modelo exacto ("NVIDIA GeForce RTX 3060 12G").
+    pub modelo: &'static str,
+    /// Su chip ("GA106").
+    pub chip: &'static str,
+    /// Por donde la reconoce el kernel en el PCI; `None` si no es una
+    /// grafica del PCI (la CPU).
+    pub pci: Option<Pci>,
+    /// Su memoria propia, en MiB; 0 si usa la de la CPU.
+    pub memoria_mib: u32,
+}
+
+/// Una grafica en el PCI: su fabricante y los dispositivos que son ella.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Pci {
+    pub fabricante: u16,
+    pub dispositivos: &'static [u16],
+}
+
+impl Aparato {
+    /// Si la grafica `fabricante:dispositivo` del PCI es ESTE aparato.
+    pub fn es(&self, fabricante: u16, dispositivo: u16) -> bool {
+        self.pci.is_some_and(|p| p.fabricante == fabricante && p.dispositivos.contains(&dispositivo))
+    }
 }
 
 /// ** UNA TARJETA: lo que se le pide a cada GPU, y todo es de ELLA sola.

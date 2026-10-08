@@ -35,9 +35,11 @@ bmo-titan-contrato = { path = "../../../../platform/shared/titan-contrato" }
 # calculo; `titan sm86` deja el SASS de la 3060 para mirarlo.
 bmo-titan-prometeo = { path = "../prometeo" }
 # ** Y LAS TARJETAS QUE HAY: lo unico que dice `titan` (L-a de
-# PLAN_LAS_LIBRERIAS) -- el contrato de PROMETEO y, hoy, una: la 3060.
+# PLAN_LAS_LIBRERIAS) -- el contrato de PROMETEO y cada tarjeta por su APARATO
+# exacto (08-10, el propietario: "solo: 3060 12G"): la RTX 3060 12G, con su
+# ISA (SASS sm_86) dentro.
 bmo-prometeo = { path = "../../../../platform/shared/prometeo" }
-bmo-proton-x-sm86 = { path = "../../../../platform/shared/proton-x-sm86" }
+bmo-tarjeta-rtx3060-12g = { path = "../../../forge/tarjeta-rtx3060-12g" }
 # Y LA SEGUNDA (LB4, 08-10): la CPU, la reserva de toda GPU. Su x86-64 es el
 # que corre una gpu fn AL CORRER (E1): con ella, un programa que lee usa una
 # gpu fn sin esperar a la puerta de computo de la 3060 (Ring 0).

@@ -128,8 +128,9 @@ members = [
     # para que el emisor de PROTON-X (Ring 3) lo use sin enlazar un driver (L8).
     "platform/shared/bmo-sm86",
     # EL EMISOR de PROTON-X para la 3060 (E3): Programa -> SASS, y su simulador.
-    # Desde LB3 (08-10) es tambien la LIBRERIA de la 3060 para PROMETEO
-    # (`tarjeta.rs`): su emisor, su juez y su simulador, aislados.
+    # Desde el 08-10 es la ISA (SASS sm_86) que lleva dentro la tarjeta de la
+    # RTX 3060 12G (`toolchain/forge/tarjeta-rtx3060-12g`); de LB3 a ese dia la
+    # tarjeta vivio aqui, en `tarjeta.rs`.
     "platform/shared/proton-x-sm86",
     # PROMETEO, la libreria general de la GPU (LB3 de PLAN_LAS_LIBRERIAS, 08-10):
     # el Programa de la casa y el contrato que cumple cada tarjeta. No nombra
@@ -403,6 +404,12 @@ members = [
     # toda GPU: con ella una gpu fn corre AL CORRER, sin Ring 0. Aqui y no en
     # platform/shared por su simulador, que es una herramienta.
     "toolchain/forge/tarjeta-cpu",
+    # La RTX 3060 12G como TARJETA de PROMETEO, por su APARATO exacto (el
+    # propietario, 08-10: "que la GPU no sea por ISA ... (solo: 3060 12G)"):
+    # su identidad la del driver (10DE:2503/2504, GA106, 12288 MiB), su ISA
+    # SASS sm_86 (el emisor de PROTON-X), su juez el del SASS. Al lado de la
+    # de la CPU: cada grafica, su crate.
+    "toolchain/forge/tarjeta-rtx3060-12g",
 
     # -- Nota sobre el intermediario "CPU-aware" -------------------
     # Aqui vivia `bmo-arch`: 1147 lineas de capa de abstraccion de CPU

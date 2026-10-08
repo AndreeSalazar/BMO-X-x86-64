@@ -4,7 +4,7 @@
 //! contra el presupuesto del simulador de cada una; y las pruebas del NO.
 
 use super::*;
-use bmo_proton_x_sm86::tarjeta::SM86;
+use bmo_tarjeta_rtx3060_12g::RTX_3060_12G;
 use bmo_tarjeta_cpu::CPU;
 
 fn module(src: &str) -> Module {
@@ -13,7 +13,7 @@ fn module(src: &str) -> Module {
 }
 
 fn tarjetas() -> [&'static dyn Tarjeta; 2] {
-    [&SM86, &CPU]
+    [&RTX_3060_12G, &CPU]
 }
 
 /// La gpu fn `name`, escrita, juzgada y pasada por su bateria en CADA
@@ -141,7 +141,7 @@ fn break_continue_and_return_inside_loops_inside_an_if() {
 fn a_division_inside_a_loop_is_the_3060_s_limit_where_it_is_written() {
     let m = module("mod main \"x\"\ngpu fn tercios(x: f32) -> f32\n    let mut r = x\n    for i in range(3)\n        r = r / 3.0\n    return r\nfn main()\n    print(1)\n");
     let f = m.functions.iter().position(|f| f.name == "tercios").unwrap();
-    let no = write(&m, f, &SM86).err().expect("la 3060 no divide exacto");
+    let no = write(&m, f, &RTX_3060_12G).err().expect("la 3060 no divide exacto");
     let said = no.1.expect("un limite: el NO del programa");
     assert_eq!((said.code, said.line, said.col), (bmo_titan_front::Code::GpuBody, 5, 15), "{:?}", said);
     let k = write(&m, f, &CPU).unwrap_or_else(|e| panic!("{}", e.0));
@@ -173,8 +173,8 @@ fn an_endless_programa_is_said_by_each_simulator_never_a_hang() {
         computo: Default::default(),
     };
     let t = std::time::Instant::now();
-    let sm86 = SM86.emitir(&p, Para::Oraculo).unwrap_or_else(|e| panic!("{:?}", e));
-    let no = SM86.simular(&sm86, &[[1.0f32.to_bits(), 0, 0, 0]], 1).unwrap_err();
+    let sm86 = RTX_3060_12G.emitir(&p, Para::Oraculo).unwrap_or_else(|e| panic!("{:?}", e));
+    let no = RTX_3060_12G.simular(&sm86, &[[1.0f32.to_bits(), 0, 0, 0]], 1).unwrap_err();
     assert!(no.contains("SinFin"), "{}", no);
     // La CPU lo dice antes: al emitir mide sus instrucciones corriendo una
     // celda, y ahi ya no vuelve.
@@ -189,8 +189,8 @@ fn an_endless_programa_is_said_by_each_simulator_never_a_hang() {
 fn pasos_3060(c: &Codigo, entradas: &[[u32; 4]]) -> usize {
     let codigo: Vec<(u64, u64)> = c.bytes.chunks_exact(16).map(|i| (u64::from_le_bytes(i[..8].try_into().unwrap()), u64::from_le_bytes(i[8..].try_into().unwrap()))).collect();
     let banco: Vec<u8> = entradas.iter().flat_map(|e| e.iter().flat_map(|x| x.to_le_bytes())).collect();
-    let mut m = bmo_proton_x_sm86::simula::Maquina::nueva([&[], &banco, &[], &[], &[], &[], &[], &[]]);
-    bmo_proton_x_sm86::simula::correr(&codigo, &mut m).unwrap()
+    let mut m = bmo_tarjeta_rtx3060_12g::isa::simula::Maquina::nueva([&[], &banco, &[], &[], &[], &[], &[], &[]]);
+    bmo_tarjeta_rtx3060_12g::isa::simula::correr(&codigo, &mut m).unwrap()
 }
 
 /// ** EL TOPE DE UNA CELDA (65536 de obra, `gpu.rs`) cabe en el presupuesto
@@ -223,9 +223,9 @@ fn the_top_of_a_cell_fits_each_card_s_budget() {
         let obra = m.functions[func].obra;
         assert!(obra <= tope && obra > tope - 200, "{}: obra {}", nombre, obra);
         let entradas = [[0.5f32.to_bits(), 0, 0, 0]];
-        let k3 = write(&m, func, &SM86).unwrap_or_else(|e| panic!("{}: {}", nombre, e.0));
+        let k3 = write(&m, func, &RTX_3060_12G).unwrap_or_else(|e| panic!("{}: {}", nombre, e.0));
         let p3 = pasos_3060(&k3.oraculo, &entradas);
-        assert!(p3 * 8 <= bmo_proton_x_sm86::simula::PASOS_MAXIMOS, "{}: la 3060, {} pasos", nombre, p3);
+        assert!(p3 * 8 <= bmo_tarjeta_rtx3060_12g::isa::simula::PASOS_MAXIMOS, "{}: la 3060, {} pasos", nombre, p3);
         let kc = write(&m, func, &CPU).unwrap_or_else(|e| panic!("{}: {}", nombre, e.0));
         let pc = bmo_tarjeta_cpu::correr(&kc.oraculo, &entradas, 1).unwrap_or_else(|e| panic!("{}: {}", nombre, e)).pasos;
         assert!(pc * 4 <= bmo_tarjeta_cpu::PASOS as u64, "{}: la CPU, {} pasos", nombre, pc);
@@ -268,7 +268,7 @@ fn a_call_between_gpu_fns_is_written_in_line_on_both_cards() {
 fn a_limit_inside_a_called_gpu_fn_is_said_where_it_is_written() {
     let m = module("mod main \"x\"\ngpu fn tercio(x: f32) -> f32\n    return x / 3.0\ngpu fn f(x: f32) -> f32\n    return tercio(x) + 1.0\nfn main()\n    print(1)\n");
     let f = m.functions.iter().position(|f| f.name == "f").unwrap();
-    let said = write(&m, f, &SM86).err().expect("la 3060 no divide exacto").1.expect("un limite");
+    let said = write(&m, f, &RTX_3060_12G).err().expect("la 3060 no divide exacto").1.expect("un limite");
     assert_eq!((said.code, said.line, said.col), (bmo_titan_front::Code::GpuBody, 3, 14), "{:?}", said);
     let k = write(&m, f, &CPU).unwrap_or_else(|e| panic!("{}", e.0));
     judge(&k).unwrap();

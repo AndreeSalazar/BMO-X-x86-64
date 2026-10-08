@@ -13,8 +13,8 @@
 //! el dia que llegue, LB10.
 
 use bmo_prometeo::programa::Op;
-use bmo_prometeo::{Codigo, Ficha, NoEmite, Para, Programa, Tarjeta};
-use bmo_proton_x_sm86::tarjeta::SM86;
+use bmo_prometeo::{Aparato, Codigo, Ficha, NoEmite, Para, Programa, Tarjeta};
+use bmo_tarjeta_rtx3060_12g::RTX_3060_12G;
 use bmo_titan_front::calc::DeviceNo;
 use bmo_titan_front::Code;
 use bmo_titan_prometeo::{kernels, Oracle};
@@ -37,7 +37,7 @@ impl Juguete {
 
 impl Tarjeta for Juguete {
     fn ficha(&self) -> Ficha {
-        Ficha { nombre: "la tarjeta de juguete", lengua: "JUGUETE", registros: 1 << 16 }
+        Ficha { nombre: "la tarjeta de juguete", lengua: "JUGUETE", registros: 1 << 16, aparato: Aparato { modelo: "la tarjeta de juguete", chip: "JUGUETE", pci: None, memoria_mib: 0 } }
     }
 
     fn emitir(&self, p: &Programa, _para: Para) -> Result<Codigo, NoEmite> {
@@ -103,12 +103,12 @@ fn a_toy_card_enters_through_the_contract_without_touching_titan() {
 fn two_cards_side_by_side_give_the_same_bits() {
     let juguete = Juguete::nueva(1000);
     let plain = bmo_titan_front::lower_package("src/main.titan", MEZCLA, &mut lee).unwrap();
-    let mut oracle = Oracle::new(&[&SM86, &juguete]);
+    let mut oracle = Oracle::new(&[&RTX_3060_12G, &juguete]);
     let ran = bmo_titan_front::lower_package_with("src/main.titan", MEZCLA, &mut lee, Some(&mut oracle)).unwrap();
     assert_eq!(plain.flat, ran.flat);
-    let ks = kernels(&plain, &[&SM86, &juguete]).unwrap();
+    let ks = kernels(&plain, &[&RTX_3060_12G, &juguete]).unwrap();
     let lenguas: Vec<&str> = ks.iter().map(|k| k.tarjeta.ficha().lengua).collect();
-    assert_eq!(lenguas, ["SM86", "JUGUETE"]);
+    assert_eq!(lenguas, ["SASS sm_86", "JUGUETE"]);
     assert_ne!(ks[0].viaje, ks[1].viaje, "each card, its own code");
 }
 

@@ -227,7 +227,12 @@ pub fn build_package_e1(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Opt
 /// pasa la bateria en LAS DOS, y las dos dan los mismos bits o no hay .bex.
 /// La PRIMERA da las celdas que lleva un .bex que no lee (E0); la CPU es la
 /// que corre una gpu fn AL CORRER, en un programa que lee (E1).
-pub static TARJETAS: [&dyn bmo_prometeo::Tarjeta; 2] = [&bmo_proton_x_sm86::tarjeta::SM86, &bmo_tarjeta_cpu::CPU];
+///
+/// ** 08-10, el propietario: cada tarjeta por su APARATO exacto, no por su
+/// ISA (*"solo: 3060 12G ... y asi elegante para priorizar"*). Van en ORDEN DE
+/// PRIORIDAD: la grafica que hay, la RTX 3060 12G (su ISA, SASS sm_86, va
+/// dentro de ella); y la ultima, la CPU, la reserva.
+pub static TARJETAS: [&dyn bmo_prometeo::Tarjeta; 2] = [&bmo_tarjeta_rtx3060_12g::RTX_3060_12G, &bmo_tarjeta_cpu::CPU];
 
 /// A PACKAGE to a `.bex` (level 9): the root file (its path from the package
 /// and its text), and `read` for the files its `mod`s name. The manifest

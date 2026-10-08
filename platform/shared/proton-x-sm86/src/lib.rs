@@ -79,9 +79,6 @@ pub mod libreta;
 /// P3b4c.8 T0: el muestreador y la textura de la casa en el TSC y el TIC de
 /// la 3060 (29-09).
 pub mod muestreo;
-/// LB3 (08-10): la 3060 como TARJETA de PROMETEO -- este emisor, el juez del
-/// SASS y `simula`, detras del contrato (`bmo_prometeo::Tarjeta`).
-pub mod tarjeta;
 
 use alloc::vec;
 use alloc::vec::Vec;

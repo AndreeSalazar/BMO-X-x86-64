@@ -49,7 +49,7 @@
 
 use bmo_lower::emu::{run_acotado, Machine, MXCSR_REINICIO, STACK_TOP};
 use bmo_prometeo::programa::{Op, Programa};
-use bmo_prometeo::{Codigo, Ficha, NoEmite, Para, Tarjeta};
+use bmo_prometeo::{Aparato, Codigo, Ficha, NoEmite, Para, Tarjeta};
 
 /// La CPU, la segunda tarjeta (la reserva).
 pub struct Cpu;
@@ -61,6 +61,10 @@ pub static CPU: Cpu = Cpu;
 pub const NOMBRE: &str = "la CPU";
 /// Su codigo maquina.
 pub const LENGUA: &str = "x86-64 con SSE";
+/// ** EL APARATO (08-10): la reserva no es una CPU concreta, y lo dice. Su
+/// codigo es x86-64 con SSE, sin nada de un modelo (ni AVX): corre en la CPU
+/// que corra el `.bex`, que es lo que la hace la reserva de toda GPU.
+pub const APARATO: Aparato = Aparato { modelo: "la CPU que corre el .bex: cualquier x86-64 con SSE", chip: "x86-64", pci: None, memoria_mib: 0 };
 /// Los registros de un cuerpo: palabras de 4 bytes en la PILA de quien lo
 /// llama (4 KiB). No es un techo del silicio: es lo que E1 reserva en un
 /// marco sin acercarse a lo que la pila de una tarea aguanta.
@@ -220,7 +224,7 @@ pub fn correr(c: &Codigo, entradas: &[[u32; 4]], salidas: usize) -> Result<Corri
 
 impl Tarjeta for Cpu {
     fn ficha(&self) -> Ficha {
-        Ficha { nombre: NOMBRE, lengua: LENGUA, registros: REGISTROS }
+        Ficha { nombre: NOMBRE, lengua: LENGUA, registros: REGISTROS, aparato: APARATO }
     }
 
     /// **EMITE**: el prologo y el x86-64 de `nativo`; lo mismo para el

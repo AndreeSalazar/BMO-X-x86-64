@@ -114,17 +114,21 @@ fn main() -> ExitCode {
             // -- el Programa de la casa, el emisor de SM86 y el juez --, ya
             // juzgado y comprobado. Junto al fuente, o en la carpeta de `-o`.
             // Desde LB3 (08-10), por PROMETEO: esta orden pide UNA tarjeta, la
-            // 3060, porque su salida es su SASS.
+            // 3060, porque su salida es su SASS. Desde el mismo dia, por su
+            // APARATO exacto: el SASS sm_86 que deja es SOLO para la RTX 3060
+            // 12G, y lo dice.
             let m = match bmo_titan_front::lower_package(&root, &src, &mut read) {
                 Ok(m) => m,
                 Err(m) => return no(&m, &dir, &root, &src, true),
             };
-            let kernels = match bmo_titan_prometeo::kernels(&m, &[&bmo_proton_x_sm86::tarjeta::SM86]) {
+            let tarjeta = &bmo_tarjeta_rtx3060_12g::RTX_3060_12G;
+            let ficha = bmo_prometeo::Tarjeta::ficha(tarjeta);
+            let kernels = match bmo_titan_prometeo::kernels(&m, &[tarjeta]) {
                 Ok(k) => k,
                 // Lo que la libreria de la 3060 todavia no sabe: el NO del
                 // programa, en su fichero y su linea (LB1).
                 Err(bmo_titan_front::calc::DeviceNo::Limit(said)) => return no(&m.sources.locate(said), &dir, &root, &src, true),
-                Err(bmo_titan_front::calc::DeviceNo::Failure(why)) => return fail(&format!("{} -- es del escritor de la 3060 o de su juez, no de {}", why, file)),
+                Err(bmo_titan_front::calc::DeviceNo::Failure(why)) => return fail(&format!("{} -- es del escritor de {} o de su juez, no de {}", why, ficha.nombre, file)),
             };
             if kernels.is_empty() {
                 println!("{}: no tiene ninguna gpu fn", file);
@@ -141,7 +145,7 @@ fn main() -> ExitCode {
                 if let Err(e) = std::fs::write(&dst, k.bytes()) {
                     return fail(&format!("no pude escribir {}: {}", dst.display(), e));
                 }
-                println!("ok: gpu fn {} -> {} ({} instrucciones, {} registros; el juez de {} dijo que si)", k.name, dst.display(), k.viaje.instrucciones, k.viaje.registros, k.tarjeta.ficha().nombre);
+                println!("ok: gpu fn {} -> {} ({} SOLO para {}: {} instrucciones, {} registros; su juez dijo que si)", k.name, dst.display(), ficha.lengua, ficha.aparato.modelo, k.viaje.instrucciones, k.viaje.registros);
             }
             ExitCode::SUCCESS
         }
