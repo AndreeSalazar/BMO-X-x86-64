@@ -108,9 +108,12 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                         ));
                     }
                     // The hidden count of a `for` (`#i`, `#fin`): `range`
-                    // counts with whole numbers.
+                    // counts with whole numbers. Inside a `gpu fn` (LB5)
+                    // every number is f32, and so is the count: `gpu.rs`
+                    // let only integers WRITTEN up to 2^24 in, which f32
+                    // counts exactly.
                     let name = &f.locals[*local].name;
-                    if (name.starts_with("#i") || name.starts_with("#fin")) && c != Class::Int {
+                    if (name.starts_with("#i") || name.starts_with("#fin")) && c != Class::Int && !(f.gpu && c == Class::F32) {
                         return Err(Message::new(
                             Code::Mixed,
                             at.0,

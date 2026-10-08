@@ -20,6 +20,10 @@ bmo-prometeo = { path = "../../../../platform/shared/prometeo" }
 # que entra sin tocar TITAN++ (`tests/juguete.rs`).
 [dev-dependencies]
 bmo-proton-x-sm86 = { path = "../../../../platform/shared/proton-x-sm86" }
+# LB5 (08-10): los bucles se prueban en LAS DOS tarjetas que da `titan` -- la
+# 3060 y la CPU, la reserva (L32) --, y el tope de una celda contra el
+# presupuesto del simulador de cada una.
+bmo-tarjeta-cpu = { path = "../../../forge/tarjeta-cpu" }
 
 [lib]
 name = "bmo_titan_prometeo"

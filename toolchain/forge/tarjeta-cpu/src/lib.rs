@@ -67,7 +67,14 @@ pub const LENGUA: &str = "x86-64 con SSE";
 pub const REGISTROS: u32 = 1024;
 /// Las instrucciones que corre una celda, como mucho: un cuerpo que no
 /// vuelve es un NO de su juez, no un cuelgue del compilador.
-pub const PASOS: usize = 1_000_000;
+///
+/// 08-10, LB5: de 1M a 4M (2^22, el mismo tope que el simulador de la
+/// 3060). Con los bucles, una gpu fn en el tope de su obra (`gpu.rs` de
+/// TITAN++: 65536 por celda) corre aqui hasta ~12 instrucciones por unidad
+/// -- `if` anidados con una condicion que no cuesta nada --, unas 800.000:
+/// con 1M el margen era de un 20 %; con 4M, cinco veces
+/// (`pruebas_bucles.rs` de `bmo-titan-prometeo` lo mide en cada patron).
+pub const PASOS: usize = 1 << 22;
 
 /// La pila que puede usar un cuerpo, por debajo de quien lo llama: `nativo`
 /// guarda cinco registros y su `Contexto` (unos 150 bytes).

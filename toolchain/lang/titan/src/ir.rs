@@ -102,6 +102,10 @@ pub struct Function {
     pub blocks: Vec<Block>,
     /// A `gpu fn` (level 11): it counts in f32, one cell per thread.
     pub gpu: bool,
+    /// LB5: the WORK of one cell of a `gpu fn`, counted when compiling
+    /// (`gpu::obra`): with every `range` written, it is the same in every
+    /// cell. 0 for a fn of the CPU. The writer's battery is measured with it.
+    pub obra: u64,
     /// A fn of a TRAIT (level 10): it has no body of its own, and a call to
     /// it runs the fn of the type of its first value -- (type, function).
     /// `None` for every fn with a body.
@@ -829,7 +833,8 @@ pub fn lower(p: &Program) -> Module {
                     }
                 }
             }
-            Function { name: f.name.clone(), line: f.line, locals: l.locals, params, modes: f.params.iter().map(|a| a.mode).collect(), ret: f.ret.clone(), blocks, gpu: f.gpu, dispatch: None }
+            let obra = if f.gpu { crate::gpu::obra(f) } else { 0 };
+            Function { name: f.name.clone(), line: f.line, locals: l.locals, params, modes: f.params.iter().map(|a| a.mode).collect(), ret: f.ret.clone(), blocks, gpu: f.gpu, obra, dispatch: None }
         })
         .collect::<Vec<_>>();
     // ** The fn of each trait (level 10): no body, and a table -- for each
@@ -856,6 +861,7 @@ pub fn lower(p: &Program) -> Module {
                 ret: s.ret.clone(),
                 blocks: vec![Block { ops: Vec::new(), end: End::Return(None), dead: false }],
                 gpu: false,
+                obra: 0,
                 dispatch: Some(table),
             });
         }

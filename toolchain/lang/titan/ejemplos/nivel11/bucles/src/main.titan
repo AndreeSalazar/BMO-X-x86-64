@@ -1,0 +1,51 @@
+# espera: BIEN
+# sale: 2 a la 10: 1024
+# sale: 1 + x + ... + x^7, con x = 0.5: 1.9921875
+# sale: e, por diez cuadrados en f32: 2.71694
+# sale: sumando 0, 1, 2, 4... hasta pasar de 20 y de 4: 25 7
+# un `for` dentro de una gpu fn (LB5): sus vueltas ESCRITAS, asi que el hilo acaba por construccion; `break` y `continue` tambien
+mod main "los bucles de un hilo"
+
+gpu fn potencia(x: f32) -> f32
+    let mut r = 1.0
+    for i in range(10)
+        r = r * x
+    return r
+
+gpu fn serie(x: f32) -> f32
+    let mut s = 0.0
+    let mut t = 1.0
+    for k in range(8)
+        s = s + t
+        t = t * x
+    return s
+
+gpu fn e(x: f32) -> f32
+    let mut y = 1.0 + x / 1024.0
+    for i in range(10)
+        y = y * y
+    return y
+
+gpu fn hasta(tope: f32) -> f32
+    let mut s = 0.0
+    for i in range(100)
+        if i == 3.0
+            continue
+        s = s + i
+        if s > tope
+            break
+    return s
+
+fn main()
+    let dos: [f32; 1] = [2.0]
+    let medio: [f32; 1] = [0.5]
+    let uno: [f32; 1] = [1.0]
+    let topes: [f32; 2] = [20.0, 4.0]
+    let p = potencia(dos)
+    let s = serie(medio)
+    let y = e(uno)
+    let h = hasta(topes)
+    print("2 a la 10: ", round(p[0], 0))
+    print("1 + x + ... + x^7, con x = 0.5: ", round(s[0], 7))
+    print("e, por diez cuadrados en f32: ", round(y[0], 5))
+    print("sumando 0, 1, 2, 4... hasta pasar de 20 y de 4: ", round(h[0], 0), " ", round(h[1], 0))

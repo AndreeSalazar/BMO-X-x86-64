@@ -878,6 +878,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-prometeo",
  "bmo-proton-x-sm86",
+ "bmo-tarjeta-cpu",
  "bmo-titan-front",
 ]
 

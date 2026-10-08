@@ -48,6 +48,13 @@
 //! (una gpu fn es pura y sin bucles; los dos lados dan el mismo resultado
 //! bit a bit). Los saltos de verdad (E6) llegaran con los bucles (IL1, LB5).
 //!
+//! > **08-10, LB5:** llegaron. Cada `for` de una gpu fn (con su N escrito,
+//! > DL4) es un `Bucle` de verdad -- `RomperSi` en su cabeza y en cada
+//! > `break`, `FinBucle` en su paso --, y lo que cruza la vuelta vive en su
+//! > CASA, un registro que cada asignacion escribe con su predicado (ver
+//! > `straight`). Los `if` siguen en linea recta, tambien dentro de un
+//! > bucle; una gpu fn sin bucles sale como antes, byte a byte.
+//!
 //! ** LOS BOOL, como D3D: dentro del Programa un bool es 0xFFFFFFFF o 0; en
 //! las celdas, 1 o 0 (lo del calculo). Se convierte al entrar y al salir.
 //!
@@ -356,20 +363,97 @@ pub fn programa(m: &Module, func: usize) -> Result<(Programa, Vec<(usize, usize)
     Ok((p, w.donde))
 }
 
-/// La gpu fn en LINEA RECTA: cada bloque con su predicado, cada nombre elegido
-/// con `Elige` donde los caminos se juntan, y el resultado elegido entre los
-/// `return`. Devuelve el registro del resultado.
+/// ** Un `for` abierto mientras se escribe (LB5): el Programa lo dice como
+/// `Bucle` ... `FinBucle`.
+struct Lazo {
+    /// Su cabeza (la pregunta), su paso (el salto de vuelta) y su salida.
+    cabeza: usize,
+    paso: usize,
+    salida: usize,
+    /// Los nombres que este bucle puso en su CASA (los que ya la tenian, de
+    /// un bucle de fuera, siguen en la suya).
+    casas: Vec<(usize, Reg, Kind)>,
+    /// Como se entro: el predicado de fuera y los nombres de entonces.
+    pred: Reg,
+    env: Env,
+    /// Si va dentro de su `Si`: lo de fuera no siempre llega.
+    envuelto: bool,
+    /// Si dentro hay un `return`.
+    vuelve: bool,
+    /// Su sitio: el `for`.
+    at: (usize, usize),
+}
+
+/// La gpu fn: cada bloque con su predicado, cada nombre elegido con `Elige`
+/// donde los caminos se juntan, y el resultado elegido entre los `return`.
+/// Sin bucles es LINEA RECTA (cada `if` un `Elige`); cada `for` (LB5) es un
+/// `Bucle` de verdad, con sus `if` dentro en linea recta otra vez. Devuelve
+/// el registro del resultado.
+///
+/// ** LA CASA: un nombre de antes que el bucle cambia vive, mientras el
+/// bucle corre, en UN registro, y cada asignacion lo escribe ALLI, con el
+/// predicado de su bloque (`Elige` sobre si mismo; `Copia` si el bloque
+/// corre siempre). Asi la casa esta al dia en cada punto de la vuelta: la
+/// vuelta de atras no copia nada, y un `break` es un `RomperSi` y ya -- lo
+/// que hace cada vuelta crece con lo que se escribe en ella, nunca con
+/// cuantos nombres cruzan (la obra de `gpu.rs` la cuenta, y cada tarjeta
+/// la corre en su presupuesto).
+///
+/// ```text
+///    antes      casa_v = v        (cada v de antes que el bucle cambia)
+///               Si pred           (si lo de fuera no siempre llega)
+///    cabeza     Bucle
+///               RomperSi no (i < fin)
+///    cuerpo     v = ...  ->  casa_v = Elige(p, ..., casa_v)
+///               los `if`, en linea recta; un `continue` salta adelante,
+///               al paso
+///    break      RomperSi p
+///    return     valor = Elige(p, r, valor); hecho = hecho | p; RomperSi p
+///    paso       FinBucle
+///               FinSi
+///    salida     v en su casa; si dentro hubo un `return`, lo de despues va
+///               con `no hecho` (o un RomperSi hecho, en el bucle de fuera)
+/// ```
 fn straight(w: &mut Writer, f: &Function, entry_env: Env) -> Result<Reg, Failure> {
     let n = f.blocks.len();
+    // ** LOS BUCLES: el salto hacia arriba de cada `for` (su paso) dice su
+    // cabeza; todo lo demas salta hacia abajo.
+    let arriba = || Failure::writer("un salto hacia arriba que no es el de un `for` con su N escrito: gpu.rs tenia que haberlo dicho (DL4)".into());
+    let mut paso_de: Vec<Option<usize>> = vec![None; n];
+    for (b, bl) in f.blocks.iter().enumerate() {
+        match &bl.end {
+            End::Jump(t) if *t <= b => {
+                let es_for = matches!(&f.blocks[*t].end, End::Branch { then, other, .. } if *then == *t + 1 && *other == b + 1);
+                if !es_for || paso_de[*t].is_some() {
+                    return Err(arriba());
+                }
+                paso_de[*t] = Some(b);
+            }
+            End::Branch { then, other, .. } if *then <= b || *other <= b => return Err(arriba()),
+            _ => {}
+        }
+    }
+    // El `return` dentro de un bucle: el valor, y si ya volvio, en dos
+    // registros de toda la gpu fn (empiezan en 0: no volvio todavia).
+    let con_vuelta = (0..n).any(|h| paso_de[h].is_some_and(|s| f.blocks[h..=s].iter().any(|bl| matches!(bl.end, End::Return(_)))));
+    let vuelta = if con_vuelta { Some((w.reg()?, w.reg()?)) } else { None };
     let mut incoming: Vec<Vec<(Reg, Env)>> = vec![Vec::new(); n];
     let mut returns: Vec<(Reg, Reg)> = Vec::new();
+    let mut lazos: Vec<Lazo> = Vec::new();
+    // La casa de cada nombre que un bucle abierto cambia.
+    let mut casa_de: HashMap<usize, Reg> = HashMap::new();
     for b in 0..n {
         let (pred, mut env) = if b == 0 {
             (w.cierto()?, entry_env.clone())
         } else {
             let edges = std::mem::take(&mut incoming[b]);
             if edges.is_empty() {
-                continue; // ningun camino llega aqui (lo que sigue a un `return`)
+                // Ningun camino llega aqui (lo que sigue a un `return` o a un
+                // `break`); el paso de un bucle abierto lo cierra igual.
+                if lazos.last().is_some_and(|l| l.paso == b) {
+                    cerrar(w, &mut lazos, &mut casa_de, &mut incoming, vuelta)?;
+                }
+                continue;
             }
             let mut pred = edges[0].0;
             for (p, _) in &edges[1..] {
@@ -395,26 +479,59 @@ fn straight(w: &mut Writer, f: &Function, entry_env: Env) -> Result<Reg, Failure
             }
             (pred, env)
         };
+        // La cabeza de un `for`: aqui se abre su `Bucle`.
+        let pred = match paso_de[b] {
+            Some(s) => {
+                let p = abrir(w, f, b, s, pred, &mut env, &mut lazos, &mut casa_de, vuelta.is_some())?;
+                p
+            }
+            None => pred,
+        };
         for o in &f.blocks[b].ops {
             match o {
                 IrOp::Let { local, value, .. } | IrOp::Set { local, value, .. } => {
-                    let v = eval(w, value, &env)?;
-                    env.insert(*local, v);
+                    let (v, k) = eval(w, value, &env)?;
+                    match casa_de.get(local) {
+                        // Un nombre que cruza la vuelta: en su casa, con el
+                        // predicado de este bloque.
+                        Some(&casa) => {
+                            if v != casa {
+                                let cierto = w.cierto()?;
+                                w.op(if pred == cierto { Op::Copia { d: casa, a: v } } else { Op::Elige { d: casa, c: pred, a: v, b: casa } });
+                            }
+                            env.insert(*local, (casa, k));
+                        }
+                        None => {
+                            env.insert(*local, (v, k));
+                        }
+                    }
                 }
                 IrOp::Drop { .. } => {}
                 other => return Err(Failure::writer(format!("una gpu fn con {:?}: gpu.rs tenia que haberlo dicho", other))),
             }
         }
         match &f.blocks[b].end {
-            End::Jump(t) => {
-                if *t <= b {
-                    return Err(Failure::writer("un salto hacia arriba: una gpu fn no tiene bucles (todavia: IL1)".into()));
+            // El paso: la vuelta de atras.
+            End::Jump(t) if *t <= b => cerrar(w, &mut lazos, &mut casa_de, &mut incoming, vuelta)?,
+            End::Jump(t) => match lazos.last() {
+                // Un `break`: las casas ya estan al dia.
+                Some(l) if *t == l.salida => {
+                    w.aqui = l.at;
+                    w.op(Op::RomperSi { c: pred, si_cero: false });
                 }
-                incoming[*t].push((pred, env));
+                Some(l) if *t > l.paso => return Err(Failure::writer("un salto que sale de un bucle sin ser su `break`".into())),
+                _ => incoming[*t].push((pred, env)),
+            },
+            End::Branch { cond, then, at, .. } if lazos.last().is_some_and(|l| l.cabeza == b) => {
+                // La pregunta de cada vuelta: si ya no, fuera.
+                let (c, _) = eval(w, cond, &env)?;
+                w.aqui = *at;
+                w.op(Op::RomperSi { c, si_cero: true });
+                incoming[*then].push((pred, env));
             }
             End::Branch { cond, then, other, at } => {
-                if *then <= b || *other <= b {
-                    return Err(Failure::writer("un salto hacia arriba: una gpu fn no tiene bucles (todavia: IL1)".into()));
+                if lazos.last().is_some_and(|l| *then > l.paso || *other > l.paso) {
+                    return Err(Failure::writer("un `if` que sale de un bucle".into()));
                 }
                 let (c, _) = eval(w, cond, &env)?;
                 w.aqui = *at;
@@ -427,16 +544,108 @@ fn straight(w: &mut Writer, f: &Function, entry_env: Env) -> Result<Reg, Failure
             }
             End::Return(Some(v)) => {
                 let (r, _) = eval(w, v, &env)?;
-                returns.push((pred, r));
+                match (lazos.last(), vuelta) {
+                    (None, _) => returns.push((pred, r)),
+                    (Some(l), Some((hecho, valor))) => {
+                        // Desde dentro de un bucle: se guarda, y fuera.
+                        w.aqui = l.at;
+                        let ya = w.entera(hecho, pred, OpEntera::O)?;
+                        w.op(Op::Elige { d: valor, c: pred, a: r, b: valor });
+                        w.op(Op::Copia { d: hecho, a: ya });
+                        w.op(Op::RomperSi { c: pred, si_cero: false });
+                    }
+                    (Some(_), None) => return Err(Failure::writer("un `return` dentro de un bucle sin su registro".into())),
+                }
             }
             End::Return(None) => return Err(Failure::writer("un camino sin `return`: el juez tenia que haberlo dicho (T0070)".into())),
         }
+    }
+    if !lazos.is_empty() {
+        return Err(Failure::writer("un bucle sin cerrar".into()));
     }
     let (_, mut acc) = *returns.last().ok_or_else(|| Failure::writer("una gpu fn sin `return`".into()))?;
     for (p, r) in returns.iter().rev().skip(1) {
         acc = w.elige(*p, *r, acc)?;
     }
+    // Lo que volvio desde dentro de un bucle va primero: paso antes.
+    if let Some((hecho, valor)) = vuelta {
+        w.aqui = (f.line, 1);
+        acc = w.elige(hecho, valor, acc)?;
+    }
     Ok(acc)
+}
+
+/// **Abre el `for` de cabeza `h` y paso `s`**, entrando con `pred` y `env`:
+/// cada nombre de antes que el bucle cambia va a su casa (si un bucle de
+/// fuera no se la dio ya), el bucle va dentro de su `Si` si lo de fuera no
+/// siempre llega, y dentro de cada vuelta todo empieza cierto. Devuelve el
+/// predicado de la cabeza; `env` queda con los nombres de la cabeza.
+#[allow(clippy::too_many_arguments)]
+fn abrir(w: &mut Writer, f: &Function, h: usize, s: usize, pred: Reg, env: &mut Env, lazos: &mut Vec<Lazo>, casa_de: &mut HashMap<usize, Reg>, con_vuelta: bool) -> Result<Reg, Failure> {
+    let at = match &f.blocks[h].end {
+        End::Branch { at, .. } => *at,
+        _ => return Err(Failure::writer("la cabeza de un bucle sin su pregunta".into())),
+    };
+    w.aqui = at;
+    let fuera = env.clone();
+    // Los que cruzan la vuelta: los de antes que el bucle cambia (TITAN++ no
+    // tiene sombras: un `let` de dentro es otro nombre, y muere en la vuelta).
+    let mut cambia: Vec<usize> = f.blocks[h..=s].iter().flat_map(|bl| &bl.ops).filter_map(|o| if let IrOp::Set { local, .. } = o { Some(*local) } else { None }).collect();
+    cambia.sort_unstable();
+    cambia.dedup();
+    let mut casas = Vec::new();
+    for l in cambia {
+        if casa_de.contains_key(&l) {
+            continue;
+        }
+        if let Some(&(r, k)) = fuera.get(&l) {
+            let casa = w.reg()?;
+            w.op(Op::Copia { d: casa, a: r });
+            casas.push((l, casa, k));
+            casa_de.insert(l, casa);
+            env.insert(l, (casa, k));
+        }
+    }
+    let cierto = w.cierto()?;
+    let envuelto = pred != cierto;
+    if envuelto {
+        w.op(Op::Si { c: pred });
+    }
+    w.op(Op::Bucle);
+    let vuelve = con_vuelta && f.blocks[h..=s].iter().any(|bl| matches!(bl.end, End::Return(_)));
+    lazos.push(Lazo { cabeza: h, paso: s, salida: s + 1, casas, pred, env: fuera, envuelto, vuelve, at });
+    Ok(cierto)
+}
+
+/// **Cierra el bucle de dentro** en su paso: `FinBucle` (y `FinSi`), y la
+/// salida con cada nombre que cambio en su casa -- la de este bucle o la de
+/// uno de fuera, que siguen al dia.
+fn cerrar(w: &mut Writer, lazos: &mut Vec<Lazo>, casa_de: &mut HashMap<usize, Reg>, incoming: &mut [Vec<(Reg, Env)>], vuelta: Option<(Reg, Reg)>) -> Result<(), Failure> {
+    let l = lazos.pop().ok_or_else(|| Failure::writer("un salto hacia arriba sin su bucle".into()))?;
+    w.aqui = l.at;
+    w.op(Op::FinBucle);
+    if l.envuelto {
+        w.op(Op::FinSi);
+    }
+    let mut pred = l.pred;
+    if let (true, Some((hecho, _))) = (l.vuelve, vuelta) {
+        if lazos.is_empty() {
+            // Lo de despues, solo si nadie volvio dentro.
+            let todo = w.cierto()?;
+            let no_hecho = w.entera(hecho, todo, OpEntera::OX)?;
+            pred = w.entera(pred, no_hecho, OpEntera::Y)?;
+        } else {
+            // El bucle de fuera sale tambien.
+            w.op(Op::RomperSi { c: hecho, si_cero: false });
+        }
+    }
+    let mut env = l.env;
+    for (local, casa, k) in l.casas {
+        env.insert(local, (casa, k));
+        casa_de.remove(&local);
+    }
+    incoming[l.salida].push((pred, env));
+    Ok(())
 }
 
 // ---- a la tarjeta, y su juez ----------------------------------------------------------
@@ -547,11 +756,27 @@ const BORDES: [f32; 18] = [
 /// Las entradas de la bateria: el producto entero si cabe en 4096 casos; si
 /// no, cada valor recorre los bordes a su propio paso.
 pub fn battery(params: &[Kind]) -> Vec<Vec<u32>> {
+    battery_de(params, 0)
+}
+
+/// ** LO QUE CORRE LA BATERIA, como mucho (LB5): sus celdas por la OBRA de
+/// una (la de `gpu.rs`, que con cada `range` escrito es la misma en todas).
+/// Una gpu fn sin bucles (obra de decenas) se prueba como siempre, hasta
+/// 4096 casos; una en el tope de una celda (65536), en 18 -- cada valor
+/// sigue pasando por sus 18 bordes --, y su bateria no tarda mucho mas que
+/// la de las otras.
+pub const BATERIA_OBRA: u64 = 1 << 20;
+
+/// La bateria de una gpu fn de esta `obra`: el producto entero si cabe; si
+/// no, cada valor recorre los bordes a su propio paso, en tantas celdas como
+/// deje [`BATERIA_OBRA`] (nunca menos que los bordes).
+pub fn battery_de(params: &[Kind], obra: u64) -> Vec<Vec<u32>> {
     let column = |k: Kind| -> Vec<u32> { if k == Kind::F32 { BORDES.iter().map(|x| x.to_bits()).collect() } else { vec![0, 1] } };
     let columns: Vec<Vec<u32>> = params.iter().map(|k| column(*k)).collect();
     let total: usize = columns.iter().map(|c| c.len()).product();
+    let tope = (BATERIA_OBRA / obra.max(1)).clamp(BORDES.len() as u64, 4096) as usize;
     let mut cells: Vec<Vec<u32>> = vec![Vec::new(); params.len()];
-    if total <= 4096 {
+    if total <= tope {
         for i in 0..total {
             let mut rest = i;
             for (j, c) in columns.iter().enumerate() {
@@ -560,7 +785,7 @@ pub fn battery(params: &[Kind]) -> Vec<Vec<u32>> {
             }
         }
     } else {
-        for i in 0..4096 {
+        for i in 0..tope {
             for (j, c) in columns.iter().enumerate() {
                 cells[j].push(c[(i * (2 * j + 1) + j) % c.len()]);
             }
@@ -596,7 +821,7 @@ fn compare(m: &Module, func: usize, k: &Kernel, cells: &[Vec<u32>], what: &str) 
 
 /// **La bateria de bordes** de una gpu fn, por los tres.
 pub fn verify(m: &Module, func: usize, k: &Kernel) -> Result<usize, String> {
-    let cells = battery(&k.params);
+    let cells = battery_de(&k.params, m.functions[func].obra);
     compare(m, func, k, &cells, "la bateria de bordes")?;
     Ok(cells.first().map(|c| c.len()).unwrap_or(0))
 }
@@ -654,3 +879,5 @@ impl bmo_titan_front::calc::Device for Oracle<'_> {
 
 #[cfg(test)]
 mod pruebas;
+#[cfg(test)]
+mod pruebas_bucles;
