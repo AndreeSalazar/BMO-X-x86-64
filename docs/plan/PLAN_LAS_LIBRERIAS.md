@@ -604,6 +604,12 @@ bueno ya eso es el motivo lel para GPU Final"*. Asi quedo (LB3):
     ([`METAL_2026-10-08.md`](../metal/METAL_2026-10-08.md)): la primera vez
     que TITAN++ corre en el metal. Faltan `run titan/dos.bex`, `run
     inti/cubo.ibx` y `gpu verrano banco inti`.
+  - **08-10, despues:** `run titan/dos.bex` escribio `hola desde saluda` y
+    `hola otra vez`, con su foto y su copia en `datos/titandos.txt` (seccion
+    1b de la bitacora): una llamada entre funciones y un `print` de dos
+    textos, en el metal. Los dos programas de TITAN++ que despliega el build
+    ya corrieron. Faltan los de INTI: `run inti/cubo.ibx` y `gpu verrano
+    banco inti`.
 
 - [x] **LB3 -- EL CONTRATO, y SM86 dentro.** **HECHO el 08-10: PROMETEO.**
   Las cinco piezas de 1.2 escritas

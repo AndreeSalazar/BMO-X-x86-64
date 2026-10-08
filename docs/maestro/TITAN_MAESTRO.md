@@ -1712,6 +1712,9 @@ sume lo que dice la tabla de arriba.
 > **08-10, la foto:** `run titan/hola.bex` escribio `hola` en el Ryzen
 > ([`METAL_2026-10-08.md`](../metal/METAL_2026-10-08.md)): la primera vez que
 > TITAN++ corre en el metal. Falta `run titan/dos.bex`.
+>
+> **08-10, despues:** `run titan/dos.bex` tambien: `hola desde saluda` y
+> `hola otra vez`, una llamada entre funciones en el metal.
 
 **NIVEL 3 -- DECIDIR, HECHO EN EL ANFITRION el 04-10** (`if else true false
 and or not`, 10 palabras; `GRAMATICA.md` lo cuenta entero):
