@@ -112,7 +112,7 @@ impl Programa {
         }
     }
 
-    /// **Una ola de PIXELES** (`crate::cuadros`): cada carril con sus
+    /// **Una ola de PIXELES** (`cuadros`, en PROTON-X): cada carril con sus
     /// entradas (y si es ayudante), y sus salidas por el id de su firma; al
     /// acabar, si cada pixel QUEDA (un `discard` lo tira). Los UAV del
     /// dibujo (N5.3d) los ven los pixeles de verdad; un AYUDANTE no escribe

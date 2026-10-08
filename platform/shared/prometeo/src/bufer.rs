@@ -64,14 +64,14 @@ pub const fn con_vista(guardado: u32, vista: u32) -> u32 {
 
 /// `(guardado, vista)` de un formato de [`CUATRO_FLOATS`] (sin otra vista,
 /// `None`).
-pub(crate) fn guardado_y_vista(formato: u32) -> (u32, Option<u32>) {
+pub fn guardado_y_vista(formato: u32) -> (u32, Option<u32>) {
     let v = formato >> VISTA;
     (formato & 0xFFFF, (v != 0).then_some(v))
 }
 
 /// Los cuatro floats de un elemento de `guardado` como los ve `vista`
 /// (un entero, sus bits): a los bytes, y de ellos.
-pub(crate) fn a_la_vista(guardado: u32, vista: u32, palabras: [u32; 4]) -> [u32; 4] {
+pub fn a_la_vista(guardado: u32, vista: u32, palabras: [u32; 4]) -> [u32; 4] {
     use crate::formato_ia::{empaquetar, es_entero, leer};
     match empaquetar(guardado, palabras, es_entero(guardado)) {
         Some(b) => leer(vista, &b).map(f32::to_bits),
@@ -80,7 +80,7 @@ pub(crate) fn a_la_vista(guardado: u32, vista: u32, palabras: [u32; 4]) -> [u32;
 }
 
 /// Lo contrario: lo que la vista escribe, como lo guarda `guardado`.
-pub(crate) fn de_la_vista(guardado: u32, vista: u32, v: [u32; 4]) -> Option<[f32; 4]> {
+pub fn de_la_vista(guardado: u32, vista: u32, v: [u32; 4]) -> Option<[f32; 4]> {
     use crate::formato_ia::{empaquetar, es_entero, leer};
     empaquetar(vista, v, es_entero(vista)).map(|b| leer(guardado, &b))
 }

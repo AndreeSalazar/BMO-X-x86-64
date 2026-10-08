@@ -214,13 +214,13 @@ dependencies = [
 [[package]]
 name = "bmo-prometeo"
 version = "0.1.0"
-dependencies = [
- "bmo-proton-x",
-]
 
 [[package]]
 name = "bmo-proton-x"
 version = "0.1.0"
+dependencies = [
+ "bmo-prometeo",
+]
 
 [[package]]
 name = "bmo-proton-x-casa"

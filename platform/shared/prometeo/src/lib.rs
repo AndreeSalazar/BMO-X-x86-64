@@ -67,13 +67,35 @@
 //! TITAN++ lleva las celdas en el `.bex`, no el codigo --. Entra con el
 //! primero que lo haga (LB6 o LB8), y no antes.
 //!
+//! # El Programa vive aqui (LB3b, 08-10)
+//!
+//! Su codigo salio de PROTON-X, y la flecha se dio la vuelta: PROTON-X depende
+//! de PROMETEO y lo re-exporta en sus rutas de siempre (`dxil::programa`,
+//! `mates`, `bufer`, `textura`...), asi que no cambio una linea de las suyas.
+//! Lo que vino es el FORMATO y lo que hace falta para CORRERLO en la CPU, y
+//! nada mas:
+//!
+//! ```text
+//!    programa     el formato: Op, Programa, Ranuras... y sus numeros
+//!    interprete   correrlo sobre floats: el JUEZ de lo que hagan las tarjetas
+//!    olas         lo que hace una operacion de olas, y las derivadas
+//!    carriles     una ola de 32 carriles, corriendo junta
+//!    despacho     un Dispatch de computo: grupos, barreras, olas
+//!    ranuras      las texturas, muestreadores, cbuffers y UAV que lee
+//!    mates        las funciones (sin, exp...) con los bits de la casa
+//!    bufer        los UAV y los buferes: leer, escribir, atomicas
+//!    formato_ia   los formatos DXGI de un texel o un elemento
+//!    textura      muestrear: filtros, mips, comparaciones
+//!    bc           los bloques comprimidos BC1-BC7
+//!    profundidad  la comparacion de D3D12 (la de SampleCmp y la de la trama)
+//! ```
+//!
+//! Lo que se quedo en PROTON-X es lo de Windows: leer DXIL y SM5 y
+//! traducirlos a este Programa, la trama (el rasterizador), la mezcla, el
+//! stencil, y `nativo` (este Programa a x86-64: la CPU como tarjeta, LB4).
+//!
 //! # Lo que PROMETEO todavia no es
 //!
-//! - **El Programa no se ha mudado.** Su codigo sigue en PROTON-X
-//!   (`bmo_proton_x::dxil::programa`): PROMETEO lo da con su nombre, y quien
-//!   lo pide aqui ya no nombra la capa de Windows. Mudarlo arrastra lo que el
-//!   interprete de la casa necesita (`mates`, `bufer`, `textura`, `olas`...),
-//!   la zona mas viva del arbol: es LB3b, y la flecha se da la vuelta.
 //! - **Lo comun a varias tarjetas** (asignar registros, ordenar por
 //!   latencias) entra aqui cuando haya DOS tarjetas que lo usen: eso es
 //!   *"se engordara"*. Con una sola, lo comun no se sabe todavia.
@@ -89,8 +111,33 @@ use alloc::vec::Vec;
 /// ** EL PROGRAMA DE LA CASA: el formato comun de TODAS las tarjetas -- el que
 /// sale de los DXIL y los SM5 de PROTON-X, el que escribe TITAN++ de una gpu
 /// fn y el que corre el interprete de la casa (`Programa::correr`).
-pub use bmo_proton_x::dxil::programa;
+pub mod programa;
 pub use programa::Programa;
+
+// -- Correrlo en la CPU: el interprete y lo que necesita (LB3b, 08-10) -------
+
+/// El interprete: un Programa corrido sobre floats, una operacion tras otra.
+pub mod interprete;
+/// Lo que hace cada operacion de olas, y las derivadas de su cuadro.
+pub mod olas;
+/// Una ola de carriles corriendo junta (computo, pixeles).
+pub mod carriles;
+/// `Programa::despachar`: un Dispatch de computo, grupo a grupo.
+pub mod despacho;
+/// Las ranuras de un Programa: texturas, muestreadores, cbuffers, UAV.
+pub mod ranuras;
+/// Las funciones matematicas con los bits de la casa.
+pub mod mates;
+/// Los UAV y los buferes.
+pub mod bufer;
+/// Los formatos DXGI de un texel o de un elemento.
+pub mod formato_ia;
+/// Muestrear una textura: filtros, mips, comparaciones.
+pub mod textura;
+/// Los bloques comprimidos BC1-BC7.
+pub mod bc;
+/// La prueba de profundidad de D3D12.
+pub mod profundidad;
 
 /// **Para que se escribe un codigo**: la misma cuenta, dos puertas.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

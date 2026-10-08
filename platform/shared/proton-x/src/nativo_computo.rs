@@ -4,9 +4,10 @@
 //! [carril]  VERDE     bytes de maquina; sellarlos y llamarlos es de la casa
 //! [cuesta]  DATO      un salto mal puesto corre otra rama: el JUEZ es el
 //!                     interprete, bit a bit (`proton-x-casa/tests/nativo.rs`)
-//! [riesgo]  ESPEJO    las mismas cuentas que `dxil/interprete.rs`, en el
-//!                     mismo orden: IEEE-754 al mas cercano (MXCSR de D3D),
-//!                     los enteros modulo 2^32, las conversiones de Rust
+//! [riesgo]  ESPEJO    las mismas cuentas que el interprete de PROMETEO
+//!                     (`bmo_prometeo::interprete`), en el mismo orden:
+//!                     IEEE-754 al mas cercano (MXCSR de D3D), los enteros
+//!                     modulo 2^32, las conversiones de Rust
 //! [consumo] DATO      una instruccion o tres por operacion, sobre la memoria
 //!
 //! nBodyGravity hace 10.000 x 10.000 interacciones por paso: el interprete,

@@ -27,10 +27,11 @@
 
 pub mod bits;
 pub mod programa;
-/// Los recursos de un sombreador con su espacio, de su PSV0 (03-10).
-pub mod ranuras;
-/// El COMPUTO en la CPU: un Dispatch, grupo a grupo y barrera a barrera
-/// (N5.5, 05-10).
+/// Los recursos de un sombreador con su espacio, de su PSV0 (03-10). En
+/// PROMETEO desde el 08-10 (LB3b), con el Programa.
+pub use bmo_prometeo::ranuras;
+/// El COMPUTO de D3D12: preparar un CS (N5.5, 05-10). El Dispatch mismo,
+/// `Programa::despachar`, vive en PROMETEO desde el 08-10 (LB3b).
 pub mod computo;
 pub mod recursos;
 /// E6 (02-10): programas de muestra con `si` y bucles (el banco del emisor).
@@ -42,10 +43,12 @@ mod enteros;
 /// 03-10: las olas y las derivadas; E2.5 (05-10): las olas de verdad, de
 /// 32 carriles (la operacion y lo que hace).
 pub mod olas;
-/// E2.5: quien corre los carriles de una ola juntos (computo y pixeles).
-pub mod carriles;
-/// El interprete de un `Programa` (partido de `programa.rs`, 03-10).
-mod interprete;
+/// E2.5: quien corre los carriles de una ola juntos (computo y pixeles). En
+/// PROMETEO desde el 08-10 (LB3b).
+pub use bmo_prometeo::carriles;
+/// El interprete de un `Programa` (partido de `programa.rs`, 03-10). En
+/// PROMETEO desde el 08-10 (LB3b), con el Programa.
+use bmo_prometeo::interprete;
 /// E2.3b: lo que emite un sombreador de geometria.
 pub use interprete::Tiras;
 /// X2 (05-10): la lectura de texturas, que llama tambien el codigo traducido.

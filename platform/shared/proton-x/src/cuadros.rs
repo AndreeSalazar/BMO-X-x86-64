@@ -18,7 +18,7 @@
 //!                     antes); sus cuadros, fila a fila de cuadros, enteros
 //!                     (4 carriles: los que faltan, ayudantes)
 //!    la ola           8 cuadros (32 carriles), o los que queden: el
-//!                     sombreador los corre juntos (`dxil/carriles.rs`)
+//!                     sombreador los corre juntos (`dxil::carriles`)
 //!    lo que sale      el color (o el descarte) de cada pixel que llego, que
 //!                     la trama pone como siempre (`trama::poner_pixel`)
 //! ```
