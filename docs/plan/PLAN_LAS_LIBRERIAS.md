@@ -594,6 +594,11 @@ bueno ya eso es el motivo lel para GPU Final"*. Asi quedo (LB3):
   - **Como se sabe:** la fila de TITAN++ del README pasa a verde con su foto
     (o la foto es el informe); `gpu verrano banco inti` acaba con `IGUAL al
     juez`.
+  - **08-10, la mitad:** `run titan/hola.bex` escribio `hola` en el Ryzen,
+    con su foto, y la copia en `datos/titanhol.txt`
+    ([`METAL_2026-10-08.md`](../metal/METAL_2026-10-08.md)): la primera vez
+    que TITAN++ corre en el metal. Faltan `run titan/dos.bex`, `run
+    inti/cubo.ibx` y `gpu verrano banco inti`.
 
 - [x] **LB3 -- EL CONTRATO, y SM86 dentro.** **HECHO el 08-10: PROMETEO.**
   Las cinco piezas de 1.2 escritas

@@ -1705,6 +1705,10 @@ sume lo que dice la tabla de arriba.
 `titan/dos.bex`; en el Ryzen, `run titan/hola.bex` en F12 tiene que escribir
 `hola`. Hasta esa foto es 🟡. La ventana, despues.
 
+> **08-10, la foto:** `run titan/hola.bex` escribio `hola` en el Ryzen
+> ([`METAL_2026-10-08.md`](../metal/METAL_2026-10-08.md)): la primera vez que
+> TITAN++ corre en el metal. Falta `run titan/dos.bex`.
+
 **NIVEL 3 -- DECIDIR, HECHO EN EL ANFITRION el 04-10** (`if else true false
 and or not`, 10 palabras; `GRAMATICA.md` lo cuenta entero):
 
