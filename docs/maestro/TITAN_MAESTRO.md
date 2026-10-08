@@ -2019,6 +2019,9 @@ tiempo en adivinar"*:
     como su simulador), y E1 llama a la gpu fn al correr; el f32 vive en E1
     como dato. La ley L32 (DL3 del propietario: *"es buena"*). Falta LB8: la
     3060 al correr, Ring 0.
+  - **08-10, despues:** la tarjeta es la RTX 3060 12G por su APARATO exacto,
+    en su crate (`toolchain/forge/tarjeta-rtx3060-12g`), con su ISA (SASS
+    sm_86) dentro; y una sola GPU (el propietario: *"Solo uno"*).
   - **08-10, LB5:** LOS BUCLES y LAS LLAMADAS dentro de una gpu fn. `for i in
     range(N)` con N escrito, con `break`, `continue` y `return`; cada `for`
     es un `Bucle` de verdad en la 3060 y en la CPU, y una llamada a otra gpu

@@ -103,6 +103,9 @@ no existe es el CONTRATO escrito: hoy `bmo-titan-sm86` nombra a mano
 > ya no nombra a ninguna tarjeta. El CODIGO del Programa sigue en PROTON-X:
 > LB3b.
 >
+> **08-10, a mitad de LB6:** la tarjeta salio de `proton-x-sm86` a su crate,
+> con el nombre de su APARATO: `toolchain/forge/tarjeta-rtx3060-12g` (4.1).
+>
 > **08-10, LB3b:** el codigo tambien. El Programa vive en
 > `platform/shared/prometeo/src/programa.rs`, con su interprete y lo que el
 > interprete necesita; PROTON-X lo toma de `bmo-prometeo` y lo re-exporta en
@@ -579,6 +582,35 @@ lado; el propietario: *"si ve hasta el final"*. Asi quedo (LB5):
                  metal
 ```
 
+**LA TARJETA POR SU APARATO, y UNA SOLA GPU -- el 08-10, a mitad de LB6.** El
+propietario: *"que la GPU no sea por ISA sea por especificamente muy precisos
+no es ISA sino propio ISA modular eso y ya con eso es mas facil de detectar
+porque falla [...] (solo: 3060 12G o nombre especifico para este que emitir
+es) y asi elegante para priorizar"*; y luego: *"Solo uno, un GPU que haremos
+porque la verdad no tengo otros GPU y seria jugar a adivinanza"*. Asi quedo:
+
+```text
+   la tarjeta    toolchain/forge/tarjeta-rtx3060-12g (bmo-tarjeta-rtx3060-12g),
+                 al lado de la de la CPU: la RTX 3060 12G por su APARATO
+                 exacto -- NVIDIA GeForce RTX 3060 12G, GA106, 10DE:2503 o
+                 10DE:2504, 12288 MiB, las constantes del driver
+                 (lectura::identidad) -- y su ISA, SASS sm_86 (el emisor de
+                 PROTON-X), como un modulo SUYO. Vivia en
+                 proton-x-sm86/src/tarjeta.rs con el nombre de su ISA (SM86);
+                 ni un bit del SASS cambio
+   la ficha      PROMETEO: `Ficha` lleva el `Aparato` (modelo, chip, PCI,
+                 memoria) y `Aparato::es(fabricante, dispositivo)`. Cada NO
+                 dice el aparato ("el juez de la RTX 3060 12G dijo que no"), y
+                 `titan sm86` dice "SASS sm_86 SOLO para NVIDIA GeForce RTX
+                 3060 12G"
+   la prioridad  `titan` (TARJETAS): la RTX 3060 12G primero; la CPU, la
+                 reserva, la ultima
+   DL11          contestada: `titan build` escribe para la UNICA GPU que hay,
+                 la RTX 3060 12G, y para la CPU, siempre, de reserva. Nada de
+                 adivinar tarjetas que no estan
+   LB10          retirada: no hay otra GPU que probar
+```
+
 ---
 
 # 5. LAS CASILLAS
@@ -594,6 +626,8 @@ lado; el propietario: *"si ve hasta el final"*. Asi quedo (LB5):
     mismo dia (4.1): PROMETEO. Las demas, abiertas.
   - **08-10, despues:** DL3, contestada (4.1): la ley L32, con LB4.
   - **08-10, mas tarde:** DL4, contestada (4.1): la ley L33, con LB5.
+  - **08-10, a mitad de LB6:** DL11, contestada (4.1): solo la RTX 3060 12G,
+    y la CPU de reserva.
 
 - [x] **LB1 -- LOS NO QUE DICEN LA VERDAD (H1, H2, H3), y los papeles (H4).**
   **HECHO el 08-10** (el codigo, `129ebf8`).
@@ -695,7 +729,9 @@ lado; el propietario: *"si ve hasta el final"*. Asi quedo (LB5):
       `simular` (SIMULA) --, y el Programa de la casa con su nombre
       (`bmo_prometeo::programa`);
     - la 3060 detras del contrato: `platform/shared/proton-x-sm86/src/tarjeta.rs`
-      (`Sm86`, `SM86`), con lo que ya existia: `emitir_con` en sus dos ABI,
+      (`Sm86`, `SM86`; **08-10, a mitad de LB6:** hoy
+      `toolchain/forge/tarjeta-rtx3060-12g`, `RTX_3060_12G`, por su aparato
+      exacto -- 4.1), con lo que ya existia: `emitir_con` en sus dos ABI,
       `juzgar_drenado` y `juzgar_cuerpo_de_app`, `simula::correr`, los 64
       registros de `tuberia::REGISTROS` y la division como su `Limite`;
     - el emisor de GPU de TITAN++ paso a `toolchain/lang/titan/prometeo`
@@ -1015,6 +1051,10 @@ lado; el propietario: *"si ve hasta el final"*. Asi quedo (LB5):
   - **Bloquea:** una segunda tarjeta en la maquina.
   - **Como se sabe:** entra con sus cinco piezas y no cambia ni una linea de
     TITAN++ ni de la libreria de SM86; `la-3060` S sigue limpio.
+  - **08-10, el propietario -- RETIRADA:** *"Solo uno, un GPU que haremos
+    porque la verdad no tengo otros GPU y seria jugar a adivinanza"*. No se
+    hace mientras no haya otra GPU en la maquina; el contrato de dos ya lo
+    probo la CPU (LB4).
 
 ---
 

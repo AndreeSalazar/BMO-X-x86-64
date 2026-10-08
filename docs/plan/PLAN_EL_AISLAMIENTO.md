@@ -64,7 +64,7 @@ que no es preciso para ninguna.
 | la puerta del kernel | `gpu_trabajo/cubo.rs` (`CUBO_VERRANO`): juzga y sube | de la 3060 |
 | **PROMETEO** (08-10): el contrato de una tarjeta y el Programa de la casa | `platform/shared/prometeo` (`bmo-prometeo`) | de TODOS |
 | el emisor de GPU de TITAN++ (08-10) | `toolchain/lang/titan/prometeo` (`bmo-titan-prometeo`): pide las tarjetas por el contrato | de TODOS |
-| la tarjeta de la 3060 para PROMETEO (08-10) | `platform/shared/proton-x-sm86/src/tarjeta.rs`: su emisor, su juez y su simulador detras del contrato | de la 3060 |
+| la tarjeta de la RTX 3060 12G para PROMETEO (08-10), por su aparato exacto | `toolchain/forge/tarjeta-rtx3060-12g`: su identidad (la del driver), su ISA (SASS sm_86: el emisor de PROTON-X y su simulador) y su juez, detras del contrato | de la 3060 |
 | la tarjeta de la CPU para PROMETEO (08-10, LB4) | `toolchain/forge/tarjeta-cpu`: su emisor (el `nativo` de PROTON-X), su juez (el contrato de la llamada) y su simulador (el emulador de la casa) | de la CPU |
 | la puerta de la CPU (08-10, LB4) | `toolchain/lang/titan/emisor-x86_64/src/e1/gpu.rs`: E1 llama al cuerpo de la CPU, al correr | de la CPU |
 
@@ -83,6 +83,13 @@ que no es preciso para ninguna.
 > toda GPU (DL3). Entro con sus filas "de la CPU" y ninguna fila "de TODOS"
 > cambio: el contrato aguanto a dos. No es A5 -- A5 es una segunda GPU en la
 > maquina --, pero es la misma prueba, en chico.
+
+> **08-10, despues (el propietario: *"que la GPU no sea por ISA [...] (solo:
+> 3060 12G)"*; y *"Solo uno, un GPU"*):** la fila de la tarjeta de la 3060
+> cambio de sitio y de nombre. Vivia en `proton-x-sm86/src/tarjeta.rs` con el
+> nombre de su ISA (`SM86`); hoy es su crate, `tarjeta-rtx3060-12g`, con el de
+> su APARATO, y su ISA va dentro. Ninguna fila "de TODOS" cambio por eso, y
+> el SASS tampoco. Y A5 espera sin fecha: una sola GPU.
 
 ---
 
