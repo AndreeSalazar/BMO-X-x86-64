@@ -1,0 +1,14 @@
+# espera: T0066
+# un hilo de la GPU ACABA por construccion (L33): su obra se cuenta al compilar -- aqui 100000 vueltas de 4 --, y pasa de 65536
+mod main "un hilo que no acabaria pronto"
+
+gpu fn larga(x: f32) -> f32
+    let mut r = x
+    for i in range(100000)
+        r = r * x
+    return r
+
+fn main()
+    let xs: [f32; 1] = [1.0]
+    let r = larga(xs)
+    print(round(r[0], 2))

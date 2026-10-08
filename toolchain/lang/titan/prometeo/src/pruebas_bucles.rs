@@ -231,3 +231,46 @@ fn the_top_of_a_cell_fits_each_card_s_budget() {
         assert!(pc * 4 <= bmo_tarjeta_cpu::PASOS as u64, "{}: la CPU, {} pasos", nombre, pc);
     }
 }
+
+/// ** LAS LLAMADAS ENTRE gpu fn, EN LINEA (LB5): una que limita, una que
+/// suaviza llamando a la otra, una que llama dentro de su bucle, y una que
+/// vuelve desde dentro de su bucle con una llamada en la pregunta. En las dos
+/// tarjetas, con los bits de Rust; y el Programa no tiene ni una llamada:
+/// todo esta escrito dentro.
+#[test]
+fn a_call_between_gpu_fns_is_written_in_line_on_both_cards() {
+    let src = "mod main \"x\"\ngpu fn cuadrado(x: f32) -> f32\n    return x * x\ngpu fn limita(x: f32, a: f32, b: f32) -> f32\n    if x < a\n        return a\n    if x > b\n        return b\n    return x\ngpu fn suave(x: f32) -> f32\n    let t = limita(x, 0.0, 1.0)\n    return t * t * (3.0 - 2.0 * t)\ngpu fn a_la_ocho(x: f32) -> f32\n    let mut r = x\n    for i in range(3)\n        r = cuadrado(r)\n    return r\ngpu fn primero_mayor(x: f32) -> f32\n    for i in range(10)\n        if cuadrado(i) > x\n            return i\n    return -1.0\ngpu fn suma_de_ochos(x: f32) -> f32\n    let mut s = 0.0\n    for k in range(4)\n        s = s + a_la_ocho(x + k)\n    return s\nfn main()\n    print(1)\n";
+    let m = module(src);
+    let limita = |x: f32, a: f32, b: f32| if x < a { a } else if x > b { b } else { x };
+    let suave = |x: f32| {
+        let t = limita(x, 0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
+    };
+    let ocho = |x: f32| (0..3).fold(x, |r, _| r * r);
+    let primero = |x: f32| (0..10).map(|i| i as f32).find(|i| i * i > x).unwrap_or(-1.0);
+    let sumas = |x: f32| (0..4).fold(0.0f32, |s, k| s + ocho(x + k as f32));
+    let xs: Vec<f32> = XS.iter().copied().chain([0.25, 0.75, 5.0, -2.0, 50.0]).collect();
+    let espejos: [(&str, &dyn Fn(f32) -> f32); 4] = [("suave", &suave), ("a_la_ocho", &ocho), ("primero_mayor", &primero), ("suma_de_ochos", &sumas)];
+    for (name, espejo) in espejos {
+        let (_, ks) = en_las_dos(&m, name);
+        let want: Vec<u32> = xs.iter().map(|x| espejo(*x).to_bits()).collect();
+        como_rust(&ks, &[f32s(&xs)], &want);
+    }
+    // `suma_de_ochos`: el bucle de `a_la_ocho` dentro del suyo, escrito en linea.
+    let (_, ks) = en_las_dos(&m, "suma_de_ochos");
+    assert_eq!(ks[0].programa.ops.iter().filter(|o| matches!(o, Op::Bucle)).count(), 2);
+}
+
+/// ** EL LIMITE DE UNA TARJETA DENTRO DE UNA LLAMADA: la division general de
+/// la gpu fn llamada es el NO de la 3060 en SU linea y SU columna -- la de la
+/// division, no la de la llamada --; la CPU la hace.
+#[test]
+fn a_limit_inside_a_called_gpu_fn_is_said_where_it_is_written() {
+    let m = module("mod main \"x\"\ngpu fn tercio(x: f32) -> f32\n    return x / 3.0\ngpu fn f(x: f32) -> f32\n    return tercio(x) + 1.0\nfn main()\n    print(1)\n");
+    let f = m.functions.iter().position(|f| f.name == "f").unwrap();
+    let said = write(&m, f, &SM86).err().expect("la 3060 no divide exacto").1.expect("un limite");
+    assert_eq!((said.code, said.line, said.col), (bmo_titan_front::Code::GpuBody, 3, 14), "{:?}", said);
+    let k = write(&m, f, &CPU).unwrap_or_else(|e| panic!("{}", e.0));
+    judge(&k).unwrap();
+    verify(&m, f, &k).unwrap();
+}

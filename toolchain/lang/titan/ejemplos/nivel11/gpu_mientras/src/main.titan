@@ -1,0 +1,14 @@
+# espera: T0090
+# de un `while` no se sabe al compilar cuantas vueltas da: dentro de una gpu fn solo hay `for` con su N escrito (DL4, L33)
+mod main "un while en un hilo"
+
+gpu fn mitades(x: f32) -> f32
+    let mut r = x
+    while r > 1.0
+        r = r * 0.5
+    return r
+
+fn main()
+    let xs: [f32; 1] = [100.0]
+    let r = mitades(xs)
+    print(round(r[0], 2))

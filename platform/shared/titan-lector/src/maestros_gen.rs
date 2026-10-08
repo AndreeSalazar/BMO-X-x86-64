@@ -27,7 +27,7 @@ pub static FAMILIES: [&str; 14] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 37;
+pub const COUNT: usize = 38;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -350,6 +350,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["2 a la 10: 1024", "1 + x + ... + x^7, con x = 0.5: 1.9921875", "e, por diez cuadrados en f32: 2.71694", "sumando 0, 1, 2, 4... hasta pasar de 20 y de 4: 25 7"],
         source: "# sale: 2 a la 10: 1024\n# sale: 1 + x + ... + x^7, con x = 0.5: 1.9921875\n# sale: e, por diez cuadrados en f32: 2.71694\n# sale: sumando 0, 1, 2, 4... hasta pasar de 20 y de 4: 25 7\n# un `for` dentro de una gpu fn (LB5): sus vueltas ESCRITAS, asi que el hilo acaba por construccion; `break` y `continue` tambien\nmod main \"los bucles de un hilo\"\n\ngpu fn potencia(x: f32) -> f32\n    let mut r = 1.0\n    for i in range(10)\n        r = r * x\n    return r\n\ngpu fn serie(x: f32) -> f32\n    let mut s = 0.0\n    let mut t = 1.0\n    for k in range(8)\n        s = s + t\n        t = t * x\n    return s\n\ngpu fn e(x: f32) -> f32\n    let mut y = 1.0 + x / 1024.0\n    for i in range(10)\n        y = y * y\n    return y\n\ngpu fn hasta(tope: f32) -> f32\n    let mut s = 0.0\n    for i in range(100)\n        if i == 3.0\n            continue\n        s = s + i\n        if s > tope\n            break\n    return s\n\nfn main()\n    let dos: [f32; 1] = [2.0]\n    let medio: [f32; 1] = [0.5]\n    let uno: [f32; 1] = [1.0]\n    let topes: [f32; 2] = [20.0, 4.0]\n    let p = potencia(dos)\n    let s = serie(medio)\n    let y = e(uno)\n    let h = hasta(topes)\n    print(\"2 a la 10: \", round(p[0], 0))\n    print(\"1 + x + ... + x^7, con x = 0.5: \", round(s[0], 7))\n    print(\"e, por diez cuadrados en f32: \", round(y[0], 5))\n    print(\"sumando 0, 1, 2, 4... hasta pasar de 20 y de 4: \", round(h[0], 0), \" \", round(h[1], 0))\n",
+    },
+    Master {
+        name: "en_linea",
+        level: 11,
+        why: "una gpu fn llama a otra (LB5): no hay pila en un hilo, asi que la llamada se escribe EN LINEA, con sus bucles y sus `return`",
+        says: "una gpu fn dentro de otra",
+        words: &["fn", "let", "mut", "if", "for", "return", "round", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &[],
+        out: &["suave en -0.5, 0.25, 0.75 y 2: 0.000000 0.156250 0.843750 1.000000", "2 a la 8, por tres cuadrados: 256", "el primer entero cuyo cuadrado pasa de 2: 2"],
+        source: "# sale: suave en -0.5, 0.25, 0.75 y 2: 0.000000 0.156250 0.843750 1.000000\n# sale: 2 a la 8, por tres cuadrados: 256\n# sale: el primer entero cuyo cuadrado pasa de 2: 2\n# una gpu fn llama a otra (LB5): no hay pila en un hilo, asi que la llamada se escribe EN LINEA, con sus bucles y sus `return`\nmod main \"una gpu fn dentro de otra\"\n\ngpu fn cuadrado(x: f32) -> f32\n    return x * x\n\ngpu fn limita(x: f32, a: f32, b: f32) -> f32\n    if x < a\n        return a\n    if x > b\n        return b\n    return x\n\ngpu fn suave(x: f32) -> f32\n    let t = limita(x, 0.0, 1.0)\n    return t * t * (3.0 - 2.0 * t)\n\ngpu fn a_la_ocho(x: f32) -> f32\n    let mut r = x\n    for i in range(3)\n        r = cuadrado(r)\n    return r\n\ngpu fn primero_mayor(x: f32) -> f32\n    for i in range(10)\n        if cuadrado(i) > x\n            return i\n    return -1.0\n\nfn main()\n    let xs: [f32; 4] = [-0.5, 0.25, 0.75, 2.0]\n    let s = suave(xs)\n    let dos: [f32; 1] = [2.0]\n    let o = a_la_ocho(dos)\n    let p = primero_mayor(dos)\n    print(\"suave en -0.5, 0.25, 0.75 y 2: \", round(s[0], 6), \" \", round(s[1], 6), \" \", round(s[2], 6), \" \", round(s[3], 6))\n    print(\"2 a la 8, por tres cuadrados: \", round(o[0], 0))\n    print(\"el primer entero cuyo cuadrado pasa de 2: \", round(p[0], 0))\n",
     },
     Master {
         name: "mezcla",

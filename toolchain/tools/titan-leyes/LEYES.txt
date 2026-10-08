@@ -146,8 +146,12 @@ L32 una gpu fn corre tambien en la CPU, su RESERVA: el x86-64 que escribe la tar
     porque DL3 de PLAN_LAS_LIBRERIAS, el propietario 08-10 ("es buena"): con la CPU como libreria, una gpu fn corre en un programa de verdad sin esperar a Ring 0 (LB4); y una reserva que diera otros bits no seria una reserva
     cumple test toolchain/lang/titan/emisor-x86_64/tests/e1.rs a_gpu_fn_fed_what_is_typed_gives_the_cells_of_the_oracle
 
+L33 un hilo de la GPU ACABA por construccion: dentro de una gpu fn solo hay `for` con sus vueltas ESCRITAS, la obra de una celda se sabe al compilar y no pasa de 65536, y una llamada a otra gpu fn se escribe EN LINEA
+    porque DL4 de PLAN_LAS_LIBRERIAS, el propietario 08-10 ("si ve hasta el final"): con el N escrito ningun hilo cuelga la 3060 ni la CPU, tampoco en las celdas que llegan al correr (LB4), que el calculo nunca ve; y un hilo no tiene pila para llamar
+    cumple test toolchain/lang/titan/src/gpu.rs a_gpu_fn_loops_only_where_its_turns_are_written
+
 [SELLO]
-82229cc73dc85506c7b65d5fdd6103f1e22e577010f81b9edd14fcd4dfa61079
+555cb58adfd1c6e68ea7dd91d925e15f288061628d90fdc9544018590143be97
 
 [HISTORIA]
 2026-10-04  16a5580ebef2  24 leyes  nacen las 24 leyes de los niveles 0-10, pedidas por el propietario
@@ -158,3 +162,4 @@ L32 una gpu fn corre tambien en la CPU, su RESERVA: el x86-64 que escribe la tar
 2026-10-07  05755562e8cd  31 leyes  L28-L31: TITAN++ sin SPIR-V -- gpu fn -> Programa -> SM86 -> el juez del SASS, decision del propietario 07-10
 2026-10-08  33df9da29620  31 leyes  LB3: el emisor de GPU de TITAN++ pasa a PROMETEO (toolchain/lang/titan/prometeo), decision del propietario 08-10 -- ningun texto de ley cambia, solo donde viven las pruebas de L28-L31
 2026-10-08  82229cc73dc8  32 leyes  L32: una gpu fn corre en la CPU, su reserva, y al correr en un programa que lee -- DL3 del propietario (08-10, 'es buena'), con LB4 de PLAN_LAS_LIBRERIAS
+2026-10-08  555cb58adfd1  33 leyes  L33: un hilo de la GPU acaba por construccion (for con N escrito, obra con tope, llamadas en linea) -- DL4 del propietario (08-10, 'si ve hasta el final'), con LB5 de PLAN_LAS_LIBRERIAS

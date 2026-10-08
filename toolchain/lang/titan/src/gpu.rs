@@ -12,8 +12,9 @@
 //!    its body      let, if / else and return, with + - * / and comparisons;
 //!                  and (LB5) `for i in range(N)` with N WRITTEN, `break`
 //!                  and `continue`
+//!                  and calls to another `gpu fn`, written in line
 //!    NOT           print (the 3060 has no console), tables, texts, records,
-//!                  calls, `while` -- each with its own NO, T0090
+//!                  calls to the CPU, `while` -- each with its own NO, T0090
 //! ```
 //!
 //! The f32 rule of the CPU side (D2) is the calculation's (`calc.rs`, T0091),
@@ -30,10 +31,11 @@
 //! hangs. The counter is f32, like every number inside: exact up to 2^24.
 //! A `while` waits for E7 seen on the metal (DL4).
 //!
-//! [!] Calls between `gpu fn` are not refused for ever: they wait for the GPU
-//! writer (`bmo-titan-prometeo`, PROMETEO) to write them IN LINE (LB5), and
-//! enter with their own example. Said here so nobody takes the NO for a
-//! decision.
+//! ** THE CALLS (08-10, LB5): a `gpu fn` may call another `gpu fn` -- never
+//! a fn of the CPU, and never itself, directly or through another -- and the
+//! writer (`bmo-titan-prometeo`) writes it IN LINE: a thread has no stack to
+//! call with, and a gpu fn is pure, so in line it gives the same bits. Its
+//! work is the callee's, counted where it is called.
 
 use crate::message::{Code, Message};
 use crate::tree::{Expr, Function, Program, Stmt, Ty};
@@ -57,7 +59,82 @@ pub fn check(p: &Program, permissions: Permissions) -> Result<(), Message> {
             ));
         }
         signature(f)?;
-        body(f, &f.body, 0)?;
+        sin_ciclo(p, f, &mut vec![f.name.as_str()], &mut Vec::new())?;
+        body(p, f, &f.body, 0)?;
+    }
+    Ok(())
+}
+
+/// The `gpu fn` called `name`, if there is one.
+fn gpu_fn<'p>(p: &'p Program, name: &str) -> Option<&'p Function> {
+    p.functions.iter().find(|g| g.gpu && g.name == name)
+}
+
+/// The calls written in these statements: (who, line, column).
+fn llamadas(stmts: &[Stmt]) -> Vec<(&str, usize, usize)> {
+    fn en<'a>(e: &'a Expr, out: &mut Vec<(&'a str, usize, usize)>) {
+        match e {
+            Expr::Call { callee, args, line, col } => {
+                out.push((callee.as_str(), *line, *col));
+                args.iter().for_each(|a| en(a, out));
+            }
+            Expr::Bin { left, right, .. } => {
+                en(left, out);
+                en(right, out);
+            }
+            Expr::Neg { value, .. } | Expr::Not { value, .. } => en(value, out),
+            _ => {}
+        }
+    }
+    fn todas<'a>(stmts: &'a [Stmt], out: &mut Vec<(&'a str, usize, usize)>) {
+        for st in stmts {
+            match st {
+                Stmt::Let(l) | Stmt::Set(l) => en(&l.value, out),
+                Stmt::Return { value: Some(v), .. } => en(v, out),
+                Stmt::If(i) => {
+                    en(&i.cond, out);
+                    todas(&i.then, out);
+                    todas(&i.other, out);
+                }
+                Stmt::For(fo) => todas(&fo.body, out),
+                Stmt::While(w) => {
+                    en(&w.cond, out);
+                    todas(&w.body, out);
+                }
+                _ => {}
+            }
+        }
+    }
+    let mut out = Vec::new();
+    todas(stmts, &mut out);
+    out
+}
+
+/// ** A gpu fn that calls itself, directly or through another, would never
+/// end being written IN LINE (and a thread has no stack to call with): its
+/// NO, at the call that closes the circle. `pila`: the path from the gpu fn
+/// being judged; `vistas`: the ones already known to close no circle.
+fn sin_ciclo<'p>(p: &'p Program, f: &'p Function, pila: &mut Vec<&'p str>, vistas: &mut Vec<&'p str>) -> Result<(), Message> {
+    for (name, line, col) in llamadas(&f.body) {
+        let Some(g) = gpu_fn(p, name) else { continue };
+        if pila.contains(&g.name.as_str()) {
+            let mut camino: Vec<&str> = pila.iter().skip_while(|n| **n != g.name).copied().collect();
+            camino.push(&g.name);
+            return Err(no(
+                line,
+                col,
+                &format!("una gpu fn que se llama a si misma: {}", camino.join(" -> ")),
+                "una gpu fn se escribe EN LINEA dentro de quien la llama, y una que se llama a si misma no acabaria nunca de escribirse: un hilo de la GPU no tiene pila para llamadas",
+                "escribelo con un `for` de vueltas escritas",
+            ));
+        }
+        if vistas.contains(&g.name.as_str()) {
+            continue;
+        }
+        pila.push(&g.name);
+        sin_ciclo(p, g, pila, vistas)?;
+        pila.pop();
+        vistas.push(&g.name);
     }
     Ok(())
 }
@@ -84,8 +161,8 @@ pub const HONDO_MAXIMO: usize = 8;
 
 /// **The work of one cell** of a gpu fn that [`check`] accepted (LB5): the
 /// same count as its rule, for the writer's battery.
-pub fn obra(f: &Function) -> u64 {
-    body(f, &f.body, 0).unwrap_or(u64::MAX)
+pub fn obra(p: &Program, f: &Function) -> u64 {
+    body(p, f, &f.body, 0).unwrap_or(u64::MAX)
 }
 
 /// An integer WRITTEN: `10`, `-3`.
@@ -133,7 +210,7 @@ fn signature(f: &Function) -> Result<(), Message> {
 
 /// The statements of a gpu fn, against the rules above: their WORK, or the
 /// first NO. `hondo`: the loops they are inside.
-fn body(f: &Function, stmts: &[Stmt], hondo: usize) -> Result<u64, Message> {
+fn body(p: &Program, f: &Function, stmts: &[Stmt], hondo: usize) -> Result<u64, Message> {
     let mut obra: u64 = 0;
     for st in stmts {
         let (cost, at) = match st {
@@ -143,13 +220,14 @@ fn body(f: &Function, stmts: &[Stmt], hondo: usize) -> Result<u64, Message> {
                         return Err(no(l.line, l.col, &format!("`{}: {}` dentro de una gpu fn", l.name, t.name()), "dentro de una gpu fn solo hay f32 y bool", &format!("let {}: f32 = ...", l.name)));
                     }
                 }
-                (1 + expr(&l.value)?, None)
+                (1u64.saturating_add(expr(p, &l.value, hondo)?), None)
             }
-            Stmt::If(i) => (1u64.saturating_add(expr(&i.cond)?).saturating_add(body(f, &i.then, hondo)?).saturating_add(body(f, &i.other, hondo)?), None),
-            Stmt::Return { value: Some(v), .. } => (1 + expr(v)?, None),
+            Stmt::If(i) => (1u64.saturating_add(expr(p, &i.cond, hondo)?).saturating_add(body(p, f, &i.then, hondo)?).saturating_add(body(p, f, &i.other, hondo)?), None),
+            Stmt::Return { value: Some(v), .. } => (1u64.saturating_add(expr(p, v, hondo)?), None),
             Stmt::Return { line, col, value: None } => return Err(no(*line, *col, "un `return` sin valor en una gpu fn", "cada hilo devuelve su celda", "return x")),
             Stmt::Call(c) if c.callee == "print" => return Err(no(c.line, c.col, "`print` dentro de una gpu fn", "la 3060 no tiene consola: miles de hilos escribiendo a la vez no dirian nada que se pueda leer", "devuelve el valor, y escribelo en la CPU: print(round(x, 2))")),
-            Stmt::Call(c) => return Err(no(c.line, c.col, &format!("`{}()` dentro de una gpu fn", c.callee), "una gpu fn no llama a nada todavia: lo que corre en la 3060 se escribe entero en ella (las llamadas entre gpu fn llegan con el escritor de la 3060, IL1)", "escribe el calculo aqui mismo")),
+            Stmt::Call(c) if gpu_fn(p, &c.callee).is_some() => return Err(no(c.line, c.col, &format!("`{}()` sola, sin usar lo que devuelve, en una gpu fn", c.callee), "una gpu fn es pura: no cambia nada fuera de ella, asi que llamarla sin usar su resultado no hace nada", &format!("let y = {}(...)", c.callee))),
+            Stmt::Call(c) => return Err(no(c.line, c.col, &format!("`{}()` dentro de una gpu fn", c.callee), "una gpu fn solo llama a otra gpu fn, que se escribe EN LINEA en ella: lo de la CPU no corre en un hilo de la GPU", "escribe el calculo aqui mismo, o en otra gpu fn")),
             Stmt::While(w) => return Err(no(w.line, w.col, "un `while` dentro de una gpu fn", "un hilo de la GPU tiene que acabar, y de un `while` no se sabe al compilar cuantas vueltas da: dentro de una gpu fn solo hay `for i in range(N)` con N escrito, que acaba por construccion (DL4 de PLAN_LAS_LIBRERIAS; el `while` espera a E7 visto en el metal)", "for i in range(10)  -- y `break` para salir antes")),
             Stmt::For(fo) => {
                 if fo.over.is_some() {
@@ -166,7 +244,7 @@ fn body(f: &Function, stmts: &[Stmt], hondo: usize) -> Result<u64, Message> {
                 if hondo >= HONDO_MAXIMO {
                     return Err(no(fo.line, fo.col, &format!("mas de {} bucles uno dentro de otro, en una gpu fn", HONDO_MAXIMO), &format!("el Programa de la casa guarda {} estructuras abiertas, y cada bucle de una gpu fn puede ir dentro de su `si`", 32), "saca el calculo de dentro a otra gpu fn, o junta dos bucles en uno"));
                 }
-                let inside = body(f, &fo.body, hondo + 1)?;
+                let inside = body(p, f, &fo.body, hondo + 1)?;
                 let turns = (to as i128 - from as i128).max(0) as u64;
                 let cost = turns.saturating_mul(inside.saturating_add(2)).saturating_add(2);
                 if cost > OBRA_MAXIMA {
@@ -270,6 +348,32 @@ mod tests {
         // (4002); the outer one, a thousand of them, does not.
         let nest = no("gpu fn f(x: f32) -> f32\n    let mut r = x\n    for i in range(1000)\n        for j in range(1000)\n            r = r + x\n    return r\nfn main()\n    print(1)\n");
         assert_eq!((nest.code, nest.line, nest.col), (Code::NoEnd, 4, 5), "{:?}", nest);
+        // ** LB5: a call to another gpu fn, IN LINE. Its work is counted where
+        // it is called -- inside a loop, once per turn.
+        let calls = "mod main \"x\"\ngpu fn cuadrado(x: f32) -> f32\n    return x * x\ngpu fn ocho(x: f32) -> f32\n    let mut r = x\n    for i in range(3)\n        r = cuadrado(r)\n    return r\nfn main()\n    print(1)\n";
+        let m = lower(calls, Some(PIDE)).unwrap_or_else(|e| panic!("{:?}", e));
+        let obra = |name: &str| m.functions.iter().find(|f| f.name == name).unwrap().obra;
+        // cuadrado: return (1) and `*` (1). ocho: let (1), 3 turns of (2 + the
+        // assignment (1) + the call (1) + cuadrado (2)), the for (2), return (1).
+        assert_eq!(obra("cuadrado"), 2);
+        assert_eq!(obra("ocho"), 1 + 3 * (2 + 1 + 1 + 2) + 2 + 1);
+        // It calls itself: directly, and through another -- at the call that
+        // closes the circle.
+        let it = no("gpu fn f(x: f32) -> f32\n    return f(x) + 1.0\nfn main()\n    print(1)\n");
+        assert_eq!((it.code, it.line, it.col), (Code::GpuBody, 3, 12), "{:?}", it);
+        assert!(it.what.contains("f -> f"), "{}", it.what);
+        let round = no("gpu fn a(x: f32) -> f32\n    return b(x)\ngpu fn b(x: f32) -> f32\n    let y = a(x)\n    return y\nfn main()\n    print(1)\n");
+        assert_eq!((round.code, round.line, round.col), (Code::GpuBody, 5, 13), "{:?}", round);
+        assert!(round.what.contains("a -> b -> a"), "{}", round.what);
+        // A fn of the CPU, from a gpu fn; and a call alone, whose result nobody uses.
+        let cpu = no("fn doble(x: int) -> int\n    return x * 2\ngpu fn f(x: f32) -> f32\n    return doble(x)\nfn main()\n    print(doble(1))\n");
+        assert_eq!((cpu.code, cpu.line, cpu.col), (Code::GpuBody, 5, 12), "{:?}", cpu);
+        let alone = no("gpu fn g(x: f32) -> f32\n    return x\ngpu fn f(x: f32) -> f32\n    g(x)\n    return x\nfn main()\n    print(1)\n");
+        assert_eq!((alone.code, alone.line, alone.col), (Code::GpuBody, 5, 5), "{:?}", alone);
+        // The work of a call inside loops: a callee whose work fits, called
+        // in a loop of 10000 turns, does not.
+        let big = no("gpu fn g(x: f32) -> f32\n    return x * x * x\ngpu fn f(x: f32) -> f32\n    let mut r = x\n    for i in range(10000)\n        r = g(r)\n    return r\nfn main()\n    print(1)\n");
+        assert_eq!((big.code, big.line, big.col), (Code::NoEnd, 6, 5), "{:?}", big);
         // A huge N does not overflow the count.
         let huge = no("gpu fn f(x: f32) -> f32\n    let mut r = x\n    for i in range(-16777216, 16777216)\n        for j in range(-16777216, 16777216)\n            for k in range(-16777216, 16777216)\n                for l in range(-16777216, 16777216)\n                    r = r + x\n    return r\nfn main()\n    print(1)\n");
         assert_eq!(huge.code, Code::NoEnd, "{:?}", huge);
@@ -277,17 +381,35 @@ mod tests {
 }
 
 /// An expression of a gpu fn: its operations (its WORK), or its NO.
-fn expr(e: &Expr) -> Result<u64, Message> {
+fn expr(p: &Program, e: &Expr, hondo: usize) -> Result<u64, Message> {
     match e {
         Expr::Int { .. } | Expr::Dec { .. } | Expr::Name { .. } | Expr::Bool { .. } => Ok(0),
-        Expr::Bin { left, right, .. } => Ok(1u64.saturating_add(expr(left)?).saturating_add(expr(right)?)),
-        Expr::Neg { value, .. } | Expr::Not { value, .. } => Ok(1u64.saturating_add(expr(value)?)),
+        Expr::Bin { left, right, .. } => Ok(1u64.saturating_add(expr(p, left, hondo)?).saturating_add(expr(p, right, hondo)?)),
+        Expr::Neg { value, .. } | Expr::Not { value, .. } => Ok(1u64.saturating_add(expr(p, value, hondo)?)),
         Expr::Text { line, col, .. } => Err(no(*line, *col, "un texto dentro de una gpu fn", "la 3060 cuenta numeros: un texto no tiene celda en ella", "deja los textos a la CPU")),
-        Expr::Call { callee, line, col, .. } => Err(no(*line, *col, &format!("`{}()` dentro de una gpu fn", callee), "una gpu fn no llama a nada todavia (las llamadas entre gpu fn llegan con G2)", "escribe el calculo aqui mismo")),
+        // ** Another gpu fn (LB5): written in line, its work is its whole
+        // body, here -- inside this one's loops, if it is.
+        Expr::Call { callee, args, .. } if gpu_fn(p, callee).is_some() => {
+            let g = gpu_fn(p, callee).expect("just seen");
+            let mut cost = 1u64;
+            for a in args {
+                cost = cost.saturating_add(expr(p, a, hondo)?);
+            }
+            Ok(cost.saturating_add(body(p, g, &g.body, hondo)?))
+        }
+        // A name nobody declared is the checker's NO (T0051), after this one.
+        Expr::Call { callee, args, .. } if !p.functions.iter().any(|g| g.name == *callee) => {
+            let mut cost = 1u64;
+            for a in args {
+                cost = cost.saturating_add(expr(p, a, hondo)?);
+            }
+            Ok(cost)
+        }
+        Expr::Call { callee, line, col, .. } => Err(no(*line, *col, &format!("`{}()` dentro de una gpu fn", callee), &format!("una gpu fn solo llama a otra gpu fn, que se escribe EN LINEA en ella: `{}` es de la CPU, y lo de la CPU no corre en un hilo de la GPU", callee), "escribe el calculo aqui mismo, o en otra gpu fn")),
         Expr::Round { line, col, .. } => Err(no(*line, *col, "`round` dentro de una gpu fn", "round vuelve un f32 `dec`, y el dec es de la CPU: se redondea al volver", "devuelve el f32 y redondealo en la CPU: round(x, 2)")),
         Expr::Table { line, col, .. } | Expr::Repeat { line, col, .. } | Expr::Index { line, col, .. } => Err(no(*line, *col, "una tabla dentro de una gpu fn", "cada hilo tiene UNA celda: la tabla se le da al llamarla", "gpu fn f(x: f32) -> f32, y f(tabla)")),
         Expr::Field { line, col, .. } | Expr::Record { line, col, .. } => Err(no(*line, *col, "un registro dentro de una gpu fn", "dentro de una gpu fn solo hay f32 y bool", "pasa cada campo como su propio valor")),
-        Expr::Lend { line, col, .. } => Err(no(*line, *col, "prestar dentro de una gpu fn", "una gpu fn no llama a nada", "escribe el calculo aqui mismo")),
+        Expr::Lend { line, col, .. } => Err(no(*line, *col, "prestar dentro de una gpu fn", "cada hilo tiene su COPIA: una gpu fn recibe valores, no prestamos", "pasa el valor, y usa lo que devuelve")),
         Expr::Map { line, col, .. } => Err(no(*line, *col, "un mapa dentro de una gpu fn", "cada hilo tiene UNA celda: un mapa vive en la CPU", "busca en el mapa en la CPU y pasa el valor")),
     }
 }

@@ -1,0 +1,5 @@
+[package]
+name = "en_linea"
+
+[permissions]
+gpu = "compute"

@@ -403,6 +403,8 @@ fn to_f32(v: &mut Value) {
             to_f32(r);
         }
         Value::Neg(x, _) | Value::Not(x, _) => to_f32(x),
+        // LB5: a call to another gpu fn, with numbers written in it.
+        Value::Call(_, args, _) => args.iter_mut().for_each(to_f32),
         _ => {}
     }
 }
@@ -833,7 +835,7 @@ pub fn lower(p: &Program) -> Module {
                     }
                 }
             }
-            let obra = if f.gpu { crate::gpu::obra(f) } else { 0 };
+            let obra = if f.gpu { crate::gpu::obra(p, f) } else { 0 };
             Function { name: f.name.clone(), line: f.line, locals: l.locals, params, modes: f.params.iter().map(|a| a.mode).collect(), ret: f.ret.clone(), blocks, gpu: f.gpu, obra, dispatch: None }
         })
         .collect::<Vec<_>>();

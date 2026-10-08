@@ -1,0 +1,42 @@
+# espera: BIEN
+# sale: suave en -0.5, 0.25, 0.75 y 2: 0.000000 0.156250 0.843750 1.000000
+# sale: 2 a la 8, por tres cuadrados: 256
+# sale: el primer entero cuyo cuadrado pasa de 2: 2
+# una gpu fn llama a otra (LB5): no hay pila en un hilo, asi que la llamada se escribe EN LINEA, con sus bucles y sus `return`
+mod main "una gpu fn dentro de otra"
+
+gpu fn cuadrado(x: f32) -> f32
+    return x * x
+
+gpu fn limita(x: f32, a: f32, b: f32) -> f32
+    if x < a
+        return a
+    if x > b
+        return b
+    return x
+
+gpu fn suave(x: f32) -> f32
+    let t = limita(x, 0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)
+
+gpu fn a_la_ocho(x: f32) -> f32
+    let mut r = x
+    for i in range(3)
+        r = cuadrado(r)
+    return r
+
+gpu fn primero_mayor(x: f32) -> f32
+    for i in range(10)
+        if cuadrado(i) > x
+            return i
+    return -1.0
+
+fn main()
+    let xs: [f32; 4] = [-0.5, 0.25, 0.75, 2.0]
+    let s = suave(xs)
+    let dos: [f32; 1] = [2.0]
+    let o = a_la_ocho(dos)
+    let p = primero_mayor(dos)
+    print("suave en -0.5, 0.25, 0.75 y 2: ", round(s[0], 6), " ", round(s[1], 6), " ", round(s[2], 6), " ", round(s[3], 6))
+    print("2 a la 8, por tres cuadrados: ", round(o[0], 0))
+    print("el primer entero cuyo cuadrado pasa de 2: ", round(p[0], 0))

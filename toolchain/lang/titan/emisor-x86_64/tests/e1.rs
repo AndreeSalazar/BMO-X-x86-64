@@ -258,7 +258,17 @@ fn e1_traps_where_the_calculation_said_no() {
             Err(bmo_titan_x86_64::Failure::Source(m)) => m.line,
             other => panic!("{name}: the calculation says {code}, and gave {:?}", other.map(|_| ())),
         };
-        let bex = bmo_titan_x86_64::build_package_e1(&rootfile, &src, &mut |p| read(p)).unwrap_or_else(|e| panic!("{name}: E1 no lo emite: {e:?}"));
+        let bex = match bmo_titan_x86_64::build_package_e1(&rootfile, &src, &mut |p| read(p)) {
+            Ok(bex) => bex,
+            // ** A NO said before anything runs (LB5, L33: the work of a gpu
+            // fn's thread, T0066 when compiling) is the same NO for E1 too:
+            // same code, same line -- only sooner.
+            Err(bmo_titan_x86_64::Failure::Source(m)) if m.code.label() == code && m.line == line => {
+                checked += 1;
+                continue;
+            }
+            Err(e) => panic!("{name}: E1 no lo emite: {e:?}"),
+        };
         // a loop without end runs until the emulator's budget stops it
         let ran = std::panic::catch_unwind(|| console(bex, &src));
         let (out, exited) = ran.unwrap_or_default();

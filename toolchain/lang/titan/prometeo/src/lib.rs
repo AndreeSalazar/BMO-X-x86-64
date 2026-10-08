@@ -176,7 +176,13 @@ fn kind_of(t: &bmo_titan_front::tree::Ty) -> Result<Kind, Failure> {
 
 /// El que escribe el Programa: los registros, sus constantes y el sitio de
 /// cada operacion.
-struct Writer {
+struct Writer<'m> {
+    /// El modulo: de donde sale el cuerpo de una gpu fn llamada (LB5).
+    m: &'m Module,
+    /// Las gpu fn que se estan escribiendo EN LINEA ahora mismo, de fuera a
+    /// dentro: una que volviera a entrar no acabaria nunca (`gpu.rs` lo dice
+    /// antes; esto es la red).
+    dentro: Vec<usize>,
     ops: Vec<Op>,
     donde: Vec<(usize, usize)>,
     iniciales: Vec<f32>,
@@ -184,7 +190,7 @@ struct Writer {
     aqui: (usize, usize),
 }
 
-impl Writer {
+impl Writer<'_> {
     fn reg(&mut self) -> Result<Reg, Failure> {
         let r = self.iniciales.len();
         if r >= u16::MAX as usize {
@@ -305,6 +311,32 @@ fn eval(w: &mut Writer, v: &Value, env: &Env) -> Result<(Reg, Kind), Failure> {
             w.op(o);
             (d, k)
         }
+        // ** OTRA gpu fn (LB5), EN LINEA: sus valores, su cuerpo escrito aqui
+        // mismo -- con sus bucles y sus `return` --, y su resultado. Un hilo
+        // no tiene pila para llamar, y una gpu fn es pura: en linea da los
+        // mismos bits.
+        Value::Call(g, args, _) => {
+            let m = w.m;
+            let callee = &m.functions[*g];
+            if !callee.gpu {
+                return Err(Failure::writer(format!("una llamada a `{}`, de la CPU, dentro de una gpu fn: gpu.rs tenia que haberlo dicho", callee.name)));
+            }
+            if w.dentro.contains(g) {
+                return Err(Failure::writer(format!("`{}` se llama a si misma: gpu.rs tenia que haberlo dicho", callee.name)));
+            }
+            let ret = kind_of(callee.ret.as_ref().ok_or_else(|| Failure::writer(format!("`{}` no devuelve nada", callee.name)))?)?;
+            let mut suyo: Env = HashMap::new();
+            for ((local, _), a) in callee.params.iter().zip(args) {
+                let v = eval(w, a, env)?;
+                suyo.insert(*local, v);
+            }
+            let aqui = w.aqui;
+            w.dentro.push(*g);
+            let r = straight(w, callee, suyo)?;
+            w.dentro.pop();
+            w.aqui = aqui;
+            (r, ret)
+        }
         other => return Err(Failure::writer(format!("un valor que una gpu fn no tiene ({:?}): gpu.rs tenia que haberlo dicho", other))),
     })
 }
@@ -322,7 +354,7 @@ pub fn programa(m: &Module, func: usize) -> Result<(Programa, Vec<(usize, usize)
     if params.len() > 32 {
         return Err(Failure::writer(format!("`{}` recibe {} valores: el Programa lee 32 entradas como mucho", f.name, params.len())));
     }
-    let mut w = Writer { ops: Vec::new(), donde: Vec::new(), iniciales: Vec::new(), consts: HashMap::new(), aqui: (f.line, 1) };
+    let mut w = Writer { m, dentro: vec![func], ops: Vec::new(), donde: Vec::new(), iniciales: Vec::new(), consts: HashMap::new(), aqui: (f.line, 1) };
     // -- la celda de cada valor: la entrada k, componente 0 ------------------------
     let mut env: Env = HashMap::new();
     for (k, ((local, _), kind)) in f.params.iter().zip(&params).enumerate() {
