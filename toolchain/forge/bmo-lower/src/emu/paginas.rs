@@ -33,6 +33,9 @@ impl Machine {
                 self.rip
             );
         }
+        if let Some(v) = &mut self.escritas {
+            v.push(addr);
+        }
         self.mem.insert(addr, b);
     }
 }
