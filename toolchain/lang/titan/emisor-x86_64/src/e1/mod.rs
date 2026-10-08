@@ -168,6 +168,8 @@ pub(crate) struct E1<'m> {
     pub owned: Vec<(Place, Class)>,
     /// Las clases con subrutina de clonar y soltar (`Helper::CloneOf`).
     pub kinds: Vec<Class>,
+    /// El primer "todavia no" que E1 dijo, con su sitio (`E1::not_yet`).
+    not_yet_said: Option<NotYet>,
 }
 
 /// Lo que E1 no emite: un NO al compilar.
@@ -175,7 +177,52 @@ pub(crate) fn later(what: &str, why: &str, at: (usize, usize)) -> String {
     format!("linea {}: {} no se emite al correr todavia ({})", at.0, what, why)
 }
 
+/// ** LO QUE E1 TODAVIA NO EMITE (LB1 de `docs/plan/PLAN_LAS_LIBRERIAS.md`,
+/// 08-10): un NO del PROGRAMA, con su sitio (las lineas del modulo, como el
+/// `at` de la IR), su porque y su como. Antes salia como "el .bex no paso el
+/// gate ... es un fallo del compilador": un limite conocido dicho como un fallo.
+#[derive(Debug, Clone)]
+pub struct NotYet {
+    pub at: (usize, usize),
+    pub what: String,
+    pub why: String,
+    pub how: String,
+}
+
+/// Por que E1 no emitio un modulo.
+#[derive(Debug)]
+pub enum NoE1 {
+    /// Lo que todavia no se emite al correr: el NO del programa.
+    NotYet(NotYet),
+    /// Un fallo de E1: nunca del programa.
+    Failure(String),
+}
+
+/// Por que una `gpu fn` no corre al correr, y que hacer mientras.
+const GPU_WHY: &str = "este programa lee de fuera, asi que corre de verdad en la maquina (E1), y una gpu fn hoy solo corre AL COMPILAR, en la 3060 simulada. Al correr llega con su libreria: la de la CPU (LB4 de PLAN_LAS_LIBRERIAS) o la puerta de computo de la 3060 (G4 de PLAN_EL_CENTAURO)";
+const GPU_HOW: &str = "lo que no depende de lo tecleado, calculalo en un programa que no lee; lo demas espera a LB4";
+/// Lo mismo de un f32: vive en la 3060, y en la maquina todavia no hay donde.
+const F32_WHY: &str = "este programa lee de fuera, asi que corre de verdad en la maquina (E1), y un f32 vive en la 3060 (D2): al correr no tiene sitio todavia (LB7 de PLAN_LAS_LIBRERIAS)";
+const F32_HOW: &str = "cuenta con `dec` en la CPU; los f32 van en un programa que no lee";
+/// Lo demas que E1 todavia no emite al correr: una operacion o un paso de
+/// una clase a otra que el calculo hace y la maquina aun no.
+const E1_WHY: &str = "este programa lee de fuera, asi que corre de verdad en la maquina (E1), y eso todavia no se emite al correr";
+const E1_HOW: &str = "hazlo en un programa que no lee; E1 aprende lo que le falta casilla a casilla";
+/// Una comparacion que E1 todavia no sabe hacer al correr.
+const EQ_WHY: &str = "este programa lee de fuera, asi que corre de verdad en la maquina (E1), y esa comparacion todavia no se emite al correr";
+const EQ_HOW: &str = "compara sus partes una a una, o hazlo en un programa que no lee";
+
 impl<'m> E1<'m> {
+    /// ** Lo que E1 TODAVIA NO emite: lo apunta con su sitio (el primero que
+    /// se dice) y da el texto de siempre (`later`), que sube por los `?` como
+    /// cualquier NO; `emit` devuelve lo apuntado como el NO del programa.
+    pub(crate) fn not_yet(&mut self, what: &str, why: &str, how: &str, at: (usize, usize)) -> String {
+        if self.not_yet_said.is_none() {
+            self.not_yet_said = Some(NotYet { at, what: what.into(), why: why.into(), how: how.into() });
+        }
+        later(what, why, at)
+    }
+
     // -- los bytes mas chicos -------------------------------------------
 
     /// `lea <reg>, [<base> + disp32]`.
@@ -466,7 +513,8 @@ impl<'m> E1<'m> {
             return Ok(0);
         }
         if f.gpu {
-            return Err(later(&format!("`gpu fn {}`", f.name), "la 3060 corre cuando su lanzamiento exista en Ring 0: G4 de PLAN_EL_CENTAURO", (f.line, 1)));
+            let what = format!("`gpu fn {}`", f.name);
+            return Err(self.not_yet(&what, GPU_WHY, GPU_HOW, (f.line, 1)));
         }
         let sizes = self.plan(f)?;
         let n = f.locals.len();
@@ -606,7 +654,8 @@ impl<'m> E1<'m> {
     pub fn call(&mut self, func: usize, args: &[Value], at: (usize, usize)) -> Result<Option<(Place, Class)>, String> {
         let f = &self.m.functions[func];
         if f.gpu {
-            return Err(later(&format!("una llamada a `gpu fn {}`", f.name), "la 3060 corre cuando su lanzamiento exista en Ring 0: G4 de PLAN_EL_CENTAURO", at));
+            let what = format!("una llamada a `gpu fn {}`", f.name);
+            return Err(self.not_yet(&what, GPU_WHY, GPU_HOW, at));
         }
         let params: Vec<(Class, Ty, Mode)> = f.params.iter().enumerate().map(|(i, (_, t))| (self.forms.class(t), t.clone(), f.modes.get(i).copied().unwrap_or(Mode::Copy))).collect();
         let ret = f.ret.as_ref().map(|t| self.forms.class(t));
@@ -772,7 +821,7 @@ fn written(v: &Value) -> Option<String> {
 
 /// ** E1 entero: arrancar en `main`, cada fn con su marco, las subrutinas
 /// que alguien llamo, y los NO del final.
-pub fn emit(m: &Module) -> Result<Emitted, String> {
+pub fn emit(m: &Module) -> Result<Emitted, NoE1> {
     let mut e = E1 {
         m,
         forms: Forms::new(m),
@@ -786,7 +835,19 @@ pub fn emit(m: &Module) -> Result<Emitted, String> {
         lenient: 0,
         owned: Vec::new(),
         kinds: Vec::new(),
+        not_yet_said: None,
     };
+    // Un NO de E1 sube por los `?` como texto; si fue un "todavia no", E1 lo
+    // apunto con su sitio, y es el NO del PROGRAMA (LB1).
+    let done = emit_all(&mut e, m);
+    done.map_err(|why| match e.not_yet_said.take() {
+        Some(n) => NoE1::NotYet(n),
+        None => NoE1::Failure(why),
+    })
+}
+
+/// `emit`, sobre su E1 ya armado.
+fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
     // ** EL MONTON (nivel 13): `r14` es su estado; cero hasta el primer
     // bloque. Solo si el programa tiene listas o mapas: los demas no pagan
     // ni una instruccion.
@@ -856,7 +917,7 @@ pub fn emit(m: &Module) -> Result<Emitted, String> {
         }
         x86::patch_jump_to(&mut e.code, field, starts[k]);
     }
-    Ok(Emitted { code: e.code, starts: starts.into_iter().map(|s| if s == usize::MAX { 0 } else { s }).collect() })
+    Ok(Emitted { code: std::mem::take(&mut e.code), starts: starts.into_iter().map(|s| if s == usize::MAX { 0 } else { s }).collect() })
 }
 
 /// Tiene el programa listas, mapas u `Opcion` (nivel 13)? Entonces usa el

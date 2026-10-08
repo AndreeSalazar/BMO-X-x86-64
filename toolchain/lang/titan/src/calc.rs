@@ -266,7 +266,36 @@ fn wrong(at: At, want: &Class, got: &Class, types: Defs, what: &str, how: &str) 
 /// single precision. The two benches compare the same `# sale:` lines, so
 /// the day they disagreed, one of them would say it.
 pub trait Device: Send {
-    fn run(&mut self, m: &Module, func: usize, cells: Vec<Vec<u32>>) -> Result<Vec<u32>, String>;
+    fn run(&mut self, m: &Module, func: usize, cells: Vec<Vec<u32>>) -> Result<Vec<u32>, DeviceNo>;
+}
+
+/// ** WHY A `Device` DID NOT RUN A `gpu fn` -- and the two are not the same
+/// thing (LB1 of `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10):
+///
+/// ```text
+///    Limit     what the device's library does NOT KNOW YET, and says so on
+///              purpose: a documented limit (today, a general division on the
+///              3060: LI2g). That is the PROGRAM's NO, said where it is
+///              written -- its line and column are the module's, like `at`
+///    Failure   the writer, its judge or the oracle went wrong: never the
+///              program's, and it says so
+/// ```
+///
+/// Before this, both came out as "a failure of the writer ... tell us with
+/// this program", at the line of the CALL: a known limit read as a bug.
+#[derive(Debug)]
+pub enum DeviceNo {
+    Limit(Message),
+    Failure(String),
+}
+
+impl std::fmt::Display for DeviceNo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeviceNo::Limit(m) => write!(f, "linea {}, columna {}: {} -- {}", m.line, m.col, m.what, m.why),
+            DeviceNo::Failure(why) => f.write_str(why),
+        }
+    }
 }
 
 /// The module RUN: its classes judged in every block, then the program run
@@ -571,15 +600,19 @@ impl Run<'_, '_> {
             one => vec![bits(one); n],
         }).collect();
         let device = self.device.as_mut().expect("the caller checked");
-        let out = device.run(m, func, cells).map_err(|why| {
-            Message::new(
+        let out = device.run(m, func, cells).map_err(|no| match no {
+            // A limit the library says on purpose: the program's NO, where it
+            // is written (the caller locates it in its file, like any other).
+            DeviceNo::Limit(said) => said,
+            // A failure names no card (L05): it may be any of them (LB3).
+            DeviceNo::Failure(why) => Message::new(
                 Code::GpuBody,
                 at.0,
                 at.1,
-                &format!("la 3060 no pudo correr `{}`", m.functions[func].name),
-                &format!("es un fallo del escritor de la 3060, de su juez o del oraculo, no del programa: {}", why),
+                &format!("la GPU no pudo correr `{}`", m.functions[func].name),
+                &format!("es un fallo de su tarjeta -- su emisor, su juez o su simulador -- o del oraculo, no del programa: {}", why),
                 "avisa con este programa",
-            )
+            ),
         })?;
         let ret_bool = m.functions[func].ret == Some(Ty::Bool);
         let back: Vec<Const> = out.into_iter().map(|b| if ret_bool { Const::Bool(b != 0) } else { Const::F32(b) }).collect();

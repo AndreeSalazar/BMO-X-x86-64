@@ -100,9 +100,9 @@ pub fn lower_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option
     lower_package_with(root, src, read, None)
 }
 
-/// `lower_package`, con QUIEN corre las `gpu fn` (nivel 11, G3): el emisor da
-/// el oraculo (la 3060 simulada, `bmo-titan-sm86`); sin el, el calculo corre
-/// cada hilo con f32.
+/// `lower_package`, con QUIEN corre las `gpu fn` (nivel 11, G3): el emisor de
+/// GPU da el oraculo (cada tarjeta simulada, por PROMETEO: `bmo-titan-prometeo`
+/// -- hoy, la 3060 --); sin el, el calculo corre cada hilo con f32.
 pub fn lower_package_with(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>, mut device: Option<&mut dyn calc::Device>) -> Result<ir::Module, Message> {
     lowered(root, src, read, &mut |m| calc::fold_with(m, device.take()))
 }

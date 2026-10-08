@@ -60,8 +60,9 @@ mod e1;
 
 use bmo_abi::bef2;
 use bmo_lower::{console, task};
+use bmo_titan_front::calc::DeviceNo;
 use bmo_titan_front::ir::{Module, Op, Value};
-use bmo_titan_front::Message;
+use bmo_titan_front::{Code, Message};
 
 /// Lo que sale de emitir un modulo.
 #[derive(Debug, Clone)]
@@ -75,12 +76,36 @@ pub struct Emitted {
 /// nivel 1 cada valor ya es una constante, y un `let` no deja bytes -- su valor
 /// ya esta dentro de los textos que se escriben. Lo unico que no puede pasar
 /// es una parte sin calcular: se dice (`Unfolded`) en vez de inventarle bytes.
-pub fn emit(m: &Module) -> Result<Emitted, String> {
+pub fn emit(m: &Module) -> Result<Emitted, Failure> {
     match &m.flat {
-        Some(flat) => emit_flat(flat),
+        Some(flat) => emit_flat(flat).map_err(Failure::Gate),
         // E1 (`docs/plan/PLAN_LA_ENTRADA.md`): the program reads from outside,
         // so it was not run when compiling -- it is emitted to run (`e1/mod.rs`).
-        None => e1::emit(m),
+        None => e1::emit(m).map_err(|no| e1_no(m, no)),
+    }
+}
+
+/// ** LO QUE E1 TODAVIA NO EMITE es el NO del PROGRAMA (LB1 de
+/// `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): T0040, *lo que todavia no
+/// existe* -- el mismo sentido que una palabra de un nivel que no llego --,
+/// en su fichero y su linea. Un fallo de E1 sigue siendo un fallo.
+fn e1_no(m: &Module, no: e1::NoE1) -> Failure {
+    match no {
+        e1::NoE1::NotYet(n) => {
+            let what = format!("{} todavia no corre en la maquina", n.what);
+            Failure::Source(m.sources.locate(Message::new(Code::NotYet, n.at.0, n.at.1, &what, &n.why, &n.how)))
+        }
+        e1::NoE1::Failure(why) => Failure::Gate(why),
+    }
+}
+
+/// ** LO QUE DICE UNA LIBRERIA DE LA GPU (LB1): su limite es el NO del
+/// programa, en su fichero y su linea; lo demas, un fallo de su escritor o
+/// de su juez -- nunca del programa.
+fn device_no(m: &Module, no: DeviceNo) -> Failure {
+    match no {
+        DeviceNo::Limit(said) => Failure::Source(m.sources.locate(said)),
+        DeviceNo::Failure(why) => Failure::Gate(why),
     }
 }
 
@@ -132,9 +157,12 @@ pub fn package(e: &Emitted, manifest: &str) -> Result<Vec<u8>, String> {
 /// Por que no salio un `.bex`.
 #[derive(Debug)]
 pub enum Failure {
-    /// El NO del frontend: el mensaje de 4 partes.
+    /// El NO del PROGRAMA: el mensaje de 4 partes. Del frontend, del limite
+    /// de una libreria de la GPU (la division general en la 3060), o de lo
+    /// que E1 todavia no emite al correr (LB1, 08-10).
     Source(Message),
-    /// El gate dijo que no. Es un fallo de ESTE compilador, nunca del programa.
+    /// Un fallo de ESTE compilador -- el gate, el emisor o el juez de una
+    /// tarjeta, E1 --, nunca del programa.
     Gate(String),
 }
 
@@ -156,26 +184,44 @@ pub fn build_package_e1(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Opt
     let source_name = root.rsplit('/').next().unwrap_or(root);
     let m = bmo_titan_front::lower_package_unfolded(root, src, read).map_err(Failure::Source)?;
     let manifest = bmo_titan_front::manifest::manifest(&m, source_name);
-    let e = e1::emit(&m).map_err(Failure::Gate)?;
+    let e = e1::emit(&m).map_err(|no| e1_no(&m, no))?;
     package(&e, &manifest).map_err(Failure::Gate)
 }
+
+/// ** LAS TARJETAS QUE HAY (LB3 de `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10):
+/// lo UNICO de la GPU que dice `titan`. El frontend y PROMETEO no nombran
+/// ninguna (L-a); cada una trae su emisor, su juez y su simulador, aislados.
+/// Hoy, una: la 3060. Cual entra en un build -- todas las que haya, o las
+/// que diga el PERFIL de la maquina -- es DL11, del propietario.
+pub static TARJETAS: [&dyn bmo_prometeo::Tarjeta; 1] = [&bmo_proton_x_sm86::tarjeta::SM86];
 
 /// A PACKAGE to a `.bex` (level 9): the root file (its path from the package
 /// and its text), and `read` for the files its `mod`s name. The manifest
 /// names the root.
 pub fn build_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<Vec<u8>, Failure> {
     let source_name = root.rsplit('/').next().unwrap_or(root);
-    // ** Nivel 11 (07-10, sin SPIR-V): las celdas de cada gpu fn las calcula
-    // el ORACULO -- la 3060 simulada, sobre el SASS que escribe
-    // `bmo-titan-sm86` y que el juez acepto --; el .bex lleva esos resultados.
-    let mut oracle = bmo_titan_sm86::Oracle::default();
+    // ** Nivel 11 (07-10, sin SPIR-V; 08-10, PROMETEO): las celdas de cada
+    // gpu fn las calcula el ORACULO -- cada tarjeta simulada, sobre el codigo
+    // que su emisor escribio y su juez acepto (hoy, la 3060) --; el .bex
+    // lleva esos resultados.
+    let mut oracle = bmo_titan_prometeo::Oracle::new(&TARJETAS);
     let m = bmo_titan_front::lower_package_with(root, src, read, Some(&mut oracle)).map_err(Failure::Source)?;
     // Y TODAS, tambien las que ninguna ejecucion llamo, escritas y juzgadas.
-    // Si una no pasa, el fallo es del ESCRITOR o del juez: no hay .bex.
-    bmo_titan_sm86::kernels(&m).map_err(Failure::Gate)?;
+    // Si una no pasa: un limite de la libreria es el NO del programa (en su
+    // sitio); lo demas, un fallo del ESCRITOR o del juez. No hay .bex.
+    bmo_titan_prometeo::kernels(&m, &TARJETAS).map_err(|no| device_no(&m, no))?;
     let manifest = bmo_titan_front::manifest::manifest(&m, source_name);
-    let e = emit(&m).map_err(Failure::Gate)?;
+    let e = emit(&m)?;
     package(&e, &manifest).map_err(Failure::Gate)
+}
+
+/// ** `titan check` (LB1, 08-10): lo MISMO que `build_package`, sin escribir
+/// nada. Antes `check` miraba solo el frontend y decia `bien` a un programa
+/// que `build` rechazaba (la division general en una gpu fn, una gpu fn en un
+/// programa que lee). Ahora dicen lo mismo POR CONSTRUCCION: es el mismo
+/// camino, no dos que se parecen.
+pub fn check_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<(), Failure> {
+    build_package(root, src, read).map(|_| ())
 }
 
 #[cfg(test)]
@@ -269,6 +315,39 @@ mod tests {
         // write_const carries texts eight bytes at a time: "VIVO\n" fits in one.
         assert!(has(b"VIVO\n"), "the live side is there");
         assert!(!has(b"MUERTO"[..4].as_ref()), "the dead side left bytes");
+    }
+
+    /// ** LB1 (`docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): lo que la libreria
+    /// de la 3060 todavia no sabe y lo que E1 todavia no emite son NO del
+    /// PROGRAMA -- su codigo, su linea y su columna, sus cuatro partes --, y
+    /// nunca "el .bex no paso el gate ... fallo del compilador". Y `check`
+    /// dice lo mismo que `build`, porque es el mismo camino.
+    #[test]
+    fn a_known_limit_is_the_program_s_no_in_check_and_in_build() {
+        let toml = "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n";
+        let probes = [
+            // la division general en una gpu fn: en la DIVISION, no en la llamada
+            ("mod main \"x\"\ngpu fn tercio(a: f32) -> f32\n    return a / 3.0\nfn main()\n    let xs: [f32; 1] = [3.0]\n    let r = tercio(xs)\n    print(round(r[0], 2))\n", "T0090", 3, 14),
+            // una gpu fn en un programa que lee: todavia no corre en la maquina
+            ("mod main \"x\"\ngpu fn doble(x: f32) -> f32\n    return x * 2.0\nfn main()\n    let t = lee()\n    print(t)\n    let xs: [f32; 2] = [2.0, 3.0]\n    let r = doble(xs)\n    print(round(r[0], 1))\n", "T0040", 2, 1),
+            // un f32 en un programa que lee, sin gpu fn: tampoco
+            ("mod main \"x\"\nfn main()\n    let t = lee()\n    print(t)\n    let xs: [f32; 1] = [2.0]\n    print(round(xs[0], 1))\n", "T0040", 5, 9),
+        ];
+        for (src, code, line, col) in probes {
+            let files = [("src/main.titan", src), ("Titan.toml", toml)];
+            let mut read = |p: &str| files.iter().find(|f| f.0 == p).map(|f| f.1.to_string());
+            let said = |r: Result<(), Failure>| match r {
+                Err(Failure::Source(m)) => (m.code.label(), m.line, m.col, m.why.contains("fallo"), m.file),
+                other => panic!("{}: the program's NO, not {:?}", code, other),
+            };
+            let built = said(build_package("src/main.titan", src, &mut read).map(|_| ()));
+            assert_eq!((built.0.as_str(), built.1, built.2, built.3), (code, line, col, false), "{}", src);
+            assert_eq!(built, said(check_package("src/main.titan", src, &mut read)), "check says what build says");
+        }
+        // Y lo que E1 y la 3060 saben, igual que antes: check dice que si.
+        let ok = "mod main \"x\"\ngpu fn medio(a: f32) -> f32\n    return a / 2.0\nfn main()\n    let xs: [f32; 1] = [3.0]\n    let r = medio(xs)\n    print(round(r[0], 2))\n";
+        let files = [("src/main.titan", ok), ("Titan.toml", toml)];
+        assert!(check_package("src/main.titan", ok, &mut |p| files.iter().find(|f| f.0 == p).map(|f| f.1.to_string())).is_ok());
     }
 
     #[test]

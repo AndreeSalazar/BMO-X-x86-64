@@ -313,6 +313,14 @@ la SPH (128 B) y detras las instrucciones.
       mano, y cuya salida pasa por el juez de V3b. **Como se sabe:**
       `Bsf::reproduce` comprueba tambien los objetivos SM86, y el juez de
       V3b no rechaza nada de lo que emite.
+
+> **08-10 (H4 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):** el emisor
+> a SM86 existe, pero su entrada es el Programa de la casa, no SPIR-V (E3 de
+> [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md), 28-09), y ya
+> corrio en el metal con los programas de BMOX-12 que traduce PROTON-X (E5,
+> 28-09 11:37). Lo que V4 y M4 piden sigue abierto: que `cubo.bsf` deje el
+> SASS a mano (el "Queda" de E5). V3b es J0-J2 de ese plan, hechos.
+
 - [ ] **V5 -- Vulkan a VERRANO.** Las 67 funciones de vkQuake 0.50
       (Ludoteca 16) traducidas a VERRANO: el primer juego por la 3060.
       **Como se sabe:** vkQuake dibuja su primer fotograma y el backend CPU
@@ -502,6 +510,10 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
 - [ ] **M4 = V4 -- el emisor SPIR-V a SM86.** Los programas del BSF salen
       de su GLSL, no escritos a mano. **Como se sabe:** el BSF refabricado
       da los mismos bytes que el SASS a mano en V0.
+
+> **08-10:** M4 = V4, y lo de su nota vale aqui: la entrada del emisor es el
+> Programa de la casa, no SPIR-V; lo abierto es `cubo.bsf` sin SASS a mano.
+
 - [ ] **M5 = V5 -- Vulkan a VERRANO.** Las 67 funciones de vkQuake 0.50.
 - [ ] **M6 -- un juego de OTRO proceso.** Hoy solo el escritorio habla con
       la 3060 (autoridad MAQUINA). Un juego --en C o en INTI-- le da sus

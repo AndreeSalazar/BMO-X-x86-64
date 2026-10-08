@@ -1,0 +1,26 @@
+[package]
+name = "bmo-titan-prometeo"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "PROMETEO de TITAN++ -- el emisor de GPU de TITAN++ entero (LB3 de PLAN_LAS_LIBRERIAS): cada `gpu fn` hecha el Programa de la casa y pasada por CADA tarjeta que haya, aislada -- su emisor, su juez, su simulador --, contra la casa y el calculo. No nombra ninguna GPU."
+
+# ** LA CADENA (el propietario, 07-10 y 08-10): gpu fn -> el Programa de la
+# casa -> CADA tarjeta, aislada por completo: su emisor, su juez, su
+# simulador -> y en la puerta de la GPU final, el SUPREMO JUEZ. Este crate no
+# nombra ninguna tarjeta: las pide por el contrato de PROMETEO, y solo `titan`
+# dice cuales hay (regla S5 de `la-3060`).
+[dependencies]
+bmo-titan-front = { path = ".." }
+# PROMETEO, la mitad de abajo: el Programa de la casa y el contrato.
+bmo-prometeo = { path = "../../../../platform/shared/prometeo" }
+
+# Solo en las pruebas: las leyes L28-L31 se prueban con la 3060 de verdad (su
+# emisor, su juez y su simulador), y el contrato con una tarjeta DE JUGUETE
+# que entra sin tocar TITAN++ (`tests/juguete.rs`).
+[dev-dependencies]
+bmo-proton-x-sm86 = { path = "../../../../platform/shared/proton-x-sm86" }
+
+[lib]
+name = "bmo_titan_prometeo"
+path = "src/lib.rs"

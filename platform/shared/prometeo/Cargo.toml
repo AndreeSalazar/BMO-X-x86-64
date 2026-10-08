@@ -1,0 +1,19 @@
+[package]
+name = "bmo-prometeo"
+version = "0.1.0"
+edition = "2021"
+description = "PROMETEO -- la libreria general de la GPU (LB3 de PLAN_LAS_LIBRERIAS): el contrato que cumple cada tarjeta, AISLADA, y el Programa de la casa, el formato comun. No nombra ninguna GPU. Puro."
+license = "Apache-2.0"
+
+# ** EL CONTRATO Y EL FORMATO, y ninguna tarjeta: la regla S5 de `la-3060`
+# falla si esta lista nombra un emisor, un juez o un driver de una GPU. Cada
+# tarjeta trae lo suyo y depende de PROMETEO; PROMETEO no depende de ninguna.
+[dependencies]
+# El Programa de la casa: hoy vive en PROTON-X, y PROMETEO lo da con su nombre.
+# La mudanza del codigo (LB3b) le da la vuelta a esta flecha: PROTON-X lo
+# tomara de aqui.
+bmo-proton-x = { path = "../proton-x" }
+
+[lib]
+name = "bmo_prometeo"
+path = "src/lib.rs"

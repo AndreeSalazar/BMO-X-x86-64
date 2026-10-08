@@ -32,6 +32,15 @@ programa, una tabla de latencias de Ampere y un formato de control de 17
 bits que otra familia no tiene. Un emisor o un juez "para todas" seria uno
 que no es preciso para ninguna.
 
+> **08-10, al dia (H4 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):**
+> la ENTRADA comun ya no es SPIR-V: desde E3 (28-09) es el Programa de la casa
+> (`platform/shared/proton-x/src/dxil/programa.rs`), y desde el 07-10 TITAN++
+> tampoco escribe SPIR-V. Lo de cada GPU no cambia: su emisor (del Programa a
+> SU ISA), su juez y su puerta. Y una frase del propietario del 08-10, sobre
+> una libreria *"gpu general"* que *"se llevara todo el emisor de GPU"*, toca
+> este plan: su lectura, y lo que hay que confirmar, en la seccion 4.1 de
+> LAS_LIBRERIAS.
+
 ---
 
 ## 1. Donde vive cada pieza (desde el 26-09)
@@ -49,9 +58,20 @@ que no es preciso para ninguna.
 | VERRANO en el escritorio | `gspcubo/verrano.rs`, `gspcubo/tablero.rs` | de TODOS |
 | la puerta del escritorio | `gspcubo/sm86.rs`: el `kind`, el juez, las ordenes, lo que se le explica al propietario | de la 3060 |
 | la puerta del kernel | `gpu_trabajo/cubo.rs` (`CUBO_VERRANO`): juzga y sube | de la 3060 |
+| **PROMETEO** (08-10): el contrato de una tarjeta y el Programa de la casa | `platform/shared/prometeo` (`bmo-prometeo`) | de TODOS |
+| el emisor de GPU de TITAN++ (08-10) | `toolchain/lang/titan/prometeo` (`bmo-titan-prometeo`): pide las tarjetas por el contrato | de TODOS |
+| la tarjeta de la 3060 para PROMETEO (08-10) | `platform/shared/proton-x-sm86/src/tarjeta.rs`: su emisor, su juez y su simulador detras del contrato | de la 3060 |
 
 **Otra GPU** trae SU fila en cada "de la 3060" de esta tabla, y ninguna fila
 "de TODOS" cambia. Si una tuviera que cambiar, el aislamiento fallo.
+
+> **08-10, LB3 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md):** las tres
+> ultimas filas. El propietario: *"TODAS LAS GPU en emisor SON AISLADAS por
+> completo luego el JUEZ procesa cada uno y el principal "SUPREMO JUEZ" [...]
+> para GPU Final"*. PROMETEO no lleva ninguna ISA: cada tarjeta trae su emisor
+> (del Programa a SU codigo), su juez y su simulador, y el SUPREMO JUEZ es el
+> de la puerta del kernel -- el mismo juez de esa tarjeta, otra vez, el que no
+> se puede saltar. Lo guarda la regla S5 de `la-3060`.
 
 ---
 
@@ -112,6 +132,9 @@ caliente no se repite (los programas son los de un dibujo que ya se juzgo:
 
 `toolchain/tools/la-3060/la_3060.py`, regla **S** (S1 el sobre, S2 la API,
 S3 VERRANO en el escritorio, S4 la puerta del kernel). Corre en cada build.
+Desde el 08-10, **S5**: PROMETEO, el emisor de GPU de TITAN++ y su frontend
+no nombran una tarjeta, ni en sus dependencias ni en su codigo (probado
+sembrando cuatro nombres a proposito: los cuatro caen).
 
 ## [ ] A5 -- LA SEGUNDA TARJETA (cuando la haya)
 
@@ -135,3 +158,5 @@ la puerta por la tarjeta que hay; hoy hay una.
   API y el sobre: lo que un juego usaria.
 - **No es un IR comun entre GPUs.** La entrada comun es SPIR-V y se queda en
   la entrada: despues, cada tarjeta lo suyo.
+  - **08-10:** la entrada comun es hoy el Programa de la casa (la nota de la
+    seccion 0), y se queda en la entrada igual: despues, cada tarjeta lo suyo.

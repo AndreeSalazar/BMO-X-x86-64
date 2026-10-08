@@ -81,7 +81,7 @@ La que describio el propietario, pieza a pieza, con lo que hay y lo que no:
 ```text
    ILLAPA (TITAN++)       las gpu fn del solucionador y del dibujo
         |
-   el PROGRAMA de la casa gpu fn -> Programa (bmo-titan-sm86), el MISMO      HECHO (07-10)
+   el PROGRAMA de la casa gpu fn -> Programa (PROMETEO), el MISMO            HECHO (07-10)
         |                 que sale de los sombreadores de PROTON-X
    el emisor SM86         Programa -> las instrucciones de la 3060 (E3..E6)  HECHO, en linea recta
         |                 [ faltan bucles y vecinos en la gpu fn: IL1 ]
@@ -118,6 +118,15 @@ cambian los DATOS (las posiciones de las particulas, la camara).
 | el BYTE, la VENTANA, la ENTRADA, el DISCO desde TITAN++ | TA1-TA4 de `PLAN_LA_TINTA.md` | los mismos que pide LA TINTA: se hacen UNA vez |
 | leer glTF | nada todavia en el arbol | el personaje, hecho en Blender y traido como fichero |
 
+> **08-10, al dia (H4 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):**
+> las dos primeras filas son de antes del 07-10. Ya no hay SPIR-V: la gpu fn la
+> escribe `toolchain/lang/titan/prometeo` (PROMETEO) al Programa de la casa, en linea
+> recta, y los BUCLES ya los sabe el emisor SM86 con su juez (E6); lo que los
+> rechaza es TITAN++ (`gpu.rs`, T0090) -- LB5 de LAS_LIBRERIAS. Los VECINOS
+> piden ademas un asa que ponga el kernel (R7 no deja leer memoria a una app):
+> LB9. Y la QMD corre desde el 24-09: lo que falta para COMPUTAR es la PUERTA
+> de una app (LB8 = G4 = LI2f).
+
 **De lo de arriba, casi todo ya esta en marcha por otro lado**: el camino de
 la 3060 es el mismo que pide Cyberpunk por PROTON-X, y las puertas de
 TITAN++ las pide LA TINTA. ILLAPA no abre un frente nuevo: llega cuando esos
@@ -150,6 +159,13 @@ brillo y la refraccion. No hace falta construir una malla.
 
 Cada peldanio se prueba solo. Lo que no toca la 3060 se prueba antes en el
 anfitrion, con el oraculo de SPIR-V corriendo las mismas `gpu fn`.
+
+> **08-10, al dia (H4 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):**
+> el oraculo ya no es el de SPIR-V: es la 3060 simulada
+> (`platform/shared/proton-x-sm86/src/simula.rs`) sobre el SASS que el juez
+> acepto, contra la casa y el calculo. IL1 se escribe en el escritor del
+> Programa (`toolchain/lang/titan/prometeo`), no en un emisor de SPIR-V,
+> y se parte en dos: los bucles (LB5) y los vecinos por el asa (LB9).
 
 - [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
 - [ ] IL1 -- `gpu fn` CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaje, el oraculo y el emisor de SPIR-V (el que escribio G2 de `PLAN_EL_CENTAURO.md`, hoy en linea recta); y que el emisor SM86 los sepa traducir (E6 de `PLAN_LA_LENGUA_DE_LA_3060.md`)

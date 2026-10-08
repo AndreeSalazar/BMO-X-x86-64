@@ -909,6 +909,12 @@ sorpresa verifique?"*
   comprobado, hash al tomar), no un JIT del programa. Hoy el plan es que SASS
   salga al construir (T5).
 
+> **08-10:** sin SPIR-V desde el 07-10 (LI7 de
+> [`PLAN_EL_LIBRETO.md`](../plan/PLAN_EL_LIBRETO.md)): la gpu fn sale como SASS
+> AL CONSTRUIR, juzgada por el juez estricto, y hoy el `.bex` lleva sus
+> CELDAS (las da la 3060 simulada), no el programa. La excepcion de arriba no
+> hizo falta.
+
 ---
 
 ## 7. A quien llama TITAN++, y como -- y quien habla con la CPU (04-10)
@@ -976,6 +982,11 @@ prohibe (*contratos y formatos, nunca cerebros*).
 | la CPU al nivel del ASM (lo caliente) | **INTI** | compilacion separada: `.bo` + `bmo-enlazar` (HECHA para C, C++ e INTI) |
 | ventana, teclado, raton, disco, sonido, red | **REX / bmo-userland** | los dos syscalls |
 
+> **08-10:** la primera fila, al dia: `gpu fn` -> el Programa de la casa ->
+> SM86 -> el juez estricto -> la 3060 simulada, AL COMPILAR, sin SPIR-V desde
+> el 07-10. Al CORRER todavia no (T0040): LB4 y LB8 de
+> [`PLAN_LAS_LIBRERIAS.md`](../plan/PLAN_LAS_LIBRERIAS.md).
+
 [!] INTI todavia no declara funciones AJENAS (`externo`, en ESPERA en METAS).
 Para que TITAN++ llame a INTI basta lo que ya hay; para que INTI llame a
 TITAN++, falta esa palabra.
@@ -1012,6 +1023,14 @@ juez ya existe; LANZAR computo en la 3060 (la QMD y el banco constante 0 de
 ga10x) falta, y es Ring 0 -- del propietario. Hasta entonces una `gpu fn` se
 compila y se juzga, pero no corre.
 
+> **08-10:** el camino es el Programa de la casa -> SASS, no SPIR-V (07-10),
+> y la QMD existe y corre desde el 24-09
+> ([`METAL_2026-09-25.md`](../metal/METAL_2026-09-25.md), seccion 1). Lo que
+> falta para que una gpu fn CORRA en la 3060 es la PUERTA de computo de una
+> app (G4 de CENTAURO = LI2f de EL_LIBRETO = LB8 de
+> [`PLAN_LAS_LIBRERIAS.md`](../plan/PLAN_LAS_LIBRERIAS.md)), Ring 0; en la CPU,
+> LB4.
+
 **La vara: el metro del emisor** (`toolchain/tools/metro`). TITAN++ entro el
 04-10 con seis programas de los niveles 0-3 (`hola`: 11 instrucciones, 58 B de
 codigo). Son el SUELO de E0, no una victoria sobre nadie: hasta el nivel 3 no
@@ -1045,6 +1064,15 @@ de TITAN++ solo escribe resultados y la salida (`task::exit`), y no hay nada
 que entregar a INTI. El dia que algo venga de fuera (E1), ese contrato se
 escribe, se mide en el metro y se decide con el propietario.
 
+> **08-10:** el formato de la GPU ya no es SPIR-V: es el Programa de la casa
+> (`platform/shared/proton-x/src/dxil/programa.rs`), el mismo al que PROTON-X
+> traduce los sombreadores de los juegos (E3 de
+> [`PLAN_LA_LENGUA_DE_LA_3060.md`](../plan/PLAN_LA_LENGUA_DE_LA_3060.md),
+> 28-09; LI7, 07-10). Lo comun vive en PROMETEO, la libreria *"gpu general"*
+> del propietario (`platform/shared/prometeo`, LB3 de
+> [`PLAN_LAS_LIBRERIAS.md`](../plan/PLAN_LAS_LIBRERIAS.md)): el Programa (su
+> codigo, todavia en PROTON-X: LB3b) y el contrato de cada tarjeta.
+
 ---
 
 ## 8. La 3060: computo masivo
@@ -1060,6 +1088,14 @@ Las funciones `gpu fn` de TITAN++ **bajan al subconjunto de SPIR-V** que la casa
 ya lleva a SASS: se reutilizan emisor y juez enteros. Una `gpu fn` elemental
 (2b.2) aplicada a una tabla de `n` celdas es un trabajo de `n` hilos. Y el
 prestamo del bufer es la U1.
+
+> **08-10, al dia:** sin SPIR-V (07-10): la gpu fn baja al Programa de la
+> casa, y la casa lo lleva a SASS con el MISMO emisor y el MISMO juez que
+> PROTON-X (E3-E6 de
+> [`PLAN_LA_LENGUA_DE_LA_3060.md`](../plan/PLAN_LA_LENGUA_DE_LA_3060.md)). La
+> QMD existe y corre desde el 24-09: el FALTA de hoy es la puerta de computo de
+> una app (LB8 de [`PLAN_LAS_LIBRERIAS.md`](../plan/PLAN_LAS_LIBRERIAS.md)) y,
+> en la CPU, LB4.
 
 ---
 
@@ -1137,6 +1173,12 @@ El asistente de IA dentro de BMO-X sigue **APARCADO** (METAS cat. 2).
                                    pide: TALLER, el asignador de Ring 3 y el
                                    autohospedaje
 ```
+
+> **08-10:** T5 se hizo sin SPIR-V y AL COMPILAR: `gpu fn` -> el Programa de
+> la casa -> SASS juzgado -> la 3060 simulada (07-10). Lo que pide para
+> CORRER ya no es la QMD (existe desde el 24-09): es la puerta de computo de
+> una app y el prestamo (U1) -- LB4 y LB8 de
+> [`PLAN_LAS_LIBRERIAS.md`](../plan/PLAN_LAS_LIBRERIAS.md).
 
 Sin fechas a proposito: una estimacion de un lenguaje que no existe es una
 estimacion de otro proyecto (LEY 24).
@@ -1264,6 +1306,10 @@ problema dicho). El resto espera al compilador.
    T5  gpu fn            SPIR-V -> SASS, el prestamo a la 3060      FALTA
    T6  dentro de F1      el compilador en el taller, `titan run`    FALTA
 ```
+
+> **08-10:** la fila T5, al dia: la gpu fn llega a SASS por el Programa de la
+> casa, juzgada y simulada al construir (07-10); falta correrla (LB4 en la
+> CPU, LB8 en la 3060) y el prestamo.
 
 ### 14.6 Lo que sale: el `.bex`
 
@@ -1900,7 +1946,7 @@ ANFITRION el 04-10** (`gpu`, las 25 palabras):
 **NIVEL 11 -- G2 Y G3: TITAN++ ESCRIBE SPIR-V, Y LO JUZGA Y LO CORRE SPIRV,
 HECHO EN EL ANFITRION el 05-10:**
 
-- **(07-10: QUITADO; ahora `toolchain/lang/titan/emisor-sm86`, sin SPIR-V)** **El formato** (7.4 hecho codigo): `toolchain/lang/titan/emisor-spirv`
+- **(07-10: QUITADO; ahora `toolchain/lang/titan/emisor-sm86` -- desde el 08-10, `toolchain/lang/titan/prometeo` --, sin SPIR-V)** **El formato** (7.4 hecho codigo): `toolchain/lang/titan/emisor-spirv`
   escribe cada gpu fn como un modulo SPIR-V 1.0 de computo -- un hilo por celda,
   un buffer por valor --, y lo juzgan el validador de spirv y el subconjunto de
   la 3060, como si viniera de fuera. TITAN++ es el primer escritor de SPIR-V
@@ -1925,3 +1971,31 @@ tiempo en adivinar"*:
   subnormales, -0, maximos, 0.1) y las celdas reales del programa pasan por el
   oraculo y por el calculo; distinto en un solo bit, no hay `.bex`. Leyes L30
   y L31.
+
+**NIVEL 11 -- SIN SPIR-V (07-10), LOS NO EN SU SITIO Y PROMETEO (08-10):**
+
+- **La cadena** (LI7 de [`PLAN_EL_LIBRETO.md`](../plan/PLAN_EL_LIBRETO.md),
+  decision del propietario): `gpu fn` -> el Programa de la casa -> SM86 (el
+  emisor de la casa, `platform/shared/proton-x-sm86`, el mismo de PROTON-X)
+  -> el juez ESTRICTO del SASS -> la 3060 simulada; el `.bex` lleva sus
+  celdas. `titan sm86` deja el SASS de cada gpu fn.
+- **Los NO dicen la verdad** (LB1 de
+  [`PLAN_LAS_LIBRERIAS.md`](../plan/PLAN_LAS_LIBRERIAS.md)): la division
+  general es T0090 en su linea y su columna; lo que la maquina todavia no
+  corre (una gpu fn o un f32 en un programa que lee) es T0040; y `titan
+  check` dice lo mismo que `titan build`.
+- **PROMETEO, la libreria general de la GPU** (LB3; el propietario: *"gpu
+  general ... que se llevara todo el emisor de GPU para que aplique"*, y
+  *"TODAS LAS GPU en emisor SON AISLADAS por completo"*): dos crates con un
+  nombre. Abajo, `platform/shared/prometeo`: el Programa de la casa y el
+  contrato de una tarjeta (`Tarjeta`: SABE, EMITE, JUZGA, SIMULA). Arriba,
+  `toolchain/lang/titan/prometeo`: el emisor de GPU de TITAN++ entero, que
+  pide las tarjetas por el contrato y no nombra ninguna (regla S5 de
+  `la-3060`); solo `titan` dice cuales hay. La 3060 es la primera
+  (`platform/shared/proton-x-sm86/src/tarjeta.rs`), con su emisor, su juez y
+  su simulador aislados; el SASS y los `.bex`, byte a byte los de antes. Y el
+  SUPREMO JUEZ del propietario es el de la puerta de la GPU final (J2): el
+  mismo juez de cada tarjeta, otra vez, en el kernel.
+- Lo que falta: correrla AL CORRER (LB4, la CPU como libreria) y en la 3060
+  (LB8, Ring 0 del propietario); y mudar el codigo del Programa de PROTON-X a
+  PROMETEO (LB3b).

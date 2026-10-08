@@ -108,7 +108,10 @@ impl E1<'_> {
                 self.store(t.at(8), RCX);
                 Ok((t, Class::Dec))
             }
-            other => Err(format!("linea {}: `{}` entre {:?} y {:?} no se emite al correr", at.0, other, ca, cb)),
+            other => {
+                let what = format!("`{}` entre {:?} y {:?}", other, ca, cb);
+                Err(self.not_yet(&what, super::E1_WHY, super::E1_HOW, at))
+            }
         }
     }
 
@@ -150,7 +153,10 @@ impl E1<'_> {
                 }
                 self.here(done);
             }
-            other => return Err(format!("linea {}: `{}` entre enteros no se emite al correr", at.0, other)),
+            other => {
+                let what = format!("`{}` entre enteros", other);
+                return Err(self.not_yet(&what, super::E1_WHY, super::E1_HOW, at));
+            }
         }
         let t = self.temp(8);
         self.store(t, RAX);
@@ -183,7 +189,7 @@ impl E1<'_> {
         self.lenient -= 1;
         let (p, c) = r?;
         if c == Class::F32 {
-            return Err(super::later("round de un f32", "el f32 vive en la 3060: G4 de PLAN_EL_CENTAURO", at));
+            return Err(self.not_yet("round de un f32", super::F32_WHY, super::F32_HOW, at));
         }
         self.load_dec(p, &c, RAX, RCX);
         self.imm(RDX, n as i64);

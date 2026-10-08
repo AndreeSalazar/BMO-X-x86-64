@@ -28,11 +28,16 @@ bmo-verify = { path = "../../../forge/bmo-verify" }
 # El certificado de los dos jueces: `titan juez` lo lee de un .bex con el
 # mismo codigo que usara la puerta de carga del kernel (J2).
 bmo-titan-contrato = { path = "../../../../platform/shared/titan-contrato" }
-# Su escritor para la 3060 (nivel 11, 07-10: SIN SPIR-V): gpu fn -> el
-# Programa de la casa -> SM86 -> el juez del SASS. `build` no escribe un .bex
-# si una gpu fn no sale como SASS que el juez acepte y que de los mismos bits
-# que el calculo; `titan sm86` deja el SASS para mirarlo.
-bmo-titan-sm86 = { path = "../emisor-sm86" }
+# Su emisor de GPU: PROMETEO de TITAN++ (nivel 11; LB3 de PLAN_LAS_LIBRERIAS,
+# 08-10). gpu fn -> el Programa de la casa -> CADA tarjeta, aislada: su
+# emisor, su juez y su simulador. `build` no escribe un .bex si una gpu fn no
+# sale como codigo que su juez acepte y que de los mismos bits que el
+# calculo; `titan sm86` deja el SASS de la 3060 para mirarlo.
+bmo-titan-prometeo = { path = "../prometeo" }
+# ** Y LAS TARJETAS QUE HAY: lo unico que dice `titan` (L-a de
+# PLAN_LAS_LIBRERIAS) -- el contrato de PROMETEO y, hoy, una: la 3060.
+bmo-prometeo = { path = "../../../../platform/shared/prometeo" }
+bmo-proton-x-sm86 = { path = "../../../../platform/shared/proton-x-sm86" }
 
 [lib]
 name = "bmo_titan_x86_64"

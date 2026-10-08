@@ -128,22 +128,22 @@ L27 una gpu fn es UNA celda de la 3060: f32 y bool, cada valor una copia, siempr
 
 L28 lo que viaja a la 3060 sale del Programa de la casa por el emisor de SM86, y lo juzga ESTRICTO el juez del SASS; si no pasa, el fallo es del escritor o del juez y no hay .bex
     porque el propietario, 07-10: "gpu - sm86 - luego el juez verifica estrictamente y el 3060"; UN emisor y UN juez para TITAN++ y para PROTON-X (PLAN_EL_LIBRETO, LI7), sin SPIR-V en medio
-    cumple test toolchain/lang/titan/emisor-sm86/tests/banco.rs every_gpu_fn_of_the_bench_is_judged_sass
+    cumple test toolchain/lang/titan/prometeo/tests/banco.rs every_gpu_fn_of_the_bench_is_judged_sass
 
 L29 los resultados de una gpu fn los da el oraculo -- la 3060 simulada sobre el SASS juzgado --, y son los mismos que cuentan la casa y el calculo
     porque una cuenta, tres caminos: si discreparan, el programa diria cosas distintas segun quien lo compile
-    cumple test toolchain/lang/titan/emisor-sm86/src/pruebas.rs the_oracle_runs_the_gpu_fn_and_the_program_writes_the_same
+    cumple test toolchain/lang/titan/prometeo/src/pruebas.rs the_oracle_runs_the_gpu_fn_and_the_program_writes_the_same
 
 L30 un NO del escritor o del juez de la 3060 se dice en el .titan -- fichero, linea y, si es de una operacion, columna --, nunca en una instruccion del SASS
     porque el propietario, 05-10: "que automatice y no tenga que perder el tiempo en adivinar"; el Programa lleva el sitio de cada operacion
-    cumple test toolchain/lang/titan/emisor-sm86/src/pruebas.rs a_general_division_is_refused_where_it_is_written
+    cumple test toolchain/lang/titan/prometeo/src/pruebas.rs a_general_division_is_refused_where_it_is_written
 
 L31 en cada build, cada gpu fn pasa una bateria de bordes, y sus celdas reales, por la 3060 simulada, la casa y el calculo, con los mismos bits
     porque una cuenta de coma flotante falla en los bordes (NaN, infinito, subnormales, -0): se comprueba sola en cada build, no se adivina
-    cumple test toolchain/lang/titan/emisor-sm86/src/pruebas.rs a_disagreement_is_caught_with_its_input_and_the_answers
+    cumple test toolchain/lang/titan/prometeo/src/pruebas.rs a_disagreement_is_caught_with_its_input_and_the_answers
 
 [SELLO]
-05755562e8cdc4aa7d3690c839319949be637499ed3fe5e0e9bc7e2313a88a17
+33df9da29620595862fc44c6d1c8a5811045a40db1d31b23304482f7b58b660a
 
 [HISTORIA]
 2026-10-04  16a5580ebef2  24 leyes  nacen las 24 leyes de los niveles 0-10, pedidas por el propietario
@@ -152,3 +152,4 @@ L31 en cada build, cada gpu fn pasa una bateria de bordes, y sus celdas reales, 
 2026-10-05  43dc81198a78  29 leyes  L28 y L29: el juez de spirv y el oraculo, con G2 y G3 de PLAN_EL_CENTAURO
 2026-10-05  6a4d41282639  31 leyes  L30 y L31: el juez de spirv dice DONDE y comprueba SI ESTA BIEN en cada build (G2b)
 2026-10-07  05755562e8cd  31 leyes  L28-L31: TITAN++ sin SPIR-V -- gpu fn -> Programa -> SM86 -> el juez del SASS, decision del propietario 07-10
+2026-10-08  33df9da29620  31 leyes  LB3: el emisor de GPU de TITAN++ pasa a PROMETEO (toolchain/lang/titan/prometeo), decision del propietario 08-10 -- ningun texto de ley cambia, solo donde viven las pruebas de L28-L31

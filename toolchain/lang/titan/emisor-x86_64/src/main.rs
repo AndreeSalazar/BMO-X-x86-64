@@ -1,7 +1,8 @@
 //! `titan` -- la herramienta (TITAN_MAESTRO 4.1). Hoy, el nivel 0:
 //!
 //! ```text
-//!    titan check FICHERO.titan              bien, o el mensaje de 4 partes
+//!    titan check FICHERO.titan              bien, o el mensaje de 4 partes: lo
+//!                                           MISMO que diria build (LB1)
 //!    titan arbol FICHERO.titan              el arbol que entendio el frontend
 //!    titan ir    FICHERO.titan              lo que recibe el emisor
 //!    titan build FICHERO.titan [-o X.bex]   el .bex, que ya paso el gate
@@ -68,10 +69,15 @@ fn main() -> ExitCode {
             };
             match order.as_str() {
                 "check" => {
-                    // `check` judges the whole frontend: tree, names, the
-                    // checker and the calculation -- not only the tree.
-                    if let Err(m) = bmo_titan_front::lower_package(&root, &src, &mut read) {
-                        return no(&m, &dir, &root, &src, false);
+                    // ** `check` runs what `build` runs, without writing
+                    // (LB1, 08-10): the whole frontend, the 3060's writer and
+                    // its judge, and E1 -- so the two say the same thing by
+                    // construction. It used to stop at the frontend and say
+                    // `bien` to what `build` then refused.
+                    match bmo_titan_x86_64::check_package(&root, &src, &mut read) {
+                        Ok(()) => {}
+                        Err(bmo_titan_x86_64::Failure::Source(m)) => return no(&m, &dir, &root, &src, false),
+                        Err(bmo_titan_x86_64::Failure::Gate(why)) => return fail(&compiler_failure(&why, file)),
                     }
                     let calls: usize = p.functions.iter().map(|f| lines(&f.body)).sum();
                     let plural = if calls == 1 { "linea" } else { "lineas" };
@@ -93,7 +99,7 @@ fn main() -> ExitCode {
                 Err(bmo_titan_x86_64::Failure::Source(m)) => return no(&m, &dir, &root, &src, true),
                 Err(bmo_titan_x86_64::Failure::Gate(why)) => {
                     // No es un fallo del programa: es de este compilador.
-                    return fail(&format!("el .bex no paso el gate ({}): es un fallo del compilador, no de {}", why, file));
+                    return fail(&compiler_failure(&why, file));
                 }
             };
             let dst = out.unwrap_or_else(|| Path::new(file).with_extension("bex"));
@@ -107,25 +113,35 @@ fn main() -> ExitCode {
             // Nivel 11 (07-10, sin SPIR-V): cada gpu fn como el SASS de la 3060
             // -- el Programa de la casa, el emisor de SM86 y el juez --, ya
             // juzgado y comprobado. Junto al fuente, o en la carpeta de `-o`.
+            // Desde LB3 (08-10), por PROMETEO: esta orden pide UNA tarjeta, la
+            // 3060, porque su salida es su SASS.
             let m = match bmo_titan_front::lower_package(&root, &src, &mut read) {
                 Ok(m) => m,
                 Err(m) => return no(&m, &dir, &root, &src, true),
             };
-            let kernels = match bmo_titan_sm86::kernels(&m) {
+            let kernels = match bmo_titan_prometeo::kernels(&m, &[&bmo_proton_x_sm86::tarjeta::SM86]) {
                 Ok(k) => k,
-                Err(why) => return fail(&format!("{} -- es del escritor de la 3060 o de su juez, no de {}", why, file)),
+                // Lo que la libreria de la 3060 todavia no sabe: el NO del
+                // programa, en su fichero y su linea (LB1).
+                Err(bmo_titan_front::calc::DeviceNo::Limit(said)) => return no(&m.sources.locate(said), &dir, &root, &src, true),
+                Err(bmo_titan_front::calc::DeviceNo::Failure(why)) => return fail(&format!("{} -- es del escritor de la 3060 o de su juez, no de {}", why, file)),
             };
             if kernels.is_empty() {
                 println!("{}: no tiene ninguna gpu fn", file);
                 return ExitCode::SUCCESS;
             }
             let carpeta = out.unwrap_or_else(|| Path::new(file).parent().map(Path::to_path_buf).unwrap_or_default());
+            // `-o CARPETA` la crea si no esta (08-10: antes decia "no pude
+            // escribir ... No such file or directory").
+            if let Err(e) = std::fs::create_dir_all(&carpeta) {
+                return fail(&format!("no pude crear {}: {}", carpeta.display(), e));
+            }
             for k in kernels {
                 let dst = carpeta.join(format!("{}.sass", k.name.replace('.', "_")));
                 if let Err(e) = std::fs::write(&dst, k.bytes()) {
                     return fail(&format!("no pude escribir {}: {}", dst.display(), e));
                 }
-                println!("ok: gpu fn {} -> {} ({} instrucciones, {} registros; el juez de la 3060 dijo que si)", k.name, dst.display(), k.app.codigo.len(), k.app.registros);
+                println!("ok: gpu fn {} -> {} ({} instrucciones, {} registros; el juez de {} dijo que si)", k.name, dst.display(), k.viaje.instrucciones, k.viaje.registros, k.tarjeta.ficha().nombre);
             }
             ExitCode::SUCCESS
         }
@@ -233,6 +249,13 @@ fn no(m: &bmo_titan_front::Message, dir: &Path, root: &str, src: &str, building:
 fn fail(why: &str) -> ExitCode {
     eprintln!("titan: {}", why);
     ExitCode::from(2)
+}
+
+/// A failure of THIS compiler -- the gate, the 3060's writer or its judge, E1
+/// --, said as one: it is never the program's (a known limit is a NO of the
+/// program, with its four parts, and never comes here).
+fn compiler_failure(why: &str, file: &str) -> String {
+    format!("{} -- es un fallo del compilador, no de {}: avisa con este programa", why, file)
 }
 
 /// The lines of a body, the ones inside `if` and `else` included.

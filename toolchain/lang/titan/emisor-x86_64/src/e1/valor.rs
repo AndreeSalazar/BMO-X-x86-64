@@ -5,7 +5,7 @@
 //! (12.50 == 12.5, tablas celda a celda, casos con lo que llevan) -- como
 //! `calc.rs`, que es la vara.
 
-use super::{later, Base, Helper, Place, E1, TEXT_CAP};
+use super::{Base, Helper, Place, E1, TEXT_CAP};
 use bmo_lower::memoria;
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R8, R9};
 use bmo_titan_front::calc::Class;
@@ -38,7 +38,7 @@ impl E1<'_> {
                 self.put_text(t, s, *at)?;
                 (t, Class::Text)
             }
-            Value::F32(_, at) => return Err(later("un f32", "el f32 vive en la 3060: G4 de PLAN_EL_CENTAURO", *at)),
+            Value::F32(_, at) => return Err(self.not_yet("un f32", super::F32_WHY, super::F32_HOW, *at)),
             Value::Local(l, _) | Value::Lend(_, l, _) => (self.local(*l), self.f.known[*l].clone().ok_or("un local sin valor (fallo del compilador)")?),
             Value::Read(at) => {
                 let t = self.temp(8 + TEXT_CAP as i32);
@@ -336,7 +336,12 @@ impl E1<'_> {
                 self.conv(dst.at(8), src, c, c, moving, at)?;
                 self.store_imm(dst, id);
             }
-            (a, b) => return Err(format!("linea {}: no se pasar {:?} a {:?} al correr", at.0, a, b)),
+            (a, b) => {
+                // un f32 al correr no tiene sitio todavia (D2); lo demas, E1 no lo sabe aun
+                let (why, how) = if matches!(b, Class::F32) { (super::F32_WHY, super::F32_HOW) } else { (super::E1_WHY, super::E1_HOW) };
+                let what = format!("pasar {:?} a {:?}", a, b);
+                return Err(self.not_yet(&what, why, how, at));
+            }
         }
         Ok(())
     }
@@ -520,7 +525,10 @@ impl E1<'_> {
                 }
             }
             (Class::List(_) | Class::Map(..) | Class::Opt(_) | Class::Any, _) | (_, Class::List(_) | Class::Map(..) | Class::Opt(_) | Class::Any) => self.eq_collection(pa, ca, pb, cb, fails, at)?,
-            (a, b) => return Err(later(&format!("comparar {:?} con {:?}", a, b), "no hay comparacion de esto al correr", at)),
+            (a, b) => {
+                let what = format!("comparar {:?} con {:?}", a, b);
+                return Err(self.not_yet(&what, super::EQ_WHY, super::EQ_HOW, at));
+            }
         }
         let _ = R9;
         Ok(())

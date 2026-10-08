@@ -125,7 +125,10 @@ impl E1<'_> {
                 let (cell, _) = self.cells_of(&c);
                 (self.cell_at(h, cell, pi), (**k).clone())
             }
-            (lib, c) => return Err(format!("linea {}: `{}` sobre {:?} no se emite al correr", at.0, lib.name(), c)),
+            (lib, c) => {
+                let what = format!("`{}` sobre {:?}", lib.name(), c);
+                return Err(self.not_yet(&what, super::E1_WHY, super::E1_HOW, at));
+            }
         })
     }
 
@@ -280,7 +283,10 @@ impl E1<'_> {
                 self.store(h.at(8), RAX);
                 self.here(none);
             }
-            (lib, c) => return Err(format!("linea {}: `{}` sobre {:?} no se emite al correr", at.0, lib.name(), c)),
+            (lib, c) => {
+                let what = format!("`{}` sobre {:?}", lib.name(), c);
+                return Err(self.not_yet(&what, super::E1_WHY, super::E1_HOW, at));
+            }
         }
         Ok(())
     }
@@ -534,7 +540,10 @@ impl E1<'_> {
                 })?;
                 fails.extend(inner);
             }
-            (a, b) => return Err(super::later(&format!("comparar {:?} con {:?}", a, b), "no hay comparacion de esto al correr", at)),
+            (a, b) => {
+                let what = format!("comparar {:?} con {:?}", a, b);
+                return Err(self.not_yet(&what, super::EQ_WHY, super::EQ_HOW, at));
+            }
         }
         Ok(())
     }

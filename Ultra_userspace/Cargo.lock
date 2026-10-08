@@ -212,6 +212,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-prometeo"
+version = "0.1.0"
+dependencies = [
+ "bmo-proton-x",
+]
+
+[[package]]
 name = "bmo-proton-x"
 version = "0.1.0"
 
@@ -229,6 +236,7 @@ dependencies = [
  "bmo-bsf",
  "bmo-gpu-ga10x",
  "bmo-hash",
+ "bmo-prometeo",
  "bmo-proton-x",
  "bmo-sm86",
 ]

@@ -34,6 +34,14 @@
               +--> LUEGO:  SASS en la 3060, cuando exista LANZAR computo (Ring 0)
 ```
 
+> **08-10, al dia (H4 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):**
+> el dibujo es del 04-10. Desde el 07-10 (G2) no hay SPIR-V: `gpu fn` -> el
+> Programa de la casa -> SM86 -> el juez ESTRICTO del SASS -> la 3060
+> simulada, que da las celdas al compilar (`toolchain/lang/titan/prometeo`:
+> PROMETEO, LB3 de PLAN_LAS_LIBRERIAS).
+> Y el LUEGO ya no espera a la QMD, que corre desde el 24-09: espera a la
+> PUERTA de computo de una app (G4).
+
 ---
 
 # 1. LAS DECISIONES
@@ -90,6 +98,10 @@ sigue sin nombrar maquinas ni formatos, y el SPIR-V que sale lo juzga el juez
 de spirv sin saber quien lo escribio. El README de spirv se corrige el dia
 que entre.
 
+> **08-10:** D5 se cerro dos veces: G2 la hizo el 05-10 y el propietario la
+> quito el 07-10 (*sin SPIR-V*). Hoy nadie en casa escribe SPIR-V: la gpu fn
+> baja al Programa de la casa (G2).
+
 ---
 
 # 2. LO QUE YA EXISTE Y LO QUE FALTA
@@ -106,6 +118,17 @@ que entre.
             DEL PROPIETARIO. Hasta entonces una gpu fn se compila, se juzga y
             se calcula con el oraculo, pero no corre en la 3060
 ```
+
+> **08-10, al dia (H4 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):**
+> esto es del 04-10. Lo que EXISTE hoy en el camino de TITAN++ es el Programa
+> de la casa -> SM86 (E3-E6 de
+> [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md)) -> el juez ->
+> la 3060 simulada, sin SPIR-V. Y la QMD SI existe y corre desde el 24-09
+> (`platform/drivers/gpu/ga10x/src/motores/sombreador.rs`;
+> [`METAL_2026-09-25.md`](../metal/METAL_2026-09-25.md), seccion 1): lo que
+> FALTA es la PUERTA para el cuerpo de computo de una APP -- LB8 de
+> LAS_LIBRERIAS, la misma pieza que LI2f de
+> [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md).
 
 ---
 
@@ -137,7 +160,8 @@ que entre.
 > **07-10, decision del propietario: SIN SPIR-V.** La cadena es ahora `gpu fn
 > -> Programa de la casa -> SM86 -> el juez del SASS -> la 3060`
 > (`toolchain/lang/titan/emisor-sm86`, LI7 de
-> [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md)). Lo de abajo queda como historia.
+> [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md); desde el 08-10,
+> `toolchain/lang/titan/prometeo`: PROMETEO). Lo de abajo queda como historia.
 
 
 - [x] `toolchain/lang/titan/emisor-spirv` (crate `bmo-titan-spirv`): una `gpu fn` -> un modulo SPIR-V 1.0 GLCompute, con la forma que el banco de spirv ya conoce (un buffer por valor y uno para el resultado, `DescriptorSet 0`, `Binding k`; un hilo por celda con `GlobalInvocationId.x`)
@@ -153,6 +177,11 @@ que entre.
 - [x] el banco `nivel11` (paquetes con su `Titan.toml`) corre en el emulador y compara su salida
 - [x] el metro con dos programas del nivel 11 (`mezcla`, `activa`)
 
+> **08-10:** el oraculo es hoy la 3060 simulada (G2), y `check` ya no se
+> queda en el f32 del calculo: corre LO MISMO que `build` (LB1 de
+> [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)). Solo `ir` sigue con el
+> f32 del calculo.
+
 ## [x] G2b -- EL JUEZ QUE NO HACE ADIVINAR -- HECHO el 05-10
 
 El propietario: *"el mismo SPIR-V original, pero que el juez tenga algo que
@@ -166,6 +195,11 @@ automatice y no tenga que perder el tiempo en adivinar"*. Las dos mitades:
 
 - [ ] LANZAR computo: la QMD y el banco constante 0 (ga10x)
 - [ ] el mismo programa del banco, con sus celdas calculadas por la 3060 y comparadas con el oraculo
+
+> **08-10:** la QMD ya existe (la nota de la seccion 2). Lo que G4 pide de
+> verdad es la PUERTA de computo de una app: LB8 de
+> [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md), la misma pieza que LI2f de
+> EL_LIBRETO.
 
 ## [x] G5 -- LOS PAPELES -- HECHO el 05-10
 

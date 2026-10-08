@@ -220,6 +220,13 @@ Medido en el arbol el 07-10, sin adivinar:
 | **el historial** | **SI, y mejor que nadie**: ESTRATOS es copiar-al-escribir. Una tesela es un bloque; deshacer es volver a la version de antes | conectar las teselas a ESTRATOS |
 | **la letra** | la de la casa (`bmo-letra`), proporcional y suave | el texto vertical, para los globos |
 
+> **08-10, al dia (H4 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):**
+> la fila de la 3060 se midio antes de quitar SPIR-V (07-10). La gpu fn baja
+> hoy al Programa de la casa, y los bucles ya los sabe el emisor SM86 (E6):
+> lo que los rechaza es TITAN++ (LB5). Los vecinos piden un asa del kernel
+> (LB9), y correr en la 3060 de verdad, la PUERTA de computo de una app (LB8;
+> la QMD corre desde el 24-09).
+
 ## La cuenta que manda: una pagina de manga
 
 ```text
@@ -290,6 +297,11 @@ Cada `gpu fn` de la fusion pasa por el oraculo que ya existe (E0 == E1 == el
 interprete de SPIR-V, bit a bit) antes de tocar la 3060. Y la fusion tiene
 SIEMPRE su camino en la CPU: sin la 3060 despierta, se dibuja igual, mas
 despacio. Ninguna parte de la mesa depende de que la 3060 este viva.
+
+> **08-10 (H4 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):** el
+> oraculo que ya existe es la 3060 simulada sobre el SASS juzgado, no el
+> interprete de SPIR-V (07-10). Y E1 todavia NO corre una gpu fn (T0040): el
+> camino en la CPU de una gpu fn es LB4, la CPU como libreria.
 
 **Por que es un buen primer test de TITAN++**: un programa de dibujo pide
 justo lo que un lenguaje nuevo tiene que demostrar -- bucles calientes sobre
@@ -395,6 +407,11 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 - [ ] TD4 -- EL PINCEL CORRECTOR: edicion de Poisson
 - [ ] TD5 -- EL RELLENO SEGUN CONTENIDO: PatchMatch
 - [ ] TD6 -- TRANSFORMAR Y DEFORMAR: escalar, girar, perspectiva y la malla de licuar, con re-muestreo
+
+> **08-10 (H4 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):** TD1 ya no
+> espera a un SPIR-V en linea recta (quitado el 07-10) ni a E6 (hecho en el
+> anfitrion): espera a que TITAN++ deje escribir bucles en una gpu fn (LB5) y
+> a los vecinos por el asa del kernel (LB9).
 
 ## 5e. Lo de Illustrator: el vector
 
