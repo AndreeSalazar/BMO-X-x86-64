@@ -36,8 +36,10 @@
 extern crate alloc;
 
 pub mod bandas;
-pub mod bc;
-pub mod bufer;
+// LB3b (08-10): el Programa de la casa y lo que hace falta para CORRERLO
+// viven en PROMETEO (`platform/shared/prometeo`); aqui, en la ruta de siempre.
+pub use bmo_prometeo::bc;
+pub use bmo_prometeo::bufer;
 // A9b (06-10): el mapa de la CPU (el Enlace de un PSO) en bytes y de vuelta.
 pub mod cifra;
 pub mod cargar;
@@ -46,7 +48,8 @@ pub mod cargar;
 pub mod cuadros;
 pub mod desenrollar;
 /// Los formatos de un vertice: de los bytes a lo que lee el sombreador (03-10).
-pub mod formato_ia;
+/// En PROMETEO desde el 08-10 (LB3b).
+pub use bmo_prometeo::formato_ia;
 pub mod direcciones;
 pub mod dll;
 pub mod donde;
@@ -70,7 +73,7 @@ pub mod stencil;
 pub mod hilos;
 pub mod hora;
 pub mod lote;
-pub mod mates;
+pub use bmo_prometeo::mates;
 pub mod mezcla;
 pub mod nulo;
 pub mod mensajes;
@@ -84,7 +87,7 @@ pub mod nativo_despacho;
 pub mod nativo_llamadas;
 pub mod teb;
 pub mod texto;
-pub mod textura;
+pub use bmo_prometeo::textura;
 pub mod tls;
 pub mod trama;
 pub mod ventanas;

@@ -8,11 +8,10 @@ license = "Apache-2.0"
 # ** EL CONTRATO Y EL FORMATO, y ninguna tarjeta: la regla S5 de `la-3060`
 # falla si esta lista nombra un emisor, un juez o un driver de una GPU. Cada
 # tarjeta trae lo suyo y depende de PROMETEO; PROMETEO no depende de ninguna.
+# ** Y NINGUNA DEPENDENCIA (LB3b, 08-10): el Programa vive aqui, con lo que
+# hace falta para correrlo. PROTON-X depende de PROMETEO, nunca al reves; la
+# regla S5 de `la-3060` lo vigila.
 [dependencies]
-# El Programa de la casa: hoy vive en PROTON-X, y PROMETEO lo da con su nombre.
-# La mudanza del codigo (LB3b) le da la vuelta a esta flecha: PROTON-X lo
-# tomara de aqui.
-bmo-proton-x = { path = "../proton-x" }
 
 [lib]
 name = "bmo_prometeo"

@@ -80,7 +80,9 @@ las esperas, que es la deuda que se quiere bajar):
                       no nombran una tarjeta: ni en sus dependencias ni en su
                       codigo (sus pruebas si: prueban la 3060 de verdad). Cada
                       tarjeta trae lo suyo detras del contrato, y solo `titan`
-                      dice cuales hay
+                      dice cuales hay. Y desde LB3b (08-10) PROMETEO tampoco
+                      depende de PROTON-X: el Programa vive en el, y la
+                      flecha va de PROTON-X a PROMETEO, nunca al reves
                    El propietario: "TIENEN QUE AISLARSE POR COMPLETO ... si
                    tengo otra GPU no es lo mismo"; y el 08-10: "TODAS LAS GPU
                    en emisor SON AISLADAS por completo luego el JUEZ procesa
@@ -453,6 +455,10 @@ PROMETEO = os.path.join(RAIZ, 'platform', 'shared', 'prometeo')
 TITAN = os.path.join(RAIZ, 'toolchain', 'lang', 'titan')
 TITAN_GPU = os.path.join(TITAN, 'prometeo')
 RX_TARJETA = re.compile(r'(\bbmo[-_]proton[-_]x[-_]sm86\b|\bbmo[-_]sm86\b|\bbmo[-_]gpu[-_]\w+|drivers/gpu/)')
+# LB3b (08-10): el Programa vive en PROMETEO, y PROTON-X (la capa de Windows)
+# depende de el. Si PROMETEO volviera a nombrar a PROTON-X, la flecha se habria
+# dado la vuelta otra vez -- y con ella, el ciclo.
+RX_PROTON = re.compile(r'(\bbmo[-_]proton[-_]x\w*|platform/shared/proton-x\b|\.\./proton-x\b)')
 
 
 def prometeo(fallos):
@@ -468,6 +474,8 @@ def prometeo(fallos):
             m = RX_TARJETA.search(l)
             if m:
                 fallos.append('S5: %s depende de `%s`: lo general de la GPU no conoce a ninguna tarjeta; la elige quien arma la herramienta (`titan`)' % (rel(cargo), m.group(1)))
+            elif carpeta == PROMETEO and RX_PROTON.search(l):
+                fallos.append('S5: %s depende de `%s`: PROMETEO no depende de PROTON-X (LB3b); es PROTON-X quien depende de PROMETEO' % (rel(cargo), RX_PROTON.search(l).group(1)))
         for r in sorted(glob.glob(os.path.join(carpeta, 'src', '*.rs'))):
             # Las pruebas SI nombran la 3060: prueban la de verdad (L28-L31).
             if os.path.basename(r).startswith('pruebas'):
@@ -477,6 +485,8 @@ def prometeo(fallos):
                 m = RX_TARJETA.search(l) or (estricto and RX_UNA_GPU.search(l))
                 if m:
                     fallos.append('S5: %s:%d nombra `%s`: lo general de la GPU pide las tarjetas por el contrato de PROMETEO y no nombra ninguna' % (rel(r), n, m.group(1)))
+                elif carpeta == PROMETEO and RX_PROTON.search(l):
+                    fallos.append('S5: %s:%d nombra `%s`: PROMETEO no depende de PROTON-X (LB3b)' % (rel(r), n, RX_PROTON.search(l).group(1)))
     if vistos < 6:
         fallos.append('S5: solo %d ficheros de PROMETEO y de TITAN++ encontrados: el guardian no mira' % vistos)
     return vistos

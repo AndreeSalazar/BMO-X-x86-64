@@ -8,6 +8,10 @@ license = "Apache-2.0"
 # Sin dependencias: bytes que entran, bytes que salen. Quien cargue de verdad
 # (la app de Ring 3) pone la memoria, el sellado y el salto.
 [dependencies]
+# LB3b (08-10): el PROGRAMA de la casa y su interprete viven en PROMETEO, la
+# libreria general de la GPU. PROTON-X los re-exporta en sus rutas de siempre
+# (`dxil::programa`, `mates`, `bufer`, `textura`...) y no cambia una linea.
+bmo-prometeo = { path = "../prometeo" }
 
 # Solo para el banco: el cubo de X1 (sus cuentas y las huellas de la 3060) es
 # la verdad contra la que se mide el interprete de DXIL y el rasterizador.

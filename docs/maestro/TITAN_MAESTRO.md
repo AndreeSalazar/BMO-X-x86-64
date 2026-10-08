@@ -1072,6 +1072,10 @@ escribe, se mide en el metro y se decide con el propietario.
 > del propietario (`platform/shared/prometeo`, LB3 de
 > [`PLAN_LAS_LIBRERIAS.md`](../plan/PLAN_LAS_LIBRERIAS.md)): el Programa (su
 > codigo, todavia en PROTON-X: LB3b) y el contrato de cada tarjeta.
+>
+> **08-10, LB3b:** su codigo tambien. El Programa vive en
+> `platform/shared/prometeo/src/programa.rs`, con su interprete, y PROTON-X lo
+> re-exporta en la ruta de antes.
 
 ---
 
@@ -1705,6 +1709,10 @@ sume lo que dice la tabla de arriba.
 `titan/dos.bex`; en el Ryzen, `run titan/hola.bex` en F12 tiene que escribir
 `hola`. Hasta esa foto es 🟡. La ventana, despues.
 
+> **08-10, la foto:** `run titan/hola.bex` escribio `hola` en el Ryzen
+> ([`METAL_2026-10-08.md`](../metal/METAL_2026-10-08.md)): la primera vez que
+> TITAN++ corre en el metal. Falta `run titan/dos.bex`.
+
 **NIVEL 3 -- DECIDIR, HECHO EN EL ANFITRION el 04-10** (`if else true false
 and or not`, 10 palabras; `GRAMATICA.md` lo cuenta entero):
 
@@ -1999,3 +2007,6 @@ tiempo en adivinar"*:
 - Lo que falta: correrla AL CORRER (LB4, la CPU como libreria) y en la 3060
   (LB8, Ring 0 del propietario); y mudar el codigo del Programa de PROTON-X a
   PROMETEO (LB3b).
+  - **08-10, LB3b:** mudado el mismo dia: el Programa de la casa y su
+    interprete viven en PROMETEO (`platform/shared/prometeo`), y PROTON-X los
+    toma de alli. Faltan LB4 y LB8.

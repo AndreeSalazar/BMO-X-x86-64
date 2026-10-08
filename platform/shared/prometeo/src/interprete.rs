@@ -72,7 +72,7 @@ pub enum Paro {
     /// Llego a una `Barrera`: sigue con [`Programa::correr_desde`].
     Barrera,
     /// E2.5: llego a una operacion de ola: la resuelve quien corre la ola
-    /// (`dxil/carriles.rs`), y sigue con [`Programa::correr_desde`].
+    /// (`carriles.rs`), y sigue con [`Programa::correr_desde`].
     Ola,
 }
 
@@ -154,9 +154,9 @@ pub enum Extra<'x, 'a, 'b> {
     /// 05-10: un vertice o un pixel de un dibujo con UAV (`RWTexture2D`,
     /// `RWByteAddressBuffer`...): los del dibujo, por ranura.
     Uavs(&'x mut [Option<crate::bufer::Uav<'b>>]),
-    /// E2.5: un pixel que va en una ola (`crate::cuadros`), con los UAV del
-    /// dibujo (un AYUDANTE, ninguno: lo que escribe se pierde, como en D3D):
-    /// se para en cada operacion de ola, como uno de computo.
+    /// E2.5: un pixel que va en una ola (`cuadros`, en PROTON-X), con los
+    /// UAV del dibujo (un AYUDANTE, ninguno: lo que escribe se pierde, como
+    /// en D3D): se para en cada operacion de ola, como uno de computo.
     Ola(&'x mut [Option<crate::bufer::Uav<'b>>]),
 }
 
@@ -587,7 +587,7 @@ pub fn leer_textura(op: Op, regs: &mut [f32], rec: &crate::textura::Recursos, el
                     let g = rec.juntar(t, s, f, canal as usize, desp);
                     let m = rec.muestreadores.get(s as usize).copied().flatten();
                     let fun = m.map_or(4, |m| if m.comparacion == 0 { 4 } else { m.comparacion });
-                    g.map(|x| if (crate::trama::Profundidad { funcion: fun, escribir: false }).pasa(regs[nivel as usize], x) { 1.0f32.to_bits() } else { 0 })
+                    g.map(|x| if (crate::profundidad::Profundidad { funcion: fun, escribir: false }).pasa(regs[nivel as usize], x) { 1.0f32.to_bits() } else { 0 })
                 }
             };
             for (k, v) in x.into_iter().enumerate() {

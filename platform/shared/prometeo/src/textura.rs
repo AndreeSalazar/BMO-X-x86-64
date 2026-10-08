@@ -41,7 +41,7 @@
 //! (las derivadas daban 0): un juego con texturas lejanas leia la mip 0 y
 //! salia con ruido (aliasing) y mas lento. Ahora, como la especificacion de
 //! D3D11 (7.18.11), con los gradientes de las coordenadas en el cuadro de
-//! 2x2 del pixel (`dxil::olas`):
+//! 2x2 del pixel (`olas::gradientes`):
 //!
 //! ```text
 //!    lambda   log2 del lado mayor del pixel en texeles de la mip mas
@@ -496,7 +496,7 @@ impl<'a> Textura<'a> {
     /// cuadro con sus pesos (el PCF de 2x2 de una GPU).
     pub fn comparar(&self, m: &Muestreador, c: [f32; 4], referencia: f32, desp: [i8; 3]) -> f32 {
         let f = if m.comparacion == 0 { 4 } else { m.comparacion };
-        let pasa = |t: f32| if (crate::trama::Profundidad { funcion: f, escribir: false }).pasa(referencia, t) { 1.0 } else { 0.0 };
+        let pasa = |t: f32| if (crate::profundidad::Profundidad { funcion: f, escribir: false }).pasa(referencia, t) { 1.0 } else { 0.0 };
         if m.filtro == Filtro::Punto {
             let p = Muestreador { filtro: Filtro::Punto, ..*m };
             return pasa(self.muestrear_en(&p, c, None, desp)[0]);

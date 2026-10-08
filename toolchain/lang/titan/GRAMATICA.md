@@ -1109,4 +1109,5 @@ programas HACEN lo que dicen, no cuando compilan.
 ```
 
 En la maquina: `run titan/hola.bex` en la consola (F12). `build.ps1` deja
-`titan/hola.bex` y `titan/dos.bex` en el disco.
+`titan/hola.bex` y `titan/dos.bex` en el disco. El 08-10 `hola.bex` escribio
+`hola` en el Ryzen (`docs/metal/METAL_2026-10-08.md`): el primero en el metal.

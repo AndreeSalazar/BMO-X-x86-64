@@ -29,7 +29,9 @@ viera a tiempo:
                   corre (`include_bytes!` en `proton-x-casa/tests/`)
   PX4  sin copia  una cabecera de licencia ajena (Wine, DXVK, vkd3d, LGPL,
                   SPDX) en el codigo de PROTON-X: la regla del propietario es
-                  que no se copia su codigo
+                  que no se copia su codigo. Desde LB3b (08-10) tambien en
+                  `platform/shared/prometeo/src`: el Programa de la casa y su
+                  interprete salieron de PROTON-X, y la regla los sigue
   PX5  un nombre, una puerta   un nombre de Windows servido por DOS modulos
                   de la misma cadena de kernel32 (el segundo no se usa nunca)
   PX6  sin numero publico      un `pub const ERROR_*` en la casa: los codigos
@@ -56,6 +58,8 @@ RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")
 PRUEBA = os.path.join(RAIZ, "platform", "shared", "proton-x", "prueba")
 CASA = os.path.join(RAIZ, "platform", "shared", "proton-x-casa")
 PURO = os.path.join(RAIZ, "platform", "shared", "proton-x")
+# El Programa de la casa y su interprete, fuera de PROTON-X desde LB3b (08-10).
+PROMETEO = os.path.join(RAIZ, "platform", "shared", "prometeo")
 EJEMPLOS = os.path.join(RAIZ, "Ultra_kernel_x86-64", "build", "ejemplos.ps1")
 
 
@@ -168,7 +172,7 @@ def check():
     src = os.path.join(CASA, "src")
     modulos = {n[:-3]: leer(os.path.join(src, n)) for n in os.listdir(src) if n.endswith(".rs")}
     fuentes = {}
-    for base in (os.path.join(PURO, "src"), src, PRUEBA):
+    for base in (os.path.join(PURO, "src"), os.path.join(PROMETEO, "src"), src, PRUEBA):
         for dp, _, fs in os.walk(base):
             for n in fs:
                 if n.endswith((".rs", ".c", ".hlsl")):

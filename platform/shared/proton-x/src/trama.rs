@@ -83,30 +83,10 @@ pub struct Reglas {
 /// diga que no, en vez de recortar callado.
 pub const SIN_RECORTE_Z: u32 = 0x100;
 
-/// La prueba de profundidad: `D3D12_COMPARISON_FUNC` (1 nunca, 2 menor,
-/// 3 igual, 4 menor o igual, 5 mayor, 6 distinto, 7 mayor o igual, 8
-/// siempre) y si se escribe (`DepthWriteMask` ALL).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Profundidad {
-    pub funcion: u32,
-    pub escribir: bool,
-}
-
-impl Profundidad {
-    /// Si `z` (el del pixel) pasa contra `guardado` (el del bufer).
-    pub fn pasa(&self, z: f32, guardado: f32) -> bool {
-        match self.funcion {
-            1 => false,
-            2 => z < guardado,
-            3 => z == guardado,
-            4 => z <= guardado,
-            5 => z > guardado,
-            6 => z != guardado,
-            7 => z >= guardado,
-            _ => true,
-        }
-    }
-}
+// La prueba de profundidad vive en PROMETEO desde el 08-10 (LB3b): el
+// interprete y las texturas la usan al COMPARAR (SampleCmp), y la trama al
+// probar cada pixel. La misma cuenta, en la ruta de siempre.
+pub use bmo_prometeo::profundidad::Profundidad;
 
 /// Donde se pinta: `ancho * alto` pixeles de 32 bits, fila 0 arriba, en el
 /// orden de bytes de su formato. N5.12: `pixeles` VACIO es un dibujo de solo
