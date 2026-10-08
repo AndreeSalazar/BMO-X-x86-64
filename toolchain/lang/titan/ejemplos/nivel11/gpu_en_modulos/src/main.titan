@@ -1,0 +1,14 @@
+# espera: BIEN
+# sale: suave en -0.5, 0.25 y 2: 0.000000 0.156250 1.000000
+# sale: 2 a la 8, desde otro modulo: 256
+# un paquete de TRES ficheros con gpu fn: cada modulo con las suyas, una que llama a otra de su modulo y otra que llama a la de otro modulo, todo escrito EN LINEA (LB5); las capas solo bajan (T0084)
+mod main "la 3060, en varios ficheros"
+mod formas
+mod mates
+
+fn main()
+    let xs: [f32; 3] = [-0.5, 0.25, 2.0]
+    let s = formas.suave(xs)
+    let p = mates.a_la_ocho(xs)
+    print("suave en -0.5, 0.25 y 2: ", round(s[0], 6), " ", round(s[1], 6), " ", round(s[2], 6))
+    print("2 a la 8, desde otro modulo: ", round(p[2], 0))
