@@ -40,6 +40,10 @@ que no es preciso para ninguna.
 > una libreria *"gpu general"* que *"se llevara todo el emisor de GPU"*, toca
 > este plan: su lectura, y lo que hay que confirmar, en la seccion 4.1 de
 > LAS_LIBRERIAS.
+>
+> **08-10, LB3b:** el Programa ya no vive en PROTON-X: vive en
+> `platform/shared/prometeo/src/programa.rs`, y la ruta de PROTON-X lo
+> re-exporta.
 
 ---
 

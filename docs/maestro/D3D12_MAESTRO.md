@@ -216,6 +216,12 @@ un `.hlsl` de `dxc` en `proton-x/prueba/` y su prueba en el banco):
               cuadro de 2x2 en la trama)
 ```
 
+> **08-10 (LB3b de [`PLAN_LAS_LIBRERIAS.md`](../plan/PLAN_LAS_LIBRERIAS.md)):**
+> el interprete de la casa y lo que necesita (`mates`, `textura`, `bufer`,
+> `formato_ia`, `bc`, lo que HACEN las olas) viven en PROMETEO,
+> `platform/shared/prometeo/src`; PROTON-X los re-exporta en sus rutas de
+> siempre, y los traductores de DXIL y de SM5 siguen aqui.
+
 ---
 
 # 5. LA ESCALERA: QUE JUEGOS, Y POR QUE (03-10)

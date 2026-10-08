@@ -102,6 +102,11 @@ no existe es el CONTRATO escrito: hoy `bmo-titan-sm86` nombra a mano
 > `platform/shared/proton-x-sm86/src/tarjeta.rs`. El emisor de GPU de TITAN++
 > ya no nombra a ninguna tarjeta. El CODIGO del Programa sigue en PROTON-X:
 > LB3b.
+>
+> **08-10, LB3b:** el codigo tambien. El Programa vive en
+> `platform/shared/prometeo/src/programa.rs`, con su interprete y lo que el
+> interprete necesita; PROTON-X lo toma de `bmo-prometeo` y lo re-exporta en
+> sus rutas de siempre (`dxil::programa`).
 
 ## 1.3 Las reglas de una libreria
 
@@ -664,8 +669,10 @@ bueno ya eso es el motivo lel para GPU Final"*. Asi quedo (LB3):
       aviso de `core` del nightly del 07-10; el kernel no cambio).
   - [!] **Lo que NO se hizo, a proposito:** mudar el CODIGO del Programa
     (LB3b). PROMETEO lo da con su nombre, pero sigue viviendo en PROTON-X.
+    - **08-10, despues:** mudado el mismo dia, en LB3b (abajo).
 
-- [ ] **LB3b -- LA MUDANZA DEL PROGRAMA (el resto de DL1).** El codigo del
+- [x] **LB3b -- LA MUDANZA DEL PROGRAMA (el resto de DL1).** **HECHO el
+  08-10.** El codigo del
   Programa de la casa sale de PROTON-X a PROMETEO, y la flecha se da la
   vuelta: PROTON-X lo toma de `bmo-prometeo` (y lo re-exporta en
   `dxil::programa`, para no cambiar una linea de las suyas). Lo que se muda
@@ -682,6 +689,60 @@ bueno ya eso es el motivo lel para GPU Final"*. Asi quedo (LB3):
     `proton-x-casa`, de la 3060 y de TITAN++, en verde sin cambiar una; el
     SASS y los `.bex` de LB3, byte a byte; y S5 mirando tambien que
     PROMETEO no dependa de PROTON-X.
+  - **08-10, el propietario:** *"vamos con LB3b, mudar el Programa a
+    PROMETEO, ya funciona y ahora toca el siguiente, no?"* -- con la foto de
+    `run titan/hola.bex` en el Ryzen (LB2). La ventana, tranquila: lo ultimo
+    en los ficheros que se mudan es del 07-10, y ninguna rama tenia trabajo
+    en PROTON-X fuera de main.
+  - **Lo hecho:**
+    - con `git mv` (su historia los sigue), de `platform/shared/proton-x/src`
+      a `platform/shared/prometeo/src`: `interprete`, `ranuras` y `carriles`
+      (de `dxil/`), `mates`, `bufer`, `formato_ia`, `textura` y `bc`;
+    - partidos en dos, lo que HACE abajo y lo de DXIL arriba:
+      `dxil/programa.rs` (el formato -- `Op`, `Reg`, `Programa`,
+      `MalaForma`... -- y su `impl` a `prometeo/src/programa.rs`; el
+      traductor, `Compilador`, se queda), `dxil/olas.rs` (lo que hace cada
+      operacion de ola a `prometeo/src/olas.rs`; como se lee del DXIL, se
+      queda) y `dxil/computo.rs` (`Programa::despachar` a
+      `prometeo/src/despacho.rs`; `preparar`, el CS de D3D12, se queda);
+    - de `trama`, solo la prueba de profundidad (`Profundidad`, a
+      `prometeo/src/profundidad.rs`): es lo unico de `trama` que el
+      interprete usa. La lista de arriba decia `trama` y `cuadros`; medido
+      el cierre, no hacian falta, y se quedan en PROTON-X con `mezcla`, el
+      stencil, `nativo` y los traductores de DXIL y de SM5;
+    - la flecha, al reves: `bmo-prometeo` no depende de nada, y
+      `bmo-proton-x` depende de `bmo-prometeo` y lo re-exporta en las rutas
+      de siempre (`dxil::programa`, `dxil::olas`, `bmo_proton_x::textura`...):
+      quien lo usa no cambio una linea;
+    - dentro de lo mudado, solo dos rutas (`crate::trama::Profundidad` pasa
+      a `crate::profundidad::Profundidad`), tres funciones de `bufer` que
+      `trama` usa (de `pub(crate)` a `pub`) y los comentarios que nombraban
+      la ruta vieja;
+    - S5 de `la-3060` mira tambien que PROMETEO no nombre PROTON-X, ni en su
+      `Cargo.toml` ni en su codigo; y PX4 de `toolchain/tools/proton-x` (sin
+      licencias ajenas) sigue al codigo: mira tambien
+      `platform/shared/prometeo/src`.
+  - **Como se supo:**
+    - 984 pruebas en verde antes y despues, y las mismas: ningun fichero de
+      pruebas cambio, y las 32 de los ficheros mudados corren ahora en
+      `bmo-prometeo` (las de `bmo-proton-x` pasan de 248 a 216). En los diez
+      crates de la 3060, PROTON-X, PROMETEO, TITAN++ y VERRANO
+      (`bmo-proton-x`, `bmo-proton-x-casa`, `bmo-proton-x-sm86`,
+      `bmo-gpu-ga10x`, `bmo-prometeo`, los tres de TITAN++, `bmo-verrano` y
+      `bmo-cubo`);
+    - el SASS de LB3, byte a byte (`mezcla` `7aad3f9b628d`, `suma`
+      `f7b85c6ff26d`, `activa` `faa1408e92fc`), y los 37 `.bex`, iguales;
+    - la app PROTON-X de Ring 3, PROMETEO y PROTON-X compilan para
+      `x86_64-unknown-none`; el kernel no enlaza ninguno de los dos (`cargo
+      tree`);
+    - S5, probada sembrando `bmo-proton-x` en el `Cargo.toml` de PROMETEO y
+      `use bmo_proton_x::trama;` en su codigo: los dos caen. PX4, sembrando
+      una cabecera SPDX en `prometeo/src/textura.rs`: cae;
+    - los guardianes, limpios -- los del build, el contrato y el de PROTON-X
+      (291 fuentes, eran 278: las de PROMETEO) --, con `avisos` en 38 contra
+      37, el aviso de `core` del nightly, como en LB3; y la herencia
+      (`censo-modular/herencia.py`): PROMETEO y PROTON-X son hijo, y ninguna
+      dependencia sube.
 
 - [ ] **LB4 -- LA CPU, LA SEGUNDA LIBRERIA (la reserva).** El x86-64 del
   Programa (`platform/shared/proton-x/src/nativo.rs`, y `nativo_computo` para
@@ -814,6 +875,9 @@ corrige una mentira, ya esta medido, pide el metal, es grande):
 - **Mover el Programa (DL1) toca a PROTON-X**, la zona mas viva del arbol.
   Con la re-exportacion no cambia su codigo; si se rompe una ruta, se ve al
   compilar, no en el metal.
+  - **08-10, LB3b:** asi fue. Lo unico roto se vio al compilar (`computo.rs`,
+    partido en dos, se quedo sin su `vec!` y su `Vec`), y ninguna prueba
+    cambio.
 - **La CPU de reserva puede ser lenta.** Es la reserva, no el camino: el metro
   (`toolchain/tools/metro`) dira cuanto, y lo que la 3060 pague se mide contra
   ella.
