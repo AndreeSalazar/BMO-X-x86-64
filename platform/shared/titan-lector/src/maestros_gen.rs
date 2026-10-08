@@ -27,7 +27,7 @@ pub static FAMILIES: [&str; 14] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 35;
+pub const COUNT: usize = 36;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -152,6 +152,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["primo 2", "primo 3", "primo 5", "primo 7", "primo 11", "primo 13", "primo 17", "primo 19", "8 primos hasta 20"],
         source: "# sale: primo 2\n# sale: primo 3\n# sale: primo 5\n# sale: primo 7\n# sale: primo 11\n# sale: primo 13\n# sale: primo 17\n# sale: primo 19\n# sale: 8 primos hasta 20\n# buscar: un `while` dentro de un `for`, y `break` en cuanto ya se sabe\nmod main \"los primos, buscados\"\n\nfn main()\n    let mut cuantos = 0\n    for n in range(2, 21)\n        let mut d = 2\n        let mut primo = true\n        while d * d <= n\n            if n % d == 0\n                primo = false\n                break\n            d = d + 1\n        if primo\n            print(\"primo \", n)\n            cuantos = cuantos + 1\n    print(cuantos, \" primos hasta 20\")\n",
+    },
+    Master {
+        name: "salta_y_sigue",
+        level: 4,
+        why: "`continue` y `break` dentro de un `if`, y el nombre de la vuelta leido despues: el camino que sigue lo tiene vivo (08-10: antes paraba el compilador)",
+        says: "los impares, saltando los pares",
+        words: &["fn", "let", "mut", "if", "for", "break", "continue"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["1", "3", "5", "suma de los impares hasta 6: 9"],
+        source: "# sale: 1\n# sale: 3\n# sale: 5\n# sale: suma de los impares hasta 6: 9\n# `continue` y `break` dentro de un `if`, y el nombre de la vuelta leido despues: el camino que sigue lo tiene vivo (08-10: antes paraba el compilador)\nmod main \"los impares, saltando los pares\"\n\nfn main()\n    let mut suma = 0\n    for i in range(1, 100)\n        if i % 2 == 0\n            continue\n        if i > 6\n            break\n        print(i)\n        suma = suma + i\n    print(\"suma de los impares hasta 6: \", suma)\n",
     },
     Master {
         name: "tabla_del_siete",

@@ -16,13 +16,42 @@ use super::*;
 /// The class of every local and every value, in EVERY block. The blocks are
 /// in reading order, and a local that dies (`Drop`) forgets its class: the
 /// next one with that name is another value.
+///
+/// ** 08-10 (found by LB5): a block starts with what the paths that ENTER it
+/// bring -- its blocks before it in reading order -- and not with what the
+/// block just above it left. A `break` or a `continue` inside an `if` closes
+/// the loop's scopes on ITS path (`Drop`, `ir.rs` `leave`); read in a line,
+/// that also wiped the loop's name for the path that goes on, and `for i in
+/// range(5)` / `if i == 2` / `continue` / `r = r + i` stopped the compiler
+/// with a panic instead of compiling. A block no path enters (what follows a
+/// jump) keeps the line, as before.
 pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
     let types = m.defs();
     let mut known: Vec<Option<Class>> = vec![None; f.locals.len()];
     for (l, t) in &f.params {
         known[*l] = Some(of_ty(t, types));
     }
-    for b in &f.blocks {
+    let mut enters: Vec<Vec<usize>> = vec![Vec::new(); f.blocks.len()];
+    for (k, b) in f.blocks.iter().enumerate() {
+        for t in b.end.targets() {
+            if t > k {
+                enters[t].push(k);
+            }
+        }
+    }
+    let mut left: Vec<Option<Vec<Option<Class>>>> = vec![None; f.blocks.len()];
+    for (k, b) in f.blocks.iter().enumerate() {
+        let from: Vec<&Vec<Option<Class>>> = enters[k].iter().filter_map(|p| left[*p].as_ref()).collect();
+        if let Some((first, rest)) = from.split_first() {
+            known = (*first).clone();
+            for other in rest {
+                for (mine, theirs) in known.iter_mut().zip(other.iter()) {
+                    if mine.is_none() {
+                        mine.clone_from(theirs);
+                    }
+                }
+            }
+        }
         for op in &b.ops {
             // ** D2 (level 11): outside a `gpu fn`, an f32 is kept or
             // passed, never counted, compared or printed.
@@ -170,6 +199,7 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                 ));
             }
         }
+        left[k] = Some(known.clone());
     }
     Ok(())
 }

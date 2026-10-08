@@ -1,0 +1,18 @@
+# espera: BIEN
+# sale: 1
+# sale: 3
+# sale: 5
+# sale: suma de los impares hasta 6: 9
+# `continue` y `break` dentro de un `if`, y el nombre de la vuelta leido despues: el camino que sigue lo tiene vivo (08-10: antes paraba el compilador)
+mod main "los impares, saltando los pares"
+
+fn main()
+    let mut suma = 0
+    for i in range(1, 100)
+        if i % 2 == 0
+            continue
+        if i > 6
+            break
+        print(i)
+        suma = suma + i
+    print("suma de los impares hasta 6: ", suma)

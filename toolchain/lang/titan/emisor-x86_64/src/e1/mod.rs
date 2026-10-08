@@ -488,7 +488,10 @@ impl<'m> E1<'m> {
             sizes[*l] = sizes[*l].max(self.forms.size(&c));
             self.f.known[*l] = Some(c);
         }
-        for b in &f.blocks {
+        let enters = enters(f);
+        let mut left: Vec<Option<(Vec<Option<Class>>, Vec<Option<Ty>>)>> = vec![None; f.blocks.len()];
+        for (k, b) in f.blocks.iter().enumerate() {
+            self.enter_block(&enters[k], &left);
             for op in &b.ops {
                 match op {
                     Op::Let { local, value, ty, .. } => {
@@ -503,8 +506,35 @@ impl<'m> E1<'m> {
                     _ => {}
                 }
             }
+            left[k] = Some((self.f.known.clone(), self.f.decl.clone()));
         }
         Ok(sizes)
+    }
+
+    /// ** 08-10 (LB5): un bloque empieza con lo que traen los caminos que
+    /// ENTRAN en el (sus bloques de antes), y no con lo que dejo el de encima.
+    /// Un `break` o un `continue` dentro de un `if` cierra los ambitos del
+    /// bucle en SU camino (`Drop`); leido en linea, tambien se los quitaba al
+    /// camino que sigue, y `print(i)` despues decia "un local sin valor". Lo
+    /// que no tiene camino que entre (lo de tras un salto) sigue en linea.
+    fn enter_block(&mut self, from: &[usize], left: &[Option<(Vec<Option<Class>>, Vec<Option<Ty>>)>]) {
+        let from: Vec<&(Vec<Option<Class>>, Vec<Option<Ty>>)> = from.iter().filter_map(|p| left[*p].as_ref()).collect();
+        if let Some((first, rest)) = from.split_first() {
+            self.f.known.clone_from(&first.0);
+            self.f.decl.clone_from(&first.1);
+            for (known, decl) in rest {
+                for (mine, theirs) in self.f.known.iter_mut().zip(known.iter()) {
+                    if mine.is_none() {
+                        mine.clone_from(theirs);
+                    }
+                }
+                for (mine, theirs) in self.f.decl.iter_mut().zip(decl.iter()) {
+                    if mine.is_none() {
+                        mine.clone_from(theirs);
+                    }
+                }
+            }
+        }
     }
 
     /// Emite la fn `f`, y da lo que gasta de pila cada vez que se llama (su
@@ -569,8 +599,11 @@ impl<'m> E1<'m> {
         let ret_class = f.ret.as_ref().map(|t| self.forms.class(t));
         let mut starts = vec![usize::MAX; f.blocks.len()];
         let mut jumps: Vec<(usize, usize)> = Vec::new();
+        let enters = enters(f);
+        let mut left: Vec<Option<(Vec<Option<Class>>, Vec<Option<Ty>>)>> = vec![None; f.blocks.len()];
         for (i, b) in f.blocks.iter().enumerate() {
             starts[i] = self.code.len();
+            self.enter_block(&enters[i], &left);
             for op in &b.ops {
                 self.f.temp = 0;
                 self.op(op)?;
@@ -620,6 +653,7 @@ impl<'m> E1<'m> {
                     }
                 }
             }
+            left[i] = Some((self.f.known.clone(), self.f.decl.clone()));
         }
         for (field, t) in jumps {
             x86::patch_jump_to(&mut self.code, field, starts[t]);
@@ -809,6 +843,20 @@ impl<'m> E1<'m> {
         }
         Ok(())
     }
+}
+
+/// Los bloques de antes que saltan a cada bloque (los caminos que entran
+/// en el; el salto de vuelta de un bucle no, que viene de despues).
+fn enters(f: &Function) -> Vec<Vec<usize>> {
+    let mut out = vec![Vec::new(); f.blocks.len()];
+    for (k, b) in f.blocks.iter().enumerate() {
+        for t in b.end.targets() {
+            if t > k {
+                out[t].push(k);
+            }
+        }
+    }
+    out
 }
 
 /// Lo que `print` escribe de un valor ESCRITO en el fuente, como lo escribe
