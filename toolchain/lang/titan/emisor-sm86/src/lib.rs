@@ -48,7 +48,9 @@ use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_de_app, juzgar_drenado, Contexto, 
 use bmo_proton_x::dxil::programa::{Comparacion, Op, OpEntera, Programa, Reg};
 use bmo_proton_x_sm86::simula::{correr, Maquina};
 use bmo_proton_x_sm86::{emitir_con, Abi, Emitido, NoEmite};
+use bmo_titan_front::calc::DeviceNo;
 use bmo_titan_front::ir::{End, Function, Module, Op as IrOp, Value};
+use bmo_titan_front::{Code, Message};
 use std::collections::HashMap;
 
 /// Los registros que se le dan: los de un hueco de la tuberia de la 3060
@@ -62,9 +64,33 @@ pub enum Kind {
     Bool,
 }
 
-/// Un NO del escritor (no del programa: el frontend ya lo juzgo).
+/// Un NO del escritor (no del programa: el frontend ya lo juzgo) -- salvo
+/// cuando lleva su `Message`: entonces es lo que esta libreria TODAVIA NO
+/// SABE hacer, un limite dicho a proposito (la division general, LI2g), y es
+/// un NO del PROGRAMA, con su sitio en el modulo (LB1 de
+/// `docs/plan/PLAN_LAS_LIBRERIAS.md`). El texto (`.0`) es el de siempre.
 #[derive(Debug)]
-pub struct Failure(pub String);
+pub struct Failure(pub String, pub Option<Message>);
+
+impl Failure {
+    /// Un fallo del escritor: nunca del programa.
+    fn writer(why: String) -> Failure {
+        Failure(why, None)
+    }
+
+    /// Lo que se le dice al calculo o al build: el limite como el NO del
+    /// programa, o el fallo con el nombre de la gpu fn delante.
+    pub fn no(self, name: &str) -> DeviceNo {
+        match self.1 {
+            Some(said) => DeviceNo::Limit(said),
+            None => DeviceNo::Failure(format!("`gpu fn {}`: {}", name, self.0)),
+        }
+    }
+}
+
+/// ** LA DIVISION GENERAL, el limite de hoy: por que, y como se escribe.
+const DIVISION_POR_QUE: &str = "la division de la 3060 (MUFU.RCP y FMUL) no da los bits exactos de la casa, y una gpu fn da los MISMOS bits por la 3060, la casa y el calculo (L29). Hoy solo divide entre una potencia de dos, que es una multiplicacion exacta; la general espera a LI2g de PLAN_EL_LIBRETO (DL10 de PLAN_LAS_LIBRERIAS)";
+const DIVISION_COMO: &str = "entre una potencia de dos se escribe igual (x / 2.0, x / 0.25); las demas, todavia no";
 
 /// **Una gpu fn escrita**: su Programa, su SASS en los dos ABI, y de donde salio.
 pub struct Kernel {
@@ -93,13 +119,14 @@ impl Kernel {
 
 /// **Todas las gpu fn de un modulo**, escritas, juzgadas y comprobadas: lo
 /// que `titan build` pide antes de escribir un `.bex`. Un NO aqui es del
-/// ESCRITOR o del juez, no del programa.
-pub fn kernels(m: &Module) -> Result<Vec<Kernel>, String> {
+/// ESCRITOR o del juez, no del programa -- salvo un `DeviceNo::Limit`: lo que
+/// esta libreria todavia no sabe, y eso SI es el NO del programa, en su sitio.
+pub fn kernels(m: &Module) -> Result<Vec<Kernel>, DeviceNo> {
     let mut out = Vec::new();
     for (i, f) in m.functions.iter().enumerate().filter(|(_, f)| f.gpu) {
-        let k = write(m, i).map_err(|e| format!("`gpu fn {}`: {}", f.name, e.0))?;
-        judge(&k)?;
-        verify(m, i, &k)?;
+        let k = write(m, i).map_err(|e| e.no(&f.name))?;
+        judge(&k).map_err(DeviceNo::Failure)?;
+        verify(m, i, &k).map_err(DeviceNo::Failure)?;
         out.push(k);
     }
     Ok(out)
@@ -109,7 +136,7 @@ fn kind_of(t: &bmo_titan_front::tree::Ty) -> Result<Kind, Failure> {
     match t {
         bmo_titan_front::tree::Ty::F32 => Ok(Kind::F32),
         bmo_titan_front::tree::Ty::Bool => Ok(Kind::Bool),
-        other => Err(Failure(format!("una gpu fn con un `{}`: el frontend (gpu.rs) tenia que haberlo dicho", other.name()))),
+        other => Err(Failure::writer(format!("una gpu fn con un `{}`: el frontend (gpu.rs) tenia que haberlo dicho", other.name()))),
     }
 }
 
@@ -129,7 +156,7 @@ impl Writer {
     fn reg(&mut self) -> Result<Reg, Failure> {
         let r = self.iniciales.len();
         if r >= u16::MAX as usize {
-            return Err(Failure("demasiados valores para un Programa".into()));
+            return Err(Failure::writer("demasiados valores para un Programa".into()));
         }
         self.iniciales.push(0.0);
         Ok(r as Reg)
@@ -191,7 +218,7 @@ fn eval(w: &mut Writer, v: &Value, env: &Env) -> Result<(Reg, Kind), Failure> {
     Ok(match v {
         Value::F32(bits, _) => (w.bits(*bits)?, Kind::F32),
         Value::Bool(b, _) => (if *b { w.cierto()? } else { w.bits(0)? }, Kind::Bool),
-        Value::Local(l, _) => *env.get(l).ok_or_else(|| Failure(format!("el nombre %{} se lee sin valor: el juez tenia que haberlo dicho", l)))?,
+        Value::Local(l, _) => *env.get(l).ok_or_else(|| Failure::writer(format!("el nombre %{} se lee sin valor: el juez tenia que haberlo dicho", l)))?,
         Value::Neg(x, _) => {
             // El signo, por sus bits: lo mismo que el calculo, tambien con -0 y NaN.
             let (x, k) = eval(w, x, env)?;
@@ -241,12 +268,12 @@ fn eval(w: &mut Writer, v: &Value, env: &Env) -> Result<(Reg, Kind), Failure> {
                 ("or", Kind::Bool) => (Op::Entera { d, a, b, op: OpEntera::O }, Kind::Bool),
                 ("==", Kind::Bool) => (cmp_bits(Comparacion::Igual), Kind::Bool),
                 ("!=", Kind::Bool) => (cmp_bits(Comparacion::Distinto), Kind::Bool),
-                (o, k) => return Err(Failure(format!("`{}` entre {:?}: el calculo tenia que haberlo dicho", o, k))),
+                (o, k) => return Err(Failure::writer(format!("`{}` entre {:?}: el calculo tenia que haberlo dicho", o, k))),
             };
             w.op(o);
             (d, k)
         }
-        other => return Err(Failure(format!("un valor que una gpu fn no tiene ({:?}): gpu.rs tenia que haberlo dicho", other))),
+        other => return Err(Failure::writer(format!("un valor que una gpu fn no tiene ({:?}): gpu.rs tenia que haberlo dicho", other))),
     })
 }
 
@@ -255,12 +282,12 @@ fn eval(w: &mut Writer, v: &Value, env: &Env) -> Result<(Reg, Kind), Failure> {
 pub fn programa(m: &Module, func: usize) -> Result<(Programa, Vec<(usize, usize)>), Failure> {
     let f: &Function = &m.functions[func];
     if !f.gpu {
-        return Err(Failure(format!("`{}` no es una gpu fn", f.name)));
+        return Err(Failure::writer(format!("`{}` no es una gpu fn", f.name)));
     }
     let params: Vec<Kind> = f.params.iter().map(|(_, t)| kind_of(t)).collect::<Result<_, _>>()?;
-    let ret = kind_of(f.ret.as_ref().ok_or_else(|| Failure(format!("`{}` no devuelve nada", f.name)))?)?;
+    let ret = kind_of(f.ret.as_ref().ok_or_else(|| Failure::writer(format!("`{}` no devuelve nada", f.name)))?)?;
     if params.len() > 32 {
-        return Err(Failure(format!("`{}` recibe {} valores: el Programa lee 32 entradas como mucho", f.name, params.len())));
+        return Err(Failure::writer(format!("`{}` recibe {} valores: el Programa lee 32 entradas como mucho", f.name, params.len())));
     }
     let mut w = Writer { ops: Vec::new(), donde: Vec::new(), iniciales: Vec::new(), consts: HashMap::new(), aqui: (f.line, 1) };
     // -- la celda de cada valor: la entrada k, componente 0 ------------------------
@@ -349,19 +376,19 @@ fn straight(w: &mut Writer, f: &Function, entry_env: Env) -> Result<Reg, Failure
                     env.insert(*local, v);
                 }
                 IrOp::Drop { .. } => {}
-                other => return Err(Failure(format!("una gpu fn con {:?}: gpu.rs tenia que haberlo dicho", other))),
+                other => return Err(Failure::writer(format!("una gpu fn con {:?}: gpu.rs tenia que haberlo dicho", other))),
             }
         }
         match &f.blocks[b].end {
             End::Jump(t) => {
                 if *t <= b {
-                    return Err(Failure("un salto hacia arriba: una gpu fn no tiene bucles (todavia: IL1)".into()));
+                    return Err(Failure::writer("un salto hacia arriba: una gpu fn no tiene bucles (todavia: IL1)".into()));
                 }
                 incoming[*t].push((pred, env));
             }
             End::Branch { cond, then, other, at } => {
                 if *then <= b || *other <= b {
-                    return Err(Failure("un salto hacia arriba: una gpu fn no tiene bucles (todavia: IL1)".into()));
+                    return Err(Failure::writer("un salto hacia arriba: una gpu fn no tiene bucles (todavia: IL1)".into()));
                 }
                 let (c, _) = eval(w, cond, &env)?;
                 w.aqui = *at;
@@ -376,10 +403,10 @@ fn straight(w: &mut Writer, f: &Function, entry_env: Env) -> Result<Reg, Failure
                 let (r, _) = eval(w, v, &env)?;
                 returns.push((pred, r));
             }
-            End::Return(None) => return Err(Failure("un camino sin `return`: el juez tenia que haberlo dicho (T0070)".into())),
+            End::Return(None) => return Err(Failure::writer("un camino sin `return`: el juez tenia que haberlo dicho (T0070)".into())),
         }
     }
-    let (_, mut acc) = *returns.last().ok_or_else(|| Failure("una gpu fn sin `return`".into()))?;
+    let (_, mut acc) = *returns.last().ok_or_else(|| Failure::writer("una gpu fn sin `return`".into()))?;
     for (p, r) in returns.iter().rev().skip(1) {
         acc = w.elige(*p, *r, acc)?;
     }
@@ -405,16 +432,30 @@ pub fn write(m: &Module, func: usize) -> Result<Kernel, Failure> {
     let (file, line) = sitio(m, f);
     let en = |abi| {
         emitir_con(&programa, REGISTROS, abi).map_err(|e| {
-            let (l, c) = match e {
-                NoEmite::Operacion(i) => donde.get(i).copied().unwrap_or((line, 1)),
-                _ => (line, 1),
+            // DONDE, en las lineas del MODULO (las del `at` de la IR: el
+            // paquete entero seguido), o la de la gpu fn; el texto dice la
+            // del fichero (08-10: antes salia la del modulo con el nombre del
+            // fichero, que solo cuadra en la raiz).
+            let at = match e {
+                NoEmite::Operacion(i) => donde.get(i).copied().unwrap_or((f.line, 1)),
+                _ => (f.line, 1),
             };
-            let por_que = match (e, programa.ops.get(match e { NoEmite::Operacion(i) => i, _ => usize::MAX })) {
-                (_, Some(Op::Div { .. })) => "la division de la 3060 (MUFU.RCP y FMUL) no es la exacta: solo entre una potencia de dos, que es una multiplicacion exacta. Las demas esperan a LI2g de PLAN_EL_LIBRETO".to_string(),
-                (NoEmite::Registros, _) => format!("no cabe en los {} registros de un hueco de la 3060", REGISTROS),
-                (e, _) => format!("el emisor de la 3060 dijo que no: {:?}", e),
+            let (l, c) = (m.sources.place(at.0).map(|(_, l)| l).unwrap_or(at.0), at.1);
+            let op = match e {
+                NoEmite::Operacion(i) => programa.ops.get(i),
+                _ => None,
             };
-            Failure(format!("{}, linea {}, columna {} (gpu fn `{}`): {}", file, l, c, f.name, por_que))
+            if let Some(Op::Div { .. }) = op {
+                // ** UN LIMITE, no un fallo: lo que la 3060 todavia no sabe, y
+                // la casa lo dice a proposito. Es el NO del programa.
+                let said = Message::new(Code::GpuBody, at.0, at.1, "una division que la 3060 todavia no hace exacta", DIVISION_POR_QUE, DIVISION_COMO);
+                return Failure(format!("{}, linea {}, columna {} (gpu fn `{}`): {}", file, l, c, f.name, DIVISION_POR_QUE), Some(said));
+            }
+            let por_que = match e {
+                NoEmite::Registros => format!("no cabe en los {} registros de un hueco de la 3060", REGISTROS),
+                e => format!("el emisor de la 3060 dijo que no: {:?}", e),
+            };
+            Failure::writer(format!("{}, linea {}, columna {} (gpu fn `{}`): {}", file, l, c, f.name, por_que))
         })
     };
     let banco = en(Abi::Banco)?;
@@ -553,15 +594,19 @@ impl Oracle {
 }
 
 impl bmo_titan_front::calc::Device for Oracle {
-    fn run(&mut self, m: &Module, func: usize, cells: Vec<Vec<u32>>) -> Result<Vec<u32>, String> {
+    fn run(&mut self, m: &Module, func: usize, cells: Vec<Vec<u32>>) -> Result<Vec<u32>, DeviceNo> {
         if !self.written.contains_key(&func) {
-            let k = write(m, func).map_err(|e| e.0)?;
-            judge(&k)?;
-            verify(m, func, &k)?;
+            // Un limite de la libreria es el NO del programa; lo demas, un fallo.
+            let k = write(m, func).map_err(|e| match e.1 {
+                Some(said) => DeviceNo::Limit(said),
+                None => DeviceNo::Failure(e.0),
+            })?;
+            judge(&k).map_err(DeviceNo::Failure)?;
+            verify(m, func, &k).map_err(DeviceNo::Failure)?;
             self.written.insert(func, k);
         }
         // Las celdas REALES del programa, por los tres.
-        compare(m, func, &self.written[&func], &cells, "las celdas del programa")
+        compare(m, func, &self.written[&func], &cells, "las celdas del programa").map_err(DeviceNo::Failure)
     }
 }
 

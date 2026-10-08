@@ -107,6 +107,56 @@ fn a_general_division_is_refused_where_it_is_written() {
     assert!(why.contains("LI2g"), "{}", why);
 }
 
+/// ** UN LIMITE ES EL NO DEL PROGRAMA (LB1 de PLAN_LAS_LIBRERIAS, 08-10): la
+/// division general llega al calculo como SU NO, en la linea y la columna de
+/// la division (no en la de la llamada), con su porque y su como -- nunca como
+/// "un fallo del escritor ... avisa con este programa". Y `kernels()` dice lo
+/// mismo de una gpu fn que nadie llama.
+#[test]
+fn a_limit_of_the_library_is_the_program_s_no_where_it_is_written() {
+    let src = "mod main \"x\"\ngpu fn tercio(a: f32) -> f32\n    return a / 3.0\nfn main()\n    let xs: [f32; 1] = [1.0]\n    let r = tercio(xs)\n    print(round(r[0], 2))\n";
+    let toml = "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n";
+    let mut oracle = Oracle::default();
+    let no = bmo_titan_front::lower_package_with("src/main.titan", src, &mut |p| (p == "Titan.toml").then(|| toml.to_string()), Some(&mut oracle)).unwrap_err();
+    assert_eq!((no.code, no.line, no.col), (bmo_titan_front::Code::GpuBody, 3, 14), "{:?}", no);
+    assert!(no.why.contains("LI2g") && !no.why.contains("fallo"), "{}", no.why);
+    assert!(no.how.contains("potencia de dos"), "{}", no.how);
+    // Nadie la llama: el calculo no la ve, y kernels() la dice igual.
+    let m = module("mod main \"x\"\ngpu fn tercio(a: f32) -> f32\n    return a / 3.0\nfn main()\n    print(1)\n");
+    match kernels(&m) {
+        Err(DeviceNo::Limit(said)) => assert_eq!((said.code, said.line, said.col), (bmo_titan_front::Code::GpuBody, 3, 14)),
+        other => panic!("el limite, no {:?}", other.map(|k| k.len())),
+    }
+    // Y lo que no es un limite sigue siendo un fallo: el SASS sin sus esperas.
+    let (_, _, mut k) = kernel(MEZCLA, "mezcla");
+    for (_, hi) in k.banco.codigo.iter_mut() {
+        *hi &= !(0xF << 41);
+    }
+    assert!(judge(&k).is_err());
+}
+
+/// ** EN UN PAQUETE (08-10): una gpu fn de un modulo HIJO dice su NO en SU
+/// fichero y en SU linea. Antes el texto del escritor ponia el nombre del
+/// fichero con la linea del paquete entero, que solo cuadra en la raiz.
+#[test]
+fn a_limit_in_a_child_module_is_said_in_its_file_and_its_line() {
+    let main = "mod main \"x\"\nmod mates\nfn main()\n    let xs: [f32; 1] = [1.0]\n    let r = mates.tercio(xs)\n    print(round(r[0], 2))\n";
+    let hijo = "mod mates \"cuentas de la 3060\"\n\npub gpu fn tercio(a: f32) -> f32\n    return a / 3.0\n";
+    let toml = "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n";
+    let mut read = |p: &str| match p {
+        "Titan.toml" => Some(toml.to_string()),
+        "src/mates.titan" => Some(hijo.to_string()),
+        _ => None,
+    };
+    let mut oracle = Oracle::default();
+    let no = bmo_titan_front::lower_package_with("src/main.titan", main, &mut read, Some(&mut oracle)).unwrap_err();
+    assert_eq!((no.file.as_deref(), no.line, no.col, no.code), (Some("src/mates.titan"), 4, 14, bmo_titan_front::Code::GpuBody), "{:?}", no);
+    let m = bmo_titan_front::lower_package("src/main.titan", main, &mut read).unwrap();
+    let f = m.functions.iter().position(|f| f.gpu).unwrap();
+    let why = write(&m, f).err().expect("la division entre 3 no se escribe").0;
+    assert!(why.starts_with("src/mates.titan, linea 4, columna 14"), "{}", why);
+}
+
 /// ** Solo las potencias de dos tienen inverso EXACTO, y con ellas `x / c` y
 /// `x * (1 / c)` dan los mismos bits en toda la bateria.
 #[test]

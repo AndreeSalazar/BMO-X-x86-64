@@ -785,8 +785,10 @@ no tiene consola), tablas, textos, registros, llamadas ni bucles: el bucle de
 una gpu fn ES la tabla. Las llamadas y los bucles dentro de un hilo llegan con
 el escritor de la 3060 (IL1 de `PLAN_ILLAPA.md`). **La division**, hoy, solo
 entre una potencia de dos (`/ 2.0`, `/ 0.25`): esa es una multiplicacion
-EXACTA; la general de la 3060 no da los bits exactos, y `titan build` la
-rechaza en su linea (LI2g de `PLAN_EL_LIBRETO.md`, decision pendiente).
+EXACTA; la general de la 3060 no da los bits exactos, y `titan check` y
+`titan build` la rechazan en su linea y su columna -- T0090, un NO del
+programa, no un fallo del compilador -- (LI2g de `PLAN_EL_LIBRETO.md`,
+decision pendiente; LB1 de `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10).
 
 **En la CPU** (D2, la regla de la casa): un f32 se GUARDA o se PASA a otra gpu
 fn, y nada mas -- ni se suma, ni se compara, ni se imprime. Para usarlo, se
@@ -803,6 +805,9 @@ llamada a una gpu fn queda en el certificado del `.bex` con su linea: es lo que
      una gpu fn con print, tablas, textos, llamadas,      T0090
      bucles, valores mut / take, o sin resultado
      una gpu fn sin `gpu` en el Titan.toml                T0088
+   LA LIBRERIA DE LA 3060 (bmo-titan-sm86), en su sitio
+     la division general: hoy, solo entre una potencia    T0090
+     de dos (LI2g)
    EL CALCULO
      un f32 contado, comparado o impreso en la CPU        T0091
      un f32 y un dec juntos                               T0063
@@ -834,9 +839,10 @@ hay `.bex`.
 
 **Los resultados los da la 3060 simulada**: `titan build` corre cada gpu fn
 en el simulador de la 3060, sobre el SASS que el juez acepto, y el `.bex`
-lleva esas celdas. `titan check` e `ir` las calculan con f32 de precision
-simple; los dos bancos comparan lo mismo. Que corra en la 3060 de verdad es G4: Ring 0,
-del propietario.
+lleva esas celdas. `titan check` corre LO MISMO que `titan build`, sin
+escribir nada (08-10: check y build dicen lo mismo por construccion);
+`titan ir` las calcula con f32 de precision simple; los dos bancos comparan
+lo mismo. Que corra en la 3060 de verdad es G4: Ring 0, del propietario.
 
 ---
 
@@ -940,6 +946,14 @@ calculo hace un paso en 128 bits, E1 tambien (`emisor-x86_64/src/e1/ancho.rs`).
 Un bucle SIN fin que no lee sigue siendo T0066 al compilar: el presupuesto de
 plegado (R8) cambia una ley, y las leyes las sella el propietario.
 
+**Lo que la maquina TODAVIA NO corre es T0040**, *lo que todavia no existe*
+(08-10, LB1 de `docs/plan/PLAN_LAS_LIBRERIAS.md`): una `gpu fn` o un `f32` en un
+programa que lee -- la gpu fn hoy solo corre al compilar, en la 3060 simulada,
+y llega al correr con su libreria (LB4); el f32 vive en la 3060 (LB7) --, y lo
+demas que E1 aun no emite. Se dice en `check` y en `build`, en su linea, con
+su porque y su como; antes salia como "el .bex no paso el gate ... fallo del
+compilador".
+
 ---
 
 ## Nivel 13 -- lo que crece (25 palabras: + ninguna; `[T]`, `{K: V}` y su biblioteca) -- 05-10, PLAN_LISTAS_Y_MAPAS
@@ -1021,7 +1035,7 @@ dice. La vara, la de siempre: el calculo, programa a programa y al azar
 | T0022 | una `\` en un texto que no es `\"`, `\\` ni `\n` |
 | T0030 | se esperaba otra cosa en ese sitio |
 | T0031 | una funcion sin cuerpo |
-| T0040 | lo que todavia no existe: una palabra de un nivel que no llego, o el tipo `f64` |
+| T0040 | lo que todavia no existe: una palabra de un nivel que no llego, el tipo `f64`, o lo que la maquina todavia no corre (una `gpu fn` o un `f32` en un programa que lee, y lo demas que E1 aun no emite) |
 | T0050 | no hay `fn main()` |
 | T0051 | se llama a algo que no existe |
 | T0052 | una funcion definida dos veces |
@@ -1061,7 +1075,7 @@ dice. La vara, la de siempre: el calculo, programa a programa y al azar
 | T0087 | un trait donde solo va un parametro entero: en un `let`, un campo, una tabla o un resultado (el comportamiento) |
 | T0088 | se usa un nodo de BMO-X (`gpu`, `director`) que el Titan.toml no pide (el paquete, U2) |
 | T0089 | un Titan.toml que no se lee: una linea que no es seccion, clave o comentario (el paquete) |
-| T0090 | una `gpu fn` que no es una celda de la 3060: print, tablas, textos, llamadas, bucles, mut / take, o sin resultado (la gpu) |
+| T0090 | una `gpu fn` que no es una celda de la 3060: print, tablas, textos, llamadas, bucles, mut / take, o sin resultado (la gpu); o lo que su libreria todavia no hace exacto, en su sitio: la division general (la libreria de la 3060) |
 | T0091 | un f32 contado, comparado o impreso en la CPU: alli se guarda o se pasa, y vuelve con `round` (el calculo, D2) |
 
 ## El banco: lo que dice cada ejemplo de si mismo
@@ -1086,7 +1100,8 @@ programas HACEN lo que dicen, no cuando compilan.
 ## Del texto al `.bex` (T3, 2026-10-04)
 
 ```text
-   titan check hola.titan              bien, o el mensaje de 4 partes
+   titan check hola.titan              bien, o el mensaje de 4 partes: lo
+                                       MISMO que diria build (08-10)
    titan ir    hola.titan              la IR propia: lo que recibe el emisor
    titan build hola.titan -o hola.bex  el .bex, con su manifiesto, por el gate
    titan check flota/src/main.titan    un PAQUETE (nivel 9): sigue sus `mod`
