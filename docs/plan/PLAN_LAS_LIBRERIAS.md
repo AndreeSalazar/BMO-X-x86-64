@@ -303,6 +303,11 @@ TITAN++:
                  pura, asi que ponerla EN LINEA da los mismos bits
 ```
 
+> **08-10, LB5:** hecho lo de TITAN++: el frontend los deja (con su N
+> ESCRITO, DL4 y la ley L33), el escritor escribe el Programa estructurado,
+> y las llamadas entre gpu fn van en linea (5.1). Quedan los vecinos (LB9) y
+> el entero (DL5).
+
 [!] **El contador.** Dentro de una gpu fn todo numero es `f32` (GRAMATICA,
 nivel 11): `for i in range(N)` con `i` en f32 es exacto hasta 2^24 vueltas.
 Para INDICES de verdad (los vecinos, la rejilla de IL2) hace falta el ENTERO,
@@ -556,6 +561,24 @@ quedo (LB4):
                  siendo las de la 3060 (la primera)
 ```
 
+**DL4 -- el 08-10, despues de la primera mitad de LB5.** La pregunta: *"DL4:
+tome la recomendacion del plan -- solo `range` con N escrito. La confirmas
+como ley sellada?"*, con el tope de la obra de una celda (65536) dicho al
+lado; el propietario: *"si ve hasta el final"*. Asi quedo (LB5):
+
+```text
+   la ley        L33: un hilo de la GPU ACABA por construccion -- dentro de
+                 una gpu fn solo hay `for` con sus vueltas ESCRITAS, la obra
+                 de una celda se sabe al compilar y no pasa de 65536, y una
+                 llamada a otra gpu fn se escribe EN LINEA --. Sellada
+                 (555cb58adfd1)
+   la obra       cada operacion y cada linea escrita es 1, y un `for` sus
+                 vueltas por (2 + lo de dentro): con el N escrito es la misma
+                 en cada celda, tambien en las que llegan al correr (LB4)
+   el `while`    sigue fuera de una gpu fn (T0090), hasta E7 visto en el
+                 metal
+```
+
 ---
 
 # 5. LAS CASILLAS
@@ -570,6 +593,7 @@ quedo (LB4):
   - **08-10:** DL1 y DL2, contestadas con *"gpu general"* y confirmadas el
     mismo dia (4.1): PROMETEO. Las demas, abiertas.
   - **08-10, despues:** DL3, contestada (4.1): la ley L32, con LB4.
+  - **08-10, mas tarde:** DL4, contestada (4.1): la ley L33, con LB5.
 
 - [x] **LB1 -- LOS NO QUE DICEN LA VERDAD (H1, H2, H3), y los papeles (H4).**
   **HECHO el 08-10** (el codigo, `129ebf8`).
@@ -868,7 +892,7 @@ quedo (LB4):
 
 ## 5.1 La escuela, en el anfitrion
 
-- [ ] **LB5 -- IL1a, LOS BUCLES en una gpu fn** (sin vecinos todavia), por el
+- [x] **LB5 -- IL1a, LOS BUCLES en una gpu fn** (sin vecinos todavia), por el
   contrato: el frontend deja lo que diga DL4 (y `break` y `continue`), el
   escritor escribe el Programa ESTRUCTURADO (de `Si` a `FinBucle`) en vez de
   la linea recta, las llamadas entre gpu fn van EN LINEA, y el entero entra
@@ -880,6 +904,55 @@ quedo (LB4):
     de bordes, y el juez dice que si; y con LB4 hecho (va antes en el orden),
     por la CPU los mismos. Las pruebas del NO: un bucle sin salida es T0066 en
     su linea y `SinFin` en el simulador, nunca un cuelgue del compilador.
+  - **HECHO el 08-10**, en tres commits (`eca65be`, `a9b9615`, `b80e97e`).
+    DL4, del propietario: *"si ve hasta el final"* (4.1).
+  - **Lo hecho:**
+    - el frontend (`gpu.rs`): `for i in range(N)` y `range(A, B)` con los
+      extremos ESCRITOS (hasta 2^24: el contador es f32), con `break`,
+      `continue` y `return` dentro, y la llamada a otra gpu fn. Cada salida
+      tiene su NO en su sitio: el `while`, un extremo no escrito, mas de 8
+      bucles uno dentro de otro, y una llamada a la CPU, a si misma o sola
+      (T0090); y demasiada OBRA para un hilo (T0066);
+    - LA OBRA de una celda (`gpu::obra`, guardada en `ir::Function::obra`),
+      contada al compilar, con su tope: 65536. Es la ley L33;
+    - el escritor (`bmo-titan-prometeo`) escribe el Programa ESTRUCTURADO:
+      - cada `for` es un `Bucle`: `RomperSi` en su cabeza y en cada
+        `break`, `FinBucle` en su paso, y dentro de su `Si` si lo de fuera
+        no siempre llega;
+      - lo que cruza la vuelta vive en su CASA, un registro que cada
+        asignacion escribe con su predicado: un `break` es un `RomperSi` y
+        ya, y lo que cuesta una vuelta crece con lo que se escribe en ella;
+      - los `if` siguen en linea recta, tambien dentro de un bucle;
+      - una llamada se escribe EN LINEA, con sus bucles y sus `return`;
+      - sin bucles, el Programa sale como antes, byte a byte;
+    - la bateria se mide en obra (`BATERIA_OBRA`), y la tarjeta de la CPU
+      corre hasta 4M instrucciones por celda, como la 3060;
+    - un fallo de antes, que encontro esta casilla: un `continue` o un
+      `break` dentro de un `if`, con el nombre de la vuelta leido despues,
+      tumbaba el compilador. Las clases del calculo y E1 leian los bloques
+      en linea. Ya no, con su ejemplo (`nivel4/salta_y_sigue`);
+    - el entero NO entro: DL5 sigue abierta.
+  - **Como se supo:**
+    - en las dos tarjetas, contra un espejo en Rust, con los bits de Rust en
+      cada celda, por el simulador de cada tarjeta y por la casa:
+      - una potencia;
+      - una serie con sus coeficientes escritos (la de 1 / (1 - x));
+      - `e` por diez cuadrados en f32;
+      - `break`, `continue` y `return` dentro de dos bucles dentro de un
+        `if`;
+      - cuatro gpu fn que se llaman, una con un bucle dentro del bucle de
+        otra;
+    - las pruebas del NO, cada una en su linea y su columna. Un Programa que
+      no sale (escrito a mano: TITAN++ no sabe escribirlo) es `SinFin` en la
+      3060 y "no vuelve" en la CPU, nunca un cuelgue;
+    - en el tope de la obra, once patrones corren en el presupuesto de cada
+      simulador con margen: la 3060 necesita hasta unas 3,5 instrucciones por
+      unidad, y la CPU hasta unas 12,3;
+    - los bancos: el del frontend, el del escritor, el del emisor (corre cada
+      `.bex`) y los dos oraculos de E1 (E1 == el calculo en 41 programas; el
+      NO, con el mismo codigo y en la misma linea);
+    - lo de antes, igual: los 38 `.bex` de los programas BIEN que ya
+      compilaban, byte a byte; el SASS de `mezcla`, `suma` y `activa`, igual.
 
 - [ ] **LB6 -- LA gpu fn QUE DIBUJA.** Una gpu fn de VERTICE y una de PIXEL,
   dichas por su firma (DL6), escritas en TITAN++ y pegadas y juzgadas como las
@@ -991,6 +1064,8 @@ corrige una mentira, ya esta medido, pide el metal, es grande):
   ella.
 - **Un bucle puede colgar la 3060** el dia que algo llegue al metal: por eso
   DL4 empieza por `range` con N escrito, y LB8 pide E7 antes.
+  - **08-10, LB5:** desde TITAN++ ya no puede. Con el N escrito, la obra de
+    cada hilo se sabe al compilar y tiene su tope (L33).
 - **El cubo bit a bit pide DL10.** Sin una division exacta en algun sitio, el
   cubo de TITAN++ no es el de `bmo_cubo`, y el juez de VERRANO lo diria.
 - **Una libreria de juguete puede esconder un contrato malo**: la prueba de

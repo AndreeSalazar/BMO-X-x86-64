@@ -166,6 +166,9 @@ anfitrion, con el oraculo de SPIR-V corriendo las mismas `gpu fn`.
 > acepto, contra la casa y el calculo. IL1 se escribe en el escritor del
 > Programa (`toolchain/lang/titan/prometeo`), no en un emisor de SPIR-V,
 > y se parte en dos: los bucles (LB5) y los vecinos por el asa (LB9).
+>
+> **08-10, LB5:** los bucles, hechos (con su N escrito: la ley L33), y las
+> llamadas entre gpu fn, en linea. IL1 sigue abierta por los vecinos (LB9).
 
 - [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario
 - [ ] IL1 -- `gpu fn` CON VECINOS: leer celdas de OTRA tabla por indice y bucles acotados, en el lenguaje, el oraculo y el emisor de SPIR-V (el que escribio G2 de `PLAN_EL_CENTAURO.md`, hoy en linea recta); y que el emisor SM86 los sepa traducir (E6 de `PLAN_LA_LENGUA_DE_LA_3060.md`)

@@ -2019,3 +2019,9 @@ tiempo en adivinar"*:
     como su simulador), y E1 llama a la gpu fn al correr; el f32 vive en E1
     como dato. La ley L32 (DL3 del propietario: *"es buena"*). Falta LB8: la
     3060 al correr, Ring 0.
+  - **08-10, LB5:** LOS BUCLES y LAS LLAMADAS dentro de una gpu fn. `for i in
+    range(N)` con N escrito, con `break`, `continue` y `return`; cada `for`
+    es un `Bucle` de verdad en la 3060 y en la CPU, y una llamada a otra gpu
+    fn se escribe EN LINEA. La obra de una celda se cuenta al compilar y no
+    pasa de 65536: un hilo ACABA por construccion. Es la ley L33 (DL4 del
+    propietario: *"si ve hasta el final"*).

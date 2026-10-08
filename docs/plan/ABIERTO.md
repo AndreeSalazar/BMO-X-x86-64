@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   741 casillas ABIERTAS en 68 planes
-   580 hechas
+   740 casillas ABIERTAS en 68 planes
+   581 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -280,15 +280,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
 - ... y 5 mas
 
-## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 8 abiertas, 4 hechas
-
-*PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
-
-- [ ] LB0 -- LAS DECISIONES de la seccion 4, contestadas por el
-- [ ] LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI. Un arranque, en
-- [ ] LB5 -- IL1a, LOS BUCLES en una gpu fn (sin vecinos todavia), por el
-- ... y 5 mas
-
 ## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 8 hechas
 
 *PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
@@ -314,6 +305,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] pendiente [~] a medias, y se dice cuanto [x] hecho, con fecha
 - [ ] A1.3 -- el AP con reloj: un LAPIC timer propio, o el MWAITX con plazo
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
+- ... y 4 mas
+
+## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 7 abiertas, 5 hechas
+
+*PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
+
+- [ ] LB0 -- LAS DECISIONES de la seccion 4, contestadas por el
+- [ ] LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI. Un arranque, en
+- [ ] LB6 -- LA gpu fn QUE DIBUJA. Una gpu fn de VERTICE y una de PIXEL,
 - ... y 4 mas
 
 ## [`PLAN_LA_CASA_ESCONDIDA.md`](PLAN_LA_CASA_ESCONDIDA.md) -- 7 abiertas, 0 hechas
