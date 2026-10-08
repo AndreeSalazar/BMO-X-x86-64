@@ -1,24 +1,37 @@
-//! # bmo-titan-sm86 -- una `gpu fn` de TITAN++, hecha SASS de la 3060
+//! # bmo-titan-prometeo -- PROMETEO de TITAN++: el emisor de GPU, para cualquier tarjeta
 //!
-//! Nivel 11 de TITAN++. Reemplaza al escritor de SPIR-V (G2 de
-//! `docs/plan/PLAN_EL_CENTAURO.md`) por decision del propietario (07-10):
-//! *"gpu - sm86 - luego el juez verifica estrictamente y el 3060"*. La cadena:
+//! Nivel 11 de TITAN++. Nacio como `bmo-titan-sm86` el 07-10, cuando el
+//! propietario quito el SPIR-V (*"gpu - sm86 - luego el juez verifica
+//! estrictamente y el 3060"*). Desde LB3 de `docs/plan/PLAN_LAS_LIBRERIAS.md`
+//! (08-10) es la mitad de arriba de PROMETEO, la libreria general de la GPU:
+//! la *"gpu general"* del propietario, *"que se llevara todo el emisor de GPU
+//! para que aplique"*. **No nombra ninguna tarjeta**: las pide por el
+//! contrato (`bmo_prometeo::Tarjeta`), y solo quien arma la herramienta
+//! (`titan`) dice cuales hay -- hoy, la 3060. La mitad de abajo (el Programa y
+//! el contrato) es `platform/shared/prometeo`.
 //!
 //! ```text
 //!    la IR de una gpu fn   (bmo-titan-front: ya juzgada, ya calculada)
 //!         |  programa()
 //!         v
 //!    el PROGRAMA de la casa   el mismo que sale de los DXIL y los SM5 de
-//!                             PROTON-X, y el que corre el interprete
-//!         |  write(): bmo_proton_x_sm86::emitir
+//!         |                   PROTON-X, y el que corre el interprete
+//!         |
+//!         |  CADA tarjeta, AISLADA por completo (el propietario: "TODAS LAS
+//!         |  GPU en emisor SON AISLADAS por completo luego el JUEZ procesa
+//!         |  cada uno") --
 //!         v
-//!    el SASS de SM86          el MISMO emisor que usa Cyberpunk (E3..E6)
-//!         |  judge(): el juez del SASS (ga10x), ESTRICTO
+//!    su EMISOR      write(): el Programa a SU codigo, para su oraculo y
+//!         |         para el viaje (la 3060: el MISMO emisor que usa
+//!         |         Cyberpunk, E3..E6)
+//!    su JUEZ        judge(): ESTRICTO, sobre lo que su emisor escribio
+//!         |
+//!    su SIMULADOR   run(): una celda por hilo
 //!         v
-//!    la libreria de la 3060   R1..R9: esperas, barreras, registros, saltos
-//!         |  run(): el simulador de la 3060, una celda por hilo
-//!         v
-//!    el ORACULO               las celdas que lleva el .bex
+//!    el ORACULO     las celdas que lleva el .bex
+//!
+//!    ... y el SUPREMO JUEZ no esta aqui: esta en la puerta de la GPU final
+//!    (el kernel), y es el mismo juez de esa tarjeta, otra vez (LB8).
 //! ```
 //!
 //! *** POR QUE SIN SPIR-V: el emisor de la 3060 que existe lee el `Programa`
@@ -26,36 +39,31 @@
 //! TITAN++ (bucles, vecinos, computo) se aprenderia DOS veces, y lo que
 //! abriera ILLAPA no le serviria a Cyberpunk. Con el Programa, es una vez.
 //!
-//! ** TRES RESPUESTAS PARA CADA CELDA, en cada build: el simulador de la 3060
-//! (sobre el SASS), el interprete de la casa (sobre el Programa) y el
-//! calculo de TITAN++ (sobre la IR). Si dos no dan los mismos bits (o los dos
-//! NaN), no hay `.bex`, y el NO dice la entrada y las respuestas.
+//! ** TRES RESPUESTAS PARA CADA CELDA, en cada build y en CADA tarjeta: su
+//! simulador (sobre su codigo), el interprete de la casa (sobre el Programa)
+//! y el calculo de TITAN++ (sobre la IR). Si dos no dan los mismos bits (o
+//! los dos NaN), no hay `.bex`, y el NO dice la entrada y las respuestas.
 //!
 //! ** SIN SALTOS, como hacia el escritor de SPIR-V: cada `if` es un `Elige`
 //! (una gpu fn es pura y sin bucles; los dos lados dan el mismo resultado
-//! bit a bit). Los saltos de verdad (E6) llegaran con los bucles (IL1).
+//! bit a bit). Los saltos de verdad (E6) llegaran con los bucles (IL1, LB5).
 //!
 //! ** LOS BOOL, como D3D: dentro del Programa un bool es 0xFFFFFFFF o 0; en
 //! las celdas, 1 o 0 (lo del calculo). Se convierte al entrar y al salir.
 //!
-//! ** LA DIVISION: la de la 3060 (MUFU.RCP y FMUL) no es la exacta, y el
-//! emisor la rechaza (LI2g de `PLAN_EL_LIBRETO.md`, decision pendiente). Una
-//! division entre una POTENCIA DE DOS si es exacta como multiplicacion por su
-//! inverso (`x / 2.0` y `x * 0.5` son el mismo numero real, redondeado igual):
-//! esa se escribe asi. Las demas, NO con su linea.
+//! ** LA DIVISION: una division entre una POTENCIA DE DOS es exacta como
+//! multiplicacion por su inverso (`x / 2.0` y `x * 0.5` son el mismo numero
+//! real, redondeado igual), y se escribe asi para cualquier tarjeta. La
+//! general llega a la tarjeta como `Div`; la que no la hace exacta lo dice
+//! como su LIMITE (la 3060: LI2g de `PLAN_EL_LIBRETO.md`), y es el NO del
+//! programa, en su linea y su columna (LB1).
 
-use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_de_app, juzgar_drenado, Contexto, RESERVADOS};
-use bmo_proton_x::dxil::programa::{Comparacion, Op, OpEntera, Programa, Reg};
-use bmo_proton_x_sm86::simula::{correr, Maquina};
-use bmo_proton_x_sm86::{emitir_con, Abi, Emitido, NoEmite};
+use bmo_prometeo::programa::{Comparacion, Op, OpEntera, Reg};
+use bmo_prometeo::{Codigo, NoEmite, Para, Programa, Tarjeta};
 use bmo_titan_front::calc::DeviceNo;
 use bmo_titan_front::ir::{End, Function, Module, Op as IrOp, Value};
 use bmo_titan_front::{Code, Message};
 use std::collections::HashMap;
-
-/// Los registros que se le dan: los de un hueco de la tuberia de la 3060
-/// (`tuberia::REGISTROS`).
-pub const REGISTROS: u32 = 64;
 
 /// Lo que un valor ES dentro de una gpu fn: solo hay dos clases.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -65,9 +73,9 @@ pub enum Kind {
 }
 
 /// Un NO del escritor (no del programa: el frontend ya lo juzgo) -- salvo
-/// cuando lleva su `Message`: entonces es lo que esta libreria TODAVIA NO
-/// SABE hacer, un limite dicho a proposito (la division general, LI2g), y es
-/// un NO del PROGRAMA, con su sitio en el modulo (LB1 de
+/// cuando lleva su `Message`: entonces es lo que una tarjeta TODAVIA NO SABE
+/// hacer, un limite dicho a proposito (la division general en la 3060, LI2g),
+/// y es un NO del PROGRAMA, con su sitio en el modulo (LB1 de
 /// `docs/plan/PLAN_LAS_LIBRERIAS.md`). El texto (`.0`) es el de siempre.
 #[derive(Debug)]
 pub struct Failure(pub String, pub Option<Message>);
@@ -88,12 +96,18 @@ impl Failure {
     }
 }
 
-/// ** LA DIVISION GENERAL, el limite de hoy: por que, y como se escribe.
-const DIVISION_POR_QUE: &str = "la division de la 3060 (MUFU.RCP y FMUL) no da los bits exactos de la casa, y una gpu fn da los MISMOS bits por la 3060, la casa y el calculo (L29). Hoy solo divide entre una potencia de dos, que es una multiplicacion exacta; la general espera a LI2g de PLAN_EL_LIBRETO (DL10 de PLAN_LAS_LIBRERIAS)";
+/// ** LO QUE TITAN++ DICE DESPUES DEL LIMITE DE UNA TARJETA: el QUE y el POR
+/// QUE son de la tarjeta (sus palabras); esto es lo de TITAN++, sea cual sea. La
+/// division tiene su como: la de una potencia de dos ya llega como
+/// multiplicacion (`inverso_exacto`).
+const LIMITE_TAMBIEN: &str = "y una gpu fn da los MISMOS bits por su tarjeta, la casa y el calculo (L29)";
+const DIVISION_HOY: &str = "Hoy solo divide entre una potencia de dos, que es una multiplicacion exacta; la general espera a LI2g de PLAN_EL_LIBRETO (DL10 de PLAN_LAS_LIBRERIAS)";
 const DIVISION_COMO: &str = "entre una potencia de dos se escribe igual (x / 2.0, x / 0.25); las demas, todavia no";
+const LIMITE_COMO: &str = "escribela con otras operaciones, o espera a que su tarjeta la sepa hacer";
 
-/// **Una gpu fn escrita**: su Programa, su SASS en los dos ABI, y de donde salio.
-pub struct Kernel {
+/// **Una gpu fn escrita para UNA tarjeta**: su Programa, su codigo para el
+/// oraculo y para el viaje, de donde salio, y quien lo escribio.
+pub struct Kernel<'t> {
     pub name: String,
     /// El fichero del paquete donde esta la gpu fn, y su linea alli.
     pub file: String,
@@ -104,33 +118,44 @@ pub struct Kernel {
     pub programa: Programa,
     /// El sitio del `.titan` de cada operacion del Programa.
     pub donde: Vec<(usize, usize)>,
-    /// El SASS con el ABI del banco (entradas en c[1]): lo que corre el oraculo.
-    pub banco: Emitido,
-    /// El SASS con el ABI de la 3060 (entradas ya en registros): lo que viaja.
-    pub app: Emitido,
+    /// La tarjeta que lo escribio: la UNICA que lo juzga y lo simula.
+    pub tarjeta: &'t dyn Tarjeta,
+    /// Lo que corre su simulador (la 3060: entradas en c[1]).
+    pub oraculo: Codigo,
+    /// Lo que viajaria a la tarjeta (la 3060: entradas ya en registros).
+    pub viaje: Codigo,
 }
 
-impl Kernel {
-    /// Las instrucciones de 128 bits del SASS que viaja, en bytes.
-    pub fn bytes(&self) -> Vec<u8> {
-        self.app.codigo.iter().flat_map(|(lo, hi)| lo.to_le_bytes().into_iter().chain(hi.to_le_bytes())).collect()
+impl Kernel<'_> {
+    /// El codigo que viaja, en bytes.
+    pub fn bytes(&self) -> &[u8] {
+        &self.viaje.bytes
     }
 }
 
-/// **Todas las gpu fn de un modulo**, escritas, juzgadas y comprobadas: lo
-/// que `titan build` pide antes de escribir un `.bex`. Un NO aqui es del
-/// ESCRITOR o del juez, no del programa -- salvo un `DeviceNo::Limit`: lo que
-/// esta libreria todavia no sabe, y eso SI es el NO del programa, en su sitio.
-pub fn kernels(m: &Module) -> Result<Vec<Kernel>, DeviceNo> {
+/// **Todas las gpu fn de un modulo, en CADA tarjeta de `tarjetas`**,
+/// escritas, juzgadas y comprobadas: lo que `titan build` pide antes de
+/// escribir un `.bex`. Un NO aqui es del ESCRITOR o del juez, no del
+/// programa -- salvo un `DeviceNo::Limit`: lo que una tarjeta todavia no
+/// sabe, y eso SI es el NO del programa, en su sitio.
+pub fn kernels<'t>(m: &Module, tarjetas: &[&'t dyn Tarjeta]) -> Result<Vec<Kernel<'t>>, DeviceNo> {
     let mut out = Vec::new();
     for (i, f) in m.functions.iter().enumerate().filter(|(_, f)| f.gpu) {
-        let k = write(m, i).map_err(|e| e.no(&f.name))?;
-        judge(&k).map_err(DeviceNo::Failure)?;
-        verify(m, i, &k).map_err(DeviceNo::Failure)?;
-        out.push(k);
+        if tarjetas.is_empty() {
+            return Err(DeviceNo::Failure(format!("`gpu fn {}`: {}", f.name, SIN_TARJETAS)));
+        }
+        for t in tarjetas {
+            let k = write(m, i, *t).map_err(|e| e.no(&f.name))?;
+            judge(&k).map_err(DeviceNo::Failure)?;
+            verify(m, i, &k).map_err(DeviceNo::Failure)?;
+            out.push(k);
+        }
     }
     Ok(out)
 }
+
+/// Lo que se dice si quien arma la herramienta no dio ninguna tarjeta.
+const SIN_TARJETAS: &str = "no hay ninguna tarjeta: quien arma la herramienta no dio ninguna libreria de GPU, y una gpu fn no se escribe a ciegas";
 
 fn kind_of(t: &bmo_titan_front::tree::Ty) -> Result<Kind, Failure> {
     match t {
@@ -255,7 +280,7 @@ fn eval(w: &mut Writer, v: &Value, env: &Env) -> Result<(Reg, Kind), Failure> {
                 ("+", Kind::F32) => (Op::Add { d, a, b }, Kind::F32),
                 ("-", Kind::F32) => (Op::Sub { d, a, b }, Kind::F32),
                 ("*", Kind::F32) => (Op::Mul { d, a, b }, Kind::F32),
-                // La general: el emisor la rechaza con su NO (ver la cabecera).
+                // La general: la tarjeta que no la hace exacta lo dice (ver la cabecera).
                 ("/", Kind::F32) => (Op::Div { d, a, b }, Kind::F32),
                 // Las de Rust y las del calculo: `!=` es cierto con un NaN (D3D `ne`).
                 ("==", Kind::F32) => (cmp(Comparacion::Igual), Kind::Bool),
@@ -278,7 +303,8 @@ fn eval(w: &mut Writer, v: &Value, env: &Env) -> Result<(Reg, Kind), Failure> {
 }
 
 /// **La gpu fn `func` de `m`, hecha el Programa de la casa.** Devuelve el
-/// Programa y el sitio del `.titan` de cada una de sus operaciones.
+/// Programa y el sitio del `.titan` de cada una de sus operaciones. No sabe
+/// de tarjetas: es lo mismo para todas.
 pub fn programa(m: &Module, func: usize) -> Result<(Programa, Vec<(usize, usize)>), Failure> {
     let f: &Function = &m.functions[func];
     if !f.gpu {
@@ -413,7 +439,7 @@ fn straight(w: &mut Writer, f: &Function, entry_env: Env) -> Result<Reg, Failure
     Ok(acc)
 }
 
-// ---- al SASS, y el juez ---------------------------------------------------------------
+// ---- a la tarjeta, y su juez ----------------------------------------------------------
 
 /// El sitio del `.titan` de una gpu fn: (fichero, linea de su `gpu fn`).
 fn sitio(m: &Module, f: &Function) -> (String, usize) {
@@ -422,76 +448,73 @@ fn sitio(m: &Module, f: &Function) -> (String, usize) {
     (file, fn_line)
 }
 
-/// **Escribe la gpu fn `func` de `m`**: el Programa y su SASS de SM86, con el
-/// MISMO emisor que usa PROTON-X, en los dos ABI.
-pub fn write(m: &Module, func: usize) -> Result<Kernel, Failure> {
+/// **Escribe la gpu fn `func` de `m` para `tarjeta`**: el Programa, y su
+/// codigo en esa tarjeta para su oraculo y para el viaje. Lo que la tarjeta
+/// no sabe se dice en el `.titan` -- fichero, linea y columna --: un LIMITE
+/// suyo es el NO del programa; un fallo de su emisor, un fallo.
+pub fn write<'t>(m: &Module, func: usize, tarjeta: &'t dyn Tarjeta) -> Result<Kernel<'t>, Failure> {
     let f = &m.functions[func];
     let (programa, donde) = programa(m, func)?;
     let params: Vec<Kind> = f.params.iter().map(|(_, t)| kind_of(t)).collect::<Result<_, _>>()?;
     let ret = kind_of(f.ret.as_ref().expect("programa() lo miro"))?;
     let (file, line) = sitio(m, f);
-    let en = |abi| {
-        emitir_con(&programa, REGISTROS, abi).map_err(|e| {
+    let en = |para| {
+        tarjeta.emitir(&programa, para).map_err(|e| {
             // DONDE, en las lineas del MODULO (las del `at` de la IR: el
             // paquete entero seguido), o la de la gpu fn; el texto dice la
             // del fichero (08-10: antes salia la del modulo con el nombre del
             // fichero, que solo cuadra en la raiz).
-            let at = match e {
-                NoEmite::Operacion(i) => donde.get(i).copied().unwrap_or((f.line, 1)),
-                _ => (f.line, 1),
+            let op = match &e {
+                NoEmite::Limite { op, .. } => Some(*op),
+                NoEmite::Fallo { op, .. } => *op,
             };
+            let at = op.and_then(|i| donde.get(i).copied()).unwrap_or((f.line, 1));
             let (l, c) = (m.sources.place(at.0).map(|(_, l)| l).unwrap_or(at.0), at.1);
-            let op = match e {
-                NoEmite::Operacion(i) => programa.ops.get(i),
-                _ => None,
-            };
-            if let Some(Op::Div { .. }) = op {
-                // ** UN LIMITE, no un fallo: lo que la 3060 todavia no sabe, y
-                // la casa lo dice a proposito. Es el NO del programa.
-                let said = Message::new(Code::GpuBody, at.0, at.1, "una division que la 3060 todavia no hace exacta", DIVISION_POR_QUE, DIVISION_COMO);
-                return Failure(format!("{}, linea {}, columna {} (gpu fn `{}`): {}", file, l, c, f.name, DIVISION_POR_QUE), Some(said));
+            match e {
+                NoEmite::Limite { op, que, por_que } => {
+                    // ** UN LIMITE, no un fallo: lo que la tarjeta todavia no
+                    // sabe, dicho a proposito. Es el NO del programa.
+                    let division = matches!(programa.ops.get(op), Some(Op::Div { .. }));
+                    let why = if division { format!("{}, {}. {}", por_que, LIMITE_TAMBIEN, DIVISION_HOY) } else { format!("{}, {}", por_que, LIMITE_TAMBIEN) };
+                    let said = Message::new(Code::GpuBody, at.0, at.1, &que, &why, if division { DIVISION_COMO } else { LIMITE_COMO });
+                    Failure(format!("{}, linea {}, columna {} (gpu fn `{}`): {}", file, l, c, f.name, why), Some(said))
+                }
+                NoEmite::Fallo { por_que, .. } => Failure::writer(format!("{}, linea {}, columna {} (gpu fn `{}`): {}", file, l, c, f.name, por_que)),
             }
-            let por_que = match e {
-                NoEmite::Registros => format!("no cabe en los {} registros de un hueco de la 3060", REGISTROS),
-                e => format!("el emisor de la 3060 dijo que no: {:?}", e),
-            };
-            Failure::writer(format!("{}, linea {}, columna {} (gpu fn `{}`): {}", file, l, c, f.name, por_que))
         })
     };
-    let banco = en(Abi::Banco)?;
-    let app = en(Abi::Registros)?;
-    Ok(Kernel { name: f.name.clone(), file, line, params, ret, programa, donde, banco, app })
+    let oraculo = en(Para::Oraculo)?;
+    let viaje = en(Para::Viaje)?;
+    Ok(Kernel { name: f.name.clone(), file, line, params, ret, programa, donde, tarjeta, oraculo, viaje })
 }
 
-/// **El juez del SASS, ESTRICTO**: la libreria de lo que sabe la 3060 (las
-/// esperas y las barreras de Ampere, los registros, los saltos) sobre los dos
-/// SASS, y la regla de un cuerpo de app (R7: ni una lectura de memoria que no
-/// cargue el pegamento). Su NO, en sus palabras y en la linea de la gpu fn.
+/// **SU juez, ESTRICTO**, sobre los dos codigos: el de la tarjeta que lo
+/// escribio y ningun otro (la 3060: las esperas y las barreras de Ampere, los
+/// registros, los saltos, y la regla de un cuerpo de app). Su NO, en sus
+/// palabras y en la linea de la gpu fn.
 pub fn judge(k: &Kernel) -> Result<(), String> {
-    let no = |por: String| format!("{}, linea {} (gpu fn `{}`): el juez de la 3060 dijo que no -- {}", k.file, k.line, k.name, por);
-    for e in [&k.banco, &k.app] {
-        juzgar_drenado(&e.codigo, &Contexto { registros: e.registros + RESERVADOS, sph: None }).map_err(|b| no(format!("{}", b)))?;
-    }
-    juzgar_cuerpo_de_app(&k.app.codigo, k.app.registros).map_err(|b| no(format!("{}", b)))
+    let no = |por: String| format!("{}, linea {} (gpu fn `{}`): el juez de {} dijo que no -- {}", k.file, k.line, k.name, k.tarjeta.ficha().nombre, por);
+    k.tarjeta.juzgar(&k.oraculo, Para::Oraculo).map_err(&no)?;
+    k.tarjeta.juzgar(&k.viaje, Para::Viaje).map_err(&no)
 }
 
-// ---- el oraculo: el simulador de la 3060, contra la casa y el calculo -----------------
+// ---- el oraculo: el simulador de la tarjeta, contra la casa y el calculo --------------
 
-/// La celda `i` de cada valor, como la entrada del Programa (componente 0).
-fn entradas(cells: &[Vec<u32>], i: usize) -> Vec<[f32; 4]> {
-    cells.iter().map(|c| [f32::from_bits(c[i]), 0.0, 0.0, 0.0]).collect()
+/// La celda `i` de cada valor, como la entrada del Programa (componente 0),
+/// en bits.
+fn entradas(cells: &[Vec<u32>], i: usize) -> Vec<[u32; 4]> {
+    cells.iter().map(|c| [c[i], 0, 0, 0]).collect()
 }
 
-/// **El ORACULO**: el SASS corrido por el simulador de la 3060, un hilo por
-/// celda. `cells[k]` son las celdas del valor `k` (sus bits).
+/// **El ORACULO**: el codigo de la tarjeta, corrido por SU simulador, un hilo
+/// por celda. `cells[k]` son las celdas del valor `k` (sus bits).
 pub fn run(k: &Kernel, cells: &[Vec<u32>]) -> Result<Vec<u32>, String> {
     let n = cells.first().map(|c| c.len()).unwrap_or(0);
     let mut out = Vec::with_capacity(n);
     for i in 0..n {
-        let banco: Vec<u8> = entradas(cells, i).iter().flat_map(|e| e.iter().flat_map(|x| x.to_le_bytes())).collect();
-        let mut m = Maquina::nueva([&[], &banco, &[], &[], &[], &[], &[], &[]]);
-        correr(&k.banco.codigo, &mut m).map_err(|e| format!("el simulador de la 3060: {:?}", e))?;
-        out.push(m.r[0]);
+        let s = k.tarjeta.simular(&k.oraculo, &entradas(cells, i), 1)?;
+        let first = s.first().ok_or_else(|| format!("el simulador de {} no devolvio la salida de `{}`", k.tarjeta.ficha().nombre, k.name))?;
+        out.push(first[0]);
     }
     Ok(out)
 }
@@ -502,8 +525,9 @@ pub fn run_casa(k: &Kernel, cells: &[Vec<u32>]) -> Vec<u32> {
     let mut regs = Vec::new();
     (0..n)
         .map(|i| {
+            let e: Vec<[f32; 4]> = entradas(cells, i).iter().map(|c| c.map(f32::from_bits)).collect();
             let mut s = [[0.0f32; 4]; 1];
-            k.programa.correr(&entradas(cells, i), &[], &mut s, &mut regs);
+            k.programa.correr(&e, &[], &mut s, &mut regs);
             s[0][0].to_bits()
         })
         .collect()
@@ -545,29 +569,29 @@ pub fn battery(params: &[Kind]) -> Vec<Vec<u32>> {
     cells
 }
 
-/// Los mismos bits, o los dos NaN: la 3060 no promete la carga de un NaN.
+/// Los mismos bits, o los dos NaN: una tarjeta no promete la carga de un NaN.
 fn same_cell(a: u32, b: u32, k: Kind) -> bool {
     a == b || (k == Kind::F32 && f32::from_bits(a).is_nan() && f32::from_bits(b).is_nan())
 }
 
-/// **La comparacion de cada build**: estas celdas por la 3060 simulada, por
-/// la casa y por el calculo; la primera que no da lo mismo, dicha con la
-/// entrada y las tres respuestas.
+/// **La comparacion de cada build**: estas celdas por la tarjeta (su
+/// simulador), por la casa y por el calculo; la primera que no da lo mismo,
+/// dicha con la entrada y las tres respuestas.
 fn compare(m: &Module, func: usize, k: &Kernel, cells: &[Vec<u32>], what: &str) -> Result<Vec<u32>, String> {
-    let sass = run(k, cells)?;
+    let suya = run(k, cells)?;
     let casa = run_casa(k, cells);
     let calc = bmo_titan_front::calc::run_gpu(m, func, cells).map_err(|e| format!("el calculo: {}", e.what))?;
-    for i in 0..sass.len() {
-        if !same_cell(sass[i], calc[i], k.ret) || !same_cell(casa[i], calc[i], k.ret) {
+    for i in 0..suya.len() {
+        if !same_cell(suya[i], calc[i], k.ret) || !same_cell(casa[i], calc[i], k.ret) {
             let show = |bits: u32, kind: Kind| if kind == Kind::F32 { format!("{:?}", f32::from_bits(bits)) } else { (bits != 0).to_string() };
             let input: Vec<String> = cells.iter().zip(&k.params).map(|(c, kind)| show(c[i], *kind)).collect();
             return Err(format!(
-                "{}, linea {} (gpu fn `{}`): con {} ({}) la 3060 da {}, la casa {} y el calculo {} -- una cuenta, varias respuestas: no hay .bex",
-                k.file, k.line, k.name, what, input.join(", "), show(sass[i], k.ret), show(casa[i], k.ret), show(calc[i], k.ret)
+                "{}, linea {} (gpu fn `{}`): con {} ({}) {} da {}, la casa {} y el calculo {} -- una cuenta, varias respuestas: no hay .bex",
+                k.file, k.line, k.name, what, input.join(", "), k.tarjeta.ficha().nombre, show(suya[i], k.ret), show(casa[i], k.ret), show(calc[i], k.ret)
             ));
         }
     }
-    Ok(sass)
+    Ok(suya)
 }
 
 /// **La bateria de bordes** de una gpu fn, por los tres.
@@ -577,36 +601,54 @@ pub fn verify(m: &Module, func: usize, k: &Kernel) -> Result<usize, String> {
     Ok(cells.first().map(|c| c.len()).unwrap_or(0))
 }
 
-/// ** EL ORACULO COMO `Device` DEL CALCULO: cada gpu fn se escribe UNA vez,
-/// se juzga, pasa la bateria, y sus celdas las calcula la 3060 simulada. Es
-/// lo que `titan build` le da al calculo: los resultados que lleva el `.bex`
-/// son los del SASS que viajaria a la tarjeta.
-#[derive(Default)]
-pub struct Oracle {
-    written: HashMap<usize, Kernel>,
+/// ** EL ORACULO COMO `Device` DEL CALCULO: cada gpu fn se escribe UNA vez en
+/// cada tarjeta, se juzga, pasa la bateria, y sus celdas las calculan las
+/// tarjetas (las mismas en todas, o no hay `.bex`). Es lo que `titan build`
+/// le da al calculo: los resultados que lleva el `.bex` son los del codigo
+/// que viajaria a la tarjeta (las de la primera).
+pub struct Oracle<'t> {
+    tarjetas: Vec<&'t dyn Tarjeta>,
+    written: HashMap<usize, Vec<Kernel<'t>>>,
 }
 
-impl Oracle {
+impl<'t> Oracle<'t> {
+    /// El oraculo, con las tarjetas que diga quien arma la herramienta.
+    pub fn new(tarjetas: &[&'t dyn Tarjeta]) -> Self {
+        Oracle { tarjetas: tarjetas.to_vec(), written: HashMap::new() }
+    }
+
     /// Cuantas gpu fn escribio (y juzgo) hasta ahora.
     pub fn written(&self) -> usize {
         self.written.len()
     }
 }
 
-impl bmo_titan_front::calc::Device for Oracle {
+impl bmo_titan_front::calc::Device for Oracle<'_> {
     fn run(&mut self, m: &Module, func: usize, cells: Vec<Vec<u32>>) -> Result<Vec<u32>, DeviceNo> {
         if !self.written.contains_key(&func) {
-            // Un limite de la libreria es el NO del programa; lo demas, un fallo.
-            let k = write(m, func).map_err(|e| match e.1 {
-                Some(said) => DeviceNo::Limit(said),
-                None => DeviceNo::Failure(e.0),
-            })?;
-            judge(&k).map_err(DeviceNo::Failure)?;
-            verify(m, func, &k).map_err(DeviceNo::Failure)?;
-            self.written.insert(func, k);
+            if self.tarjetas.is_empty() {
+                return Err(DeviceNo::Failure(SIN_TARJETAS.to_string()));
+            }
+            let mut ks = Vec::with_capacity(self.tarjetas.len());
+            for t in &self.tarjetas {
+                // Un limite de la tarjeta es el NO del programa; lo demas, un fallo.
+                let k = write(m, func, *t).map_err(|e| match e.1 {
+                    Some(said) => DeviceNo::Limit(said),
+                    None => DeviceNo::Failure(e.0),
+                })?;
+                judge(&k).map_err(DeviceNo::Failure)?;
+                verify(m, func, &k).map_err(DeviceNo::Failure)?;
+                ks.push(k);
+            }
+            self.written.insert(func, ks);
         }
-        // Las celdas REALES del programa, por los tres.
-        compare(m, func, &self.written[&func], &cells, "las celdas del programa").map_err(DeviceNo::Failure)
+        // Las celdas REALES del programa, por cada tarjeta, la casa y el calculo.
+        let mut first = None;
+        for k in &self.written[&func] {
+            let celdas = compare(m, func, k, &cells, "las celdas del programa").map_err(DeviceNo::Failure)?;
+            first.get_or_insert(celdas);
+        }
+        Ok(first.expect("al menos una tarjeta: se miro al escribir"))
     }
 }
 

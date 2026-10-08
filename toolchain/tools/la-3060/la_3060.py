@@ -74,8 +74,17 @@ las esperas, que es la deuda que se quiere bajar):
                       (la puerta) toma el driver, el `kind` y el juez
                    S4 la puerta del kernel (`CUBO_VERRANO`) juzga los
                       programas antes de subirlos
+                   S5 (08-10, LB3 de PLAN_LAS_LIBRERIAS) PROMETEO
+                      (`platform/shared/prometeo`), el emisor de GPU de
+                      TITAN++ (`toolchain/lang/titan/prometeo`) y su frontend
+                      no nombran una tarjeta: ni en sus dependencias ni en su
+                      codigo (sus pruebas si: prueban la 3060 de verdad). Cada
+                      tarjeta trae lo suyo detras del contrato, y solo `titan`
+                      dice cuales hay
                    El propietario: "TIENEN QUE AISLARSE POR COMPLETO ... si
-                   tengo otra GPU no es lo mismo"
+                   tengo otra GPU no es lo mismo"; y el 08-10: "TODAS LAS GPU
+                   en emisor SON AISLADAS por completo luego el JUEZ procesa
+                   cada uno"
 
     --check   lo que corre el build
 """
@@ -434,6 +443,45 @@ def sobre(fallos):
     return vistos
 
 
+# ** S5 (08-10): lo GENERAL de la GPU no conoce a ninguna tarjeta. Un nombre
+# de tarjeta es un crate suyo (su emisor, su codificador, su driver) o una
+# ruta a `drivers/gpu/`; en lo neutro (PROMETEO y el emisor de GPU de TITAN++)
+# tampoco valen las palabras de una (`RX_UNA_GPU`). El frontend de TITAN++
+# habla de "la 3060" en sus mensajes, a proposito: ahi solo se miran los
+# crates.
+PROMETEO = os.path.join(RAIZ, 'platform', 'shared', 'prometeo')
+TITAN = os.path.join(RAIZ, 'toolchain', 'lang', 'titan')
+TITAN_GPU = os.path.join(TITAN, 'prometeo')
+RX_TARJETA = re.compile(r'(\bbmo[-_]proton[-_]x[-_]sm86\b|\bbmo[-_]sm86\b|\bbmo[-_]gpu[-_]\w+|drivers/gpu/)')
+
+
+def prometeo(fallos):
+    vistos = 0
+    # (carpeta del crate, tambien las palabras de una GPU?)
+    for carpeta, estricto in ((PROMETEO, True), (TITAN_GPU, True), (TITAN, False)):
+        cargo = os.path.join(carpeta, 'Cargo.toml')
+        if not os.path.exists(cargo):
+            fallos.append('S5: falta %s: el guardian no mira' % rel(cargo))
+            continue
+        vistos += 1
+        for l in dependencias(cargo):
+            m = RX_TARJETA.search(l)
+            if m:
+                fallos.append('S5: %s depende de `%s`: lo general de la GPU no conoce a ninguna tarjeta; la elige quien arma la herramienta (`titan`)' % (rel(cargo), m.group(1)))
+        for r in sorted(glob.glob(os.path.join(carpeta, 'src', '*.rs'))):
+            # Las pruebas SI nombran la 3060: prueban la de verdad (L28-L31).
+            if os.path.basename(r).startswith('pruebas'):
+                continue
+            vistos += 1
+            for n, l in enumerate(sin_comentarios(leer(r)).split('\n'), 1):
+                m = RX_TARJETA.search(l) or (estricto and RX_UNA_GPU.search(l))
+                if m:
+                    fallos.append('S5: %s:%d nombra `%s`: lo general de la GPU pide las tarjetas por el contrato de PROMETEO y no nombra ninguna' % (rel(r), n, m.group(1)))
+    if vistos < 6:
+        fallos.append('S5: solo %d ficheros de PROMETEO y de TITAN++ encontrados: el guardian no mira' % vistos)
+    return vistos
+
+
 def main():
     fallos = []
     puerta(fallos)
@@ -446,6 +494,7 @@ def main():
     n_neutros = neutro(fallos)
     n_aon = aon(fallos)
     n_sobre = sobre(fallos)
+    n_prometeo = prometeo(fallos)
     giros = esperas()
     total = sum(giros.values())
     base = linea_base()
@@ -461,8 +510,8 @@ def main():
             print('  ' + f)
         return 1
     extra = '' if base is None or total == base else ' (bajo de %d: baja la linea base en %s)' % (base, rel(BASE))
-    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; el sobre, la API y VERRANO sin una GPU dentro (%d ficheros) y el juez en la puerta; %d esperas girando%s'
-          % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, n_aon, n_sobre, total, extra))
+    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; el sobre, la API y VERRANO sin una GPU dentro (%d ficheros) y el juez en la puerta; PROMETEO y TITAN++ sin una tarjeta dentro (%d ficheros); %d esperas girando%s'
+          % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, n_aon, n_sobre, n_prometeo, total, extra))
     return 0
 
 

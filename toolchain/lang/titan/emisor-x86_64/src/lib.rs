@@ -161,8 +161,8 @@ pub enum Failure {
     /// de una libreria de la GPU (la division general en la 3060), o de lo
     /// que E1 todavia no emite al correr (LB1, 08-10).
     Source(Message),
-    /// Un fallo de ESTE compilador -- el gate, el escritor de la 3060 o su
-    /// juez, E1 --, nunca del programa.
+    /// Un fallo de ESTE compilador -- el gate, el emisor o el juez de una
+    /// tarjeta, E1 --, nunca del programa.
     Gate(String),
 }
 
@@ -188,20 +188,28 @@ pub fn build_package_e1(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Opt
     package(&e, &manifest).map_err(Failure::Gate)
 }
 
+/// ** LAS TARJETAS QUE HAY (LB3 de `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10):
+/// lo UNICO de la GPU que dice `titan`. El frontend y PROMETEO no nombran
+/// ninguna (L-a); cada una trae su emisor, su juez y su simulador, aislados.
+/// Hoy, una: la 3060. Cual entra en un build -- todas las que haya, o las
+/// que diga el PERFIL de la maquina -- es DL11, del propietario.
+pub static TARJETAS: [&dyn bmo_prometeo::Tarjeta; 1] = [&bmo_proton_x_sm86::tarjeta::SM86];
+
 /// A PACKAGE to a `.bex` (level 9): the root file (its path from the package
 /// and its text), and `read` for the files its `mod`s name. The manifest
 /// names the root.
 pub fn build_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<Vec<u8>, Failure> {
     let source_name = root.rsplit('/').next().unwrap_or(root);
-    // ** Nivel 11 (07-10, sin SPIR-V): las celdas de cada gpu fn las calcula
-    // el ORACULO -- la 3060 simulada, sobre el SASS que escribe
-    // `bmo-titan-sm86` y que el juez acepto --; el .bex lleva esos resultados.
-    let mut oracle = bmo_titan_sm86::Oracle::default();
+    // ** Nivel 11 (07-10, sin SPIR-V; 08-10, PROMETEO): las celdas de cada
+    // gpu fn las calcula el ORACULO -- cada tarjeta simulada, sobre el codigo
+    // que su emisor escribio y su juez acepto (hoy, la 3060) --; el .bex
+    // lleva esos resultados.
+    let mut oracle = bmo_titan_prometeo::Oracle::new(&TARJETAS);
     let m = bmo_titan_front::lower_package_with(root, src, read, Some(&mut oracle)).map_err(Failure::Source)?;
     // Y TODAS, tambien las que ninguna ejecucion llamo, escritas y juzgadas.
     // Si una no pasa: un limite de la libreria es el NO del programa (en su
     // sitio); lo demas, un fallo del ESCRITOR o del juez. No hay .bex.
-    bmo_titan_sm86::kernels(&m).map_err(|no| device_no(&m, no))?;
+    bmo_titan_prometeo::kernels(&m, &TARJETAS).map_err(|no| device_no(&m, no))?;
     let manifest = bmo_titan_front::manifest::manifest(&m, source_name);
     let e = emit(&m)?;
     package(&e, &manifest).map_err(Failure::Gate)

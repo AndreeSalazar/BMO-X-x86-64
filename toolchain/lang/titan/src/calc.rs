@@ -604,12 +604,13 @@ impl Run<'_, '_> {
             // A limit the library says on purpose: the program's NO, where it
             // is written (the caller locates it in its file, like any other).
             DeviceNo::Limit(said) => said,
+            // A failure names no card (L05): it may be any of them (LB3).
             DeviceNo::Failure(why) => Message::new(
                 Code::GpuBody,
                 at.0,
                 at.1,
-                &format!("la 3060 no pudo correr `{}`", m.functions[func].name),
-                &format!("es un fallo del escritor de la 3060, de su juez o del oraculo, no del programa: {}", why),
+                &format!("la GPU no pudo correr `{}`", m.functions[func].name),
+                &format!("es un fallo de su tarjeta -- su emisor, su juez o su simulador -- o del oraculo, no del programa: {}", why),
                 "avisa con este programa",
             ),
         })?;

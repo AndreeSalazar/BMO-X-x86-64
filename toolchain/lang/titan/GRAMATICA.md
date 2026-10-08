@@ -805,7 +805,7 @@ llamada a una gpu fn queda en el certificado del `.bex` con su linea: es lo que
      una gpu fn con print, tablas, textos, llamadas,      T0090
      bucles, valores mut / take, o sin resultado
      una gpu fn sin `gpu` en el Titan.toml                T0088
-   LA LIBRERIA DE LA 3060 (bmo-titan-sm86), en su sitio
+   LA TARJETA DE LA 3060 (por PROMETEO, LB3), en su sitio
      la division general: hoy, solo entre una potencia    T0090
      de dos (LI2g)
    EL CALCULO

@@ -19,7 +19,7 @@
 //! needs the `Titan.toml` to ask for `gpu`, like `use gpu` (T0088).
 //!
 //! [!] Loops and calls between `gpu fn` are not refused for ever: they wait
-//! for the 3060 writer (`bmo-titan-sm86`) to carry them (IL1 of ILLAPA), and each one enters with its own
+//! for the GPU writer (`bmo-titan-prometeo`, PROMETEO) to carry them (IL1 of ILLAPA), and each one enters with its own
 //! example. Said here so nobody takes the NO for a decision.
 
 use crate::message::{Code, Message};

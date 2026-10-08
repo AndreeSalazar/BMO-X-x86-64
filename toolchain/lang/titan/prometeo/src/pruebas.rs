@@ -1,16 +1,28 @@
-//! El banco del escritor: cada regla con su prueba de NO.
+//! El banco del escritor: cada regla con su prueba de NO. Con la 3060 DE
+//! VERDAD (su emisor, su juez, su simulador), por el contrato: las leyes
+//! L28-L31 son de ella. La tarjeta de juguete esta en `tests/juguete.rs`.
 
 use super::*;
+use bmo_proton_x_sm86::tarjeta::SM86;
+
+/// El mismo codigo de la 3060 con las ESPERAS a cero (los bits 105..108 de
+/// cada instruccion: 41..44 de su mitad alta, el byte 13): cada una leeria lo
+/// de la anterior antes de que llegue.
+fn sin_esperas(c: &mut Codigo) {
+    for i in c.bytes.chunks_exact_mut(16) {
+        i[8 + 5] &= !0x1E;
+    }
+}
 
 fn module(src: &str) -> Module {
     let toml = "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n";
     bmo_titan_front::lower_package("src/main.titan", src, &mut |p| (p == "Titan.toml").then(|| toml.to_string())).unwrap_or_else(|e| panic!("{:?}", e))
 }
 
-fn kernel(src: &str, name: &str) -> (Module, usize, Kernel) {
+fn kernel(src: &str, name: &str) -> (Module, usize, Kernel<'static>) {
     let m = module(src);
     let f = m.functions.iter().position(|f| f.name == name).unwrap();
-    let k = write(&m, f).unwrap_or_else(|e| panic!("{:?}", e));
+    let k = write(&m, f, &SM86).unwrap_or_else(|e| panic!("{:?}", e));
     (m, f, k)
 }
 
@@ -89,7 +101,7 @@ fn the_oracle_runs_the_gpu_fn_and_the_program_writes_the_same() {
     let toml = "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n";
     let mut read = |p: &str| (p == "Titan.toml").then(|| toml.to_string());
     let plain = bmo_titan_front::lower_package("src/main.titan", src, &mut read).unwrap();
-    let mut oracle = Oracle::default();
+    let mut oracle = Oracle::new(&[&SM86]);
     let ran = bmo_titan_front::lower_package_with("src/main.titan", src, &mut read, Some(&mut oracle)).unwrap();
     assert_eq!(oracle.written(), 1, "the oracle wrote, judged and ran the gpu fn");
     assert_eq!(plain.flat, ran.flat);
@@ -102,7 +114,7 @@ fn a_general_division_is_refused_where_it_is_written() {
     let src = "mod main \"x\"\ngpu fn tercio(a: f32) -> f32\n    return a / 3.0\nfn main()\n    print(1)\n";
     let m = module(src);
     let f = m.functions.iter().position(|f| f.name == "tercio").unwrap();
-    let why = write(&m, f).err().expect("la division entre 3 no se escribe").0;
+    let why = write(&m, f, &SM86).err().expect("la division entre 3 no se escribe").0;
     assert!(why.starts_with("src/main.titan, linea 3, columna 14 (gpu fn `tercio`)"), "{}", why);
     assert!(why.contains("LI2g"), "{}", why);
 }
@@ -116,22 +128,20 @@ fn a_general_division_is_refused_where_it_is_written() {
 fn a_limit_of_the_library_is_the_program_s_no_where_it_is_written() {
     let src = "mod main \"x\"\ngpu fn tercio(a: f32) -> f32\n    return a / 3.0\nfn main()\n    let xs: [f32; 1] = [1.0]\n    let r = tercio(xs)\n    print(round(r[0], 2))\n";
     let toml = "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n";
-    let mut oracle = Oracle::default();
+    let mut oracle = Oracle::new(&[&SM86]);
     let no = bmo_titan_front::lower_package_with("src/main.titan", src, &mut |p| (p == "Titan.toml").then(|| toml.to_string()), Some(&mut oracle)).unwrap_err();
     assert_eq!((no.code, no.line, no.col), (bmo_titan_front::Code::GpuBody, 3, 14), "{:?}", no);
     assert!(no.why.contains("LI2g") && !no.why.contains("fallo"), "{}", no.why);
     assert!(no.how.contains("potencia de dos"), "{}", no.how);
     // Nadie la llama: el calculo no la ve, y kernels() la dice igual.
     let m = module("mod main \"x\"\ngpu fn tercio(a: f32) -> f32\n    return a / 3.0\nfn main()\n    print(1)\n");
-    match kernels(&m) {
+    match kernels(&m, &[&SM86]) {
         Err(DeviceNo::Limit(said)) => assert_eq!((said.code, said.line, said.col), (bmo_titan_front::Code::GpuBody, 3, 14)),
         other => panic!("el limite, no {:?}", other.map(|k| k.len())),
     }
     // Y lo que no es un limite sigue siendo un fallo: el SASS sin sus esperas.
     let (_, _, mut k) = kernel(MEZCLA, "mezcla");
-    for (_, hi) in k.banco.codigo.iter_mut() {
-        *hi &= !(0xF << 41);
-    }
+    sin_esperas(&mut k.oraculo);
     assert!(judge(&k).is_err());
 }
 
@@ -148,12 +158,12 @@ fn a_limit_in_a_child_module_is_said_in_its_file_and_its_line() {
         "src/mates.titan" => Some(hijo.to_string()),
         _ => None,
     };
-    let mut oracle = Oracle::default();
+    let mut oracle = Oracle::new(&[&SM86]);
     let no = bmo_titan_front::lower_package_with("src/main.titan", main, &mut read, Some(&mut oracle)).unwrap_err();
     assert_eq!((no.file.as_deref(), no.line, no.col, no.code), (Some("src/mates.titan"), 4, 14, bmo_titan_front::Code::GpuBody), "{:?}", no);
     let m = bmo_titan_front::lower_package("src/main.titan", main, &mut read).unwrap();
     let f = m.functions.iter().position(|f| f.gpu).unwrap();
-    let why = write(&m, f).err().expect("la division entre 3 no se escribe").0;
+    let why = write(&m, f, &SM86).err().expect("la division entre 3 no se escribe").0;
     assert!(why.starts_with("src/mates.titan, linea 4, columna 14"), "{}", why);
 }
 
@@ -186,7 +196,7 @@ fn a_disagreement_is_caught_with_its_input_and_the_answers() {
     let m = module(src);
     let suma = m.functions.iter().position(|f| f.name == "suma").unwrap();
     let resta = m.functions.iter().position(|f| f.name == "resta").unwrap();
-    let k = write(&m, suma).unwrap();
+    let k = write(&m, suma, &SM86).unwrap();
     assert!(verify(&m, suma, &k).is_ok());
     let why = verify(&m, resta, &k).unwrap_err();
     assert!(why.contains("la 3060 da") && why.contains("el calculo") && why.contains("no hay .bex"), "{}", why);
@@ -199,9 +209,7 @@ fn a_disagreement_is_caught_with_its_input_and_the_answers() {
 fn the_judge_refuses_a_sass_without_its_waits() {
     let (_, _, mut k) = kernel(MEZCLA, "mezcla");
     judge(&k).unwrap();
-    for (_, hi) in k.banco.codigo.iter_mut() {
-        *hi &= !(0xF << 41); // los bits 105..109: la espera
-    }
+    sin_esperas(&mut k.oraculo);
     let why = judge(&k).unwrap_err();
     // DONDE: en el .titan, la linea de la gpu fn; nunca "instruccion 3".
     assert!(why.starts_with("src/main.titan, linea 2 (gpu fn `mezcla`): el juez de la 3060 dijo que no"), "{}", why);

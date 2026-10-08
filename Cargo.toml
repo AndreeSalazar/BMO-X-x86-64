@@ -128,7 +128,13 @@ members = [
     # para que el emisor de PROTON-X (Ring 3) lo use sin enlazar un driver (L8).
     "platform/shared/bmo-sm86",
     # EL EMISOR de PROTON-X para la 3060 (E3): Programa -> SASS, y su simulador.
+    # Desde LB3 (08-10) es tambien la LIBRERIA de la 3060 para PROMETEO
+    # (`tarjeta.rs`): su emisor, su juez y su simulador, aislados.
     "platform/shared/proton-x-sm86",
+    # PROMETEO, la libreria general de la GPU (LB3 de PLAN_LAS_LIBRERIAS, 08-10):
+    # el Programa de la casa y el contrato que cumple cada tarjeta. No nombra
+    # ninguna GPU (regla S5 de `la-3060`).
+    "platform/shared/prometeo",
     "platform/shared/bmo-pase-gpu",
     "platform/shared/bmo-puerta-red",
     # TITAN++: las FORMAS que comparten el compilador y F1 (el grafo, los
@@ -276,10 +282,12 @@ members = [
     # de INTI: cada lenguaje su IR y su emisor (T3, 2026-10-04). Aqui vive la
     # orden `titan`.
     "toolchain/lang/titan/emisor-x86_64",
-    # Y su escritor de SPIR-V (nivel 11, G2 de PLAN_EL_CENTAURO): una `gpu fn`
-    # hecha FORMATO para la 3060, juzgada por el juez de spirv, que no sabe
-    # quien la escribio. El frontend sigue sin nombrar maquinas ni formatos.
-    "toolchain/lang/titan/emisor-sm86",
+    # Y su emisor de GPU: PROMETEO de TITAN++ (nivel 11; LB3 de
+    # PLAN_LAS_LIBRERIAS, 08-10). Cada `gpu fn` hecha el Programa de la casa y
+    # pasada por cada tarjeta, aislada; no nombra ninguna (las da `titan`). Fue
+    # el escritor de SPIR-V (G2 de PLAN_EL_CENTAURO) hasta el 07-10, y
+    # `emisor-sm86` hasta el 08-10. El frontend sigue sin nombrar maquinas.
+    "toolchain/lang/titan/prometeo",
     # La regla de disposicion de un agregado: la comparten los frontends y el
     # ABI, sin dependencias y sin maquina (2026-09-18).
     "toolchain/lang/disposicion",

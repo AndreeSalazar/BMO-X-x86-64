@@ -113,11 +113,13 @@ fn main() -> ExitCode {
             // Nivel 11 (07-10, sin SPIR-V): cada gpu fn como el SASS de la 3060
             // -- el Programa de la casa, el emisor de SM86 y el juez --, ya
             // juzgado y comprobado. Junto al fuente, o en la carpeta de `-o`.
+            // Desde LB3 (08-10), por PROMETEO: esta orden pide UNA tarjeta, la
+            // 3060, porque su salida es su SASS.
             let m = match bmo_titan_front::lower_package(&root, &src, &mut read) {
                 Ok(m) => m,
                 Err(m) => return no(&m, &dir, &root, &src, true),
             };
-            let kernels = match bmo_titan_sm86::kernels(&m) {
+            let kernels = match bmo_titan_prometeo::kernels(&m, &[&bmo_proton_x_sm86::tarjeta::SM86]) {
                 Ok(k) => k,
                 // Lo que la libreria de la 3060 todavia no sabe: el NO del
                 // programa, en su fichero y su linea (LB1).
@@ -139,7 +141,7 @@ fn main() -> ExitCode {
                 if let Err(e) = std::fs::write(&dst, k.bytes()) {
                     return fail(&format!("no pude escribir {}: {}", dst.display(), e));
                 }
-                println!("ok: gpu fn {} -> {} ({} instrucciones, {} registros; el juez de la 3060 dijo que si)", k.name, dst.display(), k.app.codigo.len(), k.app.registros);
+                println!("ok: gpu fn {} -> {} ({} instrucciones, {} registros; el juez de {} dijo que si)", k.name, dst.display(), k.viaje.instrucciones, k.viaje.registros, k.tarjeta.ficha().nombre);
             }
             ExitCode::SUCCESS
         }

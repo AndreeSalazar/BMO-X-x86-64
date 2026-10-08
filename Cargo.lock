@@ -733,6 +733,13 @@ name = "bmo-prestamo-juicio"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-prometeo"
+version = "0.1.0"
+dependencies = [
+ "bmo-proton-x",
+]
+
+[[package]]
 name = "bmo-proton-x"
 version = "0.1.0"
 dependencies = [
@@ -758,6 +765,7 @@ dependencies = [
  "bmo-cubo",
  "bmo-gpu-ga10x",
  "bmo-hash",
+ "bmo-prometeo",
  "bmo-proton-x",
  "bmo-sm86",
 ]
@@ -858,11 +866,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "bmo-titan-sm86"
+name = "bmo-titan-prometeo"
 version = "0.1.0"
 dependencies = [
- "bmo-gpu-ga10x",
- "bmo-proton-x",
+ "bmo-prometeo",
  "bmo-proton-x-sm86",
  "bmo-titan-front",
 ]
@@ -873,9 +880,11 @@ version = "0.1.0"
 dependencies = [
  "bmo-abi",
  "bmo-lower",
+ "bmo-prometeo",
+ "bmo-proton-x-sm86",
  "bmo-titan-contrato",
  "bmo-titan-front",
- "bmo-titan-sm86",
+ "bmo-titan-prometeo",
  "bmo-verify",
 ]
 
