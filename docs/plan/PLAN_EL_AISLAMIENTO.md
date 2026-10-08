@@ -58,9 +58,20 @@ que no es preciso para ninguna.
 | VERRANO en el escritorio | `gspcubo/verrano.rs`, `gspcubo/tablero.rs` | de TODOS |
 | la puerta del escritorio | `gspcubo/sm86.rs`: el `kind`, el juez, las ordenes, lo que se le explica al propietario | de la 3060 |
 | la puerta del kernel | `gpu_trabajo/cubo.rs` (`CUBO_VERRANO`): juzga y sube | de la 3060 |
+| **PROMETEO** (08-10): el contrato de una tarjeta y el Programa de la casa | `platform/shared/prometeo` (`bmo-prometeo`) | de TODOS |
+| el emisor de GPU de TITAN++ (08-10) | `toolchain/lang/titan/prometeo` (`bmo-titan-prometeo`): pide las tarjetas por el contrato | de TODOS |
+| la tarjeta de la 3060 para PROMETEO (08-10) | `platform/shared/proton-x-sm86/src/tarjeta.rs`: su emisor, su juez y su simulador detras del contrato | de la 3060 |
 
 **Otra GPU** trae SU fila en cada "de la 3060" de esta tabla, y ninguna fila
 "de TODOS" cambia. Si una tuviera que cambiar, el aislamiento fallo.
+
+> **08-10, LB3 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md):** las tres
+> ultimas filas. El propietario: *"TODAS LAS GPU en emisor SON AISLADAS por
+> completo luego el JUEZ procesa cada uno y el principal "SUPREMO JUEZ" [...]
+> para GPU Final"*. PROMETEO no lleva ninguna ISA: cada tarjeta trae su emisor
+> (del Programa a SU codigo), su juez y su simulador, y el SUPREMO JUEZ es el
+> de la puerta del kernel -- el mismo juez de esa tarjeta, otra vez, el que no
+> se puede saltar. Lo guarda la regla S5 de `la-3060`.
 
 ---
 
@@ -121,6 +132,9 @@ caliente no se repite (los programas son los de un dibujo que ya se juzgo:
 
 `toolchain/tools/la-3060/la_3060.py`, regla **S** (S1 el sobre, S2 la API,
 S3 VERRANO en el escritorio, S4 la puerta del kernel). Corre en cada build.
+Desde el 08-10, **S5**: PROMETEO, el emisor de GPU de TITAN++ y su frontend
+no nombran una tarjeta, ni en sus dependencias ni en su codigo (probado
+sembrando cuatro nombres a proposito: los cuatro caen).
 
 ## [ ] A5 -- LA SEGUNDA TARJETA (cuando la haya)
 

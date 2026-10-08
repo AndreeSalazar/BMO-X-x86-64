@@ -345,7 +345,9 @@ vivo que usa Cyberpunk.
 - [x] **LI7 -- UNA SOLA LENGUA HACIA LA 3060, SIN SPIR-V.** Decision del
       propietario (07-10): *"gpu - sm86 - luego el juez verifica
       estrictamente y el 3060"*. HECHO el 07-10: `bmo-titan-sm86`
-      (`toolchain/lang/titan/emisor-sm86`) escribe cada `gpu fn` como el
+      (`toolchain/lang/titan/emisor-sm86`; desde el 08-10,
+      `bmo-titan-prometeo` en `toolchain/lang/titan/prometeo` -- PROMETEO,
+      LB3 de PLAN_LAS_LIBRERIAS --) escribe cada `gpu fn` como el
       `Programa` de la casa, la emite con `proton-x-sm86` y la juzga ESTRICTO
       el juez del SASS (la libreria de la 3060); el oraculo de cada build es
       la 3060 simulada, contra la casa y el calculo. El escritor de SPIR-V de

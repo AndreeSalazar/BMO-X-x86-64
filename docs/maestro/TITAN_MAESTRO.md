@@ -1068,9 +1068,10 @@ escribe, se mide en el metro y se decide con el propietario.
 > (`platform/shared/proton-x/src/dxil/programa.rs`), el mismo al que PROTON-X
 > traduce los sombreadores de los juegos (E3 de
 > [`PLAN_LA_LENGUA_DE_LA_3060.md`](../plan/PLAN_LA_LENGUA_DE_LA_3060.md),
-> 28-09; LI7, 07-10). Donde vivira lo comun -- la libreria *"gpu general"* del
-> propietario --: DL1 y DL2 de
-> [`PLAN_LAS_LIBRERIAS.md`](../plan/PLAN_LAS_LIBRERIAS.md).
+> 28-09; LI7, 07-10). Lo comun vive en PROMETEO, la libreria *"gpu general"*
+> del propietario (`platform/shared/prometeo`, LB3 de
+> [`PLAN_LAS_LIBRERIAS.md`](../plan/PLAN_LAS_LIBRERIAS.md)): el Programa (su
+> codigo, todavia en PROTON-X: LB3b) y el contrato de cada tarjeta.
 
 ---
 
@@ -1945,7 +1946,7 @@ ANFITRION el 04-10** (`gpu`, las 25 palabras):
 **NIVEL 11 -- G2 Y G3: TITAN++ ESCRIBE SPIR-V, Y LO JUZGA Y LO CORRE SPIRV,
 HECHO EN EL ANFITRION el 05-10:**
 
-- **(07-10: QUITADO; ahora `toolchain/lang/titan/emisor-sm86`, sin SPIR-V)** **El formato** (7.4 hecho codigo): `toolchain/lang/titan/emisor-spirv`
+- **(07-10: QUITADO; ahora `toolchain/lang/titan/emisor-sm86` -- desde el 08-10, `toolchain/lang/titan/prometeo` --, sin SPIR-V)** **El formato** (7.4 hecho codigo): `toolchain/lang/titan/emisor-spirv`
   escribe cada gpu fn como un modulo SPIR-V 1.0 de computo -- un hilo por celda,
   un buffer por valor --, y lo juzgan el validador de spirv y el subconjunto de
   la 3060, como si viniera de fuera. TITAN++ es el primer escritor de SPIR-V
@@ -1971,18 +1972,30 @@ tiempo en adivinar"*:
   oraculo y por el calculo; distinto en un solo bit, no hay `.bex`. Leyes L30
   y L31.
 
-**NIVEL 11 -- SIN SPIR-V (07-10), Y LOS NO EN SU SITIO (08-10):**
+**NIVEL 11 -- SIN SPIR-V (07-10), LOS NO EN SU SITIO Y PROMETEO (08-10):**
 
 - **La cadena** (LI7 de [`PLAN_EL_LIBRETO.md`](../plan/PLAN_EL_LIBRETO.md),
   decision del propietario): `gpu fn` -> el Programa de la casa -> SM86 (el
   emisor de la casa, `platform/shared/proton-x-sm86`, el mismo de PROTON-X)
   -> el juez ESTRICTO del SASS -> la 3060 simulada; el `.bex` lleva sus
-  celdas (`toolchain/lang/titan/emisor-sm86`). `titan sm86` deja el SASS de
-  cada gpu fn.
+  celdas. `titan sm86` deja el SASS de cada gpu fn.
 - **Los NO dicen la verdad** (LB1 de
   [`PLAN_LAS_LIBRERIAS.md`](../plan/PLAN_LAS_LIBRERIAS.md)): la division
   general es T0090 en su linea y su columna; lo que la maquina todavia no
   corre (una gpu fn o un f32 en un programa que lee) es T0040; y `titan
   check` dice lo mismo que `titan build`.
+- **PROMETEO, la libreria general de la GPU** (LB3; el propietario: *"gpu
+  general ... que se llevara todo el emisor de GPU para que aplique"*, y
+  *"TODAS LAS GPU en emisor SON AISLADAS por completo"*): dos crates con un
+  nombre. Abajo, `platform/shared/prometeo`: el Programa de la casa y el
+  contrato de una tarjeta (`Tarjeta`: SABE, EMITE, JUZGA, SIMULA). Arriba,
+  `toolchain/lang/titan/prometeo`: el emisor de GPU de TITAN++ entero, que
+  pide las tarjetas por el contrato y no nombra ninguna (regla S5 de
+  `la-3060`); solo `titan` dice cuales hay. La 3060 es la primera
+  (`platform/shared/proton-x-sm86/src/tarjeta.rs`), con su emisor, su juez y
+  su simulador aislados; el SASS y los `.bex`, byte a byte los de antes. Y el
+  SUPREMO JUEZ del propietario es el de la puerta de la GPU final (J2): el
+  mismo juez de cada tarjeta, otra vez, en el kernel.
 - Lo que falta: correrla AL CORRER (LB4, la CPU como libreria) y en la 3060
-  (LB8, Ring 0 del propietario).
+  (LB8, Ring 0 del propietario); y mudar el codigo del Programa de PROTON-X a
+  PROMETEO (LB3b).

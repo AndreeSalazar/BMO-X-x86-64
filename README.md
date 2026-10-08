@@ -411,9 +411,10 @@ is also a ready-made node in F1's TAB menu, Houdini-style.
    14 levels   fn, let, mut, if, loops, functions, exact dec and tables,
                lend (mut) and hand over (take) with COBOL's dec(p, s),
                enum + match, packages, traits, gpu fn, input, lists and maps
-   emitters    its own, to x86-64; a `gpu fn` goes to SM86 through the house
-               Programa, judged, and runs on the SIMULATED 3060 when it
-               compiles -- on the card itself, not yet
+   emitters    its own, to x86-64; a `gpu fn` goes through PROMETEO -- the
+               house Programa, then each GPU's own library, isolated (today
+               the RTX 3060: SM86) --, judged, and run on the SIMULATED card
+               when it compiles; on the card itself, not yet
    a judge     ownership checked over the IR, not over the syntax
    31 laws     each one with the test or the program that enforces it; the
                build stops if a law loses its proof (`titan-leyes`)

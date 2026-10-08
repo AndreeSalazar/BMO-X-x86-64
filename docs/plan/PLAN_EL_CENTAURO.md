@@ -37,7 +37,8 @@
 > **08-10, al dia (H4 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):**
 > el dibujo es del 04-10. Desde el 07-10 (G2) no hay SPIR-V: `gpu fn` -> el
 > Programa de la casa -> SM86 -> el juez ESTRICTO del SASS -> la 3060
-> simulada, que da las celdas al compilar (`toolchain/lang/titan/emisor-sm86`).
+> simulada, que da las celdas al compilar (`toolchain/lang/titan/prometeo`:
+> PROMETEO, LB3 de PLAN_LAS_LIBRERIAS).
 > Y el LUEGO ya no espera a la QMD, que corre desde el 24-09: espera a la
 > PUERTA de computo de una app (G4).
 
@@ -159,7 +160,8 @@ que entre.
 > **07-10, decision del propietario: SIN SPIR-V.** La cadena es ahora `gpu fn
 > -> Programa de la casa -> SM86 -> el juez del SASS -> la 3060`
 > (`toolchain/lang/titan/emisor-sm86`, LI7 de
-> [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md)). Lo de abajo queda como historia.
+> [`PLAN_EL_LIBRETO.md`](PLAN_EL_LIBRETO.md); desde el 08-10,
+> `toolchain/lang/titan/prometeo`: PROMETEO). Lo de abajo queda como historia.
 
 
 - [x] `toolchain/lang/titan/emisor-spirv` (crate `bmo-titan-spirv`): una `gpu fn` -> un modulo SPIR-V 1.0 GLCompute, con la forma que el banco de spirv ya conoce (un buffer por valor y uno para el resultado, `DescriptorSet 0`, `Binding k`; un hilo por celda con `GlobalInvocationId.x`)

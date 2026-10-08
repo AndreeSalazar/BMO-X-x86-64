@@ -7,7 +7,7 @@
 >
 > ** Desde el **2026-10-04** hay UN escritor en casa: TITAN++, para sus `gpu
 > fn` (nivel 11, D5 de [`PLAN_EL_CENTAURO.md`](../../../docs/plan/PLAN_EL_CENTAURO.md);
-> el crate `toolchain/lang/titan/emisor-spirv`, QUITADO el 07-10: TITAN++ va ahora por el Programa de la casa, `toolchain/lang/titan/emisor-sm86`). No cambia nada aqui: lo que
+> el crate `toolchain/lang/titan/emisor-spirv`, QUITADO el 07-10: TITAN++ va ahora por el Programa de la casa, `toolchain/lang/titan/emisor-sm86` -- desde el 08-10, `toolchain/lang/titan/prometeo`: PROMETEO). No cambia nada aqui: lo que
 > escribe pasa por este lector, este validador y el subconjunto de la 3060
 > como si viniera de fuera, y si no pasa, el fallo es del escritor.
 >

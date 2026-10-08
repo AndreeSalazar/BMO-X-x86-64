@@ -81,7 +81,7 @@ La que describio el propietario, pieza a pieza, con lo que hay y lo que no:
 ```text
    ILLAPA (TITAN++)       las gpu fn del solucionador y del dibujo
         |
-   el PROGRAMA de la casa gpu fn -> Programa (bmo-titan-sm86), el MISMO      HECHO (07-10)
+   el PROGRAMA de la casa gpu fn -> Programa (PROMETEO), el MISMO            HECHO (07-10)
         |                 que sale de los sombreadores de PROTON-X
    el emisor SM86         Programa -> las instrucciones de la 3060 (E3..E6)  HECHO, en linea recta
         |                 [ faltan bucles y vecinos en la gpu fn: IL1 ]
@@ -120,7 +120,7 @@ cambian los DATOS (las posiciones de las particulas, la camara).
 
 > **08-10, al dia (H4 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):**
 > las dos primeras filas son de antes del 07-10. Ya no hay SPIR-V: la gpu fn la
-> escribe `toolchain/lang/titan/emisor-sm86` al Programa de la casa, en linea
+> escribe `toolchain/lang/titan/prometeo` (PROMETEO) al Programa de la casa, en linea
 > recta, y los BUCLES ya los sabe el emisor SM86 con su juez (E6); lo que los
 > rechaza es TITAN++ (`gpu.rs`, T0090) -- LB5 de LAS_LIBRERIAS. Los VECINOS
 > piden ademas un asa que ponga el kernel (R7 no deja leer memoria a una app):
@@ -164,7 +164,7 @@ anfitrion, con el oraculo de SPIR-V corriendo las mismas `gpu fn`.
 > el oraculo ya no es el de SPIR-V: es la 3060 simulada
 > (`platform/shared/proton-x-sm86/src/simula.rs`) sobre el SASS que el juez
 > acepto, contra la casa y el calculo. IL1 se escribe en el escritor del
-> Programa (`toolchain/lang/titan/emisor-sm86`), no en un emisor de SPIR-V,
+> Programa (`toolchain/lang/titan/prometeo`), no en un emisor de SPIR-V,
 > y se parte en dos: los bucles (LB5) y los vecinos por el asa (LB9).
 
 - [ ] IL0 -- las decisiones de la seccion 8, contestadas por el propietario

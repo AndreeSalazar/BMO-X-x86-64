@@ -8,7 +8,7 @@
 
 ```text
    743 casillas ABIERTAS en 68 planes
-   577 hechas
+   578 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -244,13 +244,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Q3 -- el INDICE POR HASH: es L9 de docs/plan/PLAN_LISTAS_Y_MAPAS.md
 - ... y 8 mas
 
-## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 10 abiertas, 1 hechas
+## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 10 abiertas, 2 hechas
 
 *PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
 
 - [ ] LB0 -- LAS DECISIONES de la seccion 4, contestadas por el
 - [ ] LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI. Un arranque, en
-- [ ] LB3 -- EL CONTRATO, y SM86 dentro. Las cinco piezas de 1.2 escritas
+- [ ] LB3b -- LA MUDANZA DEL PROGRAMA (el resto de DL1). El codigo del
 - ... y 7 mas
 
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas

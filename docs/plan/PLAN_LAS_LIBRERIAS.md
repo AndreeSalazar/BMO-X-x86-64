@@ -96,6 +96,13 @@ no existe es el CONTRATO escrito: hoy `bmo-titan-sm86` nombra a mano
 `bmo-proton-x-sm86` y `bmo-gpu-ga10x`, y el Programa vive dentro de PROTON-X
 (`platform/shared/proton-x/src/dxil/programa.rs`), la capa de Windows.
 
+> **08-10, LB3:** el contrato ya esta escrito -- PROMETEO,
+> `platform/shared/prometeo` (`bmo_prometeo::Tarjeta`: SABE, EMITE, JUZGA y
+> SIMULA; ENTREGA espera al primero que entregue) --, y la 3060 lo cumple en
+> `platform/shared/proton-x-sm86/src/tarjeta.rs`. El emisor de GPU de TITAN++
+> ya no nombra a ninguna tarjeta. El CODIGO del Programa sigue en PROTON-X:
+> LB3b.
+
 ## 1.3 Las reglas de una libreria
 
 ```text
@@ -494,6 +501,26 @@ juez `no_std` (el kernel lo usa en SU puerta), su simulador y su puerta.
   (`toolchain/lang/titan/emisor-sm86` pasaria a `emisor-gpu`). "gpu
   general" serian dos crates con un nombre. Recomendado: asi.
 
+**Confirmado el 08-10.** El propietario: *"si confirmo las dos, vamos con
+LB3, pero eso poner nombre epico la libreria"*; y a mitad de LB3: *"el ISA
+bueno pero debes aislar por completo, TODAS LAS GPU en emisor SON AISLADAS
+por completo luego el JUEZ procesa cada uno y el principal "SUPREMO JUEZ" que
+bueno ya eso es el motivo lel para GPU Final"*. Asi quedo (LB3):
+
+```text
+   el nombre        PROMETEO: el titan que les llevo el fuego a todos
+   abajo            platform/shared/prometeo (bmo-prometeo): el Programa de
+                    la casa y el contrato `Tarjeta`
+   arriba           toolchain/lang/titan/prometeo (bmo-titan-prometeo): el
+                    emisor de GPU de TITAN++ entero (era emisor-sm86)
+   cada GPU         SU tarjeta, AISLADA: su emisor (del Programa a SU ISA), su
+                    juez y su simulador. La 3060:
+                    platform/shared/proton-x-sm86/src/tarjeta.rs
+   el SUPREMO JUEZ  el de la puerta del kernel, delante de la GPU final: el
+                    mismo juez de esa tarjeta, otra vez, y el que no se puede
+                    saltar (J2). Hoy, el de VERRANO; el del computo, LB8
+```
+
 ---
 
 # 5. LAS CASILLAS
@@ -505,8 +532,8 @@ juez `no_std` (el kernel lo usa en SU puerta), su simulador y su puerta.
   ninguna; LB3 pide DL1 y DL2; LB4, DL3.
   - **Bloquea:** nada.
   - **Como se sabe:** cada DL con su respuesta y su fecha, aqui.
-  - **08-10:** DL1 y DL2, contestadas con *"gpu general"* (4.1); falta
-    confirmar la LECTURA. Las demas, abiertas.
+  - **08-10:** DL1 y DL2, contestadas con *"gpu general"* y confirmadas el
+    mismo dia (4.1): PROMETEO. Las demas, abiertas.
 
 - [x] **LB1 -- LOS NO QUE DICEN LA VERDAD (H1, H2, H3), y los papeles (H4).**
   **HECHO el 08-10** (el codigo, `129ebf8`).
@@ -568,7 +595,8 @@ juez `no_std` (el kernel lo usa en SU puerta), su simulador y su puerta.
     (o la foto es el informe); `gpu verrano banco inti` acaba con `IGUAL al
     juez`.
 
-- [ ] **LB3 -- EL CONTRATO, y SM86 dentro.** Las cinco piezas de 1.2 escritas
+- [x] **LB3 -- EL CONTRATO, y SM86 dentro.** **HECHO el 08-10: PROMETEO.**
+  Las cinco piezas de 1.2 escritas
   como contrato (DL2) en un crate puro, el Programa donde diga DL1, y SM86
   como la primera libreria, juntando lo que ya existe: ni una regla nueva ni
   un bit distinto. `bmo-titan-sm86` deja de nombrar `bmo-proton-x-sm86` y
@@ -586,7 +614,69 @@ juez `no_std` (el kernel lo usa en SU puerta), su simulador y su puerta.
     el contrato; arriba, el emisor de GPU de TITAN++ (`emisor-sm86` pasa a
     `emisor-gpu`), con la 3060 como la primera tarjeta por el contrato. Lo
     que la bloquea ahora: que el propietario confirme la LECTURA (las dos
-    cosas del [!] de 4.1).
+    cosas del [!] de 4.1). -- Confirmada el mismo dia, con su nombre:
+    PROMETEO, y `emisor-sm86` paso a `toolchain/lang/titan/prometeo`.
+  - **Lo hecho:**
+    - `platform/shared/prometeo` (`bmo-prometeo`; `no_std`, generacion
+      hijo): el contrato `Tarjeta` -- `ficha` (SABE: nombre, lengua,
+      registros), `emitir` (EMITE, para el oraculo o para el viaje; lo que
+      no sabe, un `Limite` en sus palabras o un `Fallo`), `juzgar` (JUZGA) y
+      `simular` (SIMULA) --, y el Programa de la casa con su nombre
+      (`bmo_prometeo::programa`);
+    - la 3060 detras del contrato: `platform/shared/proton-x-sm86/src/tarjeta.rs`
+      (`Sm86`, `SM86`), con lo que ya existia: `emitir_con` en sus dos ABI,
+      `juzgar_drenado` y `juzgar_cuerpo_de_app`, `simula::correr`, los 64
+      registros de `tuberia::REGISTROS` y la division como su `Limite`;
+    - el emisor de GPU de TITAN++ paso a `toolchain/lang/titan/prometeo`
+      (`bmo-titan-prometeo`, con `git mv`): depende de `bmo-titan-front` y de
+      `bmo-prometeo`, y de nada mas. `kernels`, `write` y el `Oracle` piden
+      las tarjetas (`&[&dyn Tarjeta]`), y una gpu fn pasa por CADA una -- su
+      emisor, su juez, su simulador, contra la casa y el calculo --. `titan`
+      dice cuales hay (`TARJETAS`, hoy la 3060; DL11 sigue abierta);
+    - el calculo del frontend ya no dice "la 3060 no pudo correr": un fallo
+      puede ser de cualquier tarjeta (L05);
+    - la regla S5 de `la-3060`, y las leyes L28-L31 re-selladas: ningun texto
+      cambio, solo donde viven sus pruebas.
+  - **Como se supo:**
+    - el SASS, byte a byte, antes y despues (sha256): `mezcla`
+      `7aad3f9b628d`, `suma` `f7b85c6ff26d`, `activa` `faa1408e92fc`; los 37
+      `.bex` de los programas BIEN del banco, iguales; y `titan sm86` dice lo
+      mismo, letra a letra;
+    - 476 pruebas en verde (eran 470). `tests/juguete.rs`: una tarjeta DE
+      JUGUETE (su codigo es un cajon, su simulador el interprete de la casa,
+      su juez un techo, y no sabe dividir) entra SOLO por lo publico: corre
+      una gpu fn, se pone al lado de la 3060 con los mismos bits, dice su
+      limite en sus palabras, su juez dice NO como un fallo, y sin tarjetas
+      no se escribe a ciegas. Saboteado su simulador (un bit), la bateria lo
+      caza;
+    - S5, probada sembrando cuatro nombres a proposito (PROMETEO con
+      `SM86`; el `Cargo.toml` y el codigo del emisor de TITAN++ con
+      `bmo-gpu-ga10x`; el frontend con `bmo_proton_x_sm86`): los cuatro caen;
+    - lo que enlaza la 3060 sigue en pie: `proton-x-casa` (237 pruebas) y la
+      app PROTON-X de Ring 3, compilada para `x86_64-unknown-none`; check y
+      build, el mismo codigo de salida en los 116 `.titan`; los guardianes
+      del build, limpios (`avisos`: 38 contra 37 en este contenedor, por el
+      aviso de `core` del nightly del 07-10; el kernel no cambio).
+  - [!] **Lo que NO se hizo, a proposito:** mudar el CODIGO del Programa
+    (LB3b). PROMETEO lo da con su nombre, pero sigue viviendo en PROTON-X.
+
+- [ ] **LB3b -- LA MUDANZA DEL PROGRAMA (el resto de DL1).** El codigo del
+  Programa de la casa sale de PROTON-X a PROMETEO, y la flecha se da la
+  vuelta: PROTON-X lo toma de `bmo-prometeo` (y lo re-exporta en
+  `dxil::programa`, para no cambiar una linea de las suyas). Lo que se muda
+  no es un fichero: es el formato y el interprete con lo que el interprete
+  necesita -- `mates`, `bufer`, `formato_ia`, `textura`, `bc`, `trama`,
+  `cuadros`, `olas`, `ranuras` --, y `programa.rs` se parte en dos: el
+  formato y el interprete abajo, el traductor de DXIL en PROTON-X.
+  - **Bloquea:** una ventana tranquila en PROTON-X. `programa.rs` tuvo 18
+    commits e `interprete.rs` 17 entre el 30-09 y el 07-10 (Cyberpunk):
+    mudarlos con trabajo vivo encima es un conflicto seguro. Cuando el
+    propietario diga.
+  - **Como se sabe:** `bmo-prometeo` deja de depender de `bmo-proton-x`, y
+    `bmo-proton-x` depende de `bmo-prometeo`; las pruebas de PROTON-X, de
+    `proton-x-casa`, de la 3060 y de TITAN++, en verde sin cambiar una; el
+    SASS y los `.bex` de LB3, byte a byte; y S5 mirando tambien que
+    PROMETEO no dependa de PROTON-X.
 
 - [ ] **LB4 -- LA CPU, LA SEGUNDA LIBRERIA (la reserva).** El x86-64 del
   Programa (`platform/shared/proton-x/src/nativo.rs`, y `nativo_computo` para
