@@ -411,16 +411,18 @@ is also a ready-made node in F1's TAB menu, Houdini-style.
    14 levels   fn, let, mut, if, loops, functions, exact dec and tables,
                lend (mut) and hand over (take) with COBOL's dec(p, s),
                enum + match, packages, traits, gpu fn, input, lists and maps
-   emitters    its own, to x86-64 and to SPIR-V: a `gpu fn` runs on the 3060
+   emitters    its own, to x86-64; a `gpu fn` goes to SM86 through the house
+               Programa, judged, and runs on the SIMULATED 3060 when it
+               compiles -- on the card itself, not yet
    a judge     ownership checked over the IR, not over the syntax
    31 laws     each one with the test or the program that enforces it; the
                build stops if a law loses its proof (`titan-leyes`)
 ```
 
-🟡 **Its bank runs in BMO-X's own emulator, not on the Ryzen yet**: 87
-programs. The 31 that must work are built, loaded the way the kernel loads
+🟡 **Its bank runs in BMO-X's own emulator, not on the Ryzen yet**: 102
+programs. The 37 that must work are built, loaded the way the kernel loads
 them, run, and their console compared with the `# sale:` line each one
-carries; the 56 that must fail are each refused with the exact error code
+carries; the 65 that must fail are each refused with the exact error code
 they name. The first metal step
 is `run titan/hola.bex` from F12. The design and every decision:
 **[TITAN_MAESTRO.md](docs/maestro/TITAN_MAESTRO.md)** and
@@ -1127,10 +1129,10 @@ row below is **work on top of something that already runs**, except the last one
 | ⚪ | **Cloud local** -- your phone does the web and BMO-X shows it (see below) | TCP on the metal, then a local MPEG-1 player |
 | 🟡 | **Sound** -- the headset is claimed by the enumerator with its descriptor in hand, volume and the isochronous pipe are driven by the bus thread (never from a syscall), the pipe opens itself on claim, and enumeration is done in **two beats** of its own: first the host *listens* to the device at address 0 to learn how it speaks (its EP0 packet), then a clean reset, the address and the papers -- each step justified by the USB and xHCI specs, not by what another host does. Written 2026-09-21; the first image shipped with two extra steps that left keyboard and mouse out, found by reading and removed 2026-09-22 | the next boot: the `save` says whether the 7.1 headset answered |
 | 🟡 | **The desktop composed by the RTX 3060** -- step 1, the copy engine moves the desktop to the screen instead of the CPU; then windows as textures, blur behind them, animations on the vertical blank | one boot per step, each checked pixel by pixel against the CPU |
-| 🟢 | **Games on the GPU, step one** -- **VERRANO V0**, BMO-X's own drawing API: the D3D cube through the card's rasterizer, with two programs shipped ready-made in BMO-X's own shader format (**BSF**) and the vertices in a buffer, **equal bit for bit to D3D12 on Windows** (2026-09-26: 923 us on the card, 1796 us on the CPU). The hang on the way was the card's own report: `Xid 13, Out Of Range Register` -- on Volta and later two registers are burned for the program counter. A SASS judge now checks every program BMO-X sends to the card before it goes | next: V1, the cube in motion with fps; then SPIR-V to SM86 by BMO-X's own compiler |
+| 🟢 | **Games on the GPU, step one** -- **VERRANO V0**, BMO-X's own drawing API: the D3D cube through the card's rasterizer, with two programs shipped ready-made in BMO-X's own shader format (**BSF**) and the vertices in a buffer, **equal bit for bit to D3D12 on Windows** (2026-09-26: 923 us on the card, 1796 us on the CPU). The hang on the way was the card's own report: `Xid 13, Out Of Range Register` -- on Volta and later two registers are burned for the program counter. A SASS judge now checks every program BMO-X sends to the card before it goes | next: the lanes E, M and P of [`PLAN_VERRANO.md`](docs/plan/PLAN_VERRANO.md) -- V1, V1b and V1c were seen 2026-09-26, and since 2026-09-28 the card runs programs from BMO-X's own SM86 emitter (the house Programa, no SPIR-V); the cube's own `cubo.bsf` is still hand-written SASS |
 | 🟡 | **Cyberpunk 2077 through PROTON-X** -- on 2026-10-07 it runs **68 s** on the metal: it opens its window, creates 1.065 pipelines, submits **43 command lists** and **opens the sound** (WASAPI, 48 kHz stereo, through the USB headset). Getting there took a kernel clock that takes the core from a game thread that never lets go (*EXPROPIAR*, like a Linux timer signal) and a Linux-style futex. With `smp all` the PC still reboots; the black box could not say why because the CPU cache was eating its last lines -- fixed the same day, with a per-core board that survives the reset. Log: [`METAL_2026-10-07.md`](docs/metal/METAL_2026-10-07.md) | the first `Present`; the `smp all` reboot, named by the next `CAIDA.TXT` |
 | 🟡 | **ESTRATOS branches and merge on the metal** -- create, switch, count, choose and merge are kernel gestures and F1 drives them; the merge engine matches two other implementations on 2.000 random histories | one test on the data disk, by the owner (`R4c-3` in [`PLAN_LAS_RAMAS.md`](docs/plan/PLAN_LAS_RAMAS.md)) |
-| 🟡 | **TITAN++ on the metal** -- 14 levels; its bank of 87 programs passes in the emulator | `run titan/hola.bex` from F12 |
+| 🟡 | **TITAN++ on the metal** -- 14 levels; its bank of 102 programs passes in the emulator | `run titan/hola.bex` from F12 |
 | ⚪ | **F2, the files** -- every file of every disk in one tree, the disks in a tray, the desktop icons retired, and the *"it is open"* dialog that shows the program's own window | [`PLAN_LA_BANDEJA.md`](docs/plan/PLAN_LA_BANDEJA.md), step B1 |
 | ⚪ | **A local assistant**, running as a Ring 3 app over your own files -- parked by decision; its step 0 (closed decisions over `DATOS.TXT`, no model) needs nothing | `exp`, and the core door |
 | ⛔ | **Anything over the internet** | **cryptography** -- and that is the ceiling |

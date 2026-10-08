@@ -219,9 +219,11 @@ La primera es justa y dice por que. Las otras dos dicen algo que no es
 - `titan build` corre cada gpu fn en la 3060 simulada y el `.bex` lleva las
   CELDAS, no el programa (GRAMATICA, nivel 11).
 - Un programa que corre de verdad (E1) rechaza la gpu fn y cualquier `f32`:
-  `e1/mod.rs:468` y `:608` (la fn y su llamada), `e1/valor.rs:41` (un f32),
-  `e1/numero.rs:185` (su `round`) y `e1/escribe.rs:126` (escribirlo). Es la
-  regla D2 (la ley L26) mas la falta de G4.
+  `e1/mod.rs:517` y `:658` (la fn y su llamada), `e1/valor.rs:41` (un f32),
+  `e1/numero.rs:192` (su `round`) y `e1/escribe.rs:126` (escribirlo). Es la
+  regla D2 (la ley L26) mas la falta de G4. Desde LB1 (08-10) ese rechazo es
+  T0040, el NO del programa en su linea, y no un "fallo del compilador"
+  (las lineas, las de despues de LB1).
 - **Una correccion que cambia la medida de lo que falta.** G4 de
   [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) dice "LANZAR computo: la QMD y el
   banco constante 0", y
@@ -382,6 +384,15 @@ EL_LIBRETO.
   arranque: `build.ps1` ya deja `titan/hola.bex` y `titan/dos.bex` en el
   disco (GRAMATICA, "Del texto al .bex").
 
+> **08-10, despues: H1, H2 y H3 los cierra LB1** (las lineas citadas arriba
+> son las de `804fe8c`, donde se encontraron). **H4**: una nota fechada en
+> cada sitio, mas tres que se encontraron al hacerlo: el README (*"a `gpu fn`
+> runs on the 3060"*, que no corre en la 3060: corre en la 3060 SIMULADA al
+> compilar; y el banco ya no es de 87 programas), V4 y M4 de
+> [`PLAN_VERRANO.md`](PLAN_VERRANO.md) ("el emisor SPIR-V a SM86") y G3 de
+> CENTAURO (`check` ya no se queda en el f32 del calculo). **H5 sigue: es
+> LB2.**
+
 ---
 
 # 4. LAS DECISIONES DEL PROPIETARIO
@@ -428,6 +439,61 @@ EL_LIBRETO.
         que diga el PERFIL de la maquina (y la CPU, siempre, de reserva)
 ```
 
+## 4.1 Lo que ya contesto el propietario
+
+**DL1 y DL2 -- el 08-10, a mitad de LB1:** *"por cierto libreria "gpu
+general" = ese mismo se engordara que se llevara todo el emisor de GPU para
+que aplique"*.
+
+LA LECTURA, que hay que confirmar antes de LB3:
+
+```text
+   gpu general   UNA libreria comun, la que CRECE: se lleva el emisor de GPU
+                 entero, para que valga para cualquier tarjeta
+   DL1           el Programa SALE de PROTON-X: es de lo general, no de la
+                 capa de Windows (PROTON-X lo re-exporta)
+   DL2           el contrato vive en lo general, y lo general no es una tabla
+                 quieta: engorda con lo que cada tarjeta nueva descubra comun
+```
+
+Lo que se lleva, medido en `toolchain/lang/titan/emisor-sm86/src/lib.rs`
+(614 lineas, 08-10): casi todo ya es general; SM86 es el nombre y tres
+llamadas --
+
+```text
+   GENERAL, a "gpu general"   el escritor gpu fn -> Programa (`programa`,
+                              `eval`, `straight`, `inverso_exacto`); la
+                              bateria de bordes y la comparacion con la casa
+                              y el calculo (`battery`, `compare`, `verify`);
+                              el `Oracle` del calculo; el limite dicho en su
+                              sitio (LB1)
+   DE LA 3060, por contrato   emitir (`emitir_con` y sus dos ABI), juzgar
+                              (`juzgar_cuerpo_de_app`), simular (`correr`),
+                              sus techos (64 registros) y el porque de su
+                              limite (el MUFU)
+```
+
+Y lo que NO se lleva, si la lectura es buena: lo de cada tarjeta segun
+[`PLAN_EL_AISLAMIENTO.md`](PLAN_EL_AISLAMIENTO.md) -- su emisor del Programa
+a SU ISA (`platform/shared/proton-x-sm86`, `platform/shared/bmo-sm86`), su
+juez `no_std` (el kernel lo usa en SU puerta), su simulador y su puerta.
+
+[!] Dos cosas a confirmar:
+
+- **"Todo el emisor de GPU"** es el de TITAN++ (lo de arriba), o tambien el
+  paso del Programa a cada ISA. Lo segundo cambia EL_AISLAMIENTO y la regla
+  L-b: *"un emisor o un juez 'para todas' seria uno que no es preciso para
+  ninguna"*, y el propietario el 26-09: *"TIENEN QUE AISLARSE POR
+  COMPLETO"*. Recomendado: lo primero; lo que dos ISA tengan de verdad en
+  comun (asignar registros, ordenar por latencias) entra en lo general
+  cuando haya DOS que lo usen, no antes.
+- **Donde vive.** El Programa y el contrato los usan tambien PROTON-X y la
+  CPU, y `platform/shared` solo puede usar lo puro (el guardian `capas`):
+  van ABAJO, en un crate neutro (por ejemplo `platform/shared/gpu-general`).
+  El escritor de TITAN++ lee la IR de TITAN++: vive ARRIBA
+  (`toolchain/lang/titan/emisor-sm86` pasaria a `emisor-gpu`). "gpu
+  general" serian dos crates con un nombre. Recomendado: asi.
+
 ---
 
 # 5. LAS CASILLAS
@@ -439,8 +505,11 @@ EL_LIBRETO.
   ninguna; LB3 pide DL1 y DL2; LB4, DL3.
   - **Bloquea:** nada.
   - **Como se sabe:** cada DL con su respuesta y su fecha, aqui.
+  - **08-10:** DL1 y DL2, contestadas con *"gpu general"* (4.1); falta
+    confirmar la LECTURA. Las demas, abiertas.
 
-- [ ] **LB1 -- LOS NO QUE DICEN LA VERDAD (H1, H2, H3), y los papeles (H4).**
+- [x] **LB1 -- LOS NO QUE DICEN LA VERDAD (H1, H2, H3), y los papeles (H4).**
+  **HECHO el 08-10** (el codigo, `129ebf8`).
   `titan check` dice el NO de la division general en su linea y su columna, y
   el de una gpu fn en un programa que lee, cada uno con su motivo y su COMO;
   "fallo del compilador" queda para lo que lo es; `-o CARPETA` la crea; y los
@@ -451,6 +520,43 @@ EL_LIBRETO.
     (`toolchain/lang/titan/ejemplos/nivel11/`) con el MISMO codigo en check y
     en build; `cargo test -p bmo-titan-front -p bmo-titan-x86-64` en verde;
     `enlaces` y `ascii_sweep` limpios.
+  - **Lo hecho:**
+    - el NO de una libreria de la GPU es de DOS clases (`calc::DeviceNo`,
+      `toolchain/lang/titan/src/calc.rs`): el LIMITE que dice a proposito
+      (un `Message`: el NO del programa, en su sitio) y el FALLO de su
+      escritor, su juez o su oraculo. La division general es T0090 en la
+      linea y la columna de la DIVISION, no de la llamada, con su porque
+      (L29: MUFU.RCP + FMUL no dan los bits de la casa) y su como (una
+      potencia de dos);
+    - lo que E1 todavia no emite (una gpu fn o un f32 en un programa que
+      lee, una conversion...) es T0040 -- *lo que todavia no existe*, el
+      mismo sentido de siempre (L02) -- en su fichero y su linea, con un
+      porque y un como que nombran la casilla que lo trae (LB4, LB7);
+    - `titan check` corre LO MISMO que `titan build`, sin escribir
+      (`check_package`): dicen lo mismo por construccion; y
+      `titan sm86 -o CARPETA` la crea;
+    - uno que no estaba en H1-H3: el escritor de la 3060 decia la linea del
+      PAQUETE con el nombre del fichero hijo (solo cuadraba en la raiz);
+      ahora, la del fichero;
+    - H4: notas con fecha en ILLAPA, LA_TINTA, CENTAURO, TITAN_MAESTRO,
+      EL_AISLAMIENTO, VERRANO y COMO_LE_HABLA_NVIDIA; el README, corregido
+      en su sitio (dice lo de hoy: no es una historia). La GRAMATICA, al dia.
+  - **Como se supo -- y por que cambio el "como se sabe":** las sondas NO
+    entraron al banco de `ejemplos/`. Ese banco es el del FRONTEND
+    (`lower_package`, sin libreria), y por L05 el frontend no ve el limite
+    de una tarjeta: con `# espera: T0090` diria que compilo. Viven en las
+    pruebas de quien dice el NO:
+    `a_known_limit_is_the_program_s_no_in_check_and_in_build`
+    (`toolchain/lang/titan/emisor-x86_64/src/lib.rs`: la division, T0090
+    3,14; `lee()` y una gpu fn, T0040 2,1; un f32 en un programa que lee,
+    T0040 5,9; check == build en las tres, y `x / 2.0` dice bien),
+    `a_limit_of_the_library_is_the_program_s_no_where_it_is_written` y
+    `a_limit_in_a_child_module_is_said_in_its_file_and_its_line`
+    (`toolchain/lang/titan/emisor-sm86/src/pruebas.rs`; la segunda cae con
+    la linea vieja: mutacion probada). 470 pruebas en verde (eran 467);
+    check y build, el mismo codigo de salida en los 116 `.titan` de
+    `ejemplos/`; `titan_leyes`, `ascii_sweep`, `la_3060`, `capas`,
+    `maestros`, `enlaces` y `planes` limpios.
 
 - [ ] **LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI.** Un arranque, en
   F12: `run titan/hola.bex` y `run titan/dos.bex`; y en la misma tanda,
@@ -470,11 +576,17 @@ EL_LIBRETO.
   herramienta (`titan`) dice cuales hay.
   - **Bloquea:** DL1, DL2.
   - **Como se sabe:** el SASS de `mezcla`, `suma` y `activa`, byte a byte el
-    de antes (su hash, antes y despues); las 467 pruebas en verde; un
-    guardian (la regla S de `la-3060`, o una hermana) falla si el frontend de
-    TITAN++ o su escritor nombran una tarjeta -- probado metiendo el `use` a
-    proposito --; y una libreria DE JUGUETE, en las pruebas, entra sin tocar
-    TITAN++.
+    de antes (su hash, antes y despues); las pruebas en verde (470 el
+    08-10); un guardian (la regla S de `la-3060`, o una hermana) falla si el
+    frontend de TITAN++ o su escritor nombran una tarjeta -- probado metiendo
+    el `use` a proposito --; y una libreria DE JUGUETE, en las pruebas, entra
+    sin tocar TITAN++.
+  - **08-10, con DL1 y DL2 contestadas (4.1):** LB3 ES la libreria *"gpu
+    general"*: abajo, el Programa (fuera de PROTON-X, que lo re-exporta) y
+    el contrato; arriba, el emisor de GPU de TITAN++ (`emisor-sm86` pasa a
+    `emisor-gpu`), con la 3060 como la primera tarjeta por el contrato. Lo
+    que la bloquea ahora: que el propietario confirme la LECTURA (las dos
+    cosas del [!] de 4.1).
 
 - [ ] **LB4 -- LA CPU, LA SEGUNDA LIBRERIA (la reserva).** El x86-64 del
   Programa (`platform/shared/proton-x/src/nativo.rs`, y `nativo_computo` para

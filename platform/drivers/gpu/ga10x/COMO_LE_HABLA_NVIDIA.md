@@ -232,6 +232,18 @@ que salio de `ptxas` -- y el corpus de oro sale de ahi --, ese SASS lee la pila
 en `0x28` y el descriptor de memoria en `0x118` en su primera linea. Un banco 0
 a cero no da error: da un kernel que escribe donde no debe.
 
+> **08-10, al dia (H4 de
+> [`PLAN_LAS_LIBRERIAS.md`](../../../../docs/plan/PLAN_LAS_LIBRERIAS.md)):** la
+> QMD SI existe, y corria ya cuando se escribio esto: `motores/sombreador.rs`
+> (`qmd`, `qmd_con`, `qmd_rejilla`; un QMD V03_00 de `clc7c0qmd.h`) lanzo el
+> primer sombreador el 24-09 a las 16:21, 32 de 32 hilos
+> ([`METAL_2026-09-25.md`](../../../../docs/metal/METAL_2026-09-25.md),
+> seccion 1). Lo de arriba vale para `computo.rs`, que sigue en S3. Lo que
+> falta no es la QMD: es la PUERTA para el cuerpo de computo de una APP (G4 de
+> PLAN_EL_CENTAURO = LI2f de PLAN_EL_LIBRETO = LB8 de LAS_LIBRERIAS), y este
+> banco 0 para un SASS que salga de `ptxas`. La fila "computo" de la seccion 5
+> y los puntos 2 y 4 de la seccion 6 se leen con esto.
+
 ### 3e. Las texturas: el asa ES un indice (MEDIDO + DEDUCIDO)
 
 `cudaTextureObject_t`, tal como sale de `cudaCreateTextureObject`:
