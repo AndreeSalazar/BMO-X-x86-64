@@ -2013,3 +2013,9 @@ tiempo en adivinar"*:
   - **08-10, LB3b:** mudado el mismo dia: el Programa de la casa y su
     interprete viven en PROMETEO (`platform/shared/prometeo`), y PROTON-X los
     toma de alli. Faltan LB4 y LB8.
+  - **08-10, LB4:** AL CORRER, en la CPU. La segunda tarjeta de PROMETEO es
+    la CPU (`toolchain/forge/tarjeta-cpu`: el `nativo` de PROTON-X como su
+    emisor, el contrato de la llamada como su juez, el emulador de la casa
+    como su simulador), y E1 llama a la gpu fn al correr; el f32 vive en E1
+    como dato. La ley L32 (DL3 del propietario: *"es buena"*). Falta LB8: la
+    3060 al correr, Ring 0.

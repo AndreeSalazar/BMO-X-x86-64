@@ -65,6 +65,8 @@ que no es preciso para ninguna.
 | **PROMETEO** (08-10): el contrato de una tarjeta y el Programa de la casa | `platform/shared/prometeo` (`bmo-prometeo`) | de TODOS |
 | el emisor de GPU de TITAN++ (08-10) | `toolchain/lang/titan/prometeo` (`bmo-titan-prometeo`): pide las tarjetas por el contrato | de TODOS |
 | la tarjeta de la 3060 para PROMETEO (08-10) | `platform/shared/proton-x-sm86/src/tarjeta.rs`: su emisor, su juez y su simulador detras del contrato | de la 3060 |
+| la tarjeta de la CPU para PROMETEO (08-10, LB4) | `toolchain/forge/tarjeta-cpu`: su emisor (el `nativo` de PROTON-X), su juez (el contrato de la llamada) y su simulador (el emulador de la casa) | de la CPU |
+| la puerta de la CPU (08-10, LB4) | `toolchain/lang/titan/emisor-x86_64/src/e1/gpu.rs`: E1 llama al cuerpo de la CPU, al correr | de la CPU |
 
 **Otra GPU** trae SU fila en cada "de la 3060" de esta tabla, y ninguna fila
 "de TODOS" cambia. Si una tuviera que cambiar, el aislamiento fallo.
@@ -76,6 +78,11 @@ que no es preciso para ninguna.
 > (del Programa a SU codigo), su juez y su simulador, y el SUPREMO JUEZ es el
 > de la puerta del kernel -- el mismo juez de esa tarjeta, otra vez, el que no
 > se puede saltar. Lo guarda la regla S5 de `la-3060`.
+
+> **08-10, LB4:** las dos filas de la CPU: la SEGUNDA tarjeta, la reserva de
+> toda GPU (DL3). Entro con sus filas "de la CPU" y ninguna fila "de TODOS"
+> cambio: el contrato aguanto a dos. No es A5 -- A5 es una segunda GPU en la
+> maquina --, pero es la misma prueba, en chico.
 
 ---
 

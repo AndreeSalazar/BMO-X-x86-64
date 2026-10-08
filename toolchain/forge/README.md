@@ -16,6 +16,7 @@ bytes validos para el BMO ABI.
 | **`sem-asm/`** (`bmo-sem-asm`) | **Codificacion**: motor que lee las tablas TOML (`tables/`) y encodea instrucciones + intrinsecos -> bytes. Lo usa `lang/c/codegen.rs`. | ✅ funciona (7 tests) |
 | **`bmo-verify/`** | **Gate de verificacion**: valida el BEF (header, secciones, imports/relocs, firma, flags) antes del ABI. Delega en el validador REAL de `bmo-abi::bef::validator`. Habilita SIPs (Singularity). | ✅ **CABLEADO el 2026-08-02**: lo llaman los CUATRO frontends (C, COBOL, Ada, C++) **antes de escribir el fichero**. Hasta ese dia existia y no lo llamaba nadie -- el gate estaba escrito y abierto |
 | **`bmo-lower/`** | **L1 -- el descenso al ABI**: la puerta. Emite `INVOKE`/subsyscalls (`console::write_const`, `console::write_buffer`, `task::exit`). No sabe que lenguaje la llamo. Lo usan `lang/c` y `lang/cobol`. | ✅ funciona (7 tests, incluye emulador x86-64) |
+| **`tarjeta-cpu/`** (`bmo-tarjeta-cpu`) | **La CPU como TARJETA de PROMETEO** (LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): el x86-64 de una gpu fn (el `nativo` de PROTON-X), su juez (el contrato de la llamada, corriendolo) y su simulador (el emulador de `bmo-lower`). La reserva de toda GPU: con ella una gpu fn de TITAN++ corre AL CORRER. Solo la nombra `titan`. | ✅ funciona (7 tests: cada operacion contra el interprete, por los dos caminos de `nativo`; el juez diciendo que no) |
 
 ### La regla de L1 (`bmo-lower`)
 

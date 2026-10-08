@@ -844,6 +844,12 @@ escribir nada (08-10: check y build dicen lo mismo por construccion);
 `titan ir` las calcula con f32 de precision simple; los dos bancos comparan
 lo mismo. Que corra en la 3060 de verdad es G4: Ring 0, del propietario.
 
+> **08-10, LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`:** las tarjetas son DOS,
+> la 3060 y la CPU -- la RESERVA de toda GPU (la ley L32) --, y cada gpu fn
+> pasa la bateria en las dos con los mismos bits. Un programa que no lee
+> sigue llevando las celdas de la 3060; uno que lee (nivel 12) la corre AL
+> CORRER, en la CPU.
+
 ---
 
 ## Nivel 12 -- lo que viene de fuera (25 palabras: + ninguna; `lee()` y `numero(t)`) -- 05-10, E1 de PLAN_LA_ENTRADA
@@ -929,7 +935,8 @@ calculo veria corriendo, la maquina lo ve corriendo, con su linea:
    T0060   no cabe en 64 bits (un int, las cifras de un dec, un texto de mas
            de 248 bytes, una linea tecleada de mas de 126)
    T0061   / o % por cero
-   T0062   una division que no acaba exacta (7 / 2 entre int, 1.0 / 3)
+   T0062   una division que no acaba exacta (7 / 2 entre int, 1.0 / 3),
+           o `round` de un infinito o un NaN que dejo una gpu fn (LB4)
    T0072   una celda que no esta en la tabla (t[i] con i tecleado)
    T0074   el PIC: un numero que no cabe en su dec(p, s)
    T0066   las llamadas se anidan mas de lo que cabe en la pila: el NO sale
@@ -945,6 +952,14 @@ calculo hace un paso en 128 bits, E1 tambien (`emisor-x86_64/src/e1/ancho.rs`).
 
 Un bucle SIN fin que no lee sigue siendo T0066 al compilar: el presupuesto de
 plegado (R8) cambia una ley, y las leyes las sella el propietario.
+
+> **08-10, LB4:** la gpu fn y el f32 YA corren en un programa que lee. La gpu
+> fn, en la CPU, su reserva: el x86-64 de la tarjeta de la CPU, juzgado y
+> con los bits del oraculo en cada build (L32). El f32, como DATO: un
+> literal, un int o un dec entra al f32 mas cercano por su tipo declarado
+> (`let a: f32 = x`), se guarda y se pasa, y vuelve por `round` -- E1 no
+> cuenta en f32 (D2) --. El ejemplo: `nivel12/reserva`. Lo de abajo es lo que
+> decia antes de LB4.
 
 **Lo que la maquina TODAVIA NO corre es T0040**, *lo que todavia no existe*
 (08-10, LB1 de `docs/plan/PLAN_LAS_LIBRERIAS.md`): una `gpu fn` o un `f32` en un

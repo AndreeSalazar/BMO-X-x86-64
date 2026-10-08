@@ -148,6 +148,12 @@ no existe es el CONTRATO escrito: hoy `bmo-titan-sm86` nombra a mano
 | una gpu fn AL CORRER | `toolchain/lang/titan/emisor-x86_64/src/e1/mod.rs` | NO: la rechaza |
 | TITAN++ en el Ryzen | `run titan/hola.bex` | NUNCA: amarillo (README) |
 
+> **08-10, LB4:** el x86-64 del Programa ya es una TARJETA de PROMETEO
+> (`toolchain/forge/tarjeta-cpu`, con el `nativo` de PROTON-X como su
+> emisor), y una gpu fn corre AL CORRER en la CPU: E1 la llama
+> (`emisor-x86_64/src/e1/gpu.rs`). Y TITAN++ ya corrio en el Ryzen (LB2):
+> `hola.bex` y `dos.bex`.
+
 ## 2.2 Las pruebas
 
 ```text
@@ -255,6 +261,9 @@ La primera es justa y dice por que. Las otras dos dicen algo que no es
   x86-64 (LB4). El `nativo` de PROTON-X ya hace *"un sombreador, traducido
   UNA vez a x86-64 con SSE"*, con el interprete de la casa como juez bit a
   bit.
+  - **08-10, LB4:** hecho. Un programa que lee llama a una gpu fn y la corre
+    la CPU, con los bits del oraculo; el f32 vive en E1 como DATO (se guarda,
+    se pasa y vuelve por `round`). La 3060 al correr sigue siendo LB8.
 
 ## 3.3 LA FORMA: una gpu fn es computo de UNA celda
 
@@ -526,6 +535,27 @@ bueno ya eso es el motivo lel para GPU Final"*. Asi quedo (LB3):
                     saltar (J2). Hoy, el de VERRANO; el del computo, LB8
 ```
 
+**DL3 -- el 08-10, despues de LB3b.** La pregunta llevaba la recomendacion
+(*"SI, como ley nueva y sellada"*), y la foto de `run titan/dos.bex` en el
+Ryzen; el propietario: *"es buena continua y vamos hasta el final"*. Asi
+quedo (LB4):
+
+```text
+   la ley        L32: una gpu fn corre tambien en la CPU, su RESERVA -- el
+                 x86-64 de la tarjeta de la CPU, juzgado y con los mismos
+                 bits que la casa y el calculo --; en un programa que lee es
+                 lo que corre AL CORRER; y el f32 sigue sin salir de la gpu
+                 fn si no es por `round` (L26). Sellada (82229cc73dc8)
+   la tarjeta    toolchain/forge/tarjeta-cpu: su emisor es el `nativo` de
+                 PROTON-X; su juez, el contrato de la llamada; su simulador,
+                 el emulador de la casa. En la fragua y no en platform/shared
+                 por su simulador, que es una herramienta (capas)
+   en cada build las DOS tarjetas, la 3060 y la CPU: cada gpu fn se escribe,
+                 se juzga y pasa la bateria en las dos, con los mismos bits,
+                 o no hay .bex. Las celdas de un programa que no lee siguen
+                 siendo las de la 3060 (la primera)
+```
+
 ---
 
 # 5. LAS CASILLAS
@@ -539,6 +569,7 @@ bueno ya eso es el motivo lel para GPU Final"*. Asi quedo (LB3):
   - **Como se sabe:** cada DL con su respuesta y su fecha, aqui.
   - **08-10:** DL1 y DL2, contestadas con *"gpu general"* y confirmadas el
     mismo dia (4.1): PROMETEO. Las demas, abiertas.
+  - **08-10, despues:** DL3, contestada (4.1): la ley L32, con LB4.
 
 - [x] **LB1 -- LOS NO QUE DICEN LA VERDAD (H1, H2, H3), y los papeles (H4).**
   **HECHO el 08-10** (el codigo, `129ebf8`).
@@ -750,7 +781,8 @@ bueno ya eso es el motivo lel para GPU Final"*. Asi quedo (LB3):
       (`censo-modular/herencia.py`): PROMETEO y PROTON-X son hijo, y ninguna
       dependencia sube.
 
-- [ ] **LB4 -- LA CPU, LA SEGUNDA LIBRERIA (la reserva).** El x86-64 del
+- [x] **LB4 -- LA CPU, LA SEGUNDA LIBRERIA (la reserva).** **HECHO el
+  08-10.** El x86-64 del
   Programa (`platform/shared/proton-x/src/nativo.rs`, y `nativo_computo` para
   los que saltan) como libreria con sus cinco piezas: SABE
   (`nativo::por_que_no`), EMITE, JUZGA (el interprete, bit a bit, y el gate
@@ -763,6 +795,76 @@ bueno ya eso es el motivo lel para GPU Final"*. Asi quedo (LB3):
     a gpu fn da en cada celda los bits del oraculo (la 3060 simulada); y el
     `.bex` declara SSE en su `xcr0`, para que la cabecera no mienta (E7b de
     PLAN_VERRANO).
+  - **08-10, el propietario:** *"es buena continua y vamos hasta el final"*
+    (DL3, en 4.1).
+  - [!] **Una correccion a esta casilla:** el "E7b de PLAN_VERRANO" no existe
+    (el E7b que hay es de LA_LENGUA, y es otra cosa), y el `xcr0` no hacia
+    falta tocarlo: el escritor de BEF2 pone x87+SSE en todo ejecutable
+    (`Escritor::ejecutable`), y los `.bex` de TITAN++ ya lo decian. Lo que
+    queda es la prueba de que el de una gpu fn lo dice.
+  - **Lo hecho:**
+    - **la tarjeta de la CPU**, `toolchain/forge/tarjeta-cpu`
+      (`bmo-tarjeta-cpu`, `CPU`), por el contrato de PROMETEO y sin tocarlo:
+      - SABE la cuenta de una celda -- entradas y salida, la aritmetica de
+        f32 (la division general tambien: `divss` es IEEE), comparaciones,
+        enteros de 32, `Elige`, saltos y bucles --; lo demas (texturas,
+        matematica, UAV, computo, olas) es su LIMITE, con su porque;
+      - EMITE el `nativo` de PROTON-X con un prologo que pone sus registros;
+      - JUZGA el contrato de la llamada, corriendolo: vuelve, no llama al
+        kernel, conserva rbx, rbp, r12..r15, rsp y el MXCSR, deja eax = 0 y
+        no escribe fuera de sus registros, su salida y su pila. Y lo mira en
+        CADA celda que simula;
+      - SIMULA sus bytes en el emulador de la casa: los mismos que van en el
+        `.bex`;
+    - **las dos tarjetas en cada build** (`TARJETAS` de `titan`): la 3060 y
+      la CPU. Cada gpu fn pasa la bateria y sus celdas reales en las dos;
+    - **E1 llama a la gpu fn al correr** (`emisor-x86_64/src/e1/gpu.rs`): un
+      hilo por celda, con su sitio en el marco de quien llama, y el cuerpo de
+      la CPU una vez al final del `.bex`;
+    - **el f32 como DATO en E1**: un literal, un int o un dec a f32 al mas
+      cercano (una subrutina de enteros: el `parse::<f32>` de su decimal
+      exacto), y `round(x, n)` de vuelta a dec (otra: el f32 escrito entero
+      y cortado, la mitad lejos del cero; T0062 un infinito o un NaN, T0060
+      lo que no cabe). E1 no cuenta en f32: pasa bits (D2);
+    - **el emulador de la casa aprendio lo que el x86 de una gpu fn usa**
+      (`toolchain/forge/bmo-lower/src/emu`): `and`/`cmp` con eax e
+      inmediato, `xor r, r/m`, `test r/m, imm32`, `cmovcc`, `cmpss`,
+      `andps`/`andnps`/`orps`, `ldmxcsr`/`stmxcsr` (con su MXCSR), un `run`
+      que no revienta y el registro de lo que escribe un programa. Y se
+      encontraron CUATRO cosas que modelaba distinto del silicio, todas en 32
+      bits: `shl`/`shr`/`sar` por `cl` enmascaraban la cuenta a 6 bits y
+      `sar` miraba el bit 63; `cdq` era `cqo`; `div` e `idiv` miraban rax en
+      vez de edx:eax. Ningun emisor de la casa desplazaba ni dividia en 32
+      bits hasta hoy;
+    - **la ley L32** (DL3), sellada; la regla S5 de `la-3060` cuenta tambien
+      la tarjeta de la CPU como un nombre que lo general no dice; el ejemplo
+      `nivel12/reserva` en el banco y en la TAB (35 nodos maestros).
+  - **Como se supo:**
+    - la tarjeta: cada operacion que dice saber, contra el interprete en los
+      valores que muerden (las de f32 en 18 bordes y por los dos caminos de
+      `nativo`, la fila de SSE y el cuerpo con saltos; los enteros, en 12;
+      los saltos y un bucle); el juez diciendo que NO a seis formas de
+      romper la llamada; sus limites, dichos sin emitir;
+    - las dos sondas de LB1 que eran T0040 -- una gpu fn y un f32 en un
+      programa que lee -- corren y escriben lo que diria el calculo;
+    - el oraculo de E1 mira ahora tambien los programas con gpu fn: 37
+      programas (2 con gpu fn), E1 == el calculo. O sea: la CPU al correr da
+      lo que la 3060 simulada al compilar;
+    - el azar con gpu fn (`E1_AZAR_GPU`): una gpu fn con cuerpo al azar,
+      alimentada con numeros tecleados (por un int y por un dec calculado al
+      correr), como valor y como tabla, y `round` a la vuelta, contra el mismo
+      programa con los numeros escritos: 120 casos de siempre, y 1500 con
+      cada una de dos semillas (la 11: 1221 iguales y 279 con el mismo NO; la
+      977: 1232 y 268), sin un desacuerdo. El unico que salio al escribirla
+      fue mio: `round` de -2^63 da i64::MIN, que cabe en un dec;
+    - las dos subrutinas, corridas en el emulador contra la regla del calculo
+      (copiada): 200.000 casos de cada una; y una regla sembrada mal cae;
+    - el `.bex` de un programa con gpu fn dice x87+SSE en su `xcr0`;
+    - lo de antes, igual: los 37 `.bex` de los programas BIEN, byte a byte;
+      el SASS de `mezcla`, `suma` y `activa`, igual; y los bancos de todos los
+      lenguajes que usan el emulador (C, COBOL, Ada, C++, INTI, SPIR-V, el
+      enlazador, el espejo, el metro): 1305 en verde antes de los cambios del
+      emulador (origin/main) y las mismas 1305 despues.
 
 ## 5.1 La escuela, en el anfitrion
 
