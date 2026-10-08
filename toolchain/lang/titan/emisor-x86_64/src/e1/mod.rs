@@ -33,18 +33,20 @@
 //! `dec(p, s)` (T0074), llamadas que se anidan mas de lo que cabe en la pila
 //! (T0066). El programa escribe el NO con su linea del `.titan` y sale.
 //!
-//! [!] Lo que E1 no emite lo dice al compilar: la 3060 (G4 de
-//! PLAN_EL_CENTAURO: sin el lanzamiento en Ring 0 no hay donde correrla).
+//! [!] Lo que E1 no emite lo dice al compilar (T0040, LB1). La 3060 al
+//! correr es G4 de PLAN_EL_CENTAURO (Ring 0); hasta entonces una gpu fn corre
+//! en la CPU, su RESERVA, con el x86-64 de su tarjeta (LB4, 08-10: `gpu.rs`).
 
 mod ancho;
 mod coleccion;
 mod escribe;
 mod forma;
+mod gpu;
 mod monton;
 mod numero;
 mod valor;
 
-use crate::Emitted;
+use crate::{Cuerpos, Emitted};
 use bmo_lower::x86::{self, RAX, RSI, RDI, R11};
 use bmo_lower::{console, memoria, task};
 use bmo_titan_front::calc::Class;
@@ -104,6 +106,9 @@ pub(crate) enum Helper {
     Free,
     CloneOf(u16),
     DropOf(u16),
+    /// LB4 (`gpu.rs`): un int o un dec a f32, y `round` de un f32.
+    DecToF32,
+    F32Round,
 }
 
 /// Un NO al correr, por escribir: el salto que lleva a el, su linea, y lo
@@ -170,6 +175,10 @@ pub(crate) struct E1<'m> {
     pub kinds: Vec<Class>,
     /// El primer "todavia no" que E1 dijo, con su sitio (`E1::not_yet`).
     not_yet_said: Option<NotYet>,
+    /// LB4: el x86-64 de cada gpu fn (de la tarjeta de la CPU), y los `call`
+    /// que lo llaman: (campo rel32, la gpu fn). Va al final, una vez cada uno.
+    pub cuerpos: &'m Cuerpos,
+    pub gpu_calls: Vec<(usize, usize)>,
 }
 
 /// Lo que E1 no emite: un NO al compilar.
@@ -198,12 +207,6 @@ pub enum NoE1 {
     Failure(String),
 }
 
-/// Por que una `gpu fn` no corre al correr, y que hacer mientras.
-const GPU_WHY: &str = "este programa lee de fuera, asi que corre de verdad en la maquina (E1), y una gpu fn hoy solo corre AL COMPILAR, en la 3060 simulada. Al correr llega con su libreria: la de la CPU (LB4 de PLAN_LAS_LIBRERIAS) o la puerta de computo de la 3060 (G4 de PLAN_EL_CENTAURO)";
-const GPU_HOW: &str = "lo que no depende de lo tecleado, calculalo en un programa que no lee; lo demas espera a LB4";
-/// Lo mismo de un f32: vive en la 3060, y en la maquina todavia no hay donde.
-const F32_WHY: &str = "este programa lee de fuera, asi que corre de verdad en la maquina (E1), y un f32 vive en la 3060 (D2): al correr no tiene sitio todavia (LB7 de PLAN_LAS_LIBRERIAS)";
-const F32_HOW: &str = "cuenta con `dec` en la CPU; los f32 van en un programa que no lee";
 /// Lo demas que E1 todavia no emite al correr: una operacion o un paso de
 /// una clase a otra que el calculo hace y la maquina aun no.
 const E1_WHY: &str = "este programa lee de fuera, asi que corre de verdad en la maquina (E1), y eso todavia no se emite al correr";
@@ -512,9 +515,10 @@ impl<'m> E1<'m> {
             self.dispatcher(table, f.line)?;
             return Ok(0);
         }
+        // ** Una gpu fn no tiene marco: su cuerpo es el x86-64 de la tarjeta
+        // de la CPU, y va al final (`emit_all`). LB4, 08-10.
         if f.gpu {
-            let what = format!("`gpu fn {}`", f.name);
-            return Err(self.not_yet(&what, GPU_WHY, GPU_HOW, (f.line, 1)));
+            return Ok(0);
         }
         let sizes = self.plan(f)?;
         let n = f.locals.len();
@@ -654,8 +658,7 @@ impl<'m> E1<'m> {
     pub fn call(&mut self, func: usize, args: &[Value], at: (usize, usize)) -> Result<Option<(Place, Class)>, String> {
         let f = &self.m.functions[func];
         if f.gpu {
-            let what = format!("una llamada a `gpu fn {}`", f.name);
-            return Err(self.not_yet(&what, GPU_WHY, GPU_HOW, at));
+            return self.gpu_call(func, args, at);
         }
         let params: Vec<(Class, Ty, Mode)> = f.params.iter().enumerate().map(|(i, (_, t))| (self.forms.class(t), t.clone(), f.modes.get(i).copied().unwrap_or(Mode::Copy))).collect();
         let ret = f.ret.as_ref().map(|t| self.forms.class(t));
@@ -821,7 +824,7 @@ fn written(v: &Value) -> Option<String> {
 
 /// ** E1 entero: arrancar en `main`, cada fn con su marco, las subrutinas
 /// que alguien llamo, y los NO del final.
-pub fn emit(m: &Module) -> Result<Emitted, NoE1> {
+pub fn emit<'m>(m: &'m Module, cuerpos: &'m Cuerpos) -> Result<Emitted, NoE1> {
     let mut e = E1 {
         m,
         forms: Forms::new(m),
@@ -836,6 +839,8 @@ pub fn emit(m: &Module) -> Result<Emitted, NoE1> {
         owned: Vec::new(),
         kinds: Vec::new(),
         not_yet_said: None,
+        cuerpos,
+        gpu_calls: Vec::new(),
     };
     // Un NO de E1 sube por los `?` como texto; si fue un "todavia no", E1 lo
     // apunto con su sitio, y es el NO del PROGRAMA (LB1).
@@ -910,6 +915,22 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
     }
     for (field, h) in std::mem::take(&mut e.helper_calls) {
         x86::patch_jump_to(&mut e.code, field, at[&h]);
+    }
+    // ** el x86-64 de cada gpu fn que se llama (LB4): una vez, al final. Es
+    // una funcion entera que no mira donde cae (`nativo`, y su prologo).
+    let mut gpu_at: BTreeMap<usize, usize> = BTreeMap::new();
+    for (field, k) in std::mem::take(&mut e.gpu_calls) {
+        let to = match gpu_at.get(&k) {
+            Some(&to) => to,
+            None => {
+                let cuerpo = e.cuerpos.get(&k).ok_or_else(|| format!("`gpu fn {}` sin el codigo de la CPU", m.functions[k].name))?;
+                let to = e.code.len();
+                e.code.extend_from_slice(&cuerpo.bytes);
+                gpu_at.insert(k, to);
+                to
+            }
+        };
+        x86::patch_jump_to(&mut e.code, field, to);
     }
     for (field, k) in std::mem::take(&mut e.calls) {
         if starts[k] == usize::MAX {

@@ -38,6 +38,10 @@ bmo-titan-prometeo = { path = "../prometeo" }
 # PLAN_LAS_LIBRERIAS) -- el contrato de PROMETEO y, hoy, una: la 3060.
 bmo-prometeo = { path = "../../../../platform/shared/prometeo" }
 bmo-proton-x-sm86 = { path = "../../../../platform/shared/proton-x-sm86" }
+# Y LA SEGUNDA (LB4, 08-10): la CPU, la reserva de toda GPU. Su x86-64 es el
+# que corre una gpu fn AL CORRER (E1): con ella, un programa que lee usa una
+# gpu fn sin esperar a la puerta de computo de la 3060 (Ring 0).
+bmo-tarjeta-cpu = { path = "../../../forge/tarjeta-cpu" }
 
 [lib]
 name = "bmo_titan_x86_64"

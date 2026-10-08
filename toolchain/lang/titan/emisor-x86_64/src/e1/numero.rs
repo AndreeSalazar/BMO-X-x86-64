@@ -189,7 +189,7 @@ impl E1<'_> {
         self.lenient -= 1;
         let (p, c) = r?;
         if c == Class::F32 {
-            return Err(self.not_yet("round de un f32", super::F32_WHY, super::F32_HOW, at));
+            return self.round_f32(p, n, at);
         }
         self.load_dec(p, &c, RAX, RCX);
         self.imm(RDX, n as i64);
@@ -223,6 +223,8 @@ impl E1<'_> {
             Helper::Free => self.h_free(),
             Helper::CloneOf(k) => self.h_clone(k),
             Helper::DropOf(k) => self.h_drop(k),
+            Helper::DecToF32 => self.h_dec_a_f32(),
+            Helper::F32Round => self.h_f32_round(),
         }
     }
 

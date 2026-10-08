@@ -397,6 +397,12 @@ members = [
     "toolchain/forge/bmo-mods",
     # bmo-lower: L1, el descenso generico al ABI (la puerta INVOKE).
     "toolchain/forge/bmo-lower",
+    # La CPU como TARJETA de PROMETEO (LB4 de PLAN_LAS_LIBRERIAS, 08-10): el
+    # x86-64 de una gpu fn (el `nativo` de PROTON-X), su juez (el contrato de
+    # la llamada) y su simulador (el emulador de bmo-lower). La reserva de
+    # toda GPU: con ella una gpu fn corre AL CORRER, sin Ring 0. Aqui y no en
+    # platform/shared por su simulador, que es una herramienta.
+    "toolchain/forge/tarjeta-cpu",
 
     # -- Nota sobre el intermediario "CPU-aware" -------------------
     # Aqui vivia `bmo-arch`: 1147 lineas de capa de abstraccion de CPU

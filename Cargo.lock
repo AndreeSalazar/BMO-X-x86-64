@@ -845,6 +845,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-tarjeta-cpu"
+version = "0.1.0"
+dependencies = [
+ "bmo-lower",
+ "bmo-prometeo",
+ "bmo-proton-x",
+]
+
+[[package]]
 name = "bmo-titan-contrato"
 version = "0.1.0"
 
@@ -880,6 +889,7 @@ dependencies = [
  "bmo-lower",
  "bmo-prometeo",
  "bmo-proton-x-sm86",
+ "bmo-tarjeta-cpu",
  "bmo-titan-contrato",
  "bmo-titan-front",
  "bmo-titan-prometeo",

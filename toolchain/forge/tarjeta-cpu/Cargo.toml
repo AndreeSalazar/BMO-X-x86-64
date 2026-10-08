@@ -1,0 +1,27 @@
+[package]
+name = "bmo-tarjeta-cpu"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "La CPU como tarjeta de PROMETEO (LB4): el x86-64 de una gpu fn, su juez y su simulador. La reserva de toda GPU."
+license = "Apache-2.0"
+
+# ** UNA TARJETA, AISLADA (L-b de docs/plan/PLAN_LAS_LIBRERIAS.md): su emisor,
+# su juez y su simulador son suyos y de nadie mas. PROMETEO no la nombra (la
+# regla S5 de `la-3060`); solo quien arma una herramienta (`titan`) dice que
+# esta. Vive en la FRAGUA y no en `platform/shared` por su simulador: el
+# emulador de la casa es una herramienta (capas: `herramienta` -> `puro`).
+[dependencies]
+# El contrato y el Programa de la casa.
+bmo-prometeo = { path = "../../../platform/shared/prometeo" }
+# SU EMISOR: el x86-64 del Programa de PROTON-X (`nativo`), el mismo que corre
+# los sombreadores de los juegos y que `proton-x-casa` juzga contra el
+# interprete, bit a bit.
+bmo-proton-x = { path = "../../../platform/shared/proton-x" }
+# SU SIMULADOR: el emulador de la casa. Viaja con la tarjeta, como `simula.rs`
+# con la 3060: el oraculo corre los MISMOS bytes que van dentro del .bex.
+bmo-lower = { path = "../bmo-lower", features = ["emulator"] }
+
+[lib]
+name = "bmo_tarjeta_cpu"
+path = "src/lib.rs"

@@ -142,8 +142,12 @@ L31 en cada build, cada gpu fn pasa una bateria de bordes, y sus celdas reales, 
     porque una cuenta de coma flotante falla en los bordes (NaN, infinito, subnormales, -0): se comprueba sola en cada build, no se adivina
     cumple test toolchain/lang/titan/prometeo/src/pruebas.rs a_disagreement_is_caught_with_its_input_and_the_answers
 
+L32 una gpu fn corre tambien en la CPU, su RESERVA: el x86-64 que escribe la tarjeta de la CPU, juzgado y con los mismos bits que la casa y el calculo; en un programa que lee es lo que corre AL CORRER, y el f32 sigue sin salir de la gpu fn si no es por round (L26)
+    porque DL3 de PLAN_LAS_LIBRERIAS, el propietario 08-10 ("es buena"): con la CPU como libreria, una gpu fn corre en un programa de verdad sin esperar a Ring 0 (LB4); y una reserva que diera otros bits no seria una reserva
+    cumple test toolchain/lang/titan/emisor-x86_64/tests/e1.rs a_gpu_fn_fed_what_is_typed_gives_the_cells_of_the_oracle
+
 [SELLO]
-33df9da29620595862fc44c6d1c8a5811045a40db1d31b23304482f7b58b660a
+82229cc73dc85506c7b65d5fdd6103f1e22e577010f81b9edd14fcd4dfa61079
 
 [HISTORIA]
 2026-10-04  16a5580ebef2  24 leyes  nacen las 24 leyes de los niveles 0-10, pedidas por el propietario
@@ -153,3 +157,4 @@ L31 en cada build, cada gpu fn pasa una bateria de bordes, y sus celdas reales, 
 2026-10-05  6a4d41282639  31 leyes  L30 y L31: el juez de spirv dice DONDE y comprueba SI ESTA BIEN en cada build (G2b)
 2026-10-07  05755562e8cd  31 leyes  L28-L31: TITAN++ sin SPIR-V -- gpu fn -> Programa -> SM86 -> el juez del SASS, decision del propietario 07-10
 2026-10-08  33df9da29620  31 leyes  LB3: el emisor de GPU de TITAN++ pasa a PROMETEO (toolchain/lang/titan/prometeo), decision del propietario 08-10 -- ningun texto de ley cambia, solo donde viven las pruebas de L28-L31
+2026-10-08  82229cc73dc8  32 leyes  L32: una gpu fn corre en la CPU, su reserva, y al correr en un programa que lee -- DL3 del propietario (08-10, 'es buena'), con LB4 de PLAN_LAS_LIBRERIAS

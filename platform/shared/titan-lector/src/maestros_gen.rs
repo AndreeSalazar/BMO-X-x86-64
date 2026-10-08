@@ -27,7 +27,7 @@ pub static FAMILIES: [&str; 14] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 34;
+pub const COUNT: usize = 35;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -383,6 +383,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &["Ada"],
         out: &["como te llamas?", "hola Ada!"],
         source: "# entra: Ada\n# sale: como te llamas?\n# sale: hola Ada!\n# el primer programa que PREGUNTA: lo que escribe depende de lo que se teclea, y por eso corre de verdad en la maquina\nmod main \"saluda a quien teclee su nombre\"\n\nfn main()\n    print(\"como te llamas?\")\n    let nombre = lee()\n    print(\"hola \", nombre, \"!\")\n",
+    },
+    Master {
+        name: "reserva",
+        level: 12,
+        why: "lo tecleado entra a f32 por su tipo declarado, y la gpu fn corre AL CORRER: en la CPU, su reserva (LB4)",
+        says: "una gpu fn con lo que se teclea",
+        words: &["fn", "let", "if", "return", "round", "match", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &["3", "5"],
+        out: &["la media de 3 y 5, por la gpu fn: 4.00", "activa con -3, 0 y 5: 0.0 0.0 5.0", "un dec tecleado, a f32 y de vuelta: 0.125"],
+        source: "# entra: 3\n# entra: 5\n# sale: la media de 3 y 5, por la gpu fn: 4.00\n# sale: activa con -3, 0 y 5: 0.0 0.0 5.0\n# sale: un dec tecleado, a f32 y de vuelta: 0.125\n# lo tecleado entra a f32 por su tipo declarado, y la gpu fn corre AL CORRER: en la CPU, su reserva (LB4)\nmod main \"una gpu fn con lo que se teclea\"\n\ngpu fn media(a: f32, b: f32) -> f32\n    return (a + b) / 2.0\n\ngpu fn activa(x: f32) -> f32\n    if x > 0.0\n        return x\n    return 0.0\n\nfn entero(t: text) -> int\n    match numero(t)\n        Es(n)\n            return n\n        NoEs\n            return 0\n\nfn main()\n    let x = entero(lee())\n    let y = entero(lee())\n    let a: f32 = x\n    let b: f32 = y\n    let m = media(a, b)\n    print(\"la media de \", x, \" y \", y, \", por la gpu fn: \", round(m, 2))\n    let menos: f32 = 0 - x\n    let cero: f32 = 0\n    let xs: [f32; 3] = [menos, cero, b]\n    let r = activa(xs)\n    print(\"activa con \", 0 - x, \", 0 y \", y, \": \", round(r[0], 1), \" \", round(r[1], 1), \" \", round(r[2], 1))\n    let d: f32 = y * 0.025\n    print(\"un dec tecleado, a f32 y de vuelta: \", round(d, 3))\n",
     },
     Master {
         name: "agenda",
