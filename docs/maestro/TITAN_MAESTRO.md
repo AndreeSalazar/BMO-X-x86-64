@@ -2043,3 +2043,12 @@ tiempo en adivinar"*:
     la prueba de Tuckerman (`proton-x-sm86/src/cociente.rs`), aunque su
     MUFU se equivoque. En la obra de una celda pesa 24. El ejemplo,
     `nivel11/cociente`. La raiz, con el propietario.
+  - **09-10, LB7a:** el CUBO QUE GIRA, contado por gpu fn
+    (`nivel11/cubo_gira`, tres modulos y 22 gpu fn): el seno, el coseno y la
+    raiz de `bmo_cubo` en f32 exactos, y la matriz de cada fotograma, sus
+    vertices a recorte, su pantalla y su luz. Los 360 fotogramas dan la tanda
+    de `bmo_cubo` bit a bit, en las dos tarjetas
+    (`emisor-x86_64/tests/cubo_gira.rs`). Para que quepa, la 3060 emite
+    FRUGAL lo que no cabe en sus 64 registros, y la CPU deja que los valores
+    que mueren cedan su sitio; lo que ya cabia sale igual. Queda la app que
+    lo publica en la lamina (LB7b).

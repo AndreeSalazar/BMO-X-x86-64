@@ -1168,6 +1168,64 @@ Asi quedo:
     - **el metal**: que la 3060 de verdad de los mismos bits (la cuenta
       aguanta el error de su MUFU; verlo es de LB8).
 
+- [x] **LB7a -- EL CUBO CONTADO POR GPU FN, BIT A BIT.** **HECHA en el
+  anfitrion el 09-10.** La mitad de LB7 que no pide ni permiso ni lamina:
+  las cuentas de `bmo_cubo` escritas en TITAN++ como gpu fn, y con ellas los
+  360 fotogramas, con los bits de `bmo_cubo`. Es lo que DL10 dejo hacer.
+  - **Bloquea:** DL10 (hecha: LB6b).
+  - **Como se sabe:** `toolchain/lang/titan/emisor-x86_64/tests/cubo_gira.rs`:
+    cada cuenta, por cada tarjeta que da `titan` (la RTX 3060 12G simulada y
+    la CPU), por la casa y por el calculo -- los cuatro iguales --, y lo que
+    dan es lo de `bmo_cubo`, bit a bit.
+  - **Lo hecho:**
+    - el paquete `toolchain/lang/titan/ejemplos/nivel11/cubo_gira`: tres
+      modulos y 22 gpu fn.
+      - `num`: truncar, los dos redondeos (al lejano y al par), saturar, la
+        vuelta reducida, el seno, el coseno y la tangente de `bmo_cubo::num`
+        con sus mismos polinomios, y la raiz: la estimacion que alli sale de
+        los BITS del f32, contada aqui con f32 exactos (potencias de dos,
+        sin mirar bits), y sus cuatro pasos de Newton;
+      - `cubo`: la entrada `k` de la matriz del fotograma `f` (`wvp`), un
+        vertice a recorte, su subpixel (`pantalla_x`, `pantalla_y`, al par),
+        si esta detras, y la luz y el color de una cara;
+    - el emisor de la 3060, FRUGAL (`proton-x-sm86/src/lib.rs` y
+      `saltos.rs`): si un cuerpo no cabe en sus registros, se emite otra vez
+      sin dejar en registro lo que sube (una constante, una entrada del
+      banco: se sube cada vez que se lee), con cada variable naciendo justo
+      antes de lo primero que la toca, y soltando lo que nadie lee en cuanto
+      se escribe. `cubo.wvp` pasa de 78 registros, que no caben en los 64 de
+      VERRANO, a 44 (7423 instrucciones). Lo que ya cabia sale igual, byte a
+      byte;
+    - la CPU como tarjeta (`tarjeta-cpu/src/compacta.rs`): si un Programa
+      tiene mas valores que los 1024 sitios de su pila, los que mueren dejan
+      su sitio a otros. `cubo.wvp`: 1497 valores en 87 sitios;
+    - el banco: `cubo_gira` imprime el seno y el coseno de 30 y 90 grados, la
+      diagonal de la matriz del fotograma 0 y la cara verde con su luz.
+  - **Como se supo:**
+    - las cuentas de `num` contra `bmo_cubo::num`: 5223 valores (los
+      angulos del cubo, un barrido, potencias de dos con sus vecinos, ceros,
+      subnormales, enormes, infinitos y NaN), y la raiz en 4000 mas al azar;
+    - las 16 entradas de la `wvp` de los 360 fotogramas;
+    - la tanda de los 360: cada vertice a recorte, las caras que miran (la
+      cuenta de `tanda::de_fotograma`, con los subpixeles de las gpu fn) y el
+      color de cada una;
+    - el modo frugal FORZADO en los 400 programas al azar de E6, en los dos
+      ABI: los bits de la casa, y el juez dice que si. Su primera version la
+      tumbo esa misma bateria (soltaba la precarga de una fila del cbuffer
+      que nadie leia cuando su registro ya era de una variable);
+    - lo de antes, igual: los 44 `.bex` de los programas BIEN, byte a byte,
+      y lo que `titan sm86` deja del nivel 11 (23 ficheros).
+  - **Queda:**
+    - **LB7b, la app** (abajo, en LB7): el permiso `screen` (DL7), la lamina
+      en E1 y los 360 publicados en ella;
+    - **lo que mide**: `cubo.wvp` son 7423 instrucciones y `cubo.luz` 5097:
+      caben en un cuerpo de computo, no en un hueco de la tuberia (128). Una
+      division entre dos constantes ESCRITAS (`6.2831855 / 360.0`) aun se
+      cuenta en la 3060 (105 instrucciones) en vez de plegarse al compilar;
+    - **el NO de lo que no cabe**: la 3060 dice "no cabe en sus registros"
+      como un fallo del compilador; con el modo frugal, lo que aun no cabe es
+      un limite de la tarjeta, y deberia decirse asi, en su sitio (LB1).
+
 - [ ] **LB7 -- TITAN++ MANDA A VERRANO.** Una app de TITAN++ que dibuja el
   cubo girando, por el camino de DL8: el permiso (DL7) y su puerta en el
   certificado; en E1, el `f32` como DATO -- guardar, pasar y copiar a un
@@ -1178,6 +1236,9 @@ Asi quedo:
   - **Bloquea:** LB2 (la lamina vista), LB4 o el horneado, LB6 (si va por la
     puerta) y **DL10**: sin ella no se cuenta el cubo de `bmo_cubo` bit a bit
     (3.5). **09-10:** la division, hecha (LB6b).
+  - **09-10:** lo CONTADO, hecho en el anfitrion (LB7a): los 360 fotogramas
+    por gpu fn, con los bits de `bmo_cubo`. Lo que queda es la app (LB7b):
+    el permiso, la lamina y el metal.
   - **Como se sabe:** en el anfitrion, los 360 fotogramas publicados son los de
     `bmo_cubo::tanda`; en el metal, la app de TITAN++ corriendo y `gpu verrano
     banco inti` (o su hermana) sobre su lamina acaba con `IGUAL al juez`, como
@@ -1224,7 +1285,7 @@ Asi quedo:
 # 6. EL ORDEN
 
 ```text
-   ahora, en el anfitrion   LB1 -> LB3 -> LB4 -> LB5 -> LB6 -> LB6b -> LB7
+   ahora, en el anfitrion   LB1 -> LB3 -> LB4 -> LB5 -> LB6 -> LB6b -> LB7a -> LB7
    el metal, en paralelo    LB2 cuanto antes (un arranque); despues, el final
                             de LB6 y de LB7
    las decisiones           LB0, a medida que cada casilla las pida

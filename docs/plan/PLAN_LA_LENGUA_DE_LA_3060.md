@@ -306,6 +306,17 @@ CONSERVADORES (esperar siempre lo maximo).
   los bits de IEEE aunque el MUFU.RCP se equivoque -- el simulador lo mueve
   hasta 4 ULP a cada lado --. Cuesta 105 instrucciones. La raiz sigue como
   MUFU, modelada como la casa.
+  **09-10 (LB7a de PLAN_LAS_LIBRERIAS):** los registros, FRUGALES cuando no
+  caben. Si un cuerpo no cabe en los que le dan (64 en VERRANO), el emisor lo
+  intenta otra vez: lo que sube a un registro (una constante, una entrada del
+  banco) no se queda en el, se vuelve a subir cada vez que se lee; cada
+  variable recibe su registro justo antes de lo primero que la toca, fuera de
+  todo `si` y bucle; y lo que nadie lee se suelta en cuanto se escribe
+  (`emitir_libreta`, y `nace` y `sobra` en `saltos.rs`). Mas MOV y menos
+  registros: la matriz de un fotograma del cubo (`cubo.wvp` de
+  `nivel11/cubo_gira`) pasa de 78 a 44. Lo que ya cabia sale igual, byte a
+  byte. Lo prueba la bateria de E6 con el modo forzado: 400 programas al
+  azar, en los dos ABI, con los bits de la casa y el si del juez.
 
 ## [x] E4 -- LOS BITS DE CONTROL POR REGLA
 
