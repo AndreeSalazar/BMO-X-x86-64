@@ -31,6 +31,7 @@ fn main()
     if not director.lamina(24)
         print("nadie compone: la lamina no se ofrece a nadie")
         return
+    print("publicando el cubo unos diez minutos: gpu verrano banco inti lo dibuja mientras corre")
     for vuelta in range(100)
         for f in range(360)
             fotograma(f)

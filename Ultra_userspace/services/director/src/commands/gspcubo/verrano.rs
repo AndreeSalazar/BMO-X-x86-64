@@ -44,7 +44,7 @@ const PALABRAS: &[(&[u8], &[u8])] = &[
     (b"60", b"el fotograma 60, juzgado contra D3D12"),
 ];
 const PALABRAS_BANCO: &[(&[u8], &[u8])] = &[
-    (b"inti", b"los vertices los cuenta una app de INTI (run inti/cubo.ibx antes)"),
+    (b"inti", b"los vertices los cuenta una app que los publica en una lamina (run titan/cubogira.bex o run inti/cubo.ibx antes)"),
     (b"360", b"una vuelta entera"),
     (b"3600", b"diez vueltas"),
 ];
@@ -278,7 +278,7 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     let tomada = if inti {
         match dsk.table.lamina() {
             Some(t) => Some(t),
-            None => return linea(dsk, b"  NO  nadie ofrecio una lamina de VERRANO: lanza antes la app de INTI que la publica (run inti/cubo.ibx)", INK_ERR),
+            None => return linea(dsk, b"  NO  nadie ofrecio una lamina de VERRANO: lanza antes la app que la publica (run titan/cubogira.bex o run inti/cubo.ibx) y escribe esto MIENTRAS corre", INK_ERR),
         }
     } else {
         None

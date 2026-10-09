@@ -1362,6 +1362,17 @@ salieron de lo que pedian sus sombreadores. Asi queda el orden:
     por el escritorio y `gpu verrano banco` sobre su lamina, como con INTI
     (E6 de PLAN_VERRANO). Que salga `cubo.inti` del build es el corte 4 de
     INTI_SAMURAI, despues de eso.
+  - **09-10, EN EL METAL (fotos del propietario):** el build ya despliega
+    `titan/cubogira.bex`. `run titan/cubogira.bex` escribio sus tres lineas,
+    digito a digito las del anfitrion (sus gpu fn, al correr en la CPU), y el
+    escritorio TOMO su lamina: `[verrano] tid 10 ofrecio una lamina (1600
+    B)` -- la cabecera y dos ranuras de 24 vertices --. La primera vez que el
+    camino de la lamina llega al metal. `gpu verrano banco inti`, escrito
+    despues, dijo NO, nadie ofrecio: la app ya no corria (publica unos diez
+    minutos, y el escritorio suelta la lamina de una app muerta). Ahora la
+    app dice cuanto publica, y el NO del banco nombra las dos apps y pide
+    escribirlo MIENTRAS corre. Falta: el banco con la app viva, y su `IGUAL
+    al juez`.
 
 ## 5.2 Lo que es de Ring 0 (del propietario)
 
