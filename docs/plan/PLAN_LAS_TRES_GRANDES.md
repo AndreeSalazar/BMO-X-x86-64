@@ -1232,6 +1232,14 @@ La ESCALERA de juegos (por que DX9 y Left 4 Dead 2 no) esta en su seccion
   ddy, fwidth) dan 0 hasta que la trama corra cuadros de 2x2. Y SV_Depth:
   el de pixeles que escribe su Z (la prueba va despues de el). Probado con
   `prueba/olas.dxil` y `prueba/profundidad.dxil`.
+  **09-10 (E8b de PLAN_LA_LENGUA_DE_LA_3060):** los ARRAYS ya van por la
+  3060 -- sin memoria: el array son sus registros y el indice se mira
+  contra cada elemento con ISETP y SEL, lo que R7 ya deja
+  (`proton-x-sm86/src/indexado.rs`) --, con los bits de la casa:
+  `arreglos.hlsl` entero, bit a bit en el simulador. Una tabla o un array
+  en un bucle caben en la puerta de 128 con su pegamento; `arreglos.hlsl`
+  entero no (132 de cuerpo), y su PSO sigue por la CPU. La fila del
+  cbuffer calculada (`ConstantesEn`) tambien: es memoria, del propietario.
 - [ ] **N5.5 -- el COMPUTO** (`Dispatch`, `SetComputeRoot*`): hoy se dice
   y se salta. Cyberpunk calcula con el la luz, las sombras y el
   post-proceso; sin el, la imagen sale pero a medias. Primero en la CPU

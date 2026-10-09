@@ -656,8 +656,11 @@ despues.
 ```text
    Mate exactas    redondeos, frac, es_nan..., los bits,   E8a: HECHO (abajo),
                    los medios floats                        con lo que R7 deja
-   arrays          LeeIndexado, EscribeIndexado,            E8b: con SEL en
-                   ConstantesEn                             cadena (R7 lo deja)
+   arrays          LeeIndexado, EscribeIndexado             E8b: HECHO (abajo),
+                                                            con SEL en cadena
+   cbuffer         ConstantesEn (la fila calculada)         memoria (c[][] con
+                                                            indice): R7 no la
+                                                            deja a una app
    discard         Descarta (el KILL de la 3060)            R7: un EXIT con
                                                             guarda, o KILL
    olas            vote, shfl (Ola)                         R7, y el simulador
@@ -675,7 +678,8 @@ despues.
 
 - **Lo que es del propietario** (R7 es la puerta de las apps, Ring 0): que
   instrucciones nuevas deja R7 a un cuerpo de app (KILL o el EXIT con
-  guarda, VOTE, SHFL, las de f64), y por que camino van los bits EXACTOS de
+  guarda, VOTE, SHFL, las de f64, un LDC con indice para `ConstantesEn`),
+  y por que camino van los bits EXACTOS de
   las de series (DL10 dijo exactos: en f64 en la 3060 como la casa, u otras
   cuentas de f32 que den los mismos bits -- que la casa cambie las suyas es
   tambien una salida --).
@@ -709,6 +713,53 @@ despues.
     primero por arriba, 26; con signo, y de f32 a medio, 29. De 5 a 11
     registros. Caben de sobra en un hueco de la tuberia (128).
   - Las de SERIES siguen diciendo que NO en su sitio, y van por la CPU.
+- **E8b, los ARRAYS (09-10, hecho en el anfitrion):**
+  - `proton-x-sm86/src/indexado.rs`: `LeeIndexado` y `EscribeIndexado` (lo
+    de N5.10 de PLAN_LAS_TRES_GRANDES: el `alloca` de un array local, las
+    tablas globales constantes, los temporales indexables de SM5) SIN
+    MEMORIA -- R7 no deja a un cuerpo de app ni LDL ni STL --: el array son
+    sus registros y el indice se mira contra cada elemento. Leer: por cada
+    `j`, `ISETP.EQ.U32 P1, i, j` y `SEL x, a[j], x, P1`, la primera contra
+    RZ; escribir: por cada `j`, `SEL a[j], s, a[j], P1`. Fuera del array
+    -- tambien los bits de un negativo o de un NaN como indice -- se lee 0
+    y no se escribe nada, como la casa, que mira los BITS del indice. Con
+    el indice escrito (el `a[2]` del DXIL), la copia y ya. Solo ISETP, SEL
+    y MOV, que R7 ya deja: el juez no cambia ni una linea.
+  - El analisis (`saltos.rs`) cuenta cada lectura y cada escritura indexada
+    como una de TODO el array -- cualquier elemento puede ser el del
+    indice, y la escritura deja los demas como estaban: tambien los lee --;
+    cada elemento de un array que se escribe es una VARIABLE (su registro
+    desde que nace, con su inicial). Si el indice es un elemento del mismo
+    array (`a[a[0]] = s`), sus bits se miran UNA vez, antes de la cadena,
+    como la casa: lo encontro la revision, con su prueba que fallaba antes.
+    Un array que se sale de los registros del Programa no se emite (va por
+    la CPU): el emisor no se cae.
+  - Como se sabe (`pruebas_indexado.rs`): una tabla constante con 19
+    indices (dentro, el borde, fuera, y los bits de un negativo, de un float
+    y de un NaN); un array local escrito en un bucle y leido con el indice
+    de la entrada; el indice escrito; el indice que es un elemento del
+    mismo array; 300 programas al azar con dos arrays (el que se escribe y
+    una tabla), con indices escritos, de la entrada, del contador de un
+    bucle y de los elementos del array, dentro de `si` y de bucles; y
+    `arreglos.hlsl` de `dxc` -- el de N5.10, lo que pedian los pixeles de
+    Cyberpunk -- de punta a punta: el lector, el emisor, el juez y el
+    simulador. Todo en los dos ABI, juzgado (R0..R6 y R7), con los bits de
+    la casa. Saboteada la escritura (el indice comparado al reves), caen el
+    bucle, el azar, `arreglos.hlsl` y la del indice que es un elemento; sin
+    leer el indice una vez, caen su prueba y el azar.
+  - Lo que cuesta: dos instrucciones por elemento y acceso. Por la PUERTA de
+    128, con el pegamento de pixel del driver y el juez de programas: una
+    tabla de 4 leida con su indice, 10 instrucciones; un array de 6 escrito
+    en un bucle y leido, 42 -- caben, y el juez los da por buenos --.
+    `arreglos.hlsl` entero (siete accesos con indice calculado, dos bucles y
+    la division entre 3) da 132 de cuerpo y NO cabe: el pegamento lo dice
+    (`NoPega::Instrucciones`) y su PSO va por la CPU, como antes de E8b.
+    Que quepa: una puerta mas grande (del propietario) o un cuerpo mas
+    chico (compartir las comparaciones de dos accesos con el mismo indice;
+    no nacer un array que se escribe entero antes de leerlo).
+  - `ConstantesEn` (la fila del cbuffer CALCULADA, `luces.hlsl`) sigue
+    diciendo que NO: son hasta 4096 filas, memoria (`c[][]` con indice), y
+    R7 no la deja a un cuerpo de app. Es del propietario (arriba).
 - **Como se sabra E8 entera:** cada fila de la tabla, con su prueba en el
   anfitrion; las que piden R7 o el kernel, cuando el propietario las abra; y
   en el metal, un sombreador de cada una.
