@@ -38,7 +38,7 @@
 //! work is the callee's, counted where it is called.
 
 use crate::message::{Code, Message};
-use crate::tree::{Expr, Function, Program, Stmt, Ty};
+use crate::tree::{Expr, Function, Program, Step, Stmt, Ty, TypeDef};
 use bmo_titan_contrato::{Permission, Permissions};
 
 fn no(line: usize, col: usize, what: &str, why: &str, how: &str) -> Message {
@@ -58,11 +58,75 @@ pub fn check(p: &Program, permissions: Permissions) -> Result<(), Message> {
                 "pidelo en el Titan.toml del paquete:\n             [permissions]\n             gpu = \"compute\"",
             ));
         }
-        signature(f)?;
+        let forma = signature(p, f)?;
         sin_ciclo(p, f, &mut vec![f.name.as_str()], &mut Vec::new())?;
-        body(p, f, &f.body, 0)?;
+        body(p, f, &f.body, 0, forma)?;
     }
     Ok(())
+}
+
+/// ** LA FORMA DE UNA gpu fn, por su FIRMA (LB6; DL6 tomada como recomienda el
+/// plan: los tipos no gastan techo -- del propietario confirmarla).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Forma {
+    /// Una CELDA (nivel 11): valores f32 o bool, un resultado f32 o bool.
+    Celda,
+    /// La de VERTICE: recibe UN registro -- cada campo, un atributo del
+    /// vertice -- y devuelve otro con su `posicion` (4 f32, donde cae en la
+    /// pantalla: SV_Position) en el campo `posicion`.
+    Vertice { posicion: usize },
+    /// La de PIXEL: recibe lo que deja una de vertice (un registro con su
+    /// `posicion`, que es de la 3060 y no se lee) y devuelve su COLOR, un
+    /// registro de 4 f32.
+    Pixel { posicion: usize },
+}
+
+/// El campo de lo que deja una gpu fn de vertice que dice donde cae.
+pub const POSICION: &str = "posicion";
+
+/// Los componentes de un campo de dibujo: 1 si es un f32; n si es un
+/// registro de n f32 (de 1 a 4); `None` si es otra cosa.
+pub fn componentes(tipos: &[TypeDef], ty: &Ty) -> Option<usize> {
+    match ty {
+        Ty::F32 => Some(1),
+        Ty::Named(n) => {
+            let t = tipos.iter().find(|t| &t.name == n)?;
+            (!t.fields.is_empty() && t.fields.len() <= 4 && t.fields.iter().all(|c| c.ty == Ty::F32)).then_some(t.fields.len())
+        }
+        _ => None,
+    }
+}
+
+/// Los campos de un registro de dibujo -- su nombre y sus componentes, en
+/// orden: cada uno un ELEMENTO de la tuberia --, o `None` si no lo es.
+pub fn campos(tipos: &[TypeDef], ty: &Ty) -> Option<Vec<(String, usize)>> {
+    let Ty::Named(n) = ty else { return None };
+    let t = tipos.iter().find(|t| &t.name == n)?;
+    if t.fields.is_empty() || t.fields.len() > 8 {
+        return None;
+    }
+    t.fields.iter().map(|c| componentes(tipos, &c.ty).map(|k| (c.name.clone(), k))).collect()
+}
+
+/// **La forma de una gpu fn, por su firma** (`params`: los tipos de sus
+/// valores; `ret`: el de su resultado). Lo que no es de vertice ni de pixel
+/// es una celda, y la celda dice sus propios NO.
+pub fn forma(tipos: &[TypeDef], params: &[&Ty], ret: Option<&Ty>) -> Forma {
+    let ([a], Some(b)) = (params, ret) else { return Forma::Celda };
+    let (Some(entra), Some(sale)) = (campos(tipos, a), campos(tipos, b)) else { return Forma::Celda };
+    if let Some(p) = sale.iter().position(|(n, k)| n == POSICION && *k == 4) {
+        return Forma::Vertice { posicion: p };
+    }
+    match (entra.iter().position(|(n, k)| n == POSICION && *k == 4), componentes(tipos, b)) {
+        (Some(p), Some(4)) => Forma::Pixel { posicion: p },
+        _ => Forma::Celda,
+    }
+}
+
+/// La forma de la gpu fn `f` del programa.
+fn forma_de(p: &Program, f: &Function) -> Forma {
+    let params: Vec<&Ty> = f.params.iter().map(|a| &a.ty).collect();
+    forma(&p.types, &params, f.ret.as_ref())
 }
 
 /// The `gpu fn` called `name`, if there is one.
@@ -162,7 +226,7 @@ pub const HONDO_MAXIMO: usize = 8;
 /// **The work of one cell** of a gpu fn that [`check`] accepted (LB5): the
 /// same count as its rule, for the writer's battery.
 pub fn obra(p: &Program, f: &Function) -> u64 {
-    body(p, f, &f.body, 0).unwrap_or(u64::MAX)
+    body(p, f, &f.body, 0, forma_de(p, f)).unwrap_or(u64::MAX)
 }
 
 /// An integer WRITTEN: `10`, `-3`.
@@ -189,11 +253,23 @@ fn too_much(line: usize, col: usize, obra: u64) -> Message {
     )
 }
 
-fn signature(f: &Function) -> Result<(), Message> {
+fn signature(p: &Program, f: &Function) -> Result<Forma, Message> {
+    let forma = forma_de(p, f);
+    if forma != Forma::Celda {
+        // Una que DIBUJA (LB6): su registro llega como una COPIA, como una celda.
+        let a = &f.params[0];
+        if a.mode.word() != "" {
+            return Err(no(a.line, a.col, &format!("`{} {}` en una gpu fn", a.mode.word(), a.name), "cada hilo tiene su COPIA de lo que le llega: prestar o entregar es de la CPU", &format!("{}: {}, y devuelve el registro nuevo", a.name, a.ty.name())));
+        }
+        return Ok(forma);
+    }
     if f.params.is_empty() {
         return Err(no(f.line, f.col, &format!("`gpu fn {}` no recibe nada", f.name), "una gpu fn trabaja UNA celda: sin valores no hay celda, y cada hilo haria lo mismo", &format!("gpu fn {}(x: f32) -> f32", f.name)));
     }
     for a in &f.params {
+        if let Ty::Named(t) = &a.ty {
+            return Err(no(a.line, a.col, &format!("`{}: {}` en una gpu fn", a.name, t), "un hilo de una celda recibe f32 o bool. Para DIBUJAR (LB6) una gpu fn recibe UN registro y devuelve otro: la de vertice devuelve uno con su `posicion` (un registro de 4 f32); la de pixel recibe ese y devuelve su color (un registro de 4 f32). Cada campo es un f32 o un registro de 1 a 4 f32", &format!("gpu fn vertice(v: {}) -> {}  -- con `posicion` en lo que devuelve", t, t)));
+        }
         if !matches!(a.ty, Ty::F32 | Ty::Bool) {
             return Err(no(a.line, a.col, &format!("`{}: {}` en una gpu fn", a.name, a.ty.name()), "un hilo de la 3060 recibe UNA celda: un f32 o un bool. Las tablas se le dan al LLAMARLA, y cada hilo toma la suya", &format!("{}: f32  -- y llamala con la tabla: {}(xs)", a.name, f.name)));
         }
@@ -202,7 +278,7 @@ fn signature(f: &Function) -> Result<(), Message> {
         }
     }
     match &f.ret {
-        Some(Ty::F32 | Ty::Bool) => Ok(()),
+        Some(Ty::F32 | Ty::Bool) => Ok(Forma::Celda),
         Some(t) => Err(no(f.line, f.col, &format!("`gpu fn {}` devuelve un {}", f.name, t.name()), "cada hilo devuelve UNA celda: un f32 o un bool", &format!("gpu fn {}(...) -> f32", f.name))),
         None => Err(no(f.line, f.col, &format!("`gpu fn {}` no devuelve nada", f.name), "un hilo que no devuelve nada no hizo nada: su celda del resultado es todo lo que deja (la 3060 no tiene consola)", &format!("gpu fn {}(...) -> f32, y return ...", f.name))),
     }
@@ -210,20 +286,22 @@ fn signature(f: &Function) -> Result<(), Message> {
 
 /// The statements of a gpu fn, against the rules above: their WORK, or the
 /// first NO. `hondo`: the loops they are inside.
-fn body(p: &Program, f: &Function, stmts: &[Stmt], hondo: usize) -> Result<u64, Message> {
+fn body(p: &Program, f: &Function, stmts: &[Stmt], hondo: usize, forma: Forma) -> Result<u64, Message> {
     let mut obra: u64 = 0;
     for st in stmts {
         let (cost, at) = match st {
             Stmt::Let(l) | Stmt::Set(l) => {
                 if let Some(t) = &l.ty {
-                    if !matches!(t, Ty::F32 | Ty::Bool) {
+                    // Una que dibuja (LB6) guarda tambien sus registros de f32.
+                    let de_dibujo = forma != Forma::Celda && (componentes(&p.types, t).is_some() || campos(&p.types, t).is_some());
+                    if !matches!(t, Ty::F32 | Ty::Bool) && !de_dibujo {
                         return Err(no(l.line, l.col, &format!("`{}: {}` dentro de una gpu fn", l.name, t.name()), "dentro de una gpu fn solo hay f32 y bool", &format!("let {}: f32 = ...", l.name)));
                     }
                 }
-                (1u64.saturating_add(expr(p, &l.value, hondo)?), None)
+                (1u64.saturating_add(expr(p, &l.value, hondo, forma)?), None)
             }
-            Stmt::If(i) => (1u64.saturating_add(expr(p, &i.cond, hondo)?).saturating_add(body(p, f, &i.then, hondo)?).saturating_add(body(p, f, &i.other, hondo)?), None),
-            Stmt::Return { value: Some(v), .. } => (1u64.saturating_add(expr(p, v, hondo)?), None),
+            Stmt::If(i) => (1u64.saturating_add(expr(p, &i.cond, hondo, forma)?).saturating_add(body(p, f, &i.then, hondo, forma)?).saturating_add(body(p, f, &i.other, hondo, forma)?), None),
+            Stmt::Return { value: Some(v), .. } => (1u64.saturating_add(expr(p, v, hondo, forma)?), None),
             Stmt::Return { line, col, value: None } => return Err(no(*line, *col, "un `return` sin valor en una gpu fn", "cada hilo devuelve su celda", "return x")),
             Stmt::Call(c) if c.callee == "print" => return Err(no(c.line, c.col, "`print` dentro de una gpu fn", "la 3060 no tiene consola: miles de hilos escribiendo a la vez no dirian nada que se pueda leer", "devuelve el valor, y escribelo en la CPU: print(round(x, 2))")),
             Stmt::Call(c) if gpu_fn(p, &c.callee).is_some() => return Err(no(c.line, c.col, &format!("`{}()` sola, sin usar lo que devuelve, en una gpu fn", c.callee), "una gpu fn es pura: no cambia nada fuera de ella, asi que llamarla sin usar su resultado no hace nada", &format!("let y = {}(...)", c.callee))),
@@ -244,7 +322,7 @@ fn body(p: &Program, f: &Function, stmts: &[Stmt], hondo: usize) -> Result<u64, 
                 if hondo >= HONDO_MAXIMO {
                     return Err(no(fo.line, fo.col, &format!("mas de {} bucles uno dentro de otro, en una gpu fn", HONDO_MAXIMO), &format!("el Programa de la casa guarda {} estructuras abiertas, y cada bucle de una gpu fn puede ir dentro de su `si`", 32), "saca el calculo de dentro a otra gpu fn, o junta dos bucles en uno"));
                 }
-                let inside = body(p, f, &fo.body, hondo + 1)?;
+                let inside = body(p, f, &fo.body, hondo + 1, forma)?;
                 let turns = (to as i128 - from as i128).max(0) as u64;
                 let cost = turns.saturating_mul(inside.saturating_add(2)).saturating_add(2);
                 if cost > OBRA_MAXIMA {
@@ -253,7 +331,10 @@ fn body(p: &Program, f: &Function, stmts: &[Stmt], hondo: usize) -> Result<u64, 
                 (cost, Some((fo.line, fo.col)))
             }
             Stmt::Match { line, col, .. } => return Err(no(*line, *col, "un `match` dentro de una gpu fn", "dentro de una gpu fn solo hay f32 y bool: no hay enum que mirar", "decide con if / else")),
-            Stmt::SetAt { line, col, .. } => return Err(no(*line, *col, "una parte de un valor cambia dentro de una gpu fn", "dentro de una gpu fn no hay tablas ni registros: cada hilo tiene su celda", "devuelve el valor nuevo")),
+            // ** LB6: una que DIBUJA cambia un campo de un registro suyo
+            // (`w.color = c`, con `let mut w = v`): sus f32, y los demas igual.
+            Stmt::SetAt { path, value, .. } if forma != Forma::Celda && path.iter().all(|s| matches!(s, Step::Field(..))) => (1u64.saturating_add(expr(p, value, hondo, forma)?), None),
+            Stmt::SetAt { line, col, .. } => return Err(no(*line, *col, "una parte de un valor cambia dentro de una gpu fn", "dentro de una gpu fn no hay tablas, y una celda no tiene partes: cada hilo tiene la suya (solo la que DIBUJA tiene registros, y cambia sus campos)", "devuelve el valor nuevo")),
             // Inside a `for`: the parser said so (T0067), and a `while` is a NO above.
             Stmt::Break { .. } | Stmt::Continue { .. } => (1, None),
         };
@@ -378,14 +459,59 @@ mod tests {
         let huge = no("gpu fn f(x: f32) -> f32\n    let mut r = x\n    for i in range(-16777216, 16777216)\n        for j in range(-16777216, 16777216)\n            for k in range(-16777216, 16777216)\n                for l in range(-16777216, 16777216)\n                    r = r + x\n    return r\nfn main()\n    print(1)\n");
         assert_eq!(huge.code, Code::NoEnd, "{:?}", huge);
     }
+
+    /// ** LB6, DL6: a gpu fn DRAWS by its signature -- one record in, one
+    /// out with its `posicion` (vertex); that one in, a colour of four f32
+    /// out (pixel) -- and each way out of it has its NO, where it is written.
+    #[test]
+    fn a_gpu_fn_draws_by_its_signature() {
+        use super::{forma, Forma};
+        let tipos = "type Cuatro\n    x: f32\n    y: f32\n    z: f32\n    w: f32\ntype Vertice\n    posicion: Cuatro\n    color: Cuatro\n";
+        let ok = format!("mod main \"x\"\n{}gpu fn vertice(v: Vertice) -> Vertice\n    let mut w = v\n    w.color.x = v.color.x * 0.5\n    return w\ngpu fn pixel(v: Vertice) -> Cuatro\n    return v.color\nfn main()\n    print(1)\n", tipos);
+        let m = lower(&ok, Some(PIDE)).unwrap_or_else(|e| panic!("{:?}", e));
+        let f = |n: &str| m.functions.iter().find(|f| f.name == n).unwrap();
+        let de = |n: &str| forma(&m.types, &f(n).params.iter().map(|(_, t)| t).collect::<Vec<_>>(), f(n).ret.as_ref());
+        assert_eq!((de("vertice"), de("pixel")), (Forma::Vertice { posicion: 0 }, Forma::Pixel { posicion: 0 }));
+        // Its work: taking a field is no operation. The `let` (1), the field
+        // that changes (1, and its `*`), the `return` (1).
+        assert_eq!(f("vertice").obra, 1 + 2 + 1);
+        let at = |src: String| {
+            let n = no(&format!("{}{}fn main()\n    print(1)\n", tipos, src));
+            (n.code, n.line, n.col)
+        };
+        // The pixel reads its position: it is the card's (SV_Position).
+        assert_eq!(at("gpu fn pixel(v: Vertice) -> Cuatro\n    let p = v.posicion\n    return v.color\n".into()), (Code::GpuBody, 11, 15));
+        // Its record LENT: each thread has its copy.
+        assert_eq!(at("gpu fn vertice(mut v: Vertice) -> Vertice\n    return v\n".into()), (Code::GpuBody, 10, 20));
+        // A record in a fn of cells; and a `posicion` of three: not a vertex.
+        assert_eq!(at("gpu fn f(v: Vertice) -> f32\n    return v.color.x\n".into()), (Code::GpuBody, 10, 10));
+        let tres = no("type Tres\n    x: f32\n    y: f32\n    z: f32\ntype V\n    posicion: Tres\ngpu fn vertice(v: V) -> V\n    return v\nfn main()\n    print(1)\n");
+        assert_eq!((tres.code, tres.line, tres.col), (Code::GpuBody, 8, 16), "{:?}", tres);
+        // One that draws is a stage of the pipeline: nobody calls it.
+        assert_eq!(at("gpu fn vertice(v: Vertice) -> Vertice\n    return v\ngpu fn otro(v: Vertice) -> Vertice\n    let w = vertice(v)\n    return w\n".into()), (Code::GpuBody, 13, 13));
+        // Two records are not compared: field by field, by IEEE.
+        assert_eq!(at("gpu fn vertice(v: Vertice) -> Vertice\n    if v.color != v.posicion\n        return v\n    return v\n".into()), (Code::GpuBody, 11, 16));
+    }
 }
 
 /// An expression of a gpu fn: its operations (its WORK), or its NO.
-fn expr(p: &Program, e: &Expr, hondo: usize) -> Result<u64, Message> {
+fn expr(p: &Program, e: &Expr, hondo: usize, forma: Forma) -> Result<u64, Message> {
     match e {
         Expr::Int { .. } | Expr::Dec { .. } | Expr::Name { .. } | Expr::Bool { .. } => Ok(0),
-        Expr::Bin { left, right, .. } => Ok(1u64.saturating_add(expr(p, left, hondo)?).saturating_add(expr(p, right, hondo)?)),
-        Expr::Neg { value, .. } | Expr::Not { value, .. } => Ok(1u64.saturating_add(expr(p, value, hondo)?)),
+        Expr::Bin { left, right, .. } => Ok(1u64.saturating_add(expr(p, left, hondo, forma)?).saturating_add(expr(p, right, hondo, forma)?)),
+        Expr::Neg { value, .. } | Expr::Not { value, .. } => Ok(1u64.saturating_add(expr(p, value, hondo, forma)?)),
+        // ** LB6: una que DIBUJA lee los campos de sus registros y los hace
+        // -- elegir registros no cuesta: no es una operacion.
+        Expr::Field { name, line, col, .. } if matches!(forma, Forma::Pixel { .. }) && name == POSICION => Err(no(*line, *col, &format!("`.{}` en una gpu fn de pixel", POSICION), "la posicion es de la 3060: con ella sabe QUE pixel pinta (SV_Position). Al de pixel le llegan los demas campos de lo que dejo el de vertice", "lee los otros campos: v.color")),
+        Expr::Field { base, .. } if forma != Forma::Celda => expr(p, base, hondo, forma),
+        Expr::Record { fields, .. } if forma != Forma::Celda => {
+            let mut cost = 0u64;
+            for (_, v) in fields {
+                cost = cost.saturating_add(expr(p, v, hondo, forma)?);
+            }
+            Ok(cost)
+        }
+        Expr::Call { callee, line, col, .. } if gpu_fn(p, callee).is_some_and(|g| forma_de(p, g) != Forma::Celda) => Err(no(*line, *col, &format!("`{}()`: una gpu fn que DIBUJA no se llama", callee), "es una etapa de la tuberia de la 3060: la de vertice corre una vez por vertice y la de pixel una por pixel, y las pone a dibujar VERRANO (LB7), no otra fn", "llama a una gpu fn de celdas")),
         Expr::Text { line, col, .. } => Err(no(*line, *col, "un texto dentro de una gpu fn", "la 3060 cuenta numeros: un texto no tiene celda en ella", "deja los textos a la CPU")),
         // ** Another gpu fn (LB5): written in line, its work is its whole
         // body, here -- inside this one's loops, if it is.
@@ -393,15 +519,15 @@ fn expr(p: &Program, e: &Expr, hondo: usize) -> Result<u64, Message> {
             let g = gpu_fn(p, callee).expect("just seen");
             let mut cost = 1u64;
             for a in args {
-                cost = cost.saturating_add(expr(p, a, hondo)?);
+                cost = cost.saturating_add(expr(p, a, hondo, forma)?);
             }
-            Ok(cost.saturating_add(body(p, g, &g.body, hondo)?))
+            Ok(cost.saturating_add(body(p, g, &g.body, hondo, forma_de(p, g))?))
         }
         // A name nobody declared is the checker's NO (T0051), after this one.
         Expr::Call { callee, args, .. } if !p.functions.iter().any(|g| g.name == *callee) => {
             let mut cost = 1u64;
             for a in args {
-                cost = cost.saturating_add(expr(p, a, hondo)?);
+                cost = cost.saturating_add(expr(p, a, hondo, forma)?);
             }
             Ok(cost)
         }

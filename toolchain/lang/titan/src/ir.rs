@@ -405,6 +405,8 @@ fn to_f32(v: &mut Value) {
         Value::Neg(x, _) | Value::Not(x, _) => to_f32(x),
         // LB5: a call to another gpu fn, with numbers written in it.
         Value::Call(_, args, _) => args.iter_mut().for_each(to_f32),
+        // LB6: a record of a gpu fn that draws, written field by field.
+        Value::Record(_, items, _) => items.iter_mut().for_each(to_f32),
         _ => {}
     }
 }
@@ -825,6 +827,8 @@ pub fn lower(p: &Program) -> Module {
                     for op in &mut b.ops {
                         match op {
                             Op::Let { value, .. } | Op::Set { value, .. } => to_f32(value),
+                            // LB6: a field of a record of a gpu fn that draws.
+                            Op::SetAt { value, .. } => to_f32(value),
                             _ => {}
                         }
                     }

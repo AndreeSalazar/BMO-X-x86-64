@@ -72,6 +72,13 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                     Op::Drop { .. } => {}
                 }
             }
+            // ** LB6: inside a `gpu fn`, two records are never compared.
+            if f.gpu {
+                match op {
+                    Op::Let { value, .. } | Op::Set { value, .. } | Op::SetAt { value, .. } => gpu_records(value, &known, m)?,
+                    _ => {}
+                }
+            }
             match op {
                 Op::Let { local, value, at, ty, .. } => {
                     let mut c = class(value, &known, m)?;
@@ -179,6 +186,12 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
             match &b.end {
                 End::Return(Some(v)) => cpu_f32(v, &known, m)?,
                 End::Branch { cond, .. } => cpu_f32(cond, &known, m)?,
+                _ => {}
+            }
+        } else {
+            match &b.end {
+                End::Return(Some(v)) => gpu_records(v, &known, m)?,
+                End::Branch { cond, .. } => gpu_records(cond, &known, m)?,
                 _ => {}
             }
         }
@@ -295,11 +308,51 @@ pub(super) fn cpu_f32(v: &Value, known: &[Option<Class>], m: &Module) -> Result<
     }
 }
 
+/// ** LB6: inside a `gpu fn` that draws, two RECORDS are not compared with
+/// `==` or `!=`. An f32 is compared by IEEE -- a NaN equals nothing, -0
+/// equals 0 -- and a whole record has no such rule: the calculation compares
+/// its cells by their bits (`numero::same`), a card would field by field.
+/// Said field by field, it is one rule, and the one of the f32.
+pub(super) fn gpu_records(v: &Value, known: &[Option<Class>], m: &Module) -> Result<(), Message> {
+    match v {
+        Value::Bin(op, l, r, at) => {
+            if matches!(*op, "==" | "!=") && matches!(class(l, known, m)?, Class::Record(_)) {
+                return Err(Message::new(
+                    Code::GpuBody,
+                    at.0,
+                    at.1,
+                    &format!("dos registros con `{}` dentro de una gpu fn", op),
+                    "un f32 se compara por IEEE (un NaN no es igual a nada, -0 es igual a 0), y un registro entero no tiene esa regla: el calculo los miraria por sus bits y la tarjeta campo a campo, y una gpu fn da los MISMOS bits en los tres (L29)",
+                    "compara campo a campo: v.color.x == w.color.x and v.color.y == w.color.y",
+                ));
+            }
+            gpu_records(l, known, m)?;
+            gpu_records(r, known, m)
+        }
+        Value::Neg(x, _) | Value::Not(x, _) | Value::Field(x, _, _) => gpu_records(x, known, m),
+        Value::Call(_, items, _) | Value::Record(_, items, _) => items.iter().try_for_each(|x| gpu_records(x, known, m)),
+        _ => Ok(()),
+    }
+}
+
 /// The class of a call to a `gpu fn` (level 11, D1): with values, its
 /// result; with TABLES of n cells -- all of the same n -- n results, one per
 /// thread.
 pub(super) fn gpu_call(func: usize, args: &[Value], at: At, known: &[Option<Class>], m: &Module) -> Result<Class, Message> {
     let g = &m.functions[func];
+    // ** LB6: una gpu fn que DIBUJA no se llama: es una etapa de la tuberia, y
+    // la pone a dibujar VERRANO (LB7).
+    let tys: Vec<&Ty> = g.params.iter().map(|(_, t)| t).collect();
+    if crate::gpu::forma(&m.types, &tys, g.ret.as_ref()) != crate::gpu::Forma::Celda {
+        return Err(Message::new(
+            Code::GpuBody,
+            at.0,
+            at.1,
+            &format!("`{}()`: una gpu fn que DIBUJA no se llama", g.name),
+            "es una etapa de la tuberia de la 3060: la de vertice corre una vez por vertice y la de pixel una por pixel, y las pone a dibujar VERRANO (LB7), no un programa",
+            "llama a una gpu fn de celdas; la que dibuja la usara VERRANO",
+        ));
+    }
     let ret = of_ty(g.ret.as_ref().expect("gpu: a gpu fn gives a value"), m.defs());
     let got: Vec<Class> = args.iter().map(|a| class(a, known, m)).collect::<Result<_, _>>()?;
     let wants: Vec<Class> = g.params.iter().map(|(_, t)| of_ty(t, m.defs())).collect();
