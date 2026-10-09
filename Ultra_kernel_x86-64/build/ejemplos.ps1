@@ -787,7 +787,14 @@ try {
     # manifiesto. `.bex` y no `.ibx`: el `.ibx` es el compromiso de INTI.
     Compilar-Ejemplos @(
         @{ src = 'toolchain\lang\titan\ejemplos\nivel0\hola.titan'; out = 'hola.bex'; dir = 'titan' },
-        @{ src = 'toolchain\lang\titan\ejemplos\nivel0\dos_saludos.titan'; out = 'dos.bex'; dir = 'titan' }
+        @{ src = 'toolchain\lang\titan\ejemplos\nivel0\dos_saludos.titan'; out = 'dos.bex'; dir = 'titan' },
+        # ** LB7 (2026-10-09): el cubo de bmo_cubo que GIRA -- contado por gpu
+        # fn (al correr, en la CPU) y publicado en la lamina de VERRANO cada
+        # 16 ms, diez minutos. Un PAQUETE (`screen` y `gpu` en su Titan.toml):
+        # se construye desde su `src/main.titan`. En el metal, como con INTI:
+        # `run titan/cubogira.bex` y `gpu verrano banco inti`, que dibuja con
+        # la 3060 lo que haya en la lamina (LB7 de PLAN_LAS_LIBRERIAS).
+        @{ src = 'toolchain\lang\titan\ejemplos\nivel11\cubo_gira\src\main.titan'; out = 'cubogira.bex'; dir = 'titan' }
     ) 'bmo-titan-x86-64' 'titan' 'ok:|T00|no se ha' $dataBase $repo -Orden 'build'
 
     # -- Las dos imagenes que `bico.ibx` convierte ------------------------
