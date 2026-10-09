@@ -781,7 +781,8 @@ fn main()
 
 **Dentro de una `gpu fn`** todo numero es f32 (`2.0`, `1`), y hay `let`,
 `if` / `else` y `return` con `+ - * /` y comparaciones. No hay `print` (la 3060
-no tiene consola), tablas, textos, registros, llamadas ni bucles: el bucle de
+no tiene consola), tablas, textos, registros (**08-10: la que DIBUJA, si --
+LB6, abajo**), llamadas ni bucles: el bucle de
 una gpu fn ES la tabla. Las llamadas y los bucles dentro de un hilo llegan con
 el escritor de la 3060 (IL1 de `PLAN_ILLAPA.md`) -- **08-10: llegaron con LB5,
 abajo** --. **La division**, hoy, solo
@@ -809,11 +810,16 @@ llamada a una gpu fn queda en el certificado del `.bex` con su linea: es lo que
      mas alla de 2^24), mas de 8 bucles uno dentro de
      otro, o una gpu fn que se llama a si misma (LB5)
      un hilo con mas de 65536 de obra por celda (LB5)     T0066
+     una que DIBUJA (LB6): la de pixel lee su `posicion`, T0090
+     su registro prestado, una que se llama, o un
+     registro en una gpu fn de celdas
      una gpu fn sin `gpu` en el Titan.toml                T0088
    LA TARJETA DE LA 3060 (por PROMETEO, LB3), en su sitio
      la division general: hoy, solo entre una potencia    T0090
      de dos (LI2g)
    EL CALCULO
+     dos registros comparados con `==` o `!=` en una gpu  T0090
+     fn (LB6: campo a campo, por IEEE)
      un f32 contado, comparado o impreso en la CPU        T0091
      un f32 y un dec juntos                               T0063
      tablas de distinto largo, o un dec donde va un f32   T0071
@@ -878,6 +884,54 @@ gpu fn a_la_ocho(x: f32) -> f32
 - Cada `for` es un `Bucle` de verdad en las dos tarjetas; los `if` siguen en
   linea recta. Los ejemplos: `nivel11/bucles` y `nivel11/en_linea`; sus NO,
   `nivel11/hilo_largo` (T0066) y `nivel11/gpu_mientras` (T0090).
+
+### La gpu fn que DIBUJA (08-10, LB6 de `docs/plan/PLAN_LAS_LIBRERIAS.md`)
+
+```text
+type Cuatro
+    x: f32
+    y: f32
+    z: f32
+    w: f32
+
+type Vertice
+    posicion: Cuatro                          # donde cae (SV_Position)
+    color: Cuatro
+
+gpu fn cubo_vertice(v: Vertice) -> Vertice    # de VERTICE: deja su posicion
+    return v
+
+gpu fn cubo_pixel(v: Vertice) -> Cuatro       # de PIXEL: recibe eso, deja su color
+    return v.color
+```
+
+- **Por su FIRMA** (DL6, tomada como la recomienda el plan; del propietario,
+  confirmarla): una gpu fn que recibe UN registro y devuelve otro con un campo
+  `posicion` de cuatro f32 es de VERTICE; una que recibe un registro con su
+  `posicion` y devuelve un registro de cuatro f32 -- su color -- es de PIXEL.
+  Lo demas es una celda, como siempre. Cada campo de un registro de dibujo es
+  un f32 o un registro de 1 a 4 f32: un ELEMENTO de la tuberia (8 como
+  mucho), y cada f32 un componente.
+- Dentro: `let` de registros, `v.campo`, `w.campo = ...` (con `let mut w =
+  v`), registros escritos (`Cuatro { x: 1.0, y: 0.0, z: 0.0, w: 1.0 }`), y todo
+  lo de una celda: `if`, `for` con su N escrito, llamadas EN LINEA a gpu fn de
+  celdas.
+- **La de pixel no lee su `posicion`**: es de la tarjeta, que con ella sabe
+  que pixel pinta. Dos registros no se comparan con `==`: campo a campo, por
+  IEEE. Y una que dibuja NO SE LLAMA: es una etapa de la tuberia, y la pone a
+  dibujar VERRANO (LB7). Cada una, T0090 en su sitio.
+- Sale como el Programa de la casa POR ELEMENTOS -- el mismo que sale de los
+  sombreadores de PROTON-X; un componente que su campo no tiene sale 0 -- y
+  pasa la bateria de bordes en las dos tarjetas, componente a componente,
+  contra la casa y el calculo. `titan sm86` ademas la PEGA a la tuberia de
+  VERRANO de la RTX 3060 12G (`.sm86`, juzgada como en la puerta del kernel)
+  y mete las del paquete en su SOBRE (`cubo.bsf`: un BSF con un modulo por
+  cada una y el MAPA de la casa de fuente).
+- El ejemplo: `nivel11/cubo`, el cubo de V0. Lo que lee su vertice es el
+  `Vertex` de VERRANO (32 bytes: la posicion y el color), asi que su sobre lee
+  lo que lee hoy el `cubo.bsf` de SASS a mano. En el anfitrion da los bits de
+  la tanda de `bmo_cubo` (`emisor-x86_64/tests/cubo.rs`); en el metal, del
+  propietario.
 
 > **08-10, LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`:** las tarjetas son DOS,
 > la 3060 y la CPU -- la RESERVA de toda GPU (la ley L32) --, y cada gpu fn

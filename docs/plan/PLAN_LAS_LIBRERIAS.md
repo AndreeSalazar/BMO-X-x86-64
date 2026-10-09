@@ -468,6 +468,11 @@ EL_LIBRETO.
         que diga el PERFIL de la maquina (y la CPU, siempre, de reserva)
 ```
 
+> **08-10, a mitad de LB6:** DL6 se TOMO como la recomienda el plan -- la
+> FIRMA --, para que LB6 no parara; queda que el propietario la confirme. Si
+> elige una palabra nueva, cambia `gpu::forma` (el frontend) y nada mas: el
+> escritor, la tarjeta y el sobre reciben la forma ya dicha.
+
 ## 4.1 Lo que ya contesto el propietario
 
 **DL1 y DL2 -- el 08-10, a mitad de LB1:** *"por cierto libreria "gpu
@@ -1004,6 +1009,64 @@ porque la verdad no tengo otros GPU y seria jugar a adivinanza"*. Asi quedo:
     del propietario: `gpu verrano` con esos programas (como `gpu verrano
     bmox12` con los de PROTON-X) dice `IGUAL ... = D3D12 en la 3060 bajo
     Windows` en el 0, el 30 y el 60.
+  - **08-10, HECHO EN EL ANFITRION.** La casilla sigue abierta por el metal,
+    que es del propietario. DL6, tomada como la recomienda el plan (4).
+  - **Lo hecho:**
+    - el frontend (`gpu.rs`): la FORMA de una gpu fn por su firma (`Forma`:
+      de celdas, de vertice, de pixel). Dentro de una que dibuja hay
+      registros de f32 (`let`, `v.campo`, `w.campo = ...`, registros
+      escritos) y todo lo de una celda. Sus NO van en su sitio (T0090): la
+      de pixel que lee su `posicion`, su registro prestado, una que se
+      llama, un registro en una gpu fn de celdas; y en el calculo, dos
+      registros comparados con `==` (se comparan campo a campo, por IEEE);
+    - el calculo (`calc::run_gpu_dibujo`): la referencia, por elementos;
+    - el escritor, partido en tres ficheros sin cambiar un byte de lo de
+      antes:
+      - `lib.rs`: las tarjetas, sus jueces y el oraculo;
+      - `escribe.rs`: la gpu fn hecha Programa;
+      - `dibujo.rs`: la que dibuja.
+      Un registro es un `Valor` de varias hojas, con sus `if`, sus bucles y
+      sus casas hoja a hoja. La de vertice y la de pixel salen como el
+      Programa por elementos y componentes (un componente que su campo no
+      tiene sale 0) y pasan la bateria en las dos tarjetas, componente a
+      componente;
+    - la RTX 3060 12G DIBUJA (`tarjeta-rtx3060-12g/src/dibujo.rs`):
+      - emite con las entradas en registros;
+      - comprueba los bits contra la casa (`vivo::comprobar`);
+      - pega con el pegamento de E5, sin libreta, como `pegados()` del banco
+        de BMOX-12;
+      - juzga como la puerta del kernel (`juzgar_programa`);
+      - mete las de un paquete en su SOBRE: un BSF de SM86 con el ABI
+        `SM86_V1`, un modulo por gpu fn con su nombre, y el MAPA de la casa
+        de fuente (`vivo::mapa_de`: el mismo texto que el MAPA de un PSO);
+    - `titan sm86` deja cada una pegada (`.sm86`) y el sobre del paquete
+      (`.bsf`);
+    - el ejemplo `nivel11/cubo`: el cubo de V0, con sus dos gpu fn
+      (`cubo_vertice` y `cubo_pixel`).
+  - **Como se supo:**
+    - la tanda (`emisor-x86_64/tests/cubo.rs`): el cubo en TITAN++ da los
+      bits de la tanda de `bmo_cubo` en los fotogramas 0, 30, 60 y 123. Son
+      54 vertices: cada posicion de recorte bit a bit y cada color en 8
+      bits, en las DOS tarjetas, en la casa y en el calculo;
+    - el sobre:
+      - sale IGUAL dos veces, tambien desde otra carpeta;
+      - sus dos programas, PERFECTO Y PRECISO: el de vertice, 28
+        instrucciones con el pegamento; el de pixel, 10;
+      - cumple el contrato que el escritorio exige a `cubo.bsf` al abrir:
+        `cubo_vertice` lee un bufer set 0 binding 0 de 32 bytes por vertice,
+        el `Vertex` de VERRANO;
+    - a mano, en las dos tarjetas:
+      - un vertice que trabaja: un campo que cambia, un `if` que cambia un
+        registro entero, y un bucle con `break` que llama a otra gpu fn;
+      - un pixel que vuelve desde dentro de su bucle;
+      - la posicion del pixel no cambia lo que pinta, ni con un NaN;
+      - una casa que dice otra cosa es un NO con su entrada;
+    - lo de antes, igual: los 42 `.bex` de los programas BIEN, byte a byte,
+      y el SASS de las 16 gpu fn del nivel 11.
+  - **Queda, del propietario (el metal):** `gpu verrano` con el `cubo.bsf`
+    de TITAN++ donde hoy va el de SASS a mano, en el 0, el 30 y el 60. Lo
+    fabrica `titan sm86 toolchain/lang/titan/ejemplos/nivel11/cubo/src/main.titan
+    -o CARPETA`.
 
 - [ ] **LB7 -- TITAN++ MANDA A VERRANO.** Una app de TITAN++ que dibuja el
   cubo girando, por el camino de DL8: el permiso (DL7) y su puerta en el
