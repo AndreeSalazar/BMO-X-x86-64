@@ -1054,6 +1054,16 @@ recomendacion, y el propietario tomo las cuatro:
       NO, con el mismo codigo y en la misma linea);
     - lo de antes, igual: los 38 `.bex` de los programas BIEN que ya
       compilaban, byte a byte; el SASS de `mezcla`, `suma` y `activa`, igual.
+  - **09-10, un arreglo del escritor (lo encontro el estudio de DL14):** un
+    nombre que leia el valor de otro que CAMBIA en la vuelta (`let viejo =
+    s`, despues `s = s + 1.0`) veia lo nuevo: la casa de `s` se pisa en su
+    sitio, y `viejo` la leia. El oraculo lo paraba -- el calculo 3, las dos
+    tarjetas 6: no habia `.bex` --, nunca un numero mal. Ahora, antes de
+    pisar una casa, quien la lee con otro nombre se queda con una copia
+    (`asignar`, en `escribe.rs`; el contador escondido de un `for` no: su `i`
+    ya murio en su paso). Su prueba, en las dos tarjetas contra Rust
+    (`pruebas_bucles.rs`), cae sin el arreglo; y los 45 programas BIEN dan
+    los mismos `.bex` y el mismo SASS, byte a byte.
 
 - [ ] **LB6 -- LA gpu fn QUE DIBUJA.** Una gpu fn de VERTICE y una de PIXEL,
   dichas por su firma (DL6), escritas en TITAN++ y pegadas y juzgadas como las
