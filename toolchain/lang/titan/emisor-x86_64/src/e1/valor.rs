@@ -64,6 +64,8 @@ impl E1<'_> {
                 (t, Class::Bool)
             }
             Value::Call(func, args, at) => self.call(*func, args, *at)?.ok_or_else(|| format!("linea {}: una llamada sin valor usada como valor", at.0))?,
+            // LB7b: lo que contesta el director, un si/no (`director.rs`).
+            Value::Director(what, args, at) => self.director(*what, args, *at)?.ok_or_else(|| format!("linea {}: `{}` no da un valor (fallo del compilador)", at.0, what.name()))?,
             Value::Round(inner, n, at) => self.round(inner, *n, *at)?,
             // `[]` (nivel 13): una lista sin nada, el asa a cero
             Value::Table(items, _) if items.is_empty() => {

@@ -306,6 +306,17 @@ CONSERVADORES (esperar siempre lo maximo).
   los bits de IEEE aunque el MUFU.RCP se equivoque -- el simulador lo mueve
   hasta 4 ULP a cada lado --. Cuesta 105 instrucciones. La raiz sigue como
   MUFU, modelada como la casa.
+  **09-10 (LB7a de PLAN_LAS_LIBRERIAS):** los registros, FRUGALES cuando no
+  caben. Si un cuerpo no cabe en los que le dan (64 en VERRANO), el emisor lo
+  intenta otra vez: lo que sube a un registro (una constante, una entrada del
+  banco) no se queda en el, se vuelve a subir cada vez que se lee; cada
+  variable recibe su registro justo antes de lo primero que la toca, fuera de
+  todo `si` y bucle; y lo que nadie lee se suelta en cuanto se escribe
+  (`emitir_libreta`, y `nace` y `sobra` en `saltos.rs`). Mas MOV y menos
+  registros: la matriz de un fotograma del cubo (`cubo.wvp` de
+  `nivel11/cubo_gira`) pasa de 78 a 44. Lo que ya cabia sale igual, byte a
+  byte. Lo prueba la bateria de E6 con el modo forzado: 400 programas al
+  azar, en los dos ABI, con los bits de la casa y el si del juez.
 
 ## [x] E4 -- LOS BITS DE CONTROL POR REGLA
 
@@ -629,6 +640,173 @@ reinicia la GPU); en BMO-X no hay nada igual -- ni en
 - Las convenciones: comentarios en ASCII y en castellano sin enes caidas,
   ambitos de `toolchain/tools/ambitos/AMBITOS.txt`, los guardianes de
   `toolchain/tools/*` con `--check`.
+
+## [ ] E8 -- TODA LA LISTA DE LA CASA EN LA 3060 (09-10)
+
+Del propietario, el 09-10: *"hasta el final que tenga todo el ASM de GPU
+rtx 3060 12G"*. La casa (el `Programa` de PROTON-X y de TITAN++) sabe
+operaciones que el emisor de la 3060 todavia dice que NO -- `NoEmite::Operacion`
+en su sitio --, y entonces ese sombreador va por la CPU. E8 las trae, una a
+una, con la misma vara de siempre: los BITS de la casa en el simulador, el
+juez diciendo que si (R0..R6, y R7 para el cuerpo de una app), y el metal
+despues.
+
+- **Lo que decia que NO el 09-10**, y lo que pide cada cosa:
+
+```text
+   Mate exactas    redondeos, frac, es_nan..., los bits,   E8a: HECHO (abajo),
+                   los medios floats                        con lo que R7 deja
+   arrays          LeeIndexado, EscribeIndexado             E8b: HECHO (abajo),
+                                                            con SEL en cadena
+   cbuffer         ConstantesEn (la fila calculada)         memoria (c[][] con
+                                                            indice): R7 no la
+                                                            deja a una app
+   discard         Descarta (el KILL de la 3060)            E8c: HECHO (abajo),
+                                                            KILL en R7 (DL12)
+   olas            vote, shfl (Ola)                         R7, y el simulador
+                                                            por warp
+   texturas        arrays, cubos, 3D, mips, Load,           TEX/TLD con su asa:
+                   GetDimensions, EligeTextura              el kernel la pone
+   Mate de series  sin, cos, tan, exp2, log2, los arcos,    sus bits salen de
+                   los hiperbolicos (la casa, f64)          f64: DADD/DMUL/DFMA
+                                                            no estan en R7
+   computo         IdHilo, Barrera, la memoria compartida,  LB8 de
+                   UAV, atomicos, el contador               PLAN_LAS_LIBRERIAS
+   geometria       EntradaDe, Emite, Corta                  VERRANO no tiene
+                                                            esa etapa
+```
+
+- **Lo que es del propietario** (R7 es la puerta de las apps, Ring 0): que
+  instrucciones nuevas deja R7 a un cuerpo de app (KILL o el EXIT con
+  guarda, VOTE, SHFL, las de f64, un LDC con indice para `ConstantesEn`),
+  y por que camino van los bits EXACTOS de
+  las de series (DL10 dijo exactos: en f64 en la 3060 como la casa, u otras
+  cuentas de f32 que den los mismos bits -- que la casa cambie las suyas es
+  tambien una salida --).
+  **Contestado el 09-10 (DL12 a DL15 de `PLAN_LAS_LIBRERIAS.md`, 4.1):** R7
+  deja KILL y VOTE/SHFL, y todavia no mas formas de TEX/TLD ni el LDC con
+  indice; las de series pasan, en la casa, a cuentas de f32 que la 3060
+  repite; y lo de Ring 0 lo escribe Claude para que el propietario lo
+  revise y lo pruebe en el metal.
+- **E8a, las Mate EXACTAS (09-10, hecho en el anfitrion):**
+  - `proton-x-sm86/src/mates.rs`: `RedondoPar`, `Suelo`, `Techo`, `Trunca`,
+    `Frac`; `EsNan`, `EsInf`, `EsFinito`, `EsNormal`; `CuentaBits`,
+    `InvierteBits`, `PrimerBitBajo`, `PrimerBitAlto`,
+    `PrimerBitAltoConSigno`; `F16aF32` y `F32aF16`. Las dieciseis con lo que
+    R7 YA deja (FADD, FMUL, FSETP, ISETP, SEL, IADD3, IMAD, LOP3, SHF, I2F,
+    F2I): el juez no cambia ni una linea.
+  - Como: truncar es F2I.TRUNC e I2F con |x| < 2^23, con el SIGNO de x (-0.5
+    da -0, como la casa); suelo, truncar menos uno si se paso; techo,
+    -suelo(-x) por los bits; al par, (|x| + 2^23) - 2^23 -- la suma redondea
+    al par --; frac, la misma resta que la casa. La clase, por FSETP
+    (desordenada para el NaN) y la normal por su exponente. Los bits, por
+    SWAR (contar, invertir; el primero por arriba, derramando). Los medios
+    floats por sus campos, con los bordes de la casa: su NaN (0x7E00), el
+    infinito desde 65520 y los subnormales al par. Cada cuenta escribe su
+    destino en la ULTIMA instruccion (`x = f(x)` no pisa lo que lee), con
+    los predicados P1..P3 (el P0 es de las comparaciones fundidas).
+  - Como se sabe (`pruebas_mates.rs`): cada una, en los dos ABI, juzgada
+    (R0..R6 y R7), sobre los bordes de cada exponente, 20 000 al azar y, la
+    de medio a f32, los 65 536 medios (tambien con basura arriba): los
+    MISMOS bits que `Mate::aplicar` -- exactos los enteros y los si/no, y en
+    los f32 un NaN por otro --. Saboteada (sin el signo de truncar), cae en
+    el primer -0. Y `x = f(x)` tres vueltas en un bucle da lo de la casa.
+  - Lo que cuestan, con su entrada y su EXIT (`lo_que_cuesta_cada_mate`,
+    el ABI de registros): la clase de un numero, 3 instrucciones (la
+    normal, 6); truncar y al par, 7; suelo, 10; frac, 11; techo, 12; contar
+    bits, 13; el primer bit por abajo, 18; de medio a f32, 23; invertir y el
+    primero por arriba, 26; con signo, y de f32 a medio, 29. De 5 a 11
+    registros. Caben de sobra en un hueco de la tuberia (128).
+  - Las de SERIES siguen diciendo que NO en su sitio, y van por la CPU.
+- **E8b, los ARRAYS (09-10, hecho en el anfitrion):**
+  - `proton-x-sm86/src/indexado.rs`: `LeeIndexado` y `EscribeIndexado` (lo
+    de N5.10 de PLAN_LAS_TRES_GRANDES: el `alloca` de un array local, las
+    tablas globales constantes, los temporales indexables de SM5) SIN
+    MEMORIA -- R7 no deja a un cuerpo de app ni LDL ni STL --: el array son
+    sus registros y el indice se mira contra cada elemento. Leer: por cada
+    `j`, `ISETP.EQ.U32 P1, i, j` y `SEL x, a[j], x, P1`, la primera contra
+    RZ; escribir: por cada `j`, `SEL a[j], s, a[j], P1`. Fuera del array
+    -- tambien los bits de un negativo o de un NaN como indice -- se lee 0
+    y no se escribe nada, como la casa, que mira los BITS del indice. Con
+    el indice escrito (el `a[2]` del DXIL), la copia y ya. Solo ISETP, SEL
+    y MOV, que R7 ya deja: el juez no cambia ni una linea.
+  - El analisis (`saltos.rs`) cuenta cada lectura y cada escritura indexada
+    como una de TODO el array -- cualquier elemento puede ser el del
+    indice, y la escritura deja los demas como estaban: tambien los lee --;
+    cada elemento de un array que se escribe es una VARIABLE (su registro
+    desde que nace, con su inicial). Si el indice es un elemento del mismo
+    array (`a[a[0]] = s`), sus bits se miran UNA vez, antes de la cadena,
+    como la casa: lo encontro la revision, con su prueba que fallaba antes.
+    Un array que se sale de los registros del Programa no se emite (va por
+    la CPU): el emisor no se cae.
+  - Como se sabe (`pruebas_indexado.rs`): una tabla constante con 19
+    indices (dentro, el borde, fuera, y los bits de un negativo, de un float
+    y de un NaN); un array local escrito en un bucle y leido con el indice
+    de la entrada; el indice escrito; el indice que es un elemento del
+    mismo array; 300 programas al azar con dos arrays (el que se escribe y
+    una tabla), con indices escritos, de la entrada, del contador de un
+    bucle y de los elementos del array, dentro de `si` y de bucles; y
+    `arreglos.hlsl` de `dxc` -- el de N5.10, lo que pedian los pixeles de
+    Cyberpunk -- de punta a punta: el lector, el emisor, el juez y el
+    simulador. Todo en los dos ABI, juzgado (R0..R6 y R7), con los bits de
+    la casa. Saboteada la escritura (el indice comparado al reves), caen el
+    bucle, el azar, `arreglos.hlsl` y la del indice que es un elemento; sin
+    leer el indice una vez, caen su prueba y el azar.
+  - Lo que cuesta: dos instrucciones por elemento y acceso. Por la PUERTA de
+    128, con el pegamento de pixel del driver y el juez de programas: una
+    tabla de 4 leida con su indice, 10 instrucciones; un array de 6 escrito
+    en un bucle y leido, 42 -- caben, y el juez los da por buenos --.
+    `arreglos.hlsl` entero (siete accesos con indice calculado, dos bucles y
+    la division entre 3) da 132 de cuerpo y NO cabe: el pegamento lo dice
+    (`NoPega::Instrucciones`) y su PSO va por la CPU, como antes de E8b.
+    Que quepa: una puerta mas grande (del propietario) o un cuerpo mas
+    chico (compartir las comparaciones de dos accesos con el mismo indice;
+    no nacer un array que se escribe entero antes de leerlo).
+  - `ConstantesEn` (la fila del cbuffer CALCULADA, `luces.hlsl`) sigue
+    diciendo que NO: son hasta 4096 filas, memoria (`c[][]` con indice), y
+    R7 no la deja a un cuerpo de app. Es del propietario (arriba).
+- **E8c, el DISCARD (09-10, hecho en el anfitrion; DL12 del propietario):**
+  - El KILL de la 3060: `[@P] KILL` (0x95b; su predicado PT en 87..91, como
+    el EXIT). `ptxas` no lo da (solo computo): `bmo_sm86::codifica::kill` lo
+    fabrica y `nvdisasm -b SM86` (13.4, de PyPI, el mismo de E2) lo lee de
+    vuelta -- sin guarda y con los de P0, !P0, P3 y !P5, `LEIDAS_DL12` --.
+  - La cabecera: KillsPixels es el bit 15 de CommonWord0. Lo dice NVIDIA
+    (`open-gpu-doc`, la SPH, tabla 3: MrtEnable 14, KillsPixels 15,
+    DoesGlobalStore 16; el 26, DoesLoadOrStore, cuadra con el de la casa),
+    y su texto: sin el, "los KIL son un NOP y disparan una excepcion del
+    hardware"; con el, EarlyZ se apaga; y es solo de los de pixel.
+  - El emisor (`lib.rs`): `Op::Descarta { c }` es `condicion(c)` y `@P0
+    KILL`; la Compara de justo antes se FUNDE (`saltos.rs`: `if (x < 0)
+    discard;` es un FSETP y el KILL, sin SEL). El simulador sabe el KILL
+    (`Maquina::matado`), y las comparaciones con la casa miran tambien si
+    el pixel queda.
+  - Lo del propietario (DL15: escrito por Claude para su revision). Sus
+    ficheros tocados: `platform/drivers/gpu/ga10x/src/sass/juez.rs`,
+    `sass/juez_kill.rs` (nuevo, sus pruebas), `sass/mod.rs`,
+    `trabajos/pegamento.rs` y `trabajos/raster.rs`. El juez CONOCE el KILL
+    -- la forma que se sabe y ninguna otra: R0 --; R7 lo deja a un cuerpo
+    de app con su guarda; R5 no deja un KILL fuera de un programa de pixel
+    ni sin KillsPixels; y su guarda espera a su predicado como el de un BRA
+    (R9). El pegamento de pixel pone KillsPixels si el cuerpo trae un KILL
+    (`raster::MATA_PIXELES`). La puerta del kernel usa ese juez y ese
+    pegamento: lo sabe al compilarse.
+  - Como se sabe (`pruebas_descarte.rs`, `juez_kill.rs`): `if (x < 0)
+    discard;` con floats de todas las clases; `discard_nz` con los bits de
+    un entero; el KILL dentro de un bucle y de un `si`; `descarte.hlsl` de
+    `dxc` (el `clip` y el `discard` de lo recortado por alfa) y el de SM5
+    de `fxc`, de punta a punta -- todo en los dos ABI, juzgado (R0..R6 y
+    R7), con el pixel y los bits de la casa --; y por la PUERTA:
+    `descarte.hlsl` pegado lleva KillsPixels y el juez de programas lo da
+    por bueno; con la misma SPH sin el bit, R5. Saboteado el guarda (el
+    KILL con el predicado al reves), caen cinco de las seis; sin el bit en
+    el pegamento, cae la de la puerta.
+  - Lo que cuesta: `descarte.hlsl`, 15 instrucciones (13 con el ABI de
+    registros), 15 pegado: un PSO con `discard` ya no va por la CPU.
+  - En el metal (del propietario): la primera vez que la 3060 tire un pixel
+    lo dira el metal.
+- **Como se sabra E8 entera:** cada fila de la tabla, con su prueba en el
+  anfitrion; las que piden R7 o el kernel, cuando el propietario las abra; y
+  en el metal, un sombreador de cada una.
 
 ---
 

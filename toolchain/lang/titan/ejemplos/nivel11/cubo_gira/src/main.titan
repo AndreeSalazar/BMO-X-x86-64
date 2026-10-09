@@ -1,0 +1,114 @@
+# espera: BIEN
+# sale: seno y coseno de 30 y 90 grados: 0.500000 0.866025 1.000000 0.000000
+# sale: la diagonal de la matriz del fotograma 0: 0.974279 1.659004 0.958785 5.220153
+# sale: la cara verde de enfrente con su luz, en el fotograma 0: 0.117033 0.542047 0.117033
+# sale: nadie compone: la lamina no se ofrece a nadie
+# el CUBO QUE GIRA de bmo_cubo, contado por gpu fn BIT A BIT (LB7a) y PUBLICADO en la lamina de VERRANO (LB7b): cada fotograma, sus vertices a recorte, las caras que miran y su luz; el escritorio lo dibuja con la 3060. Lanzado desde el shell nadie compone, y lo dice; la prueba `tests/lamina.rs` del emisor lo lanza el escritorio de mentira y lee la lamina con el lector de VERRANO
+mod main "el cubo que gira, contado por gpu fn y publicado en la lamina de VERRANO"
+use director
+mod num
+mod cubo
+mod malla
+
+fn main()
+    let fs: [f32; 2] = [30.0, 90.0]
+    let a = cubo.angulo(fs)
+    let s = num.seno(a)
+    let c = num.coseno(a)
+    print("seno y coseno de 30 y 90 grados: ", round(s[0], 6), " ", round(c[0], 6), " ", round(s[1], 6), " ", round(c[1], 6))
+    let f0: [f32; 4] = [0.0, 0.0, 0.0, 0.0]
+    let ks: [f32; 4] = [0.0, 5.0, 10.0, 15.0]
+    let d = cubo.wvp(f0, ks)
+    print("la diagonal de la matriz del fotograma 0: ", round(d[0], 6), " ", round(d[1], 6), " ", round(d[2], 6), " ", round(d[3], 6))
+    let f3: [f32; 3] = [0.0, 0.0, 0.0]
+    let verde: [f32; 3] = [0.19, 0.88, 0.19]
+    let cero: [f32; 3] = [0.0, 0.0, 0.0]
+    let menos: [f32; 3] = [-1.0, -1.0, -1.0]
+    let k = cubo.color(f3, verde, cero, cero, menos)
+    print("la cara verde de enfrente con su luz, en el fotograma 0: ", round(k[0], 6), " ", round(k[1], 6), " ", round(k[2], 6))
+    # La lamina: 24 vertices por ranura, ocho triangulos (la tanda de bmo_cubo
+    # no da mas). Diez minutos de cubo, a un fotograma cada 16 ms.
+    if not director.lamina(24)
+        print("nadie compone: la lamina no se ofrece a nadie")
+        return
+    for vuelta in range(100)
+        for f in range(360)
+            fotograma(f)
+            director.espera(16)
+
+# ** UN FOTOGRAMA, contado por gpu fn y PUBLICADO: la tanda de bmo_cubo
+# (`tanda::de_fotograma`) -- cada vertice a recorte, su subpixel, las caras
+# que miran (su area en subpixeles, en dec: exacta) y su luz --, tres vertices
+# por cara que mira, en el orden de los indices.
+fn fotograma(f: int)
+    let a: f32 = f
+    let fs: [f32; 16] = [a; 16]
+    let ks: [f32; 16] = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0]
+    let w = cubo.wvp(fs, ks)
+    # Cada vertice a recorte: una celda por (vertice, fila), con su fila de la
+    # matriz (por columnas: la fila r son las entradas r, 4 + r, 8 + r, 12 + r).
+    let x = malla.x()
+    let y = malla.y()
+    let z = malla.z()
+    let mut m0: [f32; 96] = [0.0; 96]
+    let mut m1: [f32; 96] = [0.0; 96]
+    let mut m2: [f32; 96] = [0.0; 96]
+    let mut m3: [f32; 96] = [0.0; 96]
+    let mut vx: [f32; 96] = [0.0; 96]
+    let mut vy: [f32; 96] = [0.0; 96]
+    let mut vz: [f32; 96] = [0.0; 96]
+    for i in range(24)
+        for r in range(4)
+            let k = 4 * i + r
+            m0[k] = w[r]
+            m1[k] = w[4 + r]
+            m2[k] = w[8 + r]
+            m3[k] = w[12 + r]
+            vx[k] = x[i]
+            vy[k] = y[i]
+            vz[k] = z[i]
+    let clip = cubo.recorte(m0, m1, m2, m3, vx, vy, vz)
+    # Su subpixel, y si esta detras.
+    let mut xs: [f32; 24] = [0.0; 24]
+    let mut ys: [f32; 24] = [0.0; 24]
+    let mut ws: [f32; 24] = [0.0; 24]
+    for i in range(24)
+        xs[i] = clip[4 * i]
+        ys[i] = clip[4 * i + 1]
+        ws[i] = clip[4 * i + 3]
+    let sx = cubo.pantalla_x(xs, ws)
+    let sy = cubo.pantalla_y(ys, ws)
+    let detras = cubo.detras(ws)
+    # La luz de cada triangulo, canal a canal.
+    let fs36: [f32; 36] = [a; 36]
+    let luz = cubo.color(fs36, malla.color(), malla.normal_x(), malla.normal_y(), malla.normal_z())
+    # Las caras que miran. Un cubo muestra tres como mucho: seis triangulos, y
+    # caben ocho.
+    let is = malla.indices()
+    let uno: f32 = 1.0
+    let mut posiciones: [f32; 96] = [0.0; 96]
+    let mut colores: [f32; 96] = [0.0; 96]
+    let mut n = 0
+    for t in range(12)
+        let tri: [int; 3] = [is[3 * t], is[3 * t + 1], is[3 * t + 2]]
+        if detras[tri[0]] or detras[tri[1]] or detras[tri[2]]
+            continue
+        let ax = round(sx[tri[0]], 0)
+        let ay = round(sy[tri[0]], 0)
+        let bx = round(sx[tri[1]], 0)
+        let by = round(sy[tri[1]], 0)
+        let px = round(sx[tri[2]], 0)
+        let py = round(sy[tri[2]], 0)
+        if (bx - ax) * (py - ay) - (by - ay) * (px - ax) <= 0
+            continue
+        if n == 24
+            break
+        for j in range(3)
+            for r in range(4)
+                posiciones[4 * n + r] = clip[4 * tri[j] + r]
+            colores[4 * n] = luz[3 * t]
+            colores[4 * n + 1] = luz[3 * t + 1]
+            colores[4 * n + 2] = luz[3 * t + 2]
+            colores[4 * n + 3] = uno
+            n = n + 1
+    director.publica(f, n, posiciones, colores)

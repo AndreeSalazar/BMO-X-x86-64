@@ -1,0 +1,7 @@
+# espera: T0080
+# el director se nombra ARRIBA (use director, y screen en el Titan.toml): quien lee la cabecera sabe que el programa habla con la pantalla sin leer su cuerpo
+mod main "una lamina sin decirlo"
+
+fn main()
+    if not director.lamina(24)
+        print("nadie compone")

@@ -338,6 +338,22 @@ impl Resolver<'_> {
         let Some((x, y)) = name.split_once('.') else {
             return Ok(if self.own(m, name, want) { format!("{}{}", self.prefix(m), name) } else { name.to_string() });
         };
+        // ** LB7b: a node of BMO-X (`director.lamina`) keeps its name: the
+        // checker knows what the node has. Only a module that says so UP in
+        // its header reaches it -- the cable F1 draws.
+        if SYSTEM.iter().any(|s| s.0 == x) && !self.names.iter().any(|n| n == x) {
+            if !self.pkg.files[m].program.uses.iter().any(|u| u.name == x) {
+                return Err(Message::new(
+                    Code::Undeclared,
+                    at.0,
+                    at.1,
+                    &format!("`{}` usa `{}` y su cabecera no lo dice", self.names[m], x),
+                    "un modulo dice ARRIBA con quien habla (U3): quien lee la cabecera sabe que este habla con BMO-X sin leer el cuerpo, y F1 dibuja ese cable",
+                    &format!("agrega a la cabecera de {}: use {}", self.pkg.files[m].path, x),
+                ));
+            }
+            return Ok(name.to_string());
+        }
         let Some(j) = self.names.iter().position(|n| n == x) else {
             let near = self.names.iter().map(String::as_str).min_by_key(|k| distance(k, x)).filter(|k| distance(k, x) <= 2);
             return Err(Message::new(

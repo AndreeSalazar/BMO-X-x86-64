@@ -39,6 +39,7 @@
 
 mod ancho;
 mod coleccion;
+mod director;
 mod escribe;
 mod forma;
 mod gpu;
@@ -805,6 +806,10 @@ impl<'m> E1<'m> {
                 self.drop_at(dst, &cell);
                 self.convert(dst, p, &c, &cell, ty.as_ref(), *at)?;
             }
+            // LB7b: el director, en su propia linea (`director.rs`).
+            Op::Director { what, args, at } => {
+                self.director(*what, args, *at)?;
+            }
             Op::Write { parts, .. } => {
                 // primero se CALCULA todo: un NO nunca deja media linea. Lo
                 // ESCRITO (un texto, un int, un si/no) ya se sabe: no se
@@ -908,6 +913,11 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
     if heap {
         x86::zero_r32(&mut e.code, monton::R14);
     }
+    // ** LA LAMINA (LB7b): `r13`, cero hasta que el director la tome. Solo si
+    // el programa habla con el director.
+    if uses_director(m) {
+        x86::zero_r32(&mut e.code, director::R13);
+    }
     // r15: la pila que gastan las llamadas abiertas, empezando por la raiz
     e.code.extend_from_slice(&[0x41, 0xBF, 0, 0, 0, 0]); // mov r15d, imm32
     let root_cost = e.code.len() - 4;
@@ -996,6 +1006,12 @@ fn uses_heap(m: &Module) -> bool {
     ["Lib(", "Map(", "List(", "Opt(", "Table([]"].iter().any(|k| s.contains(k))
 }
 
+/// LB7b: habla el programa con el director (`Op::Director`, `Value::Director`)?
+fn uses_director(m: &Module) -> bool {
+    let s = format!("{:?}", &m.functions);
+    ["Director {", "Director("].iter().any(|k| s.contains(k))
+}
+
 /// Las fn a las que se llega desde `main` (y las de los tipos de un trait).
 fn reachable(m: &Module) -> Vec<bool> {
     let mut seen = vec![false; m.functions.len()];
@@ -1024,7 +1040,7 @@ fn callees(f: &Function) -> Vec<usize> {
                     args.iter().for_each(|a| calls_in(a, &mut found));
                 }
                 Op::Let { value, .. } | Op::Set { value, .. } | Op::SetAt { value, .. } => calls_in(value, &mut found),
-                Op::Write { parts, .. } => parts.iter().for_each(|a| calls_in(a, &mut found)),
+                Op::Write { parts, .. } | Op::Director { args: parts, .. } => parts.iter().for_each(|a| calls_in(a, &mut found)),
                 Op::Drop { .. } => {}
             }
             if let Op::SetAt { path, .. } = op {
@@ -1054,7 +1070,7 @@ fn calls_in(v: &Value, out: &mut Vec<usize>) {
             calls_in(b, out);
         }
         Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) => calls_in(a, out),
-        Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) => items.iter().for_each(|a| calls_in(a, out)),
+        Value::Table(items, _) | Value::Record(_, items, _) | Value::Variant(_, _, items, _) | Value::Lib(_, items, _) | Value::Director(_, items, _) => items.iter().for_each(|a| calls_in(a, out)),
         Value::Map(items, _) => items.iter().for_each(|(k, v)| {
             calls_in(k, out);
             calls_in(v, out);

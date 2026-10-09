@@ -187,6 +187,16 @@ pub fn exit(control: u64) -> (u64, u64) {
     palabra(0x14D | 4 << 9 | SIEMPRE, 7 << 23, control)
 }
 
+/// ** DL12 (09-10): `[@[!]Pg] KILL` -- el `discard` de un programa de PIXEL:
+/// el hilo acaba y su pixel no se escribe (con la SPH diciendo KillsPixels,
+/// el bit 15: sin el, NVIDIA dice que el KILL es un NOP y una excepcion).
+/// Como el EXIT: su predicado PT en 87..90; el guarda, 0..6 (P0..P6, +8
+/// negado) o 7 (siempre). `ptxas` no la da (solo computo): la leyo `nvdisasm
+/// -b SM86` (13.4), [`LEIDAS_DL12`].
+pub fn kill(guarda: u8, control: u64) -> (u64, u64) {
+    palabra(0x15B | 4 << 9 | (guarda as u64 & 0xF) << 12, 7 << 23, control)
+}
+
 // == Comparar, elegir y saltar (E6, 02-10) ===================================
 //
 // Lo que el emisor necesita para `if` y para los bucles. `ptxas` (12.9) lo
@@ -529,6 +539,17 @@ pub const LEIDAS_E6: &[(&str, u64, u64)] = &[
     ("BRA -0x70000 (en 0x140: a -0x6feb0)", 0xfff9000000007947, 0x000fec000383ffff),
 ];
 
+/// ** DL12 (09-10): el KILL, fabricado aqui con el control de [`ALU`] y
+/// leido por `nvdisasm -b SM86` (13.4) como dice el texto: sin guarda y con
+/// los de P0, !P0, P3 y !P5.
+pub const LEIDAS_DL12: &[(&str, u64, u64)] = &[
+    ("KILL", 0x000000000000795b, 0x000fec0003800000),
+    ("@P0 KILL", 0x000000000000095b, 0x000fec0003800000),
+    ("@!P0 KILL", 0x000000000000895b, 0x000fec0003800000),
+    ("@P3 KILL", 0x000000000000395b, 0x000fec0003800000),
+    ("@!P5 KILL", 0x000000000000d95b, 0x000fec0003800000),
+];
+
 /// Lo que `ptxas` NO dio de E6c, fabricado aqui y leido por `nvdisasm -b
 /// SM86` (13.4) como dice el texto (02-10): I2F al mas cercano (con y sin
 /// signo), IADD3 restando un registro, y otras formas de las de arriba.
@@ -715,6 +736,15 @@ mod pruebas {
         ];
         assert_eq!(hechas.len(), LEIDAS_E6C.len());
         for ((texto, lo, hi), h) in LEIDAS_E6C.iter().zip(hechas) {
+            assert_eq!(h, (*lo, *hi), "{texto}");
+        }
+    }
+    /// ** DL12: el KILL fabricado es lo que leyo `nvdisasm`.
+    #[test]
+    fn nvdisasm_lee_el_kill() {
+        let hechas = [kill(PT, ALU), kill(0, ALU), kill(8, ALU), kill(3, ALU), kill(8 + 5, ALU)];
+        assert_eq!(hechas.len(), LEIDAS_DL12.len());
+        for ((texto, lo, hi), h) in LEIDAS_DL12.iter().zip(hechas) {
             assert_eq!(h, (*lo, *hi), "{texto}");
         }
     }

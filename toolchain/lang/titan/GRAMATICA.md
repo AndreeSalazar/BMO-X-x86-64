@@ -946,6 +946,56 @@ gpu fn cubo_pixel(v: Vertice) -> Cuatro       # de PIXEL: recibe eso, deja su co
   la tanda de `bmo_cubo` (`emisor-x86_64/tests/cubo.rs`); en el metal, del
   propietario.
 
+### El DIRECTOR: la lamina de VERRANO (09-10, LB7b de `docs/plan/PLAN_LAS_LIBRERIAS.md`)
+
+```text
+use director                                  # y en el Titan.toml: screen = true
+
+fn main()
+    if not director.lamina(24)                # 24 vertices en cada ranura
+        print("nadie compone")                # lanzado desde el shell
+        return
+    for f in range(360)
+        director.publica(f, n, posiciones, colores)   # [f32; 4k] las dos
+        director.espera(16)                   # milisegundos
+```
+
+- **Lo que el director sabe hoy, y nada mas** (DL7 y DL8, del propietario el
+  09-10: `screen` ahora, y primero la LAMINA, como INTI):
+  - `director.lamina(c)`: pide el bloque de una lamina de VERRANO -- la
+    cabecera `BVER` y dos ranuras de `c` vertices --, escribe su cabecera
+    ENTERA y se la OFRECE a quien lanzo el programa. Da si, si la tomo; no,
+    si nadie compone (lanzado desde el shell), si no hay memoria, o si el
+    programa ya tiene su lamina;
+  - `director.publica(f, n, posiciones, colores)`: los `n` primeros vertices
+    de las tablas -- cuatro f32 de posicion (x, y, z, w, en recorte) y cuatro
+    de color cada uno --, en la ranura que nadie lee, con su sello; y la
+    secuencia LO ULTIMO: eso publica el fotograma `f`. Da no si no hay
+    lamina, si `n` no son triangulos enteros, o si no caben en la ranura o en
+    las tablas;
+  - `director.espera(ms)`: duerme hasta el siguiente fotograma.
+- **Un programa que habla con el director CORRE** (E1, como uno que lee):
+  quien compone, y cuando, solo se sabe al correr. Sus gpu fn corren al
+  correr, en la CPU, su reserva (LB4); las cuentas son las de la 3060, bit a
+  bit (lo dice la bateria de cada build).
+- **El certificado lo dice**: cada llamada abre la puerta de la PANTALLA
+  (`screen`) en su linea, y el juez de la puerta de carga la mira.
+- **Y no hay cerrojo**: el trato de la lamina es el de
+  `platform/shared/verrano/src/lamina.rs` -- un escritor, un lector, un sello
+  por ranura --, el mismo que escribe INTI. Una app que se para deja
+  publicado su ultimo fotograma, y ya.
+- Lo que el director NO acepta, cada uno en su sitio: llamarlo sin `use
+  director` (T0080) o sin `screen` en el Titan.toml (T0088); desde una gpu fn
+  (T0090: un hilo de la 3060 cuenta una celda, no publica fotogramas); unas
+  tablas que no son de f32, o de distinto largo, o que no traen cuatro por
+  vertice (T0071); `espera` como un valor (T0069); prestarle o entregarle
+  algo (T0077: lo lee, no se lo queda).
+- El ejemplo: `nivel11/cubo_gira`, el cubo de `bmo_cubo` contado por sus gpu
+  fn y publicado: la prueba `emisor-x86_64/tests/lamina.rs` lo lanza un
+  escritorio de mentira, que lee la lamina MIENTRAS corre con el lector de
+  VERRANO: cada fotograma que da por bueno es la tanda de `bmo_cubo`, bit a
+  bit. En el metal, `gpu verrano banco` sobre ella es del propietario.
+
 > **08-10, LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`:** las tarjetas son DOS,
 > la 3060 y la CPU -- la RESERVA de toda GPU (la ley L32) --, y cada gpu fn
 > pasa la bateria en las dos con los mismos bits. Un programa que no lee
@@ -1182,7 +1232,7 @@ dice. La vara, la de siempre: el calculo, programa a programa y al azar
 | T0077 | `mut` / `take` en la llamada que no cuadran con el parametro, o fuera de una llamada (los nombres) |
 | T0078 | un `match` que no cubre todos los casos de su enum (los nombres) |
 | T0079 | una rama de `match` que no vale: un caso que no existe, de otro enum, repetido, con mas o menos nombres, o un `_`; o un enum que se contiene a si mismo (los nombres) |
-| T0080 | se usa un modulo que no es hijo ni esta en la cabecera con `use` (el paquete) |
+| T0080 | se usa un modulo que no es hijo ni esta en la cabecera con `use` (el paquete); o el director, sin `use director` (09-10, LB7b) |
 | T0081 | un `use` del que no se usa nada (el paquete) |
 | T0082 | se llama a algo de otro modulo que no es `pub` (el paquete) |
 | T0083 | `mod hijo` sin su fichero, o un fichero que dice otro nombre (el paquete) |
@@ -1192,7 +1242,7 @@ dice. La vara, la de siempre: el calculo, programa a programa y al azar
 | T0087 | un trait donde solo va un parametro entero: en un `let`, un campo, una tabla o un resultado (el comportamiento) |
 | T0088 | se usa un nodo de BMO-X (`gpu`, `director`) que el Titan.toml no pide (el paquete, U2) |
 | T0089 | un Titan.toml que no se lee: una linea que no es seccion, clave o comentario (el paquete) |
-| T0090 | una `gpu fn` que no es una celda de la 3060: print, tablas, textos, mut / take, sin resultado, una llamada a la CPU o a si misma, un `while`, o un `range` sin sus extremos escritos (la gpu); o lo que su libreria todavia no hace exacto, en su sitio (la division general en la 3060, hasta que DL10 la hizo exacta el 09-10) |
+| T0090 | una `gpu fn` que no es una celda de la 3060: print, tablas, textos, mut / take, sin resultado, una llamada a la CPU, al director o a si misma, un `while`, o un `range` sin sus extremos escritos (la gpu); o lo que su libreria todavia no hace exacto, en su sitio (la division general en la 3060, hasta que DL10 la hizo exacta el 09-10) |
 | T0091 | un f32 contado, comparado o impreso en la CPU: alli se guarda o se pasa, y vuelve con `round` (el calculo, D2) |
 
 ## El banco: lo que dice cada ejemplo de si mismo

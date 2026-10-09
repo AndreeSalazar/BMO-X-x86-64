@@ -1,0 +1,6 @@
+[package]
+name = "director_en_la_gpu"
+
+[permissions]
+gpu = "compute"
+screen = true

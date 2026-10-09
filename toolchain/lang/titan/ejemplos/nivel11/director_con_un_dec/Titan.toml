@@ -1,0 +1,5 @@
+[package]
+name = "director_con_un_dec"
+
+[permissions]
+screen = true

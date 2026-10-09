@@ -43,10 +43,16 @@ pub(crate) fn mismos(sass: u32, casa: f32) -> bool {
 pub(crate) fn igual(p: &Programa, codigo: &[(u64, u64)], entradas: &[[f32; 4]], cb: &[u8]) {
     let mut casa = std::vec![[0.0f32; 4]; p.salidas];
     let mut regs = Vec::new();
-    p.correr(entradas, cb, &mut casa, &mut regs);
+    let queda = p.correr(entradas, cb, &mut casa, &mut regs);
     let banco: Vec<u8> = entradas.iter().flat_map(|e| e.iter().flat_map(|x| x.to_le_bytes())).collect();
     let mut m = Maquina::nueva([&[], &banco, &[], cb, &[], &[], &[], &[]]);
     correr(codigo, &mut m).unwrap();
+    // ** DL12: el pixel que la casa tira, la 3060 lo tira (KILL); y uno
+    // tirado no tiene color que comparar.
+    assert_eq!(!m.matado, queda, "el pixel: la 3060 {} y la casa {}", if m.matado { "lo tira" } else { "lo deja" }, if queda { "lo deja" } else { "lo tira" });
+    if !queda {
+        return;
+    }
     for (e, s) in casa.iter().enumerate() {
         for k in 0..4 {
             assert!(mismos(m.r[4 * e + k], s[k]), "salida {e}.{k}: la 3060 {} y la casa {}", f32::from_bits(m.r[4 * e + k]), s[k]);
@@ -182,7 +188,7 @@ fn cada_operacion_emitida_da_los_bits_de_la_casa() {
 pub(crate) fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]], cb: &[u8]) {
     let mut casa = std::vec![[0.0f32; 4]; p.salidas];
     let mut regs = Vec::new();
-    p.correr(entradas, cb, &mut casa, &mut regs);
+    let queda = p.correr(entradas, cb, &mut casa, &mut regs);
     let mut m = Maquina::nueva([&[]; 8]);
     // Basura en todo lo demas: nadie puede leer un registro sin escribirlo.
     for (i, r) in m.r.iter_mut().enumerate() {
@@ -201,6 +207,11 @@ pub(crate) fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]
         }
     }
     correr(&e.codigo, &mut m).unwrap();
+    // ** DL12: el pixel tirado, en los dos (y sin color que comparar).
+    assert_eq!(!m.matado, queda, "el pixel: la 3060 {} y la casa {}", if m.matado { "lo tira" } else { "lo deja" }, if queda { "lo deja" } else { "lo tira" });
+    if !queda {
+        return;
+    }
     // Solo lo que el programa ESCRIBE (lo demas no se exporta: la SPH dice
     // que componentes salen).
     use bmo_proton_x::dxil::programa::Op;

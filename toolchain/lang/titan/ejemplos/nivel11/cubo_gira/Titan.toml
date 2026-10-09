@@ -1,0 +1,6 @@
+[package]
+name = "cubo_gira"
+
+[permissions]
+gpu = "compute"
+screen = true

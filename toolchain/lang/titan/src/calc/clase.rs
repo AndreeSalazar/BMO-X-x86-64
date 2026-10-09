@@ -59,7 +59,7 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                 match op {
                     Op::Let { value, .. } | Op::Set { value, .. } => cpu_f32(value, &known, m)?,
                     Op::SetAt { value, .. } => cpu_f32(value, &known, m)?,
-                    Op::Call { args, .. } => args.iter().try_for_each(|a| cpu_f32(a, &known, m))?,
+                    Op::Call { args, .. } | Op::Director { args, .. } => args.iter().try_for_each(|a| cpu_f32(a, &known, m))?,
                     Op::Write { parts, .. } => {
                         for p in parts {
                             cpu_f32(p, &known, m)?;
@@ -179,6 +179,9 @@ pub(super) fn classes(f: &Function, m: &Module) -> Result<(), Message> {
                     gpu_call(*func, args, *at, &known, m)?;
                 }
                 Op::Call { func, args, at } => args_fit(*func, args, *at, &known, m)?,
+                Op::Director { what, args, at } => {
+                    director(*what, args, *at, &known, m)?;
+                }
                 Op::Drop { local, .. } => known[*local] = None,
             }
         }
@@ -378,6 +381,50 @@ pub(super) fn gpu_call(func: usize, args: &[Value], at: At, known: &[Option<Clas
     ))
 }
 
+/// ** LB7b: what the DIRECTOR takes, and what it gives back -- a yes/no, or
+/// nothing (`director.espera`). The tables of `publica` are f32 (the
+/// vertices of a frame are counted by a `gpu fn`: on the CPU they are only
+/// PASSED, D2), four per vertex, both of the same length.
+pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<Class>], m: &Module) -> Result<Option<Class>, Message> {
+    // What goes to the director is READ (a copy): nothing is lent or given.
+    if let Some(Value::Lend(mode, _, lat)) = args.iter().find(|a| matches!(a, Value::Lend(..))) {
+        return Err(Message::new(Code::Mode, lat.0, lat.1, &format!("`{}` a `{}`", mode.word(), what.name()), "el director lee lo que le das, y no lo cambia ni se lo queda: no hay nada que prestar ni entregar", "dale el valor: director.publica(f, n, posiciones, colores)"));
+    }
+    let got: Vec<Class> = args.iter().map(|a| class(a, known, m)).collect::<Result<_, _>>()?;
+    let int = |k: usize, what: &str, how: &str| -> Result<(), Message> {
+        if got[k] == Class::Int {
+            Ok(())
+        } else {
+            Err(wrong(args[k].at(), &Class::Int, &got[k], m.defs(), what, how))
+        }
+    };
+    match what {
+        Director::Lamina => {
+            int(0, "`director.lamina` pide cuantos vertices caben en cada una de sus dos ranuras", "director.lamina(18)")?;
+            Ok(Some(Class::Bool))
+        }
+        Director::Espera => {
+            int(0, "`director.espera` pide los milisegundos que duerme el programa", "director.espera(16)")?;
+            Ok(None)
+        }
+        Director::Publica => {
+            int(0, "lo primero que publica es el NUMERO del fotograma", "director.publica(f, n, posiciones, colores)")?;
+            int(1, "lo segundo, cuantos vertices del fotograma van en las tablas", "director.publica(f, n, posiciones, colores)")?;
+            match (&got[2], &got[3]) {
+                (Class::Table(a, n), Class::Table(b, k)) if **a == Class::F32 && **b == Class::F32 && n == k && *n > 0 && n % 4 == 0 => Ok(Some(Class::Bool)),
+                (a, b) => Err(Message::new(
+                    Code::WrongType,
+                    at.0,
+                    at.1,
+                    "`director.publica` lleva los vertices en dos tablas de f32 del mismo largo: sus posiciones y sus colores, cuatro f32 por vertice",
+                    &format!("aqui llega: {} y {}", a.short(m.defs()), b.short(m.defs())),
+                    "let mut posiciones: [f32; 72] = [0.0; 72]  (18 vertices: x, y, z, w de cada uno; los colores, r, g, b, a)",
+                )),
+            }
+        }
+    }
+}
+
 /// Does a value of class `c` keep the trait `k`? Its type has a
 /// `trait ... for` of it (level 10).
 pub(super) fn keeps(c: &Class, k: usize, d: Defs) -> bool {
@@ -517,6 +564,12 @@ pub fn class(v: &Value, known: &[Option<Class>], m: &Module) -> Result<Class, Me
             c => return Err(Message::new(Code::Mixed, at.0, at.1, &format!("`round` redondea un numero, y aqui hay {}", c.name(types)), "solo un numero tiene decimales que redondear", "round(total / 3, 2)")),
         },
         Value::Call(func, args, at) if m.functions[*func].gpu => gpu_call(*func, args, *at, known, m)?,
+        // LB7b: what the director answers, a yes/no (the checker keeps
+        // `espera`, which answers nothing, out of a value).
+        Value::Director(what, args, at) => match director(*what, args, *at, known, m)? {
+            Some(c) => c,
+            None => return Err(Message::new(Code::Result, at.0, at.1, &format!("`{}` no devuelve nada, y aqui se usa como un valor", what.name()), "espera y ya: no hay un valor que guardar", &format!("llamala en su propia linea: {}(16)", what.name()))),
+        },
         Value::Call(func, args, at) => {
             args_fit(*func, args, *at, known, m)?;
             of_ty(m.functions[*func].ret.as_ref().expect("check: a call used as a value gives one back"), types)

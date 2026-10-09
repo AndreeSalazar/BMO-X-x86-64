@@ -216,7 +216,7 @@ fn given_away(f: &Function, l: usize, at: At, given: At) -> Message {
 fn lends(v: &Value, out: &mut Vec<(Mode, usize, At)>) {
     match v {
         Value::Lend(m, l, at) => out.push((*m, *l, *at)),
-        Value::Call(_, args, _) | Value::Table(args, _) | Value::Record(_, args, _) | Value::Variant(_, _, args, _) | Value::Lib(_, args, _) => args.iter().for_each(|a| lends(a, out)),
+        Value::Call(_, args, _) | Value::Table(args, _) | Value::Record(_, args, _) | Value::Variant(_, _, args, _) | Value::Lib(_, args, _) | Value::Director(_, args, _) => args.iter().for_each(|a| lends(a, out)),
         Value::Map(items, _) => items.iter().for_each(|(k, v)| {
             lends(k, out);
             lends(v, out);
@@ -316,7 +316,7 @@ fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
             }
             None
         }
-        Op::Call { args, .. } => {
+        Op::Call { args, .. } | Op::Director { args, .. } => {
             for a in args {
                 a.reads(&mut reads);
             }
@@ -348,6 +348,7 @@ fn step(f: &Function, op: &Op, state: &mut [State]) -> Result<(), Message> {
             exclusive(f, args)?;
             values.extend(args);
         }
+        Op::Director { args, .. } => values.extend(args),
         Op::Drop { .. } => {}
     }
     let mut lent = Vec::new();

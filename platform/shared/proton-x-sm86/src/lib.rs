@@ -73,6 +73,11 @@ pub mod fma;
 mod division;
 /// DL10 (09-10): la division EXACTA de f32.
 mod cociente;
+// ** E8 (09-10): la matematica EXACTA de la casa (`Op::Mate`), con lo que la
+// lista blanca de R7 ya deja.
+mod mates;
+// ** E8b (09-10): los arrays, sin memoria: cada indice contra cada elemento.
+mod indexado;
 /// E6 (02-10): lo que se mira antes de emitir un programa que salta.
 mod saltos;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
@@ -207,6 +212,13 @@ struct Emisor<'a> {
     p0: Option<Reg>,
     /// E6: los `si` y bucles abiertos, con sus saltos por parchear.
     abiertos: Vec<Abierto>,
+    /// LB7a (09-10): FRUGAL -- lo que se sube a un registro (una constante,
+    /// una entrada del banco) no se QUEDA en el: se vuelve a subir cada vez;
+    /// una variable recibe su registro justo antes de lo primero que la
+    /// toca, no al empezar; y lo que nadie lee se suelta en cuanto se
+    /// escribe. Mas MOV y menos registros; solo si sin ello no cabe
+    /// ([`emitir_libreta`]).
+    frugal: bool,
 }
 
 /// Un `si` o un bucle abierto mientras se emite.
@@ -252,6 +264,16 @@ impl Emisor<'_> {
     fn poner_meta(&mut self, w: (u64, u64), m: Meta) {
         self.codigo.push(w);
         self.metas.push(m);
+    }
+
+    /// El registro de la variable `r`, con el valor que tiene en el
+    /// interprete antes de que nada la escriba.
+    fn nacer(&mut self, r: usize) -> Result<(), NoEmite> {
+        let x = self.pedir()?;
+        let bits = self.p.iniciales[r].to_bits();
+        self.poner(c::mov(x, Fuente::Imm(bits), 0), Clase::Alu, Some(x), [None; 3]);
+        self.valor[r] = Some(Valor::Reg(x));
+        Ok(())
     }
 
     /// Un BRA por parchear (el destino, cuando se sepa): su indice.
@@ -336,7 +358,7 @@ impl Emisor<'_> {
                 let f = self.fuente(r);
                 let t = self.pedir()?;
                 self.poner(c::mov(t, f, 0), Clase::Alu, Some(t), [None; 3]);
-                if self.hondo == 0 {
+                if self.hondo == 0 && !self.frugal {
                     self.valor[r as usize] = Some(Valor::Reg(t));
                 } else {
                     paso.push(t);
@@ -459,7 +481,19 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
 /// **Emitir con la LIBRETA** (9d, 06-10) si `libreta`: al final del cuerpo,
 /// el termometro de sus salidas en el registro de detras de ellas
 /// ([`libreta`]).
+///
+/// LB7a (09-10): si no cabe en `registros`, se intenta otra vez FRUGAL -- una
+/// constante o una entrada que se lee en muchos sitios no se queda en un
+/// registro todo el programa: se sube cada vez que se lee --. Lo que ya cabia
+/// sale como siempre, byte a byte; lo que no, con mas MOV y en su hueco.
 pub fn emitir_libreta(p: &Programa, registros: u32, abi: Abi, libreta: bool) -> Result<Emitido, NoEmite> {
+    match emitir_modo(p, registros, abi, libreta, false) {
+        Err(NoEmite::Registros) => emitir_modo(p, registros, abi, libreta, true),
+        otro => otro,
+    }
+}
+
+fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bool) -> Result<Emitido, NoEmite> {
     let n = p.iniciales.len();
     let reservados = 4 * p.salidas;
     if reservados as u32 > registros || registros > 255 {
@@ -513,6 +547,7 @@ pub fn emitir_libreta(p: &Programa, registros: u32, abi: Abi, libreta: bool) -> 
         hondo: 0,
         p0: None,
         abiertos: Vec::new(),
+        frugal,
     };
     // Con `Abi::Registros` TODO lo precargado se pide ANTES del cuerpo: el
     // pegamento lo carga al empezar, asi que su registro no puede servir de
@@ -538,13 +573,10 @@ pub fn emitir_libreta(p: &Programa, registros: u32, abi: Abi, libreta: bool) -> 
         }
     }
     // E6: cada variable, su registro, con el valor que tiene en el
-    // interprete antes de que nada la escriba.
+    // interprete antes de que nada la escriba. Frugal: al nacer (abajo).
     for r in 0..n {
-        if an.variable[r] {
-            let x = e.pedir()?;
-            let bits = p.iniciales[r].to_bits();
-            e.poner(c::mov(x, Fuente::Imm(bits), 0), Clase::Alu, Some(x), [None; 3]);
-            e.valor[r] = Some(Valor::Reg(x));
+        if an.variable[r] && !frugal {
+            e.nacer(r)?;
         }
     }
     // E6d: las divisiones que ya hizo su pareja.
@@ -552,6 +584,11 @@ pub fn emitir_libreta(p: &Programa, registros: u32, abi: Abi, libreta: bool) -> 
     for (i, op) in p.ops.iter().enumerate() {
         let mut paso: Vec<u8> = Vec::new();
         e.hondo = an.hondo[i];
+        if frugal {
+            for &r in &an.nace[i] {
+                e.nacer(r as usize)?;
+            }
+        }
         match *op {
             // ** E6: comparar, elegir, copiar, sumar enteros y saltar.
             Op::Compara { d, a, b, como, entero } => {
@@ -860,12 +897,29 @@ pub fn emitir_libreta(p: &Programa, registros: u32, abi: Abi, libreta: bool) -> 
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
             // E2.4: el contador de un UAV, igual; y (05-10) sus Interlocked.
             Op::Contador { .. } | Op::Atomico { .. } => return Err(NoEmite::Operacion(i)),
-            // N5.6: sin, cos, exp2, log2... (MUFU) todavia no: va por la CPU.
-            Op::Mate { .. } => return Err(NoEmite::Operacion(i)),
-            // N5.7: `discard` (el KILL de la 3060) todavia no: va por la CPU.
-            Op::Descarta { .. } => return Err(NoEmite::Operacion(i)),
-            // N5.10: los arrays (registros indexables) todavia no: por la CPU.
-            Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => return Err(NoEmite::Operacion(i)),
+            // ** E8 (09-10): las EXACTAS de la casa -- redondeos, frac, la
+            // clase de un numero, los bits, los medios floats -- con sus
+            // bits (`mates.rs`). Las de series (sin, cos, exp2, log2...),
+            // todavia no: van por la CPU.
+            Op::Mate { d, a, f } => {
+                if !e.mate(d, a, f, i, &mut paso)? {
+                    return Err(NoEmite::Operacion(i));
+                }
+            }
+            // ** DL12 (09-10): `discard` (N5.7), el KILL de la 3060 con su
+            // guarda: P0 = los bits de `c` no son 0 (o la Compara fundida de
+            // justo antes), y el hilo acaba ahi. Su pixel no se escribe: la
+            // SPH dice KillsPixels (lo pone el pegamento; R5 lo exige).
+            Op::Descarta { c: cond } => {
+                e.condicion(cond, &mut paso)?;
+                e.poner_meta(c::kill(0, 0), Meta { lee_p: Some((0, true)), ..Meta::de(Clase::Nada, None, [None; 3]) });
+            }
+            // ** E8b (09-10): los arrays (N5.10), sin memoria (`indexado.rs`).
+            Op::LeeIndexado { d, base, n, i: indice } => e.lee_indexado(d, base, n, indice, i, &mut paso)?,
+            Op::EscribeIndexado { base, n, i: indice, s } => e.escribe_indexado(base, n, indice, s, i, &mut paso)?,
+            // Una fila del cbuffer CALCULADA es memoria (c[][]), y R7 no la
+            // deja a un cuerpo de app: es del propietario (E8).
+            Op::ConstantesEn { .. } => return Err(NoEmite::Operacion(i)),
             // E2.5: las olas (`vote`, `shfl` de la 3060) todavia no: por la CPU,
             // donde van de 32 en 32 carriles como en un warp.
             // D4.4: las derivadas de la mip de un muestreo no se emiten: solo
@@ -880,6 +934,13 @@ pub fn emitir_libreta(p: &Programa, registros: u32, abi: Abi, libreta: bool) -> 
         for &r in &an.muere[i] {
             if let Some(Some(Valor::Reg(x))) = e.valor.get(r as usize).copied() {
                 e.soltar(x);
+            }
+        }
+        if frugal {
+            for &r in &an.sobra[i] {
+                if let Some(Some(Valor::Reg(x))) = e.valor.get(r as usize).copied() {
+                    e.soltar(x);
+                }
             }
         }
         for (r, f) in fin.iter().enumerate() {
@@ -928,3 +989,9 @@ mod pruebas_vivo;
 mod pruebas_libreta;
 #[cfg(test)]
 mod pruebas_cociente;
+#[cfg(test)]
+mod pruebas_mates;
+#[cfg(test)]
+mod pruebas_indexado;
+#[cfg(test)]
+mod pruebas_descarte;

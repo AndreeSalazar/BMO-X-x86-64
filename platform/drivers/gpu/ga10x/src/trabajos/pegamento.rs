@@ -462,6 +462,11 @@ pub fn pixel_con_libreta_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u3
     let (a, d, v, _, total) = propios(registros)?;
     let mut o = Poner { g, lleno: false };
     let mut sph = sph_pixel_v0_sin_generico();
+    // ** DL12: un cuerpo que tira pixeles (KILL) lo dice en su SPH; si no,
+    // su KILL seria un NOP y una excepcion (y el juez lo para: R5).
+    if cuerpo.iter().any(|w| w.0 & 0xFFF == 0x95B) {
+        sph[0] |= crate::raster::MATA_PIXELES;
+    }
     // Las asas de las texturas: un MOV cada una (acoplado: su latencia la
     // cubre su propia espera de 6 ciclos, `mov`).
     for c in cargas {

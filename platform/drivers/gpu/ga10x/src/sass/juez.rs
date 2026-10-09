@@ -51,7 +51,9 @@
 //!                                     ALD/AST a un atributo que la SPH no
 //!                                     declara; un registro >= REGISTROS - 2
 //!                                     (en Volta y despues, DOS se gastan en el
-//!                                     contador de programa)
+//!                                     contador de programa); (DL12) un KILL
+//!                                     fuera de un programa de pixel, o sin
+//!                                     KillsPixels (bit 15)
 //!    R6  final sucio                  EXIT con un AST aun leyendo sus datos
 //!    R8  salto sucio                  (E6) un BRA con algo aun en vuelo: una
 //!                                     desacoplada sin esperar, o una acoplada
@@ -233,6 +235,8 @@ struct Instr {
     lee_p: [(u8, bool); 3],
     /// E6: un BRA.
     salto: bool,
+    /// DL12: un KILL (el `discard` de un programa de pixel).
+    mata: bool,
 }
 
 const NADA: (u8, u8) = (RZ, 0);
@@ -303,6 +307,7 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
         // El guarda (12..16) de cualquiera: PT (7) no se lee.
         lee_p: [((lo >> 12 & 7) as u8, true), (7, false), (7, false)],
         salto: false,
+        mata: false,
     };
     // Los predicados de FSETP/ISETP (escriben 81..84 y 84..87; leen el que
     // combinan, 87..90, e ISETP el de .EX, 68..71), de SEL (lee 87..90) y
@@ -448,6 +453,14 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
             // El desplazamiento, con signo, en 34..82: negativo = hacia atras.
             i.atras = r(81, 1) == 1;
         }
+        // ** DL12 (09-10): KILL, el `discard` de un programa de pixel. SOLO la
+        // forma que se sabe (`bmo_sm86::codifica::kill`, leida por `nvdisasm`):
+        // su predicado PT en 87..91 y nada mas que el guarda y el control. Lo
+        // demas (`KILL P0`...) es otra instruccion para el juez: R0.
+        0x15B if lo & !0xF000 == 0x95B && hi & ((1 << 41) - 1) == 7 << 23 => {
+            i.clase = Clase::Nada;
+            i.mata = true;
+        }
         _ => return None,
     }
     Some(i)
@@ -477,8 +490,11 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
 ///    I2F F2I                    (E6c) las conversiones: con un registro
 ///    BRA                        (E6) a una instruccion DEL CUERPO (de la 0 a
 ///                               su EXIT, que es donde sigue el pegamento)
+///    KILL                       (DL12) el `discard`, con su guarda: el
+///                               programa tiene que ser de pixel y su SPH
+///                               decir KillsPixels (R5)
 ///    EXIT                       la ultima, y solo ella
-///    guarda                     PT siempre, salvo en BRA (su `@P`)
+///    guarda                     PT siempre, salvo en BRA y KILL (su `@P`)
 ///    destino                    < registros: los del pegamento no se tocan
 /// ```
 ///
@@ -505,8 +521,8 @@ pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) 
     for (k, &(lo, hi)) in codigo.iter().enumerate() {
         let op = (lo & 0x1FF) as u32;
         let forma = (lo >> 9 & 7) as u32;
-        if lo >> 12 & 0xF != 7 && op != 0x147 {
-            return ajeno(k, op, "con predicado: en el cuerpo de una app solo un BRA lleva guarda");
+        if lo >> 12 & 0xF != 7 && op != 0x147 && op != 0x15B {
+            return ajeno(k, op, "con predicado: en el cuerpo de una app solo un BRA o un KILL lleva guarda");
         }
         let formas: &[u32] = match op {
             // FADD: inmediato en la forma 2 (y c[][] en la 3).
@@ -529,6 +545,10 @@ pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) 
                 &[4]
             }
             0x108 => &[1],
+            // ** DL12 (09-10, del propietario): el KILL, con su guarda -- el
+            // `discard` --. No toca memoria: el hilo acaba y su pixel no se
+            // escribe. Que el programa sea de pixel y su SPH lo diga es R5.
+            0x15B => &[4],
             // TEX: con un asa que puso el kernel (abajo).
             0x161 if asas != 0 => &[1],
             0x14D if k == ultima => &[4],
@@ -691,6 +711,16 @@ fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto, d
         if let Some(h) = ctx.sph {
             if i.memoria && h[0] & 1 << 26 == 0 {
                 return no(Regla::R5CabeceraMiente, k, 26, "LDG/STG y la SPH no dice DoesLoadOrStore (bit 26)");
+            }
+            // ** DL12 (09-10): el KILL. NVIDIA (open-gpu-doc, la SPH, tabla 3 y
+            // su texto): KillsPixels, el bit 15 de CommonWord0, es SOLO de los
+            // de pixel, y sin el "los KIL son un NOP y disparan una excepcion
+            // del hardware".
+            if i.mata && h[0] & 0x1F != 2 {
+                return no(Regla::R5CabeceraMiente, k, h[0] & 0x1F, "un KILL en un programa que no es de pixel (SphType 2)");
+            }
+            if i.mata && h[0] & 1 << 15 == 0 {
+                return no(Regla::R5CabeceraMiente, k, 15, "un KILL y la SPH no dice KillsPixels (bit 15): seria un NOP y una excepcion");
             }
             if let Some((a, n)) = i.atributo {
                 // VTG: entradas desde el bit 160, salidas desde el 400 (una por palabra).
@@ -873,7 +903,7 @@ mod pruebas {
     /// R0 "no se".
     #[test]
     fn el_juez_conoce_lo_que_fabrica_el_codificador() {
-        for (texto, lo, hi) in bmo_sm86::codifica::ORO.iter().chain(bmo_sm86::codifica::LEIDAS) {
+        for (texto, lo, hi) in bmo_sm86::codifica::ORO.iter().chain(bmo_sm86::codifica::LEIDAS).chain(bmo_sm86::codifica::LEIDAS_DL12) {
             assert!(conoce(*lo, *hi), "{texto}");
         }
     }

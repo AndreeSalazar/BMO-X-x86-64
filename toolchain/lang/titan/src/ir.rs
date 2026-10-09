@@ -150,6 +150,9 @@ pub enum Op {
     /// A PART of the local changes: `a[i] = v`, `nave.x = v` (level 6). Like
     /// `Set`, it needs `mut`.
     SetAt { local: usize, path: Vec<PathStep>, value: Value, at: At },
+    /// A call to the DIRECTOR on its own line (LB7b): `director.espera(16)`,
+    /// or one whose yes/no nobody keeps.
+    Director { what: Director, args: Vec<Value>, at: At },
 }
 
 /// One step into a value, in the IR.
@@ -216,6 +219,9 @@ pub enum Value {
     /// map come as `l = push(l, x)`: an `Op::Set`, so the checker already
     /// knows `l` needs `mut` and that it changed.
     Lib(Lib, Vec<Value>, At),
+    /// What the DIRECTOR answers (LB7b): `director.lamina(18)`, a yes/no
+    /// known only when the program runs.
+    Director(Director, Vec<Value>, At),
     /// `{"ana": 3}`: a map written, its keys and values in order (13).
     Map(Vec<(Value, Value)>, At),
 }
@@ -240,6 +246,62 @@ pub enum Lib {
     /// Turn `i` of a `for x in ...`: the cell of a table or a list, the KEY
     /// of a map (in the order they went in, D4).
     Turn,
+}
+
+/// ** THE DIRECTOR (LB7b of `docs/plan/PLAN_LAS_LIBRERIAS.md`, 09-10): what
+/// a program with `use director` -- and `screen` in its Titan.toml (DL7) --
+/// asks of the screen of BMO-X. VERRANO's LAMINA
+/// (`platform/shared/verrano/src/lamina.rs`), the way INTI's runtime writes
+/// it (`verrano.inti`): the program counts the vertices of each frame and
+/// publishes them; the desktop draws them, and nobody waits for anybody.
+/// Who composes, and when, is known only WHEN IT RUNS: a program that talks
+/// to the director is emitted (E1), never run when compiling.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Director {
+    /// `director.lamina(capacidad)`: the block for `capacidad` vertices per
+    /// slot, its header written, OFFERED to whoever launched the program.
+    /// `true` if someone took it; `false` if nobody composes (launched from
+    /// the shell), or if the program already has its lamina.
+    Lamina,
+    /// `director.publica(fotograma, vertices, posiciones, colores)`: the first
+    /// `vertices` vertices of the tables (four f32 of position and four of
+    /// color each), in the slot nobody is reading, with its seal; and the
+    /// sequence LAST -- that is the publishing. `false` if there is no
+    /// lamina, or they are not whole triangles, or they do not fit.
+    Publica,
+    /// `director.espera(ms)`: sleep until the next frame.
+    Espera,
+}
+
+impl Director {
+    pub const ALL: [Director; 3] = [Director::Lamina, Director::Publica, Director::Espera];
+
+    /// Its whole name, as a program writes it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Director::Lamina => "director.lamina",
+            Director::Publica => "director.publica",
+            Director::Espera => "director.espera",
+        }
+    }
+
+    /// The director's fn with this whole name.
+    pub fn of(name: &str) -> Option<Director> {
+        Director::ALL.into_iter().find(|d| d.name() == name)
+    }
+
+    /// How many values it takes.
+    pub fn takes(self) -> usize {
+        match self {
+            Director::Lamina | Director::Espera => 1,
+            Director::Publica => 4,
+        }
+    }
+
+    /// Whether it gives a value back: a yes/no.
+    pub fn gives(self) -> bool {
+        !matches!(self, Director::Espera)
+    }
 }
 
 impl Lib {
@@ -284,6 +346,7 @@ impl Value {
             | Value::Number(_, _, a)
             | Value::Lib(_, _, a)
             | Value::Map(_, a)
+            | Value::Director(_, _, a)
             | Value::Read(a) => *a,
         }
     }
@@ -310,7 +373,7 @@ impl Value {
                 r.reads(out);
             }
             Value::Neg(v, _) | Value::Not(v, _) => v.reads(out),
-            Value::Call(_, args, _) | Value::Lib(_, args, _) => {
+            Value::Call(_, args, _) | Value::Lib(_, args, _) | Value::Director(_, args, _) => {
                 for a in args {
                     a.reads(out);
                 }
@@ -340,7 +403,8 @@ impl Value {
     /// Does this value come, even in part, from OUTSIDE (`lee()`, E1)?
     pub fn from_outside(&self) -> bool {
         match self {
-            Value::Read(_) => true,
+            // What the director answers is known only when it runs (LB7b).
+            Value::Read(_) | Value::Director(..) => true,
             Value::Int(..) | Value::Text(..) | Value::Bool(..) | Value::Dec(..) | Value::F32(..) | Value::Local(..) | Value::Lend(..) => false,
             Value::Bin(_, a, b, _) | Value::Index(a, b, _) => a.from_outside() || b.from_outside(),
             Value::Neg(a, _) | Value::Not(a, _) | Value::Repeat(a, _, _) | Value::Field(a, _, _) | Value::Len(a, _) | Value::Round(a, _, _) | Value::Is(a, _, _, _) | Value::Payload(a, _, _, _, _) | Value::Number(a, _, _) => a.from_outside(),
@@ -360,6 +424,9 @@ impl Module {
             Op::Write { parts: items, .. } | Op::Call { args: items, .. } => items.iter().any(Value::from_outside),
             Op::SetAt { path, value, .. } => value.from_outside() || path.iter().any(|p| matches!(p, PathStep::Index(i) if i.from_outside())),
             Op::Drop { .. } => false,
+            // Talking to the director: a program that publishes frames runs
+            // (LB7b), it is not folded into what it writes.
+            Op::Director { .. } => true,
         };
         let end = |e: &End| match e {
             End::Return(v) => v.as_ref().is_some_and(Value::from_outside),
@@ -437,6 +504,11 @@ fn value(e: &Expr, locals: &mut Vec<Local>, p: &Program) -> Value {
         }
         Expr::Neg { value: v, line, col } => Value::Neg(Box::new(value(v, locals)), (*line, *col)),
         Expr::Call { callee, line, col, .. } if callee == "lee" => Value::Read((*line, *col)),
+        // LB7b: what the director answers (the checker saw `use director`).
+        Expr::Call { callee, args, line, col } if Director::of(callee).is_some() => {
+            let d = Director::of(callee).expect("the guard");
+            Value::Director(d, args.iter().map(|a| value(a, locals)).collect(), (*line, *col))
+        }
         Expr::Call { callee, args, line, col } if callee == "numero" => {
             let e = p.enums.iter().position(|e| e.name == crate::prelude::NUMERO).expect("prelude: numero brings its enum");
             Value::Number(Box::new(value(&args[0], locals)), e, (*line, *col))
@@ -576,6 +648,12 @@ impl Lowering<'_> {
                 // list CHANGES, as with any `mut` lent to a fn
                 // (`ir/biblioteca.rs`).
                 Stmt::Call(c) if matches!(c.callee.as_str(), "push" | "put" | "remove" | "pop") && !self.p.functions.iter().any(|f| f.name == c.callee) => self.mutator(c, at),
+                // LB7b: the director, on its own line.
+                Stmt::Call(c) if Director::of(&c.callee).is_some() => {
+                    let what = Director::of(&c.callee).expect("the guard");
+                    let args = c.args.iter().map(|a| value(a, &mut self.locals, self.p)).collect();
+                    self.blocks[at].ops.push(Op::Director { what, args, at: (c.line, c.col) });
+                }
                 Stmt::Call(c) if c.callee == "print" => {
                     let parts = c.args.iter().map(|a| value(a, &mut self.locals, self.p)).collect();
                     self.blocks[at].ops.push(Op::Write { parts, at: (c.line, c.col) });

@@ -1060,12 +1060,22 @@ la proxima corrida del metal dice cual pesa mas:
   (`proton-x/src/mates.rs`, sin `libm`; contra la del anfitrion y los
   65.536 halfs ida y vuelta), probado con `prueba/mates.dxil`. En la 3060
   (MUFU) todavia no: esos sombreadores van por la CPU (N6.1).
+  **09-10 (E8a de PLAN_LA_LENGUA_DE_LA_3060):** las EXACTAS ya van por la
+  3060 -- los redondeos, frac, la clase de un numero, los bits y los medios
+  floats --, con los bits de la casa y lo que R7 ya deja
+  (`proton-x-sm86/src/mates.rs`). Las de series (sin, cos, tan, exp2, log2,
+  los arcos y los hiperbolicos) siguen por la CPU: su camino exacto en la
+  3060 es del propietario.
 - [x] **N5.7 -- discard** (03-10): `Op::Descarta` (DXIL 82, y
   `discard_nz`/`discard_z` de SM5; `clip()` llega como uno de ellos). El
   interprete acaba ahi y dice que el pixel NO queda; la trama no escribe
   ni color ni profundidad (la Z va despues del sombreador) y lo cuenta en
   `Cuenta::tirados`. Probado con `prueba/descarte.dxil` y un SM5 hecho a
   mano. En la 3060 (KILL) todavia no: va por la CPU (N6.1).
+  **09-10 (E8c de PLAN_LA_LENGUA_DE_LA_3060, DL12 del propietario):** ya va
+  por la 3060 -- el KILL con su guarda, y la SPH diciendo KillsPixels (el
+  bit 15, de la especificacion de NVIDIA) --, con el pixel y los bits de la
+  casa: `descarte.hlsl` y el SM5, de punta a punta.
 - [x] **N5.8 -- mas de un render target** (03-10, hasta 8): el G-buffer
   de Cyberpunk. El PSO lee los 8 `RTVFormats` y la mezcla de cada uno (con
   IndependentBlendEnable); `OMSetRenderTargets` guarda los N (consecutivos
@@ -1226,6 +1236,14 @@ La ESCALERA de juegos (por que DX9 y Left 4 Dead 2 no) esta en su seccion
   ddy, fwidth) dan 0 hasta que la trama corra cuadros de 2x2. Y SV_Depth:
   el de pixeles que escribe su Z (la prueba va despues de el). Probado con
   `prueba/olas.dxil` y `prueba/profundidad.dxil`.
+  **09-10 (E8b de PLAN_LA_LENGUA_DE_LA_3060):** los ARRAYS ya van por la
+  3060 -- sin memoria: el array son sus registros y el indice se mira
+  contra cada elemento con ISETP y SEL, lo que R7 ya deja
+  (`proton-x-sm86/src/indexado.rs`) --, con los bits de la casa:
+  `arreglos.hlsl` entero, bit a bit en el simulador. Una tabla o un array
+  en un bucle caben en la puerta de 128 con su pegamento; `arreglos.hlsl`
+  entero no (132 de cuerpo), y su PSO sigue por la CPU. La fila del
+  cbuffer calculada (`ConstantesEn`) tambien: es memoria, del propietario.
 - [ ] **N5.5 -- el COMPUTO** (`Dispatch`, `SetComputeRoot*`): hoy se dice
   y se salta. Cyberpunk calcula con el la luz, las sombras y el
   post-proceso; sin el, la imagen sale pero a medias. Primero en la CPU

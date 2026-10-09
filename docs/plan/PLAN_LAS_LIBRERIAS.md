@@ -651,6 +651,31 @@ Asi quedo:
 > **09-10, despues:** la division, HECHA en el anfitrion (LB6b, 5.1); la
 > raiz, con el propietario (cambia el SASS de BMOX-12 que corre en el metal).
 
+**DL12, DL13, DL14 y DL15 -- el 09-10, despues de E8b** (los arrays en la
+3060, E8 de `PLAN_LA_LENGUA_DE_LA_3060.md`). Lo que faltaba del ASM de la
+3060 pedia a R7 o una decision; las cuatro preguntas llevaban su
+recomendacion, y el propietario tomo las cuatro:
+
+```text
+   DL12          R7 deja a un cuerpo de app KILL (discard, clip) y VOTE y
+                 SHFL (las olas): no tocan memoria. NO todavia: mas formas
+                 de TEX y TLD (Load, mips, arrays, cubos, 3D), ni el LDC
+                 con indice de ConstantesEn (es memoria)
+   DL13          las Mate de SERIES (sin, cos, tan, exp2, log2, los arcos,
+                 los hiperbolicos): la casa pasa a cuentas de f32, las
+                 MISMAS en la CPU y en la 3060 -- los mismos bits por
+                 construccion, y caben en un hueco --. Los bits de la casa
+                 en esas funciones cambian UNA vez, con fecha
+   DL14          las TABLAS en una gpu fn: solo indices PROBADOS -- una
+                 constante, el de un range(N) con N <= el largo --; los
+                 demas, T0072 en su linea, como en la CPU. Nunca un 0
+                 callado
+   DL15          lo de Ring 0 (R7, el pegamento, LB8) lo escribe Claude en
+                 la rama, con sus pruebas en el anfitrion y nombrando cada
+                 fichero del propietario que toca; el propietario lo revisa
+                 y lo prueba en el metal
+```
+
 ---
 
 # 5. LAS CASILLAS
@@ -1029,6 +1054,16 @@ Asi quedo:
       NO, con el mismo codigo y en la misma linea);
     - lo de antes, igual: los 38 `.bex` de los programas BIEN que ya
       compilaban, byte a byte; el SASS de `mezcla`, `suma` y `activa`, igual.
+  - **09-10, un arreglo del escritor (lo encontro el estudio de DL14):** un
+    nombre que leia el valor de otro que CAMBIA en la vuelta (`let viejo =
+    s`, despues `s = s + 1.0`) veia lo nuevo: la casa de `s` se pisa en su
+    sitio, y `viejo` la leia. El oraculo lo paraba -- el calculo 3, las dos
+    tarjetas 6: no habia `.bex` --, nunca un numero mal. Ahora, antes de
+    pisar una casa, quien la lee con otro nombre se queda con una copia
+    (`asignar`, en `escribe.rs`; el contador escondido de un `for` no: su `i`
+    ya murio en su paso). Su prueba, en las dos tarjetas contra Rust
+    (`pruebas_bucles.rs`), cae sin el arreglo; y los 45 programas BIEN dan
+    los mismos `.bex` y el mismo SASS, byte a byte.
 
 - [ ] **LB6 -- LA gpu fn QUE DIBUJA.** Una gpu fn de VERTICE y una de PIXEL,
   dichas por su firma (DL6), escritas en TITAN++ y pegadas y juzgadas como las
@@ -1168,7 +1203,66 @@ Asi quedo:
     - **el metal**: que la 3060 de verdad de los mismos bits (la cuenta
       aguanta el error de su MUFU; verlo es de LB8).
 
-- [ ] **LB7 -- TITAN++ MANDA A VERRANO.** Una app de TITAN++ que dibuja el
+- [x] **LB7a -- EL CUBO CONTADO POR GPU FN, BIT A BIT.** **HECHA en el
+  anfitrion el 09-10.** La mitad de LB7 que no pide ni permiso ni lamina:
+  las cuentas de `bmo_cubo` escritas en TITAN++ como gpu fn, y con ellas los
+  360 fotogramas, con los bits de `bmo_cubo`. Es lo que DL10 dejo hacer.
+  - **Bloquea:** DL10 (hecha: LB6b).
+  - **Como se sabe:** `toolchain/lang/titan/emisor-x86_64/tests/cubo_gira.rs`:
+    cada cuenta, por cada tarjeta que da `titan` (la RTX 3060 12G simulada y
+    la CPU), por la casa y por el calculo -- los cuatro iguales --, y lo que
+    dan es lo de `bmo_cubo`, bit a bit.
+  - **Lo hecho:**
+    - el paquete `toolchain/lang/titan/ejemplos/nivel11/cubo_gira`: tres
+      modulos y 22 gpu fn.
+      - `num`: truncar, los dos redondeos (al lejano y al par), saturar, la
+        vuelta reducida, el seno, el coseno y la tangente de `bmo_cubo::num`
+        con sus mismos polinomios, y la raiz: la estimacion que alli sale de
+        los BITS del f32, contada aqui con f32 exactos (potencias de dos,
+        sin mirar bits), y sus cuatro pasos de Newton;
+      - `cubo`: la entrada `k` de la matriz del fotograma `f` (`wvp`), un
+        vertice a recorte, su subpixel (`pantalla_x`, `pantalla_y`, al par),
+        si esta detras, y la luz y el color de una cara;
+    - el emisor de la 3060, FRUGAL (`proton-x-sm86/src/lib.rs` y
+      `saltos.rs`): si un cuerpo no cabe en sus registros, se emite otra vez
+      sin dejar en registro lo que sube (una constante, una entrada del
+      banco: se sube cada vez que se lee), con cada variable naciendo justo
+      antes de lo primero que la toca, y soltando lo que nadie lee en cuanto
+      se escribe. `cubo.wvp` pasa de 78 registros, que no caben en los 64 de
+      VERRANO, a 44 (7423 instrucciones). Lo que ya cabia sale igual, byte a
+      byte;
+    - la CPU como tarjeta (`tarjeta-cpu/src/compacta.rs`): si un Programa
+      tiene mas valores que los 1024 sitios de su pila, los que mueren dejan
+      su sitio a otros. `cubo.wvp`: 1497 valores en 87 sitios;
+    - el banco: `cubo_gira` imprime el seno y el coseno de 30 y 90 grados, la
+      diagonal de la matriz del fotograma 0 y la cara verde con su luz.
+  - **Como se supo:**
+    - las cuentas de `num` contra `bmo_cubo::num`: 5223 valores (los
+      angulos del cubo, un barrido, potencias de dos con sus vecinos, ceros,
+      subnormales, enormes, infinitos y NaN), y la raiz en 4000 mas al azar;
+    - las 16 entradas de la `wvp` de los 360 fotogramas;
+    - la tanda de los 360: cada vertice a recorte, las caras que miran (la
+      cuenta de `tanda::de_fotograma`, con los subpixeles de las gpu fn) y el
+      color de cada una;
+    - el modo frugal FORZADO en los 400 programas al azar de E6, en los dos
+      ABI: los bits de la casa, y el juez dice que si. Su primera version la
+      tumbo esa misma bateria (soltaba la precarga de una fila del cbuffer
+      que nadie leia cuando su registro ya era de una variable);
+    - lo de antes, igual: los 44 `.bex` de los programas BIEN, byte a byte,
+      y lo que `titan sm86` deja del nivel 11 (23 ficheros).
+  - **Queda:**
+    - **LB7b, la app** (abajo, en LB7): el permiso `screen` (DL7), la lamina
+      en E1 y los 360 publicados en ella;
+    - **lo que mide**: `cubo.wvp` son 7423 instrucciones y `cubo.luz` 5097:
+      caben en un cuerpo de computo, no en un hueco de la tuberia (128). Una
+      division entre dos constantes ESCRITAS (`6.2831855 / 360.0`) aun se
+      cuenta en la 3060 (105 instrucciones) en vez de plegarse al compilar;
+    - **el NO de lo que no cabe**: la 3060 dice "no cabe en sus registros"
+      como un fallo del compilador; con el modo frugal, lo que aun no cabe es
+      un limite de la tarjeta, y deberia decirse asi, en su sitio (LB1).
+
+- [x] **LB7 -- TITAN++ MANDA A VERRANO.** **HECHA en el anfitrion el 09-10
+  (LB7a, arriba, y LB7b).** Una app de TITAN++ que dibuja el
   cubo girando, por el camino de DL8: el permiso (DL7) y su puerta en el
   certificado; en E1, el `f32` como DATO -- guardar, pasar y copiar a un
   bloque, lo que la ley L26 ya deja --; y los 360 fotogramas contados por gpu
@@ -1178,10 +1272,59 @@ Asi quedo:
   - **Bloquea:** LB2 (la lamina vista), LB4 o el horneado, LB6 (si va por la
     puerta) y **DL10**: sin ella no se cuenta el cubo de `bmo_cubo` bit a bit
     (3.5). **09-10:** la division, hecha (LB6b).
+  - **09-10:** lo CONTADO, hecho en el anfitrion (LB7a): los 360 fotogramas
+    por gpu fn, con los bits de `bmo_cubo`. Lo que queda es la app (LB7b):
+    el permiso, la lamina y el metal.
   - **Como se sabe:** en el anfitrion, los 360 fotogramas publicados son los de
     `bmo_cubo::tanda`; en el metal, la app de TITAN++ corriendo y `gpu verrano
     banco inti` (o su hermana) sobre su lamina acaba con `IGUAL al juez`, como
     hoy con INTI.
+  - **LB7b, lo hecho (09-10):**
+    - el DIRECTOR en TITAN++ (`toolchain/lang/titan/src`): `use director` --
+      con `screen` en el Titan.toml (DL7) -- da `director.lamina(c)`,
+      `director.publica(f, n, posiciones, colores)` y `director.espera(ms)`.
+      El resolutor del paquete deja pasar `director.x` solo a un modulo que
+      lo dice en su cabecera (T0080); el comprobador sabe sus valores y lo
+      que dan (T0068, T0069); las clases piden enteros y dos tablas de f32
+      de cuatro por vertice (T0071), y nada prestado (T0077); en una gpu fn
+      es T0090. Un programa que habla con el director CORRE (E1): lo que
+      contesta solo se sabe al correr. Y el certificado abre la puerta
+      `screen` en la linea de cada llamada;
+    - E1 lo escribe (`emisor-x86_64/src/e1/director.rs`), con los numeros de
+      `verrano/src/lamina.rs`: el bloque pedido al kernel, la cabecera
+      `BVER` ENTERA antes de ofrecerla, `MI_PADRE` y la OFERTA; en `r13` la
+      lamina de todo el programa (solo si el programa habla con el
+      director). `publica`: el sello de la ranura que nadie lee a impar, los
+      vertices, su numero y su fotograma, el sello a par, y la secuencia LO
+      ULTIMO. `espera`: WAIT sin asa;
+    - la app: `nivel11/cubo_gira` -- el mismo paquete de LB7a, con su malla
+      (`malla.titan`) -- escribe sus tres cuentas y, si alguien compone,
+      publica diez minutos de cubo, un fotograma cada 16 ms: cada uno, sus
+      gpu fn al correr (en la CPU), las caras que miran por su area en
+      subpixeles (en `dec`, exacta), su luz, y `director.publica`. Lanzada
+      desde el shell dice que nadie compone;
+    - el banco: tres NO nuevos (`director_sin_use`, `director_en_la_gpu`,
+      `director_con_un_dec`).
+  - **LB7b, como se supo:**
+    - `emisor-x86_64/tests/lamina.rs`, en el emulador de la casa (que
+      contesta `MI_PADRE` y apunta las ofertas): sin padre no hay oferta;
+      con padre, un triangulo publicado tres veces -- y uno de cuatro
+      vertices, rechazado -- lo lee el lector de VERRANO de esa memoria, con
+      la secuencia y los dos sellos donde dice el trato; el certificado dice
+      `screen` y su linea, y el juez de la puerta de carga la nombra si no se
+      concede;
+    - y EL CUBO: lanzado por un escritorio de mentira que lee la lamina
+      MIENTRAS corre (cada 200 000 pasos, con el lector de VERRANO), 376
+      fotogramas publicados en 184 millones de pasos; el lector vio los 360
+      de la vuelta, cada uno ENTERO, el de su publicacion, y la tanda de
+      `bmo_cubo` bit a bit; la vuelta siguiente empieza;
+    - lo de antes, igual: los 44 `.bex` de los demas programas BIEN, byte a
+      byte contra LB7a, y lo que `titan sm86` deja del nivel 11 (las 22 gpu
+      fn de `cubo_gira` incluidas: su SASS no cambio).
+  - **Queda, del propietario (el metal):** `run titan/cubo_gira.bex` lanzado
+    por el escritorio y `gpu verrano banco` sobre su lamina, como con INTI
+    (E6 de PLAN_VERRANO). Que salga `cubo.inti` del build es el corte 4 de
+    INTI_SAMURAI, despues de eso.
 
 ## 5.2 Lo que es de Ring 0 (del propietario)
 
@@ -1224,7 +1367,7 @@ Asi quedo:
 # 6. EL ORDEN
 
 ```text
-   ahora, en el anfitrion   LB1 -> LB3 -> LB4 -> LB5 -> LB6 -> LB6b -> LB7
+   ahora, en el anfitrion   LB1 -> LB3 -> LB4 -> LB5 -> LB6 -> LB6b -> LB7a -> LB7
    el metal, en paralelo    LB2 cuanto antes (un arranque); despues, el final
                             de LB6 y de LB7
    las decisiones           LB0, a medida que cada casilla las pida

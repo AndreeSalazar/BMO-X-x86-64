@@ -584,6 +584,33 @@ fn asignar(w: &mut Writer, pred: Reg, local: usize, v: Valor, env: &mut Env, cas
         // Un nombre que cruza la vuelta: en su casa, con el predicado de
         // este bloque.
         Some(casa) => {
+            // ** Otro nombre que LEE esta casa (`let viejo = s`, y despues `s`
+            // cambia en la misma vuelta) se queda antes con una COPIA de lo
+            // de ahora: la casa se pisa en su sitio, y un valor no cambia
+            // porque cambie otro (09-10: el calculo daba 3 y la 3060 y la
+            // casa 6; el oraculo lo paraba). Por orden de nombre: el mismo
+            // Programa cada vez. El contador escondido de un `for` (`#i`)
+            // no: cambia en su paso, al final de la vuelta, y lo que lo lee
+            // -- su `i`, nombres de dentro -- ya murio (TITAN++ no tiene
+            // sombras: lo de dentro muere en la vuelta).
+            let contador = w.dentro.last().is_some_and(|&g| w.m.functions[g].locals.get(local).is_some_and(|l| l.name.starts_with("#i")));
+            let pisadas: Vec<Reg> = if contador { Vec::new() } else { v.hojas().iter().zip(casa.hojas()).filter(|(x, c)| x != c).map(|(_, c)| *c).collect() };
+            let mut otros: Vec<usize> = env.iter().filter(|(l, o)| **l != local && o.hojas().iter().any(|r| pisadas.contains(r))).map(|(l, _)| *l).collect();
+            otros.sort_unstable();
+            for l in otros {
+                let viejo = env[&l].clone();
+                let mut hojas = Vec::with_capacity(viejo.hojas().len());
+                for &r in viejo.hojas() {
+                    hojas.push(if pisadas.contains(&r) {
+                        let d = w.reg()?;
+                        w.op(Op::Copia { d, a: r });
+                        d
+                    } else {
+                        r
+                    });
+                }
+                env.insert(l, viejo.con(hojas));
+            }
             for (x, c) in v.hojas().iter().zip(casa.hojas()) {
                 if x != c {
                     let cierto = w.cierto()?;

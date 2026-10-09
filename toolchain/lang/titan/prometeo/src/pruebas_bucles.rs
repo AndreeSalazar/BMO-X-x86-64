@@ -62,6 +62,33 @@ fn a_power_loops_on_both_cards_with_the_bits_of_rust() {
     assert!(!ops.iter().any(|o| matches!(o, Op::Si { .. })), "en lo alto, el bucle va sin su `Si`");
 }
 
+/// ** UN NOMBRE QUE LEE LO VIEJO de otro que cambia en la vuelta (09-10):
+/// `let viejo = s`, despues `s = s + 1.0` -- en la vuelta y dentro de un
+/// `if` -- y `viejo` sigue siendo lo de antes. La casa de `s` se pisaba en
+/// su sitio y `viejo` la leia: el calculo daba 3 y las tarjetas 6 (el
+/// oraculo lo paraba y no habia .bex).
+#[test]
+fn a_name_keeps_the_old_value_of_one_that_changes_in_the_turn() {
+    let m = module("mod main \"x\"\ngpu fn suma(x: f32) -> f32\n    let mut s = x\n    let mut r = 0.0\n    for i in range(3)\n        let viejo = s\n        s = s + 1.0\n        if x > 0.0\n            let otro = s\n            s = s * 2.0\n            r = r + otro\n        r = r + viejo\n    return r\nfn main()\n    print(1)\n");
+    let (_, ks) = en_las_dos(&m, "suma");
+    let rust = |x: f32| {
+        let (mut s, mut r) = (x, 0.0f32);
+        for _ in 0..3 {
+            let viejo = s;
+            s = s + 1.0;
+            if x > 0.0 {
+                let otro = s;
+                s = s * 2.0;
+                r = r + otro;
+            }
+            r = r + viejo;
+        }
+        r
+    };
+    let want: Vec<u32> = XS.iter().map(|&x| rust(x).to_bits()).collect();
+    como_rust(&ks, &[f32s(&XS)], &want);
+}
+
 /// ** UNA SERIE con sus coeficientes ESCRITOS (todos 1.0: la de 1 / (1 - x))
 /// y `e` por cuadrados, `(1 + x / 1024)^1024` -- sin dividir: `/ 1024` es
 /// por su inverso, exacto.

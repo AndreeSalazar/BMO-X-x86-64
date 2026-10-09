@@ -137,6 +137,14 @@ ventana (`ventana`) y de VERRANO (`cubo`). Quitarlas antes de que su runtime
 se vaya solo perderia esas pruebas sin ganar nada. Salen el dia del corte 4,
 con su relevo en TITAN++.
 
+> **09-10 (LB7 de [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md)):** el relevo
+> del CUBO ya existe en TITAN++, en el anfitrion: `nivel11/cubo_gira` cuenta
+> cada fotograma con sus gpu fn y lo publica en la lamina de VERRANO
+> (`director.lamina`, `director.publica`); el lector de VERRANO lo lee con los
+> bits de `bmo_cubo` (`emisor-x86_64/tests/lamina.rs`). `cubo.inti` sigue en el
+> build hasta que la app de TITAN++ se vea en el metal: hoy la prueba de
+> VERRANO en el metal es la suya.
+
 ## 3.2 PROPUESTA (04-10): el decimal de Grace Hopper, al estilo del Ryzen
 
 El propietario: *"lo mejor es que lleve el estilo de COBOL que Grace Hopper hizo,

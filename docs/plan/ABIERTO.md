@@ -8,7 +8,7 @@
 
 ```text
    740 casillas ABIERTAS en 68 planes
-   582 hechas
+   584 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -25,7 +25,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [`PLAN_EL_AISLAMIENTO.md`](PLAN_EL_AISLAMIENTO.md) -- 4 de 5 hechas, faltan 1
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_LA_ENTRADA.md`](PLAN_LA_ENTRADA.md) -- 9 de 11 hechas, faltan 2
-- [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 10 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 32 de 35 hechas, faltan 3
 - [`PLAN_LISTAS_Y_MAPAS.md`](PLAN_LISTAS_Y_MAPAS.md) -- 9 de 12 hechas, faltan 3
@@ -307,15 +306,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
 - ... y 4 mas
 
-## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 7 abiertas, 6 hechas
-
-*PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
-
-- [ ] LB0 -- LAS DECISIONES de la seccion 4, contestadas por el
-- [ ] LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI. Un arranque, en
-- [ ] LB6 -- LA gpu fn QUE DIBUJA. Una gpu fn de VERTICE y una de PIXEL,
-- ... y 4 mas
-
 ## [`PLAN_LA_CASA_ESCONDIDA.md`](PLAN_LA_CASA_ESCONDIDA.md) -- 7 abiertas, 0 hechas
 
 *PLAN LA CASA ESCONDIDA -- una red que cambia, para que la IP de casa no se vea*
@@ -395,6 +385,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 2 el build y el metro: ventana, musica, cubo y navegar fuera de
 - [ ] 4 fuera el runtime de app (objetos, monton, superficie, lamina,
 - [ ] 5 el emisor pierde los caminos del monton y de los objetos; los docs
+- ... y 3 mas
+
+## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 6 abiertas, 8 hechas
+
+*PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
+
+- [ ] LB0 -- LAS DECISIONES de la seccion 4, contestadas por el
+- [ ] LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI. Un arranque, en
+- [ ] LB6 -- LA gpu fn QUE DIBUJA. Una gpu fn de VERTICE y una de PIXEL,
 - ... y 3 mas
 
 ## [`PLAN_LAS_RAMAS.md`](PLAN_LAS_RAMAS.md) -- 6 abiertas, 10 hechas
@@ -556,6 +555,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
 - [ ] S7 -- LOS CARRILES: 4 u 8 invocaciones por instruccion
 
+## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 3 abiertas, 8 hechas
+
+*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
+
+- [ ] E6 -- SALTOS, BUCLES, switch Y ENTEROS, del SM5 y del DXIL (02-10; el anfitrion, hecho)
+- [ ] E7 -- EL VIGILANTE: un trabajo de la 3060 que no vuelve (el TDR de BMO-X)
+- [ ] E8 -- TODA LA LISTA DE LA CASA EN LA 3060 (09-10)
+
 ## [`PLAN_LISTAS_Y_MAPAS.md`](PLAN_LISTAS_Y_MAPAS.md) -- 3 abiertas, 9 hechas
 
 *PLAN LISTAS Y MAPAS -- lo que CRECE mientras el programa corre*
@@ -599,13 +606,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] R8 -- el PRESUPUESTO de plegado (7.3): un bucle sin lee() que pasa de STEPS se EMITE en vez de d
 - [ ] R10 -- del PROPIETARIO: las leyes nuevas de lee() y numero(t), con --sellar (toolchain/tools/tit
-
-## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 2 abiertas, 8 hechas
-
-*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
-
-- [ ] E6 -- SALTOS, BUCLES, switch Y ENTEROS, del SM5 y del DXIL (02-10; el anfitrion, hecho)
-- [ ] E7 -- EL VIGILANTE: un trabajo de la 3060 que no vuelve (el TDR de BMO-X)
 
 ## [`PLAN_REX.md`](PLAN_REX.md) -- 2 abiertas, 15 hechas
 

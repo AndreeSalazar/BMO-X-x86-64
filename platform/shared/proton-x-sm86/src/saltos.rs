@@ -35,6 +35,13 @@ pub(crate) struct Analisis {
     /// Cuantas estructuras (si, bucle) hay abiertas al correr cada operacion.
     pub hondo: Vec<usize>,
     pub fundible: Vec<bool>,
+    /// LB7a (09-10): las variables que NACEN antes de cada operacion -- la de
+    /// arriba de todo antes de la primera que las toca --, para el modo
+    /// frugal del emisor, que no les da registro desde el principio.
+    pub nace: Vec<Vec<Reg>>,
+    /// LB7a (09-10): lo que se escribe y NADIE lee (un `if` en linea deja
+    /// alguno): se puede soltar justo despues. Lo usa el modo frugal.
+    pub sobra: Vec<Vec<Reg>>,
 }
 
 /// Los registros del Programa que lee una operacion.
@@ -205,6 +212,11 @@ pub(crate) fn analizar(p: &Programa) -> Analisis {
     let mut lecturas: Vec<Vec<usize>> = vec![Vec::new(); n];
     let mut escrituras: Vec<Vec<usize>> = vec![Vec::new(); n];
     let mut inmutable = vec![false; n];
+    // ** E8b (09-10): un ARRAY se lee y se escribe ENTERO -- cualquiera de
+    // sus elementos puede ser el del indice --; y la escritura deja los
+    // demas como estaban, asi que tambien los lee. Cada elemento de un array
+    // que se escribe es una variable (`indexado.rs`).
+    let mut de_array_escrito = vec![false; n];
     for (i, op) in p.ops.iter().enumerate() {
         for &r in leidos(op).iter().flatten() {
             if let Some(l) = lecturas.get_mut(r as usize) {
@@ -218,11 +230,30 @@ pub(crate) fn analizar(p: &Programa) -> Analisis {
                 inmutable[r as usize] |= fija;
             }
         }
+        match *op {
+            Op::LeeIndexado { base, n: k, .. } => {
+                for r in base as usize..base as usize + k as usize {
+                    if let Some(l) = lecturas.get_mut(r) {
+                        l.push(i);
+                    }
+                }
+            }
+            Op::EscribeIndexado { base, n: k, .. } => {
+                for r in base as usize..base as usize + k as usize {
+                    if let (Some(l), Some(e), Some(x)) = (lecturas.get_mut(r), escrituras.get_mut(r), de_array_escrito.get_mut(r)) {
+                        l.push(i);
+                        e.push(i);
+                        *x = true;
+                    }
+                }
+            }
+            _ => {}
+        }
     }
     let mut variable = vec![false; n];
     for r in 0..n {
         let (l, e) = (&lecturas[r], &escrituras[r]);
-        variable[r] = !inmutable[r]
+        variable[r] = de_array_escrito[r] || !inmutable[r]
             && match e.as_slice() {
                 [] => false,
                 [w] => {
@@ -274,10 +305,34 @@ pub(crate) fn analizar(p: &Programa) -> Analisis {
     let mut fundible = vec![false; m];
     for i in 0..m.saturating_sub(1) {
         if let Op::Compara { d, .. } = p.ops[i] {
-            let lector = matches!(p.ops[i + 1], Op::Si { c } | Op::RomperSi { c, .. } | Op::Elige { c, .. } if c == d);
+            let lector = matches!(p.ops[i + 1], Op::Si { c } | Op::RomperSi { c, .. } | Op::Elige { c, .. } | Op::Descarta { c } if c == d);
             let d = d as usize;
             fundible[i] = lector && !variable[d] && lecturas[d].len() == 1 && escrituras[d].len() == 1;
         }
     }
-    Analisis { ultimo, variable, muere, hondo, fundible }
+    let mut nace = vec![Vec::new(); m];
+    for r in 0..n {
+        let primera = lecturas[r].first().into_iter().chain(escrituras[r].first()).min().copied();
+        if let (true, Some(mut j)) = (variable[r], primera) {
+            // fuera de todo si y bucle: lo que lo abre esta a la altura 0
+            while j > 0 && hondo[j] > 0 {
+                j -= 1;
+            }
+            nace[j].push(r as Reg);
+        }
+    }
+    // Lo que lee algo que no cambia (una Entrada, una fila del cbuffer) no:
+    // con el ABI de registros es una precarga, y la suelta su `fin`. La que
+    // nadie lee se suelta tras la primera operacion, y su registro ya es de
+    // otro cuando llega la suya (09-10: la semilla 57 de
+    // `cientos_de_programas_al_azar_dan_los_bits_de_la_casa`).
+    let mut sobra = vec![Vec::new(); m];
+    for r in 0..n {
+        if lecturas[r].is_empty() && !variable[r] && !inmutable[r] {
+            for &w in &escrituras[r] {
+                sobra[w].push(r as Reg);
+            }
+        }
+    }
+    Analisis { ultimo, variable, muere, hondo, fundible, nace, sobra }
 }
