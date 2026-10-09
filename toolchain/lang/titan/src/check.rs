@@ -13,6 +13,7 @@
 //! value, it does not run anything. And the `match` is judged here too: every
 //! arm a case of ONE enum, none twice, and ALL of them (T0078, T0079).
 
+use crate::ir::Director;
 use crate::message::{Code, Message};
 use crate::tree::{Arm, Expr, Mode, Program, Stmt, Ty};
 
@@ -727,6 +728,38 @@ fn types(p: &Program) -> Result<(), Message> {
 /// A call to `callee` with `n` values: does it exist, does it take `n`, and
 /// -- if it is used AS A VALUE -- does it give one back.
 fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value: bool) -> Result<(), Message> {
+    // ** LB7b: the DIRECTOR -- the resolver lets `director.x` through only
+    // in a module whose header says `use director` (and the Titan.toml,
+    // `screen`).
+    if let Some(d) = Director::of(callee) {
+        let example = match d {
+            Director::Lamina => "if not director.lamina(18)",
+            Director::Publica => "director.publica(f, n, posiciones, colores)",
+            Director::Espera => "director.espera(16)",
+        };
+        if n != d.takes() {
+            return Err(Message::new(Code::Args, line, col, &format!("`{}` pide {} valor{}, y aqui se le {} {}", callee, d.takes(), if d.takes() == 1 { "" } else { "es" }, if n == 1 { "da" } else { "dan" }, n), "es del DIRECTOR: la lamina de VERRANO (LB7b)", example));
+        }
+        if as_value && !d.gives() {
+            return Err(Message::new(Code::Result, line, col, &format!("`{}` no devuelve nada, y aqui se usa como un valor", callee), "duerme hasta el siguiente fotograma y ya: no hay nada que guardar", example));
+        }
+        return Ok(());
+    }
+    if let Some(what) = callee.strip_prefix("director.") {
+        let names: Vec<&str> = Director::ALL.iter().map(|d| d.name().trim_start_matches("director.")).collect();
+        let near = names.iter().copied().min_by_key(|k| distance(k, what)).filter(|k| distance(k, what) <= 2);
+        return Err(Message::new(
+            Code::Unknown,
+            line,
+            col,
+            &format!("`director` no tiene `{}`", what),
+            &format!("lo que el director sabe hoy: {} (la lamina de VERRANO)", names.join(", ")),
+            &match near {
+                Some(k) => format!("quisiste decir `director.{}`?", k),
+                None => "if not director.lamina(18)".to_string(),
+            },
+        ));
+    }
     if let Some((e, _)) = p.case(callee).filter(|(e, _)| crate::prelude::is_opcion(&p.enums[*e].name)) {
         let _ = e;
         return Err(library_case(callee, line, col));

@@ -1,0 +1,46 @@
+mod malla "la malla del cubo de bmo_cubo: sus vertices, sus normales, sus colores y sus triangulos"
+
+# LA MALLA del cubo de bmo_cubo, tal cual (`vertices()` e `indices()` de
+# platform/shared/bmo-cubo): 24 vertices, cuatro por cara con la normal y el
+# color de su cara, y dos triangulos por cara. La prueba `tests/lamina.rs` del
+# emisor mira que lo que la app publica es la tanda de bmo_cubo, bit a bit.
+
+# la x de cada vertice
+pub fn x() -> [f32; 24]
+    let t: [f32; 24] = [-1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0]
+    return t
+
+# la y de cada vertice
+pub fn y() -> [f32; 24]
+    let t: [f32; 24] = [1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0]
+    return t
+
+# la z de cada vertice
+pub fn z() -> [f32; 24]
+    let t: [f32; 24] = [-1.0, -1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, 1.0]
+    return t
+
+# el color de cada triangulo, canal a canal (r, g, b): 36 celdas
+pub fn color() -> [f32; 36]
+    let t: [f32; 36] = [0.19, 0.88, 0.19, 0.19, 0.88, 0.19, 0.88, 0.19, 0.19, 0.88, 0.19, 0.19, 0.88, 0.88, 0.19, 0.88, 0.88, 0.19, 0.19, 0.19, 0.88, 0.19, 0.19, 0.88, 0.88, 0.19, 0.88, 0.88, 0.19, 0.88, 0.19, 0.88, 0.88, 0.19, 0.88, 0.88]
+    return t
+
+# la normal de su cara, por triangulo y canal
+pub fn normal_x() -> [f32; 36]
+    let t: [f32; 36] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    return t
+
+# la y de la normal
+pub fn normal_y() -> [f32; 36]
+    let t: [f32; 36] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
+    return t
+
+# la z de la normal
+pub fn normal_z() -> [f32; 36]
+    let t: [f32; 36] = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    return t
+
+# los tres vertices de cada triangulo: (0, 1, 2) y (0, 2, 3) de cada cara
+pub fn indices() -> [int; 36]
+    let t: [int; 36] = [0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14, 15, 16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23]
+    return t

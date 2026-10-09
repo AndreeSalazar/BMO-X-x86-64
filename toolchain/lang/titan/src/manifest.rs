@@ -53,6 +53,11 @@ pub fn certificate(m: &Module) -> Certificate {
                         }
                         values.extend(args);
                     }
+                    // LB7b: the director, the door of the SCREEN (DL7).
+                    Op::Director { args, at, .. } => {
+                        uses.push((at.0, Door::Screen));
+                        values.extend(args);
+                    }
                     Op::Drop { .. } => {}
                 }
             }
@@ -75,11 +80,16 @@ pub fn certificate(m: &Module) -> Certificate {
     c
 }
 
-/// The doors opened INSIDE a value: a call to a `gpu fn` (the GPU's), and
-/// `lee()` (E1: the program's own console, the same door `print` writes by).
+/// The doors opened INSIDE a value: a call to a `gpu fn` (the GPU's),
+/// `lee()` (E1: the program's own console, the same door `print` writes by),
+/// and what the director answers (LB7b: the SCREEN's).
 fn gpu_calls(v: &Value, m: &Module, out: &mut Vec<(usize, Door)>) {
     match v {
         Value::Read(at) => out.push((at.0, Door::Console)),
+        Value::Director(_, args, at) => {
+            out.push((at.0, Door::Screen));
+            args.iter().for_each(|a| gpu_calls(a, m, out));
+        }
         Value::Call(f, args, at) => {
             if m.functions[*f].gpu {
                 out.push((at.0, Door::Gpu));

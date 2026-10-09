@@ -49,7 +49,7 @@
 //! `0.1` wrong. A `dec` is COBOL's number (Grace Hopper's) at the speed of an
 //! integer.
 
-use crate::ir::{At, End, Function, Lib, Module, Op, PathStep, Value};
+use crate::ir::{At, Director, End, Function, Lib, Module, Op, PathStep, Value};
 use crate::message::{Code, Message};
 use crate::tree::{show_dec, EnumDef, TraitDef, Ty, TypeDef};
 
@@ -572,6 +572,7 @@ impl Run<'_, '_> {
                         self.call_with(*func, args, *at, &mut known)?;
                     }
                     Op::Drop { local, .. } => known[*local] = None,
+                    Op::Director { .. } => unreachable!("calc: a module that talks to the director is emitted, never run when compiling (fold_with)"),
                 }
             }
             self.tick()?;
@@ -690,6 +691,7 @@ impl Run<'_, '_> {
                 _ => unreachable!("classes: numero reads a text"),
             },
             Value::Read(_) => unreachable!("calc: a module that reads is emitted, never run when compiling (fold_with)"),
+            Value::Director(..) => unreachable!("calc: a module that talks to the director is emitted, never run when compiling (fold_with)"),
             Value::Local(l, _) | Value::Lend(_, l, _) => known[*l].clone().expect("juez: every local read has a value"),
             Value::Call(func, args, at) => self.call_with(*func, args, *at, known)?.expect("check: a call used as a value gives one back"),
             Value::Round(inner, n, at) => {

@@ -44,6 +44,10 @@ bmo-tarjeta-rtx3060-12g = { path = "../../../forge/tarjeta-rtx3060-12g" }
 # que corre una gpu fn AL CORRER (E1): con ella, un programa que lee usa una
 # gpu fn sin esperar a la puerta de computo de la 3060 (Ring 0).
 bmo-tarjeta-cpu = { path = "../../../forge/tarjeta-cpu" }
+# ** LB7b (09-10): la LAMINA de VERRANO -- su forma y su trato, UNA vez
+# (`lamina.rs`) --, que E1 escribe cuando un programa habla con el director.
+# Los numeros de E1 salen de aqui; el lector de la prueba, tambien.
+bmo-verrano = { path = "../../../../platform/shared/verrano" }
 
 [lib]
 name = "bmo_titan_x86_64"
@@ -63,5 +67,4 @@ bmo-lower = { path = "../../../forge/bmo-lower", features = ["emulator"] }
 # contra el contrato que VERRANO le pide a `cubo.bsf` (su `Vertex`), leido con
 # el lector de BSF de la casa (`tests/cubo.rs`).
 bmo-cubo = { path = "../../../../platform/shared/bmo-cubo" }
-bmo-verrano = { path = "../../../../platform/shared/verrano" }
 bmo-bsf = { path = "../../spirv/bsf" }

@@ -1,0 +1,13 @@
+# espera: T0090
+# el director es de la CPU: un hilo de la 3060 cuenta una celda, no publica fotogramas
+mod main "una gpu fn que quiere publicar"
+use director
+
+gpu fn doble(x: f32) -> f32
+    director.espera(16)
+    return x * 2.0
+
+fn main()
+    let xs: [f32; 2] = [1.0, 2.0]
+    let d = doble(xs)
+    print(round(d[0], 2))

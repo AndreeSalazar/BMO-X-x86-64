@@ -1,5 +1,5 @@
 [package]
-name = "cubo_gira"
+name = "director_en_la_gpu"
 
 [permissions]
 gpu = "compute"

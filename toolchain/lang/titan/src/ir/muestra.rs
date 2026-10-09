@@ -40,6 +40,7 @@ impl Module {
                             format!("    llama   f{} ({})({})\n", func, self.functions[*func].name, a.join(", "))
                         }
                         Op::Drop { local, at } => format!("    muere   %{} ({}, al cerrarse el bloque de la linea {})\n", local, f.locals[*local].name, at.0),
+                        Op::Director { what, args, .. } => format!("    pide    {}({})\n", what.name(), args.iter().map(show).collect::<Vec<_>>().join(", ")),
                         Op::SetAt { local, path, value, .. } => {
                             let p: String = path
                                 .iter()
@@ -94,6 +95,7 @@ fn show(v: &Value) -> String {
         Value::Is(x, e, v, _) => format!("{} es E{}.{}", show(x), e, v),
         Value::Payload(x, e, v, k, _) => format!("dato {} de {} (E{}.{})", k, show(x), e, v),
         Value::Lib(lib, args, _) => format!("{}({})", lib.name(), args.iter().map(show).collect::<Vec<_>>().join(", ")),
+        Value::Director(what, args, _) => format!("{}({})", what.name(), args.iter().map(show).collect::<Vec<_>>().join(", ")),
         Value::Map(items, _) => format!("{{{}}}", items.iter().map(|(k, v)| format!("{}: {}", show(k), show(v))).collect::<Vec<_>>().join(", ")),
     }
 }

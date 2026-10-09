@@ -129,6 +129,12 @@ fn forma_de(p: &Program, f: &Function) -> Forma {
     forma(&p.types, &params, f.ret.as_ref())
 }
 
+/// ** LB7b: the director is the CPU's -- a thread of the 3060 counts one
+/// cell; it does not publish frames.
+fn no_director(callee: &str, line: usize, col: usize) -> Message {
+    no(line, col, &format!("`{}()` dentro de una gpu fn", callee), "el director -- la lamina de VERRANO -- es de la CPU: un hilo de la 3060 cuenta una celda, no publica fotogramas", "cuenta los vertices en la gpu fn y publicalos desde la CPU: director.publica(f, n, posiciones, colores)")
+}
+
 /// The `gpu fn` called `name`, if there is one.
 fn gpu_fn<'p>(p: &'p Program, name: &str) -> Option<&'p Function> {
     p.functions.iter().find(|g| g.gpu && g.name == name)
@@ -337,6 +343,7 @@ fn body(p: &Program, f: &Function, stmts: &[Stmt], hondo: usize, forma: Forma) -
             Stmt::If(i) => (1u64.saturating_add(expr(p, &i.cond, hondo, forma)?).saturating_add(body(p, f, &i.then, hondo, forma)?).saturating_add(body(p, f, &i.other, hondo, forma)?), None),
             Stmt::Return { value: Some(v), .. } => (1u64.saturating_add(expr(p, v, hondo, forma)?), None),
             Stmt::Return { line, col, value: None } => return Err(no(*line, *col, "un `return` sin valor en una gpu fn", "cada hilo devuelve su celda", "return x")),
+            Stmt::Call(c) if c.callee.starts_with("director.") => return Err(no_director(&c.callee, c.line, c.col)),
             Stmt::Call(c) if c.callee == "print" => return Err(no(c.line, c.col, "`print` dentro de una gpu fn", "la 3060 no tiene consola: miles de hilos escribiendo a la vez no dirian nada que se pueda leer", "devuelve el valor, y escribelo en la CPU: print(round(x, 2))")),
             Stmt::Call(c) if gpu_fn(p, &c.callee).is_some() => return Err(no(c.line, c.col, &format!("`{}()` sola, sin usar lo que devuelve, en una gpu fn", c.callee), "una gpu fn es pura: no cambia nada fuera de ella, asi que llamarla sin usar su resultado no hace nada", &format!("let y = {}(...)", c.callee))),
             Stmt::Call(c) => return Err(no(c.line, c.col, &format!("`{}()` dentro de una gpu fn", c.callee), "una gpu fn solo llama a otra gpu fn, que se escribe EN LINEA en ella: lo de la CPU no corre en un hilo de la GPU", "escribe el calculo aqui mismo, o en otra gpu fn")),
@@ -587,6 +594,7 @@ fn expr(p: &Program, e: &Expr, hondo: usize, forma: Forma) -> Result<u64, Messag
             }
             Ok(cost.saturating_add(body(p, g, &g.body, hondo, forma_de(p, g))?))
         }
+        Expr::Call { callee, line, col, .. } if callee.starts_with("director.") => Err(no_director(callee, *line, *col)),
         // A name nobody declared is the checker's NO (T0051), after this one.
         Expr::Call { callee, args, .. } if !p.functions.iter().any(|g| g.name == *callee) => {
             let mut cost = 1u64;
