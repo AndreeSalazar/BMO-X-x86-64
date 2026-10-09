@@ -2052,3 +2052,13 @@ tiempo en adivinar"*:
     FRUGAL lo que no cabe en sus 64 registros, y la CPU deja que los valores
     que mueren cedan su sitio; lo que ya cabia sale igual. Queda la app que
     lo publica en la lamina (LB7b).
+  - **09-10, LB7b:** el DIRECTOR. `use director` (y `screen` en el
+    Titan.toml, DL7) da tres llamadas: `director.lamina(c)` pide la lamina de
+    VERRANO, escribe su cabecera y se la OFRECE a quien lanzo el programa;
+    `director.publica(f, n, posiciones, colores)` publica un fotograma con el
+    trato de `verrano/src/lamina.rs` (el sello de la ranura, la secuencia lo
+    ultimo); `director.espera(ms)` duerme. Un programa que habla con el
+    director CORRE (E1): sus gpu fn, en la CPU. El certificado abre la puerta
+    `screen` en su linea. `nivel11/cubo_gira` es ya la app del cubo: lanzada
+    por un escritorio de mentira, el lector de VERRANO lee de su lamina la
+    tanda de `bmo_cubo`, bit a bit. El metal es del propietario.

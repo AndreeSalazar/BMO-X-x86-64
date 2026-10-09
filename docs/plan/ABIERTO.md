@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   740 casillas ABIERTAS en 68 planes
-   583 hechas
+   739 casillas ABIERTAS en 68 planes
+   584 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -307,15 +307,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
 - ... y 4 mas
 
-## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 7 abiertas, 7 hechas
-
-*PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
-
-- [ ] LB0 -- LAS DECISIONES de la seccion 4, contestadas por el
-- [ ] LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI. Un arranque, en
-- [ ] LB6 -- LA gpu fn QUE DIBUJA. Una gpu fn de VERTICE y una de PIXEL,
-- ... y 4 mas
-
 ## [`PLAN_LA_CASA_ESCONDIDA.md`](PLAN_LA_CASA_ESCONDIDA.md) -- 7 abiertas, 0 hechas
 
 *PLAN LA CASA ESCONDIDA -- una red que cambia, para que la IP de casa no se vea*
@@ -395,6 +386,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 2 el build y el metro: ventana, musica, cubo y navegar fuera de
 - [ ] 4 fuera el runtime de app (objetos, monton, superficie, lamina,
 - [ ] 5 el emisor pierde los caminos del monton y de los objetos; los docs
+- ... y 3 mas
+
+## [`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md) -- 6 abiertas, 8 hechas
+
+*PLAN LAS LIBRERIAS -- TITAN++, el modelo general; cada GPU, una libreria (la primera: SM86, la R*
+
+- [ ] LB0 -- LAS DECISIONES de la seccion 4, contestadas por el
+- [ ] LB2 -- TITAN++ EN EL RYZEN, y la lamina de INTI. Un arranque, en
+- [ ] LB6 -- LA gpu fn QUE DIBUJA. Una gpu fn de VERTICE y una de PIXEL,
 - ... y 3 mas
 
 ## [`PLAN_LAS_RAMAS.md`](PLAN_LAS_RAMAS.md) -- 6 abiertas, 10 hechas

@@ -1226,7 +1226,8 @@ Asi quedo:
       como un fallo del compilador; con el modo frugal, lo que aun no cabe es
       un limite de la tarjeta, y deberia decirse asi, en su sitio (LB1).
 
-- [ ] **LB7 -- TITAN++ MANDA A VERRANO.** Una app de TITAN++ que dibuja el
+- [x] **LB7 -- TITAN++ MANDA A VERRANO.** **HECHA en el anfitrion el 09-10
+  (LB7a, arriba, y LB7b).** Una app de TITAN++ que dibuja el
   cubo girando, por el camino de DL8: el permiso (DL7) y su puerta en el
   certificado; en E1, el `f32` como DATO -- guardar, pasar y copiar a un
   bloque, lo que la ley L26 ya deja --; y los 360 fotogramas contados por gpu
@@ -1243,6 +1244,52 @@ Asi quedo:
     `bmo_cubo::tanda`; en el metal, la app de TITAN++ corriendo y `gpu verrano
     banco inti` (o su hermana) sobre su lamina acaba con `IGUAL al juez`, como
     hoy con INTI.
+  - **LB7b, lo hecho (09-10):**
+    - el DIRECTOR en TITAN++ (`toolchain/lang/titan/src`): `use director` --
+      con `screen` en el Titan.toml (DL7) -- da `director.lamina(c)`,
+      `director.publica(f, n, posiciones, colores)` y `director.espera(ms)`.
+      El resolutor del paquete deja pasar `director.x` solo a un modulo que
+      lo dice en su cabecera (T0080); el comprobador sabe sus valores y lo
+      que dan (T0068, T0069); las clases piden enteros y dos tablas de f32
+      de cuatro por vertice (T0071), y nada prestado (T0077); en una gpu fn
+      es T0090. Un programa que habla con el director CORRE (E1): lo que
+      contesta solo se sabe al correr. Y el certificado abre la puerta
+      `screen` en la linea de cada llamada;
+    - E1 lo escribe (`emisor-x86_64/src/e1/director.rs`), con los numeros de
+      `verrano/src/lamina.rs`: el bloque pedido al kernel, la cabecera
+      `BVER` ENTERA antes de ofrecerla, `MI_PADRE` y la OFERTA; en `r13` la
+      lamina de todo el programa (solo si el programa habla con el
+      director). `publica`: el sello de la ranura que nadie lee a impar, los
+      vertices, su numero y su fotograma, el sello a par, y la secuencia LO
+      ULTIMO. `espera`: WAIT sin asa;
+    - la app: `nivel11/cubo_gira` -- el mismo paquete de LB7a, con su malla
+      (`malla.titan`) -- escribe sus tres cuentas y, si alguien compone,
+      publica diez minutos de cubo, un fotograma cada 16 ms: cada uno, sus
+      gpu fn al correr (en la CPU), las caras que miran por su area en
+      subpixeles (en `dec`, exacta), su luz, y `director.publica`. Lanzada
+      desde el shell dice que nadie compone;
+    - el banco: tres NO nuevos (`director_sin_use`, `director_en_la_gpu`,
+      `director_con_un_dec`).
+  - **LB7b, como se supo:**
+    - `emisor-x86_64/tests/lamina.rs`, en el emulador de la casa (que
+      contesta `MI_PADRE` y apunta las ofertas): sin padre no hay oferta;
+      con padre, un triangulo publicado tres veces -- y uno de cuatro
+      vertices, rechazado -- lo lee el lector de VERRANO de esa memoria, con
+      la secuencia y los dos sellos donde dice el trato; el certificado dice
+      `screen` y su linea, y el juez de la puerta de carga la nombra si no se
+      concede;
+    - y EL CUBO: lanzado por un escritorio de mentira que lee la lamina
+      MIENTRAS corre (cada 200 000 pasos, con el lector de VERRANO), 376
+      fotogramas publicados en 184 millones de pasos; el lector vio los 360
+      de la vuelta, cada uno ENTERO, el de su publicacion, y la tanda de
+      `bmo_cubo` bit a bit; la vuelta siguiente empieza;
+    - lo de antes, igual: los 44 `.bex` de los demas programas BIEN, byte a
+      byte contra LB7a, y lo que `titan sm86` deja del nivel 11 (las 22 gpu
+      fn de `cubo_gira` incluidas: su SASS no cambio).
+  - **Queda, del propietario (el metal):** `run titan/cubo_gira.bex` lanzado
+    por el escritorio y `gpu verrano banco` sobre su lamina, como con INTI
+    (E6 de PLAN_VERRANO). Que salga `cubo.inti` del build es el corte 4 de
+    INTI_SAMURAI, despues de eso.
 
 ## 5.2 Lo que es de Ring 0 (del propietario)
 
