@@ -45,6 +45,10 @@ use isa::{emitir_con, Abi, NoEmite};
 /// simulador. La lengua es de toda Ampere GA10x; la tarjeta, de esta grafica.
 pub use bmo_proton_x_sm86 as isa;
 
+/// ** LB6 (08-10): lo que DIBUJA -- una gpu fn de vertice o de pixel pegada a
+/// la tuberia de VERRANO, juzgada, y las de un paquete en su sobre.
+pub mod dibujo;
+
 /// Como la nombra la casa: el aparato exacto.
 pub const NOMBRE: &str = "la RTX 3060 12G";
 /// Su codigo maquina.

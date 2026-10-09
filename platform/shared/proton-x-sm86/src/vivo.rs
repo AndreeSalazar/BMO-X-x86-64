@@ -99,8 +99,16 @@ pub enum Origen {
 /// un NaN), con la cabecera [`bmo_bsf::MAPA_MAGIC`] y la version del
 /// emisor; rellenado a 4 bytes (lo pide el sobre).
 pub fn mapa(en: &Enlace) -> Vec<u8> {
+    mapa_de(&[("vs", &en.vs), ("ps", &en.ps)])
+}
+
+/// **El MAPA de unos Programas con nombre** (08-10, LB6 de
+/// `PLAN_LAS_LIBRERIAS`): el mismo texto canonico que [`mapa`] -- que es el de
+/// `vs` y `ps` --, para los que no salen de un PSO: las gpu fn que DIBUJAN de
+/// TITAN++, cada una por el nombre de su modulo en el sobre.
+pub fn mapa_de(programas: &[(&str, &Programa)]) -> Vec<u8> {
     let mut s = format!("MAPA 1\nemisor {VERSION_EMISOR}\n");
-    for (nombre, p) in [("vs", &en.vs), ("ps", &en.ps)] {
+    for &(nombre, p) in programas {
         let sin = Programa { iniciales: Vec::new(), ..p.clone() };
         s.push_str(&format!("{nombre} {sin:?}\n{nombre}.iniciales"));
         for x in &p.iniciales {

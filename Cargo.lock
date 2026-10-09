@@ -856,6 +856,7 @@ dependencies = [
 name = "bmo-tarjeta-rtx3060-12g"
 version = "0.1.0"
 dependencies = [
+ "bmo-bsf",
  "bmo-gpu-ga10x",
  "bmo-prometeo",
  "bmo-proton-x-sm86",

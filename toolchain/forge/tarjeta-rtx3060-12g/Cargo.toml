@@ -21,6 +21,9 @@ bmo-proton-x-sm86 = { path = "../../../platform/shared/proton-x-sm86" }
 # SU JUEZ y SU IDENTIDAD, del driver de la 3060 (como bytes: no toca la
 # tarjeta): el juez del SASS y `lectura::identidad`.
 bmo-gpu-ga10x = { path = "../../../platform/drivers/gpu/ga10x" }
+# LB6 (08-10): EL SOBRE de lo que dibuja -- un BSF de `kind` SM86, con el
+# MAPA de la casa de fuente (`dibujo.rs`).
+bmo-bsf = { path = "../../lang/spirv/bsf" }
 
 [lib]
 name = "bmo_tarjeta_rtx3060_12g"
