@@ -412,21 +412,30 @@ is also a ready-made node in F1's TAB menu, Houdini-style.
                lend (mut) and hand over (take) with COBOL's dec(p, s),
                enum + match, packages, traits, gpu fn, input, lists and maps
    emitters    its own, to x86-64; a `gpu fn` goes through PROMETEO -- the
-               house Programa, then each GPU's own library, isolated (today
-               the RTX 3060: SM86) --, judged, and run on the SIMULATED card
-               when it compiles; on the card itself, not yet
+               house Programa, then each library, isolated (the RTX 3060 12G,
+               by its exact device, with SASS sm_86 inside; and the CPU, the
+               reserve) --, judged, and run on the
+               SIMULATED card when it compiles; in a program that reads, on
+               the CPU when it runs; on the card itself, not yet. Its loops
+               have their turns WRITTEN and its calls go in line: a thread
+               ends by construction. It divides EXACTLY, the IEEE bits, on
+               the card too (the card's reciprocal is only an estimate; the
+               division corrects it). And it DRAWS: a vertex or pixel `gpu
+               fn`, by its signature, glued to VERRANO's pipeline and put in
+               its BSF envelope (the V0 cube, on the host; the metal, next)
    a judge     ownership checked over the IR, not over the syntax
-   31 laws     each one with the test or the program that enforces it; the
+   33 laws     each one with the test or the program that enforces it; the
                build stops if a law loses its proof (`titan-leyes`)
 ```
 
-🟡 **Its bank runs in BMO-X's own emulator; on the Ryzen, one program so
-far**: 102 programs. The 37 that must work are built, loaded the way the kernel loads
+🟡 **Its bank runs in BMO-X's own emulator; on the Ryzen, the two programs
+the build deploys**: 111 programs. The 44 that must work are built, loaded the way the kernel loads
 them, run, and their console compared with the `# sale:` line each one
-carries; the 65 that must fail are each refused with the exact error code
-they name. The first metal step was taken on 2026-10-08: `run
-titan/hola.bex` printed `hola` on the Ryzen
-([`METAL_2026-10-08.md`](docs/metal/METAL_2026-10-08.md)). The design and every decision:
+carries; the 67 that must fail are each refused with the exact error code
+they name. The first metal steps were taken on 2026-10-08: `run
+titan/hola.bex` printed `hola` on the Ryzen, and `run titan/dos.bex` printed
+its two lines -- a function of its own called from `main`, two texts in one
+`print` ([`METAL_2026-10-08.md`](docs/metal/METAL_2026-10-08.md)). The design and every decision:
 **[TITAN_MAESTRO.md](docs/maestro/TITAN_MAESTRO.md)** and
 **[GRAMATICA.md](toolchain/lang/titan/GRAMATICA.md)**.
 
@@ -1134,7 +1143,7 @@ row below is **work on top of something that already runs**, except the last one
 | 🟢 | **Games on the GPU, step one** -- **VERRANO V0**, BMO-X's own drawing API: the D3D cube through the card's rasterizer, with two programs shipped ready-made in BMO-X's own shader format (**BSF**) and the vertices in a buffer, **equal bit for bit to D3D12 on Windows** (2026-09-26: 923 us on the card, 1796 us on the CPU). The hang on the way was the card's own report: `Xid 13, Out Of Range Register` -- on Volta and later two registers are burned for the program counter. A SASS judge now checks every program BMO-X sends to the card before it goes | next: the lanes E, M and P of [`PLAN_VERRANO.md`](docs/plan/PLAN_VERRANO.md) -- V1, V1b and V1c were seen 2026-09-26, and since 2026-09-28 the card runs programs from BMO-X's own SM86 emitter (the house Programa, no SPIR-V); the cube's own `cubo.bsf` is still hand-written SASS |
 | 🟡 | **Cyberpunk 2077 through PROTON-X** -- on 2026-10-07 it runs **68 s** on the metal: it opens its window, creates 1.065 pipelines, submits **43 command lists** and **opens the sound** (WASAPI, 48 kHz stereo, through the USB headset). Getting there took a kernel clock that takes the core from a game thread that never lets go (*EXPROPIAR*, like a Linux timer signal) and a Linux-style futex. With `smp all` the PC still reboots; the black box could not say why because the CPU cache was eating its last lines -- fixed the same day, with a per-core board that survives the reset. Log: [`METAL_2026-10-07.md`](docs/metal/METAL_2026-10-07.md) | the first `Present`; the `smp all` reboot, named by the next `CAIDA.TXT` |
 | 🟡 | **ESTRATOS branches and merge on the metal** -- create, switch, count, choose and merge are kernel gestures and F1 drives them; the merge engine matches two other implementations on 2.000 random histories | one test on the data disk, by the owner (`R4c-3` in [`PLAN_LAS_RAMAS.md`](docs/plan/PLAN_LAS_RAMAS.md)) |
-| 🟡 | **TITAN++ on the metal** -- 14 levels; its bank of 102 programs passes in the emulator, and the first one ran on the Ryzen on 2026-10-08 (`run titan/hola.bex` printed `hola`) | `run titan/dos.bex`, then a program that reads (E1) |
+| 🟡 | **TITAN++ on the metal** -- 14 levels; its bank of 111 programs passes in the emulator, and the two the build deploys ran on the Ryzen on 2026-10-08 (`hola.bex` and `dos.bex`) | a program that reads (E1) |
 | ⚪ | **F2, the files** -- every file of every disk in one tree, the disks in a tray, the desktop icons retired, and the *"it is open"* dialog that shows the program's own window | [`PLAN_LA_BANDEJA.md`](docs/plan/PLAN_LA_BANDEJA.md), step B1 |
 | ⚪ | **A local assistant**, running as a Ring 3 app over your own files -- parked by decision; its step 0 (closed decisions over `DATOS.TXT`, no model) needs nothing | `exp`, and the core door |
 | ⛔ | **Anything over the internet** | **cryptography** -- and that is the ceiling |

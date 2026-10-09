@@ -142,6 +142,14 @@ pub const DATA_BASE: u64 = 0x1_0000;
 /// Tope de pila inicial. Alineado a 64 como pide el contrato de BMO.
 pub const STACK_TOP: u64 = 0x7000_0000;
 
+/// El MXCSR al encender un nucleo (y el de D3D): todas las excepciones
+/// tapadas, al mas cercano, sin FTZ ni DAZ. Es lo unico que el SSE de este
+/// emulador sabe calcular (ver `Machine::mxcsr`).
+pub const MXCSR_REINICIO: u32 = 0x1F80;
+
+/// Los bits de CONTROL del MXCSR (6..15); los de abajo son las banderas.
+const MXCSR_CONTROL: u32 = 0xFFC0;
+
 /// Donde cae el primer bloque de `KIND_MEMORIA`.
 ///
 /// Espejo de `vmm::MEMORIA_VA_BASE`, **que es la fuente de verdad** -- el kernel
@@ -284,6 +292,28 @@ pub struct Machine {
     /// que alguien los mezcle, esto miente, y por eso `limpia_los_altos` existe
     /// como fila propia y visible.
     pub ymm: [[u64; 4]; 16],
+    /// ** Las direcciones que ESCRIBIO el programa, si alguien las pidio
+    /// (LB4, 08-10): `Some` antes de correr, y cada byte que el programa
+    /// escribe (no lo que carga la prueba) se apunta. El juez de la tarjeta de
+    /// la CPU mira con esto que un cuerpo no escriba fuera de sus registros, su
+    /// salida y su pila -- tambien cuando escribe lo que ya habia.
+    pub escritas: Option<Vec<u64>>,
+    /// **El MXCSR** (LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): el
+    /// control de SSE, que `ldmxcsr` pone y `stmxcsr` lee.
+    ///
+    /// ** Llego con la CPU como libreria de la GPU: el x86-64 de una gpu fn
+    /// (`nativo` de PROTON-X) guarda el MXCSR de quien lo llama, pone el de
+    /// D3D si hace falta y lo devuelve al salir. Lo que se modela es lo que el
+    /// SSE de este emulador ES: al mas cercano, sin FTZ ni DAZ, todas las
+    /// excepciones tapadas -- el control de [`MXCSR_REINICIO`]. Un
+    /// `ldmxcsr` que pida OTRO control revienta: calcular como si no hubiera
+    /// pasado seria aprobar un programa que el silicio redondea distinto.
+    ///
+    /// [!] Las banderas de excepcion (bits 0..5) NO se modelan: ninguna
+    /// operacion las enciende aqui. `stmxcsr` da las que cargo el ultimo
+    /// `ldmxcsr` (cero al empezar). Quien las mire para decidir algo, aqui y
+    /// en el silicio vera cosas distintas; `nativo` solo mira el control.
+    pub mxcsr: u32,
     pub code: Vec<u8>,
     pub rip: usize,
     /// Texto que el kernel habria pintado.
@@ -490,6 +520,8 @@ impl Machine {
             xmm: [0; 16],
             xmm_alto: [0; 16],
             ymm: [[0; 4]; 16],
+            escritas: None,
+            mxcsr: MXCSR_REINICIO,
             code,
             rip: 0,
             console: String::new(),
@@ -999,7 +1031,10 @@ impl Machine {
                 }
             }
             // ALU  reg, r/m  (direccion contraria)
-            0x8B | 0x0B | 0x03 | 0x2B | 0x3B => {
+            // `33`, `xor reg, r/m` (LB4, 08-10): la salida del MXCSR del
+            // x86-64 de una gpu fn (`xor ecx, [rsp+4]`) compara el control de
+            // quien llamo con el de ahora. La hermana `31` ya estaba.
+            0x8B | 0x0B | 0x03 | 0x2B | 0x3B | 0x33 => {
                 let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
                 let a = self.read_reg(reg, wide);
                 let b = self.load(src, wide);
@@ -1007,6 +1042,11 @@ impl Machine {
                     0x8B => self.write_reg(reg, b, wide),
                     0x0B => {
                         let r = a | b;
+                        self.flags_logic(r);
+                        self.write_reg(reg, r, wide);
+                    }
+                    0x33 => {
+                        let r = a ^ b;
                         self.flags_logic(r);
                         self.write_reg(reg, r, wide);
                     }
@@ -1128,6 +1168,26 @@ impl Machine {
                 self.flags_logic(r);
                 self.store(Operand::Reg(0), r, ancho);
             }
+            // == `and eax, imm32` y `cmp eax, imm32` (LB4, 08-10) ==========
+            //
+            // Las formas cortas sobre rAX, las del grupo 81 sin ModRM. Las
+            // emite el prologo del MXCSR del x86-64 de una gpu fn (`nativo`
+            // de PROTON-X: `and eax, MXCSR_CONTROL`, `cmp eax, MXCSR_D3D`).
+            // Hasta que la CPU fue una libreria de la GPU (LB4 de
+            // PLAN_LAS_LIBRERIAS), ese codigo no pasaba por aqui: su juez era
+            // el anfitrion (`proton-x-casa/tests/nativo.rs`).
+            0x25 => {
+                let imm = self.fetch_u32() as i32 as i64 as u64;
+                let a = self.load(Operand::Reg(0), wide);
+                let r = a & imm;
+                self.flags_logic(r);
+                self.store(Operand::Reg(0), r, ancho);
+            }
+            0x3D => {
+                let imm = self.fetch_u32() as i32 as i64 as u64;
+                let a = self.load(Operand::Reg(0), wide);
+                self.flags_sub(a, imm);
+            }
             // grupo 1 con imm32
             0x81 => {
                 let (ext, dst) = self.modrm(0, rex_x, rex_b);
@@ -1181,12 +1241,7 @@ impl Machine {
                 let (ext, dst) = self.modrm(0, rex_x, rex_b);
                 let imm = self.fetch_u8() as u32;
                 let a = self.load(dst, wide);
-                let r = match ext & 7 {
-                    4 => a << imm,
-                    5 => a >> imm,
-                    7 => ((a as i64) >> imm) as u64,
-                    other => panic!("grupo C1 /{other} no emitido por BMO"),
-                };
+                let r = desplaza(ext & 7, a, imm, wide).unwrap_or_else(|| panic!("grupo C1 /{} no emitido por BMO", ext & 7));
                 self.flags_logic(r);
                 self.store(dst, r, ancho);
             }
@@ -1300,14 +1355,8 @@ impl Machine {
             // desplazamientos por `cl`: /4 shl, /5 shr, /7 sar
             0xD3 => {
                 let (ext, dst) = self.modrm(0, rex_x, rex_b);
-                let count = (self.regs[RCX] & 0x3F) as u32; // el CPU enmascara a 6 bits
                 let a = self.load(dst, wide);
-                let r = match ext & 7 {
-                    4 => a << count,
-                    5 => a >> count,
-                    7 => ((a as i64) >> count) as u64,
-                    other => panic!("grupo D3 /{other} no emitido por BMO"),
-                };
+                let r = desplaza(ext & 7, a, self.regs[RCX] as u32, wide).unwrap_or_else(|| panic!("grupo D3 /{} no emitido por BMO", ext & 7));
                 self.flags_logic(r);
                 self.store(dst, r, ancho);
             }
@@ -1341,9 +1390,17 @@ impl Machine {
                 self.store(dst, r, ancho);
             }
             // cqo -- extiende el signo de rax a rdx
+            // `cqo` (con REX.W) y `cdq` (sin el): el signo de rax a rdx, o el
+            // de EAX a EDX (y la mitad alta de rdx a cero, como toda escritura
+            // de 32 bits). Hasta el 08-10 los dos eran `cqo`: en 32 bits, eax
+            // negativo con la mitad alta de rax a cero daba edx = 0, y el
+            // `idiv` de detras dividia un positivo (LB4, los enteros de 32 del
+            // Programa de la casa).
             0x99 => {
-                self.regs[RDX] = if (self.regs[RAX] as i64) < 0 {
-                    u64::MAX
+                self.regs[RDX] = if wide {
+                    if (self.regs[RAX] as i64) < 0 { u64::MAX } else { 0 }
+                } else if (self.regs[RAX] as u32 as i32) < 0 {
+                    0xFFFF_FFFF
                 } else {
                     0
                 };
@@ -1428,7 +1485,7 @@ impl Machine {
                     0x05 => self.do_syscall(),
 
                     // == SSE ESCALAR: doble Y simple, en `sse.rs` (2026-09-23) ==
-                    0x10 | 0x11 | 0x2A | 0x2C | 0x2E | 0x2F | 0x51 | 0x57..=0x5F | 0x6E | 0x7E | 0xC6 => {
+                    0x10 | 0x11 | 0x2A | 0x2C | 0x2E | 0x2F | 0x51 | 0x54..=0x5F | 0x6E | 0x7E | 0xC2 | 0xC6 => {
                         self.sse(second, sse::Prefijos { f2, f3, op16, wide, rex_r, rex_x, rex_b })
                     }
                     // movsx reg, r/m8 -- carga un char CON signo
@@ -1547,12 +1604,36 @@ impl Machine {
                     // un MSR seria inventarse un dato, y eso el emulador no lo
                     // hace. Ver VERDAD.md -- hay intrinsecos que solo el metal
                     // puede contestar.
+                    //
+                    // ** Y con memoria, el /n dice cual (LB4, 08-10): /7 es
+                    // `clflush` (el no-op de arriba), /2 `ldmxcsr` y /3
+                    // `stmxcsr`, que SI cambian algo -- el control de SSE, ver
+                    // `Machine::mxcsr`. Hasta el 08-10 todo `0F AE` con memoria
+                    // era `clflush`: nadie emitia otro. El resto (`fxsave`,
+                    // `xsave`...) revienta: guardar un estado que aqui no hay
+                    // seria inventarselo.
                     0xAE => {
                         let modrm = self.code[self.rip];
                         if modrm >> 6 == 3 {
                             self.rip += 1; // fence: el ModRM es la variante
                         } else {
-                            let _ = self.modrm(rex_r, rex_x, rex_b); // clflush
+                            let (ext, dst) = self.modrm(rex_r, rex_x, rex_b);
+                            match ext & 7 {
+                                7 => {} // clflush
+                                2 => {
+                                    let v = self.load(dst, false) as u32;
+                                    assert!(
+                                        v & MXCSR_CONTROL == MXCSR_REINICIO & MXCSR_CONTROL,
+                                        "ldmxcsr {v:#x}: este emulador solo calcula con el control {MXCSR_REINICIO:#x} (al mas cercano, sin FTZ ni DAZ)"
+                                    );
+                                    self.mxcsr = v;
+                                }
+                                3 => {
+                                    let v = self.mxcsr as u64;
+                                    self.store(dst, v, 4);
+                                }
+                                other => panic!("0F AE /{other} con memoria no emitido por BMO"),
+                            }
                         }
                     }
                     // `ud2` -- instruccion invalida a proposito. Termina.
@@ -1583,6 +1664,20 @@ impl Machine {
                         let b = self.load(src, wide) as i64;
                         let r = a.wrapping_mul(b) as u64;
                         self.banderas_producto(a, b, wide);
+                        self.write_reg(reg, r, wide);
+                    }
+                    // == `cmovcc reg, r/m` (LB4, 08-10) ======================
+                    //
+                    // El `Elige` del Programa de la casa en el x86-64 de una
+                    // gpu fn (`nativo_computo`: `test edx, edx; cmovz eax,
+                    // ecx`). Dos cosas del silicio que se modelan a proposito:
+                    // la FUENTE se lee siempre, se de o no la condicion; y en
+                    // 32 bits el destino se escribe SIEMPRE -- su mitad alta
+                    // queda a cero aunque la condicion no se de.
+                    0x40..=0x4F => {
+                        let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
+                        let v = self.load(src, wide);
+                        let r = if self.cond(second & 0x0F) { v } else { self.read_reg(reg, wide) };
                         self.write_reg(reg, r, wide);
                     }
                     // setcc r/m8 -- deja 0 o 1 segun la condicion
@@ -1643,6 +1738,45 @@ enum Operand {
 /// lo esconde en vez de reportarlo).
 pub fn run(m: Machine, max_steps: usize) -> Machine {
     run_con(m, max_steps, |_| {})
+}
+
+/// ** UN DESPLAZAMIENTO COMO EL SILICIO (LB4, 08-10): `/4 shl`, `/5 shr`,
+/// `/7 sar`. La cuenta se enmascara a 6 bits en 64 y a CINCO en 32, y `sar`
+/// arrastra el bit de signo DE SU ANCHO (el 31 en 32 bits).
+///
+/// ** Hasta el 08-10 la cuenta iba siempre a 6 bits y `sar` miraba el bit 63:
+/// en 32 bits, `shl eax, cl` con cl = 32 daba 0 (el silicio: eax, intacto) y
+/// `sar` de 0x80000000 daba 0x40000000 (el silicio: 0xC0000000). Ningun
+/// emisor de la casa desplazaba en 32 bits hasta que la CPU fue una libreria
+/// de la GPU: los enteros del Programa de la casa son de 32.
+fn desplaza(ext: usize, a: u64, cuenta: u32, wide: bool) -> Option<u64> {
+    let c = cuenta & if wide { 0x3F } else { 0x1F };
+    Some(match (ext, wide) {
+        (4, _) => a << c,
+        (5, _) => a >> c,
+        (7, true) => ((a as i64) >> c) as u64,
+        (7, false) => ((a as u32 as i32) >> c) as u32 as u64,
+        _ => return None,
+    })
+}
+
+/// ** Como [`run`], pero un presupuesto agotado NO revienta (LB4, 08-10):
+/// devuelve la maquina y si acabo. Es el simulador de la tarjeta de la CPU
+/// (`toolchain/forge/tarjeta-cpu`): un cuerpo que no vuelve es un NO de su
+/// juez, dicho en sus palabras, y no un `panic` del compilador.
+pub fn run_acotado(mut m: Machine, max_steps: usize) -> (Machine, bool) {
+    let mut steps = 0;
+    while m.rip < m.code.len() && !m.exited {
+        if steps >= max_steps {
+            return (m, false);
+        }
+        let clase = clases::clasificar(&m.code[m.rip..]);
+        m.censo.apuntar(clase);
+        m.step();
+        steps += 1;
+        m.pasos += 1;
+    }
+    (m, true)
 }
 
 /// Como [`run`], y ademas llama a `sonda` con el `rip` de cada instruccion

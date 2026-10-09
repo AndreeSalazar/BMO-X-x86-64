@@ -13,6 +13,9 @@ path = "src/lib.rs"
 [features]
 # Banco de pruebas: expone `emu`, el emulador x86-64 con el que cada
 # frontend verifica su descenso ejecutandolo. Fuera de las builds normales.
+# ** LB4 (08-10): con una excepcion, dicha: es el SIMULADOR de la tarjeta de
+# la CPU (`toolchain/forge/tarjeta-cpu`), y viaja con ella en `titan`, como
+# `simula.rs` viaja con la 3060. El oraculo corre los bytes del .bex aqui.
 emulator = []
 
 [dependencies]

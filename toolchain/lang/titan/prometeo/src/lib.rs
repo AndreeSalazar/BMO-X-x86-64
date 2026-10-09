@@ -48,6 +48,29 @@
 //! (una gpu fn es pura y sin bucles; los dos lados dan el mismo resultado
 //! bit a bit). Los saltos de verdad (E6) llegaran con los bucles (IL1, LB5).
 //!
+//! > **08-10, LB5:** llegaron. Cada `for` de una gpu fn (con su N escrito,
+//! > DL4) es un `Bucle` de verdad -- `RomperSi` en su cabeza y en cada
+//! > `break`, `FinBucle` en su paso --, y lo que cruza la vuelta vive en su
+//! > CASA, un registro que cada asignacion escribe con su predicado (ver
+//! > `straight`). Los `if` siguen en linea recta, tambien dentro de un
+//! > bucle; una gpu fn sin bucles sale como antes, byte a byte.
+//!
+//! > **08-10, a mitad de LB6:** y DIBUJA. Una gpu fn de VERTICE o de PIXEL
+//! > (por su firma: `Forma`) sale como el Programa de la casa por elementos
+//! > y componentes, el mismo que sale de los DXIL de PROTON-X; cada tarjeta
+//! > la escribe, la juzga y la corre como a una de celdas, y la RTX 3060 12G
+//! > ademas la PEGA a su tuberia y la mete en su sobre (`dibujo` de su
+//! > crate). Y el escritor se parte en ficheros (el propietario: *"que
+//! > administre archivos multiples bien organizado"*):
+//! >
+//! > ```text
+//! >    lib.rs      las tarjetas, sus jueces y el oraculo: CADA tarjeta
+//! >                escribe, juzga y corre; la bateria; las tres respuestas
+//! >    escribe.rs  la gpu fn hecha Programa: el cuerpo, sus `if`, sus
+//! >                bucles, sus llamadas en linea -- para todas las tarjetas
+//! >    dibujo.rs   la que DIBUJA: sus elementos y su oraculo
+//! > ```
+//!
 //! ** LOS BOOL, como D3D: dentro del Programa un bool es 0xFFFFFFFF o 0; en
 //! las celdas, 1 o 0 (lo del calculo). Se convierte al entrar y al salir.
 //!
@@ -56,14 +79,30 @@
 //! real, redondeado igual), y se escribe asi para cualquier tarjeta. La
 //! general llega a la tarjeta como `Div`; la que no la hace exacta lo dice
 //! como su LIMITE (la 3060: LI2g de `PLAN_EL_LIBRETO.md`), y es el NO del
-//! programa, en su linea y su columna (LB1).
+//! programa, en su linea y su columna (LB1). 09-10 (DL10): la 3060 ya la
+//! hace EXACTA, como la CPU; el NO queda para la tarjeta que diga que no la
+//! sabe (la de juguete de `tests/juguete.rs`), y en la obra de la celda la
+//! general pesa su cuenta (`OBRA_DIVISION` del frontend).
 
-use bmo_prometeo::programa::{Comparacion, Op, OpEntera, Reg};
+use bmo_prometeo::programa::Op;
 use bmo_prometeo::{Codigo, NoEmite, Para, Programa, Tarjeta};
 use bmo_titan_front::calc::DeviceNo;
-use bmo_titan_front::ir::{End, Function, Module, Op as IrOp, Value};
+use bmo_titan_front::ir::{Function, Module};
 use bmo_titan_front::{Code, Message};
 use std::collections::HashMap;
+
+mod dibujo;
+mod escribe;
+
+pub use bmo_titan_front::gpu::Forma;
+pub use dibujo::{Celda, Dibujo};
+pub use escribe::inverso_exacto;
+
+/// El oraculo de lo que DIBUJA (LB6): su bateria, y sus celdas por la tarjeta
+/// y por la casa.
+pub mod dibuja {
+    pub use crate::dibujo::{bateria, run, run_casa};
+}
 
 /// Lo que un valor ES dentro de una gpu fn: solo hay dos clases.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -74,9 +113,10 @@ pub enum Kind {
 
 /// Un NO del escritor (no del programa: el frontend ya lo juzgo) -- salvo
 /// cuando lleva su `Message`: entonces es lo que una tarjeta TODAVIA NO SABE
-/// hacer, un limite dicho a proposito (la division general en la 3060, LI2g),
-/// y es un NO del PROGRAMA, con su sitio en el modulo (LB1 de
-/// `docs/plan/PLAN_LAS_LIBRERIAS.md`). El texto (`.0`) es el de siempre.
+/// hacer, un limite dicho a proposito (la division general en la 3060, LI2g,
+/// hasta el 09-10: DL10 la hizo exacta), y es un NO del PROGRAMA, con su
+/// sitio en el modulo (LB1 de `docs/plan/PLAN_LAS_LIBRERIAS.md`). El texto
+/// (`.0`) es el de siempre.
 #[derive(Debug)]
 pub struct Failure(pub String, pub Option<Message>);
 
@@ -99,10 +139,12 @@ impl Failure {
 /// ** LO QUE TITAN++ DICE DESPUES DEL LIMITE DE UNA TARJETA: el QUE y el POR
 /// QUE son de la tarjeta (sus palabras); esto es lo de TITAN++, sea cual sea. La
 /// division tiene su como: la de una potencia de dos ya llega como
-/// multiplicacion (`inverso_exacto`).
+/// multiplicacion (`inverso_exacto`). 09-10 (DL10): hasta hoy el texto decia
+/// que la general esperaba a LI2g; la 3060 ya la sabe, y el texto habla de
+/// la tarjeta que no la sepa, sin nombrar ninguna.
 const LIMITE_TAMBIEN: &str = "y una gpu fn da los MISMOS bits por su tarjeta, la casa y el calculo (L29)";
-const DIVISION_HOY: &str = "Hoy solo divide entre una potencia de dos, que es una multiplicacion exacta; la general espera a LI2g de PLAN_EL_LIBRETO (DL10 de PLAN_LAS_LIBRERIAS)";
-const DIVISION_COMO: &str = "entre una potencia de dos se escribe igual (x / 2.0, x / 0.25); las demas, todavia no";
+const DIVISION_HOY: &str = "Entre una potencia de dos no hace falta que la tarjeta divida: TITAN++ la escribe como una multiplicacion exacta";
+const DIVISION_COMO: &str = "entre una potencia de dos se escribe igual (x / 2.0, x / 0.25); la general, en una tarjeta que la haga exacta";
 const LIMITE_COMO: &str = "escribela con otras operaciones, o espera a que su tarjeta la sepa hacer";
 
 /// **Una gpu fn escrita para UNA tarjeta**: su Programa, su codigo para el
@@ -124,6 +166,9 @@ pub struct Kernel<'t> {
     pub oraculo: Codigo,
     /// Lo que viajaria a la tarjeta (la 3060: entradas ya en registros).
     pub viaje: Codigo,
+    /// ** LB6: lo que DIBUJA, si es de vertice o de pixel (`params` y `ret`
+    /// son de las celdas: aqui, vacios).
+    pub dibujo: Option<Dibujo>,
 }
 
 impl Kernel<'_> {
@@ -157,7 +202,8 @@ pub fn kernels<'t>(m: &Module, tarjetas: &[&'t dyn Tarjeta]) -> Result<Vec<Kerne
 /// Lo que se dice si quien arma la herramienta no dio ninguna tarjeta.
 const SIN_TARJETAS: &str = "no hay ninguna tarjeta: quien arma la herramienta no dio ninguna libreria de GPU, y una gpu fn no se escribe a ciegas";
 
-fn kind_of(t: &bmo_titan_front::tree::Ty) -> Result<Kind, Failure> {
+/// La clase de un valor de una gpu fn de celdas: f32 o bool.
+pub(crate) fn kind_of(t: &bmo_titan_front::tree::Ty) -> Result<Kind, Failure> {
     match t {
         bmo_titan_front::tree::Ty::F32 => Ok(Kind::F32),
         bmo_titan_front::tree::Ty::Bool => Ok(Kind::Bool),
@@ -165,278 +211,32 @@ fn kind_of(t: &bmo_titan_front::tree::Ty) -> Result<Kind, Failure> {
     }
 }
 
-// ---- de la IR al Programa ----------------------------------------------------------
-
-/// El que escribe el Programa: los registros, sus constantes y el sitio de
-/// cada operacion.
-struct Writer {
-    ops: Vec<Op>,
-    donde: Vec<(usize, usize)>,
-    iniciales: Vec<f32>,
-    consts: HashMap<u32, Reg>,
-    aqui: (usize, usize),
+/// ** LA FORMA de la gpu fn `func` de `m`, por su firma (LB6): de celdas, de
+/// vertice o de pixel -- la misma cuenta que el frontend (`gpu::forma`).
+pub fn forma(m: &Module, func: usize) -> Forma {
+    let f = &m.functions[func];
+    let tys: Vec<&bmo_titan_front::tree::Ty> = f.params.iter().map(|(_, t)| t).collect();
+    bmo_titan_front::gpu::forma(&m.types, &tys, f.ret.as_ref())
 }
 
-impl Writer {
-    fn reg(&mut self) -> Result<Reg, Failure> {
-        let r = self.iniciales.len();
-        if r >= u16::MAX as usize {
-            return Err(Failure::writer("demasiados valores para un Programa".into()));
-        }
-        self.iniciales.push(0.0);
-        Ok(r as Reg)
+/// La gpu fn `func` de `m`, hecha el Programa de la casa, por su forma: el
+/// Programa, el sitio de cada operacion, y lo que dibuja si dibuja.
+fn escribir(m: &Module, func: usize) -> Result<(Programa, Vec<(usize, usize)>, Option<Dibujo>), Failure> {
+    let f: &Function = &m.functions[func];
+    if !f.gpu {
+        return Err(Failure::writer(format!("`{}` no es una gpu fn", f.name)));
     }
-
-    /// Un registro con estos BITS al empezar (el emisor los pone como inmediato).
-    fn bits(&mut self, b: u32) -> Result<Reg, Failure> {
-        if let Some(&r) = self.consts.get(&b) {
-            return Ok(r);
-        }
-        let r = self.reg()?;
-        self.iniciales[r as usize] = f32::from_bits(b);
-        self.consts.insert(b, r);
-        Ok(r)
+    match forma(m, func) {
+        Forma::Celda => escribe::celda(m, func).map(|(p, d)| (p, d, None)),
+        forma => dibujo::programa(m, func, forma).map(|(p, d, x)| (p, d, Some(x))),
     }
-
-    fn op(&mut self, o: Op) {
-        self.ops.push(o);
-        self.donde.push(self.aqui);
-    }
-
-    /// `d = c ? a : b` (c es un bool de D3D).
-    fn elige(&mut self, c: Reg, a: Reg, b: Reg) -> Result<Reg, Failure> {
-        if a == b {
-            return Ok(a);
-        }
-        let d = self.reg()?;
-        self.op(Op::Elige { d, c, a, b });
-        Ok(d)
-    }
-
-    fn entera(&mut self, a: Reg, b: Reg, op: OpEntera) -> Result<Reg, Failure> {
-        let d = self.reg()?;
-        self.op(Op::Entera { d, a, b, op });
-        Ok(d)
-    }
-
-    fn cierto(&mut self) -> Result<Reg, Failure> {
-        self.bits(0xFFFF_FFFF)
-    }
-}
-
-/// **El inverso EXACTO de `b`**, si `b` es una potencia de dos (con signo)
-/// cuyo inverso tambien cabe en un f32: entonces `x / b` y `x * inverso` son
-/// el mismo numero real y se redondean igual, en cada `x`.
-pub fn inverso_exacto(b: u32) -> Option<u32> {
-    let v = f32::from_bits(b);
-    if !v.is_normal() || b & 0x007F_FFFF != 0 {
-        return None;
-    }
-    let r = 1.0f32 / v;
-    (r.is_normal() && (r * v) == 1.0).then(|| r.to_bits())
-}
-
-type Env = HashMap<usize, (Reg, Kind)>;
-
-fn eval(w: &mut Writer, v: &Value, env: &Env) -> Result<(Reg, Kind), Failure> {
-    let at = v.at();
-    Ok(match v {
-        Value::F32(bits, _) => (w.bits(*bits)?, Kind::F32),
-        Value::Bool(b, _) => (if *b { w.cierto()? } else { w.bits(0)? }, Kind::Bool),
-        Value::Local(l, _) => *env.get(l).ok_or_else(|| Failure::writer(format!("el nombre %{} se lee sin valor: el juez tenia que haberlo dicho", l)))?,
-        Value::Neg(x, _) => {
-            // El signo, por sus bits: lo mismo que el calculo, tambien con -0 y NaN.
-            let (x, k) = eval(w, x, env)?;
-            w.aqui = at;
-            let signo = w.bits(0x8000_0000)?;
-            (w.entera(x, signo, OpEntera::OX)?, k)
-        }
-        Value::Not(x, _) => {
-            let (x, _) = eval(w, x, env)?;
-            w.aqui = at;
-            let todo = w.cierto()?;
-            (w.entera(x, todo, OpEntera::OX)?, Kind::Bool)
-        }
-        Value::Bin(o, l, r, _) => {
-            let (a, ka) = eval(w, l, env)?;
-            // La division entre una potencia de dos: por su inverso, exacta.
-            if *o == "/" {
-                if let Value::F32(b, _) = **r {
-                    if let Some(inv) = inverso_exacto(b) {
-                        let i = w.bits(inv)?;
-                        w.aqui = at;
-                        let d = w.reg()?;
-                        w.op(Op::Mul { d, a, b: i });
-                        return Ok((d, Kind::F32));
-                    }
-                }
-            }
-            let (b, _) = eval(w, r, env)?;
-            w.aqui = at;
-            let d = w.reg()?;
-            let cmp = |como| Op::Compara { d, a, b, como, entero: false };
-            let cmp_bits = |como| Op::Compara { d, a, b, como, entero: true };
-            let (o, k) = match (*o, ka) {
-                ("+", Kind::F32) => (Op::Add { d, a, b }, Kind::F32),
-                ("-", Kind::F32) => (Op::Sub { d, a, b }, Kind::F32),
-                ("*", Kind::F32) => (Op::Mul { d, a, b }, Kind::F32),
-                // La general: la tarjeta que no la hace exacta lo dice (ver la cabecera).
-                ("/", Kind::F32) => (Op::Div { d, a, b }, Kind::F32),
-                // Las de Rust y las del calculo: `!=` es cierto con un NaN (D3D `ne`).
-                ("==", Kind::F32) => (cmp(Comparacion::Igual), Kind::Bool),
-                ("!=", Kind::F32) => (cmp(Comparacion::Distinto), Kind::Bool),
-                ("<", Kind::F32) => (cmp(Comparacion::Menor), Kind::Bool),
-                ("<=", Kind::F32) => (cmp(Comparacion::MenorIgual), Kind::Bool),
-                (">", Kind::F32) => (cmp(Comparacion::Mayor), Kind::Bool),
-                (">=", Kind::F32) => (cmp(Comparacion::MayorIgual), Kind::Bool),
-                ("and", Kind::Bool) => (Op::Entera { d, a, b, op: OpEntera::Y }, Kind::Bool),
-                ("or", Kind::Bool) => (Op::Entera { d, a, b, op: OpEntera::O }, Kind::Bool),
-                ("==", Kind::Bool) => (cmp_bits(Comparacion::Igual), Kind::Bool),
-                ("!=", Kind::Bool) => (cmp_bits(Comparacion::Distinto), Kind::Bool),
-                (o, k) => return Err(Failure::writer(format!("`{}` entre {:?}: el calculo tenia que haberlo dicho", o, k))),
-            };
-            w.op(o);
-            (d, k)
-        }
-        other => return Err(Failure::writer(format!("un valor que una gpu fn no tiene ({:?}): gpu.rs tenia que haberlo dicho", other))),
-    })
 }
 
 /// **La gpu fn `func` de `m`, hecha el Programa de la casa.** Devuelve el
 /// Programa y el sitio del `.titan` de cada una de sus operaciones. No sabe
 /// de tarjetas: es lo mismo para todas.
 pub fn programa(m: &Module, func: usize) -> Result<(Programa, Vec<(usize, usize)>), Failure> {
-    let f: &Function = &m.functions[func];
-    if !f.gpu {
-        return Err(Failure::writer(format!("`{}` no es una gpu fn", f.name)));
-    }
-    let params: Vec<Kind> = f.params.iter().map(|(_, t)| kind_of(t)).collect::<Result<_, _>>()?;
-    let ret = kind_of(f.ret.as_ref().ok_or_else(|| Failure::writer(format!("`{}` no devuelve nada", f.name)))?)?;
-    if params.len() > 32 {
-        return Err(Failure::writer(format!("`{}` recibe {} valores: el Programa lee 32 entradas como mucho", f.name, params.len())));
-    }
-    let mut w = Writer { ops: Vec::new(), donde: Vec::new(), iniciales: Vec::new(), consts: HashMap::new(), aqui: (f.line, 1) };
-    // -- la celda de cada valor: la entrada k, componente 0 ------------------------
-    let mut env: Env = HashMap::new();
-    for (k, ((local, _), kind)) in f.params.iter().zip(&params).enumerate() {
-        let d = w.reg()?;
-        w.op(Op::Entrada { d, elemento: k as u8, componente: 0 });
-        let v = if *kind == Kind::Bool {
-            // La celda trae 1 o 0; dentro, un bool de D3D.
-            let cero = w.bits(0)?;
-            let b = w.reg()?;
-            w.op(Op::Compara { d: b, a: d, b: cero, como: Comparacion::Distinto, entero: true });
-            b
-        } else {
-            d
-        };
-        env.insert(*local, (v, *kind));
-    }
-    let result = straight(&mut w, f, env)?;
-    // -- el resultado: la salida 0; un bool sale como 1 o 0 -------------------------
-    w.aqui = (f.line, 1);
-    let s = if ret == Kind::Bool {
-        let (uno, cero) = (w.bits(1)?, w.bits(0)?);
-        w.elige(result, uno, cero)?
-    } else {
-        result
-    };
-    w.op(Op::Salida { s, elemento: 0, componente: 0 });
-    let lee = if params.len() == 32 { u32::MAX } else { (1u32 << params.len()) - 1 };
-    let p = Programa {
-        ops: w.ops,
-        iniciales: w.iniciales,
-        entradas: params.len(),
-        salidas: 1,
-        lee,
-        filas_cb: 0,
-        ranuras: Default::default(),
-        computo: Default::default(),
-    };
-    Ok((p, w.donde))
-}
-
-/// La gpu fn en LINEA RECTA: cada bloque con su predicado, cada nombre elegido
-/// con `Elige` donde los caminos se juntan, y el resultado elegido entre los
-/// `return`. Devuelve el registro del resultado.
-fn straight(w: &mut Writer, f: &Function, entry_env: Env) -> Result<Reg, Failure> {
-    let n = f.blocks.len();
-    let mut incoming: Vec<Vec<(Reg, Env)>> = vec![Vec::new(); n];
-    let mut returns: Vec<(Reg, Reg)> = Vec::new();
-    for b in 0..n {
-        let (pred, mut env) = if b == 0 {
-            (w.cierto()?, entry_env.clone())
-        } else {
-            let edges = std::mem::take(&mut incoming[b]);
-            if edges.is_empty() {
-                continue; // ningun camino llega aqui (lo que sigue a un `return`)
-            }
-            let mut pred = edges[0].0;
-            for (p, _) in &edges[1..] {
-                pred = w.entera(pred, *p, OpEntera::O)?;
-            }
-            let mut env: Env = HashMap::new();
-            let mut names: Vec<usize> = edges.iter().flat_map(|(_, e)| e.keys().copied()).collect();
-            names.sort_unstable();
-            names.dedup();
-            for l in names {
-                let mut acc: Option<(Reg, Kind)> = None;
-                for (p, e) in &edges {
-                    if let Some(&(v, k)) = e.get(&l) {
-                        acc = Some(match acc {
-                            None => (v, k),
-                            Some((a, _)) => (w.elige(*p, v, a)?, k),
-                        });
-                    }
-                }
-                if let Some(v) = acc {
-                    env.insert(l, v);
-                }
-            }
-            (pred, env)
-        };
-        for o in &f.blocks[b].ops {
-            match o {
-                IrOp::Let { local, value, .. } | IrOp::Set { local, value, .. } => {
-                    let v = eval(w, value, &env)?;
-                    env.insert(*local, v);
-                }
-                IrOp::Drop { .. } => {}
-                other => return Err(Failure::writer(format!("una gpu fn con {:?}: gpu.rs tenia que haberlo dicho", other))),
-            }
-        }
-        match &f.blocks[b].end {
-            End::Jump(t) => {
-                if *t <= b {
-                    return Err(Failure::writer("un salto hacia arriba: una gpu fn no tiene bucles (todavia: IL1)".into()));
-                }
-                incoming[*t].push((pred, env));
-            }
-            End::Branch { cond, then, other, at } => {
-                if *then <= b || *other <= b {
-                    return Err(Failure::writer("un salto hacia arriba: una gpu fn no tiene bucles (todavia: IL1)".into()));
-                }
-                let (c, _) = eval(w, cond, &env)?;
-                w.aqui = *at;
-                let yes = w.entera(pred, c, OpEntera::Y)?;
-                let todo = w.cierto()?;
-                let not_c = w.entera(c, todo, OpEntera::OX)?;
-                let no = w.entera(pred, not_c, OpEntera::Y)?;
-                incoming[*then].push((yes, env.clone()));
-                incoming[*other].push((no, env));
-            }
-            End::Return(Some(v)) => {
-                let (r, _) = eval(w, v, &env)?;
-                returns.push((pred, r));
-            }
-            End::Return(None) => return Err(Failure::writer("un camino sin `return`: el juez tenia que haberlo dicho (T0070)".into())),
-        }
-    }
-    let (_, mut acc) = *returns.last().ok_or_else(|| Failure::writer("una gpu fn sin `return`".into()))?;
-    for (p, r) in returns.iter().rev().skip(1) {
-        acc = w.elige(*p, *r, acc)?;
-    }
-    Ok(acc)
+    escribir(m, func).map(|(p, d, _)| (p, d))
 }
 
 // ---- a la tarjeta, y su juez ----------------------------------------------------------
@@ -454,9 +254,12 @@ fn sitio(m: &Module, f: &Function) -> (String, usize) {
 /// suyo es el NO del programa; un fallo de su emisor, un fallo.
 pub fn write<'t>(m: &Module, func: usize, tarjeta: &'t dyn Tarjeta) -> Result<Kernel<'t>, Failure> {
     let f = &m.functions[func];
-    let (programa, donde) = programa(m, func)?;
-    let params: Vec<Kind> = f.params.iter().map(|(_, t)| kind_of(t)).collect::<Result<_, _>>()?;
-    let ret = kind_of(f.ret.as_ref().expect("programa() lo miro"))?;
+    let (programa, donde, dibujo) = escribir(m, func)?;
+    let (params, ret) = match &dibujo {
+        // Lo que dibuja no tiene celdas: sus elementos los dice `dibujo`.
+        Some(_) => (Vec::new(), Kind::F32),
+        None => (f.params.iter().map(|(_, t)| kind_of(t)).collect::<Result<_, _>>()?, kind_of(f.ret.as_ref().expect("escribir() lo miro"))?),
+    };
     let (file, line) = sitio(m, f);
     let en = |para| {
         tarjeta.emitir(&programa, para).map_err(|e| {
@@ -485,7 +288,7 @@ pub fn write<'t>(m: &Module, func: usize, tarjeta: &'t dyn Tarjeta) -> Result<Ke
     };
     let oraculo = en(Para::Oraculo)?;
     let viaje = en(Para::Viaje)?;
-    Ok(Kernel { name: f.name.clone(), file, line, params, ret, programa, donde, tarjeta, oraculo, viaje })
+    Ok(Kernel { name: f.name.clone(), file, line, params, ret, programa, donde, tarjeta, oraculo, viaje, dibujo })
 }
 
 /// **SU juez, ESTRICTO**, sobre los dos codigos: el de la tarjeta que lo
@@ -547,11 +350,27 @@ const BORDES: [f32; 18] = [
 /// Las entradas de la bateria: el producto entero si cabe en 4096 casos; si
 /// no, cada valor recorre los bordes a su propio paso.
 pub fn battery(params: &[Kind]) -> Vec<Vec<u32>> {
+    battery_de(params, 0)
+}
+
+/// ** LO QUE CORRE LA BATERIA, como mucho (LB5): sus celdas por la OBRA de
+/// una (la de `gpu.rs`, que con cada `range` escrito es la misma en todas).
+/// Una gpu fn sin bucles (obra de decenas) se prueba como siempre, hasta
+/// 4096 casos; una en el tope de una celda (65536), en 18 -- cada valor
+/// sigue pasando por sus 18 bordes --, y su bateria no tarda mucho mas que
+/// la de las otras.
+pub const BATERIA_OBRA: u64 = 1 << 20;
+
+/// La bateria de una gpu fn de esta `obra`: el producto entero si cabe; si
+/// no, cada valor recorre los bordes a su propio paso, en tantas celdas como
+/// deje [`BATERIA_OBRA`] (nunca menos que los bordes).
+pub fn battery_de(params: &[Kind], obra: u64) -> Vec<Vec<u32>> {
     let column = |k: Kind| -> Vec<u32> { if k == Kind::F32 { BORDES.iter().map(|x| x.to_bits()).collect() } else { vec![0, 1] } };
     let columns: Vec<Vec<u32>> = params.iter().map(|k| column(*k)).collect();
     let total: usize = columns.iter().map(|c| c.len()).product();
+    let tope = (BATERIA_OBRA / obra.max(1)).clamp(BORDES.len() as u64, 4096) as usize;
     let mut cells: Vec<Vec<u32>> = vec![Vec::new(); params.len()];
-    if total <= 4096 {
+    if total <= tope {
         for i in 0..total {
             let mut rest = i;
             for (j, c) in columns.iter().enumerate() {
@@ -560,7 +379,7 @@ pub fn battery(params: &[Kind]) -> Vec<Vec<u32>> {
             }
         }
     } else {
-        for i in 0..4096 {
+        for i in 0..tope {
             for (j, c) in columns.iter().enumerate() {
                 cells[j].push(c[(i * (2 * j + 1) + j) % c.len()]);
             }
@@ -570,7 +389,7 @@ pub fn battery(params: &[Kind]) -> Vec<Vec<u32>> {
 }
 
 /// Los mismos bits, o los dos NaN: una tarjeta no promete la carga de un NaN.
-fn same_cell(a: u32, b: u32, k: Kind) -> bool {
+pub(crate) fn same_cell(a: u32, b: u32, k: Kind) -> bool {
     a == b || (k == Kind::F32 && f32::from_bits(a).is_nan() && f32::from_bits(b).is_nan())
 }
 
@@ -594,9 +413,13 @@ fn compare(m: &Module, func: usize, k: &Kernel, cells: &[Vec<u32>], what: &str) 
     Ok(suya)
 }
 
-/// **La bateria de bordes** de una gpu fn, por los tres.
+/// **La bateria de bordes** de una gpu fn, por los tres: sus celdas, o (LB6)
+/// los elementos de lo que dibuja.
 pub fn verify(m: &Module, func: usize, k: &Kernel) -> Result<usize, String> {
-    let cells = battery(&k.params);
+    if let Some(d) = &k.dibujo {
+        return dibujo::verify(m, func, k, d);
+    }
+    let cells = battery_de(&k.params, m.functions[func].obra);
     compare(m, func, k, &cells, "la bateria de bordes")?;
     Ok(cells.first().map(|c| c.len()).unwrap_or(0))
 }
@@ -645,6 +468,10 @@ impl bmo_titan_front::calc::Device for Oracle<'_> {
         // Las celdas REALES del programa, por cada tarjeta, la casa y el calculo.
         let mut first = None;
         for k in &self.written[&func] {
+            if k.dibujo.is_some() {
+                // El calculo no la llama (`gpu_call` lo dice): esto es la red.
+                return Err(DeviceNo::Failure(format!("`gpu fn {}` dibuja: no se llama, la pone a dibujar VERRANO (LB7)", k.name)));
+            }
             let celdas = compare(m, func, k, &cells, "las celdas del programa").map_err(DeviceNo::Failure)?;
             first.get_or_insert(celdas);
         }
@@ -654,3 +481,7 @@ impl bmo_titan_front::calc::Device for Oracle<'_> {
 
 #[cfg(test)]
 mod pruebas;
+#[cfg(test)]
+mod pruebas_bucles;
+#[cfg(test)]
+mod pruebas_dibujo;

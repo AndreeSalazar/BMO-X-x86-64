@@ -1,0 +1,13 @@
+mod formas "las curvas"
+use mates
+
+pub gpu fn limita(x: f32, a: f32, b: f32) -> f32
+    if x < a
+        return a
+    if x > b
+        return b
+    return x
+
+pub gpu fn suave(x: f32) -> f32
+    let t = limita(x, 0.0, 1.0)
+    return mates.cuadrado(t) * (3.0 - 2.0 * t)

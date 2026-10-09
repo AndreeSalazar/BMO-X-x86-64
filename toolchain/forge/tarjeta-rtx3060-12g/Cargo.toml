@@ -1,0 +1,30 @@
+[package]
+name = "bmo-tarjeta-rtx3060-12g"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "La RTX 3060 12G como tarjeta de PROMETEO, por su APARATO exacto (08-10): su ISA (SASS sm_86, el emisor de PROTON-X y su simulador), su juez del SASS y su identidad (10DE:2503/2504, GA106, 12288 MiB). Una tarjeta es una grafica concreta, no una familia de ISA."
+license = "Apache-2.0"
+
+# ** UNA GRAFICA EXACTA (el propietario, 08-10): "que la GPU no sea por ISA
+# sea por especificamente muy precisos no es ISA sino propio ISA modular ...
+# (solo: 3060 12G)". Su identidad es la del driver (`lectura::identidad`), la
+# misma que mide PERFIL/GPU_3060.txt; su ISA es un modulo que lleva dentro.
+# PROMETEO no la nombra (la regla S5 de `la-3060`); solo quien arma una
+# herramienta (`titan`) dice que esta.
+[dependencies]
+# El contrato y el Programa de la casa.
+bmo-prometeo = { path = "../../../platform/shared/prometeo" }
+# SU ISA, SASS sm_86: el emisor de PROTON-X (el Programa a SASS, en sus dos
+# ABI) y su simulador (`simula`).
+bmo-proton-x-sm86 = { path = "../../../platform/shared/proton-x-sm86" }
+# SU JUEZ y SU IDENTIDAD, del driver de la 3060 (como bytes: no toca la
+# tarjeta): el juez del SASS y `lectura::identidad`.
+bmo-gpu-ga10x = { path = "../../../platform/drivers/gpu/ga10x" }
+# LB6 (08-10): EL SOBRE de lo que dibuja -- un BSF de `kind` SM86, con el
+# MAPA de la casa de fuente (`dibujo.rs`).
+bmo-bsf = { path = "../../lang/spirv/bsf" }
+
+[lib]
+name = "bmo_tarjeta_rtx3060_12g"
+path = "src/lib.rs"

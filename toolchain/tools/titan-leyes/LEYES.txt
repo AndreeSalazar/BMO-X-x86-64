@@ -136,14 +136,22 @@ L29 los resultados de una gpu fn los da el oraculo -- la 3060 simulada sobre el 
 
 L30 un NO del escritor o del juez de la 3060 se dice en el .titan -- fichero, linea y, si es de una operacion, columna --, nunca en una instruccion del SASS
     porque el propietario, 05-10: "que automatice y no tenga que perder el tiempo en adivinar"; el Programa lleva el sitio de cada operacion
-    cumple test toolchain/lang/titan/prometeo/src/pruebas.rs a_general_division_is_refused_where_it_is_written
+    cumple test toolchain/lang/titan/prometeo/src/pruebas.rs the_judge_refuses_a_sass_without_its_waits
 
 L31 en cada build, cada gpu fn pasa una bateria de bordes, y sus celdas reales, por la 3060 simulada, la casa y el calculo, con los mismos bits
     porque una cuenta de coma flotante falla en los bordes (NaN, infinito, subnormales, -0): se comprueba sola en cada build, no se adivina
     cumple test toolchain/lang/titan/prometeo/src/pruebas.rs a_disagreement_is_caught_with_its_input_and_the_answers
 
+L32 una gpu fn corre tambien en la CPU, su RESERVA: el x86-64 que escribe la tarjeta de la CPU, juzgado y con los mismos bits que la casa y el calculo; en un programa que lee es lo que corre AL CORRER, y el f32 sigue sin salir de la gpu fn si no es por round (L26)
+    porque DL3 de PLAN_LAS_LIBRERIAS, el propietario 08-10 ("es buena"): con la CPU como libreria, una gpu fn corre en un programa de verdad sin esperar a Ring 0 (LB4); y una reserva que diera otros bits no seria una reserva
+    cumple test toolchain/lang/titan/emisor-x86_64/tests/e1.rs a_gpu_fn_fed_what_is_typed_gives_the_cells_of_the_oracle
+
+L33 un hilo de la GPU ACABA por construccion: dentro de una gpu fn solo hay `for` con sus vueltas ESCRITAS, la obra de una celda se sabe al compilar y no pasa de 65536, y una llamada a otra gpu fn se escribe EN LINEA
+    porque DL4 de PLAN_LAS_LIBRERIAS, el propietario 08-10 ("si ve hasta el final"): con el N escrito ningun hilo cuelga la 3060 ni la CPU, tampoco en las celdas que llegan al correr (LB4), que el calculo nunca ve; y un hilo no tiene pila para llamar
+    cumple test toolchain/lang/titan/src/gpu.rs a_gpu_fn_loops_only_where_its_turns_are_written
+
 [SELLO]
-33df9da29620595862fc44c6d1c8a5811045a40db1d31b23304482f7b58b660a
+e516447860dddfbebd236178e9609580e6902b6fcc2398baa8b79ea41bcb0946
 
 [HISTORIA]
 2026-10-04  16a5580ebef2  24 leyes  nacen las 24 leyes de los niveles 0-10, pedidas por el propietario
@@ -153,3 +161,6 @@ L31 en cada build, cada gpu fn pasa una bateria de bordes, y sus celdas reales, 
 2026-10-05  6a4d41282639  31 leyes  L30 y L31: el juez de spirv dice DONDE y comprueba SI ESTA BIEN en cada build (G2b)
 2026-10-07  05755562e8cd  31 leyes  L28-L31: TITAN++ sin SPIR-V -- gpu fn -> Programa -> SM86 -> el juez del SASS, decision del propietario 07-10
 2026-10-08  33df9da29620  31 leyes  LB3: el emisor de GPU de TITAN++ pasa a PROMETEO (toolchain/lang/titan/prometeo), decision del propietario 08-10 -- ningun texto de ley cambia, solo donde viven las pruebas de L28-L31
+2026-10-08  82229cc73dc8  32 leyes  L32: una gpu fn corre en la CPU, su reserva, y al correr en un programa que lee -- DL3 del propietario (08-10, 'es buena'), con LB4 de PLAN_LAS_LIBRERIAS
+2026-10-08  555cb58adfd1  33 leyes  L33: un hilo de la GPU acaba por construccion (for con N escrito, obra con tope, llamadas en linea) -- DL4 del propietario (08-10, 'si ve hasta el final'), con LB5 de PLAN_LAS_LIBRERIAS
+2026-10-09  e516447860dd  33 leyes  DL10 del propietario (09-10, 'Exactos, tambien en 3060'): la 3060 divide EXACTA y su division ya no es un NO; L30 la cumple el NO de su juez (el SASS sin esperas), dicho en la linea de la gpu fn -- ningun texto de ley cambia

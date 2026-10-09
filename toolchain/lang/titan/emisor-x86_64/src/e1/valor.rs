@@ -38,7 +38,13 @@ impl E1<'_> {
                 self.put_text(t, s, *at)?;
                 (t, Class::Text)
             }
-            Value::F32(_, at) => return Err(self.not_yet("un f32", super::F32_WHY, super::F32_HOW, *at)),
+            // ** un f32 (LB4): sus bits, la mitad alta a cero. E1 no cuenta
+            // con el (D2): lo guarda, lo copia y se lo pasa a una gpu fn
+            Value::F32(bits, _) => {
+                let t = self.temp(8);
+                self.store_imm(t, *bits as i64);
+                (t, Class::F32)
+            }
             Value::Local(l, _) | Value::Lend(_, l, _) => (self.local(*l), self.f.known[*l].clone().ok_or("un local sin valor (fallo del compilador)")?),
             Value::Read(at) => {
                 let t = self.temp(8 + TEXT_CAP as i32);
@@ -304,6 +310,8 @@ impl E1<'_> {
                     self.clone_at(dst, src, to);
                 }
             }
+            // ** a f32 (LB4): un int o un dec, al mas cercano (`gpu.rs`)
+            (Class::Int | Class::Dec, Class::F32) => self.to_f32(dst, src, from),
             // `[]` y `{}`: el asa a cero, a una lista o un mapa de lo que sea
             (Class::List(f), Class::List(_)) | (Class::Map(f, _), Class::Map(..)) if **f == Class::Any => self.copy(dst, src, 24),
             (Class::Table(fi, n), Class::List(ti)) => {
@@ -337,10 +345,8 @@ impl E1<'_> {
                 self.store_imm(dst, id);
             }
             (a, b) => {
-                // un f32 al correr no tiene sitio todavia (D2); lo demas, E1 no lo sabe aun
-                let (why, how) = if matches!(b, Class::F32) { (super::F32_WHY, super::F32_HOW) } else { (super::E1_WHY, super::E1_HOW) };
                 let what = format!("pasar {:?} a {:?}", a, b);
-                return Err(self.not_yet(&what, why, how, at));
+                return Err(self.not_yet(&what, super::E1_WHY, super::E1_HOW, at));
             }
         }
         Ok(())

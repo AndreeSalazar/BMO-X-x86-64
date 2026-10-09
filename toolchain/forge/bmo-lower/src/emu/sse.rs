@@ -401,6 +401,46 @@ impl Machine {
                 let sel = |k: u32| (imm >> (2 * k) & 3) as usize;
                 self.escribir128(reg, [a[sel(0)], a[sel(1)], b[sel(2)], b[sel(3)]]);
             }
+            // == `cmpss xmm, xmm/m32, imm8` (LB4, 08-10) ====================
+            //
+            // El predicado del inmediato -- 0 eq, 1 lt, 2 le, 3 unord, 4 neq,
+            // 5 nlt, 6 nle, 7 ord -- y en los 32 bits bajos una MASCARA: todo
+            // unos si se cumple, ceros si no; los de arriba, como estaban. Lo
+            // emite el min/max de D3D del x86-64 de una gpu fn (`nativo`:
+            // `cmpunordss`, "es NaN?"). Con un NaN, solo `unord`, `neq`, `nlt`
+            // y `nle` dicen que si: lo que el silicio dice.
+            0xC2 if f3 => {
+                let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
+                let imm = self.fetch_u8();
+                let b = f32::from_bits(self.leer_xmm32(src));
+                let a = f32::from_bits(self.xmm[reg] as u32);
+                let fuera = a.is_nan() || b.is_nan();
+                let si = match imm & 7 {
+                    0 => !fuera && a == b,
+                    1 => !fuera && a < b,
+                    2 => !fuera && a <= b,
+                    3 => fuera,
+                    4 => fuera || a != b,
+                    5 => fuera || a >= b,
+                    6 => fuera || a > b,
+                    _ => !fuera,
+                };
+                self.xmm[reg] = (self.xmm[reg] & !0xFFFF_FFFF) | if si { 0xFFFF_FFFF } else { 0 };
+            }
+            // == `andps`, `andnps`, `orps` (LB4, 08-10): los 128 bits, bit a
+            // bit (con `66`, sus gemelas `pd`: los mismos bits). La mezcla del
+            // min/max de D3D de `nativo`: lo de un lado si es NaN, lo otro si no.
+            0x54..=0x56 if !f2 && !f3 => {
+                let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
+                let a = self.leer128(Operand::Reg(reg));
+                let b = self.leer128(src);
+                let r = core::array::from_fn(|k| match second {
+                    0x54 => a[k] & b[k],
+                    0x55 => !a[k] & b[k],
+                    _ => a[k] | b[k],
+                });
+                self.escribir128(reg, r);
+            }
             other => panic!("opcode 0F {other:#04X} no emitido por BMO"),
         }
     }

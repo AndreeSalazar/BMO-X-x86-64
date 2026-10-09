@@ -283,6 +283,10 @@ pub trait Device: Send {
 ///
 /// Before this, both came out as "a failure of the writer ... tell us with
 /// this program", at the line of the CALL: a known limit read as a bug.
+///
+/// 09-10 (DL10): the 3060 divides EXACTLY now, and no card of `titan` has a
+/// limit; the road stays for the one that will (the toy card of the
+/// writer's tests says its own).
 #[derive(Debug)]
 pub enum DeviceNo {
     Limit(Message),
@@ -367,6 +371,56 @@ pub fn run_gpu(m: &Module, func: usize, cells: &[Vec<u32>]) -> Result<Vec<u32>, 
             Some(Const::F32(b)) => b,
             Some(Const::Bool(b)) => b as u32,
             _ => 0,
+        });
+        r.steps = 0;
+    }
+    Ok(out)
+}
+
+/// ** A `gpu fn` that DRAWS (LB6), run by the CALCULATION on its cells: each
+/// cell is its ELEMENTS -- one per field of what it receives, its f32 by
+/// their bits in up to four components --, and gives back the elements of
+/// what it leaves (the one of vertex: one per field; the one of pixel: its
+/// colour, one). The reference its cards are measured against.
+pub fn run_gpu_dibujo(m: &Module, func: usize, celdas: &[Vec<[u32; 4]>]) -> Result<Vec<Vec<[u32; 4]>>, Message> {
+    let f = &m.functions[func];
+    let ty_of = |name: &str| m.types.iter().position(|t| t.name == name);
+    // A value of a field from its element: an f32, or a record of f32.
+    let field = |ty: &Ty, e: &[u32; 4]| -> Const {
+        match ty {
+            Ty::Named(n) => {
+                let k = ty_of(n).expect("gpu: the type exists");
+                Const::Record(k, (0..m.types[k].fields.len()).map(|c| Const::F32(e[c])).collect())
+            }
+            _ => Const::F32(e[0]),
+        }
+    };
+    let (Some((_, Ty::Named(entra))), Some(Ty::Named(sale))) = (f.params.first(), f.ret.as_ref()) else {
+        return Err(Message::new(Code::GpuBody, f.line, 1, "una gpu fn que dibuja sin sus registros", "gpu.rs tenia que haberlo dicho", "--"));
+    };
+    let entra = ty_of(entra).expect("gpu: the type exists");
+    let mut r = Run { m, steps: 0, depth: 0, flat: Vec::new(), seen: m.functions.iter().map(|f| vec![false; f.blocks.len()]).collect(), last_turn: (0, 0), lenient: 0, device: None };
+    let mut out = Vec::with_capacity(celdas.len());
+    for e in celdas {
+        let fields = m.types[entra].fields.iter().enumerate().map(|(k, c)| field(&c.ty, &e[k])).collect();
+        let (result, _) = r.call(func, vec![Const::Record(entra, fields)], (f.line, 1))?;
+        // What it leaves, by elements: a record of records (vertex), or one
+        // record of f32 (pixel: the colour).
+        let bits = |c: &Const| if let Const::F32(b) = c { *b } else { 0 };
+        let elemento = |c: &Const| -> [u32; 4] {
+            let mut x = [0u32; 4];
+            match c {
+                Const::Record(_, items) => items.iter().take(4).enumerate().for_each(|(i, v)| x[i] = bits(v)),
+                v => x[0] = bits(v),
+            }
+            x
+        };
+        let sale_ty = ty_of(sale).expect("gpu: the type exists");
+        let es_color = m.types[sale_ty].fields.iter().all(|c| c.ty == Ty::F32);
+        out.push(match result {
+            Some(c @ Const::Record(..)) if es_color => vec![elemento(&c)],
+            Some(Const::Record(_, items)) => items.iter().map(elemento).collect(),
+            _ => Vec::new(),
         });
         r.steps = 0;
     }

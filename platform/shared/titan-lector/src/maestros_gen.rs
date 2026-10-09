@@ -27,7 +27,7 @@ pub static FAMILIES: [&str; 14] = [
 ];
 
 /// Cuantos hay: la TAB mide sus tablas con esto.
-pub const COUNT: usize = 34;
+pub const COUNT: usize = 40;
 
 /// `static`, no `const`: UNA copia en `.rodata`, que Ring 3 lee por indice
 /// sin traerla a una pila de 64 KiB.
@@ -152,6 +152,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &[],
         out: &["primo 2", "primo 3", "primo 5", "primo 7", "primo 11", "primo 13", "primo 17", "primo 19", "8 primos hasta 20"],
         source: "# sale: primo 2\n# sale: primo 3\n# sale: primo 5\n# sale: primo 7\n# sale: primo 11\n# sale: primo 13\n# sale: primo 17\n# sale: primo 19\n# sale: 8 primos hasta 20\n# buscar: un `while` dentro de un `for`, y `break` en cuanto ya se sabe\nmod main \"los primos, buscados\"\n\nfn main()\n    let mut cuantos = 0\n    for n in range(2, 21)\n        let mut d = 2\n        let mut primo = true\n        while d * d <= n\n            if n % d == 0\n                primo = false\n                break\n            d = d + 1\n        if primo\n            print(\"primo \", n)\n            cuantos = cuantos + 1\n    print(cuantos, \" primos hasta 20\")\n",
+    },
+    Master {
+        name: "salta_y_sigue",
+        level: 4,
+        why: "`continue` y `break` dentro de un `if`, y el nombre de la vuelta leido despues: el camino que sigue lo tiene vivo (08-10: antes paraba el compilador)",
+        says: "los impares, saltando los pares",
+        words: &["fn", "let", "mut", "if", "for", "break", "continue"],
+        asks: Permissions::NONE,
+        typed: &[],
+        out: &["1", "3", "5", "suma de los impares hasta 6: 9"],
+        source: "# sale: 1\n# sale: 3\n# sale: 5\n# sale: suma de los impares hasta 6: 9\n# `continue` y `break` dentro de un `if`, y el nombre de la vuelta leido despues: el camino que sigue lo tiene vivo (08-10: antes paraba el compilador)\nmod main \"los impares, saltando los pares\"\n\nfn main()\n    let mut suma = 0\n    for i in range(1, 100)\n        if i % 2 == 0\n            continue\n        if i > 6\n            break\n        print(i)\n        suma = suma + i\n    print(\"suma de los impares hasta 6: \", suma)\n",
     },
     Master {
         name: "tabla_del_siete",
@@ -330,6 +341,50 @@ pub static MASTERS: [Master; COUNT] = [
         source: "# sale: 0.1 + 0.2 en la 3060, a 9 decimales: 0.300000012\n# sale: el mismo, redondeado a 2: 0.30\n# sale: en la CPU, con dec: 0.3\n# sale: activa: 0.000 1.500 0.000\n# el f32 cuenta en la 3060, con sus redondeos de base 2; vuelve a la CPU con round, a la vista\nmod main \"lo que la 3060 redondea, dicho en voz alta\"\n\ngpu fn suma(a: f32, b: f32) -> f32\n    return a + b\n\ngpu fn activa(x: f32) -> f32\n    if x > 0.0\n        return x\n    return 0.0\n\nfn main()\n    let a: [f32; 1] = [0.1]\n    let b: [f32; 1] = [0.2]\n    let s = suma(a, b)\n    print(\"0.1 + 0.2 en la 3060, a 9 decimales: \", round(s[0], 9))\n    print(\"el mismo, redondeado a 2: \", round(s[0], 2))\n    print(\"en la CPU, con dec: \", 0.1 + 0.2)\n    let xs: [f32; 3] = [-2.0, 1.5, 0.0]\n    let r = activa(xs)\n    print(\"activa: \", round(r[0], 3), \" \", round(r[1], 3), \" \", round(r[2], 3))\n",
     },
     Master {
+        name: "bucles",
+        level: 11,
+        why: "un `for` dentro de una gpu fn (LB5): sus vueltas ESCRITAS, asi que el hilo acaba por construccion; `break` y `continue` tambien",
+        says: "los bucles de un hilo",
+        words: &["fn", "let", "mut", "if", "for", "break", "continue", "return", "round", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &[],
+        out: &["2 a la 10: 1024", "1 + x + ... + x^7, con x = 0.5: 1.9921875", "e, por diez cuadrados en f32: 2.71694", "sumando 0, 1, 2, 4... hasta pasar de 20 y de 4: 25 7"],
+        source: "# sale: 2 a la 10: 1024\n# sale: 1 + x + ... + x^7, con x = 0.5: 1.9921875\n# sale: e, por diez cuadrados en f32: 2.71694\n# sale: sumando 0, 1, 2, 4... hasta pasar de 20 y de 4: 25 7\n# un `for` dentro de una gpu fn (LB5): sus vueltas ESCRITAS, asi que el hilo acaba por construccion; `break` y `continue` tambien\nmod main \"los bucles de un hilo\"\n\ngpu fn potencia(x: f32) -> f32\n    let mut r = 1.0\n    for i in range(10)\n        r = r * x\n    return r\n\ngpu fn serie(x: f32) -> f32\n    let mut s = 0.0\n    let mut t = 1.0\n    for k in range(8)\n        s = s + t\n        t = t * x\n    return s\n\ngpu fn e(x: f32) -> f32\n    let mut y = 1.0 + x / 1024.0\n    for i in range(10)\n        y = y * y\n    return y\n\ngpu fn hasta(tope: f32) -> f32\n    let mut s = 0.0\n    for i in range(100)\n        if i == 3.0\n            continue\n        s = s + i\n        if s > tope\n            break\n    return s\n\nfn main()\n    let dos: [f32; 1] = [2.0]\n    let medio: [f32; 1] = [0.5]\n    let uno: [f32; 1] = [1.0]\n    let topes: [f32; 2] = [20.0, 4.0]\n    let p = potencia(dos)\n    let s = serie(medio)\n    let y = e(uno)\n    let h = hasta(topes)\n    print(\"2 a la 10: \", round(p[0], 0))\n    print(\"1 + x + ... + x^7, con x = 0.5: \", round(s[0], 7))\n    print(\"e, por diez cuadrados en f32: \", round(y[0], 5))\n    print(\"sumando 0, 1, 2, 4... hasta pasar de 20 y de 4: \", round(h[0], 0), \" \", round(h[1], 0))\n",
+    },
+    Master {
+        name: "cociente",
+        level: 11,
+        why: "la division GENERAL en la 3060, EXACTA (DL10): entre cualquier numero, no solo entre una potencia de dos, los mismos bits que la CPU y el calculo -- y en la obra de la celda pesa su cuenta, 24",
+        says: "la 3060 divide exacta",
+        words: &["fn", "let", "mut", "for", "return", "round", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &[],
+        out: &["1 / 3 = 0.333333", "10 / 4 = 2.500000", "1 / 7 = 0.142857", "7 / 7 = 1.000000", "un tercio de un tercio de un tercio de 27: 1.000000"],
+        source: "# sale: 1 / 3 = 0.333333\n# sale: 10 / 4 = 2.500000\n# sale: 1 / 7 = 0.142857\n# sale: 7 / 7 = 1.000000\n# sale: un tercio de un tercio de un tercio de 27: 1.000000\n# la division GENERAL en la 3060, EXACTA (DL10): entre cualquier numero, no solo entre una potencia de dos, los mismos bits que la CPU y el calculo -- y en la obra de la celda pesa su cuenta, 24\nmod main \"la 3060 divide exacta\"\n\ngpu fn cociente(a: f32, b: f32) -> f32\n    return a / b\n\ngpu fn tercios(x: f32) -> f32\n    let mut r = x\n    for i in range(3)\n        r = r / 3.0\n    return r\n\nfn main()\n    let xs: [f32; 4] = [1.0, 10.0, 1.0, 7.0]\n    let ys: [f32; 4] = [3.0, 4.0, 7.0, 7.0]\n    let c = cociente(xs, ys)\n    print(\"1 / 3 = \", round(c[0], 6))\n    print(\"10 / 4 = \", round(c[1], 6))\n    print(\"1 / 7 = \", round(c[2], 6))\n    print(\"7 / 7 = \", round(c[3], 6))\n    let zs: [f32; 1] = [27.0]\n    let t = tercios(zs)\n    print(\"un tercio de un tercio de un tercio de 27: \", round(t[0], 6))\n",
+    },
+    Master {
+        name: "cubo",
+        level: 11,
+        why: "dos gpu fn que DIBUJAN (LB6), dichas por su firma: la de vertice recibe un registro y deja otro con su `posicion`; la de pixel recibe ese y deja su color. No se llaman: las pone a dibujar VERRANO (LB7). `titan sm86` las pega a la tuberia de la RTX 3060 12G y las mete en su sobre, cubo.bsf",
+        says: "el cubo de V0, en TITAN++",
+        words: &["fn", "return", "type", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &[],
+        out: &["el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel"],
+        source: "# sale: el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel\n# dos gpu fn que DIBUJAN (LB6), dichas por su firma: la de vertice recibe un registro y deja otro con su `posicion`; la de pixel recibe ese y deja su color. No se llaman: las pone a dibujar VERRANO (LB7). `titan sm86` las pega a la tuberia de la RTX 3060 12G y las mete en su sobre, cubo.bsf\nmod main \"el cubo de V0, en TITAN++\"\n\n# Cuatro f32: un punto en coordenadas de recorte (x, y, z, w), o un color (r, g, b, a).\ntype Cuatro\n    x: f32\n    y: f32\n    z: f32\n    w: f32\n\n# Un vertice del cubo como lo escribe la app (`Vertex` de VERRANO, 32 bytes): su posicion, ya en coordenadas de recorte, y el color de su cara.\ntype Vertice\n    posicion: Cuatro\n    color: Cuatro\n\n# La de VERTICE: deja lo que le dan -- la posicion, a la tarjeta; el color, a la de pixel.\ngpu fn cubo_vertice(v: Vertice) -> Vertice\n    return v\n\n# La de PIXEL: el color de su cara. Los tres vertices de una cara dan el mismo, y la tarjeta lo interpola exacto.\ngpu fn cubo_pixel(v: Vertice) -> Cuatro\n    return v.color\n\nfn main()\n    print(\"el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel\")\n",
+    },
+    Master {
+        name: "en_linea",
+        level: 11,
+        why: "una gpu fn llama a otra (LB5): no hay pila en un hilo, asi que la llamada se escribe EN LINEA, con sus bucles y sus `return`",
+        says: "una gpu fn dentro de otra",
+        words: &["fn", "let", "mut", "if", "for", "return", "round", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &[],
+        out: &["suave en -0.5, 0.25, 0.75 y 2: 0.000000 0.156250 0.843750 1.000000", "2 a la 8, por tres cuadrados: 256", "el primer entero cuyo cuadrado pasa de 2: 2"],
+        source: "# sale: suave en -0.5, 0.25, 0.75 y 2: 0.000000 0.156250 0.843750 1.000000\n# sale: 2 a la 8, por tres cuadrados: 256\n# sale: el primer entero cuyo cuadrado pasa de 2: 2\n# una gpu fn llama a otra (LB5): no hay pila en un hilo, asi que la llamada se escribe EN LINEA, con sus bucles y sus `return`\nmod main \"una gpu fn dentro de otra\"\n\ngpu fn cuadrado(x: f32) -> f32\n    return x * x\n\ngpu fn limita(x: f32, a: f32, b: f32) -> f32\n    if x < a\n        return a\n    if x > b\n        return b\n    return x\n\ngpu fn suave(x: f32) -> f32\n    let t = limita(x, 0.0, 1.0)\n    return t * t * (3.0 - 2.0 * t)\n\ngpu fn a_la_ocho(x: f32) -> f32\n    let mut r = x\n    for i in range(3)\n        r = cuadrado(r)\n    return r\n\ngpu fn primero_mayor(x: f32) -> f32\n    for i in range(10)\n        if cuadrado(i) > x\n            return i\n    return -1.0\n\nfn main()\n    let xs: [f32; 4] = [-0.5, 0.25, 0.75, 2.0]\n    let s = suave(xs)\n    let dos: [f32; 1] = [2.0]\n    let o = a_la_ocho(dos)\n    let p = primero_mayor(dos)\n    print(\"suave en -0.5, 0.25, 0.75 y 2: \", round(s[0], 6), \" \", round(s[1], 6), \" \", round(s[2], 6), \" \", round(s[3], 6))\n    print(\"2 a la 8, por tres cuadrados: \", round(o[0], 0))\n    print(\"el primer entero cuyo cuadrado pasa de 2: \", round(p[0], 0))\n",
+    },
+    Master {
         name: "mezcla",
         level: 11,
         why: "una gpu fn se escribe para UNA celda; con tablas de 4, son 4 hilos de la 3060",
@@ -383,6 +438,17 @@ pub static MASTERS: [Master; COUNT] = [
         typed: &["Ada"],
         out: &["como te llamas?", "hola Ada!"],
         source: "# entra: Ada\n# sale: como te llamas?\n# sale: hola Ada!\n# el primer programa que PREGUNTA: lo que escribe depende de lo que se teclea, y por eso corre de verdad en la maquina\nmod main \"saluda a quien teclee su nombre\"\n\nfn main()\n    print(\"como te llamas?\")\n    let nombre = lee()\n    print(\"hola \", nombre, \"!\")\n",
+    },
+    Master {
+        name: "reserva",
+        level: 12,
+        why: "lo tecleado entra a f32 por su tipo declarado, y la gpu fn corre AL CORRER: en la CPU, su reserva (LB4)",
+        says: "una gpu fn con lo que se teclea",
+        words: &["fn", "let", "if", "return", "round", "match", "gpu", "f32"],
+        asks: Permissions::NONE.with(Permission::Gpu),
+        typed: &["3", "5"],
+        out: &["la media de 3 y 5, por la gpu fn: 4.00", "activa con -3, 0 y 5: 0.0 0.0 5.0", "un dec tecleado, a f32 y de vuelta: 0.125"],
+        source: "# entra: 3\n# entra: 5\n# sale: la media de 3 y 5, por la gpu fn: 4.00\n# sale: activa con -3, 0 y 5: 0.0 0.0 5.0\n# sale: un dec tecleado, a f32 y de vuelta: 0.125\n# lo tecleado entra a f32 por su tipo declarado, y la gpu fn corre AL CORRER: en la CPU, su reserva (LB4)\nmod main \"una gpu fn con lo que se teclea\"\n\ngpu fn media(a: f32, b: f32) -> f32\n    return (a + b) / 2.0\n\ngpu fn activa(x: f32) -> f32\n    if x > 0.0\n        return x\n    return 0.0\n\nfn entero(t: text) -> int\n    match numero(t)\n        Es(n)\n            return n\n        NoEs\n            return 0\n\nfn main()\n    let x = entero(lee())\n    let y = entero(lee())\n    let a: f32 = x\n    let b: f32 = y\n    let m = media(a, b)\n    print(\"la media de \", x, \" y \", y, \", por la gpu fn: \", round(m, 2))\n    let menos: f32 = 0 - x\n    let cero: f32 = 0\n    let xs: [f32; 3] = [menos, cero, b]\n    let r = activa(xs)\n    print(\"activa con \", 0 - x, \", 0 y \", y, \": \", round(r[0], 1), \" \", round(r[1], 1), \" \", round(r[2], 1))\n    let d: f32 = y * 0.025\n    print(\"un dec tecleado, a f32 y de vuelta: \", round(d, 3))\n",
     },
     Master {
         name: "agenda",

@@ -1,5 +1,5 @@
-//! **El grupo F7**: `not`, `neg`, `mul`, `div` e `idiv`, los cinco que
-//! comparten opcode y se distinguen por `/ext`.
+//! **El grupo F7**: `test` con inmediato, `not`, `neg`, `mul`, `div` e
+//! `idiv`, los seis que comparten opcode y se distinguen por `/ext`.
 //!
 //! ** Salio de `mod.rs` el 2026-09-16 por L6a: el despachador paso de las
 //! 1.000 lineas de codigo al entrar `mul` (la quinta familia del fallo del
@@ -14,6 +14,14 @@ impl Machine {
         let (ext, src) = self.modrm(0, rex_x, rex_b);
         let v = self.load(src, wide);
         match ext & 7 {
+            // `test r/m, imm32` (LB4, 08-10): la salida del MXCSR del x86-64
+            // de una gpu fn (`nativo` de PROTON-X) mira si el control de
+            // quien llamo es otro (`test ecx, MXCSR_CONTROL`). El inmediato
+            // va DETRAS del ModRM, y como el `and`, solo deja banderas.
+            0 => {
+                let imm = self.fetch_u32() as i32 as i64 as u64;
+                self.flags_logic(v & imm);
+            }
             // `~x`. Faltaba, y el hueco era invisible: el codegen de C
             // lo emitia BIEN desde siempre --un `.bef` con `~0` se
             // escribe sin quejarse-- pero **ninguna matriz lo podia
@@ -54,26 +62,47 @@ impl Machine {
                 self.cf = hi != 0;
                 self.of = hi != 0;
             }
-            // div SIN signo: rdx:rax entre el operando. El emisor
-            // siempre pone rdx=0 antes, asi que basta con rax.
-            6 => {
-                assert_ne!(v, 0, "division por cero en el codigo emitido");
-                assert_eq!(
-                    self.regs[RDX], 0,
-                    "div de 128 bits: el emisor debe poner rdx=0 antes"
-                );
-                let dividend = self.regs[RAX];
-                self.regs[RAX] = dividend / v;
-                self.regs[RDX] = dividend % v;
-            }
-            7 => {
-                // idiv: dividendo en rdx:rax; aqui basta rax con signo
-                // extendido por cqo, que es lo unico que emitimos.
-                let divisor = v as i64;
-                assert_ne!(divisor, 0, "division por cero en el codigo emitido");
-                let dividend = self.regs[RAX] as i64;
-                self.regs[RAX] = dividend.wrapping_div(divisor) as u64;
-                self.regs[RDX] = dividend.wrapping_rem(divisor) as u64;
+            // div SIN signo e idiv CON signo: el dividendo es rdx:rax en
+            // 64 bits y edx:eax en 32; cociente a rax (eax), resto a rdx
+            // (edx). Un divisor 0, o un cociente que no cabe, es #DE en el
+            // silicio: aqui revienta con su nombre.
+            //
+            // ** Hasta el 08-10 esto miraba rax solo, porque los emisores
+            // ponian rdx = 0 (o `cqo`) en 64 bits. En 32 bits, rax con su
+            // mitad alta a cero es un numero POSITIVO: `cdq; idiv ecx` de -1
+            // entre 2 daba 0x7FFFFFFF (el silicio: 0). Lo destapo la CPU como
+            // libreria de la GPU (LB4): los enteros del Programa son de 32.
+            6 | 7 => {
+                assert_ne!(v, 0, "#DE: division por cero en el codigo emitido");
+                let (alto, bajo) = (self.regs[RDX], self.regs[RAX]);
+                let (q, r) = match (ext & 7, wide) {
+                    (6, true) => {
+                        let n = (alto as u128) << 64 | bajo as u128;
+                        let q = n / v as u128;
+                        assert!(q <= u64::MAX as u128, "#DE: el cociente de div no cabe en 64 bits");
+                        (q as u64, (n % v as u128) as u64)
+                    }
+                    (6, false) => {
+                        let n = (alto as u32 as u64) << 32 | bajo as u32 as u64;
+                        let q = n / v as u32 as u64;
+                        assert!(q <= u32::MAX as u64, "#DE: el cociente de div no cabe en 32 bits");
+                        (q, n % v as u32 as u64)
+                    }
+                    (_, true) => {
+                        let n = ((alto as u128) << 64 | bajo as u128) as i128;
+                        let q = n / v as i64 as i128;
+                        assert!(i64::try_from(q).is_ok(), "#DE: el cociente de idiv no cabe en 64 bits");
+                        (q as i64 as u64, (n % v as i64 as i128) as i64 as u64)
+                    }
+                    (_, false) => {
+                        let n = ((alto as u32 as u64) << 32 | bajo as u32 as u64) as i64;
+                        let q = n / v as u32 as i32 as i64;
+                        assert!(i32::try_from(q).is_ok(), "#DE: el cociente de idiv no cabe en 32 bits");
+                        (q as i32 as u32 as u64, (n % v as u32 as i32 as i64) as i32 as u32 as u64)
+                    }
+                };
+                self.regs[RAX] = q;
+                self.regs[RDX] = r;
             }
             other => panic!("grupo F7 /{other} no emitido por BMO"),
         }

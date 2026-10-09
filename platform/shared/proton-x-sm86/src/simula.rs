@@ -7,7 +7,8 @@
 //! MOV, TEX (P3b4c.8: el asa, a [`Maquina::muestrear`]), EXIT y NOP, con registros, inmediatos y constantes, `-`, `|x|` y
 //! `.SAT`; y desde E6 (02-10) FSETP, ISETP, SEL, IADD3 y BRA, con los
 //! predicados P0..P6 y el GUARDA de cada instruccion; desde E6c y E6d las
-//! de enteros: IMAD, IMAD.HI, LOP3, SHF, IMNMX, IABS, I2F y F2I --; cualquier otra
+//! de enteros: IMAD, IMAD.HI, LOP3, SHF, IMNMX, IABS, I2F y F2I; y desde
+//! DL10 (09-10) FFMA, con un redondeo y en sus cuatro modos (`fma.rs`) --; cualquier otra
 //! palabra (u otra forma de esas) es [`NoSimula::Instruccion`], nunca un
 //! "seguramente".
 //!
@@ -20,6 +21,8 @@
 //! - `MUFU.RSQ`/`RCP`/`SQRT` se hacen como la casa (`1 / raiz(x)`, `1 / x`,
 //!   `raiz(x)`): la 3060 da una APROXIMACION de un ULP o dos. Cuanto se
 //!   separa, y si mueve un pixel del cubo, lo dice el metal (E5), no esto.
+//!   DL10 (09-10): una cuenta que dependa del MUFU.RCP se prueba con el
+//!   inverso MOVIDO (`Maquina::inverso_ulp`), como la 3060 se equivoca.
 //! - FMNMX con un NaN da el otro (como la casa y como D3D); el orden de -0 y
 //!   +0 que haga la 3060 no se modela.
 //! - Los subnormales se conservan (FADD y FMUL sin `.FTZ`, como las emite).
@@ -54,11 +57,15 @@ pub struct Maquina<'a> {
     /// muestreo de la casa (`bmo_proton_x::textura`), que iguala a la 3060
     /// bit a bit en las 96 muestras medidas (`tests/metal_textura.rs`).
     pub muestrear: Option<&'a dyn Fn(u32, f32, f32) -> [f32; 4]>,
+    /// ** DL10: cuantos ULP se mueve el resultado de MUFU.RCP (con su signo)
+    /// cuando es un numero normal: la 3060 aproxima, y lo que viva de su
+    /// inverso tiene que aguantarlo. 0, el de la casa.
+    pub inverso_ulp: i32,
 }
 
 impl<'a> Maquina<'a> {
     pub fn nueva(bancos: [&'a [u8]; 8]) -> Self {
-        Maquina { r: [0; 256], p: [false; 7], bancos, muestrear: None }
+        Maquina { r: [0; 256], p: [false; 7], bancos, muestrear: None, inverso_ulp: 0 }
     }
 
     fn reg(&self, i: usize) -> u32 {
@@ -297,10 +304,27 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
                 let otro = if mayor { y > x } else { y < x };
                 (if x.is_nan() || otro { y } else { x }).to_bits()
             }
+            // ** DL10: FFMA Rd, a, b, Rc -- UN redondeo, en su modo (78..80),
+            // con la FFMA exacta (`fma.rs`). La tercera, con su `-` (75) y su
+            // `|x|` (74); sin `.SAT` ni nada mas (no la emite el emisor).
+            0x023 if matches!(forma, 1 | 4) && hi & ((1 << 41) - 1) & !(0xFF | 0xF << 8 | 3 << 14) == 0 => {
+                let b = segunda(4, 5).ok_or(NoSimula::Instruccion(n))?;
+                let c = modificar(m.reg((hi & 0xFF) as usize), hi >> 11 & 1 != 0, hi >> 10 & 1 != 0);
+                let modo = match hi >> 14 & 3 {
+                    0 => crate::fma::Redondeo::Cercano,
+                    1 => crate::fma::Redondeo::Abajo,
+                    2 => crate::fma::Redondeo::Arriba,
+                    _ => crate::fma::Redondeo::Cero,
+                };
+                crate::fma::ffma(a(), b, c, modo)
+            }
             0x108 if forma == 1 => {
                 let x = f(m.reg((lo >> 32 & 0xFF) as usize));
                 match hi >> 10 & 0xF {
-                    4 => (1.0 / x).to_bits(),
+                    4 => {
+                        let r = 1.0 / x;
+                        if r.is_normal() { r.to_bits().wrapping_add_signed(m.inverso_ulp) } else { r.to_bits() }
+                    }
                     5 => (1.0 / raiz(x)).to_bits(),
                     8 => raiz(x).to_bits(),
                     _ => return Err(NoSimula::Instruccion(n)),

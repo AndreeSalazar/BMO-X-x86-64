@@ -8,13 +8,18 @@
 //! de operaciones, y no sabe dividir -- un LIMITE, dicho en sus palabras. Y al
 //! lado de la 3060 de verdad: dos tarjetas, AISLADAS, los mismos bits.
 //!
+//! 09-10 (DL10): la 3060 divide EXACTA, y la de juguete es la UNICA tarjeta
+//! con un limite. Por eso las pruebas de LB1 -- el limite de una libreria es
+//! el NO del programa, en el fichero, la linea y la columna de lo que no
+//! sabe -- viven aqui desde hoy.
+//!
 //! [!] Lo que esta prueba NO dice: que el contrato baste para una tarjeta de
 //! verdad distinta de la 3060. Eso lo dira LB4 (la CPU, con codigo real) y,
 //! el dia que llegue, LB10.
 
 use bmo_prometeo::programa::Op;
-use bmo_prometeo::{Codigo, Ficha, NoEmite, Para, Programa, Tarjeta};
-use bmo_proton_x_sm86::tarjeta::SM86;
+use bmo_prometeo::{Aparato, Codigo, Ficha, NoEmite, Para, Programa, Tarjeta};
+use bmo_tarjeta_rtx3060_12g::RTX_3060_12G;
 use bmo_titan_front::calc::DeviceNo;
 use bmo_titan_front::Code;
 use bmo_titan_prometeo::{kernels, Oracle};
@@ -37,7 +42,7 @@ impl Juguete {
 
 impl Tarjeta for Juguete {
     fn ficha(&self) -> Ficha {
-        Ficha { nombre: "la tarjeta de juguete", lengua: "JUGUETE", registros: 1 << 16 }
+        Ficha { nombre: "la tarjeta de juguete", lengua: "JUGUETE", registros: 1 << 16, aparato: Aparato { modelo: "la tarjeta de juguete", chip: "JUGUETE", pci: None, memoria_mib: 0 } }
     }
 
     fn emitir(&self, p: &Programa, _para: Para) -> Result<Codigo, NoEmite> {
@@ -103,12 +108,12 @@ fn a_toy_card_enters_through_the_contract_without_touching_titan() {
 fn two_cards_side_by_side_give_the_same_bits() {
     let juguete = Juguete::nueva(1000);
     let plain = bmo_titan_front::lower_package("src/main.titan", MEZCLA, &mut lee).unwrap();
-    let mut oracle = Oracle::new(&[&SM86, &juguete]);
+    let mut oracle = Oracle::new(&[&RTX_3060_12G, &juguete]);
     let ran = bmo_titan_front::lower_package_with("src/main.titan", MEZCLA, &mut lee, Some(&mut oracle)).unwrap();
     assert_eq!(plain.flat, ran.flat);
-    let ks = kernels(&plain, &[&SM86, &juguete]).unwrap();
+    let ks = kernels(&plain, &[&RTX_3060_12G, &juguete]).unwrap();
     let lenguas: Vec<&str> = ks.iter().map(|k| k.tarjeta.ficha().lengua).collect();
-    assert_eq!(lenguas, ["SM86", "JUGUETE"]);
+    assert_eq!(lenguas, ["SASS sm_86", "JUGUETE"]);
     assert_ne!(ks[0].viaje, ks[1].viaje, "each card, its own code");
 }
 
@@ -123,8 +128,54 @@ fn a_limit_of_a_toy_card_is_the_program_s_no_in_its_words() {
     let no = bmo_titan_front::lower_package_with("src/main.titan", src, &mut lee, Some(&mut oracle)).unwrap_err();
     assert_eq!((no.code, no.line, no.col), (Code::GpuBody, 3, 14), "{:?}", no);
     assert!(no.what.contains("tarjeta de juguete") && no.why.starts_with("la tarjeta de juguete no tiene division"), "{:?}", no);
-    assert!(no.why.contains("LI2g") && no.how.contains("potencia de dos"), "{:?}", no);
+    assert!(no.why.contains("multiplicacion exacta") && no.how.contains("potencia de dos"), "{:?}", no);
     assert!(!no.what.contains("3060") && !no.why.contains("3060"), "{:?}", no);
+    assert!(!no.why.contains("fallo"), "a limit, never a failure: {:?}", no);
+    // Nadie la llama: el calculo no la ve, y `kernels()` la dice igual.
+    let m = bmo_titan_front::lower_package("src/main.titan", "mod main \"x\"\ngpu fn tercio(a: f32) -> f32\n    return a / 3.0\nfn main()\n    print(1)\n", &mut lee).unwrap();
+    match kernels(&m, &[&juguete]) {
+        Err(DeviceNo::Limit(said)) => assert_eq!((said.code, said.line, said.col), (Code::GpuBody, 3, 14)),
+        other => panic!("the limit, not {:?}", other.map(|k| k.len())),
+    }
+    // Entre una potencia de dos no divide nadie: es un producto, y la de
+    // juguete lo hace.
+    let medio = "mod main \"x\"\ngpu fn medio(a: f32) -> f32\n    return a / 2.0\nfn main()\n    let xs: [f32; 1] = [3.0]\n    let r = medio(xs)\n    print(round(r[0], 2))\n";
+    bmo_titan_front::lower_package_with("src/main.titan", medio, &mut lee, Some(&mut Oracle::new(&[&juguete]))).unwrap();
+}
+
+/// ** EL LIMITE DENTRO DE UNA LLAMADA se dice en la linea y la columna de lo
+/// que la tarjeta no sabe -- la division de la gpu fn llamada --, no en la de
+/// la llamada (LB5: la llamada se escribe en linea).
+#[test]
+fn a_limit_inside_a_called_gpu_fn_is_said_where_it_is_written() {
+    let m = bmo_titan_front::lower_package("src/main.titan", "mod main \"x\"\ngpu fn tercio(x: f32) -> f32\n    return x / 3.0\ngpu fn f(x: f32) -> f32\n    return tercio(x) + 1.0\nfn main()\n    print(1)\n", &mut lee).unwrap();
+    let f = m.functions.iter().position(|f| f.name == "f").unwrap();
+    let juguete = Juguete::nueva(1000);
+    let said = bmo_titan_prometeo::write(&m, f, &juguete).err().expect("the toy card does not divide").1.expect("a limit");
+    assert_eq!((said.code, said.line, said.col), (Code::GpuBody, 3, 14), "{:?}", said);
+}
+
+/// ** EN UN PAQUETE (08-10): el limite de una gpu fn de un modulo HIJO se
+/// dice en SU fichero y en SU linea -- el NO del programa y el texto del
+/// escritor. Antes el texto ponia el nombre del fichero con la linea del
+/// paquete entero, que solo cuadra en la raiz.
+#[test]
+fn a_limit_in_a_child_module_is_said_in_its_file_and_its_line() {
+    let main = "mod main \"x\"\nmod mates\nfn main()\n    let xs: [f32; 1] = [1.0]\n    let r = mates.tercio(xs)\n    print(round(r[0], 2))\n";
+    let hijo = "mod mates \"cuentas de juguete\"\n\npub gpu fn tercio(a: f32) -> f32\n    return a / 3.0\n";
+    let mut read = |p: &str| match p {
+        "Titan.toml" => Some(TOML.to_string()),
+        "src/mates.titan" => Some(hijo.to_string()),
+        _ => None,
+    };
+    let juguete = Juguete::nueva(1000);
+    let mut oracle = Oracle::new(&[&juguete]);
+    let no = bmo_titan_front::lower_package_with("src/main.titan", main, &mut read, Some(&mut oracle)).unwrap_err();
+    assert_eq!((no.file.as_deref(), no.line, no.col, no.code), (Some("src/mates.titan"), 4, 14, Code::GpuBody), "{:?}", no);
+    let m = bmo_titan_front::lower_package("src/main.titan", main, &mut read).unwrap();
+    let f = m.functions.iter().position(|f| f.gpu).unwrap();
+    let why = bmo_titan_prometeo::write(&m, f, &juguete).err().expect("the toy card does not divide").0;
+    assert!(why.starts_with("src/mates.titan, linea 4, columna 14"), "{}", why);
 }
 
 /// ** SU JUEZ DICE QUE NO, y es un FALLO, no el NO del programa: el juez de

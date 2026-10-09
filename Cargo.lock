@@ -763,7 +763,6 @@ dependencies = [
  "bmo-cubo",
  "bmo-gpu-ga10x",
  "bmo-hash",
- "bmo-prometeo",
  "bmo-proton-x",
  "bmo-sm86",
 ]
@@ -845,6 +844,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-tarjeta-cpu"
+version = "0.1.0"
+dependencies = [
+ "bmo-lower",
+ "bmo-prometeo",
+ "bmo-proton-x",
+]
+
+[[package]]
+name = "bmo-tarjeta-rtx3060-12g"
+version = "0.1.0"
+dependencies = [
+ "bmo-bsf",
+ "bmo-gpu-ga10x",
+ "bmo-prometeo",
+ "bmo-proton-x-sm86",
+]
+
+[[package]]
 name = "bmo-titan-contrato"
 version = "0.1.0"
 
@@ -868,7 +886,8 @@ name = "bmo-titan-prometeo"
 version = "0.1.0"
 dependencies = [
  "bmo-prometeo",
- "bmo-proton-x-sm86",
+ "bmo-tarjeta-cpu",
+ "bmo-tarjeta-rtx3060-12g",
  "bmo-titan-front",
 ]
 
@@ -877,13 +896,17 @@ name = "bmo-titan-x86-64"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+ "bmo-bsf",
+ "bmo-cubo",
  "bmo-lower",
  "bmo-prometeo",
- "bmo-proton-x-sm86",
+ "bmo-tarjeta-cpu",
+ "bmo-tarjeta-rtx3060-12g",
  "bmo-titan-contrato",
  "bmo-titan-front",
  "bmo-titan-prometeo",
  "bmo-verify",
+ "bmo-verrano",
 ]
 
 [[package]]

@@ -1712,6 +1712,9 @@ sume lo que dice la tabla de arriba.
 > **08-10, la foto:** `run titan/hola.bex` escribio `hola` en el Ryzen
 > ([`METAL_2026-10-08.md`](../metal/METAL_2026-10-08.md)): la primera vez que
 > TITAN++ corre en el metal. Falta `run titan/dos.bex`.
+>
+> **08-10, despues:** `run titan/dos.bex` tambien: `hola desde saluda` y
+> `hola otra vez`, una llamada entre funciones en el metal.
 
 **NIVEL 3 -- DECIDIR, HECHO EN EL ANFITRION el 04-10** (`if else true false
 and or not`, 10 palabras; `GRAMATICA.md` lo cuenta entero):
@@ -2010,3 +2013,33 @@ tiempo en adivinar"*:
   - **08-10, LB3b:** mudado el mismo dia: el Programa de la casa y su
     interprete viven en PROMETEO (`platform/shared/prometeo`), y PROTON-X los
     toma de alli. Faltan LB4 y LB8.
+  - **08-10, LB4:** AL CORRER, en la CPU. La segunda tarjeta de PROMETEO es
+    la CPU (`toolchain/forge/tarjeta-cpu`: el `nativo` de PROTON-X como su
+    emisor, el contrato de la llamada como su juez, el emulador de la casa
+    como su simulador), y E1 llama a la gpu fn al correr; el f32 vive en E1
+    como dato. La ley L32 (DL3 del propietario: *"es buena"*). Falta LB8: la
+    3060 al correr, Ring 0.
+  - **08-10, despues:** la tarjeta es la RTX 3060 12G por su APARATO exacto,
+    en su crate (`toolchain/forge/tarjeta-rtx3060-12g`), con su ISA (SASS
+    sm_86) dentro; y una sola GPU (el propietario: *"Solo uno"*).
+  - **08-10, LB5:** LOS BUCLES y LAS LLAMADAS dentro de una gpu fn. `for i in
+    range(N)` con N escrito, con `break`, `continue` y `return`; cada `for`
+    es un `Bucle` de verdad en la 3060 y en la CPU, y una llamada a otra gpu
+    fn se escribe EN LINEA. La obra de una celda se cuenta al compilar y no
+    pasa de 65536: un hilo ACABA por construccion. Es la ley L33 (DL4 del
+    propietario: *"si ve hasta el final"*).
+  - **08-10, LB6:** la gpu fn que DIBUJA, por su firma (DL6, tomada como la
+    recomienda el plan; el 09-10, confirmada por el propietario): la de
+    vertice recibe un registro y deja otro con su `posicion`; la de pixel
+    recibe ese y deja su color. Sale como el Programa por elementos, y la
+    RTX 3060 12G la pega a la tuberia de VERRANO, la juzga y mete las del
+    paquete en su sobre. El cubo de V0 escrito en TITAN++
+    (`nivel11/cubo`) da los bits de la tanda en el anfitrion; en el metal,
+    del propietario.
+  - **09-10, LB6b:** la DIVISION GENERAL, EXACTA en la 3060 (DL10 del
+    propietario: *"Exactos, tambien en 3060"*). Deja de ser el NO de la
+    tarjeta: la RTX 3060 12G da los bits de IEEE -- los de la casa y el
+    calculo -- con la cuenta de `ptxas` rehecha para el cuerpo de una app y
+    la prueba de Tuckerman (`proton-x-sm86/src/cociente.rs`), aunque su
+    MUFU se equivoque. En la obra de una celda pesa 24. El ejemplo,
+    `nivel11/cociente`. La raiz, con el propietario.

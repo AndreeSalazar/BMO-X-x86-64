@@ -1,0 +1,38 @@
+# espera: BIEN
+# entra: 3
+# entra: 5
+# sale: la media de 3 y 5, por la gpu fn: 4.00
+# sale: activa con -3, 0 y 5: 0.0 0.0 5.0
+# sale: un dec tecleado, a f32 y de vuelta: 0.125
+# lo tecleado entra a f32 por su tipo declarado, y la gpu fn corre AL CORRER: en la CPU, su reserva (LB4)
+mod main "una gpu fn con lo que se teclea"
+
+gpu fn media(a: f32, b: f32) -> f32
+    return (a + b) / 2.0
+
+gpu fn activa(x: f32) -> f32
+    if x > 0.0
+        return x
+    return 0.0
+
+fn entero(t: text) -> int
+    match numero(t)
+        Es(n)
+            return n
+        NoEs
+            return 0
+
+fn main()
+    let x = entero(lee())
+    let y = entero(lee())
+    let a: f32 = x
+    let b: f32 = y
+    let m = media(a, b)
+    print("la media de ", x, " y ", y, ", por la gpu fn: ", round(m, 2))
+    let menos: f32 = 0 - x
+    let cero: f32 = 0
+    let xs: [f32; 3] = [menos, cero, b]
+    let r = activa(xs)
+    print("activa con ", 0 - x, ", 0 y ", y, ": ", round(r[0], 1), " ", round(r[1], 1), " ", round(r[2], 1))
+    let d: f32 = y * 0.025
+    print("un dec tecleado, a f32 y de vuelta: ", round(d, 3))

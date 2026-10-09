@@ -1,0 +1,27 @@
+# espera: BIEN
+# sale: el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel
+# dos gpu fn que DIBUJAN (LB6), dichas por su firma: la de vertice recibe un registro y deja otro con su `posicion`; la de pixel recibe ese y deja su color. No se llaman: las pone a dibujar VERRANO (LB7). `titan sm86` las pega a la tuberia de la RTX 3060 12G y las mete en su sobre, cubo.bsf
+mod main "el cubo de V0, en TITAN++"
+
+# Cuatro f32: un punto en coordenadas de recorte (x, y, z, w), o un color (r, g, b, a).
+type Cuatro
+    x: f32
+    y: f32
+    z: f32
+    w: f32
+
+# Un vertice del cubo como lo escribe la app (`Vertex` de VERRANO, 32 bytes): su posicion, ya en coordenadas de recorte, y el color de su cara.
+type Vertice
+    posicion: Cuatro
+    color: Cuatro
+
+# La de VERTICE: deja lo que le dan -- la posicion, a la tarjeta; el color, a la de pixel.
+gpu fn cubo_vertice(v: Vertice) -> Vertice
+    return v
+
+# La de PIXEL: el color de su cara. Los tres vertices de una cara dan el mismo, y la tarjeta lo interpola exacto.
+gpu fn cubo_pixel(v: Vertice) -> Cuatro
+    return v.color
+
+fn main()
+    print("el cubo de V0, escrito en TITAN++: cubo_vertice y cubo_pixel")

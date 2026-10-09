@@ -1,0 +1,10 @@
+mod mates "las cuentas de la 3060"
+
+pub gpu fn cuadrado(x: f32) -> f32
+    return x * x
+
+pub gpu fn a_la_ocho(x: f32) -> f32
+    let mut r = x
+    for i in range(3)
+        r = cuadrado(r)
+    return r

@@ -203,18 +203,23 @@ fn console(bex: Vec<u8>, src: &str) -> (String, bool) {
     (m.console.clone(), m.exited)
 }
 
-/// ** THE ORACLE. Every BIEN program of the bench that does not use the 3060
-/// is built TWICE: as the build does it (E0 runs it when compiling, unless it
-/// reads) and forced through E1 (it runs in the machine). Both run in the
-/// emulator with what the example types, and they must write the SAME,
-/// byte for byte -- the calculation is the yardstick of E1.
+/// ** THE ORACLE. Every BIEN program of the bench is built TWICE: as the
+/// build does it (E0 runs it when compiling, unless it reads) and forced
+/// through E1 (it runs in the machine). Both run in the emulator with what
+/// the example types, and they must write the SAME, byte for byte -- the
+/// calculation is the yardstick of E1.
+///
+/// ** And since LB4 (08-10) the ones that use the GPU too: E0 carries the
+/// cells of the 3060 SIMULATED when compiling; E1 runs the gpu fn on the CPU,
+/// its reserve, when running. The same text, or the reserve is not one.
 #[test]
 fn e1_writes_what_the_calculation_writes_for_every_program_of_the_bench() {
-    let (mut checked, mut wrong) = (0, Vec::new());
+    let (mut checked, mut wrong, mut gpu) = (0, Vec::new(), 0);
     for (name, dir, rootfile, src) in bench() {
-        if !src.starts_with("# espera: BIEN") || src.contains("gpu") {
+        if !src.starts_with("# espera: BIEN") {
             continue;
         }
+        gpu += src.contains("gpu fn") as usize;
         let read = |p: &str| std::fs::read_to_string(dir.join(p)).ok();
         let e0 = console(bmo_titan_x86_64::build_package(&rootfile, &src, &mut |p| read(p)).unwrap(), &src);
         match bmo_titan_x86_64::build_package_e1(&rootfile, &src, &mut |p| read(p)) {
@@ -230,7 +235,8 @@ fn e1_writes_what_the_calculation_writes_for_every_program_of_the_bench() {
     }
     assert!(wrong.is_empty(), "{} de {} programas escriben otra cosa por E1:\n{}", wrong.len(), checked, wrong.join("\n"));
     assert!(checked >= 25, "the oracle looked at {checked} programs");
-    eprintln!("oraculo: {checked} programas, E1 == calculo");
+    assert!(gpu >= 2, "the oracle looked at {gpu} programs with a gpu fn");
+    eprintln!("oraculo: {checked} programas ({gpu} con gpu fn), E1 == calculo");
 }
 
 /// ** THE ORACLE OF THE NO. The NOs of the bench that the calculation finds
@@ -252,7 +258,17 @@ fn e1_traps_where_the_calculation_said_no() {
             Err(bmo_titan_x86_64::Failure::Source(m)) => m.line,
             other => panic!("{name}: the calculation says {code}, and gave {:?}", other.map(|_| ())),
         };
-        let bex = bmo_titan_x86_64::build_package_e1(&rootfile, &src, &mut |p| read(p)).unwrap_or_else(|e| panic!("{name}: E1 no lo emite: {e:?}"));
+        let bex = match bmo_titan_x86_64::build_package_e1(&rootfile, &src, &mut |p| read(p)) {
+            Ok(bex) => bex,
+            // ** A NO said before anything runs (LB5, L33: the work of a gpu
+            // fn's thread, T0066 when compiling) is the same NO for E1 too:
+            // same code, same line -- only sooner.
+            Err(bmo_titan_x86_64::Failure::Source(m)) if m.code.label() == code && m.line == line => {
+                checked += 1;
+                continue;
+            }
+            Err(e) => panic!("{name}: E1 no lo emite: {e:?}"),
+        };
         // a loop without end runs until the emulator's budget stops it
         let ran = std::panic::catch_unwind(|| console(bex, &src));
         let (out, exited) = ran.unwrap_or_default();
@@ -468,4 +484,95 @@ fn lists_and_maps_agree_with_the_calculation_at_random() {
     assert!(wrong.is_empty(), "{} de {cases} no coinciden:\n{}", wrong.len(), wrong.iter().take(3).cloned().collect::<Vec<_>>().join("\n"));
     eprintln!("azar de listas: {same} iguales, {traps} con el mismo NO");
     assert!(same > 30 && traps > 10, "the random cases cover both: {same} same, {traps} traps");
+}
+
+/// The body of a random `gpu fn` over `a` and `b`: `+ - *`, the division by
+/// a power of two (the only one the 3060 did exactly until 09-10) and `-`.
+/// 09-10 (DL10): and the GENERAL division -- by a number that is not a power
+/// of two, and by another expression --, exact on the 3060 too.
+fn gpu_expr(r: &mut Rng, depth: u32) -> String {
+    if depth == 0 || r.pick(3) == 0 {
+        return match r.pick(6) {
+            0 | 1 => "a".into(),
+            2 | 3 => "b".into(),
+            _ => ["0.5", "2.0", "-3.25", "0.1", "1000000.0", "0.0"][r.pick(6) as usize].into(),
+        };
+    }
+    let (x, y) = (gpu_expr(r, depth - 1), gpu_expr(r, depth - 1));
+    match r.pick(6) {
+        0 => format!("({x} + {y})"),
+        1 => format!("({x} - {y})"),
+        2 => format!("({x} * {y})"),
+        3 => format!("({x} / {})", ["2.0", "0.5", "4.0", "0.25", "1024.0", "3.0", "0.1", "-7.0"][r.pick(8) as usize]),
+        4 => format!("({x} / {y})"),
+        _ => format!("(-{x})"),
+    }
+}
+
+/// ** LB4 (`docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): A gpu fn AT RANDOM, FED
+/// WHAT IS TYPED. The numbers come typed and enter f32 by their declared type
+/// -- an int, or a dec computed when running (`x * 0.001`) --; a gpu fn with a
+/// random body runs on them, as values and as a table; and `round` brings the
+/// cells back to dec. The same program with the numbers WRITTEN is folded by
+/// the calculation, with the cells of the 3060 SIMULATED (E0). Both write the
+/// same line, or give the same NO (T0060, T0062): the CPU, when running, gives
+/// the bits of the oracle. `E1_AZAR_GPU=seed,cases` to look further.
+#[test]
+fn a_gpu_fn_fed_what_is_typed_gives_the_cells_of_the_oracle() {
+    let env = std::env::var("E1_AZAR_GPU").unwrap_or_default();
+    let mut it = env.split(',').map(|x| x.trim().parse::<u64>().ok());
+    let seed = it.next().flatten().filter(|s| *s != 0).unwrap_or(0x2545_F491_4F6C_DD1D);
+    let cases = it.next().flatten().unwrap_or(120);
+    let toml = "[package]\nname = \"azar\"\n[permissions]\ngpu = \"compute\"\n";
+    let mut r = Rng(seed);
+    let (mut same, mut traps, mut wrong) = (0, 0, Vec::new());
+    for case in 0..cases {
+        let vals: Vec<i64> = (0..2).map(|_| [0i64, 1, -1, 2, 7, 10, 100, 12345, -98765, 16777217, 33554433, 3037000499, 9223372036854775807, -9223372036854775808][r.pick(14) as usize]).collect();
+        let scale = ["1", "0.5", "0.001", "0.000001", "0.1", "0.000000000000000001"][r.pick(6) as usize];
+        let cmp = ["<", "<=", ">", ">=", "==", "!="][r.pick(6) as usize];
+        let gpu = format!("gpu fn f(a: f32, b: f32) -> f32\n    if a {cmp} b\n        return {}\n    return {}\n", gpu_expr(&mut r, 3), gpu_expr(&mut r, 3));
+        let (n1, n2) = (r.pick(10), r.pick(4));
+        let tail = format!("    let a: f32 = x * {scale}\n    let b: f32 = y\n    let uno = f(a, b)\n    let t: [f32; 2] = [a, b]\n    let u: [f32; 2] = [b, a]\n    let dos = f(t, u)\n    print(round(uno, {n1}), \" \", round(dos[0], {n2}), \" \", round(dos[1], {n2}))\n");
+        let head = "mod main \"azar\"\n\nfn entero(t: text) -> int\n    match numero(t)\n        Es(n)\n            return n\n        NoEs\n            return 0\n\n";
+        let lit = |v: i64| if v == i64::MIN { "(-9223372036854775807 - 1)".to_string() } else { v.to_string() };
+        let typed = format!("{head}{gpu}\nfn main()\n    let x = entero(lee())\n    let y = entero(lee())\n{tail}");
+        let written = format!("{head}{gpu}\nfn main()\n    let x = {}\n    let y = {}\n{tail}", lit(vals[0]), lit(vals[1]));
+        let build = |src: &str| {
+            let files = [("src/main.titan", src), ("Titan.toml", toml)];
+            bmo_titan_x86_64::build_package("src/main.titan", src, &mut |p| files.iter().find(|f| f.0 == p).map(|f| f.1.to_string()))
+        };
+        let e0 = match build(&written) {
+            Ok(bex) => Ok(run(cargar_bex(&bex).unwrap(), 2_000_000).console.clone()),
+            Err(bmo_titan_x86_64::Failure::Source(m)) => Err(format!("T{:04}", m.code.number())),
+            Err(other) => panic!("case {case}: {other:?}\n{written}"),
+        };
+        let bex = build(&typed).unwrap_or_else(|f| panic!("case {case}: E1 does not build: {f:?}\n{typed}"));
+        let mut m = cargar_bex(&bex).unwrap();
+        m.poner_entrada(&format!("{}\n{}\n", vals[0], vals[1]));
+        let out = run(m, 20_000_000).console.clone();
+        match &e0 {
+            Ok(text) if *text == out => same += 1,
+            Err(code) if out.starts_with(&format!("NO {code} al correr")) => traps += 1,
+            _ => wrong.push(format!("case {case}: x={} y={} a = x * {scale}\n{gpu}  E0 {:?}\n  E1 {:?}", vals[0], vals[1], e0, out)),
+        }
+    }
+    assert!(wrong.is_empty(), "{} de {cases} no coinciden:\n{}", wrong.len(), wrong.iter().take(8).cloned().collect::<Vec<_>>().join("\n"));
+    eprintln!("azar con gpu fn: {same} iguales, {traps} con el mismo NO");
+    assert!(same > cases as usize / 3 && traps > 0, "the random cases cover both: {same} same, {traps} traps");
+}
+
+/// ** LB4: a `.bex` that runs a gpu fn on the CPU uses SSE (the body its card
+/// wrote), and its header SAYS so: `xcr0` asks the kernel to keep x87 and
+/// SSE for the task. The BEF2 writer puts it on every executable; this is the
+/// proof that the one with a gpu body has it, and not by luck.
+#[test]
+fn a_bex_that_runs_a_gpu_fn_declares_sse_in_its_xcr0() {
+    let src = "mod main \"x\"\ngpu fn doble(x: f32) -> f32\n    return x * 2.0\nfn main()\n    let t = lee()\n    let xs: [f32; 2] = [2.0, 3.0]\n    let r = doble(xs)\n    print(t, round(r[1], 1))\n";
+    let files = [("src/main.titan", src), ("Titan.toml", "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n")];
+    let bex = bmo_titan_x86_64::build_package("src/main.titan", src, &mut |p| files.iter().find(|f| f.0 == p).map(|f| f.1.to_string())).unwrap();
+    let xcr0 = u64::from_le_bytes(bex[8..16].try_into().unwrap());
+    assert_eq!(xcr0 & 0b11, 0b11, "xcr0 = {xcr0:#x}: x87 and SSE");
+    let mut m = cargar_bex(&bex).unwrap();
+    m.poner_entrada("seis: \n");
+    assert_eq!(run(m, 2_000_000).console, "seis: 6.0\n");
 }

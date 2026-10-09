@@ -72,17 +72,44 @@ pub struct Emitted {
     pub starts: Vec<usize>,
 }
 
+/// ** EL x86-64 DE UNA gpu fn, de la tarjeta de la CPU (LB4 de
+/// `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): lo que E1 llama al correr, y los
+/// registros que pide (su sitio, en el marco de quien llama).
+#[derive(Debug, Clone)]
+pub struct Cuerpo {
+    pub bytes: Vec<u8>,
+    pub registros: u32,
+}
+
+/// El cuerpo de cada gpu fn, por su numero en el modulo.
+pub type Cuerpos = std::collections::BTreeMap<usize, Cuerpo>;
+
 /// IR -> bytes. La IR llega JUZGADA y CALCULADA (`juez.rs`, `calc.rs`): en el
 /// nivel 1 cada valor ya es una constante, y un `let` no deja bytes -- su valor
 /// ya esta dentro de los textos que se escriben. Lo unico que no puede pasar
 /// es una parte sin calcular: se dice (`Unfolded`) en vez de inventarle bytes.
-pub fn emit(m: &Module) -> Result<Emitted, Failure> {
+/// `cuerpos`: el x86-64 de cada gpu fn, para E1 (un programa E0 ya trae sus
+/// celdas).
+pub fn emit(m: &Module, cuerpos: &Cuerpos) -> Result<Emitted, Failure> {
     match &m.flat {
         Some(flat) => emit_flat(flat).map_err(Failure::Gate),
         // E1 (`docs/plan/PLAN_LA_ENTRADA.md`): the program reads from outside,
         // so it was not run when compiling -- it is emitted to run (`e1/mod.rs`).
-        None => e1::emit(m).map_err(|no| e1_no(m, no)),
+        None => e1::emit(m, cuerpos).map_err(|no| e1_no(m, no)),
     }
+}
+
+/// ** Los cuerpos de la CPU de entre lo que escribieron todas las tarjetas
+/// (`kernels`): cada uno ya escrito, juzgado y con la bateria pasada.
+fn cuerpos(m: &Module, ks: &[bmo_titan_prometeo::Kernel]) -> Cuerpos {
+    let cpu = bmo_prometeo::Tarjeta::ficha(&bmo_tarjeta_cpu::CPU);
+    ks.iter()
+        .filter(|k| k.tarjeta.ficha() == cpu)
+        .filter_map(|k| {
+            let f = m.functions.iter().position(|f| f.gpu && f.name == k.name)?;
+            Some((f, Cuerpo { bytes: k.viaje.bytes.clone(), registros: k.viaje.registros }))
+        })
+        .collect()
 }
 
 /// ** LO QUE E1 TODAVIA NO EMITE es el NO del PROGRAMA (LB1 de
@@ -158,8 +185,9 @@ pub fn package(e: &Emitted, manifest: &str) -> Result<Vec<u8>, String> {
 #[derive(Debug)]
 pub enum Failure {
     /// El NO del PROGRAMA: el mensaje de 4 partes. Del frontend, del limite
-    /// de una libreria de la GPU (la division general en la 3060), o de lo
-    /// que E1 todavia no emite al correr (LB1, 08-10).
+    /// de una libreria de la GPU (la division general en la 3060, hasta que
+    /// DL10 la hizo exacta el 09-10), o de lo que E1 todavia no emite al
+    /// correr (LB1, 08-10).
     Source(Message),
     /// Un fallo de ESTE compilador -- el gate, el emisor o el juez de una
     /// tarjeta, E1 --, nunca del programa.
@@ -183,17 +211,58 @@ pub fn build(src: &str, source_name: &str) -> Result<Vec<u8>, Failure> {
 pub fn build_package_e1(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option<String>) -> Result<Vec<u8>, Failure> {
     let source_name = root.rsplit('/').next().unwrap_or(root);
     let m = bmo_titan_front::lower_package_unfolded(root, src, read).map_err(Failure::Source)?;
+    let ks = bmo_titan_prometeo::kernels(&m, &TARJETAS).map_err(|no| device_no(&m, no))?;
     let manifest = bmo_titan_front::manifest::manifest(&m, source_name);
-    let e = e1::emit(&m).map_err(|no| e1_no(&m, no))?;
+    let e = e1::emit(&m, &cuerpos(&m, &ks)).map_err(|no| e1_no(&m, no))?;
     package(&e, &manifest).map_err(Failure::Gate)
 }
 
 /// ** LAS TARJETAS QUE HAY (LB3 de `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10):
 /// lo UNICO de la GPU que dice `titan`. El frontend y PROMETEO no nombran
 /// ninguna (L-a); cada una trae su emisor, su juez y su simulador, aislados.
-/// Hoy, una: la 3060. Cual entra en un build -- todas las que haya, o las
-/// que diga el PERFIL de la maquina -- es DL11, del propietario.
-pub static TARJETAS: [&dyn bmo_prometeo::Tarjeta; 1] = [&bmo_proton_x_sm86::tarjeta::SM86];
+/// Cual entra en un build -- todas las que haya, o las que diga el PERFIL de
+/// la maquina -- es DL11, del propietario.
+///
+/// ** Dos desde LB4 (08-10): la 3060, y la CPU, la RESERVA de toda GPU (DL3:
+/// *"y la CPU, siempre, de reserva"*). Cada gpu fn se escribe, se juzga y
+/// pasa la bateria en LAS DOS, y las dos dan los mismos bits o no hay .bex.
+/// La PRIMERA da las celdas que lleva un .bex que no lee (E0); la CPU es la
+/// que corre una gpu fn AL CORRER, en un programa que lee (E1).
+///
+/// ** 08-10, el propietario: cada tarjeta por su APARATO exacto, no por su
+/// ISA (*"solo: 3060 12G ... y asi elegante para priorizar"*). Van en ORDEN DE
+/// PRIORIDAD: la grafica que hay, la RTX 3060 12G (su ISA, SASS sm_86, va
+/// dentro de ella); y la ultima, la CPU, la reserva.
+pub static TARJETAS: [&dyn bmo_prometeo::Tarjeta; 2] = [&bmo_tarjeta_rtx3060_12g::RTX_3060_12G, &bmo_tarjeta_cpu::CPU];
+
+/// ** LO QUE DIBUJA (LB6 de `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): cada gpu
+/// fn de vertice o de pixel de `ks` -- ya escrita, juzgada y con su bateria
+/// pasada en la RTX 3060 12G (`kernels`) --, PEGADA por la tarjeta a la
+/// tuberia de VERRANO y juzgada como en la puerta del kernel; y todas en su
+/// SOBRE, un BSF con un modulo por cada una (su nombre) y el MAPA de la casa
+/// de fuente. `None` si ninguna dibuja. Un NO aqui es de la libreria de la
+/// tarjeta (su emisor, su pegamento o su juez), nunca del programa.
+pub fn sobre(ks: &[bmo_titan_prometeo::Kernel]) -> Result<Option<(Vec<bmo_tarjeta_rtx3060_12g::dibujo::Pegada>, Vec<u8>)>, String> {
+    use bmo_tarjeta_rtx3060_12g::dibujo::{self, Etapa};
+    let rtx = bmo_prometeo::Tarjeta::ficha(&bmo_tarjeta_rtx3060_12g::RTX_3060_12G);
+    let mut pegadas = Vec::new();
+    let mut programas = Vec::new();
+    for k in ks.iter().filter(|k| k.tarjeta.ficha() == rtx) {
+        let etapa = match k.dibujo.as_ref().map(|d| d.forma) {
+            Some(bmo_titan_prometeo::Forma::Vertice { posicion }) => Etapa::Vertice { posicion },
+            Some(bmo_titan_prometeo::Forma::Pixel { posicion }) => Etapa::Pixel { posicion },
+            _ => continue,
+        };
+        pegadas.push(dibujo::pegar(&k.name, &k.programa, etapa).map_err(|e| format!("{}, linea {}: {}", k.file, k.line, e))?);
+        programas.push(&k.programa);
+    }
+    if pegadas.is_empty() {
+        return Ok(None);
+    }
+    let pares: Vec<_> = pegadas.iter().zip(programas).collect();
+    let s = dibujo::sobre(&pares)?;
+    Ok(Some((pegadas, s)))
+}
 
 /// A PACKAGE to a `.bex` (level 9): the root file (its path from the package
 /// and its text), and `read` for the files its `mod`s name. The manifest
@@ -209,9 +278,9 @@ pub fn build_package(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Option
     // Y TODAS, tambien las que ninguna ejecucion llamo, escritas y juzgadas.
     // Si una no pasa: un limite de la libreria es el NO del programa (en su
     // sitio); lo demas, un fallo del ESCRITOR o del juez. No hay .bex.
-    bmo_titan_prometeo::kernels(&m, &TARJETAS).map_err(|no| device_no(&m, no))?;
+    let ks = bmo_titan_prometeo::kernels(&m, &TARJETAS).map_err(|no| device_no(&m, no))?;
     let manifest = bmo_titan_front::manifest::manifest(&m, source_name);
-    let e = emit(&m)?;
+    let e = emit(&m, &cuerpos(&m, &ks))?;
     package(&e, &manifest).map_err(Failure::Gate)
 }
 
@@ -233,7 +302,7 @@ mod tests {
     #[test]
     fn calls_and_loops_leave_only_what_they_write() {
         let m = bmo_titan_front::lower("mod main \"x\"\nfn otra()\n    print(\"a\")\nfn main()\n    for i in range(2)\n        otra()\n    print(\"fin\")\n").unwrap();
-        let e = emit(&m).unwrap();
+        let e = emit(&m, &Cuerpos::new()).unwrap();
         let has = |w: &[u8]| e.code.windows(w.len()).filter(|x| *x == w).count();
         assert_ne!(e.code[0], 0xE8, "no call: the program starts by writing");
         assert_eq!(has(b"a\n"), 2, "two turns, two writes");
@@ -243,7 +312,7 @@ mod tests {
     #[test]
     fn every_program_ends_in_exit() {
         let m = bmo_titan_front::lower("mod main \"x\"\nfn main()\n    print(\"a\")\n").unwrap();
-        let e = emit(&m).unwrap();
+        let e = emit(&m, &Cuerpos::new()).unwrap();
         let mut exit = Vec::new();
         task::exit(&mut exit);
         assert!(e.code.ends_with(&exit));
@@ -295,7 +364,7 @@ mod tests {
         use bmo_titan_contrato::Permissions;
         let m = bmo_titan_front::lower("mod main \"x\"\nfn main()\n    print(\"hola\")\n").unwrap();
         let honest = bmo_titan_front::manifest::manifest(&m, "x.titan");
-        let e = emit(&m).unwrap();
+        let e = emit(&m, &Cuerpos::new()).unwrap();
         let read = |bex: &[u8]| Certificate::read(bmo_verify::declaracion::manifiesto(bex).unwrap()).unwrap();
         let good = package(&e, &honest).unwrap();
         assert_eq!(judge(&read(&good), Permissions::NONE, Permissions::NONE), Verdict::Agrees);
@@ -310,29 +379,54 @@ mod tests {
     #[test]
     fn the_dead_side_of_an_if_leaves_no_byte() {
         let src = "mod main \"x\"\nfn main()\n    if 2 > 1\n        print(\"VIVO\")\n    else\n        print(\"MUERTO\")\n";
-        let e = emit(&bmo_titan_front::lower(src).unwrap()).unwrap();
+        let e = emit(&bmo_titan_front::lower(src).unwrap(), &Cuerpos::new()).unwrap();
         let has = |w: &[u8]| e.code.windows(w.len()).any(|x| x == w);
         // write_const carries texts eight bytes at a time: "VIVO\n" fits in one.
         assert!(has(b"VIVO\n"), "the live side is there");
         assert!(!has(b"MUERTO"[..4].as_ref()), "the dead side left bytes");
     }
 
-    /// ** LB1 (`docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): lo que la libreria
-    /// de la 3060 todavia no sabe y lo que E1 todavia no emite son NO del
-    /// PROGRAMA -- su codigo, su linea y su columna, sus cuatro partes --, y
-    /// nunca "el .bex no paso el gate ... fallo del compilador". Y `check`
-    /// dice lo mismo que `build`, porque es el mismo camino.
+    /// ** LB1 (`docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): lo que una libreria
+    /// de la GPU todavia no sabe es un NO del PROGRAMA -- su codigo, su linea
+    /// y su columna, sus cuatro partes --, y nunca "el .bex no paso el gate
+    /// ... fallo del compilador". Y `check` dice lo mismo que `build`, porque
+    /// es el mismo camino.
+    ///
+    /// ** LB4 (08-10): las dos sondas que E1 decia T0040 -- una gpu fn y un
+    /// f32 en un programa que lee -- CORREN: la gpu fn, en la CPU (su
+    /// reserva), y el f32, como dato. Escriben lo que escribiria el calculo.
+    ///
+    /// ** DL10 (09-10): la sonda de LB1 era la division general en una gpu
+    /// fn, el limite de la 3060 (T0090 en la division). Ahora la 3060 la hace
+    /// exacta y CORRE; el limite de una libreria lo prueba la tarjeta de
+    /// juguete (`prometeo/tests/juguete.rs`) y aqui, su camino hasta el NO
+    /// (`a_limit_of_a_library_is_the_program_s_no`). La sonda que queda es la
+    /// obra de la celda, que la division pesa: el mismo NO en check y build.
     #[test]
     fn a_known_limit_is_the_program_s_no_in_check_and_in_build() {
         let toml = "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n";
         let probes = [
-            // la division general en una gpu fn: en la DIVISION, no en la llamada
-            ("mod main \"x\"\ngpu fn tercio(a: f32) -> f32\n    return a / 3.0\nfn main()\n    let xs: [f32; 1] = [3.0]\n    let r = tercio(xs)\n    print(round(r[0], 2))\n", "T0090", 3, 14),
-            // una gpu fn en un programa que lee: todavia no corre en la maquina
-            ("mod main \"x\"\ngpu fn doble(x: f32) -> f32\n    return x * 2.0\nfn main()\n    let t = lee()\n    print(t)\n    let xs: [f32; 2] = [2.0, 3.0]\n    let r = doble(xs)\n    print(round(r[0], 1))\n", "T0040", 2, 1),
-            // un f32 en un programa que lee, sin gpu fn: tampoco
-            ("mod main \"x\"\nfn main()\n    let t = lee()\n    print(t)\n    let xs: [f32; 1] = [2.0]\n    print(round(xs[0], 1))\n", "T0040", 5, 9),
+            // 3000 vueltas de una division general no caben en una celda: en su `for`
+            ("mod main \"x\"\ngpu fn tercios(a: f32) -> f32\n    let mut r = a\n    for i in range(3000)\n        r = r / 3.0\n    return r\nfn main()\n    let xs: [f32; 1] = [3.0]\n    let r = tercios(xs)\n    print(round(r[0], 2))\n", "T0066", 4, 5),
         ];
+        let corren = [
+            // la division general en una gpu fn: la de la 3060, exacta (DL10)
+            ("mod main \"x\"\ngpu fn tercio(a: f32) -> f32\n    return a / 3.0\nfn main()\n    let xs: [f32; 2] = [1.0, -7.5]\n    let r = tercio(xs)\n    print(round(r[0], 2), \" \", round(r[1], 2))\n", "0.33 -2.50\n"),
+            // una gpu fn en un programa que lee: la corre la CPU, al correr
+            ("mod main \"x\"\ngpu fn doble(x: f32) -> f32\n    return x * 2.0\nfn main()\n    let t = lee()\n    print(t)\n    let xs: [f32; 2] = [2.0, 3.0]\n    let r = doble(xs)\n    print(round(r[0], 1))\n", "hola\n4.0\n"),
+            // un f32 en un programa que lee, sin gpu fn: un dato
+            ("mod main \"x\"\nfn main()\n    let t = lee()\n    print(t)\n    let xs: [f32; 1] = [2.0]\n    print(round(xs[0], 1))\n", "hola\n2.0\n"),
+        ];
+        for (src, says) in corren {
+            let files = [("src/main.titan", src), ("Titan.toml", toml)];
+            let mut read = |p: &str| files.iter().find(|f| f.0 == p).map(|f| f.1.to_string());
+            assert!(check_package("src/main.titan", src, &mut read).is_ok(), "{}", src);
+            let bex = build_package("src/main.titan", src, &mut read).unwrap_or_else(|e| panic!("{:?}\n{}", e, src));
+            let mut m = bmo_lower::emu::cargar_bex(&bex).unwrap();
+            m.poner_entrada("hola\n");
+            let m = bmo_lower::emu::run(m, 2_000_000);
+            assert_eq!((m.console.as_str(), m.exited), (says, true), "{}", src);
+        }
         for (src, code, line, col) in probes {
             let files = [("src/main.titan", src), ("Titan.toml", toml)];
             let mut read = |p: &str| files.iter().find(|f| f.0 == p).map(|f| f.1.to_string());
@@ -348,6 +442,22 @@ mod tests {
         let ok = "mod main \"x\"\ngpu fn medio(a: f32) -> f32\n    return a / 2.0\nfn main()\n    let xs: [f32; 1] = [3.0]\n    let r = medio(xs)\n    print(round(r[0], 2))\n";
         let files = [("src/main.titan", ok), ("Titan.toml", toml)];
         assert!(check_package("src/main.titan", ok, &mut |p| files.iter().find(|f| f.0 == p).map(|f| f.1.to_string())).is_ok());
+    }
+
+    /// ** LB1: el limite de una libreria de la GPU es el NO del PROGRAMA, en
+    /// su fichero y su linea; lo demas, un fallo de su escritor o de su juez.
+    /// Las tarjetas de `titan` ya no tienen limites (DL10, 09-10): el camino
+    /// se prueba con lo que dice `kernels()`.
+    #[test]
+    fn a_limit_of_a_library_is_the_program_s_no() {
+        let toml = "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n";
+        let m = bmo_titan_front::lower_package("src/main.titan", "mod main \"x\"\nfn main()\n    print(1)\n", &mut |p| (p == "Titan.toml").then(|| toml.to_string())).unwrap();
+        let limite = Message::new(Code::GpuBody, 3, 14, "una division que esta tarjeta no sabe", "su por que", "su como");
+        match device_no(&m, DeviceNo::Limit(limite)) {
+            Failure::Source(said) => assert_eq!((said.code, said.line, said.col, said.file.as_deref()), (Code::GpuBody, 3, 14, Some("src/main.titan"))),
+            other => panic!("the program's NO, not {:?}", other),
+        }
+        assert!(matches!(device_no(&m, DeviceNo::Failure("su juez dijo que no".into())), Failure::Gate(_)));
     }
 
     #[test]

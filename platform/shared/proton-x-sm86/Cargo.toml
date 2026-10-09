@@ -17,9 +17,9 @@ bmo-gpu-ga10x = { path = "../../drivers/gpu/ga10x" }
 # fuente) y su hash, para guardar y recordar lo traducido.
 bmo-bsf = { path = "../../../toolchain/lang/spirv/bsf" }
 bmo-hash = { path = "../bmo-hash" }
-# LB3 (08-10): el CONTRATO de una tarjeta. La 3060 lo cumple (`tarjeta.rs`);
-# PROMETEO no sabe que la 3060 existe.
-bmo-prometeo = { path = "../prometeo" }
+# 08-10: la TARJETA de PROMETEO que era `tarjeta.rs` salio a su crate, con el
+# nombre de su aparato (`toolchain/forge/tarjeta-rtx3060-12g`): este crate es
+# su ISA, SASS sm_86, y ya no nombra el contrato.
 
 [dev-dependencies]
 bmo-cubo = { path = "../bmo-cubo" }

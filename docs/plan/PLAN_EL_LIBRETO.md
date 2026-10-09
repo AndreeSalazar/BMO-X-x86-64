@@ -187,6 +187,12 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       esas operaciones (y el juez mide en ULP), o esas operaciones van por
       la CPU para siempre. **Como se sabe:** la decision escrita aqui, y el
       juez con la regla elegida y su prueba del NO.
+      **09-10, la decision (DL10 de PLAN_LAS_LIBRERIAS):** *"Exactos,
+      tambien en 3060"* -- los mismos bits, con la secuencia de redondeo
+      correcto de `ptxas` y no la tolerancia --. La DIVISION ya es exacta en
+      la 3060 (LB6b: `proton-x-sm86/src/cociente.rs`, los bits de IEEE aunque
+      el MUFU se equivoque); la raiz va con el propietario (cambia el SASS
+      de BMOX-12 que corre en el metal); el filtrado, con LI2c.
 - [ ] **LI2h -- el sombreador de geometria**, si LI0 dice que Cyberpunk lo
       usa. Si no, se aparca con motivo.
 
@@ -357,7 +363,8 @@ vivo que usa Cyberpunk.
       la division general rechazada en su linea y columna, el SASS sin
       esperas rechazado por el juez, el signo de -0, y una gpu fn medida
       contra el calculo de otra. **Falta:** la division general (LI2g), y los
-      bucles (IL1).
+      bucles (IL1). **09-10:** los bucles llegaron con LB5 (08-10) y la
+      division general, EXACTA, con LB6b de PLAN_LAS_LIBRERIAS.
 
 ## El orden de los dos planes juntos
 

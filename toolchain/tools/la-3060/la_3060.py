@@ -454,7 +454,9 @@ def sobre(fallos):
 PROMETEO = os.path.join(RAIZ, 'platform', 'shared', 'prometeo')
 TITAN = os.path.join(RAIZ, 'toolchain', 'lang', 'titan')
 TITAN_GPU = os.path.join(TITAN, 'prometeo')
-RX_TARJETA = re.compile(r'(\bbmo[-_]proton[-_]x[-_]sm86\b|\bbmo[-_]sm86\b|\bbmo[-_]gpu[-_]\w+|drivers/gpu/)')
+# LB4 (08-10): y la CPU, la segunda tarjeta (`toolchain/forge/tarjeta-cpu`):
+# una tarjeta es una tarjeta aunque sea la reserva. Lo general no la nombra.
+RX_TARJETA = re.compile(r'(\bbmo[-_]proton[-_]x[-_]sm86\b|\bbmo[-_]sm86\b|\bbmo[-_]gpu[-_]\w+|\bbmo[-_]tarjeta[-_]\w+|drivers/gpu/|forge/tarjeta[-_]\w+)')
 # LB3b (08-10): el Programa vive en PROMETEO, y PROTON-X (la capa de Windows)
 # depende de el. Si PROMETEO volviera a nombrar a PROTON-X, la flecha se habria
 # dado la vuelta otra vez -- y con ella, el ciclo.

@@ -1,0 +1,5 @@
+[package]
+name = "gpu_en_modulos"
+
+[permissions]
+gpu = "compute"

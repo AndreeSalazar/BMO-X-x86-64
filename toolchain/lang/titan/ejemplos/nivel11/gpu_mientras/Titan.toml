@@ -1,0 +1,5 @@
+[package]
+name = "gpu_mientras"
+
+[permissions]
+gpu = "compute"
