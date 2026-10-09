@@ -648,6 +648,99 @@ vez de NV12: ni texturas, ni muestreador, ni tuberia 3D.
 El orden: **D1 -> D2b -> D2c -> D3.** M3 (las texturas) sigue haciendo falta,
 pero para Quake, no para DOOM.
 
+### S -- EL STREAMING SIN COPIAS: la CPU calcula, la RAM entrega, la 3060 dibuja (09-10)
+
+Del propietario, el 09-10: *"en tiempo real que la CPU ya calcula pero no
+dibuja y la ram es la zona de entrega de inmediato y la GPU recibe las
+ordenes ... eso ya seria mejorar el plan en streaming de CPU y GPU"*.
+
+La idea tiene media casa hecha y medida (arriba): la app que CUENTA y publica
+(la lamina, E6 cuarto paso; con TITAN++, LB7 de
+[`PLAN_LAS_LIBRERIAS.md`](PLAN_LAS_LIBRERIAS.md), `titan/cubogira.bex`); la
+RAM prestada a la 3060 solo lectura (los vertices del anillo, V1b); y la 3060
+que recibe ordenes sin que la CPU espere (el anillo: 28596 fps con
+`maximo`). Lo que falta es UNIRLAS para una app de otro proceso -- y despues
+para un juego --, sin copias en medio:
+
+```text
+   hoy   la app cuenta -> la LAMINA (RAM de la app) -> el escritorio la COPIA
+         (`Lamina::leer`, y otra vez a su bufer, `gspcubo/verrano.rs`) -> el
+         `Frame` -> el paquete -> el kernel lo escribe en la pagina del
+         anillo -> la 3060
+   S     la app cuenta -> la LAMINA, prestada a la 3060 SOLO LECTURA -> la
+         3060 la lee DIRECTO; el escritorio y el kernel solo dicen QUE
+         ranura y tocan el timbre
+```
+
+Y "streaming" con el sentido de [`PLAN_EL_PIXEL.md`](PLAN_EL_PIXEL.md):
+**no acumular**. La lamina ya lo hace (gana lo ultimo publicado; un
+fotograma pillado a medias no se dibuja). El anillo, para un juego, tiene que
+poder ir con UNO o DOS en vuelo, no cuatro: lo que se juzga es de la mano al
+pixel (latencia), no los fps (caudal).
+
+- [ ] **S0 -- medir el camino de hoy, salto a salto.** Con
+      `titan/cubogira.bex` publicando y `gpu verrano banco inti` dibujando
+      (lo que falta de LB7: el banco con la app viva), cuanto cuesta cada
+      salto: leer la lamina, armar el `Frame`, el paquete, la puerta y la
+      3060 -- el tablero de E2 en `gspcubo/verrano.rs` --. Sin esto, S1 a S3
+      van a ciegas. **Como se sabe:** las fases suman la pared, y el banco
+      acaba `IGUAL al juez`.
+- [ ] **S1 -- la lamina PRESTADA a la 3060 (Ring 0, del propietario).** La
+      puerta que toma la oferta BVER (`dsk.table.lamina()`) pide al kernel
+      que mapee las paginas de la lamina en la IOMMU de la 3060, SOLO
+      LECTURA, como la pagina de vertices del anillo (V1b,
+      `gpu_trabajo/cubo.rs`), y las desmapea cuando la app muere
+      (`reap_dead`) ANTES de devolver la memoria. La 3060 no sabe leer un
+      sello: el escritorio lo mira y le dice QUE ranura leer (su direccion
+      en la tabla, como hoy). **Y lo que hay que decidir antes:** hoy la app
+      puede reescribir una ranura mientras la 3060 aun la lee (publica dos
+      fotogramas antes de que la 3060 acabe uno). La lamina v2
+      (`bmo_verrano::lamina`) llevaria una palabra de VUELTA -- la ranura
+      que esta en vuelo, escrita por el escritorio -- y la app escribe
+      siempre la otra. **Como se sabe:** `gpu verrano banco inti` sin
+      `Lamina::leer` en el bucle, `IGUAL al juez`; la prueba de dos hilos
+      de la lamina con la palabra de vuelta, sin un fotograma roto; y la
+      IOMMU dice que la pagina es de solo lectura.
+- [ ] **S2 -- E4: una escritura y el timbre (Ring 0, del propietario).** Es
+      la casilla E4 de arriba: las ordenes de cada ranura en RAM y el
+      GPFIFO escrito al armar. S la necesita: sin ella, cada fotograma
+      sigue pagando la ventana PRAMIN. **Como se sabe:** preparar por
+      debajo de 5 us (el tablero de `gpu verrano banco anillo`).
+- [ ] **S3 -- el RITMO por la latencia.** Con lamina (o con mando o
+      raton), el anillo con 1 o 2 en vuelo; y el banco despierta por el
+      sello nuevo de la app, no por el reloj (hoy, `bmo::wait(0, 0,
+      1_000_000)` en el bucle de la lamina de `gspcubo/verrano.rs`: un
+      milisegundo cada vez que no hay nada). Se mide de la publicacion al
+      fotograma pagado (la valla), y se pone al lado del presupuesto de la
+      seccion 1 de `PLAN_EL_PIXEL.md`. **Como se sabe:** el banco dice la
+      latencia publicado-pagado, y con 1 en vuelo baja sin que caigan los
+      fps de la app.
+- [ ] **S4 -- la CPU en varios nucleos (Ring 0, del propietario).** Un
+      nucleo orquesta (el escritorio y el anillo) y otro calcula (la app:
+      la fisica, la animacion, la tanda). Es la seccion 4 y el nivel 7 de la
+      escalera de [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md).
+      **Como se sabe:** `titan/cubogira.bex` en su nucleo y el banco en
+      otro, y la columna ESPERA DE LA CPU baja.
+- [ ] **S5 -- el puente a D3D12 (PROTON-X).** D3D12 ES este modelo: el
+      juego calcula en la CPU y deja los datos en un *upload heap* (RAM que
+      la GPU lee: la zona de entrega), graba listas de ordenes y las manda
+      a una cola (la GPU recibe ordenes), y espera con *fences* (la valla).
+      Con S1 a S3 cada pieza de D3D12 tiene la suya en BMO-X: un upload
+      heap, una lamina prestada; `ExecuteCommandLists`, ordenes en el
+      anillo; un fence, la valla. **Como se sabe:** un ejemplo de Microsoft
+      de [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md)
+      dibujando por este camino, IGUAL a D3D12.
+
+**Lo que S NO promete:** que suban hoy los fps de Cyberpunk. El juego esta
+en el nivel 4 de su escalera (no dibuja) y G0 de
+[`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- la 3060 despierta 10 de 10 -- va
+antes. S es la autopista; primero el coche tiene que arrancar.
+
+**De quien es cada cosa:** S1, S2 y S4 son de Ring 0 (el kernel, la IOMMU,
+los nucleos): del propietario, o de Claude para que el propietario lo revise
+(DL15 de `PLAN_LAS_LIBRERIAS.md`). S0, S3 y S5 son del escritorio, de VERRANO
+y de PROTON-X. Ninguna empieza antes de S0: primero se mide.
+
 ## 2d. LA ESCALERA AL JEFE FINAL: de DOOM a Quake II RTX (26-09)
 
 El propietario: *"enfocate en algo importante: DOOM, esa meta con Freedoom,

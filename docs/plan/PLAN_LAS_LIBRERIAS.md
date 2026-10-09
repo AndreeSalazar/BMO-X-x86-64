@@ -751,6 +751,31 @@ coseno); y el f32 correcto entre el 94 y el 99.8 % de las veces. Los bits de la 
 funciones cambiaron UNA vez, ese dia. Lo siguiente, por el orden de arriba:
 TEX/TLD y el LDC con indice, que esperan su decision.
 
+**09-10, al cerrar: LO QUE QUEDA, y de quien** (del propietario: *"seria el
+ultimo para ti ... ahora si anotar ... no codificar"*). Todo lo de esta
+sesion esta en el PR #26 (rama `claude/jolly-pasteur-oahbq9`).
+
+```text
+   del propietario, en el metal
+     1  `run titan/cubogira.bex` y, MIENTRAS corre, `gpu verrano banco inti`
+        en la misma barra: `IGUAL al juez` cierra LB7 (si dice NO con la
+        app viva, la foto del F11)
+     2  G0 de PLAN_LA_3060, su paso 1: `powercfg /h off`, ErP en la BIOS,
+        y apagar en vez de reiniciar
+     3  cuando un sombreador use la puerta con ellas: el primer discard
+        (DL12a) y la primera receta de series (DL13) en la 3060 de verdad
+   del propietario, decisiones
+     4  TEX/TLD con mips, arrays y cubos, y el LDC con indice: los dos que
+        DL12 dejo en "todavia no" y Cyberpunk pide
+     5  R7: una FFMA con la constante en la c (de 6 a 9 MOV menos por
+        receta de DL13)
+     6  S de PLAN_VERRANO (el streaming sin copias): S1, S2 y S4 son de
+        Ring 0
+   de Claude, la proxima vez, por el orden de 4.1
+     7  lo que se decida en 4; LB8 (la puerta de computo); DL12b (las
+        olas); S0, S3 y S5 de PLAN_VERRANO. DL14, aparcada
+```
+
 ---
 
 # 5. LAS CASILLAS
