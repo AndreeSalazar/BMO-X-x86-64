@@ -736,6 +736,21 @@ por completo ... pero no olvides anotar donde estamos"*):
    el PR         #26, abierto, con todo lo de arriba
 ```
 
+**09-10, mas tarde: DL13 HECHA en el anfitrion** (E8d de
+`PLAN_LA_LENGUA_DE_LA_3060.md`). Las once Mate de series -- seno, coseno,
+tangente, exp2, log2, los tres arcos y los tres hiperbolicos -- son RECETAS
+de cuentas de f32 escritas UNA vez (`platform/shared/prometeo/src/cuentas.rs`
+y sus cuatro ficheros): la casa las corre y la 3060 las graba y las traduce
+una cuenta a una instruccion (`proton-x-sm86/src/series.rs`), con lo que R7
+ya deja. Los mismos bits por construccion, probados en el simulador en los
+dos ABI y con `mates.hlsl` de `dxc` -- lo que pedian los sombreadores de
+Cyberpunk -- de punta a punta. Su error, sobre TODOS los f32: como mucho 1 ULP en exp2,
+log2, acos, cosh y tanh, y en el seno hasta |x| = 105615; 2 en el coseno
+ahi, en atan, asin y senh; 3 en la tangente (5 lejos, y 3 en el seno y el
+coseno); y el f32 correcto entre el 94 y el 99.8 % de las veces. Los bits de la casa en esas
+funciones cambiaron UNA vez, ese dia. Lo siguiente, por el orden de arriba:
+TEX/TLD y el LDC con indice, que esperan su decision.
+
 ---
 
 # 5. LAS CASILLAS
