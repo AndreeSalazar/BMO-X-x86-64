@@ -676,6 +676,43 @@ recomendacion, y el propietario tomo las cuatro:
                  y lo prueba en el metal
 ```
 
+**09-10, despues: EL ORDEN -- Cyberpunk primero.** Del propietario: *"para
+jugar Cyberpunk 2077 ... porque eso y ya nada mas"*, y *"titan++ es como
+escuela para la GPU ... y eso mismo PROTON-X le guie a verrano y la GPU
+ejecute mi juego principal: se alinean mucho"*. Se alinean porque las dos
+puertas caen en la MISMA espina:
+
+```text
+   TITAN++ (gpu fn, fuente que se lee)  --\
+                                           >-- el Programa de la casa
+   PROTON-X (DXIL de Cyberpunk, cerrado) --/   (PROMETEO) -- el emisor de la
+                                               3060 -- el juez -- la tuberia
+                                               de VERRANO -- la 3060
+```
+
+TITAN++ es la ESCUELA: cada cosa nueva de la 3060 se aprende con un
+programa que se lee y una respuesta que se sabe (el calculo), una capa cada
+vez; Cyberpunk la usa despues sin forense. Y al reves: E8a, E8b y DL12a
+salieron de lo que pedian sus sombreadores. Asi queda el orden:
+
+```text
+   1  DL13      las Mate de series en f32 (seno, coseno, exp2, log2...): lo
+                que mas usan los sombreadores del juego. PREPARADA: E8d de
+                PLAN_LA_LENGUA_DE_LA_3060
+   2  falta su  las dos que DL12 dejo en "todavia no" y Cyberpunk SI pide:
+      decision  las texturas con mips, arrays y cubos (TEX/TLD), y el LDC
+                con indice (los arrays de luces y huesos de un cbuffer,
+                `luces.hlsl`). A reconsiderar: decision del propietario
+   3  LB8       la puerta de computo (la luz, las sombras, el post-proceso
+                del juego): Ring 0
+   4  DL12b     las olas: las de cuadro y las derivadas de pixel (SHFL); las
+                de vertice, de un carril. Las olas ENTERAS de pixel no dan
+                los bits de la casa nunca (el hardware agrupa a su manera)
+   -  DL14      las tablas en una gpu fn: APARCADA -- solo sirve a TITAN++.
+                Su mapa esta hecho (el comprobador, la IR, el calculo, el
+                escritor y la tarjeta CPU)
+```
+
 ---
 
 # 5. LAS CASILLAS

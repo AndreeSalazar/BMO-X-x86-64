@@ -804,6 +804,36 @@ despues.
     registros), 15 pegado: un PSO con `discard` ya no va por la CPU.
   - En el metal (del propietario): la primera vez que la 3060 tire un pixel
     lo dira el metal.
+- **E8d, las Mate de SERIES en f32 (DL13) -- PREPARADA el 09-10, sin
+  empezar; la siguiente, por el orden del propietario (Cyberpunk primero):**
+  - Lo que se decidio (DL13): la casa deja sus cuentas en f64 y pasa a
+    cuentas de f32 que la 3060 repite instruccion a instruccion: los mismos
+    bits por construccion.
+  - Lo MEDIDO (un prototipo fuera del arbol, sobre TODOS los f32 con |x| <=
+    105615, contra f64): seno y coseno con FMA -- `j = rint(x * 2/pi)`, `r`
+    con pi/2 en tres trozos por FMA, y los polinomios de Cephes por FMA --
+    dan como mucho 2 ULP (74 y 80 valores; el 98 % exactos). Sin FMA
+    (Cephes puro, FMUL y FADD) se rompen junto a los ceros: 478 y 974 ULP.
+    Asi que FMA: FFMA en la 3060, y en la casa una FMA de f32 EXACTA (la de
+    `fma.rs` del simulador, o el f64 con su resto y el desempate).
+  - Las herramientas: `ptxas` 12.9 y `nvdisasm` 13.4 de PyPI (las de E2).
+    La raiz de NVIDIA (`sqrt.rn.f32`, para asin y acos) ya se leyo: MUFU.RSQ,
+    dos FFMA y su camino lento para 0, negativos, infinitos, NaN y
+    subnormales; aguantar el error del MUFU se prueba como en DL10.
+  - Los pasos: la FMA exacta de la casa; seno, coseno y tangente; exp2 y
+    log2; los arcos; los hiperbolicos. Cada una: su error medido sobre todos
+    los f32, su cuenta en la 3060 con los bits de la casa en el simulador, y
+    lo que cuesta (que quepa en un hueco).
+  - **Como se sabra:** cada funcion exacta en las dos tarjetas contra la
+    casa, su error en ULP dicho, y las pruebas de PROTON-X con libm dentro
+    del margen de D3D. Los bits de la casa en esas funciones cambian UNA
+    vez, con fecha.
+- **E8e, las OLAS (DL12b) -- lo que se sabe (09-10):** las de VERTICE son de
+  un carril en la casa (`hacer(que, 0, 1, ...)`): cuentas de ALU, exactas,
+  sin VOTE ni SHFL. Las de CUADRO y las derivadas de pixel, con SHFL dentro
+  del cuadro de 2x2 y un simulador de cuatro carriles. Las ENTERAS de pixel
+  no dan nunca los bits de la casa: la casa junta 8 cuadros de un
+  triangulo y la 3060 los junta a su manera. Las de computo, con LB8.
 - **Como se sabra E8 entera:** cada fila de la tabla, con su prueba en el
   anfitrion; las que piden R7 o el kernel, cuando el propietario las abra; y
   en el metal, un sombreador de cada una.
