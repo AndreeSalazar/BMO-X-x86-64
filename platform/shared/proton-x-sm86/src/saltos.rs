@@ -35,6 +35,13 @@ pub(crate) struct Analisis {
     /// Cuantas estructuras (si, bucle) hay abiertas al correr cada operacion.
     pub hondo: Vec<usize>,
     pub fundible: Vec<bool>,
+    /// LB7a (09-10): las variables que NACEN antes de cada operacion -- la de
+    /// arriba de todo antes de la primera que las toca --, para el modo
+    /// frugal del emisor, que no les da registro desde el principio.
+    pub nace: Vec<Vec<Reg>>,
+    /// LB7a (09-10): lo que se escribe y NADIE lee (un `if` en linea deja
+    /// alguno): se puede soltar justo despues. Lo usa el modo frugal.
+    pub sobra: Vec<Vec<Reg>>,
 }
 
 /// Los registros del Programa que lee una operacion.
@@ -279,5 +286,29 @@ pub(crate) fn analizar(p: &Programa) -> Analisis {
             fundible[i] = lector && !variable[d] && lecturas[d].len() == 1 && escrituras[d].len() == 1;
         }
     }
-    Analisis { ultimo, variable, muere, hondo, fundible }
+    let mut nace = vec![Vec::new(); m];
+    for r in 0..n {
+        let primera = lecturas[r].first().into_iter().chain(escrituras[r].first()).min().copied();
+        if let (true, Some(mut j)) = (variable[r], primera) {
+            // fuera de todo si y bucle: lo que lo abre esta a la altura 0
+            while j > 0 && hondo[j] > 0 {
+                j -= 1;
+            }
+            nace[j].push(r as Reg);
+        }
+    }
+    // Lo que lee algo que no cambia (una Entrada, una fila del cbuffer) no:
+    // con el ABI de registros es una precarga, y la suelta su `fin`. La que
+    // nadie lee se suelta tras la primera operacion, y su registro ya es de
+    // otro cuando llega la suya (09-10: la semilla 57 de
+    // `cientos_de_programas_al_azar_dan_los_bits_de_la_casa`).
+    let mut sobra = vec![Vec::new(); m];
+    for r in 0..n {
+        if lecturas[r].is_empty() && !variable[r] && !inmutable[r] {
+            for &w in &escrituras[r] {
+                sobra[w].push(r as Reg);
+            }
+        }
+    }
+    Analisis { ultimo, variable, muere, hondo, fundible, nace, sobra }
 }

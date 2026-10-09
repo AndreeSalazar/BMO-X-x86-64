@@ -361,6 +361,30 @@ fn cientos_de_programas_al_azar_dan_los_bits_de_la_casa() {
     assert!(hechos >= 350 && saltos > 1000, "{hechos} emitidos, {grandes} sin registros, {saltos} saltos");
 }
 
+/// ** LB7a (09-10): el modo FRUGAL, FORZADO en esos mismos programas --
+/// quepan o no sin el --: los bits de la casa en los dos ABI, y el juez dice
+/// que si. El primer frugal lo tumbo la prueba de arriba: soltaba la precarga
+/// de una fila que nadie leia, y su registro ya era de una variable.
+#[test]
+fn el_modo_frugal_da_los_bits_de_la_casa_en_cientos_de_programas() {
+    let cb: Vec<u8> = (0..12).flat_map(|k| (0.25 * k as f32 - 1.0).to_le_bytes()).collect();
+    let mut hechos = 0;
+    for semilla in 0..400u64 {
+        let p = al_azar(semilla);
+        let (Ok(e), Ok(r)) = (crate::emitir_modo(&p, TECHO, Abi::Banco, false, true), crate::emitir_modo(&p, TECHO, Abi::Registros, false, true)) else {
+            continue;
+        };
+        juzgado(&e, &r);
+        for (x, y) in ENTRADAS {
+            let ent = [[x, y, 0.0, 0.0]];
+            igual(&p, &e.codigo, &ent, &cb);
+            igual_en_registros(&p, &r, &ent, &cb);
+        }
+        hechos += 1;
+    }
+    assert!(hechos >= 390, "{hechos} emitidos frugales");
+}
+
 
 
 /// De punta a punta: un SM5 de FXC con `loop`, `breakc`, `if`/`else`,

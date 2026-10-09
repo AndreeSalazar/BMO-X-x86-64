@@ -1,0 +1,160 @@
+mod cubo "el cubo de bmo_cubo, contado por gpu fn: su matriz, sus vertices y su luz"
+use num
+
+# Las cuentas de `bmo_cubo` (lib.rs, mat.rs y tanda.rs): la camara, la
+# proyeccion y el mundo de cada fotograma, con el MISMO orden de sumas y
+# productos -- por eso dan sus mismos bits --. Las matrices van por columnas,
+# como alli: la entrada k es la fila k % 4 de la columna k / 4. Los ceros y
+# los unos de una matriz se multiplican igual que alli: un cero por un
+# numero da un cero con su signo, y ese signo llega a la suma.
+#
+# Una celda cuenta SOLO la fila y la columna que pide: lo que saldria de la
+# matriz entera es lo mismo, bit a bit, y asi cabe en los 64 registros de un
+# hueco de la 3060.
+
+# Una fila por una columna, como `mat::mul` y `mat::transformar`:
+# ((a0 b0 + a1 b1) + a2 b2) + a3 b3.
+pub gpu fn producto(a0: f32, a1: f32, a2: f32, a3: f32, b0: f32, b1: f32, b2: f32, b3: f32) -> f32
+    return a0 * b0 + a1 * b1 + a2 * b2 + a3 * b3
+
+# El angulo del fotograma `f`: un grado por fotograma (`angulo_de_fotograma`).
+pub gpu fn angulo(f: f32) -> f32
+    return f * (6.2831855 / 360.0)
+
+# ** LA MATRIZ DEL FOTOGRAMA `f`, su entrada `k`: la `wvp` de `constantes` --
+# proyeccion por vista por mundo -- para una pantalla de 1280 x 720.
+pub gpu fn wvp(f: f32, k: f32) -> f32
+    let col = num.trunca(k * 0.25)
+    let fila = k - 4.0 * col
+    # La camara (`mat::vista`): el ojo en (0, 1.5, -5) mira al origen, con Y
+    # arriba. f = normalizar(objetivo - ojo), s = normalizar(arriba x f),
+    # u = f x s; y la ultima columna, menos su producto con el ojo.
+    let oy = 1.5
+    let oz = -5.0
+    let gx = 0.0 - 0.0
+    let gy = 0.0 - oy
+    let gz = 0.0 - oz
+    let gi = 1.0 / num.raiz(gx * gx + gy * gy + gz * gz)
+    let f0 = gx * gi
+    let f1 = gy * gi
+    let f2 = gz * gi
+    let cx0 = 1.0 * f2 - 0.0 * f1
+    let cx1 = 0.0 * f0 - 0.0 * f2
+    let cx2 = 0.0 * f1 - 1.0 * f0
+    let ci = 1.0 / num.raiz(cx0 * cx0 + cx1 * cx1 + cx2 * cx2)
+    let s0 = cx0 * ci
+    let s1 = cx1 * ci
+    let s2 = cx2 * ci
+    let u0 = f1 * s2 - f2 * s1
+    let u1 = f2 * s0 - f0 * s2
+    let u2 = f0 * s1 - f1 * s0
+    let ds = -(s0 * 0.0 + s1 * oy + s2 * oz)
+    let du = -(u0 * 0.0 + u1 * oy + u2 * oz)
+    let df = -(f0 * 0.0 + f1 * oy + f2 * oz)
+    # La proyeccion (`mat::perspectiva`): 60 grados, 1280 / 720, de 0.1 a 100.
+    # Su fila `fila`: (w, 0, 0, 0), (0, h, 0, 0), (0, 0, r, -r 0.1), (0, 0, 1, 0).
+    let fov = 3.1415927 / 3.0
+    let h = 1.0 / num.tangente(fov * 0.5)
+    let aspecto = 1280.0 / 720.0
+    let w = h / aspecto
+    let cerca = 0.1
+    let lejos = 100.0
+    let r = lejos / (lejos - cerca)
+    let rc = -r * cerca
+    let mut p0 = 0.0
+    let mut p1 = 0.0
+    let mut p2 = 0.0
+    let mut p3 = 0.0
+    if fila == 0.0
+        p0 = w
+    if fila == 1.0
+        p1 = h
+    if fila == 2.0
+        p2 = r
+        p3 = rc
+    if fila == 3.0
+        p2 = 1.0
+    # esa fila de proyeccion por vista: una entrada por columna de la vista
+    let q0 = producto(p0, p1, p2, p3, s0, u0, f0, 0.0)
+    let q1 = producto(p0, p1, p2, p3, s1, u1, f1, 0.0)
+    let q2 = producto(p0, p1, p2, p3, s2, u2, f2, 0.0)
+    let q3 = producto(p0, p1, p2, p3, ds, du, df, 1.0)
+    # El mundo gira: rotacion_y(a) por rotacion_x(0.7 a). Su columna `col`:
+    # la de rotacion_x, por cada fila de rotacion_y.
+    let a = angulo(f)
+    let sy = num.seno(a)
+    let cy = num.coseno(a)
+    let nsy = -sy
+    let b = a * 0.7
+    let sx = num.seno(b)
+    let cx = num.coseno(b)
+    let nsx = -sx
+    let mut x0 = 0.0
+    let mut x1 = 0.0
+    let mut x2 = 0.0
+    let mut x3 = 0.0
+    if col == 0.0
+        x0 = 1.0
+    if col == 1.0
+        x1 = cx
+        x2 = sx
+    if col == 2.0
+        x1 = nsx
+        x2 = cx
+    if col == 3.0
+        x3 = 1.0
+    let m0 = producto(cy, 0.0, sy, 0.0, x0, x1, x2, x3)
+    let m1 = producto(0.0, 1.0, 0.0, 0.0, x0, x1, x2, x3)
+    let m2 = producto(nsy, 0.0, cy, 0.0, x0, x1, x2, x3)
+    let m3 = producto(0.0, 0.0, 0.0, 1.0, x0, x1, x2, x3)
+    return producto(q0, q1, q2, q3, m0, m1, m2, m3)
+
+# ** UN VERTICE en coordenadas de RECORTE: la fila (m0, m1, m2, m3) de la
+# matriz por (x, y, z, 1), como `mat::transformar`. Lo que va a la 3060.
+pub gpu fn recorte(m0: f32, m1: f32, m2: f32, m3: f32, x: f32, y: f32, z: f32) -> f32
+    return producto(m0, m1, m2, m3, x, y, z, 1.0)
+
+# ** SU SUBPIXEL en la pantalla (el de `tanda::de_fotograma`): x / w al
+# viewport de 1280 x 720 y a 1/256 de pixel, con los empates al par.
+pub gpu fn pantalla_x(x: f32, w: f32) -> f32
+    let inv = 1.0 / w
+    let nx = x * inv
+    return num.redondear_par((nx * 640.0 + 640.0) * 256.0)
+
+pub gpu fn pantalla_y(y: f32, w: f32) -> f32
+    let inv = 1.0 / w
+    let ny = y * inv
+    return num.redondear_par((-ny * 360.0 + 360.0) * 256.0)
+
+# Un vertice DETRAS de la camara: su triangulo no se dibuja.
+pub gpu fn detras(w: f32) -> bool
+    return w <= 0.0
+
+# ** LA LUZ de una cara en el fotograma `f` (`iluminar`): su normal al mundo,
+# normalizada, contra la luz (0.4, 0.8, -0.5) normalizada; ambiente 0.25.
+pub gpu fn luz(f: f32, n0: f32, n1: f32, n2: f32) -> f32
+    let a = angulo(f)
+    let sy = num.seno(a)
+    let cy = num.coseno(a)
+    let nsy = -sy
+    let b = a * 0.7
+    let sx = num.seno(b)
+    let cx = num.coseno(b)
+    let nsx = -sx
+    # la normal al mundo, fila a fila: el mundo por (n0, n1, n2, 0)
+    # (`mat::transformar_dir`); cada entrada del mundo, su fila de
+    # rotacion_y por su columna de rotacion_x
+    let a0 = producto(producto(cy, 0.0, sy, 0.0, 1.0, 0.0, 0.0, 0.0), producto(cy, 0.0, sy, 0.0, 0.0, cx, sx, 0.0), producto(cy, 0.0, sy, 0.0, 0.0, nsx, cx, 0.0), producto(cy, 0.0, sy, 0.0, 0.0, 0.0, 0.0, 1.0), n0, n1, n2, 0.0)
+    let a1 = producto(producto(0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0), producto(0.0, 1.0, 0.0, 0.0, 0.0, cx, sx, 0.0), producto(0.0, 1.0, 0.0, 0.0, 0.0, nsx, cx, 0.0), producto(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0), n0, n1, n2, 0.0)
+    let a2 = producto(producto(nsy, 0.0, cy, 0.0, 1.0, 0.0, 0.0, 0.0), producto(nsy, 0.0, cy, 0.0, 0.0, cx, sx, 0.0), producto(nsy, 0.0, cy, 0.0, 0.0, nsx, cx, 0.0), producto(nsy, 0.0, cy, 0.0, 0.0, 0.0, 0.0, 1.0), n0, n1, n2, 0.0)
+    let ai = 1.0 / num.raiz(a0 * a0 + a1 * a1 + a2 * a2)
+    let lx = 0.4
+    let ly = 0.8
+    let lz = -0.5
+    let li = 1.0 / num.raiz(lx * lx + ly * ly + lz * lz)
+    let d = num.saturar(a0 * ai * (lx * li) + a1 * ai * (ly * li) + a2 * ai * (lz * li))
+    return 0.25 + (1.0 - 0.25) * d
+
+# Un canal del color de una cara, con su luz.
+pub gpu fn color(f: f32, c: f32, n0: f32, n1: f32, n2: f32) -> f32
+    return c * luz(f, n0, n1, n2)

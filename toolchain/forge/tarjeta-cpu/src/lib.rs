@@ -235,10 +235,21 @@ impl Tarjeta for Cpu {
         if let Some((op, por_que)) = no_sabe(p) {
             return Err(NoEmite::Limite { op, que: format!("{} todavia no corre esto", NOMBRE), por_que: por_que.into() });
         }
-        if p.iniciales.len() > REGISTROS as usize {
-            let op = p.ops.len().saturating_sub(1);
-            return Err(NoEmite::Limite { op, que: format!("{} no tiene sitio para tantos valores", NOMBRE), por_que: format!("usa {} registros, y un cuerpo de la CPU guarda {} en la pila de quien lo llama", p.iniciales.len(), REGISTROS) });
-        }
+        // LB7a (09-10): lo que no cabe tal cual, con sus valores que mueren
+        // dejando su sitio (`compacta`); lo que ya cabia, como siempre.
+        let compacto;
+        let p = if p.iniciales.len() > REGISTROS as usize {
+            compacto = compacta::compactar(p).filter(|c| c.iniciales.len() <= REGISTROS as usize);
+            match &compacto {
+                Some(c) => c,
+                None => {
+                    let op = p.ops.len().saturating_sub(1);
+                    return Err(NoEmite::Limite { op, que: format!("{} no tiene sitio para tantos valores", NOMBRE), por_que: format!("usa {} registros, y un cuerpo de la CPU guarda {} en la pila de quien lo llama", p.iniciales.len(), REGISTROS) });
+                }
+            }
+        } else {
+            p
+        };
         let cuerpo = bmo_proton_x::nativo::compilar(p).ok_or_else(|| NoEmite::Fallo { op: None, por_que: format!("su emisor (`nativo`) no lo tradujo: {}", bmo_proton_x::nativo::por_que_no(p).unwrap_or("sin motivo dicho")) })?;
         let mut bytes = prologo(p);
         bytes.extend_from_slice(&cuerpo);
@@ -268,6 +279,9 @@ impl Tarjeta for Cpu {
         correr(c, entradas, salidas).map(|r| r.salidas)
     }
 }
+
+/// LB7a (09-10): los valores que mueren dejan su sitio, si no cabe tal cual.
+pub mod compacta;
 
 #[cfg(test)]
 mod pruebas;

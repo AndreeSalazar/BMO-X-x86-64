@@ -1,0 +1,25 @@
+# espera: BIEN
+# sale: seno y coseno de 30 y 90 grados: 0.500000 0.866025 1.000000 0.000000
+# sale: la diagonal de la matriz del fotograma 0: 0.974279 1.659004 0.958785 5.220153
+# sale: la cara verde de enfrente con su luz, en el fotograma 0: 0.117033 0.542047 0.117033
+# el cubo de bmo_cubo contado por gpu fn, BIT A BIT (LB7a): el seno, el coseno y la raiz de la casa en f32 exactos (num), y la matriz de cada fotograma, sus vertices, su pantalla y su luz (cubo). La prueba `tests/cubo_gira.rs` del emisor lo cuenta en los 360 fotogramas, por cada tarjeta, y da la tanda de bmo_cubo; se puede porque la 3060 divide EXACTA (DL10)
+mod main "el cubo que gira, contado por gpu fn"
+mod num
+mod cubo
+
+fn main()
+    let fs: [f32; 2] = [30.0, 90.0]
+    let a = cubo.angulo(fs)
+    let s = num.seno(a)
+    let c = num.coseno(a)
+    print("seno y coseno de 30 y 90 grados: ", round(s[0], 6), " ", round(c[0], 6), " ", round(s[1], 6), " ", round(c[1], 6))
+    let f0: [f32; 4] = [0.0, 0.0, 0.0, 0.0]
+    let ks: [f32; 4] = [0.0, 5.0, 10.0, 15.0]
+    let d = cubo.wvp(f0, ks)
+    print("la diagonal de la matriz del fotograma 0: ", round(d[0], 6), " ", round(d[1], 6), " ", round(d[2], 6), " ", round(d[3], 6))
+    let f3: [f32; 3] = [0.0, 0.0, 0.0]
+    let verde: [f32; 3] = [0.19, 0.88, 0.19]
+    let cero: [f32; 3] = [0.0, 0.0, 0.0]
+    let menos: [f32; 3] = [-1.0, -1.0, -1.0]
+    let k = cubo.color(f3, verde, cero, cero, menos)
+    print("la cara verde de enfrente con su luz, en el fotograma 0: ", round(k[0], 6), " ", round(k[1], 6), " ", round(k[2], 6))
