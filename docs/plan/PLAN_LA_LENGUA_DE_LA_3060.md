@@ -661,8 +661,8 @@ despues.
    cbuffer         ConstantesEn (la fila calculada)         memoria (c[][] con
                                                             indice): R7 no la
                                                             deja a una app
-   discard         Descarta (el KILL de la 3060)            R7: un EXIT con
-                                                            guarda, o KILL
+   discard         Descarta (el KILL de la 3060)            E8c: HECHO (abajo),
+                                                            KILL en R7 (DL12)
    olas            vote, shfl (Ola)                         R7, y el simulador
                                                             por warp
    texturas        arrays, cubos, 3D, mips, Load,           TEX/TLD con su asa:
@@ -683,6 +683,11 @@ despues.
   las de series (DL10 dijo exactos: en f64 en la 3060 como la casa, u otras
   cuentas de f32 que den los mismos bits -- que la casa cambie las suyas es
   tambien una salida --).
+  **Contestado el 09-10 (DL12 a DL15 de `PLAN_LAS_LIBRERIAS.md`, 4.1):** R7
+  deja KILL y VOTE/SHFL, y todavia no mas formas de TEX/TLD ni el LDC con
+  indice; las de series pasan, en la casa, a cuentas de f32 que la 3060
+  repite; y lo de Ring 0 lo escribe Claude para que el propietario lo
+  revise y lo pruebe en el metal.
 - **E8a, las Mate EXACTAS (09-10, hecho en el anfitrion):**
   - `proton-x-sm86/src/mates.rs`: `RedondoPar`, `Suelo`, `Techo`, `Trunca`,
     `Frac`; `EsNan`, `EsInf`, `EsFinito`, `EsNormal`; `CuentaBits`,
@@ -760,6 +765,45 @@ despues.
   - `ConstantesEn` (la fila del cbuffer CALCULADA, `luces.hlsl`) sigue
     diciendo que NO: son hasta 4096 filas, memoria (`c[][]` con indice), y
     R7 no la deja a un cuerpo de app. Es del propietario (arriba).
+- **E8c, el DISCARD (09-10, hecho en el anfitrion; DL12 del propietario):**
+  - El KILL de la 3060: `[@P] KILL` (0x95b; su predicado PT en 87..91, como
+    el EXIT). `ptxas` no lo da (solo computo): `bmo_sm86::codifica::kill` lo
+    fabrica y `nvdisasm -b SM86` (13.4, de PyPI, el mismo de E2) lo lee de
+    vuelta -- sin guarda y con los de P0, !P0, P3 y !P5, `LEIDAS_DL12` --.
+  - La cabecera: KillsPixels es el bit 15 de CommonWord0. Lo dice NVIDIA
+    (`open-gpu-doc`, la SPH, tabla 3: MrtEnable 14, KillsPixels 15,
+    DoesGlobalStore 16; el 26, DoesLoadOrStore, cuadra con el de la casa),
+    y su texto: sin el, "los KIL son un NOP y disparan una excepcion del
+    hardware"; con el, EarlyZ se apaga; y es solo de los de pixel.
+  - El emisor (`lib.rs`): `Op::Descarta { c }` es `condicion(c)` y `@P0
+    KILL`; la Compara de justo antes se FUNDE (`saltos.rs`: `if (x < 0)
+    discard;` es un FSETP y el KILL, sin SEL). El simulador sabe el KILL
+    (`Maquina::matado`), y las comparaciones con la casa miran tambien si
+    el pixel queda.
+  - Lo del propietario (DL15: escrito por Claude para su revision). Sus
+    ficheros tocados: `platform/drivers/gpu/ga10x/src/sass/juez.rs`,
+    `sass/juez_kill.rs` (nuevo, sus pruebas), `sass/mod.rs`,
+    `trabajos/pegamento.rs` y `trabajos/raster.rs`. El juez CONOCE el KILL
+    -- la forma que se sabe y ninguna otra: R0 --; R7 lo deja a un cuerpo
+    de app con su guarda; R5 no deja un KILL fuera de un programa de pixel
+    ni sin KillsPixels; y su guarda espera a su predicado como el de un BRA
+    (R9). El pegamento de pixel pone KillsPixels si el cuerpo trae un KILL
+    (`raster::MATA_PIXELES`). La puerta del kernel usa ese juez y ese
+    pegamento: lo sabe al compilarse.
+  - Como se sabe (`pruebas_descarte.rs`, `juez_kill.rs`): `if (x < 0)
+    discard;` con floats de todas las clases; `discard_nz` con los bits de
+    un entero; el KILL dentro de un bucle y de un `si`; `descarte.hlsl` de
+    `dxc` (el `clip` y el `discard` de lo recortado por alfa) y el de SM5
+    de `fxc`, de punta a punta -- todo en los dos ABI, juzgado (R0..R6 y
+    R7), con el pixel y los bits de la casa --; y por la PUERTA:
+    `descarte.hlsl` pegado lleva KillsPixels y el juez de programas lo da
+    por bueno; con la misma SPH sin el bit, R5. Saboteado el guarda (el
+    KILL con el predicado al reves), caen cinco de las seis; sin el bit en
+    el pegamento, cae la de la puerta.
+  - Lo que cuesta: `descarte.hlsl`, 15 instrucciones (13 con el ABI de
+    registros), 15 pegado: un PSO con `discard` ya no va por la CPU.
+  - En el metal (del propietario): la primera vez que la 3060 tire un pixel
+    lo dira el metal.
 - **Como se sabra E8 entera:** cada fila de la tabla, con su prueba en el
   anfitrion; las que piden R7 o el kernel, cuando el propietario las abra; y
   en el metal, un sombreador de cada una.

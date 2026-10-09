@@ -1072,6 +1072,10 @@ la proxima corrida del metal dice cual pesa mas:
   ni color ni profundidad (la Z va despues del sombreador) y lo cuenta en
   `Cuenta::tirados`. Probado con `prueba/descarte.dxil` y un SM5 hecho a
   mano. En la 3060 (KILL) todavia no: va por la CPU (N6.1).
+  **09-10 (E8c de PLAN_LA_LENGUA_DE_LA_3060, DL12 del propietario):** ya va
+  por la 3060 -- el KILL con su guarda, y la SPH diciendo KillsPixels (el
+  bit 15, de la especificacion de NVIDIA) --, con el pixel y los bits de la
+  casa: `descarte.hlsl` y el SM5, de punta a punta.
 - [x] **N5.8 -- mas de un render target** (03-10, hasta 8): el G-buffer
   de Cyberpunk. El PSO lee los 8 `RTVFormats` y la mezcla de cada uno (con
   IndependentBlendEnable); `OMSetRenderTargets` guarda los N (consecutivos

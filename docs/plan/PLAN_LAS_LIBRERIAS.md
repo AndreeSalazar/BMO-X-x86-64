@@ -651,6 +651,31 @@ Asi quedo:
 > **09-10, despues:** la division, HECHA en el anfitrion (LB6b, 5.1); la
 > raiz, con el propietario (cambia el SASS de BMOX-12 que corre en el metal).
 
+**DL12, DL13, DL14 y DL15 -- el 09-10, despues de E8b** (los arrays en la
+3060, E8 de `PLAN_LA_LENGUA_DE_LA_3060.md`). Lo que faltaba del ASM de la
+3060 pedia a R7 o una decision; las cuatro preguntas llevaban su
+recomendacion, y el propietario tomo las cuatro:
+
+```text
+   DL12          R7 deja a un cuerpo de app KILL (discard, clip) y VOTE y
+                 SHFL (las olas): no tocan memoria. NO todavia: mas formas
+                 de TEX y TLD (Load, mips, arrays, cubos, 3D), ni el LDC
+                 con indice de ConstantesEn (es memoria)
+   DL13          las Mate de SERIES (sin, cos, tan, exp2, log2, los arcos,
+                 los hiperbolicos): la casa pasa a cuentas de f32, las
+                 MISMAS en la CPU y en la 3060 -- los mismos bits por
+                 construccion, y caben en un hueco --. Los bits de la casa
+                 en esas funciones cambian UNA vez, con fecha
+   DL14          las TABLAS en una gpu fn: solo indices PROBADOS -- una
+                 constante, el de un range(N) con N <= el largo --; los
+                 demas, T0072 en su linea, como en la CPU. Nunca un 0
+                 callado
+   DL15          lo de Ring 0 (R7, el pegamento, LB8) lo escribe Claude en
+                 la rama, con sus pruebas en el anfitrion y nombrando cada
+                 fichero del propietario que toca; el propietario lo revisa
+                 y lo prueba en el metal
+```
+
 ---
 
 # 5. LAS CASILLAS
