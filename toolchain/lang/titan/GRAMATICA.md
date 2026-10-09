@@ -905,8 +905,8 @@ gpu fn cubo_pixel(v: Vertice) -> Cuatro       # de PIXEL: recibe eso, deja su co
     return v.color
 ```
 
-- **Por su FIRMA** (DL6, tomada como la recomienda el plan; del propietario,
-  confirmarla): una gpu fn que recibe UN registro y devuelve otro con un campo
+- **Por su FIRMA** (DL6, tomada como la recomienda el plan; el 09-10, el
+  propietario la confirmo): una gpu fn que recibe UN registro y devuelve otro con un campo
   `posicion` de cuatro f32 es de VERTICE; una que recibe un registro con su
   `posicion` y devuelve un registro de cuatro f32 -- su color -- es de PIXEL.
   Lo demas es una celda, como siempre. Cada campo de un registro de dibujo es

@@ -2029,7 +2029,7 @@ tiempo en adivinar"*:
     pasa de 65536: un hilo ACABA por construccion. Es la ley L33 (DL4 del
     propietario: *"si ve hasta el final"*).
   - **08-10, LB6:** la gpu fn que DIBUJA, por su firma (DL6, tomada como la
-    recomienda el plan; falta la confirmacion del propietario): la de
+    recomienda el plan; el 09-10, confirmada por el propietario): la de
     vertice recibe un registro y deja otro con su `posicion`; la de pixel
     recibe ese y deja su color. Sale como el Programa por elementos, y la
     RTX 3060 12G la pega a la tuberia de VERRANO, la juzga y mete las del

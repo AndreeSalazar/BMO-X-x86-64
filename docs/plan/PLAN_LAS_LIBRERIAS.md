@@ -472,6 +472,8 @@ EL_LIBRETO.
 > FIRMA --, para que LB6 no parara; queda que el propietario la confirme. Si
 > elige una palabra nueva, cambia `gpu::forma` (el frontend) y nada mas: el
 > escritor, la tarjeta y el sobre reciben la forma ya dicha.
+>
+> **09-10:** confirmada, con DL7, DL8 y DL10 (4.1).
 
 ## 4.1 Lo que ya contesto el propietario
 
@@ -614,6 +616,28 @@ porque la verdad no tengo otros GPU y seria jugar a adivinanza"*. Asi quedo:
                  la RTX 3060 12G, y para la CPU, siempre, de reserva. Nada de
                  adivinar tarjetas que no estan
    LB10          retirada: no hay otra GPU que probar
+```
+
+**DL6, DL7, DL8 y DL10 -- el 09-10, despues de LB6 en el anfitrion.** Las
+cuatro preguntas llevaban su recomendacion, y el propietario tomo las cuatro.
+Asi quedo:
+
+```text
+   DL6           la FIRMA: una gpu fn que devuelve un registro con su
+                 `posicion` es de vertice; la que recibe ese registro y
+                 devuelve 4 f32, de pixel. Ninguna palabra nueva: siguen 25
+                 de 30. Es lo que LB6 ya hizo (`gpu::forma`)
+   DL7           `screen` AHORA, para la lamina: la puerta `Door::Screen`
+                 del certificado, que nadie usaba -- la app no toca la GPU --;
+                 y `gpu = "draw"` cuando llegue la puerta estrecha
+   DL8           las DOS, en ese orden: primero la LAMINA, como INTI (la app
+                 cuenta los vertices y el escritorio los dibuja con el sobre:
+                 el corte 4 de INTI_SAMURAI); despues la PUERTA ESTRECHA
+                 (VRN2, la que VERRANO va a unificar, VC2)
+   DL10          los bits EXACTOS, tambien en la 3060: la division y la raiz
+                 con la secuencia de redondeo correcto, que aguanta el error
+                 del MUFU, con su camino para los bordes DENTRO del cuerpo (R7
+                 no deja salir). La ley L29 sigue siendo verdad en el metal
 ```
 
 ---
@@ -1010,7 +1034,8 @@ porque la verdad no tengo otros GPU y seria jugar a adivinanza"*. Asi quedo:
     bmox12` con los de PROTON-X) dice `IGUAL ... = D3D12 en la 3060 bajo
     Windows` en el 0, el 30 y el 60.
   - **08-10, HECHO EN EL ANFITRION.** La casilla sigue abierta por el metal,
-    que es del propietario. DL6, tomada como la recomienda el plan (4).
+    que es del propietario. DL6, tomada como la recomienda el plan (4); el
+    09-10, confirmada (4.1).
   - **Lo hecho:**
     - el frontend (`gpu.rs`): la FORMA de una gpu fn por su firma (`Forma`:
       de celdas, de vertice, de pixel). Dentro de una que dibuja hay
