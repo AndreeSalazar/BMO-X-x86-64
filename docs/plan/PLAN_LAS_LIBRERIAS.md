@@ -364,6 +364,14 @@ EL_LIBRETO.
   lento para los bordes tendria que ir DENTRO del cuerpo (R7 no deja salir).
   Hay que sacarlo de `ptxas` (el oro) antes de afirmarlo.
 
+> **09-10, DL10 (LB6b):** sacado de `ptxas` y hecho para la DIVISION: la 3060
+> da los bits de IEEE, aguanta el error de su MUFU y su camino lento va
+> dentro del cuerpo -- costo 105 instrucciones, no exactitud --. La cuenta de
+> `ptxas` sola NO bastaba: con un inverso a medio ULP mal redondeado su
+> correccion cae del lado malo; la prueba de Tuckerman, si. La raiz sigue
+> como MUFU: hacerla exacta cambia el SASS de BMOX-12 que corre en el metal,
+> y va con el propietario.
+
 ## 3.6 Lo que se encontro al estudiar
 
 ```text
@@ -639,6 +647,9 @@ Asi quedo:
                  del MUFU, con su camino para los bordes DENTRO del cuerpo (R7
                  no deja salir). La ley L29 sigue siendo verdad en el metal
 ```
+
+> **09-10, despues:** la division, HECHA en el anfitrion (LB6b, 5.1); la
+> raiz, con el propietario (cambia el SASS de BMOX-12 que corre en el metal).
 
 ---
 
@@ -1093,6 +1104,70 @@ Asi quedo:
     fabrica `titan sm86 toolchain/lang/titan/ejemplos/nivel11/cubo/src/main.titan
     -o CARPETA`.
 
+- [x] **LB6b -- DL10, LA DIVISION EXACTA EN LA 3060.** **HECHA en el
+  anfitrion el 09-10.** La tercera salida de 3.5: los bits de IEEE tambien en
+  la 3060, con la cuenta de `ptxas` para `div.rn.f32` rehecha para el cuerpo
+  de una app (R7: sin FCHK, sin el CALL a su camino lento, sin guardas fuera
+  de un BRA). La raiz queda (abajo).
+  - **Bloquea:** DL10 (contestada el 09-10).
+  - **Como se sabe:** el simulador de la 3060, sobre lo que emite su emisor,
+    da los bits de `x / y` de Rust en cada clase de numero, tambien con el
+    inverso del MUFU movido; el juez dice que si (R7 incluida); y TITAN++ la
+    escribe, la juzga y pasa su bateria en las dos tarjetas.
+  - **Lo hecho:**
+    - el oro: `platform/shared/bmo-sm86/oro_reales.ptx` (la division y la
+      raiz de `ptxas`, CUDA 12.9) y sus palabras en `codifica::ORO_DL10`,
+      con la FFMA de redondeo dirigido (`ffma_redondeo`);
+    - el simulador hace la FFMA EXACTA en sus cuatro redondeos
+      (`proton-x-sm86/src/fma.rs`: el producto en f64, TwoSum y el redondeo
+      a impar) y deja mover el inverso del MUFU (`Maquina::inverso_ulp`);
+    - el emisor emite `Op::Div` (`proton-x-sm86/src/cociente.rs`): en la
+      ventana [2^-50, 2^50), la cuenta de `ptxas` y, en vez de su ultima
+      correccion, la prueba de TUCKERMAN con residuos exactos; fuera,
+      DENTRO del cuerpo: NaN, infinitos y ceros como IEEE, los subnormales
+      por 2^64, y el cociente que se pasa (infinito) o se queda corto
+      (SUBNORMAL, con su empate al par). La cuenta es UNA para los dos
+      caminos (un salto hacia atras, que drena): 105 instrucciones de
+      codigo; al correr, 36 en la ventana y hasta 88 fuera;
+    - la tarjeta de la RTX 3060 12G ya no dice la division como su limite;
+      el escritor de TITAN++ habla de la tarjeta que no la sepa sin nombrar
+      ninguna, y la de juguete (que no divide) prueba LB1 desde hoy;
+    - la OBRA: la division general pesa 24 (`gpu::OBRA_DIVISION`); entre
+      una potencia de dos ESCRITA, 1 -- es un producto, con el mismo
+      `inverso_exacto` en el frontend y en el escritor --. Con eso la 3060
+      sigue en ~3.6 instrucciones por unidad en su peor patron;
+    - el banco: `nivel11/cociente` (una division general, y un bucle que
+      divide); el azar de E1, con divisiones generales;
+    - L30 la cumple ahora el NO del juez de la 3060 (sellado el 09-10:
+      ningun texto de ley cambia).
+  - **Como se supo:**
+    - `pruebas_cociente.rs`: los bits de IEEE en 1,4 millones de pares
+      (cada clase contra cada clase, los bordes de la ventana, cocientes que
+      se pasan y que se quedan cortos, subnormales con su empate); el
+      inverso del MUFU movido de -4 a +4 ULP; el juez en los dos ABI y R7;
+      entre una constante y en una variable (`x = x / 7` en un bucle). La
+      primera version, la de `ptxas` tal cual, la tumbo esta prueba
+      (`0x80000001 / 0x1fffffff` con el inverso a -4 ULP);
+    - `fma.rs`: la FFMA al mas cercano contra `mul_add`, y los tres
+      dirigidos contra el valor exacto contado con enteros;
+    - TITAN++: la division en las dos tarjetas con los bits de Rust (en un
+      bucle, en una llamada), por el oraculo de `titan build`, y el azar de
+      E1 contra el oraculo (120 programas, y 600 con otra semilla);
+    - lo de antes, igual: los 43 `.bex` de los programas BIEN, byte a byte,
+      y lo que `titan sm86` deja del nivel 11 (21 ficheros, el cubo
+      incluido).
+  - **Queda:**
+    - **la raiz** (`Sqrt`, `Rsqrt`), con el propietario: hoy es MUFU, y el
+      simulador la aproxima como la 3060. Hacerla exacta cambia el SASS de
+      los sombreadores de BMOX-12 que ya corren en el metal;
+    - **la medida**: una division son 105 instrucciones, y un hueco de la
+      tuberia de VERRANO lleva 128 con su pegamento: en una gpu fn que
+      DIBUJA casi no cabe nada mas (lo dice el pegamento). Un camino lento
+      compartido entre divisiones, o un hueco mas grande, es del
+      propietario;
+    - **el metal**: que la 3060 de verdad de los mismos bits (la cuenta
+      aguanta el error de su MUFU; verlo es de LB8).
+
 - [ ] **LB7 -- TITAN++ MANDA A VERRANO.** Una app de TITAN++ que dibuja el
   cubo girando, por el camino de DL8: el permiso (DL7) y su puerta en el
   certificado; en E1, el `f32` como DATO -- guardar, pasar y copiar a un
@@ -1102,7 +1177,7 @@ Asi quedo:
   `cubo.titan`).
   - **Bloquea:** LB2 (la lamina vista), LB4 o el horneado, LB6 (si va por la
     puerta) y **DL10**: sin ella no se cuenta el cubo de `bmo_cubo` bit a bit
-    (3.5).
+    (3.5). **09-10:** la division, hecha (LB6b).
   - **Como se sabe:** en el anfitrion, los 360 fotogramas publicados son los de
     `bmo_cubo::tanda`; en el metal, la app de TITAN++ corriendo y `gpu verrano
     banco inti` (o su hermana) sobre su lamina acaba con `IGUAL al juez`, como
@@ -1149,7 +1224,7 @@ Asi quedo:
 # 6. EL ORDEN
 
 ```text
-   ahora, en el anfitrion   LB1 -> LB3 -> LB4 -> LB5 -> LB6 -> LB7
+   ahora, en el anfitrion   LB1 -> LB3 -> LB4 -> LB5 -> LB6 -> LB6b -> LB7
    el metal, en paralelo    LB2 cuanto antes (un arranque); despues, el final
                             de LB6 y de LB7
    las decisiones           LB0, a medida que cada casilla las pida
@@ -1196,6 +1271,7 @@ corrige una mentira, ya esta medido, pide el metal, es grande):
     cada hilo se sabe al compilar y tiene su tope (L33).
 - **El cubo bit a bit pide DL10.** Sin una division exacta en algun sitio, el
   cubo de TITAN++ no es el de `bmo_cubo`, y el juez de VERRANO lo diria.
+  - **09-10, LB6b:** la division exacta ya esta, en la 3060 y en la CPU.
 - **Una libreria de juguete puede esconder un contrato malo**: la prueba de
   verdad es LB4 (una segunda libreria con codigo real) y, el dia que llegue,
   LB10.

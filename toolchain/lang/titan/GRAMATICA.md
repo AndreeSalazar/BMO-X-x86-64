@@ -791,6 +791,14 @@ EXACTA; la general de la 3060 no da los bits exactos, y `titan check` y
 `titan build` la rechazan en su linea y su columna -- T0090, un NO del
 programa, no un fallo del compilador -- (LI2g de `PLAN_EL_LIBRETO.md`,
 decision pendiente; LB1 de `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10).
+**09-10 (DL10 del propietario: *"Exactos, tambien en 3060"*): la GENERAL
+tambien.** La 3060 la cuenta EXACTA -- los bits de IEEE, los mismos que la
+casa y el calculo, tambien con subnormales, ceros, infinitos y NaN -- con la
+cuenta de `ptxas` rehecha para el cuerpo de una app (`cociente.rs` de su
+emisor: aguanta el error de su MUFU), y la CPU con `divss`. Entre una
+potencia de dos sigue siendo una multiplicacion. Cuesta instrucciones, no
+bits: en la obra de una celda la general pesa 24 (abajo). El ejemplo:
+`nivel11/cociente`.
 
 **En la CPU** (D2, la regla de la casa): un f32 se GUARDA o se PASA a otra gpu
 fn, y nada mas -- ni se suma, ni se compara, ni se imprime. Para usarlo, se
@@ -809,14 +817,17 @@ llamada a una gpu fn queda en el certificado del `.bex` con su linea: es lo que
      un `while`, un `range` sin sus extremos escritos (o  T0090
      mas alla de 2^24), mas de 8 bucles uno dentro de
      otro, o una gpu fn que se llama a si misma (LB5)
-     un hilo con mas de 65536 de obra por celda (LB5)     T0066
+     un hilo con mas de 65536 de obra por celda (LB5;     T0066
+     la division general pesa 24, DL10)
      una que DIBUJA (LB6): la de pixel lee su `posicion`, T0090
      su registro prestado, una que se llama, o un
      registro en una gpu fn de celdas
      una gpu fn sin `gpu` en el Titan.toml                T0088
-   LA TARJETA DE LA 3060 (por PROMETEO, LB3), en su sitio
-     la division general: hoy, solo entre una potencia    T0090
-     de dos (LI2g)
+   LA TARJETA DE UNA LIBRERIA (por PROMETEO, LB3), en su sitio
+     lo que su tarjeta todavia no hace exacto (la         T0090
+     division general en la 3060 lo fue hasta el 09-10:
+     DL10 la hizo exacta; hoy ninguna de `titan` tiene
+     un limite)
    EL CALCULO
      dos registros comparados con `==` o `!=` en una gpu  T0090
      fn (LB6: campo a campo, por IEEE)
@@ -874,7 +885,9 @@ gpu fn a_la_ocho(x: f32) -> f32
   cuantas vueltas da (DL4 del propietario).
 - **LA OBRA de una celda** se cuenta al compilar: cada operacion y cada linea
   escrita es 1, y un `for` sus vueltas por (2 + lo de dentro). Como mucho
-  65536. Un hilo de la GPU tiene que acabar pronto, y asi acaba: en la 3060,
+  65536. **09-10 (DL10):** la division GENERAL pesa 24 -- en la 3060 es una
+  cuenta entera, de 36 a 88 instrucciones --; entre una potencia de dos
+  ESCRITA (`/ 2.0`, `/ 4`) es un producto, y pesa 1. Un hilo de la GPU tiene que acabar pronto, y asi acaba: en la 3060,
   en la CPU al correr y en el simulador de cada tarjeta, tambien en las
   celdas que llegan al correr, que el calculo nunca ve. Pasar de ahi es
   T0066, en su `for`.
@@ -1155,7 +1168,7 @@ dice. La vara, la de siempre: el calculo, programa a programa y al azar
 | T0063 | un texto con un numero: no se suman ni se convierten solos (el calculo) |
 | T0064 | un `mut` que cambiaria de clase: numero, texto o si-o-no (el calculo) |
 | T0065 | se pedia un si-o-no y llego otra cosa: `if vidas`, `not 3` (el calculo) |
-| T0066 | el programa sigue corriendo despues de un millon de pasos: un bucle sin salida (el calculo); o el hilo de una `gpu fn` hace mas de 65536 de obra por celda, dicho al compilar (la gpu, L33) |
+| T0066 | el programa sigue corriendo despues de un millon de pasos: un bucle sin salida (el calculo); o el hilo de una `gpu fn` hace mas de 65536 de obra por celda -- la division general pesa 24 --, dicho al compilar (la gpu, L33) |
 | T0067 | `break` o `continue` fuera de un bucle (la gramatica) |
 | T0068 | una llamada con mas o menos valores de los que pide la fn (los nombres) |
 | T0069 | se usa como valor algo que no devuelve nada, o un `return` que no cuadra con su `->` (los nombres) |
@@ -1179,7 +1192,7 @@ dice. La vara, la de siempre: el calculo, programa a programa y al azar
 | T0087 | un trait donde solo va un parametro entero: en un `let`, un campo, una tabla o un resultado (el comportamiento) |
 | T0088 | se usa un nodo de BMO-X (`gpu`, `director`) que el Titan.toml no pide (el paquete, U2) |
 | T0089 | un Titan.toml que no se lee: una linea que no es seccion, clave o comentario (el paquete) |
-| T0090 | una `gpu fn` que no es una celda de la 3060: print, tablas, textos, mut / take, sin resultado, una llamada a la CPU o a si misma, un `while`, o un `range` sin sus extremos escritos (la gpu); o lo que su libreria todavia no hace exacto, en su sitio: la division general (la libreria de la 3060) |
+| T0090 | una `gpu fn` que no es una celda de la 3060: print, tablas, textos, mut / take, sin resultado, una llamada a la CPU o a si misma, un `while`, o un `range` sin sus extremos escritos (la gpu); o lo que su libreria todavia no hace exacto, en su sitio (la division general en la 3060, hasta que DL10 la hizo exacta el 09-10) |
 | T0091 | un f32 contado, comparado o impreso en la CPU: alli se guarda o se pasa, y vuelve con `round` (el calculo, D2) |
 
 ## El banco: lo que dice cada ejemplo de si mismo

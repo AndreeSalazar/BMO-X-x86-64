@@ -2036,3 +2036,10 @@ tiempo en adivinar"*:
     paquete en su sobre. El cubo de V0 escrito en TITAN++
     (`nivel11/cubo`) da los bits de la tanda en el anfitrion; en el metal,
     del propietario.
+  - **09-10, LB6b:** la DIVISION GENERAL, EXACTA en la 3060 (DL10 del
+    propietario: *"Exactos, tambien en 3060"*). Deja de ser el NO de la
+    tarjeta: la RTX 3060 12G da los bits de IEEE -- los de la casa y el
+    calculo -- con la cuenta de `ptxas` rehecha para el cuerpo de una app y
+    la prueba de Tuckerman (`proton-x-sm86/src/cociente.rs`), aunque su
+    MUFU se equivoque. En la obra de una celda pesa 24. El ejemplo,
+    `nivel11/cociente`. La raiz, con el propietario.

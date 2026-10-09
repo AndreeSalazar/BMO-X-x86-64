@@ -300,6 +300,12 @@ CONSERVADORES (esperar siempre lo maximo).
   MODELADO como la casa, la 3060 aproxima (lo mide E5); 22 registros pasan
   de los 16 de la tuberia de hoy (E4/E5 suben la cuenta o la bajan); el ABI
   es el del banco, no el de la tuberia (ALD/AST/IPA, E5).
+  **09-10 (DL10 de PLAN_LAS_LIBRERIAS, LB6b):** `Div` ya se emite, EXACTA:
+  la cuenta de `ptxas` para `div.rn.f32` rehecha con la lista blanca de R7 y
+  con la prueba de Tuckerman en el redondeo (`proton-x-sm86/src/cociente.rs`),
+  los bits de IEEE aunque el MUFU.RCP se equivoque -- el simulador lo mueve
+  hasta 4 ULP a cada lado --. Cuesta 105 instrucciones. La raiz sigue como
+  MUFU, modelada como la casa.
 
 ## [x] E4 -- LOS BITS DE CONTROL POR REGLA
 
