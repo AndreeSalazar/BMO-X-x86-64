@@ -28,9 +28,9 @@
 //! registros de paso, y `x = f(x)` no pisa lo que aun lee. Los predicados son
 //! P1..P3: el P0 es el de las comparaciones fundidas.
 //!
-//! Lo que la casa cuenta en f64 por series -- seno, coseno, tangente, exp2,
-//! log2, los arcos y los hiperbolicos -- no esta aqui: con la lista blanca la
-//! 3060 no da sus bits. Su camino exacto es del propietario (DL10).
+//! Lo que la casa contaba en f64 por series -- seno, coseno, tangente, exp2,
+//! log2, los arcos y los hiperbolicos -- no esta aqui: desde DL13 (09-10)
+//! son RECETAS de f32 que la casa corre y la 3060 repite (`series.rs`).
 
 use alloc::vec::Vec;
 
@@ -65,7 +65,8 @@ impl Emisor<'_> {
     /// las de series (no se emite: lo dice quien llama).
     pub(super) fn mate(&mut self, d: Reg, a: Reg, f: Mate, i: usize, paso: &mut Vec<u8>) -> Result<bool, NoEmite> {
         if !exacta(f) {
-            return Ok(false);
+            // ** DL13 (09-10): las de series, por su receta (`series.rs`).
+            return self.serie(d, a, f, i, paso);
         }
         let v = self.registro(a, paso)?;
         // Todo a registros de paso, y el destino lo escribe la ultima.

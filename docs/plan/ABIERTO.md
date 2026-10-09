@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   740 casillas ABIERTAS en 68 planes
+   746 casillas ABIERTAS en 68 planes
    584 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -63,6 +63,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] TA2 -- la VENTANA: el nodo screen de TITAN++ (pedir superficie, escribir una fila de pixeles, pr
 - ... y 34 mas
 
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 37 abiertas, 10 hechas
+
+*PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
+
+- [ ] V2 -- la profundidad y el culling (X5b de
+- [ ] V3 -- las constantes. La matriz en un buffer y el programa de
+- [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
+- ... y 34 mas
+
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 33 abiertas, 13 hechas
 
 *PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
@@ -71,15 +80,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] J3 -- traer los DATOS de un juego nativo. El WAD o PAK de un juego
 - [ ] J2b -- itch.io, la API oficial. En la antena: la clave que el
 - ... y 30 mas
-
-## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 31 abiertas, 10 hechas
-
-*PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
-
-- [ ] V2 -- la profundidad y el culling (X5b de
-- [ ] V3 -- las constantes. La matriz en un buffer y el programa de
-- [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
-- ... y 28 mas
 
 ## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 30 abiertas, 0 hechas
 

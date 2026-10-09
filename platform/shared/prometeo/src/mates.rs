@@ -11,9 +11,17 @@
 //!                     (unos pocos ULP; D3D no pide mas a una GPU)
 //! [consumo] NADA      solo cuando un sombreador las usa
 //!
-//! Ring 3 no tiene `libm`: aqui todo es suma y producto. Las cuentas van en
-//! f64 por dentro (series cortas y exactas de sobra para un f32) y salen en
-//! f32, que es lo que guarda un registro del sombreador.
+//! Ring 3 no tiene `libm`: aqui todo es suma y producto.
+//!
+//! **09-10, DL13 (del propietario: *"la casa pasa a f32"*):** las de SERIES
+//! -- seno, coseno, tangente, exp2, log2, los arcos y los hiperbolicos -- ya
+//! no se cuentan en f64: son RECETAS de cuentas de f32 (`cuentas.rs`,
+//! `trigo.rs`, `exponencial.rs`, `arcos.rs`, `hiperbolicas.rs`) que cada
+//! tarjeta repite instruccion a instruccion, con los mismos bits. Sus bits
+//! cambiaron UNA vez, ese dia; su error, medido sobre todos los f32, lo
+//! dicen sus pruebas. El `log2` de f64 de aqui sigue para el LOD de un
+//! muestreo (`textura.rs`): no es una Mate, y cada tarjeta lo hace a su
+//! manera en su muestreador.
 //!
 //! ```text
 //!    DXIL  8 IsNaN  9 IsInf  10 IsFinite  11 IsNormal (dan un booleano)
@@ -23,7 +31,7 @@
 //!          29 Round_z (truncar)   130 f32tof16   131 f16tof32
 //! ```
 
-use core::f64::consts::{FRAC_PI_2, LN_2, PI};
+use core::f64::consts::LN_2;
 
 /// **Que funcion** (lo que guarda `Op::Mate`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,11 +113,9 @@ impl Mate {
     pub fn aplicar(self, a: u32) -> u32 {
         let x = f32::from_bits(a);
         match self {
-            Mate::Sin => seno(x).to_bits(),
-            Mate::Cos => coseno(x).to_bits(),
-            Mate::Tan => tangente(x).to_bits(),
-            Mate::Exp2 => exp2(x).to_bits(),
-            Mate::Log2 => log2(x).to_bits(),
+            Mate::Sin | Mate::Cos | Mate::Tan | Mate::Exp2 | Mate::Log2 | Mate::Acos | Mate::Asin | Mate::Atan | Mate::Cosh | Mate::Senh | Mate::Tanh => {
+                crate::cuentas::receta(&mut crate::cuentas::Casa, self, a).expect("una Mate de series tiene su receta")
+            }
             Mate::Frac => frac(x).to_bits(),
             Mate::RedondoPar => redondo_par(x).to_bits(),
             Mate::Suelo => suelo(x).to_bits(),
@@ -117,15 +123,6 @@ impl Mate {
             Mate::Trunca => trunca(x).to_bits(),
             Mate::F16aF32 => de_medio(a as u16).to_bits(),
             Mate::F32aF16 => a_medio(x) as u32,
-            Mate::Acos => (FRAC_PI_2 - arcoseno64(x as f64)).to_bits_f32(),
-            Mate::Asin => arcoseno64(x as f64).to_bits_f32(),
-            Mate::Atan => arcotangente64(x as f64).to_bits_f32(),
-            Mate::Cosh => {
-                let e = exp64(x.abs() as f64);
-                ((e + 1.0 / e) * 0.5).to_bits_f32()
-            }
-            Mate::Senh => senh64(x as f64).to_bits_f32(),
-            Mate::Tanh => tanh64(x as f64).to_bits_f32(),
             Mate::EsNan => booleano(x.is_nan()),
             Mate::EsInf => booleano(x.is_infinite()),
             Mate::EsFinito => booleano(x.is_finite()),
@@ -204,88 +201,6 @@ fn redondo_par(x: f32) -> f32 {
     f32::from_bits((r as f32).to_bits() | (x.to_bits() & 0x8000_0000))
 }
 
-/// El seno de `r` en [-pi/2, pi/2], por su serie (hasta x^15: el error, por
-/// debajo de 1e-10).
-fn seno_centrado(r: f64) -> f64 {
-    let r2 = r * r;
-    let mut t = r;
-    let mut s = r;
-    for k in 1..8 {
-        t *= -r2 / ((2 * k) as f64 * (2 * k + 1) as f64);
-        s += t;
-    }
-    s
-}
-
-/// `floor` de un f64 (los que llegan aqui caben en un i64).
-fn suelo64(x: f64) -> f64 {
-    let t = x as i64 as f64;
-    if t > x {
-        t - 1.0
-    } else {
-        t
-    }
-}
-
-/// El seno de cualquier `x`: se lleva a [-pi, pi] y despues a [-pi/2, pi/2]
-/// con sin(pi - r) = sin(r).
-fn seno64(x: f64) -> f64 {
-    let vueltas = suelo64(x / (2.0 * PI) + 0.5);
-    let mut r = x - vueltas * 2.0 * PI;
-    if r > FRAC_PI_2 {
-        r = PI - r;
-    } else if r < -FRAC_PI_2 {
-        r = -PI - r;
-    }
-    seno_centrado(r)
-}
-
-fn seno(x: f32) -> f32 {
-    if !x.is_finite() {
-        return f32::NAN;
-    }
-    seno64(x as f64) as f32
-}
-
-fn coseno(x: f32) -> f32 {
-    if !x.is_finite() {
-        return f32::NAN;
-    }
-    seno64(x as f64 + FRAC_PI_2) as f32
-}
-
-fn tangente(x: f32) -> f32 {
-    if !x.is_finite() {
-        return f32::NAN;
-    }
-    let d = x as f64;
-    (seno64(d) / seno64(d + FRAC_PI_2)) as f32
-}
-
-/// 2^x.
-fn exp2(x: f32) -> f32 {
-    if x.is_nan() {
-        return x;
-    }
-    if x >= 128.0 {
-        return f32::INFINITY;
-    }
-    if x < -150.0 {
-        return 0.0;
-    }
-    let n = suelo(x) as i64;
-    let f = (x as f64 - n as f64) * LN_2;
-    // e^f con f en [0, ln 2): la serie, hasta f^14.
-    let mut t = 1.0f64;
-    let mut s = 1.0f64;
-    for k in 1..15 {
-        t *= f / k as f64;
-        s += t;
-    }
-    // Por 2^n, armando el exponente de un f64 (n cabe de sobra).
-    (s * f64::from_bits(((n + 1023) as u64) << 52)) as f32
-}
-
 /// log2(x). D4.4: tambien el LOD de un muestreo (`textura::Textura::lambda`).
 pub fn log2(x: f32) -> f32 {
     if x.is_nan() || x < 0.0 {
@@ -329,123 +244,6 @@ fn booleano(b: bool) -> u32 {
     } else {
         0
     }
-}
-
-/// Un f64 a los bits de su f32 (lo que guarda un registro).
-trait AF32 {
-    fn to_bits_f32(self) -> u32;
-}
-impl AF32 for f64 {
-    fn to_bits_f32(self) -> u32 {
-        (self as f32).to_bits()
-    }
-}
-
-/// La raiz de un f64 >= 0, por Newton (sin `libm`): el exponente a la
-/// mitad para empezar, y seis vueltas.
-fn raiz64(x: f64) -> f64 {
-    if x.is_nan() || x < 0.0 {
-        return f64::NAN;
-    }
-    if x == 0.0 || x.is_infinite() {
-        return x;
-    }
-    let mut r = f64::from_bits((x.to_bits() >> 1) + (1023u64 << 51));
-    for _ in 0..6 {
-        r = 0.5 * (r + x / r);
-    }
-    r
-}
-
-/// atan(x). Lo de |x| > 1 va a 1/x (pi/2 - atan(1/x)); lo de mas de
-/// tan(pi/12), a la identidad de pi/6; ahi la serie corre deprisa (x^2 <
-/// 0.072).
-fn arcotangente64(x: f64) -> f64 {
-    if x.is_nan() {
-        return x;
-    }
-    let (signo, mut a) = (if x < 0.0 { -1.0 } else { 1.0 }, x.abs());
-    let mut suma = 0.0;
-    if a > 1.0 {
-        // pi/2 - atan(1/a); con a infinito, 1/a = 0.
-        suma = FRAC_PI_2;
-        a = -1.0 / a;
-    }
-    const RAIZ3: f64 = 1.732_050_807_568_877_2;
-    const TAN_PI_12: f64 = 0.267_949_192_431_122_7;
-    let (mut extra, mut b) = (0.0, a);
-    if b.abs() > TAN_PI_12 {
-        extra = b.signum() * PI / 6.0;
-        b = (b.abs() * RAIZ3 - 1.0) / (b.abs() + RAIZ3) * b.signum();
-    }
-    let b2 = b * b;
-    let (mut t, mut s) = (b, b);
-    for k in 1..14 {
-        t *= -b2;
-        s += t / (2 * k + 1) as f64;
-    }
-    signo * (suma + extra + s)
-}
-
-/// asin(x) = atan(x / raiz(1 - x^2)); fuera de [-1, 1], NaN.
-fn arcoseno64(x: f64) -> f64 {
-    if x.is_nan() || x.abs() > 1.0 {
-        return f64::NAN;
-    }
-    if x.abs() == 1.0 {
-        return x * FRAC_PI_2;
-    }
-    arcotangente64(x / raiz64((1.0 - x) * (1.0 + x)))
-}
-
-/// e^x en f64 (la misma serie que [`exp2`]).
-fn exp64(x: f64) -> f64 {
-    if x.is_nan() {
-        return x;
-    }
-    if x > 709.0 {
-        return f64::INFINITY;
-    }
-    if x < -745.0 {
-        return 0.0;
-    }
-    let n = suelo64(x / LN_2);
-    let f = x - n * LN_2;
-    let (mut t, mut s) = (1.0f64, 1.0f64);
-    for k in 1..18 {
-        t *= f / k as f64;
-        s += t;
-    }
-    // 2^n en dos mitades: n llega a -1075 y un solo exponente no cabe.
-    let (n1, n2) = ((n / 2.0) as i64, (n - (n / 2.0) as i64 as f64) as i64);
-    s * f64::from_bits(((n1 + 1023) as u64) << 52) * f64::from_bits(((n2 + 1023) as u64) << 52)
-}
-
-/// senh(x): la serie cerca de 0 (restar dos e^x casi iguales perderia todo).
-fn senh64(x: f64) -> f64 {
-    if x.abs() < 0.5 {
-        let x2 = x * x;
-        let (mut t, mut s) = (x, x);
-        for k in 1..10 {
-            t *= x2 / ((2 * k) * (2 * k + 1)) as f64;
-            s += t;
-        }
-        return s;
-    }
-    let e = exp64(x.abs());
-    x.signum() * (e - 1.0 / e) * 0.5
-}
-
-/// tanh(x): senh / cosh, y +-1 lejos de 0.
-fn tanh64(x: f64) -> f64 {
-    if x.is_nan() {
-        return x;
-    }
-    if x.abs() > 20.0 {
-        return x.signum();
-    }
-    let e = exp64(x.abs());
-    senh64(x) / ((e + 1.0 / e) * 0.5)
 }
 
 /// Un half (IEEE 754 binario16) a f32.
@@ -503,20 +301,25 @@ mod pruebas {
         (a.to_bits() as i64 - b.to_bits() as i64).unsigned_abs() as u32
     }
 
+    /// Una Mate sobre un float.
+    fn mm(f: Mate, x: f32) -> f32 {
+        f32::from_bits(f.aplicar(x.to_bits()))
+    }
+
     #[test]
     fn seno_coseno_y_tangente_contra_la_libm() {
         let mut x = -100.0f32;
         while x < 100.0 {
-            let (s, c) = (seno(x), coseno(x));
+            let (s, c) = (mm(Mate::Sin, x), mm(Mate::Cos, x));
             assert!((s - x.sin()).abs() <= 2e-7_f32.max(x.sin().abs() * 3e-7), "sin {x}: {s} vs {}", x.sin());
             assert!((c - x.cos()).abs() <= 2e-7_f32.max(x.cos().abs() * 3e-7), "cos {x}: {c} vs {}", x.cos());
             if x.cos().abs() > 0.01 {
-                let t = tangente(x);
+                let t = mm(Mate::Tan, x);
                 assert!((t - x.tan()).abs() <= 1e-6 * x.tan().abs().max(1.0), "tan {x}: {t} vs {}", x.tan());
             }
             x += 0.0173;
         }
-        assert!(seno(f32::INFINITY).is_nan());
+        assert!(mm(Mate::Sin, f32::INFINITY).is_nan());
     }
 
     /// Los arcos y los hiperbolicos (03-10), contra la `std`.
@@ -578,18 +381,21 @@ mod pruebas {
     fn exp2_y_log2_contra_la_libm() {
         let mut x = -149.0f32;
         while x < 127.9 {
-            let (a, b) = (exp2(x), x.exp2());
+            let (a, b) = (mm(Mate::Exp2, x), x.exp2());
             assert!(ulp(a, b) <= 2 || (a - b).abs() < 1e-44, "exp2 {x}: {a} vs {b}");
             x += 0.371;
         }
-        for x in [1e-40f32, 1e-30, 0.001, 0.5, 0.7071, 1.0, 1.5, 2.0, 3.0, 10.0, 1e10, 3e38] {
-            assert!((log2(x) - x.log2()).abs() <= 2e-7 * x.log2().abs().max(1.0), "log2 {x}: {} vs {}", log2(x), x.log2());
+        // La de la Mate (la receta) y la del LOD de un muestreo (f64).
+        for l2 in [|x| mm(Mate::Log2, x), log2] {
+            for x in [1e-40f32, 1e-30, 0.001, 0.5, 0.7071, 1.0, 1.5, 2.0, 3.0, 10.0, 1e10, 3e38] {
+                assert!((l2(x) - x.log2()).abs() <= 2e-7 * x.log2().abs().max(1.0), "log2 {x}: {} vs {}", l2(x), x.log2());
+            }
+            assert_eq!(l2(1.0), 0.0);
+            assert_eq!(l2(8.0), 3.0);
+            assert!(l2(-1.0).is_nan());
+            assert_eq!(l2(0.0), f32::NEG_INFINITY);
         }
-        assert_eq!(log2(1.0), 0.0);
-        assert_eq!(log2(8.0), 3.0);
-        assert!(log2(-1.0).is_nan());
-        assert_eq!(log2(0.0), f32::NEG_INFINITY);
-        assert_eq!(exp2(200.0), f32::INFINITY);
+        assert_eq!(mm(Mate::Exp2, 200.0), f32::INFINITY);
     }
 
     #[test]

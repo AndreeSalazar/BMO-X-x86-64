@@ -74,6 +74,9 @@ pub mod hilos;
 pub mod hora;
 pub mod lote;
 pub use bmo_prometeo::mates;
+/// ** DL13 (09-10): las Mate de series como RECETAS de f32 (la casa las corre,
+/// cada tarjeta las repite), y la FMA exacta de la casa.
+pub use bmo_prometeo::{cuentas, fma as fma_casa};
 pub mod mezcla;
 pub mod nulo;
 pub mod mensajes;

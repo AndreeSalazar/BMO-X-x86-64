@@ -667,9 +667,10 @@ despues.
                                                             por warp
    texturas        arrays, cubos, 3D, mips, Load,           TEX/TLD con su asa:
                    GetDimensions, EligeTextura              el kernel la pone
-   Mate de series  sin, cos, tan, exp2, log2, los arcos,    sus bits salen de
-                   los hiperbolicos (la casa, f64)          f64: DADD/DMUL/DFMA
-                                                            no estan en R7
+   Mate de series  sin, cos, tan, exp2, log2, los arcos,    E8d: HECHO (abajo),
+                   los hiperbolicos                         la casa en f32
+                                                            (DL13), con lo que
+                                                            R7 deja
    computo         IdHilo, Barrera, la memoria compartida,  LB8 de
                    UAV, atomicos, el contador               PLAN_LAS_LIBRERIAS
    geometria       EntradaDe, Emite, Corta                  VERRANO no tiene
@@ -718,6 +719,7 @@ despues.
     primero por arriba, 26; con signo, y de f32 a medio, 29. De 5 a 11
     registros. Caben de sobra en un hueco de la tuberia (128).
   - Las de SERIES siguen diciendo que NO en su sitio, y van por la CPU.
+    **09-10, despues: ya no -- E8d, abajo --.**
 - **E8b, los ARRAYS (09-10, hecho en el anfitrion):**
   - `proton-x-sm86/src/indexado.rs`: `LeeIndexado` y `EscribeIndexado` (lo
     de N5.10 de PLAN_LAS_TRES_GRANDES: el `alloca` de un array local, las
@@ -804,6 +806,151 @@ despues.
     registros), 15 pegado: un PSO con `discard` ya no va por la CPU.
   - En el metal (del propietario): la primera vez que la 3060 tire un pixel
     lo dira el metal.
+- **E8d, las Mate de SERIES en f32 (DL13) -- PREPARADA el 09-10; HECHA en
+  el anfitrion esa noche, entera y antes que nada (del propietario:
+  *"prioriza el DL13 ... por completo"*):**
+  - Lo que se decidio (DL13): la casa deja sus cuentas en f64 y pasa a
+    cuentas de f32 que la 3060 repite instruccion a instruccion: los mismos
+    bits por construccion.
+  - **UNA receta y dos que la corren** (`prometeo/src/cuentas.rs`): cada
+    funcion se escribe UNA vez, generica sobre el contrato `Cuentas` --
+    FFMA, FMUL, FADD, comparar, elegir y las de enteros (sumar, IMAD,
+    and/or/xor, desplazar) --. La CASA la corre (`Casa`: `Mate::aplicar`, y
+    con el el interprete, la CPU como tarjeta y `nativo`); la 3060 la GRABA
+    y la traduce, una cuenta a una instruccion (`proton-x-sm86/src/series.rs`:
+    lo que nadie lee, fuera; una constante de inmediato donde cabe -- la b
+    --, y si no un MOV, uno por constante; cada valor en un registro de paso
+    hasta su ultima lectura; los predicados en P1..P6; el resultado, en la
+    ULTIMA, en su destino). Los mismos bits por construccion, no por
+    casualidad. Sin MUFU, ni I2F/F2I (la unidad especial no la sabe repetir
+    la casa; las conversiones, barreras): un inverso o una raiz es Newton
+    con FFMA desde una semilla de bits; un entero a float, los bits de la
+    MAGIA. Sin saltos: lo que elige, SEL. Todo lo que R7 YA deja: el juez no
+    cambia ni una linea.
+  - **La FMA de la casa sin `libm`** (`prometeo/src/fma.rs`): el producto en
+    f64 (exacto: 24 + 24 bits), la suma redondeada A LO IMPAR (el resto de
+    TwoSum dice si redondeo) y despues a f32: un solo redondeo (Boldo y
+    Melquiond). Contra la `fmaf` de la `std` y contra la FFMA del simulador
+    (`fma.rs` de la 3060, de enteros): tres cuentas que no comparten nada, y
+    los mismos bits en sus bordes y millones al azar. Saboteada (sin lo
+    impar), cae en `fma(-1.5, 1.8189896e-12, 2.938736e-39)`.
+  - Las recetas (`trigo.rs`, `exponencial.rs`, `arcos.rs`,
+    `hiperbolicas.rs`):
+
+```text
+   sin cos tan   sobre |x| (el signo al final: impares y par por
+                 construccion); j = rint(|x| 2/pi) con la MAGIA (sus bits
+                 bajos, el cuadrante), r = |x| - j pi/2 con pi/2 en tres
+                 trozos por FFMA (CUDA); los polinomios de CUDA (seno,
+                 coseno) y de Cephes (tangente; en los cuadrantes impares,
+                 -1/tan por Newton; y UNA vuelta mas: lejos, 2/pi en f32
+                 deja un j de mas o de menos, y su polinomio solo vale
+                 hasta pi/4). Desde |x| = 1.5 * 2^22 la MAGIA no da el
+                 entero: x va antes a vueltas, como hace una GPU (D3D no
+                 pide nada fuera de +-100 pi)
+   exp2          x = n + f, f en [-1/2, 1/2] exacto; 2^f de Cephes; 2^n en
+                 dos mitades normales (un solo redondeo, tambien el de un
+                 subnormal). 2^n de un entero, EXACTO
+   log2          m en [raiz(1/2), raiz(2)) por los bits (musl), un
+                 subnormal por 2^23 antes; log de Cephes y la suma que no
+                 pierde bits. log2 de una potencia de dos, EXACTO
+   atan          Cephes, con UN cociente (Newton y su residuo) y pi/4 o pi/2
+                 en dos trozos (lo bajo, antes)
+   asin acos     Cephes; la raiz por Newton (semilla 0x5F3759DF) con su
+                 correccion; pi/2 en dos trozos en asin
+   senh cosh     e^|x|/2 y e^-|x|/2 con el MISMO n y r (sin inverso); senh,
+                 su polinomio con |x| < 1
+   tanh          su polinomio con |x| < 0.625; si no, 1 - 2/(e^2|x| + 1);
+                 desde 9.5, 1
+```
+
+  - **El error, sobre TODOS los f32** (los 2^32) contra el f64 de la `std`
+    del anfitrion redondeado: el peor, en ULP. Medido el 09-10 con un banco
+    fuera del arbol y, dentro, con `todos_los_f32` de `pruebas_series.rs`
+    (ignorada: `cargo test --release -p bmo-prometeo -- --ignored`, media
+    hora), que paso entera:
+
+```text
+   funcion   |x| hasta                 el peor   el f32 correcto (sin
+                                                 contar los NaN)
+   sin       105615                    1 ULP     98.2 %
+             1.5 * 2^22, sin llegar    3 ULP     97.5 %
+   cos       105615                    2 ULP
+             1.5 * 2^22, sin llegar    3 ULP     97.3 %
+   tan       105615                    3 ULP     95.3 %
+             1.5 * 2^22, sin llegar    5 ULP     93.9 %
+   exp2      todos                     1 ULP     99.7 %
+   log2      todos                     1 ULP     99.6 %
+   atan      todos                     2 ULP     99.5 %
+   asin      todos                     2 ULP     99.8 %
+   acos      todos                     1 ULP     96.2 %
+   senh      todos                     2 ULP     99.3 %
+   cosh      todos                     1 ULP     98.7 %
+   tanh      todos                     1 ULP     99.8 %
+```
+
+    Lo de antes (las series de f64) daba casi siempre el f32 correcto; lo
+    de ahora, a uno o dos ULP -- D3D pide a una GPU mucho menos --, y con
+    los MISMOS bits en la 3060.
+  - **Lo que cuesta** (la receta, con sus MOV; y pegada por la PUERTA de
+    128, el programa de pixel entero con el pegamento del driver):
+
+```text
+              la receta   pegada (el pixel entero)   registros
+   sin           41               43                    10
+   cos           40               42                    10
+   tan           55               57                    11
+   exp2          26               28                     9
+   log2          43               45                    10
+   atan          42               44                    10
+   asin          42               44                    11
+   acos          45               47                    11
+   senh          54               56                    16
+   cosh          43               45                    15
+   tanh          55               57                    12
+```
+
+    Cada una sola cabe en un hueco, y el juez de programas la da por buena.
+    `mates.hlsl` entero (cinco de series y siete exactas: 290) no cabe: su
+    PSO va por la CPU, como `arreglos.hlsl`.
+  - **Como se sabe:** en la 3060 (`proton-x-sm86/src/pruebas_series.rs`),
+    cada una en los dos ABI, juzgada (R0..R6 y R7), sobre los bordes de cada
+    exponente, 4 000 al azar y los suyos (donde cambia de camino, sus ceros
+    y polos, lo grande): los MISMOS bits que la casa; `x = f(x)` tres
+    vueltas en un bucle; y `mates.hlsl` de `dxc` -- las doce que pedian los
+    sombreadores de Cyberpunk -- de punta a punta: el lector, el emisor, el
+    juez y el simulador. En la casa (`prometeo/src/pruebas_series.rs`): el
+    error en ULP sobre una rejilla densa y al azar, dentro de lo prometido;
+    lo EXACTO (los ceros con su signo, 2^n, log2 de 2^n, los infinitos, lo
+    de fuera del dominio, NaN); las simetrias, bit a bit; y que
+    `Mate::aplicar` es la receta. Saboteado el emisor (el SEL con el
+    predicado al reves) o la FMA de la casa (sin fundir), caen. Las pruebas
+    de la casa encontraron dos cosas, arregladas: sin(-0) daba +0 (el
+    polinomio es negativo), y lejos el seno no era impar (sin(x) y sin(-x)
+    daban los dos +0): ahora todo va sobre |x| y el signo al final. Y la
+    medida de todos, otras tres: la tangente lejos se iba a decenas de ULP
+    (una vuelta mas: 5), atan daba 3 cerca de tan(pi/8) y asin 2 cerca de
+    1/2 (pi/4 y pi/2 en dos trozos: 2 y 2, con menos casos).
+  - **Lo que queda:**
+    - el METAL: la primera vez que la 3060 cuente un seno con una receta lo
+      dira el metal (del propietario);
+    - (del propietario, R7) una FFMA con la constante en la `c` (forma 2)
+      quitaria de 6 a 9 MOV por funcion: hoy R7 deja la FFMA con inmediato
+      solo en la `b`;
+    - la CPU como tarjeta: su FMA es la de la casa, por software (unas doce
+      cuentas de f64); el Ryzen tiene VFMADD, y una receta traducida a x86
+      la usaria con los mismos bits;
+    - un sombreador con varias de series no cabe en 128: la puerta mas
+      grande es de LB8 y del propietario.
+  - **Los bits de la casa en estas funciones cambiaron UNA vez, el 09-10.**
+    El `log2` de f64 sigue para el LOD de un muestreo (`textura.rs`): no es
+    una Mate, y cada tarjeta lo hace a su manera en su muestreador.
+- **E8e, las OLAS (DL12b) -- lo que se sabe (09-10):** las de VERTICE son de
+  un carril en la casa (`hacer(que, 0, 1, ...)`): cuentas de ALU, exactas,
+  sin VOTE ni SHFL. Las de CUADRO y las derivadas de pixel, con SHFL dentro
+  del cuadro de 2x2 y un simulador de cuatro carriles. Las ENTERAS de pixel
+  no dan nunca los bits de la casa: la casa junta 8 cuadros de un
+  triangulo y la 3060 los junta a su manera. Las de computo, con LB8.
 - **Como se sabra E8 entera:** cada fila de la tabla, con su prueba en el
   anfitrion; las que piden R7 o el kernel, cuando el propietario las abra; y
   en el metal, un sombreador de cada una.

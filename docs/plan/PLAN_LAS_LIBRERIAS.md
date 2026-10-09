@@ -676,6 +676,106 @@ recomendacion, y el propietario tomo las cuatro:
                  y lo prueba en el metal
 ```
 
+**09-10, despues: EL ORDEN -- Cyberpunk primero.** Del propietario: *"para
+jugar Cyberpunk 2077 ... porque eso y ya nada mas"*, y *"titan++ es como
+escuela para la GPU ... y eso mismo PROTON-X le guie a verrano y la GPU
+ejecute mi juego principal: se alinean mucho"*. Se alinean porque las dos
+puertas caen en la MISMA espina:
+
+```text
+   TITAN++ (gpu fn, fuente que se lee)  --\
+                                           >-- el Programa de la casa
+   PROTON-X (DXIL de Cyberpunk, cerrado) --/   (PROMETEO) -- el emisor de la
+                                               3060 -- el juez -- la tuberia
+                                               de VERRANO -- la 3060
+```
+
+TITAN++ es la ESCUELA: cada cosa nueva de la 3060 se aprende con un
+programa que se lee y una respuesta que se sabe (el calculo), una capa cada
+vez; Cyberpunk la usa despues sin forense. Y al reves: E8a, E8b y DL12a
+salieron de lo que pedian sus sombreadores. Asi queda el orden:
+
+```text
+   1  DL13      las Mate de series en f32 (seno, coseno, exp2, log2...): lo
+                que mas usan los sombreadores del juego. PREPARADA: E8d de
+                PLAN_LA_LENGUA_DE_LA_3060
+   2  falta su  las dos que DL12 dejo en "todavia no" y Cyberpunk SI pide:
+      decision  las texturas con mips, arrays y cubos (TEX/TLD), y el LDC
+                con indice (los arrays de luces y huesos de un cbuffer,
+                `luces.hlsl`). A reconsiderar: decision del propietario
+   3  LB8       la puerta de computo (la luz, las sombras, el post-proceso
+                del juego): Ring 0
+   4  DL12b     las olas: las de cuadro y las derivadas de pixel (SHFL); las
+                de vertice, de un carril. Las olas ENTERAS de pixel no dan
+                los bits de la casa nunca (el hardware agrupa a su manera)
+   -  DL14      las tablas en una gpu fn: APARCADA -- solo sirve a TITAN++.
+                Su mapa esta hecho (el comprobador, la IR, el calculo, el
+                escritor y la tarjeta CPU)
+```
+
+**09-10, noche: DONDE ESTAMOS** (del propietario: *"prioriza el DL13 ...
+por completo ... pero no olvides anotar donde estamos"*):
+
+```text
+   el metal      TITAN++ corrio en el Ryzen: `run titan/cubogira.bex`, sus
+                 gpu fn con los numeros del anfitrion, y el escritorio TOMO
+                 su lamina (LB7, nota del 09-10). Lo que falta lo prueba el
+                 propietario: `gpu verrano banco inti` MIENTRAS la app corre
+                 (`05a019d`: el NO ya lo dice), y su `IGUAL al juez`
+   Cyberpunk     nivel 4 de 9 de la escalera (seccion 6 de
+                 PLAN_LAS_TRES_GRANDES): ventana y sonido, sin fotogramas;
+                 la ultima corrida, la duodecima (04-10). Lo siguiente del
+                 metal es G0 de PLAN_LA_3060 (la 3060 despierta 10 de 10),
+                 con su paso 1 del propietario: `powercfg /h off`, ErP, y
+                 apagar en vez de reiniciar
+   la 3060 (ASM) hechas en el anfitrion: E8a (la matematica exacta), E8b
+                 (los arrays), DL12a (el discard). AHORA: DL13, entera,
+                 antes que nada (E8d de PLAN_LA_LENGUA_DE_LA_3060). Despues,
+                 por el orden de arriba: TEX/TLD y el LDC con indice (falta
+                 su decision), LB8, DL12b
+   el PR         #26, abierto, con todo lo de arriba
+```
+
+**09-10, mas tarde: DL13 HECHA en el anfitrion** (E8d de
+`PLAN_LA_LENGUA_DE_LA_3060.md`). Las once Mate de series -- seno, coseno,
+tangente, exp2, log2, los tres arcos y los tres hiperbolicos -- son RECETAS
+de cuentas de f32 escritas UNA vez (`platform/shared/prometeo/src/cuentas.rs`
+y sus cuatro ficheros): la casa las corre y la 3060 las graba y las traduce
+una cuenta a una instruccion (`proton-x-sm86/src/series.rs`), con lo que R7
+ya deja. Los mismos bits por construccion, probados en el simulador en los
+dos ABI y con `mates.hlsl` de `dxc` -- lo que pedian los sombreadores de
+Cyberpunk -- de punta a punta. Su error, sobre TODOS los f32: como mucho 1 ULP en exp2,
+log2, acos, cosh y tanh, y en el seno hasta |x| = 105615; 2 en el coseno
+ahi, en atan, asin y senh; 3 en la tangente (5 lejos, y 3 en el seno y el
+coseno); y el f32 correcto entre el 94 y el 99.8 % de las veces. Los bits de la casa en esas
+funciones cambiaron UNA vez, ese dia. Lo siguiente, por el orden de arriba:
+TEX/TLD y el LDC con indice, que esperan su decision.
+
+**09-10, al cerrar: LO QUE QUEDA, y de quien** (del propietario: *"seria el
+ultimo para ti ... ahora si anotar ... no codificar"*). Todo lo de esta
+sesion esta en el PR #26 (rama `claude/jolly-pasteur-oahbq9`).
+
+```text
+   del propietario, en el metal
+     1  `run titan/cubogira.bex` y, MIENTRAS corre, `gpu verrano banco inti`
+        en la misma barra: `IGUAL al juez` cierra LB7 (si dice NO con la
+        app viva, la foto del F11)
+     2  G0 de PLAN_LA_3060, su paso 1: `powercfg /h off`, ErP en la BIOS,
+        y apagar en vez de reiniciar
+     3  cuando un sombreador use la puerta con ellas: el primer discard
+        (DL12a) y la primera receta de series (DL13) en la 3060 de verdad
+   del propietario, decisiones
+     4  TEX/TLD con mips, arrays y cubos, y el LDC con indice: los dos que
+        DL12 dejo en "todavia no" y Cyberpunk pide
+     5  R7: una FFMA con la constante en la c (de 6 a 9 MOV menos por
+        receta de DL13)
+     6  S de PLAN_VERRANO (el streaming sin copias): S1, S2 y S4 son de
+        Ring 0
+   de Claude, la proxima vez, por el orden de 4.1
+     7  lo que se decida en 4; LB8 (la puerta de computo); DL12b (las
+        olas); S0, S3 y S5 de PLAN_VERRANO. DL14, aparcada
+```
+
 ---
 
 # 5. LAS CASILLAS
@@ -1325,6 +1425,17 @@ recomendacion, y el propietario tomo las cuatro:
     por el escritorio y `gpu verrano banco` sobre su lamina, como con INTI
     (E6 de PLAN_VERRANO). Que salga `cubo.inti` del build es el corte 4 de
     INTI_SAMURAI, despues de eso.
+  - **09-10, EN EL METAL (fotos del propietario):** el build ya despliega
+    `titan/cubogira.bex`. `run titan/cubogira.bex` escribio sus tres lineas,
+    digito a digito las del anfitrion (sus gpu fn, al correr en la CPU), y el
+    escritorio TOMO su lamina: `[verrano] tid 10 ofrecio una lamina (1600
+    B)` -- la cabecera y dos ranuras de 24 vertices --. La primera vez que el
+    camino de la lamina llega al metal. `gpu verrano banco inti`, escrito
+    despues, dijo NO, nadie ofrecio: la app ya no corria (publica unos diez
+    minutos, y el escritorio suelta la lamina de una app muerta). Ahora la
+    app dice cuanto publica, y el NO del banco nombra las dos apps y pide
+    escribirlo MIENTRAS corre. Falta: el banco con la app viva, y su `IGUAL
+    al juez`.
 
 ## 5.2 Lo que es de Ring 0 (del propietario)
 

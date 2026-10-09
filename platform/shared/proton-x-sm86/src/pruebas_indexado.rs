@@ -141,7 +141,7 @@ fn el_pixel_de_dxc_con_arrays_de_punta_a_punta() {
 /// Por la PUERTA del kernel: el cuerpo (ABI de registros) con el pegamento de
 /// pixel del driver, y el juez de programas. Cuantas instrucciones, o lo que
 /// dice el pegamento.
-fn por_la_puerta(p: &Programa, genericos: &[Option<u8>]) -> Result<usize, bmo_gpu_ga10x::pegamento::NoPega> {
+pub(crate) fn por_la_puerta(p: &Programa, genericos: &[Option<u8>]) -> Result<usize, bmo_gpu_ga10x::pegamento::NoPega> {
     use bmo_gpu_ga10x::pegamento::{self, Datos};
     use bmo_gpu_ga10x::sass::juez;
     use bmo_gpu_ga10x::tuberia;
