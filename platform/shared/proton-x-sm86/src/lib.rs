@@ -73,6 +73,9 @@ pub mod fma;
 mod division;
 /// DL10 (09-10): la division EXACTA de f32.
 mod cociente;
+// ** E8 (09-10): la matematica EXACTA de la casa (`Op::Mate`), con lo que la
+// lista blanca de R7 ya deja.
+mod mates;
 /// E6 (02-10): lo que se mira antes de emitir un programa que salta.
 mod saltos;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
@@ -892,8 +895,15 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             Op::EntradaDe { .. } | Op::Emite { .. } | Op::Corta { .. } => return Err(NoEmite::Operacion(i)),
             // E2.4: el contador de un UAV, igual; y (05-10) sus Interlocked.
             Op::Contador { .. } | Op::Atomico { .. } => return Err(NoEmite::Operacion(i)),
-            // N5.6: sin, cos, exp2, log2... (MUFU) todavia no: va por la CPU.
-            Op::Mate { .. } => return Err(NoEmite::Operacion(i)),
+            // ** E8 (09-10): las EXACTAS de la casa -- redondeos, frac, la
+            // clase de un numero, los bits, los medios floats -- con sus
+            // bits (`mates.rs`). Las de series (sin, cos, exp2, log2...),
+            // todavia no: van por la CPU.
+            Op::Mate { d, a, f } => {
+                if !e.mate(d, a, f, i, &mut paso)? {
+                    return Err(NoEmite::Operacion(i));
+                }
+            }
             // N5.7: `discard` (el KILL de la 3060) todavia no: va por la CPU.
             Op::Descarta { .. } => return Err(NoEmite::Operacion(i)),
             // N5.10: los arrays (registros indexables) todavia no: por la CPU.
@@ -967,3 +977,5 @@ mod pruebas_vivo;
 mod pruebas_libreta;
 #[cfg(test)]
 mod pruebas_cociente;
+#[cfg(test)]
+mod pruebas_mates;
