@@ -205,7 +205,8 @@ fn sin_ciclo<'p>(p: &'p Program, f: &'p Function, pila: &mut Vec<&'p str>, vista
 
 /// ** THE WORK OF ONE CELL (LB5): every operation written (`+ - * /`, a
 /// comparison, `and`, `or`, `not`, the sign) and every `let`, assignment,
-/// `return`, `if`, `break` and `continue` is 1; a `for` is its turns times
+/// `return`, `if`, `break` and `continue` is 1 -- 09-10: but a general
+/// division, [`OBRA_DIVISION`] --; a `for` is its turns times
 /// (2 + its body) -- counting and asking -- plus 2. With N written (DL4) it is
 /// known before running, for every cell. 65536 is a thread that ends soon
 /// on the 3060 and on the CPU, and that each card's simulator runs well
@@ -213,6 +214,39 @@ fn sin_ciclo<'p>(p: &'p Program, f: &'p Function, pila: &mut Vec<&'p str>, vista
 /// most ~4 per unit and the CPU ~12, `pruebas_bucles.rs` of the writer); a
 /// gpu fn of the bench does tens.
 pub const OBRA_MAXIMA: u64 = 1 << 16;
+
+/// ** THE WORK OF A GENERAL DIVISION (09-10, DL10 of
+/// `docs/plan/PLAN_LAS_LIBRERIAS.md`): 24, not 1. On the 3060 the EXACT
+/// division is a whole calculation -- from ~30 instructions to ~90 when an
+/// operand or the quotient leaves its window (`cociente.rs` of its emitter)
+/// --: counted as 1, a cell of 65536 would overrun its simulator. By a
+/// WRITTEN power of two (`/ 2.0`, `/ 0.25`) it is a multiplication
+/// ([`inverso_exacto`]), and it is 1.
+pub const OBRA_DIVISION: u64 = 24;
+
+/// **The EXACT inverse of `b`** (its bits), if `b` is a power of two (with
+/// its sign) whose inverse is an f32 too: then `x / b` and `x * inverse` are
+/// the same real number and round the same, for every `x`. The writer makes
+/// such a division a multiplication; the work counts it as one.
+pub fn inverso_exacto(b: u32) -> Option<u32> {
+    let v = f32::from_bits(b);
+    if !v.is_normal() || b & 0x007F_FFFF != 0 {
+        return None;
+    }
+    let r = 1.0f32 / v;
+    (r.is_normal() && (r * v) == 1.0).then(|| r.to_bits())
+}
+
+/// A divisor WRITTEN as a number (`2.0`, `4`) with an exact inverse: the
+/// same f32 the IR gives it (`ir::to_f32`, rounded once).
+fn por_su_inverso(e: &Expr) -> bool {
+    let v = match e {
+        Expr::Int { value, .. } => *value as f32,
+        Expr::Dec { digits, scale, .. } => crate::tree::show_dec(*digits, *scale).parse::<f32>().unwrap_or(f32::NAN),
+        _ => return false,
+    };
+    inverso_exacto(v.to_bits()).is_some()
+}
 
 /// The ends of a `range` inside a gpu fn: the counter is f32, and the f32
 /// counts every integer exactly up to 2^24 -- beyond it, adding 1 changes
@@ -460,6 +494,33 @@ mod tests {
         assert_eq!(huge.code, Code::NoEnd, "{:?}", huge);
     }
 
+    /// ** DL10 (09-10): a GENERAL division is a whole calculation on the
+    /// 3060 (the exact one), so its work is `OBRA_DIVISION`; by a WRITTEN
+    /// power of two it is a multiplication, and 1 -- as the writer writes it.
+    #[test]
+    fn a_general_division_weighs_its_calculation() {
+        use super::{inverso_exacto, OBRA_DIVISION};
+        let src = "mod main \"x\"\ngpu fn d(x: f32, y: f32) -> f32\n    return x / 3.0 + x / 2.0 + x / 4 + x / y + x / -2.0\nfn main()\n    print(1)\n";
+        let m = lower(src, Some(PIDE)).unwrap_or_else(|e| panic!("{:?}", e));
+        // return (1), four `+` (4), `/ 2.0` and `/ 4` (1 each), `/ 3.0`, `/ y`
+        // and `/ -2.0` -- the sign makes it no longer a written number -- (24
+        // each), and the sign (1).
+        assert_eq!(m.functions.iter().find(|f| f.name == "d").unwrap().obra, 1 + 4 + 2 + 3 * OBRA_DIVISION + 1);
+        // In a loop, it counts once per turn: 3000 turns of (2 + 1 + 24) go
+        // over the top, where 3000 turns of a product fit.
+        let much = no("gpu fn f(x: f32) -> f32\n    let mut r = x\n    for i in range(3000)\n        r = r / 3.0\n    return r\nfn main()\n    print(1)\n");
+        assert_eq!((much.code, much.line, much.col), (Code::NoEnd, 4, 5), "{:?}", much);
+        assert!(much.what.contains("81002"), "{:?}", much);
+        lower("mod main \"x\"\ngpu fn f(x: f32) -> f32\n    let mut r = x\n    for i in range(3000)\n        r = r * 3.0\n    return r\nfn main()\n    print(1)\n", Some(PIDE)).unwrap();
+        // The powers of two with an exact inverse, and the ones without.
+        for c in [2.0f32, 0.5, -4.0, 1024.0, 1.0, 2.0f32.powi(126)] {
+            assert!(inverso_exacto(c.to_bits()).is_some(), "{c}");
+        }
+        for c in [3.0f32, 0.1, 0.0, -0.0, f32::INFINITY, f32::NAN, 1.0e-45, 2.0f32.powi(127)] {
+            assert_eq!(inverso_exacto(c.to_bits()), None, "{c}");
+        }
+    }
+
     /// ** LB6, DL6: a gpu fn DRAWS by its signature -- one record in, one
     /// out with its `posicion` (vertex); that one in, a colour of four f32
     /// out (pixel) -- and each way out of it has its NO, where it is written.
@@ -498,7 +559,10 @@ mod tests {
 fn expr(p: &Program, e: &Expr, hondo: usize, forma: Forma) -> Result<u64, Message> {
     match e {
         Expr::Int { .. } | Expr::Dec { .. } | Expr::Name { .. } | Expr::Bool { .. } => Ok(0),
-        Expr::Bin { left, right, .. } => Ok(1u64.saturating_add(expr(p, left, hondo, forma)?).saturating_add(expr(p, right, hondo, forma)?)),
+        Expr::Bin { op, left, right, .. } => {
+            let propia = if *op == "/" && !por_su_inverso(right) { OBRA_DIVISION } else { 1 };
+            Ok(propia.saturating_add(expr(p, left, hondo, forma)?).saturating_add(expr(p, right, hondo, forma)?))
+        }
         Expr::Neg { value, .. } | Expr::Not { value, .. } => Ok(1u64.saturating_add(expr(p, value, hondo, forma)?)),
         // ** LB6: una que DIBUJA lee los campos de sus registros y los hace
         // -- elegir registros no cuesta: no es una operacion.

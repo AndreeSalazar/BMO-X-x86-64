@@ -487,7 +487,9 @@ fn lists_and_maps_agree_with_the_calculation_at_random() {
 }
 
 /// The body of a random `gpu fn` over `a` and `b`: `+ - *`, the division by
-/// a power of two (the only one the 3060 does exactly today) and `-`.
+/// a power of two (the only one the 3060 did exactly until 09-10) and `-`.
+/// 09-10 (DL10): and the GENERAL division -- by a number that is not a power
+/// of two, and by another expression --, exact on the 3060 too.
 fn gpu_expr(r: &mut Rng, depth: u32) -> String {
     if depth == 0 || r.pick(3) == 0 {
         return match r.pick(6) {
@@ -497,11 +499,12 @@ fn gpu_expr(r: &mut Rng, depth: u32) -> String {
         };
     }
     let (x, y) = (gpu_expr(r, depth - 1), gpu_expr(r, depth - 1));
-    match r.pick(5) {
+    match r.pick(6) {
         0 => format!("({x} + {y})"),
         1 => format!("({x} - {y})"),
         2 => format!("({x} * {y})"),
-        3 => format!("({x} / {})", ["2.0", "0.5", "4.0", "0.25", "1024.0"][r.pick(5) as usize]),
+        3 => format!("({x} / {})", ["2.0", "0.5", "4.0", "0.25", "1024.0", "3.0", "0.1", "-7.0"][r.pick(8) as usize]),
+        4 => format!("({x} / {y})"),
         _ => format!("(-{x})"),
     }
 }

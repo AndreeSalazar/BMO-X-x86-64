@@ -236,7 +236,6 @@ dependencies = [
  "bmo-bsf",
  "bmo-gpu-ga10x",
  "bmo-hash",
- "bmo-prometeo",
  "bmo-proton-x",
  "bmo-sm86",
 ]

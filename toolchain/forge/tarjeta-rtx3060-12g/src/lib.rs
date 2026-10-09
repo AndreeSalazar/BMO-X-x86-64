@@ -32,10 +32,16 @@
 //! AISLADA, como pidio el propietario (*"TODAS LAS GPU en emisor SON AISLADAS
 //! por completo"*): esto es de la RTX 3060 12G y de nadie mas. PROMETEO no la
 //! nombra; quien arma una herramienta (`titan`) dice que esta.
+//!
+//! 09-10 (DL10, el propietario: *"Exactos, tambien en 3060"*): la division
+//! dejo de ser su limite. Hasta hoy un `Op::Div` era un `NoEmite::Limite`
+//! ("una division que la RTX 3060 12G todavia no hace exacta"); ahora su ISA
+//! la emite EXACTA (`cociente.rs` de `bmo-proton-x-sm86`: los bits de IEEE,
+//! aunque su MUFU.RCP se equivoque), y lo que el emisor rechace es un fallo,
+//! como cualquier otra operacion.
 
 use bmo_gpu_ga10x::lectura::identidad::{DISPOSITIVOS, NVIDIA, VRAM_MIB};
 use bmo_gpu_ga10x::sass::juez::{juzgar_cuerpo_de_app, juzgar_drenado, Contexto, RESERVADOS};
-use bmo_prometeo::programa::Op;
 use bmo_prometeo::{Aparato, Codigo, Ficha, NoEmite as No, Para, Pci, Programa, Tarjeta};
 
 use isa::simula::{correr, Maquina};
@@ -62,12 +68,6 @@ pub const APARATO: Aparato = Aparato { modelo: "NVIDIA GeForce RTX 3060 12G", ch
 /// Los registros que se le dan a un cuerpo: los de un hueco de la tuberia de
 /// la RTX 3060 12G, de donde los cuenta el driver.
 pub const REGISTROS: u32 = bmo_gpu_ga10x::trabajos::tuberia::REGISTROS;
-
-/// ** LA DIVISION, el limite de la RTX 3060 12G hoy: su MUFU.RCP y su FMUL no
-/// dan los bits exactos de la casa (E3 de PLAN_LA_LENGUA_DE_LA_3060). No es un
-/// fallo del emisor: es lo que esta tarjeta todavia no sabe, dicho a proposito.
-const DIVISION_QUE: &str = "una division que la RTX 3060 12G todavia no hace exacta";
-const DIVISION_POR_QUE: &str = "la division de la RTX 3060 12G (MUFU.RCP y FMUL) no da los bits exactos de la casa";
 
 /// **La RTX 3060 12G, como tarjeta de PROMETEO.** Sin estado: lo que sabe esta
 /// en su ISA (su emisor y su simulador) y en su juez.
@@ -105,9 +105,6 @@ impl Tarjeta for Rtx3060_12g {
 
     fn emitir(&self, p: &Programa, para: Para) -> Result<Codigo, No> {
         let e = emitir_con(p, REGISTROS, abi(para)).map_err(|e| match e {
-            NoEmite::Operacion(i) if matches!(p.ops.get(i), Some(Op::Div { .. })) => {
-                No::Limite { op: i, que: DIVISION_QUE.to_string(), por_que: DIVISION_POR_QUE.to_string() }
-            }
             NoEmite::Operacion(i) => No::Fallo { op: Some(i), por_que: format!("el emisor de {} ({}) dijo que no: {:?}", NOMBRE, LENGUA, e) },
             NoEmite::Registros => No::Fallo { op: None, por_que: format!("no cabe en los {} registros de un hueco de {}", REGISTROS, NOMBRE) },
             e => No::Fallo { op: None, por_que: format!("el emisor de {} ({}) dijo que no: {:?}", NOMBRE, LENGUA, e) },

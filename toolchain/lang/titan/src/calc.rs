@@ -283,6 +283,10 @@ pub trait Device: Send {
 ///
 /// Before this, both came out as "a failure of the writer ... tell us with
 /// this program", at the line of the CALL: a known limit read as a bug.
+///
+/// 09-10 (DL10): the 3060 divides EXACTLY now, and no card of `titan` has a
+/// limit; the road stays for the one that will (the toy card of the
+/// writer's tests says its own).
 #[derive(Debug)]
 pub enum DeviceNo {
     Limit(Message),

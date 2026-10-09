@@ -122,6 +122,26 @@ pub fn ffma(rd: u8, a: Fuente, b: Fuente, c: Fuente, sat: bool, control: u64) ->
     (lo, hi | rc as u64 | mc)
 }
 
+/// ** DL10 (09-10): el MODO DE REDONDEO de una FFMA, en 78..80 (el campo
+/// `rnd`): lo que pone `ptxas` en `FFMA.RM`, `.RP` y `.RZ` (`ORO_DL10`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Redondeo {
+    /// Al mas cercano, par en el empate (el de siempre, sin sufijo).
+    Cercano = 0,
+    /// Hacia menos infinito (`.RM`).
+    Abajo = 1,
+    /// Hacia mas infinito (`.RP`).
+    Arriba = 2,
+    /// Hacia el cero (`.RZ`).
+    Cero = 3,
+}
+
+/// `FFMA[.RM|.RP|.RZ] Rd, a, b, c`: [`ffma`] con su modo de redondeo.
+pub fn ffma_redondeo(rd: u8, a: Fuente, b: Fuente, c: Fuente, modo: Redondeo, control: u64) -> (u64, u64) {
+    let (lo, hi) = ffma(rd, a, b, c, false, control);
+    (lo, hi | (modo as u64) << 14)
+}
+
 /// `FMNMX Rd, a, b, PT` (el menor) o `!PT` (el mayor).
 pub fn fmnmx(rd: u8, a: Fuente, b: Fuente, mayor: bool, control: u64) -> (u64, u64) {
     // El predicado que elige va en 87..91: PT (7), negado +8.
@@ -383,6 +403,20 @@ pub const ORO_E6D: &[(&str, u64, u64)] = &[
     ("IADD3 R13, P1, R0, R6, RZ", 0x00000006000d7210, 0x004fc40007f3e0ff),
     ("IADD3 R9, P0, R0, -R7, RZ", 0x8000000700097210, 0x008fc60007f1e0ff),
     ("IADD3.X R11, RZ, R6, RZ, P0, !PT", 0x00000006ff0b7210, 0x000fe200007fe4ff),
+];
+
+/// Las PALABRAS DE ORO de DL10 (09-10): `ptxas -arch=sm_86 -O3` (CUDA 12.9)
+/// sobre `oro_reales.ptx` (al lado de este crate), leido con `cuobjdump
+/// -sass` (13.4): las FFMA de `div.rn.f32` -- su cuenta y su redondeo hacia
+/// el cero, abajo y arriba, el de un cociente subnormal -- y su MUFU.RCP.
+pub const ORO_DL10: &[(&str, u64, u64)] = &[
+    ("MUFU.RCP R4, R5", 0x0000000500047308, 0x004e300000001000),
+    ("FFMA R7, R4, R7, R4", 0x0000000704077223, 0x000fc80000000004),
+    ("FFMA R4, R0, R7, RZ", 0x0000000700047223, 0x000fc800000000ff),
+    ("FFMA R6, -R5, R4, R0", 0x0000000405067223, 0x000fc80000000100),
+    ("FFMA.RZ R0, R12, R10.reuse, R11.reuse", 0x0000000a0c007223, 0x180fe2000000c00b),
+    ("FFMA.RM R3, R12, R10.reuse, R11.reuse", 0x0000000a0c037223, 0x180fe2000000400b),
+    ("FFMA.RP R0, R12, R10, R11", 0x0000000a0c007223, 0x000fe2000000800b),
 ];
 
 /// El control de una de ALU (el de `ptxas` y del driver: 6 ciclos, el bit 4,
@@ -707,5 +741,25 @@ mod pruebas {
         for ((texto, lo, hi), h) in ORO_E6D.iter().zip(hechas) {
             assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
         }
+    }
+
+    /// ** DL10: la FFMA de la division exacta, con sus cuatro redondeos, y su
+    /// inverso: las palabras de `ptxas` para `div.rn.f32`, los 128 bits.
+    #[test]
+    fn la_division_real_como_ptxas() {
+        let k = |i: usize| ORO_DL10[i].2 >> 41;
+        let hechas: [(u64, u64); 7] = [
+            mufu(4, Mufu::Rcp, 5, k(0)),
+            ffma(7, r(4), r(7), r(4), false, k(1)),
+            ffma(4, r(0), r(7), r(RZ), false, k(2)),
+            ffma(6, neg(5), r(4), r(0), false, k(3)),
+            ffma_redondeo(0, r(12), r(10), r(11), Redondeo::Cero, k(4)),
+            ffma_redondeo(3, r(12), r(10), r(11), Redondeo::Abajo, k(5)),
+            ffma_redondeo(0, r(12), r(10), r(11), Redondeo::Arriba, k(6)),
+        ];
+        for ((texto, lo, hi), h) in ORO_DL10.iter().zip(hechas) {
+            assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
+        }
+        assert_eq!(ffma_redondeo(7, r(4), r(7), r(4), Redondeo::Cercano, k(1)), ffma(7, r(4), r(7), r(4), false, k(1)));
     }
 }

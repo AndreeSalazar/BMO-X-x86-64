@@ -1,0 +1,39 @@
+// oro_reales.ptx -- el PTX de las PALABRAS DE ORO de DL10 (`ORO_DL10` en
+// src/codifica.rs): la division y la raiz de f32 con su redondeo correcto.
+// Rehacerlas (CUDA 12.9 y cuobjdump/nvdisasm 13.4.92, de PyPI, 09-10):
+//   pip download --no-deps "nvidia-cuda-nvcc-cu12==12.9.*"
+//   pip download --no-deps "nvidia-cuda-nvdisasm==13.4.*" "nvidia-cuda-cuobjdump==13.4.*"
+//   ptxas -arch=sm_86 -O3 oro_reales.ptx -o oro.cubin
+//   cuobjdump -sass oro.cubin          (con NVDISASM_PATH a su nvdisasm)
+// `div_rn_f32`: MUFU.RCP, un paso de Newton (dos FFMA) y la correccion del
+// cociente (FFMA con su residuo); FCHK manda lo que no cabe a una subrutina
+// lenta (CALL), con la cuenta en [1, 2) y, para un cociente subnormal, la
+// ultima FFMA en .RZ, .RM y .RP. `sqrt_rn_f32`: MUFU.RSQ y su correccion.
+// En el cuerpo de una app (R7 del juez) no hay FCHK ni CALL ni guardas: el
+// emisor de PROTON-X lo rehace con su lista blanca (`cociente.rs`).
+.version 8.0
+.target sm_86
+.address_size 64
+.visible .entry div_rn_f32(.param .u64 pin, .param .u64 pout)
+{
+  .reg .f32 %f<4>;
+  .reg .u64 %rd<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.global.f32 %f1, [%rd1];
+  ld.global.f32 %f2, [%rd1+4];
+  div.rn.f32 %f3, %f1, %f2;
+  st.global.f32 [%rd2], %f3;
+  ret;
+}
+.visible .entry sqrt_rn_f32(.param .u64 pin, .param .u64 pout)
+{
+  .reg .f32 %f<4>;
+  .reg .u64 %rd<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.global.f32 %f1, [%rd1];
+  sqrt.rn.f32 %f3, %f1;
+  st.global.f32 [%rd2], %f3;
+  ret;
+}

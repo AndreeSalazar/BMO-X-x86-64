@@ -179,15 +179,10 @@ impl<'m> Writer<'m> {
 
 /// **El inverso EXACTO de `b`**, si `b` es una potencia de dos (con signo)
 /// cuyo inverso tambien cabe en un f32: entonces `x / b` y `x * inverso` son
-/// el mismo numero real y se redondean igual, en cada `x`.
-pub fn inverso_exacto(b: u32) -> Option<u32> {
-    let v = f32::from_bits(b);
-    if !v.is_normal() || b & 0x007F_FFFF != 0 {
-        return None;
-    }
-    let r = 1.0f32 / v;
-    (r.is_normal() && (r * v) == 1.0).then(|| r.to_bits())
-}
+/// el mismo numero real y se redondean igual, en cada `x`. 09-10 (DL10): es
+/// el del frontend, que cuenta esa division como una multiplicacion en la
+/// obra de la celda -- la misma regla en los dos sitios, por construccion.
+pub use bmo_titan_front::gpu::inverso_exacto;
 
 /// Lo que vale cada nombre en un punto de la gpu fn.
 pub(crate) type Env = HashMap<usize, Valor>;

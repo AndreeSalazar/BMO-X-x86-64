@@ -185,8 +185,9 @@ pub fn package(e: &Emitted, manifest: &str) -> Result<Vec<u8>, String> {
 #[derive(Debug)]
 pub enum Failure {
     /// El NO del PROGRAMA: el mensaje de 4 partes. Del frontend, del limite
-    /// de una libreria de la GPU (la division general en la 3060), o de lo
-    /// que E1 todavia no emite al correr (LB1, 08-10).
+    /// de una libreria de la GPU (la division general en la 3060, hasta que
+    /// DL10 la hizo exacta el 09-10), o de lo que E1 todavia no emite al
+    /// correr (LB1, 08-10).
     Source(Message),
     /// Un fallo de ESTE compilador -- el gate, el emisor o el juez de una
     /// tarjeta, E1 --, nunca del programa.
@@ -394,14 +395,23 @@ mod tests {
     /// ** LB4 (08-10): las dos sondas que E1 decia T0040 -- una gpu fn y un
     /// f32 en un programa que lee -- CORREN: la gpu fn, en la CPU (su
     /// reserva), y el f32, como dato. Escriben lo que escribiria el calculo.
+    ///
+    /// ** DL10 (09-10): la sonda de LB1 era la division general en una gpu
+    /// fn, el limite de la 3060 (T0090 en la division). Ahora la 3060 la hace
+    /// exacta y CORRE; el limite de una libreria lo prueba la tarjeta de
+    /// juguete (`prometeo/tests/juguete.rs`) y aqui, su camino hasta el NO
+    /// (`a_limit_of_a_library_is_the_program_s_no`). La sonda que queda es la
+    /// obra de la celda, que la division pesa: el mismo NO en check y build.
     #[test]
     fn a_known_limit_is_the_program_s_no_in_check_and_in_build() {
         let toml = "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n";
         let probes = [
-            // la division general en una gpu fn: en la DIVISION, no en la llamada
-            ("mod main \"x\"\ngpu fn tercio(a: f32) -> f32\n    return a / 3.0\nfn main()\n    let xs: [f32; 1] = [3.0]\n    let r = tercio(xs)\n    print(round(r[0], 2))\n", "T0090", 3, 14),
+            // 3000 vueltas de una division general no caben en una celda: en su `for`
+            ("mod main \"x\"\ngpu fn tercios(a: f32) -> f32\n    let mut r = a\n    for i in range(3000)\n        r = r / 3.0\n    return r\nfn main()\n    let xs: [f32; 1] = [3.0]\n    let r = tercios(xs)\n    print(round(r[0], 2))\n", "T0066", 4, 5),
         ];
         let corren = [
+            // la division general en una gpu fn: la de la 3060, exacta (DL10)
+            ("mod main \"x\"\ngpu fn tercio(a: f32) -> f32\n    return a / 3.0\nfn main()\n    let xs: [f32; 2] = [1.0, -7.5]\n    let r = tercio(xs)\n    print(round(r[0], 2), \" \", round(r[1], 2))\n", "0.33 -2.50\n"),
             // una gpu fn en un programa que lee: la corre la CPU, al correr
             ("mod main \"x\"\ngpu fn doble(x: f32) -> f32\n    return x * 2.0\nfn main()\n    let t = lee()\n    print(t)\n    let xs: [f32; 2] = [2.0, 3.0]\n    let r = doble(xs)\n    print(round(r[0], 1))\n", "hola\n4.0\n"),
             // un f32 en un programa que lee, sin gpu fn: un dato
@@ -432,6 +442,22 @@ mod tests {
         let ok = "mod main \"x\"\ngpu fn medio(a: f32) -> f32\n    return a / 2.0\nfn main()\n    let xs: [f32; 1] = [3.0]\n    let r = medio(xs)\n    print(round(r[0], 2))\n";
         let files = [("src/main.titan", ok), ("Titan.toml", toml)];
         assert!(check_package("src/main.titan", ok, &mut |p| files.iter().find(|f| f.0 == p).map(|f| f.1.to_string())).is_ok());
+    }
+
+    /// ** LB1: el limite de una libreria de la GPU es el NO del PROGRAMA, en
+    /// su fichero y su linea; lo demas, un fallo de su escritor o de su juez.
+    /// Las tarjetas de `titan` ya no tienen limites (DL10, 09-10): el camino
+    /// se prueba con lo que dice `kernels()`.
+    #[test]
+    fn a_limit_of_a_library_is_the_program_s_no() {
+        let toml = "[package]\nname = \"x\"\n[permissions]\ngpu = \"compute\"\n";
+        let m = bmo_titan_front::lower_package("src/main.titan", "mod main \"x\"\nfn main()\n    print(1)\n", &mut |p| (p == "Titan.toml").then(|| toml.to_string())).unwrap();
+        let limite = Message::new(Code::GpuBody, 3, 14, "una division que esta tarjeta no sabe", "su por que", "su como");
+        match device_no(&m, DeviceNo::Limit(limite)) {
+            Failure::Source(said) => assert_eq!((said.code, said.line, said.col, said.file.as_deref()), (Code::GpuBody, 3, 14, Some("src/main.titan"))),
+            other => panic!("the program's NO, not {:?}", other),
+        }
+        assert!(matches!(device_no(&m, DeviceNo::Failure("su juez dijo que no".into())), Failure::Gate(_)));
     }
 
     #[test]

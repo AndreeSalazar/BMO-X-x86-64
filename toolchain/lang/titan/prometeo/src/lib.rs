@@ -79,7 +79,10 @@
 //! real, redondeado igual), y se escribe asi para cualquier tarjeta. La
 //! general llega a la tarjeta como `Div`; la que no la hace exacta lo dice
 //! como su LIMITE (la 3060: LI2g de `PLAN_EL_LIBRETO.md`), y es el NO del
-//! programa, en su linea y su columna (LB1).
+//! programa, en su linea y su columna (LB1). 09-10 (DL10): la 3060 ya la
+//! hace EXACTA, como la CPU; el NO queda para la tarjeta que diga que no la
+//! sabe (la de juguete de `tests/juguete.rs`), y en la obra de la celda la
+//! general pesa su cuenta (`OBRA_DIVISION` del frontend).
 
 use bmo_prometeo::programa::Op;
 use bmo_prometeo::{Codigo, NoEmite, Para, Programa, Tarjeta};
@@ -110,9 +113,10 @@ pub enum Kind {
 
 /// Un NO del escritor (no del programa: el frontend ya lo juzgo) -- salvo
 /// cuando lleva su `Message`: entonces es lo que una tarjeta TODAVIA NO SABE
-/// hacer, un limite dicho a proposito (la division general en la 3060, LI2g),
-/// y es un NO del PROGRAMA, con su sitio en el modulo (LB1 de
-/// `docs/plan/PLAN_LAS_LIBRERIAS.md`). El texto (`.0`) es el de siempre.
+/// hacer, un limite dicho a proposito (la division general en la 3060, LI2g,
+/// hasta el 09-10: DL10 la hizo exacta), y es un NO del PROGRAMA, con su
+/// sitio en el modulo (LB1 de `docs/plan/PLAN_LAS_LIBRERIAS.md`). El texto
+/// (`.0`) es el de siempre.
 #[derive(Debug)]
 pub struct Failure(pub String, pub Option<Message>);
 
@@ -135,10 +139,12 @@ impl Failure {
 /// ** LO QUE TITAN++ DICE DESPUES DEL LIMITE DE UNA TARJETA: el QUE y el POR
 /// QUE son de la tarjeta (sus palabras); esto es lo de TITAN++, sea cual sea. La
 /// division tiene su como: la de una potencia de dos ya llega como
-/// multiplicacion (`inverso_exacto`).
+/// multiplicacion (`inverso_exacto`). 09-10 (DL10): hasta hoy el texto decia
+/// que la general esperaba a LI2g; la 3060 ya la sabe, y el texto habla de
+/// la tarjeta que no la sepa, sin nombrar ninguna.
 const LIMITE_TAMBIEN: &str = "y una gpu fn da los MISMOS bits por su tarjeta, la casa y el calculo (L29)";
-const DIVISION_HOY: &str = "Hoy solo divide entre una potencia de dos, que es una multiplicacion exacta; la general espera a LI2g de PLAN_EL_LIBRETO (DL10 de PLAN_LAS_LIBRERIAS)";
-const DIVISION_COMO: &str = "entre una potencia de dos se escribe igual (x / 2.0, x / 0.25); las demas, todavia no";
+const DIVISION_HOY: &str = "Entre una potencia de dos no hace falta que la tarjeta divida: TITAN++ la escribe como una multiplicacion exacta";
+const DIVISION_COMO: &str = "entre una potencia de dos se escribe igual (x / 2.0, x / 0.25); la general, en una tarjeta que la haga exacta";
 const LIMITE_COMO: &str = "escribela con otras operaciones, o espera a que su tarjeta la sepa hacer";
 
 /// **Una gpu fn escrita para UNA tarjeta**: su Programa, su codigo para el

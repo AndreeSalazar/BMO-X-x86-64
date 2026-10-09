@@ -40,6 +40,10 @@
 //! - `Rsqrt` y `Sqrt` son `MUFU`: la 3060 APROXIMA (ver `simula`).
 //! - `Div` se RECHAZA hoy: la de la 3060 (MUFU.RCP y FMUL) no es la division
 //!   exacta de la casa, y ningun sombreador de los que corren la usa.
+//!   **09-10, DL10 del propietario: EXACTA** (`cociente.rs`): la cuenta de
+//!   `ptxas` para `div.rn.f32`, rehecha con la lista blanca de R7 y con la
+//!   prueba de Tuckerman en el redondeo: los bits de IEEE, aunque el MUFU.RCP
+//!   se equivoque.
 //! - La division de ENTEROS (E6d) si es exacta: la cuenta de `ptxas` con el
 //!   inverso, sin guardas; una sola para `a / b` y `a % b`, y entre una
 //!   constante, una multiplicacion (`division.rs`).
@@ -63,8 +67,12 @@ extern crate alloc;
 
 pub mod planifica;
 pub mod simula;
+/// DL10 (09-10): la FFMA exacta, en sus cuatro redondeos (la del simulador).
+pub mod fma;
 
 mod division;
+/// DL10 (09-10): la division EXACTA de f32.
+mod cociente;
 /// E6 (02-10): lo que se mira antes de emitir un programa que salta.
 mod saltos;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
@@ -840,7 +848,8 @@ pub fn emitir_libreta(p: &Programa, registros: u32, abi: Abi, libreta: bool) -> 
                 let (fa, sat) = if matches!(op, Op::Abs { .. }) { (c::abs(ra), false) } else { (c::r(ra), true) };
                 e.poner(c::fadd(x, fa, c::neg(RZ), sat, 0), Clase::Fma, Some(x), [Some(ra), None, None]);
             }
-            Op::Div { .. } => return Err(NoEmite::Operacion(i)),
+            // ** DL10 (09-10): exacta, con los bits de la casa.
+            Op::Div { d, a, b } => e.cociente(d, a, b, i, &mut paso)?,
             // 02-10: arrays, cubos, 3D, mips, Load y GetDimensions: en la
             // CPU todavia (la 3060 lee aqui un TEX 2D de nivel 0).
             // N5.4: elegir la textura al correr, la 3060 todavia no.
@@ -917,3 +926,5 @@ mod pruebas_saltos;
 mod pruebas_vivo;
 #[cfg(test)]
 mod pruebas_libreta;
+#[cfg(test)]
+mod pruebas_cociente;

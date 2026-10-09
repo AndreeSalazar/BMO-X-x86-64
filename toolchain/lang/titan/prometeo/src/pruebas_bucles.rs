@@ -135,18 +135,19 @@ fn break_continue_and_return_inside_loops_inside_an_if() {
     assert!(ops.iter().any(|o| matches!(o, Op::Si { .. })), "el bucle de dentro de un `if`, en su `Si`");
 }
 
-/// ** UNA DIVISION GENERAL DENTRO DE UN BUCLE sigue siendo el limite de la
-/// 3060 (LI2g), en su linea y su columna; la CPU la hace exacta (`divss`).
+/// ** UNA DIVISION GENERAL DENTRO DE UN BUCLE (DL10, 09-10): hasta hoy era
+/// el limite de la 3060 (LI2g), dicho en su linea y su columna, y solo la CPU
+/// la hacia (`divss`). Ahora las DOS tarjetas dan los bits de Rust, vuelta a
+/// vuelta -- tambien cuando el cociente se hace subnormal y cuando llega al
+/// cero --.
 #[test]
-fn a_division_inside_a_loop_is_the_3060_s_limit_where_it_is_written() {
+fn a_division_inside_a_loop_is_exact_on_both_cards() {
     let m = module("mod main \"x\"\ngpu fn tercios(x: f32) -> f32\n    let mut r = x\n    for i in range(3)\n        r = r / 3.0\n    return r\nfn main()\n    print(1)\n");
-    let f = m.functions.iter().position(|f| f.name == "tercios").unwrap();
-    let no = write(&m, f, &RTX_3060_12G).err().expect("la 3060 no divide exacto");
-    let said = no.1.expect("un limite: el NO del programa");
-    assert_eq!((said.code, said.line, said.col), (bmo_titan_front::Code::GpuBody, 5, 15), "{:?}", said);
-    let k = write(&m, f, &CPU).unwrap_or_else(|e| panic!("{}", e.0));
-    judge(&k).unwrap();
-    verify(&m, f, &k).unwrap();
+    let (_, ks) = en_las_dos(&m, "tercios");
+    let xs: Vec<f32> = XS.iter().copied().chain([1.0e-40, 3.0e-45, -1.0e-38, 7.0, 1.0e38]).collect();
+    let want: Vec<u32> = xs.iter().map(|&x| ((x / 3.0) / 3.0 / 3.0).to_bits()).collect();
+    como_rust(&ks, &[f32s(&xs)], &want);
+    assert!(ks[0].programa.ops.iter().any(|o| matches!(o, Op::Div { .. })));
 }
 
 /// ** SIN FIN: un Programa que no sale (escrito a mano: TITAN++ no sabe
@@ -198,31 +199,40 @@ fn pasos_3060(c: &Codigo, entradas: &[[u32; 4]]) -> usize {
 /// ocho, la CPU (4M) por cuatro, en cada patron que mas cuesta -- `if`
 /// anidados con una condicion que no cuesta nada, `break`, `return`, `not`.
 /// Medido el 08-10: la 3060, hasta ~3.5 instrucciones por unidad; la CPU,
-/// hasta ~12.3.
+/// hasta ~12.3. 09-10 (DL10): y la division general, que pesa
+/// `OBRA_DIVISION` (24) porque en la 3060 es una cuenta entera: con un
+/// cociente SUBNORMAL en cada vuelta -- su camino mas largo --, la 3060 hace
+/// ~3.6 por unidad.
 #[test]
 fn the_top_of_a_cell_fits_each_card_s_budget() {
     let tope = bmo_titan_front::gpu::OBRA_MAXIMA;
+    let division = bmo_titan_front::gpu::OBRA_DIVISION;
+    // La celda: 0.5; las divisiones, un subnormal (1e-40), que las lleva a
+    // lo lento.
+    let (x, sub) = (0.5f32, 1.0e-40f32);
     let patrones = [
-        ("aritmetica", "    let mut r = 0.0\n", "        r = r * x + 1.0\n", "    return r\n", 3u64),
-        ("si", "    let mut r = 0.0\n", "        if x > r\n            r = r + 1.0\n        else\n            r = r - 0.5\n", "    return r\n", 6),
-        ("comparaciones", "    let mut b = false\n    let r = x\n", "        b = x > r and r < 1.0 or not (x == r)\n", "    if b\n        return 1.0\n    return r\n", 7),
-        ("variables", "    let mut r = 0.0\n    let mut a = 0.0\n    let mut c = 0.0\n", "        a = c\n        c = r\n        r = a + 1.0\n", "    return r + a + c\n", 4),
-        ("break", "    let mut r = 0.0\n", "        if r > 1000000.0\n            break\n        r = r + x\n", "    return r\n", 5),
-        ("si_nombre", "    let mut r = 0.0\n    let q = x > 0.0\n", "        if q\n            r = r + 1.0\n", "    return r\n", 3),
-        ("si_anidado", "    let mut r = 0.0\n    let q = x > 0.0\n", "        if q\n            if q\n                if q\n                    r = 1.0\n", "    return r\n", 4),
-        ("vuelve", "    let mut r = 0.0\n", "        if r > 1000000.0\n            return r\n        r = r + x\n", "    return r\n", 5),
-        ("no", "    let mut q = x > 0.0\n", "        q = not not not q\n", "    if q\n        return 1.0\n    return 0.0\n", 4),
-        ("muchos_break", "    let mut r = 0.0\n    let q = x > 2.0\n", "        if q\n            break\n        if q\n            break\n        if q\n            break\n        r = r + 1.0\n", "    return r\n", 8),
-        ("signo", "    let mut r = x\n", "        r = -r\n", "    return r\n", 2),
+        ("aritmetica", "    let mut r = 0.0\n", "        r = r * x + 1.0\n", "    return r\n", 3u64, x),
+        ("si", "    let mut r = 0.0\n", "        if x > r\n            r = r + 1.0\n        else\n            r = r - 0.5\n", "    return r\n", 6, x),
+        ("comparaciones", "    let mut b = false\n    let r = x\n", "        b = x > r and r < 1.0 or not (x == r)\n", "    if b\n        return 1.0\n    return r\n", 7, x),
+        ("variables", "    let mut r = 0.0\n    let mut a = 0.0\n    let mut c = 0.0\n", "        a = c\n        c = r\n        r = a + 1.0\n", "    return r + a + c\n", 4, x),
+        ("break", "    let mut r = 0.0\n", "        if r > 1000000.0\n            break\n        r = r + x\n", "    return r\n", 5, x),
+        ("si_nombre", "    let mut r = 0.0\n    let q = x > 0.0\n", "        if q\n            r = r + 1.0\n", "    return r\n", 3, x),
+        ("si_anidado", "    let mut r = 0.0\n    let q = x > 0.0\n", "        if q\n            if q\n                if q\n                    r = 1.0\n", "    return r\n", 4, x),
+        ("vuelve", "    let mut r = 0.0\n", "        if r > 1000000.0\n            return r\n        r = r + x\n", "    return r\n", 5, x),
+        ("no", "    let mut q = x > 0.0\n", "        q = not not not q\n", "    if q\n        return 1.0\n    return 0.0\n", 4, x),
+        ("muchos_break", "    let mut r = 0.0\n    let q = x > 2.0\n", "        if q\n            break\n        if q\n            break\n        if q\n            break\n        r = r + 1.0\n", "    return r\n", 8, x),
+        ("signo", "    let mut r = x\n", "        r = -r\n", "    return r\n", 2, x),
+        ("division", "    let mut r = 0.0\n", "        r = x / 3.0\n", "    return r\n", 1 + division, sub),
+        ("divisiones", "    let mut r = 0.0\n", "        r = x / 3.0 / 3.0 / 3.0 / 3.0\n", "    return r\n", 1 + 4 * division, sub),
     ];
-    for (nombre, antes, cuerpo, fin, coste) in patrones {
+    for (nombre, antes, cuerpo, fin, coste, celda) in patrones {
         let vueltas = (tope - 40) / (coste + 2);
         let src = format!("mod main \"x\"\ngpu fn f(x: f32) -> f32\n{}    for i in range({})\n{}{}fn main()\n    print(1)\n", antes, vueltas, cuerpo, fin);
         let m = module(&src);
         let func = m.functions.iter().position(|f| f.name == "f").unwrap();
         let obra = m.functions[func].obra;
         assert!(obra <= tope && obra > tope - 200, "{}: obra {}", nombre, obra);
-        let entradas = [[0.5f32.to_bits(), 0, 0, 0]];
+        let entradas = [[celda.to_bits(), 0, 0, 0]];
         let k3 = write(&m, func, &RTX_3060_12G).unwrap_or_else(|e| panic!("{}: {}", nombre, e.0));
         let p3 = pasos_3060(&k3.oraculo, &entradas);
         assert!(p3 * 8 <= bmo_tarjeta_rtx3060_12g::isa::simula::PASOS_MAXIMOS, "{}: la 3060, {} pasos", nombre, p3);
@@ -261,16 +271,15 @@ fn a_call_between_gpu_fns_is_written_in_line_on_both_cards() {
     assert_eq!(ks[0].programa.ops.iter().filter(|o| matches!(o, Op::Bucle)).count(), 2);
 }
 
-/// ** EL LIMITE DE UNA TARJETA DENTRO DE UNA LLAMADA: la division general de
-/// la gpu fn llamada es el NO de la 3060 en SU linea y SU columna -- la de la
-/// division, no la de la llamada --; la CPU la hace.
+/// ** UNA DIVISION DENTRO DE UNA LLAMADA (DL10, 09-10): hasta hoy, el limite
+/// de la 3060 dicho en la linea de la division, no en la de la llamada (eso
+/// lo prueba ahora la tarjeta de juguete, `tests/juguete.rs`). Ahora la
+/// gpu fn llamada se escribe en linea en las dos tarjetas, con los bits de
+/// Rust.
 #[test]
-fn a_limit_inside_a_called_gpu_fn_is_said_where_it_is_written() {
+fn a_division_inside_a_called_gpu_fn_is_exact_on_both_cards() {
     let m = module("mod main \"x\"\ngpu fn tercio(x: f32) -> f32\n    return x / 3.0\ngpu fn f(x: f32) -> f32\n    return tercio(x) + 1.0\nfn main()\n    print(1)\n");
-    let f = m.functions.iter().position(|f| f.name == "f").unwrap();
-    let said = write(&m, f, &RTX_3060_12G).err().expect("la 3060 no divide exacto").1.expect("un limite");
-    assert_eq!((said.code, said.line, said.col), (bmo_titan_front::Code::GpuBody, 3, 14), "{:?}", said);
-    let k = write(&m, f, &CPU).unwrap_or_else(|e| panic!("{}", e.0));
-    judge(&k).unwrap();
-    verify(&m, f, &k).unwrap();
+    let (_, ks) = en_las_dos(&m, "f");
+    let want: Vec<u32> = XS.iter().map(|&x| (x / 3.0 + 1.0).to_bits()).collect();
+    como_rust(&ks, &[f32s(&XS)], &want);
 }
