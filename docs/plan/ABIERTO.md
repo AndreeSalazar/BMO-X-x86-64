@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   739 casillas ABIERTAS en 68 planes
+   740 casillas ABIERTAS en 68 planes
    584 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -25,7 +25,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [`PLAN_EL_AISLAMIENTO.md`](PLAN_EL_AISLAMIENTO.md) -- 4 de 5 hechas, faltan 1
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_LA_ENTRADA.md`](PLAN_LA_ENTRADA.md) -- 9 de 11 hechas, faltan 2
-- [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 de 10 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_EL_CENTAURO.md`](PLAN_EL_CENTAURO.md) -- 32 de 35 hechas, faltan 3
 - [`PLAN_LISTAS_Y_MAPAS.md`](PLAN_LISTAS_Y_MAPAS.md) -- 9 de 12 hechas, faltan 3
@@ -556,6 +555,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
 - [ ] S7 -- LOS CARRILES: 4 u 8 invocaciones por instruccion
 
+## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 3 abiertas, 8 hechas
+
+*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
+
+- [ ] E6 -- SALTOS, BUCLES, switch Y ENTEROS, del SM5 y del DXIL (02-10; el anfitrion, hecho)
+- [ ] E7 -- EL VIGILANTE: un trabajo de la 3060 que no vuelve (el TDR de BMO-X)
+- [ ] E8 -- TODA LA LISTA DE LA CASA EN LA 3060 (09-10)
+
 ## [`PLAN_LISTAS_Y_MAPAS.md`](PLAN_LISTAS_Y_MAPAS.md) -- 3 abiertas, 9 hechas
 
 *PLAN LISTAS Y MAPAS -- lo que CRECE mientras el programa corre*
@@ -599,13 +606,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] R8 -- el PRESUPUESTO de plegado (7.3): un bucle sin lee() que pasa de STEPS se EMITE en vez de d
 - [ ] R10 -- del PROPIETARIO: las leyes nuevas de lee() y numero(t), con --sellar (toolchain/tools/tit
-
-## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 2 abiertas, 8 hechas
-
-*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
-
-- [ ] E6 -- SALTOS, BUCLES, switch Y ENTEROS, del SM5 y del DXIL (02-10; el anfitrion, hecho)
-- [ ] E7 -- EL VIGILANTE: un trabajo de la 3060 que no vuelve (el TDR de BMO-X)
 
 ## [`PLAN_REX.md`](PLAN_REX.md) -- 2 abiertas, 15 hechas
 

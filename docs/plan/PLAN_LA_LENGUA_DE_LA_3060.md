@@ -641,6 +641,78 @@ reinicia la GPU); en BMO-X no hay nada igual -- ni en
   ambitos de `toolchain/tools/ambitos/AMBITOS.txt`, los guardianes de
   `toolchain/tools/*` con `--check`.
 
+## [ ] E8 -- TODA LA LISTA DE LA CASA EN LA 3060 (09-10)
+
+Del propietario, el 09-10: *"hasta el final que tenga todo el ASM de GPU
+rtx 3060 12G"*. La casa (el `Programa` de PROTON-X y de TITAN++) sabe
+operaciones que el emisor de la 3060 todavia dice que NO -- `NoEmite::Operacion`
+en su sitio --, y entonces ese sombreador va por la CPU. E8 las trae, una a
+una, con la misma vara de siempre: los BITS de la casa en el simulador, el
+juez diciendo que si (R0..R6, y R7 para el cuerpo de una app), y el metal
+despues.
+
+- **Lo que decia que NO el 09-10**, y lo que pide cada cosa:
+
+```text
+   Mate exactas    redondeos, frac, es_nan..., los bits,   E8a: HECHO (abajo),
+                   los medios floats                        con lo que R7 deja
+   arrays          LeeIndexado, EscribeIndexado,            E8b: con SEL en
+                   ConstantesEn                             cadena (R7 lo deja)
+   discard         Descarta (el KILL de la 3060)            R7: un EXIT con
+                                                            guarda, o KILL
+   olas            vote, shfl (Ola)                         R7, y el simulador
+                                                            por warp
+   texturas        arrays, cubos, 3D, mips, Load,           TEX/TLD con su asa:
+                   GetDimensions, EligeTextura              el kernel la pone
+   Mate de series  sin, cos, tan, exp2, log2, los arcos,    sus bits salen de
+                   los hiperbolicos (la casa, f64)          f64: DADD/DMUL/DFMA
+                                                            no estan en R7
+   computo         IdHilo, Barrera, la memoria compartida,  LB8 de
+                   UAV, atomicos, el contador               PLAN_LAS_LIBRERIAS
+   geometria       EntradaDe, Emite, Corta                  VERRANO no tiene
+                                                            esa etapa
+```
+
+- **Lo que es del propietario** (R7 es la puerta de las apps, Ring 0): que
+  instrucciones nuevas deja R7 a un cuerpo de app (KILL o el EXIT con
+  guarda, VOTE, SHFL, las de f64), y por que camino van los bits EXACTOS de
+  las de series (DL10 dijo exactos: en f64 en la 3060 como la casa, u otras
+  cuentas de f32 que den los mismos bits -- que la casa cambie las suyas es
+  tambien una salida --).
+- **E8a, las Mate EXACTAS (09-10, hecho en el anfitrion):**
+  - `proton-x-sm86/src/mates.rs`: `RedondoPar`, `Suelo`, `Techo`, `Trunca`,
+    `Frac`; `EsNan`, `EsInf`, `EsFinito`, `EsNormal`; `CuentaBits`,
+    `InvierteBits`, `PrimerBitBajo`, `PrimerBitAlto`,
+    `PrimerBitAltoConSigno`; `F16aF32` y `F32aF16`. Las dieciseis con lo que
+    R7 YA deja (FADD, FMUL, FSETP, ISETP, SEL, IADD3, IMAD, LOP3, SHF, I2F,
+    F2I): el juez no cambia ni una linea.
+  - Como: truncar es F2I.TRUNC e I2F con |x| < 2^23, con el SIGNO de x (-0.5
+    da -0, como la casa); suelo, truncar menos uno si se paso; techo,
+    -suelo(-x) por los bits; al par, (|x| + 2^23) - 2^23 -- la suma redondea
+    al par --; frac, la misma resta que la casa. La clase, por FSETP
+    (desordenada para el NaN) y la normal por su exponente. Los bits, por
+    SWAR (contar, invertir; el primero por arriba, derramando). Los medios
+    floats por sus campos, con los bordes de la casa: su NaN (0x7E00), el
+    infinito desde 65520 y los subnormales al par. Cada cuenta escribe su
+    destino en la ULTIMA instruccion (`x = f(x)` no pisa lo que lee), con
+    los predicados P1..P3 (el P0 es de las comparaciones fundidas).
+  - Como se sabe (`pruebas_mates.rs`): cada una, en los dos ABI, juzgada
+    (R0..R6 y R7), sobre los bordes de cada exponente, 20 000 al azar y, la
+    de medio a f32, los 65 536 medios (tambien con basura arriba): los
+    MISMOS bits que `Mate::aplicar` -- exactos los enteros y los si/no, y en
+    los f32 un NaN por otro --. Saboteada (sin el signo de truncar), cae en
+    el primer -0. Y `x = f(x)` tres vueltas en un bucle da lo de la casa.
+  - Lo que cuestan, con su entrada y su EXIT (`lo_que_cuesta_cada_mate`,
+    el ABI de registros): la clase de un numero, 3 instrucciones (la
+    normal, 6); truncar y al par, 7; suelo, 10; frac, 11; techo, 12; contar
+    bits, 13; el primer bit por abajo, 18; de medio a f32, 23; invertir y el
+    primero por arriba, 26; con signo, y de f32 a medio, 29. De 5 a 11
+    registros. Caben de sobra en un hueco de la tuberia (128).
+  - Las de SERIES siguen diciendo que NO en su sitio, y van por la CPU.
+- **Como se sabra E8 entera:** cada fila de la tabla, con su prueba en el
+  anfitrion; las que piden R7 o el kernel, cuando el propietario las abra; y
+  en el metal, un sombreador de cada una.
+
 ---
 
 # 4. LO QUE ESTE PLAN NO ES

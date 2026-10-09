@@ -1060,6 +1060,12 @@ la proxima corrida del metal dice cual pesa mas:
   (`proton-x/src/mates.rs`, sin `libm`; contra la del anfitrion y los
   65.536 halfs ida y vuelta), probado con `prueba/mates.dxil`. En la 3060
   (MUFU) todavia no: esos sombreadores van por la CPU (N6.1).
+  **09-10 (E8a de PLAN_LA_LENGUA_DE_LA_3060):** las EXACTAS ya van por la
+  3060 -- los redondeos, frac, la clase de un numero, los bits y los medios
+  floats --, con los bits de la casa y lo que R7 ya deja
+  (`proton-x-sm86/src/mates.rs`). Las de series (sin, cos, tan, exp2, log2,
+  los arcos y los hiperbolicos) siguen por la CPU: su camino exacto en la
+  3060 es del propietario.
 - [x] **N5.7 -- discard** (03-10): `Op::Descarta` (DXIL 82, y
   `discard_nz`/`discard_z` de SM5; `clip()` llega como uno de ellos). El
   interprete acaba ahi y dice que el pixel NO queda; la trama no escribe
