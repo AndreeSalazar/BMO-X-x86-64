@@ -198,6 +198,14 @@ pub const fn palabra0(tipo_sph: u32, tipo: u32) -> u32 {
 /// Sin el, VERRANO V0 colgo el dibujo en los VERTICES (metal 25-09 20:19).
 pub const LEE_O_ESCRIBE: u32 = 1 << 26;
 
+/// ** DL12 (09-10): `CommonWord0.KillsPixels` (bit 15): el de pixel puede
+/// tirar pixeles (KILL, el `discard`). NVIDIA (open-gpu-doc, la SPH, tabla 3:
+/// MrtEnable 14, KillsPixels 15, DoesGlobalStore 16): sin el, "los KIL son
+/// un NOP y disparan una excepcion del hardware"; con el, EarlyZ se apaga.
+/// Solo vale en los de pixel. Lo pone el pegamento si el cuerpo trae un
+/// KILL, y el juez (R5) no deja un KILL sin el.
+pub const MATA_PIXELES: u32 = 1 << 15;
+
 /// **La SPH del de vertice** (tipo 1, VTG): lee `ImapVertexId` (bit 351) y
 /// escribe `OmapPositionX..W` (bits 428..431). StoreReqStart (19:12 de la
 /// palabra 4) mayor que StoreReqEnd: ninguno se relee.

@@ -305,7 +305,7 @@ pub(crate) fn analizar(p: &Programa) -> Analisis {
     let mut fundible = vec![false; m];
     for i in 0..m.saturating_sub(1) {
         if let Op::Compara { d, .. } = p.ops[i] {
-            let lector = matches!(p.ops[i + 1], Op::Si { c } | Op::RomperSi { c, .. } | Op::Elige { c, .. } if c == d);
+            let lector = matches!(p.ops[i + 1], Op::Si { c } | Op::RomperSi { c, .. } | Op::Elige { c, .. } | Op::Descarta { c } if c == d);
             let d = d as usize;
             fundible[i] = lector && !variable[d] && lecturas[d].len() == 1 && escrituras[d].len() == 1;
         }

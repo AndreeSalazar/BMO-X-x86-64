@@ -906,8 +906,14 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
                     return Err(NoEmite::Operacion(i));
                 }
             }
-            // N5.7: `discard` (el KILL de la 3060) todavia no: va por la CPU.
-            Op::Descarta { .. } => return Err(NoEmite::Operacion(i)),
+            // ** DL12 (09-10): `discard` (N5.7), el KILL de la 3060 con su
+            // guarda: P0 = los bits de `c` no son 0 (o la Compara fundida de
+            // justo antes), y el hilo acaba ahi. Su pixel no se escribe: la
+            // SPH dice KillsPixels (lo pone el pegamento; R5 lo exige).
+            Op::Descarta { c: cond } => {
+                e.condicion(cond, &mut paso)?;
+                e.poner_meta(c::kill(0, 0), Meta { lee_p: Some((0, true)), ..Meta::de(Clase::Nada, None, [None; 3]) });
+            }
             // ** E8b (09-10): los arrays (N5.10), sin memoria (`indexado.rs`).
             Op::LeeIndexado { d, base, n, i: indice } => e.lee_indexado(d, base, n, indice, i, &mut paso)?,
             Op::EscribeIndexado { base, n, i: indice, s } => e.escribe_indexado(base, n, indice, s, i, &mut paso)?,
@@ -987,3 +993,5 @@ mod pruebas_cociente;
 mod pruebas_mates;
 #[cfg(test)]
 mod pruebas_indexado;
+#[cfg(test)]
+mod pruebas_descarte;

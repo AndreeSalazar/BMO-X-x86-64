@@ -7,8 +7,9 @@
 //! MOV, TEX (P3b4c.8: el asa, a [`Maquina::muestrear`]), EXIT y NOP, con registros, inmediatos y constantes, `-`, `|x|` y
 //! `.SAT`; y desde E6 (02-10) FSETP, ISETP, SEL, IADD3 y BRA, con los
 //! predicados P0..P6 y el GUARDA de cada instruccion; desde E6c y E6d las
-//! de enteros: IMAD, IMAD.HI, LOP3, SHF, IMNMX, IABS, I2F y F2I; y desde
-//! DL10 (09-10) FFMA, con un redondeo y en sus cuatro modos (`fma.rs`) --; cualquier otra
+//! de enteros: IMAD, IMAD.HI, LOP3, SHF, IMNMX, IABS, I2F y F2I; desde
+//! DL10 (09-10) FFMA, con un redondeo y en sus cuatro modos (`fma.rs`); y
+//! desde DL12 (09-10) KILL, que acaba el hilo y deja [`Maquina::matado`] --; cualquier otra
 //! palabra (u otra forma de esas) es [`NoSimula::Instruccion`], nunca un
 //! "seguramente".
 //!
@@ -61,11 +62,13 @@ pub struct Maquina<'a> {
     /// cuando es un numero normal: la 3060 aproxima, y lo que viva de su
     /// inverso tiene que aguantarlo. 0, el de la casa.
     pub inverso_ulp: i32,
+    /// ** DL12: un KILL acabo el hilo (el `discard`): su pixel no queda.
+    pub matado: bool,
 }
 
 impl<'a> Maquina<'a> {
     pub fn nueva(bancos: [&'a [u8]; 8]) -> Self {
-        Maquina { r: [0; 256], p: [false; 7], bancos, muestrear: None, inverso_ulp: 0 }
+        Maquina { r: [0; 256], p: [false; 7], bancos, muestrear: None, inverso_ulp: 0, matado: false }
     }
 
     fn reg(&self, i: usize) -> u32 {
@@ -352,6 +355,12 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
                 continue;
             }
             0x14D => return Ok(pasos),
+            // ** DL12: KILL (su guarda ya se miro arriba) -- solo la forma de
+            // `codifica::kill` --: el hilo acaba y su pixel no queda.
+            0x15B if lo & !0xF000 == 0x95B && hi & ((1 << 41) - 1) == 7 << 23 => {
+                m.matado = true;
+                return Ok(pasos);
+            }
             0x118 => continue,
             _ => return Err(NoSimula::Instruccion(n)),
         };
