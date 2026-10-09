@@ -713,6 +713,29 @@ salieron de lo que pedian sus sombreadores. Asi queda el orden:
                 escritor y la tarjeta CPU)
 ```
 
+**09-10, noche: DONDE ESTAMOS** (del propietario: *"prioriza el DL13 ...
+por completo ... pero no olvides anotar donde estamos"*):
+
+```text
+   el metal      TITAN++ corrio en el Ryzen: `run titan/cubogira.bex`, sus
+                 gpu fn con los numeros del anfitrion, y el escritorio TOMO
+                 su lamina (LB7, nota del 09-10). Lo que falta lo prueba el
+                 propietario: `gpu verrano banco inti` MIENTRAS la app corre
+                 (`05a019d`: el NO ya lo dice), y su `IGUAL al juez`
+   Cyberpunk     nivel 4 de 9 de la escalera (seccion 6 de
+                 PLAN_LAS_TRES_GRANDES): ventana y sonido, sin fotogramas;
+                 la ultima corrida, la duodecima (04-10). Lo siguiente del
+                 metal es G0 de PLAN_LA_3060 (la 3060 despierta 10 de 10),
+                 con su paso 1 del propietario: `powercfg /h off`, ErP, y
+                 apagar en vez de reiniciar
+   la 3060 (ASM) hechas en el anfitrion: E8a (la matematica exacta), E8b
+                 (los arrays), DL12a (el discard). AHORA: DL13, entera,
+                 antes que nada (E8d de PLAN_LA_LENGUA_DE_LA_3060). Despues,
+                 por el orden de arriba: TEX/TLD y el LDC con indice (falta
+                 su decision), LB8, DL12b
+   el PR         #26, abierto, con todo lo de arriba
+```
+
 ---
 
 # 5. LAS CASILLAS

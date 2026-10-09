@@ -804,8 +804,9 @@ despues.
     registros), 15 pegado: un PSO con `discard` ya no va por la CPU.
   - En el metal (del propietario): la primera vez que la 3060 tire un pixel
     lo dira el metal.
-- **E8d, las Mate de SERIES en f32 (DL13) -- PREPARADA el 09-10, sin
-  empezar; la siguiente, por el orden del propietario (Cyberpunk primero):**
+- **E8d, las Mate de SERIES en f32 (DL13) -- PREPARADA el 09-10; EMPEZADA
+  esa noche, entera y antes que nada (del propietario: *"prioriza el DL13
+  ... por completo"*):**
   - Lo que se decidio (DL13): la casa deja sus cuentas en f64 y pasa a
     cuentas de f32 que la 3060 repite instruccion a instruccion: los mismos
     bits por construccion.
