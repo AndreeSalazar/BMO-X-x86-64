@@ -234,6 +234,35 @@ pub fn build_package_e1(root: &str, src: &str, read: &mut dyn FnMut(&str) -> Opt
 /// dentro de ella); y la ultima, la CPU, la reserva.
 pub static TARJETAS: [&dyn bmo_prometeo::Tarjeta; 2] = [&bmo_tarjeta_rtx3060_12g::RTX_3060_12G, &bmo_tarjeta_cpu::CPU];
 
+/// ** LO QUE DIBUJA (LB6 de `docs/plan/PLAN_LAS_LIBRERIAS.md`, 08-10): cada gpu
+/// fn de vertice o de pixel de `ks` -- ya escrita, juzgada y con su bateria
+/// pasada en la RTX 3060 12G (`kernels`) --, PEGADA por la tarjeta a la
+/// tuberia de VERRANO y juzgada como en la puerta del kernel; y todas en su
+/// SOBRE, un BSF con un modulo por cada una (su nombre) y el MAPA de la casa
+/// de fuente. `None` si ninguna dibuja. Un NO aqui es de la libreria de la
+/// tarjeta (su emisor, su pegamento o su juez), nunca del programa.
+pub fn sobre(ks: &[bmo_titan_prometeo::Kernel]) -> Result<Option<(Vec<bmo_tarjeta_rtx3060_12g::dibujo::Pegada>, Vec<u8>)>, String> {
+    use bmo_tarjeta_rtx3060_12g::dibujo::{self, Etapa};
+    let rtx = bmo_prometeo::Tarjeta::ficha(&bmo_tarjeta_rtx3060_12g::RTX_3060_12G);
+    let mut pegadas = Vec::new();
+    let mut programas = Vec::new();
+    for k in ks.iter().filter(|k| k.tarjeta.ficha() == rtx) {
+        let etapa = match k.dibujo.as_ref().map(|d| d.forma) {
+            Some(bmo_titan_prometeo::Forma::Vertice { posicion }) => Etapa::Vertice { posicion },
+            Some(bmo_titan_prometeo::Forma::Pixel { posicion }) => Etapa::Pixel { posicion },
+            _ => continue,
+        };
+        pegadas.push(dibujo::pegar(&k.name, &k.programa, etapa).map_err(|e| format!("{}, linea {}: {}", k.file, k.line, e))?);
+        programas.push(&k.programa);
+    }
+    if pegadas.is_empty() {
+        return Ok(None);
+    }
+    let pares: Vec<_> = pegadas.iter().zip(programas).collect();
+    let s = dibujo::sobre(&pares)?;
+    Ok(Some((pegadas, s)))
+}
+
 /// A PACKAGE to a `.bex` (level 9): the root file (its path from the package
 /// and its text), and `read` for the files its `mod`s name. The manifest
 /// names the root.

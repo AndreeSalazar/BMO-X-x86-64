@@ -12,7 +12,10 @@
 //! ```
 //!
 //!    titan sm86 FICHERO.titan [-o CARPETA]  cada gpu fn, como el SASS de la
-//!                                           3060 que el juez acepto (nivel 11)
+//!                                           3060 que el juez acepto (nivel 11);
+//!                                           las que DIBUJAN, pegadas a la
+//!                                           tuberia (`.sm86`) y en el sobre del
+//!                                           paquete (`.bsf`, LB6)
 //!
 //! Desde el nivel 9 el FICHERO es la raiz de un paquete: `titan check
 //! flota/src/main.titan` sigue sus `mod` desde `flota/`, como F1.
@@ -140,17 +143,52 @@ fn main() -> ExitCode {
             if let Err(e) = std::fs::create_dir_all(&carpeta) {
                 return fail(&format!("no pude crear {}: {}", carpeta.display(), e));
             }
-            for k in kernels {
+            for k in &kernels {
                 let dst = carpeta.join(format!("{}.sass", k.name.replace('.', "_")));
                 if let Err(e) = std::fs::write(&dst, k.bytes()) {
                     return fail(&format!("no pude escribir {}: {}", dst.display(), e));
                 }
                 println!("ok: gpu fn {} -> {} ({} SOLO para {}: {} instrucciones, {} registros; su juez dijo que si)", k.name, dst.display(), ficha.lengua, ficha.aparato.modelo, k.viaje.instrucciones, k.viaje.registros);
             }
+            // ** LB6 (08-10): las que DIBUJAN, pegadas a la tuberia de VERRANO
+            // (`.sm86`: la SPH y el codigo, como viajan) y todas en el SOBRE
+            // del paquete (`.bsf`), el que VERRANO lee como lee `cubo.bsf`.
+            let (pegadas, sobre) = match bmo_titan_x86_64::sobre(&kernels) {
+                Ok(Some(x)) => x,
+                Ok(None) => return ExitCode::SUCCESS,
+                Err(why) => return fail(&format!("{} -- es de la libreria de {}, no de {}", why, ficha.nombre, file)),
+            };
+            for g in &pegadas {
+                let dst = carpeta.join(format!("{}.sm86", g.nombre.replace('.', "_")));
+                if let Err(e) = std::fs::write(&dst, &g.bytes) {
+                    return fail(&format!("no pude escribir {}: {}", dst.display(), e));
+                }
+                let etapa = match g.etapa {
+                    bmo_tarjeta_rtx3060_12g::dibujo::Etapa::Vertice { .. } => "de VERTICE",
+                    bmo_tarjeta_rtx3060_12g::dibujo::Etapa::Pixel { .. } => "de PIXEL",
+                };
+                println!("ok: gpu fn {} -> {} ({}, pegada a la tuberia de VERRANO: {} instrucciones con el pegamento; {})", g.nombre, dst.display(), etapa, g.instrucciones, g.veredicto);
+            }
+            let dst = carpeta.join(format!("{}.bsf", nombre_del_paquete(file)));
+            if let Err(e) = std::fs::write(&dst, &sobre) {
+                return fail(&format!("no pude escribir {}: {}", dst.display(), e));
+            }
+            println!("ok: el sobre -> {} ({} bytes: {} gpu fn que dibujan, SM86_V1, con el MAPA de la casa de fuente)", dst.display(), sobre.len(), pegadas.len());
             ExitCode::SUCCESS
         }
         other => fail(&format!("no conozco `{}` (check, arbol, ir, build, sm86)", other)),
     }
+}
+
+/// El nombre del sobre de un paquete (LB6): el de su carpeta para
+/// `cubo/src/main.titan`; el del fichero para uno suelto.
+fn nombre_del_paquete(file: &str) -> String {
+    // La ruta entera: `src/main.titan` desde dentro del paquete tambien.
+    let p = std::fs::canonicalize(file).unwrap_or_else(|_| PathBuf::from(file));
+    let p = p.as_path();
+    let dentro_de_src = p.parent().and_then(Path::file_name).is_some_and(|n| n == "src");
+    let nombre = if dentro_de_src { p.parent().and_then(Path::parent).and_then(Path::file_name) } else { p.file_stem() };
+    nombre.map(|n| n.to_string_lossy().into_owned()).filter(|n| !n.is_empty() && n != "." && n != "..").unwrap_or_else(|| "sobre".into())
 }
 
 /// **What the kernel's load gate will do (J2), done on the PC**: the

@@ -896,6 +896,8 @@ name = "bmo-titan-x86-64"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+ "bmo-bsf",
+ "bmo-cubo",
  "bmo-lower",
  "bmo-prometeo",
  "bmo-tarjeta-cpu",
@@ -904,6 +906,7 @@ dependencies = [
  "bmo-titan-front",
  "bmo-titan-prometeo",
  "bmo-verify",
+ "bmo-verrano",
 ]
 
 [[package]]

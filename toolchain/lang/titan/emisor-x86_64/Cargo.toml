@@ -58,3 +58,10 @@ path = "src/main.rs"
 # El banco EJECUTA el .bex: un `print` que escribe otra cosa se ve igual que
 # uno bueno en un volcado; solo se distinguen corriendolo.
 bmo-lower = { path = "../../../forge/bmo-lower", features = ["emulator"] }
+# LB6 (08-10): el cubo de V0 escrito en TITAN++ se mide contra la tanda de
+# `bmo_cubo` (los bits de cada vertice y el color de cada cara), y su sobre
+# contra el contrato que VERRANO le pide a `cubo.bsf` (su `Vertex`), leido con
+# el lector de BSF de la casa (`tests/cubo.rs`).
+bmo-cubo = { path = "../../../../platform/shared/bmo-cubo" }
+bmo-verrano = { path = "../../../../platform/shared/verrano" }
+bmo-bsf = { path = "../../spirv/bsf" }
