@@ -76,6 +76,8 @@ mod cociente;
 // ** E8 (09-10): la matematica EXACTA de la casa (`Op::Mate`), con lo que la
 // lista blanca de R7 ya deja.
 mod mates;
+// ** E8b (09-10): los arrays, sin memoria: cada indice contra cada elemento.
+mod indexado;
 /// E6 (02-10): lo que se mira antes de emitir un programa que salta.
 mod saltos;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
@@ -906,8 +908,12 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             }
             // N5.7: `discard` (el KILL de la 3060) todavia no: va por la CPU.
             Op::Descarta { .. } => return Err(NoEmite::Operacion(i)),
-            // N5.10: los arrays (registros indexables) todavia no: por la CPU.
-            Op::LeeIndexado { .. } | Op::EscribeIndexado { .. } | Op::ConstantesEn { .. } => return Err(NoEmite::Operacion(i)),
+            // ** E8b (09-10): los arrays (N5.10), sin memoria (`indexado.rs`).
+            Op::LeeIndexado { d, base, n, i: indice } => e.lee_indexado(d, base, n, indice, i, &mut paso)?,
+            Op::EscribeIndexado { base, n, i: indice, s } => e.escribe_indexado(base, n, indice, s, i, &mut paso)?,
+            // Una fila del cbuffer CALCULADA es memoria (c[][]), y R7 no la
+            // deja a un cuerpo de app: es del propietario (E8).
+            Op::ConstantesEn { .. } => return Err(NoEmite::Operacion(i)),
             // E2.5: las olas (`vote`, `shfl` de la 3060) todavia no: por la CPU,
             // donde van de 32 en 32 carriles como en un warp.
             // D4.4: las derivadas de la mip de un muestreo no se emiten: solo
@@ -979,3 +985,5 @@ mod pruebas_libreta;
 mod pruebas_cociente;
 #[cfg(test)]
 mod pruebas_mates;
+#[cfg(test)]
+mod pruebas_indexado;

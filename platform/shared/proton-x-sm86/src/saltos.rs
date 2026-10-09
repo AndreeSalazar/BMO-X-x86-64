@@ -212,6 +212,11 @@ pub(crate) fn analizar(p: &Programa) -> Analisis {
     let mut lecturas: Vec<Vec<usize>> = vec![Vec::new(); n];
     let mut escrituras: Vec<Vec<usize>> = vec![Vec::new(); n];
     let mut inmutable = vec![false; n];
+    // ** E8b (09-10): un ARRAY se lee y se escribe ENTERO -- cualquiera de
+    // sus elementos puede ser el del indice --; y la escritura deja los
+    // demas como estaban, asi que tambien los lee. Cada elemento de un array
+    // que se escribe es una variable (`indexado.rs`).
+    let mut de_array_escrito = vec![false; n];
     for (i, op) in p.ops.iter().enumerate() {
         for &r in leidos(op).iter().flatten() {
             if let Some(l) = lecturas.get_mut(r as usize) {
@@ -225,11 +230,30 @@ pub(crate) fn analizar(p: &Programa) -> Analisis {
                 inmutable[r as usize] |= fija;
             }
         }
+        match *op {
+            Op::LeeIndexado { base, n: k, .. } => {
+                for r in base as usize..base as usize + k as usize {
+                    if let Some(l) = lecturas.get_mut(r) {
+                        l.push(i);
+                    }
+                }
+            }
+            Op::EscribeIndexado { base, n: k, .. } => {
+                for r in base as usize..base as usize + k as usize {
+                    if let (Some(l), Some(e), Some(x)) = (lecturas.get_mut(r), escrituras.get_mut(r), de_array_escrito.get_mut(r)) {
+                        l.push(i);
+                        e.push(i);
+                        *x = true;
+                    }
+                }
+            }
+            _ => {}
+        }
     }
     let mut variable = vec![false; n];
     for r in 0..n {
         let (l, e) = (&lecturas[r], &escrituras[r]);
-        variable[r] = !inmutable[r]
+        variable[r] = de_array_escrito[r] || !inmutable[r]
             && match e.as_slice() {
                 [] => false,
                 [w] => {
