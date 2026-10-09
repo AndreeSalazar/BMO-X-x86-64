@@ -76,6 +76,9 @@ mod cociente;
 // ** E8 (09-10): la matematica EXACTA de la casa (`Op::Mate`), con lo que la
 // lista blanca de R7 ya deja.
 mod mates;
+// ** DL13 (09-10): las de SERIES (seno, coseno, exp2, log2...), la receta de
+// la casa grabada y traducida, una cuenta a una instruccion.
+pub mod series;
 // ** E8b (09-10): los arrays, sin memoria: cada indice contra cada elemento.
 mod indexado;
 /// E6 (02-10): lo que se mira antes de emitir un programa que salta.
@@ -899,8 +902,8 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             Op::Contador { .. } | Op::Atomico { .. } => return Err(NoEmite::Operacion(i)),
             // ** E8 (09-10): las EXACTAS de la casa -- redondeos, frac, la
             // clase de un numero, los bits, los medios floats -- con sus
-            // bits (`mates.rs`). Las de series (sin, cos, exp2, log2...),
-            // todavia no: van por la CPU.
+            // bits (`mates.rs`). ** DL13 (09-10): y las de series (sin, cos,
+            // exp2, log2...), por su receta (`series.rs`).
             Op::Mate { d, a, f } => {
                 if !e.mate(d, a, f, i, &mut paso)? {
                     return Err(NoEmite::Operacion(i));
@@ -995,3 +998,5 @@ mod pruebas_mates;
 mod pruebas_indexado;
 #[cfg(test)]
 mod pruebas_descarte;
+#[cfg(test)]
+mod pruebas_series;

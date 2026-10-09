@@ -128,6 +128,21 @@ pub mod despacho;
 pub mod ranuras;
 /// Las funciones matematicas con los bits de la casa.
 pub mod mates;
+/// ** DL13 (09-10): las Mate de SERIES como RECETAS de cuentas de f32 que la
+/// casa corre y cada tarjeta repite: los mismos bits por construccion.
+pub mod cuentas;
+/// La FMA exacta de f32, sin `libm`.
+pub mod fma;
+/// Seno, coseno y tangente.
+pub mod trigo;
+/// exp2, log2 y e^x.
+pub mod exponencial;
+/// Arcotangente, arcoseno y arcocoseno.
+pub mod arcos;
+/// Senh, cosh y tanh.
+pub mod hiperbolicas;
+#[cfg(test)]
+mod pruebas_series;
 /// Los UAV y los buferes.
 pub mod bufer;
 /// Los formatos DXGI de un texel o de un elemento.

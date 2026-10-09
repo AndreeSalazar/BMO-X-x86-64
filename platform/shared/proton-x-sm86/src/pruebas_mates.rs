@@ -16,9 +16,9 @@ use bmo_proton_x::dxil::programa::{Op, Programa};
 use bmo_proton_x::mates::Mate;
 
 use crate::simula::{correr, Maquina};
-use crate::{emitir, emitir_con, Abi, Emitido, NoEmite, Precarga};
+use crate::{emitir, emitir_con, Abi, Emitido, Precarga};
 
-const TECHO: u32 = 64;
+pub(crate) const TECHO: u32 = 64;
 
 const EXACTAS: [Mate; 16] = [
     Mate::Trunca,
@@ -40,7 +40,7 @@ const EXACTAS: [Mate; 16] = [
 ];
 
 /// `y = f(x)`: una entrada, la cuenta, una salida.
-fn una(f: Mate) -> Programa {
+pub(crate) fn una(f: Mate) -> Programa {
     ejemplos::programa(
         vec![Op::Entrada { d: 0, elemento: 0, componente: 0 }, Op::Mate { d: 1, a: 0, f }, Op::Salida { s: 1, elemento: 0, componente: 0 }],
         2,
@@ -49,7 +49,7 @@ fn una(f: Mate) -> Programa {
 }
 
 /// Lo que da el SASS con el ABI del banco: la entrada en c[1].
-fn en_banco(codigo: &[(u64, u64)], x: u32) -> u32 {
+pub(crate) fn en_banco(codigo: &[(u64, u64)], x: u32) -> u32 {
     let banco: Vec<u8> = [x, 0, 0, 0].iter().flat_map(|v| v.to_le_bytes()).collect();
     let mut m = Maquina::nueva([&[], &banco, &[], &[], &[], &[], &[], &[]]);
     correr(codigo, &mut m).unwrap();
@@ -58,7 +58,7 @@ fn en_banco(codigo: &[(u64, u64)], x: u32) -> u32 {
 
 /// Lo mismo con el ABI de registros: la entrada precargada, basura en todo
 /// lo demas (nadie lee un registro sin escribirlo).
-fn en_registros(e: &Emitido, x: u32) -> u32 {
+pub(crate) fn en_registros(e: &Emitido, x: u32) -> u32 {
     let mut m = Maquina::nueva([&[]; 8]);
     for (i, r) in m.r.iter_mut().enumerate() {
         *r = 0x7FC0_0000 | i as u32;
@@ -76,7 +76,7 @@ fn en_registros(e: &Emitido, x: u32) -> u32 {
 /// La salida de la casa y la de la 3060 son la misma: exacta si es un entero
 /// o un si/no; si es un f32, un NaN vale por otro (la casa los cuenta en Rust
 /// y la 3060 da el suyo).
-fn igual(f: Mate, x: u32, sass: u32, abi: &str) {
+pub(crate) fn igual(f: Mate, x: u32, sass: u32, abi: &str) {
     let casa = f.aplicar(x);
     let real = !(f.da_entero() || f.da_booleano());
     let bien = sass == casa || (real && f32::from_bits(sass).is_nan() && f32::from_bits(casa).is_nan());
@@ -86,7 +86,7 @@ fn igual(f: Mate, x: u32, sass: u32, abi: &str) {
 /// Los bordes: ceros, unos, mitades, potencias de dos y sus vecinas, los de
 /// 2^23 y 2^24, los subnormales, los enormes, los infinitos, NaN de cada
 /// signo y carga; y los bordes de los medios floats.
-fn bordes() -> Vec<u32> {
+pub(crate) fn bordes() -> Vec<u32> {
     let mut v: Vec<u32> = vec![0, 0x8000_0000, 1, 0x8000_0001, 0x007F_FFFF, 0x0080_0000, 0x7F7F_FFFF, 0x7F80_0000, 0xFF80_0000, 0x7FC0_0000, 0xFFC0_0000, 0x7F80_0001, 0x7FFF_FFFF, 0xFFFF_FFFF, 0x7FBF_FFFF];
     for x in [0.5f32, 1.0, 1.5, 2.5, 3.5, 0.49999997, 0.50000006, 1e-7, 123.456, 8388607.5, 8388608.0, 8388609.0, 16777215.0, 16777216.0, 1e30, 65504.0, 65519.0, 65520.0, 65535.0, 6.1035156e-5, 6.097555e-5, 5.9604645e-8, 2.9802322e-8, 2.9802326e-8, 8.940697e-8] {
         v.push(x.to_bits());
@@ -101,7 +101,7 @@ fn bordes() -> Vec<u32> {
     v
 }
 
-fn azar(n: usize, semilla: u32) -> Vec<u32> {
+pub(crate) fn azar(n: usize, semilla: u32) -> Vec<u32> {
     let mut z = semilla;
     (0..n)
         .map(|_| {
@@ -113,7 +113,7 @@ fn azar(n: usize, semilla: u32) -> Vec<u32> {
 
 /// Los dos ABI, juzgados: el del banco por R0..R6 y el de registros, ademas,
 /// por R7 (el cuerpo de una app).
-fn emitidas(f: Mate) -> (Emitido, Emitido) {
+pub(crate) fn emitidas(f: Mate) -> (Emitido, Emitido) {
     let p = una(f);
     let e = emitir(&p, TECHO).unwrap_or_else(|x| panic!("{:?}: {:?}", f, x));
     let r = emitir_con(&p, TECHO, Abi::Registros).unwrap_or_else(|x| panic!("{:?}: {:?}", f, x));
@@ -145,14 +145,8 @@ fn cada_mate_exacta_da_los_bits_de_la_casa() {
     }
 }
 
-/// ** Lo que la casa cuenta por SERIES no se emite: lo dice la 3060, en su
-/// sitio (la operacion), y va por la CPU.
-#[test]
-fn las_de_series_no_se_emiten() {
-    for f in [Mate::Sin, Mate::Cos, Mate::Tan, Mate::Exp2, Mate::Log2, Mate::Acos, Mate::Asin, Mate::Atan, Mate::Cosh, Mate::Senh, Mate::Tanh] {
-        assert_eq!(emitir(&una(f), TECHO).err(), Some(NoEmite::Operacion(1)), "{:?}", f);
-    }
-}
+/// ** 09-10, DL13: lo que la casa cuenta por SERIES ya se emite, por su
+/// receta: sus pruebas, en `pruebas_series.rs`.
 
 /// ** `x = f(x)` -- la misma variable de entrada y de salida, en un bucle
 /// -- no pisa lo que aun lee: cada cuenta escribe su destino en la ultima.
