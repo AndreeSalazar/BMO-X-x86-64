@@ -10,9 +10,10 @@
 //!    limpiar    lo que nadie lee, fuera (un registro escrito y soltado sin
 //!               leer seria una carrera de escrituras)
 //!    traducir   FFMA, FMUL, FADD, FSETP, ISETP, SEL, IADD3, IMAD, LOP3,
-//!               SHF y MOV -- lo que R7 ya deja a un cuerpo de app: el juez
-//!               no cambia --. Una constante va de inmediato donde la
-//!               instruccion la acepta (la b); si no, un MOV, UNO por
+//!               SHF y MOV -- lo que R7 deja a un cuerpo de app --. Una
+//!               constante va de inmediato donde la instruccion la acepta
+//!               (la b; en la FFMA, desde el 09-10, tambien la c: la forma
+//!               2, que el propietario abrio en R7); si no, un MOV, UNO por
 //!               constante y receta
 //!    registros  cada valor, en un registro de paso desde que se escribe
 //!               hasta su ultima lectura; los predicados, P1..P6 (P0 es el
@@ -274,9 +275,14 @@ fn a_registro(p: &Paso) -> Vec<u32> {
     let mut v = Vec::new();
     match *p {
         Paso::Fma { a, b, c, .. } => {
-            let (a, _) = conmuta_f(a, b);
+            let (a, b) = conmuta_f(a, b);
             v.extend(k_de(a));
-            v.extend(k_de(c));
+            // ** 09-10: la c constante va de inmediato (la forma 2) si la b
+            // es un registro; si las dos son constantes, la b de inmediato y
+            // la c en su registro.
+            if matches!(b, F::K(_)) {
+                v.extend(k_de(c));
+            }
         }
         Paso::Mul { a, b, .. } | Paso::Suma { a, b, .. } => {
             let (a, _) = conmuta_f(a, b);
@@ -477,7 +483,13 @@ impl Emisor<'_> {
             Paso::Fma { a, b, c: cc, .. } => {
                 let x = dest.unwrap();
                 let (a, b) = conmuta_f(a, b);
-                let (fa, fbb, fc) = (fr(a), fb(b), fr(cc));
+                // La c constante con la b en registro: la forma 2 (el
+                // inmediato en la c), la que R7 deja desde el 09-10.
+                let (fa, fbb, fc) = match (b, cc) {
+                    (F::K(_), _) => (fr(a), fb(b), fr(cc)),
+                    (_, F::K(k)) => (fr(a), fr(b), Fuente::Imm(k)),
+                    _ => (fr(a), fr(b), fr(cc)),
+                };
                 self.poner(c::ffma(x, fa, fbb, fc, false, 0), Clase::Fma, Some(x), lee3([fa, fbb, fc]));
             }
             Paso::Mul { a, b, .. } => {

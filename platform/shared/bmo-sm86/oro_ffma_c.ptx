@@ -1,0 +1,38 @@
+// oro_ffma_c.ptx -- el PTX de las PALABRAS DE ORO de la FFMA con el
+// INMEDIATO EN LA c (`ORO_FFMA_C` en src/codifica.rs; la forma 2, la que el
+// propietario abrio en R7 el 09-10 para las recetas de DL13).
+// Rehacerlas (CUDA 12.9 y nvdisasm 13.4.92, de PyPI):
+//   pip download --no-deps "nvidia-cuda-nvcc-cu12==12.9.*"
+//   pip download --no-deps "nvidia-cuda-nvdisasm==13.4.*"
+//   ptxas -arch=sm_86 -O3 oro_ffma_c.ptx -o oro.cubin
+//   nvdisasm -hex oro.cubin
+// Lo que dicen: en la forma 2 el inmediato va en 32..64 y la b se muda al
+// hueco de la c (64..72), con su `|x|` en 74 y su `-` en 75. `ptxas` mueve
+// el `-` de una fuente a la otra cuando le conviene (`-R5` en la b, aunque
+// el PTX niega la a): los dos son el mismo producto.
+.version 7.8
+.target sm_86
+.address_size 64
+.visible .entry k(.param .u64 p)
+{
+  .reg .f32 %f<20>;
+  .reg .b64 %rd<4>;
+  ld.param.u64 %rd1, [p];
+  cvta.to.global.u64 %rd2, %rd1;
+  ld.global.f32 %f1, [%rd2];
+  ld.global.f32 %f2, [%rd2+4];
+  ld.global.f32 %f3, [%rd2+8];
+  neg.f32 %f9, %f2;
+  fma.rn.f32 %f4, %f1, %f9, 0f3F000000;
+  abs.f32 %f10, %f3;
+  fma.rn.f32 %f5, %f4, %f10, 0fBEAAAAAB;
+  neg.f32 %f11, %f5;
+  fma.rn.f32 %f6, %f11, %f1, 0f40490FDB;
+  fma.rn.sat.f32 %f7, %f6, %f6, 0f3DCCCCCD;
+  abs.f32 %f12, %f7;
+  neg.f32 %f13, %f12;
+  fma.rn.f32 %f8, %f13, %f2, 0fC2C80000;
+  fma.rn.f32 %f14, %f8, %f1, 0f3F000000;
+  st.global.f32 [%rd2+12], %f14;
+  ret;
+}

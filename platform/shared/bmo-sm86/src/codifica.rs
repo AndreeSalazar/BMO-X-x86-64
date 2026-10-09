@@ -112,12 +112,25 @@ pub fn fmul(rd: u8, a: Fuente, b: Fuente, sat: bool, control: u64) -> (u64, u64)
     dos(0x020, 4, 5, 1 << 22, rd, a, b, sat, control)
 }
 
-/// `FFMA[.SAT] Rd, a, b, c` (`c` un registro).
+/// `FFMA[.SAT] Rd, a, b, c` (`c` un registro, o un inmediato).
+///
+/// ** Con `c` INMEDIATO, la forma 2 (`ORO_FFMA_C`, 09-10): el inmediato va
+/// en 32..64 y la `b` -- que entonces tiene que ser un registro -- se muda al
+/// hueco de la `c` (64..72, con su `|x|` en 74 y su `-` en 75). Una `b` que
+/// no es un registro con una `c` inmediata no se puede escribir: la de la
+/// `c` se queda en RZ, como antes, y lo dice el `debug_assert`.
 pub fn ffma(rd: u8, a: Fuente, b: Fuente, c: Fuente, sat: bool, control: u64) -> (u64, u64) {
-    let (rc, mc) = match c {
+    let hueco_c = |f: Fuente| match f {
         Fuente::R { r, neg, abs } => (r, (abs as u64) << 10 | (neg as u64) << 11),
         _ => (RZ, 0),
     };
+    if let (Fuente::Imm(v), Fuente::R { .. }) = (c, b) {
+        let (rb, mb) = hueco_c(b);
+        let (lo, hi) = dos(0x023, 2, 3, 0, rd, a, Fuente::Imm(v), sat, control);
+        return (lo, hi | rb as u64 | mb);
+    }
+    debug_assert!(!matches!(c, Fuente::Imm(_)), "FFMA con la c inmediata pide la b en un registro");
+    let (rc, mc) = hueco_c(c);
     let (lo, hi) = dos(0x023, 4, 5, 0, rd, a, b, sat, control);
     (lo, hi | rc as u64 | mc)
 }
@@ -429,6 +442,19 @@ pub const ORO_DL10: &[(&str, u64, u64)] = &[
     ("FFMA.RP R0, R12, R10, R11", 0x0000000a0c007223, 0x000fe2000000800b),
 ];
 
+/// Las PALABRAS DE ORO de la FFMA con el INMEDIATO EN LA c (la forma 2; R7 la
+/// deja desde el 09-10, por decision del propietario): `ptxas -arch=sm_86
+/// -O3` (CUDA 12.9) sobre `oro_ffma_c.ptx` (al lado de este crate), leido con
+/// `nvdisasm -hex` (13.4). La `b`, con sus `-` y `|x|`, en el hueco de la c.
+pub const ORO_FFMA_C: &[(&str, u64, u64)] = &[
+    ("FFMA R7, R0, -R5, 0.5", 0x3f00000000077423, 0x004fc80000000805),
+    ("FFMA R7, |R4|, R7, -0.3333333432674407959", 0xbeaaaaab04077423, 0x008fc80000000207),
+    ("FFMA R7, R0, -R7, 3.1415927410125732422", 0x40490fdb00077423, 0x000fc80000000807),
+    ("FFMA.SAT R4, R7, R7, 0.10000000149011611938", 0x3dcccccd07047423, 0x000fc80000002007),
+    ("FFMA R5, R5, -|R4|, -100", 0xc2c8000005057423, 0x000fc80000000c04),
+    ("FFMA R5, R0, R5, 0.5", 0x3f00000000057423, 0x000fca0000000005),
+];
+
 /// El control de una de ALU (el de `ptxas` y del driver: 6 ciclos, el bit 4,
 /// sin barreras): el de las combinaciones leidas por `nvdisasm`.
 pub const ALU: u64 = 6 | 1 << 4 | 7 << 5 | 7 << 8;
@@ -484,6 +510,9 @@ pub const LEIDAS: &[(&str, u64, u64)] = &[
         ("FFMA R6, R7, c[0x0][0x1fc], |R8|", 0x00007f0007067a23, 0x000fec0000000408),
         ("MOV R0, c[0x1][0x10]", 0x0040040000007a02, 0x000fec0000000f00),
         ("EXIT", 0x000000000000794d, 0x000fec0003800000),
+        // 09-10, la forma 2: la b solo con `|x|`, y las dos negadas.
+        ("FFMA R1, R2, |R3|, 2", 0x4000000002017423, 0x000fec0000000403),
+        ("FFMA R1, -R2, -R3, -1", 0xbf80000002017423, 0x000fec0000000903),
 ];
 
 /// Las PALABRAS DE ORO de E6 (02-10): `ptxas -arch=sm_86 -O3` (CUDA 12.9)
@@ -627,6 +656,8 @@ mod pruebas {
             ffma(6, r(7), c(0, 0x1fc), abs(8), false, k),
             mov(0, c(1, 0x10), k),
             exit(k),
+            ffma(1, r(2), abs(3), Fuente::Imm(2.0f32.to_bits()), false, k),
+            ffma(1, neg(2), neg(3), Fuente::Imm((-1.0f32).to_bits()), false, k),
         ];
         for ((texto, lo, hi), h) in LEIDAS.iter().zip(hechas) {
             assert_eq!(h, (*lo, *hi), "{texto}");
@@ -791,5 +822,27 @@ mod pruebas {
             assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
         }
         assert_eq!(ffma_redondeo(7, r(4), r(7), r(4), Redondeo::Cercano, k(1)), ffma(7, r(4), r(7), r(4), false, k(1)));
+    }
+
+    /// ** La FFMA con el inmediato en la c (forma 2, 09-10): las palabras de
+    /// `ptxas`, los 128 bits, y la de siempre (la c en un registro) igual.
+    #[test]
+    fn la_ffma_con_la_c_inmediata_como_ptxas() {
+        let k = |i: usize| ORO_FFMA_C[i].2 >> 41;
+        let imm = |x: f32| Fuente::Imm(x.to_bits());
+        let hechas: [(u64, u64); 6] = [
+            ffma(7, r(0), neg(5), imm(0.5), false, k(0)),
+            ffma(7, abs(4), r(7), Fuente::Imm(0xbeaa_aaab), false, k(1)),
+            ffma(7, r(0), neg(7), Fuente::Imm(0x4049_0fdb), false, k(2)),
+            ffma(4, r(7), r(7), Fuente::Imm(0x3dcc_cccd), true, k(3)),
+            ffma(5, r(5), Fuente::R { r: 4, neg: true, abs: true }, imm(-100.0), false, k(4)),
+            ffma(5, r(0), r(5), imm(0.5), false, k(5)),
+        ];
+        for ((texto, lo, hi), h) in ORO_FFMA_C.iter().zip(hechas) {
+            assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
+        }
+        // La de siempre no cambia: la c en un registro, el inmediato en la b.
+        assert_eq!(ffma(11, r(0), r(7), r(9), false, ORO[17].2 >> 41), (ORO[17].1, ORO[17].2));
+        assert_eq!(ffma(2, r(3), imm(0.5), r(4), false, ALU), (LEIDAS[0].1, LEIDAS[0].2));
     }
 }

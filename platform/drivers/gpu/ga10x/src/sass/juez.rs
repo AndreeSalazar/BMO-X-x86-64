@@ -483,7 +483,9 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
 /// PROTON-X (`bmo-proton-x-sm86`) y nada mas:
 ///
 /// ```text
-///    FADD FMUL FFMA FMNMX MOV   con registros o inmediatos -- sin c[][]
+///    FADD FMUL FFMA FMNMX MOV   con registros o inmediatos -- sin c[][];
+///                               la FFMA, el inmediato en la b o (09-10)
+///                               en la c
 ///    MUFU                       con un registro
 ///    FSETP ISETP SEL IADD3      (E6) igual: registros o inmediatos
 ///    IMAD LOP3 SHF IMNMX        (E6c) los enteros: igual
@@ -527,9 +529,14 @@ pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) 
         let formas: &[u32] = match op {
             // FADD: inmediato en la forma 2 (y c[][] en la 3).
             0x021 => &[1, 2],
-            // FMUL, FFMA, FMNMX, MOV, y (E6) FSETP, ISETP, SEL, IADD3:
+            // ** FFMA: el inmediato en la b (forma 4) o, desde el 09-10, en
+            // la c (forma 2: la b se muda al hueco de la c). Lo abrio el
+            // propietario para las recetas de DL13: un inmediato no es
+            // memoria. c[][] (3 y 5) sigue fuera.
+            0x023 => &[1, 2, 4],
+            // FMUL, FMNMX, MOV, y (E6) FSETP, ISETP, SEL, IADD3:
             // inmediato en la 4 (y c[][] en la 5).
-            0x020 | 0x023 | 0x009 | 0x002 | 0x00B | 0x00C | 0x007 | 0x010 | 0x024 | 0x012 | 0x019 | 0x017 => &[1, 4],
+            0x020 | 0x009 | 0x002 | 0x00B | 0x00C | 0x007 | 0x010 | 0x024 | 0x012 | 0x019 | 0x017 => &[1, 4],
             0x106 | 0x105 => &[1],
             // E6d: la division -- IMAD.HI.U32 (con c = RZ: el par no se
             // usa; y con inmediato, la de una constante) e IABS.
@@ -964,6 +971,14 @@ mod pruebas {
         // Con predicado (P0): no.
         let (lo, hi) = c::mov(0, c::r(1), 1);
         assert_eq!(r7(&[(lo & !(0xF << 12), hi), fin], 4).instruccion, 0);
+        // ** 09-10 (el propietario): la FFMA con el inmediato en la c, SI
+        // -- y con la b en su hueco, sus registros siguen siendo del cuerpo --.
+        let imm = Fuente::Imm(0x3F00_0000);
+        assert_eq!(juzgar_cuerpo_de_app(&[c::ffma(1, c::r(0), c::neg(2), imm, false, 1), fin], 4), Ok(()));
+        assert_eq!(r7(&[c::ffma(4, c::r(0), c::r(2), imm, false, 1), fin], 4).que, 4);
+        // Con la c en un banco de constantes (la forma 3), sigue siendo NO.
+        let (lo, hi) = c::ffma(1, c::r(0), c::r(2), imm, false, 1);
+        assert_eq!(r7(&[(lo & !(7 << 9) | 3 << 9, hi), fin], 4).que, 3);
     }
 
     /// E5: la puerta del kernel acepta 128 instrucciones (un HUECO de

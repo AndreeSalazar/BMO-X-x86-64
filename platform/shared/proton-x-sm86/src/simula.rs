@@ -310,9 +310,11 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
             // ** DL10: FFMA Rd, a, b, Rc -- UN redondeo, en su modo (78..80),
             // con la FFMA exacta (`fma.rs`). La tercera, con su `-` (75) y su
             // `|x|` (74); sin `.SAT` ni nada mas (no la emite el emisor).
-            0x023 if matches!(forma, 1 | 4) && hi & ((1 << 41) - 1) & !(0xFF | 0xF << 8 | 3 << 14) == 0 => {
-                let b = segunda(4, 5).ok_or(NoSimula::Instruccion(n))?;
-                let c = modificar(m.reg((hi & 0xFF) as usize), hi >> 11 & 1 != 0, hi >> 10 & 1 != 0);
+            // ** 09-10, la forma 2: el inmediato es la c, y en el hueco de la
+            // c (64..72, con 74 y 75) esta la b.
+            0x023 if matches!(forma, 1 | 2 | 4) && hi & ((1 << 41) - 1) & !(0xFF | 0xF << 8 | 3 << 14) == 0 => {
+                let hueco_c = modificar(m.reg((hi & 0xFF) as usize), hi >> 11 & 1 != 0, hi >> 10 & 1 != 0);
+                let (b, c) = if forma == 2 { (hueco_c, (lo >> 32) as u32) } else { (segunda(4, 5).ok_or(NoSimula::Instruccion(n))?, hueco_c) };
                 let modo = match hi >> 14 & 3 {
                     0 => crate::fma::Redondeo::Cercano,
                     1 => crate::fma::Redondeo::Abajo,
