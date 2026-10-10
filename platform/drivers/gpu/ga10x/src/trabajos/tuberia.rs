@@ -503,7 +503,18 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
         Some(desde)
     };
     let z = z_de(estado).ok()?;
-    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 })
+    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 };
+    cabe(&d).then_some(d)
+}
+
+/// ** Q0a1 (EL_FOCO, 10-10): un destino de CUALQUIER medida que quepa
+/// (`Destino::valido`), salvo con Z: la sombra en bloque (`sombra`) y el
+/// bufer de Z (`profundidad`) miden 1280x720.
+pub const fn cabe(d: &Dibujo) -> bool {
+    match (d.z, d.destino) {
+        (Some(_), Some((_, dst))) => dst.es_la_de_verrano(),
+        _ => true,
+    }
 }
 
 /// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
@@ -1010,6 +1021,34 @@ mod pruebas {
         assert_eq!(&a.o[..a.n], &b.o[..b.n]);
     }
 
+    /// ** Q0a1 (EL_FOCO, 10-10): un destino de 640x360 da ordenes de 640x360
+    /// -- el alto del destino de color, el recorte de la superficie, el
+    /// viewport (x * 320 + 320, y * -180 + 180) y su recorte --; y la
+    /// pantalla, las de siempre (1280x720).
+    #[test]
+    fn q0a1_las_ordenes_tienen_la_medida_del_destino() {
+        use crate::destino::Destino;
+        use crate::tresde as td;
+        let tras = |o: &cu::Ordenes, m: u32, n: u32| -> std::vec::Vec<u32> {
+            let w = &o.o[..o.n];
+            let i = w.iter().position(|&x| x == crate::copia::cabecera_en(0, m, n)).unwrap_or_else(|| panic!("el metodo {:#x}", m));
+            w[i + 1..i + 1 + n as usize].to_vec()
+        };
+        let f = |x: f32| x.to_bits();
+        let dst = Destino { fila: 640 * 4, ancho: 640, alto: 360, rgb: false };
+        let d = Dibujo { destino: Some((0x1234_5000, dst)), vertices: 3, ..Dibujo::default() };
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let o = ordenes_dibujo(&v, 1, false, d);
+        assert_eq!(tras(&o, td::SET_COLOR_TARGET_A0, 8)[2..4], [2560, 360]);
+        assert_eq!(tras(&o, td::SET_SURFACE_CLIP_HORIZONTAL, 2), [640 << 16, 360 << 16]);
+        assert_eq!(tras(&o, crate::raster::SET_VIEWPORT_SCALE_X0, 7)[..6], [f(320.0), f(-180.0), f(1.0), f(320.0), f(180.0), f(0.0)]);
+        assert_eq!(tras(&o, crate::raster::SET_VIEWPORT_CLIP_HORIZONTAL0, 4)[..2], [640 << 16, 360 << 16]);
+        let o = ordenes_dibujo(&v, 1, false, Dibujo::default());
+        assert_eq!(tras(&o, td::SET_SURFACE_CLIP_HORIZONTAL, 2), [1280 << 16, 720 << 16]);
+        assert_eq!(tras(&o, crate::raster::SET_VIEWPORT_SCALE_X0, 7)[..2], [f(640.0), f(-360.0)]);
+    }
+
     /// P3b4b (3): con DESTINO, el paquete lleva la RAM de la app; sus ordenes
     /// ponen el destino de color en `destino::VA` con su fila, y NO limpian
     /// (el juego limpia su back buffer). Un destino que no vale, no pasa.
@@ -1024,9 +1063,17 @@ mod pruebas {
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
         assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);
-        for malo in [Destino { ancho: 640, ..dst }, Destino { fila: 5124, ..dst }] {
+        for malo in [Destino { ancho: 0, ..dst }, Destino { fila: 5124, ..dst }] {
             assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { destino: Some((0x1234_5000, malo)), ..d }), None);
         }
+        // ** Q0a1: otra medida, SI (sin Z); con Z, solo la de VERRANO.
+        let otra = Destino { ancho: 640, alto: 360, ..dst };
+        let con_otra = Dibujo { destino: Some((0x1234_5000, otra)), ..d };
+        let n2 = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, con_otra).unwrap();
+        assert_eq!(leer(&caja[..n2]).unwrap().dibujo, con_otra);
+        let z = Some(crate::profundidad::Z { funcion: 2, escribir: true, limpiar: Some(crate::profundidad::UNO) });
+        assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { z, ..con_otra }), None, "Z en otra medida, no");
+        assert!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { z, ..d }).is_some(), "Z en la de VERRANO, si");
         assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { destino: Some((0x1234_5010, dst)), ..d }), None, "sin alinear a pagina");
         let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
         let v = crate::cubo::ventana(&gop).unwrap();

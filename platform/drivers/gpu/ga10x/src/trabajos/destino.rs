@@ -20,10 +20,14 @@
 //!    TABLAS   la PD0 y las PT en VRAM 0x0470_0000 (tras las de video)
 //! ```
 //!
-//! Hoy la medida es la de VERRANO (1280x720: el viewport y el recorte de sus
-//! ordenes); otra, se dice y no se dibuja.
+//! Hasta el 10-10 la medida era la de VERRANO (1280x720: el viewport y el
+//! recorte de sus ordenes). ** Q0a1 de `docs/plan/EL_FOCO.md`: CUALQUIERA
+//! que quepa en el mapa (de 1x1 hasta [`MAX_BYTES`], 1920x1080 incluida), y
+//! las ordenes sacan de ella el viewport y el recorte (`cubo::Ventana`). Con
+//! la Z no: la sombra en bloque y el bufer de Z miden 1280x720 (`Dibujo`,
+//! `tuberia::cabe`).
 
-use crate::cubo::{Ventana, ALTO, ANCHO};
+use crate::cubo::Ventana;
 use crate::mmu::{indices, pde_vram, pte_sistema};
 use crate::vram::{a_cero, escribir64, leer64};
 use crate::Registros;
@@ -33,6 +37,9 @@ pub const IOVA: u64 = 0x5800_0000;
 pub const TABLAS: u64 = 0x0470_0000;
 pub const PTS: usize = 4;
 pub const MAX_BYTES: u64 = PTS as u64 * (2 << 20);
+/// Lo mas largo de un lado: 4096 (los campos de 16 bits del recorte dan
+/// mas; el mapa, [`MAX_BYTES`], es el que de verdad acota).
+pub const MAX_LADO: u32 = 4096;
 const PAGINA: u64 = 0x1000;
 
 /// Un destino: la RAM de la app, fila a fila.
@@ -55,15 +62,21 @@ impl Destino {
         self.bytes().div_ceil(PAGINA)
     }
 
-    /// Se puede dibujar ahi: la medida de VERRANO, filas alineadas a 128 B
-    /// (el destino de color de la 3060) y dentro del mapa.
+    /// Se puede dibujar ahi: una medida de 1 a [`MAX_LADO`] por lado, filas
+    /// alineadas a 128 B (el destino de color de la 3060) y dentro del mapa.
     pub const fn valido(&self) -> bool {
-        self.ancho == ANCHO && self.alto == ALTO && self.fila >= 4 * self.ancho && self.fila % 128 == 0 && self.bytes() <= MAX_BYTES
+        self.ancho >= 1 && self.alto >= 1 && self.ancho <= MAX_LADO && self.alto <= MAX_LADO && self.fila >= 4 * self.ancho && self.fila % 128 == 0 && self.bytes() <= MAX_BYTES
     }
 
-    /// Como lo ven las ordenes de VERRANO: una ventana en el (0, 0) de [`VA`].
+    /// La de VERRANO: 1280x720 (la de la sombra y la de la Z).
+    pub const fn es_la_de_verrano(&self) -> bool {
+        self.ancho == crate::cubo::ANCHO && self.alto == crate::cubo::ALTO
+    }
+
+    /// Como lo ven las ordenes de VERRANO: una ventana en el (0, 0) de [`VA`],
+    /// de SU medida.
     pub const fn ventana(&self) -> Ventana {
-        Ventana { x0: 0, y0: 0, va: VA, fila: self.fila, rgb: self.rgb }
+        Ventana { x0: 0, y0: 0, va: VA, fila: self.fila, rgb: self.rgb, ancho: self.ancho, alto: self.alto }
     }
 }
 
@@ -113,13 +126,24 @@ mod pruebas {
     use super::*;
 
     #[test]
-    fn la_medida_de_verrano_y_nada_mas() {
+    fn la_medida_de_verrano_y_las_demas() {
         let d = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, rgb: false };
-        assert!(d.valido());
+        assert!(d.valido() && d.es_la_de_verrano());
         assert_eq!(d.paginas(), 900);
-        assert!(!Destino { ancho: 1920, fila: 1920 * 4, ..d }.valido(), "otra medida, hoy no");
-        assert!(!Destino { fila: 1280 * 4 + 4, ..d }.valido(), "filas sin alinear");
-        assert_eq!(d.ventana(), Ventana { x0: 0, y0: 0, va: VA, fila: 5120, rgb: false });
+        assert_eq!(d.ventana(), Ventana { x0: 0, y0: 0, va: VA, fila: 5120, rgb: false, ancho: 1280, alto: 720 });
         assert_eq!(indices(VA)[2], 56);
+        // ** Q0a1: otras medidas, si caben en el mapa.
+        for (an, al) in [(1920, 1080), (640, 360), (320, 200), (1, 1), (4096, 512), (1898, 1064)] {
+            let fila = (4 * an as u32).next_multiple_of(128);
+            let o = Destino { fila, ancho: an, alto: al, rgb: false };
+            assert!(o.valido(), "{}x{}", an, al);
+            assert!(!o.es_la_de_verrano() || (an, al) == (1280, 720));
+            assert_eq!((o.ventana().ancho, o.ventana().alto), (an, al));
+        }
+        assert!(!Destino { fila: 1280 * 4 + 4, ..d }.valido(), "filas sin alinear");
+        assert!(!Destino { fila: 4 * 1279, ancho: 1280, ..d }.valido(), "una fila mas corta que la medida");
+        assert!(!Destino { ancho: 0, ..d }.valido() && !Destino { alto: 0, ..d }.valido(), "vacio");
+        assert!(!Destino { ancho: 4097, fila: 4097 * 4 + 124, alto: 1, rgb: false }.valido(), "un lado de mas");
+        assert!(!Destino { ancho: 2048, fila: 8192, alto: 1100, rgb: false }.valido(), "mas que el mapa (8 MiB)");
     }
 }

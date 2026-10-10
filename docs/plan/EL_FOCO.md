@@ -198,6 +198,15 @@ y 4b). Lo que la regla 1b pide despues, leido en el DIRECTOR:
       1280x720 y el fondo del estudio para un fotograma de VERRANO. **Como se
       sabe:** el banco con 640x360 IGUAL a la CPU de VERRANO (la reserva, los
       mismos bits), en el metal.
+      **10-10, el DRIVER, hecho en el anfitrion:** `cubo::Ventana` lleva su
+      medida y las ordenes sacan de ella el destino de color, el recorte y
+      el viewport (`x * w/2 + w/2`, `y * -h/2 + h/2`); `Destino::valido`
+      acepta cualquier medida de 1 a 4096 por lado que quepa en el mapa (8
+      MiB: 1920x1080 cabe); con Z, solo 1280x720 (`tuberia::cabe`: la sombra
+      y el bufer de Z miden eso), en el lector de VRN1/VRN2 y en el escritor
+      de la receta. La puerta de los juegos (PROTON-X) se queda en 1280x720
+      HASTA VERLO en el metal, y lo dice. Falta el aparato del DIRECTOR (con
+      Q0a2, que es quien lo usa) y el metal.
 - [ ] **Q0a2 -- el destino EN RAM para la lamina** (como `enram` de
       `bmox12`): la 3060 dibuja en un bloque, no en la pantalla, sin leer de
       vuelta. **Como se sabe:** `gpu verrano banco inti enram` IGUAL al juez.

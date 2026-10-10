@@ -197,8 +197,12 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         return Err(format!("{n} indices: no son triangulos enteros"));
     }
     let dst = Destino { fila: 4 * b.ancho, ancho: b.ancho, alto: b.alto, rgb: !b.bgra };
-    if !dst.valido() || b.va % 4096 != 0 {
-        return Err(format!("el back buffer de {}x{} (VA {:#x}): la puerta dibuja 1280x720 desde una pagina, todavia", b.ancho, b.alto, b.va));
+    // ** Q0a1 (EL_FOCO, 10-10): el driver ya dibuja un destino de OTRA medida
+    // (`Destino::valido`); la puerta de los juegos se queda en la de VERRANO
+    // hasta verlo en el metal -- que el viewport y el recorte de otra medida
+    // dan los bits de la casa --, y entonces se abre aqui.
+    if !dst.valido() || !dst.es_la_de_verrano() || b.va % 4096 != 0 {
+        return Err(format!("el back buffer de {}x{} (VA {:#x}): la puerta dibuja 1280x720 desde una pagina, todavia (otra medida: Q0a1, por ver en el metal)", b.ancho, b.alto, b.va));
     }
     let r = &l.reglas;
     if r.viewport != [0.0, 0.0, b.ancho as f32, b.alto as f32, 0.0, 1.0] {
