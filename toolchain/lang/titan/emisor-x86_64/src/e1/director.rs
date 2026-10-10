@@ -77,6 +77,11 @@ impl E1<'_> {
             Director::Rect => self.rect(args, at).map(|_| None),
             Director::Fila => self.fila(args, at).map(|_| None),
             Director::Presenta => self.presenta().map(|_| None),
+            // F2 y F3 (EL_FOCO): lo que se lee y lo que llega (`entrada.rs`),
+            // y la letra (`letra.rs`).
+            Director::Letra => self.letra(args, at).map(Some),
+            Director::Texto => self.texto(args, at).map(Some),
+            Director::Toma | Director::Fichero | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => self.entrada(what, args, at).map(Some),
         }
     }
 

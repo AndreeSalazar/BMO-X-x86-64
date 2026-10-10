@@ -441,6 +441,36 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
             }
         }
         Director::Presenta => Ok(None),
+        // ** F2 y F3 (EL_FOCO, 10-10): lo que se lee y lo que llega.
+        Director::Toma | Director::SeVe => Ok(Some(Class::Bool)),
+        Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones => Ok(Some(Class::Int)),
+        Director::Fichero => {
+            if got[0] == Class::Text {
+                Ok(Some(Class::Bool))
+            } else {
+                Err(wrong(args[0].at(), &Class::Text, &got[0], m.defs(), "`director.fichero` pide la RUTA del fichero, un texto", "director.fichero(\"datos/ejemplo.lam\")"))
+            }
+        }
+        Director::Byte => {
+            int(0, "`director.byte` pide cual: su indice, desde 0", "director.byte(i)")?;
+            Ok(Some(Class::Int))
+        }
+        Director::Letra => {
+            for (k, what) in ["la x", "la y", "el byte de la letra (Latin-1)", "su escala (1 es 8 x 16)", "su color: r * 65536 + g * 256 + b"].iter().enumerate() {
+                int(k, &format!("`director.letra` pide {}", what), "x = director.letra(x, y, 65, 1, 16777215)")?;
+            }
+            Ok(Some(Class::Int))
+        }
+        Director::Texto => {
+            for (k, what) in [(0, "la x"), (1, "la y"), (3, "su escala (1 es 8 x 16)"), (4, "su color: r * 65536 + g * 256 + b")] {
+                int(k, &format!("`director.texto` pide {}", what), "x = director.texto(8, 8, \"hola\", 1, 16777215)")?;
+            }
+            if got[2] == Class::Text {
+                Ok(Some(Class::Int))
+            } else {
+                Err(wrong(args[2].at(), &Class::Text, &got[2], m.defs(), "lo tercero de `director.texto` es el TEXTO", "x = director.texto(8, 8, \"hola\", 1, 16777215)"))
+            }
+        }
         Director::Publica => {
             int(0, "lo primero que publica es el NUMERO del fotograma", "director.publica(f, n, posiciones, colores)")?;
             int(1, "lo segundo, cuantos vertices del fotograma van en las tablas", "director.publica(f, n, posiciones, colores)")?;

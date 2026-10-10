@@ -100,12 +100,24 @@ commit en que el de TITAN++ lo sustituye. Asi nunca hay un dia sin NAVEGAR.
       cada pixel recortado, la secuencia, las medidas que dice que no, los
       NO del compilador y el certificado (la PANTALLA). Saboteado el recorte
       de la x: cae. El metro, igual: el cubo que gira no paga nada.
-- [ ] **F2 -- los BYTES** (TA1): un tipo de 8 bits sin signo y tablas grandes
+- [x] **F2 -- los BYTES** (TA1): un tipo de 8 bits sin signo y tablas grandes
       en un bloque pedido. **Como se sabe:** su codigo T, su ejemplo y su
       nivel en la GRAMATICA; una tabla de millones de celdas sin copia.
-- [ ] **F3 -- la ENTRADA** (TA3): el raton y las teclas que el DIRECTOR le
+      **HECHO el 10-10 por otro camino, el que NAVEGAR necesita:** los bytes
+      se LEEN donde estan, sin copiarlos a una tabla -- `director.toma()` (lo
+      que ofrece el antenista), `director.fichero(ruta)` (uno entero, hasta
+      256 KiB), `director.medida()` y `director.byte(i)` (`entrada.rs`) --; y
+      la LETRA de BMO-X en la ventana: `director.letra` y `director.texto`
+      (`letra.rs`, la tabla de `fontgen` detras de su subrutina). El tipo
+      de 8 bits de TA1 sigue abierto en `PLAN_LA_TINTA` (lo pide el lienzo,
+      no NAVEGAR).
+- [x] **F3 -- la ENTRADA** (TA3): el raton y las teclas que el DIRECTOR le
       manda a su ventana. **Como se sabe:** el escritorio de mentira manda un
-      clic y una tecla, y el programa los ve.
+      clic y una tecla, y el programa los ve. **HECHO el 10-10:**
+      `director.evento()` (0 nada, 1 tecla pulsada, 2 soltada, 3 letra, 4
+      raton, 5 la ventana cambio), `codigo()`, `raton_x()`, `raton_y()`,
+      `botones()` y `se_ve()`; `tests/entrada.rs`: los cinco eventos del
+      buzon con sus datos, y el buzon vacio.
 - [ ] **F4 -- NAVEGAR en TITAN++**: toma la lamina que le OFRECE el
       antenista (o la del disco, `datos/ejemplo.lam`), la pinta en su ventana
       y devuelve clics y teclas, como la version 3 de `navegar.inti`.

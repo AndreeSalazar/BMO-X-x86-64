@@ -373,7 +373,7 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 - [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
 - [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido (`[u8]` de millones de celdas), con su codigo T y su ejemplo en `toolchain/lang/titan/ejemplos/`; nivel nuevo de la GRAMATICA
 - [x] TA2 -- la VENTANA: el nodo `screen` de TITAN++ (pedir superficie, escribir una fila de pixeles, presentar), con su permiso en el Titan.toml y su linea en el certificado. **HECHA el 10-10** (F1 de [`EL_FOCO.md`](EL_FOCO.md)): `director.ventana`, `pixel`, `rect`, `fila` y `presenta`
-- [ ] TA3 -- la ENTRADA de la ventana: el nodo `input` (raton: x, y, botones; y la presion cuando llegue TC1), con REX
+- [x] TA3 -- la ENTRADA de la ventana: el nodo `input` (raton: x, y, botones; y la presion cuando llegue TC1), con REX. **HECHA el 10-10** (F3 de [`EL_FOCO.md`](EL_FOCO.md)): `director.evento`, `codigo`, `raton_x`, `raton_y`, `botones` y `se_ve`; la presion de la Wacom, cuando llegue TC1
 - [ ] TA4 -- el DISCO: leer y escribir ficheros de ESTRATOS desde TITAN++, con permiso
 - [ ] TA5 -- la MEDIDA: un banco de velocidad de E1 sobre un bucle de pixeles (cuantos millones de celdas por segundo), escrito ANTES de prometer latencia
 

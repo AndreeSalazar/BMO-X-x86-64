@@ -291,10 +291,69 @@ pub enum Director {
     /// `director.presenta()`: the drawing is WHOLE -- the sequence goes up,
     /// and that is what makes the desktop compose it (R-APP4).
     Presenta,
+    /// ** F2 of `docs/plan/EL_FOCO.md` (10-10): THE BYTES the window holds.
+    /// `director.toma()`: what someone OFFERED to this program (the
+    /// antenista's page), taken -- eight tries, a frame apart, as INTI's
+    /// NAVEGAR --. `true` if taken. Without a window, `false`: what is read
+    /// is kept in its private tail.
+    Toma,
+    /// `director.fichero(ruta)`: a whole file (up to 256 KiB) into a block of
+    /// its own. `false` if it is not there, is empty, too big, or short.
+    Fichero,
+    /// `director.medida()`: how many bytes are held (0: none).
+    Medida,
+    /// `director.byte(i)`: the byte `i` of what is held (0..255), or -1
+    /// outside it.
+    Byte,
+    /// ** F3 (10-10): THE INPUT of the window, from its mailbox.
+    /// `director.evento()`: the next event, and WHAT it is -- 0 none, 1 a key
+    /// pressed, 2 a key released, 3 a letter, 4 the mouse, 5 the window
+    /// changed --. Its data, below, until the next one.
+    Evento,
+    /// `director.codigo()`: the scancode or the letter (Latin-1) of the last
+    /// event.
+    Codigo,
+    /// `director.raton_x()`, `director.raton_y()`, `director.botones()`:
+    /// the mouse of the last event.
+    RatonX,
+    RatonY,
+    Botones,
+    /// `director.se_ve()`: whether the window is seen now (not minimized,
+    /// covered or out of the panel): an app may skip drawing (R-APP8).
+    SeVe,
+    /// ** THE LETTER of BMO-X (8x16, `fontgen`, the one the kernel and INTI
+    /// draw). `director.letra(x, y, byte, escala, color)`: one glyph, each
+    /// of its pixels an `escala` x `escala` square, clipped. Gives the x of
+    /// the next one.
+    Letra,
+    /// `director.texto(x, y, t, escala, color)`: every byte of a text, one
+    /// after the other. Gives the x after it.
+    Texto,
 }
 
 impl Director {
-    pub const ALL: [Director; 8] = [Director::Lamina, Director::Publica, Director::Espera, Director::Ventana, Director::Pixel, Director::Rect, Director::Fila, Director::Presenta];
+    pub const ALL: [Director; 20] = [
+        Director::Lamina,
+        Director::Publica,
+        Director::Espera,
+        Director::Ventana,
+        Director::Pixel,
+        Director::Rect,
+        Director::Fila,
+        Director::Presenta,
+        Director::Toma,
+        Director::Fichero,
+        Director::Medida,
+        Director::Byte,
+        Director::Evento,
+        Director::Codigo,
+        Director::RatonX,
+        Director::RatonY,
+        Director::Botones,
+        Director::SeVe,
+        Director::Letra,
+        Director::Texto,
+    ];
 
     /// Its whole name, as a program writes it.
     pub fn name(self) -> &'static str {
@@ -307,6 +366,18 @@ impl Director {
             Director::Rect => "director.rect",
             Director::Fila => "director.fila",
             Director::Presenta => "director.presenta",
+            Director::Toma => "director.toma",
+            Director::Fichero => "director.fichero",
+            Director::Medida => "director.medida",
+            Director::Byte => "director.byte",
+            Director::Evento => "director.evento",
+            Director::Codigo => "director.codigo",
+            Director::RatonX => "director.raton_x",
+            Director::RatonY => "director.raton_y",
+            Director::Botones => "director.botones",
+            Director::SeVe => "director.se_ve",
+            Director::Letra => "director.letra",
+            Director::Texto => "director.texto",
         }
     }
 
@@ -318,18 +389,18 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
-            Director::Presenta => 0,
-            Director::Lamina | Director::Espera => 1,
+            Director::Presenta | Director::Toma | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => 0,
+            Director::Lamina | Director::Espera | Director::Fichero | Director::Byte => 1,
             Director::Ventana | Director::Fila => 2,
             Director::Pixel => 3,
             Director::Publica => 4,
-            Director::Rect => 5,
+            Director::Rect | Director::Letra | Director::Texto => 5,
         }
     }
 
-    /// Whether it gives a value back: a yes/no.
+    /// Whether it gives a value back: a yes/no, or an int.
     pub fn gives(self) -> bool {
-        matches!(self, Director::Lamina | Director::Publica | Director::Ventana)
+        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta)
     }
 }
 

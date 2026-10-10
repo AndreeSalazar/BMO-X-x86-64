@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   748 casillas ABIERTAS en 69 planes
-   588 hechas
+   745 casillas ABIERTAS en 69 planes
+   591 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -63,14 +63,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
 - ... y 34 mas
 
-## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 36 abiertas, 1 hechas
+## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 35 abiertas, 2 hechas
 
 *PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total*
 
 - [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
 - [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido 
-- [ ] TA3 -- la ENTRADA de la ventana: el nodo input (raton: x, y, botones; y la presion cuando llegue
-- ... y 33 mas
+- [ ] TA4 -- el DISCO: leer y escribir ficheros de ESTRATOS desde TITAN++, con permiso
+- ... y 32 mas
 
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 14 hechas
 
@@ -486,15 +486,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
 - ... y 2 mas
 
-## [`EL_FOCO.md`](EL_FOCO.md) -- 4 abiertas, 1 hechas
-
-*EL FOCO -- una cosa a la vez, hasta el final (10-10)*
-
-- [ ] F2 -- los BYTES (TA1): un tipo de 8 bits sin signo y tablas grandes
-- [ ] F3 -- la ENTRADA (TA3): el raton y las teclas que el DIRECTOR le
-- [ ] F4 -- NAVEGAR en TITAN++: toma la lamina que le OFRECE el
-- ... y 1 mas
-
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas
 
 *PLAN DEL DIRECTOR -- el censo, lo que gasta, y por que*
@@ -587,6 +578,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] N4 -- la lamina VIVA. La antena reemite al cambiar el DOM (suelo 250
 - [ ] N5 -- el HISTORIAL. Cada lamina que entra se guarda en ESTRATOS con
 - [ ] AA0 -- la app Android, en el repo. toolchain/tools/antena/android/
+
+## [`EL_FOCO.md`](EL_FOCO.md) -- 2 abiertas, 3 hechas
+
+*EL FOCO -- una cosa a la vez, hasta el final (10-10)*
+
+- [ ] F4 -- NAVEGAR en TITAN++: toma la lamina que le OFRECE el
+- [ ] F5 -- el corte 4c de INTI: navegar.inti fuera del build y del
 
 ## [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 2 abiertas, 15 hechas
 

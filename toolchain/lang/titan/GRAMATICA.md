@@ -1030,6 +1030,37 @@ fn main()
   ventana; la prueba `emisor-x86_64/tests/ventana.rs` la lanza el escritorio
   de mentira y lee sus pixeles, uno a uno.
 
+### El DIRECTOR: lo que se LEE, lo que LLEGA y la LETRA (10-10, F2 y F3 de `EL_FOCO`)
+
+```text
+if director.toma() or director.fichero("datos/ejemplo.lam")
+    let n = director.medida()                 # cuantos bytes se tienen
+    let b = director.byte(0)                  # uno, o -1 fuera
+let que = director.evento()                   # 0 nada, 1 tecla pulsada, 2 soltada,
+                                              # 3 letra, 4 raton, 5 la ventana cambio
+let tecla = director.codigo()                 # su scancode o su letra (Latin-1)
+let x = director.raton_x()                    # y raton_y(), botones()
+if director.se_ve()                           # no minimizada ni tapada (R-APP8)
+    x = director.texto(8, 8, "hola", 1, 16777215)   # la x de detras
+    x = director.letra(x, 8, 241, 2, 16777215)      # un glifo (aqui la n con tilde)
+```
+
+- **Lo tenido** (F2): `toma()` -- lo que alguien OFRECIO a este programa, la
+  pagina del antenista: ocho intentos, un fotograma entre uno y otro -- o
+  `fichero(ruta)` -- uno entero, de 1 byte a 256 KiB, en un bloque suyo --.
+  Se lee ANTES de la ventana, si hace falta: va en un bloque de 16 bytes del
+  programa (`rbx`). `byte(i)` da 0..255, o -1 fuera; nada se escribe.
+- **Lo que llega** (F3): el buzon de la ventana (64 ranuras, el contrato de
+  `superficie.rs`): `evento()` toma el siguiente y dice QUE es; sus datos,
+  hasta el siguiente. Sin ventana, nada (0).
+- **La letra**: la de BMO-X, 8x16 de `fontgen` (la del kernel y la de INTI):
+  ASCII, los 25 extras Latin-1 del castellano, y `?` para lo que no tiene.
+  Escala 1..16 (cada pixel, un cuadrado), recortada a la ventana. Dan la x
+  de detras.
+- Las pruebas: `emisor-x86_64/tests/entrada.rs` (lo ofrecido, el fichero y
+  los que no, los eventos del buzon, la letra pixel a pixel contra la tabla
+  de `fontgen`).
+
 > **08-10, LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`:** las tarjetas son DOS,
 > la 3060 y la CPU -- la RESERVA de toda GPU (la ley L32) --, y cada gpu fn
 > pasa la bateria en las dos con los mismos bits. Un programa que no lee

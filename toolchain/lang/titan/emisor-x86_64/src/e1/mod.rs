@@ -45,6 +45,8 @@ mod forma;
 mod gpu;
 mod monton;
 mod numero;
+mod entrada;
+mod letra;
 mod valor;
 mod ventana;
 
@@ -111,6 +113,10 @@ pub(crate) enum Helper {
     /// LB4 (`gpu.rs`): un int o un dec a f32, y `round` de un f32.
     DecToF32,
     F32Round,
+    /// F1/F2 (EL_FOCO, `letra.rs`): el rectangulo recortado a la ventana, y
+    /// un glifo de la letra de BMO-X (con la fuente detras).
+    Rect,
+    Glifo,
 }
 
 /// Un NO al correr, por escribir: el salto que lleva a el, su linea, y lo
@@ -923,6 +929,8 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
     // programa pinta: la lamina sola no paga ni una instruccion.
     if uses_window(m) {
         x86::zero_r32(&mut e.code, ventana::R12);
+        // F2: `rbx`, el bloque de lo tenido; cero hasta el primero.
+        x86::zero_r32(&mut e.code, entrada::RBX);
     }
     // r15: la pila que gastan las llamadas abiertas, empezando por la raiz
     e.code.extend_from_slice(&[0x41, 0xBF, 0, 0, 0, 0]); // mov r15d, imm32
@@ -1018,11 +1026,11 @@ fn uses_director(m: &Module) -> bool {
     ["Director {", "Director("].iter().any(|k| s.contains(k))
 }
 
-/// F1: pinta el programa en una ventana (`director.ventana`, `pixel`, `rect`,
-/// `fila`, `presenta`)?
+/// F1-F3: usa el programa una ventana (pintar, leer lo tenido, su entrada,
+/// la letra)?
 fn uses_window(m: &Module) -> bool {
     let s = format!("{:?}", &m.functions);
-    ["Ventana", "Pixel", "Rect", "Fila", "Presenta"].iter().any(|k| s.contains(&format!("what: {}", k)) || s.contains(&format!("Director({}", k)))
+    ["Ventana", "Pixel", "Rect", "Fila", "Presenta", "Toma", "Fichero", "Medida", "Byte", "Evento", "Codigo", "RatonX", "RatonY", "Botones", "SeVe", "Letra", "Texto"].iter().any(|k| s.contains(&format!("what: {}", k)) || s.contains(&format!("Director({}", k)))
 }
 
 /// Las fn a las que se llega desde `main` (y las de los tipos de un trait).

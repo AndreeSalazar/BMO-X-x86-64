@@ -33,17 +33,18 @@
 //! lo ofrecido, con el asa del bloque y lo ofrecido. El escritorio solo ve
 //! `[s, s + bytes)`.
 
-use super::{Place, E1};
+use super::{Helper, Place, E1};
 use bmo_abi::syscalls::surface::{CURRENT_TASK, MEM_OP_BASE, MEM_OP_OFRECER, SUP_BGRA32, SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_CABECERA, SUP_CAMPO_SECUENCIA, SUP_MAGIC, TASK_OP_MEMORIA_PEDIR, TASK_OP_MI_PADRE};
 use bmo_lower::memoria;
-use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R8, R9};
+use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R11, R8, R9};
 use bmo_titan_front::calc::Class;
 use bmo_titan_front::ir::{At, Value};
 
 /// La ventana del programa, todo el programa.
 pub(crate) const R12: u8 = 12;
-/// Los bytes de cola detras de lo ofrecido.
-const COLA: i32 = 16;
+/// Los bytes de cola detras de lo ofrecido: el asa y lo ofrecido; y desde
+/// F3 (`entrada.rs`), en +32, el ultimo evento.
+const COLA: i32 = 48;
 /// Lo mas ancha (y lo mas alta) que se pide: 4096 pixeles (64 MiB).
 pub const MEDIDA_MAXIMA: i32 = 4096;
 /// Las ranuras del buzon: potencia de dos (el indice avanza con una mascara).
@@ -115,6 +116,7 @@ impl E1<'_> {
         // el buzon --: si el escritorio la tomara antes, leeria basura.
         x86::mov_r64_r64(&mut self.code, RDI, RDX);
         self.load(bytes, RCX);
+        self.lea(RCX, RCX, COLA);
         x86::zero_r32(&mut self.code, RAX);
         memoria::rellenar(&mut self.code);
         // La cabecera, dos campos por palabra: magia y ancho; alto y stride
@@ -215,7 +217,8 @@ impl E1<'_> {
         Ok(())
     }
 
-    /// `director.rect(x, y, ancho, alto, color)`: recortado a la ventana.
+    /// `director.rect(x, y, ancho, alto, color)`: recortado a la ventana, por
+    /// la subrutina de siempre (`Helper::Rect`, `letra.rs`).
     pub(super) fn rect(&mut self, args: &[Value], at: At) -> Result<(), String> {
         let [x, y, w, h, c] = args else { return Err(format!("linea {}: `director.rect` con {} valores (fallo del compilador)", at.0, args.len())) };
         let (x, _) = self.eval(x)?;
@@ -223,57 +226,12 @@ impl E1<'_> {
         let (w, _) = self.eval(w)?;
         let (h, _) = self.eval(h)?;
         let (c, _) = self.eval(c)?;
-        // Los cuatro bordes, ya recortados: [x0, x1) y [y0, y1).
-        let x0 = self.temp(8);
-        let x1 = self.temp(8);
-        let y0 = self.temp(8);
-        let y1 = self.temp(8);
-        let mut nada = Vec::new();
-        self.sin_ventana(&mut nada);
-        self.medidas();
-        // (desde, medida, limite) -> [lo, hi) recortado; vacio, nada.
-        for (desde, medida, limite, lo, hi) in [(x, w, RAX, x0, x1), (y, h, RCX, y0, y1)] {
-            // hi = min(desde + medida, limite)
-            self.load(desde, R8);
-            self.load(medida, R9);
-            x86::add_r64_r64(&mut self.code, R9, R8);
-            x86::cmp_r64_r64(&mut self.code, R9, limite);
-            let cabe = self.jcc(0x8E);
-            x86::mov_r64_r64(&mut self.code, R9, limite);
-            self.here(cabe);
-            // lo = max(desde, 0)
-            x86::test_r64_r64(&mut self.code, R8, R8);
-            let positivo = self.jcc(0x8D);
-            x86::zero_r32(&mut self.code, R8);
-            self.here(positivo);
-            // vacio si lo >= hi
-            x86::cmp_r64_r64(&mut self.code, R8, R9);
-            nada.push(self.jcc(0x8D));
-            self.store(lo, R8);
-            self.store(hi, R9);
-        }
         self.color(c);
-        // Fila a fila: r9 la y; dentro, r8 la x.
-        self.load(y0, R9);
-        let fila = self.code.len();
-        self.load(x0, R8);
-        self.donde();
-        self.load(x1, R10);
-        x86::sub_r64_r64(&mut self.code, R10, R8);
-        let celda = self.code.len();
-        x86::mov_at_reg_from_r32(&mut self.code, RSI, RDX);
-        x86::add_r64_imm8(&mut self.code, RSI, 4);
-        x86::dec_r64(&mut self.code, R10);
-        let mas = self.jcc(0x85);
-        x86::patch_jump_to(&mut self.code, mas, celda);
-        x86::inc_r64(&mut self.code, R9);
-        self.load(y1, R10);
-        x86::cmp_r64_r64(&mut self.code, R9, R10);
-        let otra = self.jcc(0x8C);
-        x86::patch_jump_to(&mut self.code, otra, fila);
-        for j in nada {
-            self.here(j);
-        }
+        self.load(x, R8);
+        self.load(y, R9);
+        self.load(w, R10);
+        self.load(h, R11);
+        self.call_helper(Helper::Rect);
         Ok(())
     }
 
