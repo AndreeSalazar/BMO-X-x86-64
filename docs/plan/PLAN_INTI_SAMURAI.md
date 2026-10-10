@@ -186,9 +186,9 @@ cada relevo:
                                                     buzon)
    el sonido ([sonido])        ejemplos/musica.inti el sonido en TITAN++        espera su relevo
                                                     (no existe: ni la palabra)
-   NAVEGAR (lamina de          apps/navegar.inti    el port de D1 (PLAN_        espera su relevo
-   navegar, texto, monton,                          NAVEGAR): tipos, tablas y
-   objetos)                                         la ventana de arriba
+   NAVEGAR (lamina de          apps/navegar.inti    el port de D1 (PLAN_        EL FOCO (10-10):
+   navegar, texto, monton,                          NAVEGAR): tipos, tablas y   F1..F5 de
+   objetos)                                         la ventana de arriba        EL_FOCO.md; sale en F5
    el perfil `pleno`           congelado (E0077)    los niveles 6-13 de         sale con navegar
                                                     TITAN++ (dec, tablas,
                                                     listas, mapas)

@@ -12,6 +12,9 @@
 > LISTA de abajo es del 10-09 (hoy hay 39 planes y 232 casillas): lo que se ha
 > cerrado desde entonces, y por que, esta en [`../METAS.md`](../METAS.md), por
 > categoria. Esta pagina no se reescribe: se lee con su fecha.
+>
+> ** 10-10: lo que se hace AHORA, una cosa a la vez, esta en
+> [`EL_FOCO.md`](EL_FOCO.md).
 
 ---
 

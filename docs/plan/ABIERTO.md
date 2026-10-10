@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 77 planes
+# LO QUE FALTA -- las casillas abiertas de los 78 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   745 casillas ABIERTAS en 68 planes
+   750 casillas ABIERTAS en 69 planes
    586 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -422,6 +422,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S-FIRMA-5 -- exige_firma() = true. Lo ultimo, y **no antes de que
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
 - ... y 3 mas
+
+## [`EL_FOCO.md`](EL_FOCO.md) -- 5 abiertas, 0 hechas
+
+*EL FOCO -- una cosa a la vez, hasta el final (10-10)*
+
+- [ ] F1 -- la VENTANA en TITAN++ (TA2): director.ventana(ancho, alto)
+- [ ] F2 -- los BYTES (TA1): un tipo de 8 bits sin signo y tablas grandes
+- [ ] F3 -- la ENTRADA (TA3): el raton y las teclas que el DIRECTOR le
+- ... y 2 mas
 
 ## [`PLAN_BMO_ATENTO.md`](PLAN_BMO_ATENTO.md) -- 5 abiertas, 0 hechas
 
