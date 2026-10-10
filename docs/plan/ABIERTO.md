@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   750 casillas ABIERTAS en 69 planes
-   586 hechas
+   748 casillas ABIERTAS en 69 planes
+   588 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -54,15 +54,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
 - ... y 43 mas
 
-## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 37 abiertas, 0 hechas
-
-*PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total*
-
-- [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
-- [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido 
-- [ ] TA2 -- la VENTANA: el nodo screen de TITAN++ (pedir superficie, escribir una fila de pixeles, pr
-- ... y 34 mas
-
 ## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 37 abiertas, 10 hechas
 
 *PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
@@ -71,6 +62,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3 -- las constantes. La matriz en un buffer y el programa de
 - [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
 - ... y 34 mas
+
+## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 36 abiertas, 1 hechas
+
+*PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total*
+
+- [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
+- [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido 
+- [ ] TA3 -- la ENTRADA de la ventana: el nodo input (raton: x, y, botones; y la presion cuando llegue
+- ... y 33 mas
 
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 14 hechas
 
@@ -423,15 +423,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
 - ... y 3 mas
 
-## [`EL_FOCO.md`](EL_FOCO.md) -- 5 abiertas, 0 hechas
-
-*EL FOCO -- una cosa a la vez, hasta el final (10-10)*
-
-- [ ] F1 -- la VENTANA en TITAN++ (TA2): director.ventana(ancho, alto)
-- [ ] F2 -- los BYTES (TA1): un tipo de 8 bits sin signo y tablas grandes
-- [ ] F3 -- la ENTRADA (TA3): el raton y las teclas que el DIRECTOR le
-- ... y 2 mas
-
 ## [`PLAN_BMO_ATENTO.md`](PLAN_BMO_ATENTO.md) -- 5 abiertas, 0 hechas
 
 *PLAN BMO ATENTO -- el sistema que se fija en lo que haces, y se adelanta*
@@ -494,6 +485,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 2. EL JUEZ, en su crate. platform/shared/bmo-pila-juicio: *"se
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
 - ... y 2 mas
+
+## [`EL_FOCO.md`](EL_FOCO.md) -- 4 abiertas, 1 hechas
+
+*EL FOCO -- una cosa a la vez, hasta el final (10-10)*
+
+- [ ] F2 -- los BYTES (TA1): un tipo de 8 bits sin signo y tablas grandes
+- [ ] F3 -- la ENTRADA (TA3): el raton y las teclas que el DIRECTOR le
+- [ ] F4 -- NAVEGAR en TITAN++: toma la lamina que le OFRECE el
+- ... y 1 mas
 
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas
 

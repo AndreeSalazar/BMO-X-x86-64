@@ -1,0 +1,5 @@
+[package]
+name = "ventana"
+
+[permissions]
+screen = true

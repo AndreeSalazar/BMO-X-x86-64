@@ -46,6 +46,7 @@ mod gpu;
 mod monton;
 mod numero;
 mod valor;
+mod ventana;
 
 use crate::{Cuerpos, Emitted};
 use bmo_lower::x86::{self, RAX, RSI, RDI, R11};
@@ -918,6 +919,11 @@ fn emit_all<'m>(e: &mut E1<'m>, m: &'m Module) -> Result<Emitted, String> {
     if uses_director(m) {
         x86::zero_r32(&mut e.code, director::R13);
     }
+    // F1 (EL_FOCO): `r12`, la ventana; cero hasta que se ofrezca. Solo si el
+    // programa pinta: la lamina sola no paga ni una instruccion.
+    if uses_window(m) {
+        x86::zero_r32(&mut e.code, ventana::R12);
+    }
     // r15: la pila que gastan las llamadas abiertas, empezando por la raiz
     e.code.extend_from_slice(&[0x41, 0xBF, 0, 0, 0, 0]); // mov r15d, imm32
     let root_cost = e.code.len() - 4;
@@ -1010,6 +1016,13 @@ fn uses_heap(m: &Module) -> bool {
 fn uses_director(m: &Module) -> bool {
     let s = format!("{:?}", &m.functions);
     ["Director {", "Director("].iter().any(|k| s.contains(k))
+}
+
+/// F1: pinta el programa en una ventana (`director.ventana`, `pixel`, `rect`,
+/// `fila`, `presenta`)?
+fn uses_window(m: &Module) -> bool {
+    let s = format!("{:?}", &m.functions);
+    ["Ventana", "Pixel", "Rect", "Fila", "Presenta"].iter().any(|k| s.contains(&format!("what: {}", k)) || s.contains(&format!("Director({}", k)))
 }
 
 /// Las fn a las que se llega desde `main` (y las de los tipos de un trait).

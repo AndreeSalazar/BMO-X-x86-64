@@ -71,18 +71,24 @@ impl E1<'_> {
             Director::Lamina => self.lamina(args, at).map(Some),
             Director::Publica => self.publica(args, at).map(Some),
             Director::Espera => self.espera(args).map(|_| None),
+            // F1 (EL_FOCO): la ventana (`ventana.rs`).
+            Director::Ventana => self.ventana(args, at).map(Some),
+            Director::Pixel => self.pixel(args, at).map(|_| None),
+            Director::Rect => self.rect(args, at).map(|_| None),
+            Director::Fila => self.fila(args, at).map(|_| None),
+            Director::Presenta => self.presenta().map(|_| None),
         }
     }
 
     /// `INVOKE(rdi, rsi, rdx, r10, r8)`: el codigo en `rax`, el valor en `rdx`.
-    fn invoke(&mut self) {
+    pub(super) fn invoke(&mut self) {
         self.imm(RAX, NR_INVOKE as i64);
         x86::syscall(&mut self.code);
     }
 
     /// Salta (a rellenar) si `rax` no es 0 -- el kernel dijo que no -- o si el
     /// valor de `rdx` es 0.
-    fn si_no_vale(&mut self, saltos: &mut Vec<usize>) {
+    pub(super) fn si_no_vale(&mut self, saltos: &mut Vec<usize>) {
         x86::test_r64_r64(&mut self.code, RAX, RAX);
         saltos.push(self.jcc(0x85));
         x86::test_r64_r64(&mut self.code, RDX, RDX);

@@ -407,6 +407,40 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
             int(0, "`director.espera` pide los milisegundos que duerme el programa", "director.espera(16)")?;
             Ok(None)
         }
+        // ** F1 (EL_FOCO, 10-10): la ventana. Medidas, sitios y colores son
+        // int; un color es `r * 65536 + g * 256 + b`.
+        Director::Ventana => {
+            int(0, "`director.ventana` pide el ANCHO de la ventana, en pixeles", "director.ventana(320, 200)")?;
+            int(1, "y despues su ALTO, en pixeles", "director.ventana(320, 200)")?;
+            Ok(Some(Class::Bool))
+        }
+        Director::Pixel => {
+            int(0, "`director.pixel` pide la x del pixel", "director.pixel(x, y, 255 * 65536)")?;
+            int(1, "despues su y", "director.pixel(x, y, 255 * 65536)")?;
+            int(2, "y su color: r * 65536 + g * 256 + b", "director.pixel(x, y, 255 * 65536)")?;
+            Ok(None)
+        }
+        Director::Rect => {
+            for (k, what) in ["la x de su esquina", "la y de su esquina", "su ANCHO", "su ALTO", "su color: r * 65536 + g * 256 + b"].iter().enumerate() {
+                int(k, &format!("`director.rect` pide {}", what), "director.rect(10, 10, 100, 50, 65280)")?;
+            }
+            Ok(None)
+        }
+        Director::Fila => {
+            int(0, "`director.fila` pide la y de la fila", "director.fila(y, pixeles)")?;
+            match &got[1] {
+                Class::Table(a, n) if **a == Class::Int && *n > 0 => Ok(None),
+                c => Err(Message::new(
+                    Code::WrongType,
+                    at.0,
+                    at.1,
+                    "`director.fila` lleva la fila en una tabla de int: un color por celda",
+                    &format!("aqui llega: {}", c.short(m.defs())),
+                    "let mut pixeles: [int; 320] = [0; 320]",
+                )),
+            }
+        }
+        Director::Presenta => Ok(None),
         Director::Publica => {
             int(0, "lo primero que publica es el NUMERO del fotograma", "director.publica(f, n, posiciones, colores)")?;
             int(1, "lo segundo, cuantos vertices del fotograma van en las tablas", "director.publica(f, n, posiciones, colores)")?;

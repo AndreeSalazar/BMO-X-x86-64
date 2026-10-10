@@ -792,7 +792,12 @@ try {
         # se construye desde su `src/main.titan`. En el metal, como con INTI:
         # `run titan/cubogira.bex` y `gpu verrano banco inti`, que dibuja con
         # la 3060 lo que haya en la lamina (LB7 de PLAN_LAS_LIBRERIAS).
-        @{ src = 'toolchain\lang\titan\ejemplos\nivel11\cubo_gira\src\main.titan'; out = 'cubogira.bex'; dir = 'titan' }
+        @{ src = 'toolchain\lang\titan\ejemplos\nivel11\cubo_gira\src\main.titan'; out = 'cubogira.bex'; dir = 'titan' },
+        # ** F1 de EL_FOCO (2026-10-10): la VENTANA de TITAN++ -- una
+        # superficie de BMO-X como la de INTI, un degradado y una barra que la
+        # cruza diez segundos. En el metal: `run titan/ventana.bex` desde
+        # Ejecutar (desde el shell no hay escritorio que componga: lo dice).
+        @{ src = 'toolchain\lang\titan\ejemplos\nivel11\ventana\src\main.titan'; out = 'ventana.bex'; dir = 'titan' }
     ) 'bmo-titan-x86-64' 'titan' 'ok:|T00|no se ha' $dataBase $repo -Orden 'build'
 
     # -- Las dos imagenes que `bico.ibx` convierte ------------------------

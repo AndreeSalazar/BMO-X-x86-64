@@ -1,0 +1,28 @@
+# espera: BIEN
+# sale: nadie compone: la ventana no se ofrece a nadie
+# LA VENTANA de TITAN++ (F1 de docs/plan/EL_FOCO.md, 10-10): una superficie de BMO-X pedida, pintada y ofrecida al escritorio, como la de INTI (`roja.inti`) y la de C (`roja.h`). Un degradado arriba, un fondo, y una barra blanca que cruza la ventana durante diez segundos; cada fotograma, `presenta`. Lanzado desde el shell nadie compone, y lo dice; la prueba `tests/ventana.rs` del emisor la lanza un escritorio de mentira y lee sus pixeles
+mod main "una ventana de TITAN++: un degradado y una barra que la cruza"
+use director
+
+fn main()
+    if not director.ventana(320, 200)
+        print("nadie compone: la ventana no se ofrece a nadie")
+        return
+    # El fondo, azul oscuro; y arriba, un degradado de rojo a amarillo.
+    let fondo = 20 * 65536 + 30 * 256 + 60
+    director.rect(0, 0, 320, 200, fondo)
+    let mut fila: [int; 320] = [0; 320]
+    for x in range(320)
+        # (x - x % 5) / 5 es exacta: TITAN++ no deja una division que no lo sea
+        fila[x] = 255 * 65536 + (x - x % 5) / 5 * 4 * 256
+    for y in range(40)
+        director.fila(y, fila)
+    director.presenta()
+    # La barra: borra la de antes con el fondo, pinta la nueva, presenta.
+    let mut x = 0
+    for f in range(600)
+        director.rect(x, 100, 20, 40, fondo)
+        x = (f * 2) % 300
+        director.rect(x, 100, 20, 40, 16777215)
+        director.presenta()
+        director.espera(16)

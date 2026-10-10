@@ -996,6 +996,40 @@ fn main()
   VERRANO: cada fotograma que da por bueno es la tanda de `bmo_cubo`, bit a
   bit. En el metal, `gpu verrano banco` sobre ella es del propietario.
 
+### El DIRECTOR: la VENTANA (10-10, F1 de `docs/plan/EL_FOCO.md`)
+
+```text
+use director                                  # y en el Titan.toml: screen = true
+
+fn main()
+    if not director.ventana(320, 200)         # ancho y alto, en pixeles
+        print("nadie compone")
+        return
+    director.rect(0, 0, 320, 200, 20 * 65536 + 30 * 256 + 60)
+    director.pixel(10, 10, 16777215)          # un color: r * 65536 + g * 256 + b
+    director.fila(y, pixeles)                 # una fila de una tabla de int
+    director.presenta()                       # el dibujo esta ENTERO
+```
+
+- **La misma superficie que INTI y C**: la cabecera BSUP de
+  `bmo_abi::syscalls::surface::superficie` (los numeros, por su nombre), los
+  pixeles BGRA de 32 bits (opacos), un buzon de 64 ranuras detras, y la cola
+  privada con el asa del bloque. Todo a cero (negro) ANTES de ofrecerla.
+- `director.ventana(ancho, alto)`: pide el bloque, lo describe y se lo OFRECE
+  a quien lanzo el programa. Da si, si se ofrecio; no, con una medida fuera
+  de 1..4096, sin memoria, lanzado desde el shell, o si el programa ya tiene
+  su ventana (UNA APP, UNA VENTANA: la regla del DIRECTOR).
+- `director.pixel(x, y, color)`, `director.rect(x, y, ancho, alto, color)`
+  y `director.fila(y, pixeles)` pintan, RECORTADO a la ventana: lo de fuera
+  no se pinta, y sin ventana no pasa nada. No dan nada.
+- `director.presenta()` sube la SECUENCIA de la cabecera: es lo unico que
+  hace que el escritorio la componga, y va DESPUES del ultimo pixel (R-APP4).
+- El certificado: la puerta de la PANTALLA, en la linea de la primera
+  llamada (como la lamina). Desde una gpu fn, no (T0090).
+- El ejemplo: `nivel11/ventana`, un degradado y una barra que cruza la
+  ventana; la prueba `emisor-x86_64/tests/ventana.rs` la lanza el escritorio
+  de mentira y lee sus pixeles, uno a uno.
+
 > **08-10, LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`:** las tarjetas son DOS,
 > la 3060 y la CPU -- la RESERVA de toda GPU (la ley L32) --, y cada gpu fn
 > pasa la bateria en las dos con los mismos bits. Un programa que no lee

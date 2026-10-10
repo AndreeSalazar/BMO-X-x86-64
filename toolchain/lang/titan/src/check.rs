@@ -736,12 +736,17 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::Lamina => "if not director.lamina(18)",
             Director::Publica => "director.publica(f, n, posiciones, colores)",
             Director::Espera => "director.espera(16)",
+            Director::Ventana => "if not director.ventana(320, 200)",
+            Director::Pixel => "director.pixel(x, y, 255 * 65536)",
+            Director::Rect => "director.rect(10, 10, 100, 50, 65280)",
+            Director::Fila => "director.fila(y, pixeles)",
+            Director::Presenta => "director.presenta()",
         };
         if n != d.takes() {
-            return Err(Message::new(Code::Args, line, col, &format!("`{}` pide {} valor{}, y aqui se le {} {}", callee, d.takes(), if d.takes() == 1 { "" } else { "es" }, if n == 1 { "da" } else { "dan" }, n), "es del DIRECTOR: la lamina de VERRANO (LB7b)", example));
+            return Err(Message::new(Code::Args, line, col, &format!("`{}` pide {} valor{}, y aqui se le {} {}", callee, d.takes(), if d.takes() == 1 { "" } else { "es" }, if n == 1 { "da" } else { "dan" }, n), "es del DIRECTOR: la lamina de VERRANO (LB7b) y la ventana (F1)", example));
         }
         if as_value && !d.gives() {
-            return Err(Message::new(Code::Result, line, col, &format!("`{}` no devuelve nada, y aqui se usa como un valor", callee), "duerme hasta el siguiente fotograma y ya: no hay nada que guardar", example));
+            return Err(Message::new(Code::Result, line, col, &format!("`{}` no devuelve nada, y aqui se usa como un valor", callee), if d == Director::Espera { "duerme hasta el siguiente fotograma y ya: no hay nada que guardar" } else { "pinta en la ventana y ya: no hay nada que guardar" }, example));
         }
         return Ok(());
     }
@@ -753,7 +758,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             line,
             col,
             &format!("`director` no tiene `{}`", what),
-            &format!("lo que el director sabe hoy: {} (la lamina de VERRANO)", names.join(", ")),
+            &format!("lo que el director sabe hoy: {} (la lamina de VERRANO y la ventana)", names.join(", ")),
             &match near {
                 Some(k) => format!("quisiste decir `director.{}`?", k),
                 None => "if not director.lamina(18)".to_string(),

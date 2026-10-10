@@ -30,6 +30,29 @@
               la puerta deja, a la 3060 (la receta)
 ```
 
+## 1b. LA REGLA DEL PROPIETARIO (10-10): las apps VIVEN en la GPU
+
+> *"TODAS las APP tienen que vivir en GPU no solo en CPU, en CPU solo
+> calcula [...] que TITAN++ tome TODOS pero que algunos se quedan con CPU y
+> otros que ejecutan sean SIEMPRE en GPU."*
+
+```text
+   TITAN++ administra TODAS las apps (INTI pierde lo de app)
+   la CPU     CALCULA: la logica, las cuentas que no son de celdas, lo que
+              lee de fuera. Nada de pintar pixeles a mano para la pantalla
+   la 3060    EJECUTA lo que se ve: componer cada ventana en la pantalla,
+              dibujar lo de VERRANO (el cubo, en su ventana), y las gpu fn
+              de celdas. SIEMPRE, salvo que no este despierta (G0): entonces
+              la CPU, la RESERVA de la ley L32, con los mismos bits, y lo dice
+```
+
+Lo que pide, en piezas (van en la cola, seccion 4):
+la VENTANA de cada app compuesta por la 3060 (hoy el DIRECTOR copia con la
+CPU); el cubo de TITAN++ dibujado por la 3060 DENTRO de su ventana (hoy, a
+pantalla completa con `gpu verrano banco inti`); y las gpu fn al correr en la
+3060 (LB8, la puerta de computo, Ring 0). F1..F5 no se paran por esto: la
+ventana de TITAN++ es la misma superficie que la 3060 compondra.
+
 # 2. LO QUE YA FUNCIONA EN EL METAL (no se toca: se usa)
 
 ```text
@@ -62,13 +85,21 @@ faltan la ventana (TA2 de [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md)), los bytes
 eso `navegar.inti` (386 lineas) NO se borra antes: se borra en el MISMO
 commit en que el de TITAN++ lo sustituye. Asi nunca hay un dia sin NAVEGAR.
 
-- [ ] **F1 -- la VENTANA en TITAN++** (TA2): `director.ventana(ancho, alto)`
+- [x] **F1 -- la VENTANA en TITAN++** (TA2): `director.ventana(ancho, alto)`
       pide su superficie y la ofrece, una fila de pixeles se escribe, y
       `director.presenta()` la entrega; con `screen = true` en el Titan.toml
       y su linea en el certificado. **Como se sabe:** un ejemplo de nivel 11
       lanzado por un escritorio de mentira en el anfitrion pinta un
       degradado y el escritorio lee los mismos pixeles, bit a bit; y sus NO
       (sin `screen`, sin `use director`, desde una gpu fn).
+      **HECHO en el anfitrion el 10-10:** `director.ventana(ancho, alto)`,
+      `pixel`, `rect`, `fila` y `presenta` (`emisor-x86_64/src/e1/ventana.rs`,
+      la superficie BSUP del ABI por sus nombres, con buzon de 64 ranuras);
+      el ejemplo `nivel11/ventana` (un degradado y una barra que la cruza) se
+      despliega como `titan/ventana.bex`; `tests/ventana.rs`: la cabecera,
+      cada pixel recortado, la secuencia, las medidas que dice que no, los
+      NO del compilador y el certificado (la PANTALLA). Saboteado el recorte
+      de la x: cae. El metro, igual: el cubo que gira no paga nada.
 - [ ] **F2 -- los BYTES** (TA1): un tipo de 8 bits sin signo y tablas grandes
       en un bloque pedido. **Como se sabe:** su codigo T, su ejemplo y su
       nivel en la GRAMATICA; una tabla de millones de celdas sin copia.
@@ -92,6 +123,10 @@ Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
 # 4. LA COLA: lo que va despues, en este orden
 
 ```text
+   Q0  LA REGLA 1b: (a) el cubo de TITAN++ en SU ventana, dibujado por la
+       3060 desde su lamina; (b) cada ventana compuesta por la 3060; (c) las
+       gpu fn al correr en la 3060 (LB8, Ring 0: se decide con el
+       propietario)
    Q1  el juez de E8f/E8g en el metal: un .exe de DX12 con un cbuffer
        indexado, SampleLevel y Load en una 2D de una mip, que la puerta mande
        a la 3060; su tabla en Windows y despues en el Ryzen

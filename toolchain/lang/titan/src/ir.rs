@@ -271,10 +271,30 @@ pub enum Director {
     Publica,
     /// `director.espera(ms)`: sleep until the next frame.
     Espera,
+    /// ** F1 of `docs/plan/EL_FOCO.md` (TA2 of PLAN_LA_TINTA, 10-10): THE
+    /// WINDOW. `director.ventana(ancho, alto)`: a surface of BMO-X (the BSUP
+    /// contract of `bmo_abi::syscalls::surface::superficie`, the one INTI's
+    /// `roja.inti` and C's `roja.h` write) with its mailbox, OFFERED to
+    /// whoever launched the program. `true` if it was offered; `false` with
+    /// a zero or too large size, without memory, launched from the shell, or
+    /// if the program already has its window.
+    Ventana,
+    /// `director.pixel(x, y, color)`: one pixel of the window (`color` is
+    /// `r * 65536 + g * 256 + b`). Outside the window, nothing.
+    Pixel,
+    /// `director.rect(x, y, ancho, alto, color)`: a filled rectangle, cut to
+    /// the window.
+    Rect,
+    /// `director.fila(y, pixeles)`: the row `y` from a table of ints (one
+    /// color per cell), as many as fit in the window.
+    Fila,
+    /// `director.presenta()`: the drawing is WHOLE -- the sequence goes up,
+    /// and that is what makes the desktop compose it (R-APP4).
+    Presenta,
 }
 
 impl Director {
-    pub const ALL: [Director; 3] = [Director::Lamina, Director::Publica, Director::Espera];
+    pub const ALL: [Director; 8] = [Director::Lamina, Director::Publica, Director::Espera, Director::Ventana, Director::Pixel, Director::Rect, Director::Fila, Director::Presenta];
 
     /// Its whole name, as a program writes it.
     pub fn name(self) -> &'static str {
@@ -282,6 +302,11 @@ impl Director {
             Director::Lamina => "director.lamina",
             Director::Publica => "director.publica",
             Director::Espera => "director.espera",
+            Director::Ventana => "director.ventana",
+            Director::Pixel => "director.pixel",
+            Director::Rect => "director.rect",
+            Director::Fila => "director.fila",
+            Director::Presenta => "director.presenta",
         }
     }
 
@@ -293,14 +318,18 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
+            Director::Presenta => 0,
             Director::Lamina | Director::Espera => 1,
+            Director::Ventana | Director::Fila => 2,
+            Director::Pixel => 3,
             Director::Publica => 4,
+            Director::Rect => 5,
         }
     }
 
     /// Whether it gives a value back: a yes/no.
     pub fn gives(self) -> bool {
-        !matches!(self, Director::Espera)
+        matches!(self, Director::Lamina | Director::Publica | Director::Ventana)
     }
 }
 
