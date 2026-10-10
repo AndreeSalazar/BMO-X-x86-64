@@ -154,7 +154,7 @@ Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
    Q0  LA REGLA 1b: (a) el cubo de TITAN++ en SU ventana, dibujado por la
        3060 desde su lamina; (b) cada ventana compuesta por la 3060; (c) las
        gpu fn al correr en la 3060 (LB8, Ring 0: se decide con el
-       propietario)
+       propietario). Desglosada abajo (seccion 5)
    Q1  el juez de E8f/E8g en el metal: un .exe de DX12 con un cbuffer
        indexado, SampleLevel y Load en una 2D de una mip, que la puerta mande
        a la 3060; su tabla en Windows y despues en el Ryzen
@@ -171,3 +171,48 @@ Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
 y `save`: cada `SALIDA.TXT` es una fila de G0 hasta diez. Y una decision que
 espera sin prisa: el CUBO de E8g (la division de la 3060, la de la casa, o
 esperar).
+
+# 5. Q0, DESGLOSADA: lo que dice el codigo hoy (10-10)
+
+F1..F5 estan HECHOS en el anfitrion (TITAN++ abre ventanas, lee lo que le
+ofrecen, recibe teclas, escribe la letra, y NAVEGAR es suyo con los mismos
+pixeles; INTI perdio la ventana, la lamina, la entrada y la letra: cortes 4c
+y 4b). Lo que la regla 1b pide despues, leido en el DIRECTOR:
+
+```text
+   el aparato de la 3060   `gspcubo/sm86.rs`: la tuberia FIJA del estudio --
+                           1280x720 y su fondo, o es "no valido" --, dibuja en
+                           la PANTALLA (en RAM solo con `bmox12`, `enram`) y lee
+                           de vuelta para el juez. VERRANO (`Backend::draw`,
+                           un `Frame` a una `Image`) ya es la API correcta
+   el compositor           el DIRECTOR pega cada ventana COPIANDO con la CPU
+                           (el volcado de cada fotograma); la 3060 solo toma la
+                           pantalla entera (DOOM con `SUP_A_LA_3060`, PROTON-X
+                           con `SUP_LA_3060_DIRECTA`)
+   la memoria de la app    la 3060 lee lo PRESTADO por la IOMMU si sus marcos
+                           van seguidos (`loan::fisica_tomada`, lo de DOOM)
+```
+
+- [ ] **Q0a1 -- el aparato con viewport y fondo LIBRES**: la tuberia ya
+      lleva `Destino { fila, ancho, alto }`; el aparato deja de exigir
+      1280x720 y el fondo del estudio para un fotograma de VERRANO. **Como se
+      sabe:** el banco con 640x360 IGUAL a la CPU de VERRANO (la reserva, los
+      mismos bits), en el metal.
+- [ ] **Q0a2 -- el destino EN RAM para la lamina** (como `enram` de
+      `bmox12`): la 3060 dibuja en un bloque, no en la pantalla, sin leer de
+      vuelta. **Como se sabe:** `gpu verrano banco inti enram` IGUAL al juez.
+- [ ] **Q0a3 -- el DIRECTOR dibuja la lamina DENTRO de la ventana de su
+      app**: si el tid de una ventana tiene lamina, cada fotograma NUEVO de
+      la lamina lo dibuja el aparato en los pixeles de esa ventana (Ring 0:
+      la ventana prestada a la 3060 por la IOMMU, con sus marcos seguidos);
+      sin la 3060, la CPU de VERRANO, y lo dice. **Como se sabe:** en el
+      metal, `run titan/cubogira.bex` en una ventana que se mueve y se tapa,
+      y su huella IGUAL al juez.
+- [ ] **Q0a4 -- el cubo de TITAN++ pide su ventana**: `cubo_gira` abre
+      `director.ventana` ademas de su lamina (TITAN++ ya sabe las dos).
+- [ ] **Q0b -- la 3060 COMPONE**: el volcado de las ventanas por el motor de
+      copia (o un programa de computo como `imagen`), no por la CPU.
+- [ ] **Q0c -- las gpu fn al correr en la 3060** = LB8 de
+      PLAN_LAS_LIBRERIAS (la puerta de computo, Ring 0, con el propietario;
+      pide G0).
+

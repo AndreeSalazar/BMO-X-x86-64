@@ -7,9 +7,9 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   743 casillas ABIERTAS en 68 planes
+   749 casillas ABIERTAS en 69 planes
    596 hechas
-     1 planes CUMPLIDOS (ni una casilla pendiente)
+     0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
@@ -351,6 +351,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 6 compilar hola.ada el frontend de Ada dentro del mismo
 - ... y 4 mas
 
+## [`EL_FOCO.md`](EL_FOCO.md) -- 6 abiertas, 5 hechas
+
+*EL FOCO -- una cosa a la vez, hasta el final (10-10)*
+
+- [ ] Q0a1 -- el aparato con viewport y fondo LIBRES: la tuberia ya
+- [ ] Q0a2 -- el destino EN RAM para la lamina (como enram de
+- [ ] **Q0a3 -- el DIRECTOR dibuja la lamina DENTRO de la ventana de su
+- ... y 3 mas
+
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas
 
 *PLAN EL ENLAZADOR -- la pieza que madura a CINCO lenguajes a la vez*
@@ -643,13 +652,4 @@ ya no aplican, o esperan a alguien que no es el codigo.
 - **ESPERA** [`en_pausa/PLAN_EL_ASISTENTE.md`](en_pausa/PLAN_EL_ASISTENTE.md) -- a TITAN++ nivel 11 (gpu fn, PLAN_EL_CENTAURO.md; los niveles 9 y 10 ya estan): por decision del propietario del 2026-10-04 es la PRIMERA app de la F2, y se construye en TITAN++. Antes: APARCADO, "el ultimo" (2026-09-10).  *(3 hechas, 16 sueltas)*
 - **SUPERADO** [`en_pausa/PLAN_EL_CODEGEN.md`](en_pausa/PLAN_EL_CODEGEN.md) -- por PLAN_EL_TROQUEL.md (18/19-09): plegado (decidir/plegado.rs), operador con inmediato, comparacion fundida, troquel por variable, convencion de llamada hibrida. El metro dice 451.306 -> 183.875 instrucciones (-59 %); la MEDIDA de aqui fue el punto de partida y se conserva.  *(0 hechas, 9 sueltas)*
 - **SUPERADO** [`en_pausa/PLAN_EL_GUARDIAN.md`](en_pausa/PLAN_EL_GUARDIAN.md) -- por la decision del 2026-09-18 (el guardian isa, toolchain/tools/isa/isa.py: "este repositorio es de UNA arquitectura"): este repositorio es SOLO x86-64 y ARM/RISC-V son OTRO repositorio. Una placa RISC-V como guardian no cabe aqui; la idea se conserva para ese otro arbol.  *(0 hechas, 15 sueltas)*
-
----
-
-# CUMPLIDOS -- todas sus casillas marcadas
-
-** No se archivan ni se mueven: siguen siendo la razon por la
-que algo se hizo asi, y eso se consulta mas que la casilla.
-
-- [`EL_FOCO.md`](EL_FOCO.md) -- 5 hechas, 173 lineas
 
