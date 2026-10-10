@@ -294,7 +294,6 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         Some(Err(_)) => return linea(dsk, b"  NO  la lamina ofrecida no se sostiene (magia, version o capacidad que no cabe en lo prestado): no se dibuja", INK_ERR),
     };
     let mut de_inti = DeInti { tid: tomada.map_or(0, |t| t.tid), ..DeInti::default() };
-    let mut vi = [Vertex::default(); MAX_VERTICES];
     let modo = op.modo();
     let mut tablero = Tablero::nuevo(p, fin_y, n, destino::ETIQUETA, modo, b"PERFECTO Y PRECISO");
     // Sin banda (pantalla de 1280x720), las mismas cuentas sin pintarlas.
@@ -342,9 +341,17 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
             Some(l) => {
                 let limite = bmo::ciclos() + 2 * hz;
                 loop {
-                    match l.leer(&mut vi) {
+                    // ** LA LAMINA QUIROFANO (10-10): se mira UNA palabra -- la
+                    // secuencia -- y solo con una publicacion nueva se copia, y
+                    // DIRECTO a donde se dibuja: hasta hoy cada mirada de 1 ms
+                    // copiaba la ranura entera a `vi` y de ahi a `de_inti.v`.
+                    // Uno pillado a medio escribir no sale de este bucle: lo que
+                    // se dibuja es siempre un fotograma entero.
+                    let (s, leido) = l.leer_si_nueva(de_inti.secuencia, &mut de_inti.v);
+                    de_inti.secuencia = s;
+                    match leido {
                         Leido::Fotograma { fotograma, vertices } if !de_inti.visto || fotograma != de_inti.fotograma => {
-                            de_inti.nuevo(fotograma, &vi[..vertices]);
+                            de_inti.nuevo(fotograma, vertices);
                             break;
                         }
                         Leido::Fotograma { .. } | Leido::Nada => de_inti.esperando += 1,
@@ -520,9 +527,12 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
 
 /// ** Lo que VERRANO recibio de la app por la lamina, y su juicio.
 struct DeInti {
-    /// El ultimo fotograma entero, para repetirlo si el siguiente se rompe.
+    /// El ultimo fotograma entero: la lamina se copia AQUI, una vez por
+    /// publicacion (`Lamina::leer_si_nueva`).
     v: [Vertex; MAX_VERTICES],
     n: usize,
+    /// La secuencia de la lamina ya leida: sin una nueva, no se copia nada.
+    secuencia: u32,
     fotograma: u32,
     visto: bool,
     /// Fotogramas DISTINTOS recibidos, repetidos por rotos, vueltas sin nada.
@@ -538,17 +548,17 @@ struct DeInti {
 
 impl Default for DeInti {
     fn default() -> Self {
-        DeInti { v: [Vertex::default(); MAX_VERTICES], n: 0, fotograma: 0, visto: false, distintos: 0, rotos: 0, esperando: 0, igual: false, tid: 0, callada: false }
+        DeInti { v: [Vertex::default(); MAX_VERTICES], n: 0, secuencia: 0, fotograma: 0, visto: false, distintos: 0, rotos: 0, esperando: 0, igual: false, tid: 0, callada: false }
     }
 }
 
 impl DeInti {
-    fn nuevo(&mut self, fotograma: u32, v: &[Vertex]) {
+    /// Un fotograma entero ya esta en `v` (los `n` primeros).
+    fn nuevo(&mut self, fotograma: u32, n: usize) {
         if !self.visto || fotograma != self.fotograma {
             self.distintos += 1;
         }
-        self.v[..v.len()].copy_from_slice(v);
-        self.n = v.len();
+        self.n = n;
         self.fotograma = fotograma;
         self.visto = true;
     }

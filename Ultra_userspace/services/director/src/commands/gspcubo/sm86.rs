@@ -100,9 +100,12 @@ pub(super) struct Opciones {
     /// descarte del hardware (por defecto, horario: el de D3D). Por si el
     /// metal dice que la 3060 cuenta el giro al reves.
     pub antihorario: bool,
-    /// `enram` (P3b4b 3): con `bmox12`, el destino es un bloque de RAM del
-    /// escritorio -- como el back buffer de una app -- y la comparacion lee
-    /// de ahi, no de la pantalla.
+    /// `enram` (P3b4b 3): el destino es un bloque de RAM del escritorio --
+    /// como el back buffer de una app, o la ventana de una app -- y la
+    /// comparacion lee de ahi, no de la pantalla. ** Q0a2 (EL_FOCO, 10-10):
+    /// tambien SIN `bmox12` -- la lamina de una app, en el banco --, de la
+    /// medida del fotograma, y la LIMPIEZA la hace la 3060 (VRN1 con color),
+    /// no la CPU llenando el bloque.
     pub enram: bool,
     /// `z` (P3b4c): con `bmox12`, el cubo SIN descarte de caras y CON la
     /// prueba de profundidad de la 3060 (LESS, se escribe, limpia a 1.0). Si
@@ -126,7 +129,7 @@ pub(super) const PALABRAS: &[(&[u8], &[u8])] = &[
     (b"reposo", b"sin gobernador: la tarjeta en reposo, a proposito"),
     (b"sinldg", b"el de vertice SIN sus LDG (la prueba del 25-09): no dibuja el cubo"),
     (b"antihorario", b"con bmox12: delante es ANTIHORARIO para el descarte de la 3060 (si el cubo sale del reves)"),
-    (b"enram", b"con bmox12: la 3060 dibuja en RAM del escritorio (como en el back buffer de una app), no en la pantalla"),
+    (b"enram", b"la 3060 dibuja en RAM del escritorio (como en el back buffer de una app), no en la pantalla; con banco inti, la lamina (Q0a2)"),
     (b"z", b"con bmox12: sin descarte y con la PROFUNDIDAD de la 3060; bien = IGUAL a D3D12"),
     (b"ambas", b"con bmox12: sin descarte y SIN profundidad, el testigo de z: tiene que salir DISTINTO"),
     (b"textura", b"T3: la 3060 MUESTREA por la puerta de las apps los 96 puntos de la prueba de CUDA; bien = IGUAL a la 3060 bajo Windows"),
@@ -356,12 +359,10 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     if (op.z || op.ambas) && !op.bmox12 {
         return Err(linea(dsk, b"  NO  z y ambas van con bmox12 (los paquetes VRN1 con indices)", INK_ERR));
     }
-    // `enram`: el destino, un bloque del escritorio de 1280x720 (como el
-    // back buffer de una app). Solo con los programas de BMOX-12 (VRN1).
+    // `enram`: el destino, un bloque del escritorio de hasta 1280x720 (como
+    // el back buffer de una app). Q0a2: con los programas de BMOX-12 o con
+    // los de V0 (la lamina), los dos por VRN1.
     let enram = if op.enram {
-        if !op.bmox12 {
-            return Err(linea(dsk, b"  NO  enram va con bmox12 (el destino es de los paquetes VRN1)", INK_ERR));
-        }
         let pixeles = (cu::ANCHO * cu::ALTO) as usize;
         let Some(b) = bmo::Memoria::request(4 * pixeles as u64) else {
             return Err(linea(dsk, b"  NO  sin memoria para el destino de 1280x720", INK_ERR));
@@ -383,6 +384,28 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, z: op.z, ambas: op.ambas, enram, vertice: modulo, leer: true, leer_ms: 0 }, abierto))
 }
 
+/// Un color de VERRANO (`[r, g, b, a]` de 0 a 1) como pixel de la memoria,
+/// `B8G8R8A8`: `a << 24 | r << 16 | g << 8 | b`.
+fn pixel_de(c: [f32; 4]) -> u32 {
+    let b = |x: f32| ((x.clamp(0.0, 1.0) * 255.0) + 0.5) as u32;
+    b(c[3]) << 24 | b(c[0]) << 16 | b(c[1]) << 8 | b(c[2])
+}
+
+impl Aparato<'_> {
+    /// ** Q0a2: el destino EN RAM de este fotograma (`enram`): el bloque de
+    /// `abrir`, de la medida del fotograma. `Ok(None)` sin `enram`; `Err`
+    /// si no cabe o sus filas no son de 128 bytes (la 3060 lo pide).
+    fn destino_en_ram(&self, frame: &Frame) -> Result<Option<(u64, bmo_gpu_ga10x::destino::Destino)>, Error> {
+        let Some((b, pixeles)) = self.enram.as_ref() else { return Ok(None) };
+        let (ancho, alto) = (frame.viewport.width, frame.viewport.height);
+        let d = bmo_gpu_ga10x::destino::Destino { fila: 4 * ancho, ancho, alto, rgb: false };
+        if !d.valido() || (ancho as usize) * (alto as usize) > *pixeles {
+            return Err(Error::Image);
+        }
+        Ok(Some((b.base() as u64, d)))
+    }
+}
+
 impl Backend for Aparato<'_> {
     fn draw(&mut self, frame: &Frame, out: &mut Image) -> Result<Stats, Error> {
         let t0 = bmo::ciclos();
@@ -390,8 +413,12 @@ impl Backend for Aparato<'_> {
         // Lo que se le da al programa, contra lo que el programa dice leer.
         let dado = Given { set: 0, binding: 0, addr: frame.vertices.as_ptr() as u64, bytes: (frame.vertices.len() * VERTEX_BYTES) as u64, writable: false };
         self.vertice.check(&[dado]).map_err(|_| Error::Vertices)?;
-        // V0: la ventana del cubo y su FONDO son los de las ordenes de X5.
-        if (frame.viewport.width, frame.viewport.height) != (cu::ANCHO, cu::ALTO) || frame.clear.map(f32::to_bits) != cu::FONDO {
+        // En la PANTALLA, la ventana del cubo y su FONDO son los de las
+        // ordenes de X5. ** Q0a2: EN RAM, la medida del fotograma (la que
+        // quepa en el bloque, con filas de 128 bytes) y su fondo lo limpia la
+        // 3060 (`destino_en_ram`).
+        let en_ram = self.destino_en_ram(frame)?;
+        if en_ram.is_none() && ((frame.viewport.width, frame.viewport.height) != (cu::ANCHO, cu::ALTO) || frame.clear.map(f32::to_bits) != cu::FONDO) {
             return Err(Error::Image);
         }
         let limpiar = if self.coopera { self.recorte(frame) } else { None };
@@ -404,15 +431,10 @@ impl Backend for Aparato<'_> {
             // solo lo que dibuja el juez de la CPU.
             let mut datos = [0u8; 2048];
             let (n, bytes, desde) = bmo_cubo::tanda::datos_indexados(f, cu::ANCHO, cu::ALTO, &mut datos).ok_or(Error::Vertices)?;
-            // `enram`: el destino, limpio con el FONDO (la app limpia su back
-            // buffer; con destino la 3060 no limpia).
-            let destino = self.enram.as_ref().map(|(b, n)| {
-                let (va, n) = (b.base() as u64, *n);
-                // SAFETY: el bloque de `abrir`, `n` pixeles de este proceso,
-                // solo se usa aqui; la 3060 no lo toca fuera de la llamada.
-                unsafe { core::slice::from_raw_parts_mut(va as *mut u32, n) }.fill(cu::PIXEL_FONDO);
-                (va, bmo_gpu_ga10x::destino::Destino { fila: 4 * cu::ANCHO, ancho: cu::ANCHO, alto: cu::ALTO, rgb: false })
-            });
+            // `enram`: el destino, limpio con el FONDO -- ** Q0a2: por la 3060
+            // (VRN1 con color); hasta el 10-10 la CPU llenaba los 3,6 MB del
+            // bloque en cada fotograma --.
+            let destino = en_ram;
             // P3b4c: con `z` o `ambas`, sin descarte (las 12 caras a la 3060);
             // con `z`, la Z de BMOX-12 (LESS, se escribe, limpia a 1.0).
             let (descarte, z) = if self.z {
@@ -422,8 +444,17 @@ impl Backend for Aparato<'_> {
             } else {
                 (tu::Descarte::Traseras, None)
             };
-            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte, antihorario: self.antihorario, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 };
+            let color = destino.map(|_| cu::PIXEL_FONDO);
+            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte, antihorario: self.antihorario, destino, z, color, texturas: 0, cadena: false, pantalla: false, banco: 0 };
             tu::escribir_paquete_dibujo(self.paquete, self.ficha as u32, vs, self.ps, n, &datos[..bytes], dibujo).ok_or(Error::Vertices)?;
+        } else if let Some(destino) = en_ram {
+            // ** Q0a2 (EL_FOCO, 10-10): los vertices de V0 -- los de la LAMINA
+            // de una app, en el banco -- directo al VRN1, el destino en RAM y su
+            // fondo limpiado por la 3060. Los triangulos ya vienen escogidos
+            // (la tanda): sin descarte ni Z.
+            let v = frame.vertices.iter().map(|s| tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) });
+            let dibujo = tu::Dibujo { vertices: frame.vertices.len() as u32, destino: Some(destino), color: Some(pixel_de(frame.clear)), ..tu::Dibujo::default() };
+            tu::escribir_paquete_dibujo_de(self.paquete, self.ficha as u32, vs, self.ps, v, dibujo).ok_or(Error::Vertices)?;
         } else {
             let v = frame.vertices.iter().map(|s| tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) });
             tu::escribir_paquete_de(self.paquete, self.ficha as u32, vs, self.ps, v, limpiar.map(|r| (r.x0 | r.x1 << 16, r.y0 | r.y1 << 16))).ok_or(Error::Vertices)?;

@@ -321,6 +321,16 @@ y 4b). Lo que la regla 1b pide despues, leido en el DIRECTOR:
 - [ ] **Q0a2 -- el destino EN RAM para la lamina** (como `enram` de
       `bmox12`): la 3060 dibuja en un bloque, no en la pantalla, sin leer de
       vuelta. **Como se sabe:** `gpu verrano banco inti enram` IGUAL al juez.
+      **10-10, hecho en el anfitrion:** VRN1 LLEVA el color de la limpieza
+      del destino (+20 = 1, +24 el pixel, la marca de la receta) y la 3060
+      lo limpia -- la CPU deja de llenar 3,6 MB por fotograma en `enram` --;
+      `enram` ya no pide `bmox12`: los vertices de la lamina van DIRECTO al
+      VRN1 (`escribir_paquete_dibujo_de`, sin bufer), con el destino en RAM
+      de la medida del fotograma; y el banco lee la lamina UNA vez por
+      publicacion (`Lamina::leer_si_nueva`), no en cada mirada de 1 ms. El
+      juicio final del banco con `enram` lee de la RAM, no por 460.800
+      puertas. **Falta el metal:** `run titan/cubogira.bex` y, mientras
+      corre, `gpu verrano banco inti enram` (IGUAL a D3D12).
       **Por VERRANO (1c):** la Image de `Backend::draw` con su medida; la
       puerta `sm86.rs` la traduce al `Destino` de Q0a1. Le falta al paquete
       VRN1 el COLOR de fondo (hoy solo lo lleva la receta VRN2): o VRN1
