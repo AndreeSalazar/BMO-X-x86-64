@@ -192,11 +192,25 @@ memoria) y lo que se hizo:
                                                     puerta larga mide solo
                                                     lo CERRADO. `RESPIRO`
                                                     es el interruptor.
-                                                    QUEDA: op 4 (el disco
-                                                    con IF=0), y el metal
-   6  el camino frio del cubo, frecuente: la        QUEDA: rehacer solo las
-      huella del caliente lleva el numero de        ordenes en caliente
-      vertices, que cambia al girar
+                                                    Y op 4, el mismo dia: el
+                                                    FLUSH del cierre de un
+                                                    fichero va EN VUELO (el
+                                                    hilo del disco lo
+                                                    aterriza con su IRQ); la
+                                                    escritura sigue dentro y
+                                                    se MIDE (`guardar` y
+                                                    `vaciar` en `save`).
+                                                    QUEDA: el metal
+   6  el camino frio del cubo, frecuente: la        HECHO en el anfitrion
+      huella del caliente lleva el numero de        (10-10): el caliente
+      vertices, que cambia al girar                 reescribe las ORDENES
+                                                    (cientos de bytes, sin
+                                                    releer) y la cuenta sale
+                                                    de la huella. La prueba:
+                                                    frio con 6 triangulos +
+                                                    caliente con 4 = frio con
+                                                    4, palabra a palabra
+                                                    (saboteado: cae)
 ```
 
 **Falta el metal** para los HECHOS: la lista entera, con sus ordenes, en
@@ -494,6 +508,9 @@ linea dice que se mira y que seria un NO.
                                < 1 ms
    3   DOOM mira 1 de 32       `gpu doom`, la linea `[perf]`    ~560 us de
                                de la 3060                       comprobar
+   6   el cubo en caliente     `gpu verrano banco inti` con el  `preparar` de
+                               cubo girando: casi todos los     ~5 ms en los
+                               fotogramas en caliente           que giran
    5   EL RESPIRO              `gpu doom` y el cubo, moviendo   pantalla azul,
                                el raton; en `save`: `respiro`   latido tarde
                                y `apartadas` SUBEN, `latido     con la 3060,
@@ -502,7 +519,18 @@ linea dice que se mira y que seria un NO.
    5   la puerta larga, de     cualquier `save` con una puerta  op 4 de otro
        quien la llamo          larga: el nombre es el de quien  (el disco) =
                                llamo, y si es op 4 es el disco  el siguiente
+   op4 el cierre, partido      escribir un fichero (`save` ya   `vaciar` en 0
+                               lo hace) y otro `save`: las      con `guardar`
+                               filas `guardar` (DENTRO de la    grande = la
+                               puerta) y `vaciar` (el FLUSH,    escritura era
+                               ya fuera); y la puerta larga     el problema
+                               ya no es op 4 por el FLUSH       (abajo)
 ```
+
+**El respiro y el disco (10-10):** el disco tomado es un cerrojo tambien. Una
+puerta de la 3060 que tuviera el disco y respirara dejaria al hilo del disco
+girando con IF=0 en `tomar_disco` para siempre: el respiro no abre con el
+disco tomado (`disk::tomado`).
 
 **Si el respiro sale mal:** `RESPIRO = false` en `ring0/dev/respiro.rs`
 y la espera vuelve a girar entera con IF=0, como antes del 10-10
@@ -513,10 +541,12 @@ pila re-publicada; si es al matar una app, la tarea intocable.
 **Las piezas que aun son parche** (se cambian cuando toque, no se olvidan):
 
 ```text
-   op 4 con IF=0          cerrar un fichero: FAT32 y el FLUSH del disco
-                          enteros dentro de la puerta (el 1632 ms, casi
-                          seguro). La pieza: el disco por su hilo, la puerta
-                          solo encola
+   op 4, la escritura     el FLUSH ya va en vuelo (10-10); los SECTORES del
+                          fichero, la FAT y la entrada se siguen escribiendo
+                          dentro de la puerta, esperados uno a uno. Si
+                          `guardar` sale grande en el metal, la pieza: el
+                          guardado entero por el hilo del disco, por trozos,
+                          y la puerta solo encola
    la purga               `core/purga.rs` cede con `yield_current` en bucle;
                           si corre dentro de un syscall, no cede nada (como
                           la espera de la 3060 antes del 10-10)
@@ -524,8 +554,6 @@ pila re-publicada; si es al matar una app, la tarea intocable.
                           reloj sin tic (2 del cuello)
    la copia de pantalla   la CPU, 27,6 ms entera: el motor de copia por
                           defecto, el page flip, el PCIe en Gen3 (4)
-   el camino frio         la huella del caliente lleva el numero de
-                          vertices (6)
    los programas          ~700 B por fotograma al paquete: se escriben UNA
                           vez (1e)
    lamina -> paquete      una copia que queda: la lamina directo al paquete

@@ -23,7 +23,8 @@
 //!                             se toca: el `cli` de despues lo cerraria
 //!    ningun cerrojo tomado    abrir con un cerrojo en la mano dejaria a otra
 //!                             tarea girando en el con IF=0 para siempre
-//!                             (`spin::tomados`)
+//!                             (`spin::tomados`); y el DISCO es un cerrojo
+//!                             tambien (`disk::tomado`)
 //!    `RESPIRO`                la linea que se apaga si el metal dice que no
 //! ```
 //!
@@ -92,7 +93,7 @@ fn if_abierto() -> bool {
 /// vez se pisarian la cuenta, y contar de MENOS abierto solo hace la puerta
 /// mas larga en el informe -- el lado seguro --.
 fn abrir_un_instante(titular: bool) -> bool {
-    if !RESPIRO || if_abierto() || crate::ring0::plat::spin::tomados() != 0 {
+    if !RESPIRO || if_abierto() || crate::ring0::plat::spin::tomados() != 0 || crate::ring0::dev::disk::tomado() {
         return false;
     }
     let mio = percpu::trap_rsp();

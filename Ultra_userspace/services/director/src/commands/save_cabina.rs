@@ -291,6 +291,11 @@ fn report_respiro(s: &mut Output) {
     let r = bmo::info(bmo::INFO_RESPIRO);
     fila(s, b"respiro", r & 0xFFFF_FFFF, b"", b"instantes que la espera de la 3060 abrio las interrupciones");
     fila(s, b"  apartadas", r >> 32, b"", b"de esos, los que trajeron una interrupcion (el reloj, el bus)");
+    // ** EL CIERRE DE UN FICHERO, partido (10-10): la "op 4" de la puerta
+    // larga del 08-10. Escribir sigue dentro del syscall; vaciar ya no.
+    let g = bmo::info(bmo::INFO_DISCO_GUARDAR);
+    fila(s, b"guardar", (g & 0xFFFF_FFFF) / 1000, b"ms", b"la escritura de un fichero mas larga, DENTRO de la puerta");
+    fila(s, b"  vaciar", (g >> 32) / 1000, b"ms", b"el FLUSH del disco mas largo, ya FUERA de la puerta (en vuelo)");
 }
 
 /// **El peor retraso del latido del bus, y QUIEN** (2026-09-21).

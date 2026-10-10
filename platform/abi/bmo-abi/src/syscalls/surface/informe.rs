@@ -593,6 +593,12 @@ pub const INFO_PUERTA_DEL_LATIDO: u64 = 0xCD;
 /// el arranque. 0 = nunca respiro (la 3060 no se espero, o el interruptor
 /// `RESPIRO` esta apagado).
 pub const INFO_RESPIRO: u64 = 0xCE;
+/// **EL CIERRE DE UN FICHERO, partido** (10-10): `[0..32)` la fase de
+/// ESCRIBIR mas larga (los sectores, la FAT y la entrada, dentro del syscall),
+/// `[32..64)` el VACIADO (FLUSH CACHE) mas largo, que ya no se espera dentro:
+/// va en vuelo y lo aterriza el hilo del disco. Microsegundos, desde el
+/// arranque. Dice de que mitad era una puerta larga de "op 4".
+pub const INFO_DISCO_GUARDAR: u64 = 0xCF;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///

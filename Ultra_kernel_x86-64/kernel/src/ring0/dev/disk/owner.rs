@@ -31,6 +31,14 @@ static ESPERAS: AtomicU32 = AtomicU32::new(0);
 /// Cuantas veces hubo que QUITARSELO a un propietario que ya no vive.
 static ROBOS: AtomicU32 = AtomicU32::new(0);
 
+/// **Alguien tiene el disco?** Lo pregunta el RESPIRO (`dev::respiro`, 10-10):
+/// abrir las interrupciones con el disco en la mano dejaria a quien entre
+/// despues (el hilo del disco, otro syscall) girando en [`tomar_disco`] con
+/// IF=0, y el propietario apartado no volveria nunca a soltarlo.
+pub fn tomado() -> bool {
+    PROPIETARIO.load(Ordering::Acquire) != 0
+}
+
 /// `(esperas, robos)` desde el arranque.
 pub fn cuentas_propietario() -> (u32, u32) {
     (ESPERAS.load(Ordering::Relaxed), ROBOS.load(Ordering::Relaxed))

@@ -29,7 +29,7 @@ pub use controller::trim_phys;
 /// **Pedir sin esperar**: emitir el comando y preguntar despues en que va.
 /// Ver [`controller::Estado`] -- es lo que hace posible la E/S asincrona, y lo
 /// que `run_command` esconde detras de un bucle que gira.
-pub use controller::{emitir, sondear, Estado, ATA_CMD_READ_DMA_EX};
+pub use controller::{emitir, emitir_vaciado, sondear, Estado, ATA_CMD_READ_DMA_EX};
 /// **Que el aparato avise.** `habilitar_irq` abre la puerta (despues de armar
 /// MSI, nunca antes) y `atender` limpia el aviso desde el manejador.
 pub use controller::{atender, aviso_crudo, habilitar_irq, AJENOS, AVISOS};
