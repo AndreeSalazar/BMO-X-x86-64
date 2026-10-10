@@ -755,6 +755,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::RatonY => "let y = director.raton_y()",
             Director::Botones => "let b = director.botones()",
             Director::SeVe => "if director.se_ve()",
+            Director::Ms => "let t0 = director.ms()",
             Director::Letra => "x = director.letra(x, y, 65, 1, 16777215)",
             Director::Texto => "x = director.texto(8, 8, \"hola\", 1, 16777215)",
         };

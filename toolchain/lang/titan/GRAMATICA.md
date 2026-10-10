@@ -1055,7 +1055,14 @@ let x = director.raton_x()                    # y raton_y(), botones()
 if director.se_ve()                           # no minimizada ni tapada (R-APP8)
     x = director.texto(8, 8, "hola", 1, 16777215)   # la x de detras
     x = director.letra(x, 8, 241, 2, 16777215)      # un glifo (aqui la n con tilde)
+let t0 = director.ms()                        # el reloj, en ms (TA5): para MEDIR
 ```
+
+- **El reloj** (TA5 de `docs/plan/PLAN_LA_TINTA.md`, 10-10): `ms()` son los
+  milisegundos del reloj del procesador (`rdtsc` y los ciclos por segundo
+  que dice el kernel). Su cero es el de la maquina: sirve para restar --
+  lo que tarda un trazo, un fotograma --, no para decir la hora. Si el
+  kernel no sabe el reloj, 0: una resta de ceros dice "no se mide".
 
 - **Lo tenido** (F2): `toma()` -- lo que alguien OFRECIO a este programa, la
   pagina del antenista: ocho intentos, un fotograma entre uno y otro -- o

@@ -447,7 +447,7 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
         Director::Presenta => Ok(None),
         // ** F2 y F3 (EL_FOCO, 10-10): lo que se lee y lo que llega.
         Director::Toma | Director::SeVe => Ok(Some(Class::Bool)),
-        Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones => Ok(Some(Class::Int)),
+        Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::Ms => Ok(Some(Class::Int)),
         Director::Fichero => {
             if got[0] == Class::Text {
                 Ok(Some(Class::Bool))

@@ -96,8 +96,47 @@ impl E1<'_> {
             // TA4 (10-10): lo que se escribe en el disco (`disco.rs`).
             Director::Guarda | Director::Crea | Director::Cierra => self.disco(what, args, at).map(Some),
             Director::Escribe => self.escribe_byte(args, at).map(|_| None),
+            // TA5 (10-10): el reloj, para medir.
+            Director::Ms => self.ms().map(Some),
             Director::Toma | Director::Fichero | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => self.entrada(what, args, at).map(Some),
         }
+    }
+
+    /// `director.ms()` (TA5): `rdtsc` y los ciclos por segundo que dice el
+    /// kernel (`INFO_TSC_HZ`), en milisegundos. Si el kernel no lo sabe, 0:
+    /// una resta de ceros dice "no se mide", no un tiempo inventado.
+    fn ms(&mut self) -> Result<(Place, Class), String> {
+        let out = self.temp(8);
+        let tsc = self.temp(8);
+        self.code.extend_from_slice(&[0x0F, 0x31]);
+        x86::shl_r64_imm8(&mut self.code, RDX, 32);
+        x86::or_r64_r64(&mut self.code, RAX, RDX);
+        self.store(tsc, RAX);
+        self.store_imm(out, 0);
+        self.imm(RDI, CURRENT_TASK as i64);
+        self.imm(RSI, TASK_OP_INFO as i64);
+        self.imm(RDX, INFO_TSC_HZ as i64);
+        x86::zero_r32(&mut self.code, R10);
+        x86::zero_r32(&mut self.code, R8);
+        self.invoke();
+        let mut nada = Vec::new();
+        self.si_no_vale(&mut nada);
+        // ms = tsc / (hz / 1000): hz / 1000 > 0 con cualquier reloj de verdad
+        x86::mov_r64_r64(&mut self.code, RAX, RDX);
+        x86::zero_r32(&mut self.code, RDX);
+        self.imm(RCX, 1000);
+        x86::div_r64(&mut self.code, RCX);
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        nada.push(self.jcc(0x84));
+        x86::mov_r64_r64(&mut self.code, RCX, RAX);
+        self.load(tsc, RAX);
+        x86::zero_r32(&mut self.code, RDX);
+        x86::div_r64(&mut self.code, RCX);
+        self.store(out, RAX);
+        for s in nada {
+            self.here(s);
+        }
+        Ok((out, Class::Int))
     }
 
     /// `INVOKE(rdi, rsi, rdx, r10, r8)`: el codigo en `rax`, el valor en `rdx`.

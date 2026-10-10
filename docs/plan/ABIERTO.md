@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   747 casillas ABIERTAS en 69 planes
-   601 hechas
+   746 casillas ABIERTAS en 69 planes
+   602 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -63,15 +63,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
 - ... y 34 mas
 
-## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 33 abiertas, 4 hechas
-
-*PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total*
-
-- [ ] TA4 -- el DISCO: leer y escribir ficheros de ESTRATOS desde TITAN++, con permiso. A medias el 10
-- [ ] TA5 -- la MEDIDA: un banco de velocidad de E1 sobre un bucle de pixeles (cuantos millones de cel
-- [ ] TB1 -- EL LIENZO MINIMO en TITAN++: una capa, un pincel redondo con antialias, la goma, y export
-- ... y 30 mas
-
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 14 hechas
 
 *PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
@@ -79,6 +70,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] J2 -- la antena pide la lista a GOG, EN RUST. Cambiado el 29-09
 - [ ] J3 -- traer los DATOS de un juego nativo. El WAD o PAK de un juego
 - [ ] J2b -- itch.io, la API oficial. En la antena: la clave que el
+- ... y 29 mas
+
+## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 32 abiertas, 5 hechas
+
+*PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total*
+
+- [ ] TA4 -- el DISCO: leer y escribir ficheros de ESTRATOS desde TITAN++, con permiso. A medias el 10
+- [ ] TB1 -- EL LIENZO MINIMO en TITAN++: una capa, un pincel redondo con antialias, la goma, y export
+- [ ] TB2 -- CAPAS Y FUSION: N capas con opacidad y los modos normal, multiplicar y pantalla; la fusio
 - ... y 29 mas
 
 ## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 30 abiertas, 0 hechas

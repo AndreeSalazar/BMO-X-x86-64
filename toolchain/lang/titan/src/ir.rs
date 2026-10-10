@@ -345,10 +345,15 @@ pub enum Director {
     /// `director.texto(x, y, t, escala, color)`: every byte of a text, one
     /// after the other. Gives the x after it.
     Texto,
+    /// `director.ms()` (TA5 de `docs/plan/PLAN_LA_TINTA.md`): los
+    /// milisegundos del reloj del procesador, para MEDIR -- un trazo, un
+    /// fotograma --. Solo restas: el cero es el de la maquina, no el del
+    /// programa.
+    Ms,
 }
 
 impl Director {
-    pub const ALL: [Director; 24] = [
+    pub const ALL: [Director; 25] = [
         Director::Lamina,
         Director::Publica,
         Director::Espera,
@@ -373,6 +378,7 @@ impl Director {
         Director::SeVe,
         Director::Letra,
         Director::Texto,
+        Director::Ms,
     ];
 
     /// Its whole name, as a program writes it.
@@ -402,6 +408,7 @@ impl Director {
             Director::SeVe => "director.se_ve",
             Director::Letra => "director.letra",
             Director::Texto => "director.texto",
+            Director::Ms => "director.ms",
         }
     }
 
@@ -413,7 +420,7 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
-            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => 0,
+            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe | Director::Ms => 0,
             Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte => 1,
             Director::Ventana | Director::Fila | Director::Guarda => 2,
             Director::Pixel => 3,
