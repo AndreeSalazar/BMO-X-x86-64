@@ -776,6 +776,49 @@ sesion esta en el PR #26 (rama `claude/jolly-pasteur-oahbq9`).
         olas); S0, S3 y S5 de PLAN_VERRANO. DL14, aparcada
 ```
 
+**09-10, noche: LAS DECISIONES QUE QUEDABAN, contestadas.** El
+propietario, a los puntos 2, 4, 5 y al corte de INTI: *"hazlo, no me
+importa, pero que funcione mi juego Cyberpunk 2077 que tengo alli listo"*;
+del G0: *"ya aplique y hice caso ... mi GPU prendio TODO aunque es terca"*;
+y de INTI: *"INTI tiene que perder todo, se degradan poco a poco para que
+TITAN++ lleve administracion por completo; el TITAN++ es el que conecta CPU
+(por INTI) y GPU (por VERRANO)"*. Asi quedo, y por que:
+
+```text
+   DL16  R7 deja la FFMA con el inmediato en la c (forma 2). Un inmediato
+         no es memoria: la puerta de las apps no se abre a nada nuevo, y
+         cada receta de DL13 pierde de 2 a 8 MOV. HECHA el 09-10 (1a22dd6)
+   DL17  las TEXTURAS que Cyberpunk pide: TEX con nivel (SampleLevel),
+         arrays, cubos y 3D, y TLD (Load). Porque casi todo sombreador de
+         pixeles del juego muestrea, y hoy cada uno manda su PSO entero a la
+         CPU. Por capas: la lengua (las palabras de NVIDIA, el juez, el
+         simulador y el emisor) en el anfitrion; las texturas con mips en
+         la VRAM (TIC de bloques, el barajado) y su subida, Ring 0 (DL15).
+         La lengua, HECHA el 10-10 en el anfitrion salvo el cubo (E8g de
+         PLAN_LA_LENGUA_DE_LA_3060, con su decision pendiente)
+   DL18  el LDC CON INDICE (ConstantesEn: los arrays de luces y huesos de un
+         cbuffer, `luces.hlsl`). Es memoria, y por eso con tres cerrojos: el
+         banco lo ata el kernel con la MEDIDA del cbuffer de la app (la 3060
+         da 0 fuera, segun nouveau y NVK: por ver en el metal), el juez solo
+         deja leer ESE banco, y el indice va sujeto justo antes (un IMNMX
+         que R7 mira, sin un salto que lo esquive). HECHA en el anfitrion
+         el 09-10 (ffdacd1), con las ordenes que atan el banco; el metal,
+         con la primera receta que la use
+   G0    el paso 1, aplicado: primera fila de la tabla (PLAN_LA_3060, G0)
+   INTI  el corte 4a, HECHO (8580a98): VERRANO salio de INTI; lo demas de
+         app, cuando su relevo exista (3.3 de PLAN_INTI_SAMURAI)
+```
+
+Lo que cambia en el orden de arriba: el 2 (las dos que DL12 dejo en "todavia
+no") pasa a ser lo SIGUIENTE, con LB8 detras; el 5 esta hecho.
+
+**09-10, 18:24: el 1, HECHO en el metal.** `gpu verrano banco inti` con
+`titan/cubogira.bex` vivo: 360 fotogramas por la lamina, 0 rotos, `el
+ultimo, el 248: IGUAL al juez, bit a bit`, y el 30 IGUAL a D3D12; y otra
+vez con 3600 (~68 s, 0 rotos, IGUAL). LB7 queda vista en el metal (su nota
+del 09-10, 18:24). El resto de la lista, sin cambios: el siguiente del
+metal es el 2 (G0).
+
 ---
 
 # 5. LAS CASILLAS
@@ -1436,6 +1479,40 @@ sesion esta en el PR #26 (rama `claude/jolly-pasteur-oahbq9`).
     app dice cuanto publica, y el NO del banco nombra las dos apps y pide
     escribirlo MIENTRAS corre. Falta: el banco con la app viva, y su `IGUAL
     al juez`.
+  - **09-10, 18:24, LB7 VISTA EN EL METAL** (la foto del tablero y el
+    `SALIDA.TXT` del propietario, capitulo 1): `run titan/cubogira.bex`
+    (tid 7) publicando, y en la misma barra, MIENTRAS corria:
+
+    ```text
+       gpu verrano banco inti        360 fotogramas, 802 fps de pared (con la
+                                     escalera de T1c); LA 3060 872 us
+                                     (469..3067), preparar 197 us, 347 en
+                                     caliente; el 30, leido al final: IGUAL a
+                                     D3D12 en la 3060 bajo Windows
+         INTI (tid 7) por la lamina: 360 fotogramas distintos, 0 repetidos
+                                     por rotos, 1776 vueltas sin nada; el
+                                     ultimo, el 248: IGUAL al juez, bit a bit
+       gpu verrano banco inti 3600   3600 fotogramas (~68 s), 810 fps; LA 3060
+                                     871 us (822..1506), 3479 en caliente; el
+                                     30 IGUAL a D3D12; 3600 distintos, 0
+                                     rotos; el ultimo, el 243: IGUAL al juez
+    ```
+
+    Es lo que pedia el **como se sabe** de arriba: los vertices que cuentan
+    las gpu fn de TITAN++ al correr (en la CPU, su reserva: L32), publicados
+    en la lamina, leidos por VERRANO y dibujados por la 3060, con los bits
+    de `bmo_cubo`. Y deja listo el corte 4 de INTI_SAMURAI (que
+    `cubo.inti` salga del build): su relevo ya corre en el metal; el corte
+    lo decide el propietario. Los numeros del camino (E2) estan en S0 de
+    [`PLAN_VERRANO.md`](PLAN_VERRANO.md).
+    [!] Dos cosas, dichas: los fps del tablero cuentan solo el `draw` (la
+    espera a la app queda fuera del reloj): la app iba a ~53 fotogramas por
+    segundo, no a 802; y la 3060 tardo 872 us por fotograma contra los 395
+    del banco SIN lamina del 26-09
+    ([`METAL_2026-09-25.md`](../metal/METAL_2026-09-25.md), seccion 22),
+    con las mismas ordenes. El `pstate` se leyo P0 al arrancar, no durante
+    el banco: el porque NO esta medido (candidato: la tarjeta reposa ~17 ms
+    entre dibujo y dibujo).
 
 ## 5.2 Lo que es de Ring 0 (del propietario)
 

@@ -29,7 +29,6 @@ toolchain/lang/cobol/examples/8-parrafos/cierre.cob 694 93 4305 e3a5047d373bbbde
 toolchain/lang/cobol/examples/9-decision/comision.cob 3978 538 9221 b74edb36d777ee06
 toolchain/lang/cpp/examples/1-clases/cuentas.cpp 600 139 1248 ee45374b921d5109
 toolchain/lang/inti/ejemplos/bico.inti 644 234 15748 56b0f2120340652f
-toolchain/lang/inti/ejemplos/cubo.inti 989 435 32888 cbf29ce484222325
 toolchain/lang/inti/ejemplos/musica.inti 428 143 22377 031a8f1d4e77e2bb
 toolchain/lang/inti/sondas/pulso.inti 667750 126986 5050 9961033a811a7779
 toolchain/lang/inti/sondas/ventana.inti 2183 793 16776 52f287b1b72f3aa2
@@ -39,6 +38,7 @@ toolchain/lang/titan/ejemplos/nivel1/centauro.titan 63 0 321 816cd108e0ffdcb2
 toolchain/lang/titan/ejemplos/nivel10/formas.titan 51 0 265 3e932a0c025ec0a6
 toolchain/lang/titan/ejemplos/nivel10/motor/src/main.titan 34 0 180 36be6f246c208e76
 toolchain/lang/titan/ejemplos/nivel11/activa/src/main.titan 66 0 335 ad3c85df63fda75f
+toolchain/lang/titan/ejemplos/nivel11/cubo_gira/src/main.titan 51288 20448 163341 d6019fcf0b121131
 toolchain/lang/titan/ejemplos/nivel11/mezcla/src/main.titan 24 0 139 ac980c01fdd85e0e
 toolchain/lang/titan/ejemplos/nivel12/adivina.titan 1010 168 2166 b7cb1a531854d3fd
 toolchain/lang/titan/ejemplos/nivel12/hasta_fin.titan 815 113 1794 dc5cd9badca78e5e

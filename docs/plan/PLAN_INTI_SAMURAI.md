@@ -144,6 +144,62 @@ con su relevo en TITAN++.
 > bits de `bmo_cubo` (`emisor-x86_64/tests/lamina.rs`). `cubo.inti` sigue en el
 > build hasta que la app de TITAN++ se vea en el metal: hoy la prueba de
 > VERRANO en el metal es la suya.
+>
+> **09-10, 18:24: visto en el metal**, y `cubo.inti` SALIO el mismo dia (el
+> corte 4a, seccion 3.3): `run titan/cubogira.bex` y `gpu verrano banco inti`
+> dieron 360 y 3600 fotogramas por la lamina, 0 rotos, `IGUAL al juez, bit a
+> bit` ([`METAL_2026-10-08.md`](../metal/METAL_2026-10-08.md), seccion 4).
+
+## 3.3 Lo que DECIDIO el propietario (2026-10-09): INTI pierde todo lo de app, poco a poco
+
+> *"INTI tiene que perder todo, se degradan poco a poco para que TITAN++
+> lleve administracion por completo; el TITAN++ es el que conecta CPU (por
+> INTI) y GPU (por VERRANO)"* -- y del corte 4: *"hazlo"*.
+
+Es la seccion 7 de [`TITAN_MAESTRO.md`](../maestro/TITAN_MAESTRO.md) dicha por
+el propietario con otras palabras: TITAN++ ADMINISTRA -- las apps, los
+juegos, la IA se construyen en el --, y llega a la maquina por dos puertas:
+
+```text
+   TITAN++  --(la CPU, lo caliente)-->  INTI      el samurai: registros, AVX2,
+                                                  la instruccion exacta; TITAN++
+                                                  le llama por `.bo` +
+                                                  bmo-enlazar (E2 de 7.3)
+            --(la GPU, dibujar)------>  VERRANO   la lamina y la puerta de la
+                                                  3060 (E4 de 7.3: HECHO el
+                                                  09-10, `director.publica`)
+```
+
+**Poco a poco** quiere decir lo que ya decia 3.1: cada pieza de app sale de
+INTI el dia que su relevo en TITAN++ existe, y no antes -- quitarla antes
+solo pierde la unica prueba del metal que tiene. El orden, con lo que pide
+cada relevo:
+
+```text
+   pieza de INTI               su prueba hoy        su relevo en TITAN++        estado
+   el cubo de VERRANO          cubo.inti            titan/cubogira.bex (LB7)    FUERA, 09-10 (4a)
+   (runtime/verrano.inti,
+   [verrano] de modulos.toml)
+   la ventana (superficie,     sondas/ventana.inti  `screen`: TA2 de            espera su relevo
+   entrada, letra)                                  PLAN_LA_TINTA (la ventana,
+                                                    una fila de pixeles, el
+                                                    buzon)
+   el sonido ([sonido])        ejemplos/musica.inti el sonido en TITAN++        espera su relevo
+                                                    (no existe: ni la palabra)
+   NAVEGAR (lamina de          apps/navegar.inti    el port de D1 (PLAN_        espera su relevo
+   navegar, texto, monton,                          NAVEGAR): tipos, tablas y
+   objetos)                                         la ventana de arriba
+   el perfil `pleno`           congelado (E0077)    los niveles 6-13 de         sale con navegar
+                                                    TITAN++ (dec, tablas,
+                                                    listas, mapas)
+```
+
+**Lo que NO pierde**, y no es una contradiccion con *"perder todo"*: lo de
+CPU es lo que hace de INTI la puerta de TITAN++ a la CPU. `cpu.inti` y
+`pulso.inti` (llano, vistos en el Ryzen) y el emisor se quedan. `bico.inti`
+y `png.inti` se quedan por D3 (leer lo que escribio otro sin desbordar un
+bufer es seguridad de sistema): [!] si el propietario quiere tambien esas
+fuera, D3 se reescribe -- hoy sigue en pie.
 
 ## 3.2 PROPUESTA (04-10): el decimal de Grace Hopper, al estilo del Ryzen
 
@@ -186,11 +242,21 @@ escrita para que el propietario diga si; no se ha tocado codigo.
           cumplen lo mismo; 243 + 269 pruebas en verde
    [ ] 2  el build y el metro: ventana, musica, cubo y navegar fuera de
           ejemplos.ps1 y del banco del metro, cada uno con su motivo --
-          JUNTO con el 4, cuando TITAN++ tenga su relevo (3.1)
-   [ ] 4  fuera el runtime de app (objetos, monton, superficie, lamina,
-          entrada, letra, verrano) y sus secciones de modulos.toml, con sus
+          JUNTO con el 4, cuando TITAN++ tenga su relevo (3.1). El cubo,
+          HECHO el 09-10 (4a): fuera del build y del metro, con su motivo
+          en `metro/src/main.rs`; su relevo (`nivel11/cubo_gira`) entro en
+          el banco del metro
+   [x] 4a VERRANO sale de INTI (09-10, 3.3): `ejemplos/cubo.inti`,
+          `runtime/verrano.inti`, `[verrano]` y las constantes `verrano_*`
+          de modulos.toml, sus diez filas del espejo del kernel, sus cuatro
+          pruebas (`pruebas/simd.rs`) y la dependencia de `bmo-verrano`;
+          el DIRECTOR nombra solo `titan/cubogira.bex`. INTI: 243 + 265
+          pruebas en verde; el metro, limpio con una fila menos y la del
+          relevo
+   [ ] 4  fuera el resto del runtime de app (objetos, monton, superficie,
+          lamina, entrada, letra) y sus secciones de modulos.toml, con sus
           pruebas (la de `tests/fuente.rs` incluida: bmo-fontgen deja de
-          emitir la copia INTI)
+          emitir la copia INTI) -- cada pieza con su relevo (3.3)
    [ ] 5  el emisor pierde los caminos del monton y de los objetos; los docs
           de INTI dicen UN perfil
    [ ] 6  EL PRIMER CORTE DE VELOCIDAD: asignacion de registros (INTI_MAESTRO

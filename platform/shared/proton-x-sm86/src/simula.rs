@@ -9,7 +9,8 @@
 //! predicados P0..P6 y el GUARDA de cada instruccion; desde E6c y E6d las
 //! de enteros: IMAD, IMAD.HI, LOP3, SHF, IMNMX, IABS, I2F y F2I; desde
 //! DL10 (09-10) FFMA, con un redondeo y en sus cuatro modos (`fma.rs`); y
-//! desde DL12 (09-10) KILL, que acaba el hilo y deja [`Maquina::matado`] --; cualquier otra
+//! desde DL12 (09-10) KILL, que acaba el hilo y deja [`Maquina::matado`];
+//! y desde E8f (09-10) LDC con indice, de los `bancos` --; cualquier otra
 //! palabra (u otra forma de esas) es [`NoSimula::Instruccion`], nunca un
 //! "seguramente".
 //!
@@ -47,6 +48,23 @@ pub enum NoSimula {
 /// Lo que corre como mucho un programa en el simulador.
 pub const PASOS_MAXIMOS: usize = 1 << 22;
 
+/// ** E8g (DL17): lo que un TEX o un TLD le pide a la textura de su asa.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LecturaTex {
+    pub asa: u32,
+    /// La dimension, como la escribe la 3060 (61..64): 1 2D, 2 3D, 3 CUBE,
+    /// 5 ARRAY_2D, 7 ARRAY_CUBE.
+    pub dim: u8,
+    /// Un TLD (`Load`): las coordenadas y el nivel, ENTEROS.
+    pub carga: bool,
+    /// Las coordenadas, en bits, como estan en Ra..: en un array la CAPA
+    /// primero (entera); las que la forma no lleva, 0.
+    pub c: [u32; 4],
+    /// El nivel de Rb+1 (`.LL`: los bits de un f32 en un TEX, un entero en
+    /// un TLD), o `None` (`.LZ`: el 0).
+    pub nivel: Option<u32>,
+}
+
 /// La maquina: 256 registros (los bits de cada `f32`) y los bancos de
 /// constantes (`c[banco][desp]`); lo que no esta se lee como 0.
 pub struct Maquina<'a> {
@@ -58,6 +76,9 @@ pub struct Maquina<'a> {
     /// muestreo de la casa (`bmo_proton_x::textura`), que iguala a la 3060
     /// bit a bit en las 96 muestras medidas (`tests/metal_textura.rs`).
     pub muestrear: Option<&'a dyn Fn(u32, f32, f32) -> [f32; 4]>,
+    /// ** E8g: lo que lee CUALQUIER forma de TEX o TLD (la casa, en las
+    /// pruebas). Sin ella, el TEX 2D de nivel 0 va a [`Maquina::muestrear`].
+    pub leer_textura: Option<&'a dyn Fn(&LecturaTex) -> [u32; 4]>,
     /// ** DL10: cuantos ULP se mueve el resultado de MUFU.RCP (con su signo)
     /// cuando es un numero normal: la 3060 aproxima, y lo que viva de su
     /// inverso tiene que aguantarlo. 0, el de la casa.
@@ -68,7 +89,7 @@ pub struct Maquina<'a> {
 
 impl<'a> Maquina<'a> {
     pub fn nueva(bancos: [&'a [u8]; 8]) -> Self {
-        Maquina { r: [0; 256], p: [false; 7], bancos, muestrear: None, inverso_ulp: 0, matado: false }
+        Maquina { r: [0; 256], p: [false; 7], bancos, muestrear: None, leer_textura: None, inverso_ulp: 0, matado: false }
     }
 
     fn reg(&self, i: usize) -> u32 {
@@ -82,7 +103,13 @@ impl<'a> Maquina<'a> {
     fn constante(&self, lo: u64) -> u32 {
         let banco = (lo >> 54 & 0x1F) as usize;
         let desp = ((lo >> 40 & 0x3FFF) * 4) as usize;
-        self.bancos.get(banco).and_then(|b| b.get(desp..desp + 4)).map_or(0, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        self.palabra_de(banco, desp)
+    }
+
+    /// La palabra del byte `desp` del banco `banco`; fuera, 0 (lo que la
+    /// casa da fuera de un cbuffer, y la 3060 fuera de la medida del banco).
+    fn palabra_de(&self, banco: usize, desp: usize) -> u32 {
+        self.bancos.get(banco).and_then(|b| b.get(desp..desp.checked_add(4)?)).map_or(0, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
     }
 }
 
@@ -310,9 +337,11 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
             // ** DL10: FFMA Rd, a, b, Rc -- UN redondeo, en su modo (78..80),
             // con la FFMA exacta (`fma.rs`). La tercera, con su `-` (75) y su
             // `|x|` (74); sin `.SAT` ni nada mas (no la emite el emisor).
-            0x023 if matches!(forma, 1 | 4) && hi & ((1 << 41) - 1) & !(0xFF | 0xF << 8 | 3 << 14) == 0 => {
-                let b = segunda(4, 5).ok_or(NoSimula::Instruccion(n))?;
-                let c = modificar(m.reg((hi & 0xFF) as usize), hi >> 11 & 1 != 0, hi >> 10 & 1 != 0);
+            // ** 09-10, la forma 2: el inmediato es la c, y en el hueco de la
+            // c (64..72, con 74 y 75) esta la b.
+            0x023 if matches!(forma, 1 | 2 | 4) && hi & ((1 << 41) - 1) & !(0xFF | 0xF << 8 | 3 << 14) == 0 => {
+                let hueco_c = modificar(m.reg((hi & 0xFF) as usize), hi >> 11 & 1 != 0, hi >> 10 & 1 != 0);
+                let (b, c) = if forma == 2 { (hueco_c, (lo >> 32) as u32) } else { (segunda(4, 5).ok_or(NoSimula::Instruccion(n))?, hueco_c) };
                 let modo = match hi >> 14 & 3 {
                     0 => crate::fma::Redondeo::Cercano,
                     1 => crate::fma::Redondeo::Abajo,
@@ -339,20 +368,53 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
                 5 => m.constante(lo),
                 _ => return Err(NoSimula::Instruccion(n)),
             },
-            // TEX.SCR.B.LZ 2D (0x361): R y G en rd, rd+1; B y A en rd2, rd2+1.
-            0x161 if forma == 1 => {
-                let Some(mu) = m.muestrear else { return Err(NoSimula::Instruccion(n)) };
-                let (u, v) = (f(m.reg(ra)), f(m.reg(ra + 1)));
-                let c = mu(m.reg((lo >> 32 & 0xFF) as usize), u, v);
+            // TEX (0x361) y, desde E8g, TLD (0x367): R y G en rd, rd+1; B y A
+            // en rd2, rd2+1. Las coordenadas en Ra.. (por su dimension), el
+            // asa en Rb y, con .LL, el nivel en Rb+1.
+            0x161 | 0x167 if forma == 1 => {
                 let rd2 = (hi & 0xFF) as usize;
                 if rd == RZ || rd2 == RZ || hi >> 8 & 0xF != 0xF {
                     return Err(NoSimula::Instruccion(n));
                 }
-                m.r[rd] = c[0].to_bits();
-                m.r[rd + 1] = c[1].to_bits();
-                m.r[rd2] = c[2].to_bits();
-                m.r[rd2 + 1] = c[3].to_bits();
+                let (dim, ll) = ((lo >> 61) as u8, hi >> 23 & 7 == 3);
+                let coordenadas = match dim {
+                    1 => 2,
+                    2 | 3 | 5 => 3,
+                    7 => 4,
+                    _ => return Err(NoSimula::Instruccion(n)),
+                };
+                let rb = (lo >> 32 & 0xFF) as usize;
+                let mut c = [0u32; 4];
+                for (k, x) in c.iter_mut().enumerate().take(coordenadas) {
+                    *x = m.reg(ra + k);
+                }
+                let l = LecturaTex { asa: m.reg(rb), dim, carga: op == 0x167, c, nivel: ll.then(|| m.reg(rb + 1)) };
+                let canales = match (m.leer_textura, m.muestrear) {
+                    (Some(leer), _) => leer(&l),
+                    // El de siempre: 2D de nivel 0, por `muestrear`.
+                    (None, Some(mu)) if op == 0x161 && dim == 1 && !ll => mu(l.asa, f(c[0]), f(c[1])).map(f32::to_bits),
+                    _ => return Err(NoSimula::Instruccion(n)),
+                };
+                m.r[rd] = canales[0];
+                m.r[rd + 1] = canales[1];
+                m.r[rd2] = canales[2];
+                m.r[rd2 + 1] = canales[3];
                 continue;
+            }
+            // ** E8f (DL18): LDC[.64] Rd, c[banco][Ra + desp] -- solo la forma
+            // de `codifica::ldc` --; fuera del banco, 0.
+            0x182 if forma == 5 && matches!(hi >> 9 & 7, 4 | 5) && hi & ((1 << 41) - 1) & !(7 << 9) == 0 && lo >> 32 & 0xFF == 0 && lo >> 59 == 0 => {
+                let banco = (lo >> 54 & 0x1F) as usize;
+                let dir = m.reg(ra) as usize + ((lo >> 40 & 0x3FFF) * 4) as usize;
+                if hi >> 9 & 7 == 5 {
+                    if rd == RZ || rd % 2 != 0 {
+                        return Err(NoSimula::Instruccion(n));
+                    }
+                    m.r[rd] = m.palabra_de(banco, dir);
+                    m.r[rd + 1] = m.palabra_de(banco, dir + 4);
+                    continue;
+                }
+                m.palabra_de(banco, dir)
             }
             0x14D => return Ok(pasos),
             // ** DL12: KILL (su guarda ya se miro arriba) -- solo la forma de

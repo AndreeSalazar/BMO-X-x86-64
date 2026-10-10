@@ -569,7 +569,7 @@ mod pruebas {
                 Precarga::Entrada { elemento, componente, reg } => Carga::Entrada { elemento, componente, reg },
                 Precarga::Fila { fila, reg } => Carga::Fila { fila, reg },
                 // Los cubos no muestrean: la unica textura seria la 0.
-                Precarga::Asa { reg, .. } => Carga::Asa { textura: 0, reg },
+                Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } => Carga::Asa { textura: 0, reg },
             })
             .collect()
     }

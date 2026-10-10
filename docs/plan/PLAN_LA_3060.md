@@ -2701,6 +2701,24 @@ siendo lo que nunca fallo; "Reiniciar" no corta la corriente de la tarjeta.
   la mitad 3060 de [`PLAN_LA_ESCALERA_PROTON_X.md`](PLAN_LA_ESCALERA_PROTON_X.md)
   (su regla R8).
 
+  **09-10: el paso 1, APLICADO por el propietario** (*"ya aplique y hice
+  caso ... mi GPU prendio TODO aunque es terca"*): `powercfg /h off`, ErP en
+  la BIOS y apagar en vez de reiniciar. La tabla empieza aqui; cada fila, un
+  arranque con su `save` (el capitulo 2 del informe, `PARA PEGAR`):
+
+  ```text
+     #  fecha        paso 1  al llegar          el booter          despierto   la sesion
+     1  09-10 18:24  SI      fria: GSP parado,  247094 us hasta    SI: INIT_   gpu verrano banco inti
+                             sin WPR2           pararse; el GSP    DONE a los  (360 y 3600, IGUAL al
+                                                espero 119 ms;     186 ms; P0  juez): LB7 en el metal
+                                                FRTS->booter 483
+  ```
+
+  Uno de diez. Lo que falta para cerrar G0: nueve mas con el paso 1, de
+  Windows Y de BMO-X, y uno MALO si llega (con su autopsia: que variable
+  cambio). Si los diez salen buenos, el paso 1 era la variable (W2 de
+  29-09 + el inicio rapido), y H2/H4 se aparcan con ese motivo.
+
 
 ### La electricidad de la 3060, a voluntad (pedido 03-10, para refinar)
 

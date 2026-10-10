@@ -47,7 +47,11 @@
 //!    +84  cuantas TEXTURAS lee el de pixel (P3b4c.8 T2; hasta
 //!         `texturas::MAX_TEXTURAS`)
 //!    +88  bit 0: el destino es un BACK BUFFER de la cadena (P3b4c.9 Z1: solo
-//!         eso puede ir directo a la pantalla, si el escritorio la dio)
+//!         eso puede ir directo a la pantalla, si el escritorio la dio);
+//!         bit 1 (E8f, 09-10): los cuerpos leen su cbuffer con un LDC
+//!         (`ConstantesEn`): el kernel ata el banco `tuberia::BANCO_APP` a
+//!         sus `16 x filas` primeros bytes de los DATOS, y el juez R7 los
+//!         deja leer ESE banco y nada mas alla de esa medida
 //!    +92  9d, LA LIBRETA: el registro del TERMOMETRO del de vertice + 1
 //!         (0 = sin libreta) | el del de pixel + 1 << 8; cada uno, de SU
 //!         cuerpo. Los 16 de arriba, a 0. Ver `libreta`
@@ -200,7 +204,7 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
 /// cada carga dentro de lo que hay, los DATOS con todos los vertices dentro
 /// y cada indice de un vertice que esta. `None` si algo no se sostiene.
 pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
-    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || u32le(b, 88) > 1 || u32le(b, 92) >> 16 != 0 {
+    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || u32le(b, 88) > 3 || u32le(b, 92) >> 16 != 0 {
         return None;
     }
     let n_texturas = u32le(b, 84) as usize;
@@ -268,7 +272,15 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     }
     dibujo.color = (u32le(b, 20) == 1).then(|| u32le(b, 24));
     dibujo.texturas = n_texturas as u8;
-    dibujo.cadena = u32le(b, 88) == 1;
+    dibujo.cadena = u32le(b, 88) & 1 == 1;
+    // E8f: el banco de la app, con su cbuffer entero (y sin cbuffer, no hay
+    // banco que atar).
+    if u32le(b, 88) & 2 != 0 {
+        if filas == 0 {
+            return None;
+        }
+        dibujo.banco = 16 * filas;
+    }
     if let Some(z) = dibujo.z.as_mut() {
         if z.limpiar.is_some() {
             z.limpiar = Some(u32le(b, 80));
@@ -327,6 +339,10 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
 /// cabe o no se sostiene (se relee con [`leer`] antes de darla por buena).
 pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
     let total = r.medida();
+    // E8f: el banco, si lo hay, es el cbuffer entero: ni mas ni menos.
+    if r.dibujo.banco != 0 && r.dibujo.banco != 16 * r.filas {
+        return None;
+    }
     if out.len() < total || r.n_elementos > MAX_ELEMENTOS || r.n_cargas_vs > MAX_CARGAS || r.n_cargas_ps > MAX_CARGAS || r.n_genericos > MAX_GENERICOS || r.dibujo.texturas as usize > MAX_TEXTURAS {
         return None;
     }
@@ -366,7 +382,7 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
         r.n_cargas_vs as u32 | (r.n_cargas_ps as u32) << 16,
         d.z.and_then(|z| z.limpiar).unwrap_or(0),
         d.texturas as u32,
-        d.cadena as u32,
+        d.cadena as u32 | ((d.banco != 0) as u32) << 1,
         r.termometro_vs.map_or(0, |t| t as u32 + 1) | r.termometro_ps.map_or(0, |t| t as u32 + 1) << 8,
     ];
     out[..total].fill(0);
@@ -440,9 +456,9 @@ impl Taller {
 // podria fabricar una colision y colar un cuerpo sin juzgar. Comparar ~4 KiB
 // cuesta menos de un microsegundo y no tiene colisiones.
 
-/// Lo mas que mide una [`clave`]: 12 numeros, los dos cuerpos, los
+/// Lo mas que mide una [`clave`]: 14 numeros, los dos cuerpos, los
 /// elementos, las cargas y los genericos.
-pub const MAX_CLAVE: usize = 4 * 13 + 2 * MAX_CUERPO + 8 * MAX_ELEMENTOS + 4 * 2 * MAX_CARGAS + 2 * MAX_GENERICOS;
+pub const MAX_CLAVE: usize = 4 * 14 + 2 * MAX_CUERPO + 8 * MAX_ELEMENTOS + 4 * 2 * MAX_CARGAS + 2 * MAX_GENERICOS;
 
 /// **Todo lo que `pegar` lee de `r`** (9d: tambien sus termometros), en bytes y sin ambiguedad (cada
 /// trozo lleva su medida delante): dos recetas con la misma clave se pegan
@@ -455,7 +471,8 @@ pub fn clave(r: &Receta, out: &mut [u8; MAX_CLAVE]) -> usize {
         i += b.len();
     };
     let termometros = r.termometro_vs.map_or(0, |t| t as u32 + 1) | r.termometro_ps.map_or(0, |t| t as u32 + 1) << 8;
-    for x in [r.registros_vs, r.registros_ps, r.salidas, r.posicion, r.filas, r.paso, r.vs.len() as u32, r.ps.len() as u32, r.n_elementos as u32, r.n_cargas_vs as u32, r.n_cargas_ps as u32, r.n_genericos as u32, termometros] {
+    // E8f: y el banco, que cambia lo que R7 deja.
+    for x in [r.registros_vs, r.registros_ps, r.salidas, r.posicion, r.filas, r.paso, r.vs.len() as u32, r.ps.len() as u32, r.n_elementos as u32, r.n_cargas_vs as u32, r.n_cargas_ps as u32, r.n_genericos as u32, termometros, r.dibujo.banco] {
         poner(&x.to_le_bytes());
     }
     poner(r.vs);
@@ -504,12 +521,14 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
         return Err(NoReceta::Forma);
     }
     let datos = Datos { filas: r.filas, paso: r.paso, elementos: r.elementos() };
+    // E8f: el banco que el kernel va a atar, si la receta lo pidio.
+    let banco = (r.dibujo.banco > 0).then_some(juez::BancoDeApp { numero: tu::BANCO_APP, bytes: r.dibujo.banco });
     let cuerpo = instrucciones(&mut t.cuerpo, r.vs);
-    juez::juzgar_cuerpo_de_app(cuerpo, r.registros_vs).map_err(|b| NoReceta::Cuerpo("vertice", b))?;
+    juez::juzgar_cuerpo_con(cuerpo, r.registros_vs, juez::Permisos { asas: 0, banco }).map_err(|b| NoReceta::Cuerpo("vertice", b))?;
     pegamento::vertice_con_libreta_en(&mut t.pegado, cuerpo, r.registros_vs, r.cargas_vs(), datos, r.salidas, r.posicion, r.termometro_vs).map_err(|e| NoReceta::Pegamento("vertice", e))?;
     t.bytes_vs = t.pegado.bytes(&mut t.vs);
     let cuerpo = instrucciones(&mut t.cuerpo, r.ps);
-    juez::juzgar_cuerpo_con_asas(cuerpo, r.registros_ps, pegamento::asas(r.cargas_ps())).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
+    juez::juzgar_cuerpo_con(cuerpo, r.registros_ps, juez::Permisos { asas: pegamento::asas(r.cargas_ps()), banco }).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
     pegamento::pixel_con_libreta_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos(), r.termometro_ps).map_err(|e| NoReceta::Pegamento("pixel", e))?;
     t.bytes_ps = t.pegado.bytes(&mut t.ps);
     let jv = juez::juzgar_programa(&t.vs[..t.bytes_vs], tu::REGISTROS).map_err(|b| NoReceta::Juez("vertice", b))?;
@@ -539,6 +558,90 @@ mod pruebas {
     /// P3b4c.8 T2: una receta con UNA textura, de punta a punta: se escribe,
     /// se relee igual, se pega (el MOV del asa lo pone el pegamento, el TEX
     /// es del cuerpo) y el juez dice PERFECTO Y PRECISO.
+    #[test]
+    fn una_receta_que_lee_su_cbuffer_con_indice() {
+        // ** E8f (DL18): el de pixel lee la fila `i` de su cbuffer (dos filas)
+        // con un LDC del banco de la app, el indice sujeto por un IMNMX.
+        let bytes = |w: &[(u64, u64)]| w.iter().flat_map(|&(lo, hi)| lo.to_le_bytes().into_iter().chain(hi.to_le_bytes())).collect::<std::vec::Vec<u8>>();
+        let ctl = |espera: u64, wbar: u64, mascara: u64| espera | 1 << 4 | wbar << 5 | 7 << 8 | mascara << 11;
+        let vs = bytes(&[c::mov(0, c::r(0), 1), c::exit(0)]);
+        let banco = tu::BANCO_APP;
+        let ps = bytes(&[
+            c::imnmx(5, 4, c::Fuente::Imm(16), false, false, ctl(6, 7, 0)),
+            c::ldc(0, banco, 5, 0, true, ctl(2, 4, 0)),
+            c::ldc(2, banco, 5, 8, true, ctl(2, 5, 0)),
+            c::exit(ctl(5, 7, 0b11_0000)),
+        ]);
+        // El cbuffer (2 filas) y los 3 vertices de 32 B.
+        let datos = std::vec![0u8; 32 + 96];
+        let dst = Destino { fila: 5120, ancho: 1280, alto: 720, rgb: false };
+        let mut r = Receta {
+            n: 3,
+            vs: &vs,
+            ps: &ps,
+            registros_vs: 8,
+            registros_ps: 8,
+            salidas: 2,
+            posicion: 0,
+            filas: 2,
+            paso: 32,
+            elementos: [NINGUNO; MAX_ELEMENTOS],
+            n_elementos: 2,
+            cargas_vs: [NINGUNA; MAX_CARGAS],
+            n_cargas_vs: 8,
+            cargas_ps: [NINGUNA; MAX_CARGAS],
+            n_cargas_ps: 1,
+            genericos: [None; MAX_GENERICOS],
+            n_genericos: 1,
+            datos: &datos,
+            dibujo: Dibujo { indices: None, vertices: 3, destino: Some((0x1000_0000, dst)), banco: 32, ..Dibujo::default() },
+            texturas: [DeApp::NINGUNA; MAX_TEXTURAS],
+            termometro_vs: None,
+            termometro_ps: None,
+        };
+        r.elementos[0] = Elemento { desde: 0, componentes: 4 };
+        r.elementos[1] = Elemento { desde: 16, componentes: 4 };
+        for k in 0..8u8 {
+            r.cargas_vs[k as usize] = Carga::Entrada { elemento: k / 4, componente: k % 4, reg: k };
+        }
+        r.cargas_ps[0] = Carga::Entrada { elemento: 0, componente: 0, reg: 4 };
+        r.genericos[0] = Some(0);
+        let mut caja = std::vec![0u8; MAX_RECETA];
+        let n = escribir(&mut caja, &r).expect("la receta con banco se sostiene");
+        assert_eq!(u32le(&caja, 88), 2, "+88 bit 1: el banco");
+        let l = leer(&caja[..n]).unwrap();
+        assert_eq!(l.dibujo.banco, 32, "el cbuffer entero, y ni un byte mas");
+        let mut taller = std::boxed::Box::new(Taller::nuevo());
+        pegar(&l, &mut taller).unwrap_or_else(|e| panic!("se pega y el juez la aprueba: {e:?}"));
+        // Sin el banco, la MISMA receta es R7 (y no esta "ya pegada": el
+        // banco esta en la clave).
+        let sin = Receta { dibujo: Dibujo { banco: 0, ..r.dibujo }, ..r };
+        let mut caja2 = std::vec![0u8; MAX_RECETA];
+        let n2 = escribir(&mut caja2, &sin).unwrap();
+        let l2 = leer(&caja2[..n2]).unwrap();
+        assert!(!ya_pegada(&l2, &mut taller), "el banco esta en la clave");
+        assert!(matches!(pegar(&l2, &mut taller), Err(NoReceta::Cuerpo("pixel", b)) if b.regla == juez::Regla::R7CuerpoAjeno));
+        // Un banco que no es el cbuffer entero no se escribe.
+        let mut caja3 = std::vec![0u8; MAX_RECETA];
+        assert!(escribir(&mut caja3, &Receta { dibujo: Dibujo { banco: 48, ..r.dibujo }, ..r }).is_none());
+        // Y las ordenes atan el banco: su medida (a 256), los DATOS, y los
+        // grupos de vertice y de pixel con el banco 3, valido.
+        let o = tu::ordenes_dibujo(&dst.ventana(), 1, true, l.dibujo);
+        let w = &o.o[..o.n];
+        let va = crate::vram::DATOS_VA;
+        let metodo = |m: u32, k: u32| crate::copia::cabecera_en(0, m, k);
+        let i = w.iter().position(|&x| x == metodo(crate::tresde::SET_CONSTANT_BUFFER_SELECTOR_A, 3)).expect("el banco, atado");
+        assert_eq!(&w[i + 1..i + 4], &[256, (va >> 32) as u32, va as u32]);
+        for g in [crate::tresde::GRUPO_VERTICE, crate::tresde::GRUPO_PIXEL] {
+            let j = w.iter().position(|&x| x == metodo(crate::tresde::bind_group_constant_buffer(g), 1)).expect("su grupo");
+            assert_eq!(w[j + 1], 1 | 3 << 4);
+        }
+        // Sin banco, ninguna de esas ordenes.
+        let o = tu::ordenes_dibujo(&dst.ventana(), 1, true, l2.dibujo);
+        assert!(!o.o[..o.n].contains(&metodo(crate::tresde::SET_CONSTANT_BUFFER_SELECTOR_A, 3)));
+        assert_eq!((tu::medida_del_banco(16), tu::medida_del_banco(256), tu::medida_del_banco(65536), tu::medida_del_banco(70000)), (256, 256, 65536, 65536));
+    }
+
     #[test]
     fn una_receta_con_una_textura() {
         let bytes = |w: &[(u64, u64)]| w.iter().flat_map(|&(lo, hi)| lo.to_le_bytes().into_iter().chain(hi.to_le_bytes())).collect::<std::vec::Vec<u8>>();
@@ -638,7 +741,9 @@ mod pruebas {
         let l = leer(&caja[..n]).unwrap();
         assert!(l.dibujo.cadena && !l.dibujo.pantalla, "la app no se pone en la pantalla sola");
         caja[88] = 2;
-        assert!(leer(&caja[..n]).is_none(), "+88 solo lleva el bit 0");
+        assert!(leer(&caja[..n]).is_none(), "+88 bit 1 (E8f) sin cbuffer: no hay banco que atar");
+        caja[88] = 4;
+        assert!(leer(&caja[..n]).is_none(), "+88 solo lleva los bits 0 y 1");
         caja[88] = 1;
         caja[94] = 1;
         assert!(leer(&caja[..n]).is_none(), "los 16 de arriba de +92 a cero");

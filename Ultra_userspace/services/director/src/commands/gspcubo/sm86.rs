@@ -299,8 +299,9 @@ fn programas(bsf: &Bsf<'static>) -> Option<(&'static [u8], &'static [u8], Module
 // ** EL CONTRATO ENTRE INTI, VERRANO Y EL BSF (26-09) -- sin nada que pelear.
 //
 // ```text
-//    INTI      escribe `Vertex` de VERRANO (`verrano_vertice` de su tabla, con
-//              su espejo contra `bmo_verrano::VERTEX_*`)
+//    la app    escribe `Vertex` de VERRANO en la lamina: desde el 09-10,
+//              TITAN++ (`director.publica`, con los numeros de
+//              `bmo_verrano::VERTEX_*`); antes, INTI
 //    VERRANO   los lleva en `Frame::vertices`, tal cual
 //    el BSF    su modulo `cubo_vertice` DICE, sacado de su SPIR-V, que lee
 //              elementos de `stride` bytes desde el byte `base` del buffer 0
@@ -421,7 +422,7 @@ impl Backend for Aparato<'_> {
             } else {
                 (tu::Descarte::Traseras, None)
             };
-            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte, antihorario: self.antihorario, destino, z, color: None, texturas: 0, cadena: false, pantalla: false };
+            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte, antihorario: self.antihorario, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 };
             tu::escribir_paquete_dibujo(self.paquete, self.ficha as u32, vs, self.ps, n, &datos[..bytes], dibujo).ok_or(Error::Vertices)?;
         } else {
             let v = frame.vertices.iter().map(|s| tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) });

@@ -978,7 +978,7 @@ prohibe (*contratos y formatos, nunca cerebros*).
 | para | llama a | por |
 |---|---|---|
 | computo masivo, IA -- SU EXTREMO | **la 3060** | `gpu fn` -> SPIR-V -> SASS (seccion 8) |
-| dibujar con la 3060 -- LO MANDA EL | **VERRANO** | la lamina de VERRANO (`platform/shared/verrano/src/lamina.rs`): hoy la escribe `runtime/verrano.inti` en INTI; pasa a TITAN++ |
+| dibujar con la 3060 -- LO MANDA EL | **VERRANO** | la lamina de VERRANO (`platform/shared/verrano/src/lamina.rs`): desde el 09-10 la escribe TITAN++ (`director.publica`, LB7), vista en el metal; `runtime/verrano.inti` de INTI salio ese dia (corte 4a de PLAN_INTI_SAMURAI) |
 | la CPU al nivel del ASM (lo caliente) | **INTI** | compilacion separada: `.bo` + `bmo-enlazar` (HECHA para C, C++ e INTI) |
 | ventana, teclado, raton, disco, sonido, red | **REX / bmo-userland** | los dos syscalls |
 
@@ -1015,8 +1015,15 @@ TITAN++, falta esa palabra.
                             -- EL EXTREMO de TITAN++ (el foco del 04-10)
    E4  VERRANO              TITAN++ escribe la lamina de VERRANO: lo que hoy
                             hace runtime/verrano.inti, con el prestamo del
-                            bloque juzgado por el comprobador (U1)
+                            bloque juzgado por el comprobador (U1).
+                            HECHO el 09-10 (LB7: `use director`, la puerta
+                            `screen` del certificado), visto en el metal
+                            `IGUAL al juez`; runtime/verrano.inti, fuera
 ```
+
+> **09-10, el propietario:** *"el TITAN++ es el que conecta CPU (por INTI) y
+> GPU (por VERRANO)"*, y INTI pierde lo de app *"poco a poco"*. El orden de
+> los relevos, en 3.3 de [`PLAN_INTI_SAMURAI.md`](../plan/PLAN_INTI_SAMURAI.md).
 
 [!] **El tope de E3 no es el lenguaje: es el driver.** SPIR-V -> SASS con su
 juez ya existe; LANZAR computo en la 3060 (la QMD y el banco constante 0 de

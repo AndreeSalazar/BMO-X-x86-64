@@ -82,6 +82,9 @@ pub struct Cuerpos {
     /// 9d: el registro del TERMOMETRO de cada cuerpo (con libreta).
     pub termometro_vs: Option<u8>,
     pub termometro_ps: Option<u8>,
+    /// ** E8f: algun cuerpo lee su cbuffer con un LDC (`ConstantesEn`): la
+    /// receta le pide al kernel el banco de la app (+88 bit 1).
+    pub banco: bool,
 }
 
 fn bytes(codigo: &[(u64, u64)]) -> Vec<u8> {
@@ -132,7 +135,7 @@ pub fn cuerpos_con_libreta(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut
     };
     let vivos = crate::vivo::cuerpos_vivos(en, recuerdo, emitir)?;
     let (ev, ep) = (&vivos.vs, &vivos.ps);
-    if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. })) {
+    if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. } | crate::Precarga::AsaPar { .. })) {
         return Err(NoVa::Emisor("vertice", crate::NoEmite::Operacion(0)));
     }
     let posicion = en.posicion as u32;
@@ -152,6 +155,7 @@ pub fn cuerpos_con_libreta(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut
         texturas: crate::pso::texturas_de(ep),
         termometro_vs: ev.termometro,
         termometro_ps: ep.termometro,
+        banco: ev.usa_banco() || ep.usa_banco(),
     };
     Ok((c, vivos))
 }
@@ -289,7 +293,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 } },
         texturas,
         termometro_vs: c.termometro_vs,
         termometro_ps: c.termometro_ps,
@@ -382,6 +386,13 @@ impl Puerta {
         }
         if l.enlace.ps.mip_por_derivadas() && l.recursos.mip_importa() {
             return Err(String::from("muestrea con la mip de sus derivadas una textura de varias mips (o con MIN y MAG distintos): la 3060 lee la mip 0 todavia"));
+        }
+        // ** E8g (10-10): SampleLevel y Load leen la mip que les dicen, y la
+        // 3060 tiene en su TIC (PITCH) la mip 0 de cada textura: con una
+        // vista de varias mips, o un muestreador que filtra distinto de lejos,
+        // daria otra cosa. Hasta el TIC de bloques (Ring 0), por la CPU.
+        if l.enlace.ps.lee_con_nivel() && l.recursos.mip_importa() {
+            return Err(String::from("lee con SampleLevel o Load una textura de varias mips (o con MIN y MAG distintos): la 3060 tiene la mip 0 todavia"));
         }
         // N5.13: la receta lleva UNA instancia y los elementos por vertice.
         if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {

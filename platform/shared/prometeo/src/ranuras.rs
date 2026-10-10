@@ -46,6 +46,13 @@ pub struct Ranuras {
     /// metadatos: `(uav, espacio, registro, paso)`. Lo necesita quien lo da
     /// desde la RAIZ (esa vista no lo lleva). Ver [`Ranuras::paso`].
     pub pasos: Vec<(bool, u32, u32, u32)>,
+    /// ** E8g (09-10): la FORMA de cada rango de SRV de textura que declara,
+    /// de su PSV0: `(espacio, desde, hasta, especie)`, la especie el
+    /// `ResourceKind` de DXIL (2 Texture2D, 4 Texture3D, 5 TextureCube, 7
+    /// Texture2DArray, 9 TextureCubeArray...). Lo necesita la 3060: su TEX
+    /// dice la dimension, y el Programa solo lleva las coordenadas. Ver
+    /// [`Ranuras::forma`].
+    pub formas: Vec<(u32, u32, u32, u32)>,
 }
 
 /// **Lo que [`Ranuras::unir`] devuelve**: por ranura de las otras, su
@@ -103,6 +110,12 @@ impl Ranuras {
         self.pasos.iter().find(|p| (p.0, p.1, p.2) == (uav, l.espacio, l.registro)).map(|p| p.3)
     }
 
+    /// ** E8g: la especie (el `ResourceKind` de DXIL) de la textura de `l`, si
+    /// se declaro.
+    pub fn forma(&self, l: Lugar) -> Option<u32> {
+        self.formas.iter().find(|f| f.0 == l.espacio && (f.1..=f.2).contains(&l.registro)).map(|f| f.3)
+    }
+
     /// **Las de la etapa `vista`**: todas pasan a ser de ella.
     pub fn de_la_etapa(mut self, vista: u32) -> Ranuras {
         for l in self.texturas.iter_mut().chain(self.muestreadores.iter_mut()).chain(self.cbuffers.iter_mut()).chain(self.dinamicas.iter_mut()).chain(self.uavs.iter_mut()) {
@@ -119,6 +132,11 @@ impl Ranuras {
         for p in &otras.pasos {
             if !self.pasos.contains(p) {
                 self.pasos.push(*p);
+            }
+        }
+        for f in &otras.formas {
+            if !self.formas.contains(f) {
+                self.formas.push(*f);
             }
         }
         Ok(Mapa {

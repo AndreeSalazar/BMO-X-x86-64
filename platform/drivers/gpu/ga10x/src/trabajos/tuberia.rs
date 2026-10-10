@@ -340,6 +340,25 @@ pub struct Dibujo {
     /// dio (`gpu_trabajo::pantalla_para`), no a la RAM de la app; el destino
     /// queda para sus medidas y su formato (el de `color`), sin prestarlo.
     pub pantalla: bool,
+    /// ** E8f (DL18, 09-10): los BYTES del cbuffer que se atan como el banco
+    /// [`BANCO_APP`] de los dos programas (sus primeros bytes en los DATOS);
+    /// 0 = ninguno. Lo pide la receta (+88 bit 1) cuando un cuerpo lee su
+    /// cbuffer con un LDC (`ConstantesEn`), y el juez R7 lo mira contra esta
+    /// misma medida.
+    pub banco: u32,
+}
+
+/// ** E8f: el banco de constantes de una app: el 3, el mismo que el de E3 de
+/// PROTON-X (`BANCO_CB`), asi el LDC se escribe igual en sus dos ABI.
+pub const BANCO_APP: u8 = 3;
+
+/// La medida con la que se ata un banco: a 256 bytes (lo que hace nouveau
+/// con un cbuffer, `align(size, 0x100)`), sin pasar de los DATOS. Lo que
+/// sobra detras son los vertices de la misma app; lo que el cuerpo puede
+/// leer lo acota el juez (R7) con la medida SIN redondear.
+pub const fn medida_del_banco(bytes: u32) -> u32 {
+    let m = bytes.next_multiple_of(256);
+    if m > DATOS_MAX as u32 { DATOS_MAX as u32 } else { m }
 }
 
 /// Los cuatro canales (R, G, B, A) de un pixel de 8 bits como floats de
@@ -484,7 +503,7 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
         Some(desde)
     };
     let z = z_de(estado).ok()?;
-    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false })
+    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 })
 }
 
 /// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
@@ -698,6 +717,16 @@ pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ord
     }
     if let Some(z) = d.z {
         crate::profundidad::ordenes(&mut e, &z);
+    }
+    // ** E8f: el banco de la app -- su cbuffer, al principio de los DATOS --,
+    // atado a los dos programas.
+    if d.banco > 0 {
+        use crate::tresde::{bind_group_constant_buffer, GRUPO_PIXEL, GRUPO_VERTICE, SET_CONSTANT_BUFFER_SELECTOR_A};
+        let va = crate::vram::DATOS_VA;
+        e.m(SET_CONSTANT_BUFFER_SELECTOR_A, &[medida_del_banco(d.banco), (va >> 32) as u32, va as u32]);
+        for g in [GRUPO_VERTICE, GRUPO_PIXEL] {
+            e.m(bind_group_constant_buffer(g), &[1 | (BANCO_APP as u32) << 4]);
+        }
     }
     // P3b4c.8 T2: las piscinas de las texturas (el TIC y el TSC k de la
     // textura k), con sus caches invalidadas: el kernel acaba de escribirlas.
@@ -943,7 +972,7 @@ mod pruebas {
         for (k, i) in [0u32, 1, 2, 0, 2, 3].iter().enumerate() {
             datos[64 + 4 * k..68 + 4 * k].copy_from_slice(&i.to_le_bytes());
         }
-        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false };
+        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, d).unwrap();
         assert_eq!(medida(&caja[..CABECERA_MAX]), Some(n));
@@ -991,7 +1020,7 @@ mod pruebas {
         let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
         let datos = std::vec![0u8; 96];
         let dst = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, rgb: false };
-        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, pantalla: false };
+        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
         assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);

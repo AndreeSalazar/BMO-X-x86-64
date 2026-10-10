@@ -79,7 +79,8 @@ pub(crate) fn cargas(e: &Emitido) -> Vec<Carga> {
             Precarga::Entrada { elemento, componente, reg } => Carga::Entrada { elemento, componente, reg },
             Precarga::Fila { fila, reg } => Carga::Fila { fila, reg },
             // La pareja (tN, sM) es la textura k de la receta: su puesto.
-            Precarga::Asa { textura, muestreador, reg } => Carga::Asa { textura: pares.iter().position(|&x| x == (textura, muestreador)).unwrap_or(0) as u8, reg },
+            // E8g: el par (asa, nivel) se carga igual: el nivel es del cuerpo.
+            Precarga::Asa { textura, muestreador, reg } | Precarga::AsaPar { textura, muestreador, reg } => Carga::Asa { textura: pares.iter().position(|&x| x == (textura, muestreador)).unwrap_or(0) as u8, reg },
         })
         .collect()
 }
@@ -87,13 +88,16 @@ pub(crate) fn cargas(e: &Emitido) -> Vec<Carga> {
 /// **Las texturas de un programa emitido**, en el orden de la receta: la
 /// textura k es la pareja `(tN, sM)` de su k-esima asa.
 pub fn texturas_de(e: &Emitido) -> Vec<(u8, u8)> {
-    e.precargas
-        .iter()
-        .filter_map(|p| match *p {
-            Precarga::Asa { textura, muestreador, .. } => Some((textura, muestreador)),
-            _ => None,
-        })
-        .collect()
+    let mut v: Vec<(u8, u8)> = Vec::new();
+    for p in &e.precargas {
+        // E8g: una pareja leida por varias lecturas es UNA textura.
+        if let Precarga::Asa { textura, muestreador, .. } | Precarga::AsaPar { textura, muestreador, .. } = *p {
+            if !v.contains(&(textura, muestreador)) {
+                v.push((textura, muestreador));
+            }
+        }
+    }
+    v
 }
 
 fn bytes(p: &pegamento::Pegado) -> Vec<u8> {

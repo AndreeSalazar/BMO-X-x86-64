@@ -79,7 +79,7 @@ fn cargas(nombre: &str, precargas: &[Precarga]) -> Result<Vec<Carga>, String> {
         .map(|p| match *p {
             Precarga::Entrada { elemento, componente, reg } => Ok(Carga::Entrada { elemento, componente, reg }),
             Precarga::Fila { fila, reg } => Ok(Carga::Fila { fila, reg }),
-            Precarga::Asa { .. } => Err(format!("`{}` muestrea una textura: {} no la pega todavia en una gpu fn", nombre, NOMBRE)),
+            Precarga::Asa { .. } | Precarga::AsaPar { .. } => Err(format!("`{}` muestrea una textura: {} no la pega todavia en una gpu fn", nombre, NOMBRE)),
         })
         .collect()
 }

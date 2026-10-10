@@ -189,7 +189,13 @@ pub(crate) fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]
     let mut casa = std::vec![[0.0f32; 4]; p.salidas];
     let mut regs = Vec::new();
     let queda = p.correr(entradas, cb, &mut casa, &mut regs);
-    let mut m = Maquina::nueva([&[]; 8]);
+    // ** E8f: un cuerpo con LDC lee el banco que el kernel ata al cbuffer
+    // (la receta lo pide: +88 bit 1); sin LDC, ningun banco.
+    let mut bancos: [&[u8]; 8] = [&[]; 8];
+    if e.usa_banco() {
+        bancos[crate::BANCO_APP as usize] = cb;
+    }
+    let mut m = Maquina::nueva(bancos);
     // Basura en todo lo demas: nadie puede leer un registro sin escribirlo.
     for (i, r) in m.r.iter_mut().enumerate() {
         *r = 0x7FC0_0000 | i as u32;
@@ -203,7 +209,7 @@ pub(crate) fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]
                     m.r[reg as usize + k] = cb.get(o..o + 4).map_or(0, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]));
                 }
             }
-            Precarga::Asa { .. } => panic!("un programa sin texturas no pide asas"),
+            Precarga::Asa { .. } | Precarga::AsaPar { .. } => panic!("un programa sin texturas no pide asas"),
         }
     }
     correr(&e.codigo, &mut m).unwrap();
@@ -295,7 +301,7 @@ fn el_pixel_de_hellotexture_es_un_tex() {
                 match q {
                     Precarga::Entrada { elemento, componente, reg } => m.r[reg as usize] = entradas[elemento as usize][componente as usize & 3].to_bits(),
                     Precarga::Asa { reg, .. } => m.r[reg as usize] = bmo_gpu_ga10x::texturas::asa(0, 0),
-                    Precarga::Fila { .. } => panic!("no lee cbuffer"),
+                    Precarga::Fila { .. } | Precarga::AsaPar { .. } => panic!("no lee cbuffer ni con nivel"),
                 }
             }
             correr(&e.codigo, &mut m).unwrap();

@@ -149,6 +149,9 @@ fn cuerpo(e: &Emitido) -> Vec<u8> {
             Precarga::Entrada { elemento, componente, reg } => [0, elemento, componente, reg],
             Precarga::Fila { fila, reg } => [1, fila as u8, (fila >> 8) as u8, reg],
             Precarga::Asa { textura, muestreador, reg } => [2, textura, muestreador, reg],
+            // E8g: el par (asa, nivel): un .bsf de antes no lo lleva, y uno
+            // con el no lo lee un lector de antes (lo vuelve a emitir).
+            Precarga::AsaPar { textura, muestreador, reg } => [4, textura, muestreador, reg],
         });
     }
     // 9d: el termometro de la libreta, como una entrada mas (3): un .bsf de
@@ -178,6 +181,7 @@ fn de_cuerpo(b: &[u8], registros: u32) -> Option<Emitido> {
             0 => Precarga::Entrada { elemento: x[1], componente: x[2], reg: x[3] },
             1 => Precarga::Fila { fila: u16::from_le_bytes([x[1], x[2]]), reg: x[3] },
             2 => Precarga::Asa { textura: x[1], muestreador: x[2], reg: x[3] },
+            4 => Precarga::AsaPar { textura: x[1], muestreador: x[2], reg: x[3] },
             3 if termometro.is_none() => {
                 termometro = Some(x[3]);
                 continue;
@@ -256,7 +260,7 @@ pub fn comprobar(p: &Programa, e: &Emitido, que: &str) -> Result<usize, String> 
                     }
                 }
                 // El asa: un numero cualquiera (`cero` no lo mira).
-                Precarga::Asa { reg, .. } => m.r[reg as usize] = 0,
+                Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } => m.r[reg as usize] = 0,
             }
         }
         correr(&e.codigo, &mut m).map_err(|x| format!("el {que}: el simulador de la 3060 no sabe correr lo emitido ({x:?})"))?;
@@ -373,7 +377,7 @@ pub fn revisar(en: &Enlace, els: &[bmo_gpu_ga10x::pegamento::Elemento], vs: &Emi
                         m.r[reg as usize + k] = palabra(l.cb, 16 * fila as usize + 4 * k);
                     }
                 }
-                Precarga::Asa { reg, .. } => m.r[reg as usize] = 0,
+                Precarga::Asa { reg, .. } | Precarga::AsaPar { reg, .. } => m.r[reg as usize] = 0,
             }
         }
         m

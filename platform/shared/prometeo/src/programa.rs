@@ -457,6 +457,13 @@ impl Programa {
         self.ops.iter().any(|o| matches!(o, Op::Ola { que: super::olas::Ola::Derivada { muestra: true, .. }, .. }))
     }
 
+    /// ** E8g (10-10): si lee una textura en la mip que le DICEN
+    /// (`SampleLevel`, `Load`): la 3060 tiene en su TIC la mip 0 de cada una
+    /// todavia; la puerta lo pregunta.
+    pub fn lee_con_nivel(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::Lee { como: Lectura::Nivel | Lectura::Carga { .. }, .. }))
+    }
+
     /// Si el programa salta (E6): `si`, bucles, o lo que lee bits como
     /// enteros o booleanos. Lo que no sabe de esto (el traductor a x86-64,
     /// `nativo`) lo mira aqui y se aparta.

@@ -413,32 +413,73 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
             i.lee = [reg(s0, 1), reg(s1, 1), NADA, NADA];
         }
         // TEX con el asa en un registro (0x361: op 0x161, forma 1; P3b4c.8
-        // T1, `texturas::tex`). SOLO la forma que se sabe: 2D, .LZ, los
-        // cuatro canales seguidos (Rd2 = Rd + 2, mascara 0xF), sin
-        // desplazamientos, comparacion, F16 ni predicado de salida, pares
-        // alineados y un asa. Lo demas es otra instruccion para el juez: R0.
-        0x161 if forma == 1 => {
+        // T1, `texturas::tex`) y, desde E8g (DL17, 09-10), TLD (0x367: op
+        // 0x167). SOLO las formas que se saben -- las de
+        // `bmo_sm86::codifica::{tex_forma, tld}`, sus palabras de `ptxas`
+        // (`ORO_TEX`) --:
+        //
+        //    dim (61..64)  1 2D, 2 3D, 3 CUBE, 5 ARRAY_2D, 7 ARRAY_CUBE: 2, 3,
+        //                  3, 3 y 4 coordenadas en Ra.. (alineadas a 2 o a 4)
+        //    nivel (87..)  1 .LZ (solo 2D): el asa en Rb; 3 .LL: el asa y el
+        //                  nivel en Rb, Rb+1 (el par alineado)
+        //    .B y .SCR     el 59 siempre; el 60 solo en 2D
+        //    .CL (77)      en un TLD con .LL, y solo ahi
+        //
+        // Los cuatro canales seguidos (Rd2 = Rd + 2, mascara 0xF), sin
+        // desplazamientos, comparacion, F16 ni predicado de salida. Lo demas
+        // es otra instruccion para el juez: R0.
+        0x161 | 0x167 if forma == 1 => {
+            let (dim, nivel, tld) = (r(61, 3), r(87, 3), op == 0x167);
+            let coordenadas = match dim {
+                1 => 2,
+                2 | 3 | 5 => 3,
+                7 => 4,
+                _ => return None,
+            };
+            let alinea = if coordenadas == 2 { 2 } else { 4 };
+            let (n_b, con_nivel) = (if nivel == 3 { 2 } else { 1 }, nivel == 3);
             let forma_sabida = r(12, 4) == 7
-                && r(59, 5) == 0b00111
+                && r(59, 1) == 1
+                && r(60, 1) == (dim == 1) as u32
+                && (nivel == 3 || nivel == 1 && dim == 1)
+                && r(77, 1) == (tld && con_nivel) as u32
                 && r(64, 8) == rd + 2
                 && r(72, 4) == 0xF
-                && r(76, 5) == 0
+                && r(76, 1) == 0
+                && r(78, 3) == 0
                 && r(81, 3) == 7
                 && r(84, 3) == 1
-                && r(87, 4) == 1
+                && r(90, 1) == 0
                 && r(40, 19) == 0
                 && r(91, 14) == 0
                 && rd % 2 == 0
-                && s0 % 2 == 0
-                && rd as u8 != RZ
-                && s0 as u8 != RZ
-                && s1 as u8 != RZ;
+                && s0 % alinea == 0
+                && s1 % n_b == 0
+                && rd + 4 <= RZ as u32
+                && s0 + coordenadas <= RZ as u32
+                && s1 + n_b <= RZ as u32;
             if !forma_sabida {
                 return None;
             }
             i.clase = Clase::Agu;
             i.escribe = reg(rd, 4);
-            i.lee = [reg(s0, 2), reg(s1, 1), NADA, NADA];
+            i.lee = [reg(s0, coordenadas as u8), reg(s1, n_b as u8), NADA, NADA];
+        }
+        // ** E8f (DL18, 09-10): LDC, una o dos palabras de un banco de
+        // constantes con el indice en Ra (en bytes; RZ, sin indice). SOLO la
+        // forma de `bmo_sm86::codifica::ldc` (sus palabras de `ptxas`): forma
+        // 5, 32 o 64 bits (73..76), nada en 32..40 ni en 59..64, ni modo, ni
+        // nada mas en la alta; el par alineado. Desacoplada: su barrera.
+        0x182 if forma == 5 => {
+            let ancho = r(73, 3);
+            let doble = ancho == 5;
+            let sabida = r(12, 4) == 7 && (ancho == 4 || doble) && r(32, 8) == 0 && r(59, 5) == 0 && hi & ((1 << 41) - 1) == (ancho as u64) << 9 && (!doble || rd % 2 == 0 && rd < RZ as u32 - 1);
+            if !sabida {
+                return None;
+            }
+            i.clase = Clase::Desacoplada;
+            i.escribe = reg(rd, if doble { 2 } else { 1 });
+            i.lee = [reg(s0, 1), NADA, NADA, NADA];
         }
         // Sin registros: NOP, BSSY, BSYNC, EXIT, BRA; y los UNIFORMES.
         0x118 | 0x145 | 0x141 | 0x82 | 0x90 | 0x99 | 0x1C3 => i.clase = Clase::Nada,
@@ -483,7 +524,9 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
 /// PROTON-X (`bmo-proton-x-sm86`) y nada mas:
 ///
 /// ```text
-///    FADD FMUL FFMA FMNMX MOV   con registros o inmediatos -- sin c[][]
+///    FADD FMUL FFMA FMNMX MOV   con registros o inmediatos -- sin c[][];
+///                               la FFMA, el inmediato en la b o (09-10)
+///                               en la c
 ///    MUFU                       con un registro
 ///    FSETP ISETP SEL IADD3      (E6) igual: registros o inmediatos
 ///    IMAD LOP3 SHF IMNMX        (E6c) los enteros: igual
@@ -514,6 +557,41 @@ pub fn juzgar_cuerpo_de_app(codigo: &[(u64, u64)], registros: u32) -> Result<(),
 /// canales, pero NO que TIC ni que TSC lee la 3060: un asa suya podria
 /// apuntar a una piscina entera de descriptores que no son suyos.
 pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) -> Result<(), Bodrio> {
+    juzgar_cuerpo_con(codigo, registros, Permisos { asas, banco: None })
+}
+
+/// **El banco de constantes de una app** (E8f, DL18): el que el KERNEL ata a
+/// SU cbuffer -- los DATOS de su receta --, con su MEDIDA en bytes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BancoDeApp {
+    pub numero: u8,
+    pub bytes: u32,
+}
+
+/// **Lo que el pegamento del kernel le da a un cuerpo**: los registros con un
+/// asa de textura (mascara) y, si lo ato, su banco de constantes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct Permisos {
+    pub asas: u64,
+    pub banco: Option<BancoDeApp>,
+}
+
+/// **R7 con todo lo que el kernel da** (E8f, 09-10): las asas, como
+/// [`juzgar_cuerpo_con_asas`], y un LDC (`ConstantesEn`, las luces y los
+/// huesos de un cbuffer) SOLO de su banco, con TRES cerrojos -- el juez no se
+/// fia de que la 3060 de 0 fuera del banco: lo demuestra --:
+///
+/// ```text
+///    el banco      el de `permisos.banco`, y ningun otro
+///    sin indice    c[banco][desp]: desp + ancho <= la medida
+///    con indice    la instruccion que escribio Ra la ultima vez (leyendo
+///                  hacia atras) es `IMNMX.U32 Ra, x, tope` -- el MENOR sin
+///                  signo con un inmediato --, y tope + desp + ancho <= la
+///                  medida; y ningun BRA del cuerpo cae entre los dos (lo
+///                  esquivaria)
+/// ```
+pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permisos) -> Result<(), Bodrio> {
+    let asas = permisos.asas;
     let ajeno = |k: usize, que: u32, detalle: &'static str| Err(Bodrio { regla: Regla::R7CuerpoAjeno, instruccion: k, que, detalle });
     let Some(ultima) = codigo.len().checked_sub(1) else {
         return ajeno(0, 0, "un cuerpo vacio: le falta su EXIT");
@@ -527,9 +605,14 @@ pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) 
         let formas: &[u32] = match op {
             // FADD: inmediato en la forma 2 (y c[][] en la 3).
             0x021 => &[1, 2],
-            // FMUL, FFMA, FMNMX, MOV, y (E6) FSETP, ISETP, SEL, IADD3:
+            // ** FFMA: el inmediato en la b (forma 4) o, desde el 09-10, en
+            // la c (forma 2: la b se muda al hueco de la c). Lo abrio el
+            // propietario para las recetas de DL13: un inmediato no es
+            // memoria. c[][] (3 y 5) sigue fuera.
+            0x023 => &[1, 2, 4],
+            // FMUL, FMNMX, MOV, y (E6) FSETP, ISETP, SEL, IADD3:
             // inmediato en la 4 (y c[][] en la 5).
-            0x020 | 0x023 | 0x009 | 0x002 | 0x00B | 0x00C | 0x007 | 0x010 | 0x024 | 0x012 | 0x019 | 0x017 => &[1, 4],
+            0x020 | 0x009 | 0x002 | 0x00B | 0x00C | 0x007 | 0x010 | 0x024 | 0x012 | 0x019 | 0x017 => &[1, 4],
             0x106 | 0x105 => &[1],
             // E6d: la division -- IMAD.HI.U32 (con c = RZ: el par no se
             // usa; y con inmediato, la de una constante) e IABS.
@@ -549,8 +632,10 @@ pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) 
             // `discard` --. No toca memoria: el hilo acaba y su pixel no se
             // escribe. Que el programa sea de pixel y su SPH lo diga es R5.
             0x15B => &[4],
-            // TEX: con un asa que puso el kernel (abajo).
-            0x161 if asas != 0 => &[1],
+            // TEX y (E8g) TLD: con un asa que puso el kernel (abajo).
+            0x161 | 0x167 if asas != 0 => &[1],
+            // ** E8f: LDC, del banco que ato el kernel (abajo).
+            0x182 if permisos.banco.is_some() => &[5],
             0x14D if k == ultima => &[4],
             0x14D => return ajeno(k, op, "un EXIT antes del final: el pegamento de detras no correria"),
             _ => return ajeno(k, op, "fuera de la lista blanca de una app (memoria, atributos, saltos...)"),
@@ -571,12 +656,59 @@ pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) 
         if n > 0 && (r as u32..r as u32 + n as u32).any(|x| x < 64 && asas >> x & 1 == 1) {
             return ajeno(k, r as u32, "pisa el registro del ASA de una textura: el asa la pone el kernel");
         }
-        if op == 0x161 {
+        if op == 0x161 || op == 0x167 {
             let asa = (lo >> 32 & 0xFF) as u32;
             if asa >= 64 || asas >> asa & 1 == 0 {
-                return ajeno(k, asa, "un TEX con un asa que no puso el kernel");
+                return ajeno(k, asa, "un TEX o un TLD con un asa que no puso el kernel");
             }
         }
+        if op == 0x182 {
+            ldc_de_app(codigo, k, permisos.banco)?;
+        }
+    }
+    Ok(())
+}
+
+/// Los tres cerrojos de un LDC de app ([`juzgar_cuerpo_con`]).
+fn ldc_de_app(codigo: &[(u64, u64)], k: usize, banco: Option<BancoDeApp>) -> Result<(), Bodrio> {
+    let ajeno = |instruccion: usize, que: u32, detalle: &'static str| Err(Bodrio { regla: Regla::R7CuerpoAjeno, instruccion, que, detalle });
+    let (lo, hi) = codigo[k];
+    let Some(b) = banco else {
+        return ajeno(k, 0, "un LDC sin banco: el kernel no ato ninguno");
+    };
+    if (lo >> 54 & 0x1F) as u8 != b.numero {
+        return ajeno(k, (lo >> 54 & 0x1F) as u32, "un LDC de un banco que no es el de la app");
+    }
+    let desp = (lo >> 40 & 0x3FFF) as u32 * 4;
+    let ancho = if hi >> 9 & 7 == 5 { 8 } else { 4 };
+    let ra = (lo >> 24 & 0xFF) as u8;
+    let tope = if ra == RZ {
+        0
+    } else {
+        // Quien escribio Ra la ultima vez, leyendo hacia atras.
+        let Some(j) = (0..k).rev().find(|&j| decodificar(codigo[j].0, codigo[j].1).is_some_and(|x| x.escribe.1 > 0 && (x.escribe.0..x.escribe.0.saturating_add(x.escribe.1)).contains(&ra))) else {
+            return ajeno(k, ra as u32, "un LDC con un indice que nadie sujeto");
+        };
+        let (ilo, ihi) = codigo[j];
+        // IMNMX.U32 Ra, x, tope, PT: el MENOR sin signo, con un inmediato.
+        let sujeta = ilo & 0x1FF == 0x017 && ilo >> 9 & 7 == 4 && ihi & ((1 << 41) - 1) == 7 << 23 && (ilo >> 16 & 0xFF) as u8 == ra;
+        if !sujeta {
+            return ajeno(j, ra as u32, "el indice de un LDC no lo escribe un IMNMX.U32 con su tope justo antes");
+        }
+        // Ningun salto cae entre el IMNMX y el LDC.
+        for (m, &(blo, bhi)) in codigo.iter().enumerate() {
+            if blo & 0x1FF == 0x147 {
+                let d = (((bhi & 0x3_FFFF) << 32 | blo >> 32) << 14) as i64 >> 14;
+                let destino = (16 * (m as i64 + 1) + d) / 16;
+                if destino > j as i64 && destino <= k as i64 {
+                    return ajeno(m, destino as u32, "un salto cae entre el IMNMX que sujeta un indice y su LDC: lo esquivaria");
+                }
+            }
+        }
+        (ilo >> 32) as u32
+    };
+    if tope as u64 + desp as u64 + ancho as u64 > b.bytes as u64 {
+        return ajeno(k, tope.saturating_add(desp), "un LDC que puede leer mas alla del banco de la app");
     }
     Ok(())
 }
@@ -802,7 +934,13 @@ fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto, d
         // resultado llego, las fuentes ya se leyeron). Sin barrera de lectura
         // las lee al emitirse: la tabla de Ampere da 1 ciclo de WAR a una
         // desacoplada (NAK `write_after_read`), y `ptxas` cuenta con ello.
-        if matches!(i.clase, Clase::Desacoplada | Clase::Agu) && i.bar_lectura < 6 {
+        //
+        // ** E8g (10-10): un TEX o un TLD, NO: la unidad de texturas toma sus
+        // fuentes cuando las toma (NAK le da barrera de lectura a toda la que
+        // no es de latencia fija). Sin barrera de lectura quedan leidas hasta
+        // que se espere la de su RESULTADO; pisarlas antes es R4.
+        let tarde = matches!(i.op, 0x161 | 0x167);
+        if matches!(i.clase, Clase::Desacoplada | Clase::Agu) && (i.bar_lectura < 6 || tarde) {
             for &(r, n) in i.lee.iter() {
                 for x in r as usize..r as usize + n as usize {
                     regs[x].leido = true;
@@ -903,7 +1041,7 @@ mod pruebas {
     /// R0 "no se".
     #[test]
     fn el_juez_conoce_lo_que_fabrica_el_codificador() {
-        for (texto, lo, hi) in bmo_sm86::codifica::ORO.iter().chain(bmo_sm86::codifica::LEIDAS).chain(bmo_sm86::codifica::LEIDAS_DL12) {
+        for (texto, lo, hi) in bmo_sm86::codifica::ORO.iter().chain(bmo_sm86::codifica::LEIDAS).chain(bmo_sm86::codifica::LEIDAS_DL12).chain(bmo_sm86::codifica::ORO_FFMA_C).chain(bmo_sm86::codifica::ORO_LDC).chain(bmo_sm86::codifica::ORO_TEX) {
             assert!(conoce(*lo, *hi), "{texto}");
         }
     }
@@ -964,6 +1102,14 @@ mod pruebas {
         // Con predicado (P0): no.
         let (lo, hi) = c::mov(0, c::r(1), 1);
         assert_eq!(r7(&[(lo & !(0xF << 12), hi), fin], 4).instruccion, 0);
+        // ** 09-10 (el propietario): la FFMA con el inmediato en la c, SI
+        // -- y con la b en su hueco, sus registros siguen siendo del cuerpo --.
+        let imm = Fuente::Imm(0x3F00_0000);
+        assert_eq!(juzgar_cuerpo_de_app(&[c::ffma(1, c::r(0), c::neg(2), imm, false, 1), fin], 4), Ok(()));
+        assert_eq!(r7(&[c::ffma(4, c::r(0), c::r(2), imm, false, 1), fin], 4).que, 4);
+        // Con la c en un banco de constantes (la forma 3), sigue siendo NO.
+        let (lo, hi) = c::ffma(1, c::r(0), c::r(2), imm, false, 1);
+        assert_eq!(r7(&[(lo & !(7 << 9) | 3 << 9, hi), fin], 4).que, 3);
     }
 
     /// E5: la puerta del kernel acepta 128 instrucciones (un HUECO de

@@ -3473,3 +3473,23 @@ Reproducible (comprobado en dos directorios), sin rutas. sha256:
 
 El banco: `src/pruebas_computo.rs` (`los_buferes_bindless_se_eligen_por_
 hilo`; y dice NO: sin quien busque buferes, ceros).
+
+niveles.dxil -- E8g de la lengua de la 3060: las lecturas con nivel (10-10)
+
+"TEX/TLD con mips, arrays y cubos", lo que Cyberpunk pide (DL17, 09-10).
+`niveles.hlsl` (aqui al lado): un sombreador de pixeles con una Texture2D
+(t0), una Texture3D (t1) y una Texture2DArray (t2) -- la ESPECIE de cada una
+la dice la PSV0 --, SampleLevel en las tres y Load en la 2D y en el array,
+sin desplazamientos, sumadas en una salida. Con el DXC de GitHub
+(linux_dxc_2025_02_20: libdxcompiler 1.8 dev;4789-b4711839), sin -Zi:
+
+   dxc -T ps_6_0 -E pixel -Fo niveles.dxil niveles.hlsl
+
+Reproducible (comprobado en dos directorios), sin rutas. sha256:
+
+   f3e963ea9b3bbcea70d1b69f88d90bfbe6e9f1aa66e380752139841379119d12  niveles.dxil
+
+El banco: `proton-x-sm86/src/pruebas_lecturas.rs` (`niveles_de_dxc_en_la_
+3060`): el lector, el emisor -- tres TEX y dos TLD --, el juez (R0..R6, y R7
+con las asas del kernel), el simulador contra el interprete de la casa, bit
+a bit, y por la puerta del kernel.

@@ -47,6 +47,20 @@ pub const SET_CLEAR_SURFACE_CONTROL: u32 = 0x10f8;
 /// `CLEAR_SURFACE` si `SET_CLEAR_SURFACE_CONTROL` dice [`USAR_RECT`]
 /// (`clc797.h`; el maximo, como NVK: x + ancho).
 pub const SET_CLEAR_RECT_HORIZONTAL: u32 = 0x0d6c;
+/// ** E8f (DL18, 09-10): ATAR UN BANCO DE CONSTANTES a la tuberia --
+/// `SET_CONSTANT_BUFFER_SELECTOR_A` (la medida en bytes, 16:0), `_B` (la
+/// direccion, 39:32) y `_C` (31:0), seguidos; y `BIND_GROUP_CONSTANT_BUFFER(j)`
+/// (cada 32 bytes, el grupo `j` de la etapa: 0 vertice ... 4 pixel): VALID en
+/// el bit 0 y el banco (SHADER_SLOT) en 8:4. Los mismos que nouveau llama
+/// `CB_SIZE`, `CB_ADDRESS_HIGH/LOW` y `CB_BIND(i)` (`nvc0_3d.xml.h`). Nunca
+/// corrio en el metal: lo dira la primera receta con `ConstantesEn`.
+pub const SET_CONSTANT_BUFFER_SELECTOR_A: u32 = 0x2380;
+pub const fn bind_group_constant_buffer(etapa: u32) -> u32 {
+    0x2410 + 32 * etapa
+}
+/// Los grupos de la etapa de vertice y de la de pixel.
+pub const GRUPO_VERTICE: u32 = 0;
+pub const GRUPO_PIXEL: u32 = 4;
 /// `SET_CLEAR_SURFACE_CONTROL_USE_CLEAR_RECT` (bit 4).
 pub const USAR_RECT: u32 = 1 << 4;
 pub const SET_CT_SELECT: u32 = 0x121c;

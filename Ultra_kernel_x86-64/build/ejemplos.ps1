@@ -769,10 +769,8 @@ try {
         # ** `run inti/musica.ibx [datos/x.mus]` (2026-09-13): el REPRODUCTOR.
         # Suena por el audifono USB (el altavoz de esta placa no suena).
         @{ src = 'toolchain\lang\inti\ejemplos\musica.inti'; out = 'musica.ibx'; dir = 'inti' },
-        # ** VERRANO (26-09): el cubo contado por INTI en la CPU, publicado en
-        # una LAMINA que el escritorio lee sin esperar. `run inti/cubo.ibx` y
-        # despues `gpu verrano banco inti`.
-        @{ src = 'toolchain\lang\inti\ejemplos\cubo.inti'; out = 'cubo.ibx'; dir = 'inti' },
+        # (`cubo.ibx` salio el 09-10: VERRANO lo manda TITAN++. Su relevo es
+        # `titan/cubogira.bex`, abajo -- corte 4 de PLAN_INTI_SAMURAI.)
         # ** NAVEGAR v0 (2026-09-16): la cara de la LAMINA, en INTI y con icono
         # en el escritorio. Hoy solo el mensaje --hace falta una ANTENA-- porque
         # INTI aun no abre ventana (N0 de docs/plan/PLAN_NAVEGAR.md). Va a

@@ -229,7 +229,7 @@ macro_rules! estructura {
     };
 }
 estructura!(Lugar { espacio, registro, vista });
-estructura!(Ranuras { texturas, muestreadores, cbuffers, dinamicas, uavs, pasos });
+estructura!(Ranuras { texturas, muestreadores, cbuffers, dinamicas, uavs, pasos, formas });
 estructura!(Computo { hilos, compartida, temprana });
 estructura!(Bloque { fila, filas });
 estructura!(Geometria { entrada, salida, maximo });

@@ -685,6 +685,34 @@ pixel (latencia), no los fps (caudal).
       3060 -- el tablero de E2 en `gspcubo/verrano.rs` --. Sin esto, S1 a S3
       van a ciegas. **Como se sabe:** las fases suman la pared, y el banco
       acaba `IGUAL al juez`.
+      **09-10, 18:24, la primera medida en el metal** (`SALIDA.TXT` del
+      propietario; LB7 de `PLAN_LAS_LIBRERIAS.md`, vista ese dia): con
+      `titan/cubogira.bex` publicando, `gpu verrano banco inti` acabo
+      `IGUAL al juez, bit a bit` y E2 partio la pared:
+
+      ```text
+         por fotograma (360)    18741.8 us = draw 1245.6 + tablero 172.3
+                                             + resto 17323.7
+         dentro de draw         cuentas 0.0, paquete 0.1, puerta 1261.2
+                                (el kernel prepara 212.0; lo demas es
+                                entrar, salir y esperar: la 3060, 872)
+         con 3600               18967.5 = draw 1233.2 + tablero 216.0
+                                          + resto 17518.2
+      ```
+
+      Lo que dice, y cambia el orden de S: **el camino de la lamina a la
+      3060 no es el cuello hoy.** El `draw` es el 7 % de la pared; el 92 %
+      es el `resto`, que es sobre todo esperar a la app: publica uno cada
+      ~18,7 ms (sus 16 de `director.espera` y lo demas), y lo hace en el
+      MISMO nucleo que el banco (`smp: solo el BSP`). Lo que S1 quita (las
+      copias de la lamina) va dentro de ese resto y no se ha separado: es
+      lo que le falta a S0 -- leer la lamina, medido aparte de la espera --.
+      Y una cuenta que no cuadra, dicha: 1776 vueltas sin nada son 4,9 por
+      fotograma, cada una un `wait` de 1 ms, contra 17,3 ms de resto; o el
+      reposo dura mas de lo pedido (~3,5 ms de media) o la app tenia el
+      nucleo. Es aritmetica, no medida aparte. Por eso, con la medida
+      delante, S3 (despertar por el sello, no por el reloj) y S4 (la app en
+      su nucleo) pesan mas que S1.
 - [ ] **S1 -- la lamina PRESTADA a la 3060 (Ring 0, del propietario).** La
       puerta que toma la oferta BVER (`dsk.table.lamina()`) pide al kernel
       que mapee las paginas de la lamina en la IOMMU de la 3060, SOLO

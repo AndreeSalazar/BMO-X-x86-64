@@ -1,0 +1,108 @@
+// oro_texturas.ptx -- el PTX de las PALABRAS DE ORO de las formas de TEX y
+// TLD que pide Cyberpunk (`ORO_TEX` en src/codifica.rs; E8g de
+// PLAN_LA_LENGUA_DE_LA_3060, DL17 del 09-10): cada forma en su entrada, con
+// el asa en un registro (bindless), las coordenadas y el nivel de memoria.
+// Rehacerlas (CUDA 12.9 y nvdisasm 13.4.92, de PyPI):
+//   pip download --no-deps "nvidia-cuda-nvcc-cu12==12.9.*"
+//   pip download --no-deps "nvidia-cuda-nvdisasm==13.4.*"
+//   ptxas -arch=sm_86 -O3 oro_texturas.ptx -o oro.cubin
+//   nvdisasm -hex oro.cubin
+// Lo que dicen: el asa y el nivel van JUNTOS en Rb, Rb+1; las coordenadas en
+// Ra.. (2, 3 o 4 registros; en un array, la CAPA primero, entera y sujeta a
+// 0xFFFF); un cubo va DIVIDIDO por su componente mayor; y sin nivel, en 3D,
+// cubo y array, `ptxas` escribe .LL con el nivel -32 (el .LZ es del 2D).
+.version 8.0
+.target sm_86
+.address_size 64
+.visible .entry nivel2d(.param .u64 o)
+{
+  .reg .b64 %rd<6>; .reg .f32 %f<16>;
+  ld.param.u64 %rd2, [o]; cvta.to.global.u64 %rd3, %rd2;
+  ld.global.u64 %rd1, [%rd3];
+  ld.global.v4.f32 {%f1, %f2, %f3, %f4}, [%rd3+16];
+  tex.level.2d.v4.f32.f32 {%f7, %f8, %f9, %f10}, [%rd1, {%f1, %f2}], %f3;
+  st.global.v4.f32 [%rd3+32], {%f7, %f8, %f9, %f10};
+  ret;
+}
+.visible .entry nivel3d(.param .u64 o)
+{
+  .reg .b64 %rd<6>; .reg .f32 %f<16>;
+  ld.param.u64 %rd2, [o]; cvta.to.global.u64 %rd3, %rd2;
+  ld.global.u64 %rd1, [%rd3];
+  ld.global.v4.f32 {%f1, %f2, %f3, %f4}, [%rd3+16];
+  tex.level.3d.v4.f32.f32 {%f7, %f8, %f9, %f10}, [%rd1, {%f1, %f2, %f3, %f3}], %f4;
+  st.global.v4.f32 [%rd3+32], {%f7, %f8, %f9, %f10};
+  ret;
+}
+.visible .entry nivelcubo(.param .u64 o)
+{
+  .reg .b64 %rd<6>; .reg .f32 %f<16>;
+  ld.param.u64 %rd2, [o]; cvta.to.global.u64 %rd3, %rd2;
+  ld.global.u64 %rd1, [%rd3];
+  ld.global.v4.f32 {%f1, %f2, %f3, %f4}, [%rd3+16];
+  tex.level.cube.v4.f32.f32 {%f7, %f8, %f9, %f10}, [%rd1, {%f1, %f2, %f3, %f3}], %f4;
+  st.global.v4.f32 [%rd3+32], {%f7, %f8, %f9, %f10};
+  ret;
+}
+.visible .entry nivela2d(.param .u64 o)
+{
+  .reg .b64 %rd<6>; .reg .f32 %f<16>; .reg .b32 %r<4>;
+  ld.param.u64 %rd2, [o]; cvta.to.global.u64 %rd3, %rd2;
+  ld.global.u64 %rd1, [%rd3];
+  ld.global.v4.f32 {%f1, %f2, %f3, %f4}, [%rd3+16];
+  ld.global.u32 %r1, [%rd3+8];
+  tex.level.a2d.v4.f32.f32 {%f7, %f8, %f9, %f10}, [%rd1, {%r1, %f1, %f2, %f2}], %f3;
+  st.global.v4.f32 [%rd3+32], {%f7, %f8, %f9, %f10};
+  ret;
+}
+.visible .entry nivelacubo(.param .u64 o)
+{
+  .reg .b64 %rd<6>; .reg .f32 %f<16>; .reg .b32 %r<4>;
+  ld.param.u64 %rd2, [o]; cvta.to.global.u64 %rd3, %rd2;
+  ld.global.u64 %rd1, [%rd3];
+  ld.global.v4.f32 {%f1, %f2, %f3, %f4}, [%rd3+16];
+  ld.global.u32 %r1, [%rd3+8];
+  tex.level.acube.v4.f32.f32 {%f7, %f8, %f9, %f10}, [%rd1, {%r1, %f1, %f2, %f3}], %f4;
+  st.global.v4.f32 [%rd3+32], {%f7, %f8, %f9, %f10};
+  ret;
+}
+.visible .entry cero3d(.param .u64 o)
+{
+  .reg .b64 %rd<6>; .reg .f32 %f<16>;
+  ld.param.u64 %rd2, [o]; cvta.to.global.u64 %rd3, %rd2;
+  ld.global.u64 %rd1, [%rd3];
+  ld.global.v4.f32 {%f1, %f2, %f3, %f4}, [%rd3+16];
+  tex.3d.v4.f32.f32 {%f7, %f8, %f9, %f10}, [%rd1, {%f1, %f2, %f3, %f3}];
+  st.global.v4.f32 [%rd3+32], {%f7, %f8, %f9, %f10};
+  ret;
+}
+.visible .entry carga2d0(.param .u64 o)
+{
+  .reg .b64 %rd<6>; .reg .f32 %f<16>; .reg .b32 %r<6>;
+  ld.param.u64 %rd2, [o]; cvta.to.global.u64 %rd3, %rd2;
+  ld.global.u64 %rd1, [%rd3];
+  ld.global.v4.u32 {%r1, %r2, %r3, %r4}, [%rd3+16];
+  tex.2d.v4.f32.s32 {%f7, %f8, %f9, %f10}, [%rd1, {%r1, %r2}];
+  st.global.v4.f32 [%rd3+32], {%f7, %f8, %f9, %f10};
+  ret;
+}
+.visible .entry carga2d(.param .u64 o)
+{
+  .reg .b64 %rd<6>; .reg .f32 %f<16>; .reg .b32 %r<6>;
+  ld.param.u64 %rd2, [o]; cvta.to.global.u64 %rd3, %rd2;
+  ld.global.u64 %rd1, [%rd3];
+  ld.global.v4.u32 {%r1, %r2, %r3, %r4}, [%rd3+16];
+  tex.level.2d.v4.f32.s32 {%f7, %f8, %f9, %f10}, [%rd1, {%r1, %r2}], %r3;
+  st.global.v4.f32 [%rd3+32], {%f7, %f8, %f9, %f10};
+  ret;
+}
+.visible .entry cargaa2d(.param .u64 o)
+{
+  .reg .b64 %rd<6>; .reg .f32 %f<16>; .reg .b32 %r<6>;
+  ld.param.u64 %rd2, [o]; cvta.to.global.u64 %rd3, %rd2;
+  ld.global.u64 %rd1, [%rd3];
+  ld.global.v4.u32 {%r1, %r2, %r3, %r4}, [%rd3+16];
+  tex.level.a2d.v4.f32.s32 {%f7, %f8, %f9, %f10}, [%rd1, {%r4, %r1, %r2, %r2}], %r3;
+  st.global.v4.f32 [%rd3+32], {%f7, %f8, %f9, %f10};
+  ret;
+}
