@@ -118,16 +118,32 @@ commit en que el de TITAN++ lo sustituye. Asi nunca hay un dia sin NAVEGAR.
       raton, 5 la ventana cambio), `codigo()`, `raton_x()`, `raton_y()`,
       `botones()` y `se_ve()`; `tests/entrada.rs`: los cinco eventos del
       buzon con sus datos, y el buzon vacio.
-- [ ] **F4 -- NAVEGAR en TITAN++**: toma la lamina que le OFRECE el
+- [x] **F4 -- NAVEGAR en TITAN++**: toma la lamina que le OFRECE el
       antenista (o la del disco, `datos/ejemplo.lam`), la pinta en su ventana
       y devuelve clics y teclas, como la version 3 de `navegar.inti`.
       **Como se sabe:** en el anfitrion, la de example.com pintada por el de
       TITAN++ y por el de INTI da los MISMOS pixeles.
-- [ ] **F5 -- el corte 4c de INTI**: `navegar.inti` fuera del build y del
+      **HECHO el 10-10:** `Ultra_userspace/apps/navegar/` (un paquete:
+      `src/main.titan` y `src/lamina.titan`, el port linea a linea de
+      `navegar.inti` y de `runtime/lamina/lamina.inti`). Las NUEVE pruebas
+      que tenia el de INTI, contra el de TITAN++ (`emisor-x86_64/tests/
+      navegar.rs`), pasan a la primera; y los dos, corridos en el mismo
+      emulador sobre el mensaje, example.com, la flecha abajo y una lamina
+      rechazada, dan la MISMA ventana canal a canal (cuatro huellas FNV
+      iguales, fijadas en la prueba).
+- [x] **F5 -- el corte 4c de INTI**: `navegar.inti` fuera del build y del
       arbol, el icono y `run apps/navegar...` apuntan al de TITAN++, y el
       perfil `pleno` sale con el. **Como se sabe:** el build sin
       `navegar.ibx`; y en el metal, del propietario, NAVEGAR abre desde su
       icono y pinta example.com.
+      **HECHO en el arbol el 10-10:** fuera `navegar.inti` y la sonda
+      `sondas/ventana.inti` (su relevo, `titan/ventana.bex`), con sus dos
+      pruebas; el build despliega `apps/navegar.bex` de TITAN++ con su icono
+      (`bmo-pack` y el juez de carga, de acuerdo); el ANTENISTA ofrece la
+      pagina a `navegar.bex`; el metro y la medida, al dia. El perfil
+      `pleno` NO sale todavia: lo usan las sondas del censo de INTI (sale
+      con el paso 5 de la escalera de INTI). **Falta el metal:** NAVEGAR
+      desde su icono, con y sin antena.
 
 Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
 (F5).

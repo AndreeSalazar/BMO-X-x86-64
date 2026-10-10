@@ -1,0 +1,171 @@
+# espera: BIEN
+# NAVEGAR en TITAN++ (F4 de docs/plan/EL_FOCO.md, 10-10): la cara de la LAMINA
+# en BMO-X sin que BMO-X sea un navegador. El navegador vive en la ANTENA (un
+# movil, un Arch); lo que llega aqui es la pagina YA MAQUETADA -- la lamina de
+# `platform/shared/bmo-antena` --, y esto la PINTA y devuelve teclas. El port
+# de la version 3 de `navegar.inti` (INTI), con los mismos pixeles:
+#
+#    lo ofrece el antenista   se toma (`director.toma`) y se pinta de su memoria
+#    no lo ofrece nadie       el disco: datos/pagina.lam o datos/ejemplo.lam
+#    ni lo uno ni lo otro     el MENSAJE: hace falta una ANTENA, y no finge
+#    sin escritorio           el mensaje por consola (lanzado desde el shell)
+#
+# Las flechas y RePag/AvPag desplazan la pagina; Esc o q cierran.
+mod main "NAVEGAR: la pagina que maqueta la antena, pintada en una ventana"
+use director
+mod lamina
+
+fn fondo() -> int
+    return 1315860
+
+fn titulo() -> int
+    return 16777215
+
+fn gris() -> int
+    return 13421772
+
+fn aviso() -> int
+    return 16755200
+
+# La ventana de la pagina, y la del mensaje.
+fn ancho_pagina() -> int
+    return 640
+
+fn alto_pagina() -> int
+    return 400
+
+fn linea_1() -> text
+    return "NAVEGAR -- la pagina se ve aqui, el navegador vive en la ANTENA."
+
+fn linea_2() -> text
+    return "Hace falta una ANTENA. Da igual cual, pero ANTENA siempre."
+
+fn linea_3() -> text
+    return "Ninguna conectada: sin antena, BMO-X no navega y no finge que si."
+
+fn linea_4() -> text
+    return "Enciende la antena en la misma red (toolchain/tools/antena)."
+
+fn dibuja_mensaje()
+    director.rect(0, 0, 480, 112, fondo())
+    director.texto(8, 8, linea_1(), 1, titulo())
+    director.texto(8, 32, linea_2(), 1, aviso())
+    director.texto(8, 48, linea_3(), 1, gris())
+    director.texto(8, 64, linea_4(), 1, gris())
+    director.texto(8, 88, "Esc cierra.", 1, gris())
+    director.presenta()
+
+# Un numero de hasta cinco cifras, sin ceros delante.
+fn pon_numero(x: int, y: int, n: int, c: int) -> int
+    let mut px = x
+    let mut potencia = 10000
+    let mut empezo = false
+    while potencia >= 1
+        let resto = n % (potencia * 10)
+        let cifra = (resto - resto % potencia) / potencia
+        if cifra != 0 or empezo or potencia == 1
+            px = director.letra(px, y, 48 + cifra, 1, c)
+            empezo = true
+        if potencia == 1
+            potencia = 0
+        else
+            potencia = potencia / 10
+    return px
+
+fn dibuja_rechazo(rechazo: int)
+    let linea = rechazo % 65536
+    let codigo = (rechazo - linea) / 65536
+    director.rect(0, 0, ancho_pagina(), 40, fondo())
+    let mut x = director.texto(8, 8, "LAMINA rechazada: ", 1, aviso())
+    x = director.texto(x, 8, lamina.nombre(codigo), 1, aviso())
+    x = director.texto(x, 8, ", linea ", 1, aviso())
+    x = pon_numero(x, 8, linea, aviso())
+    director.texto(8, 24, "no se finge una pagina. Esc cierra.", 1, gris())
+
+fn dibuja_pagina(largo: int, desliz: int)
+    director.rect(0, 0, ancho_pagina(), alto_pagina(), fondo())
+    let rechazo = lamina.pinta(largo, desliz, alto_pagina())
+    if rechazo != 0
+        dibuja_rechazo(rechazo)
+    director.presenta()
+
+# Cuanto se puede bajar: lo que la pagina pasa de la ventana.
+fn tope(largo: int) -> int
+    let cab = lamina.cabecera(largo)
+    if cab == lamina.nada()
+        return 0
+    let al = lamina.alto(cab)
+    if al <= alto_pagina()
+        return 0
+    return al - alto_pagina()
+
+fn desliza(desliz: int, tecla: int, hasta: int) -> int
+    if tecla == 80
+        if desliz + 32 > hasta
+            return hasta
+        return desliz + 32
+    if tecla == 81
+        if desliz + alto_pagina() > hasta
+            return hasta
+        return desliz + alto_pagina()
+    if tecla == 72
+        if desliz < 32
+            return 0
+        return desliz - 32
+    if tecla == 73
+        if desliz < alto_pagina()
+            return 0
+        return desliz - alto_pagina()
+    return desliz
+
+fn main()
+    # La pagina: la que ofrece el antenista, o la del disco (hasta 256 KiB).
+    let mut hay = director.toma() and director.medida() <= 262144
+    if not hay
+        hay = director.fichero("datos/pagina.lam")
+    if not hay
+        hay = director.fichero("datos/ejemplo.lam")
+    let largo = director.medida()
+    let mut abre = false
+    if hay
+        abre = director.ventana(ancho_pagina(), alto_pagina())
+    else
+        abre = director.ventana(480, 112)
+    if not abre
+        print(linea_1())
+        print(linea_2())
+        print(linea_3())
+        print(linea_4())
+        return
+    let mut desliz = 0
+    let mut hasta = 0
+    if hay
+        hasta = tope(largo)
+        dibuja_pagina(largo, desliz)
+    else
+        dibuja_mensaje()
+    let mut antes = true
+    while true
+        let mut repintar = false
+        for n in range(64)
+            let que = director.evento()
+            if que == 0
+                break
+            if que == 3
+                if director.codigo() == 27 or director.codigo() == 113
+                    return
+            if que == 1 and hay
+                let nuevo = desliza(desliz, director.codigo(), hasta)
+                if nuevo != desliz
+                    desliz = nuevo
+                    repintar = true
+        let se_ve = director.se_ve()
+        if se_ve and not antes
+            repintar = true
+        antes = se_ve
+        if repintar and se_ve
+            if hay
+                dibuja_pagina(largo, desliz)
+            else
+                dibuja_mensaje()
+        director.espera(16)

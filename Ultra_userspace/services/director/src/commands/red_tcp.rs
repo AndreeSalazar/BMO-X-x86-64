@@ -594,7 +594,7 @@ fn contar_lo_que_paso(s: &mut Output, t: &Saludo) {
         // una NAVEGAR lanzada sin oferta.
         let lam = unsafe { &*core::ptr::addr_of!(LAMINA) };
         if crate::commands::antenista::guardar(&lam[..t.lam_largo]) {
-            s.text(b"  [antena] en el bloque del ANTENISTA: `run apps/navegar.ibx` la recibe OFRECIDA\n");
+            s.text(b"  [antena] en el bloque del ANTENISTA: `run apps/navegar.bex` la recibe OFRECIDA\n");
         } else {
             s.with_ink(INK_ERR);
             s.text(b"  [antena] sin bloque para el ANTENISTA (tope de peticiones?): queda el disco\n");

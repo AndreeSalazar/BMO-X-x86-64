@@ -279,6 +279,13 @@ de esta casa; prometer 60 fps por ESPEJO es S6 y cuesta lo que dice la seccion
       ofrecida` en la caja y NAVEGAR pinta example.com; con `datos/pagina.lam`
       borrado, sigue pintandola (no la saco del disco).
 
+- [x] **N3b -- NAVEGAR pasa a TITAN++** (10-10, F4 y F5 de
+      [`EL_FOCO.md`](EL_FOCO.md)): `Ultra_userspace/apps/navegar/` es un
+      paquete de TITAN++ (`main.titan` y `lamina.titan`) con los MISMOS
+      pixeles que el de INTI -- las nueve pruebas de antes y cuatro huellas
+      iguales en el emulador --; `navegar.inti` salio del arbol, y el
+      ANTENISTA ofrece la pagina a `apps/navegar.bex`. Falta verlo en el
+      metal: el icono, con y sin antena.
 - [ ] **N4 -- la lamina VIVA.** La antena reemite al cambiar el DOM (suelo 250
       ms) y Navegar repinta; un rectangulo de video se pide por S4 y se pinta
       dentro. **Como se sabe:** un mensaje nuevo en una pagina de chat aparece

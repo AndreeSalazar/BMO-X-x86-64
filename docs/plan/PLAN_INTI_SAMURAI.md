@@ -180,17 +180,16 @@ cada relevo:
    el cubo de VERRANO          cubo.inti            titan/cubogira.bex (LB7)    FUERA, 09-10 (4a)
    (runtime/verrano.inti,
    [verrano] de modulos.toml)
-   la ventana (superficie,     sondas/ventana.inti  `screen`: TA2 de            espera su relevo
-   entrada, letra)                                  PLAN_LA_TINTA (la ventana,
-                                                    una fila de pixeles, el
-                                                    buzon)
+   la ventana (superficie,     sondas/ventana.inti  `director.ventana` y los    FUERA, 10-10 (4c):
+   entrada, letra)                                  suyos (F1-F3 de EL_FOCO):   la sonda y NAVEGAR;
+                                                    titan/ventana.bex           su runtime, en 4b
    el sonido ([sonido])        ejemplos/musica.inti el sonido en TITAN++        espera su relevo
                                                     (no existe: ni la palabra)
-   NAVEGAR (lamina de          apps/navegar.inti    el port de D1 (PLAN_        EL FOCO (10-10):
-   navegar, texto, monton,                          NAVEGAR): tipos, tablas y   F1..F5 de
-   objetos)                                         la ventana de arriba        EL_FOCO.md; sale en F5
-   el perfil `pleno`           congelado (E0077)    los niveles 6-13 de         sale con navegar
-                                                    TITAN++ (dec, tablas,
+   NAVEGAR (lamina de          apps/navegar.inti    apps/navegar/ en TITAN++    FUERA, 10-10 (4c):
+   navegar, texto, monton,                          (F4 de EL_FOCO: los mismos  los mismos pixeles
+   objetos)                                         pixeles)
+   el perfil `pleno`           congelado (E0077)    los niveles 6-13 de         lo usan las sondas
+                                                    TITAN++ (dec, tablas,       del censo: paso 5
                                                     listas, mapas)
 ```
 
@@ -246,6 +245,11 @@ escrita para que el propietario diga si; no se ha tocado codigo.
           HECHO el 09-10 (4a): fuera del build y del metro, con su motivo
           en `metro/src/main.rs`; su relevo (`nivel11/cubo_gira`) entro en
           el banco del metro
+   [x] 4c NAVEGAR y la sonda de la VENTANA salen de INTI (10-10, F5 de
+          EL_FOCO): `apps/navegar/navegar.inti`, `sondas/ventana.inti` y
+          sus pruebas; el build, el metro, la medida y el ANTENISTA dicen
+          `apps/navegar.bex` (TITAN++, los mismos pixeles) y
+          `titan/ventana.bex`
    [x] 4a VERRANO sale de INTI (09-10, 3.3): `ejemplos/cubo.inti`,
           `runtime/verrano.inti`, `[verrano]` y las constantes `verrano_*`
           de modulos.toml, sus diez filas del espejo del kernel, sus cuatro

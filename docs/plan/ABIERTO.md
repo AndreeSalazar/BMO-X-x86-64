@@ -7,9 +7,9 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   745 casillas ABIERTAS en 69 planes
-   591 hechas
-     0 planes CUMPLIDOS (ni una casilla pendiente)
+   743 casillas ABIERTAS en 68 planes
+   595 hechas
+     1 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
@@ -378,7 +378,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
 - ... y 3 mas
 
-## [`PLAN_INTI_SAMURAI.md`](PLAN_INTI_SAMURAI.md) -- 6 abiertas, 3 hechas
+## [`PLAN_INTI_SAMURAI.md`](PLAN_INTI_SAMURAI.md) -- 6 abiertas, 4 hechas
 
 *PLAN INTI SAMURAI -- INTI corta para la CPU; las apps se van a TITAN++*
 
@@ -571,20 +571,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] L10 -- la copia del ULTIMO uso convertida en entrega (D2): let b = a sin volver a leer a mueve e
 - [ ] L11 -- del PROPIETARIO: las leyes nuevas de listas y mapas con --sellar (toolchain/tools/titan-l
 
-## [`PLAN_NAVEGAR.md`](PLAN_NAVEGAR.md) -- 3 abiertas, 7 hechas
+## [`PLAN_NAVEGAR.md`](PLAN_NAVEGAR.md) -- 3 abiertas, 8 hechas
 
 *PLAN NAVEGAR -- la propuesta maestra de la app que navega sin ser navegador*
 
 - [ ] N4 -- la lamina VIVA. La antena reemite al cambiar el DOM (suelo 250
 - [ ] N5 -- el HISTORIAL. Cada lamina que entra se guarda en ESTRATOS con
 - [ ] AA0 -- la app Android, en el repo. toolchain/tools/antena/android/
-
-## [`EL_FOCO.md`](EL_FOCO.md) -- 2 abiertas, 3 hechas
-
-*EL FOCO -- una cosa a la vez, hasta el final (10-10)*
-
-- [ ] F4 -- NAVEGAR en TITAN++: toma la lamina que le OFRECE el
-- [ ] F5 -- el corte 4c de INTI: navegar.inti fuera del build y del
 
 ## [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 2 abiertas, 15 hechas
 
@@ -650,4 +643,13 @@ ya no aplican, o esperan a alguien que no es el codigo.
 - **ESPERA** [`en_pausa/PLAN_EL_ASISTENTE.md`](en_pausa/PLAN_EL_ASISTENTE.md) -- a TITAN++ nivel 11 (gpu fn, PLAN_EL_CENTAURO.md; los niveles 9 y 10 ya estan): por decision del propietario del 2026-10-04 es la PRIMERA app de la F2, y se construye en TITAN++. Antes: APARCADO, "el ultimo" (2026-09-10).  *(3 hechas, 16 sueltas)*
 - **SUPERADO** [`en_pausa/PLAN_EL_CODEGEN.md`](en_pausa/PLAN_EL_CODEGEN.md) -- por PLAN_EL_TROQUEL.md (18/19-09): plegado (decidir/plegado.rs), operador con inmediato, comparacion fundida, troquel por variable, convencion de llamada hibrida. El metro dice 451.306 -> 183.875 instrucciones (-59 %); la MEDIDA de aqui fue el punto de partida y se conserva.  *(0 hechas, 9 sueltas)*
 - **SUPERADO** [`en_pausa/PLAN_EL_GUARDIAN.md`](en_pausa/PLAN_EL_GUARDIAN.md) -- por la decision del 2026-09-18 (el guardian isa, toolchain/tools/isa/isa.py: "este repositorio es de UNA arquitectura"): este repositorio es SOLO x86-64 y ARM/RISC-V son OTRO repositorio. Una placa RISC-V como guardian no cabe aqui; la idea se conserva para ese otro arbol.  *(0 hechas, 15 sueltas)*
+
+---
+
+# CUMPLIDOS -- todas sus casillas marcadas
+
+** No se archivan ni se mueven: siguen siendo la razon por la
+que algo se hizo asi, y eso se consulta mas que la casilla.
+
+- [`EL_FOCO.md`](EL_FOCO.md) -- 5 hechas, 173 lineas
 

@@ -6,16 +6,17 @@
 //!                     al lanzar una app
 //!
 //! `red pagina <ip> <url>` (`red_tcp.rs`) trae la lamina, la juzga y la deja
-//! aqui. Cuando el escritorio lanza `apps/navegar.ibx` --desde la caja de
+//! aqui. Cuando el escritorio lanza `apps/navegar.bex` --desde la caja de
 //! `run` o desde su icono-- se le ofrece el trozo por `MEM_OP_OFRECER`, y
-//! NAVEGAR lo toma con `op_tomar` en sus primeros fotogramas. Es el mismo
+//! NAVEGAR lo toma (`director.toma()` de TITAN++, desde el 10-10) en sus
+//! primeros fotogramas. Es el mismo
 //! camino por el que una app entrega su superficie al DIRECTOR, al reves:
 //! ni una copia, ni un fichero, ni un syscall por byte.
 //!
 //! ```text
 //!    red pagina ...   -> guardar(lamina)       copia al bloque (una vez)
-//!    run navegar.ibx  -> tras_lanzar(tid)      MEM_OP_OFRECER(0, largo, tid)
-//!    NAVEGAR          -> op_tomar / prestado_base / prestado_bytes / pinta
+//!    run navegar.bex  -> tras_lanzar(tid)      MEM_OP_OFRECER(0, largo, tid)
+//!    NAVEGAR          -> TOMAR / prestado base / prestado bytes / pinta
 //! ```
 //!
 //! ** El disco sigue: `datos/pagina.lam` se escribe igual que en N3a, y es lo
@@ -39,8 +40,9 @@ use crate::scene::output::{Output, INK_ERR, INK_GOOD};
 pub(crate) const BLOQUE_BYTES: u64 = 256 * 1024;
 
 /// A quien se ofrece: la app que sabe tomar una lamina. Se compara el final
-/// de la ruta, para que `apps/navegar.ibx` y `navegar.ibx` sean lo mismo.
-const CLIENTE: &[u8] = b"navegar.ibx";
+/// de la ruta, para que `apps/navegar.bex` y `navegar.bex` sean lo mismo.
+/// ** Desde el 10-10 (corte 4c de INTI) es el NAVEGAR de TITAN++.
+const CLIENTE: &[u8] = b"navegar.bex";
 
 static mut BLOQUE: Option<bmo::Memoria> = None;
 /// Bytes validos en el bloque; 0 = no hay lamina.
