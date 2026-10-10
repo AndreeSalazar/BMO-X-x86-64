@@ -624,6 +624,12 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // cada fotograma nuevo.
     let encima = dsk.win.switcher_painted.then(|| scene::switcher::area(&p, dsk.win.focus.abiertas()));
     let manda_la_3060 = crate::commands::gspcomputo::presentar_apps(&mut dsk.table, &p, encima.is_some());
+    // ** Q0a3 (EL_FOCO, 10-10): la lamina de una app con ventana, dibujada por
+    // la 3060 (por VERRANO) en un bloque que es la ventana. Un dibujo nuevo
+    // pide pintar.
+    if crate::commands::gspcubo::laminas_en_su_ventana(dsk, &p) {
+        dsk.tick.will_paint = true;
+    }
     if dsk.tick.will_paint {
         for &(vx, vy, va, vl) in dsk.tick.dead_boxes[..dead].iter() {
             erase_window(&p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);

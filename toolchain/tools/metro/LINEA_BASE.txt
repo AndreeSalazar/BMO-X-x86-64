@@ -39,7 +39,7 @@ toolchain/lang/titan/ejemplos/nivel1/centauro.titan 63 0 321 816cd108e0ffdcb2
 toolchain/lang/titan/ejemplos/nivel10/formas.titan 51 0 265 3e932a0c025ec0a6
 toolchain/lang/titan/ejemplos/nivel10/motor/src/main.titan 34 0 180 36be6f246c208e76
 toolchain/lang/titan/ejemplos/nivel11/activa/src/main.titan 66 0 335 ad3c85df63fda75f
-toolchain/lang/titan/ejemplos/nivel11/cubo_gira/src/main.titan 51290 20448 163790 d6019fcf0b121131
+toolchain/lang/titan/ejemplos/nivel11/cubo_gira/src/main.titan 51375 20474 167444 d6019fcf0b121131
 toolchain/lang/titan/ejemplos/nivel11/mezcla/src/main.titan 24 0 139 ac980c01fdd85e0e
 toolchain/lang/titan/ejemplos/nivel11/ventana/src/main.titan 248 67 10699 9832fd69acd966e0
 toolchain/lang/titan/ejemplos/nivel12/adivina.titan 1010 168 2166 b7cb1a531854d3fd

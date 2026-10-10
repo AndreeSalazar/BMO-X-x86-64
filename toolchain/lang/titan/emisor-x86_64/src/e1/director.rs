@@ -35,6 +35,8 @@
 
 use super::{Place, E1};
 use super::entrada::{HZ, PLAZO, RBX};
+use super::ventana::R12;
+use bmo_abi::syscalls::surface::SUP_TOMADA;
 use bmo_abi::syscalls::surface::{CURRENT_TASK, INFO_TSC_HZ, MEM_OP_BASE, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_INFO, TASK_OP_MEMORIA_PEDIR, TASK_OP_MI_PADRE};
 use bmo_lower::memoria;
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R11, R8, R9};
@@ -54,6 +56,12 @@ const ESPERA_MAXIMA: i32 = 3_600_000;
 /// Hasta cuanto se pace por plazo (ms): un fotograma; mas, la siesta (y asi
 /// `(plazo - ahora) * 1e9` cabe en 64 bits con cualquier reloj de hasta 9 GHz).
 const PLAZO_MAXIMO_MS: i32 = 1000;
+/// Q0a4: las miradas a que el escritorio tome la ventana antes de ofrecer la
+/// lamina, un fotograma entre una y otra (medio segundo).
+const ESPERAS_TOMA: i64 = 30;
+const UN_FOTOGRAMA_NS: i64 = 16_000_000;
+/// El campo de la cabecera BSUP con donde empieza el buzon (`superficie.rs`).
+const SUP_CAMPO_BUZON: u64 = 6;
 
 // El vertice de VERRANO: su posicion y su color, cuatro f32 cada uno, en ese
 // orden. La copia de `publica` lo escribe asi; si `bmo_verrano` cambiara, esto
@@ -162,6 +170,36 @@ impl E1<'_> {
         self.load(bloque, RAX);
         x86::mov_at_reg_from_r64(&mut self.code, RDI, RAX);
         x86::mov_at_reg_disp32_from_r64(&mut self.code, RDI, 8, RCX);
+        // ** Q0a4 (EL_FOCO, 10-10): con VENTANA, primero que el escritorio la
+        // TOME (`SUP_TOMADA` en el estado de su buzon): ofrecer otra cosa al
+        // MISMO destino sustituye una oferta aun no tomada (`loan::offer`), y
+        // la ventana se perderia. Un fotograma entre mirada y mirada, hasta
+        // `ESPERAS_TOMA`; despues se ofrece igual (sin escritorio no hay quien).
+        x86::mov_r64_r64(&mut self.code, RDI, R12);
+        x86::test_r64_r64(&mut self.code, RDI, RDI);
+        let sin_ventana = self.jcc(0x84);
+        let intentos = self.temp(8);
+        self.store_imm(intentos, ESPERAS_TOMA);
+        let mira = self.code.len();
+        x86::mov_r64_r64(&mut self.code, RDI, R12);
+        self.lea(RSI, RDI, 4 * SUP_CAMPO_BUZON as i32);
+        x86::mov_r32_at_reg(&mut self.code, RSI, RSI);
+        x86::add_r64_r64(&mut self.code, RSI, RDI);
+        x86::mov_r64_at_reg_disp32(&mut self.code, RAX, RSI, 8);
+        x86::and_r64_imm32(&mut self.code, RAX, SUP_TOMADA as u32);
+        let tomada = self.jcc(0x85);
+        self.imm(RDX, UN_FOTOGRAMA_NS);
+        x86::zero_r32(&mut self.code, RDI);
+        x86::zero_r32(&mut self.code, RSI);
+        self.imm(RAX, NR_WAIT as i64);
+        x86::syscall(&mut self.code);
+        self.load(intentos, RAX);
+        x86::dec_r64(&mut self.code, RAX);
+        self.store(intentos, RAX);
+        let otra = self.jcc(0x85);
+        x86::patch_jump_to(&mut self.code, otra, mira);
+        self.here(tomada);
+        self.here(sin_ventana);
         // Quien nos lanzo: el escritorio, o nadie (el shell).
         self.imm(RDI, CURRENT_TASK as i64);
         self.imm(RSI, TASK_OP_MI_PADRE as i64);

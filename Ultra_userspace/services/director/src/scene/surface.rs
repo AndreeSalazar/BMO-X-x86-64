@@ -215,6 +215,11 @@ pub(crate) struct Surface {
     /// 10-10: se le aparto la pantalla mientras Alt+Tab estaba encima
     /// (`bmo_foco::encima`); al devolversela no se anuncia otra vez.
     pub(crate) pantalla_apartada: bool,
+    /// ** Q0a3 (EL_FOCO, 10-10): los pixeles de esta ventana los dibuja la
+    /// 3060 desde la LAMINA de su app (`gspcubo::laminas`), en un bloque del
+    /// escritorio: `(su VA, la secuencia de la lamina)`. Se compone de ahi --
+    /// filas de `ancho` pixeles -- y no de la superficie de la app.
+    fuente: Option<(u64, u32)>,
 }
 
 impl Surface {
@@ -259,6 +264,7 @@ impl Surface {
             sin_3060: false,
             pantalla_dada: false,
             pantalla_apartada: false,
+            fuente: None,
         };
         s.marcar_tomada(&cab);
         Some(s)
@@ -336,7 +342,13 @@ impl Surface {
         let Some(cab) = Header::read(self.base, self.bytes) else {
             return false;
         };
-        if cab.sequence == self.stuck {
+        // Q0a3: de un bloque del escritorio (la lamina dibujada por la 3060),
+        // con SU secuencia; si no, la superficie de la app.
+        let (origen, fila, secuencia) = match self.fuente {
+            Some((va, s)) => (va, cab.width as u64, s),
+            None => (self.base + HEADER_TAG, cab.stride as u64, cab.sequence),
+        };
+        if secuencia == self.stuck {
             return false;
         }
         // Lo que cabe: el hueco del marco, lo que mide la superficie, y lo que
@@ -348,7 +360,7 @@ impl Surface {
         let (x0, y0) = (v.x, v.y);
         let (width, height) = (v.ancho, v.alto);
         if width == 0 || height == 0 {
-            self.stuck = cab.sequence;
+            self.stuck = secuencia;
             return false;
         }
 
@@ -364,7 +376,7 @@ impl Surface {
         // pantalla; el gato que mueve la pata manda la pata.
         let (mut cx0, mut cy0, mut cx1, mut cy1) = (u32::MAX, u32::MAX, 0u32, 0u32);
         for row in 0..height {
-            let src = self.base + HEADER_TAG + (row as u64 * cab.stride as u64) * 4;
+            let src = origen + (row as u64 * fila) * 4;
             let yy = y0 + row;
             // Los tramos de la fila que se pegan: toda, o lo que queda entre
             // lo que la tapa.
@@ -390,7 +402,7 @@ impl Surface {
         }
         // Se apunta DESPUES de pegar. Al reves, un fotograma que se quedara a
         // medias por un recorte se daria por pintado y no volveria a intentarse.
-        self.stuck = cab.sequence;
+        self.stuck = secuencia;
         self.ritmo.presento();
         // Sin marco, los botones van ENCIMA del contenido: lo recien pegado
         // los habra tapado. Con algo delante no: lo pisarian.
@@ -1166,6 +1178,25 @@ impl Table {
     /// La lamina de VERRANO, si hay una y su app sigue viva.
     pub(crate) fn lamina(&self) -> Option<LaminaTomada> {
         self.lamina
+    }
+
+    /// ** Q0a3: la ventana de la app `tid` (UNA app, UNA ventana), si la hay.
+    pub(crate) fn ventana_de(&self, tid: u32) -> Option<usize> {
+        self.sup.iter().position(|s| s.as_ref().is_some_and(|s| s.tid == tid))
+    }
+
+    /// Lo que mide la superficie `i` (`ancho`, `alto`), de su cabecera.
+    pub(crate) fn medida_de(&self, i: usize) -> Option<(u32, u32)> {
+        let s = self.get(i)?;
+        Header::read(s.base, s.bytes).map(|c| (c.width, c.height))
+    }
+
+    /// Q0a3: la ventana `i` se compone desde `va` (un bloque del escritorio
+    /// de su medida), con la secuencia `seq` de la lamina.
+    pub(crate) fn poner_fuente(&mut self, i: usize, va: u64, seq: u32) {
+        if let Some(s) = self.get_mut(i) {
+            s.fuente = Some((va, seq));
+        }
     }
 
     /// **Es `tid` quien publica la lamina?** Una app asi es un PRODUCTOR: no

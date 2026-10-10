@@ -107,6 +107,12 @@ pub(super) struct Opciones {
     /// medida del fotograma, y la LIMPIEZA la hace la 3060 (VRN1 con color),
     /// no la CPU llenando el bloque.
     pub enram: bool,
+    /// ** Q0a3 (EL_FOCO, 10-10): la 3060 dibuja DIRECTO en la `Image` que se
+    /// le da -- un bloque del escritorio, alineado a pagina y con filas de 128
+    /// bytes: la ventana de una app con lamina --, sin bloque propio y sin
+    /// copiarla de vuelta. No es una palabra de la orden: lo pide
+    /// `gspcubo::laminas`.
+    pub en_la_imagen: bool,
     /// `z` (P3b4c): con `bmox12`, el cubo SIN descarte de caras y CON la
     /// prueba de profundidad de la 3060 (LESS, se escribe, limpia a 1.0). Si
     /// la Z funciona, las caras de atras quedan detras: IGUAL a D3D12.
@@ -250,6 +256,8 @@ pub(super) struct Aparato<'a> {
     /// Leer la imagen de vuelta (la comparacion la quiere); el banco no.
     pub leer: bool,
     pub leer_ms: u64,
+    /// Q0a3: dibuja en la `Image` misma (`Opciones::en_la_imagen`).
+    en_la_imagen: bool,
 }
 
 /// **E2 -- DE QUE SON LOS US DEL ESCRITORIO** (26-09). Con `maximo` la pared
@@ -362,7 +370,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     // `enram`: el destino, un bloque del escritorio de hasta 1280x720 (como
     // el back buffer de una app). Q0a2: con los programas de BMOX-12 o con
     // los de V0 (la lamina), los dos por VRN1.
-    let enram = if op.enram {
+    let enram = if op.enram && !op.en_la_imagen {
         let pixeles = (cu::ANCHO * cu::ALTO) as usize;
         let Some(b) = bmo::Memoria::request(4 * pixeles as u64) else {
             return Err(linea(dsk, b"  NO  sin memoria para el destino de 1280x720", INK_ERR));
@@ -381,7 +389,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let origen: &'static [u8] = if op.bmox12 { b"de BMOX-12 por PROTON-X" } else { b"del BSF" };
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len(), origen };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, z: op.z, ambas: op.ambas, enram, vertice: modulo, leer: true, leer_ms: 0 }, abierto))
+    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, z: op.z, ambas: op.ambas, enram, vertice: modulo, leer: true, leer_ms: 0, en_la_imagen: op.en_la_imagen }, abierto))
 }
 
 /// Un color de VERRANO (`[r, g, b, a]` de 0 a 1) como pixel de la memoria,
@@ -395,10 +403,18 @@ impl Aparato<'_> {
     /// ** Q0a2: el destino EN RAM de este fotograma (`enram`): el bloque de
     /// `abrir`, de la medida del fotograma. `Ok(None)` sin `enram`; `Err`
     /// si no cabe o sus filas no son de 128 bytes (la 3060 lo pide).
-    fn destino_en_ram(&self, frame: &Frame) -> Result<Option<(u64, bmo_gpu_ga10x::destino::Destino)>, Error> {
-        let Some((b, pixeles)) = self.enram.as_ref() else { return Ok(None) };
+    fn destino_en_ram(&self, frame: &Frame, out: &Image) -> Result<Option<(u64, bmo_gpu_ga10x::destino::Destino)>, Error> {
         let (ancho, alto) = (frame.viewport.width, frame.viewport.height);
         let d = bmo_gpu_ga10x::destino::Destino { fila: 4 * ancho, ancho, alto, rgb: false };
+        // ** Q0a3: la `Image` ES el destino (la ventana de la app).
+        if self.en_la_imagen {
+            let va = out.pixels.as_ptr() as u64;
+            if va % 4096 != 0 || !d.valido() {
+                return Err(Error::Image);
+            }
+            return Ok(Some((va, d)));
+        }
+        let Some((b, pixeles)) = self.enram.as_ref() else { return Ok(None) };
         if !d.valido() || (ancho as usize) * (alto as usize) > *pixeles {
             return Err(Error::Image);
         }
@@ -417,7 +433,7 @@ impl Backend for Aparato<'_> {
         // ordenes de X5. ** Q0a2: EN RAM, la medida del fotograma (la que
         // quepa en el bloque, con filas de 128 bytes) y su fondo lo limpia la
         // 3060 (`destino_en_ram`).
-        let en_ram = self.destino_en_ram(frame)?;
+        let en_ram = self.destino_en_ram(frame, out)?;
         if en_ram.is_none() && ((frame.viewport.width, frame.viewport.height) != (cu::ANCHO, cu::ALTO) || frame.clear.map(f32::to_bits) != cu::FONDO) {
             return Err(Error::Image);
         }
@@ -488,7 +504,8 @@ impl Backend for Aparato<'_> {
             self.gobierno.mirar(wait_us, self.dibujos);
         }
         let st = Stats { triangles: tris, device_us, prepare_us, warm, in_flight, wait_us };
-        if !self.leer {
+        // Q0a3: lo pinto la 3060 en la `Image` misma: no hay nada que leer.
+        if !self.leer || self.en_la_imagen {
             return Ok(st);
         }
         let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);

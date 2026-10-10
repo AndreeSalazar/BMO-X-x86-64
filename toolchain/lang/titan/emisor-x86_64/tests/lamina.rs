@@ -36,10 +36,17 @@ fn correr(bex: &[u8], padre: u64, pasos: usize) -> Machine {
 /// Lo que el director de mentira recibio: la lamina, palabra a palabra, de la
 /// memoria del programa -- lo que el escritorio veria --.
 fn la_lamina(m: &Machine) -> Vec<AtomicU32> {
-    assert_eq!(m.ofertas.len(), 1, "una oferta, al padre");
-    let (base, desde, bytes, destino) = m.ofertas[0];
+    let l: Vec<_> = m.ofertas.iter().filter(|o| es_lamina(m, o)).collect();
+    assert_eq!(l.len(), 1, "UNA lamina ofrecida, al padre: {:?}", m.ofertas);
+    let &(base, desde, bytes, destino) = l[0];
     assert_eq!((desde, destino), (0, m.padre));
     (0..bytes / 4).map(|k| AtomicU32::new(m.read_u64(base + 4 * k) as u32)).collect()
+}
+
+/// Una oferta es la lamina si empieza por su magia (Q0a4: el cubo ofrece
+/// tambien su VENTANA, una superficie BSUP).
+fn es_lamina(m: &Machine, &(base, desde, _, _): &(u64, u64, u64, u64)) -> bool {
+    m.read_u64(base + desde) as u32 == lamina::MAGIA
 }
 
 const SCREEN: &str = "[package]\nname = \"x\"\n\n[permissions]\nscreen = true\n";
@@ -158,7 +165,7 @@ fn the_spinning_cube_published_by_titan_is_the_tanda_of_bmo_cubo() {
         let (sigue, acabo) = run_acotado(m, LEE_CADA);
         m = sigue;
         assert!(!acabo, "la app sigue publicando: {}", m.console);
-        if m.ofertas.is_empty() {
+        if !m.ofertas.iter().any(|o| es_lamina(&m, o)) {
             continue;
         }
         let w = la_lamina(&m);
@@ -187,6 +194,11 @@ fn the_spinning_cube_published_by_titan_is_the_tanda_of_bmo_cubo() {
     vistos.dedup();
     assert_eq!(vistos, (0..360).collect::<Vec<u32>>(), "los 360 fotogramas, vistos y bit a bit");
     assert!(publicados > 360, "y la vuelta siguiente empieza: {}", publicados);
+    // ** Q0a4: y su VENTANA, ofrecida ANTES y tomada antes de la lamina (si
+    // no, la oferta de la lamina la habria sustituido): 640 x 360.
+    let (base, desde, _, _) = m.ofertas[0];
+    assert!(!es_lamina(&m, &m.ofertas[0]), "la primera oferta es la ventana");
+    assert_eq!((m.read_u64(base + desde + 4) as u32, m.read_u64(base + desde + 8) as u32), (640, 360));
     // Al final, la otra ranura: el fotograma de antes, entero.
     let w = la_lamina(&m);
     let s = w[lamina::CAMPO_SECUENCIA].load(Ordering::Relaxed) as usize;

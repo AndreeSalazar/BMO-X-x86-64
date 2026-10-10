@@ -415,8 +415,30 @@ y 4b). Lo que la regla 1b pide despues, leido en el DIRECTOR:
       sin la 3060, la CPU de VERRANO, y lo dice. **Como se sabe:** en el
       metal, `run titan/cubogira.bex` en una ventana que se mueve y se tapa,
       y su huella IGUAL al juez.
+      **10-10, hecho en el anfitrion y SIN Ring 0:** la superficie de la app
+      no le sirve a la 3060 (sus pixeles empiezan en +32: no van alineados a
+      pagina), asi que la 3060 dibuja en un bloque DEL ESCRITORIO de la
+      medida de la ventana y la ventana se compone desde ahi
+      (`Surface::fuente`). `gspcubo::laminas`, en cada vuelta y al lado de
+      `presentar_apps`: la lamina, su ventana (el mismo tid), una palabra si
+      no hay nada nuevo, y con un fotograma nuevo `Backend::draw` en el
+      `Aparato` -- abierto UNA vez, `en_la_imagen`: la `Image` ES el bloque,
+      nada se copia de vuelta --. El DIRECTOR sigue sin nombrar la 3060
+      fuera de la puerta. Si algo falla se dice UNA vez por la consola y la
+      app se queda con lo que pinte ella. [!] Ventanas de ancho multiplo de
+      32 y hasta 1280x720; el huella contra D3D12 solo existe a 1280x720
+      (a otra medida, el juez es la CPU de VERRANO: falta escribirlo).
 - [ ] **Q0a4 -- el cubo de TITAN++ pide su ventana**: `cubo_gira` abre
       `director.ventana` ademas de su lamina (TITAN++ ya sabe las dos).
+      **10-10, hecho en el anfitrion:** 640x360 (16:9 como su camara, filas
+      de 128 bytes), con su fondo y una linea de quien la pinta hasta que la
+      3060 la tome. Y una trampa resuelta: ofrecer la lamina al MISMO
+      escritorio SUSTITUYE la oferta de la ventana si aun no la tomo
+      (`loan::offer`); `director.lamina`, con ventana, espera a que el
+      escritorio la TOME (`SUP_TOMADA`, hasta medio segundo). La prueba
+      `tests/lamina.rs`: la ventana primero, y los 360 fotogramas bit a bit.
+      **Falta el metal (Q0a3 y Q0a4):** `run titan/cubogira.bex` desde
+      Ejecutar: el cubo gira EN SU VENTANA, se mueve y se tapa.
 - [ ] **Q0b -- la 3060 COMPONE**: el volcado de las ventanas por el motor de
       copia (o un programa de computo como `imagen`), no por la CPU.
 - [ ] **Q0c -- las gpu fn al correr en la 3060** = LB8 de
