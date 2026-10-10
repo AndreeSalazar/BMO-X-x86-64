@@ -111,6 +111,48 @@ impl Backend for Cpu {
     }
 }
 
+/// **El juicio de un fotograma ajeno** (10-10, Q0a3 de `docs/plan/EL_FOCO.md`):
+/// cuantos pixeles de lo que dejo otro backend (la 3060, en la ventana de una
+/// app) no son los que dibuja el juez.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Juicio {
+    /// Los pixeles mirados (`ancho * alto`).
+    pub pixeles: usize,
+    /// Los que no son los del juez.
+    pub distintos: usize,
+    /// El primero de esos: `(x, y, visto, juez)`.
+    pub primero: Option<(u32, u32, u32, u32)>,
+}
+
+impl Cpu {
+    /// **Juzgar lo que dibujo OTRO**: el juez dibuja `frame` en `hoja` y se
+    /// compara, pixel a pixel, con `visto`. A cualquier medida: la huella de
+    /// D3D12 solo existe a 1280x720, y este juez da esas huellas
+    /// (`da_las_huellas_de_d3d12`), asi que a otra medida es el que queda.
+    ///
+    /// [!] Un recuento, no un si o un no: la 3060 tiene pixeles que el juez
+    /// aun no explica (`bmo_cubo::referencia::SIN_EXPLICAR`, unos pocos en
+    /// algunos fotogramas). Quien juzga dice cuantos.
+    pub fn juzgar(mut self, frame: &Frame, visto: &[u32], hoja: &mut [u32]) -> Result<Juicio, Error> {
+        let (w, h) = (frame.viewport.width, frame.viewport.height);
+        let n = (w as usize) * (h as usize);
+        if visto.len() < n || hoja.len() < n {
+            return Err(Error::Image);
+        }
+        self.draw(frame, &mut Image { pixels: &mut hoja[..n], width: w, height: h })?;
+        let mut j = Juicio { pixeles: n, distintos: 0, primero: None };
+        for (i, (&v, &c)) in visto[..n].iter().zip(&hoja[..n]).enumerate() {
+            if v != c {
+                j.distintos += 1;
+                if j.primero.is_none() {
+                    j.primero = Some(((i % w as usize) as u32, (i / w as usize) as u32, v, c));
+                }
+            }
+        }
+        Ok(j)
+    }
+}
+
 #[cfg(test)]
 mod pruebas {
     extern crate std;
@@ -146,6 +188,32 @@ mod pruebas {
             assert_eq!(Some(huella(&dibujar(Cpu::D3D10, f))), de_la_3060(f), "fotograma {f}");
             assert_eq!(Some(huella(&dibujar(Cpu::LA_3060, f))), de_la_3060(f), "fotograma {f}, con la regla 4");
         }
+    }
+
+    /// ** El juicio, a una medida que NO es la de D3D12: lo que dibujo el
+    /// propio juez sale igual; un pixel tocado sale, y en su sitio; y una
+    /// imagen corta no se juzga.
+    #[test]
+    fn el_juicio_a_otra_medida() {
+        let (w, h) = (640u32, 360u32);
+        let v = vertices(30);
+        let frame = Frame { clear: FONDO_F, vertices: &v, viewport: Viewport { width: w, height: h } };
+        let n = (w * h) as usize;
+        let mut visto = vec![0u32; n];
+        let mut b = Cpu::LA_3060;
+        b.max_vertices = v.len();
+        b.draw(&frame, &mut Image { pixels: &mut visto, width: w, height: h }).unwrap();
+        let fondo = Unorm8::Truncate12.pack(FONDO_F);
+        assert!(visto.iter().any(|&p| p != fondo), "el cubo tiene que verse a esta medida");
+        let mut hoja = vec![0u32; n];
+        let j = b.juzgar(&frame, &visto, &mut hoja).unwrap();
+        assert_eq!(j, Juicio { pixeles: n, distintos: 0, primero: None });
+        let i = 200 * w as usize + 321;
+        let bueno = visto[i];
+        visto[i] ^= 0x00FF_FFFF;
+        let j = b.juzgar(&frame, &visto, &mut hoja).unwrap();
+        assert_eq!((j.distintos, j.primero), (1, Some((321, 200, bueno ^ 0x00FF_FFFF, bueno))));
+        assert_eq!(b.juzgar(&frame, &visto[..n - 1], &mut hoja), Err(Error::Image));
     }
 
     /// Y con la regla 4, el modelo de la 3060 (salvo lo que el juez no

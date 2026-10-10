@@ -461,7 +461,11 @@ y 4b). Lo que la regla 1b pide despues, leido en el DIRECTOR:
       fuera de la puerta. Si algo falla se dice UNA vez por la consola y la
       app se queda con lo que pinte ella. [!] Ventanas de ancho multiplo de
       32 y hasta 1280x720; el huella contra D3D12 solo existe a 1280x720
-      (a otra medida, el juez es la CPU de VERRANO: falta escribirlo).
+      (a otra medida, el juez es la CPU de VERRANO). **10-10, escrito:**
+      `Cpu::juzgar` (el recuento pixel a pixel, `el_juicio_a_otra_medida`)
+      y `laminas` juzga el primer fotograma de cada app y uno de cada 1024;
+      la consola dice `[Q0a3] el juez ... la 3060 da lo MISMO` o cuantos
+      pixeles da DISTINTO.
 - [ ] **Q0a4 -- el cubo de TITAN++ pide su ventana**: `cubo_gira` abre
       `director.ventana` ademas de su lamina (TITAN++ ya sabe las dos).
       **10-10, hecho en el anfitrion:** 640x360 (16:9 como su camara, filas
@@ -501,7 +505,9 @@ linea dice que se mira y que seria un NO.
                                con `run titan/cubogira.bex`     del juez
    Q0a3 el cubo EN SU VENTANA  `run titan/cubogira.bex` desde   la ventana se
    Q0a4                        Ejecutar: gira, se mueve, se     queda con su
-                               tapa con otra                    linea de espera
+                               tapa con otra; en la consola,    linea de espera;
+                               `[Q0a3] el juez ... 640x360:     o el juez dice
+                               la 3060 da lo MISMO`             DISTINTO
    1   el plazo del fotograma  la linea de fotograma del cubo:  ~18 ms otra vez
                                ~16,7 ms de pared, poco esperar
    2   el turno al despertar   la misma linea: despertar tarde  ~3,5 ms medio
@@ -527,6 +533,12 @@ linea dice que se mira y que seria un NO.
                                ya no es op 4 por el FLUSH       (abajo)
 ```
 
+**Mirado y NO es parche (10-10):** la purga (`core/purga.rs`) cede con
+`yield_current` en bucle, pero corre en el hilo del bus o en el shell de
+Ring 0, nunca dentro de un syscall: ahi ceder SI cambia de tarea. Y con el
+respiro, la tarea que este dentro de la 3060 no se purga a medias: muere al
+salir de su puerta, y la purga la espera cediendo.
+
 **El respiro y el disco (10-10):** el disco tomado es un cerrojo tambien. Una
 puerta de la 3060 que tuviera el disco y respirara dejaria al hilo del disco
 girando con IF=0 en `tomar_disco` para siempre: el respiro no abre con el
@@ -547,16 +559,16 @@ pila re-publicada; si es al matar una app, la tarea intocable.
                           `guardar` sale grande en el metal, la pieza: el
                           guardado entero por el hilo del disco, por trozos,
                           y la puerta solo encola
-   la purga               `core/purga.rs` cede con `yield_current` en bucle;
-                          si corre dentro de un syscall, no cede nada (como
-                          la espera de la 3060 antes del 10-10)
    el tic de 1 ms         el turno de quien despierta espera a un tic: un
                           reloj sin tic (2 del cuello)
    la copia de pantalla   la CPU, 27,6 ms entera: el motor de copia por
                           defecto, el page flip, el PCIe en Gen3 (4)
-   los programas          ~700 B por fotograma al paquete: se escriben UNA
-                          vez (1e)
-   lamina -> paquete      una copia que queda: la lamina directo al paquete
-   el juez de otras       el de D3D12 solo existe a 1280x720; a otra medida,
-   medidas                la CPU de VERRANO (Q0a3)
 ```
+
+**Mirado y se queda asi, a proposito (10-10):** los ~700 B de programas que
+el DIRECTOR copia al paquete en cada fotograma, y la copia de los vertices de
+la lamina al paquete (n x 32 B). Juntas son menos de un microsegundo de CPU
+contra un fotograma de 16,7 ms; un paquete persistente con programas
+"ya escritos" agregaria estado que puede quedar viejo, para ahorrar nada que
+se vea. Lo caro estaba en el kernel (el frio de la 3060, el FLUSH, la espera
+con IF=0), y eso es lo que se cambio.
