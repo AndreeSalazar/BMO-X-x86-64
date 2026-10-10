@@ -1048,7 +1048,7 @@ if director.se_ve()                           # no minimizada ni tapada (R-APP8)
 - **Lo tenido** (F2): `toma()` -- lo que alguien OFRECIO a este programa, la
   pagina del antenista: ocho intentos, un fotograma entre uno y otro -- o
   `fichero(ruta)` -- uno entero, de 1 byte a 256 KiB, en un bloque suyo --.
-  Se lee ANTES de la ventana, si hace falta: va en un bloque de 16 bytes del
+  Se lee ANTES de la ventana, si hace falta: va en un bloque de 48 bytes del
   programa (`rbx`). `byte(i)` da 0..255, o -1 fuera; nada se escribe.
 - **Lo que llega** (F3): el buzon de la ventana (64 ranuras, el contrato de
   `superficie.rs`): `evento()` toma el siguiente y dice QUE es; sus datos,
@@ -1076,6 +1076,25 @@ if director.guarda("datos/resolucion.txt", "1280 720\n")   # si, si llego al dis
 - La primera app que lo usa: RESOLUCION (`Ultra_userspace/apps/resolucion`),
   que guarda la medida elegida; `nivel11/ventana` la lee al abrirse (su
   `medida.titan`). Las pruebas: `tests/entrada.rs` y `tests/resolucion.rs`.
+
+```text
+if director.crea("datos/foto.bic")            # UNO a la vez
+    director.escribe(66)                      # un byte, 0..255
+    if not director.cierra()                  # ahi llega al disco
+        print("no se guardo")
+```
+
+- **BYTE A BYTE** (10-10, corte 4e de INTI): `crea(ruta)` lo crea de cero
+  (da no con otro abierto, o sin ruta), `escribe(b)` mete un byte -- de 7 en
+  7 al kernel -- y `cierra()` manda lo que quede y cierra: si, si entro todo
+  y el disco lo guardo. Un byte fuera de 0..255 NO se recorta: no se
+  escribe y `cierra` dice que no. [!] El kernel guarda lo que tenga al
+  cerrar: quien no quiera un fichero a medias lo comprueba TODO antes de
+  `crea` (lo hace `apps/bico`). Lo tenido no cambia.
+- Los que lo usan: `Ultra_userspace/apps/bico` (BMP y QOI a BICO) y
+  `apps/png` (un PNG valido), que eran de INTI. Las pruebas:
+  `tests/disco.rs`, `tests/bico.rs` (los ficheros rotos de siempre) y
+  `tests/png.rs` (los mismos bytes que `png.inti`).
 
 > **08-10, LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`:** las tarjetas son DOS,
 > la 3060 y la CPU -- la RESERVA de toda GPU (la ley L32) --, y cada gpu fn

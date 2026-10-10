@@ -212,7 +212,8 @@ op_arch_cerrar     = "0x04"
 
 #  ** LEER UN FICHERO SIN BIBLIOTECA, y de golpe (2026-09-12).
 #
-#  Lo pide el conversor de imagenes (`ejemplos/bico.inti`). La mitad de
+#  Lo pidio el conversor de imagenes (`ejemplos/bico.inti`, que salio el 10-10
+#  a TITAN++: corte 4e; lo usa hoy `musica.inti`). La mitad de
 #  ESCRIBIR ya estaba, y era de siete en siete bytes: para una imagen eso son
 #  miles de puertas. Estas dos van por BLOQUE, igual que `fread`/`fwrite` de REX:
 #

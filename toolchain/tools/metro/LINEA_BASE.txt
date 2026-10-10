@@ -2,8 +2,10 @@
 # TRINQUETE: `pasos`, `accesos` y `codigo` solo bajan; `salida` no cambia nunca.
 # Se reescribe con `cargo run --release -p bmo-metro -- --fijar`.
 # programa  pasos  accesos  codigo  salida
-Ultra_userspace/apps/navegar/src/main.titan 2588 425 56837 e897113c8df4c7be
-Ultra_userspace/apps/resolucion/src/main.titan 300 82 31547 085091bc4bc966b3
+Ultra_userspace/apps/bico/src/main.titan 425 118 31957 e333c242be2a9b49
+Ultra_userspace/apps/navegar/src/main.titan 2592 429 56921 e897113c8df4c7be
+Ultra_userspace/apps/png/src/main.titan 7878400 3992277 18166 326cdc9020a51072
+Ultra_userspace/apps/resolucion/src/main.titan 304 86 31575 085091bc4bc966b3
 toolchain/lang/ada/examples/1-basico/cierre.adb 369 69 1560 ed567b986aa22dd2
 toolchain/lang/c/examples/blit_C.c 57720 6438 3035 25042ff916c7a1d5
 toolchain/lang/c/examples/caja_C.c 331 118 5936 c7825b639babd44d
@@ -29,7 +31,6 @@ toolchain/lang/cobol/examples/7-empaquetado/cuentas.cob 1418 170 5566 52118ba4ce
 toolchain/lang/cobol/examples/8-parrafos/cierre.cob 694 93 4305 e3a5047d373bbbde
 toolchain/lang/cobol/examples/9-decision/comision.cob 3978 538 9221 b74edb36d777ee06
 toolchain/lang/cpp/examples/1-clases/cuentas.cpp 600 139 1248 ee45374b921d5109
-toolchain/lang/inti/ejemplos/bico.inti 644 234 15748 56b0f2120340652f
 toolchain/lang/inti/ejemplos/musica.inti 428 143 22377 031a8f1d4e77e2bb
 toolchain/lang/inti/sondas/pulso.inti 667750 126986 5050 9961033a811a7779
 toolchain/lang/titan/ejemplos/nivel0/dos_saludos.titan 23 0 123 caa792b9f02ae7df
@@ -40,7 +41,7 @@ toolchain/lang/titan/ejemplos/nivel10/motor/src/main.titan 34 0 180 36be6f246c20
 toolchain/lang/titan/ejemplos/nivel11/activa/src/main.titan 66 0 335 ad3c85df63fda75f
 toolchain/lang/titan/ejemplos/nivel11/cubo_gira/src/main.titan 51288 20448 163341 d6019fcf0b121131
 toolchain/lang/titan/ejemplos/nivel11/mezcla/src/main.titan 24 0 139 ac980c01fdd85e0e
-toolchain/lang/titan/ejemplos/nivel11/ventana/src/main.titan 242 61 10213 9832fd69acd966e0
+toolchain/lang/titan/ejemplos/nivel11/ventana/src/main.titan 246 65 10241 9832fd69acd966e0
 toolchain/lang/titan/ejemplos/nivel12/adivina.titan 1010 168 2166 b7cb1a531854d3fd
 toolchain/lang/titan/ejemplos/nivel12/hasta_fin.titan 815 113 1794 dc5cd9badca78e5e
 toolchain/lang/titan/ejemplos/nivel12/la_cuenta.titan 7678 2885 7690 c1e9be94259b4a5c

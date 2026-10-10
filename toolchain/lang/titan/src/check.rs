@@ -744,6 +744,9 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::Toma => "if director.toma()",
             Director::Fichero => "if director.fichero(\"datos/ejemplo.lam\")",
             Director::Guarda => "if director.guarda(\"datos/resolucion.txt\", \"1280 720\")",
+            Director::Crea => "if director.crea(\"datos/foto.bic\")",
+            Director::Escribe => "director.escribe(66)",
+            Director::Cierra => "if not director.cierra()",
             Director::Medida => "let n = director.medida()",
             Director::Byte => "let b = director.byte(i)",
             Director::Evento => "let que = director.evento()",
@@ -759,7 +762,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             return Err(Message::new(Code::Args, line, col, &format!("`{}` pide {} valor{}, y aqui se le {} {}", callee, d.takes(), if d.takes() == 1 { "" } else { "es" }, if n == 1 { "da" } else { "dan" }, n), "es del DIRECTOR: la lamina de VERRANO (LB7b) y la ventana (F1)", example));
         }
         if as_value && !d.gives() {
-            return Err(Message::new(Code::Result, line, col, &format!("`{}` no devuelve nada, y aqui se usa como un valor", callee), if d == Director::Espera { "duerme hasta el siguiente fotograma y ya: no hay nada que guardar" } else { "pinta en la ventana y ya: no hay nada que guardar" }, example));
+            return Err(Message::new(Code::Result, line, col, &format!("`{}` no devuelve nada, y aqui se usa como un valor", callee), if d == Director::Espera { "duerme hasta el siguiente fotograma y ya: no hay nada que guardar" } else if d == Director::Escribe { "escribe un byte y ya: si todo entro lo dice `director.cierra()`" } else { "pinta en la ventana y ya: no hay nada que guardar" }, example));
         }
         return Ok(());
     }

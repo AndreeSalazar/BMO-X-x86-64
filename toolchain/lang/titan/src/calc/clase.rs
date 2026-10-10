@@ -459,6 +459,18 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
             }
             Ok(Some(Class::Bool))
         }
+        Director::Crea => {
+            if got[0] == Class::Text {
+                Ok(Some(Class::Bool))
+            } else {
+                Err(wrong(args[0].at(), &Class::Text, &got[0], m.defs(), "`director.crea` pide la RUTA del fichero, un texto", "if director.crea(\"datos/foto.bic\")"))
+            }
+        }
+        Director::Escribe => {
+            int(0, "`director.escribe` pide el byte: un int de 0 a 255", "director.escribe(66)")?;
+            Ok(None)
+        }
+        Director::Cierra => Ok(Some(Class::Bool)),
         Director::Byte => {
             int(0, "`director.byte` pide cual: su indice, desde 0", "director.byte(i)")?;
             Ok(Some(Class::Int))

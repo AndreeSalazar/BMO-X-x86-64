@@ -1,0 +1,117 @@
+# espera: BIEN
+# PNG en TITAN++ (corte 4e de INTI, 1d de docs/plan/EL_FOCO.md, 10-10): una
+# imagen de 8 x 8 contada aqui, envuelta en un PNG VALIDO -- firma, IHDR, IDAT
+# y IEND, cada uno con su CRC-32 -- y dejada en datos/hola.png. El port de
+# `png.inti`, con los mismos bytes.
+#
+# El PNG sale SIN COMPRIMIR: un bloque `stored` de zlib, que el formato
+# admite. DEFLATE de verdad pide tablas de Huffman: otro dia.
+#
+# ** TITAN++ no tiene operaciones de bits, y no le hacen falta: el CRC-32 y
+# el `xor` se cuentan con `%` y divisiones exactas, bit a bit. Mas lento que
+# una tabla, y para 236 bytes da igual. Lo que si importa: ni una suma da la
+# vuelta a escondidas (T0060).
+mod main "PNG: una imagen de 8 x 8 en un PNG valido, sin comprimir, con sus CRC"
+use director
+
+# La division entera, exacta (T0062).
+fn div(a: int, d: int) -> int
+    return (a - a % d) / d
+
+# `a xor b` de dos numeros de 32 bits, bit a bit.
+fn xor32(a: int, b: int) -> int
+    let mut x = a
+    let mut y = b
+    let mut r = 0
+    let mut p = 1
+    for k in range(32)
+        if x % 2 != y % 2
+            r = r + p
+        x = div(x, 2)
+        y = div(y, 2)
+        p = p * 2
+    return r
+
+# El CRC-32 de PNG (el polinomio 0xEDB88320) de `cuantos` bytes desde
+# `desde`: ocho vueltas por byte, sin tabla.
+fn crc32(l: [int], desde: int, cuantos: int) -> int
+    let mut c = 4294967295
+    for i in range(cuantos)
+        c = xor32(c, l[desde + i])
+        for k in range(8)
+            if c % 2 == 1
+                c = xor32(div(c, 2), 3988292384)
+            else
+                c = div(c, 2)
+    return xor32(c, 4294967295)
+
+# La suma de zlib.
+fn adler32(l: [int]) -> int
+    let mut a = 1
+    let mut b = 0
+    for x in l
+        a = (a + x) % 65521
+        b = (b + a) % 65521
+    return b * 65536 + a
+
+# PNG es BIG-ENDIAN en todas sus longitudes y sumas.
+fn pon32(mut l: [int], v: int)
+    push(mut l, div(v, 16777216) % 256)
+    push(mut l, div(v, 65536) % 256)
+    push(mut l, div(v, 256) % 256)
+    push(mut l, v % 256)
+
+# Un trozo: longitud, nombre, datos, y el CRC -- que cubre el NOMBRE y los
+# datos, no la longitud (el error clasico de quien escribe su primer PNG).
+fn trozo(mut l: [int], nombre: int, datos: [int])
+    pon32(mut l, len(datos))
+    let desde = len(l)
+    pon32(mut l, nombre)
+    for b in datos
+        push(mut l, b)
+    let suma = crc32(l, desde, len(l) - desde)
+    pon32(mut l, suma)
+
+fn main()
+    let lado = 8
+    # Los pixeles en crudo: por fila, un byte de filtro (0) y luego RGB.
+    let mut crudos: [int] = []
+    for y in range(lado)
+        push(mut crudos, 0)
+        for x in range(lado)
+            push(mut crudos, x * 32)
+            push(mut crudos, y * 32)
+            push(mut crudos, 128)
+    let mut png: [int] = [137, 80, 78, 71, 13, 10, 26, 10]
+    # [!] Los nombres de trozo (IHDR, IDAT, IEND) van como NUMEROS: PNG los
+    # guarda big-endian, y `pon32` los escribe asi.
+    # -- IHDR: ancho, alto, 8 bits, color 2 (RGB), y tres ceros
+    let mut ihdr: [int] = []
+    pon32(mut ihdr, lado)
+    pon32(mut ihdr, lado)
+    push(mut ihdr, 8)
+    push(mut ihdr, 2)
+    push(mut ihdr, 0)
+    push(mut ihdr, 0)
+    push(mut ihdr, 0)
+    trozo(mut png, 1229472850, ihdr)
+    # -- IDAT: zlib con un bloque SIN COMPRIMIR (LEN y su complemento, en
+    # little-endian, que es como los quiere DEFLATE)
+    let n = len(crudos)
+    let mut idat: [int] = [120, 1, 1, n % 256, div(n, 256), (65535 - n) % 256, div(65535 - n, 256)]
+    for b in crudos
+        push(mut idat, b)
+    pon32(mut idat, adler32(crudos))
+    trozo(mut png, 1229209940, idat)
+    # -- IEND
+    let vacio: [int] = []
+    trozo(mut png, 1229278788, vacio)
+    if not director.crea("datos/hola.png")
+        print("PNG: no se pudo crear datos/hola.png")
+        return
+    for b in png
+        director.escribe(b)
+    if director.cierra()
+        print("PNG: datos/hola.png, ", len(png), " bytes")
+    else
+        print("PNG: datos/hola.png no se guardo")

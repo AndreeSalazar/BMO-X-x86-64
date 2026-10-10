@@ -88,7 +88,6 @@ const BANCO: &[(&str, &str)] = &[
     ("cobol", "toolchain/lang/cobol/examples/9-decision/comision.cob"),
     ("ada", "toolchain/lang/ada/examples/1-basico/cierre.adb"),
     ("inti", "toolchain/lang/inti/sondas/pulso.inti"),
-    ("inti", "toolchain/lang/inti/ejemplos/bico.inti"),
     ("inti", "toolchain/lang/inti/ejemplos/musica.inti"),
     // ** TITAN++ entro el 04-10, con sus programas BIEN de los niveles 0-3.
     // Hasta el nivel 3 todo valor se sabe al compilar y el `.bex` solo
@@ -137,6 +136,10 @@ const BANCO: &[(&str, &str)] = &[
     // ** R1 de EL_FOCO (10-10): RESOLUCION, la primera que GUARDA; y la
     // ventana de arriba, que desde ese dia lee la medida antes de abrirse.
     ("titan", "Ultra_userspace/apps/resolucion/src/main.titan"),
+    // ** Corte 4e de INTI (10-10): las herramientas de imagen, de TITAN++.
+    // Sin ficheros, BICO dice sus dos 1 y sale; PNG escribe su fichero.
+    ("titan", "Ultra_userspace/apps/bico/src/main.titan"),
+    ("titan", "Ultra_userspace/apps/png/src/main.titan"),
     // Nivel 12 (05-10): lo que viene de fuera -- E1, el primer codigo de
     // TITAN++ que corre DE VERDAD en la maquina (PLAN_LA_ENTRADA).
     ("titan", "toolchain/lang/titan/ejemplos/nivel12/pregunta.titan"),

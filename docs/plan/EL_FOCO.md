@@ -90,16 +90,24 @@ de INTI con su relevo en TITAN++, y no antes (la regla 3.1: quitar antes
 solo pierde su prueba). Lo que pide cada relevo:
 
 ```text
-   pieza            lo que TITAN++ ya tiene          lo que le falta
-   bico.inti        leer un fichero entero           escribir BYTES (TA1 de
-                    (`director.fichero`, `byte`) y   PLAN_LA_TINTA): hoy
-                    guardar un TEXTO (`guarda`, R1)  `guarda` solo lleva texto
-   png.inti         las tablas y el monton (13)      lo mismo: escribir bytes;
-                                                     el CRC y el Adler, en int
-   musica.inti      --                               el sonido (Q2)
+   pieza            su relevo en TITAN++                       estado
+   bico.inti        Ultra_userspace/apps/bico (`run            FUERA, 10-10 (corte
+                    titan/bico.bex`): `director.fichero` lee,  4e): los mismos
+                    y `crea`/`escribe`/`cierra` escriben       bytes, los mismos
+                                                               ficheros rotos
+   png.inti         Ultra_userspace/apps/png (`run             FUERA, 10-10 (4e):
+                    titan/png.bex`): el CRC y el Adler sin     el mismo fichero,
+                    operaciones de bits                        byte a byte
+   musica.inti      --                                         el sonido (Q2)
    cpu.inti,        SE QUEDAN: son la puerta de TITAN++ a la CPU (y con
    pulso.inti       ellas el monton, mientras `cpu.inti` lo use)
 ```
+
+**Falta el metal:** `run titan/bico.bex` (deja `datos/fotob.bic` y
+`datos/fotoq.bic`, que el escritorio pinta) y `run titan/png.bex` (deja
+`datos/hola.png`, que el visor abre). [!] Un cambio con INTI: el codigo 2
+de bico (mas de 256 KiB) es ahora el 1 -- `director.fichero` dice si lo
+leyo entero, no por que no --.
 
 # 2. LO QUE YA FUNCIONA EN EL METAL (no se toca: se usa)
 
@@ -208,8 +216,8 @@ Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
        a la 3060; su tabla en Windows y despues en el Ryzen
        (PLAN_LA_LENGUA_DE_LA_3060)
    Q2  el sonido en TITAN++, y el corte 4d de INTI (musica.inti fuera)
-   Q2b escribir BYTES desde TITAN++ (TA1), y el corte 4e de INTI: bico.inti
-       y png.inti a TITAN++ (seccion 1d)
+   Q2b HECHA el 10-10: TITAN++ escribe byte a byte y el corte 4e de INTI
+       (bico.inti y png.inti a TITAN++, seccion 1d)
    Q3  DOOM por la 3060 cerrado (D2c, la linea [perf]) y su paleta (D3)
    Q4  las texturas con mips en la VRAM, Ring 0: lo que deja a Cyberpunk
        mandar a la 3060 sus SampleLevel de verdad

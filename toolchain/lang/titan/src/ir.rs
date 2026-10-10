@@ -304,6 +304,15 @@ pub enum Director {
     /// from nothing with the text. `true` if every byte went in and the disk
     /// kept it. What is held does not change.
     Guarda,
+    /// `director.crea(ruta)`: a file made from nothing, to be written byte
+    /// by byte. ONE at a time: with another open, `false`.
+    Crea,
+    /// `director.escribe(b)`: one byte (0..255) to the open file. One
+    /// outside 0..255 is not cut: it is marked, and `cierra` says no.
+    Escribe,
+    /// `director.cierra()`: the last bytes, and close -- where it reaches the
+    /// disk. `true` if every byte went in and the disk kept it.
+    Cierra,
     /// `director.medida()`: how many bytes are held (0: none).
     Medida,
     /// `director.byte(i)`: the byte `i` of what is held (0..255), or -1
@@ -336,7 +345,7 @@ pub enum Director {
 }
 
 impl Director {
-    pub const ALL: [Director; 21] = [
+    pub const ALL: [Director; 24] = [
         Director::Lamina,
         Director::Publica,
         Director::Espera,
@@ -348,6 +357,9 @@ impl Director {
         Director::Toma,
         Director::Fichero,
         Director::Guarda,
+        Director::Crea,
+        Director::Escribe,
+        Director::Cierra,
         Director::Medida,
         Director::Byte,
         Director::Evento,
@@ -374,6 +386,9 @@ impl Director {
             Director::Toma => "director.toma",
             Director::Fichero => "director.fichero",
             Director::Guarda => "director.guarda",
+            Director::Crea => "director.crea",
+            Director::Escribe => "director.escribe",
+            Director::Cierra => "director.cierra",
             Director::Medida => "director.medida",
             Director::Byte => "director.byte",
             Director::Evento => "director.evento",
@@ -395,8 +410,8 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
-            Director::Presenta | Director::Toma | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => 0,
-            Director::Lamina | Director::Espera | Director::Fichero | Director::Byte => 1,
+            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => 0,
+            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte => 1,
             Director::Ventana | Director::Fila | Director::Guarda => 2,
             Director::Pixel => 3,
             Director::Publica => 4,
@@ -406,7 +421,7 @@ impl Director {
 
     /// Whether it gives a value back: a yes/no, or an int.
     pub fn gives(self) -> bool {
-        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta)
+        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta | Director::Escribe)
     }
 }
 

@@ -192,9 +192,9 @@ cada relevo:
    el perfil `pleno`           congelado (E0077)    los niveles 6-13 de         lo usan las sondas
                                                     TITAN++ (dec, tablas,       del censo: paso 5
                                                     listas, mapas)
-   las herramientas de         ejemplos/bico.inti   leer ya (`director.fichero`)  espera su relevo:
-   imagen (bico, png)          ejemplos/png.inti    y guardar texto (`guarda`);   escribir BYTES (TA1)
-                                                    falta escribir BYTES          -- 1d de EL_FOCO
+   las herramientas de         ejemplos/bico.inti   apps/bico y apps/png en     FUERA, 10-10 (4e):
+   imagen (bico, png)          ejemplos/png.inti    TITAN++ (`director.crea`,   los mismos bytes y
+                                                    `escribe`, `cierra`)        los ficheros rotos
 ```
 
 **Lo que NO pierde**, y no es una contradiccion con *"perder todo"*: lo de

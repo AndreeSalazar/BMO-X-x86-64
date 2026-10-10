@@ -81,7 +81,10 @@ impl E1<'_> {
             // y la letra (`letra.rs`).
             Director::Letra => self.letra(args, at).map(Some),
             Director::Texto => self.texto(args, at).map(Some),
-            Director::Toma | Director::Fichero | Director::Guarda | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => self.entrada(what, args, at).map(Some),
+            // TA4 (10-10): lo que se escribe en el disco (`disco.rs`).
+            Director::Guarda | Director::Crea | Director::Cierra => self.disco(what, args, at).map(Some),
+            Director::Escribe => self.escribe_byte(args, at).map(|_| None),
+            Director::Toma | Director::Fichero | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => self.entrada(what, args, at).map(Some),
         }
     }
 

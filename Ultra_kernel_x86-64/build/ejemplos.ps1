@@ -778,12 +778,12 @@ try {
     # mesa no cuadrara con sus bytes. `.bex` se queda para los otros tres.
     # ** `run inti/pulso.ibx` (2026-09-12): el perfil en TIEMPO REAL. El kernel
     # lee los contadores del silicio y la sonda los PREGUNTA cada medio segundo.
-    # ** `run inti/bico.ibx` (2026-09-12): la primera HERRAMIENTA en INTI.
-    # Convierte datos/foto.bmp y datos/foto.qoi a BICO, y se generan aqui abajo.
+    # (`bico.ibx`, la primera HERRAMIENTA en INTI -- 2026-09-12 --, salio el
+    # 10-10 con `png.inti`, corte 4e: las dos son de TITAN++ --
+    # `titan/bico.bex` y `titan/png.bex`, abajo --. 1d de EL_FOCO.)
     Compilar-Ejemplos @(
         @{ src = 'toolchain\lang\inti\sondas\cpu.inti'; out = 'cpu.ibx'; dir = 'inti' },
         @{ src = 'toolchain\lang\inti\sondas\pulso.inti'; out = 'pulso.ibx'; dir = 'inti' },
-        @{ src = 'toolchain\lang\inti\ejemplos\bico.inti'; out = 'bico.ibx'; dir = 'inti' },
         # (`cubo.ibx` salio el 09-10: VERRANO lo manda TITAN++. Su relevo es
         # `titan/cubogira.bex`, abajo -- corte 4 de PLAN_INTI_SAMURAI.)
         # (`navegar.ibx` y la sonda `ventana.ibx` salieron el 10-10, corte 4c:
@@ -823,10 +823,16 @@ try {
         # ** RESOLUCION (R1 de EL_FOCO, 2026-10-10): elegir la medida de las
         # ventanas de TITAN++ y guardarla en `datos\resolucion.txt`
         # (`director.guarda`, TA4); `titan/ventana.bex` ya se abre con ella.
-        @{ src = 'Ultra_userspace\apps\resolucion\src\main.titan'; out = 'resolucion.bex'; dir = 'apps' }
+        @{ src = 'Ultra_userspace\apps\resolucion\src\main.titan'; out = 'resolucion.bex'; dir = 'apps' },
+        # ** BICO y PNG (corte 4e de INTI, 2026-10-10): las herramientas de
+        # imagen, de TITAN++ (`director.crea`, `escribe`, `cierra`). En el
+        # metal: `run titan/bico.bex` (datos/foto.bmp y foto.qoi a BICO, sus
+        # datos se generan abajo) y `run titan/png.bex` (deja datos/hola.png).
+        @{ src = 'Ultra_userspace\apps\bico\src\main.titan'; out = 'bico.bex'; dir = 'titan' },
+        @{ src = 'Ultra_userspace\apps\png\src\main.titan'; out = 'png.bex'; dir = 'titan' }
     ) 'bmo-titan-x86-64' 'titan' 'ok:|T00|no se ha' $dataBase $repo -Orden 'build'
 
-    # -- Las dos imagenes que `bico.ibx` convierte ------------------------
+    # -- Las dos imagenes que `titan/bico.bex` convierte ------------------
     #
     # Se GENERAN y no se copian: un binario en el repo es un fichero que nadie
     # puede leer en un diff. 16x16 las dos, con un degradado que se reconoce a
@@ -835,7 +841,7 @@ try {
     New-Item -ItemType Directory -Force $imgDst | Out-Null
     [System.IO.File]::WriteAllBytes((Join-Path $imgDst 'foto.bmp'), (Nuevo-Bmp))
     [System.IO.File]::WriteAllBytes((Join-Path $imgDst 'foto.qoi'), (Nuevo-Qoi))
-    Write-Host '    [datos] foto.bmp y foto.qoi (16x16, para inti/bico.ibx)' -ForegroundColor DarkGray
+    Write-Host '    [datos] foto.bmp y foto.qoi (16x16, para titan/bico.bex)' -ForegroundColor DarkGray
     # ** Y un PNG y un JPEG de verdad (2026-09-20), para el visor: son los
     # ficheros con los que `bmo-imagen` se prueba en el anfitrion contra
     # Pillow, asi que lo que se ve en el Ryzen es lo que el banco ya juzgo.
