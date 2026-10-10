@@ -82,6 +82,9 @@ pub struct Cuerpos {
     /// 9d: el registro del TERMOMETRO de cada cuerpo (con libreta).
     pub termometro_vs: Option<u8>,
     pub termometro_ps: Option<u8>,
+    /// ** E8f: algun cuerpo lee su cbuffer con un LDC (`ConstantesEn`): la
+    /// receta le pide al kernel el banco de la app (+88 bit 1).
+    pub banco: bool,
 }
 
 fn bytes(codigo: &[(u64, u64)]) -> Vec<u8> {
@@ -152,6 +155,7 @@ pub fn cuerpos_con_libreta(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut
         texturas: crate::pso::texturas_de(ep),
         termometro_vs: ev.termometro,
         termometro_ps: ep.termometro,
+        banco: ev.usa_banco() || ep.usa_banco(),
     };
     Ok((c, vivos))
 }
@@ -289,7 +293,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false, banco: if c.banco { 16 * c.filas } else { 0 } },
         texturas,
         termometro_vs: c.termometro_vs,
         termometro_ps: c.termometro_ps,

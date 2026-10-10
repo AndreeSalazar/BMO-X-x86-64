@@ -961,7 +961,8 @@ despues.
   del cuadro de 2x2 y un simulador de cuatro carriles. Las ENTERAS de pixel
   no dan nunca los bits de la casa: la casa junta 8 cuadros de un
   triangulo y la 3060 los junta a su manera. Las de computo, con LB8.
-- **E8f, el LDC CON INDICE (DL18, 09-10) -- PREPARADA.** `ConstantesEn`
+- **E8f, el LDC CON INDICE (DL18, 09-10) -- HECHA en el anfitrion el 09-10
+  (lo de abajo era el plan; lo hecho, al final).** `ConstantesEn`
   (la fila del cbuffer CALCULADA: las luces y los huesos de un cbuffer,
   `luces.hlsl`). Lo que dijo `ptxas` (12.9, `nvdisasm` 13.4) de un `.const`
   leido con un indice en un registro:
@@ -998,6 +999,46 @@ despues.
   bits de la casa, en los dos ABI; los NO del juez (otro banco, sin sujetar,
   un salto que lo esquiva, un tope que se pasa); y en el metal, un
   sombreador de luces con su huella.
+  - **Lo hecho (09-10):**
+    - el codificador, `bmo_sm86::codifica::ldc`, con sus palabras de
+      `ptxas` (`ORO_LDC`, `bmo-sm86/oro_ldc.ptx`) y dos mas leidas por
+      `nvdisasm -b SM86` (sin indice; otro banco y el desplazamiento mas
+      alto);
+    - el juez: R0..R6 lo decodifica (desacoplada, una o dos palabras, el
+      par alineado) y R7 (`juzgar_cuerpo_con`, `Permisos { asas, banco }`)
+      con los tres cerrojos -- su prueba dice cada NO: sin banco, otro
+      banco, sin sujetar, sujeto y pisado despues, el MAYOR, con signo, un
+      tope que se pasa, y un salto que cae en el LDC, tambien desde detras
+      --;
+    - el simulador, del banco y 0 fuera;
+    - el emisor (`proton-x-sm86/src/constantes.rs`): SHF, IMNMX, dos LDC.64,
+      ISETP y cuatro SEL -- el SEL porque la casa da 0 FUERA de las filas
+      del array aunque el banco tenga detras las de otro cbuffer --; con el
+      indice escrito, el LDC sin indice o cuatro ceros. El banco es el 3 en
+      los dos ABI (`BANCO_APP` = `BANCO_CB`, y si cambia uno no compila);
+    - la PUERTA: la receta pide el banco (+88 bit 1, solo con cbuffer: sus
+      `16 x filas` bytes, ni mas ni menos), `pegar` se lo da a R7 en los dos
+      cuerpos y entra en la clave del Z3, y `tuberia::ordenes_dibujo` lo ATA
+      -- `SET_CONSTANT_BUFFER_SELECTOR_A/B/C` (la medida a 256, los DATOS) y
+      `BIND_GROUP_CONSTANT_BUFFER` del vertice (0) y del pixel (4), de
+      `clc797.h` --. Es codigo del driver que corre el kernel
+      (`gpu_trabajo/cubo.rs` no cambio: la receta va por `en_frio` ->
+      `preparar` -> estas ordenes).
+  - **Como se supo:** `pruebas_constantes.rs` -- a mano, cinco arrays (el
+    de 3 filas desde la 2, el de 1, el de 8, el de 3 desde la 5 y el de 2
+    desde la 4093) con un cbuffer MAS LARGO detras y 21 indices de todas
+    las clases (dentro, borde, fuera, negativos, un float, NaN, y los que el
+    `<< 4` da la vuelta); el indice escrito; las luces en un bucle; y
+    `luces.hlsl` de `dxc`: los bits de la casa en los dos ABI, juzgado
+    (R0..R6 y R7 con su banco). Por la puerta, con el pegamento del kernel y
+    el juez de programas enteros: 24 instrucciones (15 de cuerpo). La
+    receta (`receta.rs`): con el bit, se pega; sin el, R7; el bit en la
+    clave; las ordenes atan el banco y sin el no. Saboteado el SEL (el
+    predicado al reves) caen tres pruebas; el tope una fila mas, R7 en dos.
+  - **Lo que queda:** el METAL -- la primera receta con `ConstantesEn` dira
+    si la 3060 acepta el banco atado asi (nunca se ato uno en la tuberia
+    grafica de esta casa) y si da 0 fuera de su medida; el juez no depende
+    de eso, la huella si --.
 - **E8g, las TEXTURAS que pide Cyberpunk (DL17, 09-10) -- PREPARADA.** Lo
   que dijo `ptxas` de cada forma, con el asa en un registro (bindless):
 

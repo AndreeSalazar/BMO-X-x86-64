@@ -9,7 +9,8 @@
 //! predicados P0..P6 y el GUARDA de cada instruccion; desde E6c y E6d las
 //! de enteros: IMAD, IMAD.HI, LOP3, SHF, IMNMX, IABS, I2F y F2I; desde
 //! DL10 (09-10) FFMA, con un redondeo y en sus cuatro modos (`fma.rs`); y
-//! desde DL12 (09-10) KILL, que acaba el hilo y deja [`Maquina::matado`] --; cualquier otra
+//! desde DL12 (09-10) KILL, que acaba el hilo y deja [`Maquina::matado`];
+//! y desde E8f (09-10) LDC con indice, de los `bancos` --; cualquier otra
 //! palabra (u otra forma de esas) es [`NoSimula::Instruccion`], nunca un
 //! "seguramente".
 //!
@@ -82,7 +83,13 @@ impl<'a> Maquina<'a> {
     fn constante(&self, lo: u64) -> u32 {
         let banco = (lo >> 54 & 0x1F) as usize;
         let desp = ((lo >> 40 & 0x3FFF) * 4) as usize;
-        self.bancos.get(banco).and_then(|b| b.get(desp..desp + 4)).map_or(0, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        self.palabra_de(banco, desp)
+    }
+
+    /// La palabra del byte `desp` del banco `banco`; fuera, 0 (lo que la
+    /// casa da fuera de un cbuffer, y la 3060 fuera de la medida del banco).
+    fn palabra_de(&self, banco: usize, desp: usize) -> u32 {
+        self.bancos.get(banco).and_then(|b| b.get(desp..desp.checked_add(4)?)).map_or(0, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
     }
 }
 
@@ -355,6 +362,21 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
                 m.r[rd2] = c[2].to_bits();
                 m.r[rd2 + 1] = c[3].to_bits();
                 continue;
+            }
+            // ** E8f (DL18): LDC[.64] Rd, c[banco][Ra + desp] -- solo la forma
+            // de `codifica::ldc` --; fuera del banco, 0.
+            0x182 if forma == 5 && matches!(hi >> 9 & 7, 4 | 5) && hi & ((1 << 41) - 1) & !(7 << 9) == 0 && lo >> 32 & 0xFF == 0 && lo >> 59 == 0 => {
+                let banco = (lo >> 54 & 0x1F) as usize;
+                let dir = m.reg(ra) as usize + ((lo >> 40 & 0x3FFF) * 4) as usize;
+                if hi >> 9 & 7 == 5 {
+                    if rd == RZ || rd % 2 != 0 {
+                        return Err(NoSimula::Instruccion(n));
+                    }
+                    m.r[rd] = m.palabra_de(banco, dir);
+                    m.r[rd + 1] = m.palabra_de(banco, dir + 4);
+                    continue;
+                }
+                m.palabra_de(banco, dir)
             }
             0x14D => return Ok(pasos),
             // ** DL12: KILL (su guarda ya se miro arriba) -- solo la forma de

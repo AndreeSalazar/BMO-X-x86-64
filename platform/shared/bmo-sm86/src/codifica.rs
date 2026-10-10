@@ -195,6 +195,18 @@ pub fn tex(rd: u8, ra: u8, rb: u8, control: u64) -> (u64, u64) {
     palabra(lo, (rd as u64 + 2) | 0xF << 8 | 7 << 17 | 1 << 20 | 1 << 23, control)
 }
 
+/// ** E8f (DL18, 09-10): `LDC[.64] Rd, c[banco][Ra + desp]` -- una o dos
+/// palabras de un BANCO DE CONSTANTES con el indice en un registro, en BYTES
+/// (`RZ`: sin indice). Las palabras de `ptxas` (`ORO_LDC`): el opcode 0x182 en
+/// la forma 5, Ra en 24..32, el desplazamiento/4 en 40..54 (hasta 0xFFFC), el
+/// banco en 54..59 y el ancho en 73..76 (4: 32 bits; 5: 64). Desacoplada: su
+/// barrera la pone quien emite (E4).
+pub fn ldc(rd: u8, banco: u8, ra: u8, desp: u16, doble: bool, control: u64) -> (u64, u64) {
+    debug_assert!(desp % 4 == 0 && banco < 32, "LDC: el desplazamiento en palabras, el banco de 0 a 31");
+    let lo = 0x182 | 5 << 9 | SIEMPRE | (rd as u64) << 16 | (ra as u64) << 24 | ((desp as u64 >> 2) & 0x3FFF) << 40 | (banco as u64 & 0x1F) << 54;
+    palabra(lo, (if doble { 5 } else { 4 }) << 9, control)
+}
+
 /// `EXIT` (con su predicado PT en 87..90, como lo pone `ptxas`).
 pub fn exit(control: u64) -> (u64, u64) {
     palabra(0x14D | 4 << 9 | SIEMPRE, 7 << 23, control)
@@ -442,6 +454,15 @@ pub const ORO_DL10: &[(&str, u64, u64)] = &[
     ("FFMA.RP R0, R12, R10, R11", 0x0000000a0c007223, 0x000fe2000000800b),
 ];
 
+/// Las PALABRAS DE ORO del LDC con indice (E8f, DL18): `ptxas -arch=sm_86 -O3`
+/// (CUDA 12.9) sobre `oro_ldc.ptx` (al lado de este crate), leido con
+/// `nvdisasm -hex` (13.4): un `.const` leido con la fila en un registro.
+pub const ORO_LDC: &[(&str, u64, u64)] = &[
+    ("LDC.64 R4, c[0x3][R0+0x20]", 0x00c0080000047b82, 0x000e300000000a00),
+    ("LDC.64 R6, c[0x3][R0+0x28]", 0x00c00a0000067b82, 0x000e300000000a00),
+    ("LDC R9, c[0x3][R0+0x4]", 0x00c0010000097b82, 0x000e620000000800),
+];
+
 /// Las PALABRAS DE ORO de la FFMA con el INMEDIATO EN LA c (la forma 2; R7 la
 /// deja desde el 09-10, por decision del propietario): `ptxas -arch=sm_86
 /// -O3` (CUDA 12.9) sobre `oro_ffma_c.ptx` (al lado de este crate), leido con
@@ -513,6 +534,10 @@ pub const LEIDAS: &[(&str, u64, u64)] = &[
         // 09-10, la forma 2: la b solo con `|x|`, y las dos negadas.
         ("FFMA R1, R2, |R3|, 2", 0x4000000002017423, 0x000fec0000000403),
         ("FFMA R1, -R2, -R3, -1", 0xbf80000002017423, 0x000fec0000000903),
+        // E8f: el LDC sin indice (RZ), y con otro banco y el desplazamiento
+        // mas alto que cabe.
+        ("LDC R1, c[0x3][0x10]", 0x00c00400ff017b82, 0x000fec0000000800),
+        ("LDC.64 R2, c[0x1][R5+0x7ff8]", 0x005ffe0005027b82, 0x000fec0000000a00),
 ];
 
 /// Las PALABRAS DE ORO de E6 (02-10): `ptxas -arch=sm_86 -O3` (CUDA 12.9)
@@ -658,6 +683,8 @@ mod pruebas {
             exit(k),
             ffma(1, r(2), abs(3), Fuente::Imm(2.0f32.to_bits()), false, k),
             ffma(1, neg(2), neg(3), Fuente::Imm((-1.0f32).to_bits()), false, k),
+            ldc(1, 3, RZ, 0x10, false, k),
+            ldc(2, 1, 5, 0x7ff8, true, k),
         ];
         for ((texto, lo, hi), h) in LEIDAS.iter().zip(hechas) {
             assert_eq!(h, (*lo, *hi), "{texto}");
@@ -822,6 +849,16 @@ mod pruebas {
             assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
         }
         assert_eq!(ffma_redondeo(7, r(4), r(7), r(4), Redondeo::Cercano, k(1)), ffma(7, r(4), r(7), r(4), false, k(1)));
+    }
+
+    /// ** E8f: el LDC con indice, las palabras de `ptxas`, los 128 bits.
+    #[test]
+    fn el_ldc_con_indice_como_ptxas() {
+        let k = |i: usize| ORO_LDC[i].2 >> 41;
+        let hechas = [ldc(4, 3, 0, 0x20, true, k(0)), ldc(6, 3, 0, 0x28, true, k(1)), ldc(9, 3, 0, 0x4, false, k(2))];
+        for ((texto, lo, hi), h) in ORO_LDC.iter().zip(hechas) {
+            assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
+        }
     }
 
     /// ** La FFMA con el inmediato en la c (forma 2, 09-10): las palabras de

@@ -189,7 +189,13 @@ pub(crate) fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]
     let mut casa = std::vec![[0.0f32; 4]; p.salidas];
     let mut regs = Vec::new();
     let queda = p.correr(entradas, cb, &mut casa, &mut regs);
-    let mut m = Maquina::nueva([&[]; 8]);
+    // ** E8f: un cuerpo con LDC lee el banco que el kernel ata al cbuffer
+    // (la receta lo pide: +88 bit 1); sin LDC, ningun banco.
+    let mut bancos: [&[u8]; 8] = [&[]; 8];
+    if e.usa_banco() {
+        bancos[crate::BANCO_APP as usize] = cb;
+    }
+    let mut m = Maquina::nueva(bancos);
     // Basura en todo lo demas: nadie puede leer un registro sin escribirlo.
     for (i, r) in m.r.iter_mut().enumerate() {
         *r = 0x7FC0_0000 | i as u32;

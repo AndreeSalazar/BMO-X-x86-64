@@ -81,6 +81,8 @@ mod mates;
 pub mod series;
 // ** E8b (09-10): los arrays, sin memoria: cada indice contra cada elemento.
 mod indexado;
+// ** E8f (09-10, DL18): la fila del cbuffer calculada, con un LDC sujeto.
+mod constantes;
 /// E6 (02-10): lo que se mira antes de emitir un programa que salta.
 mod saltos;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
@@ -107,6 +109,12 @@ use planifica::Meta;
 /// Los bancos de constantes del ABI de E3.
 pub const BANCO_ENTRADAS: u8 = 1;
 pub const BANCO_CB: u8 = 3;
+/// ** E8f (DL18): el banco que el KERNEL ata al cbuffer de una app (la
+/// receta, +88 bit 1) y del que su cuerpo lee con un LDC (`ConstantesEn`).
+/// El mismo numero que el de E3: el LDC se escribe igual en los dos ABI.
+pub const BANCO_APP: u8 = BANCO_CB;
+// El mismo que ata el kernel (`tuberia::BANCO_APP`): si uno cambia, no compila.
+const _: () = assert!(BANCO_APP == bmo_gpu_ga10x::tuberia::BANCO_APP);
 
 /// De donde leen las entradas y el cbuffer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -179,6 +187,20 @@ pub struct Emitido {
     /// 9d (06-10): el registro del TERMOMETRO de la libreta
     /// ([`libreta`]), si se emitio con ella.
     pub termometro: Option<u8>,
+}
+
+impl Emitido {
+    /// ** E8f: el cuerpo lee el banco de la app con un LDC (`ConstantesEn`):
+    /// la receta se lo pide al kernel (+88 bit 1), y el juez R7 lo deja
+    /// solo con ese banco atado.
+    pub fn usa_banco(&self) -> bool {
+        usa_banco(&self.codigo)
+    }
+}
+
+/// Si un cuerpo tiene un LDC (el opcode 0x182).
+pub fn usa_banco(codigo: &[(u64, u64)]) -> bool {
+    codigo.iter().any(|&(lo, _)| lo & 0x1FF == 0x182)
 }
 
 /// Donde vive un valor del Programa.
@@ -920,9 +942,9 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             // ** E8b (09-10): los arrays (N5.10), sin memoria (`indexado.rs`).
             Op::LeeIndexado { d, base, n, i: indice } => e.lee_indexado(d, base, n, indice, i, &mut paso)?,
             Op::EscribeIndexado { base, n, i: indice, s } => e.escribe_indexado(base, n, indice, s, i, &mut paso)?,
-            // Una fila del cbuffer CALCULADA es memoria (c[][]), y R7 no la
-            // deja a un cuerpo de app: es del propietario (E8).
-            Op::ConstantesEn { .. } => return Err(NoEmite::Operacion(i)),
+            // ** E8f (09-10, DL18): una fila del cbuffer CALCULADA, con un
+            // LDC del banco de la app, sujeto (`constantes.rs`).
+            Op::ConstantesEn { d, fila, filas, i: indice, .. } => e.constantes_en(d, fila, filas, indice, i, &mut paso)?,
             // E2.5: las olas (`vote`, `shfl` de la 3060) todavia no: por la CPU,
             // donde van de 32 en 32 carriles como en un warp.
             // D4.4: las derivadas de la mip de un muestreo no se emiten: solo
@@ -1000,3 +1022,5 @@ mod pruebas_indexado;
 mod pruebas_descarte;
 #[cfg(test)]
 mod pruebas_series;
+#[cfg(test)]
+mod pruebas_constantes;
