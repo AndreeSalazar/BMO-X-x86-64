@@ -622,11 +622,15 @@ pub fn on_timer() {
     // reves habria una ventana --testigo viejo, tarea ya bloqueada, latido ya
     // servido-- y eso es un aviso perdido: la tarea espera al SIGUIENTE.
     crate::ring0::obj::latido::tic();
-    for task in &mut s.tasks {
+    // Las que despiertan EN ESTE TIC (un bit por hueco: `MAX_TASKS` es 64),
+    // para el turno de abajo (`bmo_orquesta::turno`).
+    let mut despertadas: u64 = 0;
+    for (i, task) in s.tasks.iter_mut().enumerate() {
         if task.state == TaskState::Blocked && task.wait_deadline != 0 && now >= task.wait_deadline {
             task.wait_deadline = 0;
             task.wait_key = 0;
             task.state = TaskState::Ready;
+            despertadas |= 1 << i;
         // ** Y AQUI, EN LA MISMA VUELTA, LOS QUE ESPERAN EL LATIDO.
         //
         // No se llama a `wake_by_key`: eso volveria a tomar `SCHED_LOCK`, que
@@ -643,6 +647,7 @@ pub fn on_timer() {
             task.wait_deadline = 0;
             task.wait_key = 0;
             task.state = TaskState::Ready;
+            despertadas |= 1 << i;
         }
     }
     // == *** UN QUANTUM ES DE QUIEN CORRE (2026-09-08) ====================
@@ -699,12 +704,24 @@ pub fn on_timer() {
     // el bus sigue llegando tarde con esto puesto, el culpable no es el
     // reparto del CPU: es alguien con las interrupciones cerradas (ver
     // `plat/spin.rs::retenido_peor`) o el propio bus.
+    // == ** Y EL MISMO RANGO, RECIEN DESPIERTO (10-10) ======================
+    //
+    // El cuello de botella medido (S0 de PLAN_VERRANO): la app y el
+    // escritorio estan en el mismo rango, y la que despertaba de su reposo
+    // esperaba el quantum ENTERO de la otra -- ~3,5 ms de retraso medio en un
+    // reposo de 1 ms --. Ahora entra si la que corre ya gasto un tic; la regla
+    // y sus pruebas, en `bmo_orquesta::turno`.
     let current = &mut s.tasks[s.current];
     if current.state == TaskState::Running && current.remaining_ticks > 1 {
-        let mi_rango = current.priority;
-        let alguien_mayor = s.tasks.iter().any(|t| {
-            t.state == TaskState::Ready && t.priority > mi_rango && t.compas.apartada <= now
+        use bmo_orquesta::turno::{expropiar, Quien};
+        let (mi_rango, resto, quantum) = (current.priority, current.remaining_ticks, current.quantum);
+        let otras = s.tasks.iter().enumerate().map(|(i, t)| Quien {
+            rango: t.priority,
+            lista: t.state == TaskState::Ready,
+            apartada: t.compas.apartada > now,
+            desperto: despertadas >> i & 1 != 0,
         });
+        let alguien_mayor = expropiar(mi_rango, resto, quantum, otras);
         if !alguien_mayor {
             s.tasks[s.current].remaining_ticks -= 1;
             return;
