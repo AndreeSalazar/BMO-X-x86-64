@@ -13,10 +13,10 @@
 //! compilador no mira el kernel, y quien lo comprueba si.
 //!
 //! ** DOS FUENTES desde el 2026-09-16, y la prueba es EXHAUSTIVA. Las
-//! operaciones se leen del kernel, como siempre. La FORMA de la superficie
-//! (`sup_*`, `evento_*`, `vista_*`) no esta en el kernel --presta bytes y se
-//! aparta--: esta en `bmo_abi::syscalls::surface::superficie`, y se lee de
-//! ahi. Y toda constante de `[constantes]` TIENE que tener fila: la version
+//! operaciones se leen del kernel, como siempre; lo que no esta en el kernel
+//! (`mi_tarea`) se lee del ABI. (La FORMA de la superficie -- `sup_*`,
+//! `evento_*`, `vista_*` -- salio de INTI el 10-10, corte 4b: la ventana es de
+//! TITAN++.) Y toda constante de `[constantes]` TIENE que tener fila: la version
 //! anterior comparaba 40 y la 41 (`mi_tarea`) no la miraba nadie, y la que
 //! entrara luego tampoco. Una constante sin fila hace fallar la prueba con su
 //! nombre.
@@ -140,24 +140,6 @@ const ESPEJO: &[(&str, Fuente, &str)] = &[
     ("sonido_pitar", Fuente::Kernel("obj/audio.rs"), "AUDIO_OP_BEEP"),
     ("sonido_callar", Fuente::Kernel("obj/audio.rs"), "AUDIO_OP_SILENCE"),
     ("sonido_tubo", Fuente::Kernel("obj/audio.rs"), "AUDIO_OP_TUBO"),
-    ("sup_magic", Fuente::Abi("superficie.rs"), "SUP_MAGIC"),
-    ("sup_cabecera", Fuente::Abi("superficie.rs"), "SUP_CABECERA"),
-    ("sup_bgra32", Fuente::Abi("superficie.rs"), "SUP_BGRA32"),
-    ("sup_campo_secuencia", Fuente::Abi("superficie.rs"), "SUP_CAMPO_SECUENCIA"),
-    ("sup_buzon_cabecera", Fuente::Abi("superficie.rs"), "SUP_BUZON_CABECERA"),
-    ("sup_buzon_ranura", Fuente::Abi("superficie.rs"), "SUP_BUZON_RANURA"),
-    ("evento_raton", Fuente::Abi("superficie.rs"), "SUP_EV_RATON"),
-    ("evento_letra", Fuente::Abi("superficie.rs"), "SUP_EV_CARACTER"),
-    ("evento_configurar", Fuente::Abi("superficie.rs"), "SUP_EV_CONFIGURE"),
-    ("estado_ventana", Fuente::Abi("superficie.rs"), "SUP_ESTADO_VENTANA"),
-    ("estado_maximizada", Fuente::Abi("superficie.rs"), "SUP_ESTADO_MAXIMIZADA"),
-    ("estado_completa", Fuente::Abi("superficie.rs"), "SUP_ESTADO_COMPLETA"),
-    ("sup_tomada", Fuente::Abi("superficie.rs"), "SUP_TOMADA"),
-    ("vista_se_ve", Fuente::Abi("superficie.rs"), "SUP_VISTA_SE_VE"),
-    ("vista_minimizada", Fuente::Abi("superficie.rs"), "SUP_VISTA_MINIMIZADA"),
-    ("vista_fuera", Fuente::Abi("superficie.rs"), "SUP_VISTA_FUERA"),
-    ("vista_prestada", Fuente::Abi("superficie.rs"), "SUP_VISTA_PRESTADA"),
-    ("vista_tapada", Fuente::Abi("superficie.rs"), "SUP_VISTA_TAPADA"),
 ];
 
 #[test]

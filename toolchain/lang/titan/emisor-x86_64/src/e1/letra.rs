@@ -1,6 +1,6 @@
 //! **LA LETRA DE BMO-X EN LA VENTANA** (F2 de `docs/plan/EL_FOCO.md`, 10-10):
 //! los glifos de 8x16 de `fontgen` -- los MISMOS que dibujan el kernel
-//! (`core/font16_data.rs`) e INTI (`runtime/fuente/datos.inti`) -- escritos
+//! (`core/font16_data.rs`) y C (`fuente/datos.h`) -- escritos
 //! en la ventana de un programa de TITAN++, con su escala.
 //!
 //! ```text

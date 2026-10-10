@@ -341,34 +341,10 @@ sonido_callar        = "0x04"
 #  lo unico que se OYE.
 sonido_tubo          = "0x05"
 
-#  ** LA FORMA DE UNA SUPERFICIE (2026-09-16): lo que una app escribe en su
-#  bloque para que el DIRECTOR lo componga, y el buzon por el que le llegan las
-#  teclas. Son de `bmo_abi::syscalls::surface::superficie`, NO del kernel: el
-#  kernel presta bytes y se aparta. Por eso `tests/espejo_del_kernel.rs` los
-#  lee del ABI y no de `ring0/`.
-#
-#  Es el primer contrato que INTI comparte con C SIN enlazarse: C lleva los
-#  mismos numeros como `BMO_SUP_*` (`tables/bmo/superficie/`), Rust como
-#  `SUP_*`, y cada copia tiene su juez. Un port de la superficie a INTI (N0 de
-#  `docs/plan/PLAN_NAVEGAR.md`) escribe ESTOS nombres, nunca el numero.
-sup_magic            = "0x50555342"
-sup_cabecera         = "0x20"
-sup_bgra32           = "0x00"
-sup_campo_secuencia  = "0x05"
-sup_buzon_cabecera   = "0x10"
-sup_buzon_ranura     = "0x08"
-evento_raton         = "0x8000000000000000"
-evento_letra         = "0x4000000000000000"
-evento_configurar    = "0x2000000000000000"
-estado_ventana       = "0x00"
-estado_maximizada    = "0x01"
-estado_completa      = "0x02"
-sup_tomada           = "0x01000000"
-vista_se_ve          = "0x00"
-vista_minimizada     = "0x01"
-vista_fuera          = "0x02"
-vista_prestada       = "0x03"
-vista_tapada         = "0x04"
+#  (La FORMA de una superficie -- `sup_*`, `evento_*`, `vista_*` -- salio el
+#  10-10 con el corte 4b: INTI ya no abre ventanas. La ventana, sus teclas y
+#  la letra son de TITAN++ (`director.ventana` y los suyos, F1-F3 de
+#  docs/plan/EL_FOCO.md), que lee esos numeros del ABI por su nombre.)
 
 #  (El vertice y la lamina de VERRANO salieron el 09-10 con `cubo.inti`:
 #  VERRANO lo manda TITAN++, corte 4 de docs/plan/PLAN_INTI_SAMURAI.md.)
@@ -452,68 +428,10 @@ bits_de     = "los ocho bytes de un flotante64, sin convertir su valor"
 flotante_de = "el flotante64 que forman esos ocho bytes"
 
 
-#  ** CON CUERPO desde el 2026-09-16 (N0 de docs/plan/PLAN_NAVEGAR.md): las
-#  piezas viven en `lang/inti/runtime/entrada/` y `runtime/superficie/`, y son
-#  el port de `tables/bmo/superficie/*.h` -- C es el oraculo y el contrato de
-#  los numeros esta en `[constantes]` (sup_*, evento_*, vista_*).
-#
-#  Hasta ese dia estas dos secciones eran NOMBRES sin cuerpo: `usa superficie`
-#  daba E0075 en la primera llamada. Y el nombre `mi_superficie` se fue: INTI
-#  no tiene globales ("un nombre es del bloque donde nacio"), asi que la
-#  superficie es un natural64 que la app guarda y pasa. `linea` y `triangulo`
-#  se fueron tambien: no tienen cuerpo todavia, y un nombre sin cuerpo en esta
-#  tabla es una promesa que el compilador no puede cumplir.
-#
-#  Las teclas y el raton llegan por el BUZON de la superficie (cero syscalls),
-#  no por la entrada exclusiva de `entrada.h`, que es la del shell de Ring 0.
-[entrada]
-espera_tecla  = "duerme hasta que llegue una LETRA por el buzon de esa superficie, y la devuelve"
-hay_tecla     = "hay algo en el buzon sin esperar? No consume"
-raton         = "donde esta el puntero sobre esa ventana: x + y * 65536"
-
-[superficie]
-superficie_crear           = "pide el bloque, escribe la cabecera BSUP y se la ofrece a quien nos lanzo; 0 si nadie compone"
-superficie_crear_con_buzon = "lo mismo, con un buzon de n ranuras (potencia de dos) para teclas y raton"
-superficie_reconfigurar    = "contestar a un CONFIGURE: una nueva de la medida pedida con el mismo buzon"
-superficie_ancho           = "el ancho que declara su cabecera"
-superficie_alto            = "el alto que declara su cabecera"
-superficie_pixeles         = "donde empiezan los pixeles: detras de la cabecera"
-pinta                      = "el dibujo esta ENTERO: sube la secuencia, y solo entonces el DIRECTOR pinta"
-limpia                     = "deja la superficie de un solo color"
-pixel                      = "un pixel, o nada si esta fuera"
-rectangulo                 = "un rectangulo relleno, recortado"
-texto_en                   = "hasta ocho letras de una palabra en la fuente de BMO-X; devuelve la x siguiente"
-superficie_evento          = "el siguiente evento del buzon, o 0"
-superficie_hay_evento      = "hay algo en el buzon, sin consumirlo"
-evento_hay                 = "el bit 8: es un evento"
-evento_pulsada             = "el bit 9: pulsada, no soltada"
-evento_es_raton            = "el bit 63: es del raton"
-evento_raton_x             = "la x de un evento de raton"
-evento_raton_y             = "la y de un evento de raton"
-evento_botones             = "los botones de un evento de raton"
-evento_es_letra            = "el bit 62: es una letra ya cocinada"
-evento_letra_de            = "la letra, Latin-1"
-evento_es_configurar       = "el bit 61: la ventana cambio"
-configurar_ancho           = "el ancho nuevo de un CONFIGURE"
-configurar_alto            = "el alto nuevo de un CONFIGURE"
-configurar_estado          = "ventana, maximizada o completa"
-superficie_dentro          = "el puntero esta sobre esta ventana"
-superficie_puntero_x       = "la x del puntero sobre la ventana"
-superficie_puntero_y       = "la y del puntero sobre la ventana"
-superficie_vista           = "la VISTA: se ve, minimizada, fuera, prestada, tapada"
-superficie_se_ve           = "R-APP8: si es 0, no pintes"
-superficie_tomada          = "el DIRECTOR ya la tomo (bit 24)"
-
-#  LA LAMINA: la pagina ya maquetada que manda la antena, leida y pintada
-#  desde INTI (2026-09-18, N2 de PLAN_NAVEGAR). Las reglas son las de
-#  `platform/shared/bmo-antena/src/lamina.rs`; aqui solo se recorren.
-
-[lamina]
-lamina_pinta    = "pinta la lamina que hay en un bloque, desplazada; 0 o codigo * 65536 + linea"
-lamina_cabecera = "LAMINA ancho alto n: ancho y alto empaquetados, o NADA_MAS"
-lamina_ancho    = "el ancho de una cabecera empaquetada"
-lamina_alto     = "el alto de una cabecera empaquetada"
-lamina_nombre   = "el nombre de un codigo de rechazo, en ocho bytes"
+#  (`[entrada]`, `[superficie]` y `[lamina]` salieron el 10-10, corte 4b de
+#  PLAN_INTI_SAMURAI, con sus piezas de `runtime/`: lo de app es de TITAN++.
+#  Su relevo -- la ventana, el buzon, la letra y NAVEGAR con su lamina, con
+#  los mismos pixeles -- esta en F1-F5 de docs/plan/EL_FOCO.md.)
 
 [archivo]
 abre_para_leer    = "abre un fichero y devuelve por donde va"

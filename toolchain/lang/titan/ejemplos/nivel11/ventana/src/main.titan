@@ -1,6 +1,6 @@
 # espera: BIEN
 # sale: nadie compone: la ventana no se ofrece a nadie
-# LA VENTANA de TITAN++ (F1 de docs/plan/EL_FOCO.md, 10-10): una superficie de BMO-X pedida, pintada y ofrecida al escritorio, como la de INTI (`roja.inti`) y la de C (`roja.h`). Un degradado arriba, un fondo, y una barra blanca que cruza la ventana durante diez segundos; cada fotograma, `presenta`. Lanzado desde el shell nadie compone, y lo dice; la prueba `tests/ventana.rs` del emisor la lanza un escritorio de mentira y lee sus pixeles
+# LA VENTANA de TITAN++ (F1 de docs/plan/EL_FOCO.md, 10-10): una superficie de BMO-X pedida, pintada y ofrecida al escritorio, como la de C (`roja.h`) y la que tuvo INTI hasta el 10-10. Un degradado arriba, un fondo, y una barra blanca que cruza la ventana durante diez segundos; cada fotograma, `presenta`. Lanzado desde el shell nadie compone, y lo dice; la prueba `tests/ventana.rs` del emisor la lanza un escritorio de mentira y lee sus pixeles
 mod main "una ventana de TITAN++: un degradado y una barra que la cruza"
 use director
 

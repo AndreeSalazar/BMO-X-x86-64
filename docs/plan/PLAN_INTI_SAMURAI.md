@@ -257,10 +257,18 @@ escrita para que el propietario diga si; no se ha tocado codigo.
           el DIRECTOR nombra solo `titan/cubogira.bex`. INTI: 243 + 265
           pruebas en verde; el metro, limpio con una fila menos y la del
           relevo
-   [ ] 4  fuera el resto del runtime de app (objetos, monton, superficie,
-          lamina, entrada, letra) y sus secciones de modulos.toml, con sus
-          pruebas (la de `tests/fuente.rs` incluida: bmo-fontgen deja de
-          emitir la copia INTI) -- cada pieza con su relevo (3.3)
+   [x] 4b la superficie, la lamina, la entrada y la letra salen de INTI
+          (10-10, el propietario: "quita todo el INTI por completo que INTI
+          HACE, ventana..."): `runtime/superficie/`, `lamina/`, `entrada/` y
+          `fuente/`, `[entrada]`, `[superficie]`, `[lamina]` y las
+          constantes `sup_*`, `evento_*`, `estado_*` y `vista_*` de
+          modulos.toml con sus filas del espejo, `tests/fuente.rs`, los
+          gemelos de C (`gemelos_inti.rs`) y la cuarta salida de fontgen. Su
+          relevo: F1-F3 de EL_FOCO (TITAN++ abre ventanas, lee su buzon y
+          escribe la letra)
+   [ ] 4  fuera el resto del runtime de app (objetos y monton) -- con su
+          relevo (3.3): `png.inti` y `cpu.inti` usan el monton, y se
+          quedan mientras sean de CPU
    [ ] 5  el emisor pierde los caminos del monton y de los objetos; los docs
           de INTI dicen UN perfil
    [ ] 6  EL PRIMER CORTE DE VELOCIDAD: asignacion de registros (INTI_MAESTRO

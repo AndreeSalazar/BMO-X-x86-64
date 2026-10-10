@@ -8,7 +8,7 @@
 
 ```text
    743 casillas ABIERTAS en 68 planes
-   595 hechas
+   596 hechas
      1 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -378,12 +378,12 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
 - ... y 3 mas
 
-## [`PLAN_INTI_SAMURAI.md`](PLAN_INTI_SAMURAI.md) -- 6 abiertas, 4 hechas
+## [`PLAN_INTI_SAMURAI.md`](PLAN_INTI_SAMURAI.md) -- 6 abiertas, 5 hechas
 
 *PLAN INTI SAMURAI -- INTI corta para la CPU; las apps se van a TITAN++*
 
 - [ ] 2 el build y el metro: ventana, musica, cubo y navegar fuera de
-- [ ] 4 fuera el resto del runtime de app (objetos, monton, superficie,
+- [ ] 4 fuera el resto del runtime de app (objetos y monton) -- con su
 - [ ] 5 el emisor pierde los caminos del monton y de los objetos; los docs
 - ... y 3 mas
 
