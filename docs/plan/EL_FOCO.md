@@ -517,6 +517,9 @@ linea dice que se mira y que seria un NO.
    6   el cubo en caliente     `gpu verrano banco inti` con el  `preparar` de
                                cubo girando: casi todos los     ~5 ms en los
                                fotogramas en caliente           que giran
+   TB1 TINTA, el lienzo        desde su icono: pintar, la goma  ver la lista de
+                               (derecho), s guarda el PNG       5b2 de PLAN_LA_
+                                                                TINTA
    5   EL RESPIRO              `gpu doom` y el cubo, moviendo   pantalla azul,
                                el raton; en `save`: `respiro`   latido tarde
                                y `apartadas` SUBEN, `latido     con la 3060,

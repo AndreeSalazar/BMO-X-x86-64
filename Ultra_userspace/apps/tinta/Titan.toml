@@ -1,0 +1,5 @@
+[package]
+name = "tinta"
+
+[permissions]
+screen = true

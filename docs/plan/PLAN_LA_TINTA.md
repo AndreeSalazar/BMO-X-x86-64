@@ -379,7 +379,7 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 
 ## 5b. EL PRIMER TEST: un lienzo que funciona (con raton)
 
-- [ ] TB1 -- EL LIENZO MINIMO en TITAN++: una capa, un pincel redondo con antialias, la goma, y exportar PNG. La prueba: el tiempo de un trazo a lo largo de la pantalla, medido
+- [x] TB1 -- EL LIENZO MINIMO en TITAN++: una capa, un pincel redondo con antialias, la goma, y exportar PNG. La prueba: el tiempo de un trazo a lo largo de la pantalla, medido. **HECHO en el anfitrion el 10-10: TINTA** (`Ultra_userspace/apps/tinta/`, `apps/tinta.bex` con su icono): la ventana de la medida de RESOLUCION (o 640 x 400), el lienzo una `[byte]` de tinta sobre papel blanco, el raton izquierdo pinta y el derecho borra, `g` pincel/goma, `+`/`-` el grosor (1 a 40), `b` papel en blanco, `s` guarda `datos/tinta.png` (grises, sin comprimir, con sus CRC: `png.titan`, sin una operacion de bits -- el xor sale de una tabla de 64 KB), Esc cierra. El pincel es una MASCARA hecha una vez por grosor (el borde suave, lineal en la distancia al cuadrado), y un trazo repinta en la ventana SOLO lo que cambio. La medida: un trazo de lado a lado (620 px, pincel de 6) cuesta 6,4 millones de instrucciones de E1 -- era 16,2 con la cobertura contada en cada pixel --, ~2 ms en el Ryzen a 3 por ns; la barra dice los ms de verdad (`director.ms()`). Pruebas: `emisor-x86_64/tests/tinta.rs` (sin escritorio lo dice; el trazo negro con el borde gris y simetrico; la goma, el grosor y `g`; el PNG leido byte a byte -- cada CRC, cada bloque de zlib, el Adler -- con los MISMOS pixeles que la ventana; y el techo del trazo). **Falta el metal** (5b2)
 - [ ] TB2 -- CAPAS Y FUSION: N capas con opacidad y los modos normal, multiplicar y pantalla; la fusion como `gpu fn` con su camino en la CPU, y el oraculo de los tres
 - [ ] TB3 -- TESELAS E HISTORIAL: capas en teselas de 256 (las vacias no existen) y deshacer/rehacer sobre ESTRATOS
 - [ ] TB5 -- LA `.obra` (seccion 4b): el manifiesto `obra.txt`, una carpeta por capa, un fichero por tesela pintada y la `vista.png` compuesta; leerla y escribirla desde TITAN++, con su banco en el anfitrion
@@ -387,6 +387,46 @@ casa: primero lo que no toca nada, despues lo que pide el metal.
 - [ ] TB7 -- RAMAS Y MEZCLA DE LA OBRA: una rama por intento, y la mezcla por capas (cada capa un nodo de R5); la pregunta solo cuando dos ramas tocaron la misma capa, y despues afinarla a la misma tesela
 - [ ] TB8 -- LA TRAYECTORIA DE LA OBRA: F12 (`scene/trayectoria.rs`) pinta la historia de una `.obra`, con la miniatura de cada version sacada de su `vista.png`
 - [ ] TB4 -- SELECCION Y RELLENO: la mascara de seleccion, el cubo con referencia a otra capa y "cerrar huecos"
+
+## 5b2. LA LISTA DEL PROPIETARIO: que esta aprobado, que esta hecho y que se prueba en su BMO-X (10-10)
+
+```text
+   QUE                       APROBADO   HECHO (anfitrion)   EN EL METAL
+   TA0 las decisiones        si         D5, D6; D3 a medias  --
+   TA1 el byte               si         si (nivel 14)        dentro de TINTA
+   TA5 la medida             si         si (E1, por pixel)   la barra de TINTA
+                                                             dice los ms
+   TB1 TINTA                 si         si                   POR PROBAR
+   TC1 la Wacom              si         no: falta su modelo  --
+   D2  el nombre TINTA       propuesto  --                   --
+   D4  la pagina (B4 / ppp)  no         --                   --
+   TB2 capas y fusion        no         --                   --
+   Minecraft en 3D, ILLAPA   en orden,  --                   --
+                             despues
+```
+
+**Lo que se prueba en el metal, en este orden** (y que seria un NO):
+
+```text
+   1  TINTA desde su icono    se abre una ventana blanca     no se abre, o
+                              con la barra abajo             sale negra
+   2  pintar con el raton     una linea negra y seguida,     puntos sueltos,
+      (izquierdo apretado)    con el borde suave             o borde serrado
+   3  la barra                "trazo N ms": lo que tardo     N > 16 en un trazo
+                              el ultimo trazo                corto
+   4  el derecho              borra, vuelve el papel         no borra
+   5  + y -, g, b             grosor, goma, papel en blanco  no cambian
+   6  s                       "datos/tinta.png" en verde     "el disco NO lo
+                                                             guardo"
+   7  el PNG en Windows       se abre, y es lo pintado       no se abre
+   8  Alt+Tab y otra ventana  vuelve a pintarse entera       queda a medias
+      encima, y volver
+```
+
+**La Wacom (TC1):** cuando el propietario diga su modelo (la etiqueta de
+abajo, CTL-xxxx, o el Administrador de dispositivos de Windows), se mide su
+descriptor y entra por el mismo camino que el raton: TINTA no cambia, gana
+la presion.
 
 ## 5c. Manga
 

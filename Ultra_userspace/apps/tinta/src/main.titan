@@ -1,0 +1,254 @@
+# espera: BIEN
+# TINTA (10-10, TB1 de docs/plan/PLAN_LA_TINTA.md): el LIENZO MINIMO de
+# BMO-X, en TITAN++ -- el primer peldanio del Adobe + Clip Studio Paint
+# propio del propietario. Una capa de tinta sobre papel blanco, un pincel
+# redondo con el borde suave (antialias), la goma, y guardar en PNG.
+#
+#    raton izquierdo   pinta (o borra, con la goma puesta: tecla g)
+#    raton derecho     borra, siempre
+#    + y -             el pincel mas grande o mas chico (de 1 a 40)
+#    g                 pincel <-> goma
+#    b                 papel en blanco
+#    s                 guarda datos/tinta.png
+#    Esc o q           cierra
+#
+# El lienzo es una `[byte]` (TA1): UN byte de tinta por pixel. Un trazo NO
+# repinta la ventana: solo los pixeles que el pincel cambio (TA5 dice por
+# que: la ventana entera son ~26 millones de instrucciones). Y cada trazo
+# se MIDE con `director.ms()`: la barra dice lo que tardo el ultimo.
+mod main "TINTA: el lienzo minimo -- pincel redondo con antialias, goma y PNG"
+use director
+mod medida
+mod png
+
+fn barra() -> int
+    return 1315860
+
+fn letras() -> int
+    return 13421772
+
+fn aviso() -> int
+    return 16755200
+
+fn bien() -> int
+    return 6750054
+
+fn alto_barra() -> int
+    return 20
+
+fn div(a: int, d: int) -> int
+    return (a - a % d) / d
+
+fn absoluto(v: int) -> int
+    if v < 0
+        return 0 - v
+    return v
+
+# El color en la ventana de la tinta `v` (0 papel blanco, 255 negro).
+fn color_de(v: int) -> int
+    return (255 - v) * 65793
+
+# Cuanto cubre el pincel de radio `r` un pixel a (dx, dy) de su centro, de
+# 0 a 255. El borde SUAVE: lineal en la distancia al cuadrado entre r - 1/2
+# y r + 1/2 (contado en medios pixeles, sin raices).
+fn cobertura(dx: int, dy: int, r: int) -> int
+    let d = 4 * (dx * dx + dy * dy)
+    let fuera = (2 * r + 1) * (2 * r + 1)
+    let dentro = (2 * r - 1) * (2 * r - 1)
+    if d >= fuera
+        return 0
+    if d <= dentro
+        return 255
+    return div((fuera - d) * 255, fuera - dentro)
+
+# **La mascara del pincel** de radio `r`: los pixeles que toca, de tres en
+# tres -- dx, dy y cuanto cubre --, solo los que cubren algo. Se hace UNA vez
+# por grosor: un toque ya no cuenta coberturas, las lee.
+fn mascara_de(r: int) -> [int]
+    let mut m: [int] = []
+    for j in range(2 * r + 3)
+        for i in range(2 * r + 3)
+            let dx = i - r - 1
+            let dy = j - r - 1
+            let a = cobertura(dx, dy, r)
+            if a > 0
+                push(mut m, dx)
+                push(mut m, dy)
+                push(mut m, a)
+    return m
+
+# **Un trazo** de (x0, y0) a (x1, y1): toques cada medio radio, para que la
+# linea salga seguida aunque el raton salte (si no se movio, UN toque). El
+# lienzo llega PRESTADO, no se copia; en la ventana va solo lo que cambio.
+fn trazo(mut px: [byte], w: int, h: int, x0: int, y0: int, x1: int, y1: int, mascara: [int], r: int, goma: bool)
+    let dx = x1 - x0
+    let dy = y1 - y0
+    let mut largo = absoluto(dx)
+    if absoluto(dy) > largo
+        largo = absoluto(dy)
+    let mut paso = div(r, 2)
+    if paso < 1
+        paso = 1
+    let mut n = div(largo, paso)
+    if n == 0
+        n = 1
+    let cuantos = len(mascara)
+    for k in range(1, n + 1)
+        let cx = x0 + div(dx * k, n)
+        let cy = y0 + div(dy * k, n)
+        let mut m = 0
+        while m < cuantos
+            let x = cx + mascara[m]
+            let y = cy + mascara[m + 1]
+            if x >= 0 and x < w and y >= 0 and y < h
+                let a = mascara[m + 2]
+                let i = y * w + x
+                let v = px[i]
+                if goma
+                    if 255 - a < v
+                        px[i] = byte(255 - a)
+                        director.pixel(x, y, color_de(255 - a))
+                else
+                    if a > v
+                        px[i] = byte(a)
+                        director.pixel(x, y, color_de(a))
+            m = m + 3
+
+# Toda la ventana: el lienzo (una copia: pasa al abrir y al volver a verse)
+# y la barra.
+fn pinta_todo(px: [byte], w: int, h: int)
+    for y in range(h)
+        for x in range(w)
+            director.pixel(x, y, color_de(px[y * w + x]))
+
+# La barra de abajo: el pincel, su medida, lo que tardo el ultimo trazo y el
+# ultimo aviso (0 nada, 1 guardado, 2 el disco dijo que no).
+fn pinta_barra(w: int, h: int, r: int, goma: bool, ms: int, aviso_de: int)
+    director.rect(0, h, w, alto_barra(), barra())
+    let mut x = 6
+    if goma
+        x = director.texto(x, h + 4, "GOMA ", 1, aviso())
+    else
+        x = director.texto(x, h + 4, "PINCEL ", 1, letras())
+    x = pon_numero(x, h + 4, r)
+    x = director.texto(x, h + 4, "  trazo ", 1, letras())
+    x = pon_numero(x, h + 4, ms)
+    x = director.texto(x, h + 4, " ms  ", 1, letras())
+    if aviso_de == 1
+        x = director.texto(x, h + 4, "datos/tinta.png", 1, bien())
+    else if aviso_de == 2
+        x = director.texto(x, h + 4, "el disco NO lo guardo", 1, aviso())
+    else
+        x = director.texto(x, h + 4, "s guarda  g goma  + -  Esc", 1, letras())
+
+# Un numero de hasta cinco cifras, sin ceros delante.
+fn pon_numero(x: int, y: int, n: int) -> int
+    let mut px = x
+    let mut potencia = 10000
+    let mut empezo = false
+    while potencia >= 1
+        let resto = n % (potencia * 10)
+        let cifra = (resto - resto % potencia) / potencia
+        if cifra != 0 or empezo or potencia == 1
+            px = director.letra(px, y, 48 + cifra, 1, letras())
+            empezo = true
+        if potencia == 1
+            potencia = 0
+        else
+            potencia = potencia / 10
+    return px
+
+fn main()
+    # La medida que eligio RESOLUCION (o 640 x 400), de 160 x 120 a 1920 x 1080.
+    let mut w = 640
+    let mut alto = 400
+    if director.fichero("datos/resolucion.txt")
+        let a = medida.ancho()
+        let b = medida.alto()
+        if a >= 160 and a <= 1920 and b >= 120 and b <= 1080
+            w = a
+            alto = b
+    let h = alto - alto_barra()
+    if not director.ventana(w, alto)
+        print("TINTA es una ventana: abrela desde el escritorio")
+        return
+    let mut px: [byte] = []
+    for i in range(w * h)
+        push(mut px, byte(0))
+    let mut r = 6
+    let mut mascara = mascara_de(r)
+    let mut goma = false
+    let mut ms = 0
+    let mut aviso_de = 0
+    director.rect(0, 0, w, h, 16777215)
+    pinta_barra(w, h, r, goma, ms, aviso_de)
+    director.presenta()
+    # Donde estaba el raton al pintar, y si estaba pintando.
+    let mut ax = 0
+    let mut ay = 0
+    let mut pintando = false
+    let mut antes = true
+    while true
+        let mut cambio = false
+        let mut barra_cambio = false
+        for n in range(64)
+            let que = director.evento()
+            if que == 0
+                break
+            let c = director.codigo()
+            if que == 3
+                if c == 27 or c == 113
+                    return
+                if c == 43 and r < 40
+                    r = r + 1
+                    mascara = mascara_de(r)
+                    barra_cambio = true
+                if c == 45 and r > 1
+                    r = r - 1
+                    mascara = mascara_de(r)
+                    barra_cambio = true
+                if c == 103
+                    goma = not goma
+                    barra_cambio = true
+                if c == 98
+                    for i in range(w * h)
+                        px[i] = byte(0)
+                    director.rect(0, 0, w, h, 16777215)
+                    cambio = true
+                if c == 115
+                    if png.guarda(px, w, h, "datos/tinta.png")
+                        aviso_de = 1
+                    else
+                        aviso_de = 2
+                    barra_cambio = true
+            if que == 4
+                let x = director.raton_x()
+                let y = director.raton_y()
+                let botones = director.botones()
+                let izquierdo = botones % 2 == 1
+                let derecho = (botones - botones % 2) / 2 % 2 == 1
+                if (izquierdo or derecho) and y < h
+                    let t0 = director.ms()
+                    let borra = derecho or goma
+                    if pintando
+                        trazo(mut px, w, h, ax, ay, x, y, mascara, r, borra)
+                    else
+                        trazo(mut px, w, h, x, y, x, y, mascara, r, borra)
+                    ms = director.ms() - t0
+                    ax = x
+                    ay = y
+                    pintando = true
+                    cambio = true
+                    barra_cambio = true
+                else
+                    pintando = false
+        let se_ve = director.se_ve()
+        if se_ve and not antes
+            pinta_todo(px, w, h)
+            barra_cambio = true
+        antes = se_ve
+        if barra_cambio
+            pinta_barra(w, h, r, goma, ms, aviso_de)
+        if cambio or barra_cambio
+            director.presenta()
+        director.espera(16)

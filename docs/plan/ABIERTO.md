@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   746 casillas ABIERTAS en 69 planes
-   602 hechas
+   745 casillas ABIERTAS en 69 planes
+   603 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -72,14 +72,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] J2b -- itch.io, la API oficial. En la antena: la clave que el
 - ... y 29 mas
 
-## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 32 abiertas, 5 hechas
+## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 31 abiertas, 6 hechas
 
 *PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total*
 
 - [ ] TA4 -- el DISCO: leer y escribir ficheros de ESTRATOS desde TITAN++, con permiso. A medias el 10
-- [ ] TB1 -- EL LIENZO MINIMO en TITAN++: una capa, un pincel redondo con antialias, la goma, y export
 - [ ] TB2 -- CAPAS Y FUSION: N capas con opacidad y los modos normal, multiplicar y pantalla; la fusio
-- ... y 29 mas
+- [ ] TB3 -- TESELAS E HISTORIAL: capas en teselas de 256 (las vacias no existen) y deshacer/rehacer s
+- ... y 28 mas
 
 ## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 30 abiertas, 0 hechas
 

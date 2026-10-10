@@ -633,6 +633,28 @@ $cRecursos = @(
             '....oooooooo....'
         ) }
     ) }
+    # ** LA CARA DE TINTA (TB1 de PLAN_LA_TINTA, 2026-10-10): una hoja con un
+    # trazo de tinta, y la pluma que lo hizo.
+    @{ bex = 'apps\tinta.bex'; recursos = @(
+        @{ nombre = 'icono'; icono = @(
+            '................',
+            '.oooooooooo.....',
+            '.oWWWWWWWWo..oo.',
+            '.oWWWWWWWWo.obbo',
+            '.oWWWWWWWWoobbo.',
+            '.oWWWWWWWobbbo..',
+            '.oWooWWWobbbo...',
+            '.oWoooWobbbo....',
+            '.oWWoooggbo.....',
+            '.oWWWooogo......',
+            '.oWWWWoooo......',
+            '.oWWWWWWWo......',
+            '.oWWWWWWWWo.....',
+            '.oooooooooo.....',
+            '................',
+            '................'
+        ) }
+    ) }
 )
 
 # * EL FORMATO `BICO`, escrito aqui porque aqui es donde nace un icono.
@@ -824,6 +846,10 @@ try {
         # ventanas de TITAN++ y guardarla en `datos\resolucion.txt`
         # (`director.guarda`, TA4); `titan/ventana.bex` ya se abre con ella.
         @{ src = 'Ultra_userspace\apps\resolucion\src\main.titan'; out = 'resolucion.bex'; dir = 'apps' },
+        # ** TINTA (TB1 de docs/plan/PLAN_LA_TINTA.md, 2026-10-10): el lienzo
+        # minimo -- pincel redondo con antialias, goma y PNG --, el primer
+        # peldanio del Adobe + Clip Studio Paint propio. Una APP: con su icono.
+        @{ src = 'Ultra_userspace\apps\tinta\src\main.titan'; out = 'tinta.bex'; dir = 'apps' },
         # ** BICO y PNG (corte 4e de INTI, 2026-10-10): las herramientas de
         # imagen, de TITAN++ (`director.crea`, `escribe`, `cierra`). En el
         # metal: `run titan/bico.bex` (datos/foto.bmp y foto.qoi a BICO, sus
