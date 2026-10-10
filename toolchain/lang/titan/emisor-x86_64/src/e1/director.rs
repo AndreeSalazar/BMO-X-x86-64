@@ -34,7 +34,8 @@
 //! regalada.
 
 use super::{Place, E1};
-use bmo_abi::syscalls::surface::{CURRENT_TASK, MEM_OP_BASE, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_MEMORIA_PEDIR, TASK_OP_MI_PADRE};
+use super::entrada::{HZ, PLAZO, RBX};
+use bmo_abi::syscalls::surface::{CURRENT_TASK, INFO_TSC_HZ, MEM_OP_BASE, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_INFO, TASK_OP_MEMORIA_PEDIR, TASK_OP_MI_PADRE};
 use bmo_lower::memoria;
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R11, R8, R9};
 use bmo_titan_front::calc::Class;
@@ -50,6 +51,9 @@ const COLA: i32 = 16;
 const CAPACIDAD_MAXIMA: i32 = 1 << 16;
 /// Lo mas que duerme `espera`: una hora (los nanosegundos caben de sobra).
 const ESPERA_MAXIMA: i32 = 3_600_000;
+/// Hasta cuanto se pace por plazo (ms): un fotograma; mas, la siesta (y asi
+/// `(plazo - ahora) * 1e9` cabe en 64 bits con cualquier reloj de hasta 9 GHz).
+const PLAZO_MAXIMO_MS: i32 = 1000;
 
 // El vertice de VERRANO: su posicion y su color, cuatro f32 cada uno, en ese
 // orden. La copia de `publica` lo escribe asi; si `bmo_verrano` cambiara, esto
@@ -276,10 +280,22 @@ impl E1<'_> {
         Ok((out, Class::Bool))
     }
 
-    /// `director.espera(ms)`: WAIT sin asa, hasta el plazo.
+    /// `director.espera(ms)`: dormir hasta el SIGUIENTE PLAZO, no `ms` mas.
+    ///
+    /// ** EL CUELLO DE BOTELLA MEDIDO (S0 de `PLAN_VERRANO`, 09-10): el
+    /// fotograma del cubo media 18,7 ms y el 92 % era esperar -- la app hacia
+    /// su trabajo y DESPUES dormia 16 ms, y el kernel la despertaba tarde --.
+    /// Ahora (10-10) el programa lleva su plazo (el TSC del fotograma
+    /// siguiente, en su bloque de 64 bytes) y duerme solo lo que FALTA hasta
+    /// el: el fotograma mide `ms`, no trabajo + `ms` + retraso. Si ya va
+    /// tarde, cede el turno (WAIT de 0) y se pone en hora, sin amontonar.
+    /// Mas de un segundo, o sin bloque, la siesta de siempre.
     fn espera(&mut self, args: &[Value]) -> Result<(), String> {
         let [ms] = args else { return Err("`director.espera` sin su valor (fallo del compilador)".to_string()) };
         let (ms, _) = self.eval(ms)?;
+        let pedido = self.temp(8);
+        let por = self.temp(8);
+        let ahora = self.temp(8);
         self.load(ms, RDX);
         x86::test_r64_r64(&mut self.code, RDX, RDX);
         let nada = self.jcc(0x8E);
@@ -287,8 +303,72 @@ impl E1<'_> {
         let cabe = self.jcc(0x8E);
         self.imm(RDX, ESPERA_MAXIMA as i64);
         self.here(cabe);
+        self.store(pedido, RDX);
+        let mut siesta = Vec::new();
+        x86::cmp_r64_imm32(&mut self.code, RDX, PLAZO_MAXIMO_MS);
+        siesta.push(self.jcc(0x8F));
+        self.con_tenido(&mut siesta);
+        // Los ciclos por segundo del reloj, una vez.
+        x86::mov_r64_at_reg_disp32(&mut self.code, RAX, RBX, HZ);
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        let tiene = self.jcc(0x85);
+        self.imm(RDI, CURRENT_TASK as i64);
+        self.imm(RSI, TASK_OP_INFO as i64);
+        self.imm(RDX, INFO_TSC_HZ as i64);
+        x86::zero_r32(&mut self.code, R10);
+        x86::zero_r32(&mut self.code, R8);
+        self.invoke();
+        self.si_no_vale(&mut siesta);
+        x86::mov_at_reg_disp32_from_r64(&mut self.code, RBX, HZ, RDX);
+        self.here(tiene);
+        // Lo que mide un fotograma: ms * hz / 1000 ciclos.
+        self.load(pedido, RAX);
+        x86::mov_r64_at_reg_disp32(&mut self.code, RCX, RBX, HZ);
+        x86::imul_r64_r64(&mut self.code, RAX, RCX);
+        x86::zero_r32(&mut self.code, RDX);
+        self.imm(RCX, 1000);
+        x86::div_r64(&mut self.code, RCX);
+        self.store(por, RAX);
+        // Ahora: rdtsc.
+        self.code.extend_from_slice(&[0x0F, 0x31]);
+        x86::shl_r64_imm8(&mut self.code, RDX, 32);
+        x86::or_r64_r64(&mut self.code, RAX, RDX);
+        self.store(ahora, RAX);
+        // El plazo: el anterior (o ahora, la primera vez) mas un fotograma.
+        x86::mov_r64_at_reg_disp32(&mut self.code, RCX, RBX, PLAZO);
+        x86::test_r64_r64(&mut self.code, RCX, RCX);
+        let hay = self.jcc(0x85);
+        x86::mov_r64_r64(&mut self.code, RCX, RAX);
+        self.here(hay);
+        self.load(por, RDX);
+        x86::add_r64_r64(&mut self.code, RCX, RDX);
+        x86::cmp_r64_r64(&mut self.code, RCX, RAX);
+        let a_tiempo = self.jcc(0x87);
+        // Tarde: en hora, y se cede el turno.
+        x86::mov_at_reg_disp32_from_r64(&mut self.code, RBX, PLAZO, RAX);
+        x86::zero_r32(&mut self.code, RDX);
+        let cede = self.jmp();
+        self.here(a_tiempo);
+        x86::mov_at_reg_disp32_from_r64(&mut self.code, RBX, PLAZO, RCX);
+        // Lo que falta, en ns: (plazo - ahora) * 1e9 / hz.
+        x86::sub_r64_r64(&mut self.code, RCX, RAX);
+        x86::mov_r64_r64(&mut self.code, RAX, RCX);
+        self.imm(RCX, 1_000_000_000);
+        x86::imul_r64_r64(&mut self.code, RAX, RCX);
+        x86::zero_r32(&mut self.code, RDX);
+        x86::mov_r64_at_reg_disp32(&mut self.code, RCX, RBX, HZ);
+        x86::div_r64(&mut self.code, RCX);
+        x86::mov_r64_r64(&mut self.code, RDX, RAX);
+        self.here(cede);
+        let dormir = self.jmp();
+        // La siesta de siempre: `ms` desde ahora.
+        for j in siesta {
+            self.here(j);
+        }
+        self.load(pedido, RDX);
         self.imm(RAX, 1_000_000);
         x86::imul_r64_r64(&mut self.code, RDX, RAX);
+        self.here(dormir);
         x86::zero_r32(&mut self.code, RDI);
         x86::zero_r32(&mut self.code, RSI);
         self.imm(RAX, NR_WAIT as i64);

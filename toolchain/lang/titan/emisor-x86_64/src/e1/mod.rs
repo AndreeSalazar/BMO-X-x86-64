@@ -1031,7 +1031,7 @@ fn uses_director(m: &Module) -> bool {
 /// la letra)?
 fn uses_window(m: &Module) -> bool {
     let s = format!("{:?}", &m.functions);
-    ["Ventana", "Pixel", "Rect", "Fila", "Presenta", "Toma", "Fichero", "Medida", "Byte", "Evento", "Codigo", "RatonX", "RatonY", "Botones", "SeVe", "Letra", "Texto", "Crea", "Escribe", "Cierra"].iter().any(|k| s.contains(&format!("what: {}", k)) || s.contains(&format!("Director({}", k)))
+    ["Ventana", "Pixel", "Rect", "Fila", "Presenta", "Toma", "Fichero", "Medida", "Byte", "Evento", "Codigo", "RatonX", "RatonY", "Botones", "SeVe", "Letra", "Texto", "Crea", "Escribe", "Cierra", "Espera"].iter().any(|k| s.contains(&format!("what: {}", k)) || s.contains(&format!("Director({}", k)))
 }
 
 /// Las fn a las que se llega desde `main` (y las de los tipos de un trait).

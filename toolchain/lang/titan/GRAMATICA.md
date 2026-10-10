@@ -996,6 +996,16 @@ fn main()
   VERRANO: cada fotograma que da por bueno es la tanda de `bmo_cubo`, bit a
   bit. En el metal, `gpu verrano banco` sobre ella es del propietario.
 
+### El DIRECTOR: el RITMO (10-10, el cuello de botella de `EL_FOCO`)
+
+- `director.espera(ms)` duerme hasta el PLAZO del fotograma siguiente, no
+  `ms` despues del trabajo: el programa lleva su plazo (el TSC, en su bloque)
+  y duerme lo que FALTA. Un bucle de `trabajo; director.espera(16)` hace
+  fotogramas de 16 ms, no de trabajo + 16 + lo que tarde en despertar. Si va
+  tarde, cede el turno y se pone en hora (no amontona). Mas de 1000 ms, la
+  siesta de siempre. La prueba: `emisor-x86_64/tests/ritmo.rs`, con el reloj
+  del emulador (1 GHz).
+
 ### El DIRECTOR: la VENTANA (10-10, F1 de `docs/plan/EL_FOCO.md`)
 
 ```text

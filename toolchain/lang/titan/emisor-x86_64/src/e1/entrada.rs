@@ -20,8 +20,8 @@
 //!    se_ve()         la VISTA del estado del buzon: se ve (R-APP8)
 //! ```
 //!
-//! ** LO TENIDO va en un bloque de 48 bytes del programa (base y bytes, y el
-//! fichero que se escribe: `disco.rs`),
+//! ** LO TENIDO va en un bloque de 64 bytes del programa (base y bytes, el
+//! fichero que se escribe -- `disco.rs` -- y el ritmo de `director.espera`),
 //! apuntado por `rbx` -- que E1 solo toca al escribir un NO y salir --,
 //! pedido la primera vez: se lee ANTES de abrir la ventana (NAVEGAR elige su
 //! medida segun haya pagina o no). El ULTIMO EVENTO va en la COLA PRIVADA de
@@ -42,10 +42,13 @@ use bmo_titan_front::ir::{At, Director, Value};
 pub(crate) const RBX: u8 = 3;
 const TENIDO_BASE: i32 = 0;
 const TENIDO_BYTES: i32 = 8;
-/// Lo que mide el bloque: lo tenido (16) y el fichero que se ESCRIBE
+/// Lo que mide el bloque: lo tenido (16), el fichero que se ESCRIBE
 /// (`disco.rs`: su asa, los bytes de la palabra que espera, cuantos, y si
-/// algo no entro).
-const TENIDO_MIDE: i32 = 48;
+/// algo no entro) y el RITMO de `director.espera` (el plazo del fotograma
+/// siguiente, en ciclos del TSC, y los ciclos por segundo).
+const TENIDO_MIDE: i32 = 64;
+pub(super) const PLAZO: i32 = 48;
+pub(super) const HZ: i32 = 56;
 /// En la cola privada de la ventana: el ultimo evento.
 pub const COLA_EVENTO: i32 = 32;
 /// Lo mas que se lee de un fichero: 256 KiB, lo de NAVEGAR.
@@ -120,7 +123,7 @@ impl E1<'_> {
         Ok((out, Class::Int))
     }
 
-    /// El bloque de lo tenido en `rbx`: si no lo hay, se pide (48 bytes, a
+    /// El bloque de lo tenido en `rbx`: si no lo hay, se pide (64 bytes, a
     /// cero). Salta (a rellenar) si el kernel no lo da.
     pub(super) fn con_tenido(&mut self, no: &mut Vec<usize>) {
         x86::test_r64_r64(&mut self.code, RBX, RBX);
