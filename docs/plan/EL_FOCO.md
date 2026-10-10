@@ -232,6 +232,23 @@ Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
       cada app al abrirse: el DIRECTOR no agranda una ventana ya abierta
       (eso seria otra pieza: la ventana que cambia de medida, R-APP).
 
+- [x] **R2 -- Alt+Tab MANDA en la pantalla** (10-10, el propietario: *"que
+      SIEMPRE dominen en la pantalla asi sea con pantalla completa en GPU y
+      CPU porque se parpadea"*). Parpadeaba por dos caminos: una app a
+      pantalla completa compuesta por la CPU se pegaba encima de la tarjeta
+      (no miraba lo que tenia delante), y la 3060 -- DOOM con
+      `SUP_A_LA_3060`, PROTON-X con `SUP_LA_3060_DIRECTA` -- escribe la
+      pantalla ENTERA cada fotograma. Ahora (`bmo_foco::encima`, con sus
+      pruebas): la caja del conmutador no la pisa ninguna app; con el
+      abierto la 3060 se queda QUIETA (ni un fotograma, y a la receta
+      directa se le APARTA la pantalla: dibuja en su RAM, y el juego sigue
+      corriendo); al soltar Alt se vuelca lo devuelto y la 3060 VUELVE con
+      un fotograma. **Falta el metal:** Alt+Tab con DOOM por la 3060
+      (`gpu doom`), con Cyberpunk por PROTON-X y con una app de CPU a
+      pantalla completa: la tarjeta quieta, sin parpadeo, y al soltar el
+      juego vuelve. [!] Que el juego se MUEVA detras de la tarjeta (como en
+      Windows) pide que la 3060 componga la tarjeta encima: Q0b.
+
 **Lo del propietario, en cada arranque:** apagar (no reiniciar), `gpu init`
 y `save`: cada `SALIDA.TXT` es una fila de G0 hasta diez. Y una decision que
 espera sin prisa: el CUBO de E8g (la division de la 3060, la de la casa, o

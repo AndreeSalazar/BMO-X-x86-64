@@ -202,13 +202,21 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
         // Una marca para el area entera. Ver `scene::erase_box`: `punto` marca,
         // y marcar cuesta 272 bytes por pixel.
         p.marcar(bx, by, ba, bh);
+        // ** 10-10: debajo de una app que pone la 3060 a pantalla completa el
+        // lienzo es NEGRO, no el fondo del escritorio: es lo que se ve hasta
+        // su fotograma siguiente (`bmo_foco::encima`, la 3060 VUELVE).
+        let negro = dsk.table.la_3060_a_pantalla_completa();
         for fy in 0..bh {
             for fx in 0..ba {
                 let (x, y) = (bx + fx, by + fy);
-                p.punto_ya_marcado(x, y, scene_color(&dsk.run_box, dsk.win.visible, x, y, p.alto));
+                p.punto_ya_marcado(x, y, if negro { 0 } else { scene_color(&dsk.run_box, dsk.win.visible, x, y, p.alto) });
             }
         }
         dsk.win.switcher_painted = false;
+        // Las apps que tapaba vuelven ENTERAS, tambien la que no hizo un
+        // fotograma nuevo: con el conmutador encima no se pego en su caja
+        // (10-10), y lo de debajo es el fondo que se acaba de poner.
+        dsk.table.repintar_todas();
         // Lo de debajo se acaba de devolver desde el modelo del escritorio:
         // lo que el conmutador guardo ya no hace falta, y la proxima vez se
         // abre otra vez creciendo.

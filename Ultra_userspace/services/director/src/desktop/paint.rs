@@ -518,7 +518,12 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     }
     // ** D2c: las apps A LA 3060 (DOOM con `gpu doom`) no se pegan: la 3060
     // las agranda directamente en la pantalla. Antes de componer las demas.
-    let manda_la_3060 = crate::commands::gspcomputo::presentar_apps(&mut dsk.table, &p);
+    // ** 10-10: LO DE ENCIMA MANDA. Con Alt+Tab abierto, su caja no la pisa
+    // ninguna app -- ni a pantalla completa -- y la 3060 se queda quieta hasta
+    // soltar Alt (`bmo_foco::encima`). Antes la tarjeta parpadeaba: la tapaba
+    // cada fotograma nuevo.
+    let encima = dsk.win.switcher_painted.then(|| scene::switcher::area(&p, dsk.win.focus.abiertas()));
+    let manda_la_3060 = crate::commands::gspcomputo::presentar_apps(&mut dsk.table, &p, encima.is_some());
     if dsk.tick.will_paint {
         for &(vx, vy, va, vl) in dsk.tick.dead_boxes[..dead].iter() {
             erase_window(&p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
@@ -534,9 +539,9 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         devolver(dsk, p);
         // Ejecutar delante (Ctrl+Alt, 01-10): las apps no la pisan.
         let tapa = run_delante(dsk).then(|| (dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h()));
-        dsk.table.compose(&p, tapa);
+        dsk.table.compose(&p, tapa, encima);
         // Y encima de las apps sin marco, su borde vivo y sus botones.
-        crate::desktop::marco::poner(dsk, &p, fs || tapa.is_some());
+        crate::desktop::marco::poner(dsk, &p, fs || tapa.is_some() || encima.is_some());
     }
 
     if dsk.tick.loops == 1 {

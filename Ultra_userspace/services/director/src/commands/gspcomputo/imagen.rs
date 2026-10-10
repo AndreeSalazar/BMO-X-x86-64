@@ -324,6 +324,9 @@ pub(super) fn fila(s: &mut Output, c: &super::Computo) {
 static mut EN_VIVO: bool = false;
 /// El formato que se le dio a la 3060 en esta racha.
 static mut FORMATO_VIVO: (u32, u32) = (0, 0);
+/// ** 10-10: LO DE ENCIMA MANDA (`bmo_foco::encima`): con Alt+Tab abierto la
+/// 3060 se queda quieta, y al cerrarlo vuelve con un fotograma.
+static mut PAUSA: bmo_foco::encima::Pausa = bmo_foco::encima::Pausa::nueva();
 
 /// **La 3060 esta lista para presentar**, SIN arrancar nada: el lienzo de M5d
 /// hecho (lo deja `save mode`) y la ficha del timbre de GR0. Esto se pregunta
@@ -352,19 +355,41 @@ fn presentar(va: u64, ancho: u32, alto: u32, ficha: u64, nuevo: bool) -> Result<
 /// **Cada vuelta del escritorio**: las apps que piden la 3060. `true` si la
 /// 3060 manda en la pantalla (entonces no se pinta el cursor).
 ///
+/// `encima`: el escritorio tiene algo delante de TODO (el conmutador de
+/// Alt+Tab). Entonces la 3060 se queda QUIETA -- ni un fotograma, y la
+/// pantalla no es de la receta directa -- para que no lo tape; al quitarse,
+/// se vuelca lo devuelto y la 3060 VUELVE con un fotograma aunque la app no
+/// haya hecho otro (`bmo_foco::encima`).
+///
 /// Sin la 3060 lista no se hace nada: la app se compone con la CPU como
 /// cualquier ventana (chica, 320 x 200). Si la 3060 dice NO, se dice una vez
 /// por la consola y la app vuelve a la CPU para siempre -- un NO reintentado
 /// en cada vuelta seria un escritorio atascado.
-pub(crate) fn presentar_apps(t: &mut Table, p: &bmo::Pantalla) -> bool {
+pub(crate) fn presentar_apps(t: &mut Table, p: &bmo::Pantalla, encima: bool) -> bool {
+    use bmo_foco::encima::La3060;
+    // SAFETY: el escritorio es un solo hilo.
+    let la = unsafe { (*core::ptr::addr_of_mut!(PAUSA)).vuelta(encima) };
+    if la == La3060::Vuelve {
+        // Lo devuelto del lienzo, a la pantalla ANTES que la 3060: al reves,
+        // el volcado del final del fotograma pisaria su fotograma.
+        p.volcar();
+        // SAFETY: el escritorio es un solo hilo.
+        unsafe { *core::ptr::addr_of_mut!(EN_VIVO) = false };
+    }
+    let quieta = la == La3060::Quieta;
     let mut manda = false;
     for i in 0..CAJAS {
-        if directa(t, i, p) {
+        if directa(t, i, p, quieta) {
             manda = true;
             continue;
         }
         let Some((va, ancho, alto, seq)) = t.get(i).and_then(|s| s.para_la_3060()) else { continue };
         let Some(ficha) = la_3060_lista() else { continue };
+        if quieta {
+            // Ni la entrada: su negro taparia lo de encima.
+            manda |= t.get(i).is_some_and(|s| s.a_pantalla_completa());
+            continue;
+        }
         manda = true;
         // ** LA ENTRADA: pantalla completa y el lienzo en negro (lo que la
         // imagen agrandada no cubre). Esta vuelta solo sale el negro.
@@ -420,9 +445,24 @@ pub(crate) fn presentar_apps(t: &mut Table, p: &bmo::Pantalla) -> bool {
 /// pasa por la CPU ni por la RAM: el escritorio solo se aparta (sin cursor,
 /// sin volcar). Si la app deja de pedirlo, o el kernel dice que no, se le
 /// quita y vuelve a la CPU. `true` si esta app manda en la pantalla.
-fn directa(t: &mut Table, i: usize, p: &bmo::Pantalla) -> bool {
+///
+/// `quieta` (10-10): algo del escritorio esta encima de todo. La pantalla se
+/// le APARTA (sus recetas dibujan en su RAM, como sin ella) y se le devuelve
+/// al quitarse, sin decirlo otra vez por la consola.
+fn directa(t: &mut Table, i: usize, p: &bmo::Pantalla, quieta: bool) -> bool {
     let Some(s) = t.get(i) else { return false };
     let (pide, dada, tid) = (s.directa(), s.pantalla_dada, s.tid);
+    if quieta && pide && la_3060_lista().is_some() {
+        let completa = s.a_pantalla_completa();
+        if dada {
+            let _ = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA_PARA, 0);
+            if let Some(s) = t.get_mut(i) {
+                s.pantalla_dada = false;
+                s.pantalla_apartada = true;
+            }
+        }
+        return completa;
+    }
     if !pide || la_3060_lista().is_none() {
         if dada {
             let _ = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA_PARA, 0);
@@ -448,7 +488,9 @@ fn directa(t: &mut Table, i: usize, p: &bmo::Pantalla) -> bool {
         match r {
             Ok(_) => {
                 s.pantalla_dada = true;
-                bmo::consola("[3060] la app dibuja DIRECTO en la pantalla (Z1): el fotograma no sale de la VRAM\n");
+                if !core::mem::replace(&mut s.pantalla_apartada, false) {
+                    bmo::consola("[3060] la app dibuja DIRECTO en la pantalla (Z1): el fotograma no sale de la VRAM\n");
+                }
             }
             Err(m) => {
                 s.sin_la_3060();

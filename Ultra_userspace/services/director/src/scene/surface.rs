@@ -212,6 +212,9 @@ pub(crate) struct Surface {
     /// (`IOMMU_OP_GPU_PANTALLA_PARA` con su tid). Se le quita al irse ella o
     /// al dejar de pedirla.
     pub(crate) pantalla_dada: bool,
+    /// 10-10: se le aparto la pantalla mientras Alt+Tab estaba encima
+    /// (`bmo_foco::encima`); al devolversela no se anuncia otra vez.
+    pub(crate) pantalla_apartada: bool,
 }
 
 impl Surface {
@@ -255,6 +258,7 @@ impl Surface {
             por_3060: false,
             sin_3060: false,
             pantalla_dada: false,
+            pantalla_apartada: false,
         };
         s.marcar_tomada(&cab);
         Some(s)
@@ -1213,15 +1217,19 @@ impl Table {
 
     /// **Compone.** `true` si pinto algo. `tapa`: lo que una ventana del
     /// sistema tiene DELANTE de las apps (Ejecutar, 01-10), que no se pisa.
-    pub(crate) fn compose(&mut self, p: &bmo::Pantalla, tapa: Option<(u32, u32, u32, u32)>) -> bool {
+    /// `encima`: lo que esta delante de TODO (el conmutador de Alt+Tab,
+    /// 10-10), que no lo pisa ni una app a pantalla completa
+    /// (`bmo_foco::encima`).
+    pub(crate) fn compose(&mut self, p: &bmo::Pantalla, tapa: Option<(u32, u32, u32, u32)>, encima: Option<(u32, u32, u32, u32)>) -> bool {
         let mut painted = false;
+        let todo = bmo_foco::encima::juntar(tapa, encima);
         for s in self.iter_mut() {
             if s.chrome.minimized {
                 continue;
             }
             // A pantalla completa no hay cromo que repintar: solo pixeles.
             if s.chrome.is_fullscreen() {
-                painted |= s.compose(p, None);
+                painted |= s.compose(p, encima);
                 continue;
             }
             if s.moved() {
@@ -1229,9 +1237,23 @@ impl Table {
                 s.mark_dirty();
                 painted = true;
             }
-            painted |= s.compose(p, tapa);
+            painted |= s.compose(p, todo);
         }
         painted
+    }
+
+    /// **Todas, enteras otra vez** (con su cromo): se quito algo de encima
+    /// y lo que tapaba se devolvio con el fondo del escritorio.
+    pub(crate) fn repintar_todas(&mut self) {
+        for s in self.iter_mut() {
+            s.repaint_all();
+        }
+    }
+
+    /// Una app a pantalla completa la pone la 3060 (no se ve el lienzo
+    /// debajo: es negro).
+    pub(crate) fn la_3060_a_pantalla_completa(&self) -> bool {
+        self.sup.iter().flatten().any(|s| s.por_3060 && !s.chrome.minimized && s.chrome.is_fullscreen())
     }
 
     /// Cierra la ventana `i` y devuelve su rectangulo, para que quien llama
