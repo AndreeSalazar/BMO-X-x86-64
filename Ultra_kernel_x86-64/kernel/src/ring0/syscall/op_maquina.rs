@@ -708,6 +708,26 @@ pub(super) fn red(arg0: u64, _arg1: u64) -> BmoStatus {
 /// cache. Si encender tumba la maquina, lo guardado tiene que estar en el
 /// disco de verdad. La maquina trabaja para quien la usa.
 pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
+    use crate::ring0::dev::respiro;
+    // ** LA PUERTA ES UNA (10-10, el respiro): con las interrupciones abiertas
+    // mientras se espera a la 3060, la tarea puede quedar apartada a mitad de
+    // la puerta; nadie mas entra hasta que salga (y si no sale en 2 s, "uno
+    // en marcha"). Mientras esta dentro es intocable: cerrarla la apunta.
+    let e = respiro::entrar();
+    if e == respiro::Entrada::NoSePudo {
+        return BmoStatus::negado(crate::ring0::dev::gpu_trabajo::IOMMU_NO_BLUR, 0);
+    }
+    let r = iommu_puerta(arg0, arg1);
+    // La cerraron mientras estaba dentro: muere AHORA, por el camino de EXIT
+    // (revocar antes del cambio final).
+    if e == respiro::Entrada::Nueva && respiro::salir() {
+        crate::ring0::obj::cap::revoke_all(scheduler::current_pid());
+        scheduler::exit_current();
+    }
+    r
+}
+
+fn iommu_puerta(arg0: u64, arg1: u64) -> BmoStatus {
     use crate::ring0::plat::iommu::en_curso;
     en_curso(Some((arg0, arg1, super::ops::nombre_iommu(arg0))));
     // *** LA PUERTA ESTRECHA (P3b4c, 28-09) -- la UNICA orden que no pasa por

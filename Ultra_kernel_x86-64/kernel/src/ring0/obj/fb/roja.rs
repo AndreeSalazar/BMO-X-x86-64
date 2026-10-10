@@ -174,8 +174,12 @@ pub fn release(pid: u32, aspace: u64) -> Result<(), u32> {
     }
     // El volcado por la 3060 es del PROPIETARIO de la pantalla: al soltarla (un
     // juego a pantalla completa), su lienzo se devuelve. Y el PASE, igual.
-    crate::ring0::dev::pase_gpu::suelta_si_es_de(pid, false);
-    crate::ring0::dev::gpu_trabajo::suelta_si_es_de(pid);
+    // Por la puerta unica de la 3060 (`respiro::con_la_gpu`): otra tarea
+    // puede estar apartada a mitad de una orden.
+    crate::ring0::dev::respiro::con_la_gpu(|| {
+        crate::ring0::dev::pase_gpu::suelta_si_es_de(pid, false);
+        crate::ring0::dev::gpu_trabajo::suelta_si_es_de(pid);
+    });
     crate::info::ceder_fb(false);
     OWNER.store(NO_OWNER, Ordering::SeqCst);
     crate::ring0::cabina::info("fb", "pantalla SOLTADA por su propietario", pid as u64);
@@ -301,8 +305,10 @@ pub fn process_died(pid: u32) {
         // ** Y si la 3060 volcaba su lienzo en cada fotograma, el prestamo se
         // devuelve AQUI: esta estacion va antes que `memory`, que libera los
         // marcos que la 3060 estaba viendo (R-DMA-3). El PASE, igual.
-        crate::ring0::dev::pase_gpu::suelta_si_es_de(pid, true);
-        crate::ring0::dev::gpu_trabajo::suelta_si_es_de(pid);
+        crate::ring0::dev::respiro::con_la_gpu(|| {
+            crate::ring0::dev::pase_gpu::suelta_si_es_de(pid, true);
+            crate::ring0::dev::gpu_trabajo::suelta_si_es_de(pid);
+        });
         crate::info::ceder_fb(false);
         // WARN y no INFO: el que suelta la pantalla es el que la estaba
         // pintando, o sea el escritorio. Que muera NO es rutina -- es la

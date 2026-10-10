@@ -27,6 +27,11 @@
 //!
 //! Coste: dos `rdtsc` y una comparacion por puerta (~40 ciclos); lo demas
 //! solo en las largas.
+//!
+//! **Lo que mide es el tiempo CERRADO** (10-10): una puerta de la 3060 que
+//! respira (`dev::respiro`) abre las interrupciones en su espera,
+//! y ese rato se le resta. Sin la resta, la puerta mas lenta del dibujo saldria
+//! como "reloj callado" aunque el reloj sonara en cada vuelta.
 
 use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -49,7 +54,10 @@ pub fn acaba(t0: u64, op: u64, clase: u32, tid: u32) {
     if hz == 0 {
         return;
     }
-    let ciclos = fin.wrapping_sub(t0);
+    // Solo lo CERRADO: el rato que la puerta respiro (`respiro`, la espera
+    // de la 3060 con las interrupciones abiertas) el reloj si sonaba.
+    let abierto = crate::ring0::dev::respiro::afuera_de(tid);
+    let ciclos = fin.wrapping_sub(t0).saturating_sub(abierto);
     if ciclos < hz / (1_000_000 / LARGA_US) {
         return;
     }

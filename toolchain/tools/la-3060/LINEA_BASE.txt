@@ -2,4 +2,4 @@
 # (dev/gpu*, dev/gpu_trabajo/, dev/vblank.rs). TRINQUETE: solo puede bajar.
 # Cada uno es un nucleo girando mientras la tarjeta trabaja; el camino es
 # esperar con interrupcion (docs/plan/PLAN_LA_3060_AFINADA.md, A3).
-11
+7

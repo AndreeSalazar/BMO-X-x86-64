@@ -102,6 +102,7 @@ impl SpinLock {
 
         // The fast path, untouched: one `swap` and out.
         if !self.locked.swap(true, Ordering::Acquire) {
+            TOMADOS.fetch_add(1, Ordering::AcqRel);
             return Guard { lock: self, rflags, desde: unsafe { core::arch::x86_64::_rdtsc() }, sitio };
         }
 
@@ -119,6 +120,7 @@ impl SpinLock {
             }
         }
         self.record(rounds);
+        TOMADOS.fetch_add(1, Ordering::AcqRel);
         Guard { lock: self, rflags, desde: unsafe { core::arch::x86_64::_rdtsc() }, sitio }
     }
 
@@ -186,6 +188,16 @@ fn raise(cell: &AtomicU32, v: u32) -> bool {
 // [!] `_rdtsc` de `core::arch` y no `scheduler::rdtsc()`: este fichero esta
 // DEBAJO del planificador (el planificador lo usa), y L8 no deja subir.
 static RETENIDO_PEAK: AtomicU64 = AtomicU64::new(0);
+/// ** Cuantos cerrojos estan TOMADOS ahora mismo, en toda la maquina (10-10).
+/// Lo pregunta el RESPIRO de la 3060 (`dev::respiro`): abrir las
+/// interrupciones con un cerrojo en la mano dejaria a otra tarea girando en el
+/// con IF=0 para siempre. Con alguno tomado, no se respira.
+static TOMADOS: AtomicU32 = AtomicU32::new(0);
+
+/// Los cerrojos tomados ahora mismo (0: se puede respirar).
+pub fn tomados() -> u32 {
+    TOMADOS.load(Ordering::Acquire)
+}
 static RETENIDO_PTR: AtomicUsize = AtomicUsize::new(0);
 static RETENIDO_LEN: AtomicUsize = AtomicUsize::new(0);
 /// El `Location` de quien tomo el cerrojo en la retencion mas larga.
@@ -202,6 +214,7 @@ impl Drop for Guard<'_> {
             RETENIDO_SITIO.store(self.sitio as *const _ as usize, Ordering::Relaxed);
         }
         self.lock.locked.store(false, Ordering::Release);
+        TOMADOS.fetch_sub(1, Ordering::AcqRel);
         if self.rflags & (1 << 9) != 0 {
             unsafe { core::arch::asm!("sti", options(nomem, nostack)); }
         }

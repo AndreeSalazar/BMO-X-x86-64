@@ -166,7 +166,7 @@ fn copiar(r: &mut Bar0, ficha: u32, fisica: u64, p: &pa::Pantalla) -> Result<u64
         if semaforo == vl::PAGA {
             break;
         }
-        core::hint::spin_loop();
+        super::esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     let buenas = (0..pa::MUESTRAS)
@@ -378,7 +378,7 @@ fn esperar(r: &mut Bar0, numero: u32) -> Result<u64, u32> {
             crate::ring0::cabina::warn("gpu", "volcador: la 3060 no pago la tanda a tiempo; numero", numero as u64);
             return Err(IOMMU_NO_VOLCADO);
         }
-        core::hint::spin_loop();
+        super::esperando(0);
     }
 }
 

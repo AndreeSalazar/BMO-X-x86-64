@@ -481,7 +481,7 @@ fn blur_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         if qmd == bl::PAGA_QMD && fin == bl::PAGA_FIN {
             break;
         }
-        core::hint::spin_loop();
+        esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     vigilante::vigilar("E7: el BLUR no volvio en su plazo; us", lanzado, qmd == bl::PAGA_QMD && fin == bl::PAGA_FIN, us, COPIA_ESPERA_US);
@@ -522,16 +522,14 @@ const FRACTAL_ESPERA_US: u64 = bmo_gpu_ga10x::vigilante::PLAZO_US;
 /// bucle sigue en el mismo CPU --: solo movia `s.current` a otra tarea en
 /// cada vuelta (su CR3, su pila de syscall, `current_pid`), y la puerta
 /// acababa "volviendo" a la ultima elegida. La puerta larga del 08-10
-/// (`latido tarde 1632 ms`) salio por eso a nombre de quien NO era. Girar
-/// con `pause` es lo mismo para el reloj y no ensucia el planificador.
+/// (`latido tarde 1632 ms`) salio por eso a nombre de quien NO era.
 ///
-/// [!] Lo que SIGUE pasando, dicho: el tiempo de una espera larga -- hasta el
-/// plazo del vigilante, 1 s, y sus cortes -- va con las interrupciones
-/// cerradas. Quitarlo pide abrir una ventana con interrupciones dentro de la
-/// espera (o esperar la 3060 por interrupcion), y eso se prueba en el metal:
-/// el plan, en 1e de EL_FOCO.
+/// ** Y la pieza de verdad, el mismo dia: el RESPIRO (`dev::respiro`). En cada
+/// vuelta, si la tarea tiene la 3060 y no hay cerrojos tomados, las
+/// interrupciones se abren un instante: el reloj y el radar de 4 ms corren
+/// mientras la 3060 trabaja. Si no se puede, se gira como antes.
 fn esperando(_us: u64) {
-    core::hint::spin_loop();
+    crate::ring0::dev::respiro::respirar();
 }
 
 fn pixeles_del_fractal() -> Option<&'static [u32]> {

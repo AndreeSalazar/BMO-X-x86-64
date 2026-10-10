@@ -587,6 +587,12 @@ pub const INFO_PUERTA_LARGA: u64 = 0xCC;
 /// ([`INFO_USB_LATIDO`]), en el mismo paquete. 0 = el retraso no fue una
 /// puerta.
 pub const INFO_PUERTA_DEL_LATIDO: u64 = 0xCD;
+/// **EL RESPIRO** (10-10): la espera de la 3060 abre las interrupciones un
+/// instante en cada vuelta. `[0..32)` los instantes abiertos, `[32..64)` los
+/// que trajeron una interrupcion (la tarea quedo apartada y volvio), desde
+/// el arranque. 0 = nunca respiro (la 3060 no se espero, o el interruptor
+/// `RESPIRO` esta apagado).
+pub const INFO_RESPIRO: u64 = 0xCE;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///

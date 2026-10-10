@@ -696,6 +696,8 @@ pub const INFO_AUDIO_LADOS: u64 = 0xCB;
 /// La puerta (syscall) mas larga, y la que corria en el peor latido tarde.
 pub const INFO_PUERTA_LARGA: u64 = 0xCC;
 pub const INFO_PUERTA_DEL_LATIDO: u64 = 0xCD;
+/// El respiro de la 3060: instantes abiertos `[0..32)` y apartadas `[32..64)`.
+pub const INFO_RESPIRO: u64 = 0xCE;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.
