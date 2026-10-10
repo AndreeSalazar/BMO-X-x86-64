@@ -212,6 +212,14 @@ pub(crate) struct Surface {
     /// (`IOMMU_OP_GPU_PANTALLA_PARA` con su tid). Se le quita al irse ella o
     /// al dejar de pedirla.
     pub(crate) pantalla_dada: bool,
+    /// 10-10: se le aparto la pantalla mientras Alt+Tab estaba encima
+    /// (`bmo_foco::encima`); al devolversela no se anuncia otra vez.
+    pub(crate) pantalla_apartada: bool,
+    /// ** Q0a3 (EL_FOCO, 10-10): los pixeles de esta ventana los dibuja la
+    /// 3060 desde la LAMINA de su app (`gspcubo::laminas`), en un bloque del
+    /// escritorio: `(su VA, la secuencia de la lamina)`. Se compone de ahi --
+    /// filas de `ancho` pixeles -- y no de la superficie de la app.
+    fuente: Option<(u64, u32)>,
 }
 
 impl Surface {
@@ -255,6 +263,8 @@ impl Surface {
             por_3060: false,
             sin_3060: false,
             pantalla_dada: false,
+            pantalla_apartada: false,
+            fuente: None,
         };
         s.marcar_tomada(&cab);
         Some(s)
@@ -325,14 +335,20 @@ impl Surface {
     /// Se recorta contra el marco Y contra la pantalla: una ventana arrastrada
     /// medio fuera del panel no puede escribir mas alla del lienzo, y el marco
     /// puede ser mas chico que la superficie si el usuario lo encogio.
-    pub(crate) fn compose(&mut self, p: &bmo::Pantalla, tapa: Option<(u32, u32, u32, u32)>) -> bool {
+    pub(crate) fn compose(&mut self, p: &bmo::Pantalla, tapas: &[(u32, u32, u32, u32)]) -> bool {
         if self.por_3060 {
             return false;
         }
         let Some(cab) = Header::read(self.base, self.bytes) else {
             return false;
         };
-        if cab.sequence == self.stuck {
+        // Q0a3: de un bloque del escritorio (la lamina dibujada por la 3060),
+        // con SU secuencia; si no, la superficie de la app.
+        let (origen, fila, secuencia) = match self.fuente {
+            Some((va, s)) => (va, cab.width as u64, s),
+            None => (self.base + HEADER_TAG, cab.stride as u64, cab.sequence),
+        };
+        if secuencia == self.stuck {
             return false;
         }
         // Lo que cabe: el hueco del marco, lo que mide la superficie, y lo que
@@ -344,14 +360,15 @@ impl Surface {
         let (x0, y0) = (v.x, v.y);
         let (width, height) = (v.ancho, v.alto);
         if width == 0 || height == 0 {
-            self.stuck = cab.sequence;
+            self.stuck = secuencia;
             return false;
         }
 
-        // ** LO QUE TAPA UNA VENTANA DE DELANTE (01-10): Ejecutar llamada con
-        // Ctrl+Alt queda ENCIMA de las apps, y una app animada la repintaria
-        // detras en el fotograma siguiente. Sus columnas no se pegan.
-        let (tx0, ty0, tx1, ty1) = tapa.map_or((0, 0, 0, 0), |(x, y, w, h)| (x, y, x + w, y + h));
+        // ** LO QUE TAPAN LAS VENTANAS DE DELANTE (01-10 Ejecutar; desde el
+        // 10-10 TODAS, por el apilado): una app animada las repintaria detras
+        // en el fotograma siguiente. Sus trozos no se pegan
+        // (`bmo_foco::encima::tramos`).
+        let mut vistos = [(0u32, 0u32); bmo_foco::encima::MAX_CAJAS + 1];
         // *** SOLO LO QUE CAMBIO (03-10): cada fila se compara con lo que ya
         // hay en el lienzo y se copia solo su tramo distinto
         // (`Pantalla::pegar_fila`); se marca UNA caja, la que cubre lo que
@@ -359,16 +376,12 @@ impl Surface {
         // pantalla; el gato que mueve la pata manda la pata.
         let (mut cx0, mut cy0, mut cx1, mut cy1) = (u32::MAX, u32::MAX, 0u32, 0u32);
         for row in 0..height {
-            let src = self.base + HEADER_TAG + (row as u64 * cab.stride as u64) * 4;
+            let src = origen + (row as u64 * fila) * 4;
             let yy = y0 + row;
-            // Los tramos de la fila que se pegan: toda, o lo que queda a los
-            // lados de lo que la tapa.
-            let tramos = if yy >= ty0 && yy < ty1 {
-                [(0, tx0.saturating_sub(x0).min(width)), (tx1.saturating_sub(x0).min(width), width)]
-            } else {
-                [(0, width), (width, width)]
-            };
-            for (c0, c1) in tramos {
+            // Los tramos de la fila que se pegan: toda, o lo que queda entre
+            // lo que la tapa.
+            let k = bmo_foco::encima::tramos(yy, x0, width, tapas, &mut vistos);
+            for &(c0, c1) in &vistos[..k] {
                 if c1 <= c0 {
                     continue;
                 }
@@ -389,11 +402,11 @@ impl Surface {
         }
         // Se apunta DESPUES de pegar. Al reves, un fotograma que se quedara a
         // medias por un recorte se daria por pintado y no volveria a intentarse.
-        self.stuck = cab.sequence;
+        self.stuck = secuencia;
         self.ritmo.presento();
         // Sin marco, los botones van ENCIMA del contenido: lo recien pegado
-        // los habra tapado. Con Ejecutar delante no: la pisarian.
-        if tapa.is_none() {
+        // los habra tapado. Con algo delante no: lo pisarian.
+        if tapas.is_empty() {
             self.chrome.paint_pastilla(p);
         }
         true
@@ -997,6 +1010,13 @@ impl Table {
     // entero: 2c.1 se entrego SOLA para que su fallo no se confundiera con el
     // del transporte, y el transporte llego cuatro dias despues sin que hubiera
     // que tocar una linea de esta funcion.
+    pub(crate) fn golpe_de(&self, i: usize, p: &bmo::Pantalla, px: u32, py: u32) -> Option<(usize, u32, u32)> {
+        let (lx, ly) = self.get(i)?.golpe(p, px, py)?;
+        Some((i, lx, ly))
+    }
+
+    /// La primera de la mesa con el punto (sin apilado: lo que la elige es
+    /// `paint::app_en`, y `golpe_de` traduce).
     pub(crate) fn golpe(&self, p: &bmo::Pantalla, px: u32, py: u32) -> Option<(usize, u32, u32)> {
         for (i, s) in self.sup.iter().enumerate() {
             let Some(s) = s.as_ref() else { continue };
@@ -1160,6 +1180,25 @@ impl Table {
         self.lamina
     }
 
+    /// ** Q0a3: la ventana de la app `tid` (UNA app, UNA ventana), si la hay.
+    pub(crate) fn ventana_de(&self, tid: u32) -> Option<usize> {
+        self.sup.iter().position(|s| s.as_ref().is_some_and(|s| s.tid == tid))
+    }
+
+    /// Lo que mide la superficie `i` (`ancho`, `alto`), de su cabecera.
+    pub(crate) fn medida_de(&self, i: usize) -> Option<(u32, u32)> {
+        let s = self.get(i)?;
+        Header::read(s.base, s.bytes).map(|c| (c.width, c.height))
+    }
+
+    /// Q0a3: la ventana `i` se compone desde `va` (un bloque del escritorio
+    /// de su medida), con la secuencia `seq` de la lamina.
+    pub(crate) fn poner_fuente(&mut self, i: usize, va: u64, seq: u32) {
+        if let Some(s) = self.get_mut(i) {
+            s.fuente = Some((va, seq));
+        }
+    }
+
     /// **Es `tid` quien publica la lamina?** Una app asi es un PRODUCTOR: no
     /// lee la consola, y lo que se teclea mientras corre es para el escritorio
     /// (`gpu verrano banco inti`), no para ella. (26-09: sin esto la orden
@@ -1211,27 +1250,40 @@ impl Table {
         n
     }
 
-    /// **Compone.** `true` si pinto algo. `tapa`: lo que una ventana del
-    /// sistema tiene DELANTE de las apps (Ejecutar, 01-10), que no se pisa.
-    pub(crate) fn compose(&mut self, p: &bmo::Pantalla, tapa: Option<(u32, u32, u32, u32)>) -> bool {
-        let mut painted = false;
-        for s in self.iter_mut() {
-            if s.chrome.minimized {
-                continue;
-            }
-            // A pantalla completa no hay cromo que repintar: solo pixeles.
-            if s.chrome.is_fullscreen() {
-                painted |= s.compose(p, None);
-                continue;
-            }
-            if s.moved() {
-                s.paint_chrome(p);
-                s.mark_dirty();
-                painted = true;
-            }
-            painted |= s.compose(p, tapa);
+    /// **Compone la app `i`** sin lo que le tapan las de delante (`tapas`:
+    /// las del apilado que la pisan, y lo de encima de todo). `(pinto, cromo)`:
+    /// si pinto algo, y si pinto su CROMO entero -- borde, titulo y fondo,
+    /// tambien bajo lo de delante: quien llama lo devuelve
+    /// (`paint::componer_apilado`) --.
+    pub(crate) fn componer_una(&mut self, i: usize, p: &bmo::Pantalla, tapas: &[(u32, u32, u32, u32)]) -> (bool, bool) {
+        let Some(s) = self.get_mut(i) else { return (false, false) };
+        if s.chrome.minimized {
+            return (false, false);
         }
-        painted
+        // A pantalla completa no hay cromo que repintar: solo pixeles.
+        if s.chrome.is_fullscreen() {
+            return (s.compose(p, tapas), false);
+        }
+        let cromo = s.moved();
+        if cromo {
+            s.paint_chrome(p);
+            s.mark_dirty();
+        }
+        (s.compose(p, tapas) || cromo, cromo)
+    }
+
+    /// **Todas, enteras otra vez** (con su cromo): se quito algo de encima
+    /// y lo que tapaba se devolvio con el fondo del escritorio.
+    pub(crate) fn repintar_todas(&mut self) {
+        for s in self.iter_mut() {
+            s.repaint_all();
+        }
+    }
+
+    /// Una app a pantalla completa la pone la 3060 (no se ve el lienzo
+    /// debajo: es negro).
+    pub(crate) fn la_3060_a_pantalla_completa(&self) -> bool {
+        self.sup.iter().flatten().any(|s| s.por_3060 && !s.chrome.minimized && s.chrome.is_fullscreen())
     }
 
     /// Cierra la ventana `i` y devuelve su rectangulo, para que quien llama
@@ -1247,13 +1299,6 @@ impl Table {
         let run_box = (s.chrome.x, s.chrome.y, s.chrome.width, s.chrome.height);
         s.soltar();
         Some(run_box)
-    }
-
-    /// Sobre que ventana esta el puntero, de arriba a abajo.
-    pub(crate) fn at(&self, px: u32, py: u32) -> Option<usize> {
-        self.sup
-            .iter()
-            .position(|s| s.as_ref().is_some_and(|s| s.chrome.contains(px, py)))
     }
 
     pub(crate) fn get_mut(&mut self, i: usize) -> Option<&mut Surface> {

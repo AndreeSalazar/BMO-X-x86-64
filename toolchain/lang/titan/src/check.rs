@@ -736,12 +736,33 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::Lamina => "if not director.lamina(18)",
             Director::Publica => "director.publica(f, n, posiciones, colores)",
             Director::Espera => "director.espera(16)",
+            Director::Ventana => "if not director.ventana(320, 200)",
+            Director::Pixel => "director.pixel(x, y, 255 * 65536)",
+            Director::Rect => "director.rect(10, 10, 100, 50, 65280)",
+            Director::Fila => "director.fila(y, pixeles)",
+            Director::Presenta => "director.presenta()",
+            Director::Toma => "if director.toma()",
+            Director::Fichero => "if director.fichero(\"datos/ejemplo.lam\")",
+            Director::Guarda => "if director.guarda(\"datos/resolucion.txt\", \"1280 720\")",
+            Director::Crea => "if director.crea(\"datos/foto.bic\")",
+            Director::Escribe => "director.escribe(66)",
+            Director::Cierra => "if not director.cierra()",
+            Director::Medida => "let n = director.medida()",
+            Director::Byte => "let b = director.byte(i)",
+            Director::Evento => "let que = director.evento()",
+            Director::Codigo => "let tecla = director.codigo()",
+            Director::RatonX => "let x = director.raton_x()",
+            Director::RatonY => "let y = director.raton_y()",
+            Director::Botones => "let b = director.botones()",
+            Director::SeVe => "if director.se_ve()",
+            Director::Letra => "x = director.letra(x, y, 65, 1, 16777215)",
+            Director::Texto => "x = director.texto(8, 8, \"hola\", 1, 16777215)",
         };
         if n != d.takes() {
-            return Err(Message::new(Code::Args, line, col, &format!("`{}` pide {} valor{}, y aqui se le {} {}", callee, d.takes(), if d.takes() == 1 { "" } else { "es" }, if n == 1 { "da" } else { "dan" }, n), "es del DIRECTOR: la lamina de VERRANO (LB7b)", example));
+            return Err(Message::new(Code::Args, line, col, &format!("`{}` pide {} valor{}, y aqui se le {} {}", callee, d.takes(), if d.takes() == 1 { "" } else { "es" }, if n == 1 { "da" } else { "dan" }, n), "es del DIRECTOR: la lamina de VERRANO (LB7b) y la ventana (F1)", example));
         }
         if as_value && !d.gives() {
-            return Err(Message::new(Code::Result, line, col, &format!("`{}` no devuelve nada, y aqui se usa como un valor", callee), "duerme hasta el siguiente fotograma y ya: no hay nada que guardar", example));
+            return Err(Message::new(Code::Result, line, col, &format!("`{}` no devuelve nada, y aqui se usa como un valor", callee), if d == Director::Espera { "duerme hasta el siguiente fotograma y ya: no hay nada que guardar" } else if d == Director::Escribe { "escribe un byte y ya: si todo entro lo dice `director.cierra()`" } else { "pinta en la ventana y ya: no hay nada que guardar" }, example));
         }
         return Ok(());
     }
@@ -753,7 +774,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             line,
             col,
             &format!("`director` no tiene `{}`", what),
-            &format!("lo que el director sabe hoy: {} (la lamina de VERRANO)", names.join(", ")),
+            &format!("lo que el director sabe hoy: {} (la lamina de VERRANO y la ventana)", names.join(", ")),
             &match near {
                 Some(k) => format!("quisiste decir `director.{}`?", k),
                 None => "if not director.lamina(18)".to_string(),

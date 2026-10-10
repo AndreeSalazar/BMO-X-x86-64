@@ -21,6 +21,10 @@ sobre "dos perfiles" es historia hasta ese corte.
 
 ## ⭐ 2026-09-12 -- la primera HERRAMIENTA, y tres fallos del emisor que llevaban ahi desde siempre
 
+> **10-10, corte 4e:** `bico.inti` y `png.inti` salieron de INTI con su
+> relevo en TITAN++ (`Ultra_userspace/apps/bico` y `apps/png`, los mismos
+> bytes y las mismas pruebas de ficheros rotos). Lo de abajo es su historia.
+
 **`ejemplos/bico.inti`** convierte `datos/foto.bmp` y `datos/foto.qoi` a
 **BICO**, el formato que el escritorio pinta. Es el sitio donde INTI le gana a
 C: leer datos que escribio OTRO. Los fallos famosos de libpng/libjpeg son
@@ -46,8 +50,8 @@ se prueba**. `cpu.inti` corrio en metal sin tocar ninguno de los tres caminos.
 |---|---|---|
 | [`sondas/cpu.inti`](sondas/cpu.inti) | lo que el CPU le cuenta a Ring 3, y las reglas atrapando | `inti/cpu.ibx` |
 | [`sondas/pulso.inti`](sondas/pulso.inti) | ⭐ el perfil del kernel en tiempo real (MHz, mW, obreros) y **el NO del kernel con su motivo** | `inti/pulso.ibx` |
-| [`ejemplos/bico.inti`](ejemplos/bico.inti) | ⭐ BMP/QOI -> BICO, contra ficheros rotos | `inti/bico.ibx` |
-| [`ejemplos/png.inti`](ejemplos/png.inti) | escribe un PNG valido | -- |
+| ~~`ejemplos/bico.inti`~~ | BMP/QOI -> BICO: **salio el 10-10** (corte 4e): es de TITAN++, [`apps/bico`](../../../Ultra_userspace/apps/bico) | `titan/bico.bex` |
+| ~~`ejemplos/png.inti`~~ | escribe un PNG valido: **salio el 10-10** (corte 4e): [`apps/png`](../../../Ultra_userspace/apps/png) | `titan/png.bex` |
 
 ## Que es, en una frase
 

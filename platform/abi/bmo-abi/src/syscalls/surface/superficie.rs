@@ -25,10 +25,13 @@
 //! ```text
 //!    C       BMO_SUP_*  en REX               R13 (`contrato_rex`, el espejo)
 //!    Rust    SUP_*      en bmo-userland      R4  (`contrato`, el userland)
-//!    INTI    sup_*      en modulos.toml      `tests/espejo_del_kernel.rs`
+//!    TITAN++ estos      en su emisor (E1)    sin copia: `ventana.rs` y
+//!                                            `entrada.rs` los importan de aqui
 //! ```
 //!
-//! Asi C e INTI COOPERAN sin enlazarse: no comparten codigo --no pueden, tienen
+//! (INTI llevo su copia, `sup_*` en modulos.toml, del 16-09 al 10-10: salio
+//! con el corte 4b, cuando la ventana paso a TITAN++.) Asi los lenguajes
+//! COOPERAN sin enlazarse: no comparten codigo --no pueden, tienen
 //! convenciones de llamada distintas--, comparten el contrato, y el contrato
 //! tiene juez.
 //!

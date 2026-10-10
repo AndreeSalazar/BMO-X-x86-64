@@ -3,7 +3,6 @@
 # Se regenera con:  py toolchain/tools/medida/medida.py --fijar
 ada/cierre.bex 2296
 apps/doom.bex 787992
-apps/navegar.ibx 46568
 c/blit.bex 4752
 c/caja.bex 8332
 c/ciclos.bex 10609
@@ -40,7 +39,6 @@ inti/bico.ibx 17136
 inti/cpu.ibx 12520
 inti/musica.ibx 23912
 inti/pulso.ibx 6312
-inti/ventana.ibx 21008
 sys/d.bex 4248376
 sys/precio.bex 30024
 sys/sombra.bex 345907

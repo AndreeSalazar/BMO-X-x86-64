@@ -26,6 +26,14 @@ fn main()
     let menos: [f32; 3] = [-1.0, -1.0, -1.0]
     let k = cubo.color(f3, verde, cero, cero, menos)
     print("la cara verde de enfrente con su luz, en el fotograma 0: ", round(k[0], 6), " ", round(k[1], 6), " ", round(k[2], 6))
+    # ** Q0a4 (EL_FOCO, 10-10): SU VENTANA, y en ella dibuja la 3060 la lamina
+    # -- el DIRECTOR, por VERRANO (Q0a3) --. 640 x 360: 16:9 como la camara
+    # del cubo, y filas de 128 bytes como pide la 3060. Hasta que la 3060 la
+    # tome, dice quien la pinta. Sin escritorio no hay ventana, y sigue.
+    if director.ventana(640, 360)
+        director.rect(0, 0, 640, 360, 1052696)
+        director.texto(16, 16, "el cubo de TITAN++: lo dibuja la 3060 en esta ventana", 1, 13421772)
+        director.presenta()
     # La lamina: 24 vertices por ranura, ocho triangulos (la tanda de bmo_cubo
     # no da mas). Diez minutos de cubo, a un fotograma cada 16 ms.
     if not director.lamina(24)

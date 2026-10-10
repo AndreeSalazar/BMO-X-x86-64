@@ -291,6 +291,10 @@ pub const CABECERA: usize = 32;
 ///    +44  el DESTINO (P3b4b 3), si el bit 31 de +60 esta puesto: la VA de
 ///         la app (+44 baja, +48 alta), +52 bytes por fila, +56 ancho |
 ///         alto << 16, +60 bit 0 rgb; si no, todo a cero (la pantalla)
+///    +20  ** Q0a2 (EL_FOCO, 10-10): 1 = el destino se LIMPIA antes con el
+///         pixel de +24 (como en memoria), por la 3060 -- la misma marca que
+///         la receta VRN2 --. Solo con destino. Un 1 en +20 nunca es un
+///         recorte (x0 = 1, x1 = 0): no se confunden
 /// ```
 pub const MAGIA_1: u32 = u32::from_le_bytes(*b"VRN1");
 pub const CABECERA_1: usize = 64;
@@ -389,6 +393,13 @@ fn z_de(estado: u32) -> Result<Option<crate::profundidad::Z>, ()> {
 
 /// El bit de +60 que dice que hay destino.
 const HAY_DESTINO: u32 = 1 << 31;
+/// Q0a2: +20 de VRN1 dice que +24 es el pixel de la limpieza del destino.
+const HAY_COLOR_1: u32 = 1;
+
+/// VRN1 con la limpieza del destino (Q0a2): +20 es la marca, no un recorte.
+fn color_1(cabecera: &[u8]) -> bool {
+    u32le(cabecera, 0) == MAGIA_1 && u32le(cabecera, 20) == HAY_COLOR_1
+}
 
 /// `OGL_SET_FRONT_FACE` / `OGL_SET_CULL_FACE` (clc797.h de NVIDIA).
 pub const OGL_SET_FRONT_FACE: u32 = 0x191c;
@@ -460,7 +471,13 @@ fn dibujo_de(cabecera: &[u8], n: usize, datos: usize) -> Option<Dibujo> {
     if cabecera_de(cabecera)? == CABECERA {
         return Some(Dibujo::default());
     }
-    dibujo_de_campos(cabecera, n, datos)
+    let mut d = dibujo_de_campos(cabecera, n, datos)?;
+    // Q0a2: la limpieza del destino, por la 3060 (y sin destino, no hay que).
+    if color_1(cabecera) {
+        d.destino?;
+        d.color = Some(u32le(cabecera, 24));
+    }
+    Some(d)
 }
 
 /// El `Dibujo` de los campos +28..+64 (los de VRN1, que la RECETA VRN2
@@ -503,14 +520,25 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
         Some(desde)
     };
     let z = z_de(estado).ok()?;
-    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 })
+    let d = Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false, banco: 0 };
+    cabe(&d).then_some(d)
+}
+
+/// ** Q0a1 (EL_FOCO, 10-10): un destino de CUALQUIER medida que quepa
+/// (`Destino::valido`), salvo con Z: la sombra en bloque (`sombra`) y el
+/// bufer de Z (`profundidad`) miden 1280x720.
+pub const fn cabe(d: &Dibujo) -> bool {
+    match (d.z, d.destino) {
+        (Some(_), Some((_, dst))) => dst.es_la_de_verrano(),
+        _ => true,
+    }
 }
 
 /// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
 pub fn medida(cabecera: &[u8]) -> Option<usize> {
     let c = cabecera_de(cabecera)?;
     let (h, v) = (u32le(cabecera, 20), u32le(cabecera, 24));
-    if (h, v) != (0, 0) && !recorte_valido(h, v) {
+    if (h, v) != (0, 0) && !recorte_valido(h, v) && !color_1(cabecera) {
         return None;
     }
     let (n, vs, ps) = (u32le(cabecera, 8) as usize, u32le(cabecera, 12) as usize, u32le(cabecera, 16) as usize);
@@ -540,7 +568,7 @@ pub fn leer(b: &[u8]) -> Option<Paquete<'_>> {
     let c = cabecera_de(b)?;
     let (vs, ps) = (u32le(b, 12) as usize, u32le(b, 16) as usize);
     let (h, v) = (u32le(b, 20), u32le(b, 24));
-    let limpiar = ((h, v) != (0, 0)).then_some((h, v));
+    let limpiar = ((h, v) != (0, 0) && !color_1(b)).then_some((h, v));
     let n = u32le(b, 8) as usize;
     let vertices = &b[c + vs + ps..];
     let dibujo = dibujo_de(b, n, vertices.len())?;
@@ -613,6 +641,41 @@ pub fn escribir_paquete_dibujo(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8],
     if datos.is_empty() || out.len() < total {
         return None;
     }
+    out[d..total].copy_from_slice(datos);
+    cerrar_paquete_1(out, ficha, vs, ps, n, datos.len(), dibujo)
+}
+
+/// ** Q0a2 (EL_FOCO, 10-10): un VRN1 con los vertices de V0 (32 B, sin
+/// indices) escritos DIRECTO en su sitio del paquete: la lamina de una app
+/// pasa al paquete en UNA copia, sin un bufer de por medio (la LAMINA
+/// quirofano: un dato, un sitio).
+pub fn escribir_paquete_dibujo_de<I>(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], vertices: I, dibujo: Dibujo) -> Option<usize>
+where
+    I: IntoIterator<Item = Vertice>,
+    I::IntoIter: ExactSizeIterator,
+{
+    let vertices = vertices.into_iter();
+    let n = vertices.len();
+    let d = CABECERA_1 + vs.len() + ps.len();
+    if n == 0 || out.len() < d + n * BYTES_VERTICE || dibujo.indices.is_some() || dibujo.vertices as usize != n {
+        return None;
+    }
+    let mut i = d;
+    for v in vertices.take(n) {
+        for w in v.palabras() {
+            out[i..i + 4].copy_from_slice(&w.to_le_bytes());
+            i += 4;
+        }
+    }
+    cerrar_paquete_1(out, ficha, vs, ps, n, n * BYTES_VERTICE, dibujo)
+}
+
+/// La cabecera VRN1 y los dos programas, con los `datos` bytes ya en su
+/// sitio (detras); `None` si el paquete que queda no se sostiene.
+#[allow(clippy::too_many_arguments)]
+fn cerrar_paquete_1(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], n: usize, datos: usize, dibujo: Dibujo) -> Option<usize> {
+    let d = CABECERA_1 + vs.len() + ps.len();
+    let total = d + datos;
     out[..CABECERA_1].fill(0);
     let estado = match dibujo.descarte {
         Descarte::Ninguna => 0,
@@ -620,20 +683,21 @@ pub fn escribir_paquete_dibujo(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8],
         Descarte::Delanteras => 2,
     } | (dibujo.antihorario as u32) << 2
         | estado_z(dibujo.z);
-    // VRN1 limpia la Z a 1.0 y no lleva otro valor, ni la limpieza del
-    // color (la receta, VRN2, si).
-    if dibujo.color.is_some() || dibujo.texturas != 0 || dibujo.z.is_some_and(|z| z.limpiar.is_some_and(|v| v != crate::profundidad::UNO)) {
+    // VRN1 limpia la Z a 1.0 y no lleva otro valor. El COLOR, desde Q0a2
+    // (10-10), si: el del destino, por la 3060 -- y la CPU deja de llenar el
+    // bloque a mano en cada fotograma --.
+    if dibujo.color.is_some() && dibujo.destino.is_none() || dibujo.texturas != 0 || dibujo.z.is_some_and(|z| z.limpiar.is_some_and(|v| v != crate::profundidad::UNO)) {
         return None;
     }
     let (va, dst) = dibujo.destino.unwrap_or_default();
     let bandera = if dibujo.destino.is_some() { HAY_DESTINO | dst.rgb as u32 } else { 0 };
-    let palabras = [MAGIA_1, ficha, n as u32, vs.len() as u32, ps.len() as u32, 0, 0, datos.len() as u32, dibujo.indices.unwrap_or(SIN_INDICES), estado, dibujo.vertices, va as u32, (va >> 32) as u32, dst.fila, dst.ancho | dst.alto << 16, bandera];
+    let (marca, pixel) = dibujo.color.map_or((0, 0), |c| (HAY_COLOR_1, c));
+    let palabras = [MAGIA_1, ficha, n as u32, vs.len() as u32, ps.len() as u32, marca, pixel, datos as u32, dibujo.indices.unwrap_or(SIN_INDICES), estado, dibujo.vertices, va as u32, (va >> 32) as u32, dst.fila, dst.ancho | dst.alto << 16, bandera];
     for (k, w) in palabras.iter().enumerate() {
         out[4 * k..4 * k + 4].copy_from_slice(&w.to_le_bytes());
     }
     out[CABECERA_1..CABECERA_1 + vs.len()].copy_from_slice(vs);
     out[CABECERA_1 + vs.len()..d].copy_from_slice(ps);
-    out[d..total].copy_from_slice(datos);
     leer(&out[..total]).map(|_| total)
 }
 
@@ -1010,6 +1074,100 @@ mod pruebas {
         assert_eq!(&a.o[..a.n], &b.o[..b.n]);
     }
 
+    /// ** Q0a1 (EL_FOCO, 10-10): un destino de 640x360 da ordenes de 640x360
+    /// -- el alto del destino de color, el recorte de la superficie, el
+    /// viewport (x * 320 + 320, y * -180 + 180) y su recorte --; y la
+    /// pantalla, las de siempre (1280x720).
+    #[test]
+    fn q0a1_las_ordenes_tienen_la_medida_del_destino() {
+        use crate::destino::Destino;
+        use crate::tresde as td;
+        let tras = |o: &cu::Ordenes, m: u32, n: u32| -> std::vec::Vec<u32> {
+            let w = &o.o[..o.n];
+            let i = w.iter().position(|&x| x == crate::copia::cabecera_en(0, m, n)).unwrap_or_else(|| panic!("el metodo {:#x}", m));
+            w[i + 1..i + 1 + n as usize].to_vec()
+        };
+        let f = |x: f32| x.to_bits();
+        let dst = Destino { fila: 640 * 4, ancho: 640, alto: 360, rgb: false };
+        let d = Dibujo { destino: Some((0x1234_5000, dst)), vertices: 3, ..Dibujo::default() };
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let o = ordenes_dibujo(&v, 1, false, d);
+        assert_eq!(tras(&o, td::SET_COLOR_TARGET_A0, 8)[2..4], [2560, 360]);
+        assert_eq!(tras(&o, td::SET_SURFACE_CLIP_HORIZONTAL, 2), [640 << 16, 360 << 16]);
+        assert_eq!(tras(&o, crate::raster::SET_VIEWPORT_SCALE_X0, 7)[..6], [f(320.0), f(-180.0), f(1.0), f(320.0), f(180.0), f(0.0)]);
+        assert_eq!(tras(&o, crate::raster::SET_VIEWPORT_CLIP_HORIZONTAL0, 4)[..2], [640 << 16, 360 << 16]);
+        let o = ordenes_dibujo(&v, 1, false, Dibujo::default());
+        assert_eq!(tras(&o, td::SET_SURFACE_CLIP_HORIZONTAL, 2), [1280 << 16, 720 << 16]);
+        assert_eq!(tras(&o, crate::raster::SET_VIEWPORT_SCALE_X0, 7)[..2], [f(640.0), f(-360.0)]);
+    }
+
+    /// ** Q0a2 (EL_FOCO, 10-10): VRN1 con destino LLEVA la limpieza -- el
+    /// pixel, tal como va en memoria -- y sus ordenes la mandan a la 3060
+    /// (`SET_COLOR_CLEAR_VALUE0` y `CLEAR_SURFACE`) antes del dibujo. Sin
+    /// destino, no; y un V0 con +20 = 1 sigue siendo un recorte que no vale.
+    #[test]
+    fn q0a2_vrn1_lleva_el_color_del_destino() {
+        use crate::destino::Destino;
+        use crate::tresde as td;
+        let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
+        let datos = std::vec![0u8; 96];
+        let dst = Destino { fila: 640 * 4, ancho: 640, alto: 360, rgb: false };
+        let d = Dibujo { vertices: 3, destino: Some((0x1234_5000, dst)), color: Some(0xFF14_1E3C), ..Dibujo::default() };
+        let mut caja = std::vec![0u8; MAX_PAQUETE];
+        let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
+        let p = leer(&caja[..n]).unwrap();
+        assert_eq!((p.dibujo, p.limpiar), (d, None), "el color vuelve, y no es un recorte");
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let o = ordenes_dibujo(&v, 1, false, p.dibujo);
+        let w = &o.o[..o.n];
+        // La ULTIMA: la del estudio la pone antes `hasta_el_dibujo_de`.
+        let i = w.iter().rposition(|&x| x == crate::copia::cabecera_en(0, td::SET_COLOR_CLEAR_VALUE0, 4)).expect("la limpieza del destino");
+        assert_eq!(&w[i + 1..i + 5], &color_de_limpieza(0xFF14_1E3C, false));
+        assert!(w.contains(&crate::copia::cabecera_en(0, td::CLEAR_SURFACE, 1)));
+        // Sin color, ni una limpieza del destino: lo de siempre.
+        let o = ordenes_dibujo(&v, 1, false, Dibujo { color: None, ..d });
+        assert!(!o.o[..o.n].contains(&crate::copia::cabecera_en(0, td::CLEAR_SURFACE, 1)));
+        // Sin destino no hay que limpiar: no se escribe.
+        assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { destino: None, ..d }), None);
+        // Y a mano: la marca sin destino no se lee.
+        let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { destino: None, color: None, ..d }).unwrap();
+        caja[20..24].copy_from_slice(&1u32.to_le_bytes());
+        assert!(leer(&caja[..n]).is_none());
+        // V0: +20 = 1 no es la marca (solo VRN1): es un recorte que no vale.
+        let mut v0 = std::vec![0u8; MAX_PAQUETE];
+        let m = escribir_paquete_datos(&mut v0, 7, &vs, &ps, 3, &datos).unwrap();
+        v0[20..24].copy_from_slice(&1u32.to_le_bytes());
+        assert!(leer(&v0[..m]).is_none());
+    }
+
+    /// ** Q0a2: los vertices de la LAMINA, directo al VRN1 (sin bufer): los
+    /// mismos bytes que el VRN1 de unos datos escritos aparte, y con el
+    /// destino y su color.
+    #[test]
+    fn q0a2_los_vertices_de_v0_directo_al_vrn1() {
+        use crate::destino::Destino;
+        let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
+        let vertices: std::vec::Vec<Vertice> = (0..6u32).map(|k| Vertice { posicion: [k, k + 1, k + 2, 0x3F80_0000], color: [k * 3, 0, 0, 0x3F80_0000] }).collect();
+        let mut datos = std::vec::Vec::new();
+        for v in &vertices {
+            for w in v.palabras() {
+                datos.extend_from_slice(&w.to_le_bytes());
+            }
+        }
+        let dst = Destino { fila: 640 * 4, ancho: 640, alto: 360, rgb: false };
+        let d = Dibujo { vertices: 6, destino: Some((0x7_0000_0000, dst)), color: Some(0x0010_1018), ..Dibujo::default() };
+        let (mut a, mut b) = (std::vec![0u8; MAX_PAQUETE], std::vec![0u8; MAX_PAQUETE]);
+        let n = escribir_paquete_dibujo_de(&mut a, 7, &vs, &ps, vertices.iter().copied(), d).unwrap();
+        let m = escribir_paquete_dibujo(&mut b, 7, &vs, &ps, 6, &datos, d).unwrap();
+        assert_eq!(a[..n], b[..m]);
+        assert_eq!(leer(&a[..n]).unwrap().dibujo, d);
+        // Con indices, o con otra cuenta de vertices, no: son los de V0.
+        assert_eq!(escribir_paquete_dibujo_de(&mut a, 7, &vs, &ps, vertices.iter().copied(), Dibujo { indices: Some(0), ..d }), None);
+        assert_eq!(escribir_paquete_dibujo_de(&mut a, 7, &vs, &ps, vertices.iter().copied(), Dibujo { vertices: 5, ..d }), None);
+    }
+
     /// P3b4b (3): con DESTINO, el paquete lleva la RAM de la app; sus ordenes
     /// ponen el destino de color en `destino::VA` con su fila, y NO limpian
     /// (el juego limpia su back buffer). Un destino que no vale, no pasa.
@@ -1024,9 +1182,17 @@ mod pruebas {
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
         assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);
-        for malo in [Destino { ancho: 640, ..dst }, Destino { fila: 5124, ..dst }] {
+        for malo in [Destino { ancho: 0, ..dst }, Destino { fila: 5124, ..dst }] {
             assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { destino: Some((0x1234_5000, malo)), ..d }), None);
         }
+        // ** Q0a1: otra medida, SI (sin Z); con Z, solo la de VERRANO.
+        let otra = Destino { ancho: 640, alto: 360, ..dst };
+        let con_otra = Dibujo { destino: Some((0x1234_5000, otra)), ..d };
+        let n2 = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, con_otra).unwrap();
+        assert_eq!(leer(&caja[..n2]).unwrap().dibujo, con_otra);
+        let z = Some(crate::profundidad::Z { funcion: 2, escribir: true, limpiar: Some(crate::profundidad::UNO) });
+        assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { z, ..con_otra }), None, "Z en otra medida, no");
+        assert!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { z, ..d }).is_some(), "Z en la de VERRANO, si");
         assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { destino: Some((0x1234_5010, dst)), ..d }), None, "sin alinear a pagina");
         let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
         let v = crate::cubo::ventana(&gop).unwrap();

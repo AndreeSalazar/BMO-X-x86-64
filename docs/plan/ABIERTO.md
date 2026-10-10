@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 77 planes
+# LO QUE FALTA -- las casillas abiertas de los 78 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   746 casillas ABIERTAS en 68 planes
-   585 hechas
+   749 casillas ABIERTAS en 69 planes
+   599 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -54,15 +54,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
 - ... y 43 mas
 
-## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 37 abiertas, 0 hechas
-
-*PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total*
-
-- [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
-- [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido 
-- [ ] TA2 -- la VENTANA: el nodo screen de TITAN++ (pedir superficie, escribir una fila de pixeles, pr
-- ... y 34 mas
-
 ## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 37 abiertas, 10 hechas
 
 *PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
@@ -72,14 +63,23 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
 - ... y 34 mas
 
-## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 33 abiertas, 13 hechas
+## [`PLAN_LA_TINTA.md`](PLAN_LA_TINTA.md) -- 35 abiertas, 2 hechas
+
+*PLAN LA TINTA -- ADOBE GENERAL + CLIP STUDIO PAINT, con libros y manga en total*
+
+- [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
+- [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido 
+- [ ] TA4 -- el DISCO: leer y escribir ficheros de ESTRATOS desde TITAN++, con permiso. A medias el 10
+- ... y 32 mas
+
+## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 14 hechas
 
 *PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
 
 - [ ] J2 -- la antena pide la lista a GOG, EN RUST. Cambiado el 29-09
 - [ ] J3 -- traer los DATOS de un juego nativo. El WAD o PAK de un juego
 - [ ] J2b -- itch.io, la API oficial. En la antena: la clave que el
-- ... y 30 mas
+- ... y 29 mas
 
 ## [`PLAN_ILLAPA.md`](PLAN_ILLAPA.md) -- 30 abiertas, 0 hechas
 
@@ -351,6 +351,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 6 compilar hola.ada el frontend de Ada dentro del mismo
 - ... y 4 mas
 
+## [`EL_FOCO.md`](EL_FOCO.md) -- 6 abiertas, 8 hechas
+
+*EL FOCO -- una cosa a la vez, hasta el final (10-10)*
+
+- [ ] Q0a1 -- el aparato con viewport y fondo LIBRES: la tuberia ya
+- [ ] Q0a2 -- el destino EN RAM para la lamina (como enram de
+- [ ] **Q0a3 -- el DIRECTOR dibuja la lamina DENTRO de la ventana de su
+- ... y 3 mas
+
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas
 
 *PLAN EL ENLAZADOR -- la pieza que madura a CINCO lenguajes a la vez*
@@ -378,12 +387,12 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
 - ... y 3 mas
 
-## [`PLAN_INTI_SAMURAI.md`](PLAN_INTI_SAMURAI.md) -- 6 abiertas, 3 hechas
+## [`PLAN_INTI_SAMURAI.md`](PLAN_INTI_SAMURAI.md) -- 6 abiertas, 5 hechas
 
 *PLAN INTI SAMURAI -- INTI corta para la CPU; las apps se van a TITAN++*
 
 - [ ] 2 el build y el metro: ventana, musica, cubo y navegar fuera de
-- [ ] 4 fuera el resto del runtime de app (objetos, monton, superficie,
+- [ ] 4 fuera el resto del runtime de app (objetos y monton) -- con su
 - [ ] 5 el emisor pierde los caminos del monton y de los objetos; los docs
 - ... y 3 mas
 
@@ -571,7 +580,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] L10 -- la copia del ULTIMO uso convertida en entrega (D2): let b = a sin volver a leer a mueve e
 - [ ] L11 -- del PROPIETARIO: las leyes nuevas de listas y mapas con --sellar (toolchain/tools/titan-l
 
-## [`PLAN_NAVEGAR.md`](PLAN_NAVEGAR.md) -- 3 abiertas, 7 hechas
+## [`PLAN_NAVEGAR.md`](PLAN_NAVEGAR.md) -- 3 abiertas, 8 hechas
 
 *PLAN NAVEGAR -- la propuesta maestra de la app que navega sin ser navegador*
 

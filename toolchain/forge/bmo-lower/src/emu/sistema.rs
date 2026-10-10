@@ -563,7 +563,7 @@ impl Machine {
             CURRENT_TASK, NR_INVOKE, TASK_OP_ARCHIVO_ABRIR, TASK_OP_ARCHIVO_CREAR,
             TASK_OP_ARGUMENTOS, TASK_OP_AUDIO_CLAIM, TASK_OP_AUDIO_RELEASE, TASK_OP_CONSOLE_READ,
             TASK_OP_CONSOLE_WRITE, TASK_OP_EXIT, TASK_OP_INPUT_CLAIM, TASK_OP_MEMORIA_PEDIR,
-            TASK_OP_MI_PADRE, TASK_OP_RUTA, TASK_OP_TOMAR, TASK_OP_YIELD,
+            TASK_OP_INFO, TASK_OP_MI_PADRE, TASK_OP_RUTA, TASK_OP_TOMAR, TASK_OP_YIELD,
         };
         use bmo_abi::syscalls::surface::{PRESTADO_OP_BASE, PRESTADO_OP_BYTES, PRESTADO_OP_PROPIETARIO, PRESTADO_OP_SOLTAR};
 
@@ -592,6 +592,10 @@ impl Machine {
             // Mientras la app duerme, el DIRECTOR de mentira reparte lo que el
             // banco dejo pendiente para su buzon (2026-09-16).
             self.repartir_buzon();
+            // Y el reloj pasa lo pedido (10-10): un reposo por tiempo, sin asa.
+            if call.capability == 0 {
+                self.dormido_ns = self.dormido_ns.saturating_add(call.arg0);
+            }
             self.finalizar_syscall(0);
             return;
         }
@@ -613,6 +617,12 @@ impl Machine {
                     }
                 }
                 op if op == TASK_OP_EXIT => self.exited = true,
+                // ** El reloj (10-10): 1 GHz, el de `rdtsc`. Lo demas del
+                // informe no se modela, y se GRITA (ver el `panic` de abajo).
+                op if op == TASK_OP_INFO && call.arg0 == bmo_abi::syscalls::surface::INFO_TSC_HZ => {
+                    self.finalizar_syscall(1_000_000_000);
+                    return;
+                }
                 // Quien nos lanzo: el DIRECTOR de mentira del banco, o nadie.
                 op if op == TASK_OP_MI_PADRE => {
                     let p = self.padre;

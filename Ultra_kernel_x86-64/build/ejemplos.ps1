@@ -588,9 +588,10 @@ $cRecursos = @(
         ) }
     ) }
     # ** LA CARA DE NAVEGAR: una antena (el mastil y sus ondas) sobre la
-    # pantalla que la muestra. Es un `.ibx` y se empaqueta por el mismo camino:
-    # el mismo formato, el mismo cargador, la misma rejilla del escritorio.
-    @{ bex = 'apps\navegar.ibx'; recursos = @(
+    # pantalla que la muestra. Desde el 10-10 es el `.bex` de TITAN++ (corte
+    # 4c): el mismo formato, el mismo cargador, la misma rejilla del
+    # escritorio, y el juez de carga de acuerdo con el icono dentro.
+    @{ bex = 'apps\navegar.bex'; recursos = @(
         @{ nombre = 'icono'; icono = @(
             '.......bb.......',
             '.....bb..bb.....',
@@ -608,6 +609,28 @@ $cRecursos = @(
             '.....oooooo.....',
             '....oooooooo....',
             '................'
+        ) }
+    ) }
+    # ** LA CARA DE RESOLUCION (R1 de EL_FOCO, 2026-10-10): una pantalla con
+    # sus dos flechas de esquina a esquina, la medida que crece.
+    @{ bex = 'apps\resolucion.bex'; recursos = @(
+        @{ nombre = 'icono'; icono = @(
+            '................',
+            '.oooooooooooooo.',
+            '.oWWWWWWWWWWWWo.',
+            '.oWbbbWWWWWWWWo.',
+            '.oWbbWWWWWWWWWo.',
+            '.oWbWbWWWWWWWWo.',
+            '.oWWWWbWWWWWWWo.',
+            '.oWWWWWbWWWWWWo.',
+            '.oWWWWWWbWWWWWo.',
+            '.oWWWWWWWbWbWWo.',
+            '.oWWWWWWWWWbbWo.',
+            '.oWWWWWWWWbbbWo.',
+            '.oWWWWWWWWWWWWo.',
+            '.oooooooooooooo.',
+            '......oooo......',
+            '....oooooooo....'
         ) }
     ) }
 )
@@ -755,27 +778,21 @@ try {
     # mesa no cuadrara con sus bytes. `.bex` se queda para los otros tres.
     # ** `run inti/pulso.ibx` (2026-09-12): el perfil en TIEMPO REAL. El kernel
     # lee los contadores del silicio y la sonda los PREGUNTA cada medio segundo.
-    # ** `run inti/bico.ibx` (2026-09-12): la primera HERRAMIENTA en INTI.
-    # Convierte datos/foto.bmp y datos/foto.qoi a BICO, y se generan aqui abajo.
+    # (`bico.ibx`, la primera HERRAMIENTA en INTI -- 2026-09-12 --, salio el
+    # 10-10 con `png.inti`, corte 4e: las dos son de TITAN++ --
+    # `titan/bico.bex` y `titan/png.bex`, abajo --. 1d de EL_FOCO.)
     Compilar-Ejemplos @(
         @{ src = 'toolchain\lang\inti\sondas\cpu.inti'; out = 'cpu.ibx'; dir = 'inti' },
         @{ src = 'toolchain\lang\inti\sondas\pulso.inti'; out = 'pulso.ibx'; dir = 'inti' },
-        # ** `run inti/ventana.ibx` (2026-09-17): la sonda de la VENTANA. Pinta una
-        # superficie y escribe por consola lo que LEE de vuelta (pixeles, y el
-        # buzon que el DIRECTOR le escribe): separa "INTI escribe en otro sitio"
-        # de "el DIRECTOR lee otra memoria". Nacio del blanco de NAVEGAR (N1).
-        @{ src = 'toolchain\lang\inti\sondas\ventana.inti'; out = 'ventana.ibx'; dir = 'inti' },
-        @{ src = 'toolchain\lang\inti\ejemplos\bico.inti'; out = 'bico.ibx'; dir = 'inti' },
-        # ** `run inti/musica.ibx [datos/x.mus]` (2026-09-13): el REPRODUCTOR.
-        # Suena por el audifono USB (el altavoz de esta placa no suena).
-        @{ src = 'toolchain\lang\inti\ejemplos\musica.inti'; out = 'musica.ibx'; dir = 'inti' },
         # (`cubo.ibx` salio el 09-10: VERRANO lo manda TITAN++. Su relevo es
         # `titan/cubogira.bex`, abajo -- corte 4 de PLAN_INTI_SAMURAI.)
-        # ** NAVEGAR v0 (2026-09-16): la cara de la LAMINA, en INTI y con icono
-        # en el escritorio. Hoy solo el mensaje --hace falta una ANTENA-- porque
-        # INTI aun no abre ventana (N0 de docs/plan/PLAN_NAVEGAR.md). Va a
-        # `apps/`, con DOOM, porque es una APP y no una sonda.
-        @{ src = 'Ultra_userspace\apps\navegar\navegar.inti'; out = 'navegar.ibx'; dir = 'apps' }
+        # (`navegar.ibx` y la sonda `ventana.ibx` salieron el 10-10, corte 4c:
+        # NAVEGAR es de TITAN++ -- `apps/navegar.bex`, abajo -- y la ventana
+        # tambien -- `titan/ventana.bex` --. F5 de docs/plan/EL_FOCO.md.)
+        # ** `run inti/musica.ibx [datos/x.mus]` (2026-09-13): el REPRODUCTOR.
+        # Suena por el audifono USB (el altavoz de esta placa no suena). Se
+        # queda hasta que TITAN++ suene (Q2 de EL_FOCO).
+        @{ src = 'toolchain\lang\inti\ejemplos\musica.inti'; out = 'musica.ibx'; dir = 'inti' }
     ) 'bmo-inti-x86-64' 'inti' 'ok:|error|aviso' $dataBase $repo
 
     Step 'Building TITAN++ programs...'
@@ -792,10 +809,30 @@ try {
         # se construye desde su `src/main.titan`. En el metal, como con INTI:
         # `run titan/cubogira.bex` y `gpu verrano banco inti`, que dibuja con
         # la 3060 lo que haya en la lamina (LB7 de PLAN_LAS_LIBRERIAS).
-        @{ src = 'toolchain\lang\titan\ejemplos\nivel11\cubo_gira\src\main.titan'; out = 'cubogira.bex'; dir = 'titan' }
+        @{ src = 'toolchain\lang\titan\ejemplos\nivel11\cubo_gira\src\main.titan'; out = 'cubogira.bex'; dir = 'titan' },
+        # ** F1 de EL_FOCO (2026-10-10): la VENTANA de TITAN++ -- una
+        # superficie de BMO-X como la de INTI, un degradado y una barra que la
+        # cruza diez segundos. En el metal: `run titan/ventana.bex` desde
+        # Ejecutar (desde el shell no hay escritorio que componga: lo dice).
+        @{ src = 'toolchain\lang\titan\ejemplos\nivel11\ventana\src\main.titan'; out = 'ventana.bex'; dir = 'titan' },
+        # ** NAVEGAR en TITAN++ (F4 y F5 de EL_FOCO, 2026-10-10): la cara de la
+        # LAMINA -- la que ofrece el antenista, o la del disco -- en su
+        # ventana, con los mismos pixeles que el de INTI, que se fue. Va a
+        # `apps/`, con DOOM, porque es una APP; su icono, en el empaquetado.
+        @{ src = 'Ultra_userspace\apps\navegar\src\main.titan'; out = 'navegar.bex'; dir = 'apps' },
+        # ** RESOLUCION (R1 de EL_FOCO, 2026-10-10): elegir la medida de las
+        # ventanas de TITAN++ y guardarla en `datos\resolucion.txt`
+        # (`director.guarda`, TA4); `titan/ventana.bex` ya se abre con ella.
+        @{ src = 'Ultra_userspace\apps\resolucion\src\main.titan'; out = 'resolucion.bex'; dir = 'apps' },
+        # ** BICO y PNG (corte 4e de INTI, 2026-10-10): las herramientas de
+        # imagen, de TITAN++ (`director.crea`, `escribe`, `cierra`). En el
+        # metal: `run titan/bico.bex` (datos/foto.bmp y foto.qoi a BICO, sus
+        # datos se generan abajo) y `run titan/png.bex` (deja datos/hola.png).
+        @{ src = 'Ultra_userspace\apps\bico\src\main.titan'; out = 'bico.bex'; dir = 'titan' },
+        @{ src = 'Ultra_userspace\apps\png\src\main.titan'; out = 'png.bex'; dir = 'titan' }
     ) 'bmo-titan-x86-64' 'titan' 'ok:|T00|no se ha' $dataBase $repo -Orden 'build'
 
-    # -- Las dos imagenes que `bico.ibx` convierte ------------------------
+    # -- Las dos imagenes que `titan/bico.bex` convierte ------------------
     #
     # Se GENERAN y no se copian: un binario en el repo es un fichero que nadie
     # puede leer en un diff. 16x16 las dos, con un degradado que se reconoce a
@@ -804,7 +841,7 @@ try {
     New-Item -ItemType Directory -Force $imgDst | Out-Null
     [System.IO.File]::WriteAllBytes((Join-Path $imgDst 'foto.bmp'), (Nuevo-Bmp))
     [System.IO.File]::WriteAllBytes((Join-Path $imgDst 'foto.qoi'), (Nuevo-Qoi))
-    Write-Host '    [datos] foto.bmp y foto.qoi (16x16, para inti/bico.ibx)' -ForegroundColor DarkGray
+    Write-Host '    [datos] foto.bmp y foto.qoi (16x16, para titan/bico.bex)' -ForegroundColor DarkGray
     # ** Y un PNG y un JPEG de verdad (2026-09-20), para el visor: son los
     # ficheros con los que `bmo-imagen` se prueba en el anfitrion contra
     # Pillow, asi que lo que se ve en el Ryzen es lo que el banco ya juzgo.
@@ -822,7 +859,7 @@ try {
     # [!] 8.3: el FAT32 de BMO-X busca por nombre corto y se salta las
     # entradas de nombre largo, asi que `ejemplo.lamina` no lo encontraria.
     Copy-Item (Join-Path $repo 'toolchain\tools\antena\ejemplo.lamina') (Join-Path $imgDst 'ejemplo.lam') -Force
-    Write-Host '    [datos] ejemplo.lam (example.com, para apps/navegar.ibx)' -ForegroundColor DarkGray
+    Write-Host '    [datos] ejemplo.lam (example.com, para apps/navegar.bex)' -ForegroundColor DarkGray
     # El aspecto del escritorio: lo lee el DIRECTOR al arrancar. Texto, en el
     # repo, y se edita ahi -- el despliegue pisa el de A:\sys\.
     $sysDst = Join-Path $dataBase 'sys'

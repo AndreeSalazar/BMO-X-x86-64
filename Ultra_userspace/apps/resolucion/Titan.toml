@@ -1,0 +1,5 @@
+[package]
+name = "resolucion"
+
+[permissions]
+screen = true

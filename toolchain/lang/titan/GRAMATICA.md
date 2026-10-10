@@ -996,6 +996,116 @@ fn main()
   VERRANO: cada fotograma que da por bueno es la tanda de `bmo_cubo`, bit a
   bit. En el metal, `gpu verrano banco` sobre ella es del propietario.
 
+### El DIRECTOR: el RITMO (10-10, el cuello de botella de `EL_FOCO`)
+
+- `director.espera(ms)` duerme hasta el PLAZO del fotograma siguiente, no
+  `ms` despues del trabajo: el programa lleva su plazo (el TSC, en su bloque)
+  y duerme lo que FALTA. Un bucle de `trabajo; director.espera(16)` hace
+  fotogramas de 16 ms, no de trabajo + 16 + lo que tarde en despertar. Si va
+  tarde, cede el turno y se pone en hora (no amontona). Mas de 1000 ms, la
+  siesta de siempre. La prueba: `emisor-x86_64/tests/ritmo.rs`, con el reloj
+  del emulador (1 GHz).
+
+### El DIRECTOR: la VENTANA (10-10, F1 de `docs/plan/EL_FOCO.md`)
+
+```text
+use director                                  # y en el Titan.toml: screen = true
+
+fn main()
+    if not director.ventana(320, 200)         # ancho y alto, en pixeles
+        print("nadie compone")
+        return
+    director.rect(0, 0, 320, 200, 20 * 65536 + 30 * 256 + 60)
+    director.pixel(10, 10, 16777215)          # un color: r * 65536 + g * 256 + b
+    director.fila(y, pixeles)                 # una fila de una tabla de int
+    director.presenta()                       # el dibujo esta ENTERO
+```
+
+- **La misma superficie que INTI y C**: la cabecera BSUP de
+  `bmo_abi::syscalls::surface::superficie` (los numeros, por su nombre), los
+  pixeles BGRA de 32 bits (opacos), un buzon de 64 ranuras detras, y la cola
+  privada con el asa del bloque. Todo a cero (negro) ANTES de ofrecerla.
+- `director.ventana(ancho, alto)`: pide el bloque, lo describe y se lo OFRECE
+  a quien lanzo el programa. Da si, si se ofrecio; no, con una medida fuera
+  de 1..4096, sin memoria, lanzado desde el shell, o si el programa ya tiene
+  su ventana (UNA APP, UNA VENTANA: la regla del DIRECTOR).
+- `director.pixel(x, y, color)`, `director.rect(x, y, ancho, alto, color)`
+  y `director.fila(y, pixeles)` pintan, RECORTADO a la ventana: lo de fuera
+  no se pinta, y sin ventana no pasa nada. No dan nada.
+- `director.presenta()` sube la SECUENCIA de la cabecera: es lo unico que
+  hace que el escritorio la componga, y va DESPUES del ultimo pixel (R-APP4).
+- El certificado: la puerta de la PANTALLA, en la linea de la primera
+  llamada (como la lamina). Desde una gpu fn, no (T0090).
+- El ejemplo: `nivel11/ventana`, un degradado y una barra que cruza la
+  ventana; la prueba `emisor-x86_64/tests/ventana.rs` la lanza el escritorio
+  de mentira y lee sus pixeles, uno a uno.
+
+### El DIRECTOR: lo que se LEE, lo que LLEGA y la LETRA (10-10, F2 y F3 de `EL_FOCO`)
+
+```text
+if director.toma() or director.fichero("datos/ejemplo.lam")
+    let n = director.medida()                 # cuantos bytes se tienen
+    let b = director.byte(0)                  # uno, o -1 fuera
+let que = director.evento()                   # 0 nada, 1 tecla pulsada, 2 soltada,
+                                              # 3 letra, 4 raton, 5 la ventana cambio
+let tecla = director.codigo()                 # su scancode o su letra (Latin-1)
+let x = director.raton_x()                    # y raton_y(), botones()
+if director.se_ve()                           # no minimizada ni tapada (R-APP8)
+    x = director.texto(8, 8, "hola", 1, 16777215)   # la x de detras
+    x = director.letra(x, 8, 241, 2, 16777215)      # un glifo (aqui la n con tilde)
+```
+
+- **Lo tenido** (F2): `toma()` -- lo que alguien OFRECIO a este programa, la
+  pagina del antenista: ocho intentos, un fotograma entre uno y otro -- o
+  `fichero(ruta)` -- uno entero, de 1 byte a 256 KiB, en un bloque suyo --.
+  Se lee ANTES de la ventana, si hace falta: va en un bloque de 48 bytes del
+  programa (`rbx`). `byte(i)` da 0..255, o -1 fuera; nada se escribe.
+- **Lo que llega** (F3): el buzon de la ventana (64 ranuras, el contrato de
+  `superficie.rs`): `evento()` toma el siguiente y dice QUE es; sus datos,
+  hasta el siguiente. Sin ventana, nada (0).
+- **La letra**: la de BMO-X, 8x16 de `fontgen` (la del kernel y la de INTI):
+  ASCII, los 25 extras Latin-1 del castellano, y `?` para lo que no tiene.
+  Escala 1..16 (cada pixel, un cuadrado), recortada a la ventana. Dan la x
+  de detras.
+- Las pruebas: `emisor-x86_64/tests/entrada.rs` (lo ofrecido, el fichero y
+  los que no, los eventos del buzon, la letra pixel a pixel contra la tabla
+  de `fontgen`).
+
+### El DIRECTOR: lo que se GUARDA (10-10, TA4 de `PLAN_LA_TINTA`, R1 de `EL_FOCO`)
+
+```text
+if director.guarda("datos/resolucion.txt", "1280 720\n")   # si, si llego al disco
+```
+
+- `director.guarda(ruta, texto)`: el fichero ENTERO, creado de cero
+  (`TASK_OP_ARCHIVO_CREAR`), el texto de 7 en 7 (`ARCH_OP_ESCRIBIR`) y
+  cerrado, que es donde llega al disco. Da si, si entraron todos los bytes
+  y el disco dijo que si; no, sin ruta o si el disco dice que no (y entonces
+  no queda NADA: un fichero a medias se parece demasiado a uno entero). No
+  pide ventana, y lo tenido (`medida`, `byte`) no cambia.
+- La primera app que lo usa: RESOLUCION (`Ultra_userspace/apps/resolucion`),
+  que guarda la medida elegida; `nivel11/ventana` la lee al abrirse (su
+  `medida.titan`). Las pruebas: `tests/entrada.rs` y `tests/resolucion.rs`.
+
+```text
+if director.crea("datos/foto.bic")            # UNO a la vez
+    director.escribe(66)                      # un byte, 0..255
+    if not director.cierra()                  # ahi llega al disco
+        print("no se guardo")
+```
+
+- **BYTE A BYTE** (10-10, corte 4e de INTI): `crea(ruta)` lo crea de cero
+  (da no con otro abierto, o sin ruta), `escribe(b)` mete un byte -- de 7 en
+  7 al kernel -- y `cierra()` manda lo que quede y cierra: si, si entro todo
+  y el disco lo guardo. Un byte fuera de 0..255 NO se recorta: no se
+  escribe y `cierra` dice que no. [!] El kernel guarda lo que tenga al
+  cerrar: quien no quiera un fichero a medias lo comprueba TODO antes de
+  `crea` (lo hace `apps/bico`). Lo tenido no cambia.
+- Los que lo usan: `Ultra_userspace/apps/bico` (BMP y QOI a BICO) y
+  `apps/png` (un PNG valido), que eran de INTI. Las pruebas:
+  `tests/disco.rs`, `tests/bico.rs` (los ficheros rotos de siempre) y
+  `tests/png.rs` (los mismos bytes que `png.inti`).
+
 > **08-10, LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`:** las tarjetas son DOS,
 > la 3060 y la CPU -- la RESERVA de toda GPU (la ley L32) --, y cada gpu fn
 > pasa la bateria en las dos con los mismos bits. Un programa que no lee

@@ -34,7 +34,10 @@
 //! regalada.
 
 use super::{Place, E1};
-use bmo_abi::syscalls::surface::{CURRENT_TASK, MEM_OP_BASE, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_MEMORIA_PEDIR, TASK_OP_MI_PADRE};
+use super::entrada::{HZ, PLAZO, RBX};
+use super::ventana::R12;
+use bmo_abi::syscalls::surface::SUP_TOMADA;
+use bmo_abi::syscalls::surface::{CURRENT_TASK, INFO_TSC_HZ, MEM_OP_BASE, MEM_OP_OFRECER, NR_INVOKE, NR_WAIT, TASK_OP_INFO, TASK_OP_MEMORIA_PEDIR, TASK_OP_MI_PADRE};
 use bmo_lower::memoria;
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R11, R8, R9};
 use bmo_titan_front::calc::Class;
@@ -50,6 +53,15 @@ const COLA: i32 = 16;
 const CAPACIDAD_MAXIMA: i32 = 1 << 16;
 /// Lo mas que duerme `espera`: una hora (los nanosegundos caben de sobra).
 const ESPERA_MAXIMA: i32 = 3_600_000;
+/// Hasta cuanto se pace por plazo (ms): un fotograma; mas, la siesta (y asi
+/// `(plazo - ahora) * 1e9` cabe en 64 bits con cualquier reloj de hasta 9 GHz).
+const PLAZO_MAXIMO_MS: i32 = 1000;
+/// Q0a4: las miradas a que el escritorio tome la ventana antes de ofrecer la
+/// lamina, un fotograma entre una y otra (medio segundo).
+const ESPERAS_TOMA: i64 = 30;
+const UN_FOTOGRAMA_NS: i64 = 16_000_000;
+/// El campo de la cabecera BSUP con donde empieza el buzon (`superficie.rs`).
+const SUP_CAMPO_BUZON: u64 = 6;
 
 // El vertice de VERRANO: su posicion y su color, cuatro f32 cada uno, en ese
 // orden. La copia de `publica` lo escribe asi; si `bmo_verrano` cambiara, esto
@@ -71,18 +83,32 @@ impl E1<'_> {
             Director::Lamina => self.lamina(args, at).map(Some),
             Director::Publica => self.publica(args, at).map(Some),
             Director::Espera => self.espera(args).map(|_| None),
+            // F1 (EL_FOCO): la ventana (`ventana.rs`).
+            Director::Ventana => self.ventana(args, at).map(Some),
+            Director::Pixel => self.pixel(args, at).map(|_| None),
+            Director::Rect => self.rect(args, at).map(|_| None),
+            Director::Fila => self.fila(args, at).map(|_| None),
+            Director::Presenta => self.presenta().map(|_| None),
+            // F2 y F3 (EL_FOCO): lo que se lee y lo que llega (`entrada.rs`),
+            // y la letra (`letra.rs`).
+            Director::Letra => self.letra(args, at).map(Some),
+            Director::Texto => self.texto(args, at).map(Some),
+            // TA4 (10-10): lo que se escribe en el disco (`disco.rs`).
+            Director::Guarda | Director::Crea | Director::Cierra => self.disco(what, args, at).map(Some),
+            Director::Escribe => self.escribe_byte(args, at).map(|_| None),
+            Director::Toma | Director::Fichero | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => self.entrada(what, args, at).map(Some),
         }
     }
 
     /// `INVOKE(rdi, rsi, rdx, r10, r8)`: el codigo en `rax`, el valor en `rdx`.
-    fn invoke(&mut self) {
+    pub(super) fn invoke(&mut self) {
         self.imm(RAX, NR_INVOKE as i64);
         x86::syscall(&mut self.code);
     }
 
     /// Salta (a rellenar) si `rax` no es 0 -- el kernel dijo que no -- o si el
     /// valor de `rdx` es 0.
-    fn si_no_vale(&mut self, saltos: &mut Vec<usize>) {
+    pub(super) fn si_no_vale(&mut self, saltos: &mut Vec<usize>) {
         x86::test_r64_r64(&mut self.code, RAX, RAX);
         saltos.push(self.jcc(0x85));
         x86::test_r64_r64(&mut self.code, RDX, RDX);
@@ -144,6 +170,36 @@ impl E1<'_> {
         self.load(bloque, RAX);
         x86::mov_at_reg_from_r64(&mut self.code, RDI, RAX);
         x86::mov_at_reg_disp32_from_r64(&mut self.code, RDI, 8, RCX);
+        // ** Q0a4 (EL_FOCO, 10-10): con VENTANA, primero que el escritorio la
+        // TOME (`SUP_TOMADA` en el estado de su buzon): ofrecer otra cosa al
+        // MISMO destino sustituye una oferta aun no tomada (`loan::offer`), y
+        // la ventana se perderia. Un fotograma entre mirada y mirada, hasta
+        // `ESPERAS_TOMA`; despues se ofrece igual (sin escritorio no hay quien).
+        x86::mov_r64_r64(&mut self.code, RDI, R12);
+        x86::test_r64_r64(&mut self.code, RDI, RDI);
+        let sin_ventana = self.jcc(0x84);
+        let intentos = self.temp(8);
+        self.store_imm(intentos, ESPERAS_TOMA);
+        let mira = self.code.len();
+        x86::mov_r64_r64(&mut self.code, RDI, R12);
+        self.lea(RSI, RDI, 4 * SUP_CAMPO_BUZON as i32);
+        x86::mov_r32_at_reg(&mut self.code, RSI, RSI);
+        x86::add_r64_r64(&mut self.code, RSI, RDI);
+        x86::mov_r64_at_reg_disp32(&mut self.code, RAX, RSI, 8);
+        x86::and_r64_imm32(&mut self.code, RAX, SUP_TOMADA as u32);
+        let tomada = self.jcc(0x85);
+        self.imm(RDX, UN_FOTOGRAMA_NS);
+        x86::zero_r32(&mut self.code, RDI);
+        x86::zero_r32(&mut self.code, RSI);
+        self.imm(RAX, NR_WAIT as i64);
+        x86::syscall(&mut self.code);
+        self.load(intentos, RAX);
+        x86::dec_r64(&mut self.code, RAX);
+        self.store(intentos, RAX);
+        let otra = self.jcc(0x85);
+        x86::patch_jump_to(&mut self.code, otra, mira);
+        self.here(tomada);
+        self.here(sin_ventana);
         // Quien nos lanzo: el escritorio, o nadie (el shell).
         self.imm(RDI, CURRENT_TASK as i64);
         self.imm(RSI, TASK_OP_MI_PADRE as i64);
@@ -262,10 +318,22 @@ impl E1<'_> {
         Ok((out, Class::Bool))
     }
 
-    /// `director.espera(ms)`: WAIT sin asa, hasta el plazo.
+    /// `director.espera(ms)`: dormir hasta el SIGUIENTE PLAZO, no `ms` mas.
+    ///
+    /// ** EL CUELLO DE BOTELLA MEDIDO (S0 de `PLAN_VERRANO`, 09-10): el
+    /// fotograma del cubo media 18,7 ms y el 92 % era esperar -- la app hacia
+    /// su trabajo y DESPUES dormia 16 ms, y el kernel la despertaba tarde --.
+    /// Ahora (10-10) el programa lleva su plazo (el TSC del fotograma
+    /// siguiente, en su bloque de 64 bytes) y duerme solo lo que FALTA hasta
+    /// el: el fotograma mide `ms`, no trabajo + `ms` + retraso. Si ya va
+    /// tarde, cede el turno (WAIT de 0) y se pone en hora, sin amontonar.
+    /// Mas de un segundo, o sin bloque, la siesta de siempre.
     fn espera(&mut self, args: &[Value]) -> Result<(), String> {
         let [ms] = args else { return Err("`director.espera` sin su valor (fallo del compilador)".to_string()) };
         let (ms, _) = self.eval(ms)?;
+        let pedido = self.temp(8);
+        let por = self.temp(8);
+        let ahora = self.temp(8);
         self.load(ms, RDX);
         x86::test_r64_r64(&mut self.code, RDX, RDX);
         let nada = self.jcc(0x8E);
@@ -273,8 +341,72 @@ impl E1<'_> {
         let cabe = self.jcc(0x8E);
         self.imm(RDX, ESPERA_MAXIMA as i64);
         self.here(cabe);
+        self.store(pedido, RDX);
+        let mut siesta = Vec::new();
+        x86::cmp_r64_imm32(&mut self.code, RDX, PLAZO_MAXIMO_MS);
+        siesta.push(self.jcc(0x8F));
+        self.con_tenido(&mut siesta);
+        // Los ciclos por segundo del reloj, una vez.
+        x86::mov_r64_at_reg_disp32(&mut self.code, RAX, RBX, HZ);
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        let tiene = self.jcc(0x85);
+        self.imm(RDI, CURRENT_TASK as i64);
+        self.imm(RSI, TASK_OP_INFO as i64);
+        self.imm(RDX, INFO_TSC_HZ as i64);
+        x86::zero_r32(&mut self.code, R10);
+        x86::zero_r32(&mut self.code, R8);
+        self.invoke();
+        self.si_no_vale(&mut siesta);
+        x86::mov_at_reg_disp32_from_r64(&mut self.code, RBX, HZ, RDX);
+        self.here(tiene);
+        // Lo que mide un fotograma: ms * hz / 1000 ciclos.
+        self.load(pedido, RAX);
+        x86::mov_r64_at_reg_disp32(&mut self.code, RCX, RBX, HZ);
+        x86::imul_r64_r64(&mut self.code, RAX, RCX);
+        x86::zero_r32(&mut self.code, RDX);
+        self.imm(RCX, 1000);
+        x86::div_r64(&mut self.code, RCX);
+        self.store(por, RAX);
+        // Ahora: rdtsc.
+        self.code.extend_from_slice(&[0x0F, 0x31]);
+        x86::shl_r64_imm8(&mut self.code, RDX, 32);
+        x86::or_r64_r64(&mut self.code, RAX, RDX);
+        self.store(ahora, RAX);
+        // El plazo: el anterior (o ahora, la primera vez) mas un fotograma.
+        x86::mov_r64_at_reg_disp32(&mut self.code, RCX, RBX, PLAZO);
+        x86::test_r64_r64(&mut self.code, RCX, RCX);
+        let hay = self.jcc(0x85);
+        x86::mov_r64_r64(&mut self.code, RCX, RAX);
+        self.here(hay);
+        self.load(por, RDX);
+        x86::add_r64_r64(&mut self.code, RCX, RDX);
+        x86::cmp_r64_r64(&mut self.code, RCX, RAX);
+        let a_tiempo = self.jcc(0x87);
+        // Tarde: en hora, y se cede el turno.
+        x86::mov_at_reg_disp32_from_r64(&mut self.code, RBX, PLAZO, RAX);
+        x86::zero_r32(&mut self.code, RDX);
+        let cede = self.jmp();
+        self.here(a_tiempo);
+        x86::mov_at_reg_disp32_from_r64(&mut self.code, RBX, PLAZO, RCX);
+        // Lo que falta, en ns: (plazo - ahora) * 1e9 / hz.
+        x86::sub_r64_r64(&mut self.code, RCX, RAX);
+        x86::mov_r64_r64(&mut self.code, RAX, RCX);
+        self.imm(RCX, 1_000_000_000);
+        x86::imul_r64_r64(&mut self.code, RAX, RCX);
+        x86::zero_r32(&mut self.code, RDX);
+        x86::mov_r64_at_reg_disp32(&mut self.code, RCX, RBX, HZ);
+        x86::div_r64(&mut self.code, RCX);
+        x86::mov_r64_r64(&mut self.code, RDX, RAX);
+        self.here(cede);
+        let dormir = self.jmp();
+        // La siesta de siempre: `ms` desde ahora.
+        for j in siesta {
+            self.here(j);
+        }
+        self.load(pedido, RDX);
         self.imm(RAX, 1_000_000);
         x86::imul_r64_r64(&mut self.code, RDX, RAX);
+        self.here(dormir);
         x86::zero_r32(&mut self.code, RDI);
         x86::zero_r32(&mut self.code, RSI);
         self.imm(RAX, NR_WAIT as i64);

@@ -271,10 +271,106 @@ pub enum Director {
     Publica,
     /// `director.espera(ms)`: sleep until the next frame.
     Espera,
+    /// ** F1 of `docs/plan/EL_FOCO.md` (TA2 of PLAN_LA_TINTA, 10-10): THE
+    /// WINDOW. `director.ventana(ancho, alto)`: a surface of BMO-X (the BSUP
+    /// contract of `bmo_abi::syscalls::surface::superficie`, the one INTI's
+    /// `roja.inti` and C's `roja.h` write) with its mailbox, OFFERED to
+    /// whoever launched the program. `true` if it was offered; `false` with
+    /// a zero or too large size, without memory, launched from the shell, or
+    /// if the program already has its window.
+    Ventana,
+    /// `director.pixel(x, y, color)`: one pixel of the window (`color` is
+    /// `r * 65536 + g * 256 + b`). Outside the window, nothing.
+    Pixel,
+    /// `director.rect(x, y, ancho, alto, color)`: a filled rectangle, cut to
+    /// the window.
+    Rect,
+    /// `director.fila(y, pixeles)`: the row `y` from a table of ints (one
+    /// color per cell), as many as fit in the window.
+    Fila,
+    /// `director.presenta()`: the drawing is WHOLE -- the sequence goes up,
+    /// and that is what makes the desktop compose it (R-APP4).
+    Presenta,
+    /// ** F2 of `docs/plan/EL_FOCO.md` (10-10): THE BYTES the window holds.
+    /// `director.toma()`: what someone OFFERED to this program (the
+    /// antenista's page), taken -- eight tries, a frame apart, as INTI's
+    /// NAVEGAR --. `true` if taken. Without a window, `false`: what is read
+    /// is kept in its private tail.
+    Toma,
+    /// `director.fichero(ruta)`: a whole file (up to 256 KiB) into a block of
+    /// its own. `false` if it is not there, is empty, too big, or short.
+    Fichero,
+    /// ** TA4 (10-10): `director.guarda(ruta, texto)`: a whole file, made
+    /// from nothing with the text. `true` if every byte went in and the disk
+    /// kept it. What is held does not change.
+    Guarda,
+    /// `director.crea(ruta)`: a file made from nothing, to be written byte
+    /// by byte. ONE at a time: with another open, `false`.
+    Crea,
+    /// `director.escribe(b)`: one byte (0..255) to the open file. One
+    /// outside 0..255 is not cut: it is marked, and `cierra` says no.
+    Escribe,
+    /// `director.cierra()`: the last bytes, and close -- where it reaches the
+    /// disk. `true` if every byte went in and the disk kept it.
+    Cierra,
+    /// `director.medida()`: how many bytes are held (0: none).
+    Medida,
+    /// `director.byte(i)`: the byte `i` of what is held (0..255), or -1
+    /// outside it.
+    Byte,
+    /// ** F3 (10-10): THE INPUT of the window, from its mailbox.
+    /// `director.evento()`: the next event, and WHAT it is -- 0 none, 1 a key
+    /// pressed, 2 a key released, 3 a letter, 4 the mouse, 5 the window
+    /// changed --. Its data, below, until the next one.
+    Evento,
+    /// `director.codigo()`: the scancode or the letter (Latin-1) of the last
+    /// event.
+    Codigo,
+    /// `director.raton_x()`, `director.raton_y()`, `director.botones()`:
+    /// the mouse of the last event.
+    RatonX,
+    RatonY,
+    Botones,
+    /// `director.se_ve()`: whether the window is seen now (not minimized,
+    /// covered or out of the panel): an app may skip drawing (R-APP8).
+    SeVe,
+    /// ** THE LETTER of BMO-X (8x16, `fontgen`, the one the kernel and INTI
+    /// draw). `director.letra(x, y, byte, escala, color)`: one glyph, each
+    /// of its pixels an `escala` x `escala` square, clipped. Gives the x of
+    /// the next one.
+    Letra,
+    /// `director.texto(x, y, t, escala, color)`: every byte of a text, one
+    /// after the other. Gives the x after it.
+    Texto,
 }
 
 impl Director {
-    pub const ALL: [Director; 3] = [Director::Lamina, Director::Publica, Director::Espera];
+    pub const ALL: [Director; 24] = [
+        Director::Lamina,
+        Director::Publica,
+        Director::Espera,
+        Director::Ventana,
+        Director::Pixel,
+        Director::Rect,
+        Director::Fila,
+        Director::Presenta,
+        Director::Toma,
+        Director::Fichero,
+        Director::Guarda,
+        Director::Crea,
+        Director::Escribe,
+        Director::Cierra,
+        Director::Medida,
+        Director::Byte,
+        Director::Evento,
+        Director::Codigo,
+        Director::RatonX,
+        Director::RatonY,
+        Director::Botones,
+        Director::SeVe,
+        Director::Letra,
+        Director::Texto,
+    ];
 
     /// Its whole name, as a program writes it.
     pub fn name(self) -> &'static str {
@@ -282,6 +378,27 @@ impl Director {
             Director::Lamina => "director.lamina",
             Director::Publica => "director.publica",
             Director::Espera => "director.espera",
+            Director::Ventana => "director.ventana",
+            Director::Pixel => "director.pixel",
+            Director::Rect => "director.rect",
+            Director::Fila => "director.fila",
+            Director::Presenta => "director.presenta",
+            Director::Toma => "director.toma",
+            Director::Fichero => "director.fichero",
+            Director::Guarda => "director.guarda",
+            Director::Crea => "director.crea",
+            Director::Escribe => "director.escribe",
+            Director::Cierra => "director.cierra",
+            Director::Medida => "director.medida",
+            Director::Byte => "director.byte",
+            Director::Evento => "director.evento",
+            Director::Codigo => "director.codigo",
+            Director::RatonX => "director.raton_x",
+            Director::RatonY => "director.raton_y",
+            Director::Botones => "director.botones",
+            Director::SeVe => "director.se_ve",
+            Director::Letra => "director.letra",
+            Director::Texto => "director.texto",
         }
     }
 
@@ -293,14 +410,18 @@ impl Director {
     /// How many values it takes.
     pub fn takes(self) -> usize {
         match self {
-            Director::Lamina | Director::Espera => 1,
+            Director::Presenta | Director::Toma | Director::Cierra | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => 0,
+            Director::Lamina | Director::Espera | Director::Fichero | Director::Crea | Director::Escribe | Director::Byte => 1,
+            Director::Ventana | Director::Fila | Director::Guarda => 2,
+            Director::Pixel => 3,
             Director::Publica => 4,
+            Director::Rect | Director::Letra | Director::Texto => 5,
         }
     }
 
-    /// Whether it gives a value back: a yes/no.
+    /// Whether it gives a value back: a yes/no, or an int.
     pub fn gives(self) -> bool {
-        !matches!(self, Director::Espera)
+        !matches!(self, Director::Espera | Director::Pixel | Director::Rect | Director::Fila | Director::Presenta | Director::Escribe)
     }
 }
 

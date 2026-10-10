@@ -160,8 +160,8 @@ mod probe_keymap;
 /// 2026-08-13: `fread` into a stack buffer returned zero without writing, so
 /// the WAD header was garbage and DOOM said its own WAD was not a WAD.
 mod probe_file_io;
-// ** N0c: la superficie en INTI contra la de C, byte a byte.
-mod gemelos_inti;
+// (N0c, los gemelos -- la superficie en INTI contra la de C -- salieron el
+// 10-10 con el corte 4b de INTI: INTI ya no tiene superficie.)
 // El OBJETO (.bo): E2 de PLAN_EL_ENLAZADOR.
 mod objeto;
 

@@ -640,6 +640,11 @@ vez de NV12: ni texturas, ni muestreador, ni tuberia 3D.
                   icono de DOOM y `gpu doom` la lanzan con `3060`
       ```
       **Falta el metal:** `docs/metal/METAL_2026-09-25.md`, seccion 26.
+      **09-10, ~22:40:** la foto de Freedoom a pantalla completa, centrado y
+      con el marco que deja x5 (1600x1000 en 1920x1080), con la 3060
+      despierta. Eso lo da tambien la CPU a pantalla completa, asi que NO
+      cierra D2c: lo cierra la linea `[perf]` de DOOM con 0 ms de agrandar
+      (o su linea de la consola diciendo que va por la 3060).
 - [ ] **D3 -- la PALETA en la 3060.** Con `CMAP256` DOOM pinta 8 bits por
       pixel: por el bus viaja la CUARTA parte, y la tabla de 256 colores la
       aplica el mismo programa. **Como se sabe:** igual que D2c, con 4 veces

@@ -12,6 +12,7 @@
 
 #![cfg_attr(not(test), no_std)]
 
+
 //! **El foco**: quien recibe las teclas cuando hay mas de una ventana.
 //!
 //! === Como se llama esto de verdad ===
@@ -347,6 +348,9 @@ impl Foco {
         }
     }
 }
+
+/// Lo que va encima de todo (Alt+Tab sobre la pantalla completa, 10-10).
+pub mod encima;
 
 #[cfg(test)]
 mod tests {

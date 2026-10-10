@@ -35,7 +35,8 @@ use crate::desktop::{Desktop, Ventana};
 use crate::scene;
 
 pub(crate) fn actualizar(dsk: &mut Desktop, p: &bmo::Pantalla, bajo: Option<Ventana>, x: u32, y: u32) {
-    let app = dsk.table.at(x, y);
+    // La que se ve en el punto (10-10: por el apilado, no la primera de la mesa).
+    let app = crate::desktop::paint::app_en(dsk, x, y);
     let top = dsk.win.top_before;
     // La ventana del sistema que puede realzarse: la de arriba, con el puntero
     // encima, y sin una app delante.

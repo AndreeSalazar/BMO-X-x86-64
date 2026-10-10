@@ -1,0 +1,262 @@
+# lamina.titan -- LA LAMINA DE LA ANTENA, leida y pintada por TITAN++ (F4 de
+# docs/plan/EL_FOCO.md, 10-10). El port de `runtime/lamina/lamina.inti` de
+# INTI, linea a linea: la misma gramatica, los mismos NO, los mismos pixeles.
+#
+#    LAMINA <ancho> <alto> <n>                cabecera: la pagina ENTERA
+#    CAJA   <x> <y> <ancho> <alto> <rrggbb>   un rectangulo relleno
+#    TEXTO  <x> <y> <escala> <rrggbb> <bytes> una tira YA partida en lineas
+#    ENLACE <x> <y> <ancho> <alto> <id>       zona clicable (no se pinta)
+#
+# Los bytes se leen DONDE ESTAN (`director.byte`): lo que el antenista
+# ofrecio, o el fichero. Un numero y donde acaba van en un int:
+# valor * 2^32 + indice (NADA, -1, si no lo hay). Una lamina con una linea
+# mala NO se pinta a medias en silencio: se dice cual (`pinta` da
+# codigo * 65536 + linea, 0 si toda bien).
+mod lamina "la lamina de la antena: leerla y pintarla"
+use director
+
+# Lo que no hay.
+pub fn nada() -> int
+    return -1
+
+# Los NO, con su nombre.
+pub fn nombre(codigo: int) -> text
+    if codigo == 1
+        return "cabecera"
+    if codigo == 2
+        return "numero"
+    if codigo == 3
+        return "palabra"
+    if codigo == 4
+        return "fuera"
+    if codigo == 5
+        return "color"
+    if codigo == 6
+        return "escala"
+    return "?"
+
+fn par(v: int, i: int) -> int
+    return v * 4294967296 + i
+
+fn indice(p: int) -> int
+    return p % 4294967296
+
+fn valor(p: int) -> int
+    return (p - p % 4294967296) / 4294967296
+
+fn fin_linea(i: int, fin: int) -> int
+    let mut k = i
+    while k < fin
+        if director.byte(k) == 10
+            return k
+        k = k + 1
+    return fin
+
+fn salta(i: int, fin: int) -> int
+    let mut k = i
+    while k < fin
+        let c = director.byte(k)
+        if c != 32 and c != 13
+            return k
+        k = k + 1
+    return k
+
+fn numero(i: int, fin: int) -> int
+    let mut k = salta(i, fin)
+    let mut v = 0
+    let mut cifras = 0
+    while k < fin
+        let c = director.byte(k)
+        if c < 48 or c > 57
+            if cifras == 0
+                return nada()
+            if v > 65535
+                return nada()
+            return par(v, k)
+        v = v * 10 + (c - 48)
+        if v > 65535
+            return nada()
+        cifras = cifras + 1
+        k = k + 1
+    if cifras == 0
+        return nada()
+    return par(v, k)
+
+fn hex(c: int) -> int
+    if c >= 48 and c <= 57
+        return c - 48
+    if c >= 97 and c <= 102
+        return c - 87
+    if c >= 65 and c <= 70
+        return c - 55
+    return 16
+
+fn color(i: int, fin: int) -> int
+    let mut k = salta(i, fin)
+    let mut v = 0
+    let mut n = 0
+    while n < 6
+        if k >= fin
+            return nada()
+        let h = hex(director.byte(k))
+        if h == 16
+            return nada()
+        v = v * 16 + h
+        k = k + 1
+        n = n + 1
+    if k < fin
+        let c = director.byte(k)
+        if c != 32 and c != 10 and c != 13
+            return nada()
+    return par(v, k)
+
+# La palabra `w` (sus bytes, 0 detras) en `i`: donde acaba, o NADA.
+fn es_palabra(i: int, fin: int, w: [int; 8]) -> int
+    let mut k = i
+    for n in range(8)
+        if w[n] == 0
+            if k < fin
+                let c = director.byte(k)
+                if c != 32 and c != 10 and c != 13
+                    return nada()
+            return k
+        if k >= fin
+            return nada()
+        if director.byte(k) != w[n]
+            return nada()
+        k = k + 1
+    return k
+
+# La cabecera: ancho * 2^44 + alto * 2^24 + donde empieza lo siguiente, o NADA.
+pub fn cabecera(largo: int) -> int
+    let palabra: [int; 8] = [76, 65, 77, 73, 78, 65, 0, 0]
+    let fin = fin_linea(0, largo)
+    let k = es_palabra(0, fin, palabra)
+    if k == nada()
+        return nada()
+    let a = numero(k, fin)
+    if a == nada()
+        return nada()
+    let b = numero(indice(a), fin)
+    if b == nada()
+        return nada()
+    let n = numero(indice(b), fin)
+    if n == nada()
+        return nada()
+    if valor(a) == 0 or valor(b) == 0
+        return nada()
+    return valor(a) * 17592186044416 + valor(b) * 16777216 + fin + 1
+
+pub fn ancho(cab: int) -> int
+    return (cab - cab % 17592186044416) / 17592186044416
+
+pub fn alto(cab: int) -> int
+    let resto = cab % 17592186044416
+    return (resto - resto % 16777216) / 16777216
+
+fn siguiente(cab: int) -> int
+    return cab % 16777216
+
+fn caja(px: int, py: int, an: int, al: int, c: int, desliz: int)
+    if py + al <= desliz
+        return
+    if py >= desliz
+        director.rect(px, py - desliz, an, al, c)
+        return
+    director.rect(px, 0, an, py + al - desliz, c)
+
+fn tira(i: int, fin: int, px: int, py: int, escala: int, c: int, desliz: int, alto_v: int)
+    if py < desliz
+        return
+    if py - desliz >= alto_v
+        return
+    let mut x = px
+    let mut k = i
+    while k < fin
+        let b = director.byte(k)
+        if b != 13
+            x = director.letra(x, py - desliz, b, escala, c)
+        k = k + 1
+
+fn linea_caja(i: int, fin: int, cab: int, desliz: int, se_pinta: bool) -> int
+    let a = numero(i, fin)
+    if a == nada()
+        return 2
+    let b = numero(indice(a), fin)
+    if b == nada()
+        return 2
+    let c = numero(indice(b), fin)
+    if c == nada()
+        return 2
+    let d = numero(indice(c), fin)
+    if d == nada()
+        return 2
+    if valor(a) + valor(c) > ancho(cab) or valor(b) + valor(d) > alto(cab)
+        return 4
+    if se_pinta
+        let col = color(indice(d), fin)
+        if col == nada()
+            return 5
+        caja(valor(a), valor(b), valor(c), valor(d), valor(col), desliz)
+    return 0
+
+fn linea_texto(i: int, fin: int, cab: int, desliz: int, alto_v: int) -> int
+    let a = numero(i, fin)
+    if a == nada()
+        return 2
+    let b = numero(indice(a), fin)
+    if b == nada()
+        return 2
+    let e = numero(indice(b), fin)
+    if e == nada()
+        return 2
+    let escala = valor(e)
+    if escala == 0 or escala > 4
+        return 6
+    let col = color(indice(e), fin)
+    if col == nada()
+        return 5
+    let desde = indice(col) + 1
+    let mut largo = 0
+    if fin > desde
+        largo = fin - desde
+    if valor(a) + largo * 8 * escala > ancho(cab) or valor(b) + 16 * escala > alto(cab)
+        return 4
+    if largo > 0
+        tira(desde, fin, valor(a), valor(b), escala, valor(col), desliz, alto_v)
+    return 0
+
+# **Pintar la lamina** en la ventana (de `alto_v` de alto), desplazada
+# `desliz` pixeles: 0, o codigo * 65536 + la linea del NO.
+pub fn pinta(largo: int, desliz: int, alto_v: int) -> int
+    let w_caja: [int; 8] = [67, 65, 74, 65, 0, 0, 0, 0]
+    let w_texto: [int; 8] = [84, 69, 88, 84, 79, 0, 0, 0]
+    let w_enlace: [int; 8] = [69, 78, 76, 65, 67, 69, 0, 0]
+    let cab = cabecera(largo)
+    if cab == nada()
+        return 65536 + 1
+    let mut i = siguiente(cab)
+    let mut linea = 2
+    while i < largo
+        let fin = fin_linea(i, largo)
+        let ini = salta(i, fin)
+        let mut codigo = 0
+        if ini < fin
+            let mut k = es_palabra(ini, fin, w_caja)
+            if k != nada()
+                codigo = linea_caja(k, fin, cab, desliz, true)
+            else
+                k = es_palabra(ini, fin, w_texto)
+                if k != nada()
+                    codigo = linea_texto(k, fin, cab, desliz, alto_v)
+                else
+                    k = es_palabra(ini, fin, w_enlace)
+                    if k != nada()
+                        codigo = linea_caja(k, fin, cab, desliz, false)
+                    else
+                        codigo = 3
+        if codigo != 0
+            return codigo * 65536 + linea
+        i = fin + 1
+        linea = linea + 1
+    return 0

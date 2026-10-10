@@ -125,7 +125,8 @@ La recomendacion era **congelar primero** (D4).
        flotantes IEEE dichos por escrito y ni un comportamiento indefinido.
        El decimal es aritmetica de software para el dinero de las apps
    D3  los ficheros, bico.inti y png.inti SE QUEDAN: leer lo que escribio
-       otro sin desbordar un bufer es seguridad de sistema
+       otro sin desbordar un bufer es seguridad de sistema. **REESCRITA el
+       10-10:** salen tambien, con su relevo en TITAN++ (1d de EL_FOCO)
    D4  `perfil pleno` se va a TITAN++: CONGELADO hoy (E0077), borrado en el
        escalon 4-5
 ```
@@ -180,26 +181,31 @@ cada relevo:
    el cubo de VERRANO          cubo.inti            titan/cubogira.bex (LB7)    FUERA, 09-10 (4a)
    (runtime/verrano.inti,
    [verrano] de modulos.toml)
-   la ventana (superficie,     sondas/ventana.inti  `screen`: TA2 de            espera su relevo
-   entrada, letra)                                  PLAN_LA_TINTA (la ventana,
-                                                    una fila de pixeles, el
-                                                    buzon)
+   la ventana (superficie,     sondas/ventana.inti  `director.ventana` y los    FUERA, 10-10 (4c):
+   entrada, letra)                                  suyos (F1-F3 de EL_FOCO):   la sonda y NAVEGAR;
+                                                    titan/ventana.bex           su runtime, en 4b
    el sonido ([sonido])        ejemplos/musica.inti el sonido en TITAN++        espera su relevo
                                                     (no existe: ni la palabra)
-   NAVEGAR (lamina de          apps/navegar.inti    el port de D1 (PLAN_        espera su relevo
-   navegar, texto, monton,                          NAVEGAR): tipos, tablas y
-   objetos)                                         la ventana de arriba
-   el perfil `pleno`           congelado (E0077)    los niveles 6-13 de         sale con navegar
-                                                    TITAN++ (dec, tablas,
+   NAVEGAR (lamina de          apps/navegar.inti    apps/navegar/ en TITAN++    FUERA, 10-10 (4c):
+   navegar, texto, monton,                          (F4 de EL_FOCO: los mismos  los mismos pixeles
+   objetos)                                         pixeles)
+   el perfil `pleno`           congelado (E0077)    los niveles 6-13 de         lo usan las sondas
+                                                    TITAN++ (dec, tablas,       del censo: paso 5
                                                     listas, mapas)
+   las herramientas de         ejemplos/bico.inti   apps/bico y apps/png en     FUERA, 10-10 (4e):
+   imagen (bico, png)          ejemplos/png.inti    TITAN++ (`director.crea`,   los mismos bytes y
+                                                    `escribe`, `cierra`)        los ficheros rotos
 ```
 
 **Lo que NO pierde**, y no es una contradiccion con *"perder todo"*: lo de
 CPU es lo que hace de INTI la puerta de TITAN++ a la CPU. `cpu.inti` y
 `pulso.inti` (llano, vistos en el Ryzen) y el emisor se quedan. `bico.inti`
-y `png.inti` se quedan por D3 (leer lo que escribio otro sin desbordar un
-bufer es seguridad de sistema): [!] si el propietario quiere tambien esas
-fuera, D3 se reescribe -- hoy sigue en pie.
+y `png.inti` se quedaban por D3 (leer lo que escribio otro sin desbordar un
+bufer es seguridad de sistema). **10-10, D3 REESCRITA** (el propietario:
+*"se pueden degradar mas? [...] png, bico y otros (no quites el CPU)"*):
+salen tambien, con su relevo en TITAN++ -- que juzga cada indice igual que
+INTI: la seguridad de D3 viaja con ellas --, y no antes. Ver 1d de
+[`EL_FOCO.md`](EL_FOCO.md).
 
 ## 3.2 PROPUESTA (04-10): el decimal de Grace Hopper, al estilo del Ryzen
 
@@ -246,6 +252,11 @@ escrita para que el propietario diga si; no se ha tocado codigo.
           HECHO el 09-10 (4a): fuera del build y del metro, con su motivo
           en `metro/src/main.rs`; su relevo (`nivel11/cubo_gira`) entro en
           el banco del metro
+   [x] 4c NAVEGAR y la sonda de la VENTANA salen de INTI (10-10, F5 de
+          EL_FOCO): `apps/navegar/navegar.inti`, `sondas/ventana.inti` y
+          sus pruebas; el build, el metro, la medida y el ANTENISTA dicen
+          `apps/navegar.bex` (TITAN++, los mismos pixeles) y
+          `titan/ventana.bex`
    [x] 4a VERRANO sale de INTI (09-10, 3.3): `ejemplos/cubo.inti`,
           `runtime/verrano.inti`, `[verrano]` y las constantes `verrano_*`
           de modulos.toml, sus diez filas del espejo del kernel, sus cuatro
@@ -253,10 +264,18 @@ escrita para que el propietario diga si; no se ha tocado codigo.
           el DIRECTOR nombra solo `titan/cubogira.bex`. INTI: 243 + 265
           pruebas en verde; el metro, limpio con una fila menos y la del
           relevo
-   [ ] 4  fuera el resto del runtime de app (objetos, monton, superficie,
-          lamina, entrada, letra) y sus secciones de modulos.toml, con sus
-          pruebas (la de `tests/fuente.rs` incluida: bmo-fontgen deja de
-          emitir la copia INTI) -- cada pieza con su relevo (3.3)
+   [x] 4b la superficie, la lamina, la entrada y la letra salen de INTI
+          (10-10, el propietario: "quita todo el INTI por completo que INTI
+          HACE, ventana..."): `runtime/superficie/`, `lamina/`, `entrada/` y
+          `fuente/`, `[entrada]`, `[superficie]`, `[lamina]` y las
+          constantes `sup_*`, `evento_*`, `estado_*` y `vista_*` de
+          modulos.toml con sus filas del espejo, `tests/fuente.rs`, los
+          gemelos de C (`gemelos_inti.rs`) y la cuarta salida de fontgen. Su
+          relevo: F1-F3 de EL_FOCO (TITAN++ abre ventanas, lee su buzon y
+          escribe la letra)
+   [ ] 4  fuera el resto del runtime de app (objetos y monton) -- con su
+          relevo (3.3): `png.inti` y `cpu.inti` usan el monton, y se
+          quedan mientras sean de CPU
    [ ] 5  el emisor pierde los caminos del monton y de los objetos; los docs
           de INTI dicen UN perfil
    [ ] 6  EL PRIMER CORTE DE VELOCIDAD: asignacion de registros (INTI_MAESTRO

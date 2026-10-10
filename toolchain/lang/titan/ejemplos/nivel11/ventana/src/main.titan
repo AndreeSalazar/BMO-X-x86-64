@@ -1,0 +1,39 @@
+# espera: BIEN
+# sale: nadie compone: la ventana no se ofrece a nadie
+# LA VENTANA de TITAN++ (F1 de docs/plan/EL_FOCO.md, 10-10): una superficie de BMO-X pedida, pintada y ofrecida al escritorio, como la de C (`roja.h`) y la que tuvo INTI hasta el 10-10. Un degradado arriba, un fondo, y una barra blanca que cruza la ventana durante diez segundos; cada fotograma, `presenta`. Su MEDIDA es la que eligio la app RESOLUCION (datos/resolucion.txt, R1), o 320 x 200. Lanzado desde el shell nadie compone, y lo dice; las pruebas `tests/ventana.rs` y `tests/resolucion.rs` del emisor la lanzan con un escritorio de mentira y leen sus pixeles
+mod main "una ventana de TITAN++: un degradado y una barra que la cruza"
+use director
+mod medida
+
+fn main()
+    # La medida: la guardada por RESOLUCION, si se entiende y cabe; si no, 320 x 200.
+    let mut ancho = 320
+    let mut alto = 200
+    if director.fichero("datos/resolucion.txt")
+        let a = medida.ancho()
+        let h = medida.alto()
+        if a >= 64 and a <= 4096 and h >= 64 and h <= 4096
+            ancho = a
+            alto = h
+    if not director.ventana(ancho, alto)
+        print("nadie compone: la ventana no se ofrece a nadie")
+        return
+    # El fondo, azul oscuro; y arriba, un degradado de rojo a amarillo: el
+    # verde sube de 4 en 4, de 0 a 252, de lado a lado.
+    let fondo = 20 * 65536 + 30 * 256 + 60
+    director.rect(0, 0, ancho, alto, fondo)
+    for x in range(ancho)
+        # x * 64 / ancho, exacta: TITAN++ no deja una division que no lo sea
+        let paso = (x * 64 - x * 64 % ancho) / ancho
+        director.rect(x, 0, 1, 40, 255 * 65536 + paso * 4 * 256)
+    director.presenta()
+    # La barra, a media altura: borra la de antes con el fondo, pinta la
+    # nueva, presenta.
+    let y = (alto - alto % 2) / 2
+    let mut x = 0
+    for f in range(600)
+        director.rect(x, y, 20, 40, fondo)
+        x = (f * 2) % (ancho - 20)
+        director.rect(x, y, 20, 40, 16777215)
+        director.presenta()
+        director.espera(16)

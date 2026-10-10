@@ -88,10 +88,7 @@ const BANCO: &[(&str, &str)] = &[
     ("cobol", "toolchain/lang/cobol/examples/9-decision/comision.cob"),
     ("ada", "toolchain/lang/ada/examples/1-basico/cierre.adb"),
     ("inti", "toolchain/lang/inti/sondas/pulso.inti"),
-    ("inti", "toolchain/lang/inti/sondas/ventana.inti"),
-    ("inti", "toolchain/lang/inti/ejemplos/bico.inti"),
     ("inti", "toolchain/lang/inti/ejemplos/musica.inti"),
-    ("inti", "Ultra_userspace/apps/navegar/navegar.inti"),
     // ** TITAN++ entro el 04-10, con sus programas BIEN de los niveles 0-3.
     // Hasta el nivel 3 todo valor se sabe al compilar y el `.bex` solo
     // escribe resultados: sus numeros son el SUELO (E0), no una victoria
@@ -131,6 +128,18 @@ const BANCO: &[(&str, &str)] = &[
     // fn al correr y publicado en la lamina de VERRANO (LB7). En el emulador
     // nadie compone: escribe sus tres cuentas y lo dice.
     ("titan", "toolchain/lang/titan/ejemplos/nivel11/cubo_gira/src/main.titan"),
+    // ** F1 y F4 de EL_FOCO (10-10): la ventana de TITAN++ y NAVEGAR, que
+    // releva al de INTI (corte 4c). Desde el shell: sin escritorio que
+    // componga, lo dicen y salen.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel11/ventana/src/main.titan"),
+    ("titan", "Ultra_userspace/apps/navegar/src/main.titan"),
+    // ** R1 de EL_FOCO (10-10): RESOLUCION, la primera que GUARDA; y la
+    // ventana de arriba, que desde ese dia lee la medida antes de abrirse.
+    ("titan", "Ultra_userspace/apps/resolucion/src/main.titan"),
+    // ** Corte 4e de INTI (10-10): las herramientas de imagen, de TITAN++.
+    // Sin ficheros, BICO dice sus dos 1 y sale; PNG escribe su fichero.
+    ("titan", "Ultra_userspace/apps/bico/src/main.titan"),
+    ("titan", "Ultra_userspace/apps/png/src/main.titan"),
     // Nivel 12 (05-10): lo que viene de fuera -- E1, el primer codigo de
     // TITAN++ que corre DE VERDAD en la maquina (PLAN_LA_ENTRADA).
     ("titan", "toolchain/lang/titan/ejemplos/nivel12/pregunta.titan"),

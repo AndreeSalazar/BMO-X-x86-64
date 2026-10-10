@@ -30,18 +30,21 @@ use crate::scene::output::paint_output;
 use crate::scene::{self, paint_field, paint_status, acento, INK_BAD};
 use crate::{erase_window, uncover};
 
-/// **Ejecutar esta DELANTE de las apps** (Ctrl+Alt, 01-10): arriba y con el
-/// teclado. Lo preguntan quien compone y quien reparte el raton: lo que se ve
-/// encima es lo que recibe el clic.
-pub(crate) fn run_delante(dsk: &Desktop) -> bool {
-    dsk.win.visible && dsk.win.top_before == Ventana::Run && dsk.win.focus.actual() == Some(Ventana::Run)
+/// **Que se ve en el punto `(x, y)`: una app o una ventana fija.** Lo dice
+/// el apilado (`foco::apilado`, 10-10): la de DELANTE en ese punto, sea app
+/// o del sistema. `true`: el punto es de una app.
+pub(crate) fn app_encima(dsk: &Desktop, x: u32, y: u32) -> bool {
+    app_en(dsk, x, y).is_some()
 }
 
-/// **Que tapa el punto `(x, y)`: una app o una ventana fija.** Las apps se
-/// componen encima de las ventanas del sistema, salvo Ejecutar delante en su
-/// caja. `true`: el punto es de una app.
-pub(crate) fn app_encima(dsk: &Desktop, x: u32, y: u32) -> bool {
-    dsk.table.at(x, y).is_some() && !(run_delante(dsk) && dsk.run_box.contains(x, y))
+/// **La app que se ve en el punto**: la de delante, si es una app. Es la
+/// que se lleva el clic -- antes era la primera de la mesa, estuviera
+/// delante o no --.
+pub(crate) fn app_en(dsk: &Desktop, x: u32, y: u32) -> Option<usize> {
+    match crate::desktop::foco::delante_en(dsk, x, y) {
+        Some(Ventana::App(i)) => Some(i as usize),
+        _ => None,
+    }
 }
 
 /// **La terminal pinto: las apps que la tapan se vuelven a pegar.**
@@ -58,14 +61,26 @@ pub(crate) fn app_encima(dsk: &Desktop, x: u32, y: u32) -> bool {
 /// encima.
 fn repintar_apps_encima(dsk: &mut Desktop) {
     let (x, y, w, h) = (dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h());
-    for s in dsk.table.iter_mut() {
+    // ** 10-10: SOLO las de DELANTE de Ejecutar en el apilado. Las de detras
+    // no la pisan (se pegan sin ella), y repintarlas pintaria su cromo encima
+    // y obligaria a devolverla -- cada fotograma --.
+    let (orden, _, n) = crate::desktop::foco::apilado(dsk);
+    let run = orden[..n].iter().position(|&v| v == Ventana::Run).unwrap_or(n);
+    let mut delante = [false; scene::surface::MAX];
+    for &v in &orden[..run] {
+        if let Ventana::App(i) = v {
+            delante[i as usize] = true;
+        }
+    }
+    for i in 0..scene::surface::MAX {
+        let Some(s) = dsk.table.get_mut(i) else { continue };
         let c = &s.chrome;
         let se_tocan = !c.minimized
             && c.x < x + w
             && x < c.x + c.width
             && c.y < y + h
             && y < c.y + c.height;
-        if se_tocan {
+        if se_tocan && delante[i] {
             s.repaint_all();
         }
     }
@@ -77,8 +92,9 @@ fn repintar_apps_encima(dsk: &mut Desktop) {
 /// de fondo donde estaba la lista. Ver `scene::perjuicio`, que es quien apunta.
 ///
 /// El orden es el Z-order: **de atras hacia delante segun la lista del foco**
-/// (`foco::de_atras_adelante`), y las apps se recomponen al final porque van
-/// encima de todas. Hasta el 23-09 era "todas las que no son la de arriba, en
+/// (`foco::de_atras_adelante`), y las apps se recomponen al final por el
+/// apilado (`componer_apilado`, 10-10).
+/// Hasta el 23-09 era "todas las que no son la de arriba, en
 /// el orden del enum, y la de arriba al final": con tres ventanas pisandose, la
 /// de en medio podia salir encima de la de delante.
 fn devolver(dsk: &mut Desktop, p: &bmo::Pantalla) {
@@ -121,8 +137,14 @@ fn devolver(dsk: &mut Desktop, p: &bmo::Pantalla) {
             algo = true;
         }
     }
-    if algo {
-        for s in dsk.table.iter_mut() {
+    // Las apps, enteras otra vez: todas si se devolvio alguna del sistema, y
+    // si no las que el borrado toco (10-10: una app QUIETA detras de otra que
+    // se movio no hace fotograma nuevo, y su trozo destapado se quedaba con el
+    // fondo). Se pegan por el apilado (`componer_apilado`), sin pisar las de
+    // delante.
+    for s in dsk.table.iter_mut() {
+        let c = &s.chrome;
+        if algo || (!c.minimized && scene::dirty::toca(c.x, c.y, c.width, c.height)) {
             s.repaint_all();
         }
     }
@@ -157,6 +179,84 @@ pub(crate) fn pintar_ventana(dsk: &mut Desktop, p: &bmo::Pantalla, v: Ventana) {
             &mut dsk.tick.repaint_field,
         ),
     }
+}
+
+/// ** LAS APPS, COMPUESTAS POR EL APILADO (10-10). El propietario: *"al estar
+/// con una ventana con cualquier app choca, se mezclan o uno predomina"*. Se
+/// pegaban en el orden de su hueco y siempre encima de las del sistema: la
+/// que cambiaba despues tapaba a la otra, y el CROMO de una de detras (borde,
+/// titulo y fondo, que se pinta ENTERO al repintarla: perder el foco, soltar
+/// Alt) caia encima de la de delante hasta que esta volviera a pintarse.
+///
+/// Ahora, de ATRAS hacia DELANTE por `foco::apilado`:
+///
+/// ```text
+///    cada app   se pega sin lo que le tapan las de delante (y lo de encima
+///               de todo, Alt+Tab): `bmo_foco::encima::tramos`
+///    su cromo   si se pinto ENTERO, lo de delante que pisa se devuelve: las
+///               del sistema se repintan ya (de atras hacia delante) y las
+///               apps se repegan enteras, mas adelante en este mismo bucle
+/// ```
+/// Una ventana del sistema, otra vez encima, SIN tocar la rejilla de iconos:
+/// Ejecutar como en `devolver` (su caja, y su campo y su salida en el bloque
+/// de pintado); las otras, enteras. `uncover` apuntaria los iconos como
+/// perjudicados, y eso volveria a pedir repintar en el fotograma siguiente.
+fn devolver_ventana(dsk: &mut Desktop, p: &bmo::Pantalla, v: Ventana) {
+    if v == Ventana::Run {
+        if dsk.win.visible {
+            scene::paint_run_box(p, &dsk.run_box);
+            dsk.tick.repaint_field = true;
+            dsk.out.grid.dirty = true;
+        }
+    } else {
+        pintar_ventana(dsk, p, v);
+    }
+}
+
+fn componer_apilado(dsk: &mut Desktop, p: &bmo::Pantalla, encima: Option<(u32, u32, u32, u32)>) -> bool {
+    use bmo_foco::encima::{se_pisan, tapan, MAX_CAJAS};
+    let (orden, cajas, n) = crate::desktop::foco::apilado(dsk);
+    let mut painted = false;
+    for k in (0..n).rev() {
+        let Ventana::App(i) = orden[k] else { continue };
+        let mut t = [(0, 0, 0, 0); MAX_CAJAS];
+        let mut m = tapan(&cajas[..n], k, &mut t);
+        if let Some(e) = encima {
+            if m < MAX_CAJAS {
+                t[m] = e;
+                m += 1;
+            }
+        }
+        let (pinto, cromo) = dsk.table.componer_una(i as usize, p, &t[..m]);
+        painted |= pinto;
+        let Some(mia) = cajas[k].filter(|_| cromo) else { continue };
+        // Lo devuelto, de atras hacia delante: lo que pisa a la app o a algo
+        // ya devuelto.
+        let mut devueltas = [mia; MAX_CAJAS];
+        let mut d = 1;
+        for j in (0..k).rev() {
+            let Some(otra) = cajas[j] else { continue };
+            if !devueltas[..d].iter().any(|&c| se_pisan(c, otra)) {
+                continue;
+            }
+            match orden[j] {
+                Ventana::App(a) => {
+                    if let Some(s) = dsk.table.get_mut(a as usize) {
+                        s.repaint_all();
+                    }
+                }
+                // Con Alt+Tab encima no: pintaria sobre la tarjeta. Al soltar
+                // Alt se repinta todo de atras hacia delante.
+                v if encima.is_none() => devolver_ventana(dsk, p, v),
+                _ => {}
+            }
+            if d < MAX_CAJAS {
+                devueltas[d] = otra;
+                d += 1;
+            }
+        }
+    }
+    painted
 }
 
 pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
@@ -518,7 +618,18 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     }
     // ** D2c: las apps A LA 3060 (DOOM con `gpu doom`) no se pegan: la 3060
     // las agranda directamente en la pantalla. Antes de componer las demas.
-    let manda_la_3060 = crate::commands::gspcomputo::presentar_apps(&mut dsk.table, &p);
+    // ** 10-10: LO DE ENCIMA MANDA. Con Alt+Tab abierto, su caja no la pisa
+    // ninguna app -- ni a pantalla completa -- y la 3060 se queda quieta hasta
+    // soltar Alt (`bmo_foco::encima`). Antes la tarjeta parpadeaba: la tapaba
+    // cada fotograma nuevo.
+    let encima = dsk.win.switcher_painted.then(|| scene::switcher::area(&p, dsk.win.focus.abiertas()));
+    let manda_la_3060 = crate::commands::gspcomputo::presentar_apps(&mut dsk.table, &p, encima.is_some());
+    // ** Q0a3 (EL_FOCO, 10-10): la lamina de una app con ventana, dibujada por
+    // la 3060 (por VERRANO) en un bloque que es la ventana. Un dibujo nuevo
+    // pide pintar.
+    if crate::commands::gspcubo::laminas_en_su_ventana(dsk, &p) {
+        dsk.tick.will_paint = true;
+    }
     if dsk.tick.will_paint {
         for &(vx, vy, va, vl) in dsk.tick.dead_boxes[..dead].iter() {
             erase_window(&p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
@@ -532,11 +643,11 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
             }
         }
         devolver(dsk, p);
-        // Ejecutar delante (Ctrl+Alt, 01-10): las apps no la pisan.
-        let tapa = run_delante(dsk).then(|| (dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h()));
-        dsk.table.compose(&p, tapa);
+        // Cada app, sin lo que le tapa la de delante (Ejecutar delante con
+        // Ctrl+Alt incluida: esta delante en el apilado).
+        componer_apilado(dsk, &p, encima);
         // Y encima de las apps sin marco, su borde vivo y sus botones.
-        crate::desktop::marco::poner(dsk, &p, fs || tapa.is_some());
+        crate::desktop::marco::poner(dsk, &p, fs || encima.is_some());
     }
 
     if dsk.tick.loops == 1 {

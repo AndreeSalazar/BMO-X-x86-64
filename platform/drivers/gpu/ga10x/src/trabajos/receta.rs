@@ -349,6 +349,10 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
     // La cabecera de VRN1 de la misma forma, y se le cambia la magia.
     let d = r.dibujo;
     let (dva, dst) = d.destino?;
+    // Q0a1: la medida que quepa; con Z, la de VERRANO (`tuberia::cabe`).
+    if !dst.valido() || !tu::cabe(&d) {
+        return None;
+    }
     let estado = match d.descarte {
         tu::Descarte::Ninguna => 0,
         tu::Descarte::Traseras => 1,

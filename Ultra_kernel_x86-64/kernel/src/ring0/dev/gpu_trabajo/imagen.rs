@@ -43,6 +43,9 @@ pub const PRESTADO: u64 = 1 << 62;
 
 /// El formato de la tanda: `ancho | alto << 16 | ficha << 32`; 0 = ninguno.
 static FORMATO: AtomicU64 = AtomicU64::new(0);
+/// Los fotogramas EN VIVO (prestados) presentados: uno de cada
+/// `im::CADA` se comprueba (`im::toca_mirar`, 10-10).
+static EN_VIVO: AtomicU64 = AtomicU64::new(0);
 
 fn formato() -> Option<(im::Formato, u32)> {
     let v = FORMATO.load(Ordering::Acquire);
@@ -105,7 +108,13 @@ pub fn imagen(arg: u64) -> Result<u64, u32> {
     if !bl::entrada_valida(en) || super::gr_ocupado() {
         return Err(IOMMU_NO_IMAGEN);
     }
-    let r = imagen_(bar0, ficha, en, (fisica, dentro, paginas), &f, &e, &p, arg & CARGAR != 0);
+    // ** 10-10, EL CUELLO DE BOTELLA: en vivo (el fotograma prestado de
+    // DOOM), las muestras -- 560 us por el PCIe, lo que dibujar -- al cargar
+    // el programa y una vez de cada `im::CADA`; las demas, `im::SIN_MIRAR`.
+    // Un fotograma de un bloque propio (`gpu imagen`) se comprueba siempre.
+    let cargar = arg & CARGAR != 0;
+    let mirar = arg & PRESTADO == 0 || im::toca_mirar(EN_VIVO.fetch_add(1, Ordering::Relaxed), cargar);
+    let r = imagen_(bar0, ficha, en, (fisica, dentro, paginas), &f, &e, &p, cargar, mirar);
     BLUR_EN_MARCHA.store(false, Ordering::Release);
     r
 }
@@ -113,7 +122,7 @@ pub fn imagen(arg: u64) -> Result<u64, u32> {
 #[allow(clippy::too_many_arguments)]
 /// `origen` = (la fisica de la primera pagina, donde empieza el fotograma
 /// dentro de ella, cuantas paginas se prestan).
-fn imagen_(bar0: u64, ficha: u32, en: u32, origen: (u64, u64, u64), f: &im::Formato, e: &im::Encaje, p: &pa::Pantalla, cargar: bool) -> Result<u64, u32> {
+fn imagen_(bar0: u64, ficha: u32, en: u32, origen: (u64, u64, u64), f: &im::Formato, e: &im::Encaje, p: &pa::Pantalla, cargar: bool, mirar: bool) -> Result<u64, u32> {
     let (fisica, dentro, paginas) = origen;
     let mut r = Bar0(bar0);
     let nuevo = asegurar_mapas(&mut r, p).map_err(|_| IOMMU_NO_IMAGEN)?;
@@ -154,6 +163,10 @@ fn imagen_(bar0: u64, ficha: u32, en: u32, origen: (u64, u64, u64), f: &im::Form
     core::sync::atomic::fence(Ordering::SeqCst);
     // Las muestras: la imagen del bloque y la pantalla, las dos por el
     // physmap (la pantalla con `clflush`, como `video`).
+    // Sin turno de comprobar (`imagen`, arriba): dicho, no fingido.
+    if !mirar {
+        return Ok(im::empaquetar(im::SIN_MIRAR, qmd == im::PAGA_QMD, fin == im::PAGA_FIN, lanzado, us as u32, 0));
+    }
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
     // SAFETY: `fisica_de` o `fisica_tomada` dieron `paginas` marcos SEGUIDOS
     // desde `fisica` (un bloque del proceso, o un prestamo que tomo), dentro

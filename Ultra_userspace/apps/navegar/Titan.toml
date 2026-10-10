@@ -1,0 +1,5 @@
+[package]
+name = "navegar"
+
+[permissions]
+screen = true

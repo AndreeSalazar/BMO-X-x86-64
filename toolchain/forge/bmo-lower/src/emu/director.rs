@@ -32,10 +32,21 @@ impl Machine {
     /// BSUP como la lee `scene/surface.rs` (campo 6 = donde empieza el buzon,
     /// campo 7 = ranuras) y avanza la CABEZA; la cola es de la app.
     pub(super) fn repartir_buzon(&mut self) {
-        use bmo_abi::syscalls::surface::{SUP_BUZON_CABECERA, SUP_BUZON_RANURA};
+        use bmo_abi::syscalls::surface::{SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_MAGIC, SUP_TOMADA};
         let Some(&(base, desde, _, _)) = self.ofertas.first() else {
             return;
         };
+        // ** La TOMA (10-10): el DIRECTOR toma la superficie que se le ofrece y
+        // lo dice en el estado de su buzon (bit 24, `SUP_TOMADA`), como
+        // `scene/surface.rs`. Solo una superficie (la magia BSUP) con buzon.
+        {
+            let s = base + desde;
+            let buz = self.read_u32_mem(s + 24) as u64;
+            if self.read_u32_mem(s) as u64 == SUP_MAGIC && buz != 0 {
+                let estado = self.read_u64(s + buz + 8);
+                self.write_u64(s + buz + 8, estado | SUP_TOMADA);
+            }
+        }
         let Some(e) = self.buzon_pendiente.front().copied() else {
             return;
         };

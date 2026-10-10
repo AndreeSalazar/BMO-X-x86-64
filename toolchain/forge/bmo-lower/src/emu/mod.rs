@@ -325,6 +325,13 @@ pub struct Machine {
     /// ** Cuantas instrucciones ejecuto `run` (2026-09-18). Es el metro del
     /// emisor: determinista, y sale igual en cualquier maquina que compile.
     pub pasos: u64,
+    /// ** EL RELOJ (10-10, el cuello de botella de EL_FOCO): el emulador
+    /// cuenta a 1 GHz -- cada instruccion, un nanosegundo -- y un WAIT sin
+    /// asa ADELANTA el reloj lo que pidio dormir. `rdtsc` da
+    /// `pasos + dormido_ns`, y `TASK_OP_INFO(INFO_TSC_HZ)` mil millones. Es
+    /// lo que deja probar que un programa se pace por PLAZO (su fotograma
+    /// mide lo pedido) y no por siesta (trabajo + siesta).
+    pub dormido_ns: u64,
     /// ** Y de que clase fue cada una (`clases.rs`): pila, marco, salto...
     pub censo: clases::Censo,
     /// El disco, modelado: ruta -> contenido.
@@ -528,6 +535,7 @@ impl Machine {
             syscalls: Vec::new(),
             exited: false,
             pasos: 0,
+            dormido_ns: 0,
             censo: clases::Censo::default(),
             archivos: HashMap::new(),
             fallo_al_guardar: HashSet::new(),
@@ -1483,6 +1491,12 @@ impl Machine {
                 let second = self.fetch_u8();
                 match second {
                     0x05 => self.do_syscall(),
+                    // rdtsc: el reloj de 1 GHz (`dormido_ns`), en edx:eax.
+                    0x31 => {
+                        let t = self.pasos + self.dormido_ns;
+                        self.regs[RAX] = t & 0xFFFF_FFFF;
+                        self.regs[RDX] = t >> 32;
+                    }
 
                     // == SSE ESCALAR: doble Y simple, en `sse.rs` (2026-09-23) ==
                     0x10 | 0x11 | 0x2A | 0x2C | 0x2E | 0x2F | 0x51 | 0x54..=0x5F | 0x6E | 0x7E | 0xC2 | 0xC6 => {

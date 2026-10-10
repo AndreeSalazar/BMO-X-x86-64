@@ -111,6 +111,11 @@ pub struct Triangulo {
 
 /// **La ventana** de 1280x720 en la pantalla: centrada, con la esquina en un
 /// multiplo de 32 pixeles (128 B, lo que NVK exige a un destino lineal).
+///
+/// ** Q0a1 de `docs/plan/EL_FOCO.md` (10-10): y su MEDIDA. La de la pantalla
+/// es la de VERRANO (1280x720); la de un destino en la RAM de una app, la
+/// suya (`destino::Destino::ventana`). Las ordenes (`hasta_el_dibujo_de`)
+/// sacan de aqui el destino de color, el recorte y el viewport.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Ventana {
     pub x0: u32,
@@ -120,6 +125,9 @@ pub struct Ventana {
     /// Bytes por fila (la del GOP).
     pub fila: u32,
     pub rgb: bool,
+    /// Q0a1: su medida, en pixeles.
+    pub ancho: u32,
+    pub alto: u32,
 }
 
 /// La ventana en `p`, si cabe y el destino queda alineado.
@@ -130,7 +138,7 @@ pub const fn ventana(p: &Pantalla) -> Option<Ventana> {
     let x0 = ((p.ancho - ANCHO) / 2) & !31;
     let y0 = (p.alto - ALTO) / 2;
     let va = PANTALLA_VA + (y0 as u64 * p.pitch as u64 + x0 as u64) * 4;
-    Some(Ventana { x0, y0, va, fila: p.pitch * 4, rgb: p.rgb })
+    Some(Ventana { x0, y0, va, fila: p.pitch * 4, rgb: p.rgb, ancho: ANCHO, alto: ALTO })
 }
 
 /// Un pixel LEIDO de la pantalla (`0xAARRGGBB` si el GOP es BGR, `0xAABBGGRR`
@@ -356,9 +364,9 @@ pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool, mar
         e.marca(dir);
     }
     let formato = if v.rgb { FORMATO_RGB } else { td::FORMATO };
-    e.m(td::SET_COLOR_TARGET_A0, &[(v.va >> 32) as u32, v.va as u32, v.fila, ALTO, formato, td::MEMORIA_PITCH, 1, 0]);
+    e.m(td::SET_COLOR_TARGET_A0, &[(v.va >> 32) as u32, v.va as u32, v.fila, v.alto, formato, td::MEMORIA_PITCH, 1, 0]);
     e.m(td::SET_CT_SELECT, &[1]);
-    e.m(td::SET_SURFACE_CLIP_HORIZONTAL, &[ANCHO << 16, ALTO << 16]);
+    e.m(td::SET_SURFACE_CLIP_HORIZONTAL, &[v.ancho << 16, v.alto << 16]);
     e.m(td::SET_WINDOW_OFFSET_X, &[0, 0]);
     e.m(td::SET_SCISSOR_ENABLE0, &[0]);
     e.m(td::SET_CT_WRITE0, &[td::ESCRIBIR_RGBA]);
@@ -375,11 +383,12 @@ pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool, mar
     e.paso(ra::SET_VERTEX_STREAM_SUBSTITUTE_A, &[(z >> 32) as u32, z as u32]);
     e.paso(ra::SET_COLOR_TARGET_LAYER0, &[0]);
     e.paso(ra::SET_COLOR_COMPRESSION0, &[0]);
-    // El viewport de D3D: x * 640 + 640, y * -360 + 360, z * 1 + 0.
-    let (mw, mh) = ((ANCHO / 2) as f32, (ALTO / 2) as f32);
+    // El viewport de D3D: x * w/2 + w/2, y * -h/2 + h/2, z * 1 + 0 (en la
+    // de VERRANO, x * 640 + 640 e y * -360 + 360). Q0a1: el de la ventana.
+    let (mw, mh) = (v.ancho as f32 / 2.0, v.alto as f32 / 2.0);
     e.paso(ra::SET_VIEWPORT_SCALE_X0, &[f(mw), f(-mh), f(1.0), f(mw), f(mh), f(0.0), SIN_CRUZAR]);
     e.paso(ra::SET_VIEWPORT_SCALE_OFFSET, &[1]);
-    e.paso(ra::SET_VIEWPORT_CLIP_HORIZONTAL0, &[ANCHO << 16, ALTO << 16, 0, UNO]);
+    e.paso(ra::SET_VIEWPORT_CLIP_HORIZONTAL0, &[v.ancho << 16, v.alto << 16, 0, UNO]);
     e.paso(ra::SET_VIEWPORT_CLIP_CONTROL, &[RECORTE_Z]);
     e.paso(ra::SET_WINDOW_ORIGIN, &[0]);
     e.paso(ra::SET_VIEWPORT_PIXEL, &[0]);

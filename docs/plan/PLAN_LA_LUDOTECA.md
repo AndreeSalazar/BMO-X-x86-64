@@ -924,7 +924,7 @@ La escalera, con lo que hay de verdad: **DOOM** (hecho) -> **Freedoom** ->
 software) -> **Half-Life con la 3060** (su renderizador GL sobre AMPERE_B) ->
 ... -> **Cyberpunk 2077**.
 
-- [ ] **L0 -- Freedoom.** `freedoom1.wad` y `freedoom2.wad` en
+- [x] **L0 -- Freedoom.** `freedoom1.wad` y `freedoom2.wad` en
       `BMO-externo\doom\`, y el build (`build/ejemplos.ps1`, preparado el
       25-09) los deja en `apps\` como `freedm1.wad` y `freedm2.wad`: el FAT32
       de BMO-X busca por nombre 8.3. Falta que el port (`doomgeneric_bmo.c`,
@@ -935,6 +935,11 @@ software) -> **Half-Life con la 3060** (su renderizador GL sobre AMPERE_B) ->
       se cierra solo con Freedoom, el primer sospechoso es la ZONA:
       doomgeneric pide 6 MiB y Freedoom pesa mas que el shareware (`-mb 16`
       en el argv del port; ver el README de la expansion, seccion 4).
+      **09-10, ~22:40, VISTO en el Ryzen** (foto del propietario: *"con DOOM
+      FREEDOM ejecuto GPU como si nada"*): Freedoom jugandose -- sus
+      texturas, su cara y "PICKED UP 4 SHOTGUN SHELLS" --, con la 3060
+      despierta en ese arranque (la fila 2 de G0 en PLAN_LA_3060) y sin un
+      fallo de Ring 3 en el informe.
 - [ ] **L3 -- el jefe que ya compraste: Half-Life por software.** Xash3D
       FWGS (su renderizador de software) y hlsdk-portable, compilados para
       BMO-X, con la carpeta `valve/` copiada del Half-Life de Steam. Pide lo

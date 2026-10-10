@@ -73,9 +73,9 @@ fn un_perfil_que_no_existe_lo_dice() {
 
 #[test]
 fn el_usa_se_recoge_en_orden() {
-    let m = arbol("perfil pleno\nusa entrada\nusa superficie\n");
+    let m = arbol("perfil pleno\nusa memoria\nusa monton\n");
     let nombres: Vec<_> = m.valor.usa.iter().map(|(n, _)| n.as_str()).collect();
-    assert_eq!(nombres, vec!["entrada", "superficie"]);
+    assert_eq!(nombres, vec!["memoria", "monton"]);
 }
 
 // ===================================================================

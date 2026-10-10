@@ -65,6 +65,12 @@
 //! cerrojo entre dos procesos deja al escritorio esperando a una app colgada.
 //! Aqui una app que se para deja el ultimo fotograma publicado, y ya.
 //!
+//! ** LA LAMINA QUIROFANO (10-10, 1e de `docs/plan/EL_FOCO.md`): un dato, un
+//! sitio. El que espera un fotograma mira UNA palabra -- la secuencia,
+//! [`Lamina::secuencia`] -- y solo con una publicacion nueva copia, y una vez
+//! ([`Lamina::leer_si_nueva`]); lo que se dibuja es siempre un fotograma
+//! entero. La CPU orquesta (cuando y que); la GPU ejecuta lo que se ve.
+//!
 //! *** Y el lector NO SE CREE la cabecera: la capacidad tiene que caber en los
 //! bytes prestados, y el numero de vertices de una ranura en su capacidad y en
 //! triangulos enteros. Una app que mienta no saca al escritorio de su memoria:
@@ -207,10 +213,34 @@ impl<'a> Lamina<'a> {
 
     /// **Leer el ultimo fotograma publicado** (VERRANO), a `out`.
     pub fn leer(&self, out: &mut [Vertex]) -> Leido {
-        let s = self.w[CAMPO_SECUENCIA].load(Ordering::Acquire);
-        if s == 0 {
-            return Leido::Nada;
+        self.leer_si_nueva(0, out).1
+    }
+
+    /// La SECUENCIA publicada (0 = aun nada): mirarla cuesta una palabra, sin
+    /// copiar nada.
+    pub fn secuencia(&self) -> u32 {
+        self.w[CAMPO_SECUENCIA].load(Ordering::Acquire)
+    }
+
+    /// ** LA LAMINA QUIROFANO (10-10): `leer`, pero SOLO si la app publico
+    /// algo despues de `vista` (la secuencia de lo ultimo que se leyo). Si
+    /// no, `Leido::Nada` sin tocar un byte de `out`: el que espera un
+    /// fotograma nuevo mira UNA palabra por vuelta, no copia la ranura entera
+    /// cada vez. Da la secuencia que leyo (la que se pasa la proxima vez).
+    pub fn leer_si_nueva(&self, vista: u32, out: &mut [Vertex]) -> (u32, Leido) {
+        let s = self.secuencia();
+        if s == 0 || s == vista {
+            return (vista, Leido::Nada);
         }
+        match self.leer_ranura(s, out) {
+            // Pillada a medio escribir: NO se da por vista, la proxima mirada
+            // la vuelve a intentar.
+            Leido::Rota => (vista, Leido::Rota),
+            leido => (s, leido),
+        }
+    }
+
+    fn leer_ranura(&self, s: u32, out: &mut [Vertex]) -> Leido {
         let k = (s % 2) as usize;
         let e1 = self.w[CAMPO_SELLO + k].load(Ordering::Acquire);
         if e1 % 2 != 0 {
@@ -272,6 +302,34 @@ mod pruebas {
         assert_eq!(l.leer(&mut out), Leido::Fotograma { fotograma: 8, vertices: 18 });
         assert!(!l.publicar(9, &marca(9, 39)), "no cabe");
         assert!(!l.publicar(9, &marca(9, 4)), "no son triangulos enteros");
+    }
+
+    /// ** Quirofano: sin publicacion nueva, NADA se copia (`out` intacto); con
+    /// una, se lee entera y se apunta su secuencia.
+    #[test]
+    fn sin_nada_nuevo_no_se_copia_nada() {
+        let b = bloque(12);
+        let l = Lamina::crear(&b, 12).unwrap();
+        let centinela = Vertex { position: [9.0; 4], color: [9.0; 4] };
+        let mut out = [centinela; 12];
+        assert_eq!(l.leer_si_nueva(0, &mut out), (0, Leido::Nada));
+        assert!(l.publicar(1, &marca(1, 6)));
+        let (s, leido) = l.leer_si_nueva(0, &mut out);
+        assert_eq!((s, leido), (l.secuencia(), Leido::Fotograma { fotograma: 1, vertices: 6 }));
+        out = [centinela; 12];
+        assert_eq!(l.leer_si_nueva(s, &mut out), (s, Leido::Nada));
+        assert!(out.iter().all(|v| *v == centinela), "lo ya visto no se vuelve a copiar");
+        assert!(l.publicar(2, &marca(2, 3)));
+        let (s2, leido) = l.leer_si_nueva(s, &mut out);
+        assert_eq!((s2, leido), (s + 1, Leido::Fotograma { fotograma: 2, vertices: 3 }));
+        assert_eq!(&out[..3], &marca(2, 3)[..]);
+        // A medio escribir (sello impar): Rota, y la secuencia vista NO avanza.
+        assert!(l.publicar(3, &marca(3, 3)));
+        let k = (l.secuencia() % 2) as usize;
+        b[CAMPO_SELLO + k].fetch_add(1, Ordering::Relaxed);
+        assert_eq!(l.leer_si_nueva(s2, &mut out), (s2, Leido::Rota));
+        b[CAMPO_SELLO + k].fetch_add(1, Ordering::Relaxed);
+        assert_eq!(l.leer_si_nueva(s2, &mut out).1, Leido::Fotograma { fotograma: 3, vertices: 3 });
     }
 
     /// El lector no se cree la cabecera.

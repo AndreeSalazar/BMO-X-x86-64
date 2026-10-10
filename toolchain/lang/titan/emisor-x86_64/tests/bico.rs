@@ -1,77 +1,60 @@
-//! **DE BMP Y QOI A BICO, EN INTI: ejecutado, y contra ficheros ROTOS.**
+//! **DE BMP Y QOI A BICO, EN TITAN++: ejecutado, y contra ficheros ROTOS**
+//! (corte 4e de INTI, 1d de `docs/plan/EL_FOCO.md`, 10-10).
 //!
-//! Peticion de Eddi (2026-09-12): *"que podria buildear INTI para BMO-X? ...
-//! dale con el conversor BMP/QOI a BICO"*.
-//!
-//! ## Lo que se comprueba, y por que asi
-//!
-//! Los ficheros de entrada se construyen AQUI, byte a byte, y los pixeles que
-//! tienen que salir estan escritos a mano. No hay un decodificador de referencia
-//! en Rust: si lo hubiera y tuviera el mismo fallo que el de INTI, las dos
+//! Las MISMAS pruebas que tenia `bico.inti` (`toolchain/lang/inti/
+//! emisor-x86_64/tests/bico.rs`, que se fue con el), contra el de TITAN++
+//! (`Ultra_userspace/apps/bico`): los mismos ficheros construidos byte a byte,
+//! los mismos pixeles escritos a mano, los mismos codigos. No hay un
+//! decodificador de referencia en Rust: si tuviera el mismo fallo, las dos
 //! mitades estarian de acuerdo y la prueba aprobaria.
 //!
-//! *** Y la mitad que importa es la de los ficheros ROTOS. Un conversor que
-//! convierte bien un fichero bueno lo tiene cualquiera; lo que INTI tiene que
-//! demostrar es que uno MALICIOSO --medidas mentirosas, bytes que faltan-- da un
-//! codigo y ningun fichero, en vez de escribir donde no debe.
+//! *** Y la mitad que importa es la de los ficheros ROTOS: uno MALICIOSO
+//! --medidas mentirosas, bytes que faltan-- da un codigo y NINGUN fichero.
+//!
+//! [!] Un cambio con INTI: el codigo 2 (mas de 256 KiB) es ahora el 1 --
+//! `director.fichero` dice si lo leyo ENTERO, no por que no --.
 
-use std::path::PathBuf;
+use std::path::Path;
 
-use bmo_lower::emu::{run, Machine};
+use bmo_lower::emu::{cargar_bex, run, Machine};
 
-fn fuente() -> String {
-    std::fs::read_to_string(PathBuf::from("../ejemplos/bico.inti"))
-        .expect("no encuentro `ejemplos/bico.inti`")
-}
-
-fn emitido(texto: &str) -> bmo_inti_x86_64::Emitido {
-    let arbol = bmo_inti_front::armar(texto);
-    assert!(!arbol.hay_errores(), "el programa no se lee: {}", arbol.pintar("bico.inti"));
-    let raices = bmo_mods::Roots::find();
-    let modulos = bmo_inti_front::tablas::Modulos::cargar(&raices);
-    let plano = bmo_inti_front::disposicion::comprobar(
-        &arbol.valor,
-        bmo_inti_front::disposicion::Medidas::cargar(&raices),
-    );
-    let metal = bmo_inti_front::ir::metal_que_declara(&arbol.valor, &raices, &modulos);
-    let nec = bmo_inti_front::necesidades::Necesidades::por_defecto();
-    let ir = bmo_inti_front::ir::bajar_con(&arbol.valor, &modulos, &plano.valor, &metal, &nec).valor;
-    bmo_inti_x86_64::emitir(&ir)
+fn bico() -> Vec<u8> {
+    let pkg = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../Ultra_userspace/apps/bico");
+    let src = std::fs::read_to_string(pkg.join("src/main.titan")).expect("el main de BICO");
+    bmo_titan_x86_64::build_package("src/main.titan", &src, &mut |p| std::fs::read_to_string(pkg.join(p)).ok()).unwrap_or_else(|e| panic!("{:?}", e))
 }
 
 /// Corre el conversor con los ficheros que se le den. Devuelve la maquina.
 fn convierte(bmp: Option<&[u8]>, qoi: Option<&[u8]>) -> Machine {
-    let e = emitido(&fuente());
-    assert!(e.arranca, "el conversor tiene `principal`");
-    let mut m = Machine::new(e.codigo);
+    let mut m = cargar_bex(&bico()).expect("el .bex carga");
     if let Some(b) = bmp {
-        m.poner_archivo("datos/foto.bmp", b);
+        m.archivos.insert("datos/foto.bmp".into(), b.to_vec());
     }
     if let Some(q) = qoi {
-        m.poner_archivo("datos/foto.qoi", q);
+        m.archivos.insert("datos/foto.qoi".into(), q.to_vec());
     }
-    run(m, 50_000_000)
+    run(m, 200_000_000)
 }
 
-/// Lo que escribio por consola, en palabras de ocho bytes cortadas en el cero.
+/// Lo que dijo por consola.
 fn dice(m: &Machine) -> String {
-    let mut s = String::new();
-    for c in m.syscalls.iter().filter(|c| c.operation == 0x06 && c.capability == 0xFFFF_FFFF_FFFF_FFFE) {
-        for b in c.arg0.to_le_bytes() {
-            if b == 0 {
-                break;
-            }
-            s.push(b as char);
-        }
-    }
-    s
+    m.console.clone()
 }
 
 /// El codigo que dio un formato: la cifra detras de su etiqueta.
 fn codigo(m: &Machine, etiqueta: &str) -> char {
     let d = dice(m);
     let i = d.find(etiqueta).unwrap_or_else(|| panic!("no dijo `{}`: {:?}", etiqueta, d));
-    d[i + 8..].chars().next().expect("etiqueta sin codigo")
+    d[i + etiqueta.len()..].chars().next().expect("etiqueta sin codigo")
+}
+
+trait Archivo {
+    fn archivo(&self, ruta: &str) -> Option<&[u8]>;
+}
+impl Archivo for Machine {
+    fn archivo(&self, ruta: &str) -> Option<&[u8]> {
+        self.archivos.get(ruta).map(Vec::as_slice)
+    }
 }
 
 // ===================================================================
@@ -132,7 +115,7 @@ fn cabecera_bico(ancho: u16, alto: u16) -> Vec<u8> {
 #[test]
 fn un_bmp_de_24_bits_de_abajo_arriba_sale_bien() {
     let m = convierte(Some(&bmp_3x2()), None);
-    assert_eq!(codigo(&m, "bmp     "), '0', "{}", dice(&m));
+    assert_eq!(codigo(&m, "bmp "), '0', "{}", dice(&m));
     let mut esperado = cabecera_bico(3, 2);
     esperado.extend_from_slice(&[1, 2, 3, 255, 4, 5, 6, 255, 7, 8, 9, 255]);
     esperado.extend_from_slice(&[10, 11, 12, 255, 13, 14, 15, 255, 16, 17, 18, 255]);
@@ -145,7 +128,7 @@ fn un_bmp_de_24_bits_de_abajo_arriba_sale_bien() {
 fn un_bmp_de_32_bits_de_arriba_abajo_sale_opaco() {
     let p = [1, 2, 3, 0, 4, 5, 6, 0];
     let m = convierte(Some(&bmp(2, -1, 32, 0, &p)), None);
-    assert_eq!(codigo(&m, "bmp     "), '0', "{}", dice(&m));
+    assert_eq!(codigo(&m, "bmp "), '0', "{}", dice(&m));
     let mut esperado = cabecera_bico(2, 1);
     esperado.extend_from_slice(&[1, 2, 3, 255, 4, 5, 6, 255]);
     assert_eq!(m.archivo("datos/fotob.bic").unwrap(), &esperado[..]);
@@ -186,7 +169,7 @@ fn qoi_3x2() -> Vec<u8> {
 fn un_qoi_con_las_seis_operaciones_sale_bien() {
     assert_eq!((10 * 3 + 20 * 5 + 30 * 7 + 255 * 11) % 64, 9, "el indice de la prueba");
     let m = convierte(None, Some(&qoi_3x2()));
-    assert_eq!(codigo(&m, "qoi     "), '0', "{}", dice(&m));
+    assert_eq!(codigo(&m, "qoi "), '0', "{}", dice(&m));
     let mut esperado = cabecera_bico(3, 2);
     esperado.extend_from_slice(&[30, 20, 10, 255, 29, 20, 11, 255, 31, 24, 16, 255]);
     esperado.extend_from_slice(&[30, 20, 10, 255, 50, 100, 200, 0, 50, 100, 200, 0]);
@@ -195,9 +178,8 @@ fn un_qoi_con_las_seis_operaciones_sale_bien() {
 
 /// ** DIFF que DA LA VUELTA: rojo 0 menos 2 es 254, no una trampa.
 ///
-/// En C es un `unsigned char` y nadie lo ve. En INTI `0 - 2` en un natural
-/// atraparia; el conversor lo escribe como suma modulo 256 y aqui se comprueba
-/// que la cuenta es la del formato.
+/// En C es un `unsigned char` y nadie lo ve. En TITAN++ se escribe como suma
+/// modulo 256 (`% 256`), y aqui se comprueba que la cuenta es la del formato.
 #[test]
 fn un_diff_que_da_la_vuelta_es_la_cuenta_del_formato() {
     let mut v = b"qoif".to_vec();
@@ -208,7 +190,7 @@ fn un_diff_que_da_la_vuelta_es_la_cuenta_del_formato() {
     v.push(76);
     v.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0, 1]);
     let m = convierte(None, Some(&v));
-    assert_eq!(codigo(&m, "qoi     "), '0', "{}", dice(&m));
+    assert_eq!(codigo(&m, "qoi "), '0', "{}", dice(&m));
     let mut esperado = cabecera_bico(1, 1);
     esperado.extend_from_slice(&[254, 1, 254, 255]);
     assert_eq!(m.archivo("datos/fotoq.bic").unwrap(), &esperado[..]);
@@ -230,7 +212,7 @@ fn roto(bmp_: Option<Vec<u8>>, qoi: Option<Vec<u8>>, etiqueta: &str, esperado: c
 fn un_bmp_cortado_da_6() {
     let mut b = bmp_3x2();
     b.truncate(b.len() - 12);
-    roto(Some(b), None, "bmp     ", '6', "datos/fotob.bic");
+    roto(Some(b), None, "bmp ", '6', "datos/fotob.bic");
 }
 
 /// ***EL FICHERO MALICIOSO: una cabecera que dice 3x60000.***
@@ -242,20 +224,20 @@ fn un_bmp_que_miente_en_el_alto_da_5() {
     let p = bmp_3x2();
     let mut b = p.clone();
     b[22..26].copy_from_slice(&60000u32.to_le_bytes());
-    roto(Some(b), None, "bmp     ", '5', "datos/fotob.bic");
+    roto(Some(b), None, "bmp ", '5', "datos/fotob.bic");
 }
 
 #[test]
 fn un_bmp_comprimido_da_4_y_no_se_intenta() {
     let b = bmp(3, 2, 24, 1, &[0; 24]);
-    roto(Some(b), None, "bmp     ", '4', "datos/fotob.bic");
+    roto(Some(b), None, "bmp ", '4', "datos/fotob.bic");
 }
 
 #[test]
 fn lo_que_no_es_un_bmp_da_3() {
     let mut b = bmp_3x2();
     b[0] = b'X';
-    roto(Some(b), None, "bmp     ", '3', "datos/fotob.bic");
+    roto(Some(b), None, "bmp ", '3', "datos/fotob.bic");
 }
 
 /// Un QOI que promete 256x256 y trae UN pixel: se para en el primer byte que
@@ -265,7 +247,7 @@ fn un_qoi_que_promete_mas_de_lo_que_trae_da_6() {
     let mut q = qoi_3x2();
     q[4..8].copy_from_slice(&256u32.to_be_bytes());
     q[8..12].copy_from_slice(&256u32.to_be_bytes());
-    roto(None, Some(q), "qoi     ", '6', "datos/fotoq.bic");
+    roto(None, Some(q), "qoi ", '6', "datos/fotoq.bic");
 }
 
 /// Sin ficheros no hay nada que convertir, y se dice con un 1 por cada uno.
@@ -273,15 +255,44 @@ fn un_qoi_que_promete_mas_de_lo_que_trae_da_6() {
 fn sin_ficheros_dice_1_y_1() {
     let m = convierte(None, None);
     assert!(m.exited);
-    assert_eq!(codigo(&m, "bmp     "), '1');
-    assert_eq!(codigo(&m, "qoi     "), '1');
+    assert_eq!(codigo(&m, "bmp "), '1');
+    assert_eq!(codigo(&m, "qoi "), '1');
 }
 
-/// **Y se porta**: ni una instruccion de maquina, y los `crudo` contados.
+/// La consola entera, como la lee el propietario.
 #[test]
-fn el_conversor_no_se_ata_a_ninguna_maquina() {
-    let (parte, _) = bmo_inti_front::informar(&fuente(), "bico.inti");
-    assert!(parte.arquitecturas.is_empty(), "se ato a {:?}", parte.arquitecturas);
-    assert_eq!(parte.perfil, "llano");
-    assert_eq!(parte.bloques_crudo, 2,"leer y pon8: los dos unicos sitios donde nadie comprueba");
+fn lo_que_dice_por_consola() {
+    let m = convierte(Some(&bmp_3x2()), None);
+    assert!(m.exited);
+    assert_eq!(dice(&m), "-- bico\nbmp 0\nqoi 1\nfin\n");
+}
+
+/// Un fichero de mas de 256 KiB no se lee: 1, y ninguna salida.
+#[test]
+fn un_fichero_de_mas_de_256_kib_da_1() {
+    roto(Some(vec![b'B'; 256 * 1024 + 1]), None, "bmp ", '1', "datos/fotob.bic");
+}
+
+/// ** La MAYOR que acepta: 256 x 256 (un RGB y tandas de 62), entera --
+/// 262.152 bytes de salida, la lista de pixeles en el monton y soltada --.
+#[test]
+fn una_de_256_de_lado_entera() {
+    let mut q = b"qoif".to_vec();
+    q.extend_from_slice(&256u32.to_be_bytes());
+    q.extend_from_slice(&256u32.to_be_bytes());
+    q.extend_from_slice(&[3, 0]);
+    q.extend_from_slice(&[254, 7, 8, 9]);
+    let mut quedan = 256 * 256 - 1;
+    while quedan > 0 {
+        let n = quedan.min(62);
+        q.push(0xC0 | (n - 1) as u8);
+        quedan -= n;
+    }
+    q.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0, 1]);
+    let m = convierte(None, Some(&q));
+    assert_eq!(codigo(&m, "qoi "), '0', "{}", dice(&m));
+    let s = m.archivo("datos/fotoq.bic").expect("no dejo el BICO");
+    assert_eq!(s.len(), 8 + 256 * 256 * 4);
+    assert_eq!(&s[..8], &[b'B', b'I', b'C', b'O', 0, 1, 0, 1]);
+    assert!(s[8..].chunks(4).all(|p| p == [9, 8, 7, 255]));
 }

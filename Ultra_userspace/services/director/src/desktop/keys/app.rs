@@ -189,7 +189,8 @@ pub(crate) fn raton(
     botones: u8,
     pulsada: bool,
 ) -> bool {
-    let Some((i, lx, ly)) = dsk.table.golpe(p, px, py) else {
+    // La app que se VE en el punto (10-10: por el apilado), y su pixel.
+    let Some((i, lx, ly)) = crate::desktop::paint::app_en(dsk, px, py).and_then(|i| dsk.table.golpe_de(i, p, px, py)) else {
         return false;
     };
     let ev = RATON

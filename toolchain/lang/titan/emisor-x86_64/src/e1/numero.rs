@@ -225,6 +225,8 @@ impl E1<'_> {
             Helper::DropOf(k) => self.h_drop(k),
             Helper::DecToF32 => self.h_dec_a_f32(),
             Helper::F32Round => self.h_f32_round(),
+            Helper::Rect => self.h_rect(),
+            Helper::Glifo => self.h_glifo(),
         }
     }
 

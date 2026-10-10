@@ -31,7 +31,7 @@
 //! ```
 //!
 //! La superficie es la MISMA que pide una app de INTI o de C
-//! (`runtime/superficie/roja.inti`, `superficie/amarilla.h`): el escritorio no
+//! (`superficie/amarilla.h`; la de INTI salio el 10-10, y la de TITAN++ es `director.ventana`): el escritorio no
 //! sabe que dentro hay un `.exe` de Windows, y no tiene por que saberlo.
 
 use bmo_proton_x_casa::{Plataforma, Superficie};
