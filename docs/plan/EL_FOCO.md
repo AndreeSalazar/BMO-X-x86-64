@@ -109,6 +109,79 @@ solo pierde su prueba). Lo que pide cada relevo:
 de bico (mas de 256 KiB) es ahora el 1 -- `director.fichero` dice si lo
 leyo entero, no por que no --.
 
+## 1e. LA LAMINA QUIROFANO (10-10): un dato, un sitio, en tiempo real
+
+> *"educar a lamina (ram) que sea ultra educado [...] la CPU siempre
+> orquesta [...] que sea en streaming y no copien para otro para que sea en
+> tiempo real siempre [...] que lamina o ram sea quirofano extremo, que la
+> CPU al tener la GPU ahi siempre disponible sea exprimido"*
+
+Las reglas -- cada una con su juez, no con su buena intencion --:
+
+```text
+   1  UN DATO, UN SITIO   lo que la app cuenta se escribe UNA vez, en su
+                          lamina; quien lo usa lo LEE ahi (el kernel lee el
+                          paquete en su sitio, por el physmap). Copiar es la
+                          excepcion, y cada copia que queda esta en la tabla
+   2  SE MIRA UNA PALABRA la secuencia: sin publicacion nueva, NO se copia
+                          nada (`Lamina::leer_si_nueva`, su prueba)
+   3  NUNCA MEDIO         el sello por ranura: lo que se dibuja es siempre un
+                          fotograma ENTERO; uno pillado a medias se reintenta
+   4  SIN CERROJO         una app colgada deja su ultimo fotograma, y ya: nadie
+                          espera a nadie (el escritorio no se para por una app)
+   5  LA CPU ORQUESTA     decide CUANDO y QUE (el plazo del fotograma, el
+                          paquete); la 3060 EJECUTA lo que se ve (limpiar,
+                          dibujar, agrandar). Lo que la 3060 puede hacer, no
+                          lo hace la CPU: la limpieza del destino ya es suya
+   6  AL RITMO, NO A LA   el programa duerme hasta el PLAZO del fotograma
+      SIESTA              siguiente (`director.espera`), no "trabajo + 16 ms"
+```
+
+**Las copias por fotograma del cubo (lamina -> 3060), antes y ahora:**
+
+```text
+   app -> lamina           1 (n x 32 B)   la publicacion: es el dato
+   lamina -> vi -> de_inti 2 por CADA mirada de 1 ms   ->  1 por publicacion
+   de_inti -> paquete      1 (n x 32 B)   queda; el siguiente corte: la
+                                          lamina directo al paquete
+   programas -> paquete    ~700 B por fotograma: queda (se pueden escribir
+                           una vez: la caja del paquete no cambia)
+   paquete -> VRAM         n x 32 B por BAR0 de 4 en 4: queda (el anillo y
+                           el prestamo persistente, S1 de PLAN_VERRANO)
+   limpiar el destino      enram: 3,6 MB por la CPU  ->  la 3060 (VRN1)
+   leer de vuelta          el juicio final: 460.800 puertas -> la RAM (enram)
+```
+
+**EL CUELLO DE BOTELLA, con numeros** (de las medidas del metal, no de
+memoria) y lo que se hizo:
+
+```text
+   1  el fotograma era trabajo + 16 ms de siesta    HECHO: el plazo
+      + despertar tarde: 18,7 ms, el 92 % esperar   (`tests/ritmo.rs`)
+      (S0 de PLAN_VERRANO)
+   2  el kernel despertaba tarde (~3,5 ms medio):   HECHO: quien despierta
+      la del mismo rango esperaba el quantum        entra si la otra ya gasto
+      entero de la otra                             un tic (`bmo_orquesta::
+                                                    turno`). Queda: el tic de
+                                                    1 ms (un reloj sin tic)
+   3  DOOM por la 3060: comprobar 560 us contra     HECHO: al cargar y uno de
+      679 de dibujar (METAL_2026-09-25)             cada 32 (`im::toca_mirar`)
+   4  la pantalla la copia la CPU: 27,6 ms          QUEDA: el motor de copia
+      entera; el PCIe en Gen1 de Gen3               por defecto (649 us), el
+                                                    page flip (LA_RAM 8) y el
+                                                    enlace en Gen3
+   5  las puertas largas con las interrupciones     QUEDA: esperar el semaforo
+      cerradas y la 3060 esperada girando dentro    por interrupcion, o el
+      (`latido tarde 1632 ms`, METAL_2026-10-08)    anillo (sin esperar dentro)
+   6  el camino frio del cubo, frecuente: la        QUEDA: rehacer solo las
+      huella del caliente lleva el numero de        ordenes en caliente
+      vertices, que cambia al girar
+```
+
+**Falta el metal** para los tres HECHOS: el banco del cubo
+(`gpu verrano banco inti` con `run titan/cubogira.bex`), su linea de
+fotograma y la de `[perf]` de DOOM por la 3060.
+
 # 2. LO QUE YA FUNCIONA EN EL METAL (no se toca: se usa)
 
 ```text

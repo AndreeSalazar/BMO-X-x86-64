@@ -65,6 +65,12 @@
 //! cerrojo entre dos procesos deja al escritorio esperando a una app colgada.
 //! Aqui una app que se para deja el ultimo fotograma publicado, y ya.
 //!
+//! ** LA LAMINA QUIROFANO (10-10, 1e de `docs/plan/EL_FOCO.md`): un dato, un
+//! sitio. El que espera un fotograma mira UNA palabra -- la secuencia,
+//! [`Lamina::secuencia`] -- y solo con una publicacion nueva copia, y una vez
+//! ([`Lamina::leer_si_nueva`]); lo que se dibuja es siempre un fotograma
+//! entero. La CPU orquesta (cuando y que); la GPU ejecuta lo que se ve.
+//!
 //! *** Y el lector NO SE CREE la cabecera: la capacidad tiene que caber en los
 //! bytes prestados, y el numero de vertices de una ranura en su capacidad y en
 //! triangulos enteros. Una app que mienta no saca al escritorio de su memoria:
