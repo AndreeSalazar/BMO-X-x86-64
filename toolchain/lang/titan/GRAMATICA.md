@@ -1061,6 +1061,22 @@ if director.se_ve()                           # no minimizada ni tapada (R-APP8)
   los que no, los eventos del buzon, la letra pixel a pixel contra la tabla
   de `fontgen`).
 
+### El DIRECTOR: lo que se GUARDA (10-10, TA4 de `PLAN_LA_TINTA`, R1 de `EL_FOCO`)
+
+```text
+if director.guarda("datos/resolucion.txt", "1280 720\n")   # si, si llego al disco
+```
+
+- `director.guarda(ruta, texto)`: el fichero ENTERO, creado de cero
+  (`TASK_OP_ARCHIVO_CREAR`), el texto de 7 en 7 (`ARCH_OP_ESCRIBIR`) y
+  cerrado, que es donde llega al disco. Da si, si entraron todos los bytes
+  y el disco dijo que si; no, sin ruta o si el disco dice que no (y entonces
+  no queda NADA: un fichero a medias se parece demasiado a uno entero). No
+  pide ventana, y lo tenido (`medida`, `byte`) no cambia.
+- La primera app que lo usa: RESOLUCION (`Ultra_userspace/apps/resolucion`),
+  que guarda la medida elegida; `nivel11/ventana` la lee al abrirse (su
+  `medida.titan`). Las pruebas: `tests/entrada.rs` y `tests/resolucion.rs`.
+
 > **08-10, LB4 de `docs/plan/PLAN_LAS_LIBRERIAS.md`:** las tarjetas son DOS,
 > la 3060 y la CPU -- la RESERVA de toda GPU (la ley L32) --, y cada gpu fn
 > pasa la bateria en las dos con los mismos bits. Un programa que no lee

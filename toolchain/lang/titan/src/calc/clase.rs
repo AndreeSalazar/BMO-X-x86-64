@@ -451,6 +451,14 @@ pub(super) fn director(what: Director, args: &[Value], at: At, known: &[Option<C
                 Err(wrong(args[0].at(), &Class::Text, &got[0], m.defs(), "`director.fichero` pide la RUTA del fichero, un texto", "director.fichero(\"datos/ejemplo.lam\")"))
             }
         }
+        Director::Guarda => {
+            for (k, what, ej) in [(0, "la RUTA del fichero", "director.guarda(\"datos/resolucion.txt\", t)"), (1, "lo que se guarda: un texto", "director.guarda(ruta, \"1280 720\")")] {
+                if got[k] != Class::Text {
+                    return Err(wrong(args[k].at(), &Class::Text, &got[k], m.defs(), &format!("`director.guarda` pide {}", what), ej));
+                }
+            }
+            Ok(Some(Class::Bool))
+        }
         Director::Byte => {
             int(0, "`director.byte` pide cual: su indice, desde 0", "director.byte(i)")?;
             Ok(Some(Class::Int))

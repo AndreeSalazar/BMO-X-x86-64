@@ -1,0 +1,38 @@
+# LA MEDIDA GUARDADA, leida de lo tenido: `datos/resolucion.txt` dice
+# "ANCHO ALTO" (y un salto de linea), lo que escribe RESOLUCION al pulsar
+# Enter. 0 si no se entiende: hasta cinco cifras, un espacio entre las dos
+# y nada detras. Copia de la de `Ultra_userspace/apps/resolucion`: la que
+# escribe y la que lee son la misma pieza (sus pruebas, `tests/resolucion.rs`).
+mod medida "la medida que eligio RESOLUCION: ANCHO ALTO en datos/resolucion.txt"
+use director
+
+fn es_cifra(b: int) -> bool
+    return b >= 48 and b <= 57
+
+# Cuantas cifras seguidas hay desde `desde` (hasta seis: la sexta ya sobra).
+fn cifras(desde: int) -> int
+    let mut n = 0
+    while n < 6 and es_cifra(director.byte(desde + n))
+        n = n + 1
+    return n
+
+# El numero de `n` cifras que empieza en `desde`.
+fn numero(desde: int, n: int) -> int
+    let mut v = 0
+    for k in range(n)
+        v = v * 10 + director.byte(desde + k) - 48
+    return v
+
+pub fn ancho() -> int
+    let n = cifras(0)
+    if n == 0 or n > 5 or director.byte(n) != 32
+        return 0
+    return numero(0, n)
+
+pub fn alto() -> int
+    let desde = cifras(0) + 1
+    let n = cifras(desde)
+    let fin = director.byte(desde + n)
+    if n == 0 or n > 5 or not (fin == -1 or fin == 10 or fin == 13)
+        return 0
+    return numero(desde, n)

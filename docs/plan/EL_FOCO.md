@@ -18,9 +18,10 @@
               conecta la CPU (por INTI) y la GPU (por VERRANO). Sus gpu fn
               cuentan en la 3060 o en la CPU, bit a bit lo mismo (LB4)
    INTI       LA PUERTA A LA CPU, y nada mas. Se queda lo de CPU: cpu.inti,
-              pulso.inti, bico.inti, png.inti y el emisor. Pierde TODO lo de
-              app, pieza a pieza, el dia que su relevo en TITAN++ existe
-              (3.3 de PLAN_INTI_SAMURAI)
+              pulso.inti y el emisor. Pierde TODO lo de app, pieza a pieza,
+              el dia que su relevo en TITAN++ existe (3.3 de
+              PLAN_INTI_SAMURAI); desde el 10-10 tambien bico.inti y
+              png.inti (seccion 1d), y musica.inti con el sonido (Q2)
    VERRANO    LA PUERTA A LA GPU: la API de dibujo. Detras, la RTX 3060 12G
               (o la CPU, la misma API)
    LAMINA     LA RAM COMPARTIDA: quien cuenta PUBLICA en un bloque de RAM, y
@@ -52,6 +53,53 @@ CPU); el cubo de TITAN++ dibujado por la 3060 DENTRO de su ventana (hoy, a
 pantalla completa con `gpu verrano banco inti`); y las gpu fn al correr en la
 3060 (LB8, la puerta de computo, Ring 0). F1..F5 no se paran por esto: la
 ventana de TITAN++ es la misma superficie que la 3060 compondra.
+
+## 1c. LA SEGUNDA REGLA (10-10): el DIRECTOR no negocia con la GPU
+
+> *"sigue que mas falta para que el director negocie con GPU pero ojo no
+> mismo GPU sino TITAN++ con VERRANO eso"*
+
+```text
+   la app (TITAN++)   CALCULA y PUBLICA en su lamina (RAM compartida):
+                      `director.lamina` y `director.publica`; abre su ventana
+                      (`director.ventana`) y dice su medida
+   el DIRECTOR        COMPONE: toma la lamina de cada app y se la da a
+                      VERRANO -- un `Frame` a una `Image` (`Backend::draw`),
+                      la Image = los pixeles de la ventana de esa app --.
+                      No nombra la 3060, ni un registro, ni una orden: S3 del
+                      guardian `la-3060` ya lo juzga en cada build
+   VERRANO            LA API: decide quien dibuja -- la 3060 si esta
+                      despierta (G0), si no la CPU con los mismos bits (L32)
+   el driver          ga10x, DETRAS de VERRANO (y de `gspcubo/sm86.rs`, la
+                      unica puerta del escritorio que lo toma)
+```
+
+Asi Q0a2 y Q0a3 (seccion 5) se escriben CONTRA VERRANO, no contra el
+aparato: el DIRECTOR pide "este Frame en esta Image de 640x360" y es la
+puerta (`sm86.rs`) la que habla con la 3060. Si un dia hay otra GPU, el
+DIRECTOR no cambia.
+
+## 1d. INTI, MAS DELGADO (10-10): bico y png tambien salen
+
+> *"me hice pregunta se pueden degradar mas? [...] png, bico y otros (no
+> quites el CPU porque es INTI)"*
+
+Si: D3 de PLAN_INTI_SAMURAI se reescribe. `bico.inti` (BMP y QOI a BICO) y
+`png.inti` (escribe un PNG) son HERRAMIENTAS, no la puerta a la CPU: salen
+de INTI con su relevo en TITAN++, y no antes (la regla 3.1: quitar antes
+solo pierde su prueba). Lo que pide cada relevo:
+
+```text
+   pieza            lo que TITAN++ ya tiene          lo que le falta
+   bico.inti        leer un fichero entero           escribir BYTES (TA1 de
+                    (`director.fichero`, `byte`) y   PLAN_LA_TINTA): hoy
+                    guardar un TEXTO (`guarda`, R1)  `guarda` solo lleva texto
+   png.inti         las tablas y el monton (13)      lo mismo: escribir bytes;
+                                                     el CRC y el Adler, en int
+   musica.inti      --                               el sonido (Q2)
+   cpu.inti,        SE QUEDAN: son la puerta de TITAN++ a la CPU (y con
+   pulso.inti       ellas el monton, mientras `cpu.inti` lo use)
+```
 
 # 2. LO QUE YA FUNCIONA EN EL METAL (no se toca: se usa)
 
@@ -160,12 +208,29 @@ Cada paso entra con sus pruebas en el anfitrion; el metal, UNA vez, al final
        a la 3060; su tabla en Windows y despues en el Ryzen
        (PLAN_LA_LENGUA_DE_LA_3060)
    Q2  el sonido en TITAN++, y el corte 4d de INTI (musica.inti fuera)
+   Q2b escribir BYTES desde TITAN++ (TA1), y el corte 4e de INTI: bico.inti
+       y png.inti a TITAN++ (seccion 1d)
    Q3  DOOM por la 3060 cerrado (D2c, la linea [perf]) y su paleta (D3)
    Q4  las texturas con mips en la VRAM, Ring 0: lo que deja a Cyberpunk
        mandar a la 3060 sus SampleLevel de verdad
    Q5  el Sample normal de un pixel (la mip de su cuadro)
    Q6  adelgazar la CPU de alrededor del dibujo (S3 y S4 de PLAN_VERRANO)
 ```
+
+- [x] **R1 -- RESOLUCION** (10-10, el propietario: *"una app simple para
+      configurar hasta cuantas Resolucion que quiero y encima control en
+      ellas para cualquier ventana"*): `Ultra_userspace/apps/resolucion/`,
+      en TITAN++. Ocho medidas, de 640x360 a 2560x1440; las flechas, las
+      cifras 1-8 o el raton eligen, Enter la GUARDA en
+      `datos/resolucion.txt` ("ANCHO ALTO") con `director.guarda` (TA4,
+      nuevo), Esc cierra. Quien la LEE: cada ventana de TITAN++ que la
+      quiera, con su `medida.titan` -- `titan/ventana.bex` ya se abre con
+      ella --; y despues Q0a, la medida del dibujo de la 3060 por VERRANO.
+      Pruebas: `emisor-x86_64/tests/resolucion.rs` (5) y `entrada.rs`.
+      **Falta el metal:** `apps/resolucion.bex` desde su icono, Enter, y
+      `run titan/ventana.bex` con la medida nueva. [!] La medida la elige
+      cada app al abrirse: el DIRECTOR no agranda una ventana ya abierta
+      (eso seria otra pieza: la ventana que cambia de medida, R-APP).
 
 **Lo del propietario, en cada arranque:** apagar (no reiniciar), `gpu init`
 y `save`: cada `SALIDA.TXT` es una fila de G0 hasta diez. Y una decision que
@@ -210,8 +275,12 @@ y 4b). Lo que la regla 1b pide despues, leido en el DIRECTOR:
 - [ ] **Q0a2 -- el destino EN RAM para la lamina** (como `enram` de
       `bmox12`): la 3060 dibuja en un bloque, no en la pantalla, sin leer de
       vuelta. **Como se sabe:** `gpu verrano banco inti enram` IGUAL al juez.
+      **Por VERRANO (1c):** la Image de `Backend::draw` con su medida; la
+      puerta `sm86.rs` la traduce al `Destino` de Q0a1. Le falta al paquete
+      VRN1 el COLOR de fondo (hoy solo lo lleva la receta VRN2): o VRN1
+      crece, o el camino de la lamina pasa por la receta.
 - [ ] **Q0a3 -- el DIRECTOR dibuja la lamina DENTRO de la ventana de su
-      app**: si el tid de una ventana tiene lamina, cada fotograma NUEVO de
+      app** (por VERRANO, 1c: el DIRECTOR pide, la puerta dibuja): si el tid de una ventana tiene lamina, cada fotograma NUEVO de
       la lamina lo dibuja el aparato en los pixeles de esa ventana (Ring 0:
       la ventana prestada a la 3060 por la IOMMU, con sus marcos seguidos);
       sin la 3060, la CPU de VERRANO, y lo dice. **Como se sabe:** en el

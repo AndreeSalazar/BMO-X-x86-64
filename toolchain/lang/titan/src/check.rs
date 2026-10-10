@@ -743,6 +743,7 @@ fn target(p: &Program, callee: &str, n: usize, line: usize, col: usize, as_value
             Director::Presenta => "director.presenta()",
             Director::Toma => "if director.toma()",
             Director::Fichero => "if director.fichero(\"datos/ejemplo.lam\")",
+            Director::Guarda => "if director.guarda(\"datos/resolucion.txt\", \"1280 720\")",
             Director::Medida => "let n = director.medida()",
             Director::Byte => "let b = director.byte(i)",
             Director::Evento => "let que = director.evento()",

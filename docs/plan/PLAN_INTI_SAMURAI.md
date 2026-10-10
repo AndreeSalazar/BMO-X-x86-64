@@ -125,7 +125,8 @@ La recomendacion era **congelar primero** (D4).
        flotantes IEEE dichos por escrito y ni un comportamiento indefinido.
        El decimal es aritmetica de software para el dinero de las apps
    D3  los ficheros, bico.inti y png.inti SE QUEDAN: leer lo que escribio
-       otro sin desbordar un bufer es seguridad de sistema
+       otro sin desbordar un bufer es seguridad de sistema. **REESCRITA el
+       10-10:** salen tambien, con su relevo en TITAN++ (1d de EL_FOCO)
    D4  `perfil pleno` se va a TITAN++: CONGELADO hoy (E0077), borrado en el
        escalon 4-5
 ```
@@ -191,14 +192,20 @@ cada relevo:
    el perfil `pleno`           congelado (E0077)    los niveles 6-13 de         lo usan las sondas
                                                     TITAN++ (dec, tablas,       del censo: paso 5
                                                     listas, mapas)
+   las herramientas de         ejemplos/bico.inti   leer ya (`director.fichero`)  espera su relevo:
+   imagen (bico, png)          ejemplos/png.inti    y guardar texto (`guarda`);   escribir BYTES (TA1)
+                                                    falta escribir BYTES          -- 1d de EL_FOCO
 ```
 
 **Lo que NO pierde**, y no es una contradiccion con *"perder todo"*: lo de
 CPU es lo que hace de INTI la puerta de TITAN++ a la CPU. `cpu.inti` y
 `pulso.inti` (llano, vistos en el Ryzen) y el emisor se quedan. `bico.inti`
-y `png.inti` se quedan por D3 (leer lo que escribio otro sin desbordar un
-bufer es seguridad de sistema): [!] si el propietario quiere tambien esas
-fuera, D3 se reescribe -- hoy sigue en pie.
+y `png.inti` se quedaban por D3 (leer lo que escribio otro sin desbordar un
+bufer es seguridad de sistema). **10-10, D3 REESCRITA** (el propietario:
+*"se pueden degradar mas? [...] png, bico y otros (no quites el CPU)"*):
+salen tambien, con su relevo en TITAN++ -- que juzga cada indice igual que
+INTI: la seguridad de D3 viaja con ellas --, y no antes. Ver 1d de
+[`EL_FOCO.md`](EL_FOCO.md).
 
 ## 3.2 PROPUESTA (04-10): el decimal de Grace Hopper, al estilo del Ryzen
 

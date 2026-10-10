@@ -1,0 +1,197 @@
+# espera: BIEN
+# RESOLUCION (10-10, R1 de docs/plan/EL_FOCO.md): la app que ELIGE la medida
+# de las ventanas de TITAN++. Una lista de medidas -- de 640 x 360 a
+# 2560 x 1440 --; las flechas, las cifras 1 a 8 o el raton eligen; Enter la
+# GUARDA en datos/resolucion.txt ("ANCHO ALTO"), y Esc o q cierran.
+#
+#    quien la lee     cada ventana de TITAN++ que la quiera, al abrirse (su
+#                     `medida.titan`): `titan/ventana.bex` ya la usa
+#    quien la manda   el que abre la ventana: el DIRECTOR compone la medida
+#                     que se le ofrece (1..4096 por lado) y no la cambia
+#    lo que viene     Q0a de EL_FOCO: la misma medida, la del dibujo de la 3060
+mod main "RESOLUCION: elegir la medida de las ventanas de TITAN++ y guardarla"
+use director
+mod medida
+
+fn fondo() -> int
+    return 1315860
+
+fn titulo() -> int
+    return 16777215
+
+fn gris() -> int
+    return 13421772
+
+fn elegida() -> int
+    return 3368601
+
+fn bien() -> int
+    return 6750054
+
+fn aviso() -> int
+    return 16755200
+
+fn ancho_ventana() -> int
+    return 360
+
+fn alto_ventana() -> int
+    return 296
+
+# Las medidas: cuantas, y cada una.
+fn cuantas() -> int
+    return 8
+
+fn ancho_de(i: int) -> int
+    if i == 0
+        return 640
+    if i == 1
+        return 800
+    if i == 2
+        return 1024
+    if i == 3
+        return 1280
+    if i == 4
+        return 1366
+    if i == 5
+        return 1600
+    if i == 6
+        return 1920
+    return 2560
+
+fn alto_de(i: int) -> int
+    if i == 0
+        return 360
+    if i == 1
+        return 600
+    if i == 2 or i == 4
+        return 768
+    if i == 3
+        return 720
+    if i == 5
+        return 900
+    if i == 6
+        return 1080
+    return 1440
+
+# Lo que se guarda: "ANCHO ALTO" y un salto de linea.
+fn texto_de(i: int) -> text
+    if i == 0
+        return "640 360\n"
+    if i == 1
+        return "800 600\n"
+    if i == 2
+        return "1024 768\n"
+    if i == 3
+        return "1280 720\n"
+    if i == 4
+        return "1366 768\n"
+    if i == 5
+        return "1600 900\n"
+    if i == 6
+        return "1920 1080\n"
+    return "2560 1440\n"
+
+# Cual de la lista es la medida `a` x `h`, o -1.
+fn cual(a: int, h: int) -> int
+    for i in range(cuantas())
+        if ancho_de(i) == a and alto_de(i) == h
+            return i
+    return -1
+
+# La fila de la medida `i`: donde empieza.
+fn y_de(i: int) -> int
+    return 56 + 24 * i
+
+# Un numero de hasta cinco cifras, sin ceros delante.
+fn pon_numero(x: int, y: int, n: int, c: int) -> int
+    let mut px = x
+    let mut potencia = 10000
+    let mut empezo = false
+    while potencia >= 1
+        let resto = n % (potencia * 10)
+        let cifra = (resto - resto % potencia) / potencia
+        if cifra != 0 or empezo or potencia == 1
+            px = director.letra(px, y, 48 + cifra, 1, c)
+            empezo = true
+        if potencia == 1
+            potencia = 0
+        else
+            potencia = potencia / 10
+    return px
+
+# `estado`: 0 nada, 1 guardada, 2 el disco dijo que no.
+fn dibuja(sel: int, guardada: int, estado: int)
+    director.rect(0, 0, ancho_ventana(), alto_ventana(), fondo())
+    director.texto(12, 10, "RESOLUCION", 2, titulo())
+    for i in range(cuantas())
+        let y = y_de(i)
+        if i == sel
+            director.rect(8, y - 4, ancho_ventana() - 16, 24, elegida())
+        let mut x = director.letra(16, y, 49 + i, 1, gris())
+        x = pon_numero(48, y, ancho_de(i), titulo())
+        x = director.texto(x, y, " x ", 1, gris())
+        pon_numero(x, y, alto_de(i), titulo())
+        if i == guardada
+            director.texto(264, y, "guardada", 1, bien())
+    director.texto(12, 252, "Flechas o 1-8 eligen, Enter guarda", 1, gris())
+    if estado == 1
+        director.texto(12, 272, "En datos/resolucion.txt", 1, bien())
+    else if estado == 2
+        director.texto(12, 272, "El disco no la guardo", 1, aviso())
+    else
+        director.texto(12, 272, "Esc cierra", 1, gris())
+    director.presenta()
+
+fn main()
+    # La que ya estaba guardada, si la hay y es de la lista.
+    let mut guardada = -1
+    if director.fichero("datos/resolucion.txt")
+        guardada = cual(medida.ancho(), medida.alto())
+    let mut sel = 3
+    if guardada >= 0
+        sel = guardada
+    if not director.ventana(ancho_ventana(), alto_ventana())
+        print("RESOLUCION es una ventana: abrela desde el escritorio")
+        return
+    let mut estado = 0
+    dibuja(sel, guardada, estado)
+    let mut antes = true
+    while true
+        let mut repintar = false
+        for n in range(64)
+            let que = director.evento()
+            if que == 0
+                break
+            let c = director.codigo()
+            if que == 3
+                if c == 27 or c == 113
+                    return
+                if c >= 49 and c < 49 + cuantas()
+                    sel = c - 49
+                    repintar = true
+            if que == 1
+                if c == 72 and sel > 0
+                    sel = sel - 1
+                    repintar = true
+                if c == 80 and sel < cuantas() - 1
+                    sel = sel + 1
+                    repintar = true
+                if c == 28
+                    if director.guarda("datos/resolucion.txt", texto_de(sel))
+                        guardada = sel
+                        estado = 1
+                    else
+                        estado = 2
+                    repintar = true
+            if que == 4 and director.botones() % 2 == 1
+                let d = director.raton_y() - 52
+                if d >= 0 and d < 24 * cuantas()
+                    sel = (d - d % 24) / 24
+                    repintar = true
+        let se_ve = director.se_ve()
+        if se_ve and not antes
+            repintar = true
+        antes = se_ve
+        if repintar and se_ve
+            dibuja(sel, guardada, estado)
+        director.espera(16)

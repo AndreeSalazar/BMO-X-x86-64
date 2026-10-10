@@ -611,6 +611,28 @@ $cRecursos = @(
             '................'
         ) }
     ) }
+    # ** LA CARA DE RESOLUCION (R1 de EL_FOCO, 2026-10-10): una pantalla con
+    # sus dos flechas de esquina a esquina, la medida que crece.
+    @{ bex = 'apps\resolucion.bex'; recursos = @(
+        @{ nombre = 'icono'; icono = @(
+            '................',
+            '.oooooooooooooo.',
+            '.oWWWWWWWWWWWWo.',
+            '.oWbbbWWWWWWWWo.',
+            '.oWbbWWWWWWWWWo.',
+            '.oWbWbWWWWWWWWo.',
+            '.oWWWWbWWWWWWWo.',
+            '.oWWWWWbWWWWWWo.',
+            '.oWWWWWWbWWWWWo.',
+            '.oWWWWWWWbWbWWo.',
+            '.oWWWWWWWWWbbWo.',
+            '.oWWWWWWWWbbbWo.',
+            '.oWWWWWWWWWWWWo.',
+            '.oooooooooooooo.',
+            '......oooo......',
+            '....oooooooo....'
+        ) }
+    ) }
 )
 
 # * EL FORMATO `BICO`, escrito aqui porque aqui es donde nace un icono.
@@ -797,7 +819,11 @@ try {
         # LAMINA -- la que ofrece el antenista, o la del disco -- en su
         # ventana, con los mismos pixeles que el de INTI, que se fue. Va a
         # `apps/`, con DOOM, porque es una APP; su icono, en el empaquetado.
-        @{ src = 'Ultra_userspace\apps\navegar\src\main.titan'; out = 'navegar.bex'; dir = 'apps' }
+        @{ src = 'Ultra_userspace\apps\navegar\src\main.titan'; out = 'navegar.bex'; dir = 'apps' },
+        # ** RESOLUCION (R1 de EL_FOCO, 2026-10-10): elegir la medida de las
+        # ventanas de TITAN++ y guardarla en `datos\resolucion.txt`
+        # (`director.guarda`, TA4); `titan/ventana.bex` ya se abre con ella.
+        @{ src = 'Ultra_userspace\apps\resolucion\src\main.titan'; out = 'resolucion.bex'; dir = 'apps' }
     ) 'bmo-titan-x86-64' 'titan' 'ok:|T00|no se ha' $dataBase $repo -Orden 'build'
 
     # -- Las dos imagenes que `bico.ibx` convierte ------------------------

@@ -81,7 +81,7 @@ impl E1<'_> {
             // y la letra (`letra.rs`).
             Director::Letra => self.letra(args, at).map(Some),
             Director::Texto => self.texto(args, at).map(Some),
-            Director::Toma | Director::Fichero | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => self.entrada(what, args, at).map(Some),
+            Director::Toma | Director::Fichero | Director::Guarda | Director::Medida | Director::Byte | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => self.entrada(what, args, at).map(Some),
         }
     }
 

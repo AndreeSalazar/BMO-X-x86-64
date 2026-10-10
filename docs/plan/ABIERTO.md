@@ -8,7 +8,7 @@
 
 ```text
    749 casillas ABIERTAS en 69 planes
-   596 hechas
+   597 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -69,7 +69,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] TA0 -- las decisiones de la seccion 7, contestadas por el propietario
 - [ ] TA1 -- el BYTE: un tipo de 8 bits sin signo y las tablas grandes en un bloque de memoria pedido 
-- [ ] TA4 -- el DISCO: leer y escribir ficheros de ESTRATOS desde TITAN++, con permiso
+- [ ] TA4 -- el DISCO: leer y escribir ficheros de ESTRATOS desde TITAN++, con permiso. A medias el 10
 - ... y 32 mas
 
 ## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 32 abiertas, 14 hechas
@@ -351,7 +351,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 6 compilar hola.ada el frontend de Ada dentro del mismo
 - ... y 4 mas
 
-## [`EL_FOCO.md`](EL_FOCO.md) -- 6 abiertas, 5 hechas
+## [`EL_FOCO.md`](EL_FOCO.md) -- 6 abiertas, 6 hechas
 
 *EL FOCO -- una cosa a la vez, hasta el final (10-10)*
 

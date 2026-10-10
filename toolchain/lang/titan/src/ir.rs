@@ -300,6 +300,10 @@ pub enum Director {
     /// `director.fichero(ruta)`: a whole file (up to 256 KiB) into a block of
     /// its own. `false` if it is not there, is empty, too big, or short.
     Fichero,
+    /// ** TA4 (10-10): `director.guarda(ruta, texto)`: a whole file, made
+    /// from nothing with the text. `true` if every byte went in and the disk
+    /// kept it. What is held does not change.
+    Guarda,
     /// `director.medida()`: how many bytes are held (0: none).
     Medida,
     /// `director.byte(i)`: the byte `i` of what is held (0..255), or -1
@@ -332,7 +336,7 @@ pub enum Director {
 }
 
 impl Director {
-    pub const ALL: [Director; 20] = [
+    pub const ALL: [Director; 21] = [
         Director::Lamina,
         Director::Publica,
         Director::Espera,
@@ -343,6 +347,7 @@ impl Director {
         Director::Presenta,
         Director::Toma,
         Director::Fichero,
+        Director::Guarda,
         Director::Medida,
         Director::Byte,
         Director::Evento,
@@ -368,6 +373,7 @@ impl Director {
             Director::Presenta => "director.presenta",
             Director::Toma => "director.toma",
             Director::Fichero => "director.fichero",
+            Director::Guarda => "director.guarda",
             Director::Medida => "director.medida",
             Director::Byte => "director.byte",
             Director::Evento => "director.evento",
@@ -391,7 +397,7 @@ impl Director {
         match self {
             Director::Presenta | Director::Toma | Director::Medida | Director::Evento | Director::Codigo | Director::RatonX | Director::RatonY | Director::Botones | Director::SeVe => 0,
             Director::Lamina | Director::Espera | Director::Fichero | Director::Byte => 1,
-            Director::Ventana | Director::Fila => 2,
+            Director::Ventana | Director::Fila | Director::Guarda => 2,
             Director::Pixel => 3,
             Director::Publica => 4,
             Director::Rect | Director::Letra | Director::Texto => 5,

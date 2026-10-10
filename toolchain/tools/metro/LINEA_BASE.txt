@@ -3,6 +3,7 @@
 # Se reescribe con `cargo run --release -p bmo-metro -- --fijar`.
 # programa  pasos  accesos  codigo  salida
 Ultra_userspace/apps/navegar/src/main.titan 2588 425 56837 e897113c8df4c7be
+Ultra_userspace/apps/resolucion/src/main.titan 300 82 31547 085091bc4bc966b3
 toolchain/lang/ada/examples/1-basico/cierre.adb 369 69 1560 ed567b986aa22dd2
 toolchain/lang/c/examples/blit_C.c 57720 6438 3035 25042ff916c7a1d5
 toolchain/lang/c/examples/caja_C.c 331 118 5936 c7825b639babd44d
@@ -39,7 +40,7 @@ toolchain/lang/titan/ejemplos/nivel10/motor/src/main.titan 34 0 180 36be6f246c20
 toolchain/lang/titan/ejemplos/nivel11/activa/src/main.titan 66 0 335 ad3c85df63fda75f
 toolchain/lang/titan/ejemplos/nivel11/cubo_gira/src/main.titan 51288 20448 163341 d6019fcf0b121131
 toolchain/lang/titan/ejemplos/nivel11/mezcla/src/main.titan 24 0 139 ac980c01fdd85e0e
-toolchain/lang/titan/ejemplos/nivel11/ventana/src/main.titan 123 30 4149 9832fd69acd966e0
+toolchain/lang/titan/ejemplos/nivel11/ventana/src/main.titan 242 61 10213 9832fd69acd966e0
 toolchain/lang/titan/ejemplos/nivel12/adivina.titan 1010 168 2166 b7cb1a531854d3fd
 toolchain/lang/titan/ejemplos/nivel12/hasta_fin.titan 815 113 1794 dc5cd9badca78e5e
 toolchain/lang/titan/ejemplos/nivel12/la_cuenta.titan 7678 2885 7690 c1e9be94259b4a5c

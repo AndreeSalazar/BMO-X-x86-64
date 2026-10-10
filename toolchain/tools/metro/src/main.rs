@@ -134,6 +134,9 @@ const BANCO: &[(&str, &str)] = &[
     // componga, lo dicen y salen.
     ("titan", "toolchain/lang/titan/ejemplos/nivel11/ventana/src/main.titan"),
     ("titan", "Ultra_userspace/apps/navegar/src/main.titan"),
+    // ** R1 de EL_FOCO (10-10): RESOLUCION, la primera que GUARDA; y la
+    // ventana de arriba, que desde ese dia lee la medida antes de abrirse.
+    ("titan", "Ultra_userspace/apps/resolucion/src/main.titan"),
     // Nivel 12 (05-10): lo que viene de fuera -- E1, el primer codigo de
     // TITAN++ que corre DE VERDAD en la maquina (PLAN_LA_ENTRADA).
     ("titan", "toolchain/lang/titan/ejemplos/nivel12/pregunta.titan"),

@@ -10,6 +10,9 @@
 //!    fichero(ruta)   la ruta de 8 en 8 (TASK_OP_RUTA), abrir, su medida (1 ..
 //!                    256 KiB), un bloque suyo y ARCH_OP_LEER_EN hasta el
 //!                    final; cerrar. Si, si lo leyo ENTERO
+//!    guarda(r, t)    la ruta igual, CREARLO de cero, el texto de 7 en 7
+//!                    (ARCH_OP_ESCRIBIR) y cerrar: ahi llega al disco. Si, si
+//!                    entraron todos y el disco dijo que si (TA4, 10-10)
 //!    medida()        cuantos bytes se tienen (0: ninguno)
 //!    byte(i)         el byte i, o -1 fuera
 //!    evento()        el siguiente del buzon (cabeza, cola, 64 ranuras) y QUE
@@ -28,8 +31,8 @@
 use super::ventana::{BUZON, R12};
 use super::{Place, E1};
 use bmo_abi::syscalls::surface::{
-    ARCH_OP_CERRAR, ARCH_OP_LEER_EN, ARCH_OP_MEDIDA, CURRENT_TASK, MEM_OP_BASE, NR_WAIT, PRESTADO_OP_BASE, PRESTADO_OP_BYTES, SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_EV_CARACTER, SUP_EV_CONFIGURE, SUP_EV_RATON, SUP_VISTA_SE_VE,
-    TASK_OP_ARCHIVO_ABRIR, TASK_OP_MEMORIA_PEDIR, TASK_OP_RUTA, TASK_OP_TOMAR,
+    ARCH_OP_CERRAR, ARCH_OP_ESCRIBIR, ARCH_OP_LEER_EN, ARCH_OP_MEDIDA, CURRENT_TASK, MEM_OP_BASE, NR_WAIT, PRESTADO_OP_BASE, PRESTADO_OP_BYTES, SUP_BUZON_CABECERA, SUP_BUZON_RANURA, SUP_EV_CARACTER, SUP_EV_CONFIGURE, SUP_EV_RATON, SUP_VISTA_SE_VE,
+    TASK_OP_ARCHIVO_ABRIR, TASK_OP_ARCHIVO_CREAR, TASK_OP_MEMORIA_PEDIR, TASK_OP_RUTA, TASK_OP_TOMAR,
 };
 use bmo_lower::x86::{self, RAX, RCX, RDI, RDX, RSI, R10, R8};
 use bmo_titan_front::calc::Class;
@@ -48,6 +51,9 @@ pub const FICHERO_MAXIMO: i32 = 256 * 1024;
 /// otra: un fotograma.
 const INTENTOS: i64 = 8;
 const UN_FOTOGRAMA_NS: i64 = 16_000_000;
+/// Los bytes que mete `ARCH_OP_ESCRIBIR` en una llamada: siete, y el octavo
+/// dice cuantos.
+const POR_LLAMADA: i32 = 7;
 /// Del evento crudo: hay uno (bit 8) y la tecla esta pulsada (bit 9).
 const HAY: u32 = 0x100;
 const PULSADA: u32 = 0x200;
@@ -80,6 +86,7 @@ impl E1<'_> {
         match what {
             Director::Toma => self.toma(),
             Director::Fichero => self.fichero(args, at),
+            Director::Guarda => self.guarda(args, at),
             Director::Medida => self.medida(),
             Director::Byte => self.byte(args, at),
             Director::Evento => self.evento(),
@@ -214,24 +221,10 @@ impl E1<'_> {
         Ok((out, Class::Bool))
     }
 
-    /// `director.fichero(ruta)`.
-    fn fichero(&mut self, args: &[Value], at: At) -> Result<(Place, Class), String> {
-        let [ruta] = args else { return Err(format!("linea {}: `director.fichero` sin su ruta (fallo del compilador)", at.0)) };
-        let (t, _) = self.eval(ruta)?;
-        let out = self.temp(8);
+    /// La ruta del texto `t` al kernel, de 8 en 8 (`TASK_OP_RUTA`): lo de
+    /// detras del largo, a cero. Lo siguiente es abrir o crear.
+    fn ruta(&mut self, t: Place) {
         let k = self.temp(8);
-        let f = self.temp(8);
-        let medida = self.temp(8);
-        let bloque = self.temp(8);
-        let base = self.temp(8);
-        let hechos = self.temp(8);
-        self.store_imm(out, 0);
-        let mut no = Vec::new();
-        self.con_tenido(&mut no);
-        self.load(t, RAX);
-        x86::test_r64_r64(&mut self.code, RAX, RAX);
-        no.push(self.jcc(0x84));
-        // La ruta, de 8 en 8: lo de detras del largo, a cero.
         self.store_imm(k, 0);
         let ruta_vuelta = self.code.len();
         self.load(k, RAX);
@@ -259,6 +252,25 @@ impl E1<'_> {
         let otra = self.jmp();
         x86::patch_jump_to(&mut self.code, otra, ruta_vuelta);
         self.here(abrir);
+    }
+
+    /// `director.fichero(ruta)`.
+    fn fichero(&mut self, args: &[Value], at: At) -> Result<(Place, Class), String> {
+        let [ruta] = args else { return Err(format!("linea {}: `director.fichero` sin su ruta (fallo del compilador)", at.0)) };
+        let (t, _) = self.eval(ruta)?;
+        let out = self.temp(8);
+        let f = self.temp(8);
+        let medida = self.temp(8);
+        let bloque = self.temp(8);
+        let base = self.temp(8);
+        let hechos = self.temp(8);
+        self.store_imm(out, 0);
+        let mut no = Vec::new();
+        self.con_tenido(&mut no);
+        self.load(t, RAX);
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        no.push(self.jcc(0x84));
+        self.ruta(t);
         self.invoke_solo(None, CURRENT_TASK, TASK_OP_ARCHIVO_ABRIR);
         self.si_no_vale(&mut no);
         self.store(f, RDX);
@@ -314,6 +326,87 @@ impl E1<'_> {
         self.store_imm(out, 1);
         let fin = self.jmp();
         for j in cerrar {
+            self.here(j);
+        }
+        self.invoke_solo(Some(f), 0, ARCH_OP_CERRAR);
+        for j in no {
+            self.here(j);
+        }
+        self.here(fin);
+        Ok((out, Class::Bool))
+    }
+
+    /// `director.guarda(ruta, texto)`: crearlo (`TASK_OP_ARCHIVO_CREAR`, de
+    /// cero), el texto de 7 en 7 (`ARCH_OP_ESCRIBIR`: `(n << 56) | bytes`) y
+    /// cerrar, que es donde llega al disco. Si, si entraron todos y el disco
+    /// lo guardo.
+    fn guarda(&mut self, args: &[Value], at: At) -> Result<(Place, Class), String> {
+        let [ruta, texto] = args else { return Err(format!("linea {}: `director.guarda` sin su ruta y su texto (fallo del compilador)", at.0)) };
+        let (t, _) = self.eval(ruta)?;
+        let (s, _) = self.eval(texto)?;
+        let out = self.temp(8);
+        let f = self.temp(8);
+        let k = self.temp(8);
+        let n = self.temp(8);
+        self.store_imm(out, 0);
+        let mut no = Vec::new();
+        self.load(t, RAX);
+        x86::test_r64_r64(&mut self.code, RAX, RAX);
+        no.push(self.jcc(0x84));
+        self.ruta(t);
+        self.invoke_solo(None, CURRENT_TASK, TASK_OP_ARCHIVO_CREAR);
+        self.si_no_vale(&mut no);
+        self.store(f, RDX);
+        // De 7 en 7: los de detras del largo, a cero.
+        let mut mal = Vec::new();
+        self.store_imm(k, 0);
+        let vuelta = self.code.len();
+        self.load(k, RAX);
+        self.load(s, RCX);
+        x86::cmp_r64_r64(&mut self.code, RAX, RCX);
+        let escrito = self.jcc(0x83);
+        x86::sub_r64_r64(&mut self.code, RCX, RAX);
+        x86::cmp_r64_imm32(&mut self.code, RCX, POR_LLAMADA);
+        let pocos = self.jcc(0x8C);
+        self.imm(RCX, POR_LLAMADA as i64);
+        self.here(pocos);
+        self.store(n, RCX);
+        self.addr(s, RDI);
+        x86::add_r64_r64(&mut self.code, RDI, RAX);
+        x86::mov_r64_at_reg_disp32(&mut self.code, RDX, RDI, 8);
+        x86::shl_r64_imm8(&mut self.code, RCX, 3);
+        self.imm(R8, 1);
+        x86::shl_r64_cl(&mut self.code, R8);
+        x86::dec_r64(&mut self.code, R8);
+        and_r64_r64(&mut self.code, RDX, R8);
+        self.load(n, RAX);
+        x86::shl_r64_imm8(&mut self.code, RAX, 56);
+        x86::or_r64_r64(&mut self.code, RDX, RAX);
+        self.load(f, RDI);
+        self.imm(RSI, ARCH_OP_ESCRIBIR as i64);
+        x86::zero_r32(&mut self.code, R10);
+        x86::zero_r32(&mut self.code, R8);
+        self.invoke();
+        self.si_no_vale(&mut mal);
+        self.load(n, RCX);
+        x86::cmp_r64_r64(&mut self.code, RDX, RCX);
+        mal.push(self.jcc(0x85));
+        self.load(k, RAX);
+        x86::add_r64_r64(&mut self.code, RAX, RCX);
+        self.store(k, RAX);
+        let otra = self.jmp();
+        x86::patch_jump_to(&mut self.code, otra, vuelta);
+        self.here(escrito);
+        // Cerrar: el disco dice si (1) o no.
+        self.invoke_solo(Some(f), 0, ARCH_OP_CERRAR);
+        self.si_no_vale(&mut no);
+        x86::cmp_r64_imm32(&mut self.code, RDX, 1);
+        no.push(self.jcc(0x85));
+        self.store_imm(out, 1);
+        let fin = self.jmp();
+        // Uno que no entro: se cierra igual -- el asa no se queda abierta -- y
+        // se dice que no.
+        for j in mal {
             self.here(j);
         }
         self.invoke_solo(Some(f), 0, ARCH_OP_CERRAR);
