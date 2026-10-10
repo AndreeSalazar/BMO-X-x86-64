@@ -55,11 +55,11 @@ pub struct Vertex {
 }
 
 /// **El contrato del vertice, en bytes** (2026-09-26): lo que un programa que
-/// NO es Rust -- INTI, que cuenta la tanda en la CPU con SSE -- escribe para
-/// que VERRANO lo tome TAL CUAL, sin convertir nada. INTI lo conoce por
-/// `verrano_vertice`, `verrano_posicion` y `verrano_color` de su tabla
-/// (`sem-asm/tables/lang/inti/modulos.toml`), y
-/// `inti/tests/espejo_del_kernel.rs` exige que digan esto mismo.
+/// NO es Rust escribe para que VERRANO lo tome TAL CUAL, sin convertir nada.
+/// Desde el 09-10 lo escribe TITAN++ (`director.publica`, en
+/// `titan/emisor-x86_64/src/e1/director.rs`, que lee ESTOS numeros y se
+/// niega a compilar si cambian); hasta entonces lo escribia INTI
+/// (`cubo.inti`), que salio en el corte 4 de PLAN_INTI_SAMURAI.
 pub const VERTEX_BYTES: usize = 32;
 pub const VERTEX_POSITION: usize = 0;
 pub const VERTEX_COLOR: usize = 16;

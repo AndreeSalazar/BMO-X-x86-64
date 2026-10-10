@@ -709,7 +709,7 @@ pixel (latencia), no los fps (caudal).
       lo que le falta a S0 -- leer la lamina, medido aparte de la espera --.
       Y una cuenta que no cuadra, dicha: 1776 vueltas sin nada son 4,9 por
       fotograma, cada una un `wait` de 1 ms, contra 17,3 ms de resto; o el
-      sueno dura mas de lo pedido (~3,5 ms de media) o la app tenia el
+      reposo dura mas de lo pedido (~3,5 ms de media) o la app tenia el
       nucleo. Es aritmetica, no medida aparte. Por eso, con la medida
       delante, S3 (despertar por el sello, no por el reloj) y S4 (la app en
       su nucleo) pesan mas que S1.

@@ -72,7 +72,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu verrano bmox12", b"E5: la 3060 transforma e ilumina con los programas de BMOX-12 traducidos por PROTON-X (0, 30 o 60)"),
     (b"gpu verrano", b"VERRANO V0: el cubo por la API de BMO-X, en la 3060 (programas del BSF) y en la CPU, comparados"),
     (b"gpu verrano banco", b"VERRANO V1: el cubo GIRANDO, 360 fotogramas seguidos por la 3060, con sus fps y el 30 juzgado contra D3D12"),
-    (b"gpu verrano banco inti", b"VERRANO: los vertices los cuenta una app (run titan/cubogira.bex o run inti/cubo.ibx antes) y los publica en una lamina; la 3060 los dibuja sin esperarla"),
+    (b"gpu verrano banco inti", b"VERRANO: los vertices los cuenta una app de TITAN++ (run titan/cubogira.bex antes) y los publica en una lamina; la 3060 los dibuja sin esperarla"),
     (b"gpu verrano banco ligero", b"VERRANO V1: lo mismo SIN la escalera de diagnostico (2 esperas en vez de ~30 por fotograma): los fps de verdad"),
     (b"gpu verrano banco anillo", b"VERRANO V1b: la CPU ORQUESTA -- envia el fotograma siguiente mientras la tarjeta dibuja este, vertices en RAM, sin esperar"),
     (b"gpu verrano banco coopera", b"VERRANO V1c: CPU y tarjeta COOPERAN -- la CPU sabe donde esta el cubo y la tarjeta solo limpia eso, no la ventana entera"),

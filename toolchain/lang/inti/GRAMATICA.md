@@ -830,7 +830,8 @@ acumula_de_cuatro32(destino, a, b)        destino = destino + a * b
 ### ★★ Y tres anchos que se perdian por el camino (2026-09-26)
 
 La app del cubo de VERRANO (`ejemplos/cubo.inti`: seno, coseno, matrices,
-todo en `flotante32`) destapo TRES sitios donde el 32 se volvia 64 sin
+todo en `flotante32`; salio el 09-10, cuando VERRANO paso a TITAN++)
+destapo TRES sitios donde el 32 se volvia 64 sin
 avisar, y los tres daban otro numero:
 
 - **un literal pasado a un parametro `flotante32`**: `pon32(d, 1.0)` escribia

@@ -299,8 +299,9 @@ fn programas(bsf: &Bsf<'static>) -> Option<(&'static [u8], &'static [u8], Module
 // ** EL CONTRATO ENTRE INTI, VERRANO Y EL BSF (26-09) -- sin nada que pelear.
 //
 // ```text
-//    INTI      escribe `Vertex` de VERRANO (`verrano_vertice` de su tabla, con
-//              su espejo contra `bmo_verrano::VERTEX_*`)
+//    la app    escribe `Vertex` de VERRANO en la lamina: desde el 09-10,
+//              TITAN++ (`director.publica`, con los numeros de
+//              `bmo_verrano::VERTEX_*`); antes, INTI
 //    VERRANO   los lleva en `Frame::vertices`, tal cual
 //    el BSF    su modulo `cubo_vertice` DICE, sacado de su SPIR-V, que lee
 //              elementos de `stride` bytes desde el byte `base` del buffer 0

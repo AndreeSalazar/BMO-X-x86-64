@@ -1163,7 +1163,8 @@ impl Table {
     /// **Es `tid` quien publica la lamina?** Una app asi es un PRODUCTOR: no
     /// lee la consola, y lo que se teclea mientras corre es para el escritorio
     /// (`gpu verrano banco inti`), no para ella. (26-09: sin esto la orden
-    /// se iba a `cubo.ibx`, que no la leia, y el banco no arrancaba nunca.)
+    /// se iba a la app del cubo, que no la leia, y el banco no arrancaba
+    /// nunca. El cubo era `inti/cubo.ibx`; desde el 09-10, `titan/cubogira.bex`.)
     pub(crate) fn publica_lamina(&self, tid: u32) -> bool {
         tid != 0 && self.lamina.is_some_and(|l| l.tid == tid)
     }

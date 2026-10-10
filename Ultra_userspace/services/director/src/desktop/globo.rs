@@ -35,7 +35,7 @@ const SABIAS: &[(&[u8], &[u8])] = &[
     // El primero de la rueda (26-09, lo pidio el propietario): la receta que
     // deja a la GSP recuperarse bien.
     (b"consejo", b"`save mode init`: la GSP despierta en orden; un cuelgue se salta"),
-    (b"sabias", b"`run inti/cubo.ibx` y `gpu verrano banco inti`: INTI cuenta"),
+    (b"sabias", b"`run titan/cubogira.bex` y, mientras, `gpu verrano banco inti`"),
     (b"sabias", b"el fractal en la 3060 sale unas 220 veces mas rapido que la CPU"),
     (b"atajo", b"Ctrl+F busca en la salida; cada Enter, la coincidencia anterior"),
     (b"sabias", b"`gpu pantalla`: la 3060 pinta tu monitor entero, 400 fotogramas"),

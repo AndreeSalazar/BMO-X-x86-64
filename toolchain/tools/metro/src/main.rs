@@ -58,6 +58,9 @@ const LIMITE: usize = 50_000_000;
 /// Fuera, con su motivo:
 ///   c/ciclos_C.c, c/coste_C.c   opcodes que el emulador no ejecuta (rdtsc)
 ///   inti/sondas/cpu.inti        idem (cpuid)
+///   inti/ejemplos/cubo.inti     BORRADO el 09-10: VERRANO lo manda TITAN++
+///                               (corte 4 de PLAN_INTI_SAMURAI); su relevo,
+///                               `nivel11/cubo_gira`, esta abajo
 const BANCO: &[(&str, &str)] = &[
     ("c", "toolchain/lang/c/examples/hola_C.c"),
     ("c", "toolchain/lang/c/examples/memoria_C.c"),
@@ -88,7 +91,6 @@ const BANCO: &[(&str, &str)] = &[
     ("inti", "toolchain/lang/inti/sondas/ventana.inti"),
     ("inti", "toolchain/lang/inti/ejemplos/bico.inti"),
     ("inti", "toolchain/lang/inti/ejemplos/musica.inti"),
-    ("inti", "toolchain/lang/inti/ejemplos/cubo.inti"),
     ("inti", "Ultra_userspace/apps/navegar/navegar.inti"),
     // ** TITAN++ entro el 04-10, con sus programas BIEN de los niveles 0-3.
     // Hasta el nivel 3 todo valor se sabe al compilar y el `.bex` solo
@@ -125,6 +127,10 @@ const BANCO: &[(&str, &str)] = &[
     // Nivel 11 (04-10): gpu fn, una celda por hilo de la 3060 (G1).
     ("titan", "toolchain/lang/titan/ejemplos/nivel11/mezcla/src/main.titan"),
     ("titan", "toolchain/lang/titan/ejemplos/nivel11/activa/src/main.titan"),
+    // ** 09-10: el RELEVO de `cubo.inti` -- el cubo que gira, contado por gpu
+    // fn al correr y publicado en la lamina de VERRANO (LB7). En el emulador
+    // nadie compone: escribe sus tres cuentas y lo dice.
+    ("titan", "toolchain/lang/titan/ejemplos/nivel11/cubo_gira/src/main.titan"),
     // Nivel 12 (05-10): lo que viene de fuera -- E1, el primer codigo de
     // TITAN++ que corre DE VERDAD en la maquina (PLAN_LA_ENTRADA).
     ("titan", "toolchain/lang/titan/ejemplos/nivel12/pregunta.titan"),
