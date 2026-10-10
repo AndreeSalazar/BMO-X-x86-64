@@ -346,10 +346,26 @@ pub fn mirar<R: Registros>(r: &mut R) -> (u32, u32, u32) {
 
 pub use crate::fractal::{desempaquetar, empaquetar};
 
-/// Sano: los dos semaforos pagados y las muestras iguales.
+/// ** EL CUELLO DE BOTELLA (10-10, EL_FOCO): las 256 muestras se leen de la
+/// pantalla por el PCIe con un `clflush` cada una, y en el metal costaron
+/// 560 us por fotograma contra 679 de la 3060 (METAL_2026-09-25): comprobar
+/// pesaba lo que dibujar. En el camino EN VIVO (D2c, el fotograma prestado
+/// de DOOM) se comprueba al CARGAR el programa y uno de cada [`CADA`]; los
+/// demas van con [`SIN_MIRAR`] en vez de las muestras -- dicho, no fingido --.
+pub const CADA: u64 = 32;
+/// Las muestras de un fotograma que no se comprobo (no cabe un 256 real).
+pub const SIN_MIRAR: u32 = 0x7_FFFF;
+
+/// Si a este fotograma (`n`, contado desde el arranque) le toca comprobarse.
+pub const fn toca_mirar(n: u64, cargar: bool) -> bool {
+    cargar || n % CADA == 0
+}
+
+/// Sano: los dos semaforos pagados y las muestras iguales (o no miradas
+/// por turno: [`SIN_MIRAR`]).
 pub const fn sano(v: u64) -> bool {
     let (buenos, qmd, fin, lanzado, _, _) = desempaquetar(v);
-    buenos == MUESTRAS && qmd && fin && lanzado
+    (buenos == MUESTRAS || buenos == SIN_MIRAR) && qmd && fin && lanzado
 }
 
 const _: () = assert!(PALABRAS_CODIGO * 4 <= 4096);
@@ -366,6 +382,20 @@ mod pruebas {
     use std::vec::Vec;
 
     const FHD: Pantalla = Pantalla { vram: 0, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+
+    /// ** Se comprueba al cargar y uno de cada 32; uno sin mirar es sano si
+    /// la 3060 pago, y uno con una muestra mala no.
+    #[test]
+    fn se_comprueba_al_cargar_y_uno_de_cada_32() {
+        assert!(toca_mirar(5, true));
+        assert!(toca_mirar(0, false) && toca_mirar(64, false));
+        assert_eq!((1..CADA).filter(|&n| toca_mirar(n, false)).count(), 0);
+        assert!(sano(empaquetar(SIN_MIRAR, true, true, true, 600, 0)));
+        assert!(sano(empaquetar(MUESTRAS, true, true, true, 600, 500)));
+        assert!(!sano(empaquetar(MUESTRAS - 1, true, true, true, 600, 500)));
+        assert!(!sano(empaquetar(SIN_MIRAR, true, false, true, 600, 0)), "sin pagar, no");
+        assert_ne!(SIN_MIRAR, MUESTRAS);
+    }
 
     #[test]
     fn doom_cae_x5_centrado_en_1920x1080() {
