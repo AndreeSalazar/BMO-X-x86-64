@@ -776,6 +776,38 @@ sesion esta en el PR #26 (rama `claude/jolly-pasteur-oahbq9`).
         olas); S0, S3 y S5 de PLAN_VERRANO. DL14, aparcada
 ```
 
+**09-10, noche: LAS DECISIONES QUE QUEDABAN, contestadas.** El
+propietario, a los puntos 2, 4, 5 y al corte de INTI: *"hazlo, no me
+importa, pero que funcione mi juego Cyberpunk 2077 que tengo alli listo"*;
+del G0: *"ya aplique y hice caso ... mi GPU prendio TODO aunque es terca"*;
+y de INTI: *"INTI tiene que perder todo, se degradan poco a poco para que
+TITAN++ lleve administracion por completo; el TITAN++ es el que conecta CPU
+(por INTI) y GPU (por VERRANO)"*. Asi quedo, y por que:
+
+```text
+   DL16  R7 deja la FFMA con el inmediato en la c (forma 2). Un inmediato
+         no es memoria: la puerta de las apps no se abre a nada nuevo, y
+         cada receta de DL13 pierde de 2 a 8 MOV. HECHA el 09-10 (1a22dd6)
+   DL17  las TEXTURAS que Cyberpunk pide: TEX con nivel (SampleLevel),
+         arrays, cubos y 3D, y TLD (Load). Porque casi todo sombreador de
+         pixeles del juego muestrea, y hoy cada uno manda su PSO entero a la
+         CPU. Por capas: la lengua (las palabras de NVIDIA, el juez, el
+         simulador y el emisor) en el anfitrion; las texturas con mips en
+         la VRAM (TIC de bloques, el barajado) y su subida, Ring 0 (DL15)
+   DL18  el LDC CON INDICE (ConstantesEn: los arrays de luces y huesos de un
+         cbuffer, `luces.hlsl`). Es memoria, y por eso con tres cerrojos: el
+         banco lo ata el kernel con la MEDIDA del cbuffer de la app (la 3060
+         da 0 fuera, segun nouveau y NVK: por ver en el metal), el juez solo
+         deja leer ESE banco, y el indice va sujeto justo antes (un IMNMX
+         que R7 mira, sin un salto que lo esquive)
+   G0    el paso 1, aplicado: primera fila de la tabla (PLAN_LA_3060, G0)
+   INTI  el corte 4a, HECHO (8580a98): VERRANO salio de INTI; lo demas de
+         app, cuando su relevo exista (3.3 de PLAN_INTI_SAMURAI)
+```
+
+Lo que cambia en el orden de arriba: el 2 (las dos que DL12 dejo en "todavia
+no") pasa a ser lo SIGUIENTE, con LB8 detras; el 5 esta hecho.
+
 **09-10, 18:24: el 1, HECHO en el metal.** `gpu verrano banco inti` con
 `titan/cubogira.bex` vivo: 360 fotogramas por la lamina, 0 rotos, `el
 ultimo, el 248: IGUAL al juez, bit a bit`, y el 30 IGUAL a D3D12; y otra

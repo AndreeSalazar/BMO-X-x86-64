@@ -659,14 +659,18 @@ despues.
    arrays          LeeIndexado, EscribeIndexado             E8b: HECHO (abajo),
                                                             con SEL en cadena
    cbuffer         ConstantesEn (la fila calculada)         memoria (c[][] con
-                                                            indice): R7 no la
-                                                            deja a una app
+                                                            indice): DECIDIDA
+                                                            el 09-10 (DL18): el
+                                                            banco del kernel,
+                                                            sujeto (E8f)
    discard         Descarta (el KILL de la 3060)            E8c: HECHO (abajo),
                                                             KILL en R7 (DL12)
    olas            vote, shfl (Ola)                         R7, y el simulador
                                                             por warp
    texturas        arrays, cubos, 3D, mips, Load,           TEX/TLD con su asa:
-                   GetDimensions, EligeTextura              el kernel la pone
+                   GetDimensions, EligeTextura              el kernel la pone.
+                                                            DECIDIDA el 09-10
+                                                            (DL17): E8g
    Mate de series  sin, cos, tan, exp2, log2, los arcos,    E8d: HECHO (abajo),
                    los hiperbolicos                         la casa en f32
                                                             (DL13), con lo que
@@ -934,9 +938,15 @@ despues.
   - **Lo que queda:**
     - el METAL: la primera vez que la 3060 cuente un seno con una receta lo
       dira el metal (del propietario);
-    - (del propietario, R7) una FFMA con la constante en la `c` (forma 2)
-      quitaria de 6 a 9 MOV por funcion: hoy R7 deja la FFMA con inmediato
-      solo en la `b`;
+    - ~~(del propietario, R7) una FFMA con la constante en la `c` (forma 2)
+      quitaria de 6 a 9 MOV por funcion~~ **HECHA el 09-10 (DL16)**: R7 la
+      deja, el codificador la escribe con sus palabras de `ptxas`
+      (`ORO_FFMA_C`, `bmo-sm86/oro_ffma_c.ptx`) y el simulador la corre.
+      Quito de 2 a 8 MOV, no de 6 a 9: con la entrada y el EXIT, sin 42->37,
+      cos 41->36, tan 56->52, exp2 27->23, log2 44->37, atan 43->41, asin
+      43->40, acos 46->43, senh 55->50 (16->12 registros), cosh 44->40
+      (15->11), tanh 56->48; `mates.hlsl` 303->278 (sigue sin caber en
+      128). Los mismos bits que la casa, juzgada (R0..R6 y R7);
     - la CPU como tarjeta: su FMA es la de la casa, por software (unas doce
       cuentas de f64); el Ryzen tiene VFMADD, y una receta traducida a x86
       la usaria con los mismos bits;
@@ -951,6 +961,81 @@ despues.
   del cuadro de 2x2 y un simulador de cuatro carriles. Las ENTERAS de pixel
   no dan nunca los bits de la casa: la casa junta 8 cuadros de un
   triangulo y la 3060 los junta a su manera. Las de computo, con LB8.
+- **E8f, el LDC CON INDICE (DL18, 09-10) -- PREPARADA.** `ConstantesEn`
+  (la fila del cbuffer CALCULADA: las luces y los huesos de un cbuffer,
+  `luces.hlsl`). Lo que dijo `ptxas` (12.9, `nvdisasm` 13.4) de un `.const`
+  leido con un indice en un registro:
+
+  ```text
+     LDC.64 R4, c[0x3][R0+0x20]   0x00c0080000047b82 / 0x000e300000000a00
+     LDC    R9, c[0x3][R0+0x4]    0x00c0010000097b82 / 0x000e620000000800
+     el opcode 0x182 en la forma 5 (como c[][]); el indice en Ra (24..32,
+     BYTES); el desplazamiento/4 en 40..54 y el banco en 54..59; el ancho en
+     73..76 (4 = 32 bits, 5 = 64); desacoplada: su barrera (E4)
+  ```
+
+  Hoy la tuberia de VERRANO no ata NINGUN banco: el cbuffer viaja en los
+  DATOS y el pegamento lo carga con LDG fila a fila. Con indice no se puede
+  cargar todo (hasta 4096 filas), asi que hace falta un banco. Los tres
+  cerrojos:
+  1. el KERNEL ata el banco de la app (`SET_CONSTANT_BUFFER_SELECTOR` y
+     `BIND_GROUP_CONSTANT_BUFFER` en el de pixel o el de vertice) a los
+     DATOS de esa receta, con la medida de SU cbuffer (`16 x filas`). La
+     3060 da 0 fuera de esa medida (lo que dicen nouveau y NVK; por ver en
+     el metal);
+  2. el JUEZ (R7) deja un LDC solo de ESE banco (el numero lo pasa quien
+     juzga, como las asas), con su destino en los registros del cuerpo;
+  3. y el indice SUJETO justo antes: un `IMNMX.U32 Ra, Ra, tope` con `tope
+     + desplazamiento + ancho <= medida`, y ningun salto del cuerpo cae en
+     el LDC (lo esquivaria). Asi el juez no se fia del silicio: lo
+     demuestra.
+
+  Lo que lleva: el codificador con sus palabras de oro, el juez (R0..R6 lo
+  decodifica; R7 con su banco y su tope), el simulador (con el banco de la
+  app y su medida: 0 fuera, como la casa), el emisor (`ConstantesEn`: el
+  IMNMX y el LDC), y el pegamento y el kernel (atar el banco). **Como se
+  sabra:** `luces.hlsl` de `dxc` de punta a punta en el anfitrion, con los
+  bits de la casa, en los dos ABI; los NO del juez (otro banco, sin sujetar,
+  un salto que lo esquiva, un tope que se pasa); y en el metal, un
+  sombreador de luces con su huella.
+- **E8g, las TEXTURAS que pide Cyberpunk (DL17, 09-10) -- PREPARADA.** Lo
+  que dijo `ptxas` de cada forma, con el asa en un registro (bindless):
+
+  ```text
+     forma                         palabra baja / alta                    registros
+     TEX.SCR.B.LZ 2D (la de hoy)   0x3800000004047361 / 0x004f4400009e0f06  Ra u,v; Rb asa
+     TEX.SCR.B.LL 2D               0x3800000406047361 / 0x008f4400019e0f06  Ra u,v; Rb asa, nivel
+     TEX.B.LL 3D                   0x4800000408087361 / 0x008f4400019e0f0a  Ra u,v,w; Rb asa, nivel
+     TEX.B.LL CUBE                 0x680000040c047361 / 0x008f4400019e0f06  Ra x,y,z; Rb asa, nivel
+     TEX.B.LL ARRAY_2D             0xa80000040c047361 / 0x010f4400019e0f06  Ra capa,u,v; Rb asa, nivel
+     TLD.SCR.B.LZ 2D               0x3800000004047367 / 0x004f4400009e0f06  Ra x,y; Rb asa
+     TLD.SCR.B.LL.CL 2D            0x3800000406047367 / 0x008f4400019e2f06  Ra x,y; Rb asa, nivel
+     TLD.B.LL.CL ARRAY_2D          0xa80000040c047367 / 0x008f4400019e2f06  Ra capa,x,y; Rb asa, nivel
+     TXD.B 2D (los gradientes)     0x280000080404736d / 0x010f4400001e0f06  Ra asa,u,v; Rb dx,dy
+  ```
+
+  Los campos: 61..64 la dimension (1 2D, 2 3D, 3 CUBE, 5 ARRAY_2D), 59 el
+  asa en registro (.B), 60 .SCR (solo con dos coordenadas), 87..90 el
+  nivel (1 LZ, 3 LL), 77 .CL en el TLD con nivel. Y dos cosas que hace
+  `ptxas` y que el emisor tiene que hacer igual: la CAPA va entera y
+  SUJETA a 0xFFFF (`ISETP.GT.U32` + `SEL`), y el vector de un CUBO va
+  DIVIDIDO por su componente mayor (`FMNMX`, `MUFU.RCP`, tres `FMUL`).
+  [!] El segundo pide decidir: con `MUFU.RCP` (aproximado) los bits de la
+  cara y del texel cerca de un borde pueden no ser los de la casa; la casa
+  divide exacto. Se emite con la division EXACTA de DL10 (`cociente.rs`),
+  y el metal dira si la 3060 pide el vector normalizado o le da igual.
+
+  Lo que lleva, por capas: la LENGUA en el anfitrion (las palabras de oro,
+  el juez -- que registros lee cada forma; R7: el asa en Rb puesta por el
+  kernel, el nivel en Rb+1 del cuerpo --, el simulador con el muestreador
+  de la casa como oraculo, y el emisor de `Op::Lee` con nivel y de Load:
+  la forma de cada textura sale de su declaracion en el DXIL, la
+  `especie` de la PSV0); y las TEXTURAS EN LA VRAM, Ring 0 (DL15): el TIC
+  de BLOQUES (una textura con mips no puede ser PITCH), el barajado de los
+  texeles en bloques de GOB, las capas y las caras, y la subida. **Como se
+  sabra:** cada forma, con los bits de la casa en el simulador y su prueba
+  del NO en el juez; en el metal, `gpu verrano textura` con mips, un array
+  y un cubo IGUAL a la 3060 bajo CUDA, como el T3 del 29-09.
 - **Como se sabra E8 entera:** cada fila de la tabla, con su prueba en el
   anfitrion; las que piden R7 o el kernel, cuando el propietario las abra; y
   en el metal, un sombreador de cada una.
