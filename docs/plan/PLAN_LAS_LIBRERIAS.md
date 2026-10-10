@@ -793,13 +793,17 @@ TITAN++ lleve administracion por completo; el TITAN++ es el que conecta CPU
          pixeles del juego muestrea, y hoy cada uno manda su PSO entero a la
          CPU. Por capas: la lengua (las palabras de NVIDIA, el juez, el
          simulador y el emisor) en el anfitrion; las texturas con mips en
-         la VRAM (TIC de bloques, el barajado) y su subida, Ring 0 (DL15)
+         la VRAM (TIC de bloques, el barajado) y su subida, Ring 0 (DL15).
+         La lengua, HECHA el 10-10 en el anfitrion salvo el cubo (E8g de
+         PLAN_LA_LENGUA_DE_LA_3060, con su decision pendiente)
    DL18  el LDC CON INDICE (ConstantesEn: los arrays de luces y huesos de un
          cbuffer, `luces.hlsl`). Es memoria, y por eso con tres cerrojos: el
          banco lo ata el kernel con la MEDIDA del cbuffer de la app (la 3060
          da 0 fuera, segun nouveau y NVK: por ver en el metal), el juez solo
          deja leer ESE banco, y el indice va sujeto justo antes (un IMNMX
-         que R7 mira, sin un salto que lo esquive)
+         que R7 mira, sin un salto que lo esquive). HECHA en el anfitrion
+         el 09-10 (ffdacd1), con las ordenes que atan el banco; el metal,
+         con la primera receta que la use
    G0    el paso 1, aplicado: primera fila de la tabla (PLAN_LA_3060, G0)
    INTI  el corte 4a, HECHO (8580a98): VERRANO salio de INTI; lo demas de
          app, cuando su relevo exista (3.3 de PLAN_INTI_SAMURAI)

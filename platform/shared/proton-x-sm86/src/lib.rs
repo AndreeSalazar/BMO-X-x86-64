@@ -83,6 +83,8 @@ pub mod series;
 mod indexado;
 // ** E8f (09-10, DL18): la fila del cbuffer calculada, con un LDC sujeto.
 mod constantes;
+// ** E8g (09-10, DL17): SampleLevel y Load, por sus formas de TEX y TLD.
+mod lecturas;
 /// E6 (02-10): lo que se mira antes de emitir un programa que salta.
 mod saltos;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
@@ -140,6 +142,12 @@ pub enum Precarga {
     /// `muestreador` (sM), en `reg`. La pone el pegamento del KERNEL: la
     /// pareja (tN, sM) sera la textura k de la receta.
     Asa { textura: u8, muestreador: u8, reg: u8 },
+    /// ** E8g (09-10): el asa de (tN, sM) en `reg` -- la carga el pegamento
+    /// como [`Precarga::Asa`] -- con `reg + 1` RESERVADO para el nivel que el
+    /// cuerpo escribe justo antes de SU TEX o TLD (`.LL`: el asa y el nivel
+    /// van juntos en Rb, Rb+1). Una por lectura: el nivel de una no pisa el
+    /// de otra mientras la 3060 aun lo lee.
+    AsaPar { textura: u8, muestreador: u8, reg: u8 },
 }
 
 /// Como se cronometra una instruccion (las clases del juez que emite esto).
@@ -237,6 +245,9 @@ struct Emisor<'a> {
     p0: Option<Reg>,
     /// E6: los `si` y bucles abiertos, con sus saltos por parchear.
     abiertos: Vec<Abierto>,
+    /// ** E8g: el par (asa, nivel) de cada `Op::Lee` que va a la 3060, por
+    /// su indice (lo pide la pasada de antes del cuerpo).
+    pares: Vec<Option<u8>>,
     /// LB7a (09-10): FRUGAL -- lo que se sube a un registro (una constante,
     /// una entrada del banco) no se QUEDA en el: se vuelve a subir cada vez;
     /// una variable recibe su registro justo antes de lo primero que la
@@ -436,7 +447,12 @@ impl Emisor<'_> {
                 _ => {}
             }
         }
-        let n = if matches!(pedida, Precarga::Fila { .. }) { 4 } else { 1 };
+        let n = match pedida {
+            Precarga::Fila { .. } => 4,
+            // ** E8g: el par lo pide `precarga_par`, nunca compartido.
+            Precarga::AsaPar { .. } => return Err(NoEmite::Registros),
+            _ => 1,
+        };
         // n seguidos (una fila va con un LDG.128: alineada a 4 registros).
         let paso = if n == 4 { 4 } else { 1 };
         let mut i = self.reservados.div_ceil(paso) * paso;
@@ -456,7 +472,38 @@ impl Emisor<'_> {
             Precarga::Entrada { elemento, componente, .. } => Precarga::Entrada { elemento, componente, reg },
             Precarga::Fila { fila, .. } => Precarga::Fila { fila, reg },
             Precarga::Asa { textura, muestreador, .. } => Precarga::Asa { textura, muestreador, reg },
+            Precarga::AsaPar { .. } => unreachable!("arriba"),
         });
+        Ok(reg)
+    }
+
+    /// ** E8g: el par (asa, nivel) de (tN, sM), alineado: el asa en el
+    /// primero (lo carga el pegamento) y el segundo, del cuerpo, para el
+    /// nivel de cada lectura (se escribe justo antes de su TEX; el planificador
+    /// hace esperar la barrera de lectura del TEX anterior). Uno por (tN, sM),
+    /// los dos fijos todo el programa.
+    fn precarga_par(&mut self, textura: u8, muestreador: u8) -> Result<u8, NoEmite> {
+        for &p in &self.precargas {
+            if let Precarga::AsaPar { textura: t, muestreador: s, reg } = p {
+                if (t, s) == (textura, muestreador) {
+                    return Ok(reg);
+                }
+            }
+        }
+        let mut i = self.reservados.div_ceil(2) * 2;
+        while i + 2 <= self.libres.len() && !(i..i + 2).all(|k| self.libres[k]) {
+            i += 2;
+        }
+        if i + 2 > self.libres.len() {
+            return Err(NoEmite::Registros);
+        }
+        for k in i..i + 2 {
+            self.libres[k] = false;
+            self.fijos[k] = true;
+        }
+        self.maximo = self.maximo.max((i + 2) as u32);
+        let reg = i as u8;
+        self.precargas.push(Precarga::AsaPar { textura, muestreador, reg });
         Ok(reg)
     }
 
@@ -572,6 +619,7 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
         hondo: 0,
         p0: None,
         abiertos: Vec::new(),
+        pares: vec![None; p.ops.len()],
         frugal,
     };
     // Con `Abi::Registros` TODO lo precargado se pide ANTES del cuerpo: el
@@ -579,13 +627,18 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
     // temporal antes. Cada uno se suelta tras su ultimo uso (`fin`).
     let mut fin = vec![None::<usize>; registros as usize];
     if abi == Abi::Registros {
-        for op in &p.ops {
+        for (i_op, op) in p.ops.iter().enumerate() {
             let (base, d, k) = match *op {
                 Op::Entrada { d, elemento, componente } => (e.precarga(Precarga::Entrada { elemento, componente, reg: 0 })?, d, 1),
                 Op::Constantes { d, fila, .. } => (e.precarga(Precarga::Fila { fila, reg: 0 })?, d, 4),
                 // El asa: fija TODO el programa (la lee un TEX desacoplado).
                 Op::Muestra { t, s, .. } => {
                     e.precarga(Precarga::Asa { textura: t, muestreador: s, reg: 0 })?;
+                    continue;
+                }
+                // ** E8g: un par (asa, nivel) por lectura con nivel o Load.
+                Op::Lee { t, s, como: bmo_proton_x::dxil::programa::Lectura::Nivel | bmo_proton_x::dxil::programa::Lectura::Carga { .. }, .. } if t != bmo_proton_x::dxil::programa::DINAMICA => {
+                    e.pares[i_op] = Some(e.precarga_par(t, s)?);
                     continue;
                 }
                 _ => continue,
@@ -912,10 +965,13 @@ fn emitir_modo(p: &Programa, registros: u32, abi: Abi, libreta: bool, frugal: bo
             }
             // ** DL10 (09-10): exacta, con los bits de la casa.
             Op::Div { d, a, b } => e.cociente(d, a, b, i, &mut paso)?,
-            // 02-10: arrays, cubos, 3D, mips, Load y GetDimensions: en la
-            // CPU todavia (la 3060 lee aqui un TEX 2D de nivel 0).
+            // ** E8g (09-10, DL17): SampleLevel en 2D, 3D y array de 2D, y
+            // Load en 2D y array (`lecturas.rs`); lo demas -- el cubo, los
+            // gradientes, GetDimensions, los desplazamientos, la textura
+            // elegida al correr -- en la CPU todavia.
+            Op::Lee { d, t, s, como, c: co, nivel, desp } => e.lee_textura(d, t, s, como, co, nivel, desp, i, &mut paso)?,
             // N5.4: elegir la textura al correr, la 3060 todavia no.
-            Op::Lee { .. } | Op::EligeTextura { .. } => return Err(NoEmite::Operacion(i)),
+            Op::EligeTextura { .. } => return Err(NoEmite::Operacion(i)),
             // N5.5: el computo, todavia no en la 3060 (va por la CPU).
             Op::IdHilo { .. } | Op::Barrera | Op::LeeCompartida { .. } | Op::EscribeCompartida { .. } | Op::AtomicoCompartido { .. } | Op::EscribeUav { .. } | Op::LeeUav { .. } | Op::MedidasUav { .. } => return Err(NoEmite::Operacion(i)),
             // E2.3b: el sombreador de geometria, igual (va por la CPU).
@@ -1024,3 +1080,5 @@ mod pruebas_descarte;
 mod pruebas_series;
 #[cfg(test)]
 mod pruebas_constantes;
+#[cfg(test)]
+mod pruebas_lecturas;

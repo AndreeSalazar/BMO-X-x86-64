@@ -209,7 +209,7 @@ pub(crate) fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]
                     m.r[reg as usize + k] = cb.get(o..o + 4).map_or(0, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]));
                 }
             }
-            Precarga::Asa { .. } => panic!("un programa sin texturas no pide asas"),
+            Precarga::Asa { .. } | Precarga::AsaPar { .. } => panic!("un programa sin texturas no pide asas"),
         }
     }
     correr(&e.codigo, &mut m).unwrap();
@@ -301,7 +301,7 @@ fn el_pixel_de_hellotexture_es_un_tex() {
                 match q {
                     Precarga::Entrada { elemento, componente, reg } => m.r[reg as usize] = entradas[elemento as usize][componente as usize & 3].to_bits(),
                     Precarga::Asa { reg, .. } => m.r[reg as usize] = bmo_gpu_ga10x::texturas::asa(0, 0),
-                    Precarga::Fila { .. } => panic!("no lee cbuffer"),
+                    Precarga::Fila { .. } | Precarga::AsaPar { .. } => panic!("no lee cbuffer ni con nivel"),
                 }
             }
             correr(&e.codigo, &mut m).unwrap();

@@ -135,7 +135,7 @@ pub fn cuerpos_con_libreta(en: &Enlace, ia: &[ElementoIa], recuerdo: Option<&mut
     };
     let vivos = crate::vivo::cuerpos_vivos(en, recuerdo, emitir)?;
     let (ev, ep) = (&vivos.vs, &vivos.ps);
-    if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. })) {
+    if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. } | crate::Precarga::AsaPar { .. })) {
         return Err(NoVa::Emisor("vertice", crate::NoEmite::Operacion(0)));
     }
     let posicion = en.posicion as u32;
@@ -386,6 +386,13 @@ impl Puerta {
         }
         if l.enlace.ps.mip_por_derivadas() && l.recursos.mip_importa() {
             return Err(String::from("muestrea con la mip de sus derivadas una textura de varias mips (o con MIN y MAG distintos): la 3060 lee la mip 0 todavia"));
+        }
+        // ** E8g (10-10): SampleLevel y Load leen la mip que les dicen, y la
+        // 3060 tiene en su TIC (PITCH) la mip 0 de cada textura: con una
+        // vista de varias mips, o un muestreador que filtra distinto de lejos,
+        // daria otra cosa. Hasta el TIC de bloques (Ring 0), por la CPU.
+        if l.enlace.ps.lee_con_nivel() && l.recursos.mip_importa() {
+            return Err(String::from("lee con SampleLevel o Load una textura de varias mips (o con MIN y MAG distintos): la 3060 tiene la mip 0 todavia"));
         }
         // N5.13: la receta lleva UNA instancia y los elementos por vertice.
         if l.instancias != 1 || l.entradas.iter().any(|e| e.por_instancia.is_some()) {

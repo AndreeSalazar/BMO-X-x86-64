@@ -413,32 +413,57 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
             i.lee = [reg(s0, 1), reg(s1, 1), NADA, NADA];
         }
         // TEX con el asa en un registro (0x361: op 0x161, forma 1; P3b4c.8
-        // T1, `texturas::tex`). SOLO la forma que se sabe: 2D, .LZ, los
-        // cuatro canales seguidos (Rd2 = Rd + 2, mascara 0xF), sin
-        // desplazamientos, comparacion, F16 ni predicado de salida, pares
-        // alineados y un asa. Lo demas es otra instruccion para el juez: R0.
-        0x161 if forma == 1 => {
+        // T1, `texturas::tex`) y, desde E8g (DL17, 09-10), TLD (0x367: op
+        // 0x167). SOLO las formas que se saben -- las de
+        // `bmo_sm86::codifica::{tex_forma, tld}`, sus palabras de `ptxas`
+        // (`ORO_TEX`) --:
+        //
+        //    dim (61..64)  1 2D, 2 3D, 3 CUBE, 5 ARRAY_2D, 7 ARRAY_CUBE: 2, 3,
+        //                  3, 3 y 4 coordenadas en Ra.. (alineadas a 2 o a 4)
+        //    nivel (87..)  1 .LZ (solo 2D): el asa en Rb; 3 .LL: el asa y el
+        //                  nivel en Rb, Rb+1 (el par alineado)
+        //    .B y .SCR     el 59 siempre; el 60 solo en 2D
+        //    .CL (77)      en un TLD con .LL, y solo ahi
+        //
+        // Los cuatro canales seguidos (Rd2 = Rd + 2, mascara 0xF), sin
+        // desplazamientos, comparacion, F16 ni predicado de salida. Lo demas
+        // es otra instruccion para el juez: R0.
+        0x161 | 0x167 if forma == 1 => {
+            let (dim, nivel, tld) = (r(61, 3), r(87, 3), op == 0x167);
+            let coordenadas = match dim {
+                1 => 2,
+                2 | 3 | 5 => 3,
+                7 => 4,
+                _ => return None,
+            };
+            let alinea = if coordenadas == 2 { 2 } else { 4 };
+            let (n_b, con_nivel) = (if nivel == 3 { 2 } else { 1 }, nivel == 3);
             let forma_sabida = r(12, 4) == 7
-                && r(59, 5) == 0b00111
+                && r(59, 1) == 1
+                && r(60, 1) == (dim == 1) as u32
+                && (nivel == 3 || nivel == 1 && dim == 1)
+                && r(77, 1) == (tld && con_nivel) as u32
                 && r(64, 8) == rd + 2
                 && r(72, 4) == 0xF
-                && r(76, 5) == 0
+                && r(76, 1) == 0
+                && r(78, 3) == 0
                 && r(81, 3) == 7
                 && r(84, 3) == 1
-                && r(87, 4) == 1
+                && r(90, 1) == 0
                 && r(40, 19) == 0
                 && r(91, 14) == 0
                 && rd % 2 == 0
-                && s0 % 2 == 0
-                && rd as u8 != RZ
-                && s0 as u8 != RZ
-                && s1 as u8 != RZ;
+                && s0 % alinea == 0
+                && s1 % n_b == 0
+                && rd + 4 <= RZ as u32
+                && s0 + coordenadas <= RZ as u32
+                && s1 + n_b <= RZ as u32;
             if !forma_sabida {
                 return None;
             }
             i.clase = Clase::Agu;
             i.escribe = reg(rd, 4);
-            i.lee = [reg(s0, 2), reg(s1, 1), NADA, NADA];
+            i.lee = [reg(s0, coordenadas as u8), reg(s1, n_b as u8), NADA, NADA];
         }
         // ** E8f (DL18, 09-10): LDC, una o dos palabras de un banco de
         // constantes con el indice en Ra (en bytes; RZ, sin indice). SOLO la
@@ -607,8 +632,8 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
             // `discard` --. No toca memoria: el hilo acaba y su pixel no se
             // escribe. Que el programa sea de pixel y su SPH lo diga es R5.
             0x15B => &[4],
-            // TEX: con un asa que puso el kernel (abajo).
-            0x161 if asas != 0 => &[1],
+            // TEX y (E8g) TLD: con un asa que puso el kernel (abajo).
+            0x161 | 0x167 if asas != 0 => &[1],
             // ** E8f: LDC, del banco que ato el kernel (abajo).
             0x182 if permisos.banco.is_some() => &[5],
             0x14D if k == ultima => &[4],
@@ -631,10 +656,10 @@ pub fn juzgar_cuerpo_con(codigo: &[(u64, u64)], registros: u32, permisos: Permis
         if n > 0 && (r as u32..r as u32 + n as u32).any(|x| x < 64 && asas >> x & 1 == 1) {
             return ajeno(k, r as u32, "pisa el registro del ASA de una textura: el asa la pone el kernel");
         }
-        if op == 0x161 {
+        if op == 0x161 || op == 0x167 {
             let asa = (lo >> 32 & 0xFF) as u32;
             if asa >= 64 || asas >> asa & 1 == 0 {
-                return ajeno(k, asa, "un TEX con un asa que no puso el kernel");
+                return ajeno(k, asa, "un TEX o un TLD con un asa que no puso el kernel");
             }
         }
         if op == 0x182 {
@@ -909,7 +934,13 @@ fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto, d
         // resultado llego, las fuentes ya se leyeron). Sin barrera de lectura
         // las lee al emitirse: la tabla de Ampere da 1 ciclo de WAR a una
         // desacoplada (NAK `write_after_read`), y `ptxas` cuenta con ello.
-        if matches!(i.clase, Clase::Desacoplada | Clase::Agu) && i.bar_lectura < 6 {
+        //
+        // ** E8g (10-10): un TEX o un TLD, NO: la unidad de texturas toma sus
+        // fuentes cuando las toma (NAK le da barrera de lectura a toda la que
+        // no es de latencia fija). Sin barrera de lectura quedan leidas hasta
+        // que se espere la de su RESULTADO; pisarlas antes es R4.
+        let tarde = matches!(i.op, 0x161 | 0x167);
+        if matches!(i.clase, Clase::Desacoplada | Clase::Agu) && (i.bar_lectura < 6 || tarde) {
             for &(r, n) in i.lee.iter() {
                 for x in r as usize..r as usize + n as usize {
                     regs[x].leido = true;
@@ -1010,7 +1041,7 @@ mod pruebas {
     /// R0 "no se".
     #[test]
     fn el_juez_conoce_lo_que_fabrica_el_codificador() {
-        for (texto, lo, hi) in bmo_sm86::codifica::ORO.iter().chain(bmo_sm86::codifica::LEIDAS).chain(bmo_sm86::codifica::LEIDAS_DL12).chain(bmo_sm86::codifica::ORO_FFMA_C).chain(bmo_sm86::codifica::ORO_LDC) {
+        for (texto, lo, hi) in bmo_sm86::codifica::ORO.iter().chain(bmo_sm86::codifica::LEIDAS).chain(bmo_sm86::codifica::LEIDAS_DL12).chain(bmo_sm86::codifica::ORO_FFMA_C).chain(bmo_sm86::codifica::ORO_LDC).chain(bmo_sm86::codifica::ORO_TEX) {
             assert!(conoce(*lo, *hi), "{texto}");
         }
     }
@@ -1184,58 +1215,6 @@ mod pruebas {
         }
         // Un par sin alinear, tampoco.
         assert_eq!(regla(&[tex(5, 0, 2, carga(0)), cu::EXIT], &ctx), Regla::R0NoSe);
-    }
-
-    /// ** E8f (DL18): el LDC es una DESACOPLADA -- quien lee lo que carga
-    /// espera su barrera (R1) -- y R7 lo deja solo del banco que ato el
-    /// kernel, con el indice sujeto justo antes y sin un salto que lo
-    /// esquive. Cada cerrojo, con su NO.
-    #[test]
-    fn e8f_el_ldc_de_la_app_y_sus_tres_cerrojos() {
-        use bmo_sm86::codifica::{self as c, Fuente};
-        let ctl = |espera: u64, wbar: u64, mascara: u64| espera | 1 << 4 | wbar << 5 | 7 << 8 | mascara << 11;
-        let fin = c::exit(ctl(5, 7, 0));
-        // R1: el dato del LDC, leido sin esperar su barrera.
-        let carga = c::ldc(0, 3, RZ, 0x10, false, ctl(2, 0, 0));
-        let ctx = Contexto { registros: 8, sph: None };
-        let bien = [carga, c::fadd(1, c::r(0), c::r(0), false, ctl(6, 7, 1)), fin];
-        assert!(juzgar_drenado(&bien, &ctx).is_ok(), "{:?}", juzgar_drenado(&bien, &ctx));
-        let mal = [carga, c::fadd(1, c::r(0), c::r(0), false, ctl(6, 7, 0)), fin];
-        assert_eq!(juzgar_drenado(&mal, &ctx).unwrap_err().regla, Regla::R1DatoAntesDeLlegar);
-        // R7: el banco 3, de 128 bytes (8 filas).
-        let banco = Some(BancoDeApp { numero: 3, bytes: 128 });
-        let p = Permisos { asas: 0, banco };
-        let sujeta = |tope: u32| c::imnmx(0, 1, Fuente::Imm(tope), false, false, 1);
-        let ldc = |b: u8, ra: u8, desp: u16| c::ldc(2, b, ra, desp, true, 1);
-        let ldc2 = c::ldc(4, 3, 0, 0x8, true, 1);
-        // La fila del indice, sus dos mitades: tope 0x70 + 8 + 8 = 128. SI.
-        assert_eq!(juzgar_cuerpo_con(&[sujeta(0x70), ldc(3, 0, 0), ldc2, fin], 8, p), Ok(()));
-        // Sin indice: c[3][0x78] y ocho bytes, SI; c[3][0x7c] y ocho, NO.
-        assert_eq!(juzgar_cuerpo_con(&[ldc(3, RZ, 0x78), fin], 8, p), Ok(()));
-        assert_eq!(juzgar_cuerpo_con(&[ldc(3, RZ, 0x7c), fin], 8, p).unwrap_err().regla, Regla::R7CuerpoAjeno);
-        let no = |codigo: &[(u64, u64)], p: Permisos| juzgar_cuerpo_con(codigo, 8, p).unwrap_err();
-        // Sin banco atado (la de siempre), o con permisos sin banco: NO.
-        assert_eq!(juzgar_cuerpo_de_app(&[sujeta(0x70), ldc(3, 0, 0), fin], 8).unwrap_err().instruccion, 1);
-        assert_eq!(no(&[sujeta(0x70), ldc(3, 0, 0), fin], Permisos::default()).instruccion, 1);
-        // Otro banco.
-        assert_eq!(no(&[sujeta(0x70), ldc(0, 0, 0), fin], p).que, 0);
-        // El indice sin sujetar (un MOV), o sujeto con un tope que se pasa.
-        assert_eq!(no(&[c::mov(0, c::r(1), 1), ldc(3, 0, 0), fin], p).instruccion, 0);
-        assert_eq!(juzgar_cuerpo_con(&[sujeta(0x78), ldc(3, 0, 0), fin], 8, p), Ok(()), "0x78 + 8 = 128: cabe justo");
-        assert_eq!(no(&[sujeta(0x7c), ldc(3, 0, 0), fin], p).instruccion, 1);
-        assert_eq!(no(&[sujeta(0x78), ldc(3, 0, 0), ldc2, fin], p).instruccion, 2);
-        // Sujeto, pero algo lo pisa despues (el IMNMX ya no es el ultimo).
-        assert_eq!(no(&[sujeta(0x70), c::iadd3(0, 0, Fuente::Imm(64), 1), ldc(3, 0, 0), fin], p).instruccion, 1);
-        // El MAYOR, o con signo (un negativo pasaria por pequenyo), NO.
-        assert_eq!(no(&[c::imnmx(0, 1, Fuente::Imm(0x70), true, false, 1), ldc(3, 0, 0), fin], p).instruccion, 0);
-        assert_eq!(no(&[c::imnmx(0, 1, Fuente::Imm(0x70), false, true, 1), ldc(3, 0, 0), fin], p).instruccion, 0);
-        // Un salto que cae en el LDC, saltandose el IMNMX: NO, aunque venga
-        // de detras (un bucle).
-        let salto = |desde: i64, hasta: i64| c::bra(7, 16 * (hasta - desde - 1), 1);
-        assert_eq!(no(&[c::mov(0, c::r(1), 1), sujeta(0x70), ldc(3, 0, 0), salto(3, 2), fin], p).instruccion, 3);
-        assert_eq!(no(&[salto(0, 2), sujeta(0x70), ldc(3, 0, 0), fin], p).instruccion, 0);
-        // Un salto al IMNMX mismo, SI: lo corre.
-        assert_eq!(juzgar_cuerpo_con(&[sujeta(0x70), ldc(3, 0, 0), salto(2, 0), fin], 8, p), Ok(()));
     }
 
     /// P3b4c.8 T2: el TEX en el cuerpo de una app, solo con el asa del

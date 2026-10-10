@@ -670,7 +670,10 @@ despues.
    texturas        arrays, cubos, 3D, mips, Load,           TEX/TLD con su asa:
                    GetDimensions, EligeTextura              el kernel la pone.
                                                             DECIDIDA el 09-10
-                                                            (DL17): E8g
+                                                            (DL17): E8g, HECHA
+                                                            en el anfitrion
+                                                            (10-10) salvo el
+                                                            cubo
    Mate de series  sin, cos, tan, exp2, log2, los arcos,    E8d: HECHO (abajo),
                    los hiperbolicos                         la casa en f32
                                                             (DL13), con lo que
@@ -1039,8 +1042,9 @@ despues.
     si la 3060 acepta el banco atado asi (nunca se ato uno en la tuberia
     grafica de esta casa) y si da 0 fuera de su medida; el juez no depende
     de eso, la huella si --.
-- **E8g, las TEXTURAS que pide Cyberpunk (DL17, 09-10) -- PREPARADA.** Lo
-  que dijo `ptxas` de cada forma, con el asa en un registro (bindless):
+- **E8g, las TEXTURAS que pide Cyberpunk (DL17, 09-10) -- HECHA EN EL
+  ANFITRION (10-10), salvo el cubo.** Lo que dijo `ptxas` de cada forma,
+  con el asa en un registro (bindless):
 
   ```text
      forma                         palabra baja / alta                    registros
@@ -1077,6 +1081,76 @@ despues.
   sabra:** cada forma, con los bits de la casa en el simulador y su prueba
   del NO en el juez; en el metal, `gpu verrano textura` con mips, un array
   y un cubo IGUAL a la 3060 bajo CUDA, como el T3 del 29-09.
+  - **Lo hecho (10-10), la lengua:**
+    - el codificador, `bmo_sm86::codifica::{tex_forma, tld}` con
+      `DimTex` y `NivelTex`, y sus ocho palabras de `ptxas` (`ORO_TEX`,
+      `bmo-sm86/oro_texturas.ptx`);
+    - el juez: R0..R6 decodifica cada forma -- cuantas coordenadas lee, el
+      par (asa, nivel) alineado con .LL, y R0 para lo que no se sabe (.LZ
+      fuera del 2D, .SCR fuera del 2D, .CL en un TEX, coordenadas sin
+      alinear) --; R7 deja el TLD como el TEX, con el asa del kernel. Y
+      **R4 aprendio algo**: la unidad de texturas toma las fuentes de un
+      TEX o un TLD cuando las toma, despues de salir la instruccion (NAK
+      le da barrera de lectura a toda la que no es de latencia fija); sin
+      barrera de lectura, sus fuentes quedan leidas hasta que se espere la
+      de su resultado, y pisarlas antes es R4. Antes el juez las daba por
+      leidas al salir;
+    - el simulador lee como la 3060 (`LecturaTex`: el asa, la dimension, la
+      capa ya entera, el nivel) y el muestreador de la casa hace de su
+      unidad de texturas;
+    - el emisor (`proton-x-sm86/src/lecturas.rs`): `SampleLevel` en 2D, 3D
+      y array de 2D, y `Load` en 2D y en array. La FORMA de cada textura la
+      dice la PSV0 (`Ranuras::formas`, que ahora lee el lector). La capa de
+      un `SampleLevel` es la de la casa, `suelo(z + 0.5)` sujeta: FADD,
+      F2I, y dos IMNMX (el mayor con 0, el menor con 0xFFFF, lo que
+      `ptxas` hace con ISETP y SEL). El par (asa, nivel) es uno por
+      (textura, muestreador), fijo todo el programa: el asa la pone el
+      pegamento y R7 no deja pisarla; el nivel se escribe antes de CADA
+      lectura;
+    - el planificador: un TEX o un TLD enciende su barrera de LECTURA
+      (`Meta::lee_tarde`) y quien escribe despues en una de sus fuentes la
+      espera; si llego su resultado, la de lectura se suelta con el. Asi
+      las coordenadas se devuelven en cuanto sale la lectura.
+  - **Como se supo:** `pruebas_lecturas.rs` -- cada forma contra la casa,
+    bit a bit, con cuatro muestreadores (punto, lineal, los bordes, el
+    sesgo y los topes de la mip), seis (u, v) dentro y fuera y nueve
+    niveles (de -1 a 10); la capa en todos sus bordes (los medios, los
+    negativos, NaN, los infinitos, 65535.6 y 1e10); el Load dentro, en el
+    borde y fuera en x, y, mip y capa (fuera, 0); dos lecturas de una
+    textura con UN par; lo que no va, con su indice. Por la puerta del
+    kernel (el pegamento de pixel y el juez de programas enteros): 15, 16,
+    19, 15 y 16 instrucciones. Y `niveles.hlsl` de `dxc`
+    (`proton-x/prueba/niveles.dxil`): tres TEX y dos TLD, la casa bit a
+    bit, juzgado, y por la puerta: 59 instrucciones de cuerpo, 70 pegado,
+    40 registros -- con un par y un bloque de coordenadas FIJOS por
+    lectura no cabia en 64 --. Saboteados: el 0.5 de la capa (0.25), la
+    capa en otro registro, el mayor sin signo, y la barrera de lectura
+    quitada (cae `dos_lecturas_una_textura`, y el juez da R4 en
+    `niveles.hlsl`).
+  - **Lo que NO va todavia, y por que** (va por la CPU, con su indice, como
+    hoy):
+    - [!] **el CUBO, decision del propietario:** `ptxas` divide el vector
+      por su componente mayor con `MUFU.RCP` (aproximado): cerca de un
+      borde de cara los bits pueden no ser los de la casa, que divide
+      exacto. Con la division EXACTA de DL10 son tres divisiones de ~60
+      instrucciones: no caben en la puerta de 128. Las salidas: (a) el
+      `MUFU.RCP` de `ptxas`, y la huella del metal lo mide; (b) la casa
+      divide como la 3060 (cambia el oraculo, como DL13 con las series);
+      (c) esperar a un emisor que parta programas;
+    - el `Sample` de un pixel con mips (el TEX que saca el nivel de su
+      CUADRO, sin .LZ ni .LL): pide que el simulador corra los cuatro
+      pixeles de un cuadro juntos, como la casa;
+    - los gradientes (TXD), los desplazamientos, `GetDimensions`, el Load
+      de una 3D, y la textura elegida al correr (bindless de verdad).
+  - **Lo que queda en Ring 0 y en el metal:** las TEXTURAS EN LA VRAM -- el
+    TIC de BLOQUES con mips, el barajado en GOB, las capas, y la subida --.
+    Hasta entonces la PUERTA manda a la 3060 un `SampleLevel` o un `Load`
+    solo de una textura 2D de UNA mip (la PITCH de hoy) con un muestreador
+    que filtra igual de cerca y de lejos: las demas, por la CPU, y lo dice
+    (`Programa::lee_con_nivel`, prueba `sample_level_de_varias_mips_va_por_
+    la_cpu`); una 3D o un array ya iban por la CPU (la puerta solo presta
+    texturas 2D). Y el metal dira si la 3060 sujeta la capa a la vista y da
+    0 en un Load fuera, como D3D.
 - **Como se sabra E8 entera:** cada fila de la tabla, con su prueba en el
   anfitrion; las que piden R7 o el kernel, cuando el propietario las abra; y
   en el metal, un sombreador de cada una.

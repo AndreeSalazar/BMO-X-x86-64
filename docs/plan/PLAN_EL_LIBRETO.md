@@ -174,6 +174,11 @@ y `puerta.rs`; el juez en `platform/drivers/gpu/ga10x/src/sass/juez.rs`):
       el juego -- con nivel, arrays, cubos, 3D y Load --, por capas: E8g de
       PLAN_LA_LENGUA_DE_LA_3060 (lo que dijo `ptxas` de cada una, y el
       orden). Y el LDC con indice de las luces (DL18, E8f), su vecino.
+      **10-10, la lengua HECHA en el anfitrion:** `SampleLevel` en 2D, 3D
+      y array, y `Load` en 2D y array, con los bits de la casa y juzgadas
+      (E8g; `niveles.hlsl` de dxc entero: 59 instrucciones, 40 registros).
+      Falta lo de esta casilla que es Ring 0 -- el TIC de bloques con mips,
+      las capas, la subida -- y el cubo, que es decision (E8g).
 - [ ] **LI2d -- varios render targets y la profundidad** (N5.8; V2/M1 de
       `PLAN_VERRANO.md`). El G-buffer: hasta 8 destinos y el z-buffer en la
       VRAM. **Como se sabe:** la escena 3D dura (A11) pintada por la 3060

@@ -73,12 +73,20 @@ pub struct Meta {
     pub lee_p: Option<(u8, bool)>,
     /// E6: un BRA (drena todo antes de salir).
     pub salto: bool,
+    /// ** E8g: lo que lee ADEMAS (un TEX con nivel lee cinco: sus tres
+    /// coordenadas, el asa y el nivel).
+    pub lee_mas: [Option<u8>; 3],
+    /// ** E8g: lee sus fuentes TARDE (un TEX o un TLD: la unidad de
+    /// texturas las toma cuando las toma). Enciende una barrera de LECTURA,
+    /// y quien escriba despues en una de ellas la espera (lo que mira el
+    /// juez en R4). Asi sus registros se devuelven en cuanto sale.
+    pub lee_tarde: bool,
 }
 
 impl Meta {
     /// Una sin predicados ni salto.
     pub const fn de(clase: Clase, escribe: Option<u8>, lee: [Option<u8>; 3]) -> Self {
-        Meta { clase, escribe, lee, lee_salidas: 0, escribe_n: 1, escribe_p: None, lee_p: None, salto: false }
+        Meta { clase, escribe, lee, lee_salidas: 0, escribe_n: 1, escribe_p: None, lee_p: None, salto: false, lee_mas: [None; 3], lee_tarde: false }
     }
 }
 
@@ -102,6 +110,12 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
     let mut escrito: [Option<(u32, Clase)>; 256] = [None; 256];
     // Barrera pendiente por registro (lo escribe un MUFU aun en vuelo).
     let mut pendiente: [Option<u8>; 256] = [None; 256];
+    // E8g: la barrera de LECTURA de quien aun puede leer cada registro.
+    let mut leyendo: [Option<u8>; 256] = [None; 256];
+    let mut barrera_lectura = alloc::vec![7u64; n];
+    // La de lectura de quien encendio cada barrera de escritura: si llego el
+    // resultado, sus fuentes ya se leyeron (el juez lo cuenta igual).
+    let mut lectura_de: [Option<u8>; 6] = [None; 6];
     let mut libres = [true; 6];
     // E6: el ciclo en que se escribio cada predicado.
     let mut predicado: [Option<u32>; 7] = [None; 7];
@@ -111,16 +125,22 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
     for (j, m) in metas.iter().enumerate() {
         let mut listo = if j == 0 { 0 } else { t + 1 };
         let mut mascara = 0u64;
-        let leidos = m.lee.iter().flatten().copied().chain(0..m.lee_salidas);
+        let leidos = m.lee.iter().chain(&m.lee_mas).flatten().copied().chain(0..m.lee_salidas);
         let escritos = m.escribe.into_iter().flat_map(|r| r..r.saturating_add(m.escribe_n.max(1)));
         for r in leidos.clone().chain(escritos.clone()) {
             if let Some(b) = pendiente[r as usize].take() {
                 mascara |= 1 << b;
             }
         }
+        // E8g: escribir lo que una de lectura tarde aun puede leer: esperarla.
+        for r in escritos.clone() {
+            if let Some(b) = leyendo[r as usize] {
+                mascara |= 1 << b;
+            }
+        }
         // Un salto espera TODO lo que este en vuelo, y que todo haya llegado.
         if m.salto {
-            for p in pendiente.iter_mut() {
+            for p in pendiente.iter_mut().chain(leyendo.iter_mut()) {
                 if let Some(b) = p.take() {
                     mascara |= 1 << b;
                 }
@@ -134,11 +154,20 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
                 listo = listo.max(c + if guarda { PREDICADO_GUARDA } else { PREDICADO_OPERANDO });
             }
         }
-        // Lo esperado se libera (y ya nadie mas lo tiene pendiente).
+        // Lo esperado se libera (y ya nadie mas lo tiene pendiente); con una
+        // de escritura, la de lectura de la misma instruccion tambien.
         for b in 0..6u8 {
             if mascara & 1 << b != 0 {
+                if let Some(l) = lectura_de[b as usize].take() {
+                    libres[l as usize] = true;
+                    for p in leyendo.iter_mut() {
+                        if *p == Some(l) {
+                            *p = None;
+                        }
+                    }
+                }
                 libres[b as usize] = true;
-                for p in pendiente.iter_mut() {
+                for p in pendiente.iter_mut().chain(leyendo.iter_mut()) {
                     if *p == Some(b) {
                         *p = None;
                     }
@@ -162,11 +191,22 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
             t = listo + TRAS_SALTO - 1;
         }
         espera_mascara[j] = mascara;
+        // E8g: la barrera de LECTURA, antes que la de escritura (las dos
+        // suyas, distintas).
+        if m.lee_tarde {
+            let b = libres.iter().position(|&l| l).unwrap_or(0);
+            libres[b] = false;
+            barrera_lectura[j] = b as u64;
+            for r in m.lee.iter().chain(&m.lee_mas).flatten() {
+                leyendo[*r as usize] = Some(b as u8);
+            }
+        }
         if m.escribe.is_some() {
             if matches!(m.clase, Clase::Mufu | Clase::Tex) {
                 let b = libres.iter().position(|&l| l).unwrap_or(0);
                 libres[b] = false;
                 barrera_de[j] = b as u64;
+                lectura_de[b] = (barrera_lectura[j] < 6).then_some(barrera_lectura[j] as u8);
                 for r in escritos {
                     pendiente[r as usize] = Some(b as u8);
                     escrito[r as usize] = None;
@@ -185,10 +225,10 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
             // espera 2, o el que la espera justo detras no espera nada (metal
             // 28-09: el MUFU.RSQ con espera 1 y su lector leyendo lo viejo,
             // al azar segun cuantos warps hubiera; `ptxas` pone 2).
-            if barrera_de[j] != 7 {
+            if barrera_de[j] != 7 || barrera_lectura[j] != 7 {
                 espera = espera.max(2);
             }
-            espera | BIT4 | barrera_de[j] << 5 | 7 << 8 | espera_mascara[j] << 11
+            espera | BIT4 | barrera_de[j] << 5 | barrera_lectura[j] << 8 | espera_mascara[j] << 11
         })
         .collect();
     (controles, ciclo.last().copied().unwrap_or(0) + 1)

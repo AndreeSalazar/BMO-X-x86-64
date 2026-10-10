@@ -195,6 +195,59 @@ pub fn tex(rd: u8, ra: u8, rb: u8, control: u64) -> (u64, u64) {
     palabra(lo, (rd as u64 + 2) | 0xF << 8 | 7 << 17 | 1 << 20 | 1 << 23, control)
 }
 
+/// ** E8g (DL17, 09-10): la DIMENSION de un TEX o un TLD (61..64), como la
+/// escribe `ptxas` (`ORO_TEX`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DimTex {
+    D2 = 1,
+    D3 = 2,
+    Cubo = 3,
+    Array2D = 5,
+    ArrayCubo = 7,
+}
+
+impl DimTex {
+    /// Cuantas coordenadas van en Ra.. (con la CAPA, primero, en un array).
+    pub const fn coordenadas(self) -> u8 {
+        match self {
+            DimTex::D2 => 2,
+            DimTex::D3 | DimTex::Cubo | DimTex::Array2D => 3,
+            DimTex::ArrayCubo => 4,
+        }
+    }
+}
+
+/// Su NIVEL (87..90): el 0 (`.LZ`: SOLO en 2D -- en 3D, cubo y array `ptxas`
+/// escribe `.LL` con el nivel -32 --) o el de Rb+1 (`.LL`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NivelTex {
+    Cero,
+    De,
+}
+
+/// Lo comun de TEX y TLD con el asa en un registro (.B, el 59): `.SCR` (60)
+/// solo en 2D, los cuatro canales en `rd..rd+3` (Rd2 = Rd + 2), las
+/// coordenadas en `ra..`, el asa en `rb` y, con `.LL`, el nivel en `rb+1`.
+fn tex_tld(op: u64, rd: u8, ra: u8, rb: u8, dim: DimTex, nivel: NivelTex, cl: bool, control: u64) -> (u64, u64) {
+    debug_assert!(nivel == NivelTex::De || dim == DimTex::D2, "el .LZ es del 2D");
+    let lo = op | SIEMPRE | (rd as u64) << 16 | (ra as u64) << 24 | (rb as u64) << 32 | 1 << 59 | ((dim == DimTex::D2) as u64) << 60 | (dim as u64) << 61;
+    let lod = if nivel == NivelTex::Cero { 1 } else { 3 };
+    palabra(lo, (rd as u64 + 2) | 0xF << 8 | (cl as u64) << 13 | 7 << 17 | 1 << 20 | lod << 23, control)
+}
+
+/// ** E8g: `TEX[.SCR].B.{LZ,LL} Rd, Ra, Rb, dim` -- `SampleLevel` (y el
+/// `Sample` de nivel 0 de hoy: [`tex`] es `tex_forma(.., D2, Cero, ..)`).
+pub fn tex_forma(rd: u8, ra: u8, rb: u8, dim: DimTex, nivel: NivelTex, control: u64) -> (u64, u64) {
+    tex_tld(0x361, rd, ra, rb, dim, nivel, false, control)
+}
+
+/// ** E8g: `TLD[.SCR].B.{LZ,LL.CL} Rd, Ra, Rb, dim` -- `Load`: coordenadas
+/// ENTERAS en `ra..` y, con `.LL`, la mip entera en `rb+1`. `ptxas` pone el
+/// `.CL` (77) con cada `.LL`.
+pub fn tld(rd: u8, ra: u8, rb: u8, dim: DimTex, nivel: NivelTex, control: u64) -> (u64, u64) {
+    tex_tld(0x367, rd, ra, rb, dim, nivel, nivel == NivelTex::De, control)
+}
+
 /// ** E8f (DL18, 09-10): `LDC[.64] Rd, c[banco][Ra + desp]` -- una o dos
 /// palabras de un BANCO DE CONSTANTES con el indice en un registro, en BYTES
 /// (`RZ`: sin indice). Las palabras de `ptxas` (`ORO_LDC`): el opcode 0x182 en
@@ -452,6 +505,20 @@ pub const ORO_DL10: &[(&str, u64, u64)] = &[
     ("FFMA.RZ R0, R12, R10.reuse, R11.reuse", 0x0000000a0c007223, 0x180fe2000000c00b),
     ("FFMA.RM R3, R12, R10.reuse, R11.reuse", 0x0000000a0c037223, 0x180fe2000000400b),
     ("FFMA.RP R0, R12, R10, R11", 0x0000000a0c007223, 0x000fe2000000800b),
+];
+
+/// Las PALABRAS DE ORO de las formas de TEX y TLD que pide Cyberpunk (E8g,
+/// DL17): `ptxas -arch=sm_86 -O3` (CUDA 12.9) sobre `oro_texturas.ptx` (al
+/// lado de este crate), leido con `nvdisasm -hex` (13.4).
+pub const ORO_TEX: &[(&str, u64, u64)] = &[
+    ("TEX.SCR.B.LL R6, R4, R6, R4, 2D", 0x3800000406047361, 0x008f4400019e0f06),
+    ("TEX.B.LL R10, R8, R8, R4, 3D", 0x4800000408087361, 0x008f4400019e0f0a),
+    ("TEX.B.LL R6, R4, R12, R4, CUBE", 0x680000040c047361, 0x008f4400019e0f06),
+    ("TEX.B.LL R6, R4, R12, R4, ARRAY_2D", 0xa80000040c047361, 0x010f4400019e0f06),
+    ("TEX.B.LL R10, R8, R12, R8, ARRAY_CUBE", 0xe80000080c087361, 0x010f4400019e0f0a),
+    ("TLD.SCR.B.LZ R6, R4, R4, R0, 2D", 0x3800000004047367, 0x004f4400009e0f06),
+    ("TLD.SCR.B.LL.CL R6, R4, R6, R4, 2D", 0x3800000406047367, 0x008f4400019e2f06),
+    ("TLD.B.LL.CL R6, R4, R12, R4, ARRAY_2D", 0xa80000040c047367, 0x008f4400019e2f06),
 ];
 
 /// Las PALABRAS DE ORO del LDC con indice (E8f, DL18): `ptxas -arch=sm_86 -O3`
@@ -849,6 +916,31 @@ mod pruebas {
             assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
         }
         assert_eq!(ffma_redondeo(7, r(4), r(7), r(4), Redondeo::Cercano, k(1)), ffma(7, r(4), r(7), r(4), false, k(1)));
+    }
+
+    /// ** E8g: cada forma de TEX y TLD, las palabras de `ptxas`, los 128 bits;
+    /// y el TEX de siempre es la forma 2D de nivel 0.
+    #[test]
+    fn las_formas_de_tex_y_tld_como_ptxas() {
+        use DimTex::*;
+        use NivelTex::*;
+        let k = |i: usize| ORO_TEX[i].2 >> 41;
+        let hechas = [
+            tex_forma(4, 6, 4, D2, De, k(0)),
+            tex_forma(8, 8, 4, D3, De, k(1)),
+            tex_forma(4, 12, 4, Cubo, De, k(2)),
+            tex_forma(4, 12, 4, Array2D, De, k(3)),
+            tex_forma(8, 12, 8, ArrayCubo, De, k(4)),
+            tld(4, 4, 0, D2, Cero, k(5)),
+            tld(4, 6, 4, D2, De, k(6)),
+            tld(4, 12, 4, Array2D, De, k(7)),
+        ];
+        for ((texto, lo, hi), h) in ORO_TEX.iter().zip(hechas) {
+            assert_eq!(h, (*lo, *hi), "{texto}: {:#018x} {:#018x}", h.0, h.1);
+        }
+        for (rd, ra, rb) in [(4u8, 4u8, 0u8), (0, 6, 9), (12, 2, 1)] {
+            assert_eq!(tex_forma(rd, ra, rb, D2, Cero, ALU), tex(rd, ra, rb, ALU));
+        }
     }
 
     /// ** E8f: el LDC con indice, las palabras de `ptxas`, los 128 bits.

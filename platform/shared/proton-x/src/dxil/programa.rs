@@ -467,6 +467,8 @@ pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
         _ => None,
     };
     c.ranuras.pasos = super::recursos::pasos_estructurados(m, entero);
+    // ** E8g (09-10): la forma de cada rango de SRV de textura, de la PSV0.
+    c.ranuras.formas = c.recursos.iter().filter(|r| r.clase == super::recursos::SRV && r.modo_de_bufer().is_none() && r.especie != 0).map(|r| (r.espacio, r.desde, r.hasta, r.especie)).collect();
     // 05-10: `[earlydepthstencil]`, de las banderas de `dx.entryPoints`.
     let temprana = super::recursos::banderas(m, entero) & super::recursos::TEMPRANA != 0;
     // 3. El cuerpo: el primer FUNCTION_BLOCK es el de la primera funcion
